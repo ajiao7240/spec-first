@@ -1,28 +1,21 @@
 {
-  "name": "compound-engineering",
-  "version": "2.56.1",
-  "description": "AI-powered development tools for code review, research, design, and workflow automation.",
+  "name": "spec-first",
+  "version": "1.0.0",
+  "description": "Spec-First Framework for Claude Code - AI-assisted work framework with five-step loop",
   "author": {
-    "name": "Kieran Klaassen",
-    "email": "kieran@every.to",
-    "url": "https://github.com/kieranklaassen"
+    "name": "spec-first",
+    "email": "",
+    "url": ""
   },
-  "homepage": "https://every.to/source-code/my-ai-had-already-fixed-the-code-before-i-saw-it",
-  "repository": "https://github.com/EveryInc/compound-engineering-plugin",
+  "homepage": "",
+  "repository": "",
   "license": "MIT",
   "keywords": [
-    "ai-powered",
-    "compound-engineering",
-    "workflow-automation",
-    "code-review",
-    "rails",
-    "ruby",
-    "python",
-    "typescript",
-    "knowledge-management",
-    "image-generation",
-    "agent-browser",
-    "browser-automation"
+    "claude-code",
+    "plugin",
+    "workflow",
+    "spec-first",
+    "ai-assisted"
   ],
   "mcpServers": {
     "context7": {
