@@ -1,0 +1,8 @@
+.git
+.history
+node_modules
+tests
+docs
+.DS_Store
+*.log
+.claude/tasks
