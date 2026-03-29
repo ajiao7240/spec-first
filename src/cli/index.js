@@ -60,7 +60,36 @@ function printHelp(withErrorPrefix = false) {
 function printVersion() {
   const pkgPath = path.join(__dirname, '..', '..', 'package.json');
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-  console.log(pkg.version);
+
+  console.log(`
+╔════════════════════════════════════════════════════════════╗
+║                                                            ║
+║   🚀 Spec-First v${pkg.version}                                  ║
+║                                                            ║
+║   📦 Harness Engineering for Claude Code                  ║
+║                                                            ║
+╚════════════════════════════════════════════════════════════╝
+
+✨ Quick Start:
+
+  1️⃣  Initialize in your project:
+     $ cd your-project
+     $ spec-first init --claude
+
+  2️⃣  Start your first spec workflow:
+     $ /spec:brainstorm
+
+  3️⃣  Learn more:
+     📖 Docs: https://github.com/sunrain520/spec-first
+     💡 Help: spec-first --help
+
+🎯 Core Commands:
+   /spec:brainstorm  - Clarify requirements
+   /spec:plan        - Design solution
+   /spec:work        - Execute implementation
+   /spec:review      - Structured review
+   /spec:compound    - Knowledge accumulation
+`);
 }
 
 module.exports = {
