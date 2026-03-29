@@ -30,8 +30,14 @@
     <rect x="36" y="32" width="1208" height="156" rx="28" fill="url(#hero)"/>
   </g>
   <text x="68" y="66" class="eyebrowLight">Creative Framing</text>
-  <text x="68" y="110" class="h1">Think of Prompt, Context, and Harness as Three Scopes</text>
-  <text x="68" y="142" class="sub">Prompt 决定你怎么问，Context 决定模型看到什么，Harness 决定整个系统如何运行、约束和持续改进。</text>
+  <text x="68" y="110" class="h1">
+    <tspan x="68" dy="0">Think of Prompt, Context,</tspan>
+    <tspan x="68" dy="36">and Harness as Three Scopes</tspan>
+  </text>
+  <text x="68" y="164" class="sub">
+    <tspan x="68" dy="0">Prompt 决定你怎么问，Context 决定模型看到什么，</tspan>
+    <tspan x="68" dy="22">Harness 决定整个系统如何运行、约束和持续改进。</tspan>
+  </text>
 
   <g filter="url(#shadow)">
     <rect x="36" y="214" width="1208" height="470" rx="28" fill="#fff" stroke="#E2E8F0"/>
@@ -53,20 +59,35 @@
   <g transform="translate(690 324)">
     <rect x="0" y="0" width="490" height="88" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
     <text x="24" y="30" class="mono">Prompt = local response quality</text>
-    <text x="24" y="58" class="body">角色、语气、格式、局部约束，决定模型单次回答的质量和稳定性。</text>
+    <text x="24" y="58" class="body">
+      <tspan x="24" dy="0">角色、语气、格式、局部约束，</tspan>
+      <tspan x="24" dy="22">决定模型单次回答的质量和稳定性。</tspan>
+    </text>
 
     <rect x="0" y="112" width="490" height="88" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
     <text x="24" y="142" class="mono">Context = reasoning scope</text>
-    <text x="24" y="170" class="body">文档、历史、检索、状态和工具结果，决定模型能基于多大范围做推理。</text>
+    <text x="24" y="170" class="body">
+      <tspan x="24" dy="0">文档、历史、检索、状态和工具结果，</tspan>
+      <tspan x="24" dy="22">决定模型能基于多大范围做推理。</tspan>
+    </text>
 
     <rect x="0" y="224" width="490" height="120" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
     <text x="24" y="254" class="mono">Harness = system reliability</text>
-    <text x="24" y="282" class="body">命令入口、工作流、评审、状态、恢复和知识沉淀，把“模型能力”升级为“工程能力”。</text>
-    <text x="24" y="308" class="body">这也是 Spec-First 真正想做的事情：让 AI 协作从 prompt 走向可沉淀、可复用、可进化的工程实践。</text>
+    <text x="24" y="282" class="body">
+      <tspan x="24" dy="0">命令入口、工作流、评审、状态、恢复和知识沉淀，</tspan>
+      <tspan x="24" dy="22">把“模型能力”升级为“工程能力”。</tspan>
+    </text>
+    <text x="24" y="330" class="body">
+      <tspan x="24" dy="0">这也是 Spec-First 真正想做的事情：</tspan>
+      <tspan x="24" dy="22">让 AI 协作从 prompt 走向可沉淀、可复用、可进化的工程实践。</tspan>
+    </text>
   </g>
 
   <g transform="translate(690 634)">
     <rect x="0" y="0" width="490" height="32" rx="16" fill="#fff" stroke="#E2E8F0"/>
-    <text x="245" y="21" text-anchor="middle" class="body" style="font-size:14px; fill:#334155;">Prompt 优化局部，Context 扩大范围，Harness 决定系统能不能真正落地。</text>
+    <text x="245" y="16" text-anchor="middle" class="body" style="font-size:14px; fill:#334155;">
+      <tspan x="245" dy="0">Prompt 优化局部，Context 扩大范围，</tspan>
+      <tspan x="245" dy="18">Harness 决定系统能不能真正落地。</tspan>
+    </text>
   </g>
 </svg>

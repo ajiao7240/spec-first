@@ -81,13 +81,16 @@
   </g>
   <text x="68" y="66" class="eyebrowLight">Harness Engineering for Claude Code and Codex</text>
   <text x="68" y="110" class="h1">Spec-First</text>
-  <text x="68" y="142" class="sub">把 AI 编码从一次性对话，升级为可沉淀、可复用、可进化的工程最佳实践</text>
+  <text x="68" y="142" class="sub">
+    <tspan x="68" dy="0">把 AI 编码从一次性对话，升级为可沉淀、</tspan>
+    <tspan x="68" dy="22">可复用、可进化的工程最佳实践</tspan>
+  </text>
 
   <g transform="translate(910 54)">
     <rect x="0" y="0" width="280" height="108" rx="20" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.16)"/>
     <text x="140" y="28" class="eyebrowLight center">How It Runs</text>
-    <text x="140" y="56" class="whiteSmall center">稳定入口驱动流程编排</text>
-    <text x="140" y="82" class="whiteSmall center">专业能力与项目状态持续协同</text>
+    <text x="140" y="56" class="whiteSmall center">稳定入口驱动</text>
+    <text x="140" y="82" class="whiteSmall center">流程、能力与状态协同</text>
   </g>
 
   <g filter="url(#shadow)">
@@ -186,7 +189,8 @@
     <rect x="884" y="214" width="360" height="228" rx="24" fill="url(#cardMint)"/>
   </g>
   <text x="912" y="246" class="eyebrowDark">What You Get</text>
-  <text x="912" y="282" class="h2">工程可落地的关键机制</text>
+  <text x="912" y="282" class="h2">工程可落地的</text>
+  <text x="912" y="312" class="h2">关键机制</text>
 
   <g transform="translate(912 308)">
     <rect x="0" y="0" width="136" height="34" rx="17" fill="#ffffff"/>
@@ -216,17 +220,21 @@
   <text x="64" y="560" class="mono">npm install -g spec-first</text>
   <text x="64" y="584" class="mono">spec-first doctor</text>
   <text x="64" y="608" class="mono">spec-first init --claude | --codex</text>
-  <text x="64" y="638" class="body">在目标项目中安装平台运行时，</text>
-  <text x="64" y="662" class="body">让 `/spec:*` 成为稳定的工程入口。</text>
+  <text x="64" y="638" class="body">
+    <tspan x="64" dy="0">在目标项目中安装平台运行时，</tspan>
+    <tspan x="64" dy="22">让 `/spec:*` 成为稳定的工程入口。</tspan>
+  </text>
 
   <g filter="url(#shadow)">
     <rect x="884" y="462" width="360" height="222" rx="24" fill="url(#cardViolet)"/>
   </g>
   <text x="912" y="494" class="eyebrowDark">Outcome</text>
   <text x="912" y="530" class="h2">越用越强的工程系统</text>
-  <text x="912" y="564" class="body">每一轮需求、计划、评审与沉淀，</text>
-  <text x="912" y="588" class="body">都会让下一轮交付更快、更稳、</text>
-  <text x="912" y="612" class="body">也让整个系统越来越聪明。</text>
+  <text x="912" y="564" class="body">
+    <tspan x="912" dy="0">每一轮需求、计划、评审与沉淀，</tspan>
+    <tspan x="912" dy="22">都会让下一轮交付更快、更稳，</tspan>
+    <tspan x="912" dy="22">也让整个系统越来越聪明。</tspan>
+  </text>
 
   <rect x="912" y="632" width="210" height="30" rx="15" fill="#fff"/>
   <text x="1017" y="651" class="mono center">Commands + Skills + Agents</text>

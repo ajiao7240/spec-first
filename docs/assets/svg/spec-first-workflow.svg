@@ -67,7 +67,10 @@
   </g>
   <text x="68" y="66" class="eyebrowLight">Closed-Loop Workflow</text>
   <text x="68" y="110" class="h1">Spec-First Workflow</text>
-  <text x="68" y="142" class="sub">不是一次性交付，而是通过五阶段循环让需求、实现、评审与知识沉淀持续互相增强。</text>
+  <text x="68" y="142" class="sub">
+    <tspan x="68" dy="0">不是一次性交付，而是通过五阶段循环，</tspan>
+    <tspan x="68" dy="22">让需求、实现、评审与知识沉淀持续互相增强。</tspan>
+  </text>
 
   <g transform="translate(934 54)">
     <rect x="0" y="0" width="256" height="108" rx="20" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.16)"/>
@@ -88,8 +91,11 @@
     <rect x="0" y="150" width="204" height="34" rx="17" fill="#fff"/><text x="102" y="172" class="pill center">Review = 结构化审查</text>
     <rect x="0" y="200" width="204" height="34" rx="17" fill="#fff"/><text x="102" y="222" class="pill center">Compound = 知识沉淀</text>
   </g>
-  <text x="64" y="582" class="body">它的关键不是顺序本身，而是让上一轮的产物成为下一轮的更强输入。</text>
-  <text x="64" y="612" class="body">因此流程不是“做完结束”，而是“做完变强”。</text>
+  <text x="64" y="582" class="body">
+    <tspan x="64" dy="0">它的关键不是顺序本身，而是让上一轮的产物</tspan>
+    <tspan x="64" dy="22">成为下一轮的更强输入。</tspan>
+  </text>
+  <text x="64" y="628" class="body">因此流程不是“做完结束”，而是“做完变强”。</text>
 
   <g filter="url(#shadow)">
     <rect x="316" y="214" width="568" height="470" rx="24" fill="#fff"/>
@@ -158,5 +164,9 @@
     <rect x="0" y="180" width="284" height="44" rx="14" fill="#fff"/><text x="20" y="208" class="mono">review findings + verdict</text>
     <rect x="0" y="240" width="284" height="44" rx="14" fill="#fff"/><text x="20" y="268" class="mono">docs/solutions/**/*.md</text>
   </g>
-  <text x="932" y="642" class="body">流程本身不是目的。可复用的文档、评审结论和知识资产，才是它持续变强的原因。</text>
+  <text x="932" y="620" class="body">
+    <tspan x="932" dy="0">流程本身不是目的。</tspan>
+    <tspan x="932" dy="22">可复用的文档、评审结论和知识资产，</tspan>
+    <tspan x="932" dy="22">才是它持续变强的原因。</tspan>
+  </text>
 </svg>

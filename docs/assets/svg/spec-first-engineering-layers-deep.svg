@@ -43,7 +43,10 @@
   </g>
   <text x="68" y="66" class="eyebrowLight">Expanded Knowledge Map</text>
   <text x="68" y="110" class="h1">Three Engineering Layers</text>
-  <text x="68" y="142" class="sub">同样的三层结构，用更完整的视角解释它们分别控制什么，以及为什么 Harness 才是系统可靠性的来源。</text>
+  <text x="68" y="142" class="sub">
+    <tspan x="68" dy="0">同样的三层结构，用更完整的视角解释它们分别控制什么，</tspan>
+    <tspan x="68" dy="22">以及为什么 Harness 才是系统可靠性的来源。</tspan>
+  </text>
 
   <g filter="url(#shadow)">
     <rect x="36" y="214" width="520" height="470" rx="28" fill="#fff" stroke="#E2E8F0"/>
@@ -75,19 +78,33 @@
   <g transform="translate(612 320)">
     <rect x="0" y="0" width="600" height="88" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
     <text x="24" y="30" class="pill">Prompt Engineering</text>
-    <text x="24" y="58" class="body">控制问法、角色、格式和局部约束。它能改善单次回答质量，但影响范围仍然局限在这一次调用。</text>
+    <text x="24" y="58" class="body">
+      <tspan x="24" dy="0">控制问法、角色、格式和局部约束。</tspan>
+      <tspan x="24" dy="22">它能改善单次回答质量，但影响范围仍然局限在这一次调用。</tspan>
+    </text>
 
     <rect x="0" y="112" width="600" height="108" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
     <text x="24" y="142" class="pill">Context Engineering</text>
-    <text x="24" y="170" class="body">控制信息边界：文档、历史、记忆、检索结果和工具输出。它决定模型能基于哪些信息进行推理。</text>
-    <text x="24" y="194" class="body">这一层让模型“不只是会答”，而是“有足够上下文可答”。</text>
+    <text x="24" y="170" class="body">
+      <tspan x="24" dy="0">控制信息边界：文档、历史、记忆、检索结果和工具输出。</tspan>
+      <tspan x="24" dy="22">它决定模型能基于哪些信息进行推理。</tspan>
+    </text>
+    <text x="24" y="216" class="body">这一层让模型“不只是会答”，而是“有足够上下文可答”。</text>
 
     <rect x="0" y="244" width="600" height="140" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
     <text x="24" y="274" class="pill">Harness Engineering</text>
-    <text x="24" y="302" class="body">控制执行系统：命令入口、工作流、质量门、恢复、状态、评审和知识沉淀。</text>
-    <text x="24" y="326" class="body">这层不只是“给模型更多信息”，而是在模型之外建立稳定的系统边界，决定它能否工程化落地。</text>
+    <text x="24" y="302" class="body">
+      <tspan x="24" dy="0">控制执行系统：命令入口、工作流、质量门、恢复、状态、评审和知识沉淀。</tspan>
+    </text>
+    <text x="24" y="334" class="body">
+      <tspan x="24" dy="0">这层不只是“给模型更多信息”，而是在模型之外建立稳定的系统边界，</tspan>
+      <tspan x="24" dy="22">决定它能否工程化落地。</tspan>
+    </text>
 
     <rect x="0" y="406" width="600" height="42" rx="21" fill="#fff" stroke="#E2E8F0"/>
-    <text x="300" y="432" text-anchor="middle" class="body" style="font-size:14px; fill:#334155;">更好的 Prompt 改善局部响应，更好的 Context 扩大推理范围，更好的 Harness 改变系统可靠性。</text>
+    <text x="300" y="426" text-anchor="middle" class="body" style="font-size:14px; fill:#334155;">
+      <tspan x="300" dy="0">更好的 Prompt 改善局部响应，更好的 Context 扩大推理范围，</tspan>
+      <tspan x="300" dy="20">更好的 Harness 改变系统可靠性。</tspan>
+    </text>
   </g>
 </svg>

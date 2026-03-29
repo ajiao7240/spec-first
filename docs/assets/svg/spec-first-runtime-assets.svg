@@ -44,7 +44,10 @@
   </g>
   <text x="68" y="66" class="eyebrowLight">Canonical Assets → Platform Runtime</text>
   <text x="68" y="110" class="h1">Spec-First Runtime Model</text>
-  <text x="68" y="142" class="sub">同一份规范资产不会直接执行，而是通过平台适配器渲染成 Claude Code 或 Codex 的项目级运行时。</text>
+  <text x="68" y="142" class="sub">
+    <tspan x="68" dy="0">同一份规范资产不会直接执行，而是通过平台适配器</tspan>
+    <tspan x="68" dy="22">渲染成 Claude Code 或 Codex 的项目级运行时。</tspan>
+  </text>
 
   <g transform="translate(930 54)">
     <rect x="0" y="0" width="260" height="108" rx="20" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.16)"/>
@@ -58,21 +61,30 @@
   </g>
   <text x="64" y="246" class="eyebrowDark">Source</text>
   <text x="64" y="282" class="h2">Canonical Assets</text>
-  <text x="64" y="314" class="body">这部分随 npm 包发布，是规范源，不直接变成项目里的可执行资产。</text>
+  <text x="64" y="314" class="body">
+    <tspan x="64" dy="0">这部分随 npm 包发布，是规范源，</tspan>
+    <tspan x="64" dy="22">不直接变成项目里的可执行资产。</tspan>
+  </text>
   <g transform="translate(64 348)">
     <rect x="0" y="0" width="304" height="48" rx="14" fill="#fff"/><text x="20" y="30" class="mono">templates/claude/commands/spec</text>
     <rect x="0" y="62" width="304" height="48" rx="14" fill="#fff"/><text x="20" y="92" class="mono">skills/</text>
     <rect x="0" y="124" width="304" height="48" rx="14" fill="#fff"/><text x="20" y="154" class="mono">agents/</text>
     <rect x="0" y="186" width="304" height="48" rx="14" fill="#fff"/><text x="20" y="216" class="mono">.claude-plugin/plugin.json</text>
   </g>
-  <text x="64" y="612" class="body">这里保留的是平台无关的工作流定义、代理资产和插件元数据。</text>
+  <text x="64" y="590" class="body">
+    <tspan x="64" dy="0">这里保留的是平台无关的工作流定义、</tspan>
+    <tspan x="64" dy="22">代理资产和插件元数据。</tspan>
+  </text>
 
   <g filter="url(#shadow)">
     <rect x="460" y="214" width="360" height="420" rx="24" fill="url(#cardViolet)"/>
   </g>
   <text x="488" y="246" class="eyebrowDark">Adapter</text>
   <text x="488" y="282" class="h2">Platform Adapter</text>
-  <text x="488" y="314" class="body">`init --claude` 或 `init --codex` 会调用平台适配器，把规范源转换为目标项目的本地运行时。</text>
+  <text x="488" y="314" class="body">
+    <tspan x="488" dy="0">`init --claude` 或 `init --codex` 会调用平台适配器，</tspan>
+    <tspan x="488" dy="22">把规范源转换为目标项目的本地运行时。</tspan>
+  </text>
   <g transform="translate(488 350)">
     <rect x="0" y="0" width="304" height="64" rx="18" fill="#fff"/>
     <text x="24" y="28" class="pill">1. 同步命令、skills、agents</text>
@@ -92,7 +104,10 @@
   </g>
   <text x="912" y="246" class="eyebrowDark">Runtime</text>
   <text x="912" y="282" class="h2">Project Runtime</text>
-  <text x="912" y="314" class="body">这是 Claude Code 或 Codex 真正会读取的项目级资产，也是 `doctor`、`clean` 管理的对象。</text>
+  <text x="912" y="314" class="body">
+    <tspan x="912" dy="0">这是 Claude Code 或 Codex 真正会读取的项目级资产，</tspan>
+    <tspan x="912" dy="22">也是 `doctor`、`clean` 管理的对象。</tspan>
+  </text>
   <g transform="translate(912 348)">
     <rect x="0" y="0" width="304" height="48" rx="14" fill="#fff"/><text x="20" y="30" class="mono">.claude/* or .codex/*</text>
     <rect x="0" y="62" width="304" height="48" rx="14" fill="#fff"/><text x="20" y="92" class="mono">commands/spec</text>
@@ -115,5 +130,8 @@
   <g filter="url(#shadow)">
     <rect x="36" y="654" width="1208" height="30" rx="15" fill="#fff" stroke="#E2E8F0"/>
   </g>
-  <text x="640" y="674" text-anchor="middle" class="body" style="font-size:14px; fill:#334155;">规范源保持稳定，平台适配器负责渲染，项目运行时才是真正可执行、可清理、可恢复的资产。</text>
+  <text x="640" y="670" text-anchor="middle" class="body" style="font-size:14px; fill:#334155;">
+    <tspan x="640" dy="0">规范源保持稳定，平台适配器负责渲染，</tspan>
+    <tspan x="640" dy="20">项目运行时才是真正可执行、可清理、可恢复的资产。</tspan>
+  </text>
 </svg>

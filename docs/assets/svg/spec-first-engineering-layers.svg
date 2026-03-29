@@ -41,8 +41,14 @@
     <rect x="36" y="32" width="1208" height="156" rx="28" fill="url(#hero)"/>
   </g>
   <text x="68" y="66" class="eyebrowLight">Spec-First Mental Model</text>
-  <text x="68" y="110" class="h1">Prompt lives inside Context. Context lives inside Harness.</text>
-  <text x="68" y="142" class="sub">随着层级向外扩展，控制边界从一句提示词，扩展到信息边界，再扩展到整个执行系统。</text>
+  <text x="68" y="110" class="h1">
+    <tspan x="68" dy="0">Prompt lives inside Context.</tspan>
+    <tspan x="68" dy="36">Context lives inside Harness.</tspan>
+  </text>
+  <text x="68" y="164" class="sub">
+    <tspan x="68" dy="0">随着层级向外扩展，控制边界从一句提示词，</tspan>
+    <tspan x="68" dy="22">扩展到信息边界，再扩展到整个执行系统。</tspan>
+  </text>
 
   <g filter="url(#shadow)">
     <rect x="36" y="214" width="760" height="470" rx="28" fill="url(#outer)" stroke="#E2E8F0"/>
@@ -55,14 +61,20 @@
   </g>
   <text x="130" y="358" class="mono">OUTER LAYER</text>
   <text x="130" y="392" class="h2" style="font-size:28px;">Harness Engineering</text>
-  <text x="130" y="420" class="body">系统工程：约束机制、反馈回路、工作流控制、可观测性、恢复与持续改进。</text>
+  <text x="130" y="420" class="body">
+    <tspan x="130" dy="0">系统工程：约束机制、反馈回路、工作流控制、</tspan>
+    <tspan x="130" dy="22">可观测性、恢复与持续改进。</tspan>
+  </text>
 
   <g filter="url(#shadow)">
     <rect x="162" y="412" width="508" height="148" rx="30" fill="url(#middle)" stroke="#BFDBFE"/>
   </g>
   <text x="198" y="448" class="mono">MIDDLE LAYER</text>
   <text x="198" y="480" class="h2" style="font-size:24px;">Context Engineering</text>
-  <text x="198" y="506" class="body">上下文设计：信息架构、渐进披露、记忆管理，以及模型“能看见什么”。</text>
+  <text x="198" y="506" class="body">
+    <tspan x="198" dy="0">上下文设计：信息架构、渐进披露、记忆管理，</tspan>
+    <tspan x="198" dy="22">以及模型“能看见什么”。</tspan>
+  </text>
 
   <g filter="url(#shadow)">
     <rect x="254" y="474" width="324" height="64" rx="24" fill="url(#inner)" stroke="#DDD6FE"/>
@@ -86,14 +98,23 @@
   <g transform="translate(856 322)">
     <rect x="0" y="0" width="324" height="92" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
     <text x="24" y="30" class="mono">Prompt</text>
-    <text x="24" y="56" class="body">最小单元。它决定模型被如何提问，以及回答格式、角色、约束。</text>
+    <text x="24" y="56" class="body">
+      <tspan x="24" dy="0">最小单元。它决定模型被如何提问，</tspan>
+      <tspan x="24" dy="22">以及回答格式、角色、约束。</tspan>
+    </text>
 
     <rect x="0" y="114" width="324" height="92" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
     <text x="24" y="144" class="mono">Context</text>
-    <text x="24" y="170" class="body">信息边界。它决定模型能看见哪些文档、历史、状态和工具结果。</text>
+    <text x="24" y="170" class="body">
+      <tspan x="24" dy="0">信息边界。它决定模型能看见哪些文档、</tspan>
+      <tspan x="24" dy="22">历史、状态和工具结果。</tspan>
+    </text>
 
     <rect x="0" y="228" width="324" height="114" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
     <text x="24" y="258" class="mono">Harness</text>
-    <text x="24" y="284" class="body">执行系统。它决定命令入口、工作流、质量门、恢复机制和持续改进。</text>
+    <text x="24" y="284" class="body">
+      <tspan x="24" dy="0">执行系统。它决定命令入口、工作流、质量门、</tspan>
+      <tspan x="24" dy="22">恢复机制和持续改进。</tspan>
+    </text>
   </g>
 </svg>
