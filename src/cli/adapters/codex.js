@@ -39,14 +39,20 @@ class CodexAdapter extends PlatformAdapter {
 
   transformSkillContent(content) {
     // TODO: Update when Codex skill reference conventions are confirmed
-    // MVP: Same as Claude, adjust when Codex conventions are confirmed
-    return content.replace(/\bspec-first:([a-z-]+):([a-z-]+)\b/g, '$1:$2');
+    // MVP: Replace .claude paths with .codex paths and --claude with --codex
+    return content
+      .replace(/\.claude\//g, '.codex/')
+      .replace(/--claude\b/g, '--codex')
+      .replace(/\bspec-first:([a-z-]+):([a-z-]+)\b/g, '$1:$2');
   }
 
   transformAgentContent(content) {
     // TODO: Update when Codex agent reference conventions are confirmed
-    // MVP: Same as Claude, adjust when Codex conventions are confirmed
-    return content.replace(/\bspec-first:([a-z-]+):([a-z-]+)\b/g, '$1:$2');
+    // MVP: Replace .claude paths with .codex paths and --claude with --codex
+    return content
+      .replace(/\.claude\//g, '.codex/')
+      .replace(/--claude\b/g, '--codex')
+      .replace(/\bspec-first:([a-z-]+):([a-z-]+)\b/g, '$1:$2');
   }
 
   inspect(projectRoot) {

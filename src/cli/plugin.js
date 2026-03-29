@@ -135,9 +135,11 @@ function syncCommands(projectRoot, adapter) {
 
   const commands = listBundledCommands();
   for (const command of commands) {
+    const content = readBundledCommandTemplate(command.name);
+    const transformed = adapter.transformSkillContent(content);
     fs.writeFileSync(
       path.join(targetRoot, command.filename),
-      readBundledCommandTemplate(command.name),
+      transformed,
       'utf8',
     );
   }
