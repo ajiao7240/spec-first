@@ -1,15 +1,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const STATE_DIR = path.join('.claude', 'spec-first');
-const STATE_FILE = path.join(STATE_DIR, 'state.json');
-
-function getStateFilePath(projectRoot) {
-  return path.join(projectRoot, STATE_FILE);
+function getStateFilePath(projectRoot, adapter) {
+  return path.join(projectRoot, adapter.stateFile);
 }
 
-function readState(projectRoot) {
-  const statePath = getStateFilePath(projectRoot);
+function readState(projectRoot, adapter) {
+  const statePath = getStateFilePath(projectRoot, adapter);
   if (!fs.existsSync(statePath)) {
     return null;
   }
@@ -18,14 +15,14 @@ function readState(projectRoot) {
   return normalizeState(parsed);
 }
 
-function writeState(projectRoot, nextState) {
-  const statePath = getStateFilePath(projectRoot);
+function writeState(projectRoot, nextState, adapter) {
+  const statePath = getStateFilePath(projectRoot, adapter);
   fs.mkdirSync(path.dirname(statePath), { recursive: true });
   fs.writeFileSync(statePath, `${JSON.stringify(normalizeState(nextState), null, 2)}\n`, 'utf8');
 }
 
-function clearState(projectRoot) {
-  const statePath = getStateFilePath(projectRoot);
+function clearState(projectRoot, adapter) {
+  const statePath = getStateFilePath(projectRoot, adapter);
   fs.rmSync(statePath, { force: true });
   removeEmptyParents(path.dirname(statePath), projectRoot);
 }
@@ -34,6 +31,7 @@ function buildState(manifestVersion, syncedAssets) {
   const developer = syncedAssets.developer ? normalizeDeveloper(syncedAssets.developer) : null;
   return normalizeState({
     manifestVersion,
+    platform: syncedAssets.platform || '',
     developer,
     commands: syncedAssets.commands.map((entry) => entry.filename),
     skills: syncedAssets.skills,
@@ -45,6 +43,7 @@ function normalizeState(raw) {
   const safe = raw && typeof raw === 'object' ? raw : {};
   return {
     manifestVersion: typeof safe.manifestVersion === 'string' ? safe.manifestVersion : '',
+    platform: typeof safe.platform === 'string' ? safe.platform : '',
     developer: normalizeDeveloper(safe.developer),
     commands: normalizeStringArray(safe.commands),
     skills: normalizeStringArray(safe.skills),
@@ -94,42 +93,42 @@ function normalizeStringArray(value) {
   );
 }
 
-function removeManagedAssets(projectRoot, managedState) {
+function removeManagedAssets(projectRoot, managedState, adapter) {
   const state = normalizeState(managedState);
 
   for (const commandFile of state.commands) {
-    removeFile(path.join(projectRoot, '.claude', 'commands', 'spec', commandFile), projectRoot);
+    removeFile(path.join(projectRoot, adapter.commandRoot, commandFile), projectRoot);
   }
 
   for (const skillName of state.skills) {
-    removeDirectory(path.join(projectRoot, '.claude', 'skills', skillName), projectRoot);
+    removeDirectory(path.join(projectRoot, adapter.skillsRoot, skillName), projectRoot);
   }
 
   for (const agentPath of state.agents) {
-    removeFile(path.join(projectRoot, '.claude', 'agents', agentPath), projectRoot);
+    removeFile(path.join(projectRoot, adapter.agentsRoot, agentPath), projectRoot);
   }
 
   if (state.developer && state.developer.path) {
     removeFile(path.join(projectRoot, state.developer.path), projectRoot);
   } else {
-    removeFile(path.join(projectRoot, '.claude', 'spec-first', '.developer'), projectRoot);
+    removeFile(path.join(projectRoot, adapter.developerFile), projectRoot);
   }
 }
 
-function removeObsoleteManagedAssets(projectRoot, previousState, nextState) {
+function removeObsoleteManagedAssets(projectRoot, previousState, nextState, adapter) {
   const previous = normalizeState(previousState);
   const next = normalizeState(nextState);
 
   for (const commandFile of previous.commands.filter((entry) => !next.commands.includes(entry))) {
-    removeFile(path.join(projectRoot, '.claude', 'commands', 'spec', commandFile), projectRoot);
+    removeFile(path.join(projectRoot, adapter.commandRoot, commandFile), projectRoot);
   }
 
   for (const skillName of previous.skills.filter((entry) => !next.skills.includes(entry))) {
-    removeDirectory(path.join(projectRoot, '.claude', 'skills', skillName), projectRoot);
+    removeDirectory(path.join(projectRoot, adapter.skillsRoot, skillName), projectRoot);
   }
 
   for (const agentPath of previous.agents.filter((entry) => !next.agents.includes(entry))) {
-    removeFile(path.join(projectRoot, '.claude', 'agents', agentPath), projectRoot);
+    removeFile(path.join(projectRoot, adapter.agentsRoot, agentPath), projectRoot);
   }
 
   if (previous.developer && previous.developer.path) {
@@ -140,8 +139,8 @@ function removeObsoleteManagedAssets(projectRoot, previousState, nextState) {
   }
 }
 
-function pruneCommandNamespace(projectRoot, managedCommandFiles) {
-  const commandDir = path.join(projectRoot, '.claude', 'commands', 'spec');
+function pruneCommandNamespace(projectRoot, managedCommandFiles, adapter) {
+  const commandDir = path.join(projectRoot, adapter.commandRoot);
   if (!fs.existsSync(commandDir)) {
     return;
   }

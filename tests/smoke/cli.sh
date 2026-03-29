@@ -14,18 +14,17 @@ echo "1. Check help and version output..."
 help_output="$(node "$REPO_ROOT/bin/spec-first.js" --help)"
 version_output="$(node "$REPO_ROOT/bin/spec-first.js" --version)"
 grep -q "doctor" <<<"$help_output"
-grep -q "init --claude" <<<"$help_output"
-grep -q "clean --claude" <<<"$help_output"
-grep -q "^${expected_version}$" <<<"$version_output"
+grep -q "init (--claude|--codex)" <<<"$help_output"
+grep -q "clean (--claude|--codex)" <<<"$help_output"
+grep -q "Spec-First v${expected_version}" <<<"$version_output"
+grep -q "Claude Code & Codex" <<<"$version_output"
 echo "✓ help/version output is present"
 
 echo "1b. Check doctor output in a fresh project is concise..."
 doctor_fresh_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor)"
-grep -q "PASS    .claude-plugin/plugin.json" <<<"$doctor_fresh_output"
-grep -q "WARNING .claude/spec-first/state.json: missing" <<<"$doctor_fresh_output"
-grep -q "WARNING .claude/spec-first/.developer: missing" <<<"$doctor_fresh_output"
-grep -q "WARNING .claude/skills: missing" <<<"$doctor_fresh_output"
-grep -q "WARNING .claude/agents: missing" <<<"$doctor_fresh_output"
+grep -q "No spec-first platform detected in this project." <<<"$doctor_fresh_output"
+grep -q 'spec-first init --claude' <<<"$doctor_fresh_output"
+grep -q 'spec-first init --codex' <<<"$doctor_fresh_output"
 if grep -q "agent-browser" <<<"$doctor_fresh_output"; then
   echo "✗ doctor output is too noisy for missing skills"
   exit 1
@@ -206,6 +205,26 @@ grep -q ".claude/commands/spec" <<<"$doctor_output"
 grep -q ".claude/skills" <<<"$doctor_output"
 grep -q ".claude/agents" <<<"$doctor_output"
 echo "✓ doctor reports generated commands, skills, and agents"
+
+echo "3a-1. Verify Codex init/doctor/clean work..."
+codex_output="$(
+  cd "$TMP_DIR"
+  node "$REPO_ROOT/bin/spec-first.js" init --codex -u kuang --lang en
+)"
+grep -q "Generated 5 command file(s)" <<<"$codex_output"
+test -f "$TMP_DIR/.codex/commands/spec/brainstorm.md"
+test -f "$TMP_DIR/.codex/spec-first/.developer"
+grep -q '^name=kuang$' "$TMP_DIR/.codex/spec-first/.developer"
+codex_doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor --codex)"
+grep -q ".codex/spec-first/.developer" <<<"$codex_doctor_output"
+grep -q ".codex/commands/spec" <<<"$codex_doctor_output"
+(
+  cd "$TMP_DIR"
+  node "$REPO_ROOT/bin/spec-first.js" clean --codex
+)
+test ! -e "$TMP_DIR/.codex/commands/spec/brainstorm.md"
+test ! -e "$TMP_DIR/.codex/spec-first/.developer"
+echo "✓ codex init/doctor/clean work"
 
 echo "3b. Verify clean removes managed assets and preserves custom assets..."
 (

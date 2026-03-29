@@ -17,6 +17,7 @@ const {
   removeObsoleteManagedAssets,
   writeState,
 } = require('../state');
+const { getAdapter } = require('../adapters');
 
 function runInit(argv) {
   const args = [...argv];
@@ -27,17 +28,26 @@ function runInit(argv) {
     return 0;
   }
 
-  if (!parsed.claude || parsed.unknown.length > 0) {
-    console.error('Usage: spec-first init --claude [-u <name>] [--lang <zh|en>]');
+  const platformSelected = parsed.claude || parsed.codex;
+  if (!platformSelected || parsed.unknown.length > 0) {
+    console.error('Usage: spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>]');
     return 1;
   }
 
+  if (parsed.claude && parsed.codex) {
+    console.error('Error: Cannot specify both --claude and --codex');
+    return 1;
+  }
+
+  const platform = parsed.claude ? 'claude' : 'codex';
+  const adapter = getAdapter(platform);
+
   const projectRoot = process.cwd();
-  const commandDir = path.join(projectRoot, '.claude', 'commands', 'spec');
+  const commandDir = path.join(projectRoot, adapter.commandRoot);
   fs.mkdirSync(commandDir, { recursive: true });
   let previousState = null;
   try {
-    previousState = readState(projectRoot);
+    previousState = readState(projectRoot, adapter);
   } catch (error) {
     console.warn(
       `Warning: could not read existing spec-first state; continuing with a fresh sync. (${error instanceof Error ? error.message : String(error)})`,
@@ -61,49 +71,51 @@ function runInit(argv) {
     agents: listBundledAgents(),
     developer,
   });
-  removeObsoleteManagedAssets(projectRoot, previousState, previewState);
-  pruneCommandNamespace(projectRoot, previewState.commands);
+  removeObsoleteManagedAssets(projectRoot, previousState, previewState, adapter);
+  pruneCommandNamespace(projectRoot, previewState.commands, adapter);
 
-  const synced = syncBundledAssets(projectRoot);
+  const synced = syncBundledAssets(projectRoot, adapter);
   const nextState = buildState(manifest.version, {
     ...synced,
+    platform,
     developer: {
-      path: path.join('.claude', 'spec-first', '.developer'),
+      path: adapter.developerFile,
       name: developer.name,
       lang: developer.lang,
       initializedAt: developer.initializedAt,
       version: developer.version,
     },
   });
-  writeDeveloperFile(projectRoot, developer);
-  writeState(projectRoot, nextState);
+  writeDeveloperFile(projectRoot, developer, adapter);
+  writeState(projectRoot, nextState, adapter);
   const written = synced.commands.map((command) => command.filename);
   const skillNames = synced.skills;
   const agentPaths = synced.agents;
 
   console.log(`📦 Generated ${written.length} command file(s) in ${path.relative(projectRoot, commandDir)}`);
-  console.log(`🧩 Generated ${skillNames.length} skill directory(ies) in .claude/skills`);
-  console.log(`🤖 Generated ${agentPaths.length} agent file(s) in .claude/agents`);
+  console.log(`🧩 Generated ${skillNames.length} skill directory(ies) in ${adapter.skillsRoot}`);
+  console.log(`🤖 Generated ${agentPaths.length} agent file(s) in ${adapter.agentsRoot}`);
   console.log('🪪 Wrote project developer profile:');
-  console.log(`  📍 path: .claude/spec-first/.developer`);
+  console.log(`  📍 path: ${adapter.developerFile}`);
   console.log(`  👤 name: ${developer.name}`);
   console.log(`  🈯 lang: ${developer.lang}`);
   console.log(`  ⏱ initialized_at: ${developer.initializedAt}`);
   console.log(`  🔖 version: ${developer.version}`);
 
   console.log('');
-  console.log('🔁 Restart Claude Code after generation so it can pick up the new /spec:* commands.');
+  console.log(`🔁 Restart ${platform === 'claude' ? 'Claude Code' : 'Codex'} after generation so it can pick up the new /spec:* commands.`);
   return 0;
 }
 
 function printHelp() {
-  console.log('Usage: spec-first init --claude [-u <name>] [--lang <zh|en>]');
+  console.log('Usage: spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>]');
 }
 
 function parseInitArgs(argv) {
   const parsed = {
     help: false,
     claude: false,
+    codex: false,
     force: false,
     user: '',
     lang: '',
@@ -120,6 +132,11 @@ function parseInitArgs(argv) {
 
     if (arg === '--claude') {
       parsed.claude = true;
+      continue;
+    }
+
+    if (arg === '--codex') {
+      parsed.codex = true;
       continue;
     }
 

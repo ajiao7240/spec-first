@@ -121,16 +121,16 @@ function readBundledCommandTemplate(commandName) {
   return fs.readFileSync(path.join(getBundledPath('commands'), command.filename), 'utf8');
 }
 
-function syncBundledAssets(projectRoot) {
-  const commands = syncCommands(projectRoot);
-  const skills = syncSkills(projectRoot);
-  const agents = syncAgents(projectRoot);
+function syncBundledAssets(projectRoot, adapter) {
+  const commands = syncCommands(projectRoot, adapter);
+  const skills = syncSkills(projectRoot, adapter);
+  const agents = syncAgents(projectRoot, adapter);
 
   return { commands, skills, agents };
 }
 
-function syncCommands(projectRoot) {
-  const targetRoot = path.join(projectRoot, '.claude', 'commands', 'spec');
+function syncCommands(projectRoot, adapter) {
+  const targetRoot = path.join(projectRoot, adapter.commandRoot);
   fs.mkdirSync(targetRoot, { recursive: true });
 
   const commands = listBundledCommands();
@@ -145,8 +145,8 @@ function syncCommands(projectRoot) {
   return commands;
 }
 
-function syncSkills(projectRoot) {
-  const targetRoot = path.join(projectRoot, '.claude', 'skills');
+function syncSkills(projectRoot, adapter) {
+  const targetRoot = path.join(projectRoot, adapter.skillsRoot);
   fs.mkdirSync(targetRoot, { recursive: true });
 
   const sourceRoot = getBundledPath('skills');
@@ -156,14 +156,16 @@ function syncSkills(projectRoot) {
     const sourceDir = path.join(sourceRoot, skillName);
     const targetDir = path.join(targetRoot, skillName);
     fs.rmSync(targetDir, { recursive: true, force: true });
-    copyDirectoryWithTransform(sourceDir, targetDir, adaptClaudeRuntimeContent);
+    copyDirectoryWithTransform(sourceDir, targetDir, (content) =>
+      adapter.transformSkillContent(content),
+    );
   }
 
   return skillNames;
 }
 
-function syncAgents(projectRoot) {
-  const targetRoot = path.join(projectRoot, '.claude', 'agents');
+function syncAgents(projectRoot, adapter) {
+  const targetRoot = path.join(projectRoot, adapter.agentsRoot);
   fs.mkdirSync(targetRoot, { recursive: true });
 
   const sourceRoot = getBundledPath('agents');
@@ -173,40 +175,42 @@ function syncAgents(projectRoot) {
     const sourcePath = path.join(sourceRoot, agentPath);
     const targetPath = path.join(targetRoot, agentPath);
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    copyFileWithTransform(sourcePath, targetPath, adaptClaudeRuntimeContent);
+    copyFileWithTransform(sourcePath, targetPath, (content) =>
+      adapter.transformAgentContent(content),
+    );
   }
 
   return agentPaths;
 }
 
-function inspectInstalledAssets(projectRoot) {
+function inspectInstalledAssets(projectRoot, adapter) {
   const commands = listBundledCommands();
   const skills = listBundledSkills();
   const agents = listBundledAgents();
 
   return {
-    commands: inspectCommands(projectRoot, commands),
-    skills: inspectSkills(projectRoot, skills),
-    agents: inspectAgents(projectRoot, agents),
+    commands: inspectCommands(projectRoot, commands, adapter),
+    skills: inspectSkills(projectRoot, skills, adapter),
+    agents: inspectAgents(projectRoot, agents, adapter),
   };
 }
 
-function inspectCommands(projectRoot, commands = listBundledCommands()) {
-  const targetRoot = path.join(projectRoot, '.claude', 'commands', 'spec');
+function inspectCommands(projectRoot, commands = listBundledCommands(), adapter) {
+  const targetRoot = path.join(projectRoot, adapter.commandRoot);
   const missing = commands.filter((command) => !fs.existsSync(path.join(targetRoot, command.filename)));
   return { targetRoot, entries: commands, missing };
 }
 
-function inspectSkills(projectRoot, skillNames = listBundledSkills()) {
-  const targetRoot = path.join(projectRoot, '.claude', 'skills');
+function inspectSkills(projectRoot, skillNames = listBundledSkills(), adapter) {
+  const targetRoot = path.join(projectRoot, adapter.skillsRoot);
   const missing = skillNames.filter((skillName) => {
     return !fs.existsSync(path.join(targetRoot, skillName, 'SKILL.md'));
   });
   return { targetRoot, entries: skillNames, missing };
 }
 
-function inspectAgents(projectRoot, agentPaths = listBundledAgents()) {
-  const targetRoot = path.join(projectRoot, '.claude', 'agents');
+function inspectAgents(projectRoot, agentPaths = listBundledAgents(), adapter) {
+  const targetRoot = path.join(projectRoot, adapter.agentsRoot);
   const missing = agentPaths.filter((agentPath) => !fs.existsSync(path.join(targetRoot, agentPath)));
   return { targetRoot, entries: agentPaths, missing };
 }

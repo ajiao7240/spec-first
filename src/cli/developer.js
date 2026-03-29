@@ -3,13 +3,12 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const PROJECT_DEVELOPER_RELATIVE_PATH = path.join('.claude', 'spec-first', '.developer');
 const GLOBAL_DEVELOPER_RELATIVE_PATH = path.join('.spec-first', '.developer');
 const PROJECT_VERSION = require('../../package.json').version;
 const SUPPORTED_LANGS = new Set(['zh', 'en']);
 
-function getProjectDeveloperPath(projectRoot) {
-  return path.join(projectRoot, PROJECT_DEVELOPER_RELATIVE_PATH);
+function getProjectDeveloperPath(projectRoot, adapter) {
+  return path.join(projectRoot, adapter.developerFile);
 }
 
 function getGlobalDeveloperPath() {
@@ -80,14 +79,14 @@ function resolveDeveloperIdentity(projectRoot, options = {}) {
   };
 }
 
-function writeDeveloperFile(projectRoot, developer) {
-  const filePath = getProjectDeveloperPath(projectRoot);
+function writeDeveloperFile(projectRoot, developer, adapter) {
+  const filePath = getProjectDeveloperPath(projectRoot, adapter);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, formatDeveloperContents(developer), 'utf8');
 }
 
-function removeDeveloperFile(projectRoot) {
-  fs.rmSync(getProjectDeveloperPath(projectRoot), { force: true });
+function removeDeveloperFile(projectRoot, adapter) {
+  fs.rmSync(getProjectDeveloperPath(projectRoot, adapter), { force: true });
 }
 
 function formatDeveloperContents(developer) {

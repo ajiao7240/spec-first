@@ -41,8 +41,8 @@ function printHelp(withErrorPrefix = false) {
     '',
     'Commands:',
     '  doctor         Check the local environment plus bundled plugin manifest, commands, skills, and agents',
-    '  init --claude  Generate .claude/commands/spec/*, .claude/skills/*, .claude/agents/*, and .claude/spec-first/.developer from the bundled plugin assets',
-    '  clean --claude Remove spec-first managed .claude assets from the current project',
+    '  init (--claude|--codex)  Generate platform-specific commands, skills, agents, and developer profile',
+    '  clean (--claude|--codex) Remove spec-first managed assets from the current project',
     '',
     'Global options:',
     '  -h, --help     Show help',
@@ -66,7 +66,7 @@ function printVersion() {
 ║                                                            ║
 ║   🚀 Spec-First v${pkg.version}                                  ║
 ║                                                            ║
-║   📦 Harness Engineering for Claude Code                  ║
+║   📦 Harness Engineering for Claude Code & Codex         ║
 ║                                                            ║
 ╚════════════════════════════════════════════════════════════╝
 
@@ -75,6 +75,7 @@ function printVersion() {
   1️⃣  Initialize in your project:
      $ cd your-project
      $ spec-first init --claude
+     $ spec-first init --codex
 
   2️⃣  Start your first spec workflow:
      $ /spec:brainstorm

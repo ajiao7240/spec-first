@@ -4,34 +4,48 @@ const { spawnSync } = require('node:child_process');
 const { inspectInstalledAssets, listBundledCommands, loadPluginManifest } = require('../plugin');
 const { readDeveloperFile, getProjectDeveloperPath } = require('../developer');
 const { readState } = require('../state');
+const { getAdapter, getSupportedPlatforms } = require('../adapters');
 
 function runDoctor(argv) {
   const args = [...argv];
+  const parsed = parseDoctorArgs(args);
 
-  if (args.includes('-h') || args.includes('--help')) {
+  if (parsed.help) {
     printHelp();
     return 0;
   }
 
-  if (args.length > 0) {
-    console.error('Usage: spec-first doctor');
+  if (parsed.unknown.length > 0) {
+    console.error('Usage: spec-first doctor [--claude|--codex]');
     return 1;
   }
 
   const projectRoot = process.cwd();
-  const checks = [
+
+  // 确定要检查的平台
+  let platforms = [];
+  if (parsed.claude) platforms.push('claude');
+  if (parsed.codex) platforms.push('codex');
+
+  // 无参数时自动检测
+  if (platforms.length === 0) {
+    platforms = detectPlatforms(projectRoot);
+  }
+
+  if (platforms.length === 0) {
+    console.log('No spec-first platform detected in this project.');
+    console.log('Run `spec-first init --claude` or `spec-first init --codex` to initialize.');
+    return 0;
+  }
+
+  // 通用检查
+  const commonChecks = [
     checkNodeVersion(),
     checkGit(),
-    checkClaude(),
     checkPluginManifest(),
-    checkProjectDeveloper(projectRoot),
-    checkManagedState(projectRoot),
-    checkGeneratedCommands(projectRoot),
-    checkInstalledSkills(projectRoot),
-    checkInstalledAgents(projectRoot),
   ];
 
-  for (const check of checks) {
+  for (const check of commonChecks) {
     const label = check.level.toUpperCase().padEnd(7);
     console.log(`${label} ${check.name}: ${check.message}`);
     if (check.fix) {
@@ -39,7 +53,35 @@ function runDoctor(argv) {
     }
   }
 
-  return checks.some((check) => check.level === 'ERROR') ? 1 : 0;
+  // 平台特定检查
+  let hasError = commonChecks.some((check) => check.level === 'ERROR');
+
+  for (const platform of platforms) {
+    console.log(`\n=== ${platform.toUpperCase()} Platform ===`);
+    const adapter = getAdapter(platform);
+    const platformChecks = [
+      checkPlatformCli(platform),
+      checkProjectDeveloper(projectRoot, adapter),
+      checkManagedState(projectRoot, adapter),
+      checkGeneratedCommands(projectRoot, adapter),
+      checkInstalledSkills(projectRoot, adapter),
+      checkInstalledAgents(projectRoot, adapter),
+    ];
+
+    for (const check of platformChecks) {
+      const label = check.level.toUpperCase().padEnd(7);
+      console.log(`${label} ${check.name}: ${check.message}`);
+      if (check.fix) {
+        console.log(`         Fix: ${check.fix}`);
+      }
+    }
+
+    if (platformChecks.some((check) => check.level === 'ERROR')) {
+      hasError = true;
+    }
+  }
+
+  return hasError ? 1 : 0;
 }
 
 function checkNodeVersion() {
@@ -75,12 +117,14 @@ function checkGit() {
   };
 }
 
-function checkClaude() {
-  const result = spawnSync('claude', ['--version'], { encoding: 'utf8' });
+function checkPlatformCli(platform) {
+  const command = platform === 'codex' ? 'codex' : 'claude';
+  const displayName = platform === 'codex' ? 'Codex' : 'Claude Code';
+  const result = spawnSync(command, ['--version'], { encoding: 'utf8' });
   if (result.status === 0) {
     return {
       level: 'PASS',
-      name: 'Claude Code',
+      name: displayName,
       message: result.stdout.trim() || 'available',
     };
   }
@@ -88,28 +132,28 @@ function checkClaude() {
   if (result.error && result.error.code === 'ENOENT') {
     return {
       level: 'WARNING',
-      name: 'Claude Code',
+      name: displayName,
       message: 'not found on PATH',
-      fix: 'Install Claude Code CLI and restart your shell.',
+      fix: `Install ${displayName} CLI and restart your shell.`,
     };
   }
 
   return {
     level: 'WARNING',
-    name: 'Claude Code',
+    name: displayName,
     message: 'could not verify version',
-    fix: 'Run `claude --version` manually to confirm the CLI works.',
+    fix: `Run \`${command} --version\` manually to confirm the CLI works.`,
   };
 }
 
-function checkGeneratedCommands(projectRoot) {
+function checkGeneratedCommands(projectRoot, adapter) {
   let commandStatus;
   try {
-    commandStatus = inspectInstalledAssets(projectRoot).commands;
+    commandStatus = inspectInstalledAssets(projectRoot, adapter).commands;
   } catch (error) {
     return {
       level: 'ERROR',
-      name: '.claude/commands/spec',
+      name: `${adapter.commandRoot}`,
       message: error instanceof Error ? error.message : String(error),
       fix: 'Reinstall the spec-first package so bundled command templates are available.',
     };
@@ -118,36 +162,36 @@ function checkGeneratedCommands(projectRoot) {
   if (!fs.existsSync(commandStatus.targetRoot)) {
     return {
       level: 'WARNING',
-      name: '.claude/commands/spec',
+      name: `${adapter.commandRoot}`,
       message: 'missing',
-      fix: 'Run `spec-first init --claude` in this project.',
+      fix: `Run \`spec-first init --${adapter.id}\` in this project.`,
     };
   }
 
   if (commandStatus.missing.length === 0) {
     return {
       level: 'PASS',
-      name: '.claude/commands/spec',
+      name: `${adapter.commandRoot}`,
       message: `found ${commandStatus.entries.length} command file(s)`,
     };
   }
 
   return {
     level: 'WARNING',
-    name: '.claude/commands/spec',
+    name: `${adapter.commandRoot}`,
     message: `missing ${commandStatus.missing.map((entry) => entry.filename).join(', ')}`,
-    fix: 'Run `spec-first init --claude` to regenerate the missing files.',
+    fix: `Run \`spec-first init --${adapter.id}\` to regenerate the missing files.`,
   };
 }
 
-function checkInstalledSkills(projectRoot) {
+function checkInstalledSkills(projectRoot, adapter) {
   let skillStatus;
   try {
-    skillStatus = inspectInstalledAssets(projectRoot).skills;
+    skillStatus = inspectInstalledAssets(projectRoot, adapter).skills;
   } catch (error) {
     return {
       level: 'ERROR',
-      name: '.claude/skills',
+      name: `${adapter.skillsRoot}`,
       message: error instanceof Error ? error.message : String(error),
       fix: 'Reinstall the spec-first package so bundled skills are available.',
     };
@@ -156,36 +200,36 @@ function checkInstalledSkills(projectRoot) {
   if (!fs.existsSync(skillStatus.targetRoot)) {
     return {
       level: 'WARNING',
-      name: '.claude/skills',
+      name: `${adapter.skillsRoot}`,
       message: 'missing',
-      fix: 'Run `spec-first init --claude` in this project to install bundled skills.',
+      fix: `Run \`spec-first init --${adapter.id}\` in this project to install bundled skills.`,
     };
   }
 
   if (skillStatus.missing.length === 0) {
     return {
       level: 'PASS',
-      name: '.claude/skills',
+      name: `${adapter.skillsRoot}`,
       message: `found ${skillStatus.entries.length} skill directory(ies)`,
     };
   }
 
   return {
     level: 'WARNING',
-    name: '.claude/skills',
+    name: `${adapter.skillsRoot}`,
     message: `out of sync (${skillStatus.entries.length - skillStatus.missing.length}/${skillStatus.entries.length} installed)`,
-    fix: 'Run `spec-first init --claude` in this project to resync bundled skills.',
+    fix: `Run \`spec-first init --${adapter.id}\` in this project to resync bundled skills.`,
   };
 }
 
-function checkInstalledAgents(projectRoot) {
+function checkInstalledAgents(projectRoot, adapter) {
   let agentStatus;
   try {
-    agentStatus = inspectInstalledAssets(projectRoot).agents;
+    agentStatus = inspectInstalledAssets(projectRoot, adapter).agents;
   } catch (error) {
     return {
       level: 'ERROR',
-      name: '.claude/agents',
+      name: `${adapter.agentsRoot}`,
       message: error instanceof Error ? error.message : String(error),
       fix: 'Reinstall the spec-first package so bundled agents are available.',
     };
@@ -194,25 +238,25 @@ function checkInstalledAgents(projectRoot) {
   if (!fs.existsSync(agentStatus.targetRoot)) {
     return {
       level: 'WARNING',
-      name: '.claude/agents',
+      name: `${adapter.agentsRoot}`,
       message: 'missing',
-      fix: 'Run `spec-first init --claude` in this project to install bundled agents.',
+      fix: `Run \`spec-first init --${adapter.id}\` in this project to install bundled agents.`,
     };
   }
 
   if (agentStatus.missing.length === 0) {
     return {
       level: 'PASS',
-      name: '.claude/agents',
+      name: `${adapter.agentsRoot}`,
       message: `found ${agentStatus.entries.length} agent file(s)`,
     };
   }
 
   return {
     level: 'WARNING',
-    name: '.claude/agents',
+    name: `${adapter.agentsRoot}`,
     message: `out of sync (${agentStatus.entries.length - agentStatus.missing.length}/${agentStatus.entries.length} installed)`,
-    fix: 'Run `spec-first init --claude` in this project to resync bundled agents.',
+    fix: `Run \`spec-first init --${adapter.id}\` in this project to resync bundled agents.`,
   };
 }
 
@@ -235,14 +279,14 @@ function checkPluginManifest() {
   }
 }
 
-function checkProjectDeveloper(projectRoot) {
-  const developerPath = getProjectDeveloperPath(projectRoot);
+function checkProjectDeveloper(projectRoot, adapter) {
+  const developerPath = getProjectDeveloperPath(projectRoot, adapter);
   if (!fs.existsSync(developerPath)) {
     return {
       level: 'WARNING',
-      name: '.claude/spec-first/.developer',
+      name: `${adapter.developerFile}`,
       message: 'missing',
-      fix: 'Run `spec-first init --claude` in this project to write the project developer profile.',
+      fix: `Run \`spec-first init --${adapter.id}\` in this project to write the project developer profile.`,
     };
   }
 
@@ -250,9 +294,9 @@ function checkProjectDeveloper(projectRoot) {
   if (!developer) {
     return {
       level: 'ERROR',
-      name: '.claude/spec-first/.developer',
+      name: `${adapter.developerFile}`,
       message: 'invalid or empty',
-      fix: 'Run `spec-first init --claude -u <name> --lang <zh|en>` to regenerate the project developer profile.',
+      fix: `Run \`spec-first init --${adapter.id} -u <name> --lang <zh|en>\` to regenerate the project developer profile.`,
     };
   }
 
@@ -269,77 +313,107 @@ function checkProjectDeveloper(projectRoot) {
   ) {
     return {
       level: 'ERROR',
-      name: '.claude/spec-first/.developer',
+      name: `${adapter.developerFile}`,
       message: 'invalid or incomplete',
-      fix: 'Run `spec-first init --claude -u <name> --lang <zh|en>` to regenerate the project developer profile.',
+      fix: `Run \`spec-first init --${adapter.id} -u <name> --lang <zh|en>\` to regenerate the project developer profile.`,
     };
   }
 
   if (developer.version !== packageVersion) {
     return {
       level: 'WARNING',
-      name: '.claude/spec-first/.developer',
+      name: `${adapter.developerFile}`,
       message: `recorded ${developer.version}, bundled ${packageVersion}`,
-      fix: 'Run `spec-first init --claude` in this project to refresh the project developer profile after upgrading.',
+      fix: `Run \`spec-first init --${adapter.id}\` in this project to refresh the project developer profile after upgrading.`,
     };
   }
 
   return {
     level: 'PASS',
-    name: '.claude/spec-first/.developer',
+    name: `${adapter.developerFile}`,
     message: `${developer.name} (${developer.lang}) ${developer.version}`,
   };
 }
 
-function checkManagedState(projectRoot) {
-  const statePath = path.join(projectRoot, '.claude', 'spec-first', 'state.json');
+function checkManagedState(projectRoot, adapter) {
+  const statePath = path.join(projectRoot, adapter.stateFile);
   if (!fs.existsSync(statePath)) {
     return {
       level: 'WARNING',
-      name: '.claude/spec-first/state.json',
+      name: `${adapter.stateFile}`,
       message: 'missing',
-      fix: 'Run `spec-first init --claude` in this project to record managed assets.',
+      fix: `Run \`spec-first init --${adapter.id}\` in this project to record managed assets.`,
     };
   }
 
   try {
-    const state = readState(projectRoot);
+    const state = readState(projectRoot, adapter);
     const manifest = loadPluginManifest();
     if (!state || !state.manifestVersion) {
       return {
         level: 'WARNING',
-        name: '.claude/spec-first/state.json',
+        name: `${adapter.stateFile}`,
         message: 'invalid or empty',
-        fix: 'Run `spec-first init --claude` in this project to regenerate the managed asset state.',
+        fix: `Run \`spec-first init --${adapter.id}\` in this project to regenerate the managed asset state.`,
       };
     }
 
     if (state.manifestVersion !== manifest.version) {
       return {
         level: 'WARNING',
-        name: '.claude/spec-first/state.json',
+        name: `${adapter.stateFile}`,
         message: `recorded ${state.manifestVersion}, bundled ${manifest.version}`,
-        fix: 'Run `spec-first init --claude` in this project to resync managed assets after upgrading.',
+        fix: `Run \`spec-first init --${adapter.id}\` in this project to resync managed assets after upgrading.`,
       };
     }
 
     return {
       level: 'PASS',
-      name: '.claude/spec-first/state.json',
+      name: `${adapter.stateFile}`,
       message: `recorded ${state.commands.length} commands, ${state.skills.length} skills, ${state.agents.length} agents`,
     };
   } catch (error) {
     return {
       level: 'WARNING',
-      name: '.claude/spec-first/state.json',
+      name: `${adapter.stateFile}`,
       message: error instanceof Error ? error.message : String(error),
-      fix: 'Run `spec-first init --claude` in this project to regenerate the managed asset state.',
+      fix: `Run \`spec-first init --${adapter.id}\` in this project to regenerate the managed asset state.`,
     };
   }
 }
 
 function printHelp() {
-  console.log('Usage: spec-first doctor');
+  console.log('Usage: spec-first doctor [--claude|--codex]');
+}
+
+function detectPlatforms(projectRoot) {
+  return getSupportedPlatforms().filter(platform => {
+    const adapter = getAdapter(platform);
+    return fs.existsSync(path.join(projectRoot, adapter.runtimeRoot));
+  });
+}
+
+function parseDoctorArgs(argv) {
+  const parsed = {
+    help: false,
+    claude: false,
+    codex: false,
+    unknown: [],
+  };
+
+  for (const arg of argv) {
+    if (arg === '-h' || arg === '--help') {
+      parsed.help = true;
+    } else if (arg === '--claude') {
+      parsed.claude = true;
+    } else if (arg === '--codex') {
+      parsed.codex = true;
+    } else {
+      parsed.unknown.push(arg);
+    }
+  }
+
+  return parsed;
 }
 
 module.exports = {

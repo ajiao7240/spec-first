@@ -1,256 +1,72 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc">
-  <title id="title">Spec-First Engineering Layers - Knowledge Map</title>
-  <desc id="desc">A creative knowledge infographic showing the three nested engineering layers with visual metaphors and relationships.</desc>
+<svg viewBox="0 0 1280 720" width="1280" height="720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Spec-First Engineering Layers Creative</title>
+  <desc id="desc">A creative but clean infographic showing the relationship between Prompt, Context, and Harness Engineering.</desc>
   <defs>
-    <!-- Gradients -->
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0f172a"/>
-      <stop offset="50%" stop-color="#1e293b"/>
-      <stop offset="100%" stop-color="#0f172a"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="720" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7FAFC"/>
+      <stop offset="1" stop-color="#EEF4F8"/>
     </linearGradient>
-    <radialGradient id="harnessGrad" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#1e40af" stop-opacity="0.15"/>
-      <stop offset="70%" stop-color="#1e3a8a" stop-opacity="0.25"/>
-      <stop offset="100%" stop-color="#1e3a8a" stop-opacity="0.4"/>
-    </radialGradient>
-    <radialGradient id="contextGrad" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.2"/>
-      <stop offset="100%" stop-color="#6d28d9" stop-opacity="0.35"/>
-    </radialGradient>
-    <radialGradient id="promptGrad" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#f472b6" stop-opacity="0.3"/>
-      <stop offset="100%" stop-color="#ec4899" stop-opacity="0.5"/>
-    </radialGradient>
-    <linearGradient id="glowBlue" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#60a5fa" stop-opacity="1"/>
-      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    <linearGradient id="hero" x1="36" y1="32" x2="1244" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0F2942"/>
+      <stop offset="1" stop-color="#1E5B74"/>
     </linearGradient>
-    <linearGradient id="glowPurple" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#a78bfa" stop-opacity="1"/>
-      <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="glowPink" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#ec4899" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#f472b6" stop-opacity="1"/>
-      <stop offset="100%" stop-color="#ec4899" stop-opacity="0"/>
-    </linearGradient>
-
-    <!-- Filters -->
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#10243B" flood-opacity="0.12"/>
     </filter>
-    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <filter id="shadow">
-      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.3"/>
-    </filter>
-
-    <!-- Patterns -->
-    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#334155" stroke-width="0.5" opacity="0.3"/>
-    </pattern>
-    <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse">
-      <circle cx="10" cy="10" r="1" fill="#475569" opacity="0.4"/>
-    </pattern>
+    <style>
+      .h1 { font: 700 34px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #fff; }
+      .h2 { font: 700 24px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #17324d; }
+      .eyebrowLight { font: 700 12px "Avenir Next", "PingFang SC", Arial, sans-serif; letter-spacing: 0.12em; fill: rgba(255,255,255,0.72); text-transform: uppercase; }
+      .eyebrowDark { font: 700 12px "Avenir Next", "PingFang SC", Arial, sans-serif; letter-spacing: 0.12em; fill: #5D748E; text-transform: uppercase; }
+      .sub { font: 500 16px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: rgba(255,255,255,0.86); }
+      .body { font: 500 15px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #4E6881; }
+      .small { font: 600 13px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #4E6881; }
+      .mono { font: 700 12px "SFMono-Regular", Menlo, monospace; fill: #17324d; }
+    </style>
   </defs>
 
-  <!-- Background -->
-  <rect width="1200" height="900" fill="url(#bgGrad)"/>
-  <rect width="1200" height="900" fill="url(#grid)"/>
-  <rect width="1200" height="900" fill="url(#dots)"/>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <g filter="url(#shadow)">
+    <rect x="36" y="32" width="1208" height="156" rx="28" fill="url(#hero)"/>
+  </g>
+  <text x="68" y="66" class="eyebrowLight">Creative Framing</text>
+  <text x="68" y="110" class="h1">Think of Prompt, Context, and Harness as Three Scopes</text>
+  <text x="68" y="142" class="sub">Prompt 决定你怎么问，Context 决定模型看到什么，Harness 决定整个系统如何运行、约束和持续改进。</text>
 
-  <!-- Decorative elements -->
-  <circle cx="100" cy="100" r="150" fill="#3b82f6" opacity="0.03"/>
-  <circle cx="1100" cy="800" r="200" fill="#8b5cf6" opacity="0.03"/>
-  <circle cx="600" cy="450" r="400" fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.1" stroke-dasharray="5,10"/>
-  <circle cx="600" cy="450" r="300" fill="none" stroke="#8b5cf6" stroke-width="1" opacity="0.1" stroke-dasharray="5,10"/>
+  <g filter="url(#shadow)">
+    <rect x="36" y="214" width="1208" height="470" rx="28" fill="#fff" stroke="#E2E8F0"/>
+  </g>
+  <text x="68" y="246" class="eyebrowDark">Visual Analogy</text>
+  <text x="68" y="282" class="h2">从局部回答到系统执行</text>
 
-  <!-- Title Section -->
-  <text x="600" y="55" text-anchor="middle" fill="#94a3b8" font-family="Avenir Next, PingFang SC, sans-serif" font-size="12" font-weight="600" letter-spacing="4">SPEC-FIRST MENTAL MODEL</text>
-  <text x="600" y="95" text-anchor="middle" fill="#f8fafc" font-family="Avenir Next, PingFang SC, sans-serif" font-size="32" font-weight="800">
-    <tspan x="600" dy="0">Prompt</tspan>
-    <tspan fill="#94a3b8" font-weight="400"> lives inside </tspan>
-    <tspan fill="#a78bfa">Context</tspan>
-  </text>
-  <text x="600" y="140" text-anchor="middle" fill="#f8fafc" font-family="Avenir Next, PingFang SC, sans-serif" font-size="32" font-weight="800">
-    <tspan fill="#a78bfa">Context</tspan>
-    <tspan fill="#94a3b8" font-weight="400"> lives inside </tspan>
-    <tspan fill="#60a5fa">Harness</tspan>
-  </text>
-
-  <!-- Central Nested Circles - The Core Visual -->
-  <g transform="translate(350, 450)">
-    <!-- Harness Layer (Outer) -->
-    <circle cx="0" cy="0" r="220" fill="url(#harnessGrad)" stroke="#3b82f6" stroke-width="2" filter="url(#softGlow)"/>
-    <circle cx="0" cy="0" r="220" fill="none" stroke="#60a5fa" stroke-width="1" stroke-dasharray="8,4" opacity="0.5"/>
-
-    <!-- Context Layer (Middle) -->
-    <circle cx="0" cy="0" r="150" fill="url(#contextGrad)" stroke="#8b5cf6" stroke-width="2" filter="url(#glow)"/>
-    <circle cx="0" cy="0" r="150" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="8,4" opacity="0.5"/>
-
-    <!-- Prompt Layer (Inner) -->
-    <circle cx="0" cy="0" r="80" fill="url(#promptGrad)" stroke="#ec4899" stroke-width="2" filter="url(#glow)"/>
-    <circle cx="0" cy="0" r="80" fill="none" stroke="#f472b6" stroke-width="1" stroke-dasharray="4,4" opacity="0.6"/>
-
-    <!-- Center Icon - Brain/AI Symbol -->
-    <circle cx="0" cy="0" r="40" fill="#1e293b" stroke="#f472b6" stroke-width="2"/>
-    <text x="0" y="8" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="24" font-weight="700">AI</text>
-
-    <!-- Layer Labels on Circles -->
-    <text x="0" y="-195" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="11" font-weight="600" letter-spacing="2">HARNESS ENGINEERING</text>
-    <text x="0" y="-125" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600" letter-spacing="2">CONTEXT ENGINEERING</text>
-    <text x="0" y="-55" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="9" font-weight="600" letter-spacing="2">PROMPT ENGINEERING</text>
+  <g transform="translate(378 458)">
+    <circle cx="0" cy="0" r="170" fill="none" stroke="#D6E6F2" stroke-width="34"/>
+    <circle cx="0" cy="0" r="112" fill="none" stroke="#C7D9FB" stroke-width="30"/>
+    <circle cx="0" cy="0" r="58" fill="none" stroke="#DDD6FE" stroke-width="26"/>
+    <circle cx="0" cy="0" r="24" fill="#0F2942"/>
+    <text x="0" y="-190" text-anchor="middle" class="mono">HARNESS</text>
+    <text x="0" y="-128" text-anchor="middle" class="mono">CONTEXT</text>
+    <text x="0" y="-70" text-anchor="middle" class="mono">PROMPT</text>
+    <text x="0" y="-6" text-anchor="middle" style="font:700 14px 'Avenir Next','PingFang SC','Helvetica Neue',Arial,sans-serif; fill:#fff;">AI</text>
   </g>
 
-  <!-- Orbiting Elements - Harness Capabilities -->
-  <g transform="translate(350, 450)">
-    <!-- CI/CD -->
-    <g transform="rotate(-60) translate(250, 0) rotate(60)">
-      <circle cx="0" cy="0" r="28" fill="#1e293b" stroke="#60a5fa" stroke-width="1.5"/>
-      <text x="0" y="5" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="9" font-weight="600">CI/CD</text>
-    </g>
-    <!-- Linter -->
-    <g transform="rotate(-20) translate(250, 0) rotate(20)">
-      <circle cx="0" cy="0" r="28" fill="#1e293b" stroke="#60a5fa" stroke-width="1.5"/>
-      <text x="0" y="5" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="9" font-weight="600">Linter</text>
-    </g>
-    <!-- Entropy -->
-    <g transform="rotate(20) translate(250, 0) rotate(-20)">
-      <circle cx="0" cy="0" r="28" fill="#1e293b" stroke="#60a5fa" stroke-width="1.5"/>
-      <text x="0" y="5" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="9" font-weight="600">Entropy</text>
-    </g>
-    <!-- Observability -->
-    <g transform="rotate(60) translate(250, 0) rotate(-60)">
-      <circle cx="0" cy="0" r="32" fill="#1e293b" stroke="#60a5fa" stroke-width="1.5"/>
-      <text x="0" y="5" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="8" font-weight="600">Observability</text>
-    </g>
-    <!-- Policy -->
-    <g transform="rotate(100) translate(250, 0) rotate(-100)">
-      <circle cx="0" cy="0" r="28" fill="#1e293b" stroke="#60a5fa" stroke-width="1.5"/>
-      <text x="0" y="5" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="9" font-weight="600">Policy</text>
-    </g>
-    <!-- Quality Gates -->
-    <g transform="rotate(140) translate(250, 0) rotate(-140)">
-      <circle cx="0" cy="0" r="32" fill="#1e293b" stroke="#60a5fa" stroke-width="1.5"/>
-      <text x="0" y="5" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="8" font-weight="600">Quality</text>
-    </g>
+  <g transform="translate(690 324)">
+    <rect x="0" y="0" width="490" height="88" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="24" y="30" class="mono">Prompt = local response quality</text>
+    <text x="24" y="58" class="body">角色、语气、格式、局部约束，决定模型单次回答的质量和稳定性。</text>
+
+    <rect x="0" y="112" width="490" height="88" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="24" y="142" class="mono">Context = reasoning scope</text>
+    <text x="24" y="170" class="body">文档、历史、检索、状态和工具结果，决定模型能基于多大范围做推理。</text>
+
+    <rect x="0" y="224" width="490" height="120" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="24" y="254" class="mono">Harness = system reliability</text>
+    <text x="24" y="282" class="body">命令入口、工作流、评审、状态、恢复和知识沉淀，把“模型能力”升级为“工程能力”。</text>
+    <text x="24" y="308" class="body">这也是 Spec-First 真正想做的事情：让 AI 协作从 prompt 走向可沉淀、可复用、可进化的工程实践。</text>
   </g>
 
-  <!-- Right Panel - Layer Details -->
-  <g transform="translate(680, 200)">
-    <!-- Prompt Card -->
-    <g filter="url(#shadow)">
-      <rect x="0" y="0" width="440" height="130" rx="16" fill="#1e293b" stroke="#ec4899" stroke-width="1"/>
-      <rect x="0" y="0" width="6" height="130" rx="3" fill="#ec4899"/>
-    </g>
-    <circle cx="35" cy="65" r="20" fill="#ec4899" opacity="0.2"/>
-    <text x="35" y="71" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="16" font-weight="700">1</text>
-    <text x="70" y="40" fill="#f472b6" font-family="Avenir Next, PingFang SC, sans-serif" font-size="18" font-weight="700">Prompt Engineering</text>
-    <text x="70" y="68" fill="#94a3b8" font-family="Avenir Next, PingFang SC, sans-serif" font-size="13">最小单元 · 塑造如何询问模型</text>
-    <text x="70" y="95" fill="#64748b" font-family="Avenir Next, PingFang SC, sans-serif" font-size="12">The smallest unit. It shapes how the model is asked.</text>
-    <g transform="translate(350, 45)">
-      <rect x="0" y="0" width="70" height="26" rx="13" fill="#ec4899" opacity="0.15"/>
-      <text x="35" y="17" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600">LOCAL</text>
-    </g>
-
-    <!-- Context Card -->
-    <g filter="url(#shadow)" transform="translate(0, 160)">
-      <rect x="0" y="0" width="440" height="130" rx="16" fill="#1e293b" stroke="#8b5cf6" stroke-width="1"/>
-      <rect x="0" y="0" width="6" height="130" rx="3" fill="#8b5cf6"/>
-    </g>
-    <circle cx="35" cy="225" r="20" fill="#8b5cf6" opacity="0.2"/>
-    <text x="35" y="231" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="16" font-weight="700">2</text>
-    <text x="70" y="200" fill="#a78bfa" font-family="Avenir Next, PingFang SC, sans-serif" font-size="18" font-weight="700">Context Engineering</text>
-    <text x="70" y="228" fill="#94a3b8" font-family="Avenir Next, PingFang SC, sans-serif" font-size="13">信息边界 · 控制模型可见范围</text>
-    <text x="70" y="255" fill="#64748b" font-family="Avenir Next, PingFang SC, sans-serif" font-size="12">The information boundary. It controls what the model can see.</text>
-    <g transform="translate(350, 205)">
-      <rect x="0" y="0" width="70" height="26" rx="13" fill="#8b5cf6" opacity="0.15"/>
-      <text x="35" y="17" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600">SCOPE</text>
-    </g>
-
-    <!-- Harness Card -->
-    <g filter="url(#shadow)" transform="translate(0, 320)">
-      <rect x="0" y="0" width="440" height="150" rx="16" fill="#1e293b" stroke="#3b82f6" stroke-width="1"/>
-      <rect x="0" y="0" width="6" height="150" rx="3" fill="#3b82f6"/>
-    </g>
-    <circle cx="35" cy="395" r="20" fill="#3b82f6" opacity="0.2"/>
-    <text x="35" y="401" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="16" font-weight="700">3</text>
-    <text x="70" y="370" fill="#60a5fa" font-family="Avenir Next, PingFang SC, sans-serif" font-size="18" font-weight="700">Harness Engineering</text>
-    <text x="70" y="398" fill="#94a3b8" font-family="Avenir Next, PingFang SC, sans-serif" font-size="13">系统框架 · 管理执行与可靠性</text>
-    <text x="70" y="425" fill="#64748b" font-family="Avenir Next, PingFang SC, sans-serif" font-size="12">The operating system around the model.</text>
-    <text x="70" y="445" fill="#64748b" font-family="Avenir Next, PingFang SC, sans-serif" font-size="12">It governs execution, quality gates, recovery, and improvement.</text>
-    <g transform="translate(350, 375)">
-      <rect x="0" y="0" width="70" height="26" rx="13" fill="#3b82f6" opacity="0.15"/>
-      <text x="35" y="17" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600">SYSTEM</text>
-    </g>
+  <g transform="translate(690 634)">
+    <rect x="0" y="0" width="490" height="32" rx="16" fill="#fff" stroke="#E2E8F0"/>
+    <text x="245" y="21" text-anchor="middle" class="body" style="font-size:14px; fill:#334155;">Prompt 优化局部，Context 扩大范围，Harness 决定系统能不能真正落地。</text>
   </g>
-
-  <!-- Connecting Lines -->
-  <line x1="570" y1="450" x2="680" y2="265" stroke="url(#glowPink)" stroke-width="1" stroke-dasharray="4,4" opacity="0.6"/>
-  <line x1="570" y1="450" x2="680" y2="360" stroke="url(#glowPurple)" stroke-width="1" stroke-dasharray="4,4" opacity="0.6"/>
-  <line x1="570" y1="450" x2="680" y2="470" stroke="url(#glowBlue)" stroke-width="1" stroke-dasharray="4,4" opacity="0.6"/>
-
-  <!-- Bottom Insight Bar -->
-  <g transform="translate(100, 780)">
-    <rect x="0" y="0" width="1000" height="80" rx="12" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-    <text x="500" y="35" text-anchor="middle" fill="#f8fafc" font-family="Avenir Next, PingFang SC, sans-serif" font-size="14" font-weight="600">
-      核心洞见 Core Insight
-    </text>
-    <text x="500" y="60" text-anchor="middle" fill="#94a3b8" font-family="Avenir Next, PingFang SC, sans-serif" font-size="13">
-      更好的提示词 → 改进局部响应 |
-      <tspan fill="#a78bfa">更好的上下文 → 扩展推理范围</tspan> |
-      <tspan fill="#60a5fa">更好的 Harness → 改变系统可靠性</tspan>
-    </text>
-  </g>
-
-  <!-- Scope Expansion Indicator -->
-  <g transform="translate(100, 280)">
-    <text x="0" y="0" fill="#64748b" font-family="Avenir Next, PingFang SC, sans-serif" font-size="11" font-weight="600" letter-spacing="1">SCOPE</text>
-    <line x1="30" y1="20" x2="30" y2="340" stroke="#475569" stroke-width="2"/>
-    <polygon points="30,340 24,320 36,320" fill="#475569"/>
-    <text x="30" y="360" text-anchor="middle" fill="#64748b" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">EXPANDS</text>
-
-    <!-- Scale markers -->
-    <line x1="25" y1="80" x2="35" y2="80" stroke="#64748b" stroke-width="1"/>
-    <text x="45" y="84" fill="#64748b" font-family="SFMono-Regular, monospace" font-size="9">Prompt</text>
-    <line x1="25" y1="180" x2="35" y2="180" stroke="#64748b" stroke-width="1"/>
-    <text x="45" y="184" fill="#64748b" font-family="SFMono-Regular, monospace" font-size="9">Context</text>
-    <line x1="25" y1="280" x2="35" y2="280" stroke="#64748b" stroke-width="1"/>
-    <text x="45" y="284" fill="#64748b" font-family="SFMono-Regular, monospace" font-size="9">Harness</text>
-  </g>
-
-  <!-- Legend -->
-  <g transform="translate(950, 820)">
-    <circle cx="0" cy="0" r="6" fill="#ec4899"/>
-    <text x="15" y="4" fill="#64748b" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">Prompt</text>
-    <circle cx="70" cy="0" r="6" fill="#8b5cf6"/>
-    <text x="85" y="4" fill="#64748b" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">Context</text>
-    <circle cx="150" cy="0" r="6" fill="#3b82f6"/>
-    <text x="165" y="4" fill="#64748b" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">Harness</text>
-  </g>
-
-  <!-- Animated pulse effect (CSS animation would be better but SVG-only solution) -->
-  <circle cx="350" cy="450" r="80" fill="none" stroke="#f472b6" stroke-width="1" opacity="0.3">
-    <animate attributeName="r" values="80;100;80" dur="3s" repeatCount="indefinite"/>
-    <animate attributeName="opacity" values="0.3;0.1;0.3" dur="3s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="350" cy="450" r="150" fill="none" stroke="#a78bfa" stroke-width="1" opacity="0.2">
-    <animate attributeName="r" values="150;170;150" dur="4s" repeatCount="indefinite"/>
-    <animate attributeName="opacity" values="0.2;0.1;0.2" dur="4s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="350" cy="450" r="220" fill="none" stroke="#60a5fa" stroke-width="1" opacity="0.15">
-    <animate attributeName="r" values="220;240;220" dur="5s" repeatCount="indefinite"/>
-    <animate attributeName="opacity" values="0.15;0.05;0.15" dur="5s" repeatCount="indefinite"/>
-  </circle>
 </svg>

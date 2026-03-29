@@ -1,492 +1,93 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1000" role="img" aria-labelledby="title desc">
-  <title id="title">Spec-First Engineering Layers - Deep Knowledge Map 2025</title>
-  <desc id="desc">A comprehensive knowledge infographic showing the three nested engineering layers with industry insights, best practices, and relationships.</desc>
+<svg viewBox="0 0 1280 720" width="1280" height="720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Spec-First Engineering Layers Deep</title>
+  <desc id="desc">An expanded knowledge map of Prompt, Context, and Harness Engineering.</desc>
   <defs>
-    <!-- Gradients -->
-    <linearGradient id="bgDeep" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0c0a09"/>
-      <stop offset="50%" stop-color="#1c1917"/>
-      <stop offset="100%" stop-color="#0c0a09"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="720" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7FAFC"/>
+      <stop offset="1" stop-color="#EEF4F8"/>
     </linearGradient>
-    <radialGradient id="harnessRadial" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#1d4ed8" stop-opacity="0.1"/>
-      <stop offset="60%" stop-color="#1e40af" stop-opacity="0.2"/>
-      <stop offset="100%" stop-color="#1e3a8a" stop-opacity="0.35"/>
-    </radialGradient>
-    <radialGradient id="contextRadial" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#6d28d9" stop-opacity="0.3"/>
-    </radialGradient>
-    <radialGradient id="promptRadial" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#ec4899" stop-opacity="0.2"/>
-      <stop offset="100%" stop-color="#db2777" stop-opacity="0.4"/>
-    </radialGradient>
-    <linearGradient id="accentBlue" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#60a5fa"/>
-      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    <linearGradient id="hero" x1="36" y1="32" x2="1244" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0F2942"/>
+      <stop offset="1" stop-color="#1E5B74"/>
     </linearGradient>
-    <linearGradient id="accentPurple" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#a78bfa"/>
-      <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
+    <linearGradient id="outer" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F8FAFC"/>
     </linearGradient>
-    <linearGradient id="accentPink" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#ec4899" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#f472b6"/>
-      <stop offset="100%" stop-color="#ec4899" stop-opacity="0"/>
+    <linearGradient id="middle" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EFF6FF"/>
+      <stop offset="1" stop-color="#DBEAFE"/>
     </linearGradient>
-    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#1c1917"/>
-      <stop offset="100%" stop-color="#0c0a09"/>
+    <linearGradient id="inner" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F5F3FF"/>
+      <stop offset="1" stop-color="#EDE9FE"/>
     </linearGradient>
-
-    <!-- Filters -->
-    <filter id="glowStrong" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="4" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#10243B" flood-opacity="0.12"/>
     </filter>
-    <filter id="glowSoft" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="10" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <filter id="cardShadow">
-      <feDropShadow dx="0" dy="4" stdDeviation="12" flood-color="#000" flood-opacity="0.5"/>
-    </filter>
-
-    <!-- Patterns -->
-    <pattern id="gridSmall" width="30" height="30" patternUnits="userSpaceOnUse">
-      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#292524" stroke-width="0.5" opacity="0.5"/>
-    </pattern>
-    <pattern id="dotsSmall" width="15" height="15" patternUnits="userSpaceOnUse">
-      <circle cx="7.5" cy="7.5" r="0.8" fill="#44403c" opacity="0.5"/>
-    </pattern>
-
-    <!-- Clip paths -->
-    <clipPath id="hexClip">
-      <polygon points="50,0 93.3,25 93.3,75 50,100 6.7,75 6.7,25"/>
-    </clipPath>
+    <style>
+      .h1 { font: 700 34px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #fff; }
+      .h2 { font: 700 24px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #17324d; }
+      .eyebrowLight { font: 700 12px "Avenir Next", "PingFang SC", Arial, sans-serif; letter-spacing: 0.12em; fill: rgba(255,255,255,0.72); text-transform: uppercase; }
+      .eyebrowDark { font: 700 12px "Avenir Next", "PingFang SC", Arial, sans-serif; letter-spacing: 0.12em; fill: #5D748E; text-transform: uppercase; }
+      .sub { font: 500 16px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: rgba(255,255,255,0.86); }
+      .body { font: 500 15px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #4E6881; }
+      .mono { font: 700 12px "SFMono-Regular", Menlo, monospace; fill: #17324d; }
+      .pill { font: 700 12px "Avenir Next", "PingFang SC", Arial, sans-serif; fill: #17324d; }
+    </style>
   </defs>
 
-  <!-- Background -->
-  <rect width="1400" height="1000" fill="url(#bgDeep)"/>
-  <rect width="1400" height="1000" fill="url(#gridSmall)"/>
-  <rect width="1400" height="1000" fill="url(#dotsSmall)"/>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <g filter="url(#shadow)">
+    <rect x="36" y="32" width="1208" height="156" rx="28" fill="url(#hero)"/>
+  </g>
+  <text x="68" y="66" class="eyebrowLight">Expanded Knowledge Map</text>
+  <text x="68" y="110" class="h1">Three Engineering Layers</text>
+  <text x="68" y="142" class="sub">同样的三层结构，用更完整的视角解释它们分别控制什么，以及为什么 Harness 才是系统可靠性的来源。</text>
 
-  <!-- ==================== LEFT SECTION: NESTED VISUALIZATION ==================== -->
-  <g transform="translate(50, 50)">
-    <!-- Section Header -->
-    <text x="200" y="30" text-anchor="middle" fill="#78716c" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600" letter-spacing="2">NESTED ARCHITECTURE</text>
-    <text x="200" y="55" text-anchor="middle" fill="#e7e5e4" font-family="Avenir Next, PingFang SC, sans-serif" font-size="22" font-weight="700">The Three Engineering Layers</text>
-
-    <!-- Main Nested Circles -->
-    <g transform="translate(200, 320)">
-      <!-- Outer: Harness -->
-      <circle cx="0" cy="0" r="260" fill="url(#harnessRadial)" stroke="#3b82f6" stroke-width="2" opacity="0.8"/>
-      <circle cx="0" cy="0" r="260" fill="none" stroke="#60a5fa" stroke-width="1" stroke-dasharray="8 4" opacity="0.4">
-        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="60s" repeatCount="indefinite"/>
-      </circle>
-
-      <!-- Middle: Context -->
-      <circle cx="0" cy="0" r="175" fill="url(#contextRadial)" stroke="#8b5cf6" stroke-width="2" opacity="0.9"/>
-      <circle cx="0" cy="0" r="175" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="6 3" opacity="0.5">
-        <animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="45s" repeatCount="indefinite"/>
-      </circle>
-
-      <!-- Inner: Prompt -->
-      <circle cx="0" cy="0" r="90" fill="url(#promptRadial)" stroke="#ec4899" stroke-width="2"/>
-      <circle cx="0" cy="0" r="90" fill="none" stroke="#f472b6" stroke-width="1" stroke-dasharray="4 2" opacity="0.6">
-        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="30s" repeatCount="indefinite"/>
-      </circle>
-
-      <!-- Center: AI Core -->
-      <circle cx="0" cy="0" r="35" fill="#1c1917" stroke="#f472b6" stroke-width="2"/>
-      <text x="0" y="-5" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="18" font-weight="700">AI</text>
-      <text x="0" y="12" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="10">Core</text>
-
-      <!-- Layer Labels on Circles -->
-      <text x="0" y="-275" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="11" font-weight="600" letter-spacing="1">HARNESS ENGINEERING</text>
-      <text x="0" y="-190" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600" letter-spacing="1">CONTEXT ENGINEERING</text>
-      <text x="0" y="-105" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="9" font-weight="600" letter-spacing="1">PROMPT ENGINEERING</text>
-
-      <!-- Orbiting Capabilities - Harness Level -->
-      <g>
-        <!-- CI/CD -->
-        <g transform="rotate(-70)">
-          <circle cx="230" cy="0" r="24" fill="#1c1917" stroke="#3b82f6" stroke-width="1.5"/>
-          <text x="230" y="4" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="8" font-weight="600">CI/CD</text>
-        </g>
-        <!-- Linter -->
-        <g transform="rotate(-30)">
-          <circle cx="230" cy="0" r="24" fill="#1c1917" stroke="#3b82f6" stroke-width="1.5"/>
-          <text x="230" y="4" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="8" font-weight="600">Linter</text>
-        </g>
-        <!-- Tests -->
-        <g transform="rotate(10)">
-          <circle cx="230" cy="0" r="24" fill="#1c1917" stroke="#3b82f6" stroke-width="1.5"/>
-          <text x="230" y="4" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="8" font-weight="600">Tests</text>
-        </g>
-        <!-- Policy -->
-        <g transform="rotate(50)">
-          <circle cx="230" cy="0" r="24" fill="#1c1917" stroke="#3b82f6" stroke-width="1.5"/>
-          <text x="230" y="4" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="8" font-weight="600">Policy</text>
-        </g>
-        <!-- Observability -->
-        <g transform="rotate(90)">
-          <circle cx="230" cy="0" r="28" fill="#1c1917" stroke="#3b82f6" stroke-width="1.5"/>
-          <text x="230" y="4" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="7" font-weight="600">Observe</text>
-        </g>
-        <!-- Guardrails -->
-        <g transform="rotate(130)">
-          <circle cx="230" cy="0" r="26" fill="#1c1917" stroke="#3b82f6" stroke-width="1.5"/>
-          <text x="230" y="4" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="7" font-weight="600">Guard</text>
-        </g>
-        <!-- Eval -->
-        <g transform="rotate(170)">
-          <circle cx="230" cy="0" r="24" fill="#1c1917" stroke="#3b82f6" stroke-width="1.5"/>
-          <text x="230" y="4" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="8" font-weight="600">Eval</text>
-        </g>
-        <!-- Recovery -->
-        <g transform="rotate(210)">
-          <circle cx="230" cy="0" r="26" fill="#1c1917" stroke="#3b82f6" stroke-width="1.5"/>
-          <text x="230" y="4" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="7" font-weight="600">Recover</text>
-        </g>
-      </g>
-
-      <!-- Orbiting Capabilities - Context Level -->
-      <g>
-        <g transform="rotate(-45)">
-          <circle cx="150" cy="0" r="20" fill="#1c1917" stroke="#8b5cf6" stroke-width="1.5"/>
-          <text x="150" y="4" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="7" font-weight="600">RAG</text>
-        </g>
-        <g transform="rotate(15)">
-          <circle cx="150" cy="0" r="22" fill="#1c1917" stroke="#8b5cf6" stroke-width="1.5"/>
-          <text x="150" y="4" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="6" font-weight="600">Memory</text>
-        </g>
-        <g transform="rotate(75)">
-          <circle cx="150" cy="0" r="22" fill="#1c1917" stroke="#8b5cf6" stroke-width="1.5"/>
-          <text x="150" y="4" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="6" font-weight="600">Schema</text>
-        </g>
-        <g transform="rotate(135)">
-          <circle cx="150" cy="0" r="20" fill="#1c1917" stroke="#8b5cf6" stroke-width="1.5"/>
-          <text x="150" y="4" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="6" font-weight="600">Tools</text>
-        </g>
-        <g transform="rotate(195)">
-          <circle cx="150" cy="0" r="24" fill="#1c1917" stroke="#8b5cf6" stroke-width="1.5"/>
-          <text x="150" y="4" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="5" font-weight="600">History</text>
-        </g>
-      </g>
-    </g>
-
-    <!-- Car Analogy Visual -->
-    <g transform="translate(200, 620)">
-      <rect x="-180" y="0" width="360" height="90" rx="12" fill="#1c1917" stroke="#292524" stroke-width="1"/>
-      <text x="0" y="22" text-anchor="middle" fill="#78716c" font-family="SFMono-Regular, monospace" font-size="9" letter-spacing="1">THE CAR ANALOGY (Louis Bouchard)</text>
-
-      <!-- Engine icon -->
-      <g transform="translate(-120, 50)">
-        <circle cx="0" cy="0" r="18" fill="#1c1917" stroke="#f472b6" stroke-width="1.5"/>
-        <text x="0" y="4" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="16">⚡</text>
-        <text x="0" y="32" text-anchor="middle" fill="#a8a29e" font-family="Avenir Next, sans-serif" font-size="8">Engine</text>
-        <text x="0" y="44" text-anchor="middle" fill="#78716c" font-family="SFMono-Regular, monospace" font-size="7">(Model)</text>
-      </g>
-
-      <!-- Fuel icon -->
-      <g transform="translate(-40, 50)">
-        <circle cx="0" cy="0" r="18" fill="#1c1917" stroke="#a78bfa" stroke-width="1.5"/>
-        <text x="0" y="4" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="16">⛽</text>
-        <text x="0" y="32" text-anchor="middle" fill="#a8a29e" font-family="Avenir Next, sans-serif" font-size="8">Fuel</text>
-        <text x="0" y="44" text-anchor="middle" fill="#78716c" font-family="SFMono-Regular, monospace" font-size="7">(Context)</text>
-      </g>
-
-      <!-- Car icon -->
-      <g transform="translate(40, 50)">
-        <circle cx="0" cy="0" r="18" fill="#1c1917" stroke="#60a5fa" stroke-width="1.5"/>
-        <text x="0" y="4" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="16">🚗</text>
-        <text x="0" y="32" text-anchor="middle" fill="#a8a29e" font-family="Avenir Next, sans-serif" font-size="8">Car Body</text>
-        <text x="0" y="44" text-anchor="middle" fill="#78716c" font-family="SFMono-Regular, monospace" font-size="7">(Harness)</text>
-      </g>
-
-      <!-- Steering icon -->
-      <g transform="translate(120, 50)">
-        <circle cx="0" cy="0" r="18" fill="#1c1917" stroke="#60a5fa" stroke-width="1.5"/>
-        <text x="0" y="4" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="16">🎯</text>
-        <text x="0" y="32" text-anchor="middle" fill="#a8a29e" font-family="Avenir Next, sans-serif" font-size="8">Steering</text>
-        <text x="0" y="44" text-anchor="middle" fill="#78716c" font-family="SFMono-Regular, monospace" font-size="7">(Control)</text>
-      </g>
-
-      <!-- Arrow -->
-      <path d="M -95 50 L -60 50" stroke="#44403c" stroke-width="1.5" marker-end="url(#arrowGray)"/>
-      <path d="M -15 50 L 15 50" stroke="#44403c" stroke-width="1.5"/>
-      <path d="M 65 50 L 95 50" stroke="#44403c" stroke-width="1.5"/>
-    </g>
-
-    <!-- Quote -->
-    <g transform="translate(200, 730)">
-      <text x="0" y="0" text-anchor="middle" fill="#57534e" font-family="Avenir Next, sans-serif" font-size="11" font-style="italic">"If you only focus on the engine and fuel,</text>
-      <text x="0" y="18" text-anchor="middle" fill="#57534e" font-family="Avenir Next, sans-serif" font-size="11" font-style="italic">you can still build a terrible car."</text>
-      <text x="0" y="38" text-anchor="middle" fill="#44403c" font-family="SFMono-Regular, monospace" font-size="9">— Louis-François Bouchard, 2026</text>
-    </g>
+  <g filter="url(#shadow)">
+    <rect x="36" y="214" width="520" height="470" rx="28" fill="#fff" stroke="#E2E8F0"/>
+  </g>
+  <text x="68" y="246" class="eyebrowDark">Nested View</text>
+  <text x="68" y="282" class="h2">作用域逐层扩大</text>
+  <g transform="translate(296 452)">
+    <circle cx="0" cy="0" r="180" fill="none" stroke="#D6E6F2" stroke-width="36"/>
+    <circle cx="0" cy="0" r="118" fill="none" stroke="#C7D9FB" stroke-width="32"/>
+    <circle cx="0" cy="0" r="62" fill="none" stroke="#DDD6FE" stroke-width="28"/>
+    <circle cx="0" cy="0" r="26" fill="#0F2942"/>
+    <text x="0" y="-188" text-anchor="middle" class="mono">HARNESS ENGINEERING</text>
+    <text x="0" y="-126" text-anchor="middle" class="mono">CONTEXT ENGINEERING</text>
+    <text x="0" y="-70" text-anchor="middle" class="mono">PROMPT ENGINEERING</text>
+    <text x="0" y="-8" text-anchor="middle" style="font:700 14px 'Avenir Next','PingFang SC','Helvetica Neue',Arial,sans-serif; fill:#fff;">AI</text>
+  </g>
+  <g transform="translate(88 590)">
+    <rect x="0" y="0" width="110" height="34" rx="17" fill="#fff" stroke="#E2E8F0"/><text x="55" y="22" text-anchor="middle" class="mono">Prompt</text>
+    <rect x="124" y="0" width="110" height="34" rx="17" fill="#fff" stroke="#E2E8F0"/><text x="179" y="22" text-anchor="middle" class="mono">Context</text>
+    <rect x="248" y="0" width="110" height="34" rx="17" fill="#fff" stroke="#E2E8F0"/><text x="303" y="22" text-anchor="middle" class="mono">Harness</text>
   </g>
 
-  <!-- ==================== RIGHT SECTION: DETAILED BREAKDOWN ==================== -->
-  <g transform="translate(500, 50)">
-    <!-- Section Header -->
-    <text x="420" y="30" text-anchor="middle" fill="#78716c" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600" letter-spacing="2">LAYER BREAKDOWN</text>
-    <text x="420" y="55" text-anchor="middle" fill="#e7e5e4" font-family="Avenir Next, PingFang SC, sans-serif" font-size="20" font-weight="700">What Each Layer Controls</text>
-
-    <!-- Prompt Engineering Card -->
-    <g filter="url(#cardShadow)">
-      <rect x="20" y="80" width="380" height="160" rx="16" fill="url(#cardGrad)" stroke="#ec4899" stroke-width="1"/>
-      <rect x="20" y="80" width="5" height="160" rx="2" fill="#ec4899"/>
-    </g>
-    <circle cx="55" cy="110" r="15" fill="#ec4899" opacity="0.15"/>
-    <text x="55" y="115" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="14" font-weight="700">1</text>
-    <text x="80" y="100" fill="#f472b6" font-family="Avenir Next, PingFang SC, sans-serif" font-size="16" font-weight="700">Prompt Engineering</text>
-    <text x="80" y="120" fill="#a8a29e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="11">What to ask · 塑造如何询问模型</text>
-
-    <g transform="translate(40, 140)">
-      <rect x="0" y="0" width="100" height="24" rx="12" fill="#ec4899" opacity="0.1"/>
-      <text x="50" y="16" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="9">Persona</text>
-      <rect x="110" y="0" width="100" height="24" rx="12" fill="#ec4899" opacity="0.1"/>
-      <text x="160" y="16" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="9">Task</text>
-      <rect x="220" y="0" width="100" height="24" rx="12" fill="#ec4899" opacity="0.1"/>
-      <text x="270" y="16" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="9">Format</text>
-    </g>
-    <text x="40" y="195" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">• 框架: PERSONA + TASK + CONTEXT + FORMAT</text>
-    <text x="40" y="212" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">• 工具调用 · 结构化输出 (JSON Schema)</text>
-    <text x="40" y="229" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">• 最小单元 · 聚焦局部响应质量</text>
-    <g transform="translate(300, 100)">
-      <rect x="0" y="0" width="80" height="24" rx="12" fill="#ec4899" opacity="0.2"/>
-      <text x="40" y="16" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="9" font-weight="600">LOCAL</text>
-    </g>
-
-    <!-- Context Engineering Card -->
-    <g filter="url(#cardShadow)">
-      <rect x="420" y="80" width="380" height="160" rx="16" fill="url(#cardGrad)" stroke="#8b5cf6" stroke-width="1"/>
-      <rect x="420" y="80" width="5" height="160" rx="2" fill="#8b5cf6"/>
-    </g>
-    <circle cx="455" cy="110" r="15" fill="#8b5cf6" opacity="0.15"/>
-    <text x="455" y="115" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="14" font-weight="700">2</text>
-    <text x="480" y="100" fill="#a78bfa" font-family="Avenir Next, PingFang SC, sans-serif" font-size="16" font-weight="700">Context Engineering</text>
-    <text x="480" y="120" fill="#a8a29e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="11">What to send · 控制模型能看到什么</text>
-
-    <g transform="translate(440, 140)">
-      <rect x="0" y="0" width="70" height="24" rx="12" fill="#8b5cf6" opacity="0.1"/>
-      <text x="35" y="16" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="9">RAG</text>
-      <rect x="80" y="0" width="70" height="24" rx="12" fill="#8b5cf6" opacity="0.1"/>
-      <text x="115" y="16" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="9">Memory</text>
-      <rect x="160" y="0" width="70" height="24" rx="12" fill="#8b5cf6" opacity="0.1"/>
-      <text x="195" y="16" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="9">Schema</text>
-      <rect x="240" y="0" width="80" height="24" rx="12" fill="#8b5cf6" opacity="0.1"/>
-      <text x="280" y="16" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="9">History</text>
-    </g>
-    <text x="440" y="195" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">• 2025年AI第一技能 (DecodingAI)</text>
-    <text x="440" y="212" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">• 智能分块: 500-1000 tokens with overlap</text>
-    <text x="440" y="229" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">• 渐进式披露 · 防止上下文腐烂</text>
-    <g transform="translate(700, 100)">
-      <rect x="0" y="0" width="80" height="24" rx="12" fill="#8b5cf6" opacity="0.2"/>
-      <text x="40" y="16" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="9" font-weight="600">BRIDGE</text>
-    </g>
-
-    <!-- Harness Engineering Card -->
-    <g filter="url(#cardShadow)">
-      <rect x="20" y="260" width="780" height="180" rx="16" fill="url(#cardGrad)" stroke="#3b82f6" stroke-width="1"/>
-      <rect x="20" y="260" width="5" height="180" rx="2" fill="#3b82f6"/>
-    </g>
-    <circle cx="55" cy="290" r="15" fill="#3b82f6" opacity="0.15"/>
-    <text x="55" y="295" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="14" font-weight="700">3</text>
-    <text x="80" y="280" fill="#60a5fa" font-family="Avenir Next, PingFang SC, sans-serif" font-size="16" font-weight="700">Harness Engineering</text>
-    <text x="80" y="300" fill="#a8a29e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="11">How it operates · 系统如何运行</text>
-
-    <!-- Harness Capabilities Grid -->
-    <g transform="translate(40, 320)">
-      <!-- Row 1 -->
-      <rect x="0" y="0" width="90" height="32" rx="8" fill="#1e3a8a" opacity="0.3"/>
-      <text x="45" y="20" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10">CI/CD</text>
-      <rect x="100" y="0" width="90" height="32" rx="8" fill="#1e3a8a" opacity="0.3"/>
-      <text x="145" y="20" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10">Linter</text>
-      <rect x="200" y="0" width="90" height="32" rx="8" fill="#1e3a8a" opacity="0.3"/>
-      <text x="245" y="20" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10">Tests</text>
-      <rect x="300" y="0" width="100" height="32" rx="8" fill="#1e3a8a" opacity="0.3"/>
-      <text x="350" y="20" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10">Guardrails</text>
-      <rect x="410" y="0" width="100" height="32" rx="8" fill="#1e3a8a" opacity="0.3"/>
-      <text x="460" y="20" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10">Eval</text>
-      <rect x="520" y="0" width="100" height="32" rx="8" fill="#1e3a8a" opacity="0.3"/>
-      <text x="570" y="20" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10">Policy</text>
-      <rect x="630" y="0" width="130" height="32" rx="8" fill="#1e3a8a" opacity="0.3"/>
-      <text x="695" y="20" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10">Observability</text>
-
-      <!-- Row 2 -->
-      <rect x="50" y="42" width="110" height="32" rx="8" fill="#1e3a8a" opacity="0.3"/>
-      <text x="105" y="62" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10">Checkpoints</text>
-      <rect x="170" y="42" width="110" height="32" rx="8" fill="#1e3a8a" opacity="0.3"/>
-      <text x="225" y="62" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10">Self-Healing</text>
-      <rect x="290" y="42" width="110" height="32" rx="8" fill="#1e3a8a" opacity="0.3"/>
-      <text x="345" y="62" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10">Feedback Loop</text>
-      <rect x="410" y="42" width="110" height="32" rx="8" fill="#1e3a8a" opacity="0.3"/>
-      <text x="465" y="62" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10">Recovery</text>
-      <rect x="530" y="42" width="130" height="32" rx="8" fill="#1e3a8a" opacity="0.3"/>
-      <text x="595" y="62" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10">Quality Gates</text>
-    </g>
-
-    <text x="40" y="395" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">• Mitchell Hashimoto: "每次代理犯错，设计环境让它不能以同样方式再犯"</text>
-    <text x="40" y="412" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">• LangChain: 同样模型，更好的Harness，从Top30外到Top5 (Terminal Bench 2.0)</text>
-    <text x="40" y="429" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">• 决定上下文何时加载、哪些工具可用、哪些动作允许、失败如何处理</text>
-    <g transform="translate(700, 280)">
-      <rect x="0" y="0" width="80" height="24" rx="12" fill="#3b82f6" opacity="0.2"/>
-      <text x="40" y="16" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="9" font-weight="600">SYSTEM</text>
-    </g>
-
-    <!-- ==================== KEY INSIGHTS SECTION ==================== -->
-    <g transform="translate(20, 470)">
-      <text x="380" y="0" text-anchor="middle" fill="#78716c" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600" letter-spacing="2">KEY INSIGHTS FROM INDUSTRY</text>
-
-      <!-- Insight Cards -->
-      <g filter="url(#cardShadow)">
-        <rect x="0" y="20" width="250" height="100" rx="12" fill="url(#cardGrad)" stroke="#292524"/>
-      </g>
-      <text x="15" y="45" fill="#e7e5e4" font-family="Avenir Next, PingFang SC, sans-serif" font-size="12" font-weight="600">🎯 Scope Expansion</text>
-      <text x="15" y="68" fill="#a8a29e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">Better Prompt → 局部响应</text>
-      <text x="15" y="85" fill="#a8a29e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">Better Context → 推理范围</text>
-      <text x="15" y="102" fill="#a8a29e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">Better Harness → 系统可靠性</text>
-
-      <g filter="url(#cardShadow)">
-        <rect x="265" y="20" width="250" height="100" rx="12" fill="url(#cardGrad)" stroke="#292524"/>
-      </g>
-      <text x="280" y="45" fill="#e7e5e4" font-family="Avenir Next, PingFang SC, sans-serif" font-size="12" font-weight="600">⚠️ Context Decay</text>
-      <text x="280" y="68" fill="#a8a29e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">>32K tokens 时正确率开始下降</text>
-      <text x="280" y="85" fill="#a8a29e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">不要把上下文窗口当垃圾场</text>
-      <text x="280" y="102" fill="#a8a29e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">渐进式披露 > 一次性倾倒</text>
-
-      <g filter="url(#cardShadow)">
-        <rect x="530" y="20" width="250" height="100" rx="12" fill="url(#cardGrad)" stroke="#292524"/>
-      </g>
-      <text x="545" y="45" fill="#e7e5e4" font-family="Avenir Next, PingFang SC, sans-serif" font-size="12" font-weight="600">🔄 The Shift</text>
-      <text x="545" y="68" fill="#a8a29e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">"从演示智能到交付智能"</text>
-      <text x="545" y="85" fill="#a8a29e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">程序员工作转变：设计代理栖息地</text>
-      <text x="545" y="102" fill="#a8a29e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">而非逐行敲代码</text>
-    </g>
-
-    <!-- ==================== PROGRESSIVE DISCLOSURE PATTERN ==================== -->
-    <g transform="translate(20, 600)">
-      <text x="380" y="0" text-anchor="middle" fill="#78716c" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600" letter-spacing="2">PROGRESSIVE DISCLOSURE PATTERN</text>
-
-      <g filter="url(#cardShadow)">
-        <rect x="0" y="20" width="780" height="80" rx="12" fill="url(#cardGrad)" stroke="#292524"/>
-      </g>
-
-      <!-- Flow diagram -->
-      <g transform="translate(40, 60)">
-        <!-- Stage 1 -->
-        <rect x="0" y="0" width="140" height="40" rx="8" fill="#ec4899" opacity="0.2"/>
-        <text x="70" y="17" text-anchor="middle" fill="#f472b6" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600">Short Map</text>
-        <text x="70" y="32" text-anchor="middle" fill="#a8a29e" font-family="Avenir Next, sans-serif" font-size="8">AGENTS.md</text>
-
-        <!-- Arrow -->
-        <path d="M 150 20 L 190 20" stroke="#44403c" stroke-width="2" marker-end="url(#arrowGray)"/>
-        <text x="170" y="35" text-anchor="middle" fill="#57534e" font-family="SFMono-Regular, monospace" font-size="8">on demand</text>
-
-        <!-- Stage 2 -->
-        <rect x="200" y="0" width="140" height="40" rx="8" fill="#8b5cf6" opacity="0.2"/>
-        <text x="270" y="17" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600">Deep Sources</text>
-        <text x="270" y="32" text-anchor="middle" fill="#a8a29e" font-family="Avenir Next, sans-serif" font-size="8">Retrieved when needed</text>
-
-        <!-- Arrow -->
-        <path d="M 350 20 L 390 20" stroke="#44403c" stroke-width="2" marker-end="url(#arrowGray)"/>
-        <text x="370" y="35" text-anchor="middle" fill="#57534e" font-family="SFMono-Regular, monospace" font-size="8">validate</text>
-
-        <!-- Stage 3 -->
-        <rect x="400" y="0" width="140" height="40" rx="8" fill="#3b82f6" opacity="0.2"/>
-        <text x="470" y="17" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600">Execute</text>
-        <text x="470" y="32" text-anchor="middle" fill="#a8a29e" font-family="Avenir Next, sans-serif" font-size="8">With constraints</text>
-
-        <!-- Arrow -->
-        <path d="M 550 20 L 590 20" stroke="#44403c" stroke-width="2" marker-end="url(#arrowGray)"/>
-        <text x="570" y="35" text-anchor="middle" fill="#57534e" font-family="SFMono-Regular, monospace" font-size="8">verify</text>
-
-        <!-- Stage 4 -->
-        <rect x="600" y="0" width="140" height="40" rx="8" fill="#22c55e" opacity="0.2"/>
-        <text x="670" y="17" text-anchor="middle" fill="#4ade80" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600">Done</text>
-        <text x="670" y="32" text-anchor="middle" fill="#a8a29e" font-family="Avenir Next, sans-serif" font-size="8">Tests passed ✓</text>
-      </g>
-    </g>
-
-    <!-- ==================== MEMORY TYPES ==================== -->
-    <g transform="translate(20, 710)">
-      <text x="380" y="0" text-anchor="middle" fill="#78716c" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600" letter-spacing="2">CONTEXT MEMORY TYPES</text>
-
-      <g transform="translate(0, 20)">
-        <rect x="0" y="0" width="185" height="70" rx="10" fill="url(#cardGrad)" stroke="#ec4899" stroke-width="1"/>
-        <text x="92" y="25" text-anchor="middle" fill="#f472b6" font-family="Avenir Next, sans-serif" font-size="11" font-weight="600">System Prompt</text>
-        <text x="92" y="45" text-anchor="middle" fill="#a8a29e" font-family="Avenir Next, sans-serif" font-size="9">Procedural Memory</text>
-        <text x="92" y="60" text-anchor="middle" fill="#57534e" font-family="SFMono-Regular, monospace" font-size="8">how to behave</text>
-
-        <rect x="200" y="0" width="185" height="70" rx="10" fill="url(#cardGrad)" stroke="#8b5cf6" stroke-width="1"/>
-        <text x="292" y="25" text-anchor="middle" fill="#a78bfa" font-family="Avenir Next, sans-serif" font-size="11" font-weight="600">Message History</text>
-        <text x="292" y="45" text-anchor="middle" fill="#a8a29e" font-family="Avenir Next, sans-serif" font-size="9">Working Memory</text>
-        <text x="292" y="60" text-anchor="middle" fill="#57534e" font-family="SFMono-Regular, monospace" font-size="8">recent conversation</text>
-
-        <rect x="400" y="0" width="185" height="70" rx="10" fill="url(#cardGrad)" stroke="#3b82f6" stroke-width="1"/>
-        <text x="492" y="25" text-anchor="middle" fill="#60a5fa" font-family="Avenir Next, sans-serif" font-size="11" font-weight="600">Retrieved Info</text>
-        <text x="492" y="45" text-anchor="middle" fill="#a8a29e" font-family="Avenir Next, sans-serif" font-size="9">Semantic Memory</text>
-        <text x="492" y="60" text-anchor="middle" fill="#57534e" font-family="SFMono-Regular, monospace" font-size="8">RAG / knowledge</text>
-
-        <rect x="600" y="0" width="185" height="70" rx="10" fill="url(#cardGrad)" stroke="#22c55e" stroke-width="1"/>
-        <text x="692" y="25" text-anchor="middle" fill="#4ade80" font-family="Avenir Next, sans-serif" font-size="11" font-weight="600">User Preferences</text>
-        <text x="692" y="45" text-anchor="middle" fill="#a8a29e" font-family="Avenir Next, sans-serif" font-size="9">Episodic Memory</text>
-        <text x="692" y="60" text-anchor="middle" fill="#57534e" font-family="SFMono-Regular, monospace" font-size="8">personalization</text>
-      </g>
-    </g>
-
-    <!-- ==================== KARPATHY QUOTE ==================== -->
-    <g transform="translate(20, 830)">
-      <rect x="0" y="0" width="780" height="50" rx="10" fill="#1c1917" stroke="#292524"/>
-      <text x="390" y="22" text-anchor="middle" fill="#78716c" font-family="Avenir Next, sans-serif" font-size="11" font-style="italic">"LLMs are like a new kind of operating system, where the model acts as the CPU</text>
-      <text x="390" y="40" text-anchor="middle" fill="#78716c" font-family="Avenir Next, sans-serif" font-size="11" font-style="italic">and its context window functions as the RAM."</text>
-      <text x="750" y="40" text-anchor="end" fill="#44403c" font-family="SFMono-Regular, monospace" font-size="9">— Andrej Karpathy</text>
-    </g>
+  <g filter="url(#shadow)">
+    <rect x="580" y="214" width="664" height="470" rx="28" fill="#fff" stroke="#E2E8F0"/>
   </g>
+  <text x="612" y="246" class="eyebrowDark">Layer Breakdown</text>
+  <text x="612" y="282" class="h2">每层分别控制什么</text>
 
-  <!-- Arrow marker -->
-  <defs>
-    <marker id="arrowGray" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L9,3 z" fill="#44403c"/>
-    </marker>
-  </defs>
+  <g transform="translate(612 320)">
+    <rect x="0" y="0" width="600" height="88" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="24" y="30" class="pill">Prompt Engineering</text>
+    <text x="24" y="58" class="body">控制问法、角色、格式和局部约束。它能改善单次回答质量，但影响范围仍然局限在这一次调用。</text>
 
-  <!-- Footer -->
-  <g transform="translate(700, 960)">
-    <text x="0" y="0" text-anchor="middle" fill="#44403c" font-family="SFMono-Regular, monospace" font-size="9">Sources: Louis Bouchard · DecodingAI · Mitchell Hashimoto · Andrej Karpathy · OpenAI · Anthropic · LangChain</text>
+    <rect x="0" y="112" width="600" height="108" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="24" y="142" class="pill">Context Engineering</text>
+    <text x="24" y="170" class="body">控制信息边界：文档、历史、记忆、检索结果和工具输出。它决定模型能基于哪些信息进行推理。</text>
+    <text x="24" y="194" class="body">这一层让模型“不只是会答”，而是“有足够上下文可答”。</text>
+
+    <rect x="0" y="244" width="600" height="140" rx="20" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="24" y="274" class="pill">Harness Engineering</text>
+    <text x="24" y="302" class="body">控制执行系统：命令入口、工作流、质量门、恢复、状态、评审和知识沉淀。</text>
+    <text x="24" y="326" class="body">这层不只是“给模型更多信息”，而是在模型之外建立稳定的系统边界，决定它能否工程化落地。</text>
+
+    <rect x="0" y="406" width="600" height="42" rx="21" fill="#fff" stroke="#E2E8F0"/>
+    <text x="300" y="432" text-anchor="middle" class="body" style="font-size:14px; fill:#334155;">更好的 Prompt 改善局部响应，更好的 Context 扩大推理范围，更好的 Harness 改变系统可靠性。</text>
   </g>
-
-  <!-- Legend -->
-  <g transform="translate(50, 920)">
-    <circle cx="0" cy="0" r="6" fill="#ec4899"/>
-    <text x="15" y="4" fill="#78716c" font-family="Avenir Next, sans-serif" font-size="9">Prompt</text>
-    <circle cx="80" cy="0" r="6" fill="#8b5cf6"/>
-    <text x="95" y="4" fill="#78716c" font-family="Avenir Next, sans-serif" font-size="9">Context</text>
-    <circle cx="170" cy="0" r="6" fill="#3b82f6"/>
-    <text x="185" y="4" fill="#78716c" font-family="Avenir Next, sans-serif" font-size="9">Harness</text>
-  </g>
-
-  <!-- Animated pulse rings -->
-  <circle cx="250" cy="370" r="90" fill="none" stroke="#f472b6" stroke-width="1" opacity="0.3">
-    <animate attributeName="r" values="90;100;90" dur="3s" repeatCount="indefinite"/>
-    <animate attributeName="opacity" values="0.3;0.1;0.3" dur="3s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="250" cy="370" r="175" fill="none" stroke="#a78bfa" stroke-width="1" opacity="0.2">
-    <animate attributeName="r" values="175;185;175" dur="4s" repeatCount="indefinite"/>
-    <animate attributeName="opacity" values="0.2;0.1;0.2" dur="4s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="250" cy="370" r="260" fill="none" stroke="#60a5fa" stroke-width="1" opacity="0.15">
-    <animate attributeName="r" values="260;270;260" dur="5s" repeatCount="indefinite"/>
-    <animate attributeName="opacity" values="0.15;0.05;0.15" dur="5s" repeatCount="indefinite"/>
-  </circle>
 </svg>
