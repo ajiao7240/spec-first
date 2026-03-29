@@ -1,19 +1,11 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const { COMMANDS } = require('./spec-commands');
+const { getBundledPath, readBundledCommandTemplate } = require('./plugin');
 
 function getTemplateDir() {
-  return path.join(__dirname, '..', '..', 'templates', 'claude', 'commands', 'spec');
+  return getBundledPath('commands');
 }
 
 function readTemplate(commandName) {
-  const command = COMMANDS.find((entry) => entry.name === commandName);
-  if (!command) {
-    throw new Error(`Unknown command template: ${commandName}`);
-  }
-
-  const templatePath = path.join(getTemplateDir(), command.filename);
-  return fs.readFileSync(templatePath, 'utf8');
+  return readBundledCommandTemplate(commandName);
 }
 
 module.exports = {

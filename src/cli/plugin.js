@@ -1,0 +1,216 @@
+const fs = require('node:fs');
+const path = require('node:path');
+
+const REPO_ROOT = path.join(__dirname, '..', '..');
+const MANIFEST_PATH = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
+
+function loadPluginManifest() {
+  if (!fs.existsSync(MANIFEST_PATH)) {
+    throw new Error(`Bundled plugin manifest not found: ${MANIFEST_PATH}`);
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
+  validateManifest(manifest);
+  return manifest;
+}
+
+function validateManifest(manifest) {
+  if (!manifest || typeof manifest !== 'object') {
+    throw new Error('Bundled plugin manifest must be a JSON object.');
+  }
+
+  if (!Array.isArray(manifest.commands)) {
+    throw new Error('Bundled plugin manifest is missing a valid commands array.');
+  }
+
+  if (!manifest.directories || typeof manifest.directories !== 'object') {
+    throw new Error('Bundled plugin manifest is missing directories metadata.');
+  }
+
+  for (const field of ['commands', 'skills', 'agents']) {
+    if (typeof manifest.directories[field] !== 'string' || manifest.directories[field].length === 0) {
+      throw new Error(`Bundled plugin manifest is missing directories.${field}.`);
+    }
+  }
+}
+
+function getManifestPath() {
+  return MANIFEST_PATH;
+}
+
+function getBundledPath(kind) {
+  const manifest = loadPluginManifest();
+  return path.join(REPO_ROOT, manifest.directories[kind]);
+}
+
+function listBundledCommands() {
+  const manifest = loadPluginManifest();
+  return manifest.commands.map((command) => {
+    if (!command || typeof command !== 'object') {
+      throw new Error('Bundled plugin manifest contains an invalid command entry.');
+    }
+
+    for (const field of ['name', 'filename', 'description', 'argumentHint', 'skill']) {
+      if (typeof command[field] !== 'string' || command[field].length === 0) {
+        throw new Error(`Bundled plugin manifest command is missing ${field}.`);
+      }
+    }
+
+    return { ...command };
+  });
+}
+
+function listBundledSkills() {
+  const sourceDir = getBundledPath('skills');
+  if (!fs.existsSync(sourceDir)) {
+    throw new Error(`Bundled skills directory not found: ${sourceDir}`);
+  }
+
+  return fs
+    .readdirSync(sourceDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function listBundledAgents() {
+  const sourceDir = getBundledPath('agents');
+  if (!fs.existsSync(sourceDir)) {
+    throw new Error(`Bundled agents directory not found: ${sourceDir}`);
+  }
+
+  return fs
+    .readdirSync(sourceDir, { withFileTypes: true })
+    .flatMap((entry) => walkAgentEntries(path.join(sourceDir, entry.name), entry.name))
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function walkAgentEntries(absolutePath, relativePath) {
+  const stat = fs.statSync(absolutePath);
+  if (stat.isDirectory()) {
+    return fs
+      .readdirSync(absolutePath, { withFileTypes: true })
+      .flatMap((entry) =>
+        walkAgentEntries(
+          path.join(absolutePath, entry.name),
+          path.join(relativePath, entry.name),
+        ),
+      );
+  }
+
+  return relativePath.endsWith('.md') ? [relativePath] : [];
+}
+
+function readBundledCommandTemplate(commandName) {
+  const command = listBundledCommands().find((entry) => entry.name === commandName);
+  if (!command) {
+    throw new Error(`Unknown bundled command template: ${commandName}`);
+  }
+
+  return fs.readFileSync(path.join(getBundledPath('commands'), command.filename), 'utf8');
+}
+
+function syncBundledAssets(projectRoot) {
+  const commands = syncCommands(projectRoot);
+  const skills = syncSkills(projectRoot);
+  const agents = syncAgents(projectRoot);
+
+  return { commands, skills, agents };
+}
+
+function syncCommands(projectRoot) {
+  const targetRoot = path.join(projectRoot, '.claude', 'commands', 'spec');
+  fs.mkdirSync(targetRoot, { recursive: true });
+
+  const commands = listBundledCommands();
+  for (const command of commands) {
+    fs.writeFileSync(
+      path.join(targetRoot, command.filename),
+      readBundledCommandTemplate(command.name),
+      'utf8',
+    );
+  }
+
+  return commands;
+}
+
+function syncSkills(projectRoot) {
+  const targetRoot = path.join(projectRoot, '.claude', 'skills');
+  fs.mkdirSync(targetRoot, { recursive: true });
+
+  const sourceRoot = getBundledPath('skills');
+  const skillNames = listBundledSkills();
+
+  for (const skillName of skillNames) {
+    const sourceDir = path.join(sourceRoot, skillName);
+    const targetDir = path.join(targetRoot, skillName);
+    fs.rmSync(targetDir, { recursive: true, force: true });
+    fs.cpSync(sourceDir, targetDir, { recursive: true, force: true });
+  }
+
+  return skillNames;
+}
+
+function syncAgents(projectRoot) {
+  const targetRoot = path.join(projectRoot, '.claude', 'agents');
+  fs.mkdirSync(targetRoot, { recursive: true });
+
+  const sourceRoot = getBundledPath('agents');
+  const agentPaths = listBundledAgents();
+
+  for (const agentPath of agentPaths) {
+    const sourcePath = path.join(sourceRoot, agentPath);
+    const targetPath = path.join(targetRoot, agentPath);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.copyFileSync(sourcePath, targetPath);
+  }
+
+  return agentPaths;
+}
+
+function inspectInstalledAssets(projectRoot) {
+  const commands = listBundledCommands();
+  const skills = listBundledSkills();
+  const agents = listBundledAgents();
+
+  return {
+    commands: inspectCommands(projectRoot, commands),
+    skills: inspectSkills(projectRoot, skills),
+    agents: inspectAgents(projectRoot, agents),
+  };
+}
+
+function inspectCommands(projectRoot, commands = listBundledCommands()) {
+  const targetRoot = path.join(projectRoot, '.claude', 'commands', 'spec');
+  const missing = commands.filter((command) => !fs.existsSync(path.join(targetRoot, command.filename)));
+  return { targetRoot, entries: commands, missing };
+}
+
+function inspectSkills(projectRoot, skillNames = listBundledSkills()) {
+  const targetRoot = path.join(projectRoot, '.claude', 'skills');
+  const missing = skillNames.filter((skillName) => {
+    return !fs.existsSync(path.join(targetRoot, skillName, 'SKILL.md'));
+  });
+  return { targetRoot, entries: skillNames, missing };
+}
+
+function inspectAgents(projectRoot, agentPaths = listBundledAgents()) {
+  const targetRoot = path.join(projectRoot, '.claude', 'agents');
+  const missing = agentPaths.filter((agentPath) => !fs.existsSync(path.join(targetRoot, agentPath)));
+  return { targetRoot, entries: agentPaths, missing };
+}
+
+module.exports = {
+  getBundledPath,
+  getManifestPath,
+  inspectInstalledAssets,
+  listBundledAgents,
+  listBundledCommands,
+  listBundledSkills,
+  loadPluginManifest,
+  readBundledCommandTemplate,
+  syncAgents,
+  syncBundledAssets,
+  syncCommands,
+  syncSkills,
+};

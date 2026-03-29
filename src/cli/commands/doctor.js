@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { COMMANDS } = require('../spec-commands');
+const { inspectInstalledAssets, listBundledCommands, loadPluginManifest } = require('../plugin');
 
 function runDoctor(argv) {
   const args = [...argv];
@@ -21,7 +21,10 @@ function runDoctor(argv) {
     checkNodeVersion(),
     checkGit(),
     checkClaude(),
+    checkPluginManifest(),
     checkGeneratedCommands(projectRoot),
+    checkInstalledSkills(projectRoot),
+    checkInstalledAgents(projectRoot),
   ];
 
   for (const check of checks) {
@@ -96,8 +99,19 @@ function checkClaude() {
 }
 
 function checkGeneratedCommands(projectRoot) {
-  const commandDir = path.join(projectRoot, '.claude', 'commands', 'spec');
-  if (!fs.existsSync(commandDir)) {
+  let commandStatus;
+  try {
+    commandStatus = inspectInstalledAssets(projectRoot).commands;
+  } catch (error) {
+    return {
+      level: 'ERROR',
+      name: '.claude/commands/spec',
+      message: error instanceof Error ? error.message : String(error),
+      fix: 'Reinstall the spec-first package so bundled command templates are available.',
+    };
+  }
+
+  if (!fs.existsSync(commandStatus.targetRoot)) {
     return {
       level: 'WARNING',
       name: '.claude/commands/spec',
@@ -106,25 +120,115 @@ function checkGeneratedCommands(projectRoot) {
     };
   }
 
-  const missing = COMMANDS.filter((command) => {
-    const filePath = path.join(commandDir, command.filename);
-    return !fs.existsSync(filePath);
-  });
-
-  if (missing.length === 0) {
+  if (commandStatus.missing.length === 0) {
     return {
       level: 'PASS',
       name: '.claude/commands/spec',
-      message: `found ${COMMANDS.length} command file(s)`,
+      message: `found ${commandStatus.entries.length} command file(s)`,
     };
   }
 
   return {
     level: 'WARNING',
     name: '.claude/commands/spec',
-    message: `missing ${missing.map((entry) => entry.filename).join(', ')}`,
+    message: `missing ${commandStatus.missing.map((entry) => entry.filename).join(', ')}`,
     fix: 'Run `spec-first init --claude` to regenerate the missing files.',
   };
+}
+
+function checkInstalledSkills(projectRoot) {
+  let skillStatus;
+  try {
+    skillStatus = inspectInstalledAssets(projectRoot).skills;
+  } catch (error) {
+    return {
+      level: 'ERROR',
+      name: '.claude/skills',
+      message: error instanceof Error ? error.message : String(error),
+      fix: 'Reinstall the spec-first package so bundled skills are available.',
+    };
+  }
+
+  if (!fs.existsSync(skillStatus.targetRoot)) {
+    return {
+      level: 'WARNING',
+      name: '.claude/skills',
+      message: 'missing',
+      fix: 'Run `spec-first init --claude` in this project to install bundled skills.',
+    };
+  }
+
+  if (skillStatus.missing.length === 0) {
+    return {
+      level: 'PASS',
+      name: '.claude/skills',
+      message: `found ${skillStatus.entries.length} skill directory(ies)`,
+    };
+  }
+
+  return {
+    level: 'WARNING',
+    name: '.claude/skills',
+    message: `out of sync (${skillStatus.entries.length - skillStatus.missing.length}/${skillStatus.entries.length} installed)`,
+    fix: 'Run `spec-first init --claude` in this project to resync bundled skills.',
+  };
+}
+
+function checkInstalledAgents(projectRoot) {
+  let agentStatus;
+  try {
+    agentStatus = inspectInstalledAssets(projectRoot).agents;
+  } catch (error) {
+    return {
+      level: 'ERROR',
+      name: '.claude/agents',
+      message: error instanceof Error ? error.message : String(error),
+      fix: 'Reinstall the spec-first package so bundled agents are available.',
+    };
+  }
+
+  if (!fs.existsSync(agentStatus.targetRoot)) {
+    return {
+      level: 'WARNING',
+      name: '.claude/agents',
+      message: 'missing',
+      fix: 'Run `spec-first init --claude` in this project to install bundled agents.',
+    };
+  }
+
+  if (agentStatus.missing.length === 0) {
+    return {
+      level: 'PASS',
+      name: '.claude/agents',
+      message: `found ${agentStatus.entries.length} agent file(s)`,
+    };
+  }
+
+  return {
+    level: 'WARNING',
+    name: '.claude/agents',
+    message: `out of sync (${agentStatus.entries.length - agentStatus.missing.length}/${agentStatus.entries.length} installed)`,
+    fix: 'Run `spec-first init --claude` in this project to resync bundled agents.',
+  };
+}
+
+function checkPluginManifest() {
+  try {
+    const manifest = loadPluginManifest();
+    const commandCount = listBundledCommands().length;
+    return {
+      level: 'PASS',
+      name: '.claude-plugin/plugin.json',
+      message: `${manifest.name}@${manifest.version} with ${commandCount} command definition(s)`,
+    };
+  } catch (error) {
+    return {
+      level: 'ERROR',
+      name: '.claude-plugin/plugin.json',
+      message: error instanceof Error ? error.message : String(error),
+      fix: 'Restore the bundled plugin manifest and reinstall the package.',
+    };
+  }
 }
 
 function printHelp() {

@@ -1,8 +1,7 @@
 ---
-name: spec:review
+name: review-workflow
 description: "Structured code review using tiered persona agents, confidence-gated findings, and a merge/dedup pipeline. Use when reviewing code changes before creating a PR."
 argument-hint: "[mode:autofix|mode:report-only] [PR number, GitHub URL, or branch name]"
-user-invocable: true
 ---
 
 # Code Review

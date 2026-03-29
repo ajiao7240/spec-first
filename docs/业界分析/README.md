@@ -1,6 +1,6 @@
 # 业界分析索引
 
-这里汇总的是围绕 `compound-engineering` 和 `compound-workflows` 的流程、机制、飞轮化能力分析。
+这里汇总的是围绕 `compound-engineering`、`spec-first` 和 `compound-workflows` 的流程、机制、飞轮化能力分析。
 
 ## 推荐阅读顺序
 
@@ -13,6 +13,9 @@
 
 - [详细对比分析.md](./详细对比分析.md)
 - [对比分析.md](./对比分析.md)
+- [6.spec-first相对compound-engineering-plugin总目录页.md](./6.spec-first相对compound-engineering-plugin总目录页.md)
+- [4.spec-first相对compound-engineering-plugin能力缺口分析.md](./4.spec-first相对compound-engineering-plugin能力缺口分析.md)
+- [5.spec-first相对compound-engineering-plugin平台与生态能力缺口分析.md](./5.spec-first相对compound-engineering-plugin平台与生态能力缺口分析.md)
 
 ## 文档定位
 
@@ -29,4 +32,3 @@
 - 系统如何让质量越来越好
 - 系统如何沉淀经验并减少重复劳动
 - 系统如何把每个需求变成下一个需求的铺路石
-

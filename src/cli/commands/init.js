@@ -1,7 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { COMMANDS } = require('../spec-commands');
-const { readTemplate } = require('../templates');
+const { syncBundledAssets } = require('../plugin');
 
 function runInit(argv) {
   const args = [...argv];
@@ -21,20 +20,24 @@ function runInit(argv) {
   const projectRoot = process.cwd();
   const commandDir = path.join(projectRoot, '.claude', 'commands', 'spec');
   fs.mkdirSync(commandDir, { recursive: true });
-
-  const written = [];
-
-  for (const command of COMMANDS) {
-    const destination = path.join(commandDir, command.filename);
-    const content = readTemplate(command.name);
-
-    fs.writeFileSync(destination, content, 'utf8');
-    written.push(command.filename);
-  }
+  const synced = syncBundledAssets(projectRoot);
+  const written = synced.commands.map((command) => command.filename);
+  const skillNames = synced.skills;
+  const agentPaths = synced.agents;
 
   console.log(`Generated ${written.length} command file(s) in ${path.relative(projectRoot, commandDir)}`);
   for (const file of written) {
     console.log(`  - ${file}`);
+  }
+
+  console.log(`Generated ${skillNames.length} skill directory(ies) in .claude/skills`);
+  for (const skillName of skillNames) {
+    console.log(`  - ${skillName}`);
+  }
+
+  console.log(`Generated ${agentPaths.length} agent file(s) in .claude/agents`);
+  for (const agentPath of agentPaths) {
+    console.log(`  - ${agentPath}`);
   }
 
   console.log('');

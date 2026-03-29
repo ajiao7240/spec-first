@@ -35,19 +35,25 @@ npm install -g spec-first
 # 2. Verify host integration
 spec-first doctor
 
-# 3. Bootstrap Claude project files
+# 3. Bootstrap Claude project files, bundled skills, and bundled agents
 spec-first init --claude
 
 # 4. Start Claude in the target project
 claude
 ```
 
-完成初始化后，项目内的 `.claude/commands/spec/` 会成为 `/spec:*` 的真实来源。
+完成初始化后，项目内的 `.claude/commands/spec/` 会成为 `/spec:*` 的真实来源，`.claude/skills/` 和 `.claude/agents/` 会同步发布包内的执行资产。
+命令模板会先委托给对应的 workflow skill，再按 skill 合同决定产物路径和阶段交接。
 
 ## Notes
 
 - npm 发布模型以 `spec-first` CLI 为入口，而不是 Claude plugin marketplace。
 - `/spec:*` 命令来自 `spec-first init --claude` 生成的项目级 `.claude/commands/spec/`。
+- `.claude/commands/spec/*.md` 只负责稳定入口；每个命令都会明确以对应 `.claude/skills/spec-*/SKILL.md` 为执行合同。
+- `spec-first init --claude` 还会把 `skills/` 同步到项目级 `.claude/skills/`，让发布后的 skill 引用继续可用。
+- `spec-first init --claude` 也会把 `agents/` 同步到项目级 `.claude/agents/`，供 skills 调度内部子代理。
+- 发布包内现在还包含 `.claude-plugin/plugin.json`，作为 commands / skills / agents 的统一资产清单。
+- 这批 bundled workflow skills 是内部协作层，不再作为独立 slash commands 暴露；用户入口仍以 `/spec:*` 命令为准。
 
 ## Testing
 

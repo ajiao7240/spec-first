@@ -8,6 +8,11 @@
 - `spec-first doctor`
 - `spec-first init --claude`
 - `/spec:*` 命令来自项目内 `.claude/commands/spec/`
+- 每个 `/spec:*` 命令都会显式委托给对应 `.claude/skills/spec-*/SKILL.md`
+- `spec-first init --claude` 还会同步发布包内的 `skills/` 到 `.claude/skills/`
+- `spec-first init --claude` 还会同步发布包内的 `agents/` 到 `.claude/agents/`
+- 发布包内还包含 `.claude-plugin/plugin.json` 作为统一资产清单
+- bundled workflow skills 只作为内部协作层存在，用户仍然通过 `/spec:*` 命令使用 Spec-First
 
 ## 目录
 
@@ -46,4 +51,4 @@
 
 ## 版本
 
-当前版本：v1.3.9
+当前版本：v1.3.10
