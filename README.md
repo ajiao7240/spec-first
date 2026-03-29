@@ -316,72 +316,39 @@ Claude Code 是一个强大的 AI 编程助手，但默认是"一次性对话"�
 
 ## 📊 Stats
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-
-### 📦 NPM Downloads
-
 <p align="center">
   <a href="https://npmtrends.com/spec-first">
-    <img src="https://img.shields.io/npm/dw/spec-first?style=for-the-badge&label=weekly&color=2563eb" alt="npm weekly downloads">
+    <img src="https://img.shields.io/npm/dw/spec-first?style=flat-square&label=weekly&color=2563eb" alt="npm weekly downloads">
   </a>
-</p>
-<p align="center">
   <a href="https://npmtrends.com/spec-first">
-    <img src="https://img.shields.io/npm/dm/spec-first?style=for-the-badge&label=monthly&color=2563eb" alt="npm monthly downloads">
+    <img src="https://img.shields.io/npm/dm/spec-first?style=flat-square&label=monthly&color=2563eb" alt="npm monthly downloads">
   </a>
-</p>
-<p align="center">
   <a href="https://npmtrends.com/spec-first">
-    <img src="https://img.shields.io/npm/dy/spec-first?style=for-the-badge&label=yearly&color=2563eb" alt="npm yearly downloads">
+    <img src="https://img.shields.io/npm/dy/spec-first?style=flat-square&label=yearly&color=2563eb" alt="npm yearly downloads">
   </a>
-</p>
-<p align="center">
   <a href="https://npmtrends.com/spec-first">
-    <img src="https://img.shields.io/npm/dt/spec-first?style=for-the-badge&label=total&color=2563eb" alt="npm total downloads">
+    <img src="https://img.shields.io/npm/dt/spec-first?style=flat-square&label=total&color=2563eb" alt="npm total downloads">
   </a>
-</p>
-<p align="center">
   <a href="https://npmtrends.com/spec-first">
-    <img src="https://img.shields.io/badge/📈_View_Download_Trends-npmtrends.com-2563eb?style=for-the-badge" alt="View npm trends">
+    <img src="https://img.shields.io/badge/📈_Trends-npmtrends.com-2563eb?style=flat-square" alt="View npm trends">
   </a>
-</p>
-
-    </td>
-    <td width="50%" valign="top">
-
-### ⭐ GitHub Stats
-
-<p align="center">
+  <span>&nbsp;&nbsp;&nbsp;&nbsp;</span>
   <a href="https://github.com/sunrain520/spec-first/stargazers">
-    <img src="https://img.shields.io/github/stars/sunrain520/spec-first?style=for-the-badge&color=eab308" alt="GitHub stars">
+    <img src="https://img.shields.io/github/stars/sunrain520/spec-first?style=flat-square&color=eab308" alt="GitHub stars">
   </a>
-</p>
-<p align="center">
   <a href="https://github.com/sunrain520/spec-first/network/members">
-    <img src="https://img.shields.io/github/forks/sunrain520/spec-first?style=for-the-badge&color=8b5cf6" alt="GitHub forks">
+    <img src="https://img.shields.io/github/forks/sunrain520/spec-first?style=flat-square&color=8b5cf6" alt="GitHub forks">
   </a>
-</p>
-<p align="center">
   <a href="https://github.com/sunrain520/spec-first/graphs/contributors">
-    <img src="https://img.shields.io/github/contributors/sunrain520/spec-first?style=for-the-badge&color=22c55e" alt="GitHub contributors">
+    <img src="https://img.shields.io/github/contributors/sunrain520/spec-first?style=flat-square&color=22c55e" alt="GitHub contributors">
   </a>
-</p>
-<p align="center">
   <a href="https://github.com/sunrain520/spec-first/issues">
-    <img src="https://img.shields.io/github/issues/sunrain520/spec-first?style=for-the-badge&color=e67e22" alt="GitHub issues">
+    <img src="https://img.shields.io/github/issues/sunrain520/spec-first?style=flat-square&color=e67e22" alt="GitHub issues">
   </a>
-</p>
-<p align="center">
   <a href="https://star-history.com/#sunrain520/spec-first&Date">
-    <img src="https://img.shields.io/badge/📊_View_Star_History-star--history.com-eab308?style=for-the-badge" alt="View star history">
+    <img src="https://img.shields.io/badge/📊_History-star--history.com-eab308?style=flat-square" alt="View star history">
   </a>
 </p>
-
-    </td>
-  </tr>
-</table>
 
 ### Star History
 
