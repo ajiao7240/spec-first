@@ -159,7 +159,10 @@ npm install -g spec-first
 
 # 验证安装
 spec-first doctor
+spec-first -v
 ```
+
+`spec-first -v` 会稳定输出欢迎页和版本信息。安装阶段的 `postinstall` 提示不作为对外承诺，是否显示取决于 npm 的生命周期输出策略。
 
 <details>
 <summary><b>🔧 从源码安装</b></summary>
@@ -181,13 +184,20 @@ hash -r  # 刷新 shell 缓存
 ```bash
 # 1️⃣ 检查环境
 spec-first doctor
+spec-first -v
 
 # 2️⃣ 在目标项目初始化
+spec-first init --claude
+
+# 或者显式指定开发者信息
 spec-first init --claude -u <name> --lang <zh|en>
 
 # 3️⃣ 启动 Claude Code
 claude
 ```
+
+如果你没有传 `-u/--user`，`spec-first init --claude` 会优先回退到全局 `~/.spec-first/.developer`，再回退到 `git config user.name`。  
+初始化成功后，项目内会生成 `.claude/spec-first/.developer`，记录开发者名称、语言偏好、初始化时间和 CLI 版本。
 
 现在你可以在项目里使用：
 
@@ -227,7 +237,7 @@ spec-first/                        .claude/
 | 命令 | 参数 | 描述 |
 |------|------|------|
 | `spec-first doctor` | - | 检查环境和项目状态 |
-| `spec-first init` | `--claude`, `-u`, `--lang`, `--force` | 同步命令、技能、代理与项目身份到项目 |
+| `spec-first init` | `--claude`, `-u`, `--lang`, `--force` | 同步命令、技能、代理与项目开发者元数据到项目 |
 | `spec-first clean` | `--claude` | 移除受管资产，保留自定义内容 |
 
 ---

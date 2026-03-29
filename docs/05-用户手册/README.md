@@ -4,6 +4,8 @@
 
 `spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init --claude / clean --claude` 把 `/spec:*` 命令、workflow skills、agents、项目级 `.developer` 和受管状态安装到当前项目中。
 
+`init --claude` 支持显式传入 `-u/--user` 和 `--lang`。如果没有传用户名，它会优先回退到全局 `~/.spec-first/.developer`，再回退到 `git config user.name`。
+
 ![Spec-First 总览图](../assets/svg/spec-first-overview.svg)
 
 ## 你会得到什么
