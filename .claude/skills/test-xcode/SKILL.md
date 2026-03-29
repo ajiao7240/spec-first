@@ -209,6 +209,6 @@ After testing:
 /test-xcode current
 ```
 
-## Integration with ce:review
+## Integration with spec:review
 
-When reviewing PRs that touch iOS code, the `ce:review` workflow can spawn an agent to run this skill, build on the simulator, test key screens, and check for crashes.
+When reviewing PRs that touch iOS code, the `spec:review` workflow can spawn an agent to run this skill, build on the simulator, test key screens, and check for crashes.

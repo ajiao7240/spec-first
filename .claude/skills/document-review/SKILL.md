@@ -71,15 +71,15 @@ Reviewing with:
 ### Build Agent List
 
 Always include:
-- `spec-first:document-review:coherence-reviewer`
-- `spec-first:document-review:feasibility-reviewer`
+- `document-review:coherence-reviewer`
+- `document-review:feasibility-reviewer`
 
 Add activated conditional personas:
-- `spec-first:document-review:product-lens-reviewer`
-- `spec-first:document-review:design-lens-reviewer`
-- `spec-first:document-review:security-lens-reviewer`
-- `spec-first:document-review:scope-guardian-reviewer`
-- `spec-first:document-review:adversarial-document-reviewer`
+- `document-review:product-lens-reviewer`
+- `document-review:design-lens-reviewer`
+- `document-review:security-lens-reviewer`
+- `document-review:scope-guardian-reviewer`
+- `document-review:adversarial-document-reviewer`
 
 ### Dispatch
 
@@ -229,7 +229,7 @@ Return "Review complete" as the terminal signal for callers.
 - Do not add new sections or requirements the user didn't discuss
 - Do not over-engineer or add complexity
 - Do not create separate review files or add metadata sections
-- Do not modify any of the 2 caller skills (ce-brainstorm, ce-plan)
+- Do not modify any of the 2 caller skills (spec-brainstorm, spec-plan)
 
 ## Iteration Guidance
 

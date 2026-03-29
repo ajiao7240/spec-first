@@ -20,15 +20,15 @@ check_skill_format() {
     fi
 }
 
-check_skill_format "ce-brainstorm"
-check_skill_format "ce-plan"
-check_skill_format "ce-work"
-check_skill_format "ce-review"
-check_skill_format "ce-compound"
+check_skill_format "spec-brainstorm"
+check_skill_format "spec-plan"
+check_skill_format "spec-work"
+check_skill_format "spec-review"
+check_skill_format "spec-compound"
 
 echo ""
 echo "2. 检查 skill 名称..."
-for skill in ce-brainstorm ce-plan ce-work ce-review ce-compound; do
+for skill in spec-brainstorm spec-plan spec-work spec-review spec-compound; do
     name=$(grep "^name:" "skills/$skill/SKILL.md" | head -1)
     echo "  $skill: $name"
 done

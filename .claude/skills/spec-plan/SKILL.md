@@ -1,6 +1,6 @@
 ---
 name: plan-workflow
-description: "Transform feature descriptions or requirements into structured implementation plans grounded in repo patterns and research. Use when the user says 'plan this', 'create a plan', 'write a tech plan', 'plan the implementation', 'how should we build', 'what's the approach for', 'break this down', or when a brainstorm/requirements document is ready for technical planning. Best when requirements are at least roughly defined; for exploratory or ambiguous requests, prefer ce:brainstorm first."
+description: "Transform feature descriptions or requirements into structured implementation plans grounded in repo patterns and research. Use when the user says 'plan this', 'create a plan', 'write a tech plan', 'plan the implementation', 'how should we build', 'what's the approach for', 'break this down', or when a brainstorm/requirements document is ready for technical planning. Best when requirements are at least roughly defined; for exploratory or ambiguous requests, prefer spec:brainstorm first."
 argument-hint: "[feature description, requirements doc path, or improvement idea]"
 ---
 
@@ -8,7 +8,7 @@ argument-hint: "[feature description, requirements doc path, or improvement idea
 
 **Note: The current year is 2026.** Use this when dating plans and searching for recent documentation.
 
-`ce:brainstorm` defines **WHAT** to build. `spec:plan` defines **HOW** to build it. `spec:work` executes the plan.
+`spec:brainstorm` defines **WHAT** to build. `spec:plan` defines **HOW** to build it. `spec:work` executes the plan.
 
 This workflow produces a durable implementation plan. It does **not** implement code, run tests, or learn from execution-time results. If the answer depends on changing code and seeing what happens, that belongs in `spec:work`, not here.
 
@@ -28,7 +28,7 @@ Do not proceed until you have a clear planning input.
 
 ## Core Principles
 
-1. **Use requirements as the source of truth** - If `ce:brainstorm` produced a requirements document, planning should build from it rather than re-inventing behavior.
+1. **Use requirements as the source of truth** - If `spec:brainstorm` produced a requirements document, planning should build from it rather than re-inventing behavior.
 2. **Decisions, not code** - Capture approach, boundaries, files, dependencies, risks, and test scenarios. Do not pre-write implementation code or shell command choreography. Pseudo-code sketches or DSL grammars that communicate high-level technical design are welcome when they help a reviewer validate direction — but they must be explicitly framed as directional guidance, not implementation specification.
 3. **Research before structuring** - Explore the codebase, institutional learnings, and external guidance when warranted before finalizing the plan.
 4. **Right-size the artifact** - Small work gets a compact plan. Large work gets more structure. The philosophy stays the same at every depth.
@@ -100,7 +100,7 @@ If no relevant requirements document exists, planning may proceed from the user'
 
 If no relevant requirements document exists:
 - Assess whether the request is already clear enough for direct technical planning
-- If the ambiguity is mainly product framing, user behavior, or scope definition, recommend `ce:brainstorm` first
+- If the ambiguity is mainly product framing, user behavior, or scope definition, recommend `spec:brainstorm` first
 - If the user wants to continue here anyway, run a short planning bootstrap instead of refusing
 
 The planning bootstrap should establish:
@@ -113,7 +113,7 @@ The planning bootstrap should establish:
 Keep this bootstrap brief. It exists to preserve direct-entry convenience, not to replace a full brainstorm.
 
 If the bootstrap uncovers major unresolved product questions:
-- Recommend `ce:brainstorm` again
+- Recommend `spec:brainstorm` again
 - If the user still wants to continue, require explicit assumptions before proceeding
 
 #### 0.5 Classify Outstanding Questions Before Planning
@@ -126,7 +126,7 @@ If the origin document contains `Resolve Before Planning` or similar blocking qu
 If true product blockers remain:
 - Surface them clearly
 - Ask the user, using the platform's blocking question tool when available (see Interaction Method), whether to:
-  1. Resume `ce:brainstorm` to resolve them
+  1. Resume `spec:brainstorm` to resolve them
   2. Convert them into explicit assumptions or decisions and continue
 - Do not continue planning while true blockers remain unresolved
 
@@ -150,8 +150,8 @@ Prepare a concise planning context summary (a paragraph or two) to pass as input
 
 Run these agents in parallel:
 
-- Task spec-first:research:repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
-- Task spec-first:research:learnings-researcher(planning context summary)
+- Task research:repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
+- Task research:learnings-researcher(planning context summary)
 
 Collect:
 - Technology stack and versions (used in section 1.2 to make sharper external research decisions)
@@ -215,8 +215,8 @@ Announce the decision briefly before continuing. Examples:
 
 If Step 1.2 indicates external research is useful, run these agents in parallel:
 
-- Task spec-first:research:best-practices-researcher(planning context summary)
-- Task spec-first:research:framework-docs-researcher(planning context summary)
+- Task research:best-practices-researcher(planning context summary)
+- Task research:framework-docs-researcher(planning context summary)
 
 #### 1.4 Consolidate Research
 
@@ -243,7 +243,7 @@ This ensures flow analysis (Phase 1.5) runs and the confidence check (Phase 5.3)
 
 For **Standard** or **Deep** plans, or when user flow completeness is still unclear, run:
 
-- Task spec-first:workflow:spec-flow-analyzer(planning context summary, research findings)
+- Task workflow:spec-flow-analyzer(planning context summary, research findings)
 
 Use the output to:
 - Identify missing edge cases, state transitions, or handoff gaps
@@ -583,7 +583,7 @@ For larger `Deep` plans, extend the core template only when useful with sections
 #### 5.1 Review Before Writing
 
 Before finalizing, check:
-- The plan does not invent product behavior that should have been defined in `ce:brainstorm`
+- The plan does not invent product behavior that should have been defined in `spec:brainstorm`
 - If there was no origin document, the bounded planning bootstrap established enough product clarity to plan responsibly
 - Every major decision is grounded in the origin document or research
 - Each implementation unit is concrete, dependency-ordered, and implementation-ready
@@ -597,7 +597,7 @@ Before finalizing, check:
 If the plan originated from a requirements document, re-read that document and verify:
 - The chosen approach still matches the product intent
 - Scope boundaries and success criteria are preserved
-- Blocking questions were either resolved, explicitly assumed, or sent back to `ce:brainstorm`
+- Blocking questions were either resolved, explicitly assumed, or sent back to `spec:brainstorm`
 - Every section of the origin document is addressed in the plan — scan each section to confirm nothing was silently dropped
 
 #### 5.2 Write Plan File
@@ -746,43 +746,43 @@ Use fully-qualified agent names inside Task calls.
 **Deterministic Section-to-Agent Mapping:**
 
 **Requirements Trace / Open Questions classification**
-- `spec-first:workflow:spec-flow-analyzer` for missing user flows, edge cases, and handoff gaps
-- `spec-first:research:repo-research-analyst` (Scope: `architecture, patterns`) for repo-grounded patterns, conventions, and implementation reality checks
+- `workflow:spec-flow-analyzer` for missing user flows, edge cases, and handoff gaps
+- `research:repo-research-analyst` (Scope: `architecture, patterns`) for repo-grounded patterns, conventions, and implementation reality checks
 
 **Context & Research / Sources & References gaps**
-- `spec-first:research:learnings-researcher` for institutional knowledge and past solved problems
-- `spec-first:research:framework-docs-researcher` for official framework or library behavior
-- `spec-first:research:best-practices-researcher` for current external patterns and industry guidance
-- Add `spec-first:research:git-history-analyzer` only when historical rationale or prior art is materially missing
+- `research:learnings-researcher` for institutional knowledge and past solved problems
+- `research:framework-docs-researcher` for official framework or library behavior
+- `research:best-practices-researcher` for current external patterns and industry guidance
+- Add `research:git-history-analyzer` only when historical rationale or prior art is materially missing
 
 **Key Technical Decisions**
-- `spec-first:review:architecture-strategist` for design integrity, boundaries, and architectural tradeoffs
-- Add `spec-first:research:framework-docs-researcher` or `spec-first:research:best-practices-researcher` when the decision needs external grounding beyond repo evidence
+- `review:architecture-strategist` for design integrity, boundaries, and architectural tradeoffs
+- Add `research:framework-docs-researcher` or `research:best-practices-researcher` when the decision needs external grounding beyond repo evidence
 
 **High-Level Technical Design**
-- `spec-first:review:architecture-strategist` for validating that the technical design accurately represents the intended approach and identifying gaps
-- `spec-first:research:repo-research-analyst` (Scope: `architecture, patterns`) for grounding the technical design in existing repo patterns and conventions
-- Add `spec-first:research:best-practices-researcher` when the technical design involves a DSL, API surface, or pattern that benefits from external validation
+- `review:architecture-strategist` for validating that the technical design accurately represents the intended approach and identifying gaps
+- `research:repo-research-analyst` (Scope: `architecture, patterns`) for grounding the technical design in existing repo patterns and conventions
+- Add `research:best-practices-researcher` when the technical design involves a DSL, API surface, or pattern that benefits from external validation
 
 **Implementation Units / Verification**
-- `spec-first:research:repo-research-analyst` (Scope: `patterns`) for concrete file targets, patterns to follow, and repo-specific sequencing clues
-- `spec-first:review:pattern-recognition-specialist` for consistency, duplication risks, and alignment with existing patterns
-- Add `spec-first:workflow:spec-flow-analyzer` when sequencing depends on user flow or handoff completeness
+- `research:repo-research-analyst` (Scope: `patterns`) for concrete file targets, patterns to follow, and repo-specific sequencing clues
+- `review:pattern-recognition-specialist` for consistency, duplication risks, and alignment with existing patterns
+- Add `workflow:spec-flow-analyzer` when sequencing depends on user flow or handoff completeness
 
 **System-Wide Impact**
-- `spec-first:review:architecture-strategist` for cross-boundary effects, interface surfaces, and architectural knock-on impact
+- `review:architecture-strategist` for cross-boundary effects, interface surfaces, and architectural knock-on impact
 - Add the specific specialist that matches the risk:
-  - `spec-first:review:performance-oracle` for scalability, latency, throughput, and resource-risk analysis
-  - `spec-first:review:security-sentinel` for auth, validation, exploit surfaces, and security boundary review
-  - `spec-first:review:data-integrity-guardian` for migrations, persistent state safety, consistency, and data lifecycle risks
+  - `review:performance-oracle` for scalability, latency, throughput, and resource-risk analysis
+  - `review:security-sentinel` for auth, validation, exploit surfaces, and security boundary review
+  - `review:data-integrity-guardian` for migrations, persistent state safety, consistency, and data lifecycle risks
 
 **Risks & Dependencies / Operational Notes**
 - Use the specialist that matches the actual risk:
-  - `spec-first:review:security-sentinel` for security, auth, privacy, and exploit risk
-  - `spec-first:review:data-integrity-guardian` for persistent data safety, constraints, and transaction boundaries
-  - `spec-first:review:data-migration-expert` for migration realism, backfills, and production data transformation risk
-  - `spec-first:review:deployment-verification-agent` for rollout checklists, rollback planning, and launch verification
-  - `spec-first:review:performance-oracle` for capacity, latency, and scaling concerns
+  - `review:security-sentinel` for security, auth, privacy, and exploit risk
+  - `review:data-integrity-guardian` for persistent data safety, constraints, and transaction boundaries
+  - `review:data-migration-expert` for migration realism, backfills, and production data transformation risk
+  - `review:deployment-verification-agent` for rollout checklists, rollback planning, and launch verification
+  - `review:performance-oracle` for capacity, latency, and scaling concerns
 
 **Agent Prompt Shape:**
 
@@ -814,7 +814,7 @@ Signals that justify artifact-backed mode:
 
 If artifact-backed mode is not clearly warranted, stay in direct mode.
 
-Artifact-backed mode uses a per-run scratch directory under `.context/spec-first/ce-plan/deepen/`.
+Artifact-backed mode uses a per-run scratch directory under `.context/spec-first/spec-plan/deepen/`.
 
 ##### 5.3.6 Run Targeted Research
 
@@ -860,7 +860,7 @@ Do **not**:
 If research reveals a product-level ambiguity that should change behavior or scope:
 - Do not silently decide it here
 - Record it under `Open Questions`
-- Recommend `ce:brainstorm` if the gap is truly product-defining
+- Recommend `spec:brainstorm` if the gap is truly product-defining
 
 ##### 5.3.8 Final Checks and Cleanup
 

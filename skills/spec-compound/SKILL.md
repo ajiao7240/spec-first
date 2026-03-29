@@ -167,9 +167,9 @@ When creating a new doc, preserve the section order from `assets/resolution-temp
 
 After writing the new learning, decide whether this new solution is evidence that older docs should be refreshed.
 
-`ce:compound-refresh` is **not** a default follow-up. Use it selectively when the new learning suggests an older learning or pattern doc may now be inaccurate.
+`spec:compound-refresh` is **not** a default follow-up. Use it selectively when the new learning suggests an older learning or pattern doc may now be inaccurate.
 
-It makes sense to invoke `ce:compound-refresh` when one or more of these are true:
+It makes sense to invoke `spec:compound-refresh` when one or more of these are true:
 
 1. A related learning or pattern doc recommends an approach that the new fix now contradicts
 2. The new fix clearly supersedes an older documented solution
@@ -178,7 +178,7 @@ It makes sense to invoke `ce:compound-refresh` when one or more of these are tru
 5. The Related Docs Finder surfaced high-confidence refresh candidates in the same problem space
 6. The Related Docs Finder reported **moderate overlap** with an existing doc — there may be consolidation opportunities that benefit from a focused review
 
-It does **not** make sense to invoke `ce:compound-refresh` when:
+It does **not** make sense to invoke `spec:compound-refresh` when:
 
 1. No related docs were found
 2. Related docs still appear consistent with the new learning
@@ -187,11 +187,11 @@ It does **not** make sense to invoke `ce:compound-refresh` when:
 
 Use these rules:
 
-- If there is **one obvious stale candidate**, invoke `ce:compound-refresh` with a narrow scope hint after the new learning is written
+- If there is **one obvious stale candidate**, invoke `spec:compound-refresh` with a narrow scope hint after the new learning is written
 - If there are **multiple candidates in the same area**, ask the user whether to run a targeted refresh for that module, category, or pattern set
-- If context is already tight or you are in compact-safe mode, do not expand into a broad refresh automatically; instead recommend `ce:compound-refresh` as the next step with a scope hint
+- If context is already tight or you are in compact-safe mode, do not expand into a broad refresh automatically; instead recommend `spec:compound-refresh` as the next step with a scope hint
 
-When invoking or recommending `ce:compound-refresh`, be explicit about the argument to pass. Prefer the narrowest useful scope:
+When invoking or recommending `spec:compound-refresh`, be explicit about the argument to pass. Prefer the narrowest useful scope:
 
 - **Specific file** when one learning or pattern doc is the likely stale artifact
 - **Module or component name** when several related docs may need review
@@ -207,7 +207,7 @@ Examples:
 
 A single scope hint may still expand to multiple related docs when the change is cross-cutting within one domain, category, or pattern area.
 
-Do not invoke `ce:compound-refresh` without an argument unless the user explicitly wants a broad sweep.
+Do not invoke `spec:compound-refresh` without an argument unless the user explicitly wants a broad sweep.
 
 Always capture the new learning first. Refresh is a targeted maintenance follow-up, not a prerequisite for documentation.
 
@@ -263,7 +263,7 @@ re-run /compound in a fresh session.
 
 **No subagents are launched. No parallel tasks. One file written.**
 
-In compact-safe mode, the overlap check is skipped (no Related Docs Finder subagent). This means compact-safe mode may create a doc that overlaps with an existing one. That is acceptable — `ce:compound-refresh` will catch it later. Only suggest `ce:compound-refresh` if there is an obvious narrow refresh target. Do not broaden into a large refresh sweep from a compact-safe session.
+In compact-safe mode, the overlap check is skipped (no Related Docs Finder subagent). This means compact-safe mode may create a doc that overlaps with an existing one. That is acceptable — `spec:compound-refresh` will catch it later. Only suggest `spec:compound-refresh` if there is an obvious narrow refresh target. Do not broaden into a large refresh sweep from a compact-safe session.
 
 ---
 

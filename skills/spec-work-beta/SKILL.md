@@ -1,6 +1,6 @@
 ---
-name: ce:work-beta
-description: "[BETA] Execute work plans with external delegate support. Same as ce:work but includes experimental Codex delegation mode for token-conserving code implementation."
+name: work-beta-workflow
+description: "[BETA] Execute work plans with external delegate support. Same as spec:work but includes experimental Codex delegation mode for token-conserving code implementation."
 argument-hint: "[plan file, specification, or todo file path]"
 disable-model-invocation: true
 ---
@@ -256,7 +256,7 @@ This command takes a work document (plan, specification, or todo file) and execu
 
 2. **Consider Code Review** (Optional)
 
-   Use for complex, risky, or large changes. Load the `ce:review` skill with `mode:autofix` to fix safe issues and flag the rest before shipping. When the plan file path is known, pass it as `plan:<path>`.
+   Use for complex, risky, or large changes. Load the `spec:review` skill with `mode:autofix` to fix safe issues and flag the rest before shipping. When the plan file path is known, pass it as `plan:<path>`.
 
 3. **Final Validation**
    - All tasks marked completed
@@ -293,7 +293,7 @@ This command takes a work document (plan, specification, or todo file) and execu
 
    Brief explanation if needed.
 
-   🤖 Generated with [MODEL] via [HARNESS](HARNESS_URL) + Compound Engineering v[VERSION]
+   🤖 Generated with [MODEL] via [HARNESS](HARNESS_URL) + Spec-First v[VERSION]
 
    Co-Authored-By: [MODEL] ([CONTEXT] context, [THINKING]) <noreply@anthropic.com>
    EOF
@@ -388,7 +388,7 @@ This command takes a work document (plan, specification, or todo file) and execu
 
    ---
 
-   [![Compound Engineering v[VERSION]](https://img.shields.io/badge/Compound_Engineering-v[VERSION]-6366f1)](https://github.com/EveryInc/spec-first-plugin)
+   [![Spec First v[VERSION]](https://img.shields.io/badge/Spec_First-v[VERSION]-6366f1)](https://github.com/sunrain520/spec-first)
    🤖 Generated with [MODEL] ([CONTEXT] context, [THINKING]) via [HARNESS](HARNESS_URL)
    EOF
    )"
@@ -455,7 +455,7 @@ This mode integrates with the existing Phase 1 Step 4 strategy selection as a **
 
 External delegation activates when any of these conditions are met:
 - The user says "use codex for this work", "delegate to codex", or "delegate mode"
-- A plan implementation unit contains `Execution target: external-delegate` in its Execution note (set by ce:plan)
+- A plan implementation unit contains `Execution target: external-delegate` in its Execution note (set by spec:plan)
 
 The specific delegate tool is resolved at execution time. Currently the only supported delegate is Codex CLI. Future delegates can be added without changing plan files.
 

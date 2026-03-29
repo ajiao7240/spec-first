@@ -41,14 +41,14 @@ All tokens are optional. Each one present means one less thing to infer. When ab
 
 - **Skip all user questions.** Never pause for approval or clarification once scope has been established.
 - **Apply only `safe_auto -> review-fixer` findings.** Leave `gated_auto`, `manual`, `human`, and `release` work unresolved.
-- **Write a run artifact** under `.context/spec-first/ce-review/<run-id>/` summarizing findings, applied fixes, residual actionable work, and advisory outputs.
+- **Write a run artifact** under `.context/spec-first/spec-review/<run-id>/` summarizing findings, applied fixes, residual actionable work, and advisory outputs.
 - **Create durable todo files only for unresolved actionable findings** whose final owner is `downstream-resolver`. Load the `todo-create` skill for the canonical directory path and naming convention.
 - **Never commit, push, or create a PR** from autofix mode. Parent workflows own those decisions.
 
 ### Report-only mode rules
 
 - **Skip all user questions.** Infer intent conservatively if the diff metadata is thin.
-- **Never edit files or externalize work.** Do not write `.context/spec-first/ce-review/<run-id>/`, do not create todo files, and do not commit, push, or create a PR.
+- **Never edit files or externalize work.** Do not write `.context/spec-first/spec-review/<run-id>/`, do not create todo files, and do not commit, push, or create a PR.
 - **Safe for parallel read-only verification.** `mode:report-only` is the only mode that is safe to run concurrently with browser testing on the same checkout.
 - **Do not switch the shared checkout.** If the caller passes an explicit PR or branch target, `mode:report-only` must run in an isolated checkout/worktree or stop instead of running `gh pr checkout` / `git checkout`.
 - **Do not overlap mutating review with browser testing on the same checkout.** If a future orchestrator wants fixes, run the mutating review phase after browser testing or in an isolated checkout/worktree.
@@ -133,8 +133,8 @@ Every review spawns all 4 always-on personas plus the 2 CE always-on agents, the
 
 The following paths are spec-first pipeline artifacts and must never be flagged for deletion, removal, or gitignore by any reviewer:
 
-- `docs/brainstorms/*` -- requirements documents created by ce:brainstorm
-- `docs/plans/*.md` -- plan files created by ce:plan (living documents with progress checkboxes)
+- `docs/brainstorms/*` -- requirements documents created by spec:brainstorm
+- `docs/plans/*.md` -- plan files created by spec:plan (living documents with progress checkboxes)
 - `docs/solutions/*.md` -- solution documents created during the pipeline
 
 If a reviewer flags any file in these directories for cleanup or removal, discard that finding during synthesis.
@@ -160,7 +160,7 @@ Then produce the same output as the other paths:
 echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:" && git diff -U10 $BASE && echo "UNTRACKED:" && git ls-files --others --exclude-standard
 ```
 
-This path works with any ref — a SHA, `origin/main`, a branch name. Automated callers (ce:work, lfg, slfg) should prefer this to avoid the detection overhead. **Do not combine `base:` with a PR number or branch target.** If both are present, stop with an error: "Cannot use `base:` with a PR number or branch target — `base:` implies the current checkout is already the correct branch. Pass `base:` alone, or pass the target alone and let scope detection resolve the base." This avoids scope/intent mismatches where the diff base comes from one source but the code and metadata come from another.
+This path works with any ref — a SHA, `origin/main`, a branch name. Automated callers (spec:work, lfg, slfg) should prefer this to avoid the detection overhead. **Do not combine `base:` with a PR number or branch target.** If both are present, stop with an error: "Cannot use `base:` with a PR number or branch target — `base:` implies the current checkout is already the correct branch. Pass `base:` alone, or pass the target alone and let scope detection resolve the base." This avoids scope/intent mismatches where the diff base comes from one source but the code and metadata come from another.
 
 **If a PR number or GitHub URL is provided as an argument:**
 
@@ -186,7 +186,7 @@ Then fetch PR metadata. Capture the base branch name and the PR base repository 
 gh pr view <number-or-url> --json title,body,baseRefName,headRefName,url
 ```
 
-Use the repository portion of the returned PR URL as `<base-repo>` (for example, `EveryInc/spec-first-plugin` from `https://github.com/EveryInc/spec-first-plugin/pull/348`).
+Use the repository portion of the returned PR URL as `<base-repo>` (for example, `sunrain520/spec-first` from `https://github.com/sunrain520/spec-first/pull/348`).
 
 Then compute a local diff against the PR's base branch so re-reviews also include local fix commits and uncommitted edits. Substitute the PR base branch from metadata (shown here as `<base>`) and the PR base repository identity derived from the PR URL (shown here as `<base-repo>`). Resolve the base ref from the PR's actual base repository, not by assuming `origin` points at that repo:
 
@@ -493,7 +493,7 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 
 #### Step 4: Emit artifacts and downstream handoff
 
-- In interactive and autofix modes, write a per-run artifact under `.context/spec-first/ce-review/<run-id>/` containing:
+- In interactive and autofix modes, write a per-run artifact under `.context/spec-first/spec-review/<run-id>/` containing:
   - synthesized findings
   - applied fixes
   - residual actionable work

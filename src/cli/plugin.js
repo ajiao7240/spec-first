@@ -3,6 +3,17 @@ const path = require('node:path');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const MANIFEST_PATH = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
+const TEXT_FILE_EXTENSIONS = new Set([
+  '.md',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.sh',
+  '.rb',
+  '.py',
+  '.mjs',
+  '.txt',
+]);
 
 function loadPluginManifest() {
   if (!fs.existsSync(MANIFEST_PATH)) {
@@ -145,7 +156,7 @@ function syncSkills(projectRoot) {
     const sourceDir = path.join(sourceRoot, skillName);
     const targetDir = path.join(targetRoot, skillName);
     fs.rmSync(targetDir, { recursive: true, force: true });
-    fs.cpSync(sourceDir, targetDir, { recursive: true, force: true });
+    copyDirectoryWithTransform(sourceDir, targetDir, adaptClaudeRuntimeContent);
   }
 
   return skillNames;
@@ -162,7 +173,7 @@ function syncAgents(projectRoot) {
     const sourcePath = path.join(sourceRoot, agentPath);
     const targetPath = path.join(targetRoot, agentPath);
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    fs.copyFileSync(sourcePath, targetPath);
+    copyFileWithTransform(sourcePath, targetPath, adaptClaudeRuntimeContent);
   }
 
   return agentPaths;
@@ -214,3 +225,43 @@ module.exports = {
   syncCommands,
   syncSkills,
 };
+
+function copyDirectoryWithTransform(sourceDir, targetDir, transformText) {
+  fs.mkdirSync(targetDir, { recursive: true });
+
+  for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    const sourcePath = path.join(sourceDir, entry.name);
+    const targetPath = path.join(targetDir, entry.name);
+
+    if (entry.isDirectory()) {
+      copyDirectoryWithTransform(sourcePath, targetPath, transformText);
+      continue;
+    }
+
+    if (entry.isFile()) {
+      copyFileWithTransform(sourcePath, targetPath, transformText);
+    }
+  }
+}
+
+function copyFileWithTransform(sourcePath, targetPath, transformText) {
+  const stat = fs.statSync(sourcePath);
+  if (isTextFile(sourcePath)) {
+    const original = fs.readFileSync(sourcePath, 'utf8');
+    const transformed = transformText(original);
+    fs.writeFileSync(targetPath, transformed, 'utf8');
+    fs.chmodSync(targetPath, stat.mode);
+    return;
+  }
+
+  fs.copyFileSync(sourcePath, targetPath);
+  fs.chmodSync(targetPath, stat.mode);
+}
+
+function isTextFile(filePath) {
+  return TEXT_FILE_EXTENSIONS.has(path.extname(filePath));
+}
+
+function adaptClaudeRuntimeContent(content) {
+  return content.replace(/\bspec-first:([a-z-]+):([a-z-]+)\b/g, '$1:$2');
+}

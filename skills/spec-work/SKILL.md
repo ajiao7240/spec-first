@@ -247,7 +247,7 @@ This command takes a work document (plan, specification, or todo file) and execu
 
 2. **Consider Code Review** (Optional)
 
-   Use for complex, risky, or large changes. Load the `ce:review` skill with `mode:autofix` to fix safe issues and flag the rest before shipping. When the plan file path is known, pass it as `plan:<path>`.
+   Use for complex, risky, or large changes. Load the `spec:review` workflow with `mode:autofix` to fix safe issues and flag the rest before shipping. When the plan file path is known, pass it as `plan:<path>`.
 
 3. **Final Validation**
    - All tasks marked completed
@@ -284,7 +284,7 @@ This command takes a work document (plan, specification, or todo file) and execu
 
    Brief explanation if needed.
 
-   🤖 Generated with [MODEL] via [HARNESS](HARNESS_URL) + Compound Engineering v[VERSION]
+   🤖 Generated with [MODEL] via [HARNESS](HARNESS_URL) + Spec-First v[VERSION]
 
    Co-Authored-By: [MODEL] ([CONTEXT] context, [THINKING]) <noreply@anthropic.com>
    EOF
@@ -379,7 +379,7 @@ This command takes a work document (plan, specification, or todo file) and execu
 
    ---
 
-   [![Compound Engineering v[VERSION]](https://img.shields.io/badge/Compound_Engineering-v[VERSION]-6366f1)](https://github.com/EveryInc/spec-first-plugin)
+   [![Spec First v[VERSION]](https://img.shields.io/badge/Spec_First-v[VERSION]-6366f1)](https://github.com/sunrain520/spec-first)
    🤖 Generated with [MODEL] ([CONTEXT] context, [THINKING]) via [HARNESS](HARNESS_URL)
    EOF
    )"

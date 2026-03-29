@@ -154,7 +154,7 @@ For each relevant document, return a summary in this format:
 ## Frontmatter Schema Reference
 
 Use this on-demand schema reference when you need the full contract:
-`../../skills/ce-compound/references/yaml-schema.md`
+`../../skills/spec-compound/references/yaml-schema.md`
 
 Key enum values:
 
@@ -260,7 +260,7 @@ Structure your findings as:
 ## Integration Points
 
 This agent is designed to be invoked by:
-- `/ce:plan` - To inform planning with institutional knowledge and add depth during confidence checking
+- `/spec:plan` - To inform planning with institutional knowledge and add depth during confidence checking
 - Manual invocation before starting work on a feature
 
 The goal is to surface relevant learnings in under 30 seconds for a typical solutions directory, enabling fast knowledge retrieval during planning phases.

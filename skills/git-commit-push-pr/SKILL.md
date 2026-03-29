@@ -277,14 +277,14 @@ Write:
 
 When referencing actual GitHub issues or PRs, use the full format: `org/repo#123` or the full URL. Never use bare `#123` unless you have verified it refers to the correct issue in the current repository.
 
-#### Compound Engineering badge
+#### Spec-First badge
 
-Append a badge footer to the PR description, separated by a `---` rule. Do not add one if the description already contains a Compound Engineering badge (e.g., added by another skill like ce-work).
+Append a badge footer to the PR description, separated by a `---` rule. Do not add one if the description already contains a Spec-First badge (e.g., added by another skill like `spec:work`).
 
 ```markdown
 ---
 
-[![Compound Engineering v[VERSION]](https://img.shields.io/badge/Compound_Engineering-v[VERSION]-6366f1)](https://github.com/EveryInc/spec-first-plugin)
+[![Spec First v[VERSION]](https://img.shields.io/badge/Spec_First-v[VERSION]-6366f1)](https://github.com/sunrain520/spec-first)
 🤖 Generated with [MODEL] ([CONTEXT] context, [THINKING]) via [HARNESS](HARNESS_URL)
 ```
 
@@ -297,7 +297,7 @@ Fill in at PR creation time:
 | `[THINKING]` | Thinking level (if known) | extended thinking |
 | `[HARNESS]` | Tool running you | Claude Code, Codex, Gemini CLI |
 | `[HARNESS_URL]` | Link to that tool | `https://claude.com/claude-code` |
-| `[VERSION]` | `plugin.json` -> `version` | 2.40.0 |
+| `[VERSION]` | `plugin.json` or `package.json` -> `version` | 1.3.10 |
 
 ### Step 7: Create or update the PR
 
@@ -309,7 +309,7 @@ PR description here
 
 ---
 
-[![Compound Engineering v[VERSION]](https://img.shields.io/badge/Compound_Engineering-v[VERSION]-6366f1)](https://github.com/EveryInc/spec-first-plugin)
+[![Spec First v[VERSION]](https://img.shields.io/badge/Spec_First-v[VERSION]-6366f1)](https://github.com/sunrain520/spec-first)
 🤖 Generated with [MODEL] ([CONTEXT] context, [THINKING]) via [HARNESS](HARNESS_URL)
 EOF
 )"
@@ -321,7 +321,7 @@ Keep the PR title under 72 characters. The title follows the same convention as 
 
 The new commits are already on the PR from the push in Step 5. Report the PR URL, then ask the user whether they want the PR description updated to reflect the new changes. Use the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). If no question tool is available, present the option and wait for the user's reply before proceeding.
 
-- If **yes** -- write a new description following the same principles in Step 6 (size the full PR, not just the new commits), including the Compound Engineering badge unless one is already present in the existing description. Apply it:
+- If **yes** -- write a new description following the same principles in Step 6 (size the full PR, not just the new commits), including the Spec-First badge unless one is already present in the existing description. Apply it:
 
   ```bash
   gh pr edit --body "$(cat <<'EOF'

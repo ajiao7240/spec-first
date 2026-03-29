@@ -9,23 +9,23 @@ CRITICAL: You MUST execute every step below IN ORDER. Do NOT skip any required s
 
 1. **Optional:** If the `ralph-loop` skill is available, run `/ralph-loop:ralph-loop "finish all slash commands" --completion-promise "DONE"`. If not available or it fails, skip and continue to step 2 immediately.
 
-2. `/ce:plan $ARGUMENTS`
+2. `/spec:plan $ARGUMENTS`
 
-   GATE: STOP. Verify that the `ce:plan` workflow produced a plan file in `docs/plans/`. If no plan file was created, run `/ce:plan $ARGUMENTS` again. Do NOT proceed to step 3 until a written plan exists. **Record the plan file path** — it will be passed to ce:review in step 4.
+   GATE: STOP. Verify that the `spec:plan` workflow produced a plan file in `docs/plans/`. If no plan file was created, run `/spec:plan $ARGUMENTS` again. Do NOT proceed to step 3 until a written plan exists. **Record the plan file path** — it will be passed to spec:review in step 4.
 
-3. `/ce:work`
+3. `/spec:work`
 
    GATE: STOP. Verify that implementation work was performed - files were created or modified beyond the plan. Do NOT proceed to step 4 if no code changes were made.
 
-4. `/ce:review mode:autofix plan:<plan-path-from-step-2>`
+4. `/spec:review mode:autofix plan:<plan-path-from-step-2>`
 
-   Pass the plan file path from step 2 so ce:review can verify requirements completeness.
+   Pass the plan file path from step 2 so spec:review can verify requirements completeness.
 
-5. `/spec-first:todo-resolve`
+5. `/todo-resolve`
 
-6. `/spec-first:test-browser`
+6. `/test-browser`
 
-7. `/spec-first:feature-video`
+7. `/feature-video`
 
 8. Output `<promise>DONE</promise>` when video is in PR
 

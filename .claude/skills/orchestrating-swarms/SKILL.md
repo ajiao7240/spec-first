@@ -18,7 +18,7 @@ Master multi-agent orchestration using Claude Code's TeammateTool and Task syste
 | **Team** | A named group of agents working together. One leader, multiple teammates. | `~/.claude/teams/{name}/config.json` |
 | **Teammate** | An agent that joined a team. Has a name, color, inbox. Spawned via Task with `team_name` + `name`. | Listed in team config |
 | **Leader** | The agent that created the team. Receives teammate messages, approves plans/shutdowns. | First member in config |
-| **Task** | A work item with subject, description, status, owner, and dependencies. | `~/.claude/tasks/{team}/N.json` |
+| **Task** | A work item with subject, description, status, owner, and dependencies. | Platform-managed task store (do not assume a repo-local file path) |
 | **Inbox** | JSON file where an agent receives messages from teammates. | `~/.claude/teams/{name}/inboxes/{agent}.json` |
 | **Message** | A JSON object sent between agents. Can be text or structured (shutdown_request, idle_notification, etc). | Stored in inbox files |
 | **Backend** | How teammates run. Auto-detected: `in-process` (same Node.js, invisible), `tmux` (separate panes, visible), `iterm2` (split panes in iTerm2). See [Spawn Backends](#spawn-backends). | Auto-detected based on environment |
@@ -131,10 +131,10 @@ A swarm consists of:
     ├── worker-1.json        # Worker 1's inbox
     └── worker-2.json        # Worker 2's inbox
 
-~/.claude/tasks/{team-name}/
-├── 1.json                   # Task #1
-├── 2.json                   # Task #2
-└── 3.json                   # Task #3
+Platform task system
+├── Task #1
+├── Task #2
+└── Task #3
 ```
 
 ### Team Config Structure
@@ -318,35 +318,35 @@ From the `spec-first` plugin (examples):
 ```javascript
 // Security review
 Task({
-  subagent_type: "spec-first:review:security-sentinel",
+  subagent_type: "review:security-sentinel",
   description: "Security audit",
   prompt: "Audit this PR for security vulnerabilities"
 })
 
 // Performance review
 Task({
-  subagent_type: "spec-first:review:performance-oracle",
+  subagent_type: "review:performance-oracle",
   description: "Performance check",
   prompt: "Analyze this code for performance bottlenecks"
 })
 
 // Rails code review
 Task({
-  subagent_type: "spec-first:review:kieran-rails-reviewer",
+  subagent_type: "review:kieran-rails-reviewer",
   description: "Rails review",
   prompt: "Review this Rails code for best practices"
 })
 
 // Architecture review
 Task({
-  subagent_type: "spec-first:review:architecture-strategist",
+  subagent_type: "review:architecture-strategist",
   description: "Architecture review",
   prompt: "Review the system architecture of the authentication module"
 })
 
 // Code simplicity
 Task({
-  subagent_type: "spec-first:review:code-simplicity-reviewer",
+  subagent_type: "review:code-simplicity-reviewer",
   description: "Simplicity check",
   prompt: "Check if this implementation can be simplified"
 })
@@ -372,21 +372,21 @@ Task({
 ```javascript
 // Best practices research
 Task({
-  subagent_type: "spec-first:research:best-practices-researcher",
+  subagent_type: "research:best-practices-researcher",
   description: "Research auth best practices",
   prompt: "Research current best practices for JWT authentication in Rails 2024-2026"
 })
 
 // Framework documentation
 Task({
-  subagent_type: "spec-first:research:framework-docs-researcher",
+  subagent_type: "research:framework-docs-researcher",
   description: "Research Active Storage",
   prompt: "Gather comprehensive documentation about Active Storage file uploads"
 })
 
 // Git history analysis
 Task({
-  subagent_type: "spec-first:research:git-history-analyzer",
+  subagent_type: "research:git-history-analyzer",
   description: "Analyze auth history",
   prompt: "Analyze the git history of the authentication module to understand its evolution"
 })
@@ -402,7 +402,7 @@ Task({
 ### Design Agents
 ```javascript
 Task({
-  subagent_type: "spec-first:design:figma-design-sync",
+  subagent_type: "design:figma-design-sync",
   description: "Sync with Figma",
   prompt: "Compare implementation with Figma design at [URL]"
 })
@@ -411,7 +411,7 @@ Task({
 ### Workflow Agents
 ```javascript
 Task({
-  subagent_type: "spec-first:workflow:bug-reproduction-validator",
+  subagent_type: "workflow:bug-reproduction-validator",
   description: "Validate bug",
   prompt: "Reproduce and validate this reported bug: [description]"
 })
@@ -433,7 +433,7 @@ Teammate({
 
 **Creates:**
 - `~/.claude/teams/feature-auth/config.json`
-- `~/.claude/tasks/feature-auth/` directory
+- platform-managed task records for `feature-auth`
 - You become the team leader
 
 ### 2. discoverTeams - List Available Teams
@@ -587,7 +587,7 @@ Teammate({ operation: "cleanup" })
 
 **Removes:**
 - `~/.claude/teams/{team-name}/` directory
-- `~/.claude/tasks/{team-name}/` directory
+- team-associated task metadata managed by the platform task system
 
 **IMPORTANT:** Will fail if teammates are still active. Use `requestShutdown` first.
 
@@ -663,9 +663,9 @@ TaskUpdate({ taskId: "4", addBlockedBy: ["3"] })   // #4 waits for #3
 // etc.
 ```
 
-### Task File Structure
+### Logical Task Record Example
 
-`~/.claude/tasks/{team-name}/1.json`:
+Representative task record:
 ```json
 {
   "id": "1",
@@ -798,7 +798,7 @@ Teammate({ operation: "spawnTeam", team_name: "code-review" })
 Task({
   team_name: "code-review",
   name: "security",
-  subagent_type: "spec-first:review:security-sentinel",
+  subagent_type: "review:security-sentinel",
   prompt: "Review the PR for security vulnerabilities. Focus on: SQL injection, XSS, auth bypass. Send findings to team-lead.",
   run_in_background: true
 })
@@ -806,7 +806,7 @@ Task({
 Task({
   team_name: "code-review",
   name: "performance",
-  subagent_type: "spec-first:review:performance-oracle",
+  subagent_type: "review:performance-oracle",
   prompt: "Review the PR for performance issues. Focus on: N+1 queries, memory leaks, slow algorithms. Send findings to team-lead.",
   run_in_background: true
 })
@@ -814,7 +814,7 @@ Task({
 Task({
   team_name: "code-review",
   name: "simplicity",
-  subagent_type: "spec-first:review:code-simplicity-reviewer",
+  subagent_type: "review:code-simplicity-reviewer",
   prompt: "Review the PR for unnecessary complexity. Focus on: over-engineering, premature abstraction, YAGNI violations. Send findings to team-lead.",
   run_in_background: true
 })
@@ -854,7 +854,7 @@ TaskUpdate({ taskId: "5", addBlockedBy: ["4"] })
 Task({
   team_name: "feature-pipeline",
   name: "researcher",
-  subagent_type: "spec-first:research:best-practices-researcher",
+  subagent_type: "research:best-practices-researcher",
   prompt: "Claim task #1, research best practices, complete it, send findings to team-lead. Then check for more work.",
   run_in_background: true
 })
@@ -931,7 +931,7 @@ Research first, then implement:
 ```javascript
 // 1. Research phase (synchronous, returns results)
 const research = await Task({
-  subagent_type: "spec-first:research:best-practices-researcher",
+  subagent_type: "research:best-practices-researcher",
   description: "Research caching patterns",
   prompt: "Research best practices for implementing caching in Rails APIs. Include: cache invalidation strategies, Redis vs Memcached, cache key design."
 })
@@ -1410,7 +1410,9 @@ cat ~/.claude/teams/{team}/inboxes/{agent}.json | jq '.'
 ls ~/.claude/teams/
 
 # Check task states
-cat ~/.claude/tasks/{team}/*.json | jq '{id, subject, status, owner, blockedBy}'
+TaskList()
+# or inspect one task in detail:
+TaskGet({ taskId: "2" })
 
 # Watch for new messages
 tail -f ~/.claude/teams/{team}/inboxes/team-lead.json
@@ -1431,7 +1433,7 @@ Teammate({ operation: "spawnTeam", team_name: "pr-review-123", description: "Rev
 Task({
   team_name: "pr-review-123",
   name: "security",
-  subagent_type: "spec-first:review:security-sentinel",
+  subagent_type: "review:security-sentinel",
   prompt: `Review PR #123 for security vulnerabilities.
 
   Focus on:
@@ -1448,7 +1450,7 @@ Task({
 Task({
   team_name: "pr-review-123",
   name: "perf",
-  subagent_type: "spec-first:review:performance-oracle",
+  subagent_type: "review:performance-oracle",
   prompt: `Review PR #123 for performance issues.
 
   Focus on:
@@ -1464,7 +1466,7 @@ Task({
 Task({
   team_name: "pr-review-123",
   name: "arch",
-  subagent_type: "spec-first:review:architecture-strategist",
+  subagent_type: "review:architecture-strategist",
   prompt: `Review PR #123 for architectural concerns.
 
   Focus on:
@@ -1515,7 +1517,7 @@ TaskUpdate({ taskId: "5", addBlockedBy: ["4"] })
 Task({
   team_name: "feature-oauth",
   name: "researcher",
-  subagent_type: "spec-first:research:best-practices-researcher",
+  subagent_type: "research:best-practices-researcher",
   prompt: "Claim task #1. Research OAuth2 best practices, compare providers, document findings. Mark task complete and send summary to team-lead.",
   run_in_background: true
 })
@@ -1547,7 +1549,7 @@ Task({
 Task({
   team_name: "feature-oauth",
   name: "reviewer",
-  subagent_type: "spec-first:review:security-sentinel",
+  subagent_type: "review:security-sentinel",
   prompt: "Wait for task #5 to unblock. Review the complete OAuth implementation for security. Send final assessment to team-lead.",
   run_in_background: true
 })

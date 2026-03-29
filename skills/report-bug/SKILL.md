@@ -1,13 +1,13 @@
 ---
-name: report-bug-ce
-description: Report a bug in the spec-first plugin
+name: report-bug
+description: Report a bug in the spec-first CLI or packaged workflow assets
 argument-hint: "[optional: brief description of the bug]"
 disable-model-invocation: true
 ---
 
-# Report a Compound Engineering Plugin Bug
+# Report a Spec-First Bug
 
-Report bugs encountered while using the spec-first plugin. This skill gathers structured information and creates a GitHub issue for the maintainer.
+Report bugs encountered while using spec-first. This skill gathers structured information and creates a GitHub issue for the maintainer.
 
 ## Step 1: Gather Bug Information
 
@@ -46,10 +46,7 @@ Automatically gather environment details. Detect the coding agent platform and c
 uname -a
 ```
 
-**Plugin version:** Read the plugin manifest or installed plugin metadata. Common locations:
-- Claude Code: `~/.claude/plugins/installed_plugins.json`
-- Codex: `.codex/plugins/` or project config
-- Other platforms: check the platform's plugin registry
+**Spec-First version:** Read from the current project's `package.json`, the bundled `.claude-plugin/plugin.json`, or installed package metadata if available.
 
 **Agent CLI version:** Run the platform's version command:
 - Claude Code: `claude --version`
@@ -70,7 +67,7 @@ Create a well-structured bug report with:
 
 ## Environment
 
-- **Plugin Version:** [from plugin manifest/registry]
+- **Spec-First Version:** [from package or manifest metadata]
 - **Agent Platform:** [e.g., Claude Code, Codex, Copilot, Pi, Kilo]
 - **Agent Version:** [from CLI version command]
 - **OS:** [from uname]
@@ -98,7 +95,7 @@ Create a well-structured bug report with:
 [Any other relevant information]
 
 ---
-*Reported via `/report-bug-ce` skill*
+*Reported via `/report-bug` skill*
 ```
 
 ## Step 4: Create GitHub Issue
@@ -107,7 +104,7 @@ Use the GitHub CLI to create the issue:
 
 ```bash
 gh issue create \
-  --repo EveryInc/spec-first-plugin \
+  --repo sunrain520/spec-first \
   --title "[spec-first] Bug: [Brief description]" \
   --body "[Formatted bug report from Step 3]" \
   --label "bug,spec-first"
@@ -116,7 +113,7 @@ gh issue create \
 **Note:** If labels don't exist, create without labels:
 ```bash
 gh issue create \
-  --repo EveryInc/spec-first-plugin \
+  --repo sunrain520/spec-first \
   --title "[spec-first] Bug: [Brief description]" \
   --body "[Formatted bug report]"
 ```
@@ -133,10 +130,10 @@ After the issue is created:
 ```
 Bug report submitted successfully!
 
-Issue: https://github.com/EveryInc/spec-first-plugin/issues/[NUMBER]
+Issue: https://github.com/sunrain520/spec-first/issues/[NUMBER]
 Title: [spec-first] Bug: [description]
 
-Thank you for helping improve the spec-first plugin!
+Thank you for helping improve spec-first!
 The maintainer will review your report and respond as soon as possible.
 ```
 

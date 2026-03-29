@@ -47,6 +47,35 @@ grep -q '.claude/skills/spec-brainstorm/SKILL.md' "$TMP_DIR/.claude/commands/spe
 grep -q '.claude/skills/spec-plan/SKILL.md' "$TMP_DIR/.claude/commands/spec/plan.md"
 echo "✓ init generated all /spec:* command files"
 
+echo "2a-1. Verify source assets use the current spec-first branding and naming..."
+for file in \
+  "$REPO_ROOT/skills/spec-ideate/SKILL.md" \
+  "$REPO_ROOT/skills/spec-work-beta/SKILL.md" \
+  "$REPO_ROOT/skills/spec-compound-refresh/SKILL.md" \
+  "$REPO_ROOT/skills/report-bug/SKILL.md"
+do
+  test -f "$file"
+done
+if grep -R -n -E 'EveryInc/spec-first-plugin|Compound Engineering v\[VERSION\]|Report a Compound Engineering Plugin Bug|report-bug-ce' \
+  "$REPO_ROOT/skills/spec-work/SKILL.md" \
+  "$REPO_ROOT/skills/spec-work-beta/SKILL.md" \
+  "$REPO_ROOT/skills/git-commit-push-pr/SKILL.md" \
+  "$REPO_ROOT/skills/report-bug/SKILL.md"; then
+  echo "✗ source assets still contain old branding or legacy bug-report references"
+  exit 1
+fi
+for file in \
+  "$REPO_ROOT/skills/spec-ideate/SKILL.md" \
+  "$REPO_ROOT/skills/spec-work-beta/SKILL.md" \
+  "$REPO_ROOT/skills/spec-compound-refresh/SKILL.md"
+do
+  if grep -q '^name: spec:' "$file"; then
+    echo "✗ $(basename "$(dirname "$file")") should use an internal workflow name in source assets"
+    exit 1
+  fi
+done
+echo "✓ source assets use current branding and internal workflow names"
+
 echo "2b. Verify skill directories were installed..."
 expected_skill_count="$(find "$REPO_ROOT/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 installed_skill_count="$(find "$TMP_DIR/.claude/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
@@ -60,7 +89,33 @@ for skill in spec-brainstorm spec-plan spec-work spec-review spec-compound; do
     exit 1
   fi
 done
+for skill in spec-ideate spec-work-beta spec-compound-refresh; do
+  if grep -q "^name: spec:" "$TMP_DIR/.claude/skills/$skill/SKILL.md"; then
+    echo "✗ $skill should use an internal workflow name instead of a public spec:* skill name"
+    exit 1
+  fi
+done
 echo "✓ init generated all bundled skill directories"
+
+echo "2b-1. Verify generated runtime assets adapt fully qualified agent names..."
+grep -q 'research:repo-research-analyst' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
+grep -q 'workflow:spec-flow-analyzer' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
+grep -q 'document-review:coherence-reviewer' "$TMP_DIR/.claude/skills/document-review/SKILL.md"
+grep -q 'workflow:pr-comment-resolver' "$TMP_DIR/.claude/skills/resolve-pr-feedback/SKILL.md"
+grep -q 'research:learnings-researcher' "$TMP_DIR/.claude/agents/review/project-standards-reviewer.md"
+if grep -q 'spec-first:research:repo-research-analyst' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"; then
+  echo "✗ generated spec-plan skill still contains unadapted spec-first agent namespace"
+  exit 1
+fi
+if grep -q 'spec-first:document-review:coherence-reviewer' "$TMP_DIR/.claude/skills/document-review/SKILL.md"; then
+  echo "✗ generated document-review skill still contains unadapted spec-first agent namespace"
+  exit 1
+fi
+if grep -q 'spec-first:research:learnings-researcher' "$TMP_DIR/.claude/agents/review/project-standards-reviewer.md"; then
+  echo "✗ generated project-standards-reviewer still expects unadapted fully qualified runtime agent names"
+  exit 1
+fi
+echo "✓ generated runtime assets adapt fully qualified agent names"
 
 echo "2c. Verify agent files were installed..."
 expected_agent_count="$(find "$REPO_ROOT/agents" -type f -name '*.md' | wc -l | tr -d ' ')"
@@ -144,12 +199,16 @@ test -f "$TMP_DIR/.claude/agents/review/correctness-reviewer.md"
 echo "✓ re-init works after clean"
 
 echo "4. Check npm pack output includes CLI assets..."
-pack_output="$(cd "$REPO_ROOT" && npm pack --dry-run 2>&1)"
+pack_output="$(cd "$REPO_ROOT" && npm_config_cache="$TMP_DIR/.npm-cache" npm pack --dry-run 2>&1)"
 grep -q "bin/spec-first.js" <<<"$pack_output"
 grep -q ".claude-plugin/plugin.json" <<<"$pack_output"
 grep -q "templates/claude/commands/spec/brainstorm.md" <<<"$pack_output"
 grep -q "skills/spec-plan/SKILL.md" <<<"$pack_output"
 grep -q "skills/document-review/SKILL.md" <<<"$pack_output"
+grep -q "skills/spec-ideate/SKILL.md" <<<"$pack_output"
+grep -q "skills/spec-work-beta/SKILL.md" <<<"$pack_output"
+grep -q "skills/spec-compound-refresh/SKILL.md" <<<"$pack_output"
+grep -q "skills/report-bug/SKILL.md" <<<"$pack_output"
 grep -q "agents/review/correctness-reviewer.md" <<<"$pack_output"
 if grep -qE 'npm notice scripts/' <<<"$pack_output"; then
   echo "✗ package output still contains repository-only assets"
@@ -157,6 +216,10 @@ if grep -qE 'npm notice scripts/' <<<"$pack_output"; then
 fi
 if grep -qE 'check-dependencies\.sh|migrate-from-every\.sh' <<<"$pack_output"; then
   echo "✗ package output still contains obsolete migration/check scripts"
+  exit 1
+fi
+if grep -qE 'skills/ce-ideate/|skills/ce-work-beta/|skills/ce-compound-refresh/|skills/report-bug-ce/' <<<"$pack_output"; then
+  echo "✗ package output still contains legacy pre-rename skill directories"
   exit 1
 fi
 echo "✓ package output includes CLI entry, templates, skills, and agents"

@@ -20,7 +20,7 @@ Scan `.context/spec-first/todos/*.md` and legacy `todos/*.md`. Partition by stat
 
 If a specific todo ID or pattern was passed as an argument, filter to matching todos only (still must be `ready`).
 
-Residual actionable work from `ce:review mode:autofix` after its `safe_auto` pass will already be `ready`.
+Residual actionable work from `spec:review mode:autofix` after its `safe_auto` pass will already be `ready`.
 
 Skip any todo that recommends deleting, removing, or gitignoring files in `docs/brainstorms/`, `docs/plans/`, or `docs/solutions/` — these are intentional pipeline artifacts.
 
@@ -30,7 +30,7 @@ Create a task list grouped by type (e.g., `TaskCreate` in Claude Code, `update_p
 
 ### 3. Implement (PARALLEL)
 
-Spawn a `spec-first:workflow:pr-comment-resolver` agent per item. Prefer parallel; fall back to sequential respecting dependency order.
+Spawn a `workflow:pr-comment-resolver` agent per item. Prefer parallel; fall back to sequential respecting dependency order.
 
 **Batching:** 1-4 items: direct parallel returns. 5+ items: batches of 4, each returning only a short status summary (todo handled, files changed, tests run/skipped, blockers).
 
@@ -44,7 +44,7 @@ GATE: STOP. Verify todos resolved and changes committed before proceeding.
 
 ### 5. Compound on Lessons Learned
 
-Load the `ce:compound` skill to document what was learned. Todo resolutions often surface patterns and architectural insights worth capturing.
+Load the `spec:compound` workflow to document what was learned. Todo resolutions often surface patterns and architectural insights worth capturing.
 
 GATE: STOP. Verify the compound skill produced a solution document in `docs/solutions/`. If none (user declined or no learnings), continue.
 

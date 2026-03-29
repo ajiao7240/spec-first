@@ -18,7 +18,7 @@ Master multi-agent orchestration using Claude Code's TeammateTool and Task syste
 | **Team** | A named group of agents working together. One leader, multiple teammates. | `~/.claude/teams/{name}/config.json` |
 | **Teammate** | An agent that joined a team. Has a name, color, inbox. Spawned via Task with `team_name` + `name`. | Listed in team config |
 | **Leader** | The agent that created the team. Receives teammate messages, approves plans/shutdowns. | First member in config |
-| **Task** | A work item with subject, description, status, owner, and dependencies. | `~/.claude/tasks/{team}/N.json` |
+| **Task** | A work item with subject, description, status, owner, and dependencies. | Platform-managed task store (do not assume a repo-local file path) |
 | **Inbox** | JSON file where an agent receives messages from teammates. | `~/.claude/teams/{name}/inboxes/{agent}.json` |
 | **Message** | A JSON object sent between agents. Can be text or structured (shutdown_request, idle_notification, etc). | Stored in inbox files |
 | **Backend** | How teammates run. Auto-detected: `in-process` (same Node.js, invisible), `tmux` (separate panes, visible), `iterm2` (split panes in iTerm2). See [Spawn Backends](#spawn-backends). | Auto-detected based on environment |
@@ -131,10 +131,10 @@ A swarm consists of:
     ├── worker-1.json        # Worker 1's inbox
     └── worker-2.json        # Worker 2's inbox
 
-~/.claude/tasks/{team-name}/
-├── 1.json                   # Task #1
-├── 2.json                   # Task #2
-└── 3.json                   # Task #3
+Platform task system
+├── Task #1
+├── Task #2
+└── Task #3
 ```
 
 ### Team Config Structure
@@ -433,7 +433,7 @@ Teammate({
 
 **Creates:**
 - `~/.claude/teams/feature-auth/config.json`
-- `~/.claude/tasks/feature-auth/` directory
+- platform-managed task records for `feature-auth`
 - You become the team leader
 
 ### 2. discoverTeams - List Available Teams
@@ -587,7 +587,7 @@ Teammate({ operation: "cleanup" })
 
 **Removes:**
 - `~/.claude/teams/{team-name}/` directory
-- `~/.claude/tasks/{team-name}/` directory
+- team-associated task metadata managed by the platform task system
 
 **IMPORTANT:** Will fail if teammates are still active. Use `requestShutdown` first.
 
@@ -663,9 +663,9 @@ TaskUpdate({ taskId: "4", addBlockedBy: ["3"] })   // #4 waits for #3
 // etc.
 ```
 
-### Task File Structure
+### Logical Task Record Example
 
-`~/.claude/tasks/{team-name}/1.json`:
+Representative task record:
 ```json
 {
   "id": "1",
@@ -1410,7 +1410,9 @@ cat ~/.claude/teams/{team}/inboxes/{agent}.json | jq '.'
 ls ~/.claude/teams/
 
 # Check task states
-cat ~/.claude/tasks/{team}/*.json | jq '{id, subject, status, owner, blockedBy}'
+TaskList()
+# or inspect one task in detail:
+TaskGet({ taskId: "2" })
 
 # Watch for new messages
 tail -f ~/.claude/teams/{team}/inboxes/team-lead.json

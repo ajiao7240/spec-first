@@ -229,7 +229,7 @@ Return "Review complete" as the terminal signal for callers.
 - Do not add new sections or requirements the user didn't discuss
 - Do not over-engineer or add complexity
 - Do not create separate review files or add metadata sections
-- Do not modify any of the 2 caller skills (ce-brainstorm, ce-plan)
+- Do not modify any of the 2 caller skills (spec-brainstorm, spec-plan)
 
 ## Iteration Guidance
 

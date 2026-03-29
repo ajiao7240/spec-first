@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" role="img" aria-labelledby="title desc">
+  <title id="title">Spec-First Overview</title>
+  <desc id="desc">A modern conceptual overview of Spec-First showing the relationship between CLI, runtime, workflow, and the closed loop system.</desc>
+  <defs>
+    <linearGradient id="bgOverview" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0c0a09"/>
+      <stop offset="50%" stop-color="#1c1917"/>
+      <stop offset="100%" stop-color="#0c0a09"/>
+    </linearGradient>
+    <linearGradient id="cardGradDark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#292524"/>
+      <stop offset="100%" stop-color="#1c1917"/>
+    </linearGradient>
+    <linearGradient id="coreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#3730a3" stop-opacity="0.4"/>
+    </linearGradient>
+    <linearGradient id="flowLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </linearGradient>
+
+    <filter id="glowOverview" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="cardShadowOverview">
+      <feDropShadow dx="0" dy="4" stdDeviation="10" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+
+    <pattern id="gridOverview" width="25" height="25" patternUnits="userSpaceOnUse">
+      <path d="M 25 0 L 0 0 0 25" fill="none" stroke="#292524" stroke-width="0.5" opacity="0.6"/>
+    </pattern>
+    <pattern id="dotsOverview" width="12" height="12" patternUnits="userSpaceOnUse">
+      <circle cx="6" cy="6" r="0.7" fill="#44403c" opacity="0.5"/>
+    </pattern>
+
+    <marker id="arrowOverview" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#60a5fa"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="520" fill="url(#bgOverview)"/>
+  <rect width="900" height="520" fill="url(#gridOverview)"/>
+  <rect width="900" height="520" fill="url(#dotsOverview)"/>
+
+  <!-- Header -->
+  <text x="450" y="42" text-anchor="middle" fill="#78716c" font-family="SFMono-Regular, monospace" font-size="10" font-weight="600" letter-spacing="2">SPEC-FIRST OVERVIEW</text>
+  <text x="450" y="72" text-anchor="middle" fill="#e7e5e4" font-family="Avenir Next, PingFang SC, sans-serif" font-size="22" font-weight="700">小型 CLI + 托管运行时 + 闭环系统</text>
+  <text x="450" y="96" text-anchor="middle" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="12">一次安装，项目初始化，然后通过稳定的 /spec:* 工作流进行开发</text>
+
+  <!-- Central Core -->
+  <g filter="url(#cardShadowOverview)">
+    <rect x="300" y="150" width="300" height="180" rx="24" fill="url(#coreGrad)" stroke="#3b82f6" stroke-width="1.5"/>
+  </g>
+
+  <!-- Core Icon -->
+  <circle cx="450" cy="200" r="40" fill="#1c1917" stroke="#60a5fa" stroke-width="2"/>
+  <text x="450" y="195" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="20" font-weight="700">SF</text>
+  <text x="450" y="212" text-anchor="middle" fill="#60a5fa" font-family="SFMono-Regular, monospace" font-size="8">CLI + Runtime</text>
+
+  <text x="450" y="270" text-anchor="middle" fill="#e7e5e4" font-family="Avenir Next, PingFang SC, sans-serif" font-size="14" font-weight="600">Spec-First 核心</text>
+  <text x="450" y="292" text-anchor="middle" fill="#a8a29e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="11">AI 辅助工作流的紧凑系统</text>
+  <text x="450" y="310" text-anchor="middle" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10">不仅是命令，更是完整的工作流</text>
+
+  <!-- Orbiting Nodes -->
+  <!-- 1. Install -->
+  <g filter="url(#cardShadowOverview)">
+    <rect x="40" y="130" width="180" height="85" rx="16" fill="url(#cardGradDark)" stroke="#38bdf8" stroke-width="1"/>
+  </g>
+  <circle cx="70" cy="160" r="14" fill="#38bdf8" opacity="0.15"/>
+  <text x="70" y="165" text-anchor="middle" fill="#38bdf8" font-family="SFMono-Regular, monospace" font-size="12" font-weight="700">1</text>
+  <text x="95" y="158" fill="#38bdf8" font-family="Avenir Next, PingFang SC, sans-serif" font-size="13" font-weight="600">安装 Install</text>
+  <text x="60" y="180" fill="#a8a29e" font-family="SFMono-Regular, monospace" font-size="9">npm install -g spec-first</text>
+  <text x="60" y="200" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="9">CLI 入口 + 打包资产</text>
+
+  <!-- 2. Init -->
+  <g filter="url(#cardShadowOverview)">
+    <rect x="680" y="130" width="180" height="85" rx="16" fill="url(#cardGradDark)" stroke="#4ade80" stroke-width="1"/>
+  </g>
+  <circle cx="710" cy="160" r="14" fill="#4ade80" opacity="0.15"/>
+  <text x="710" y="165" text-anchor="middle" fill="#4ade80" font-family="SFMono-Regular, monospace" font-size="12" font-weight="700">2</text>
+  <text x="735" y="158" fill="#4ade80" font-family="Avenir Next, PingFang SC, sans-serif" font-size="13" font-weight="600">初始化 Init</text>
+  <text x="700" y="180" fill="#a8a29e" font-family="SFMono-Regular, monospace" font-size="9">spec-first init --claude</text>
+  <text x="700" y="200" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="9">写入托管 .claude 资产</text>
+
+  <!-- 3. Workflow -->
+  <g filter="url(#cardShadowOverview)">
+    <rect x="40" y="280" width="180" height="85" rx="16" fill="url(#cardGradDark)" stroke="#fb923c" stroke-width="1"/>
+  </g>
+  <circle cx="70" cy="310" r="14" fill="#fb923c" opacity="0.15"/>
+  <text x="70" y="315" text-anchor="middle" fill="#fb923c" font-family="SFMono-Regular, monospace" font-size="12" font-weight="700">3</text>
+  <text x="95" y="308" fill="#fb923c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="13" font-weight="600">工作流 Workflow</text>
+  <text x="60" y="330" fill="#a8a29e" font-family="SFMono-Regular, monospace" font-size="9">/spec:brainstorm → /spec:plan</text>
+  <text x="60" y="350" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="9">Brainstorm → Plan → Work → Review</text>
+
+  <!-- 4. Runtime -->
+  <g filter="url(#cardShadowOverview)">
+    <rect x="680" y="280" width="180" height="85" rx="16" fill="url(#cardGradDark)" stroke="#a78bfa" stroke-width="1"/>
+  </g>
+  <circle cx="710" cy="310" r="14" fill="#a78bfa" opacity="0.15"/>
+  <text x="710" y="315" text-anchor="middle" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="12" font-weight="700">4</text>
+  <text x="735" y="308" fill="#a78bfa" font-family="Avenir Next, PingFang SC, sans-serif" font-size="13" font-weight="600">运行时 Runtime</text>
+  <text x="700" y="330" fill="#a8a29e" font-family="SFMono-Regular, monospace" font-size="9">.claude/commands/spec</text>
+  <text x="700" y="350" fill="#78716c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="9">skills · agents · state</text>
+
+  <!-- Connection Lines -->
+  <!-- Install to Core -->
+  <path d="M 220 172 Q 250 180 295 200" fill="none" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arrowOverview)" opacity="0.7"/>
+  <!-- Core to Init -->
+  <path d="M 605 200 Q 640 180 675 172" fill="none" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrowOverview)" opacity="0.7"/>
+  <!-- Core to Workflow -->
+  <path d="M 295 280 Q 260 290 225 310" fill="none" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowOverview)" opacity="0.7"/>
+  <!-- Core to Runtime -->
+  <path d="M 605 280 Q 640 290 675 310" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowOverview)" opacity="0.7"/>
+
+  <!-- Flow indicator -->
+  <line x1="240" y1="420" x2="660" y2="420" stroke="url(#flowLine)" stroke-width="2"/>
+  <text x="450" y="445" text-anchor="middle" fill="#57534e" font-family="Avenir Next, PingFang SC, sans-serif" font-size="11">
+    <tspan fill="#38bdf8">Install</tspan>
+    <tspan fill="#44403c"> → </tspan>
+    <tspan fill="#4ade80">Init</tspan>
+    <tspan fill="#44403c"> → </tspan>
+    <tspan fill="#fb923c">Workflow</tspan>
+    <tspan fill="#44403c"> → </tspan>
+    <tspan fill="#a78bfa">Runtime</tspan>
+  </text>
+
+  <!-- Managed Assets Box -->
+  <g filter="url(#cardShadowOverview)">
+    <rect x="250" y="380" width="400" height="60" rx="12" fill="url(#cardGradDark)" stroke="#292524"/>
+  </g>
+  <text x="450" y="405" text-anchor="middle" fill="#e7e5e4" font-family="Avenir Next, PingFang SC, sans-serif" font-size="12" font-weight="600">托管项目资产 Managed Project Assets</text>
+  <text x="450" y="425" text-anchor="middle" fill="#78716c" font-family="SFMono-Regular, monospace" font-size="10">commands · skills · agents · state</text>
+
+  <!-- Footer -->
+  <text x="450" y="490" text-anchor="middle" fill="#44403c" font-family="Avenir Next, PingFang SC, sans-serif" font-size="10" font-style="italic">核心思想：Spec-First 将 CLI 转化为项目级、可恢复的工作流系统</text>
+
+  <!-- Animated pulse -->
+  <circle cx="450" cy="200" r="45" fill="none" stroke="#60a5fa" stroke-width="1" opacity="0.3">
+    <animate attributeName="r" values="45;55;45" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.3;0.1;0.3" dur="3s" repeatCount="indefinite"/>
+  </circle>
+</svg>

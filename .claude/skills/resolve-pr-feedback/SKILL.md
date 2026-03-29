@@ -78,7 +78,7 @@ Create a task list of all **new** unresolved items grouped by type (e.g., `TaskC
 
 Process all three feedback types. Review threads are the primary type; PR comments and review bodies are secondary but should not be ignored.
 
-**For review threads** (`review_threads`): Spawn a `spec-first:workflow:pr-comment-resolver` agent for each.
+**For review threads** (`review_threads`): Spawn a `workflow:pr-comment-resolver` agent for each.
 
 Each agent receives:
 - The thread ID
@@ -87,7 +87,7 @@ Each agent receives:
 - The PR number (for context)
 - The feedback type (`review_thread`)
 
-**For PR comments and review bodies** (`pr_comments`, `review_bodies`): These lack file/line context. Spawn a `spec-first:workflow:pr-comment-resolver` agent for each actionable item. The agent receives the comment ID, body text, PR number, and feedback type (`pr_comment` or `review_body`). The agent must identify the relevant files from the comment text and the PR diff.
+**For PR comments and review bodies** (`pr_comments`, `review_bodies`): These lack file/line context. Spawn a `workflow:pr-comment-resolver` agent for each actionable item. The agent receives the comment ID, body text, PR number, and feedback type (`pr_comment` or `review_body`). The agent must identify the relevant files from the comment text and the PR diff.
 
 Each agent returns a short summary:
 - **verdict**: `fixed`, `fixed-differently`, `replied`, `not-addressing`, or `needs-human`
@@ -264,7 +264,7 @@ This fetches thread IDs and their first comment IDs (minimal fields, no bodies) 
 
 ### 2. Fix, Reply, Resolve
 
-Spawn a single `spec-first:workflow:pr-comment-resolver` agent for the thread. Then follow the same commit -> push -> reply -> resolve flow as Full Mode steps 5-6.
+Spawn a single `workflow:pr-comment-resolver` agent for the thread. Then follow the same commit -> push -> reply -> resolve flow as Full Mode steps 5-6.
 
 ---
 
