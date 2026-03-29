@@ -1,22 +1,25 @@
 #!/bin/bash
-# 本地安装脚本
+# 本地源码安装说明脚本（与 npm 发布模式保持一致）
 
-set -e
+set -euo pipefail
 
-PLUGIN_DIR="$HOME/.claude/plugins/spec-first"
-
-echo "安装 spec-first 到 Claude Code..."
-
-# 创建插件目录
-mkdir -p "$PLUGIN_DIR"
-
-# 复制文件
-cp -r .claude-plugin "$PLUGIN_DIR/"
-cp -r skills "$PLUGIN_DIR/"
-cp -r agents "$PLUGIN_DIR/"
-cp -r scripts "$PLUGIN_DIR/"
-
-echo "✓ 安装完成"
+echo "spec-first 本地源码安装已切换为 npm CLI 模型。"
 echo ""
-echo "验证安装："
-echo "  ls ~/.claude/plugins/spec-first"
+echo "推荐安装："
+echo "  npm install -g spec-first"
+echo ""
+echo "项目初始化："
+echo "  spec-first doctor"
+echo "  spec-first init --claude"
+echo ""
+echo "如果你之前安装过 pnpm 版本或旧的全局 shim，先重开一个终端或执行："
+echo "  hash -r"
+echo "再运行上面的命令，避免 shell 缓存继续指向旧路径。"
+echo ""
+echo "如果要验证源码安装，可参考本地 tarball 安装流程："
+echo "  1. npm pack"
+echo "  2. npm install -g ./spec-first-<version>.tgz"
+echo "  3. 在目标项目执行 spec-first doctor"
+echo "  4. 在目标项目执行 spec-first init --claude"
+echo ""
+echo "当前仓库不再尝试把自己注册为 Claude plugin。"

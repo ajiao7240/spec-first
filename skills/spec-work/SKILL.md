@@ -2,6 +2,7 @@
 name: spec:work
 description: Execute work plans efficiently while maintaining quality and finishing features
 argument-hint: "[plan file, specification, or todo file path]"
+user-invocable: true
 ---
 
 # Work Plan Execution Command

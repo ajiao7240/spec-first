@@ -2,6 +2,13 @@
 
 欢迎使用 Spec-First Framework！
 
+当前手册对应 `spec-first` 的 npm CLI 模型：
+
+- `npm install -g spec-first`
+- `spec-first doctor`
+- `spec-first init --claude`
+- `/spec:*` 命令来自项目内 `.claude/commands/spec/`
+
 ## 目录
 
 1. [快速开始](./01-快速开始.md)
@@ -27,6 +34,11 @@
    - 各阶段推荐做法
    - 常见错误
 
+6. [本地源码安装](./06-本地源码安装.md)
+   - 从源码安装
+   - 开发模式
+   - 故障排查
+
 ## 快速链接
 
 - [GitHub 仓库](https://github.com/sunrain520/spec-first)
@@ -34,4 +46,4 @@
 
 ## 版本
 
-当前版本：v1.0.0
+当前版本：v1.3.9

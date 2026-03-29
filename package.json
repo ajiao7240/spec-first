@@ -1,31 +1,37 @@
 {
-  "name": "@spec-first/framework",
-  "version": "1.0.0",
-  "description": "Spec-First Framework for Claude Code - AI-assisted work framework with five-step loop",
-  "main": "index.js",
+  "name": "spec-first",
+  "version": "1.3.9",
+  "description": "AI-assisted work framework for Claude Code with a npm CLI entrypoint",
+  "type": "commonjs",
+  "bin": {
+    "spec-first": "./bin/spec-first.js"
+  },
   "scripts": {
-    "test": "bash tests/e2e-test.sh",
+    "test:smoke": "bash tests/smoke/install-local.sh && bash tests/smoke/cli.sh",
+    "test:integration": "bash tests/integration/e2e.sh",
+    "test": "npm run test:smoke && npm run test:integration",
     "postinstall": "echo 'spec-first installed successfully'"
   },
   "files": [
-    ".claude-plugin/",
-    "skills/",
-    "agents/",
-    "scripts/",
+    "bin/",
+    "src/",
     "templates/",
-    "resources/"
+    "README.md"
   ],
   "keywords": [
     "claude-code",
-    "plugin",
     "workflow",
     "spec-first",
-    "ai-assisted"
+    "ai-assisted",
+    "cli"
   ],
   "author": "spec-first",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/sunrain520/spec-first.git"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

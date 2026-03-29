@@ -3,6 +3,9 @@
 
 set -e
 
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$REPO_ROOT"
+
 TEST_DIR=".claude/tasks/test-e2e-$(date +%s)"
 TASK_ID="2026-03-29-test-e2e"
 
