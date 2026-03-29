@@ -8,19 +8,22 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 echo "=== CLI smoke test ==="
 
+expected_version="$(node -p "require('$REPO_ROOT/package.json').version")"
+
 echo "1. Check help and version output..."
 help_output="$(node "$REPO_ROOT/bin/spec-first.js" --help)"
 version_output="$(node "$REPO_ROOT/bin/spec-first.js" --version)"
 grep -q "doctor" <<<"$help_output"
 grep -q "init --claude" <<<"$help_output"
 grep -q "clean --claude" <<<"$help_output"
-grep -q "^1.3.10$" <<<"$version_output"
+grep -q "^${expected_version}$" <<<"$version_output"
 echo "✓ help/version output is present"
 
 echo "1b. Check doctor output in a fresh project is concise..."
 doctor_fresh_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor)"
 grep -q "PASS    .claude-plugin/plugin.json" <<<"$doctor_fresh_output"
 grep -q "WARNING .claude/spec-first/state.json: missing" <<<"$doctor_fresh_output"
+grep -q "WARNING .claude/spec-first/.developer: missing" <<<"$doctor_fresh_output"
 grep -q "WARNING .claude/skills: missing" <<<"$doctor_fresh_output"
 grep -q "WARNING .claude/agents: missing" <<<"$doctor_fresh_output"
 if grep -q "agent-browser" <<<"$doctor_fresh_output"; then
@@ -30,10 +33,22 @@ fi
 echo "✓ doctor reports missing skills concisely"
 
 echo "2. Initialize Claude commands in a fresh project..."
-(
+init_output="$(
   cd "$TMP_DIR"
-  node "$REPO_ROOT/bin/spec-first.js" init --claude
-)
+  node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en
+)"
+grep -q "Generated 5 command file(s)" <<<"$init_output"
+grep -q "Generated 41 skill directory(ies)" <<<"$init_output"
+grep -q "Generated 47 agent file(s)" <<<"$init_output"
+grep -q "Wrote project developer profile" <<<"$init_output"
+if grep -qE '^- |  - ' <<<"$init_output"; then
+  echo "✗ init output should not enumerate per-file details"
+  exit 1
+fi
+if grep -q "brainstorm.md" <<<"$init_output"; then
+  echo "✗ init output should not list individual command filenames"
+  exit 1
+fi
 
 for file in brainstorm.md plan.md work.md review.md compound.md; do
   test -f "$TMP_DIR/.claude/commands/spec/$file"
@@ -45,6 +60,20 @@ grep -q "Spec-First Review" "$TMP_DIR/.claude/commands/spec/review.md"
 grep -q "Spec-First Compound" "$TMP_DIR/.claude/commands/spec/compound.md"
 grep -q '.claude/skills/spec-brainstorm/SKILL.md' "$TMP_DIR/.claude/commands/spec/brainstorm.md"
 grep -q '.claude/skills/spec-plan/SKILL.md' "$TMP_DIR/.claude/commands/spec/plan.md"
+test -f "$TMP_DIR/.claude/spec-first/.developer"
+grep -q '^name=kuang$' "$TMP_DIR/.claude/spec-first/.developer"
+grep -q '^lang=en$' "$TMP_DIR/.claude/spec-first/.developer"
+grep -q '^initialized_at=' "$TMP_DIR/.claude/spec-first/.developer"
+grep -q "^version=${expected_version}$" "$TMP_DIR/.claude/spec-first/.developer"
+node - "$TMP_DIR/.claude/spec-first/state.json" <<'EOF'
+const fs = require('node:fs');
+const statePath = process.argv[2];
+const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+if (!state.developer || state.developer.name !== 'kuang' || state.developer.lang !== 'en') {
+  console.error('state.json does not record the project developer profile');
+  process.exit(1);
+}
+EOF
 echo "✓ init generated all /spec:* command files"
 
 echo "2a-1. Verify source assets use the current spec-first branding and naming..."
@@ -134,7 +163,7 @@ echo "2d. Re-run init and verify it overwrites existing files..."
 printf 'local edit\n' >> "$TMP_DIR/.claude/commands/spec/brainstorm.md"
 (
   cd "$TMP_DIR"
-  node "$REPO_ROOT/bin/spec-first.js" init --claude
+  node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en
 )
 grep -q "Spec-First Brainstorm" "$TMP_DIR/.claude/commands/spec/brainstorm.md"
 if grep -q "local edit" "$TMP_DIR/.claude/commands/spec/brainstorm.md"; then
@@ -160,7 +189,7 @@ fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
 EOF
 (
   cd "$TMP_DIR"
-  node "$REPO_ROOT/bin/spec-first.js" init --claude
+  node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en
 )
 test ! -e "$TMP_DIR/.claude/commands/spec/obsolete.md"
 test ! -e "$TMP_DIR/.claude/skills/obsolete-skill/SKILL.md"
@@ -171,6 +200,7 @@ echo "✓ init prunes stale managed assets and preserves custom assets"
 echo "3. Run doctor after initialization..."
 doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor)"
 grep -q "PASS" <<<"$doctor_output"
+grep -q "PASS    .claude/spec-first/.developer" <<<"$doctor_output"
 grep -q ".claude/spec-first/state.json" <<<"$doctor_output"
 grep -q ".claude/commands/spec" <<<"$doctor_output"
 grep -q ".claude/skills" <<<"$doctor_output"
@@ -185,17 +215,19 @@ echo "3b. Verify clean removes managed assets and preserves custom assets..."
 test ! -e "$TMP_DIR/.claude/commands/spec/brainstorm.md"
 test ! -e "$TMP_DIR/.claude/skills/spec-brainstorm/SKILL.md"
 test ! -e "$TMP_DIR/.claude/agents/review/correctness-reviewer.md"
+test ! -e "$TMP_DIR/.claude/spec-first/.developer"
 test -e "$TMP_DIR/.claude/skills/custom-skill/SKILL.md"
 echo "✓ clean removes managed assets and preserves custom assets"
 
 echo "3c. Re-init after clean..."
 (
   cd "$TMP_DIR"
-  node "$REPO_ROOT/bin/spec-first.js" init --claude
+  node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en
 )
 test -f "$TMP_DIR/.claude/commands/spec/brainstorm.md"
 test -f "$TMP_DIR/.claude/skills/spec-brainstorm/SKILL.md"
 test -f "$TMP_DIR/.claude/agents/review/correctness-reviewer.md"
+test -f "$TMP_DIR/.claude/spec-first/.developer"
 echo "✓ re-init works after clean"
 
 echo "4. Check npm pack output includes CLI assets..."

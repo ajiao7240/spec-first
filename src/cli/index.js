@@ -41,7 +41,7 @@ function printHelp(withErrorPrefix = false) {
     '',
     'Commands:',
     '  doctor         Check the local environment plus bundled plugin manifest, commands, skills, and agents',
-    '  init --claude  Generate .claude/commands/spec/*, .claude/skills/*, and .claude/agents/* from the bundled plugin assets',
+    '  init --claude  Generate .claude/commands/spec/*, .claude/skills/*, .claude/agents/*, and .claude/spec-first/.developer from the bundled plugin assets',
     '  clean --claude Remove spec-first managed .claude assets from the current project',
     '',
     'Global options:',

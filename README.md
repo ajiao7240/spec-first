@@ -183,7 +183,7 @@ hash -r  # 刷新 shell 缓存
 spec-first doctor
 
 # 2️⃣ 在目标项目初始化
-spec-first init --claude
+spec-first init --claude -u <name> --lang <zh|en>
 
 # 3️⃣ 启动 Claude Code
 claude
@@ -214,9 +214,10 @@ spec-first/                        .claude/
 ├── bin/           CLI 入口        ├── commands/spec/*.md    命令入口
 ├── src/           CLI 源码        ├── skills/*              流程层
 ├── templates/     命令模板   ──►  ├── agents/*              能力层
-├── skills/        41个技能        └── spec-first/state.json 状态追踪
+├── skills/        41个技能        ├── spec-first/state.json 状态追踪
 ├── agents/        47个代理
-└── .claude-plugin/ 插件清单
+├── .claude-plugin/ 插件清单
+└── .claude/spec-first/.developer    开发者身份
 ```
 
 ---
@@ -226,7 +227,7 @@ spec-first/                        .claude/
 | 命令 | 参数 | 描述 |
 |------|------|------|
 | `spec-first doctor` | - | 检查环境和项目状态 |
-| `spec-first init` | `--claude`, `--force` | 同步命令、技能、代理到项目 |
+| `spec-first init` | `--claude`, `-u`, `--lang`, `--force` | 同步命令、技能、代理与项目身份到项目 |
 | `spec-first clean` | `--claude` | 移除受管资产，保留自定义内容 |
 
 ---

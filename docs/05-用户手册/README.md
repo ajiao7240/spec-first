@@ -2,7 +2,7 @@
 
 这套手册对应当前 `spec-first` npm CLI 模型。
 
-`spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init --claude / clean --claude` 把 `/spec:*` 命令、workflow skills 和 agents 安装到当前项目中。
+`spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init --claude / clean --claude` 把 `/spec:*` 命令、workflow skills、agents、项目级 `.developer` 和受管状态安装到当前项目中。
 
 ![Spec-First 总览图](../assets/svg/spec-first-overview.svg)
 
@@ -11,6 +11,7 @@
 - 一套稳定的 `/spec:*` 项目命令
 - 一条 `Brainstorm -> Plan -> Work -> Review -> Compound` 的标准闭环
 - 项目级 `.claude/commands/spec`、`.claude/skills`、`.claude/agents`
+- 项目级 `.claude/spec-first/.developer`
 - 可更新、可恢复、可清理的受管资产模型
 
 ![Spec-First 五阶段工作流](../assets/svg/spec-first-workflow.svg)
@@ -38,4 +39,4 @@
 
 ## 版本
 
-当前版本：`v1.3.10`
+当前版本：`v1.3.12`

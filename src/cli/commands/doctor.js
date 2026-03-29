@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { inspectInstalledAssets, listBundledCommands, loadPluginManifest } = require('../plugin');
+const { readDeveloperFile, getProjectDeveloperPath } = require('../developer');
 const { readState } = require('../state');
 
 function runDoctor(argv) {
@@ -23,6 +24,7 @@ function runDoctor(argv) {
     checkGit(),
     checkClaude(),
     checkPluginManifest(),
+    checkProjectDeveloper(projectRoot),
     checkManagedState(projectRoot),
     checkGeneratedCommands(projectRoot),
     checkInstalledSkills(projectRoot),
@@ -231,6 +233,62 @@ function checkPluginManifest() {
       fix: 'Restore the bundled plugin manifest and reinstall the package.',
     };
   }
+}
+
+function checkProjectDeveloper(projectRoot) {
+  const developerPath = getProjectDeveloperPath(projectRoot);
+  if (!fs.existsSync(developerPath)) {
+    return {
+      level: 'WARNING',
+      name: '.claude/spec-first/.developer',
+      message: 'missing',
+      fix: 'Run `spec-first init --claude` in this project to write the project developer profile.',
+    };
+  }
+
+  const developer = readDeveloperFile(developerPath);
+  if (!developer) {
+    return {
+      level: 'ERROR',
+      name: '.claude/spec-first/.developer',
+      message: 'invalid or empty',
+      fix: 'Run `spec-first init --claude -u <name> --lang <zh|en>` to regenerate the project developer profile.',
+    };
+  }
+
+  const packageVersion = require('../../../package.json').version;
+  if (
+    typeof developer.name !== 'string' ||
+    developer.name.length === 0 ||
+    typeof developer.lang !== 'string' ||
+    (developer.lang !== 'zh' && developer.lang !== 'en') ||
+    typeof developer.initializedAt !== 'string' ||
+    developer.initializedAt.length === 0 ||
+    typeof developer.version !== 'string' ||
+    developer.version.length === 0
+  ) {
+    return {
+      level: 'ERROR',
+      name: '.claude/spec-first/.developer',
+      message: 'invalid or incomplete',
+      fix: 'Run `spec-first init --claude -u <name> --lang <zh|en>` to regenerate the project developer profile.',
+    };
+  }
+
+  if (developer.version !== packageVersion) {
+    return {
+      level: 'WARNING',
+      name: '.claude/spec-first/.developer',
+      message: `recorded ${developer.version}, bundled ${packageVersion}`,
+      fix: 'Run `spec-first init --claude` in this project to refresh the project developer profile after upgrading.',
+    };
+  }
+
+  return {
+    level: 'PASS',
+    name: '.claude/spec-first/.developer',
+    message: `${developer.name} (${developer.lang}) ${developer.version}`,
+  };
 }
 
 function checkManagedState(projectRoot) {
