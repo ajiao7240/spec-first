@@ -120,6 +120,7 @@ function checkGit() {
 function checkPlatformCli(platform) {
   const command = platform === 'codex' ? 'codex' : 'claude';
   const displayName = platform === 'codex' ? 'Codex' : 'Claude Code';
+  // Note: Codex CLI may not be available yet - this is expected during MVP phase
   const result = spawnSync(command, ['--version'], { encoding: 'utf8' });
   if (result.status === 0) {
     return {
