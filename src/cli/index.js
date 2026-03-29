@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { runClean } = require('./commands/clean');
 const { runDoctor } = require('./commands/doctor');
 const { runInit } = require('./commands/init');
 
@@ -25,6 +26,10 @@ function runCli(argv) {
     return Promise.resolve(runInit(args.slice(1)));
   }
 
+  if (cmd === 'clean') {
+    return Promise.resolve(runClean(args.slice(1)));
+  }
+
   console.error(`Unknown command: ${cmd}`);
   printHelp(true);
   return Promise.resolve(1);
@@ -37,6 +42,7 @@ function printHelp(withErrorPrefix = false) {
     'Commands:',
     '  doctor         Check the local environment plus bundled plugin manifest, commands, skills, and agents',
     '  init --claude  Generate .claude/commands/spec/*, .claude/skills/*, and .claude/agents/* from the bundled plugin assets',
+    '  clean --claude Remove spec-first managed .claude assets from the current project',
     '',
     'Global options:',
     '  -h, --help     Show help',

@@ -13,12 +13,14 @@ help_output="$(node "$REPO_ROOT/bin/spec-first.js" --help)"
 version_output="$(node "$REPO_ROOT/bin/spec-first.js" --version)"
 grep -q "doctor" <<<"$help_output"
 grep -q "init --claude" <<<"$help_output"
+grep -q "clean --claude" <<<"$help_output"
 grep -q "^1.3.10$" <<<"$version_output"
 echo "✓ help/version output is present"
 
 echo "1b. Check doctor output in a fresh project is concise..."
 doctor_fresh_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor)"
 grep -q "PASS    .claude-plugin/plugin.json" <<<"$doctor_fresh_output"
+grep -q "WARNING .claude/spec-first/state.json: missing" <<<"$doctor_fresh_output"
 grep -q "WARNING .claude/skills: missing" <<<"$doctor_fresh_output"
 grep -q "WARNING .claude/agents: missing" <<<"$doctor_fresh_output"
 if grep -q "agent-browser" <<<"$doctor_fresh_output"; then
@@ -86,13 +88,60 @@ if grep -q "local edit" "$TMP_DIR/.claude/commands/spec/brainstorm.md"; then
 fi
 echo "✓ init overwrites existing command files by default"
 
+echo "2e. Verify init prunes stale managed assets without touching unrelated custom assets..."
+mkdir -p "$TMP_DIR/.claude/skills/obsolete-skill" "$TMP_DIR/.claude/agents/obsolete" "$TMP_DIR/.claude/skills/custom-skill"
+printf 'stale command\n' > "$TMP_DIR/.claude/commands/spec/obsolete.md"
+printf 'stale skill\n' > "$TMP_DIR/.claude/skills/obsolete-skill/SKILL.md"
+printf 'stale agent\n' > "$TMP_DIR/.claude/agents/obsolete/ghost.md"
+printf 'custom skill\n' > "$TMP_DIR/.claude/skills/custom-skill/SKILL.md"
+node - "$TMP_DIR/.claude/spec-first/state.json" <<'EOF'
+const fs = require('node:fs');
+const statePath = process.argv[2];
+const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+state.commands.push('obsolete.md');
+state.skills.push('obsolete-skill');
+state.agents.push('obsolete/ghost.md');
+fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+EOF
+(
+  cd "$TMP_DIR"
+  node "$REPO_ROOT/bin/spec-first.js" init --claude
+)
+test ! -e "$TMP_DIR/.claude/commands/spec/obsolete.md"
+test ! -e "$TMP_DIR/.claude/skills/obsolete-skill/SKILL.md"
+test ! -e "$TMP_DIR/.claude/agents/obsolete/ghost.md"
+test -e "$TMP_DIR/.claude/skills/custom-skill/SKILL.md"
+echo "✓ init prunes stale managed assets and preserves custom assets"
+
 echo "3. Run doctor after initialization..."
 doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor)"
 grep -q "PASS" <<<"$doctor_output"
+grep -q ".claude/spec-first/state.json" <<<"$doctor_output"
 grep -q ".claude/commands/spec" <<<"$doctor_output"
 grep -q ".claude/skills" <<<"$doctor_output"
 grep -q ".claude/agents" <<<"$doctor_output"
 echo "✓ doctor reports generated commands, skills, and agents"
+
+echo "3b. Verify clean removes managed assets and preserves custom assets..."
+(
+  cd "$TMP_DIR"
+  node "$REPO_ROOT/bin/spec-first.js" clean --claude
+)
+test ! -e "$TMP_DIR/.claude/commands/spec/brainstorm.md"
+test ! -e "$TMP_DIR/.claude/skills/spec-brainstorm/SKILL.md"
+test ! -e "$TMP_DIR/.claude/agents/review/correctness-reviewer.md"
+test -e "$TMP_DIR/.claude/skills/custom-skill/SKILL.md"
+echo "✓ clean removes managed assets and preserves custom assets"
+
+echo "3c. Re-init after clean..."
+(
+  cd "$TMP_DIR"
+  node "$REPO_ROOT/bin/spec-first.js" init --claude
+)
+test -f "$TMP_DIR/.claude/commands/spec/brainstorm.md"
+test -f "$TMP_DIR/.claude/skills/spec-brainstorm/SKILL.md"
+test -f "$TMP_DIR/.claude/agents/review/correctness-reviewer.md"
+echo "✓ re-init works after clean"
 
 echo "4. Check npm pack output includes CLI assets..."
 pack_output="$(cd "$REPO_ROOT" && npm pack --dry-run 2>&1)"

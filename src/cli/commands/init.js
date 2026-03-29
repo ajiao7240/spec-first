@@ -1,6 +1,18 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { syncBundledAssets } = require('../plugin');
+const {
+  listBundledAgents,
+  listBundledSkills,
+  loadPluginManifest,
+  syncBundledAssets,
+} = require('../plugin');
+const {
+  buildState,
+  pruneCommandNamespace,
+  readState,
+  removeObsoleteManagedAssets,
+  writeState,
+} = require('../state');
 
 function runInit(argv) {
   const args = [...argv];
@@ -20,7 +32,26 @@ function runInit(argv) {
   const projectRoot = process.cwd();
   const commandDir = path.join(projectRoot, '.claude', 'commands', 'spec');
   fs.mkdirSync(commandDir, { recursive: true });
+  let previousState = null;
+  try {
+    previousState = readState(projectRoot);
+  } catch (error) {
+    console.warn(
+      `Warning: could not read existing spec-first state; continuing with a fresh sync. (${error instanceof Error ? error.message : String(error)})`,
+    );
+  }
+  const manifest = loadPluginManifest();
+  const previewState = buildState(manifest.version, {
+    commands: manifest.commands,
+    skills: listBundledSkills(),
+    agents: listBundledAgents(),
+  });
+  removeObsoleteManagedAssets(projectRoot, previousState, previewState);
+  pruneCommandNamespace(projectRoot, previewState.commands);
+
   const synced = syncBundledAssets(projectRoot);
+  const nextState = buildState(manifest.version, synced);
+  writeState(projectRoot, nextState);
   const written = synced.commands.map((command) => command.filename);
   const skillNames = synced.skills;
   const agentPaths = synced.agents;

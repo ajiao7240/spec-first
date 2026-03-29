@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { inspectInstalledAssets, listBundledCommands, loadPluginManifest } = require('../plugin');
+const { readState } = require('../state');
 
 function runDoctor(argv) {
   const args = [...argv];
@@ -22,6 +23,7 @@ function runDoctor(argv) {
     checkGit(),
     checkClaude(),
     checkPluginManifest(),
+    checkManagedState(projectRoot),
     checkGeneratedCommands(projectRoot),
     checkInstalledSkills(projectRoot),
     checkInstalledAgents(projectRoot),
@@ -227,6 +229,53 @@ function checkPluginManifest() {
       name: '.claude-plugin/plugin.json',
       message: error instanceof Error ? error.message : String(error),
       fix: 'Restore the bundled plugin manifest and reinstall the package.',
+    };
+  }
+}
+
+function checkManagedState(projectRoot) {
+  const statePath = path.join(projectRoot, '.claude', 'spec-first', 'state.json');
+  if (!fs.existsSync(statePath)) {
+    return {
+      level: 'WARNING',
+      name: '.claude/spec-first/state.json',
+      message: 'missing',
+      fix: 'Run `spec-first init --claude` in this project to record managed assets.',
+    };
+  }
+
+  try {
+    const state = readState(projectRoot);
+    const manifest = loadPluginManifest();
+    if (!state || !state.manifestVersion) {
+      return {
+        level: 'WARNING',
+        name: '.claude/spec-first/state.json',
+        message: 'invalid or empty',
+        fix: 'Run `spec-first init --claude` in this project to regenerate the managed asset state.',
+      };
+    }
+
+    if (state.manifestVersion !== manifest.version) {
+      return {
+        level: 'WARNING',
+        name: '.claude/spec-first/state.json',
+        message: `recorded ${state.manifestVersion}, bundled ${manifest.version}`,
+        fix: 'Run `spec-first init --claude` in this project to resync managed assets after upgrading.',
+      };
+    }
+
+    return {
+      level: 'PASS',
+      name: '.claude/spec-first/state.json',
+      message: `recorded ${state.commands.length} commands, ${state.skills.length} skills, ${state.agents.length} agents`,
+    };
+  } catch (error) {
+    return {
+      level: 'WARNING',
+      name: '.claude/spec-first/state.json',
+      message: error instanceof Error ? error.message : String(error),
+      fix: 'Run `spec-first init --claude` in this project to regenerate the managed asset state.',
     };
   }
 }

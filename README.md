@@ -10,6 +10,7 @@ AI-assisted work framework for Claude Code with five-step loop.
 npm install -g spec-first
 spec-first doctor
 spec-first init --claude
+spec-first clean --claude   # optional: remove managed project assets
 ```
 
 ### From Source
@@ -52,6 +53,7 @@ claude
 - `.claude/commands/spec/*.md` 只负责稳定入口；每个命令都会明确以对应 `.claude/skills/spec-*/SKILL.md` 为执行合同。
 - `spec-first init --claude` 还会把 `skills/` 同步到项目级 `.claude/skills/`，让发布后的 skill 引用继续可用。
 - `spec-first init --claude` 也会把 `agents/` 同步到项目级 `.claude/agents/`，供 skills 调度内部子代理。
+- `spec-first clean --claude` 会删除 spec-first 受管的项目级 `.claude` 资产，但保留未受管的自定义资产。
 - 发布包内现在还包含 `.claude-plugin/plugin.json`，作为 commands / skills / agents 的统一资产清单。
 - 这批 bundled workflow skills 是内部协作层，不再作为独立 slash commands 暴露；用户入口仍以 `/spec:*` 命令为准。
 

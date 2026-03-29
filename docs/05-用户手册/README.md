@@ -7,6 +7,7 @@
 - `npm install -g spec-first`
 - `spec-first doctor`
 - `spec-first init --claude`
+- `spec-first clean --claude`
 - `/spec:*` 命令来自项目内 `.claude/commands/spec/`
 - 每个 `/spec:*` 命令都会显式委托给对应 `.claude/skills/spec-*/SKILL.md`
 - `spec-first init --claude` 还会同步发布包内的 `skills/` 到 `.claude/skills/`
