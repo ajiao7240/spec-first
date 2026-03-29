@@ -10,7 +10,7 @@
     "test:smoke": "bash tests/smoke/install-local.sh && bash tests/smoke/cli.sh",
     "test:integration": "bash tests/integration/e2e.sh",
     "test": "npm run test:smoke && npm run test:integration",
-    "postinstall": "echo 'spec-first installed successfully'"
+    "postinstall": "node bin/postinstall.js"
   },
   "files": [
     "bin/",
