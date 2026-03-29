@@ -1,13 +1,13 @@
 ---
 name: report-bug-ce
-description: Report a bug in the compound-engineering plugin
+description: Report a bug in the spec-first plugin
 argument-hint: "[optional: brief description of the bug]"
 disable-model-invocation: true
 ---
 
 # Report a Compound Engineering Plugin Bug
 
-Report bugs encountered while using the compound-engineering plugin. This skill gathers structured information and creates a GitHub issue for the maintainer.
+Report bugs encountered while using the spec-first plugin. This skill gathers structured information and creates a GitHub issue for the maintainer.
 
 ## Step 1: Gather Bug Information
 
@@ -107,17 +107,17 @@ Use the GitHub CLI to create the issue:
 
 ```bash
 gh issue create \
-  --repo EveryInc/compound-engineering-plugin \
-  --title "[compound-engineering] Bug: [Brief description]" \
+  --repo EveryInc/spec-first-plugin \
+  --title "[spec-first] Bug: [Brief description]" \
   --body "[Formatted bug report from Step 3]" \
-  --label "bug,compound-engineering"
+  --label "bug,spec-first"
 ```
 
 **Note:** If labels don't exist, create without labels:
 ```bash
 gh issue create \
-  --repo EveryInc/compound-engineering-plugin \
-  --title "[compound-engineering] Bug: [Brief description]" \
+  --repo EveryInc/spec-first-plugin \
+  --title "[spec-first] Bug: [Brief description]" \
   --body "[Formatted bug report]"
 ```
 
@@ -133,10 +133,10 @@ After the issue is created:
 ```
 Bug report submitted successfully!
 
-Issue: https://github.com/EveryInc/compound-engineering-plugin/issues/[NUMBER]
-Title: [compound-engineering] Bug: [description]
+Issue: https://github.com/EveryInc/spec-first-plugin/issues/[NUMBER]
+Title: [spec-first] Bug: [description]
 
-Thank you for helping improve the compound-engineering plugin!
+Thank you for helping improve the spec-first plugin!
 The maintainer will review your report and respond as soon as possible.
 ```
 

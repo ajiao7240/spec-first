@@ -41,14 +41,14 @@ All tokens are optional. Each one present means one less thing to infer. When ab
 
 - **Skip all user questions.** Never pause for approval or clarification once scope has been established.
 - **Apply only `safe_auto -> review-fixer` findings.** Leave `gated_auto`, `manual`, `human`, and `release` work unresolved.
-- **Write a run artifact** under `.context/compound-engineering/ce-review/<run-id>/` summarizing findings, applied fixes, residual actionable work, and advisory outputs.
+- **Write a run artifact** under `.context/spec-first/ce-review/<run-id>/` summarizing findings, applied fixes, residual actionable work, and advisory outputs.
 - **Create durable todo files only for unresolved actionable findings** whose final owner is `downstream-resolver`. Load the `todo-create` skill for the canonical directory path and naming convention.
 - **Never commit, push, or create a PR** from autofix mode. Parent workflows own those decisions.
 
 ### Report-only mode rules
 
 - **Skip all user questions.** Infer intent conservatively if the diff metadata is thin.
-- **Never edit files or externalize work.** Do not write `.context/compound-engineering/ce-review/<run-id>/`, do not create todo files, and do not commit, push, or create a PR.
+- **Never edit files or externalize work.** Do not write `.context/spec-first/ce-review/<run-id>/`, do not create todo files, and do not commit, push, or create a PR.
 - **Safe for parallel read-only verification.** `mode:report-only` is the only mode that is safe to run concurrently with browser testing on the same checkout.
 - **Do not switch the shared checkout.** If the caller passes an explicit PR or branch target, `mode:report-only` must run in an isolated checkout/worktree or stop instead of running `gh pr checkout` / `git checkout`.
 - **Do not overlap mutating review with browser testing on the same checkout.** If a future orchestrator wants fixes, run the mutating review phase after browser testing or in an isolated checkout/worktree.
@@ -90,40 +90,40 @@ Routing rules:
 
 | Agent | Focus |
 |-------|-------|
-| `compound-engineering:review:correctness-reviewer` | Logic errors, edge cases, state bugs, error propagation |
-| `compound-engineering:review:testing-reviewer` | Coverage gaps, weak assertions, brittle tests |
-| `compound-engineering:review:maintainability-reviewer` | Coupling, complexity, naming, dead code, abstraction debt |
-| `compound-engineering:review:project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance -- frontmatter, references, naming, portability |
-| `compound-engineering:review:agent-native-reviewer` | Verify new features are agent-accessible |
-| `compound-engineering:research:learnings-researcher` | Search docs/solutions/ for past issues related to this PR |
+| `spec-first:review:correctness-reviewer` | Logic errors, edge cases, state bugs, error propagation |
+| `spec-first:review:testing-reviewer` | Coverage gaps, weak assertions, brittle tests |
+| `spec-first:review:maintainability-reviewer` | Coupling, complexity, naming, dead code, abstraction debt |
+| `spec-first:review:project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance -- frontmatter, references, naming, portability |
+| `spec-first:review:agent-native-reviewer` | Verify new features are agent-accessible |
+| `spec-first:research:learnings-researcher` | Search docs/solutions/ for past issues related to this PR |
 
 **Cross-cutting conditional (selected per diff):**
 
 | Agent | Select when diff touches... |
 |-------|---------------------------|
-| `compound-engineering:review:security-reviewer` | Auth, public endpoints, user input, permissions |
-| `compound-engineering:review:performance-reviewer` | DB queries, data transforms, caching, async |
-| `compound-engineering:review:api-contract-reviewer` | Routes, serializers, type signatures, versioning |
-| `compound-engineering:review:data-migrations-reviewer` | Migrations, schema changes, backfills |
-| `compound-engineering:review:reliability-reviewer` | Error handling, retries, timeouts, background jobs |
-| `compound-engineering:review:adversarial-reviewer` | Diff >=50 changed non-test/non-generated/non-lockfile lines, or auth, payments, data mutations, external APIs |
+| `spec-first:review:security-reviewer` | Auth, public endpoints, user input, permissions |
+| `spec-first:review:performance-reviewer` | DB queries, data transforms, caching, async |
+| `spec-first:review:api-contract-reviewer` | Routes, serializers, type signatures, versioning |
+| `spec-first:review:data-migrations-reviewer` | Migrations, schema changes, backfills |
+| `spec-first:review:reliability-reviewer` | Error handling, retries, timeouts, background jobs |
+| `spec-first:review:adversarial-reviewer` | Diff >=50 changed non-test/non-generated/non-lockfile lines, or auth, payments, data mutations, external APIs |
 
 **Stack-specific conditional (selected per diff):**
 
 | Agent | Select when diff touches... |
 |-------|---------------------------|
-| `compound-engineering:review:dhh-rails-reviewer` | Rails architecture, service objects, session/auth choices, or Hotwire-vs-SPA boundaries |
-| `compound-engineering:review:kieran-rails-reviewer` | Rails application code where conventions, naming, and maintainability are in play |
-| `compound-engineering:review:kieran-python-reviewer` | Python modules, endpoints, scripts, or services |
-| `compound-engineering:review:kieran-typescript-reviewer` | TypeScript components, services, hooks, utilities, or shared types |
-| `compound-engineering:review:julik-frontend-races-reviewer` | Stimulus/Turbo controllers, DOM events, timers, animations, or async UI flows |
+| `spec-first:review:dhh-rails-reviewer` | Rails architecture, service objects, session/auth choices, or Hotwire-vs-SPA boundaries |
+| `spec-first:review:kieran-rails-reviewer` | Rails application code where conventions, naming, and maintainability are in play |
+| `spec-first:review:kieran-python-reviewer` | Python modules, endpoints, scripts, or services |
+| `spec-first:review:kieran-typescript-reviewer` | TypeScript components, services, hooks, utilities, or shared types |
+| `spec-first:review:julik-frontend-races-reviewer` | Stimulus/Turbo controllers, DOM events, timers, animations, or async UI flows |
 
 **CE conditional (migration-specific):**
 
 | Agent | Select when diff includes migration files |
 |-------|------------------------------------------|
-| `compound-engineering:review:schema-drift-detector` | Cross-references schema.rb against included migrations |
-| `compound-engineering:review:deployment-verification-agent` | Produces deployment checklist with SQL verification queries |
+| `spec-first:review:schema-drift-detector` | Cross-references schema.rb against included migrations |
+| `spec-first:review:deployment-verification-agent` | Produces deployment checklist with SQL verification queries |
 
 ## Review Scope
 
@@ -131,7 +131,7 @@ Every review spawns all 4 always-on personas plus the 2 CE always-on agents, the
 
 ## Protected Artifacts
 
-The following paths are compound-engineering pipeline artifacts and must never be flagged for deletion, removal, or gitignore by any reviewer:
+The following paths are spec-first pipeline artifacts and must never be flagged for deletion, removal, or gitignore by any reviewer:
 
 - `docs/brainstorms/*` -- requirements documents created by ce:brainstorm
 - `docs/plans/*.md` -- plan files created by ce:plan (living documents with progress checkboxes)
@@ -186,7 +186,7 @@ Then fetch PR metadata. Capture the base branch name and the PR base repository 
 gh pr view <number-or-url> --json title,body,baseRefName,headRefName,url
 ```
 
-Use the repository portion of the returned PR URL as `<base-repo>` (for example, `EveryInc/compound-engineering-plugin` from `https://github.com/EveryInc/compound-engineering-plugin/pull/348`).
+Use the repository portion of the returned PR URL as `<base-repo>` (for example, `EveryInc/spec-first-plugin` from `https://github.com/EveryInc/spec-first-plugin/pull/348`).
 
 Then compute a local diff against the PR's base branch so re-reviews also include local fix commits and uncommitted edits. Substitute the PR base branch from metadata (shown here as `<base>`) and the PR base repository identity derived from the PR URL (shown here as `<base-repo>`). Resolve the base ref from the PR's actual base repository, not by assuming `origin` points at that repo:
 
@@ -348,7 +348,7 @@ This is progress reporting, not a blocking confirmation.
 Before spawning sub-agents, find the file paths (not contents) of all relevant standards files for the `project-standards` persona. Use the native file-search/glob tool to locate:
 
 1. Use the native file-search tool (e.g., Glob in Claude Code) to find all `**/CLAUDE.md` and `**/AGENTS.md` in the repo.
-2. Filter to those whose directory is an ancestor of at least one changed file. A standards file governs all files below it (e.g., `plugins/compound-engineering/AGENTS.md` applies to everything under `plugins/compound-engineering/`).
+2. Filter to those whose directory is an ancestor of at least one changed file. A standards file governs all files below it (e.g., `plugins/spec-first/AGENTS.md` applies to everything under `plugins/spec-first/`).
 
 Pass the resulting path list to the `project-standards` persona inside a `<standards-paths>` block in its review context (see Stage 4). The persona reads the files itself, targeting only the sections relevant to the changed file types. This keeps the orchestrator's work cheap (path discovery only) and avoids bloating the subagent prompt with content the reviewer may not fully need.
 
@@ -493,7 +493,7 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 
 #### Step 4: Emit artifacts and downstream handoff
 
-- In interactive and autofix modes, write a per-run artifact under `.context/compound-engineering/ce-review/<run-id>/` containing:
+- In interactive and autofix modes, write a per-run artifact under `.context/spec-first/ce-review/<run-id>/` containing:
   - synthesized findings
   - applied fixes
   - residual actionable work

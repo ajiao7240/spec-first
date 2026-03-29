@@ -150,8 +150,8 @@ Prepare a concise planning context summary (a paragraph or two) to pass as input
 
 Run these agents in parallel:
 
-- Task compound-engineering:research:repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
-- Task compound-engineering:research:learnings-researcher(planning context summary)
+- Task spec-first:research:repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
+- Task spec-first:research:learnings-researcher(planning context summary)
 
 Collect:
 - Technology stack and versions (used in section 1.2 to make sharper external research decisions)
@@ -215,8 +215,8 @@ Announce the decision briefly before continuing. Examples:
 
 If Step 1.2 indicates external research is useful, run these agents in parallel:
 
-- Task compound-engineering:research:best-practices-researcher(planning context summary)
-- Task compound-engineering:research:framework-docs-researcher(planning context summary)
+- Task spec-first:research:best-practices-researcher(planning context summary)
+- Task spec-first:research:framework-docs-researcher(planning context summary)
 
 #### 1.4 Consolidate Research
 
@@ -243,7 +243,7 @@ This ensures flow analysis (Phase 1.5) runs and the confidence check (Phase 5.3)
 
 For **Standard** or **Deep** plans, or when user flow completeness is still unclear, run:
 
-- Task compound-engineering:workflow:spec-flow-analyzer(planning context summary, research findings)
+- Task spec-first:workflow:spec-flow-analyzer(planning context summary, research findings)
 
 Use the output to:
 - Identify missing edge cases, state transitions, or handoff gaps
@@ -746,43 +746,43 @@ Use fully-qualified agent names inside Task calls.
 **Deterministic Section-to-Agent Mapping:**
 
 **Requirements Trace / Open Questions classification**
-- `compound-engineering:workflow:spec-flow-analyzer` for missing user flows, edge cases, and handoff gaps
-- `compound-engineering:research:repo-research-analyst` (Scope: `architecture, patterns`) for repo-grounded patterns, conventions, and implementation reality checks
+- `spec-first:workflow:spec-flow-analyzer` for missing user flows, edge cases, and handoff gaps
+- `spec-first:research:repo-research-analyst` (Scope: `architecture, patterns`) for repo-grounded patterns, conventions, and implementation reality checks
 
 **Context & Research / Sources & References gaps**
-- `compound-engineering:research:learnings-researcher` for institutional knowledge and past solved problems
-- `compound-engineering:research:framework-docs-researcher` for official framework or library behavior
-- `compound-engineering:research:best-practices-researcher` for current external patterns and industry guidance
-- Add `compound-engineering:research:git-history-analyzer` only when historical rationale or prior art is materially missing
+- `spec-first:research:learnings-researcher` for institutional knowledge and past solved problems
+- `spec-first:research:framework-docs-researcher` for official framework or library behavior
+- `spec-first:research:best-practices-researcher` for current external patterns and industry guidance
+- Add `spec-first:research:git-history-analyzer` only when historical rationale or prior art is materially missing
 
 **Key Technical Decisions**
-- `compound-engineering:review:architecture-strategist` for design integrity, boundaries, and architectural tradeoffs
-- Add `compound-engineering:research:framework-docs-researcher` or `compound-engineering:research:best-practices-researcher` when the decision needs external grounding beyond repo evidence
+- `spec-first:review:architecture-strategist` for design integrity, boundaries, and architectural tradeoffs
+- Add `spec-first:research:framework-docs-researcher` or `spec-first:research:best-practices-researcher` when the decision needs external grounding beyond repo evidence
 
 **High-Level Technical Design**
-- `compound-engineering:review:architecture-strategist` for validating that the technical design accurately represents the intended approach and identifying gaps
-- `compound-engineering:research:repo-research-analyst` (Scope: `architecture, patterns`) for grounding the technical design in existing repo patterns and conventions
-- Add `compound-engineering:research:best-practices-researcher` when the technical design involves a DSL, API surface, or pattern that benefits from external validation
+- `spec-first:review:architecture-strategist` for validating that the technical design accurately represents the intended approach and identifying gaps
+- `spec-first:research:repo-research-analyst` (Scope: `architecture, patterns`) for grounding the technical design in existing repo patterns and conventions
+- Add `spec-first:research:best-practices-researcher` when the technical design involves a DSL, API surface, or pattern that benefits from external validation
 
 **Implementation Units / Verification**
-- `compound-engineering:research:repo-research-analyst` (Scope: `patterns`) for concrete file targets, patterns to follow, and repo-specific sequencing clues
-- `compound-engineering:review:pattern-recognition-specialist` for consistency, duplication risks, and alignment with existing patterns
-- Add `compound-engineering:workflow:spec-flow-analyzer` when sequencing depends on user flow or handoff completeness
+- `spec-first:research:repo-research-analyst` (Scope: `patterns`) for concrete file targets, patterns to follow, and repo-specific sequencing clues
+- `spec-first:review:pattern-recognition-specialist` for consistency, duplication risks, and alignment with existing patterns
+- Add `spec-first:workflow:spec-flow-analyzer` when sequencing depends on user flow or handoff completeness
 
 **System-Wide Impact**
-- `compound-engineering:review:architecture-strategist` for cross-boundary effects, interface surfaces, and architectural knock-on impact
+- `spec-first:review:architecture-strategist` for cross-boundary effects, interface surfaces, and architectural knock-on impact
 - Add the specific specialist that matches the risk:
-  - `compound-engineering:review:performance-oracle` for scalability, latency, throughput, and resource-risk analysis
-  - `compound-engineering:review:security-sentinel` for auth, validation, exploit surfaces, and security boundary review
-  - `compound-engineering:review:data-integrity-guardian` for migrations, persistent state safety, consistency, and data lifecycle risks
+  - `spec-first:review:performance-oracle` for scalability, latency, throughput, and resource-risk analysis
+  - `spec-first:review:security-sentinel` for auth, validation, exploit surfaces, and security boundary review
+  - `spec-first:review:data-integrity-guardian` for migrations, persistent state safety, consistency, and data lifecycle risks
 
 **Risks & Dependencies / Operational Notes**
 - Use the specialist that matches the actual risk:
-  - `compound-engineering:review:security-sentinel` for security, auth, privacy, and exploit risk
-  - `compound-engineering:review:data-integrity-guardian` for persistent data safety, constraints, and transaction boundaries
-  - `compound-engineering:review:data-migration-expert` for migration realism, backfills, and production data transformation risk
-  - `compound-engineering:review:deployment-verification-agent` for rollout checklists, rollback planning, and launch verification
-  - `compound-engineering:review:performance-oracle` for capacity, latency, and scaling concerns
+  - `spec-first:review:security-sentinel` for security, auth, privacy, and exploit risk
+  - `spec-first:review:data-integrity-guardian` for persistent data safety, constraints, and transaction boundaries
+  - `spec-first:review:data-migration-expert` for migration realism, backfills, and production data transformation risk
+  - `spec-first:review:deployment-verification-agent` for rollout checklists, rollback planning, and launch verification
+  - `spec-first:review:performance-oracle` for capacity, latency, and scaling concerns
 
 **Agent Prompt Shape:**
 
@@ -814,7 +814,7 @@ Signals that justify artifact-backed mode:
 
 If artifact-backed mode is not clearly warranted, stay in direct mode.
 
-Artifact-backed mode uses a per-run scratch directory under `.context/compound-engineering/ce-plan/deepen/`.
+Artifact-backed mode uses a per-run scratch directory under `.context/spec-first/ce-plan/deepen/`.
 
 ##### 5.3.6 Run Targeted Research
 

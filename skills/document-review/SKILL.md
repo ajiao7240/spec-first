@@ -71,15 +71,15 @@ Reviewing with:
 ### Build Agent List
 
 Always include:
-- `compound-engineering:document-review:coherence-reviewer`
-- `compound-engineering:document-review:feasibility-reviewer`
+- `spec-first:document-review:coherence-reviewer`
+- `spec-first:document-review:feasibility-reviewer`
 
 Add activated conditional personas:
-- `compound-engineering:document-review:product-lens-reviewer`
-- `compound-engineering:document-review:design-lens-reviewer`
-- `compound-engineering:document-review:security-lens-reviewer`
-- `compound-engineering:document-review:scope-guardian-reviewer`
-- `compound-engineering:document-review:adversarial-document-reviewer`
+- `spec-first:document-review:product-lens-reviewer`
+- `spec-first:document-review:design-lens-reviewer`
+- `spec-first:document-review:security-lens-reviewer`
+- `spec-first:document-review:scope-guardian-reviewer`
+- `spec-first:document-review:adversarial-document-reviewer`
 
 ### Dispatch
 

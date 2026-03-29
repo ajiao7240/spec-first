@@ -18,7 +18,7 @@ The orchestrator passes a `<standards-paths>` block listing the file paths of al
 If no `<standards-paths>` block is present (standalone usage), discover the paths yourself:
 
 1. Use the native file-search/glob tool to find all `CLAUDE.md` and `AGENTS.md` files in the repository.
-2. For each changed file, check its ancestor directories up to the repo root for standards files. A file like `plugins/compound-engineering/AGENTS.md` applies to all changes under `plugins/compound-engineering/`.
+2. For each changed file, check its ancestor directories up to the repo root for standards files. A file like `plugins/spec-first/AGENTS.md` applies to all changes under `plugins/spec-first/`.
 3. Read each relevant standards file found.
 
 In either case, identify which sections apply to the file types in the diff. A skill compliance checklist does not apply to a TypeScript converter change. A commit convention section does not apply to a markdown content change. Match rules to the files they govern.
@@ -29,7 +29,7 @@ In either case, identify which sections apply to the file types in the diff. A s
 
 - **Reference file inclusion mistakes** -- markdown links (`[file](./references/file.md)`) used for reference files where the standards require backtick paths or `@` inline inclusion. Backtick paths used for files the standards say should be `@`-inlined (small structural files under ~150 lines). `@` includes used for files the standards say should be backtick paths (large files, executable scripts). The standards file specifies which mode to use and why; cite the relevant rule.
 
-- **Broken cross-references** -- agent names that are not fully qualified (e.g., `learnings-researcher` instead of `compound-engineering:research:learnings-researcher`). Skill-to-skill references using slash syntax inside a SKILL.md where the standards say to use semantic wording. References to tools by platform-specific names without naming the capability class.
+- **Broken cross-references** -- agent names that are not fully qualified (e.g., `learnings-researcher` instead of `spec-first:research:learnings-researcher`). Skill-to-skill references using slash syntax inside a SKILL.md where the standards say to use semantic wording. References to tools by platform-specific names without naming the capability class.
 
 - **Cross-platform portability violations** -- platform-specific tool names used without equivalents (e.g., `TodoWrite` instead of `TaskCreate`/`TaskUpdate`/`TaskList`). Slash references in pass-through SKILL.md files that won't be remapped. Assumptions about tool availability that break on other platforms.
 

@@ -18,7 +18,7 @@ Swarm-enabled LFG. Run these steps in order, parallelizing where indicated. Do n
 After work completes, launch steps 4 and 5 as **parallel swarm agents** (both only need code to be written):
 
 4. `/ce:review mode:report-only plan:<plan-path-from-step-2>` — spawn as background Task agent
-5. `/compound-engineering:test-browser` — spawn as background Task agent
+5. `/spec-first:test-browser` — spawn as background Task agent
 
 Wait for both to complete before continuing.
 
@@ -28,8 +28,8 @@ Wait for both to complete before continuing.
 
 ## Finalize Phase
 
-7. `/compound-engineering:todo-resolve` — resolve findings, compound on learnings, clean up completed todos
-8. `/compound-engineering:feature-video` — record the final walkthrough and add to PR
+7. `/spec-first:todo-resolve` — resolve findings, compound on learnings, clean up completed todos
+8. `/spec-first:feature-video` — record the final walkthrough and add to PR
 9. Output `<promise>DONE</promise>` when video is in PR
 
 Start with step 1 now.

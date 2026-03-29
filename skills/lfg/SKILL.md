@@ -21,11 +21,11 @@ CRITICAL: You MUST execute every step below IN ORDER. Do NOT skip any required s
 
    Pass the plan file path from step 2 so ce:review can verify requirements completeness.
 
-5. `/compound-engineering:todo-resolve`
+5. `/spec-first:todo-resolve`
 
-6. `/compound-engineering:test-browser`
+6. `/spec-first:test-browser`
 
-7. `/compound-engineering:feature-video`
+7. `/spec-first:feature-video`
 
 8. Output `<promise>DONE</promise>` when video is in PR
 
