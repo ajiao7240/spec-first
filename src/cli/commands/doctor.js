@@ -59,14 +59,18 @@ function runDoctor(argv) {
   for (const platform of platforms) {
     console.log(`\n=== ${platform.toUpperCase()} Platform ===`);
     const adapter = getAdapter(platform);
+    const runtimeChecks = adapter.inspectRuntimeFiles(projectRoot);
     const platformChecks = [
       checkPlatformCli(platform),
       checkProjectDeveloper(projectRoot, adapter),
       checkManagedState(projectRoot, adapter),
-      checkGeneratedCommands(projectRoot, adapter),
+      ...runtimeChecks,
       checkInstalledSkills(projectRoot, adapter),
       checkInstalledAgents(projectRoot, adapter),
     ];
+    if (adapter.hasCommands) {
+      platformChecks.splice(3 + runtimeChecks.length, 0, checkGeneratedCommands(projectRoot, adapter));
+    }
 
     for (const check of platformChecks) {
       const label = check.level.toUpperCase().padEnd(7);

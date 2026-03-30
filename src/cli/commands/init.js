@@ -43,8 +43,10 @@ function runInit(argv) {
   const adapter = getAdapter(platform);
 
   const projectRoot = process.cwd();
-  const commandDir = path.join(projectRoot, adapter.commandRoot);
-  fs.mkdirSync(commandDir, { recursive: true });
+  const commandDir = adapter.hasCommands ? path.join(projectRoot, adapter.commandRoot) : '';
+  if (adapter.hasCommands) {
+    fs.mkdirSync(commandDir, { recursive: true });
+  }
   let previousState = null;
   try {
     previousState = readState(projectRoot, adapter);
@@ -54,6 +56,12 @@ function runInit(argv) {
     );
   }
   const manifest = loadPluginManifest();
+  const runtimeCommands = adapter.hasCommands
+    ? manifest.commands.map((command) => ({
+      ...command,
+      filename: adapter.commandFilename(command),
+    }))
+    : [];
   let developer;
   try {
     developer = resolveDeveloperIdentity(projectRoot, {
@@ -66,7 +74,7 @@ function runInit(argv) {
   }
 
   const previewState = buildState(manifest.version, {
-    commands: manifest.commands,
+    commands: runtimeCommands,
     skills: listBundledSkills(),
     agents: listBundledAgents(),
     developer,
@@ -88,11 +96,14 @@ function runInit(argv) {
   });
   writeDeveloperFile(projectRoot, developer, adapter);
   writeState(projectRoot, nextState, adapter);
+  adapter.syncRuntimeFiles(projectRoot, { manifest, synced });
   const written = synced.commands.map((command) => command.filename);
   const skillNames = synced.skills;
   const agentPaths = synced.agents;
 
-  console.log(`📦 Generated ${written.length} command file(s) in ${path.relative(projectRoot, commandDir)}`);
+  if (adapter.hasCommands) {
+    console.log(`📦 Generated ${written.length} command file(s) in ${path.relative(projectRoot, commandDir)}`);
+  }
   console.log(`🧩 Generated ${skillNames.length} skill directory(ies) in ${adapter.skillsRoot}`);
   console.log(`🤖 Generated ${agentPaths.length} agent file(s) in ${adapter.agentsRoot}`);
   console.log('🪪 Wrote project developer profile:');
@@ -103,7 +114,11 @@ function runInit(argv) {
   console.log(`  🔖 version: ${developer.version}`);
 
   console.log('');
-  console.log(`🔁 Restart ${platform === 'claude' ? 'Claude Code' : 'Codex'} after generation so it can pick up the new /spec:* commands.`);
+  if (adapter.hasCommands) {
+    console.log(`🔁 Restart ${platform === 'claude' ? 'Claude Code' : 'Codex'} after generation so it can pick up the new /spec:* commands.`);
+  } else {
+    console.log(`🔁 Restart Codex after generation so it can pick up the new $spec-* skills.`);
+  }
   return 0;
 }
 

@@ -122,7 +122,7 @@ function readBundledCommandTemplate(commandName) {
 }
 
 function syncBundledAssets(projectRoot, adapter) {
-  const commands = syncCommands(projectRoot, adapter);
+  const commands = adapter.hasCommands ? syncCommands(projectRoot, adapter) : [];
   const skills = syncSkills(projectRoot, adapter);
   const agents = syncAgents(projectRoot, adapter);
 
@@ -133,7 +133,10 @@ function syncCommands(projectRoot, adapter) {
   const targetRoot = path.join(projectRoot, adapter.commandRoot);
   fs.mkdirSync(targetRoot, { recursive: true });
 
-  const commands = listBundledCommands();
+  const commands = listBundledCommands().map((command) => ({
+    ...command,
+    filename: adapter.commandFilename(command),
+  }));
   for (const command of commands) {
     const content = readBundledCommandTemplate(command.name);
     const transformed = adapter.transformSkillContent(content);
@@ -159,7 +162,7 @@ function syncSkills(projectRoot, adapter) {
     const targetDir = path.join(targetRoot, skillName);
     fs.rmSync(targetDir, { recursive: true, force: true });
     copyDirectoryWithTransform(sourceDir, targetDir, (content) =>
-      adapter.transformSkillContent(content),
+      adapter.transformSkillContent(content, { skillName }),
     );
   }
 
@@ -191,7 +194,9 @@ function inspectInstalledAssets(projectRoot, adapter) {
   const agents = listBundledAgents();
 
   return {
-    commands: inspectCommands(projectRoot, commands, adapter),
+    commands: adapter.hasCommands
+      ? inspectCommands(projectRoot, commands, adapter)
+      : { targetRoot: adapter.commandRoot, entries: [], missing: [] },
     skills: inspectSkills(projectRoot, skills, adapter),
     agents: inspectAgents(projectRoot, agents, adapter),
   };
@@ -199,8 +204,12 @@ function inspectInstalledAssets(projectRoot, adapter) {
 
 function inspectCommands(projectRoot, commands = listBundledCommands(), adapter) {
   const targetRoot = path.join(projectRoot, adapter.commandRoot);
-  const missing = commands.filter((command) => !fs.existsSync(path.join(targetRoot, command.filename)));
-  return { targetRoot, entries: commands, missing };
+  const runtimeCommands = commands.map((command) => ({
+    ...command,
+    filename: adapter.commandFilename(command),
+  }));
+  const missing = runtimeCommands.filter((command) => !fs.existsSync(path.join(targetRoot, command.filename)));
+  return { targetRoot, entries: runtimeCommands, missing };
 }
 
 function inspectSkills(projectRoot, skillNames = listBundledSkills(), adapter) {

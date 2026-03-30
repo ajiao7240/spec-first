@@ -45,6 +45,7 @@ function runClean(argv) {
   }
 
   removeManagedAssets(projectRoot, state, adapter);
+  adapter.removeRuntimeFiles(projectRoot);
   clearState(projectRoot, adapter);
   removeEmptyManagedRoots(projectRoot, adapter);
 
@@ -54,11 +55,12 @@ function runClean(argv) {
 }
 
 function removeEmptyManagedRoots(projectRoot, adapter) {
-  for (const relativePath of [
-    adapter.commandRoot,
-    adapter.skillsRoot,
-    adapter.agentsRoot,
-  ]) {
+  const relativePaths = [adapter.skillsRoot, adapter.agentsRoot];
+  if (adapter.hasCommands) {
+    relativePaths.unshift(adapter.commandRoot);
+  }
+
+  for (const relativePath of relativePaths) {
     const absolutePath = path.join(projectRoot, relativePath);
     if (!fs.existsSync(absolutePath)) {
       continue;

@@ -211,18 +211,55 @@ codex_output="$(
   cd "$TMP_DIR"
   node "$REPO_ROOT/bin/spec-first.js" init --codex -u kuang --lang en
 )"
-grep -q "Generated 5 command file(s)" <<<"$codex_output"
-test -f "$TMP_DIR/.codex/commands/spec/brainstorm.md"
+if grep -q "Generated 5 command file(s)" <<<"$codex_output"; then
+  echo "✗ codex init should install skills, not command files"
+  exit 1
+fi
+grep -q "Generated 41 skill directory(ies) in .agents/skills" <<<"$codex_output"
+grep -q "Generated 47 agent file(s) in .codex/agents" <<<"$codex_output"
+test -f "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
+test -f "$TMP_DIR/.agents/skills/spec-plan/SKILL.md"
+test -f "$TMP_DIR/.agents/skills/spec-work/SKILL.md"
+test -f "$TMP_DIR/.agents/skills/spec-review/SKILL.md"
+test -f "$TMP_DIR/.agents/skills/spec-compound/SKILL.md"
+grep -q '^name: spec-brainstorm$' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
+grep -q '^name: spec-plan$' "$TMP_DIR/.agents/skills/spec-plan/SKILL.md"
+grep -q '^name: spec-work$' "$TMP_DIR/.agents/skills/spec-work/SKILL.md"
+grep -q '^name: spec-review$' "$TMP_DIR/.agents/skills/spec-review/SKILL.md"
+grep -q '^name: spec-compound$' "$TMP_DIR/.agents/skills/spec-compound/SKILL.md"
+test -f "$TMP_DIR/.codex/agents/review/correctness-reviewer.md"
+test -f "$TMP_DIR/.codex/agents/research/repo-research-analyst.md"
 test -f "$TMP_DIR/.codex/spec-first/.developer"
 grep -q '^name=kuang$' "$TMP_DIR/.codex/spec-first/.developer"
 codex_doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor --codex)"
 grep -q ".codex/spec-first/.developer" <<<"$codex_doctor_output"
-grep -q ".codex/commands/spec" <<<"$codex_doctor_output"
+grep -q ".agents/skills" <<<"$codex_doctor_output"
+grep -q ".codex/agents" <<<"$codex_doctor_output"
+if grep -q ".agents/plugins/marketplace.json" <<<"$codex_doctor_output"; then
+  echo "✗ codex doctor should not depend on plugin marketplace anymore"
+  exit 1
+fi
+mkdir -p "$TMP_DIR/.codex/commands/spec" "$TMP_DIR/.codex/skills/legacy-skill" "$TMP_DIR/.agents/plugins/plugins/spec" "$TMP_DIR/plugins/spec-first"
+printf 'legacy command\n' > "$TMP_DIR/.codex/commands/spec/brainstorm.md"
+printf 'legacy skill\n' > "$TMP_DIR/.codex/skills/legacy-skill/SKILL.md"
+printf 'legacy plugin\n' > "$TMP_DIR/.agents/plugins/marketplace.json"
+printf 'legacy plugin skill\n' > "$TMP_DIR/.agents/plugins/plugins/spec/README.md"
+printf 'legacy plugin\n' > "$TMP_DIR/plugins/spec-first/README.md"
+(
+  cd "$TMP_DIR"
+  node "$REPO_ROOT/bin/spec-first.js" init --codex -u kuang --lang en >/dev/null
+)
+test ! -e "$TMP_DIR/.codex/commands/spec/brainstorm.md"
+test ! -e "$TMP_DIR/.codex/skills/legacy-skill/SKILL.md"
+test ! -e "$TMP_DIR/.agents/plugins/marketplace.json"
+test ! -e "$TMP_DIR/.agents/plugins/plugins/spec/README.md"
+test ! -e "$TMP_DIR/plugins/spec-first"
 (
   cd "$TMP_DIR"
   node "$REPO_ROOT/bin/spec-first.js" clean --codex
 )
-test ! -e "$TMP_DIR/.codex/commands/spec/brainstorm.md"
+test ! -e "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
+test ! -e "$TMP_DIR/.codex/agents/review/correctness-reviewer.md"
 test ! -e "$TMP_DIR/.codex/spec-first/.developer"
 echo "✓ codex init/doctor/clean work"
 

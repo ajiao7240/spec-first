@@ -2,7 +2,13 @@
 
 这套手册对应当前 `spec-first` npm CLI 模型。
 
-`spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init (--claude|--codex) / clean (--claude|--codex)` 把 `/spec:*` 命令、workflow skills、agents、项目级 `.developer` 和受管状态安装到当前项目中。
+`spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init (--claude|--codex) / clean (--claude|--codex)` 把 Claude Code 的 `/spec:*` 命令、Codex 的 `$spec-*` skills、workflow skills、agents、项目级 `.developer` 和受管状态安装到当前项目中。
+
+当前功能状态：
+
+- `spec-first init --claude / --codex`：已支持
+- `spec-first doctor`：支持自动检测，也支持 `--claude` / `--codex`
+- `spec-first clean --claude / --codex`：已支持
 
 `init` 支持显式传入 `-u/--user` 和 `--lang`。如果没有传用户名，它会优先回退到全局 `~/.spec-first/.developer`，再回退到 `git config user.name`。
 
@@ -10,11 +16,12 @@
 
 ## 你会得到什么
 
-- 一套稳定的 `/spec:*` 项目命令
+- Claude Code 的 `/spec:*` 命令入口
+- Codex 的 `$spec-*` skill 入口
 - 一条 `Brainstorm -> Plan -> Work -> Review -> Compound` 的标准闭环
-- 项目级 `.claude/commands/spec` / `.codex/commands/spec`
-- 项目级 `.claude/skills` / `.codex/skills`
-- 项目级 `.claude/agents` / `.codex/agents`
+- 项目级 `.claude/commands/spec`
+- 项目级 `.claude/skills` 与 `.claude/agents`
+- 项目级 `.agents/skills` 与 `.codex/agents`
 - 项目级 `.claude/spec-first/.developer` / `.codex/spec-first/.developer`
 - 可更新、可恢复、可清理的受管资产模型
 

@@ -62,7 +62,7 @@
 
 Spec-First 把 AI 辅助开发从**一次性对话**，收敛成一套**稳定、可追踪、可复用**的工程系统：
 
-- ✅ 稳定的 `/spec:*` 命令入口
+- ✅ Claude 的 `/spec:*` 命令与 Codex 的 `$spec-*` skills
 - ✅ 五阶段闭环工作流
 - ✅ 47 个专业代理审查
 - ✅ 知识沉淀与自动发现
@@ -98,13 +98,13 @@ Spec-First 采用三层工程边界设计：
   <img src="./docs/assets/svg/spec-first-workflow.svg" alt="Workflow">
 </p>
 
-| Stage | 命令 | 职责 | 产出物 |
-|:-----:|------|------|--------|
-| 🧠 | `/spec:brainstorm` | 澄清问题、控制范围、明确验收标准 | `docs/brainstorms/*.md` |
-| 📋 | `/spec:plan` | 收集上下文、拆解任务、识别风险 | `docs/plans/*.md` |
-| ⚡ | `/spec:work` | 按计划实施、补齐测试和文档 | Code + Tests |
-| 🔎 | `/spec:review` | 结构化审查、阻断项、结论 | Review Report |
-| 📚 | `/spec:compound` | 经验提炼、知识沉淀 | `docs/solutions/**/*.md` |
+| Stage | Claude Code | Codex | 职责 | 产出物 |
+|:-----:|-------------|-------|------|--------|
+| 🧠 | `/spec:brainstorm` | `$spec-brainstorm` | 澄清问题、控制范围、明确验收标准 | `docs/brainstorms/*.md` |
+| 📋 | `/spec:plan` | `$spec-plan` | 收集上下文、拆解任务、识别风险 | `docs/plans/*.md` |
+| ⚡ | `/spec:work` | `$spec-work` | 按计划实施、补齐测试和文档 | Code + Tests |
+| 🔎 | `/spec:review` | `$spec-review` | 结构化审查、阻断项、结论 | Review Report |
+| 📚 | `/spec:compound` | `$spec-compound` | 经验提炼、知识沉淀 | `docs/solutions/**/*.md` |
 
 ---
 
@@ -182,11 +182,14 @@ hash -r  # 刷新 shell 缓存
 ## ⚡ Quick Start
 
 ```bash
-# 1️⃣ 检查环境
+# 1️⃣ 检查环境与平台状态
 spec-first doctor
+# 或显式检查某个平台
+spec-first doctor --claude
+spec-first doctor --codex
 spec-first -v
 
-# 2️⃣ 在目标项目初始化
+# 2️⃣ 在目标项目初始化运行时
 spec-first init --claude
 # 或
 spec-first init --codex
@@ -207,11 +210,19 @@ codex    # Codex
 现在你可以在项目里使用：
 
 ```bash
+# Claude Code
 /spec:brainstorm   # 🧠 澄清需求
 /spec:plan         # 📋 生成计划
 /spec:work         # ⚡ 执行实现
 /spec:review       # 🔎 结构化评审
 /spec:compound     # 📚 知识沉淀
+
+# Codex
+$spec-brainstorm   # 🧠 澄清需求
+$spec-plan         # 📋 生成计划
+$spec-work         # ⚡ 执行实现
+$spec-review       # 🔎 结构化评审
+$spec-compound     # 📚 知识沉淀
 ```
 
 ---
@@ -240,7 +251,7 @@ spec-first/                        .claude/ or .codex/
 
 | 命令 | 参数 | 描述 |
 |------|------|------|
-| `spec-first doctor` | - | 检查环境和项目状态 |
+| `spec-first doctor` | `--claude` or `--codex` | 检查环境和项目状态；无参数时自动检测当前项目中的已初始化平台 |
 | `spec-first init` | `--claude` or `--codex`, `-u`, `--lang`, `--force` | 同步命令、技能、代理与项目开发者元数据到项目 |
 | `spec-first clean` | `--claude` or `--codex` | 移除受管资产，保留自定义内容 |
 

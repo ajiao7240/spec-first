@@ -32,6 +32,14 @@ class PlatformAdapter {
   }
 
   /**
+   * Whether this platform installs bundled command entrypoints.
+   * Platforms like Codex can rely on skill discovery only.
+   */
+  get hasCommands() {
+    return true;
+  }
+
+  /**
    * Skills directory path
    */
   get skillsRoot() {
@@ -60,11 +68,21 @@ class PlatformAdapter {
   }
 
   /**
+   * Map a bundled command definition to the runtime filename for this platform.
+   * @param {{ filename: string }} command
+   * @returns {string}
+   */
+  commandFilename(command) {
+    return command.filename;
+  }
+
+  /**
    * Transform skill content for platform-specific runtime
    * @param {string} content - Original skill content
+   * @param {{ skillName?: string }} [_context] - Optional asset context
    * @returns {string} Transformed content
    */
-  transformSkillContent(content) {
+  transformSkillContent(content, _context = {}) {
     return content;
   }
 
@@ -85,6 +103,31 @@ class PlatformAdapter {
   inspect(projectRoot) {
     throw new Error('Not implemented: inspect');
   }
+
+  /**
+   * Create any additional platform-specific runtime files.
+   * @param {string} projectRoot
+   * @param {object} _options
+   * @returns {string[]}
+   */
+  syncRuntimeFiles(projectRoot, _options = {}) {
+    return [];
+  }
+
+  /**
+   * Inspect any additional platform-specific runtime files.
+   * @param {string} projectRoot
+   * @returns {Array<{ level: string, name: string, message: string, fix?: string }>}
+   */
+  inspectRuntimeFiles(projectRoot) {
+    return [];
+  }
+
+  /**
+   * Remove any additional platform-specific runtime files.
+   * @param {string} projectRoot
+   */
+  removeRuntimeFiles(projectRoot) {}
 }
 
 module.exports = PlatformAdapter;
