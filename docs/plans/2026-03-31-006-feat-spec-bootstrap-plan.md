@@ -1,7 +1,7 @@
 ---
 title: "feat: 新增 spec-bootstrap Stage-0 项目上下文生成 workflow"
 type: feat
-status: active
+status: completed
 date: 2026-03-31
 origin: docs/brainstorms/2026-03-31-spec-bootstrap-requirements.md
 deepened: 2026-03-31
@@ -141,7 +141,7 @@ sequenceDiagram
 
 ## Implementation Units
 
-- [ ] **Unit 1: 创建 spec-bootstrap canonical skill**
+- [x] **Unit 1: 创建 spec-bootstrap canonical skill**
 
 **Goal:** 新增 `skills/spec-bootstrap/SKILL.md`、`skills/spec-bootstrap/references/prd-template.md` 和 `skills/spec-bootstrap/references/database-prd-template.md`，定义完整的 bootstrap workflow。SKILL.md 内需包含 R20 定义的 rerun 备份/恢复机制（Phase 3 前备份已有 `docs/contexts/<slug>/`，全部成功后删除备份，部分失败时恢复或报告），以及 R21-R23 定义的数据库 ER 分析能力（条件触发：后端项目 + MySQL 可连接）
 
@@ -195,7 +195,7 @@ sequenceDiagram
 
 ---
 
-- [ ] **Unit 2: 创建命令入口与更新 manifest**
+- [x] **Unit 2: 创建命令入口与更新 manifest**
 
 **Goal:** 新增 Claude command template，更新 plugin.json，使 `/spec:bootstrap` 和 `$spec-bootstrap` 可用
 
@@ -228,7 +228,7 @@ sequenceDiagram
 
 ---
 
-- [ ] **Unit 3: 更新用户与架构文档**
+- [x] **Unit 3: 更新用户与架构文档**
 
 **Goal:** 在 README、核心概念、架构文档中补充 bootstrap 叙事，明确 Stage-0 定位
 
@@ -263,7 +263,7 @@ sequenceDiagram
 
 ---
 
-- [ ] **Unit 4: 更新 smoke tests**
+- [x] **Unit 4: 更新 smoke tests**
 
 **Goal:** 更新冒烟测试以覆盖 bootstrap 新增的 command、skill 和数量变化
 
@@ -298,7 +298,7 @@ sequenceDiagram
 
 ---
 
-- [ ] **Unit 5: 更新设计文档并最终验证**
+- [x] **Unit 5: 更新设计文档并最终验证**
 
 **Goal:** 确认全部 Unit 1-4 完成后，设计文档与实施产物之间的一致性；旧草稿已在规划阶段手动删除，本 Unit 重点为验证通过。注意：本文件（006 前缀）是正式计划，不应被删除
 
