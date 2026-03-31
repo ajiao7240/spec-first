@@ -14,13 +14,13 @@ origin: docs/brainstorms/2026-03-30-code-audit-report.md
 
 ## Problem Frame
 
-审计发现项目中存在多个未使用模块（`agents.js`、`skills.js`、`templates.js`、`spec-commands.js`），它们是早期重构遗留的包装层。当前主流程已直接调用 `plugin.js`，但这些死代码模块仍保留在源码中，构成"陷阱"——未来开发者可能误引用它们导致运行时崩溃。同时 `postinstall.js` 展示了不完整的命令示例，`init.js` 解析了未使用的 `--force` 标志。
+审计发现项目中存在多个未使用模块（`agents.js`、`skills.js`、`templates.js`、`spec-commands.js`），它们是早期重构遗留的包装层。当前主流程已直接调用 `plugin.js`，但这些死代码模块仍保留在源码中，增加认知负担；其中 `agents.js`、`skills.js` 属于“若被误用会立即出错”的坏包装层，`spec-commands.js` 带有模块级副作用，而 `templates.js` 只是未使用的薄包装。同时 `postinstall.js` 展示了与当前 CLI 合同不一致的 init 命令示例，`init.js` 解析了未使用的 `--force` 标志，而 README 仍把 `--force` 公开成支持参数。
 
 ## Requirements Trace
 
 - R1. 删除所有未使用的包装模块，消除死代码陷阱 (C1, H1)
 - R2. 修复 postinstall.js 文档错误 (H2)
-- R3. 删除未使用的 `--force` 解析和死代码函数 (M1, M2)
+- R3. 删除未使用的 `--force` 解析和死代码函数，并同步更新对外文档契约 (M1, M2)
 - R4. 重构 doctor.js 脆弱的 splice 索引计算 (M4)
 - R5. 统一 claude.js 的 require 风格 (M5)
 - R6. 冒烟测试全部通过，无回归
@@ -38,7 +38,7 @@ origin: docs/brainstorms/2026-03-30-code-audit-report.md
 
 - 死代码验证：`agents.js`、`skills.js`、`templates.js`、`spec-commands.js` 在整个 `src/` 和 `tests/` 中零导入
 - `adaptClaudeRuntimeContent` 仅在 `plugin.js:280` 自身定义处出现，未被调用或导出
-- `--force` 仅在 `init.js:158` 出现
+- `--force` 在 `init.js` 中被解析但未被 `runInit` 使用，同时 README 仍将其列为公开支持参数
 - `doctor.js:72` splice 使用 `3 + runtimeChecks.length` 硬编码索引
 - `claude.js:50-51` 在 `inspect()` 方法内部 require `node:fs` 和 `node:path`
 - 冒烟测试 `tests/smoke/cli.sh` 覆盖双平台 init/doctor/clean 全流程
@@ -50,9 +50,10 @@ origin: docs/brainstorms/2026-03-30-code-audit-report.md
 
 ## Key Technical Decisions
 
-- **直接删除而非修复签名**：`agents.js`/`skills.js`/`templates.js` 的包装函数在主流程中从未被引用，修复签名反而增加维护负担。删除是更干净的选择。
+- **直接删除死代码模块，而不是修复这些旧包装层**：`agents.js`、`skills.js`、`templates.js`、`spec-commands.js` 在主流程中均无调用者；继续保留只会让未来维护者误以为它们仍是受支持入口。
 - **doctor.js 改用 push + sort 替代 splice**：将检查项标记优先级后统一 push，最后按优先级排序。消除对前面检查项数量的硬编码依赖。
-- **保留 `spec-commands.js` 的功能但改为延迟加载**：如果未来需要列出可用命令，应该在 `plugin.js` 中按需调用，不需要独立模块。当前确认零引用后直接删除。
+- **删除 `--force` 时同步移除公开文档承诺**：当前删除解析分支后，`spec-first init --force` 会从“静默无效”变成“未知参数报错”；因此必须同时更新 README，避免文档继续承诺一个不存在的参数。
+- **`templates.js` 按死代码处理，而不是按高风险缺陷处理**：它没有像 `agents.js`、`skills.js` 那样的坏签名问题，删除理由是减少噪音，而不是修复运行时崩溃点。
 
 ## Implementation Units
 
@@ -96,18 +97,22 @@ origin: docs/brainstorms/2026-03-30-code-audit-report.md
 **Files:**
 - Modify: `src/cli/plugin.js` (删除 `adaptClaudeRuntimeContent` 函数)
 - Modify: `src/cli/commands/init.js` (移除 `--force` 解析逻辑)
+- Modify: `README.md` (移除 `spec-first init` 对 `--force` 的公开说明)
 
 **Approach:**
 - `plugin.js`: 删除 `adaptClaudeRuntimeContent` 函数定义（约第 280 行附近）
 - `init.js`: 移除 `parseInitArgs` 中 `--force` 相关的解析分支和 `parsed.force` 赋值
+- `README.md`: 同步移除 `spec-first init` 参数表中的 `--force`
 
 **Test scenarios:**
 - Happy path: 删除后冒烟测试通过
-- Edge case: 确认 `init --force` 不再被识别（不会导致错误，只是被忽略，删除后行为一致）
+- Edge case: 确认 `init --force` 不再被识别，并返回 usage 错误
+- Integration: README 不再声明 `--force` 是受支持参数
 
 **Verification:**
 - `grep "adaptClaudeRuntimeContent" src/cli/plugin.js` 返回空
 - `grep "force" src/cli/commands/init.js` 返回空
+- `rg -n -- '--force' README.md src/cli/commands/init.js` 不再返回 `spec-first init` 的公开参数说明或解析逻辑
 - 冒烟测试通过
 
 - [ ] **Unit 3: 修复 postinstall.js 文档**
@@ -201,13 +206,14 @@ origin: docs/brainstorms/2026-03-30-code-audit-report.md
 - **Interaction graph:** 删除的模块无调用者，不影响任何运行时路径
 - **Error propagation:** 无变化，删除的代码不在错误链路中
 - **State lifecycle risks:** 无，死代码不涉及状态管理
-- **API surface parity:** postinstall 输出是唯一的用户可见变化
+- **API surface parity:** 用户可见变化包括 postinstall 输出，以及 `spec-first init` 不再承诺 `--force`
 
 ## Risks & Dependencies
 
 | Risk | Mitigation |
 |------|------------|
 | 删除模块被外部脚本引用 | grep 验证零引用；项目是 npm CLI，外部不会直接 require 内部模块 |
+| 删除 `--force` 造成文档与行为漂移 | 同步更新 README，并将 `init --force` 视为明确不再支持的参数 |
 | doctor.js 重构改变输出格式 | 冒烟测试覆盖 doctor 输出验证 |
 
 ## Sources & References

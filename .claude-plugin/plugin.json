@@ -11,6 +11,13 @@
   },
   "commands": [
     {
+      "name": "ideate",
+      "filename": "ideate.md",
+      "description": "Run the Spec-First ideation workflow",
+      "argumentHint": "[feature, focus area, or constraint]",
+      "skill": "spec-ideate"
+    },
+    {
       "name": "brainstorm",
       "filename": "brainstorm.md",
       "description": "Run the Spec-First brainstorm workflow",

@@ -16,9 +16,10 @@
 
 ## 你会得到什么
 
+- 一个前置的 `/spec:ideate` 候选发散入口
 - Claude Code 的 `/spec:*` 命令入口
 - Codex 的 `$spec-*` skill 入口
-- 一条 `Brainstorm -> Plan -> Work -> Review -> Compound` 的标准闭环
+- 一条 `Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound` 的标准闭环
 - 项目级 `.claude/commands/spec`
 - 项目级 `.claude/skills` 与 `.claude/agents`
 - 项目级 `.agents/skills` 与 `.codex/agents`
@@ -43,7 +44,7 @@
 ## 建议阅读路径
 
 - 如果你第一次使用，先看 [快速开始](./01-快速开始.md)
-- 如果你要理解运行模型和五阶段闭环，先看 [核心概念](./02-核心概念.md)
+- 如果你要理解运行模型和前置 ideate + 五阶段闭环，先看 [核心概念](./02-核心概念.md)
 - 如果你要确认真实执行过程，看 [完整示例](./03-完整示例.md)
 - 如果你在排障，看 [常见问题](./04-常见问题.md)
 - 如果你在做本地调试或仓库维护，看 [本地源码安装](./06-本地源码安装.md)

@@ -36,7 +36,7 @@ init_output="$(
   cd "$TMP_DIR"
   node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en
 )"
-grep -q "Generated 5 command file(s)" <<<"$init_output"
+grep -q "Generated 6 command file(s)" <<<"$init_output"
 grep -q "Generated 41 skill directory(ies)" <<<"$init_output"
 grep -q "Generated 47 agent file(s)" <<<"$init_output"
 grep -q "Wrote project developer profile" <<<"$init_output"
@@ -48,11 +48,17 @@ if grep -q "brainstorm.md" <<<"$init_output"; then
   echo "✗ init output should not list individual command filenames"
   exit 1
 fi
+if grep -q "ideate.md" <<<"$init_output"; then
+  echo "✗ init output should not list individual command filenames"
+  exit 1
+fi
 
-for file in brainstorm.md plan.md work.md review.md compound.md; do
+for file in ideate.md brainstorm.md plan.md work.md review.md compound.md; do
   test -f "$TMP_DIR/.claude/commands/spec/$file"
 done
+grep -q "Spec-First Ideate" "$TMP_DIR/.claude/commands/spec/ideate.md"
 grep -q "Spec-First Brainstorm" "$TMP_DIR/.claude/commands/spec/brainstorm.md"
+grep -q '.claude/skills/spec-ideate/SKILL.md' "$TMP_DIR/.claude/commands/spec/ideate.md"
 grep -q "Spec-First Plan" "$TMP_DIR/.claude/commands/spec/plan.md"
 grep -q "Spec-First Work" "$TMP_DIR/.claude/commands/spec/work.md"
 grep -q "Spec-First Review" "$TMP_DIR/.claude/commands/spec/review.md"
@@ -211,7 +217,7 @@ codex_output="$(
   cd "$TMP_DIR"
   node "$REPO_ROOT/bin/spec-first.js" init --codex -u kuang --lang en
 )"
-if grep -q "Generated 5 command file(s)" <<<"$codex_output"; then
+if grep -q "Generated 6 command file(s)" <<<"$codex_output"; then
   echo "✗ codex init should install skills, not command files"
   exit 1
 fi
@@ -281,7 +287,10 @@ echo "3c. Re-init after clean..."
   node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en
 )
 test -f "$TMP_DIR/.claude/commands/spec/brainstorm.md"
+test -f "$TMP_DIR/.claude/commands/spec/ideate.md"
+grep -q "Spec-First Ideate" "$TMP_DIR/.claude/commands/spec/ideate.md"
 test -f "$TMP_DIR/.claude/skills/spec-brainstorm/SKILL.md"
+test -f "$TMP_DIR/.claude/skills/spec-ideate/SKILL.md"
 test -f "$TMP_DIR/.claude/agents/review/correctness-reviewer.md"
 test -f "$TMP_DIR/.claude/spec-first/.developer"
 echo "✓ re-init works after clean"
@@ -290,6 +299,7 @@ echo "4. Check npm pack output includes CLI assets..."
 pack_output="$(cd "$REPO_ROOT" && npm_config_cache="$TMP_DIR/.npm-cache" npm pack --dry-run 2>&1)"
 grep -q "bin/spec-first.js" <<<"$pack_output"
 grep -q ".claude-plugin/plugin.json" <<<"$pack_output"
+grep -q "templates/claude/commands/spec/ideate.md" <<<"$pack_output"
 grep -q "templates/claude/commands/spec/brainstorm.md" <<<"$pack_output"
 grep -q "skills/spec-plan/SKILL.md" <<<"$pack_output"
 grep -q "skills/document-review/SKILL.md" <<<"$pack_output"
