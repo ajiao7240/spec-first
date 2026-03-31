@@ -85,8 +85,8 @@ Spec-First 采用三层工程边界设计：
 
 | 层级 | 职责 | 数量 |
 |------|------|------|
-| **Commands** | 稳定入口 | 6 个命令入口 |
-| **Skills** | 编排阶段流程 | 41 个技能 |
+| **Commands** | 稳定入口 | 7 个命令入口 |
+| **Skills** | 编排阶段流程 | 42 个技能 |
 | **Agents** | 提供专业能力 | 47 个代理 |
 | **State** | 资产版本管理 | 可更新、可恢复、可清理 |
 
@@ -107,6 +107,8 @@ Spec-First 采用三层工程边界设计：
 | 🔎 | `/spec:review` | `$spec-review` | 结构化审查、阻断项、结论 | Review Report |
 | 📚 | `/spec:compound` | `$spec-compound` | 经验提炼、知识沉淀 | `docs/solutions/**/*.md` |
 
+> **Stage-0 Supporting Workflow:** 在上表五阶段之前，可先运行 `/spec:bootstrap`（Claude）或 `$spec-bootstrap`（Codex）为目标项目生成可长期复用的上下文资产（`docs/contexts/<slug>/`），作为后续各阶段的上下文基座。详见下方 Supporting Workflows。
+
 ---
 
 ## 🛠️ Skills & Agents
@@ -121,6 +123,13 @@ Spec-First 采用三层工程边界设计：
 | `spec-work` | 执行工作计划 |
 | `spec-review` | 结构化代码审查（多角色代理） |
 | `spec-compound` | 知识捕获和文档化 |
+
+### Supporting Workflow Skills
+
+| Skill | 定位 | 描述 |
+|-------|------|------|
+| `spec-bootstrap` | Stage-0 supporting workflow | 为目标项目生成可长期复用的上下文资产，输出至 `docs/contexts/<slug>/`。在五阶段之前运行，为后续阶段提供项目上下文基座。当前版本只生成，不自动注入五阶段。 |
+| `spec-audit` | 辅助 supporting workflow | 代码库审计，识别技术债和高风险模式 |
 
 <details>
 <summary><b>📦 辅助 Skills (36个)</b></summary>

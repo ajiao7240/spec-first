@@ -36,8 +36,8 @@ init_output="$(
   cd "$TMP_DIR"
   node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en
 )"
-grep -q "Generated 6 command file(s)" <<<"$init_output"
-grep -q "Generated 41 skill directory(ies)" <<<"$init_output"
+grep -q "Generated 7 command file(s)" <<<"$init_output"
+grep -q "Generated 42 skill directory(ies)" <<<"$init_output"
 grep -q "Generated 47 agent file(s)" <<<"$init_output"
 grep -q "Wrote project developer profile" <<<"$init_output"
 if grep -qE '^- |  - ' <<<"$init_output"; then
@@ -52,8 +52,12 @@ if grep -q "ideate.md" <<<"$init_output"; then
   echo "✗ init output should not list individual command filenames"
   exit 1
 fi
+if grep -q "bootstrap.md" <<<"$init_output"; then
+  echo "✗ init output should not list individual command filenames"
+  exit 1
+fi
 
-for file in ideate.md brainstorm.md plan.md work.md review.md compound.md; do
+for file in ideate.md brainstorm.md plan.md work.md review.md compound.md bootstrap.md; do
   test -f "$TMP_DIR/.claude/commands/spec/$file"
 done
 grep -q "Spec-First Ideate" "$TMP_DIR/.claude/commands/spec/ideate.md"
@@ -63,8 +67,12 @@ grep -q "Spec-First Plan" "$TMP_DIR/.claude/commands/spec/plan.md"
 grep -q "Spec-First Work" "$TMP_DIR/.claude/commands/spec/work.md"
 grep -q "Spec-First Review" "$TMP_DIR/.claude/commands/spec/review.md"
 grep -q "Spec-First Compound" "$TMP_DIR/.claude/commands/spec/compound.md"
+grep -q "Spec-First Bootstrap" "$TMP_DIR/.claude/commands/spec/bootstrap.md"
 grep -q '.claude/skills/spec-brainstorm/SKILL.md' "$TMP_DIR/.claude/commands/spec/brainstorm.md"
 grep -q '.claude/skills/spec-plan/SKILL.md' "$TMP_DIR/.claude/commands/spec/plan.md"
+grep -q '.claude/skills/spec-bootstrap/SKILL.md' "$TMP_DIR/.claude/commands/spec/bootstrap.md"
+test -f "$TMP_DIR/.claude/skills/spec-bootstrap/SKILL.md"
+grep -q '^name: spec-bootstrap$' "$TMP_DIR/.claude/skills/spec-bootstrap/SKILL.md"
 test -f "$TMP_DIR/.claude/spec-first/.developer"
 grep -q '^name=kuang$' "$TMP_DIR/.claude/spec-first/.developer"
 grep -q '^lang=en$' "$TMP_DIR/.claude/spec-first/.developer"
@@ -217,11 +225,11 @@ codex_output="$(
   cd "$TMP_DIR"
   node "$REPO_ROOT/bin/spec-first.js" init --codex -u kuang --lang en
 )"
-if grep -q "Generated 6 command file(s)" <<<"$codex_output"; then
+if grep -q "Generated 7 command file(s)" <<<"$codex_output"; then
   echo "✗ codex init should install skills, not command files"
   exit 1
 fi
-grep -q "Generated 41 skill directory(ies) in .agents/skills" <<<"$codex_output"
+grep -q "Generated 42 skill directory(ies) in .agents/skills" <<<"$codex_output"
 grep -q "Generated 47 agent file(s) in .codex/agents" <<<"$codex_output"
 test -f "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-plan/SKILL.md"
@@ -233,6 +241,8 @@ grep -q '^name: spec-plan$' "$TMP_DIR/.agents/skills/spec-plan/SKILL.md"
 grep -q '^name: spec-work$' "$TMP_DIR/.agents/skills/spec-work/SKILL.md"
 grep -q '^name: spec-review$' "$TMP_DIR/.agents/skills/spec-review/SKILL.md"
 grep -q '^name: spec-compound$' "$TMP_DIR/.agents/skills/spec-compound/SKILL.md"
+test -f "$TMP_DIR/.agents/skills/spec-bootstrap/SKILL.md"
+grep -q '^name: spec-bootstrap$' "$TMP_DIR/.agents/skills/spec-bootstrap/SKILL.md"
 test -f "$TMP_DIR/.codex/agents/review/correctness-reviewer.md"
 test -f "$TMP_DIR/.codex/agents/research/repo-research-analyst.md"
 test -f "$TMP_DIR/.codex/spec-first/.developer"
@@ -301,7 +311,9 @@ grep -q "bin/spec-first.js" <<<"$pack_output"
 grep -q ".claude-plugin/plugin.json" <<<"$pack_output"
 grep -q "templates/claude/commands/spec/ideate.md" <<<"$pack_output"
 grep -q "templates/claude/commands/spec/brainstorm.md" <<<"$pack_output"
+grep -q "templates/claude/commands/spec/bootstrap.md" <<<"$pack_output"
 grep -q "skills/spec-plan/SKILL.md" <<<"$pack_output"
+grep -q "skills/spec-bootstrap/SKILL.md" <<<"$pack_output"
 grep -q "skills/document-review/SKILL.md" <<<"$pack_output"
 grep -q "skills/spec-ideate/SKILL.md" <<<"$pack_output"
 grep -q "skills/spec-work-beta/SKILL.md" <<<"$pack_output"
