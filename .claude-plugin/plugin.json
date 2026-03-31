@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "name": "spec-first",
-  "version": "1.3.10",
+  "version": "1.4.0",
   "description": "AI-assisted work framework for Claude Code with plugin-style packaged assets",
   "repository": "https://github.com/sunrain520/spec-first.git",
   "directories": {
@@ -10,6 +10,13 @@
     "agents": "agents"
   },
   "commands": [
+    {
+      "name": "ideate",
+      "filename": "ideate.md",
+      "description": "Run the Spec-First ideation workflow",
+      "argumentHint": "[feature, focus area, or constraint]",
+      "skill": "spec-ideate"
+    },
     {
       "name": "brainstorm",
       "filename": "brainstorm.md",
@@ -44,6 +51,13 @@
       "description": "Run the Spec-First knowledge capture workflow",
       "argumentHint": "[brief problem context]",
       "skill": "spec-compound"
+    },
+    {
+      "name": "bootstrap",
+      "filename": "bootstrap.md",
+      "description": "Stage-0 project context bootstrap workflow",
+      "argumentHint": "[target repo path or context slug]",
+      "skill": "spec-bootstrap"
     }
   ],
   "extensibleDirectories": {

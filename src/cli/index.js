@@ -77,7 +77,8 @@ function printVersion() {
      $ spec-first init --claude
      $ spec-first init --codex
 
-  2️⃣  Start your first spec workflow:
+  2️⃣  Start with ideation or your first spec workflow:
+     $ /spec:ideate
      $ /spec:brainstorm
 
   3️⃣  Learn more:
@@ -85,11 +86,12 @@ function printVersion() {
      💡 Help: spec-first --help
 
 🎯 Core Commands:
-   /spec:brainstorm  - Clarify requirements
-   /spec:plan        - Design solution
-   /spec:work        - Execute implementation
-   /spec:review      - Structured review
-   /spec:compound    - Knowledge accumulation
+  /spec:ideate      - Explore and rank improvement ideas
+  /spec:brainstorm  - Clarify requirements
+  /spec:plan        - Design solution
+  /spec:work        - Execute implementation
+  /spec:review      - Structured review
+  /spec:compound    - Knowledge accumulation
 `);
 }
 

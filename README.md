@@ -4,7 +4,7 @@
 
 **A Spec-First AI Coding Workflow CLI for Claude Code and Codex**
 
-*需求澄清 → 方案规划 → 实施执行 → 结构化评审 → 知识沉淀*
+*候选发散 → 需求澄清 → 方案规划 → 实施执行 → 结构化评审 → 知识沉淀*
 
 <p>
   <a href="./docs/05-用户手册/README.md">📖 用户手册</a>
@@ -63,7 +63,7 @@
 Spec-First 把 AI 辅助开发从**一次性对话**，收敛成一套**稳定、可追踪、可复用**的工程系统：
 
 - ✅ Claude 的 `/spec:*` 命令与 Codex 的 `$spec-*` skills
-- ✅ 五阶段闭环工作流
+- ✅ 前置 ideate + 五阶段闭环工作流
 - ✅ 47 个专业代理审查
 - ✅ 知识沉淀与自动发现
 
@@ -85,8 +85,8 @@ Spec-First 采用三层工程边界设计：
 
 | 层级 | 职责 | 数量 |
 |------|------|------|
-| **Commands** | 稳定入口 | 5 个核心工作流命令 |
-| **Skills** | 编排阶段流程 | 41 个技能 |
+| **Commands** | 稳定入口 | 7 个命令入口 |
+| **Skills** | 编排阶段流程 | 42 个技能 |
 | **Agents** | 提供专业能力 | 47 个代理 |
 | **State** | 资产版本管理 | 可更新、可恢复、可清理 |
 
@@ -100,11 +100,14 @@ Spec-First 采用三层工程边界设计：
 
 | Stage | Claude Code | Codex | 职责 | 产出物 |
 |:-----:|-------------|-------|------|--------|
+| 💡 | `/spec:ideate` | `$spec-ideate` | 发散候选、评估方向 | `docs/ideation/*.md` |
 | 🧠 | `/spec:brainstorm` | `$spec-brainstorm` | 澄清问题、控制范围、明确验收标准 | `docs/brainstorms/*.md` |
 | 📋 | `/spec:plan` | `$spec-plan` | 收集上下文、拆解任务、识别风险 | `docs/plans/*.md` |
 | ⚡ | `/spec:work` | `$spec-work` | 按计划实施、补齐测试和文档 | Code + Tests |
 | 🔎 | `/spec:review` | `$spec-review` | 结构化审查、阻断项、结论 | Review Report |
 | 📚 | `/spec:compound` | `$spec-compound` | 经验提炼、知识沉淀 | `docs/solutions/**/*.md` |
+
+> **Stage-0 Supporting Workflow:** 在上表五阶段之前，可先运行 `/spec:bootstrap`（Claude）或 `$spec-bootstrap`（Codex）为目标项目生成可长期复用的上下文资产（`docs/contexts/<slug>/`），作为后续各阶段的上下文基座。详见下方 Supporting Workflows。
 
 ---
 
@@ -114,11 +117,19 @@ Spec-First 采用三层工程边界设计：
 
 | Skill | 描述 |
 |-------|------|
+| `spec-ideate` | 发散候选并筛选值得继续探索的方向 |
 | `spec-brainstorm` | 探索需求和方案，生成需求文档 |
 | `spec-plan` | 将需求转化为实现计划 |
 | `spec-work` | 执行工作计划 |
 | `spec-review` | 结构化代码审查（多角色代理） |
 | `spec-compound` | 知识捕获和文档化 |
+
+### Supporting Workflow Skills
+
+| Skill | 定位 | 描述 |
+|-------|------|------|
+| `spec-bootstrap` | Stage-0 supporting workflow | 为目标项目生成可长期复用的上下文资产，输出至 `docs/contexts/<slug>/`。在五阶段之前运行，为后续阶段提供项目上下文基座。当前版本只生成，不自动注入五阶段。 |
+| `spec-audit` | 辅助 supporting workflow | 代码库审计，识别技术债和高风险模式 |
 
 <details>
 <summary><b>📦 辅助 Skills (36个)</b></summary>
@@ -211,6 +222,7 @@ codex    # Codex
 
 ```bash
 # Claude Code
+/spec:ideate      # 💡 发散候选
 /spec:brainstorm   # 🧠 澄清需求
 /spec:plan         # 📋 生成计划
 /spec:work         # ⚡ 执行实现
@@ -218,6 +230,7 @@ codex    # Codex
 /spec:compound     # 📚 知识沉淀
 
 # Codex
+$spec-ideate      # 💡 发散候选
 $spec-brainstorm   # 🧠 澄清需求
 $spec-plan         # 📋 生成计划
 $spec-work         # ⚡ 执行实现
