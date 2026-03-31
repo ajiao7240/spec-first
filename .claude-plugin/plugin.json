@@ -51,6 +51,13 @@
       "description": "Run the Spec-First knowledge capture workflow",
       "argumentHint": "[brief problem context]",
       "skill": "spec-compound"
+    },
+    {
+      "name": "bootstrap",
+      "filename": "bootstrap.md",
+      "description": "Stage-0 project context bootstrap workflow",
+      "argumentHint": "[target repo path or context slug]",
+      "skill": "spec-bootstrap"
     }
   ],
   "extensibleDirectories": {
