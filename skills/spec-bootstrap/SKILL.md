@@ -2,7 +2,7 @@
 name: spec-bootstrap
 description: "Stage-0 supporting workflow: analyze a target project and generate long-lived project context assets under docs/contexts/<slug>/. Run this before brainstorm/plan/work/review to give those workflows a durable context foundation."
 argument-hint: "[target repo path or context slug]"
-user-invocable: true
+user-invocable: false
 ---
 
 # Spec-First Bootstrap
@@ -85,7 +85,35 @@ If `docs/contexts/<slug>/` already exists:
 
 Exclude `docs/contexts/` from analysis (it contains previous bootstrap output, not project source).
 
-**Analysis depth by mode:**
+**Mode detection (run at Phase 1.3 start):**
+
+检测可用工具并输出模式：
+
+```
+🔍 检测分析工具...
+
+GitNexus: [✓ 可用 / ✗ 不可用]
+ABCoder:  [✓ 可用 / ✗ 不可用]
+Serena:   [✓ 可用 / ✗ 不可用]
+
+📊 分析模式: [Full / Enhanced / Basic]
+```
+
+**ABCoder auto-configuration (R17-R20):**
+
+If ABCoder binary exists (`command -v abcoder`) but `mcpServers.abcoder` is not configured in `~/.claude.json`:
+
+1. Detect project primary language (scan file extensions: `.go` → Go, `.py` → Python, `.ts/.tsx/.js/.jsx` → TypeScript/JavaScript, `.java` → Java)
+2. If language is not supported by ABCoder (e.g., Ruby, Rust, C++), skip with: `⏭️ ABCoder: language not supported, skipping AST generation`
+3. Create AST output directory: `mkdir -p ~/.claude/abcoder-ast`
+4. Run: `abcoder parse <language> <project-root> -o ~/.claude/abcoder-ast/<project-name>.json` (timeout: 120s)
+5. Write MCP config to `~/.claude.json`:
+   ```json
+   { "mcpServers": { "abcoder": { "command": "abcoder", "args": ["mcp", "~/.claude/abcoder-ast"] } } }
+   ```
+6. Prompt user: `⚠️ ABCoder MCP configured. Please restart Claude Code for ABCoder to take effect.`
+
+On timeout or parse failure: degrade to Enhanced mode, log the failure.
 
 **Full mode (GitNexus + ABCoder):**
 ```
@@ -155,15 +183,33 @@ mysql -h $DB_HOST -u $DB_USER -p$DB_PASS --connect-timeout=10 -e "SELECT 1;" 2>/
 
 **MCP verification:** Do not assume MCP server availability equals DB connectivity. Call `mcp__mysql-mcp-server__execute_query` with `SELECT 1` — a successful response confirms actual DB connection. A running MCP server process may still fail to reach the database.
 
-| Status | Marker | Meaning |
-|--------|--------|---------|
-| `mcp__mysql-mcp-server__execute_query("SELECT 1")` returns result | `[已验证 ✓]` | Use `mcp__mysql-mcp-server__*` |
-| MCP not available, CLI `SELECT 1` succeeds | `[已验证 ✓]` | Use bash mysql CLI |
-| CLI available but connection failed | `[未验证]` | Fallback to ORM inference |
-| CLI not installed | `[CLI不可用]` | Fallback to ORM inference |
-| Connection timed out | `[连接超时]` | Fallback to ORM inference |
+**MCP 一致性校验 (R21.1):** MCP 服务器在启动时绑定了固定的连接参数（host/port/database），与目标项目实际配置可能不同。连通后必须校验 MCP 连接的数据库是否与项目配置一致：
 
-Trigger `database-context` task in Phase 2 **only** when status is `[已验证 ✓]` and database is MySQL.
+1. 通过 MCP 执行 `SELECT DATABASE()` 获取 MCP 实际连接的数据库名
+2. 与项目配置中解析出的 `DB_NAME` 比对
+3. 校验结果：
+   - **匹配** → 使用 MCP (Level 1)，标记 `[MCP 已验证 ✓]`
+   - **不匹配** → 降级到 CLI (Level 2)，标记 `[MCP 数据库不匹配，降级 CLI]`，PRD 中注明 MCP 实际连接的数据库名
+   - **无法比对**（项目配置缺少 db_name）→ 降级到 CLI (Level 2)，标记 `[项目配置不完整，降级 CLI]`
+
+| Status | Marker | DB Access Level | Meaning |
+|--------|--------|----------------|---------|
+| MCP 连通 + DATABASE() 校验通过 | `[MCP 已验证 ✓]` | Level 1: MCP | Use `mcp__mysql-mcp-server__*` |
+| MCP 连通 + DATABASE() 不匹配，CLI `SELECT 1` 成功 | `[MCP 数据库不匹配，降级 CLI]` | Level 2: CLI | Use bash `mysql` with project config |
+| MCP 连通 + 项目配置缺少 db_name，CLI `SELECT 1` 成功 | `[项目配置不完整，降级 CLI]` | Level 2: CLI | Use bash `mysql` with project config |
+| MCP not available, CLI `SELECT 1` succeeds | `[CLI 已验证 ✓]` | Level 2: CLI | Use bash mysql CLI |
+| CLI available but connection failed | `[未验证]` | Level 3: ORM inference | Fallback to ORM inference |
+| CLI not installed | `[CLI不可用]` | Level 3: ORM inference | Fallback to ORM inference |
+| Connection timed out | `[连接超时]` | Level 3: ORM inference | Fallback to ORM inference |
+
+**项目配置解析：** 编排器在 Phase 1.5 中必须从项目配置提取以下信息（非密码），写入 PRD Context 供 worker 使用：
+- `project_db_host`: 从项目配置解析的数据库主机名
+- `project_db_port`: 端口（默认 3306）
+- `project_db_name`: 数据库名
+- `project_db_user_env`: 用户名环境变量名（如 `$DB_USER`）
+- `project_db_pass_env`: 密码环境变量名（如 `$DB_PASS`）— 仅记录变量名，不记录值
+
+Trigger `database-context` task in Phase 2 **only** when status is `[MCP 已验证 ✓]` / `[CLI 已验证 ✓]` / `[MCP 数据库不匹配，降级 CLI]` / `[项目配置不完整，降级 CLI]` and database is MySQL.
 
 ---
 
