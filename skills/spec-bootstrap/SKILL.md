@@ -31,6 +31,12 @@ Before running bootstrap:
 3. (Optional) MySQL CLI (`mysql`) or MCP MySQL server available for database ER generation
 4. (Optional) Serena MCP (`mcp__serena__*`) for enhanced code analysis
 
+**Recommended `.gitignore` entry** (add to target project):
+```
+.context/spec-first/
+```
+The `.context/` control plane contains PRD task contracts and temporary bootstrap state — it should not be committed to version control.
+
 ---
 
 ## Analysis Mode Detection
@@ -57,18 +63,22 @@ DB access modes: `MCP MySQL` / `CLI mysql` / `ORM inference [unverified]` / `not
 
 Apply slug priority rules (R12-R13):
 
-1. **User explicit:** if argument matches `[a-z0-9-]+` (no path separators), treat as slug
-2. **Reuse verified:** if `docs/contexts/<candidate>/README.md` exists and contains bootstrap generation marker (`<!-- spec-bootstrap -->`) → reuse that slug
-3. **Directory name:** derive from target project root directory name → convert to kebab-case
+1. **User explicit:** if argument matches `[a-z0-9-]+` (no path separators), treat as slug → proceed immediately
+2. **Reuse verified:** scan `<target-project-root>/docs/contexts/*/README.md` for `<!-- spec-bootstrap -->` marker (search scope: target project root only, not spec-first repo)
+   - 0 matches → skip to Rule 3
+   - 1 match → reuse that slug (the `*` component of the path), proceed without prompting
+   - 2+ matches → auto-select the most recently modified one, note the decision in execution summary
+3. **Directory name:** derive from target project root directory name → convert to kebab-case → proceed without prompting
 
-Confirm slug with user before proceeding if ambiguous.
+**Non-blocking policy:** Never block for slug confirmation. Note the derived slug at the top of the execution summary so the user can see what was chosen.
 
 ### 1.2 Rerun Backup (R20)
 
 If `docs/contexts/<slug>/` already exists:
-- Back up to `.context/spec-first/bootstrap/<slug>/backup/` before Phase 3 writes
-- On full success: delete backup
-- On partial failure: restore backup or preserve partial output and report to user
+- Back up to `.context/spec-first/bootstrap/<slug>/backup_<ISO-timestamp>/` before Phase 3 writes
+- **Validate backup**: count files in backup — if count doesn't match original, abort with error; do not proceed to Phase 3
+- On full success: delete backup directory
+- On partial failure: apply the policy in Phase 3.4 (summary-context failure → full restore; other failures → preserve partial)
 - Never silently leave a partially overwritten state
 
 ### 1.3 Repository Analysis
@@ -138,15 +148,17 @@ Scan the target project for MySQL connection configuration. Detection priority:
 
 **CLI verification (MySQL):**
 ```bash
-mysql -h $DB_HOST -u $DB_USER -p$DB_PASS -e "SELECT 1;" 2>/dev/null
+mysql -h $DB_HOST -u $DB_USER -p$DB_PASS --connect-timeout=10 -e "SELECT 1;" 2>/dev/null
 ```
 
 **DB access mode reporting:**
 
+**MCP verification:** Do not assume MCP server availability equals DB connectivity. Call `mcp__mysql-mcp-server__execute_query` with `SELECT 1` — a successful response confirms actual DB connection. A running MCP server process may still fail to reach the database.
+
 | Status | Marker | Meaning |
 |--------|--------|---------|
-| MCP MySQL Server available + connected | `[已验证 ✓]` | Use `mcp__mysql-mcp-server__*` |
-| MCP not available, CLI connected | `[已验证 ✓]` | Use bash mysql CLI |
+| `mcp__mysql-mcp-server__execute_query("SELECT 1")` returns result | `[已验证 ✓]` | Use `mcp__mysql-mcp-server__*` |
+| MCP not available, CLI `SELECT 1` succeeds | `[已验证 ✓]` | Use bash mysql CLI |
 | CLI available but connection failed | `[未验证]` | Fallback to ORM inference |
 | CLI not installed | `[CLI不可用]` | Fallback to ORM inference |
 | Connection timed out | `[连接超时]` | Fallback to ORM inference |
@@ -229,16 +241,18 @@ Each worker exclusively owns its assigned files. No worker may write outside its
 | `pitfalls-context` | `docs/contexts/<slug>/pitfalls/index.md` |
 | `<layer>-context` | `docs/contexts/<slug>/layers/<layer>/index.md` |
 | `guides-context` | `docs/contexts/<slug>/guides/index.md` |
-| `database-context` | `docs/contexts/<slug>/database/database-er.md` (or database-index.md + database-{name}.md) |
+| `database-context` *(conditional: backend + MySQL `[已验证 ✓]` only)* | `docs/contexts/<slug>/database/database-er.md` (or database-index.md + database-{name}.md) |
 | **Orchestrator only** | `docs/contexts/<slug>/README.md` |
 
 ### 3.2 Worker Dispatch
 
 For each task, launch a worker subagent with:
 - Full path to its PRD: `.context/spec-first/bootstrap/<slug>/tasks/<task-id>/prd.md`
-- Instruction: "Read the PRD at the given path. Analyze the target project using available tools. Write only the files listed in 'Files to Fill'. Do not modify source code. Do not run git commands."
+- Instruction: "Read the PRD at the given path. Analyze the target project using available tools. Write only the files listed in 'Files to Fill'. Do not modify source code. Do not run git commands. Complete within 20 minutes — prioritize coverage over depth if time is short."
 
 Workers for tasks with no shared files can run in parallel.
+
+**Recommended timeout:** 20 minutes per worker. If a worker exceeds this, treat as failure and apply the partial failure policy.
 
 ### 3.3 Database Worker Instructions (R21-R23)
 
@@ -297,8 +311,11 @@ After all workers report completion:
    - [Pitfalls](pitfalls/index.md) — known high-risk areas
    [conditional layers and database entries here]
    ```
-3. Delete backup (`.context/spec-first/bootstrap/<slug>/backup/`) on full success
-4. On partial failure: restore backup or preserve partial output and report which tasks failed
+3. Delete backup (`.context/spec-first/bootstrap/<slug>/backup_<ISO-timestamp>/`) on full success
+4. **Partial failure policy:**
+   - `summary-context` fails → **full restore**: replace `docs/contexts/<slug>/` with backup, report error, stop
+   - Any other worker fails → **preserve partial**: keep successful outputs, write partial README.md noting which domains are missing, report failed tasks with reason
+   - All workers fail → full restore (same as summary-context failure)
 
 ### 3.5 Execution Summary
 
@@ -319,6 +336,8 @@ Bootstrap complete for: <slug>
 Analysis mode: <mode>
 DB access: <mode>
 ```
+
+> **Before committing:** `docs/contexts/<slug>/` is designed as a durable VCS asset. Review its contents before the first `git add` — if it contains sensitive architectural details, selectively exclude or redact before committing.
 
 ---
 

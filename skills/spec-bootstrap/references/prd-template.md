@@ -96,6 +96,7 @@ You own exclusively the following files. Do not write to any other file.
 5. **Context files are not fixed:** Adapt the template to the project. Delete inapplicable sections. Add new sections for project-specific patterns.
 6. **Format:** Markdown. Use `## H2` for top-level sections, `### H3` for sub-sections. Code blocks for code examples and file paths.
 7. **index.md alignment:** If you produce multiple files, ensure `index.md` links to the actual generated files.
+8. **Time limit:** Complete your assigned files within 20 minutes. If analysis scope is too large, prioritize breadth (cover all major modules at summary depth) over depth (exhaustive per-file analysis).
 
 ---
 

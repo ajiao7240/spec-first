@@ -15,6 +15,3 @@ Rules:
 - Generate long-lived context assets under `docs/contexts/<slug>/` in the target project.
 - This is a Stage-0 supporting workflow. It does not replace the five-stage workflow — it prepares context for it.
 - If `.claude/skills/spec-bootstrap/SKILL.md` is missing, stop and tell the user to run `spec-first init --claude`.
-
-
-ARGUMENTS: #$ARGUMENTS
