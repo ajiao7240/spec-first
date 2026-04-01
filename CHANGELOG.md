@@ -2,6 +2,7 @@
 
 Entry format: `- vX.Y.Z YYYY-MM-DD author: summary [(user-visible)]`
 
+- v1.4.0 2026-04-01 kuang: refresh README visual assets and add npm version reminder planning artifacts (user-visible)
 - v1.4.0 2026-04-01 kuang: replace three-layer architecture SVG with a static GitHub-compatible version to fix broken README rendering (user-visible)
 - v1.4.0 2026-04-01 kuang: strengthen spec-bootstrap contracts, PRD templates, and workflow pattern docs (user-visible)
 - v1.4.0 2026-04-01 kuang: back up and fully restructure README for a Chinese-first bilingual open-source homepage (user-visible)

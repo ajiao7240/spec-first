@@ -1,0 +1,267 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 780">
+  <defs>
+    <linearGradient id="bg-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F7FAFC"/>
+      <stop offset="100%" stop-color="#EEF4F8"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#10243B" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#3B82F6"/>
+    </marker>
+    <marker id="arrowhead-orange" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#F59E0B"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="780" fill="url(#bg-grad)"/>
+
+  <!-- Title -->
+  <text x="500" y="38" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#17324D">Spec-First 工作流详细步骤</text>
+
+  <!--
+    Layout: 4 stage cards in a row at y=65
+    Card width=190, gap=30
+    x positions: 50, 270, 490, 710
+    Each card: title area 50px, substep area = N * 28px + padding
+  -->
+
+  <!-- ========== Stage 1: Brainstorm (2 substeps) ========== -->
+  <rect x="50" y="65" width="190" height="142" rx="14" fill="#EAF4FF" stroke="#B8D7F5" stroke-width="2" filter="url(#shadow)"/>
+  <text x="145" y="92" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#17324D">1. Brainstorm</text>
+  <text x="145" y="112" text-anchor="middle"
+        font="600 12px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#1E5B74">需求澄清</text>
+
+  <rect x="65" y="125" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#B8D7F5" stroke-width="1" opacity="0.85"/>
+  <text x="145" y="144" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">分析需求背景</text>
+
+  <rect x="65" y="160" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#B8D7F5" stroke-width="1" opacity="0.85"/>
+  <text x="145" y="179" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">识别关键问题</text>
+
+  <!-- ========== Stage 2: Plan (3 substeps) ========== -->
+  <rect x="270" y="65" width="190" height="170" rx="14" fill="#EAF9F3" stroke="#B5DBC9" stroke-width="2" filter="url(#shadow)"/>
+  <text x="365" y="92" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#17324D">2. Plan</text>
+  <text x="365" y="112" text-anchor="middle"
+        font="600 12px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#1E5B74">方案设计</text>
+
+  <rect x="285" y="125" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#B5DBC9" stroke-width="1" opacity="0.85"/>
+  <text x="365" y="144" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">技术选型</text>
+
+  <rect x="285" y="160" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#B5DBC9" stroke-width="1" opacity="0.85"/>
+  <text x="365" y="179" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">任务分解</text>
+
+  <rect x="285" y="195" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#B5DBC9" stroke-width="1" opacity="0.85"/>
+  <text x="365" y="214" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">风险评估</text>
+
+  <!-- ========== Stage 3: Work (3 substeps) ========== -->
+  <rect x="490" y="65" width="190" height="170" rx="14" fill="#FFF6E8" stroke="#E5D1B1" stroke-width="2" filter="url(#shadow)"/>
+  <text x="585" y="92" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#17324D">3. Work</text>
+  <text x="585" y="112" text-anchor="middle"
+        font="600 12px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#1E5B74">编码实现</text>
+
+  <rect x="505" y="125" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#E5D1B1" stroke-width="1" opacity="0.85"/>
+  <text x="585" y="144" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">按计划编码</text>
+
+  <rect x="505" y="160" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#E5D1B1" stroke-width="1" opacity="0.85"/>
+  <text x="585" y="179" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">编写测试</text>
+
+  <rect x="505" y="195" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#E5D1B1" stroke-width="1" opacity="0.85"/>
+  <text x="585" y="214" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">小步提交</text>
+
+  <!-- ========== Stage 4: Review (3 substeps) ========== -->
+  <rect x="710" y="65" width="190" height="170" rx="14" fill="#F4EEFF" stroke="#D9CCF1" stroke-width="2" filter="url(#shadow)"/>
+  <text x="805" y="92" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#17324D">4. Review</text>
+  <text x="805" y="112" text-anchor="middle"
+        font="600 12px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#1E5B74">质量检查</text>
+
+  <rect x="725" y="125" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#D9CCF1" stroke-width="1" opacity="0.85"/>
+  <text x="805" y="144" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">正确性检查</text>
+
+  <rect x="725" y="160" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#D9CCF1" stroke-width="1" opacity="0.85"/>
+  <text x="805" y="179" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">完整性检查</text>
+
+  <rect x="725" y="195" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#D9CCF1" stroke-width="1" opacity="0.85"/>
+  <text x="805" y="214" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">可维护性检查</text>
+
+  <!-- ========== Stage 5: Compound (3 substeps) ========== -->
+  <rect x="380" y="280" width="190" height="170" rx="14" fill="#FFF1EB" stroke="#E5CBBF" stroke-width="2" filter="url(#shadow)"/>
+  <text x="475" y="307" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#17324D">5. Compound</text>
+  <text x="475" y="327" text-anchor="middle"
+        font="600 12px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#1E5B74">知识沉淀</text>
+
+  <rect x="395" y="340" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#E5CBBF" stroke-width="1" opacity="0.85"/>
+  <text x="475" y="359" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">提取根因</text>
+
+  <rect x="395" y="375" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#E5CBBF" stroke-width="1" opacity="0.85"/>
+  <text x="475" y="394" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">记录方案</text>
+
+  <rect x="395" y="410" width="160" height="28" rx="8" fill="#FFFFFF" stroke="#E5CBBF" stroke-width="1" opacity="0.85"/>
+  <text x="475" y="429" text-anchor="middle"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">提炼实践</text>
+
+  <!-- ========== Main Flow Arrows ========== -->
+  <path d="M 240 136 L 270 136" stroke="#3B82F6" stroke-width="2.5" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 460 150 L 490 150" stroke="#3B82F6" stroke-width="2.5" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 680 150 L 710 150" stroke="#3B82F6" stroke-width="2.5" fill="none" marker-end="url(#arrowhead)"/>
+  <!-- Review -> Compound: down then left -->
+  <path d="M 805 235 L 805 255 L 475 255 L 475 280" stroke="#3B82F6" stroke-width="2.5" fill="none" marker-end="url(#arrowhead)"/>
+
+  <!-- Cycle Arrow: Compound back to Brainstorm -->
+  <path d="M 380 390 L 310 390 L 310 460 L 145 460 L 145 210 L 145 207"
+        stroke="#F59E0B" stroke-width="2" fill="none" stroke-dasharray="6,4" marker-end="url(#arrowhead-orange)"/>
+  <text x="225" y="456" text-anchor="middle"
+        font="600 11px 'SFMono-Regular', Menlo, 'Courier New', monospace"
+        fill="#4E6881">持续迭代</text>
+
+  <!-- ========== Detailed Steps Section ========== -->
+  <text x="500" y="510" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#17324D">关键活动详解</text>
+
+  <!-- Brainstorm Details -->
+  <rect x="40" y="530" width="215" height="195" rx="14" fill="#FFFFFF" stroke="#B8D7F5" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="147" y="555" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#17324D">Brainstorm 关键活动</text>
+  <text x="60" y="580"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 与用户对话澄清需求</text>
+  <text x="60" y="600"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 识别模糊点和风险点</text>
+  <text x="60" y="620"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 确定功能边界</text>
+  <text x="60" y="640"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 明确验收标准</text>
+  <text x="60" y="660"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 输出：需求文档</text>
+  <text x="147" y="690" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#3B82F6">目标：需求清晰无歧义</text>
+  <line x1="60" y1="670" x2="236" y2="670" stroke="#B8D7F5" stroke-width="1"/>
+
+  <!-- Plan Details -->
+  <rect x="272" y="530" width="215" height="195" rx="14" fill="#FFFFFF" stroke="#B5DBC9" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="379" y="555" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#17324D">Plan 关键活动</text>
+  <text x="292" y="580"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 设计技术方案</text>
+  <text x="292" y="600"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 分解实施任务</text>
+  <text x="292" y="620"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 评估技术风险</text>
+  <text x="292" y="640"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 制定测试策略</text>
+  <text x="292" y="660"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 输出：实施计划</text>
+  <text x="379" y="690" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#3B82F6">目标：方案可行可验证</text>
+  <line x1="292" y1="670" x2="468" y2="670" stroke="#B5DBC9" stroke-width="1"/>
+
+  <!-- Work Details -->
+  <rect x="504" y="530" width="215" height="195" rx="14" fill="#FFFFFF" stroke="#E5D1B1" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="611" y="555" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#17324D">Work 关键活动</text>
+  <text x="524" y="580"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 按计划逐步实现</text>
+  <text x="524" y="600"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 编写单元测试</text>
+  <text x="524" y="620"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 小步频繁提交</text>
+  <text x="524" y="640"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 持续验证功能</text>
+  <text x="524" y="660"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 输出：可工作代码</text>
+  <text x="611" y="690" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#3B82F6">目标：功能正确可测试</text>
+  <line x1="524" y1="670" x2="700" y2="670" stroke="#E5D1B1" stroke-width="1"/>
+
+  <!-- Review & Compound Details (stacked) -->
+  <rect x="736" y="530" width="220" height="95" rx="14" fill="#FFFFFF" stroke="#D9CCF1" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="846" y="555" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#17324D">Review 关键活动</text>
+  <text x="756" y="578"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 检查功能正确性</text>
+  <text x="756" y="598"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 检查代码质量</text>
+  <text x="756" y="618"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 输出：评审报告</text>
+
+  <rect x="736" y="640" width="220" height="85" rx="14" fill="#FFFFFF" stroke="#E5CBBF" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="846" y="665" text-anchor="middle"
+        font="700 14px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#17324D">Compound 关键活动</text>
+  <text x="756" y="688"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 提取问题根因</text>
+  <text x="756" y="708"
+        font="500 11px 'Avenir Next', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        fill="#5D748E">- 沉淀最佳实践</text>
+</svg>

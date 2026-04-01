@@ -1,0 +1,119 @@
+<svg viewBox="0 0 900 480" width="900" height="480" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">五阶段闭环工作流</title>
+  <desc id="desc">Brainstorm → Plan → Work → Review → Compound 五阶段闭环工作流，展示各阶段产出物</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="900" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7FAFC"/>
+      <stop offset="1" stop-color="#EEF4F8"/>
+    </linearGradient>
+
+    <linearGradient id="loopStroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1D4ED8"/>
+      <stop offset="0.55" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#38BDF8"/>
+    </linearGradient>
+
+    <radialGradient id="coreFill" cx="50%" cy="42%" r="70%">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.5" stop-color="#F1F7FF"/>
+      <stop offset="1" stop-color="#DCEBFA"/>
+    </radialGradient>
+
+    <radialGradient id="coreHalo" cx="50%" cy="50%" r="75%">
+      <stop offset="0" stop-color="#C7DFFF" stop-opacity="0.48"/>
+      <stop offset="1" stop-color="#C7DFFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#10243B" flood-opacity="0.12"/>
+    </filter>
+
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#3B82F6" flood-opacity="0.32"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#38BDF8" flood-opacity="0.16"/>
+    </filter>
+
+    <style>
+      .stageTitle { font: 700 15px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #17324d; }
+      .stageSub { font: 500 12px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #4E6881; }
+      .stageEmoji { font: 700 22px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; }
+      .center { text-anchor: middle; dominant-baseline: middle; }
+      .coreTitle { font: 700 20px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #21486C; }
+      .coreSub { font: 600 14px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #4C6E8E; }
+      .output { font: 500 11px "SFMono-Regular", Menlo, "Courier New", monospace; fill: #4E6881; }
+    </style>
+  </defs>
+
+  <rect width="900" height="480" fill="url(#bg)"/>
+
+  <g transform="translate(450 260)">
+    <!-- Outer ring -->
+    <circle cx="0" cy="0" r="160" fill="none" stroke="#D7E3EC" stroke-width="2.5" opacity="0.5"/>
+    <circle cx="0" cy="0" r="154" fill="none" stroke="#B8CDE0" stroke-width="8" opacity="0.15"/>
+
+    <!-- Animated flowing stroke -->
+    <circle cx="0" cy="0" r="154" fill="none" stroke="url(#loopStroke)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="10 14" filter="url(#glow)">
+      <animate attributeName="stroke-dashoffset" from="0" to="-48" dur="3.6s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.82;1;0.82" dur="2.4s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- Orbiting dot -->
+    <g filter="url(#glow)">
+      <circle cx="0" cy="-154" r="5" fill="#60A5FA">
+        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="7s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+
+    <!-- Core circle -->
+    <circle cx="0" cy="0" r="80" fill="url(#coreHalo)" opacity="0.5">
+      <animate attributeName="r" values="76;82;76" dur="3s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.4;0.65;0.4" dur="3s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="0" cy="0" r="68" fill="url(#coreFill)" stroke="#B8D7F5" stroke-opacity="0.8" stroke-width="1.5">
+      <animate attributeName="opacity" values="0.95;1;0.95" dur="3s" repeatCount="indefinite"/>
+    </circle>
+    <text x="0" y="-8" class="center coreTitle">Spec-First</text>
+    <text x="0" y="16" class="center coreSub">闭环工作流</text>
+
+    <!-- Stage 1: Brainstorm (top) -->
+    <g transform="translate(0 -154)">
+      <rect x="-72" y="-32" width="144" height="64" rx="14" fill="#EAF4FF" stroke="#B8D7F5" filter="url(#shadow)"/>
+      <text x="0" y="-10" class="stageEmoji center">🧠</text>
+      <text x="0" y="10" class="stageTitle center">Brainstorm</text>
+      <text x="0" y="26" class="stageSub center">需求文档</text>
+    </g>
+
+    <!-- Stage 2: Plan (right) -->
+    <g transform="translate(168 0)">
+      <rect x="-72" y="-32" width="144" height="64" rx="14" fill="#EAF9F3" stroke="#B5DBC9" filter="url(#shadow)"/>
+      <text x="0" y="-10" class="stageEmoji center">📋</text>
+      <text x="0" y="10" class="stageTitle center">Plan</text>
+      <text x="0" y="26" class="stageSub center">实施计划</text>
+    </g>
+
+    <!-- Stage 3: Work (bottom) -->
+    <g transform="translate(0 154)">
+      <rect x="-72" y="-32" width="144" height="64" rx="14" fill="#FFF6E8" stroke="#E5D1B1" filter="url(#shadow)"/>
+      <text x="0" y="-10" class="stageEmoji center">⚡</text>
+      <text x="0" y="10" class="stageTitle center">Work</text>
+      <text x="0" y="26" class="stageSub center">代码 + 测试</text>
+    </g>
+
+    <!-- Stage 4: Review (left-bottom) -->
+    <g transform="translate(-168 70)">
+      <rect x="-72" y="-32" width="144" height="64" rx="14" fill="#F4EEFF" stroke="#D9CCF1" filter="url(#shadow)"/>
+      <text x="0" y="-10" class="stageEmoji center">🔎</text>
+      <text x="0" y="10" class="stageTitle center">Review</text>
+      <text x="0" y="26" class="stageSub center">审查报告</text>
+    </g>
+
+    <!-- Stage 5: Compound (left-top) -->
+    <g transform="translate(-168 -70)">
+      <rect x="-72" y="-32" width="144" height="64" rx="14" fill="#FFF1EB" stroke="#E5CBBF" filter="url(#shadow)"/>
+      <text x="0" y="-10" class="stageEmoji center">📚</text>
+      <text x="0" y="10" class="stageTitle center">Compound</text>
+      <text x="0" y="26" class="stageSub center">知识文档</text>
+    </g>
+  </g>
+</svg>

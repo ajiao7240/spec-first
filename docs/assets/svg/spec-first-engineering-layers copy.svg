@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 480">
+  <defs>
+    <style>
+      .label { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+      .title { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif; font-weight: 700; }
+      .desc { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; font-size: 13px; fill: #48484a; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="480" rx="20" fill="#ffffff"/>
+
+  <!-- Outer: Harness Engineering -->
+  <rect x="32" y="32" width="836" height="416" rx="24" fill="#f5f5f7" stroke="#d2d2d7" stroke-width="1.5"/>
+  <text class="label" x="72" y="72" fill="#86868b">LAYER 3</text>
+  <text class="title" x="72" y="102" font-size="24" fill="#1d1d1f">Harness Engineering</text>
+  <text class="desc" x="72" y="128">工程化编排：约束、反馈循环、工作流控制、可观测性、持续改进</text>
+
+  <!-- Middle: Context Engineering -->
+  <rect x="72" y="156" width="756" height="244" rx="20" fill="#f0f7ff" stroke="#b3d4f5" stroke-width="1.5"/>
+  <text class="label" x="112" y="196" fill="#0071e3">LAYER 2</text>
+  <text class="title" x="112" y="226" font-size="20" fill="#1d1d1f">Context Engineering</text>
+  <text class="desc" x="112" y="250">信息架构、渐进式上下文构建、记忆管理</text>
+
+  <!-- Inner: Prompt Engineering -->
+  <rect x="112" y="278" width="676" height="90" rx="16" fill="#e5f0ff" stroke="#0071e3" stroke-width="1.5"/>
+  <text class="label" x="152" y="314" fill="#0071e3">LAYER 1</text>
+  <text class="title" x="248" y="314" font-size="16" fill="#1d1d1f">Prompt Engineering</text>
+  <text class="desc" x="152" y="342">写好提示词，让 AI 输出更准确</text>
+
+  <!-- Subset symbol between labels -->
+  <text x="608" y="414" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" font-size="15" fill="#86868b" font-weight="500">
+    Prompt ⊂ Context ⊂ Harness
+  </text>
+</svg>

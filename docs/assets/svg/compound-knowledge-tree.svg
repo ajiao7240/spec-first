@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <defs>
+    <style>
+      .root { fill: #3b82f6; stroke: #1e40af; stroke-width: 2; }
+      .category { fill: #dbeafe; stroke: #3b82f6; stroke-width: 2; }
+      .item { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.5; }
+      .text { fill: #1e293b; font-family: Arial, sans-serif; font-size: 12px; text-anchor: middle; }
+      .title { fill: #1e293b; font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; text-anchor: middle; }
+      .root-text { fill: white; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; text-anchor: middle; }
+      .line { stroke: #94a3b8; stroke-width: 2; fill: none; }
+    </style>
+  </defs>
+
+  <text class="title" x="400" y="30">知识分类体系</text>
+
+  <!-- Root -->
+  <rect class="root" x="320" y="60" width="160" height="50" rx="8"/>
+  <text class="root-text" x="400" y="90">Compound 知识库</text>
+
+  <!-- Level 1 - Categories -->
+  <rect class="category" x="50" y="160" width="140" height="45" rx="6"/>
+  <text class="text" x="120" y="178">问题根因</text>
+  <text class="text" x="120" y="195" font-size="10" fill="#64748b">Root Cause</text>
+
+  <rect class="category" x="230" y="160" width="140" height="45" rx="6"/>
+  <text class="text" x="300" y="178">解决方案</text>
+  <text class="text" x="300" y="195" font-size="10" fill="#64748b">Solution</text>
+
+  <rect class="category" x="410" y="160" width="140" height="45" rx="6"/>
+  <text class="text" x="480" y="178">最佳实践</text>
+  <text class="text" x="480" y="195" font-size="10" fill="#64748b">Best Practice</text>
+
+  <rect class="category" x="610" y="160" width="140" height="45" rx="6"/>
+  <text class="text" x="680" y="178">可复用资产</text>
+  <text class="text" x="680" y="195" font-size="10" fill="#64748b">Reusable Asset</text>
+
+  <!-- Level 2 - Items under Root Cause -->
+  <rect class="item" x="30" y="250" width="80" height="35" rx="4"/>
+  <text class="text" x="70" y="265" font-size="11">技术债务</text>
+  <text class="text" x="70" y="278" font-size="9" fill="#64748b">Tech Debt</text>
+
+  <rect class="item" x="120" y="250" width="80" height="35" rx="4"/>
+  <text class="text" x="160" y="265" font-size="11">设计缺陷</text>
+  <text class="text" x="160" y="278" font-size="9" fill="#64748b">Design Flaw</text>
+
+  <!-- Level 2 - Items under Solution -->
+  <rect class="item" x="210" y="250" width="80" height="35" rx="4"/>
+  <text class="text" x="250" y="265" font-size="11">代码修复</text>
+  <text class="text" x="250" y="278" font-size="9" fill="#64748b">Code Fix</text>
+
+  <rect class="item" x="300" y="250" width="80" height="35" rx="4"/>
+  <text class="text" x="340" y="265" font-size="11">架构调整</text>
+  <text class="text" x="340" y="278" font-size="9" fill="#64748b">Refactor</text>
+
+  <!-- Level 2 - Items under Best Practice -->
+  <rect class="item" x="410" y="250" width="80" height="35" rx="4"/>
+  <text class="text" x="450" y="265" font-size="11">编码规范</text>
+  <text class="text" x="450" y="278" font-size="9" fill="#64748b">Coding</text>
+
+  <rect class="item" x="500" y="250" width="80" height="35" rx="4"/>
+  <text class="text" x="540" y="265" font-size="11">测试策略</text>
+  <text class="text" x="540" y="278" font-size="9" fill="#64748b">Testing</text>
+
+  <!-- Level 2 - Items under Reusable Asset -->
+  <rect class="item" x="610" y="250" width="80" height="35" rx="4"/>
+  <text class="text" x="650" y="265" font-size="11">代码模板</text>
+  <text class="text" x="650" y="278" font-size="9" fill="#64748b">Template</text>
+
+  <rect class="item" x="700" y="250" width="80" height="35" rx="4"/>
+  <text class="text" x="740" y="265" font-size="11">工具脚本</text>
+  <text class="text" x="740" y="278" font-size="9" fill="#64748b">Script</text>
+
+  <!-- Level 3 - Examples -->
+  <rect class="item" x="30" y="330" width="80" height="30" rx="4"/>
+  <text class="text" x="70" y="348" font-size="10">循环依赖</text>
+
+  <rect class="item" x="120" y="330" width="80" height="30" rx="4"/>
+  <text class="text" x="160" y="348" font-size="10">接口设计</text>
+
+  <rect class="item" x="210" y="330" width="80" height="30" rx="4"/>
+  <text class="text" x="250" y="348" font-size="10">错误处理</text>
+
+  <rect class="item" x="300" y="330" width="80" height="30" rx="4"/>
+  <text class="text" x="340" y="348" font-size="10">模块拆分</text>
+
+  <rect class="item" x="410" y="330" width="80" height="30" rx="4"/>
+  <text class="text" x="450" y="348" font-size="10">命名约定</text>
+
+  <rect class="item" x="500" y="330" width="80" height="30" rx="4"/>
+  <text class="text" x="540" y="348" font-size="10">单元测试</text>
+
+  <rect class="item" x="610" y="330" width="80" height="30" rx="4"/>
+  <text class="text" x="650" y="348" font-size="10">API 模板</text>
+
+  <rect class="item" x="700" y="330" width="80" height="30" rx="4"/>
+  <text class="text" x="740" y="348" font-size="10">构建脚本</text>
+
+  <!-- Connecting Lines - Root to Categories -->
+  <path class="line" d="M 400 110 L 120 160"/>
+  <path class="line" d="M 400 110 L 300 160"/>
+  <path class="line" d="M 400 110 L 480 160"/>
+  <path class="line" d="M 400 110 L 680 160"/>
+
+  <!-- Connecting Lines - Categories to Items (Level 2) -->
+  <path class="line" d="M 70 205 L 70 250"/>
+  <path class="line" d="M 160 205 L 160 250"/>
+  <path class="line" d="M 250 205 L 250 250"/>
+  <path class="line" d="M 340 205 L 340 250"/>
+  <path class="line" d="M 450 205 L 450 250"/>
+  <path class="line" d="M 540 205 L 540 250"/>
+  <path class="line" d="M 650 205 L 650 250"/>
+  <path class="line" d="M 740 205 L 740 250"/>
+
+  <!-- Connecting Lines - Items to Examples (Level 3) -->
+  <path class="line" d="M 70 285 L 70 330"/>
+  <path class="line" d="M 160 285 L 160 330"/>
+  <path class="line" d="M 250 285 L 250 330"/>
+  <path class="line" d="M 340 285 L 340 330"/>
+  <path class="line" d="M 450 285 L 450 330"/>
+  <path class="line" d="M 540 285 L 540 330"/>
+  <path class="line" d="M 650 285 L 650 330"/>
+  <path class="line" d="M 740 285 L 740 330"/>
+
+  <!-- Legend -->
+  <text class="title" x="400" y="410" font-size="14">知识流转路径</text>
+
+  <rect x="150" y="430" width="500" height="140" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2" rx="8"/>
+
+  <text class="text" x="400" y="455" text-anchor="middle" font-weight="bold">1. 提取阶段</text>
+  <text class="text" x="400" y="475" text-anchor="middle" font-size="11">从问题中识别根因和解决方案</text>
+
+  <text class="text" x="400" y="500" text-anchor="middle" font-weight="bold">2. 记录阶段</text>
+  <text class="text" x="400" y="520" text-anchor="middle" font-size="11">将解决方案转化为可复用的最佳实践</text>
+
+  <text class="text" x="400" y="545" text-anchor="middle" font-weight="bold">3. 沉淀阶段</text>
+  <text class="text" x="400" y="565" text-anchor="middle" font-size="11">提炼为模板、工具等可复用资产</text>
+</svg>

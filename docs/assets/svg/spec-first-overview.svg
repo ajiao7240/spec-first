@@ -13,6 +13,32 @@
       <stop offset="1" stop-color="#1E5B74"/>
     </linearGradient>
 
+    <linearGradient id="heroBeam" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="0.34" stop-color="#CDEBFF" stop-opacity="0.06"/>
+      <stop offset="0.5" stop-color="#EAF8FF" stop-opacity="0.14"/>
+      <stop offset="0.66" stop-color="#9FD5FF" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <radialGradient id="heroGlow" cx="76%" cy="22%" r="48%">
+      <stop offset="0" stop-color="#7CCBFF" stop-opacity="0.14"/>
+      <stop offset="0.48" stop-color="#7CCBFF" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#7CCBFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <pattern id="heroTexture" width="56" height="56" patternUnits="userSpaceOnUse">
+      <path d="M0 28H56" stroke="#FFFFFF" stroke-opacity="0.025" stroke-width="1"/>
+      <path d="M28 0V56" stroke="#FFFFFF" stroke-opacity="0.018" stroke-width="1"/>
+      <circle cx="6" cy="6" r="1.05" fill="#FFFFFF" opacity="0.045"/>
+      <circle cx="38" cy="18" r="0.95" fill="#FFFFFF" opacity="0.035"/>
+      <circle cx="20" cy="42" r="0.95" fill="#FFFFFF" opacity="0.03"/>
+    </pattern>
+
+    <clipPath id="heroClip">
+      <rect x="36" y="32" width="1208" height="156" rx="28"/>
+    </clipPath>
+
     <linearGradient id="cardBlue" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#EAF4FF"/>
       <stop offset="1" stop-color="#DCEAF8"/>
@@ -60,11 +86,11 @@
     </filter>
 
     <style>
-      .h1 { font: 700 34px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #fff; }
+      .h1 { font: 800 38px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #fff; letter-spacing: -0.02em; }
       .h2 { font: 700 24px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #17324d; }
       .eyebrowLight { font: 700 12px "Avenir Next", "PingFang SC", Arial, sans-serif; letter-spacing: 0.12em; fill: rgba(255,255,255,0.72); text-transform: uppercase; }
       .eyebrowDark { font: 700 12px "Avenir Next", "PingFang SC", Arial, sans-serif; letter-spacing: 0.12em; fill: #5D748E; text-transform: uppercase; }
-      .sub { font: 500 16px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: rgba(255,255,255,0.86); }
+      .sub { font: 500 14px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: rgba(255,255,255,0.86); }
       .body { font: 500 15px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #4E6881; }
       .small { font: 600 13px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #4E6881; }
       .mono { font: 700 13px "SFMono-Regular", Menlo, monospace; fill: #17324d; }
@@ -79,18 +105,29 @@
   <g filter="url(#shadow)">
     <rect x="36" y="32" width="1208" height="156" rx="28" fill="url(#hero)"/>
   </g>
+  <rect x="36" y="32" width="1208" height="156" rx="28" fill="url(#heroGlow)"/>
+  <rect x="36" y="32" width="1208" height="156" rx="28" fill="url(#heroTexture)" opacity="0.7"/>
+  <g clip-path="url(#heroClip)">
+    <rect x="-220" y="70" width="1560" height="26" rx="13" fill="url(#heroBeam)" transform="rotate(-11 640 83)" opacity="0.72"/>
+    <circle cx="1014" cy="266" r="228" fill="none" stroke="#FFFFFF" stroke-opacity="0.09" stroke-width="2.4"/>
+  </g>
   <text x="68" y="66" class="eyebrowLight">Harness Engineering for Claude Code and Codex</text>
-  <text x="68" y="110" class="h1">Spec-First</text>
-  <text x="68" y="142" class="sub">
-    <tspan x="68" dy="0">把 AI 编码从一次性对话，升级为可沉淀、</tspan>
-    <tspan x="68" dy="22">可复用、可进化的工程最佳实践</tspan>
-  </text>
+  <text x="68" y="104" class="h1">Spec-First</text>
+  <text x="68" y="146" class="sub">把 AI 编码从一次性对话，升级为可沉淀、可复用、可进化的工程最佳实践</text>
 
-  <g transform="translate(910 54)">
-    <rect x="0" y="0" width="280" height="108" rx="20" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.16)"/>
-    <text x="140" y="28" class="eyebrowLight center">How It Runs</text>
-    <text x="140" y="56" class="whiteSmall center">稳定入口驱动</text>
-    <text x="140" y="82" class="whiteSmall center">流程、能力与状态协同</text>
+  <g transform="translate(924 54)">
+    <rect x="0" y="0" width="280" height="108" rx="20" fill="rgba(255,255,255,0.11)" stroke="rgba(255,255,255,0.18)"/>
+    <text x="140" y="31" class="eyebrowLight center">How It Runs</text>
+    <text x="140" y="56" class="whiteSmall center" style="font-size:14px;font-weight:700;">稳定入口驱动</text>
+
+    <rect x="18" y="68" width="74" height="24" rx="12" fill="rgba(255,255,255,0.16)" stroke="rgba(255,255,255,0.22)"/>
+    <text x="55" y="80" class="whiteSmall center">入口</text>
+
+    <rect x="103" y="68" width="74" height="24" rx="12" fill="rgba(255,255,255,0.14)" stroke="rgba(255,255,255,0.20)"/>
+    <text x="140" y="80" class="whiteSmall center">流程</text>
+
+    <rect x="188" y="68" width="74" height="24" rx="12" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.18)"/>
+    <text x="225" y="80" class="whiteSmall center">状态</text>
   </g>
 
   <g filter="url(#shadow)">
@@ -189,27 +226,27 @@
     <rect x="884" y="214" width="360" height="228" rx="24" fill="url(#cardMint)"/>
   </g>
   <text x="912" y="246" class="eyebrowDark">What You Get</text>
-  <text x="912" y="282" class="h2">工程可落地的</text>
-  <text x="912" y="312" class="h2">关键机制</text>
+  <text x="912" y="282" class="h2">工程可落地关键机制</text>
+  <rect x="912" y="296" width="304" height="1.5" rx="0.75" fill="#BFDCCA" opacity="0.85"/>
 
   <g transform="translate(912 308)">
-    <rect x="0" y="0" width="136" height="34" rx="17" fill="#ffffff"/>
-    <text x="68" y="21" class="pill center">稳定入口</text>
+    <rect x="0" y="0" width="100" height="34" rx="17" fill="#ffffff"/>
+    <text x="50" y="21" class="pill center">稳定入口</text>
 
-    <rect x="152" y="0" width="136" height="34" rx="17" fill="#ffffff"/>
-    <text x="220" y="21" class="pill center">闭环流程</text>
+    <rect x="102" y="0" width="100" height="34" rx="17" fill="#ffffff"/>
+    <text x="152" y="21" class="pill center">闭环流程</text>
 
-    <rect x="0" y="44" width="136" height="34" rx="17" fill="#ffffff"/>
-    <text x="68" y="65" class="pill center">结构化评审</text>
+    <rect x="204" y="0" width="100" height="34" rx="17" fill="#ffffff"/>
+    <text x="254" y="21" class="pill center">结构化评审</text>
 
-    <rect x="152" y="44" width="136" height="34" rx="17" fill="#ffffff"/>
-    <text x="220" y="65" class="pill center">知识复用</text>
+    <rect x="0" y="44" width="100" height="34" rx="17" fill="#ffffff"/>
+    <text x="50" y="65" class="pill center">知识复用</text>
 
-    <rect x="0" y="88" width="136" height="34" rx="17" fill="#ffffff"/>
-    <text x="68" y="109" class="pill center">状态可恢复</text>
+    <rect x="102" y="44" width="100" height="34" rx="17" fill="#ffffff"/>
+    <text x="152" y="65" class="pill center">状态可恢复</text>
 
-    <rect x="152" y="88" width="136" height="34" rx="17" fill="#ffffff"/>
-    <text x="220" y="109" class="pill center">系统可进化</text>
+    <rect x="204" y="44" width="100" height="34" rx="17" fill="#ffffff"/>
+    <text x="254" y="65" class="pill center">系统可进化</text>
   </g>
 
   <g filter="url(#shadow)">
@@ -230,7 +267,7 @@
   </g>
   <text x="912" y="494" class="eyebrowDark">Outcome</text>
   <text x="912" y="530" class="h2">越用越强的工程系统</text>
-  <text x="912" y="564" class="body">
+  <text x="912" y="559" class="body">
     <tspan x="912" dy="0">每一轮需求、计划、评审与沉淀，</tspan>
     <tspan x="912" dy="22">都会让下一轮交付更快、更稳，</tspan>
     <tspan x="912" dy="22">也让整个系统越来越聪明。</tspan>
