@@ -18,6 +18,8 @@ const {
   writeState,
 } = require('../state');
 const { getAdapter } = require('../adapters');
+const { writeLangPolicy } = require('../lang-policy');
+const { bootstrapChangelog } = require('../changelog');
 
 function runInit(argv) {
   const args = [...argv];
@@ -41,6 +43,17 @@ function runInit(argv) {
 
   const platform = parsed.claude ? 'claude' : 'codex';
   const adapter = getAdapter(platform);
+  const bundledAgentPaths = listBundledAgents();
+
+  if (platform === 'claude') {
+    const duplicateBareNames = findDuplicateClaudeAgentNames(bundledAgentPaths);
+    if (duplicateBareNames.length > 0) {
+      console.error(
+        `Error: Claude runtime requires unique bare agent names, but found duplicates: ${duplicateBareNames.join(', ')}`,
+      );
+      return 1;
+    }
+  }
 
   const projectRoot = process.cwd();
   const commandDir = adapter.hasCommands ? path.join(projectRoot, adapter.commandRoot) : '';
@@ -76,7 +89,7 @@ function runInit(argv) {
   const previewState = buildState(manifest.version, {
     commands: runtimeCommands,
     skills: listBundledSkills(),
-    agents: listBundledAgents(),
+    agents: bundledAgentPaths,
     developer,
   });
   removeObsoleteManagedAssets(projectRoot, previousState, previewState, adapter);
@@ -97,6 +110,8 @@ function runInit(argv) {
   writeDeveloperFile(projectRoot, developer, adapter);
   writeState(projectRoot, nextState, adapter);
   adapter.syncRuntimeFiles(projectRoot, { manifest, synced });
+  writeLangPolicy(projectRoot, developer, adapter);
+  const changelogCreated = bootstrapChangelog(projectRoot, developer);
   const written = synced.commands.map((command) => command.filename);
   const skillNames = synced.skills;
   const agentPaths = synced.agents;
@@ -112,6 +127,9 @@ function runInit(argv) {
   console.log(`  🈯 lang: ${developer.lang}`);
   console.log(`  ⏱ initialized_at: ${developer.initializedAt}`);
   console.log(`  🔖 version: ${developer.version}`);
+  if (changelogCreated) {
+    console.log('📝 Bootstrapped CHANGELOG.md');
+  }
 
   console.log('');
   if (adapter.hasCommands) {
@@ -196,6 +214,22 @@ function parseInitArgs(argv) {
   }
 
   return parsed;
+}
+
+function findDuplicateClaudeAgentNames(agentPaths) {
+  const seen = new Set();
+  const duplicates = new Set();
+
+  for (const agentPath of agentPaths) {
+    const bareName = path.basename(agentPath, '.md');
+    if (seen.has(bareName)) {
+      duplicates.add(bareName);
+      continue;
+    }
+    seen.add(bareName);
+  }
+
+  return [...duplicates].sort();
 }
 
 module.exports = {

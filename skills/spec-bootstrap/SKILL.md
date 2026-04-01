@@ -2,7 +2,7 @@
 name: spec-bootstrap
 description: "Stage-0 supporting workflow: analyze a target project and generate long-lived project context assets under docs/contexts/<slug>/. Run this before brainstorm/plan/work/review to give those workflows a durable context foundation."
 argument-hint: "[target repo path or context slug]"
-user-invocable: false
+user-invocable: true
 ---
 
 # Spec-First Bootstrap

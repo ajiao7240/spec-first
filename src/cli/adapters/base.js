@@ -68,6 +68,14 @@ class PlatformAdapter {
   }
 
   /**
+   * Repo-root instruction file written by spec-first init (e.g., CLAUDE.md, AGENTS.md).
+   * Used by lang-policy.js to locate the file that governs AI assistant behavior.
+   */
+  get instructionFile() {
+    throw new Error('Not implemented: instructionFile');
+  }
+
+  /**
    * Map a bundled command definition to the runtime filename for this platform.
    * @param {{ filename: string }} command
    * @returns {string}
