@@ -37,15 +37,13 @@ function bootstrapChangelog(projectRoot, developer) {
  * @returns {string}
  */
 function buildInitialChangelog(today, name, version) {
-  const versionSuffix = version ? ` v${version}` : '';
+  const resolvedVersion = version ? `v${version}` : 'vX.Y.Z';
+  const resolvedName = name || 'author';
   return `# Changelog
 
-Entry format: \`- YYYY-MM-DD author: summary [(user-visible)]\`
-Release sections: \`## vX.Y.Z - YYYY-MM-DD\`
+Entry format: \`- vX.Y.Z YYYY-MM-DD author: summary [(user-visible)]\`
 
-## [Unreleased]
-
-- ${today} ${name}: Initialize project with spec-first${versionSuffix}
+- ${resolvedVersion} ${today} ${resolvedName}: Initialize project with spec-first
 `;
 }
 

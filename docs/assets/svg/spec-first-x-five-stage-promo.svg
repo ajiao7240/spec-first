@@ -1,0 +1,264 @@
+<svg viewBox="0 0 1600 900" width="1600" height="900" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Spec-First X Promo Five Stage Loop</title>
+  <desc id="desc">A social-friendly infographic showing the five-stage Spec-First delivery loop for AI coding, with supporting context on why the workflow matters and a call to action.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F5F8FB"/>
+      <stop offset="1" stop-color="#E8F0F6"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="88" y1="44" x2="1512" y2="224" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0C2338"/>
+      <stop offset="0.58" stop-color="#154668"/>
+      <stop offset="1" stop-color="#226987"/>
+    </linearGradient>
+    <linearGradient id="orbital" x1="476" y1="248" x2="1126" y2="770" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1D4ED8"/>
+      <stop offset="0.48" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#38BDF8"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F8FBFD"/>
+    </linearGradient>
+    <linearGradient id="brainstorm" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EAF4FF"/>
+      <stop offset="1" stop-color="#DCEAF8"/>
+    </linearGradient>
+    <linearGradient id="plan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EAF9F3"/>
+      <stop offset="1" stop-color="#D9F1E6"/>
+    </linearGradient>
+    <linearGradient id="work" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF6E8"/>
+      <stop offset="1" stop-color="#FFE4BF"/>
+    </linearGradient>
+    <linearGradient id="review" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F4EEFF"/>
+      <stop offset="1" stop-color="#E6DAFF"/>
+    </linearGradient>
+    <linearGradient id="compound" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF1EB"/>
+      <stop offset="1" stop-color="#FFD8CA"/>
+    </linearGradient>
+    <linearGradient id="ctaCard" x1="1216" y1="690" x2="1512" y2="782" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#14324B"/>
+      <stop offset="1" stop-color="#1E5272"/>
+    </linearGradient>
+    <radialGradient id="coreGlow" cx="50%" cy="45%" r="68%">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.5" stop-color="#F2F8FF"/>
+      <stop offset="1" stop-color="#D9EAFB"/>
+    </radialGradient>
+    <radialGradient id="halo" cx="50%" cy="50%" r="75%">
+      <stop offset="0" stop-color="#BFDBFE" stop-opacity="0.46"/>
+      <stop offset="1" stop-color="#BFDBFE" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#10243B" flood-opacity="0.14"/>
+    </filter>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#38BDF8" flood-opacity="0.18"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="18" flood-color="#1D4ED8" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrowHead" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M0,0 L14,7 L0,14 z" fill="#3B82F6"/>
+    </marker>
+    <style>
+      .h1 { font: 700 42px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #FFFFFF; }
+      .h2 { font: 700 28px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #16324A; }
+      .eyebrowLight { font: 700 13px "Avenir Next", "PingFang SC", Arial, sans-serif; letter-spacing: 0.16em; text-transform: uppercase; fill: rgba(255,255,255,0.72); }
+      .eyebrowDark { font: 700 12px "Avenir Next", "PingFang SC", Arial, sans-serif; letter-spacing: 0.16em; text-transform: uppercase; fill: #698198; }
+      .sub { font: 500 19px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: rgba(255,255,255,0.88); }
+      .body { font: 500 15px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #526B83; }
+      .bodyStrong { font: 600 15px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #2B4A66; }
+      .small { font: 600 13px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #5A728A; }
+      .label { font: 700 18px "Avenir Next", "PingFang SC", "Helvetica Neue", Arial, sans-serif; fill: #16324A; }
+      .mono { font: 700 14px "SFMono-Regular", Menlo, monospace; fill: #16324A; }
+      .pill { font: 700 12px "Avenir Next", "PingFang SC", Arial, sans-serif; fill: #16324A; }
+      .center { text-anchor: middle; dominant-baseline: middle; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <circle cx="1310" cy="118" r="180" fill="#FFFFFF" opacity="0.36"/>
+  <circle cx="244" cy="812" r="220" fill="#DCEAF8" opacity="0.34"/>
+
+  <g filter="url(#shadow)">
+    <rect x="56" y="44" width="1488" height="180" rx="32" fill="url(#hero)"/>
+  </g>
+  <text x="96" y="82" class="eyebrowLight">AI Delivery Loop for Claude Code and Codex</text>
+  <text x="96" y="136" class="h1">Spec-First</text>
+  <text x="96" y="174" class="sub">
+    <tspan x="96" dy="0">把 AI Coding 从一次性对话，升级成可追踪、可评审、可沉淀的工程闭环。</tspan>
+    <tspan x="96" dy="28">Turn AI coding from ad-hoc chat into a reusable delivery system.</tspan>
+  </text>
+
+  <g transform="translate(1120 72)">
+    <rect x="0" y="0" width="356" height="124" rx="22" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.16)"/>
+    <text x="178" y="32" class="eyebrowLight center">Core Promise</text>
+    <text x="178" y="62" class="sub center" style="font-size:16px;">Clarify the requirement</text>
+    <text x="178" y="88" class="sub center" style="font-size:16px;">Ship with structure</text>
+    <text x="178" y="114" class="sub center" style="font-size:16px;">Compound knowledge for the next task</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="56" y="252" width="360" height="568" rx="28" fill="url(#panel)" stroke="#E1EAF2"/>
+  </g>
+  <text x="88" y="288" class="eyebrowDark">Why AI Coding Breaks</text>
+  <text x="88" y="320" class="h2" style="font-size:25px;">
+    <tspan x="88" dy="0">没有稳定流程时，</tspan>
+    <tspan x="88" dy="30">问题通常出在工程边界</tspan>
+  </text>
+
+  <g transform="translate(88 366)">
+    <circle cx="12" cy="12" r="12" fill="#DCEAF8"/>
+    <path d="M8 12h8" stroke="#2C5E92" stroke-width="2" stroke-linecap="round"/>
+    <text x="36" y="10" class="bodyStrong">Requirement drift</text>
+    <text x="36" y="34" class="body">
+      <tspan x="36" dy="0">需求只存在于聊天里，</tspan>
+      <tspan x="36" dy="17">容易越做越偏。</tspan>
+    </text>
+
+    <circle cx="12" cy="96" r="12" fill="#D9F1E6"/>
+    <path d="M12 92v8 M8 96h8" stroke="#2E7B5E" stroke-width="2" stroke-linecap="round"/>
+    <text x="36" y="94" class="bodyStrong">Execution without a plan</text>
+    <text x="36" y="118" class="body">
+      <tspan x="36" dy="0">没有明确拆解、</tspan>
+      <tspan x="36" dy="17">风险判断和验收标准。</tspan>
+    </text>
+
+    <circle cx="12" cy="180" r="12" fill="#E6DAFF"/>
+    <path d="M8 180l3 3 5-7" fill="none" stroke="#6E45A6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="36" y="178" class="bodyStrong">Review without a verdict</text>
+    <text x="36" y="202" class="body">
+      <tspan x="36" dy="0">改动做完就结束，</tspan>
+      <tspan x="36" dy="17">缺少结构化结论和阻断机制。</tspan>
+    </text>
+
+    <circle cx="12" cy="264" r="12" fill="#FFD8CA"/>
+    <path d="M8 268c2-4 6-8 10-8" fill="none" stroke="#C96B4B" stroke-width="2" stroke-linecap="round"/>
+    <text x="36" y="262" class="bodyStrong">No memory for the next task</text>
+    <text x="36" y="286" class="body">
+      <tspan x="36" dy="0">经验没有沉淀，</tspan>
+      <tspan x="36" dy="17">下一轮又从零开始。</tspan>
+    </text>
+  </g>
+
+  <g transform="translate(88 704)">
+    <rect x="0" y="0" width="296" height="92" rx="18" fill="#F5F9FC" stroke="#E1EAF2"/>
+    <text x="20" y="30" class="mono">Not another prompt pack</text>
+    <text x="20" y="56" class="body">
+      <tspan x="20" dy="0">Spec-First 更像 AI 时代的</tspan>
+      <tspan x="20" dy="17">软件交付操作系统。</tspan>
+    </text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="448" y="252" width="704" height="568" rx="28" fill="#FFFFFF" stroke="#E1EAF2"/>
+  </g>
+  <text x="486" y="288" class="eyebrowDark">Five-Stage Flywheel</text>
+  <g transform="translate(800 544)">
+    <circle cx="0" cy="0" r="228" fill="none" stroke="#D7E4EF" stroke-width="2.5" opacity="0.68"/>
+    <circle cx="0" cy="0" r="220" fill="none" stroke="#BFD5E6" stroke-width="14" opacity="0.14"/>
+    <circle cx="0" cy="0" r="220" fill="none" stroke="url(#orbital)" stroke-width="5.5" stroke-dasharray="18 20" stroke-linecap="round" filter="url(#softGlow)">
+      <animate attributeName="stroke-dashoffset" from="0" to="-76" dur="5s" repeatCount="indefinite"/>
+    </circle>
+    <path d="M0 -220 A220 220 0 1 1 -209 -69" fill="none" stroke="url(#orbital)" stroke-width="3" opacity="0.18" marker-end="url(#arrowHead)"/>
+
+    <circle cx="0" cy="0" r="118" fill="url(#halo)">
+      <animate attributeName="r" values="112;122;112" dur="3.6s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.4;0.62;0.4" dur="3.6s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="0" cy="0" r="96" fill="url(#coreGlow)" stroke="#B8D7F5" stroke-width="1.5"/>
+    <circle cx="0" cy="0" r="76" fill="none" stroke="#CFE2F7" stroke-width="1.4" stroke-dasharray="4 10" opacity="0.66"/>
+    <g transform="translate(0 -6)">
+      <text x="0" y="-14" class="center" style="font:700 15px 'Avenir Next','PingFang SC','Helvetica Neue',Arial,sans-serif; fill:#4A6B89;">AI Delivery</text>
+      <text x="0" y="8" class="center" style="font:700 15px 'Avenir Next','PingFang SC','Helvetica Neue',Arial,sans-serif; fill:#4A6B89;">Flywheel</text>
+      <text x="0" y="30" class="center" style="font:600 11px 'Avenir Next','PingFang SC','Helvetica Neue',Arial,sans-serif; fill:#5D7894;">越做越快 · 越做越稳</text>
+      <text x="0" y="44" class="center" style="font:600 11px 'Avenir Next','PingFang SC','Helvetica Neue',Arial,sans-serif; fill:#5D7894;">越做越会复用</text>
+    </g>
+
+    <g transform="translate(0 -220)" filter="url(#shadow)">
+      <rect x="-104" y="-42" width="208" height="84" rx="20" fill="url(#brainstorm)" stroke="#C8DCEE"/>
+      <text x="0" y="-14" class="label center">Brainstorm</text>
+      <text x="0" y="10" class="small center">把问题说清楚</text>
+      <text x="0" y="30" class="small center">clarify scope and success</text>
+    </g>
+
+    <g transform="translate(210 -70)" filter="url(#shadow)">
+      <rect x="-104" y="-42" width="208" height="84" rx="20" fill="url(#plan)" stroke="#C9E2D7"/>
+      <text x="0" y="-14" class="label center">Plan</text>
+      <text x="0" y="10" class="small center">把方案写下来</text>
+      <text x="0" y="30" class="small center">tasks, risks, decisions</text>
+    </g>
+
+    <g transform="translate(128 180)" filter="url(#shadow)">
+      <rect x="-104" y="-42" width="208" height="84" rx="20" fill="url(#work)" stroke="#E5D1B1"/>
+      <text x="0" y="-14" class="label center">Work</text>
+      <text x="0" y="10" class="small center">把事情做出来</text>
+      <text x="0" y="30" class="small center">code, tests, delivery</text>
+    </g>
+
+    <g transform="translate(-128 180)" filter="url(#shadow)">
+      <rect x="-104" y="-42" width="208" height="84" rx="20" fill="url(#review)" stroke="#D9CCF1"/>
+      <text x="0" y="-14" class="label center">Review</text>
+      <text x="0" y="10" class="small center">把风险拦下来</text>
+      <text x="0" y="30" class="small center">verdict, findings, gate</text>
+    </g>
+
+    <g transform="translate(-210 -70)" filter="url(#shadow)">
+      <rect x="-104" y="-42" width="208" height="84" rx="20" fill="url(#compound)" stroke="#E5CBBF"/>
+      <text x="0" y="-14" class="label center">Compound</text>
+      <text x="0" y="10" class="small center">把经验沉淀下来</text>
+      <text x="0" y="30" class="small center">reuse for the next task</text>
+    </g>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1184" y="252" width="360" height="568" rx="28" fill="url(#panel)" stroke="#E1EAF2"/>
+  </g>
+  <text x="1216" y="288" class="eyebrowDark">What the Loop Adds</text>
+  <text x="1216" y="320" class="h2" style="font-size:22px;">
+    <tspan x="1216" dy="0">它不是多一个命令，</tspan>
+    <tspan x="1216" dy="28">而是多一层工程系统</tspan>
+  </text>
+
+  <g transform="translate(1216 372)">
+    <rect x="0" y="0" width="296" height="76" rx="18" fill="#F5F9FC" stroke="#E1EAF2"/>
+    <text x="20" y="28" class="bodyStrong">Stable entry points</text>
+    <text x="20" y="50" class="body">
+      <tspan x="20" dy="0">统一 Claude Code / Codex 的</tspan>
+      <tspan x="20" dy="17">工作方式。</tspan>
+    </text>
+
+    <rect x="0" y="100" width="296" height="76" rx="18" fill="#F5F9FC" stroke="#E1EAF2"/>
+    <text x="20" y="128" class="bodyStrong">Structured review gates</text>
+    <text x="20" y="150" class="body">
+      <tspan x="20" dy="0">让风险、遗漏和回退点</tspan>
+      <tspan x="20" dy="17">有明确结论。</tspan>
+    </text>
+
+    <rect x="0" y="200" width="296" height="76" rx="18" fill="#F5F9FC" stroke="#E1EAF2"/>
+    <text x="20" y="228" class="bodyStrong">Compounding knowledge</text>
+    <text x="20" y="250" class="body">
+      <tspan x="20" dy="0">让每轮经验变成</tspan>
+      <tspan x="20" dy="17">下一轮开发的输入。</tspan>
+    </text>
+  </g>
+
+  <g transform="translate(1216 690)">
+    <rect x="0" y="0" width="296" height="92" rx="20" fill="url(#ctaCard)" stroke="rgba(255,255,255,0.16)"/>
+    <rect x="16" y="16" width="52" height="52" rx="16" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.14)"/>
+    <path d="M42 28v18 M35 39l7 8 7-8 M30 52h24" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="84" y="28" class="eyebrowLight" style="text-anchor:start;">Get Spec-First</text>
+    <text x="84" y="52" style="font:700 17px 'SFMono-Regular', Menlo, monospace; fill:#FFFFFF;">npm i -g spec-first</text>
+    <text x="84" y="74" style="font:500 12px 'Avenir Next','PingFang SC','Helvetica Neue',Arial,sans-serif; fill:rgba(255,255,255,0.72);">www.npmjs.com/package/spec-first</text>
+    <path d="M250 46h18 M260 38l8 8-8 8" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <g transform="translate(56 842)">
+    <rect x="0" y="0" width="1488" height="34" rx="17" fill="rgba(12,35,56,0.06)"/>
+    <text x="744" y="22" class="body center">Spec-First · Brainstorm → Plan → Work → Review → Compound · https://www.npmjs.com/package/spec-first</text>
+  </g>
+</svg>

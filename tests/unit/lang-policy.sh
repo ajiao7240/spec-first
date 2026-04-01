@@ -38,7 +38,7 @@ assert_contains() {
   local desc="$1"
   local needle="$2"
   local haystack="$3"
-  if printf '%s' "$haystack" | grep -qF "$needle"; then
+  if printf '%s' "$haystack" | grep -qF -- "$needle"; then
     pass=$((pass + 1))
   else
     echo "  ✗ $desc: '$needle' not found in output"
@@ -50,7 +50,7 @@ assert_not_contains() {
   local desc="$1"
   local needle="$2"
   local haystack="$3"
-  if ! printf '%s' "$haystack" | grep -qF "$needle"; then
+  if ! printf '%s' "$haystack" | grep -qF -- "$needle"; then
     pass=$((pass + 1))
   else
     echo "  ✗ $desc: '$needle' should not be in output"
@@ -101,6 +101,18 @@ assert_contains "en block has changelog rule" "CHANGELOG" "$en_block"
 
 echo "1.8 zh block contains changelog governance rule"
 assert_contains "zh block has changelog rule" "CHANGELOG" "$zh_block"
+
+echo "1.9 zh block contains refusal rule"
+assert_contains "zh block has refusal rule" "拒绝生成" "$zh_block"
+
+echo "1.10 en block contains refusal rule"
+assert_contains "en block has refusal rule" "refuse to generate" "$en_block"
+
+echo "1.11 zh block does not contain governance file commit rule"
+assert_not_contains "zh block omits governance file commit rule" "规范文件提交规则" "$zh_block"
+
+echo "1.12 en block does not contain governance file commit rule"
+assert_not_contains "en block omits governance file commit rule" "Governance File Commit Rule" "$en_block"
 
 echo ""
 
@@ -196,15 +208,15 @@ mkdir -p "$FAKE_ROOT1"
 node_run "bootstrapChangelog('$FAKE_ROOT1', { name: 'testuser', version: '1.4.0' })" >/dev/null
 assert "CHANGELOG.md created" test -f "$FAKE_ROOT1/CHANGELOG.md"
 
-echo "6.2 created file contains ## [Unreleased]"
+echo "6.2 created file contains versioned entry format"
 content=$(cat "$FAKE_ROOT1/CHANGELOG.md")
-assert_contains "has Unreleased section" "## [Unreleased]" "$content"
+assert_contains "has versioned entry format" 'Entry format: `- vX.Y.Z YYYY-MM-DD author: summary [(user-visible)]`' "$content"
 
-echo "6.3 created file contains developer name"
+echo "6.3 created file contains developer name in initial entry"
 assert_contains "has developer name" "testuser" "$content"
 
-echo "6.4 created file contains spec-first version"
-assert_contains "has version" "1.4.0" "$content"
+echo "6.4 created file contains spec-first version in initial entry"
+assert_contains "has versioned initial entry" "- v1.4.0 " "$content"
 
 echo "6.5 no-op when file already exists"
 ORIGINAL=$(cat "$FAKE_ROOT1/CHANGELOG.md")
@@ -222,6 +234,9 @@ echo "6.7 entry format contains date"
 TODAY=$(date +%Y-%m-%d)
 content2=$(cat "$FAKE_ROOT1/CHANGELOG.md")
 assert_contains "entry has today's date" "$TODAY" "$content2"
+
+echo "6.8 no legacy Unreleased section remains"
+assert_not_contains "no unreleased section" "## [Unreleased]" "$content2"
 
 echo ""
 

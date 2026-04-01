@@ -37,13 +37,11 @@ startup — CLAUDE.md (Claude Code) or AGENTS.md (Codex).
 - R3. init writes/updates a lang policy block in the repo-root instruction file; `--lang` re-runs update the block *(see origin: R3)*
 - R4. `--claude` writes `CLAUDE.md`; `--codex` writes `AGENTS.md`; create if missing, append/update if present *(see origin: R4)*
 - R5. Write is idempotent via `<!-- spec-first:lang:start -->` / `<!-- spec-first:lang:end -->` markers *(see origin: R5)*
-- R6. Instruction file must contain a changelog governance rule (prompt-level behavior instruction) *(see origin: R6)*
+- R6. Instruction file must contain the changelog iron law: source-code changes without a matching `CHANGELOG.md` entry must be refused at the prompt layer *(see origin: R6)*
 - R7. If `CHANGELOG.md` is absent, create it with a format header and a bootstrap entry; do not touch it if it already exists *(see origin: R7)*
-- R8. CHANGELOG format: daily entries `- YYYY-MM-DD author: summary`; releases use `## vX.Y.Z - YYYY-MM-DD` sections *(see origin: R8)*
-- R9. Instruction file must state that spec-first governance files must be committed together with related code changes *(see origin: R9)*
-- R10. Do not require governance files in every commit — only when they actually changed *(see origin: R10)*
-- R11–R17. zh/en behavior rules written verbatim into the managed block *(see origin: R11–R17)*
-- R18–R20. Technical identifiers always English; governance is instruction-file-only, no per-skill copies *(see origin: R18–R20)*
+- R8. CHANGELOG format for spec-first-bootstrapped repos uses versioned entry lines: `- vX.Y.Z YYYY-MM-DD author: summary [(user-visible)]` *(see origin: R8)*
+- R9–R15. zh/en behavior rules written verbatim into the managed block *(see origin: R9–R15)*
+- R16–R18. Technical identifiers always English; governance is instruction-file-only, no per-skill copies *(see origin: R16–R18)*
 
 ## Scope Boundaries
 
@@ -79,7 +77,7 @@ startup — CLAUDE.md (Claude Code) or AGENTS.md (Codex).
 - **Managed block via HTML comment markers**: `<!-- spec-first:lang:start -->` / `<!-- spec-first:lang:end -->` are invisible in rendered Markdown, survive user edits to other sections, and are easy to locate with a string scan. *(see origin: R5)*
 - **Separate `lang-policy.js` module, not a method on the adapter**: Writing Markdown governance content is a cross-cutting concern, not a platform-specific transform. Adapter only exposes `instructionFile`; the writing logic stays in a standalone module.
 - **`bootstrapChangelog` never overwrites**: R7 is explicit — CHANGELOG.md is user-owned once created. The bootstrap call is a no-op if the file exists. *(see origin: R7)*
-- **Both lang policy block and changelog governance rule in the same managed section**: Reduces the number of managed sections and keeps all spec-first-owned instructions in one visible block. Governance rule (R6, R9, R10) is authored in the same write pass as the lang rule.
+- **Both lang policy block and changelog iron law in the same managed section**: Reduces the number of managed sections and keeps all spec-first-owned instructions in one visible block. Governance rule (R6) is authored in the same write pass as the lang rule.
 - **`developer.lang` used directly from `resolveDeveloperIdentity` output**: Avoids reading `.developer` a second time. The resolved value already reflects CLI > global > default chain. *(see origin: R2a)*
 
 ## Open Questions
@@ -87,12 +85,12 @@ startup — CLAUDE.md (Claude Code) or AGENTS.md (Codex).
 ### Resolved During Planning
 
 - **Should `CLAUDE.md` also be written during `--codex` init (and vice versa)?** No. `--claude` writes `CLAUDE.md`, `--codex` writes `AGENTS.md`. No cross-platform sync. *(see origin: Resolved — "Claude 兼容层")*
-- **What does the CHANGELOG bootstrap entry look like?** Format header (`# Changelog`, format description) + one entry: `- YYYY-MM-DD name: Initialize project with spec-first vX.Y.Z`. *(see origin: Resolved — "CHANGELOG 初始内容")*
-- **Should R6 claim system-level enforcement?** No. Rewritten as a prompt-level behavior instruction: AI tools should check for a CHANGELOG entry before generating code changes and prompt the user to add one if missing. *(see origin: Resolved — "changelog 约束表述")*
+- **What does the CHANGELOG bootstrap entry look like?** Format header (`# Changelog`, format description) + one entry: `- vX.Y.Z YYYY-MM-DD name: Initialize project with spec-first`. *(see origin: Resolved — "CHANGELOG 初始内容")*
+- **Should R6 claim system-level enforcement?** No. Rewritten as a prompt-level iron law: AI tools should refuse to generate source-code changes when no matching `CHANGELOG.md` entry exists. *(see origin: Resolved — "changelog 约束表述")*
 
 ### Deferred to Implementation
 
-- **Exact wording of the managed block for zh vs en**: The full text of the language policy block is an implementation detail. The plan captures the required behavior (R11–R17), not the exact prose.
+- **Exact wording of the managed block for zh vs en**: The full text of the language policy block is an implementation detail. The plan captures the required behavior (R9–R15), not the exact prose.
 - **Whether `resolveDeveloperIdentity` should also read project-level `.developer.lang` as a fallback**: Not required for this feature. The resolved `developer.lang` at init time is sufficient. Defer if a future use case requires it.
 
 ## High-Level Technical Design
@@ -109,13 +107,13 @@ spec-first init --claude --lang zh
   │
   ├─ writeLangPolicy(projectRoot, developer, adapter)   [NEW]
   │     adapter.instructionFile  →  'CLAUDE.md'
-  │     buildManagedBlock(lang)  →  policy text with lang + changelog rules
+  │     buildManagedBlock(lang)  →  policy text with lang + changelog iron law
   │     read CLAUDE.md (if exists) → find markers → replace or append
   │     write CLAUDE.md
   │
   └─ bootstrapChangelog(projectRoot, developer)         [NEW]
         if CHANGELOG.md exists → return (no-op)
-        build header + bootstrap entry
+        build header + versioned bootstrap entry
         write CHANGELOG.md
 ```
 
@@ -172,7 +170,7 @@ write result back to file
 
 **Goal:** Idempotent write of the managed language and governance policy block into the repo-root instruction file.
 
-**Requirements:** R3, R4, R5, R6, R9, R10, R11–R18, R20
+**Requirements:** R3, R4, R5, R6, R9–R18
 
 **Dependencies:** Unit 1 (adapter `instructionFile`)
 
@@ -182,7 +180,7 @@ write result back to file
 
 **Approach:**
 - `writeLangPolicy(projectRoot, developer, adapter)`: resolves `filePath = path.join(projectRoot, adapter.instructionFile)`, builds the managed block via `buildManagedBlock(developer.lang)`, applies the idempotent write, prints a one-line summary to stdout
-- `buildManagedBlock(lang)`: returns the full `<!-- spec-first:lang:start -->` ... `<!-- spec-first:lang:end -->` block. Content must cover: language directive (R11–R17), technical identifier rule (R18), changelog governance rule (R6, prompt-level), commitment co-submit rule (R9, R10)
+- `buildManagedBlock(lang)`: returns the full `<!-- spec-first:lang:start -->` ... `<!-- spec-first:lang:end -->` block. Content must cover: language directive (R9–R15), technical identifier rule (R16), changelog iron law (R6, prompt-level)
 - Idempotent write: scan existing file content for `<!-- spec-first:lang:start -->`. If found, replace from START marker through END marker (inclusive). If not found, append `\n\n<block>` to existing content. If file does not exist, create it with just the block.
 
 **Patterns to follow:**
@@ -222,22 +220,21 @@ write result back to file
 **Approach:**
 - `bootstrapChangelog(projectRoot, developer)`: if `CHANGELOG.md` exists at `projectRoot`, return immediately (no-op). Otherwise create the file with:
   1. `# Changelog` heading and a one-line format description
-  2. Format reference: `Entry format: - YYYY-MM-DD author: summary [(user-visible)]`
-  3. `## [Unreleased]` section
-  4. One bootstrap entry: `- <today> <developer.name>: Initialize project with spec-first v<developer.version>`
+  2. Format reference: `Entry format: - vX.Y.Z YYYY-MM-DD author: summary [(user-visible)]`
+  3. One bootstrap entry: `- v<developer.version> <today> <developer.name>: Initialize project with spec-first`
 - `today` = `new Date().toISOString().slice(0, 10)` (YYYY-MM-DD)
 
 **Patterns to follow:**
 - `formatDeveloperContents` in `src/cli/developer.js` for template string assembly
 
 **Test scenarios:**
-- Happy path — file absent: `bootstrapChangelog` creates `CHANGELOG.md` with header, `## [Unreleased]`, and one entry containing developer name and version
+- Happy path — file absent: `bootstrapChangelog` creates `CHANGELOG.md` with header and one versioned entry containing developer name and version
 - Happy path — file exists: calling `bootstrapChangelog` again leaves file content unchanged (no-op)
 - Edge case — `developer.name` or `developer.version` is empty string: entry is created with empty field, function does not throw
 
 **Verification:**
 - Created `CHANGELOG.md` is valid Markdown (no broken syntax)
-- `## [Unreleased]` section and one entry line are present when file was absent before the call
+- One versioned entry line is present when file was absent before the call
 - File content identical before and after second call when file already exists
 
 ---
@@ -306,7 +303,8 @@ marker_count=$(grep -c '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md")
 grep -q 'English' "$TMP_DIR/CLAUDE.md"
 # CHANGELOG.md created
 test -f "$TMP_DIR/CHANGELOG.md"
-grep -q '## \[Unreleased\]' "$TMP_DIR/CHANGELOG.md"
+grep -q 'Entry format: `- vX.Y.Z YYYY-MM-DD author: summary \[(user-visible)\]`' "$TMP_DIR/CHANGELOG.md"
+grep -q -- '- v1.4.0 ' "$TMP_DIR/CHANGELOG.md"
 ```
 
 Add parallel assertions in the Codex init section:
@@ -320,7 +318,7 @@ grep -q '<!-- spec-first:lang:end -->' "$TMP_DIR/AGENTS.md"
 - Happy path: `CLAUDE.md` has exactly one START marker after two inits
 - Happy path: `CLAUDE.md` content reflects `lang=en` after second init with `--lang en`
 - Happy path: `AGENTS.md` has lang markers after `--codex` init
-- Happy path: `CHANGELOG.md` present after init, contains `## [Unreleased]`
+- Happy path: `CHANGELOG.md` present after init, contains the versioned entry format and bootstrap entry
 
 **Verification:**
 - `bash tests/smoke/cli.sh` passes end-to-end with no regressions

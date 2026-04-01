@@ -86,14 +86,12 @@ function buildZhPolicy() {
 - 代码、命令、路径、配置键、环境变量名、API 名称、协议名等技术标识不因语言偏好而被翻译
 
 ### Changelog 治理规则
-在生成或修改源码前，先确认本次变更是否已有对应 \`CHANGELOG.md\` 条目。
-若未同步，应提示用户补录后再继续，而非静默生成。
-**条目格式：** \`- YYYY-MM-DD 作者: 一句话摘要 [(user-visible)]\`
-版本发布时用 \`## vX.Y.Z - YYYY-MM-DD\` 作为 section 分隔线。
-
-### 规范文件提交规则
-当 \`CLAUDE.md\` 因规范初始化或规范升级而发生变化时，必须与相关代码变更一并提交。
-规范未变化时不要求强行将其纳入 commit。`;
+**代码变动铁律（无例外）**
+- 任何对项目源码的新增、删除、修改，必须同步在项目根目录 \`CHANGELOG.md\` 中添加一条记录
+- 无此记录的代码变动，一律拒绝生成
+- 记录格式以仓库现行格式为准
+- **示例：** \`- vX.Y.Z YYYY-MM-DD 作者: 一句话摘要\`
+- 用户可见变更在末尾追加 \`(user-visible)\``;
 }
 
 function buildEnPolicy() {
@@ -108,14 +106,12 @@ function buildEnPolicy() {
 - Technical identifiers such as code, commands, paths, config keys, env var names, API names, and protocol names are never translated
 
 ### Changelog Governance
-Before generating or modifying source code, confirm whether a corresponding \`CHANGELOG.md\` entry exists for the current change.
-If not, prompt the user to add one before continuing — do not generate silently.
-**Entry format:** \`- YYYY-MM-DD author: summary [(user-visible)]\`
-Use \`## vX.Y.Z - YYYY-MM-DD\` as a section header for release versions.
-
-### Governance File Commit Rule
-When \`AGENTS.md\` changes due to spec-first initialization or upgrade, commit it together with the related code changes.
-Do not force-include governance files in commits where they have not changed.`;
+**Code Change Iron Law (No Exceptions)**
+- Any addition, deletion, or modification to project source code must include a matching entry in the repo-root \`CHANGELOG.md\`
+- If no matching entry exists, refuse to generate the code change
+- Use the repository's existing changelog format
+- **Example:** \`- vX.Y.Z YYYY-MM-DD author: one-line summary\`
+- Append \`(user-visible)\` for user-visible changes`;
 }
 
 module.exports = {

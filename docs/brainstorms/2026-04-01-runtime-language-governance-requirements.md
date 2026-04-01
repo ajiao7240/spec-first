@@ -37,40 +37,38 @@ documentation, and code comments. Code identifiers and technical terms remain in
 
 **仓库治理规则**
 
-- R6. `spec-first init` 必须在仓库级指令文件中写入 changelog 治理规则：在生成或修改源码前，AI 工具应先确认本次变更是否已有对应 `CHANGELOG.md` 条目；若未同步，应提示用户补录后再继续，而非静默生成。此规则为 prompt-level 行为约束，作用于 AI 工具层，不依赖外部系统拦截
+- R6. `spec-first init` 必须在仓库级指令文件中写入 changelog 铁律：任何对项目源码的新增、删除、修改，必须同步在项目根目录 `CHANGELOG.md` 中添加一条记录；无此记录的代码变动，一律拒绝生成。此规则为 prompt-level 行为约束，作用于 AI 工具层
 - R7. 若仓库根目录不存在 `CHANGELOG.md`，`spec-first init` 必须创建该文件，写入格式说明头部，并同时写入一条 bootstrap 初始化记录（作者取 `.developer.name`，版本取当前 spec-first 版本）；已存在则不覆盖
-- R8. `CHANGELOG.md` 采用两层格式：**日常变更条目**格式为 `- YYYY-MM-DD 作者: 一句话摘要`，用户可见变更末尾追加 `(user-visible)`；**版本发布**时用 `## vX.Y.Z - YYYY-MM-DD` 作为 section 分隔线，将该版本的条目归入其下。大多数 commit 只写日常条目，不需要版本号
-- R9. 仓库级指令文件必须写明：当 `AGENTS.md` 或 `CLAUDE.md` 因规范初始化或规范升级而发生变化时，这些规范文件必须与相关代码变更一并提交，确保规范与实现同步
-- R10. 不要求在 `AGENTS.md` 或 `CLAUDE.md` 未发生变化时强行将其纳入 commit；规则约束的是“规范变更必须同提”，而不是“每次提交都必须伪造这两个文件的改动”
+- R8. `CHANGELOG.md` 记录格式以仓库现行格式为准；对于由 `spec-first init` 首次创建的仓库，canonical 初始格式定义为 `- vX.Y.Z YYYY-MM-DD 作者: 一句话摘要`，用户可见变更末尾追加 `(user-visible)`
 
 **`zh` 行为**
 
-- R11. 当 `lang=zh` 时，回复、状态更新、生成文档、评审意见、计划说明等自然语言输出使用中文
-- R12. 当 `lang=zh` 时，允许混用英文技术术语，不要求把常见技术词强行翻译成中文
-- R13. 当 `lang=zh` 时，代码标识符（变量、函数、类、模块、文件名中的技术标识）保持英文
-- R14. 当 `lang=zh` 时，新增代码注释使用中文，要求简洁清晰，不写空洞注释
+- R9. 当 `lang=zh` 时，回复、状态更新、生成文档、评审意见、计划说明等自然语言输出使用中文
+- R10. 当 `lang=zh` 时，允许混用英文技术术语，不要求把常见技术词强行翻译成中文
+- R11. 当 `lang=zh` 时，代码标识符（变量、函数、类、模块、文件名中的技术标识）保持英文
+- R12. 当 `lang=zh` 时，新增代码注释使用中文，要求简洁清晰，不写空洞注释
 
 **`en` 行为**
 
-- R15. 当 `lang=en` 时，回复、状态更新、生成文档、评审意见、计划说明等自然语言输出使用英文
-- R16. 当 `lang=en` 时，代码标识符保持英文
-- R17. 当 `lang=en` 时，新增代码注释使用英文，要求简洁清晰
+- R13. 当 `lang=en` 时，回复、状态更新、生成文档、评审意见、计划说明等自然语言输出使用英文
+- R14. 当 `lang=en` 时，代码标识符保持英文
+- R15. 当 `lang=en` 时，新增代码注释使用英文，要求简洁清晰
 
 **边界与一致性**
 
-- R18. 代码、命令、路径、配置键、环境变量名、API 名称、协议名和其他技术标识不因语言偏好而被翻译
-- R19. 该治理作用于仓库后续会话输出行为，不要求把仓库中现有的静态模板、技能文档、代理文档整体改写成 `zh` 或 `en`
-- R20. 不采用把语言规则复制到每份 skill 文档、agent 文档中的方式；应集中写入仓库级指令文件，避免重复维护和规则漂移
+- R16. 代码、命令、路径、配置键、环境变量名、API 名称、协议名和其他技术标识不因语言偏好而被翻译
+- R17. 该治理作用于仓库后续会话输出行为，不要求把仓库中现有的静态模板、技能文档、代理文档整体改写成 `zh` 或 `en`
+- R18. 不采用把语言规则复制到每份 skill 文档、agent 文档中的方式；应集中写入仓库级指令文件，避免重复维护和规则漂移
 
 ## Success Criteria
 
 - 在当前仓库执行 `spec-first init` 后，可观察到根级 `AGENTS.md` 或兼容用 `CLAUDE.md` 中存在明确语言策略段落
-- 在当前仓库执行 `spec-first init` 后，可观察到根级 `AGENTS.md` 或兼容用 `CLAUDE.md` 中存在明确 changelog 治理规则
+- 在当前仓库执行 `spec-first init` 后，可观察到根级 `AGENTS.md` 或兼容用 `CLAUDE.md` 中存在明确 changelog 铁律
 - 当仓库原本不存在 `CHANGELOG.md` 时，执行 `spec-first init` 后会生成该文件，并包含标准记录格式说明
 - 当 `lang=zh` 时，后续回复、文档、状态更新为中文，代码注释为中文，代码标识符保持英文
 - 当 `lang=en` 时，后续回复、文档、状态更新为英文，代码注释为英文，代码标识符保持英文
 - 重新执行 `spec-first init --lang en`（或 `--lang zh`）时，`.developer.lang`、`CLAUDE.md` / `AGENTS.md` 语言策略段同步更新，三者始终保持一致
-- 后续代码生成或修改流程若未同步更新 `CHANGELOG.md`，会因仓库规则而被拒绝
+- 后续代码生成或修改流程若未同步更新 `CHANGELOG.md`，会因仓库规则而被拒绝生成
 - 现有静态 skill / agent Markdown 资产无需成批改写，语言治理仍能稳定生效
 
 ## Scope Boundaries
@@ -89,8 +87,8 @@ documentation, and code comments. Code identifiers and technical terms remain in
 - **平台各写各的指令文件**：`--claude` 只写 `CLAUDE.md`，`--codex` 只写 `AGENTS.md`，不做跨平台同步，避免双源定义与状态耦合
 - **追加写入但幂等**：目标文件不存在时创建；已存在时以 `<!-- spec-first:lang:start/end -->` 标记锁定管理段落，首次追加、后续就地更新，不重复累积
 - **语言变更同步**：`--lang` 变更后重新执行 `init`，除更新 `.developer` 外，必须同步更新 `CLAUDE.md` / `AGENTS.md` 管理段落内容，保证指令文件与实际语言设置不漂移
-- **先定义 changelog 规范再强制执行**：仓库当前没有 `CHANGELOG.md`，因此由 `init` 首次创建并定义标准格式，随后再把“无 changelog 记录则拒绝生成”作为强约束写入仓库级指令文件
-- **提交规则按真实文件变化执行**：要求规范文件发生变化时必须同提，而不是要求每次 commit 都把未变更的 `AGENTS.md` / `CLAUDE.md` 强行塞进提交
+- **先定义 changelog 规范再强制执行**：仓库当前没有 `CHANGELOG.md`，因此由 `init` 首次创建并定义初始 canonical 格式，随后再把“无 changelog 记录则拒绝生成”作为强约束写入仓库级指令文件
+- **采用版本化 changelog 条目格式**：bootstrap 生成的默认格式使用 `- vX.Y.Z YYYY-MM-DD 作者: 一句话摘要`，与仓库级铁律中的示例保持一致
 - **治理范围覆盖全工作流**：不只修补某个单独 skill，而是作为 `spec-first` 的统一仓库级约束作用于全部 workflow / skill / agent
 
 ## Dependencies / Assumptions
@@ -109,9 +107,9 @@ documentation, and code comments. Code identifiers and technical terms remain in
 - [R4/R5] **写入策略**：`--claude` 写 `CLAUDE.md`，`--codex` 写 `AGENTS.md`；文件不存在则创建，已存在则幂等写入（标记段落内替换，无标记则末尾追加）
 - [R4] **Claude 兼容层**：`CLAUDE.md` 仅在 `--claude` 路径下生成；`--codex` 只生成 `AGENTS.md`，不做跨平台同步
 - [R7] **CHANGELOG 初始内容**：创建时写入格式说明头部 + 一条 bootstrap 记录，而非仅写格式说明；文件已存在则不覆盖
-- [R8] **CHANGELOG 格式**：日常条目无需版本号（`- YYYY-MM-DD 作者: 摘要`），发版时以 `## vX.Y.Z - YYYY-MM-DD` 作 section 分隔；两层结构兼顾日常使用与版本归档
+- [R8] **CHANGELOG 格式**：默认 canonical 格式使用版本化单行条目（`- vX.Y.Z YYYY-MM-DD 作者: 摘要`），用户可见变更末尾追加 `(user-visible)`
 - [R2a] **`--lang` 优先级**：CLI `--lang` > `.developer.lang` > 默认 `zh`；`--lang` 传入时同步回写 `.developer`，保持状态一致
-- [R6] **changelog 约束表述**：改为 prompt-level 行为指令（AI 生成前提示补录），而非声称系统层拦截
+- [R6] **changelog 约束表述**：采用 prompt-level 铁律指令（无 changelog 记录则拒绝生成），而非声称外部系统层拦截
 
 ## Next Steps
 

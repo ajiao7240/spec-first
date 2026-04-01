@@ -248,12 +248,17 @@ grep -q '<!-- spec-first:lang:end -->' "$TMP_DIR/CLAUDE.md"
 grep -q 'English' "$TMP_DIR/CLAUDE.md"
 # Changelog governance rule must be present
 grep -q 'CHANGELOG' "$TMP_DIR/CLAUDE.md"
+# Changelog iron law must refuse code generation without a record
+grep -q 'refuse to generate' "$TMP_DIR/CLAUDE.md"
+# Governance file commit rule must be absent
+! grep -q 'Governance File Commit Rule' "$TMP_DIR/CLAUDE.md"
 # Exactly one start marker (idempotent across multiple inits)
 lang_marker_count=$(grep -c '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md")
 [ "$lang_marker_count" = "1" ]
 # CHANGELOG.md bootstrapped
 test -f "$TMP_DIR/CHANGELOG.md"
-grep -q '## \[Unreleased\]' "$TMP_DIR/CHANGELOG.md"
+grep -q 'Entry format: `- vX.Y.Z YYYY-MM-DD author: summary \[(user-visible)\]`' "$TMP_DIR/CHANGELOG.md"
+grep -q -- '- v1.4.0 ' "$TMP_DIR/CHANGELOG.md"
 grep -q 'kuang' "$TMP_DIR/CHANGELOG.md"
 echo "✓ CLAUDE.md lang policy block written; CHANGELOG.md bootstrapped"
 
@@ -287,6 +292,8 @@ grep -q '^name=kuang$' "$TMP_DIR/.codex/spec-first/.developer"
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/AGENTS.md"
 grep -q '<!-- spec-first:lang:end -->' "$TMP_DIR/AGENTS.md"
 grep -q 'English' "$TMP_DIR/AGENTS.md"
+grep -q 'refuse to generate' "$TMP_DIR/AGENTS.md"
+! grep -q 'Governance File Commit Rule' "$TMP_DIR/AGENTS.md"
 echo "✓ AGENTS.md lang policy block written"
 codex_doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor --codex)"
 grep -q ".codex/spec-first/.developer" <<<"$codex_doctor_output"

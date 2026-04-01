@@ -71,15 +71,15 @@ Reviewing with:
 ### Build Agent List
 
 Always include:
-- `document-review:coherence-reviewer`
-- `document-review:feasibility-reviewer`
+- `coherence-reviewer`
+- `feasibility-reviewer`
 
 Add activated conditional personas:
-- `document-review:product-lens-reviewer`
-- `document-review:design-lens-reviewer`
-- `document-review:security-lens-reviewer`
-- `document-review:scope-guardian-reviewer`
-- `document-review:adversarial-document-reviewer`
+- `product-lens-reviewer`
+- `design-lens-reviewer`
+- `security-lens-reviewer`
+- `scope-guardian-reviewer`
+- `adversarial-document-reviewer`
 
 ### Dispatch
 
