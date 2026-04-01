@@ -272,9 +272,11 @@ lang_marker_count=$(grep -c '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md
 [ "$lang_marker_count" = "1" ]
 # CHANGELOG.md bootstrapped
 test -f "$TMP_DIR/CHANGELOG.md"
-grep -q 'Entry format: `- vX.Y.Z YYYY-MM-DD author: summary \[(user-visible)\]`' "$TMP_DIR/CHANGELOG.md"
+grep -q -- '- 记录格式：`- v版本号 YYYY-MM-DD\[ HH:MM\[:SS\]\] 作者: 变更摘要 \[(user-visible)\]`' "$TMP_DIR/CHANGELOG.md"
+grep -q '`变更摘要` 使用中文，简明说明本次改动' "$TMP_DIR/CHANGELOG.md"
 grep -q -- '- v1.4.0 ' "$TMP_DIR/CHANGELOG.md"
 grep -q 'kuang' "$TMP_DIR/CHANGELOG.md"
+grep -q '使用 spec-first 初始化项目' "$TMP_DIR/CHANGELOG.md"
 echo "✓ CLAUDE.md lang policy block written; CHANGELOG.md bootstrapped"
 
 echo "3a-1. Verify Codex init/doctor/clean work..."

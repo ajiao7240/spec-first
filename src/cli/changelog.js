@@ -38,12 +38,18 @@ function bootstrapChangelog(projectRoot, developer) {
  */
 function buildInitialChangelog(today, name, version) {
   const resolvedVersion = version ? `v${version}` : 'vX.Y.Z';
-  const resolvedName = name || 'author';
+  const resolvedName = name || '作者';
   return `# Changelog
 
-Entry format: \`- vX.Y.Z YYYY-MM-DD author: summary [(user-visible)]\`
+- 记录格式：\`- v版本号 YYYY-MM-DD[ HH:MM[:SS]] 作者: 变更摘要 [(user-visible)]\`
+- 说明：
+  - \`v版本号\` 使用本次变更对应的发布版本
+  - 日期时间支持 \`YYYY-MM-DD\`、\`YYYY-MM-DD HH:MM\` 或 \`YYYY-MM-DD HH:MM:SS\`
+  - \`作者\` 填写提交人或变更责任人
+  - \`变更摘要\` 使用中文，简明说明本次改动
+  - 用户可感知的变更在末尾追加 \`(user-visible)\`
 
-- ${resolvedVersion} ${today} ${resolvedName}: Initialize project with spec-first
+- ${resolvedVersion} ${today} ${resolvedName}: 使用 spec-first 初始化项目
 `;
 }
 

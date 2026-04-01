@@ -210,13 +210,17 @@ assert "CHANGELOG.md created" test -f "$FAKE_ROOT1/CHANGELOG.md"
 
 echo "6.2 created file contains versioned entry format"
 content=$(cat "$FAKE_ROOT1/CHANGELOG.md")
-assert_contains "has versioned entry format" 'Entry format: `- vX.Y.Z YYYY-MM-DD author: summary [(user-visible)]`' "$content"
+assert_contains "has Chinese entry format" '- 记录格式：`- v版本号 YYYY-MM-DD[ HH:MM[:SS]] 作者: 变更摘要 [(user-visible)]`' "$content"
+
+echo "6.2.1 created file contains changelog format explanation"
+assert_contains "has Chinese summary guidance" '`变更摘要` 使用中文，简明说明本次改动' "$content"
 
 echo "6.3 created file contains developer name in initial entry"
 assert_contains "has developer name" "testuser" "$content"
 
 echo "6.4 created file contains spec-first version in initial entry"
 assert_contains "has versioned initial entry" "- v1.4.0 " "$content"
+assert_contains "has Chinese initial summary" "使用 spec-first 初始化项目" "$content"
 
 echo "6.5 no-op when file already exists"
 ORIGINAL=$(cat "$FAKE_ROOT1/CHANGELOG.md")
