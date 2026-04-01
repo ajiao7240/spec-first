@@ -210,10 +210,11 @@ assert "CHANGELOG.md created" test -f "$FAKE_ROOT1/CHANGELOG.md"
 
 echo "6.2 created file contains versioned entry format"
 content=$(cat "$FAKE_ROOT1/CHANGELOG.md")
-assert_contains "has Chinese entry format" '- 记录格式：`- v版本号 YYYY-MM-DD[ HH:MM[:SS]] 作者: 变更摘要 [(user-visible)]`' "$content"
+assert_contains "has Chinese entry format" '- 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`' "$content"
 
 echo "6.2.1 created file contains changelog format explanation"
 assert_contains "has Chinese summary guidance" '`变更摘要` 使用中文，简明说明本次改动' "$content"
+assert_contains "requires full timestamp" '日期时间必须使用 `YYYY-MM-DD HH:MM:SS`' "$content"
 
 echo "6.3 created file contains developer name in initial entry"
 assert_contains "has developer name" "testuser" "$content"
@@ -234,10 +235,11 @@ mkdir -p "$FAKE_ROOT2"
 node_run "bootstrapChangelog('$FAKE_ROOT2', { name: '', version: '' })" >/dev/null
 assert "CHANGELOG.md created with empty fields" test -f "$FAKE_ROOT2/CHANGELOG.md"
 
-echo "6.7 entry format contains date"
+echo "6.7 entry format contains timestamp"
 TODAY=$(date +%Y-%m-%d)
 content2=$(cat "$FAKE_ROOT1/CHANGELOG.md")
 assert_contains "entry has today's date" "$TODAY" "$content2"
+assert_contains "entry has time component" ":" "$content2"
 
 echo "6.8 no legacy Unreleased section remains"
 assert_not_contains "no unreleased section" "## [Unreleased]" "$content2"
