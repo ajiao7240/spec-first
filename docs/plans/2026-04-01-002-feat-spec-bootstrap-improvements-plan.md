@@ -1,7 +1,7 @@
 ---
 title: "feat: Strengthen spec-bootstrap prompt contracts and documentation"
 type: feat
-status: active
+status: completed
 date: 2026-04-01
 origin: docs/brainstorms/2026-04-01-spec-bootstrap-improvements-requirements.md
 ---

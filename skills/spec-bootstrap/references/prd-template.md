@@ -109,6 +109,18 @@ You own exclusively the following files. Do not write to any other file.
 - [ ] No source code was modified
 - [ ] `index.md` (if produced) lists only files that were actually created
 
+### Self-Check
+
+Before reporting completion, verify:
+
+- All owned files exist and are non-empty
+- No placeholder tokens like `<TODO>`, `<fill-in>`, or `[TBD]` remain
+- Each file references real codebase artifacts, not generic descriptions
+- No source code was modified
+- `index.md` links only to files that actually exist
+
+If any check fails, fix the files first and only then report completion
+
 ---
 
 ### Technical Notes
@@ -123,3 +135,58 @@ You own exclusively the following files. Do not write to any other file.
 ---
 
 *This PRD is a one-time task contract. It is not kept in sync with subsequent code changes.*
+
+## Example — Filled PRD
+
+> Desensitized from a real `spec-bootstrap` run. Names are anonymized, but path formats and symbol patterns are real.
+
+### Goal
+
+Build the `summary-context` documentation for the `<project>` project.
+
+Produce:
+- `docs/contexts/<slug>/00-summary.md`
+
+### Context
+
+**Project:** `<project>` (`JavaScript`)
+**Framework(s):** `Node.js CLI`
+**Key modules relevant to this domain:**
+
+```text
+src/cli/
+  ├── commands/init.js
+  ├── commands/doctor.js
+  ├── plugin.js
+  └── developer.js
+skills/spec-bootstrap/
+  ├── SKILL.md
+  └── references/prd-template.md
+```
+
+**Relevant findings from Phase 1 analysis:**
+- `src/cli/plugin.js` exports `syncSkills()` and `syncAgents()` for runtime asset installation
+- `src/cli/adapters/base.js` defines `PlatformAdapter`, and `src/cli/adapters/claude.js` / `src/cli/adapters/codex.js` implement platform-specific behavior
+
+### Tools Available
+
+**Analysis mode: Enhanced**
+
+- `mcp__serena__get_symbols_overview`
+- `mcp__serena__find_symbol`
+- `mcp__serena__search_for_pattern`
+- `Read`
+- `Grep`
+- `Glob`
+
+### Files to Fill
+
+| File | Description |
+|------|-------------|
+| `docs/contexts/<slug>/00-summary.md` | Project overview, stack, and top-level structure |
+
+### Technical Notes
+
+- Use the repo's actual command/module names, not generic placeholders
+- Reference concrete config keys or exported functions when describing the stack
+- Keep the document short, specific, and durable
