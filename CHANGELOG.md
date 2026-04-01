@@ -9,3 +9,5 @@ Entry format: `- vX.Y.Z YYYY-MM-DD author: summary [(user-visible)]`
 - v1.4.0 2026-04-01 kuang: add mcp-setup skill for one-click MCP tool installation (user-visible)
 - v1.4.0 2026-04-01 kuang: add spec-bootstrap skill for Stage-0 project context generation (user-visible)
 - v1.4.0 2026-04-01 kuang: write lang-governance policy to CLAUDE.md/AGENTS.md on init (user-visible)
+- v1.4.0 2026-04-01 kuang: fix lang fallback order — project .developer lang now takes precedence over global before defaulting to zh (user-visible)
+- v1.4.0 2026-04-01 kuang: add test:unit script and developer identity unit tests

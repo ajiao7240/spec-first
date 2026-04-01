@@ -33,7 +33,7 @@ startup — CLAUDE.md (Claude Code) or AGENTS.md (Codex).
 
 - R1. `--claude` reads `lang` from `.claude/spec-first/.developer`; `--codex` reads from `.codex/spec-first/.developer` *(see origin: R1)*
 - R2. Valid values: `zh`, `en`; default to `zh` on missing/invalid *(see origin: R2)*
-- R2a. Priority: CLI `--lang` > global `~/.spec-first/.developer.lang` > `zh`; `--lang` also writes back to project `.developer` *(see origin: R2a; already implemented in `developer.js`)*
+- R2a. Priority: CLI `--lang` > project `.developer.lang` > global `~/.spec-first/.developer.lang` > `zh`; `--lang` also writes back to project `.developer` *(see origin: R2a; implemented in `developer.js`)*
 - R3. init writes/updates a lang policy block in the repo-root instruction file; `--lang` re-runs update the block *(see origin: R3)*
 - R4. `--claude` writes `CLAUDE.md`; `--codex` writes `AGENTS.md`; create if missing, append/update if present *(see origin: R4)*
 - R5. Write is idempotent via `<!-- spec-first:lang:start -->` / `<!-- spec-first:lang:end -->` markers *(see origin: R5)*
@@ -46,7 +46,6 @@ startup — CLAUDE.md (Claude Code) or AGENTS.md (Codex).
 ## Scope Boundaries
 
 - Does not modify any existing skill or agent Markdown assets
-- Does not add project-level `.developer` reading to `resolveDeveloperIdentity` (global fallback is sufficient; project-level lang is always set by a prior init run with CLI `--lang`)
 - Does not change the `.developer` format or lifecycle
 - Does not support languages beyond `zh` and `en`
 - Lang change requires re-running `spec-first init`; no dynamic runtime injection
@@ -55,7 +54,7 @@ startup — CLAUDE.md (Claude Code) or AGENTS.md (Codex).
 
 ### Relevant Code and Patterns
 
-- `src/cli/developer.js` — `resolveDeveloperIdentity(projectRoot, options)` already resolves `lang` with priority `--lang CLI > global ~/.spec-first/.developer > 'zh'`. Returns `{ name, lang, initializedAt, version }`. Callers in `init.js` use `developer.lang` directly.
+- `src/cli/developer.js` — `resolveDeveloperIdentity(projectRoot, options, adapter)` resolves `lang` with priority `--lang CLI > project .developer > global ~/.spec-first/.developer > 'zh'`. Returns `{ name, lang, initializedAt, version }`. `name` still falls back via explicit user > global profile > git config. Callers in `init.js` use `developer.lang` directly.
 - `src/cli/commands/init.js` — after `writeDeveloperFile` and `writeState`, calls `adapter.syncRuntimeFiles()`. The new `writeLangPolicy` and `bootstrapChangelog` calls belong after `writeState` and before the console log summary.
 - `src/cli/adapters/base.js` — `PlatformAdapter` base class with `syncRuntimeFiles`, `inspectRuntimeFiles`, `removeRuntimeFiles` extension points. `instructionFile` getter does not yet exist.
 - `src/cli/adapters/claude.js` — `ClaudeAdapter`; `runtimeRoot = '.claude'`; `developerFile = '.claude/spec-first/.developer'`
@@ -78,7 +77,7 @@ startup — CLAUDE.md (Claude Code) or AGENTS.md (Codex).
 - **Separate `lang-policy.js` module, not a method on the adapter**: Writing Markdown governance content is a cross-cutting concern, not a platform-specific transform. Adapter only exposes `instructionFile`; the writing logic stays in a standalone module.
 - **`bootstrapChangelog` never overwrites**: R7 is explicit — CHANGELOG.md is user-owned once created. The bootstrap call is a no-op if the file exists. *(see origin: R7)*
 - **Both lang policy block and changelog iron law in the same managed section**: Reduces the number of managed sections and keeps all spec-first-owned instructions in one visible block. Governance rule (R6) is authored in the same write pass as the lang rule.
-- **`developer.lang` used directly from `resolveDeveloperIdentity` output**: Avoids reading `.developer` a second time. The resolved value already reflects CLI > global > default chain. *(see origin: R2a)*
+- **`developer.lang` used directly from `resolveDeveloperIdentity` output**: Avoids reading `.developer` a second time downstream. The resolved value already reflects CLI > project profile > global profile > default chain. *(see origin: R2a)*
 
 ## Open Questions
 
@@ -91,7 +90,7 @@ startup — CLAUDE.md (Claude Code) or AGENTS.md (Codex).
 ### Deferred to Implementation
 
 - **Exact wording of the managed block for zh vs en**: The full text of the language policy block is an implementation detail. The plan captures the required behavior (R9–R15), not the exact prose.
-- **Whether `resolveDeveloperIdentity` should also read project-level `.developer.lang` as a fallback**: Not required for this feature. The resolved `developer.lang` at init time is sufficient. Defer if a future use case requires it.
+- **Whether `resolveDeveloperIdentity` should also prefer project-level `.developer.lang` over global fallback**: Resolved in favor of project-first language fallback so repeated `init` runs stay stable within the current repository.
 
 ## High-Level Technical Design
 

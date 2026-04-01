@@ -80,7 +80,7 @@ function runInit(argv) {
     developer = resolveDeveloperIdentity(projectRoot, {
       user: parsed.user,
       lang: parsed.lang,
-    });
+    }, adapter);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     return 1;

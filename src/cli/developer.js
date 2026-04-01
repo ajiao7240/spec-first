@@ -52,14 +52,19 @@ function parseDeveloperContents(contents) {
   return normalizeDeveloper(developer);
 }
 
-function resolveDeveloperIdentity(projectRoot, options = {}) {
+function resolveDeveloperIdentity(projectRoot, options = {}, adapter = null) {
   const explicitName = normalizeName(options.user);
   const explicitLang = normalizeLang(options.lang);
+  const projectDeveloper = adapter ? readDeveloperFile(getProjectDeveloperPath(projectRoot, adapter)) : null;
   const globalDeveloper = readDeveloperFile(getGlobalDeveloperPath());
   const gitUserName = readGitUserName(projectRoot);
 
   const name = explicitName || (globalDeveloper && globalDeveloper.name) || gitUserName;
-  const lang = explicitLang || (globalDeveloper && globalDeveloper.lang) || 'zh';
+  const lang =
+    explicitLang ||
+    (projectDeveloper && projectDeveloper.lang) ||
+    (globalDeveloper && globalDeveloper.lang) ||
+    'zh';
 
   if (!name) {
     throw new Error(
