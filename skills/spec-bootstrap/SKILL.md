@@ -31,11 +31,92 @@ Before running bootstrap:
 3. (Optional) MySQL CLI (`mysql`) or MCP MySQL server available for database ER generation
 4. (Optional) Serena MCP (`mcp__serena__*`) for enhanced code analysis
 
+### MCP Tools Setup
+
+To enable Full or Enhanced analysis mode, install required MCP tools:
+
+```bash
+/spec:mcp-setup quick
+```
+
+This installs:
+- **GitNexus** + **ABCoder** (for Full mode)
+- **Serena** (for Enhanced mode)
+- Sequential Thinking, Context7 (universal dependencies)
+
+⚠️ **Restart Claude Code** after installation for changes to take effect.
+
+**Additional setup for Full mode:**
+
+GitNexus requires indexing the target project:
+```bash
+npx gitnexus analyze
+```
+
+ABCoder auto-configures during `/spec:bootstrap` execution (no manual setup needed).
+
+Verify installation:
+```bash
+claude mcp list | grep -E "gitnexus|abcoder|serena"
+```
+
 **Recommended `.gitignore` entry** (add to target project):
 ```
 .context/spec-first/
 ```
 The `.context/` control plane contains PRD task contracts and temporary bootstrap state — it should not be committed to version control.
+
+### Tool Usage Guide
+
+#### GitNexus (Full Mode)
+
+Architecture-level analysis: clusters, flows, impact.
+
+| Tool | Purpose | Example |
+|------|---------|---------|
+| `gitnexus_query` | Find execution flows | `gitnexus_query({query: "authentication flow"})` |
+| `gitnexus_context` | 360° symbol view | `gitnexus_context({name: "AuthService"})` |
+| `gitnexus_cypher` | Graph queries | `gitnexus_cypher({query: "MATCH (n:Class) RETURN n.name LIMIT 20"})` |
+
+**Useful Cypher patterns**:
+```cypher
+-- Find classes in directory
+MATCH (n:Class) WHERE n.file CONTAINS 'src/core' RETURN n.name, n.file
+
+-- Find callers of a function
+MATCH (a:Function)-[:CALLS]->(b:Function {name: 'fetchData'}) RETURN a.name, a.file
+
+-- Cross-package dependencies
+MATCH (a)-[r]->(b) WHERE a.file CONTAINS 'pkg-a' AND b.file CONTAINS 'pkg-b'
+RETURN a.name, type(r), b.name LIMIT 20
+```
+
+**Workflow**: GitNexus first (identify flows) → ABCoder second (get signatures) → Read source (full context)
+
+#### ABCoder (Full Mode)
+
+Symbol-level analysis: AST nodes, signatures, dependencies.
+
+| Tool | Layer | Purpose | Example |
+|------|-------|---------|---------|
+| `list_repos` | 1 | List parsed repos | `list_repos()` |
+| `get_repo_structure` | 2 | File/package listing | `get_repo_structure({repo_name: "my-project"})` |
+| `get_file_structure` | 3 | Nodes in file | `get_file_structure({repo_name: "my-project", file_path: "src/auth.ts"})` |
+| `get_ast_node` | 4 | Full code + deps | `get_ast_node({repo_name: "my-project", node_ids: [...]})` |
+
+**4-Layer Drill-Down**: list_repos → get_repo_structure → get_file_structure → get_ast_node
+
+#### Serena (Enhanced Mode)
+
+Semantic code analysis: symbol lookup, structure overview, pattern search.
+
+| Tool | Purpose | Example |
+|------|---------|---------|
+| `mcp__serena__get_symbols_overview` | File structure | `mcp__serena__get_symbols_overview({relative_path: "src/auth.ts"})` |
+| `mcp__serena__find_symbol` | Locate symbol | `mcp__serena__find_symbol({name_path_pattern: "AuthService", relative_path: "src/"})` |
+| `mcp__serena__search_for_pattern` | Pattern search | `mcp__serena__search_for_pattern({substring_pattern: "export class.*Service"})` |
+
+**Workflow**: get_symbols_overview (structure) → find_symbol (locate) → Read source (details)
 
 ---
 
