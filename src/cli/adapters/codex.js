@@ -48,6 +48,10 @@ class CodexAdapter extends PlatformAdapter {
     return '.codex/spec-first/.developer';
   }
 
+  get instructionFile() {
+    return 'AGENTS.md';
+  }
+
   get legacyCommandRoot() {
     return '.codex/commands/spec';
   }

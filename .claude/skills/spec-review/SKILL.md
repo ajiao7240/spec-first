@@ -90,40 +90,40 @@ Routing rules:
 
 | Agent | Focus |
 |-------|-------|
-| `review:correctness-reviewer` | Logic errors, edge cases, state bugs, error propagation |
-| `review:testing-reviewer` | Coverage gaps, weak assertions, brittle tests |
-| `review:maintainability-reviewer` | Coupling, complexity, naming, dead code, abstraction debt |
-| `review:project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance -- frontmatter, references, naming, portability |
-| `review:agent-native-reviewer` | Verify new features are agent-accessible |
-| `research:learnings-researcher` | Search docs/solutions/ for past issues related to this PR |
+| `correctness-reviewer` | Logic errors, edge cases, state bugs, error propagation |
+| `testing-reviewer` | Coverage gaps, weak assertions, brittle tests |
+| `maintainability-reviewer` | Coupling, complexity, naming, dead code, abstraction debt |
+| `project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance -- frontmatter, references, naming, portability |
+| `agent-native-reviewer` | Verify new features are agent-accessible |
+| `learnings-researcher` | Search docs/solutions/ for past issues related to this PR |
 
 **Cross-cutting conditional (selected per diff):**
 
 | Agent | Select when diff touches... |
 |-------|---------------------------|
-| `review:security-reviewer` | Auth, public endpoints, user input, permissions |
-| `review:performance-reviewer` | DB queries, data transforms, caching, async |
-| `review:api-contract-reviewer` | Routes, serializers, type signatures, versioning |
-| `review:data-migrations-reviewer` | Migrations, schema changes, backfills |
-| `review:reliability-reviewer` | Error handling, retries, timeouts, background jobs |
-| `review:adversarial-reviewer` | Diff >=50 changed non-test/non-generated/non-lockfile lines, or auth, payments, data mutations, external APIs |
+| `security-reviewer` | Auth, public endpoints, user input, permissions |
+| `performance-reviewer` | DB queries, data transforms, caching, async |
+| `api-contract-reviewer` | Routes, serializers, type signatures, versioning |
+| `data-migrations-reviewer` | Migrations, schema changes, backfills |
+| `reliability-reviewer` | Error handling, retries, timeouts, background jobs |
+| `adversarial-reviewer` | Diff >=50 changed non-test/non-generated/non-lockfile lines, or auth, payments, data mutations, external APIs |
 
 **Stack-specific conditional (selected per diff):**
 
 | Agent | Select when diff touches... |
 |-------|---------------------------|
-| `review:dhh-rails-reviewer` | Rails architecture, service objects, session/auth choices, or Hotwire-vs-SPA boundaries |
-| `review:kieran-rails-reviewer` | Rails application code where conventions, naming, and maintainability are in play |
-| `review:kieran-python-reviewer` | Python modules, endpoints, scripts, or services |
-| `review:kieran-typescript-reviewer` | TypeScript components, services, hooks, utilities, or shared types |
-| `review:julik-frontend-races-reviewer` | Stimulus/Turbo controllers, DOM events, timers, animations, or async UI flows |
+| `dhh-rails-reviewer` | Rails architecture, service objects, session/auth choices, or Hotwire-vs-SPA boundaries |
+| `kieran-rails-reviewer` | Rails application code where conventions, naming, and maintainability are in play |
+| `kieran-python-reviewer` | Python modules, endpoints, scripts, or services |
+| `kieran-typescript-reviewer` | TypeScript components, services, hooks, utilities, or shared types |
+| `julik-frontend-races-reviewer` | Stimulus/Turbo controllers, DOM events, timers, animations, or async UI flows |
 
 **CE conditional (migration-specific):**
 
 | Agent | Select when diff includes migration files |
 |-------|------------------------------------------|
-| `review:schema-drift-detector` | Cross-references schema.rb against included migrations |
-| `review:deployment-verification-agent` | Produces deployment checklist with SQL verification queries |
+| `schema-drift-detector` | Cross-references schema.rb against included migrations |
+| `deployment-verification-agent` | Produces deployment checklist with SQL verification queries |
 
 ## Review Scope
 

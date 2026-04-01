@@ -1,10 +1,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const pkg = require('../../package.json');
 const { runClean } = require('./commands/clean');
 const { runDoctor } = require('./commands/doctor');
 const { runInit } = require('./commands/init');
+const { maybeShowVersionReminder } = require('./version-reminder');
 
-function runCli(argv) {
+async function runCli(argv) {
   const args = [...argv];
   const cmd = args[0];
 
@@ -16,6 +18,13 @@ function runCli(argv) {
   if (cmd === '--version' || cmd === '-v') {
     printVersion();
     return Promise.resolve(0);
+  }
+
+  if (cmd === 'doctor' || cmd === 'init' || cmd === 'clean') {
+    await maybeShowVersionReminder({
+      packageName: pkg.name,
+      currentVersion: pkg.version,
+    });
   }
 
   if (cmd === 'doctor') {

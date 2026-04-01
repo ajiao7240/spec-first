@@ -38,10 +38,22 @@ These files serve as a navigable, queryable index of the database schema — **n
 **Connection source:** `<env var name or config file path — never the actual password>`
   - e.g., `DB_HOST=$DB_HOST, DB_USER=$DB_USER, DB_NAME=$DB_NAME` (resolve from env at runtime)
 
-**DB access level:**
-- [ ] Level 1: MCP MySQL Server available → use `mcp__mysql-mcp-server__*` tools
-- [ ] Level 2: CLI mysql available → use bash `mysql` commands
-- [ ] Level 3: Neither available → infer from ORM models (mark all output `[未验证]`)
+**Project database configuration (resolved by orchestrator from Phase 1.5):**
+  - `project_db_host`: `<resolved host from project config, e.g., 10.0.0.5 or localhost>`
+  - `project_db_port`: `<port, default 3306>`
+  - `project_db_name`: `<database name>`
+  - `project_db_user_env`: `<env var name for user, e.g., $DB_USER>`
+  - `project_db_pass_env`: `<env var name for password, e.g., $DB_PASS>`
+
+**DB access level (determined by orchestrator after MCP consistency check):**
+- [ ] Level 1: MCP MySQL Server + DATABASE() 校验通过 → use `mcp__mysql-mcp-server__*` tools
+  - **前提:** 编排器已通过 `SELECT DATABASE()` 确认 MCP 连接的数据库名与项目配置一致
+- [ ] Level 2: MCP 不匹配或不可用，CLI mysql 可用 → use bash `mysql` commands **with project config**
+  - `mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS $DB_NAME`
+  - 连接参数来自上方 `project_db_*` 变量，而非 MCP 配置
+- [ ] Level 3: Neither MCP nor CLI available → infer from ORM models (mark all output `[未验证]`)
+
+**MCP consistency check result:** `<filled by orchestrator: matched / mismatched (MCP db=<>, project db=<>) / config_incomplete>`
 
 **Additional context from Phase 1:**
 - ORM framework detected: `<Prisma/Sequelize/TypeORM/Drizzle/ActiveRecord/Django ORM/none>`
@@ -70,25 +82,41 @@ The connection source for this project is: `<filled by orchestrator>`
 
 #### 1.2 Connection Verification
 
-At task start, verify the connection is still live:
+At task start, verify the connection is still live AND consistent with project configuration:
 
-```bash
-# MySQL / MariaDB
-mysql -h $DB_HOST -u $DB_USER -p$DB_PASS $DB_NAME -e "SELECT 1;" 2>/dev/null
-
-# Via MCP (Level 1)
+**Level 1 (MCP) — verify + consistency check:**
+```sql
+-- Step 1: Verify connectivity
 mcp__mysql-mcp-server__execute_query: "SELECT 1"
+
+-- Step 2: Verify consistency (CRITICAL)
+-- Compare MCP's actual database with project config
+mcp__mysql-mcp-server__execute_query: "SELECT DATABASE()"
+```
+
+Compare the result with `project_db_name` from Context:
+- `DATABASE()` matches `project_db_name` → **consistent**, proceed with MCP
+- Mismatch → **stop using MCP**, downgrade to Level 2 (CLI with project config) or Level 3
+- Record the comparison result in the output document
+
+**Level 2 (CLI) — verify with project config:**
+```bash
+# Use project's actual connection parameters, NOT MCP's
+mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS $DB_NAME -e "SELECT 1;" 2>/dev/null
 ```
 
 If connection fails: downgrade to Level 3 (ORM inference), mark all output `[未验证]`, and continue.
 
 #### 1.3 Connection Status Markers
 
-Use exactly these four markers in output documents:
+Use exactly these markers in output documents:
 
 | Marker | Meaning |
 |--------|---------|
-| `[已验证 ✓]` | CLI/MCP connected successfully |
+| `[MCP 已验证 ✓]` | MCP connected and DATABASE() matches project config |
+| `[CLI 已验证 ✓]` | CLI connected successfully with project config |
+| `[MCP 数据库不匹配，降级 CLI]` | MCP connected but to wrong database, downgraded to CLI |
+| `[项目配置不完整，降级 CLI]` | Project config missing db_name, downgraded to CLI |
 | `[CLI不可用]` | mysql CLI not installed |
 | `[未验证]` | CLI available but connection failed, or ORM inference mode |
 | `[连接超时]` | Connection attempt timed out |
@@ -108,10 +136,10 @@ Use exactly these four markers in output documents:
 #### 2.1 List All Tables
 
 ```sql
--- Via CLI
-mysql -h $DB_HOST -u $DB_USER -p$DB_PASS $DB_NAME -e "SHOW TABLES;"
+-- Via CLI (Level 2 — uses project config connection)
+mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS $DB_NAME -e "SHOW TABLES;"
 
--- Via MCP
+-- Via MCP (Level 1 — only if consistency check passed)
 mcp__mysql-mcp-server__list_tables
 ```
 
@@ -134,6 +162,44 @@ Exclude tables matching **any** of the following heuristics:
 - Last modified > 180 days ago AND no foreign key references to this table from other tables
 
 **Transparent reporting:** List all excluded tables in the output document with the reason for exclusion.
+
+#### Reference SQL — optional
+
+> 以下 SQL 仅作参考，不替代上面的启发式描述。不同 MySQL 版本对 `information_schema` 元数据的可用性不同，尤其是 `update_time` 在某些引擎或旧版本中可能为 `NULL`。
+
+```sql
+-- Suffix / prefix filters
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = DATABASE()
+  AND (
+    table_name REGEXP '(_bak|_backup|_old|_copy|_tmp|_temp|_deprecated|_archive)$'
+    OR table_name REGEXP '^(bak_|backup_|tmp_|temp_)'
+  );
+
+-- Date-pattern filters in table names
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = DATABASE()
+  AND (
+    table_name REGEXP '_20[0-9]{6}$'
+    OR table_name REGEXP '_[0-9]{4}_[0-9]{2}$'
+    OR table_name REGEXP '_[0-9]{6}$'
+  );
+
+-- Stale heuristic: updated long ago and not referenced by foreign keys
+SELECT t.table_name
+FROM information_schema.tables t
+LEFT JOIN information_schema.key_column_usage kcu
+  ON kcu.referenced_table_schema = t.table_schema
+ AND kcu.referenced_table_name = t.table_name
+WHERE t.table_schema = DATABASE()
+  AND t.update_time IS NOT NULL
+  AND t.update_time < NOW() - INTERVAL 180 DAY
+  AND kcu.referenced_table_name IS NULL;
+```
+
+> MySQL 8.0+ typically exposes `update_time` more reliably for InnoDB tables. On MySQL 5.7, or when metadata is unavailable, treat the stale heuristic as advisory and fall back to FK-based exclusion only.
 
 #### 2.3 Schema Analysis for Remaining Tables
 
@@ -196,9 +262,11 @@ connection_status: [已验证 ✓]
 ### CLI 查询示例
 
 ```bash
-mysql -h $DB_HOST -u $DB_USER -p $DB_NAME -e "DESCRIBE <table_name>;"
-mysql -h $DB_HOST -u $DB_USER -p $DB_NAME -e "SHOW CREATE TABLE <table_name>;"
+mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p $DB_NAME -e "DESCRIBE <table_name>;"
+mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p $DB_NAME -e "SHOW CREATE TABLE <table_name>;"
 ```
+
+> 注意：上方 CLI 命令使用目标项目的连接参数（`$DB_HOST`, `$DB_PORT`, `$DB_NAME`），非 MCP 预配置连接。
 
 ## ER 图
 
@@ -328,10 +396,12 @@ Do not write to any other file.
 - [ ] Document contains no passwords, full connection strings, or other credentials
 - [ ] ER diagram uses Mermaid `erDiagram` format (not ASCII art)
 - [ ] ER diagram shows only table names + relationships (no field lists)
-- [ ] CLI query examples are syntactically correct
+- [ ] CLI query examples use project config parameters (`$DB_HOST`, `$DB_PORT`, `$DB_NAME`), not MCP defaults
 - [ ] "已过滤表" section lists excluded tables with reasons
 - [ ] Document is < 200 lines and < 10 KB
-- [ ] Connection status marker is one of: `[已验证 ✓]`, `[CLI不可用]`, `[未验证]`, `[连接超时]`
+- [ ] Connection status marker is one of: `[MCP 已验证 ✓]`, `[CLI 已验证 ✓]`, `[MCP 数据库不匹配，降级 CLI]`, `[项目配置不完整，降级 CLI]`, `[CLI不可用]`, `[未验证]`, `[连接超时]`
+- [ ] If Level 1 (MCP): consistency check result documented (matched db_name)
+- [ ] If Level 2 (CLI): CLI commands reference project config variables, not MCP config
 - [ ] All inferred classifications marked `[推断]` with evidence
 
 ---

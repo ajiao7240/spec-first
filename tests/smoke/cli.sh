@@ -9,19 +9,29 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 echo "=== CLI smoke test ==="
 
 expected_version="$(node -p "require('$REPO_ROOT/package.json').version")"
+outdated_version="9.9.9"
+export SPEC_FIRST_VERSION_REMINDER_LATEST="$expected_version"
 
 echo "1. Check help and version output..."
-help_output="$(node "$REPO_ROOT/bin/spec-first.js" --help)"
-version_output="$(node "$REPO_ROOT/bin/spec-first.js" --version)"
+help_stderr="$TMP_DIR/help.err"
+version_stderr="$TMP_DIR/version.err"
+help_output="$(node "$REPO_ROOT/bin/spec-first.js" --help 2>"$help_stderr")"
+version_output="$(node "$REPO_ROOT/bin/spec-first.js" --version 2>"$version_stderr")"
 grep -q "doctor" <<<"$help_output"
 grep -q "init (--claude|--codex)" <<<"$help_output"
 grep -q "clean (--claude|--codex)" <<<"$help_output"
 grep -q "Spec-First v${expected_version}" <<<"$version_output"
 grep -q "Claude Code & Codex" <<<"$version_output"
+test ! -s "$help_stderr"
+test ! -s "$version_stderr"
 echo "✓ help/version output is present"
 
 echo "1b. Check doctor output in a fresh project is concise..."
-doctor_fresh_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor)"
+doctor_fresh_stderr="$TMP_DIR/doctor-fresh.err"
+doctor_fresh_output="$(
+  cd "$TMP_DIR"
+  SPEC_FIRST_VERSION_REMINDER_LATEST="$outdated_version" node "$REPO_ROOT/bin/spec-first.js" doctor 2>"$doctor_fresh_stderr"
+)"
 grep -q "No spec-first platform detected in this project." <<<"$doctor_fresh_output"
 grep -q 'spec-first init --claude' <<<"$doctor_fresh_output"
 grep -q 'spec-first init --codex' <<<"$doctor_fresh_output"
@@ -29,17 +39,22 @@ if grep -q "agent-browser" <<<"$doctor_fresh_output"; then
   echo "✗ doctor output is too noisy for missing skills"
   exit 1
 fi
+grep -q "Update available for spec-first" "$doctor_fresh_stderr"
+grep -q "npm install -g spec-first@latest" "$doctor_fresh_stderr"
 echo "✓ doctor reports missing skills concisely"
 
 echo "2. Initialize Claude commands in a fresh project..."
+init_stderr="$TMP_DIR/init.err"
 init_output="$(
   cd "$TMP_DIR"
-  node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en
+  SPEC_FIRST_VERSION_REMINDER_LATEST="$outdated_version" node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en 2>"$init_stderr"
 )"
-grep -q "Generated 7 command file(s)" <<<"$init_output"
-grep -q "Generated 42 skill directory(ies)" <<<"$init_output"
+grep -q "Generated 8 command file(s)" <<<"$init_output"
+grep -q "Generated 43 skill directory(ies)" <<<"$init_output"
 grep -q "Generated 47 agent file(s)" <<<"$init_output"
 grep -q "Wrote project developer profile" <<<"$init_output"
+grep -q "Update available for spec-first" "$init_stderr"
+grep -q "npm install -g spec-first@latest" "$init_stderr"
 if grep -qE '^- |  - ' <<<"$init_output"; then
   echo "✗ init output should not enumerate per-file details"
   exit 1
@@ -143,21 +158,22 @@ done
 echo "✓ init generated all bundled skill directories"
 
 echo "2b-1. Verify generated runtime assets adapt fully qualified agent names..."
-grep -q 'research:repo-research-analyst' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
-grep -q 'workflow:spec-flow-analyzer' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
-grep -q 'document-review:coherence-reviewer' "$TMP_DIR/.claude/skills/document-review/SKILL.md"
-grep -q 'workflow:pr-comment-resolver' "$TMP_DIR/.claude/skills/resolve-pr-feedback/SKILL.md"
-grep -q 'research:learnings-researcher' "$TMP_DIR/.claude/agents/review/project-standards-reviewer.md"
+grep -q 'Task repo-research-analyst' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
+grep -q 'Task spec-flow-analyzer' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
+grep -q '`coherence-reviewer`' "$TMP_DIR/.claude/skills/document-review/SKILL.md"
+grep -q 'Spawn a `pr-comment-resolver` agent' "$TMP_DIR/.claude/skills/resolve-pr-feedback/SKILL.md"
+grep -q 'Use bare agent names inside Task calls.' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
+grep -q 'spec-first:research:learnings-researcher' "$TMP_DIR/.claude/agents/review/project-standards-reviewer.md"
 if grep -q 'spec-first:research:repo-research-analyst' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"; then
   echo "✗ generated spec-plan skill still contains unadapted spec-first agent namespace"
   exit 1
 fi
-if grep -q 'spec-first:document-review:coherence-reviewer' "$TMP_DIR/.claude/skills/document-review/SKILL.md"; then
-  echo "✗ generated document-review skill still contains unadapted spec-first agent namespace"
+if grep -Eq 'Task [a-z-]+:[a-z-]+\(' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"; then
+  echo "✗ generated spec-plan skill still contains grouped runtime Task agent names"
   exit 1
 fi
-if grep -q 'spec-first:research:learnings-researcher' "$TMP_DIR/.claude/agents/review/project-standards-reviewer.md"; then
-  echo "✗ generated project-standards-reviewer still expects unadapted fully qualified runtime agent names"
+if grep -Eq 'subagent_type: "[a-z-]+:[a-z-]+"' "$TMP_DIR/.claude/skills/orchestrating-swarms/SKILL.md"; then
+  echo "✗ generated Claude skills still contain grouped runtime subagent_type values"
   exit 1
 fi
 echo "✓ generated runtime assets adapt fully qualified agent names"
@@ -223,6 +239,44 @@ grep -q ".claude/skills" <<<"$doctor_output"
 grep -q ".claude/agents" <<<"$doctor_output"
 echo "✓ doctor reports generated commands, skills, and agents"
 
+echo "3a. Verify doctor catches broken Claude runtime agent references..."
+printf '\n- Task research:repo-research-analyst(test mismatch)\n' >> "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
+if (
+  cd "$TMP_DIR"
+  node "$REPO_ROOT/bin/spec-first.js" doctor --claude >"$TMP_DIR/doctor-broken.txt" 2>&1
+); then
+  echo "✗ doctor should fail when Claude runtime Task references do not match installed agent names"
+  exit 1
+fi
+grep -q "ERROR   Claude Task agent references" "$TMP_DIR/doctor-broken.txt"
+grep -q "spec-plan/SKILL.md -> research:repo-research-analyst" "$TMP_DIR/doctor-broken.txt"
+(
+  cd "$TMP_DIR"
+  node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en >/dev/null
+)
+echo "✓ doctor catches Claude runtime agent reference drift"
+
+echo "3a-2. Verify CLAUDE.md lang policy block was written..."
+grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md"
+grep -q '<!-- spec-first:lang:end -->' "$TMP_DIR/CLAUDE.md"
+# Last init used --lang en, so English directive must be present
+grep -q 'English' "$TMP_DIR/CLAUDE.md"
+# Changelog governance rule must be present
+grep -q 'CHANGELOG' "$TMP_DIR/CLAUDE.md"
+# Changelog iron law must refuse code generation without a record
+grep -q 'refuse to generate' "$TMP_DIR/CLAUDE.md"
+# Governance file commit rule must be absent
+! grep -q 'Governance File Commit Rule' "$TMP_DIR/CLAUDE.md"
+# Exactly one start marker (idempotent across multiple inits)
+lang_marker_count=$(grep -c '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md")
+[ "$lang_marker_count" = "1" ]
+# CHANGELOG.md bootstrapped
+test -f "$TMP_DIR/CHANGELOG.md"
+grep -q 'Entry format: `- vX.Y.Z YYYY-MM-DD author: summary \[(user-visible)\]`' "$TMP_DIR/CHANGELOG.md"
+grep -q -- '- v1.4.0 ' "$TMP_DIR/CHANGELOG.md"
+grep -q 'kuang' "$TMP_DIR/CHANGELOG.md"
+echo "✓ CLAUDE.md lang policy block written; CHANGELOG.md bootstrapped"
+
 echo "3a-1. Verify Codex init/doctor/clean work..."
 codex_output="$(
   cd "$TMP_DIR"
@@ -232,7 +286,7 @@ if grep -q "Generated 7 command file(s)" <<<"$codex_output"; then
   echo "✗ codex init should install skills, not command files"
   exit 1
 fi
-grep -q "Generated 42 skill directory(ies) in .agents/skills" <<<"$codex_output"
+grep -q "Generated 43 skill directory(ies) in .agents/skills" <<<"$codex_output"
 grep -q "Generated 47 agent file(s) in .codex/agents" <<<"$codex_output"
 test -f "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-plan/SKILL.md"
@@ -250,6 +304,12 @@ test -f "$TMP_DIR/.codex/agents/review/correctness-reviewer.md"
 test -f "$TMP_DIR/.codex/agents/research/repo-research-analyst.md"
 test -f "$TMP_DIR/.codex/spec-first/.developer"
 grep -q '^name=kuang$' "$TMP_DIR/.codex/spec-first/.developer"
+grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/AGENTS.md"
+grep -q '<!-- spec-first:lang:end -->' "$TMP_DIR/AGENTS.md"
+grep -q 'English' "$TMP_DIR/AGENTS.md"
+grep -q 'refuse to generate' "$TMP_DIR/AGENTS.md"
+! grep -q 'Governance File Commit Rule' "$TMP_DIR/AGENTS.md"
+echo "✓ AGENTS.md lang policy block written"
 codex_doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor --codex)"
 grep -q ".codex/spec-first/.developer" <<<"$codex_doctor_output"
 grep -q ".agents/skills" <<<"$codex_doctor_output"
@@ -275,11 +335,12 @@ test ! -e "$TMP_DIR/.agents/plugins/plugins/spec/README.md"
 test ! -e "$TMP_DIR/plugins/spec-first"
 (
   cd "$TMP_DIR"
-  node "$REPO_ROOT/bin/spec-first.js" clean --codex
+  SPEC_FIRST_VERSION_REMINDER_LATEST="$outdated_version" node "$REPO_ROOT/bin/spec-first.js" clean --codex 2>"$TMP_DIR/codex-clean.err"
 )
 test ! -e "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 test ! -e "$TMP_DIR/.codex/agents/review/correctness-reviewer.md"
 test ! -e "$TMP_DIR/.codex/spec-first/.developer"
+grep -q "Update available for spec-first" "$TMP_DIR/codex-clean.err"
 echo "✓ codex init/doctor/clean work"
 
 echo "3b. Verify clean removes managed assets and preserves custom assets..."

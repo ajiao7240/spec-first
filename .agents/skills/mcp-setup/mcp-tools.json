@@ -1,0 +1,93 @@
+{
+  "version": "1.0",
+  "tools": [
+    {
+      "id": "serena",
+      "name": "Serena",
+      "category": "required",
+      "description": "符号级精确编辑引擎，spec-bootstrap Full/Enhanced mode 必需",
+      "dependencies": ["uv"],
+      "mcp_config": {
+        "command": "uvx",
+        "args": ["--from", "git+https://github.com/oraios/serena", "serena-mcp-server", "--context", "ide-assistant"]
+      },
+      "detect": {
+        "method": "mcp_config",
+        "key": "serena"
+      }
+    },
+    {
+      "id": "gitnexus",
+      "name": "GitNexus",
+      "category": "required",
+      "description": "代码知识图谱/架构引擎，spec-bootstrap Full mode 必需",
+      "dependencies": ["node"],
+      "mcp_config": {
+        "command": "npx",
+        "args": ["-y", "gitnexus", "mcp"]
+      },
+      "detect": {
+        "method": "mcp_config",
+        "key": "gitnexus"
+      }
+    },
+    {
+      "id": "abcoder",
+      "name": "ABCoder",
+      "category": "required",
+      "description": "跨语言语义增强，spec-bootstrap Full mode 必需（安装时只装二进制，AST 配置在 spec-bootstrap 时自动完成）",
+      "dependencies": ["go"],
+      "install_command": "go install github.com/cloudwego/abcoder@latest",
+      "mcp_config": null,
+      "detect": {
+        "method": "command",
+        "command": "abcoder version"
+      }
+    },
+    {
+      "id": "sequential-thinking",
+      "name": "Sequential Thinking",
+      "category": "required",
+      "description": "动态反思性问题解决，spec-first 全工作流通用依赖",
+      "dependencies": ["node"],
+      "mcp_config": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+      },
+      "detect": {
+        "method": "mcp_config",
+        "key": "sequential-thinking"
+      }
+    },
+    {
+      "id": "context7",
+      "name": "Context7",
+      "category": "required",
+      "description": "最新框架文档查询，spec-first 全工作流通用依赖",
+      "dependencies": ["node"],
+      "mcp_config": {
+        "command": "npx",
+        "args": ["-y", "@upstash/context7-mcp"]
+      },
+      "detect": {
+        "method": "mcp_config",
+        "key": "context7"
+      }
+    },
+    {
+      "id": "playwright",
+      "name": "Playwright MCP",
+      "category": "optional",
+      "description": "前端自动化测试，可选工具",
+      "dependencies": ["node"],
+      "mcp_config": {
+        "command": "npx",
+        "args": ["@playwright/mcp@latest"]
+      },
+      "detect": {
+        "method": "mcp_config",
+        "key": "playwright"
+      }
+    }
+  ]
+}

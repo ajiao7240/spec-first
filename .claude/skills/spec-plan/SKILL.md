@@ -150,8 +150,8 @@ Prepare a concise planning context summary (a paragraph or two) to pass as input
 
 Run these agents in parallel:
 
-- Task research:repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
-- Task research:learnings-researcher(planning context summary)
+- Task repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
+- Task learnings-researcher(planning context summary)
 
 Collect:
 - Technology stack and versions (used in section 1.2 to make sharper external research decisions)
@@ -215,8 +215,8 @@ Announce the decision briefly before continuing. Examples:
 
 If Step 1.2 indicates external research is useful, run these agents in parallel:
 
-- Task research:best-practices-researcher(planning context summary)
-- Task research:framework-docs-researcher(planning context summary)
+- Task best-practices-researcher(planning context summary)
+- Task framework-docs-researcher(planning context summary)
 
 #### 1.4 Consolidate Research
 
@@ -243,7 +243,7 @@ This ensures flow analysis (Phase 1.5) runs and the confidence check (Phase 5.3)
 
 For **Standard** or **Deep** plans, or when user flow completeness is still unclear, run:
 
-- Task workflow:spec-flow-analyzer(planning context summary, research findings)
+- Task spec-flow-analyzer(planning context summary, research findings)
 
 Use the output to:
 - Identify missing edge cases, state transitions, or handoff gaps
@@ -741,48 +741,48 @@ Strengthening [section names] — [brief reason for each, e.g., "decision ration
 
 For each selected section, choose the smallest useful agent set. Do **not** run every agent. Use at most **1-3 agents per section** and usually no more than **8 agents total**.
 
-Use fully-qualified agent names inside Task calls.
+Use bare agent names inside Task calls.
 
 **Deterministic Section-to-Agent Mapping:**
 
 **Requirements Trace / Open Questions classification**
-- `workflow:spec-flow-analyzer` for missing user flows, edge cases, and handoff gaps
-- `research:repo-research-analyst` (Scope: `architecture, patterns`) for repo-grounded patterns, conventions, and implementation reality checks
+- `spec-flow-analyzer` for missing user flows, edge cases, and handoff gaps
+- `repo-research-analyst` (Scope: `architecture, patterns`) for repo-grounded patterns, conventions, and implementation reality checks
 
 **Context & Research / Sources & References gaps**
-- `research:learnings-researcher` for institutional knowledge and past solved problems
-- `research:framework-docs-researcher` for official framework or library behavior
-- `research:best-practices-researcher` for current external patterns and industry guidance
-- Add `research:git-history-analyzer` only when historical rationale or prior art is materially missing
+- `learnings-researcher` for institutional knowledge and past solved problems
+- `framework-docs-researcher` for official framework or library behavior
+- `best-practices-researcher` for current external patterns and industry guidance
+- Add `git-history-analyzer` only when historical rationale or prior art is materially missing
 
 **Key Technical Decisions**
-- `review:architecture-strategist` for design integrity, boundaries, and architectural tradeoffs
-- Add `research:framework-docs-researcher` or `research:best-practices-researcher` when the decision needs external grounding beyond repo evidence
+- `architecture-strategist` for design integrity, boundaries, and architectural tradeoffs
+- Add `framework-docs-researcher` or `best-practices-researcher` when the decision needs external grounding beyond repo evidence
 
 **High-Level Technical Design**
-- `review:architecture-strategist` for validating that the technical design accurately represents the intended approach and identifying gaps
-- `research:repo-research-analyst` (Scope: `architecture, patterns`) for grounding the technical design in existing repo patterns and conventions
-- Add `research:best-practices-researcher` when the technical design involves a DSL, API surface, or pattern that benefits from external validation
+- `architecture-strategist` for validating that the technical design accurately represents the intended approach and identifying gaps
+- `repo-research-analyst` (Scope: `architecture, patterns`) for grounding the technical design in existing repo patterns and conventions
+- Add `best-practices-researcher` when the technical design involves a DSL, API surface, or pattern that benefits from external validation
 
 **Implementation Units / Verification**
-- `research:repo-research-analyst` (Scope: `patterns`) for concrete file targets, patterns to follow, and repo-specific sequencing clues
-- `review:pattern-recognition-specialist` for consistency, duplication risks, and alignment with existing patterns
-- Add `workflow:spec-flow-analyzer` when sequencing depends on user flow or handoff completeness
+- `repo-research-analyst` (Scope: `patterns`) for concrete file targets, patterns to follow, and repo-specific sequencing clues
+- `pattern-recognition-specialist` for consistency, duplication risks, and alignment with existing patterns
+- Add `spec-flow-analyzer` when sequencing depends on user flow or handoff completeness
 
 **System-Wide Impact**
-- `review:architecture-strategist` for cross-boundary effects, interface surfaces, and architectural knock-on impact
+- `architecture-strategist` for cross-boundary effects, interface surfaces, and architectural knock-on impact
 - Add the specific specialist that matches the risk:
-  - `review:performance-oracle` for scalability, latency, throughput, and resource-risk analysis
-  - `review:security-sentinel` for auth, validation, exploit surfaces, and security boundary review
-  - `review:data-integrity-guardian` for migrations, persistent state safety, consistency, and data lifecycle risks
+  - `performance-oracle` for scalability, latency, throughput, and resource-risk analysis
+  - `security-sentinel` for auth, validation, exploit surfaces, and security boundary review
+  - `data-integrity-guardian` for migrations, persistent state safety, consistency, and data lifecycle risks
 
 **Risks & Dependencies / Operational Notes**
 - Use the specialist that matches the actual risk:
-  - `review:security-sentinel` for security, auth, privacy, and exploit risk
-  - `review:data-integrity-guardian` for persistent data safety, constraints, and transaction boundaries
-  - `review:data-migration-expert` for migration realism, backfills, and production data transformation risk
-  - `review:deployment-verification-agent` for rollout checklists, rollback planning, and launch verification
-  - `review:performance-oracle` for capacity, latency, and scaling concerns
+  - `security-sentinel` for security, auth, privacy, and exploit risk
+  - `data-integrity-guardian` for persistent data safety, constraints, and transaction boundaries
+  - `data-migration-expert` for migration realism, backfills, and production data transformation risk
+  - `deployment-verification-agent` for rollout checklists, rollback planning, and launch verification
+  - `performance-oracle` for capacity, latency, and scaling concerns
 
 **Agent Prompt Shape:**
 

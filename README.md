@@ -216,6 +216,7 @@ codex    # Codex
 ```
 
 如果你没有传 `-u/--user`，`spec-first init` 会优先回退到全局 `~/.spec-first/.developer`，再回退到 `git config user.name`。
+如果你没有传 `--lang`，`spec-first init` 会优先沿用当前项目中的 `.claude/spec-first/.developer` 或 `.codex/spec-first/.developer` 里的 `lang`，其次才回退到全局 `~/.spec-first/.developer`，最后默认 `zh`。
 初始化成功后，项目内会生成 `.claude/spec-first/.developer` 或 `.codex/spec-first/.developer`，记录开发者名称、语言偏好、初始化时间和 CLI 版本。
 
 现在你可以在项目里使用：

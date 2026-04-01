@@ -1,16 +1,19 @@
 {
-  "manifestVersion": "1.3.10",
+  "manifestVersion": "1.4.0",
   "platform": "claude",
   "developer": {
     "path": ".claude/spec-first/.developer",
     "name": "leokuang",
     "lang": "zh",
-    "initializedAt": "2026-03-30T02:21:50.612Z",
-    "version": "1.3.15"
+    "initializedAt": "2026-04-01T04:07:20.727Z",
+    "version": "1.4.0"
   },
   "commands": [
+    "bootstrap.md",
     "brainstorm.md",
     "compound.md",
+    "ideate.md",
+    "mcp-setup.md",
     "plan.md",
     "review.md",
     "work.md"
@@ -35,6 +38,7 @@
     "git-commit-push-pr",
     "git-worktree",
     "lfg",
+    "mcp-setup",
     "onboarding",
     "orchestrating-swarms",
     "proof",
@@ -44,6 +48,7 @@
     "resolve-pr-feedback",
     "setup",
     "slfg",
+    "spec-bootstrap",
     "spec-brainstorm",
     "spec-compound",
     "spec-compound-refresh",

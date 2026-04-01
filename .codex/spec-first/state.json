@@ -1,12 +1,12 @@
 {
-  "manifestVersion": "1.3.10",
+  "manifestVersion": "1.4.0",
   "platform": "codex",
   "developer": {
     "path": ".codex/spec-first/.developer",
     "name": "leokuang",
     "lang": "zh",
-    "initializedAt": "2026-03-30T02:21:43.855Z",
-    "version": "1.3.15"
+    "initializedAt": "2026-04-01T04:07:25.152Z",
+    "version": "1.4.0"
   },
   "commands": [],
   "skills": [
@@ -29,6 +29,7 @@
     "git-commit-push-pr",
     "git-worktree",
     "lfg",
+    "mcp-setup",
     "onboarding",
     "orchestrating-swarms",
     "proof",
@@ -38,6 +39,7 @@
     "resolve-pr-feedback",
     "setup",
     "slfg",
+    "spec-bootstrap",
     "spec-brainstorm",
     "spec-compound",
     "spec-compound-refresh",
