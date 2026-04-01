@@ -1,462 +1,278 @@
 <div align="center">
+  <img src="./docs/assets/svg/logo.svg" alt="Spec-First logo" width="108" height="108">
 
-# 🚀 Spec-First
+# Spec-First
 
-**A Spec-First AI Coding Workflow CLI for Claude Code and Codex**
+**中文优先的开源 AI 工程工作流 CLI**  
+**An open-source workflow CLI for turning AI coding into an engineered system**
 
-*候选发散 → 需求澄清 → 方案规划 → 实施执行 → 结构化评审 → 知识沉淀*
+*候选发散 → 需求澄清 → 方案规划 → 实施执行 → 结构化评审 → 知识沉淀*  
+*Ideate → Clarify → Plan → Execute → Review → Compound*
+
+**把 AI 编程从一次性对话，升级为可安装、可治理、可复用的工程系统。**  
+**Turn AI coding from ad-hoc chat into an installable, governed, reusable engineering workflow.**
 
 <p>
-  <a href="./docs/05-用户手册/README.md">📖 用户手册</a>
-  <span>&nbsp;•&nbsp;</span>
-  <a href="./docs/05-用户手册/01-快速开始.md">⚡ 快速开始</a>
-  <span>&nbsp;•&nbsp;</span>
-  <a href="./docs/05-用户手册/02-核心概念.md">💡 核心概念</a>
-  <span>&nbsp;•&nbsp;</span>
-  <a href="./docs/05-用户手册/05-最佳实践.md">🏆 最佳实践</a>
+  <a href="https://www.npmjs.com/package/spec-first"><img src="https://img.shields.io/npm/v/spec-first?style=flat-square&color=2563eb" alt="npm version"></a>
+  <a href="https://npmtrends.com/spec-first"><img src="https://img.shields.io/npm/dm/spec-first?style=flat-square&color=cb3837&label=downloads" alt="npm downloads"></a>
+  <a href="https://github.com/sunrain520/spec-first/blob/main/LICENSE"><img src="https://img.shields.io/github/license/sunrain520/spec-first?style=flat-square&color=16a34a" alt="license"></a>
+  <a href="https://github.com/sunrain520/spec-first/stargazers"><img src="https://img.shields.io/github/stars/sunrain520/spec-first?style=flat-square&color=eab308" alt="GitHub stars"></a>
+  <a href="./docs/05-用户手册/README.md"><img src="https://img.shields.io/badge/docs-github%20docs-0f766e?style=flat-square" alt="docs"></a>
+  <a href="https://github.com/sunrain520/spec-first/issues"><img src="https://img.shields.io/github/issues/sunrain520/spec-first?style=flat-square&color=e67e22" alt="GitHub issues"></a>
+  <a href="https://github.com/sunrain520/spec-first/pulls"><img src="https://img.shields.io/github/issues-pr/sunrain520/spec-first?style=flat-square&color=9b59b6" alt="GitHub PRs"></a>
+  <a href="https://deepwiki.com/sunrain520/spec-first"><img src="https://img.shields.io/badge/Ask-DeepWiki-blue?style=flat-square" alt="Ask DeepWiki"></a>
+  <a href="https://chatgpt.com/?q=Explain+the+project+sunrain520/spec-first+on+GitHub"><img src="https://img.shields.io/badge/Ask-ChatGPT-74aa9c?style=flat-square&logo=openai&logoColor=white" alt="Ask ChatGPT"></a>
 </p>
 
-[![npm version][npm-version-src]][npm-version-href]
-[![npm downloads][npm-downloads-src]][npm-downloads-href]
-[![license][license-src]][license-href]
-[![github stars][stars-src]][stars-href]
-[![docs][docs-src]][docs-href]
-[![github issues][issues-src]][issues-href]
-[![github prs][prs-src]][prs-href]
-[![Ask DeepWiki][deepwiki-src]][deepwiki-href]
-[![Ask ChatGPT][chatgpt-src]][chatgpt-href]
-
+<p>
+  <a href="http://1.15.14.36:8087/">官网 / Website</a>
+  <span>&nbsp;•&nbsp;</span>
+  <a href="#快速开始--quick-start">立即开始 / Get Started</a>
+  <span>&nbsp;•&nbsp;</span>
+  <a href="#核心工作流--core-workflow">查看工作流 / View Workflow</a>
+  <span>&nbsp;•&nbsp;</span>
+  <a href="./docs/05-用户手册/README.md">用户手册 / Manual</a>
+  <span>&nbsp;•&nbsp;</span>
+  <a href="./docs/05-用户手册/01-快速开始.md">快速开始 / Quick Start</a>
+  <span>&nbsp;•&nbsp;</span>  
+  <a href="https://www.npmjs.com/package/spec-first">npm</a>
+</p>
 </div>
 
----
-
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/svg/spec-first-overview.svg">
-    <source media="(prefers-color-scheme: light)" srcset="./docs/assets/svg/spec-first-overview.svg">
-    <img alt="Spec-First Overview" src="./docs/assets/svg/spec-first-overview.svg">
-  </picture>
+  <img alt="Spec-First overview" src="./docs/assets/svg/spec-first-overview.svg">
 </p>
 
----
+## 概述 | Overview
 
-## ✨ Why Spec-First
+`spec-first` 是一个面向 **Claude Code** 和 **Codex** 的开源 `npm` CLI。  
+它不只是安装一组命令，而是把 AI 辅助开发从“临时对话”收敛成“可追踪、可评审、可复用”的工程流程。
 
-<table>
-<tr>
-<td width="50%">
+`spec-first` is an open-source `npm` CLI for **Claude Code** and **Codex**.  
+It packages AI-assisted development into a workflow with explicit artifacts, structured review, and reusable project knowledge.
 
-### 🎯 问题
+## 为什么需要它 | Why Spec-First
 
-大多数 AI 开发流的问题不在模型，而在**工程边界不稳定**：
+大多数 AI 编程失败，不是因为模型不够强，而是因为工程边界不稳定：
 
-- ❌ 需求没有被明确记录
-- ❌ 计划和实现容易脱节
-- ❌ 评审没有结构化结论
-- ❌ 好的经验无法沉淀为下一轮输入
+- 需求没有被明确记录
+- 计划和实现容易脱节
+- 评审缺少结构化结论
+- 已解决问题难以沉淀为下一轮输入
 
-</td>
-<td width="50%">
+Spec-First 解决的不是单次生成质量，而是整个交付闭环：
 
-### 💡 解决方案
+- 用 `doctor / init / clean` 管理项目运行时资产
+- 用 `/spec:*` 与 `$spec-*` 提供稳定入口
+- 用 Stage-0 + 五阶段工作流约束上下文和产出
+- 用多代理评审与知识沉淀提升下一轮质量
 
-Spec-First 把 AI 辅助开发从**一次性对话**，收敛成一套**稳定、可追踪、可复用**的工程系统：
+Spec-First optimizes the delivery loop, not just a single prompt response.
 
-- ✅ Claude 的 `/spec:*` 命令与 Codex 的 `$spec-*` skills
-- ✅ 前置 ideate + 五阶段闭环工作流
-- ✅ 47 个专业代理审查
-- ✅ 知识沉淀与自动发现
+## 你会得到什么 | What You Get
 
-</td>
-</tr>
-</table>
+| 能力 | 中文说明 | English |
+|------|----------|---------|
+| 双平台支持 | 同时支持 Claude Code 与 Codex | Supports both Claude Code and Codex |
+| CLI 控制面 | 通过 3 个核心命令管理安装、检查、清理 | Manage install, health checks, and cleanup with 3 core commands |
+| 工作流层 | 内置 Stage-0、Ideate、Brainstorm、Plan、Work、Review、Compound | Built-in workflow from project context to knowledge compounding |
+| 能力层 | 内置 `43` 个 skills 与 `47` 个 agents | Ships with `43` skills and `47` agents |
+| 运行时治理 | 支持受管资产同步、更新、恢复、清理 | Runtime assets are managed, versioned, and replaceable |
+| 开放文档 | 提供用户手册、架构文档、方案文档和实践沉淀 | Includes manuals, architecture docs, plans, and learnings |
 
----
-
-## 🏗️ What It Is
-
-> **Prompt Engineering ⊂ Context Engineering ⊂ Harness Engineering**
-
-Spec-First 采用三层工程边界设计：
+## 核心工作流 | Core Workflow
 
 <p align="center">
-  <img src="./docs/assets/svg/spec-first-engineering-layers-deep.svg" alt="Three Engineering Layers">
+  <img src="./docs/assets/svg/spec-first-workflow.svg" alt="Spec-First workflow">
 </p>
 
-| 层级 | 职责 | 数量 |
-|------|------|------|
-| **Commands** | 稳定入口 | 7 个命令入口 |
-| **Skills** | 编排阶段流程 | 42 个技能 |
-| **Agents** | 提供专业能力 | 47 个代理 |
-| **State** | 资产版本管理 | 可更新、可恢复、可清理 |
+| 阶段 Stage | Claude Code | Codex | 目标 Goal | 主要产物 Artifact |
+|------------|-------------|-------|-----------|--------------------|
+| Stage-0 | `/spec:bootstrap` | `$spec-bootstrap` | 为目标项目建立长期上下文 | `docs/contexts/<slug>/` |
+| Ideate | `/spec:ideate` | `$spec-ideate` | 发散候选、排序方向 | `docs/ideation/*.md` |
+| Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | 澄清需求、收敛范围、明确验收 | `docs/brainstorms/*.md` |
+| Plan | `/spec:plan` | `$spec-plan` | 制定实施方案、拆解任务、识别风险 | `docs/plans/*.md` |
+| Work | `/spec:work` | `$spec-work` | 按计划实现并补齐测试/文档 | code + tests |
+| Review | `/spec:review` | `$spec-review` | 结构化审查与质量判定 | review report |
+| Compound | `/spec:compound` | `$spec-compound` | 提炼经验并沉淀为知识资产 | `docs/solutions/**/*.md` |
 
----
+补充工具命令：
 
-## 🔄 Core Workflow
+- Claude Code 提供 `/spec:mcp-setup`，用于一键安装和配置 MCP 工具链
+- Codex 通过对应 skills 接入同一套工作流能力
+
+## 架构视图 | Architecture
 
 <p align="center">
-  <img src="./docs/assets/svg/spec-first-workflow.svg" alt="Workflow">
+  <img src="./docs/assets/svg/three-layer-architecture.svg" alt="Three-layer architecture">
 </p>
 
-| Stage | Claude Code | Codex | 职责 | 产出物 |
-|:-----:|-------------|-------|------|--------|
-| 💡 | `/spec:ideate` | `$spec-ideate` | 发散候选、评估方向 | `docs/ideation/*.md` |
-| 🧠 | `/spec:brainstorm` | `$spec-brainstorm` | 澄清问题、控制范围、明确验收标准 | `docs/brainstorms/*.md` |
-| 📋 | `/spec:plan` | `$spec-plan` | 收集上下文、拆解任务、识别风险 | `docs/plans/*.md` |
-| ⚡ | `/spec:work` | `$spec-work` | 按计划实施、补齐测试和文档 | Code + Tests |
-| 🔎 | `/spec:review` | `$spec-review` | 结构化审查、阻断项、结论 | Review Report |
-| 📚 | `/spec:compound` | `$spec-compound` | 经验提炼、知识沉淀 | `docs/solutions/**/*.md` |
+Spec-First 的核心不是把更多 prompt 塞给模型，而是构建稳定的三层结构：
 
-> **Stage-0 Supporting Workflow:** 在上表五阶段之前，可先运行 `/spec:bootstrap`（Claude）或 `$spec-bootstrap`（Codex）为目标项目生成可长期复用的上下文资产（`docs/contexts/<slug>/`），作为后续各阶段的上下文基座。详见下方 Supporting Workflows。
+1. 入口层 Entry Layer  
+   `spec-first` CLI 负责检查环境、初始化平台运行时、清理受管资产。
+2. 工作流层 Workflow Layer  
+   skills 定义阶段边界、输入输出契约和执行顺序。
+3. 能力层 Capability Layer  
+   agents 提供评审、研究、设计、文档和专项分析能力。
 
----
+对应的项目运行时模型如下：
 
-## 🛠️ Skills & Agents
+<p align="center">
+  <img src="./docs/assets/svg/spec-first-runtime-assets.svg" alt="Runtime assets">
+</p>
 
-### 核心工作流 Skills
+## 快速开始 | Quick Start
 
-| Skill | 描述 |
-|-------|------|
-| `spec-ideate` | 发散候选并筛选值得继续探索的方向 |
-| `spec-brainstorm` | 探索需求和方案，生成需求文档 |
-| `spec-plan` | 将需求转化为实现计划 |
-| `spec-work` | 执行工作计划 |
-| `spec-review` | 结构化代码审查（多角色代理） |
-| `spec-compound` | 知识捕获和文档化 |
-
-### Supporting Workflow Skills
-
-| Skill | 定位 | 描述 |
-|-------|------|------|
-| `spec-bootstrap` | Stage-0 supporting workflow | 为目标项目生成可长期复用的上下文资产，输出至 `docs/contexts/<slug>/`。在五阶段之前运行，为后续阶段提供项目上下文基座。当前版本只生成，不自动注入五阶段。 |
-| `spec-audit` | 辅助 supporting workflow | 代码库审计，识别技术债和高风险模式 |
-
-<details>
-<summary><b>📦 辅助 Skills (36个)</b></summary>
-
-| 分类 | Skills |
-|------|--------|
-| **Git** | `git-commit`, `git-commit-push-pr`, `git-worktree`, `git-clean-gone-branches` |
-| **开发** | `agent-browser`, `reproduce-bug`, `test-browser`, `test-xcode`, `feature-video` |
-| **文档** | `document-review`, `changelog`, `onboarding`, `proof` |
-| **任务** | `todo-create`, `todo-resolve`, `todo-triage` |
-| **设计** | `frontend-design`, `design-iterator`, `figma-design-sync` |
-| **其他** | `setup`, `lfg`, `slfg`, `rclone`, `deploy-docs` |
-
-</details>
-
-<details>
-<summary><b>🤖 审查代理 (47个)</b></summary>
-
-| 分类 | 代理 |
-|------|------|
-| **Always-on (6)** | `correctness-reviewer`, `testing-reviewer`, `maintainability-reviewer`, `project-standards-reviewer`, `code-simplicity-reviewer`, `pattern-recognition-specialist` |
-| **安全 (3)** | `security-reviewer`, `security-sentinel`, `security-lens-reviewer` |
-| **性能 (2)** | `performance-reviewer`, `performance-oracle` |
-| **数据 (3)** | `data-integrity-guardian`, `data-migrations-reviewer`, `schema-drift-detector` |
-| **技术栈 (4)** | `dhh-rails-reviewer`, `kieran-rails-reviewer`, `kieran-python-reviewer`, `kieran-typescript-reviewer` |
-| **架构 (3)** | `architecture-strategist`, `api-contract-reviewer`, `reliability-reviewer` |
-| **研究 (3)** | `git-history-analyzer`, `best-practices-researcher`, `issue-intelligence-analyst` |
-
-</details>
-
----
-
-## 📦 Install
+### 1. 安装 CLI
 
 ```bash
-# 从 npm 安装
 npm install -g spec-first
-
-# 验证安装
-spec-first doctor
 spec-first -v
 ```
 
-`spec-first -v` 会稳定输出欢迎页和版本信息。安装阶段的 `postinstall` 提示不作为对外承诺，是否显示取决于 npm 的生命周期输出策略。
+要求：
 
-<details>
-<summary><b>🔧 从源码安装</b></summary>
+- Node.js `>=20`
+- 已安装 Claude Code 或 Codex 中的至少一个
 
-```bash
-git clone https://github.com/sunrain520/spec-first.git
-cd spec-first
-npm pack
-npm install -g ./spec-first-<version>.tgz
-hash -r  # 刷新 shell 缓存
-```
-
-</details>
-
----
-
-## ⚡ Quick Start
+### 2. 检查当前环境
 
 ```bash
-# 1️⃣ 检查环境与平台状态
 spec-first doctor
-# 或显式检查某个平台
 spec-first doctor --claude
 spec-first doctor --codex
-spec-first -v
-
-# 2️⃣ 在目标项目初始化运行时
-spec-first init --claude
-# 或
-spec-first init --codex
-
-# 或者显式指定开发者信息
-spec-first init --claude -u <name> --lang <zh|en>
-spec-first init --codex -u <name> --lang <zh|en>
-
-# 3️⃣ 启动目标平台
-claude   # Claude Code
-# 或
-codex    # Codex
 ```
 
-如果你没有传 `-u/--user`，`spec-first init` 会优先回退到全局 `~/.spec-first/.developer`，再回退到 `git config user.name`。
-如果你没有传 `--lang`，`spec-first init` 会优先沿用当前项目中的 `.claude/spec-first/.developer` 或 `.codex/spec-first/.developer` 里的 `lang`，其次才回退到全局 `~/.spec-first/.developer`，最后默认 `zh`。
-初始化成功后，项目内会生成 `.claude/spec-first/.developer` 或 `.codex/spec-first/.developer`，记录开发者名称、语言偏好、初始化时间和 CLI 版本。
-
-现在你可以在项目里使用：
+### 3. 在目标项目中初始化
 
 ```bash
-# Claude Code
-/spec:ideate      # 💡 发散候选
-/spec:brainstorm   # 🧠 澄清需求
-/spec:plan         # 📋 生成计划
-/spec:work         # ⚡ 执行实现
-/spec:review       # 🔎 结构化评审
-/spec:compound     # 📚 知识沉淀
-
-# Codex
-$spec-ideate      # 💡 发散候选
-$spec-brainstorm   # 🧠 澄清需求
-$spec-plan         # 📋 生成计划
-$spec-work         # ⚡ 执行实现
-$spec-review       # 🔎 结构化评审
-$spec-compound     # 📚 知识沉淀
+spec-first init --claude
+# or
+spec-first init --codex
 ```
 
----
+如需显式指定开发者信息：
 
-## 🏃 Runtime Model
-
-<p align="center">
-  <img src="./docs/assets/svg/spec-first-runtime-assets.svg" alt="Runtime Assets">
-</p>
-
-**发布包 → 项目运行时**
-
-```
-spec-first/                        .claude/ or .codex/
-├── bin/           CLI 入口        ├── commands/spec/*.md       命令入口
-├── src/           CLI 源码        ├── skills/*                 流程层
-├── templates/     命令模板   ──►  ├── agents/*                 能力层
-├── skills/        41个技能        ├── spec-first/state.json    状态追踪
-├── agents/        47个代理        └── spec-first/.developer    开发者身份
-└── .claude-plugin/ 插件清单
+```bash
+spec-first init --claude -u <name> --lang <zh|en>
+spec-first init --codex -u <name> --lang <zh|en>
 ```
 
----
+身份解析规则：
 
-## 💻 CLI Reference
+- `-u/--user` 未提供时，优先读取全局 `~/.spec-first/.developer`
+- 若全局配置不存在，则回退到 `git config user.name`
+- `--lang` 未提供时，优先沿用当前项目已有 `.developer` 中的语言配置，再回退到全局配置，最后默认 `zh`
 
-| 命令 | 参数 | 描述 |
+### 4. 开始使用工作流
+
+Claude Code:
+
+```text
+/spec:bootstrap
+/spec:mcp-setup
+/spec:ideate
+/spec:brainstorm
+/spec:plan
+/spec:work
+/spec:review
+/spec:compound
+```
+
+Codex:
+
+```text
+$spec-bootstrap
+$spec-ideate
+$spec-brainstorm
+$spec-plan
+$spec-work
+$spec-review
+$spec-compound
+```
+
+## CLI 命令 | CLI Commands
+
+| 命令 | 用途 | 说明 |
 |------|------|------|
-| `spec-first doctor` | `--claude` or `--codex` | 检查环境和项目状态；无参数时自动检测当前项目中的已初始化平台 |
-| `spec-first init` | `--claude` or `--codex`, `-u`, `--lang`, `--force` | 同步命令、技能、代理与项目开发者元数据到项目 |
-| `spec-first clean` | `--claude` or `--codex` | 移除受管资产，保留自定义内容 |
+| `spec-first doctor` | 环境检查 | 检查本地环境、平台状态、插件清单与受管资产 |
+| `spec-first init` | 初始化运行时 | 向当前项目同步 commands、skills、agents 与开发者元数据 |
+| `spec-first clean` | 清理运行时 | 移除 Spec-First 管理的项目资产，保留非受管内容 |
 
----
+查看帮助：
 
-## 🎯 Use Cases
+```bash
+spec-first --help
+```
 
-<table>
-<tr>
-<td width="50%">
+## 适用场景 | Use Cases
 
-### 🎓 教 AI 理解项目
+- 希望让 AI 先理解项目，再开始生成实现
+- 希望把“需求 -> 计划 -> 实施 -> 评审 -> 沉淀”变成团队约定
+- 希望对 AI 输出增加结构化评审和多视角质量门禁
+- 希望把已解决问题沉淀为下一轮可复用知识
+- 希望在 Claude Code 和 Codex 之间复用一致的方法论
 
-通过 Brainstorm 阶段澄清需求、控制范围，让 AI 在明确的边界内工作。
+## 开源项目特性 | Open-Source Project Characteristics
 
-### 🔍 多角色代码审查
+这个仓库同时是：
 
-`/spec:review` 调用 47 个代理从不同维度审查：
-- 安全性（SQL 注入、XSS）
-- 性能（查询效率）
-- 可维护性（复杂度）
+- 一个可发布的 `npm` CLI 包
+- 一套可版本化的 workflow assets 源仓库
+- 一个围绕 AI 工程方法论持续演进的开源项目
 
-</td>
-<td width="50%">
+项目内的 `skills/`、`agents/`、`templates/` 和 `docs/` 是源资产；运行时复制到 `.claude/`、`.codex/` 或 `.agents/` 的内容属于生成结果，不是源码真相。
 
-### 📚 知识沉淀与复用
+## 文档导航 | Documentation
 
-`/spec:compound` 将已解决的问题提炼成可搜索的文档，自动发现相关经验。
+### 用户使用 | User Guides
 
-### ⚡ 并行开发
+- [用户手册](./docs/05-用户手册/README.md)
+- [快速开始](./docs/05-用户手册/01-快速开始.md)
+- [核心概念](./docs/05-用户手册/02-核心概念.md)
+- [完整示例](./docs/05-用户手册/03-完整示例.md)
+- [常见问题](./docs/05-用户手册/04-常见问题.md)
+- [最佳实践](./docs/05-用户手册/05-最佳实践.md)
+- [本地源码安装](./docs/05-用户手册/06-本地源码安装.md)
 
-配合 `git-worktree` skill，不同任务可以在独立 worktree 中并行推进。
+### 设计与实现 | Design and Implementation
 
-</td>
-</tr>
-</table>
+- [整体架构](./docs/02-架构设计/01-整体架构.md)
+- [目录结构](./docs/02-架构设计/02-目录结构.md)
+- [Agent Workflow Patterns](./docs/02-架构设计/03-agent-workflow-patterns.md)
+- [开发规范](./docs/03-实施方案/06-开发规范.md)
+- [测试方案](./docs/03-实施方案/04-测试方案.md)
+- [版本更新说明](./docs/08-版本更新/README.md)
 
----
-
-## ❓ FAQ
-
-<details>
-<summary><b>Spec-First 和直接用 Claude Code / Codex 有什么区别？</b></summary>
-<br/>
-
-Claude Code 和 Codex 都是强大的 AI 编程助手，但默认更偏向“一次性对话”模式。Spec-First 把工作流固化下来：**需求被记录、计划可追踪、评审有结论、经验可复用**。
-
-</details>
-
-<details>
-<summary><b>为什么要用五阶段而不是直接让 AI 写代码？</b></summary>
-<br/>
-
-大多数 AI 开发流的问题不在模型，而在工程边界不稳定：需求没有被明确记录、计划和实现容易脱节、评审没有结构化结论、好的经验无法沉淀。**五阶段解决的是这四件事**。
-
-</details>
-
-<details>
-<summary><b>支持哪些平台？</b></summary>
-<br/>
-
-当前版本已支持 **Claude Code** 和 **Codex**。更多平台支持（Cursor、OpenCode、Gemini CLI 等）仍在规划中。
-
-</details>
-
-<details>
-<summary><b>47 个代理都会在每次审查时运行吗？</b></summary>
-<br/>
-
-**不是**。有 6 个 Always-on 代理会始终运行，其他代理根据代码变更内容条件性触发（如涉及 API 才触发 `api-contract-reviewer`）。
-
-</details>
-
----
-
-## 📚 Documentation
-
-| 文档 | 描述 |
-|------|------|
-| [用户手册](./docs/05-用户手册/README.md) | 完整用户指南 |
-| [快速开始](./docs/05-用户手册/01-快速开始.md) | 5 分钟上手 |
-| [核心概念](./docs/05-用户手册/02-核心概念.md) | 理解工作流 |
-| [完整示例](./docs/05-用户手册/03-完整示例.md) | 端到端演示 |
-| [常见问题](./docs/05-用户手册/04-常见问题.md) | FAQ 汇总 |
-| [最佳实践](./docs/05-用户手册/05-最佳实践.md) | 经验总结 |
-
----
-
-## 📊 Stats
-
-<p align="center">
-  <a href="https://npmtrends.com/spec-first">
-    <img src="https://img.shields.io/npm/dw/spec-first?style=flat-square&label=weekly&color=2563eb" alt="npm weekly downloads">
-  </a>
-  <a href="https://npmtrends.com/spec-first">
-    <img src="https://img.shields.io/npm/dm/spec-first?style=flat-square&label=monthly&color=2563eb" alt="npm monthly downloads">
-  </a>
-  <a href="https://npmtrends.com/spec-first">
-    <img src="https://img.shields.io/npm/dy/spec-first?style=flat-square&label=yearly&color=2563eb" alt="npm yearly downloads">
-  </a>
-  <a href="https://npmtrends.com/spec-first">
-    <img src="https://img.shields.io/npm/dt/spec-first?style=flat-square&label=total&color=2563eb" alt="npm total downloads">
-  </a>
-  <a href="https://npmtrends.com/spec-first">
-    <img src="https://img.shields.io/badge/📈_Trends-npmtrends.com-2563eb?style=flat-square" alt="View npm trends">
-  </a>
-  <span>&nbsp;&nbsp;&nbsp;&nbsp;</span>
-  <a href="https://github.com/sunrain520/spec-first/stargazers">
-    <img src="https://img.shields.io/github/stars/sunrain520/spec-first?style=flat-square&color=eab308" alt="GitHub stars">
-  </a>
-  <a href="https://github.com/sunrain520/spec-first/network/members">
-    <img src="https://img.shields.io/github/forks/sunrain520/spec-first?style=flat-square&color=8b5cf6" alt="GitHub forks">
-  </a>
-  <a href="https://github.com/sunrain520/spec-first/graphs/contributors">
-    <img src="https://img.shields.io/github/contributors/sunrain520/spec-first?style=flat-square&color=22c55e" alt="GitHub contributors">
-  </a>
-  <a href="https://github.com/sunrain520/spec-first/issues">
-    <img src="https://img.shields.io/github/issues/sunrain520/spec-first?style=flat-square&color=e67e22" alt="GitHub issues">
-  </a>
-  <a href="https://star-history.com/#sunrain520/spec-first&Date">
-    <img src="https://img.shields.io/badge/📊_History-star--history.com-eab308?style=flat-square" alt="View star history">
-  </a>
-</p>
-
-### Star History
-
-<p align="center">
-  <a href="https://star-history.com/#sunrain520/spec-first&Date">
-    <img src="https://api.star-history.com/svg?repos=sunrain520/spec-first&type=Date" alt="Star History Chart">
-  </a>
-</p>
-
----
-
-## 🤝 Contributing
-
-欢迎提交 Issue 和 Pull Request！
+## 本地开发 | Local Development
 
 ```bash
 git clone https://github.com/sunrain520/spec-first.git
 cd spec-first
-npm install
 npm test
 ```
 
----
+常用验证命令：
 
-## 📄 License
+```bash
+npm run test:smoke
+npm run test:integration
+bash tests/unit/lang-policy.sh
+bash tests/unit/mcp-setup.sh
+npm pack
+```
 
-[MIT](./LICENSE) © [sunrain520](https://github.com/sunrain520)
+## 贡献 | Contributing
 
----
+欢迎提交 Issue 和 Pull Request。
 
-<div align="center">
+贡献前建议先阅读：
 
-**[⬆ 返回顶部](#-spec-first)**
+- [AGENTS.md](./AGENTS.md)
+- [用户手册](./docs/05-用户手册/README.md)
+- [版本更新说明](./docs/08-版本更新/README.md)
 
-Made with ❤️ by [sunrain520](https://github.com/sunrain520)
+## License
 
-</div>
-
-<!-- Badges -->
-[npm-version-src]: https://img.shields.io/npm/v/spec-first.svg?style=flat-square&color=2563eb
-[npm-version-href]: https://www.npmjs.com/package/spec-first
-[npm-downloads-src]: https://img.shields.io/npm/dw/spec-first.svg?style=flat-square&color=cb3837&label=downloads
-[npm-downloads-href]: https://npmtrends.com/spec-first
-[license-src]: https://img.shields.io/badge/license-MIT-16a34a.svg?style=flat-square
-[license-href]: https://github.com/sunrain520/spec-first/blob/master/LICENSE
-[stars-src]: https://img.shields.io/github/stars/sunrain520/spec-first.svg?style=flat-square&color=eab308
-[stars-href]: https://github.com/sunrain520/spec-first/stargazers
-[docs-src]: https://img.shields.io/badge/docs-github%20docs-0f766e.svg?style=flat-square
-[docs-href]: https://github.com/sunrain520/spec-first/blob/master/docs/05-用户手册/README.md
-[issues-src]: https://img.shields.io/github/issues/sunrain520/spec-first.svg?style=flat-square&color=e67e22
-[issues-href]: https://github.com/sunrain520/spec-first/issues
-[prs-src]: https://img.shields.io/github/issues-pr/sunrain520/spec-first.svg?style=flat-square&color=9b59b6
-[prs-href]: https://github.com/sunrain520/spec-first/pulls
-[deepwiki-src]: https://img.shields.io/badge/Ask-DeepWiki-blue?style=flat-square
-[deepwiki-href]: https://deepwiki.com/sunrain520/spec-first
-[chatgpt-src]: https://img.shields.io/badge/Ask-ChatGPT-74aa9c?style=flat-square&logo=openai&logoColor=white
-[chatgpt-href]: https://chatgpt.com/?q=Explain+the+project+sunrain520/spec-first+on+GitHub
-
-<!-- Stats -->
-[npm-weekly-src]: https://img.shields.io/npm/dw/spec-first?style=flat-square&label=weekly&color=2563eb
-[npm-monthly-src]: https://img.shields.io/npm/dm/spec-first?style=flat-square&label=monthly&color=2563eb
-[npm-yearly-src]: https://img.shields.io/npm/dy/spec-first?style=flat-square&label=yearly&color=2563eb
-[npm-total-src]: https://img.shields.io/npm/dt/spec-first?style=flat-square&label=total&color=2563eb
-[npm-trends-href]: https://npmtrends.com/spec-first
-
-[forks-src]: https://img.shields.io/github/forks/sunrain520/spec-first?style=flat-square&color=8b5cf6
-[forks-href]: https://github.com/sunrain520/spec-first/fork
-[contributors-src]: https://img.shields.io/github/contributors/sunrain520/spec-first?style=flat-square&color=22c55e
-[contributors-href]: https://github.com/sunrain520/spec-first/graphs/contributors
-
-[star-history-href]: https://star-history.com/#sunrain520/spec-first&Date
+[MIT](https://github.com/sunrain520/spec-first/blob/main/LICENSE) © [sunrain520](https://github.com/sunrain520)
