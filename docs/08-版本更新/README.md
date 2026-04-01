@@ -6,9 +6,71 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-01 | feat | `version-reminder` | CLI 执行真实命令前自动检查 npm 最新版本，有更新时输出提醒，降低用户使用旧版本的概率 |
+| 2026-04-01 | feat | `lang-governance` | `spec-first init` 将语言和 Changelog 治理规则写入 CLAUDE.md/AGENTS.md，并修复 lang 优先级（项目 > 全局 > 默认） |
 | 2026-04-01 | feat | `mcp-setup` | 把 MCP 工具安装、检测、配置合并为一条一键化路径，降低 Full mode 落地门槛 |
 | 2026-03-31 | fix | `spec-bootstrap` | 基于 review 结论补强原子备份、失败恢复、MCP 连接校验等关键可靠性能力 |
 | 2026-03-31 | feat | `spec-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
+
+---
+
+## 2026-04-01 `feat(version-reminder)`
+
+### 更新内容
+
+在执行 `doctor`、`init`、`clean` 等真实命令前，CLI 会异步向 npm registry 查询 `spec-first` 的最新版本，若当前版本落后则通过 stderr 输出一行更新提醒。`--help` 和 `--version` 不触发检查，避免打扰只需信息查询的场景。
+
+### 主要能力
+
+- 版本比较实现零依赖：
+  内置 `compareVersions` / `parseVersion`，完整支持 semver 核心版本号与预发布标识（`-beta.1` 等），无需引入 semver 包
+- 查询有超时保护：
+  默认 350 ms 超时，超时或网络失败时静默跳过，不阻塞命令执行
+- 支持测试环境 override：
+  通过 `SPEC_FIRST_VERSION_REMINDER_LATEST` 环境变量注入版本，测试无需真实网络请求
+- 提醒输出到 stderr：
+  不干扰命令的 stdout 输出，脚本管道场景不受影响
+
+### 交付物
+
+- `src/cli/version-reminder.js` — 版本查询、比较、格式化与提醒核心逻辑
+- `src/cli/index.js` — 集成点，真实命令前 await 提醒检查
+- `tests/unit/version-reminder.sh` — 覆盖版本比较、格式化、CLI 接线、静默超时等场景
+
+### 版本意义
+
+已安装 CLI 的用户在日常使用中会自然得到更新提示，无需手动查询版本差异。对于频繁迭代的工具型项目，这类低成本的自我更新通知能有效减少用户长期停留在旧版本的情况。
+
+---
+
+## 2026-04-01 `feat(lang-governance)`
+
+### 更新内容
+
+`spec-first init` 新增两项写入能力：将语言偏好与 Changelog 治理规则以受管理块的形式写入项目的 `CLAUDE.md`（Claude 平台）或 `AGENTS.md`（Codex 平台），并修复了 lang 优先级顺序。
+
+### 主要能力
+
+- 幂等写入语言治理块：
+  通过 `<!-- spec-first:lang:start -->` / `<!-- spec-first:lang:end -->` 标记管理，支持多次 `init` 时安全覆盖，不影响用户自行添加的其他内容
+- 写入 Changelog 铁律：
+  在受管理块中注入"任何源码变更必须同步在 `CHANGELOG.md` 中记录，否则拒绝生成"的 prompt 层约束
+- 修正 lang 优先级：
+  `--lang` CLI 参数 > 当前项目 `.developer` 的 lang > 全局 `~/.spec-first/.developer` 的 lang > 默认 `zh`；重复 `init` 时项目已有语言设置不会被全局配置意外覆盖
+- 自动引导 CHANGELOG：
+  若项目根目录缺少 `CHANGELOG.md`，`init` 会创建格式头和初始 bootstrap 条目；已存在时不触碰
+
+### 交付物
+
+- `src/cli/lang-policy.js` — 受管理块写入与幂等更新逻辑
+- `src/cli/developer.js` — lang 优先级修复 + 设计意图注释
+- `src/cli/commands/init.js` — 集成 `writeLangPolicy` 与 `bootstrapChangelog`
+- `tests/unit/lang-policy.sh` — 语言治理块写入、幂等性、多语言切换等场景
+- `tests/unit/developer.sh` — lang fallback 4 个优先级场景
+
+### 版本意义
+
+语言治理落地后，项目的 AI 工具不再需要依赖用户记忆或手动配置来保持语言一致性。规则由 `spec-first init` 写入指令文件，每次会话自动生效。Changelog 铁律的引入则让代码变更历史的维护从"最佳实践"升格为"可执行的 AI 层约束"。
 
 ---
 
@@ -109,6 +171,8 @@
 
 - 先用 `spec-bootstrap` 补齐项目上下文基础设施
 - 再用 review 驱动的修复把这套基础设施做稳
-- 最后用 `mcp-setup` 把所需工具链安装配置标准化
+- 用 `mcp-setup` 把所需工具链安装配置标准化
+- 用 `lang-governance` 让语言和变更治理规则通过指令文件自动生效
+- 用 `version-reminder` 让已安装用户在日常使用中自然得到版本更新提示
 
-整体上，这一轮更新不是零散加功能，而是在继续把 `spec-first` 从“技能集合”推进成“可落地、可复用、可持续演进的工程工作流系统”。
+整体上，这一轮更新不是零散加功能，而是在继续把 `spec-first` 从”技能集合”推进成”可落地、可复用、可持续演进的工程工作流系统”。
