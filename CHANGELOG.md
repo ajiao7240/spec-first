@@ -8,6 +8,9 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.4.0 2026-04-01 17:45:00 kuang: README 结构重排——新增「实际效果」演示区块（含真实 terminal 输出）、先决条件独立章节，调整章节顺序为价值优先 (user-visible)
+- v1.4.0 2026-04-01 17:30:00 kuang: 新增 README 优化需求文档（brainstorm 产出）
+- v1.4.0 2026-04-01 17:10:00 kuang: 优化 README：去重导航栏、补全英文"为什么需要它"内容、整合工作流表格补充命令、细化 doctor 命令说明、补充贡献指南、引入 workflow-end-to-end.svg (user-visible)
 - v1.4.0 2026-04-01 16:36:30 kuang: 收紧 CHANGELOG 规则为必须记录时分秒，并同步更新 init 模板 (user-visible)
 - v1.4.0 2026-04-01 16:35:05 kuang: 为 CHANGELOG 记录补充详细时间戳，并让 init 初始化默认写入时分秒 (user-visible)
 - v1.4.0 2026-04-01 16:28:00 kuang: 新增 master 推送后自动快进同步 main 的 GitHub Actions 工作流 (user-visible)
