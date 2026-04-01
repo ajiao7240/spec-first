@@ -9,19 +9,29 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 echo "=== CLI smoke test ==="
 
 expected_version="$(node -p "require('$REPO_ROOT/package.json').version")"
+outdated_version="9.9.9"
+export SPEC_FIRST_VERSION_REMINDER_LATEST="$expected_version"
 
 echo "1. Check help and version output..."
-help_output="$(node "$REPO_ROOT/bin/spec-first.js" --help)"
-version_output="$(node "$REPO_ROOT/bin/spec-first.js" --version)"
+help_stderr="$TMP_DIR/help.err"
+version_stderr="$TMP_DIR/version.err"
+help_output="$(node "$REPO_ROOT/bin/spec-first.js" --help 2>"$help_stderr")"
+version_output="$(node "$REPO_ROOT/bin/spec-first.js" --version 2>"$version_stderr")"
 grep -q "doctor" <<<"$help_output"
 grep -q "init (--claude|--codex)" <<<"$help_output"
 grep -q "clean (--claude|--codex)" <<<"$help_output"
 grep -q "Spec-First v${expected_version}" <<<"$version_output"
 grep -q "Claude Code & Codex" <<<"$version_output"
+test ! -s "$help_stderr"
+test ! -s "$version_stderr"
 echo "✓ help/version output is present"
 
 echo "1b. Check doctor output in a fresh project is concise..."
-doctor_fresh_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor)"
+doctor_fresh_stderr="$TMP_DIR/doctor-fresh.err"
+doctor_fresh_output="$(
+  cd "$TMP_DIR"
+  SPEC_FIRST_VERSION_REMINDER_LATEST="$outdated_version" node "$REPO_ROOT/bin/spec-first.js" doctor 2>"$doctor_fresh_stderr"
+)"
 grep -q "No spec-first platform detected in this project." <<<"$doctor_fresh_output"
 grep -q 'spec-first init --claude' <<<"$doctor_fresh_output"
 grep -q 'spec-first init --codex' <<<"$doctor_fresh_output"
@@ -29,17 +39,22 @@ if grep -q "agent-browser" <<<"$doctor_fresh_output"; then
   echo "✗ doctor output is too noisy for missing skills"
   exit 1
 fi
+grep -q "Update available for spec-first" "$doctor_fresh_stderr"
+grep -q "npm install -g spec-first@latest" "$doctor_fresh_stderr"
 echo "✓ doctor reports missing skills concisely"
 
 echo "2. Initialize Claude commands in a fresh project..."
+init_stderr="$TMP_DIR/init.err"
 init_output="$(
   cd "$TMP_DIR"
-  node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en
+  SPEC_FIRST_VERSION_REMINDER_LATEST="$outdated_version" node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en 2>"$init_stderr"
 )"
 grep -q "Generated 8 command file(s)" <<<"$init_output"
 grep -q "Generated 43 skill directory(ies)" <<<"$init_output"
 grep -q "Generated 47 agent file(s)" <<<"$init_output"
 grep -q "Wrote project developer profile" <<<"$init_output"
+grep -q "Update available for spec-first" "$init_stderr"
+grep -q "npm install -g spec-first@latest" "$init_stderr"
 if grep -qE '^- |  - ' <<<"$init_output"; then
   echo "✗ init output should not enumerate per-file details"
   exit 1
@@ -320,11 +335,12 @@ test ! -e "$TMP_DIR/.agents/plugins/plugins/spec/README.md"
 test ! -e "$TMP_DIR/plugins/spec-first"
 (
   cd "$TMP_DIR"
-  node "$REPO_ROOT/bin/spec-first.js" clean --codex
+  SPEC_FIRST_VERSION_REMINDER_LATEST="$outdated_version" node "$REPO_ROOT/bin/spec-first.js" clean --codex 2>"$TMP_DIR/codex-clean.err"
 )
 test ! -e "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 test ! -e "$TMP_DIR/.codex/agents/review/correctness-reviewer.md"
 test ! -e "$TMP_DIR/.codex/spec-first/.developer"
+grep -q "Update available for spec-first" "$TMP_DIR/codex-clean.err"
 echo "✓ codex init/doctor/clean work"
 
 echo "3b. Verify clean removes managed assets and preserves custom assets..."

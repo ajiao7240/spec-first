@@ -59,6 +59,8 @@ function resolveDeveloperIdentity(projectRoot, options = {}, adapter = null) {
   const globalDeveloper = readDeveloperFile(getGlobalDeveloperPath());
   const gitUserName = readGitUserName(projectRoot);
 
+  // 注意：name 不从项目 .developer 读取——name 是全局身份标识，lang 是项目级偏好。
+  // 项目 .developer.lang 优先于全局，但 name 始终来自 global profile 或 git config。
   const name = explicitName || (globalDeveloper && globalDeveloper.name) || gitUserName;
   const lang =
     explicitLang ||
