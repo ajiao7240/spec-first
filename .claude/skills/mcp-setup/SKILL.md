@@ -20,12 +20,12 @@ This skill automates the installation and configuration of MCP tools required by
 |------|----------|---------|
 | Serena | Required | Symbol-level precision editing (spec-bootstrap Enhanced/Full mode) |
 | GitNexus | Required | Code knowledge graph / architecture engine (spec-bootstrap Full mode) |
-| ABCoder | Required | Cross-language semantic enhancement (binary only, AST configured at spec-bootstrap) |
+| ABCoder | Required | Cross-language semantic enhancement (binary + MCP config installed here; AST generated at spec-bootstrap) |
 | Sequential Thinking | Required | Dynamic reflective problem solving (universal dependency) |
 | Context7 | Required | Latest framework documentation query (universal dependency) |
 | Playwright MCP | Optional | Frontend automation testing |
 
-**Actual flow:** `/spec:mcp-setup` (install + configure) → restart Claude Code → `/spec:bootstrap` (ABCoder auto-config, if needed) → done.
+**Actual flow:** `/spec:mcp-setup` (install + configure all tools including ABCoder MCP) → restart Claude Code → `/spec:bootstrap` (project analysis + ABCoder AST generation) → done.
 
 ## Configuration
 
@@ -164,6 +164,40 @@ If argument is `quick`, skip optional tool prompts entirely.
 
 ---
 
+## Phase 4: Host Verification
+
+Run after Phase 3 to record host-level install state and configure ABCoder MCP server.
+
+### 4.1 Write Host Readiness Marker
+
+Run `skills/mcp-setup/scripts/verify-tools.sh` to validate host-level install state
+and write `~/.claude/spec-first/host-setup.json`.
+
+If `verify-tools.sh` exits non-zero (e.g., cannot write marker file):
+- Report the failure with the script's error output
+- Do not claim setup is complete
+
+### 4.2 Configure ABCoder MCP Server
+
+ABCoder is installed as a binary only (no MCP config written by install-coordinator.sh).
+After verifying the binary exists, write its MCP server config to `~/.claude.json`.
+
+If `abcoder` binary is installed (`abcoder version` succeeds) and `mcpServers.abcoder`
+is not yet configured in `~/.claude.json`:
+
+```bash
+ABCODER_AST="${HOME}/.claude/abcoder-ast"
+mkdir -p "$ABCODER_AST"
+tmp=$(mktemp "${HOME}/.claude/.claude.json.XXXXXX")
+jq --arg dir "$ABCODER_AST" \
+  '.mcpServers.abcoder = {"command":"abcoder","args":["mcp",$dir]}' \
+  "${HOME}/.claude.json" > "$tmp" && chmod 600 "$tmp" && mv "$tmp" "${HOME}/.claude.json"
+```
+
+Skip if already configured (idempotent). Skip silently if `abcoder` binary is absent.
+
+---
+
 ## Verification
 
 After all installations:
@@ -178,7 +212,15 @@ Installed: Serena, GitNexus, ABCoder, Sequential Thinking, Context7
 Skipped (already present): [list]
 Optional: Playwright MCP [installed / not installed]
 
-⚠️  Please restart Claude Code for changes to take effect.
+Host readiness:
+- dependencies: ready
+- mcp config: ready
+- tool binaries: ready
+- host marker: written (~/.claude/spec-first/host-setup.json)
+
+Next steps:
+1. Restart Claude Code (required to load new MCP configuration)
+2. Run /spec:bootstrap
 ```
 
 ---
@@ -210,3 +252,4 @@ Optional: Playwright MCP [installed / not installed]
 - Tools not in mcp-tools.json
 - Windows support (Phase 2)
 - Custom install mode with individual tool selection (Phase 2)
+- Runtime MCP server availability verification (handled by spec-bootstrap at project-level probe)

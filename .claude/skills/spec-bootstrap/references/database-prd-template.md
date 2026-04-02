@@ -163,6 +163,44 @@ Exclude tables matching **any** of the following heuristics:
 
 **Transparent reporting:** List all excluded tables in the output document with the reason for exclusion.
 
+#### Reference SQL — optional
+
+> 以下 SQL 仅作参考，不替代上面的启发式描述。不同 MySQL 版本对 `information_schema` 元数据的可用性不同，尤其是 `update_time` 在某些引擎或旧版本中可能为 `NULL`。
+
+```sql
+-- Suffix / prefix filters
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = DATABASE()
+  AND (
+    table_name REGEXP '(_bak|_backup|_old|_copy|_tmp|_temp|_deprecated|_archive)$'
+    OR table_name REGEXP '^(bak_|backup_|tmp_|temp_)'
+  );
+
+-- Date-pattern filters in table names
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = DATABASE()
+  AND (
+    table_name REGEXP '_20[0-9]{6}$'
+    OR table_name REGEXP '_[0-9]{4}_[0-9]{2}$'
+    OR table_name REGEXP '_[0-9]{6}$'
+  );
+
+-- Stale heuristic: updated long ago and not referenced by foreign keys
+SELECT t.table_name
+FROM information_schema.tables t
+LEFT JOIN information_schema.key_column_usage kcu
+  ON kcu.referenced_table_schema = t.table_schema
+ AND kcu.referenced_table_name = t.table_name
+WHERE t.table_schema = DATABASE()
+  AND t.update_time IS NOT NULL
+  AND t.update_time < NOW() - INTERVAL 180 DAY
+  AND kcu.referenced_table_name IS NULL;
+```
+
+> MySQL 8.0+ typically exposes `update_time` more reliably for InnoDB tables. On MySQL 5.7, or when metadata is unavailable, treat the stale heuristic as advisory and fall back to FK-based exclusion only.
+
 #### 2.3 Schema Analysis for Remaining Tables
 
 For each non-excluded table:
