@@ -8,6 +8,8 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.4.0 2026-04-02 15:30:00 kuang: 修复实现计划 P0+P1 问题（共 10 项）：AF-002 补写 ABCoder MCP config 职责归 Unit 2、CSC-002 模式选择加 abcoder.ready 分支、AF-001 新增 setup_success 字段、CSC-003 移除不可实现超时描述、CSC-004 补 context7 测试 9.12、AF-003 加诊断兜底提示、PSM-001/002/003/004 文件记录与锚点修复
+- v1.4.0 2026-04-02 14:00:00 kuang: 新增 spec-bootstrap MCP-first 改造实现计划（docs/plans/2026-04-02-001-feat-spec-bootstrap-mcp-first-plan.md），5 个实现单元：verify-tools.sh、mcp-setup SKILL.md、spec-bootstrap 前置门、probe 重写、测试
 - v1.4.0 2026-04-02 12:00:00 kuang: 修复 spec-review 发现的 P0/P1/P2 问题：Section 4.1 阻断语义修正（P0）、MCP ping 超时 10s、ABCoder 60s 外层计时器、host-setup.json write failure 处理、context7 补入 JSON schema、GitNexus reason codes 细化、Serena 路径验证、ABCoder repo identity 校验、Basic 模式行为定义、all-settled 并行语义明确、Java JDT 网络检查补充
 - v1.4.0 2026-04-02 11:00:00 kuang: 新增 spec-bootstrap MCP-first 改造需求文档和设计方案文档
 - v1.4.0 2026-04-01 23:45:39 kuang: 为 spec-bootstrap SKILL.md 补充 MCP 工具安装和使用指引（MCP Tools Setup + GitNexus/ABCoder/Serena 工具表格） (user-visible)
