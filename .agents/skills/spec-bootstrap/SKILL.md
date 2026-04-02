@@ -31,11 +31,92 @@ Before running bootstrap:
 3. (Optional) MySQL CLI (`mysql`) or MCP MySQL server available for database ER generation
 4. (Optional) Serena MCP (`mcp__serena__*`) for enhanced code analysis
 
+### MCP Tools Setup
+
+To enable Full or Enhanced analysis mode, install required MCP tools:
+
+```bash
+/spec:mcp-setup quick
+```
+
+This installs:
+- **GitNexus** + **ABCoder** (for Full mode)
+- **Serena** (for Enhanced mode)
+- Sequential Thinking, Context7 (universal dependencies)
+
+⚠️ **Restart Claude Code** after installation for changes to take effect.
+
+**Additional setup for Full mode:**
+
+GitNexus requires indexing the target project:
+```bash
+npx gitnexus analyze
+```
+
+ABCoder auto-configures during `/spec:bootstrap` execution (no manual setup needed).
+
+Verify installation:
+```bash
+claude mcp list | grep -E "gitnexus|abcoder|serena"
+```
+
 **Recommended `.gitignore` entry** (add to target project):
 ```
 .context/spec-first/
 ```
 The `.context/` control plane contains PRD task contracts and temporary bootstrap state — it should not be committed to version control.
+
+### Tool Usage Guide
+
+#### GitNexus (Full Mode)
+
+Architecture-level analysis: clusters, flows, impact.
+
+| Tool | Purpose | Example |
+|------|---------|---------|
+| `gitnexus_query` | Find execution flows | `gitnexus_query({query: "authentication flow"})` |
+| `gitnexus_context` | 360° symbol view | `gitnexus_context({name: "AuthService"})` |
+| `gitnexus_cypher` | Graph queries | `gitnexus_cypher({query: "MATCH (n:Class) RETURN n.name LIMIT 20"})` |
+
+**Useful Cypher patterns**:
+```cypher
+-- Find classes in directory
+MATCH (n:Class) WHERE n.file CONTAINS 'src/core' RETURN n.name, n.file
+
+-- Find callers of a function
+MATCH (a:Function)-[:CALLS]->(b:Function {name: 'fetchData'}) RETURN a.name, a.file
+
+-- Cross-package dependencies
+MATCH (a)-[r]->(b) WHERE a.file CONTAINS 'pkg-a' AND b.file CONTAINS 'pkg-b'
+RETURN a.name, type(r), b.name LIMIT 20
+```
+
+**Workflow**: GitNexus first (identify flows) → ABCoder second (get signatures) → Read source (full context)
+
+#### ABCoder (Full Mode)
+
+Symbol-level analysis: AST nodes, signatures, dependencies.
+
+| Tool | Layer | Purpose | Example |
+|------|-------|---------|---------|
+| `list_repos` | 1 | List parsed repos | `list_repos()` |
+| `get_repo_structure` | 2 | File/package listing | `get_repo_structure({repo_name: "my-project"})` |
+| `get_file_structure` | 3 | Nodes in file | `get_file_structure({repo_name: "my-project", file_path: "src/auth.ts"})` |
+| `get_ast_node` | 4 | Full code + deps | `get_ast_node({repo_name: "my-project", node_ids: [...]})` |
+
+**4-Layer Drill-Down**: list_repos → get_repo_structure → get_file_structure → get_ast_node
+
+#### Serena (Enhanced Mode)
+
+Semantic code analysis: symbol lookup, structure overview, pattern search.
+
+| Tool | Purpose | Example |
+|------|---------|---------|
+| `mcp__serena__get_symbols_overview` | File structure | `mcp__serena__get_symbols_overview({relative_path: "src/auth.ts"})` |
+| `mcp__serena__find_symbol` | Locate symbol | `mcp__serena__find_symbol({name_path_pattern: "AuthService", relative_path: "src/"})` |
+| `mcp__serena__search_for_pattern` | Pattern search | `mcp__serena__search_for_pattern({substring_pattern: "export class.*Service"})` |
+
+**Workflow**: get_symbols_overview (structure) → find_symbol (locate) → Read source (details)
 
 ---
 
@@ -270,6 +351,22 @@ Use `references/prd-template.md` as the base template for all non-database tasks
 - `Acceptance Criteria` — concrete checks (no placeholder text, structured sections present)
 - `Technical Notes` — project-specific patterns, framework quirks, naming conventions
 
+### 2.5 PRD Quality Gate
+
+Before Phase 3 starts, run a lightweight quality gate on every PRD:
+
+- `Goal` is specific and clearly tied to the current task, not generic bootstrap prose
+- `Context` includes concrete evidence from Phase 1, such as real paths, class names, function names, or config keys
+- `Files to Fill` lists exact file paths, not abstract categories or folder names
+- `Technical Notes` includes at least one project-specific constraint or pattern
+
+If any check fails:
+
+1. Enrich the PRD `Context` with more Phase 1 evidence
+2. Re-run the quality gate
+3. Do not introduce human approval as a blocking step
+4. Proceed to Phase 3 only after the PRD is sufficiently specific
+
 ---
 
 ## Phase 3: Execute Worker Subagents
@@ -290,15 +387,22 @@ Each worker exclusively owns its assigned files. No worker may write outside its
 | `database-context` *(conditional: backend + MySQL `[已验证 ✓]` only)* | `docs/contexts/<slug>/database/database-er.md` (or database-index.md + database-{name}.md) |
 | **Orchestrator only** | `docs/contexts/<slug>/README.md` |
 
-### 3.2 Worker Dispatch
+### 3.2 Worker Dispatch Contract
 
-For each task, launch a worker subagent with:
-- Full path to its PRD: `.context/spec-first/bootstrap/<slug>/tasks/<task-id>/prd.md`
-- Instruction: "Read the PRD at the given path. Analyze the target project using available tools. Write only the files listed in 'Files to Fill'. Do not modify source code. Do not run git commands. Complete within 20 minutes — prioritize coverage over depth if time is short."
+For each task, launch a worker subagent with this minimum contract:
 
-Workers for tasks with no shared files can run in parallel.
+```text
+task_id: <task-id>
+prd_path: .context/spec-first/bootstrap/<slug>/tasks/<task-id>/prd.md
+ownership_boundary: only the files listed in Files to Fill
+execution_guardrails: do not modify source code; do not run git commands
+completion_report: produced files + any missing evidence or blocked assumptions
+```
 
-**Recommended timeout:** 20 minutes per worker. If a worker exceeds this, treat as failure and apply the partial failure policy.
+Dispatch rules:
+- Workers with no shared files may run in parallel
+- If a worker runs longer than 20 minutes, treat it as failed and apply the partial failure policy
+- Do not expand the contract with host-specific API calls; keep the handoff platform agnostic
 
 ### 3.3 Database Worker Instructions (R21-R23)
 

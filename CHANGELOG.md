@@ -8,6 +8,8 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.4.0 2026-04-02 12:00:00 kuang: 修复 spec-review 发现的 P0/P1/P2 问题：Section 4.1 阻断语义修正（P0）、MCP ping 超时 10s、ABCoder 60s 外层计时器、host-setup.json write failure 处理、context7 补入 JSON schema、GitNexus reason codes 细化、Serena 路径验证、ABCoder repo identity 校验、Basic 模式行为定义、all-settled 并行语义明确、Java JDT 网络检查补充
+- v1.4.0 2026-04-02 11:00:00 kuang: 新增 spec-bootstrap MCP-first 改造需求文档和设计方案文档
 - v1.4.0 2026-04-01 23:45:39 kuang: 为 spec-bootstrap SKILL.md 补充 MCP 工具安装和使用指引（MCP Tools Setup + GitNexus/ABCoder/Serena 工具表格） (user-visible)
 - v1.4.0 2026-04-01 18:00:00 kuang: 新增 spec-bootstrap 产物文档全览（知识库梳理文档）
 - v1.4.0 2026-04-01 17:45:00 kuang: README 结构重排——新增「实际效果」演示区块（含真实 terminal 输出）、先决条件独立章节，调整章节顺序为价值优先 (user-visible)
