@@ -132,14 +132,14 @@ Spec-First addresses the full delivery loop, not just a single response:
 
 | 阶段 Stage | Claude Code | Codex | 目标 Goal | 主要产物 Artifact |
 |------------|-------------|-------|-----------|--------------------|
-| Stage-0 | `/spec:bootstrap` | `$spec-bootstrap` | 为目标项目建立长期上下文 | `docs/contexts/<slug>/` |
+| **宿主准备 Host Setup** | `/spec:mcp-setup` → 重启 Claude Code | — | 一键安装和配置 MCP 工具链；写入宿主就绪标记 | `~/.claude/spec-first/host-setup.json` |
+| Stage-0 | `/spec:bootstrap` | `$spec-bootstrap` | 为目标项目建立长期上下文（需先完成宿主准备） | `docs/contexts/<slug>/` |
 | Ideate | `/spec:ideate` | `$spec-ideate` | 发散候选、排序方向 | `docs/ideation/*.md` |
 | Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | 澄清需求、收敛范围、明确验收 | `docs/brainstorms/*.md` |
 | Plan | `/spec:plan` | `$spec-plan` | 制定实施方案、拆解任务、识别风险 | `docs/plans/*.md` |
 | Work | `/spec:work` | `$spec-work` | 按计划实现并补齐测试/文档 | code + tests |
 | Review | `/spec:review` | `$spec-review` | 结构化审查与质量判定 | review report |
 | Compound | `/spec:compound` | `$spec-compound` | 提炼经验并沉淀为知识资产 | `docs/solutions/**/*.md` |
-| MCP Setup | `/spec:mcp-setup` | — | 一键安装和配置 MCP 工具链 | MCP server config |
 
 <p align="center">
   <img src="./docs/assets/svg/workflow-end-to-end.svg" alt="Spec-First end-to-end workflow">
@@ -213,11 +213,20 @@ spec-first init --codex -u <name> --lang <zh|en>
 
 ### 4. 开始使用工作流 | Start Workflow
 
-Claude Code:
+Claude Code（首次使用请按以下顺序执行）：
+
+Claude Code (first-time users follow this order):
 
 ```text
-/spec:bootstrap
+# 第一步：安装 MCP 工具 | Step 1: Install MCP tools
 /spec:mcp-setup
+
+# 第二步：重启 Claude Code | Step 2: Restart Claude Code
+
+# 第三步：生成项目上下文 | Step 3: Generate project context
+/spec:bootstrap
+
+# 之后按需使用工作流 | Then use workflow as needed
 /spec:ideate
 /spec:brainstorm
 /spec:plan
@@ -225,6 +234,10 @@ Claude Code:
 /spec:review
 /spec:compound
 ```
+
+> ⚠️ `/spec:bootstrap` 在启动时会检查宿主就绪状态（Host Readiness Gate）。如果跳过 `/spec:mcp-setup` 或未重启 Claude Code，bootstrap 会给出明确引导并停止，不会静默降级。
+>
+> ⚠️ `/spec:bootstrap` performs a Host Readiness Gate check on startup. If `/spec:mcp-setup` was not run or Claude Code was not restarted, bootstrap will stop with clear guidance instead of silently degrading.
 
 Codex:
 
