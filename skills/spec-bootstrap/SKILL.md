@@ -269,6 +269,13 @@ Step 2 (if list_repos empty): Language preflight for Java projects
   - Any failure → `abcoder.ready=false`, record reason (e.g., `java-runtime-missing`, `jdt-cache-not-writable`, `jdt-network-unreachable`)
 
 Step 3: Trigger parse, wait ≤ 60s (outer timer — record start time, check elapsed on each poll)
+
+  3a. **Detect primary language** (scan file extensions):
+  - `.go` → `go`, `.py` → `python`, `.ts/.tsx/.js/.jsx` → `typescript`/`javascript`, `.java` → `java`
+  - Pick the language with the most source files
+  - If language not supported by ABCoder (e.g., Ruby, Rust, C++) → `abcoder.ready=false`, `reason=language-not-supported`
+
+  3b. Run: `abcoder parse <language> <project-root>` (no `-o` flag — ABCoder MCP server reads from its internal store)
   - Timeout → `abcoder.ready=false`, `reason=parse-timeout`; note: Java JDT cold-start may exceed 60s, inform user to retry
   - Parse failure → `abcoder.ready=false`, `reason=parse-failed`
 
