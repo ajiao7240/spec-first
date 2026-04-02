@@ -422,6 +422,120 @@ done
 echo ""
 
 # ============================================================================
+echo "9. verify-tools.sh tests"
+# ============================================================================
+
+VERIFY_SCRIPT="$SCRIPTS_DIR/verify-tools.sh"
+
+echo "9.1 abcoder binary detected when present"
+FH91="$TMP_DIR/fh91"
+mkdir -p "$FH91"
+echo '{"mcpServers":{}}' > "$FH91/.claude.json"
+out91=$(HOME="$FH91" bash "$VERIFY_SCRIPT" 2>/dev/null && jq -r '.tools.abcoder.installed' "$FH91/.claude/spec-first/host-setup.json")
+assert_output "9.1 abcoder.installed=true when in PATH" "true" "$out91"
+
+echo "9.2 abcoder binary not detected when absent (PATH override)"
+FH92="$TMP_DIR/fh92"
+FAKEBIN92="$TMP_DIR/fakebin92"
+mkdir -p "$FH92" "$FAKEBIN92"
+echo '{"mcpServers":{}}' > "$FH92/.claude.json"
+# Build a minimal PATH with required tools but WITHOUT abcoder
+for cmd in bash jq date mkdir mktemp chmod mv; do
+  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN92/$cmd"; fi
+done
+# Do NOT link abcoder — it should appear absent in this PATH
+out92=$(HOME="$FH92" PATH="$FAKEBIN92" bash "$VERIFY_SCRIPT" 2>/dev/null \
+  && jq -r '.tools.abcoder.installed' "$FH92/.claude/spec-first/host-setup.json")
+assert_output "9.2 abcoder.installed=false when not in PATH" "false" "$out92"
+
+echo "9.3 serena configured=true when mcpServers.serena exists in ~/.claude.json"
+FH93="$TMP_DIR/fh93"
+mkdir -p "$FH93"
+echo '{"mcpServers":{"serena":{"command":"uvx"}}}' > "$FH93/.claude.json"
+HOME="$FH93" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out93=$(jq -r '.tools.serena.configured' "$FH93/.claude/spec-first/host-setup.json")
+assert_output "9.3 serena.configured=true" "true" "$out93"
+
+echo "9.4 serena configured=false when ~/.claude.json absent"
+FH94="$TMP_DIR/fh94"
+mkdir -p "$FH94"
+HOME="$FH94" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out94=$(jq -r '.tools.serena.configured' "$FH94/.claude/spec-first/host-setup.json")
+assert_output "9.4 serena.configured=false when no claude.json" "false" "$out94"
+
+echo "9.5 serena configured=false when mcpServers key exists but serena missing"
+FH95="$TMP_DIR/fh95"
+mkdir -p "$FH95"
+echo '{"mcpServers":{"gitnexus":{"command":"npx"}}}' > "$FH95/.claude.json"
+HOME="$FH95" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out95=$(jq -r '.tools.serena.configured' "$FH95/.claude/spec-first/host-setup.json")
+assert_output "9.5 serena.configured=false when absent from mcpServers" "false" "$out95"
+
+echo "9.6 host-setup.json written to correct path"
+FH96="$TMP_DIR/fh96"
+mkdir -p "$FH96"
+HOME="$FH96" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+assert "9.6 host-setup.json at ~/.claude/spec-first/host-setup.json" test -f "$FH96/.claude/spec-first/host-setup.json"
+
+echo "9.7 host-setup.json is valid JSON after write"
+FH97="$TMP_DIR/fh97"
+mkdir -p "$FH97"
+HOME="$FH97" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+assert "9.7 host-setup.json is valid JSON" jq -e . "$FH97/.claude/spec-first/host-setup.json"
+
+echo "9.8 host-setup.json has chmod 600 permissions"
+FH98="$TMP_DIR/fh98"
+mkdir -p "$FH98"
+HOME="$FH98" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+perms98=$(stat -f '%Lp' "$FH98/.claude/spec-first/host-setup.json" 2>/dev/null || stat -c '%a' "$FH98/.claude/spec-first/host-setup.json" 2>/dev/null)
+assert_output "9.8 host-setup.json is 600" "600" "$perms98"
+
+echo "9.9 idempotent: second run overwrites, no error"
+FH99="$TMP_DIR/fh99"
+mkdir -p "$FH99"
+HOME="$FH99" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+first99=$(jq -S . "$FH99/.claude/spec-first/host-setup.json")
+HOME="$FH99" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+second99=$(jq -S . "$FH99/.claude/spec-first/host-setup.json")
+# Both runs should produce valid JSON (timestamps differ, so we just check validity)
+assert "9.9 first run valid JSON" jq -e . "$FH99/.claude/spec-first/host-setup.json"
+assert "9.9 second run succeeds without error" test -n "$second99"
+
+echo "9.10 exits non-zero when host-setup.json parent not writable"
+FH910="$TMP_DIR/fh910"
+mkdir -p "$FH910/.claude/spec-first"
+chmod 500 "$FH910/.claude/spec-first"
+exit910=0
+HOME="$FH910" bash "$VERIFY_SCRIPT" >/dev/null 2>&1 || exit910=$?
+chmod 700 "$FH910/.claude/spec-first"  # restore for cleanup
+assert "9.10 exits non-zero on unwritable dir" test "$exit910" -ne 0
+
+echo "9.11 java_runtime.present=false when java not in PATH"
+FH911="$TMP_DIR/fh911"
+FAKEBIN911="$TMP_DIR/fakebin911"
+mkdir -p "$FH911" "$FAKEBIN911"
+# Build a minimal PATH with required tools but WITHOUT java
+for cmd in bash jq date mkdir mktemp chmod mv abcoder; do
+  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN911/$cmd"; fi
+done
+# Do NOT link java — it should appear absent
+HOME="$FH911" PATH="$FAKEBIN911" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out911=$(jq -r '.java_runtime.present' "$FH911/.claude/spec-first/host-setup.json")
+assert_output "9.11 java_runtime.present=false" "false" "$out911"
+reason911=$(jq -r '.java_runtime.reason' "$FH911/.claude/spec-first/host-setup.json")
+assert_output "9.11 java_runtime.reason=java-not-found" "java-not-found" "$reason911"
+
+echo "9.12 context7 configured=true when mcpServers.context7 exists in ~/.claude.json"
+FH912="$TMP_DIR/fh912"
+mkdir -p "$FH912"
+echo '{"mcpServers":{"context7":{"command":"npx"}}}' > "$FH912/.claude.json"
+HOME="$FH912" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out912=$(jq -r '.tools.context7.configured' "$FH912/.claude/spec-first/host-setup.json")
+assert_output "9.12 context7.configured=true" "true" "$out912"
+
+echo ""
+
+# ============================================================================
 echo "=== Results ==="
 echo "  Passed: $pass"
 echo "  Failed: $fail"
