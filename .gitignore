@@ -25,6 +25,7 @@ yarn-error.log*
 .history/
 .serena/
 .claude/tasks/
+.playwright-mcp/
 
 # Published/package artifacts
 *.tgz
