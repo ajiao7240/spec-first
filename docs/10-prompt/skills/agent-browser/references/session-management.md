@@ -1,0 +1,168 @@
+# 会话管理
+
+多个独立的浏览器会话，具有状态持久性和并发浏览功能。
+
+**相关**：[authentication.md](authentication.md) 用于登录模式，[SKILL.md](../SKILL.md) 用于快速启动。
+
+## 内容
+
+- [命名会话](#named-sessions)
+- [会话隔离属性](#session-isolation-properties)
+- [会话状态持久化](#session-state-persistence)
+- [常见模式](#common-patterns)
+- [默认会话](#default-session)
+- [会话清理](#session-cleanup)
+- [最佳实践](#best-practices)
+
+## 命名会话
+
+使用 `--session` 标志来隔离浏览器上下文：
+```bash
+# Session 1: Authentication flow
+agent-browser --session auth open https://app.example.com/login
+
+# Session 2: Public browsing (separate cookies, storage)
+agent-browser --session public open https://example.com
+
+# Commands are isolated by session
+agent-browser --session auth fill @e1 "user@example.com"
+agent-browser --session public get text body
+```
+## 会话隔离属性
+
+每个会话都有独立的：
+- 饼干
+- 本地存储/会话存储
+- 索引数据库
+- 缓存
+- 浏览历史记录
+- 打开选项卡
+
+## 会话状态持久化
+
+### 保存会话状态
+```bash
+# Save cookies, storage, and auth state
+agent-browser state save /path/to/auth-state.json
+```
+### 加载会话状态
+```bash
+# Restore saved state
+agent-browser state load /path/to/auth-state.json
+
+# Continue with authenticated session
+agent-browser open https://app.example.com/dashboard
+```
+### 状态文件内容
+```json
+{
+  "cookies": [...],
+  "localStorage": {...},
+  "sessionStorage": {...},
+  "origins": [...]
+}
+```
+## 常见模式
+
+### 经过身份验证的会话重用
+```bash
+#!/bin/bash
+# Save login state once, reuse many times
+
+STATE_FILE="/tmp/auth-state.json"
+
+# Check if we have saved state
+if [[ -f "$STATE_FILE" ]]; then
+    agent-browser state load "$STATE_FILE"
+    agent-browser open https://app.example.com/dashboard
+else
+    # Perform login
+    agent-browser open https://app.example.com/login
+    agent-browser snapshot -i
+    agent-browser fill @e1 "$USERNAME"
+    agent-browser fill @e2 "$PASSWORD"
+    agent-browser click @e3
+    agent-browser wait --load networkidle
+
+    # Save for future use
+    agent-browser state save "$STATE_FILE"
+fi
+```
+### 并发抓取
+```bash
+#!/bin/bash
+# Scrape multiple sites concurrently
+
+# Start all sessions
+agent-browser --session site1 open https://site1.com &
+agent-browser --session site2 open https://site2.com &
+agent-browser --session site3 open https://site3.com &
+wait
+
+# Extract from each
+agent-browser --session site1 get text body > site1.txt
+agent-browser --session site2 get text body > site2.txt
+agent-browser --session site3 get text body > site3.txt
+
+# Cleanup
+agent-browser --session site1 close
+agent-browser --session site2 close
+agent-browser --session site3 close
+```
+### A/B 测试会议
+```bash
+# Test different user experiences
+agent-browser --session variant-a open "https://app.com?variant=a"
+agent-browser --session variant-b open "https://app.com?variant=b"
+
+# Compare
+agent-browser --session variant-a screenshot /tmp/variant-a.png
+agent-browser --session variant-b screenshot /tmp/variant-b.png
+```
+## 默认会话
+
+当省略 `--session` 时，命令使用默认会话：
+```bash
+# These use the same default session
+agent-browser open https://example.com
+agent-browser snapshot -i
+agent-browser close  # Closes default session
+```
+## 会话清理
+```bash
+# Close specific session
+agent-browser --session auth close
+
+# List active sessions
+agent-browser session list
+```
+## 最佳实践
+
+### 1. 从语义上命名会话
+```bash
+# GOOD: Clear purpose
+agent-browser --session github-auth open https://github.com
+agent-browser --session docs-scrape open https://docs.example.com
+
+# AVOID: Generic names
+agent-browser --session s1 open https://github.com
+```
+### 2. 始终保持清洁
+```bash
+# Close sessions when done
+agent-browser --session auth close
+agent-browser --session scrape close
+```
+### 3. 安全地处理状态文件
+```bash
+# Don't commit state files (contain auth tokens!)
+echo "*.auth-state.json" >> .gitignore
+
+# Delete after use
+rm /tmp/auth-state.json
+```
+### 4. 长时间会话超时
+```bash
+# Set timeout for automated scripts
+timeout 60 agent-browser --session long-task get text body
+```
