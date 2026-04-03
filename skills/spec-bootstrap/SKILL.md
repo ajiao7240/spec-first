@@ -497,8 +497,43 @@ Use `references/prd-template.md` as the base template for all non-database tasks
 - `module-map.md` — Suggested: 每个顶层目录一行（`目录/ — 一句话职责`）
 - `integration-boundaries.md` — Suggested: `## 模块间接口` / `## 外部依赖` / `## 通信协议`
 
+**Architecture 三文件职责边界**（避免内容重叠，编排器生成三个 PRD 时参考）：
+
+| 文件 | 写什么 | 不写什么 |
+|------|--------|---------|
+| `system-overview.md` | 分层策略、架构风格、关键设计决策 | 具体模块列表（→ module-map） |
+| `module-map.md` | 每个顶层目录职责、所属层级 | 模块间调用关系（→ integration-boundaries） |
+| `integration-boundaries.md` | 模块间接口、外部依赖、通信协议 | 模块内部实现（→ layer 文档） |
+
 **pitfalls-context：**
 - Suggested structure: `## 代码层风险` / `## 架构层风险` / `## 业务逻辑风险` / `## 历史热点`
+
+**Pitfall Discovery Strategy**（编排器填写 pitfalls PRD 的 Technical Notes 时参考）：
+
+*Code-level signals:*
+- TODO/FIXME/HACK 密集区
+- 嵌套条件 > 3 层
+- 函数体 > 100 行
+- 裸 try-catch / swallowed exceptions
+
+*Architecture-level signals:*
+- 循环依赖
+- God class（> 500 行 / > 20 方法）
+- 高扇入扇出
+- 相似模块间模式不一致
+
+*Business logic signals:*
+- 权限绕过路径
+- 并发竞态
+- 事务边界问题
+- 数据验证缺口
+
+*Historical signals (if git available):*
+- 高频改动文件
+- 集中 bug-fix 区域
+- Reverted commits
+
+Output per pitfall: `location` + `risk type` + `why risky` + `recommended mitigation`
 
 ### 2.5 PRD Quality Gate
 

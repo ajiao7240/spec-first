@@ -77,6 +77,7 @@ Architecture-level analysis: clusters, flows, impact.
 | `gitnexus_query` | Find execution flows | `gitnexus_query({query: "authentication flow"})` |
 | `gitnexus_context` | 360° symbol view | `gitnexus_context({name: "AuthService"})` |
 | `gitnexus_cypher` | Graph queries | `gitnexus_cypher({query: "MATCH (n:Class) RETURN n.name LIMIT 20"})` |
+| `gitnexus_impact` | Blast radius analysis | `gitnexus_impact({target: "UserModel", direction: "downstream"})` |
 
 **Useful Cypher patterns**:
 ```cypher
@@ -115,8 +116,9 @@ Semantic code analysis: symbol lookup, structure overview, pattern search.
 | `mcp__serena__get_symbols_overview` | File structure | `mcp__serena__get_symbols_overview({relative_path: "src/auth.ts"})` |
 | `mcp__serena__find_symbol` | Locate symbol | `mcp__serena__find_symbol({name_path_pattern: "AuthService", relative_path: "src/"})` |
 | `mcp__serena__search_for_pattern` | Pattern search | `mcp__serena__search_for_pattern({substring_pattern: "export class.*Service"})` |
+| `mcp__serena__find_referencing_symbols` | Find references | `mcp__serena__find_referencing_symbols({name_path: "AuthService", relative_path: "src/auth/service.ts"})` |
 
-**Workflow**: get_symbols_overview (structure) → find_symbol (locate) → Read source (details)
+**Workflow**: get_symbols_overview (structure) → find_symbol (locate) → find_referencing_symbols (callers) → Read source (details)
 
 ---
 
@@ -416,7 +418,7 @@ Control plane location: `.context/spec-first/bootstrap/<slug>/tasks/<task-id>/pr
 | Task ID | Produces |
 |---------|---------|
 | `summary-context` | `docs/contexts/<slug>/00-summary.md` |
-| `architecture-context` | `docs/contexts/<slug>/architecture/system-overview.md`, `module-map.md`, `integration-boundaries.md` |
+| `architecture-context` | `docs/contexts/<slug>/architecture/system-overview.md`, `module-map.md`, `integration-boundaries.md`（条件：`integration-boundaries.md` 仅在项目有明显外部集成点时创建） |
 | `pitfalls-context` | `docs/contexts/<slug>/pitfalls/index.md` |
 
 ### 2.2 Conditional Layer Tasks
@@ -461,6 +463,77 @@ Use `references/prd-template.md` as the base template for all non-database tasks
 - `Important Rules` — file ownership, no source code changes, no git commands, format requirements
 - `Acceptance Criteria` — concrete checks (no placeholder text, structured sections present)
 - `Technical Notes` — project-specific patterns, framework quirks, naming conventions
+
+#### 2.4.1 Files to Fill 动态策略
+
+编排器依据 Phase 1 分析结果，动态决定每个 worker 的 Files to Fill 列表：
+
+- **省略条件示例：**
+  - `architecture-context`：项目无明显外部集成点 → 省略 `integration-boundaries.md`（Files to Fill 只列 2 个文件）
+  - `layer-context`：该层代码 < 3 个文件 → 可降级合并进 `00-summary.md`，不单独建 worker
+- **原则：** Files to Fill 只列编排器有把握生成高质量内容的文件；宁可省略，不要产出空壳文档
+
+> `pitfalls-context` 是固定任务，小项目可产出薄文档但不应省略任务本身。
+
+#### 2.4.2 Task-specific Acceptance Criteria 注入规则
+
+对以下任务类型，在通用 AC 之后追加特定条目：
+
+**pitfalls-context / layer-context 追加：**
+- [ ] Each pitfall includes: file + line range, risk type, why risky, recommended mitigation
+- [ ] At least 3 concrete examples documented with real code from the codebase
+
+> **注意：** `database-context` 不经过 Phase 2.4（L453 明确 2.4 只服务 non-database tasks）。database 专项 AC 已在 `references/database-prd-template.md` 独立模板中覆盖。
+
+#### 2.4.3 Technical Notes 推荐骨架
+
+编排器填写 Technical Notes 时参考以下骨架（adapt freely）：
+
+**summary-context：**
+- Suggested structure: `## 技术栈` / `## 顶层结构` / `## 核心职责` / `## 已知限制`
+
+**architecture-context：**
+- `system-overview.md` — Suggested: `## 整体结构` / `## 关键架构决策` / `## 系统边界`
+- `module-map.md` — Suggested: 每个顶层目录一行（`目录/ — 一句话职责`）
+- `integration-boundaries.md` — Suggested: `## 模块间接口` / `## 外部依赖` / `## 通信协议`
+
+**Architecture 三文件职责边界**（避免内容重叠，编排器生成三个 PRD 时参考）：
+
+| 文件 | 写什么 | 不写什么 |
+|------|--------|---------|
+| `system-overview.md` | 分层策略、架构风格、关键设计决策 | 具体模块列表（→ module-map） |
+| `module-map.md` | 每个顶层目录职责、所属层级 | 模块间调用关系（→ integration-boundaries） |
+| `integration-boundaries.md` | 模块间接口、外部依赖、通信协议 | 模块内部实现（→ layer 文档） |
+
+**pitfalls-context：**
+- Suggested structure: `## 代码层风险` / `## 架构层风险` / `## 业务逻辑风险` / `## 历史热点`
+
+**Pitfall Discovery Strategy**（编排器填写 pitfalls PRD 的 Technical Notes 时参考）：
+
+*Code-level signals:*
+- TODO/FIXME/HACK 密集区
+- 嵌套条件 > 3 层
+- 函数体 > 100 行
+- 裸 try-catch / swallowed exceptions
+
+*Architecture-level signals:*
+- 循环依赖
+- God class（> 500 行 / > 20 方法）
+- 高扇入扇出
+- 相似模块间模式不一致
+
+*Business logic signals:*
+- 权限绕过路径
+- 并发竞态
+- 事务边界问题
+- 数据验证缺口
+
+*Historical signals (if git available):*
+- 高频改动文件
+- 集中 bug-fix 区域
+- Reverted commits
+
+Output per pitfall: `location` + `risk type` + `why risky` + `recommended mitigation`
 
 ### 2.5 PRD Quality Gate
 
@@ -568,7 +641,7 @@ After all workers report completion:
    ## Contents
 
    - [Summary](00-summary.md) — project overview and tech stack
-   - [Architecture](architecture/) — system structure, module map, integration boundaries
+   - [Architecture](architecture/) — <list files actually produced, e.g. system overview, module map, integration boundaries>
    - [Pitfalls](pitfalls/index.md) — known high-risk areas
    [conditional layers and database entries here]
    ```
@@ -587,7 +660,7 @@ Bootstrap complete for: <slug>
 ✓ Produced:
   docs/contexts/<slug>/README.md
   docs/contexts/<slug>/00-summary.md
-  docs/contexts/<slug>/architecture/ (3 files)
+  docs/contexts/<slug>/architecture/ (N files)
   docs/contexts/<slug>/pitfalls/index.md
   [conditional files...]
 
@@ -605,7 +678,7 @@ DB access: <mode>
 ## Completion Checklist
 
 - [ ] `docs/contexts/<slug>/README.md` contains bootstrap generation marker (`<!-- spec-bootstrap -->`)
-- [ ] All fixed-task files produced and non-empty
+- [ ] All PRD-listed Files to Fill produced and non-empty
 - [ ] `00-summary.md` identifies primary language, framework(s), top-level structure
 - [ ] `architecture/module-map.md` includes top-level directories with descriptions
 - [ ] Conditional files produced only when evidence was found
@@ -618,7 +691,9 @@ DB access: <mode>
 
 ## Context Files Are Not Fixed
 
-Workers must adapt file content to the real project — not fill in placeholder text. If a planned file has no meaningful content for this project, the worker should skip it and note why. If the project has patterns not covered by the templates, the worker should add them.
+Workers must adapt **section content** to the real project — not fill in placeholder text. If a planned section has no meaningful content, skip it and note why. If the project has patterns not covered by the templates, the worker should add them.
+
+File-level decisions (which files to create or omit) are the orchestrator's responsibility in Phase 2. Workers execute the file list in their PRD as-is.
 
 `index.md` files (layers, guides, pitfalls) must reflect the actual generated file set.
 
