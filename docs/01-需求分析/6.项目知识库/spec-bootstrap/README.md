@@ -19,7 +19,8 @@ spec-bootstrap/
 ├── spec-bootstrap-v2-worker-任务拆分与PRD模板升级稿.md
 ├── spec-bootstrap-产物文档全览.md
 ├── cc-codex-spec-bootstrap-skill-分析.md
-└── cc-codex-spec-bootstrap-skill-实现梳理.md
+├── cc-codex-spec-bootstrap-skill-实现梳理.md
+└── spec-bootstrap-skill-execution-analysis.md
 ```
 
 ---
@@ -69,6 +70,7 @@ spec-bootstrap/
 | `spec-bootstrap-产物文档全览.md` | v1 历史版全览 |
 | `cc-codex-spec-bootstrap-skill-分析.md` | 早期 skill 分析资料 |
 | `cc-codex-spec-bootstrap-skill-实现梳理.md` | 早期实现拆解资料 |
+| `spec-bootstrap-skill-execution-analysis.md` | 当前 skill 执行逻辑分析与流程图 |
 
 ---
 
@@ -95,6 +97,7 @@ spec-bootstrap/
 
 - `cc-codex-spec-bootstrap-skill-分析.md`
 - `cc-codex-spec-bootstrap-skill-实现梳理.md`
+- `spec-bootstrap-skill-execution-analysis.md`
 
 ---
 

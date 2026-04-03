@@ -1,17 +1,19 @@
 # spec-bootstrap 补丁建议
 
 > 基于 Trellis 原版 `cc-codex-spec-bootstrap` 的对比分析，识别当前 spec-first 版本的缺失内容和改进方向。
+>
+> **2026-04-03 代码审查更新**：本文档写于 MCP-first 改造之前。MCP-first 改造实施后（feat: 实现 MCP-first 改造 5 个 Unit），部分分析前提已失效，已更新各补丁状态。
 
 ---
 
 ## 对比总结
 
-| 维度 | Trellis 原版 | spec-first 当前版 | 差距 |
-|------|-------------|------------------|------|
-| 工具安装指引 | 完整的 `references/mcp-setup.md` | 省略，仅在 SKILL.md 中检测 | 外部开发者不知道如何启用 Full/Enhanced 模式 |
-| PRD 工具使用模板 | 具体调用示例 + 推荐工作流 | 抽象工具列表 | worker 不知道怎么用 MCP 工具 |
-| 产物结构灵活性 | 明确"Spec files are NOT fixed"原则 | 末尾提及但未在 PRD 中强调 | worker 可能机械填充模板 |
-| 验收标准 | 要求"Anti-patterns documented" | 未明确要求反模式文档 | pitfalls 质量无保证 |
+| 维度 | Trellis 原版 | spec-first 当前版 | 差距 | 当前状态 |
+| --- | ----------- | ---------------- | ---- | ------- |
+| 工具安装指引 | 完整的 `references/mcp-setup.md` | `/spec:mcp-setup` 独立技能 + SKILL.md Tool Usage Guide | — | ✅ 已解决（方式不同） |
+| PRD 工具使用模板 | 具体调用示例 + 推荐工作流 | 抽象工具列表，无示例 | worker 不知道怎么用 MCP 工具 | ❌ 仍然存在 |
+| 产物结构灵活性 | 明确"Spec files are NOT fixed"原则 | Rule 5 有覆盖但粒度不足 | worker 可能机械填充 | ⚠️ 部分解决 |
+| 验收标准 | 要求"Anti-patterns documented" | 未明确要求反模式文档 | pitfalls 质量无保证 | ❌ 仍然存在 |
 
 ---
 
@@ -19,63 +21,47 @@
 
 ### P0 - 立即补充（影响外部开发者可用性）
 
-#### 补丁 1：恢复 `references/mcp-setup.md`
+#### ~~补丁 1：恢复 `references/mcp-setup.md`~~ ✅ 已解决
 
-**问题**：当前 SKILL.md 只检测工具是否可用，不告诉用户如何安装配置。
+> **2026-04-03 审查**：本补丁的前提（"SKILL.md 只检测可用性，不提供安装指引"）已不成立，**无需实施**。
 
-**方案**：从 Trellis 原版移植 `mcp-setup.md`，调整为 spec-first 语境：
-- 保留 GitNexus 和 ABCoder 的安装、配置、验证步骤
-- 新增 Serena MCP 的配置说明（Enhanced 模式）
-- 移除 Codex 相关内容（spec-first 不用 Codex）
-- 调整路径引用（`.trellis/` → `docs/contexts/`）
+**已解决路径**：MCP-first 改造以更好的方式解决了这个问题：
 
-**位置**：`skills/spec-bootstrap/references/mcp-setup.md`
+- `skills/mcp-setup/SKILL.md` — 完整的 4-Phase 安装技能（依赖检测→安装→配置合并→验证）
+- `skills/spec-bootstrap/SKILL.md` L34-68 — "MCP Tools Setup" 节，明确指向 `/spec:mcp-setup quick`
+- `skills/spec-bootstrap/SKILL.md` L69-120 — "Tool Usage Guide"，含三种工具的调用表格+工作流
 
-**关键章节**：
-```markdown
-# MCP 工具安装与配置指南
+用一个独立技能替代参考文件，比原方案更好（安装逻辑可独立演进，关注点分离）。
 
-## GitNexus（Full 模式必需）
-### 安装
-npm install -g gitnexus
+**不再需要创建 `references/mcp-setup.md`。**
 
-### 索引项目
-npx gitnexus analyze
+**职责边界（建议在文档中收紧表述）**：
 
-### 配置 MCP
-claude mcp add gitnexus -- npx -y gitnexus mcp
+- `mcp-setup`：负责工具安装 + MCP server 注册（写入 `~/.claude.json`）+ 宿主标记（`host-setup.json`）
+- `spec-bootstrap`：负责项目级 readiness probe + ABCoder parse + 上下文资产生成
 
-### 验证
-gitnexus_query({query: "test"})
-
-## ABCoder（Full 模式必需）
-### 安装
-npm install -g abcoder
-
-### 解析项目
-abcoder parse /path/to/project --lang typescript --name my-project --output ~/.abcoder-asts
-
-### 配置 MCP
-claude mcp add abcoder -- abcoder mcp ~/.abcoder-asts
-
-### 验证
-list_repos()
-
-## Serena（Enhanced 模式必需）
-### 配置
-参考 Serena MCP 官方文档配置 mcp__serena__* 工具
-
-### 验证
-mcp__serena__get_symbols_overview({relative_path: "src/index.ts"})
-```
+两者不共享职责，mcp-setup 不感知任何目标项目，spec-bootstrap 不做任何工具安装。
 
 ---
 
 #### 补丁 2：PRD 模板补充 MCP 工具调用示例
 
+**状态**：❌ 仍然存在
+
 **问题**：`references/prd-template.md` 的"Tools Available"节只列工具名，没有调用格式和推荐工作流。
 
-**方案**：参考 Trellis 原版，在 prd-template.md 的"Tools Available"节补充：
+**影响路径**：
+
+```text
+orchestrator 读 SKILL.md（有示例）
+   → 用 prd-template.md 填充 PRD
+   → template 格式只有工具名，未引导 orchestrator 写入示例
+   → worker subagent 读 PRD → 无调用示例可参考
+```
+
+虽然 SKILL.md 现在有完整的 Tool Usage Guide（L69-120），但 **worker subagent 只读 PRD，不读 SKILL.md**。prd-template.md 未引导编排器把示例写进 PRD，导致 worker 执行质量仍存在风险。
+
+**方案**：在 prd-template.md 的"Tools Available"节替换为带示例的表格格式：
 
 ```markdown
 ## Tools Available
@@ -141,115 +127,165 @@ mcp__serena__get_symbols_overview({relative_path: "src/index.ts"})
 4. **Write context docs** — focus on top-level structure
 ```
 
-**位置**：`skills/spec-bootstrap/references/prd-template.md` 的"Tools Available"节
+**附 1：ABCoder 调用链不一致**
+
+`prd-template.md:53` 写的是 `list_repos → get_repo_structure → get_package_structure → get_ast_node`，但 `SKILL.md:96-107` 的表格是 `list_repos → get_repo_structure → get_file_structure → get_ast_node`（`get_file_structure` 而非 `get_package_structure`）。替换 Tools Available 节时一并修正为 `get_file_structure`。
+
+**附 2：SKILL.md Tool Usage Guide 工具清单不完整**
+
+SKILL.md Tool Usage Guide（L71-119）只列了 GitNexus 3 个工具 + Serena 3 个工具，但实际 MCP server 提供更多工具。以下对上下文生成有直接价值的工具被遗漏：
+
+- `gitnexus_impact`：分析变更影响范围（blast radius），对 pitfalls/architecture 分析有直接价值。GitNexus 实际提供 7 个工具（query, context, impact, detect_changes, rename, cypher, list_repos），SKILL.md 只列了 3 个。
+- `mcp__serena__find_referencing_symbols`：找到引用某符号的所有位置，对理解依赖关系有直接价值。当前 prd-template.md:62 已列出此工具，但 SKILL.md 未列。
+
+**前置要求**：替换 prd-template.md Tools Available **之前**，须先更新 SKILL.md Tool Usage Guide，将上述两个工具补入。prd-template.md 的内容严格从 SKILL.md 复制，不超出其工具范围。
+
+**位置**：`skills/spec-bootstrap/references/prd-template.md` 的"Tools Available"节（prd-template.md），`skills/spec-bootstrap/SKILL.md` L71-119（SKILL.md，前置更新）
 
 ---
 
 ### P1 - 增强质量（提升产物价值）
 
-#### 补丁 3：PRD Rules 中强调"产物结构可变"
+#### 补丁 3：编排器 Phase 2 动态决定 Files to Fill + 多点一致性
 
-**问题**：当前 prd-template.md 的 Rules 节未强调模板灵活性，worker 可能机械填充。
+**状态**：❌ 修复方向需调整（影响面比原提案大）
 
-**方案**：在 Rules 节第 5 条后新增：
+**问题**：文件级灵活性（可跳过 planned files、可新建额外文件）原本不应该下放给 worker。原因：
+
+- `prd-template.md:105`：AC 第一条要求 "All files listed in Files to Fill are produced and non-empty"
+- `SKILL.md:503`：dispatch contract 明确 `ownership_boundary: only the files listed in Files to Fill`
+
+在通用 Rule 5 加"可删文件/可新建/可重命名"，会直接和 AC 与 contract 冲突，worker 会陷入矛盾指令。
+
+**已有覆盖**：`prd-template.md` Rule 5 和 `SKILL.md:619` 已允许 worker 在 section 级别灵活处理。section 级灵活性足够，不需要扩展到文件级。
+
+**预存矛盾**：SKILL.md 自身存在一处未被识别的矛盾——`L619-621` "Context Files Are Not Fixed" 给了 worker 文件级跳过权（"If a planned file has no meaningful content, the worker should skip it"），与 `L608` Completion Checklist "All fixed-task files produced and non-empty" 直接冲突。本补丁需一并修复。
+
+**正确修复层**：编排器的 **Phase 2**（创建 PRD 时）。编排器在了解项目实际结构后，应动态决定每个 worker 的 Files to Fill 列表——对于与项目无关的文档，直接从 Files to Fill 中省略，而不是写进去再让 worker 跳过。
+
+**影响面（6 处需同步修改）**：
+
+| 位置 | 当前语义 | 需修改为 |
+| --- | --- | --- |
+| Phase 2.1 Fixed Tasks 表（L414-420） | architecture-context 固定产出 3 文件 | integration-boundaries.md 标注为条件产物 |
+| Phase 2.4 PRD Content（L453-464） | 无动态裁剪指引 | 追加 Files to Fill 动态策略子章节 |
+| Phase 3.4 Assembly README（L571） | 硬编码 "system structure, module map, integration boundaries" | 改为动态描述，根据实际产出文件生成 |
+| Phase 3.5 Execution Summary（L590） | 硬编码 `architecture/ (3 files)` | 改用实际产出文件列表和动态计数 |
+| Completion Checklist（L608） | "All fixed-task files produced" | 改为 "All PRD-listed Files to Fill produced" |
+| L619-621 "Context Files Are Not Fixed" | 给 worker 文件级跳过权 | 收紧为 section 级灵活性（文件级决策由编排器负责） |
+
+**方案**：
+
+1. 在 Phase 2.1 Fixed Tasks 表中，`architecture-context` 的 Produces 列标注 `integration-boundaries.md`（条件：项目有外部集成点时创建）。
+2. 在 `SKILL.md` Phase 2.4 节追加 Files to Fill 动态策略：
 
 ```markdown
-5. **No placeholder text:** Every section must contain real project content. Delete template sections that have no evidence.
-6. **Context files are NOT fixed — adapt to reality:**
-   - Delete planned files that don't apply to this project
-   - Create new files for project-specific patterns not covered by templates
-   - Rename files if template names don't match project terminology
-   - Update index.md to reflect the actual generated file set
-   - Prioritize project reality over template structure
+### 2.4 PRD Content — Files to Fill 动态策略
+
+编排器根据 Phase 1 的分析结果，决定每个 worker 的 Files to Fill：
+
+- 对 architecture-context：若项目无明显外部集成点，可省略 integration-boundaries.md
+- 对 layer-context：若该层代码极少（< 3 个文件），可合并进 00-summary.md，不单独建 worker
+- 原则：Files to Fill 只列编排器有把握能生成高质量内容的文件；宁可省略，不要产出空壳文档
 ```
 
-**位置**：`skills/spec-bootstrap/references/prd-template.md` 的"Important Rules"节
+3. Phase 3.4 Assembly README 模板的 Architecture 描述行改为动态——根据实际产出文件生成描述（如省略 integration-boundaries.md 则不提及 "integration boundaries"）。
+4. Phase 3.5 Execution Summary 模板改为动态文件列表（不硬编码文件数）。
+5. Completion Checklist L608 改为 "All PRD-listed Files to Fill produced and non-empty"。
+6. L619-621 收紧为："Workers must adapt **section content** to the real project. If a planned section has no meaningful content, skip it and note why. File-level decisions (which files to create) are the orchestrator's responsibility."
+
+**位置**：`skills/spec-bootstrap/SKILL.md` Phase 2.1 + Phase 2.4 + Phase 3.4 + Phase 3.5 + Completion Checklist + "Context Files Are Not Fixed" 节
 
 ---
 
-#### 补丁 4：验收标准加入"Anti-patterns documented"
+#### 补丁 4：pitfalls-context PRD 注入 task-specific AC
 
-**问题**：当前验收标准未明确要求反模式文档，pitfalls 质量无保证。
+**状态**：❌ 修复方向需调整
 
-**方案**：在 Acceptance Criteria 中补充：
+**问题**：pitfalls 类产物质量无保证，需要明确的验收条件。但 `prd-template.md` 是所有非 database 任务（summary、architecture、pitfalls、layer...）的基模板（`SKILL.md:455`），在通用 AC 加"Anti-patterns documented"会让 summary-context、architecture-context 的 worker 也被这条卡住，而这两类任务本来不负责记录反模式。
+
+**正确修复层**：编排器 **Phase 2** 在为 pitfalls-context（以及 layer-context）创建 PRD 时，注入 task-specific AC 条目，而不是污染通用模板。
+
+**方案**：在 `SKILL.md` Phase 2.4 节补充：
 
 ```markdown
-### Acceptance Criteria
+### 2.4 PRD Content — Task-specific Acceptance Criteria 注入规则
 
-- [ ] All files listed in "Files to Fill" are produced and non-empty
-- [ ] No file contains placeholder text like `<TODO>`, `<fill-in>`, `[TBD]`
-- [ ] Each file references at least 2 specific artifacts from the actual codebase (file paths, class names, function names)
-- [ ] **Anti-patterns and known pitfalls are documented with concrete examples** (for pitfalls-context and layer-context tasks)
-- [ ] Files use structured Markdown (at minimum: a top-level `#` heading and two `##` sections)
-- [ ] No source code was modified
-- [ ] `index.md` (if produced) lists only files that were actually created
+编排器在填写 PRD 的 Acceptance Criteria 节时，根据任务类型追加专项条目：
+
+**pitfalls-context / layer-context 追加：**
+- [ ] Each documented pitfall includes: location (file + line range), risk type, why risky, recommended mitigation
+- [ ] At least 3 concrete anti-patterns documented with real code examples from the codebase
+
+其他任务类型（summary、architecture、guides）使用通用 Acceptance Criteria，不追加专项条目。
 ```
 
-**位置**：`skills/spec-bootstrap/references/prd-template.md` 的"Acceptance Criteria"节
+> **注意**：database-context 不经过 Phase 2.4（`SKILL.md:453` 明确 2.4 只服务 non-database tasks）。database 走 Phase 2.3 + `references/database-prd-template.md` 独立模板。database 的专项 AC（凭证保护、Mermaid erDiagram）应在 `database-prd-template.md` 中直接验证是否已覆盖，不在 2.4 注入。
+
+**位置**：`skills/spec-bootstrap/SKILL.md` Phase 2.4 节（与补丁 3 合并到同一节）
+
+---
+
+#### 补丁 6：为各文档提供推荐骨架（非强制 schema）
+
+**状态**：❌ 修复方向需调整（原为 P2，重新评估后升为 P1）
+
+**问题**：除 module-map 外，其他文档无章节参考，产物格式因人而异。
+
+**约束**：`prd-template.md:95` Rule 5 和 `SKILL.md:619` 明确鼓励 worker 按项目现实删减和增补。将章节结构硬编进通用模板会与"Context files are not fixed"原则冲突，不能作为强制 schema。
+
+**方案**：以**推荐骨架**形式写入编排器为各任务创建 PRD 时的 Technical Notes 节，而非 Files to Fill 或 Rules 节。骨架是参考起点，worker 可以自由增删。
+
+**编排器注入的推荐骨架（Technical Notes）：**
+
+*summary-context：*
+
+```markdown
+**Suggested structure for 00-summary.md** (adapt freely):
+- ## 技术栈 — 主语言、主框架、关键依赖
+- ## 顶层结构 — 目录组织、模块划分
+- ## 核心职责 — 项目做什么、不做什么
+- ## 已知限制 — 当前版本功能边界、技术债（如无证据可省略）
+```
+
+*architecture-context：*
+
+```markdown
+**Suggested structure** (adapt freely):
+- system-overview.md: ## 整体结构 / ## 关键架构决策 / ## 系统边界
+- module-map.md: 每个顶层目录一行，格式：`目录/ — 一句话职责`
+- integration-boundaries.md: ## 模块间接口 / ## 外部依赖 / ## 通信协议
+```
+
+*pitfalls-context：*
+
+```markdown
+**Suggested structure** (adapt freely):
+- ## 代码层风险 — TODO/FIXME 密集区、复杂条件逻辑、裸 catch
+- ## 架构层风险 — 循环依赖、God class、高耦合
+- ## 业务逻辑风险 — 权限绕过路径、竞态、事务边界
+- ## 历史热点 — 高频改动文件（如有 git history）
+```
+
+**位置**：`skills/spec-bootstrap/SKILL.md` Phase 2.4 节，编排器填写 Technical Notes 的说明中
+
+---
+
+### P1 - 新增（代码审查发现）
+
+#### 补丁 5：修复 `mcp-setup/SKILL.md` 的 `user-invocable` 矛盾
+
+**状态**：✅ 已解决（2026-04-03）
+
+`user-invocable: false` 已从 `skills/mcp-setup/SKILL.md` frontmatter 删除。`.claude/skills/mcp-setup/SKILL.md`（运行时副本）同步更新。
+
+**佐证**：`plugin.json:63-68` 将 mcp-setup 注册为可调用命令，进一步确认该字段的矛盾是真实存在的，删除是正确修复。
 
 ---
 
 ### P2 - 长期优化（架构层面改进）
 
-#### 补丁 5：标准化各文档的章节结构
-
-**问题**：除 module-map 外，其他文档无章节定义，产物格式不一致。
-
-**方案**：为每类文档定义最小章节结构，在对应 PRD 的"Files to Fill"表格中明确：
-
-**00-summary.md 最小结构：**
-```markdown
-# 项目总览
-
-## 技术栈
-- 主语言、主框架、关键依赖
-
-## 顶层结构
-- 目录组织、模块划分
-
-## 核心职责
-- 项目做什么、不做什么
-
-## 已知限制
-- 当前版本的功能边界、技术债
-```
-
-**architecture/system-overview.md 最小结构：**
-```markdown
-# 系统架构概览
-
-## 整体结构
-- 分层/分模块策略
-
-## 关键架构决策
-- 为什么这样设计
-
-## 系统边界
-- 与外部系统的集成点
-```
-
-**pitfalls/index.md 最小结构：**
-```markdown
-# 已知风险点
-
-## 代码层风险
-- 易出错的代码模式、竞态条件
-
-## 架构层风险
-- 模块耦合、循环依赖
-
-## 业务逻辑风险
-- 边界条件、权限绕过
-
-## 历史问题热点
-- 高频 Bug 区域
-```
-
-**实施方式**：在 summary-context、architecture-context、pitfalls-context 的 PRD 模板中，"Files to Fill"表格的"Description"列补充章节要求。
-
----
-
-#### 补丁 6：pitfalls worker 补充发现策略
+#### 补丁 7：pitfalls worker 补充发现策略
 
 **问题**：pitfalls 是最难生成的文档，当前 PRD 无具体指引。
 
@@ -292,11 +328,11 @@ For each identified pitfall, document:
 - Recommended mitigation
 ```
 
-**位置**：创建专门的 `pitfalls-prd-template.md`，或在 prd-template.md 中为 pitfalls-context 任务添加条件章节。
+**位置**：`skills/spec-bootstrap/SKILL.md` Phase 2 中 pitfalls-context PRD 创建说明附近
 
 ---
 
-#### 补丁 7：澄清三个 architecture 文件的边界
+#### 补丁 8：澄清三个 architecture 文件的边界
 
 **问题**：system-overview、module-map、integration-boundaries 内容边界模糊。
 
@@ -312,7 +348,7 @@ For each identified pitfall, document:
 | `architecture/integration-boundaries.md` | 集成关系 | 模块间接口、外部依赖、服务间通信协议 | 模块内部实现（那是 layer 文档的职责） |
 ```
 
-**位置**：`skills/spec-bootstrap/references/prd-template.md` 中为 architecture-context 任务定制"Files to Fill"表格。
+**位置**：`skills/spec-bootstrap/SKILL.md` Phase 2 中 architecture-context PRD 创建说明附近
 
 ---
 
@@ -320,59 +356,65 @@ For each identified pitfall, document:
 
 ### 立即实施（P0）
 
-1. **补丁 1**：恢复 `references/mcp-setup.md` — 外部开发者必需
-2. **补丁 2**：PRD 补充 MCP 工具调用示例 — worker 执行质量关键
+1. **补丁 2**：替换 prd-template.md 的 Tools Available 节，补充调用示例 + 推荐工作流，同步修正 ABCoder 调用链（`get_file_structure` 替换 `get_package_structure`）
 
 **预期收益**：
-- 外部开发者能独立启用 Full/Enhanced 模式
-- worker 知道如何正确使用 MCP 工具
-- Full 模式的价值得以体现
 
-**工作量估算**：2-3 小时（主要是移植和调整 Trellis 内容）
+- worker 知道如何正确调用 MCP 工具
+- Full/Enhanced 模式的分析深度得以体现
+
+**工作量估算**：1-2 小时
 
 ---
 
 ### 近期实施（P1）
 
-3. **补丁 3**：PRD Rules 强调产物结构可变
-4. **补丁 4**：验收标准加入反模式要求
+1. **补丁 3**：在 `SKILL.md` Phase 2.4 节补充编排器动态 Files to Fill 策略
+2. **补丁 4**：在 `SKILL.md` Phase 2.4 节补充 task-specific AC 注入规则（pitfalls/layer/database）
+3. **补丁 6**：在 `SKILL.md` Phase 2.4 节补充各任务类型的推荐骨架（Technical Notes 注入）
+
+**说明**：补丁 3/4/6 都落在 `SKILL.md` Phase 2.4 节，可合并为一次编辑。
 
 **预期收益**：
-- worker 产出更贴合项目实际
-- pitfalls 文档质量有保证
 
-**工作量估算**：1 小时（文案调整）
+- 编排器生成的 PRD 更精准（Files to Fill 按项目裁剪）
+- pitfalls 产物有明确验收标准
+- worker 有骨架参考但不被强制约束
+
+**工作量估算**：1-2 小时
 
 ---
 
 ### 长期优化（P2）
 
-5. **补丁 5**：标准化各文档章节结构
-6. **补丁 6**：pitfalls worker 补充发现策略
-7. **补丁 7**：澄清三个 architecture 文件边界
+1. **补丁 7**：pitfalls-context PRD 补充发现策略（Technical Notes）
+2. **补丁 8**：澄清三个 architecture 文件的内容边界
 
 **预期收益**：
-- 产物格式一致性
+
 - pitfalls 生成质量提升
 - architecture 文档职责清晰
 
-**工作量估算**：4-6 小时（需要设计章节结构和发现策略）
+**工作量估算**：2-3 小时
 
 ---
 
 ## 补丁实施后的验证标准
 
 ### 外部开发者视角
-- [ ] 能通过 mcp-setup.md 独立配置 GitNexus/ABCoder/Serena
+
+- [ ] 能通过 `/spec:mcp-setup` 独立配置 GitNexus/ABCoder/Serena
 - [ ] 能看懂 PRD 中的 MCP 工具调用示例
 - [ ] 生成的文档格式在不同项目间保持一致
 
 ### Worker 执行视角
-- [ ] PRD 提供了足够的工具使用指引
-- [ ] 知道可以调整产物结构而不是机械填充
+
+- [ ] PRD 提供了足够的工具使用指引（含调用示例）
+- [ ] 知道可以在 section 级别自由增删内容（文件级决策由编排器负责）
 - [ ] pitfalls 文档有具体的发现策略可遵循
 
 ### 产物质量视角
+
 - [ ] 每个文档有明确的章节结构
 - [ ] pitfalls 文档包含反模式和具体示例
 - [ ] architecture 三个文件职责不重叠
@@ -384,18 +426,21 @@ For each identified pitfall, document:
 以下 Trellis 特性与 spec-first 架构不兼容，不建议移植：
 
 | Trellis 特性 | spec-first 对应 | 是否移植 |
-|-------------|----------------|---------|
+| ----------- | -------------- | ------- |
 | Codex 并行执行 | worker subagents | ❌ 架构不同 |
 | `.trellis/spec/` 产物路径 | `docs/contexts/` | ❌ 已调整 |
 | Trellis task.py 脚本 | orchestrator 直接创建 PRD | ❌ 无需脚本 |
 | 编码规范文档（coding guidelines） | 项目上下文文档 | ❌ 目标不同 |
+| `references/mcp-setup.md` | `/spec:mcp-setup` 独立技能 | ❌ 已用更好方式解决 |
 
 ---
 
 ## 总结
 
-当前 spec-bootstrap 在移植 Trellis 时**简化了工具使用指引和 PRD 模板细节**，这对外部开发者和 worker 执行质量有负面影响。
+MCP-first 改造实施后，补丁 1（工具安装指引）和补丁 5（user-invocable 矛盾）均已解决。
 
-**核心问题**：假设用户和 worker 都知道怎么用 MCP 工具，但实际上需要明确的示例和工作流指引。
+**当前最关键问题**：补丁 2（PRD 工具调用示例缺失）——worker subagent 只读 PRD，而 prd-template.md 的 Tools Available 节只有工具名，没有调用示例，导致 worker 执行时缺乏指引。同时存在 ABCoder 调用链写法不一致（`get_package_structure` vs `get_file_structure`）需一并修正。
 
-**最小可行补丁**：P0 的两个补丁（mcp-setup.md + PRD 工具示例），能显著提升可用性和执行质量。
+**关键架构认知**：补丁 3/4/6 的正确修复层是**编排器 Phase 2**（填写 PRD 时的动态注入），而不是通用模板。把文件级灵活性或 task-specific 条件下放给 worker 会制造矛盾指令；由编排器在 PRD 创建时按任务类型注入，才符合现有 contract 设计。
+
+**最小可行补丁**：补丁 2（P0，1-2 小时）+ 补丁 3/4/6 合并编辑（P1，1-2 小时）。
