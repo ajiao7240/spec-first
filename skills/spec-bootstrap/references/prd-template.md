@@ -47,24 +47,61 @@ These files become part of the project's long-lived context library. They are no
 ### Tools Available
 
 > The orchestrator fills this section based on the detected analysis mode.
+> Include only the block(s) matching the detected mode.
 
 **Analysis mode: [Full | Enhanced | Basic]**
 
-**Full mode — if GitNexus + ABCoder MCP are available:**
-- `gitnexus_query` — query module clusters, execution flows, call graphs
-- `gitnexus_context` — get architectural context for a module
-- `mcp__abcoder__list_repos` → `get_repo_structure` → `get_package_structure` → `get_ast_node` — symbol-level code analysis
+**--- Full Mode (GitNexus + ABCoder available) ---**
 
-**Enhanced mode — if Serena MCP is available:**
-- `mcp__serena__get_symbols_overview` — high-level symbol structure of a file
-- `mcp__serena__find_symbol` — locate specific class/method/function
-- `mcp__serena__search_for_pattern` — pattern search across the codebase
-- `mcp__serena__find_referencing_symbols` — find what references a given symbol
+| Tool | Purpose | Example Call |
+|------|---------|-------------|
+| `gitnexus_query` | Find execution flows | `gitnexus_query({query: "authentication flow"})` |
+| `gitnexus_context` | 360° symbol view | `gitnexus_context({name: "AuthService"})` |
+| `gitnexus_cypher` | Graph queries | `gitnexus_cypher({query: "MATCH (n:Class) RETURN n.name LIMIT 20"})` |
+| `gitnexus_impact` | Blast radius analysis | `gitnexus_impact({target: "UserModel", direction: "downstream"})` |
 
-**Basic mode — built-in tools always available:**
-- `Read` — read specific files
-- `Grep` — search file contents by pattern
-- `Glob` — find files by name pattern
+| Tool | Layer | Purpose | Example Call |
+|------|-------|---------|-------------|
+| `mcp__abcoder__list_repos` | 1 | List parsed repos | `list_repos()` |
+| `mcp__abcoder__get_repo_structure` | 2 | File/package listing | `get_repo_structure({repo_name: "my-project"})` |
+| `mcp__abcoder__get_file_structure` | 3 | Nodes in file | `get_file_structure({repo_name: "my-project", file_path: "src/auth.ts"})` |
+| `mcp__abcoder__get_ast_node` | 4 | Full code + deps | `get_ast_node({repo_name: "my-project", node_ids: [...]})` |
+
+Recommended workflow:
+1. `gitnexus_query` — identify relevant flows and clusters
+2. `gitnexus_context` / `gitnexus_impact` — get symbol context and blast radius
+3. `mcp__abcoder__list_repos` → `get_repo_structure` → `get_file_structure` → `get_ast_node` — drill down to signatures and dependencies
+4. `Read` — read full source where needed
+
+**--- Enhanced Mode (Serena available) ---**
+
+| Tool | Purpose | Example Call |
+|------|---------|-------------|
+| `mcp__serena__get_symbols_overview` | File structure | `mcp__serena__get_symbols_overview({relative_path: "src/auth.ts"})` |
+| `mcp__serena__find_symbol` | Locate symbol | `mcp__serena__find_symbol({name_path_pattern: "AuthService", relative_path: "src/"})` |
+| `mcp__serena__search_for_pattern` | Pattern search | `mcp__serena__search_for_pattern({substring_pattern: "export class.*Service"})` |
+| `mcp__serena__find_referencing_symbols` | Find references | `mcp__serena__find_referencing_symbols({name_path: "AuthService", relative_path: "src/auth/service.ts"})` |
+
+Recommended workflow:
+1. `get_symbols_overview` — understand file structure
+2. `find_symbol` — locate target class/method
+3. `find_referencing_symbols` — find callers/dependents
+4. `search_for_pattern` — cross-codebase pattern search
+5. `Read` — full source where needed
+
+**--- Basic Mode (built-in tools only) ---**
+
+| Tool | Purpose | Example Call |
+|------|---------|-------------|
+| `Read` | Read specific files | `Read({file_path: "src/auth.ts"})` |
+| `Grep` | Search by pattern | `Grep({pattern: "class Auth", type: "ts"})` |
+| `Glob` | Find files by name | `Glob({pattern: "src/**/*.ts"})` |
+
+Recommended workflow:
+1. `Glob` — find candidate files
+2. `Grep` — search for patterns
+3. `Read` — read full content
+4. `Grep` — follow references
 
 Use whichever tools are available. Prefer higher-capability tools when present.
 

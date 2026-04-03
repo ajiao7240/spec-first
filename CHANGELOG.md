@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.4.0 2026-04-03 10:00:00 kuang: feat(spec-bootstrap): Unit 1 — SKILL.md Tool Usage Guide 补全（+gitnexus_impact, +find_referencing_symbols）、prd-template.md Tools Available 替换为 Full/Enhanced/Basic 三模式结构化表格（含调用示例）、修正 ABCoder 调用链（get_package_structure → get_file_structure）、补充 smoke 断言 (user-visible)
 - v1.4.0 2026-04-02 17:00:00 kuang: 修复 ABCoder probe 缺少语言检测步骤——Step 3 补充 3a（扫描文件扩展名检测主语言）和 3b（abcoder parse <language> <path> 正确语法） (user-visible)
 - v1.4.0 2026-04-02 16:45:00 kuang: 更新 README：修正工作流命令顺序（mcp-setup → 重启 → bootstrap）、新增 Host Readiness Gate 提示、Core Workflow 表格将 MCP Setup 移至首行并标注先决条件 (user-visible)
 - v1.4.0 2026-04-02 16:30:00 kuang: 实现 spec-bootstrap MCP-first 改造（5 个 Unit）：新增 verify-tools.sh（Unit 1）、改造 mcp-setup SKILL.md 加 Phase 4 Host Verification + ABCoder MCP 配置步骤（Unit 2）、spec-bootstrap 新增 Host Readiness Gate 章节（Unit 3）、重写 Analysis Mode Detection + Phase 1.3 为真实 probe（Unit 4）、新增 verify-tools.sh 测试组 9.1-9.12（Unit 5）(user-visible)

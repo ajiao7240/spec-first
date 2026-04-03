@@ -77,6 +77,7 @@ Architecture-level analysis: clusters, flows, impact.
 | `gitnexus_query` | Find execution flows | `gitnexus_query({query: "authentication flow"})` |
 | `gitnexus_context` | 360° symbol view | `gitnexus_context({name: "AuthService"})` |
 | `gitnexus_cypher` | Graph queries | `gitnexus_cypher({query: "MATCH (n:Class) RETURN n.name LIMIT 20"})` |
+| `gitnexus_impact` | Blast radius analysis | `gitnexus_impact({target: "UserModel", direction: "downstream"})` |
 
 **Useful Cypher patterns**:
 ```cypher
@@ -115,8 +116,9 @@ Semantic code analysis: symbol lookup, structure overview, pattern search.
 | `mcp__serena__get_symbols_overview` | File structure | `mcp__serena__get_symbols_overview({relative_path: "src/auth.ts"})` |
 | `mcp__serena__find_symbol` | Locate symbol | `mcp__serena__find_symbol({name_path_pattern: "AuthService", relative_path: "src/"})` |
 | `mcp__serena__search_for_pattern` | Pattern search | `mcp__serena__search_for_pattern({substring_pattern: "export class.*Service"})` |
+| `mcp__serena__find_referencing_symbols` | Find references | `mcp__serena__find_referencing_symbols({name_path: "AuthService", relative_path: "src/auth/service.ts"})` |
 
-**Workflow**: get_symbols_overview (structure) → find_symbol (locate) → Read source (details)
+**Workflow**: get_symbols_overview (structure) → find_symbol (locate) → find_referencing_symbols (callers) → Read source (details)
 
 ---
 
