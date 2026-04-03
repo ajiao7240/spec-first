@@ -1,7 +1,7 @@
 ---
 title: "feat: mcp-setup + spec-bootstrap 语言矩阵与 ABCoder 探针优化"
 type: feat
-status: approved
+status: completed
 date: 2026-04-03
 origin: ABCoder JDT 缓存权限故障分析 + 跨 skill 协调优化
 ---
