@@ -544,6 +544,117 @@ assert_output "9.12 context7.configured=true" "true" "$out912"
 echo ""
 
 # ============================================================================
+echo "10. Language runtime detection tests"
+# ============================================================================
+
+echo "10.1 go_present=true when go in PATH"
+FH101="$TMP_DIR/fh101"
+FAKEBIN101="$TMP_DIR/fakebin101"
+mkdir -p "$FH101" "$FAKEBIN101"
+echo '{"mcpServers":{}}' > "$FH101/.claude.json"
+for cmd in bash jq date mkdir mktemp chmod mv cat awk find head ls; do
+  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN101/$cmd"; fi
+done
+printf '#!/bin/sh\nif [ "$1" = "version" ]; then echo "go version go1.22.0 darwin/arm64"; elif [ "$1" = "env" ]; then echo "/fake/gomodcache"; fi\n' > "$FAKEBIN101/go"
+chmod +x "$FAKEBIN101/go"
+HOME="$FH101" PATH="$FAKEBIN101" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out101=$(jq -r '.language_runtime.go.present' "$FH101/.claude/spec-first/host-setup.json")
+assert_output "10.1 go_present=true" "true" "$out101"
+
+echo "10.2 python_present=false when python not in PATH"
+FH102="$TMP_DIR/fh102"
+FAKEBIN102="$TMP_DIR/fakebin102"
+mkdir -p "$FH102" "$FAKEBIN102"
+echo '{"mcpServers":{}}' > "$FH102/.claude.json"
+for cmd in bash jq date mkdir mktemp chmod mv cat awk find head ls; do
+  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN102/$cmd"; fi
+done
+# No python3 or python in PATH
+HOME="$FH102" PATH="$FAKEBIN102" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out102=$(jq -r '.language_runtime.python.present' "$FH102/.claude/spec-first/host-setup.json")
+assert_output "10.2 python_present=false" "false" "$out102"
+
+echo "10.3 jdt_cache.reason=not-applicable when abcoder not installed"
+FH103="$TMP_DIR/fh103"
+FAKEBIN103="$TMP_DIR/fakebin103"
+mkdir -p "$FH103" "$FAKEBIN103"
+echo '{"mcpServers":{}}' > "$FH103/.claude.json"
+for cmd in bash jq date mkdir mktemp chmod mv cat awk find head ls; do
+  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN103/$cmd"; fi
+done
+# No abcoder in PATH
+HOME="$FH103" PATH="$FAKEBIN103" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out103=$(jq -r '.jdt_cache.reason' "$FH103/.claude/spec-first/host-setup.json")
+assert_output "10.3 jdt_cache.reason=not-applicable" "not-applicable" "$out103"
+
+echo "10.4 host-setup.json version is 2"
+FH104="$TMP_DIR/fh104"
+mkdir -p "$FH104"
+HOME="$FH104" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out104=$(jq -r '.version' "$FH104/.claude/spec-first/host-setup.json")
+assert_output "10.4 version=2" "2" "$out104"
+
+echo "10.5 host-setup.json has language_runtime field"
+FH105="$TMP_DIR/fh105"
+mkdir -p "$FH105"
+HOME="$FH105" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out105=$(jq -r '.language_runtime' "$FH105/.claude/spec-first/host-setup.json")
+assert "10.5 language_runtime field exists" test -n "$out105"
+
+echo "10.6 host-setup.json has jdt_cache field"
+FH106="$TMP_DIR/fh106"
+mkdir -p "$FH106"
+HOME="$FH106" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out106=$(jq -r '.jdt_cache' "$FH106/.claude/spec-first/host-setup.json")
+assert "10.6 jdt_cache field exists" test -n "$out106"
+
+echo "10.7 jdt_cache.writable=false when JDT dir exists but not writable"
+FH107="$TMP_DIR/fh107"
+FAKEBIN107="$TMP_DIR/fakebin107"
+FAKE_MOD107="$TMP_DIR/fakemod107"
+mkdir -p "$FH107" "$FAKEBIN107"
+echo '{"mcpServers":{}}' > "$FH107/.claude.json"
+for cmd in bash jq date mkdir mktemp chmod mv cat awk find head ls; do
+  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN107/$cmd"; fi
+done
+mkdir -p "$FAKE_MOD107/github.com/cloudwego/abcoder@v0.3.1/lang/java/lsp/jdtls"
+chmod 444 "$FAKE_MOD107/github.com/cloudwego/abcoder@v0.3.1/lang/java/lsp/jdtls"
+printf '#!/bin/sh\necho "abcoder version v0.3.1"\n' > "$FAKEBIN107/abcoder"
+chmod +x "$FAKEBIN107/abcoder"
+printf '#!/bin/sh\nexit 0\n' > "$FAKEBIN107/java"
+chmod +x "$FAKEBIN107/java"
+printf '#!/bin/sh\nif [ "$1" = "version" ]; then echo "go version go1.22.0 darwin/arm64"; elif [ "$1" = "env" ]; then echo "'"$FAKE_MOD107"'"; fi\n' > "$FAKEBIN107/go"
+chmod +x "$FAKEBIN107/go"
+HOME="$FH107" PATH="$FAKEBIN107" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out107w=$(jq -r '.jdt_cache.writable' "$FH107/.claude/spec-first/host-setup.json")
+assert_output "10.7 jdt_cache.writable=false" "false" "$out107w"
+out107r=$(jq -r '.jdt_cache.reason' "$FH107/.claude/spec-first/host-setup.json")
+assert_output "10.7 jdt_cache.reason=not-writable" "not-writable" "$out107r"
+chmod 755 "$FAKE_MOD107/github.com/cloudwego/abcoder@v0.3.1/lang/java/lsp/jdtls"  # restore for cleanup
+
+echo "10.8 jdt_cache.writable=true when JDT parent dir is writable (jdtls not yet created)"
+FH108="$TMP_DIR/fh108"
+FAKEBIN108="$TMP_DIR/fakebin108"
+FAKE_MOD108="$TMP_DIR/fakemod108"
+mkdir -p "$FH108" "$FAKEBIN108"
+echo '{"mcpServers":{}}' > "$FH108/.claude.json"
+for cmd in bash jq date mkdir mktemp chmod mv cat awk find head ls; do
+  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN108/$cmd"; fi
+done
+mkdir -p "$FAKE_MOD108/github.com/cloudwego/abcoder@v0.3.1/lang/java/lsp"
+printf '#!/bin/sh\necho "abcoder version v0.3.1"\n' > "$FAKEBIN108/abcoder"
+chmod +x "$FAKEBIN108/abcoder"
+printf '#!/bin/sh\nexit 0\n' > "$FAKEBIN108/java"
+chmod +x "$FAKEBIN108/java"
+printf '#!/bin/sh\nif [ "$1" = "version" ]; then echo "go version go1.22.0 darwin/arm64"; elif [ "$1" = "env" ]; then echo "'"$FAKE_MOD108"'"; fi\n' > "$FAKEBIN108/go"
+chmod +x "$FAKEBIN108/go"
+HOME="$FH108" PATH="$FAKEBIN108" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out108=$(jq -r '.jdt_cache.writable' "$FH108/.claude/spec-first/host-setup.json")
+assert_output "10.8 jdt_cache.writable=true (parent-writable)" "true" "$out108"
+
+echo ""
+
+# ============================================================================
 echo "=== Results ==="
 echo "  Passed: $pass"
 echo "  Failed: $fail"

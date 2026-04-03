@@ -8,6 +8,9 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.4.0 2026-04-03 14:00:00 kuang: feat(mcp-setup+spec-bootstrap): Unit 3 — host-setup.json v2 schema Appendix（消费方表格、向后兼容说明）+ spec-bootstrap Host Readiness Gate Step 1 version 检查 (user-visible)
+- v1.4.0 2026-04-03 13:30:00 kuang: feat(spec-bootstrap): Unit 2 — ABCoder probe 重构为 Language Match First（Step 2a-2c）、禁止 npx 标注、Host Readiness Gate Step 2b JDT 预警、报告新增 language-not-supported 场景 (user-visible)
+- v1.4.0 2026-04-03 13:00:00 kuang: feat(mcp-setup): Unit 1 — verify-tools.sh 新增 Go/Python runtime 检测 + JDT 缓存可写性检测（ls-d glob，jdtls 路径）、host-setup.json 升级 v2 schema、SKILL.md 新增 Phase 4.3 JDT 修复流程、新增测试 10.1-10.8（111 通过）(user-visible)
 - v1.4.0 2026-04-03 11:30:00 kuang: fix(spec-bootstrap): review 修复 — layer-context AC 改用 anti-pattern 措辞（pitfall 语义仅属 pitfalls-context）、删除 L453 stale 行号引用、test 9.1 改用受控 PATH + stub abcoder 消除真实环境依赖
 - v1.4.0 2026-04-03 11:00:00 kuang: feat(spec-bootstrap): Unit 3/4 — Phase 2.4.3 追加 pitfalls 四类发现策略（代码/架构/业务/历史）及 architecture 三文件职责边界表格（system-overview/module-map/integration-boundaries 写什么/不写什么）
 - v1.4.0 2026-04-03 10:30:00 kuang: feat(spec-bootstrap): Unit 2 — Phase 2.4 编排器指引三子章节（Files to Fill 动态策略、task-specific AC 注入、推荐骨架）+ 多点一致性修复（Phase 2.1 条件注释、Phase 3.4/3.5 动态化、Checklist PRD-listed 语义、L619 收紧为 section 级）(user-visible)

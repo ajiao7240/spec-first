@@ -146,7 +146,10 @@ Check whether `~/.claude/spec-first/host-setup.json` exists **and** `setup_succe
 
   Stop. Do not proceed to Step 2 or any Phase.
 
-- **文件存在且 `setup_success == true`** → Continue to Step 2.
+- **文件存在且 `setup_success == true`** → Check schema version:
+  - `version == "2"` → Full capability（language_runtime + jdt_cache available）
+  - `version == "1"` 或字段缺失 → Legacy mode（语言/JDT 信息不可用，ABCoder probe 将自行检测）
+  - 两种情况均继续 → Continue to Step 2.
 
 ### Step 2: Check MCP runtime availability
 
@@ -175,7 +178,27 @@ Fallback probe: `serena get_current_config`.
 
   Stop. Do not proceed to Phase 1.
 
-- **Probe succeeds** → State: `READY`. Continue to `## Analysis Mode`.
+- **Probe succeeds** → State: `READY`. Continue to Step 2b.
+
+### Step 2b: JDT Cache Warning
+
+If `~/.claude/spec-first/host-setup.json` exists and `jdt_cache.writable == false`:
+
+Output to user (non-blocking):
+```
+⚠️ ABCoder JDT 缓存目录不可写（Java 项目将受影响）。
+
+检测到 jdt_cache.reason: <reason>
+路径: <jdt_cache.path>
+
+修复方法：
+  chmod -R u+w <jdt_cache.path 的父目录>
+
+或重新运行 /spec:mcp-setup，Phase 4.3 会自动修复。
+```
+
+This warning is non-blocking. If the project is not Java, this is informational only.
+Continue to `## Analysis Mode`.
 
 **注意事项：**
 - 阻断输出必须包含三要素：原因 / 操作 / 完成后下一步
@@ -263,21 +286,37 @@ Run all three probes concurrently. Collect each result independently.
 Step 1: `list_repos()` — always first, never guess repo_name from directory name
   - Repo found → skip to Step 4
 
-Step 2 (if list_repos empty): Language preflight for Java projects
-  - `java -version` accessible?
-  - `JAVA_HOME` resolvable?
-  - JDT cache directory writable?
-  - (Optional) JDT download source network reachable?
-  - Any failure → `abcoder.ready=false`, record reason (e.g., `java-runtime-missing`, `jdt-cache-not-writable`, `jdt-network-unreachable`)
+Step 2 (if list_repos empty): Language Match First
+
+  2a. **Detect primary language** (scan file extensions in project root):
+  - `.go` → `go`, `.py` → `python`, `.java` → `java`
+  - `.kt` → `kotlin`, `.swift` → `swift`, `.rs` → `rust`, `.ts/.tsx` → `typescript`, `.js/.jsx` → `javascript`
+  - `.rb` → `ruby`, `.cs` → `csharp`, `.cpp/.cxx` → `cpp`
+  - Pick the language with the most source files
+
+  2b. **Check language against ABCoder support matrix:**
+  - **ABCoder supports:** Go, Java, Python (v0.3.1)
+  - If primary language NOT in support matrix → `abcoder.ready=false`, `reason=language-not-supported:<lang>`, skip Steps 3-4
+  - Report: "ABCoder: skipped (项目语言 <lang> 不在支持列表: Go, Java, Python)"
+
+  2c. **For supported languages, check host-setup.json for pre-known issues:**
+  - Read `~/.claude/spec-first/host-setup.json`:
+    - `language_runtime.<lang>.present` — runtime 是否已安装
+    - For Java: `jdt_cache.writable` — JDT 缓存是否可写
+  - If Go or Python AND runtime missing → **informational warning only**（ABCoder 内置 gopls/pyright，不依赖系统 runtime，probe 继续执行）
+  - If Java AND runtime missing → `abcoder.ready=false`, `reason=java-runtime-missing`
+  - If Java AND `jdt_cache.writable == false`:
+    - Output warning to user with fix command
+    - `abcoder.ready=false`, `reason=jdt-cache-not-writable`
+  - If all checks pass → proceed to Step 3
 
 Step 3: Trigger parse, wait ≤ 60s (outer timer — record start time, check elapsed on each poll)
 
-  3a. **Detect primary language** (scan file extensions):
-  - `.go` → `go`, `.py` → `python`, `.ts/.tsx/.js/.jsx` → `typescript`/`javascript`, `.java` → `java`
-  - Pick the language with the most source files
-  - If language not supported by ABCoder (e.g., Ruby, Rust, C++) → `abcoder.ready=false`, `reason=language-not-supported`
+  **重要：ABCoder 是 Go 二进制文件，不是 npm 包。**
+  - 正确命令：`abcoder parse <language> <project-root>`
+  - 禁止使用：`npx abcoder ...`（npm 上不存在此包，会得到 npm 404 错误）
+  - 禁止使用：`abcoder parse <language> <project-root> -o <dir>`（ABCoder MCP server 从内部存储读取）
 
-  3b. Run: `abcoder parse <language> <project-root>` (no `-o` flag — ABCoder MCP server reads from its internal store)
   - Timeout → `abcoder.ready=false`, `reason=parse-timeout`; note: Java JDT cold-start may exceed 60s, inform user to retry
   - Parse failure → `abcoder.ready=false`, `reason=parse-failed`
 
@@ -305,6 +344,12 @@ GitNexus: ready=no,  reason=repo-not-indexed
 ABCoder:  ready=yes
 
 📊 分析模式: Enhanced  (ABCoder 可用)
+```
+
+ABCoder language-not-supported 场景示例：
+```
+ABCoder:  ready=no,  reason=language-not-supported:kotlin
+          (项目语言 kotlin 不在 ABCoder 支持列表: Go, Java, Python。Serena 将作为主要分析工具。)
 ```
 
 Then proceed with analysis using the selected mode's tool set.
