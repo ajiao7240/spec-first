@@ -8,6 +8,9 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.0 2026-04-03 kuang: docs: 新增 spec-first 最佳实践方案文档，融合 Harness Engineering + 胶水编程，覆盖全部 7 个 skill 改造点、四轮实施路径与素材飞轮机制
+- v1.5.0 2026-04-03 kuang: docs: 新增 spec-first 生态集成优化方案文档，识别生态孤岛问题，提出 AGENTS.md 全局注入点方案及 9 处变更清单
+- v1.5.0 2026-04-03 kuang: docs: 新增 spec-first Harness Engineering 改造技术方案文档，含架构目标、技术设计与分阶段实施计划
 - v1.5.0 2026-04-03 kuang: docs: 新增 spec-bootstrap × Harness Engineering 优化建议文档，覆盖 7 个优化点（agents-md-context、lint hint、verify step、失败记忆等）
 - v1.5.0 2026-04-03 kuang: docs: 新增业界借鉴 Harness Engineering 指南（Qoder 工程实践）及配套 assets
 - v1.5.0 2026-04-03 kuang: docs: 重组项目知识目录（6→7），迁移 spec-bootstrap 分析文档至新目录
