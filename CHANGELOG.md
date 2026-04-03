@@ -4,10 +4,22 @@
 - 说明：
   - `v版本号` 使用本次变更对应的发布版本
   - 日期时间必须使用 `YYYY-MM-DD HH:MM:SS`
-  - `作者` 填写提交人或变更责任人
+- `作者` 填写提交人或变更责任人
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.0 2026-04-03 kuang: docs: 新增 spec-bootstrap × Harness Engineering 优化建议文档，覆盖 7 个优化点（agents-md-context、lint hint、verify step、失败记忆等）
+- v1.5.0 2026-04-03 kuang: docs: 新增业界借鉴 Harness Engineering 指南（Qoder 工程实践）及配套 assets
+- v1.5.0 2026-04-03 kuang: docs: 重组项目知识目录（6→7），迁移 spec-bootstrap 分析文档至新目录
+- v1.4.0 2026-04-03 18:38:30 kuang: docs(ideation): 修复连载文档中的绝对路径引用，统一改为相对路径以恢复图片和文档链接预览 (user-visible)
+- v1.4.0 2026-04-03 18:36:00 kuang: docs(ideation): 为连载首篇补充 1 张新 SVG 示意图与 2 张复用图，插入正文对应位置增强方法论表达 (user-visible)
+- v1.4.0 2026-04-03 18:32:05 kuang: docs(ideation): 将连载首篇打磨为可发版终稿风格，补充导语、收紧段落节奏并更新状态标记 (user-visible)
+- v1.4.0 2026-04-03 18:26:10 kuang: docs(ideation): 重构连载首篇正文，收紧为“问题 -> 坐标系 -> 定位 -> 递进 -> 转场”的单线叙事结构 (user-visible)
+- v1.4.0 2026-04-03 18:24:37 kuang: docs(ideation): 新增 docs/ideation/README.md 作为连载文档索引页，集中列出选题、总纲、大纲与首篇初稿 (user-visible)
+- v1.4.0 2026-04-03 18:23:19 kuang: docs(ideation): 输出连载首篇总论正文初稿，整合 Harness Engineering 参照与 spec-first 的方法论定位 (user-visible)
+- v1.4.0 2026-04-03 18:20:09 kuang: docs(ideation): 将 Harness Engineering 作为上位参照整合进连载总纲与首篇大纲，补充与 spec-first 的关系、边界和参考来源 (user-visible)
+- v1.4.0 2026-04-03 18:24:00 kuang: docs(ideation): 输出连载首篇《总论》的详细大纲，补充正文结构、开头引子与结尾转场 (user-visible)
+- v1.4.0 2026-04-03 18:13:41 kuang: docs(ideation): 输出 spec-first 连载博客总纲与公众号标题集到独立文档，并补充发布顺序说明 (user-visible)
 - v1.4.0 2026-04-03 14:00:00 kuang: feat(mcp-setup+spec-bootstrap): Unit 3 — host-setup.json v2 schema Appendix（消费方表格、向后兼容说明）+ spec-bootstrap Host Readiness Gate Step 1 version 检查 (user-visible)
 - v1.4.0 2026-04-03 13:30:00 kuang: feat(spec-bootstrap): Unit 2 — ABCoder probe 重构为 Language Match First（Step 2a-2c）、禁止 npx 标注、Host Readiness Gate Step 2b JDT 预警、报告新增 language-not-supported 场景 (user-visible)
 - v1.4.0 2026-04-03 13:00:00 kuang: feat(mcp-setup): Unit 1 — verify-tools.sh 新增 Go/Python runtime 检测 + JDT 缓存可写性检测（ls-d glob，jdtls 路径）、host-setup.json 升级 v2 schema、SKILL.md 新增 Phase 4.3 JDT 修复流程、新增测试 10.1-10.8（111 通过）(user-visible)
