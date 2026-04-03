@@ -479,11 +479,15 @@ Use `references/prd-template.md` as the base template for all non-database tasks
 
 对以下任务类型，在通用 AC 之后追加特定条目：
 
-**pitfalls-context / layer-context 追加：**
+**pitfalls-context 追加：**
 - [ ] Each pitfall includes: file + line range, risk type, why risky, recommended mitigation
 - [ ] At least 3 concrete examples documented with real code from the codebase
 
-> **注意：** `database-context` 不经过 Phase 2.4（L453 明确 2.4 只服务 non-database tasks）。database 专项 AC 已在 `references/database-prd-template.md` 独立模板中覆盖。
+**layer-context 追加：**
+- [ ] Each anti-pattern / code smell includes: file + line range, risk type, why risky, recommended mitigation
+- [ ] At least 3 concrete examples documented with real code from the codebase
+
+> **注意：** `database-context` 不经过 Phase 2.4（Phase 2.4 开头明确 "all non-database tasks"）。database 专项 AC 已在 `references/database-prd-template.md` 独立模板中覆盖。
 
 #### 2.4.3 Technical Notes 推荐骨架
 

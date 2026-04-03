@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.4.0 2026-04-03 11:30:00 kuang: fix(spec-bootstrap): review 修复 — layer-context AC 改用 anti-pattern 措辞（pitfall 语义仅属 pitfalls-context）、删除 L453 stale 行号引用、test 9.1 改用受控 PATH + stub abcoder 消除真实环境依赖
 - v1.4.0 2026-04-03 11:00:00 kuang: feat(spec-bootstrap): Unit 3/4 — Phase 2.4.3 追加 pitfalls 四类发现策略（代码/架构/业务/历史）及 architecture 三文件职责边界表格（system-overview/module-map/integration-boundaries 写什么/不写什么）
 - v1.4.0 2026-04-03 10:30:00 kuang: feat(spec-bootstrap): Unit 2 — Phase 2.4 编排器指引三子章节（Files to Fill 动态策略、task-specific AC 注入、推荐骨架）+ 多点一致性修复（Phase 2.1 条件注释、Phase 3.4/3.5 动态化、Checklist PRD-listed 语义、L619 收紧为 section 级）(user-visible)
 - v1.4.0 2026-04-03 10:00:00 kuang: feat(spec-bootstrap): Unit 1 — SKILL.md Tool Usage Guide 补全（+gitnexus_impact, +find_referencing_symbols）、prd-template.md Tools Available 替换为 Full/Enhanced/Basic 三模式结构化表格（含调用示例）、修正 ABCoder 调用链（get_package_structure → get_file_structure）、补充 smoke 断言 (user-visible)

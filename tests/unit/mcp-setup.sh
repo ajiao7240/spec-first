@@ -427,11 +427,19 @@ echo "9. verify-tools.sh tests"
 
 VERIFY_SCRIPT="$SCRIPTS_DIR/verify-tools.sh"
 
-echo "9.1 abcoder binary detected when present"
+echo "9.1 abcoder binary detected when present (controlled PATH with stub)"
 FH91="$TMP_DIR/fh91"
-mkdir -p "$FH91"
+FAKEBIN91="$TMP_DIR/fakebin91"
+mkdir -p "$FH91" "$FAKEBIN91"
 echo '{"mcpServers":{}}' > "$FH91/.claude.json"
-out91=$(HOME="$FH91" bash "$VERIFY_SCRIPT" 2>/dev/null && jq -r '.tools.abcoder.installed' "$FH91/.claude/spec-first/host-setup.json")
+# Stub abcoder binary that always exits 0 (simulates installed + working)
+printf '#!/bin/sh\nexit 0\n' > "$FAKEBIN91/abcoder"
+chmod +x "$FAKEBIN91/abcoder"
+for cmd in bash jq date mkdir mktemp chmod mv; do
+  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN91/$cmd"; fi
+done
+out91=$(HOME="$FH91" PATH="$FAKEBIN91" bash "$VERIFY_SCRIPT" 2>/dev/null \
+  && jq -r '.tools.abcoder.installed' "$FH91/.claude/spec-first/host-setup.json")
 assert_output "9.1 abcoder.installed=true when in PATH" "true" "$out91"
 
 echo "9.2 abcoder binary not detected when absent (PATH override)"
