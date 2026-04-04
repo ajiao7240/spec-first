@@ -8,6 +8,14 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.0 2026-04-04 kuang: docs: 新增 docs/01-需求分析/7.项目知识/README.md 索引，列出目录下全部文档的性质摘要与推荐阅读顺序
+- v1.5.0 2026-04-04 kuang: docs: 修复 Harness Engineering 实施分期文档全部 P0/P1 问题：阶段1补充 VALID/INVALID 触发条件表、OoS 边界说明、Greenfield template-first 来源约定、single-writer managed block 实现要求、knowledge init 消费方说明、完成标志操作验收指标；阶段2补充首次产出归属声明、路径迁移说明、history-spec-index 写入责任链、automation candidate 人工确认要求、语义召回最小实现、pitfalls-specialist 路由机制；阶段3补充13资产 Reduced-harness 输入矩阵、指标失真背离检测机制、阶段1/2 代理指标可计算条件
+- v1.5.0 2026-04-04 kuang: docs: 完善 Harness Engineering 实施分期文档：补充 meta.json/findings.json/probe-failures 等缺失数据契约，新增 .context/ 路径决策说明，补全阶段2双路召回消费侧接入说明与 automation candidates 量化门槛，修复 Trace 统一建模字段缺漏
+- v1.5.0 2026-04-04 kuang: docs: 新增 spec-req Stage -1 需求录入 workflow 设计方案，融合 Shape Up/PRFAQ/BDD/RFC 四种方法论，覆盖文档格式、3问交互模式、下游 skill 联动与可追溯链路
+- v1.5.0 2026-04-04 kuang: docs: 新增独立文档仓库方案，覆盖 init 绑定、team/org 配置层级、docs repo 路径映射与三阶段实施计划
+- v1.5.0 2026-04-04 kuang: docs: 新增 spec-first Harness 改造技术方案最终架构审查报告，综合 Prompt Harness 上限、Greenfield contract 缺失、proposal 职责漂移等 7 项问题，含优先级行动清单
+- v1.5.0 2026-04-04 kuang: docs: 优化 0-1与1-10-100项目需求开发能力说明文档，修正 Section 6 子标题层级，补充 Greenfield/Reduced-harness 区别说明，标注 Section 10 四条建议为新增需求并说明实现代价
+- v1.5.0 2026-04-04 00:58:55 kuang: docs: 将新增 skill 接入说明重构为全链路通用指南，覆盖 ideate→brainstorm→plan→work→review→compound 六阶段接入矩阵，并补充 brainstorm 与 work 两个案例 (user-visible)
 - v1.5.0 2026-04-03 kuang: docs: 新增 spec-first 最佳实践方案文档，融合 Harness Engineering + 胶水编程，覆盖全部 7 个 skill 改造点、四轮实施路径与素材飞轮机制
 - v1.5.0 2026-04-03 kuang: docs: 新增 spec-first 生态集成优化方案文档，识别生态孤岛问题，提出 AGENTS.md 全局注入点方案及 9 处变更清单
 - v1.5.0 2026-04-03 kuang: docs: 新增 spec-first Harness Engineering 改造技术方案文档，含架构目标、技术设计与分阶段实施计划
