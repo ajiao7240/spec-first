@@ -63,7 +63,7 @@
 
 **direct-to-work 例外：** 若用户绕过 plan 直接进入 `spec-work`，生成 `adhoc-YYYYMMDD-HHMMSS-<slug>`，并在 `meta.json` 标记 `spec_origin: "adhoc"`。
 
-**一致性要求：** `work/meta.json` 和 `review/findings.json` 中的 `spec_id` 必须使用相同推导逻辑。两个 skill 各自独立推导时，应从同一个 `plan_path` 字段派生，而非从运行时环境中读取。
+**一致性要求：** `work/meta.json` 和 `spec-review/findings.json` 中的 `spec_id` 必须使用相同推导逻辑。两个 skill 各自独立推导时，应从同一个 `plan_path` 字段派生，而非从运行时环境中读取。
 
 ### run_id
 
@@ -75,10 +75,10 @@
 
 ### schema_version 版本策略
 
-所有新增 JSON 资产的 `schema_version` 使用整数递增（如 `1`、`2`）。
+所有新增 JSON 资产的 `schema_version` 按主方案当前约定使用字符串版本（如 `\"1.0\"`）。
 
 - 向后兼容字段新增：版本不变
-- 字段重命名或语义变更：版本 +1
+- 字段重命名或语义变更：主版本递增，例如 `1.0 -> 2.0`
 - 消费方读取到高于自身预期的版本时，应输出 `warn` 而非硬失败
 
 ## spec-bootstrap 路径迁移决策
@@ -87,19 +87,13 @@
 
 **两条路径并存的问题：** 若同时维护两套路径，下游 skill（`spec-plan`、`spec-work`、`doctor`）需要知道从哪里加载控制面资产，造成歧义。
 
-**裁决（阶段1实施前必须选择）：**
+**当前采用：双路径分工。**
 
-- **方案 A（推荐）：双路径分工**
-  - `docs/contexts/<slug>/` 继续存放人类可读的 Markdown 文档（供 review、archive）
-  - `.context/spec-first/bootstrap/<slug>/analysis/` 存放机器消费的 JSON 控制面资产（新增）
-  - 两套路径职责不同，不互相替代
-  - 下游 skill 只从 `.context/` 读取机器格式资产
-
-- **方案 B：完整迁移**
-  - `docs/contexts/<slug>/` 中现有 Markdown 产物迁入 `.context/spec-first/bootstrap/<slug>/`
-  - 需同步修改所有引用 `docs/contexts/` 的 skill 和文档
-
-若选方案 A（推荐），`spec-bootstrap SKILL.md` 的改动是**增量新增**一套 JSON 写入路径，不破坏现有 `docs/contexts/` 产物。`doctor` 检查时区分两套路径的职责。
+- `docs/contexts/<slug>/` 继续存放人类可读的 Markdown 文档（供 review、archive）
+- `.context/spec-first/bootstrap/<slug>/analysis/` 存放机器消费的 JSON 控制面资产
+- 两套路径职责不同，不互相替代
+- 下游 skill 只从 `.context/` 读取机器格式资产
+- `doctor` 检查时区分两套路径的职责
 
 ## 阶段门控说明
 
@@ -119,7 +113,7 @@
 
 - `spec-bootstrap` 仍是 supporting workflow，不得在阶段文档里被重新解释成强前置。
 - instruction file 仍保持 single writer 语义。实施时通过 `<!-- spec-first:context:start -->` / `<!-- spec-first:context:end -->` 标记管理 block，CLI `init` 是唯一 writer，bootstrap 只产出 `instruction-context.json`。
-- `proposal` 的 WHAT 层真源仍归 `spec-brainstorm` handoff 或 direct-to-plan 例外。direct-to-plan 例外须在 plan 文件中用 `proposal_source: direct` 字段标记，以保证 review 和 improve 知晓来源差异。
+- `proposal` 的 WHAT 层真源仍归 `spec-brainstorm` handoff 或 direct-to-plan 例外。direct-to-plan 例外应在 plan frontmatter / metadata 中显式标记 direct 来源，以保证 review 和 improve 知晓来源差异。
 - 所有新增 JSON 资产都应保留 `schema_version`（版本策略见上）。
 - 所有 candidate / proposal / improve 输出默认都是建议，不自动写回主资产。**automation candidate 不是此约束的例外**，见阶段2 §5.5 中的人工确认要求。
 

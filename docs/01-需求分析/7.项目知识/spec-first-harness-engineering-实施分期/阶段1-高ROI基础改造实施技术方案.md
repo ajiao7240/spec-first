@@ -170,7 +170,7 @@ bootstrap
 - `proposal / design / tasks / doubt points` 先作为一级 section
 - `proposal` section 默认是只读投影或归一化摘录，不得独立演化为 WHAT 真源
 
-**`proposal` 只读投影约束：** WHAT 层真源来自 `spec-brainstorm` handoff 产物（`docs/brainstorms/*-requirements.md`）。`spec-plan` 生成的 `proposal` section 只能摘录或归一化该内容，不得新增、删改需求意图。若无 brainstorm handoff（direct-to-plan 例外），须在 plan 文件中标记 `proposal_source: direct`，并在 proposal section 注明内容为当次直接输入。任何与 `docs/brainstorms/` 原文冲突的内容，以 brainstorm 文件为准。
+**`proposal` 只读投影约束：** WHAT 层真源来自 `spec-brainstorm` handoff 产物（`docs/brainstorms/*-requirements.md`）。`spec-plan` 生成的 `proposal` section 只能摘录或归一化该内容，不得新增、删改需求意图。若无 brainstorm handoff（direct-to-plan 例外），应在 plan frontmatter / metadata 中显式标记 direct 来源，并在 proposal section 注明内容为当次直接输入。任何与 `docs/brainstorms/` 原文冲突的内容，以 brainstorm 文件为准。
 
 #### 阶段 1 必须新增的 section
 
@@ -515,8 +515,8 @@ bootstrap
 
 | 标志 | 可观测验证方式 |
 | --- | --- |
-| spec-plan 消费了 bootstrap 资产 | plan 文档的 `Historical Analogs` section 内容来自 `analysis.json` 或 `reference-index.json`，而非空占位或泛化说明 |
+| spec-plan 消费了 bootstrap 资产 | plan 文档的 `Historical Analogs` section 内容来自阶段1允许的数据源（如 `docs/plans/`、`patterns/index.md`、`reference-index.json` 或 starter/template reference），而非空占位或泛化说明 |
 | spec-work Harness-enabled 模式运行 | `.context/spec-first/work/<run-id>/preflight.json` 存在且 `matched_rules` 非空；`meta.json` 的 `mode` 为 `harness-enabled` |
 | spec-work Reduced-harness 模式降级有提示 | 执行日志中出现显式降级消息（如”bootstrap 资产未找到，切换到 Reduced-harness 模式”），且 `meta.json` 的 `mode` 为 `reduced-harness` |
-| Greenfield 路径可走通 | 在无本地代码的新目录中运行 bootstrap，`analysis.json` 的 `project_state` 为 `greenfield` 或 `greenfield-no-template`，且后续 spec-work 不报硬错误 |
+| Greenfield 路径可走通 | 在无本地代码的新目录中运行 bootstrap，`analysis.json` 的 `project_state` 为 `greenfield`，且后续 spec-work 不报硬错误 |
 | Brownfield preflight 有效 | spec-work 在 Harness-enabled 模式下，至少命中一条来自 `verify-hints.json` 的规则并写入 `preflight.json` 的 `matched_rules` |
