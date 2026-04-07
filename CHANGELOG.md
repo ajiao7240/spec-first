@@ -8,6 +8,11 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.1 2026-04-07 矿工: fix(spec-bootstrap): 移除 SKILL.md frontmatter 中的 user-invocable: true，spec-bootstrap 改为命令式入口，不注册为独立 user-invocable skill；同步更新 smoke test (user-visible)
+- v1.5.1 2026-04-07 矿工: docs(bootstrap): 生成 spec-first 项目上下文库 docs/contexts/spec-first/（README + 00-summary + architecture × 3 + pitfalls + layers/cli，共 7 个文档，Basic 分析模式）
+- v1.5.1 2026-04-07 16:32:28 kuang: docs: 新增业界借鉴《2026 年 AI 编码的“渐进式 Spec”实战指南》本地转写稿、6 张配图资源与目录索引更新 (user-visible)
+- v1.5.1 2026-04-07 矿工: docs: 更新 spec-docs 知识库内容规范至 v2.0——综合 LLM Wiki + 胶水编程实践，新增 conventions.md（静态加载规矩层）、internal-apis/（内部 API 文档层）、静态/动态加载策略，明确内容准入标准（AI 能从公开资料获取？）
+- v1.5.1 2026-04-07 矿工: docs: 新增 docs/contexts/spec-first/layers/cli/index.md，覆盖 CLI 入口、3 个命令参数格式、资产同步数据流、Platform Adapter 差异、测试策略及 3 个 anti-pattern 示例
 - v1.5.1 2026-04-07 矿工: docs: 新增 mcp-setup execution-flow.md，梳理完整执行流程 ASCII 图和关键数据流
 - v1.5.1 2026-04-07 矿工: docs: 修复独立知识库方案文档 9 个健壮性问题（normalizeGitUrl 凭证过滤、Phase 过渡顺序约束、docs-local.json 失效 WARNING、git 操作不变式、writeDocsFields 原子写入、walk-up git 边界、doctor detached HEAD、merge=union JSON 风险、§七 state.sh 验证遗漏）
 - v1.5.1 2026-04-07 矿工: fix(mcp-setup): 修正 Serena MCP 启动参数（serena start-mcp-server --project-from-cwd --context ide-assistant），修复 assert_contains grep 将 -- 参数误解析为选项的 bug (user-visible)

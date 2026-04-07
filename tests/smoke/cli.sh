@@ -89,7 +89,6 @@ grep -q '.claude/skills/spec-plan/SKILL.md' "$TMP_DIR/.claude/commands/spec/plan
 grep -q '.claude/skills/spec-bootstrap/SKILL.md' "$TMP_DIR/.claude/commands/spec/bootstrap.md"
 test -f "$TMP_DIR/.claude/skills/spec-bootstrap/SKILL.md"
 grep -q '^name: spec-bootstrap$' "$TMP_DIR/.claude/skills/spec-bootstrap/SKILL.md"
-grep -q '^user-invocable: true$' "$TMP_DIR/.claude/skills/spec-bootstrap/SKILL.md"
 grep -q 'serena-not-mounted-in-session' "$TMP_DIR/.claude/skills/spec-bootstrap/SKILL.md"
 grep -q 'gitnexus-not-mounted-in-session' "$TMP_DIR/.claude/skills/spec-bootstrap/SKILL.md"
 grep -q '不代表 Serena / GitNexus / ABCoder 已挂载' "$TMP_DIR/.claude/skills/spec-bootstrap/SKILL.md"
