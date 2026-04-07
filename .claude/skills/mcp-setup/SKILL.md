@@ -195,6 +195,11 @@ to validate host-level install state and write `~/.claude/spec-first/host-setup.
 - `serena`, `context7`, `sequential-thinking` are configured in `~/.claude.json`
 - `abcoder` and `gitnexus` are best-effort enhancements: if they fail, record their status but do not block completion
 
+Important:
+- `configured=true` only means the launch command was written to config successfully
+- It does **not** mean the MCP server was mounted into the current Claude session
+- Current-session mount failures (for example, `serena` / `gitnexus` showing `failed` in `/mcp`) are handled later by `spec-bootstrap` Phase 1.3 probes
+
 If `verify-tools.sh` exits non-zero (e.g., cannot write marker file):
 - Report the failure with the script's error output
 - Do not claim setup is complete

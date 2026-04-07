@@ -180,6 +180,12 @@ Fallback probe: `serena get_current_config`.
 
 - **Probe succeeds** → State: `READY`. Continue to Step 2b.
 
+  Note:
+  - This probe only proves Claude Code has loaded **at least one** MCP server from the current config.
+  - It does **not** prove Serena / GitNexus / ABCoder are mounted in the current session.
+  - Tool-specific availability is determined in Phase 1.3. If `host-setup.json` says a tool is `configured=true`
+    but the first project-level call says the tool is unavailable, record `reason=<tool>-not-mounted-in-session`.
+
 ### Step 2b: JDT Cache Warning
 
 If `~/.claude/spec-first/host-setup.json` exists and `jdt_cache.writable == false`:
@@ -204,6 +210,7 @@ Continue to `## Analysis Mode`.
 - 阻断输出必须包含三要素：原因 / 操作 / 完成后下一步
 - 两类阻断均不进入 Phase 1，不执行任何项目分析逻辑
 - MCP probe 超时：若 tool call 失败或返回错误（包括 Claude Code 内置超时机制触发的超时），一律视为探针失败，判定 SETUP_DONE_NOT_RESTARTED 状态
+- `context7` 成功只代表 baseline MCP runtime 已加载，不代表 Serena / GitNexus / ABCoder 已挂载
 
 ---
 
@@ -266,6 +273,7 @@ Run all three probes concurrently. Collect each result independently.
 
 **Serena probe:**
 1. Call `serena get_current_config` to check MCP availability
+   - If the tool is unavailable / not mounted in the session → `serena.ready=false`, `reason=serena-not-mounted-in-session`
 2. If no active project: call `serena activate_project` with current working directory
 3. After activate: verify the returned active project path matches `$CWD`
    - Mismatch → `serena.ready=false`, `reason=serena-wrong-project-activated`
@@ -275,6 +283,7 @@ Run all three probes concurrently. Collect each result independently.
 
 **GitNexus probe:**
 1. Check MCP availability
+   - If the tool is unavailable / not mounted in the session → `gitnexus.ready=false`, `reason=gitnexus-not-mounted-in-session`
 2. Query current repo (e.g., `search_commits` or `get_file_history` with minimal args)
    - Results returned → `gitnexus.ready=true`
    - Empty result (repo not indexed) → `gitnexus.ready=false`, `reason=repo-not-indexed`
@@ -284,6 +293,7 @@ Run all three probes concurrently. Collect each result independently.
 **ABCoder probe (4 steps):**
 
 Step 1: `list_repos()` — always first, never guess repo_name from directory name
+  - MCP tool unavailable / not mounted in session → `abcoder.ready=false`, `reason=abcoder-not-mounted-in-session`
   - Repo found → skip to Step 4
 
 Step 2 (if list_repos empty): Language Match First
@@ -344,6 +354,17 @@ GitNexus: ready=no,  reason=repo-not-indexed
 ABCoder:  ready=yes
 
 📊 分析模式: Enhanced  (ABCoder 可用)
+```
+
+Partial MCP mount 场景示例：
+```
+Serena:   ready=no,  reason=serena-not-mounted-in-session
+          (host-setup.json 显示 serena.configured=true，但当前 Claude 会话未挂载 Serena；
+           请先运行 `claude mcp list` 检查，再重启 Claude Code 或重新运行 /spec:mcp-setup)
+GitNexus: ready=no,  reason=gitnexus-not-mounted-in-session
+ABCoder:  ready=yes
+
+📊 分析模式: Enhanced  (ABCoder 可用；Serena/GitNexus 未挂载)
 ```
 
 ABCoder language-not-supported 场景示例：

@@ -9,7 +9,7 @@
       "dependencies": ["uv"],
       "mcp_config": {
         "command": "uvx",
-        "args": ["--from", "git+https://github.com/oraios/serena", "serena-mcp-server", "--context", "ide-assistant"]
+        "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"]
       },
       "detect": {
         "method": "mcp_config",
@@ -24,7 +24,7 @@
       "dependencies": ["node"],
       "mcp_config": {
         "command": "npx",
-        "args": ["-y", "gitnexus", "mcp"]
+        "args": ["-y", "gitnexus@latest", "mcp"]
       },
       "detect": {
         "method": "mcp_config",

@@ -8,6 +8,11 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.1 2026-04-07 矿工: docs: 新增 mcp-setup execution-flow.md，梳理完整执行流程 ASCII 图和关键数据流
+- v1.5.1 2026-04-07 矿工: docs: 修复独立知识库方案文档 9 个健壮性问题（normalizeGitUrl 凭证过滤、Phase 过渡顺序约束、docs-local.json 失效 WARNING、git 操作不变式、writeDocsFields 原子写入、walk-up git 边界、doctor detached HEAD、merge=union JSON 风险、§七 state.sh 验证遗漏）
+- v1.5.1 2026-04-07 矿工: fix(mcp-setup): 修正 Serena MCP 启动参数（serena start-mcp-server --project-from-cwd --context ide-assistant），修复 assert_contains grep 将 -- 参数误解析为选项的 bug (user-visible)
+- v1.5.1 2026-04-07 矿工: docs: 更新独立知识库技术方案——新增 resolveDocsInput/deriveRemoteUrl/walk-up 逻辑；init 交互提示支持 URL 或本地路径输入，本地路径自动推导 remote URL；调整 runInit 顺序（提示在项目发现前），消除 heuristic workspace 排除盲点
+- v1.5.1 2026-04-07 13:28:40 kuang: fix(mcp-setup+spec-bootstrap): 修正 Serena/GitNexus MCP 启动配置为当前官方命令，并为 partial MCP 挂载失败补充显式 reason code 与诊断提示 (user-visible)
 - v1.5.1 2026-04-07 矿工: chore: release 1.5.1 (user-visible)
 - v1.5.0 2026-04-07 11:21:00 kuang: fix(mcp-setup): 调整 host setup 完成判定为 Serena 阻断、ABCoder 和 GitNexus 非阻断；缺失增强工具仅降级 Full mode，不阻止 setup_success 成立 (user-visible)
 - v1.5.0 2026-04-07 矿工: docs: 修复技术方案文档 16 个审查问题（state.js 架构冲突、--global 语义、目录树对齐、分支保护限制声明、v2 边界情况引用等）

@@ -40,7 +40,7 @@ assert_contains() {
   local desc="$1"
   local needle="$2"
   local haystack="$3"
-  if grep -qF "$needle" <<<"$haystack"; then
+  if grep -qF -- "$needle" <<<"$haystack"; then
     pass=$((pass + 1))
   else
     echo "  ✗ $desc: '$needle' not found in output"
@@ -94,18 +94,17 @@ echo "1.5 Optional tools have correct IDs"
 optional_ids=$(jq -r '.tools[] | select(.category == "optional") | .id' "$TOOLS_JSON")
 assert_output "Optional tool IDs" "playwright" "$optional_ids"
 
-echo "1.6 Serena has correct entry point (serena-mcp-server)"
+echo "1.6 Serena has correct entry point (serena start-mcp-server)"
 serena_cmd=$(jq -r '.tools[] | select(.id == "serena") | .mcp_config.command' "$TOOLS_JSON")
 assert_output "Serena uses uvx" "uvx" "$serena_cmd"
 serena_args=$(jq -r '.tools[] | select(.id == "serena") | .mcp_config.args | join(" ")' "$TOOLS_JSON")
-assert_contains "Serena args include serena-mcp-server" "serena-mcp-server" "$serena_args"
-# --context may look like a grep flag; use fixed string matching
-if echo "$serena_args" | grep -qF "ide-assistant"; then
-  pass=$((pass + 1))
-else
-  echo "  ✗ Serena args include ide-assistant"
-  fail=$((fail + 1))
-fi
+assert_contains "Serena args include serena start-mcp-server" "serena start-mcp-server" "$serena_args"
+assert_contains "Serena args include --project-from-cwd" "--project-from-cwd" "$serena_args"
+assert_contains "Serena args include ide-assistant context" "ide-assistant" "$serena_args"
+
+echo "1.6b GitNexus uses latest npm package"
+gitnexus_args=$(jq -r '.tools[] | select(.id == "gitnexus") | .mcp_config.args | join(" ")' "$TOOLS_JSON")
+assert_contains "GitNexus args include gitnexus@latest" "gitnexus@latest" "$gitnexus_args"
 
 echo "1.7 ABCoder has install_command and null mcp_config"
 abcoder_install=$(jq -r '.tools[] | select(.id == "abcoder") | .install_command' "$TOOLS_JSON")

@@ -52,8 +52,17 @@ for tool_id in $tool_ids; do
 done
 
 # Build JSON output (guarded expansion for empty arrays on bash 3.2)
-installed_json=$(printf '%s\n' ${installed[@]+"${installed[@]}"} | jq -R . | jq -s .)
-missing_json=$(printf '%s\n' ${missing[@]+"${missing[@]}"} | jq -R . | jq -s .)
+if [ ${#installed[@]} -eq 0 ]; then
+  installed_json='[]'
+else
+  installed_json=$(printf '%s\n' "${installed[@]}" | jq -R . | jq -s .)
+fi
+
+if [ ${#missing[@]} -eq 0 ]; then
+  missing_json='[]'
+else
+  missing_json=$(printf '%s\n' "${missing[@]}" | jq -R . | jq -s .)
+fi
 
 jq -n \
   --argjson installed "$installed_json" \

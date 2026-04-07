@@ -241,10 +241,15 @@ skill 启动时的知识库路径解析链：
 skill 读取 docs-local.json 时，若 `localPath` 指向的目录不存在或不是 git 仓库，视为失效：
 ```
 localPath 校验失败 → 自动降级：重新走 resolveDocsConfig 链路动态解析
-                    → 解析成功 → 使用动态结果（但不自动重写 docs-local.json，需手动 re-init）
-                    → 解析失败 → 回退 in-repo 模式 + WARNING：建议重跑 spec-first init
+                    → 解析成功 → 使用动态结果
+                                  必须打印：WARNING: docs-local.json 已过期（localPath 无效），
+                                  已自动降级到动态配置。运行 spec-first init 刷新本地快照以恢复性能。
+                                  （不自动重写，skill 不是 docs-local.json 的写入方）
+                    → 解析失败 → 回退 in-repo 模式
+                                  必须打印：WARNING: 知识库路径解析失败，回退到项目内 docs/ 目录。
+                                  建议重跑 spec-first init --docs-repo <url|path>
 ```
-重写 docs-local.json 的唯一入口是 `spec-first init`，不自动发生。
+重写 docs-local.json 的唯一入口是 `spec-first init`，不自动发生。这个限制是有意设计的：skill 运行在 LLM session 上下文中，不应静默修改 CLI 管理的配置文件，以避免状态不可见的副作用。
 
 ### 3.2 知识读取顺序（Agent 消费顺序）
 
@@ -391,6 +396,8 @@ Phase 2 详细任务分解在 Phase 2 立项时单独补充。
 
 **目标**：spec-plan/spec-work/spec-review 启动时优先读取知识库。
 
+**部署顺序约束（必须先于 Phase 3 完成 Phase 2）**：Phase 3 技能上线时，如果 Phase 2 尚未部署（即 spec-bootstrap/compound 还未写入知识库），用户会看到"项目理解文档缺失，建议先运行 spec-bootstrap"提示，但运行 spec-bootstrap 后知识不会写入知识库（因为 Phase 2 未上线）——形成死循环式的空提示。因此 Phase 3 **不得在 Phase 2 之前发布**。如因发布流程需要提前部署 Phase 3，必须在 skill 提示中注明当前 Phase 2 状态。
+
 改动范围：
 - `skills/spec-plan/SKILL.md` — 加入第三节"知识读取顺序"（见本文 §3.2）
 - `skills/spec-work/SKILL.md` — 同上
@@ -420,11 +427,34 @@ function readGlobalConfig()                             // 容忍文件不存在
 function writeGlobalConfig(config)                      // 整体覆盖
 function upsertDocsRepoMapping(url, localPath)          // 更新 docsRepos 映射
 function normalizeGitUrl(url)                           // git@/https/.git → host/org/repo
+
+function resolveDocsInput(input)
+  // 识别 init 时用户输入（URL 或本地路径），统一返回 { repo, localPath, hasRemote }
+  // 本地路径识别规则：以 /、~/、./ 开头
+  //   → validateLocalPath(input)
+  //   → deriveRemoteUrl(input) → 得到 repo（可能为 null）
+  //   → 返回 { repo: string|null, localPath: string, hasRemote: boolean }
+  // 远端 URL 识别规则：以 git@、https://、ssh:// 开头
+  //   → 返回 { repo: normalizeGitUrl(input), localPath: null, hasRemote: true }
+  // 其他格式：抛出错误，提示"请输入 git URL 或本地目录路径"
+
+function deriveRemoteUrl(localPath)
+  // → string | null
+  // 执行 git -C localPath remote get-url origin，normalizeGitUrl 后返回
+  // 无 remote（纯本地仓库）→ 返回 null，不抛错
+
 function resolveDocsConfig(startDir, options)
-  // startDir：配置查找的起点目录（单项目时=项目根，workspace 模式时=workspace 根）
-  // 从 startDir 向上查找 project state → workspace state → global config
-  // options 中的命令行参数（docsRepo/docsLocalPath）优先级最高
-  // 返回：{ repo: string|null, localPath: string|null, slug: string|null, source: 'cli'|'project'|'workspace'|'global'|'fallback' }
+  // startDir：配置查找的起点目录
+  // walk-up 逻辑：从 startDir 向上逐级查找 .spec-first/state.json
+  //   找到第一个 → 作为 workspace 级配置，同时确定 workspace 根目录
+  //   边界约束：walk-up 在代码仓库根目录处停止（git rev-parse --show-toplevel），
+  //     不越过 git repo 边界，防止意外读取父目录中属于其他项目的 workspace 配置。
+  //     若 startDir 不在任何 git repo 中（git rev-parse 失败），则走到文件系统根为止。
+  //   到达边界仍未找到 → 无 workspace 级配置
+  // 完整优先级：options(cli) > project state > workspace state(walk-up) > global config > fallback
+  // 返回：{ repo: string|null, localPath: string|null, slug: string|null,
+  //         workspaceRoot: string|null, source: 'cli'|'project'|'workspace'|'global'|'fallback' }
+
 function validateLocalPath(localPath)                   // 是否为有效 git 仓库（git rev-parse --git-dir）
 function writeDocsLocalConfig(projectRoot, adapter, data) // 写 .claude/spec-first/docs-local.json
 function readDocsLocalConfig(projectRoot, adapter)      // 读 docs-local.json
@@ -437,6 +467,21 @@ function readDocsLocalConfig(projectRoot, adapter)      // 读 docs-local.json
 | `git@github.com:org/spec-docs.git` | `github.com/org/spec-docs` |
 | `https://github.com/org/spec-docs.git` | `github.com/org/spec-docs` |
 | `https://github.com/org/spec-docs` | `github.com/org/spec-docs` |
+| `https://token@github.com/org/spec-docs.git` | **ERROR**：拒绝带 userinfo 的 URL，提示"请使用不含凭证的 URL，token 请通过 `git credential` 或 SSH 密钥配置" |
+| `deriveRemoteUrl` 返回带 token 的 URL（如 CI credential store） | 同上；`deriveRemoteUrl` 内部在返回前调用 `normalizeGitUrl`，遇到 userinfo 时抛出 ERROR，不返回可能泄露的字符串 |
+
+**实现要求**：`normalizeGitUrl` 必须先解析 URL 结构，显式提取 `host + pathname` 再拼接（正则分段），不得使用简单字符串剥离前后缀——避免 `userinfo@host` 因前缀剥离不完整而残留在结果中。
+
+`resolveDocsInput` 输入类型判断与处理：
+
+| 输入形式 | 判断规则 | 处理结果 |
+|---|---|---|
+| `/path/to/spec-docs` | 以 `/` 开头 | 读 git remote → 得到 repo；localPath 已知 |
+| `~/projects/spec-docs` | 以 `~/` 开头 | 同上（展开 home dir） |
+| `./spec-docs` | 以 `./` 开头 | 同上（相对于 cwd 展开） |
+| `git@github.com:org/spec-docs.git` | 以 `git@` 开头 | repo 已知；localPath 为 null |
+| `https://github.com/org/spec-docs` | 以 `https://` 开头 | 同上 |
+| 本地路径但**无 git remote** | `deriveRemoteUrl` 返回 null | WARNING：此配置仅本机有效，无法与团队共享 |
 
 **测试**：`tests/unit/docs-config.sh`
 
@@ -447,8 +492,11 @@ function readDocsLocalConfig(projectRoot, adapter)      // 读 docs-local.json
 # 3. writeGlobalConfig + readGlobalConfig 往返
 # 4. upsertDocsRepoMapping：新增 / 覆盖已有 / URL 规范化后相同
 # 5. resolveDocsConfig 解析优先级：project > workspace > global > fallback
-# 6. validateLocalPath：存在且是 git repo / 存在但不是 git repo / 不存在
-# 7. writeDocsLocalConfig + readDocsLocalConfig 往返
+# 6. resolveDocsConfig walk-up：从子目录起点向上找到 workspace .spec-first/state.json
+# 7. validateLocalPath：存在且是 git repo / 存在但不是 git repo / 不存在
+# 8. writeDocsLocalConfig + readDocsLocalConfig 往返
+# 9. resolveDocsInput：本地路径有 remote / 本地路径无 remote / SSH URL / HTTPS URL / 非法输入
+# 10. deriveRemoteUrl：有 remote / 无 remote / 路径不存在
 ```
 
 ---
@@ -492,8 +540,12 @@ function writeDocsFields(projectRoot, adapter, { docsRepo, docsProjectSlug }) {
   else delete existing.docsRepo;
   if (docsProjectSlug) existing.docsProjectSlug = docsProjectSlug;
   else delete existing.docsProjectSlug;
+  const content = `${JSON.stringify(existing, null, 2)}\n`;
   fs.mkdirSync(path.dirname(statePath), { recursive: true });
-  fs.writeFileSync(statePath, `${JSON.stringify(existing, null, 2)}\n`, 'utf8');
+  // 原子写入：先写临时文件，再 rename，防止进程中断产生半写的 JSON
+  const tmpPath = `${statePath}.tmp`;
+  fs.writeFileSync(tmpPath, content, 'utf8');
+  fs.renameSync(tmpPath, statePath);
 }
 ```
 
@@ -584,21 +636,56 @@ function writeWorkspaceState(root, state)
 **新增参数**（`parseInitArgs` 扩展）：
 
 ```
---docs-repo <url>           docs 仓库 URL
---docs-local-path <path>    docs 仓库本地克隆路径
+--docs-repo <url|path>      docs 仓库远端 URL 或本地路径（二选一，跳过交互提示）
+--docs-local-path <path>    仅在 --docs-repo 传入的是 URL 时使用，指定本地路径
 --slug <name>               手动指定单项目 slug（workspace 模式下指定当前项目）
 --slug-map <map>            workspace 模式：手动指定多个 slug（格式：proj-A=slug-a,proj-B=slug-b）
 --slug-prefix <prefix>      workspace 模式：为所有 slug 加统一前缀
---global                    将 --docs-repo 写入 ~/.spec-first/config.json 的 defaultDocsRepo（全局默认）
+--global                    将 docs repo 配置写入 ~/.spec-first/config.json 全局复用
 ```
 
-**参数写入目标说明**（两个参数的写入位置不受 `--global` 控制各自独立）：
+**参数写入目标说明**：
 
-| 参数 | 写入位置 | 理由 |
+| 输入形式 | 写入位置 | 理由 |
 |---|---|---|
-| `--docs-repo <url>` 不带 `--global` | `<workspace>/.spec-first/state.json` 或 `<project>/.claude/spec-first/state.json` | 团队共享，commit 进代码库 |
-| `--docs-repo <url>` 带 `--global` | 同上 **+** `~/.spec-first/config.json` 的 `defaultDocsRepo` | 同时设为个人全局默认 |
-| `--docs-local-path <path>` | **始终**写入 `~/.spec-first/config.json` 的 `docsRepos` 映射 | 个人配置，路径因人而异，不 commit，不受 `--global` 控制 |
+| 本地路径（有 remote） | repo URL → `state.json`；localPath → `global config` | 从路径自动推导 URL；路径个人私有不 commit |
+| 本地路径（无 remote） | 仅 localPath → `global config`；state.json 不写 docsRepo | 无法共享给团队，仅本机有效，WARNING 告知 |
+| 远端 URL 不带 `--global` | URL → `state.json` | 团队共享，commit 进代码库 |
+| 远端 URL 带 `--global` | URL → `state.json` **+** `global config defaultDocsRepo` | 同时设为个人全局默认 |
+| `--docs-local-path <path>` | **始终**写入 `global config docsRepos` 映射 | 个人路径，不 commit，不受 `--global` 控制 |
+
+**交互提示（Interactive Prompt）**
+
+当 `--docs-repo` 未通过 CLI 传入，且当前无任何已配置的 docsRepo 时，init 主动询问：
+
+```
+配置团队知识库 [可选，回车跳过]:
+  Docs repo（URL 或本地路径）: _
+```
+
+用户输入后立即调用 `resolveDocsInput(input)` 处理，三种情况：
+
+```
+输入本地路径（有 remote）:
+  ✓ 检测到本地 git 仓库
+  ✓ 远端地址: git@github.com:org/spec-docs.git
+  设为全局默认? [Y/n]: _          ← 询问 --global 语义
+  → 一步完成，无需再问本地路径
+
+输入本地路径（无 remote）:
+  ✓ 检测到本地 git 仓库
+  ⚠ 无远端地址，此配置仅本机有效，团队成员无法自动发现知识库
+  继续? [y/N]: _
+
+输入远端 URL:
+  Docs repo URL: git@github.com:org/spec-docs.git
+  本地路径 [~/projects/spec-docs]: _   ← 默认值取 URL 最后一段
+  设为全局默认? [Y/n]: _
+
+回车跳过:
+  → 使用 in-repo 模式（docs/ 目录）
+  → 末尾提示: 如需绑定知识库，重新运行: spec-first init --docs-repo <url|path>
+```
 
 **`runInit` 新增 workspace 路径分叉**：
 
@@ -606,17 +693,36 @@ function writeWorkspaceState(root, state)
 async function runInit(args) {
   const workspace = detectWorkspace(cwd)
 
+  // 交互提示：在项目发现之前获取 docsRepo，使 heuristic workspace 能正确排除 spec-docs 目录
+  const docsInput = args.docsRepo
+    ? await resolveDocsInput(args.docsRepo)   // CLI 传入，跳过提示
+    : await promptDocsRepo(workspace)          // 交互询问（已配置时直接复用，不重复提问）
+
   if (workspace.type !== 'single') {
-    return runWorkspaceInit(workspace, args)
+    return runWorkspaceInit(workspace, { ...args, docsInput })
   }
 
   // 单项目模式
-  if (args.docsRepo || args.docsLocalPath) {
-    // 写入 project state docs 字段 + docs-local.json
-    await configureDocsForProject(projectRoot, args)
+  if (docsInput) {
+    await configureDocsForProject(projectRoot, docsInput, args)
   }
-  // 其余逻辑走现有路径（不变）
   return runSingleProjectInit(args)
+}
+```
+
+**`promptDocsRepo` 逻辑**：
+
+```javascript
+async function promptDocsRepo(workspace) {
+  // 已有配置（project/workspace state 或 global config）→ 直接复用，不提问
+  const existing = await resolveDocsConfig(workspace.root, {})
+  if (existing.repo || existing.localPath) return existing
+
+  // 无配置 → 交互询问
+  const input = await prompt('配置团队知识库 [可选，回车跳过]:\n  Docs repo（URL 或本地路径）: ')
+  if (!input.trim()) return null
+
+  return resolveDocsInput(input.trim())
 }
 ```
 
@@ -624,27 +730,35 @@ async function runInit(args) {
 
 ```javascript
 async function runWorkspaceInit(workspace, args) {
-  // 1. 解析 docs 配置（resolveDocsConfig）
-  const docsConfig = await resolveDocsConfig(workspace.root, args)
-  if (!docsConfig.localPath) {
-    // 引导流程：提示配置 docs-local-path，当前 workspace 降级 in-repo
-    printDocsLocalPathGuide(docsConfig.repo)
-    // runWorkspaceInitWithoutDocs：对 workspace 下每个子项目调用现有单项目 init 逻辑
-    // （不传 docs 参数），行为等同于在每个子目录里执行 spec-first init --claude
-    // 只写入 .claude/ 资产（skills/agents/commands），不创建 docs 骨架
+  const { docsInput } = args
+
+  if (!docsInput || !docsInput.localPath) {
+    // localPath 仍未知（输入的是 URL 且未配置 localPath）→ 引导提示
+    printDocsLocalPathGuide(docsInput?.repo)
     return runWorkspaceInitWithoutDocs(workspace, args)
   }
 
-  // 2. 校验 localPath（validateLocalPath）
-  // 3. working tree 预检（git status --porcelain）
-  // 4. git pull --ff-only（非快进则报错）
-  // 5. 发现子项目 + 推断 slug（discoverProjects + resolveSlugs）
-  // 6. 检查每个 slug 的冲突（对比 README.md）
-  // 7. 创建新 slug 的目录骨架（contexts/ + solutions/）
-  // 8. 写入 README.md（frontmatter 含 slug/project-path/workspace-repo/created-by/created-at）
-  // 9. 写入 workspace state（.spec-first/state.json）
-  // 10. git add + commit + push
-  // 11. 写入每个子项目的 docs-local.json（.claude/spec-first/docs-local.json）
+  // 步骤顺序：交互已在 runInit 完成，此处 docsInput 已含 repo + localPath
+  //
+  // 不变式（invariant）：所有 docs repo git 操作（步骤 1-3）必须在任何本地文件写入（步骤 6-10）之前完成。
+  // 原因：步骤 3 pull 失败时，步骤 1-3 均无本地写入，回滚成本为零；若顺序颠倒，中止时会留下
+  // 部分写入的本地状态（state.json / docs-local.json）与 docs repo 不一致。
+  // 维护此不变式是未来任何步骤调整的前提约束。
+  //
+  // 1. 校验 localPath（validateLocalPath）
+  // 2. working tree 预检（git status --porcelain）
+  // 3. git pull --ff-only（非快进则报错，中止，无本地写入）
+  //    ── git 操作完成分界线 ──
+  // 4. 发现子项目 + 推断 slug（discoverProjects + resolveSlugs）
+  //    ↑ 此时已有 docsInput.repo，isDocsRepoDirectory 可正确排除 spec-docs 目录
+  // 5. 检查每个 slug 的冲突（对比 README.md）
+  //    若 README.md 存在但 project-path 不匹配 → 报错（slug 被其他项目占用），提示 --slug-map 手动指定
+  //    若 README.md 存在且 project-path 一致 → 跳过（幂等），不重复 commit
+  // 6. 创建新 slug 的目录骨架（contexts/ + solutions/）
+  // 7. 写入 README.md（frontmatter 含 slug/project-path/workspace-repo/created-by/created-at）
+  // 8. 写入 workspace state（.spec-first/state.json）
+  // 9. git add + commit + push
+  // 10. 写入每个子项目的 docs-local.json（.claude/spec-first/docs-local.json）
 }
 ```
 
@@ -654,11 +768,15 @@ async function runWorkspaceInit(workspace, args) {
 # 使用 git init 创建临时 bare repo 作为 docs-repo 远端
 # 测试矩阵：
 # 1. workspace 模式端到端：pnpm workspace + 3 个子项目 → docs repo 建好 3 个 slug 目录
-# 2. 单项目 + --docs-repo + --docs-local-path → 写入 state.json + docs-local.json
-# 3. 未配置 docs 时 → in-repo 模式（回归，现有行为不变）
-# 4. 重复 init（幂等）→ 已存在 slug 跳过，不报错，不重复 commit
-# 5. 错误路径：
-#    - --docs-local-path 不存在 → 提示引导
+# 2. 单项目 + --docs-repo <URL> + --docs-local-path → 写入 state.json + docs-local.json
+# 3. 单项目 + --docs-repo <本地路径> → 自动推导 remote URL，写入 state.json + docs-local.json
+# 4. 单项目 + --docs-repo <本地路径，无 remote> → WARNING，仅写 global config，不写 state.json
+# 5. 未配置 docs 时 → in-repo 模式（回归，现有行为不变）
+# 6. 重复 init（幂等）→ 已存在 slug 跳过，不报错，不重复 commit
+# 7. heuristic workspace：spec-docs 在 workspace 内，通过 --docs-repo 提前提供 URL → 正确排除
+# 8. 错误路径：
+#    - --docs-repo 传本地路径但目录不存在 → 报错
+#    - --docs-repo 传本地路径但非 git repo → 报错
 #    - --docs-local-path 存在但非 git repo → 报错
 #    - docs repo working tree 脏 → 报错，中止
 #    - docs repo ff-only 失败（人工制造分叉）→ 报错，中止
@@ -681,6 +799,8 @@ async function checkDocsRepoHealth(projectRoot) {
   // 2. 检查 localPath 是否有效（validateLocalPath）
   //    → 无效：ERROR
   // 3. 检查本地与远端同步状态（git -C localPath rev-list HEAD..@{u} --count）
+  //    先检查 HEAD 是否指向分支（git -C localPath symbolic-ref --quiet HEAD）
+  //    → detached HEAD（CI checkout 场景）→ 跳过远端同步检查，INFO: "docs repo 处于 detached HEAD 状态，跳过远端同步检查"
   //    → 落后 N 个提交：WARNING
   // 4. 检查 slug 目录是否存在（<localPath>/<slug>/）
   //    → 不存在：WARNING（建议重跑 init）
@@ -718,6 +838,7 @@ async function checkDocsRepoHealth(projectRoot) {
   "test:integration:docs-repo": "bash tests/integration/docs-repo-init.sh",
   "test:integration": "bash tests/integration/... && bash tests/integration/docs-repo-init.sh",
   "test": "npm run test:smoke && npm run test:integration && npm run test:unit:docs-config && npm run test:unit:workspace && npm run test:unit:state"
+  // 注：test:unit:state 在 test 脚本中明确引用，与 §七 验证标准对齐
   ```
   注：`test:integration` 的现有命令保留，追加 `&& bash tests/integration/docs-repo-init.sh`；`test` 脚本追加三个新 unit 脚本。
 - `spec-first --help` 更新（新增 `--docs-repo`、`--docs-local-path`、`--global` 等参数说明）
@@ -752,6 +873,7 @@ npm run test:smoke                    # 全部通过
 npm run test:integration              # 全部通过
 bash tests/unit/docs-config.sh        # 全部通过
 bash tests/unit/workspace.sh          # 全部通过
+bash tests/unit/state.sh              # 全部通过（Task 2 新增）
 bash tests/integration/docs-repo-init.sh  # 全部通过
 ```
 
@@ -764,7 +886,7 @@ bash tests/integration/docs-repo-init.sh  # 全部通过
 | v2 章节 | 涉及模块 | 核心内容 |
 |---|---|---|
 | §6.3 Symlink 处理 | Task 3 `discoverProjects` | 扫描到 symlink 目录时，解析真实路径；真实路径在 workspace 根外 → 跳过，防止跨边界 |
-| §8.5 场景六（workspace state 合并冲突） | Task 4 `runWorkspaceInit` | init 写入 workspace `.spec-first/state.json` 时，同步写入 `.gitattributes` 一条 `merge=union` 规则，减少多人并发 init 时的 JSON merge 冲突 |
+| §8.5 场景六（workspace state 合并冲突） | Task 4 `runWorkspaceInit` | init 写入 workspace `.spec-first/state.json` 时，同步写入 `.gitattributes` 一条 `merge=union` 规则，减少多人并发 init 时的 JSON merge 冲突。**风险提示**：`merge=union` 是基于行的合并，对 JSON 结构无感知，极端情况下（两方同时追加同一 JSON 对象的不同键）可能产生缺失逗号的无效 JSON。缓解方案：`readDocsFields` / `readWorkspaceState` 中的 JSON parse 错误必须给出明确提示："workspace state.json 格式损坏，可能由并发 init 引起，建议手动检查或重新运行 spec-first init"，而非静默返回空对象。|
 | §8.5 场景七（分支保护） | Task 4 git push 错误处理 | Phase 1 已知不支持（见 §5 限制表），push 失败时检测 "protected branch" 关键词，给出针对性提示（而非通用 "push 失败"） |
 | §8.5 场景八（docs repo 迁移） | Task 5 `doctor.js` | doctor URL 一致性检查：对比 state.json `docsRepo`（规范化）与本地 git remote URL，不一致时给出迁移指引 |
 | §8.5 场景十一（git lock 竞争） | Task 4 git 操作前置检查 | 执行任何 git 操作前，检测 `<localPath>/.git/index.lock` 是否存在，存在时提示等待而非报 git 内部错误 |

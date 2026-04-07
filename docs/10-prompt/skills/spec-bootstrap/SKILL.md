@@ -169,10 +169,17 @@ Fallback probe: `serena get_current_config`.
 
 - **Probe succeeds** → State: `READY`. Continue to `##分析模式`。
 
+  注意：
+  - 该探针只证明 Claude Code 已加载当前配置中的**至少一个** MCP server。
+  - 这**不代表** Serena / GitNexus / ABCoder 已在当前会话中挂载。
+  - 工具级可用性要到 Phase 1.3 再单独判断；若 `host-setup.json` 中某工具 `configured=true`，
+    但首次项目级调用就报告不可用，应记录 `reason=<tool>-not-mounted-in-session`。
+
 **注意事项：**
 - 爆发输出必须包含三个要素：原因 / 操作 / 完成后续下一步
 - 两类爆发均未进入第一阶段，不执行任何项目分析逻辑
 - MCP探针超时：若工具调用失败或返回错误（包括Claude Code内置超时机制触发的超时），一律视为探针失败，判定SETUP_DONE_NOT_RESTARTED状态
+- `context7` 成功只代表 baseline MCP runtime 已加载，不代表 Serena / GitNexus / ABCoder 已挂载
 
 ---
 
@@ -229,6 +236,7 @@ DB 访问模式：`MCP MySQL` / `CLI mysql` / `ORM inference [unverified]` / `no
 
 同时运行所有三个探针。独立收集每个结果。**塞雷娜探测器：**
 1. 调用`serena get_current_config`检查MCP可用性
+   - 若工具在当前会话中不可用 / 未挂载 → `serena.ready=false`、`reason=serena-not-mounted-in-session`
 2. 如果没有活动项目：使用当前工作目录调用 `serena activate_project`
 3.激活后：验证返回的活动项目路径是否匹配`$CWD`
    - 不匹配 → `serena.ready=false`、`reason=serena-wrong-project-activated`
@@ -238,6 +246,7 @@ DB 访问模式：`MCP MySQL` / `CLI mysql` / `ORM inference [unverified]` / `no
 
 **GitNexus 探针：**
 1. 检查 MCP 可用性
+   - 若工具在当前会话中不可用 / 未挂载 → `gitnexus.ready=false`、`reason=gitnexus-not-mounted-in-session`
 2. 查询当前存储库（例如，具有最小参数的 `search_commits` 或 `get_file_history`
    - 返回结果 → `gitnexus.ready=true`
    - 空结果（存储库未索引）→ `gitnexus.ready=false`，`reason=repo-not-indexed`
@@ -247,6 +256,7 @@ DB 访问模式：`MCP MySQL` / `CLI mysql` / `ORM inference [unverified]` / `no
 **ABCoder 探测（4 个步骤）：**
 
 第 1 步：`list_repos()` — 始终放在第一位，切勿从目录名称猜测 repo_name
+  - MCP 工具在当前会话中不可用 / 未挂载 → `abcoder.ready=false`、`reason=abcoder-not-mounted-in-session`
   - 找到仓库 → 跳到步骤 4
 
 步骤 2（如果 list_repos 为空）：Java 项目的语言预检
@@ -287,6 +297,17 @@ GitNexus: ready=no,  reason=repo-not-indexed
 ABCoder:  ready=yes
 
 📊 分析模式: Enhanced  (ABCoder 可用)
+```
+
+部分 MCP 挂载失败场景示例：
+```
+Serena:   ready=no,  reason=serena-not-mounted-in-session
+          (host-setup.json 显示 serena.configured=true，但当前 Claude 会话未挂载 Serena；
+           请先运行 `claude mcp list` 检查，再重启 Claude Code 或重新运行 /spec:mcp-setup)
+GitNexus: ready=no,  reason=gitnexus-not-mounted-in-session
+ABCoder:  ready=yes
+
+📊 分析模式: Enhanced  (ABCoder 可用；Serena/GitNexus 未挂载)
 ```
 然后使用所选模式的工具集继续进行分析。
 

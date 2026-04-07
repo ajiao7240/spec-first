@@ -35,6 +35,11 @@
 - 不强制 workspace 发现
 - 不要求复杂 publish 审核链
 
+说明：
+- `Lite` 模式中的 validator 仍然作用于**知识树本身**
+- 它不要求项目必须绑定独立 docs repo
+- 只要存在可识别的 `knowledge/` 结构，无论位于 in-repo 还是 docs repo，都可以执行基础校验
+
 ### Team 模式（1 -> 10）
 
 适用场景：
