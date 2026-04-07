@@ -8,6 +8,9 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-07 矿工: fix(mcp-setup): 多Agent深度审查后修复 10 项健壮性问题——ensure_config mktemp 跨文件系统原子性、macOS mkdir 锁 stale lock 检测与锁失败 abort、Go 安装 URL aarch64→arm64 映射、curl 超时与版本号格式校验、release_lock fd 泄漏、临时文件权限时序修复、verify-tools.sh trap 清理、四个脚本 jq 硬依赖预检、PATH 预修复、all_tools 空数组检查 (user-visible)
+- v1.6.0 2026-04-07 矿工: fix(spec-graph-bootstrap): 3-Agent 深度审查后修复集成方案——修正 graphify CLI 调用假设（graphify 无 `<path>` 子命令，改为纯消费已有 graphify-out/）、补充 SKILL.md 文件输出 contract（.context/ 三文件 schema）、新增决策矩阵和安全边界检查、补充 graphify-out/ 生命周期管理策略、补充 GRAPH_REPORT.md 最小 schema、spec-docs L2 层级归属 (user-visible)
+- v1.5.1 2026-04-07 21:05:56 kuang: feat(spec-graph-bootstrap): 新增 spec-graph-bootstrap skill 与 graphify contract reference，将 graphify 作为 spec-first 的上游结构发现层接入；同步补充集成技术方案、版本更新说明，并修复 spec-bootstrap SKILL.md 缺少 `name` 导致的 smoke 失败 (user-visible)
 - v1.5.1 2026-04-07 矿工: fix(spec-bootstrap): 移除 SKILL.md frontmatter 中的 user-invocable: true，spec-bootstrap 改为命令式入口，不注册为独立 user-invocable skill；同步更新 smoke test (user-visible)
 - v1.5.1 2026-04-07 矿工: docs(bootstrap): 生成 spec-first 项目上下文库 docs/contexts/spec-first/（README + 00-summary + architecture × 3 + pitfalls + layers/cli，共 7 个文档，Basic 分析模式）
 - v1.5.1 2026-04-07 16:32:28 kuang: docs: 新增业界借鉴《2026 年 AI 编码的“渐进式 Spec”实战指南》本地转写稿、6 张配图资源与目录索引更新 (user-visible)

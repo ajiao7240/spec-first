@@ -6,11 +6,43 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-07 | feat | `spec-graph-bootstrap` | 将 `graphify` 作为上游结构发现层接入 `spec-first`，先读图谱摘要再进入 `spec-bootstrap` / `spec-docs`，减少大型项目的盲扫成本 |
 | 2026-04-01 | feat | `version-reminder` | CLI 执行真实命令前自动检查 npm 最新版本，有更新时输出提醒，降低用户使用旧版本的概率 |
 | 2026-04-01 | feat | `lang-governance` | `spec-first init` 将语言和 Changelog 治理规则写入 CLAUDE.md/AGENTS.md，并修复 lang 优先级（项目 > 全局 > 默认） |
 | 2026-04-01 | feat | `mcp-setup` | 把 MCP 工具安装、检测、配置合并为一条一键化路径，降低 Full mode 落地门槛 |
 | 2026-03-31 | fix | `spec-bootstrap` | 基于 review 结论补强原子备份、失败恢复、MCP 连接校验等关键可靠性能力 |
 | 2026-03-31 | feat | `spec-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
+
+---
+
+## 2026-04-07 `feat(spec-graph-bootstrap)`
+
+### 更新内容
+
+新增 `skills/spec-graph-bootstrap`，把 `graphify` 作为 `spec-first` 的上游结构发现层接入工作流。这个能力不替代 `spec-bootstrap`，而是先利用 `graphify-out/GRAPH_REPORT.md`、`graph.json`、可选 `wiki/` 获得结构导航结果，再把这些结果交给后续的 `spec-bootstrap` / `spec-docs` 继续提炼。
+
+### 主要能力
+
+- 识别并复用已有 `graphify-out/`：
+  若目标项目已经做过 `graphify` 构建，skill 会优先消费现有图谱产物，而不是重复分析原始目录
+- 按需调用 `graphify`：
+  若不存在 `graphify-out/` 且环境中已安装 `graphify`，skill 会触发 `graphify <target> --wiki` 生成结构导航层
+- 固定消费顺序：
+  总是先读 `GRAPH_REPORT.md`，再按需读 `wiki/` 或 `graph.json`，避免一上来就通读原始图谱 JSON
+- 明确分层边界：
+  `graphify` 负责“先把结构找出来”，`spec-first` 负责“把值得长期保存的知识定稿下来”
+- 支持降级：
+  未安装 `graphify` 时不会阻断整个 spec-first 工作流，而是清晰回退到现有 `spec-bootstrap`
+
+### 交付物
+
+- `skills/spec-graph-bootstrap/SKILL.md`
+- `skills/spec-graph-bootstrap/references/graphify-contract.md`
+- `docs/01-需求分析/9.LLM-md/2026-04-07-spec-first-graphify-集成技术方案.md`
+
+### 版本意义
+
+这次迭代补的是 `spec-first` 在“大型代码库冷启动结构理解”上的上游能力。它没有把图谱构建逻辑并入 CLI，而是用 skill 编排的方式把 `graphify` 接在 `spec-first` 前面，既保留了边界清晰和低维护成本，也让后续 `summary / module-map / overview` 的生成更容易建立在稳定结构之上。
 
 ---
 

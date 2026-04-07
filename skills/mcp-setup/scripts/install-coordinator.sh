@@ -6,9 +6,15 @@
 
 set -euo pipefail
 
+# jq 是硬依赖
+command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
+
+# 确保常用安装路径可用（Phase 1 安装的依赖可能未出现在当前 PATH）
+export PATH="$HOME/.local/go/bin:$HOME/.cargo/bin:$HOME/.fnm/aliases/default/bin:$HOME/.local/bin:$PATH"
 CLAUDE_JSON="$HOME/.claude.json"
 LOCK_FILE="$HOME/.claude.json.lock"
 
@@ -95,29 +101,38 @@ ensure_config() {
   # Ensure mcpServers key exists
   if ! jq -e '.mcpServers' "$CLAUDE_JSON" >/dev/null 2>&1; then
     local tmp
-    tmp=$(mktemp)
-    jq '. + {"mcpServers": {}}' "$CLAUDE_JSON" > "$tmp" && mv "$tmp" "$CLAUDE_JSON"
+    tmp=$(mktemp "${CLAUDE_JSON}.XXXXXX")
+    jq '. + {"mcpServers": {}}' "$CLAUDE_JSON" > "$tmp" && chmod 600 "$tmp" && mv "$tmp" "$CLAUDE_JSON"
   fi
 }
 
 # Acquire file lock for concurrent safety
 acquire_lock() {
   if command -v flock >/dev/null 2>&1; then
-    exec 200>"$LOCK_FILE"
-    flock -w 10 200
+    exec 200>"$LOCK_FILE" 2>/dev/null || { echo "⚠️  Cannot create lock file" >&2; return 1; }
+    flock -w 10 200 || { echo "⚠️  Lock timeout, aborting" >&2; return 1; }
     return 0
   else
     # macOS fallback: use mkdir-based locking (atomic on most filesystems)
     local lock_dir="${CLAUDE_JSON}.lock.d"
     local attempts=0
     while ! mkdir "$lock_dir" 2>/dev/null; do
+      # stale lock 检测：如果持有锁的进程已死，强制清理
+      if [ -f "$lock_dir/pid" ]; then
+        local lock_pid
+        lock_pid=$(cat "$lock_dir/pid" 2>/dev/null)
+        if [ -n "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
+          rm -rf "$lock_dir" && continue
+        fi
+      fi
       attempts=$((attempts + 1))
       if [ $attempts -ge 100 ]; then
-        echo "⚠️  Could not acquire lock after 10s, proceeding without lock" >&2
-        return 0
+        echo "⚠️  Lock timeout, aborting" >&2
+        return 1
       fi
       sleep 0.1
     done
+    echo $$ > "$lock_dir/pid"
     LOCK_DIR="$lock_dir"
     return 0
   fi
@@ -126,6 +141,7 @@ acquire_lock() {
 release_lock() {
   if command -v flock >/dev/null 2>&1; then
     flock -u 200 2>/dev/null || true
+    exec 200>&- 2>/dev/null || true
     rm -f "$LOCK_FILE"
   elif [ -n "${LOCK_DIR:-}" ]; then
     rm -rf "$LOCK_DIR"
@@ -160,11 +176,11 @@ merge_tool_config() {
   # Merge: add new entry to mcpServers (same-dir tempfile for atomic mv)
   local tmp
   tmp=$(mktemp "${CLAUDE_JSON}.XXXXXX")
+  chmod 600 "$tmp"
   jq --argjson entry "$config_entry" '.mcpServers += $entry' "$CLAUDE_JSON" > "$tmp"
 
   # Validate JSON
   if jq . "$tmp" >/dev/null 2>&1; then
-    chmod 600 "$tmp"
     mv "$tmp" "$CLAUDE_JSON"
     echo "  ✅ $tool_id: configured"
   else
@@ -210,10 +226,8 @@ main() {
   local failed=()
 
   # Acquire lock first (before any file operations)
-  acquire_lock
-
-  # Ensure cleanup on exit
   trap release_lock EXIT
+  acquire_lock
 
   # Ensure config file exists
   ensure_config
@@ -230,6 +244,11 @@ main() {
   while IFS= read -r line; do
     all_tools+=("$line")
   done < <(jq -r '.tools[].id' "$TOOLS_JSON")
+
+  if [ ${#all_tools[@]} -eq 0 ]; then
+    echo "❌ No tools found in $TOOLS_JSON" >&2
+    exit 1
+  fi
 
   echo ""
   echo "🔧 MCP Tools Installation"

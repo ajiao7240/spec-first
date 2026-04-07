@@ -4,6 +4,9 @@
 
 set -euo pipefail
 
+# jq 是硬依赖
+command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
+
 # Helper: check if a command exists and get version
 check_command() {
   local cmd="$1"
@@ -67,11 +70,19 @@ if echo "$GO_JSON" | jq -e '.installed' >/dev/null 2>&1; then
   GO_JSON=$(echo "$GO_JSON" | jq '. + {"install_suggestion": null}')
 else
   # Get latest Go version from API
-  GO_LATEST=$(curl -sL "https://go.dev/dl/?mode=json" 2>/dev/null | jq -r '.[0].version' 2>/dev/null || echo "go1.23.6")
+  GO_LATEST=$(curl -sL --connect-timeout 5 --max-time 15 "https://go.dev/dl/?mode=json" 2>/dev/null | jq -r '.[0].version' 2>/dev/null || echo "")
   GO_VERSION="${GO_LATEST#go}"  # Strip "go" prefix
+  # 版本号格式校验：防止 API 异常或注入
+  if [[ ! "$GO_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+    GO_VERSION="1.23.6"
+  fi
+
+  # 架构映射：Linux aarch64 → arm64（Go 官方下载使用 arm64）
+  GO_ARCH=$(uname -m)
+  [[ "$GO_ARCH" == "aarch64" ]] && GO_ARCH="arm64"
 
   # Build install command with resolved version
-  GO_INSTALL_CMD="mkdir -p \$HOME/.local && curl -sL https://go.dev/dl/go${GO_VERSION}.\$(uname -s | tr A-Z a-z)-\$(uname -m).tar.gz | tar -C \$HOME/.local -xz && export PATH=\$HOME/.local/go/bin:\$PATH"
+  GO_INSTALL_CMD="mkdir -p \$HOME/.local && curl -sL https://go.dev/dl/go${GO_VERSION}.\$(uname -s | tr A-Z a-z)-${GO_ARCH}.tar.gz | tar -C \$HOME/.local -xz && export PATH=\$HOME/.local/go/bin:\$PATH"
 
   if [ "$OS" = "macos" ]; then
     GO_JSON=$(echo "$GO_JSON" | jq --arg cmd "$GO_INSTALL_CMD" '. + {"install_suggestion": {

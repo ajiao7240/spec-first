@@ -480,7 +480,7 @@ echo '{"mcpServers":{}}' > "$FH91/.claude.json"
 # Stub abcoder binary that always exits 0 (simulates installed + working)
 printf '#!/bin/sh\nexit 0\n' > "$FAKEBIN91/abcoder"
 chmod +x "$FAKEBIN91/abcoder"
-for cmd in bash jq date mkdir mktemp chmod mv; do
+for cmd in bash jq date mkdir mktemp chmod mv rm; do
   if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN91/$cmd"; fi
 done
 out91=$(HOME="$FH91" PATH="$FAKEBIN91" bash "$VERIFY_SCRIPT" 2>/dev/null \
@@ -493,7 +493,7 @@ FAKEBIN92="$TMP_DIR/fakebin92"
 mkdir -p "$FH92" "$FAKEBIN92"
 echo '{"mcpServers":{}}' > "$FH92/.claude.json"
 # Build a minimal PATH with required tools but WITHOUT abcoder
-for cmd in bash jq date mkdir mktemp chmod mv; do
+for cmd in bash jq date mkdir mktemp chmod mv rm; do
   if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN92/$cmd"; fi
 done
 # Do NOT link abcoder — it should appear absent in this PATH
@@ -568,7 +568,7 @@ FH911="$TMP_DIR/fh911"
 FAKEBIN911="$TMP_DIR/fakebin911"
 mkdir -p "$FH911" "$FAKEBIN911"
 # Build a minimal PATH with required tools but WITHOUT java
-for cmd in bash jq date mkdir mktemp chmod mv abcoder; do
+for cmd in bash jq date mkdir mktemp chmod mv rm abcoder; do
   if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN911/$cmd"; fi
 done
 # Do NOT link java — it should appear absent
@@ -616,7 +616,7 @@ cat > "$FH915/.claude.json" <<'JSONEOF'
 JSONEOF
 printf '#!/bin/sh\nif [ "$1" = "version" ]; then exit 0; fi\nexit 0\n' > "$FAKEBIN915/abcoder"
 chmod +x "$FAKEBIN915/abcoder"
-for cmd in bash jq date mkdir mktemp chmod mv; do
+for cmd in bash jq date mkdir mktemp chmod mv rm; do
   if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN915/$cmd"; fi
 done
 HOME="$FH915" PATH="$FAKEBIN915" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
@@ -639,7 +639,7 @@ cat > "$FH916/.claude.json" <<'JSONEOF'
 JSONEOF
 printf '#!/bin/sh\nif [ "$1" = "version" ]; then exit 0; fi\nexit 0\n' > "$FAKEBIN916/abcoder"
 chmod +x "$FAKEBIN916/abcoder"
-for cmd in bash jq date mkdir mktemp chmod mv; do
+for cmd in bash jq date mkdir mktemp chmod mv rm; do
   if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN916/$cmd"; fi
 done
 HOME="$FH916" PATH="$FAKEBIN916" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
@@ -664,7 +664,7 @@ cat > "$FH917/.claude.json" <<'JSONEOF'
 JSONEOF
 printf '#!/bin/sh\nif [ "$1" = "version" ]; then exit 0; fi\nexit 0\n' > "$FAKEBIN917/abcoder"
 chmod +x "$FAKEBIN917/abcoder"
-for cmd in bash jq date mkdir mktemp chmod mv; do
+for cmd in bash jq date mkdir mktemp chmod mv rm; do
   if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN917/$cmd"; fi
 done
 HOME="$FH917" PATH="$FAKEBIN917" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
@@ -682,7 +682,7 @@ FH101="$TMP_DIR/fh101"
 FAKEBIN101="$TMP_DIR/fakebin101"
 mkdir -p "$FH101" "$FAKEBIN101"
 echo '{"mcpServers":{}}' > "$FH101/.claude.json"
-for cmd in bash jq date mkdir mktemp chmod mv cat awk find head ls; do
+for cmd in bash jq date mkdir mktemp chmod mv rm cat awk find head ls; do
   if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN101/$cmd"; fi
 done
 printf '#!/bin/sh\nif [ "$1" = "version" ]; then echo "go version go1.22.0 darwin/arm64"; elif [ "$1" = "env" ]; then echo "/fake/gomodcache"; fi\n' > "$FAKEBIN101/go"
@@ -696,7 +696,7 @@ FH102="$TMP_DIR/fh102"
 FAKEBIN102="$TMP_DIR/fakebin102"
 mkdir -p "$FH102" "$FAKEBIN102"
 echo '{"mcpServers":{}}' > "$FH102/.claude.json"
-for cmd in bash jq date mkdir mktemp chmod mv cat awk find head ls; do
+for cmd in bash jq date mkdir mktemp chmod mv rm cat awk find head ls; do
   if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN102/$cmd"; fi
 done
 # No python3 or python in PATH
@@ -709,7 +709,7 @@ FH103="$TMP_DIR/fh103"
 FAKEBIN103="$TMP_DIR/fakebin103"
 mkdir -p "$FH103" "$FAKEBIN103"
 echo '{"mcpServers":{}}' > "$FH103/.claude.json"
-for cmd in bash jq date mkdir mktemp chmod mv cat awk find head ls; do
+for cmd in bash jq date mkdir mktemp chmod mv rm cat awk find head ls; do
   if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN103/$cmd"; fi
 done
 # No abcoder in PATH
@@ -744,7 +744,7 @@ FAKEBIN107="$TMP_DIR/fakebin107"
 FAKE_MOD107="$TMP_DIR/fakemod107"
 mkdir -p "$FH107" "$FAKEBIN107"
 echo '{"mcpServers":{}}' > "$FH107/.claude.json"
-for cmd in bash jq date mkdir mktemp chmod mv cat awk find head ls; do
+for cmd in bash jq date mkdir mktemp chmod mv rm cat awk find head ls; do
   if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN107/$cmd"; fi
 done
 mkdir -p "$FAKE_MOD107/github.com/cloudwego/abcoder@v0.3.1/lang/java/lsp/jdtls"
@@ -768,7 +768,7 @@ FAKEBIN108="$TMP_DIR/fakebin108"
 FAKE_MOD108="$TMP_DIR/fakemod108"
 mkdir -p "$FH108" "$FAKEBIN108"
 echo '{"mcpServers":{}}' > "$FH108/.claude.json"
-for cmd in bash jq date mkdir mktemp chmod mv cat awk find head ls; do
+for cmd in bash jq date mkdir mktemp chmod mv rm cat awk find head ls; do
   if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN108/$cmd"; fi
 done
 mkdir -p "$FAKE_MOD108/github.com/cloudwego/abcoder@v0.3.1/lang/java/lsp"

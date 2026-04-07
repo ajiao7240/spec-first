@@ -3,7 +3,7 @@
 > 文档性质：知识库**内容定义**——记什么、长什么样、怎么组织
 > 版本：2.0（综合 LLM Wiki + 胶水编程实践）
 > 日期：2026-04-07
-> 范围：本文只讨论知识库存什么，不讨论 CLI 实现、配置绑定、路径解析
+> 范围：主体讨论知识库存什么；skill 读写职责作为运行 contract 一并列出。不讨论 CLI 实现、配置绑定、路径解析
 
 ---
 
@@ -50,43 +50,48 @@ AI 能从公开训练数据获取？
 
 ```
 spec-docs/
-├── _shared/                          ← 跨项目共享（Phase 2+）
+├── _shared/                          ← 跨项目共享（Phase 2+，本文暂不定义治理规则）
 │
 └── <slug>/
     │
-    ├── README.md                     ← 项目身份卡（init 写入）
+    ├── README.md                     ← 人类可读的项目说明（面向贡献者，不含 frontmatter，不被 skill 加载）
     ├── CLAUDE.md                     ← wiki schema（init 骨架，bootstrap 补充）
-    ├── index.md                      ← 全量内容目录（每次写入后更新）
-    ├── log.md                        ← 操作时间线（append-only）
+    ├── index.md                      ◆ L1：全量内容目录（每次写入后更新）
+    ├── log.md                        ◆ L1：操作时间线（append-only，≤ 20 条）
     │
     ├── contexts/                     ← 项目知识（spec-bootstrap 产物）
     │   │
-    │   ├── summary.md                ★ 静态加载：项目一句话定位 + 技术栈 + 模块清单
-    │   ├── conventions.md            ★ 静态加载：规矩层（最高优先级）
+    │   ├── summary.md                ★ L0：项目一句话定位 + 技术栈 + 模块清单
+    │   ├── conventions.md            ◎ rules-layer：规矩（始终在场，无论加载档位）
     │   │
-    │   ├── internal-apis/            ◆ 动态检索：内部库/私有组件文档
+    │   ├── internal-apis/            ◇ L2：内部库/私有组件文档
     │   │   └── <module-name>.md      ← 每个内部模块一个文件
     │   │
-    │   ├── architecture/             ◆ 动态读取：结构理解
-    │   │   ├── overview.md           ← 宏观运行机制、数据流、关键不变式
-    │   │   └── module-map.md         ← 模块清单、依赖关系、参考实现指针
+    │   ├── architecture/             ← 结构理解
+    │   │   ├── overview.md           ◇ L2：宏观运行机制、数据流、关键不变式
+    │   │   └── module-map.md         ◆ L1：模块清单、依赖关系、参考实现指针
     │   │
-    │   ├── pitfalls/                 ◆ 动态检索：已知陷阱
+    │   ├── pitfalls/                 ◇ L2：已知陷阱
     │   │   └── index.md
     │   │
-    │   └── layers/                   ◆ 动态读取：各层内部结构
+    │   └── layers/                   ◇ L2：各层内部结构
     │       ├── <layer>/index.md
-    │       └── database/index.md     ← ER 图、表关系（从顶层移入）
+    │       └── database/index.md     ← ER 图、表关系
     │
     └── solutions/                    ← 团队经验（spec-compound 产物）
-        ├── build-errors/
-        ├── test-failures/
-        ├── runtime-errors/
-        └── architecture-decisions/
+        ├── build-errors/             ← problem_type: build-error
+        ├── test-failures/            ← problem_type: test-failure
+        ├── runtime-errors/           ← problem_type: runtime-error
+        ├── architecture-decisions/   ← problem_type: architecture-decision
+        └── integration-issues/       ← problem_type: integration-issue
 ```
 
-**★ 静态加载**：skill 启动时必读，体积小，始终在场。
-**◆ 动态检索**：按任务相关性读取，避免上下文过载。
+> 目录名规则：目录名 = `problem_type` 复数连字符形式，一一对应，不允许跨目录存放条目。
+
+**◎ rules-layer**：始终在场，无论加载档位，不可跳过。
+**★ L0+**：L0 及以上必读（最轻量，chat / 问答 / 小修改）。
+**◆ L1+**：L1 及以上必读（中等功能开发、定向导航）。
+**◇ L2**：L2 按需加载（跨模块改动、复杂需求）。
 
 ---
 
@@ -94,23 +99,34 @@ spec-docs/
 
 胶水编程实践数据：将关键规则静态注入后，通过率从 53% → 100%；依赖 AI 主动检索时，56% 场景下 AI 根本不会主动调用。
 
+核心设计：不同复杂度的任务暴露不同深度的知识，压缩偶然复杂度——简单需求不承担复杂场景的上下文开销。
+
 ```
-skill 启动
+◎ rules-layer（始终在场，无论档位）
+    └── conventions.md  → 规矩和红线，不能依赖 AI 主动查
+
+知识层（按档位渐进加载）
     │
-    ├─ 必读（静态，始终在场）
-    │   ├── log.md          → 知识库最近动态，几行即可掌握上下文时效
-    │   ├── index.md        → 全量页面目录，定位后续需读哪些页
-    │   ├── summary.md      → 项目是什么，30 秒定向
-    │   └── conventions.md  → 规矩，不能依赖 AI 主动查
+    ├─ L0（chat / 问答 / 小修改）
+    │   └── summary.md          → 项目是什么，30 秒定向
     │
-    └─ 按需读（动态，任务相关时加载）
-        ├── internal-apis/<module>.md    → 用到该内部模块时
-        ├── architecture/overview.md     → 理解运行机制时
-        ├── architecture/module-map.md   → 确认改哪些文件时
-        ├── pitfalls/index.md            → 涉及高风险模块时
-        ├── layers/<layer>/index.md      → 深入某一层时
-        └── solutions/ 相关条目          → 搜索历史经验时
+    ├─ L1（中等功能开发、定向导航）
+    │   ├── L0 全部内容
+    │   ├── index.md            → 全量页面目录，定位后续需读哪些页
+    │   ├── log.md              → 最近动态（≤ 20 条，超出按需翻查）
+    │   └── architecture/module-map.md  → 确认改哪些文件时
+    │
+    └─ L2（跨模块改动、复杂需求）
+        ├── L1 全部内容
+        ├── internal-apis/<module>.md   → 用到该内部模块时
+        ├── architecture/overview.md    → 理解运行机制时
+        ├── pitfalls/index.md           → 涉及高风险模块时
+        ├── layers/<layer>/index.md     → 深入某一层时
+        ├── solutions/ 相关条目         → 搜索历史经验时
+        └── graphify-out/ 摘要           → L2 按需：结构导航辅助（spec-graph-bootstrap 产物，非 spec-docs 真相层）
 ```
+
+> **graphify 产物层级说明**：`graphify-out/` 的结构摘要（由 `spec-graph-bootstrap` 写入 `.context/spec-first/graph-bootstrap/<slug>/summary.md`）属于 L2 按需加载，仅在跨模块改动或首次理解大型代码库时消费。graphify 是结构发现层，不是长期真相层——与 spec-docs 冲突时以 spec-docs 为准。
 
 ---
 
@@ -133,23 +149,27 @@ last_bootstrap_commit: <git-sha>
 
 ## 项目知识（contexts/）
 
-| 文件 | 描述 | 加载方式 | 更新时间 |
-|---|---|---|---|
-| [summary](contexts/summary.md) | 项目定位、技术栈、核心模块 | 静态 | 2026-04-07 |
-| [conventions](contexts/conventions.md) | 编码约定、禁用项、特有规则 | 静态 | 2026-04-07 |
-| [internal/state](contexts/internal-apis/state.md) | state.js 读写 API | 动态 | 2026-04-07 |
-| [overview](contexts/architecture/overview.md) | 系统运行机制 | 动态 | 2026-04-07 |
-| [module-map](contexts/architecture/module-map.md) | 模块清单与依赖 | 动态 | 2026-04-07 |
-| [pitfalls](contexts/pitfalls/index.md) | 已知陷阱（N 条） | 动态 | 2026-04-07 |
+| 文件 | 描述 | 关键词 / 触发场景 | 档位 | 更新时间 |
+|---|---|---|---|---|
+| [summary](contexts/summary.md) | 项目定位、技术栈、核心模块 | 任何任务 | L0 | 2026-04-07 |
+| [conventions](contexts/conventions.md) | 编码约定、禁用项、特有规则 | 任何任务 | rules | 2026-04-07 |
+| [module-map](contexts/architecture/module-map.md) | 模块清单与依赖 | 改哪些文件、模块关系 | L1 | 2026-04-07 |
+| [internal/state](contexts/internal-apis/state.md) | state.js 读写 API | readState writeState normalizeState docsField | L2 | 2026-04-07 |
+| [overview](contexts/architecture/overview.md) | 系统运行机制 | 数据流 init流程 关键不变式 | L2 | 2026-04-07 |
+| [pitfalls](contexts/pitfalls/index.md) | 已知陷阱（N 条） | normalizeGitUrl git-pull docs-local 高风险 | L2 | 2026-04-07 |
 
 ## 团队经验（solutions/）
 
-| 文件 | 类型 | 严重程度 | 日期 |
-|---|---|---|---|
-| [fix-circular-dep](solutions/build-errors/fix-circular-dep.md) | build-error | high | 2026-04-06 |
+| 文件 | 类型 | 关键词 / 触发场景 | 严重程度 | 日期 |
+|---|---|---|---|---|
+| [fix-circular-dep](solutions/build-errors/fix-circular-dep.md) | build-error | normalizeState 字段丢失 schema过滤 | high | 2026-04-06 |
 ```
 
 #### log.md
+
+**限流规则**：append-only，每次操作追加一个 `## [date]` 块。静态加载时只读最近 ≤ 20 条，超出部分按需翻查，防止长期追加后上下文过载。
+
+**可选字段**：每个块可包含 `decisions` 字段记录技术决策（选择了什么、放弃了什么、原因），这是最容易丢失的隐性知识。
 
 ```markdown
 # Knowledge Log — <project-name>
@@ -162,6 +182,7 @@ last_bootstrap_commit: <git-sha>
 ## [2026-04-06] compound | fix-circular-dep | solutions/build-errors/
 - source_commit: def5678
 - severity: high, affected: [core, adapters]
+- decisions: [{chose: "readDocsFields 独立管理", rejected: "normalizeState 新增字段", reason: "schema 过滤会静默丢弃新字段"}]
 ```
 
 #### CLAUDE.md（wiki schema）
@@ -174,6 +195,7 @@ last_bootstrap_commit: <git-sha>
 - solutions/ — 团队经验，spec-compound 追加
 - index.md — 内容目录，每次写入后更新
 - log.md — 操作时间线，只追加
+- _shared/ — 跨项目共享（Phase 2+，本文暂不定义，当前 skill 不读写此目录）
 
 ## 内容准入标准
 只存 AI 从公开资料无法获取的知识：
@@ -183,14 +205,22 @@ last_bootstrap_commit: <git-sha>
 - 团队解题经验 → solutions/
 
 ## 加载规则
-- 始终加载（静态）：summary.md + conventions.md
-- 按需加载（动态）：internal-apis/ + architecture/ + pitfalls/ + solutions/
+- rules-layer（始终在场）：conventions.md
+- L0：summary.md
+- L1：index.md + log.md（≤ 20 条）+ architecture/module-map.md
+- L2（按需）：internal-apis/ + architecture/overview.md + pitfalls/ + solutions/ + layers/
 
 ## 写入规则
-- 所有文件必须有 YAML frontmatter
-- 写入后更新 index.md
-- 写入后追加 log.md
+- contexts/ 和 solutions/ 下所有文件必须有 YAML frontmatter；index.md 也必须有 frontmatter（README.md、log.md、CLAUDE.md 不含 frontmatter）
+- 每次内容写入（bootstrap / compound）后更新 index.md
+- 每次内容写入（bootstrap / compound）后追加 log.md；init 骨架写入不追加
 - 文件间用相对路径互相引用
+
+## 知识修正铁律（Reverse Sync）
+spec-work / spec-review / spec-compound 执行中若发现 contexts/ 知识与当前代码不符：
+1. 必须先更新对应 contexts/ 页面或新增 pitfalls/solutions 条目
+2. 再继续消费知识库
+3. **禁止"已知失真但继续使用"**——知识库是真相层，不是旁路说明书
 
 ## 项目特有说明
 <spec-bootstrap 填充>
@@ -198,7 +228,7 @@ last_bootstrap_commit: <git-sha>
 
 ---
 
-### 4.2 contexts/ 通用 frontmatter
+### 4.2 contexts/ 通用 frontmatter（不适用于 solutions/，见 §4.9）
 
 ```yaml
 ---
@@ -207,15 +237,26 @@ page_type: summary | conventions | internal-api | overview | module-map | pitfal
 source_commit: <bootstrap 时代码库 HEAD SHA>
 updated_at: <ISO 8601>
 generated_by: spec-bootstrap
+generator_version: spec-bootstrap@<semver>
 confidence: high | medium | low
+last_verified_at: <ISO 8601>
+verification_method: ast-scan | manual | bootstrap-diff
+# 以下字段推荐用于 internal-api / overview / module-map / pitfalls
+source_refs:
+  - {file: <相对路径>, symbols: [<函数或类名>]}
 ---
 ```
+
+> 上述字段为所有 `page_type` 共有的通用字段。各 `page_type` 可追加特有字段（如 summary 的 `entry_points`/`tech_stack`/`core_modules`、module-map 的 `modules`），见 §4.3~§4.8 示例。
+> `layer`、`database` 类型规范待 Phase 2 补充，当前实现可忽略。
+> `source_refs` 是证据约束字段：每个结论必须有代码出处，让 `confidence: high` 从"看起来可信"变成"知道为什么可信"。summary / conventions 无需填写。`source_refs` 为页面级摘要，列出该页面核心结论依赖的主要代码符号；条目级细节（如 pitfalls 单条陷阱涉及的符号）在正文中体现。
+> §4.5~§4.8 的示例 frontmatter 展示了 `source_refs` 的写法，其余透明度字段（`generator_version`、`last_verified_at`、`verification_method`）由 spec-bootstrap 写入时自动填充，示例中省略。
 
 ---
 
 ### 4.3 contexts/summary.md ★
 
-**目的**：30 秒定向。始终静态加载，体积控制在 1-2 屏。
+**目的**：30 秒定向。L0 必读，体积控制在 1-2 屏。
 
 ```markdown
 ---
@@ -251,9 +292,9 @@ core_modules:
 
 ---
 
-### 4.4 contexts/conventions.md ★（最高优先级）
+### 4.4 contexts/conventions.md ◎ rules-layer
 
-**目的**：AI 写代码的底线约束，始终静态在场。
+**目的**：AI 写代码的底线约束，始终在场，无论加载档位（rules-layer）。
 
 **内容标准**：只写 AI 从公开资料学不到的项目特有规矩。不写"用 const 而非 let"这类通用规范。
 
@@ -295,7 +336,7 @@ confidence: high
 
 ---
 
-### 4.5 contexts/internal-apis/\<module\>.md ◆
+### 4.5 contexts/internal-apis/\<module\>.md ◇
 
 **目的**：AI 从公开训练数据学不到的内部模块 API。
 
@@ -310,6 +351,8 @@ source_commit: abc1234
 updated_at: 2026-04-07T10:00:00Z
 generated_by: spec-bootstrap
 confidence: high
+source_refs:
+  - {file: src/cli/state.js, symbols: [readState, writeState, readDocsFields, writeDocsFields]}
 ---
 
 # state.js — 内部 API
@@ -345,7 +388,7 @@ writeDocsFields(projectRoot, adapter, { docsRepo: 'github.com/org/spec-docs' })
 
 ---
 
-### 4.6 contexts/architecture/overview.md ◆
+### 4.6 contexts/architecture/overview.md ◇
 
 **目的**：宏观运行机制——请求/数据如何在系统里流动。
 
@@ -357,6 +400,9 @@ source_commit: abc1234
 updated_at: 2026-04-07T10:00:00Z
 generated_by: spec-bootstrap
 confidence: high
+source_refs:
+  - {file: src/cli/commands/init.js, symbols: [runSingleProjectInit, runWorkspaceInit]}
+  - {file: src/cli/plugin.js, symbols: [syncBundledAssets]}
 ---
 
 # 系统运行机制
@@ -398,6 +444,10 @@ source_commit: abc1234
 updated_at: 2026-04-07T10:00:00Z
 generated_by: spec-bootstrap
 confidence: high
+source_refs:
+  - {file: src/cli/commands/init.js, symbols: []}
+  - {file: src/cli/plugin.js, symbols: [syncBundledAssets]}
+  - {file: src/cli/state.js, symbols: [readState, writeState]}
 modules:
   - {name: plugin, path: src/cli/plugin.js, api: [syncBundledAssets]}
   - {name: state, path: src/cli/state.js, api: [readState, writeState, readDocsFields, writeDocsFields]}
@@ -431,7 +481,7 @@ init.js → plugin.js → adapters/claude.js
 
 ---
 
-### 4.8 contexts/pitfalls/index.md ◆
+### 4.8 contexts/pitfalls/index.md ◇
 
 **目的**：项目特有的高风险点，每条必须有触发条件和缓解方案。
 
@@ -444,7 +494,11 @@ page_type: pitfalls
 source_commit: abc1234
 updated_at: 2026-04-07T10:00:00Z
 generated_by: spec-bootstrap
+confidence: high
 pitfall_count: 4
+source_refs:
+  - {file: src/cli/state.js, symbols: [normalizeState]}
+  - {file: src/cli/developer.js, symbols: [normalizeGitUrl]}
 ---
 
 # 已知陷阱
@@ -484,7 +538,8 @@ severity: critical | high | medium | low
 confidence: high | medium | low
 affected_modules: [module-a, module-b]
 pattern_type: incident | antipattern | best-practice
-source_commit: <git-sha>
+source_commit: <解决问题时的代码库 HEAD SHA>
+has_spec_deviation: true | false
 created_at: <ISO 8601>
 updated_at: <ISO 8601>
 ---
@@ -507,6 +562,10 @@ updated_at: <ISO 8601>
 ## 验证方式
 <怎么确认已解决>
 
+## 规划偏差（has_spec_deviation: true 时填写）
+| 预期 | 实际 | 原因 | 处理方式 |
+|---|---|---|---|
+
 ## 关联
 → [相关陷阱](../../contexts/pitfalls/index.md#...)
 → [相关模块 API](../../contexts/internal-apis/...)
@@ -518,12 +577,13 @@ updated_at: <ISO 8601>
 
 | Skill | 角色 | 读/写 |
 |---|---|---|
+| spec-first init | 初始化方（仅首次） | 写 README.md、CLAUDE.md 骨架；创建空 index.md（含 frontmatter 占位）和空 log.md；不追加 log.md 操作记录 |
 | spec-bootstrap | 生产方（全量刷新） | 写 contexts/ 全部文件；更新 index.md；追加 log.md |
-| spec-compound | 生产方（增量追加） | 写 solutions/ 新条目；更新 index.md；追加 log.md |
-| spec-plan | 消费方 | 静态：summary + conventions；动态：architecture + solutions |
-| spec-work | 消费方 | 静态：summary + conventions；动态：internal-apis + pitfalls + solutions |
-| spec-review | 消费方 | 静态：summary + conventions；动态：architecture + pitfalls + solutions |
-| doctor | 巡检方 | 读 log.md（新鲜度）；读 index.md（孤立页面）；检查 conventions.md 存在性 |
+| spec-compound | 生产方（增量追加） | 逐条确认知识发现价值后写 solutions/ 新条目；自动推断的条目标记 `confidence: medium`，人工确认后升为 `high`；更新 index.md；追加 log.md |
+| spec-plan | 消费方 | rules-layer + L1；按需 L2：overview + solutions |
+| spec-work | 消费方 | rules-layer + L2（全量） |
+| spec-review | 消费方 | rules-layer + L1；按需 L2：overview + pitfalls + solutions |
+| doctor | 巡检方 | **Phase 1 结构巡检**：schema 合规、链接有效、log 新鲜度（source_commit vs last_verified_at）、index 孤立页面、conventions 存在性；**Phase 2 一致性巡检**（Phase 1 PASS 后启动）：对比 source_refs 检查 internal-apis / module-map / pitfalls 是否被代码演进打穿 |
 
 ---
 
@@ -536,7 +596,7 @@ updated_at: <ISO 8601>
 | 公开框架 / 语言 API | AI 已知，放进来只增加噪声（降低采纳率） |
 | plans / brainstorms | 面向特定需求，生命周期短 |
 | review findings | 面向特定 PR，短命；recurring patterns 通过 compound 进入 solutions/ |
-| 执行层资产（meta.json、preflight.json、signals.json） | 单次执行产物，高频，留在本地 `.context/spec-first/work/` |
+| 执行层资产（meta.json、preflight.json、signals.json） | 单次执行产物，高频，留在本地 `.context/spec-first/work/`（执行时临时目录，与知识库 `contexts/` 是不同层次）|
 | 代码模式（样板间） | 是实际可运行代码，不是文档；留在代码仓库 `reference/` 目录；module-map.md 提供指针 |
 
 ### 关于代码模式（样板间）

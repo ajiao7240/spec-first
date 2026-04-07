@@ -5,8 +5,14 @@
 
 set -euo pipefail
 
+# jq 是硬依赖
+command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
+
 CLAUDE_JSON="${HOME}/.claude.json"
 HOST_SETUP_DIR="${HOME}/.claude/spec-first"
+
+# 确保常用安装路径可用
+export PATH="$HOME/.local/go/bin:$HOME/.cargo/bin:$HOME/.fnm/aliases/default/bin:$HOME/.local/bin:$PATH"
 HOST_SETUP_FILE="${HOST_SETUP_DIR}/host-setup.json"
 
 # ---- Detect abcoder ----
@@ -150,8 +156,9 @@ fi
 completed_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Atomic write: mktemp in same dir → chmod 600 → build JSON → mv
-# (chmod before mv so permissions are set before the file is visible at its final path)
-tmp=$(mktemp "${HOST_SETUP_DIR}/host-setup.XXXXXX")
+tmp=$(mktemp "${HOST_SETUP_DIR}/host-setup.XXXXXX") || exit 1
+_RM=$(command -v rm)
+trap '${_RM:-rm} -f "$tmp"' EXIT
 chmod 600 "$tmp"
 
 jq -n \

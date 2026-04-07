@@ -11,6 +11,7 @@ echo "=== CLI smoke test ==="
 expected_version="$(node -p "require('$REPO_ROOT/package.json').version")"
 expected_version_regex="${expected_version//./\\.}"
 outdated_version="9.9.9"
+expected_skill_count="$(find "$REPO_ROOT/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 export SPEC_FIRST_VERSION_REMINDER_LATEST="$expected_version"
 
 echo "1. Check help and version output..."
@@ -51,7 +52,7 @@ init_output="$(
   SPEC_FIRST_VERSION_REMINDER_LATEST="$outdated_version" node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en 2>"$init_stderr"
 )"
 grep -q "Generated 8 command file(s)" <<<"$init_output"
-grep -q "Generated 43 skill directory(ies)" <<<"$init_output"
+grep -q "Generated ${expected_skill_count} skill directory(ies)" <<<"$init_output"
 grep -q "Generated 47 agent file(s)" <<<"$init_output"
 grep -q "Wrote project developer profile" <<<"$init_output"
 grep -q "Update available for spec-first" "$init_stderr"
@@ -144,7 +145,6 @@ done
 echo "✓ source assets use current branding and internal workflow names"
 
 echo "2b. Verify skill directories were installed..."
-expected_skill_count="$(find "$REPO_ROOT/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 installed_skill_count="$(find "$TMP_DIR/.claude/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 test "$installed_skill_count" = "$expected_skill_count"
 for skill in spec-plan spec-review spec-work document-review git-worktree; do
@@ -292,17 +292,19 @@ codex_output="$(
   cd "$TMP_DIR"
   node "$REPO_ROOT/bin/spec-first.js" init --codex -u kuang --lang en
 )"
-if grep -q "Generated 7 command file(s)" <<<"$codex_output"; then
+if grep -q "Generated .* command file(s)" <<<"$codex_output"; then
   echo "✗ codex init should install skills, not command files"
   exit 1
 fi
-grep -q "Generated 43 skill directory(ies) in .agents/skills" <<<"$codex_output"
+grep -q "Generated ${expected_skill_count} skill directory(ies) in .agents/skills" <<<"$codex_output"
 grep -q "Generated 47 agent file(s) in .codex/agents" <<<"$codex_output"
 test -f "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-plan/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-work/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-review/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-compound/SKILL.md"
+installed_codex_skill_count="$(find "$TMP_DIR/.agents/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+test "$installed_codex_skill_count" = "$expected_skill_count"
 grep -q '^name: spec-brainstorm$' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 grep -q '^name: spec-plan$' "$TMP_DIR/.agents/skills/spec-plan/SKILL.md"
 grep -q '^name: spec-work$' "$TMP_DIR/.agents/skills/spec-work/SKILL.md"
