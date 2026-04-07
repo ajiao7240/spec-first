@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.1 2026-04-07 矿工: chore: release 1.5.1 (user-visible)
 - v1.5.0 2026-04-07 11:21:00 kuang: fix(mcp-setup): 调整 host setup 完成判定为 Serena 阻断、ABCoder 和 GitNexus 非阻断；缺失增强工具仅降级 Full mode，不阻止 setup_success 成立 (user-visible)
 - v1.5.0 2026-04-07 矿工: docs: 修复技术方案文档 16 个审查问题（state.js 架构冲突、--global 语义、目录树对齐、分支保护限制声明、v2 边界情况引用等）
 - v1.5.0 2026-04-07 矿工: docs: 新增独立知识库完整技术方案文档，替代两份混血 LLM-md 文档，涵盖内容定义、存储管理、Agent 消费路径、维护策略和 Phase 1 任务分解
