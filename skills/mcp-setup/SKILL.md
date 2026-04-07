@@ -165,18 +165,9 @@ If argument is `quick`, skip optional tool prompts entirely.
 
 ## Phase 4: Host Verification
 
-Run after Phase 3 to record host-level install state and configure ABCoder MCP server.
+Run after Phase 3 to finish host-level configuration and then record the verified install state.
 
-### 4.1 Write Host Readiness Marker
-
-Run `skills/mcp-setup/scripts/verify-tools.sh` to validate host-level install state
-and write `~/.claude/spec-first/host-setup.json`.
-
-If `verify-tools.sh` exits non-zero (e.g., cannot write marker file):
-- Report the failure with the script's error output
-- Do not claim setup is complete
-
-### 4.2 Configure ABCoder MCP Server
+### 4.1 Configure ABCoder MCP Server
 
 ABCoder is installed as a binary only (no MCP config written by install-coordinator.sh).
 After verifying the binary exists, write its MCP server config to `~/.claude.json`.
@@ -194,6 +185,27 @@ jq --arg dir "$ABCODER_AST" \
 ```
 
 Skip if already configured (idempotent). Skip silently if `abcoder` binary is absent.
+
+### 4.2 Write Host Readiness Marker
+
+After baseline MCP configs are in place, run `skills/mcp-setup/scripts/verify-tools.sh`
+to validate host-level install state and write `~/.claude/spec-first/host-setup.json`.
+
+`setup_success` means the baseline host-level prerequisites are actually ready:
+- `serena`, `context7`, `sequential-thinking` are configured in `~/.claude.json`
+- `abcoder` and `gitnexus` are best-effort enhancements: if they fail, record their status but do not block completion
+
+If `verify-tools.sh` exits non-zero (e.g., cannot write marker file):
+- Report the failure with the script's error output
+- Do not claim setup is complete
+
+If `setup_success == false` after verification:
+- Report which baseline tools are still missing or misconfigured
+- Do not claim setup is complete
+
+If `abcoder` or `gitnexus` are missing after verification:
+- Report that Full mode will be unavailable
+- Continue and treat setup as complete when baseline tools are ready
 
 ### 4.3 Language Environment Preflight
 
@@ -243,9 +255,10 @@ Skip if already configured (idempotent). Skip silently if `abcoder` binary is ab
 
 After all installations:
 
-1. Re-run `detect-tools.sh` — all required tools should appear as installed
-2. Verify `~/.claude.json` contains all required mcpServers entries
-3. Display summary:
+1. Re-run `detect-tools.sh` — baseline tools should appear as installed; `abcoder` / `gitnexus` may still be missing
+2. Verify `~/.claude.json` contains baseline MCP entries (`serena`, `context7`, `sequential-thinking`)
+3. Read `~/.claude/spec-first/host-setup.json` and confirm `setup_success == true`
+4. Display summary:
 ```
 ✅ MCP Tools Setup Complete
 
@@ -311,10 +324,11 @@ Next steps:
   "completed_at": "2026-04-03T12:00:00Z",
   "setup_success": true,
   "tools": {
-    "abcoder":  { "installed": true,  "binary_ok": true },
+    "abcoder":  { "installed": true,  "binary_ok": true, "configured": true },
     "gitnexus": { "configured": true },
     "serena":   { "configured": true },
-    "context7": { "configured": true }
+    "context7": { "configured": true },
+    "sequential-thinking": { "configured": true }
   },
   "java_runtime": { "present": true, "reason": "ok" },
   "language_runtime": {
@@ -335,7 +349,7 @@ Next steps:
 
 | 字段 | 消费方 | 用途 |
 |------|--------|------|
-| `setup_success` | spec-bootstrap Host Readiness Gate Step 1 | 判断 mcp-setup 是否已完成 |
+| `setup_success` | spec-bootstrap Host Readiness Gate Step 1 | 判断 baseline host prerequisites 是否真正就绪 |
 | `tools.*.configured` | spec-bootstrap Phase 1.3 probe | 跳过已知不可用的工具 |
 | `java_runtime.present` | spec-bootstrap ABCoder probe Step 2c | Java runtime 预检 |
 | `language_runtime.*` | spec-bootstrap ABCoder probe Step 2c | 语言 runtime 预检（仅诊断用） |

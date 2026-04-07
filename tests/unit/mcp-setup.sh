@@ -215,6 +215,20 @@ if [ -n "$detect_all_missing" ]; then
   assert "Valid JSON when all missing" test "$installed_empty" != "parse_error"
 fi
 
+echo "3.11 command detection requires the full detect command to succeed"
+FAKE_HOME311="$TMP_DIR/fake_home_311"
+FAKEBIN311="$TMP_DIR/fakebin311"
+mkdir -p "$FAKE_HOME311" "$FAKEBIN311"
+echo '{"mcpServers":{}}' > "$FAKE_HOME311/.claude.json"
+for cmd in bash jq awk dirname; do
+  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN311/$cmd"; fi
+done
+printf '#!/bin/sh\nexit 1\n' > "$FAKEBIN311/abcoder"
+chmod +x "$FAKEBIN311/abcoder"
+detect_strict=$(HOME="$FAKE_HOME311" PATH="$FAKEBIN311" bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
+abcoder_in_installed=$(jq -r '(.installed // []) | map(select(. == "abcoder")) | length' <<<"$detect_strict")
+assert_output "abcoder not treated as installed when detect command fails" "0" "$abcoder_in_installed"
+
 echo ""
 
 # ============================================================================
@@ -238,13 +252,29 @@ assert "gitnexus in ~/.claude.json" test -n "$gitnexus_exists"
 gitnexus_cmd=$(jq -r '.mcpServers.gitnexus.command' "$FAKE_HOME2/.claude.json")
 assert_output "gitnexus command is npx" "npx" "$gitnexus_cmd"
 
-echo "4.2 Idempotency: run twice, same config"
+echo "4.2 abcoder is reinstalled when detect command fails"
+FAKE_HOME21="$TMP_DIR/test_abcoder_reinstall"
+FAKEBIN21="$TMP_DIR/fakebin21"
+mkdir -p "$FAKE_HOME21" "$FAKEBIN21"
+echo '{"mcpServers":{}}' > "$FAKE_HOME21/.claude.json"
+chmod 600 "$FAKE_HOME21/.claude.json"
+for cmd in bash jq awk dirname mktemp chmod mv cp rm mkdir date flock; do
+  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN21/$cmd"; fi
+done
+printf '#!/bin/sh\nexit 1\n' > "$FAKEBIN21/abcoder"
+chmod +x "$FAKEBIN21/abcoder"
+printf '#!/bin/sh\nif [ \"$1\" = \"install\" ]; then exit 0; fi\nexit 1\n' > "$FAKEBIN21/go"
+chmod +x "$FAKEBIN21/go"
+install_abcoder_out=$(HOME="$FAKE_HOME21" PATH="$FAKEBIN21" bash "$SCRIPTS_DIR/install-coordinator.sh" --install abcoder 2>&1 || true)
+assert_contains "abcoder reinstall triggered when detect command fails" "Installing abcoder" "$install_abcoder_out"
+
+echo "4.3 Idempotency: run twice, same config"
 BEFORE=$(jq -S . "$FAKE_HOME2/.claude.json")
 HOME="$FAKE_HOME2" bash "$SCRIPTS_DIR/install-coordinator.sh" --install gitnexus >/dev/null 2>&1 || true
 AFTER=$(jq -S . "$FAKE_HOME2/.claude.json")
 assert_output "Config unchanged after rerun" "$BEFORE" "$AFTER"
 
-echo "4.3 --skip flag works"
+echo "4.4 --skip flag works"
 FAKE_HOME3="$TMP_DIR/test_skip"
 mkdir -p "$FAKE_HOME3"
 echo '{"mcpServers":{}}' > "$FAKE_HOME3/.claude.json"
@@ -257,7 +287,19 @@ assert "playwright skipped" test -z "$has_playwright"
 has_serena=$(jq -r '.mcpServers.serena.command // empty' "$FAKE_HOME3/.claude.json")
 assert "serena installed" test -n "$has_serena"
 
-echo "4.4 Config merge doesn't overwrite existing entries"
+echo "4.5 Default install only includes required tools"
+FAKE_HOME34="$TMP_DIR/test_required_only"
+mkdir -p "$FAKE_HOME34"
+echo '{"mcpServers":{}}' > "$FAKE_HOME34/.claude.json"
+chmod 600 "$FAKE_HOME34/.claude.json"
+
+HOME="$FAKE_HOME34" bash "$SCRIPTS_DIR/install-coordinator.sh" >/dev/null 2>&1 || true
+playwright_default=$(jq -r '.mcpServers.playwright // empty' "$FAKE_HOME34/.claude.json")
+assert "playwright not installed by default" test -z "$playwright_default"
+required_count=$(jq '[.mcpServers | keys[] | select(. != "playwright")] | length' "$FAKE_HOME34/.claude.json")
+assert "required tools configured by default" test "$required_count" -ge 4
+
+echo "4.6 Config merge doesn't overwrite existing entries"
 FAKE_HOME4="$TMP_DIR/test_merge"
 mkdir -p "$FAKE_HOME4"
 # Pre-existing custom serena config
@@ -277,7 +319,7 @@ HOME="$FAKE_HOME4" bash "$SCRIPTS_DIR/install-coordinator.sh" --install serena >
 serena_cmd_after=$(jq -r '.mcpServers.serena.command' "$FAKE_HOME4/.claude.json")
 assert_output "Existing config preserved" "custom-serena" "$serena_cmd_after"
 
-echo "4.5 Backup created and cleaned up"
+echo "4.7 Backup created and cleaned up"
 FAKE_HOME5="$TMP_DIR/test_backup"
 mkdir -p "$FAKE_HOME5"
 echo '{"mcpServers":{}}' > "$FAKE_HOME5/.claude.json"
@@ -288,7 +330,7 @@ HOME="$FAKE_HOME5" bash "$SCRIPTS_DIR/install-coordinator.sh" --install context7
 backup_count=$(find "$FAKE_HOME5" -name '.claude.json.backup.*' | wc -l | tr -d ' ')
 assert_output "Backup cleaned on success" "0" "$backup_count"
 
-echo "4.6 File permissions preserved (600)"
+echo "4.8 File permissions preserved (600)"
 FAKE_HOME6="$TMP_DIR/test_perms"
 mkdir -p "$FAKE_HOME6"
 echo '{"mcpServers":{}}' > "$FAKE_HOME6/.claude.json"
@@ -298,7 +340,7 @@ HOME="$FAKE_HOME6" bash "$SCRIPTS_DIR/install-coordinator.sh" --install sequenti
 perms=$(stat -f '%Lp' "$FAKE_HOME6/.claude.json" 2>/dev/null || stat -c '%a' "$FAKE_HOME6/.claude.json" 2>/dev/null)
 assert_output "Config file is 600" "600" "$perms"
 
-echo "4.7 Creates initial config when ~/.claude.json doesn't exist"
+echo "4.9 Creates initial config when ~/.claude.json doesn't exist"
 FAKE_HOME7="$TMP_DIR/test_create"
 mkdir -p "$FAKE_HOME7"
 HOME="$FAKE_HOME7" bash "$SCRIPTS_DIR/install-coordinator.sh" --install context7 >/dev/null 2>&1 || true
@@ -306,7 +348,7 @@ assert "Config created" test -f "$FAKE_HOME7/.claude.json"
 config_valid=$(jq -e '.mcpServers.context7' "$FAKE_HOME7/.claude.json" 2>/dev/null)
 assert "context7 configured in new file" test -n "$config_valid"
 
-echo "4.8 Atomic write uses same-dir tempfile (not /tmp)"
+echo "4.10 Atomic write uses same-dir tempfile (not /tmp)"
 FAKE_HOME8="$TMP_DIR/test_atomic"
 mkdir -p "$FAKE_HOME8"
 echo '{"mcpServers":{}}' > "$FAKE_HOME8/.claude.json"
@@ -402,7 +444,7 @@ before=$(HOME="$FAKE_HOME9" bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
 before_missing=$(jq -r '.missing[]' <<<"$before" | grep -c . || echo "0")
 
 # Step 2: install
-HOME="$FAKE_HOME9" bash "$SCRIPTS_DIR/install-coordinator.sh" --skip playwright >/dev/null 2>&1 || true
+HOME="$FAKE_HOME9" bash "$SCRIPTS_DIR/install-coordinator.sh" >/dev/null 2>&1 || true
 
 # Step 3: detect again
 after=$(HOME="$FAKE_HOME9" bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
@@ -418,6 +460,10 @@ for tool in serena gitnexus sequential-thinking context7; do
   configured=$(jq -r --arg t "$tool" '.mcpServers[$t].command // empty' "$FAKE_HOME9/.claude.json")
   assert "$tool configured" test -n "$configured"
 done
+
+echo "8.4 Optional tool not configured by default"
+playwright_after=$(jq -r '.mcpServers.playwright // empty' "$FAKE_HOME9/.claude.json")
+assert "playwright absent by default in integration flow" test -z "$playwright_after"
 
 echo ""
 
@@ -540,6 +586,91 @@ echo '{"mcpServers":{"context7":{"command":"npx"}}}' > "$FH912/.claude.json"
 HOME="$FH912" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
 out912=$(jq -r '.tools.context7.configured' "$FH912/.claude/spec-first/host-setup.json")
 assert_output "9.12 context7.configured=true" "true" "$out912"
+
+echo "9.13 sequential-thinking configured=true when mcpServers.sequential-thinking exists"
+FH913="$TMP_DIR/fh913"
+mkdir -p "$FH913"
+echo '{"mcpServers":{"sequential-thinking":{"command":"npx"}}}' > "$FH913/.claude.json"
+HOME="$FH913" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out913=$(jq -r '.tools["sequential-thinking"].configured' "$FH913/.claude/spec-first/host-setup.json")
+assert_output "9.13 sequential-thinking.configured=true" "true" "$out913"
+
+echo "9.14 setup_success=false when required tools are missing"
+FH914="$TMP_DIR/fh914"
+mkdir -p "$FH914"
+echo '{"mcpServers":{}}' > "$FH914/.claude.json"
+HOME="$FH914" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out914=$(jq -r '.setup_success' "$FH914/.claude/spec-first/host-setup.json")
+assert_output "9.14 setup_success=false when required tools missing" "false" "$out914"
+
+echo "9.15 setup_success=true when abcoder MCP config is missing but baseline tools are ready"
+FH915="$TMP_DIR/fh915"
+FAKEBIN915="$TMP_DIR/fakebin915"
+mkdir -p "$FH915" "$FAKEBIN915"
+cat > "$FH915/.claude.json" <<'JSONEOF'
+{"mcpServers":{
+  "serena":{"command":"uvx"},
+  "gitnexus":{"command":"npx"},
+  "context7":{"command":"npx"},
+  "sequential-thinking":{"command":"npx"}
+}}
+JSONEOF
+printf '#!/bin/sh\nif [ "$1" = "version" ]; then exit 0; fi\nexit 0\n' > "$FAKEBIN915/abcoder"
+chmod +x "$FAKEBIN915/abcoder"
+for cmd in bash jq date mkdir mktemp chmod mv; do
+  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN915/$cmd"; fi
+done
+HOME="$FH915" PATH="$FAKEBIN915" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out915=$(jq -r '.setup_success' "$FH915/.claude/spec-first/host-setup.json")
+assert_output "9.15 setup_success=true when abcoder MCP config missing" "true" "$out915"
+abcoder_cfg_915=$(jq -r '.tools.abcoder.configured' "$FH915/.claude/spec-first/host-setup.json")
+assert_output "9.15 abcoder.configured=false when missing from mcpServers" "false" "$abcoder_cfg_915"
+
+echo "9.16 setup_success=true when gitnexus is missing but baseline tools are ready"
+FAKEBIN916="$TMP_DIR/fakebin916"
+FH916="$TMP_DIR/fh916"
+mkdir -p "$FH916" "$FAKEBIN916"
+cat > "$FH916/.claude.json" <<'JSONEOF'
+{"mcpServers":{
+  "abcoder":{"command":"abcoder","args":["mcp","/tmp/abcoder-ast"]},
+  "serena":{"command":"uvx"},
+  "context7":{"command":"npx"},
+  "sequential-thinking":{"command":"npx"}
+}}
+JSONEOF
+printf '#!/bin/sh\nif [ "$1" = "version" ]; then exit 0; fi\nexit 0\n' > "$FAKEBIN916/abcoder"
+chmod +x "$FAKEBIN916/abcoder"
+for cmd in bash jq date mkdir mktemp chmod mv; do
+  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN916/$cmd"; fi
+done
+HOME="$FH916" PATH="$FAKEBIN916" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out916=$(jq -r '.setup_success' "$FH916/.claude/spec-first/host-setup.json")
+assert_output "9.16 setup_success=true when gitnexus missing" "true" "$out916"
+gitnexus_cfg_916=$(jq -r '.tools.gitnexus.configured' "$FH916/.claude/spec-first/host-setup.json")
+assert_output "9.16 gitnexus.configured=false when missing from mcpServers" "false" "$gitnexus_cfg_916"
+abcoder_cfg_916=$(jq -r '.tools.abcoder.configured' "$FH916/.claude/spec-first/host-setup.json")
+assert_output "9.16 abcoder.configured=true when present in mcpServers" "true" "$abcoder_cfg_916"
+
+echo "9.17 setup_success=false when serena is missing even if abcoder and gitnexus are present"
+FAKEBIN917="$TMP_DIR/fakebin917"
+FH917="$TMP_DIR/fh917"
+mkdir -p "$FH917" "$FAKEBIN917"
+cat > "$FH917/.claude.json" <<'JSONEOF'
+{"mcpServers":{
+  "abcoder":{"command":"abcoder","args":["mcp","/tmp/abcoder-ast"]},
+  "gitnexus":{"command":"npx"},
+  "context7":{"command":"npx"},
+  "sequential-thinking":{"command":"npx"}
+}}
+JSONEOF
+printf '#!/bin/sh\nif [ "$1" = "version" ]; then exit 0; fi\nexit 0\n' > "$FAKEBIN917/abcoder"
+chmod +x "$FAKEBIN917/abcoder"
+for cmd in bash jq date mkdir mktemp chmod mv; do
+  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN917/$cmd"; fi
+done
+HOME="$FH917" PATH="$FAKEBIN917" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out917=$(jq -r '.setup_success' "$FH917/.claude/spec-first/host-setup.json")
+assert_output "9.17 setup_success=false when serena missing" "false" "$out917"
 
 echo ""
 

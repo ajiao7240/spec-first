@@ -8,6 +8,12 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.0 2026-04-07 11:21:00 kuang: fix(mcp-setup): 调整 host setup 完成判定为 Serena 阻断、ABCoder 和 GitNexus 非阻断；缺失增强工具仅降级 Full mode，不阻止 setup_success 成立 (user-visible)
+- v1.5.0 2026-04-07 矿工: docs: 修复技术方案文档 16 个审查问题（state.js 架构冲突、--global 语义、目录树对齐、分支保护限制声明、v2 边界情况引用等）
+- v1.5.0 2026-04-07 矿工: docs: 新增独立知识库完整技术方案文档，替代两份混血 LLM-md 文档，涵盖内容定义、存储管理、Agent 消费路径、维护策略和 Phase 1 任务分解
+- v1.5.0 2026-04-07 11:01:27 kuang: test(smoke): 将初始化后 CHANGELOG 版本断言改为跟随 package.json 当前版本，修复硬编码 v1.4.0 导致的陈旧 smoke 失败
+- v1.5.0 2026-04-07 11:01:27 kuang: fix(mcp-setup+spec-bootstrap): 修复损坏 abcoder 无法触发重装、setup_success 未覆盖 abcoder MCP 配置，以及 spec-bootstrap 缺少 user-invocable frontmatter 导致 smoke 失败的问题 (user-visible)
+- v1.5.0 2026-04-07 10:13:00 kuang: fix(mcp-setup): 修复 optional 工具被默认安装、abcoder 宽松误判、host-setup.json 无条件 setup_success=true 和 sequential-thinking 验证缺失问题，并补充对应单元测试 (user-visible)
 - v1.5.0 2026-04-04 kuang: docs: 新增 docs/01-需求分析/7.项目知识/README.md 索引，列出目录下全部文档的性质摘要与推荐阅读顺序
 - v1.5.0 2026-04-04 kuang: docs: 修复 Harness Engineering 实施分期文档全部 P0/P1 问题：阶段1补充 VALID/INVALID 触发条件表、OoS 边界说明、Greenfield template-first 来源约定、single-writer managed block 实现要求、knowledge init 消费方说明、完成标志操作验收指标；阶段2补充首次产出归属声明、路径迁移说明、history-spec-index 写入责任链、automation candidate 人工确认要求、语义召回最小实现、pitfalls-specialist 路由机制；阶段3补充13资产 Reduced-harness 输入矩阵、指标失真背离检测机制、阶段1/2 代理指标可计算条件
 - v1.5.0 2026-04-04 kuang: docs: 完善 Harness Engineering 实施分期文档：补充 meta.json/findings.json/probe-failures 等缺失数据契约，新增 .context/ 路径决策说明，补全阶段2双路召回消费侧接入说明与 automation candidates 量化门槛，修复 Trace 统一建模字段缺漏

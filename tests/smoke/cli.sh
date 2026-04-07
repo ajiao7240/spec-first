@@ -9,6 +9,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 echo "=== CLI smoke test ==="
 
 expected_version="$(node -p "require('$REPO_ROOT/package.json').version")"
+expected_version_regex="${expected_version//./\\.}"
 outdated_version="9.9.9"
 export SPEC_FIRST_VERSION_REMINDER_LATEST="$expected_version"
 
@@ -279,7 +280,7 @@ test -f "$TMP_DIR/CHANGELOG.md"
 grep -q -- '- 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 \[(user-visible)\]`' "$TMP_DIR/CHANGELOG.md"
 grep -q '`变更摘要` 使用中文，简明说明本次改动' "$TMP_DIR/CHANGELOG.md"
 grep -q '日期时间必须使用 `YYYY-MM-DD HH:MM:SS`' "$TMP_DIR/CHANGELOG.md"
-grep -Eq -- '- v1\.4\.0 [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} ' "$TMP_DIR/CHANGELOG.md"
+grep -Eq -- "- v${expected_version_regex} [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} " "$TMP_DIR/CHANGELOG.md"
 grep -q 'kuang' "$TMP_DIR/CHANGELOG.md"
 grep -q '使用 spec-first 初始化项目' "$TMP_DIR/CHANGELOG.md"
 echo "✓ CLAUDE.md lang policy block written; CHANGELOG.md bootstrapped"

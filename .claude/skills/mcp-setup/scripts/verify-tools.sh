@@ -38,6 +38,8 @@ check_mcp_configured() {
 serena_configured=$(check_mcp_configured "serena")
 gitnexus_configured=$(check_mcp_configured "gitnexus")
 context7_configured=$(check_mcp_configured "context7")
+sequential_thinking_configured=$(check_mcp_configured "sequential-thinking")
+abcoder_configured=$(check_mcp_configured "abcoder")
 
 # ---- Detect java runtime ----
 java_present=false
@@ -125,6 +127,15 @@ if [ "$abcoder_installed" = "true" ] && [ "$java_present" = "true" ]; then
   fi
 fi
 
+# setup_success means the baseline host-level prerequisites for bootstrap are ready.
+# Serena is mandatory; ABCoder and GitNexus are best-effort enhancements and do not block completion.
+setup_success=false
+if [ "$serena_configured" = "true" ] \
+  && [ "$context7_configured" = "true" ] \
+  && [ "$sequential_thinking_configured" = "true" ]; then
+  setup_success=true
+fi
+
 # ---- Write host-setup.json ----
 if ! mkdir -p "$HOST_SETUP_DIR" 2>/dev/null; then
   echo "verify-tools.sh: 无法创建目录 ${HOST_SETUP_DIR}" >&2
@@ -147,9 +158,12 @@ jq -n \
   --arg     completed_at        "$completed_at" \
   --argjson abcoder_installed   "$abcoder_installed" \
   --argjson abcoder_binary_ok   "$abcoder_binary_ok" \
+  --argjson abcoder_configured  "$abcoder_configured" \
   --argjson serena_configured   "$serena_configured" \
   --argjson gitnexus_configured "$gitnexus_configured" \
   --argjson context7_configured "$context7_configured" \
+  --argjson sequential_thinking_configured "$sequential_thinking_configured" \
+  --argjson setup_success       "$setup_success" \
   --argjson java_present        "$java_present" \
   --arg     java_reason         "$java_reason" \
   --argjson go_present          "$go_present" \
@@ -164,12 +178,13 @@ jq -n \
   '{
     "version": "2",
     "completed_at": $completed_at,
-    "setup_success": true,
+    "setup_success": $setup_success,
     "tools": {
-      "abcoder":  { "installed": $abcoder_installed, "binary_ok": $abcoder_binary_ok },
+      "abcoder":  { "installed": $abcoder_installed, "binary_ok": $abcoder_binary_ok, "configured": $abcoder_configured },
       "gitnexus": { "configured": $gitnexus_configured },
       "serena":   { "configured": $serena_configured },
-      "context7": { "configured": $context7_configured }
+      "context7": { "configured": $context7_configured },
+      "sequential-thinking": { "configured": $sequential_thinking_configured }
     },
     "java_runtime": { "present": $java_present, "reason": $java_reason },
     "language_runtime": {

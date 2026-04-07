@@ -32,11 +32,9 @@ for tool_id in $tool_ids; do
       ;;
 
     "command")
-      # Check if command exists on system
+      # Run the full detection command so "command exists but is broken" is not misclassified as installed.
       detect_cmd=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detect.command' "$TOOLS_JSON")
-      cmd_name=$(echo "$detect_cmd" | awk '{print $1}')
-
-      if command -v "$cmd_name" >/dev/null 2>&1; then
+      if eval "$detect_cmd" >/dev/null 2>&1; then
         found=true
       fi
       ;;

@@ -65,8 +65,12 @@ should_install() {
     return 1
   fi
 
-  # Default: install all required tools
-  return 0
+  # Default: install required tools only
+  if [ "$category" = "required" ]; then
+    return 0
+  fi
+
+  return 1
 }
 
 # Backup ~/.claude.json with timestamp
@@ -185,9 +189,7 @@ install_binary() {
   local detect_cmd
   detect_cmd=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detect.command // empty' "$TOOLS_JSON")
   if [ -n "$detect_cmd" ]; then
-    local cmd_name
-    cmd_name=$(echo "$detect_cmd" | awk '{print $1}')
-    if command -v "$cmd_name" >/dev/null 2>&1; then
+    if eval "$detect_cmd" >/dev/null 2>&1; then
       echo "  ⏭️  $tool_id: binary already installed, skipping"
       return 0
     fi
