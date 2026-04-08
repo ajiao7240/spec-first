@@ -31,31 +31,21 @@ Before running bootstrap:
 
 ### MCP Tools Setup
 
-To enable Full or Enhanced analysis mode, install required MCP tools:
+To enable Enhanced analysis mode, install the baseline MCP tools:
 
 ```bash
 /spec:mcp-setup quick
 ```
 
 This installs:
-- **GitNexus** + **ABCoder** (for Full mode)
 - **Serena** (for Enhanced mode)
-- Sequential Thinking, Context7 (universal dependencies)
+- Sequential Thinking and Context7 (universal dependencies)
 
-⚠️ **Restart Claude Code** after installation for changes to take effect.
-
-**Additional setup for Full mode:**
-
-GitNexus requires indexing the target project:
-```bash
-npx gitnexus analyze
-```
-
-ABCoder auto-configures during `/spec:bootstrap` execution (no manual setup needed).
+⚠️ **Restart the active host** after installation for changes to take effect.
 
 Verify installation:
 ```bash
-claude mcp list | grep -E "gitnexus|abcoder|serena"
+<host> mcp list | grep -E "serena|context7|sequential-thinking"
 ```
 
 **Recommended `.gitignore` entry** (add to target project):
@@ -65,45 +55,6 @@ claude mcp list | grep -E "gitnexus|abcoder|serena"
 The `.context/` control plane contains PRD task contracts and temporary bootstrap state — it should not be committed to version control.
 
 ### Tool Usage Guide
-
-#### GitNexus (Full Mode)
-
-Architecture-level analysis: clusters, flows, impact.
-
-| Tool | Purpose | Example |
-|------|---------|---------|
-| `gitnexus_query` | Find execution flows | `gitnexus_query({query: "authentication flow"})` |
-| `gitnexus_context` | 360° symbol view | `gitnexus_context({name: "AuthService"})` |
-| `gitnexus_cypher` | Graph queries | `gitnexus_cypher({query: "MATCH (n:Class) RETURN n.name LIMIT 20"})` |
-| `gitnexus_impact` | Blast radius analysis | `gitnexus_impact({target: "UserModel", direction: "downstream"})` |
-
-**Useful Cypher patterns**:
-```cypher
--- Find classes in directory
-MATCH (n:Class) WHERE n.file CONTAINS 'src/core' RETURN n.name, n.file
-
--- Find callers of a function
-MATCH (a:Function)-[:CALLS]->(b:Function {name: 'fetchData'}) RETURN a.name, a.file
-
--- Cross-package dependencies
-MATCH (a)-[r]->(b) WHERE a.file CONTAINS 'pkg-a' AND b.file CONTAINS 'pkg-b'
-RETURN a.name, type(r), b.name LIMIT 20
-```
-
-**Workflow**: GitNexus first (identify flows) → ABCoder second (get signatures) → Read source (full context)
-
-#### ABCoder (Full Mode)
-
-Symbol-level analysis: AST nodes, signatures, dependencies.
-
-| Tool | Layer | Purpose | Example |
-|------|-------|---------|---------|
-| `list_repos` | 1 | List parsed repos | `list_repos()` |
-| `get_repo_structure` | 2 | File/package listing | `get_repo_structure({repo_name: "my-project"})` |
-| `get_file_structure` | 3 | Nodes in file | `get_file_structure({repo_name: "my-project", file_path: "src/auth.ts"})` |
-| `get_ast_node` | 4 | Full code + deps | `get_ast_node({repo_name: "my-project", node_ids: [...]})` |
-
-**4-Layer Drill-Down**: list_repos → get_repo_structure → get_file_structure → get_ast_node
 
 #### Serena (Enhanced Mode)
 
@@ -124,9 +75,19 @@ Semantic code analysis: symbol lookup, structure overview, pattern search.
 
 **Run this check before any other phase. If it fails, stop immediately.**
 
+### Step 0: Determine the active host
+
+Use the same host selection rules as `mcp-setup` to choose the current runtime host:
+
+- Claude Code → `~/.claude/spec-first/host-setup.json`
+- Codex → `~/.codex/spec-first/host-setup.json`
+
+Also use the matching host CLI for runtime checks:
+- Active host CLI → `claude mcp list` or `codex mcp list`, depending on the detected host
+
 ### Step 1: Check mcp-setup marker
 
-Check whether `~/.claude/spec-first/host-setup.json` exists **and** `setup_success == true`.
+Check whether the current host's `spec-first/host-setup.json` exists **and** `setup_success == true`.
 
 - **文件不存在，或存在但 `setup_success != true`** → State: `NOT_SETUP`
 
@@ -134,24 +95,21 @@ Check whether `~/.claude/spec-first/host-setup.json` exists **and** `setup_succe
   ```
   ⛔ spec-bootstrap 无法继续：宿主尚未完成 MCP 工具安装。
 
-  原因：未检测到 ~/.claude/spec-first/host-setup.json（或 setup_success 不为 true），
+  原因：未检测到当前宿主的 spec-first/host-setup.json（或 setup_success 不为 true），
         说明 /spec:mcp-setup 尚未在本机成功执行。
 
   操作：请先运行 /spec:mcp-setup 并等待完成。
 
-  完成后：重启 Claude Code，然后重新运行 /spec:bootstrap。
+  完成后：重启当前宿主，然后重新运行 /spec:bootstrap。
   ```
 
   Stop. Do not proceed to Step 2 or any Phase.
 
-- **文件存在且 `setup_success == true`** → Check schema version:
-  - `version == "2"` → Full capability（language_runtime + jdt_cache available）
-  - `version == "1"` 或字段缺失 → Legacy mode（语言/JDT 信息不可用，ABCoder probe 将自行检测）
-  - 两种情况均继续 → Continue to Step 2.
+- **文件存在且 `setup_success == true`** → Continue to Step 2.
 
 ### Step 2: Check MCP runtime availability
 
-Attempt a lightweight, side-effect-free MCP tool call to confirm Claude Code has loaded
+Attempt a lightweight, side-effect-free MCP tool call to confirm the active host has loaded
 the current MCP configuration.
 
 Preferred probe: `context7 resolve-library-id` with any query string.
@@ -163,14 +121,14 @@ Fallback probe: `serena get_current_config`.
   ```
   ⛔ spec-bootstrap 无法继续：MCP 工具尚不可调用。
 
-  原因：~/.claude/spec-first/host-setup.json 存在（mcp-setup 已完成），
-        但 MCP 工具当前不可调用，通常说明 Claude Code 尚未重启以加载新配置。
+  原因：当前宿主的 spec-first/host-setup.json 存在（mcp-setup 已完成），
+        但 MCP 工具当前不可调用，通常说明宿主尚未重启以加载新配置。
 
-  操作：请重启 Claude Code。
+  操作：请重启当前宿主。
 
   完成后：重新运行 /spec:bootstrap。
 
-  如果重启后仍看到此提示，请运行 `claude mcp list` 确认 MCP 服务已注册，
+  如果重启后仍看到此提示，请运行当前宿主对应的 `mcp list` 确认 MCP 服务已注册，
   或重新运行 /spec:mcp-setup。
   ```
 
@@ -179,36 +137,18 @@ Fallback probe: `serena get_current_config`.
 - **Probe succeeds** → State: `READY`. Continue to Step 2b.
 
   Note:
-  - This probe only proves Claude Code has loaded **at least one** MCP server from the current config.
-  - It does **not** prove Serena / GitNexus / ABCoder are mounted in the current session.
+  - This probe only proves the active host has loaded **at least one** MCP server from the current config.
+  - It does **not** prove Serena is mounted in the current session.
   - Tool-specific availability is determined in Phase 1.3. If `host-setup.json` says a tool is `configured=true`
     but the first project-level call says the tool is unavailable, record `reason=<tool>-not-mounted-in-session`.
 
-### Step 2b: JDT Cache Warning
-
-If `~/.claude/spec-first/host-setup.json` exists and `jdt_cache.writable == false`:
-
-Output to user (non-blocking):
-```
-⚠️ ABCoder JDT 缓存目录不可写（Java 项目将受影响）。
-
-检测到 jdt_cache.reason: <reason>
-路径: <jdt_cache.path>
-
-修复方法：
-  chmod -R u+w <jdt_cache.path 的父目录>
-
-或重新运行 /spec:mcp-setup，Phase 4.3 会自动修复。
-```
-
-This warning is non-blocking. If the project is not Java, this is informational only.
 Continue to `## Analysis Mode`.
 
 **注意事项：**
 - 阻断输出必须包含三要素：原因 / 操作 / 完成后下一步
 - 两类阻断均不进入 Phase 1，不执行任何项目分析逻辑
-- MCP probe 超时：若 tool call 失败或返回错误（包括 Claude Code 内置超时机制触发的超时），一律视为探针失败，判定 SETUP_DONE_NOT_RESTARTED 状态
-- `context7` 成功只代表 baseline MCP runtime 已加载，不代表 Serena / GitNexus / ABCoder 已挂载
+- MCP probe 超时：若 tool call 失败或返回错误（包括宿主内置超时机制触发的超时），一律视为探针失败，判定 SETUP_DONE_NOT_RESTARTED 状态
+- `context7` 成功只代表 baseline MCP runtime 已加载，不代表 Serena 已挂载
 
 ---
 
@@ -218,8 +158,7 @@ Mode is determined after running Project Tool Readiness probes in Phase 1.3.
 
 | Mode | Condition | Capability |
 |------|-----------|------------|
-| **Full** | `gitnexus.ready AND abcoder.ready` | Architecture-level + symbol-level analysis |
-| **Enhanced** | `serena.ready OR abcoder.ready` | Semantic analysis; ABCoder used if also ready |
+| **Enhanced** | `serena.ready` | Semantic analysis via Serena |
 | **Basic** | All probes failed | Text-level analysis via Read/Grep/Glob |
 
 Note: Mode is selected after probes complete. `ready` means the probe succeeded for the
@@ -267,7 +206,7 @@ Exclude `docs/contexts/` from analysis (it contains previous bootstrap output, n
 
 **Project Tool Readiness (run in parallel, all-settled — do not cancel on failure):**
 
-Run all three probes concurrently. Collect each result independently.
+Run the Serena probe. Collect the result independently.
 
 **Serena probe:**
 1. Call `serena get_current_config` to check MCP availability
@@ -279,68 +218,11 @@ Run all three probes concurrently. Collect each result independently.
 - Success → `serena.ready=true`
 - Failure → `serena.ready=false`, record reason (`serena-activate-failed` / `serena-probe-failed`)
 
-**GitNexus probe:**
-1. Check MCP availability
-   - If the tool is unavailable / not mounted in the session → `gitnexus.ready=false`, `reason=gitnexus-not-mounted-in-session`
-2. Query current repo (e.g., `search_commits` or `get_file_history` with minimal args)
-   - Results returned → `gitnexus.ready=true`
-   - Empty result (repo not indexed) → `gitnexus.ready=false`, `reason=repo-not-indexed`
-   - MCP exception / service unreachable → `gitnexus.ready=false`, `reason=gitnexus-mcp-error`
-- Do not trigger indexing. Do not wait. Degrade immediately.
-
-**ABCoder probe (4 steps):**
-
-Step 1: `list_repos()` — always first, never guess repo_name from directory name
-  - MCP tool unavailable / not mounted in session → `abcoder.ready=false`, `reason=abcoder-not-mounted-in-session`
-  - Repo found → skip to Step 4
-
-Step 2 (if list_repos empty): Language Match First
-
-  2a. **Detect primary language** (scan file extensions in project root):
-  - `.go` → `go`, `.py` → `python`, `.java` → `java`
-  - `.kt` → `kotlin`, `.swift` → `swift`, `.rs` → `rust`, `.ts/.tsx` → `typescript`, `.js/.jsx` → `javascript`
-  - `.rb` → `ruby`, `.cs` → `csharp`, `.cpp/.cxx` → `cpp`
-  - Pick the language with the most source files
-
-  2b. **Check language against ABCoder support matrix:**
-  - **ABCoder supports:** Go, Java, Python (v0.3.1)
-  - If primary language NOT in support matrix → `abcoder.ready=false`, `reason=language-not-supported:<lang>`, skip Steps 3-4
-  - Report: "ABCoder: skipped (项目语言 <lang> 不在支持列表: Go, Java, Python)"
-
-  2c. **For supported languages, check host-setup.json for pre-known issues:**
-  - Read `~/.claude/spec-first/host-setup.json`:
-    - `language_runtime.<lang>.present` — runtime 是否已安装
-    - For Java: `jdt_cache.writable` — JDT 缓存是否可写
-  - If Go or Python AND runtime missing → **informational warning only**（ABCoder 内置 gopls/pyright，不依赖系统 runtime，probe 继续执行）
-  - If Java AND runtime missing → `abcoder.ready=false`, `reason=java-runtime-missing`
-  - If Java AND `jdt_cache.writable == false`:
-    - Output warning to user with fix command
-    - `abcoder.ready=false`, `reason=jdt-cache-not-writable`
-  - If all checks pass → proceed to Step 3
-
-Step 3: Trigger parse, wait ≤ 60s (outer timer — record start time, check elapsed on each poll)
-
-  **重要：ABCoder 是 Go 二进制文件，不是 npm 包。**
-  - 正确命令：`abcoder parse <language> <project-root>`
-  - 禁止使用：`npx abcoder ...`（npm 上不存在此包，会得到 npm 404 错误）
-  - 禁止使用：`abcoder parse <language> <project-root> -o <dir>`（ABCoder MCP server 从内部存储读取）
-
-  - Timeout → `abcoder.ready=false`, `reason=parse-timeout`; note: Java JDT cold-start may exceed 60s, inform user to retry
-  - Parse failure → `abcoder.ready=false`, `reason=parse-failed`
-
-Step 4: Verify
-  - `list_repos()` again — confirm repo visible
-  - Verify returned repo root path matches `$CWD` (to avoid wrong-repo false positive)
-  - `get_repo_structure` with the retrieved repo_name
-  - All pass → `abcoder.ready=true`
-  - Any fail → `abcoder.ready=false`, `reason=repo-not-visible-in-abcoder` or `reason=abcoder-wrong-repo`
-
-**Mode selection (after all probes complete):**
+**Mode selection (after probe completes):**
 
 ```
-if gitnexus.ready AND abcoder.ready  → Full
-elif serena.ready OR abcoder.ready   → Enhanced  (ABCoder used if also ready)
-else                                 → Basic
+if serena.ready  → Enhanced
+else             → Basic
 ```
 
 **Report to user:**
@@ -348,37 +230,20 @@ else                                 → Basic
 🔍 检测项目工具就绪状态...
 
 Serena:   ready=yes, project=<path>
-GitNexus: ready=no,  reason=repo-not-indexed
-ABCoder:  ready=yes
 
-📊 分析模式: Enhanced  (ABCoder 可用)
+📊 分析模式: Enhanced
 ```
 
 Partial MCP mount 场景示例：
 ```
 Serena:   ready=no,  reason=serena-not-mounted-in-session
-          (host-setup.json 显示 serena.configured=true，但当前 Claude 会话未挂载 Serena；
-           请先运行 `claude mcp list` 检查，再重启 Claude Code 或重新运行 /spec:mcp-setup)
-GitNexus: ready=no,  reason=gitnexus-not-mounted-in-session
-ABCoder:  ready=yes
+          (host-setup.json 显示 serena.configured=true，但当前宿主会话未挂载 Serena；
+           请先运行当前宿主对应的 `mcp list` 检查，再重启宿主或重新运行 /spec:mcp-setup)
 
-📊 分析模式: Enhanced  (ABCoder 可用；Serena/GitNexus 未挂载)
-```
-
-ABCoder language-not-supported 场景示例：
-```
-ABCoder:  ready=no,  reason=language-not-supported:kotlin
-          (项目语言 kotlin 不在 ABCoder 支持列表: Go, Java, Python。Serena 将作为主要分析工具。)
+📊 分析模式: Basic
 ```
 
 Then proceed with analysis using the selected mode's tool set.
-
-**Full mode (GitNexus + ABCoder):**
-```
-1. npx gitnexus analyze  → module clusters, execution flows, dependency graph
-2. abcoder parse         → AST structure, symbol signatures, cross-file references
-3. Synthesize: package boundaries, data flows, error propagation patterns
-```
 
 **Enhanced mode (Serena MCP):**
 ```

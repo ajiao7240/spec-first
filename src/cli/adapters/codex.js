@@ -7,6 +7,7 @@ const PlatformAdapter = require('./base');
  * Codex platform adapter
  *
  * Codex support is project-scoped and mirrors the Trellis model:
+ * - shared workflow commands live in `.codex/commands/spec/`
  * - shared workflow skills live in `.agents/skills/`
  * - reusable reviewer/research agent profiles live in `.codex/agents/`
  * - spec-first state remains under `.codex/spec-first/`
@@ -25,11 +26,11 @@ class CodexAdapter extends PlatformAdapter {
   }
 
   get hasCommands() {
-    return false;
+    return true;
   }
 
   get commandRoot() {
-    return '.codex/spec-first/commands';
+    return '.codex/commands/spec';
   }
 
   get skillsRoot() {
@@ -53,7 +54,7 @@ class CodexAdapter extends PlatformAdapter {
   }
 
   get legacyCommandRoot() {
-    return '.codex/commands/spec';
+    return '.codex/spec-first/commands';
   }
 
   get legacyCodexSkillsRoot() {
@@ -85,6 +86,7 @@ class CodexAdapter extends PlatformAdapter {
 
   inspect(projectRoot) {
     const runtimeDir = path.join(projectRoot, this.runtimeRoot);
+    const commandDir = path.join(projectRoot, this.commandRoot);
     const skillsDir = path.join(projectRoot, this.skillsRoot);
     const agentsDir = path.join(projectRoot, this.agentsRoot);
     const stateFilePath = path.join(projectRoot, this.stateFile);
@@ -93,7 +95,7 @@ class CodexAdapter extends PlatformAdapter {
     return {
       platform: this.id,
       runtimeExists: fs.existsSync(runtimeDir),
-      commands: false,
+      commands: fs.existsSync(commandDir),
       skills: fs.existsSync(skillsDir),
       agents: fs.existsSync(agentsDir),
       state: fs.existsSync(stateFilePath),

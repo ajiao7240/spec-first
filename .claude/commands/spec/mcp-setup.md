@@ -11,5 +11,5 @@ Before doing anything else, read `skills/mcp-setup/SKILL.md` and execute that wo
 
 Rules:
 - Treat `skills/mcp-setup/SKILL.md` as the source of truth for phase execution, tool configuration, and verification behavior.
-- This workflow installs and configures MCP tools needed for spec-first Full mode.
+- This workflow installs and configures MCP tools needed for spec-first Full mode, using the active host's MCP config and marker paths.
 - If `skills/mcp-setup/SKILL.md` is missing, stop and tell the user to run `spec-first init --claude`.

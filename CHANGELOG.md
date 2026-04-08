@@ -5,9 +5,13 @@
   - `v版本号` 使用本次变更对应的发布版本
   - 日期时间必须使用 `YYYY-MM-DD HH:MM:SS`
 - `作者` 填写提交人或变更责任人
-  - `变更摘要` 使用中文，简明说明本次改动
+- `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-08 18:39:23 kuang: fix(mcp-setup): 收紧双宿主健壮性，Serena MCP 配置改为按宿主上下文校验，宿主歧义时不再默认 Claude，并同步补齐 Windows/Unix 检测与验证测试 (user-visible)
+- v1.6.0 2026-04-08 23:50:00 kuang: docs(mcp-setup): 将 mcp-setup 技能命名统一为 spec-mcp-setup，并把 Codex 侧直接调用格式改为 `$spec-mcp-setup`，与其他 spec-* 技能保持一致 (user-visible)
+- v1.6.0 2026-04-08 23:30:00 kuang: feat(codex): 让 init 在 Codex 侧也生成 /spec:* 命令文件，统一命令、技能、代理的安装与 clean/doctor 诊断链路，并同步更新模板、测试和用户文档 (user-visible)
+- v1.6.0 2026-04-08 22:30:00 kuang: docs(mcp-setup): 增加更友好的执行进度提示，安装与验证脚本会显示当前宿主检查、逐项配置、标记写入和完成状态，降低用户等待时的不确定感 (user-visible)
 - v1.6.0 2026-04-08 22:00:00 kuang: feat(mcp-setup): 增加 Windows PowerShell 7+ 支持，补齐 detect/check/install/verify 的 .ps1 入口，更新技能合同与测试断言，允许在 macOS/Linux/Windows 上使用对应宿主脚本 (user-visible)
 - v1.6.0 2026-04-08 21:00:00 kuang: fix(mcp-setup+spec-bootstrap): 让 MCP 安装与引导流程按当前宿主自适应，自动区分 Claude Code / Codex 的配置文件与 host-setup 标记路径，并补齐双宿主 unit 测试与文档同步 (user-visible)
 - v1.6.0 2026-04-08 20:00:00 kuang: fix(graphify skill): --out-dir 参数支持与输出路径参数化：(1) 参数声明新增 --out-dir；(2) Phase 1 增加 OUT_DIR 解析逻辑（相对 target_root，非 shell CWD）；(3) 所有执行模板中 graphify-out/ 统一替换为 $OUT_DIR；(4) 重要边界/最小成功标准/handoff 均更新为 $OUT_DIR；(5) 测试更新输出目录断言为 target_root 语义，新增 --out-dir/OUT_DIR/$OUT_DIR/target_root 共5项断言 (user-visible)

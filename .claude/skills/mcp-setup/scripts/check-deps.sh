@@ -56,54 +56,10 @@ else
     }}')
   else
     NODE_JSON=$(echo "$NODE_JSON" | jq '. + {"install_suggestion": {
-      "command": "echo \"Please install Node.js from https://nodejs.org/\"",
+      "command": "winget install OpenJS.NodeJS.LTS",
       "safety": "manual",
-      "risk_hint": "",
-      "manual": "Install from https://nodejs.org/"
-    }}')
-  fi
-fi
-
-# Check Go
-GO_JSON=$(check_command "go" "version")
-if echo "$GO_JSON" | jq -e '.installed' >/dev/null 2>&1; then
-  GO_JSON=$(echo "$GO_JSON" | jq '. + {"install_suggestion": null}')
-else
-  # Get latest Go version from API
-  GO_LATEST=$(curl -sL --connect-timeout 5 --max-time 15 "https://go.dev/dl/?mode=json" 2>/dev/null | jq -r '.[0].version' 2>/dev/null || echo "")
-  GO_VERSION="${GO_LATEST#go}"  # Strip "go" prefix
-  # 版本号格式校验：防止 API 异常或注入
-  if [[ ! "$GO_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-    GO_VERSION="1.23.6"
-  fi
-
-  # 架构映射：Linux aarch64 → arm64（Go 官方下载使用 arm64）
-  GO_ARCH=$(uname -m)
-  [[ "$GO_ARCH" == "aarch64" ]] && GO_ARCH="arm64"
-
-  # Build install command with resolved version
-  GO_INSTALL_CMD="mkdir -p \$HOME/.local && curl -sL https://go.dev/dl/go${GO_VERSION}.\$(uname -s | tr A-Z a-z)-${GO_ARCH}.tar.gz | tar -C \$HOME/.local -xz && export PATH=\$HOME/.local/go/bin:\$PATH"
-
-  if [ "$OS" = "macos" ]; then
-    GO_JSON=$(echo "$GO_JSON" | jq --arg cmd "$GO_INSTALL_CMD" '. + {"install_suggestion": {
-      "command": $cmd,
-      "safety": "gated_auto",
-      "risk_hint": "Installs Go to ~/.local/go, requires adding ~/.local/go/bin to PATH",
-      "manual": "Install from https://go.dev/doc/install or use: brew install go"
-    }}')
-  elif [ "$OS" = "linux" ]; then
-    GO_JSON=$(echo "$GO_JSON" | jq --arg cmd "$GO_INSTALL_CMD" '. + {"install_suggestion": {
-      "command": $cmd,
-      "safety": "gated_auto",
-      "risk_hint": "Installs Go to ~/.local/go, requires adding ~/.local/go/bin to PATH",
-      "manual": "Install from https://go.dev/doc/install or use: sudo apt install golang-go"
-    }}')
-  else
-    GO_JSON=$(echo "$GO_JSON" | jq '. + {"install_suggestion": {
-      "command": "echo \"Please install Go from https://go.dev/doc/install\"",
-      "safety": "manual",
-      "risk_hint": "",
-      "manual": "Install from https://go.dev/doc/install"
+      "risk_hint": "Use the Windows package manager, may require a terminal restart",
+      "manual": "Install from https://nodejs.org/ or use winget install OpenJS.NodeJS.LTS"
     }}')
   fi
 fi
@@ -142,10 +98,10 @@ else
     }}')
   else
     JQ_JSON=$(echo "$JQ_JSON" | jq '. + {"install_suggestion": {
-      "command": "echo \"Please install jq from https://jqlang.github.io/jq/\"",
+      "command": "winget install jqlang.jq",
       "safety": "manual",
-      "risk_hint": "",
-      "manual": "Install from https://jqlang.github.io/jq/"
+      "risk_hint": "Use the Windows package manager, may require a terminal restart",
+      "manual": "Install from https://jqlang.github.io/jq/ or use winget install jqlang.jq"
     }}')
   fi
 fi
@@ -153,14 +109,12 @@ fi
 # Output combined JSON
 jq -n \
   --argjson node "$NODE_JSON" \
-  --argjson go "$GO_JSON" \
   --argjson uv "$UV_JSON" \
   --argjson jq_dep "$JQ_JSON" \
   --arg os "$OS" \
   '{
     "os": $os,
     "node": $node,
-    "go": $go,
     "uv": $uv,
     "jq": $jq_dep
   }'

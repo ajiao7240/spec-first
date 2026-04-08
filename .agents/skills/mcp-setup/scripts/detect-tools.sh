@@ -1,10 +1,16 @@
 #!/bin/bash
-# detect-tools.sh - Detect already installed MCP tools from ~/.claude.json
+# detect-tools.sh - Detect already installed MCP tools from the current host config
 # Output: JSON with installed and missing tool lists
 
 set -euo pipefail
 
-CLAUDE_JSON="$HOME/.claude.json"
+# jq 是硬依赖
+command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+HOST_INFO_JSON="$("$SCRIPT_DIR/detect-host.sh")"
+HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
+CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
 TOOLS_JSON="$(cd "$(dirname "$0")/.." && pwd)/mcp-tools.json"
 
 installed=()
@@ -24,19 +30,21 @@ for tool_id in $tool_ids; do
       # Check if tool exists in mcpServers config
       detect_key=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detect.key' "$TOOLS_JSON")
 
-      if [ -f "$CLAUDE_JSON" ]; then
-        if jq -e --arg key "$detect_key" '.mcpServers[$key]' "$CLAUDE_JSON" >/dev/null 2>&1; then
+      if [ "$HOST" = "claude" ]; then
+        if [ -f "$CONFIG_PATH" ] && jq -e --arg key "$detect_key" '.mcpServers[$key]' "$CONFIG_PATH" >/dev/null 2>&1; then
+          found=true
+        fi
+      elif [ "$HOST" = "codex" ]; then
+        if [ -f "$CONFIG_PATH" ] && grep -qF "[mcp_servers.$detect_key]" "$CONFIG_PATH"; then
           found=true
         fi
       fi
       ;;
 
     "command")
-      # Check if command exists on system
+      # Run the full detection command so "command exists but is broken" is not misclassified as installed.
       detect_cmd=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detect.command' "$TOOLS_JSON")
-      cmd_name=$(echo "$detect_cmd" | awk '{print $1}')
-
-      if command -v "$cmd_name" >/dev/null 2>&1; then
+      if eval "$detect_cmd" >/dev/null 2>&1; then
         found=true
       fi
       ;;
@@ -54,8 +62,17 @@ for tool_id in $tool_ids; do
 done
 
 # Build JSON output (guarded expansion for empty arrays on bash 3.2)
-installed_json=$(printf '%s\n' ${installed[@]+"${installed[@]}"} | jq -R . | jq -s .)
-missing_json=$(printf '%s\n' ${missing[@]+"${missing[@]}"} | jq -R . | jq -s .)
+if [ ${#installed[@]} -eq 0 ]; then
+  installed_json='[]'
+else
+  installed_json=$(printf '%s\n' "${installed[@]}" | jq -R . | jq -s .)
+fi
+
+if [ ${#missing[@]} -eq 0 ]; then
+  missing_json='[]'
+else
+  missing_json=$(printf '%s\n' "${missing[@]}" | jq -R . | jq -s .)
+fi
 
 jq -n \
   --argjson installed "$installed_json" \

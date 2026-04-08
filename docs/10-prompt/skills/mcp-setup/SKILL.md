@@ -1,5 +1,5 @@
 ---
-name: mcp-setup
+name: spec-mcp-setup
 description: “一键式 MCP 工具安装和配置，用于规范优先工作流程。安装 Serena、Sequential Thinking、Context7（必需）和 Playwright MCP（可选），支持 Claude Code / Codex / Windows PowerShell 宿主。”
 argument-hint: "[quick|custom]"
 ---
@@ -9,7 +9,9 @@ argument-hint: "[quick|custom]"
 安装并配置 spec-first 工作流所需的 MCP 工具。
 
 **克劳德入口点：** `/spec:mcp-setup [quick|custom]`
-**法典入口点：** 暂不支持
+**法典入口点：** `/spec:mcp-setup [quick|custom]`
+如果你在 Codex 会话里直接调用技能命名空间，`$spec-mcp-setup [quick|custom]` 仍然可用。
+如果两个宿主 CLI 都存在且没有环境提示，请显式设置 `MCP_SETUP_HOST=claude|codex`，脚本不会猜测宿主。
 
 ## 概述
 
@@ -33,7 +35,7 @@ argument-hint: "[quick|custom]"
 工具元数据定义在 `skills/mcp-setup/mcp-tools.json` 中。每个条目包含：
 - `id`、`name`、`category`
 - `dependencies`（node / uv）
-- `mcp_config`（MCP 服务注册命令与参数）
+- `mcp_config`（MCP 服务注册命令与参数；`__HOST_CONTEXT__` 这类占位符会在安装时按宿主解析）
 - `detect`（检测方法和参数）
 
 ---
@@ -115,6 +117,7 @@ pwsh -File skills/mcp-setup/scripts/detect-tools.ps1
 显示进度：
 
 ```text
+🧭 我会先检查当前宿主的配置，再逐个补齐缺失工具。
 ⏳ Configuring Serena...
 ✅ Serena configured
 ⏳ Configuring Context7...
@@ -170,6 +173,8 @@ Windows：
 ```powershell
 pwsh -File skills/mcp-setup/scripts/verify-tools.ps1
 ```
+
+验证步骤会打印当前宿主的基础状态和最终标记路径，方便用户判断是否需要重启。
 
 Claude Code 写入 `~/.claude/spec-first/host-setup.json`，Codex 写入 `~/.codex/spec-first/host-setup.json`。
 

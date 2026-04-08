@@ -1,8 +1,6 @@
 ---
 name: spec-bootstrap
 description: "Stage-0 supporting workflow: analyze a target project and generate long-lived project context assets under docs/contexts/<slug>/. Run this before brainstorm/plan/work/review to give those workflows a durable context foundation."
-argument-hint: "[target repo path or context slug]"
-user-invocable: true
 ---
 
 # Spec-First Bootstrap
@@ -10,7 +8,8 @@ user-invocable: true
 Bootstrap a durable project context for a target repository. This is a **Stage-0 supporting workflow** — it runs once (or on demand) to generate context assets that subsequent spec-first workflows can consume.
 
 **Claude entry point:** `/spec:bootstrap [target-repo-path-or-slug]`
-**Codex entry point:** `$spec-bootstrap [target-repo-path-or-slug]`
+**Codex entry point:** `/spec:bootstrap [target-repo-path-or-slug]`
+If you invoke the skill directly inside a Codex session, `$spec-bootstrap [target-repo-path-or-slug]` still works.
 
 ## Why This Exists
 
@@ -33,31 +32,21 @@ Before running bootstrap:
 
 ### MCP Tools Setup
 
-To enable Full or Enhanced analysis mode, install required MCP tools:
+To enable Enhanced analysis mode, install the baseline MCP tools:
 
 ```bash
 /spec:mcp-setup quick
 ```
 
 This installs:
-- **GitNexus** + **ABCoder** (for Full mode)
 - **Serena** (for Enhanced mode)
-- Sequential Thinking, Context7 (universal dependencies)
+- Sequential Thinking and Context7 (universal dependencies)
 
-⚠️ **Restart Claude Code** after installation for changes to take effect.
-
-**Additional setup for Full mode:**
-
-GitNexus requires indexing the target project:
-```bash
-npx gitnexus analyze
-```
-
-ABCoder auto-configures during `/spec:bootstrap` execution (no manual setup needed).
+⚠️ **Restart the active host** after installation for changes to take effect.
 
 Verify installation:
 ```bash
-claude mcp list | grep -E "gitnexus|abcoder|serena"
+<host> mcp list | grep -E "serena|context7|sequential-thinking"
 ```
 
 **Recommended `.gitignore` entry** (add to target project):
@@ -68,44 +57,6 @@ The `.context/` control plane contains PRD task contracts and temporary bootstra
 
 ### Tool Usage Guide
 
-#### GitNexus (Full Mode)
-
-Architecture-level analysis: clusters, flows, impact.
-
-| Tool | Purpose | Example |
-|------|---------|---------|
-| `gitnexus_query` | Find execution flows | `gitnexus_query({query: "authentication flow"})` |
-| `gitnexus_context` | 360° symbol view | `gitnexus_context({name: "AuthService"})` |
-| `gitnexus_cypher` | Graph queries | `gitnexus_cypher({query: "MATCH (n:Class) RETURN n.name LIMIT 20"})` |
-
-**Useful Cypher patterns**:
-```cypher
--- Find classes in directory
-MATCH (n:Class) WHERE n.file CONTAINS 'src/core' RETURN n.name, n.file
-
--- Find callers of a function
-MATCH (a:Function)-[:CALLS]->(b:Function {name: 'fetchData'}) RETURN a.name, a.file
-
--- Cross-package dependencies
-MATCH (a)-[r]->(b) WHERE a.file CONTAINS 'pkg-a' AND b.file CONTAINS 'pkg-b'
-RETURN a.name, type(r), b.name LIMIT 20
-```
-
-**Workflow**: GitNexus first (identify flows) → ABCoder second (get signatures) → Read source (full context)
-
-#### ABCoder (Full Mode)
-
-Symbol-level analysis: AST nodes, signatures, dependencies.
-
-| Tool | Layer | Purpose | Example |
-|------|-------|---------|---------|
-| `list_repos` | 1 | List parsed repos | `list_repos()` |
-| `get_repo_structure` | 2 | File/package listing | `get_repo_structure({repo_name: "my-project"})` |
-| `get_file_structure` | 3 | Nodes in file | `get_file_structure({repo_name: "my-project", file_path: "src/auth.ts"})` |
-| `get_ast_node` | 4 | Full code + deps | `get_ast_node({repo_name: "my-project", node_ids: [...]})` |
-
-**4-Layer Drill-Down**: list_repos → get_repo_structure → get_file_structure → get_ast_node
-
 #### Serena (Enhanced Mode)
 
 Semantic code analysis: symbol lookup, structure overview, pattern search.
@@ -115,22 +66,110 @@ Semantic code analysis: symbol lookup, structure overview, pattern search.
 | `mcp__serena__get_symbols_overview` | File structure | `mcp__serena__get_symbols_overview({relative_path: "src/auth.ts"})` |
 | `mcp__serena__find_symbol` | Locate symbol | `mcp__serena__find_symbol({name_path_pattern: "AuthService", relative_path: "src/"})` |
 | `mcp__serena__search_for_pattern` | Pattern search | `mcp__serena__search_for_pattern({substring_pattern: "export class.*Service"})` |
+| `mcp__serena__find_referencing_symbols` | Find references | `mcp__serena__find_referencing_symbols({name_path: "AuthService", relative_path: "src/auth/service.ts"})` |
 
-**Workflow**: get_symbols_overview (structure) → find_symbol (locate) → Read source (details)
+**Workflow**: get_symbols_overview (structure) → find_symbol (locate) → find_referencing_symbols (callers) → Read source (details)
 
 ---
 
-## Analysis Mode Detection
+## Host Readiness Gate
 
-At startup, detect and report the available analysis mode:
+**Run this check before any other phase. If it fails, stop immediately.**
+
+### Step 0: Determine the active host
+
+Use the same host selection rules as `mcp-setup` to choose the current runtime host:
+
+- Claude Code → `~/.claude/spec-first/host-setup.json`
+- Codex → `~/.codex/spec-first/host-setup.json`
+
+Also use the matching host CLI for runtime checks:
+- Active host CLI → `claude mcp list` or `codex mcp list`, depending on the detected host
+
+### Step 1: Check mcp-setup marker
+
+Check whether the current host's `spec-first/host-setup.json` exists **and** `setup_success == true`.
+
+- **文件不存在，或存在但 `setup_success != true`** → State: `NOT_SETUP`
+
+  Output to user:
+  ```
+  ⛔ spec-bootstrap 无法继续：宿主尚未完成 MCP 工具安装。
+
+  原因：未检测到当前宿主的 spec-first/host-setup.json（或 setup_success 不为 true），
+        说明 /spec:mcp-setup 尚未在本机成功执行。
+
+  操作：请先运行 /spec:mcp-setup 并等待完成。
+
+  完成后：重启当前宿主，然后重新运行 /spec:bootstrap。
+  ```
+
+  Stop. Do not proceed to Step 2 or any Phase.
+
+- **文件存在且 `setup_success == true`** → Continue to Step 2.
+
+### Step 2: Check MCP runtime availability
+
+Attempt a lightweight, side-effect-free MCP tool call to confirm the active host has loaded
+the current MCP configuration.
+
+Preferred probe: `context7 resolve-library-id` with any query string.
+Fallback probe: `serena get_current_config`.
+
+- **Probe fails or returns an error** → State: `SETUP_DONE_NOT_RESTARTED`
+
+  Output to user:
+  ```
+  ⛔ spec-bootstrap 无法继续：MCP 工具尚不可调用。
+
+  原因：当前宿主的 spec-first/host-setup.json 存在（mcp-setup 已完成），
+        但 MCP 工具当前不可调用，通常说明宿主尚未重启以加载新配置。
+
+  操作：请重启当前宿主。
+
+  完成后：重新运行 /spec:bootstrap。
+
+  如果重启后仍看到此提示，请运行当前宿主对应的 `mcp list` 确认 MCP 服务已注册，
+  或重新运行 /spec:mcp-setup。
+  ```
+
+  Stop. Do not proceed to Phase 1.
+
+- **Probe succeeds** → State: `READY`. Continue to Step 2b.
+
+  Note:
+  - This probe only proves the active host has loaded **at least one** MCP server from the current config.
+  - It does **not** prove Serena is mounted in the current session.
+  - Tool-specific availability is determined in Phase 1.3. If `host-setup.json` says a tool is `configured=true`
+    but the first project-level call says the tool is unavailable, record `reason=<tool>-not-mounted-in-session`.
+
+Continue to `## Analysis Mode`.
+
+**注意事项：**
+- 阻断输出必须包含三要素：原因 / 操作 / 完成后下一步
+- 两类阻断均不进入 Phase 1，不执行任何项目分析逻辑
+- MCP probe 超时：若 tool call 失败或返回错误（包括宿主内置超时机制触发的超时），一律视为探针失败，判定 SETUP_DONE_NOT_RESTARTED 状态
+- `context7` 成功只代表 baseline MCP runtime 已加载，不代表 Serena 已挂载
+
+---
+
+## Analysis Mode
+
+Mode is determined after running Project Tool Readiness probes in Phase 1.3.
 
 | Mode | Condition | Capability |
 |------|-----------|------------|
-| **Full** | GitNexus + ABCoder MCP available | Architecture-level + symbol-level analysis |
-| **Enhanced** | Serena MCP available (`mcp__serena__*`) | Semantic code analysis: symbol lookup, structure overview, pattern search |
-| **Basic** | Built-in tools only | Text-level analysis via Read/Grep/Glob |
+| **Enhanced** | `serena.ready` | Semantic analysis via Serena |
+| **Basic** | All probes failed | Text-level analysis via Read/Grep/Glob |
 
-Report to the user: `> [Bootstrap] Analysis mode: <mode> | DB access: <db-mode>`
+Note: Mode is selected after probes complete. `ready` means the probe succeeded for the
+current project, not merely that the tool is installed or configured.
+
+Basic mode: uses only Read/Grep/Glob. No MCP tools. Analysis depth is limited —
+output will lack cross-file call chains, history semantics, and full type graphs.
+User will be informed of the mode and its limitations.
+
+Report format: `> [Bootstrap] Analysis mode: <mode> | DB access: <db-mode>`
 
 DB access modes: `MCP MySQL` / `CLI mysql` / `ORM inference [unverified]` / `not detected`
 
@@ -166,42 +205,46 @@ If `docs/contexts/<slug>/` already exists:
 
 Exclude `docs/contexts/` from analysis (it contains previous bootstrap output, not project source).
 
-**Mode detection (run at Phase 1.3 start):**
+**Project Tool Readiness (run in parallel, all-settled — do not cancel on failure):**
 
-检测可用工具并输出模式：
+Run the Serena probe. Collect the result independently.
+
+**Serena probe:**
+1. Call `serena get_current_config` to check MCP availability
+   - If the tool is unavailable / not mounted in the session → `serena.ready=false`, `reason=serena-not-mounted-in-session`
+2. If no active project: call `serena activate_project` with current working directory
+3. After activate: verify the returned active project path matches `$CWD`
+   - Mismatch → `serena.ready=false`, `reason=serena-wrong-project-activated`
+4. If path matches: call `serena get_symbols_overview` as lightweight probe
+- Success → `serena.ready=true`
+- Failure → `serena.ready=false`, record reason (`serena-activate-failed` / `serena-probe-failed`)
+
+**Mode selection (after probe completes):**
 
 ```
-🔍 检测分析工具...
-
-GitNexus: [✓ 可用 / ✗ 不可用]
-ABCoder:  [✓ 可用 / ✗ 不可用]
-Serena:   [✓ 可用 / ✗ 不可用]
-
-📊 分析模式: [Full / Enhanced / Basic]
+if serena.ready  → Enhanced
+else             → Basic
 ```
 
-**ABCoder auto-configuration (R17-R20):**
-
-If ABCoder binary exists (`command -v abcoder`) but `mcpServers.abcoder` is not configured in `~/.claude.json`:
-
-1. Detect project primary language (scan file extensions: `.go` → Go, `.py` → Python, `.ts/.tsx/.js/.jsx` → TypeScript/JavaScript, `.java` → Java)
-2. If language is not supported by ABCoder (e.g., Ruby, Rust, C++), skip with: `⏭️ ABCoder: language not supported, skipping AST generation`
-3. Create AST output directory: `mkdir -p ~/.claude/abcoder-ast`
-4. Run: `abcoder parse <language> <project-root> -o ~/.claude/abcoder-ast/<project-name>.json` (timeout: 120s)
-5. Write MCP config to `~/.claude.json`:
-   ```json
-   { "mcpServers": { "abcoder": { "command": "abcoder", "args": ["mcp", "~/.claude/abcoder-ast"] } } }
-   ```
-6. Prompt user: `⚠️ ABCoder MCP configured. Please restart Claude Code for ABCoder to take effect.`
-
-On timeout or parse failure: degrade to Enhanced mode, log the failure.
-
-**Full mode (GitNexus + ABCoder):**
+**Report to user:**
 ```
-1. npx gitnexus analyze  → module clusters, execution flows, dependency graph
-2. abcoder parse         → AST structure, symbol signatures, cross-file references
-3. Synthesize: package boundaries, data flows, error propagation patterns
+🔍 检测项目工具就绪状态...
+
+Serena:   ready=yes, project=<path>
+
+📊 分析模式: Enhanced
 ```
+
+Partial MCP mount 场景示例：
+```
+Serena:   ready=no,  reason=serena-not-mounted-in-session
+          (host-setup.json 显示 serena.configured=true，但当前宿主会话未挂载 Serena；
+           请先运行当前宿主对应的 `mcp list` 检查，再重启宿主或重新运行 /spec:mcp-setup)
+
+📊 分析模式: Basic
+```
+
+Then proceed with analysis using the selected mode's tool set.
 
 **Enhanced mode (Serena MCP):**
 ```
@@ -305,7 +348,7 @@ Control plane location: `.context/spec-first/bootstrap/<slug>/tasks/<task-id>/pr
 | Task ID | Produces |
 |---------|---------|
 | `summary-context` | `docs/contexts/<slug>/00-summary.md` |
-| `architecture-context` | `docs/contexts/<slug>/architecture/system-overview.md`, `module-map.md`, `integration-boundaries.md` |
+| `architecture-context` | `docs/contexts/<slug>/architecture/system-overview.md`, `module-map.md`, `integration-boundaries.md`（条件：`integration-boundaries.md` 仅在项目有明显外部集成点时创建） |
 | `pitfalls-context` | `docs/contexts/<slug>/pitfalls/index.md` |
 
 ### 2.2 Conditional Layer Tasks
@@ -350,6 +393,81 @@ Use `references/prd-template.md` as the base template for all non-database tasks
 - `Important Rules` — file ownership, no source code changes, no git commands, format requirements
 - `Acceptance Criteria` — concrete checks (no placeholder text, structured sections present)
 - `Technical Notes` — project-specific patterns, framework quirks, naming conventions
+
+#### 2.4.1 Files to Fill 动态策略
+
+编排器依据 Phase 1 分析结果，动态决定每个 worker 的 Files to Fill 列表：
+
+- **省略条件示例：**
+  - `architecture-context`：项目无明显外部集成点 → 省略 `integration-boundaries.md`（Files to Fill 只列 2 个文件）
+  - `layer-context`：该层代码 < 3 个文件 → 可降级合并进 `00-summary.md`，不单独建 worker
+- **原则：** Files to Fill 只列编排器有把握生成高质量内容的文件；宁可省略，不要产出空壳文档
+
+> `pitfalls-context` 是固定任务，小项目可产出薄文档但不应省略任务本身。
+
+#### 2.4.2 Task-specific Acceptance Criteria 注入规则
+
+对以下任务类型，在通用 AC 之后追加特定条目：
+
+**pitfalls-context 追加：**
+- [ ] Each pitfall includes: file + line range, risk type, why risky, recommended mitigation
+- [ ] At least 3 concrete examples documented with real code from the codebase
+
+**layer-context 追加：**
+- [ ] Each anti-pattern / code smell includes: file + line range, risk type, why risky, recommended mitigation
+- [ ] At least 3 concrete examples documented with real code from the codebase
+
+> **注意：** `database-context` 不经过 Phase 2.4（Phase 2.4 开头明确 "all non-database tasks"）。database 专项 AC 已在 `references/database-prd-template.md` 独立模板中覆盖。
+
+#### 2.4.3 Technical Notes 推荐骨架
+
+编排器填写 Technical Notes 时参考以下骨架（adapt freely）：
+
+**summary-context：**
+- Suggested structure: `## 技术栈` / `## 顶层结构` / `## 核心职责` / `## 已知限制`
+
+**architecture-context：**
+- `system-overview.md` — Suggested: `## 整体结构` / `## 关键架构决策` / `## 系统边界`
+- `module-map.md` — Suggested: 每个顶层目录一行（`目录/ — 一句话职责`）
+- `integration-boundaries.md` — Suggested: `## 模块间接口` / `## 外部依赖` / `## 通信协议`
+
+**Architecture 三文件职责边界**（避免内容重叠，编排器生成三个 PRD 时参考）：
+
+| 文件 | 写什么 | 不写什么 |
+|------|--------|---------|
+| `system-overview.md` | 分层策略、架构风格、关键设计决策 | 具体模块列表（→ module-map） |
+| `module-map.md` | 每个顶层目录职责、所属层级 | 模块间调用关系（→ integration-boundaries） |
+| `integration-boundaries.md` | 模块间接口、外部依赖、通信协议 | 模块内部实现（→ layer 文档） |
+
+**pitfalls-context：**
+- Suggested structure: `## 代码层风险` / `## 架构层风险` / `## 业务逻辑风险` / `## 历史热点`
+
+**Pitfall Discovery Strategy**（编排器填写 pitfalls PRD 的 Technical Notes 时参考）：
+
+*Code-level signals:*
+- TODO/FIXME/HACK 密集区
+- 嵌套条件 > 3 层
+- 函数体 > 100 行
+- 裸 try-catch / swallowed exceptions
+
+*Architecture-level signals:*
+- 循环依赖
+- God class（> 500 行 / > 20 方法）
+- 高扇入扇出
+- 相似模块间模式不一致
+
+*Business logic signals:*
+- 权限绕过路径
+- 并发竞态
+- 事务边界问题
+- 数据验证缺口
+
+*Historical signals (if git available):*
+- 高频改动文件
+- 集中 bug-fix 区域
+- Reverted commits
+
+Output per pitfall: `location` + `risk type` + `why risky` + `recommended mitigation`
 
 ### 2.5 PRD Quality Gate
 
@@ -457,7 +575,7 @@ After all workers report completion:
    ## Contents
 
    - [Summary](00-summary.md) — project overview and tech stack
-   - [Architecture](architecture/) — system structure, module map, integration boundaries
+   - [Architecture](architecture/) — <list files actually produced, e.g. system overview, module map, integration boundaries>
    - [Pitfalls](pitfalls/index.md) — known high-risk areas
    [conditional layers and database entries here]
    ```
@@ -476,7 +594,7 @@ Bootstrap complete for: <slug>
 ✓ Produced:
   docs/contexts/<slug>/README.md
   docs/contexts/<slug>/00-summary.md
-  docs/contexts/<slug>/architecture/ (3 files)
+  docs/contexts/<slug>/architecture/ (N files)
   docs/contexts/<slug>/pitfalls/index.md
   [conditional files...]
 
@@ -494,7 +612,7 @@ DB access: <mode>
 ## Completion Checklist
 
 - [ ] `docs/contexts/<slug>/README.md` contains bootstrap generation marker (`<!-- spec-bootstrap -->`)
-- [ ] All fixed-task files produced and non-empty
+- [ ] All PRD-listed Files to Fill produced and non-empty
 - [ ] `00-summary.md` identifies primary language, framework(s), top-level structure
 - [ ] `architecture/module-map.md` includes top-level directories with descriptions
 - [ ] Conditional files produced only when evidence was found
@@ -507,7 +625,9 @@ DB access: <mode>
 
 ## Context Files Are Not Fixed
 
-Workers must adapt file content to the real project — not fill in placeholder text. If a planned file has no meaningful content for this project, the worker should skip it and note why. If the project has patterns not covered by the templates, the worker should add them.
+Workers must adapt **section content** to the real project — not fill in placeholder text. If a planned section has no meaningful content, skip it and note why. If the project has patterns not covered by the templates, the worker should add them.
+
+File-level decisions (which files to create or omit) are the orchestrator's responsibility in Phase 2. Workers execute the file list in their PRD as-is.
 
 `index.md` files (layers, guides, pitfalls) must reflect the actual generated file set.
 

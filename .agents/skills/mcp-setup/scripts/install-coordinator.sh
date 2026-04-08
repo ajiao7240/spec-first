@@ -1,16 +1,28 @@
 #!/bin/bash
-# install-coordinator.sh - Install MCP tools and merge configurations into ~/.claude.json
+# install-coordinator.sh - Install MCP tools and configure the current host's MCP registry
 # Usage: install-coordinator.sh [--install <tool-ids>] [--skip <tool-ids>]
 #   --install: comma-separated list of tool IDs to install (default: all required)
 #   --skip: comma-separated list of tool IDs to skip
 
 set -euo pipefail
 
+# jq 是硬依赖
+command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
-CLAUDE_JSON="$HOME/.claude.json"
-LOCK_FILE="$HOME/.claude.json.lock"
+HOST_INFO_JSON="$("$SCRIPT_DIR/detect-host.sh")"
+HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
+HOST_DISPLAY_NAME="$(jq -r '.display_name' <<<"$HOST_INFO_JSON")"
+CLI_COMMAND="$(jq -r '.cli_command' <<<"$HOST_INFO_JSON")"
+CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
+LOCK_FILE="${CONFIG_PATH}.lock"
+CONFIG_DIR="$(dirname "$CONFIG_PATH")"
+
+# 确保常用安装路径可用（Phase 1 安装的依赖可能未出现在当前 PATH）
+export PATH="$HOME/.cargo/bin:$HOME/.fnm/aliases/default/bin:$HOME/.local/bin:$PATH"
+mkdir -p "$CONFIG_DIR"
 
 # Parse arguments
 INSTALL_FILTER=""
@@ -65,55 +77,53 @@ should_install() {
     return 1
   fi
 
-  # Default: install all required tools
-  return 0
+  # Default: install required tools only
+  if [ "$category" = "required" ]; then
+    return 0
+  fi
+
+  return 1
 }
 
-# Backup ~/.claude.json with timestamp
+# Backup the host config with timestamp
 backup_config() {
-  if [ -f "$CLAUDE_JSON" ]; then
+  if [ -f "$CONFIG_PATH" ]; then
     local timestamp
     timestamp=$(date +"%Y%m%d_%H%M%S")
-    local backup="$CLAUDE_JSON.backup.$timestamp"
-    cp "$CLAUDE_JSON" "$backup"
+    local backup="$CONFIG_PATH.backup.$timestamp"
+    cp "$CONFIG_PATH" "$backup"
     chmod 600 "$backup"
     echo "$backup"
-  fi
-}
-
-# Ensure ~/.claude.json exists with minimal structure
-ensure_config() {
-  if [ ! -f "$CLAUDE_JSON" ]; then
-    echo '{"mcpServers":{}}' > "$CLAUDE_JSON"
-    chmod 600 "$CLAUDE_JSON"
-  fi
-
-  # Ensure mcpServers key exists
-  if ! jq -e '.mcpServers' "$CLAUDE_JSON" >/dev/null 2>&1; then
-    local tmp
-    tmp=$(mktemp)
-    jq '. + {"mcpServers": {}}' "$CLAUDE_JSON" > "$tmp" && mv "$tmp" "$CLAUDE_JSON"
   fi
 }
 
 # Acquire file lock for concurrent safety
 acquire_lock() {
   if command -v flock >/dev/null 2>&1; then
-    exec 200>"$LOCK_FILE"
-    flock -w 10 200
+    exec 200>"$LOCK_FILE" 2>/dev/null || { echo "⚠️  Cannot create lock file" >&2; return 1; }
+    flock -w 10 200 || { echo "⚠️  Lock timeout, aborting" >&2; return 1; }
     return 0
   else
     # macOS fallback: use mkdir-based locking (atomic on most filesystems)
-    local lock_dir="${CLAUDE_JSON}.lock.d"
+    local lock_dir="${CONFIG_PATH}.lock.d"
     local attempts=0
     while ! mkdir "$lock_dir" 2>/dev/null; do
+      # stale lock 检测：如果持有锁的进程已死，强制清理
+      if [ -f "$lock_dir/pid" ]; then
+        local lock_pid
+        lock_pid=$(cat "$lock_dir/pid" 2>/dev/null)
+        if [ -n "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
+          rm -rf "$lock_dir" && continue
+        fi
+      fi
       attempts=$((attempts + 1))
       if [ $attempts -ge 100 ]; then
-        echo "⚠️  Could not acquire lock after 10s, proceeding without lock" >&2
-        return 0
+        echo "⚠️  Lock timeout, aborting" >&2
+        return 1
       fi
       sleep 0.1
     done
+    echo $$ > "$lock_dir/pid"
     LOCK_DIR="$lock_dir"
     return 0
   fi
@@ -122,84 +132,81 @@ acquire_lock() {
 release_lock() {
   if command -v flock >/dev/null 2>&1; then
     flock -u 200 2>/dev/null || true
+    exec 200>&- 2>/dev/null || true
     rm -f "$LOCK_FILE"
   elif [ -n "${LOCK_DIR:-}" ]; then
     rm -rf "$LOCK_DIR"
   fi
 }
 
-# Merge a single tool's mcp_config into ~/.claude.json
-# Args: tool_id
-merge_tool_config() {
+tool_is_configured() {
   local tool_id="$1"
-  local mcp_config
 
-  mcp_config=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .mcp_config' "$TOOLS_JSON")
-
-  # Skip tools with null mcp_config (e.g., ABCoder binary-only)
-  if [ "$mcp_config" = "null" ] || [ -z "$mcp_config" ]; then
-    return 0
+  if [ ! -f "$CONFIG_PATH" ]; then
+    return 1
   fi
 
-  # Build the mcpServers entry for this tool
-  local config_entry
-  config_entry=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .mcp_config | {($id): .}' "$TOOLS_JSON")
+  if [ "$HOST" = "claude" ]; then
+    jq -e --arg id "$tool_id" '.mcpServers[$id]' "$CONFIG_PATH" >/dev/null 2>&1
+    return
+  fi
 
-  # Check if already configured (idempotent)
-  local existing
-  existing=$(jq -r --arg id "$tool_id" '.mcpServers[$id] // empty' "$CLAUDE_JSON")
-  if [ -n "$existing" ] && [ "$existing" != "null" ]; then
+  grep -qF "[mcp_servers.$tool_id]" "$CONFIG_PATH"
+}
+
+add_tool_config() {
+  local tool_id="$1"
+  local command
+  command=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .mcp_config.command' "$TOOLS_JSON")
+
+  if [ "$HOST" = "claude" ]; then
+    local config_json
+    config_json=$(jq -c --arg id "$tool_id" '.tools[] | select(.id == $id) | .mcp_config | {command: .command, args: .args}' "$TOOLS_JSON")
+    "$CLI_COMMAND" mcp add-json --scope user "$tool_id" "$config_json"
+    return
+  fi
+
+  local tool_args=()
+  while IFS= read -r arg; do
+    tool_args+=("$arg")
+  done < <(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .mcp_config.args[]' "$TOOLS_JSON")
+
+  "$CLI_COMMAND" mcp add "$tool_id" -- "$command" "${tool_args[@]}"
+}
+
+restore_config() {
+  local backup_file="$1"
+  local created_during_run="$2"
+
+  if [ -n "$backup_file" ] && [ -f "$backup_file" ]; then
+    cp "$backup_file" "$CONFIG_PATH"
+    chmod 600 "$CONFIG_PATH"
+  elif [ "$created_during_run" = "true" ]; then
+    rm -f "$CONFIG_PATH"
+  fi
+}
+
+configure_tool() {
+  local tool_id="$1"
+
+  if tool_is_configured "$tool_id"; then
     echo "  ⏭️  $tool_id: already configured, skipping"
     return 0
   fi
 
-  # Merge: add new entry to mcpServers (same-dir tempfile for atomic mv)
-  local tmp
-  tmp=$(mktemp "${CLAUDE_JSON}.XXXXXX")
-  jq --argjson entry "$config_entry" '.mcpServers += $entry' "$CLAUDE_JSON" > "$tmp"
-
-  # Validate JSON
-  if jq . "$tmp" >/dev/null 2>&1; then
-    chmod 600 "$tmp"
-    mv "$tmp" "$CLAUDE_JSON"
-    echo "  ✅ $tool_id: configured"
-  else
-    rm -f "$tmp"
-    echo "  ❌ $tool_id: config merge failed (invalid JSON)" >&2
-    return 1
-  fi
-}
-
-# Install a tool that has install_command (binary install)
-install_binary() {
-  local tool_id="$1"
-  local install_cmd
-
-  install_cmd=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .install_command // empty' "$TOOLS_JSON")
-
-  if [ -z "$install_cmd" ]; then
-    return 0
-  fi
-
-  # Check if command already exists
-  local detect_cmd
-  detect_cmd=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detect.command // empty' "$TOOLS_JSON")
-  if [ -n "$detect_cmd" ]; then
-    local cmd_name
-    cmd_name=$(echo "$detect_cmd" | awk '{print $1}')
-    if command -v "$cmd_name" >/dev/null 2>&1; then
-      echo "  ⏭️  $tool_id: binary already installed, skipping"
+  echo "  ⏳ Configuring $tool_id for ${HOST_DISPLAY_NAME}..."
+  if add_tool_config "$tool_id"; then
+    if tool_is_configured "$tool_id"; then
+      echo "  ✅ $tool_id: configured"
       return 0
     fi
-  fi
 
-  echo "  ⏳ Installing $tool_id..."
-  if eval "$install_cmd" 2>&1; then
-    echo "  ✅ $tool_id: binary installed"
-  else
-    echo "  ❌ $tool_id: binary install failed" >&2
+    echo "  ❌ $tool_id: CLI completed but configuration is still missing" >&2
     return 1
   fi
+
+  echo "  ❌ $tool_id: configuration failed" >&2
+  return 1
 }
 
 # Main installation flow
@@ -208,13 +215,14 @@ main() {
   local failed=()
 
   # Acquire lock first (before any file operations)
+  trap release_lock EXIT
   acquire_lock
 
-  # Ensure cleanup on exit
-  trap release_lock EXIT
-
-  # Ensure config file exists
-  ensure_config
+  if [ ! -f "$CONFIG_PATH" ]; then
+    created_during_run="true"
+  else
+    created_during_run="false"
+  fi
 
   # Backup before changes
   local backup_file
@@ -223,18 +231,15 @@ main() {
     echo "📦 Backup created: $backup_file"
   fi
 
-  # Get all tool IDs
-  local -a all_tools
-  while IFS= read -r line; do
-    all_tools+=("$line")
-  done < <(jq -r '.tools[].id' "$TOOLS_JSON")
-
   echo ""
   echo "🔧 MCP Tools Installation"
   echo "========================"
+  echo "Host: ${HOST_DISPLAY_NAME}"
+  echo "Config: ${CONFIG_PATH}"
+  echo "🧭 我会先检查当前宿主的配置，再逐个补齐缺失工具。"
   echo ""
 
-  for tool_id in "${all_tools[@]}"; do
+  while IFS= read -r tool_id; do
     local category
     category=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .category' "$TOOLS_JSON")
 
@@ -243,21 +248,16 @@ main() {
     fi
 
     echo "Processing: $tool_id ($category)"
+    echo "  → 正在为 ${HOST_DISPLAY_NAME} 写入 $tool_id 配置"
 
-    # Install binary if needed
-    if ! install_binary "$tool_id"; then
-      failed+=("$tool_id")
-      continue
-    fi
-
-    # Merge MCP config if needed
-    if ! merge_tool_config "$tool_id"; then
+    if ! configure_tool "$tool_id"; then
+      restore_config "$backup_file" "$created_during_run"
       failed+=("$tool_id")
       continue
     fi
 
     results+=("$tool_id")
-  done
+  done < <(jq -r '.tools[].id' "$TOOLS_JSON")
 
   echo ""
   echo "========================"
@@ -278,11 +278,14 @@ main() {
     echo "🗑️  Backup removed (all succeeded)"
   elif [ -n "$backup_file" ]; then
     echo "⚠️  Backup preserved at: $backup_file"
-    echo "   To restore: cp $backup_file $CLAUDE_JSON"
+    echo "   To restore: cp $backup_file $CONFIG_PATH"
   fi
 
   echo ""
-  echo "⚠️  Please restart Claude Code for changes to take effect."
+  echo "⚠️  Please restart ${HOST_DISPLAY_NAME} for changes to take effect."
+  if [ ${#results[@]} -eq 0 ] && [ ${#failed[@]} -eq 0 ]; then
+    echo "✅ 当前宿主已经就绪，没有发现需要补充的 MCP 工具。"
+  fi
 
   # Exit with failure if any tool failed
   if [ ${#failed[@]} -gt 0 ]; then

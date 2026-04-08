@@ -6,6 +6,10 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-08 | fix | `mcp-setup` | 收紧双宿主健壮性，Serena MCP 配置按宿主上下文校验，宿主歧义时不再默认 Claude |
+| 2026-04-08 | docs | `mcp-setup` | 将技能命名统一为 `spec-mcp-setup`，Codex 直接调用格式改为 `$spec-mcp-setup`，与其他 spec-* 技能保持一致 |
+| 2026-04-08 | feat | `codex` | Codex init 现在也会生成 `/spec:*` command files，和 Claude 对齐命令可见性、doctor 检查和 clean 清理链路 |
+| 2026-04-08 | docs | `mcp-setup` | 增加更友好的执行进度提示，安装与验证脚本会显示当前宿主检查、逐项配置、标记写入和完成状态 |
 | 2026-04-08 | feat | `mcp-setup` | 增加 Windows PowerShell 7+ 支持，补齐 detect/check/install/verify 的 .ps1 入口，并把技能合同改成按平台选择脚本 |
 | 2026-04-08 | fix | `mcp-setup/spec-bootstrap` | 让 MCP 安装与引导流程按当前宿主自适应，自动区分 Claude Code / Codex 的配置文件与 host-setup 标记路径，并补齐双宿主 unit 测试与文档同步 |
 | 2026-04-08 | refactor | `graphify` | 全局删除 graphify skill、命令模板和运行时引用，移除 spec-first 中的 graphify 入口 |
@@ -15,6 +19,79 @@
 | 2026-04-01 | feat | `mcp-setup` | 把 MCP 工具安装、检测、配置合并为一条一键化路径，降低 Full mode 落地门槛 |
 | 2026-03-31 | fix | `spec-bootstrap` | 基于 review 结论补强原子备份、失败恢复、MCP 连接校验等关键可靠性能力 |
 | 2026-03-31 | feat | `spec-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
+
+---
+
+## 2026-04-08 `fix(mcp-setup)`
+
+### 更新内容
+
+`mcp-setup` 的宿主判定和 Serena 配置现在按宿主上下文精确校验，避免把 Claude/Codex 混淆后误判为已配置。
+
+### 主要变化
+
+- 宿主歧义时不再默认 Claude，必须显式指定 `MCP_SETUP_HOST`
+- Serena 的 `mcp_config` 通过宿主上下文参数展开后再做检测和验证
+- `detect-tools` / `verify-tools` 的 Bash 与 PowerShell 路径保持一致
+
+### 版本意义
+
+这次改动主要修复边界条件下的误判问题，提升多宿主、多平台场景下的安装可靠性。
+
+---
+
+## 2026-04-08 `docs(mcp-setup)`
+
+### 更新内容
+
+`mcp-setup` 技能命名现在统一为 `spec-mcp-setup`，Codex 侧直接调用格式改为 `$spec-mcp-setup`，与其他 `spec-*` 技能保持一致。
+
+### 主要变化
+
+- 技能 frontmatter `name` 改为 `spec-mcp-setup`
+- Codex 直接调用文案改成 `$spec-mcp-setup`
+- 相关测试断言同步更新，避免命名再回退到旧格式
+
+### 版本意义
+
+这次改动只做命名统一，不改变安装行为，但能减少认知分叉。
+
+---
+
+## 2026-04-08 `feat(codex)`
+
+### 更新内容
+
+Codex 侧的 `spec-first init` 现在也会生成 `/spec:*` 命令文件，和 Claude 侧保持一致的命令可见性与诊断体验。
+
+### 主要变化
+
+- `CodexAdapter` 从不生成命令，改为生成 `.codex/commands/spec/`
+- `doctor` 现在会在 Codex 平台检查命令目录是否存在
+- smoke 测试同步验证 Codex init、doctor、clean 的命令链路
+- 用户文档更新为 Codex 也会出现 `/spec:*` 命令入口
+
+### 版本意义
+
+这次改动把 Codex 的工作流入口从“仅 skills”扩展为“commands + skills”，降低了跨平台认知差异。
+
+---
+
+## 2026-04-08 `docs(mcp-setup)`
+
+### 更新内容
+
+`mcp-setup` 的执行阶段增加了更友好的进度提示，用户在安装和验证时能更清楚地看到当前宿主、正在配置的工具、标记写入和完成状态。
+
+### 主要变化
+
+- 安装协调脚本会先提示当前宿主检查，再逐项说明正在写入的工具
+- 验证脚本会先输出基础工具状态，再提示宿主就绪标记的写入位置
+- 技能文档同步描述这些进度提示，避免用户误以为流程停住
+
+### 版本意义
+
+这次改动不改变功能路径，但显著降低了安装过程中的不确定感和等待焦虑。
 
 ---
 

@@ -17,6 +17,7 @@ $CliCommand = $HostInfo.cli_command
 $ConfigPath = $HostInfo.config_path
 $LockFile = "$ConfigPath.lock"
 $ConfigDir = Split-Path -Parent $ConfigPath
+$HostContext = if ($DetectedHost -eq 'codex') { 'codex' } else { 'ide-assistant' }
 
 New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
 
@@ -88,13 +89,60 @@ function Tool-IsConfigured {
   if ($DetectedHost -eq 'claude') {
     try {
       $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
-      return $null -ne $config.mcpServers.PSObject.Properties[$ToolId]
+      $toolConfig = $config.mcpServers.PSObject.Properties[$ToolId].Value
+      if ($null -eq $toolConfig) {
+        return $false
+      }
+
+      if ($ToolId -eq 'serena') {
+        return $toolConfig.command -eq 'uvx' -and ($toolConfig.args -contains $HostContext)
+      }
+
+      return $true
     } catch {
       return $false
     }
   }
 
+  if ($ToolId -eq 'serena') {
+    $section = Get-TomlSectionText -Path $ConfigPath -SectionName $ToolId
+    return [bool]($section -and $section -match 'command = "uvx"' -and $section -match '"--context", "' + [regex]::Escape($HostContext) + '"')
+  }
+
   return [bool](Select-String -Path $ConfigPath -SimpleMatch "[mcp_servers.$ToolId]" -Quiet)
+}
+
+function Get-TomlSectionText {
+  param(
+    [string]$Path,
+    [string]$SectionName
+  )
+
+  if (-not (Test-Path $Path)) {
+    return ''
+  }
+
+  $header = "[mcp_servers.$SectionName]"
+  $lines = Get-Content $Path
+  $capturing = $false
+  $buffer = New-Object System.Collections.Generic.List[string]
+
+  foreach ($line in $lines) {
+    if ($line -eq $header) {
+      $capturing = $true
+      continue
+    }
+
+    if ($capturing -and $line -match '^\[.*\]$') {
+      break
+    }
+
+    if ($capturing) {
+      $buffer.Add($line)
+    }
+  }
+
+  return ($buffer -join "`n")
 }
 
 function Add-ToolConfig {
@@ -108,14 +156,24 @@ function Add-ToolConfig {
   $command = $tool.mcp_config.command
 
   if ($DetectedHost -eq 'claude') {
-    $configJson = $tool.mcp_config | Select-Object command, args | ConvertTo-Json -Compress -Depth 6
+    $resolvedArgs = @($tool.mcp_config.args | ForEach-Object {
+      if ($_ -eq '__HOST_CONTEXT__') { $HostContext } else { $_ }
+    })
+    $configJson = [ordered]@{
+      command = $tool.mcp_config.command
+      args = $resolvedArgs
+    } | ConvertTo-Json -Compress -Depth 6
     & $CliCommand mcp add-json --scope user $ToolId $configJson
     return
   }
 
   $toolArgs = @()
   foreach ($arg in $tool.mcp_config.args) {
-    $toolArgs += $arg
+    if ($arg -eq '__HOST_CONTEXT__') {
+      $toolArgs += $HostContext
+    } else {
+      $toolArgs += $arg
+    }
   }
 
   & $CliCommand mcp add $ToolId -- $command @toolArgs
@@ -181,6 +239,7 @@ try {
   Write-Host "========================"
   Write-Host "Host: $HostDisplayName"
   Write-Host "Config: $ConfigPath"
+  Write-Host "🧭 我会先检查当前宿主的配置，再逐个补齐缺失工具。"
   Write-Host ""
 
   foreach ($tool in $tools) {
@@ -189,6 +248,7 @@ try {
     }
 
     Write-Host "Processing: $($tool.id) ($($tool.category))"
+    Write-Host "  → 正在为 $HostDisplayName 写入 $($tool.id) 配置"
 
     if (-not (Configure-Tool $tool.id)) {
       Restore-Config -BackupFile $backupFile -CreatedDuringRun $createdDuringRun
@@ -222,6 +282,10 @@ try {
 
   Write-Host ""
   Write-Host "⚠️  Please restart $HostDisplayName for changes to take effect."
+
+  if (($results.Count -eq 0) -and ($failed.Count -eq 0)) {
+    Write-Host "✅ 当前宿主已经就绪，没有发现需要补充的 MCP 工具。"
+  }
 
   if ($failed.Count -gt 0) {
     exit 1

@@ -292,12 +292,15 @@ codex_output="$(
   cd "$TMP_DIR"
   node "$REPO_ROOT/bin/spec-first.js" init --codex -u kuang --lang en
 )"
-if grep -q "Generated .* command file(s)" <<<"$codex_output"; then
-  echo "✗ codex init should install skills, not command files"
-  exit 1
-fi
+grep -q "Generated ${expected_command_count} command file(s) in .codex/commands/spec" <<<"$codex_output"
 grep -q "Generated ${expected_skill_count} skill directory(ies) in .agents/skills" <<<"$codex_output"
 grep -q "Generated 47 agent file(s) in .codex/agents" <<<"$codex_output"
+for file in ideate.md brainstorm.md plan.md work.md review.md compound.md bootstrap.md mcp-setup.md; do
+  test -f "$TMP_DIR/.codex/commands/spec/$file"
+done
+grep -q "Spec-First Ideate" "$TMP_DIR/.codex/commands/spec/ideate.md"
+grep -q "Spec-First Brainstorm" "$TMP_DIR/.codex/commands/spec/brainstorm.md"
+grep -q '.agents/skills/spec-bootstrap/SKILL.md' "$TMP_DIR/.codex/commands/spec/bootstrap.md"
 test -f "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-plan/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-work/SKILL.md"
@@ -324,14 +327,15 @@ grep -q 'refuse to generate' "$TMP_DIR/AGENTS.md"
 echo "✓ AGENTS.md lang policy block written"
 codex_doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor --codex)"
 grep -q ".codex/spec-first/.developer" <<<"$codex_doctor_output"
+grep -q ".codex/commands/spec" <<<"$codex_doctor_output"
 grep -q ".agents/skills" <<<"$codex_doctor_output"
 grep -q ".codex/agents" <<<"$codex_doctor_output"
 if grep -q ".agents/plugins/marketplace.json" <<<"$codex_doctor_output"; then
   echo "✗ codex doctor should not depend on plugin marketplace anymore"
   exit 1
 fi
-mkdir -p "$TMP_DIR/.codex/commands/spec" "$TMP_DIR/.codex/skills/legacy-skill" "$TMP_DIR/.agents/plugins/plugins/spec" "$TMP_DIR/plugins/spec-first"
-printf 'legacy command\n' > "$TMP_DIR/.codex/commands/spec/brainstorm.md"
+mkdir -p "$TMP_DIR/.codex/spec-first/commands" "$TMP_DIR/.codex/skills/legacy-skill" "$TMP_DIR/.agents/plugins/plugins/spec" "$TMP_DIR/plugins/spec-first"
+printf 'legacy command\n' > "$TMP_DIR/.codex/spec-first/commands/brainstorm.md"
 printf 'legacy skill\n' > "$TMP_DIR/.codex/skills/legacy-skill/SKILL.md"
 printf 'legacy plugin\n' > "$TMP_DIR/.agents/plugins/marketplace.json"
 printf 'legacy plugin skill\n' > "$TMP_DIR/.agents/plugins/plugins/spec/README.md"
@@ -340,7 +344,7 @@ printf 'legacy plugin\n' > "$TMP_DIR/plugins/spec-first/README.md"
   cd "$TMP_DIR"
   node "$REPO_ROOT/bin/spec-first.js" init --codex -u kuang --lang en >/dev/null
 )
-test ! -e "$TMP_DIR/.codex/commands/spec/brainstorm.md"
+test ! -e "$TMP_DIR/.codex/spec-first/commands/brainstorm.md"
 test ! -e "$TMP_DIR/.codex/skills/legacy-skill/SKILL.md"
 test ! -e "$TMP_DIR/.agents/plugins/marketplace.json"
 test ! -e "$TMP_DIR/.agents/plugins/plugins/spec/README.md"
@@ -349,6 +353,7 @@ test ! -e "$TMP_DIR/plugins/spec-first"
   cd "$TMP_DIR"
   SPEC_FIRST_VERSION_REMINDER_LATEST="$outdated_version" node "$REPO_ROOT/bin/spec-first.js" clean --codex 2>"$TMP_DIR/codex-clean.err"
 )
+test ! -e "$TMP_DIR/.codex/commands/spec/brainstorm.md"
 test ! -e "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 test ! -e "$TMP_DIR/.codex/agents/review/correctness-reviewer.md"
 test ! -e "$TMP_DIR/.codex/spec-first/.developer"

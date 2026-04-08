@@ -39,6 +39,7 @@
 │  bash scripts/detect-tools.sh /  pwsh -File scripts/detect-tools.ps1     │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │ detect-host.sh → current host config / marker                     │    │
+│  │ host ambiguous? → require MCP_SETUP_HOST                         │    │
 │  │ 读取当前宿主配置文件 mcpServers                                  │    │
 │  │ 遍历 mcp-tools.json 中 4 个工具                                  │    │
 │  │  mcp_config → 检查 mcpServers[key] 存在否                        │    │

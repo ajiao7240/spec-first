@@ -48,6 +48,7 @@
 
 `spec-first` is an open-source `npm` CLI for **Claude Code** and **Codex**.
 It packages AI-assisted development into a workflow with explicit artifacts, structured review, and reusable project knowledge.
+`spec-first init --codex` now also generates the shared `/spec:*` command files under `.codex/commands/spec/`, so Codex sessions see the same workflow entrypoints as Claude Code.
 
 > 首次在 Claude Code 中使用时，建议按 `spec-first init --claude` → `/spec:mcp-setup` → 重启 Claude Code → `/spec:bootstrap` 的顺序完成宿主准备，再进入后续工作流。
 >

@@ -98,6 +98,7 @@ assert_output "Serena uses uvx" "uvx" "$serena_cmd"
 serena_args=$(jq -r '.tools[] | select(.id == "serena") | .mcp_config.args | join(" ")' "$TOOLS_JSON")
 assert_contains "Serena args include serena start-mcp-server" "serena start-mcp-server" "$serena_args"
 assert_contains "Serena args include --project-from-cwd" "--project-from-cwd" "$serena_args"
+assert_contains "Serena args keep host placeholder" "__HOST_CONTEXT__" "$serena_args"
 
 echo ""
 
@@ -169,16 +170,44 @@ assert_output "Codex host detected" "codex" "$(jq -r '.host' <<<"$host_codex")"
 assert_output "Codex config path" "$HOME/.codex/config.toml" "$(jq -r '.config_path' <<<"$host_codex")"
 assert_output "Codex marker path" "$HOME/.codex/spec-first/host-setup.json" "$(jq -r '.marker_path' <<<"$host_codex")"
 
-echo "3.7 Detection works when all required tools are configured"
+echo "3.7 Ambiguous host detection requires explicit MCP_SETUP_HOST"
+FAKE_BIN="$TMP_DIR/fake_bin"
+mkdir -p "$FAKE_BIN"
+cat > "$FAKE_BIN/claude" <<'SHELLEOF'
+#!/bin/sh
+exit 0
+SHELLEOF
+cat > "$FAKE_BIN/codex" <<'SHELLEOF'
+#!/bin/sh
+exit 0
+SHELLEOF
+chmod +x "$FAKE_BIN/claude" "$FAKE_BIN/codex"
+set +e
+ambiguous_output=$(PATH="$FAKE_BIN:$PATH" env -u MCP_SETUP_HOST -u CODEX_CI -u CODEX_MANAGED_BY_NPM -u CODEX_THREAD_ID -u CODEX_SANDBOX -u CLAUDE_CODE_SSE_PORT -u CLAUDE_CODE_SESSION_ID -u CLAUDE_PROJECT_DIR bash "$SCRIPTS_DIR/detect-host.sh" 2>&1)
+ambiguous_status=$?
+set -e
+assert_output "Ambiguous host exits non-zero" "1" "$ambiguous_status"
+assert_contains "Ambiguous host reports explicit guidance" "请显式设置 MCP_SETUP_HOST=claude 或 MCP_SETUP_HOST=codex" "$ambiguous_output"
+
+echo "3.8 Detection works when all required tools are configured"
 FAKE_HOME="$TMP_DIR/detect_home"
 mkdir -p "$FAKE_HOME"
 mkdir -p "$FAKE_HOME/.claude"
 cat > "$FAKE_HOME/.claude.json" <<'JSONEOF'
 {
   "mcpServers": {
-    "serena": { "command": "uvx" },
-    "context7": { "command": "npx" },
-    "sequential-thinking": { "command": "npx" }
+    "serena": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    }
   }
 }
 JSONEOF
@@ -188,18 +217,21 @@ assert_output "All required tools installed" "context7,sequential-thinking,seren
 full_missing_count=$(jq '.missing | length' <<<"$detect_full")
 assert_output "No missing tools when config present" "1" "$full_missing_count"
 
-echo "3.8 Codex config.toml is detected"
+echo "3.9 Codex config.toml is detected"
 FAKE_HOME_C="$TMP_DIR/detect_home_codex"
 mkdir -p "$FAKE_HOME_C/.codex"
 cat > "$FAKE_HOME_C/.codex/config.toml" <<'TOMLEOF'
 [mcp_servers.serena]
 command = "uvx"
+args = ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "codex", "--open-web-dashboard", "false"]
 
 [mcp_servers.context7]
 command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
 
 [mcp_servers.sequential-thinking]
 command = "npx"
+args = ["-y", "@modelcontextprotocol/server-sequential-thinking"]
 TOMLEOF
 detect_codex=$(HOME="$FAKE_HOME_C" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
 codex_installed=$(jq -r '.installed | sort | join(",")' <<<"$detect_codex")
@@ -207,7 +239,27 @@ assert_output "Codex required tools installed" "context7,sequential-thinking,ser
 codex_missing_count=$(jq '.missing | length' <<<"$detect_codex")
 assert_output "No missing tools in codex config" "1" "$codex_missing_count"
 
-echo "3.9 Empty config yields all tools missing"
+echo "3.10 Codex config with wrong Serena context is treated as missing"
+cat > "$FAKE_HOME_C/.codex/config.toml" <<'TOMLEOF'
+[mcp_servers.serena]
+command = "uvx"
+args = ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"]
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
+
+[mcp_servers.sequential-thinking]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+TOMLEOF
+detect_codex_wrong=$(HOME="$FAKE_HOME_C" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
+wrong_installed=$(jq -r '.installed | sort | join(",")' <<<"$detect_codex_wrong")
+assert_output "Wrong Serena context excludes serena" "context7,sequential-thinking" "$wrong_installed"
+wrong_missing=$(jq -r '.missing | sort | join(",")' <<<"$detect_codex_wrong")
+assert_output "Wrong Serena context marks serena missing" "playwright,serena" "$wrong_missing"
+
+echo "3.11 Empty config yields all tools missing"
 echo '{}' > "$FAKE_HOME/.claude.json"
 detect_empty=$(HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
 empty_missing=$(jq '.missing | length' <<<"$detect_empty")
@@ -224,11 +276,15 @@ mkdir -p "$FAKE_HOME2"
 echo '{"mcpServers":{}}' > "$FAKE_HOME2/.claude.json"
 chmod 600 "$FAKE_HOME2/.claude.json"
 
-HOME="$FAKE_HOME2" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-coordinator.sh" >/dev/null 2>&1 || true
+install_output_41=$(HOME="$FAKE_HOME2" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-coordinator.sh" 2>&1 || true)
+assert_contains "Install output has friendly intro" "我会先检查当前宿主的配置" "$install_output_41"
+assert_contains "Install output shows per-tool progress" "正在为 Claude Code 写入 serena 配置" "$install_output_41"
 for tool in serena context7 sequential-thinking; do
   configured=$(jq -r --arg t "$tool" '.mcpServers[$t].command // empty' "$FAKE_HOME2/.claude.json")
   assert "$tool configured" test -n "$configured"
 done
+serena_host_context=$(jq -r '.mcpServers.serena.args | join(" ")' "$FAKE_HOME2/.claude.json")
+assert_contains "Claude Serena context resolves to ide-assistant" "ide-assistant" "$serena_host_context"
 playwright_default=$(jq -r '.mcpServers.playwright // empty' "$FAKE_HOME2/.claude.json")
 assert "playwright not installed by default" test -z "$playwright_default"
 
@@ -279,6 +335,8 @@ HOME="$FAKE_HOME6" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/install-coordinator.s
 for tool in serena context7 sequential-thinking; do
   assert "codex $tool configured" grep -qF "[mcp_servers.$tool]" "$FAKE_HOME6/.codex/config.toml"
 done
+assert "codex serena context flag present" grep -qF -- '--context' "$FAKE_HOME6/.codex/config.toml"
+assert "codex serena host context value present" grep -qF -- 'codex' "$FAKE_HOME6/.codex/config.toml"
 assert "codex config exists" test -f "$FAKE_HOME6/.codex/config.toml"
 
 echo "4.6 File permissions preserved (600)"
@@ -302,13 +360,24 @@ mkdir -p "$FH91"
 cat > "$FH91/.claude.json" <<'JSONEOF'
 {
   "mcpServers": {
-    "serena": { "command": "uvx" },
-    "context7": { "command": "npx" },
-    "sequential-thinking": { "command": "npx" }
+    "serena": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    }
   }
 }
 JSONEOF
-HOME="$FH91" MCP_SETUP_HOST=claude bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+verify_output_51=$(HOME="$FH91" MCP_SETUP_HOST=claude bash "$VERIFY_SCRIPT" 2>&1)
+assert_contains "Verify output announces baseline check" "正在核对当前宿主的基础 MCP 配置" "$verify_output_51"
+assert_contains "Verify output shows marker update" "宿主就绪标记已更新" "$verify_output_51"
 schema_91=$(jq -r '.version' "$FH91/.claude/spec-first/host-setup.json")
 assert_output "schema version v4" "4" "$schema_91"
 host_91=$(jq -r '.host' "$FH91/.claude/spec-first/host-setup.json")
@@ -328,8 +397,14 @@ mkdir -p "$FH92"
 cat > "$FH92/.claude.json" <<'JSONEOF'
 {
   "mcpServers": {
-    "serena": { "command": "uvx" },
-    "context7": { "command": "npx" }
+    "serena": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    }
   }
 }
 JSONEOF
@@ -347,12 +422,15 @@ mkdir -p "$FH93/.codex"
 cat > "$FH93/.codex/config.toml" <<'TOMLEOF'
 [mcp_servers.serena]
 command = "uvx"
+args = ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "codex", "--open-web-dashboard", "false"]
 
 [mcp_servers.context7]
 command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
 
 [mcp_servers.sequential-thinking]
 command = "npx"
+args = ["-y", "@modelcontextprotocol/server-sequential-thinking"]
 TOMLEOF
 HOME="$FH93" MCP_SETUP_HOST=codex bash "$VERIFY_SCRIPT" >/dev/null 2>&1
 schema_93=$(jq -r '.version' "$FH93/.codex/spec-first/host-setup.json")
@@ -361,6 +439,26 @@ host_93=$(jq -r '.host' "$FH93/.codex/spec-first/host-setup.json")
 assert_output "codex host field" "codex" "$host_93"
 out93=$(jq -r '.setup_success' "$FH93/.codex/spec-first/host-setup.json")
 assert_output "codex setup_success true" "true" "$out93"
+
+echo "5.5 setup_success=false when Serena context is wrong for Codex"
+FH94="$TMP_DIR/fh94"
+mkdir -p "$FH94/.codex"
+cat > "$FH94/.codex/config.toml" <<'TOMLEOF'
+[mcp_servers.serena]
+command = "uvx"
+args = ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"]
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
+
+[mcp_servers.sequential-thinking]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+TOMLEOF
+HOME="$FH94" MCP_SETUP_HOST=codex bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out94=$(jq -r '.setup_success' "$FH94/.codex/spec-first/host-setup.json")
+assert_output "codex setup_success false on wrong context" "false" "$out94"
 
 echo ""
 
@@ -379,9 +477,9 @@ for field in name description argument-hint; do
   assert "SKILL.md has '$field'" grep -q "^${field}:" "$SKILL_MD"
 done
 
-echo "6.3 SKILL.md name is mcp-setup"
+echo "6.3 SKILL.md name is spec-mcp-setup"
 skill_name=$(grep '^name:' "$SKILL_MD" | head -1 | sed 's/^name: *//')
-assert_output "SKILL.md name" "mcp-setup" "$skill_name"
+assert_output "SKILL.md name" "spec-mcp-setup" "$skill_name"
 
 echo "6.4 SKILL.md has Phase 1, 2, 3 sections"
 for phase in "Phase 1" "Phase 2" "Phase 3"; do

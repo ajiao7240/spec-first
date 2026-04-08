@@ -10,7 +10,8 @@ user-invocable: true
 为目标仓库生成可复用的项目上下文。这是一个 **Stage-0 支持工作流**：它运行一次（或按需运行），为后续规范优先工作流提供长期上下文资产。
 
 **克劳德入口点：** `/spec:bootstrap [target-repo-path-or-slug]`
-**法典入口点：** `$spec-bootstrap [target-repo-path-or-slug]`
+**法典入口点：** `/spec:bootstrap [target-repo-path-or-slug]`
+如果你在 Codex 会话里直接调用技能命名空间，`$spec-bootstrap [target-repo-path-or-slug]` 仍然可用。
 
 ## 为什么存在
 

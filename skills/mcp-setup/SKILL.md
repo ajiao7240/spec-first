@@ -1,5 +1,5 @@
 ---
-name: mcp-setup
+name: spec-mcp-setup
 description: "Use when installing MCP tools for a Claude Code, Codex, or Windows PowerShell session and the host-specific MCP config needs to be detected, configured, or verified."
 argument-hint: "[quick|custom]"
 ---
@@ -9,7 +9,8 @@ argument-hint: "[quick|custom]"
 Install and configure the MCP tools needed by spec-first workflows.
 
 **Claude entry point:** `/spec:mcp-setup [quick|custom]`
-**Codex entry point:** `$mcp-setup [quick|custom]` when this skill is loaded in a Codex session
+**Codex entry point:** `/spec:mcp-setup [quick|custom]`
+If you invoke the skill directly inside a Codex session, `$spec-mcp-setup [quick|custom]` still works.
 
 ## Overview
 
@@ -23,6 +24,7 @@ This skill automates the installation and configuration of the MCP tools used by
 | Playwright MCP | Optional | Frontend automation testing |
 
 The active host is detected automatically. Claude Code writes to `~/.claude.json` and `~/.claude/spec-first/host-setup.json`; Codex writes to `~/.codex/config.toml` and `~/.codex/spec-first/host-setup.json`.
+If both CLIs are present and no host hint is available, set `MCP_SETUP_HOST=claude|codex` explicitly; the skill will not guess.
 
 Platform entrypoints:
 - macOS/Linux: use the `*.sh` scripts with `bash`
@@ -35,7 +37,7 @@ Platform entrypoints:
 Tool metadata is defined in `skills/mcp-setup/mcp-tools.json`. Each tool entry includes:
 - `id`, `name`, `category`
 - `dependencies` (node / uv)
-- `mcp_config` (command + args for MCP server registration)
+- `mcp_config` (command + args for MCP server registration; host placeholders such as `__HOST_CONTEXT__` are resolved at install time)
 - `detect` (detection method and parameters)
 
 ---
@@ -120,6 +122,7 @@ For each missing required tool, write its `mcp_config` into the current host con
 
 Display progress in real time:
 ```
+🧭 我会先检查当前宿主的配置，再逐个补齐缺失工具。
 ⏳ Configuring Serena...
 ✅ Serena configured
 ⏳ Configuring Context7...
@@ -175,6 +178,8 @@ Windows:
 ```powershell
 pwsh -File skills/mcp-setup/scripts/verify-tools.ps1
 ```
+
+The verification step will print the current host's baseline status and the final marker path so users can immediately tell whether they need to restart.
 
 `setup_success` means the baseline host-level prerequisites are actually ready:
 - `serena`, `context7`, `sequential-thinking` are configured in the current host config
