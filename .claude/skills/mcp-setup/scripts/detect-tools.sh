@@ -4,6 +4,9 @@
 
 set -euo pipefail
 
+# jq 是硬依赖
+command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
+
 CLAUDE_JSON="$HOME/.claude.json"
 TOOLS_JSON="$(cd "$(dirname "$0")/.." && pwd)/mcp-tools.json"
 

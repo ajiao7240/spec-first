@@ -123,10 +123,10 @@ spec-docs/
         ├── pitfalls/index.md           → 涉及高风险模块时
         ├── layers/<layer>/index.md     → 深入某一层时
         ├── solutions/ 相关条目         → 搜索历史经验时
-        └── graphify-out/ 摘要           → L2 按需：结构导航辅助（spec-graph-bootstrap 产物，非 spec-docs 真相层）
+        └── graphify-out/GRAPH_REPORT.md  → L2 按需：结构导航辅助（graphify 产物，非 spec-docs 真相层）
 ```
 
-> **graphify 产物层级说明**：`graphify-out/` 的结构摘要（由 `spec-graph-bootstrap` 写入 `.context/spec-first/graph-bootstrap/<slug>/summary.md`）属于 L2 按需加载，仅在跨模块改动或首次理解大型代码库时消费。graphify 是结构发现层，不是长期真相层——与 spec-docs 冲突时以 spec-docs 为准。
+> **graphify 产物层级说明**：`graphify-out/GRAPH_REPORT.md` 属于 L2 按需加载，仅在跨模块改动或首次理解大型代码库时消费。graphify 是结构发现层，不是长期真相层——与 spec-docs 冲突时以 spec-docs 为准。
 
 ---
 

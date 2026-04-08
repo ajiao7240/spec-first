@@ -6,7 +6,10 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
-| 2026-04-07 | feat | `spec-graph-bootstrap` | 将 `graphify` 作为上游结构发现层接入 `spec-first`，先读图谱摘要再进入 `spec-bootstrap` / `spec-docs`，减少大型项目的盲扫成本 |
+| 2026-04-08 | feat | `mcp-setup` | 增加 Windows PowerShell 7+ 支持，补齐 detect/check/install/verify 的 .ps1 入口，并把技能合同改成按平台选择脚本 |
+| 2026-04-08 | fix | `mcp-setup/spec-bootstrap` | 让 MCP 安装与引导流程按当前宿主自适应，自动区分 Claude Code / Codex 的配置文件与 host-setup 标记路径，并补齐双宿主 unit 测试与文档同步 |
+| 2026-04-08 | refactor | `graphify` | 全局删除 graphify skill、命令模板和运行时引用，移除 spec-first 中的 graphify 入口 |
+| 2026-04-08 | fix | `mcp-setup/spec-bootstrap` | 删除 GitNexus / ABCoder 安装链与 Full mode 引用，收缩为 Serena / Sequential Thinking / Context7 基础 MCP 套件，并同步重写 host schema、验证脚本和 PRD 模板 |
 | 2026-04-01 | feat | `version-reminder` | CLI 执行真实命令前自动检查 npm 最新版本，有更新时输出提醒，降低用户使用旧版本的概率 |
 | 2026-04-01 | feat | `lang-governance` | `spec-first init` 将语言和 Changelog 治理规则写入 CLAUDE.md/AGENTS.md，并修复 lang 优先级（项目 > 全局 > 默认） |
 | 2026-04-01 | feat | `mcp-setup` | 把 MCP 工具安装、检测、配置合并为一条一键化路径，降低 Full mode 落地门槛 |
@@ -15,34 +18,60 @@
 
 ---
 
-## 2026-04-07 `feat(spec-graph-bootstrap)`
+## 2026-04-08 `feat(mcp-setup)`
 
 ### 更新内容
 
-新增 `skills/spec-graph-bootstrap`，把 `graphify` 作为 `spec-first` 的上游结构发现层接入工作流。这个能力不替代 `spec-bootstrap`，而是先利用 `graphify-out/GRAPH_REPORT.md`、`graph.json`、可选 `wiki/` 获得结构导航结果，再把这些结果交给后续的 `spec-bootstrap` / `spec-docs` 继续提炼。
+`mcp-setup` 现在除了 bash 入口，还提供了 Windows PowerShell 7+ 的 `.ps1` 入口，覆盖依赖检测、宿主识别、工具检测、安装协调和宿主验证。
 
-### 主要能力
+### 主要变化
 
-- 识别并复用已有 `graphify-out/`：
-  若目标项目已经做过 `graphify` 构建，skill 会优先消费现有图谱产物，而不是重复分析原始目录
-- 按需调用 `graphify`：
-  若不存在 `graphify-out/` 且环境中已安装 `graphify`，skill 会触发 `graphify <target> --wiki` 生成结构导航层
-- 固定消费顺序：
-  总是先读 `GRAPH_REPORT.md`，再按需读 `wiki/` 或 `graph.json`，避免一上来就通读原始图谱 JSON
-- 明确分层边界：
-  `graphify` 负责“先把结构找出来”，`spec-first` 负责“把值得长期保存的知识定稿下来”
-- 支持降级：
-  未安装 `graphify` 时不会阻断整个 spec-first 工作流，而是清晰回退到现有 `spec-bootstrap`
-
-### 交付物
-
-- `skills/spec-graph-bootstrap/SKILL.md`
-- `skills/spec-graph-bootstrap/references/graphify-contract.md`
-- `docs/01-需求分析/9.LLM-md/2026-04-07-spec-first-graphify-集成技术方案.md`
+- 新增 `check-deps.ps1`、`detect-host.ps1`、`detect-tools.ps1`、`install-coordinator.ps1`、`verify-tools.ps1`
+- `mcp-setup` 技能文档改成按平台选择脚本
+- `check-deps` 的 Windows 兜底建议改为 `winget`
+- 单元测试补充 Windows 脚本文件存在性断言
 
 ### 版本意义
 
-这次迭代补的是 `spec-first` 在“大型代码库冷启动结构理解”上的上游能力。它没有把图谱构建逻辑并入 CLI，而是用 skill 编排的方式把 `graphify` 接在 `spec-first` 前面，既保留了边界清晰和低维护成本，也让后续 `summary / module-map / overview` 的生成更容易建立在稳定结构之上。
+这次改动把 `mcp-setup` 从 Unix-only 扩展到了 Windows PowerShell 入口，降低了 Windows 用户必须依赖 Git Bash/WSL 的门槛。
+
+---
+
+## 2026-04-08 `fix(mcp-setup+spec-bootstrap)`
+
+### 更新内容
+
+`mcp-setup` 和 `spec-bootstrap` 现在按当前宿主自适应处理 MCP 配置与就绪标记，Claude Code 和 Codex 会分别使用各自的配置文件与 `host-setup.json` 路径。
+
+### 主要变化
+
+- `mcp-setup` 自动识别宿主并写入对应的 MCP 配置文件
+- `verify-tools.sh` 输出宿主字段与 v4 schema 的 `host-setup.json`
+- `spec-bootstrap` 按宿主选择 marker 和 `mcp list` 探针
+- unit tests 增加 Claude / Codex 双宿主覆盖
+
+### 版本意义
+
+这次改动把 MCP 工具安装与后续引导彻底从 Claude-only 变成了双宿主一致的流程，减少了在 Codex 会话中误读 Claude 配置的风险。
+
+---
+
+## 2026-04-08 `refactor(graphify)`
+
+### 更新内容
+
+删除 `graphify` skill、命令模板、测试和运行时引用，移除 `spec-first` 中对 graphify 的安装与分析入口。
+
+### 主要变化
+
+- 删除 `skills/graphify/`
+- 删除 `templates/claude/commands/spec/graphify.md`
+- 删除 `tests/unit/graphify-skill.sh`
+- 从 `.claude-plugin/plugin.json`、`package.json`、`tests/smoke/cli.sh`、`CLAUDE.md` 中移除 graphify 入口
+
+### 版本意义
+
+`spec-first` 现在只保留当前仓库实际支持的技能与工作流。删除 graphify 后，不会再有用户通过旧命令进入已废弃的 graphify 路径。
 
 ---
 

@@ -11,17 +11,16 @@
 
 本方案的核心结论只有一条：
 
-**`spec-first` 应通过一个新的 repo-owned skill 直接调用 `graphify` CLI，并消费其 `graphify-out/` 产物；不将 `graphify` Python 代码并入 `spec-first`。**
+**`spec-first` 应正式打包 graphify 运行时入口（Claude: `/spec:graphify`；Codex: `graphify` skill），并由后续 `spec-bootstrap` / `spec-docs` 直接消费其 `graphify-out/` 产物；不将 `graphify` Python 代码并入 `spec-first`。**
 
-推荐新增一个技能：
+当前推荐新增并保留的能力只有一个：
 
-- `skills/spec-graph-bootstrap/SKILL.md`
+- `skills/graphify/SKILL.md`
 
-它的定位不是替代 `graphify`，也不是替代 `spec-bootstrap`，而是作为两者之间的**上游结构编译适配层**：
+它的定位不是替代 `spec-bootstrap`，而是作为 `spec-first` 里的**上游结构发现入口**：
 
 - `graphify` 负责把原始目录编译成“结构导航层”产物
-- `spec-graph-bootstrap` 负责检查、调用并消费这些图谱产物
-- `spec-bootstrap` 负责把有价值的结构信息提炼为 `spec-docs/contexts/*`
+- `spec-bootstrap` 负责消费这些图谱产物并把有价值的结构信息提炼为 `spec-docs/contexts/*`
 - `spec-docs` 仍然是长期知识真相层
 
 因此，整体关系是：
@@ -32,8 +31,6 @@
 graphify
     ↓
 graphify-out/GRAPH_REPORT.md + graph.json + wiki/
-    ↓
-spec-graph-bootstrap
     ↓
 spec-bootstrap / spec-docs
 ```
@@ -83,7 +80,7 @@ spec-bootstrap / spec-docs
 
 1. 在 `spec-first` 中新增一个 repo-owned skill，用于接入 `graphify`
 2. 让 agent 在进入项目结构分析之前，优先消费 `graphify-out/GRAPH_REPORT.md`
-3. 在已有 `graphify-out/` 时直接复用；没有时可以触发一次 `graphify` 构建
+3. 在已有 `graphify-out/` 时直接复用；没有时通过内置 `graphify` workflow 触发一次构建
 4. 把 `graphify` 的结构发现结果作为 `spec-bootstrap` 上游输入，辅助生成：
    - `summary.md`
    - `module-map.md`
@@ -138,7 +135,7 @@ spec-bootstrap / spec-docs
 |---|---|---|
 | 结构发现层 | `graphify` | 从原始目录抽取结构关系、语义关系、社区、图谱产物 |
 | 图谱产物层 | `graphify-out/` | 提供 `GRAPH_REPORT.md`、`graph.json`、`wiki/` 作为可消费中间产物 |
-| 编排适配层 | `spec-graph-bootstrap` | 检查 graphify、触发构建、读取产物、生成结构摘要、向下游交付 |
+| 运行时入口层 | `graphify` skill | 安装 graphify、执行图谱分析、生成 `graphify-out/` |
 | 知识提炼层 | `spec-bootstrap` | 把结构信息压缩进 `spec-docs/contexts/*` |
 | 真相层 | `spec-docs` | 长期持有项目知识、规矩、陷阱、经验沉淀 |
 
@@ -166,46 +163,44 @@ spec-bootstrap / spec-docs
 
 ```text
 skills/
-└── spec-graph-bootstrap/
+└── graphify/
     ├── SKILL.md
     ├── references/
-    │   └── graphify-contract.md
-    └── scripts/                  # Phase 2 可选
-        ├── check-graphify.sh
-        └── summarize-report.sh
+    │   └── upstream-skill-codex.md
+    └── scripts/                  # 如后续需要再补
 ```
 
 ### 6.2 Skill 名称与定位
 
 推荐名称：
 
-- `spec-graph-bootstrap`
+- `graphify`
 
 触发语义：
 
 - 为目标目录构建或消费 `graphify-out/`
-- 为 `spec-bootstrap` 提供结构先验
+- 为 `spec-bootstrap` 提供上游结构产物
 - 为 agent 输出“先读结构、再读源码”的导航结果
 
 不推荐命名为：
 
-- `graphify`
-  原因：与上游工具自带 skill 冲突，语义也不清晰
+- `spec-graph-bootstrap`
+  原因：会人为制造第二个入口，放大与 `graphify` 本身的职责重叠
 
 ### 6.3 为什么不直接复用上游 `skill-codex.md`
 
-`graphify` 自带的 [skill-codex.md](/Users/kuang/xiaobu/graphify/graphify/skill-codex.md) 已经能够完成 `/graphify` 的完整图谱构建流程，但它的目标是：
+`graphify` 自带的 [skill-codex.md](/Users/kuang/xiaobu/graphify/graphify/skill-codex.md) 已经能够完成完整图谱构建流程，但它的目标是：
 
 - 让 agent 独立使用 `graphify`
 - 构建通用图谱
 - 回答图谱级 query/path/explain 问题
 
-而 `spec-first` 需要的不是“再暴露一套 `/graphify` 指令”，而是：
+而 `spec-first` 需要的不是“照搬一个外部入口”，而是：
 
 - 将 `graphify` 纳入 `spec-first` 的知识工作流
 - 形成 `graphify -> spec-bootstrap -> spec-docs` 的上游编排关系
 
-因此这里不应简单复制上游 skill，而应新增一个**以 spec-first 为中心的消费型 skill**。
+因此这里不应再额外发明第二个消费型 skill，而应保留一个**以 spec-first 为中心的 graphify 入口**，再让 `spec-bootstrap` 直接消费产物。
 
 ---
 
@@ -213,41 +208,29 @@ skills/
 
 ### 7.1 Phase 1：最小可用流程
 
-`spec-graph-bootstrap` 在 Phase 1 的流程如下：
+`graphify` 在当前落地形态下的流程如下：
 
 ```text
 1. 识别 target path（默认当前目录）
-2. 检查 target/graphify-out/ 是否存在
-3. 若不存在：提示用户运行 /graphify 构建，停止并等待
-4. 验证 GRAPH_REPORT.md 完整性（必需章节是否存在）
-5. 读取 GRAPH_REPORT.md
-6. 若存在 wiki/index.md：按需读取 wiki
-7. 输出结构摘要到 .context/spec-first/graph-bootstrap/<slug>/
-8. 建议后续进入 spec-bootstrap 或直接生成 spec-docs 初稿
+2. 检查 graphify 是否已安装；缺失时自动安装
+3. 执行 graphify 图谱构建或更新
+4. 生成 `graphify-out/GRAPH_REPORT.md`、`graph.json`、可选 `wiki/`
+5. 输出结构摘要与下一步 handoff
+6. 建议后续进入 spec-bootstrap
 ```
 
-> **修正说明（2026-04-07）**：原方案假设可调用 `graphify <path> --wiki` CLI 命令，
-> 经技术可行性审查确认 graphify 不提供此 CLI 接口。图谱构建通过 graphify 自身
-> SKILL.md 驱动（即 `/graphify`）。因此 Phase 1 改为纯消费模式：不主动构建，
-> 无产物时引导用户执行 `/graphify`。
+> **当前状态（2026-04-08）**：`spec-first` 已删除 `spec-graph-bootstrap`，收敛为单一 `graphify` 入口。Claude 使用 `/spec:graphify`，Codex 使用 `graphify` skill。
 
 ### 7.2 命令行为
 
-~~Phase 1 推荐调用命令：~~
-
-> **已废弃**：`graphify <target-path> --wiki` 命令不存在。
-> graphify 的 CLI 仅支持 `install`、`benchmark`、`hook` 等管理命令，
-> 图谱构建通过 `/graphify` skill 驱动。
->
-> spec-graph-bootstrap 不直接调用 graphify CLI，仅消费已构建的 `graphify-out/` 产物。
+`graphify` 负责安装、构建、更新并输出 `graphify-out/`。后续是否进入 `spec-bootstrap`，由用户或上层工作流决定。
 
 ### 7.3 输入与输出 contract
 
 #### 输入
 
 - 目标目录路径
-- 目录下的代码、文档、图片、PDF 等
-- 可选的 `.graphifyignore`
+- 目标目录下的代码、文档、图片、PDF 等原始资料
 
 #### 中间输出
 
@@ -263,33 +246,16 @@ skills/
     └── wiki/                  # 若使用 --wiki
 ```
 
-> `manifest.json` 记录每个源文件的最后修改时间。`spec-graph-bootstrap` 可通过对比 `manifest.json` 与当前文件时间戳判断 `graphify-out/` 是否过期，决定是否需要重新构建。
-
-#### `spec-graph-bootstrap` 输出
-
-Phase 1 输出不直接写入 `spec-docs`，而是生成一份临时结构摘要，供下游消费。推荐写入：
-
-```text
-.context/spec-first/graph-bootstrap/<slug>/
-├── summary.md
-├── sources.json
-└── status.json
-```
-
-其中：
-
-- `summary.md`：结构摘要，供人和 agent 快速查看
-- `sources.json`：记录本次消费了哪些 graphify 产物
-- `status.json`：记录是否命中已有 graphify、是否重新构建、是否回退
+> `manifest.json` 记录每个源文件的最后修改时间，可用于判断 `graphify-out/` 是否过期、是否需要重新构建。
 
 ### 7.4 失败与降级行为
 
 | 场景 | 行为 |
 |---|---|
-| `graphify-out/` 不存在 | 提示用户运行 `/graphify`，或回退到现有 `spec-bootstrap` 流程 |
-| `GRAPH_REPORT.md` 缺失但 `graphify-out/` 存在 | 视为崩溃残留，提示重新运行 `/graphify` |
+| `graphify-out/` 不存在 | 先执行内置 `graphify` workflow |
+| `GRAPH_REPORT.md` 缺失但 `graphify-out/` 存在 | 视为崩溃残留，重新执行内置 `graphify` workflow |
 | 仅有 `GRAPH_REPORT.md` 缺少 `wiki/` | 继续执行，仅读 `GRAPH_REPORT.md` |
-| `graph.json` 存在但 `GRAPH_REPORT.md` 缺失 | 视为异常状态，提示重新运行 `/graphify` |
+| `graph.json` 存在但 `GRAPH_REPORT.md` 缺失 | 视为异常状态，提示重新执行内置 `graphify` workflow |
 | GRAPH_REPORT.md 缺少必需章节（如无 Communities） | 降级为全文阅读模式，手动提取 |
 
 ---
@@ -298,23 +264,23 @@ Phase 1 输出不直接写入 `spec-docs`，而是生成一份临时结构摘要
 
 ### 8.1 第一阶段：松耦合
 
-Phase 1 不修改 `spec-bootstrap` 默认入口，只新增 `spec-graph-bootstrap`：
+Phase 1 不修改 `spec-bootstrap` 默认入口，只新增 `graphify`：
 
 ```text
 用户 / agent
     ↓
-spec-graph-bootstrap
+graphify
     ↓
-graphify-out 结构摘要
+graphify-out
     ↓
 spec-bootstrap
 ```
 
 这意味着：
 
-- 用户可以显式先运行 `spec-graph-bootstrap`
+- 用户可以显式先运行 `/spec:graphify`（Claude）或 `graphify` skill（Codex）
 - 再运行 `spec-bootstrap`
-- `spec-bootstrap` 通过读取 `.context/spec-first/graph-bootstrap/<slug>/summary.md` 获取结构先验
+- `spec-bootstrap` 直接读取 `graphify-out/GRAPH_REPORT.md` 与可选 `wiki/` 获取结构先验
 
 ### 8.2 第二阶段：内联到 `spec-bootstrap`
 
@@ -322,10 +288,12 @@ Phase 2 再考虑把这个逻辑并入 `spec-bootstrap` 起始流程：
 
 ```text
 spec-bootstrap
-  ├── 如果存在 graphify-out/ → 优先读取
-  ├── 如果未存在且 graphify 可用 → 询问是否先构建
+  ├── 如果 <target>/graphify-out/ 已存在 → 优先读取
+  ├── 如果 <target>/graphify-out/ 不存在且 graphify 可用 → 询问是否先构建
   └── 如果不可用 → 继续传统分析模式
 ```
+
+> 注意：`graphify-out/` 的检查路径始终相对于 `spec-bootstrap` 的 target path，而非当前工作目录。
 
 这样可以实现：
 
@@ -337,13 +305,13 @@ spec-bootstrap
 
 ## 9. 与 `spec-docs` 的映射关系
 
-`graphify` 不直接生成 `spec-docs`，但能显著辅助以下页面：
+`graphify` 不直接生成 `spec-docs`，但能显著辅助以下页面（比例为经验估算，待实际验证）：
 
 | `spec-docs` 页面 | `graphify` 的帮助 |
 |---|---|
-| `contexts/summary.md` | 提供 god nodes、主社区、核心模块初稿 |
-| `contexts/architecture/module-map.md` | 提供模块关系、社区边界、连接密度 |
-| `contexts/architecture/overview.md` | 提供系统主流程与关键组件连接；**Hyperedges**（组关系，如"HTTP Request/Response Cycle"）天然适合辅助生成数据流和不变式描述 |
+| `contexts/summary.md` | 提供 god nodes、主社区、核心模块初稿（~70%） |
+| `contexts/architecture/module-map.md` | 提供模块关系、社区边界、连接密度（~50%） |
+| `contexts/architecture/overview.md` | 提供系统主流程与关键组件连接；**Hyperedges**（组关系，如"HTTP Request/Response Cycle"）天然适合辅助生成数据流和不变式描述（~30%） |
 | `index.md` | 可辅助生成关键词/触发场景 |
 
 而以下页面不应直接从 graphify 自动生成终稿：
@@ -362,7 +330,7 @@ spec-bootstrap
 
 ## 10. 对 skill 的详细设计
 
-### 10.1 `skills/spec-graph-bootstrap/SKILL.md`
+### 10.1 `skills/graphify/SKILL.md`
 
 该文件应包含：
 
@@ -370,9 +338,9 @@ spec-bootstrap
 2. 何时使用
 3. 目标路径解析规则
 4. `graphify` 检查规则
-5. `graphify-out/` 存在性判断
-6. 优先读取哪些产物
-7. 如何生成结构摘要
+5. 如何执行安装前检查
+6. 如何构建或更新 `graphify-out/`
+7. 如何输出结构摘要
 8. 什么时候交给 `spec-bootstrap`
 9. 什么时候降级
 
@@ -380,8 +348,8 @@ spec-bootstrap
 
 ```yaml
 ---
-name: spec-graph-bootstrap
-description: 使用 graphify 为目标代码库或资料目录生成/消费 graphify-out 图谱产物，先读结构再读源码，为 spec-bootstrap 和 spec-docs 提供上游结构先验
+name: graphify
+description: Use when you need to install graphify if missing, turn a directory into `graphify-out` knowledge graph artifacts, or refresh an existing graph before architecture analysis and bootstrap work.
 ---
 ```
 
@@ -390,20 +358,19 @@ description: 使用 graphify 为目标代码库或资料目录生成/消费 grap
 建议增加：
 
 ```text
-skills/spec-graph-bootstrap/references/graphify-contract.md
+skills/graphify/references/upstream-skill-codex.md
 ```
 
 内容包括：
 
-- `graphify-out/` 目录 contract
-- 必需文件与可选文件
-- `GRAPH_REPORT.md` 解析重点
-- `wiki/` 的导航入口
-- 图谱产物与 `spec-docs` 的映射关系
+- graphify 的安装前检查
+- 完整构图流程
+- 增量更新流程
+- query/path/explain 等延伸能力
 
 ### 10.4 scripts 是否需要
 
-Phase 1 可以不写脚本，直接在 skill 指令中调用 `graphify` CLI。
+Phase 1 不需要脚本，skill 指令本身即可驱动消费逻辑。
 
 Phase 2 若发现以下情况反复出现，再引入脚本：
 
@@ -411,13 +378,7 @@ Phase 2 若发现以下情况反复出现，再引入脚本：
 - `graphify` 可用性检测逻辑反复重写
 - 对 `GRAPH_REPORT.md` 的摘要抽取逻辑需要稳定输出
 
-可选脚本：
-
-```text
-skills/spec-graph-bootstrap/scripts/check-graphify.sh
-skills/spec-graph-bootstrap/scripts/collect-graphify-inputs.sh
-skills/spec-graph-bootstrap/scripts/build-structure-summary.sh
-```
+可选脚本在当前阶段不是必需。
 
 ---
 
@@ -425,18 +386,19 @@ skills/spec-graph-bootstrap/scripts/build-structure-summary.sh
 
 ### 11.1 Phase 1 必需改动
 
-仅需新增 skill 目录：
+仅需新增 skill 目录与 Claude 命令模板：
 
 ```text
-skills/spec-graph-bootstrap/
+skills/graphify/
 └── SKILL.md
+templates/claude/commands/spec/graphify.md
 ```
 
 由于当前 `spec-first` 通过 `src/cli/plugin.js` 动态扫描 `skills/*` 并同步安装，因此：
 
-- 不需要额外修改 `src/cli/plugin.js`
-- 不需要额外注册 skill 名称
-- 不需要新增命令模板
+- 不需要修改 `src/cli/plugin.js`
+- 需要在 `.claude-plugin/plugin.json` 注册 `graphify`
+- 需要新增 Claude 命令模板 `templates/claude/commands/spec/graphify.md`
 
 相关依据：
 
@@ -483,15 +445,16 @@ Phase 3 不属于本次最小落地范围。
 
 目标：
 
-- 让 `spec-first` 拥有 `spec-graph-bootstrap` skill
-- 能直接调用 `graphify`
+- 让 `spec-first` 拥有正式的 `graphify` 入口
+- 能生成和更新 `graphify-out/`
 - 能消费 `GRAPH_REPORT.md`
-- 能输出结构摘要
+- 能把后续流程衔接到 `spec-bootstrap`
 
 交付物：
 
-- `skills/spec-graph-bootstrap/SKILL.md`
-- 可选 `references/graphify-contract.md`
+- `skills/graphify/SKILL.md`
+- `skills/graphify/references/upstream-skill-codex.md`
+- `templates/claude/commands/spec/graphify.md`
 - 一份示例使用文档
 
 ### Phase 2：与 `spec-bootstrap` 串联
@@ -511,7 +474,7 @@ Phase 3 不属于本次最小落地范围。
 
 - 用 `graph.json` 或 `GRAPH_REPORT.md` 作为结构对比基线
 - 辅助 `doctor` 发现结构漂移
-- 可利用 `graphify query` / `graphify path` / `graphify explain` 子命令做定向结构查询，验证 spec-docs 中的模块关系描述是否仍与图谱一致
+- 可利用 graphify skill 的自然语言交互能力（如"查询 X 模块的依赖"、"解释 A 到 B 的连接路径"）做定向结构查询，验证 spec-docs 中的模块关系描述是否仍与图谱一致
 
 交付物：
 
@@ -526,7 +489,7 @@ Phase 3 不属于本次最小落地范围。
 
 验证点：
 
-1. `spec-first init` 后运行时能看到 `spec-graph-bootstrap`
+1. `spec-first init` 后运行时能看到 `graphify`
 2. skill 被同步到目标项目的 skills 目录
 3. Codex / Claude 能正确触发 skill
 
@@ -541,8 +504,8 @@ Phase 3 不属于本次最小落地范围。
 期望：
 
 - 场景 1：直接消费图谱
-- 场景 2：成功构建并消费
-- 场景 3：明确降级并回退
+- 场景 2：在当前会话中执行内置 `graphify` workflow，构建完成后回到本 skill 继续处理
+- 场景 3：明确降级并回退至 `spec-bootstrap`
 
 ### 13.3 质量验证
 
@@ -618,9 +581,9 @@ Phase 3 不属于本次最小落地范围。
 
 本项目推荐按以下方式落地：
 
-1. 新增 repo-owned skill：`spec-graph-bootstrap`
-2. skill 内直接调用外部 `graphify` CLI，不并入代码
-3. Phase 1 仅做 graphify 产物检查、构建、消费、摘要输出
+1. 新增 repo-owned skill：`graphify`
+2. skill 负责安装与构图，不并入 Python 代码
+3. Phase 1 先让 `graphify` 成为稳定入口
 4. Phase 2 再把 graphify 前置消费逻辑并入 `spec-bootstrap`
 5. Phase 3 再考虑把 `graph.json` 接到 `doctor`
 
@@ -634,17 +597,17 @@ Phase 3 不属于本次最小落地范围。
 
 ### P0：文档与命名定稿
 
-- 确认 skill 名称为 `spec-graph-bootstrap`
-- 确认 Phase 1 只做 CLI 调用，不做代码并入
+- 确认 skill 名称为 `graphify` ✅
+- 确认 Phase 1 通过打包 graphify 运行时入口编排图谱构建，不并入 Python 代码 ✅
 
-### P1：新增 skill
+### P1：新增 skill ✅ 已完成
 
-- 新建 `skills/spec-graph-bootstrap/SKILL.md`
-- 编写最小工作流
+- `skills/graphify/SKILL.md` 已创建
+- 运行时入口已收敛为单一 `graphify`
 
 ### P2：补 reference
 
-- 新建 `skills/spec-graph-bootstrap/references/graphify-contract.md`
+- 新建 `skills/graphify/references/upstream-skill-codex.md`
 
 ### P3：串联 `spec-bootstrap`
 
@@ -654,5 +617,4 @@ Phase 3 不属于本次最小落地范围。
 ### P4：验证
 
 - 选一个大型仓库
-- 对比“有 graphify”与“无 graphify”两种 bootstrap 输出质量
-
+- 对比”有 graphify”与”无 graphify”两种 bootstrap 输出质量

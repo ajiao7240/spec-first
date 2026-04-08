@@ -1,5 +1,5 @@
 #!/bin/bash
-# detect-tools.sh - Detect already installed MCP tools from ~/.claude.json
+# detect-tools.sh - Detect already installed MCP tools from the current host config
 # Output: JSON with installed and missing tool lists
 
 set -euo pipefail
@@ -7,7 +7,10 @@ set -euo pipefail
 # jq 是硬依赖
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
 
-CLAUDE_JSON="$HOME/.claude.json"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+HOST_INFO_JSON="$("$SCRIPT_DIR/detect-host.sh")"
+HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
+CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
 TOOLS_JSON="$(cd "$(dirname "$0")/.." && pwd)/mcp-tools.json"
 
 installed=()
@@ -27,8 +30,12 @@ for tool_id in $tool_ids; do
       # Check if tool exists in mcpServers config
       detect_key=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detect.key' "$TOOLS_JSON")
 
-      if [ -f "$CLAUDE_JSON" ]; then
-        if jq -e --arg key "$detect_key" '.mcpServers[$key]' "$CLAUDE_JSON" >/dev/null 2>&1; then
+      if [ "$HOST" = "claude" ]; then
+        if [ -f "$CONFIG_PATH" ] && jq -e --arg key "$detect_key" '.mcpServers[$key]' "$CONFIG_PATH" >/dev/null 2>&1; then
+          found=true
+        fi
+      elif [ "$HOST" = "codex" ]; then
+        if [ -f "$CONFIG_PATH" ] && grep -qF "[mcp_servers.$detect_key]" "$CONFIG_PATH"; then
           found=true
         fi
       fi

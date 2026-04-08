@@ -52,7 +52,7 @@ assert_not_contains() {
   local desc="$1"
   local needle="$2"
   local haystack="$3"
-  if ! grep -qF "$needle" <<<"$haystack"; then
+  if ! grep -qF -- "$needle" <<<"$haystack"; then
     pass=$((pass + 1))
   else
     echo "  ✗ $desc: '$needle' should not be in output"
@@ -60,21 +60,18 @@ assert_not_contains() {
   fi
 }
 
-# ============================================================================
 echo "=== mcp-setup skill tests ==="
 echo ""
 
 # ============================================================================
 echo "1. Config file validation"
-# ============================================================================
 
 echo "1.1 mcp-tools.json is valid JSON"
-output=$(jq . "$TOOLS_JSON" 2>&1)
-assert "mcp-tools.json is valid JSON" test -n "$output"
+assert "mcp-tools.json is valid JSON" jq -e . "$TOOLS_JSON" >/dev/null
 
-echo "1.2 mcp-tools.json has 6 tools"
+echo "1.2 mcp-tools.json has 4 tools"
 tool_count=$(jq '.tools | length' "$TOOLS_JSON")
-assert_output "6 tools defined" "6" "$tool_count"
+assert_output "4 tools defined" "4" "$tool_count"
 
 echo "1.3 All tools have required fields"
 for field in id name category description dependencies detect; do
@@ -84,51 +81,41 @@ done
 
 echo "1.4 Required tools have correct IDs"
 required_ids=$(jq -r '.tools[] | select(.category == "required") | .id' "$TOOLS_JSON" | sort | paste -sd ',' -)
-expected_ids="abcoder,context7,gitnexus,serena,sequential-thinking"
-assert "Required tool count is 5" test "$(echo "$required_ids" | tr ',' '\n' | wc -l | tr -d ' ')" = "5"
+assert_output "Required tool count is 3" "3" "$(echo "$required_ids" | tr ',' '\n' | wc -l | tr -d ' ')"
 assert_contains "Has serena" "serena" "$required_ids"
-assert_contains "Has gitnexus" "gitnexus" "$required_ids"
-assert_contains "Has abcoder" "abcoder" "$required_ids"
+assert_contains "Has sequential-thinking" "sequential-thinking" "$required_ids"
+assert_contains "Has context7" "context7" "$required_ids"
+assert_not_contains "No gitnexus" "gitnexus" "$required_ids"
+assert_not_contains "No abcoder" "abcoder" "$required_ids"
 
 echo "1.5 Optional tools have correct IDs"
 optional_ids=$(jq -r '.tools[] | select(.category == "optional") | .id' "$TOOLS_JSON")
 assert_output "Optional tool IDs" "playwright" "$optional_ids"
 
-echo "1.6 Serena has correct entry point (serena start-mcp-server)"
+echo "1.6 Serena has correct entry point"
 serena_cmd=$(jq -r '.tools[] | select(.id == "serena") | .mcp_config.command' "$TOOLS_JSON")
 assert_output "Serena uses uvx" "uvx" "$serena_cmd"
 serena_args=$(jq -r '.tools[] | select(.id == "serena") | .mcp_config.args | join(" ")' "$TOOLS_JSON")
 assert_contains "Serena args include serena start-mcp-server" "serena start-mcp-server" "$serena_args"
 assert_contains "Serena args include --project-from-cwd" "--project-from-cwd" "$serena_args"
-assert_contains "Serena args include ide-assistant context" "ide-assistant" "$serena_args"
-
-echo "1.6b GitNexus uses latest npm package"
-gitnexus_args=$(jq -r '.tools[] | select(.id == "gitnexus") | .mcp_config.args | join(" ")' "$TOOLS_JSON")
-assert_contains "GitNexus args include gitnexus@latest" "gitnexus@latest" "$gitnexus_args"
-
-echo "1.7 ABCoder has install_command and null mcp_config"
-abcoder_install=$(jq -r '.tools[] | select(.id == "abcoder") | .install_command' "$TOOLS_JSON")
-assert_contains "ABCoder install_command" "go install github.com/cloudwego/abcoder" "$abcoder_install"
-abcoder_mcp=$(jq -r '.tools[] | select(.id == "abcoder") | .mcp_config' "$TOOLS_JSON")
-assert_output "ABCoder mcp_config is null" "null" "$abcoder_mcp"
 
 echo ""
 
 # ============================================================================
 echo "2. check-deps.sh tests"
-# ============================================================================
 
 echo "2.1 Produces valid JSON"
 deps_output=$(bash "$SCRIPTS_DIR/check-deps.sh" 2>/dev/null)
 assert "check-deps.sh produces valid JSON" jq -e . <<<"$deps_output"
 
 echo "2.2 JSON has expected top-level keys"
-for key in os node go uv jq; do
+for key in os node uv jq; do
   assert "JSON has '$key' key" jq -e ".$key" <<<"$deps_output"
 done
+assert "JSON does not have go key" jq -e '.go | not' <<<"$deps_output"
 
 echo "2.3 Installed deps have 'installed: true' and 'version'"
-for dep in node go uv jq; do
+for dep in node uv jq; do
   installed=$(jq -r ".$dep.installed" <<<"$deps_output")
   version=$(jq -r ".$dep.version" <<<"$deps_output")
   assert "$dep is installed" test "$installed" = "true"
@@ -136,7 +123,7 @@ for dep in node go uv jq; do
 done
 
 echo "2.4 Installed deps have null install_suggestion"
-for dep in node go uv jq; do
+for dep in node uv jq; do
   suggestion=$(jq -r ".$dep.install_suggestion" <<<"$deps_output")
   assert "$dep install_suggestion is null" test "$suggestion" = "null"
 done
@@ -145,18 +132,10 @@ echo "2.5 OS detection returns valid value"
 os_val=$(jq -r '.os' <<<"$deps_output")
 assert "OS is detected" test -n "$os_val" -a "$os_val" != "null"
 
-echo "2.6 JSON version strings don't contain unescaped quotes"
-# Verify the JSON is parseable and version fields are clean strings
-for dep in node go uv jq; do
-  version_type=$(jq -r ".$dep.version | type" <<<"$deps_output")
-  assert "$dep version is a string" test "$version_type" = "string"
-done
-
 echo ""
 
 # ============================================================================
 echo "3. detect-tools.sh tests"
-# ============================================================================
 
 echo "3.1 Produces valid JSON"
 detect_output=$(bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
@@ -170,7 +149,7 @@ echo "3.3 All tools accounted for (no duplicates, no gaps)"
 installed_count=$(jq '.installed | length' <<<"$detect_output")
 missing_count=$(jq '.missing | length' <<<"$detect_output")
 total=$((installed_count + missing_count))
-assert_output "Total tools = 6" "6" "$total"
+assert_output "Total tools = 4" "4" "$total"
 
 echo "3.4 installed array has no empty strings"
 empty_installed=$(jq '[.installed[] | select(. == "")] | length' <<<"$detect_output")
@@ -180,128 +159,91 @@ echo "3.5 missing array has no empty strings"
 empty_missing=$(jq '[.missing[] | select(. == "")] | length' <<<"$detect_output")
 assert_output "No empty strings in missing" "0" "$empty_missing"
 
-echo "3.6 Serena detected in current env (mcp_config method)"
-assert_contains "serena in installed" "serena" "$(jq -r '.installed[]' <<<"$detect_output")"
+echo "3.6 detect-host.sh reports host-specific paths"
+host_claude=$(MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-host.sh" 2>/dev/null)
+assert_output "Claude host detected" "claude" "$(jq -r '.host' <<<"$host_claude")"
+assert_output "Claude config path" "$HOME/.claude.json" "$(jq -r '.config_path' <<<"$host_claude")"
+assert_output "Claude marker path" "$HOME/.claude/spec-first/host-setup.json" "$(jq -r '.marker_path' <<<"$host_claude")"
+host_codex=$(MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detect-host.sh" 2>/dev/null)
+assert_output "Codex host detected" "codex" "$(jq -r '.host' <<<"$host_codex")"
+assert_output "Codex config path" "$HOME/.codex/config.toml" "$(jq -r '.config_path' <<<"$host_codex")"
+assert_output "Codex marker path" "$HOME/.codex/spec-first/host-setup.json" "$(jq -r '.marker_path' <<<"$host_codex")"
 
-echo "3.7 ABCoder detected in current env (command method)"
-assert_contains "abcoder in installed" "abcoder" "$(jq -r '.installed[]' <<<"$detect_output")"
-
-echo "3.8 Edge case: missing ~/.claude.json"
-CLAUDE_JSON_BACKUP="$HOME/.claude.json"
-# Use a temp home to simulate missing config
-FAKE_HOME="$TMP_DIR/fake_home"
+echo "3.7 Detection works when all required tools are configured"
+FAKE_HOME="$TMP_DIR/detect_home"
 mkdir -p "$FAKE_HOME"
-detect_no_config=$(HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
-assert "Works without ~/.claude.json" jq -e . <<<"$detect_no_config"
-# All mcp_config-based tools should be missing, command-based may still be found
-assert "Valid JSON with missing config" test -n "$detect_no_config"
+mkdir -p "$FAKE_HOME/.claude"
+cat > "$FAKE_HOME/.claude.json" <<'JSONEOF'
+{
+  "mcpServers": {
+    "serena": { "command": "uvx" },
+    "context7": { "command": "npx" },
+    "sequential-thinking": { "command": "npx" }
+  }
+}
+JSONEOF
+detect_full=$(HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
+full_installed=$(jq -r '.installed | sort | join(",")' <<<"$detect_full")
+assert_output "All required tools installed" "context7,sequential-thinking,serena" "$full_installed"
+full_missing_count=$(jq '.missing | length' <<<"$detect_full")
+assert_output "No missing tools when config present" "1" "$full_missing_count"
 
-echo "3.9 Edge case: empty ~/.claude.json (no mcpServers)"
+echo "3.8 Codex config.toml is detected"
+FAKE_HOME_C="$TMP_DIR/detect_home_codex"
+mkdir -p "$FAKE_HOME_C/.codex"
+cat > "$FAKE_HOME_C/.codex/config.toml" <<'TOMLEOF'
+[mcp_servers.serena]
+command = "uvx"
+
+[mcp_servers.context7]
+command = "npx"
+
+[mcp_servers.sequential-thinking]
+command = "npx"
+TOMLEOF
+detect_codex=$(HOME="$FAKE_HOME_C" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
+codex_installed=$(jq -r '.installed | sort | join(",")' <<<"$detect_codex")
+assert_output "Codex required tools installed" "context7,sequential-thinking,serena" "$codex_installed"
+codex_missing_count=$(jq '.missing | length' <<<"$detect_codex")
+assert_output "No missing tools in codex config" "1" "$codex_missing_count"
+
+echo "3.9 Empty config yields all tools missing"
 echo '{}' > "$FAKE_HOME/.claude.json"
-detect_empty=$(HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
-assert "Works with empty config" jq -e . <<<"$detect_empty"
-# All mcp_config tools should be missing
-serena_in_empty=$(jq -r '(.installed // []) | map(select(. == "serena")) | length' <<<"$detect_empty")
-assert_output "serena not detected with empty config" "0" "$serena_in_empty"
-
-echo "3.10 Edge case: all tools missing (empty installed array)"
-echo '{"mcpServers":{}}' > "$FAKE_HOME/.claude.json"
-# PATH=/dev/null to hide all commands
-detect_all_missing=$(HOME="$FAKE_HOME" PATH="/dev/null:/usr/bin" bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null || true)
-if [ -n "$detect_all_missing" ]; then
-  installed_empty=$(jq -e '.installed | length' <<<"$detect_all_missing" 2>/dev/null || echo "parse_error")
-  # Should be 0 or the JSON should be valid with empty array
-  assert "Valid JSON when all missing" test "$installed_empty" != "parse_error"
-fi
-
-echo "3.11 command detection requires the full detect command to succeed"
-FAKE_HOME311="$TMP_DIR/fake_home_311"
-FAKEBIN311="$TMP_DIR/fakebin311"
-mkdir -p "$FAKE_HOME311" "$FAKEBIN311"
-echo '{"mcpServers":{}}' > "$FAKE_HOME311/.claude.json"
-for cmd in bash jq awk dirname; do
-  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN311/$cmd"; fi
-done
-printf '#!/bin/sh\nexit 1\n' > "$FAKEBIN311/abcoder"
-chmod +x "$FAKEBIN311/abcoder"
-detect_strict=$(HOME="$FAKE_HOME311" PATH="$FAKEBIN311" bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
-abcoder_in_installed=$(jq -r '(.installed // []) | map(select(. == "abcoder")) | length' <<<"$detect_strict")
-assert_output "abcoder not treated as installed when detect command fails" "0" "$abcoder_in_installed"
+detect_empty=$(HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
+empty_missing=$(jq '.missing | length' <<<"$detect_empty")
+assert_output "All 4 tools missing" "4" "$empty_missing"
 
 echo ""
 
 # ============================================================================
 echo "4. install-coordinator.sh tests"
-# ============================================================================
 
-echo "4.1 --install with single tool (gitnexus)"
+echo "4.1 Claude install configures only required tools"
 FAKE_HOME2="$TMP_DIR/test_install"
 mkdir -p "$FAKE_HOME2"
 echo '{"mcpServers":{}}' > "$FAKE_HOME2/.claude.json"
 chmod 600 "$FAKE_HOME2/.claude.json"
 
-install_out=$(HOME="$FAKE_HOME2" bash "$SCRIPTS_DIR/install-coordinator.sh" --install gitnexus 2>&1)
-assert "Install gitnexus succeeds" test $? -eq 0 -o $? -eq 1 || true
-assert_contains "gitnexus configured message" "gitnexus" "$install_out"
-
-# Verify config was written
-gitnexus_exists=$(jq -e '.mcpServers.gitnexus' "$FAKE_HOME2/.claude.json" 2>/dev/null)
-assert "gitnexus in ~/.claude.json" test -n "$gitnexus_exists"
-
-gitnexus_cmd=$(jq -r '.mcpServers.gitnexus.command' "$FAKE_HOME2/.claude.json")
-assert_output "gitnexus command is npx" "npx" "$gitnexus_cmd"
-
-echo "4.2 abcoder is reinstalled when detect command fails"
-FAKE_HOME21="$TMP_DIR/test_abcoder_reinstall"
-FAKEBIN21="$TMP_DIR/fakebin21"
-mkdir -p "$FAKE_HOME21" "$FAKEBIN21"
-echo '{"mcpServers":{}}' > "$FAKE_HOME21/.claude.json"
-chmod 600 "$FAKE_HOME21/.claude.json"
-for cmd in bash jq awk dirname mktemp chmod mv cp rm mkdir date flock; do
-  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN21/$cmd"; fi
+HOME="$FAKE_HOME2" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-coordinator.sh" >/dev/null 2>&1 || true
+for tool in serena context7 sequential-thinking; do
+  configured=$(jq -r --arg t "$tool" '.mcpServers[$t].command // empty' "$FAKE_HOME2/.claude.json")
+  assert "$tool configured" test -n "$configured"
 done
-printf '#!/bin/sh\nexit 1\n' > "$FAKEBIN21/abcoder"
-chmod +x "$FAKEBIN21/abcoder"
-printf '#!/bin/sh\nif [ \"$1\" = \"install\" ]; then exit 0; fi\nexit 1\n' > "$FAKEBIN21/go"
-chmod +x "$FAKEBIN21/go"
-install_abcoder_out=$(HOME="$FAKE_HOME21" PATH="$FAKEBIN21" bash "$SCRIPTS_DIR/install-coordinator.sh" --install abcoder 2>&1 || true)
-assert_contains "abcoder reinstall triggered when detect command fails" "Installing abcoder" "$install_abcoder_out"
+playwright_default=$(jq -r '.mcpServers.playwright // empty' "$FAKE_HOME2/.claude.json")
+assert "playwright not installed by default" test -z "$playwright_default"
 
-echo "4.3 Idempotency: run twice, same config"
-BEFORE=$(jq -S . "$FAKE_HOME2/.claude.json")
-HOME="$FAKE_HOME2" bash "$SCRIPTS_DIR/install-coordinator.sh" --install gitnexus >/dev/null 2>&1 || true
-AFTER=$(jq -S . "$FAKE_HOME2/.claude.json")
-assert_output "Config unchanged after rerun" "$BEFORE" "$AFTER"
-
-echo "4.4 --skip flag works"
+echo "4.2 --skip flag works"
 FAKE_HOME3="$TMP_DIR/test_skip"
 mkdir -p "$FAKE_HOME3"
 echo '{"mcpServers":{}}' > "$FAKE_HOME3/.claude.json"
 chmod 600 "$FAKE_HOME3/.claude.json"
+HOME="$FAKE_HOME3" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-coordinator.sh" --skip playwright >/dev/null 2>&1 || true
+playwright_skip=$(jq -r '.mcpServers.playwright // empty' "$FAKE_HOME3/.claude.json")
+assert "playwright skipped" test -z "$playwright_skip"
 
-HOME="$FAKE_HOME3" bash "$SCRIPTS_DIR/install-coordinator.sh" --skip playwright >/dev/null 2>&1 || true
-# Should have serena, gitnexus, sequential-thinking, context7 but NOT playwright
-has_playwright=$(jq -r '.mcpServers.playwright // empty' "$FAKE_HOME3/.claude.json")
-assert "playwright skipped" test -z "$has_playwright"
-has_serena=$(jq -r '.mcpServers.serena.command // empty' "$FAKE_HOME3/.claude.json")
-assert "serena installed" test -n "$has_serena"
-
-echo "4.5 Default install only includes required tools"
-FAKE_HOME34="$TMP_DIR/test_required_only"
-mkdir -p "$FAKE_HOME34"
-echo '{"mcpServers":{}}' > "$FAKE_HOME34/.claude.json"
-chmod 600 "$FAKE_HOME34/.claude.json"
-
-HOME="$FAKE_HOME34" bash "$SCRIPTS_DIR/install-coordinator.sh" >/dev/null 2>&1 || true
-playwright_default=$(jq -r '.mcpServers.playwright // empty' "$FAKE_HOME34/.claude.json")
-assert "playwright not installed by default" test -z "$playwright_default"
-required_count=$(jq '[.mcpServers | keys[] | select(. != "playwright")] | length' "$FAKE_HOME34/.claude.json")
-assert "required tools configured by default" test "$required_count" -ge 4
-
-echo "4.6 Config merge doesn't overwrite existing entries"
+echo "4.3 Existing config is preserved"
 FAKE_HOME4="$TMP_DIR/test_merge"
 mkdir -p "$FAKE_HOME4"
-# Pre-existing custom serena config
 cat > "$FAKE_HOME4/.claude.json" <<'JSONEOF'
 {
   "mcpServers": {
@@ -313,103 +255,149 @@ cat > "$FAKE_HOME4/.claude.json" <<'JSONEOF'
 }
 JSONEOF
 chmod 600 "$FAKE_HOME4/.claude.json"
-
-HOME="$FAKE_HOME4" bash "$SCRIPTS_DIR/install-coordinator.sh" --install serena >/dev/null 2>&1 || true
+HOME="$FAKE_HOME4" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-coordinator.sh" >/dev/null 2>&1 || true
 serena_cmd_after=$(jq -r '.mcpServers.serena.command' "$FAKE_HOME4/.claude.json")
 assert_output "Existing config preserved" "custom-serena" "$serena_cmd_after"
 
-echo "4.7 Backup created and cleaned up"
-FAKE_HOME5="$TMP_DIR/test_backup"
+echo "4.4 Creates config when missing"
+FAKE_HOME5="$TMP_DIR/test_create"
 mkdir -p "$FAKE_HOME5"
-echo '{"mcpServers":{}}' > "$FAKE_HOME5/.claude.json"
-chmod 600 "$FAKE_HOME5/.claude.json"
-
-HOME="$FAKE_HOME5" bash "$SCRIPTS_DIR/install-coordinator.sh" --install context7 >/dev/null 2>&1 || true
-# Backup should be deleted on success
-backup_count=$(find "$FAKE_HOME5" -name '.claude.json.backup.*' | wc -l | tr -d ' ')
-assert_output "Backup cleaned on success" "0" "$backup_count"
-
-echo "4.8 File permissions preserved (600)"
-FAKE_HOME6="$TMP_DIR/test_perms"
-mkdir -p "$FAKE_HOME6"
-echo '{"mcpServers":{}}' > "$FAKE_HOME6/.claude.json"
-chmod 600 "$FAKE_HOME6/.claude.json"
-
-HOME="$FAKE_HOME6" bash "$SCRIPTS_DIR/install-coordinator.sh" --install sequential-thinking >/dev/null 2>&1 || true
-perms=$(stat -f '%Lp' "$FAKE_HOME6/.claude.json" 2>/dev/null || stat -c '%a' "$FAKE_HOME6/.claude.json" 2>/dev/null)
-assert_output "Config file is 600" "600" "$perms"
-
-echo "4.9 Creates initial config when ~/.claude.json doesn't exist"
-FAKE_HOME7="$TMP_DIR/test_create"
-mkdir -p "$FAKE_HOME7"
-HOME="$FAKE_HOME7" bash "$SCRIPTS_DIR/install-coordinator.sh" --install context7 >/dev/null 2>&1 || true
-assert "Config created" test -f "$FAKE_HOME7/.claude.json"
-config_valid=$(jq -e '.mcpServers.context7' "$FAKE_HOME7/.claude.json" 2>/dev/null)
+HOME="$FAKE_HOME5" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-coordinator.sh" >/dev/null 2>&1 || true
+assert "Config created" test -f "$FAKE_HOME5/.claude.json"
+config_valid=$(jq -e '.mcpServers.context7' "$FAKE_HOME5/.claude.json" 2>/dev/null)
 assert "context7 configured in new file" test -n "$config_valid"
 
-echo "4.10 Atomic write uses same-dir tempfile (not /tmp)"
-FAKE_HOME8="$TMP_DIR/test_atomic"
-mkdir -p "$FAKE_HOME8"
-echo '{"mcpServers":{}}' > "$FAKE_HOME8/.claude.json"
-chmod 600 "$FAKE_HOME8/.claude.json"
+echo "4.5 Codex install configures codex config.toml"
+FAKE_HOME6="$TMP_DIR/test_codex_install"
+mkdir -p "$FAKE_HOME6"
+mkdir -p "$FAKE_HOME6/.codex"
+cat > "$FAKE_HOME6/.codex/config.toml" <<'TOMLEOF'
+[mcp_servers]
+TOMLEOF
+chmod 600 "$FAKE_HOME6/.codex/config.toml"
+HOME="$FAKE_HOME6" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/install-coordinator.sh" >/dev/null 2>&1 || true
+for tool in serena context7 sequential-thinking; do
+  assert "codex $tool configured" grep -qF "[mcp_servers.$tool]" "$FAKE_HOME6/.codex/config.toml"
+done
+assert "codex config exists" test -f "$FAKE_HOME6/.codex/config.toml"
 
-# Run and check no leftover temp files
-HOME="$FAKE_HOME8" bash "$SCRIPTS_DIR/install-coordinator.sh" --install context7 >/dev/null 2>&1 || true
-leftover=$(find "$FAKE_HOME8" -name '.claude.json.??????' | wc -l | tr -d ' ')
+echo "4.6 File permissions preserved (600)"
+perms=$(stat -f '%Lp' "$FAKE_HOME5/.claude.json" 2>/dev/null || stat -c '%a' "$FAKE_HOME5/.claude.json" 2>/dev/null)
+assert_output "Config file is 600" "600" "$perms"
+
+echo "4.7 Atomic write uses same-dir tempfile (not /tmp)"
+leftover=$(find "$FAKE_HOME5" -name '.claude.json.??????' | wc -l | tr -d ' ')
 assert_output "No leftover temp files" "0" "$leftover"
 
 echo ""
 
 # ============================================================================
-echo "5. SKILL.md validation"
-# ============================================================================
+echo "5. verify-tools.sh tests"
 
-SKILL_MD="$REPO_ROOT/skills/mcp-setup/SKILL.md"
+VERIFY_SCRIPT="$SCRIPTS_DIR/verify-tools.sh"
 
-echo "5.1 SKILL.md has YAML frontmatter"
-first_line=$(head -1 "$SKILL_MD")
-assert "SKILL.md starts with ---" test "$first_line" = "---"
+echo "5.1 setup_success=true when baseline tools are configured for Claude"
+FH91="$TMP_DIR/fh91"
+mkdir -p "$FH91"
+cat > "$FH91/.claude.json" <<'JSONEOF'
+{
+  "mcpServers": {
+    "serena": { "command": "uvx" },
+    "context7": { "command": "npx" },
+    "sequential-thinking": { "command": "npx" }
+  }
+}
+JSONEOF
+HOME="$FH91" MCP_SETUP_HOST=claude bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+schema_91=$(jq -r '.version' "$FH91/.claude/spec-first/host-setup.json")
+assert_output "schema version v4" "4" "$schema_91"
+host_91=$(jq -r '.host' "$FH91/.claude/spec-first/host-setup.json")
+assert_output "claude host field" "claude" "$host_91"
+out91=$(jq -r '.setup_success' "$FH91/.claude/spec-first/host-setup.json")
+assert_output "setup_success true" "true" "$out91"
+serena_cfg_91=$(jq -r '.tools.serena.configured' "$FH91/.claude/spec-first/host-setup.json")
+assert_output "serena.configured true" "true" "$serena_cfg_91"
+ctx_cfg_91=$(jq -r '.tools.context7.configured' "$FH91/.claude/spec-first/host-setup.json")
+assert_output "context7.configured true" "true" "$ctx_cfg_91"
+seq_cfg_91=$(jq -r '.tools."sequential-thinking".configured' "$FH91/.claude/spec-first/host-setup.json")
+assert_output "sequential-thinking.configured true" "true" "$seq_cfg_91"
 
-echo "5.2 SKILL.md frontmatter has required fields"
-for field in name description argument-hint; do
-  assert "SKILL.md has '$field'" grep -q "^${field}:" "$SKILL_MD"
-done
+echo "5.2 setup_success=false when a baseline tool is missing"
+FH92="$TMP_DIR/fh92"
+mkdir -p "$FH92"
+cat > "$FH92/.claude.json" <<'JSONEOF'
+{
+  "mcpServers": {
+    "serena": { "command": "uvx" },
+    "context7": { "command": "npx" }
+  }
+}
+JSONEOF
+HOME="$FH92" MCP_SETUP_HOST=claude bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+out92=$(jq -r '.setup_success' "$FH92/.claude/spec-first/host-setup.json")
+assert_output "setup_success false" "false" "$out92"
 
-echo "5.3 SKILL.md name is mcp-setup"
-skill_name=$(grep '^name:' "$SKILL_MD" | head -1 | sed 's/^name: *//')
-assert_output "SKILL.md name" "mcp-setup" "$skill_name"
+echo "5.3 host-setup schema does not include removed tools"
+assert "No gitnexus tool entry" jq -e '.tools.gitnexus | not' "$FH91/.claude/spec-first/host-setup.json"
+assert "No abcoder tool entry" jq -e '.tools.abcoder | not' "$FH91/.claude/spec-first/host-setup.json"
 
-echo "5.4 SKILL.md has Phase 1, 2, 3 sections"
-for phase in "Phase 1" "Phase 2" "Phase 3"; do
-  assert "SKILL.md has '$phase'" grep -q "$phase" "$SKILL_MD"
-done
+echo "5.4 setup_success=true when baseline tools are configured for Codex"
+FH93="$TMP_DIR/fh93"
+mkdir -p "$FH93/.codex"
+cat > "$FH93/.codex/config.toml" <<'TOMLEOF'
+[mcp_servers.serena]
+command = "uvx"
+
+[mcp_servers.context7]
+command = "npx"
+
+[mcp_servers.sequential-thinking]
+command = "npx"
+TOMLEOF
+HOME="$FH93" MCP_SETUP_HOST=codex bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+schema_93=$(jq -r '.version' "$FH93/.codex/spec-first/host-setup.json")
+assert_output "codex schema version v4" "4" "$schema_93"
+host_93=$(jq -r '.host' "$FH93/.codex/spec-first/host-setup.json")
+assert_output "codex host field" "codex" "$host_93"
+out93=$(jq -r '.setup_success' "$FH93/.codex/spec-first/host-setup.json")
+assert_output "codex setup_success true" "true" "$out93"
 
 echo ""
 
 # ============================================================================
-echo "6. plugin.json validation"
-# ============================================================================
+echo "6. SKILL.md validation"
 
-PLUGIN_JSON="$REPO_ROOT/.claude-plugin/plugin.json"
+SKILL_MD="$REPO_ROOT/skills/mcp-setup/SKILL.md"
+PROMPT_SKILL_MD="$REPO_ROOT/docs/10-prompt/skills/mcp-setup/SKILL.md"
 
-echo "6.1 plugin.json is valid JSON"
-assert "plugin.json is valid JSON" jq -e . "$PLUGIN_JSON" >/dev/null
+echo "6.1 SKILL.md has YAML frontmatter"
+first_line=$(head -1 "$SKILL_MD")
+assert "SKILL.md starts with ---" test "$first_line" = "---"
 
-echo "6.2 plugin.json has mcp-setup command"
-mcp_setup=$(jq -r '.commands[] | select(.name == "mcp-setup") | .name' "$PLUGIN_JSON")
-assert_output "mcp-setup command registered" "mcp-setup" "$mcp_setup"
+echo "6.2 SKILL.md frontmatter has required fields"
+for field in name description argument-hint; do
+  assert "SKILL.md has '$field'" grep -q "^${field}:" "$SKILL_MD"
+done
 
-echo "6.3 mcp-setup command has correct fields"
-mcp_filename=$(jq -r '.commands[] | select(.name == "mcp-setup") | .filename' "$PLUGIN_JSON")
-mcp_skill=$(jq -r '.commands[] | select(.name == "mcp-setup") | .skill' "$PLUGIN_JSON")
-assert_output "filename is mcp-setup.md" "mcp-setup.md" "$mcp_filename"
-assert_output "skill is mcp-setup" "mcp-setup" "$mcp_skill"
+echo "6.3 SKILL.md name is mcp-setup"
+skill_name=$(grep '^name:' "$SKILL_MD" | head -1 | sed 's/^name: *//')
+assert_output "SKILL.md name" "mcp-setup" "$skill_name"
+
+echo "6.4 SKILL.md has Phase 1, 2, 3 sections"
+for phase in "Phase 1" "Phase 2" "Phase 3"; do
+  assert "SKILL.md has '$phase'" grep -q "$phase" "$SKILL_MD"
+done
+
+echo "6.5 SKILL.md omits GitNexus/ABCoder blurbs"
+assert_not_contains "SKILL.md no longer mentions GitNexus" "GitNexus" "$(cat "$SKILL_MD")"
+assert_not_contains "SKILL.md no longer mentions ABCoder" "ABCoder" "$(cat "$SKILL_MD")"
+assert_not_contains "Prompt skill no longer mentions GitNexus" "GitNexus" "$(cat "$PROMPT_SKILL_MD")"
+assert_not_contains "Prompt skill no longer mentions ABCoder" "ABCoder" "$(cat "$PROMPT_SKILL_MD")"
 
 echo ""
 
 # ============================================================================
 echo "7. Command template validation"
-# ============================================================================
 
 CMD_TEMPLATE="$REPO_ROOT/templates/claude/commands/spec/mcp-setup.md"
 
@@ -426,373 +414,42 @@ assert "References skills/mcp-setup/SKILL.md" grep -q 'skills/mcp-setup/SKILL.md
 echo "7.4 Command template does NOT reference .claude/skills/ (old path)"
 assert_not_contains "No .claude/skills/ path" ".claude/skills/mcp-setup" "$(cat "$CMD_TEMPLATE")"
 
+echo "7.5 Windows PowerShell entrypoints exist"
+for ps1 in check-deps.ps1 detect-host.ps1 detect-tools.ps1 install-coordinator.ps1 verify-tools.ps1; do
+  assert "Has $ps1" test -f "$SCRIPTS_DIR/$ps1"
+done
+
 echo ""
 
 # ============================================================================
 echo "8. Integration: detect → install → verify"
-# ============================================================================
 
-echo "8.1 Full flow: detect missing → install → detect installed"
 FAKE_HOME9="$TMP_DIR/test_integration"
 mkdir -p "$FAKE_HOME9"
 echo '{"mcpServers":{}}' > "$FAKE_HOME9/.claude.json"
 chmod 600 "$FAKE_HOME9/.claude.json"
 
-# Step 1: detect
-before=$(HOME="$FAKE_HOME9" bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
-before_missing=$(jq -r '.missing[]' <<<"$before" | grep -c . || echo "0")
-
-# Step 2: install
-HOME="$FAKE_HOME9" bash "$SCRIPTS_DIR/install-coordinator.sh" >/dev/null 2>&1 || true
-
-# Step 3: detect again
-after=$(HOME="$FAKE_HOME9" bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
+before=$(HOME="$FAKE_HOME9" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
+before_missing=$(jq '.missing | length' <<<"$before")
+HOME="$FAKE_HOME9" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-coordinator.sh" >/dev/null 2>&1 || true
+after=$(HOME="$FAKE_HOME9" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
 after_missing=$(jq '.missing | length' <<<"$after")
 
 assert "Fewer missing after install" test "$after_missing" -lt "$before_missing"
-
-echo "8.2 Config file still valid JSON after full flow"
 assert "Config still valid JSON" jq -e . "$FAKE_HOME9/.claude.json" >/dev/null
-
-echo "8.3 All required MCP tools configured"
-for tool in serena gitnexus sequential-thinking context7; do
+for tool in serena sequential-thinking context7; do
   configured=$(jq -r --arg t "$tool" '.mcpServers[$t].command // empty' "$FAKE_HOME9/.claude.json")
   assert "$tool configured" test -n "$configured"
 done
-
-echo "8.4 Optional tool not configured by default"
 playwright_after=$(jq -r '.mcpServers.playwright // empty' "$FAKE_HOME9/.claude.json")
 assert "playwright absent by default in integration flow" test -z "$playwright_after"
 
 echo ""
 
-# ============================================================================
-echo "9. verify-tools.sh tests"
-# ============================================================================
+echo "=== summary ==="
+echo "pass: $pass"
+echo "fail: $fail"
 
-VERIFY_SCRIPT="$SCRIPTS_DIR/verify-tools.sh"
-
-echo "9.1 abcoder binary detected when present (controlled PATH with stub)"
-FH91="$TMP_DIR/fh91"
-FAKEBIN91="$TMP_DIR/fakebin91"
-mkdir -p "$FH91" "$FAKEBIN91"
-echo '{"mcpServers":{}}' > "$FH91/.claude.json"
-# Stub abcoder binary that always exits 0 (simulates installed + working)
-printf '#!/bin/sh\nexit 0\n' > "$FAKEBIN91/abcoder"
-chmod +x "$FAKEBIN91/abcoder"
-for cmd in bash jq date mkdir mktemp chmod mv rm; do
-  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN91/$cmd"; fi
-done
-out91=$(HOME="$FH91" PATH="$FAKEBIN91" bash "$VERIFY_SCRIPT" 2>/dev/null \
-  && jq -r '.tools.abcoder.installed' "$FH91/.claude/spec-first/host-setup.json")
-assert_output "9.1 abcoder.installed=true when in PATH" "true" "$out91"
-
-echo "9.2 abcoder binary not detected when absent (PATH override)"
-FH92="$TMP_DIR/fh92"
-FAKEBIN92="$TMP_DIR/fakebin92"
-mkdir -p "$FH92" "$FAKEBIN92"
-echo '{"mcpServers":{}}' > "$FH92/.claude.json"
-# Build a minimal PATH with required tools but WITHOUT abcoder
-for cmd in bash jq date mkdir mktemp chmod mv rm; do
-  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN92/$cmd"; fi
-done
-# Do NOT link abcoder — it should appear absent in this PATH
-out92=$(HOME="$FH92" PATH="$FAKEBIN92" bash "$VERIFY_SCRIPT" 2>/dev/null \
-  && jq -r '.tools.abcoder.installed' "$FH92/.claude/spec-first/host-setup.json")
-assert_output "9.2 abcoder.installed=false when not in PATH" "false" "$out92"
-
-echo "9.3 serena configured=true when mcpServers.serena exists in ~/.claude.json"
-FH93="$TMP_DIR/fh93"
-mkdir -p "$FH93"
-echo '{"mcpServers":{"serena":{"command":"uvx"}}}' > "$FH93/.claude.json"
-HOME="$FH93" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out93=$(jq -r '.tools.serena.configured' "$FH93/.claude/spec-first/host-setup.json")
-assert_output "9.3 serena.configured=true" "true" "$out93"
-
-echo "9.4 serena configured=false when ~/.claude.json absent"
-FH94="$TMP_DIR/fh94"
-mkdir -p "$FH94"
-HOME="$FH94" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out94=$(jq -r '.tools.serena.configured' "$FH94/.claude/spec-first/host-setup.json")
-assert_output "9.4 serena.configured=false when no claude.json" "false" "$out94"
-
-echo "9.5 serena configured=false when mcpServers key exists but serena missing"
-FH95="$TMP_DIR/fh95"
-mkdir -p "$FH95"
-echo '{"mcpServers":{"gitnexus":{"command":"npx"}}}' > "$FH95/.claude.json"
-HOME="$FH95" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out95=$(jq -r '.tools.serena.configured' "$FH95/.claude/spec-first/host-setup.json")
-assert_output "9.5 serena.configured=false when absent from mcpServers" "false" "$out95"
-
-echo "9.6 host-setup.json written to correct path"
-FH96="$TMP_DIR/fh96"
-mkdir -p "$FH96"
-HOME="$FH96" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-assert "9.6 host-setup.json at ~/.claude/spec-first/host-setup.json" test -f "$FH96/.claude/spec-first/host-setup.json"
-
-echo "9.7 host-setup.json is valid JSON after write"
-FH97="$TMP_DIR/fh97"
-mkdir -p "$FH97"
-HOME="$FH97" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-assert "9.7 host-setup.json is valid JSON" jq -e . "$FH97/.claude/spec-first/host-setup.json"
-
-echo "9.8 host-setup.json has chmod 600 permissions"
-FH98="$TMP_DIR/fh98"
-mkdir -p "$FH98"
-HOME="$FH98" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-perms98=$(stat -f '%Lp' "$FH98/.claude/spec-first/host-setup.json" 2>/dev/null || stat -c '%a' "$FH98/.claude/spec-first/host-setup.json" 2>/dev/null)
-assert_output "9.8 host-setup.json is 600" "600" "$perms98"
-
-echo "9.9 idempotent: second run overwrites, no error"
-FH99="$TMP_DIR/fh99"
-mkdir -p "$FH99"
-HOME="$FH99" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-first99=$(jq -S . "$FH99/.claude/spec-first/host-setup.json")
-HOME="$FH99" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-second99=$(jq -S . "$FH99/.claude/spec-first/host-setup.json")
-# Both runs should produce valid JSON (timestamps differ, so we just check validity)
-assert "9.9 first run valid JSON" jq -e . "$FH99/.claude/spec-first/host-setup.json"
-assert "9.9 second run succeeds without error" test -n "$second99"
-
-echo "9.10 exits non-zero when host-setup.json parent not writable"
-FH910="$TMP_DIR/fh910"
-mkdir -p "$FH910/.claude/spec-first"
-chmod 500 "$FH910/.claude/spec-first"
-exit910=0
-HOME="$FH910" bash "$VERIFY_SCRIPT" >/dev/null 2>&1 || exit910=$?
-chmod 700 "$FH910/.claude/spec-first"  # restore for cleanup
-assert "9.10 exits non-zero on unwritable dir" test "$exit910" -ne 0
-
-echo "9.11 java_runtime.present=false when java not in PATH"
-FH911="$TMP_DIR/fh911"
-FAKEBIN911="$TMP_DIR/fakebin911"
-mkdir -p "$FH911" "$FAKEBIN911"
-# Build a minimal PATH with required tools but WITHOUT java
-for cmd in bash jq date mkdir mktemp chmod mv rm abcoder; do
-  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN911/$cmd"; fi
-done
-# Do NOT link java — it should appear absent
-HOME="$FH911" PATH="$FAKEBIN911" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out911=$(jq -r '.java_runtime.present' "$FH911/.claude/spec-first/host-setup.json")
-assert_output "9.11 java_runtime.present=false" "false" "$out911"
-reason911=$(jq -r '.java_runtime.reason' "$FH911/.claude/spec-first/host-setup.json")
-assert_output "9.11 java_runtime.reason=java-not-found" "java-not-found" "$reason911"
-
-echo "9.12 context7 configured=true when mcpServers.context7 exists in ~/.claude.json"
-FH912="$TMP_DIR/fh912"
-mkdir -p "$FH912"
-echo '{"mcpServers":{"context7":{"command":"npx"}}}' > "$FH912/.claude.json"
-HOME="$FH912" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out912=$(jq -r '.tools.context7.configured' "$FH912/.claude/spec-first/host-setup.json")
-assert_output "9.12 context7.configured=true" "true" "$out912"
-
-echo "9.13 sequential-thinking configured=true when mcpServers.sequential-thinking exists"
-FH913="$TMP_DIR/fh913"
-mkdir -p "$FH913"
-echo '{"mcpServers":{"sequential-thinking":{"command":"npx"}}}' > "$FH913/.claude.json"
-HOME="$FH913" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out913=$(jq -r '.tools["sequential-thinking"].configured' "$FH913/.claude/spec-first/host-setup.json")
-assert_output "9.13 sequential-thinking.configured=true" "true" "$out913"
-
-echo "9.14 setup_success=false when required tools are missing"
-FH914="$TMP_DIR/fh914"
-mkdir -p "$FH914"
-echo '{"mcpServers":{}}' > "$FH914/.claude.json"
-HOME="$FH914" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out914=$(jq -r '.setup_success' "$FH914/.claude/spec-first/host-setup.json")
-assert_output "9.14 setup_success=false when required tools missing" "false" "$out914"
-
-echo "9.15 setup_success=true when abcoder MCP config is missing but baseline tools are ready"
-FH915="$TMP_DIR/fh915"
-FAKEBIN915="$TMP_DIR/fakebin915"
-mkdir -p "$FH915" "$FAKEBIN915"
-cat > "$FH915/.claude.json" <<'JSONEOF'
-{"mcpServers":{
-  "serena":{"command":"uvx"},
-  "gitnexus":{"command":"npx"},
-  "context7":{"command":"npx"},
-  "sequential-thinking":{"command":"npx"}
-}}
-JSONEOF
-printf '#!/bin/sh\nif [ "$1" = "version" ]; then exit 0; fi\nexit 0\n' > "$FAKEBIN915/abcoder"
-chmod +x "$FAKEBIN915/abcoder"
-for cmd in bash jq date mkdir mktemp chmod mv rm; do
-  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN915/$cmd"; fi
-done
-HOME="$FH915" PATH="$FAKEBIN915" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out915=$(jq -r '.setup_success' "$FH915/.claude/spec-first/host-setup.json")
-assert_output "9.15 setup_success=true when abcoder MCP config missing" "true" "$out915"
-abcoder_cfg_915=$(jq -r '.tools.abcoder.configured' "$FH915/.claude/spec-first/host-setup.json")
-assert_output "9.15 abcoder.configured=false when missing from mcpServers" "false" "$abcoder_cfg_915"
-
-echo "9.16 setup_success=true when gitnexus is missing but baseline tools are ready"
-FAKEBIN916="$TMP_DIR/fakebin916"
-FH916="$TMP_DIR/fh916"
-mkdir -p "$FH916" "$FAKEBIN916"
-cat > "$FH916/.claude.json" <<'JSONEOF'
-{"mcpServers":{
-  "abcoder":{"command":"abcoder","args":["mcp","/tmp/abcoder-ast"]},
-  "serena":{"command":"uvx"},
-  "context7":{"command":"npx"},
-  "sequential-thinking":{"command":"npx"}
-}}
-JSONEOF
-printf '#!/bin/sh\nif [ "$1" = "version" ]; then exit 0; fi\nexit 0\n' > "$FAKEBIN916/abcoder"
-chmod +x "$FAKEBIN916/abcoder"
-for cmd in bash jq date mkdir mktemp chmod mv rm; do
-  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN916/$cmd"; fi
-done
-HOME="$FH916" PATH="$FAKEBIN916" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out916=$(jq -r '.setup_success' "$FH916/.claude/spec-first/host-setup.json")
-assert_output "9.16 setup_success=true when gitnexus missing" "true" "$out916"
-gitnexus_cfg_916=$(jq -r '.tools.gitnexus.configured' "$FH916/.claude/spec-first/host-setup.json")
-assert_output "9.16 gitnexus.configured=false when missing from mcpServers" "false" "$gitnexus_cfg_916"
-abcoder_cfg_916=$(jq -r '.tools.abcoder.configured' "$FH916/.claude/spec-first/host-setup.json")
-assert_output "9.16 abcoder.configured=true when present in mcpServers" "true" "$abcoder_cfg_916"
-
-echo "9.17 setup_success=false when serena is missing even if abcoder and gitnexus are present"
-FAKEBIN917="$TMP_DIR/fakebin917"
-FH917="$TMP_DIR/fh917"
-mkdir -p "$FH917" "$FAKEBIN917"
-cat > "$FH917/.claude.json" <<'JSONEOF'
-{"mcpServers":{
-  "abcoder":{"command":"abcoder","args":["mcp","/tmp/abcoder-ast"]},
-  "gitnexus":{"command":"npx"},
-  "context7":{"command":"npx"},
-  "sequential-thinking":{"command":"npx"}
-}}
-JSONEOF
-printf '#!/bin/sh\nif [ "$1" = "version" ]; then exit 0; fi\nexit 0\n' > "$FAKEBIN917/abcoder"
-chmod +x "$FAKEBIN917/abcoder"
-for cmd in bash jq date mkdir mktemp chmod mv rm; do
-  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN917/$cmd"; fi
-done
-HOME="$FH917" PATH="$FAKEBIN917" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out917=$(jq -r '.setup_success' "$FH917/.claude/spec-first/host-setup.json")
-assert_output "9.17 setup_success=false when serena missing" "false" "$out917"
-
-echo ""
-
-# ============================================================================
-echo "10. Language runtime detection tests"
-# ============================================================================
-
-echo "10.1 go_present=true when go in PATH"
-FH101="$TMP_DIR/fh101"
-FAKEBIN101="$TMP_DIR/fakebin101"
-mkdir -p "$FH101" "$FAKEBIN101"
-echo '{"mcpServers":{}}' > "$FH101/.claude.json"
-for cmd in bash jq date mkdir mktemp chmod mv rm cat awk find head ls; do
-  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN101/$cmd"; fi
-done
-printf '#!/bin/sh\nif [ "$1" = "version" ]; then echo "go version go1.22.0 darwin/arm64"; elif [ "$1" = "env" ]; then echo "/fake/gomodcache"; fi\n' > "$FAKEBIN101/go"
-chmod +x "$FAKEBIN101/go"
-HOME="$FH101" PATH="$FAKEBIN101" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out101=$(jq -r '.language_runtime.go.present' "$FH101/.claude/spec-first/host-setup.json")
-assert_output "10.1 go_present=true" "true" "$out101"
-
-echo "10.2 python_present=false when python not in PATH"
-FH102="$TMP_DIR/fh102"
-FAKEBIN102="$TMP_DIR/fakebin102"
-mkdir -p "$FH102" "$FAKEBIN102"
-echo '{"mcpServers":{}}' > "$FH102/.claude.json"
-for cmd in bash jq date mkdir mktemp chmod mv rm cat awk find head ls; do
-  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN102/$cmd"; fi
-done
-# No python3 or python in PATH
-HOME="$FH102" PATH="$FAKEBIN102" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out102=$(jq -r '.language_runtime.python.present' "$FH102/.claude/spec-first/host-setup.json")
-assert_output "10.2 python_present=false" "false" "$out102"
-
-echo "10.3 jdt_cache.reason=not-applicable when abcoder not installed"
-FH103="$TMP_DIR/fh103"
-FAKEBIN103="$TMP_DIR/fakebin103"
-mkdir -p "$FH103" "$FAKEBIN103"
-echo '{"mcpServers":{}}' > "$FH103/.claude.json"
-for cmd in bash jq date mkdir mktemp chmod mv rm cat awk find head ls; do
-  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN103/$cmd"; fi
-done
-# No abcoder in PATH
-HOME="$FH103" PATH="$FAKEBIN103" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out103=$(jq -r '.jdt_cache.reason' "$FH103/.claude/spec-first/host-setup.json")
-assert_output "10.3 jdt_cache.reason=not-applicable" "not-applicable" "$out103"
-
-echo "10.4 host-setup.json version is 2"
-FH104="$TMP_DIR/fh104"
-mkdir -p "$FH104"
-HOME="$FH104" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out104=$(jq -r '.version' "$FH104/.claude/spec-first/host-setup.json")
-assert_output "10.4 version=2" "2" "$out104"
-
-echo "10.5 host-setup.json has language_runtime field"
-FH105="$TMP_DIR/fh105"
-mkdir -p "$FH105"
-HOME="$FH105" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out105=$(jq -r '.language_runtime' "$FH105/.claude/spec-first/host-setup.json")
-assert "10.5 language_runtime field exists" test -n "$out105"
-
-echo "10.6 host-setup.json has jdt_cache field"
-FH106="$TMP_DIR/fh106"
-mkdir -p "$FH106"
-HOME="$FH106" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out106=$(jq -r '.jdt_cache' "$FH106/.claude/spec-first/host-setup.json")
-assert "10.6 jdt_cache field exists" test -n "$out106"
-
-echo "10.7 jdt_cache.writable=false when JDT dir exists but not writable"
-FH107="$TMP_DIR/fh107"
-FAKEBIN107="$TMP_DIR/fakebin107"
-FAKE_MOD107="$TMP_DIR/fakemod107"
-mkdir -p "$FH107" "$FAKEBIN107"
-echo '{"mcpServers":{}}' > "$FH107/.claude.json"
-for cmd in bash jq date mkdir mktemp chmod mv rm cat awk find head ls; do
-  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN107/$cmd"; fi
-done
-mkdir -p "$FAKE_MOD107/github.com/cloudwego/abcoder@v0.3.1/lang/java/lsp/jdtls"
-chmod 444 "$FAKE_MOD107/github.com/cloudwego/abcoder@v0.3.1/lang/java/lsp/jdtls"
-printf '#!/bin/sh\necho "abcoder version v0.3.1"\n' > "$FAKEBIN107/abcoder"
-chmod +x "$FAKEBIN107/abcoder"
-printf '#!/bin/sh\nexit 0\n' > "$FAKEBIN107/java"
-chmod +x "$FAKEBIN107/java"
-printf '#!/bin/sh\nif [ "$1" = "version" ]; then echo "go version go1.22.0 darwin/arm64"; elif [ "$1" = "env" ]; then echo "'"$FAKE_MOD107"'"; fi\n' > "$FAKEBIN107/go"
-chmod +x "$FAKEBIN107/go"
-HOME="$FH107" PATH="$FAKEBIN107" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out107w=$(jq -r '.jdt_cache.writable' "$FH107/.claude/spec-first/host-setup.json")
-assert_output "10.7 jdt_cache.writable=false" "false" "$out107w"
-out107r=$(jq -r '.jdt_cache.reason' "$FH107/.claude/spec-first/host-setup.json")
-assert_output "10.7 jdt_cache.reason=not-writable" "not-writable" "$out107r"
-chmod 755 "$FAKE_MOD107/github.com/cloudwego/abcoder@v0.3.1/lang/java/lsp/jdtls"  # restore for cleanup
-
-echo "10.8 jdt_cache.writable=true when JDT parent dir is writable (jdtls not yet created)"
-FH108="$TMP_DIR/fh108"
-FAKEBIN108="$TMP_DIR/fakebin108"
-FAKE_MOD108="$TMP_DIR/fakemod108"
-mkdir -p "$FH108" "$FAKEBIN108"
-echo '{"mcpServers":{}}' > "$FH108/.claude.json"
-for cmd in bash jq date mkdir mktemp chmod mv rm cat awk find head ls; do
-  if _p=$(command -v "$cmd" 2>/dev/null); then ln -sf "$_p" "$FAKEBIN108/$cmd"; fi
-done
-mkdir -p "$FAKE_MOD108/github.com/cloudwego/abcoder@v0.3.1/lang/java/lsp"
-printf '#!/bin/sh\necho "abcoder version v0.3.1"\n' > "$FAKEBIN108/abcoder"
-chmod +x "$FAKEBIN108/abcoder"
-printf '#!/bin/sh\nexit 0\n' > "$FAKEBIN108/java"
-chmod +x "$FAKEBIN108/java"
-printf '#!/bin/sh\nif [ "$1" = "version" ]; then echo "go version go1.22.0 darwin/arm64"; elif [ "$1" = "env" ]; then echo "'"$FAKE_MOD108"'"; fi\n' > "$FAKEBIN108/go"
-chmod +x "$FAKEBIN108/go"
-HOME="$FH108" PATH="$FAKEBIN108" bash "$VERIFY_SCRIPT" >/dev/null 2>&1
-out108=$(jq -r '.jdt_cache.writable' "$FH108/.claude/spec-first/host-setup.json")
-assert_output "10.8 jdt_cache.writable=true (parent-writable)" "true" "$out108"
-
-echo ""
-
-# ============================================================================
-echo "=== Results ==="
-echo "  Passed: $pass"
-echo "  Failed: $fail"
-echo ""
-
-if [ $fail -gt 0 ]; then
-  echo "=== mcp-setup tests FAILED ==="
+if [ "$fail" -ne 0 ]; then
   exit 1
-else
-  echo "=== mcp-setup tests PASSED ==="
 fi

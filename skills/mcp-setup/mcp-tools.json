@@ -17,34 +17,6 @@
       }
     },
     {
-      "id": "gitnexus",
-      "name": "GitNexus",
-      "category": "required",
-      "description": "代码知识图谱/架构引擎，spec-bootstrap Full mode 必需",
-      "dependencies": ["node"],
-      "mcp_config": {
-        "command": "npx",
-        "args": ["-y", "gitnexus@latest", "mcp"]
-      },
-      "detect": {
-        "method": "mcp_config",
-        "key": "gitnexus"
-      }
-    },
-    {
-      "id": "abcoder",
-      "name": "ABCoder",
-      "category": "required",
-      "description": "跨语言语义增强，spec-bootstrap Full mode 必需（安装时只装二进制，AST 配置在 spec-bootstrap 时自动完成）",
-      "dependencies": ["go"],
-      "install_command": "go install github.com/cloudwego/abcoder@latest",
-      "mcp_config": null,
-      "detect": {
-        "method": "command",
-        "command": "abcoder version"
-      }
-    },
-    {
       "id": "sequential-thinking",
       "name": "Sequential Thinking",
       "category": "required",

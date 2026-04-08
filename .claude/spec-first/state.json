@@ -5,13 +5,14 @@
     "path": ".claude/spec-first/.developer",
     "name": "leokuang",
     "lang": "zh",
-    "initializedAt": "2026-04-07T03:43:41.436Z",
-    "version": "1.5.0"
+    "initializedAt": "2026-04-08T02:08:12.397Z",
+    "version": "1.5.1"
   },
   "commands": [
     "bootstrap.md",
     "brainstorm.md",
     "compound.md",
+    "graphify.md",
     "ideate.md",
     "mcp-setup.md",
     "plan.md",
@@ -37,6 +38,7 @@
     "git-commit",
     "git-commit-push-pr",
     "git-worktree",
+    "graphify",
     "lfg",
     "mcp-setup",
     "onboarding",

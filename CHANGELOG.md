@@ -8,6 +8,20 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-08 22:00:00 kuang: feat(mcp-setup): 增加 Windows PowerShell 7+ 支持，补齐 detect/check/install/verify 的 .ps1 入口，更新技能合同与测试断言，允许在 macOS/Linux/Windows 上使用对应宿主脚本 (user-visible)
+- v1.6.0 2026-04-08 21:00:00 kuang: fix(mcp-setup+spec-bootstrap): 让 MCP 安装与引导流程按当前宿主自适应，自动区分 Claude Code / Codex 的配置文件与 host-setup 标记路径，并补齐双宿主 unit 测试与文档同步 (user-visible)
+- v1.6.0 2026-04-08 20:00:00 kuang: fix(graphify skill): --out-dir 参数支持与输出路径参数化：(1) 参数声明新增 --out-dir；(2) Phase 1 增加 OUT_DIR 解析逻辑（相对 target_root，非 shell CWD）；(3) 所有执行模板中 graphify-out/ 统一替换为 $OUT_DIR；(4) 重要边界/最小成功标准/handoff 均更新为 $OUT_DIR；(5) 测试更新输出目录断言为 target_root 语义，新增 --out-dir/OUT_DIR/$OUT_DIR/target_root 共5项断言 (user-visible)
+- v1.6.0 2026-04-08 19:00:00 kuang: fix(mcp-setup+spec-bootstrap): 全局删除 GitNexus / ABCoder 安装链与 Full mode 引用，收缩为 Serena / Sequential Thinking / Context7 基础 MCP 套件，并同步重写 host-setup/schema、验证脚本和 PRD 模板 (user-visible)
+- v1.6.0 2026-04-08 12:26:42 kuang: docs(mcp-setup): 删除 mcp-setup 概览表中 GitNexus 与 ABCoder 的职责描述，保留工具名与类别，避免重复解释 (user-visible)
+- v1.6.0 2026-04-08 18:00:00 kuang: fix(graphify skill): 按 README.zh-CN.md 更新安装契约：(1) 包名全量迁移 graphifyy→graphify-leo（13处），含 pip install 命令和 importlib.metadata 版本查询；(2) 补 Codex 并行提取前提说明（multi_agent=true）；(3) 扩展 argument-hint 加入 --wiki/--obsidian；测试新增包名防回归断言 (user-visible)
+- v1.6.0 2026-04-08 17:30:00 kuang: fix(graphify skill): 健壮性审查修复4处：(1) pip 安装链末尾补 || exit 1 硬停，移除第一次尝试的 2>/dev/null，消除静默失败；(2) 补 python3 存在性检查，缺失时给出明确错误而非 command not found；(3) 补安装后重新探测解释器的完整 bash 示例（含 hash -r + 路径验证）；(4) --no-viz 输出和 hook 状态说明按宿主/模式区分；测试新增4项断言 (user-visible)
+- v1.6.0 2026-04-08 16:30:00 kuang: fix(graphify skill): 全面审查修复4处问题：(1) 恢复测试依赖的版本跳过规则说明句，消除 regression；(2) 补全 Codex 全局安装跳过的完整示例代码，消除"同理替换路径"歧义；(3) 修正 Phase 1 输出不应包含"宿主检测中"；(4) 修复 Phase 2 悬空冒号文字流断裂
+- v1.6.0 2026-04-08 15:00:00 kuang: fix(graphify skill): 修复两处中风险漏洞：(1) 全局安装跳过条件新增版本漂移检查，比对 .graphify_version 与当前 graphifyy 包版本，版本不匹配时强制重新安装；(2) 宿主识别新增文件系统信号兜底层，入口丢失时按 ~/.agents/skills、.agents/、AGENTS.md、~/.claude/、.claude/、CLAUDE.md 存在性推断宿主，输出来源说明，而非直接默认 claude (user-visible)
+- v1.6.0 2026-04-08 10:30:00 kuang: fix(graphify): 校正 graphify skill contract 与上游源码一致性，拆分 Codex 全局安装与项目接入，补回 `.graphify_python` runtime bootstrap，明确 `graphify-out/` 属于当前工作目录并收紧大语料暂停规则 (user-visible)
+- v1.6.0 2026-04-08 01:10:00 kuang: docs(graphify): 强化 graphify skill 健壮性，明确宿主识别、pip/pip3 自动选择、`graphify install` 基础安装、Claude/Codex 平台接入与模式化分析边界 (user-visible)
+- v1.6.0 2026-04-08 00:35:00 kuang: docs(graphify): 收紧 graphify skill 执行契约，明确先自动检测 pip/pip3 并安装 graphifyy，再按 Claude/Codex 宿主执行 `graphify claude|codex install`，随后对当前目录启动图谱分析 (user-visible)
+- v1.6.0 2026-04-08 00:20:00 kuang: refactor(graphify): 删除 spec-graph-bootstrap skill，收敛为单一 graphify 入口；同步移除相关 contract 文件，并将后续流程直接衔接到 spec-bootstrap 与 graphify-out 消费说明 (user-visible)
+- v1.6.0 2026-04-07 22:05:00 kuang: feat(graphify): 将上游 graphify 正式纳入 spec-first 运行时，新增 `/spec:graphify` 与 `graphify` skill 入口，打包上游安装/分析参考流程，并将 spec-graph-bootstrap 改为依赖内置 graphify 能力而非外部 `/graphify` 约定 (user-visible)
 - v1.6.0 2026-04-07 矿工: fix(mcp-setup): 多Agent深度审查后修复 10 项健壮性问题——ensure_config mktemp 跨文件系统原子性、macOS mkdir 锁 stale lock 检测与锁失败 abort、Go 安装 URL aarch64→arm64 映射、curl 超时与版本号格式校验、release_lock fd 泄漏、临时文件权限时序修复、verify-tools.sh trap 清理、四个脚本 jq 硬依赖预检、PATH 预修复、all_tools 空数组检查 (user-visible)
 - v1.6.0 2026-04-07 矿工: fix(spec-graph-bootstrap): 3-Agent 深度审查后修复集成方案——修正 graphify CLI 调用假设（graphify 无 `<path>` 子命令，改为纯消费已有 graphify-out/）、补充 SKILL.md 文件输出 contract（.context/ 三文件 schema）、新增决策矩阵和安全边界检查、补充 graphify-out/ 生命周期管理策略、补充 GRAPH_REPORT.md 最小 schema、spec-docs L2 层级归属 (user-visible)
 - v1.5.1 2026-04-07 21:05:56 kuang: feat(spec-graph-bootstrap): 新增 spec-graph-bootstrap skill 与 graphify contract reference，将 graphify 作为 spec-first 的上游结构发现层接入；同步补充集成技术方案、版本更新说明，并修复 spec-bootstrap SKILL.md 缺少 `name` 导致的 smoke 失败 (user-visible)
