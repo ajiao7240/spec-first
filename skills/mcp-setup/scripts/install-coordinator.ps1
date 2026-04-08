@@ -179,6 +179,92 @@ function Add-ToolConfig {
   & $CliCommand mcp add $ToolId -- $command @toolArgs
 }
 
+function Ensure-CodexStartupTimeout {
+  param([string]$ToolId)
+
+  if ($DetectedHost -ne 'codex') {
+    return $true
+  }
+
+  $tool = $ToolsJson.tools | Where-Object { $_.id -eq $ToolId } | Select-Object -First 1
+  if (-not $tool) {
+    return $false
+  }
+
+  $timeoutProp = $tool.mcp_config.PSObject.Properties['startup_timeout_sec']
+  if ($null -eq $timeoutProp) {
+    return $true
+  }
+
+  $timeoutSec = [int]$timeoutProp.Value
+
+  if (-not (Test-Path $ConfigPath)) {
+    Write-Host "  ❌ $ToolId: codex 配置文件不存在，无法写入 startup_timeout_sec" -ForegroundColor Red
+    return $false
+  }
+
+  $sectionText = Get-TomlSectionText -Path $ConfigPath -SectionName $ToolId
+  if ([string]::IsNullOrWhiteSpace($sectionText)) {
+    Write-Host "  ❌ $ToolId: 未找到 [mcp_servers.$ToolId]，无法写入 startup_timeout_sec" -ForegroundColor Red
+    return $false
+  }
+
+  $existingTimeout = [double]::NaN
+  if ($sectionText -match '(?m)^\s*startup_timeout_sec\s*=\s*([0-9]+(?:\.[0-9]+)?)') {
+    $existingTimeout = [double]$Matches[1]
+    if ($existingTimeout -ge $timeoutSec) {
+      return $true
+    }
+  }
+
+  $header = "[mcp_servers.$ToolId]"
+  $lines = Get-Content $ConfigPath
+  $newLines = New-Object System.Collections.Generic.List[string]
+  $inSection = $false
+  $hasTimeout = $false
+
+  foreach ($line in $lines) {
+    if ($line -eq $header) {
+      $inSection = $true
+      $newLines.Add($line)
+      continue
+    }
+
+    if ($inSection -and $line -match '^\s*startup_timeout_sec\s*=') {
+      $lineTimeout = [double]::NaN
+      if ($line -match '^\s*startup_timeout_sec\s*=\s*([0-9]+(?:\.[0-9]+)?)') {
+        $lineTimeout = [double]$Matches[1]
+      }
+
+      if (-not [double]::IsNaN($lineTimeout) -and $lineTimeout -ge $timeoutSec) {
+        $newLines.Add($line)
+      } else {
+        $newLines.Add("startup_timeout_sec = $timeoutSec")
+      }
+      $hasTimeout = $true
+      continue
+    }
+
+    if ($inSection -and $line -match '^\[mcp_servers\..+\]$') {
+      if (-not $hasTimeout) {
+        $newLines.Add("startup_timeout_sec = $timeoutSec")
+        $hasTimeout = $true
+      }
+      $inSection = $false
+    }
+
+    $newLines.Add($line)
+  }
+
+  if ($inSection -and -not $hasTimeout) {
+    $newLines.Add("startup_timeout_sec = $timeoutSec")
+  }
+
+  $content = ($newLines -join "`n") + "`n"
+  Set-Content -Path $ConfigPath -Value $content -Encoding utf8
+  return $true
+}
+
 function Restore-Config {
   param(
     [string]$BackupFile,
@@ -196,6 +282,9 @@ function Configure-Tool {
   param([string]$ToolId)
 
   if (Tool-IsConfigured $ToolId) {
+    if (-not (Ensure-CodexStartupTimeout $ToolId)) {
+      return $false
+    }
     Write-Host "  ⏭️  $ToolId: already configured, skipping"
     return $true
   }
@@ -205,6 +294,11 @@ function Configure-Tool {
     Add-ToolConfig $ToolId
   } catch {
     Write-Host "  ❌ $ToolId: configuration failed" -ForegroundColor Red
+    return $false
+  }
+
+  if (-not (Ensure-CodexStartupTimeout $ToolId)) {
+    Write-Host "  ❌ $ToolId: startup_timeout_sec update failed" -ForegroundColor Red
     return $false
   }
 

@@ -8,6 +8,10 @@
 - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-08 21:01:23 kuang: fix(mcp-setup): Codex 下对 `startup_timeout_sec` 实施“缺失补写、低值提升、高值保留”策略，并补齐低值升级回归测试与文档说明 (user-visible)
+- v1.6.0 2026-04-08 20:50:42 kuang: docs(spec-graph-bootstrap): 继续补齐条件任务触发、slug 生成复用、模式映射、task type 兜底、依赖指纹模型与消费验证流程，收紧终版方案的可执行性
+- v1.6.0 2026-04-08 20:44:14 kuang: fix(mcp-setup): 为 Codex 下的 Serena MCP 自动写入 `startup_timeout_sec=90`，避免默认 30 秒冷启动超时；同步补齐安装脚本与单测防回归 (user-visible)
+- v1.6.0 2026-04-08 20:21:28 kuang: docs(spec-graph-bootstrap): 收紧终版方案中的迁移 Runbook、Host Readiness 决策表、成功指标、外部适配与增量失效契约，并统一注入路径与状态值域
 - v1.6.0 2026-04-08 18:39:23 kuang: fix(mcp-setup): 收紧双宿主健壮性，Serena MCP 配置改为按宿主上下文校验，宿主歧义时不再默认 Claude，并同步补齐 Windows/Unix 检测与验证测试 (user-visible)
 - v1.6.0 2026-04-08 23:50:00 kuang: docs(mcp-setup): 将 mcp-setup 技能命名统一为 spec-mcp-setup，并把 Codex 侧直接调用格式改为 `$spec-mcp-setup`，与其他 spec-* 技能保持一致 (user-visible)
 - v1.6.0 2026-04-08 23:30:00 kuang: feat(codex): 让 init 在 Codex 侧也生成 /spec:* 命令文件，统一命令、技能、代理的安装与 clean/doctor 诊断链路，并同步更新模板、测试和用户文档 (user-visible)

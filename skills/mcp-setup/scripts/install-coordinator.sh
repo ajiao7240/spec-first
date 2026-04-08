@@ -144,6 +144,15 @@ release_lock() {
   fi
 }
 
+extract_toml_section() {
+  local section_name="$1"
+  awk -v section="[mcp_servers.$section_name]" '
+    $0 == section { in_section = 1; next }
+    /^\[mcp_servers\./ && in_section { exit }
+    in_section { print }
+  ' "$CONFIG_PATH"
+}
+
 tool_is_configured() {
   local tool_id="$1"
 
@@ -189,6 +198,81 @@ add_tool_config() {
   "$CLI_COMMAND" mcp add "$tool_id" -- "$command" "${tool_args[@]}"
 }
 
+ensure_codex_startup_timeout() {
+  local tool_id="$1"
+  local timeout_sec
+
+  if [ "$HOST" != "codex" ]; then
+    return 0
+  fi
+
+  timeout_sec=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .mcp_config.startup_timeout_sec // empty' "$TOOLS_JSON")
+  if [ -z "$timeout_sec" ]; then
+    return 0
+  fi
+
+  if [ ! -f "$CONFIG_PATH" ]; then
+    echo "  ❌ $tool_id: codex 配置文件不存在，无法写入 startup_timeout_sec" >&2
+    return 1
+  fi
+
+  local block
+  block="$(extract_toml_section "$tool_id")"
+  if [ -z "$block" ]; then
+    echo "  ❌ $tool_id: 未找到 [mcp_servers.$tool_id]，无法写入 startup_timeout_sec" >&2
+    return 1
+  fi
+
+  local tmp
+  tmp=$(mktemp "${CONFIG_PATH}.XXXXXX")
+  chmod 600 "$tmp"
+
+  awk -v section="[mcp_servers.$tool_id]" -v timeout="$timeout_sec" '
+    BEGIN {
+      in_section = 0
+      has_timeout = 0
+    }
+    {
+      if ($0 == section) {
+        in_section = 1
+        print
+        next
+      }
+
+      if (in_section && $0 ~ /^[[:space:]]*startup_timeout_sec[[:space:]]*=/) {
+        value = $0
+        sub(/^[[:space:]]*startup_timeout_sec[[:space:]]*=[[:space:]]*/, "", value)
+        sub(/[[:space:]]*(#.*)?$/, "", value)
+        gsub(/"/, "", value)
+        if (value ~ /^[0-9]+([.][0-9]+)?$/ && (value + 0) >= (timeout + 0)) {
+          print
+        } else {
+          print "startup_timeout_sec = " timeout
+        }
+        has_timeout = 1
+        next
+      }
+
+      if (in_section && $0 ~ /^\[mcp_servers\./) {
+        if (!has_timeout) {
+          print "startup_timeout_sec = " timeout
+          has_timeout = 1
+        }
+        in_section = 0
+      }
+
+      print
+    }
+    END {
+      if (in_section && !has_timeout) {
+        print "startup_timeout_sec = " timeout
+      }
+    }
+  ' "$CONFIG_PATH" > "$tmp"
+
+  mv "$tmp" "$CONFIG_PATH"
+}
+
 restore_config() {
   local backup_file="$1"
   local created_during_run="$2"
@@ -205,12 +289,19 @@ configure_tool() {
   local tool_id="$1"
 
   if tool_is_configured "$tool_id"; then
+    if ! ensure_codex_startup_timeout "$tool_id"; then
+      return 1
+    fi
     echo "  ⏭️  $tool_id: already configured, skipping"
     return 0
   fi
 
   echo "  ⏳ Configuring $tool_id for ${HOST_DISPLAY_NAME}..."
   if add_tool_config "$tool_id"; then
+    if ! ensure_codex_startup_timeout "$tool_id"; then
+      echo "  ❌ $tool_id: startup_timeout_sec update failed" >&2
+      return 1
+    fi
     if tool_is_configured "$tool_id"; then
       echo "  ✅ $tool_id: configured"
       return 0

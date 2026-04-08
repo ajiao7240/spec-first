@@ -99,6 +99,8 @@ serena_args=$(jq -r '.tools[] | select(.id == "serena") | .mcp_config.args | joi
 assert_contains "Serena args include serena start-mcp-server" "serena start-mcp-server" "$serena_args"
 assert_contains "Serena args include --project-from-cwd" "--project-from-cwd" "$serena_args"
 assert_contains "Serena args keep host placeholder" "__HOST_CONTEXT__" "$serena_args"
+serena_startup_timeout=$(jq -r '.tools[] | select(.id == "serena") | .mcp_config.startup_timeout_sec' "$TOOLS_JSON")
+assert_output "Serena startup_timeout_sec is 90" "90" "$serena_startup_timeout"
 
 echo ""
 
@@ -337,6 +339,18 @@ for tool in serena context7 sequential-thinking; do
 done
 assert "codex serena context flag present" grep -qF -- '--context' "$FAKE_HOME6/.codex/config.toml"
 assert "codex serena host context value present" grep -qF -- 'codex' "$FAKE_HOME6/.codex/config.toml"
+serena_timeout_val=$(awk '
+  $0 == "[mcp_servers.serena]" { in_section = 1; next }
+  in_section && /^\[mcp_servers\./ { exit }
+  in_section && $0 ~ /^[[:space:]]*startup_timeout_sec[[:space:]]*=/ {
+    value = $0
+    sub(/^[[:space:]]*startup_timeout_sec[[:space:]]*=[[:space:]]*/, "", value)
+    sub(/[[:space:]]*(#.*)?$/, "", value)
+    print value
+    exit
+  }
+' "$FAKE_HOME6/.codex/config.toml")
+assert "codex serena startup_timeout_sec >= 90" awk -v v="$serena_timeout_val" 'BEGIN { exit !((v + 0) >= 90) }'
 assert "codex config exists" test -f "$FAKE_HOME6/.codex/config.toml"
 
 echo "4.6 File permissions preserved (600)"
@@ -346,6 +360,30 @@ assert_output "Config file is 600" "600" "$perms"
 echo "4.7 Atomic write uses same-dir tempfile (not /tmp)"
 leftover=$(find "$FAKE_HOME5" -name '.claude.json.??????' | wc -l | tr -d ' ')
 assert_output "No leftover temp files" "0" "$leftover"
+
+echo "4.8 Existing low startup_timeout_sec is upgraded to recommended value"
+FAKE_HOME7="$TMP_DIR/test_codex_low_timeout"
+mkdir -p "$FAKE_HOME7/.codex"
+cat > "$FAKE_HOME7/.codex/config.toml" <<'TOMLEOF'
+[mcp_servers.serena]
+command = "uvx"
+args = ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "codex", "--open-web-dashboard", "false"]
+startup_timeout_sec = 5
+TOMLEOF
+chmod 600 "$FAKE_HOME7/.codex/config.toml"
+HOME="$FAKE_HOME7" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/install-coordinator.sh" --install serena >/dev/null 2>&1 || true
+low_timeout_after=$(awk '
+  $0 == "[mcp_servers.serena]" { in_section = 1; next }
+  in_section && /^\[mcp_servers\./ { exit }
+  in_section && $0 ~ /^[[:space:]]*startup_timeout_sec[[:space:]]*=/ {
+    value = $0
+    sub(/^[[:space:]]*startup_timeout_sec[[:space:]]*=[[:space:]]*/, "", value)
+    sub(/[[:space:]]*(#.*)?$/, "", value)
+    print value
+    exit
+  }
+' "$FAKE_HOME7/.codex/config.toml")
+assert "low startup_timeout_sec is upgraded to >= 90" awk -v v="$low_timeout_after" 'BEGIN { exit !((v + 0) >= 90) }'
 
 echo ""
 

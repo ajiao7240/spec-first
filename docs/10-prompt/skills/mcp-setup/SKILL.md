@@ -35,7 +35,7 @@ argument-hint: "[quick|custom]"
 工具元数据定义在 `skills/mcp-setup/mcp-tools.json` 中。每个条目包含：
 - `id`、`name`、`category`
 - `dependencies`（node / uv）
-- `mcp_config`（MCP 服务注册命令与参数；`__HOST_CONTEXT__` 这类占位符会在安装时按宿主解析）
+- `mcp_config`（MCP 服务注册命令与参数；`__HOST_CONTEXT__` 这类占位符会在安装时按宿主解析；Codex 工具可额外声明 `startup_timeout_sec`）
 - `detect`（检测方法和参数）
 
 ---
@@ -113,6 +113,8 @@ pwsh -File skills/mcp-setup/scripts/detect-tools.ps1
 ### 2.2 安装所需工具
 
 对每个缺失的必需工具，写入对应的 `mcp_config`。
+如果是 Codex 且工具声明了 `mcp_config.startup_timeout_sec`，则同步写入对应 `[mcp_servers.<tool>]` 节点。
+若该字段已存在但数值低于声明值，则提升到声明值；更高的用户自定义值不下调。
 
 显示进度：
 
