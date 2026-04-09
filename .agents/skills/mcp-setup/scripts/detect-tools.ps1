@@ -9,6 +9,58 @@ $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
 $ConfigPath = $HostInfo.config_path
 $ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json
+$HostContext = if ($DetectedHost -eq 'codex') { 'codex' } else { 'ide-assistant' }
+
+function Get-TomlSection {
+  param(
+    [string]$Path,
+    [string]$SectionName
+  )
+
+  if (-not (Test-Path $Path)) {
+    return @()
+  }
+
+  $sectionHeader = "[mcp_servers.$SectionName]"
+  $lines = Get-Content $Path
+  $capturing = $false
+  $sectionLines = New-Object System.Collections.Generic.List[string]
+
+  foreach ($line in $lines) {
+    if ($line -eq $sectionHeader) {
+      $capturing = $true
+      continue
+    }
+
+    if ($capturing -and $line -match '^\[mcp_servers\..+\]$') {
+      break
+    }
+
+    if ($capturing) {
+      $sectionLines.Add($line)
+    }
+  }
+
+  return @($sectionLines)
+}
+
+function Get-ExpectedToolConfig {
+  param([object]$Tool)
+
+  $args = @()
+  foreach ($arg in @($Tool.mcp_config.args)) {
+    if ($arg -eq '__HOST_CONTEXT__') {
+      $args += $HostContext
+    } else {
+      $args += $arg
+    }
+  }
+
+  return @{
+    command = $Tool.mcp_config.command
+    args = $args
+  }
+}
 
 $installed = New-Object System.Collections.Generic.List[string]
 $missing = New-Object System.Collections.Generic.List[string]
@@ -19,19 +71,35 @@ foreach ($tool in $ToolsJson.tools) {
   switch ($tool.detect.method) {
     'mcp_config' {
       $detectKey = $tool.detect.key
+      $expected = Get-ExpectedToolConfig -Tool $tool
       if ((Test-Path $ConfigPath)) {
         if ($DetectedHost -eq 'claude') {
           try {
             $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
-            if ($null -ne $config.mcpServers.PSObject.Properties[$detectKey]) {
+            $server = $config.mcpServers.PSObject.Properties[$detectKey].Value
+            if ($null -ne $server -and
+                $server.command -eq $expected.command -and
+                (@($server.args) -join "`n") -eq (@($expected.args) -join "`n")) {
               $found = $true
             }
           } catch {
             $found = $false
           }
         } elseif ($DetectedHost -eq 'codex') {
-          if (Select-String -Path $ConfigPath -SimpleMatch "[mcp_servers.$detectKey]" -Quiet) {
+          $block = Get-TomlSection -Path $ConfigPath -SectionName $detectKey
+          $blockText = ($block -join "`n")
+          if ($blockText.Contains("command = `"$($expected.command)`"")) {
+            $allArgsFound = $true
+            foreach ($expectedArg in $expected.args) {
+              if (-not $blockText.Contains($expectedArg)) {
+                $allArgsFound = $false
+                break
+              }
+            }
+
+            if ($allArgsFound) {
             $found = $true
+            }
           }
         }
       }

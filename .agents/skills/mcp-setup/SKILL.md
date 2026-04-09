@@ -1,5 +1,5 @@
 ---
-name: spec-mcp-setup
+name: mcp-setup
 description: "Use when installing MCP tools for a Claude Code, Codex, or Windows PowerShell session and the host-specific MCP config needs to be detected, configured, or verified."
 argument-hint: "[quick|custom]"
 ---
@@ -24,6 +24,7 @@ This skill automates the installation and configuration of the MCP tools used by
 | Playwright MCP | Optional | Frontend automation testing |
 
 The active host is detected automatically. Claude Code writes to `~/.claude.json` and `~/.claude/spec-first/host-setup.json`; Codex writes to `~/.codex/config.toml` and `~/.codex/spec-first/host-setup.json`.
+If both CLIs are present and no host hint is available, set `MCP_SETUP_HOST=claude|codex` explicitly; the skill will not guess.
 
 Platform entrypoints:
 - macOS/Linux: use the `*.sh` scripts with `bash`
@@ -36,7 +37,7 @@ Platform entrypoints:
 Tool metadata is defined in `skills/mcp-setup/mcp-tools.json`. Each tool entry includes:
 - `id`, `name`, `category`
 - `dependencies` (node / uv)
-- `mcp_config` (command + args for MCP server registration)
+- `mcp_config` (command + args for MCP server registration; host placeholders such as `__HOST_CONTEXT__` are resolved at install time)
 - `detect` (detection method and parameters)
 
 ---

@@ -9,9 +9,31 @@ $DetectedHost = $HostInfo.host
 $ConfigPath = $HostInfo.config_path
 $HostSetupFile = $HostInfo.marker_path
 $HostSetupDir = Split-Path -Parent $HostSetupFile
+$HostContext = if ($DetectedHost -eq 'codex') { 'codex' } else { 'ide-assistant' }
+
+function Get-ExpectedToolConfig {
+  param([object]$Tool)
+
+  $toolsJson = Get-Content -Raw (Join-Path $ScriptDir '..' 'mcp-tools.json') | ConvertFrom-Json
+  $toolDef = $toolsJson.tools | Where-Object { $_.id -eq $Tool }
+  $args = @()
+  foreach ($arg in @($toolDef.mcp_config.args)) {
+    if ($arg -eq '__HOST_CONTEXT__') {
+      $args += $HostContext
+    } else {
+      $args += $arg
+    }
+  }
+
+  return @{
+    command = $toolDef.mcp_config.command
+    args = $args
+  }
+}
 
 function Check-McpConfigured {
   param([string]$Tool)
+  $expected = Get-ExpectedToolConfig -Tool $Tool
 
   if (-not (Test-Path $ConfigPath)) {
     return $false
@@ -20,13 +42,63 @@ function Check-McpConfigured {
   if ($DetectedHost -eq 'claude') {
     try {
       $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
-      return $null -ne $config.mcpServers.PSObject.Properties[$Tool]
+      $server = $config.mcpServers.PSObject.Properties[$Tool].Value
+      if ($null -eq $server) {
+        return $false
+      }
+
+      $serverArgs = @($server.args)
+      if ($server.command -ne $expected.command -or $serverArgs.Count -ne $expected.args.Count) {
+        return $false
+      }
+
+      for ($i = 0; $i -lt $expected.args.Count; $i++) {
+        if ($serverArgs[$i] -ne $expected.args[$i]) {
+          return $false
+        }
+      }
+
+      return $true
     } catch {
       return $false
     }
   }
 
-  return [bool](Select-String -Path $ConfigPath -SimpleMatch "[mcp_servers.$Tool]" -Quiet)
+  if (-not (Select-String -Path $ConfigPath -SimpleMatch "[mcp_servers.$Tool]" -Quiet)) {
+    return $false
+  }
+
+  $section = Get-Content $ConfigPath
+  $inSection = $false
+  $sectionLines = New-Object System.Collections.Generic.List[string]
+
+  foreach ($line in $section) {
+    if ($line -eq "[mcp_servers.$Tool]") {
+      $inSection = $true
+      continue
+    }
+
+    if ($inSection -and $line -match '^\[mcp_servers\..+\]$') {
+      break
+    }
+
+    if ($inSection) {
+      $sectionLines.Add($line)
+    }
+  }
+
+  $sectionText = ($sectionLines -join "`n")
+  if (-not $sectionText.Contains("command = `"$($expected.command)`"")) {
+    return $false
+  }
+
+  foreach ($expectedArg in $expected.args) {
+    if (-not $sectionText.Contains($expectedArg)) {
+      return $false
+    }
+  }
+
+  return $true
 }
 
 $serenaConfigured = Check-McpConfigured 'serena'

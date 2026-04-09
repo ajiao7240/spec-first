@@ -4,10 +4,37 @@
 - 说明：
   - `v版本号` 使用本次变更对应的发布版本
   - 日期时间必须使用 `YYYY-MM-DD HH:MM:SS`
-- `作者` 填写提交人或变更责任人
-- `变更摘要` 使用中文，简明说明本次改动
+  - `作者` 填写提交人或变更责任人
+  - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-09 22:30:00 kuang: docs(spec-graph-bootstrap): 全面修订阶段2集成方案，修复编号错位、澄清 Integration 多目标 API 约束、区分 CRG 空图/无图边界、补充构建失败路径、定义 testing_surface 双产物分工、增加 v1 stale 运行时警告、明确 Extractor 三阶段执行顺序、具化 Layer Detection CRG 识别逻辑、定义 monorepo v1 边界、显式约束 Basic 模式 severity 上限 (user-visible)
+- v1.6.0 2026-04-09 22:42:00 kuang: docs(spec-graph-bootstrap): 修正阶段1需求与计划中的 Codex 安装集成歧义，明确兼容 command 由现有 adapter 自动安装、区分 skill 目录自动发现与 command manifest 注册，并将 Codex discovery 收口为需记录步骤的宿主级人工验收 (user-visible)
+- v1.6.0 2026-04-09 22:49:00 kuang: docs(spec-graph-bootstrap): 继续收紧阶段1计划执行边界，拆分 Unit2/Unit3 的文档职责与依赖关系，补充 doctor 对新入口的显式可见性断言，并提示 cli smoke 中 agent 数量断言仍为硬编码 47 (user-visible)
+- v1.6.0 2026-04-09 22:56:00 kuang: docs(spec-graph-bootstrap): 再次收紧阶段1计划分工，移除 Unit2 对 CHANGELOG.md 的写入职责，统一由 Unit3 负责最终文案收口，避免并行阶段出现重复记录 (user-visible)
+- v1.6.0 2026-04-09 21:31:00 kuang: docs(spec-graph-bootstrap): 继续收紧阶段1验收边界，补齐 Codex 旧资产路径级验收、README/用户手册最小文案 contract 与失败判定，确保双入口并行期可直接作为开发 gate 使用 (user-visible)
+- v1.6.0 2026-04-09 21:24:00 kuang: docs(spec-graph-bootstrap): 收紧阶段1的 Codex 正式验收口径，将“skill 已被宿主发现”细化为可观测 discovery 结果或最小探测调用证据，避免把目录存在误判为 discovery 成立 (user-visible)
+- v1.6.0 2026-04-09 21:18:00 kuang: docs(spec-graph-bootstrap): 收紧阶段1安装集成契约，明确 Codex 兼容命令入口由同一 command 源模板经 adapter 生成，不再保留独立 Codex command 源模板歧义 (user-visible)
+- v1.6.0 2026-04-09 21:05:00 kuang: docs(spec-graph-bootstrap): 修正总版与阶段文档的三处一致性边界，明确 core-dependencies 为增强产物的 refresh 语义、fingerprints 初版 contract 与阶段4扩展关系，以及 brainstorm/compound 不纳入阶段3 v1 验证范围 (user-visible)
+- v1.6.0 2026-04-09 20:36:49 kuang: docs(spec-graph-bootstrap): 最后收口总版与 CRG 对照表定位，明确 code-review-graph 仅属后续增强适配候选，并统一首次生成口径为“按当前版本要求全量生成目标产物” (user-visible)
+- v1.6.0 2026-04-09 20:09:05 kuang: docs(spec-graph-bootstrap): 继续统一总版术语，明确 task_types 与 injection YAML 属于终局目标结构，v1 仅强制 review-change 与 unknown 分支，避免把示例结构误读为首阶段全量交付 (user-visible)
+- v1.6.0 2026-04-09 19:57:46 kuang: docs(spec-graph-bootstrap): 继续收口总版与阶段文档的实施边界，明确 v1 只强制 review-change task pack，plan/work 在 v1 以 code-facts 与 fallback 为主，避免总版与阶段2/3口径冲突 (user-visible)
+- v1.6.0 2026-04-09 19:56:09 kuang: docs(spec-graph-bootstrap): 继续收紧阶段1与阶段3口径，改为平台中立的旧入口表述，并明确 v1 下 plan/work 主要依赖 code-facts 与 fallback、3A 只验证人工模拟消费 (user-visible)
+- v1.6.0 2026-04-09 19:54:11 kuang: docs(spec-graph-bootstrap): 补充 Claude 与 Codex 的平台差异与适配边界，区分统一产品契约、平台实现契约与 Codex 命令兼容层，避免把兼容实现误写成平台天然能力 (user-visible)
+- v1.6.0 2026-04-09 18:53:41 kuang: docs(spec-graph-bootstrap): 回收误落到仓库治理文件的阶段3A消费约定，改为在阶段3需求文档中补充项目级治理说明草案，专用于指导后续开发与验证 (user-visible)
+- v1.6.0 2026-04-09 18:48:30 kuang: docs(spec-graph-bootstrap): 将阶段3拆为3A非侵入式消费验证与3B skill消费固化，并统一缺失即降级、不阻断主任务的健壮性约束 (user-visible)
+- v1.6.0 2026-04-09 18:32:59 kuang: docs(spec-graph-bootstrap): 新增阶段化开发与验证路线图，按安装集成、事实层、文档路由、消费与刷新收敛为可执行 gate 和验证出口 (user-visible)
+- v1.6.0 2026-04-09 18:28:31 kuang: docs(spec-graph-bootstrap): 收紧五份需求文档的一致性约束，统一 README 的 v1 属性、task type 最低识别契约、output_exists 求值来源与 fingerprints 首版结构 (user-visible)
+- v1.6.0 2026-04-09 18:26:39 kuang: docs(spec-graph-bootstrap): 将修订终版收敛为总纲并新增四阶段需求文档，统一安装集成、事实抽取、消费与刷新边界，补齐跨文档阅读顺序与阶段职责 (user-visible)
+- v1.6.0 2026-04-09 17:59:03 kuang: docs(spec-graph-bootstrap): 删除已被修订终版吸收的 1.0 阶段化实施提纲，收敛为单一权威文档入口 (user-visible)
+- v1.6.0 2026-04-09 14:11:13 kuang: docs(spec-graph-bootstrap): 将 v1 方案以附录方式回填至修订终版，保留原有章节并新增正式评审约束 (user-visible)
+- v1.6.0 2026-04-09 14:11:13 kuang: docs(spec-graph-bootstrap): 新增修订终版 v1 正式方案文档，收敛事实层、摘要层、任务包、注入路由与增量刷新边界 (user-visible)
+- v1.6.0 2026-04-09 13:35:21 kuang: docs(业界借鉴): 新增《Knowledge Wiki：面向 AI 的项目知识层建设实践》本地归档，补齐正文 markdown、配图资源和目录索引 (user-visible)
+- v1.6.0 2026-04-08 23:32:45 kuang: docs(spec-graph-bootstrap): 将修订终版中的输出产物结构改为表格展示，统一标注阶段属性与中文用途，便于与 1.0 提纲的产物口径对齐 (user-visible)
+- v1.6.0 2026-04-08 23:29:43 kuang: docs(spec-graph-bootstrap): 将 1.0 提纲中的最终完整产物树改为表格展示，补充产物类别、阶段属性与中文用途，便于对齐完整目标与分批落地路径 (user-visible)
+- v1.6.0 2026-04-08 23:29:12 kuang: docs(spec-graph-bootstrap): 在 1.0 阶段化实施提纲中补充最终完整产物树，区分 1.0 核心交付与后续增强产物，避免将最终目标误读为当前版本清单 (user-visible)
+- v1.6.0 2026-04-08 23:20:00 kuang: docs(spec-graph-bootstrap): 为 1.0 阶段化实施提纲补充最终文档的中文说明索引，明确控制面、项目规范、代码事实与任务上下文各产物的职责 (user-visible)
+- v1.6.0 2026-04-08 23:15:00 kuang: docs(spec-graph-bootstrap): 新增 1.0 阶段化实施提纲，将终版方案收敛为可执行的分阶段落地路径，并明确事实层、固定产物、注入路由与增量刷新顺序 (user-visible)
 - v1.6.0 2026-04-08 21:01:23 kuang: fix(mcp-setup): Codex 下对 `startup_timeout_sec` 实施“缺失补写、低值提升、高值保留”策略，并补齐低值升级回归测试与文档说明 (user-visible)
 - v1.6.0 2026-04-08 20:50:42 kuang: docs(spec-graph-bootstrap): 继续补齐条件任务触发、slug 生成复用、模式映射、task type 兜底、依赖指纹模型与消费验证流程，收紧终版方案的可执行性
 - v1.6.0 2026-04-08 20:44:14 kuang: fix(mcp-setup): 为 Codex 下的 Serena MCP 自动写入 `startup_timeout_sec=90`，避免默认 30 秒冷启动超时；同步补齐安装脚本与单测防回归 (user-visible)

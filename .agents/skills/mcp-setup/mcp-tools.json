@@ -9,7 +9,7 @@
       "dependencies": ["uv"],
       "mcp_config": {
         "command": "uvx",
-        "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"]
+        "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "__HOST_CONTEXT__", "--open-web-dashboard", "false"]
       },
       "detect": {
         "method": "mcp_config",

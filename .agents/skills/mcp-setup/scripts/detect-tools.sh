@@ -12,6 +12,20 @@ HOST_INFO_JSON="$("$SCRIPT_DIR/detect-host.sh")"
 HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
 CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
 TOOLS_JSON="$(cd "$(dirname "$0")/.." && pwd)/mcp-tools.json"
+HOST_CONTEXT="ide-assistant"
+
+if [ "$HOST" = "codex" ]; then
+  HOST_CONTEXT="codex"
+fi
+
+extract_toml_section() {
+  local section_name="$1"
+  awk -v section="[mcp_servers.$section_name]" '
+    $0 == section { in_section = 1; next }
+    /^\[mcp_servers\./ && in_section { exit }
+    in_section { print }
+  ' "$CONFIG_PATH"
+}
 
 installed=()
 missing=()
@@ -27,16 +41,37 @@ for tool_id in $tool_ids; do
 
   case "$detect_method" in
     "mcp_config")
-      # Check if tool exists in mcpServers config
       detect_key=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detect.key' "$TOOLS_JSON")
+      expected_command=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .mcp_config.command' "$TOOLS_JSON")
+      expected_args=$(jq -c --arg id "$tool_id" --arg context "$HOST_CONTEXT" '
+        .tools[] | select(.id == $id) | .mcp_config.args | map(if . == "__HOST_CONTEXT__" then $context else . end)
+      ' "$TOOLS_JSON")
 
       if [ "$HOST" = "claude" ]; then
-        if [ -f "$CONFIG_PATH" ] && jq -e --arg key "$detect_key" '.mcpServers[$key]' "$CONFIG_PATH" >/dev/null 2>&1; then
+        if [ -f "$CONFIG_PATH" ] && jq -e \
+          --arg key "$detect_key" \
+          --arg command "$expected_command" \
+          --argjson expected_args "$expected_args" \
+          '
+            .mcpServers[$key].command == $command and
+            (.mcpServers[$key].args // []) == $expected_args
+          ' "$CONFIG_PATH" >/dev/null 2>&1; then
           found=true
         fi
       elif [ "$HOST" = "codex" ]; then
-        if [ -f "$CONFIG_PATH" ] && grep -qF "[mcp_servers.$detect_key]" "$CONFIG_PATH"; then
-          found=true
+        if [ -f "$CONFIG_PATH" ]; then
+          block="$(extract_toml_section "$detect_key")"
+            if [ -n "$block" ] && printf '%s\n' "$block" | grep -qF "command = \"$expected_command\""; then
+              found=true
+              expected_args_count=$(jq 'length' <<<"$expected_args")
+              for i in $(seq 0 $((expected_args_count - 1))); do
+                expected_arg=$(jq -r ".[$i]" <<<"$expected_args")
+              if ! printf '%s\n' "$block" | grep -qF -- "$expected_arg"; then
+                  found=false
+                  break
+                fi
+              done
+            fi
         fi
       fi
       ;;

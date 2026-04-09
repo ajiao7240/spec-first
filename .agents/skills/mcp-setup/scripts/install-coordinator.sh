@@ -19,6 +19,11 @@ CLI_COMMAND="$(jq -r '.cli_command' <<<"$HOST_INFO_JSON")"
 CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
 LOCK_FILE="${CONFIG_PATH}.lock"
 CONFIG_DIR="$(dirname "$CONFIG_PATH")"
+HOST_CONTEXT="ide-assistant"
+
+if [ "$HOST" = "codex" ]; then
+  HOST_CONTEXT="codex"
+fi
 
 # 确保常用安装路径可用（Phase 1 安装的依赖可能未出现在当前 PATH）
 export PATH="$HOME/.cargo/bin:$HOME/.fnm/aliases/default/bin:$HOME/.local/bin:$PATH"
@@ -161,14 +166,24 @@ add_tool_config() {
 
   if [ "$HOST" = "claude" ]; then
     local config_json
-    config_json=$(jq -c --arg id "$tool_id" '.tools[] | select(.id == $id) | .mcp_config | {command: .command, args: .args}' "$TOOLS_JSON")
+    config_json=$(jq -c --arg id "$tool_id" --arg host_context "$HOST_CONTEXT" '
+      .tools[] | select(.id == $id) | .mcp_config |
+      {
+        command: .command,
+        args: [.args[] | if . == "__HOST_CONTEXT__" then $host_context else . end]
+      }
+    ' "$TOOLS_JSON")
     "$CLI_COMMAND" mcp add-json --scope user "$tool_id" "$config_json"
     return
   fi
 
   local tool_args=()
   while IFS= read -r arg; do
-    tool_args+=("$arg")
+    if [ "$arg" = "__HOST_CONTEXT__" ]; then
+      tool_args+=("$HOST_CONTEXT")
+    else
+      tool_args+=("$arg")
+    fi
   done < <(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .mcp_config.args[]' "$TOOLS_JSON")
 
   "$CLI_COMMAND" mcp add "$tool_id" -- "$command" "${tool_args[@]}"
