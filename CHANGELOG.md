@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-09 23:55:00 kuang: docs(spec-graph-bootstrap): 二轮审查修复阶段2集成方案，包含：统一置信度类型为三值体系+新增 crg-importers-evidence 推断原因、扩展 Integration 库名清单为四语言版本、Data Shape Extractor 改为 semantic_search 路径无关查询、修复 CRG 探测逻辑为字段存在性检测、补充 file_summary 动态路径注、更新 §10.3 为 v1 stale 检测验收、定义核心文件选取规则、补全探测输出 stale 格式、Layer Detection 增加四级判定分支、§8 对齐 test-surface 消费优先级、§9.2 澄清 MCP 前缀动态化 (user-visible)
 - v1.6.0 2026-04-09 23:20:00 kuang: feat(spec-graph-bootstrap): 新增阶段1安装集成入口 `spec-graph-bootstrap` 与 `graph-bootstrap` command，接入 Claude/Codex runtime、smoke、install-local 和用户文档，并明确 `bootstrap` 仍为默认稳定入口、`graph-bootstrap` 仅作并行验证 (user-visible)
 - v1.6.0 2026-04-09 22:30:00 kuang: docs(spec-graph-bootstrap): 全面修订阶段2集成方案，修复编号错位、澄清 Integration 多目标 API 约束、区分 CRG 空图/无图边界、补充构建失败路径、定义 testing_surface 双产物分工、增加 v1 stale 运行时警告、明确 Extractor 三阶段执行顺序、具化 Layer Detection CRG 识别逻辑、定义 monorepo v1 边界、显式约束 Basic 模式 severity 上限 (user-visible)
 - v1.6.0 2026-04-09 22:42:00 kuang: docs(spec-graph-bootstrap): 修正阶段1需求与计划中的 Codex 安装集成歧义，明确兼容 command 由现有 adapter 自动安装、区分 skill 目录自动发现与 command manifest 注册，并将 Codex discovery 收口为需记录步骤的宿主级人工验收 (user-visible)
