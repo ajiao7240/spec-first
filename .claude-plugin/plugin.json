@@ -60,6 +60,13 @@
       "skill": "spec-bootstrap"
     },
     {
+      "name": "graph-bootstrap",
+      "filename": "graph-bootstrap.md",
+      "description": "Stage-0 graph bootstrap validation workflow",
+      "argumentHint": "[target repo path or context slug]",
+      "skill": "spec-graph-bootstrap"
+    },
+    {
       "name": "mcp-setup",
       "filename": "mcp-setup.md",
       "description": "One-click MCP tools installation and configuration for spec-first workflows",

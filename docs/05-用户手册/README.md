@@ -4,6 +4,12 @@
 
 `spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init (--claude|--codex) / clean (--claude|--codex)` 把 Claude Code 的 `/spec:*` 命令、Codex 的 `$spec-*` skills、workflow skills、agents、项目级 `.developer` 和受管状态安装到当前项目中。
 
+当前 Stage-0 处于双入口并行期：
+
+- `spec-bootstrap` 是默认稳定入口
+- `spec-graph-bootstrap` 是阶段 1 并行验证入口
+- Codex 的正式可用性仍以 `.agents/skills/spec-graph-bootstrap/` 的宿主发现结果为准；`.codex/commands/spec/graph-bootstrap.md` 是兼容层产物
+
 当前功能状态：
 
 - `spec-first init --claude / --codex`：已支持
@@ -19,6 +25,7 @@
 - 一个前置的 `/spec:ideate` 候选发散入口
 - Claude Code 的 `/spec:*` 命令入口
 - Codex 的 `$spec-*` skill 入口
+- 并行存在的 Stage-0 入口：稳定的 `spec-bootstrap` + 验证中的 `spec-graph-bootstrap`
 - 一条 `Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound` 的标准闭环
 - 项目级 `.claude/commands/spec`
 - 项目级 `.claude/skills` 与 `.claude/agents`

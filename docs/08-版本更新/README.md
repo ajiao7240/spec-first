@@ -6,6 +6,7 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-09 | feat | `spec-graph-bootstrap` | 新增阶段 1 安装集成入口，`bootstrap` 保持稳定默认入口，`graph-bootstrap` 以并行验证入口接入 Claude / Codex runtime、smoke 与文档链路 |
 | 2026-04-08 | fix | `mcp-setup` | 收紧双宿主健壮性，Serena MCP 配置按宿主上下文校验，宿主歧义时不再默认 Claude |
 | 2026-04-08 | docs | `mcp-setup` | 将技能命名统一为 `spec-mcp-setup`，Codex 直接调用格式改为 `$spec-mcp-setup`，与其他 spec-* 技能保持一致 |
 | 2026-04-08 | feat | `codex` | Codex init 现在也会生成 `/spec:*` command files，和 Claude 对齐命令可见性、doctor 检查和 clean 清理链路 |
@@ -19,6 +20,26 @@
 | 2026-04-01 | feat | `mcp-setup` | 把 MCP 工具安装、检测、配置合并为一条一键化路径，降低 Full mode 落地门槛 |
 | 2026-03-31 | fix | `spec-bootstrap` | 基于 review 结论补强原子备份、失败恢复、MCP 连接校验等关键可靠性能力 |
 | 2026-03-31 | feat | `spec-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
+
+---
+
+## 2026-04-09 `feat(spec-graph-bootstrap)`
+
+### 更新内容
+
+新增 `spec-graph-bootstrap` 的阶段 1 安装集成能力。新入口现已进入打包、`init`、`clean`、smoke、install-local 和文档说明链路，但仍以“并行验证入口”身份上线，不替代现有稳定的 `spec-bootstrap`。
+
+### 主要变化
+
+- 新增 `skills/spec-graph-bootstrap/` 源资产与 `templates/claude/commands/spec/graph-bootstrap.md`
+- `.claude-plugin/plugin.json` 新增 `graph-bootstrap` command 定义
+- Claude / Codex runtime 现在都会安装 `graph-bootstrap` command 与 `spec-graph-bootstrap` skill
+- smoke 与 install-local 验证现在覆盖双入口并行期资产
+- README、用户手册、版本更新文档统一声明：`bootstrap` 仍是默认稳定入口，`graph-bootstrap` 仅作阶段 1 并行验证
+
+### 版本意义
+
+这次改动先把新 Stage-0 入口安全接入现有安装与治理框架，不提前承诺 graph-informed bootstrap 能力。它解决的是“可安装、可发现、可调用”，不是“已完成迁移”。
 
 ---
 

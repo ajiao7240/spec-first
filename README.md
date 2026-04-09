@@ -50,6 +50,12 @@
 It packages AI-assisted development into a workflow with explicit artifacts, structured review, and reusable project knowledge.
 `spec-first init --codex` now also generates the shared `/spec:*` command files under `.codex/commands/spec/`, so Codex sessions see the same workflow entrypoints as Claude Code.
 
+当前 Stage-0 处于双入口并行期：
+
+- `/spec:bootstrap` / `$spec-bootstrap` 仍是默认稳定入口
+- `/spec:graph-bootstrap` / `$spec-graph-bootstrap` 是阶段 1 并行验证入口
+- 对 Codex 而言，正式可用性仍以 `.agents/skills/spec-graph-bootstrap/` 被宿主发现为准；`.codex/commands/spec/graph-bootstrap.md` 只是兼容层
+
 > 首次在 Claude Code 中使用时，建议按 `spec-first init --claude` → `/spec:mcp-setup` → 重启 Claude Code → `/spec:bootstrap` 的顺序完成宿主准备，再进入后续工作流。
 >
 > For first-time Claude Code setup, follow `spec-first init --claude` → `/spec:mcp-setup` → restart Claude Code → `/spec:bootstrap` before entering the rest of the workflow.
@@ -115,6 +121,9 @@ spec-first init --claude
 # 第四步：生成项目上下文 | Step 4: Generate project context
 /spec:bootstrap
 
+# 并行验证入口（阶段 1）| Parallel validation entry (Stage 1)
+/spec:graph-bootstrap
+
 # 之后按需使用工作流 | Then use workflow as needed
 /spec:ideate
 /spec:brainstorm
@@ -136,6 +145,9 @@ spec-first init --codex
 
 # 第二步：生成项目上下文 | Step 2: Generate project context
 $spec-bootstrap
+
+# 并行验证入口（阶段 1）| Parallel validation entry (Stage 1)
+$spec-graph-bootstrap
 
 # 之后按需使用工作流 | Then use workflow as needed
 $spec-ideate
@@ -176,6 +188,8 @@ After init, continue with the platform-specific first-run path before entering t
 Claude Code: /spec:mcp-setup → restart → /spec:bootstrap → /spec:ideate → /spec:brainstorm → /spec:plan → /spec:work → /spec:review → /spec:compound
 Codex:       $spec-bootstrap → $spec-ideate → $spec-brainstorm → $spec-plan → $spec-work → $spec-review → $spec-compound
 ```
+
+当前并行期中，如需验证新入口是否已安装，可额外尝试 `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap`。它当前只用于安装集成验证，不替代默认的 `bootstrap` 入口。
 
 ## 为什么需要它 | Why Spec-First
 
@@ -227,7 +241,7 @@ Spec-First addresses the full delivery loop, not just a single response:
 | 阶段 Stage | Claude Code | Codex | 目标 Goal | 主要产物 Artifact |
 |------------|-------------|-------|-----------|--------------------|
 | **宿主准备 Host Setup** | `/spec:mcp-setup` → 重启 Claude Code | — | 一键安装和配置 MCP 工具链；写入宿主就绪标记 | `~/.claude/spec-first/host-setup.json` |
-| Stage-0 | `/spec:bootstrap` | `$spec-bootstrap` | 为目标项目建立长期上下文（需先完成宿主准备） | `docs/contexts/<slug>/` |
+| Stage-0 | `/spec:bootstrap`（稳定）<br>`/spec:graph-bootstrap`（阶段 1 并行验证） | `$spec-bootstrap`（稳定）<br>`$spec-graph-bootstrap`（阶段 1 并行验证） | 为目标项目建立长期上下文；graph-bootstrap 当前只承诺安装、发现与最小调用 | `docs/contexts/<slug>/` |
 | Ideate | `/spec:ideate` | `$spec-ideate` | 发散候选、排序方向 | `docs/ideation/*.md` |
 | Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | 澄清需求、收敛范围、明确验收 | `docs/brainstorms/*.md` |
 | Plan | `/spec:plan` | `$spec-plan` | 制定实施方案、拆解任务、识别风险 | `docs/plans/*.md` |
