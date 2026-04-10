@@ -37,7 +37,7 @@ Platform entrypoints:
 Tool metadata is defined in `skills/mcp-setup/mcp-tools.json`. Each tool entry includes:
 - `id`, `name`, `category`
 - `dependencies` (node / uv)
-- `mcp_config` (command + args for MCP server registration; host placeholders such as `__HOST_CONTEXT__` are resolved at install time)
+- `mcp_config` (command + args for MCP server registration; host placeholders such as `__HOST_CONTEXT__` are resolved at install time; Codex tools can also declare `startup_timeout_sec`)
 - `detect` (detection method and parameters)
 
 ---
@@ -119,6 +119,9 @@ Expected output shape:
 For each missing required tool, write its `mcp_config` into the current host config:
 - Claude Code: `~/.claude.json`
 - Codex: `~/.codex/config.toml`
+
+For Codex, if a tool declares `mcp_config.startup_timeout_sec`, write that value into the corresponding `[mcp_servers.<tool>]` section.
+If the field already exists but is lower than the declared value, raise it to the declared value; never downgrade higher user-defined values.
 
 Display progress in real time:
 ```

@@ -8,7 +8,8 @@ description: "Stage-0 supporting workflow: analyze a target project and generate
 Bootstrap a durable project context for a target repository. This is a **Stage-0 supporting workflow** — it runs once (or on demand) to generate context assets that subsequent spec-first workflows can consume.
 
 **Claude entry point:** `/spec:bootstrap [target-repo-path-or-slug]`
-**Codex entry point:** `$spec-bootstrap [target-repo-path-or-slug]`
+**Codex entry point:** `/spec:bootstrap [target-repo-path-or-slug]`
+If you invoke the skill directly inside a Codex session, `$spec-bootstrap [target-repo-path-or-slug]` still works.
 
 ## Why This Exists
 

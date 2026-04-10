@@ -27,5 +27,13 @@ yarn-error.log*
 .claude/tasks/
 .playwright-mcp/
 
+# Generated runtime assets in this repo checkout
+.claude/commands/spec/
+.claude/skills/
+.claude/spec-first/
+.codex/commands/spec/
+.codex/spec-first/
+.agents/skills/spec-graph-bootstrap/
+
 # Published/package artifacts
 *.tgz

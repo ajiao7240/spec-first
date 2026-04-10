@@ -19,6 +19,11 @@ CLI_COMMAND="$(jq -r '.cli_command' <<<"$HOST_INFO_JSON")"
 CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
 LOCK_FILE="${CONFIG_PATH}.lock"
 CONFIG_DIR="$(dirname "$CONFIG_PATH")"
+HOST_CONTEXT="ide-assistant"
+
+if [ "$HOST" = "codex" ]; then
+  HOST_CONTEXT="codex"
+fi
 
 # 确保常用安装路径可用（Phase 1 安装的依赖可能未出现在当前 PATH）
 export PATH="$HOME/.cargo/bin:$HOME/.fnm/aliases/default/bin:$HOME/.local/bin:$PATH"
@@ -139,6 +144,15 @@ release_lock() {
   fi
 }
 
+extract_toml_section() {
+  local section_name="$1"
+  awk -v section="[mcp_servers.$section_name]" '
+    $0 == section { in_section = 1; next }
+    /^\[mcp_servers\./ && in_section { exit }
+    in_section { print }
+  ' "$CONFIG_PATH"
+}
+
 tool_is_configured() {
   local tool_id="$1"
 
@@ -161,17 +175,102 @@ add_tool_config() {
 
   if [ "$HOST" = "claude" ]; then
     local config_json
-    config_json=$(jq -c --arg id "$tool_id" '.tools[] | select(.id == $id) | .mcp_config | {command: .command, args: .args}' "$TOOLS_JSON")
+    config_json=$(jq -c --arg id "$tool_id" --arg host_context "$HOST_CONTEXT" '
+      .tools[] | select(.id == $id) | .mcp_config |
+      {
+        command: .command,
+        args: [.args[] | if . == "__HOST_CONTEXT__" then $host_context else . end]
+      }
+    ' "$TOOLS_JSON")
     "$CLI_COMMAND" mcp add-json --scope user "$tool_id" "$config_json"
     return
   fi
 
   local tool_args=()
   while IFS= read -r arg; do
-    tool_args+=("$arg")
+    if [ "$arg" = "__HOST_CONTEXT__" ]; then
+      tool_args+=("$HOST_CONTEXT")
+    else
+      tool_args+=("$arg")
+    fi
   done < <(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .mcp_config.args[]' "$TOOLS_JSON")
 
   "$CLI_COMMAND" mcp add "$tool_id" -- "$command" "${tool_args[@]}"
+}
+
+ensure_codex_startup_timeout() {
+  local tool_id="$1"
+  local timeout_sec
+
+  if [ "$HOST" != "codex" ]; then
+    return 0
+  fi
+
+  timeout_sec=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .mcp_config.startup_timeout_sec // empty' "$TOOLS_JSON")
+  if [ -z "$timeout_sec" ]; then
+    return 0
+  fi
+
+  if [ ! -f "$CONFIG_PATH" ]; then
+    echo "  ❌ $tool_id: codex 配置文件不存在，无法写入 startup_timeout_sec" >&2
+    return 1
+  fi
+
+  local block
+  block="$(extract_toml_section "$tool_id")"
+  if [ -z "$block" ]; then
+    echo "  ❌ $tool_id: 未找到 [mcp_servers.$tool_id]，无法写入 startup_timeout_sec" >&2
+    return 1
+  fi
+
+  local tmp
+  tmp=$(mktemp "${CONFIG_PATH}.XXXXXX")
+  chmod 600 "$tmp"
+
+  awk -v section="[mcp_servers.$tool_id]" -v timeout="$timeout_sec" '
+    BEGIN {
+      in_section = 0
+      has_timeout = 0
+    }
+    {
+      if ($0 == section) {
+        in_section = 1
+        print
+        next
+      }
+
+      if (in_section && $0 ~ /^[[:space:]]*startup_timeout_sec[[:space:]]*=/) {
+        value = $0
+        sub(/^[[:space:]]*startup_timeout_sec[[:space:]]*=[[:space:]]*/, "", value)
+        sub(/[[:space:]]*(#.*)?$/, "", value)
+        gsub(/"/, "", value)
+        if (value ~ /^[0-9]+([.][0-9]+)?$/ && (value + 0) >= (timeout + 0)) {
+          print
+        } else {
+          print "startup_timeout_sec = " timeout
+        }
+        has_timeout = 1
+        next
+      }
+
+      if (in_section && $0 ~ /^\[mcp_servers\./) {
+        if (!has_timeout) {
+          print "startup_timeout_sec = " timeout
+          has_timeout = 1
+        }
+        in_section = 0
+      }
+
+      print
+    }
+    END {
+      if (in_section && !has_timeout) {
+        print "startup_timeout_sec = " timeout
+      }
+    }
+  ' "$CONFIG_PATH" > "$tmp"
+
+  mv "$tmp" "$CONFIG_PATH"
 }
 
 restore_config() {
@@ -190,12 +289,19 @@ configure_tool() {
   local tool_id="$1"
 
   if tool_is_configured "$tool_id"; then
+    if ! ensure_codex_startup_timeout "$tool_id"; then
+      return 1
+    fi
     echo "  ⏭️  $tool_id: already configured, skipping"
     return 0
   fi
 
   echo "  ⏳ Configuring $tool_id for ${HOST_DISPLAY_NAME}..."
   if add_tool_config "$tool_id"; then
+    if ! ensure_codex_startup_timeout "$tool_id"; then
+      echo "  ❌ $tool_id: startup_timeout_sec update failed" >&2
+      return 1
+    fi
     if tool_is_configured "$tool_id"; then
       echo "  ✅ $tool_id: configured"
       return 0
@@ -236,6 +342,7 @@ main() {
   echo "========================"
   echo "Host: ${HOST_DISPLAY_NAME}"
   echo "Config: ${CONFIG_PATH}"
+  echo "🧭 我会先检查当前宿主的配置，再逐个补齐缺失工具。"
   echo ""
 
   while IFS= read -r tool_id; do
@@ -247,6 +354,7 @@ main() {
     fi
 
     echo "Processing: $tool_id ($category)"
+    echo "  → 正在为 ${HOST_DISPLAY_NAME} 写入 $tool_id 配置"
 
     if ! configure_tool "$tool_id"; then
       restore_config "$backup_file" "$created_during_run"
@@ -281,6 +389,9 @@ main() {
 
   echo ""
   echo "⚠️  Please restart ${HOST_DISPLAY_NAME} for changes to take effect."
+  if [ ${#results[@]} -eq 0 ] && [ ${#failed[@]} -eq 0 ]; then
+    echo "✅ 当前宿主已经就绪，没有发现需要补充的 MCP 工具。"
+  fi
 
   # Exit with failure if any tool failed
   if [ ${#failed[@]} -gt 0 ]; then

@@ -5,13 +5,14 @@
     "path": ".codex/spec-first/.developer",
     "name": "leokuang",
     "lang": "zh",
-    "initializedAt": "2026-04-09T06:24:26.937Z",
+    "initializedAt": "2026-04-09T15:28:41.325Z",
     "version": "1.5.1"
   },
   "commands": [
     "bootstrap.md",
     "brainstorm.md",
     "compound.md",
+    "graph-bootstrap.md",
     "ideate.md",
     "mcp-setup.md",
     "plan.md",
@@ -52,6 +53,7 @@
     "spec-brainstorm",
     "spec-compound",
     "spec-compound-refresh",
+    "spec-graph-bootstrap",
     "spec-ideate",
     "spec-plan",
     "spec-review",

@@ -34,7 +34,7 @@ function Get-DetectedHost {
     return 'claude'
   }
 
-  return 'claude'
+  throw '错误：无法自动识别宿主。请显式设置 MCP_SETUP_HOST=claude 或 MCP_SETUP_HOST=codex 后再运行。'
 }
 
 $detectedHost = Get-DetectedHost
