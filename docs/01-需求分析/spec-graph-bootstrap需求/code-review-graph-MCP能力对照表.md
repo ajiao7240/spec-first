@@ -69,7 +69,7 @@
 ### 2.3 调用前提
 
 1. 跨仓库调用时，必须显式传入 `repo_root`
-2. 首次建图不要求已存在 `graph.db`
+2. 首次建图不要求已存在 `.spec-first-graph/graph.db`
 3. 若图未建，先执行 `build_or_update_graph_tool`
 4. `list_graph_stats_tool` 用于判断当前仓库图是否已就绪
 

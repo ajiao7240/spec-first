@@ -8,6 +8,12 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-10 14:02:00 kuang: docs(spec-graph-bootstrap): 在《阶段命令-产物变化对照表》的文件级说明表新增“主要消费方”列，逐项标注产物由 plan/work/review/路由装配器等环节消费，强化生成-消费闭环可维护性 (user-visible)
+- v1.6.0 2026-04-10 13:56:39 kuang: docs(spec-graph-bootstrap): 补充《阶段命令-产物变化对照表》文件级说明，逐项定义运行时库文件、控制面 JSON、v1 必需文档与条件增强产物的作用/功能/主要内容 (user-visible)
+- v1.6.0 2026-04-10 13:52:26 kuang: docs(spec-graph-bootstrap): 新增《阶段命令-产物变化对照表》，按命令维度梳理 Phase0 CRG 子命令、init 安装、/spec:graph-bootstrap 首次执行与 rerun/refresh 的写入文件集合，并给出最小运行后目录树 (user-visible)
+- v1.6.0 2026-04-10 13:38:15 kuang: docs(spec-graph-bootstrap): 重写《竞争力分析》为对标更新版，基于阶段0 Node.js 内嵌 CRG 与最新业界调研，重构竞争维度、优势短板、反过度设计策略与 90 天执行建议，明确竞争焦点为“编排正确性+维护经济性” (user-visible)
+- v1.6.0 2026-04-10 13:29:37 kuang: docs(spec-graph-bootstrap): 在《业界方案调研》补充“反过度设计原则”，明确 v1 最小治理闭环（契约测试/产物三元信息/降级不阻断/stale 指标）、v2 暂缓项与升级触发条件，避免只优化生成而忽略维护复杂度 (user-visible)
+- v1.6.0 2026-04-10 12:37:05 kuang: docs(spec-graph-bootstrap): 重写《业界方案调研》为“全网+GitHub+Google+X”证据版，新增 Karpathy LLM Wiki 思想整合（Ingest/Query/Lint、index/log、知识复利层），并统一阶段0图数据库路径为 `<repo_root>/.spec-first-graph/graph.db` 及相关文档口径 (user-visible)
 - v1.6.0 2026-04-09 23:55:00 kuang: docs(spec-graph-bootstrap): 二轮审查修复阶段2集成方案，包含：统一置信度类型为三值体系+新增 crg-importers-evidence 推断原因、扩展 Integration 库名清单为四语言版本、Data Shape Extractor 改为 semantic_search 路径无关查询、修复 CRG 探测逻辑为字段存在性检测、补充 file_summary 动态路径注、更新 §10.3 为 v1 stale 检测验收、定义核心文件选取规则、补全探测输出 stale 格式、Layer Detection 增加四级判定分支、§8 对齐 test-surface 消费优先级、§9.2 澄清 MCP 前缀动态化 (user-visible)
 - v1.6.0 2026-04-09 23:20:00 kuang: feat(spec-graph-bootstrap): 新增阶段1安装集成入口 `spec-graph-bootstrap` 与 `graph-bootstrap` command，接入 Claude/Codex runtime、smoke、install-local 和用户文档，并明确 `bootstrap` 仍为默认稳定入口、`graph-bootstrap` 仅作并行验证 (user-visible)
 - v1.6.0 2026-04-09 22:30:00 kuang: docs(spec-graph-bootstrap): 全面修订阶段2集成方案，修复编号错位、澄清 Integration 多目标 API 约束、区分 CRG 空图/无图边界、补充构建失败路径、定义 testing_surface 双产物分工、增加 v1 stale 运行时警告、明确 Extractor 三阶段执行顺序、具化 Layer Detection CRG 识别逻辑、定义 monorepo v1 边界、显式约束 Basic 模式 severity 上限 (user-visible)
