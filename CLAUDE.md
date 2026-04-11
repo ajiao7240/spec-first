@@ -64,7 +64,7 @@ Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。C
 | `analyze.js` | surprising_connections（spec§14.6 4因子：confidence_weight/cross_language/cross_community/peripheral_to_hub）+ god_nodes 分析 |
 | `search.js` | FTS5 搜索 + rebuildFTS（独立虚表，drop-recreate 全量重建） |
 | `changes.js` | git diff 风险评分（High/Medium/Low） |
-| `cli/build.js` | build + stats CLI handler；增量构建 0 变更时保留 graph_meta.unresolved_edge_count 不归零 |
+| `cli/build.js` | build + stats CLI handler；inferLanguage 过滤确保 fingerprints 只跟踪代码文件；prunedPaths 清理历史残留非代码路径；增量构建 0 变更时保留 graph_meta.unresolved_edge_count 不归零 |
 | `cli/context.js` | context 命令 |
 | `cli/query.js` | `--pattern` 8种查询 FactItem 输出（callers_of/callees_of/importers_of/importees_of/dependents_of/dependencies_of/tests_for/similar_to） |
 | `cli/postprocess.js` | 后处理编排（writeCommunities→detectFlows→analyzeGraph→rebuildFTS） |

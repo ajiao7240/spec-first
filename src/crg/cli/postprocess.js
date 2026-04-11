@@ -85,6 +85,7 @@ function runPostprocess(db) {
  */
 function run(argv) {
   const { makeEnvelope } = require('./envelope');
+  let db;
 
   // 解析 --repo 参数
   let repoRaw = null;
@@ -118,7 +119,7 @@ function run(argv) {
   const { initDatabase } = require('../migrations');
 
   try {
-    const db = initDatabase(dbPath);
+    db = initDatabase(dbPath);
     const stats = runPostprocess(db);
 
     const envelope = makeEnvelope(repoRoot, {
@@ -135,7 +136,7 @@ function run(argv) {
     process.stderr.write(`error: ${err.message}\n`);
     process.exit(2);
   } finally {
-    try { db.close(); } catch (_) {}
+    try { if (db) db.close(); } catch (_) {}
   }
 }
 

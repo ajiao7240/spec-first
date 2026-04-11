@@ -241,14 +241,14 @@ function writeCommunities(db) {
             subIntraEdges / Math.max(subIntraEdges + subInterEdges, 1);
 
           let subHealthStatus;
-          if (subDensity > 0.3 && subIndependence > 0.7) {
+          if (subDensity > 0.3 && subIndependence > 0.5) {
             subHealthStatus = 'healthy';
-          } else if (subDensity <= 0.3 && subIndependence > 0.7) {
+          } else if (subDensity <= 0.3 && subIndependence > 0.5) {
             subHealthStatus = 'isolated';
-          } else if (subDensity > 0.3 && subIndependence <= 0.7) {
-            subHealthStatus = 'fragile';
+          } else if (subDensity > 0.3 && subIndependence <= 0.5) {
+            subHealthStatus = 'fragmented';
           } else {
-            subHealthStatus = 'overloaded';
+            subHealthStatus = 'scattered';
           }
 
           finalCommunities.push({

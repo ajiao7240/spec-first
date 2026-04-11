@@ -38,7 +38,7 @@ function run(argv) {
 
   // 查询该社区的成员节点
   const memberRows = db.prepare(`
-    SELECT id, name, file_path, kind
+    SELECT id, name, file_path, kind, line_start, line_end, is_test
     FROM nodes
     WHERE community_id = ?
     ORDER BY kind, name
@@ -50,8 +50,13 @@ function run(argv) {
     name: row.name,
     file_path: row.file_path,
     kind: row.kind,
+    line_start: row.line_start,
+    line_end: row.line_end,
+    is_test: row.is_test,
     confidence: 'Observed',
     source_tier: 'crg_ast',
+    evidence: [`community membership from node ${row.id}`],
+    inference_reason: null,
   }));
 
   db.close();

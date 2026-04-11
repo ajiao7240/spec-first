@@ -122,7 +122,7 @@ async function runBuildAsync(argv) {
   // 延迟加载内部模块（确保原生包已可用）
   const { initDatabase } = require('../migrations');
   const { collectInputFiles } = require('../input-convergence');
-  const { parseFile } = require('../parser');
+  const { parseFile, inferLanguage } = require('../parser');
   const { detectChangedFiles, updateFingerprints } = require('../incremental');
   const {
     upsertNodes,
@@ -144,7 +144,9 @@ async function runBuildAsync(argv) {
   try {
     // 收集输入文件（async）
     const { finalInputs, stats: inputStats } = await collectInputFiles(repoRoot);
-    const finalInputSet = new Set(finalInputs);
+    // fingerprints 只跟踪“真正可解析并参与图构建”的输入，避免 .gitignore 等噪音文件入账。
+    const graphInputs = finalInputs.filter((filePath) => inferLanguage(filePath) !== null);
+    const graphInputSet = new Set(graphInputs);
 
     // 当前输入集之外的历史图路径也必须清理：
     // 仅依赖 fingerprints 会遗漏“已从输入规则中排除、但旧节点仍残留”的路径。
@@ -156,7 +158,7 @@ async function runBuildAsync(argv) {
       `)
       .all()
       .map((row) => row.file_path);
-    const prunedPaths = existingGraphPaths.filter((filePath) => !finalInputSet.has(filePath));
+    const prunedPaths = existingGraphPaths.filter((filePath) => !graphInputSet.has(filePath));
 
     // --force 时清空 fingerprints，强制全量重建
     if (force) {
@@ -164,7 +166,7 @@ async function runBuildAsync(argv) {
     }
 
     // 增量检测（changedShas 供后续 updateFingerprints 复用，避免二次读取）
-    const { changed, deleted, changedShas } = detectChangedFiles(db, finalInputs, repoRoot);
+    const { changed, deleted, changedShas } = detectChangedFiles(db, graphInputs, repoRoot);
     const deletedPaths = [...new Set([...deleted, ...prunedPaths])];
 
     // 处理已删除文件：移除节点 + 更新 fingerprints
@@ -173,12 +175,17 @@ async function runBuildAsync(argv) {
 
     // 解析变更文件，收集节点和原始边
     const allRawEdges = [];
+    const skippedChanged = [];
+    const parsedChanged = [];
     for (const file of changed) {
       const result = parseFile(file, repoRoot);
-      if (!result.skipped) {
-        upsertNodes(db, result.nodes);
-        allRawEdges.push(...result.rawEdges);
+      if (result.skipped) {
+        skippedChanged.push(file);
+        continue;
       }
+      parsedChanged.push(file);
+      upsertNodes(db, result.nodes);
+      allRawEdges.push(...result.rawEdges);
     }
 
     // 批量解析边并写入
@@ -186,12 +193,14 @@ async function runBuildAsync(argv) {
     upsertEdges(db, resolved);
     // 仅在实际处理了文件时更新 unresolved_edge_count：
     //   增量构建 0 变更时 unresolvedCount=0，不代表真实情况，保留上一次全量构建的值
-    if (changed.length > 0 || force) {
+    if (parsedChanged.length > 0 || force) {
       setUnresolvedEdgeCount(db, unresolvedCount);
     }
 
-    // 更新 fingerprints（传入 changedShas 复用已计算 SHA）
-    updateFingerprints(db, changed, [], repoRoot, changedShas);
+    // 更新 fingerprints：
+    //   - 仅为真正入图的变更文件 upsert
+    //   - 对解析阶段 skipped 的文件做 delete，避免留下无效指纹
+    updateFingerprints(db, parsedChanged, skippedChanged, repoRoot, changedShas);
 
     // 更新 graph_meta.last_built
     db.prepare(`UPDATE graph_meta SET last_built = ? WHERE id = 1`).run(new Date().toISOString());
@@ -229,7 +238,7 @@ async function runBuildAsync(argv) {
     const envelope = makeEnvelope(repoRoot, {
       node_count: nodeCount,
       edge_count: edgeCount,
-      changed_files: changed.length,
+      changed_files: parsedChanged.length,
       duration_ms: durationMs,
       skipped_sensitive: skippedSensitive,
       unresolved_edge_count: unresolvedCount,

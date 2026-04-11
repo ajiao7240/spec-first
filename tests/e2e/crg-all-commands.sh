@@ -541,17 +541,25 @@ check_exit "stats 图未构建 → exit 2" 2 stats --repo="$TMPDIR_EMPTY"
 rm -rf "$TMPDIR_EMPTY"
 
 # =============================================================================
-# 21. 增量稳定性：连续 3 次构建
+# 21. 增量稳定性：允许首轮吸收工作树变更，随后必须稳定
 # =============================================================================
 section "增量稳定性"
 
-for i in 1 2 3; do
+FIRST_OUT=$(run build 2>/dev/null)
+FIRST_CF=$(get_num "$FIRST_OUT" changed_files)
+if [[ "$FIRST_CF" =~ ^[0-9]+$ ]]; then
+  ok "第 1 次增量构建 changed_files=${FIRST_CF}（允许吸收当前工作树变更）"
+else
+  fail "第 1 次增量构建 changed_files='${FIRST_CF}' 非法"
+fi
+
+for i in 2 3; do
   INC_OUT=$(run build 2>/dev/null)
   INC_CF=$(get_num "$INC_OUT" changed_files)
   if [[ "$INC_CF" == "0" ]]; then
     ok "第 $i 次增量构建 changed_files=0（稳定）"
   else
-    fail "第 $i 次增量构建 changed_files=${INC_CF}（不稳定！）"
+    fail "第 $i 次增量构建 changed_files=${INC_CF}（应已稳定为 0）"
   fi
 done
 

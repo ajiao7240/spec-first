@@ -27,6 +27,9 @@ const { execSync } = require('child_process');
 /** 内置默认排除规则（glob 风格） */
 const DEFAULT_EXCLUDES = [
   '.git/**',
+  '.claude/**',
+  '.codex/**',
+  '.agents/**',
   '.spec-first-graph/**',
   '.code-review-graph/**',
   'graphify-out/**',

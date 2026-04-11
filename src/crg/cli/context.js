@@ -36,6 +36,7 @@ function requireSqlite() {
  * @param {string[]} argv - router.js 传入的参数
  */
 function run(argv) {
+  let db;
   // 解析 --repo
   let repoRaw = null;
   for (let i = 0; i < argv.length; i++) {
@@ -68,12 +69,12 @@ function run(argv) {
   const { initDatabase } = require('../migrations');
 
   try {
-    const db = initDatabase(dbPath);
+    db = initDatabase(dbPath);
 
     // top_hubs：取 kind != 'module' 的前 5 个节点，映射为 FactItem
     const topHubs = db
       .prepare(
-        `SELECT name, file_path, kind
+        `SELECT id, name, file_path, kind, line_start, line_end, is_test
          FROM nodes
          WHERE kind != 'module'
          ORDER BY rowid DESC
@@ -81,11 +82,17 @@ function run(argv) {
       )
       .all()
       .map(row => ({
+        id: row.id,
         name: row.name,
         file_path: row.file_path,
         kind: row.kind,
+        line_start: row.line_start,
+        line_end: row.line_end,
+        is_test: row.is_test,
         confidence: 'Observed',
         source_tier: 'crg_ast',
+        evidence: [`context top_hub from node ${row.id}`],
+        inference_reason: null,
       }));
 
     // top_communities：按 file_count 降序，取前 3；alias id → community_id（schema 要求）
@@ -121,7 +128,7 @@ function run(argv) {
     process.exit(2);
   } finally {
     // 确保 WAL checkpoint 并释放文件句柄
-    try { db.close(); } catch (_) {}
+    try { if (db) db.close(); } catch (_) {}
   }
 }
 

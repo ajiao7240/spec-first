@@ -120,6 +120,7 @@ function run(argv) {
       depth: visitedMap.get(row.id),
       confidence: 'Inferred',
       source_tier: 'crg_ast',
+      evidence: [`impact traversal from ${symbolId}`],
       inference_reason: 'call_graph_traversal',
     }));
 

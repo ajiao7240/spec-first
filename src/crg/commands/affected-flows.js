@@ -106,6 +106,7 @@ function run(argv) {
       position: row.position,
       confidence: 'Inferred',
       source_tier: 'crg_ast',
+      evidence: [`affected flow since ${since}`],
       inference_reason: 'call_graph_traversal',
     });
   }

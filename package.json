@@ -10,7 +10,8 @@
     "test:unit": "bash tests/unit/developer.sh && bash tests/unit/lang-policy.sh && bash tests/unit/mcp-setup.sh && bash tests/unit/version-reminder.sh",
     "test:smoke": "bash tests/smoke/install-local.sh && bash tests/smoke/cli.sh",
     "test:integration": "bash tests/integration/e2e.sh",
-    "test": "npm run test:unit && npm run test:smoke && npm run test:integration",
+    "test:e2e:crg": "bash tests/e2e/crg-all-commands.sh && bash tests/e2e/crg-sqlite-audit.sh",
+    "test": "npm run test:unit && npm run test:smoke && npm run test:integration && npm run test:e2e:crg",
     "test:jest": "jest",
     "postinstall": "node bin/postinstall.js"
   },

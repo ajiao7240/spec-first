@@ -162,7 +162,8 @@ function surprisingConnections(db) {
 function godNodes(db) {
   // 统计每个非 module 节点的 in_degree
   const inDegreeRows = db.prepare(`
-    SELECT n.id, n.name, n.file_path, n.kind, COUNT(e.source_id) AS in_degree
+    SELECT n.id, n.name, n.file_path, n.kind, n.line_start, n.line_end, n.is_test,
+           COUNT(e.source_id) AS in_degree
     FROM nodes n
     LEFT JOIN edges e ON e.target_id = n.id
     WHERE n.kind != 'module'
@@ -185,10 +186,14 @@ function godNodes(db) {
     name: node.name,
     file_path: node.file_path,
     kind: node.kind,
+    line_start: node.line_start,
+    line_end: node.line_end,
+    is_test: node.is_test,
     in_degree: node.in_degree,
     confidence: 'Inferred',
     inference_reason: 'call_graph_traversal',
-    source_tier: 'crg_analysis',
+    source_tier: 'crg_ast',
+    evidence: [`god node in_degree=${node.in_degree}`],
   }));
 }
 

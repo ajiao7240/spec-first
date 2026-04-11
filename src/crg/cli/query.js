@@ -281,6 +281,7 @@ function parseQueryArgs(argv) {
  * @param {string[]} argv - router.js 传入的参数
  */
 function run(argv) {
+  let db;
   const { repo: repoRaw, pattern, symbol, module: mod, subject } = parseQueryArgs(argv);
 
   // --pattern 必填
@@ -353,7 +354,7 @@ function run(argv) {
   const { initDatabase } = require('../migrations');
 
   try {
-    const db = initDatabase(dbPath);
+    db = initDatabase(dbPath);
 
     const inferenceReason = PATTERN_REASON[pattern];
     const rows = executeQuery(db, pattern, providedValue);
@@ -365,7 +366,7 @@ function run(argv) {
     process.stderr.write(`error: ${err.message}\n`);
     process.exit(2);
   } finally {
-    try { db.close(); } catch (_) {}
+    try { if (db) db.close(); } catch (_) {}
   }
 }
 

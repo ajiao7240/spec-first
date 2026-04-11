@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-11 16:22:00 kuang: fix(crg): 修复 fingerprints 表污染 — build.js 引入 inferLanguage 过滤，仅为真正可解析的代码文件记录指纹；同时用 prunedPaths 清理历史残留的非代码指纹；fingerprints 从 454 条降至 75 条，全为代码文件 (user-visible)
 - v1.6.0 2026-04-11 15:50:00 kuang: fix(crg): 修复增量构建将 unresolved_edge_count 归零 — 仅在 changed.length>0 或 --force 时调用 setUnresolvedEdgeCount，stats 命令现在显示真实历史值 (user-visible)
 - v1.6.0 2026-04-11 15:30:00 kuang: fix(crg): 阶段0质量修复4项 — resolveEdges 补相对路径解析(require('./x')→模块路径+扩展名探测)使 imports_from 边从0升至102、DEFAULT_EXCLUDES 和 graphignore 将 bin/** 改为 bin/Debug/** + bin/Release/** 避免误排 Node.js CLI 入口、parser.js module 节点继承 isTestFile 标记(先判断后构建) (user-visible)
 - v1.6.0 2026-04-11 23:55:00 kuang: fix(crg): 收口阶段0最终交付缺口，修复 query/context/postprocess/stats 的 DB 关闭作用域错误、补 build/stats 诊断 warnings（stale/skipped_sensitive/high_unresolved_edge_rate）、统一社区状态枚举、补齐 FactItem evidence/source_tier 合法值，并新增 handler close 与 stale warning 回归测试 (user-visible)
@@ -15,7 +16,7 @@
 - v1.6.0 2026-04-11 23:59:00 kuang: test(crg): 将 flow 与 affected-flows 从 todo 升级为可执行 contract，覆盖结构字段、FactItem 约束与缺失 flow_id 的 exit 1 语义
 - v1.6.0 2026-04-11 23:59:30 kuang: test(crg): 新增 SQLite 结果审计脚本，校验 graph.db 物理健康、关系不变量、CLI 对账与 runtime 副本污染风险，并接入 test:e2e:crg 入口 (user-visible)
 - v1.6.0 2026-04-11 23:59:50 kuang: test(crg): 修正 e2e 全命令脚本的增量稳定性判定，允许首轮吸收当前工作树变更，仅要求后续连续构建稳定为 0
-- v1.6.0 2026-04-12 00:00:10 kuang: fix(crg): 输入收敛默认排除 .claude/.codex/.agents runtime 副本目录，避免 source/runtime 多份副本同时入图，并补充对应单测 (user-visible)
+- v1.6.0 2026-04-12 00:00:10 kuang: fix(crg): 输入收敛默认排除 .claude/.codex/.agents runtime 副本目录，并在 build 中清理已被排除但历史残留的旧节点/指纹，避免 source/runtime 多份副本同时入图；补充对应单测与 SQLite 审计校验 (user-visible)
 - v1.6.0 2026-04-11 23:30:00 kuang: fix(crg): 架构师级修复 — resolveEdges 同文件优先消歧、communities Pass1 CONTAINER_DIRS + Pass2 健康状态规范化(fragmented/scattered)、incremental changedShas 避免双读、review-context candidate_tests 全 FactItem 字段、Pass3 最小阈值 PASS3_MIN_NODES=4，补充 12 个专项单元测试 (user-visible)
 - v1.6.0 2026-04-11 22:15:54 kuang: fix(crg): 修复阶段0评审缺陷，包含同名符号歧义不再串线、JS/TS calls 边抽取与本地解析、review-context 候选测试统一推断字段、router 区分 handler 缺失与传递依赖缺失，并补充对应单元/契约测试 (user-visible)
 - v1.6.0 2026-04-11 15:15:00 kuang: test(crg): 新增 e2e 全命令测试脚本 tests/e2e/crg-all-commands.sh，覆盖 17 个子命令正常路径/错误路径/增量稳定性，74/74 全部通过；修复脚本中 bash 3.2 不支持 declare -A、中文变量名 unbound、flow/community --id 参数名等问题 (user-visible)
@@ -121,6 +122,7 @@
 - v1.5.0 2026-04-04 kuang: docs: 修复 Harness Engineering 实施分期文档全部 P0/P1 问题：阶段1补充 VALID/INVALID 触发条件表、OoS 边界说明、Greenfield template-first 来源约定、single-writer managed block 实现要求、knowledge init 消费方说明、完成标志操作验收指标；阶段2补充首次产出归属声明、路径迁移说明、history-spec-index 写入责任链、automation candidate 人工确认要求、语义召回最小实现、pitfalls-specialist 路由机制；阶段3补充13资产 Reduced-harness 输入矩阵、指标失真背离检测机制、阶段1/2 代理指标可计算条件
 - v1.5.0 2026-04-04 kuang: docs: 完善 Harness Engineering 实施分期文档：补充 meta.json/findings.json/probe-failures 等缺失数据契约，新增 .context/ 路径决策说明，补全阶段2双路召回消费侧接入说明与 automation candidates 量化门槛，修复 Trace 统一建模字段缺漏
 - v1.5.0 2026-04-04 kuang: docs: 新增 spec-req Stage -1 需求录入 workflow 设计方案，融合 Shape Up/PRFAQ/BDD/RFC 四种方法论，覆盖文档格式、3问交互模式、下游 skill 联动与可追溯链路
+- v1.6.0 2026-04-12 10:15:00 kuang: fix(crg): 收紧阶段0 fingerprints 仅跟踪可解析图输入，并在 SQLite 审计中新增 orphan_fingerprints 门禁，防止 .gitignore 等无效路径残留
 - v1.5.0 2026-04-04 kuang: docs: 新增独立文档仓库方案，覆盖 init 绑定、team/org 配置层级、docs repo 路径映射与三阶段实施计划
 - v1.5.0 2026-04-04 kuang: docs: 新增 spec-first Harness 改造技术方案最终架构审查报告，综合 Prompt Harness 上限、Greenfield contract 缺失、proposal 职责漂移等 7 项问题，含优先级行动清单
 - v1.5.0 2026-04-04 kuang: docs: 优化 0-1与1-10-100项目需求开发能力说明文档，修正 Section 6 子标题层级，补充 Greenfield/Reduced-harness 区别说明，标注 Section 10 四条建议为新增需求并说明实现代价

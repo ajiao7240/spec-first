@@ -19,6 +19,8 @@ const {
   collectInputFiles,
 } = require('../../src/crg/input-convergence');
 
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const FIXTURE_BASIC = path.join(
@@ -243,6 +245,33 @@ describe('collectInputFiles', () => {
     });
     const sorted = [...finalInputs].sort();
     expect(finalInputs).toEqual(sorted);
+  });
+
+  test('all-files 模式下，runtime 副本目录 .claude/.codex/.agents 不进入 final_inputs', async () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-runtime-excludes-'));
+    fs.mkdirSync(path.join(tmpRepo, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRepo, '.claude/skills/demo'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRepo, '.codex/skills/demo'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRepo, '.agents/skills/demo'), { recursive: true });
+
+    fs.writeFileSync(path.join(tmpRepo, 'src/index.js'), 'console.log("ok");\n');
+    fs.writeFileSync(path.join(tmpRepo, '.claude/skills/demo/runtime.js'), 'console.log("claude");\n');
+    fs.writeFileSync(path.join(tmpRepo, '.codex/skills/demo/runtime.js'), 'console.log("codex");\n');
+    fs.writeFileSync(path.join(tmpRepo, '.agents/skills/demo/runtime.js'), 'console.log("agents");\n');
+
+    try {
+      const { finalInputs, stats } = await collectInputFiles(tmpRepo, {
+        mode: 'all-files',
+      });
+
+      expect(finalInputs).toContain('src/index.js');
+      expect(finalInputs.some((f) => f.startsWith('.claude/'))).toBe(false);
+      expect(finalInputs.some((f) => f.startsWith('.codex/'))).toBe(false);
+      expect(finalInputs.some((f) => f.startsWith('.agents/'))).toBe(false);
+      expect(stats.ignored_files_by_rule.default_exclude).toBeGreaterThanOrEqual(3);
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
   });
 
   test.todo('tracked-only 模式下两次收敛结果一致（需 git init fixture）');

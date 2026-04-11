@@ -52,6 +52,7 @@ function run(argv) {
     position: row.position,
     confidence: 'Inferred',
     source_tier: 'crg_ast',
+    evidence: [`flow membership in ${flowId}`],
     inference_reason: 'call_graph_traversal',
   }));
 

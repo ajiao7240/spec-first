@@ -59,7 +59,9 @@ function run(argv) {
     if (isSensitiveFile(path.basename(change.file))) continue;
 
     const nodes = db.prepare(
-      "SELECT id, name, file_path, kind FROM nodes WHERE file_path = ? AND kind != 'module'"
+      `SELECT id, name, file_path, kind, line_start, line_end, is_test
+       FROM nodes
+       WHERE file_path = ? AND kind != 'module'`
     ).all(change.file);
 
     for (const node of nodes) {
@@ -68,9 +70,13 @@ function run(argv) {
         name: node.name,
         file_path: node.file_path,
         kind: node.kind,
+        line_start: node.line_start,
+        line_end: node.line_end,
+        is_test: node.is_test,
         confidence: 'Observed',
         source_tier: 'crg_ast',
         evidence: [`changed file: ${change.file}`],
+        inference_reason: null,
         risk_level: change.risk_level,
       });
     }
