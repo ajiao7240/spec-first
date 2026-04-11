@@ -134,6 +134,8 @@ function run(argv) {
   } catch (err) {
     process.stderr.write(`error: ${err.message}\n`);
     process.exit(2);
+  } finally {
+    try { db.close(); } catch (_) {}
   }
 }
 

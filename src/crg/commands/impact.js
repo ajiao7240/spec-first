@@ -98,13 +98,19 @@ function run(argv) {
   // 排除起始节点自身，只保留受影响的调用者
   const impactedIds = Array.from(visitedMap.keys()).filter(id => id !== symbolId);
 
-  // 从 DB 获取节点详情
+  // 分块查询（避免超出 SQLite SQLITE_MAX_VARIABLE_NUMBER=999）
+  const CHUNK_SIZE = 900;
   let impactedNodes = [];
   if (impactedIds.length > 0) {
-    const placeholders = impactedIds.map(() => '?').join(', ');
-    const nodeRows = db.prepare(
-      `SELECT id, name, file_path, kind FROM nodes WHERE id IN (${placeholders})`
-    ).all(...impactedIds);
+    const nodeRows = [];
+    for (let i = 0; i < impactedIds.length; i += CHUNK_SIZE) {
+      const chunk = impactedIds.slice(i, i + CHUNK_SIZE);
+      const placeholders = chunk.map(() => '?').join(', ');
+      const rows = db.prepare(
+        `SELECT id, name, file_path, kind FROM nodes WHERE id IN (${placeholders})`
+      ).all(...chunk);
+      nodeRows.push(...rows);
+    }
 
     impactedNodes = nodeRows.map(row => ({
       id: row.id,

@@ -31,7 +31,7 @@ function run(argv) {
 
   // 映射为带 health 对象的输出格式
   const items = rows.map(row => ({
-    id: row.id,
+    community_id: row.id,
     label: row.label,
     file_count: row.file_count,
     health: {

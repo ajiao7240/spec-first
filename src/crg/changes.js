@@ -7,7 +7,7 @@
  * 风险等级：High（fan-in >= 10）、Medium（fan-in >= 3）、Low（其他）。
  */
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 
 /**
@@ -19,9 +19,10 @@ const path = require('path');
  */
 function getChangedFilesFromGit(repoRoot, since) {
   try {
-    const output = execSync(
-      `git diff --name-only ${since} HEAD`,
-      { cwd: repoRoot, encoding: 'utf8' }
+    const output = execFileSync(
+      'git',
+      ['diff', '--name-only', since, 'HEAD'],
+      { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
     );
     const files = output.trim().split('\n').filter(Boolean);
     return { files };

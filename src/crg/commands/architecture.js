@@ -35,12 +35,19 @@ function run(argv) {
     LIMIT 200
   `).all();
 
+  // 映射字段名匹配 schema（source_id/target_id → source/target）
+  const crossEdgeMapped = crossEdges.map(e => ({
+    source: e.source_id,
+    target: e.target_id,
+    kind: e.kind,
+  }));
+
   db.close();
 
   process.stdout.write(
     JSON.stringify(makeEnvelope(repoRoot, {
       hub_nodes: hubNodes,
-      cross_community_edges: crossEdges,
+      cross_community_edges: crossEdgeMapped,
     })) + '\n'
   );
 }

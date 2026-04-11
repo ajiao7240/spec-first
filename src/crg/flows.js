@@ -21,7 +21,8 @@
  * @returns {{ adjacency: Map<string, string[]>, reverseAdjacency: Map<string, string[]> }}
  */
 function loadAdjacency(db) {
-  const rows = db.prepare('SELECT source_id, target_id FROM edges').all();
+  // 仅加载 calls 类型边：PageRank 评分和 BFS 流程展开均基于函数调用关系
+  const rows = db.prepare("SELECT source_id, target_id FROM edges WHERE kind = 'calls'").all();
   const adjacency = new Map();
   const reverseAdjacency = new Map();
 
@@ -44,7 +45,7 @@ function loadAdjacency(db) {
  * @param {number} [maxIterations=20]
  * @returns {Map<string, number>} nodeId → PageRank 分数
  */
-function computePageRank(adjacency, dampingFactor = 0.85, maxIterations = 20) {
+function computePageRank(adjacency, reverseAdjacency, dampingFactor = 0.85, maxIterations = 20) {
   // 收集所有节点（包括只有 in-edges 无 out-edges 的节点）
   const allNodes = new Set(adjacency.keys());
   for (const targets of adjacency.values()) {
@@ -69,13 +70,13 @@ function computePageRank(adjacency, dampingFactor = 0.85, maxIterations = 20) {
     let maxDelta = 0;
 
     for (const nodeId of allNodes) {
-      // 汇总所有指向 nodeId 的节点的贡献
+      // 通过反向邻接表直接获取入边节点，O(in-degree) 而非 O(N×E)
       let incomingSum = 0;
-
-      for (const [srcId, targets] of adjacency) {
-        if (targets.includes(nodeId)) {
-          const outDegree = targets.length;
-          incomingSum += scores.get(srcId) / outDegree;
+      const incomingNodes = reverseAdjacency.get(nodeId) || [];
+      for (const srcId of incomingNodes) {
+        const outDegree = (adjacency.get(srcId) || []).length;
+        if (outDegree > 0) {
+          incomingSum += (scores.get(srcId) || 0) / outDegree;
         }
       }
 
@@ -140,11 +141,11 @@ function bfsFlow(entryId, adjacency, maxDepth = 5, maxNodes = 20) {
  * @returns {{ flow_count: number, node_count_total: number }}
  */
 function detectFlows(db) {
-  // 加载邻接表
-  const { adjacency } = loadAdjacency(db);
+  // 加载邻接表（含反向邻接表，用于 O(E) PageRank 计算）
+  const { adjacency, reverseAdjacency } = loadAdjacency(db);
 
   // 计算 PageRank（用于 criticality 评分）
-  const pageRankScores = computePageRank(adjacency);
+  const pageRankScores = computePageRank(adjacency, reverseAdjacency);
 
   // 找入口点：kind != 'module' 且不在任何 calls 边的 target_id 中
   const entryNodes = db.prepare(`

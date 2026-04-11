@@ -61,27 +61,31 @@ function run(argv) {
     return;
   }
 
-  // 构建 IN 子句参数占位符
-  const placeholders = changedFiles.map(() => '?').join(', ');
-
-  // 查询与变更文件相关的 flow_nodes → flows
-  // nodes 表中 file_path 是相对路径，匹配变更文件列表
-  const affectedRows = db.prepare(`
-    SELECT DISTINCT
-      f.id AS flow_id,
-      f.entry_node_id,
-      f.criticality,
-      n.id AS node_id,
-      n.name AS node_name,
-      n.file_path,
-      n.kind,
-      fn.position
-    FROM flow_nodes fn
-    JOIN nodes n ON fn.node_id = n.id
-    JOIN flows f ON fn.flow_id = f.id
-    WHERE n.file_path IN (${placeholders})
-    ORDER BY f.criticality DESC, fn.position ASC
-  `).all(...changedFiles);
+  // 分块查询（避免超出 SQLite SQLITE_MAX_VARIABLE_NUMBER=999）
+  const CHUNK_SIZE = 900;
+  const allAffectedRows = [];
+  for (let i = 0; i < changedFiles.length; i += CHUNK_SIZE) {
+    const chunk = changedFiles.slice(i, i + CHUNK_SIZE);
+    const placeholders = chunk.map(() => '?').join(', ');
+    const rows = db.prepare(`
+      SELECT DISTINCT
+        f.id AS flow_id,
+        f.entry_node_id,
+        f.criticality,
+        n.id AS node_id,
+        n.name AS node_name,
+        n.file_path,
+        n.kind,
+        fn.position
+      FROM flow_nodes fn
+      JOIN nodes n ON fn.node_id = n.id
+      JOIN flows f ON fn.flow_id = f.id
+      WHERE n.file_path IN (${placeholders})
+      ORDER BY f.criticality DESC, fn.position ASC
+    `).all(...chunk);
+    allAffectedRows.push(...rows);
+  }
+  const affectedRows = allAffectedRows;
 
   // 按 flow 分组
   const flowMap = new Map();

@@ -46,6 +46,8 @@ function run(argv) {
     // 其他意外错误 → exit 2
     process.stderr.write(`error: ${e.message}\n`);
     process.exit(2);
+  } finally {
+    try { db.close(); } catch (_) {}
   }
 }
 

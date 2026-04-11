@@ -423,7 +423,7 @@ function hasLocalPods(repoRoot) {
   try {
     const content = fs.readFileSync(absPath, 'utf8');
     const externalSourcesMatch = content.match(
-      /^EXTERNAL SOURCES:\n([\s\S]*?)(?=^\S|\Z)/m
+      /^EXTERNAL SOURCES:\n([\s\S]*?)(?=^\S|$)/m
     );
     if (!externalSourcesMatch) return false;
     return /:path:/i.test(externalSourcesMatch[1]);

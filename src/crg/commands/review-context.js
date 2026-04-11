@@ -71,7 +71,6 @@ function run(argv) {
         confidence: 'Observed',
         source_tier: 'crg_ast',
         evidence: [`changed file: ${change.file}`],
-        inference_reason: null,
         risk_level: change.risk_level,
       });
     }
@@ -102,10 +101,11 @@ function run(argv) {
       }
     }
 
-    // nodes 表中 is_test=1 且文件名包含 base 的节点
+    // nodes 表中 is_test=1 且文件名包含 base 的节点（转义 LIKE 通配符）
+    const escapedBase = base.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
     const testNodes = db.prepare(
-      'SELECT DISTINCT file_path FROM nodes WHERE is_test = 1 AND file_path LIKE ?'
-    ).all(`%${base}%`);
+      "SELECT DISTINCT file_path FROM nodes WHERE is_test = 1 AND file_path LIKE ? ESCAPE '\\'"
+    ).all(`%${escapedBase}%`);
 
     for (const tn of testNodes) {
       if (!seenTestFiles.has(tn.file_path)) {

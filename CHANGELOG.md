@@ -8,13 +8,14 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-11 00:00:00 kuang: fix(crg): spec:review safe_auto — P0 contract 字段修复（community_id/FlowBrief/top_hubs）+ PageRank O(E)优化 + shell injection execFileSync + iOS \Z正则 + IN clause chunking + LIKE escape + 架构边字段映射 (user-visible)
 - v1.6.0 2026-04-11 00:00:00 kuang: docs(crg): CLAUDE.md 补充 src/crg/ 模块架构说明表
 - v1.6.0 2026-04-11 00:00:00 kuang: chore(crg): 将 tree-sitter 版本从 ~0.25.0 降为 ~0.22.0 以解决 grammar 包 peerDependency 冲突
 - v1.6.0 2026-04-11 00:00:00 kuang: docs(crg): 标记实现计划状态为 completed
-- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit9 review 场景 — changes.js 风险评分 + detect-changes + review-context + fingerprints.json
-- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit8 全量 CLI 补全 — 11 个 commands/ 处理器覆盖 flows/communities/architecture/surprising-connections/god-nodes/impact/large-functions/search
+- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit9 review 场景 — changes.js 风险评分 + detect-changes + review-context + fingerprints.json (user-visible)
+- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit8 全量 CLI 补全 — 13 个 commands/ 处理器覆盖 flows/flow/affected-flows/communities/community/architecture/surprising-connections/god-nodes/impact/large-functions/search/detect-changes/review-context (user-visible)
 - v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit7 后处理算法 — 3-Pass communities + PageRank flows + surprising_connections + rebuildFTS
-- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit6 MVP 四命令 — build/stats/context/query CLI handler + envelope 工厂 + FactItem 转换
+- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit6 MVP 四命令 — build/stats/context/query CLI handler + envelope 工厂 + FactItem 转换 (user-visible)
 - v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit5 增量检测与图数据层 — detectChangedFiles/computeFileSHA + upsertNodes/resolveEdges/setUnresolvedEdgeCount
 - v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit4 核心解析层 — parser.js tree-sitter 骨架 + symbol_key + raw_edges + SENSITIVE_PATTERNS 过滤 + graceful degradation
 - v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit3 输入收敛流水线 — collectInputFiles/detectPresentLanguages/isSensitiveFile/computePodExcludePaths

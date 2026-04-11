@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm test                          # 完整测试套件（smoke + integration）
 npm run test:smoke                # CLI 帮助、init、生成资产、doctor 验证
 npm run test:integration          # 端到端流程检查
+npm run test:jest                 # CRG Jest 单元测试（需先 npm install --legacy-peer-deps）
 bash tests/unit/lang-policy.sh   # 单独验证语言策略注入逻辑
 bash tests/unit/mcp-setup.sh     # 单独验证 mcp-setup skill 脚本和配置
 npm pack                          # 发布前构建 tarball
@@ -65,11 +66,11 @@ Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。C
 | `changes.js` | git diff 风险评分（High/Medium/Low） |
 | `cli/build.js` | build + stats CLI handler |
 | `cli/context.js` | context 命令 |
-| `cli/query.js` | query 8 模式 FactItem 输出 |
+| `cli/query.js` | `--pattern` 8种查询 FactItem 输出（callers_of/callees_of/importers_of/importees_of/dependents_of/dependencies_of/tests_for/similar_to） |
 | `cli/postprocess.js` | 后处理编排（writeCommunities→detectFlows→analyzeGraph→rebuildFTS） |
 | `cli/open-db.js` | 共享 DB open 工具 |
 | `cli/envelope.js` | JSON 信封工厂 |
-| `commands/` | 11 个子命令处理器（flows/communities/architecture/…） |
+| `commands/` | 13 个子命令处理器（flows/flow/affected-flows/communities/community/architecture/surprising-connections/god-nodes/impact/large-functions/search/detect-changes/review-context） |
 
 **JSON 契约**：`docs/contracts/crg-cli-v1.schema.json`（JSON Schema Draft 2020-12）
 

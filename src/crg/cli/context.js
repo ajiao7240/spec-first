@@ -70,32 +70,38 @@ function run(argv) {
   try {
     const db = initDatabase(dbPath);
 
-    // top_hubs：Unit 7 PageRank 未实现，暂用 rowid 降序
-    // 取 kind != 'module' 的前 5 个节点
+    // top_hubs：取 kind != 'module' 的前 5 个节点，映射为 FactItem
     const topHubs = db
       .prepare(
-        `SELECT id, name, file_path, kind
+        `SELECT name, file_path, kind
          FROM nodes
          WHERE kind != 'module'
          ORDER BY rowid DESC
          LIMIT 5`
       )
-      .all();
+      .all()
+      .map(row => ({
+        name: row.name,
+        file_path: row.file_path,
+        kind: row.kind,
+        confidence: 'Observed',
+        source_tier: 'crg_ast',
+      }));
 
-    // top_communities：按 file_count 降序，取前 3
+    // top_communities：按 file_count 降序，取前 3；alias id → community_id（schema 要求）
     const topCommunities = db
       .prepare(
-        `SELECT id, label, file_count
+        `SELECT id AS community_id, label, file_count
          FROM communities
          ORDER BY file_count DESC
          LIMIT 3`
       )
       .all();
 
-    // top_flows：按 criticality 降序，取前 3
+    // top_flows：按 criticality 降序，取前 3；alias 字段匹配 FlowBrief schema
     const topFlows = db
       .prepare(
-        `SELECT id, entry_node_id, criticality
+        `SELECT id AS flow_id, entry_node_id AS entry_node, criticality, node_count
          FROM flows
          ORDER BY criticality DESC
          LIMIT 3`
@@ -113,6 +119,9 @@ function run(argv) {
   } catch (err) {
     process.stderr.write(`error: ${err.message}\n`);
     process.exit(2);
+  } finally {
+    // 确保 WAL checkpoint 并释放文件句柄
+    try { db.close(); } catch (_) {}
   }
 }
 

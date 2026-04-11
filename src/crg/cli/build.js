@@ -137,61 +137,65 @@ async function runBuildAsync(argv) {
   const dbPath = path.join(graphDir, 'graph.db');
   const db = initDatabase(dbPath);
 
-  // 收集输入文件（async）
-  const { finalInputs } = await collectInputFiles(repoRoot);
+  try {
+    // 收集输入文件（async）
+    const { finalInputs } = await collectInputFiles(repoRoot);
 
-  // --force 时清空 fingerprints，强制全量重建
-  if (force) {
-    db.prepare('DELETE FROM fingerprints').run();
-  }
-
-  // 增量检测
-  const { changed, deleted } = detectChangedFiles(db, finalInputs, repoRoot);
-
-  // 处理已删除文件：移除节点 + 更新 fingerprints
-  deleteStaleNodes(db, deleted);
-  updateFingerprints(db, [], deleted, repoRoot);
-
-  // 解析变更文件，收集节点和原始边
-  const allRawEdges = [];
-  for (const file of changed) {
-    const result = parseFile(file, repoRoot);
-    if (!result.skipped) {
-      upsertNodes(db, result.nodes);
-      allRawEdges.push(...result.rawEdges);
+    // --force 时清空 fingerprints，强制全量重建
+    if (force) {
+      db.prepare('DELETE FROM fingerprints').run();
     }
+
+    // 增量检测
+    const { changed, deleted } = detectChangedFiles(db, finalInputs, repoRoot);
+
+    // 处理已删除文件：移除节点 + 更新 fingerprints
+    deleteStaleNodes(db, deleted);
+    updateFingerprints(db, [], deleted, repoRoot);
+
+    // 解析变更文件，收集节点和原始边
+    const allRawEdges = [];
+    for (const file of changed) {
+      const result = parseFile(file, repoRoot);
+      if (!result.skipped) {
+        upsertNodes(db, result.nodes);
+        allRawEdges.push(...result.rawEdges);
+      }
+    }
+
+    // 批量解析边并写入
+    const { resolved, unresolvedCount } = resolveEdges(db, allRawEdges, repoRoot);
+    upsertEdges(db, resolved);
+    setUnresolvedEdgeCount(db, unresolvedCount);
+
+    // 更新 fingerprints
+    updateFingerprints(db, changed, [], repoRoot);
+
+    // 更新 graph_meta.last_built
+    db.prepare(`UPDATE graph_meta SET last_built = datetime('now') WHERE id = 1`).run();
+
+    // 后处理占位（Unit 7）
+    tryPostprocess(db);
+
+    // 写入 fingerprints.json（Unit 9）
+    writeFingerprintsJson(db, repoRoot);
+
+    // 统计计数
+    const nodeCount = db.prepare('SELECT COUNT(*) as c FROM nodes').get().c;
+    const edgeCount = db.prepare('SELECT COUNT(*) as c FROM edges').get().c;
+    const durationMs = Date.now() - startTime;
+
+    const envelope = makeEnvelope(repoRoot, {
+      node_count: nodeCount,
+      edge_count: edgeCount,
+      changed_files: changed.length,
+      duration_ms: durationMs,
+    });
+
+    process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
+  } finally {
+    try { db.close(); } catch (_) {}
   }
-
-  // 批量解析边并写入
-  const { resolved, unresolvedCount } = resolveEdges(db, allRawEdges, repoRoot);
-  upsertEdges(db, resolved);
-  setUnresolvedEdgeCount(db, unresolvedCount);
-
-  // 更新 fingerprints
-  updateFingerprints(db, changed, [], repoRoot);
-
-  // 更新 graph_meta.last_built
-  db.prepare(`UPDATE graph_meta SET last_built = datetime('now') WHERE id = 1`).run();
-
-  // 后处理占位（Unit 7）
-  tryPostprocess(db);
-
-  // 写入 fingerprints.json（Unit 9）
-  writeFingerprintsJson(db, repoRoot);
-
-  // 统计计数
-  const nodeCount = db.prepare('SELECT COUNT(*) as c FROM nodes').get().c;
-  const edgeCount = db.prepare('SELECT COUNT(*) as c FROM edges').get().c;
-  const durationMs = Date.now() - startTime;
-
-  const envelope = makeEnvelope(repoRoot, {
-    node_count: nodeCount,
-    edge_count: edgeCount,
-    changed_files: changed.length,
-    duration_ms: durationMs,
-  });
-
-  process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
 }
 
 /**
@@ -289,6 +293,8 @@ function runStats(argv) {
   } catch (err) {
     process.stderr.write(`error: ${err.message}\n`);
     process.exit(2);
+  } finally {
+    try { db.close(); } catch (_) {}
   }
 }
 
