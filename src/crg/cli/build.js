@@ -122,7 +122,7 @@ async function runBuildAsync(argv) {
   // 延迟加载内部模块（确保原生包已可用）
   const { initDatabase } = require('../migrations');
   const { collectInputFiles } = require('../input-convergence');
-  const { parseFile, inferLanguage } = require('../parser');
+  const { parseFile } = require('../parser');
   const { detectChangedFiles, updateFingerprints } = require('../incremental');
   const {
     upsertNodes,
@@ -142,14 +142,12 @@ async function runBuildAsync(argv) {
   const db = initDatabase(dbPath);
 
   try {
-    // 收集输入文件（async）
+    // 收集输入文件（async）；collectInputFiles 在收集层已通过语言过滤保证 finalInputs 为纯代码文件
     const { finalInputs, stats: inputStats } = await collectInputFiles(repoRoot);
-    // fingerprints 只跟踪“真正可解析并参与图构建”的输入，避免 .gitignore 等噪音文件入账。
-    const graphInputs = finalInputs.filter((filePath) => inferLanguage(filePath) !== null);
-    const graphInputSet = new Set(graphInputs);
+    const inputSet = new Set(finalInputs);
 
     // 当前输入集之外的历史图路径也必须清理：
-    // 仅依赖 fingerprints 会遗漏“已从输入规则中排除、但旧节点仍残留”的路径。
+    // 仅依赖 fingerprints 会遗漏”已从输入规则中排除、但旧节点仍残留”的路径。
     const existingGraphPaths = db
       .prepare(`
         SELECT file_path FROM nodes
@@ -158,7 +156,7 @@ async function runBuildAsync(argv) {
       `)
       .all()
       .map((row) => row.file_path);
-    const prunedPaths = existingGraphPaths.filter((filePath) => !graphInputSet.has(filePath));
+    const prunedPaths = existingGraphPaths.filter((filePath) => !inputSet.has(filePath));
 
     // --force 时清空 fingerprints，强制全量重建
     if (force) {
@@ -166,7 +164,7 @@ async function runBuildAsync(argv) {
     }
 
     // 增量检测（changedShas 供后续 updateFingerprints 复用，避免二次读取）
-    const { changed, deleted, changedShas } = detectChangedFiles(db, graphInputs, repoRoot);
+    const { changed, deleted, changedShas } = detectChangedFiles(db, finalInputs, repoRoot);
     const deletedPaths = [...new Set([...deleted, ...prunedPaths])];
 
     // 处理已删除文件：移除节点 + 更新 fingerprints

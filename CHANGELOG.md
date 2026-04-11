@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-12 00:33:00 kuang: refactor(crg): 将语言过滤下沉至 collectInputFiles 步骤8 — finalInputs 即为纯代码文件，build.js 不再重复过滤；.spec-first-graphignore 补充 docs/agents/templates 目录性能剪枝；对齐 Python CRG detect_language() 设计分层 (user-visible)
 - v1.6.0 2026-04-11 16:22:00 kuang: fix(crg): 修复 fingerprints 表污染 — build.js 引入 inferLanguage 过滤，仅为真正可解析的代码文件记录指纹；同时用 prunedPaths 清理历史残留的非代码指纹；fingerprints 从 454 条降至 75 条，全为代码文件 (user-visible)
 - v1.6.0 2026-04-11 15:50:00 kuang: fix(crg): 修复增量构建将 unresolved_edge_count 归零 — 仅在 changed.length>0 或 --force 时调用 setUnresolvedEdgeCount，stats 命令现在显示真实历史值 (user-visible)
 - v1.6.0 2026-04-11 15:30:00 kuang: fix(crg): 阶段0质量修复4项 — resolveEdges 补相对路径解析(require('./x')→模块路径+扩展名探测)使 imports_from 边从0升至102、DEFAULT_EXCLUDES 和 graphignore 将 bin/** 改为 bin/Debug/** + bin/Release/** 避免误排 Node.js CLI 入口、parser.js module 节点继承 isTestFile 标记(先判断后构建) (user-visible)

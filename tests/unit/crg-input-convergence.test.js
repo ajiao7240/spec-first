@@ -169,8 +169,45 @@ describe('computePodExcludePaths', () => {
     expect(result.includes).toHaveLength(0);
   });
 
-  test.todo('含 EXTERNAL SOURCES :path: 的 Podfile.lock → 本地 Pod 保留，三方 Pod 排除');
-  test.todo('无 EXTERNAL SOURCES 的 Podfile.lock → Pods/** 安全排除');
+  test('含 EXTERNAL SOURCES :path: 的 Podfile.lock → 本地 Pod 保留，三方 Pod 排除', () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-podlock-'));
+    fs.writeFileSync(path.join(tmpRepo, 'Podfile.lock'), [
+      'PODS:',
+      '  - AFNetworking (4.0.1)',
+      '  - HSCommonMediator (1.0.0)',
+      'EXTERNAL SOURCES:',
+      '  HSCommonMediator:',
+      '    :path: ../Modules/HSCommonMediator',
+      '  AFNetworking:',
+      '    :git: https://example.com/af.git',
+      '',
+    ].join('\n'));
+
+    try {
+      const result = computePodExcludePaths(tmpRepo);
+      expect(result.excludes).toContain('Pods/AFNetworking/**');
+      expect(result.includes).toContain('Pods/HSCommonMediator/**');
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  test('无 EXTERNAL SOURCES 的 Podfile.lock → Pods/** 安全排除', () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-podlock-'));
+    fs.writeFileSync(path.join(tmpRepo, 'Podfile.lock'), [
+      'PODS:',
+      '  - AFNetworking (4.0.1)',
+      '',
+    ].join('\n'));
+
+    try {
+      const result = computePodExcludePaths(tmpRepo);
+      expect(result.excludes).toEqual(['Pods/**']);
+      expect(result.includes).toEqual([]);
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -272,6 +309,76 @@ describe('collectInputFiles', () => {
     } finally {
       fs.rmSync(tmpRepo, { recursive: true, force: true });
     }
+  });
+
+  test('iOS 仓库默认排除三方 Pods，仅保留业务源码', async () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-ios-pods-'));
+    fs.mkdirSync(path.join(tmpRepo, 'HuashengSecurities'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRepo, 'Pods/AFNetworking'), { recursive: true });
+    fs.writeFileSync(path.join(tmpRepo, 'Podfile.lock'), [
+      'PODS:',
+      '  - AFNetworking (4.0.1)',
+      '',
+    ].join('\n'));
+    fs.writeFileSync(path.join(tmpRepo, 'HuashengSecurities/AppDelegate.h'), '@interface AppDelegate\n@end\n');
+    fs.writeFileSync(path.join(tmpRepo, 'Pods/AFNetworking/AFNetworking.h'), '@interface AFNetworking\n@end\n');
+
+    try {
+      const { finalInputs } = await collectInputFiles(tmpRepo, {
+        mode: 'all-files',
+        isIos: true,
+      });
+
+      expect(finalInputs).toContain('HuashengSecurities/AppDelegate.h');
+      expect(finalInputs.some((f) => f.startsWith('Pods/'))).toBe(false);
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  test('语言过滤：非代码文件（.md/.json/.sh/.gitignore）不进入 finalInputs', async () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-lang-filter-'));
+    fs.mkdirSync(path.join(tmpRepo, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRepo, 'docs'), { recursive: true });
+
+    fs.writeFileSync(path.join(tmpRepo, 'src/index.js'), 'console.log("ok");\n');
+    fs.writeFileSync(path.join(tmpRepo, 'src/utils.ts'), 'export const x = 1;\n');
+    fs.writeFileSync(path.join(tmpRepo, 'docs/README.md'), '# README\n');
+    fs.writeFileSync(path.join(tmpRepo, 'package.json'), '{"name":"test"}\n');
+    fs.writeFileSync(path.join(tmpRepo, 'Makefile'), 'build:\n\techo ok\n');
+    fs.writeFileSync(path.join(tmpRepo, '.gitignore'), 'node_modules\n');
+
+    try {
+      const { finalInputs, stats } = await collectInputFiles(tmpRepo, {
+        mode: 'all-files',
+      });
+
+      // 代码文件进入
+      expect(finalInputs).toContain('src/index.js');
+      expect(finalInputs).toContain('src/utils.ts');
+
+      // 非代码文件不进入（语言过滤在收集层兜底）
+      expect(finalInputs).not.toContain('docs/README.md');
+      expect(finalInputs).not.toContain('package.json');
+      expect(finalInputs).not.toContain('Makefile');
+      expect(finalInputs).not.toContain('.gitignore');
+
+      // stats 中 no_language 有计数
+      expect(stats.ignored_files_by_rule.no_language).toBeGreaterThanOrEqual(3);
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  test('语言过滤：finalInputs 中所有文件均有可识别语言扩展名', async () => {
+    const { finalInputs } = await collectInputFiles(FIXTURE_BASIC, {
+      mode: 'all-files',
+    });
+    // basic-repo 含 .gitignore / package.json，语言过滤后不应出现在 finalInputs 中
+    const nonCode = finalInputs.filter(
+      (f) => ['.gitignore', 'package.json'].includes(require('path').basename(f))
+    );
+    expect(nonCode).toHaveLength(0);
   });
 
   test.todo('tracked-only 模式下两次收敛结果一致（需 git init fixture）');

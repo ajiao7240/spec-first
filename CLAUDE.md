@@ -55,7 +55,7 @@ Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。C
 |---|---|
 | `cli/router.js` | 17 子命令路由 + `--repo` 路径校验 |
 | `migrations.js` | better-sqlite3 schema 初始化（7 表 + FTS5） |
-| `input-convergence.js` | 候选文件收敛（git ls-files + 排除链 + Pod 适配）；DEFAULT_EXCLUDES 用 bin/Debug/** + bin/Release/** 替代 bin/**，避免误排 Node.js CLI 入口 |
+| `input-convergence.js` | 候选文件收敛（git ls-files + 排除链 + Pod 适配）；步骤8 EXT_TO_LANG 语言过滤保证 finalInputs 为纯代码文件（对齐 Python CRG detect_language() 设计）；DEFAULT_EXCLUDES 用 bin/Debug/** + bin/Release/** 替代 bin/**，避免误排 Node.js CLI 入口 |
 | `parser.js` | tree-sitter AST 解析 → symbol_key + raw_edges；CommonJS require() → imports_from 边；module 节点继承 isTestFile 标记 |
 | `incremental.js` | SHA256 增量检测 + fingerprints 更新（detectChangedFiles 返回 changedShas 供复用） |
 | `graph.js` | upsertNodes/upsertEdges + resolveEdges 五阶段解析（直接 target_id → 精确 file_path → 相对路径解析（require('./x')＋扩展名探测）→ 全局符号 → 同文件消歧；缓存用 Object.create(null) 防原型污染） |
@@ -64,7 +64,7 @@ Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。C
 | `analyze.js` | surprising_connections（spec§14.6 4因子：confidence_weight/cross_language/cross_community/peripheral_to_hub）+ god_nodes 分析 |
 | `search.js` | FTS5 搜索 + rebuildFTS（独立虚表，drop-recreate 全量重建） |
 | `changes.js` | git diff 风险评分（High/Medium/Low） |
-| `cli/build.js` | build + stats CLI handler；inferLanguage 过滤确保 fingerprints 只跟踪代码文件；prunedPaths 清理历史残留非代码路径；增量构建 0 变更时保留 graph_meta.unresolved_edge_count 不归零 |
+| `cli/build.js` | build + stats CLI handler；collectInputFiles 已保证 finalInputs 为纯代码文件，build.js 不再做二次 inferLanguage 过滤；prunedPaths 清理历史残留路径；增量构建 0 变更时保留 graph_meta.unresolved_edge_count 不归零 |
 | `cli/context.js` | context 命令 |
 | `cli/query.js` | `--pattern` 8种查询 FactItem 输出（callers_of/callees_of/importers_of/importees_of/dependents_of/dependencies_of/tests_for/similar_to） |
 | `cli/postprocess.js` | 后处理编排（writeCommunities→detectFlows→analyzeGraph→rebuildFTS） |

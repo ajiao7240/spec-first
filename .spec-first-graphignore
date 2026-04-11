@@ -1,6 +1,16 @@
 # spec-first CRG ignore rules
 # 语法：与 .gitignore 一致（支持 *, **, ?, !）
 # 作用：收敛 CRG 输入集合，避免索引依赖/构建产物/运行时目录
+#
+# 设计分工：
+#   - 此文件：目录级性能剪枝（早排除大量非代码目录，减少 git ls-files 候选量）
+#   - collectInputFiles 步骤8：语言过滤兜底（EXT_TO_LANG，保证 finalInputs 为纯代码文件）
+#   - 两层互补：此文件保性能，步骤8保正确性
+
+# ---- 本项目特有：文档与资产目录（全为 .md，语言过滤兜底，此处提前剪枝）----
+docs/**
+agents/**
+templates/**
 
 # ---- 项目图谱与分析产物 ----
 .spec-first-graph/**

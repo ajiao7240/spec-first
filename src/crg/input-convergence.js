@@ -12,8 +12,9 @@
  *   5. extraExcludes / extraIncludes（适配器注入）
  *   6. 安全硬规则（SENSITIVE_PATTERNS，不可被白名单绕过）
  *   7. 二进制扩展名过滤
- *   8. 输出排序
- *   9. 推导 presentLanguages
+ *   8. 语言过滤（EXT_TO_LANG，只保留可解析的代码文件）
+ *   9. 输出排序
+ *  10. 推导 presentLanguages
  */
 
 const path = require('path');
@@ -610,6 +611,13 @@ async function collectInputFiles(repoRoot, options = {}) {
         recordIgnored('graphignore', normalizedFp);
         continue;
       }
+    }
+
+    // 步骤 8：语言过滤（只保留 EXT_TO_LANG 可识别的代码文件）
+    // 与 Python CRG 的 detect_language() 对齐：收集层即保证 finalInputs 为纯代码文件
+    if (!EXT_TO_LANG[ext]) {
+      recordIgnored('no_language', normalizedFp);
+      continue;
     }
 
     filtered.push(normalizedFp);
