@@ -143,7 +143,20 @@ async function runBuildAsync(argv) {
 
   try {
     // 收集输入文件（async）
-    const { finalInputs } = await collectInputFiles(repoRoot);
+    const { finalInputs, stats: inputStats } = await collectInputFiles(repoRoot);
+    const finalInputSet = new Set(finalInputs);
+
+    // 当前输入集之外的历史图路径也必须清理：
+    // 仅依赖 fingerprints 会遗漏“已从输入规则中排除、但旧节点仍残留”的路径。
+    const existingGraphPaths = db
+      .prepare(`
+        SELECT file_path FROM nodes
+        UNION
+        SELECT file_path FROM fingerprints
+      `)
+      .all()
+      .map((row) => row.file_path);
+    const prunedPaths = existingGraphPaths.filter((filePath) => !finalInputSet.has(filePath));
 
     // --force 时清空 fingerprints，强制全量重建
     if (force) {
@@ -152,10 +165,11 @@ async function runBuildAsync(argv) {
 
     // 增量检测（changedShas 供后续 updateFingerprints 复用，避免二次读取）
     const { changed, deleted, changedShas } = detectChangedFiles(db, finalInputs, repoRoot);
+    const deletedPaths = [...new Set([...deleted, ...prunedPaths])];
 
     // 处理已删除文件：移除节点 + 更新 fingerprints
-    deleteStaleNodes(db, deleted);
-    updateFingerprints(db, [], deleted, repoRoot);
+    deleteStaleNodes(db, deletedPaths);
+    updateFingerprints(db, [], deletedPaths, repoRoot);
 
     // 解析变更文件，收集节点和原始边
     const allRawEdges = [];
@@ -170,13 +184,17 @@ async function runBuildAsync(argv) {
     // 批量解析边并写入
     const { resolved, unresolvedCount } = resolveEdges(db, allRawEdges, repoRoot);
     upsertEdges(db, resolved);
-    setUnresolvedEdgeCount(db, unresolvedCount);
+    // 仅在实际处理了文件时更新 unresolved_edge_count：
+    //   增量构建 0 变更时 unresolvedCount=0，不代表真实情况，保留上一次全量构建的值
+    if (changed.length > 0 || force) {
+      setUnresolvedEdgeCount(db, unresolvedCount);
+    }
 
     // 更新 fingerprints（传入 changedShas 复用已计算 SHA）
     updateFingerprints(db, changed, [], repoRoot, changedShas);
 
     // 更新 graph_meta.last_built
-    db.prepare(`UPDATE graph_meta SET last_built = datetime('now') WHERE id = 1`).run();
+    db.prepare(`UPDATE graph_meta SET last_built = ? WHERE id = 1`).run(new Date().toISOString());
 
     // 后处理占位（Unit 7）
     tryPostprocess(db);
@@ -188,13 +206,34 @@ async function runBuildAsync(argv) {
     const nodeCount = db.prepare('SELECT COUNT(*) as c FROM nodes').get().c;
     const edgeCount = db.prepare('SELECT COUNT(*) as c FROM edges').get().c;
     const durationMs = Date.now() - startTime;
+    const skippedSensitive = inputStats.ignored_files_by_rule.sensitive_pattern || 0;
+    const warnings = [];
+    const unresolvedRate = allRawEdges.length > 0 ? unresolvedCount / allRawEdges.length : 0;
+
+    if (skippedSensitive > 0) {
+      process.stderr.write(`warning: skipped_sensitive: ${skippedSensitive}\n`);
+      warnings.push({
+        type: 'skipped_sensitive',
+        count: skippedSensitive,
+      });
+    }
+
+    if (unresolvedRate > 0.1) {
+      warnings.push({
+        type: 'high_unresolved_edge_rate',
+        rate: unresolvedRate,
+        unresolved_count: unresolvedCount,
+      });
+    }
 
     const envelope = makeEnvelope(repoRoot, {
       node_count: nodeCount,
       edge_count: edgeCount,
       changed_files: changed.length,
       duration_ms: durationMs,
-    });
+      skipped_sensitive: skippedSensitive,
+      unresolved_edge_count: unresolvedCount,
+    }, { warnings });
 
     process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
   } finally {
@@ -224,6 +263,7 @@ function run(argv) {
  * @param {string[]} argv - router.js 传入的参数
  */
 function runStats(argv) {
+  let db;
   // 解析 --repo
   let repoRaw = null;
   for (let i = 0; i < argv.length; i++) {
@@ -256,7 +296,7 @@ function runStats(argv) {
   const { initDatabase } = require('../migrations');
 
   try {
-    const db = initDatabase(dbPath);
+    db = initDatabase(dbPath);
 
     const nodeCount = db.prepare('SELECT COUNT(*) as c FROM nodes').get().c;
     const edgeCount = db.prepare('SELECT COUNT(*) as c FROM edges').get().c;
@@ -281,6 +321,26 @@ function runStats(argv) {
       .get();
     const lastBuilt = metaRow ? metaRow.last_built : null;
     const unresolvedEdgeCount = metaRow ? (metaRow.unresolved_edge_count || 0) : 0;
+    const fingerprintRows = db
+      .prepare('SELECT file_path, sha256 FROM fingerprints')
+      .all();
+    const { computeFileSHA } = require('../incremental');
+    const staleFiles = [];
+    for (const row of fingerprintRows) {
+      const absPath = path.join(repoRoot, row.file_path);
+      const current = computeFileSHA(absPath);
+      if (!current || current.sha !== row.sha256) {
+        staleFiles.push(row.file_path);
+      }
+    }
+
+    const warnings = [];
+    if (staleFiles.length > 0) {
+      warnings.push({
+        type: 'stale',
+        stale_files: staleFiles,
+      });
+    }
 
     const envelope = makeEnvelope(repoRoot, {
       node_count: nodeCount,
@@ -291,14 +351,14 @@ function runStats(argv) {
       },
       last_built: lastBuilt,
       unresolved_edge_count: unresolvedEdgeCount,
-    });
+    }, { warnings });
 
     process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
   } catch (err) {
     process.stderr.write(`error: ${err.message}\n`);
     process.exit(2);
   } finally {
-    try { db.close(); } catch (_) {}
+    try { if (db) db.close(); } catch (_) {}
   }
 }
 
