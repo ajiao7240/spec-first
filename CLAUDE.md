@@ -55,10 +55,10 @@ Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。C
 |---|---|
 | `cli/router.js` | 17 子命令路由 + `--repo` 路径校验 |
 | `migrations.js` | better-sqlite3 schema 初始化（7 表 + FTS5） |
-| `input-convergence.js` | 候选文件收敛（git ls-files + 排除链 + Pod 适配） |
-| `parser.js` | tree-sitter AST 解析 → symbol_key + raw_edges |
+| `input-convergence.js` | 候选文件收敛（git ls-files + 排除链 + Pod 适配）；DEFAULT_EXCLUDES 用 bin/Debug/** + bin/Release/** 替代 bin/**，避免误排 Node.js CLI 入口 |
+| `parser.js` | tree-sitter AST 解析 → symbol_key + raw_edges；CommonJS require() → imports_from 边；module 节点继承 isTestFile 标记 |
 | `incremental.js` | SHA256 增量检测 + fingerprints 更新（detectChangedFiles 返回 changedShas 供复用） |
-| `graph.js` | upsertNodes/upsertEdges + resolveEdges 四阶段解析（含同文件优先消歧，缓存用 Object.create(null) 防原型污染） |
+| `graph.js` | upsertNodes/upsertEdges + resolveEdges 五阶段解析（直接 target_id → 精确 file_path → 相对路径解析（require('./x')＋扩展名探测）→ 全局符号 → 同文件消歧；缓存用 Object.create(null) 防原型污染） |
 | `communities.js` | 3-Pass 社区检测（Pass1 CONTAINER_DIRS、Pass2 fragmented/scattered、Pass3 最小4节点） |
 | `flows.js` | PageRank + BFS 流程检测 |
 | `analyze.js` | surprising_connections（spec§14.6 4因子：confidence_weight/cross_language/cross_community/peripheral_to_hub）+ god_nodes 分析 |

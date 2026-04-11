@@ -181,14 +181,14 @@ function buildNode(filePath, kind, name, lineStart, lineEnd, isTestFile) {
  * @param {string} filePath
  * @returns {object}
  */
-function buildModuleNode(filePath) {
+function buildModuleNode(filePath, isTestFile = false) {
   return buildNode(
     filePath,
     'module',
     path.basename(filePath),
     0,
     0,
-    false // module 节点不标记为 is_test
+    isTestFile
   );
 }
 
@@ -370,6 +370,35 @@ function extractJsNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId,
         }
         return;
       }
+    }
+  }
+
+  // CommonJS require() → imports_from 边（顶层与函数内均处理）
+  // require() 本身不产生 calls 边：它是模块依赖声明，不是运行时调用
+  if (type === 'call_expression') {
+    const functionNode = tsNode.childForFieldName('function');
+    if (functionNode && functionNode.text === 'require') {
+      const argsNode = tsNode.childForFieldName('arguments');
+      if (argsNode) {
+        for (let i = 0; i < argsNode.childCount; i++) {
+          const arg = argsNode.child(i);
+          if (arg.type === 'string') {
+            const rawPath = arg.text.replace(/^['"`]|['"`]$/g, '');
+            rawEdges.push({
+              source_id: parentId,
+              target_name: rawPath,
+              target_path_raw: rawPath,
+              kind: 'imports_from',
+            });
+            break;
+          }
+        }
+      }
+      // require() 已处理完毕，递归子节点后提前返回（不走通用 calls 分支）
+      for (let i = 0; i < tsNode.childCount; i++) {
+        extractJsNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, parentId, currentSymbolId);
+      }
+      return;
     }
   }
 
@@ -936,8 +965,8 @@ function parseFile(filePath, repoRoot, options = {}) {
   }
 
   // ----- 步骤 5：构建 module 节点（每个文件必有） -----
-  const moduleNode = buildModuleNode(filePath);
   const isTestFile = TEST_FILE_RE.test(filePath);
+  const moduleNode = buildModuleNode(filePath, isTestFile);
   const nodes = [moduleNode];
   const rawEdges = [];
 

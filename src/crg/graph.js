@@ -190,6 +190,27 @@ function resolveEdges(db, rawEdges, repoRoot) {
     if (!targetId && raw.target_path_raw) {
       const normalized = raw.target_path_raw.replace(/\\/g, '/');
       targetId = getModuleId(normalized);
+
+      // 相对路径解析：require('./envelope') → src/crg/cli/envelope.js
+      if (!targetId && normalized.startsWith('.') && raw.source_id) {
+        const sourcePath = raw.source_id.split('#')[0]; // e.g. 'src/crg/cli/build.js'
+        const sourceDir = sourcePath.includes('/')
+          ? sourcePath.split('/').slice(0, -1).join('/')
+          : '';
+        // 手动规范化路径，避免依赖 path.resolve 的 cwd
+        const parts = (sourceDir ? sourceDir + '/' + normalized : normalized).split('/');
+        const segs = [];
+        for (const p of parts) {
+          if (p === '.' || p === '') continue;
+          if (p === '..') segs.pop();
+          else segs.push(p);
+        }
+        const resolvedBase = segs.join('/');
+        for (const suffix of ['', '.js', '.mjs', '.ts', '/index.js']) {
+          targetId = getModuleId(resolvedBase + suffix);
+          if (targetId) break;
+        }
+      }
     }
 
     // 阶段2：target_name → 符号节点（优先同文件消歧）

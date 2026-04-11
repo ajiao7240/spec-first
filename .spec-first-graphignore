@@ -43,7 +43,8 @@ __pycache__/**
 .m2/**
 
 # ---- .NET ----
-bin/**
+bin/Debug/**
+bin/Release/**
 obj/**
 .vs/**
 
