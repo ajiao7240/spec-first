@@ -8,6 +8,8 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-11 15:00:00 kuang: fix(crg): 集成测试发现运行时 BUG — symbolCache 原型污染(Object.create(null)防止toString等内置属性命中缓存)、FTS5 content=nodes 列名不匹配(改为独立虚表+rebuildFTS用drop-recreate)，端到端构建验证：555节点/1397边/calls473条/FTS搜索/communities/review-context全部通过 (user-visible)
+- v1.6.0 2026-04-11 23:55:00 kuang: fix(crg): 收口阶段0最终交付缺口，修复 query/context/postprocess/stats 的 DB 关闭作用域错误、补 build/stats 诊断 warnings（stale/skipped_sensitive/high_unresolved_edge_rate）、统一社区状态枚举、补齐 FactItem evidence/source_tier 合法值，并新增 handler close 与 stale warning 回归测试 (user-visible)
 - v1.6.0 2026-04-11 23:30:00 kuang: fix(crg): 架构师级修复 — resolveEdges 同文件优先消歧、communities Pass1 CONTAINER_DIRS + Pass2 健康状态规范化(fragmented/scattered)、incremental changedShas 避免双读、review-context candidate_tests 全 FactItem 字段、Pass3 最小阈值 PASS3_MIN_NODES=4，补充 12 个专项单元测试 (user-visible)
 - v1.6.0 2026-04-11 22:15:54 kuang: fix(crg): 修复阶段0评审缺陷，包含同名符号歧义不再串线、JS/TS calls 边抽取与本地解析、review-context 候选测试统一推断字段、router 区分 handler 缺失与传递依赖缺失，并补充对应单元/契约测试 (user-visible)
 - v1.6.0 2026-04-11 00:00:00 kuang: fix(crg): spec:review gated_auto + manual — query.js FactItem显式字段选取 + FTS5 短语引号包裹 + globToRegex根锚点 + analyze.js spec§14.6 4因子重写（cross_language/peripheral_to_hub） + tryPostprocess传递依赖辨别 (user-visible)

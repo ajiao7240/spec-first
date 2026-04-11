@@ -106,13 +106,15 @@ function deleteStaleNodes(db, deletedPaths) {
 function resolveEdges(db, rawEdges, repoRoot) {
   const resolved = [];
   let unresolvedCount = 0;
-  const nodeIdCache = {};
+  // 使用 Object.create(null) 避免原型链污染：
+  //   普通 {} 继承 Object.prototype，symbolCache['toString'] 会返回原生函数而非 undefined
+  const nodeIdCache = Object.create(null);
 
   // ------------------------------------------------------------------
   // 阶段1 缓存：file_path → module 节点 id
   //   key = 文件路径（正斜杠），value = node.id 或 null
   // ------------------------------------------------------------------
-  const moduleCache = {};
+  const moduleCache = Object.create(null);
   const hasNode = (nodeId) => {
     if (!nodeId) return false;
     if (nodeIdCache[nodeId] !== undefined) return nodeIdCache[nodeId];
@@ -138,7 +140,7 @@ function resolveEdges(db, rawEdges, repoRoot) {
   //   key = name，value = node.id、null（无匹配）或 '__AMBIGUOUS__'
   //   若全局重名，再尝试同文件精确匹配（同文件优先消歧）
   // ------------------------------------------------------------------
-  const symbolCache = {};
+  const symbolCache = Object.create(null);
   const AMBIGUOUS = '__AMBIGUOUS__';
 
   // 全局查询：返回所有同名节点（非 module）

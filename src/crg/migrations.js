@@ -95,14 +95,14 @@ const DDL_STATEMENTS = [
     updated_at TEXT NOT NULL
   )`,
 
-  // FTS5 虚表（全文搜索）
+  // FTS5 虚表（全文搜索，独立存储，不使用 content= 外部内容表）
+  // 注意：content=nodes 方案要求 FTS 列名与 nodes 表列名严格对应；
+  //       独立 FTS 更简单，rebuildFTS 负责全量重建保持一致。
   `CREATE VIRTUAL TABLE IF NOT EXISTS fts_nodes USING fts5(
     node_id UNINDEXED,
     name,
     file_path UNINDEXED,
-    kind UNINDEXED,
-    content=nodes,
-    content_rowid=rowid
+    kind UNINDEXED
   )`,
 
   // 索引
@@ -127,6 +127,21 @@ function initDatabase(dbPath) {
   // 执行所有 DDL 语句
   for (const sql of DDL_STATEMENTS) {
     db.exec(sql);
+  }
+
+  // 迁移：检测旧版 content=nodes 的 fts_nodes（列名 node_id 与 nodes.id 不匹配）
+  // 若 SQL 定义含 content=nodes，则 DROP 重建为独立 FTS5 表
+  const ftsMeta = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='fts_nodes'")
+    .get();
+  if (ftsMeta && ftsMeta.sql && ftsMeta.sql.includes('content=nodes')) {
+    db.exec('DROP TABLE IF EXISTS fts_nodes');
+    db.exec(`CREATE VIRTUAL TABLE fts_nodes USING fts5(
+      node_id UNINDEXED,
+      name,
+      file_path UNINDEXED,
+      kind UNINDEXED
+    )`);
   }
 
   // 确保 graph_meta 单行存在（schema 版本写入）

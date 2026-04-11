@@ -70,7 +70,17 @@ function rebuildFTS(db) {
   // 延迟 require，避免循环依赖（isSensitiveFile 与本模块无依赖关系）
   const { isSensitiveFile } = require('./input-convergence');
 
-  // 获取所有节点
+  // Drop + recreate：DDL 必须在事务外执行（better-sqlite3 限制）
+  // 比 DELETE 更安全：避免旧版 content=nodes 表在删除时触发内容回查报错
+  db.exec('DROP TABLE IF EXISTS fts_nodes');
+  db.exec(`CREATE VIRTUAL TABLE fts_nodes USING fts5(
+    node_id UNINDEXED,
+    name,
+    file_path UNINDEXED,
+    kind UNINDEXED
+  )`);
+
+  // 获取所有节点（drop-recreate 后 prepare 语句需在 recreate 之后准备）
   const nodes = db.prepare(
     'SELECT id, name, file_path, kind FROM nodes'
   ).all();
@@ -82,10 +92,8 @@ function rebuildFTS(db) {
     'INSERT INTO fts_nodes (node_id, name, file_path, kind) VALUES (?, ?, ?, ?)'
   );
 
-  const rebuildAll = db.transaction(() => {
-    // 清空旧索引
-    db.prepare('DELETE FROM fts_nodes').run();
-
+  // 批量插入放在事务中提升性能
+  const insertAll = db.transaction(() => {
     for (const node of nodes) {
       // 二次 SENSITIVE_PATTERNS 安全校验（使用 basename）
       const basename = path.basename(node.file_path);
@@ -93,13 +101,12 @@ function rebuildFTS(db) {
         skippedCount++;
         continue;
       }
-
       insertStmt.run(node.id, node.name, node.file_path, node.kind);
       indexedCount++;
     }
   });
 
-  rebuildAll();
+  insertAll();
 
   return { indexed_count: indexedCount, skipped_count: skippedCount };
 }
