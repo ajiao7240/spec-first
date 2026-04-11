@@ -85,7 +85,13 @@ function requireSqlite() {
  */
 function nodeToFactItem(node, inferenceReason) {
   return {
-    ...node,
+    id: node.id,
+    name: node.name,
+    file_path: node.file_path,
+    kind: node.kind,
+    line_start: node.line_start,
+    line_end: node.line_end,
+    is_test: node.is_test,
     confidence: 'Inferred',
     source_tier: 'crg_ast',
     evidence: [`query result via ${inferenceReason}`],

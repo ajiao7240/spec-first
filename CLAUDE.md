@@ -61,7 +61,7 @@ Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。C
 | `graph.js` | upsertNodes/upsertEdges + resolveEdges 两阶段解析 |
 | `communities.js` | 3-Pass 社区检测 |
 | `flows.js` | PageRank + BFS 流程检测 |
-| `analyze.js` | surprising_connections + god_nodes 分析 |
+| `analyze.js` | surprising_connections（spec§14.6 4因子：confidence_weight/cross_language/cross_community/peripheral_to_hub）+ god_nodes 分析 |
 | `search.js` | FTS5 搜索 + rebuildFTS |
 | `changes.js` | git diff 风险评分（High/Medium/Low） |
 | `cli/build.js` | build + stats CLI handler |

@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-11 00:00:00 kuang: fix(crg): spec:review gated_auto + manual — query.js FactItem显式字段选取 + FTS5 短语引号包裹 + globToRegex根锚点 + analyze.js spec§14.6 4因子重写（cross_language/peripheral_to_hub） + tryPostprocess传递依赖辨别 (user-visible)
 - v1.6.0 2026-04-11 00:00:00 kuang: fix(crg): spec:review safe_auto — P0 contract 字段修复（community_id/FlowBrief/top_hubs）+ PageRank O(E)优化 + shell injection execFileSync + iOS \Z正则 + IN clause chunking + LIKE escape + 架构边字段映射 (user-visible)
 - v1.6.0 2026-04-11 00:00:00 kuang: docs(crg): CLAUDE.md 补充 src/crg/ 模块架构说明表
 - v1.6.0 2026-04-11 00:00:00 kuang: chore(crg): 将 tree-sitter 版本从 ~0.25.0 降为 ~0.22.0 以解决 grammar 包 peerDependency 冲突

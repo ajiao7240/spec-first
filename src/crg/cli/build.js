@@ -41,19 +41,23 @@ function requireSqlite() {
 // ---------------------------------------------------------------------------
 
 /**
- * 尝试调用 Unit 7 的后处理逻辑（社区检测、PageRank、flows 等）。
- * MODULE_NOT_FOUND 时静默跳过，其他错误继续上抛。
+ * 尝试调用后处理逻辑（社区检测、PageRank、flows 等）。
+ * postprocess 模块自身不存在时静默跳过；传递依赖缺失等错误正常上抛。
  *
  * @param {object} db - better-sqlite3 db 实例
  */
 function tryPostprocess(db) {
+  // 先用 require.resolve 检查 postprocess 模块是否存在（不执行）
+  // 若模块自身缺失（MODULE_NOT_FOUND），静默跳过
   try {
-    const { runPostprocess } = require('./postprocess');
-    runPostprocess(db);
+    require.resolve('./postprocess');
   } catch (e) {
-    if (e.code !== 'MODULE_NOT_FOUND') throw e;
-    // Unit 7 尚未实现，跳过
+    if (e.code === 'MODULE_NOT_FOUND') return;
+    throw e;
   }
+  // 模块存在，正常加载并执行（传递依赖缺失等错误允许上抛）
+  const { runPostprocess } = require('./postprocess');
+  runPostprocess(db);
 }
 
 // ---------------------------------------------------------------------------

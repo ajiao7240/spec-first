@@ -4,12 +4,14 @@
  * CRG 图分析模块
  *
  * 功能：
- *   - surprisingConnections: 识别跨社区/异常边（4 因子评分，score 0-100）
+ *   - surprisingConnections: 识别跨社区/异常边（4 因子评分，score 0-100，per spec §14.6）
  *   - godNodes: 识别过度中心化节点（in_degree 排名前 5%，排除 module 节点）
  *   - analyzeGraph: 整合两项分析，返回 { surprising, hubs }
  *
  * 注意：分析结果不持久化到 DB，每次调用时重新计算（保持简单）
  */
+
+const path = require('path');
 
 /**
  * 过滤掉结构边（不参与"惊喜"计算）
@@ -20,13 +22,36 @@
 const STRUCTURAL_EDGE_KINDS = new Set(['imports_from', 'contains', 'defined_in']);
 
 /**
- * 评估惊喜连接（4 因子评分）
+ * 从文件路径推断语言标识符
+ *
+ * @param {string} filePath
+ * @returns {string}
+ */
+function inferLanguage(filePath) {
+  const ext = path.extname(filePath || '').toLowerCase();
+  switch (ext) {
+    case '.js': case '.mjs': case '.cjs': return 'js';
+    case '.ts': case '.tsx': return 'ts';
+    case '.py': return 'python';
+    case '.rb': return 'ruby';
+    case '.go': return 'go';
+    case '.swift': return 'swift';
+    case '.kt': case '.kts': return 'kotlin';
+    case '.java': return 'java';
+    case '.rs': return 'rust';
+    case '.cpp': case '.cc': case '.cxx': case '.c': case '.h': return 'c_cpp';
+    default: return ext || 'unknown';
+  }
+}
+
+/**
+ * 评估惊喜连接（4 因子评分，per spec §14.6）
  *
  * 4 个因子：
- * 1. cross_community (40分): source 和 target 的 community_id 不同
- * 2. structural_gap (30分): source 和 target 不在同一社区（简化近似，同社区=0，否则=1）
- * 3. degree_mismatch (20分): |in_degree(source) - in_degree(target)| / max_in_degree
- * 4. confidence_asymmetry (10分): 一方 Inferred 另一方 Observed
+ * F1. confidence_weight (10分): 至少一方置信度为 'Inferred'
+ * F2. cross_language (30分): 源节点和目标节点所在文件语言不同
+ * F3. cross_community (40分): source 和 target 的 community_id 不同
+ * F4. peripheral_to_hub (20分): 低入度（外围）节点调用高入度（中枢）节点
  *
  * @param {import('better-sqlite3').Database} db
  * @returns {Array<{ source: string, target: string, score: number, reasons: string[] }>}
@@ -38,9 +63,9 @@ function surprisingConnections(db) {
 
   if (semanticEdges.length === 0) return [];
 
-  // 加载所有节点信息（community_id, confidence）
+  // 加载所有节点信息（community_id, confidence, file_path）
   const nodesRow = db.prepare(
-    'SELECT id, community_id, confidence FROM nodes'
+    'SELECT id, community_id, confidence, file_path FROM nodes'
   ).all();
   const nodeMap = new Map();
   for (const nd of nodesRow) {
@@ -53,11 +78,10 @@ function surprisingConnections(db) {
     inDegree.set(edge.target_id, (inDegree.get(edge.target_id) || 0) + 1);
   }
 
-  // 找最大 in_degree，用于归一化 degree_mismatch
-  let maxInDegree = 1;
-  for (const d of inDegree.values()) {
-    if (d > maxInDegree) maxInDegree = d;
-  }
+  // 计算 hub 阈值：in_degree 排名前 10%（F4 使用）
+  const sortedDegrees = Array.from(inDegree.values()).sort((a, b) => b - a);
+  const hubThresholdIdx = Math.max(0, Math.floor(sortedDegrees.length * 0.1) - 1);
+  const hubThreshold = sortedDegrees.length > 0 ? (sortedDegrees[hubThresholdIdx] || 1) : 1;
 
   const results = [];
 
@@ -71,35 +95,32 @@ function surprisingConnections(db) {
     const reasons = [];
     let score = 0;
 
-    // 因子 1: cross_community（40分）
+    // F1: confidence_weight（10分）— 至少一方为 Inferred
+    if (src.confidence === 'Inferred' || tgt.confidence === 'Inferred') {
+      score += 10;
+      reasons.push('confidence_weight');
+    }
+
+    // F2: cross_language（30分）— 源/目标文件语言不同
+    const srcLang = inferLanguage(src.file_path);
+    const tgtLang = inferLanguage(tgt.file_path);
+    if (srcLang !== tgtLang && srcLang !== 'unknown' && tgtLang !== 'unknown') {
+      score += 30;
+      reasons.push(`cross_language:${srcLang}→${tgtLang}`);
+    }
+
+    // F3: cross_community（40分）— 社区不同
     if (src.community_id !== tgt.community_id) {
       score += 40;
       reasons.push('cross_community');
     }
 
-    // 因子 2: structural_gap（30分）—— 简化：同社区=0，否则=1
-    // 与 cross_community 同条件，但侧重于结构距离
-    if (src.community_id !== tgt.community_id) {
-      score += 30;
-      reasons.push('structural_gap');
-    }
-
-    // 因子 3: degree_mismatch（0-20分）
-    const srcDegree = inDegree.get(edge.source_id) || 0;
-    const tgtDegree = inDegree.get(edge.target_id) || 0;
-    const mismatch = Math.abs(srcDegree - tgtDegree) / maxInDegree;
-    const degreeScore = Math.round(mismatch * 20);
-    if (degreeScore > 0) {
-      score += degreeScore;
-      reasons.push(`degree_mismatch:${degreeScore}`);
-    }
-
-    // 因子 4: confidence_asymmetry（10分）
-    const srcInferred = src.confidence === 'Inferred';
-    const tgtInferred = tgt.confidence === 'Inferred';
-    if (srcInferred !== tgtInferred) {
-      score += 10;
-      reasons.push('confidence_asymmetry');
+    // F4: peripheral_to_hub（20分）— 外围节点（入度=0）调用中枢节点
+    const srcDeg = inDegree.get(edge.source_id) || 0;
+    const tgtDeg = inDegree.get(edge.target_id) || 0;
+    if (srcDeg === 0 && tgtDeg >= hubThreshold) {
+      score += 20;
+      reasons.push('peripheral_to_hub');
     }
 
     // 过滤 score < 30 的（不够惊喜）

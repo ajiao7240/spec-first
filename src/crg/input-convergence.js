@@ -193,8 +193,8 @@ function globToRegex(pattern) {
   if (!hasSlash) {
     return new RegExp(`(^|/)${regexBody}(/|$)`);
   }
-  // 有 /：从路径开头匹配（允许有上层目录前缀）
-  return new RegExp(`(^|/)${regexBody}(/|$)`);
+  // 有 /：从路径开头根锚点匹配（gitignore 语义：/foo 只匹配仓库根下的 foo）
+  return new RegExp(`^${regexBody}(/|$)`);
 }
 
 /**

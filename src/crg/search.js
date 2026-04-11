@@ -27,13 +27,16 @@ function searchNodes(db, keyword, { kind, limit = 20 } = {}) {
   if (!keyword || !keyword.trim()) return [];
 
   // 构建 SQL：FTS5 JOIN nodes，可选 kind 过滤
+  // 将关键词包裹为 FTS5 短语查询（去除双引号），防止 NOT/NEAR/column-filter 操作符注入
+  const safeKeyword = '"' + keyword.replace(/"/g, '') + '"';
+
   let sql = `
     SELECT n.id, n.name, n.file_path, n.kind
     FROM fts_nodes f
     JOIN nodes n ON f.node_id = n.id
     WHERE fts_nodes MATCH ?
   `;
-  const params = [keyword];
+  const params = [safeKeyword];
 
   if (kind) {
     sql += ' AND n.kind = ?';
