@@ -13,8 +13,15 @@
  */
 
 const { makeEnvelope } = require('../../src/crg/cli/envelope');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 describe('crg-cli-v1 contract', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   // ─── Envelope ──────────────────────────────────────────────────────────────
   describe('envelope', () => {
     test('包含所有必填字段：schema_version, generated_at, repo_root, degraded, warnings, data', () => {
@@ -212,9 +219,95 @@ describe('crg-cli-v1 contract', () => {
 
   // ─── crg review-context ────────────────────────────────────────────────────
   describe('crg review-context', () => {
-    test.todo('data 含 diff_summary, affected_nodes, candidate_tests');
+    test('data 含 diff_summary, affected_nodes, candidate_tests', () => {
+      const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code) => {
+        throw new Error(`EXIT:${code}`);
+      });
+
+      jest.isolateModules(() => {
+        jest.doMock('../../src/crg/cli/open-db', () => ({
+          openDb: () => ({
+            repoRoot: '/repo',
+            db: {
+              prepare: jest.fn(() => ({
+                all: jest.fn(() => []),
+              })),
+            },
+          }),
+        }));
+        jest.doMock('../../src/crg/changes', () => ({
+          detectChanges: () => [],
+        }));
+        jest.doMock('../../src/crg/input-convergence', () => ({
+          isSensitiveFile: () => false,
+        }));
+
+        const { run: isolatedRun } = require('../../src/crg/commands/review-context');
+        isolatedRun(['--repo=/repo', '--since=HEAD~1']);
+      });
+
+      expect(exitSpy).not.toHaveBeenCalled();
+      const payload = JSON.parse(outputSpy.mock.calls[0][0]);
+      expect(payload.data).toHaveProperty('diff_summary');
+      expect(payload.data).toHaveProperty('affected_nodes');
+      expect(payload.data).toHaveProperty('candidate_tests');
+      outputSpy.mockRestore();
+      exitSpy.mockRestore();
+    });
+
+    test('candidate_tests 推断项含统一推断字段', () => {
+      const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-review-context-'));
+      fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, 'src/foo.test.js'), 'test("ok", () => {});\n');
+
+      try {
+        jest.isolateModules(() => {
+          jest.doMock('../../src/crg/cli/open-db', () => ({
+            openDb: () => ({
+              repoRoot: tmpDir,
+              db: {
+                prepare: jest.fn((sql) => ({
+                  // module 节点查询（buildCandidateTest 内部 .get）返回 null 模拟未索引
+                  get: jest.fn(() => null),
+                  // nodes 查询返回 foo.test.js（用于 affected_nodes + is_test LIKE 查询）
+                  all: jest.fn(() => [{ file_path: 'src/foo.test.js' }]),
+                })),
+              },
+            }),
+          }));
+          jest.doMock('../../src/crg/changes', () => ({
+            detectChanges: () => [{ file: 'src/foo.js', risk_level: 'Medium' }],
+          }));
+          jest.doMock('../../src/crg/input-convergence', () => ({
+            isSensitiveFile: () => false,
+          }));
+
+          const { run: isolatedRun } = require('../../src/crg/commands/review-context');
+          isolatedRun([`--repo=${tmpDir}`, '--since=HEAD~1']);
+        });
+
+        const payload = JSON.parse(outputSpy.mock.calls[0][0]);
+        // candidate_tests 应符合 FactItem 契约（id/name/file_path/kind/confidence 等）
+        expect(payload.data.candidate_tests).toEqual([
+          expect.objectContaining({
+            file_path: 'src/foo.test.js',
+            kind: 'module',
+            is_test: 1,
+            confidence: 'Inferred',
+            evidence: expect.any(Array),
+            inference_reason: expect.any(String),
+            source_tier: expect.any(String),
+          }),
+        ]);
+      } finally {
+        outputSpy.mockRestore();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
     test.todo('affected_nodes 中每项满足 FactItem 约束');
-    test.todo('candidate_tests 每项含 file（字符串）和 inferred（boolean）');
     test.todo('无 diff 时 diff_summary 为空字符串而非 null');
   });
 });

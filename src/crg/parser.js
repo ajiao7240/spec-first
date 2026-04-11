@@ -242,7 +242,8 @@ function getFieldText(tsNode, fieldName) {
  * @param {object[]} rawEdges - 输出数组
  * @param {string} [parentId] - 父节点 symbol_key（用于 contains 边）
  */
-function extractJsNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+function extractJsNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId, currentSymbolId = null) {
+  if (!tsNode) return;
   const type = tsNode.type;
 
   // import 语句 → imports_from 边
@@ -267,11 +268,17 @@ function extractJsNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId)
     const node = buildNode(filePath, 'function', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
     nodes.push(node);
     if (parentId) {
-      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+      rawEdges.push({
+        source_id: parentId,
+        target_id: node.id,
+        target_name: name,
+        target_path_raw: null,
+        kind: 'contains',
+      });
     }
     // 递归内部（可能有嵌套函数）
     for (let i = 0; i < tsNode.childCount; i++) {
-      extractJsNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+      extractJsNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id, node.id);
     }
     return;
   }
@@ -282,10 +289,16 @@ function extractJsNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId)
     const node = buildNode(filePath, 'class', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
     nodes.push(node);
     if (parentId) {
-      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+      rawEdges.push({
+        source_id: parentId,
+        target_id: node.id,
+        target_name: name,
+        target_path_raw: null,
+        kind: 'contains',
+      });
     }
     for (let i = 0; i < tsNode.childCount; i++) {
-      extractJsNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+      extractJsNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id, currentSymbolId);
     }
     return;
   }
@@ -297,9 +310,18 @@ function extractJsNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId)
     const node = buildNode(filePath, 'method', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
     nodes.push(node);
     if (parentId) {
-      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+      rawEdges.push({
+        source_id: parentId,
+        target_id: node.id,
+        target_name: name,
+        target_path_raw: null,
+        kind: 'contains',
+      });
     }
-    return; // 方法体不再递归
+    for (let i = 0; i < tsNode.childCount; i++) {
+      extractJsNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id, node.id);
+    }
+    return;
   }
 
   // 箭头函数 / 函数表达式 —— 只在 variable_declarator 中关联
@@ -316,11 +338,17 @@ function extractJsNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId)
         const node = buildNode(filePath, 'function', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
         nodes.push(node);
         if (parentId) {
-          rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+          rawEdges.push({
+            source_id: parentId,
+            target_id: node.id,
+            target_name: name,
+            target_path_raw: null,
+            kind: 'contains',
+          });
         }
         // 递归函数体（内部可能有嵌套）
         for (let i = 0; i < valueNode.childCount; i++) {
-          extractJsNodes(valueNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+          extractJsNodes(valueNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id, node.id);
         }
         return;
       }
@@ -329,13 +357,32 @@ function extractJsNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId)
         const node = buildNode(filePath, 'class', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
         nodes.push(node);
         if (parentId) {
-          rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+          rawEdges.push({
+            source_id: parentId,
+            target_id: node.id,
+            target_name: name,
+            target_path_raw: null,
+            kind: 'contains',
+          });
         }
         for (let i = 0; i < valueNode.childCount; i++) {
-          extractJsNodes(valueNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+          extractJsNodes(valueNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id, currentSymbolId);
         }
         return;
       }
+    }
+  }
+
+  if (type === 'call_expression' && currentSymbolId) {
+    const functionNode = tsNode.childForFieldName('function');
+    const targetName = extractJsCallTargetName(functionNode);
+    if (targetName) {
+      rawEdges.push({
+        source_id: currentSymbolId,
+        target_name: targetName,
+        target_path_raw: null,
+        kind: 'calls',
+      });
     }
   }
 
@@ -352,7 +399,43 @@ function extractJsNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId)
 
   // 其余节点递归子节点
   for (let i = 0; i < tsNode.childCount; i++) {
-    extractJsNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, parentId);
+    extractJsNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, parentId, currentSymbolId);
+  }
+}
+
+function extractJsCallTargetName(functionNode) {
+  if (!functionNode) return null;
+
+  if (functionNode.type === 'identifier' || functionNode.type === 'property_identifier') {
+    return functionNode.text;
+  }
+
+  if (functionNode.type === 'member_expression') {
+    const propertyNode = functionNode.childForFieldName('property');
+    if (propertyNode) return propertyNode.text;
+  }
+
+  return null;
+}
+
+function attachLocalTargetIds(nodes, rawEdges) {
+  const byFileAndName = new Map();
+
+  for (const node of nodes) {
+    if (node.kind === 'module') continue;
+    const key = `${node.file_path}\u0000${node.name}`;
+    if (!byFileAndName.has(key)) byFileAndName.set(key, []);
+    byFileAndName.get(key).push(node.id);
+  }
+
+  for (const edge of rawEdges) {
+    if (edge.target_id || edge.target_path_raw || !edge.target_name) continue;
+    const sourceFile = edge.source_id.split('#', 1)[0];
+    const key = `${sourceFile}\u0000${edge.target_name}`;
+    const matches = byFileAndName.get(key) || [];
+    if (matches.length === 1) {
+      edge.target_id = matches[0];
+    }
   }
 }
 
@@ -364,6 +447,7 @@ function extractJsNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId)
  * 递归提取 Python AST 节点
  */
 function extractPyNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+  if (!tsNode) return;
   const type = tsNode.type;
 
   // import 语句
@@ -432,6 +516,7 @@ function extractPyNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId)
  * 递归提取 Go AST 节点
  */
 function extractGoNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+  if (!tsNode) return;
   const type = tsNode.type;
 
   // import 声明
@@ -526,6 +611,7 @@ function extractGoImportSpecs(tsNode, filePath, rawEdges, parentId) {
  * 递归提取 Java AST 节点
  */
 function extractJavaNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+  if (!tsNode) return;
   const type = tsNode.type;
 
   // import 声明
@@ -596,6 +682,7 @@ function extractJavaNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentI
  * 递归提取 Rust AST 节点
  */
 function extractRustNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+  if (!tsNode) return;
   const type = tsNode.type;
 
   // use 声明 → imports_from
@@ -668,6 +755,7 @@ function extractRustNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentI
  * 递归提取 C/C++ AST 节点
  */
 function extractCNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+  if (!tsNode) return;
   const type = tsNode.type;
 
   // #include → imports_from
@@ -873,6 +961,8 @@ function parseFile(filePath, repoRoot, options = {}) {
   if (extractFn) {
     extractFn(tree.rootNode, filePath, isTestFile, nodes, rawEdges, moduleNode.id);
   }
+
+  attachLocalTargetIds(nodes, rawEdges);
 
   // 为所有顶层非 module 节点添加 defined_in 边（指向 module 节点）
   // （已通过 contains 边在递归中添加；此处补充直接子节点的 defined_in 边）

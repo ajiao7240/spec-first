@@ -15,6 +15,17 @@
  */
 
 /**
+ * 容器目录：这些目录名本身无语义，需跳过向下寻找有意义的层级（spec §14.5）
+ * 例如：src/auth → community = "auth"，而不是 "src"
+ */
+const CONTAINER_DIRS = new Set([
+  'src', 'lib', 'app', 'pkg', 'internal', 'external',
+  'core', 'main', 'common', 'shared', 'utils', 'helpers',
+  'modules', 'components', 'services', 'controllers', 'models',
+  'api', 'server', 'client', 'web', 'backend', 'frontend',
+]);
+
+/**
  * 用 BFS 在给定节点集合和边集合中寻找连通分量
  *
  * @param {Set<string>} nodeSet - 社区内节点 ID 集合
@@ -70,8 +81,14 @@ function writeCommunities(db) {
 
   for (const node of moduleNodes) {
     const parts = node.file_path.split('/');
-    // 多层路径取第一层目录，单文件（无目录分隔）归入 (root)
-    const dir = parts.length > 1 ? parts[0] : '(root)';
+    // 跳过容器目录，向下寻找第一个有语义意义的目录层级
+    let dir = '(root)';
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!CONTAINER_DIRS.has(parts[i])) {
+        dir = parts[i];
+        break;
+      }
+    }
     if (!communityMap[dir]) communityMap[dir] = [];
     communityMap[dir].push(node);
   }
@@ -153,16 +170,16 @@ function writeCommunities(db) {
     const independence =
       stats.intra_edges / Math.max(stats.intra_edges + stats.inter_edges, 1);
 
-    // 四象限分类
+    // 四象限分类（spec §14.5，I_THRESHOLD = 0.5）
     let healthStatus;
-    if (density > 0.3 && independence > 0.7) {
+    if (density > 0.3 && independence > 0.5) {
       healthStatus = 'healthy';
-    } else if (density <= 0.3 && independence > 0.7) {
+    } else if (density <= 0.3 && independence > 0.5) {
       healthStatus = 'isolated';
-    } else if (density > 0.3 && independence <= 0.7) {
-      healthStatus = 'fragile';
+    } else if (density > 0.3 && independence <= 0.5) {
+      healthStatus = 'fragmented';
     } else {
-      healthStatus = 'overloaded';
+      healthStatus = 'scattered';
     }
 
     const baseCommunity = {
@@ -176,9 +193,11 @@ function writeCommunities(db) {
     };
 
     // -------------------------------------------------------------------------
-    // Pass 3: 超大社区精化（仅当 file_count > total_nodes * 25%）
+    // Pass 3: 超大社区精化（file_count > total_nodes*25% 且绝对数量 >= 4）
+    //   绝对下限防止小型仓库的所有社区都被误判为"超大"并被 BFS 拆散
     // -------------------------------------------------------------------------
-    if (n > threshold && n > 1) {
+    const PASS3_MIN_NODES = 4;
+    if (n > threshold && n >= PASS3_MIN_NODES) {
       const nodeSet = new Set(nodes.map((nd) => nd.id));
       const adj = intraAdjMap[communityId];
 

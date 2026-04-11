@@ -142,16 +142,22 @@ function run(args) {
   const handlerEntry = HANDLER_MAP[subCmd];
   const handlerPath = typeof handlerEntry === 'string' ? handlerEntry : handlerEntry.module;
   const handlerFn   = typeof handlerEntry === 'string' ? 'run' : handlerEntry.fn;
+  let resolvedHandlerPath;
 
-  let handler;
   try {
-    handler = require(handlerPath);
+    resolvedHandlerPath = require.resolve(handlerPath);
   } catch (err) {
     if (err.code === 'MODULE_NOT_FOUND') {
       console.error(`error: CRG graph not built, run "spec-first crg build --repo=<path>" first`);
       process.exit(2);
     }
-    // 其他 require 错误直接抛出
+    throw err;
+  }
+
+  let handler;
+  try {
+    handler = require(resolvedHandlerPath);
+  } catch (err) {
     throw err;
   }
 

@@ -262,6 +262,33 @@ describe('parseFile - JS AST（tree-sitter 可用时）', () => {
   test.todo('import 语句 → rawEdges 含 kind=imports_from');
   test.todo('variable_declarator RHS 为箭头函数 → kind=function');
   test.todo('测试文件中的函数 → is_test=1');
+
+  test('JS 函数调用会生成 calls raw edge', () => {
+    const result = parseFile('js/calls.js', REPO_ROOT);
+    expect(result.skipped).toBe(false);
+
+    const callEdges = result.rawEdges.filter((edge) => edge.kind === 'calls');
+    expect(callEdges.length).toBeGreaterThanOrEqual(3);
+    expect(callEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source_id: 'js/calls.js#function#caller#L5',
+          target_name: 'callee',
+          kind: 'calls',
+        }),
+        expect.objectContaining({
+          source_id: 'js/calls.js#function#worker#L9',
+          target_name: 'callee',
+          kind: 'calls',
+        }),
+        expect.objectContaining({
+          source_id: 'js/calls.js#method#run#L12',
+          target_name: 'callee',
+          kind: 'calls',
+        }),
+      ])
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

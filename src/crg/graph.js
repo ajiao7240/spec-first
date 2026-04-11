@@ -91,10 +91,12 @@ function deleteStaleNodes(db, deletedPaths) {
 /**
  * 将 rawEdges 解析为可入库的 canonical edges
  *
- * 两阶段解析策略（含缓存，避免 N+1 查询）：
- *   1. 优先按 target_path_raw 精确匹配 module 节点（file_path + kind='module'）
- *   2. 退而按 target_name 在 nodes 表中精确匹配非 module 节点（全库查找同名符号）
- *   3. 两阶段均失败 → unresolvedCount++，跳过该边（不阻塞构建）
+ * 四阶段解析策略（含缓存，避免 N+1 查询）：
+ *   1. 若 raw edge 已带 target_id，则直接校验该节点是否存在
+ *   2. 否则优先按 target_path_raw 精确匹配 module 节点（file_path + kind='module'）
+ *   3. 再退而按 target_name 全局查找：唯一匹配直接使用；重名时进入阶段4
+ *   4. 重名消歧：过滤与 source 同文件的候选，唯一则采用，否则视为 unresolved
+ *   5. 四阶段均失败 → unresolvedCount++，跳过该边（不阻塞构建）
  *
  * @param {import('better-sqlite3').Database} db
  * @param {object[]} rawEdges - parseFile 返回的 rawEdges 数组
@@ -104,12 +106,20 @@ function deleteStaleNodes(db, deletedPaths) {
 function resolveEdges(db, rawEdges, repoRoot) {
   const resolved = [];
   let unresolvedCount = 0;
+  const nodeIdCache = {};
 
   // ------------------------------------------------------------------
   // 阶段1 缓存：file_path → module 节点 id
   //   key = 文件路径（正斜杠），value = node.id 或 null
   // ------------------------------------------------------------------
   const moduleCache = {};
+  const hasNode = (nodeId) => {
+    if (!nodeId) return false;
+    if (nodeIdCache[nodeId] !== undefined) return nodeIdCache[nodeId];
+    const row = db.prepare(`SELECT 1 FROM nodes WHERE id = ? LIMIT 1`).get(nodeId);
+    nodeIdCache[nodeId] = Boolean(row);
+    return nodeIdCache[nodeId];
+  };
 
   const getModuleId = (filePath) => {
     if (moduleCache[filePath] !== undefined) return moduleCache[filePath];
@@ -124,20 +134,43 @@ function resolveEdges(db, rawEdges, repoRoot) {
   };
 
   // ------------------------------------------------------------------
-  // 阶段2 缓存：symbol name → node id（非 module 节点）
-  //   key = name，value = node.id 或 null
+  // 阶段2 缓存：symbol name → 唯一 node id（非 module 节点）
+  //   key = name，value = node.id、null（无匹配）或 '__AMBIGUOUS__'
+  //   若全局重名，再尝试同文件精确匹配（同文件优先消歧）
   // ------------------------------------------------------------------
   const symbolCache = {};
+  const AMBIGUOUS = '__AMBIGUOUS__';
 
-  const getSymbolId = (name) => {
-    if (symbolCache[name] !== undefined) return symbolCache[name];
-    const row = db
-      .prepare(
-        `SELECT id FROM nodes WHERE name = ? AND kind != 'module' LIMIT 1`
-      )
-      .get(name);
-    symbolCache[name] = row ? row.id : null;
-    return symbolCache[name];
+  // 全局查询：返回所有同名节点（非 module）
+  const getAllSymbolRows = db.prepare(
+    `SELECT id, file_path FROM nodes WHERE name = ? AND kind != 'module'`
+  );
+
+  const getSymbolId = (name, srcFile) => {
+    if (symbolCache[name] !== undefined) {
+      const cached = symbolCache[name];
+      // 全局唯一或全局为空：直接返回缓存
+      if (cached !== AMBIGUOUS) return cached;
+      // 全局重名：尝试同文件精确匹配
+      const rows = getAllSymbolRows.all(name);
+      const sameFile = rows.filter((r) => r.file_path === srcFile);
+      return sameFile.length === 1 ? sameFile[0].id : null;
+    }
+
+    const rows = getAllSymbolRows.all(name);
+    if (rows.length === 1) {
+      symbolCache[name] = rows[0].id;
+    } else if (rows.length === 0) {
+      symbolCache[name] = null;
+    } else {
+      symbolCache[name] = AMBIGUOUS;
+    }
+
+    const cached = symbolCache[name];
+    if (cached !== AMBIGUOUS) return cached;
+    // 全局重名：同文件优先消歧
+    const sameFile = rows.filter((r) => r.file_path === srcFile);
+    return sameFile.length === 1 ? sameFile[0].id : null;
   };
 
   // ------------------------------------------------------------------
@@ -146,15 +179,21 @@ function resolveEdges(db, rawEdges, repoRoot) {
   for (const raw of rawEdges) {
     let targetId = null;
 
+    // 阶段0：raw edge 已自带 target_id
+    if (raw.target_id && hasNode(raw.target_id)) {
+      targetId = raw.target_id;
+    }
+
     // 阶段1：target_path_raw → module 节点
-    if (raw.target_path_raw) {
+    if (!targetId && raw.target_path_raw) {
       const normalized = raw.target_path_raw.replace(/\\/g, '/');
       targetId = getModuleId(normalized);
     }
 
-    // 阶段2：target_name → 符号节点
+    // 阶段2：target_name → 符号节点（优先同文件消歧）
     if (!targetId && raw.target_name) {
-      targetId = getSymbolId(raw.target_name);
+      const srcFile = raw.source_id ? raw.source_id.split('#', 1)[0] : '';
+      targetId = getSymbolId(raw.target_name, srcFile);
     }
 
     if (!targetId) {

@@ -57,9 +57,9 @@ Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。C
 | `migrations.js` | better-sqlite3 schema 初始化（7 表 + FTS5） |
 | `input-convergence.js` | 候选文件收敛（git ls-files + 排除链 + Pod 适配） |
 | `parser.js` | tree-sitter AST 解析 → symbol_key + raw_edges |
-| `incremental.js` | SHA256 增量检测 + fingerprints 更新 |
-| `graph.js` | upsertNodes/upsertEdges + resolveEdges 两阶段解析 |
-| `communities.js` | 3-Pass 社区检测 |
+| `incremental.js` | SHA256 增量检测 + fingerprints 更新（detectChangedFiles 返回 changedShas 供复用） |
+| `graph.js` | upsertNodes/upsertEdges + resolveEdges 四阶段解析（含同文件优先消歧） |
+| `communities.js` | 3-Pass 社区检测（Pass1 CONTAINER_DIRS、Pass2 fragmented/scattered、Pass3 最小4节点） |
 | `flows.js` | PageRank + BFS 流程检测 |
 | `analyze.js` | surprising_connections（spec§14.6 4因子：confidence_weight/cross_language/cross_community/peripheral_to_hub）+ god_nodes 分析 |
 | `search.js` | FTS5 搜索 + rebuildFTS |

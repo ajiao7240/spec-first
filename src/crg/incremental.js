@@ -48,7 +48,8 @@ function computeFileSHA(absolutePath) {
  * @param {import('better-sqlite3').Database} db - better-sqlite3 数据库实例
  * @param {string[]} filePaths - 相对于 repoRoot 的文件路径数组
  * @param {string} repoRoot - 仓库根目录绝对路径
- * @returns {{ changed: string[], unchanged: string[], deleted: string[] }}
+ * @returns {{ changed: string[], unchanged: string[], deleted: string[], changedShas: Map<string, string> }}
+ *   changedShas 供 updateFingerprints 复用，避免对同一文件进行二次 SHA 计算
  */
 function detectChangedFiles(db, filePaths, repoRoot) {
   // -----------------------------------------------------------------------
@@ -86,6 +87,8 @@ function detectChangedFiles(db, filePaths, repoRoot) {
 
   const changed = [];
   const unchanged = [];
+  /** 本次计算的 SHA 缓存，供 updateFingerprints 复用（避免重复读取文件） */
+  const changedShas = new Map();
 
   // -----------------------------------------------------------------------
   // 步骤 3：逐文件计算 SHA256，与 DB 记录对比
@@ -108,6 +111,7 @@ function detectChangedFiles(db, filePaths, repoRoot) {
     } else {
       // DB 无记录（新文件）或 SHA 变化（已修改文件）→ changed
       changed.push(filePath);
+      changedShas.set(filePath, sha);
     }
   }
 
@@ -116,7 +120,7 @@ function detectChangedFiles(db, filePaths, repoRoot) {
   // -----------------------------------------------------------------------
   const deleted = [...allTracked].filter((fp) => !filePathSet.has(fp));
 
-  return { changed, unchanged, deleted };
+  return { changed, unchanged, deleted, changedShas };
 }
 
 /**
@@ -126,8 +130,10 @@ function detectChangedFiles(db, filePaths, repoRoot) {
  * @param {string[]} changedFiles - 需要 UPSERT 的文件路径（相对路径）
  * @param {string[]} deletedFiles - 需要 DELETE 的文件路径（相对路径）
  * @param {string} repoRoot - 仓库根目录绝对路径
+ * @param {Map<string, string>} [changedShas] - detectChangedFiles 返回的 SHA 缓存（可选）
+ *   提供时直接复用，避免对同一文件进行二次 SHA 计算
  */
-function updateFingerprints(db, changedFiles, deletedFiles, repoRoot) {
+function updateFingerprints(db, changedFiles, deletedFiles, repoRoot, changedShas) {
   const upsert = db.prepare(
     `INSERT INTO fingerprints (file_path, sha256, updated_at)
      VALUES (?, ?, datetime('now'))
@@ -139,14 +145,18 @@ function updateFingerprints(db, changedFiles, deletedFiles, repoRoot) {
   const del = db.prepare(`DELETE FROM fingerprints WHERE file_path = ?`);
 
   const doAll = db.transaction(() => {
-    // UPSERT changed 文件
+    // UPSERT changed 文件（优先复用传入的 SHA 缓存，避免重复读取）
     for (const filePath of changedFiles) {
-      const absPath = path.join(repoRoot, filePath);
-      const result = computeFileSHA(absPath);
-      if (result) {
-        upsert.run(filePath, result.sha);
+      let sha;
+      if (changedShas && changedShas.has(filePath)) {
+        sha = changedShas.get(filePath);
+      } else {
+        const absPath = path.join(repoRoot, filePath);
+        const result = computeFileSHA(absPath);
+        if (!result) continue; // 读取失败时跳过，等待下次增量检测归入 deleted
+        sha = result.sha;
       }
-      // result 为 null（读取失败）时跳过，等待下次增量检测归入 deleted
+      upsert.run(filePath, sha);
     }
 
     // DELETE deleted 文件

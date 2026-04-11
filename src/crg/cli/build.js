@@ -150,8 +150,8 @@ async function runBuildAsync(argv) {
       db.prepare('DELETE FROM fingerprints').run();
     }
 
-    // 增量检测
-    const { changed, deleted } = detectChangedFiles(db, finalInputs, repoRoot);
+    // 增量检测（changedShas 供后续 updateFingerprints 复用，避免二次读取）
+    const { changed, deleted, changedShas } = detectChangedFiles(db, finalInputs, repoRoot);
 
     // 处理已删除文件：移除节点 + 更新 fingerprints
     deleteStaleNodes(db, deleted);
@@ -172,8 +172,8 @@ async function runBuildAsync(argv) {
     upsertEdges(db, resolved);
     setUnresolvedEdgeCount(db, unresolvedCount);
 
-    // 更新 fingerprints
-    updateFingerprints(db, changed, [], repoRoot);
+    // 更新 fingerprints（传入 changedShas 复用已计算 SHA）
+    updateFingerprints(db, changed, [], repoRoot, changedShas);
 
     // 更新 graph_meta.last_built
     db.prepare(`UPDATE graph_meta SET last_built = datetime('now') WHERE id = 1`).run();

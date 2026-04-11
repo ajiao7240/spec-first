@@ -80,6 +80,27 @@ function run(argv) {
   const candidateTests = [];
   const seenTestFiles = new Set();
 
+  // 将候选测试文件包装成 FactItem 格式
+  // 优先从 nodes 表中查找 module 节点（有索引时带 line_end）；未索引时构造最小 FactItem
+  const buildCandidateTest = (file, sourceTier, evidence) => {
+    const moduleNode = db
+      .prepare("SELECT id, name, line_end FROM nodes WHERE file_path = ? AND kind = 'module' LIMIT 1")
+      .get(file);
+    return {
+      id: moduleNode ? moduleNode.id : `${file}#module`,
+      name: moduleNode ? moduleNode.name : path.basename(file, path.extname(file)),
+      file_path: file,
+      kind: 'module',
+      line_start: 0,
+      line_end: moduleNode ? moduleNode.line_end : 0,
+      is_test: 1,
+      confidence: 'Inferred',
+      source_tier: sourceTier,
+      evidence: [evidence],
+      inference_reason: 'naming_convention',
+    };
+  };
+
   const changedFiles = changeSummary.map(c => c.file);
   for (const filePath of changedFiles) {
     const ext = path.extname(filePath);
@@ -97,7 +118,9 @@ function run(argv) {
       const absTestPath = path.join(repoRoot, relTestPath);
       if (fs.existsSync(absTestPath) && !seenTestFiles.has(relTestPath)) {
         seenTestFiles.add(relTestPath);
-        candidateTests.push({ file: relTestPath, inferred: true });
+        candidateTests.push(
+          buildCandidateTest(relTestPath, 'grep_glob', `matched sibling test file for ${filePath}`)
+        );
       }
     }
 
@@ -110,7 +133,9 @@ function run(argv) {
     for (const tn of testNodes) {
       if (!seenTestFiles.has(tn.file_path)) {
         seenTestFiles.add(tn.file_path);
-        candidateTests.push({ file: tn.file_path, inferred: true });
+        candidateTests.push(
+          buildCandidateTest(tn.file_path, 'crg_ast', `matched indexed test node for ${filePath}`)
+        );
       }
     }
   }
