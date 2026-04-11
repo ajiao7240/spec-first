@@ -1,0 +1,79 @@
+# spec-first CRG ignore rules
+# 语法：与 .gitignore 一致（支持 *, **, ?, !）
+# 作用：收敛 CRG 输入集合，避免索引依赖/构建产物/运行时目录
+
+# ---- 项目图谱与分析产物 ----
+.spec-first-graph/**
+.code-review-graph/**
+graphify-out/**
+
+# ---- 依赖目录 ----
+node_modules/**
+Pods/**
+vendor/**
+third_party/**
+external/**
+
+# ---- 通用构建产物 ----
+build/**
+dist/**
+out/**
+target/**
+coverage/**
+.cache/**
+.tmp/**
+tmp/**
+
+# ---- 前端生态 ----
+.next/**
+.nuxt/**
+.turbo/**
+.pnpm-store/**
+
+# ---- Python ----
+.venv/**
+venv/**
+__pycache__/**
+.pytest_cache/**
+.mypy_cache/**
+*.pyc
+
+# ---- JVM / Android ----
+.gradle/**
+.m2/**
+
+# ---- .NET ----
+bin/**
+obj/**
+.vs/**
+
+# ---- iOS / Apple 工具链产物 ----
+DerivedData/**
+Carthage/**
+.swiftpm/**
+.build/**
+*.xcworkspace/xcuserdata/**
+*.xcodeproj/xcuserdata/**
+
+# ---- Git 与压缩映射产物 ----
+.git/**
+*.min.js
+*.min.css
+*.map
+*.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ---- 数据库产物 ----
+*.db
+*.sqlite
+*.db-journal
+*.db-wal
+
+# ---- 可选：若你确认以下目录仅为运行时副本，可取消注释 ----
+# .claude/**
+# .codex/**
+
+# ---- 可选：白名单示例（排除后强制包含）----
+# !src/generated/keep-this-file.ts

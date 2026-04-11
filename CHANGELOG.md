@@ -8,6 +8,11 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-11 00:00:00 kuang: docs(spec-graph-bootstrap): document-review 修复方案文档 — 应用 3 项自动修复、5 项批量修复（版本对齐/依赖补全）、8 项 P0/P1 修复（FTS5 安全/safe_crg_call 约定/Step4 范围/Jest 框架/resolveEdges 告警/17命令枚举/路径安全）
+- v1.6.0 2026-04-11 00:00:00 kuang: docs(spec-graph-bootstrap): 核心算法参考§14.2 参考表补充 better-sqlite3 v12.6.2 版本号、捆绑 SQLite 3.51.3 及 `unixepoch()` 兼容性说明
+- v1.6.0 2026-04-10 17:51:20 kuang: docs(spec-graph-bootstrap): 按审查问题逐项收敛阶段0文档口径，统一“语言按需扩展”策略；将 `detectPresentLanguages` 改为基于 `final_inputs` 推导；在核心算法参考引入 `LANG_SPEC[lang]` 作为统一抽取框架并补充 `.mm` 别名与 `.h` 启发式路由说明，同时修正 `crg query` 参数示例与契约一致性 (user-visible)
+- v1.6.0 2026-04-10 17:15:44 kuang: docs(spec-graph-bootstrap): 继续完善输入收敛文档，新增 `.spec-first-graphignore` 与 `.gitignore` 边界、输入模式矩阵、规则冲突策略、最小验收用例，并在阶段0主方案与“阶段命令-产物变化对照表”补充“该配置由仓库维护、init 默认不覆写”口径 (user-visible)
+- v1.6.0 2026-04-10 17:09:07 kuang: docs(spec-graph-bootstrap): 新增仓库级排除配置文件 `.spec-first-graphignore` 与《阶段0-输入收敛与排除规则技术方案》，并在阶段0主方案中补充“tracked-only + 排除规则链路”与验收标准（含 Pods/graphify-out/build/dist/.git 输入收敛断言） (user-visible)
 - v1.6.0 2026-04-10 14:02:00 kuang: docs(spec-graph-bootstrap): 在《阶段命令-产物变化对照表》的文件级说明表新增“主要消费方”列，逐项标注产物由 plan/work/review/路由装配器等环节消费，强化生成-消费闭环可维护性 (user-visible)
 - v1.6.0 2026-04-10 13:56:39 kuang: docs(spec-graph-bootstrap): 补充《阶段命令-产物变化对照表》文件级说明，逐项定义运行时库文件、控制面 JSON、v1 必需文档与条件增强产物的作用/功能/主要内容 (user-visible)
 - v1.6.0 2026-04-10 13:52:26 kuang: docs(spec-graph-bootstrap): 新增《阶段命令-产物变化对照表》，按命令维度梳理 Phase0 CRG 子命令、init 安装、/spec:graph-bootstrap 首次执行与 rerun/refresh 的写入文件集合，并给出最小运行后目录树 (user-visible)
