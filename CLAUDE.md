@@ -46,6 +46,35 @@ Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。C
 
 `doctor` 命令会检测运行时文件中是否残留未重写的 canonical 名称。
 
+### CRG 模块（`src/crg/`）
+
+`spec-first crg <subcommand>` — 内嵌 Code Review Graph Node.js 运行时，提供 17 个子命令：
+
+| 文件 | 职责 |
+|---|---|
+| `cli/router.js` | 17 子命令路由 + `--repo` 路径校验 |
+| `migrations.js` | better-sqlite3 schema 初始化（7 表 + FTS5） |
+| `input-convergence.js` | 候选文件收敛（git ls-files + 排除链 + Pod 适配） |
+| `parser.js` | tree-sitter AST 解析 → symbol_key + raw_edges |
+| `incremental.js` | SHA256 增量检测 + fingerprints 更新 |
+| `graph.js` | upsertNodes/upsertEdges + resolveEdges 两阶段解析 |
+| `communities.js` | 3-Pass 社区检测 |
+| `flows.js` | PageRank + BFS 流程检测 |
+| `analyze.js` | surprising_connections + god_nodes 分析 |
+| `search.js` | FTS5 搜索 + rebuildFTS |
+| `changes.js` | git diff 风险评分（High/Medium/Low） |
+| `cli/build.js` | build + stats CLI handler |
+| `cli/context.js` | context 命令 |
+| `cli/query.js` | query 8 模式 FactItem 输出 |
+| `cli/postprocess.js` | 后处理编排（writeCommunities→detectFlows→analyzeGraph→rebuildFTS） |
+| `cli/open-db.js` | 共享 DB open 工具 |
+| `cli/envelope.js` | JSON 信封工厂 |
+| `commands/` | 11 个子命令处理器（flows/communities/architecture/…） |
+
+**JSON 契约**：`docs/contracts/crg-cli-v1.schema.json`（JSON Schema Draft 2020-12）
+
+**测试**：`npm run test:jest`（需先 `npm install --legacy-peer-deps`）
+
 <!-- spec-first:lang:start -->
 ## 语言与治理策略（由 spec-first 管理）
 

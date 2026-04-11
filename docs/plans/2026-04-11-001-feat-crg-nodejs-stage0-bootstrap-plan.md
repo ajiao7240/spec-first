@@ -1,7 +1,7 @@
 ---
 title: "feat: CRG Node.js 阶段0 Bootstrap 实现"
 type: feat
-status: active
+status: completed
 date: 2026-04-11
 origin: docs/01-需求分析/spec-graph-bootstrap需求/阶段0-CRG-NodeJS集成技术方案.md
 ---
@@ -31,7 +31,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/阶段0-CRG-NodeJS集成
 - R8. `crg architecture` 的 `hub_nodes` 不含 `kind=module` 文件级节点（B3）
 - R9. `crg stats` 含 `corpus_health.status`（small/optimal/large）和 `corpus_health.total_loc`（B4）
 - R10. 敏感文件前置过滤：graph.db 节点表和 FTS 索引均不含命中 SENSITIVE_PATTERNS 的文件路径（B6）；FTS 索引 symbol 名称，不扫描文件内容——symbol 名称内嵌密钥属 v1 已知限制，由 rebuildFTS 前二次路径校验降低风险
-- R11. 同一仓库两次 `crg build` 无变更时第二次 `changed_files: 0`（增量幂等）
+- R11. 同一仓库两次 `crg build` 无变更时第二次 `changed_files: 0`（增量幂等；**仅适用于 `tracked-only` 模式**；`tracked+untracked` 模式下工作树波动可导致非零，不计入本 requirement）
 - R12. `exit 2` 只触发降级，不阻断主任务（`safe_crg_call` 约定，origin §8.7）
 - R13. native 模块（tree-sitter, better-sqlite3）优先使用 prebuild binary，安装失败时输出清晰诊断
 
@@ -192,7 +192,7 @@ flowchart TD
 - `package.json`：依赖版本遵循 `~`（patch-level）策略（origin §六）；tree-sitter 主包及各语言 grammar 包（`tree-sitter-javascript`、`tree-sitter-typescript`、`tree-sitter-python`、`tree-sitter-go`、`tree-sitter-java`、`tree-sitter-rust`、`tree-sitter-c`、`tree-sitter-cpp`）统一 `~0.25.x`，`better-sqlite3 ~12.6.0`，`simple-git ~3.0.0`，`ignore ^5.0.0`（`.spec-first-graphignore` 解析），`jest` devDependency（测试框架，Unit 1 选定）
 - `bin/spec-first.js`：延迟 require——`if (argv[2] === 'crg') { require('../src/crg/cli/router').run(argv.slice(3)); return; }` 插入在 `runCli` 调用之前，不影响现有命令路径
 - `router.js`：纯分发逻辑，无业务代码；handler 模块按需 require（同样延迟加载）；对 `--repo` 参数执行 `path.resolve` + `fs.statSync` 验证目录存在，非法路径 exit 1
-- `migrations.js`：7 张表 + FTS5 虚表按 origin §七 schema 建立；`PRAGMA foreign_keys = ON`；`PRAGMA journal_mode = WAL`；`graph_meta` 写入 `schema_version=1`
+- `migrations.js`：7 张表 + FTS5 虚表按 origin §七 schema 建立；`PRAGMA foreign_keys = ON`；`PRAGMA journal_mode = WAL`；`graph_meta` 写入 `schema_version=1`；`graph_meta` 同时存储 `unresolved_edge_count`（由 `graph.js resolveEdges` 在每次 build 后写入，`crg stats` 从此字段读取展示）
 
 **Patterns to follow:**
 - `src/cli/index.js`：`cmd ===` 分支模式
@@ -299,7 +299,7 @@ flowchart TD
 
 **Approach:**
 - `incremental.js`：`detectChangedFiles(db, filePaths)` 返回 `{ changed, unchanged, deleted }`；1 次批量 SELECT + 单事务批量 upsert/delete（origin §14.2）；`computeFileSHA` try/catch 处理读取失败（将该文件移入 deleted）
-- `graph.js`：`upsertNodes / upsertEdges`（基于 symbol_key UPSERT）；`resolveEdges(db, rawEdges, repoRoot)`——将 `target_name/target_path_raw` 解析为 `target_id`，解析失败不阻塞构建（记录 unresolved 计数）；构建完成后若 `unresolved_rate > 10%`（unresolved / total_raw_edges）则在 envelope `warnings[]` 中追加 `{ type: "high_unresolved_edge_rate", rate: <n> }`；`deleteStaleNodes(db, deletedPaths)` 级联删除节点和关联边
+- `graph.js`：`upsertNodes / upsertEdges`（基于 symbol_key UPSERT）；`resolveEdges(db, rawEdges, repoRoot)`——将 `target_name/target_path_raw` 解析为 `target_id`，解析失败不阻塞构建；**resolve 完成后将 `unresolved_edge_count` 写入 `graph_meta`**（`crg stats` 的数据来源）；若 `unresolved_rate > 10%` 则在 envelope `warnings[]` 中追加 `{ type: "high_unresolved_edge_rate", rate: <n> }`；`deleteStaleNodes(db, deletedPaths)` 级联删除节点和关联边
 - 外键安全顺序：社区重建前先 `UPDATE nodes SET community_id = NULL`，再 `DELETE FROM communities`（origin §七）
 
 **Patterns to follow:**
@@ -347,7 +347,7 @@ flowchart TD
 - Error path：图未构建时 `crg stats` exit 2，stderr 含提示
 - Happy path：`crg query --pattern=callers_of --symbol=<key>` 返回合法 JSON
 - Error path：`crg query --pattern=callers_of --module=<x>` exit 1（参数不合法）
-- Integration：`crg build` 后立即 `crg build`，第二次 `changed_files: 0`
+- Integration：`crg build`（`tracked-only` 模式）后立即 `crg build`，第二次 `changed_files: 0`
 
 **Verification:**
 - `tests/contracts/crg-cli-v1.test.js` 全部通过（无 pending）
@@ -374,8 +374,12 @@ flowchart TD
 - `flows.js`：入口点 BFS 展开（loadAdjacency 预加载全图），PageRank damping=0.85，20 次迭代（origin §14.4）
 - `analyze.js`：`surprisingConnections`——4 因子评分（structural_gap/cross_community/degree_mismatch/confidence_asymmetry），过滤 imports/contains/defined_in 结构边（B1）；`godNodes`——过滤 `kind=module` + 方法存根 + 孤立函数（B3）
 - `search.js`：FTS5 `fts_nodes` 虚表的关键词查询，`--kind` 过滤
-- `build.js` 中 `postprocess` 步骤补全：`build → detectChangedFiles → parse → upsert → detectFlows → writeCommunities → analyzeGraph → rebuildFTS`
-- `rebuildFTS`：重建 FTS 前对每条 node 的 `file_path` 执行 SENSITIVE_PATTERNS 二次校验，命中者排除出 FTS 索引（防止输入收敛层误放行的文件进入全文搜索）
+- `build.js` 中 `postprocess` 步骤顺序（**必须严格遵守**，下游步骤依赖上游持久化结果）：
+  1. `detectChangedFiles` → `parse` → `upsertNodes/Edges`
+  2. `writeCommunities`（社区写入；`analyzeGraph` 中 `surprising_connections` 需要社区边界，必须先执行）
+  3. `detectFlows`（BFS/PageRank；依赖 canonical edges，与 communities 无依赖，但在 communities 后执行保证状态一致）
+  4. `analyzeGraph`（`surprising_connections` + `godNodes`；依赖 communities 和 edges，必须在 `writeCommunities` 之后）
+  5. `rebuildFTS`（依赖最终 nodes 状态；对每条 node `file_path` 执行 SENSITIVE_PATTERNS 二次校验）
 
 **Patterns to follow:**
 - origin §14.3–14.6 参考实现
@@ -443,14 +447,14 @@ flowchart TD
 
 **Approach:**
 - `changes.js`：`simple-git` 获取 `--since=<sha>` diff，对每个变更文件/函数按修改规模、fan-in/blast-radius 评风险等级；参照 Python `changes.py` 逻辑移植
-- `review-context`：组合 `changes.js` + `impactRadius` + 被修改节点代码片段（从 SQLite 取 line_start/line_end，再读文件）+ 相关测试列表（`tested_by` 边）
+- `review-context`：组合 `changes.js` + `impactRadius` + 被修改节点代码片段（从 SQLite 取 line_start/line_end，再读文件）+ 相关测试列表（v1 文件名启发式：源文件 `foo.js` 匹配 `foo.test.js` / `foo.spec.js`，输出标注 `inferred=true`；不依赖 `tested_by` 边，无需 Unit 4/5 新增边类型）
 - `fingerprints.json`：build 完成后写入 `inputs`（文件 SHA）+ `outputs`（产物依赖关系）+ `analyzer_version / graph_schema_version`，路径：`.spec-first-graph/fingerprints.json`（origin §七 fingerprints.json 结构）
 - `crg stats` 在图过期时（`fingerprints` SHA 与磁盘不一致超过阈值）输出 `warning: stale`，exit 0
 
 **Test scenarios:**
 - Happy path：`crg detect-changes --since=HEAD~1` 返回含 `risk_level`（High/Medium/Low）的合法 JSON
 - Happy path：`crg review-context --since=HEAD~1` 返回含 `diff_summary` 和 `affected_nodes` 的合法 JSON
-- Happy path：同一仓库执行两次 `crg build`，第二次输出 `changed_files: 0`
+- Happy path：同一仓库执行两次 `crg build`（`tracked-only` 模式），第二次输出 `changed_files: 0`
 - Happy path：`crg stats` 在图过期时输出 `warnings[].type = "stale"`，不 exit 2
 - Integration：指定单文件变更后，`fingerprints.json` 只有该文件的 SHA 更新
 - Edge case：`crg build` 中途崩溃（`fingerprints` 表半写入）→ 下次 build 重新全量检测，不残留脏数据
@@ -488,6 +492,8 @@ flowchart TD
 | Step 5（3A/3B gate）不在本计划，产物有收益但未验证 | Step 5 作为独立 gate 在 Step 4 稳定化后执行，由单独 plan 驱动 |
 
 ## Documentation / Operational Notes
+
+> **仓库治理约束：** 每个实现单元交付时，实现者必须同步更新根目录 `CHANGELOG.md`（格式：`- vX.Y.Z YYYY-MM-DD HH:MM:SS 作者: 摘要`）。未更新 CHANGELOG 的 PR 不通过审查。此约束不在各 Unit Files 列表中重复，但属于所有 Unit 的隐式 Verification 条件。
 
 - `.spec-first-graph/` 应加入目标仓库 `.gitignore`，图数据库属本地构建产物，不应提交
 - `.spec-first-graphignore` 由目标仓库维护，`spec-first init` 默认不强制覆写

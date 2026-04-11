@@ -1,0 +1,104 @@
+'use strict';
+
+/**
+ * CRG FTS5 全文搜索模块
+ *
+ * 功能：
+ *   - searchNodes: 关键词检索（FTS5 MATCH，支持 kind 过滤和 limit 限制）
+ *   - rebuildFTS: 重建 fts_nodes 虚表索引（含 SENSITIVE_PATTERNS 二次校验）
+ *
+ * 注意：fts_nodes 是 content= 虚表，需要手动维护同步；
+ * 每次 postprocess 结束后调用 rebuildFTS 全量重建，保证索引最新。
+ */
+
+const path = require('path');
+
+/**
+ * 关键词搜索（FTS5 MATCH）
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} keyword - FTS5 查询关键词（支持 AND/OR/前缀* 等 FTS5 语法）
+ * @param {object} [options]
+ * @param {string} [options.kind] - 过滤 kind（如 'function', 'class'）
+ * @param {number} [options.limit=20] - 最大返回数
+ * @returns {Array<{ id: string, name: string, file_path: string, kind: string }>}
+ */
+function searchNodes(db, keyword, { kind, limit = 20 } = {}) {
+  if (!keyword || !keyword.trim()) return [];
+
+  // 构建 SQL：FTS5 JOIN nodes，可选 kind 过滤
+  let sql = `
+    SELECT n.id, n.name, n.file_path, n.kind
+    FROM fts_nodes f
+    JOIN nodes n ON f.node_id = n.id
+    WHERE fts_nodes MATCH ?
+  `;
+  const params = [keyword];
+
+  if (kind) {
+    sql += ' AND n.kind = ?';
+    params.push(kind);
+  }
+
+  sql += ' LIMIT ?';
+  params.push(limit);
+
+  try {
+    return db.prepare(sql).all(...params);
+  } catch (err) {
+    // FTS5 查询语法错误时，返回空结果而非崩溃
+    if (err.message && err.message.includes('fts5')) {
+      return [];
+    }
+    throw err;
+  }
+}
+
+/**
+ * 重建 FTS5 索引（全量重建）
+ *
+ * 重建前对每条 node 的 file_path 执行 SENSITIVE_PATTERNS 二次校验，
+ * 阻止敏感文件被写入全文索引。
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @returns {{ indexed_count: number, skipped_count: number }}
+ */
+function rebuildFTS(db) {
+  // 延迟 require，避免循环依赖（isSensitiveFile 与本模块无依赖关系）
+  const { isSensitiveFile } = require('./input-convergence');
+
+  // 获取所有节点
+  const nodes = db.prepare(
+    'SELECT id, name, file_path, kind FROM nodes'
+  ).all();
+
+  let indexedCount = 0;
+  let skippedCount = 0;
+
+  const insertStmt = db.prepare(
+    'INSERT INTO fts_nodes (node_id, name, file_path, kind) VALUES (?, ?, ?, ?)'
+  );
+
+  const rebuildAll = db.transaction(() => {
+    // 清空旧索引
+    db.prepare('DELETE FROM fts_nodes').run();
+
+    for (const node of nodes) {
+      // 二次 SENSITIVE_PATTERNS 安全校验（使用 basename）
+      const basename = path.basename(node.file_path);
+      if (isSensitiveFile(basename)) {
+        skippedCount++;
+        continue;
+      }
+
+      insertStmt.run(node.id, node.name, node.file_path, node.kind);
+      indexedCount++;
+    }
+  });
+
+  rebuildAll();
+
+  return { indexed_count: indexedCount, skipped_count: skippedCount };
+}
+
+module.exports = { searchNodes, rebuildFTS };

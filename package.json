@@ -11,6 +11,7 @@
     "test:smoke": "bash tests/smoke/install-local.sh && bash tests/smoke/cli.sh",
     "test:integration": "bash tests/integration/e2e.sh",
     "test": "npm run test:unit && npm run test:smoke && npm run test:integration",
+    "test:jest": "jest",
     "postinstall": "node bin/postinstall.js"
   },
   "files": [
@@ -42,5 +43,22 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "tree-sitter": "~0.22.0",
+    "tree-sitter-javascript": "~0.23.0",
+    "tree-sitter-typescript": "~0.23.0",
+    "tree-sitter-python": "~0.23.0",
+    "tree-sitter-go": "~0.23.0",
+    "tree-sitter-java": "~0.23.0",
+    "tree-sitter-rust": "~0.23.0",
+    "tree-sitter-c": "~0.23.0",
+    "tree-sitter-cpp": "~0.23.0",
+    "better-sqlite3": "~12.6.0",
+    "simple-git": "~3.0.0",
+    "ignore": "^5.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
   }
 }

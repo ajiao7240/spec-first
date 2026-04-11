@@ -8,6 +8,19 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-11 00:00:00 kuang: docs(crg): CLAUDE.md 补充 src/crg/ 模块架构说明表
+- v1.6.0 2026-04-11 00:00:00 kuang: chore(crg): 将 tree-sitter 版本从 ~0.25.0 降为 ~0.22.0 以解决 grammar 包 peerDependency 冲突
+- v1.6.0 2026-04-11 00:00:00 kuang: docs(crg): 标记实现计划状态为 completed
+- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit9 review 场景 — changes.js 风险评分 + detect-changes + review-context + fingerprints.json
+- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit8 全量 CLI 补全 — 11 个 commands/ 处理器覆盖 flows/communities/architecture/surprising-connections/god-nodes/impact/large-functions/search
+- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit7 后处理算法 — 3-Pass communities + PageRank flows + surprising_connections + rebuildFTS
+- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit6 MVP 四命令 — build/stats/context/query CLI handler + envelope 工厂 + FactItem 转换
+- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit5 增量检测与图数据层 — detectChangedFiles/computeFileSHA + upsertNodes/resolveEdges/setUnresolvedEdgeCount
+- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit4 核心解析层 — parser.js tree-sitter 骨架 + symbol_key + raw_edges + SENSITIVE_PATTERNS 过滤 + graceful degradation
+- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit3 输入收敛流水线 — collectInputFiles/detectPresentLanguages/isSensitiveFile/computePodExcludePaths
+- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit2 基础设施 — native deps 声明 + CLI crg 路由 + SQLite schema migrations
+- v1.6.0 2026-04-11 00:00:00 kuang: feat(crg): Unit1 契约冻结 — JSON schema × 17 命令 + Fact Item 约束 + query 参数矩阵 + Jest 测试桩
+- v1.6.0 2026-04-11 00:00:00 kuang: docs(spec-graph-bootstrap): document-review 第二轮修复 — R11 范围限定 tracked-only、tested_by 降级启发式、unresolved_edge_count 存储归属（graph_meta）、后处理步骤顺序固定、CHANGELOG 治理约束说明
 - v1.6.0 2026-04-11 00:00:00 kuang: docs(spec-graph-bootstrap): document-review 修复方案文档 — 应用 3 项自动修复、5 项批量修复（版本对齐/依赖补全）、8 项 P0/P1 修复（FTS5 安全/safe_crg_call 约定/Step4 范围/Jest 框架/resolveEdges 告警/17命令枚举/路径安全）
 - v1.6.0 2026-04-11 00:00:00 kuang: docs(spec-graph-bootstrap): 核心算法参考§14.2 参考表补充 better-sqlite3 v12.6.2 版本号、捆绑 SQLite 3.51.3 及 `unixepoch()` 兼容性说明
 - v1.6.0 2026-04-10 17:51:20 kuang: docs(spec-graph-bootstrap): 按审查问题逐项收敛阶段0文档口径，统一“语言按需扩展”策略；将 `detectPresentLanguages` 改为基于 `final_inputs` 推导；在核心算法参考引入 `LANG_SPEC[lang]` 作为统一抽取框架并补充 `.mm` 别名与 `.h` 启发式路由说明，同时修正 `crg query` 参数示例与契约一致性 (user-visible)
