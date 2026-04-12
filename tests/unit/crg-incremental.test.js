@@ -101,9 +101,85 @@ describe('incremental', () => {
       }
     });
 
-    test.todo('文件删除 → 出现在 deleted，对应 fingerprint 从表中移除');
-    test.todo('文件读取失败（ENOENT）→ 不抛出，该文件移入 deleted');
-    test.todo('超过 CHUNK_SIZE=900 的批量文件列表能正确分片查询');
+    test('文件删除 → 出现在 deleted，对应 fingerprint 从表中移除', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-incr-'));
+      const { initDatabase } = require('../../src/crg/migrations');
+      const dbPath = require('path').join(tmpDir, 'graph.db');
+      const db = initDatabase(dbPath);
+      const filePath = require('path').join(tmpDir, 'gone.js');
+      fs.writeFileSync(filePath, 'const gone = true;\n');
+
+      try {
+        const first = detectChangedFiles(db, ['gone.js'], tmpDir);
+        updateFingerprints(db, first.changed, first.deleted, tmpDir, first.changedShas);
+
+        fs.rmSync(filePath, { force: true });
+
+        const second = detectChangedFiles(db, [], tmpDir);
+        expect(second.deleted).toContain('gone.js');
+
+        updateFingerprints(db, second.changed, second.deleted, tmpDir, second.changedShas);
+        const row = db.prepare('SELECT sha256 FROM fingerprints WHERE file_path = ?').get('gone.js');
+        expect(row).toBeUndefined();
+      } finally {
+        db.close();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    test('文件读取失败（ENOENT）→ 不抛出，该文件移入 deleted', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-incr-'));
+      const { initDatabase } = require('../../src/crg/migrations');
+      const dbPath = require('path').join(tmpDir, 'graph.db');
+      const db = initDatabase(dbPath);
+      const filePath = require('path').join(tmpDir, 'enoent.js');
+      fs.writeFileSync(filePath, 'const alive = true;\n');
+
+      try {
+        const first = detectChangedFiles(db, ['enoent.js'], tmpDir);
+        updateFingerprints(db, first.changed, first.deleted, tmpDir, first.changedShas);
+
+        fs.rmSync(filePath, { force: true });
+
+        expect(() => detectChangedFiles(db, ['enoent.js'], tmpDir)).not.toThrow();
+        const second = detectChangedFiles(db, ['enoent.js'], tmpDir);
+        expect(second.changed).toEqual([]);
+        expect(second.deleted).toContain('enoent.js');
+      } finally {
+        db.close();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    test('超过 CHUNK_SIZE=900 的批量文件列表能正确分片查询', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-incr-'));
+      const { initDatabase } = require('../../src/crg/migrations');
+      const dbPath = require('path').join(tmpDir, 'graph.db');
+      const db = initDatabase(dbPath);
+
+      try {
+        const filePaths = [];
+        for (let i = 0; i < 905; i++) {
+          const rel = `chunk/file-${i}.js`;
+          const abs = path.join(tmpDir, rel);
+          fs.mkdirSync(path.dirname(abs), { recursive: true });
+          fs.writeFileSync(abs, `const n${i} = ${i};\n`);
+          filePaths.push(rel);
+        }
+
+        const first = detectChangedFiles(db, filePaths, tmpDir);
+        expect(first.changed).toHaveLength(905);
+        updateFingerprints(db, first.changed, first.deleted, tmpDir, first.changedShas);
+
+        const second = detectChangedFiles(db, filePaths, tmpDir);
+        expect(second.changed).toHaveLength(0);
+        expect(second.unchanged).toHaveLength(905);
+        expect(second.deleted).toHaveLength(0);
+      } finally {
+        db.close();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('updateFingerprints', () => {
@@ -154,6 +230,42 @@ describe('incremental', () => {
       }
     });
 
-    test.todo('事务失败时不写入任何记录');
+    test('事务失败时不写入任何记录', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-incr-'));
+      const { initDatabase } = require('../../src/crg/migrations');
+      const dbPath = require('path').join(tmpDir, 'graph.db');
+      const db = initDatabase(dbPath);
+      const filePath = require('path').join(tmpDir, 'txn.js');
+      fs.writeFileSync(filePath, 'const txn = true;\n');
+
+      const originalPrepare = db.prepare.bind(db);
+      const originalTransaction = db.transaction.bind(db);
+
+      try {
+        db.prepare = jest.fn((sql) => {
+          const stmt = originalPrepare(sql);
+          if (sql.includes('INSERT INTO fingerprints')) {
+            return {
+              ...stmt,
+              run: () => {
+                throw new Error('boom');
+              },
+            };
+          }
+          return stmt;
+        });
+
+        db.transaction = (fn) => originalTransaction(() => fn());
+
+        expect(() => updateFingerprints(db, ['txn.js'], [], tmpDir)).toThrow('boom');
+        const rows = db.prepare('SELECT file_path FROM fingerprints').all();
+        expect(rows).toEqual([]);
+      } finally {
+        db.prepare = originalPrepare;
+        db.transaction = originalTransaction;
+        db.close();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
   });
 });

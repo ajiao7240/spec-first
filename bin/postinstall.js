@@ -2,34 +2,37 @@
 
 const pkg = require('../package.json');
 
-console.log(`
-╔════════════════════════════════════════════════════════════╗
-║                                                            ║
-║   🚀 Spec-First v${pkg.version} installed successfully!          ║
-║                                                            ║
-║   📦 Harness Engineering for Claude Code                  ║
-║                                                            ║
-╚════════════════════════════════════════════════════════════╝
+// 版本号固定宽度，右边对齐到边框
+const ver = `spec-first v${pkg.version}`;
+const LINE = '─'.repeat(60);
 
-✨ Next Steps:
+process.stdout.write(`
+┌${LINE}┐
+│  ${ver.padEnd(58)}│
+│  安装完成                                                  │
+└${LINE}┘
 
-  1️⃣  Initialize in your project:
-     $ cd your-project
-     $ spec-first init
+  如果安装过程中看到 tree-sitter peer dependency 警告，
+  属于预期行为，不影响 CRG 解析功能，可以直接忽略。
 
-  2️⃣  Start your first spec workflow:
-     $ /spec:brainstorm
+快速开始：
 
-  3️⃣  Learn more:
-     📖 Docs: https://github.com/sunrain520/spec-first
-     💡 Quick Start: Run 'spec-first --help'
+  1. 诊断当前环境
+     spec-first doctor
 
-🎯 Core Commands:
-   /spec:brainstorm  - Clarify requirements
-   /spec:plan        - Design solution
-   /spec:work        - Execute implementation
-   /spec:review      - Structured review
-   /spec:compound    - Knowledge accumulation
+  2. 在目标项目初始化（二选一）
+     spec-first init --claude
+     spec-first init --codex
 
-Happy coding! 🎉
+  3. 完全退出并重启 Claude Code 或 Codex
+
+  4. 使用工作流入口
+     /spec:bootstrap          通用上下文生成
+     /spec:graph-bootstrap    CRG 图谱驱动（需先运行 crg build）
+     /spec:brainstorm         需求分析
+     /spec:plan               方案规划
+
+查看所有命令：spec-first --help
+查看版本详情：spec-first -v
+
 `);

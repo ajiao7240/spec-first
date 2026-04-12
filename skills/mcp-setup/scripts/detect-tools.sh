@@ -78,8 +78,17 @@ for tool_id in $tool_ids; do
 
     "command")
       # Run the full detection command so "command exists but is broken" is not misclassified as installed.
+      # 超时保护：10秒内未完成则视为失败
       detect_cmd=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detect.command' "$TOOLS_JSON")
-      if eval "$detect_cmd" >/dev/null 2>&1; then
+      if command -v timeout >/dev/null 2>&1; then
+        if timeout 10 bash -c "$detect_cmd" >/dev/null 2>&1; then
+          found=true
+        fi
+      elif command -v perl >/dev/null 2>&1; then
+        if perl -e 'alarm shift; exec @ARGV' 10 bash -c "$detect_cmd" >/dev/null 2>&1; then
+          found=true
+        fi
+      elif eval "$detect_cmd" >/dev/null 2>&1; then
         found=true
       fi
       ;;

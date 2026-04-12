@@ -5,9 +5,61 @@
   - `v版本号` 使用本次变更对应的发布版本
   - 日期时间必须使用 `YYYY-MM-DD HH:MM:SS`
   - `作者` 填写提交人或变更责任人
-  - `变更摘要` 使用中文，简明说明本次改动
-  - 用户可感知的变更在末尾追加 `(user-visible)`
+- `变更摘要` 使用中文，简明说明本次改动
+- 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-12 22:49:17 kuang: fix(spec-graph-bootstrap): 补齐阶段2缺失的 rerun backup 合同——SKILL.md 新增 backup/校验/恢复/清理规则，smoke 断言同步覆盖，避免重跑时静默覆盖 docs/contexts 旧产物 (user-visible)
+- v1.6.0 2026-04-13 00:05:00 kuang: fix(postinstall): 优化安装完成提示 — 主动说明 tree-sitter peer dep 警告为预期行为；next steps 修正为 doctor→init→重启→入口；补充 graph-bootstrap 和 crg build 说明；去除 emoji 过密问题 (user-visible)
+- v1.6.0 2026-04-12 23:55:00 kuang: docs(install): 06-本地源码安装.md 补充 peer dep 警告说明（tree-sitter@0.22.x 与 grammar 包 peer dep ^0.21.x 冲突为预期行为，不影响运行时，附验证命令）(user-visible)
+- v1.6.0 2026-04-12 23:50:00 kuang: docs(user-manual): 用户手册5文件全量更新 — 移除所有"阶段1并行验证"语言，改为 Phase 0-4 全功能描述；README.md 版本号更新至 v1.5.1；02-核心概念.md 新增 spec-graph-bootstrap supporting workflow 节；06-本地源码安装.md 补充 CRG 测试命令与产物路径说明 (user-visible)
+- v1.6.0 2026-04-12 22:39:28 kuang: feat(spec-graph-bootstrap): 收敛阶段2对外契约——graph-bootstrap 的 manifest、安装提示、README、用户手册与 smoke 断言统一改为 graph-informed Phase 0-4 / 阶段2最小闭环语义，与 SKILL.md 保持一致 (user-visible)
+- v1.6.0 2026-04-12 14:45:00 kuang: fix(test): crg-cli-v1 契约测试 impact mock SQL 修正 — edges 查询从 kind='calls' 改为 kind IN ('calls','imports_from')，与 impact.js 实现对齐；jest 全套 8 suites 通过
+- v1.6.0 2026-04-12 14:30:00 kuang: docs(spec-graph-bootstrap): 集成方案.md 全量字段名修正 — crg flows items[].id→flow_id（6处）；crg search results[].id→node_id（3处）；"数值节点ID"→"symbol_key字符串"（12处）；与 SKILL.md 及实际 CLI 输出完全对齐
+- v1.6.0 2026-04-12 14:00:00 kuang: fix(skill): SKILL.md 3处 flows 字段名修正 — Phase 1.0/1.2/1.3 将 items[].id 统一改为 items[].flow_id（与 crg flows 实际输出对齐）
+- v1.6.0 2026-04-12 13:35:00 kuang: feat(spec-graph-bootstrap): Phase 0-4 全量产物闭环 — 写入9个 docs/contexts/spec-first/ 文档（00-summary/module-map/pitfalls/public-entrypoints/test-map/high-risk-modules/review-change/README/injection-index.yaml）；补写 test-surface.json；fingerprints.json 二次写入 status=complete + outputs 依赖图 (user-visible)
+- v1.6.0 2026-04-12 13:30:00 kuang: fix(crg): 3项核心质量修复 — communities.js Pass2 将 function 节点映射回 module 节点（修复 inline require 导致社区过度分裂，crg 从 21 碎片→6 社区）；query.js 8种查询模式改为 name OR id 双模匹配（兼容短名称输入和完整 node_id）；真实 SKILL Phase 0-1 验证产物写入 .context/spec-first/bootstrap/spec-first/；jest 193 passed (user-visible)
+- v1.6.0 2026-04-13 00:40:00 kuang: fix(crg): 真实端到端测试发现并修复3处schema/代码发散 — flows.js 补 id AS flow_id 别名（与context/flow/affected-flows对齐）；search.js 补 node_id 别名 + snippet 字段（"kind: name"摘要）；crg-cli-v1.schema.json CommunityHealth status enum 修正（fragile→fragmented，overloaded→scattered），by_status 去掉固定required键（动态计数）；SKILL.md crg search 返回字段 id→node_id；jest 193 passed (user-visible)
+- v1.6.0 2026-04-13 00:10:00 kuang: perf(crg): 3项P1性能修复 — assessNodeRisk N+1→批量化（assessNodeRiskBatch，~6次批量查询替代5×N次）；migrations.js 新增3个索引（file_path_kind/is_test/edges_kind）消除 Pass5 全表扫描；F3 测试覆盖代理修复（function/method/class 节点 fallback 检查同文件 module 的 imports_from 覆盖，消除 F3 永为 0.30 问题）；jest 193 passed (user-visible)
+- v1.6.0 2026-04-12 23:30:00 kuang: fix(contract): 修复 crg-cli-v1 schema 两处发散（ReviewContextData candidate_tests→FactItem ref，新增 graph_expansion/review_guidance 字段）；补3条契约测试覆盖 graph_expansion depth/risk_score 结构 + review_guidance BLAST_RADIUS 约束；jest 193 passed
+- v1.6.0 2026-04-12 23:00:00 kuang: docs(skill): spec-graph-bootstrap SKILL.md 修正6处"数值 id"误导——节点 ID 为字符串 symbol_key 格式，非整数；补充 symbol_key 格式说明
+- v1.6.0 2026-04-12 22:40:00 kuang: fix(crg): 全面代码审查3项修复 — flows.js F5 查错表（edges→unresolved_edges，externalScore 不再恒为0）；parser.js getParser 缓存失败结果（避免重复 require 失败）；communities.js Pass3 subInterEdges 注释修正 (user-visible)
+- v1.6.0 2026-04-12 22:10:00 kuang: test(integration): 深度集成测试全通过——17子命令全量验证（community/architecture/search/god-nodes/large-functions/impact/query(4模式)/detect-changes/review-context），Jest 191 passed，smoke 全绿，npm pack 产物完整
+- v1.6.0 2026-04-12 21:35:00 kuang: fix(smoke): 更新 cli.sh 对 spec-graph-bootstrap SKILL.md 的断言（'阶段1安装集成期' → 'fact-inventory.json'/'Phase 0'）
+- v1.6.0 2026-04-12 21:30:00 kuang: fix(install): graph-bootstrap.md 命令模板升级为 Phase 0-4 描述，删除旧 Stage-1 限制语言 (user-visible)
+- v1.6.0 2026-04-12 21:28:00 kuang: fix(gitignore): 补充 .context/spec-first/ 和 docs/contexts/ 排除产物目录
+- v1.6.0 2026-04-12 21:20:00 kuang: feat(skill): spec-graph-bootstrap SKILL.md 全量重写，实现 Phase 0-4 事实抽取调用链（CRG CLI + 降级链路 + 控制面产物 schema）(user-visible)
+- v1.6.0 2026-04-12 21:10:00 kuang: feat(crg): review-context 补图扩展——2层反向 BFS graph_expansion + review_guidance（HIGH_RISK/TEST_GAP/BLAST_RADIUS）(user-visible)
+- v1.6.0 2026-04-12 21:00:00 kuang: feat(crg): changes.js 节点级5因子风险评分（assessNodeRisk），detectChanges 输出新增 review_priorities/test_gaps 字段 (user-visible)
+- v1.6.0 2026-04-12 20:50:00 kuang: feat(crg): 新建 constants.js（SECURITY_KEYWORDS 25词）；flows.js criticality 从 PageRank 均匀化改为 5因子加权评分（file_spread/depth/security/test_gap/external），unique values 从 1 提升至 19/40 (user-visible)
+- v1.6.0 2026-04-12 20:40:00 kuang: feat(crg): architecture 补充 coupling_warnings 字段，跨社区边 >10 时输出 HIGH_COUPLING 告警 (user-visible)
+- v1.6.0 2026-04-12 20:35:00 kuang: fix(crg): large-functions 三处修正：DEFAULT_LIMIT 20→50、LOC 公式 +1、kind 去硬编码支持 --kind 参数化 (user-visible)
+- v1.6.0 2026-04-12 20:30:00 kuang: fix(crg): context.top_hubs 改为按 in_degree 降序排列，消除 rowid DESC 导致的语义失真 (user-visible)
+- v1.6.0 2026-04-12 20:00:00 kuang: docs(crg): 按准确性审查报告折中修正完整性审查报告 — 改总评去"严重偏离"、将 serve/watch/eval 等移入阶段外能力、stats/flow 降为 Minor、query 补 Stage2 兜底说明、修正 SECURITY_KEYWORDS 25词
+- v1.6.0 2026-04-12 19:05:00 kuang: docs(crg): 新增阶段0命令实现准确性审查报告，按当前 spec-first 产品边界重审 CRG 命令质量，区分真实缺陷、Python 差异与阶段外能力
+- v1.6.0 2026-04-12 18:15:00 kuang: fix(crg): 新增最近一次构建 unresolved 明细表 unresolved_edges，并在 build/stats 输出 unresolved 聚合与样本，补齐阶段0结果质量可观测性；同步升级 SQLite 审计脚本 (user-visible)
+- v1.6.0 2026-04-12 18:10:00 kuang: docs(crg): 修正完整性审查报告4处事实错误（SECURITY_KEYWORDS 24→25；M-1 虚构 Python top_hubs；similar_to 目录近邻→社区成员；N-1 虚构 corpus_health 字段）
+- v1.6.0 2026-04-12 17:40:00 kuang: docs(crg): 回填真实命令行验收与 SQLite 审计结论，明确阶段0已达结构正确与 CLI/DB 对账基线，但主矛盾已转为 unresolved 可观测性与语义事实质量
+- v1.6.0 2026-04-12 17:20:00 kuang: fix(crg): 收紧阶段0事实采集质量 — changed 文件改为按 file_path 局部替换旧节点避免幽灵事实残留；build 输出 parser 降级质量统计（no_parser/parse_error/module_only）；stats/build 补充 last_build_unresolved_edge_count 语义字段 (user-visible)
+- v1.6.0 2026-04-12 17:10:00 kuang: docs(crg): 输出17命令实现完整性审查报告，逐命令对比 code-review-graph Python 原版，识别 2 个 Blocker（flows/detect-changes）、3 个 Major（context/query/review-context）缺陷
+- v1.6.0 2026-04-12 16:45:00 kuang: fix(crg/communities): 修复 community_id 未传播到 function/class/method/interface 节点的缺陷；新增步骤5 SQL UPDATE 将 module 节点的 community_id 下传到同文件所有语义节点 (user-visible)
+- v1.6.0 2026-04-12 14:40:00 kuang: docs(crg): 结合当前 parser/lang-config/input-convergence 实现重写阶段0语言支持矩阵，并修正文档中 Swift/Kotlin 已支持而限制项仍写未支持的冲突
+- v1.6.0 2026-04-12 14:35:00 kuang: fix(crg): spec:review P2/P3 修复 — PARSER_CACHE 改 Object.create(null) 防原型污染；EXT_TO_LANG 添加 tsx/lua/dart 双口径设计说明注释；extractGenericNodes JSDoc 补充 method→function 语义降级说明；getExtractFn default 分支补充 Route A 扩展钩子注释
+- v1.6.0 2026-04-12 14:25:00 kuang: test(crg): 补充 Route A 验证测试 17 个 — mts/cts/hxx inferLanguage 修复验证；extractGenericNodes 直接调用测试（class/function/import 节点 + isNamed 守卫）；buildIndexableExts 一致性测试；总计 189 passed
+- v1.6.0 2026-04-12 14:20:00 kuang: refactor(crg/input-convergence): INDEXABLE_EXTS 改由 buildIndexableExts() 自动派生，删除 30 行硬编码 Set；新增 buildIndexableExts import
+- v1.6.0 2026-04-12 14:15:00 kuang: refactor(crg/parser): getParser/inferLanguage 改由 LANG_CONFIG 驱动，删除手写 if/else 链和 extMap 字面量；新增 extractGenericNodes 通用提取器（5 种节点类型集合 + findName/findImportPath）；getExtractFn 默认 fallback 到通用提取器
+- v1.6.0 2026-04-12 14:05:00 kuang: docs(crg): 重写 CRG 终局定位，明确其应作为 spec-first 的工程事实内核、工作流上下文引擎与质量控制底座，并补充“AST 代码图只是实现方案”的架构边界说明
+- v1.6.0 2026-04-12 14:00:00 kuang: refactor(crg): 新增 src/crg/lang-config.js 语言配置中心 — 16 种语言统一表 (exts/pkg/load)；导出 buildExtToLang/buildIndexableExts 工具函数；修复 mts/cts/hxx 在 inferLanguage 中缺失的历史遗漏
+- v1.6.0 2026-04-12 13:30:00 kuang: docs(arch): 新增 CRG 作为工作流质量底座架构文档 — 明确 CRG 在 plan/work/review 三阶段的集成点、各阶段子命令映射、graceful degradation 原则与多角色覆盖逻辑
+- v1.6.0 2026-04-12 13:00:00 kuang: feat(crg/parser): 扩展 6 种新语言 AST 解析支持 — Swift/Kotlin/Ruby/PHP/C#/Scala；安装对应 tree-sitter grammar 包；更新 INDEXABLE_EXTS 包含新语言扩展名；修复加载特殊性（PHP 需 .php、C# 需整模块对象、Ruby 需跳过 isNamed=false 的同名 keyword token）；更新单测 (user-visible)
+- v1.6.0 2026-04-12 11:55:00 kuang: fix(crg/input-convergence): hasLocalPods 改为复用 computePodExcludePaths 结果，修复 Podfile.lock 末尾 EXTERNAL SOURCES 场景下未自动升级 tracked+untracked 的问题 (user-visible)
+- v1.6.0 2026-04-12 12:10:00 kuang: docs(crg): 补充阶段0文档与实现一致性审查，明确 presentLanguages、communities 三段式算法、community_id 传播与高质量数据边界
+- v1.6.0 2026-04-12 11:40:00 kuang: test(crg/parser): 补齐 JS/TS AST 提取回归测试，覆盖函数声明、类/方法、import、箭头函数、测试文件标记与顶层 require 归属
+- v1.6.0 2026-04-12 11:45:00 kuang: test(crg/incremental): 补齐增量检测边界回归测试，覆盖 deleted/ENOENT/900+ 分片查询与事务回滚
+- v1.6.0 2026-04-12 11:50:00 kuang: test(crg/input-convergence): 补齐 graphignore 白名单与 iOS 本地 Pod 自动升级回归测试
+- v1.6.0 2026-04-12 11:30:00 kuang: fix(crg/input-convergence): 收紧阶段0索引范围为当前 parser 可解析语言，避免 swift/kotlin 文件进入 finalInputs 后再在 parse 阶段被跳过；补充对应单测与阶段0审查文档
+- v1.6.0 2026-04-12 04:00:00 kuang: docs(crg): 新增阶段0构建流水线完整技术文档 — 覆盖执行流程ASCII图、Schema、语言矩阵、增量机制、设计决策与已知限制，写入 docs/02-架构设计/04-crg-阶段0-构建流水线.md
+- v1.6.0 2026-04-12 03:30:00 kuang: feat(crg/input-convergence): all-files 模式自动读取 .gitignore — tracked-only/tracked+untracked 模式通过 git ls-files 天然尊重 .gitignore；all-files fallback 新增步骤3.5 手动解析根目录 .gitignore 补偿，ignoredByRule.gitignore 统计计入 stats (user-visible)
+- v1.6.0 2026-04-12 03:00:00 kuang: fix(crg/graph): resolveEdges 新增阶段1.5 basename 模糊匹配 — ObjC #import "file.h" 仅含文件名无路径，导致 177 条 imports_from 边全部 unresolved；新增 getModuleByBasename() 按 basename 查询 module 节点，多候选时取最近邻（公共路径前缀最长）(user-visible)
 - v1.6.0 2026-04-12 02:00:00 kuang: feat(crg): 实现 ObjC tree-sitter 解析器 — .m/.mm 路由到 tree-sitter-objc；@interface/@implementation/@protocol 提取 class/interface 节点；ObjC 方法选择器提取（application:didFinishLaunching: 等）；NS_ASSUME_NONNULL_BEGIN/END 预处理；.h 文件 ObjC 启发式路由 (user-visible)
 - v1.6.0 2026-04-12 01:55:00 kuang: fix(crg): computePodExcludePaths 改用 Pods/** 兜底 + 本地 Pod 白名单策略 — 旧策略仅枚举 EXTERNAL SOURCES 11 个 Pod 遗漏 100+ 三方 Pod；新策略无论 Podfile.lock 规模均正确排除所有三方 Pod (user-visible)
 - v1.6.0 2026-04-12 01:50:00 kuang: fix(crg): getTrackedFiles/getUntrackedFiles 加 maxBuffer 256MB — 万级文件仓库 ENOBUFS 静默 fallback 到 all-files 模式，导致扫描 30000+ 文件；加大缓冲后正确使用 tracked-only 模式 (user-visible)
@@ -160,6 +212,7 @@
 - v1.4.0 2026-04-02 16:45:00 kuang: 更新 README：修正工作流命令顺序（mcp-setup → 重启 → bootstrap）、新增 Host Readiness Gate 提示、Core Workflow 表格将 MCP Setup 移至首行并标注先决条件 (user-visible)
 - v1.4.0 2026-04-02 16:30:00 kuang: 实现 spec-bootstrap MCP-first 改造（5 个 Unit）：新增 verify-tools.sh（Unit 1）、改造 mcp-setup SKILL.md 加 Phase 4 Host Verification + ABCoder MCP 配置步骤（Unit 2）、spec-bootstrap 新增 Host Readiness Gate 章节（Unit 3）、重写 Analysis Mode Detection + Phase 1.3 为真实 probe（Unit 4）、新增 verify-tools.sh 测试组 9.1-9.12（Unit 5）(user-visible)
 - v1.4.0 2026-04-02 15:30:00 kuang: 修复实现计划 P0+P1 问题（共 10 项）：AF-002 补写 ABCoder MCP config 职责归 Unit 2、CSC-002 模式选择加 abcoder.ready 分支、AF-001 新增 setup_success 字段、CSC-003 移除不可实现超时描述、CSC-004 补 context7 测试 9.12、AF-003 加诊断兜底提示、PSM-001/002/003/004 文件记录与锚点修复
+- v1.4.0 2026-04-12 17:05:00 kuang: 将 CRG build 的 parser 降级结果显式标记为 degraded，并在 --force 下增加 partial rebuild 告警，避免阶段0混合快照被误判为完整成功
 - v1.4.0 2026-04-02 14:00:00 kuang: 新增 spec-bootstrap MCP-first 改造实现计划（docs/plans/2026-04-02-001-feat-spec-bootstrap-mcp-first-plan.md），5 个实现单元：verify-tools.sh、mcp-setup SKILL.md、spec-bootstrap 前置门、probe 重写、测试
 - v1.4.0 2026-04-02 12:00:00 kuang: 修复 spec-review 发现的 P0/P1/P2 问题：Section 4.1 阻断语义修正（P0）、MCP ping 超时 10s、ABCoder 60s 外层计时器、host-setup.json write failure 处理、context7 补入 JSON schema、GitNexus reason codes 细化、Serena 路径验证、ABCoder repo identity 校验、Basic 模式行为定义、all-settled 并行语义明确、Java JDT 网络检查补充
 - v1.4.0 2026-04-02 11:00:00 kuang: 新增 spec-bootstrap MCP-first 改造需求文档和设计方案文档

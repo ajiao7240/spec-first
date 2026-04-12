@@ -58,7 +58,7 @@ Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。C
 | `input-convergence.js` | 候选文件收敛（git ls-files + 排除链 + Pod 适配）；步骤8 EXT_TO_LANG 语言过滤保证 finalInputs 为纯代码文件；isIos=true 时调用 computePodExcludePaths（Pods/** 兜底 + 本地 :path: Pod 白名单）；getTrackedFiles/getUntrackedFiles maxBuffer=256MB 防大仓库 ENOBUFS fallback |
 | `parser.js` | tree-sitter AST 解析 → symbol_key + raw_edges；CommonJS require() → imports_from 边；module 节点继承 isTestFile 标记；ObjC：.m/.mm → tree-sitter-objc，@interface/@implementation/@protocol 提取 class/interface + 方法选择器，.h ObjC 启发式路由，NS_ASSUME_NONNULL_BEGIN/END 预处理 |
 | `incremental.js` | SHA256 增量检测 + fingerprints 更新（detectChangedFiles 返回 changedShas 供复用） |
-| `graph.js` | upsertNodes/upsertEdges + resolveEdges 五阶段解析（直接 target_id → 精确 file_path → 相对路径解析（require('./x')＋扩展名探测）→ 全局符号 → 同文件消歧；缓存用 Object.create(null) 防原型污染） |
+| `graph.js` | upsertNodes/upsertEdges + resolveEdges 六阶段解析（直接 target_id → 精确 file_path → 相对路径解析（require('./x')＋扩展名探测）→ basename 模糊匹配（ObjC #import "file.h" 无路径，按 basename 查 module 节点，多候选取最近邻）→ 全局符号 → 同文件消歧；缓存用 Object.create(null) 防原型污染） |
 | `communities.js` | 3-Pass 社区检测（Pass1 CONTAINER_DIRS、Pass2 fragmented/scattered、Pass3 最小4节点） |
 | `flows.js` | PageRank + BFS 流程检测 |
 | `analyze.js` | surprising_connections（spec§14.6 4因子：confidence_weight/cross_language/cross_community/peripheral_to_hub）+ god_nodes 分析 |

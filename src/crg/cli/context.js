@@ -71,13 +71,16 @@ function run(argv) {
   try {
     db = initDatabase(dbPath);
 
-    // top_hubs：取 kind != 'module' 的前 5 个节点，映射为 FactItem
+    // top_hubs：按入度（incoming edges 数量）降序，取前 5 个非 module 节点
     const topHubs = db
       .prepare(
-        `SELECT id, name, file_path, kind, line_start, line_end, is_test
-         FROM nodes
-         WHERE kind != 'module'
-         ORDER BY rowid DESC
+        `SELECT n.id, n.name, n.file_path, n.kind, n.line_start, n.line_end, n.is_test,
+                COUNT(e.id) AS in_degree
+         FROM nodes n
+         LEFT JOIN edges e ON e.target_id = n.id
+         WHERE n.kind != 'module'
+         GROUP BY n.id
+         ORDER BY in_degree DESC
          LIMIT 5`
       )
       .all()
@@ -89,10 +92,10 @@ function run(argv) {
         line_start: row.line_start,
         line_end: row.line_end,
         is_test: row.is_test,
-        confidence: 'Observed',
+        confidence: 'Inferred',
         source_tier: 'crg_ast',
-        evidence: [`context top_hub from node ${row.id}`],
-        inference_reason: null,
+        evidence: [`context top_hub in_degree=${row.in_degree}`],
+        inference_reason: 'call_graph_traversal',
       }));
 
     // top_communities：按 file_count 降序，取前 3；alias id → community_id（schema 要求）
@@ -115,11 +118,21 @@ function run(argv) {
       )
       .all();
 
+    // summary：图规模摘要，供 AI 消费者快速建立仓库全局视角
+    const stats = db.prepare(
+      'SELECT (SELECT COUNT(*) FROM nodes) AS node_count,' +
+      '       (SELECT COUNT(*) FROM edges) AS edge_count,' +
+      '       (SELECT COUNT(*) FROM communities) AS community_count,' +
+      '       (SELECT COUNT(*) FROM flows) AS flow_count'
+    ).get();
+    const summary = `${stats.node_count} nodes, ${stats.edge_count} edges, ` +
+      `${stats.community_count} communities, ${stats.flow_count} flows`;
+
     const envelope = makeEnvelope(repoRoot, {
       top_hubs: topHubs,
       top_communities: topCommunities,
       top_flows: topFlows,
-      summary: '',
+      summary,
     });
 
     process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');

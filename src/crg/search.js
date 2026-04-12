@@ -21,7 +21,7 @@ const path = require('path');
  * @param {object} [options]
  * @param {string} [options.kind] - 过滤 kind（如 'function', 'class'）
  * @param {number} [options.limit=20] - 最大返回数
- * @returns {Array<{ id: string, name: string, file_path: string, kind: string }>}
+ * @returns {Array<{ node_id: string, name: string, file_path: string, kind: string, score: number, snippet: string }>}
  */
 function searchNodes(db, keyword, { kind, limit = 20 } = {}) {
   if (!keyword || !keyword.trim()) return [];
@@ -30,26 +30,36 @@ function searchNodes(db, keyword, { kind, limit = 20 } = {}) {
   // 将关键词包裹为 FTS5 短语查询（去除双引号），防止 NOT/NEAR/column-filter 操作符注入
   const safeKeyword = '"' + keyword.replace(/"/g, '') + '"';
 
-  let sql = `
-    SELECT n.id, n.name, n.file_path, n.kind
-    FROM fts_nodes f
-    JOIN nodes n ON f.node_id = n.id
-    WHERE fts_nodes MATCH ?
-  `;
+  // bm25(fts_nodes) 返回负值（越负越相关），取负后转为正分便于消费者排序
+  let whereClause = 'WHERE fts_nodes MATCH ?';
   const params = [safeKeyword];
 
   if (kind) {
-    sql += ' AND n.kind = ?';
+    whereClause += ' AND n.kind = ?';
     params.push(kind);
   }
 
-  sql += ' LIMIT ?';
+  const sql = `
+    SELECT n.id AS node_id, n.name, n.file_path, n.kind,
+           -bm25(fts_nodes) AS score
+    FROM fts_nodes f
+    JOIN nodes n ON f.node_id = n.id
+    ${whereClause}
+    ORDER BY score DESC
+    LIMIT ?
+  `;
   params.push(limit);
 
   try {
-    return db.prepare(sql).all(...params);
+    const rows = db.prepare(sql).all(...params);
+    // snippet：搜索结果无存储代码文本，以 "kind: name" 作为上下文摘要
+    return rows.map(row => ({
+      ...row,
+      score: Math.round(row.score * 1000) / 1000,
+      snippet: `${row.kind}: ${row.name}`,
+    }));
   } catch (err) {
-    // FTS5 查询语法错误时，返回空结果而非崩溃
+    // FTS5 查询语法错误時，返回空结果而非崩溃
     if (err.message && err.message.includes('fts5')) {
       return [];
     }

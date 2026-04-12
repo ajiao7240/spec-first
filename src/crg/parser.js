@@ -6,7 +6,7 @@
  * 功能：
  *   - 解析单个文件，提取 AST 节点（nodes）和原始边（rawEdges）
  *   - SENSITIVE_PATTERNS 前置过滤（调用 input-convergence.js）
- *   - 支持 8 种 v1 语言：javascript、typescript、tsx、python、go、java、rust、c/cpp
+ *   - 支持 14 种语言：javascript、typescript、tsx、python、go、java、rust、c/cpp、objc、swift、kotlin、ruby、php、c-sharp、scala
  *   - tree-sitter 未安装时 graceful degradation：返回 module 节点 + 空边
  *   - symbol_key 格式：<file_path>#<kind>#<name>#L<line_start>
  *   - TOCTOU-safe：单次 readFileSync 同时用于 SHA256 和内容解析
@@ -16,6 +16,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { isSensitiveFile } = require('./input-convergence');
+const { LANG_CONFIG, buildExtToLang } = require('./lang-config');
 
 // ---------------------------------------------------------------------------
 // 测试文件识别正则
@@ -31,8 +32,8 @@ const TEST_NAME_RE = /^(it|test|describe|beforeEach|afterEach|beforeAll|afterAll
 // tree-sitter 解析器懒加载缓存
 // ---------------------------------------------------------------------------
 
-/** 解析器实例缓存，key 为语言名 */
-const PARSER_CACHE = {};
+/** 解析器实例缓存，key 为语言名（Object.create(null) 防原型污染，与项目缓存惯例一致） */
+const PARSER_CACHE = Object.create(null);
 
 /**
  * 获取指定语言的 tree-sitter 解析器，按需加载并缓存。
@@ -42,31 +43,28 @@ const PARSER_CACHE = {};
  * @returns {object|null} tree-sitter Parser 实例或 null
  */
 function getParser(lang) {
-  if (PARSER_CACHE[lang]) return PARSER_CACHE[lang];
+  // 用 !== undefined 而非真值检查：失败时会缓存 null，需区分"未查询过"和"已知失败"
+  if (PARSER_CACHE[lang] !== undefined) return PARSER_CACHE[lang];
+
+  const cfg = LANG_CONFIG[lang];
+  if (!cfg) {
+    PARSER_CACHE[lang] = null; // 缓存"无配置"，避免重复查找
+    return null;
+  }
 
   try {
     // eslint-disable-next-line import/no-extraneous-dependencies
     const Parser = require('tree-sitter');
-
-    let LangModule;
-    if (lang === 'typescript') {
-      // tree-sitter-typescript 导出 { typescript, tsx } 两个语言对象
-      const tsLangs = require('tree-sitter-typescript');
-      LangModule = tsLangs.typescript;
-    } else if (lang === 'tsx') {
-      const tsLangs = require('tree-sitter-typescript');
-      LangModule = tsLangs.tsx;
-    } else {
-      // 其他语言直接 require('tree-sitter-<lang>')
-      LangModule = require(`tree-sitter-${lang}`);
-    }
-
+    // cfg.load 函数从 require(pkg) 结果中提取正确的语言对象
+    // （PHP 需 .php、C# 需整模块、TypeScript/TSX 需 .typescript/.tsx）
+    const LangModule = cfg.load(require(cfg.pkg));
     const parser = new Parser();
     parser.setLanguage(LangModule);
     PARSER_CACHE[lang] = parser;
     return parser;
   } catch {
-    // 语言包或 tree-sitter 未安装，返回 null
+    // 语言包或 tree-sitter 未安装，缓存 null 避免重复 require 失败
+    PARSER_CACHE[lang] = null;
     return null;
   }
 }
@@ -77,53 +75,20 @@ function getParser(lang) {
 
 /**
  * 根据文件扩展名推导语言。
- * 支持：javascript / typescript / tsx / python / go / java / rust / c / cpp / objc
+ * 映射由 LANG_CONFIG（lang-config.js）自动派生，无需手动维护。
+ * 覆盖：javascript / typescript / tsx / python / go / java / rust / c / cpp / objc / swift / kotlin / ruby / php / csharp / scala
  *
  * @param {string} filePath - 文件路径（相对或绝对均可，取扩展名）
  * @returns {string|null} 语言名或 null
  */
-function inferLanguage(filePath) {
-  const ext = path.extname(filePath).slice(1).toLowerCase();
-  const extMap = {
-    // JavaScript 系
-    'js': 'javascript',
-    'jsx': 'javascript',
-    'mjs': 'javascript',
-    'cjs': 'javascript',
-    // TypeScript 系
-    'ts': 'typescript',
-    'tsx': 'tsx',
-    // Python
-    'py': 'python',
-    'pyw': 'python',
-    // Go
-    'go': 'go',
-    // Java
-    'java': 'java',
-    // Rust
-    'rs': 'rust',
-    // C / C++
-    'c': 'c',
-    'h': 'c',    // .h 默认 c；parseFile 步骤 4 会做 ObjC 启发式路由
-    'cc': 'cpp',
-    'cpp': 'cpp',
-    'cxx': 'cpp',
-    'hpp': 'cpp',
-    // ObjC
-    'mm': 'objc', // ObjC++（tree-sitter-objc 可解析）
-    'm': 'objc',  // ObjC
-    // 尚不支持，显式返回 null
-    'swift': null,
-    'kt': null,
-    'kts': null,
-  };
 
-  // 有明确映射（包括 null）则返回映射值
-  if (Object.prototype.hasOwnProperty.call(extMap, ext)) {
-    return extMap[ext];
-  }
-  // 未知扩展名
-  return null;
+/** 懒加载 ext→lang map（首次调用时由 LANG_CONFIG 构建） */
+let _extToLang = null;
+
+function inferLanguage(filePath) {
+  if (!_extToLang) _extToLang = buildExtToLang();
+  const ext = path.extname(filePath).slice(1).toLowerCase();
+  return _extToLang[ext] || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1016,6 +981,680 @@ function extractObjCNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentI
 }
 
 // ---------------------------------------------------------------------------
+// Swift AST 提取
+// ---------------------------------------------------------------------------
+
+/**
+ * 递归提取 Swift AST 节点
+ */
+function extractSwiftNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+  if (!tsNode) return;
+  const type = tsNode.type;
+
+  // import 声明：import Foundation
+  if (type === 'import_declaration') {
+    // 第一个具名子节点是 identifier，其 text 为模块名
+    for (let i = 0; i < tsNode.childCount; i++) {
+      const c = tsNode.child(i);
+      if (c.isNamed && c.type === 'identifier') {
+        rawEdges.push({
+          source_id: parentId,
+          target_name: c.text,
+          target_path_raw: c.text,
+          kind: 'imports_from',
+        });
+        break;
+      }
+    }
+    return;
+  }
+
+  // class / struct → class 节点
+  if (type === 'class_declaration' || type === 'struct_declaration') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const kind = type === 'struct_declaration' ? 'struct' : 'class';
+    const node = buildNode(filePath, kind, name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    for (let i = 0; i < tsNode.childCount; i++) {
+      extractSwiftNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+    }
+    return;
+  }
+
+  // protocol → interface 节点
+  if (type === 'protocol_declaration') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'interface', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  // func → function 节点
+  if (type === 'function_declaration') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'function', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  for (let i = 0; i < tsNode.childCount; i++) {
+    extractSwiftNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, parentId);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Kotlin AST 提取
+// ---------------------------------------------------------------------------
+
+/**
+ * 递归提取 Kotlin AST 节点
+ */
+function extractKotlinNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+  if (!tsNode) return;
+  const type = tsNode.type;
+
+  // import：import_header，第一个具名 identifier 子节点为全限定名
+  if (type === 'import_header') {
+    for (let i = 0; i < tsNode.childCount; i++) {
+      const c = tsNode.child(i);
+      if (c.isNamed && c.type === 'identifier') {
+        rawEdges.push({
+          source_id: parentId,
+          target_name: c.text,
+          target_path_raw: c.text,
+          kind: 'imports_from',
+        });
+        break;
+      }
+    }
+    return;
+  }
+
+  // class / object → class 节点；interface → interface 节点
+  if (type === 'class_declaration' || type === 'object_declaration' || type === 'interface_declaration') {
+    // 第一个 type_identifier 子节点为类名
+    let name = '<anonymous>';
+    for (let i = 0; i < tsNode.childCount; i++) {
+      const c = tsNode.child(i);
+      if (c.isNamed && c.type === 'type_identifier') { name = c.text; break; }
+    }
+    const kind = type === 'interface_declaration' ? 'interface' : 'class';
+    const node = buildNode(filePath, kind, name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    for (let i = 0; i < tsNode.childCount; i++) {
+      extractKotlinNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+    }
+    return;
+  }
+
+  // fun → function 节点；第一个 simple_identifier 子节点为函数名
+  if (type === 'function_declaration') {
+    let name = '<anonymous>';
+    for (let i = 0; i < tsNode.childCount; i++) {
+      const c = tsNode.child(i);
+      if (c.isNamed && c.type === 'simple_identifier') { name = c.text; break; }
+    }
+    const node = buildNode(filePath, 'function', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  for (let i = 0; i < tsNode.childCount; i++) {
+    extractKotlinNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, parentId);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ruby AST 提取
+// ---------------------------------------------------------------------------
+
+/**
+ * 递归提取 Ruby AST 节点
+ */
+function extractRubyNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+  if (!tsNode || !tsNode.isNamed) return;
+  const type = tsNode.type;
+
+  // require / require_relative → imports_from
+  if (type === 'call') {
+    const methodNode = tsNode.childForFieldName('method');
+    if (methodNode && (methodNode.text === 'require' || methodNode.text === 'require_relative')) {
+      const argsNode = tsNode.childForFieldName('arguments');
+      if (argsNode) {
+        // argument_list → string → string_content
+        for (let i = 0; i < argsNode.childCount; i++) {
+          const arg = argsNode.child(i);
+          if (arg.type === 'string') {
+            const contentNode = arg.namedChild(0); // string_content
+            const rawPath = contentNode ? contentNode.text : arg.text.replace(/^['"]|['"]$/g, '');
+            rawEdges.push({
+              source_id: parentId,
+              target_name: rawPath,
+              target_path_raw: rawPath,
+              kind: 'imports_from',
+            });
+            break;
+          }
+        }
+      }
+      return;
+    }
+  }
+
+  // class → class 节点
+  if (type === 'class') {
+    const nameNode = tsNode.childForFieldName('name');
+    const name = nameNode ? nameNode.text : '<anonymous>';
+    const node = buildNode(filePath, 'class', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    for (let i = 0; i < tsNode.childCount; i++) {
+      extractRubyNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+    }
+    return;
+  }
+
+  // module → class 节点（Ruby module 类似命名空间）
+  if (type === 'module') {
+    const nameNode = tsNode.childForFieldName('name');
+    const name = nameNode ? nameNode.text : '<anonymous>';
+    const node = buildNode(filePath, 'class', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    for (let i = 0; i < tsNode.childCount; i++) {
+      extractRubyNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+    }
+    return;
+  }
+
+  // def / singleton_method → function 节点
+  if (type === 'method' || type === 'singleton_method') {
+    const nameNode = tsNode.childForFieldName('name');
+    const name = nameNode ? nameNode.text : '<anonymous>';
+    const node = buildNode(filePath, 'function', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  for (let i = 0; i < tsNode.childCount; i++) {
+    extractRubyNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, parentId);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PHP AST 提取
+// ---------------------------------------------------------------------------
+
+/**
+ * 递归提取 PHP AST 节点
+ */
+function extractPhpNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+  if (!tsNode) return;
+  const type = tsNode.type;
+
+  // use 声明 → imports_from（取第一个 namespace_use_clause 的文本）
+  if (type === 'namespace_use_declaration') {
+    for (let i = 0; i < tsNode.childCount; i++) {
+      const c = tsNode.child(i);
+      if (c.isNamed && c.type === 'namespace_use_clause') {
+        rawEdges.push({
+          source_id: parentId,
+          target_name: c.text,
+          target_path_raw: c.text,
+          kind: 'imports_from',
+        });
+        break;
+      }
+    }
+    return;
+  }
+
+  // class → class 节点
+  if (type === 'class_declaration') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'class', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    for (let i = 0; i < tsNode.childCount; i++) {
+      extractPhpNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+    }
+    return;
+  }
+
+  // interface → interface 节点
+  if (type === 'interface_declaration') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'interface', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  // function → function 节点（顶层）
+  if (type === 'function_definition') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'function', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  // method → method 节点（class 内）
+  if (type === 'method_declaration') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'method', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  for (let i = 0; i < tsNode.childCount; i++) {
+    extractPhpNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, parentId);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// C# AST 提取
+// ---------------------------------------------------------------------------
+
+/**
+ * 递归提取 C# AST 节点
+ */
+function extractCSharpNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+  if (!tsNode) return;
+  const type = tsNode.type;
+
+  // using 声明 → imports_from
+  if (type === 'using_directive') {
+    // 第一个具名子节点为 identifier 或 qualified_name
+    for (let i = 0; i < tsNode.childCount; i++) {
+      const c = tsNode.child(i);
+      if (c.isNamed && (c.type === 'identifier' || c.type === 'qualified_name')) {
+        rawEdges.push({
+          source_id: parentId,
+          target_name: c.text,
+          target_path_raw: c.text,
+          kind: 'imports_from',
+        });
+        break;
+      }
+    }
+    return;
+  }
+
+  // namespace → 透传递归（不生成节点，展开内部）
+  if (type === 'namespace_declaration') {
+    for (let i = 0; i < tsNode.childCount; i++) {
+      extractCSharpNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, parentId);
+    }
+    return;
+  }
+
+  // class → class 节点
+  if (type === 'class_declaration') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'class', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    for (let i = 0; i < tsNode.childCount; i++) {
+      extractCSharpNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+    }
+    return;
+  }
+
+  // interface → interface 节点
+  if (type === 'interface_declaration') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'interface', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  // struct → struct 节点
+  if (type === 'struct_declaration') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'struct', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  // method → method 节点
+  if (type === 'method_declaration') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'method', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  for (let i = 0; i < tsNode.childCount; i++) {
+    extractCSharpNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, parentId);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Scala AST 提取
+// ---------------------------------------------------------------------------
+
+/**
+ * 递归提取 Scala AST 节点
+ */
+function extractScalaNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+  if (!tsNode) return;
+  const type = tsNode.type;
+
+  // import → imports_from（取整个 import 行去掉 "import " 前缀）
+  if (type === 'import_declaration') {
+    // 取 text 去掉关键字 "import "
+    const rawPath = tsNode.text.replace(/^import\s+/, '').trim();
+    rawEdges.push({
+      source_id: parentId,
+      target_name: rawPath,
+      target_path_raw: rawPath,
+      kind: 'imports_from',
+    });
+    return;
+  }
+
+  // class / case class → class 节点
+  if (type === 'class_definition') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'class', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    for (let i = 0; i < tsNode.childCount; i++) {
+      extractScalaNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+    }
+    return;
+  }
+
+  // trait → interface 节点
+  if (type === 'trait_definition') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'interface', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  // object → class 节点（Scala object 是单例）
+  if (type === 'object_definition') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'class', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    for (let i = 0; i < tsNode.childCount; i++) {
+      extractScalaNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+    }
+    return;
+  }
+
+  // def → function 节点
+  if (type === 'function_definition' || type === 'function_declaration') {
+    const name = getFieldText(tsNode, 'name') || '<anonymous>';
+    const node = buildNode(filePath, 'function', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  // package_clause / template_body → 透传
+  for (let i = 0; i < tsNode.childCount; i++) {
+    extractScalaNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, parentId);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 通用 AST 提取（新增语言的后备提取器）
+// ---------------------------------------------------------------------------
+
+/**
+ * 常见 import 语句节点类型集合（跨语言通用）
+ * 匹配到时尝试用 findImportPath() 提取目标路径，生成 imports_from 边。
+ */
+const GENERIC_IMPORT_TYPES = new Set([
+  'import_declaration',   // Go / Java / Kotlin / Scala / Swift
+  'import_statement',     // JS / Python
+  'import_from_statement',// Python: from x import y
+  'use_declaration',      // Rust
+  'namespace_use_declaration', // PHP
+  'using_directive',      // C#
+  'import_header',        // Kotlin（别名）
+  'preproc_include',      // C / C++ / ObjC
+]);
+
+/** 函数 / 方法节点类型集合 */
+const GENERIC_FUNCTION_TYPES = new Set([
+  'function_declaration', // JS / Swift / PHP / Go
+  'function_definition',  // Python / C / PHP / Rust
+  'function_item',        // Rust
+  'method_declaration',   // Java / PHP / C# / Go
+  'method_definition',    // JS
+]);
+
+/** 类节点类型集合 */
+const GENERIC_CLASS_TYPES = new Set([
+  'class_declaration',    // JS / Java / PHP / Kotlin / C#
+  'class_definition',     // Python / Scala
+  'class_specifier',      // C++
+  'class_implementation', // ObjC
+  'class_interface',      // ObjC
+  'object_definition',    // Scala（单例对象）
+  'object_declaration',   // Kotlin（companion object）
+]);
+
+/** struct 节点类型集合 */
+const GENERIC_STRUCT_TYPES = new Set([
+  'struct_specifier',     // C / C++
+  'struct_item',          // Rust
+  'struct_declaration',   // C#
+  'struct_definition',    // Scala（如有）
+]);
+
+/** interface / protocol / trait 节点类型集合 */
+const GENERIC_INTERFACE_TYPES = new Set([
+  'interface_declaration',// Java / PHP / Kotlin / C# / TS
+  'protocol_declaration', // Swift / ObjC
+  'trait_item',           // Rust
+  'trait_definition',     // Scala
+]);
+
+/**
+ * 通用名称提取：尝试多种命名惯例
+ *
+ * @param {object} tsNode
+ * @returns {string}
+ */
+function findName(tsNode) {
+  // 优先: 'name' 字段（Java / Go / Rust / Swift / PHP / C# / Scala / Python 等）
+  const nameField = tsNode.childForFieldName('name');
+  if (nameField) return nameField.text;
+  // Kotlin class: 第一个 type_identifier
+  // Kotlin function: 第一个 simple_identifier
+  for (let i = 0; i < tsNode.childCount; i++) {
+    const c = tsNode.child(i);
+    if (c.isNamed && (c.type === 'type_identifier' || c.type === 'simple_identifier')) {
+      return c.text;
+    }
+  }
+  // 兜底: 第一个具名 identifier
+  for (let i = 0; i < tsNode.childCount; i++) {
+    const c = tsNode.child(i);
+    if (c.isNamed && c.type === 'identifier') return c.text;
+  }
+  return '<anonymous>';
+}
+
+/**
+ * 通用 import 路径提取
+ *
+ * @param {object} tsNode
+ * @returns {string|null}
+ */
+function findImportPath(tsNode) {
+  // 常见字段名: source / module_name / path / argument
+  for (const field of ['source', 'module_name', 'path', 'argument']) {
+    const child = tsNode.childForFieldName(field);
+    if (child) return child.text.replace(/^['"`]|['"`]$/g, '');
+  }
+  // 取第一个 string_literal / string / path_literal
+  for (let i = 0; i < tsNode.childCount; i++) {
+    const c = tsNode.child(i);
+    if (
+      c.type === 'string_literal' ||
+      c.type === 'string' ||
+      c.type === 'path_literal' ||
+      c.type === 'interpreted_string_literal'
+    ) {
+      return c.text.replace(/^['"`]|['"`]$/g, '');
+    }
+  }
+  // 取第一个具名 identifier / dotted_name / scoped_identifier
+  for (let i = 0; i < tsNode.childCount; i++) {
+    const c = tsNode.child(i);
+    if (
+      c.isNamed &&
+      (c.type === 'identifier' ||
+        c.type === 'dotted_name' ||
+        c.type === 'scoped_identifier' ||
+        c.type === 'qualified_name')
+    ) {
+      return c.text;
+    }
+  }
+  return null;
+}
+
+/**
+ * 通用 AST 提取器（新语言接入时的后备实现）。
+ * 使用上方 5 个类型集合 + findName/findImportPath 推断节点语义。
+ * 精度低于特化提取器，但覆盖大多数主流语言的常见结构。
+ *
+ * 已知语义降级（相对于特化提取器）：
+ *   - method_declaration / method_definition → kind='function'（而非 'method'）
+ *     原因：通用提取器无法感知当前节点是否处于 class body 内，统一归为 function 是保守正确的选择。
+ *     特化提取器可利用递归上下文精确区分 class method vs top-level function。
+ *
+ * @param {object} tsNode
+ * @param {string} filePath
+ * @param {boolean} isTestFile
+ * @param {object[]} nodes
+ * @param {object[]} rawEdges
+ * @param {string} parentId
+ */
+function extractGenericNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+  if (!tsNode || !tsNode.isNamed) return;
+  const type = tsNode.type;
+
+  if (GENERIC_IMPORT_TYPES.has(type)) {
+    const rawPath = findImportPath(tsNode);
+    rawEdges.push({
+      source_id: parentId,
+      target_name: rawPath || '',
+      target_path_raw: rawPath,
+      kind: 'imports_from',
+    });
+    return; // import 节点不递归内部
+  }
+
+  if (GENERIC_CLASS_TYPES.has(type)) {
+    const name = findName(tsNode);
+    const node = buildNode(filePath, 'class', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    for (let i = 0; i < tsNode.childCount; i++) {
+      extractGenericNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+    }
+    return;
+  }
+
+  if (GENERIC_STRUCT_TYPES.has(type)) {
+    const name = findName(tsNode);
+    const node = buildNode(filePath, 'struct', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  if (GENERIC_INTERFACE_TYPES.has(type)) {
+    const name = findName(tsNode);
+    const node = buildNode(filePath, 'interface', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  if (GENERIC_FUNCTION_TYPES.has(type)) {
+    const name = findName(tsNode);
+    const node = buildNode(filePath, 'function', name, getLineStart(tsNode), getLineEnd(tsNode), isTestFile);
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: name, target_path_raw: null, kind: 'contains' });
+    }
+    return;
+  }
+
+  // 其他节点递归子节点
+  for (let i = 0; i < tsNode.childCount; i++) {
+    extractGenericNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, parentId);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 按语言分发 AST 提取
 // ---------------------------------------------------------------------------
 
@@ -1044,8 +1683,26 @@ function getExtractFn(lang) {
       return extractCNodes;
     case 'objc':
       return extractObjCNodes;
+    case 'swift':
+      return extractSwiftNodes;
+    case 'kotlin':
+      return extractKotlinNodes;
+    case 'ruby':
+      return extractRubyNodes;
+    case 'php':
+      return extractPhpNodes;
+    case 'csharp':
+      return extractCSharpNodes;
+    case 'scala':
+      return extractScalaNodes;
     default:
-      return null;
+      // Route A 扩展钩子：
+      //   新语言只需在 lang-config.js 的 LANG_CONFIG 中添加一条记录（exts/pkg/load），
+      //   getParser() 和 inferLanguage() 即自动工作。
+      //   若不在此 switch 中添加特化提取器，此处自动 fallback 到通用提取器，
+      //   提供 class / function / import 三类基础节点（精度低于特化实现）。
+      //   当前 16 种 LANG_CONFIG 语言均已有特化提取器，此分支仅供未来新增语言使用。
+      return extractGenericNodes;
   }
 }
 
@@ -1074,7 +1731,7 @@ function parseFile(filePath, repoRoot, options = {}) {
   // ----- 步骤 2：推导语言 -----
   const lang = forceLang !== null ? forceLang : inferLanguage(filePath);
 
-  // v1 显式不支持的语言（mm/m/swift/kt/kts 等，inferLanguage 返回 null）
+  // inferLanguage 返回 null 表示未知扩展名
   if (lang === null) {
     return { nodes: [], rawEdges: [], skipped: true, reason: 'unsupported_lang' };
   }
@@ -1167,4 +1824,11 @@ module.exports = {
   TEST_FILE_RE,
   TEST_NAME_RE,
   getParser,
+  // 通用提取器（供测试和未来扩展使用）
+  extractGenericNodes,
+  GENERIC_CLASS_TYPES,
+  GENERIC_FUNCTION_TYPES,
+  GENERIC_IMPORT_TYPES,
+  GENERIC_STRUCT_TYPES,
+  GENERIC_INTERFACE_TYPES,
 };

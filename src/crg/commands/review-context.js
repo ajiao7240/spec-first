@@ -19,7 +19,7 @@ const path = require('path');
 const fs = require('fs');
 const { openDb } = require('../cli/open-db');
 const { makeEnvelope } = require('../cli/envelope');
-const { detectChanges } = require('../changes');
+const { detectChanges, assessNodeRiskBatch } = require('../changes');
 const { isSensitiveFile } = require('../input-convergence');
 
 /**
@@ -146,10 +146,111 @@ function run(argv) {
     }
   }
 
+  // === 图扩展：2层反向 BFS，找出受变更影响的调用方 ===
+  // 加载 calls 边的反向邻接表（target → callers）
+  const edgeRows = db.prepare(
+    "SELECT source_id, target_id FROM edges WHERE kind = 'calls'"
+  ).all();
+  const reverseAdj = new Map();
+  for (const row of edgeRows) {
+    if (!reverseAdj.has(row.target_id)) reverseAdj.set(row.target_id, []);
+    reverseAdj.get(row.target_id).push(row.source_id);
+  }
+
+  // 反向 BFS（深度上限 2，防止爆炸）
+  function reverseBfs(startId, maxDepth) {
+    const visited = new Map(); // nodeId → depth
+    const queue = [[startId, 0]];
+    visited.set(startId, 0);
+    while (queue.length > 0) {
+      const [cur, depth] = queue.shift();
+      if (depth >= maxDepth) continue;
+      for (const caller of (reverseAdj.get(cur) || [])) {
+        if (!visited.has(caller)) {
+          visited.set(caller, depth + 1);
+          queue.push([caller, depth + 1]);
+        }
+      }
+    }
+    return visited;
+  }
+
+  const affectedNodeIds = new Set(affectedNodes.map(n => n.id));
+  const expansionDepthMap = new Map(); // nodeId → 最小发现深度
+  for (const nodeId of affectedNodeIds) {
+    const visited = reverseBfs(nodeId, 2);
+    for (const [id, depth] of visited) {
+      if (id !== nodeId && !affectedNodeIds.has(id)) {
+        if (!expansionDepthMap.has(id) || expansionDepthMap.get(id) > depth) {
+          expansionDepthMap.set(id, depth);
+        }
+      }
+    }
+  }
+
+  // 批量查询扩展节点（避免超出 SQLITE_MAX_VARIABLE_NUMBER）
+  const CHUNK_SIZE = 900;
+  const expansionNodeIds = Array.from(expansionDepthMap.keys());
+
+  // 预批量计算所有扩展节点的风险评分（一次性 ~6 个批量查询，替代 N+1）
+  const expansionRiskScores = assessNodeRiskBatch(expansionNodeIds, db);
+
+  const graphExpansion = [];
+  for (let i = 0; i < expansionNodeIds.length; i += CHUNK_SIZE) {
+    const chunk = expansionNodeIds.slice(i, i + CHUNK_SIZE);
+    const ph = chunk.map(() => '?').join(',');
+    const rows = db.prepare(
+      `SELECT id, name, file_path, kind, line_start, line_end, is_test FROM nodes WHERE id IN (${ph})`
+    ).all(...chunk);
+    for (const row of rows) {
+      graphExpansion.push({
+        id: row.id,
+        name: row.name,
+        file_path: row.file_path,
+        kind: row.kind,
+        line_start: row.line_start,
+        line_end: row.line_end,
+        is_test: row.is_test,
+        confidence: 'Inferred',
+        source_tier: 'crg_ast',
+        evidence: [`2-hop caller of changed code`],
+        inference_reason: 'call_graph_traversal',
+        depth: expansionDepthMap.get(row.id),
+        risk_score: expansionRiskScores.get(row.id) || 0,
+      });
+    }
+  }
+  // 按 risk_score 降序排列
+  graphExpansion.sort((a, b) => b.risk_score - a.risk_score);
+
+  // === review_guidance 生成（聚合 changeSummary 的 review_priorities/test_gaps）===
+  const allReviewPriorities = changeSummary.flatMap(c => c.review_priorities || []);
+  const allTestGaps = changeSummary.flatMap(c => c.test_gaps || []);
+
+  const review_guidance = [];
+  const highRiskNodes = allReviewPriorities.filter(n => n.score >= 0.5);
+  if (highRiskNodes.length > 0) {
+    for (const n of highRiskNodes.slice(0, 5)) {
+      review_guidance.push(`HIGH_RISK: ${n.name} — score ${n.score.toFixed(2)}`);
+    }
+  } else if (allReviewPriorities.length > 0) {
+    const sorted = allReviewPriorities.slice().sort((a, b) => b.score - a.score);
+    review_guidance.push(`TOP_PRIORITY: ${sorted[0].name} — score ${sorted[0].score.toFixed(2)}`);
+  }
+  if (allTestGaps.length > 0) {
+    const names = allTestGaps.slice(0, 3).map(n => n.name).join(', ');
+    review_guidance.push(
+      `TEST_GAP: ${allTestGaps.length} node(s) lack test coverage — ${names}${allTestGaps.length > 3 ? ' ...' : ''}`
+    );
+  }
+  review_guidance.push(`BLAST_RADIUS: ${graphExpansion.length} caller(s) within 2 hops of changed code`);
+
   const data = {
     diff_summary: `${changeSummary.length} file(s) changed since ${since}`,
     affected_nodes: affectedNodes,
     candidate_tests: candidateTests,
+    graph_expansion: graphExpansion,
+    review_guidance,
   };
 
   process.stdout.write(JSON.stringify(makeEnvelope(repoRoot, data)) + '\n');

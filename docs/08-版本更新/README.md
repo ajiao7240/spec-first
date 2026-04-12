@@ -6,6 +6,7 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-12 | feat | `spec-graph-bootstrap` | `graph-bootstrap` 的 manifest、安装提示、README、用户手册与 smoke 断言统一升级为 graph-informed Phase 0-4 / 阶段2最小闭环语义，对外描述与 `SKILL.md`、阶段2文档收敛一致 |
 | 2026-04-09 | feat | `spec-graph-bootstrap` | 新增阶段 1 安装集成入口，`bootstrap` 保持稳定默认入口，`graph-bootstrap` 以并行验证入口接入 Claude / Codex runtime、smoke 与文档链路 |
 | 2026-04-08 | fix | `mcp-setup` | 收紧双宿主健壮性，Serena MCP 配置按宿主上下文校验，宿主歧义时不再默认 Claude |
 | 2026-04-08 | docs | `mcp-setup` | 将技能命名统一为 `spec-mcp-setup`，Codex 直接调用格式改为 `$spec-mcp-setup`，与其他 spec-* 技能保持一致 |
@@ -20,6 +21,25 @@
 | 2026-04-01 | feat | `mcp-setup` | 把 MCP 工具安装、检测、配置合并为一条一键化路径，降低 Full mode 落地门槛 |
 | 2026-03-31 | fix | `spec-bootstrap` | 基于 review 结论补强原子备份、失败恢复、MCP 连接校验等关键可靠性能力 |
 | 2026-03-31 | feat | `spec-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
+
+---
+
+## 2026-04-12 `feat(spec-graph-bootstrap)`
+
+### 更新内容
+
+`spec-graph-bootstrap` 的对外契约已经从“阶段 1 并行验证入口”收敛到“graph-informed Phase 0-4 入口”。这次更新不改变 `bootstrap` 仍是默认稳定入口，但明确 `graph-bootstrap` 已承担阶段2最小闭环职责：事实抽取、控制面产物生成、文档生成和路由生成。
+
+### 主要变化
+
+- `.claude-plugin/plugin.json` 中 `graph-bootstrap` 的描述更新为 Phase 0-4 fact extraction
+- `install-local.sh` 与对应 smoke 断言改为输出阶段2最小闭环语义
+- README 与用户手册不再把 `graph-bootstrap` 描述为“仅用于安装集成验证”
+- 双入口并行期的对外说明统一为：`bootstrap` 默认稳定，`graph-bootstrap` 负责 graph-informed 阶段2闭环
+
+### 版本意义
+
+这次改动解决的是“实现已到阶段2，但包装层和说明层仍停留在阶段1”的认知错位问题。用户现在看到的命令描述、安装提示和文档说明，终于与 `skills/spec-graph-bootstrap/SKILL.md` 的真实执行合同一致。
 
 ---
 

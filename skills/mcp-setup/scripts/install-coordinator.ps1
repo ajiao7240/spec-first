@@ -60,23 +60,34 @@ function Backup-Config {
 }
 
 function Acquire-Lock {
-  try {
-    $script:LockHandle = $null
-    $script:LockHandle = [System.IO.File]::Open($LockFile, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
-    return $true
-  } catch {
-    Write-Host "⚠️  无法创建锁文件" -ForegroundColor Yellow
-    return $false
+  $LockDir = "${LockFile}.d"
+  $PidFile = Join-Path $LockDir 'pid'
+  $Attempts = 100
+
+  for ($i = 0; $i -lt $Attempts; $i++) {
+    try {
+      New-Item -ItemType Directory -Path $LockDir -Force -ErrorAction Stop | Out-Null
+      Set-Content -Path $PidFile -Value $PID -NoNewline
+      return $true
+    } catch {
+      # Stale lock check: 检查持有锁的进程是否已死亡
+      if (Test-Path $PidFile) {
+        $lockPid = Get-Content $PidFile -ErrorAction SilentlyContinue
+        if ($lockPid -and -not (Get-Process -Id $lockPid -ErrorAction SilentlyContinue)) {
+          Remove-Item $LockDir -Recurse -Force -ErrorAction SilentlyContinue
+          continue
+        }
+      }
+      Start-Sleep -Milliseconds 100
+    }
   }
+  Write-Host "⚠️  锁超时 (10s)" -ForegroundColor Yellow
+  return $false
 }
 
 function Release-Lock {
-  if ($script:LockHandle) {
-    $script:LockHandle.Close()
-    $script:LockHandle.Dispose()
-    $script:LockHandle = $null
-  }
-  Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
+  $LockDir = "${LockFile}.d"
+  Remove-Item $LockDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 function Tool-IsConfigured {
@@ -347,7 +358,7 @@ try {
     if (-not (Configure-Tool $tool.id)) {
       Restore-Config -BackupFile $backupFile -CreatedDuringRun $createdDuringRun
       $failed.Add($tool.id)
-      continue
+      break
     }
 
     $results.Add($tool.id)

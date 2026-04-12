@@ -80,9 +80,9 @@ function run(argv) {
     process.exit(1);
   }
 
-  // 加载反向邻接表（只加载 calls 类型的边，代表真实调用关系）
+  // 加载反向邻接表：calls（调用关系）+ imports_from（导入依赖），覆盖直接和间接影响路径
   const edgeRows = db.prepare(
-    "SELECT source_id, target_id FROM edges WHERE kind = 'calls'"
+    "SELECT source_id, target_id FROM edges WHERE kind IN ('calls', 'imports_from')"
   ).all();
 
   // reverseAdj: target → callers（谁调用了 target）

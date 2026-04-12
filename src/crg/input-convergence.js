@@ -20,6 +20,7 @@
 const path = require('path');
 const fs = require('fs');
 const { execSync } = require('child_process');
+const { buildIndexableExts } = require('./lang-config');
 
 // ---------------------------------------------------------------------------
 // 常量
@@ -82,7 +83,15 @@ const BINARY_EXTS = new Set([
 /** 豁免二进制排除的文件名（basename 精确匹配） */
 const BINARY_EXT_EXEMPTIONS = new Set(['package-lock.json', 'podfile.lock']);
 
-/** 扩展名 → 语言 映射 */
+/**
+ * 扩展名 → 语言映射（宽口径，用于 detectPresentLanguages 报告）
+ *
+ * 设计说明：
+ *   此表的"语言"是面向用户的语言族归属，与 lang-config.js 中 LANG_CONFIG 的 parser key 有意不同：
+ *   - tsx → 'typescript'：TSX 在用户报告中归属 TypeScript 语系
+ *   - LANG_CONFIG 中 tsx 是独立 key，因为 tree-sitter-typescript 导出 .typescript / .tsx 两个不同 grammar
+ *   lua / dart 仅在此表用于报告，无对应 tree-sitter 包，不在 LANG_CONFIG 中。
+ */
 const EXT_TO_LANG = {
   js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript',
   ts: 'typescript', tsx: 'typescript', mts: 'typescript', cts: 'typescript',
@@ -99,9 +108,18 @@ const EXT_TO_LANG = {
   php: 'php',
   cs: 'csharp',
   scala: 'scala',
-  lua: 'lua',
-  dart: 'dart',
+  lua: 'lua',   // 无 tree-sitter 包，仅用于 presentLanguages 报告
+  dart: 'dart', // 同上
 };
+
+/**
+ * 当前 parser 真正可索引的扩展名集合。
+ *
+ * 说明：
+ * - EXT_TO_LANG 表示”语言识别口径”，可用于 presentLanguages 等轻量检测（含 lua/dart 等无 tree-sitter 的语言）。
+ * - INDEXABLE_EXTS 表示”当前 parser 能实际入图的口径”，由 LANG_CONFIG 自动派生，与 parser.js 永远同步。
+ */
+const INDEXABLE_EXTS = buildIndexableExts();
 
 // ---------------------------------------------------------------------------
 // ignore 包懒加载（npm install 后可用）
@@ -291,11 +309,32 @@ function getUntrackedFiles(repoRoot) {
       stdio: ['pipe', 'pipe', 'pipe'],
       maxBuffer: 256 * 1024 * 1024,
     });
-    return output
+    const entries = output
       .split('\n')
       .filter((line) => line.startsWith('??'))
       .map((line) => line.slice(3).trim())
       .filter(Boolean);
+
+    const files = [];
+    for (const entry of entries) {
+      const normalized = entry.replace(/\\/g, '/').replace(/\/+$/, '');
+      const absPath = path.join(repoRoot, normalized);
+
+      let stat;
+      try {
+        stat = fs.statSync(absPath);
+      } catch {
+        continue;
+      }
+
+      if (stat.isDirectory()) {
+        walkDir(absPath, repoRoot, files);
+      } else {
+        files.push(normalized);
+      }
+    }
+
+    return files;
   } catch {
     return [];
   }
@@ -409,18 +448,8 @@ function computePodExcludePaths(repoRoot, podlockPath = 'Podfile.lock') {
  * @returns {boolean}
  */
 function hasLocalPods(repoRoot) {
-  const absPath = path.join(repoRoot, 'Podfile.lock');
-  if (!fs.existsSync(absPath)) return false;
-  try {
-    const content = fs.readFileSync(absPath, 'utf8');
-    const externalSourcesMatch = content.match(
-      /^EXTERNAL SOURCES:\n([\s\S]*?)(?=^\S|$)/m
-    );
-    if (!externalSourcesMatch) return false;
-    return /:path:/i.test(externalSourcesMatch[1]);
-  } catch {
-    return false;
-  }
+  const { includes } = computePodExcludePaths(repoRoot);
+  return includes.length > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -517,6 +546,28 @@ async function collectInputFiles(repoRoot, options = {}) {
   const defaultFilter = buildIgnoreFilter(DEFAULT_EXCLUDES);
 
   // -------------------------------------------------------------------------
+  // 步骤 3.5：.gitignore 过滤（仅 all-files 模式）
+  //
+  // tracked-only / tracked+untracked 模式下 git ls-files 天然跳过 gitignored 文件，
+  // 无需重复解析。all-files 模式（git 不可用时的 fallback）需手动读取 .gitignore 补偿。
+  //
+  // 仅读取仓库根目录的 .gitignore，嵌套子目录的 .gitignore 由 DEFAULT_EXCLUDES
+  // 与 graphignore 兜底（复杂的嵌套 .gitignore 语义依赖完整 git 实现，超出 fallback 范围）。
+  // -------------------------------------------------------------------------
+  let gitignoreFilter = null;
+  if (effectiveMode === 'all-files') {
+    const gitignorePath = path.join(repoRoot, '.gitignore');
+    if (fs.existsSync(gitignorePath)) {
+      try {
+        const raw = fs.readFileSync(gitignorePath, 'utf8');
+        gitignoreFilter = buildIgnoreFilter(raw.split('\n'));
+      } catch {
+        // 读取失败，跳过，不影响其余过滤链
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // 步骤 4：解析 .spec-first-graphignore
   // -------------------------------------------------------------------------
   const graphignorePath = path.join(repoRoot, '.spec-first-graphignore');
@@ -583,6 +634,12 @@ async function collectInputFiles(repoRoot, options = {}) {
       continue;
     }
 
+    // 步骤 3.5：.gitignore 过滤（all-files 模式；tracked 模式由 git 天然处理）
+    if (gitignoreFilter && gitignoreFilter.ignores(normalizedFp)) {
+      recordIgnored('gitignore', normalizedFp);
+      continue;
+    }
+
     // 步骤 5：extraExcludes（在 graphignore 之前处理）
     if (extraExcludeFilter && extraExcludeFilter.ignores(normalizedFp)) {
       // 检查 extraIncludes 能否挽救
@@ -608,9 +665,9 @@ async function collectInputFiles(repoRoot, options = {}) {
       }
     }
 
-    // 步骤 8：语言过滤（只保留 EXT_TO_LANG 可识别的代码文件）
-    // 与 Python CRG 的 detect_language() 对齐：收集层即保证 finalInputs 为纯代码文件
-    if (!EXT_TO_LANG[ext]) {
+    // 步骤 8：语言过滤（只保留当前 parser 真正可入图的文件）
+    // detectPresentLanguages 可识别更宽的语言集合；但阶段0 finalInputs 必须与 parser 能力一致。
+    if (!INDEXABLE_EXTS.has(ext)) {
       recordIgnored('no_language', normalizedFp);
       continue;
     }
@@ -666,4 +723,5 @@ module.exports = {
   DEFAULT_EXCLUDES,
   SENSITIVE_PATTERNS,
   EXT_TO_LANG,
+  INDEXABLE_EXTS,
 };

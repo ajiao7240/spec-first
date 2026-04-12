@@ -417,7 +417,7 @@ verify_output_51=$(HOME="$FH91" MCP_SETUP_HOST=claude bash "$VERIFY_SCRIPT" 2>&1
 assert_contains "Verify output announces baseline check" "正在核对当前宿主的基础 MCP 配置" "$verify_output_51"
 assert_contains "Verify output shows marker update" "宿主就绪标记已更新" "$verify_output_51"
 schema_91=$(jq -r '.version' "$FH91/.claude/spec-first/host-setup.json")
-assert_output "schema version v4" "4" "$schema_91"
+assert_output "schema version v5" "5" "$schema_91"
 host_91=$(jq -r '.host' "$FH91/.claude/spec-first/host-setup.json")
 assert_output "claude host field" "claude" "$host_91"
 out91=$(jq -r '.setup_success' "$FH91/.claude/spec-first/host-setup.json")
@@ -454,6 +454,15 @@ echo "5.3 host-setup schema does not include removed tools"
 assert "No gitnexus tool entry" jq -e '.tools.gitnexus | not' "$FH91/.claude/spec-first/host-setup.json"
 assert "No abcoder tool entry" jq -e '.tools.abcoder | not' "$FH91/.claude/spec-first/host-setup.json"
 
+echo "5.3.1 host-setup v5 has crg block and playwright"
+assert "crg block exists" jq -e '.crg' "$FH91/.claude/spec-first/host-setup.json"
+crg_cli=$(jq -r '.crg.cli_available' "$FH91/.claude/spec-first/host-setup.json")
+assert "crg.cli_available is boolean" test "$crg_cli" = "true" -o "$crg_cli" = "false"
+crg_nm=$(jq -r '.crg.native_modules' "$FH91/.claude/spec-first/host-setup.json")
+assert "crg.native_modules is valid" test "$crg_nm" = "ok" -o "$crg_nm" = "missing" -o "$crg_nm" = "unchecked"
+pw_cfg=$(jq -r '.tools.playwright.configured' "$FH91/.claude/spec-first/host-setup.json")
+assert "playwright.configured is boolean" test "$pw_cfg" = "true" -o "$pw_cfg" = "false"
+
 echo "5.4 setup_success=true when baseline tools are configured for Codex"
 FH93="$TMP_DIR/fh93"
 mkdir -p "$FH93/.codex"
@@ -472,7 +481,7 @@ args = ["-y", "@modelcontextprotocol/server-sequential-thinking"]
 TOMLEOF
 HOME="$FH93" MCP_SETUP_HOST=codex bash "$VERIFY_SCRIPT" >/dev/null 2>&1
 schema_93=$(jq -r '.version' "$FH93/.codex/spec-first/host-setup.json")
-assert_output "codex schema version v4" "4" "$schema_93"
+assert_output "codex schema version v5" "5" "$schema_93"
 host_93=$(jq -r '.host' "$FH93/.codex/spec-first/host-setup.json")
 assert_output "codex host field" "codex" "$host_93"
 out93=$(jq -r '.setup_success' "$FH93/.codex/spec-first/host-setup.json")

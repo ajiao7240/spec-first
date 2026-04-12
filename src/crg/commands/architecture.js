@@ -40,7 +40,29 @@ function run(argv) {
     source: e.source_id,
     target: e.target_id,
     kind: e.kind,
+    source_community: e.source_community,
+    target_community: e.target_community,
   }));
+
+  // coupling warnings：同一对社区间跨边数量 > 10 时告警
+  const couplingRows = db.prepare(`
+    SELECT ns.community_id AS source_community,
+           nt.community_id AS target_community,
+           COUNT(*) AS edge_count
+    FROM edges e
+    JOIN nodes ns ON e.source_id = ns.id
+    JOIN nodes nt ON e.target_id = nt.id
+    WHERE ns.community_id IS NOT NULL
+      AND nt.community_id IS NOT NULL
+      AND ns.community_id != nt.community_id
+    GROUP BY ns.community_id, nt.community_id
+    HAVING COUNT(*) > 10
+    ORDER BY edge_count DESC
+  `).all();
+
+  const couplingWarnings = couplingRows.map(r =>
+    `HIGH_COUPLING: ${r.source_community} ↔ ${r.target_community} (${r.edge_count} edges)`
+  );
 
   db.close();
 
@@ -48,6 +70,7 @@ function run(argv) {
     JSON.stringify(makeEnvelope(repoRoot, {
       hub_nodes: hubNodes,
       cross_community_edges: crossEdgeMapped,
+      coupling_warnings: couplingWarnings,
     })) + '\n'
   );
 }

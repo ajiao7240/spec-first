@@ -1,11 +1,11 @@
 'use strict';
 
 /**
- * CRG 执行流检测与 PageRank 评分
+ * CRG 执行流检测与 criticality 评分
  *
  * 功能：
  *   - loadAdjacency: 从 edges 表加载整图邻接表和反向邻接表
- *   - computePageRank: 标准 PageRank 迭代（20 次，阻尼系数 0.85）
+ *   - computeFlowCriticality: 5因子加权评分
  *   - detectFlows: 找入口节点 → BFS 展开 → 写入 flows/flow_nodes 表
  *
  * 简化策略（防止指数爆炸）：
@@ -13,6 +13,8 @@
  *   - 最多 100 个 flows
  *   - 每个 flow 最多 20 个节点
  */
+
+const { SECURITY_KEYWORDS } = require('./constants');
 
 /**
  * 加载整图邻接表和反向邻接表
@@ -38,78 +40,20 @@ function loadAdjacency(db) {
 }
 
 /**
- * PageRank 计算（迭代式，阻尼系数 0.85，最多 20 次迭代）
- *
- * @param {Map<string, string[]>} adjacency - nodeId → 出边 nodeId 数组
- * @param {number} [dampingFactor=0.85]
- * @param {number} [maxIterations=20]
- * @returns {Map<string, number>} nodeId → PageRank 分数
- */
-function computePageRank(adjacency, reverseAdjacency, dampingFactor = 0.85, maxIterations = 20) {
-  // 收集所有节点（包括只有 in-edges 无 out-edges 的节点）
-  const allNodes = new Set(adjacency.keys());
-  for (const targets of adjacency.values()) {
-    for (const t of targets) {
-      allNodes.add(t);
-    }
-  }
-
-  const N = allNodes.size;
-  if (N === 0) return new Map();
-
-  // 初始化：每个节点分数 = 1 / N
-  let scores = new Map();
-  for (const nodeId of allNodes) {
-    scores.set(nodeId, 1 / N);
-  }
-
-  const baseScore = (1 - dampingFactor) / N;
-
-  for (let iter = 0; iter < maxIterations; iter++) {
-    const newScores = new Map();
-    let maxDelta = 0;
-
-    for (const nodeId of allNodes) {
-      // 通过反向邻接表直接获取入边节点，O(in-degree) 而非 O(N×E)
-      let incomingSum = 0;
-      const incomingNodes = reverseAdjacency.get(nodeId) || [];
-      for (const srcId of incomingNodes) {
-        const outDegree = (adjacency.get(srcId) || []).length;
-        if (outDegree > 0) {
-          incomingSum += (scores.get(srcId) || 0) / outDegree;
-        }
-      }
-
-      const newScore = baseScore + dampingFactor * incomingSum;
-      newScores.set(nodeId, newScore);
-
-      const delta = Math.abs(newScore - (scores.get(nodeId) || 0));
-      if (delta > maxDelta) maxDelta = delta;
-    }
-
-    scores = newScores;
-
-    // 收敛检测
-    if (maxDelta < 1e-6) break;
-  }
-
-  return scores;
-}
-
-/**
  * BFS 从入口节点展开，最大深度 5，最多 20 个节点
  *
  * @param {string} entryId - 入口节点 ID
  * @param {Map<string, string[]>} adjacency - 正向邻接表
  * @param {number} [maxDepth=5]
  * @param {number} [maxNodes=20]
- * @returns {string[]} 遍历到的节点 ID 列表（含入口）
+ * @returns {{ nodeIds: string[], depth: number }} 遍历到的节点 ID 列表（含入口）及实际最大 BFS 深度
  */
 function bfsFlow(entryId, adjacency, maxDepth = 5, maxNodes = 20) {
   const visited = new Set([entryId]);
   // 队列元素：[nodeId, depth]
   const queue = [[entryId, 0]];
   const flowNodes = [entryId];
+  let reachedDepth = 0;
 
   while (queue.length > 0 && flowNodes.length < maxNodes) {
     const [cur, depth] = queue.shift();
@@ -121,14 +65,85 @@ function bfsFlow(entryId, adjacency, maxDepth = 5, maxNodes = 20) {
       if (!visited.has(nb)) {
         visited.add(nb);
         flowNodes.push(nb);
-        queue.push([nb, depth + 1]);
+        const nbDepth = depth + 1;
+        if (nbDepth > reachedDepth) reachedDepth = nbDepth;
+        queue.push([nb, nbDepth]);
 
         if (flowNodes.length >= maxNodes) break;
       }
     }
   }
 
-  return flowNodes;
+  return { nodeIds: flowNodes, depth: reachedDepth };
+}
+
+/**
+ * 计算单个 flow 的 5因子 criticality 评分（0.0 - 1.0）
+ *
+ * F1 file_spread  (0.30)：flow 涉及文件数，1 file→0.0，5+→1.0
+ * F2 depth_score  (0.20)：BFS 节点数近似深度，0→0.0，20+→1.0
+ * F3 security_score (0.25)：flow 节点名含安全关键词的占比
+ * F4 test_gap     (0.15)：1 - flow 内 is_test 节点占比（无测试覆盖则高）
+ * F5 external_score (0.10)：flow 节点中有出向 unresolved 边的节点占比（外部调用估算）
+ *
+ * @param {string[]} flowNodeIds - flow 的节点 ID 列表
+ * @param {import('better-sqlite3').Database} db
+ * @returns {number} 0.0 - 1.0
+ */
+function computeFlowCriticality(flowNodeIds, db) {
+  if (flowNodeIds.length === 0) return 0;
+
+  // 批量查节点信息（分块避免超 SQLITE_MAX_VARIABLE_NUMBER）
+  const CHUNK = 900;
+  const nodeRows = [];
+  for (let i = 0; i < flowNodeIds.length; i += CHUNK) {
+    const chunk = flowNodeIds.slice(i, i + CHUNK);
+    const ph = chunk.map(() => '?').join(',');
+    const rows = db.prepare(
+      `SELECT id, name, file_path, is_test FROM nodes WHERE id IN (${ph})`
+    ).all(...chunk);
+    nodeRows.push(...rows);
+  }
+
+  // F1: file_spread（涉及文件数，上限 5）
+  const fileCount = new Set(nodeRows.map(n => n.file_path)).size;
+  const fileSpread = Math.min((fileCount - 1) / 4, 1.0); // 1→0, 5+→1
+
+  // F2: depth_score（节点数近似深度，上限 20）
+  const depthScore = Math.min(flowNodeIds.length / 20, 1.0);
+
+  // F3: security_score（含安全关键词节点占比）
+  const secCount = nodeRows.filter(n =>
+    n.name && [...SECURITY_KEYWORDS].some(kw => n.name.toLowerCase().includes(kw))
+  ).length;
+  const securityScore = nodeRows.length > 0 ? secCount / nodeRows.length : 0;
+
+  // F4: test_gap（1 - 测试节点占比；无测试则高）
+  const testCount = nodeRows.filter(n => n.is_test).length;
+  const testGap = 1 - (nodeRows.length > 0 ? testCount / nodeRows.length : 0);
+
+  // F5: external_score（flow 节点中在 unresolved_edges 表有记录的节点占比，近似外部调用）
+  // 注意：edges 表中 target_id NOT NULL，无法用 target_id IS NULL 表示 unresolved；
+  //       unresolved_edges 表由 replaceUnresolvedEdges 在每次 build 后写入，是正确来源。
+  let unresolvedSources = 0;
+  for (let i = 0; i < flowNodeIds.length; i += CHUNK) {
+    const chunk = flowNodeIds.slice(i, i + CHUNK);
+    const ph = chunk.map(() => '?').join(',');
+    const rows = db.prepare(
+      `SELECT DISTINCT source_id FROM unresolved_edges WHERE source_id IN (${ph})`
+    ).all(...chunk);
+    unresolvedSources += rows.length;
+  }
+  const externalScore = flowNodeIds.length > 0 ? Math.min(unresolvedSources / flowNodeIds.length, 1.0) : 0;
+
+  return Math.min(
+    fileSpread   * 0.30 +
+    depthScore   * 0.20 +
+    securityScore * 0.25 +
+    testGap      * 0.15 +
+    externalScore * 0.10,
+    1.0
+  );
 }
 
 /**
@@ -141,15 +156,12 @@ function bfsFlow(entryId, adjacency, maxDepth = 5, maxNodes = 20) {
  * @returns {{ flow_count: number, node_count_total: number }}
  */
 function detectFlows(db) {
-  // 加载邻接表（含反向邻接表，用于 O(E) PageRank 计算）
-  const { adjacency, reverseAdjacency } = loadAdjacency(db);
-
-  // 计算 PageRank（用于 criticality 评分）
-  const pageRankScores = computePageRank(adjacency, reverseAdjacency);
+  // 加载邻接表
+  const { adjacency } = loadAdjacency(db);
 
   // 找入口点：kind != 'module' 且不在任何 calls 边的 target_id 中
   const entryNodes = db.prepare(`
-    SELECT id FROM nodes
+    SELECT id, name FROM nodes
     WHERE kind != 'module'
       AND id NOT IN (
         SELECT target_id FROM edges WHERE kind = 'calls'
@@ -160,8 +172,8 @@ function detectFlows(db) {
   db.prepare('DELETE FROM flows').run();
 
   const insertFlow = db.prepare(`
-    INSERT INTO flows (id, entry_node_id, criticality, node_count)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO flows (id, entry_node_id, name, criticality, node_count, depth)
+    VALUES (?, ?, ?, ?, ?, ?)
   `);
 
   const insertFlowNode = db.prepare(`
@@ -176,19 +188,18 @@ function detectFlows(db) {
     for (const entry of entryNodes) {
       if (flowIndex >= 100) break; // 最多 100 个 flows
 
-      const flowNodeIds = bfsFlow(entry.id, adjacency, 5, 20);
+      const { nodeIds: flowNodeIds, depth } = bfsFlow(entry.id, adjacency, 5, 20);
 
-      // 过滤掉只有入口节点自身的 flow（无实际意义）
+      // 过滤掉只有入口节点自身且无出边的 flow（无实际意义）
       if (flowNodeIds.length <= 1) {
-        // 检查是否有 out-edges
         const hasOutEdges = adjacency.has(entry.id) && adjacency.get(entry.id).length > 0;
         if (!hasOutEdges) continue;
       }
 
       const flowId = `flow:${entry.id}:${flowIndex}`;
-      const criticality = pageRankScores.get(entry.id) || 0;
+      const criticality = computeFlowCriticality(flowNodeIds, db);
 
-      insertFlow.run(flowId, entry.id, criticality, flowNodeIds.length);
+      insertFlow.run(flowId, entry.id, entry.name || null, criticality, flowNodeIds.length, depth);
 
       for (let pos = 0; pos < flowNodeIds.length; pos++) {
         insertFlowNode.run(flowId, flowNodeIds[pos], pos);
@@ -207,4 +218,4 @@ function detectFlows(db) {
   };
 }
 
-module.exports = { loadAdjacency, computePageRank, detectFlows };
+module.exports = { loadAdjacency, detectFlows };

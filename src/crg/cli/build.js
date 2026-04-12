@@ -88,6 +88,26 @@ function parseBuildArgs(argv) {
 }
 
 /**
+ * 将 parseFile 结果归类为构建质量信号。
+ *
+ * 设计取舍：
+ * - 不引入额外 schema，仅在 build 输出层暴露当前批次质量
+ * - no_parser / parse_error 保留具体原因
+ * - module_only 用于识别“仅保留 module 节点”的退化结果
+ *
+ * @param {{ nodes?: object[], reason?: string, skipped?: boolean }} result
+ * @returns {'ok'|'no_parser'|'parse_error'|'module_only'}
+ */
+function classifyParseQuality(result) {
+  const reason = result && typeof result.reason === 'string' ? result.reason : '';
+  if (reason === 'no_parser') return 'no_parser';
+  if (reason.startsWith('parse_error:')) return 'parse_error';
+  const nodes = Array.isArray(result && result.nodes) ? result.nodes : [];
+  if (nodes.length === 1 && nodes[0] && nodes[0].kind === 'module') return 'module_only';
+  return 'ok';
+}
+
+/**
  * build 子命令核心逻辑（async，由 run 入口驱动）
  *
  * @param {string[]} argv - router.js 传入的参数（不含子命令名本身）
@@ -130,6 +150,7 @@ async function runBuildAsync(argv) {
     deleteStaleNodes,
     resolveEdges,
     setUnresolvedEdgeCount,
+    replaceUnresolvedEdges,
   } = require('../graph');
 
   // 确保 .spec-first-graph/ 目录存在
@@ -185,26 +206,55 @@ async function runBuildAsync(argv) {
 
     // 解析变更文件，收集节点和原始边
     const allRawEdges = [];
+    const allNodes = [];
     const skippedChanged = [];
     const parsedChanged = [];
+    const rebuildableFiles = [];
+    const quality = {
+      ok_count: 0,
+      no_parser_count: 0,
+      parse_error_count: 0,
+      module_only_count: 0,
+    };
     for (const file of changed) {
       const result = parseFile(file, repoRoot);
       if (result.skipped) {
         skippedChanged.push(file);
         continue;
       }
+      const qualityStatus = classifyParseQuality(result);
+      if (qualityStatus === 'ok') quality.ok_count++;
+      if (qualityStatus === 'no_parser') quality.no_parser_count++;
+      if (qualityStatus === 'parse_error') quality.parse_error_count++;
+      if (qualityStatus === 'module_only') quality.module_only_count++;
+
+      // no_parser / parse_error 属于退化结果：
+      // 当前阶段不覆盖旧事实，只显式输出质量告警，等待用户/工作流修复依赖或重试 build。
+      // 其余结果（ok / module_only）视为可重建，参与文件级局部替换。
+      if (qualityStatus === 'no_parser' || qualityStatus === 'parse_error') {
+        continue;
+      }
+
       parsedChanged.push(file);
-      upsertNodes(db, result.nodes);
+      rebuildableFiles.push(file);
+      allNodes.push(...result.nodes);
       allRawEdges.push(...result.rawEdges);
     }
 
+    // 对成功解析的 changed 文件执行"局部替换"：
+    // 先按 file_path 删除旧节点（级联删除旧边），再统一写入新节点。
+    // 这样可避免函数改名 / 删除 / 行号变化时旧事实残留。
+    deleteStaleNodes(db, rebuildableFiles);
+    upsertNodes(db, allNodes);
+
     // 批量解析边并写入
-    const { resolved, unresolvedCount } = resolveEdges(db, allRawEdges, repoRoot);
+    const { resolved, unresolvedCount, unresolved } = resolveEdges(db, allRawEdges, repoRoot);
     upsertEdges(db, resolved);
     // 仅在实际处理了文件时更新 unresolved_edge_count：
     //   增量构建 0 变更时 unresolvedCount=0，不代表真实情况，保留上一次全量构建的值
     if (parsedChanged.length > 0 || force) {
       setUnresolvedEdgeCount(db, unresolvedCount);
+      replaceUnresolvedEdges(db, unresolved);
     }
 
     // 更新 fingerprints：
@@ -240,10 +290,55 @@ async function runBuildAsync(argv) {
     if (unresolvedRate > 0.1) {
       warnings.push({
         type: 'high_unresolved_edge_rate',
+        scope: 'last_build',
         rate: unresolvedRate,
         unresolved_count: unresolvedCount,
       });
     }
+
+    const hasParserDegradation = quality.no_parser_count > 0 || quality.parse_error_count > 0;
+
+    if (quality.no_parser_count > 0) {
+      warnings.push({
+        type: 'no_parser_files',
+        count: quality.no_parser_count,
+      });
+    }
+    if (quality.parse_error_count > 0) {
+      warnings.push({
+        type: 'parse_error_files',
+        count: quality.parse_error_count,
+      });
+    }
+    if (quality.module_only_count > 0) {
+      warnings.push({
+        type: 'module_only_files',
+        count: quality.module_only_count,
+      });
+    }
+    if (force && hasParserDegradation) {
+      warnings.push({
+        type: 'force_rebuild_partial',
+        no_parser_count: quality.no_parser_count,
+        parse_error_count: quality.parse_error_count,
+      });
+    }
+
+    const unresolvedByKind = Object.create(null);
+    const unresolvedByFile = Object.create(null);
+    for (const row of unresolved) {
+      unresolvedByKind[row.edge_kind] = (unresolvedByKind[row.edge_kind] || 0) + 1;
+      unresolvedByFile[row.source_file] = (unresolvedByFile[row.source_file] || 0) + 1;
+    }
+    const topUnresolvedKinds = Object.entries(unresolvedByKind)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([kind, count]) => ({ kind, count }));
+    const topUnresolvedFiles = Object.entries(unresolvedByFile)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([file_path, count]) => ({ file_path, count }));
+    const unresolvedSamples = unresolved.slice(0, 10);
 
     const envelope = makeEnvelope(repoRoot, {
       node_count: nodeCount,
@@ -252,7 +347,15 @@ async function runBuildAsync(argv) {
       duration_ms: durationMs,
       skipped_sensitive: skippedSensitive,
       unresolved_edge_count: unresolvedCount,
-    }, { warnings });
+      last_build_unresolved_edge_count: unresolvedCount,
+      last_build_unresolved_summary: {
+        top_kinds: topUnresolvedKinds,
+        top_source_files: topUnresolvedFiles,
+        sample_count: unresolved.length,
+      },
+      last_build_unresolved_samples: unresolvedSamples,
+      build_quality: quality,
+    }, { warnings, degraded: hasParserDegradation });
 
     process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
   } finally {
@@ -340,6 +443,27 @@ function runStats(argv) {
       .get();
     const lastBuilt = metaRow ? metaRow.last_built : null;
     const unresolvedEdgeCount = metaRow ? (metaRow.unresolved_edge_count || 0) : 0;
+    const unresolvedKinds = db.prepare(`
+      SELECT edge_kind AS kind, COUNT(*) AS count
+      FROM unresolved_edges
+      GROUP BY edge_kind
+      ORDER BY count DESC
+      LIMIT 5
+    `).all();
+    const unresolvedFiles = db.prepare(`
+      SELECT source_file AS file_path, COUNT(*) AS count
+      FROM unresolved_edges
+      GROUP BY source_file
+      ORDER BY count DESC
+      LIMIT 5
+    `).all();
+    const unresolvedSamples = db.prepare(`
+      SELECT source_id, source_file, edge_kind, target_name, target_path_raw
+      FROM unresolved_edges
+      LIMIT 10
+    `).all();
+    const unresolvedSampleCountRow = db.prepare('SELECT COUNT(*) AS c FROM unresolved_edges').get();
+    const unresolvedSampleCount = unresolvedSampleCountRow ? (unresolvedSampleCountRow.c || 0) : 0;
     const fingerprintRows = db
       .prepare('SELECT file_path, sha256 FROM fingerprints')
       .all();
@@ -370,6 +494,13 @@ function runStats(argv) {
       },
       last_built: lastBuilt,
       unresolved_edge_count: unresolvedEdgeCount,
+      last_build_unresolved_edge_count: unresolvedEdgeCount,
+      last_build_unresolved_summary: {
+        top_kinds: unresolvedKinds,
+        top_source_files: unresolvedFiles,
+        sample_count: unresolvedSampleCount,
+      },
+      last_build_unresolved_samples: unresolvedSamples,
     }, { warnings });
 
     process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
@@ -415,4 +546,4 @@ function writeFingerprintsJson(db, repoRoot) {
   fs.writeFileSync(outPath, JSON.stringify(data, null, 2));
 }
 
-module.exports = { run, runStats };
+module.exports = { run, runStats, classifyParseQuality };

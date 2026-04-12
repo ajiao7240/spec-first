@@ -64,6 +64,14 @@ describe('resolveEdges', () => {
 
       expect(result.resolved).toHaveLength(0);
       expect(result.unresolvedCount).toBe(1);
+      expect(result.unresolved).toEqual([
+        expect.objectContaining({
+          source_id: 'src/caller.js#function#caller#L1',
+          source_file: 'src/caller.js',
+          edge_kind: 'calls',
+          target_name: 'foo',
+        }),
+      ]);
     } finally {
       db.close();
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -221,6 +229,11 @@ describe('resolveEdges', () => {
 
       expect(result.unresolvedCount).toBe(1);
       expect(result.resolved).toHaveLength(0);
+      expect(result.unresolved[0]).toEqual(expect.objectContaining({
+        source_file: 'src/c.js',
+        edge_kind: 'calls',
+        target_name: 'util',
+      }));
     } finally {
       db.close();
       fs.rmSync(tmpDir, { recursive: true, force: true });

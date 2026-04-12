@@ -19,8 +19,8 @@ function run(argv) {
   const sortArg = argv.find(a => a.startsWith('--sort='));
   const sort = sortArg ? sortArg.slice('--sort='.length) : 'criticality';
 
-  // 查询 flows 表
-  let sql = 'SELECT id, entry_node_id AS entry_node, criticality, node_count FROM flows';
+  // 查询 flows 表（id AS flow_id 与 FlowBrief schema 对齐）
+  let sql = 'SELECT id AS flow_id, entry_node_id AS entry_node, criticality, node_count FROM flows';
   if (sort === 'criticality') {
     sql += ' ORDER BY criticality DESC';
   } else if (sort === 'node_count') {

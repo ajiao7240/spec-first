@@ -27,7 +27,7 @@ const DDL_STATEMENTS = [
     id TEXT PRIMARY KEY,
     label TEXT,
     file_count INTEGER DEFAULT 0,
-    health_status TEXT,
+    health_status TEXT CHECK (health_status IN ('healthy', 'isolated', 'fragmented', 'scattered') OR health_status IS NULL),
     health_density REAL,
     health_independence REAL
   )`,
@@ -64,8 +64,10 @@ const DDL_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS flows (
     id TEXT PRIMARY KEY,
     entry_node_id TEXT,
+    name TEXT,
     criticality REAL DEFAULT 0.0,
     node_count INTEGER DEFAULT 0,
+    depth INTEGER DEFAULT 0,
     FOREIGN KEY (entry_node_id) REFERENCES nodes(id) ON DELETE SET NULL
   )`,
 
@@ -95,6 +97,16 @@ const DDL_STATEMENTS = [
     updated_at TEXT NOT NULL
   )`,
 
+  // unresolved_edges 表（最近一次 build 的 unresolved 明细，便于审计和治理）
+  `CREATE TABLE IF NOT EXISTS unresolved_edges (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id TEXT NOT NULL,
+    source_file TEXT NOT NULL,
+    edge_kind TEXT NOT NULL,
+    target_name TEXT,
+    target_path_raw TEXT
+  )`,
+
   // FTS5 虚表（全文搜索，独立存储，不使用 content= 外部内容表）
   // 注意：content=nodes 方案要求 FTS 列名与 nodes 表列名严格对应；
   //       独立 FTS 更简单，rebuildFTS 负责全量重建保持一致。
@@ -108,8 +120,16 @@ const DDL_STATEMENTS = [
   // 索引
   `CREATE INDEX IF NOT EXISTS idx_nodes_file_path ON nodes(file_path)`,
   `CREATE INDEX IF NOT EXISTS idx_nodes_kind ON nodes(kind)`,
+  // Pass5 community 传播：WHERE file_path = ? AND kind = 'module' → 覆盖索引，避免全表扫描
+  `CREATE INDEX IF NOT EXISTS idx_nodes_file_path_kind ON nodes(file_path, kind)`,
+  // F3 测试覆盖：JOIN nodes ON is_test = 1 → 过滤测试节点
+  `CREATE INDEX IF NOT EXISTS idx_nodes_is_test ON nodes(is_test)`,
   `CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id)`,
   `CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id)`,
+  // F3/F5 assessNodeRisk：edges WHERE kind IN ('calls','imports_from') 过滤
+  `CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind)`,
+  `CREATE INDEX IF NOT EXISTS idx_unresolved_edges_source_file ON unresolved_edges(source_file)`,
+  `CREATE INDEX IF NOT EXISTS idx_unresolved_edges_kind ON unresolved_edges(edge_kind)`,
 ];
 
 /**
@@ -142,6 +162,39 @@ function initDatabase(dbPath) {
       file_path UNINDEXED,
       kind UNINDEXED
     )`);
+  }
+
+  // 迁移：flows 表若缺 name/depth 列，则补列（ADD COLUMN，不破坏现有数据）
+  const flowsMeta = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='flows'")
+    .get();
+  if (flowsMeta && flowsMeta.sql) {
+    if (!flowsMeta.sql.includes('"name"') && !flowsMeta.sql.includes(' name ')) {
+      db.exec('ALTER TABLE flows ADD COLUMN name TEXT');
+    }
+    if (!flowsMeta.sql.includes('"depth"') && !flowsMeta.sql.includes(' depth ')) {
+      db.exec('ALTER TABLE flows ADD COLUMN depth INTEGER DEFAULT 0');
+    }
+  }
+
+  // 迁移：communities 表若无 CHECK 约束，则重建以添加 health_status CHECK
+  const commMeta = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='communities'")
+    .get();
+  if (commMeta && commMeta.sql && !commMeta.sql.includes('CHECK')) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS communities_new (
+        id TEXT PRIMARY KEY,
+        label TEXT,
+        file_count INTEGER DEFAULT 0,
+        health_status TEXT CHECK (health_status IN ('healthy', 'isolated', 'fragmented', 'scattered') OR health_status IS NULL),
+        health_density REAL,
+        health_independence REAL
+      )
+    `);
+    db.exec(`INSERT OR IGNORE INTO communities_new SELECT * FROM communities`);
+    db.exec(`DROP TABLE communities`);
+    db.exec(`ALTER TABLE communities_new RENAME TO communities`);
   }
 
   // 确保 graph_meta 单行存在（schema 版本写入）

@@ -187,6 +187,10 @@ The verification step will print the current host's baseline status and the fina
 `setup_success` means the baseline host-level prerequisites are actually ready:
 - `serena`, `context7`, `sequential-thinking` are configured in the current host config
 
+`crg` block reports CRG subsystem readiness:
+- `cli_available`: whether `spec-first crg --help` exits successfully
+- `native_modules`: `"ok"` (better-sqlite3 + tree-sitter loadable), `"missing"` (one or both failed), `"unchecked"` (CLI unavailable)
+
 If `verify-tools.sh` exits non-zero:
 - Report the failure with the script's error output
 - Do not claim setup is complete
@@ -220,6 +224,7 @@ Optional: Playwright MCP [installed / not installed]
 Host readiness:
 - dependencies: ready
 - mcp config: ready
+- CRG: CLI available / CLI unavailable
 - host marker: written (current host's `spec-first/host-setup.json`)
 
 Next steps:
@@ -234,7 +239,7 @@ Next steps:
 | Scenario | Action |
 |----------|--------|
 | Dependency missing and user declines install | Show manual instructions, exit |
-| Single tool install fails | Continue with other tools, report failure at end |
+| Single tool install fails | Restore backup, stop all further installs (atomic rollback) |
 | Configuration merge fails | Restore from backup, report error |
 | Current host config doesn't exist | Create the host-specific config file via the host CLI |
 | `jq` not available | Require jq, show install instructions |
@@ -246,6 +251,7 @@ Next steps:
 **Includes:**
 - MCP tool installation and configuration (3 required tools + 1 optional tool)
 - Installation status detection and verification
+- CRG CLI availability and native module health detection
 - User interaction and progress feedback
 - macOS/Linux/Windows support
 
@@ -265,18 +271,24 @@ The coordination file between mcp-setup and spec-bootstrap is host-specific:
 - Claude Code: `~/.claude/spec-first/host-setup.json`
 - Codex: `~/.codex/spec-first/host-setup.json`
 
-### Schema v4
+### Schema v5
 
 ```json
 {
-  "version": "4",
+  "version": "5",
   "host": "claude",
-  "completed_at": "2026-04-08T12:00:00Z",
+  "completed_at": "2026-04-13T12:00:00Z",
   "setup_success": true,
   "tools": {
     "serena": { "configured": true },
     "context7": { "configured": true },
-    "sequential-thinking": { "configured": true }
+    "sequential-thinking": { "configured": true },
+    "playwright": { "configured": false }
+  },
+  "crg": {
+    "cli_available": true,
+    "native_modules": "ok",
+    "checked_at": "2026-04-13T12:00:00Z"
   }
 }
 ```
@@ -284,7 +296,11 @@ The coordination file between mcp-setup and spec-bootstrap is host-specific:
 ### Consumers
 
 | Field | Consumer | Purpose |
-|------|--------|------|
+|------|--------|---------|
 | `host` | spec-bootstrap Host Readiness Gate Step 0 | Select the matching runtime marker and probe path |
 | `setup_success` | spec-bootstrap Host Readiness Gate Step 1 | Determine whether baseline host prerequisites are ready |
 | `tools.*.configured` | spec-bootstrap runtime checks | Skip known-missing tools |
+| `crg.cli_available` | spec-graph-bootstrap Phase 0.2b | Skip CRG operations when CLI unavailable |
+| `crg.native_modules` | spec-graph-bootstrap Phase 0.2b | Warn before attempting crg build |
+| `crg.checked_at` | spec-graph-bootstrap Phase 0.2b | Stale detection (re-check if >30 days old) |
+

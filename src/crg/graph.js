@@ -12,7 +12,7 @@
  *
  * 设计原则：
  *   - 外键安全顺序由 build 编排层负责，本模块只管 CRUD
- *   - resolveEdges 两阶段查找 + 缓存，避免 N+1 查询
+ *   - resolveEdges 三阶段查找 + 缓存，避免 N+1 查询
  *   - community_id 默认 NULL，由后续社区检测步骤填充
  */
 
@@ -101,11 +101,12 @@ function deleteStaleNodes(db, deletedPaths) {
  * @param {import('better-sqlite3').Database} db
  * @param {object[]} rawEdges - parseFile 返回的 rawEdges 数组
  * @param {string} repoRoot - 仓库根目录（当前未使用，预留扩展）
- * @returns {{ resolved: object[], unresolvedCount: number }}
+ * @returns {{ resolved: object[], unresolvedCount: number, unresolved: object[] }}
  */
 function resolveEdges(db, rawEdges, repoRoot) {
   const resolved = [];
   let unresolvedCount = 0;
+  const unresolved = [];
   // 使用 Object.create(null) 避免原型链污染：
   //   普通 {} 继承 Object.prototype，symbolCache['toString'] 会返回原生函数而非 undefined
   const nodeIdCache = Object.create(null);
@@ -133,6 +134,58 @@ function resolveEdges(db, rawEdges, repoRoot) {
       .get(normalized);
     moduleCache[filePath] = row ? row.id : null;
     return moduleCache[filePath];
+  };
+
+  // ------------------------------------------------------------------
+  // 阶段1.5 缓存：basename → module 节点列表（用于 C/ObjC 头文件解析）
+  //   ObjC #import "file.h" 只提供文件名，无路径 → 按 basename 模糊匹配
+  //   多命中时取与 source 路径公共前缀最长的候选（proximity heuristic）
+  // ------------------------------------------------------------------
+  const basenameModuleCache = Object.create(null);
+
+  const getModuleByBasename = (basename, srcFilePath) => {
+    if (basenameModuleCache[basename] === undefined) {
+      const rows = db
+        .prepare(
+          `SELECT id, file_path FROM nodes WHERE kind = 'module' AND file_path LIKE ?`
+        )
+        .all('%/' + basename);
+      // 也匹配根目录下的同名文件（无斜杠）
+      const rootRow = db
+        .prepare(
+          `SELECT id, file_path FROM nodes WHERE kind = 'module' AND file_path = ?`
+        )
+        .get(basename);
+      const all = rootRow ? [...rows, rootRow] : rows;
+      basenameModuleCache[basename] = all.length > 0 ? all : null;
+    }
+    const candidates = basenameModuleCache[basename];
+    if (!candidates) return null;
+    if (candidates.length === 1) return candidates[0].id;
+
+    // 多候选：取与 source 路径公共前缀最长的（目录最近邻）
+    const srcDir = srcFilePath.includes('/')
+      ? srcFilePath.split('/').slice(0, -1).join('/')
+      : '';
+    let best = null;
+    let bestLen = -1;
+    for (const c of candidates) {
+      const cDir = c.file_path.includes('/')
+        ? c.file_path.split('/').slice(0, -1).join('/')
+        : '';
+      // 计算公共前缀长度（按目录段）
+      const srcSegs = srcDir ? srcDir.split('/') : [];
+      const cSegs = cDir ? cDir.split('/') : [];
+      let common = 0;
+      while (common < srcSegs.length && common < cSegs.length && srcSegs[common] === cSegs[common]) {
+        common++;
+      }
+      if (common > bestLen) {
+        bestLen = common;
+        best = c;
+      }
+    }
+    return best ? best.id : null;
   };
 
   // ------------------------------------------------------------------
@@ -213,6 +266,18 @@ function resolveEdges(db, rawEdges, repoRoot) {
       }
     }
 
+    // 阶段1.5：basename 模糊匹配（ObjC/C 头文件 #import "file.h" 无路径信息）
+    //   条件：target_path_raw 不含路径分隔符（纯文件名），且为 C 系头文件扩展名
+    if (!targetId && raw.target_path_raw) {
+      const rawPath = raw.target_path_raw.replace(/\\/g, '/');
+      const isFilenameOnly = !rawPath.includes('/');
+      const isHeaderExt = /\.(h|hpp|hh|hxx|m|mm|c|cc|cpp|cxx)$/i.test(rawPath);
+      if (isFilenameOnly && isHeaderExt) {
+        const srcFile = raw.source_id ? raw.source_id.split('#', 1)[0] : '';
+        targetId = getModuleByBasename(rawPath, srcFile);
+      }
+    }
+
     // 阶段2：target_name → 符号节点（优先同文件消歧）
     if (!targetId && raw.target_name) {
       const srcFile = raw.source_id ? raw.source_id.split('#', 1)[0] : '';
@@ -221,6 +286,13 @@ function resolveEdges(db, rawEdges, repoRoot) {
 
     if (!targetId) {
       unresolvedCount++;
+      unresolved.push({
+        source_id: raw.source_id,
+        source_file: raw.source_id ? raw.source_id.split('#', 1)[0] : '',
+        edge_kind: raw.kind,
+        target_name: raw.target_name || null,
+        target_path_raw: raw.target_path_raw || null,
+      });
       continue;
     }
 
@@ -235,7 +307,7 @@ function resolveEdges(db, rawEdges, repoRoot) {
     });
   }
 
-  return { resolved, unresolvedCount };
+  return { resolved, unresolvedCount, unresolved };
 }
 
 /**
@@ -284,10 +356,41 @@ function setUnresolvedEdgeCount(db, count) {
     .run(count);
 }
 
+/**
+ * 用最近一次 build 的 unresolved 明细替换 unresolved_edges 表。
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {Array<{source_id:string, source_file:string, edge_kind:string, target_name:string|null, target_path_raw:string|null}>} rows
+ */
+function replaceUnresolvedEdges(db, rows) {
+  const truncate = db.prepare('DELETE FROM unresolved_edges');
+  const insert = db.prepare(`
+    INSERT INTO unresolved_edges (
+      source_id, source_file, edge_kind, target_name, target_path_raw
+    ) VALUES (?, ?, ?, ?, ?)
+  `);
+
+  const runAll = db.transaction((items) => {
+    truncate.run();
+    for (const row of items) {
+      insert.run(
+        row.source_id,
+        row.source_file || '',
+        row.edge_kind,
+        row.target_name || null,
+        row.target_path_raw || null
+      );
+    }
+  });
+
+  runAll(rows || []);
+}
+
 module.exports = {
   upsertNodes,
   upsertEdges,
   deleteStaleNodes,
   resolveEdges,
   setUnresolvedEdgeCount,
+  replaceUnresolvedEdges,
 };

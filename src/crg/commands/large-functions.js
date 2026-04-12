@@ -8,7 +8,7 @@
  */
 
 const DEFAULT_MIN_LINES = 50;
-const DEFAULT_LIMIT = 20;
+const DEFAULT_LIMIT = 50;
 
 /**
  * @param {string[]} argv
@@ -35,19 +35,26 @@ function run(argv) {
 
   const { db, repoRoot } = openDb(argv);
 
-  // 查询 function/method 节点，计算行数
-  // line_end - line_start 作为 loc（行数）
+  // 解析 --kind 参数（可多值，逗号分隔）
+  const kindArg = argv.find(a => a.startsWith('--kind='));
+  const kinds = kindArg
+    ? kindArg.slice('--kind='.length).split(',').map(s => s.trim()).filter(Boolean)
+    : ['function', 'method'];
+
+  const placeholders = kinds.map(() => '?').join(', ');
+
+  // 查询指定 kind 节点，计算行数（含首尾两端：+1）
   const rows = db.prepare(`
     SELECT id, name, file_path, kind,
-           (line_end - line_start) AS loc
+           (line_end - line_start + 1) AS loc
     FROM nodes
-    WHERE kind IN ('function', 'method')
+    WHERE kind IN (${placeholders})
       AND line_start IS NOT NULL
       AND line_end IS NOT NULL
-      AND (line_end - line_start) >= ?
+      AND (line_end - line_start + 1) >= ?
     ORDER BY loc DESC
     LIMIT ?
-  `).all(minLines, limit);
+  `).all(...kinds, minLines, limit);
 
   db.close();
 

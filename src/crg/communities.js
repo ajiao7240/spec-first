@@ -107,7 +107,39 @@ function writeCommunities(db) {
   // -------------------------------------------------------------------------
   const allEdges = db.prepare('SELECT source_id, target_id FROM edges').all();
 
-  // 构建 nodeId → communityId 映射（Pass 1 结果）
+  // 将所有节点映射回其文件的 module 节点 ID
+  // 目的：function 体内的 require()（常见于 commands/*.js）会将 imports_from 边
+  // 挂到 function 节点而非 module 节点；提升至 module 级别后，BFS 才能正确
+  // 识别跨文件连通性，避免社区过度分裂
+  const moduleByFilePath = new Map();
+  for (const node of moduleNodes) {
+    moduleByFilePath.set(node.file_path, node.id);
+  }
+  const allNodes = db.prepare('SELECT id, file_path FROM nodes').all();
+  const nodeToModuleId = new Map();
+  for (const node of allNodes) {
+    const modId = moduleByFilePath.get(node.file_path);
+    if (modId) nodeToModuleId.set(node.id, modId);
+  }
+
+  // 构建去重的 module 级别无向边集合（每对文件只计一次）
+  // 用于社区密度/独立性计算和 Pass 3 BFS 连通分析
+  const moduleEdges = []; // { src: moduleId, tgt: moduleId }
+  const seenModuleEdgePairs = new Set();
+  for (const edge of allEdges) {
+    const srcModId = nodeToModuleId.get(edge.source_id);
+    const tgtModId = nodeToModuleId.get(edge.target_id);
+    if (!srcModId || !tgtModId || srcModId === tgtModId) continue;
+    // 无向去重：使用字典序小的作为 key 前缀
+    const key = srcModId < tgtModId
+      ? `${srcModId}|${tgtModId}`
+      : `${tgtModId}|${srcModId}`;
+    if (seenModuleEdgePairs.has(key)) continue;
+    seenModuleEdgePairs.add(key);
+    moduleEdges.push({ src: srcModId, tgt: tgtModId });
+  }
+
+  // 构建 nodeId → communityId 映射（Pass 1 结果，仅含 module 节点）
   const nodeToCommunity = new Map();
   for (const [communityId, nodes] of Object.entries(communityMap)) {
     for (const node of nodes) {
@@ -115,10 +147,10 @@ function writeCommunities(db) {
     }
   }
 
-  // 构建 nodeId → nodeId[] 的社区内邻接表（双向，供 Pass 3 BFS 使用）
-  const intraAdjMap = {}; // communityId → Map<nodeId, nodeId[]>
+  // 构建社区内邻接表（双向，供 Pass 3 BFS 使用）
+  const intraAdjMap = {}; // communityId → Map<moduleId, moduleId[]>
 
-  // 统计每个社区的边
+  // 统计每个社区的边（基于去重 module 级别边）
   const communityStats = {};
   for (const communityId of Object.keys(communityMap)) {
     communityStats[communityId] = {
@@ -128,9 +160,9 @@ function writeCommunities(db) {
     intraAdjMap[communityId] = new Map();
   }
 
-  for (const edge of allEdges) {
-    const srcCommunity = nodeToCommunity.get(edge.source_id);
-    const tgtCommunity = nodeToCommunity.get(edge.target_id);
+  for (const { src: srcModId, tgt: tgtModId } of moduleEdges) {
+    const srcCommunity = nodeToCommunity.get(srcModId);
+    const tgtCommunity = nodeToCommunity.get(tgtModId);
 
     if (!srcCommunity || !tgtCommunity) continue;
 
@@ -140,12 +172,12 @@ function writeCommunities(db) {
 
       // 双向记录供 BFS
       const adj = intraAdjMap[srcCommunity];
-      if (!adj.has(edge.source_id)) adj.set(edge.source_id, []);
-      if (!adj.has(edge.target_id)) adj.set(edge.target_id, []);
-      adj.get(edge.source_id).push(edge.target_id);
-      adj.get(edge.target_id).push(edge.source_id);
+      if (!adj.has(srcModId)) adj.set(srcModId, []);
+      if (!adj.has(tgtModId)) adj.set(tgtModId, []);
+      adj.get(srcModId).push(tgtModId);
+      adj.get(tgtModId).push(srcModId);
     } else {
-      // 跨社区边（source 所在社区计一次 inter_edge）
+      // 跨社区边
       if (communityStats[srcCommunity]) {
         communityStats[srcCommunity].inter_edges++;
       }
@@ -218,19 +250,20 @@ function writeCommunities(db) {
           const subN = subNodes.length;
           const subTotalPossible = subN * (subN - 1);
 
-          // 子社区内部边数（重新统计）
+          // 子社区内部边数（基于 module 级别去重边集合重新统计）
           let subIntraEdges = 0;
-          for (const edge of allEdges) {
-            if (component.has(edge.source_id) && component.has(edge.target_id)) {
+          for (const { src, tgt } of moduleEdges) {
+            if (component.has(src) && component.has(tgt)) {
               subIntraEdges++;
             }
           }
 
-          // 子社区跨边数：原社区内，但连通分量不同
+          // 子社区跨边数：一端在本连通分量内、另一端不在（含同原社区其他分量 + 其他社区）
+          // 计入所有外部连接，使 health_independence 反映该分量的真实独立程度
           let subInterEdges = 0;
-          for (const edge of allEdges) {
-            const srcInSub = component.has(edge.source_id);
-            const tgtInSub = component.has(edge.target_id);
+          for (const { src, tgt } of moduleEdges) {
+            const srcInSub = component.has(src);
+            const tgtInSub = component.has(tgt);
             if (srcInSub !== tgtInSub) {
               subInterEdges++;
             }
@@ -302,12 +335,23 @@ function writeCommunities(db) {
       );
     }
 
-    // 步骤 4: 更新 nodes 的 community_id
+    // 步骤 4: 更新 nodes 的 community_id（仅 module 节点）
     for (const community of finalCommunities) {
       for (const node of community.nodes) {
         updateNodeCommunity.run(community.id, node.id);
       }
     }
+
+    // 步骤 5: 将 module 节点的 community_id 传播到同文件的 function/class/method/interface 节点
+    db.prepare(`
+      UPDATE nodes
+      SET community_id = (
+        SELECT m.community_id FROM nodes m
+        WHERE m.file_path = nodes.file_path AND m.kind = 'module'
+        LIMIT 1
+      )
+      WHERE kind != 'module'
+    `).run();
   });
 
   writeAll();

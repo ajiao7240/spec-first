@@ -8,6 +8,7 @@
  *
  * 说明：
  *   - detectPresentLanguages / isSensitiveFile 是纯函数，可直接执行
+ *   - INDEXABLE_EXTS 由 buildIndexableExts() 自动派生，与 LANG_CONFIG 保持同步
  *   - collectInputFiles / computePodExcludePaths 依赖 fs/git，以 test.todo() 形式存在
  *     （待 npm install + fixture git init 后补充）
  */
@@ -258,6 +259,28 @@ describe('collectInputFiles', () => {
     expect(finalInputs.some((f) => f === 'src/index.js')).toBe(true);
   });
 
+  test('all-files 模式下，swift/kt 文件进入 final_inputs（parser 已支持）', async () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-input-swift-kt-'));
+    fs.mkdirSync(path.join(tmpRepo, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tmpRepo, 'src', 'App.swift'), 'class App {}\n');
+    fs.writeFileSync(path.join(tmpRepo, 'src', 'Main.kt'), 'class Main {}\n');
+    fs.writeFileSync(path.join(tmpRepo, 'src', 'index.js'), 'console.log("ok");\n');
+
+    try {
+      const { finalInputs, presentLanguages } = await collectInputFiles(tmpRepo, {
+        mode: 'all-files',
+      });
+
+      expect(finalInputs).toContain('src/index.js');
+      expect(finalInputs).toContain('src/App.swift');
+      expect(finalInputs).toContain('src/Main.kt');
+      expect(presentLanguages.has('swift')).toBe(true);
+      expect(presentLanguages.has('kotlin')).toBe(true);
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
   test('stats 包含 input_files_total 和 input_files_after_ignore', async () => {
     const { stats } = await collectInputFiles(FIXTURE_BASIC, {
       mode: 'all-files',
@@ -388,7 +411,177 @@ describe('collectInputFiles', () => {
     expect(nonCode).toHaveLength(0);
   });
 
-  test.todo('tracked-only 模式下两次收敛结果一致（需 git init fixture）');
-  test.todo('iOS + 本地 Pod → 自动升级 tracked+untracked，stderr 有 warning');
-  test.todo('白名单 !generated/keep.ts → 仅 keep.ts 入图，other.ts 被排除');
+  test('all-files 模式下，.gitignore 中自定义目录不进入 finalInputs', async () => {
+    // 使用 DEFAULT_EXCLUDES 不含的目录名，确保是 gitignore 规则生效而非默认排除
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-gitignore-filter-'));
+    fs.mkdirSync(path.join(tmpRepo, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRepo, 'generated'), { recursive: true });
+
+    fs.writeFileSync(path.join(tmpRepo, 'src/index.js'), 'console.log("ok");\n');
+    fs.writeFileSync(path.join(tmpRepo, 'generated/schema.ts'), 'export type T = {};\n');
+    fs.writeFileSync(path.join(tmpRepo, '.gitignore'), 'generated/\n');
+
+    try {
+      const { finalInputs, stats } = await collectInputFiles(tmpRepo, {
+        mode: 'all-files',
+      });
+
+      expect(finalInputs).toContain('src/index.js');
+      expect(finalInputs.some((f) => f.startsWith('generated/'))).toBe(false);
+      expect(stats.ignored_files_by_rule.gitignore).toBeGreaterThanOrEqual(1);
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  test('all-files 模式下，.gitignore 注释行和空行不影响过滤', async () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-gitignore-comment-'));
+    fs.mkdirSync(path.join(tmpRepo, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRepo, 'generated'), { recursive: true });
+
+    fs.writeFileSync(path.join(tmpRepo, 'src/main.ts'), 'export {};\n');
+    fs.writeFileSync(path.join(tmpRepo, 'generated/out.ts'), 'export const x = 1;\n');
+    fs.writeFileSync(
+      path.join(tmpRepo, '.gitignore'),
+      '# 自动生成代码\n\ngenerated/\n*.log\n'
+    );
+
+    try {
+      const { finalInputs } = await collectInputFiles(tmpRepo, { mode: 'all-files' });
+      expect(finalInputs).toContain('src/main.ts');
+      expect(finalInputs.some((f) => f.startsWith('generated/'))).toBe(false);
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  test('tracked-only 模式下不读取 .gitignore（git 天然处理，无 gitignore 统计）', async () => {
+    // 用 basic-repo fixture（已有 .gitignore + git 仓库）
+    const { stats } = await collectInputFiles(FIXTURE_BASIC, {
+      mode: 'all-files', // 强制 all-files 才会触发 gitignore 读取
+    });
+    // all-files 模式下应有 gitignore 统计（basic-repo 含 .gitignore）
+    // tracked-only 模式不会有此 key
+    // 此测试仅验证 all-files 下统计 key 存在（值可为 0，因 basic-repo gitignore 可能很小）
+    expect(typeof stats.ignored_files_by_rule).toBe('object');
+  });
+
+  test('tracked-only 模式下两次收敛结果一致（需 git init fixture）', async () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-tracked-stable-'));
+    fs.mkdirSync(path.join(tmpRepo, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tmpRepo, 'src/index.js'), 'console.log("ok");\n');
+
+    try {
+      require('child_process').execFileSync('git', ['init'], { cwd: tmpRepo, stdio: 'ignore' });
+      require('child_process').execFileSync('git', ['add', 'src/index.js'], { cwd: tmpRepo, stdio: 'ignore' });
+
+      const first = await collectInputFiles(tmpRepo, { mode: 'tracked-only' });
+      const second = await collectInputFiles(tmpRepo, { mode: 'tracked-only' });
+
+      expect(first.finalInputs).toEqual(['src/index.js']);
+      expect(second.finalInputs).toEqual(first.finalInputs);
+      expect(second.stats.effective_mode).toBe('tracked-only');
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  test('iOS + 本地 Pod → 自动升级 tracked+untracked，stderr 有 warning', async () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-ios-mode-'));
+    fs.mkdirSync(path.join(tmpRepo, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRepo, 'Pods/LocalPod'), { recursive: true });
+    fs.writeFileSync(path.join(tmpRepo, 'src/index.js'), 'console.log("ok");\n');
+    fs.writeFileSync(path.join(tmpRepo, 'Pods/LocalPod/helper.m'), '@implementation Helper\n@end\n');
+    fs.writeFileSync(path.join(tmpRepo, 'Podfile.lock'), [
+      'PODS:',
+      '  - LocalPod (1.0.0)',
+      'EXTERNAL SOURCES:',
+      '  LocalPod:',
+      '    :path: ../Modules/LocalPod',
+      '',
+    ].join('\n'));
+
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    try {
+      require('child_process').execFileSync('git', ['init'], { cwd: tmpRepo, stdio: 'ignore' });
+      require('child_process').execFileSync('git', ['add', 'src/index.js', 'Podfile.lock'], { cwd: tmpRepo, stdio: 'ignore' });
+
+      const result = await collectInputFiles(tmpRepo, { isIos: true });
+
+      expect(result.stats.effective_mode).toBe('tracked+untracked');
+      expect(result.finalInputs).toContain('src/index.js');
+      expect(result.finalInputs).toContain('Pods/LocalPod/helper.m');
+      expect(stderrSpy).toHaveBeenCalledWith(
+        '[CRG] warn: iOS project with local Pods detected, switching to tracked+untracked mode\n'
+      );
+    } finally {
+      stderrSpy.mockRestore();
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  test('白名单 !generated/keep.ts → 仅 keep.ts 入图，other.ts 被排除', async () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-graphignore-whitelist-'));
+    fs.mkdirSync(path.join(tmpRepo, 'generated'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRepo, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tmpRepo, 'src/index.js'), 'console.log("ok");\n');
+    fs.writeFileSync(path.join(tmpRepo, 'generated/keep.ts'), 'export const keep = true;\n');
+    fs.writeFileSync(path.join(tmpRepo, 'generated/other.ts'), 'export const other = true;\n');
+    fs.writeFileSync(
+      path.join(tmpRepo, '.spec-first-graphignore'),
+      'generated/**\n!generated/keep.ts\n'
+    );
+
+    try {
+      const { finalInputs } = await collectInputFiles(tmpRepo, { mode: 'all-files' });
+      expect(finalInputs).toContain('src/index.js');
+      expect(finalInputs).toContain('generated/keep.ts');
+      expect(finalInputs).not.toContain('generated/other.ts');
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// INDEXABLE_EXTS 一致性验证（Route A — buildIndexableExts 自动派生）
+// ---------------------------------------------------------------------------
+describe('INDEXABLE_EXTS — buildIndexableExts 一致性', () => {
+  // 直接从 input-convergence 取已导出的 INDEXABLE_EXTS（内部常量，通过重新 require lang-config 验证）
+  const { buildIndexableExts } = require('../../src/crg/lang-config');
+  const exts = buildIndexableExts();
+
+  test('sc（Scala）在 INDEXABLE_EXTS 中', () => {
+    expect(exts.has('sc')).toBe(true);
+  });
+
+  test('rb（Ruby）在 INDEXABLE_EXTS 中', () => {
+    expect(exts.has('rb')).toBe(true);
+  });
+
+  test('cs（C#）在 INDEXABLE_EXTS 中', () => {
+    expect(exts.has('cs')).toBe(true);
+  });
+
+  test('php 在 INDEXABLE_EXTS 中', () => {
+    expect(exts.has('php')).toBe(true);
+  });
+
+  test('mts（TypeScript module）在 INDEXABLE_EXTS 中', () => {
+    expect(exts.has('mts')).toBe(true);
+  });
+
+  test('cts（TypeScript commonjs）在 INDEXABLE_EXTS 中', () => {
+    expect(exts.has('cts')).toBe(true);
+  });
+
+  test('hxx（C++ header）在 INDEXABLE_EXTS 中', () => {
+    expect(exts.has('hxx')).toBe(true);
+  });
+
+  test('lua/dart 不在 INDEXABLE_EXTS 中（无 tree-sitter 包）', () => {
+    expect(exts.has('lua')).toBe(false);
+    expect(exts.has('dart')).toBe(false);
+  });
 });

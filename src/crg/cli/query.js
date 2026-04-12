@@ -23,7 +23,7 @@ const { makeEnvelope } = require('./envelope');
 
 /**
  * 每个 pattern 需要的参数名
- * @type {Record<string, 'symbol'|'module'|'subject'>}
+ * @type {Record<string, 'symbol'|'module'|'subject'|'file'>}
  */
 const PATTERN_PARAM = {
   callers_of:      'symbol',
@@ -34,6 +34,9 @@ const PATTERN_PARAM = {
   dependencies_of: 'module',
   tests_for:       'subject',
   similar_to:      'symbol',
+  children_of:     'module',
+  file_summary:    'file',
+  inheritors_of:   'symbol',
 };
 
 /**
@@ -49,6 +52,9 @@ const PATTERN_REASON = {
   dependencies_of: 'import_analysis',
   tests_for:       'naming_convention',
   similar_to:      'directory_proximity',
+  children_of:     'containment_analysis',
+  file_summary:    'file_structure',
+  inheritors_of:   'inheritance_analysis',
 };
 
 // ---------------------------------------------------------------------------
@@ -112,6 +118,12 @@ function nodeToFactItem(node, inferenceReason) {
  * @returns {object[]}
  */
 function executeQuery(db, pattern, paramVal) {
+  // 支持两种查找方式：
+  //   1. 精确节点 ID（含 '#'，如 "src/foo.js#module#foo.js#L0"）→ WHERE id = ?
+  //   2. 短名称（如 "envelope.js"、"runCli"）→ WHERE name = ?
+  // 同时兼容两者：WHERE id = ? OR name = ?
+  const nodeIdSubquery = '(SELECT id FROM nodes WHERE id = ? OR name = ?)';
+
   switch (pattern) {
     case 'callers_of': {
       // 找所有调用了 symbol 的节点
@@ -120,9 +132,10 @@ function executeQuery(db, pattern, paramVal) {
           `SELECT DISTINCT n.*
            FROM edges e
            JOIN nodes n ON n.id = e.source_id
-           WHERE e.target_id = ? AND e.kind = 'calls'`
+           WHERE e.target_id IN ${nodeIdSubquery}
+             AND e.kind = 'calls'`
         )
-        .all(paramVal);
+        .all(paramVal, paramVal);
       return rows;
     }
 
@@ -133,9 +146,10 @@ function executeQuery(db, pattern, paramVal) {
           `SELECT DISTINCT n.*
            FROM edges e
            JOIN nodes n ON n.id = e.target_id
-           WHERE e.source_id = ? AND e.kind = 'calls'`
+           WHERE e.source_id IN ${nodeIdSubquery}
+             AND e.kind = 'calls'`
         )
-        .all(paramVal);
+        .all(paramVal, paramVal);
       return rows;
     }
 
@@ -146,9 +160,10 @@ function executeQuery(db, pattern, paramVal) {
           `SELECT DISTINCT n.*
            FROM edges e
            JOIN nodes n ON n.id = e.source_id
-           WHERE e.target_id = ? AND e.kind = 'imports_from'`
+           WHERE e.target_id IN ${nodeIdSubquery}
+             AND e.kind = 'imports_from'`
         )
-        .all(paramVal);
+        .all(paramVal, paramVal);
       return rows;
     }
 
@@ -159,9 +174,10 @@ function executeQuery(db, pattern, paramVal) {
           `SELECT DISTINCT n.*
            FROM edges e
            JOIN nodes n ON n.id = e.target_id
-           WHERE e.source_id = ? AND e.kind = 'imports_from'`
+           WHERE e.source_id IN ${nodeIdSubquery}
+             AND e.kind = 'imports_from'`
         )
-        .all(paramVal);
+        .all(paramVal, paramVal);
       return rows;
     }
 
@@ -172,9 +188,10 @@ function executeQuery(db, pattern, paramVal) {
           `SELECT DISTINCT n.*
            FROM edges e
            JOIN nodes n ON n.id = e.source_id
-           WHERE e.target_id = ? AND e.kind = 'imports_from'`
+           WHERE e.target_id IN ${nodeIdSubquery}
+             AND e.kind = 'imports_from'`
         )
-        .all(paramVal);
+        .all(paramVal, paramVal);
       return rows;
     }
 
@@ -185,9 +202,10 @@ function executeQuery(db, pattern, paramVal) {
           `SELECT DISTINCT n.*
            FROM edges e
            JOIN nodes n ON n.id = e.target_id
-           WHERE e.source_id = ? AND e.kind = 'imports_from'`
+           WHERE e.source_id IN ${nodeIdSubquery}
+             AND e.kind = 'imports_from'`
         )
-        .all(paramVal);
+        .all(paramVal, paramVal);
       return rows;
     }
 
@@ -198,24 +216,65 @@ function executeQuery(db, pattern, paramVal) {
           `SELECT DISTINCT n.*
            FROM edges e
            JOIN nodes n ON n.id = e.source_id
-           WHERE e.target_id = ? AND e.kind = 'imports_from' AND n.is_test = 1`
+           WHERE e.target_id IN ${nodeIdSubquery}
+             AND e.kind = 'imports_from' AND n.is_test = 1`
         )
-        .all(paramVal);
+        .all(paramVal, paramVal);
       return rows;
     }
 
     case 'similar_to': {
-      // 在同一社区中的其他节点（社区相似性）
+      // 在同一社区中的其他节点（支持节点 ID 或短名称，社区相似性）
       const rows = db
         .prepare(
           `SELECT *
            FROM nodes
            WHERE community_id = (
-             SELECT community_id FROM nodes WHERE id = ?
+             SELECT community_id FROM nodes WHERE id = ? OR name = ? LIMIT 1
            )
            AND kind != 'module'
-           AND id != ?
+           AND id != ? AND name != ?
            LIMIT 10`
+        )
+        .all(paramVal, paramVal, paramVal, paramVal);
+      return rows;
+    }
+
+    case 'children_of': {
+      // 找 module 节点通过 contains 边直接包含的子节点
+      const rows = db
+        .prepare(
+          `SELECT DISTINCT n.*
+           FROM edges e
+           JOIN nodes n ON n.id = e.target_id
+           WHERE e.source_id IN ${nodeIdSubquery}
+             AND e.kind = 'contains'`
+        )
+        .all(paramVal, paramVal);
+      return rows;
+    }
+
+    case 'file_summary': {
+      // 返回指定文件路径内的所有非 module 节点
+      const rows = db
+        .prepare(
+          `SELECT * FROM nodes
+           WHERE file_path = ? AND kind != 'module'
+           ORDER BY line_start ASC`
+        )
+        .all(paramVal);
+      return rows;
+    }
+
+    case 'inheritors_of': {
+      // 找通过 inherits 或 implements 边继承/实现了 symbol 的节点
+      const rows = db
+        .prepare(
+          `SELECT DISTINCT n.*
+           FROM edges e
+           JOIN nodes n ON n.id = e.source_id
+           WHERE e.target_id IN ${nodeIdSubquery}
+             AND e.kind IN ('inherits', 'implements')`
         )
         .all(paramVal, paramVal);
       return rows;
@@ -234,7 +293,7 @@ function executeQuery(db, pattern, paramVal) {
  * 解析 query 子命令参数
  *
  * @param {string[]} argv
- * @returns {{ repo: string|null, pattern: string|null, symbol: string|null, module: string|null, subject: string|null }}
+ * @returns {{ repo: string|null, pattern: string|null, symbol: string|null, module: string|null, subject: string|null, file: string|null }}
  */
 function parseQueryArgs(argv) {
   let repo = null;
@@ -242,6 +301,7 @@ function parseQueryArgs(argv) {
   let symbol = null;
   let mod = null;
   let subject = null;
+  let file = null;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -265,10 +325,14 @@ function parseQueryArgs(argv) {
       subject = arg.slice('--subject='.length);
     } else if (arg === '--subject' && i + 1 < argv.length) {
       subject = argv[++i];
+    } else if (arg.startsWith('--file=')) {
+      file = arg.slice('--file='.length);
+    } else if (arg === '--file' && i + 1 < argv.length) {
+      file = argv[++i];
     }
   }
 
-  return { repo, pattern, symbol, module: mod, subject };
+  return { repo, pattern, symbol, module: mod, subject, file };
 }
 
 // ---------------------------------------------------------------------------
@@ -282,7 +346,7 @@ function parseQueryArgs(argv) {
  */
 function run(argv) {
   let db;
-  const { repo: repoRaw, pattern, symbol, module: mod, subject } = parseQueryArgs(argv);
+  const { repo: repoRaw, pattern, symbol, module: mod, subject, file } = parseQueryArgs(argv);
 
   // --pattern 必填
   if (!pattern) {
@@ -307,6 +371,7 @@ function run(argv) {
   const providedValue = requiredParam === 'symbol' ? symbol
     : requiredParam === 'module' ? mod
     : requiredParam === 'subject' ? subject
+    : requiredParam === 'file' ? file
     : null;
 
   if (!providedValue) {
@@ -316,12 +381,12 @@ function run(argv) {
     process.exit(1);
   }
 
-  // 校验未期望的参数（参数不匹配时 exit 1）
-  // 若传入了不期望的参数，给出警告（不 exit，但 exit 1 是验收标准）
+  // 校验未期望的参数
   const unexpectedParams = [];
   if (requiredParam !== 'symbol' && symbol !== null) unexpectedParams.push('--symbol');
   if (requiredParam !== 'module' && mod !== null) unexpectedParams.push('--module');
   if (requiredParam !== 'subject' && subject !== null) unexpectedParams.push('--subject');
+  if (requiredParam !== 'file' && file !== null) unexpectedParams.push('--file');
 
   if (unexpectedParams.length > 0) {
     process.stderr.write(

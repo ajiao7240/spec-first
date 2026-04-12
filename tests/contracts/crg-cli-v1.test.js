@@ -373,6 +373,10 @@ describe('crg-cli-v1 contract', () => {
               if (sql.includes('SELECT last_built, unresolved_edge_count')) {
                 return { get: () => ({ last_built: '2026-04-11T00:00:00.000Z', unresolved_edge_count: 1 }) };
               }
+              if (sql.includes('FROM unresolved_edges') && sql.includes('GROUP BY edge_kind')) return { all: () => [] };
+              if (sql.includes('FROM unresolved_edges') && sql.includes('GROUP BY source_file')) return { all: () => [] };
+              if (sql.includes('FROM unresolved_edges') && sql.includes('LIMIT 10')) return { all: () => [] };
+              if (sql.includes('SELECT COUNT(*) AS c FROM unresolved_edges')) return { get: () => ({ c: 0 }) };
               if (sql.includes('SELECT file_path, sha256 FROM fingerprints')) return { all: () => [] };
               return { get: () => ({}), all: () => [] };
             }),
@@ -394,6 +398,12 @@ describe('crg-cli-v1 contract', () => {
       expect(['small', 'optimal', 'large']).toContain(payload.data.corpus_health.status);
       expect(typeof payload.data.corpus_health.total_loc).toBe('number');
       expect(typeof payload.data.unresolved_edge_count).toBe('number');
+      expect(payload.data.last_build_unresolved_summary).toEqual({
+        top_kinds: [],
+        top_source_files: [],
+        sample_count: 0,
+      });
+      expect(Array.isArray(payload.data.last_build_unresolved_samples)).toBe(true);
       expect(new Date(payload.data.last_built).toISOString()).toBe(payload.data.last_built);
       outputSpy.mockRestore();
     });
@@ -479,7 +489,7 @@ describe('crg-cli-v1 contract', () => {
                 if (sql.includes('SELECT id, name, file_path, kind FROM nodes WHERE id = ?')) {
                   return { get: () => ({ id: 'target', name: 'target', file_path: 'src/target.js', kind: 'function' }) };
                 }
-                if (sql.includes("SELECT source_id, target_id FROM edges WHERE kind = 'calls'")) {
+                if (sql.includes('SELECT source_id, target_id FROM edges WHERE kind IN')) {
                   return { all: () => [{ source_id: 'caller', target_id: 'target' }] };
                 }
                 if (sql.includes('WHERE id IN')) {
@@ -935,7 +945,7 @@ describe('crg-cli-v1 contract', () => {
 
   // ─── crg review-context ────────────────────────────────────────────────────
   describe('crg review-context', () => {
-    test('data 含 diff_summary, affected_nodes, candidate_tests', () => {
+    test('data 含 diff_summary, affected_nodes, candidate_tests, graph_expansion, review_guidance', () => {
       const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
       const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code) => {
         throw new Error(`EXIT:${code}`);
@@ -954,6 +964,7 @@ describe('crg-cli-v1 contract', () => {
         }));
         jest.doMock('../../src/crg/changes', () => ({
           detectChanges: () => [],
+          assessNodeRiskBatch: () => new Map(),
         }));
         jest.doMock('../../src/crg/input-convergence', () => ({
           isSensitiveFile: () => false,
@@ -968,8 +979,117 @@ describe('crg-cli-v1 contract', () => {
       expect(payload.data).toHaveProperty('diff_summary');
       expect(payload.data).toHaveProperty('affected_nodes');
       expect(payload.data).toHaveProperty('candidate_tests');
+      expect(payload.data).toHaveProperty('graph_expansion');
+      expect(payload.data).toHaveProperty('review_guidance');
       outputSpy.mockRestore();
       exitSpy.mockRestore();
+    });
+
+    test('graph_expansion 是数组，每项含 depth 和 risk_score', () => {
+      const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      jest.isolateModules(() => {
+        jest.doMock('../../src/crg/cli/open-db', () => ({
+          openDb: () => ({
+            repoRoot: '/repo',
+            db: {
+              prepare: jest.fn((sql) => {
+                // edges WHERE kind='calls': 返回一条 caller→target 边
+                if (sql.includes("WHERE kind = 'calls'")) {
+                  return { all: jest.fn(() => [{ source_id: 'caller:x', target_id: 'affected:y' }]) };
+                }
+                // affected_nodes: nodes WHERE file_path = ?
+                if (sql.includes("WHERE file_path = ? AND kind != 'module'")) {
+                  return {
+                    all: jest.fn(() => [{
+                      id: 'affected:y',
+                      name: 'doWork',
+                      file_path: 'src/worker.js',
+                      kind: 'function',
+                      line_start: 5,
+                      line_end: 20,
+                      is_test: 0,
+                    }]),
+                  };
+                }
+                // expansion batch query: nodes WHERE id IN (...)
+                if (sql.includes('WHERE id IN')) {
+                  return {
+                    all: jest.fn(() => [{
+                      id: 'caller:x',
+                      name: 'caller',
+                      file_path: 'src/caller.js',
+                      kind: 'function',
+                      line_start: 1,
+                      line_end: 10,
+                      is_test: 0,
+                    }]),
+                  };
+                }
+                // assessNodeRisk sub-queries: return safe defaults
+                return { get: jest.fn(() => ({ cnt: 0 })), all: jest.fn(() => []) };
+              }),
+            },
+          }),
+        }));
+        jest.doMock('../../src/crg/changes', () => ({
+          detectChanges: () => [{ file: 'src/worker.js', risk_level: 'Medium', review_priorities: [], test_gaps: [] }],
+          assessNodeRiskBatch: (ids) => { const m = new Map(); ids.forEach(id => m.set(id, 0.3)); return m; },
+        }));
+        jest.doMock('../../src/crg/input-convergence', () => ({
+          isSensitiveFile: () => false,
+        }));
+
+        const { run: isolatedRun } = require('../../src/crg/commands/review-context');
+        isolatedRun(['--repo=/repo', '--since=HEAD~1']);
+      });
+
+      const payload = JSON.parse(outputSpy.mock.calls[0][0]);
+      expect(Array.isArray(payload.data.graph_expansion)).toBe(true);
+      if (payload.data.graph_expansion.length > 0) {
+        const item = payload.data.graph_expansion[0];
+        expect(typeof item.depth).toBe('number');
+        expect(item.depth).toBeGreaterThanOrEqual(1);
+        expect(item.depth).toBeLessThanOrEqual(2);
+        expect(typeof item.risk_score).toBe('number');
+        expect(item.risk_score).toBeGreaterThanOrEqual(0);
+        expect(item.risk_score).toBeLessThanOrEqual(1);
+        expectFactItemShape(item);
+      }
+      outputSpy.mockRestore();
+    });
+
+    test('review_guidance 是字符串数组，始终含 BLAST_RADIUS 条目', () => {
+      const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      jest.isolateModules(() => {
+        jest.doMock('../../src/crg/cli/open-db', () => ({
+          openDb: () => ({
+            repoRoot: '/repo',
+            db: {
+              prepare: jest.fn(() => ({
+                all: jest.fn(() => []),
+              })),
+            },
+          }),
+        }));
+        jest.doMock('../../src/crg/changes', () => ({
+          detectChanges: () => [],
+          assessNodeRiskBatch: () => new Map(),
+        }));
+        jest.doMock('../../src/crg/input-convergence', () => ({
+          isSensitiveFile: () => false,
+        }));
+
+        const { run: isolatedRun } = require('../../src/crg/commands/review-context');
+        isolatedRun(['--repo=/repo', '--since=HEAD~1']);
+      });
+
+      const payload = JSON.parse(outputSpy.mock.calls[0][0]);
+      expect(Array.isArray(payload.data.review_guidance)).toBe(true);
+      payload.data.review_guidance.forEach(item => expect(typeof item).toBe('string'));
+      expect(payload.data.review_guidance.some(s => s.startsWith('BLAST_RADIUS:'))).toBe(true);
+      outputSpy.mockRestore();
     });
 
     test('candidate_tests 推断项含统一推断字段', () => {
@@ -995,6 +1115,7 @@ describe('crg-cli-v1 contract', () => {
           }));
           jest.doMock('../../src/crg/changes', () => ({
             detectChanges: () => [{ file: 'src/foo.js', risk_level: 'Medium' }],
+            assessNodeRiskBatch: () => new Map(),
           }));
           jest.doMock('../../src/crg/input-convergence', () => ({
             isSensitiveFile: () => false,

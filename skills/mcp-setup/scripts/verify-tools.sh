@@ -75,9 +75,40 @@ check_mcp_configured() {
   fi
 }
 
+check_crg_readiness() {
+  local cli_available=false
+  local native_modules="unchecked"
+
+  # 检查 CRG CLI 路由器是否可执行（5秒超时）
+  if command -v spec-first >/dev/null 2>&1; then
+    if timeout 5 spec-first crg --help >/dev/null 2>&1 2>/dev/null; then
+      cli_available=true
+    elif perl -e 'alarm shift; exec @ARGV' 5 spec-first crg --help >/dev/null 2>&1; then
+      cli_available=true
+    fi
+  fi
+
+  # CLI 可用时检查原生模块
+  if [ "$cli_available" = "true" ]; then
+    native_modules="ok"
+    if ! node -e "try{require('better-sqlite3')}catch{process.exit(1)}" 2>/dev/null; then
+      native_modules="missing"
+    fi
+    if [ "$native_modules" = "ok" ] && \
+       ! node -e "try{require('tree-sitter')}catch{process.exit(1)}" 2>/dev/null; then
+      native_modules="missing"
+    fi
+  fi
+
+  echo "{\"cli_available\": $cli_available, \"native_modules\": \"$native_modules\"}"
+}
+
 serena_configured=$(check_mcp_configured "serena")
 context7_configured=$(check_mcp_configured "context7")
 sequential_thinking_configured=$(check_mcp_configured "sequential-thinking")
+playwright_configured=$(check_mcp_configured "playwright")
+crg_info=$(check_crg_readiness)
+crg_checked_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 setup_success=false
 if [ "$serena_configured" = "true" ] \
@@ -90,6 +121,8 @@ echo "🔎 正在核对当前宿主的基础 MCP 配置..."
 echo "  serena: ${serena_configured}"
 echo "  context7: ${context7_configured}"
 echo "  sequential-thinking: ${sequential_thinking_configured}"
+echo "  playwright: ${playwright_configured}"
+echo "  crg: $(echo "$crg_info" | jq -r '.cli_available') (native_modules: $(echo "$crg_info" | jq -r '.native_modules'))"
 
 if ! mkdir -p "$HOST_SETUP_DIR" 2>/dev/null; then
   echo "verify-tools.sh: 无法创建目录 ${HOST_SETUP_DIR}" >&2
@@ -107,22 +140,35 @@ _RM=$(command -v rm)
 trap '${_RM:-rm} -f "$tmp"' EXIT
 chmod 600 "$tmp"
 
+crg_cli_available=$(echo "$crg_info" | jq -r '.cli_available')
+crg_native_modules=$(echo "$crg_info" | jq -r '.native_modules')
+
 jq -n \
   --arg host "$HOST" \
   --arg completed_at "$completed_at" \
   --argjson serena_configured "$serena_configured" \
   --argjson context7_configured "$context7_configured" \
   --argjson sequential_thinking_configured "$sequential_thinking_configured" \
+  --argjson playwright_configured "$playwright_configured" \
   --argjson setup_success "$setup_success" \
+  --argjson crg_cli_available "$crg_cli_available" \
+  --arg crg_native_modules "$crg_native_modules" \
+  --arg crg_checked_at "$crg_checked_at" \
   '{
-    "version": "4",
+    "version": "5",
     "host": $host,
     "completed_at": $completed_at,
     "setup_success": $setup_success,
     "tools": {
       "serena": { "configured": $serena_configured },
       "context7": { "configured": $context7_configured },
-      "sequential-thinking": { "configured": $sequential_thinking_configured }
+      "sequential-thinking": { "configured": $sequential_thinking_configured },
+      "playwright": { "configured": $playwright_configured }
+    },
+    "crg": {
+      "cli_available": $crg_cli_available,
+      "native_modules": $crg_native_modules,
+      "checked_at": $crg_checked_at
     }
   }' > "$tmp"
 

@@ -8,7 +8,15 @@
  */
 
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const { parseFile, inferLanguage, TEST_FILE_RE } = require('../../src/crg/parser');
+const {
+  GENERIC_CLASS_TYPES,
+  GENERIC_FUNCTION_TYPES,
+  GENERIC_IMPORT_TYPES,
+  extractGenericNodes,
+} = require('../../src/crg/parser');
 
 const REPO_ROOT = path.join(__dirname, '../fixtures/parser');
 
@@ -80,12 +88,12 @@ describe('inferLanguage', () => {
     expect(inferLanguage('View.m')).toBe('objc');
   });
 
-  test('.swift → null（v1 不支持）', () => {
-    expect(inferLanguage('App.swift')).toBeNull();
+  test('.swift → swift', () => {
+    expect(inferLanguage('App.swift')).toBe('swift');
   });
 
-  test('.kt → null（v1 不支持）', () => {
-    expect(inferLanguage('Main.kt')).toBeNull();
+  test('.kt → kotlin', () => {
+    expect(inferLanguage('Main.kt')).toBe('kotlin');
   });
 
   test('unknown.xyz → null', () => {
@@ -126,21 +134,32 @@ describe('parseFile - 敏感文件过滤', () => {
 });
 
 // ---------------------------------------------------------------------------
-// parseFile - 不支持的语言
+// parseFile - Swift / Kotlin（新增语言）
 // ---------------------------------------------------------------------------
-describe('parseFile - 不支持的语言', () => {
-  test('unsupported_lang：.swift 文件返回 skipped=true，reason=unsupported_lang', () => {
-    const result = parseFile('fake/App.swift', REPO_ROOT);
-    expect(result.skipped).toBe(true);
-    expect(result.reason).toBe('unsupported_lang');
+describe('parseFile - Swift / Kotlin', () => {
+  test('Swift 文件解析成功，skipped=false，含 class/function 节点', () => {
+    const result = parseFile('swift/App.swift', REPO_ROOT);
+    expect(result.skipped).toBe(false);
+    const kinds = result.nodes.map((n) => n.kind);
+    expect(kinds).toContain('module');
+    expect(kinds).toContain('class');
+    expect(kinds).toContain('function');
   });
 
-  test('unsupported_lang：.kt 文件返回 skipped=true，reason=unsupported_lang', () => {
-    const result = parseFile('fake/Main.kt', REPO_ROOT);
-    expect(result.skipped).toBe(true);
-    expect(result.reason).toBe('unsupported_lang');
+  test('Kotlin 文件解析成功，skipped=false，含 class/function 节点', () => {
+    const result = parseFile('kotlin/Main.kt', REPO_ROOT);
+    expect(result.skipped).toBe(false);
+    const kinds = result.nodes.map((n) => n.kind);
+    expect(kinds).toContain('module');
+    expect(kinds).toContain('class');
+    expect(kinds).toContain('function');
   });
+});
 
+// ---------------------------------------------------------------------------
+// parseFile - 未知扩展名
+// ---------------------------------------------------------------------------
+describe('parseFile - 未知扩展名', () => {
   test('未知扩展名返回 skipped=true，reason=unsupported_lang', () => {
     const result = parseFile('fake/data.xyz', REPO_ROOT);
     expect(result.skipped).toBe(true);
@@ -249,11 +268,104 @@ describe('parseFile - 返回值结构', () => {
 // parseFile - JS AST（tree-sitter 可用时）
 // ---------------------------------------------------------------------------
 describe('parseFile - JS AST（tree-sitter 可用时）', () => {
-  test.todo('JS 文件含函数声明 → nodes 含 kind=function，symbol_key 格式正确');
-  test.todo('TS 文件含类声明 → nodes 含 kind=class + kind=method');
-  test.todo('import 语句 → rawEdges 含 kind=imports_from');
-  test.todo('variable_declarator RHS 为箭头函数 → kind=function');
-  test.todo('测试文件中的函数 → is_test=1');
+  test('JS 文件含函数声明 → nodes 含 kind=function，symbol_key 格式正确', () => {
+    const result = parseFile('js/basic.js', REPO_ROOT);
+    expect(result.skipped).toBe(false);
+
+    const functionNode = result.nodes.find((node) => node.kind === 'function');
+    expect(functionNode).toBeDefined();
+    expect(functionNode.id).toMatch(/^js\/basic\.js#function#[^#]+#L\d+$/);
+  });
+
+  test('TS 文件含类声明 → nodes 含 kind=class + kind=method', () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-parser-ts-'));
+    const relPath = 'basic.ts';
+    fs.writeFileSync(
+      path.join(tmpRepo, relPath),
+      [
+        'class Service {',
+        '  run() {',
+        '    return 1;',
+        '  }',
+        '}',
+        '',
+      ].join('\n')
+    );
+
+    try {
+      const result = parseFile(relPath, tmpRepo);
+      expect(result.skipped).toBe(false);
+      expect(result.nodes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: 'class', name: 'Service' }),
+          expect.objectContaining({ kind: 'method', name: 'run' }),
+        ])
+      );
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  test('import 语句 → rawEdges 含 kind=imports_from', () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-parser-import-'));
+    const relPath = 'imports.js';
+    fs.writeFileSync(
+      path.join(tmpRepo, relPath),
+      "import { helper as alias } from './utils';\n"
+    );
+
+    try {
+      const result = parseFile(relPath, tmpRepo);
+      expect(result.skipped).toBe(false);
+      expect(result.rawEdges).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            source_id: 'imports.js#module#imports.js#L0',
+            target_path_raw: './utils',
+            kind: 'imports_from',
+          }),
+        ])
+      );
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  test('variable_declarator RHS 为箭头函数 → kind=function', () => {
+    const result = parseFile('js/calls.js', REPO_ROOT);
+    expect(result.skipped).toBe(false);
+    expect(result.nodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'function', name: 'worker' }),
+      ])
+    );
+  });
+
+  test('测试文件中的函数 → is_test=1', () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-parser-testfile-'));
+    const relPath = 'sum.test.js';
+    fs.writeFileSync(
+      path.join(tmpRepo, relPath),
+      [
+        'function helper() {',
+        '  return 1;',
+        '}',
+        '',
+      ].join('\n')
+    );
+
+    try {
+      const result = parseFile(relPath, tmpRepo);
+      expect(result.skipped).toBe(false);
+      expect(result.nodes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: 'function', name: 'helper', is_test: 1 }),
+        ])
+      );
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
 
   test('JS 函数调用会生成 calls raw edge', () => {
     const result = parseFile('js/calls.js', REPO_ROOT);
@@ -280,6 +392,27 @@ describe('parseFile - JS AST（tree-sitter 可用时）', () => {
         }),
       ])
     );
+  });
+
+  test('顶层 CommonJS require() 生成的 imports_from 边应归属 module 节点', () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-parser-'));
+    const relPath = 'index.js';
+    fs.writeFileSync(
+      path.join(tmpRepo, relPath),
+      "const helper = require('./lib/helper');\n"
+    );
+
+    try {
+      const result = parseFile(relPath, tmpRepo);
+      expect(result.skipped).toBe(false);
+
+      const importEdge = result.rawEdges.find((edge) => edge.kind === 'imports_from');
+      expect(importEdge).toBeDefined();
+      expect(importEdge.source_id).toBe('index.js#module#index.js#L0');
+      expect(importEdge.target_path_raw).toBe('./lib/helper');
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
   });
 });
 
@@ -317,5 +450,114 @@ describe('TEST_FILE_RE', () => {
 
   test('包含 test 但不是测试文件格式的路径', () => {
     expect(TEST_FILE_RE.test('context.js')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// inferLanguage — Route A 修复验证：mts / cts / hxx 历史遗漏
+// ---------------------------------------------------------------------------
+describe('inferLanguage - Route A mts/cts/hxx 修复验证', () => {
+  test('module.mts → typescript（历史遗漏，LANG_CONFIG 修复）', () => {
+    expect(inferLanguage('module.mts')).toBe('typescript');
+  });
+
+  test('config.cts → typescript（历史遗漏，LANG_CONFIG 修复）', () => {
+    expect(inferLanguage('config.cts')).toBe('typescript');
+  });
+
+  test('header.hxx → cpp（历史遗漏，LANG_CONFIG 修复）', () => {
+    expect(inferLanguage('header.hxx')).toBe('cpp');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractGenericNodes — 通用提取器直接验证
+// ---------------------------------------------------------------------------
+describe('extractGenericNodes - 通用提取器', () => {
+  /**
+   * 构造最小化 tree-sitter-like 伪节点，用于直接测试 extractGenericNodes 逻辑，
+   * 无需实际解析器。
+   */
+  function makeTsNode(type, { named = true, children = [], fields = {}, text = '' } = {}) {
+    const node = {
+      type,
+      isNamed: named,
+      text,
+      childCount: children.length,
+      child: (i) => children[i],
+      childForFieldName: (name) => fields[name] || null,
+      startPosition: { row: 0 },
+      endPosition: { row: 2 },
+    };
+    return node;
+  }
+
+  test('class_declaration 节点 → class 节点', () => {
+    const nameNode = makeTsNode('identifier', { named: true, text: 'Foo', children: [] });
+    const classNode = makeTsNode('class_declaration', {
+      named: true,
+      fields: { name: nameNode },
+      children: [],
+    });
+    const nodes = [];
+    const rawEdges = [];
+    // module 节点 id 模拟
+    extractGenericNodes(classNode, 'src/Foo.java', false, nodes, rawEdges, 'src/Foo.java#module#Foo.java#L0');
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].kind).toBe('class');
+    expect(nodes[0].name).toBe('Foo');
+  });
+
+  test('function_declaration 节点 → function 节点', () => {
+    const nameNode = makeTsNode('identifier', { named: true, text: 'doWork', children: [] });
+    const fnNode = makeTsNode('function_declaration', {
+      named: true,
+      fields: { name: nameNode },
+      children: [],
+    });
+    const nodes = [];
+    const rawEdges = [];
+    extractGenericNodes(fnNode, 'src/utils.lua', false, nodes, rawEdges, 'src/utils.lua#module#utils.lua#L0');
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].kind).toBe('function');
+    expect(nodes[0].name).toBe('doWork');
+  });
+
+  test('import_declaration 节点 → imports_from 边，不产生节点', () => {
+    const pathNode = makeTsNode('string', { named: true, text: '"fmt"', children: [] });
+    const importNode = makeTsNode('import_declaration', {
+      named: true,
+      fields: { path: pathNode },
+      children: [],
+    });
+    const nodes = [];
+    const rawEdges = [];
+    const parentId = 'src/main.go#module#main.go#L0';
+    extractGenericNodes(importNode, 'src/main.go', false, nodes, rawEdges, parentId);
+    expect(nodes).toHaveLength(0);
+    expect(rawEdges).toHaveLength(1);
+    expect(rawEdges[0].kind).toBe('imports_from');
+    expect(rawEdges[0].target_path_raw).toBe('fmt');
+  });
+
+  test('isNamed=false 节点被跳过', () => {
+    const anonymousNode = makeTsNode('class_declaration', { named: false, children: [] });
+    const nodes = [];
+    const rawEdges = [];
+    extractGenericNodes(anonymousNode, 'src/Foo.java', false, nodes, rawEdges, '');
+    expect(nodes).toHaveLength(0);
+    expect(rawEdges).toHaveLength(0);
+  });
+
+  test('GENERIC_CLASS_TYPES 包含常见 class 节点类型', () => {
+    expect(GENERIC_CLASS_TYPES.has('class_declaration')).toBe(true);
+    expect(GENERIC_CLASS_TYPES.has('class_definition')).toBe(true);
+    expect(GENERIC_CLASS_TYPES.has('object_definition')).toBe(true);
+  });
+
+  test('GENERIC_FUNCTION_TYPES 包含常见 function 节点类型', () => {
+    expect(GENERIC_FUNCTION_TYPES.has('function_declaration')).toBe(true);
+    expect(GENERIC_FUNCTION_TYPES.has('function_definition')).toBe(true);
+    expect(GENERIC_FUNCTION_TYPES.has('method_declaration')).toBe(true);
   });
 });

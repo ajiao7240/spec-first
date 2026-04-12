@@ -252,6 +252,7 @@ function get(sql) { return db.prepare(sql).get(); }
 function all(sql) { return db.prepare(sql).all(); }
 return {
   unresolved_edge_count: get('SELECT unresolved_edge_count c FROM graph_meta WHERE id = 1').c,
+  unresolved_detail_count: get('SELECT COUNT(*) c FROM unresolved_edges').c,
   runtime_nodes: get(`SELECT COUNT(*) c
     FROM nodes
     WHERE file_path LIKE '.claude/%'
@@ -303,6 +304,7 @@ JS
 )")
 
 UNRESOLVED_COUNT=$(json_get "$RISK_JSON" "j.unresolved_edge_count")
+UNRESOLVED_DETAIL_COUNT=$(json_get "$RISK_JSON" "j.unresolved_detail_count")
 RUNTIME_NODE_COUNT=$(json_get "$RISK_JSON" "j.runtime_nodes")
 RUNTIME_FLOW_COUNT=$(json_get "$RISK_JSON" "j.runtime_flows")
 DUPLICATED_COPY_COUNT=$(json_get "$RISK_JSON" "j.duplicated_source_copies")
@@ -310,7 +312,11 @@ DUPLICATED_COPY_COUNT=$(json_get "$RISK_JSON" "j.duplicated_source_copies")
 if [[ "$UNRESOLVED_COUNT" == "0" ]]; then
   ok "unresolved_edge_count=0"
 else
-  warn "unresolved_edge_count=${UNRESOLVED_COUNT}, 当前无 unresolved 明细表，审计可观测性不足"
+  if [[ "$UNRESOLVED_DETAIL_COUNT" == "$UNRESOLVED_COUNT" ]]; then
+    ok "unresolved 明细表已建立: count=${UNRESOLVED_DETAIL_COUNT}"
+  else
+    warn "unresolved_edge_count=${UNRESOLVED_COUNT}, unresolved 明细条数=${UNRESOLVED_DETAIL_COUNT}，可观测性仍不完整"
+  fi
 fi
 
 if [[ "$RUNTIME_NODE_COUNT" == "0" && "$RUNTIME_FLOW_COUNT" == "0" ]]; then

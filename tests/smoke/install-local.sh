@@ -23,7 +23,7 @@ echo "1. 检查脚本输出是否指向 npm CLI 模型..."
 grep -q "npm install -g spec-first" "$OUTPUT_FILE"
 grep -q "spec-first init --claude" "$OUTPUT_FILE"
 grep -q "/spec:bootstrap        默认稳定入口" "$OUTPUT_FILE"
-grep -q "/spec:graph-bootstrap  阶段 1 并行验证入口" "$OUTPUT_FILE"
+grep -q "/spec:graph-bootstrap  图引导 Phase 0-4 入口（阶段2最小闭环）" "$OUTPUT_FILE"
 echo "✓ 输出已指向 npm CLI 初始化流程"
 
 echo "2. 检查脚本未再承诺 Claude 插件缓存安装..."

@@ -106,8 +106,12 @@ foreach ($tool in $ToolsJson.tools) {
     }
     'command' {
       try {
-        Invoke-Expression $tool.detect.command | Out-Null
-        $found = $true
+        $detectProc = Start-Process -FilePath 'pwsh' -ArgumentList '-c',$tool.detect.command -NoNewWindow -PassThru -RedirectStandardOutput NUL -RedirectStandardError NUL
+        if ($detectProc.WaitForExit(10000)) {
+          if ($detectProc.ExitCode -eq 0) { $found = $true }
+        } else {
+          $detectProc.Kill()
+        }
       } catch {
         $found = $false
       }
