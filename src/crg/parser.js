@@ -77,8 +77,7 @@ function getParser(lang) {
 
 /**
  * 根据文件扩展名推导语言。
- * v1 仅支持：javascript / typescript / tsx / python / go / java / rust / c / cpp
- * 不支持的语言（objc/swift/kotlin 等）返回 null。
+ * 支持：javascript / typescript / tsx / python / go / java / rust / c / cpp / objc
  *
  * @param {string} filePath - 文件路径（相对或绝对均可，取扩展名）
  * @returns {string|null} 语言名或 null
@@ -105,14 +104,15 @@ function inferLanguage(filePath) {
     'rs': 'rust',
     // C / C++
     'c': 'c',
-    'h': 'c',    // .h 默认 c；解析层做 objc 启发式路由，v1 不支持 objc 则降级 skip
+    'h': 'c',    // .h 默认 c；parseFile 步骤 4 会做 ObjC 启发式路由
     'cc': 'cpp',
     'cpp': 'cpp',
     'cxx': 'cpp',
     'hpp': 'cpp',
-    // v1 不支持，显式返回 null
-    'mm': null,   // ObjC++
-    'm': null,    // ObjC
+    // ObjC
+    'mm': 'objc', // ObjC++（tree-sitter-objc 可解析）
+    'm': 'objc',  // ObjC
+    // 尚不支持，显式返回 null
     'swift': null,
     'kt': null,
     'kts': null,
@@ -882,6 +882,140 @@ function extractCDeclaratorName(tsNode) {
 }
 
 // ---------------------------------------------------------------------------
+// ObjC AST 提取
+// ---------------------------------------------------------------------------
+
+/**
+ * 从 method_declaration / method_definition 节点提取 ObjC 方法选择器。
+ *
+ * 规则（参考 Apple ObjC Runtime 命名规范）：
+ *   - 遍历具名子节点，跳过 method_type（返回值）和 compound_statement（方法体）
+ *   - 遇到 identifier：若下一个具名兄弟是 method_parameter → 追加 "name:"（关键字方法）
+ *                       否则 → 追加 "name"（一元方法）
+ *
+ * @param {object} methodNode - tree-sitter method_declaration / method_definition 节点
+ * @returns {string} 方法选择器，如 "application:didFinishLaunching:" 或 "setup"
+ */
+function buildObjCSelector(methodNode) {
+  // 收集具名子节点（跳过匿名的 "-" "+" ";" 等）
+  const named = [];
+  for (let i = 0; i < methodNode.childCount; i++) {
+    const c = methodNode.child(i);
+    if (c.isNamed) named.push(c);
+  }
+
+  const parts = [];
+  for (let i = 0; i < named.length; i++) {
+    const c = named[i];
+    if (c.type === 'method_type' || c.type === 'compound_statement') continue;
+    if (c.type === 'identifier') {
+      const next = named[i + 1];
+      parts.push(c.text + (next && next.type === 'method_parameter' ? ':' : ''));
+    }
+    // method_parameter 本身不贡献到选择器（已通过 identifier 处理了 ":"）
+  }
+  return parts.join('') || '<anonymous>';
+}
+
+/**
+ * ObjC AST 节点提取器（对应 tree-sitter-objc 语法树）。
+ *
+ * 提取规则：
+ *   class_interface / class_implementation → class 节点 + method 子节点
+ *   protocol_declaration                  → interface 节点 + method 子节点
+ *   method_declaration / method_definition → function 节点（选择器作为名称）
+ *   preproc_include + string_literal       → imports_from 边（本地 #import "file.h"）
+ *
+ * @param {object} tsNode
+ * @param {string} filePath
+ * @param {boolean} isTestFile
+ * @param {object[]} nodes
+ * @param {object[]} rawEdges
+ * @param {string} parentId
+ */
+function extractObjCNodes(tsNode, filePath, isTestFile, nodes, rawEdges, parentId) {
+  if (!tsNode) return;
+  const type = tsNode.type;
+
+  // #import "LocalFile.h" → imports_from（只处理本地引号 import，忽略 <Framework> 系统头文件）
+  if (type === 'preproc_include') {
+    for (let i = 0; i < tsNode.childCount; i++) {
+      const c = tsNode.child(i);
+      if (c.type === 'string_literal') {
+        const inner = c.namedChild(0); // string_content
+        const importPath = inner ? inner.text : c.text.slice(1, -1);
+        rawEdges.push({
+          source_id: parentId,
+          target_name: importPath,
+          target_path_raw: importPath,
+          kind: 'imports_from',
+        });
+      }
+    }
+    return;
+  }
+
+  // @interface / @protocol → class / interface 容器节点
+  if (
+    type === 'class_interface' ||
+    type === 'class_implementation' ||
+    type === 'protocol_declaration'
+  ) {
+    // 第一个具名 identifier 子节点为类/协议名
+    let className = '<anonymous>';
+    for (let i = 0; i < tsNode.childCount; i++) {
+      const c = tsNode.child(i);
+      if (c.isNamed && c.type === 'identifier') {
+        className = c.text;
+        break;
+      }
+    }
+    const kind = type === 'protocol_declaration' ? 'interface' : 'class';
+    const node = buildNode(
+      filePath, kind, className,
+      getLineStart(tsNode), getLineEnd(tsNode), isTestFile
+    );
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: className, target_path_raw: null, kind: 'contains' });
+    }
+    // 递归子节点（method_declaration / method_definition / implementation_definition）
+    for (let i = 0; i < tsNode.childCount; i++) {
+      extractObjCNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, node.id);
+    }
+    return;
+  }
+
+  // implementation_definition 是 @implementation 内包裹 method_definition 的中间节点，透传
+  if (type === 'implementation_definition') {
+    for (let i = 0; i < tsNode.childCount; i++) {
+      extractObjCNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, parentId);
+    }
+    return;
+  }
+
+  // method_declaration（@interface 中） / method_definition（@implementation 中）
+  if (type === 'method_declaration' || type === 'method_definition') {
+    const selector = buildObjCSelector(tsNode);
+    const node = buildNode(
+      filePath, 'function', selector,
+      getLineStart(tsNode), getLineEnd(tsNode), isTestFile
+    );
+    nodes.push(node);
+    if (parentId) {
+      rawEdges.push({ source_id: parentId, target_name: selector, target_path_raw: null, kind: 'contains' });
+    }
+    // 不递归方法体（不提取内联 block / 嵌套函数，v1 保持扁平）
+    return;
+  }
+
+  // 其他节点继续递归（translation_unit / preproc_if / 等）
+  for (let i = 0; i < tsNode.childCount; i++) {
+    extractObjCNodes(tsNode.child(i), filePath, isTestFile, nodes, rawEdges, parentId);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 按语言分发 AST 提取
 // ---------------------------------------------------------------------------
 
@@ -908,6 +1042,8 @@ function getExtractFn(lang) {
     case 'c':
     case 'cpp':
       return extractCNodes;
+    case 'objc':
+      return extractObjCNodes;
     default:
       return null;
   }
@@ -958,10 +1094,11 @@ function parseFile(filePath, repoRoot, options = {}) {
   const content = bytes.toString('utf8');
 
   // ----- 步骤 4：.h 文件 ObjC 启发式路由 -----
-  // 如果语言为 c，但内容含 @interface / @implementation → objc
-  // v1 不支持 objc，降级为 skip
-  if (lang === 'c' && /^\s*@(interface|implementation)\b/m.test(content)) {
-    return { nodes: [], rawEdges: [], skipped: true, reason: 'unsupported_lang' };
+  // 语言推导为 'c'，但内容含 @interface / @protocol → 路由到 objc 语法树
+  // 注：.h 文件在 ObjC 项目中通常包含 @interface 声明，需用 tree-sitter-objc 解析
+  if (lang === 'c' && /^\s*@(interface|protocol)\b/m.test(content)) {
+    // 递归调用，强制指定 objc 语言
+    return parseFile(filePath, repoRoot, { ...options, lang: 'objc' });
   }
 
   // ----- 步骤 5：构建 module 节点（每个文件必有） -----
@@ -978,9 +1115,20 @@ function parseFile(filePath, repoRoot, options = {}) {
   }
 
   // ----- 步骤 7：AST 解析 -----
+  // ObjC 预处理：将 tree-sitter-objc 不识别的 Apple 宏替换为空行，保持行号对齐
+  // 受影响的宏：NS_ASSUME_NONNULL_BEGIN/END、NS_HEADER_AUDIT_BEGIN/END 等独立行宏
+  // 业界惯例（clang-analyzer、SourceKit 等均先 strip 或 pre-expand 这类注解宏）
+  let parseContent = content;
+  if (lang === 'objc') {
+    parseContent = content.replace(
+      /^\s*(NS_ASSUME_NONNULL_BEGIN|NS_ASSUME_NONNULL_END|NS_HEADER_AUDIT_BEGIN\s*\([^)]*\)|NS_HEADER_AUDIT_END)\s*$/gm,
+      ''
+    );
+  }
+
   let tree;
   try {
-    tree = parser.parse(content);
+    tree = parser.parse(parseContent);
   } catch (err) {
     // 解析失败（如语法错误过多），保留 module 节点
     return { nodes, rawEdges, skipped: false, reason: `parse_error: ${err.message}`, sha256 };

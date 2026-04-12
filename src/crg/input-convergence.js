@@ -270,6 +270,7 @@ function getTrackedFiles(repoRoot) {
       cwd: repoRoot,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 256 * 1024 * 1024, // 256 MB：大型 monorepo（万级文件）不 ENOBUFS
     });
     return output.trim().split('\n').filter(Boolean);
   } catch {
@@ -288,6 +289,7 @@ function getUntrackedFiles(repoRoot) {
       cwd: repoRoot,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 256 * 1024 * 1024,
     });
     return output
       .split('\n')
@@ -360,57 +362,41 @@ function computePodExcludePaths(repoRoot, podlockPath = 'Podfile.lock') {
     return { excludes: ['Pods/**'], includes: [] };
   }
 
-  // 解析 EXTERNAL SOURCES 段
-  // 格式示例：
-  //   EXTERNAL SOURCES:
-  //     MyLocalPod:
-  //       :path: ../MyLocalPod
-  //     SomePod:
-  //       :git: https://...
+  // 策略：Pods/** 兜底排除，仅白名单本地 :path: Pod
+  //
+  // 设计依据（业界实践）：
+  //   CocoaPods 项目的 Podfile.lock 只在 EXTERNAL SOURCES 段列出非 registry Pod。
+  //   PODS 段列出所有 Pod，但数量可达数百，且子 spec（AFNetworking/NSURLSession）
+  //   与顶级目录（Pods/AFNetworking/）共用一个物理目录，无法一一枚举安全。
+  //   最稳健的方案：blanket exclude Pods/**，仅 include 有业务价值的本地 :path: Pod。
+  //
+  // 与旧策略对比：
+  //   旧策略：枚举 EXTERNAL SOURCES 中的 11 个 Pod → 遗漏 100+ 三方 Pod
+  //   新策略：Pods/** → 覆盖所有三方 Pod；:path: 白名单 → 保留本地业务 Pod
+
+  // 解析 EXTERNAL SOURCES 段，提取 :path: 本地 Pod
   const externalSourcesMatch = content.match(
-    /^EXTERNAL SOURCES:\n((?:  \S.*\n(?:    .*\n)*)*)/m
+    /^EXTERNAL SOURCES:\n((?:  \S[^\n]*\n(?:    [^\n]*\n)*)*)/m
   );
 
-  if (!externalSourcesMatch) {
-    // 无 EXTERNAL SOURCES 段 → 降级
-    return { excludes: ['Pods/**'], includes: [] };
-  }
-
-  const block = externalSourcesMatch[1];
   const localPods = new Set();
-  const allPods = new Set();
 
-  // 匹配每个 Pod 名称和其属性
-  const podBlockRegex = /^  (\S+):\n((?:    .*\n)*)/gm;
-  let podMatch;
-  while ((podMatch = podBlockRegex.exec(block)) !== null) {
-    const podName = podMatch[1].replace(/:$/, '');
-    const attrs = podMatch[2];
-    allPods.add(podName);
-    if (/:path:/i.test(attrs)) {
-      localPods.add(podName);
+  if (externalSourcesMatch) {
+    const block = externalSourcesMatch[1];
+    const podBlockRegex = /^  (\S+):\n((?:    [^\n]*\n)*)/gm;
+    let podMatch;
+    while ((podMatch = podBlockRegex.exec(block)) !== null) {
+      const podName = podMatch[1].replace(/:$/, '');
+      const attrs = podMatch[2];
+      if (/:path:/i.test(attrs)) {
+        localPods.add(podName);
+      }
     }
   }
 
-  if (allPods.size === 0) {
-    return { excludes: ['Pods/**'], includes: [] };
-  }
-
-  const excludes = [];
-  const includes = [];
-
-  for (const pod of allPods) {
-    if (localPods.has(pod)) {
-      // 本地 Pod → 保留
-      includes.push(`Pods/${pod}/**`);
-    } else {
-      // 三方 Pod → 排除
-      excludes.push(`Pods/${pod}/**`);
-    }
-  }
-
-  // 如果没有三方 Pod，也不需要排除整个 Pods/
-  return { excludes, includes };
+  // 兜底排除 Pods/**；仅白名单本地 Pod
+  const includes = [...localPods].map((p) => `Pods/${p}/**`);
+  return { excludes: ['Pods/**'], includes };
 }
 
 // ---------------------------------------------------------------------------

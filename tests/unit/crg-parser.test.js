@@ -72,12 +72,12 @@ describe('inferLanguage', () => {
     expect(inferLanguage('utils.cc')).toBe('cpp');
   });
 
-  test('.mm → null（v1 不支持 objc）', () => {
-    expect(inferLanguage('View.mm')).toBeNull();
+  test('.mm → objc', () => {
+    expect(inferLanguage('View.mm')).toBe('objc');
   });
 
-  test('.m → null（v1 不支持 objc）', () => {
-    expect(inferLanguage('View.m')).toBeNull();
+  test('.m → objc', () => {
+    expect(inferLanguage('View.m')).toBe('objc');
   });
 
   test('.swift → null（v1 不支持）', () => {
@@ -129,14 +129,6 @@ describe('parseFile - 敏感文件过滤', () => {
 // parseFile - 不支持的语言
 // ---------------------------------------------------------------------------
 describe('parseFile - 不支持的语言', () => {
-  test('unsupported_lang：.mm 文件返回 skipped=true，reason=unsupported_lang', () => {
-    // 文件不需要存在，unsupported_lang 在读取前判断
-    const result = parseFile('fake/View.mm', REPO_ROOT);
-    expect(result.skipped).toBe(true);
-    expect(result.reason).toBe('unsupported_lang');
-    expect(result.nodes).toHaveLength(0);
-  });
-
   test('unsupported_lang：.swift 文件返回 skipped=true，reason=unsupported_lang', () => {
     const result = parseFile('fake/App.swift', REPO_ROOT);
     expect(result.skipped).toBe(true);

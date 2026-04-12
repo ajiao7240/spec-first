@@ -169,7 +169,9 @@ describe('computePodExcludePaths', () => {
     expect(result.includes).toHaveLength(0);
   });
 
-  test('含 EXTERNAL SOURCES :path: 的 Podfile.lock → 本地 Pod 保留，三方 Pod 排除', () => {
+  test('含 EXTERNAL SOURCES :path: 的 Podfile.lock → Pods/** 兜底排除，本地 Pod 白名单保留', () => {
+    // 新策略：blanket exclude Pods/**，仅 include :path: 本地 Pod
+    // 旧策略（枚举单个 Pod）无法覆盖 100+ 三方 Pod，已废弃
     const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-podlock-'));
     fs.writeFileSync(path.join(tmpRepo, 'Podfile.lock'), [
       'PODS:',
@@ -185,8 +187,13 @@ describe('computePodExcludePaths', () => {
 
     try {
       const result = computePodExcludePaths(tmpRepo);
-      expect(result.excludes).toContain('Pods/AFNetworking/**');
+      // 兜底排除
+      expect(result.excludes).toContain('Pods/**');
+      expect(result.excludes).toHaveLength(1);
+      // 本地 :path: Pod 白名单
       expect(result.includes).toContain('Pods/HSCommonMediator/**');
+      // :git: Pod 不进白名单（由 Pods/** 排除）
+      expect(result.includes).not.toContain('Pods/AFNetworking/**');
     } finally {
       fs.rmSync(tmpRepo, { recursive: true, force: true });
     }

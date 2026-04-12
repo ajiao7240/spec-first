@@ -8,6 +8,9 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-12 02:00:00 kuang: feat(crg): 实现 ObjC tree-sitter 解析器 — .m/.mm 路由到 tree-sitter-objc；@interface/@implementation/@protocol 提取 class/interface 节点；ObjC 方法选择器提取（application:didFinishLaunching: 等）；NS_ASSUME_NONNULL_BEGIN/END 预处理；.h 文件 ObjC 启发式路由 (user-visible)
+- v1.6.0 2026-04-12 01:55:00 kuang: fix(crg): computePodExcludePaths 改用 Pods/** 兜底 + 本地 Pod 白名单策略 — 旧策略仅枚举 EXTERNAL SOURCES 11 个 Pod 遗漏 100+ 三方 Pod；新策略无论 Podfile.lock 规模均正确排除所有三方 Pod (user-visible)
+- v1.6.0 2026-04-12 01:50:00 kuang: fix(crg): getTrackedFiles/getUntrackedFiles 加 maxBuffer 256MB — 万级文件仓库 ENOBUFS 静默 fallback 到 all-files 模式，导致扫描 30000+ 文件；加大缓冲后正确使用 tracked-only 模式 (user-visible)
 - v1.6.0 2026-04-12 01:10:00 kuang: fix(crg): iOS Pod 排除闭环 — collectInputFiles 在 isIos=true 时自动调用 computePodExcludePaths 注入三方 Pod 排除规则；build.js 增加 iOS 自动检测（Podfile.lock/xcodeproj）并传 isIos 参数；crg-build-cli 测试对齐新架构语义 (user-visible)
 - v1.6.0 2026-04-12 01:00:00 kuang: docs(spec-graph-bootstrap): 修复阶段2集成方案9处数据准确性问题 — community_id string/int 类型错误、largest_functions 字段名全错、avg_fan_out 无来源、tested_by 逻辑错误、FTS5 短语查询误用、layers 关键词召回率低、updated_at 字段不一致、data_shapes.kind 映射规则缺失、database 单对象改为数组支持 monorepo 多数据库
 - v1.6.0 2026-04-12 00:33:00 kuang: refactor(crg): 将语言过滤下沉至 collectInputFiles 步骤8 — finalInputs 即为纯代码文件，build.js 不再重复过滤；.spec-first-graphignore 补充 docs/agents/templates 目录性能剪枝；对齐 Python CRG detect_language() 设计分层 (user-visible)
