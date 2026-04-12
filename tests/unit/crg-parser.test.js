@@ -157,6 +157,177 @@ describe('parseFile - Swift / Kotlin', () => {
 });
 
 // ---------------------------------------------------------------------------
+// parseFile - C AST
+// ---------------------------------------------------------------------------
+describe('parseFile - C AST', () => {
+  test('C 文件解析成功，含 function/struct 节点', () => {
+    const result = parseFile('c/utils.c', REPO_ROOT);
+    expect(result.skipped).toBe(false);
+    const kinds = result.nodes.map((n) => n.kind);
+    expect(kinds).toContain('module');
+    expect(kinds).toContain('function');
+    expect(kinds).toContain('struct');
+  });
+
+  test('C #include 生成 imports_from 边', () => {
+    const result = parseFile('c/utils.c', REPO_ROOT);
+    const importEdges = result.rawEdges.filter((e) => e.kind === 'imports_from');
+    expect(importEdges.length).toBeGreaterThanOrEqual(1);
+    const paths = importEdges.map((e) => e.target_name);
+    expect(paths).toContain('helper.h');
+  });
+
+  test('C function 节点 name 和 symbol_key 格式正确', () => {
+    const result = parseFile('c/utils.c', REPO_ROOT);
+    const addFn = result.nodes.find((n) => n.name === 'add' && n.kind === 'function');
+    expect(addFn).toBeDefined();
+    expect(addFn.id).toMatch(/^c\/utils\.c#function#add#L\d+$/);
+  });
+
+  test('C struct 节点 name 正确', () => {
+    const result = parseFile('c/utils.c', REPO_ROOT);
+    const structNode = result.nodes.find((n) => n.kind === 'struct' && n.name === 'Point');
+    expect(structNode).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseFile - Python AST 深度验证
+// ---------------------------------------------------------------------------
+describe('parseFile - Python AST 深度验证', () => {
+  test('Python 文件含 class/function 节点', () => {
+    const result = parseFile('py/basic.py', REPO_ROOT);
+    expect(result.skipped).toBe(false);
+    const kinds = result.nodes.map((n) => n.kind);
+    expect(kinds).toContain('function');
+    expect(kinds).toContain('class');
+  });
+
+  test('Python class 节点含 contains 边到子 function', () => {
+    const result = parseFile('py/basic.py', REPO_ROOT);
+    const animalClass = result.nodes.find((n) => n.kind === 'class' && n.name === 'Animal');
+    expect(animalClass).toBeDefined();
+    const containsEdges = result.rawEdges.filter(
+      (e) => e.kind === 'contains' && e.source_id === animalClass.id
+    );
+    // Animal 类包含 __init__ 和 speak
+    expect(containsEdges.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('Python import 语句生成 imports_from 边', () => {
+    const result = parseFile('py/basic.py', REPO_ROOT);
+    const importEdges = result.rawEdges.filter((e) => e.kind === 'imports_from');
+    expect(importEdges.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('Python function 节点 symbol_key 格式正确', () => {
+    const result = parseFile('py/basic.py', REPO_ROOT);
+    const fn = result.nodes.find((n) => n.name === 'add' && n.kind === 'function');
+    expect(fn).toBeDefined();
+    expect(fn.id).toMatch(/^py\/basic\.py#function#add#L\d+$/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseFile - Rust AST
+// ---------------------------------------------------------------------------
+describe('parseFile - Rust AST', () => {
+  test('Rust 文件解析成功，含 function/struct/trait 节点', () => {
+    const result = parseFile('rs/lib.rs', REPO_ROOT);
+    expect(result.skipped).toBe(false);
+    const kinds = result.nodes.map((n) => n.kind);
+    expect(kinds).toContain('function');
+    expect(kinds).toContain('struct');
+    expect(kinds).toContain('interface'); // trait → interface
+  });
+
+  test('Rust use 声明生成 imports_from 边', () => {
+    const result = parseFile('rs/lib.rs', REPO_ROOT);
+    const importEdges = result.rawEdges.filter((e) => e.kind === 'imports_from');
+    expect(importEdges.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('Rust struct 节点 name 正确', () => {
+    const result = parseFile('rs/lib.rs', REPO_ROOT);
+    const structNode = result.nodes.find((n) => n.kind === 'struct' && n.name === 'Config');
+    expect(structNode).toBeDefined();
+  });
+
+  test('Rust trait 节点映射为 interface', () => {
+    const result = parseFile('rs/lib.rs', REPO_ROOT);
+    const traitNode = result.nodes.find((n) => n.kind === 'interface' && n.name === 'Printable');
+    expect(traitNode).toBeDefined();
+  });
+
+  test('Rust impl 块内 function 被正确提取', () => {
+    const result = parseFile('rs/lib.rs', REPO_ROOT);
+    const fnNames = result.nodes.filter((n) => n.kind === 'function').map((n) => n.name);
+    expect(fnNames).toContain('create_config');
+    expect(fnNames).toContain('new');
+    expect(fnNames).toContain('format');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseFile - ObjC AST
+// ---------------------------------------------------------------------------
+describe('parseFile - ObjC AST', () => {
+  test('ObjC .m 文件解析成功，含 class/interface/function 节点', () => {
+    const result = parseFile('objc/ViewController.m', REPO_ROOT);
+    expect(result.skipped).toBe(false);
+    const kinds = result.nodes.map((n) => n.kind);
+    expect(kinds).toContain('module');
+    // @interface ViewController → class 节点
+    expect(kinds).toContain('class');
+    // @protocol DataSourceDelegate → interface 节点
+    expect(kinds).toContain('interface');
+    // method_declaration / method_definition → function 节点
+    expect(kinds).toContain('function');
+  });
+
+  test('ObjC @interface 提取 class 节点', () => {
+    const result = parseFile('objc/ViewController.m', REPO_ROOT);
+    const vcClass = result.nodes.find((n) => n.kind === 'class' && n.name === 'ViewController');
+    expect(vcClass).toBeDefined();
+    expect(vcClass.id).toMatch(/^objc\/ViewController\.m#class#ViewController#L\d+$/);
+  });
+
+  test('ObjC @protocol 提取 interface 节点', () => {
+    const result = parseFile('objc/ViewController.m', REPO_ROOT);
+    const protocol = result.nodes.find((n) => n.kind === 'interface' && n.name === 'DataSourceDelegate');
+    expect(protocol).toBeDefined();
+  });
+
+  test('ObjC @implementation 提取 method function 节点', () => {
+    const result = parseFile('objc/ViewController.m', REPO_ROOT);
+    const fnNames = result.nodes.filter((n) => n.kind === 'function').map((n) => n.name);
+    // viewDidLoad, setupView, itemsForDataSource: 在 @implementation 中
+    expect(fnNames).toContain('viewDidLoad');
+    expect(fnNames).toContain('setupView');
+    expect(fnNames).toContain('itemsForDataSource:');
+  });
+
+  test('ObjC #import "..." 生成 imports_from 边', () => {
+    const result = parseFile('objc/ViewController.m', REPO_ROOT);
+    const importEdges = result.rawEdges.filter((e) => e.kind === 'imports_from');
+    // #import "AppDelegate.h" → imports_from
+    const appDelegateImport = importEdges.find((e) => e.target_name === 'AppDelegate.h');
+    expect(appDelegateImport).toBeDefined();
+  });
+
+  test('ObjC class 包含 method contains 边', () => {
+    const result = parseFile('objc/ViewController.m', REPO_ROOT);
+    const vcClass = result.nodes.find((n) => n.kind === 'class' && n.name === 'ViewController');
+    expect(vcClass).toBeDefined();
+    const containsEdges = result.rawEdges.filter(
+      (e) => e.kind === 'contains' && e.source_id === vcClass.id
+    );
+    // ViewController 的 @interface 和 @implementation 中的方法
+    expect(containsEdges.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // parseFile - 未知扩展名
 // ---------------------------------------------------------------------------
 describe('parseFile - 未知扩展名', () => {

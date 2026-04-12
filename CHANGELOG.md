@@ -8,6 +8,7 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-13 01:30:00 kuang: docs(install-experience): 统一所有面向用户安装文档的 onboarding 口径——canonical 顺序收敛为 安装→doctor→init→重启→workflow；修正 06-本地源码安装.md 和 04-常见问题.md 中 tree-sitter peer dep 版本方向描述错误（旧文档错误写成主包 0.22.0 vs grammar ^0.21.x，实际是主包 0.21.0，grammar 要求更高版本）；将 peer warning 叙事从"预期行为，可忽略"改为"已知兼容性噪音，本版本目标是消除"；FAQ 明确区分"安装成功确认"与"宿主内 workflow 可见"两个阶段；08-版本更新/README.md 记录安装体验治理为用户可见改进 (user-visible)
 - v1.6.0 2026-04-12 22:49:17 kuang: fix(spec-graph-bootstrap): 补齐阶段2缺失的 rerun backup 合同——SKILL.md 新增 backup/校验/恢复/清理规则，smoke 断言同步覆盖，避免重跑时静默覆盖 docs/contexts 旧产物 (user-visible)
 - v1.6.0 2026-04-13 00:05:00 kuang: fix(postinstall): 优化安装完成提示 — 主动说明 tree-sitter peer dep 警告为预期行为；next steps 修正为 doctor→init→重启→入口；补充 graph-bootstrap 和 crg build 说明；去除 emoji 过密问题 (user-visible)
 - v1.6.0 2026-04-12 23:55:00 kuang: docs(install): 06-本地源码安装.md 补充 peer dep 警告说明（tree-sitter@0.22.x 与 grammar 包 peer dep ^0.21.x 冲突为预期行为，不影响运行时，附验证命令）(user-visible)
