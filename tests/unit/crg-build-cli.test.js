@@ -242,6 +242,81 @@ describe('crg build/stats cli', () => {
     outputSpy.mockRestore();
   });
 
+  test('build 自动识别 iOS/Xcode 仓库并开启 Pod 输入收敛', async () => {
+    const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const collectInputFiles = jest.fn(async () => ({
+      finalInputs: ['HuashengSecurities/AppDelegate.h'],
+      stats: { ignored_files_by_rule: {} },
+    }));
+
+    jest.isolateModules(() => {
+      jest.doMock('better-sqlite3', () => jest.fn());
+      jest.doMock('fs', () => {
+        const actual = jest.requireActual('fs');
+        return {
+          ...actual,
+          statSync: () => ({ isDirectory: () => true }),
+          existsSync: (target) => {
+            if (target === '/repo/HuashengSecurities.xcodeproj') return true;
+            if (target === '/repo/HuashengSecurities.xcworkspace') return false;
+            if (target === '/repo/Podfile.lock') return true;
+            if (target === '/repo/Pods') return true;
+            return true;
+          },
+          mkdirSync: jest.fn(),
+          writeFileSync: jest.fn(),
+        };
+      });
+      jest.doMock('../../src/crg/migrations', () => ({
+        initDatabase: () => ({
+          close: jest.fn(),
+          prepare: jest.fn((sql) => {
+            if (sql.includes('SELECT file_path FROM nodes')) return { all: () => [] };
+            if (sql.includes('SELECT COUNT(*) as c FROM nodes')) return { get: () => ({ c: 1 }) };
+            if (sql.includes('SELECT COUNT(*) as c FROM edges')) return { get: () => ({ c: 0 }) };
+            if (sql.includes('UPDATE graph_meta SET last_built')) return { run: jest.fn() };
+            return { get: () => ({}), all: () => [], run: jest.fn() };
+          }),
+        }),
+      }));
+      jest.doMock('../../src/crg/input-convergence', () => ({
+        collectInputFiles,
+      }));
+      jest.doMock('../../src/crg/parser', () => ({
+        inferLanguage: () => 'c',
+        parseFile: () => ({ nodes: [], rawEdges: [], skipped: false }),
+      }));
+      jest.doMock('../../src/crg/incremental', () => ({
+        detectChangedFiles: () => ({
+          changed: [],
+          deleted: [],
+          changedShas: new Map(),
+        }),
+        updateFingerprints: jest.fn(),
+      }));
+      jest.doMock('../../src/crg/graph', () => ({
+        upsertNodes: jest.fn(),
+        upsertEdges: jest.fn(),
+        deleteStaleNodes: jest.fn(),
+        resolveEdges: () => ({ resolved: [], unresolvedCount: 0 }),
+        setUnresolvedEdgeCount: jest.fn(),
+      }));
+      jest.doMock('../../src/crg/cli/postprocess', () => ({
+        runPostprocess: jest.fn(),
+      }));
+
+      const { run } = require('../../src/crg/cli/build');
+      run(['--repo=/repo']);
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(collectInputFiles).toHaveBeenCalledWith('/repo', expect.objectContaining({
+      isIos: true,
+    }));
+    outputSpy.mockRestore();
+  });
+
   test('runStats 在 fingerprints 与磁盘不一致时输出 stale warning', () => {
     const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
