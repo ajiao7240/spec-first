@@ -95,3 +95,4 @@ Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。C
 - **Example:** `- vX.Y.Z YYYY-MM-DD author: one-line summary`
 - Append `(user-visible)` for user-visible changes
 <!-- spec-first:lang:end -->
+

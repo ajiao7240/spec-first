@@ -25,6 +25,16 @@ grep -q "init (--claude|--codex)" <<<"$help_output"
 grep -q "clean (--claude|--codex)" <<<"$help_output"
 grep -q "Spec-First v${expected_version}" <<<"$version_output"
 grep -q "Claude Code & Codex" <<<"$version_output"
+# Unit 3 regression guard: -v 必须包含 doctor，不能把 /spec:ideate 当安装后第一建议
+grep -q "doctor" <<<"$version_output"
+if grep -q "/spec:ideate" <<<"$version_output"; then
+  echo "✗ version output should not recommend /spec:ideate as first step"
+  exit 1
+fi
+if grep -q "/spec:brainstorm" <<<"$version_output"; then
+  echo "✗ version output should not recommend /spec:brainstorm as first step"
+  exit 1
+fi
 test ! -s "$help_stderr"
 test ! -s "$version_stderr"
 echo "✓ help/version output is present"

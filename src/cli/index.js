@@ -73,34 +73,26 @@ function printVersion() {
   console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║
-║   🚀 Spec-First v${pkg.version}                                  ║
-║                                                            ║
-║   📦 Harness Engineering for Claude Code & Codex         ║
+║   Spec-First v${pkg.version}                                    ║
+║   AI 辅助工程框架 — Claude Code & Codex                    ║
 ║                                                            ║
 ╚════════════════════════════════════════════════════════════╝
 
-✨ Quick Start:
+  快速上手:
 
-  1️⃣  Initialize in your project:
-     $ cd your-project
-     $ spec-first init --claude
-     $ spec-first init --codex
+    1. 健康检查
+       $ spec-first doctor
 
-  2️⃣  Start with ideation or your first spec workflow:
-     $ /spec:ideate
-     $ /spec:brainstorm
+    2. 初始化项目
+       $ spec-first init --claude    # 或 --codex
 
-  3️⃣  Learn more:
-     📖 Docs: https://github.com/sunrain520/spec-first
-     💡 Help: spec-first --help
+    3. 重启宿主 CLI，使 /spec:* 命令生效
 
-🎯 Core Commands:
-  /spec:ideate      - Explore and rank improvement ideas
-  /spec:brainstorm  - Clarify requirements
-  /spec:plan        - Design solution
-  /spec:work        - Execute implementation
-  /spec:review      - Structured review
-  /spec:compound    - Knowledge accumulation
+    4. 在对话中使用 /spec:ideate 开始工作流
+
+  了解更多:
+    $ spec-first --help
+    https://github.com/sunrain520/spec-first
 `);
 }
 
