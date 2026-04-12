@@ -88,7 +88,7 @@ function printVersion() {
 
     3. 重启宿主 CLI，使 /spec:* 命令生效
 
-    4. 在对话中使用 /spec:ideate 开始工作流
+    4. 在对话中使用 /spec:* 开始工作流
 
   了解更多:
     $ spec-first --help
