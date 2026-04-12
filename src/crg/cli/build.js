@@ -141,9 +141,21 @@ async function runBuildAsync(argv) {
   const dbPath = path.join(graphDir, 'graph.db');
   const db = initDatabase(dbPath);
 
+  // iOS 自动检测：Podfile.lock 或 *.xcodeproj / *.xcworkspace 存在即视为 iOS 仓库
+  const isIos = (() => {
+    if (fs.existsSync(path.join(repoRoot, 'Podfile.lock'))) return true;
+    try {
+      return fs.readdirSync(repoRoot).some(
+        (e) => e.endsWith('.xcodeproj') || e.endsWith('.xcworkspace')
+      );
+    } catch (_) {
+      return false;
+    }
+  })();
+
   try {
     // 收集输入文件（async）；collectInputFiles 在收集层已通过语言过滤保证 finalInputs 为纯代码文件
-    const { finalInputs, stats: inputStats } = await collectInputFiles(repoRoot);
+    const { finalInputs, stats: inputStats } = await collectInputFiles(repoRoot, { isIos });
     const inputSet = new Set(finalInputs);
 
     // 当前输入集之外的历史图路径也必须清理：

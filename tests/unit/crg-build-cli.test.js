@@ -90,7 +90,7 @@ describe('crg build/stats cli', () => {
     outputSpy.mockRestore();
   });
 
-  test('build 只对可解析图输入做增量指纹检测，避免 .gitignore 等无效路径进入 fingerprints', async () => {
+  test('build 将 collectInputFiles 的输出直接传给 detectChangedFiles（语言过滤在收集层已完成）', async () => {
     const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const detectChangedFiles = jest.fn(() => ({
       changed: [],
@@ -123,13 +123,13 @@ describe('crg build/stats cli', () => {
         }),
       }));
       jest.doMock('../../src/crg/input-convergence', () => ({
+        // collectInputFiles 在收集层已完成语言过滤，只返回代码文件
         collectInputFiles: async () => ({
-          finalInputs: ['src/index.js', '.gitignore', '.playwright-mcp'],
+          finalInputs: ['src/index.js'],
           stats: { ignored_files_by_rule: {} },
         }),
       }));
       jest.doMock('../../src/crg/parser', () => ({
-        inferLanguage: (filePath) => (filePath === 'src/index.js' ? 'javascript' : null),
         parseFile: () => ({ nodes: [], rawEdges: [], skipped: false }),
       }));
       jest.doMock('../../src/crg/incremental', () => ({

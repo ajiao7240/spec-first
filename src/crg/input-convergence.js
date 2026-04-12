@@ -457,13 +457,22 @@ async function collectInputFiles(repoRoot, options = {}) {
 
   const {
     mode: userMode = 'tracked-only',
-    extraExcludes = [],
-    extraIncludes = [],
+    extraExcludes: baseExtraExcludes = [],
+    extraIncludes: baseExtraIncludes = [],
     isIos = false,
   } = options;
 
   // 跟踪是否为用户显式设置（用于 iOS 升级逻辑）
   const modeExplicit = options.mode !== undefined;
+
+  // iOS Pod 排除：isIos=true 时解析 Podfile.lock，注入三方 Pod 排除 / 本地 Pod 保留规则
+  let extraExcludes = baseExtraExcludes;
+  let extraIncludes = baseExtraIncludes;
+  if (isIos) {
+    const { excludes: podExcludes, includes: podIncludes } = computePodExcludePaths(repoRoot);
+    extraExcludes = [...baseExtraExcludes, ...podExcludes];
+    extraIncludes = [...baseExtraIncludes, ...podIncludes];
+  }
 
   // -------------------------------------------------------------------------
   // 步骤 1：获取候选文件集合

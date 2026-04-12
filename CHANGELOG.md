@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-12 01:10:00 kuang: fix(crg): iOS Pod 排除闭环 — collectInputFiles 在 isIos=true 时自动调用 computePodExcludePaths 注入三方 Pod 排除规则；build.js 增加 iOS 自动检测（Podfile.lock/xcodeproj）并传 isIos 参数；crg-build-cli 测试对齐新架构语义 (user-visible)
 - v1.6.0 2026-04-12 01:00:00 kuang: docs(spec-graph-bootstrap): 修复阶段2集成方案9处数据准确性问题 — community_id string/int 类型错误、largest_functions 字段名全错、avg_fan_out 无来源、tested_by 逻辑错误、FTS5 短语查询误用、layers 关键词召回率低、updated_at 字段不一致、data_shapes.kind 映射规则缺失、database 单对象改为数组支持 monorepo 多数据库
 - v1.6.0 2026-04-12 00:33:00 kuang: refactor(crg): 将语言过滤下沉至 collectInputFiles 步骤8 — finalInputs 即为纯代码文件，build.js 不再重复过滤；.spec-first-graphignore 补充 docs/agents/templates 目录性能剪枝；对齐 Python CRG detect_language() 设计分层 (user-visible)
 - v1.6.0 2026-04-11 16:22:00 kuang: fix(crg): 修复 fingerprints 表污染 — build.js 引入 inferLanguage 过滤，仅为真正可解析的代码文件记录指纹；同时用 prunedPaths 清理历史残留的非代码指纹；fingerprints 从 454 条降至 75 条，全为代码文件 (user-visible)
@@ -125,6 +126,7 @@
 - v1.5.0 2026-04-04 kuang: docs: 完善 Harness Engineering 实施分期文档：补充 meta.json/findings.json/probe-failures 等缺失数据契约，新增 .context/ 路径决策说明，补全阶段2双路召回消费侧接入说明与 automation candidates 量化门槛，修复 Trace 统一建模字段缺漏
 - v1.5.0 2026-04-04 kuang: docs: 新增 spec-req Stage -1 需求录入 workflow 设计方案，融合 Shape Up/PRFAQ/BDD/RFC 四种方法论，覆盖文档格式、3问交互模式、下游 skill 联动与可追溯链路
 - v1.6.0 2026-04-12 10:15:00 kuang: fix(crg): 收紧阶段0 fingerprints 仅跟踪可解析图输入，并在 SQLite 审计中新增 orphan_fingerprints 门禁，防止 .gitignore 等无效路径残留
+- v1.6.0 2026-04-12 11:20:00 kuang: docs(crg): 新增阶段2数据核心架构修正建议，收敛 facts/derived/audit/contract 四层模型、必要解释表、仓库 profile 适配与演进顺序
 - v1.5.0 2026-04-04 kuang: docs: 新增独立文档仓库方案，覆盖 init 绑定、team/org 配置层级、docs repo 路径映射与三阶段实施计划
 - v1.5.0 2026-04-04 kuang: docs: 新增 spec-first Harness 改造技术方案最终架构审查报告，综合 Prompt Harness 上限、Greenfield contract 缺失、proposal 职责漂移等 7 项问题，含优先级行动清单
 - v1.5.0 2026-04-04 kuang: docs: 优化 0-1与1-10-100项目需求开发能力说明文档，修正 Section 6 子标题层级，补充 Greenfield/Reduced-harness 区别说明，标注 Section 10 四条建议为新增需求并说明实现代价
