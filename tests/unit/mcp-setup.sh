@@ -5,8 +5,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-SCRIPTS_DIR="$REPO_ROOT/skills/mcp-setup/scripts"
-TOOLS_JSON="$REPO_ROOT/skills/mcp-setup/mcp-tools.json"
+SCRIPTS_DIR="$REPO_ROOT/skills/spec-mcp-setup/scripts"
+TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -512,8 +512,8 @@ echo ""
 # ============================================================================
 echo "6. SKILL.md validation"
 
-SKILL_MD="$REPO_ROOT/skills/mcp-setup/SKILL.md"
-PROMPT_SKILL_MD="$REPO_ROOT/docs/10-prompt/skills/mcp-setup/SKILL.md"
+SKILL_MD="$REPO_ROOT/skills/spec-mcp-setup/SKILL.md"
+PROMPT_SKILL_MD="$REPO_ROOT/docs/10-prompt/skills/spec-mcp-setup/SKILL.md"
 
 echo "6.1 SKILL.md has YAML frontmatter"
 first_line=$(head -1 "$SKILL_MD")
@@ -554,10 +554,10 @@ first_line=$(head -1 "$CMD_TEMPLATE")
 assert "Template starts with ---" test "$first_line" = "---"
 
 echo "7.3 Command template references correct skill path"
-assert "References skills/mcp-setup/SKILL.md" grep -q 'skills/mcp-setup/SKILL.md' "$CMD_TEMPLATE"
+assert "References workflows/spec-mcp-setup/SKILL.md" grep -q 'workflows/spec-mcp-setup/SKILL.md' "$CMD_TEMPLATE"
 
 echo "7.4 Command template does NOT reference .claude/skills/ (old path)"
-assert_not_contains "No .claude/skills/ path" ".claude/skills/mcp-setup" "$(cat "$CMD_TEMPLATE")"
+assert_not_contains "No .claude/skills/ path" ".claude/skills/spec-mcp-setup" "$(cat "$CMD_TEMPLATE")"
 
 echo "7.5 Windows PowerShell entrypoints exist"
 for ps1 in check-deps.ps1 detect-host.ps1 detect-tools.ps1 install-coordinator.ps1 verify-tools.ps1; do

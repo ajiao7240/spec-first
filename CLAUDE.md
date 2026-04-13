@@ -36,7 +36,7 @@ npm pack                          # 发布前构建 tarball
 
 ### 资产结构
 
-- **`skills/`** — 每个 skill 是一个目录，入口为 `SKILL.md`；init 时整目录复制到 `.claude/skills/`（command-backing skills 同时复制到 `.claude/spec-first/workflows/`）
+- **`skills/`** — 每个 skill 是一个目录，入口为 `SKILL.md`；init 时整目录复制到 `.claude/skills/`（command-backing skills 同时复制到 `.claude/spec-first/workflows/`）；所有 command-backing skill 目录名须有 `spec-` 前缀（如 `spec-mcp-setup`）以保证 `rewriteSkillName` 后的名称与源文件 `name:` 字段一致
 - **`agents/`** — 子目录下的 `.md` 文件；`agents/review/`、`agents/design/` 等分类
 - **`templates/claude/commands/spec/`** — 命令模板文件；init 时复制到 `.claude/commands/spec/`
 - **`vendor/tree-sitter-objc/`** — 受控 ObjC parser 包（从上游 tree-sitter-objc fork，收敛 peerDependency 到 `>=0.21.0`），通过 `file:` 协议引用
