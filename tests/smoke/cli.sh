@@ -274,8 +274,8 @@ test ! -e "$TMP_DIR/.claude/agents/obsolete/ghost.md"
 test -e "$TMP_DIR/.claude/skills/custom-skill/SKILL.md"
 echo "✓ init prunes stale managed assets and preserves custom assets"
 
-echo "2f. Verify installed bootstrap skill assets do not contain old path strings (negative guard)..."
-# Installed skills should not contain old .spec-first-graph or .context/spec-first/bootstrap paths
+echo "2f. Verify installed skill assets do not contain old path strings (negative guard)..."
+# Bootstrap skills: must not reference .spec-first-graph or .context/spec-first/bootstrap
 for skill_file in \
   "$TMP_DIR/.claude/spec-first/workflows/spec-bootstrap/SKILL.md" \
   "$TMP_DIR/.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md" \
@@ -292,6 +292,82 @@ do
   fi
 done
 echo "✓ installed bootstrap skill assets do not contain old path strings"
+
+echo "2g. Verify workflow scratch paths use new .spec-first/workflows/ locations (negative guard)..."
+# spec-review, spec-plan, feature-video, todo-resolve must not reference old .context/ scratch paths
+for skill_file in \
+  "$TMP_DIR/.claude/spec-first/workflows/spec-review/SKILL.md" \
+  "$TMP_DIR/.claude/spec-first/workflows/spec-plan/SKILL.md" \
+  "$TMP_DIR/.claude/skills/feature-video/SKILL.md" \
+  "$TMP_DIR/.claude/skills/todo-resolve/SKILL.md"
+do
+  if [ ! -f "$skill_file" ]; then
+    continue
+  fi
+  if grep -Eq "\.context/spec-first/(spec-review|spec-plan|feature-video|todo-resolve)" "$skill_file"; then
+    echo "✗ $skill_file still contains old workflow scratch path: .context/spec-first/<workflow>"
+    exit 1
+  fi
+done
+echo "✓ workflow scratch paths use new .spec-first/workflows/ locations"
+
+echo "2h. Verify Claude todo skills use docs/todos canonical path with legacy read-only semantics..."
+for skill_file in \
+  "$TMP_DIR/.claude/skills/todo-create/SKILL.md" \
+  "$TMP_DIR/.claude/skills/todo-triage/SKILL.md" \
+  "$TMP_DIR/.claude/skills/todo-resolve/SKILL.md"
+do
+  if [ ! -f "$skill_file" ]; then
+    continue
+  fi
+  if ! grep -q "docs/todos" "$skill_file"; then
+    echo "✗ $skill_file does not reference new canonical path: docs/todos"
+    exit 1
+  fi
+done
+todo_create_skill="$TMP_DIR/.claude/skills/todo-create/SKILL.md"
+if [ -f "$todo_create_skill" ] && grep -q "mkdir -p \.context/spec-first/todos" "$todo_create_skill"; then
+  echo "✗ todo-create SKILL.md still uses old todos canonical path: .context/spec-first/todos"
+  exit 1
+fi
+grep -q 'Legacy v2 (read-only)' "$TMP_DIR/.claude/skills/todo-create/SKILL.md"
+grep -q 'legacy-v2' "$TMP_DIR/.claude/skills/todo-triage/SKILL.md"
+grep -q 'legacy-v1' "$TMP_DIR/.claude/skills/todo-triage/SKILL.md"
+grep -q 'legacy-v2' "$TMP_DIR/.claude/skills/todo-resolve/SKILL.md"
+grep -q 'legacy-v1' "$TMP_DIR/.claude/skills/todo-resolve/SKILL.md"
+echo "✓ Claude todo skills use docs/todos canonical path with scoped legacy semantics"
+
+echo "2i. Verify source-of-truth skill paths are fully migrated with scoped legacy support..."
+if grep -R -n -E '\.context/spec-first/(spec-review|spec-plan|feature-video|todo-resolve)' "$REPO_ROOT/skills"; then
+  echo "✗ source-of-truth skills still contain old workflow scratch paths"
+  exit 1
+fi
+for skill_file in \
+  "$REPO_ROOT/skills/todo-create/SKILL.md" \
+  "$REPO_ROOT/skills/todo-triage/SKILL.md" \
+  "$REPO_ROOT/skills/todo-resolve/SKILL.md"
+do
+  if ! grep -q 'docs/todos' "$skill_file"; then
+    echo "✗ $skill_file is missing docs/todos canonical path"
+    exit 1
+  fi
+done
+grep -q 'Legacy v2 (read-only)' "$REPO_ROOT/skills/todo-create/SKILL.md"
+grep -q '\.context/spec-first/todos' "$REPO_ROOT/skills/todo-create/SKILL.md"
+grep -q 'legacy-v2' "$REPO_ROOT/skills/todo-triage/SKILL.md"
+grep -q 'legacy-v1' "$REPO_ROOT/skills/todo-triage/SKILL.md"
+grep -q 'legacy-v2' "$REPO_ROOT/skills/todo-resolve/SKILL.md"
+grep -q 'legacy-v1' "$REPO_ROOT/skills/todo-resolve/SKILL.md"
+legacy_todo_refs="$(grep -R -l '\.context/spec-first/todos' "$REPO_ROOT/skills" || true)"
+if [ -n "$legacy_todo_refs" ]; then
+  unexpected_legacy_refs="$(printf '%s\n' "$legacy_todo_refs" | grep -vE 'skills/(todo-create|todo-triage|todo-resolve)/SKILL\.md$' || true)"
+  if [ -n "$unexpected_legacy_refs" ]; then
+    echo "✗ unexpected legacy todo path references found outside todo skills:"
+    printf '%s\n' "$unexpected_legacy_refs"
+    exit 1
+  fi
+fi
+echo "✓ source-of-truth skills only retain scoped legacy todo read paths"
 
 echo "3. Run doctor after initialization..."
 doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor)"
@@ -389,6 +465,49 @@ grep -q 'English' "$TMP_DIR/AGENTS.md"
 grep -q 'refuse to generate' "$TMP_DIR/AGENTS.md"
 ! grep -q 'Governance File Commit Rule' "$TMP_DIR/AGENTS.md"
 echo "✓ AGENTS.md lang policy block written"
+
+echo "3a-1a. Verify Codex installed skill assets do not contain old path strings (negative guard)..."
+for skill_file in \
+  "$TMP_DIR/.agents/skills/spec-review/SKILL.md" \
+  "$TMP_DIR/.agents/skills/spec-plan/SKILL.md" \
+  "$TMP_DIR/.agents/skills/feature-video/SKILL.md" \
+  "$TMP_DIR/.agents/skills/todo-resolve/SKILL.md"
+do
+  if [ ! -f "$skill_file" ]; then
+    continue
+  fi
+  if grep -Eq "\.context/spec-first/(spec-review|spec-plan|feature-video|todo-resolve)" "$skill_file"; then
+    echo "✗ $skill_file still contains old Codex workflow scratch path: .context/spec-first/<workflow>"
+    exit 1
+  fi
+done
+echo "✓ Codex workflow scratch paths use new locations"
+
+echo "3a-1b. Verify Codex todo skills use docs/todos as canonical path..."
+for skill_file in \
+  "$TMP_DIR/.agents/skills/todo-create/SKILL.md" \
+  "$TMP_DIR/.agents/skills/todo-triage/SKILL.md" \
+  "$TMP_DIR/.agents/skills/todo-resolve/SKILL.md"
+do
+  if [ ! -f "$skill_file" ]; then
+    continue
+  fi
+  if ! grep -q 'docs/todos' "$skill_file"; then
+    echo "✗ $skill_file does not reference docs/todos canonical path"
+    exit 1
+  fi
+done
+if grep -q "mkdir -p \.context/spec-first/todos" "$TMP_DIR/.agents/skills/todo-create/SKILL.md"; then
+  echo "✗ Codex todo-create still uses old todos canonical path: .context/spec-first/todos"
+  exit 1
+fi
+grep -q 'Legacy v2 (read-only)' "$TMP_DIR/.agents/skills/todo-create/SKILL.md"
+grep -q 'legacy-v2' "$TMP_DIR/.agents/skills/todo-triage/SKILL.md"
+grep -q 'legacy-v1' "$TMP_DIR/.agents/skills/todo-triage/SKILL.md"
+grep -q 'legacy-v2' "$TMP_DIR/.agents/skills/todo-resolve/SKILL.md"
+grep -q 'legacy-v1' "$TMP_DIR/.agents/skills/todo-resolve/SKILL.md"
+echo "✓ Codex todo skills use docs/todos as canonical path with scoped legacy semantics"
+
 codex_doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor --codex)"
 grep -q ".codex/spec-first/.developer" <<<"$codex_doctor_output"
 grep -q ".codex/commands/spec" <<<"$codex_doctor_output"

@@ -32,10 +32,10 @@
 
 ### 2.1 控制面产物
 
-- [ ] `.context/spec-first/bootstrap/<slug>/fact-inventory.json`
-- [ ] `.context/spec-first/bootstrap/<slug>/risk-signals.json`
-- [ ] `.context/spec-first/bootstrap/<slug>/test-surface.json`
-- [ ] `.context/spec-first/bootstrap/<slug>/fingerprints.json`
+- [ ] `.spec-first/workflows/bootstrap/<slug>/fact-inventory.json`
+- [ ] `.spec-first/workflows/bootstrap/<slug>/risk-signals.json`
+- [ ] `.spec-first/workflows/bootstrap/<slug>/test-surface.json`
+- [ ] `.spec-first/workflows/bootstrap/<slug>/artifact-manifest.json`
 
 ### 2.2 长期上下文产物
 
@@ -80,19 +80,21 @@
 - [ ] `fact-inventory.json` 可解析。
 - [ ] `risk-signals.json` 可解析。
 - [ ] `test-surface.json` 可解析。
-- [ ] `fingerprints.json` 可解析。
+- [ ] `artifact-manifest.json` 可解析。
 - [ ] `injection-index.yaml` 可解析为合法 YAML。
 
 ### 4.4 基本 contract
 
-- [ ] `fingerprints.json` 顶层至少包含 `inputs`。
-- [ ] `fingerprints.json` 顶层至少包含 `outputs`。
-- [ ] `fingerprints.json` 顶层至少包含 `updated_at`。
+- [ ] `artifact-manifest.json` 顶层至少包含 `inputs`。
+- [ ] `artifact-manifest.json` 顶层至少包含 `outputs`。
+- [ ] `artifact-manifest.json` 顶层至少包含 `updated_at`。
 - [ ] `injection-index.yaml` 至少包含 `always`。
 - [ ] `injection-index.yaml` 至少包含 `plan`。
 - [ ] `injection-index.yaml` 至少包含 `work`。
 - [ ] `injection-index.yaml` 至少包含 `review`。
 - [ ] `injection-index.yaml` 至少包含 `unknown`。
+- [ ] `risk-signals.json.crg_metrics` 字段存在且结构正确：Full 模式下 `total_nodes/total_edges/avg_fan_out` 为数值，`top_hubs/largest_functions` 为非空数组；Enhanced/Basic 模式下三个数值字段为 `null`，两个数组字段为 `[]`。
+- [ ] Enhanced/Basic 模式下 `crg_metrics` 字段值为 `null/[]` 时，`artifact-manifest.json` 的 `generation_errors[]` 中存在对应原因记录。
 
 ### 4.5 Layer A 通过条件
 
@@ -119,7 +121,7 @@
 - [ ] 所有 `confidence=Inferred` 的事实都包含 `inference_reason`。
 - [ ] 所有 `confidence=Observed` 的事实没有伪装成推断型说明。
 - [ ] 不存在未知或漂移的 `confidence` 枚举值。
-- [ ] 不存在未知或漂移的 `inference_reason` 值域。
+- [ ] 不存在未知或漂移的 `inference_reason` 值域。（校验依据：`skills/spec-graph-bootstrap/SKILL.md` §事实分类 的 14 值封闭枚举，按 CRG / Serena / Built-in 三 Tier 组织）
 
 ### 5.3 结构稳定性
 
@@ -164,7 +166,7 @@
 - [ ] `fact-inventory.json` 中的入口点，与 `public-entrypoints.md` 的事实来源一致。
 - [ ] `risk-signals.json` 中的高风险项，与 `high-risk-modules.md` 的事实来源一致。
 - [ ] `test-surface.json` 中的测试覆盖信息，与 `test-map.md` 的事实来源一致。
-- [ ] `fingerprints.json` 中登记的 outputs 与本轮真实产物一致。
+- [ ] `artifact-manifest.json` 中登记的 outputs 与本轮真实产物一致。
 
 ### 6.4 Layer C 通过条件
 
@@ -286,7 +288,7 @@
 - [ ] 两次运行的 `fact-inventory.json` 除允许波动字段外无差异。
 - [ ] 两次运行的 `risk-signals.json` 除允许波动字段外无差异。
 - [ ] 两次运行的 `test-surface.json` 除允许波动字段外无差异。
-- [ ] 两次运行的 `fingerprints.json` 除时间与快照类字段外无非预期差异。
+- [ ] 两次运行的 `artifact-manifest.json` 除时间与快照类字段外无非预期差异。
 
 ### 9.3 文档层 diff 对账
 
@@ -416,7 +418,7 @@
 - [x] slug：`spec-first`
 - [x] commit：`7fe35b01f061d57ce95c0eb189b30b7844b04fef`
 - [x] 验证时间：`2026-04-13 11:32:33 +0800`
-- [x] 控制面目录：`.context/spec-first/bootstrap/spec-first/`
+- [x] 控制面目录：`.spec-first/workflows/bootstrap/spec-first/`
 - [x] 长期上下文目录：`docs/contexts/spec-first/`
 
 ### 13.2 Layer A 实测结果
@@ -439,14 +441,14 @@
 - [x] `fact-inventory.json` 可解析。
 - [x] `risk-signals.json` 可解析。
 - [x] `test-surface.json` 可解析。
-- [x] `fingerprints.json` 可解析。
+- [x] `artifact-manifest.json` 可解析。
 - [x] `injection-index.yaml` 可解析为合法 YAML。
 
 #### 13.2.4 基本 contract
 
-- [x] `fingerprints.json` 顶层至少包含 `inputs`。
-- [x] `fingerprints.json` 顶层至少包含 `outputs`。
-- [x] `fingerprints.json` 顶层至少包含 `updated_at`。
+- [x] `artifact-manifest.json` 顶层至少包含 `inputs`。
+- [x] `artifact-manifest.json` 顶层至少包含 `outputs`。
+- [x] `artifact-manifest.json` 顶层至少包含 `updated_at`。
 - [x] `injection-index.yaml` 至少包含 `always`。
 - [x] `injection-index.yaml` 至少包含 `plan`。
 - [x] `injection-index.yaml` 至少包含 `work`。
@@ -489,8 +491,8 @@
 
 #### 13.4.1 已通过项
 
-- [x] `fingerprints.json` 中登记的 outputs 与本轮真实产物数量一致。
-  说明：`fingerprints.json.outputs` 共 9 项，与 `docs/contexts/spec-first/` 下本轮最小闭环产物数量一致。
+- [x] `artifact-manifest.json` 中登记的 outputs 与本轮真实产物数量一致。
+  说明：`artifact-manifest.json.outputs` 共 9 项，与 `docs/contexts/spec-first/` 下本轮最小闭环产物数量一致。
 
 #### 13.4.2 尚未完成项
 

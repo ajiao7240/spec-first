@@ -12,7 +12,7 @@ Only `ready` todos are resolved. `pending` todos are skipped — they haven't be
 
 ### 1. Analyze
 
-Scan `.context/spec-first/todos/*.md` and legacy `todos/*.md`. Partition by status:
+Scan `docs/todos/*.md` (canonical), `.context/spec-first/todos/*.md` (legacy-v2), and `todos/*.md` (legacy-v1). Partition by status:
 
 - **`ready`** (status field or `-ready-` in filename): resolve these.
 - **`pending`**: skip. Report them at the end.
@@ -34,7 +34,7 @@ Spawn a `spec-first:workflow:pr-comment-resolver` agent per item. Prefer paralle
 
 **Batching:** 1-4 items: direct parallel returns. 5+ items: batches of 4, each returning only a short status summary (todo handled, files changed, tests run/skipped, blockers).
 
-For large sets, use a scratch directory at `.context/spec-first/todo-resolve/<run-id>/` for per-resolver artifacts. Return only completion summaries to parent.
+For large sets, use a scratch directory at `.spec-first/workflows/todo-resolve/<run-id>/` for per-resolver artifacts. Return only completion summaries to parent.
 
 ### 4. Commit & Resolve
 
@@ -50,7 +50,7 @@ GATE: STOP. Verify the compound skill produced a solution document in `docs/solu
 
 ### 6. Clean Up
 
-Delete completed/resolved todo files from both paths. If a scratch directory was created at `.context/spec-first/todo-resolve/<run-id>/`, delete it (unless user asked to inspect).
+Delete completed/resolved todo files from all three paths. If a scratch directory was created at `.spec-first/workflows/todo-resolve/<run-id>/`, delete it (unless user asked to inspect).
 
 ```
 Todos resolved: [count]

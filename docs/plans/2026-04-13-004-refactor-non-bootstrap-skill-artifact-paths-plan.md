@@ -2,7 +2,7 @@
 
 ```
 文件：docs/plans/2026-04-13-004-refactor-non-bootstrap-skill-artifact-paths-plan.md
-状态：active
+状态：completed（2026-04-13）
 优先级：P1
 关联：docs/06-待办事项/03-非bootstrap-skill控制面路径迁移.md
 前置：docs/plans/2026-04-13-003-refactor-artifact-path-hard-cut-plan.md（已完成）
@@ -10,9 +10,22 @@
 
 ---
 
+## 完成说明
+
+本计划对应的迁移已于 2026-04-13 完成并入库。
+
+- Unit 1–6：`skills/*/SKILL.md` 已完成路径切换；todos canonical 已切换到 `docs/todos/`
+- Unit 7：`docs/02-架构设计/02-目录结构.md` 已补齐 `.spec-first/workflows/*` 与 `docs/todos/` 说明
+- Unit 8：`tests/smoke/cli.sh` 已补充 workflow scratch path 与 todo canonical 的 negative guard
+- Unit 9：`CLAUDE.md` 与 `CHANGELOG.md` 已同步更新
+
+本文保留为实施记录，不再作为待执行计划。
+
+---
+
 ## 目标
 
-将 6 个非 bootstrap skill 的控制面路径从 `.context/spec-first/` 迁移到方案三布局，并将 todos 持久工作项升级为 `docs/todos/` VCS 资产，彻底清除 `.context/` 作为运行时正式目录的残留。
+将 6 个非 bootstrap skill 的控制面路径从 `.context/spec-first/` 迁移到方案三布局，并将 todos 持久工作项升级为 `docs/todos/` VCS 资产；`.context/` 不再作为正式写入目录，仅保留 todo legacy read-only 兼容层。
 
 ---
 
@@ -266,9 +279,9 @@ fi
 
 ## 验收标准
 
-- [ ] Unit 1–6：6 个 `skills/*/SKILL.md` 路径全部切换，无旧路径残留（legacy 声明除外）
-- [ ] Unit 7：`docs/02-架构设计/02-目录结构.md` Section 4/5 包含新路径描述
-- [ ] Unit 8：smoke test negative guard 覆盖新迁移的 4 个暂存路径 + todo canonical
-- [ ] Unit 9：`CHANGELOG.md` 有对应记录，`CLAUDE.md` 已更新
-- [ ] repo-wide sweep：`grep -r "\.context/spec-first/" skills/` 只在 todo legacy 声明行出现，其余为零
-- [ ] 待办文档 `docs/06-待办事项/03-...` 状态更新为已完成或删除
+- [x] Unit 1–6：6 个 `skills/*/SKILL.md` 路径全部切换，无旧路径残留（legacy 声明除外）
+- [x] Unit 7：`docs/02-架构设计/02-目录结构.md` Section 4/5 包含新路径描述
+- [x] Unit 8：smoke test negative guard 覆盖新迁移的 4 个暂存路径 + todo canonical
+- [x] Unit 9：`CHANGELOG.md` 有对应记录，`CLAUDE.md` 已更新
+- [x] repo-wide sweep：`grep -r "\.context/spec-first/" skills/` 只在 todo legacy 声明行出现，其余为零
+- [x] 待办文档 `docs/06-待办事项/03-...` 状态更新为已完成或删除

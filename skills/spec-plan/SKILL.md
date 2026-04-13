@@ -814,7 +814,7 @@ Signals that justify artifact-backed mode:
 
 If artifact-backed mode is not clearly warranted, stay in direct mode.
 
-Artifact-backed mode uses a per-run scratch directory under `.context/spec-first/spec-plan/deepen/`.
+Artifact-backed mode uses a per-run scratch directory under `.spec-first/workflows/spec-plan/deepen/`.
 
 ##### 5.3.6 Run Targeted Research
 

@@ -1,29 +1,38 @@
 # 非 bootstrap skill 控制面路径迁移到 `.spec-first/workflows/`
 
+> **状态：✅ 已完成**（2026-04-13，见 `docs/plans/2026-04-13-004-refactor-non-bootstrap-skill-artifact-paths-plan.md`）
+>
 > **来源**：2026-04-13 artifact-path-standardization 重构期间，决策将以下 6 个 skill 的控制面迁移延后，作为独立任务处理（见 `docs/plans/2026-04-13-003-refactor-artifact-path-hard-cut-plan.md` Scope Boundaries）。
 
-## 待迁移 Skill 列表
+## 完成结果
+
+- `spec-review`、`spec-plan`、`feature-video`、`todo-resolve` 的运行时暂存路径已迁移到 `.spec-first/workflows/`
+- `todo-create`、`todo-triage`、`todo-resolve` 的持久工作项目录已切换到 `docs/todos/`
+- `tests/smoke/cli.sh` 已新增对应 negative guard，防止旧 `.context/spec-first/` 路径回归
+- `docs/02-架构设计/02-目录结构.md`、`CLAUDE.md`、`CHANGELOG.md` 已同步更新
+
+## 最终落地映射
 
 | Skill | 当前写入路径（旧） | 目标路径（新） |
 |-------|-------------------|----------------|
 | `spec-review` | `.context/spec-first/spec-review/<slug>/` | `.spec-first/workflows/spec-review/<slug>/` |
 | `spec-plan` | `.context/spec-first/spec-plan/<slug>/` | `.spec-first/workflows/spec-plan/<slug>/` |
-| `todo-create` | `.context/spec-first/todo-create/<slug>/` | `.spec-first/workflows/todo-create/<slug>/` |
-| `todo-triage` | `.context/spec-first/todo-triage/<slug>/` | `.spec-first/workflows/todo-triage/<slug>/` |
-| `todo-resolve` | `.context/spec-first/todo-resolve/<slug>/` | `.spec-first/workflows/todo-resolve/<slug>/` |
+| `todo-create` | `.context/spec-first/todos/` | `docs/todos/` |
+| `todo-triage` | `.context/spec-first/todos/` | `docs/todos/` |
+| `todo-resolve` | `.context/spec-first/todos/` + `.context/spec-first/todo-resolve/<slug>/` | `docs/todos/` + `.spec-first/workflows/todo-resolve/<slug>/` |
 | `feature-video` | `.context/spec-first/feature-video/<slug>/` | `.spec-first/workflows/feature-video/<slug>/` |
 
-> 注：实际写入路径以各 skill 的 `SKILL.md` 为准，上表为推断值，实施前需核查。
+> 注：上表按最终实现结果更新；source-of-truth 以各 skill 的 `SKILL.md` 为准。
 
 ## 背景
 
 2026-04-13 的 artifact-path 硬切换重构（`docs/plans/2026-04-13-003-refactor-artifact-path-hard-cut-plan.md`）仅聚焦 bootstrap + graph-bootstrap 的控制面迁移。可行性审查发现上述 6 个 skill 同样写入 `.context/spec-first/<workflow>/`，属于相同的路径命名空间问题，但将其纳入当前重构会显著扩大 scope，因此延后处理。
 
-当前状态：`.context/` 目录在 2026-04-13 重构完成后，将只剩上述 6 个 skill 的控制面路径仍在使用旧命名空间，形成一个孤立残留。
+立项时背景：在 2026-04-13 的前序重构完成后，`.context/` 目录只剩上述 6 个 skill 的控制面路径仍在使用旧命名空间，形成一个孤立残留。
 
 ## 目标
 
-将上述 6 个 skill 的控制面路径统一迁移到 `.spec-first/workflows/<workflow>/<slug>/`，彻底清除 `.context/` 作为运行时目录的残留。
+将 workflow scratch 路径统一迁移到 `.spec-first/workflows/`，并将 todos 持久工作项目录切换到 `docs/todos/`；`.context/` 不再作为正式写入目录，仅保留 todo legacy read-only 兼容层。
 
 ## 前置条件
 

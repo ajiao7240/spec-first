@@ -8,7 +8,14 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-13 kuang: refactor(skills+docs): spec-graph-bootstrap 阶段2代码质量修复——coverage_gaps severity 去除非法 low 值、写入后校验补入 evidence 非空自检指令；inference_reason 枚举统一到 SKILL.md 14 值权威表；crg_metrics Enhanced/Basic 模式 null/[] 填充规则补入集成方案；修订终版/集成方案/checklist 三份文档路径全量迁移（.context/spec-first/bootstrap → .spec-first/workflows/bootstrap、fingerprints.json → artifact-manifest.json）
+- v1.6.0 2026-04-13 17:29:10 kuang: test(docs): 补齐路径迁移治理收口——smoke 新增 Codex 等价 negative guard、todo canonical 与 source-of-truth legacy 白名单断言；docs/10-prompt 与 docs/01-需求分析 补充归档/非 source-of-truth 入口说明
+- v1.6.0 2026-04-13 17:28:00 kuang: docs(plans): 阶段 3B 方案二次审查修订——补入 task_type 判定契约与 selection_rules 静态/动态拆分、修正 yaml 语义（stages.work 移除 review-change、stages.review 补入）、3A gate 提升为前置条件
+- v1.6.0 2026-04-13 17:25:00 kuang: docs(plans): 完善 spec-graph-bootstrap 阶段 3B 方案——架构审查修复六项问题：yaml 生成缺口拆为 5.0a/5.0b、v1 跳过 selection_rules、移除 slug 显式指定、展开 spec-review 完整块、补 init 传播步骤
+- v1.6.0 2026-04-13 17:20:00 kuang: docs(plans): 新增 spec-graph-bootstrap 阶段 3B 实施方案文档——定义三个 workflow skill 的 Stage-0 上下文预载块插入位置、三级降级契约和各 stage 消费规则
+- v1.6.0 2026-04-13 17:21:00 kuang: feat(skills): 非 bootstrap skill 控制面路径迁移——spec-review/spec-plan/feature-video/todo-resolve 暂存迁移至 .spec-first/workflows/<workflow>/；todos 持久工作项升级为 docs/todos/ VCS 资产，保留 .context/spec-first/todos/ 和 todos/ 两层 read-only 遗留兼容；彻底清除 .context/ 作为运行时正式写入目录 (user-visible)
 - v1.6.0 2026-04-13 17:30:00 kuang: chore(git): 从版本控制移除 .claude/agents/ 运行时资产并完善 .gitignore——补充 .claude/agents/、.codex/agents/、.agents/ 排除规则，防止 init 产物被误入库
+- v1.6.0 2026-04-13 18:16:48 kuang: docs(plans): 为 spec-graph-bootstrap 阶段 3B 方案补充“延后到 v2 的能力”小节，明确显式 slug 指定与 selection_rules 动态执行的延期边界
 - v1.6.0 2026-04-13 17:00:00 kuang: fix(skill): 重命名 skills/mcp-setup → skills/spec-mcp-setup，修复 Codex 下技能名显示为 mcp-setup 而非 spec-mcp-setup 的命名不一致问题；同步更新 plugin.json skill 字段、命令模板路径、单元测试和 docs 目录
 - v1.6.0 2026-04-13 16:30:00 kuang: revert(init): 回滚 Codex workflowsRoot 分离——Codex 技能发现依赖 .agents/skills/ 扫描，.codex/commands/spec/ 不会被自动暴露为 slash command，分离导致 spec 技能全部消失；恢复 workflowsRoot=.agents/skills，所有 spec-xxx 技能保留在 .agents/skills/ 可被发现；同步恢复 rewriteSharedPaths 映射和 smoke test 断言；修复 plugin.json 再次误删问题
 - v1.6.0 2026-04-13 16:00:00 kuang: fix(init): Codex workflowsRoot 从 .agents/skills 分离到 .codex/spec-first/workflows——command-backing skills 不再暴露于 .agents/skills/，与 Claude 行为对齐；更新 rewriteSharedPaths 路径映射；smoke test 补充 workflow 目录数量断言和负向守卫
