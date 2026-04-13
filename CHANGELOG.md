@@ -8,6 +8,8 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-13 13:00:00 kuang: feat(crg): 新增集中路径解析模块 artifact-paths.js — 统一 .spec-first/graph/ 和 .spec-first/workflows/<wf>/<slug>/ 路径生成；导出 R4 文件名常量 GRAPH_INPUT_FINGERPRINTS_FILE / BOOTSTRAP_ARTIFACT_MANIFEST_FILE / GRAPH_IGNORE_FILE；纯函数，无 I/O 副作用；17条 jest 测试全绿
+- v1.6.0 2026-04-13 12:00:00 kuang: fix(spec-graph-bootstrap): SKILL.md schema 审查修复——(1) Phase 4 injection-index.yaml 补 advice 块与修订终版 §16.5 对齐；(2) test-surface.json test_files/coverage_gaps 补 evidence/summary/updated_at/inference_reason 字段，满足 FactItem 全量验收合同；(3) 置信度规则补 Enhanced/Basic 模式 inference_reason 规范枚举值（read-source-code/package-json-analysis 等），消除值域漂移；(4) risk-signals.json crg_metrics 补非 Full 模式 null/[] 填充规则，明确 generation_errors 记录要求
 - v1.6.0 2026-04-13 02:30:00 kuang: fix(install): vendor tree-sitter-objc 并收敛 peerDependency 为 >=0.21.0，彻底消除安装日志中所有 tree-sitter peer warning；修正 install-tarball.sh 冲突检测正则只匹配 ERESOLVE 行 (user-visible)
 - v1.6.0 2026-04-13 02:50:00 kuang: perf(install): 安装后自动裁剪非当前平台 prebuild + 构建产物（parser.c/grammar.js 等），磁盘从 ~382MB 降到 ~107MB（-72%）；vendor 包 files 字段排除 src/ 减少 tarball 体积从 7.1MB 到 5.0MB（-30%）(user-visible)
 - v1.6.0 2026-04-13 01:30:00 kuang: docs(install-experience): 统一所有面向用户安装文档的 onboarding 口径——canonical 顺序收敛为 安装→doctor→init→重启→workflow；修正 06-本地源码安装.md 和 04-常见问题.md 中 tree-sitter peer dep 版本方向描述错误（旧文档错误写成主包 0.22.0 vs grammar ^0.21.x，实际是主包 0.21.0，grammar 要求更高版本）；将 peer warning 叙事从"预期行为，可忽略"改为"已知兼容性噪音，本版本目标是消除"；FAQ 明确区分"安装成功确认"与"宿主内 workflow 可见"两个阶段；08-版本更新/README.md 记录安装体验治理为用户可见改进 (user-visible)

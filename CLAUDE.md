@@ -72,6 +72,7 @@ Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。C
 | `cli/postprocess.js` | 后处理编排（writeCommunities→detectFlows→analyzeGraph→rebuildFTS） |
 | `cli/open-db.js` | 共享 DB open 工具 |
 | `cli/envelope.js` | JSON 信封工厂 |
+| `artifact-paths.js` | 集中路径解析模块；纯函数，无 I/O；导出 resolveGraphDir/Db/InputFingerprints（→ `.spec-first/graph/`）、resolveWorkflowArtifactDir（→ `.spec-first/workflows/<wf>/<slug>/`）、resolveContextDocsDir（→ `docs/contexts/<slug>/`）及 R4 文件名常量（GRAPH_INPUT_FINGERPRINTS_FILE / BOOTSTRAP_ARTIFACT_MANIFEST_FILE / GRAPH_IGNORE_FILE） |
 | `commands/` | 13 个子命令处理器（flows/flow/affected-flows/communities/community/architecture/surprising-connections/god-nodes/impact/large-functions/search/detect-changes/review-context） |
 
 **JSON 契约**：`docs/contracts/crg-cli-v1.schema.json`（JSON Schema Draft 2020-12）
