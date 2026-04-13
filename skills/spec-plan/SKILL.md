@@ -26,6 +26,8 @@ Ask one question at a time. Prefer a concise single-select choice when natural o
 
 Do not proceed until you have a clear planning input.
 
+**IMPORTANT: All file references in the plan document must use repo-relative paths (e.g., `src/models/user.rb`), never absolute paths (e.g., `/Users/name/Code/project/src/models/user.rb`). This applies everywhere — implementation unit file lists, pattern references, origin document links, and prose mentions. Absolute paths break portability across machines, worktrees, and teammates.**
+
 ## Core Principles
 
 1. **Use requirements as the source of truth** - If `spec:brainstorm` produced a requirements document, planning should build from it rather than re-inventing behavior.
@@ -41,7 +43,7 @@ Do not proceed until you have a clear planning input.
 Every plan should contain:
 - A clear problem frame and scope boundary
 - Concrete requirements traceability back to the request or origin document
-- Exact file paths for the work being proposed
+- Repo-relative file paths for the work being proposed (never absolute paths — see Planning Rules)
 - Explicit test file paths for feature-bearing implementation units
 - Decisions with rationale, not just tasks
 - Existing patterns or code references to follow
@@ -97,7 +99,11 @@ If the user references an existing plan file or there is an obvious recent match
 - Confirm whether to update it in place or create a new plan
 - If updating, preserve completed checkboxes and revise only the still-relevant sections
 
-**Re-deepen fast path:** If the plan appears complete (all major sections present, implementation units defined, `status: active`) and the user's request is specifically about deepening or strengthening the plan — detected by signal words like "deepen", "strengthen", "confidence", "gaps", or an explicit request to re-deepen — short-circuit directly to Phase 5.3 (Confidence Check and Deepening). This avoids re-running the full planning workflow just to evaluate deepening.
+**Deepen intent:** The word "deepen" (or "deepening") in reference to a plan is the primary trigger for the deepening fast path. When the user says "deepen the plan", "deepen my plan", "run a deepening pass", or similar, the target document is a **plan** in `docs/plans/`, not a requirements document. Use any path, keyword, or context the user provides to identify the right plan. If a path is provided, verify it is actually a plan document. If the match is not obvious, confirm with the user before proceeding.
+
+Words like "strengthen", "confidence", "gaps", and "rigor" are NOT sufficient on their own to trigger deepening. These words appear in normal editing requests ("strengthen that section about the diagram", "there are gaps in the test scenarios") and should not cause a holistic deepening pass. Only treat them as deepening intent when the request clearly targets the plan as a whole and does not name a specific section or content area to change — and even then, prefer to confirm with the user before entering the deepening flow.
+
+Once the plan is identified and appears complete (all major sections present, implementation units defined, `status: active`), short-circuit directly to Phase 5.3 (Confidence Check and Deepening). This avoids re-running the full planning workflow just to evaluate deepening.
 
 Normal editing requests (e.g., "update the test scenarios", "add a new implementation unit") should NOT trigger the fast path — they follow the standard resume flow.
 
@@ -185,6 +191,8 @@ Prepare a concise planning context summary (a paragraph or two) to pass as input
 - Otherwise use the feature description directly
 
 Run these agents in parallel:
+
+Use bare agent names inside Task calls.
 
 - Task spec-first:research:repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
 - Task spec-first:research:learnings-researcher(planning context summary)
@@ -361,18 +369,32 @@ Frame every sketch with: *"This illustrates the intended approach and is directi
 
 Keep sketches concise — enough to validate direction, not enough to copy-paste into production.
 
+#### 3.4b Output Structure (Optional)
+
+For greenfield plans that create a new directory structure (new plugin, service, package, or module), include an `## Output Structure` section with a file tree showing the expected layout. This gives reviewers the overall shape before diving into per-unit details.
+
+**When to include it:**
+- The plan creates 3+ new files in a new directory hierarchy
+- The directory layout itself is a meaningful design decision
+
+**When to skip it:**
+- The plan only modifies existing files
+- The plan creates 1-2 files in an existing directory — the per-unit file lists are sufficient
+
+The tree is a scope declaration showing the expected output shape. It is not a constraint — the implementer may adjust the structure if implementation reveals a better layout. The per-unit `**Files:**` sections remain authoritative for what each unit creates or modifies.
+
 #### 3.5 Define Each Implementation Unit
 
 For each unit, include:
 - **Goal** - what this unit accomplishes
 - **Requirements** - which requirements or success criteria it advances
 - **Dependencies** - what must exist first
-- **Files** - exact file paths to create, modify, or test
+- **Files** - repo-relative file paths to create, modify, or test (never absolute paths)
 - **Approach** - key decisions, data flow, component boundaries, or integration notes
 - **Execution note** - optional, only when the unit benefits from a non-default execution posture such as test-first, characterization-first, or external delegation
 - **Technical design** - optional pseudo-code or diagram when the unit's approach is non-obvious and prose alone would leave it ambiguous. Frame explicitly as directional guidance, not implementation specification
 - **Patterns to follow** - existing code or conventions to mirror
-- **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage.
+- **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage. For units with no behavioral change (pure config, scaffolding, styling), use `Test expectation: none -- [reason]` instead of leaving the field blank.
   - **Happy path behaviors** - core functionality with expected inputs and outputs
   - **Edge cases** (when the unit has meaningful boundaries) - boundary values, empty inputs, nil/null states, concurrent access
   - **Error and failure paths** (when the unit has failure modes) - invalid input, downstream service failures, timeout behavior, permission denials
@@ -468,6 +490,12 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 - [Explicit non-goal or exclusion]
 
+<!-- Optional: When some items are planned work that will happen in a separate PR, issue,
+     or repo, use this sub-heading to distinguish them from true non-goals. -->
+### Deferred to Separate Tasks
+
+- [Work that will be done separately]: [Where or when -- e.g., "separate PR in repo-x", "future iteration"]
+
 ## Context & Research
 
 ### Relevant Code and Patterns
@@ -495,6 +523,14 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 ### Deferred to Implementation
 
 - [Question or unknown]: [Why it is intentionally deferred]
+
+<!-- Optional: Include when the plan creates a new directory structure (greenfield plugin,
+     new service, new package). Shows the expected output shape at a glance. Omit for plans
+     that only modify existing files. This is a scope declaration, not a constraint --
+     the implementer may adjust the structure if implementation reveals a better layout. -->
+## Output Structure
+
+    [directory tree showing new directories and files]
 
 <!-- Optional: Include this section only when the work involves DSL design, multi-component
      integration, complex data flow, state-heavy lifecycle, or other cases where prose alone
@@ -607,6 +643,7 @@ For larger `Deep` plans, extend the core template only when useful with sections
 
 - Prefer path plus class/component/pattern references over brittle line numbers
 - Keep implementation units checkable with `- [ ]` syntax for progress tracking
+- Keep every file reference repo-relative — never absolute paths
 - Do not include implementation code — no imports, exact method signatures, or framework-specific syntax
 - Pseudo-code sketches and DSL grammars are allowed in the High-Level Technical Design section and per-unit technical design fields when they communicate design direction. Frame them explicitly as directional guidance, not implementation specification
 - Mermaid diagrams are encouraged when they clarify relationships or flows that prose alone would make hard to follow — ERDs for data model changes, sequence diagrams for multi-service interactions, state diagrams for lifecycle transitions, flowcharts for complex branching logic
@@ -629,6 +666,8 @@ Before finalizing, check:
 - Deferred items are explicit and not hidden as fake certainty
 - If a High-Level Technical Design section is included, it uses the right medium for the work, carries the non-prescriptive framing, and does not contain implementation code (no imports, exact signatures, or framework-specific syntax)
 - Per-unit technical design fields, if present, are concise and directional rather than copy-paste-ready
+- If the plan creates a new directory structure, would an Output Structure tree help reviewers see the overall shape?
+- If Scope Boundaries lists items that are planned work for a separate PR or task, are they under `### Deferred to Separate Tasks` rather than mixed with true non-goals?
 
 If the plan originated from a requirements document, re-read that document and verify:
 - The chosen approach still matches the product intent
@@ -689,278 +728,13 @@ Build a risk profile. Treat these as high-risk signals:
 
 If the plan already appears sufficiently grounded and the thin-grounding override does not apply, report "Confidence check passed — no sections need strengthening" and proceed to Phase 5.4.
 
-##### 5.3.3 Score Confidence Gaps
+##### 5.3.3-5.3.7 Deepening Workflow
 
-Use a checklist-first, risk-weighted scoring pass.
+Read `references/deepening-workflow.md` and follow it for scoring confidence gaps, targeted research dispatch, execution mode selection, and plan strengthening.
 
-For each section, compute:
-- **Trigger count** - number of checklist problems that apply
-- **Risk bonus** - add 1 if the topic is high-risk and this section is materially relevant to that risk
-- **Critical-section bonus** - add 1 for `Key Technical Decisions`, `Implementation Units`, `System-Wide Impact`, `Risks & Dependencies`, or `Open Questions` in `Standard` or `Deep` plans
+#### 5.3.8-5.4 Handoff
 
-Treat a section as a candidate if:
-- it hits **2+ total points**, or
-- it hits **1+ point** in a high-risk domain and the section is materially important
-
-Choose only the top **2-5** sections by score. If deepening a lightweight plan (high-risk exception), cap at **1-2** sections.
-
-If the plan already has a `deepened:` date:
-- Prefer sections that have not yet been substantially strengthened, if their scores are comparable
-- Revisit an already-deepened section only when it still scores clearly higher than alternatives
-
-**Section Checklists:**
-
-**Requirements Trace**
-- Requirements are vague or disconnected from implementation units
-- Success criteria are missing or not reflected downstream
-- Units do not clearly advance the traced requirements
-- Origin requirements are not clearly carried forward
-
-**Context & Research / Sources & References**
-- Relevant repo patterns are named but never used in decisions or implementation units
-- Cited learnings or references do not materially shape the plan
-- High-risk work lacks appropriate external or internal grounding
-- Research is generic instead of tied to this repo or this plan
-
-**Key Technical Decisions**
-- A decision is stated without rationale
-- Rationale does not explain tradeoffs or rejected alternatives
-- The decision does not connect back to scope, requirements, or origin context
-- An obvious design fork exists but the plan never addresses why one path won
-
-**Open Questions**
-- Product blockers are hidden as assumptions
-- Planning-owned questions are incorrectly deferred to implementation
-- Resolved questions have no clear basis in repo context, research, or origin decisions
-- Deferred items are too vague to be useful later
-
-**High-Level Technical Design (when present)**
-- The sketch uses the wrong medium for the work
-- The sketch contains implementation code rather than pseudo-code
-- The non-prescriptive framing is missing or weak
-- The sketch does not connect to the key technical decisions or implementation units
-
-**High-Level Technical Design (when absent)** *(Standard or Deep plans only)*
-- The work involves DSL design, API surface design, multi-component integration, complex data flow, or state-heavy lifecycle
-- Key technical decisions would be easier to validate with a visual or pseudo-code representation
-- The approach section of implementation units is thin and a higher-level technical design would provide context
-
-**Implementation Units**
-- Dependency order is unclear or likely wrong
-- File paths or test file paths are missing where they should be explicit
-- Units are too large, too vague, or broken into micro-steps
-- Approach notes are thin or do not name the pattern to follow
-- Test scenarios are vague (don't name inputs and expected outcomes), skip applicable categories (e.g., no error paths for a unit with failure modes, no integration scenarios for a unit crossing layers), or are disproportionate to the unit's complexity
-- Verification outcomes are vague or not expressed as observable results
-
-**System-Wide Impact**
-- Affected interfaces, callbacks, middleware, entry points, or parity surfaces are missing
-- Failure propagation is underexplored
-- State lifecycle, caching, or data integrity risks are absent where relevant
-- Integration coverage is weak for cross-layer work
-
-**Risks & Dependencies / Documentation / Operational Notes**
-- Risks are listed without mitigation
-- Rollout, monitoring, migration, or support implications are missing when warranted
-- External dependency assumptions are weak or unstated
-- Security, privacy, performance, or data risks are absent where they obviously apply
-
-Use the plan's own `Context & Research` and `Sources & References` as evidence. If those sections cite a pattern, learning, or risk that never affects decisions, implementation units, or verification, treat that as a confidence gap.
-
-##### 5.3.4 Report and Dispatch Targeted Research
-
-Before dispatching agents, report what sections are being strengthened and why:
-
-```text
-Strengthening [section names] — [brief reason for each, e.g., "decision rationale is thin", "cross-boundary effects aren't mapped"]
-```
-
-For each selected section, choose the smallest useful agent set. Do **not** run every agent. Use at most **1-3 agents per section** and usually no more than **8 agents total**.
-
-Use fully-qualified agent names inside Task calls.
-
-**Deterministic Section-to-Agent Mapping:**
-
-**Requirements Trace / Open Questions classification**
-- `spec-first:workflow:spec-flow-analyzer` for missing user flows, edge cases, and handoff gaps
-- `spec-first:research:repo-research-analyst` (Scope: `architecture, patterns`) for repo-grounded patterns, conventions, and implementation reality checks
-
-**Context & Research / Sources & References gaps**
-- `spec-first:research:learnings-researcher` for institutional knowledge and past solved problems
-- `spec-first:research:framework-docs-researcher` for official framework or library behavior
-- `spec-first:research:best-practices-researcher` for current external patterns and industry guidance
-- Add `spec-first:research:git-history-analyzer` only when historical rationale or prior art is materially missing
-
-**Key Technical Decisions**
-- `spec-first:review:architecture-strategist` for design integrity, boundaries, and architectural tradeoffs
-- Add `spec-first:research:framework-docs-researcher` or `spec-first:research:best-practices-researcher` when the decision needs external grounding beyond repo evidence
-
-**High-Level Technical Design**
-- `spec-first:review:architecture-strategist` for validating that the technical design accurately represents the intended approach and identifying gaps
-- `spec-first:research:repo-research-analyst` (Scope: `architecture, patterns`) for grounding the technical design in existing repo patterns and conventions
-- Add `spec-first:research:best-practices-researcher` when the technical design involves a DSL, API surface, or pattern that benefits from external validation
-
-**Implementation Units / Verification**
-- `spec-first:research:repo-research-analyst` (Scope: `patterns`) for concrete file targets, patterns to follow, and repo-specific sequencing clues
-- `spec-first:review:pattern-recognition-specialist` for consistency, duplication risks, and alignment with existing patterns
-- Add `spec-first:workflow:spec-flow-analyzer` when sequencing depends on user flow or handoff completeness
-
-**System-Wide Impact**
-- `spec-first:review:architecture-strategist` for cross-boundary effects, interface surfaces, and architectural knock-on impact
-- Add the specific specialist that matches the risk:
-  - `spec-first:review:performance-oracle` for scalability, latency, throughput, and resource-risk analysis
-  - `spec-first:review:security-sentinel` for auth, validation, exploit surfaces, and security boundary review
-  - `spec-first:review:data-integrity-guardian` for migrations, persistent state safety, consistency, and data lifecycle risks
-
-**Risks & Dependencies / Operational Notes**
-- Use the specialist that matches the actual risk:
-  - `spec-first:review:security-sentinel` for security, auth, privacy, and exploit risk
-  - `spec-first:review:data-integrity-guardian` for persistent data safety, constraints, and transaction boundaries
-  - `spec-first:review:data-migration-expert` for migration realism, backfills, and production data transformation risk
-  - `spec-first:review:deployment-verification-agent` for rollout checklists, rollback planning, and launch verification
-  - `spec-first:review:performance-oracle` for capacity, latency, and scaling concerns
-
-**Agent Prompt Shape:**
-
-For each selected section, pass:
-- The scope prefix from the mapping above when the agent supports scoped invocation
-- A short plan summary
-- The exact section text
-- Why the section was selected, including which checklist triggers fired
-- The plan depth and risk profile
-- A specific question to answer
-
-Instruct the agent to return:
-- findings that change planning quality
-- stronger rationale, sequencing, verification, risk treatment, or references
-- no implementation code
-- no shell commands
-
-##### 5.3.5 Choose Research Execution Mode
-
-Use the lightest mode that will work:
-
-- **Direct mode** - Default. Use when the selected section set is small and the parent can safely read the agent outputs inline.
-- **Artifact-backed mode** - Use only when the selected research scope is large enough that inline returns would create unnecessary context pressure.
-
-Signals that justify artifact-backed mode:
-- More than 5 agents are likely to return meaningful findings
-- The selected section excerpts are long enough that repeating them in multiple agent outputs would be wasteful
-- The topic is high-risk and likely to attract bulky source-backed analysis
-
-If artifact-backed mode is not clearly warranted, stay in direct mode.
-
-Artifact-backed mode uses a per-run scratch directory under `.spec-first/workflows/spec-plan/deepen/`.
-
-##### 5.3.6 Run Targeted Research
-
-Launch the selected agents in parallel using the execution mode chosen above. If the current platform does not support parallel dispatch, run them sequentially instead.
-
-Prefer local repo and institutional evidence first. Use external research only when the gap cannot be closed responsibly from repo context or already-cited sources.
-
-If a selected section can be improved by reading the origin document more carefully, do that before dispatching external agents.
-
-**Direct mode:** Have each selected agent return its findings directly to the parent. Keep the return payload focused: strongest findings only, the evidence or sources that matter, the concrete planning improvement implied by the finding.
-
-**Artifact-backed mode:** For each selected agent, instruct it to write one compact artifact file in the scratch directory and return only a short completion summary. Each artifact should contain: target section, why selected, 3-7 findings, source-backed rationale, the specific plan change implied by each finding. No implementation code, no shell commands.
-
-If an artifact is missing or clearly malformed, re-run that agent or fall back to direct-mode reasoning for that section.
-
-If agent outputs conflict:
-- Prefer repo-grounded and origin-grounded evidence over generic advice
-- Prefer official framework documentation over secondary best-practice summaries when the conflict is about library behavior
-- If a real tradeoff remains, record it explicitly in the plan
-
-##### 5.3.7 Synthesize and Update the Plan
-
-Strengthen only the selected sections. Keep the plan coherent and preserve its overall structure.
-
-Allowed changes:
-- Clarify or strengthen decision rationale
-- Tighten requirements trace or origin fidelity
-- Reorder or split implementation units when sequencing is weak
-- Add missing pattern references, file/test paths, or verification outcomes
-- Expand system-wide impact, risks, or rollout treatment where justified
-- Reclassify open questions between `Resolved During Planning` and `Deferred to Implementation` when evidence supports the change
-- Strengthen, replace, or add a High-Level Technical Design section when the work warrants it and the current representation is weak
-- Strengthen or add per-unit technical design fields where the unit's approach is non-obvious
-- Add or update `deepened: YYYY-MM-DD` in frontmatter when the plan was substantively improved
-
-Do **not**:
-- Add implementation code — no imports, exact method signatures, or framework-specific syntax. Pseudo-code sketches and DSL grammars are allowed
-- Add git commands, commit choreography, or exact test command recipes
-- Add generic `Research Insights` subsections everywhere
-- Rewrite the entire plan from scratch
-- Invent new product requirements, scope changes, or success criteria without surfacing them explicitly
-
-If research reveals a product-level ambiguity that should change behavior or scope:
-- Do not silently decide it here
-- Record it under `Open Questions`
-- Recommend `spec:brainstorm` if the gap is truly product-defining
-
-##### 5.3.8 Final Checks and Cleanup
-
-Before proceeding to post-generation options:
-- Confirm the plan is stronger in specific ways, not merely longer
-- Confirm the planning boundary is intact
-- Confirm origin decisions were preserved when an origin document exists
-
-If artifact-backed mode was used:
-- Clean up the temporary scratch directory after the plan is safely updated
-- If cleanup is not practical on the current platform, note where the artifacts were left
-
-#### 5.4 Post-Generation Options
-
-**Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context, skip the interactive menu below and return control to the caller immediately. The plan file has already been written and the confidence check has already run — the caller (e.g., lfg, slfg) determines the next step.
-
-After the confidence check completes (or is skipped), present the options using the platform's blocking question tool when available (see Interaction Method). Otherwise present numbered options in chat and wait for the user's reply before proceeding.
-
-**Question:** "Plan ready at `docs/plans/YYYY-MM-DD-NNN-<type>-<name>-plan.md`. What would you like to do next?"
-
-**Option ordering depends on plan characteristics.** Lead with document-review when any of these conditions are met:
-
-- **Deep** plan
-- High-risk signals present
-- The confidence check deepened 3+ sections
-- **Standard** plan where Phase 1.2 triggered external research due to thin local grounding (fewer than 3 direct examples or adjacent-domain match) — when the plan was built on unfamiliar territory, the adversarial reviewer's assumption surfacing catches factual claims about system behavior that structural scoring cannot verify
-
-Include a recommendation explaining why:
-
-"This plan has [significant architectural decisions / high-risk security concerns / cross-cutting impact / thin local grounding for a key domain]. Its adversarial reviewer will stress-test the premises and decisions before implementation."
-
-**Options when document-review is recommended:**
-1. **Run `document-review` skill** - Stress-test premises and decisions through structured document review (recommended)
-2. **Open plan in editor** - Open the plan file for review
-3. **Share to Proof** - Upload the plan for collaborative review and sharing
-4. **Start `/spec:work`** - Begin implementing this plan in the current environment
-5. **Start `/spec:work` in another session** - Begin implementing in a separate agent session when the current platform supports it
-6. **Create Issue** - Create an issue in the configured tracker
-
-**Options for Standard or Lightweight plans:**
-1. **Open plan in editor** - Open the plan file for review
-2. **Run `document-review` skill** - Improve the plan through structured document review
-3. **Share to Proof** - Upload the plan for collaborative review and sharing
-4. **Start `/spec:work`** - Begin implementing this plan in the current environment
-5. **Start `/spec:work` in another session** - Begin implementing in a separate agent session when the current platform supports it
-6. **Create Issue** - Create an issue in the configured tracker
-
-Based on selection:
-- **Open plan in editor** → Open `docs/plans/<plan_filename>.md` using the current platform's file-open or editor mechanism (e.g., `open` on macOS, `xdg-open` on Linux, or the IDE's file-open API)
-- **`document-review` skill** → Load the `document-review` skill with the plan path
-- **Share to Proof** → Upload the plan:
-  ```bash
-  CONTENT=$(cat docs/plans/<plan_filename>.md)
-  TITLE="Plan: <plan title from frontmatter>"
-  RESPONSE=$(curl -s -X POST https://www.proofeditor.ai/share/markdown \
-    -H "Content-Type: application/json" \
-    -d "$(jq -n --arg title "$TITLE" --arg markdown "$CONTENT" --arg by "ai:compound" '{title: $title, markdown: $markdown, by: $by}')")
-  PROOF_URL=$(echo "$RESPONSE" | jq -r '.tokenUrl')
-  ```
-  Display `View & collaborate in Proof: <PROOF_URL>` if successful, then return to the options
-- **`/spec:work`** → Call `/spec:work` with the plan path
-- **`/spec:work` in another session** → If the current platform supports launching a separate agent session, start `/spec:work` with the plan path there. Otherwise, explain the limitation briefly and offer to run `/spec:work` in the current session instead.
-- **Create Issue** → Follow the Issue Creation section below
-- **Other** → Accept free text for revisions and loop back to options
+Read `references/plan-handoff.md` and follow it for mandatory `document-review`, final checks, and post-generation options.
 
 ## Issue Creation
 

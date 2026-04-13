@@ -8,6 +8,7 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-14 04:22:42 kuang: feat(workflows): 同步 compound 核心工作流更新批次 B-D，收敛 brainstorm/plan/work/work-beta/compound/compound-refresh 的 review/testing/delegation/discoverability 契约，并补齐 docs/solutions 可发现性入口 (user-visible)
 - v1.6.0 2026-04-14 13:10:00 kuang: docs(spec-graph-bootstrap): 继续回写需求文档 source-of-truth——重写阶段命令产物对照表，统一到 .spec-first/workflows/bootstrap 与 artifact-manifest.json，并补齐 v1 injection-index / workflow skill 消费固化口径
 - v1.6.0 2026-04-14 13:05:00 kuang: docs(spec-graph-bootstrap): 回写需求文档口径收敛——路线图切换到 .spec-first/workflows/bootstrap 与 artifact-manifest.json，补 v1 Stage-0 消费顺序 / fact.* 跳过说明，并将修订终版中的路由与 slug 规则分层为“当前实现 vs 后续增强”
 - v1.6.0 2026-04-14 12:50:00 kuang: docs(validation): 新增 spec-graph-bootstrap 需求文档口径漂移清单，逐项标出旧 .context/fingerprints 口径、v1 路由能力边界与验证记录时点漂移，便于后续 source-of-truth 清理

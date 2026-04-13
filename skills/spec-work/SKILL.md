@@ -159,10 +159,12 @@ This command takes a work document (plan, specification, or todo file) and execu
      - Mark task as in-progress
      - Read any referenced files from the plan
      - Look for similar patterns in codebase
+     - Find existing test files for implementation files being changed (Test Discovery — see below)
      - Implement following existing conventions
-     - Write tests for new functionality
+     - Add, update, or remove tests to match implementation changes (see Test Discovery below)
      - Run System-Wide Test Check (see below)
      - Run tests after changes
+     - Assess testing coverage: did this task change behavior? If yes, were tests written or updated? If no tests were added, is the justification deliberate (e.g., pure config, no behavioral change)?
      - Mark task as completed
      - Evaluate for incremental commit (see below)
    ```
@@ -174,6 +176,8 @@ This command takes a work document (plan, specification, or todo file) and execu
    - Do not skip verifying that a new test fails before implementing the fix or feature
    - Do not over-implement beyond the current behavior slice when working test-first
    - Skip test-first discipline for trivial renames, pure configuration, and pure styling work
+
+   **Test Discovery** — Before implementing changes to a file, find its existing test files (search for test/spec files that import, reference, or share naming patterns with the implementation file). When a plan specifies test scenarios or test files, start there, then check for additional test coverage the plan may not have enumerated. Changes to implementation files should be accompanied by corresponding test updates — new tests for new behavior, modified tests for changed behavior, removed or updated tests for deleted behavior.
 
    **Test Scenario Completeness** — Before writing tests for a feature-bearing unit, check whether the plan's `Test scenarios` cover all categories that apply to this unit. If a category is missing or scenarios are vague (e.g., "validates correctly" without naming inputs and expected outcomes), supplement from the unit's own context before writing tests:
 
@@ -243,7 +247,7 @@ This command takes a work document (plan, specification, or todo file) and execu
    - Run relevant tests after each significant change
    - Don't wait until the end to test
    - Fix failures immediately
-   - Add new tests for new functionality
+   - Add new tests for new behavior, update tests for changed behavior, remove tests for deleted behavior
    - **Unit tests with mocks prove logic in isolation. Integration tests with real objects prove the layers work together.** If your change touches callbacks, middleware, or error handling — you need both.
 
 5. **Simplify as You Go**
@@ -269,172 +273,9 @@ This command takes a work document (plan, specification, or todo file) and execu
    - Create new tasks if scope expands
    - Keep user informed of major milestones
 
-### Phase 3: Quality Check
+### Phase 3-4: Quality Check and Ship It
 
-1. **Run Core Quality Checks**
-
-   Always run before submitting:
-
-   ```bash
-   # Run full test suite (use project's test command)
-   # Examples: bin/rails test, npm test, pytest, go test, etc.
-
-   # Run linting (per AGENTS.md)
-   # Use linting-agent before pushing to origin
-   ```
-
-2. **Consider Code Review** (Optional)
-
-   Use for complex, risky, or large changes. Load the `spec:review` workflow and choose the review mode that matches the current context instead of hard-coding one in the caller. When the plan file path is known, pass it as `plan:<path>`.
-
-3. **Final Validation**
-   - All tasks marked completed
-   - All tests pass
-   - Linting passes
-   - Code follows existing patterns
-   - Figma designs match (if applicable)
-   - No console errors or warnings
-   - If the plan has a `Requirements Trace`, verify each requirement is satisfied by the completed work
-   - If any `Deferred to Implementation` questions were noted, confirm they were resolved during execution
-
-4. **Prepare Operational Validation Plan** (REQUIRED)
-   - Add a `## Post-Deploy Monitoring & Validation` section to the PR description for every change.
-   - Include concrete:
-     - Log queries/search terms
-     - Metrics or dashboards to watch
-     - Expected healthy signals
-     - Failure signals and rollback/mitigation trigger
-     - Validation window and owner
-   - If there is truly no production/runtime impact, still include the section with: `No additional operational monitoring required` and a one-line reason.
-
-### Phase 4: Ship It
-
-1. **Create Commit**
-
-   ```bash
-   git add .
-   git status  # Review what's being committed
-   git diff --staged  # Check the changes
-
-   # Commit with conventional format
-   git commit -m "$(cat <<'EOF'
-   feat(scope): description of what and why
-
-   Brief explanation if needed.
-
-   🤖 Generated with [MODEL] via [HARNESS](HARNESS_URL) + Spec-First v[VERSION]
-
-   Co-Authored-By: [MODEL] ([CONTEXT] context, [THINKING]) <noreply@anthropic.com>
-   EOF
-   )"
-   ```
-
-   **Fill in at commit/PR time:**
-
-   | Placeholder | Value | Example |
-   |-------------|-------|---------|
-   | Placeholder | Value | Example |
-   |-------------|-------|---------|
-   | `[MODEL]` | Model name | Claude Opus 4.6, GPT-5.4 |
-   | `[CONTEXT]` | Context window (if known) | 200K, 1M |
-   | `[THINKING]` | Thinking level (if known) | extended thinking |
-   | `[HARNESS]` | Tool running you | Claude Code, Codex, Gemini CLI |
-   | `[HARNESS_URL]` | Link to that tool | `https://claude.com/claude-code` |
-   | `[VERSION]` | `plugin.json` → `version` | 2.40.0 |
-
-   Subagents creating commits/PRs are equally responsible for accurate attribution.
-
-2. **Capture and Upload Screenshots for UI Changes** (REQUIRED for any UI work)
-
-   For **any** design changes, new views, or UI modifications, you MUST capture and upload screenshots:
-
-   **Step 1: Start dev server** (if not running)
-   ```bash
-   bin/dev  # Run in background
-   ```
-
-   **Step 2: Capture screenshots with agent-browser CLI**
-   ```bash
-   agent-browser open http://localhost:3000/[route]
-   agent-browser snapshot -i
-   agent-browser screenshot output.png
-   ```
-   See the `agent-browser` skill for detailed usage.
-
-   **Step 3: Upload using imgup skill**
-   ```bash
-   skill: imgup
-   # Then upload each screenshot:
-   imgup -h pixhost screenshot.png  # pixhost works without API key
-   # Alternative hosts: catbox, imagebin, beeimg
-   ```
-
-   **What to capture:**
-   - **New screens**: Screenshot of the new UI
-   - **Modified screens**: Before AND after screenshots
-   - **Design implementation**: Screenshot showing Figma design match
-
-   **IMPORTANT**: Always include uploaded image URLs in PR description. This provides visual context for reviewers and documents the change.
-
-3. **Create Pull Request**
-
-   ```bash
-   git push -u origin feature-branch-name
-
-   gh pr create --title "Feature: [Description]" --body "$(cat <<'EOF'
-   ## Summary
-   - What was built
-   - Why it was needed
-   - Key decisions made
-
-   ## Testing
-   - Tests added/modified
-   - Manual testing performed
-
-   ## Post-Deploy Monitoring & Validation
-   - **What to monitor/search**
-     - Logs:
-     - Metrics/Dashboards:
-   - **Validation checks (queries/commands)**
-     - `command or query here`
-   - **Expected healthy behavior**
-     - Expected signal(s)
-   - **Failure signal(s) / rollback trigger**
-     - Trigger + immediate action
-   - **Validation window & owner**
-     - Window:
-     - Owner:
-   - **If no operational impact**
-     - `No additional operational monitoring required: <reason>`
-
-   ## Before / After Screenshots
-   | Before | After |
-   |--------|-------|
-   | ![before](URL) | ![after](URL) |
-
-   ## Figma Design
-   [Link if applicable]
-
-   ---
-
-   [![Spec First v[VERSION]](https://img.shields.io/badge/Spec_First-v[VERSION]-6366f1)](https://github.com/sunrain520/spec-first)
-   🤖 Generated with [MODEL] ([CONTEXT] context, [THINKING]) via [HARNESS](HARNESS_URL)
-   EOF
-   )"
-   ```
-
-4. **Update Plan Status**
-
-   If the input document has YAML frontmatter with a `status` field, update it to `completed`:
-   ```
-   status: active  →  status: completed
-   ```
-
-5. **Notify User**
-   - Summarize what was completed
-   - Link to PR
-   - Note any follow-up work needed
-   - Suggest next steps if applicable
+When all Phase 2 tasks are complete and execution transitions to quality check, read `references/shipping-workflow.md` for the full shipping workflow: quality checks, code review, final validation, PR creation, and notification.
 
 ---
 
@@ -490,7 +331,7 @@ Most plans should use subagent dispatch from standard mode. Agent teams add sign
 - Follow existing patterns
 - Write tests for new code
 - Run linting before pushing
-- Use reviewer agents for complex/risky changes only
+- Review every change — inline for simple additive work, full review for everything else
 
 ### Ship Complete Features
 

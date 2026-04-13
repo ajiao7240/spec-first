@@ -6,6 +6,7 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-14 | feat | `compound-core-workflows` | 完成 `compound-engineering-plugin` 核心链路批次 B-D 同步：`spec-plan` / `spec-brainstorm` 收口 repo-relative、mandatory document-review 与 reference 抽取；`spec-work` / `spec-work-beta` 收口 review/testing/delegation 约束并拆出 shipping/codex references；`spec-compound` / `spec-compound-refresh` 补 discoverability 检查、stack-aware reviewer 路由，并将 `docs/solutions/` 可发现性写回 `AGENTS.md` / `CLAUDE.md` |
 | 2026-04-13 | refactor | `artifact-path` | CRG 图数据库从 `.spec-first-graph/` 迁移到 `.spec-first/graph/`；bootstrap 控制面从 `.context/spec-first/bootstrap/` 迁移到 `.spec-first/workflows/bootstrap/`；fingerprints.json 拆分为 `input-fingerprints.json`（graph 层）和 `artifact-manifest.json`（bootstrap 层）；ignore 文件从 `.spec-first-graphignore` 改名为 `.spec-firstignore` [breaking internal] |
 | 2026-04-13 | docs | `install-experience` | 统一所有面向用户安装文档的 onboarding 顺序（安装 -> doctor -> init -> 重启 -> workflow）；修正 tree-sitter peer dep 版本方向描述错误（主包 0.21.0，grammar 要求更高版本）；将 peer warning 叙事从"预期行为"改为"已知兼容性噪音，本版本目标是消除"；FAQ 明确区分"安装成功确认"与"宿主内 workflow 可见"两个阶段 |
 | 2026-04-12 | feat | `spec-graph-bootstrap` | `graph-bootstrap` 的 manifest、安装提示、README、用户手册与 smoke 断言统一升级为 graph-informed Phase 0-4 / 阶段2最小闭环语义，对外描述与 `SKILL.md`、阶段2文档收敛一致 |
@@ -23,6 +24,39 @@
 | 2026-04-01 | feat | `mcp-setup` | 把 MCP 工具安装、检测、配置合并为一条一键化路径，降低 Full mode 落地门槛 |
 | 2026-03-31 | fix | `spec-bootstrap` | 基于 review 结论补强原子备份、失败恢复、MCP 连接校验等关键可靠性能力 |
 | 2026-03-31 | feat | `spec-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
+
+---
+
+## 2026-04-14 `feat(compound-core-workflows)`
+
+### 更新内容
+
+完成 `compound-engineering-plugin` 核心工作流同步计划的批次 B-D，实现从“只完成批次 A”升级到“核心链路全闭环”。
+
+### 主要变化
+
+- `spec-plan` / `spec-brainstorm`
+  - 强制 repo-relative 路径
+  - 把 late-sequence 内容拆到 reference 文件
+  - 收口 `document-review` 的 mandatory handoff 规则
+- `spec-work` / `spec-work-beta`
+  - 默认强制 code review
+  - 增加 `Test Discovery` 与 testing-gap 收口
+  - `spec-work-beta` 新增 Codex delegation 参数解析、配置解析与 reference 化 delegation workflow
+  - Phase 3-4 shipping 流程从主文件抽成 reference，降低主 skill token 负担
+- `testing-reviewer`
+  - 增加“行为变化但零测试变更”审查项
+- `spec-compound` / `spec-compound-refresh`
+  - 补 discoverability check
+  - `spec-compound` 改成按主栈路由 `kieran-* reviewer`，移除不存在 reviewer 的引用
+  - `"What's next?"` 明确要求使用 blocking question tool
+- 仓库治理
+  - `AGENTS.md` / `CLAUDE.md` 新增 `docs/solutions/` 可发现性说明
+  - 同步矩阵与审查报告可直接作为后续继续追上游的基线
+
+### 版本意义
+
+这次更新把 `spec-first` 与上游 `compound-engineering-plugin` 的核心 workflow 契约重新拉齐到同一层级：planning 更结构化，execution 更稳，knowledge compounding 更容易被后续 agent 发现和复用。对后续继续追上游更新而言，这意味着同步工作已经从“零散补丁”升级为“有基线、有 handoff、有审查记录”的可持续状态。
 
 ---
 

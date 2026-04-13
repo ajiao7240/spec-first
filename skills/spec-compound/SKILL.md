@@ -211,6 +211,40 @@ Do not invoke `spec:compound-refresh` without an argument unless the user explic
 
 Always capture the new learning first. Refresh is a targeted maintenance follow-up, not a prerequisite for documentation.
 
+### Discoverability Check
+
+After the learning is written and the refresh decision is made, check whether the project's instruction files would lead an agent to discover and search `docs/solutions/` before starting work in a documented area. This runs every time — the knowledge store only compounds value when agents can find it.
+
+1. Identify which root-level instruction files exist (`AGENTS.md`, `CLAUDE.md`, or both). Read the file(s) and determine which holds the substantive content — one file may just be a shim that `@`-includes the other. The substantive file is the assessment and edit target; ignore shims. If neither file exists, skip this check entirely.
+2. Assess whether an agent reading the instruction files would learn three things:
+   - That a searchable knowledge store of documented solutions exists
+   - Enough about its structure to search effectively (category organization, YAML frontmatter fields like `module`, `tags`, `problem_type`)
+   - When to search it (before implementing features, debugging issues, or making decisions in documented areas)
+
+   This is a semantic assessment, not a string match. The information could be a line in an architecture section, a bullet in a gotchas section, spread across multiple places, or expressed without ever using the exact path `docs/solutions/`. Use judgment — if an agent would reasonably discover and use the knowledge store after reading the file, the check passes.
+
+3. If the spirit is already met, no action needed — move on.
+4. If not:
+   a. Based on the file's existing structure, tone, and density, identify where a mention fits naturally. Before creating a new section, check whether the information could be a single line in the closest related section — an architecture tree, a directory listing, a documentation section, or a conventions block. A line added to an existing section is almost always better than a new headed section. Only add a new section as a last resort when the file has clear sectioned structure and nothing is even remotely related.
+   b. Draft the smallest addition that communicates the three things. Match the file's existing style and density. The addition should describe the knowledge store itself, not the plugin.
+
+      Keep the tone informational, not imperative. Express timing as description, not instruction — "relevant when implementing or debugging in documented areas" rather than "check before implementing or debugging." The goal is awareness: agents learn the folder exists and what's in it, then use their own judgment about when to consult it.
+
+      Examples of calibration (not templates — adapt to the file):
+
+      When there's an existing directory listing or architecture section — add a line:
+      ```
+      docs/solutions/  # documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (module, tags, problem_type)
+      ```
+
+      When nothing in the file is a natural fit — a small headed section is appropriate:
+      ```
+      ## Documented Solutions
+
+      `docs/solutions/` — documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`). Relevant when implementing or debugging in documented areas.
+      ```
+   c. Explain briefly why this matters — fresh sessions and other tools will not know to check `docs/solutions/` unless the instruction file surfaces it. In interactive contexts, show the proposed change and get consent before making the edit. In compact-safe mode, output a one-line recommendation and move on.
+
 ### Phase 3: Optional Enhancement
 
 **WAIT for Phase 2 to complete before proceeding.**
@@ -222,8 +256,11 @@ Based on problem type, optionally invoke specialized agents to review the docume
 - **performance_issue** → `performance-oracle`
 - **security_issue** → `security-sentinel`
 - **database_issue** → `data-integrity-guardian`
-- **test_failure** → `cora-test-reviewer`
-- Any code-heavy issue → `kieran-rails-reviewer` + `code-simplicity-reviewer`
+- Any code-heavy issue → always run `code-simplicity-reviewer`, and additionally run the kieran reviewer that matches the repo's primary stack:
+  - Ruby/Rails → also run `kieran-rails-reviewer`
+  - Python → also run `kieran-python-reviewer`
+  - TypeScript/JavaScript → also run `kieran-typescript-reviewer`
+  - Other stacks → no kieran reviewer needed
 
 </parallel_tasks>
 
@@ -331,9 +368,8 @@ Subagent Results:
 
 Specialized Agent Reviews (Auto-Triggered):
   ✓ performance-oracle: Validated query optimization approach
-  ✓ kieran-rails-reviewer: Code examples meet Rails standards
+  ✓ kieran-typescript-reviewer: Code examples meet TypeScript standards
   ✓ code-simplicity-reviewer: Solution is appropriately minimal
-  ✓ every-style-editor: Documentation style verified
 
 File created:
 - docs/solutions/performance-issues/n-plus-one-brief-generation.md
@@ -348,6 +384,8 @@ What's next?
 4. View documentation
 5. Other
 ```
+
+**After displaying the success output, present the "What's next?" options using the platform's blocking question tool when available.** If no question tool is available, present the numbered options and wait for the user's reply before proceeding. Do not continue the workflow or end the turn without the user's selection.
 
 **Alternate output (when updating an existing doc due to high overlap):**
 
@@ -397,18 +435,18 @@ Based on problem type, these agents can enhance documentation:
 
 ### Code Quality & Review
 - **kieran-rails-reviewer**: Reviews code examples for Rails best practices
+- **kieran-python-reviewer**: Reviews code examples for Python best practices
+- **kieran-typescript-reviewer**: Reviews code examples for TypeScript best practices
 - **code-simplicity-reviewer**: Ensures solution code is minimal and clear
 - **pattern-recognition-specialist**: Identifies anti-patterns or repeating issues
 
 ### Specific Domain Experts
 - **performance-oracle**: Analyzes performance_issue category solutions
 - **security-sentinel**: Reviews security_issue solutions for vulnerabilities
-- **cora-test-reviewer**: Creates test cases for prevention strategies
 - **data-integrity-guardian**: Reviews database_issue migrations and queries
 
 ### Enhancement & Documentation
 - **best-practices-researcher**: Enriches solution with industry best practices
-- **every-style-editor**: Reviews documentation style and clarity
 - **framework-docs-researcher**: Links to Rails/gem documentation references
 
 ### When to Invoke

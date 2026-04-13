@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-`spec-first` is a Node.js CLI that installs and manages workflow assets for Claude Code and Codex. Source code lives in `src/cli/`, with the executable entrypoint at `bin/spec-first.js`. Repository-owned workflow content lives in `skills/` and `agents/`; generated runtime copies under `.claude/` or `.codex/` are outputs, not the source of truth. Keep docs in `docs/`, reusable templates in `templates/`, and repo utilities in `scripts/`.
+`spec-first` is a Node.js CLI that installs and manages workflow assets for Claude Code and Codex. Source code lives in `src/cli/`, with the executable entrypoint at `bin/spec-first.js`. Repository-owned workflow content lives in `skills/` and `agents/`; generated runtime copies under `.claude/` or `.codex/` are outputs, not the source of truth. Keep docs in `docs/`, reusable templates in `templates/`, and repo utilities in `scripts/`. `docs/solutions/` contains documented solutions to past problems and workflow patterns, organized by category with YAML frontmatter (`module`, `tags`, `problem_type`); it is relevant when implementing or debugging in documented areas.
 
 Tests are shell-first: `tests/smoke/` covers install and CLI bootstrap flows, `tests/integration/` covers end-to-end scenarios, and `tests/unit/` validates isolated scripts such as language policy and `mcp-setup`.
 
