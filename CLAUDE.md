@@ -29,7 +29,7 @@ npm pack                          # 发布前构建 tarball
 | `commands/clean.js` | 清理 spec-first 管理的资产 |
 | `plugin.js` | 加载 `.claude-plugin/plugin.json` manifest；实现 `syncBundledAssets`（commands/skills/agents 复制 + 转换） |
 | `adapters/claude.js` | Claude 平台适配器；负责 canonical agent name 重写（`spec-first:category:name` → bare name）|
-| `adapters/codex.js` | Codex 平台适配器 |
+| `adapters/codex.js` | Codex 平台适配器；`workflowsRoot = skillsRoot = '.agents/skills'`（Codex 通过 `.agents/skills/` 扫描发现技能，command-backing skills 也保留在此目录）|
 | `lang-policy.js` | 幂等地将语言/治理策略注入 `CLAUDE.md` 或 `AGENTS.md`（用 `<!-- spec-first:lang:* -->` 标记管理） |
 | `developer.js` | 解析 developer identity（git 用户名、lang、initialized_at）；读写 `.developer` 文件 |
 | `state.js` | 读写 `.claude/spec-first/state.json`；用于增量同步时识别废弃资产 |

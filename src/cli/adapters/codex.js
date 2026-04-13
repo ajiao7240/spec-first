@@ -38,7 +38,7 @@ class CodexAdapter extends PlatformAdapter {
   }
 
   get workflowsRoot() {
-    return '.codex/spec-first/workflows';
+    return '.agents/skills';
   }
 
   get agentsRoot() {
@@ -134,12 +134,12 @@ module.exports = CodexAdapter;
 function rewriteSharedPaths(content) {
   return content
     .replace(/\.claude\/commands\/spec\/([a-z-]+)\.md/g, (_match, commandName) => {
-      return `.codex/spec-first/workflows/spec-${commandName}/SKILL.md`;
+      return `.agents/skills/spec-${commandName}/SKILL.md`;
     })
     .replace(/\.codex\/commands\/spec\/([a-z-]+)\.md/g, (_match, commandName) => {
-      return `.codex/spec-first/workflows/spec-${commandName}/SKILL.md`;
+      return `.agents/skills/spec-${commandName}/SKILL.md`;
     })
-    .replace(/\.claude\/spec-first\/workflows\//g, '.codex/spec-first/workflows/')
+    .replace(/\.claude\/spec-first\/workflows\//g, '.agents/skills/')
     .replace(/\.claude\/skills\//g, '.agents/skills/')
     .replace(/\.codex\/skills\//g, '.agents/skills/')
     .replace(/\.claude\/agents\//g, '.codex/agents/')
