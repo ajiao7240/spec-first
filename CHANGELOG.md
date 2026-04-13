@@ -8,6 +8,7 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-13 17:30:00 kuang: chore(git): 从版本控制移除 .claude/agents/ 运行时资产并完善 .gitignore——补充 .claude/agents/、.codex/agents/、.agents/ 排除规则，防止 init 产物被误入库
 - v1.6.0 2026-04-13 17:00:00 kuang: fix(skill): 重命名 skills/mcp-setup → skills/spec-mcp-setup，修复 Codex 下技能名显示为 mcp-setup 而非 spec-mcp-setup 的命名不一致问题；同步更新 plugin.json skill 字段、命令模板路径、单元测试和 docs 目录
 - v1.6.0 2026-04-13 16:30:00 kuang: revert(init): 回滚 Codex workflowsRoot 分离——Codex 技能发现依赖 .agents/skills/ 扫描，.codex/commands/spec/ 不会被自动暴露为 slash command，分离导致 spec 技能全部消失；恢复 workflowsRoot=.agents/skills，所有 spec-xxx 技能保留在 .agents/skills/ 可被发现；同步恢复 rewriteSharedPaths 映射和 smoke test 断言；修复 plugin.json 再次误删问题
 - v1.6.0 2026-04-13 16:00:00 kuang: fix(init): Codex workflowsRoot 从 .agents/skills 分离到 .codex/spec-first/workflows——command-backing skills 不再暴露于 .agents/skills/，与 Claude 行为对齐；更新 rewriteSharedPaths 路径映射；smoke test 补充 workflow 目录数量断言和负向守卫

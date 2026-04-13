@@ -31,9 +31,11 @@ yarn-error.log*
 .claude/commands/spec/
 .claude/skills/
 .claude/spec-first/
+.claude/agents/
 .codex/commands/spec/
 .codex/spec-first/
-.agents/skills/spec-graph-bootstrap/
+.codex/agents/
+.agents/
 .context/spec-first/
 docs/contexts/
 
