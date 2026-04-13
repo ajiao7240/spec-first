@@ -9,6 +9,7 @@
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
 - v1.6.0 2026-04-13 17:50:00 kuang: docs(plans): 阶段 3B 方案第四轮审查修复——§4.0补"命令失败"Level3触发、§6.1补advice.plan/work验收项、§3.2补inject[]全部不存在处理逻辑、§6.4降级集合表述修正
+- v1.6.0 2026-04-13 20:10:00 kuang: feat(skills): 落地 spec-graph-bootstrap 阶段3B消费接入——为 spec-plan/spec-work/spec-review 增加 Stage-0 上下文预载块，补齐 3A 验证记录并完成运行时同步约束 (user-visible)
 - v1.6.0 2026-04-13 17:45:00 kuang: docs(plans): 阶段 3B 方案第三轮审查修复——§6.2重写(5步/4步分离+文件名约束)、Level2降级损失说明、§10子节编号修正、5.0a与3A gate时序关系澄清
 - v1.6.0 2026-04-13 17:40:00 kuang: docs(plans): 阶段 3B 方案七处审查修复——§9.2 output_exists.*从v2延后移出为v1、§4.3旧模板同步、§7排除项删除冲突条、补需求偏离说明节(§9.0+9.1)、§5.5补全Codex路径
 - v1.6.0 2026-04-13 19:26:13 kuang: docs(repo): 同步 CLAUDE.md 与 spec-graph-bootstrap Phase 4 injection-index 最新契约，满足源码提交前治理校验

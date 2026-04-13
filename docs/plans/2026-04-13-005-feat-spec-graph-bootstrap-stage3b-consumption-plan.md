@@ -1,6 +1,6 @@
 ---
 title: "spec-graph-bootstrap 阶段 3B：Stage-0 上下文消费接入方案"
-status: active
+status: completed
 created: 2026-04-13
 ticket: FSREQ-GRAPH-3B
 ---
@@ -389,10 +389,10 @@ advice:
 
 3A 准入条件（参考需求 §5.2.2 验证记录模板）：
 
-- [ ] `spec-plan` 完成至少一组真实任务验证记录，`allow_enter_3b = yes`
-- [ ] `spec-work` 完成至少一组真实任务验证记录，`allow_enter_3b = yes`
-- [ ] `spec-review` 完成至少一组真实任务验证记录，`allow_enter_3b = yes`
-- [ ] 验证记录中确认：主路径可工作、降级可解释、无关键误导
+- [x] `spec-plan` 完成至少一组真实任务验证记录，`allow_enter_3b = yes`
+- [x] `spec-work` 完成至少一组真实任务验证记录，`allow_enter_3b = yes`
+- [x] `spec-review` 完成至少一组真实任务验证记录，`allow_enter_3b = yes`
+- [x] 验证记录中确认：主路径可工作、降级可解释、无关键误导
 
 **3A gate 通过后，方可执行 5.1–5.3。**
 
@@ -404,18 +404,18 @@ advice:
   - `stages.review` 补入 `review-change.md`、`test-map.md`
   - 删除冗余的 `stage == 'work'` selection_rule
 
-- [ ] **5.0b（前置）** 更新 `skills/spec-graph-bootstrap/SKILL.md` Phase 4 yaml 生成模板
+- [x] **5.0b（前置）** 更新 `skills/spec-graph-bootstrap/SKILL.md` Phase 4 yaml 生成模板
   - 按 §3.3 的最终结构替换全部 `[...]` 占位符
   - **删除 `task_types` 块**（不再生成）
   - `stages.unknown: [README.md]` 保留
   - `selection_rules` 移除 `stage == 'work'` 条目
 
-- [ ] **5.1** `skills/spec-plan/SKILL.md`：`## Plan Quality Bar` 之后、`## Workflow` 之前插入 §4.0 模板（stage=`plan`）
-- [ ] **5.2** `skills/spec-work/SKILL.md`：`## Execution Workflow` 之前、`### Phase 1` 正上方插入 §4.0 模板（stage=`work`）
-- [ ] **5.3** `skills/spec-review/SKILL.md`：主标题描述段之后、`## When to Use` 之前插入 §4.3 完整内容（stage=`review`）
-- [ ] **5.4** 更新 `CHANGELOG.md`
-- [ ] **5.5** 同步运行时 skill 文件
-  - Claude 宿主：`spec-first init --claude` → 同步至 `.claude/skills/`
+- [x] **5.1** `skills/spec-plan/SKILL.md`：`## Plan Quality Bar` 之后、`## Workflow` 之前插入 §4.0 模板（stage=`plan`）
+- [x] **5.2** `skills/spec-work/SKILL.md`：`## Execution Workflow` 之前、`### Phase 1` 正上方插入 §4.0 模板（stage=`work`）
+- [x] **5.3** `skills/spec-review/SKILL.md`：主标题描述段之后、`## When to Use` 之前插入 §4.3 完整内容（stage=`review`）
+- [x] **5.4** 更新 `CHANGELOG.md`
+- [x] **5.5** 同步运行时 skill 文件
+  - Claude 宿主：`spec-first init --claude` → 同步至 `.claude/spec-first/workflows/`
   - Codex 宿主：`spec-first init --codex` → 同步至 `.agents/skills/`
 
 ---
@@ -424,33 +424,33 @@ advice:
 
 ### 6.1 yaml 路由语义正确性
 
-- [ ] `stages.work` 不包含 `review-change.md`（语义不属于 work 阶段）
-- [ ] `stages.review` 包含 `review-change.md` 和 `test-map.md`
-- [ ] `advice.plan` 字段存在且有阅读优先级提示
-- [ ] `advice.work` 字段存在且有阅读优先级提示
-- [ ] `advice.review` 字段存在且有阅读优先级提示
-- [ ] yaml 合法（可被解析器读取，无语法错误）
-- [ ] spec-graph-bootstrap 生成模板与修正后的 yaml 一致
+- [x] `stages.work` 不包含 `review-change.md`（语义不属于 work 阶段）
+- [x] `stages.review` 包含 `review-change.md` 和 `test-map.md`
+- [x] `advice.plan` 字段存在且有阅读优先级提示
+- [x] `advice.work` 字段存在且有阅读优先级提示
+- [x] `advice.review` 字段存在且有阅读优先级提示
+- [x] yaml 合法（可被解析器读取，无语法错误）
+- [x] spec-graph-bootstrap 生成模板与修正后的 yaml 一致
 
 ### 6.2 skill 消费契约完整性
 
-- [ ] 三个插入块均包含 5 个预载步骤：slug 解析、yaml 读取、yaml 路由加载、Level 2 降级机制、降级说明
-- [ ] yaml 路由加载步骤遵循 4 步顺序：`always[] → stages.<stage>[] → output_exists.* → advice.<stage>`
-- [ ] 插入块包含 `output_exists.*` 静态求值说明（检查 inject[] 中每个文件路径是否存在）
-- [ ] `fact.*` 类条件明确标注"v1 跳过"
-- [ ] yaml 路由加载步骤中**不出现**具体产物文件名（路径由 yaml 的 inject[] 决定）
-- [ ] Level 2 降级步骤中明确列出 4 个固定文件名（这是有意的硬编码 fallback，不受上条约束）
-- [ ] 插入块**不包含** `task_types` 相关内容（已从 yaml 移除）
+- [x] 三个插入块均包含 5 个预载步骤：slug 解析、yaml 读取、yaml 路由加载、Level 2 降级机制、降级说明
+- [x] yaml 路由加载步骤遵循 4 步顺序：`always[] → stages.<stage>[] → output_exists.* → advice.<stage>`
+- [x] 插入块包含 `output_exists.*` 静态求值说明（检查 inject[] 中每个文件路径是否存在）
+- [x] `fact.*` 类条件明确标注"v1 跳过"
+- [x] yaml 路由加载步骤中**不出现**具体产物文件名（路径由 yaml 的 inject[] 决定）
+- [x] Level 2 降级步骤中明确列出 4 个固定文件名（这是有意的硬编码 fallback，不受上条约束）
+- [x] 插入块**不包含** `task_types` 相关内容（已从 yaml 移除）
 
 ### 6.3 无侵入性
-- [ ] 未修改任何现有 Phase 标题或逻辑
-- [ ] 未新增 command 层文件
-- [ ] 插入块不包含"必须先完成 bootstrap"等强依赖词句
+- [x] 未修改任何现有 Phase 标题或逻辑
+- [x] 未新增 command 层文件
+- [x] 插入块不包含"必须先完成 bootstrap"等强依赖词句
 
 ### 6.4 三级降级完整
-- [ ] Level 1（文件缺失）、Level 2（yaml 不可用）、Level 3（目录不存在）均有说明
-- [ ] Level 2 固定最小集合（4 个文件）在三个 skill 块的 step 4 中完全一致（本设计跨 stage 统一，无 stage 差异化）
-- [ ] 降级时只输出一行说明，不中止主工作流
+- [x] Level 1（文件缺失）、Level 2（yaml 不可用）、Level 3（目录不存在）均有说明
+- [x] Level 2 固定最小集合（4 个文件）在三个 skill 块的 step 4 中完全一致（本设计跨 stage 统一，无 stage 差异化）
+- [x] 降级时只输出一行说明，不中止主工作流
 
 ---
 

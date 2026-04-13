@@ -16,6 +16,42 @@ This command takes a work document (plan, specification, or todo file) and execu
 
 <input_document> #$ARGUMENTS </input_document>
 
+## Stage-0 上下文预载（可选增强，不阻断主工作流）
+
+> 此步骤读取 `spec-graph-bootstrap` 生成的 Stage-0 产物作为增强上下文。
+> 任何文件缺失、YAML 解析失败、目录不存在均只触发降级，不中止主工作流。
+
+**本 workflow stage 标识**：`work`
+
+### 预载步骤
+
+1. **解析 slug**
+   - 取当前仓库根目录名：`slug = basename(git rev-parse --show-toplevel)`
+   - context 路径：`docs/contexts/<slug>/`
+   - 若命令失败或路径不存在 → 跳过整个预载步骤（Level 3）
+
+2. **读取路由索引**
+   - 读取 `docs/contexts/<slug>/injection-index.yaml`
+   - 解析失败或文件不存在 → 进入 Level 2 降级
+
+3. **按 yaml 路由加载文件**
+   - 加载 `always[]` 列表的所有文件
+   - 加载 `stages.work[]` 列表的所有文件
+   - 执行 `selection_rules[]` 中的 `output_exists.*` 条件：检查该规则 `inject[]` 中每个文件是否存在，存在则追加
+   - `fact.*` 类条件 v1 跳过，记录"跳过 fact.* 条件，已使用 stages 基线"
+   - 参考 `advice.work` 字段确定阅读优先级
+   - 每个文件：存在则读取，缺失则跳过（Level 1）
+
+4. **Level 2 固定最小集合**（`injection-index.yaml` 不可用时）
+   - `docs/contexts/<slug>/00-summary.md`
+   - `docs/contexts/<slug>/pitfalls/index.md`
+   - `docs/contexts/<slug>/code-facts/public-entrypoints.md`
+   - `docs/contexts/<slug>/code-facts/test-map.md`
+
+5. **降级说明**
+   - 触发降级时，在响应中一句话说明原因
+   - 不要求用户先补 bootstrap 产物，主任务继续执行
+
 ## Execution Workflow
 
 ### Phase 1: Quick Start
