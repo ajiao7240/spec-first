@@ -544,6 +544,52 @@ describe('collectInputFiles', () => {
   });
 });
 
+  test('.spec-first-graphignore 不被读取，.spec-firstignore 是唯一生效的 ignore 配置（negative guard）', async () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-ignore-negative-'));
+    fs.mkdirSync(path.join(tmpRepo, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tmpRepo, 'src/index.js'), 'console.log("ok");\n');
+    fs.writeFileSync(path.join(tmpRepo, 'src/excluded.js'), 'console.log("excluded");\n');
+
+    // Write a .spec-firstignore that excludes src/excluded.js
+    fs.writeFileSync(path.join(tmpRepo, '.spec-firstignore'), 'src/excluded.js\n');
+
+    // Write a .spec-first-graphignore with a different rule (should be ignored)
+    fs.writeFileSync(path.join(tmpRepo, '.spec-first-graphignore'), 'src/index.js\n');
+
+    try {
+      const { finalInputs } = await collectInputFiles(tmpRepo, { mode: 'all-files' });
+
+      // .spec-firstignore rule should apply: src/excluded.js excluded
+      expect(finalInputs).not.toContain('src/excluded.js');
+
+      // .spec-first-graphignore rule should NOT apply: src/index.js should still be included
+      expect(finalInputs).toContain('src/index.js');
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  test('.spec-first/ runtime 目录不进入 finalInputs（negative guard）', async () => {
+    const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-spec-first-exclude-'));
+    fs.mkdirSync(path.join(tmpRepo, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRepo, '.spec-first/graph'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRepo, '.spec-first/workflows/bootstrap/my-app'), { recursive: true });
+
+    fs.writeFileSync(path.join(tmpRepo, 'src/index.js'), 'console.log("ok");\n');
+    // Simulate runtime artifacts that should NOT enter the graph
+    fs.writeFileSync(path.join(tmpRepo, '.spec-first/graph/input-fingerprints.json'), '{}');
+    fs.writeFileSync(path.join(tmpRepo, '.spec-first/workflows/bootstrap/my-app/artifact-manifest.json'), '{}');
+
+    try {
+      const { finalInputs } = await collectInputFiles(tmpRepo, { mode: 'all-files' });
+
+      expect(finalInputs).toContain('src/index.js');
+      expect(finalInputs.some((f) => f.startsWith('.spec-first/'))).toBe(false);
+    } finally {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
 // ---------------------------------------------------------------------------
 // INDEXABLE_EXTS 一致性验证（Route A — buildIndexableExts 自动派生）
 // ---------------------------------------------------------------------------

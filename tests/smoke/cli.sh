@@ -274,6 +274,25 @@ test ! -e "$TMP_DIR/.claude/agents/obsolete/ghost.md"
 test -e "$TMP_DIR/.claude/skills/custom-skill/SKILL.md"
 echo "✓ init prunes stale managed assets and preserves custom assets"
 
+echo "2f. Verify installed bootstrap skill assets do not contain old path strings (negative guard)..."
+# Installed skills should not contain old .spec-first-graph or .context/spec-first/bootstrap paths
+for skill_file in \
+  "$TMP_DIR/.claude/spec-first/workflows/spec-bootstrap/SKILL.md" \
+  "$TMP_DIR/.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md" \
+  "$TMP_DIR/.claude/commands/spec/bootstrap.md" \
+  "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
+do
+  if grep -q "spec-first-graph" "$skill_file"; then
+    echo "✗ $skill_file still contains old path: spec-first-graph"
+    exit 1
+  fi
+  if grep -q "\.context/spec-first/bootstrap" "$skill_file"; then
+    echo "✗ $skill_file still contains old path: .context/spec-first/bootstrap"
+    exit 1
+  fi
+done
+echo "✓ installed bootstrap skill assets do not contain old path strings"
+
 echo "3. Run doctor after initialization..."
 doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor)"
 grep -q "PASS" <<<"$doctor_output"

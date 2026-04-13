@@ -555,6 +555,85 @@ describe('crg build/stats cli', () => {
     outputSpy.mockRestore();
   });
 
+  test('build 不创建旧路径 .spec-first-graph（negative guard）', async () => {
+    const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const mkdirSyncMock = jest.fn();
+
+    jest.isolateModules(() => {
+      jest.doMock('better-sqlite3', () => jest.fn());
+      jest.doMock('fs', () => {
+        const actual = jest.requireActual('fs');
+        return {
+          ...actual,
+          statSync: () => ({ isDirectory: () => true }),
+          // Return false for graph dir to trigger mkdirSync, true for everything else
+          existsSync: (p) => {
+            if (typeof p === 'string' && p.includes('.spec-first/graph')) return false;
+            return true;
+          },
+          mkdirSync: mkdirSyncMock,
+          writeFileSync: jest.fn(),
+        };
+      });
+      jest.doMock('../../src/crg/migrations', () => ({
+        initDatabase: () => ({
+          close: jest.fn(),
+          prepare: jest.fn((sql) => {
+            if (sql.includes('SELECT file_path FROM nodes')) return { all: () => [] };
+            if (sql.includes('SELECT COUNT(*) as c FROM nodes')) return { get: () => ({ c: 0 }) };
+            if (sql.includes('SELECT COUNT(*) as c FROM edges')) return { get: () => ({ c: 0 }) };
+            if (sql.includes('UPDATE graph_meta SET last_built')) return { run: jest.fn() };
+            return { get: () => ({}), all: () => [], run: jest.fn() };
+          }),
+        }),
+      }));
+      jest.doMock('../../src/crg/input-convergence', () => ({
+        collectInputFiles: async () => ({
+          finalInputs: [],
+          stats: { ignored_files_by_rule: {} },
+        }),
+      }));
+      jest.doMock('../../src/crg/parser', () => ({
+        inferLanguage: () => 'javascript',
+        parseFile: () => ({ nodes: [], rawEdges: [], skipped: false }),
+      }));
+      jest.doMock('../../src/crg/incremental', () => ({
+        detectChangedFiles: () => ({ changed: [], deleted: [], changedShas: new Map() }),
+        updateFingerprints: jest.fn(),
+      }));
+      jest.doMock('../../src/crg/graph', () => ({
+        upsertNodes: jest.fn(),
+        upsertEdges: jest.fn(),
+        deleteStaleNodes: jest.fn(),
+        resolveEdges: () => ({ resolved: [], unresolvedCount: 0, unresolved: [] }),
+        setUnresolvedEdgeCount: jest.fn(),
+        replaceUnresolvedEdges: jest.fn(),
+      }));
+      jest.doMock('../../src/crg/cli/postprocess', () => ({
+        runPostprocess: jest.fn(),
+      }));
+
+      const { run } = require('../../src/crg/cli/build');
+      run(['--repo=/repo', '--force']);
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    // Verify old directory was never created
+    const oldPathCalls = mkdirSyncMock.mock.calls.filter(
+      (args) => typeof args[0] === 'string' && args[0].includes('spec-first-graph')
+    );
+    expect(oldPathCalls).toHaveLength(0);
+
+    // Verify new directory was created instead
+    const newPathCalls = mkdirSyncMock.mock.calls.filter(
+      (args) => typeof args[0] === 'string' && args[0].includes('.spec-first/graph')
+    );
+    expect(newPathCalls.length).toBeGreaterThan(0);
+
+    outputSpy.mockRestore();
+  });
+
   test('runStats 在 fingerprints 与磁盘不一致时输出 stale warning', () => {
     const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
 

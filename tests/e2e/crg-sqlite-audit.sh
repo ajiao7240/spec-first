@@ -66,6 +66,13 @@ if [[ ! -f "$REPO/.spec-first/graph/graph.db" ]]; then
 fi
 ok "graph.db 已存在"
 
+# 旧路径 negative guard：确认旧目录未被创建
+if [[ -d "$REPO/.spec-first-graph" ]]; then
+  fail "旧路径 .spec-first-graph/ 存在（应已迁移到 .spec-first/graph/）"
+else
+  ok "旧路径 .spec-first-graph/ 不存在"
+fi
+
 section "物理健康"
 
 PHYSICAL_JSON=$(run_db_json "$(cat <<'JS'

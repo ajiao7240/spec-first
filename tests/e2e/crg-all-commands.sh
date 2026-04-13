@@ -147,6 +147,20 @@ else
   fail "build --force changed_files=$FORCE_CF 应 > 0"
 fi
 
+# 旧路径 negative guard：确认 .spec-first-graph/ 从未被创建
+if [ -d "$REPO/.spec-first-graph" ]; then
+  fail "build 创建了旧路径 .spec-first-graph（应使用 .spec-first/graph/）"
+else
+  ok "build 未创建旧路径 .spec-first-graph"
+fi
+
+# 确认新路径已存在
+if [ -f "$REPO/.spec-first/graph/graph.db" ]; then
+  ok "build 使用新路径 .spec-first/graph/graph.db"
+else
+  fail "build 未在 .spec-first/graph/graph.db 创建数据库"
+fi
+
 # 缺少 --repo
 check_exit "build 缺 --repo → exit 1" 1 build
 
