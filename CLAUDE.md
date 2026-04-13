@@ -42,7 +42,7 @@ npm pack                          # 发布前构建 tarball
 - **`vendor/tree-sitter-objc/`** — 受控 ObjC parser 包（从上游 tree-sitter-objc fork，收敛 peerDependency 到 `>=0.21.0`），通过 `file:` 协议引用
 - **`vendor/tree-sitter-swift/`** — 受控 Swift parser 包（从上游 tree-sitter-swift fork，移除 tree-sitter-cli 安装期依赖，收敛 peerDependency 到 `>=0.21.0`），通过 `file:` 协议引用
 - **`.claude-plugin/plugin.json`** — plugin manifest，声明 commands 列表和目录映射
-- **bootstrap 控制面**：`spec-bootstrap` / `spec-graph-bootstrap` 工作流产物路径为 `.spec-first/workflows/bootstrap/<slug>/`（已从旧 `.context/spec-first/bootstrap/<slug>/` 迁移）；manifest 文件为 `artifact-manifest.json`（已从旧 `fingerprints.json` 重命名）
+- **bootstrap 控制面**：`spec-bootstrap` / `spec-graph-bootstrap` 工作流产物路径为 `.spec-first/workflows/bootstrap/<slug>/`（已从旧 `.context/spec-first/bootstrap/<slug>/` 迁移）；manifest 文件为 `artifact-manifest.json`（已从旧 `fingerprints.json` 重命名）；`spec-graph-bootstrap` Phase 4 生成的 `docs/contexts/<slug>/injection-index.yaml` 已收敛为 `always + stages + selection_rules + advice` 结构，`task_types` 字段不再生成，`output_exists.*` 规则以 `inject[]` 路径存在性为准
 
 ### Canonical Agent Name 系统
 
@@ -100,4 +100,3 @@ Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。C
 - **示例：** `- vX.Y.Z YYYY-MM-DD 作者: 一句话摘要`
 - 用户可见变更在末尾追加 `(user-visible)`
 <!-- spec-first:lang:end -->
-

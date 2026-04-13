@@ -8,8 +8,15 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-13 17:50:00 kuang: docs(plans): 阶段 3B 方案第四轮审查修复——§4.0补"命令失败"Level3触发、§6.1补advice.plan/work验收项、§3.2补inject[]全部不存在处理逻辑、§6.4降级集合表述修正
+- v1.6.0 2026-04-13 17:45:00 kuang: docs(plans): 阶段 3B 方案第三轮审查修复——§6.2重写(5步/4步分离+文件名约束)、Level2降级损失说明、§10子节编号修正、5.0a与3A gate时序关系澄清
+- v1.6.0 2026-04-13 17:40:00 kuang: docs(plans): 阶段 3B 方案七处审查修复——§9.2 output_exists.*从v2延后移出为v1、§4.3旧模板同步、§7排除项删除冲突条、补需求偏离说明节(§9.0+9.1)、§5.5补全Codex路径
+- v1.6.0 2026-04-13 19:26:13 kuang: docs(repo): 同步 CLAUDE.md 与 spec-graph-bootstrap Phase 4 injection-index 最新契约，满足源码提交前治理校验
 - v1.6.0 2026-04-13 kuang: refactor(skills+docs): spec-graph-bootstrap 阶段2代码质量修复——coverage_gaps severity 去除非法 low 值、写入后校验补入 evidence 非空自检指令；inference_reason 枚举统一到 SKILL.md 14 值权威表；crg_metrics Enhanced/Basic 模式 null/[] 填充规则补入集成方案；修订终版/集成方案/checklist 三份文档路径全量迁移（.context/spec-first/bootstrap → .spec-first/workflows/bootstrap、fingerprints.json → artifact-manifest.json）
 - v1.6.0 2026-04-13 17:29:10 kuang: test(docs): 补齐路径迁移治理收口——smoke 新增 Codex 等价 negative guard、todo canonical 与 source-of-truth legacy 白名单断言；docs/10-prompt 与 docs/01-需求分析 补充归档/非 source-of-truth 入口说明
+- v1.6.0 2026-04-13 17:35:00 kuang: fix(skills): spec-graph-bootstrap Phase 4 生成模板同步优化——删除 task_types 块、stages 字段改为明确列表、selection_rules 移除冗余 stage==work 条目 (user-visible)
+- v1.6.0 2026-04-13 17:32:00 kuang: fix(contexts): injection-index.yaml 结构优化——删除冗余 task_types、unknown 迁移至 stages.unknown、修正 stages.work/review 语义分工、删除冗余 stage==work 规则 (user-visible)
+- v1.6.0 2026-04-13 17:30:00 kuang: docs(plans): 阶段 3B 方案同步 yaml 优化——移除 task_types 相关内容、加载步骤简化为 4 步、5.0a 标为已完成
 - v1.6.0 2026-04-13 17:28:00 kuang: docs(plans): 阶段 3B 方案二次审查修订——补入 task_type 判定契约与 selection_rules 静态/动态拆分、修正 yaml 语义（stages.work 移除 review-change、stages.review 补入）、3A gate 提升为前置条件
 - v1.6.0 2026-04-13 17:25:00 kuang: docs(plans): 完善 spec-graph-bootstrap 阶段 3B 方案——架构审查修复六项问题：yaml 生成缺口拆为 5.0a/5.0b、v1 跳过 selection_rules、移除 slug 显式指定、展开 spec-review 完整块、补 init 传播步骤
 - v1.6.0 2026-04-13 17:20:00 kuang: docs(plans): 新增 spec-graph-bootstrap 阶段 3B 实施方案文档——定义三个 workflow skill 的 Stage-0 上下文预载块插入位置、三级降级契约和各 stage 消费规则

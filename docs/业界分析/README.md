@@ -16,6 +16,7 @@
 - [6.spec-first相对compound-engineering-plugin总目录页.md](./6.spec-first相对compound-engineering-plugin总目录页.md)
 - [4.spec-first相对compound-engineering-plugin能力缺口分析.md](./4.spec-first相对compound-engineering-plugin能力缺口分析.md)
 - [5.spec-first相对compound-engineering-plugin平台与生态能力缺口分析.md](./5.spec-first相对compound-engineering-plugin平台与生态能力缺口分析.md)
+- [7.skill-agent-映射核对与升级同步指南.md](./7.skill-agent-映射核对与升级同步指南.md)
 
 ## 文档定位
 
@@ -23,6 +24,7 @@
 - `1.Review机制详细设计`：分析 review 的评分、通过机制和产物落盘路径
 - `2.各阶段稳定产物与交接机制分析`：分析每阶段是否有稳定产物文件，以及下一阶段如何消费
 - `3.需求交付飞轮与系统自我进化机制`：从长期目标出发，抽象需求交付飞轮和自我进化闭环
+- `7.skill-agent-映射核对与升级同步指南`：给后续同步升级提供 skill / agent 的全量映射基线、分叉判断与升级优先级
 
 ## 目标
 

@@ -471,23 +471,35 @@ outputs:
 生成 `docs/contexts/<slug>/injection-index.yaml`：
 
 ```yaml
-# injection-index.yaml 结构
-always: [...]         # 所有 task 都注入的基础上下文
+always:
+  - 00-summary.md
+  - README.md
+
 stages:
-  plan: [...]         # plan 阶段注入规则
-  work: [...]         # work 阶段注入规则
-  review: [...]       # review 阶段注入规则
-task_types:
-  always: [...]
-  plan: [...]
-  work: [...]
-  review: [...]
-  unknown: [...]      # 回退集合（可读，不阻断）
-selection_rules:      # 实时求值：stage / task_type / fact.* / output_exists.*
+  plan:
+    - architecture/module-map.md
+    - code-facts/public-entrypoints.md
+  work:
+    - code-facts/public-entrypoints.md
+    - code-facts/test-map.md
+  review:
+    - code-facts/high-risk-modules.md
+    - pitfalls/index.md
+    - context-packs/review-change.md
+    - code-facts/test-map.md
+  unknown:
+    - README.md
+
+selection_rules:
   - condition: "output_exists.code_facts_public_entrypoints"
-    inject: ["code-facts/public-entrypoints.md"]
-  # ...
-advice:               # 优先读取顺序建议（不参与规则求值）
+    inject:
+      - code-facts/public-entrypoints.md
+  - condition: "fact.graph_support_state == 'local-available'"
+    inject:
+      - architecture/module-map.md
+      - code-facts/high-risk-modules.md
+
+advice:
   review: "优先 code-facts 和 risk signals，而非 narrative"
   work: "优先 context-packs 和 test-map，而非 architecture"
   plan: "优先 architecture/module-map 和 code-facts/public-entrypoints"
