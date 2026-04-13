@@ -349,7 +349,7 @@ modules: [{ path, name, responsibility, community_id, confidence, inference_reas
 integrations: [{ path, symbol, kind, summary, confidence: inferred, inference_reason, evidence, updated_at }]
 testing_surface: [{ test_path, test_symbol, target_path, target_symbol, test_kind, confidence, inference_reason, evidence, updated_at }]
 data_shapes: [{ path, symbol, kind, summary, confidence: inferred, inference_reason, evidence, updated_at }]
-layers: { frontend: { present, confidence, inference_reason, evidence }, ... }
+layers: { frontend: { present, confidence, inference_reason, evidence, updated_at }, ... }
 database: [{ db_type, present, confidence, inference_reason, evidence, updated_at }]
 ```
 
@@ -357,14 +357,14 @@ database: [{ db_type, present, confidence, inference_reason, evidence, updated_a
 ```yaml
 schema_version: "v1"
 generated_at: <ISO>
-signals: [{ path, symbol, kind, summary, severity, confidence, inference_reason, evidence }]
+signals: [{ path, symbol, kind, summary, severity, confidence, inference_reason, evidence, updated_at }]
 crg_metrics:
   # Full 模式：所有字段由 crg god-nodes / crg large-functions / crg stats 填充
   # Enhanced/Basic 模式：total_nodes/total_edges/avg_fan_out 填 null；top_hubs/largest_functions 填 []
   total_nodes: <N> | null
   total_edges: <M> | null
   avg_fan_out: <M/N> | null
-  top_hubs: [{ id, name, file_path, kind, in_degree }]  # crg god-nodes；confidence: Inferred；非 Full 模式填 []
+  top_hubs: [{ id, name, file_path, kind, in_degree, confidence, inference_reason, evidence, updated_at }]  # crg god-nodes；confidence: Inferred；非 Full 模式填 []
   largest_functions: [{ id, name, file_path, kind, loc }]  # 非 Full 模式填 []
   # 字段值为 null/[] 时，必须在 generation_errors[] 中记录原因（如 "crg not indexed"）
 ```
@@ -478,9 +478,7 @@ always:
 stages:
   plan:
     - architecture/module-map.md
-    - code-facts/public-entrypoints.md
   work:
-    - code-facts/public-entrypoints.md
     - code-facts/test-map.md
   review:
     - code-facts/high-risk-modules.md
@@ -501,7 +499,7 @@ selection_rules:
 
 advice:
   review: "优先 code-facts 和 risk signals，而非 narrative"
-  work: "优先 context-packs 和 test-map，而非 architecture"
+  work: "优先 code-facts 和 test-map，而非 architecture"
   plan: "优先 architecture/module-map 和 code-facts/public-entrypoints"
 ```
 

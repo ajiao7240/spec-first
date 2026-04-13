@@ -71,7 +71,7 @@ A plan is ready when an implementer can start confidently without needing the pl
 3. **按 yaml 路由加载文件**
    - 加载 `always[]` 列表的所有文件
    - 加载 `stages.plan[]` 列表的所有文件
-   - 执行 `selection_rules[]` 中的 `output_exists.*` 条件：检查该规则 `inject[]` 中每个文件是否存在，存在则追加
+   - 执行 `selection_rules[]` 中的 `output_exists.*` 条件：检查 `inject[]` 中每个文件路径是否存在，存在则追加
    - `fact.*` 类条件 v1 跳过，记录"跳过 fact.* 条件，已使用 stages 基线"
    - 参考 `advice.plan` 字段确定阅读优先级
    - 每个文件：存在则读取，缺失则跳过（Level 1）

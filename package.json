@@ -7,7 +7,7 @@
     "spec-first": "./bin/spec-first.js"
   },
   "scripts": {
-    "test:unit": "bash tests/unit/developer.sh && bash tests/unit/lang-policy.sh && bash tests/unit/mcp-setup.sh && bash tests/unit/version-reminder.sh",
+    "test:unit": "bash tests/unit/developer.sh && bash tests/unit/lang-policy.sh && bash tests/unit/mcp-setup.sh && bash tests/unit/version-reminder.sh && npx jest tests/unit/spec-graph-bootstrap-contracts.test.js --runInBand",
     "test:smoke": "bash tests/smoke/install-local.sh && bash tests/smoke/cli.sh",
     "test:integration": "bash tests/integration/e2e.sh",
     "test:e2e:crg": "bash tests/e2e/crg-all-commands.sh && bash tests/e2e/crg-sqlite-audit.sh",

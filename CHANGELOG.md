@@ -8,7 +8,14 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-14 11:05:00 kuang: fix(spec-graph-bootstrap): 恢复 .spec-first 运行时忽略规则，收紧 Stage-0 sample 路由去重，并补齐 graph-bootstrap 控制面事实 updated_at 契约说明 (user-visible)
+- v1.6.0 2026-04-13 22:30:00 kuang: docs(plans): 审查并修复同步计划——补充 a5ce094 跨 Unit 归属注释、Unit A3 Migration Type 小节、Deliverables B-D 描述修正（document-review skill 驱动，3 项 batch_confirm 修复）
+- v1.6.0 2026-04-13 22:00:00 kuang: docs(业界分析): 补全核心链路逐commit同步矩阵 v1 的执行字段——为 7.2-7.5 半结构化基线表所有 43 行填入实际验证方式（验证命令、人工检查点、SELECTIVE 吸收条件）
+- v1.6.0 2026-04-13 21:20:00 kuang: docs(07-经验总结): 新增 learnings-researcher 加载行为分析——grep-first 非全量加载、critical-patterns.md 强制全读例外、LLM 遵从性风险记录
+- v1.6.0 2026-04-13 21:15:00 kuang: docs(solutions): 新增工作流经验文档——修改生成产物而非源头模板（spec-graph-bootstrap 生成链识别与修复规范）
+- v1.6.0 2026-04-13 21:10:00 kuang: fix(skills): spec-graph-bootstrap Phase 4 生成模板 advice.work 语义修正（context-packs→code-facts，与 stages.work 实际文件对齐）；三个 skill output_exists 措辞统一 (user-visible)
 - v1.6.0 2026-04-13 17:50:00 kuang: docs(plans): 阶段 3B 方案第四轮审查修复——§4.0补"命令失败"Level3触发、§6.1补advice.plan/work验收项、§3.2补inject[]全部不存在处理逻辑、§6.4降级集合表述修正
+- v1.6.0 2026-04-13 21:05:00 kuang: docs(contexts): 放开 docs/contexts 的版本控制，并将 docs/contexts/spec-first 明确为仓库自举样本与测试基线；补充 contexts 目录治理说明 (user-visible)
 - v1.6.0 2026-04-13 20:10:00 kuang: feat(skills): 落地 spec-graph-bootstrap 阶段3B消费接入——为 spec-plan/spec-work/spec-review 增加 Stage-0 上下文预载块，补齐 3A 验证记录并完成运行时同步约束 (user-visible)
 - v1.6.0 2026-04-13 17:45:00 kuang: docs(plans): 阶段 3B 方案第三轮审查修复——§6.2重写(5步/4步分离+文件名约束)、Level2降级损失说明、§10子节编号修正、5.0a与3A gate时序关系澄清
 - v1.6.0 2026-04-13 17:40:00 kuang: docs(plans): 阶段 3B 方案七处审查修复——§9.2 output_exists.*从v2延后移出为v1、§4.3旧模板同步、§7排除项删除冲突条、补需求偏离说明节(§9.0+9.1)、§5.5补全Codex路径

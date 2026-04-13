@@ -17,6 +17,7 @@
 - [4.spec-first相对compound-engineering-plugin能力缺口分析.md](./4.spec-first相对compound-engineering-plugin能力缺口分析.md)
 - [5.spec-first相对compound-engineering-plugin平台与生态能力缺口分析.md](./5.spec-first相对compound-engineering-plugin平台与生态能力缺口分析.md)
 - [7.skill-agent-映射核对与升级同步指南.md](./7.skill-agent-映射核对与升级同步指南.md)
+- [8.核心链路逐commit同步矩阵-v1.md](./8.核心链路逐commit同步矩阵-v1.md)
 
 ## 文档定位
 
@@ -25,6 +26,7 @@
 - `2.各阶段稳定产物与交接机制分析`：分析每阶段是否有稳定产物文件，以及下一阶段如何消费
 - `3.需求交付飞轮与系统自我进化机制`：从长期目标出发，抽象需求交付飞轮和自我进化闭环
 - `7.skill-agent-映射核对与升级同步指南`：给后续同步升级提供 skill / agent 的全量映射基线、分叉判断与升级优先级
+- `8.核心链路逐commit同步矩阵-v1`：把上游核心链路相关 commit 映射到当前仓库具体文件，直接指导升级批次划分
 
 ## 目标
 

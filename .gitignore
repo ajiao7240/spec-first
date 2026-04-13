@@ -37,7 +37,6 @@ yarn-error.log*
 .codex/agents/
 .agents/
 .context/spec-first/
-docs/contexts/
 
 # CRG runtime directories (old and new paths)
 .spec-first-graph/

@@ -42,8 +42,8 @@ npm pack                          # 发布前构建 tarball
 - **`vendor/tree-sitter-objc/`** — 受控 ObjC parser 包（从上游 tree-sitter-objc fork，收敛 peerDependency 到 `>=0.21.0`），通过 `file:` 协议引用
 - **`vendor/tree-sitter-swift/`** — 受控 Swift parser 包（从上游 tree-sitter-swift fork，移除 tree-sitter-cli 安装期依赖，收敛 peerDependency 到 `>=0.21.0`），通过 `file:` 协议引用
 - **`.claude-plugin/plugin.json`** — plugin manifest，声明 commands 列表和目录映射
-- **bootstrap 控制面**：`spec-bootstrap` / `spec-graph-bootstrap` 工作流产物路径为 `.spec-first/workflows/bootstrap/<slug>/`（已从旧 `.context/spec-first/bootstrap/<slug>/` 迁移）；manifest 文件为 `artifact-manifest.json`（已从旧 `fingerprints.json` 重命名）；`spec-graph-bootstrap` Phase 4 生成的 `docs/contexts/<slug>/injection-index.yaml` 已收敛为 `always + stages + selection_rules + advice` 结构，`task_types` 字段不再生成，`output_exists.*` 规则以 `inject[]` 路径存在性为准
-- **Stage-0 消费接入**：`spec-plan`、`spec-work`、`spec-review` 源 skill 已接入 Stage-0 上下文预载块；消费顺序固定为 `always[] -> stages.<stage>[] -> selection_rules(output_exists.*) -> advice.<stage>`，`fact.*` 规则在 v1 显式跳过，`injection-index.yaml` 不可用时统一回退到 `00-summary.md`、`pitfalls/index.md`、`code-facts/public-entrypoints.md`、`code-facts/test-map.md`
+- **bootstrap 控制面**：`spec-bootstrap` / `spec-graph-bootstrap` 工作流产物路径为 `.spec-first/workflows/bootstrap/<slug>/`（已从旧 `.context/spec-first/bootstrap/<slug>/` 迁移）；manifest 文件为 `artifact-manifest.json`（已从旧 `fingerprints.json` 重命名）；`spec-graph-bootstrap` Phase 4 生成的 `docs/contexts/<slug>/injection-index.yaml` 已收敛为 `always + stages + selection_rules + advice` 结构，`task_types` 字段不再生成，`output_exists.*` 规则以 `inject[]` 路径存在性为准；仓库内 `docs/contexts/spec-first/` 作为 graph-bootstrap 自举样本与测试基线纳入版本控制
+- **Stage-0 消费接入**：`spec-plan`、`spec-work`、`spec-review` 源 skill 已接入 Stage-0 上下文预载块；消费顺序固定为 `always[] -> stages.<stage>[] -> selection_rules(output_exists.*) -> advice.<stage>`，`fact.*` 规则在 v1 显式跳过，`injection-index.yaml` 不可用时统一回退到 `00-summary.md`、`pitfalls/index.md`、`code-facts/public-entrypoints.md`、`code-facts/test-map.md`；其中 `output_exists.*` 仅按 `inject[]` 各路径是否存在决定追加，不再依赖额外 sample 路由去重
 
 ### Canonical Agent Name 系统
 
@@ -79,7 +79,7 @@ Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。C
 
 **JSON 契约**：`docs/contracts/crg-cli-v1.schema.json`（JSON Schema Draft 2020-12）
 
-**测试**：`npm run test:jest`（需先 `npm install --legacy-peer-deps`）
+**测试**：`npm run test:jest`（需先 `npm install --legacy-peer-deps`）；`npm run test:unit` 现额外串行执行 `tests/unit/spec-graph-bootstrap-contracts.test.js`，覆盖 Stage-0 injection-index 契约与 fact/risk 字段的 `updated_at` 要求
 
 <!-- spec-first:lang:start -->
 ## 语言与治理策略（由 spec-first 管理）
