@@ -88,8 +88,12 @@ for tool_id in $tool_ids; do
         if perl -e 'alarm shift; exec @ARGV' 10 bash -c "$detect_cmd" >/dev/null 2>&1; then
           found=true
         fi
-      elif eval "$detect_cmd" >/dev/null 2>&1; then
-        found=true
+      else
+        # 无超时工具可用，记录警告但仍然执行（不挂死比超时保护更重要）
+        echo "⚠️  No timeout command available for detect-tools, running without timeout protection" >&2
+        if eval "$detect_cmd" >/dev/null 2>&1; then
+          found=true
+        fi
       fi
       ;;
 

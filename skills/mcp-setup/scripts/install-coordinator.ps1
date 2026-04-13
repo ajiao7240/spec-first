@@ -65,21 +65,28 @@ function Acquire-Lock {
   $Attempts = 100
 
   for ($i = 0; $i -lt $Attempts; $i++) {
+    # 不使用 -Force：目录已存在时 New-Item 会抛异常，锁才能生效
+    $created = $null
     try {
-      New-Item -ItemType Directory -Path $LockDir -Force -ErrorAction Stop | Out-Null
+      $created = New-Item -ItemType Directory -Path $LockDir -ErrorAction Stop
+    } catch {
+      $created = $null
+    }
+
+    if ($created) {
       Set-Content -Path $PidFile -Value $PID -NoNewline
       return $true
-    } catch {
-      # Stale lock check: 检查持有锁的进程是否已死亡
-      if (Test-Path $PidFile) {
-        $lockPid = Get-Content $PidFile -ErrorAction SilentlyContinue
-        if ($lockPid -and -not (Get-Process -Id $lockPid -ErrorAction SilentlyContinue)) {
-          Remove-Item $LockDir -Recurse -Force -ErrorAction SilentlyContinue
-          continue
-        }
-      }
-      Start-Sleep -Milliseconds 100
     }
+
+    # Stale lock check: 检查持有锁的进程是否已死亡
+    if (Test-Path $PidFile) {
+      $lockPid = Get-Content $PidFile -ErrorAction SilentlyContinue
+      if ($lockPid -and -not (Get-Process -Id $lockPid -ErrorAction SilentlyContinue)) {
+        Remove-Item $LockDir -Recurse -Force -ErrorAction SilentlyContinue
+        continue
+      }
+    }
+    Start-Sleep -Milliseconds 100
   }
   Write-Host "⚠️  锁超时 (10s)" -ForegroundColor Yellow
   return $false
@@ -358,6 +365,7 @@ try {
     if (-not (Configure-Tool $tool.id)) {
       Restore-Config -BackupFile $backupFile -CreatedDuringRun $createdDuringRun
       $failed.Add($tool.id)
+      $results.Clear()
       break
     }
 

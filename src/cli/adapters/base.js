@@ -40,10 +40,17 @@ class PlatformAdapter {
   }
 
   /**
-   * Skills directory path
+   * Skills directory path (user-visible standalone skills only)
    */
   get skillsRoot() {
     throw new Error('Not implemented: skillsRoot');
+  }
+
+  /**
+   * Workflows directory path (command-backing skill specs; not exposed as slash commands)
+   */
+  get workflowsRoot() {
+    throw new Error('Not implemented: workflowsRoot');
   }
 
   /**

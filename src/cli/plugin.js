@@ -151,22 +151,41 @@ function syncCommands(projectRoot, adapter) {
 }
 
 function syncSkills(projectRoot, adapter) {
-  const targetRoot = path.join(projectRoot, adapter.skillsRoot);
-  fs.mkdirSync(targetRoot, { recursive: true });
+  const manifest = loadPluginManifest();
+  const commandSkillNames = new Set(manifest.commands.map((cmd) => cmd.skill));
+
+  const standaloneRoot = path.join(projectRoot, adapter.skillsRoot);
+  const workflowRoot = path.join(projectRoot, adapter.workflowsRoot);
+  fs.mkdirSync(standaloneRoot, { recursive: true });
+  fs.mkdirSync(workflowRoot, { recursive: true });
 
   const sourceRoot = getBundledPath('skills');
   const skillNames = listBundledSkills();
+  const standaloneNames = [];
 
   for (const skillName of skillNames) {
-    const sourceDir = path.join(sourceRoot, skillName);
-    const targetDir = path.join(targetRoot, skillName);
+    const isCommandBacking = commandSkillNames.has(skillName);
+    const targetDir = isCommandBacking
+      ? path.join(workflowRoot, skillName)
+      : path.join(standaloneRoot, skillName);
+
     fs.rmSync(targetDir, { recursive: true, force: true });
-    copyDirectoryWithTransform(sourceDir, targetDir, (content) =>
+
+    // Migration: remove command-backing skill from the old skillsRoot location if still present
+    if (isCommandBacking && workflowRoot !== standaloneRoot) {
+      fs.rmSync(path.join(standaloneRoot, skillName), { recursive: true, force: true });
+    }
+
+    copyDirectoryWithTransform(path.join(sourceRoot, skillName), targetDir, (content) =>
       adapter.transformSkillContent(content, { skillName }),
     );
+
+    if (!isCommandBacking) {
+      standaloneNames.push(skillName);
+    }
   }
 
-  return skillNames;
+  return standaloneNames;
 }
 
 function syncAgents(projectRoot, adapter) {
@@ -213,11 +232,18 @@ function inspectCommands(projectRoot, commands = listBundledCommands(), adapter)
 }
 
 function inspectSkills(projectRoot, skillNames = listBundledSkills(), adapter) {
-  const targetRoot = path.join(projectRoot, adapter.skillsRoot);
+  const manifest = loadPluginManifest();
+  const commandSkillNames = new Set(manifest.commands.map((cmd) => cmd.skill));
+
+  const standaloneRoot = path.join(projectRoot, adapter.skillsRoot);
+  const workflowRoot = path.join(projectRoot, adapter.workflowsRoot);
+
   const missing = skillNames.filter((skillName) => {
+    const isCommandBacking = commandSkillNames.has(skillName);
+    const targetRoot = isCommandBacking ? workflowRoot : standaloneRoot;
     return !fs.existsSync(path.join(targetRoot, skillName, 'SKILL.md'));
   });
-  return { targetRoot, entries: skillNames, missing };
+  return { targetRoot: standaloneRoot, entries: skillNames, missing };
 }
 
 function inspectAgents(projectRoot, agentPaths = listBundledAgents(), adapter) {

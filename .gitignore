@@ -37,5 +37,9 @@ yarn-error.log*
 .context/spec-first/
 docs/contexts/
 
+# CRG runtime directories (old and new paths)
+.spec-first-graph/
+.spec-first/
+
 # Published/package artifacts
 *.tgz

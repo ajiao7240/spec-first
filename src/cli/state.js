@@ -104,6 +104,8 @@ function removeManagedAssets(projectRoot, managedState, adapter) {
     removeDirectory(path.join(projectRoot, adapter.skillsRoot, skillName), projectRoot);
   }
 
+  removeDirectory(path.join(projectRoot, adapter.workflowsRoot), projectRoot);
+
   for (const agentPath of state.agents) {
     removeFile(path.join(projectRoot, adapter.agentsRoot, agentPath), projectRoot);
   }

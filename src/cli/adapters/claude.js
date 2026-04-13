@@ -27,6 +27,10 @@ class ClaudeAdapter extends PlatformAdapter {
     return '.claude/skills';
   }
 
+  get workflowsRoot() {
+    return '.claude/spec-first/workflows';
+  }
+
   get agentsRoot() {
     return '.claude/agents';
   }
@@ -73,6 +77,7 @@ class ClaudeAdapter extends PlatformAdapter {
   inspectRuntimeFiles(projectRoot) {
     const runtimeRoot = path.join(projectRoot, this.runtimeRoot);
     const skillsRoot = path.join(projectRoot, this.skillsRoot);
+    const workflowsRoot = path.join(projectRoot, this.workflowsRoot);
     const agentsRoot = path.join(projectRoot, this.agentsRoot);
 
     if (!fs.existsSync(runtimeRoot) || !fs.existsSync(skillsRoot) || !fs.existsSync(agentsRoot)) {
@@ -80,7 +85,8 @@ class ClaudeAdapter extends PlatformAdapter {
     }
 
     const checks = [];
-    const skillFiles = listMarkdownFiles(skillsRoot);
+    const workflowFiles = fs.existsSync(workflowsRoot) ? listMarkdownFiles(workflowsRoot) : [];
+    const skillFiles = [...listMarkdownFiles(skillsRoot), ...workflowFiles];
     const markdownFiles = [...skillFiles, ...listMarkdownFiles(agentsRoot)];
 
     const canonicalMatches = [];

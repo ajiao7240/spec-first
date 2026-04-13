@@ -359,6 +359,7 @@ main() {
     if ! configure_tool "$tool_id"; then
       restore_config "$backup_file" "$created_during_run"
       failed+=("$tool_id")
+      results=()
       break
     fi
 

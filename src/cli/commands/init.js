@@ -86,9 +86,11 @@ function runInit(argv) {
     return 1;
   }
 
+  const commandSkillNames = new Set(manifest.commands.map((cmd) => cmd.skill));
+  const standaloneSkillNames = listBundledSkills().filter((s) => !commandSkillNames.has(s));
   const previewState = buildState(manifest.version, {
     commands: runtimeCommands,
-    skills: listBundledSkills(),
+    skills: standaloneSkillNames,
     agents: bundledAgentPaths,
     developer,
   });

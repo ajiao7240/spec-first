@@ -8,6 +8,7 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-13 kuang: chore(git): 从版本控制移除 vendor 源码和 .claude 运行时资产——vendor/tree-sitter-objc 和 vendor/tree-sitter-swift 源码通过 package.json files 字段排除，不应入库；.claude/ 为 spec-first init 生成产物，不应入库；同步更新 .gitignore；补齐 fix(init) workflowsRoot 适配器拆分及命令模板路径更新代码变更（对应已有 CHANGELOG 条目）
 - v1.5.1 2026-04-13 kuang: refactor(crg): 产物目录标准化硬切换，统一隐藏运行态到 .spec-first/ [breaking internal]
 - v1.5.1 2026-04-13 kuang: test(crg): 加入旧路径 negative guard，repo-wide 旧路径收口完成——单元测试验证 .spec-first-graph/ 不被创建、handlers DB 路径不含旧目录、.spec-first-graphignore 不被读取；e2e/smoke 断言旧目录不存在；plan 文档标记所有 Unit 完成
 - v1.6.0 2026-04-13 15:00:00 kuang: feat(crg): 硬切换 graph runtime 到 .spec-first/graph/——所有 CLI（build/stats/open-db/context/query/postprocess）改用 artifact-paths.js 路径解析器；input-convergence 默认排除规则从 .spec-first-graph/** 改为 .spec-first/**；ignore 文件从 .spec-first-graphignore 改为 .spec-firstignore；fingerprints 产物路径更新为 input-fingerprints.json；e2e 测试脚本和单元测试 mock 同步更新

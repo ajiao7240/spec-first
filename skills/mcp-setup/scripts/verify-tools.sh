@@ -81,7 +81,7 @@ check_crg_readiness() {
 
   # 检查 CRG CLI 路由器是否可执行（5秒超时）
   if command -v spec-first >/dev/null 2>&1; then
-    if timeout 5 spec-first crg --help >/dev/null 2>&1 2>/dev/null; then
+    if timeout 5 spec-first crg --help >/dev/null 2>&1; then
       cli_available=true
     elif perl -e 'alarm shift; exec @ARGV' 5 spec-first crg --help >/dev/null 2>&1; then
       cli_available=true
