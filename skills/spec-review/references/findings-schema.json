@@ -102,9 +102,10 @@
 
   "_meta": {
     "confidence_thresholds": {
-      "suppress": "Below 0.60 -- do not report. Finding is speculative noise.",
-      "flag": "0.60-0.69 -- include only when the persona's calibration says the issue is actionable at that confidence.",
-      "report": "0.70+ -- report with full confidence."
+      "suppress": "Below 0.60 -- do not report. Finding is speculative noise. Exception: P0 findings at 0.50+ may be reported.",
+      "flag": "0.60-0.69 -- include only when the issue is clearly actionable with concrete evidence.",
+      "confident": "0.70-0.84 -- real and important. Report with full evidence.",
+      "certain": "0.85-1.00 -- verifiable from the code alone. Report."
     },
     "severity_definitions": {
       "P0": "Critical breakage, exploitable vulnerability, data loss/corruption. Must fix before merge.",
@@ -113,16 +114,21 @@
       "P3": "Low-impact, narrow scope, minor improvement. User's discretion."
     },
     "autofix_classes": {
-      "safe_auto": "Local, deterministic code or test fix suitable for the in-skill fixer in autonomous mode.",
-      "gated_auto": "Concrete fix exists, but it changes behavior, permissions, contracts, or other sensitive areas that deserve explicit approval.",
-      "manual": "Actionable issue that should become residual work rather than an in-skill autofix.",
-      "advisory": "Informational or operational item that should be surfaced in the report only."
+      "safe_auto": "Local, deterministic code or test fix suitable for the in-skill fixer. Examples: extract duplicated helper, add missing nil check, fix off-by-one, add missing test, remove dead code. Do not default to advisory when a concrete safe fix exists.",
+      "gated_auto": "Concrete fix exists, but it changes behavior, permissions, contracts, or other sensitive areas that deserve explicit approval. Examples: add auth to unprotected endpoint, change API response shape.",
+      "manual": "Actionable issue that requires design decisions or cross-cutting changes. Examples: redesign data model, add pagination strategy, choose between architectural approaches.",
+      "advisory": "Informational or operational item that should be surfaced in the report only. Examples: design asymmetry the PR improves but does not fully resolve, residual risk notes, deployment considerations."
     },
     "owners": {
       "review-fixer": "The in-skill fixer can own this when policy allows.",
       "downstream-resolver": "Turn this into residual work for later resolution.",
       "human": "A person must make a judgment call before code changes should continue.",
       "release": "Operational or rollout follow-up; do not convert into code-fix work automatically."
+    },
+    "return_tiers": {
+      "description": "Finding fields are split into two tiers. The full schema (with all required fields) applies to the artifact file on disk. The compact return to the orchestrator omits detail-tier fields. Both are valid uses of this schema in different contexts.",
+      "merge_tier": "Returned to orchestrator: title, severity, file, line, confidence, autofix_class, owner, requires_verification, pre_existing, suggested_fix (optional). Plus top-level reviewer, residual_risks, testing_gaps.",
+      "detail_tier": "Required in artifact file, omitted from compact return: why_it_matters, evidence. The artifact file must pass full schema validation including all required fields."
     }
   }
 }

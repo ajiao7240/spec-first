@@ -8,6 +8,12 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-14 13:10:00 kuang: docs(spec-graph-bootstrap): 继续回写需求文档 source-of-truth——重写阶段命令产物对照表，统一到 .spec-first/workflows/bootstrap 与 artifact-manifest.json，并补齐 v1 injection-index / workflow skill 消费固化口径
+- v1.6.0 2026-04-14 13:05:00 kuang: docs(spec-graph-bootstrap): 回写需求文档口径收敛——路线图切换到 .spec-first/workflows/bootstrap 与 artifact-manifest.json，补 v1 Stage-0 消费顺序 / fact.* 跳过说明，并将修订终版中的路由与 slug 规则分层为“当前实现 vs 后续增强”
+- v1.6.0 2026-04-14 12:50:00 kuang: docs(validation): 新增 spec-graph-bootstrap 需求文档口径漂移清单，逐项标出旧 .context/fingerprints 口径、v1 路由能力边界与验证记录时点漂移，便于后续 source-of-truth 清理
+- v1.6.0 2026-04-14 12:45:00 kuang: docs(validation): 新增 spec-graph-bootstrap 阶段 0/1/2/3 正式审查报告，确认当前实现按 .spec-first/workflows 与 docs/contexts 样本基线收敛，遗留问题收口为文档/验证记录时效性偏差
+- v1.6.0 2026-04-14 03:07:53 kuang: feat(workflows): 同步 compound 核心工作流更新批次 A Unit A2-A4，收敛 document-review 路由与递归防护、resolve-pr-feedback 安全边界与 cluster gate、批量 agent hygiene 及 subagent mode 约束 (user-visible)
+- v1.6.0 2026-04-14 12:40:00 kuang: feat(spec-review+spec-ideate): 同步 compound 核心工作流更新批次 A Unit A1，收敛 compact review returns、run-id artifact、review base 解析稳态与 ideate 后置流程拆分 (user-visible)
 - v1.6.0 2026-04-14 11:05:00 kuang: fix(spec-graph-bootstrap): 恢复 .spec-first 运行时忽略规则，收紧 Stage-0 sample 路由去重，并补齐 graph-bootstrap 控制面事实 updated_at 契约说明 (user-visible)
 - v1.6.0 2026-04-13 22:30:00 kuang: docs(plans): 审查并修复同步计划——补充 a5ce094 跨 Unit 归属注释、Unit A3 Migration Type 小节、Deliverables B-D 描述修正（document-review skill 驱动，3 项 batch_confirm 修复）
 - v1.6.0 2026-04-13 22:00:00 kuang: docs(业界分析): 补全核心链路逐commit同步矩阵 v1 的执行字段——为 7.2-7.5 半结构化基线表所有 43 行填入实际验证方式（验证命令、人工检查点、SELECTIVE 吸收条件）

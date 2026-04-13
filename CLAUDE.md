@@ -44,6 +44,7 @@ npm pack                          # 发布前构建 tarball
 - **`.claude-plugin/plugin.json`** — plugin manifest，声明 commands 列表和目录映射
 - **bootstrap 控制面**：`spec-bootstrap` / `spec-graph-bootstrap` 工作流产物路径为 `.spec-first/workflows/bootstrap/<slug>/`（已从旧 `.context/spec-first/bootstrap/<slug>/` 迁移）；manifest 文件为 `artifact-manifest.json`（已从旧 `fingerprints.json` 重命名）；`spec-graph-bootstrap` Phase 4 生成的 `docs/contexts/<slug>/injection-index.yaml` 已收敛为 `always + stages + selection_rules + advice` 结构，`task_types` 字段不再生成，`output_exists.*` 规则以 `inject[]` 路径存在性为准；仓库内 `docs/contexts/spec-first/` 作为 graph-bootstrap 自举样本与测试基线纳入版本控制
 - **Stage-0 消费接入**：`spec-plan`、`spec-work`、`spec-review` 源 skill 已接入 Stage-0 上下文预载块；消费顺序固定为 `always[] -> stages.<stage>[] -> selection_rules(output_exists.*) -> advice.<stage>`，`fact.*` 规则在 v1 显式跳过，`injection-index.yaml` 不可用时统一回退到 `00-summary.md`、`pitfalls/index.md`、`code-facts/public-entrypoints.md`、`code-facts/test-map.md`；其中 `output_exists.*` 仅按 `inject[]` 各路径是否存在决定追加，不再依赖额外 sample 路由去重
+- **compound 工作流同步基线（批次 A）**：`spec-review`、`document-review`、`resolve-pr-feedback`、`spec-ideate`、`spec-work`、`spec-work-beta` 已完成对 `compound-engineering-plugin` 批次 A 的核心同步；review / research / design / docs 侧 agent 已删除 self-referencing examples。后续继续同步时，不要机械回退以下本地分叉：`spec-review` 当前不接入 headless；`document-review` 保留 `batch_confirm`、`Promote Residual Concerns`、`Resolve Contradictions`、`Route by Autofix Class`；`agents/workflow/bug-reproduction-validator.md` 因上游缺失而本地保留
 
 ### Canonical Agent Name 系统
 

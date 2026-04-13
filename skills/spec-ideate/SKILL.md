@@ -42,7 +42,7 @@ If no argument is provided, proceed with open-ended ideation.
 3. **Use adversarial filtering** - The quality mechanism is explicit rejection with reasons, not optimistic ranking.
 4. **Preserve the original prompt mechanism** - Generate many ideas, critique the whole list, then explain only the survivors in detail. Do not let extra process obscure this pattern.
 5. **Use agent diversity to improve the candidate pool** - Parallel sub-agents are a support mechanism for richer idea generation and critique, not the core workflow itself.
-6. **Preserve the artifact early** - Write the ideation document before presenting results so work survives interruptions.
+6. **Preserve the artifact before handoff** - Write or update the ideation document before any handoff, sharing, or session end.
 7. **Route action into brainstorming** - Ideation identifies promising directions; `spec:brainstorm` defines the selected one precisely enough for planning.
 
 ## Execution Flow
@@ -101,7 +101,7 @@ Before generating ideas, gather codebase context.
 
 Run agents in parallel in the **foreground** (do not use background dispatch — the results are needed before proceeding):
 
-1. **Quick context scan** — dispatch a general-purpose sub-agent with this prompt:
+1. **Quick context scan** — dispatch a general-purpose sub-agent using the platform's cheapest capable model with this prompt:
 
    > Read the project's AGENTS.md (or CLAUDE.md only as compatibility fallback, then README.md if neither exists), then discover the top-level directory layout using the native file-search/glob tool (e.g., `Glob` with pattern `*` or `*/*` in Claude Code). Return a concise summary (under 30 lines) covering:
    > - project shape (language, framework, top-level directory layout)
@@ -191,180 +191,10 @@ The sub-agent pattern to preserve is:
 - orchestrator merge, dedupe, and cross-cutting synthesis second
 - critique only after the combined and synthesized list exists
 
-### Phase 3: Adversarial Filtering
+After Phase 2 agent dispatch, merge, dedupe, and cross-cutting synthesis complete, read `references/post-ideation-workflow.md` and continue with:
+- adversarial filtering
+- survivor presentation
+- ideation artifact write/update
+- refine / handoff / completion flow
 
-Review every generated idea critically.
-
-Prefer a two-layer critique:
-1. Have one or more skeptical sub-agents attack the merged list from distinct angles.
-2. Have the orchestrator synthesize those critiques, apply the rubric consistently, score the survivors, and decide the final ranking.
-
-Do not let critique agents generate replacement ideas in this phase unless explicitly refining.
-
-Critique agents may provide local judgments, but final scoring authority belongs to the orchestrator so the ranking stays consistent across different frames and perspectives.
-
-For each rejected idea, write a one-line reason.
-
-Use rejection criteria such as:
-- too vague
-- not actionable
-- duplicates a stronger idea
-- not grounded in the current codebase
-- too expensive relative to likely value
-- already covered by existing workflows or docs
-- interesting but better handled as a brainstorm variant, not a product improvement
-
-Use a consistent survivor rubric that weighs:
-- groundedness in the current repo
-- expected value
-- novelty
-- pragmatism
-- leverage on future work
-- implementation burden
-- overlap with stronger ideas
-
-Target output:
-- keep 5-7 survivors by default
-- if too many survive, run a second stricter pass
-- if fewer than 5 survive, report that honestly rather than lowering the bar
-
-### Phase 4: Present the Survivors
-
-Present the surviving ideas to the user before writing the durable artifact.
-
-This first presentation is a review checkpoint, not the final archived result.
-
-Present only the surviving ideas in structured form:
-
-- title
-- description
-- rationale
-- downsides
-- confidence score
-- estimated complexity
-
-Then include a brief rejection summary so the user can see what was considered and cut.
-
-Keep the presentation concise. The durable artifact holds the full record.
-
-Allow brief follow-up questions and lightweight clarification before writing the artifact.
-
-Do not write the ideation doc yet unless:
-- the user indicates the candidate set is good enough to preserve
-- the user asks to refine and continue in a way that should be recorded
-- the workflow is about to hand off to `spec:brainstorm`, Proof sharing, or session end
-
-### Phase 5: Write the Ideation Artifact
-
-Write the ideation artifact after the candidate set has been reviewed enough to preserve.
-
-Always write or update the artifact before:
-- handing off to `spec:brainstorm`
-- sharing to Proof
-- ending the session
-
-To write the artifact:
-
-1. Ensure `docs/ideation/` exists
-2. Choose the file path:
-   - `docs/ideation/YYYY-MM-DD-<topic>-ideation.md`
-   - `docs/ideation/YYYY-MM-DD-open-ideation.md` when no focus exists
-3. Write or update the ideation document
-
-Use this structure and omit clearly irrelevant fields only when necessary:
-
-```markdown
----
-date: YYYY-MM-DD
-topic: <kebab-case-topic>
-focus: <optional focus hint>
----
-
-# Ideation: <Title>
-
-## Codebase Context
-[Grounding summary from Phase 1]
-
-## Ranked Ideas
-
-### 1. <Idea Title>
-**Description:** [Concrete explanation]
-**Rationale:** [Why this improves the project]
-**Downsides:** [Tradeoffs or costs]
-**Confidence:** [0-100%]
-**Complexity:** [Low / Medium / High]
-**Status:** [Unexplored / Explored]
-
-## Rejection Summary
-
-| # | Idea | Reason Rejected |
-|---|------|-----------------|
-| 1 | <Idea> | <Reason rejected> |
-
-## Session Log
-- YYYY-MM-DD: Initial ideation — <candidate count> generated, <survivor count> survived
-```
-
-If resuming:
-- update the existing file in place
-- append to the session log
-- preserve explored markers
-
-### Phase 6: Refine or Hand Off
-
-After presenting the results, ask what should happen next.
-
-Offer these options:
-1. brainstorm a selected idea
-2. refine the ideation
-3. share to Proof
-4. end the session
-
-#### 6.1 Brainstorm a Selected Idea
-
-If the user selects an idea:
-- write or update the ideation doc first
-- mark that idea as `Explored`
-- note the brainstorm date in the session log
-- invoke `spec:brainstorm` with the selected idea as the seed
-
-Do **not** skip brainstorming and go straight to planning from ideation output.
-
-#### 6.2 Refine the Ideation
-
-Route refinement by intent:
-
-- `add more ideas` or `explore new angles` -> return to Phase 2
-- `re-evaluate` or `raise the bar` -> return to Phase 3
-- `dig deeper on idea #N` -> expand only that idea's analysis
-
-After each refinement:
-- update the ideation document before any handoff, sharing, or session end
-- append a session log entry
-
-#### 6.3 Share to Proof
-
-If requested, share the ideation document using the standard Proof markdown upload pattern already used elsewhere in the plugin.
-
-Return to the next-step options after sharing.
-
-#### 6.4 End the Session
-
-When ending:
-- offer to commit only the ideation doc
-- do not create a branch
-- do not push
-- if the user declines, leave the file uncommitted
-
-## Quality Bar
-
-Before finishing, check:
-
-- the idea set is grounded in the actual repo
-- the candidate list was generated before filtering
-- the original many-ideas -> critique -> survivors mechanism was preserved
-- if sub-agents were used, they improved diversity without replacing the core workflow
-- every rejected idea has a reason
-- survivors are materially better than a naive "give me ideas" list
-- the artifact was written before any handoff, sharing, or session end
-- acting on an idea routes to `spec:brainstorm`, not directly to implementation
+Do not load that reference file before Phase 2 completes. The point of the split is to keep early ideation passes cheaper while preserving the full quality bar once candidates exist.

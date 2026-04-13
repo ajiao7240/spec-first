@@ -98,8 +98,8 @@
     },
     "autofix_classes": {
       "_principle": "Autofix class is independent of severity. A P1 finding can be auto if the fix is deterministic. The test: can the correct fix be derived from the document's own content without judgment?",
-      "auto": "Fix is derivable from the document itself -- one part is clearly authoritative over another, reconcile toward the authority. Includes: summary/detail mismatches, wrong counts, missing list entries, stale cross-references, terminology drift, prose/diagram contradictions where prose is authoritative. Must include suggested_fix.",
-      "batch_confirm": "One clear correct answer, but authors new content where exact wording needs verification. Grouped for single approval. Examples: adding a missing step mechanically implied by other content, defining an implied-but-unstated threshold. Must include suggested_fix.",
+      "auto": "Fix is derivable from the document itself -- one part is clearly authoritative over another, reconcile toward the authority. Includes: summary/detail mismatches, wrong counts, missing list entries, stale cross-references, terminology drift, prose/diagram contradictions where prose is authoritative, codebase-pattern-resolved fixes where cited repo evidence makes one approach clearly correct, factually incorrect behavior descriptions, missing standard security controls with known implementations, and incomplete technical descriptions directly derivable from the codebase. Must include suggested_fix.",
+      "batch_confirm": "One clear correct answer, but authors new content where exact wording needs verification. Grouped for single approval. Examples: adding a missing step mechanically implied by other content, defining an implied-but-unstated threshold, or writing a mechanically implied requirement whose exact phrasing still deserves grouped review. Must include suggested_fix.",
       "present": "Requires individual user judgment -- strategic questions, design tradeoffs, or findings where reasonable people could disagree on the right action."
     },
     "finding_types": {

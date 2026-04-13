@@ -99,141 +99,9 @@ Pass each agent the **full document** -- do not split into sections.
 
 **Dispatch limit:** Even at maximum (7 agents), use parallel dispatch. These are document reviewers with bounded scope reading a single document -- parallel is safe and fast.
 
-## Phase 3: Synthesize Findings
+## Phases 3-5: Synthesis, Presentation, and Next Action
 
-Process findings from all agents through this pipeline. **Order matters** -- each step depends on the previous.
-
-### 3.1 Validate
-
-Check each agent's returned JSON against the findings schema included below:
-- Drop findings missing any required field defined in the schema
-- Drop findings with invalid enum values
-- Note the agent name for any malformed output in the Coverage section
-
-### 3.2 Confidence Gate
-
-Suppress findings below 0.50 confidence. Store them as residual concerns for potential promotion in step 3.4.
-
-### 3.3 Deduplicate
-
-Fingerprint each finding using `normalize(section) + normalize(title)`. Normalization: lowercase, strip punctuation, collapse whitespace.
-
-When fingerprints match across personas:
-- If the findings recommend **opposing actions** (e.g., one says cut, the other says keep), do not merge -- preserve both for contradiction resolution in 3.5
-- Otherwise merge: keep the highest severity, keep the highest confidence, union all evidence arrays, note all agreeing reviewers (e.g., "coherence, feasibility")
-- **Coverage attribution:** Attribute the merged finding to the persona with the highest confidence. Decrement the losing persona's Findings count *and* the corresponding route bucket (Auto, Batch, or Present) so `Findings = Auto + Batch + Present` stays exact.
-
-### 3.4 Promote Residual Concerns
-
-Scan the residual concerns (findings suppressed in 3.2) for:
-- **Cross-persona corroboration**: A residual concern from Persona A overlaps with an above-threshold finding from Persona B. Promote at P2 with confidence 0.55-0.65. Inherit `finding_type` from the corroborating above-threshold finding.
-- **Concrete blocking risks**: A residual concern describes a specific, concrete risk that would block implementation. Promote at P2 with confidence 0.55. Set `finding_type: omission` (blocking risks surfaced as residual concerns are inherently about something the document failed to address).
-
-### 3.5 Resolve Contradictions
-
-When personas disagree on the same section:
-- Create a **combined finding** presenting both perspectives
-- Set `autofix_class: present`
-- Set `finding_type: error` (contradictions are by definition about conflicting things the document says, not things it omits)
-- Frame as a tradeoff, not a verdict
-
-Specific conflict patterns:
-- Coherence says "keep for consistency" + scope-guardian says "cut for simplicity" -> combined finding, let user decide
-- Feasibility says "this is impossible" + product-lens says "this is essential" -> P1 finding framed as a tradeoff
-- Multiple personas flag the same issue -> merge into single finding, note consensus, increase confidence
-
-### 3.6 Route by Autofix Class
-
-**Severity and autofix_class are independent.** A P1 finding can be `auto` if the correct fix is deterministic. The test is not "how important?" but "can the fix be derived from the document's own content without judgment?"
-
-| Autofix Class | Route |
-|---------------|-------|
-| `auto` | Apply automatically -- fix is derivable from the document itself. One part of the document is clearly authoritative over another; reconcile toward the authority. |
-| `batch_confirm` | Group for single batch approval -- one clear correct answer, but authors new content where exact wording needs verification |
-| `present` | Present individually for user judgment |
-
-Demote any `auto` finding that lacks a `suggested_fix` to `batch_confirm`. Demote any `batch_confirm` finding that lacks a `suggested_fix` to `present`.
-
-**Auto-eligible patterns:** summary/detail mismatch (body is authoritative over overview), wrong counts, missing list entries derivable from elsewhere in the document, stale internal cross-references, terminology drift, prose/diagram contradictions where prose is more detailed. If the fix requires judgment about *what* to write (not just *that* something needs updating), it belongs in `batch_confirm` or `present`.
-
-### 3.7 Sort
-
-Sort findings for presentation: P0 -> P1 -> P2 -> P3, then by finding type (errors before omissions), then by confidence (descending), then by document order (section position).
-
-## Phase 4: Apply and Present
-
-### Apply Auto-fixes
-
-Apply all `auto` findings to the document in a **single pass**:
-- Edit the document inline using the platform's edit tool
-- Track what was changed for the "Auto-fixes Applied" section
-- Do not ask for approval -- these are unambiguously correct
-
-### Batch Confirm
-
-If any `batch_confirm` findings exist:
-
-1. Present the proposed fixes in a numbered table (see template)
-2. **Ask for approval using the platform's interactive question tool** -- do not print the question as plain text output:
-   - Claude Code: `AskUserQuestion`
-   - Codex: `request_user_input`
-   - Gemini: `ask_user`
-   - Fallback (no question tool available): present numbered options and stop; wait for the user's next message before proceeding
-3. Question text: "Apply these N fixes? (yes/no/select)"
-4. Handle the response:
-   - **yes**: Apply all in a single pass
-   - **select**: Let the user pick which to apply
-   - **no**: Demote remaining to the `present` findings list
-
-This turns N obvious-but-meaning-touching fixes into 1 interaction instead of N.
-
-### Present Remaining Findings
-
-Present `present` findings using the review output template included below. Within each severity level, separate findings by type:
-- **Errors** (design tensions, contradictions, incorrect statements) first -- these need resolution
-- **Omissions** (missing steps, absent details, forgotten entries) second -- these need additions
-
-Brief summary at the top: "Applied N auto-fixes. Batched M fixes for approval. K findings to consider (X errors, Y omissions)."
-
-Include the Coverage table, auto-fixes applied, residual concerns, and deferred questions.
-
-### Protected Artifacts
-
-During synthesis, discard any finding that recommends deleting or removing files in:
-- `docs/brainstorms/`
-- `docs/plans/`
-- `docs/solutions/`
-
-These are pipeline artifacts and must not be flagged for removal.
-
-## Phase 5: Next Action
-
-**Ask using the platform's interactive question tool** -- do not print the question as plain text output:
-- Claude Code: `AskUserQuestion`
-- Codex: `request_user_input`
-- Gemini: `ask_user`
-- Fallback (no question tool available): present numbered options and stop; wait for the user's next message
-
-Offer:
-
-1. **Refine again** -- another review pass
-2. **Review complete** -- document is ready
-
-After 2 refinement passes, recommend completion -- diminishing returns are likely. But if the user wants to continue, allow it.
-
-Return "Review complete" as the terminal signal for callers.
-
-## What NOT to Do
-
-- Do not rewrite the entire document
-- Do not add new sections or requirements the user didn't discuss
-- Do not over-engineer or add complexity
-- Do not create separate review files or add metadata sections
-- Do not modify any of the 2 caller skills (spec-brainstorm, spec-plan)
-
-## Iteration Guidance
-
-On subsequent passes, re-dispatch personas and re-synthesize. The auto-fix mechanism and confidence gating prevent the same findings from recurring once fixed. If findings are repetitive across passes, recommend completion.
+After all dispatched agents return, read `references/synthesis-and-presentation.md` for the synthesis pipeline (validate, gate, dedup, promote, resolve contradictions, pattern-resolved auto promotion, route by autofix class), auto-fix application, finding presentation, and next-action menu. Do not load this file before agent dispatch completes.
 
 ---
 
@@ -250,3 +118,7 @@ On subsequent passes, re-dispatch personas and re-synthesize. The auto-fix mecha
 ### Review Output Template
 
 @./references/review-output-template.md
+
+### Synthesis And Presentation
+
+@./references/synthesis-and-presentation.md

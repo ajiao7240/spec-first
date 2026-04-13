@@ -143,7 +143,7 @@ Routing rules:
 | `spec-first:review:api-contract-reviewer` | Routes, serializers, type signatures, versioning |
 | `spec-first:review:data-migrations-reviewer` | Migrations, schema changes, backfills |
 | `spec-first:review:reliability-reviewer` | Error handling, retries, timeouts, background jobs |
-| `spec-first:review:adversarial-reviewer` | Diff >=50 changed non-test/non-generated/non-lockfile lines, or auth, payments, data mutations, external APIs |
+| `spec-first:review:adversarial-reviewer` | Diff >=50 changed lines of executable code (not prose/instruction Markdown, JSON schemas, or config), or auth, payments, data mutations, external APIs |
 
 **Stack-specific conditional (selected per diff):**
 
@@ -357,6 +357,8 @@ If a plan is found, read its **Requirements Trace** (R1, R2, etc.) and **Impleme
 
 Read the diff and file list from Stage 1. The 4 always-on personas and 2 CE always-on agents are automatic. For each cross-cutting and stack-specific conditional persona in the persona catalog included below, decide whether the diff warrants it. This is agent judgment, not keyword matching.
 
+**File-type awareness for conditional selection:** Instruction-prose files (Markdown skill definitions, JSON schemas, config files) are product code but do not benefit from runtime-focused reviewers. The adversarial reviewer's techniques target executable code behavior. For diffs that only change instruction-prose files, skip adversarial unless the prose describes auth, payment, or data-mutation behavior. Count only executable code lines toward line-count thresholds.
+
 Stack-specific personas are additive. A Rails UI change may warrant `kieran-rails` plus `julik-frontend-races`; a TypeScript API diff may warrant `kieran-typescript` plus `api-contract` and `reliability`.
 
 For CE conditional agents, check if the diff includes files matching `db/migrate/*.rb`, `db/schema.rb`, or data backfill scripts.
@@ -391,28 +393,60 @@ Pass the resulting path list to the `project-standards` persona inside a `<stand
 
 ### Stage 4: Spawn sub-agents
 
+#### Run ID
+
+Generate a unique run identifier before dispatching persona reviewers. This ID scopes per-reviewer artifact files and the final review artifact to the same directory.
+
+```bash
+RUN_ID=$(date +%Y%m%d-%H%M%S)-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' ')
+mkdir -p ".spec-first/workflows/spec-review/$RUN_ID"
+```
+
+Pass `{run_id}` to every persona sub-agent so they can write their full analysis to `.spec-first/workflows/spec-review/{run_id}/{reviewer_name}.json`.
+
+**Report-only mode:** Skip run-id generation and directory creation. Do not pass `{run_id}` to agents. Agents return compact JSON only with no file write, consistent with report-only's no-write contract.
+
+**Permission mode:** Omit the `mode` parameter when dispatching sub-agents so the user's configured permission settings apply. Do not pass `mode: "auto"`.
+
 Spawn each selected persona reviewer as a parallel sub-agent using the subagent template included below. Each persona sub-agent receives:
 
 1. Their persona file content (identity, failure modes, calibration, suppress conditions)
 2. Shared diff-scope rules from the diff-scope reference included below
 3. The JSON output contract from the findings schema included below
-4. Review context: intent summary, file list, diff
-5. **For `project-standards` only:** the standards file path list from Stage 3b, wrapped in a `<standards-paths>` block appended to the review context
+4. PR metadata: title, body, and URL when reviewing a PR (empty string otherwise)
+5. Review context: intent summary, file list, diff
+6. Run ID and reviewer name for the artifact file path
+7. **For `project-standards` only:** the standards file path list from Stage 3b, wrapped in a `<standards-paths>` block appended to the review context
 
-Persona sub-agents are **read-only**: they review and return structured JSON. They do not edit files or propose refactors.
+Persona sub-agents are **read-only** with respect to project files: they review and return structured JSON. They do not edit project files or propose refactors. The one permitted write is saving their full analysis to the `.spec-first/workflows/` artifact path specified in the output contract.
 
 Read-only here means **non-mutating**, not "no shell access." Reviewer sub-agents may use non-mutating inspection commands when needed to gather evidence or verify scope, including read-oriented `git` / `gh` usage such as `git diff`, `git show`, `git blame`, `git log`, and `gh pr view`. They must not edit files, change branches, commit, push, create PRs, or otherwise mutate the checkout or repository state.
 
-Each persona sub-agent returns JSON matching the findings schema included below:
+Each persona sub-agent writes full JSON (all schema fields) to `.spec-first/workflows/spec-review/{run_id}/{reviewer_name}.json` and returns compact JSON with merge-tier fields only:
 
 ```json
 {
   "reviewer": "security",
-  "findings": [...],
+  "findings": [
+    {
+      "title": "User-supplied ID in account lookup without ownership check",
+      "severity": "P0",
+      "file": "orders_controller.rb",
+      "line": 42,
+      "confidence": 0.92,
+      "autofix_class": "gated_auto",
+      "owner": "downstream-resolver",
+      "requires_verification": true,
+      "pre_existing": false,
+      "suggested_fix": "Add current_user.owns?(account) guard before lookup"
+    }
+  ],
   "residual_risks": [...],
   "testing_gaps": [...]
 }
 ```
+
+Detail-tier fields (`why_it_matters`, `evidence`) stay in the artifact file only. `suggested_fix` remains optional in both tiers. If the file write fails, the compact return still provides everything the merge needs.
 
 **CE always-on agents** (agent-native-reviewer, learnings-researcher) are dispatched as standard Agent calls in parallel with the persona agents. Give them the same review context bundle the personas receive: entry mode, any PR metadata gathered in Stage 1, intent summary, review base branch name when known, `BASE:` marker, file list, diff, and `UNTRACKED:` scope notes. Do not invoke them with a generic "review this" prompt. Their output is unstructured and synthesized separately in Stage 6.
 
@@ -420,11 +454,11 @@ Each persona sub-agent returns JSON matching the findings schema included below:
 
 ### Stage 5: Merge findings
 
-Convert multiple reviewer JSON payloads into one deduplicated, confidence-gated finding set.
+Convert multiple reviewer compact JSON payloads into one deduplicated, confidence-gated finding set. The compact returns contain merge-tier fields only; detail-tier fields stay on disk in the per-agent artifact files.
 
-1. **Validate.** Check each output against the schema. Drop malformed findings (missing required fields). Record the drop count.
-2. **Confidence gate.** Suppress findings below 0.60 confidence. Record the suppressed count. This matches the persona instructions: findings below 0.60 are noise and should not survive synthesis.
-3. **Deduplicate.** Compute fingerprint: `normalize(file) + line_bucket(line, +/-3) + normalize(title)`. When fingerprints match, merge: keep highest severity, keep highest confidence with strongest evidence, union evidence, note which reviewers flagged it.
+1. **Validate.** Check each compact return for required top-level and per-finding fields. Drop malformed returns or findings. Record the drop count. Do not validate compact returns against the full schema because `why_it_matters` and `evidence` are intentionally omitted from the merge tier.
+2. **Confidence gate.** Suppress findings below 0.60 confidence. Exception: P0 findings at 0.50+ confidence survive the gate. Record the suppressed count.
+3. **Deduplicate.** Compute fingerprint: `normalize(file) + line_bucket(line, +/-3) + normalize(title)`. When fingerprints match, merge: keep highest severity, keep highest confidence, and note which reviewers flagged it.
 4. **Separate pre-existing.** Pull out findings with `pre_existing: true` into a separate list.
 5. **Normalize routing.** For each merged finding, set the final `autofix_class`, `owner`, and `requires_verification`. If reviewers disagree, keep the most conservative route. Synthesis may narrow a finding from `safe_auto` to `gated_auto` or `manual`, but must not widen it without new evidence.
 6. **Partition the work.** Build three sets:
@@ -440,7 +474,7 @@ Convert multiple reviewer JSON payloads into one deduplicated, confidence-gated 
 Assemble the final report using the review output template included below:
 
 1. **Header.** Scope, intent, mode, reviewer team with per-conditional justifications.
-2. **Findings.** Grouped by severity (P0, P1, P2, P3). Each finding shows file, issue, reviewer(s), confidence, and synthesized route.
+2. **Findings.** Grouped by severity (P0, P1, P2, P3) and rendered as pipe-delimited markdown tables. Each finding shows file, issue, reviewer(s), confidence, and synthesized route.
 3. **Requirements Completeness.** Include only when a plan was found in Stage 2b. For each requirement (R1, R2, etc.) and implementation unit in the plan, report whether corresponding work appears in the diff. Use a simple checklist: met / not addressed / partially addressed. Routing depends on `plan_source`:
    - **`explicit`** (caller-provided or PR body): Flag unaddressed requirements as P1 findings with `autofix_class: manual`, `owner: downstream-resolver`. These enter the residual actionable queue and can become todos.
    - **`inferred`** (auto-discovered): Flag unaddressed requirements as P3 findings with `autofix_class: advisory`, `owner: human`. These stay in the report only — no todos, no autonomous follow-up. An inferred plan match is a hint, not a contract.
@@ -456,6 +490,8 @@ Assemble the final report using the review output template included below:
 12. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements, note it in the verdict reasoning but do not block on it alone.
 
 Do not include time estimates.
+
+**Format verification:** Before delivering the report, verify the findings sections use pipe-delimited table rows (`| # | File | Issue | ... |`) rather than prose blocks or per-finding separators.
 
 ## Quality Gates
 

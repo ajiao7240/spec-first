@@ -107,6 +107,8 @@ This command takes a work document (plan, specification, or todo file) and execu
    - Any resolved deferred questions relevant to that unit
    - Instruction to check whether the unit's test scenarios cover all applicable categories (happy paths, edge cases, error paths, integration) and supplement gaps before writing tests
 
+   **Permission mode:** Omit the `mode` parameter when dispatching subagents so the user's configured permission settings apply. Do not pass `mode: "auto"`.
+
    After each subagent completes, update the plan checkboxes and task list before dispatching the next dependent unit.
 
    For genuinely large plans needing persistent inter-agent communication (agents challenging each other's approaches, shared coordination across 10+ tasks), see Swarm Mode below which uses Agent Teams.
@@ -256,7 +258,7 @@ This command takes a work document (plan, specification, or todo file) and execu
 
 2. **Consider Code Review** (Optional)
 
-   Use for complex, risky, or large changes. Load the `spec:review` skill with `mode:autofix` to fix safe issues and flag the rest before shipping. When the plan file path is known, pass it as `plan:<path>`.
+   Use for complex, risky, or large changes. Load the `spec:review` skill and choose the review mode that matches the current context instead of hard-coding one in the caller. When the plan file path is known, pass it as `plan:<path>`.
 
 3. **Final Validation**
    - All tasks marked completed
