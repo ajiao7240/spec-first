@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { resolveGraphDb } = require('../artifact-paths');
 
 /**
  * 解析 --repo 参数并以只读模式打开 SQLite DB
@@ -27,7 +28,7 @@ function openDb(argv) {
   }
 
   // 3. 检查 DB 文件
-  const dbPath = path.join(repoRoot, '.spec-first-graph', 'graph.db');
+  const dbPath = resolveGraphDb(repoRoot);
   if (!fs.existsSync(dbPath)) {
     process.stderr.write(
       `error: CRG graph not built. Run: spec-first crg build --repo=${repoRoot}\n`

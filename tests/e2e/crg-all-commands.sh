@@ -104,7 +104,7 @@ get_arr_len() { echo "$1" | node -e "const j=JSON.parse(require('fs').readFileSy
 # =============================================================================
 section "准备：确保图已构建"
 
-if [[ ! -f "$REPO/.spec-first-graph/graph.db" ]]; then
+if [[ ! -f "$REPO/.spec-first/graph/graph.db" ]]; then
   echo "  图未构建，执行 crg build..."
   BUILD_OUT=$(run build 2>&1)
   echo "$BUILD_OUT" | grep -q '"schema_version"' && ok "初次构建成功" || fail "初次构建失败: $BUILD_OUT"
@@ -196,7 +196,7 @@ section "crg query"
 # 需要找一个存在的节点 ID（query/impact 均接受 node.id）
 SAMPLE_SYMBOL=$(node -e "
 const { initDatabase } = require('./src/crg/migrations');
-const db = initDatabase('.spec-first-graph/graph.db');
+const db = initDatabase('.spec-first/graph/graph.db');
 const r = db.prepare(\"SELECT id FROM nodes WHERE kind='function' LIMIT 1\").get();
 console.log(r ? r.id : 'unknown');
 db.close();
@@ -204,7 +204,7 @@ db.close();
 
 SAMPLE_MODULE=$(node -e "
 const { initDatabase } = require('./src/crg/migrations');
-const db = initDatabase('.spec-first-graph/graph.db');
+const db = initDatabase('.spec-first/graph/graph.db');
 const r = db.prepare(\"SELECT id FROM nodes WHERE kind='module' LIMIT 1\").get();
 console.log(r ? r.id : 'unknown');
 db.close();
@@ -300,7 +300,7 @@ section "crg flow"
 
 FLOW_ID=$(node -e "
 const { initDatabase } = require('./src/crg/migrations');
-const db = initDatabase('.spec-first-graph/graph.db');
+const db = initDatabase('.spec-first/graph/graph.db');
 const r = db.prepare('SELECT id FROM flows LIMIT 1').get();
 console.log(r ? r.id : '');
 db.close();
@@ -373,7 +373,7 @@ section "crg community"
 
 COMM_ID=$(node -e "
 const { initDatabase } = require('./src/crg/migrations');
-const db = initDatabase('.spec-first-graph/graph.db');
+const db = initDatabase('.spec-first/graph/graph.db');
 const r = db.prepare('SELECT id FROM communities LIMIT 1').get();
 console.log(r ? r.id : '');
 db.close();

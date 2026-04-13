@@ -12,6 +12,7 @@
 const path = require('path');
 const fs = require('fs');
 const { makeEnvelope } = require('./envelope');
+const { resolveGraphDb } = require('../artifact-paths');
 
 /**
  * 加载 better-sqlite3，失败时 exit 2
@@ -53,7 +54,7 @@ function run(argv) {
   }
 
   const repoRoot = path.resolve(repoRaw);
-  const dbPath = path.join(repoRoot, '.spec-first-graph', 'graph.db');
+  const dbPath = resolveGraphDb(repoRoot);
 
   // 检查图是否已构建
   if (!fs.existsSync(dbPath)) {

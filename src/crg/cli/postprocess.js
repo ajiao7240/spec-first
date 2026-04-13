@@ -19,6 +19,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { resolveGraphDb } = require('../artifact-paths');
 
 /**
  * 尝试加载 better-sqlite3，失败时打印提示并 exit 2
@@ -105,7 +106,7 @@ function run(argv) {
   const repoRoot = path.resolve(repoRaw);
 
   // 检查图是否已构建
-  const dbPath = path.join(repoRoot, '.spec-first-graph', 'graph.db');
+  const dbPath = resolveGraphDb(repoRoot);
   if (!fs.existsSync(dbPath)) {
     process.stderr.write(
       `error: CRG graph not built. Run: spec-first crg build --repo=${repoRoot}\n`

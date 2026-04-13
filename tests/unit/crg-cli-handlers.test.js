@@ -30,9 +30,12 @@ describe('crg cli handlers', () => {
                 return { get: () => ({ last_built: '2026-04-11T00:00:00.000Z', unresolved_edge_count: 0 }) };
               }
               if (sql.includes('SELECT file_path, sha256 FROM fingerprints')) return { all: () => [] };
+              if (sql.includes('FROM communities') && sql.includes('FROM nodes') && sql.includes('AS node_count')) {
+                return { get: () => ({ node_count: 0, edge_count: 0, community_count: 0, flow_count: 0 }) };
+              }
               if (sql.includes('FROM communities')) return { all: () => [] };
               if (sql.includes('FROM flows')) return { all: () => [] };
-              if (sql.includes('FROM nodes')) return { all: () => [] };
+              if (sql.includes('FROM nodes')) return { all: () => [], get: () => ({}) };
               return { all: () => [], get: () => ({}) };
             }),
           }),

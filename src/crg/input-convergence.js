@@ -8,7 +8,7 @@
  *   1. 获取候选文件（tracked-only / tracked+untracked / all-files）
  *   2. iOS 自动模式升级
  *   3. 内置默认排除规则（DEFAULT_EXCLUDES）
- *   4. .spec-first-graphignore 规则
+ *   4. .spec-firstignore 规则
  *   5. extraExcludes / extraIncludes（适配器注入）
  *   6. 安全硬规则（SENSITIVE_PATTERNS，不可被白名单绕过）
  *   7. 二进制扩展名过滤
@@ -21,6 +21,7 @@ const path = require('path');
 const fs = require('fs');
 const { execSync } = require('child_process');
 const { buildIndexableExts } = require('./lang-config');
+const { GRAPH_IGNORE_FILE } = require('./artifact-paths');
 
 // ---------------------------------------------------------------------------
 // 常量
@@ -32,7 +33,7 @@ const DEFAULT_EXCLUDES = [
   '.claude/**',
   '.codex/**',
   '.agents/**',
-  '.spec-first-graph/**',
+  '.spec-first/**',
   '.code-review-graph/**',
   'graphify-out/**',
   'node_modules/**',
@@ -568,9 +569,9 @@ async function collectInputFiles(repoRoot, options = {}) {
   }
 
   // -------------------------------------------------------------------------
-  // 步骤 4：解析 .spec-first-graphignore
+  // 步骤 4：解析 .spec-firstignore
   // -------------------------------------------------------------------------
-  const graphignorePath = path.join(repoRoot, '.spec-first-graphignore');
+  const graphignorePath = path.join(repoRoot, GRAPH_IGNORE_FILE);
   let graphignoreLines = [];
   if (fs.existsSync(graphignorePath)) {
     try {
@@ -651,7 +652,7 @@ async function collectInputFiles(repoRoot, options = {}) {
       }
     }
 
-    // 步骤 4：.spec-first-graphignore 排除
+    // 步骤 4：.spec-firstignore 排除
     if (graphignoreExcludeFilter.ignores(normalizedFp)) {
       // 检查白名单（! 规则）
       if (

@@ -12,6 +12,11 @@
 const path = require('path');
 const fs = require('fs');
 const { makeEnvelope } = require('./envelope');
+const {
+  resolveGraphDir,
+  resolveGraphDb,
+  resolveGraphInputFingerprints,
+} = require('../artifact-paths');
 
 // ---------------------------------------------------------------------------
 // 共用：尝试加载 better-sqlite3
@@ -153,13 +158,13 @@ async function runBuildAsync(argv) {
     replaceUnresolvedEdges,
   } = require('../graph');
 
-  // 确保 .spec-first-graph/ 目录存在
-  const graphDir = path.join(repoRoot, '.spec-first-graph');
+  // 确保 .spec-first/graph/ 目录存在
+  const graphDir = resolveGraphDir(repoRoot);
   if (!fs.existsSync(graphDir)) {
     fs.mkdirSync(graphDir, { recursive: true });
   }
 
-  const dbPath = path.join(graphDir, 'graph.db');
+  const dbPath = resolveGraphDb(repoRoot);
   const db = initDatabase(dbPath);
 
   // iOS 自动检测：Podfile.lock 或 *.xcodeproj / *.xcworkspace 存在即视为 iOS 仓库
@@ -402,7 +407,7 @@ function runStats(argv) {
   }
 
   const repoRoot = path.resolve(repoRaw);
-  const dbPath = path.join(repoRoot, '.spec-first-graph', 'graph.db');
+  const dbPath = resolveGraphDb(repoRoot);
 
   // 检查图是否已构建
   if (!fs.existsSync(dbPath)) {
@@ -517,7 +522,7 @@ function runStats(argv) {
 // ---------------------------------------------------------------------------
 
 /**
- * 写入 .spec-first-graph/fingerprints.json
+ * 写入 .spec-first/graph/input-fingerprints.json
  *
  * 记录当次构建的输入文件指纹（SHA-256）和输出产物，供增量刷新稳定性验证使用。
  *
@@ -542,7 +547,7 @@ function writeFingerprintsJson(db, repoRoot) {
     },
   };
 
-  const outPath = path.join(repoRoot, '.spec-first-graph', 'fingerprints.json');
+  const outPath = resolveGraphInputFingerprints(repoRoot);
   fs.writeFileSync(outPath, JSON.stringify(data, null, 2));
 }
 

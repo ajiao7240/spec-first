@@ -8,6 +8,8 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-13 15:00:00 kuang: feat(crg): 硬切换 graph runtime 到 .spec-first/graph/——所有 CLI（build/stats/open-db/context/query/postprocess）改用 artifact-paths.js 路径解析器；input-convergence 默认排除规则从 .spec-first-graph/** 改为 .spec-first/**；ignore 文件从 .spec-first-graphignore 改为 .spec-firstignore；fingerprints 产物路径更新为 input-fingerprints.json；e2e 测试脚本和单元测试 mock 同步更新
+- v1.6.0 2026-04-13 14:00:00 kuang: fix(init): 消除 spec-first init --claude 后 /spec:xxx 与 /spec-xxx 双重命令重叠——command-backing skills 从 .claude/skills/ 迁移到 .claude/spec-first/workflows/，Claude Code 不扫描该目录，仅保留 /spec:xxx 入口；同时修复 mcp-setup.md 缺少 .claude/ 前缀的路径 bug (user-visible)
 - v1.6.0 2026-04-13 13:00:00 kuang: feat(crg): 新增集中路径解析模块 artifact-paths.js — 统一 .spec-first/graph/ 和 .spec-first/workflows/<wf>/<slug>/ 路径生成；导出 R4 文件名常量 GRAPH_INPUT_FINGERPRINTS_FILE / BOOTSTRAP_ARTIFACT_MANIFEST_FILE / GRAPH_IGNORE_FILE；纯函数，无 I/O 副作用；17条 jest 测试全绿
 - v1.6.0 2026-04-13 12:00:00 kuang: fix(spec-graph-bootstrap): SKILL.md schema 审查修复——(1) Phase 4 injection-index.yaml 补 advice 块与修订终版 §16.5 对齐；(2) test-surface.json test_files/coverage_gaps 补 evidence/summary/updated_at/inference_reason 字段，满足 FactItem 全量验收合同；(3) 置信度规则补 Enhanced/Basic 模式 inference_reason 规范枚举值（read-source-code/package-json-analysis 等），消除值域漂移；(4) risk-signals.json crg_metrics 补非 Full 模式 null/[] 填充规则，明确 generation_errors 记录要求
 - v1.6.0 2026-04-13 02:30:00 kuang: fix(install): vendor tree-sitter-objc 并收敛 peerDependency 为 >=0.21.0，彻底消除安装日志中所有 tree-sitter peer warning；修正 install-tarball.sh 冲突检测正则只匹配 ERESOLVE 行 (user-visible)

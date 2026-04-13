@@ -529,7 +529,7 @@ describe('collectInputFiles', () => {
     fs.writeFileSync(path.join(tmpRepo, 'generated/keep.ts'), 'export const keep = true;\n');
     fs.writeFileSync(path.join(tmpRepo, 'generated/other.ts'), 'export const other = true;\n');
     fs.writeFileSync(
-      path.join(tmpRepo, '.spec-first-graphignore'),
+      path.join(tmpRepo, '.spec-firstignore'),
       'generated/**\n!generated/keep.ts\n'
     );
 

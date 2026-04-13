@@ -44,7 +44,7 @@ run_db_json() {
 const Database = require('better-sqlite3');
 const repo = process.argv[2];
 const path = require('path');
-const db = new Database(path.join(repo, '.spec-first-graph', 'graph.db'), { readonly: true });
+const db = new Database(path.join(repo, '.spec-first', 'graph', 'graph.db'), { readonly: true });
 const fn = new Function('db', 'repo', process.env.DB_AUDIT_JS || '');
 const result = fn(db, repo);
 process.stdout.write(JSON.stringify(result));
@@ -60,7 +60,7 @@ json_get() {
 
 section "准备"
 
-if [[ ! -f "$REPO/.spec-first-graph/graph.db" ]]; then
+if [[ ! -f "$REPO/.spec-first/graph/graph.db" ]]; then
   echo "  图不存在，先执行构建..."
   $BIN crg build --repo="$REPO" >/dev/null
 fi
