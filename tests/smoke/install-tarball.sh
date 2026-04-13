@@ -65,8 +65,8 @@ fi
 echo "   ✓ 无安装期联网下载链"
 
 # 3b. tree-sitter peer warning 冲突包集合断言
-# 提取所有 tree-sitter-<lang> 冲突包名（去重），断言集合 ⊆ {tree-sitter-objc}
-conflict_packages=$(grep -oE 'tree-sitter-[a-z][-a-z0-9]*' "$INSTALL_LOG" | sort -u || true)
+# 只从 ERESOLVE/warning 行中提取 tree-sitter-<lang> 冲突包名（去重），断言集合 ⊆ {tree-sitter-objc}
+conflict_packages=$(grep -i "ERESOLVE\|peer.*tree-sitter" "$INSTALL_LOG" | grep -oE 'tree-sitter-[a-z][-a-z0-9]*' | sort -u || true)
 echo "   检测到的 tree-sitter 冲突包: ${conflict_packages:-无}"
 
 for pkg in $conflict_packages; do
