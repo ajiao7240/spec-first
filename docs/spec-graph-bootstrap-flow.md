@@ -51,7 +51,7 @@
 ┌──────────────────────────────────────────────────────────────┐
 │ 0.1 Slug 生成（最先执行）                                      │
 │     slug = basename(resolve(target))                          │
-│     产物路径: .context/spec-first/bootstrap/<slug>/            │
+│     产物路径: .spec-first/workflows/bootstrap/<slug>/          │
 │               docs/contexts/<slug>/                           │
 └────────────┬─────────────────────────────────────────────────┘
              │
@@ -67,7 +67,7 @@
 ┌──────────────────────────────────────────────────────────────┐
 │ 0.3 CRG 图状态检测                                            │
 │                                                               │
-│  ┌─ DB 不存在 (<target>/.spec-first-graph/graph.db)           │
+│  ┌─ DB 不存在 (<target>/.spec-first/graph/graph.db)           │
 │  │   → crg.indexed = false ──────────────────┐               │
 │  │                                            │               │
 │  ├─ DB 存在 → spec-first crg stats            │               │
@@ -125,8 +125,8 @@
              │
              ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ 0.6 写入 fingerprints.json（第一次写入, status=in_progress）   │
-│     路径: .context/spec-first/bootstrap/<slug>/fingerprints   │
+│ 0.6 写入 artifact-manifest.json（第一次写入, status=in_progress）│
+│     路径: .spec-first/workflows/bootstrap/<slug>/             │
 └────────────┬─────────────────────────────────────────────────┘
              │
              ▼
@@ -244,16 +244,16 @@
 ┌──────────────────────────────────────────────────────────────┐
 │ 1.6 写入控制面（所有 Stage 完成后）                             │
 │                                                               │
-│   写入路径: .context/spec-first/bootstrap/<slug>/              │
+│   写入路径: .spec-first/workflows/bootstrap/<slug>/            │
 │                                                               │
 │   ┌────────────────────┐  ┌────────────────────┐              │
 │   │ fact-inventory.json │  │ risk-signals.json   │              │
 │   └────────────────────┘  └────────────────────┘              │
-│   ┌────────────────────┐  ┌────────────────────┐              │
-│   │ test-surface.json   │  │ fingerprints.json   │              │
-│   │                     │  │ (更新, 保持         │              │
-│   │                     │  │  in_progress)       │              │
-│   └────────────────────┘  └────────────────────┘              │
+│   ┌────────────────────┐  ┌───────────────────────┐           │
+│   │ test-surface.json   │  │ artifact-manifest.json │           │
+│   │                     │  │ (更新, 保持            │           │
+│   │                     │  │  in_progress)          │           │
+│   └────────────────────┘  └───────────────────────┘           │
 │                                                               │
 │   写入后校验:                                                  │
 │   ✓ JSON 合法性                                               │
@@ -369,7 +369,7 @@ Stage C ──────┘
              │
              ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ fingerprints.json 第二次写入                                   │
+│ artifact-manifest.json 第二次写入                              │
 │   status: complete                                            │
 │   updated_at: <now>                                           │
 │   outputs: { 各产物 depends_on 清单 }                          │
@@ -418,11 +418,11 @@ Stage C ──────┘
 ## 最终产物树
 
 ```
-.context/spec-first/bootstrap/<slug>/
+.spec-first/workflows/bootstrap/<slug>/
 ├── fact-inventory.json        ← 控制面（所有 Worker 输入源）
 ├── risk-signals.json
 ├── test-surface.json
-└── fingerprints.json          ← 两段写入（in_progress → complete）
+└── artifact-manifest.json     ← 两段写入（in_progress → complete）
 
 docs/contexts/<slug>/
 ├── README.md                  ← 上下文控制台

@@ -8,6 +8,7 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.1 2026-04-13 kuang: refactor(crg): 产物目录标准化硬切换，统一隐藏运行态到 .spec-first/ [breaking internal]
 - v1.6.0 2026-04-13 15:00:00 kuang: feat(crg): 硬切换 graph runtime 到 .spec-first/graph/——所有 CLI（build/stats/open-db/context/query/postprocess）改用 artifact-paths.js 路径解析器；input-convergence 默认排除规则从 .spec-first-graph/** 改为 .spec-first/**；ignore 文件从 .spec-first-graphignore 改为 .spec-firstignore；fingerprints 产物路径更新为 input-fingerprints.json；e2e 测试脚本和单元测试 mock 同步更新
 - v1.6.0 2026-04-13 15:00:00 kuang: feat(skills): 硬切换 bootstrap 控制面契约到 .spec-first/workflows/ — spec-bootstrap/spec-graph-bootstrap SKILL.md 及 PRD 模板全量迁移；fingerprints.json 重命名为 artifact-manifest.json；.spec-first-graph/ 引用改为 .spec-first/graph/；smoke test 同步更新至 workflows 路径 [ARTIFACT-PATH]
 - v1.6.0 2026-04-13 14:00:00 kuang: fix(init): 消除 spec-first init --claude 后 /spec:xxx 与 /spec-xxx 双重命令重叠——command-backing skills 从 .claude/skills/ 迁移到 .claude/spec-first/workflows/，Claude Code 不扫描该目录，仅保留 /spec:xxx 入口；同时修复 mcp-setup.md 缺少 .claude/ 前缀的路径 bug (user-visible)

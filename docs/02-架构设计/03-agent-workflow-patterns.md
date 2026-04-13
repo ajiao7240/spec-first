@@ -23,7 +23,7 @@
 ### 实现示例
 
 - `skills/spec-bootstrap/SKILL.md` 的 Phase 2 PRD 生成流程
-- `.context/spec-first/bootstrap/<slug>/tasks/<task-id>/prd.md`
+- `.spec-first/workflows/bootstrap/<slug>/tasks/<task-id>/prd.md`
 - `skills/spec-bootstrap/references/prd-template.md`
 
 ## 2. File Ownership Boundary
