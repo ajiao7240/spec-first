@@ -18,14 +18,9 @@
     "objc"
   ],
   "files": [
-    "grammar.js",
-    "tree-sitter.json",
     "binding.gyp",
     "prebuilds/**",
-    "bindings/node/*",
-    "queries/*",
-    "src/**",
-    "*.wasm"
+    "bindings/node/*"
   ],
   "dependencies": {
     "node-addon-api": "^8.3.0",

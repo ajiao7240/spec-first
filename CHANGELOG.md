@@ -9,6 +9,7 @@
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
 - v1.6.0 2026-04-13 02:30:00 kuang: fix(install): vendor tree-sitter-objc 并收敛 peerDependency 为 >=0.21.0，彻底消除安装日志中所有 tree-sitter peer warning；修正 install-tarball.sh 冲突检测正则只匹配 ERESOLVE 行 (user-visible)
+- v1.6.0 2026-04-13 02:50:00 kuang: perf(install): 安装后自动裁剪非当前平台 prebuild + 构建产物（parser.c/grammar.js 等），磁盘从 ~382MB 降到 ~107MB（-72%）；vendor 包 files 字段排除 src/ 减少 tarball 体积从 7.1MB 到 5.0MB（-30%）(user-visible)
 - v1.6.0 2026-04-13 01:30:00 kuang: docs(install-experience): 统一所有面向用户安装文档的 onboarding 口径——canonical 顺序收敛为 安装→doctor→init→重启→workflow；修正 06-本地源码安装.md 和 04-常见问题.md 中 tree-sitter peer dep 版本方向描述错误（旧文档错误写成主包 0.22.0 vs grammar ^0.21.x，实际是主包 0.21.0，grammar 要求更高版本）；将 peer warning 叙事从"预期行为，可忽略"改为"已知兼容性噪音，本版本目标是消除"；FAQ 明确区分"安装成功确认"与"宿主内 workflow 可见"两个阶段；08-版本更新/README.md 记录安装体验治理为用户可见改进 (user-visible)
 - v1.6.0 2026-04-13 02:10:00 kuang: fix(install): 降级 tree-sitter-cpp 到 0.21.0 消除传递依赖 tree-sitter-c warning
 - v1.6.0 2026-04-13 02:00:00 kuang: feat(postinstall+version): 压缩 postinstall 为最短安装提示（只保留 doctor + -v），重写 -v 为稳定欢迎页（canonical onboarding 顺序），添加 smoke regression guard (user-visible)

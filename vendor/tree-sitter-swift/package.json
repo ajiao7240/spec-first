@@ -10,8 +10,7 @@
   "files": [
     "binding.gyp",
     "prebuilds/**",
-    "bindings/node/*",
-    "src/**"
+    "bindings/node/*"
   ],
   "keywords": [
     "parser",
