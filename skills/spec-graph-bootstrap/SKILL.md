@@ -37,7 +37,7 @@ slug = basename(resolve(target))  # 特殊字符替换为 -
 立即告知用户：
 ```
 📁 Slug: <slug>
-   产物路径: .context/spec-first/bootstrap/<slug>/
+   产物路径: .spec-first/workflows/bootstrap/<slug>/
              docs/contexts/<slug>/
 ```
 
@@ -72,7 +72,7 @@ If version < "5" or crg block 不存在:
 ### 0.3 CRG 图状态检测
 
 ```
-[1] DB 不存在（<target>/.spec-first-graph/graph.db）
+[1] DB 不存在（<target>/.spec-first/graph/graph.db）
     → crg.indexed = false → 跳到 3b
 
 [2] DB 存在 → Bash: spec-first crg stats --repo=<target>
@@ -97,8 +97,8 @@ If version < "5" or crg block 不存在:
                    失败/超时>10min → crg.indexed=false，降级，写 generation_errors
     用户选「否」→ crg.indexed=false → 降级到 Enhanced/Basic
 
-3c. Stale 检测（fingerprints.json 存在时执行）：
-    对比 fingerprints.json.inputs.crg.graph_last_built vs 当前 crg stats data.last_built
+3c. Stale 检测（artifact-manifest.json 存在时执行）：
+    对比 artifact-manifest.json.inputs.crg.graph_last_built vs 当前 crg stats data.last_built
     对比 inputs.files 中关键文件 SHA
     → 不一致：打印 ⚠️ stale 警告（不阻断流程）
 ```
@@ -124,9 +124,9 @@ Serena:   ready=yes/no
 📊 分析模式: Full/Enhanced/Basic | Code Facts: high/medium/low | Graph Support: <state>
 ```
 
-### 0.6 Phase 0 完成后写入 fingerprints.json（第一次写入）
+### 0.6 Phase 0 完成后写入 artifact-manifest.json（第一次写入）
 
-路径：`.context/spec-first/bootstrap/<slug>/fingerprints.json`
+路径：`.spec-first/workflows/bootstrap/<slug>/artifact-manifest.json`
 
 ```yaml
 schema_version: "v1"
@@ -158,7 +158,7 @@ inputs:
 
 如果 `docs/contexts/<slug>/` 已存在，在 **任何 Phase 3 写入开始前**：
 
-- 备份到 `.context/spec-first/bootstrap/<slug>/backup_<ISO-timestamp>/`
+- 备份到 `.spec-first/workflows/bootstrap/<slug>/backup_<ISO-timestamp>/`
 - **校验备份**：统计原目录文件数与 backup 中文件数；不一致则停止并报告错误，不进入 Phase 3
 - 如果目录不存在：跳过 backup，继续执行
 
@@ -174,7 +174,7 @@ inputs:
 
 - 不允许静默覆盖旧上下文
 - 不允许在 backup 校验失败后继续渲染文档
-- backup 只保护 `docs/contexts/<slug>/`；控制面 `.context/spec-first/bootstrap/<slug>/` 按本次运行结果覆盖
+- backup 只保护 `docs/contexts/<slug>/`；控制面 `.spec-first/workflows/bootstrap/<slug>/` 按本次运行结果覆盖
 
 ---
 
@@ -331,9 +331,9 @@ spec-first crg query --pattern=dependents_of --module=<core_shared_node_id> --re
 
 ### 1.6 写入控制面（所有 Stage 完成后）
 
-写入路径：`.context/spec-first/bootstrap/<slug>/`
+写入路径：`.spec-first/workflows/bootstrap/<slug>/`
 
-**写入顺序**：先写三个主文件，再写 fingerprints.json。
+**写入顺序**：先写三个主文件，再写 artifact-manifest.json。
 
 #### fact-inventory.json
 ```yaml
@@ -359,21 +359,41 @@ schema_version: "v1"
 generated_at: <ISO>
 signals: [{ path, symbol, kind, summary, severity, confidence, inference_reason, evidence }]
 crg_metrics:
-  total_nodes: <N>
-  total_edges: <M>
-  avg_fan_out: <M/N>
-  top_hubs: [{ id, name, file_path, kind, in_degree }]  # crg god-nodes；confidence: Inferred
-  largest_functions: [{ id, name, file_path, kind, loc }]
+  # Full 模式：所有字段由 crg god-nodes / crg large-functions / crg stats 填充
+  # Enhanced/Basic 模式：total_nodes/total_edges/avg_fan_out 填 null；top_hubs/largest_functions 填 []
+  total_nodes: <N> | null
+  total_edges: <M> | null
+  avg_fan_out: <M/N> | null
+  top_hubs: [{ id, name, file_path, kind, in_degree }]  # crg god-nodes；confidence: Inferred；非 Full 模式填 []
+  largest_functions: [{ id, name, file_path, kind, loc }]  # 非 Full 模式填 []
+  # 字段值为 null/[] 时，必须在 generation_errors[] 中记录原因（如 "crg not indexed"）
 ```
 
 #### test-surface.json
 ```yaml
 schema_version: "v1"
 generated_at: <ISO>
-test_files: [{ path, kind, targets, confidence, inference_reason }]
-coverage_gaps: [{ path, symbol, severity, confidence }]
-crg_tests_for_count: <N>    # tests_for 查询汇总
-tested_by_coverage: <float> # 有测试覆盖的非测试节点 / 总非测试节点
+test_files:
+  - path: string
+    kind: unit | integration | e2e | smoke
+    targets: [string]           # 推断的被测目标文件路径列表
+    summary: string             # 简要描述（如 "Integration tests for database layer"）
+    confidence: Observed | Inferred
+    inference_reason: string | null   # Inferred 时必填
+    evidence: [string]          # 分类依据（路径特征、import 来源等）
+    updated_at: <ISO>
+coverage_gaps:
+  - path: string
+    symbol: string
+    severity: high | medium | low
+    summary: string             # 简要描述（如 "No test file imports this module"）
+    confidence: Observed | Inferred
+    inference_reason: string    # 必填（Full: "crg-blast-radius-threshold"; Enhanced: "directory-naming-pattern" 等）
+    evidence: [string]          # 判断为 gap 的依据
+    updated_at: <ISO>
+# Full 模式独有字段（Enhanced/Basic 填 null）
+crg_tests_for_count: <N> | null    # tests_for 查询汇总
+tested_by_coverage: <float> | null # 有 imports_from+is_test=1 覆盖的非测试节点 / 总非测试节点
 ```
 
 **写入后校验**：
@@ -428,7 +448,7 @@ generation_errors:
 **串行（最后）**：
 - `README.md`（上下文控制台，汇总所有产物状态）
 
-**fingerprints.json 第二次写入**（所有产物生成后）：
+**artifact-manifest.json 第二次写入**（所有产物生成后）：
 ```yaml
 status: complete
 updated_at: <now>
@@ -439,7 +459,7 @@ outputs:
 ```
 
 **收尾**：
-- 若本次创建了 backup，且 Phase 3 / Phase 4 全部完成：删除 `.context/spec-first/bootstrap/<slug>/backup_<ISO-timestamp>/`
+- 若本次创建了 backup，且 Phase 3 / Phase 4 全部完成：删除 `.spec-first/workflows/bootstrap/<slug>/backup_<ISO-timestamp>/`
 - 若任一步失败：先恢复 backup，再报告失败原因
 
 ---
@@ -465,6 +485,10 @@ selection_rules:      # 实时求值：stage / task_type / fact.* / output_exist
   - condition: "output_exists.code_facts_public_entrypoints"
     inject: ["code-facts/public-entrypoints.md"]
   # ...
+advice:               # 优先读取顺序建议（不参与规则求值）
+  review: "优先 code-facts 和 risk signals，而非 narrative"
+  work: "优先 context-packs 和 test-map，而非 architecture"
+  plan: "优先 architecture/module-map 和 code-facts/public-entrypoints"
 ```
 
 ---
@@ -498,11 +522,25 @@ severity: 无上限       confidence: medium ──→  Basic (Built-in)
 - `Read(package.json/go.mod)` 等元文件
 
 **Inferred**（推断性来源，必须附 `inference_reason`）：
-- `crg query`（CLI 内部固定输出 Inferred）
-- `crg search` 节点的 kind 分类（`inference_reason: "crg-semantic-search-evidence"`）
-- 路径/目录命名模式（`inference_reason: "directory-naming-pattern"`）
-- Serena 模式搜索（`inference_reason: "serena-pattern-match"`）
-- Grep import 推断（`inference_reason: "grep-import-pattern"`）
+
+CRG Tier（Full 模式）：
+- `crg query`（CLI 内部固定输出 Inferred）→ `"crg-importers-evidence"` / `"crg-dependents-evidence"` / `"crg-tests-for-evidence"`
+- `crg search` 节点的 kind 分类 → `"crg-semantic-search-evidence"`
+- `crg impact` / `crg large-functions` → `"crg-blast-radius-threshold"` / `"crg-large-function-heuristic"`
+
+Serena Tier（Enhanced 模式）：
+- Serena 模式搜索 → `"serena-pattern-match"`
+- Serena symbol 定位 → `"serena-symbol-evidence"`
+
+Built-in Tier（所有模式均可作 fallback）：
+- 路径/目录命名模式 → `"directory-naming-pattern"`
+- 文件路径中的 test_kind 分类 → `"path-naming-pattern"`
+- Grep import 推断 → `"grep-import-pattern"`
+- Read 工具直接读取源码推断 → `"read-source-code"`
+- package.json / go.mod / pom.xml 依赖字段推断 → `"package-json-analysis"`
+- Glob 文件发现 → `"glob-pattern-match"`
+
+**约束**：`inference_reason` 必须使用上述枚举值之一，不得使用自由描述性文字（如 `"direct-code-reading"`）。
 
 **约束**：
 - `crg query` 全系列固定输出 `Inferred`
@@ -515,11 +553,11 @@ severity: 无上限       confidence: medium ──→  Basic (Built-in)
 ## 最终产物树
 
 ```
-.context/spec-first/bootstrap/<slug>/
+.spec-first/workflows/bootstrap/<slug>/
   fact-inventory.json      ← 控制面（所有 Worker 输入源）
   risk-signals.json
   test-surface.json
-  fingerprints.json        ← 两段写入（in_progress → complete）
+  artifact-manifest.json   ← 两段写入（in_progress → complete）
 
 docs/contexts/<slug>/
   README.md

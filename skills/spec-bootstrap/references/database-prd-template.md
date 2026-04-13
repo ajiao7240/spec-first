@@ -3,7 +3,7 @@
 This template is used exclusively for the `database-context` conditional task. The orchestrator fills it with project-specific connection information and writes it to:
 
 ```
-.context/spec-first/bootstrap/<slug>/tasks/database-context/prd.md
+.spec-first/workflows/bootstrap/<slug>/tasks/database-context/prd.md
 ```
 
 This task is only created when Phase 1 detected MySQL configuration **and** CLI/MCP connection was verified `[已验证 ✓]`.

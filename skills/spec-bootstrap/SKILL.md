@@ -51,9 +51,9 @@ Verify installation:
 
 **Recommended `.gitignore` entry** (add to target project):
 ```
-.context/spec-first/
+.spec-first/
 ```
-The `.context/` control plane contains PRD task contracts and temporary bootstrap state — it should not be committed to version control.
+The `.spec-first/` control plane contains PRD task contracts and temporary bootstrap state — it should not be committed to version control.
 
 ### Tool Usage Guide
 
@@ -195,7 +195,7 @@ Apply slug priority rules (R12-R13):
 ### 1.2 Rerun Backup (R20)
 
 If `docs/contexts/<slug>/` already exists:
-- Back up to `.context/spec-first/bootstrap/<slug>/backup_<ISO-timestamp>/` before Phase 3 writes
+- Back up to `.spec-first/workflows/bootstrap/<slug>/backup_<ISO-timestamp>/` before Phase 3 writes
 - **Validate backup**: count files in backup — if count doesn't match original, abort with error; do not proceed to Phase 3
 - On full success: delete backup directory
 - On partial failure: apply the policy in Phase 3.4 (summary-context failure → full restore; other failures → preserve partial)
@@ -341,7 +341,7 @@ Trigger `database-context` task in Phase 2 **only** when status is `[MCP 已验�
 
 **Goal:** Write one PRD file per context domain. Each PRD is the complete instructions for one worker subagent.
 
-Control plane location: `.context/spec-first/bootstrap/<slug>/tasks/<task-id>/prd.md`
+Control plane location: `.spec-first/workflows/bootstrap/<slug>/tasks/<task-id>/prd.md`
 
 ### 2.1 Fixed Tasks (always created)
 
@@ -511,7 +511,7 @@ For each task, launch a worker subagent with this minimum contract:
 
 ```text
 task_id: <task-id>
-prd_path: .context/spec-first/bootstrap/<slug>/tasks/<task-id>/prd.md
+prd_path: .spec-first/workflows/bootstrap/<slug>/tasks/<task-id>/prd.md
 ownership_boundary: only the files listed in Files to Fill
 execution_guardrails: do not modify source code; do not run git commands
 completion_report: produced files + any missing evidence or blocked assumptions
@@ -579,7 +579,7 @@ After all workers report completion:
    - [Pitfalls](pitfalls/index.md) — known high-risk areas
    [conditional layers and database entries here]
    ```
-3. Delete backup (`.context/spec-first/bootstrap/<slug>/backup_<ISO-timestamp>/`) on full success
+3. Delete backup (`.spec-first/workflows/bootstrap/<slug>/backup_<ISO-timestamp>/`) on full success
 4. **Partial failure policy:**
    - `summary-context` fails → **full restore**: replace `docs/contexts/<slug>/` with backup, report error, stop
    - Any other worker fails → **preserve partial**: keep successful outputs, write partial README.md noting which domains are missing, report failed tasks with reason

@@ -3,7 +3,7 @@
 This template defines the structure for each context domain task contract. The orchestrator fills it with project-specific content during Phase 2 and writes it to:
 
 ```text
-.context/spec-first/bootstrap/<slug>/tasks/<task-id>/prd.md
+.spec-first/workflows/bootstrap/<slug>/tasks/<task-id>/prd.md
 ```
 
 Workers read only their own PRD.

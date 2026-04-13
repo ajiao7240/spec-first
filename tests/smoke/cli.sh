@@ -12,7 +12,10 @@ expected_version="$(node -p "require('$REPO_ROOT/package.json').version")"
 expected_version_regex="${expected_version//./\\.}"
 outdated_version="9.9.9"
 expected_command_count="$(node -p "require('$REPO_ROOT/.claude-plugin/plugin.json').commands.length")"
-expected_skill_count="$(find "$REPO_ROOT/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+total_skill_count="$(find "$REPO_ROOT/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+# Command-backing skills go to .claude/spec-first/workflows/, not .claude/skills/
+expected_workflow_skill_count="$(node -p "require('$REPO_ROOT/.claude-plugin/plugin.json').commands.length")"
+expected_skill_count="$((total_skill_count - expected_workflow_skill_count))"
 export SPEC_FIRST_VERSION_REMINDER_LATEST="$expected_version"
 
 echo "1. Check help and version output..."
@@ -94,7 +97,7 @@ for file in ideate.md brainstorm.md plan.md work.md review.md compound.md bootst
 done
 grep -q "Spec-First Ideate" "$TMP_DIR/.claude/commands/spec/ideate.md"
 grep -q "Spec-First Brainstorm" "$TMP_DIR/.claude/commands/spec/brainstorm.md"
-grep -q '.claude/skills/spec-ideate/SKILL.md' "$TMP_DIR/.claude/commands/spec/ideate.md"
+grep -q '.claude/spec-first/workflows/spec-ideate/SKILL.md' "$TMP_DIR/.claude/commands/spec/ideate.md"
 grep -q "Spec-First Plan" "$TMP_DIR/.claude/commands/spec/plan.md"
 grep -q "Spec-First Work" "$TMP_DIR/.claude/commands/spec/work.md"
 grep -q "Spec-First Review" "$TMP_DIR/.claude/commands/spec/review.md"
@@ -102,26 +105,26 @@ grep -q "Spec-First Compound" "$TMP_DIR/.claude/commands/spec/compound.md"
 grep -q "Spec-First Bootstrap" "$TMP_DIR/.claude/commands/spec/bootstrap.md"
 grep -q "Spec-First Graph Bootstrap" "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
 grep -q "Phase 0–4 fact extraction" "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
-grep -q '.claude/skills/spec-brainstorm/SKILL.md' "$TMP_DIR/.claude/commands/spec/brainstorm.md"
-grep -q '.claude/skills/spec-plan/SKILL.md' "$TMP_DIR/.claude/commands/spec/plan.md"
-grep -q '.claude/skills/spec-bootstrap/SKILL.md' "$TMP_DIR/.claude/commands/spec/bootstrap.md"
-grep -q '.claude/skills/spec-graph-bootstrap/SKILL.md' "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
-test -f "$TMP_DIR/.claude/skills/spec-bootstrap/SKILL.md"
-grep -q '^name: spec-bootstrap$' "$TMP_DIR/.claude/skills/spec-bootstrap/SKILL.md"
-test -f "$TMP_DIR/.claude/skills/spec-graph-bootstrap/SKILL.md"
-grep -q '^name: spec-graph-bootstrap$' "$TMP_DIR/.claude/skills/spec-graph-bootstrap/SKILL.md"
-grep -q 'fact-inventory.json' "$TMP_DIR/.claude/skills/spec-graph-bootstrap/SKILL.md"
-grep -q 'Phase 0' "$TMP_DIR/.claude/skills/spec-graph-bootstrap/SKILL.md"
-grep -q 'backup_<ISO-timestamp>' "$TMP_DIR/.claude/skills/spec-graph-bootstrap/SKILL.md"
-grep -q '成功后删除 backup 目录' "$TMP_DIR/.claude/skills/spec-graph-bootstrap/SKILL.md"
-grep -q 'serena-not-mounted-in-session' "$TMP_DIR/.claude/skills/spec-bootstrap/SKILL.md"
-grep -q '不代表 Serena 已挂载' "$TMP_DIR/.claude/skills/spec-bootstrap/SKILL.md"
-test -f "$TMP_DIR/.claude/skills/spec-bootstrap/references/prd-template.md"
-grep -q 'mcp__serena__get_symbols_overview' "$TMP_DIR/.claude/skills/spec-bootstrap/references/prd-template.md"
-! grep -q 'get_package_structure' "$TMP_DIR/.claude/skills/spec-bootstrap/references/prd-template.md"
-grep -q 'mcp__serena__get_symbols_overview' "$TMP_DIR/.claude/skills/spec-bootstrap/references/prd-template.md"
-grep -q 'Example Call' "$TMP_DIR/.claude/skills/spec-bootstrap/references/prd-template.md"
-test -f "$TMP_DIR/.claude/skills/spec-bootstrap/references/database-prd-template.md"
+grep -q '.claude/spec-first/workflows/spec-brainstorm/SKILL.md' "$TMP_DIR/.claude/commands/spec/brainstorm.md"
+grep -q '.claude/spec-first/workflows/spec-plan/SKILL.md' "$TMP_DIR/.claude/commands/spec/plan.md"
+grep -q '.claude/spec-first/workflows/spec-bootstrap/SKILL.md' "$TMP_DIR/.claude/commands/spec/bootstrap.md"
+grep -q '.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md' "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
+test -f "$TMP_DIR/.claude/spec-first/workflows/spec-bootstrap/SKILL.md"
+grep -q '^name: spec-bootstrap$' "$TMP_DIR/.claude/spec-first/workflows/spec-bootstrap/SKILL.md"
+test -f "$TMP_DIR/.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md"
+grep -q '^name: spec-graph-bootstrap$' "$TMP_DIR/.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md"
+grep -q 'fact-inventory.json' "$TMP_DIR/.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md"
+grep -q 'Phase 0' "$TMP_DIR/.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md"
+grep -q 'backup_<ISO-timestamp>' "$TMP_DIR/.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md"
+grep -q '成功后删除 backup 目录' "$TMP_DIR/.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md"
+grep -q 'serena-not-mounted-in-session' "$TMP_DIR/.claude/spec-first/workflows/spec-bootstrap/SKILL.md"
+grep -q '不代表 Serena 已挂载' "$TMP_DIR/.claude/spec-first/workflows/spec-bootstrap/SKILL.md"
+test -f "$TMP_DIR/.claude/spec-first/workflows/spec-bootstrap/references/prd-template.md"
+grep -q 'mcp__serena__get_symbols_overview' "$TMP_DIR/.claude/spec-first/workflows/spec-bootstrap/references/prd-template.md"
+! grep -q 'get_package_structure' "$TMP_DIR/.claude/spec-first/workflows/spec-bootstrap/references/prd-template.md"
+grep -q 'mcp__serena__get_symbols_overview' "$TMP_DIR/.claude/spec-first/workflows/spec-bootstrap/references/prd-template.md"
+grep -q 'Example Call' "$TMP_DIR/.claude/spec-first/workflows/spec-bootstrap/references/prd-template.md"
+test -f "$TMP_DIR/.claude/spec-first/workflows/spec-bootstrap/references/database-prd-template.md"
 test -f "$TMP_DIR/.claude/spec-first/.developer"
 grep -q '^name=kuang$' "$TMP_DIR/.claude/spec-first/.developer"
 grep -q '^lang=en$' "$TMP_DIR/.claude/spec-first/.developer"
@@ -170,17 +173,29 @@ echo "✓ source assets use current branding and internal workflow names"
 echo "2b. Verify skill directories were installed..."
 installed_skill_count="$(find "$TMP_DIR/.claude/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 test "$installed_skill_count" = "$expected_skill_count"
-for skill in spec-plan spec-review spec-work document-review git-worktree; do
+installed_workflow_skill_count="$(find "$TMP_DIR/.claude/spec-first/workflows" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+test "$installed_workflow_skill_count" = "$expected_workflow_skill_count"
+# Command-backing skills are in .claude/spec-first/workflows/
+for skill in spec-plan spec-review spec-work; do
+  test -f "$TMP_DIR/.claude/spec-first/workflows/$skill/SKILL.md"
+done
+# Non-command skills remain in .claude/skills/
+for skill in document-review git-worktree; do
   test -f "$TMP_DIR/.claude/skills/$skill/SKILL.md"
 done
 for skill in spec-brainstorm spec-plan spec-work spec-review spec-compound; do
-  if grep -q "^user-invocable: true$" "$TMP_DIR/.claude/skills/$skill/SKILL.md"; then
+  if grep -q "^user-invocable: true$" "$TMP_DIR/.claude/spec-first/workflows/$skill/SKILL.md"; then
     echo "✗ $skill should not be exposed as a standalone slash command"
     exit 1
   fi
 done
 for skill in spec-ideate spec-work-beta spec-compound-refresh; do
-  if grep -q "^name: spec:" "$TMP_DIR/.claude/skills/$skill/SKILL.md"; then
+  if test -f "$TMP_DIR/.claude/spec-first/workflows/$skill/SKILL.md"; then
+    if grep -q "^name: spec:" "$TMP_DIR/.claude/spec-first/workflows/$skill/SKILL.md"; then
+      echo "✗ $skill should use an internal workflow name instead of a public spec:* skill name"
+      exit 1
+    fi
+  elif grep -q "^name: spec:" "$TMP_DIR/.claude/skills/$skill/SKILL.md"; then
     echo "✗ $skill should use an internal workflow name instead of a public spec:* skill name"
     exit 1
   fi
@@ -188,17 +203,17 @@ done
 echo "✓ init generated all bundled skill directories"
 
 echo "2b-1. Verify generated runtime assets adapt fully qualified agent names..."
-grep -q 'Task repo-research-analyst' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
-grep -q 'Task spec-flow-analyzer' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
+grep -q 'Task repo-research-analyst' "$TMP_DIR/.claude/spec-first/workflows/spec-plan/SKILL.md"
+grep -q 'Task spec-flow-analyzer' "$TMP_DIR/.claude/spec-first/workflows/spec-plan/SKILL.md"
 grep -q '`coherence-reviewer`' "$TMP_DIR/.claude/skills/document-review/SKILL.md"
 grep -q 'Spawn a `pr-comment-resolver` agent' "$TMP_DIR/.claude/skills/resolve-pr-feedback/SKILL.md"
-grep -q 'Use bare agent names inside Task calls.' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
+grep -q 'Use bare agent names inside Task calls.' "$TMP_DIR/.claude/spec-first/workflows/spec-plan/SKILL.md"
 grep -q 'spec-first:research:learnings-researcher' "$TMP_DIR/.claude/agents/review/project-standards-reviewer.md"
-if grep -q 'spec-first:research:repo-research-analyst' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"; then
+if grep -q 'spec-first:research:repo-research-analyst' "$TMP_DIR/.claude/spec-first/workflows/spec-plan/SKILL.md"; then
   echo "✗ generated spec-plan skill still contains unadapted spec-first agent namespace"
   exit 1
 fi
-if grep -Eq 'Task [a-z-]+:[a-z-]+\(' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"; then
+if grep -Eq 'Task [a-z-]+:[a-z-]+\(' "$TMP_DIR/.claude/spec-first/workflows/spec-plan/SKILL.md"; then
   echo "✗ generated spec-plan skill still contains grouped runtime Task agent names"
   exit 1
 fi
@@ -270,7 +285,7 @@ grep -q ".claude/agents" <<<"$doctor_output"
 echo "✓ doctor reports generated commands, skills, and agents"
 
 echo "3a. Verify doctor catches broken Claude runtime agent references..."
-printf '\n- Task research:repo-research-analyst(test mismatch)\n' >> "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
+printf '\n- Task research:repo-research-analyst(test mismatch)\n' >> "$TMP_DIR/.claude/spec-first/workflows/spec-plan/SKILL.md"
 if (
   cd "$TMP_DIR"
   node "$REPO_ROOT/bin/spec-first.js" doctor --claude >"$TMP_DIR/doctor-broken.txt" 2>&1
@@ -332,7 +347,7 @@ test -f "$TMP_DIR/.agents/skills/spec-work/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-review/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-compound/SKILL.md"
 installed_codex_skill_count="$(find "$TMP_DIR/.agents/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
-test "$installed_codex_skill_count" = "$expected_skill_count"
+test "$installed_codex_skill_count" = "$total_skill_count"
 grep -q '^name: spec-brainstorm$' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 grep -q '^name: spec-plan$' "$TMP_DIR/.agents/skills/spec-plan/SKILL.md"
 grep -q '^name: spec-work$' "$TMP_DIR/.agents/skills/spec-work/SKILL.md"
@@ -401,6 +416,7 @@ test ! -e "$TMP_DIR/.claude/commands/spec/brainstorm.md"
 test ! -e "$TMP_DIR/.claude/skills/spec-brainstorm/SKILL.md"
 test ! -e "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
 test ! -e "$TMP_DIR/.claude/skills/spec-graph-bootstrap/SKILL.md"
+test ! -e "$TMP_DIR/.claude/spec-first/workflows"
 test ! -e "$TMP_DIR/.claude/agents/review/correctness-reviewer.md"
 test ! -e "$TMP_DIR/.claude/spec-first/.developer"
 test -e "$TMP_DIR/.claude/skills/custom-skill/SKILL.md"
@@ -415,9 +431,9 @@ test -f "$TMP_DIR/.claude/commands/spec/brainstorm.md"
 test -f "$TMP_DIR/.claude/commands/spec/ideate.md"
 test -f "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
 grep -q "Spec-First Ideate" "$TMP_DIR/.claude/commands/spec/ideate.md"
-test -f "$TMP_DIR/.claude/skills/spec-brainstorm/SKILL.md"
-test -f "$TMP_DIR/.claude/skills/spec-ideate/SKILL.md"
-test -f "$TMP_DIR/.claude/skills/spec-graph-bootstrap/SKILL.md"
+test -f "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
+test -f "$TMP_DIR/.claude/spec-first/workflows/spec-ideate/SKILL.md"
+test -f "$TMP_DIR/.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md"
 test -f "$TMP_DIR/.claude/agents/review/correctness-reviewer.md"
 test -f "$TMP_DIR/.claude/spec-first/.developer"
 echo "✓ re-init works after clean"
