@@ -8,7 +8,9 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-14 矿工: feat(spec-mcp-setup): 集成飞书 MCP——新增 mcp_key_only 检测方式、交互式凭据采集安装引导（install-coordinator）、key 检测与 whoami 凭据验证（verify-tools），host-setup.json 升级至 v6 格式，SKILL.md 补充飞书 MCP 工具行 (user-visible)
 - v1.6.0 2026-04-14 07:07:21 kuang: fix(spec-plan): 收口 plan-handoff 的 document-review pipeline contract，移除与本地非 headless 路线冲突的 `mode:headless` 指令，并明确自动化调用下的交互降级说明 (user-visible)
+- v1.6.0 2026-04-14 14:24:00 kuang: docs(contexts): 重新生成 spec-first 的 graph-bootstrap 控制面与上下文文档，刷新 Full 模式事实、风险热点、测试映射与 injection 路由 (user-visible)
 - v1.6.0 2026-04-14 04:22:42 kuang: feat(workflows): 同步 compound 核心工作流更新批次 B-D，收敛 brainstorm/plan/work/work-beta/compound/compound-refresh 的 review/testing/delegation/discoverability 契约，并补齐 docs/solutions 可发现性入口 (user-visible)
 - v1.6.0 2026-04-14 13:20:00 kuang: docs(validation): 新增 spec-graph-bootstrap 新增能力缺口清单，单独列出当前 spec-first 尚未具备的 fact 路由、增量 refresh、slug 管理与扩展产物体系能力
 - v1.6.0 2026-04-14 13:15:00 kuang: docs(validation): 为 spec-graph-bootstrap 3A/3B 验证记录补充时点说明，明确旧的 public-entrypoints 重复注入描述属于历史状态，不代表当前头状态缺陷

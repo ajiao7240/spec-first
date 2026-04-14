@@ -22,6 +22,7 @@ This skill automates the installation and configuration of the MCP tools used by
 | Sequential Thinking | Required | Dynamic reflective problem solving |
 | Context7 | Required | Latest framework documentation lookup |
 | Playwright MCP | Optional | Frontend automation testing |
+| 飞书 MCP | Optional | 飞书聊天与文档 API（feishu-chat-researcher / feishu-doc-reader 依赖） |
 
 The active host is detected automatically. Claude Code writes to `~/.claude.json` and `~/.claude/spec-first/host-setup.json`; Codex writes to `~/.codex/config.toml` and `~/.codex/spec-first/host-setup.json`.
 If both CLIs are present and no host hint is available, set `MCP_SETUP_HOST=claude|codex` explicitly; the skill will not guess.

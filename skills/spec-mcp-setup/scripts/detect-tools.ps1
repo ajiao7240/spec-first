@@ -104,6 +104,25 @@ foreach ($tool in $ToolsJson.tools) {
         }
       }
     }
+    'mcp_key_only' {
+      $detectKey = $tool.detect.key
+      if (Test-Path $ConfigPath) {
+        if ($DetectedHost -eq 'claude') {
+          try {
+            $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
+            if ($null -ne $config.mcpServers.PSObject.Properties[$detectKey]) {
+              $found = $true
+            }
+          } catch {
+            $found = $false
+          }
+        } elseif ($DetectedHost -eq 'codex') {
+          if (Select-String -Path $ConfigPath -SimpleMatch "[mcp_servers.$detectKey]" -Quiet) {
+            $found = $true
+          }
+        }
+      }
+    }
     'command' {
       try {
         $detectProc = Start-Process -FilePath 'pwsh' -ArgumentList '-c',$tool.detect.command -NoNewWindow -PassThru -RedirectStandardOutput NUL -RedirectStandardError NUL

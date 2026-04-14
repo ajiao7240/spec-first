@@ -61,6 +61,31 @@
         "method": "mcp_config",
         "key": "playwright"
       }
+    },
+    {
+      "id": "feishu",
+      "name": "飞书 MCP",
+      "category": "optional",
+      "description": "飞书聊天与文档 API 接入，feishu-chat-researcher / feishu-doc-reader agent 依赖",
+      "dependencies": ["node"],
+      "mcp_config": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@larksuiteoapi/lark-mcp",
+          "mcp",
+          "--app-id",
+          "__FEISHU_APP_ID__",
+          "--app-secret",
+          "__FEISHU_APP_SECRET__",
+          "--language",
+          "zh"
+        ]
+      },
+      "detect": {
+        "method": "mcp_key_only",
+        "key": "feishu"
+      }
     }
   ]
 }

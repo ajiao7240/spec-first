@@ -315,6 +315,53 @@ configure_tool() {
   return 1
 }
 
+install_feishu() {
+  if tool_is_configured "feishu"; then
+    echo "  ⏭️  feishu: already configured, skipping"
+    return 0
+  fi
+
+  echo ""
+  echo "=== 飞书 MCP 配置引导 ==="
+  echo "需要飞书开放平台应用凭据。若尚未创建，请前往："
+  echo "  https://open.feishu.cn/app"
+  echo ""
+
+  local FEISHU_APP_ID=""
+  local FEISHU_APP_SECRET=""
+  read -r -p "请输入 Feishu App ID: " FEISHU_APP_ID || FEISHU_APP_ID=""
+  read -r -p "请输入 Feishu App Secret: " FEISHU_APP_SECRET || FEISHU_APP_SECRET=""
+
+  if [ -z "$FEISHU_APP_ID" ] || [ -z "$FEISHU_APP_SECRET" ]; then
+    echo "  ⚠️  feishu: 凭据为空，跳过配置。可后续手动配置或重新运行 spec-mcp-setup。"
+    return 0
+  fi
+
+  echo "  ⏳ Configuring feishu for ${HOST_DISPLAY_NAME}..."
+
+  if [ "$HOST" = "claude" ]; then
+    local FEISHU_CONFIG
+    FEISHU_CONFIG=$(jq -n \
+      --arg app_id "$FEISHU_APP_ID" \
+      --arg app_secret "$FEISHU_APP_SECRET" \
+      '{"command":"npx","args":["-y","@larksuiteoapi/lark-mcp","mcp","--app-id",$app_id,"--app-secret",$app_secret,"--language","zh"]}')
+    if "$CLI_COMMAND" mcp add-json --scope user feishu "$FEISHU_CONFIG"; then
+      echo "  ✅ feishu: configured"
+    else
+      echo "  ❌ feishu: configuration failed" >&2
+      return 1
+    fi
+  elif [ "$HOST" = "codex" ]; then
+    if "$CLI_COMMAND" mcp add feishu -- npx -y @larksuiteoapi/lark-mcp mcp \
+        --app-id "$FEISHU_APP_ID" --app-secret "$FEISHU_APP_SECRET" --language zh; then
+      echo "  ✅ feishu: configured"
+    else
+      echo "  ❌ feishu: configuration failed" >&2
+      return 1
+    fi
+  fi
+}
+
 # Main installation flow
 main() {
   local results=()
@@ -355,6 +402,17 @@ main() {
 
     echo "Processing: $tool_id ($category)"
     echo "  → 正在为 ${HOST_DISPLAY_NAME} 写入 $tool_id 配置"
+
+    if [ "$tool_id" = "feishu" ]; then
+      if ! install_feishu; then
+        restore_config "$backup_file" "$created_during_run"
+        failed+=("feishu")
+        results=()
+        break
+      fi
+      results+=("feishu")
+      continue
+    fi
 
     if ! configure_tool "$tool_id"; then
       restore_config "$backup_file" "$created_during_run"

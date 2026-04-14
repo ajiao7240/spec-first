@@ -75,6 +75,88 @@ check_mcp_configured() {
   fi
 }
 
+check_mcp_key_only() {
+  local key="$1"
+
+  if [ ! -f "$CONFIG_PATH" ]; then
+    echo "false"
+    return
+  fi
+
+  if [ "$HOST" = "claude" ]; then
+    if jq -e \
+      --arg key "$key" \
+      '.mcpServers[$key] != null' \
+      "$CONFIG_PATH" >/dev/null 2>&1; then
+      echo "true"
+    else
+      echo "false"
+    fi
+    return
+  fi
+
+  # codex: TOML key check
+  if grep -qF "[mcp_servers.${key}]" "$CONFIG_PATH" 2>/dev/null; then
+    echo "true"
+  else
+    echo "false"
+  fi
+}
+
+check_feishu_whoami() {
+  # 仅 Claude host 支持 JSON 凭据提取；Codex TOML 格式暂不解析
+  if [ "$HOST" != "claude" ] || [ ! -f "$CONFIG_PATH" ]; then
+    echo "unchecked"
+    return
+  fi
+
+  local app_id app_secret
+  app_id=$(jq -r '
+    (.mcpServers.feishu.args // []) as $args |
+    ($args | index("--app-id")) as $i |
+    if $i != null then $args[$i+1] else "" end
+  ' "$CONFIG_PATH" 2>/dev/null) || app_id=""
+  app_secret=$(jq -r '
+    (.mcpServers.feishu.args // []) as $args |
+    ($args | index("--app-secret")) as $i |
+    if $i != null then $args[$i+1] else "" end
+  ' "$CONFIG_PATH" 2>/dev/null) || app_secret=""
+
+  if [ -z "$app_id" ] || [ -z "$app_secret" ]; then
+    echo "unchecked"
+    return
+  fi
+
+  command -v curl >/dev/null 2>&1 || { echo "unchecked"; return; }
+
+  local body response
+  body=$(jq -n --arg id "$app_id" --arg sec "$app_secret" '{"app_id":$id,"app_secret":$sec}')
+  response=""
+
+  if command -v timeout >/dev/null 2>&1; then
+    response=$(timeout 10 curl -s -X POST \
+      "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal" \
+      -H "Content-Type: application/json" \
+      -d "$body" 2>/dev/null) || response=""
+  elif command -v perl >/dev/null 2>&1; then
+    response=$(perl -e 'alarm shift; exec @ARGV' 10 curl -s --max-time 10 -X POST \
+      "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal" \
+      -H "Content-Type: application/json" \
+      -d "$body" 2>/dev/null) || response=""
+  else
+    response=$(curl -s --max-time 10 -X POST \
+      "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal" \
+      -H "Content-Type: application/json" \
+      -d "$body" 2>/dev/null) || response=""
+  fi
+
+  if [ -n "$response" ] && jq -e '.code == 0' <<<"$response" >/dev/null 2>&1; then
+    echo "ok"
+  else
+    echo "failed"
+  fi
+}
+
 check_crg_readiness() {
   local cli_available=false
   local native_modules="unchecked"
@@ -107,6 +189,11 @@ serena_configured=$(check_mcp_configured "serena")
 context7_configured=$(check_mcp_configured "context7")
 sequential_thinking_configured=$(check_mcp_configured "sequential-thinking")
 playwright_configured=$(check_mcp_configured "playwright")
+feishu_configured=$(check_mcp_key_only "feishu")
+feishu_whoami="unchecked"
+if [ "$feishu_configured" = "true" ]; then
+  feishu_whoami=$(check_feishu_whoami)
+fi
 crg_info=$(check_crg_readiness)
 crg_checked_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -122,6 +209,7 @@ echo "  serena: ${serena_configured}"
 echo "  context7: ${context7_configured}"
 echo "  sequential-thinking: ${sequential_thinking_configured}"
 echo "  playwright: ${playwright_configured}"
+echo "  feishu: ${feishu_configured} (whoami: ${feishu_whoami})"
 echo "  crg: $(echo "$crg_info" | jq -r '.cli_available') (native_modules: $(echo "$crg_info" | jq -r '.native_modules'))"
 
 if ! mkdir -p "$HOST_SETUP_DIR" 2>/dev/null; then
@@ -150,12 +238,14 @@ jq -n \
   --argjson context7_configured "$context7_configured" \
   --argjson sequential_thinking_configured "$sequential_thinking_configured" \
   --argjson playwright_configured "$playwright_configured" \
+  --argjson feishu_configured "$feishu_configured" \
+  --arg feishu_whoami "$feishu_whoami" \
   --argjson setup_success "$setup_success" \
   --argjson crg_cli_available "$crg_cli_available" \
   --arg crg_native_modules "$crg_native_modules" \
   --arg crg_checked_at "$crg_checked_at" \
   '{
-    "version": "5",
+    "version": "6",
     "host": $host,
     "completed_at": $completed_at,
     "setup_success": $setup_success,
@@ -163,7 +253,8 @@ jq -n \
       "serena": { "configured": $serena_configured },
       "context7": { "configured": $context7_configured },
       "sequential-thinking": { "configured": $sequential_thinking_configured },
-      "playwright": { "configured": $playwright_configured }
+      "playwright": { "configured": $playwright_configured },
+      "feishu": { "configured": $feishu_configured, "whoami": $feishu_whoami }
     },
     "crg": {
       "cli_available": $crg_cli_available,

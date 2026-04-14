@@ -329,6 +329,55 @@ function Configure-Tool {
   return $false
 }
 
+function Install-Feishu {
+  if (Tool-IsConfigured 'feishu') {
+    Write-Host "  ⏭️  feishu: already configured, skipping"
+    return $true
+  }
+
+  Write-Host ""
+  Write-Host "=== 飞书 MCP 配置引导 ==="
+  Write-Host "需要飞书开放平台应用凭据。若尚未创建，请前往："
+  Write-Host "  https://open.feishu.cn/app"
+  Write-Host ""
+
+  $feishuAppId = Read-Host -Prompt "请输入 Feishu App ID"
+  $feishuAppSecret = Read-Host -Prompt "请输入 Feishu App Secret"
+
+  if ([string]::IsNullOrWhiteSpace($feishuAppId) -or [string]::IsNullOrWhiteSpace($feishuAppSecret)) {
+    Write-Host "  ⚠️  feishu: 凭据为空，跳过配置。可后续手动配置或重新运行 spec-mcp-setup。"
+    return $true
+  }
+
+  Write-Host "  ⏳ Configuring feishu for $HostDisplayName..."
+
+  if ($DetectedHost -eq 'claude') {
+    $feishuConfig = [pscustomobject]@{
+      command = 'npx'
+      args    = @('-y', '@larksuiteoapi/lark-mcp', 'mcp', '--app-id', $feishuAppId, '--app-secret', $feishuAppSecret, '--language', 'zh')
+    } | ConvertTo-Json -Compress -Depth 4
+    try {
+      & $CliCommand mcp add-json --scope user feishu $feishuConfig
+      Write-Host "  ✅ feishu: configured"
+      return $true
+    } catch {
+      Write-Host "  ❌ feishu: configuration failed" -ForegroundColor Red
+      return $false
+    }
+  } elseif ($DetectedHost -eq 'codex') {
+    try {
+      & $CliCommand mcp add feishu -- npx -y '@larksuiteoapi/lark-mcp' mcp --app-id $feishuAppId --app-secret $feishuAppSecret --language zh
+      Write-Host "  ✅ feishu: configured"
+      return $true
+    } catch {
+      Write-Host "  ❌ feishu: configuration failed" -ForegroundColor Red
+      return $false
+    }
+  }
+
+  return $true
+}
+
 $tools = $ToolsJson.tools
 
 $backupFile = $null
@@ -361,6 +410,17 @@ try {
 
     Write-Host "Processing: $($tool.id) ($($tool.category))"
     Write-Host "  → 正在为 $HostDisplayName 写入 $($tool.id) 配置"
+
+    if ($tool.id -eq 'feishu') {
+      if (-not (Install-Feishu)) {
+        Restore-Config -BackupFile $backupFile -CreatedDuringRun $createdDuringRun
+        $failed.Add('feishu')
+        $results.Clear()
+        break
+      }
+      $results.Add('feishu')
+      continue
+    }
 
     if (-not (Configure-Tool $tool.id)) {
       Restore-Config -BackupFile $backupFile -CreatedDuringRun $createdDuringRun

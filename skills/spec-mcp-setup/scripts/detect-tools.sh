@@ -76,6 +76,22 @@ for tool_id in $tool_ids; do
       fi
       ;;
 
+    "mcp_key_only")
+      detect_key=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detect.key' "$TOOLS_JSON")
+      if [ "$HOST" = "claude" ]; then
+        if [ -f "$CONFIG_PATH" ] && jq -e \
+          --arg key "$detect_key" \
+          '.mcpServers[$key] != null' \
+          "$CONFIG_PATH" >/dev/null 2>&1; then
+          found=true
+        fi
+      elif [ "$HOST" = "codex" ]; then
+        if [ -f "$CONFIG_PATH" ] && grep -qF "[mcp_servers.${detect_key}]" "$CONFIG_PATH" 2>/dev/null; then
+          found=true
+        fi
+      fi
+      ;;
+
     "command")
       # Run the full detection command so "command exists but is broken" is not misclassified as installed.
       # 超时保护：10秒内未完成则视为失败

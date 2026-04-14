@@ -101,10 +101,73 @@ function Check-McpConfigured {
   return $true
 }
 
+function Check-McpKeyOnly {
+  param([string]$Key)
+
+  if (-not (Test-Path $ConfigPath)) {
+    return $false
+  }
+
+  if ($DetectedHost -eq 'claude') {
+    try {
+      $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
+      return $null -ne $config.mcpServers.PSObject.Properties[$Key]
+    } catch {
+      return $false
+    }
+  }
+
+  # codex: TOML key check
+  return (Select-String -Path $ConfigPath -SimpleMatch "[mcp_servers.$Key]" -Quiet) -eq $true
+}
+
+function Get-FeishuWhoami {
+  # 仅 Claude host 支持 JSON 凭据提取；Codex TOML 格式暂不解析
+  if ($DetectedHost -ne 'claude' -or -not (Test-Path $ConfigPath)) {
+    return 'unchecked'
+  }
+
+  try {
+    $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
+    $feishuArgs = @($config.mcpServers.feishu.args)
+
+    $appIdIdx = [System.Array]::IndexOf($feishuArgs, '--app-id')
+    $appSecretIdx = [System.Array]::IndexOf($feishuArgs, '--app-secret')
+
+    if ($appIdIdx -lt 0 -or $appSecretIdx -lt 0) {
+      return 'unchecked'
+    }
+
+    $appId = $feishuArgs[$appIdIdx + 1]
+    $appSecret = $feishuArgs[$appSecretIdx + 1]
+
+    if ([string]::IsNullOrWhiteSpace($appId) -or [string]::IsNullOrWhiteSpace($appSecret)) {
+      return 'unchecked'
+    }
+
+    $body = @{ app_id = $appId; app_secret = $appSecret } | ConvertTo-Json -Compress
+    $response = Invoke-RestMethod `
+      -Uri 'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal' `
+      -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 10 -ErrorAction Stop
+
+    if ($response.code -eq 0) {
+      return 'ok'
+    }
+    return 'failed'
+  } catch {
+    return 'failed'
+  }
+}
+
 $serenaConfigured = Check-McpConfigured 'serena'
 $context7Configured = Check-McpConfigured 'context7'
 $sequentialThinkingConfigured = Check-McpConfigured 'sequential-thinking'
 $playwrightConfigured = Check-McpConfigured 'playwright'
+$feishuConfigured = Check-McpKeyOnly 'feishu'
+$feishuWhoami = 'unchecked'
+if ($feishuConfigured) {
+  $feishuWhoami = Get-FeishuWhoami
+}
 
 # CRG readiness check
 $crgCliAvailable = $false
@@ -146,6 +209,7 @@ Write-Host "  serena: $serenaConfigured"
 Write-Host "  context7: $context7Configured"
 Write-Host "  sequential-thinking: $sequentialThinkingConfigured"
 Write-Host "  playwright: $playwrightConfigured"
+Write-Host "  feishu: $feishuConfigured (whoami: $feishuWhoami)"
 Write-Host "  crg: $crgCliAvailable (native_modules: $crgNativeModules)"
 
 New-Item -ItemType Directory -Force -Path $HostSetupDir | Out-Null
@@ -154,7 +218,7 @@ $completedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
 $tempFile = Join-Path $HostSetupDir ("host-setup.{0}.tmp" -f ([guid]::NewGuid().ToString('N')))
 
 $payload = [ordered]@{
-  version = '5'
+  version = '6'
   host = $DetectedHost
   completed_at = $completedAt
   setup_success = [bool]$setupSuccess
@@ -163,6 +227,7 @@ $payload = [ordered]@{
     context7 = @{ configured = [bool]$context7Configured }
     'sequential-thinking' = @{ configured = [bool]$sequentialThinkingConfigured }
     playwright = @{ configured = [bool]$playwrightConfigured }
+    feishu = [ordered]@{ configured = [bool]$feishuConfigured; whoami = $feishuWhoami }
   }
   crg = [ordered]@{
     cli_available = [bool]$crgCliAvailable

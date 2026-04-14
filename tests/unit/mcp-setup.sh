@@ -69,9 +69,9 @@ echo "1. Config file validation"
 echo "1.1 mcp-tools.json is valid JSON"
 assert "mcp-tools.json is valid JSON" jq -e . "$TOOLS_JSON" >/dev/null
 
-echo "1.2 mcp-tools.json has 4 tools"
+echo "1.2 mcp-tools.json has 5 tools"
 tool_count=$(jq '.tools | length' "$TOOLS_JSON")
-assert_output "4 tools defined" "4" "$tool_count"
+assert_output "5 tools defined" "5" "$tool_count"
 
 echo "1.3 All tools have required fields"
 for field in id name category description dependencies detect; do
@@ -89,8 +89,8 @@ assert_not_contains "No gitnexus" "gitnexus" "$required_ids"
 assert_not_contains "No abcoder" "abcoder" "$required_ids"
 
 echo "1.5 Optional tools have correct IDs"
-optional_ids=$(jq -r '.tools[] | select(.category == "optional") | .id' "$TOOLS_JSON")
-assert_output "Optional tool IDs" "playwright" "$optional_ids"
+optional_ids=$(jq -r '[.tools[] | select(.category == "optional") | .id] | sort | join(",")' "$TOOLS_JSON")
+assert_output "Optional tool IDs" "feishu,playwright" "$optional_ids"
 
 echo "1.6 Serena has correct entry point"
 serena_cmd=$(jq -r '.tools[] | select(.id == "serena") | .mcp_config.command' "$TOOLS_JSON")
@@ -148,11 +148,11 @@ echo "3.2 JSON has installed and missing arrays"
 assert "JSON has 'installed' array" jq -e '.installed | type == "array"' <<<"$detect_output"
 assert "JSON has 'missing' array" jq -e '.missing | type == "array"' <<<"$detect_output"
 
-echo "3.3 All tools accounted for (no duplicates, no gaps)"
+echo "3.3 All tools accounted for (no duplicates, no gaps) [5 total]"
 installed_count=$(jq '.installed | length' <<<"$detect_output")
 missing_count=$(jq '.missing | length' <<<"$detect_output")
 total=$((installed_count + missing_count))
-assert_output "Total tools = 4" "4" "$total"
+assert_output "Total tools = 5" "5" "$total"
 
 echo "3.4 installed array has no empty strings"
 empty_installed=$(jq '[.installed[] | select(. == "")] | length' <<<"$detect_output")
@@ -217,7 +217,7 @@ detect_full=$(HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-
 full_installed=$(jq -r '.installed | sort | join(",")' <<<"$detect_full")
 assert_output "All required tools installed" "context7,sequential-thinking,serena" "$full_installed"
 full_missing_count=$(jq '.missing | length' <<<"$detect_full")
-assert_output "No missing tools when config present" "1" "$full_missing_count"
+assert_output "No missing tools when config present" "2" "$full_missing_count"
 
 echo "3.9 Codex config.toml is detected"
 FAKE_HOME_C="$TMP_DIR/detect_home_codex"
@@ -239,7 +239,7 @@ detect_codex=$(HOME="$FAKE_HOME_C" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detec
 codex_installed=$(jq -r '.installed | sort | join(",")' <<<"$detect_codex")
 assert_output "Codex required tools installed" "context7,sequential-thinking,serena" "$codex_installed"
 codex_missing_count=$(jq '.missing | length' <<<"$detect_codex")
-assert_output "No missing tools in codex config" "1" "$codex_missing_count"
+assert_output "No missing tools in codex config" "2" "$codex_missing_count"
 
 echo "3.10 Codex config with wrong Serena context is treated as missing"
 cat > "$FAKE_HOME_C/.codex/config.toml" <<'TOMLEOF'
@@ -259,13 +259,13 @@ detect_codex_wrong=$(HOME="$FAKE_HOME_C" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR
 wrong_installed=$(jq -r '.installed | sort | join(",")' <<<"$detect_codex_wrong")
 assert_output "Wrong Serena context excludes serena" "context7,sequential-thinking" "$wrong_installed"
 wrong_missing=$(jq -r '.missing | sort | join(",")' <<<"$detect_codex_wrong")
-assert_output "Wrong Serena context marks serena missing" "playwright,serena" "$wrong_missing"
+assert_output "Wrong Serena context marks serena missing" "feishu,playwright,serena" "$wrong_missing"
 
 echo "3.11 Empty config yields all tools missing"
 echo '{}' > "$FAKE_HOME/.claude.json"
 detect_empty=$(HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)
 empty_missing=$(jq '.missing | length' <<<"$detect_empty")
-assert_output "All 4 tools missing" "4" "$empty_missing"
+assert_output "All 5 tools missing" "5" "$empty_missing"
 
 echo ""
 
@@ -417,7 +417,7 @@ verify_output_51=$(HOME="$FH91" MCP_SETUP_HOST=claude bash "$VERIFY_SCRIPT" 2>&1
 assert_contains "Verify output announces baseline check" "正在核对当前宿主的基础 MCP 配置" "$verify_output_51"
 assert_contains "Verify output shows marker update" "宿主就绪标记已更新" "$verify_output_51"
 schema_91=$(jq -r '.version' "$FH91/.claude/spec-first/host-setup.json")
-assert_output "schema version v5" "5" "$schema_91"
+assert_output "schema version v6" "6" "$schema_91"
 host_91=$(jq -r '.host' "$FH91/.claude/spec-first/host-setup.json")
 assert_output "claude host field" "claude" "$host_91"
 out91=$(jq -r '.setup_success' "$FH91/.claude/spec-first/host-setup.json")
@@ -454,7 +454,7 @@ echo "5.3 host-setup schema does not include removed tools"
 assert "No gitnexus tool entry" jq -e '.tools.gitnexus | not' "$FH91/.claude/spec-first/host-setup.json"
 assert "No abcoder tool entry" jq -e '.tools.abcoder | not' "$FH91/.claude/spec-first/host-setup.json"
 
-echo "5.3.1 host-setup v5 has crg block and playwright"
+echo "5.3.1 host-setup v6 has crg block, playwright, and feishu"
 assert "crg block exists" jq -e '.crg' "$FH91/.claude/spec-first/host-setup.json"
 crg_cli=$(jq -r '.crg.cli_available' "$FH91/.claude/spec-first/host-setup.json")
 assert "crg.cli_available is boolean" test "$crg_cli" = "true" -o "$crg_cli" = "false"
@@ -481,7 +481,7 @@ args = ["-y", "@modelcontextprotocol/server-sequential-thinking"]
 TOMLEOF
 HOME="$FH93" MCP_SETUP_HOST=codex bash "$VERIFY_SCRIPT" >/dev/null 2>&1
 schema_93=$(jq -r '.version' "$FH93/.codex/spec-first/host-setup.json")
-assert_output "codex schema version v5" "5" "$schema_93"
+assert_output "codex schema version v6" "6" "$schema_93"
 host_93=$(jq -r '.host' "$FH93/.codex/spec-first/host-setup.json")
 assert_output "codex host field" "codex" "$host_93"
 out93=$(jq -r '.setup_success' "$FH93/.codex/spec-first/host-setup.json")
