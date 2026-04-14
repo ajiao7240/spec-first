@@ -462,6 +462,41 @@ crg_nm=$(jq -r '.crg.native_modules' "$FH91/.claude/spec-first/host-setup.json")
 assert "crg.native_modules is valid" test "$crg_nm" = "ok" -o "$crg_nm" = "missing" -o "$crg_nm" = "unchecked"
 pw_cfg=$(jq -r '.tools.playwright.configured' "$FH91/.claude/spec-first/host-setup.json")
 assert "playwright.configured is boolean" test "$pw_cfg" = "true" -o "$pw_cfg" = "false"
+fw_cfg=$(jq -r '.tools.feishu.configured' "$FH91/.claude/spec-first/host-setup.json")
+assert_output "feishu.configured false when absent" "false" "$fw_cfg"
+fw_whoami=$(jq -r '.tools.feishu.whoami' "$FH91/.claude/spec-first/host-setup.json")
+assert_output "feishu.whoami unchecked when absent" "unchecked" "$fw_whoami"
+
+echo "5.3.2 feishu.configured=true when feishu key present (mcp_key_only branch)"
+FH95="$TMP_DIR/fh95"
+mkdir -p "$FH95"
+cat > "$FH95/.claude.json" <<'JSONEOF'
+{
+  "mcpServers": {
+    "serena": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    },
+    "feishu": {
+      "command": "npx",
+      "args": ["-y", "@larksuiteoapi/lark-mcp", "mcp", "--language", "zh"]
+    }
+  }
+}
+JSONEOF
+HOME="$FH95" MCP_SETUP_HOST=claude bash "$VERIFY_SCRIPT" >/dev/null 2>&1
+fw2_cfg=$(jq -r '.tools.feishu.configured' "$FH95/.claude/spec-first/host-setup.json")
+assert_output "feishu.configured true when key present" "true" "$fw2_cfg"
+fw2_whoami=$(jq -r '.tools.feishu.whoami' "$FH95/.claude/spec-first/host-setup.json")
+assert_output "feishu.whoami unchecked without app_id in args" "unchecked" "$fw2_whoami"
 
 echo "5.4 setup_success=true when baseline tools are configured for Codex"
 FH93="$TMP_DIR/fh93"

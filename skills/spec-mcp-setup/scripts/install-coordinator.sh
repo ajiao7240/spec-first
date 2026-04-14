@@ -329,8 +329,9 @@ install_feishu() {
 
   local FEISHU_APP_ID=""
   local FEISHU_APP_SECRET=""
-  read -r -p "请输入 Feishu App ID: " FEISHU_APP_ID || FEISHU_APP_ID=""
-  read -r -p "请输入 Feishu App Secret: " FEISHU_APP_SECRET || FEISHU_APP_SECRET=""
+  read -r -p "请输入 Feishu App ID: " FEISHU_APP_ID </dev/tty || FEISHU_APP_ID=""
+  read -r -s -p "请输入 Feishu App Secret: " FEISHU_APP_SECRET </dev/tty || FEISHU_APP_SECRET=""
+  echo >/dev/tty 2>/dev/null
 
   if [ -z "$FEISHU_APP_ID" ] || [ -z "$FEISHU_APP_SECRET" ]; then
     echo "  ⚠️  feishu: 凭据为空，跳过配置。可后续手动配置或重新运行 spec-mcp-setup。"

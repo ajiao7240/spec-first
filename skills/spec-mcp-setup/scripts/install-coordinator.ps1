@@ -342,7 +342,9 @@ function Install-Feishu {
   Write-Host ""
 
   $feishuAppId = Read-Host -Prompt "请输入 Feishu App ID"
-  $feishuAppSecret = Read-Host -Prompt "请输入 Feishu App Secret"
+  $feishuAppSecretSecure = Read-Host -Prompt "请输入 Feishu App Secret" -AsSecureString
+  $feishuAppSecret = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+      [Runtime.InteropServices.Marshal]::SecureStringToBSTR($feishuAppSecretSecure))
 
   if ([string]::IsNullOrWhiteSpace($feishuAppId) -or [string]::IsNullOrWhiteSpace($feishuAppSecret)) {
     Write-Host "  ⚠️  feishu: 凭据为空，跳过配置。可后续手动配置或重新运行 spec-mcp-setup。"
