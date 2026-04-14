@@ -1,12 +1,30 @@
 ---
 title: feat: sync compound core workflow updates into spec-first
 type: feature
-status: proposed
+status: completed
 date: 2026-04-13
 origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates-requirements.md
 ---
 
 # feat: sync compound core workflow updates into spec-first
+
+## Completion Note
+
+> 状态回写：`2026-04-14`
+>
+> 本计划对应的 compound 核心工作流同步已完成实施、验证与逐文件深度审查。原计划正文保留为历史决策工件，不按事后结果重写；实际执行结果、shared commit 最终治理口径、逐文件核对结论，以以下文档为准：
+>
+> - [批次 A 最终审查报告](/Users/kuang/xiaobu/spec-first/docs/validation/2026-04-14-compound-core-workflow-batch-a-audit-report.md)
+> - [批次 B/C/D 最终审查报告](/Users/kuang/xiaobu/spec-first/docs/validation/2026-04-14-compound-core-workflow-batch-bcd-audit-report.md)
+> - [全量最终审查报告](/Users/kuang/xiaobu/spec-first/docs/validation/2026-04-14-compound-core-workflow-final-audit-report.md)
+> - [逐文件深度审查报告](/Users/kuang/xiaobu/spec-first/docs/validation/2026-04-14-compound-core-workflow-matrix-deep-audit-report.md)
+>
+> 实施完成结论：
+>
+> - 批次 A-D 已完成
+> - 已执行验证：`git diff --check`、`bash tests/unit/lang-policy.sh`、`npm run test:smoke`
+> - 计划审查期额外发现并修复 `plan-handoff` 中遗留的 `document-review mode:headless` contract 冲突
+> - shared commit 最终口径已收敛为“`owner 定语义，file-affinity 落地`”，以矩阵与审查报告中的回写为准
 
 ## Overview
 

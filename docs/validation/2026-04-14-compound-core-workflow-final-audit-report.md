@@ -4,6 +4,7 @@
 - 分支：`feat/sync-compound-core-workflow-updates`
 - 计划文件：[docs/plans/2026-04-13-006-feat-sync-compound-core-workflow-updates-plan.md](/Users/kuang/xiaobu/spec-first/docs/plans/2026-04-13-006-feat-sync-compound-core-workflow-updates-plan.md)
 - 上游基线：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering`
+- 逐文件深度审查报告：[matrix deep audit](/Users/kuang/xiaobu/spec-first/docs/validation/2026-04-14-compound-core-workflow-matrix-deep-audit-report.md)
 - 分批审查报告：
   - [批次 A 审查报告](/Users/kuang/xiaobu/spec-first/docs/validation/2026-04-14-compound-core-workflow-batch-a-audit-report.md)
   - [批次 B/C/D 审查报告](/Users/kuang/xiaobu/spec-first/docs/validation/2026-04-14-compound-core-workflow-batch-bcd-audit-report.md)
@@ -34,6 +35,11 @@
    - `git diff --check`
    - `bash tests/unit/lang-policy.sh`
    - `npm run test:smoke`
+5. 逐文件深度审查已完成：
+   - `54` 个有上游对应文件
+   - `1` 个 local-only 保留文件
+   - `2` 个 discoverability write-back 文件
+   - 机械对照统计与人工分类一致：`19 exact / 5 namespace equal / 30 intentional divergence`
 
 ## 2. 架构层判断
 
@@ -93,8 +99,8 @@
 
 现在已经做到：
 
-1. owner-batch 负责定义 shared commit 的语义结论
-2. file-affinity 批次负责实际落点时，必须在矩阵 notes 里回写“我是在消费哪份 owner handoff”
+1. owner-batch 负责定义 shared commit 的语义结论、迁移范围与保留分叉
+2. file-affinity 批次负责实际落点时，必须在矩阵 notes 里回写“我是在消费哪份 owner handoff”以及“哪些文件由我真正落地”
 3. 最终审查报告明确写出：
    - 哪个 commit 的 owner 是谁
    - 哪些文件是在哪个批次真正落地
@@ -108,7 +114,8 @@
 
 1. `spec-work-beta` 的 delegation 目前是 contract 级同步，尚未在本仓库内做真实 Codex delegation 端到端演练。
 2. `spec-compound` 的 stack-aware reviewer 路由依赖当前 agent 集合；如果未来 reviewer 目录继续变化，需要同步刷新文档合同。
-3. 后续如果继续追上游批次 E/F，必须坚持当前的矩阵回写和批次审查方法，否则 shared commit 的可追溯性会再次退化。
+3. `949bdef` 应按“dispatch 语义边界”理解，不应被外推为“所有 execution reference 都必须移除显式 mode”；后续继续追上游时要保持这条解释一致。
+4. 后续如果继续追上游批次 E/F，必须坚持当前的矩阵回写和批次审查方法，否则 shared commit 的可追溯性会再次退化。
 
 ## 6. 最终判断
 

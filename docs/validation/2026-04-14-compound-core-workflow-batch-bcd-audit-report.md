@@ -89,22 +89,22 @@
 ### A -> C/D
 
 - `949bdef`
-  - owner 为 A
-  - C 只核查 `spec-work` / `spec-work-beta`
-  - D 只核查 `spec-compound-refresh`
-  - 当前文件中未重新引入显式 `mode` 传参指导
+  - owner 为 A，负责 shared 语义裁决与 A 范围内真实文件落点
+  - C 按 file-affinity 承接 `spec-work` / `spec-work-beta` 的真实文件落点与核查
+  - D 按 file-affinity 承接 `spec-compound-refresh` 的真实文件落点与核查
+  - 当前主 `SKILL.md` 未重新引入调用层硬编码 `mode` 指导；shipping reference 仍保留显式 `mode:autofix` 的 review 流程说明，且这与上游当前文本一致
 
 ### B -> C
 
 - `9caaf07`
-  - B owner 负责 mandatory review 总契约
-  - C 负责 work/work-beta 的真实文本落点与验证
+  - B owner 负责 mandatory review 总契约与 planning 侧 handoff
+  - C 按 file-affinity 负责 work/work-beta 的真实文本落点与验证
 - `35678b8`
-  - B owner 负责 testing gap 总契约
-  - C 负责 testing-reviewer 与 execution 层的真实落点
+  - B owner 负责 testing gap 总契约与 planning 侧 handoff
+  - C 按 file-affinity 负责 testing-reviewer 与 execution 层的真实落点
 - `31b0686`
-  - B owner 负责 planning posture
-  - C 负责 beta delegation 主落点
+  - B owner 负责 delegation posture / planning posture 的语义裁决与 `spec-plan` 落点
+  - C 按 file-affinity 负责 beta delegation 主落点
 
 这里没有回避 shared commit 的真实落点问题，而是把“owner 的裁决责任”和“file-affinity 的实施位置”都写进矩阵 notes，保证后续继续升级时能知道谁定义了语义、谁完成了落点。
 

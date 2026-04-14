@@ -8,7 +8,10 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-14 07:07:21 kuang: fix(spec-plan): 收口 plan-handoff 的 document-review pipeline contract，移除与本地非 headless 路线冲突的 `mode:headless` 指令，并明确自动化调用下的交互降级说明 (user-visible)
 - v1.6.0 2026-04-14 04:22:42 kuang: feat(workflows): 同步 compound 核心工作流更新批次 B-D，收敛 brainstorm/plan/work/work-beta/compound/compound-refresh 的 review/testing/delegation/discoverability 契约，并补齐 docs/solutions 可发现性入口 (user-visible)
+- v1.6.0 2026-04-14 13:20:00 kuang: docs(validation): 新增 spec-graph-bootstrap 新增能力缺口清单，单独列出当前 spec-first 尚未具备的 fact 路由、增量 refresh、slug 管理与扩展产物体系能力
+- v1.6.0 2026-04-14 13:15:00 kuang: docs(validation): 为 spec-graph-bootstrap 3A/3B 验证记录补充时点说明，明确旧的 public-entrypoints 重复注入描述属于历史状态，不代表当前头状态缺陷
 - v1.6.0 2026-04-14 13:10:00 kuang: docs(spec-graph-bootstrap): 继续回写需求文档 source-of-truth——重写阶段命令产物对照表，统一到 .spec-first/workflows/bootstrap 与 artifact-manifest.json，并补齐 v1 injection-index / workflow skill 消费固化口径
 - v1.6.0 2026-04-14 13:05:00 kuang: docs(spec-graph-bootstrap): 回写需求文档口径收敛——路线图切换到 .spec-first/workflows/bootstrap 与 artifact-manifest.json，补 v1 Stage-0 消费顺序 / fact.* 跳过说明，并将修订终版中的路由与 slug 规则分层为“当前实现 vs 后续增强”
 - v1.6.0 2026-04-14 12:50:00 kuang: docs(validation): 新增 spec-graph-bootstrap 需求文档口径漂移清单，逐项标出旧 .context/fingerprints 口径、v1 路由能力边界与验证记录时点漂移，便于后续 source-of-truth 清理

@@ -15,7 +15,7 @@
 3. 本地演化中有价值的分叉已保留，没有发生机械回退：
    - `spec-review` 不引入上游 `headless`
    - `document-review` 保留本地 `batch_confirm`、`Promote Residual Concerns`、`Resolve Contradictions`、`Route by Autofix Class`
-4. 共享约束 `949bdef` 已在批次 A 范围内闭环：agent hygiene 已收口，`spec-review` / `spec-work` / `spec-work-beta` 的 subagent permission-mode 约束已补齐，`spec-work` / `spec-work-beta` 中硬编码 `mode:autofix` 的调用指导已移除。
+4. 共享约束 `949bdef` 已在批次 A 范围内闭环：agent hygiene 已收口，`spec-review` / `spec-work` / `spec-work-beta` 的 subagent permission-mode 约束已补齐；A 批次负责 shared 语义裁决与 A 范围内真实文件落点，C/D 后续按 file-affinity 消费 handoff。`spec-work` / `spec-work-beta` 主 `SKILL.md` 中原有的调用层硬编码 `mode:autofix` 指导已移除，但 shipping reference 仍保留显式 `mode:autofix` 的 review 指导，且这与上游当前文本一致。
 
 ## 2. 对上游项目意图的理解
 
@@ -33,7 +33,7 @@
 
 1. 先按计划拆到 `Unit A1-A4`
 2. 对每个 Unit 的目标文件逐个与上游对照
-3. 对共享 commit 采用 owner-batch 责任制，不在 shared-batch 做重复实现
+3. 对共享 commit 采用“owner 定语义，file-affinity 落地”的责任制，不在 shared-batch 做重复裁决
 4. 对 A4 agent 文件逐个检查是否仅存在 example/hygiene 差异，还是包含真实语义增量
 5. 完成代码修改后再做批次 A 的整体一致性审查
 
@@ -107,8 +107,8 @@
 | `agents/workflow/spec-flow-analyzer.md` | 同名上游 agent | 删除 self-referencing examples | 已完成 |
 | `skills/spec-review/SKILL.md` | `skills/ce-review/SKILL.md` | 补充 subagent permission-mode 约束，不回退本地 review 模式设计 | 已完成 |
 | `skills/document-review/SKILL.md` | `skills/document-review/SKILL.md` | 复核显式 mode 传参，确认当前无额外收口项 | 已审查，无需修改 |
-| `skills/spec-work/SKILL.md` | `skills/ce-work/SKILL.md` | 补 permission-mode 约束，移除调用层硬编码 `mode:autofix` 指导 | 已完成 |
-| `skills/spec-work-beta/SKILL.md` | `skills/ce-work-beta/SKILL.md` | 补 permission-mode 约束，移除调用层硬编码 `mode:autofix` 指导 | 已完成 |
+| `skills/spec-work/SKILL.md` | `skills/ce-work/SKILL.md` | 补 permission-mode 约束，并完成 `949bdef` 的 A 侧 shared 语义裁决；主 `SKILL.md` 中移除调用层硬编码 `mode:autofix` 指导，shipping reference 保留显式 review 模式说明 | 已完成 |
+| `skills/spec-work-beta/SKILL.md` | `skills/ce-work-beta/SKILL.md` | 补 permission-mode 约束，并完成 `949bdef` 的 A 侧 shared 语义裁决；主 `SKILL.md` 中移除调用层硬编码 `mode:autofix` 指导，shipping reference 保留显式 review 模式说明 | 已完成 |
 | `skills/spec-ideate/SKILL.md` | `skills/ce-ideate/SKILL.md` | 复核显式 mode 传参，确认当前无额外收口项 | 已审查，无需修改 |
 | `skills/spec-compound-refresh/SKILL.md` | `skills/ce-compound-refresh/SKILL.md` | 复核显式 mode 传参，保留自身 `mode:autofix` 定义，不新增下游硬编码调用 | 已审查，无需修改 |
 
@@ -155,7 +155,7 @@ bash -n skills/spec-review/references/resolve-base.sh
 2. A4 目标 agent 中已无残留 self-referencing example blocks。
    - 唯一例外：`agents/workflow/bug-reproduction-validator.md`
    - 该例外已明确标记为“上游缺失，本地保留”
-3. `skills/spec-work/SKILL.md` 与 `skills/spec-work-beta/SKILL.md` 中已不再把 `mode:autofix` 作为调用层硬编码指导。
+3. `skills/spec-work/SKILL.md` 与 `skills/spec-work-beta/SKILL.md` 的主文档中已不再把 `mode:autofix` 作为调用层硬编码指导；`references/shipping-workflow.md` 仍保留显式 `mode:autofix` 的 review 流程说明，这一点已在 shared handoff 中如实记录，且与上游当前文本一致。
 4. A4 同步的 22 个 agent 文件已经逐个与“上游文本 + spec-first 命名空间映射”做精确比对，结果均为匹配。
 
 ## 7. 风险与后续建议
@@ -172,7 +172,7 @@ bash -n skills/spec-review/references/resolve-base.sh
 
 1. 以当前批次 A 结果作为新基线，先提交并冻结。
 2. 启动批次 B 之前，先把 B 的 outline 展开成与 A 相同粒度的 Unit 级计划，再进入开发。
-3. 共享 commit 继续沿用当前 owner-batch 规则，不要改回“共享 commit 的每个真实文件都由 owner 全包且 shared 不做裁决补充”的重型模式。
+3. 共享 commit 继续沿用当前“owner 定语义，file-affinity 落地”规则，不要改回“共享 commit 的每个真实文件都由 owner 全包”的重型模式。
 
 ## 8. 最终判断
 

@@ -14,7 +14,7 @@ If document-review returns findings that were auto-applied, note them briefly wh
 
 When document-review returns "Review complete", proceed to Final Checks.
 
-**Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context, run `document-review` with `mode:headless` and the plan path. Headless mode applies auto-fixes silently and returns structured findings without interactive prompts. Address any P0/P1 findings before returning control to the caller.
+**Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context, do not request `mode:headless` here — `spec-first` keeps `document-review` on the interactive contract. If the caller can surface `document-review` interaction, run it with the plan path only and continue as normal. If the caller cannot support that interaction, return control with the note `Interactive document-review still required before execution handoff.` Do not claim document-review has already run when it has not.
 
 ## 5.3.9 Final Checks and Cleanup
 
@@ -29,7 +29,9 @@ If artifact-backed mode was used:
 
 ## 5.4 Post-Generation Options
 
-**Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context, skip the interactive menu below and return control to the caller immediately. The plan file has already been written, the confidence check has already run, and document-review has already run — the caller (e.g., lfg, slfg) determines the next step.
+**Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context:
+- If document-review completed in this invocation, skip the interactive menu below and return control to the caller immediately.
+- If document-review was deferred because the caller could not surface interactive review, return control immediately with the note that the plan file is written and confidence-checked, but still requires an interactive `document-review` pass before execution handoff.
 
 After document-review completes, present the options using the platform's blocking question tool when available (see Interaction Method). Otherwise present numbered options in chat and wait for the user's reply before proceeding.
 

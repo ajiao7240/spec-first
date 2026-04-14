@@ -6,6 +6,7 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-14 | fix | `compound-core-workflows` | 修正 `spec-plan/references/plan-handoff.md` 中遗留的 `document-review mode:headless` 指令，使 planning handoff 与本地 `document-review` 非 headless contract 一致，避免自动化调用引用不存在模式 |
 | 2026-04-14 | feat | `compound-core-workflows` | 完成 `compound-engineering-plugin` 核心链路批次 B-D 同步：`spec-plan` / `spec-brainstorm` 收口 repo-relative、mandatory document-review 与 reference 抽取；`spec-work` / `spec-work-beta` 收口 review/testing/delegation 约束并拆出 shipping/codex references；`spec-compound` / `spec-compound-refresh` 补 discoverability 检查、stack-aware reviewer 路由，并将 `docs/solutions/` 可发现性写回 `AGENTS.md` / `CLAUDE.md` |
 | 2026-04-13 | refactor | `artifact-path` | CRG 图数据库从 `.spec-first-graph/` 迁移到 `.spec-first/graph/`；bootstrap 控制面从 `.context/spec-first/bootstrap/` 迁移到 `.spec-first/workflows/bootstrap/`；fingerprints.json 拆分为 `input-fingerprints.json`（graph 层）和 `artifact-manifest.json`（bootstrap 层）；ignore 文件从 `.spec-first-graphignore` 改名为 `.spec-firstignore` [breaking internal] |
 | 2026-04-13 | docs | `install-experience` | 统一所有面向用户安装文档的 onboarding 顺序（安装 -> doctor -> init -> 重启 -> workflow）；修正 tree-sitter peer dep 版本方向描述错误（主包 0.21.0，grammar 要求更高版本）；将 peer warning 叙事从"预期行为"改为"已知兼容性噪音，本版本目标是消除"；FAQ 明确区分"安装成功确认"与"宿主内 workflow 可见"两个阶段 |
@@ -57,6 +58,15 @@
 ### 版本意义
 
 这次更新把 `spec-first` 与上游 `compound-engineering-plugin` 的核心 workflow 契约重新拉齐到同一层级：planning 更结构化，execution 更稳，knowledge compounding 更容易被后续 agent 发现和复用。对后续继续追上游更新而言，这意味着同步工作已经从“零散补丁”升级为“有基线、有 handoff、有审查记录”的可持续状态。
+
+### 审查期补充修复
+
+- 修正 `skills/spec-plan/references/plan-handoff.md` 中遗留的 `document-review mode:headless` 指令
+- 明确自动化 / `disable-model-invocation` 场景下：
+  - 若调用方能承接交互式 `document-review`，则继续以普通 `document-review` 路径运行
+  - 若调用方不能承接交互，则返回 `Interactive document-review still required before execution handoff.`，不再伪称 review 已完成
+
+这条修复把 planning handoff 与当前 `document-review` 的本地非 headless 路线重新收口，避免后续自动化调用引用不存在的模式。
 
 ---
 
