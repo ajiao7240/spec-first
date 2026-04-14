@@ -359,6 +359,11 @@ function Install-Feishu {
     try {
       & $CliCommand mcp add-json --scope user feishu $feishuConfig
       Write-Host "  ✅ feishu: configured"
+      $configAfter = Get-Content -Raw $ConfigPath | ConvertFrom-Json -ErrorAction Stop
+      if ($null -eq $configAfter.mcpServers.PSObject.Properties['feishu']) {
+        Write-Host "  ❌ feishu: post-configure verification failed" -ForegroundColor Red
+        return $false
+      }
       return $true
     } catch {
       Write-Host "  ❌ feishu: configuration failed" -ForegroundColor Red
@@ -368,6 +373,10 @@ function Install-Feishu {
     try {
       & $CliCommand mcp add feishu -- npx -y '@larksuiteoapi/lark-mcp' mcp --app-id $feishuAppId --app-secret $feishuAppSecret --language zh
       Write-Host "  ✅ feishu: configured"
+      if (-not (Select-String -Path $ConfigPath -SimpleMatch '[mcp_servers.feishu]' -Quiet)) {
+        Write-Host "  ❌ feishu: post-configure verification failed" -ForegroundColor Red
+        return $false
+      }
       return $true
     } catch {
       Write-Host "  ❌ feishu: configuration failed" -ForegroundColor Red
@@ -413,12 +422,11 @@ try {
 
     if ($tool.id -eq 'feishu') {
       if (-not (Install-Feishu)) {
-        Restore-Config -BackupFile $backupFile -CreatedDuringRun $createdDuringRun
+        Write-Host "  ⚠️  feishu: 可选工具安装失败，继续其余步骤。"
         $failed.Add('feishu')
-        $results.Clear()
-        break
+      } else {
+        $results.Add('feishu')
       }
-      $results.Add('feishu')
       continue
     }
 

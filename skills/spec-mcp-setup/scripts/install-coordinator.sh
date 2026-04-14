@@ -347,6 +347,10 @@ install_feishu() {
       '{"command":"npx","args":["-y","@larksuiteoapi/lark-mcp","mcp","--app-id",$app_id,"--app-secret",$app_secret,"--language","zh"]}')
     if "$CLI_COMMAND" mcp add-json --scope user feishu "$FEISHU_CONFIG"; then
       echo "  ✅ feishu: configured"
+      if ! jq -e '.mcpServers.feishu != null' "$CONFIG_PATH" >/dev/null 2>&1; then
+        echo "  ❌ feishu: post-configure verification failed" >&2
+        return 1
+      fi
     else
       echo "  ❌ feishu: configuration failed" >&2
       return 1
@@ -355,11 +359,16 @@ install_feishu() {
     if "$CLI_COMMAND" mcp add feishu -- npx -y @larksuiteoapi/lark-mcp mcp \
         --app-id "$FEISHU_APP_ID" --app-secret "$FEISHU_APP_SECRET" --language zh; then
       echo "  ✅ feishu: configured"
+      if ! grep -qF "[mcp_servers.feishu]" "$CONFIG_PATH" 2>/dev/null; then
+        echo "  ❌ feishu: post-configure verification failed" >&2
+        return 1
+      fi
     else
       echo "  ❌ feishu: configuration failed" >&2
       return 1
     fi
   fi
+  return 0
 }
 
 # Main installation flow
@@ -405,12 +414,11 @@ main() {
 
     if [ "$tool_id" = "feishu" ]; then
       if ! install_feishu; then
-        restore_config "$backup_file" "$created_during_run"
+        echo "  ⚠️  feishu: 可选工具安装失败，继续其余步骤。"
         failed+=("feishu")
-        results=()
-        break
+      else
+        results+=("feishu")
       fi
-      results+=("feishu")
       continue
     fi
 

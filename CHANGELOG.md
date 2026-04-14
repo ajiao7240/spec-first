@@ -8,6 +8,7 @@
 - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-14 16:12:33 矿工: fix(spec-mcp-setup): 修复飞书 MCP 集成三项缺陷——可选工具失败不再回滚必选工具配置、install_feishu 安装后补齐 post-configure 验证、sh 函数末尾补充显式 return 0 消除 sh/ps1 不对称 (user-visible)
 - v1.6.0 2026-04-14 矿工: feat(spec-mcp-setup): 集成飞书 MCP——新增 mcp_key_only 检测方式、交互式凭据采集安装引导（install-coordinator）、key 检测与 whoami 凭据验证（verify-tools），host-setup.json 升级至 v6 格式，SKILL.md 补充飞书 MCP 工具行 (user-visible)
 - v1.6.0 2026-04-14 07:07:21 kuang: fix(spec-plan): 收口 plan-handoff 的 document-review pipeline contract，移除与本地非 headless 路线冲突的 `mode:headless` 指令，并明确自动化调用下的交互降级说明 (user-visible)
 - v1.6.0 2026-04-14 14:24:00 kuang: docs(contexts): 重新生成 spec-first 的 graph-bootstrap 控制面与上下文文档，刷新 Full 模式事实、风险热点、测试映射与 injection 路由 (user-visible)
