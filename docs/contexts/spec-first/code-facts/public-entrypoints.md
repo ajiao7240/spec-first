@@ -1,50 +1,36 @@
 # Public Entrypoints
 
-## bin/spec-first.js
+## src/cli/index.js
 
-- Symbol: `bin/spec-first.js#module#spec-first.js#L0`
-- Kind: bin
-- Summary: CLI bin entry that dispatches into src/cli and CRG router
-- Evidence: package.json bin.spec-first=./bin/spec-first.js
+- Symbol: `src/cli/index.js#function#runCli#L9`
+- Kind: `cli`
+- Summary: 主 CLI 入口，分发 help/version/doctor/init/clean 等命令。
+- Evidence: `crg flow src/cli/index.js#function#runCli#L9` + `package.json bin.spec-first`
 
 ## src/crg/cli/router.js
 
 - Symbol: `src/crg/cli/router.js#function#run#L107`
-- Kind: cli-router
-- Summary: Dispatches CRG subcommands such as build, stats, search and review-context
-- Evidence: crg search router matched src/crg/cli/router.js
+- Kind: `cli`
+- Summary: CRG 子命令总入口，路由 17 个 graph 命令。
+- Evidence: `crg search router` 命中 `src/crg/cli/router.js`
 
 ## src/crg/cli/postprocess.js
 
 - Symbol: `src/crg/cli/postprocess.js#function#run#L87`
-- Kind: cli-flow
-- Summary: run -> resolveGraphDb -> requireSqlite -> initDatabase
-- Evidence: flow_id=flow:src/crg/cli/postprocess.js#function#run#L87:22；criticality=0.7557894736842106；node_count=19
-
-## src/cli/index.js
-
-- Symbol: `src/cli/index.js#function#runCli#L9`
-- Kind: cli-flow
-- Summary: runCli -> printHelp -> printVersion -> maybeShowVersionReminder
-- Evidence: flow_id=flow:src/cli/index.js#function#runCli#L9:13；criticality=0.74；node_count=20
+- Kind: `worker`
+- Summary: CRG 后处理入口，串联 communities/flows/analyze/rebuildFTS。
+- Evidence: `crg flow flow:src/crg/cli/postprocess.js#function#run#L87:22`
 
 ## src/crg/commands/review-context.js
 
 - Symbol: `src/crg/commands/review-context.js#function#run#L30`
-- Kind: cli-flow
-- Summary: run -> openDb -> detectChanges -> isSensitiveFile
-- Evidence: flow_id=flow:src/crg/commands/review-context.js#function#run#L30:35；criticality=0.69；node_count=14
+- Kind: `worker`
+- Summary: 按变更生成 review context，联动 detectChanges 与 reverse BFS。
+- Evidence: `crg flow flow:src/crg/commands/review-context.js#function#run#L30:35`
 
 ## src/crg/commands/detect-changes.js
 
 - Symbol: `src/crg/commands/detect-changes.js#function#run#L23`
-- Kind: cli-flow
-- Summary: run -> openDb -> detectChanges -> makeEnvelope
-- Evidence: flow_id=flow:src/crg/commands/detect-changes.js#function#run#L23:29；criticality=0.66；node_count=11
-
-## src/crg/cli/build.js
-
-- Symbol: `src/crg/cli/build.js#function#runStats#L392`
-- Kind: cli-flow
-- Summary: runStats -> resolveGraphDb -> requireSqlite -> initDatabase
-- Evidence: flow_id=flow:src/crg/cli/build.js#function#runStats#L392:20；criticality=0.6557142857142857；node_count=7
+- Kind: `worker`
+- Summary: 按 git diff 计算风险与受影响节点。
+- Evidence: `crg flow flow:src/crg/commands/detect-changes.js#function#run#L23:29`

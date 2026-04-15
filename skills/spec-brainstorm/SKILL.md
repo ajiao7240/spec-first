@@ -56,6 +56,20 @@ If the user references an existing brainstorm topic or document, or there is an 
 - Confirm with the user before resuming: "Found an existing requirements doc for [topic]. Should I continue from this, or start fresh?"
 - If resuming, summarize the current state briefly, continue from its existing decisions and outstanding questions, and update the existing document instead of creating a duplicate
 
+#### 0.1b Classify Task Domain
+
+Before proceeding to Phase 0.2, classify whether this is a software task. The key question is: **does the task involve building, modifying, or architecting software?** -- not whether the task *mentions* software topics.
+
+**Software** (continue to Phase 0.2) -- the task references code, repositories, APIs, databases, or asks to build/modify/debug/deploy software.
+
+**Non-software brainstorming** (route to universal brainstorming) -- BOTH conditions must be true:
+- None of the software signals above are present
+- The task describes something the user wants to explore, decide, or think through in a non-software domain
+
+**Neither** (respond directly, skip all brainstorming phases) -- the input is a quick-help request, error message, factual question, or single-step task that doesn't need a brainstorm.
+
+**If non-software brainstorming is detected:** Read `references/universal-brainstorming.md` and use those facilitation principles to brainstorm with the user naturally. Do not follow the software brainstorming phases below.
+
 #### 0.2 Assess Whether Brainstorming Is Needed
 
 **Clear requirements indicators:**
@@ -78,7 +92,7 @@ If the scope is unclear, ask one targeted question to disambiguate and then proc
 
 ### Phase 1: Understand the Idea
 
-#### 1.1 Existing Context Scan
+#### 1.1 Existing and Supplemental Context Scan
 
 Scan the repo before substantive brainstorming. Match depth to scope:
 
@@ -95,6 +109,73 @@ If nothing obvious appears after a short scan, say so and continue. Two rules go
 1. **Verify before claiming** — When the brainstorm touches checkable infrastructure (database tables, routes, config files, dependencies, model definitions), read the relevant source files to confirm what actually exists. Any claim that something is absent — a missing table, an endpoint that doesn't exist, a dependency not in the manifest, a config option with no current support — must be verified against the codebase first; if not verified, label it as an unverified assumption. This applies to every brainstorm regardless of topic.
 
 2. **Defer design decisions to planning** — Implementation details like schemas, migration strategies, endpoint structure, or deployment topology belong in planning, not here — unless the brainstorm is itself about a technical or architectural decision, in which case those details are the subject of the brainstorm and should be explored.
+
+**Supplemental context** (opt-in / source-driven) — external readers never auto-dispatch from topic alone. Route by condition:
+
+Use bare agent names inside Task calls.
+
+- **Explicit local path or repo doc path**
+- Task spec-first:research:local-doc-reader(Read the explicit local document path(s) relevant to this brainstorm. Return a research digest, not raw excerpts. {brainstorm topic summary})
+
+- **Institutional knowledge intent** (`docs/solutions/`, prior learnings, "have we solved this before?")
+- Task spec-first:research:learnings-researcher({brainstorm topic summary})
+
+- **Explicit Feishu chat request**
+- Task spec-first:research:feishu-chat-researcher(Search the requested Feishu chat context for this brainstorm topic and return a research digest. {brainstorm topic summary})
+
+- **Explicit Feishu document link**
+- Task spec-first:research:feishu-doc-reader(Read the provided Feishu document link and return a research digest. {brainstorm topic summary})
+
+- **Explicit GitHub URL**
+- Task spec-first:research:github-context-reader(Read the provided GitHub URL and return a research digest. {brainstorm topic summary})
+
+- **Explicit documentation URL**
+- Task spec-first:research:docs-context-reader(Read the provided documentation URL and return a research digest. {brainstorm topic summary})
+
+- **Explicit generic http/https URL**
+- Task spec-first:research:web-context-reader(Read the provided web URL and return a research digest. {brainstorm topic summary})
+
+- **No explicit source + user asked for skill/tool discovery**: Only use `find-skills` when the current environment clearly exposes it. Never assume it is repo-bundled. If it is unavailable, say so and continue the brainstorm without blocking.
+
+Additional routing rules:
+- `local-doc-reader` handles explicit file reads. It does **not** replace `learnings-researcher` for `docs/solutions/` topic search.
+- If the user gives an explicit `docs/solutions/...` file path, `local-doc-reader` may read that file directly, but do not also trigger `learnings-researcher` unless the user asks for broader prior-art search.
+- When no explicit supplemental source was provided, do not automatically search GitHub, the web, docs sites, or Feishu. You may note that those source types can be incorporated if the user provides them.
+
+All supplemental readers must return a **research digest** with this contract:
+
+```markdown
+## Research Digest
+- **Source Type:** `<local-doc|feishu-chat|feishu-doc|github-url|docs-url|web-url|learnings>`
+- **Source Ref:** `<path, URL, or search scope>`
+- **Status:** `success | no-result | tool-unavailable | permission-denied | source-unparseable | executor-unavailable`
+- **Research Value:** `<high|moderate|low|none>`
+
+### Summary
+[Concise synthesis, never raw dumps]
+
+### Constraints
+- [Relevant constraint]
+
+### Open Questions
+- [Question still unresolved]
+
+### Evidence
+- [Quoted path, URL, page, section, or thread reference]
+```
+
+Failure handling rules:
+- **`no-result`** -- no relevant context was found for the requested source
+- **`tool-unavailable`** -- the required API, MCP, CLI, or host integration is not available
+- **`permission-denied`** -- the source exists but cannot be accessed with current credentials or permissions
+- **`source-unparseable`** -- the source exists but could not be parsed into usable content
+- **`executor-unavailable`** -- the required page/document executor is not installed or cannot run in this environment
+
+When a supplemental reader returns any non-`success` status:
+- Surface the status to the user visibly
+- Do not silently ignore the failure
+- Continue the brainstorm unless the user explicitly says the external context is mandatory
+- If the status is `executor-unavailable`, tell the user that the current environment does not support page reading for this source type; do not retry repeatedly unless the user changes the source or environment; for document-type sources (Feishu docs, web pages, docs URLs), suggest using a local file path or pasting the content manually instead
 
 #### 1.2 Product Pressure Test
 
@@ -120,13 +201,10 @@ Before generating approaches, challenge the request to catch misframing. Match d
 
 #### 1.3 Collaborative Dialogue
 
-Use the platform's blocking question tool when available (see Interaction Rules). Otherwise, present numbered options in chat and wait for the user's reply before proceeding.
+Follow the Interaction Rules above. Use the platform's blocking question tool when available.
 
 **Guidelines:**
-- Ask questions **one at a time**
-- Prefer multiple choice when natural options exist
-- Prefer **single-select** when choosing one direction, one priority, or one next step
-- Use **multi-select** only for compatible sets that can all coexist; if prioritization matters, ask which selected item is primary
+- Ask what the user is already thinking before offering your own ideas. This surfaces hidden context and prevents fixation on AI-generated framings.
 - Start broad (problem, users, value) then narrow (constraints, exclusions, edge cases)
 - Clarify the problem frame, validate assumptions, and ask about success criteria
 - Make requirements concrete enough that planning will not need to invent behavior
@@ -140,6 +218,10 @@ Use the platform's blocking question tool when available (see Interaction Rules)
 
 If multiple plausible directions remain, propose **2-3 concrete approaches** based on research and conversation. Otherwise state the recommended direction directly.
 
+Use at least one non-obvious angle — inversion (what if we did the opposite?), constraint removal (what if X weren't a limitation?), or analogy from how another domain solves this. The first approaches that come to mind are usually variations on the same axis.
+
+Present approaches first, then evaluate. Let the user see all options before hearing which one is recommended — leading with a recommendation before the user has seen alternatives anchors the conversation prematurely.
+
 When useful, include one deliberately higher-upside alternative:
 - Identify what adjacent addition or reframing would most increase usefulness, compounding value, or durability without disproportionate carrying cost. Present it as a challenger option alongside the baseline, not as the default. Omit it when the work is already obviously over-scoped or the baseline request is clearly the right move.
 
@@ -149,7 +231,7 @@ For each approach, provide:
 - Key risks or unknowns
 - When it's best suited
 
-Lead with your recommendation and explain why. Prefer simpler solutions when added complexity creates real carrying cost, but do not reject low-cost, high-value polish just because it is not strictly necessary.
+After presenting all approaches, state your recommendation and explain why. Prefer simpler solutions when added complexity creates real carrying cost, but do not reject low-cost, high-value polish just because it is not strictly necessary.
 
 If one approach is clearly best and alternatives are not meaningful, skip the menu and state the recommendation directly.
 
@@ -160,10 +242,7 @@ If relevant, call out whether the choice is:
 
 ### Phase 3: Capture the Requirements
 
-Write or update a requirements document only when the conversation produced durable decisions worth preserving.
-Read `references/requirements-capture.md` for the document template, formatting rules, and completeness checks.
-
-For **Standard** and **Deep** brainstorms, a requirements document is usually warranted.
+Write or update a requirements document only when the conversation produced durable decisions worth preserving. Read `references/requirements-capture.md` for the document template, formatting rules, visual aid guidance, and completeness checks.
 
 For **Lightweight** brainstorms, keep the document compact. Skip document creation when the user only needs brief alignment and no durable decisions need to be preserved.
 
@@ -176,4 +255,5 @@ If document-review returns findings that were auto-applied, note them briefly wh
 When document-review returns "Review complete", proceed to Phase 4.
 
 ### Phase 4: Handoff
-Read `references/handoff.md` for the option logic, dispatch instructions, and closing summary format.
+
+Present next-step options and execute the user's selection. Read `references/handoff.md` for the option logic, dispatch instructions, and closing summary format.

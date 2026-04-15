@@ -5,43 +5,22 @@ category: docs/solutions/developer-experience
 module: mcp-setup
 problem_type: developer_experience
 component: tooling
-symptoms:
-  - "unbound variable crash on empty array expansion under set -u"
-  - "mapfile: command not found on macOS bash 3.2"
-  - "jq error: thinking/0 is not defined when accessing hyphenated keys"
-  - "mv overwrites file permissions (chmod 600 lost)"
-  - "flock: command not found on macOS"
-  - "JSON injection through shell variable interpolation in jq strings"
-root_cause: incomplete_setup
-resolution_type: code_fix
 severity: medium
+applies_when:
+  - "在 macOS 默认 Bash 3.2 上编写或维护 CI 级 shell 脚本"
+  - "脚本启用 set -euo pipefail 且依赖 jq、原子写入或文件锁"
 tags: [bash, macos, portability, shell-scripting, jq, posix]
 ---
 
 # Bash 3.2 Portability Pitfalls on macOS for CI-Grade Shell Scripts
 
-## Problem
+## Context
 
-macOS ships with Bash 3.2, which lacks features common in Bash 4.x+ (mapfile, associative arrays, proper empty array handling). Scripts developed on Linux or modern Bash environments crash or behave unexpectedly on macOS, especially under `set -euo pipefail`.
+macOS 自带 Bash 3.2，缺少很多 Linux / Bash 4.x+ 环境里常见的能力，例如 `mapfile`、更稳定的空数组处理，以及团队默认会依赖的一些 shell 习惯。脚本如果只在现代 Bash 环境里验证，很容易在 macOS 上出现不兼容问题。
 
-## Symptoms
+## Guidance
 
-- `SKIP_ARRAY[@]: unbound variable` when an array is empty under `set -u`
-- `mapfile: command not found` — builtin added in Bash 4.0
-- `jq: error: thinking/0 is not defined` when interpolating hyphenated keys like `sequential-thinking` into jq dot notation
-- File permissions reset after `mv` — 600 becomes 0644 or default umask
-- `flock: command not found` — not installed by default on macOS
-- Shell variables containing quotes/special chars break JSON output when interpolated into jq string literals
-
-## What Didn't Work
-
-- **Initializing empty arrays as `arr=()` and using `${arr[@]}`**: Bash 3.2 treats `arr=()` as unset under `set -u`, causing unbound variable errors on expansion.
-- **Using `mapfile -t arr < <(jq ...)`**: mapfile is a Bash 4.0+ builtin. macOS Bash 3.2 has no equivalent.
-- **Dot notation for hyphenated keys in jq**: `jq ".mcpServers.$tool.command"` with `tool="sequential-thinking"` parses as arithmetic `thinking/0`.
-- **Relying on `mv` to preserve permissions**: `mv` across filesystems (or some implementations) re-creates the file with default permissions.
-- **Using `flock` for file locking**: Not available on macOS without `brew install util-linux`.
-
-## Solution
+把 shell 脚本默认按 Bash 3.2 / POSIX 兼容面来写，尤其在 `set -euo pipefail`、`jq`、原子写入和锁语义上提前规避不兼容点。
 
 ### 1. Empty Array Expansion Under `set -u`
 
@@ -128,9 +107,9 @@ install_cmd="curl -sL https://go.dev/dl/go${ver}.\$(uname -s)-\$(uname -m).tar.g
 jq -n --arg cmd "$install_cmd" '{install_suggestion: $cmd}'
 ```
 
-## Why This Works
+## Why This Matters
 
-Bash 3.2 predates several quality-of-life features added in Bash 4.x. The root issue is that macOS licenses Bash 3.2 as the last GPLv2 version, and many developers target Bash 4+ without realizing it.
+Bash 3.2 不是边缘环境，而是 macOS 的默认现实。团队如果把“能在我机器上跑”默认等同于“能在 macOS 上跑”，就会在 `set -u`、`jq` 键访问、文件锁和权限保留这些细节上反复踩坑。
 
 Each fix uses POSIX-compatible constructs that work across Bash versions:
 - `${var+x}` parameter expansion is POSIX
@@ -138,7 +117,13 @@ Each fix uses POSIX-compatible constructs that work across Bash versions:
 - `mkdir` atomicity is a filesystem guarantee
 - `jq --arg` is the official way to pass external values into jq
 
-## Prevention
+## When to Apply
+
+- 需要支持 macOS 开发机、本地 CI、或任何默认 Bash 3.2 环境时
+- shell 脚本依赖数组、`jq`、文件锁、临时文件重命名、或 JSON 构造时
+- 评审 shell 代码时，发现脚本明显假设 Bash 4.x+ 能力时
+
+## Examples
 
 - **Test on macOS default Bash**: Run `bash --version` to confirm 3.2; test under `set -euo pipefail`
 - **Guard all array expansions**: Use `${arr[@]+"${arr[@]}"}` as a default pattern in any script using arrays under `set -u`
@@ -160,6 +145,6 @@ after=$(jq -S . "$config")
 HOME="$fake_home" bash script.sh --skip-all  # should not crash
 ```
 
-## Related Issues
+## Related
 
 - `docs/solutions/logic-errors/mcp-mysql-hostname-validation-logic-flaw-2026-04-01.md` — different module, same tooling category

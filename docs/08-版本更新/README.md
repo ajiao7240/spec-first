@@ -6,6 +6,7 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-15 | feat | `spec-brainstorm` | `spec-brainstorm` 同步 `ce-brainstorm` 非 Slack 核心能力，并新增 source-driven supplemental context 路由：支持 Local Docs、Feishu Chat、Feishu Doc、GitHub URL、Docs URL、Web URL；同时补齐 `universal-brainstorming` / `visual-communication` references 与 contract/smoke 守卫 |
 | 2026-04-14 | fix | `compound-core-workflows` | 修正 `spec-plan/references/plan-handoff.md` 中遗留的 `document-review mode:headless` 指令，使 planning handoff 与本地 `document-review` 非 headless contract 一致，避免自动化调用引用不存在模式 |
 | 2026-04-14 | feat | `compound-core-workflows` | 完成 `compound-engineering-plugin` 核心链路批次 B-D 同步：`spec-plan` / `spec-brainstorm` 收口 repo-relative、mandatory document-review 与 reference 抽取；`spec-work` / `spec-work-beta` 收口 review/testing/delegation 约束并拆出 shipping/codex references；`spec-compound` / `spec-compound-refresh` 补 discoverability 检查、stack-aware reviewer 路由，并将 `docs/solutions/` 可发现性写回 `AGENTS.md` / `CLAUDE.md` |
 | 2026-04-13 | refactor | `artifact-path` | CRG 图数据库从 `.spec-first-graph/` 迁移到 `.spec-first/graph/`；bootstrap 控制面从 `.context/spec-first/bootstrap/` 迁移到 `.spec-first/workflows/bootstrap/`；fingerprints.json 拆分为 `input-fingerprints.json`（graph 层）和 `artifact-manifest.json`（bootstrap 层）；ignore 文件从 `.spec-first-graphignore` 改名为 `.spec-firstignore` [breaking internal] |
@@ -25,6 +26,45 @@
 | 2026-04-01 | feat | `mcp-setup` | 把 MCP 工具安装、检测、配置合并为一条一键化路径，降低 Full mode 落地门槛 |
 | 2026-03-31 | fix | `spec-bootstrap` | 基于 review 结论补强原子备份、失败恢复、MCP 连接校验等关键可靠性能力 |
 | 2026-03-31 | feat | `spec-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
+
+---
+
+## 2026-04-15 `feat(spec-brainstorm)`
+
+### 更新内容
+
+`spec-brainstorm` 完成对上游 `ce-brainstorm` 非 Slack 核心能力的同步，并在 `spec-first` 当前产品边界内新增 supplemental context 路由能力。
+
+### 主要变化
+
+- 同步上游 brainstorm 核心能力
+  - 非软件任务分流
+  - 先问用户已有想法
+  - 至少一个非显然角度
+  - 先展示方案，再给推荐
+  - requirements visual communication guidance
+- 新增 supplemental context adapters
+  - `local-doc-reader`
+  - `feishu-chat-researcher`
+  - `feishu-doc-reader`
+  - `github-context-reader`
+  - `docs-context-reader`
+  - `web-context-reader`
+- 新增 references
+  - `skills/spec-brainstorm/references/universal-brainstorming.md`
+  - `skills/spec-brainstorm/references/visual-communication.md`
+- contract 收口
+  - supplemental context 改为 `opt-in / source-driven`
+  - 冻结 `research digest.status` 枚举
+  - 明确 `find-skills` 只是 environment-optional fallback
+  - 锁定 Claude / Codex 双宿主 runtime 命名与 agent 引用适配差异
+- 测试与打包守卫
+  - 新增 `tests/unit/spec-brainstorm-contracts.test.js`
+  - smoke 覆盖新 references、new research agents 和 runtime transform 结果
+
+### 版本意义
+
+这次更新把 `spec-brainstorm` 从“只读 repo 内上下文”的基础态，升级成“可显式接入外部上下文”的增强态，但仍保持 `spec-first` 当前边界：不引入 Slack、不新增 public command、不假设所有外部工具默认存在。这样后续 brainstorm 可以在不破坏 Claude/Codex 双宿主分发模型的前提下，稳定消费本地文档、飞书、GitHub、网页和文档链接上下文。
 
 ---
 

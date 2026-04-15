@@ -5,9 +5,20 @@
   - `v版本号` 使用本次变更对应的发布版本
   - 日期时间必须使用 `YYYY-MM-DD HH:MM:SS`
   - `作者` 填写提交人或变更责任人
-- `变更摘要` 使用中文，简明说明本次改动
-- 用户可感知的变更在末尾追加 `(user-visible)`
+  - `变更摘要` 使用中文，简明说明本次改动
+  - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-15 14:20:00 kuang: fix(doctor+clean): 统一 legacy managed state 升级语义，doctor 明确提示需通过 init 执行 hard reset，clean 拒绝承担 legacy 迁移并补齐 smoke/unit 守卫 (user-visible)
+- v1.6.0 2026-04-15 10:28:37 kuang: fix(init): 为 legacy managed state 增加 hard-cut 升级路径——init 检测旧 state 后先执行受控 managed reset 再全量重建，并补齐 legacy reset smoke/unit 守卫 (user-visible)
+- v1.6.0 2026-04-15 10:35:00 kuang: fix(codex-runtime): 修复 Codex Task transform 在 supplemental context 参数含括号时提前截断的问题，确保打包安装后的 spec-brainstorm 运行时文案完整 (user-visible)
+- v1.6.0 2026-04-15 13:30:00 kuang: fix(spec-brainstorm): 补全 smoke/contract 测试覆盖缺口——7/7 canonical transform 全验证、正则兜底、Codex 路径格式全验证；补全 github/docs-context-reader double-unavailability 指令；补全 feishu-doc-reader 与 SKILL.md executor-unavailable 用户引导文本
+- v1.6.0 2026-04-15 12:20:00 kuang: fix(state): 删除 workflowSkills 旧兼容删除分支，clean 仅按显式托管列表清理 workflow 目录，并补充 CHANGELOG/managed state 守卫测试 (user-visible)
+- v1.6.0 2026-04-15 12:45:00 kuang: fix(state): 收紧 managed state schema，要求 workflowSkills/agentSupportFiles 等受管字段显式存在且合法，doctor 对 malformed state 给出明确告警 (user-visible)
+- v1.6.0 2026-04-15 11:20:00 kuang: feat(spec-brainstorm): 同步 ce-brainstorm 非 Slack 核心能力，新增 supplemental context adapters、visual guidance references 与 contract/smoke 守卫，支持 Local Docs / Feishu / GitHub / Web / Docs 外部上下文路由 (user-visible)
+- v1.6.0 2026-04-15 01:50:19 kuang: fix(init+clean): 修复 workflow skill 托管回归——Codex clean 不再误删自定义 `.agents/skills`，Claude init 能清理陈旧 workflow 目录，并放宽 docs/solutions knowledge-track 可选字段校验 (user-visible)
+- v1.6.0 2026-04-15 01:18:00 kuang: fix(spec-graph-bootstrap): 收回 sample injection-index 的重复 public-entrypoints 注入，恢复 unit contract 与全量测试链路
+- v1.6.0 2026-04-15 01:10:00 kuang: feat(spec-compound): 落地 compound hard-cut 一致性批次——恢复 spec-compound/spec-compound-refresh 双 track 合同与 session enrichment，新增 spec-sessions/session-historian 与 agentSupportFiles 托管，补齐 docs/solutions 校验、knowledge 文档迁移与 consumer graceful skip (user-visible)
+- v1.6.0 2026-04-15 00:23:08 kuang: feat(spec-sessions): 新增 spec-sessions 与 session-historian 会话检索链路，CLI 引入 agentSupportFiles 托管 support assets，并补齐 Claude/Codex runtime、doctor、clean 与 smoke 闭环 (user-visible)
 - v1.6.0 2026-04-15 矿工: fix(spec-mcp-setup): 修复飞书集成四项评审缺陷——install_feishu 改用 /dev/tty 修复 stdin 重定向导致提示静默跳过、App Secret 改为静默输入（-s/-AsSecureString）、新增 feishu.configured/whoami 测试断言、补充 mcp_key_only true 分支 5.3.2 fixture (user-visible)
 - v1.6.0 2026-04-14 16:12:33 矿工: fix(spec-mcp-setup): 修复飞书 MCP 集成三项缺陷——可选工具失败不再回滚必选工具配置、install_feishu 安装后补齐 post-configure 验证、sh 函数末尾补充显式 return 0 消除 sh/ps1 不对称 (user-visible)
 - v1.6.0 2026-04-14 矿工: feat(spec-mcp-setup): 集成飞书 MCP——新增 mcp_key_only 检测方式、交互式凭据采集安装引导（install-coordinator）、key 检测与 whoami 凭据验证（verify-tools），host-setup.json 升级至 v6 格式，SKILL.md 补充飞书 MCP 工具行 (user-visible)

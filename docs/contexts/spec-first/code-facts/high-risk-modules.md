@@ -1,49 +1,36 @@
 # High-Risk Modules
 
-## src/crg/communities.js
+## `src/crg/communities.js#function#writeCommunities#L71`
 
-- Symbol: `src/crg/communities.js#function#writeCommunities#L71`
-- Kind: large-function
-- Severity: high
-- Why: writeCommunities is the largest function in the repo and central to CRG postprocess output generation.
-- Evidence: large-functions loc=297
+- Kind: `large_function`
+- Severity: `medium`
+- Why: LOC=297，后处理阶段最大函数之一，改动容易影响 community 输出。
+- Evidence: `crg large-functions`
 
-## src/crg/cli/build.js
+## `src/crg/cli/build.js#function#runBuildAsync#L120`
 
-- Symbol: `src/crg/cli/build.js#function#runBuildAsync#L120`
-- Kind: large-function
-- Severity: high
-- Why: runBuildAsync is a wide orchestration function that spans graph build, parser quality and artifact writes.
-- Evidence: large-functions loc=250
+- Kind: `large_function`
+- Severity: `medium`
+- Why: LOC=250，覆盖图构建、parser 质量与 artifact 写入主流程。
+- Evidence: `crg large-functions`
 
-## src/crg/input-convergence.js
+## `src/crg/input-convergence.js#function#collectInputFiles#L471`
 
-- Symbol: `src/crg/input-convergence.js#function#collectInputFiles#L471`
-- Kind: large-function
-- Severity: medium
-- Why: collectInputFiles aggregates multiple file-selection rules and ignore logic, making it error-prone when changing indexing behavior.
-- Evidence: large-functions loc=243
+- Kind: `large_function`
+- Severity: `medium`
+- Why: 输入收敛逻辑复杂，修改时容易影响索引边界。
+- Evidence: `crg large-functions`
 
-## src/crg/cli/envelope.js
+## `src/crg/cli/envelope.js#function#makeEnvelope#L20`
 
-- Symbol: `src/crg/cli/envelope.js#function#makeEnvelope#L20`
-- Kind: hub
-- Severity: high
-- Why: makeEnvelope is the highest in-degree helper and affects nearly every CRG command response shape.
-- Evidence: god-nodes in_degree=19
+- Kind: `god_node`
+- Severity: `medium`
+- Why: in_degree=19，几乎所有 CRG 命令共享输出封装。
+- Evidence: `crg god-nodes`
 
-## src/cli/plugin.js
+## `src/crg/cli/open-db.js#function#openDb#L13`
 
-- Symbol: `src/cli/plugin.js#function#getBundledPath#L52`
-- Kind: hub
-- Severity: medium
-- Why: getBundledPath is a high fan-in helper inside runtime asset installation, so path changes can ripple across multiple commands.
-- Evidence: god-nodes in_degree=9
-
-## src/cli/index.js
-
-- Symbol: `src/cli/index.js#function#runCli#L9`
-- Kind: coverage-gap
-- Severity: medium
-- Why: The primary CLI dispatch flow is covered by smoke/integration scripts but has no direct tests_for match in the graph.
-- Evidence: tests_for runCli returned []
+- Kind: `god_node`
+- Severity: `medium`
+- Why: in_degree=14，多数 CRG 查询共用数据库入口。
+- Evidence: `crg god-nodes`

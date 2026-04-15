@@ -3,7 +3,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { inspectInstalledAssets, listBundledCommands, loadPluginManifest } = require('../plugin');
 const { readDeveloperFile, getProjectDeveloperPath } = require('../developer');
-const { readState } = require('../state');
+const { isLegacyManagedState, readState, readStateFileRaw } = require('../state');
 const { getAdapter, getSupportedPlatforms } = require('../adapters');
 
 function runDoctor(argv) {
@@ -68,6 +68,7 @@ function runDoctor(argv) {
       ...runtimeChecks,
       checkInstalledSkills(projectRoot, adapter),
       checkInstalledAgents(projectRoot, adapter),
+      checkInstalledAgentSupportFiles(projectRoot, adapter),
     ];
     if (adapter.hasCommands) {
       platformChecks.splice(3 + runtimeChecks.length, 0, checkGeneratedCommands(projectRoot, adapter));
@@ -266,6 +267,52 @@ function checkInstalledAgents(projectRoot, adapter) {
   };
 }
 
+function checkInstalledAgentSupportFiles(projectRoot, adapter) {
+  let supportStatus;
+  try {
+    supportStatus = inspectInstalledAssets(projectRoot, adapter).agentSupportFiles;
+  } catch (error) {
+    return {
+      level: 'ERROR',
+      name: `${adapter.agentsRoot} support assets`,
+      message: error instanceof Error ? error.message : String(error),
+      fix: 'Reinstall the spec-first package so bundled agent support assets are available.',
+    };
+  }
+
+  if (supportStatus.entries.length === 0) {
+    return {
+      level: 'PASS',
+      name: `${adapter.agentsRoot} support assets`,
+      message: 'no bundled support assets',
+    };
+  }
+
+  if (!fs.existsSync(supportStatus.targetRoot)) {
+    return {
+      level: 'WARNING',
+      name: `${adapter.agentsRoot} support assets`,
+      message: 'missing',
+      fix: `Run \`spec-first init --${adapter.id}\` in this project to install bundled agent support assets.`,
+    };
+  }
+
+  if (supportStatus.missing.length === 0) {
+    return {
+      level: 'PASS',
+      name: `${adapter.agentsRoot} support assets`,
+      message: `found ${supportStatus.entries.length} support file(s)`,
+    };
+  }
+
+  return {
+    level: 'WARNING',
+    name: `${adapter.agentsRoot} support assets`,
+    message: `out of sync (${supportStatus.entries.length - supportStatus.missing.length}/${supportStatus.entries.length} installed)`,
+    fix: `Run \`spec-first init --${adapter.id}\` in this project to resync bundled agent support assets.`,
+  };
+}
+
 function checkPluginManifest() {
   try {
     const manifest = loadPluginManifest();
@@ -417,9 +464,19 @@ function checkManagedState(projectRoot, adapter) {
     return {
       level: 'PASS',
       name: `${adapter.stateFile}`,
-      message: `recorded ${state.commands.length} commands, ${state.skills.length} skills, ${state.agents.length} agents`,
+      message: `recorded ${state.commands.length} commands, ${state.skills.length} standalone skills, ${state.workflowSkills.length} workflow skills, ${state.agents.length} agents, ${state.agentSupportFiles.length} support files`,
     };
   } catch (error) {
+    const rawState = tryReadRawManagedState(projectRoot, adapter);
+    if (isLegacyManagedState(rawState)) {
+      return {
+        level: 'WARNING',
+        name: `${adapter.stateFile}`,
+        message: `legacy managed state detected (${error instanceof Error ? error.message : String(error)})`,
+        fix: `Run \`spec-first init --${adapter.id}\` in this project to perform a managed hard reset and rebuild the current runtime.`,
+      };
+    }
+
     return {
       level: 'WARNING',
       name: `${adapter.stateFile}`,
@@ -461,6 +518,14 @@ function parseDoctorArgs(argv) {
   }
 
   return parsed;
+}
+
+function tryReadRawManagedState(projectRoot, adapter) {
+  try {
+    return readStateFileRaw(projectRoot, adapter);
+  } catch (_error) {
+    return null;
+  }
 }
 
 module.exports = {

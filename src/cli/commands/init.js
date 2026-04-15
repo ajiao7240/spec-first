@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const {
+  listBundledAgentSupportFiles,
   listBundledAgents,
   listBundledSkills,
   loadPluginManifest,
@@ -12,6 +13,9 @@ const {
 } = require('../developer');
 const {
   buildState,
+  hardResetManagedAssets,
+  isLegacyManagedState,
+  readStateFileRaw,
   pruneCommandNamespace,
   readState,
   removeObsoleteManagedAssets,
@@ -44,6 +48,7 @@ function runInit(argv) {
   const platform = parsed.claude ? 'claude' : 'codex';
   const adapter = getAdapter(platform);
   const bundledAgentPaths = listBundledAgents();
+  const bundledAgentSupportFiles = listBundledAgentSupportFiles();
 
   if (platform === 'claude') {
     const duplicateBareNames = findDuplicateClaudeAgentNames(bundledAgentPaths);
@@ -61,12 +66,18 @@ function runInit(argv) {
     fs.mkdirSync(commandDir, { recursive: true });
   }
   let previousState = null;
+  let legacyStateDetected = false;
   try {
     previousState = readState(projectRoot, adapter);
   } catch (error) {
-    console.warn(
-      `Warning: could not read existing spec-first state; continuing with a fresh sync. (${error instanceof Error ? error.message : String(error)})`,
-    );
+    const rawState = tryReadRawManagedState(projectRoot, adapter);
+    if (isLegacyManagedState(rawState)) {
+      legacyStateDetected = true;
+    } else {
+      console.warn(
+        `Warning: could not read existing spec-first state; continuing with a fresh sync. (${error instanceof Error ? error.message : String(error)})`,
+      );
+    }
   }
   const manifest = loadPluginManifest();
   const runtimeCommands = adapter.hasCommands
@@ -91,9 +102,25 @@ function runInit(argv) {
   const previewState = buildState(manifest.version, {
     commands: runtimeCommands,
     skills: standaloneSkillNames,
+    workflowSkills: [...commandSkillNames],
     agents: bundledAgentPaths,
+    agentSupportFiles: bundledAgentSupportFiles,
     developer,
   });
+
+  if (legacyStateDetected) {
+    console.warn('Detected legacy spec-first state; performing managed hard reset before re-init.');
+    hardResetManagedAssets(projectRoot, buildState(manifest.version, {
+      commands: runtimeCommands,
+      skills: listBundledSkills(),
+      workflowSkills: [...commandSkillNames],
+      agents: bundledAgentPaths,
+      agentSupportFiles: bundledAgentSupportFiles,
+      developer,
+    }), adapter);
+    previousState = null;
+  }
+
   removeObsoleteManagedAssets(projectRoot, previousState, previewState, adapter);
   pruneCommandNamespace(projectRoot, previewState.commands, adapter);
 
@@ -117,12 +144,16 @@ function runInit(argv) {
   const written = synced.commands.map((command) => command.filename);
   const skillNames = synced.skills;
   const agentPaths = synced.agents;
+  const agentSupportFiles = synced.agentSupportFiles || [];
 
   if (adapter.hasCommands) {
     console.log(`📦 Generated ${written.length} command file(s) in ${path.relative(projectRoot, commandDir)}`);
   }
   console.log(`🧩 Generated ${skillNames.length} skill directory(ies) in ${adapter.skillsRoot}`);
   console.log(`🤖 Generated ${agentPaths.length} agent file(s) in ${adapter.agentsRoot}`);
+  if (agentSupportFiles.length > 0) {
+    console.log(`🧰 Generated ${agentSupportFiles.length} agent support file(s) in ${adapter.agentsRoot}`);
+  }
   console.log('🪪 Wrote project developer profile:');
   console.log(`  📍 path: ${adapter.developerFile}`);
   console.log(`  👤 name: ${developer.name}`);
@@ -216,6 +247,14 @@ function parseInitArgs(argv) {
   }
 
   return parsed;
+}
+
+function tryReadRawManagedState(projectRoot, adapter) {
+  try {
+    return readStateFileRaw(projectRoot, adapter);
+  } catch (_error) {
+    return null;
+  }
 }
 
 function findDuplicateClaudeAgentNames(agentPaths) {

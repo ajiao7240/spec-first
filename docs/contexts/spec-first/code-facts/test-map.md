@@ -2,24 +2,19 @@
 
 ## Test Files
 
-- `tests/unit/crg-artifact-paths.test.js` (unit) -> src/crg/artifact-paths.js
-  摘要：Unit coverage for artifact path helpers used by CRG commands.
-- `tests/unit/crg-graph.test.js` (unit) -> src/crg/graph.js
-  摘要：Unit coverage for graph persistence/query helpers.
-- `tests/unit/crg-communities.test.js` (unit) -> src/crg/communities.js
-  摘要：Unit coverage for community detection and related graph logic.
-- `tests/unit/crg-input-convergence.test.js` (unit) -> src/crg/input-convergence.js
-  摘要：Unit coverage for ignore rules and input file convergence.
-- `tests/smoke/cli.sh` (smoke) -> src/cli/index.js, src/cli/commands/init.js, src/cli/commands/doctor.js
-  摘要：Smoke coverage for CLI help, init, generated assets and doctor output.
-- `tests/integration/e2e.sh` (integration) -> src/cli/index.js, src/cli/adapters/*
-  摘要：End-to-end workflow coverage for install/bootstrap lifecycle.
-- `tests/e2e/crg-all-commands.sh` (e2e) -> src/crg/cli/router.js, src/crg/commands/*
-  摘要：E2E coverage for the CRG command surface.
+- `tests/contracts/crg-cli-v1.test.js` (integration) -> `docs/contracts/crg-cli-v1.schema.json`
+  - 摘要：验证 CRG CLI v1 schema 与命令输出契约。
+- `tests/unit/crg-router.test.js` (unit) -> `src/crg/cli/router.js`
+  - 摘要：验证 CRG router 命令路由行为。
+- `tests/unit/crg-build-cli.test.js` (unit) -> `src/crg/cli/build.js`
+  - 摘要：验证 build/stats 等 CLI handler 行为。
+- `tests/unit/crg-input-convergence.test.js` (unit) -> `src/crg/input-convergence.js`
+  - 摘要：验证输入收敛、ignore 与 iOS Pod 过滤规则。
+- `tests/unit/crg-incremental.test.js` (unit) -> `src/crg/incremental.js`
+  - 摘要：验证指纹增量检测与删除/回滚边界。
 
 ## Coverage Gaps
 
-- `src/cli/index.js`：CLI dispatch lacks a direct tests_for mapping in CRG and is mostly covered by smoke/integration scripts. [medium]
-- `src/cli/commands/doctor.js`：Doctor command checks many environment branches but has no direct CRG tests_for evidence. [medium]
-- `src/cli/commands/init.js`：Init has broad runtime side effects and is validated mainly through smoke/install scripts instead of direct unit mapping. [medium]
-- `src/crg/changes.js`：Change detection logic participates in high-criticality review flows but no direct tests_for link was returned. [medium]
+- `src/cli/index.js`：当前 graph evidence 未显示 tests 直接导入主 CLI 总入口，主要依赖 smoke/integration 脚本验证。 [medium]
+- `src/cli/plugin.js`：高入度共享热点，但当前未见 observed 测试边直连。 [medium]
+- `src/crg/commands/review-context.js`：关键超长函数，目前没有 observed 单测直连该模块。 [medium]

@@ -61,15 +61,11 @@ content-search: pattern="component:.*background_job" path=docs/solutions/ files_
 content-search: pattern="email" path=docs/solutions/ files_only=true case_insensitive=true
 ```
 
-### Step 3b: Always Check Critical Patterns
+### Step 3b: Check Critical Patterns When Present
 
-**Regardless of Grep results**, always read the critical patterns file:
+If `docs/solutions/patterns/critical-patterns.md` exists, read it even if Grep found nothing else. This file contains must-know patterns that apply across all work.
 
-```bash
-Read: docs/solutions/patterns/critical-patterns.md
-```
-
-This file contains must-know patterns that apply across all work - high-severity issues promoted to required reading. Scan for patterns relevant to the current feature/task.
+If the file does **not** exist, note that critical patterns are not present in this repo and continue normally. Missing this file is not an error and must not block the main search flow.
 
 ### Step 4: Read Frontmatter of Candidates Only
 
@@ -84,8 +80,9 @@ Extract these fields from the YAML frontmatter:
 - **module**: Which module/system the solution applies to
 - **problem_type**: Category of issue (see schema below)
 - **component**: Technical component affected
-- **symptoms**: Array of observable symptoms
-- **root_cause**: What caused the issue
+- **applies_when**: Applicability conditions for knowledge-track docs
+- **symptoms**: Array of observable symptoms or friction signals when present
+- **root_cause**: What caused the issue when present
 - **tags**: Searchable keywords
 - **severity**: critical, high, medium, low
 
@@ -96,7 +93,8 @@ Match frontmatter fields against the feature/task description:
 **Strong matches (prioritize):**
 - `module` matches the feature's target module
 - `tags` contain keywords from the feature description
-- `symptoms` describe similar observable behaviors
+- `applies_when` describes the same usage context for knowledge-track docs
+- `symptoms` describe similar observable behaviors or friction
 - `component` matches the technical area being touched
 
 **Moderate matches (include):**
@@ -184,8 +182,8 @@ Structure your findings as:
 - **Files Scanned**: [X total files]
 - **Relevant Matches**: [Y files]
 
-### Critical Patterns (Always Check)
-[Any matching patterns from critical-patterns.md]
+### Critical Patterns
+[Matching patterns from critical-patterns.md, or "No critical patterns file in this repo"]
 
 ### Relevant Learnings
 
@@ -218,7 +216,7 @@ Structure your findings as:
 - Use category directories to narrow scope when feature type is clear
 - Do a broader content search as fallback if <3 candidates found
 - Re-narrow with more specific patterns if >25 candidates found
-- Always read the critical patterns file (Step 3b)
+- Read the critical patterns file when it exists (Step 3b)
 - Only read frontmatter of search-matched candidates (not all files)
 - Filter aggressively - only fully read truly relevant files
 - Prioritize high-severity and critical patterns
@@ -234,7 +232,7 @@ Structure your findings as:
 - Read every file in full (wasteful)
 - Return raw document contents (distill instead)
 - Include tangentially related learnings (focus on relevance)
-- Skip the critical patterns file (always check it)
+- Treat a missing critical patterns file as a failure
 
 ## Integration Points
 

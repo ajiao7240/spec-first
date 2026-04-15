@@ -151,7 +151,7 @@ function transformCodexContent(content) {
   let transformed = content;
 
   transformed = transformed.replace(
-    /^(\s*-?\s*)Task\s+spec-first:([a-z-]+):([a-z-]+)\(([^)]*)\)/gm,
+    /^(\s*-?\s*)Task\s+spec-first:([a-z-]+):([a-z-]+)\((.*)\)\s*$/gm,
     (_match, prefix, category, agentName, args) => {
       const summary = args.trim();
       const agentPath = codexAgentPath(category, agentName);

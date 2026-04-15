@@ -1,35 +1,34 @@
-# 3A 验证记录：spec-plan Stage-0 消费
+# spec-plan Stage-0 消费验证记录
 
-- task_name: `spec-plan` 消费 `spec-graph-bootstrap` Stage-0 产物，为阶段 3B 接入方案生成实施计划
-- task_goal: 在不依赖 task pack 的前提下，验证 `plan` 阶段是否能靠 `always + stages.plan + output_exists.*` 获得足够上下文来支撑技术规划
-- stage: `plan`
-- task_type: `unknown`
-- context_slug: `spec-first`
-- expected_inputs:
-  - `docs/contexts/spec-first/00-summary.md`
-  - `docs/contexts/spec-first/README.md`
-  - `docs/contexts/spec-first/architecture/module-map.md`
-  - `docs/contexts/spec-first/code-facts/public-entrypoints.md`
-- actual_inputs:
-  - `docs/contexts/spec-first/00-summary.md`
-  - `docs/contexts/spec-first/README.md`
-  - `docs/contexts/spec-first/architecture/module-map.md`
-  - `docs/contexts/spec-first/code-facts/public-entrypoints.md`
-- fallback_triggered: `no`
-- fallback_reason: `none`
-- degrade_level: `none`
-- missing_outputs: `[]`
-- misleading_points:
-  - `task_type` 在 v1 不参与实际路由，验证时保留为模板字段并显式填写 `unknown`
-  - `selection_rules.output_exists.code_facts_public_entrypoints` 与 `stages.plan` 会命中同一文件，消费端需要去重，但不会形成关键误导
-- useful_outputs:
-  - `architecture/module-map.md` 帮助确认阶段 3B 应只改 skill 文档和治理文件，不触碰 command 层
-  - `code-facts/public-entrypoints.md` 帮助确认 `spec-plan` 仍需围绕 `src/cli/index.js`、`bin/spec-first.js`、`src/crg/cli/router.js` 等真实入口制定消费建议
-  - `00-summary.md` 和 `README.md` 提供仓库形态、运行时和测试层级的全局背景
-- verdict: `pass`
-- allow_enter_3b: `yes`
-- gate_reason: `plan` 阶段主路径可工作，yaml 路由在无 task_type 参与的 v1 约束下仍能稳定提供规划所需上下文；弱点仅在于重复命中需消费端去重，属于可解释的实现细节，不构成关键误导
+> 时点说明（2026-04-14 补充）：本记录反映的是 2026-04-13 当时的人工消费验证结果，用于证明阶段 3A 准入已成立。当前仓库头状态下，`docs/contexts/spec-first/injection-index.yaml` 与 `tests/unit/spec-graph-bootstrap-contracts.test.js` 已进一步收敛，`plan` 不再允许通过 stage block 直接重复注入 `code-facts/public-entrypoints.md`。因此若正文存在与当前头状态不一致之处，应按“历史时点记录”理解，而不应视为当前缺陷。
 
-## 验证结论
+- 日期：2026-04-13
+- workflow：`spec-plan`
+- 验证目标：确认 Stage-0 产物可被 plan 阶段稳定人工消费，并形成进入 3B 的最小规则集
+- verdict：`pass`
+- allow_enter_3b：`yes`
 
-本次验证证明 `spec-plan` 可仅依赖 `stage=plan` 和 `output_exists.*` 静态规则完成 v1 消费，不需要 `task_type` 契约即可支撑阶段 3B 最小化接入。
+## 1. 预期输入
+
+- `docs/contexts/spec-first/README.md`
+- `docs/contexts/spec-first/00-summary.md`
+- `docs/contexts/spec-first/architecture/module-map.md`
+- `docs/contexts/spec-first/code-facts/public-entrypoints.md`
+- `docs/contexts/spec-first/injection-index.yaml`
+
+## 2. 实际输入
+
+- 命中 `always[]`：`00-summary.md`、`README.md`
+- 命中 `stages.plan[]`：`architecture/module-map.md`
+- 命中 `selection_rules(output_exists.code_facts_public_entrypoints)`：`code-facts/public-entrypoints.md`
+
+## 3. fallback 验证
+
+- `injection-index.yaml` 缺失时，能够降级到固定最小集合继续运行
+- `docs/contexts/spec-first/` 缺失时，不阻断主任务，仅跳过 Stage-0 预载
+
+## 4. 结论
+
+- `spec-plan` 已能人工消费 Stage-0 产物
+- v1 最小消费顺序成立：`always[] -> stages.plan[] -> selection_rules(output_exists.*) -> advice.plan`
+- 缺失即降级、不阻断主任务的规则成立

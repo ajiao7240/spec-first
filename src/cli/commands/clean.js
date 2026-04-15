@@ -1,6 +1,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { clearState, readState, removeManagedAssets } = require('../state');
+const {
+  clearState,
+  isLegacyManagedState,
+  readState,
+  readStateFileRaw,
+  removeManagedAssets,
+} = require('../state');
 const { getAdapter } = require('../adapters');
 
 function runClean(argv) {
@@ -30,6 +36,18 @@ function runClean(argv) {
   try {
     state = readState(projectRoot, adapter);
   } catch (error) {
+    const rawState = tryReadRawManagedState(projectRoot, adapter);
+    if (isLegacyManagedState(rawState)) {
+      console.error('Detected legacy spec-first managed state. `clean` does not migrate legacy installs.');
+      console.error(
+        `Run \`spec-first init --${adapter.id}\` first so spec-first can perform a managed hard reset and rebuild the current runtime.`,
+      );
+      console.error(
+        `If you still want to remove current managed assets afterward, rerun \`spec-first clean --${adapter.id}\`.`,
+      );
+      return 1;
+    }
+
     console.error(
       `Could not read spec-first managed asset state. ${error instanceof Error ? error.message : String(error)}`,
     );
@@ -52,6 +70,14 @@ function runClean(argv) {
   console.log(`Removed spec-first managed ${platform === 'claude' ? 'Claude Code' : 'Codex'} assets from the current project.`);
   console.log('Custom assets outside the spec-first managed set were left untouched.');
   return 0;
+}
+
+function tryReadRawManagedState(projectRoot, adapter) {
+  try {
+    return readStateFileRaw(projectRoot, adapter);
+  } catch (_error) {
+    return null;
+  }
 }
 
 function removeEmptyManagedRoots(projectRoot, adapter) {

@@ -69,6 +69,8 @@ topic: <kebab-case-topic>
 [If `Resolve Before Planning` is not empty: `-> Resume /spec:brainstorm` to resolve blocking questions before planning]
 ```
 
+**Visual communication** — Include a visual aid when the requirements would be significantly easier to understand with one. Read `references/visual-communication.md` for the decision criteria, format selection, and placement rules.
+
 For **Standard** and **Deep** brainstorms, a requirements document is usually warranted.
 
 For **Lightweight** brainstorms, keep the document compact. Skip document creation when the user only needs brief alignment and no durable decisions need to be preserved.
@@ -86,6 +88,7 @@ Before finalizing, check:
 - Did implementation details leak in when they shouldn't have?
 - Do any requirements claim that infrastructure is absent without that claim having been verified against the codebase? If so, verify now or label as an unverified assumption.
 - Is there a low-cost change that would make this materially more useful?
+- Would a visual aid (flow diagram, comparison table, relationship diagram) help a reader grasp the requirements faster than prose alone?
 
 If planning would need to invent product behavior, scope boundaries, or success criteria, the brainstorm is not complete yet.
 

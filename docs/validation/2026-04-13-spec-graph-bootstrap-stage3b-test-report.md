@@ -1,5 +1,7 @@
 # spec-graph-bootstrap 阶段 3B 测试报告
 
+> 时点说明（2026-04-14 补充）：本报告反映的是 2026-04-13 基线提交 `bc2c4a11` 下的验证状态。当前仓库头状态已进一步收敛 `docs/contexts/spec-first/injection-index.yaml` 与 `tests/unit/spec-graph-bootstrap-contracts.test.js`，`plan/work` 不再允许直接重复注入 `code-facts/public-entrypoints.md`。因此文中关于重复注入的描述应视为历史时点记录，不代表当前头状态缺陷。
+
 - 日期：2026-04-13
 - 目标方案：`docs/plans/2026-04-13-005-feat-spec-graph-bootstrap-stage3b-consumption-plan.md`
 - 测试结论：`pass`

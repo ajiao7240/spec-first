@@ -2,7 +2,7 @@
 
 这套手册对应当前 `spec-first` npm CLI 模型。
 
-`spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init (--claude|--codex) / clean (--claude|--codex)` 把 Claude Code 的 `/spec:*` 命令、Codex 的 `$spec-*` skills、workflow skills、agents、项目级 `.developer` 和受管状态安装到当前项目中。
+`spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init (--claude|--codex) / clean (--claude|--codex)` 把 Claude Code 的 `/spec:*` 命令、Codex 的 `$spec-*` skills、workflow skills、agents、agent support files、项目级 `.developer` 和受管状态安装到当前项目中。
 
 当前 Stage-0 有两个入口：
 
@@ -17,6 +17,12 @@
 
 `init` 支持显式传入 `-u/--user` 和 `--lang`。如果没有传用户名，它会优先回退到全局 `~/.spec-first/.developer`，再回退到 `git config user.name`。
 
+关于升级：
+
+- 如果 `doctor` 报告 `legacy managed state`，直接重新运行对应平台的 `spec-first init`
+- `init` 会执行 managed hard reset 并按当前版本全量重建运行时
+- `clean` 只清理当前受管资产，不承担 legacy 迁移
+
 ![Spec-First 总览图](../assets/svg/spec-first-overview.svg)
 
 ## 你会得到什么
@@ -27,9 +33,10 @@
 - 并行存在的 Stage-0 入口：稳定的 `spec-bootstrap` + CRG 驱动的 `spec-graph-bootstrap`
 - 一条 `Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound` 的标准闭环
 - 项目级 `.claude/commands/spec`
-- 项目级 `.claude/skills` 与 `.claude/agents`
+- 项目级 `.claude/skills`、`.claude/spec-first/workflows` 与 `.claude/agents`
 - 项目级 `.agents/skills` 与 `.codex/agents`
 - 项目级 `.claude/spec-first/.developer` / `.codex/spec-first/.developer`
+- 严格 schema 的 `.claude/spec-first/state.json` / `.codex/spec-first/state.json`
 - 可更新、可恢复、可清理的受管资产模型
 
 ![Spec-First 五阶段工作流](../assets/svg/spec-first-workflow.svg)

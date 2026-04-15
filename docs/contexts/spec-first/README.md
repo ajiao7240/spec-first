@@ -3,9 +3,9 @@
 ## Status
 
 - Mode: Full
-- Generated: 2026-04-13T08:47:57.904Z
-- CRG last built: 2026-04-13T08:36:55.787Z
-- Repo HEAD: eb0a0d3d65b2e7bd65e248f45f77ba93758f14bd
+- Generated: 2026-04-14T14:24:00.000Z
+- CRG last built: 2026-04-13T17:58:32.435Z
+- Repo HEAD: aa4b9037e1d5fe7b3447dfc64ed24e7dd1a53e4d
 
 ## Artifacts
 
@@ -20,11 +20,11 @@
 
 ## Freshness
 
-- This context was generated from a local CRG build with 528 nodes / 1307 edges.
-- Build warnings still show a relatively high unresolved-edge count (2055), so use graph evidence together with local file reads when changing parser-heavy or runtime-install paths.
+- 本次上下文来自本地 CRG Full 模式，图规模为 528 nodes / 1307 edges。
+- 当前 unresolved edge 仍有 2055 条；若修改 parser-heavy、runtime install 或 graph traversal 代码，请结合源码读取和脚本验证，不要只依赖图谱。
 
 ## Signals
 
-- Top communities: crg/0, cli, skills
-- Top flows: src/crg/cli/postprocess.js#function#run#L87, src/cli/index.js#function#runCli#L9, src/crg/commands/review-context.js#function#run#L30
-- Top hubs: makeEnvelope, openDb, getBundledPath
+- Top communities: `crg/0`, `cli`, `skills`
+- Top flows: `src/crg/cli/postprocess.js#function#run#L87`, `src/cli/index.js#function#runCli#L9`, `src/crg/commands/review-context.js#function#run#L30`
+- Top hubs: `makeEnvelope`, `openDb`, `getBundledPath`

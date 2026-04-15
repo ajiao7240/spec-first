@@ -16,6 +16,9 @@
 8. [2026 年 AI 编码的“渐进式 Spec”实战指南](./2026-04-02-2026-年-AI-编码的“渐进式-Spec”实战指南.md)
 9. [Qoder 工程实践：Harness Engineering 指南](./2026-04-03-Qoder-工程实践：Harness-Engineering-指南.md)
 10. [Knowledge Wiki：面向 AI 的项目知识层建设实践](./2026-04-07-Knowledge-Wiki：面向-AI-的项目知识层建设实践.md)
+11. [spec-graph-bootstrap：Stage-0 终局产物设计与业界借鉴审查](./2026-04-15-spec-graph-bootstrap-终局产物设计与业界借鉴审查.md)
+12. [CRG + Stage-0 + LLM Wiki + Workflow + Eval：终局架构蓝图](./2026-04-15-CRG-Stage0-Wiki-Workflow-Eval-终局架构蓝图.md)
+13. [CRG v2：算法升级清单与评测路线](./2026-04-15-CRG-v2-算法升级清单与评测路线.md)
 
 ## 文章清单
 
@@ -33,6 +36,9 @@
 | 2026-04-02 | [2026 年 AI 编码的“渐进式 Spec”实战指南](./2026-04-02-2026-年-AI-编码的“渐进式-Spec”实战指南.md) | 阿里云开发者 | 渐进式 Spec, Agent, AI Coding, 复杂度治理 | 从大模型能力、Agent 循环和软件复杂度三层认知切入，提出一套按任务复杂度逐级加载 Rules、Spec、Review 的渐进式 Spec 实战框架。 |
 | 2026-04-03 | [Qoder 工程实践：Harness Engineering 指南](./2026-04-03-Qoder-工程实践：Harness-Engineering-指南.md) | 泮圣伟 | Harness Engineering, AI Agent, 验证, 上下文管理 | 讨论如何把仓库变成 AI Agent 的操作系统，通过规范、约束和自动验证提升代码协作可靠性。 |
 | 2026-04-07 | [Knowledge Wiki：面向 AI 的项目知识层建设实践](./2026-04-07-Knowledge-Wiki：面向-AI-的项目知识层建设实践.md) | 有赞共享技术 | Knowledge Wiki, 知识层, 渐进式披露, Harness Engineering | 介绍如何把隐性经验、文档和业务知识收敛成结构化 wiki 与 skill，让 AI 在正确时刻拿到正确的信息。 |
+| 2026-04-15 | [spec-graph-bootstrap：Stage-0 终局产物设计与业界借鉴审查](./2026-04-15-spec-graph-bootstrap-终局产物设计与业界借鉴审查.md) | 本仓库研究 | Stage-0, Context Routing, Codebase Understanding, Benchmark | 结合本地代码证据、Graph/Review/Wiki 类方案和 benchmark 思路，审查 `spec-graph-bootstrap` 当前阶段与合理终局之间的差距，并给出优先级明确的优化路线。 |
+| 2026-04-15 | [CRG + Stage-0 + LLM Wiki + Workflow + Eval：终局架构蓝图](./2026-04-15-CRG-Stage0-Wiki-Workflow-Eval-终局架构蓝图.md) | 本仓库研究 | CRG, LLM Wiki, Workflow, Retrieval, Eval | 基于 Karpathy `LLM Wiki`、`llm_wiki`、`graphify`、`code-review-graph`、`get-shit-done` 与相关论文，定义 `CRG` 到 Stage-0 再到 workflow/eval 的五层终局架构与演进顺序。 |
+| 2026-04-15 | [CRG v2：算法升级清单与评测路线](./2026-04-15-CRG-v2-算法升级清单与评测路线.md) | 本仓库研究 | CRG v2, Retrieval, Chunking, Benchmark, Eval | 以 `src/crg` 当前实现为准，结合 RepoCoder、RepoHyper、Repoformer、cAST、CodeRAG-Bench、AACR-Bench、SWE-CI 等资料，给出 `CRG v2` 的算法组合、优先级路线与验收标准。 |
 
 ## 目录约定
 

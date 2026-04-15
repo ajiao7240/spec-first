@@ -96,6 +96,18 @@ function listBundledAgents() {
     .sort((a, b) => a.localeCompare(b));
 }
 
+function listBundledAgentSupportFiles() {
+  const sourceDir = getBundledPath('agents');
+  if (!fs.existsSync(sourceDir)) {
+    throw new Error(`Bundled agents directory not found: ${sourceDir}`);
+  }
+
+  return fs
+    .readdirSync(sourceDir, { withFileTypes: true })
+    .flatMap((entry) => walkAgentSupportEntries(path.join(sourceDir, entry.name), entry.name))
+    .sort((a, b) => a.localeCompare(b));
+}
+
 function walkAgentEntries(absolutePath, relativePath) {
   const stat = fs.statSync(absolutePath);
   if (stat.isDirectory()) {
@@ -112,6 +124,22 @@ function walkAgentEntries(absolutePath, relativePath) {
   return relativePath.endsWith('.md') ? [relativePath] : [];
 }
 
+function walkAgentSupportEntries(absolutePath, relativePath) {
+  const stat = fs.statSync(absolutePath);
+  if (stat.isDirectory()) {
+    return fs
+      .readdirSync(absolutePath, { withFileTypes: true })
+      .flatMap((entry) =>
+        walkAgentSupportEntries(
+          path.join(absolutePath, entry.name),
+          path.join(relativePath, entry.name),
+        ),
+      );
+  }
+
+  return relativePath.endsWith('.md') ? [] : [relativePath];
+}
+
 function readBundledCommandTemplate(commandName) {
   const command = listBundledCommands().find((entry) => entry.name === commandName);
   if (!command) {
@@ -123,10 +151,10 @@ function readBundledCommandTemplate(commandName) {
 
 function syncBundledAssets(projectRoot, adapter) {
   const commands = adapter.hasCommands ? syncCommands(projectRoot, adapter) : [];
-  const skills = syncSkills(projectRoot, adapter);
-  const agents = syncAgents(projectRoot, adapter);
+  const { skills, workflowSkills } = syncSkills(projectRoot, adapter);
+  const { agents, agentSupportFiles } = syncAgents(projectRoot, adapter);
 
-  return { commands, skills, agents };
+  return { commands, skills, workflowSkills, agents, agentSupportFiles };
 }
 
 function syncCommands(projectRoot, adapter) {
@@ -162,6 +190,7 @@ function syncSkills(projectRoot, adapter) {
   const sourceRoot = getBundledPath('skills');
   const skillNames = listBundledSkills();
   const standaloneNames = [];
+  const workflowNames = [];
 
   for (const skillName of skillNames) {
     const isCommandBacking = commandSkillNames.has(skillName);
@@ -182,10 +211,12 @@ function syncSkills(projectRoot, adapter) {
 
     if (!isCommandBacking) {
       standaloneNames.push(skillName);
+    } else {
+      workflowNames.push(skillName);
     }
   }
 
-  return standaloneNames;
+  return { skills: standaloneNames, workflowSkills: workflowNames };
 }
 
 function syncAgents(projectRoot, adapter) {
@@ -194,6 +225,7 @@ function syncAgents(projectRoot, adapter) {
 
   const sourceRoot = getBundledPath('agents');
   const agentPaths = listBundledAgents();
+  const agentSupportFiles = listBundledAgentSupportFiles();
 
   for (const agentPath of agentPaths) {
     const sourcePath = path.join(sourceRoot, agentPath);
@@ -204,13 +236,21 @@ function syncAgents(projectRoot, adapter) {
     );
   }
 
-  return agentPaths;
+  for (const supportPath of agentSupportFiles) {
+    const sourcePath = path.join(sourceRoot, supportPath);
+    const targetPath = path.join(targetRoot, supportPath);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    copyFileWithTransform(sourcePath, targetPath, (content) => content);
+  }
+
+  return { agents: agentPaths, agentSupportFiles };
 }
 
 function inspectInstalledAssets(projectRoot, adapter) {
   const commands = listBundledCommands();
   const skills = listBundledSkills();
   const agents = listBundledAgents();
+  const agentSupportFiles = listBundledAgentSupportFiles();
 
   return {
     commands: adapter.hasCommands
@@ -218,6 +258,7 @@ function inspectInstalledAssets(projectRoot, adapter) {
       : { targetRoot: adapter.commandRoot, entries: [], missing: [] },
     skills: inspectSkills(projectRoot, skills, adapter),
     agents: inspectAgents(projectRoot, agents, adapter),
+    agentSupportFiles: inspectAgentSupportFiles(projectRoot, agentSupportFiles, adapter),
   };
 }
 
@@ -252,10 +293,17 @@ function inspectAgents(projectRoot, agentPaths = listBundledAgents(), adapter) {
   return { targetRoot, entries: agentPaths, missing };
 }
 
+function inspectAgentSupportFiles(projectRoot, supportPaths = listBundledAgentSupportFiles(), adapter) {
+  const targetRoot = path.join(projectRoot, adapter.agentsRoot);
+  const missing = supportPaths.filter((supportPath) => !fs.existsSync(path.join(targetRoot, supportPath)));
+  return { targetRoot, entries: supportPaths, missing };
+}
+
 module.exports = {
   getBundledPath,
   getManifestPath,
   inspectInstalledAssets,
+  listBundledAgentSupportFiles,
   listBundledAgents,
   listBundledCommands,
   listBundledSkills,

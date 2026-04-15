@@ -53,6 +53,13 @@
       "skill": "spec-compound"
     },
     {
+      "name": "sessions",
+      "filename": "sessions.md",
+      "description": "Search and summarize prior coding agent sessions",
+      "argumentHint": "[question or topic]",
+      "skill": "spec-sessions"
+    },
+    {
       "name": "bootstrap",
       "filename": "bootstrap.md",
       "description": "Stage-0 project context bootstrap workflow",

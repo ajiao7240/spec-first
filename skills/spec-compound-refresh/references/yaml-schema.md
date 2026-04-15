@@ -3,27 +3,47 @@
 `schema.yaml` in this directory is the canonical contract for `docs/solutions/` frontmatter written by `spec:compound`.
 
 Use this file as the quick reference for:
-- required fields
-- enum values
+- track classification
+- shared required fields
+- track-specific fields
 - validation expectations
 - category mapping
 
-## Required Fields
+## Track Classification
 
-- **module**: Module or area affected by the problem
-- **date**: ISO date in `YYYY-MM-DD`
-- **problem_type**: One of `build_error`, `test_failure`, `runtime_error`, `performance_issue`, `database_issue`, `security_issue`, `ui_bug`, `integration_issue`, `logic_error`, `developer_experience`, `workflow_issue`, `best_practice`, `documentation_gap`
-- **component**: One of `rails_model`, `rails_controller`, `rails_view`, `service_object`, `background_job`, `database`, `frontend_stimulus`, `hotwire_turbo`, `email_processing`, `brief_system`, `assistant`, `authentication`, `payments`, `development_workflow`, `testing_framework`, `documentation`, `tooling`
-- **symptoms**: YAML array with 1-5 concrete symptoms
-- **root_cause**: One of `missing_association`, `missing_include`, `missing_index`, `wrong_api`, `scope_issue`, `thread_violation`, `async_timing`, `memory_leak`, `config_error`, `logic_error`, `test_isolation`, `missing_validation`, `missing_permission`, `missing_workflow_step`, `inadequate_documentation`, `missing_tooling`, `incomplete_setup`
-- **resolution_type**: One of `code_fix`, `migration`, `config_change`, `test_fix`, `dependency_update`, `environment_setup`, `workflow_improvement`, `documentation_update`, `tooling_addition`, `seed_data_update`
-- **severity**: One of `critical`, `high`, `medium`, `low`
+- **Bug track**: `build_error`, `test_failure`, `runtime_error`, `performance_issue`, `database_issue`, `security_issue`, `ui_bug`, `integration_issue`, `logic_error`
+- **Knowledge track**: `best_practice`, `documentation_gap`, `workflow_issue`, `developer_experience`
 
-## Optional Fields
+## Shared Required Fields
 
-- **rails_version**: Rails version in `X.Y.Z` format
-- **related_components**: Other components involved
-- **tags**: Search keywords, lowercase and hyphen-separated
+- **module**
+- **date**
+- **problem_type**
+- **component**
+- **severity**
+
+## Bug Track Fields
+
+- **Required**:
+  - `symptoms`
+  - `root_cause`
+  - `resolution_type`
+- **Optional**:
+  - `rails_version`
+
+## Knowledge Track Fields
+
+- **Required**:
+  - `applies_when`
+- **Optional**:
+  - `symptoms`
+  - `root_cause`
+  - `resolution_type`
+
+## Optional Fields for Both Tracks
+
+- **related_components**
+- **tags**
 
 ## Category Mapping
 
@@ -43,8 +63,12 @@ Use this file as the quick reference for:
 
 ## Validation Rules
 
-1. All required fields must be present.
-2. Enum fields must match the allowed values exactly.
-3. `symptoms` must be a YAML array with 1-5 items.
-4. `date` must match `YYYY-MM-DD`.
-5. `rails_version`, if present, must match `X.Y.Z`.
+1. Determine track from `problem_type`.
+2. All shared required fields must be present.
+3. Bug-track docs must include `symptoms`, `root_cause`, and `resolution_type`.
+4. Knowledge-track docs must include `applies_when`.
+5. Enum fields must match the allowed values exactly.
+6. Array fields must respect `min_items` / `max_items` when specified.
+7. `date` must match `YYYY-MM-DD`.
+8. `rails_version`, if present, must match `X.Y.Z` and only applies to bug-track docs.
+9. `tags` should be lowercase and hyphen-separated.
