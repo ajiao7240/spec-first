@@ -8,6 +8,9 @@
   - `变更摘要` 使用中文，简明说明本次改动
 - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-15 23:45:00 kuang: fix(spec-plan): 对齐入口元数据与空输入追问到非软件 planning 能力，避免 skill discovery 与正文路由口径不一致 (user-visible)
+- v1.6.0 2026-04-15 16:13:44 kuang: feat(spec-plan): 恢复非软件 planning 路由并同步 ce-plan 的 deepening、visual guidance 与 contract 守护，修复 source/runtime naming 漂移与 document-review gate 跳过问题 (user-visible)
+- v1.6.0 2026-04-15 23:30:00 kuang: fix(spec-plan): universal-planning.md 补充 spec:brainstorm 路由提示，修复 spec-plan-contracts 合同测试必然失败的断言
 - v1.6.0 2026-04-15 23:05:00 kuang: docs(codex-runtime): 校正 Codex 经验文档与 skill 接入清单中的正式 discovery、兼容命令层与 runtime naming 口径
 - v1.6.0 2026-04-15 22:55:00 kuang: fix(crg-gate): 将 fallback_rate 校准为仅统计硬 fallback（level!=L0），避免 freshness_stale 软降级污染 regression 指标 (user-visible)
 - v1.6.0 2026-04-15 22:40:00 kuang: feat(governance+workspace): 新增 ownership registry、review queue 状态流转、governance control-plane samples 与 workspace v1 单仓不退化约束 (user-visible)
