@@ -10,6 +10,8 @@ Prefer a two-layer critique:
 1. Have one or more skeptical sub-agents attack the merged list from distinct angles.
 2. Have the orchestrator synthesize those critiques, apply the rubric consistently, score the survivors, and decide the final ranking.
 
+Use this two-layer pattern as an explicit quality gate, not as a claim that critique sub-agents should outrank the orchestrator's global judgment.
+
 Do not let critique agents generate replacement ideas in this phase unless explicitly refining.
 
 Critique agents may provide local judgments, but final scoring authority belongs to the orchestrator so the ranking stays consistent across different frames and perspectives.

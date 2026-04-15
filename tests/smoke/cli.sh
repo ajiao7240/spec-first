@@ -228,9 +228,19 @@ grep -q 'Task feishu-doc-reader' "$TMP_DIR/.claude/spec-first/workflows/spec-bra
 grep -q 'Task docs-context-reader' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
 grep -q 'Task web-context-reader' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
 grep -q 'Task learnings-researcher' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
+grep -q '`learnings-researcher`' "$TMP_DIR/.claude/spec-first/workflows/spec-ideate/SKILL.md"
+grep -q '`issue-intelligence-analyst`' "$TMP_DIR/.claude/spec-first/workflows/spec-ideate/SKILL.md"
 grep -q 'spec-first:research:learnings-researcher' "$TMP_DIR/.claude/agents/review/project-standards-reviewer.md"
 if grep -q 'spec-first:research:repo-research-analyst' "$TMP_DIR/.claude/spec-first/workflows/spec-plan/SKILL.md"; then
   echo "✗ generated spec-plan skill still contains unadapted spec-first agent namespace"
+  exit 1
+fi
+if grep -q 'spec-first:research:learnings-researcher' "$TMP_DIR/.claude/spec-first/workflows/spec-ideate/SKILL.md"; then
+  echo "✗ generated spec-ideate skill still contains unadapted learnings-researcher namespace"
+  exit 1
+fi
+if grep -q 'spec-first:research:issue-intelligence-analyst' "$TMP_DIR/.claude/spec-first/workflows/spec-ideate/SKILL.md"; then
+  echo "✗ generated spec-ideate skill still contains unadapted issue-intelligence namespace"
   exit 1
 fi
 if grep -q 'spec-first:research:local-doc-reader' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"; then
@@ -548,6 +558,9 @@ grep -q '`.codex/agents/research/feishu-doc-reader.md`' "$TMP_DIR/.agents/skills
 grep -q '`.codex/agents/research/github-context-reader.md`' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 grep -q '`.codex/agents/research/docs-context-reader.md`' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 grep -q '`.codex/agents/research/web-context-reader.md`' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
+grep -q '`.codex/agents/research/learnings-researcher.md`' "$TMP_DIR/.agents/skills/spec-ideate/SKILL.md"
+grep -q '`.codex/agents/research/issue-intelligence-analyst.md`' "$TMP_DIR/.agents/skills/spec-ideate/SKILL.md"
+grep -q '.agents/skills/spec-ideate/SKILL.md' "$TMP_DIR/.codex/commands/spec/ideate.md"
 test -f "$TMP_DIR/.agents/skills/spec-brainstorm/references/universal-brainstorming.md"
 test -f "$TMP_DIR/.agents/skills/spec-brainstorm/references/visual-communication.md"
 grep -q '^name: spec-plan$' "$TMP_DIR/.agents/skills/spec-plan/SKILL.md"

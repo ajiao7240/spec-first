@@ -8,6 +8,15 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-15 21:05:00 kuang: fix(context-routing+bootstrap): 修复 freshness 健康枚举与 schema 漂移、损坏 bootstrap JSON 未降级、workspace Windows 风格路径 slug 解析错误 (user-visible)
+- v1.6.0 2026-04-15 20:40:00 kuang: feat(spec-graph-bootstrap): 默认暴露 freshness/lint/contradictions 控制面资产，并为 plan/work/review Stage-0 增加 telemetry contract 守卫
+- v1.6.0 2026-04-15 20:20:00 kuang: feat(spec-graph-bootstrap): 新增 bootstrap compiler orchestrator，统一 machine/human/routing 主链编排并补齐主链 contract 守卫测试
+- v1.6.0 2026-04-15 19:05:00 kuang: chore(skills): 删除 slfg 与 dhh-rails-style 两个 skill 源码、prompt 快照及关联引用，收敛当前技能清单与审计文档口径
+- v1.6.0 2026-04-15 16:35:00 kuang: docs(npm-seo): 继续优化 README 首屏转化文案与安装信号，强化 AI coding workflow、spec-driven development 与 harness engineering 的 npm 包页承接 (user-visible)
+- v1.6.0 2026-04-15 16:20:00 kuang: docs(npm-seo): 优化 package.json 的 npm 搜索元数据，强化 AI coding workflow、spec-driven development 与 harness engineering 相关发现性 (user-visible)
+- v1.6.0 2026-04-15 16:10:00 kuang: docs(readme): 收紧英文 README 的中文文档边界表达并新增语言拆分守卫测试，避免英文标签误导读者 (user-visible)
+- v1.6.0 2026-04-15 18:30:00 kuang: feat(spec-graph-bootstrap+crg): 完成 Stage-0 后续 P1-P3 最小闭环实现，补齐 plan/work minimal-context、hybrid retrieval、chunking、freshness/lint/contradictions、compiler 模块化、repo QA/context efficiency/regression benchmark、workflow telemetry、semantic rerank、workspace context 与知识治理能力 (user-visible)
+- v1.6.0 2026-04-15 15:35:00 kuang: feat(crg+stage0): 落地 Stage-0 machine-first contract、deterministic evaluator、workflow 统一消费契约与 CRG generation/retrieval 最小闭环 (user-visible)
 - v1.6.0 2026-04-15 14:20:00 kuang: fix(doctor+clean): 统一 legacy managed state 升级语义，doctor 明确提示需通过 init 执行 hard reset，clean 拒绝承担 legacy 迁移并补齐 smoke/unit 守卫 (user-visible)
 - v1.6.0 2026-04-15 10:28:37 kuang: fix(init): 为 legacy managed state 增加 hard-cut 升级路径——init 检测旧 state 后先执行受控 managed reset 再全量重建，并补齐 legacy reset smoke/unit 守卫 (user-visible)
 - v1.6.0 2026-04-15 10:35:00 kuang: fix(codex-runtime): 修复 Codex Task transform 在 supplemental context 参数含括号时提前截断的问题，确保打包安装后的 spec-brainstorm 运行时文案完整 (user-visible)
@@ -267,6 +276,7 @@
 - v1.4.0 2026-04-03 18:13:41 kuang: docs(ideation): 输出 spec-first 连载博客总纲与公众号标题集到独立文档，并补充发布顺序说明 (user-visible)
 - v1.4.0 2026-04-03 14:00:00 kuang: feat(mcp-setup+spec-bootstrap): Unit 3 — host-setup.json v2 schema Appendix（消费方表格、向后兼容说明）+ spec-bootstrap Host Readiness Gate Step 1 version 检查 (user-visible)
 - v1.4.0 2026-04-03 13:30:00 kuang: feat(spec-bootstrap): Unit 2 — ABCoder probe 重构为 Language Match First（Step 2a-2c）、禁止 npx 标注、Host Readiness Gate Step 2b JDT 预警、报告新增 language-not-supported 场景 (user-visible)
+- v1.5.1 2026-04-15 14:48:43 kuang: 对齐 spec-ideate 非 Slack 核心 contract，补回 inherited model / mode 约束、收紧数量口径，并新增 ideate contract tests 与 runtime smoke 覆盖 (user-visible)
 - v1.4.0 2026-04-03 13:00:00 kuang: feat(mcp-setup): Unit 1 — verify-tools.sh 新增 Go/Python runtime 检测 + JDT 缓存可写性检测（ls-d glob，jdtls 路径）、host-setup.json 升级 v2 schema、SKILL.md 新增 Phase 4.3 JDT 修复流程、新增测试 10.1-10.8（111 通过）(user-visible)
 - v1.4.0 2026-04-03 11:30:00 kuang: fix(spec-bootstrap): review 修复 — layer-context AC 改用 anti-pattern 措辞（pitfall 语义仅属 pitfalls-context）、删除 L453 stale 行号引用、test 9.1 改用受控 PATH + stub abcoder 消除真实环境依赖
 - v1.4.0 2026-04-03 11:00:00 kuang: feat(spec-bootstrap): Unit 3/4 — Phase 2.4.3 追加 pitfalls 四类发现策略（代码/架构/业务/历史）及 architecture 三文件职责边界表格（system-overview/module-map/integration-boundaries 写什么/不写什么）

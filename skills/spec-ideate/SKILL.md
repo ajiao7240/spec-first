@@ -127,6 +127,8 @@ Consolidate all results into a short grounding summary. When issue intelligence 
 - **Past learnings** — relevant institutional knowledge from docs/solutions/
 - **Issue intelligence** (when present) — theme summaries from the issue intelligence agent, preserving theme titles, descriptions, issue counts, and trend directions
 
+Grounding in v1 relies on repo-owned research agents only. Do not reintroduce Slack-only context branches as an implicit fallback.
+
 Do **not** do external research in v1.
 
 ### Phase 2: Divergent Ideation
@@ -134,7 +136,7 @@ Do **not** do external research in v1.
 Follow this mechanism exactly:
 
 1. Generate the full candidate list before critiquing any idea.
-2. Each sub-agent targets about 7-8 ideas by default. With 4-6 agents this yields 30-40 raw ideas, which merge and dedupe to roughly 20-30 unique candidates. Adjust the per-agent target when volume overrides apply (e.g., "100 ideas" raises it, "top 3" may lower the survivor count instead).
+2. Each sub-agent targets about 7-8 ideas by default. With 4-6 agents this yields about 28-48 raw ideas, which merge and dedupe to roughly 20-30 unique candidates. Adjust the per-agent target when volume overrides apply (e.g., "100 ideas" raises it, "top 3" may lower the survivor count instead).
 3. Push past the safe obvious layer. Each agent's first few ideas tend to be obvious — push past them.
 4. Ground every idea in the Phase 1 scan.
 5. Use this prompting pattern as the backbone:
@@ -142,12 +144,13 @@ Follow this mechanism exactly:
    - then challenge them systematically
    - then explain only the survivors in detail
 6. If the platform supports sub-agents, use them to improve diversity in the candidate pool rather than to replace the core mechanism.
-7. Give each ideation sub-agent the same:
+7. Dispatch ideation sub-agents on the inherited model. Do not tier down — creative ideation should keep the current run's reasoning level. Omit the `mode` parameter so the user's configured permission settings still apply.
+8. Give each ideation sub-agent the same:
    - grounding summary
    - focus hint
    - per-agent volume target (~7-8 ideas by default)
    - instruction to generate raw candidates only, not critique
-8. When using sub-agents, assign each one a different ideation frame as a **starting bias, not a constraint**. Prompt each agent to begin from its assigned perspective but follow any promising thread wherever it leads — cross-cutting ideas that span multiple frames are valuable, not out of scope.
+9. When using sub-agents, assign each one a different ideation frame as a **starting bias, not a constraint**. Prompt each agent to begin from its assigned perspective but follow any promising thread wherever it leads — cross-cutting ideas that span multiple frames are valuable, not out of scope.
 
    **Frame selection depends on whether issue intelligence is active:**
 
@@ -163,15 +166,15 @@ Follow this mechanism exactly:
    - assumption-breaking or reframing
    - leverage and compounding effects
    - extreme cases, edge cases, or power-user pressure
-9. Ask each ideation sub-agent to return a standardized structure for each idea so the orchestrator can merge and reason over the outputs consistently. Prefer a compact JSON-like structure with:
+10. Ask each ideation sub-agent to return a standardized structure for each idea so the orchestrator can merge and reason over the outputs consistently. Prefer a compact JSON-like structure with:
    - title
    - summary
    - why_it_matters
    - evidence or grounding hooks
    - optional local signals such as boldness or focus_fit
-10. Merge and dedupe the sub-agent outputs into one master candidate list.
-11. **Synthesize cross-cutting combinations.** After deduping, scan the merged list for ideas from different frames that together suggest something stronger than either alone. If two or more ideas naturally combine into a higher-leverage proposal, add the combined idea to the list (expect 3-5 additions at most). This synthesis step belongs to the orchestrator because it requires seeing all ideas simultaneously.
-12. Spread ideas across multiple dimensions when justified:
+11. Merge and dedupe the sub-agent outputs into one master candidate list.
+12. **Synthesize cross-cutting combinations.** After deduping, scan the merged list for ideas from different frames that together suggest something stronger than either alone. If two or more ideas naturally combine into a higher-leverage proposal, add the combined idea to the list (expect 3-5 additions at most). This synthesis step belongs to the orchestrator because it requires seeing all ideas simultaneously.
+13. Spread ideas across multiple dimensions when justified:
    - workflow/DX
    - reliability
    - extensibility
@@ -179,7 +182,7 @@ Follow this mechanism exactly:
    - docs/knowledge compounding
    - quality and maintenance
    - leverage on future work
-13. If a focus was provided, pass it to every ideation sub-agent and weight the merged list toward it without excluding stronger adjacent ideas.
+14. If a focus was provided, pass it to every ideation sub-agent and weight the merged list toward it without excluding stronger adjacent ideas.
 
 The mechanism to preserve is:
 - generate many ideas first
