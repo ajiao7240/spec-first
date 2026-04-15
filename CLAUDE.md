@@ -50,9 +50,9 @@ npm pack                          # 发布前构建 tarball
 
 ### Canonical Agent Name 系统
 
-Skill/Agent 源文件中使用 `spec-first:category:name` 格式引用 agent。Claude adapter 在 init 时将其重写为 bare name（`name`），Codex adapter 保留完整格式，以保证跨平台 agent 名称唯一性。
+Skill/Agent 源文件统一使用 `spec-first:category:name` 作为 canonical agent name。Claude adapter 在 init 时会把 skill 内的 canonical 引用重写为 bare name（`name`），并把 Task 调用改写为宿主可执行的 bare-agent 形式；Codex adapter 会把 canonical 引用与 Task 调用重写为显式的 `.codex/agents/...` 路径，同时把共享 skill/command 路径改写到 Codex runtime 布局。
 
-`doctor` 命令会检测运行时文件中是否残留未重写的 canonical 名称。
+`doctor` 当前仅对 Claude runtime 检测是否残留未重写的 canonical 名称与未解析的 Task agent 引用；Codex 侧的 transform contract 主要由 unit/smoke 测试守护。
 
 ### CRG 模块（`src/crg/`）
 

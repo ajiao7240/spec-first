@@ -7,6 +7,9 @@
   - `作者` 填写提交人或变更责任人
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
+- v1.6.0 2026-04-15 23:05:00 kuang: docs(codex-runtime): 校正 Codex 经验文档与 skill 接入清单中的正式 discovery、兼容命令层与 runtime naming 口径
+- v1.6.0 2026-04-15 22:35:00 kuang: docs(runtime-adapters): 校正 CLAUDE.md 中 canonical agent name、Codex transform 与 doctor 覆盖范围说明
+- v1.6.0 2026-04-15 22:30:00 kuang: test(spec-ideate): 补齐 post-ideation reference 的 runtime/pack 守卫，并将 inherited model、omit mode、28-48 数量口径扩展到 ideate runtime contract 覆盖
 
 - v1.6.0 2026-04-15 21:05:00 kuang: fix(context-routing+bootstrap): 修复 freshness 健康枚举与 schema 漂移、损坏 bootstrap JSON 未降级、workspace Windows 风格路径 slug 解析错误 (user-visible)
 - v1.6.0 2026-04-15 20:40:00 kuang: feat(spec-graph-bootstrap): 默认暴露 freshness/lint/contradictions 控制面资产，并为 plan/work/review Stage-0 增加 telemetry contract 守卫

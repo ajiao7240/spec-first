@@ -17,6 +17,13 @@ function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
+function expectCoreContracts(runtimeSkill) {
+  expect(runtimeSkill).toContain("Grounding in v1 relies on repo-owned research agents only.");
+  expect(runtimeSkill).toContain('With 4-6 agents this yields about 28-48 raw ideas');
+  expect(runtimeSkill).toContain('Dispatch ideation sub-agents on the inherited model.');
+  expect(runtimeSkill).toContain('Omit the `mode` parameter');
+}
+
 describe('spec-ideate contracts', () => {
   test('source skill keeps internal naming and non-Slack ideation contracts', () => {
     const skill = read(SKILL_PATH);
@@ -58,11 +65,13 @@ describe('spec-ideate contracts', () => {
     expect(claudeRuntime).toContain('`issue-intelligence-analyst`');
     expect(claudeRuntime).not.toContain('spec-first:research:learnings-researcher');
     expect(claudeRuntime).not.toContain('spec-first:research:issue-intelligence-analyst');
+    expectCoreContracts(claudeRuntime);
 
     expect(codexRuntime).toContain('name: spec-ideate');
     expect(codexRuntime).toContain('`.codex/agents/research/learnings-researcher.md`');
     expect(codexRuntime).toContain('`.codex/agents/research/issue-intelligence-analyst.md`');
     expect(codexRuntime).not.toContain('spec-first:research:learnings-researcher');
     expect(codexRuntime).not.toContain('spec-first:research:issue-intelligence-analyst');
+    expectCoreContracts(codexRuntime);
   });
 });

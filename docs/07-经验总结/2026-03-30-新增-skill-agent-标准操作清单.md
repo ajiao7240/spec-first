@@ -64,7 +64,12 @@ description: ...
 
 - Claude Code 对这个问题容忍度更高
 - Codex 的 skill 发现对 `name:` 更敏感
-- 目录名与 `name:` 脱节时，`$spec-*` 很容易不命中
+- 目录名与 `name:` 脱节时，Codex runtime 的 `$spec-*` 很容易不命中
+
+注意区分两层：
+
+- source `skills/<skill-name>/SKILL.md` 可以保留仓库内部命名，例如 `brainstorm-workflow`
+- Codex runtime 生成后的 `name:` 需要与 `.agents/skills/<skill-name>/` 目录名一致
 
 ### 3. 内容里不要硬编码平台私有路径
 
@@ -125,6 +130,7 @@ Task spec-first:review:correctness-reviewer(Review the current diff for correctn
 
 - 既要能作为 Claude 的 `/spec:*` 命令被调用
 - 又要能作为 Codex 的 `$spec-*` skill 被发现
+- 同时会生成 `.codex/commands/spec/<name>.md` 兼容命令文件，但正式 discovery 仍以 `.agents/skills/spec-<name>/` 为准
 
 如果是新增核心 workflow，还必须继续执行下面的“新增核心 workflow”步骤。
 
@@ -242,7 +248,8 @@ $spec-triage
 ### 1. 目录和命名是否一致
 
 - skill 目录名是否正确
-- `SKILL.md` 的 `name:` 是否与目录名一致
+- source `SKILL.md` 的 `name:` 是否符合仓库内部命名约定
+- 如是核心 workflow，Codex runtime 的 `name:` 是否与 `.agents/skills/<skill-name>/` 目录名一致
 - agent 文件名是否与引用名一致
 
 ### 2. 引用是否使用 canonical 形式
@@ -329,7 +336,7 @@ $spec-<name>
 
 - [ ] skill 源写在 `skills/`，agent 源写在 `agents/`
 - [ ] 没有直接把 `.claude/`、`.codex/`、`.agents/skills/` 当源码改
-- [ ] skill 的 `name:` 与目录名一致
+- [ ] source skill 的 `name:` 符合仓库内部命名约定；如是核心 workflow，已验证 Codex runtime `name:` 与目录名一致
 - [ ] 引用 agent 时使用 `spec-first:<category>:<agent-name>`
 - [ ] 如果是核心 workflow，已同步更新 `.claude-plugin/plugin.json`
 - [ ] 如果是核心 workflow，已新增 `templates/claude/commands/spec/<name>.md`
@@ -350,8 +357,8 @@ $spec-<name>
 
 结果：
 
-- 运行时文件存在
-- Codex 不一定能按预期 skill 名发现
+- source 层不一定有问题
+- 但 Codex runtime 不一定能按预期 skill 名发现
 
 ### 错误 3：在 skill 里写死 `.codex/agents/...`
 
