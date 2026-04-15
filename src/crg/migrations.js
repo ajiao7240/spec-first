@@ -41,6 +41,10 @@ const DDL_STATEMENTS = [
     line_start INTEGER,
     line_end INTEGER,
     is_test INTEGER DEFAULT 0,
+    generation_id TEXT,
+    parser_quality TEXT DEFAULT 'ok',
+    summary TEXT,
+    retrieval_text TEXT,
     community_id TEXT,
     confidence TEXT DEFAULT 'Observed',
     source_tier TEXT DEFAULT 'crg_ast',
@@ -107,12 +111,28 @@ const DDL_STATEMENTS = [
     target_path_raw TEXT
   )`,
 
+  `CREATE TABLE IF NOT EXISTS chunks (
+    id TEXT PRIMARY KEY,
+    node_id TEXT NOT NULL,
+    parent_symbol_id TEXT NOT NULL,
+    generation_id TEXT,
+    file_path TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'chunk',
+    name TEXT NOT NULL,
+    line_start INTEGER,
+    line_end INTEGER,
+    summary TEXT,
+    retrieval_text TEXT,
+    FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+  )`,
+
   // FTS5 虚表（全文搜索，独立存储，不使用 content= 外部内容表）
   // 注意：content=nodes 方案要求 FTS 列名与 nodes 表列名严格对应；
   //       独立 FTS 更简单，rebuildFTS 负责全量重建保持一致。
   `CREATE VIRTUAL TABLE IF NOT EXISTS fts_nodes USING fts5(
     node_id UNINDEXED,
     name,
+    retrieval_text,
     file_path UNINDEXED,
     kind UNINDEXED
   )`,
@@ -130,6 +150,8 @@ const DDL_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind)`,
   `CREATE INDEX IF NOT EXISTS idx_unresolved_edges_source_file ON unresolved_edges(source_file)`,
   `CREATE INDEX IF NOT EXISTS idx_unresolved_edges_kind ON unresolved_edges(edge_kind)`,
+  `CREATE INDEX IF NOT EXISTS idx_chunks_node_id ON chunks(node_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path)`,
 ];
 
 /**
@@ -154,11 +176,15 @@ function initDatabase(dbPath) {
   const ftsMeta = db
     .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='fts_nodes'")
     .get();
-  if (ftsMeta && ftsMeta.sql && ftsMeta.sql.includes('content=nodes')) {
+  if (ftsMeta && ftsMeta.sql && (
+    ftsMeta.sql.includes('content=nodes') ||
+    !ftsMeta.sql.includes('retrieval_text')
+  )) {
     db.exec('DROP TABLE IF EXISTS fts_nodes');
     db.exec(`CREATE VIRTUAL TABLE fts_nodes USING fts5(
       node_id UNINDEXED,
       name,
+      retrieval_text,
       file_path UNINDEXED,
       kind UNINDEXED
     )`);
@@ -175,6 +201,41 @@ function initDatabase(dbPath) {
     if (!flowsMeta.sql.includes('"depth"') && !flowsMeta.sql.includes(' depth ')) {
       db.exec('ALTER TABLE flows ADD COLUMN depth INTEGER DEFAULT 0');
     }
+  }
+
+  const nodeColumns = db.prepare(`PRAGMA table_info(nodes)`).all().map((column) => column.name);
+  if (!nodeColumns.includes('generation_id')) {
+    db.exec('ALTER TABLE nodes ADD COLUMN generation_id TEXT');
+  }
+  if (!nodeColumns.includes('parser_quality')) {
+    db.exec(`ALTER TABLE nodes ADD COLUMN parser_quality TEXT DEFAULT 'ok'`);
+  }
+  if (!nodeColumns.includes('summary')) {
+    db.exec('ALTER TABLE nodes ADD COLUMN summary TEXT');
+  }
+  if (!nodeColumns.includes('retrieval_text')) {
+    db.exec('ALTER TABLE nodes ADD COLUMN retrieval_text TEXT');
+  }
+  const chunkMeta = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='chunks'")
+    .get();
+  if (!chunkMeta) {
+    db.exec(`CREATE TABLE chunks (
+      id TEXT PRIMARY KEY,
+      node_id TEXT NOT NULL,
+      parent_symbol_id TEXT NOT NULL,
+      generation_id TEXT,
+      file_path TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'chunk',
+      name TEXT NOT NULL,
+      line_start INTEGER,
+      line_end INTEGER,
+      summary TEXT,
+      retrieval_text TEXT,
+      FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+    )`);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_chunks_node_id ON chunks(node_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path)');
   }
 
   // 迁移：communities 表若无 CHECK 约束，则重建以添加 health_status CHECK

@@ -6,11 +6,17 @@
   - 日期时间必须使用 `YYYY-MM-DD HH:MM:SS`
   - `作者` 填写提交人或变更责任人
   - `变更摘要` 使用中文，简明说明本次改动
-  - 用户可感知的变更在末尾追加 `(user-visible)`
+- 用户可感知的变更在末尾追加 `(user-visible)`
+
 - v1.6.0 2026-04-15 23:05:00 kuang: docs(codex-runtime): 校正 Codex 经验文档与 skill 接入清单中的正式 discovery、兼容命令层与 runtime naming 口径
+- v1.6.0 2026-04-15 22:55:00 kuang: fix(crg-gate): 将 fallback_rate 校准为仅统计硬 fallback（level!=L0），避免 freshness_stale 软降级污染 regression 指标 (user-visible)
+- v1.6.0 2026-04-15 22:40:00 kuang: feat(governance+workspace): 新增 ownership registry、review queue 状态流转、governance control-plane samples 与 workspace v1 单仓不退化约束 (user-visible)
 - v1.6.0 2026-04-15 22:35:00 kuang: docs(runtime-adapters): 校正 CLAUDE.md 中 canonical agent name、Codex transform 与 doctor 覆盖范围说明
 - v1.6.0 2026-04-15 22:30:00 kuang: test(spec-ideate): 补齐 post-ideation reference 的 runtime/pack 守卫，并将 inherited model、omit mode、28-48 数量口径扩展到 ideate runtime contract 覆盖
-
+- v1.6.0 2026-04-15 22:20:00 kuang: feat(crg-retrieval): 增加 query planning、score breakdown 可审计排序与 language-aware chunking 最小增强，并补齐 retrieval/chunking 单测 (user-visible)
+- v1.6.0 2026-04-15 22:05:00 kuang: fix(spec-graph-bootstrap): 新构建 bootstrap 产物默认回写当前 graph_last_built，避免 fresh build 被错误标记为 freshness_stale (user-visible)
+- v1.6.0 2026-04-15 21:50:00 kuang: feat(crg-gate): 扩充 review/repo-qa/context-efficiency benchmark 数据集与聚合字段，新增 regression fallback_rate 指标、baseline 更新脚本与 CRG quality gate workflow (user-visible)
+- v1.6.0 2026-04-15 21:25:00 kuang: feat(spec-graph-bootstrap): 新增 run-bootstrap 主链入口与 context rollback 机制，并补齐 bootstrap->evaluator->telemetry 的 e2e 主链验证 (user-visible)
 - v1.6.0 2026-04-15 21:05:00 kuang: fix(context-routing+bootstrap): 修复 freshness 健康枚举与 schema 漂移、损坏 bootstrap JSON 未降级、workspace Windows 风格路径 slug 解析错误 (user-visible)
 - v1.6.0 2026-04-15 20:40:00 kuang: feat(spec-graph-bootstrap): 默认暴露 freshness/lint/contradictions 控制面资产，并为 plan/work/review Stage-0 增加 telemetry contract 守卫
 - v1.6.0 2026-04-15 20:20:00 kuang: feat(spec-graph-bootstrap): 新增 bootstrap compiler orchestrator，统一 machine/human/routing 主链编排并补齐主链 contract 守卫测试

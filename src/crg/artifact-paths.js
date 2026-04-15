@@ -8,6 +8,10 @@ const path = require('node:path');
 
 /** SHA/content fingerprint file for CRG graph incremental build */
 const GRAPH_INPUT_FINGERPRINTS_FILE = 'input-fingerprints.json';
+const GRAPH_DB_FILE = 'graph.db';
+const GRAPH_CURRENT_FILE = 'current.json';
+const GRAPH_LAST_KNOWN_GOOD_FILE = 'last-known-good.json';
+const GRAPH_GENERATIONS_SUBDIR = 'generations';
 
 /** Artifact manifest written by the bootstrap workflow control-plane */
 const BOOTSTRAP_ARTIFACT_MANIFEST_FILE = 'artifact-manifest.json';
@@ -43,7 +47,7 @@ function resolveGraphDir(repoRoot) {
  * @returns {string}
  */
 function resolveGraphDb(repoRoot) {
-  return path.join(resolveGraphDir(repoRoot), 'graph.db');
+  return path.join(resolveGraphDir(repoRoot), GRAPH_DB_FILE);
 }
 
 /**
@@ -94,6 +98,10 @@ function resolveContextDocsDir(repoRoot, slug) {
 module.exports = {
   // Filename constants
   GRAPH_INPUT_FINGERPRINTS_FILE,
+  GRAPH_DB_FILE,
+  GRAPH_CURRENT_FILE,
+  GRAPH_LAST_KNOWN_GOOD_FILE,
+  GRAPH_GENERATIONS_SUBDIR,
   BOOTSTRAP_ARTIFACT_MANIFEST_FILE,
   GRAPH_IGNORE_FILE,
   // Path resolvers

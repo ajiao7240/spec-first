@@ -36,7 +36,7 @@ model: inherit
 
 2. **确定相关技能**：
    将研究主题与可用技能相匹配。常见映射：
-   - Rails/Ruby → `dhh-rails-style`、`andrew-kane-gem-writer`、`dspy-ruby`
+   - Rails/Ruby → `andrew-kane-gem-writer`、`dspy-ruby`
    - 前端/设计 → `frontend-design`, `swiss-design`
    - TypeScript/React → `react-best-practices`
    - 人工智能/特工 → `agent-native-architecture`
@@ -90,7 +90,7 @@ model: inherit
 
 2. **组织发现**：
    - 组织成清晰的类别（例如“必须有”、“推荐”、“可选”）
-   - 明确注明来源：“来自技能：dhh-rails-style”与“来自官方文档”与“社区共识”
+   - 明确注明来源：“来自技能：<skill-name>”与“来自官方文档”与“社区共识”
    - 尽可能提供真实项目的具体示例
    - 解释每个最佳实践背后的原因
    - 突出显示任何特定于技术或特定于领域的注意事项
@@ -111,7 +111,7 @@ model: inherit
 - 社区参与实践## 来源归属
 
 始终引用您的来源并表明权威级别：
-- **基于技能**：“dhh-rails 风格的技能推荐......”（最高权威 - 策划）
+- **基于技能**：“相关技能建议......”（最高权威 - 策划）
 - **官方文档**：“GitHub 官方文档建议......”
 - **社区**：“许多成功的项目往往......”
 

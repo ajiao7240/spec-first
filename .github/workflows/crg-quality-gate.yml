@@ -1,0 +1,39 @@
+name: CRG Quality Gate
+
+on:
+  pull_request:
+    paths:
+      - 'src/crg/**'
+      - 'src/context-routing/**'
+      - 'src/bootstrap-compiler/**'
+      - 'skills/spec-graph-bootstrap/**'
+      - 'skills/spec-plan/**'
+      - 'skills/spec-work/**'
+      - 'skills/spec-review/**'
+      - 'benchmarks/**'
+      - 'tests/unit/**'
+      - 'tests/e2e/spec-graph-bootstrap-mainline.sh'
+      - 'tests/integration/e2e.sh'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+jobs:
+  regression-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run CRG quality gate
+        run: npm run test:crg:gate

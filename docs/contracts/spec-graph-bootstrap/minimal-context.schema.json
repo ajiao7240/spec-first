@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-graph-bootstrap minimal-context",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "stage",
+    "profile",
+    "selected_assets",
+    "fallback_reason",
+    "advice"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "generated_at": { "type": "string" },
+    "stage": { "type": "string" },
+    "profile": { "type": "string" },
+    "selected_assets": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "fallback_reason": { "type": ["string", "null"] },
+    "advice": { "type": "string" },
+    "priority_assets": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "risk_focus": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "candidate_tests": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

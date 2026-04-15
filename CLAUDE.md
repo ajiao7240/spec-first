@@ -79,10 +79,23 @@ Skill/Agent 源文件统一使用 `spec-first:category:name` 作为 canonical ag
 | `cli/envelope.js` | JSON 信封工厂 |
 | `artifact-paths.js` | 集中路径解析模块；纯函数，无 I/O；导出 resolveGraphDir/Db/InputFingerprints（→ `.spec-first/graph/`）、resolveWorkflowArtifactDir（→ `.spec-first/workflows/<wf>/<slug>/`）、resolveContextDocsDir（→ `docs/contexts/<slug>/`）及 R4 文件名常量（GRAPH_INPUT_FINGERPRINTS_FILE / BOOTSTRAP_ARTIFACT_MANIFEST_FILE / GRAPH_IGNORE_FILE）；todos 持久工作项目录（→ `docs/todos/`，VCS 资产，todo-create/triage/resolve 共享） |
 | `commands/` | 13 个子命令处理器（flows/flow/affected-flows/communities/community/architecture/surprising-connections/god-nodes/impact/large-functions/search/detect-changes/review-context） |
+| `chunking.js` | 语义分块：按 symbol 边界切分代码为 chunk，供 retrieval 向量化 |
+| `retrieval/` | 语义检索层：向量编码、ANN 索引（HNSW）、混合搜索（BM25 + 向量）、重排 |
+| `generations/` | LLM 生成层：prompt 组装、上下文裁剪、输出解析 |
 
-**JSON 契约**：`docs/contracts/crg-cli-v1.schema.json`（JSON Schema Draft 2020-12）
+**顶层模块**：
+| 目录 | 职责 |
+|---|---|
+| `src/context-routing/` | 跨工作流上下文路由：解析 injection-index.yaml、按阶段/输出存在性选择注入文件 |
+| `src/bootstrap-compiler/` | bootstrap 产物编译器：将 Phase 0–4 产物编译为 Stage-0 可消费的标准化上下文包 |
 
-**测试**：`npm run test:jest`（需先 `npm install --legacy-peer-deps`）；`npm run test:unit` 现额外串行执行 `tests/unit/spec-graph-bootstrap-contracts.test.js`，覆盖 Stage-0 injection-index 契约与 fact/risk 字段的 `updated_at` 要求
+**JSON 契约**：`docs/contracts/crg-cli-v1.schema.json`（JSON Schema Draft 2020-12）；`docs/contracts/` 目录集中存放所有 CLI/API 契约 Schema
+
+**测试**：`npm run test:jest`（需先 `npm install --legacy-peer-deps`）；`npm run test:unit` 现额外串行执行 `tests/unit/spec-graph-bootstrap-contracts.test.js`，覆盖 Stage-0 injection-index 契约与 fact/risk 字段的 `updated_at` 要求；新增 benchmark smoke、context-routing evaluator、semantic rerank、workflow telemetry、Stage-0 freshness 等 13 个单元测试
+
+**CI**：`.github/workflows/crg-quality-gate.yml` 为 CRG 质量门禁 workflow
+
+**已移除 skill**：`dhh-rails-style`（迁至宿主侧独立 skill）、`slfg`（废弃）
 
 <!-- spec-first:lang:start -->
 ## 语言与治理策略（由 spec-first 管理）

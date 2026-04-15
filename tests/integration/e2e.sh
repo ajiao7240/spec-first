@@ -179,4 +179,9 @@ else
 fi
 
 echo ""
+echo "9. 测试 spec-graph-bootstrap 主链..."
+bash tests/e2e/spec-graph-bootstrap-mainline.sh
+echo "✓ spec-graph-bootstrap 主链通过"
+
+echo ""
 echo "=== E2E 测试全部通过 ✓ ==="

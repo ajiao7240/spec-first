@@ -160,7 +160,7 @@ BASE=$(git merge-base HEAD "$BASE_ARG" 2>/dev/null) || BASE="$BASE_ARG"
 echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:" && git diff -U10 $BASE && echo "UNTRACKED:" && git ls-files --others --exclude-standard
 ```
 
-该路径适用于任何引用 - SHA、`origin/main`、分支名称。自动调用者（spec:work、lfg、slfg）应该更喜欢这样做，以避免检测开销。 **不要将 `base:` 与 PR 编号或分支目标组合。** 如果两者都存在，则停止并显示错误：“不能将 `base:` 与 PR 编号或分支目标一起使用 - `base:` 意味着当前结帐已经是正确的分支。单独传递 `base:`，或单独传递目标并让范围检测解析基数。”这可以避免范围/意图不匹配，即差异基础来自一个源，但代码和元数据来自另一个源。
+该路径适用于任何引用 - SHA、`origin/main`、分支名称。自动调用者（spec:work、lfg）应该更喜欢这样做，以避免检测开销。 **不要将 `base:` 与 PR 编号或分支目标组合。** 如果两者都存在，则停止并显示错误：“不能将 `base:` 与 PR 编号或分支目标一起使用 - `base:` 意味着当前结帐已经是正确的分支。单独传递 `base:`，或单独传递目标并让范围检测解析基数。”这可以避免范围/意图不匹配，即差异基础来自一个源，但代码和元数据来自另一个源。
 
 **如果提供 PR 编号或 GitHub URL 作为参数：**
 

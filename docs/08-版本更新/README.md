@@ -1,11 +1,13 @@
 # 版本更新
 
-本目录用于记录 `spec-first` 近期的重要能力迭代。结合当前仓库版本信息，以下内容可作为 `v1.4.0` 阶段的核心更新摘要。
+本目录用于记录 `spec-first` 近期的重要能力迭代。结合当前仓库版本信息，以下内容可作为 `v1.5.1` 阶段的核心更新摘要。
 
 ## 最近更新速览
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-15 | feat | `spec-graph-bootstrap+crg` | 完成 Stage-0 后续 P1-P3 最小闭环：补齐 `plan/work minimal-context`、hybrid retrieval、AST-aware chunking、freshness/lint/contradictions、compiler 模块化、repo QA/context efficiency/regression benchmark、workflow telemetry、optional semantic rerank、workspace context 与知识治理能力 |
+| 2026-04-15 | fix | `managed-state-upgrade` | 统一 legacy managed state 升级语义：`doctor` 会明确标记 legacy state 并指向 `init`，`init` 成为唯一支持的 hard-cut 升级入口，执行 managed hard reset 后全量重建运行时，`clean` 仅清理当前受管集合并保留用户自定义资产 |
 | 2026-04-15 | feat | `spec-brainstorm` | `spec-brainstorm` 同步 `ce-brainstorm` 非 Slack 核心能力，并新增 source-driven supplemental context 路由：支持 Local Docs、Feishu Chat、Feishu Doc、GitHub URL、Docs URL、Web URL；同时补齐 `universal-brainstorming` / `visual-communication` references 与 contract/smoke 守卫 |
 | 2026-04-14 | fix | `compound-core-workflows` | 修正 `spec-plan/references/plan-handoff.md` 中遗留的 `document-review mode:headless` 指令，使 planning handoff 与本地 `document-review` 非 headless contract 一致，避免自动化调用引用不存在模式 |
 | 2026-04-14 | feat | `compound-core-workflows` | 完成 `compound-engineering-plugin` 核心链路批次 B-D 同步：`spec-plan` / `spec-brainstorm` 收口 repo-relative、mandatory document-review 与 reference 抽取；`spec-work` / `spec-work-beta` 收口 review/testing/delegation 约束并拆出 shipping/codex references；`spec-compound` / `spec-compound-refresh` 补 discoverability 检查、stack-aware reviewer 路由，并将 `docs/solutions/` 可发现性写回 `AGENTS.md` / `CLAUDE.md` |
@@ -26,6 +28,66 @@
 | 2026-04-01 | feat | `mcp-setup` | 把 MCP 工具安装、检测、配置合并为一条一键化路径，降低 Full mode 落地门槛 |
 | 2026-03-31 | fix | `spec-bootstrap` | 基于 review 结论补强原子备份、失败恢复、MCP 连接校验等关键可靠性能力 |
 | 2026-03-31 | feat | `spec-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
+
+---
+
+## 2026-04-15 `feat(spec-graph-bootstrap+crg)`
+
+### 更新内容
+
+围绕 `spec-graph-bootstrap` 与 `src/crg` 完成 Stage-0 后续能力闭环，把此前只覆盖 `P0` 的最小消费链，扩展为可迭代的 machine-first context platform。
+
+### 主要变化
+
+- `minimal-context`
+  - 补齐 `plan.json`、`work.json`
+  - `review/plan/work` 三类 workflow 都有明确的 machine-first task card
+- retrieval / indexing
+  - 新增 hybrid retrieval v1：`seed -> expand -> rerank -> pack`
+  - 引入 AST-aware chunking v1，并让 retrieval 可返回 chunk 级上下文
+  - 支持 optional semantic rerank，默认不破坏 lexical + graph 主链
+- Stage-0 compiler / governance
+  - 新增 `freshness / lint / contradictions`
+  - 拆分 compiler：machine artifacts、human assets、routing 三层
+  - 新增 ownership / review queue 治理能力
+- benchmark / regression
+  - 新增 `repo-qa`、`context-efficiency`、`regression gate`
+  - `workflow telemetry` 记录 selected assets / skipped rules / fallback reason / freshness status
+- workspace
+  - 支持跨 repo workspace context 聚合与优雅降级
+
+### 版本意义
+
+这次更新的核心不是“再多产一些文档”，而是把 Stage-0 从一次性 bootstrap 输出，推进成一个可验证、可回归、可治理、可跨仓库扩展的上下文分发底座。后续无论是 `spec-plan`、`spec-work`、`spec-review`，还是更高层的 benchmark/regression 演进，都有了统一的 machine-first contract 和最小实现骨架。
+
+---
+
+## 2026-04-15 `fix(managed-state-upgrade)`
+
+### 更新内容
+
+统一 `doctor / init / clean` 对 legacy managed state 的处理语义，并同步更新 README 与用户手册，避免用户从不同文档读到相互冲突的升级路径。
+
+### 主要变化
+
+- `doctor`
+  - 若发现旧版 `state.json` 形状，会明确报告 `legacy managed state detected`
+  - 修复建议统一收敛到重新执行 `spec-first init --claude|--codex`
+- `init`
+  - 成为唯一支持的 legacy 升级入口
+  - 检测到 legacy state 时，先执行 managed hard reset，再按当前版本全量重建运行时
+- `clean`
+  - 只删除当前受管集合
+  - 保留未受管的自定义 skills / agents
+  - 不再承担 legacy 迁移职责
+- 文档
+  - README、快速开始、核心概念、FAQ、本地源码安装指南全部同步到同一口径
+  - 修正 Claude workflow skill 实际目录为 `.claude/spec-first/workflows/`
+  - 修正当前运行时数量说明为 `45` 个 skills、`54` 个 agents、`4` 个 agent support files
+
+### 版本意义
+
+这次更新解决的不是单条命令行为，而是用户升级路径的认知分叉问题。当前口径非常明确：看到 legacy state，不要手工清目录，不要先跑 `clean`，直接重新运行 `init`。这样既能保证 hard-cut 升级一致性，也能最大程度保护用户自定义运行时资产。
 
 ---
 

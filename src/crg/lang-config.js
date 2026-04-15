@@ -137,4 +137,34 @@ function buildIndexableExts() {
   return s;
 }
 
-module.exports = { LANG_CONFIG, buildExtToLang, buildIndexableExts };
+function detectLanguageFromFilePath(filePath = '') {
+  const ext = String(filePath).split('.').pop().toLowerCase();
+  const extToLang = buildExtToLang();
+  return extToLang[ext] || 'unknown';
+}
+
+function resolveChunkingConfig(filePath = '') {
+  const language = detectLanguageFromFilePath(filePath);
+  const languageMaxLines = {
+    python: 60,
+    javascript: 80,
+    typescript: 80,
+    tsx: 80,
+    ruby: 70,
+    java: 100,
+    go: 100,
+  };
+
+  return {
+    language,
+    maxChunkLines: languageMaxLines[language] || 80,
+  };
+}
+
+module.exports = {
+  LANG_CONFIG,
+  buildExtToLang,
+  buildIndexableExts,
+  detectLanguageFromFilePath,
+  resolveChunkingConfig,
+};

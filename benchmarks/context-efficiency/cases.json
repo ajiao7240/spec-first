@@ -1,0 +1,30 @@
+[
+  {
+    "id": "spec-first-review-efficiency",
+    "repo_slug": "spec-first",
+    "stage": "review",
+    "expected_key_evidence": [
+      "minimal-context/review.json",
+      "code-facts/test-map.md"
+    ]
+  },
+  {
+    "id": "spec-first-plan-efficiency",
+    "repo_slug": "spec-first",
+    "stage": "plan",
+    "expected_key_evidence": [
+      "minimal-context/plan.json",
+      "architecture/module-map.md"
+    ]
+  },
+  {
+    "id": "spec-first-work-efficiency",
+    "repo_slug": "spec-first",
+    "stage": "work",
+    "expected_key_evidence": [
+      "minimal-context/work.json",
+      "code-facts/test-map.md",
+      "context-packs/review-change.md"
+    ]
+  }
+]

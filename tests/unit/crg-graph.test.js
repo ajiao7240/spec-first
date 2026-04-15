@@ -8,6 +8,45 @@ const { initDatabase } = require('../../src/crg/migrations');
 const { upsertNodes, resolveEdges } = require('../../src/crg/graph');
 
 describe('resolveEdges', () => {
+  test('upsertNodes 会写入 generation_id、parser_quality、summary、retrieval_text', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-graph-'));
+    const dbPath = path.join(tmpDir, 'graph.db');
+    const db = initDatabase(dbPath);
+
+    try {
+      upsertNodes(db, [
+        {
+          id: 'src/a.js#function#foo#L1',
+          file_path: 'src/a.js',
+          name: 'foo',
+          kind: 'function',
+          line_start: 1,
+          line_end: 3,
+          generation_id: 'gen-1',
+          parser_quality: 'ok',
+          summary: 'function foo defined in src/a.js',
+          retrieval_text: 'src/a.js function foo',
+        },
+      ]);
+
+      const row = db.prepare(`
+        SELECT generation_id, parser_quality, summary, retrieval_text
+        FROM nodes
+        WHERE id = 'src/a.js#function#foo#L1'
+      `).get();
+
+      expect(row).toEqual({
+        generation_id: 'gen-1',
+        parser_quality: 'ok',
+        summary: 'function foo defined in src/a.js',
+        retrieval_text: 'src/a.js function foo',
+      });
+    } finally {
+      db.close();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   test('同名符号存在歧义时不应按裸 name 串线', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-graph-'));
     const dbPath = path.join(tmpDir, 'graph.db');

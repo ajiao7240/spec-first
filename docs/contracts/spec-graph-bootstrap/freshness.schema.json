@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-graph-bootstrap freshness",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "graph_last_built",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "generated_at": { "type": "string" },
+    "graph_last_built": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["healthy", "stale", "unknown"]
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

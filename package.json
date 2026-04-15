@@ -1,7 +1,7 @@
 {
   "name": "spec-first",
   "version": "1.5.1",
-  "description": "AI-assisted work framework for Claude Code with a npm CLI entrypoint",
+  "description": "AI coding workflow CLI for spec-driven engineering, spec-driven development, and harness engineering on Claude Code and Codex",
   "type": "commonjs",
   "bin": {
     "spec-first": "./bin/spec-first.js"
@@ -11,6 +11,8 @@
     "test:smoke": "bash tests/smoke/install-local.sh && bash tests/smoke/cli.sh",
     "test:integration": "bash tests/integration/e2e.sh",
     "test:e2e:crg": "bash tests/e2e/crg-all-commands.sh && bash tests/e2e/crg-sqlite-audit.sh",
+    "test:crg:gate": "node benchmarks/regression/run-regression.js",
+    "test:crg:benchmarks": "node benchmarks/review/run-review-benchmark.js && node benchmarks/repo-qa/run-repo-qa.js && node benchmarks/context-efficiency/run-context-efficiency.js",
     "test": "npm run test:unit && npm run test:smoke && npm run test:integration && npm run test:e2e:crg",
     "test:jest": "jest",
     "test:release": "bash tests/smoke/install-tarball.sh",
@@ -28,21 +30,30 @@
   ],
   "keywords": [
     "spec-first",
+    "ai-coding-workflow",
+    "spec-driven-engineering",
+    "spec-driven-development",
     "harness-engineering",
-    "claude-code",
-    "ai-workflow-framework",
-    "specification-driven",
     "knowledge-compound",
     "ai-code-review",
-    "iterative-improvement",
     "context-engineering",
-    "developer-harness"
+    "ai-engineering",
+    "engineering-workflow",
+    "developer-workflow",
+    "multi-agent-workflow",
+    "agent-workflow",
+    "claude-code",
+    "codex"
   ],
   "author": "spec-first",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/sunrain520/spec-first.git"
+  },
+  "homepage": "https://github.com/sunrain520/spec-first#readme",
+  "bugs": {
+    "url": "https://github.com/sunrain520/spec-first/issues"
   },
   "engines": {
     "node": ">=20.0.0"

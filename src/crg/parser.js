@@ -17,6 +17,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { isSensitiveFile } = require('./input-convergence');
 const { LANG_CONFIG, buildExtToLang } = require('./lang-config');
+const { buildChunksForNodes, DEFAULT_MAX_CHUNK_LINES } = require('./chunking');
 
 // ---------------------------------------------------------------------------
 // 测试文件识别正则
@@ -132,6 +133,10 @@ function buildNode(filePath, kind, name, lineStart, lineEnd, isTestFile) {
     line_start: lineStart,
     line_end: lineEnd,
     is_test: isTestNode,
+    generation_id: null,
+    parser_quality: 'ok',
+    summary: `${kind} ${name} defined in ${filePath}`,
+    retrieval_text: `${filePath} ${kind} ${name}`,
     community_id: null,
     confidence: 'Observed',
     source_tier: 'crg_ast',
@@ -1819,6 +1824,8 @@ function parseFile(filePath, repoRoot, options = {}) {
 // ---------------------------------------------------------------------------
 module.exports = {
   parseFile,
+  buildChunksForNodes,
+  DEFAULT_MAX_CHUNK_LINES,
   inferLanguage,
   buildSymbolKey,
   TEST_FILE_RE,

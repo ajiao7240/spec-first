@@ -28,10 +28,10 @@ function upsertNodes(db, nodes) {
   const stmt = db.prepare(`
     INSERT INTO nodes (
       id, file_path, name, kind,
-      line_start, line_end, is_test, community_id,
+      line_start, line_end, is_test, generation_id, parser_quality, summary, retrieval_text, community_id,
       confidence, source_tier, evidence, inference_reason
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       file_path       = excluded.file_path,
       name            = excluded.name,
@@ -39,6 +39,10 @@ function upsertNodes(db, nodes) {
       line_start      = excluded.line_start,
       line_end        = excluded.line_end,
       is_test         = excluded.is_test,
+      generation_id   = excluded.generation_id,
+      parser_quality  = excluded.parser_quality,
+      summary         = excluded.summary,
+      retrieval_text  = excluded.retrieval_text,
       confidence      = excluded.confidence,
       source_tier     = excluded.source_tier,
       evidence        = excluded.evidence,
@@ -55,6 +59,10 @@ function upsertNodes(db, nodes) {
         node.line_start   ?? 0,
         node.line_end     ?? 0,
         node.is_test      ?? 0,
+        node.generation_id ?? null,
+        node.parser_quality ?? 'ok',
+        node.summary ?? `${node.kind} ${node.name}`,
+        node.retrieval_text ?? `${node.file_path} ${node.kind} ${node.name}`,
         node.confidence   ?? 'Observed',
         node.source_tier  ?? 'crg_ast',
         JSON.stringify(node.evidence ?? []),
@@ -64,6 +72,49 @@ function upsertNodes(db, nodes) {
   });
 
   insertAll(nodes);
+}
+
+function upsertChunks(db, chunks) {
+  if (chunks.length === 0) return;
+
+  const stmt = db.prepare(`
+    INSERT INTO chunks (
+      id, node_id, parent_symbol_id, generation_id, file_path,
+      kind, name, line_start, line_end, summary, retrieval_text
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      node_id = excluded.node_id,
+      parent_symbol_id = excluded.parent_symbol_id,
+      generation_id = excluded.generation_id,
+      file_path = excluded.file_path,
+      kind = excluded.kind,
+      name = excluded.name,
+      line_start = excluded.line_start,
+      line_end = excluded.line_end,
+      summary = excluded.summary,
+      retrieval_text = excluded.retrieval_text
+  `);
+
+  const insertAll = db.transaction((chunkList) => {
+    for (const chunk of chunkList) {
+      stmt.run(
+        chunk.id,
+        chunk.node_id,
+        chunk.parent_symbol_id,
+        chunk.generation_id || null,
+        chunk.file_path,
+        chunk.kind || 'chunk',
+        chunk.name,
+        chunk.line_start || 0,
+        chunk.line_end || 0,
+        chunk.summary || null,
+        chunk.retrieval_text || null
+      );
+    }
+  });
+
+  insertAll(chunks);
 }
 
 /**
@@ -388,6 +439,7 @@ function replaceUnresolvedEdges(db, rows) {
 
 module.exports = {
   upsertNodes,
+  upsertChunks,
   upsertEdges,
   deleteStaleNodes,
   resolveEdges,

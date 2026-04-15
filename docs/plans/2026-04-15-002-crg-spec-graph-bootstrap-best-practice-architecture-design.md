@@ -254,7 +254,7 @@
                               |
                               v
 +---------------------------------------------------------------+
-| Write Control Plane Facts                                      |
+| Write Machine Fact Artifacts                                   |
 | - fact-inventory.json                                          |
 | - risk-signals.json                                            |
 | - test-surface.json                                            |
@@ -263,7 +263,7 @@
 |   - fact-inventory.json: 项目事实总表                          |
 |   - risk-signals.json: 风险信号与图指标                        |
 |   - test-surface.json: 测试面与覆盖缺口                        |
-| 说明: 形成后续所有文档与路由生成的 machine-first 输入          |
+| 说明: 形成后续 compiler/evaluator 消费的 machine-first 输入     |
 +---------------------------------------------------------------+
                               |
                               v
@@ -1282,6 +1282,12 @@ src/crg/retrieval/
 
 ### 7.2.2 Machine Context Plane
 
+物理落点：
+
+```text
+.spec-first/workflows/bootstrap/<slug>/
+```
+
 建议新增或增强：
 
 - `repo-identity.json`
@@ -1294,11 +1300,13 @@ src/crg/retrieval/
 - `minimal-context/plan.json`
 - `minimal-context/work.json`
 - `minimal-context/review.json`
+- `minimal-context/verify.json`
 - `contradictions.json`
 
 职责：
 
 - 作为 workflow 与 evaluator 的 source-of-truth
+- 与 `docs/contexts/<slug>/` 的 human docs 分离，避免 narrative 与 machine contract 混放
 
 ### 7.2.3 Human Context Plane
 
@@ -1791,6 +1799,12 @@ P0 最小建议字段：
 - `minimal-context/plan.json`
 - `minimal-context/work.json`
 - `minimal-context/review.json`
+- `minimal-context/verify.json`
+
+说明：
+
+- `verify` 属于终局 machine-first profile
+- 但仅在 `verify` workflow 或明确 consumer 就绪后落地，不应先于消费方抢实现
 
 ## P2：质量闭环
 
@@ -2221,17 +2235,19 @@ P0 最小建议字段：
 
 如果只允许先做一轮高价值改造，我建议第一里程碑只交付以下内容：
 
-1. `CRG` generation model
-2. `context-routing` deterministic evaluator
-3. `minimal-context/review.json`
-4. schema/sample drift tests
-5. `CRG` retrieval-ready 最小 schema 扩展
-6. 一套最小 review benchmark
+1. `context-routing` deterministic evaluator
+2. workflow Stage-0 contract 对齐到 evaluator 输出
+3. `CRG` generation model
+4. `minimal-context/review.json`
+5. schema/sample drift tests
+6. `CRG` retrieval-ready 最小 schema 扩展
+7. 一套最小 review benchmark
 
 原因很简单：
 
-- 这六项能最直接证明系统开始从“能产文档”进化为“能稳定分发最小证据包”
-- 这六项完成后，再扩展 `plan / work`、freshness、lint、longitudinal eval 的性价比最高
+- 这七项能最直接证明系统开始从“能产文档”进化为“能稳定分发最小证据包”
+- 严格顺序应为 evaluator/contract 在前，generation 与 schema 扩展在后
+- 这七项完成后，再扩展 `plan / work`、freshness、lint、longitudinal eval 的性价比最高
 
 ## 19. 参考资料
 

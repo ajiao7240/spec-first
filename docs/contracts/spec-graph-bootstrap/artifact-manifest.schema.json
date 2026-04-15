@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-graph-bootstrap artifact-manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "updated_at",
+    "status",
+    "inputs",
+    "outputs"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "generated_at": { "type": "string" },
+    "updated_at": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["in_progress", "complete", "failed"]
+    },
+    "inputs": {
+      "type": "object",
+      "required": ["crg", "files", "analyzer_versions", "schema_versions"],
+      "properties": {
+        "crg": {
+          "type": "object",
+          "required": ["graph_last_built", "node_count", "edge_count", "last_build_commit"],
+          "properties": {
+            "graph_last_built": { "type": "string" },
+            "node_count": { "type": "number" },
+            "edge_count": { "type": "number" },
+            "last_build_commit": { "type": ["string", "null"] }
+          }
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "analyzer_versions": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "schema_versions": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["depends_on"],
+        "properties": {
+          "depends_on": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

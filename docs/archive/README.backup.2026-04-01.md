@@ -128,7 +128,7 @@ Spec-First 采用三层工程边界设计：
 | **任务** | `todo-create`, `todo-resolve`, `todo-triage` |
 | **设计** | `frontend-design` |
 | **AI/LLM** | `dspy-ruby`, `orchestrating-swarms`, `claude-permissions-optimizer`, `agent-native-architecture` |
-| **工具** | `setup`, `lfg`, `slfg`, `rclone`, `deploy-docs`, `every-style-editor`, `gemini-imagegen` |
+| **工具** | `setup`, `lfg`, `rclone`, `deploy-docs`, `every-style-editor`, `gemini-imagegen` |
 | **实验性** | `spec-work-beta`, `spec-compound-refresh` |
 
 </details>

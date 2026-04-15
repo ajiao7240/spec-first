@@ -40,7 +40,7 @@ function searchNodes(db, keyword, { kind, limit = 20 } = {}) {
   }
 
   const sql = `
-    SELECT n.id AS node_id, n.name, n.file_path, n.kind,
+    SELECT n.id AS node_id, n.name, n.file_path, n.kind, n.retrieval_text,
            -bm25(fts_nodes) AS score
     FROM fts_nodes f
     JOIN nodes n ON f.node_id = n.id
@@ -56,7 +56,7 @@ function searchNodes(db, keyword, { kind, limit = 20 } = {}) {
     return rows.map(row => ({
       ...row,
       score: Math.round(row.score * 1000) / 1000,
-      snippet: `${row.kind}: ${row.name}`,
+      snippet: row.retrieval_text || `${row.kind}: ${row.name}`,
     }));
   } catch (err) {
     // FTS5 查询语法错误時，返回空结果而非崩溃
@@ -86,20 +86,21 @@ function rebuildFTS(db) {
   db.exec(`CREATE VIRTUAL TABLE fts_nodes USING fts5(
     node_id UNINDEXED,
     name,
+    retrieval_text,
     file_path UNINDEXED,
     kind UNINDEXED
   )`);
 
   // 获取所有节点（drop-recreate 后 prepare 语句需在 recreate 之后准备）
   const nodes = db.prepare(
-    'SELECT id, name, file_path, kind FROM nodes'
+    'SELECT id, name, retrieval_text, file_path, kind FROM nodes'
   ).all();
 
   let indexedCount = 0;
   let skippedCount = 0;
 
   const insertStmt = db.prepare(
-    'INSERT INTO fts_nodes (node_id, name, file_path, kind) VALUES (?, ?, ?, ?)'
+    'INSERT INTO fts_nodes (node_id, name, retrieval_text, file_path, kind) VALUES (?, ?, ?, ?, ?)'
   );
 
   // 批量插入放在事务中提升性能
@@ -111,7 +112,13 @@ function rebuildFTS(db) {
         skippedCount++;
         continue;
       }
-      insertStmt.run(node.id, node.name, node.file_path, node.kind);
+      insertStmt.run(
+        node.id,
+        node.name,
+        node.retrieval_text || `${node.file_path} ${node.kind} ${node.name}`,
+        node.file_path,
+        node.kind
+      );
       indexedCount++;
     }
   });

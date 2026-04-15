@@ -131,6 +131,17 @@ describe('parseFile - 敏感文件过滤', () => {
     // 至少有 module 节点
     expect(result.nodes.length).toBeGreaterThan(0);
   });
+
+  test('解析出的节点带最小 retrieval-ready 字段', () => {
+    const result = parseFile('sensitive/index.js', REPO_ROOT);
+    const moduleNode = result.nodes[0];
+
+    expect(moduleNode).toEqual(expect.objectContaining({
+      parser_quality: 'ok',
+      summary: expect.any(String),
+      retrieval_text: expect.any(String),
+    }));
+  });
 });
 
 // ---------------------------------------------------------------------------

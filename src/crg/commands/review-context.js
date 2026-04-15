@@ -21,6 +21,7 @@ const { openDb } = require('../cli/open-db');
 const { makeEnvelope } = require('../cli/envelope');
 const { detectChanges, assessNodeRiskBatch } = require('../changes');
 const { isSensitiveFile } = require('../input-convergence');
+const { retrieveContext } = require('../retrieval/api');
 
 /**
  * review-context 子命令入口（由 router.js 调用）
@@ -251,6 +252,15 @@ function run(argv) {
     candidate_tests: candidateTests,
     graph_expansion: graphExpansion,
     review_guidance,
+    ranked_context: retrieveContext(db, {
+      profile: 'review',
+      query: `${changedFiles.join(' ')} review risk tests`,
+      changedFiles,
+      candidateTests: candidateTests.map((item) => item.file_path),
+      riskPaths: changeSummary
+        .filter((item) => item.risk_level === 'High' || item.risk_level === 'Medium')
+        .map((item) => item.file),
+    }).ranked_context,
   };
 
   process.stdout.write(JSON.stringify(makeEnvelope(repoRoot, data)) + '\n');

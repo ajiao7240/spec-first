@@ -1,0 +1,6 @@
+{
+  "review_average_hit_rate_min": 0.75,
+  "repo_qa_average_hit_rate_min": 0.7,
+  "context_efficiency_irrelevant_ratio_max": 0.85,
+  "fallback_rate_max": 0.1
+}

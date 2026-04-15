@@ -15,6 +15,22 @@ description: "Graph-informed project bootstrap. Runs Phase 0–4: CRG readiness 
 
 `target-repo-path` 省略时取当前工作目录。
 
+## Contract 真源
+
+Stage-0 的字段 contract 不再只存在于本文件文本中，以下目录为 machine-first 真源：
+
+```text
+docs/contracts/spec-graph-bootstrap/
+```
+
+本文件只保留阶段流程、降级语义、输出职责与字段解释；sample 与 runtime 输出必须同时满足 schema contract。
+
+编译职责收敛到 `src/bootstrap-compiler/`：
+- 默认主链入口为 `orchestrator.js`
+- `compile-machine-artifacts.js` 先生成 machine artifacts
+- `compile-human-assets.js` 再组织 docs assets
+- `compile-routing.js` 最后生成 routing / manifest / injection-index
+
 ## 缺失运行时时的处理
 
 如果当前运行时中缺少此文件，先执行：

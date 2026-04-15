@@ -5,9 +5,11 @@ always:
 stages:
   plan:
     - architecture/module-map.md
+    - 00-summary.md
   work:
     - code-facts/test-map.md
     - context-packs/review-change.md
+    - code-facts/high-risk-modules.md
   review:
     - code-facts/high-risk-modules.md
     - pitfalls/index.md

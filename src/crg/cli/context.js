@@ -12,7 +12,8 @@
 const path = require('path');
 const fs = require('fs');
 const { makeEnvelope } = require('./envelope');
-const { resolveGraphDb } = require('../artifact-paths');
+const { resolveActiveGraphDb } = require('../generations/paths');
+const { retrieveContext } = require('../retrieval/api');
 
 /**
  * 加载 better-sqlite3，失败时 exit 2
@@ -54,7 +55,7 @@ function run(argv) {
   }
 
   const repoRoot = path.resolve(repoRaw);
-  const dbPath = resolveGraphDb(repoRoot);
+  const dbPath = resolveActiveGraphDb(repoRoot);
 
   // 检查图是否已构建
   if (!fs.existsSync(dbPath)) {
@@ -128,12 +129,18 @@ function run(argv) {
     ).get();
     const summary = `${stats.node_count} nodes, ${stats.edge_count} edges, ` +
       `${stats.community_count} communities, ${stats.flow_count} flows`;
+    const retrieval = retrieveContext(db, {
+      profile: 'plan',
+      query: 'repository architecture modules entrypoints integrations',
+    });
 
     const envelope = makeEnvelope(repoRoot, {
       top_hubs: topHubs,
       top_communities: topCommunities,
       top_flows: topFlows,
       summary,
+      ranked_context: retrieval.ranked_context,
+      retrieval_estimated_tokens: retrieval.estimated_tokens,
     });
 
     process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');

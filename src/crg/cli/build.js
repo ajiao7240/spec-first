@@ -17,6 +17,12 @@ const {
   resolveGraphDb,
   resolveGraphInputFingerprints,
 } = require('../artifact-paths');
+const {
+  buildGenerationId,
+  resolveActiveGraphDb,
+  resolveGenerationDb,
+  resolveGenerationDir,
+} = require('../generations/paths');
 
 // ---------------------------------------------------------------------------
 // 共用：尝试加载 better-sqlite3
@@ -147,10 +153,11 @@ async function runBuildAsync(argv) {
   // 延迟加载内部模块（确保原生包已可用）
   const { initDatabase } = require('../migrations');
   const { collectInputFiles } = require('../input-convergence');
-  const { parseFile } = require('../parser');
+  const { parseFile, buildChunksForNodes } = require('../parser');
   const { detectChangedFiles, updateFingerprints } = require('../incremental');
   const {
     upsertNodes,
+    upsertChunks,
     upsertEdges,
     deleteStaleNodes,
     resolveEdges,
@@ -164,7 +171,22 @@ async function runBuildAsync(argv) {
     fs.mkdirSync(graphDir, { recursive: true });
   }
 
-  const dbPath = resolveGraphDb(repoRoot);
+  const generationId = buildGenerationId();
+  const generationDir = resolveGenerationDir(repoRoot, generationId);
+  const dbPath = resolveGenerationDb(repoRoot, generationId);
+  fs.mkdirSync(generationDir, { recursive: true });
+
+  const currentDbPath = resolveActiveGraphDb(repoRoot);
+  if (fs.existsSync(currentDbPath) && currentDbPath !== dbPath) {
+    try {
+      fs.copyFileSync(currentDbPath, dbPath);
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+  }
+
   const db = initDatabase(dbPath);
 
   // iOS 自动检测：Podfile.lock 或 *.xcodeproj / *.xcworkspace 存在即视为 iOS 仓库
@@ -242,6 +264,10 @@ async function runBuildAsync(argv) {
 
       parsedChanged.push(file);
       rebuildableFiles.push(file);
+      for (const node of result.nodes) {
+        node.parser_quality = qualityStatus;
+        node.generation_id = generationId;
+      }
       allNodes.push(...result.nodes);
       allRawEdges.push(...result.rawEdges);
     }
@@ -251,6 +277,9 @@ async function runBuildAsync(argv) {
     // 这样可避免函数改名 / 删除 / 行号变化时旧事实残留。
     deleteStaleNodes(db, rebuildableFiles);
     upsertNodes(db, allNodes);
+    if (typeof buildChunksForNodes === 'function') {
+      upsertChunks(db, buildChunksForNodes(allNodes));
+    }
 
     // 批量解析边并写入
     const { resolved, unresolvedCount, unresolved } = resolveEdges(db, allRawEdges, repoRoot);
@@ -344,8 +373,22 @@ async function runBuildAsync(argv) {
       .slice(0, 5)
       .map(([file_path, count]) => ({ file_path, count }));
     const unresolvedSamples = unresolved.slice(0, 10);
+    const { assessGenerationHealth } = require('../generations/health');
+    const { promoteGeneration } = require('../generations/promote');
+    const health = assessGenerationHealth({
+      dbPath,
+      nodeCount,
+      edgeCount,
+    });
+    if (!health.healthy) {
+      warnings.push({
+        type: 'generation_health_failed',
+        reason: health.reason,
+      });
+    }
 
     const envelope = makeEnvelope(repoRoot, {
+      generation_id: generationId,
       node_count: nodeCount,
       edge_count: edgeCount,
       changed_files: parsedChanged.length,
@@ -360,7 +403,15 @@ async function runBuildAsync(argv) {
       },
       last_build_unresolved_samples: unresolvedSamples,
       build_quality: quality,
-    }, { warnings, degraded: hasParserDegradation });
+    }, { warnings, degraded: hasParserDegradation || !health.healthy });
+
+    if (health.healthy) {
+      promoteGeneration(repoRoot, {
+        generationId,
+        dbPath,
+        health,
+      });
+    }
 
     process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
   } finally {
@@ -407,7 +458,7 @@ function runStats(argv) {
   }
 
   const repoRoot = path.resolve(repoRaw);
-  const dbPath = resolveGraphDb(repoRoot);
+  const dbPath = resolveActiveGraphDb(repoRoot);
 
   // 检查图是否已构建
   if (!fs.existsSync(dbPath)) {

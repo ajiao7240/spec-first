@@ -12,7 +12,7 @@ Reviews code changes using dynamically selected reviewer personas. Spawns parall
 
 > 此步骤读取 `spec-graph-bootstrap` 生成的 Stage-0 产物作为增强上下文，
 > 在 reviewer 召唤前注入，扩展 review 的风险感知范围。
-> 任何文件缺失、YAML 解析失败、目录不存在均只触发降级，不中止主工作流。
+> 优先以 evaluator 输出 contract 为真源；任何文件缺失、JSON 解析失败、目录不存在均只触发降级，不中止主工作流。
 
 **本 workflow stage 标识**：`review`
 
@@ -23,19 +23,24 @@ Reviews code changes using dynamically selected reviewer personas. Spawns parall
    - context 路径：`docs/contexts/<slug>/`
    - 命令失败或路径不存在 → 跳过整个预载步骤（Level 3）
 
-2. **读取路由索引**
-   - 读取 `docs/contexts/<slug>/injection-index.yaml`
-   - 解析失败或文件不存在 → 进入 Level 2 降级
+2. **读取 control plane contract**
+   - 控制面路径：`.spec-first/workflows/bootstrap/<slug>/`
+   - 优先读取 `context-routing.json` 与 `artifact-manifest.json`
+   - 若存在 `minimal-context/review.json`，视为最高优先级 machine context
+   - 任一关键 contract 缺失或解析失败 → 进入 Level 2 降级
 
-3. **按 yaml 路由加载文件**
-   - 加载 `always[]` 列表的所有文件
-   - 加载 `stages.review[]` 列表的所有文件
-   - 执行 `selection_rules[]` 中的 `output_exists.*` 条件：检查 inject[] 中每个文件路径是否存在，存在则追加
-   - `fact.*` 类条件 v1 跳过，记录"跳过 fact.* 条件，已使用 stages 基线"
-   - 参考 `advice.review` 字段确定阅读优先级
+3. **按 evaluator 输出 contract 组织上下文**
+   - 统一以 `selected_assets / fallback_reason / level / skipped_rules` 为 Stage-0 真源
+   - `review` 场景优先读取：
+     - `minimal-context/review.json`
+     - `code-facts/high-risk-modules.md`
+     - `code-facts/test-map.md`
+     - `context-packs/review-change.md`
+   - `injection-index.yaml` 仅作为人类视图，不再是运行时唯一判定逻辑
    - 每个文件：存在则读取，缺失则跳过（Level 1）
+   - 默认写一条 Stage-0 telemetry，至少记录 `stage / profile / selected_assets / fallback_reason / skipped_rules`
 
-4. **Level 2 固定最小集合**（`injection-index.yaml` 不可用时）
+4. **Level 2 固定最小集合**（control plane contract 不可用时）
    - `docs/contexts/<slug>/00-summary.md`
    - `docs/contexts/<slug>/pitfalls/index.md`
    - `docs/contexts/<slug>/code-facts/public-entrypoints.md`
@@ -44,6 +49,10 @@ Reviews code changes using dynamically selected reviewer personas. Spawns parall
 5. **降级说明**
    - 触发降级时，在响应中一句话说明原因
    - 不要求用户先补 bootstrap 产物，主任务继续执行
+
+6. **workspace v1 边界**
+   - 默认仍按单仓 Stage-0 消费，不改变现有 selected assets 顺序
+   - 只有显式提供 `repoRoots` 时，才进入 workspace 聚合路径
 
 ## When to Use
 
@@ -197,7 +206,7 @@ Then produce the same output as the other paths:
 echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:" && git diff -U10 $BASE && echo "UNTRACKED:" && git ls-files --others --exclude-standard
 ```
 
-This path works with any ref — a SHA, `origin/main`, a branch name. Automated callers (spec:work, lfg, slfg) should prefer this to avoid the detection overhead. **Do not combine `base:` with a PR number or branch target.** If both are present, stop with an error: "Cannot use `base:` with a PR number or branch target — `base:` implies the current checkout is already the correct branch. Pass `base:` alone, or pass the target alone and let scope detection resolve the base." This avoids scope/intent mismatches where the diff base comes from one source but the code and metadata come from another.
+This path works with any ref — a SHA, `origin/main`, a branch name. Automated callers (spec:work, lfg) should prefer this to avoid the detection overhead. **Do not combine `base:` with a PR number or branch target.** If both are present, stop with an error: "Cannot use `base:` with a PR number or branch target — `base:` implies the current checkout is already the correct branch. Pass `base:` alone, or pass the target alone and let scope detection resolve the base." This avoids scope/intent mismatches where the diff base comes from one source but the code and metadata come from another.
 
 **If a PR number or GitHub URL is provided as an argument:**
 
