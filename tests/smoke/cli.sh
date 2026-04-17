@@ -12,12 +12,33 @@ expected_version="$(node -p "require('$REPO_ROOT/package.json').version")"
 expected_version_regex="${expected_version//./\\.}"
 outdated_version="9.9.9"
 expected_command_count="$(find "$REPO_ROOT/templates/claude/commands/spec" -maxdepth 1 -name "*.md" | wc -l | tr -d ' ')"
-total_skill_count="$(find "$REPO_ROOT/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 expected_agent_count="$(find "$REPO_ROOT/agents" -type f -name '*.md' | wc -l | tr -d ' ')"
 expected_agent_support_count="$(find "$REPO_ROOT/agents" -type f ! -name '*.md' | wc -l | tr -d ' ')"
-# Command-backing skills go to .claude/spec-first/workflows/, not .claude/skills/
-expected_workflow_skill_count="$expected_command_count"
-expected_skill_count="$((total_skill_count - expected_workflow_skill_count))"
+expected_workflow_skill_count="$(node - "$REPO_ROOT" <<'EOF'
+const repoRoot = process.argv[2];
+const { buildFilteredAssetSet } = require(`${repoRoot}/src/cli/plugin`);
+process.stdout.write(String(buildFilteredAssetSet('claude').workflowSkills.length));
+EOF
+)"
+expected_skill_count="$(node - "$REPO_ROOT" <<'EOF'
+const repoRoot = process.argv[2];
+const { buildFilteredAssetSet } = require(`${repoRoot}/src/cli/plugin`);
+process.stdout.write(String(buildFilteredAssetSet('claude').skills.length));
+EOF
+)"
+expected_codex_skill_count="$(node - "$REPO_ROOT" <<'EOF'
+const repoRoot = process.argv[2];
+const { buildFilteredAssetSet } = require(`${repoRoot}/src/cli/plugin`);
+process.stdout.write(String(buildFilteredAssetSet('codex').skills.length));
+EOF
+)"
+expected_codex_total_skill_count="$(node - "$REPO_ROOT" <<'EOF'
+const repoRoot = process.argv[2];
+const { buildFilteredAssetSet } = require(`${repoRoot}/src/cli/plugin`);
+const codex = buildFilteredAssetSet('codex');
+process.stdout.write(String(codex.skills.length + codex.workflowSkills.length));
+EOF
+)"
 export SPEC_FIRST_VERSION_REMINDER_LATEST="$expected_version"
 
 echo "1. Check help and version output..."
@@ -95,7 +116,7 @@ if grep -q "graph-bootstrap.md" <<<"$init_output"; then
   exit 1
 fi
 
-for file in ideate.md brainstorm.md plan.md work.md review.md compound.md sessions.md bootstrap.md graph-bootstrap.md mcp-setup.md; do
+for file in ideate.md brainstorm.md plan.md work.md debug.md review.md compound.md sessions.md bootstrap.md graph-bootstrap.md mcp-setup.md update.md setup.md; do
   test -f "$TMP_DIR/.claude/commands/spec/$file"
 done
 grep -q "Spec-First Ideate" "$TMP_DIR/.claude/commands/spec/ideate.md"
@@ -103,19 +124,32 @@ grep -q "Spec-First Brainstorm" "$TMP_DIR/.claude/commands/spec/brainstorm.md"
 grep -q '.claude/spec-first/workflows/spec-ideate/SKILL.md' "$TMP_DIR/.claude/commands/spec/ideate.md"
 grep -q "Spec-First Plan" "$TMP_DIR/.claude/commands/spec/plan.md"
 grep -q "Spec-First Work" "$TMP_DIR/.claude/commands/spec/work.md"
+grep -q "Spec-First Debug" "$TMP_DIR/.claude/commands/spec/debug.md"
 grep -q "Spec-First Review" "$TMP_DIR/.claude/commands/spec/review.md"
 grep -q "Spec-First Compound" "$TMP_DIR/.claude/commands/spec/compound.md"
 grep -q "Spec-First Sessions" "$TMP_DIR/.claude/commands/spec/sessions.md"
 grep -q "Spec-First Bootstrap" "$TMP_DIR/.claude/commands/spec/bootstrap.md"
 grep -q "Spec-First Graph Bootstrap" "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
+grep -q "Spec-First Update" "$TMP_DIR/.claude/commands/spec/update.md"
+grep -q "Spec-First Setup" "$TMP_DIR/.claude/commands/spec/setup.md"
 grep -q "Phase 0–4 fact extraction" "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
 grep -q '.claude/spec-first/workflows/spec-sessions/SKILL.md' "$TMP_DIR/.claude/commands/spec/sessions.md"
 grep -q '.claude/spec-first/workflows/spec-mcp-setup/SKILL.md' "$TMP_DIR/.claude/commands/spec/mcp-setup.md"
+grep -q '.claude/spec-first/workflows/setup/SKILL.md' "$TMP_DIR/.claude/commands/spec/setup.md"
 grep -q '.claude/spec-first/workflows/spec-brainstorm/SKILL.md' "$TMP_DIR/.claude/commands/spec/brainstorm.md"
 grep -q '.claude/spec-first/workflows/spec-plan/SKILL.md' "$TMP_DIR/.claude/commands/spec/plan.md"
+grep -q '.claude/spec-first/workflows/spec-debug/SKILL.md' "$TMP_DIR/.claude/commands/spec/debug.md"
 grep -q '.claude/spec-first/workflows/spec-bootstrap/SKILL.md' "$TMP_DIR/.claude/commands/spec/bootstrap.md"
 grep -q '.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md' "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
+grep -q '.claude/spec-first/workflows/spec-update/SKILL.md' "$TMP_DIR/.claude/commands/spec/update.md"
 test -f "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
+test -f "$TMP_DIR/.claude/spec-first/workflows/spec-debug/SKILL.md"
+test -f "$TMP_DIR/.claude/spec-first/workflows/spec-update/SKILL.md"
+test -f "$TMP_DIR/.claude/skills/spec-optimize/SKILL.md"
+test -f "$TMP_DIR/.claude/skills/spec-slack-research/SKILL.md"
+test -f "$TMP_DIR/.claude/skills/feature-video/scripts/capture-demo.py"
+test -f "$TMP_DIR/.claude/skills/feature-video/references/tier-browser-reel.md"
+test -f "$TMP_DIR/.claude/agents/research/slack-researcher.md"
 grep -q '^name: brainstorm-workflow$' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
 grep -q 'Classify Task Domain' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
 grep -q 'Existing and Supplemental Context Scan' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
@@ -189,14 +223,14 @@ test "$installed_skill_count" = "$expected_skill_count"
 installed_workflow_skill_count="$(find "$TMP_DIR/.claude/spec-first/workflows" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 test "$installed_workflow_skill_count" = "$expected_workflow_skill_count"
 # Command-backing skills are in .claude/spec-first/workflows/
-for skill in spec-plan spec-review spec-work spec-sessions spec-mcp-setup; do
+for skill in spec-plan spec-review spec-work spec-sessions spec-mcp-setup setup; do
   test -f "$TMP_DIR/.claude/spec-first/workflows/$skill/SKILL.md"
 done
 # Non-command skills remain in .claude/skills/
 for skill in document-review git-worktree; do
   test -f "$TMP_DIR/.claude/skills/$skill/SKILL.md"
 done
-for skill in spec-brainstorm spec-plan spec-work spec-review spec-compound spec-sessions spec-mcp-setup; do
+for skill in spec-brainstorm spec-plan spec-work spec-review spec-compound spec-sessions spec-mcp-setup setup; do
   if grep -q "^user-invocable: true$" "$TMP_DIR/.claude/spec-first/workflows/$skill/SKILL.md"; then
     echo "✗ $skill should not be exposed as a standalone slash command"
     exit 1
@@ -242,7 +276,11 @@ grep -q 'Omit the `mode` parameter' "$TMP_DIR/.claude/spec-first/workflows/spec-
 test -f "$TMP_DIR/.claude/spec-first/workflows/spec-ideate/references/post-ideation-workflow.md"
 grep -q "explicit quality gate" "$TMP_DIR/.claude/spec-first/workflows/spec-ideate/references/post-ideation-workflow.md"
 grep -q "orchestrator's global judgment" "$TMP_DIR/.claude/spec-first/workflows/spec-ideate/references/post-ideation-workflow.md"
-grep -q 'spec-first:research:learnings-researcher' "$TMP_DIR/.claude/agents/review/project-standards-reviewer.md"
+grep -q "the project's fully qualified agent name" "$TMP_DIR/.claude/agents/review/project-standards-reviewer.md"
+if grep -q 'spec-first:research:learnings-researcher' "$TMP_DIR/.claude/agents/review/project-standards-reviewer.md"; then
+  echo "✗ generated project-standards-reviewer agent should not hard-code spec-first namespace examples"
+  exit 1
+fi
 if grep -q 'spec-first:research:repo-research-analyst' "$TMP_DIR/.claude/spec-first/workflows/spec-plan/SKILL.md"; then
   echo "✗ generated spec-plan skill still contains unadapted spec-first agent namespace"
   exit 1
@@ -536,30 +574,31 @@ codex_output="$(
   cd "$TMP_DIR"
   node "$REPO_ROOT/bin/spec-first.js" init --codex -u kuang --lang en
 )"
-grep -q "Generated ${expected_command_count} command file(s) in .codex/commands/spec" <<<"$codex_output"
-grep -q "Generated ${expected_skill_count} skill directory(ies) in .agents/skills" <<<"$codex_output"
 grep -q "Generated ${expected_agent_count} agent file(s) in .codex/agents" <<<"$codex_output"
 grep -q "Generated ${expected_agent_support_count} agent support file(s) in .codex/agents" <<<"$codex_output"
-for file in ideate.md brainstorm.md plan.md work.md review.md compound.md sessions.md bootstrap.md graph-bootstrap.md mcp-setup.md; do
-  test -f "$TMP_DIR/.codex/commands/spec/$file"
-done
-grep -q "Spec-First Ideate" "$TMP_DIR/.codex/commands/spec/ideate.md"
-grep -q "Spec-First Brainstorm" "$TMP_DIR/.codex/commands/spec/brainstorm.md"
-grep -q "Spec-First Sessions" "$TMP_DIR/.codex/commands/spec/sessions.md"
-grep -q '.agents/skills/spec-bootstrap/SKILL.md' "$TMP_DIR/.codex/commands/spec/bootstrap.md"
-grep -q '.agents/skills/spec-graph-bootstrap/SKILL.md' "$TMP_DIR/.codex/commands/spec/graph-bootstrap.md"
-grep -q '.agents/skills/spec-sessions/SKILL.md' "$TMP_DIR/.codex/commands/spec/sessions.md"
-grep -q '.agents/skills/spec-mcp-setup/SKILL.md' "$TMP_DIR/.codex/commands/spec/mcp-setup.md"
-grep -q "Phase 0–4 fact extraction" "$TMP_DIR/.codex/commands/spec/graph-bootstrap.md"
+grep -q 'new \$spec-\* skills' <<<"$codex_output"
+grep -q "Generated ${expected_codex_skill_count} skill directory(ies) in .agents/skills" <<<"$codex_output"
+if grep -q "Generated ${expected_command_count} command file(s) in .codex/commands/spec" <<<"$codex_output"; then
+  echo "✗ codex init should not announce generated .codex/commands/spec command files"
+  exit 1
+fi
+test ! -e "$TMP_DIR/.codex/commands/spec"
 test -f "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-plan/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-work/SKILL.md"
+test -f "$TMP_DIR/.agents/skills/spec-debug/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-review/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-compound/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-sessions/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-mcp-setup/SKILL.md"
+test -f "$TMP_DIR/.agents/skills/spec-update/SKILL.md"
+test -f "$TMP_DIR/.agents/skills/spec-optimize/SKILL.md"
+test -f "$TMP_DIR/.agents/skills/spec-slack-research/SKILL.md"
+test -f "$TMP_DIR/.agents/skills/setup/SKILL.md"
+test -f "$TMP_DIR/.agents/skills/claude-permissions-optimizer/SKILL.md"
+test ! -e "$TMP_DIR/.agents/skills/orchestrating-swarms/SKILL.md"
 installed_codex_skill_count="$(find "$TMP_DIR/.agents/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
-test "$installed_codex_skill_count" = "$total_skill_count"
+test "$installed_codex_skill_count" = "$expected_codex_total_skill_count"
 grep -q '^name: spec-brainstorm$' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 grep -q 'Classify Task Domain' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 grep -q 'Existing and Supplemental Context Scan' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
@@ -579,7 +618,6 @@ grep -q 'Omit the `mode` parameter' "$TMP_DIR/.agents/skills/spec-ideate/SKILL.m
 test -f "$TMP_DIR/.agents/skills/spec-ideate/references/post-ideation-workflow.md"
 grep -q "explicit quality gate" "$TMP_DIR/.agents/skills/spec-ideate/references/post-ideation-workflow.md"
 grep -q "orchestrator's global judgment" "$TMP_DIR/.agents/skills/spec-ideate/references/post-ideation-workflow.md"
-grep -q '.agents/skills/spec-ideate/SKILL.md' "$TMP_DIR/.codex/commands/spec/ideate.md"
 test -f "$TMP_DIR/.agents/skills/spec-brainstorm/references/universal-brainstorming.md"
 test -f "$TMP_DIR/.agents/skills/spec-brainstorm/references/visual-communication.md"
 grep -q '^name: spec-plan$' "$TMP_DIR/.agents/skills/spec-plan/SKILL.md"
@@ -590,6 +628,7 @@ grep -q '^name: spec-review$' "$TMP_DIR/.agents/skills/spec-review/SKILL.md"
 grep -q '^name: spec-compound$' "$TMP_DIR/.agents/skills/spec-compound/SKILL.md"
 grep -q '^name: spec-sessions$' "$TMP_DIR/.agents/skills/spec-sessions/SKILL.md"
 grep -q '^name: spec-mcp-setup$' "$TMP_DIR/.agents/skills/spec-mcp-setup/SKILL.md"
+grep -q '^name: setup$' "$TMP_DIR/.agents/skills/setup/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-bootstrap/SKILL.md"
 grep -q '^name: spec-bootstrap$' "$TMP_DIR/.agents/skills/spec-bootstrap/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-graph-bootstrap/SKILL.md"
@@ -605,6 +644,7 @@ test -f "$TMP_DIR/.codex/agents/research/github-context-reader.md"
 test -f "$TMP_DIR/.codex/agents/research/local-doc-reader.md"
 test -f "$TMP_DIR/.codex/agents/research/repo-research-analyst.md"
 test -f "$TMP_DIR/.codex/agents/research/session-historian.md"
+test -f "$TMP_DIR/.codex/agents/research/slack-researcher.md"
 test -f "$TMP_DIR/.codex/agents/research/web-context-reader.md"
 installed_codex_agent_support_count="$(find "$TMP_DIR/.codex/agents" -type f ! -name '*.md' | wc -l | tr -d ' ')"
 test "$installed_codex_agent_support_count" = "$expected_agent_support_count"
@@ -669,13 +709,16 @@ echo "✓ Codex todo skills use docs/todos as canonical path with scoped legacy 
 
 codex_doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor --codex)"
 grep -q ".codex/spec-first/.developer" <<<"$codex_doctor_output"
-grep -q ".codex/commands/spec" <<<"$codex_doctor_output"
 grep -q ".agents/skills" <<<"$codex_doctor_output"
 grep -q "standalone skills" <<<"$codex_doctor_output"
 grep -q "workflow skills" <<<"$codex_doctor_output"
 grep -q "support files" <<<"$codex_doctor_output"
 grep -q ".codex/agents" <<<"$codex_doctor_output"
 grep -q ".codex/agents support assets" <<<"$codex_doctor_output"
+if grep -q ".codex/commands/spec" <<<"$codex_doctor_output"; then
+  echo "✗ codex doctor should not treat .codex/commands/spec as a managed product surface"
+  exit 1
+fi
 if grep -q ".agents/plugins/marketplace.json" <<<"$codex_doctor_output"; then
   echo "✗ codex doctor should not depend on plugin marketplace anymore"
   exit 1
@@ -692,6 +735,7 @@ printf 'custom codex skill\n' > "$TMP_DIR/.agents/skills/custom-codex-skill/SKIL
   cd "$TMP_DIR"
   node "$REPO_ROOT/bin/spec-first.js" init --codex -u kuang --lang en >/dev/null
 )
+test ! -e "$TMP_DIR/.codex/commands/spec"
 test ! -e "$TMP_DIR/.codex/spec-first/commands/brainstorm.md"
 test ! -e "$TMP_DIR/.codex/skills/legacy-skill/SKILL.md"
 test ! -e "$TMP_DIR/.agents/plugins/marketplace.json"
@@ -701,9 +745,8 @@ test ! -e "$TMP_DIR/plugins/spec-first"
   cd "$TMP_DIR"
   SPEC_FIRST_VERSION_REMINDER_LATEST="$outdated_version" node "$REPO_ROOT/bin/spec-first.js" clean --codex 2>"$TMP_DIR/codex-clean.err"
 )
-test ! -e "$TMP_DIR/.codex/commands/spec/brainstorm.md"
+test ! -e "$TMP_DIR/.codex/commands/spec"
 test ! -e "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
-test ! -e "$TMP_DIR/.codex/commands/spec/graph-bootstrap.md"
 test ! -e "$TMP_DIR/.agents/skills/spec-graph-bootstrap/SKILL.md"
 test ! -e "$TMP_DIR/.codex/agents/review/correctness-reviewer.md"
 test ! -e "$TMP_DIR/.codex/agents/research/session-history-scripts/discover-sessions.sh"
@@ -735,15 +778,20 @@ echo "3c. Re-init after clean..."
 )
 test -f "$TMP_DIR/.claude/commands/spec/brainstorm.md"
 test -f "$TMP_DIR/.claude/commands/spec/ideate.md"
+test -f "$TMP_DIR/.claude/commands/spec/debug.md"
 test -f "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
 test -f "$TMP_DIR/.claude/commands/spec/sessions.md"
+test -f "$TMP_DIR/.claude/commands/spec/update.md"
 grep -q "Spec-First Ideate" "$TMP_DIR/.claude/commands/spec/ideate.md"
 test -f "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
 test -f "$TMP_DIR/.claude/spec-first/workflows/spec-ideate/SKILL.md"
+test -f "$TMP_DIR/.claude/spec-first/workflows/spec-debug/SKILL.md"
 test -f "$TMP_DIR/.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md"
 test -f "$TMP_DIR/.claude/spec-first/workflows/spec-sessions/SKILL.md"
+test -f "$TMP_DIR/.claude/spec-first/workflows/spec-update/SKILL.md"
 test -f "$TMP_DIR/.claude/agents/review/correctness-reviewer.md"
 test -f "$TMP_DIR/.claude/agents/research/session-history-scripts/discover-sessions.sh"
+test -f "$TMP_DIR/.claude/agents/research/slack-researcher.md"
 test -f "$TMP_DIR/.claude/spec-first/.developer"
 echo "✓ re-init works after clean"
 
@@ -753,13 +801,26 @@ grep -q "bin/spec-first.js" <<<"$pack_output"
 grep -q ".claude-plugin/plugin.json" <<<"$pack_output"
 grep -q "templates/claude/commands/spec/ideate.md" <<<"$pack_output"
 grep -q "templates/claude/commands/spec/brainstorm.md" <<<"$pack_output"
+grep -q "templates/claude/commands/spec/debug.md" <<<"$pack_output"
 grep -q "templates/claude/commands/spec/sessions.md" <<<"$pack_output"
 grep -q "templates/claude/commands/spec/bootstrap.md" <<<"$pack_output"
 grep -q "templates/claude/commands/spec/graph-bootstrap.md" <<<"$pack_output"
+grep -q "templates/claude/commands/spec/update.md" <<<"$pack_output"
+grep -q "templates/claude/commands/spec/setup.md" <<<"$pack_output"
+grep -q "skills/spec-debug/SKILL.md" <<<"$pack_output"
 grep -q "skills/spec-plan/SKILL.md" <<<"$pack_output"
 grep -q "skills/spec-plan/references/universal-planning.md" <<<"$pack_output"
 grep -q "skills/spec-plan/references/visual-communication.md" <<<"$pack_output"
 grep -q "skills/spec-sessions/SKILL.md" <<<"$pack_output"
+grep -q "skills/spec-update/SKILL.md" <<<"$pack_output"
+grep -q "skills/spec-optimize/SKILL.md" <<<"$pack_output"
+grep -q "skills/spec-optimize/scripts/measure.sh" <<<"$pack_output"
+grep -q "skills/spec-slack-research/SKILL.md" <<<"$pack_output"
+grep -q "skills/feature-video/scripts/capture-demo.py" <<<"$pack_output"
+grep -q "skills/feature-video/references/tier-browser-reel.md" <<<"$pack_output"
+grep -q "skills/setup/SKILL.md" <<<"$pack_output"
+grep -q "skills/setup/references/config-template.yaml" <<<"$pack_output"
+grep -q "skills/setup/scripts/check-health" <<<"$pack_output"
 grep -q "skills/spec-bootstrap/SKILL.md" <<<"$pack_output"
 grep -q "skills/spec-graph-bootstrap/SKILL.md" <<<"$pack_output"
 grep -q "skills/document-review/SKILL.md" <<<"$pack_output"
@@ -769,6 +830,7 @@ grep -q "skills/spec-work-beta/SKILL.md" <<<"$pack_output"
 grep -q "skills/spec-compound-refresh/SKILL.md" <<<"$pack_output"
 grep -q "skills/report-bug/SKILL.md" <<<"$pack_output"
 grep -q "agents/review/correctness-reviewer.md" <<<"$pack_output"
+grep -q "agents/research/slack-researcher.md" <<<"$pack_output"
 grep -q "agents/research/session-historian.md" <<<"$pack_output"
 grep -q "agents/research/session-history-scripts/discover-sessions.sh" <<<"$pack_output"
 grep -q "agents/research/session-history-scripts/extract-errors.py" <<<"$pack_output"

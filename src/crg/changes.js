@@ -14,7 +14,6 @@
  */
 
 const { execFileSync } = require('child_process');
-const path = require('path');
 const { SECURITY_KEYWORDS } = require('./constants');
 
 /**
@@ -39,6 +38,57 @@ function getChangedFilesFromGit(repoRoot, since) {
 }
 
 /**
+ * 获取自 since 以来的 hunk 行号范围（相对于变更后文件）
+ *
+ * @param {string} repoRoot
+ * @param {string} since
+ * @returns {Array<{ file: string, hunks: Array<{ start: number, end: number }> }>}
+ */
+function getChangedHunksFromGit(repoRoot, since) {
+  try {
+    const output = execFileSync(
+      'git',
+      ['diff', '--unified=0', since, 'HEAD'],
+      { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    const result = [];
+    let currentFile = null;
+    let currentHunks = [];
+
+    for (const line of output.split('\n')) {
+      const fileMatch = line.match(/^\+\+\+ b\/(.+)$/);
+      if (fileMatch) {
+        if (currentFile) result.push({ file: currentFile, hunks: currentHunks });
+        currentFile = fileMatch[1];
+        currentHunks = [];
+        continue;
+      }
+
+      const hunkMatch = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/);
+      if (!hunkMatch) continue;
+      const start = parseInt(hunkMatch[1], 10);
+      const count = hunkMatch[2] === undefined ? 1 : parseInt(hunkMatch[2], 10);
+      if (!Number.isFinite(start) || !Number.isFinite(count) || count <= 0) continue;
+      currentHunks.push({ start, end: start + count - 1 });
+    }
+
+    if (currentFile) result.push({ file: currentFile, hunks: currentHunks });
+    return result;
+  } catch {
+    return [];
+  }
+}
+
+function intersectsHunks(node, hunks) {
+  if (!Array.isArray(hunks) || hunks.length === 0) return true;
+  const lineStart = Number.isFinite(node.line_start) ? node.line_start : 0;
+  const lineEnd = Number.isFinite(node.line_end) && node.line_end >= lineStart
+    ? node.line_end
+    : lineStart;
+  return hunks.some((hunk) => !(lineEnd < hunk.start || lineStart > hunk.end));
+}
+
+/**
  * 计算单个文件的风险等级（基于 fan-in：有多少边指向该文件的 module 节点）
  *
  * @param {string} filePath - 文件路径（与 nodes.file_path 匹配的格式）
@@ -46,23 +96,41 @@ function getChangedFilesFromGit(repoRoot, since) {
  * @returns {'High'|'Medium'|'Low'}
  */
 function assessFileRisk(filePath, db) {
+  return assessFileRiskBatch([filePath], db).get(filePath) || 'Low';
+}
+
+function assessFileRiskBatch(filePaths, db) {
+  const uniquePaths = Array.from(new Set(filePaths || []));
+  const riskByFile = new Map(uniquePaths.map((filePath) => [filePath, 'Low']));
+  if (!db || uniquePaths.length === 0) return riskByFile;
+
   try {
-    const moduleNode = db.prepare(
-      "SELECT id FROM nodes WHERE file_path = ? AND kind = 'module' LIMIT 1"
-    ).get(filePath);
+    const filePlaceholders = uniquePaths.map(() => '?').join(',');
+    const moduleRows = db.prepare(
+      `SELECT id, file_path FROM nodes WHERE kind = 'module' AND file_path IN (${filePlaceholders})`
+    ).all(...uniquePaths);
+    if (moduleRows.length === 0) return riskByFile;
 
-    if (!moduleNode) return 'Low';
+    const moduleIds = moduleRows.map((row) => row.id);
+    const moduleIdToFile = new Map(moduleRows.map((row) => [row.id, row.file_path]));
+    const idPlaceholders = moduleIds.map(() => '?').join(',');
+    const fanInRows = db.prepare(
+      `SELECT target_id, COUNT(*) AS cnt FROM edges WHERE target_id IN (${idPlaceholders}) GROUP BY target_id`
+    ).all(...moduleIds);
+    const fanInByTarget = new Map(fanInRows.map((row) => [row.target_id, row.cnt]));
 
-    const fanIn = db.prepare(
-      'SELECT COUNT(*) as cnt FROM edges WHERE target_id = ?'
-    ).get(moduleNode.id)?.cnt || 0;
-
-    if (fanIn >= 10) return 'High';
-    if (fanIn >= 3) return 'Medium';
-    return 'Low';
+    for (const moduleId of moduleIds) {
+      const filePath = moduleIdToFile.get(moduleId);
+      const fanIn = fanInByTarget.get(moduleId) || 0;
+      if (fanIn >= 10) riskByFile.set(filePath, 'High');
+      else if (fanIn >= 3) riskByFile.set(filePath, 'Medium');
+      else riskByFile.set(filePath, 'Low');
+    }
   } catch {
-    return 'Low';
+    return riskByFile;
   }
+
+  return riskByFile;
 }
 
 /**
@@ -279,14 +347,17 @@ function assessNodeRiskBatch(nodeIds, db) {
  * @param {object} db
  * @returns {Array<{ name: string, kind: string, risk_level: string }>}
  */
-function getAffectedFunctions(filePath, db) {
+function getAffectedFunctions(filePath, hunks, db) {
   try {
     const nodes = db.prepare(
-      "SELECT name, kind FROM nodes WHERE file_path = ? AND kind IN ('function', 'method')"
+      "SELECT name, kind, line_start, line_end FROM nodes WHERE file_path = ? AND kind IN ('function', 'method')"
     ).all(filePath);
+    const scopedNodes = Array.isArray(hunks) && hunks.length > 0
+      ? nodes.filter((node) => intersectsHunks(node, hunks))
+      : nodes;
 
     const risk = assessFileRisk(filePath, db);
-    return nodes.map(n => ({
+    return scopedNodes.map(n => ({
       name: n.name,
       kind: n.kind,
       risk_level: risk, // 函数级别暂继承文件级别风险
@@ -303,19 +374,25 @@ function getAffectedFunctions(filePath, db) {
  * @param {object} db
  * @returns {{ review_priorities: Array, test_gaps: Array }}
  */
-function assessNodePriorities(filePath, db) {
+function assessNodePriorities(filePath, hunks, db) {
   try {
     const nodes = db.prepare(
-      "SELECT id, name, kind FROM nodes WHERE file_path = ? AND kind IN ('function', 'method', 'class')"
+      `SELECT id, name, kind, line_start, line_end
+       FROM nodes
+       WHERE file_path = ? AND kind IN ('function', 'method', 'class')`
     ).all(filePath);
 
-    if (nodes.length === 0) return { review_priorities: [], test_gaps: [] };
+    const scopedNodes = Array.isArray(hunks) && hunks.length > 0
+      ? nodes.filter((node) => intersectsHunks(node, hunks))
+      : nodes;
+
+    if (scopedNodes.length === 0) return { review_priorities: [], test_gaps: [] };
 
     // 批量评分，避免 N+1
-    const nodeIds = nodes.map(n => n.id);
+    const nodeIds = scopedNodes.map(n => n.id);
     const riskScores = assessNodeRiskBatch(nodeIds, db);
 
-    const scored = nodes.map(n => ({
+    const scored = scopedNodes.map(n => ({
       id: n.id,
       name: n.name,
       kind: n.kind,
@@ -368,6 +445,9 @@ function assessNodePriorities(filePath, db) {
  */
 function detectChanges(repoRoot, since, db) {
   const { files, error } = getChangedFilesFromGit(repoRoot, since);
+  const hunksByFile = new Map(
+    getChangedHunksFromGit(repoRoot, since).map((item) => [item.file, item.hunks])
+  );
 
   if (error) {
     // 无效 git ref — 用户输错了，语义上是 exit 1
@@ -383,12 +463,25 @@ function detectChanges(repoRoot, since, db) {
     // 其他错误（如不在 git 仓库中）继续返回空列表，由调用方决定处理
   }
 
+  const fileRiskLevels = db ? assessFileRiskBatch(files, db) : new Map();
+
   return files.map(file => {
-    const risk_level = db ? assessFileRisk(file, db) : 'Unknown';
-    const functions = db ? getAffectedFunctions(file, db) : [];
-    const { review_priorities, test_gaps } = db ? assessNodePriorities(file, db) : { review_priorities: [], test_gaps: [] };
-    return { file, risk_level, functions, review_priorities, test_gaps };
+    const hunks = hunksByFile.get(file) || [];
+    const risk_level = db ? (fileRiskLevels.get(file) || 'Low') : 'Unknown';
+    const functions = db ? getAffectedFunctions(file, hunks, db) : [];
+    const { review_priorities, test_gaps } = db
+      ? assessNodePriorities(file, hunks, db)
+      : { review_priorities: [], test_gaps: [] };
+    return { file, risk_level, functions, review_priorities, test_gaps, hunks };
   });
 }
 
-module.exports = { detectChanges, getChangedFilesFromGit, assessFileRisk, assessNodeRisk, assessNodeRiskBatch };
+module.exports = {
+  detectChanges,
+  getChangedFilesFromGit,
+  getChangedHunksFromGit,
+  assessFileRisk,
+  assessFileRiskBatch,
+  assessNodeRisk,
+  assessNodeRiskBatch,
+};

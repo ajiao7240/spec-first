@@ -1,10 +1,11 @@
-# 文档审核输出模板
+# Document Review Output Template
 
-呈现综合评价结果时，请使用此**精确格式**。结果按严重程度分组，而不是按审阅者分组。
+Use this **exact format** when presenting synthesized review findings. Findings are grouped by severity, not by reviewer.
 
-**重要提示：** 使用管道分隔的降价表 (`| col | col |`)。不要使用 ASCII 方框图字符。
+**IMPORTANT:** Use pipe-delimited markdown tables (`| col | col |`). Do NOT use ASCII box-drawing characters.
 
-＃＃ 例子
+## Example
+
 ```markdown
 ## Document Review Results
 
@@ -84,12 +85,13 @@ These fixes have one clear correct answer but touch document meaning. Apply all?
 | product-lens | not activated | -- | -- | -- | -- | -- |
 | design-lens | not activated | -- | -- | -- | -- | -- |
 ```
-## 部分规则
 
-- **摘要行**：始终出现在审阅者列表之后。格式：“应用了 N 个自动修复。批量 M 个修复以供批准。需要考虑的 K 个发现（X 个错误，Y 个遗漏）。”省略任何零子句。
-- **应用的自动修复**：列出自动应用的修复（自动类）。如果没有则省略部分。
-- **批量确认**：对 `batch_confirm` 结果进行分组，以进行单个是/否/选择批准。如果没有则省略部分。
-- **P0-P3 部分**：仅包含有发现的部分。省略空的严重级别。在每个严重性中，分为 **Errors** 和 **Omissions** 子标题。如果该严重性没有该类型，则省略子标头。
-- **残余问题**：通过跨人物验证促进的低于置信阈值的发现，加上未促进的残余风险。如果没有则省略。
-- **推迟的问题**：稍后工作流程阶段的问题。如果没有则省略。
-- **覆盖范围**：始终包括在内。所有计数均为**合成后**。 **结果**必须完全等于“自动”+“批量”+“呈现”——如果重复数据删除合并了跨角色的结果，则将其归因于置信度最高的角色，并减少其他角色的计数。 **剩余** = 此角色的原始输出中的 `residual_risks` 计数（不是“剩余关注点”部分中的升级子集）。
+## Section Rules
+
+- **Summary line**: Always present after the reviewer list. Format: "Applied N auto-fixes. Batched M fixes for approval. K findings to consider (X errors, Y omissions)." Omit any zero clause.
+- **Auto-fixes Applied**: List fixes that were applied automatically (auto class). Omit section if none.
+- **Batch Confirm**: Group `batch_confirm` findings for a single yes/no/select approval. Omit section if none.
+- **P0-P3 sections**: Only include sections that have findings. Omit empty severity levels. Within each severity, separate into **Errors** and **Omissions** sub-headers. Omit a sub-header if that severity has none of that type.
+- **Residual Concerns**: Findings below confidence threshold that were promoted by cross-persona corroboration, plus unpromoted residual risks. Omit if none.
+- **Deferred Questions**: Questions for later workflow stages. Omit if none.
+- **Coverage**: Always include. All counts are **post-synthesis**. **Findings** must equal Auto + Batch + Present exactly -- if deduplication merged a finding across personas, attribute it to the persona with the highest confidence and reduce the other persona's count. **Residual** = count of `residual_risks` from this persona's raw output (not the promoted subset in the Residual Concerns section).

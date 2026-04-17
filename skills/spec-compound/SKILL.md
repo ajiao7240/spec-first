@@ -4,7 +4,7 @@ description: Document a recently solved problem to compound your team's knowledg
 argument-hint: "[optional: brief context about the fix]"
 ---
 
-# /compound
+# Spec-First Compound
 
 Coordinate multiple subagents working in parallel to document a recently solved problem.
 
@@ -17,8 +17,8 @@ Captures problem solutions while context is fresh, creating structured documenta
 ## Usage
 
 ```bash
-/spec:compound                    # Document the most recent fix
-/spec:compound [brief context]    # Provide additional context hint
+Claude: /spec:compound [brief context]
+Codex:  $spec-compound [brief context]
 ```
 
 ## Support Files
@@ -518,5 +518,5 @@ Based on problem type, these agents can enhance documentation:
 
 ## Related Commands
 
-- `/research [topic]` - Deep investigation (searches docs/solutions/ for patterns)
-- `/spec:plan` - Planning workflow (references documented solutions)
+- `spec-sessions` workflow - Search prior agent sessions for related historical context
+- `spec:plan` workflow - Planning workflow that can reuse documented solutions

@@ -83,7 +83,7 @@ for pkg in $conflict_packages; do
       # tree-sitter 主包名不是冲突
       ;;
     *)
-      echo "   ⚠ 未知 tree-sitter 包: $pkg（忽略）"
+      echo "   ⚠ 未知 tree-sitter 包: ${pkg}（忽略）"
       ;;
   esac
 done

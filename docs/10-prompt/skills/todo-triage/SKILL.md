@@ -1,48 +1,52 @@
 ---
 name: todo-triage
-description: 在审查待批准的待办事项、确定代码审查结果的优先级或以交互方式对工作项目进行分类时使用
+description: Use when reviewing pending todos for approval, prioritizing code review findings, or interactively categorizing work items
 argument-hint: "[findings list or source type]"
 disable-model-invocation: true
 ---
-# 都都分类
 
-用于逐项审查待办事项并决定是否批准、跳过或修改每一项的交互式工作流程。
+# Todo Triage
 
-**在分类期间不要编写代码。**这纯粹是为了审查和优先级排序 - 实现发生在 `/todo-resolve` 中。
+Interactive workflow for reviewing pending todos one by one and deciding whether to approve, skip, or modify each.
 
-- 首先将 /model 设置为 Haiku
-- 从 `.context/spec-first/todos/` 和旧 `todos/` 目录中读取所有待处理的待办事项
+**Do not write code during triage.** This is purely for review and prioritization -- implementation happens in the `todo-resolve` skill.
 
-## 工作流程
+- If you need a faster or lower-cost pass, switch to the current host's fast/low-cost model before triage.
+- Read all pending todos from `docs/todos/` (canonical), `.context/spec-first/todos/` (legacy-v2), and `todos/` (legacy-v1) directories
 
-### 1. 展示每项发现
+## Workflow
 
-对于每个待处理的待办事项，请清楚地说明其严重性、类别、描述、位置、问题场景、建议的解决方案和工作量估计。然后问：
+### 1. Present Each Finding
+
+For each pending todo, present it clearly with severity, category, description, location, problem scenario, proposed solution, and effort estimate. Then ask:
+
 ```
 Do you want to add this to the todo list?
 1. yes - approve and mark ready
 2. next - skip (deletes the todo file)
 3. custom - modify before approving
 ```
-使用严重性级别：🔴 P1（严重）、🟡 P2（重要）、🔵 P3（最好有）。
 
-在每个标题中包含进度跟踪：`Progress: 3/10 completed`
+Use severity levels: 🔴 P1 (CRITICAL), 🟡 P2 (IMPORTANT), 🔵 P3 (NICE-TO-HAVE).
 
-### 2. 处理决策
+Include progress tracking in each header: `Progress: 3/10 completed`
 
-**是：** 在文件名和 frontmatter 中从 `pending` -> `ready` 重命名文件。填写建议操作部分。如果创建新待办事项（不更新现有待办事项），请使用 `todo-create` 技能中的命名约定。
+### 2. Handle Decision
 
-优先级映射：🔴 P1 -> `p1`、🟡 P2 -> `p2`、🔵 P3 -> `p3`
+**yes:** Rename file from `pending` -> `ready` in both filename and frontmatter. Fill the Recommended Action section. If creating a new todo (not updating existing), use the naming convention from the `todo-create` skill.
 
-确认：“✅ 已批准：`{filename}`（问题 #{issue_id}）- 状态：**准备就绪**”
+Priority mapping: 🔴 P1 -> `p1`, 🟡 P2 -> `p2`, 🔵 P3 -> `p3`
 
-**下一步：** 删除待办事项文件。记录为已跳过以获取最终摘要。
+Confirm: "✅ Approved: `{filename}` (Issue #{issue_id}) - Status: **ready**"
 
-**自定义：**询问要修改、更新、重新呈现、再次询问的内容。
+**next:** Delete the todo file. Log as skipped for the final summary.
 
-### 3.最终总结
+**custom:** Ask what to modify, update, re-present, ask again.
 
-处理完所有项目后：
+### 3. Final Summary
+
+After all items processed:
+
 ```markdown
 ## Triage Complete
 
@@ -54,11 +58,13 @@ Do you want to add this to the todo list?
 ### Skipped (Deleted):
 - Item #5: [reason]
 ```
-### 4. 后续步骤
-```markdown
+
+### 4. Next Steps
+
+ ```markdown
 What would you like to do next?
 
-1. run /todo-resolve to resolve the todos
+1. load the `todo-resolve` skill to resolve the todos
 2. commit the todos
 3. nothing, go chill
 ```

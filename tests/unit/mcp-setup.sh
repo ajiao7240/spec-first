@@ -574,6 +574,19 @@ assert_not_contains "SKILL.md no longer mentions ABCoder" "ABCoder" "$(cat "$SKI
 assert_not_contains "Prompt skill no longer mentions GitNexus" "GitNexus" "$(cat "$PROMPT_SKILL_MD")"
 assert_not_contains "Prompt skill no longer mentions ABCoder" "ABCoder" "$(cat "$PROMPT_SKILL_MD")"
 
+echo "6.6 SKILL.md references real spec-mcp-setup asset paths"
+skill_body="$(cat "$SKILL_MD")"
+assert_not_contains "SKILL.md no longer references skills/mcp-setup/" "skills/mcp-setup/" "$skill_body"
+assert_contains "SKILL.md references spec-mcp-setup mcp-tools.json" "skills/spec-mcp-setup/mcp-tools.json" "$skill_body"
+assert_contains "SKILL.md references spec-mcp-setup check-deps.sh" "skills/spec-mcp-setup/scripts/check-deps.sh" "$skill_body"
+assert_contains "SKILL.md references spec-mcp-setup install-coordinator.sh" "skills/spec-mcp-setup/scripts/install-coordinator.sh" "$skill_body"
+assert_contains "SKILL.md references spec-mcp-setup verify-tools.sh" "skills/spec-mcp-setup/scripts/verify-tools.sh" "$skill_body"
+
+echo "6.7 SKILL.md reflects both optional tools"
+assert_contains "SKILL.md lists Playwright MCP as optional" "Playwright MCP" "$skill_body"
+assert_contains "SKILL.md lists 飞书 MCP as optional" "飞书 MCP" "$skill_body"
+assert_contains "SKILL.md scope says 3 required + 2 optional tools" "3 required tools + 2 optional tools" "$skill_body"
+
 echo ""
 
 # ============================================================================

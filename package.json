@@ -7,7 +7,8 @@
     "spec-first": "./bin/spec-first.js"
   },
   "scripts": {
-    "test:unit": "bash tests/unit/developer.sh && bash tests/unit/lang-policy.sh && bash tests/unit/mcp-setup.sh && bash tests/unit/version-reminder.sh && npx jest tests/unit --runInBand",
+    "lint:skill-entrypoints": "node scripts/lint-skill-entrypoints.js",
+    "test:unit": "bash tests/unit/developer.sh && bash tests/unit/lang-policy.sh && bash tests/unit/setup.sh && bash tests/unit/mcp-setup.sh && bash tests/unit/version-reminder.sh && npx jest tests/unit --runInBand",
     "test:smoke": "bash tests/smoke/install-local.sh && bash tests/smoke/cli.sh",
     "test:integration": "bash tests/integration/e2e.sh",
     "test:e2e:crg": "bash tests/e2e/crg-all-commands.sh && bash tests/e2e/crg-sqlite-audit.sh",
@@ -15,7 +16,9 @@
     "test:crg:benchmarks": "node benchmarks/review/run-review-benchmark.js && node benchmarks/repo-qa/run-repo-qa.js && node benchmarks/context-efficiency/run-context-efficiency.js",
     "test": "npm run test:unit && npm run test:smoke && npm run test:integration && npm run test:e2e:crg",
     "test:jest": "jest",
-    "test:release": "bash tests/smoke/install-tarball.sh",
+    "test:release": "npm run test:release:governance && npm run test:release:install",
+    "test:release:governance": "bash tests/smoke/release-dual-host-governance.sh",
+    "test:release:install": "bash tests/smoke/install-tarball.sh",
     "postinstall": "node bin/postinstall.js"
   },
   "files": [

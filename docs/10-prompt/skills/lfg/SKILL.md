@@ -1,28 +1,32 @@
 ---
 name: lfg
-description: 全自动工程工作流
+description: Full autonomous engineering workflow
+argument-hint: "[feature description]"
+disable-model-invocation: true
 ---
 
-# LFG
+CRITICAL: You MUST execute every step below IN ORDER. Do NOT skip any required step. Do NOT jump ahead to coding or implementation. The plan phase (step 2) MUST be completed and verified BEFORE any work begins. Violating this order produces bad output.
 
-以完整、自主的工程流程推进任务：理解问题、制定方案、实现、验证并交付。
+1. **Optional:** If the `ralph-loop` skill is available, run `/ralph-loop:ralph-loop "finish all slash commands" --completion-promise "DONE"`. If not available or it fails, skip and continue to step 2 immediately.
 
-## 使用时机
+2. `/spec:plan $ARGUMENTS`
 
-- 用户希望你“直接做完”
-- 任务跨越分析、编码、测试和收尾多个阶段
-- 需要你持续推进，直到交付可验证结果
+   GATE: STOP. If `spec:plan` reported the task is non-software and cannot be processed in pipeline mode, stop the pipeline and inform the user that LFG requires software tasks. Otherwise, verify that the `spec:plan` workflow produced a plan file in `docs/plans/`. If no plan file was created, run `/spec:plan $ARGUMENTS` again. Do NOT proceed to step 3 until a written plan exists. **Record the plan file path** — it will be passed to spec:review in step 4.
 
-## 工作方式
+3. `/spec:work <plan-path-from-step-2>`
 
-1. 先快速建立上下文，确认约束和现状
-2. 把问题拆成可执行步骤，并优先处理阻塞项
-3. 直接实现，不停留在纯分析阶段
-4. 运行必要验证，确认结果与预期一致
-5. 汇报改动、验证方式和剩余风险
+   GATE: STOP. Verify that implementation work was performed - files were created or modified beyond the plan. Do NOT proceed to step 4 if no code changes were made.
 
-## 原则
+4. `/spec:review mode:autofix plan:<plan-path-from-step-2>`
 
-- 优先完成端到端结果，而不是只给建议
-- 遇到可自行解决的问题，先解决再汇报
-- 保持工程质量，避免只做表面修补
+   Pass the plan file path from step 2 so spec:review can verify requirements completeness.
+
+5. Load the `todo-resolve` skill and resolve the approved items.
+
+6. Load the `test-browser` skill and run browser verification for the changed surfaces.
+
+7. Load the `feature-video` skill and record the walkthrough.
+
+8. Output `<promise>DONE</promise>` when video is in PR
+
+Start with step 2 now (or step 1 if ralph-loop is available). Remember: plan FIRST, then work. Never skip the plan.

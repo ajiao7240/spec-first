@@ -1,6 +1,7 @@
-# 模块组织模式
+# Module Organization Patterns
 
-## 简单的 Gem 布局
+## Simple Gem Layout
+
 ```
 lib/
 ├── gemname.rb          # Entry point, config, errors
@@ -9,7 +10,9 @@ lib/
     ├── engine.rb       # Rails engine (if needed)
     └── version.rb      # VERSION constant only
 ```
-## 复杂的 Gem 布局（PgHero 模式）
+
+## Complex Gem Layout (PgHero pattern)
+
 ```
 lib/
 ├── pghero.rb
@@ -23,9 +26,11 @@ lib/
         ├── queries.rb
         └── replication.rb
 ```
-## 方法分解模式
 
-按功能将大类分解为可包含的模块：
+## Method Decomposition Pattern
+
+Break large classes into includable modules by feature:
+
 ```ruby
 # lib/pghero/database.rb
 module PgHero
@@ -52,16 +57,20 @@ module PgHero
   end
 end
 ```
-## 版本文件模式
 
-保持 version.rb 最小：
+## Version File Pattern
+
+Keep version.rb minimal:
+
 ```ruby
 # lib/gemname/version.rb
 module GemName
   VERSION = "2.0.0"
 end
 ```
-## 需要在入口点下订单
+
+## Require Order in Entry Point
+
 ```ruby
 # lib/searchkick.rb
 
@@ -81,9 +90,11 @@ require_relative "searchkick/version"
 # 4. Conditional Rails loading (LAST)
 require_relative "searchkick/railtie" if defined?(Rails)
 ```
-## 自动加载与需要
 
-Kane 使用显式 `require_relative`，而不是自动加载：
+## Autoload vs Require
+
+Kane uses explicit `require_relative`, not autoload:
+
 ```ruby
 # CORRECT
 require_relative "gemname/model"
@@ -93,9 +104,11 @@ require_relative "gemname/query"
 autoload :Model, "gemname/model"
 autoload :Query, "gemname/query"
 ```
-## 评论风格
 
-仅最小节标题：
+## Comments Style
+
+Minimal section headers only:
+
 ```ruby
 # dependencies
 require "active_support"

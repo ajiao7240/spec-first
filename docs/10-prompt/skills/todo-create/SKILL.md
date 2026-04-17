@@ -1,37 +1,42 @@
 ---
 name: todo-create
-description: 在创建持久工作项、管理待办事项生命周期或在基于文件的待办事项系统中跨会话跟踪结果时使用
+description: Use when creating durable work items, managing todo lifecycle, or tracking findings across sessions in the file-based todo system
 disable-model-invocation: true
 ---
-# 基于文件的待办事项跟踪
 
-## 概述
+# File-Based Todo Tracking
 
-`.context/spec-first/todos/` 目录是一个基于文件的跟踪系统，用于代码审查反馈、技术债务、功能请求和工作项目。每个待办事项都是一个带有 YAML frontmatter 的 markdown 文件。
+## Overview
 
-> **旧版支持：** 阅读时始终检查 `.context/spec-first/todos/` （规范）和 `todos/` （旧版）。仅将新待办事项写入规范路径。该目录具有多会话生命周期——不要从头开始清理它。
+The `docs/todos/` directory is a file-based tracking system for code review feedback, technical debt, feature requests, and work items. Each todo is a markdown file with YAML frontmatter.
 
-## 目录路径
+> **Legacy support:** Always check `docs/todos/` (canonical), `.context/spec-first/todos/` (legacy-v2), and `todos/` (legacy-v1) when reading. Write new todos only to the canonical path. This directory has a multi-session lifecycle -- do not clean it up as scratch.
 
-|目的|路径|
+## Directory Paths
+
+| Purpose | Path |
 |---------|------|
-| **规范（写在这里）** | `.context/spec-first/todos/` |
-| **旧版（只读）** | `todos/` |
+| **Canonical (write here)** | `docs/todos/` |
+| **Legacy v2 (read-only)** | `.context/spec-first/todos/` |
+| **Legacy v1 (read-only)** | `todos/` |
 
-## 文件命名约定
+## File Naming Convention
+
 ```
 {issue_id}-{status}-{priority}-{description}.md
 ```
-- **issue_id**：序列号（001、002、...）——从未重复使用
-- **状态**：`pending` | `ready` | `complete`
-- **优先级**：`p1`（关键）| `p2`（重要）| `p3`（必备）
-- **描述**：烤肉串盒，简短
 
-**示例：** `002-ready-p1-fix-n-plus-1.md`
+- **issue_id**: Sequential number (001, 002, ...) -- never reused
+- **status**: `pending` | `ready` | `complete`
+- **priority**: `p1` (critical) | `p2` (important) | `p3` (nice-to-have)
+- **description**: kebab-case, brief
 
-## 文件结构
+**Example:** `002-ready-p1-fix-n-plus-1.md`
 
-每个待办事项都有 YAML frontmatter 和结构化部分。创建新待办事项时，请使用下面包含的待办事项模板。
+## File Structure
+
+Each todo has YAML frontmatter and structured sections. Use the todo template included below when creating new todos.
+
 ```yaml
 ---
 status: ready
@@ -41,62 +46,65 @@ tags: [rails, performance]
 dependencies: ["001"]     # Issue IDs this is blocked by
 ---
 ```
-**必填部分：** 问题陈述、调查结果、建议的解决方案、建议的行动（在分类期间填写）、验收标准、工作日志。
 
-**可选部分：** 技术细节、资源、注释。
+**Required sections:** Problem Statement, Findings, Proposed Solutions, Recommended Action (filled during triage), Acceptance Criteria, Work Log.
 
-## 工作流程
+**Optional sections:** Technical Details, Resources, Notes.
 
-> **工具首选项：** 使用本机文件搜索/glob 和内容搜索工具而不是 shell 命令来查找和读取待办事项文件。 Shell 仅适用于没有本机等效项的操作（`mv`、`mkdir -p`）。
+## Workflows
 
-### 创建一个新的待办事项
+> **Tool preference:** Use native file-search/glob and content-search tools instead of shell commands for finding and reading todo files. Shell only for operations with no native equivalent (`mv`, `mkdir -p`).
 
-1. `mkdir -p .context/spec-first/todos/`
-2. 在两个路径中搜索`[0-9]*-*.md`，找到最高的数字前缀、增量、零填充至 3 位数字。
-3. 使用下面包含的待办事项模板，将规范路径写入为 `{NEXT_ID}-pending-{priority}-{description}.md`。
-4. 填写问题陈述、调查结果、建议的解决方案、验收标准和初始工作日志条目。
-5. 设置状态：`pending`（需要分诊）或`ready`（预先批准）。
+### Creating a New Todo
 
-**当**工作需要超过 15 分钟、具有依赖性、需要规划或需要优先级时创建待办事项。 **当修复是微不足道的、明显的且独立的时，立即采取行动**。
+1. `mkdir -p docs/todos/`
+2. Search all three paths for `[0-9]*-*.md`, find the highest numeric prefix, increment, zero-pad to 3 digits.
+3. Use the todo template included below, write to canonical path as `{NEXT_ID}-pending-{priority}-{description}.md`.
+4. Fill Problem Statement, Findings, Proposed Solutions, Acceptance Criteria, and initial Work Log entry.
+5. Set status: `pending` (needs triage) or `ready` (pre-approved).
 
-### 对待处理项目进行分类
+**Create a todo when** the work needs more than ~15 minutes, has dependencies, requires planning, or needs prioritization. **Act immediately instead** when the fix is trivial, obvious, and self-contained.
 
-1. 在两个路径中使用 Glob `*-pending-*.md`。
-2. 审查每个待办事项的问题陈述、调查结果和建议的解决方案。
-3. 批准：重命名文件名和frontmatter中的`pending` -> `ready`，填写Recommended Action。
-4. 推迟：保留为`pending`。
+### Triaging Pending Items
 
-加载交互式审批工作流程的 `todo-triage` 技能。
+1. Glob `*-pending-*.md` in all three paths.
+2. Review each todo's Problem Statement, Findings, and Proposed Solutions.
+3. Approve: rename `pending` -> `ready` in filename and frontmatter, fill Recommended Action.
+4. Defer: leave as `pending`.
 
-### 管理依赖关系
+Load the `todo-triage` skill for an interactive approval workflow.
+
+### Managing Dependencies
+
 ```yaml
 dependencies: ["002", "005"]  # Blocked by these issues
 dependencies: []               # No blockers
 ```
-要检查拦截器：在两个路径中搜索 `{dep_id}-complete-*.md`。缺少匹配项 = 不完整的拦截器。
 
-### 完成待办事项
+To check blockers: search for `{dep_id}-complete-*.md` in all three paths. Missing matches = incomplete blockers.
 
-1. 验证所有验收标准。
-2. 使用最终会话更新工作日志。
-3. 重命名文件名和frontmatter中的`ready` -> `complete`。
-4. 检查是否有未阻止的工作：搜索包含`dependencies:.*"{issue_id}"`的文件。
+### Completing a Todo
 
-## 与工作流程集成
+1. Verify all acceptance criteria.
+2. Update Work Log with final session.
+3. Rename `ready` -> `complete` in filename and frontmatter.
+4. Check for unblocked work: search for files containing `dependencies:.*"{issue_id}"`.
 
-|触发|流量|
+## Integration with Workflows
+
+| Trigger | Flow |
 |---------|------|
-|代码审查 | `/spec:review` -> 调查结果 -> `/todo-triage` -> 待办事项 |
-|自主审核| `/spec:review mode:autofix` -> 剩余待办事项 -> `/todo-resolve` |
-|代码 TODO | `/todo-resolve` -> 修复 + 复杂待办事项 |
-|规划|头脑风暴 -> 创建待办事项 -> 工作 -> 完成 |
+| Code review | `/spec:review` -> Findings -> `todo-triage` skill -> Todos |
+| Autonomous review | `/spec:review mode:autofix` -> Residual todos -> `todo-resolve` skill |
+| Code TODOs | `todo-resolve` skill -> Fixes + Complex todos |
+| Planning | Brainstorm -> Create todo -> Work -> Complete |
 
-## 主要区别
+## Key Distinction
 
-此技能管理以 Markdown 文件形式保存的**持久的跨会话工作项**。对于临时会话中步骤跟踪，请使用平台任务工具（Claude Code 中的 `TaskCreate`/`TaskUpdate`，Codex 中的 `update_plan`）。
+This skill manages **durable, cross-session work items** persisted as markdown files. For temporary in-session step tracking, use platform task tools (`TaskCreate`/`TaskUpdate` in Claude Code, `update_plan` in Codex) instead.
 
 ---
 
-## 待办事项模板
+## Todo Template
 
 @./assets/todo-template.md

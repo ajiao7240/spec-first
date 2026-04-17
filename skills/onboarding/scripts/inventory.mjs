@@ -783,6 +783,19 @@ async function findInfrastructure() {
     }
   }
 
+  // ── AI 工具约定文件探测 ────────────────────────────────────────────────────────
+  // CLAUDE.md / .claude/ → Claude Code；AGENTS.md / AGENTS.json / .codex/ → Codex
+  // rootFiles 已含 dotfiles（includeDotfiles: true），exists() 检测目录
+  if (
+    rootFiles.includes("CLAUDE.md") ||
+    rootFiles.includes("AGENTS.md") ||
+    rootFiles.includes("AGENTS.json") ||
+    await exists(join(root, ".claude")) ||
+    await exists(join(root, ".codex"))
+  ) {
+    services.push("Claude Code / AI Agent tooling");
+  }
+
   return {
     envFiles,
     configFiles,

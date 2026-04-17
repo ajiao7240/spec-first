@@ -10,6 +10,16 @@ Master multi-agent orchestration using Claude Code's TeammateTool and Task syste
 
 ---
 
+## Boundaries
+
+This is a **Claude Code host-specific orchestration skill**. Use it when the task explicitly needs team lifecycle primitives such as `Teammate(...)`, shared inboxes, persistent teammates, or task queues with explicit ownership/dependencies.
+
+If you only need ordinary parallel execution for feature delivery, stay in `spec-work` or `spec-work-beta` and use standard subagent dispatch. Those workflows should route here only when the user explicitly asks for swarm mode / agent teams or the solution truly depends on Claude team mechanics.
+
+This skill is **not** a replacement for `spec-work`, `spec-work-beta`, or `lfg`. It explains how to orchestrate multi-agent teams; it does not own plan-driven feature delivery, review/shipping policy, or the fixed `lfg` pipeline.
+
+---
+
 ## Primitives
 
 | Primitive | What It Is | File Location |

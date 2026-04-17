@@ -36,6 +36,8 @@ npm install -g agent-browser
 agent-browser install
 ```
 
+If installation is blocked by environment permissions, ask the user to run `/spec:setup` to provision dependencies, then re-run this skill.
+
 See the `agent-browser` skill for detailed usage.
 
 ## Workflow
@@ -49,6 +51,7 @@ command -v agent-browser >/dev/null 2>&1 && echo "Ready" || (echo "Installing...
 ```
 
 If installation fails, inform the user and stop.
+Tell the user to run `/spec:setup` first if dependency provisioning is blocked.
 
 ### 2. Ask Browser Mode
 
@@ -268,21 +271,14 @@ After all tests complete, present a summary:
 ### Result: [PASS / FAIL / PARTIAL]
 ```
 
-## Quick Usage Examples
+## Example Inputs
 
-```bash
-# Test current branch changes (auto-detects port)
-/test-browser
+Load the `test-browser` skill with one of these argument shapes:
 
-# Test specific PR
-/test-browser 847
-
-# Test specific branch
-/test-browser feature/new-dashboard
-
-# Test on a specific port
-/test-browser --port 5000
-```
+- `current` — test the current branch changes and auto-detect the port
+- `847` — test the files changed in PR `#847`
+- `feature/new-dashboard` — test a specific branch diff
+- `--port 5000` — force a specific local dev-server port
 
 ## agent-browser CLI Reference
 

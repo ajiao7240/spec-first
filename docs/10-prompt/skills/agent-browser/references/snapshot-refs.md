@@ -1,30 +1,33 @@
-# 快照和参考
+# Snapshot and Refs
 
-紧凑的元素引用可显着减少 AI 代理的上下文使用。
+Compact element references that reduce context usage dramatically for AI agents.
 
-**相关**：[commands.md](commands.md) 用于完整命令参考，[SKILL.md](../SKILL.md) 用于快速入门。
+**Related**: [commands.md](commands.md) for full command reference, [SKILL.md](../SKILL.md) for quick start.
 
-## 内容
+## Contents
 
-- [参考文献如何工作](#how-refs-work)
-- [快照命令](#the-snapshot-command)
-- [使用参考](#using-refs)
-- [参考生命周期](#ref-lifecycle)
-- [最佳实践](#best-practices)
-- [参考符号详细信息](#ref-notation-details)
-- [疑难解答](#疑难解答)
+- [How Refs Work](#how-refs-work)
+- [Snapshot Command](#the-snapshot-command)
+- [Using Refs](#using-refs)
+- [Ref Lifecycle](#ref-lifecycle)
+- [Best Practices](#best-practices)
+- [Ref Notation Details](#ref-notation-details)
+- [Troubleshooting](#troubleshooting)
 
-## 参考如何工作
+## How Refs Work
 
-传统方法：
+Traditional approach:
 ```
 Full DOM/HTML -> AI parses -> CSS selector -> Action (~3000-5000 tokens)
 ```
-代理浏览器方法：
+
+agent-browser approach:
 ```
 Compact snapshot -> @refs assigned -> Direct interaction (~200-400 tokens)
 ```
-## 快照命令
+
+## The Snapshot Command
+
 ```bash
 # Basic snapshot (shows page structure)
 agent-browser snapshot
@@ -32,7 +35,9 @@ agent-browser snapshot
 # Interactive snapshot (-i flag) - RECOMMENDED
 agent-browser snapshot -i
 ```
-### 快照输出格式
+
+### Snapshot Output Format
+
 ```
 Page: Example Site - Home
 URL: https://example.com
@@ -54,9 +59,11 @@ URL: https://example.com
 @e13 [footer]
   @e14 [a] "Privacy Policy"
 ```
-## 使用参考
 
-一旦你有了参考文献，就可以直接互动：
+## Using Refs
+
+Once you have refs, interact directly:
+
 ```bash
 # Click the "Sign In" button
 agent-browser click @e6
@@ -70,9 +77,11 @@ agent-browser fill @e11 "password123"
 # Submit the form
 agent-browser click @e12
 ```
-## 参考生命周期
 
-**重要**：页面更改时引用将失效！
+## Ref Lifecycle
+
+**IMPORTANT**: Refs are invalidated when the page changes!
+
 ```bash
 # Get initial snapshot
 agent-browser snapshot -i
@@ -85,9 +94,11 @@ agent-browser click @e1
 agent-browser snapshot -i
 # @e1 [h1] "Page 2"  <- Different element now!
 ```
-## 最佳实践
 
-### 1. 交互之前始终先快照
+## Best Practices
+
+### 1. Always Snapshot Before Interacting
+
 ```bash
 # CORRECT
 agent-browser open https://example.com
@@ -98,26 +109,34 @@ agent-browser click @e1            # Use ref
 agent-browser open https://example.com
 agent-browser click @e1            # Ref doesn't exist yet!
 ```
-### 2. 导航后重新快照
+
+### 2. Re-Snapshot After Navigation
+
 ```bash
 agent-browser click @e5            # Navigates to new page
 agent-browser snapshot -i          # Get new refs
 agent-browser click @e1            # Use new refs
 ```
-### 3.动态变化后重新快照
+
+### 3. Re-Snapshot After Dynamic Changes
+
 ```bash
 agent-browser click @e1            # Opens dropdown
 agent-browser snapshot -i          # See dropdown items
 agent-browser click @e7            # Select item
 ```
-### 4. 特定区域快照
 
-对于复杂页面，对特定区域进行快照：
+### 4. Snapshot Specific Regions
+
+For complex pages, snapshot specific areas:
+
 ```bash
 # Snapshot just the form
 agent-browser snapshot @e9
 ```
-## 参考符号详细信息
+
+## Ref Notation Details
+
 ```
 @e1 [tag type="value"] "text content" placeholder="hint"
 |    |   |             |               |
@@ -127,7 +146,9 @@ agent-browser snapshot @e9
 |    +- HTML tag name
 +- Unique ref ID
 ```
-### 常见模式
+
+### Common Patterns
+
 ```
 @e1 [button] "Submit"                    # Button with text
 @e2 [input type="email"]                 # Email input
@@ -140,14 +161,18 @@ agent-browser snapshot @e9
 @e9 [checkbox] checked                   # Checked checkbox
 @e10 [radio] selected                    # Selected radio
 ```
-## 故障排除
 
-###“找不到参考”错误
+## Troubleshooting
+
+### "Ref not found" Error
+
 ```bash
 # Ref may have changed - re-snapshot
 agent-browser snapshot -i
 ```
-### 元素在快照中不可见
+
+### Element Not Visible in Snapshot
+
 ```bash
 # Scroll down to reveal element
 agent-browser scroll down 1000
@@ -157,7 +182,9 @@ agent-browser snapshot -i
 agent-browser wait 1000
 agent-browser snapshot -i
 ```
-### 元素太多
+
+### Too Many Elements
+
 ```bash
 # Snapshot specific container
 agent-browser snapshot @e5

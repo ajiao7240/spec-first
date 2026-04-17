@@ -1,8 +1,9 @@
-# Rails 集成模式
+# Rails Integration Patterns
 
-## 黄金法则
+## The Golden Rule
 
-**永远不要直接需要 Rails gem。**这会导致加载顺序问题。
+**Never require Rails gems directly.** This causes loading order issues.
+
 ```ruby
 # WRONG - causes premature loading
 require "active_record"
@@ -13,9 +14,11 @@ ActiveSupport.on_load(:active_record) do
   extend MyGem::Model
 end
 ```
-## ActiveSupport.on_load 挂钩
 
-常见的钩子及其用途：
+## ActiveSupport.on_load Hooks
+
+Common hooks and their uses:
+
 ```ruby
 # Models
 ActiveSupport.on_load(:active_record) do
@@ -38,18 +41,22 @@ ActiveSupport.on_load(:action_mailer) do
   include GemName::MailerExtensions
 end
 ```
-## 行为修改前
 
-当重写现有的 Rails 方法时：
+## Prepend for Behavior Modification
+
+When overriding existing Rails methods:
+
 ```ruby
 ActiveSupport.on_load(:active_record) do
   ActiveRecord::Migration.prepend(StrongMigrations::Migration)
   ActiveRecord::Migrator.prepend(StrongMigrations::Migrator)
 end
 ```
-## 铁路领带图案
 
-不可安装宝石的最小拉杆：
+## Railtie Pattern
+
+Minimal Railtie for non-mountable gems:
+
 ```ruby
 # lib/gemname/railtie.rb
 module GemName
@@ -75,9 +82,11 @@ module GemName
   end
 end
 ```
-## 引擎图案（可安装宝石）
 
-对于带有 Web 界面的 gem（PgHero、Blazer、Ahoy）：
+## Engine Pattern (Mountable Gems)
+
+For gems with web interfaces (PgHero, Blazer, Ahoy):
+
 ```ruby
 # lib/pghero/engine.rb
 module PgHero
@@ -97,7 +106,9 @@ module PgHero
   end
 end
 ```
-## 引擎路线
+
+## Routes for Engines
+
 ```ruby
 # config/routes.rb (in engine)
 PgHero::Engine.routes.draw do
@@ -105,14 +116,18 @@ PgHero::Engine.routes.draw do
   resources :databases, only: [:show]
 end
 ```
-在应用程序中安装：
+
+Mount in app:
+
 ```ruby
 # config/routes.rb (in app)
 mount PgHero::Engine, at: "pghero"
 ```
-## 使用 ERB 进行 YAML 配置
 
-对于需要配置文件的复杂 gem：
+## YAML Configuration with ERB
+
+For complex gems needing config files:
+
 ```ruby
 def self.settings
   @settings ||= begin
@@ -125,7 +140,9 @@ def self.settings
   end
 end
 ```
-## 生成器模式
+
+## Generator Pattern
+
 ```ruby
 # lib/generators/gemname/install_generator.rb
 module GemName
@@ -144,7 +161,9 @@ module GemName
   end
 end
 ```
-## 条件特征检测
+
+## Conditional Feature Detection
+
 ```ruby
 # Check for specific Rails versions
 if ActiveRecord.version >= Gem::Version.new("7.0")

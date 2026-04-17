@@ -1,6 +1,6 @@
 ---
 name: test-xcode
-description: Build and test iOS apps on simulator using XcodeBuildMCP
+description: "Build and test iOS apps on simulator using XcodeBuildMCP. Use after making iOS code changes, before creating a PR, or when verifying app behavior and checking for crashes on simulator."
 argument-hint: "[scheme name or 'current' to use default]"
 disable-model-invocation: true
 ---
@@ -196,18 +196,13 @@ After testing:
 1. Call `stop_log_capture` with the simulator UUID
 2. Optionally call `shutdown_simulator` with the simulator UUID
 
-## Quick Usage Examples
+## Example Inputs
 
-```bash
-# Test with default scheme
-/test-xcode
+Load the `test-xcode` skill with one of these argument shapes:
 
-# Test specific scheme
-/test-xcode MyApp-Debug
-
-# Test after making changes
-/test-xcode current
-```
+- omit the argument to use the default scheme
+- `MyApp-Debug` — test a specific scheme
+- `current` — reuse the current or last-used scheme
 
 ## Integration with spec:review
 

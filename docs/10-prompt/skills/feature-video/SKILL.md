@@ -1,42 +1,55 @@
 ---
 name: feature-video
-description: 录制功能的视频演练并将其添加到 PR 描述中。当 PR 需要为审阅者提供视觉演示时、当用户要求演示某个功能、创建 PR 视频、录制演练、展示视觉上的更改或将视频添加到拉取请求时使用。
+description: Capture reviewer evidence as a GitHub-native video, GIF demo reel, terminal recording, or screenshots, and optionally add it to the PR description. Use when a PR needs visual proof, when the user asks to demo a feature, record a walkthrough, capture screenshots, show CLI output visually, or show what changed in a way reviewers can inspect quickly.
 argument-hint: "[PR number or 'current' or path/to/video.mp4] [optional: base URL, default localhost:3000]"
 ---
-# 专题视频演练
 
-记录展示功能的浏览器交互，将屏幕截图拼接到 MP4 视频中，本地上传到 GitHub，并作为内嵌视频播放器嵌入 PR 描述中。
+# Feature Evidence Capture
 
-## 先决条件
+Capture reviewer evidence for a change and attach it to the PR when useful.
 
-- 正在运行的本地开发服务器（例如，`bin/dev`、`npm run dev`、`rails server`）
-- `agent-browser` CLI已安装（加载`agent-browser`技能以获取详细信息）
-- 安装`ffmpeg`（用于视频转换）
-- `gh` CLI 通过对存储库的推送访问进行身份验证
-- 功能分支上的 Git 存储库（PR 可选——技能可以创建草稿或仅记录）
-- 一次性 GitHub 浏览器身份验证（请参阅第 6 步身份验证检查）
+This skill supports two evidence paths:
 
-## 主要任务
+1. **Tiered evidence capture** -- GIF demo reel, terminal recording, screenshot reel, or static screenshots. Use this when the user asks for screenshots, a GIF, CLI proof, or generic visual evidence, or when a full inline video is unnecessary.
+2. **Native GitHub video upload** -- MP4 walkthrough uploaded to the PR as a GitHub-hosted inline video player. Use this when the user explicitly wants a PR video, provides a PR number/current PR, or already has an `.mp4` artifact to upload.
 
-### 1. 解析争论并解决 PR
+If the request is ambiguous, prefer the lightest evidence that proves the change clearly. Do not force an MP4 when screenshots or a GIF communicate the change better.
 
-**参数：** $ARGUMENTS
+## Prerequisites
 
-解析输入：
-- 第一个参数：PR 编号、“当前”（默认为当前分支的 PR）或现有 `.mp4` 文件的路径（仅上传恢复模式）
-- 第二个参数：基本 URL（默认为 `http://localhost:3000`）
+- Local development server running (e.g., `bin/dev`, `npm run dev`, `rails server`)
+- `agent-browser` CLI installed (load the `agent-browser` skill for details)
+- `ffmpeg` installed (for video conversion)
+- `gh` CLI authenticated with push access to the repo
+- Git repository on a feature branch (PR optional -- skill can create a draft or record-only)
+- One-time GitHub browser auth (see Step 6 auth check)
 
-**仅上传简历：** 如果第一个参数以 `.mp4` 结尾并且文件存在，请跳过步骤 2-5 并使用该文件直接进入步骤 6。从当前分支解析 PR 编号 (`gh pr view --json number -q '.number'`)。
+## Native GitHub Video Mode
 
-如果提供了明确的 PR 编号，请验证它是否存在并直接使用它：
+### 1. Parse Arguments & Resolve PR
+
+**Arguments:** $ARGUMENTS
+
+Parse the input:
+- First argument: PR number, "current" (defaults to current branch's PR), or path to an existing `.mp4` file (upload-only resume mode)
+- Second argument: Base URL (defaults to `http://localhost:3000`)
+
+**Upload-only resume:** If the first argument ends in `.mp4` and the file exists, skip Steps 2-5 and proceed directly to Step 6 using that file. Resolve the PR number from the current branch (`gh pr view --json number -q '.number'`).
+
+If an explicit PR number was provided, verify it exists and use it directly:
+
 ```bash
 gh pr view [number] --json number -q '.number'
 ```
-如果未提供明确的 PR 编号（或指定了“current”），请检查当前分支是否存在 PR：
+
+If no explicit PR number was provided (or "current" was specified), check if a PR exists for the current branch:
+
 ```bash
 gh pr view --json number -q '.number'
 ```
-如果当前分支不存在 PR，请询问用户如何继续。 **使用平台的屏蔽提问工具**（Claude Code 中为 `AskUserQuestion`，Codex 中为 `request_user_input`，Gemini 中为 `ask_user`：
+
+If no PR exists for the current branch, ask the user how to proceed. **Use the platform's blocking question tool** (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini):
+
 ```
 No PR found for the current branch.
 
@@ -44,17 +57,21 @@ No PR found for the current branch.
 2. Record video only -- save locally and upload later when a PR exists
 3. Cancel
 ```
-如果选项 1：使用从分支名称派生的占位符标题创建草稿 PR，则继续使用新的 PR 编号：
+
+If option 1: create a draft PR with a placeholder title derived from the branch name, then continue with the new PR number:
+
 ```bash
 gh pr create --draft --title "[branch-name-humanized]" --body "Draft PR for video walkthrough"
 ```
-如果选择 2：设置 `RECORD_ONLY=true`。继续执行步骤 2-5（录制和编码），跳过步骤 6-7（上传和 PR 更新），并在最后报告本地视频路径和 `[RUN_ID]`。
 
-**仅上传简历：** 要上传以前录制的视频，请将现有视频文件路径作为第一个参数传递（例如，`/feature-video .context/spec-first/feature-video/1711234567/videos/feature-demo.mp4`）。当第一个参数是 `.mp4` 文件的路径时，请跳过步骤 2-5，并使用该文件上传直接进入步骤 6。
+If option 2: set `RECORD_ONLY=true`. Proceed through Steps 2-5 (record and encode), skip Steps 6-7 (upload and PR update), and report the local video path and `[RUN_ID]` at the end.
 
-### 1b。验证所需工具
+**Upload-only resume:** To upload a previously recorded video, pass an existing video file path as the first argument (e.g., `.spec-first/workflows/feature-video/1711234567/videos/feature-demo.mp4`). When the first argument is a path to an `.mp4` file, skip Steps 2-5 and proceed directly to Step 6 using that file for upload.
 
-在继续之前，请检查是否已安装所需的 CLI 工具。尽早失败并发出明确的消息，而不是在记录屏幕截图后在工作流程中失败：
+### 1b. Verify Required Tools
+
+Before proceeding, check that required CLI tools are installed. Fail early with a clear message rather than failing mid-workflow after screenshots have been recorded:
+
 ```bash
 command -v ffmpeg
 ```
@@ -66,16 +83,18 @@ command -v agent-browser
 ```bash
 command -v gh
 ```
-如果缺少任何工具，请停止并报告需要安装哪些工具：
-- `ffmpeg`：`brew install ffmpeg` (macOS) 或同等版本
-- `agent-browser`：加载`agent-browser`技能以获取安装说明
-- `gh`：`brew install gh` (macOS) 或参见 https://cli.github.com
 
-在所有工具都可用之前，请勿继续执行步骤 2。
+If any tool is missing, stop and report which tools need to be installed:
+- `ffmpeg`: `brew install ffmpeg` (macOS) or equivalent
+- `agent-browser`: load the `agent-browser` skill for installation instructions
+- `gh`: `brew install gh` (macOS) or see https://cli.github.com
 
-### 2. 收集特征上下文
+Do not proceed to Step 2 until all tools are available.
 
-**如果 PR 可用**，获取 PR 详细信息和更改的文件：
+### 2. Gather Feature Context
+
+**If a PR is available**, get PR details and changed files:
+
 ```bash
 gh pr view [number] --json title,body,files,headRefName -q '.'
 ```
@@ -83,25 +102,29 @@ gh pr view [number] --json title,body,files,headRefName -q '.'
 ```bash
 gh pr view [number] --json files -q '.files[].path'
 ```
-**如果处于仅记录模式（无 PR）**，检测默认分支并从分支差异中派生上下文。在一个块中运行这两个命令，以便变量持续存在：
+
+**If in record-only mode (no PR)**, detect the default branch and derive context from the branch diff. Run both commands in a single block so the variable persists:
+
 ```bash
 DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q '.defaultBranchRef.name') && git diff --name-only "$DEFAULT_BRANCH"...HEAD && git log --oneline "$DEFAULT_BRANCH"...HEAD
 ```
-将更改的文件映射到应演示的路由/页面。检查项目的路由配置（例如，`routes.rb`、`next.config.js`、`app/`目录结构）以确定哪些 URL 对应于已更改的文件。
 
-### 3.规划视频流程
+Map changed files to routes/pages that should be demonstrated. Examine the project's routing configuration (e.g., `routes.rb`, `next.config.js`, `app/` directory structure) to determine which URLs correspond to the changed files.
 
-在录制之前，创建一个镜头列表：
+### 3. Plan the Video Flow
 
-1. **开场镜头**：主页或起点（2-3秒）
-2. **导航**：用户如何访问该功能
-3. **功能演示**：核心功能（重点）
-4. **边缘情况**：错误状态、验证等（如果适用）
-5. **成功状态**：已完成的操作/结果
+Before recording, create a shot list:
 
-在记录之前向用户展示建议的流程以供确认。
+1. **Opening shot**: Homepage or starting point (2-3 seconds)
+2. **Navigation**: How user gets to the feature
+3. **Feature demonstration**: Core functionality (main focus)
+4. **Edge cases**: Error states, validation, etc. (if applicable)
+5. **Success state**: Completed action/result
 
-**使用平台的阻塞问题工具（如果可用）**（Claude Code 中的 `AskUserQuestion`、Codex 中的 `request_user_input`、Gemini 中的 `ask_user`。否则，请显示编号选项并等待用户回复，然后再继续：
+Present the proposed flow to the user for confirmation before recording.
+
+**Use the platform's blocking question tool when available** (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present numbered options and wait for the user's reply before proceeding:
+
 ```
 Proposed Video Flow for PR #[number]: [title]
 
@@ -119,139 +142,169 @@ Estimated duration: ~[X] seconds
 2. Modify the flow (describe changes)
 3. Add specific interactions to demonstrate
 ```
-### 4. 记录演练
 
-生成唯一的运行 ID（例如时间戳）并创建每次运行的输出目录。这可以防止先前运行的过时屏幕截图被拼接到新视频中。
+### 4. Record the Walkthrough
 
-**重要提示：** Shell 变量不会在单独的代码块中持续存在。生成运行 ID 后，将具体值替换到此工作流程中的所有后续命令中。例如，如果时间戳是 `1711234567`，则在下面的所有路径中使用该文字值 - 不要依赖 `[RUN_ID]` 在后面的块中扩展。
+Generate a unique run ID (e.g., timestamp) and create per-run output directories. This prevents stale screenshots from prior runs being spliced into the new video.
+
+**Important:** Shell variables do not persist across separate code blocks. After generating the run ID, substitute the concrete value into all subsequent commands in this workflow. For example, if the timestamp is `1711234567`, use that literal value in all paths below -- do not rely on `[RUN_ID]` expanding in later blocks.
+
 ```bash
 date +%s
 ```
-使用输出作为 RUN_ID。创建具有具体值的目录：
+
+Use the output as RUN_ID. Create the directories with the concrete value:
+
 ```bash
-mkdir -p .context/spec-first/feature-video/[RUN_ID]/screenshots
-mkdir -p .context/spec-first/feature-video/[RUN_ID]/videos
+mkdir -p .spec-first/workflows/feature-video/[RUN_ID]/screenshots
+mkdir -p .spec-first/workflows/feature-video/[RUN_ID]/videos
 ```
-执行计划的流程，使用代理浏览器捕获每个步骤。按顺序对屏幕截图进行编号以获得正确的帧顺序：
+
+Execute the planned flow, capturing each step with agent-browser. Number screenshots sequentially for correct frame ordering:
+
 ```bash
 agent-browser open "[base-url]/[start-route]"
 agent-browser wait 2000
-agent-browser screenshot .context/spec-first/feature-video/[RUN_ID]/screenshots/01-start.png
+agent-browser screenshot .spec-first/workflows/feature-video/[RUN_ID]/screenshots/01-start.png
 ```
 
 ```bash
 agent-browser snapshot -i
 agent-browser click @e1
 agent-browser wait 1000
-agent-browser screenshot .context/spec-first/feature-video/[RUN_ID]/screenshots/02-navigate.png
+agent-browser screenshot .spec-first/workflows/feature-video/[RUN_ID]/screenshots/02-navigate.png
 ```
 
 ```bash
 agent-browser snapshot -i
 agent-browser click @e2
 agent-browser wait 1000
-agent-browser screenshot .context/spec-first/feature-video/[RUN_ID]/screenshots/03-feature.png
+agent-browser screenshot .spec-first/workflows/feature-video/[RUN_ID]/screenshots/03-feature.png
 ```
 
 ```bash
 agent-browser wait 2000
-agent-browser screenshot .context/spec-first/feature-video/[RUN_ID]/screenshots/04-result.png
+agent-browser screenshot .spec-first/workflows/feature-video/[RUN_ID]/screenshots/04-result.png
 ```
-### 5. 创建视频
 
-使用步骤 4 中的相同 `[RUN_ID]` 将屏幕截图拼接到 MP4 中：
+### 5. Create Video
+
+Stitch screenshots into an MP4 using the same `[RUN_ID]` from Step 4:
+
 ```bash
-ffmpeg -y -framerate 0.5 -pattern_type glob -i ".context/spec-first/feature-video/[RUN_ID]/screenshots/*.png" \
+ffmpeg -y -framerate 0.5 -pattern_type glob -i ".spec-first/workflows/feature-video/[RUN_ID]/screenshots/*.png" \
   -c:v libx264 -pix_fmt yuv420p -vf "scale=1280:-2" \
-  ".context/spec-first/feature-video/[RUN_ID]/videos/feature-demo.mp4"
+  ".spec-first/workflows/feature-video/[RUN_ID]/videos/feature-demo.mp4"
 ```
-注意事项：
-- `-framerate 0.5` = 每帧 2 秒。调整以加快/减慢播放速度。
-- 比例中的 `-2` 确保高度可被 2 整除（H.264 要求）。
 
-### 6. 验证并上传到 GitHub
+Notes:
+- `-framerate 0.5` = 2 seconds per frame. Adjust for faster/slower playback.
+- `-2` in scale ensures height is divisible by 2 (required for H.264).
 
-上传会生成一个 `user-attachments/assets/` URL，GitHub 将其呈现为原生内联视频播放器 - 与手动将视频粘贴到 PR 编辑器中的结果相同。
+### 6. Authenticate & Upload to GitHub
 
-方法：关闭任何现有的代理浏览器会话，使用保存的 GitHub 身份验证启动 Chrome 引擎会话，导航到 PR 页面，在评论表单的隐藏文件输入上设置视频文件，等待 GitHub 处理上传，提取生成的 URL，然后清除文本区域而不提交。
+Upload produces a `user-attachments/assets/` URL that GitHub renders as a native inline video player -- the same result as pasting a video into the PR editor manually.
 
-#### 检查现有会话
+The approach: close any existing agent-browser session, start a Chrome-engine session with saved GitHub auth, navigate to the PR page, set the video file on the comment form's hidden file input, wait for GitHub to process the upload, extract the resulting URL, then clear the textarea without submitting.
 
-首先，检查保存的 GitHub 会话是否已存在：
+#### Check for existing session
+
+First, check if a saved GitHub session already exists:
+
 ```bash
 agent-browser close
 agent-browser --engine chrome --session-name github open https://github.com/settings/profile
 agent-browser get title
 ```
-如果页面标题包含用户的 GitHub 用户名或“个人资料”，则会话仍然有效 - 跳到下面的“上传视频”。如果它重定向到登录页面，则会话已过期或从未创建 - 继续“身份验证设置”。
 
-#### 身份验证设置（一次性）
+If the page title contains the user's GitHub username or "Profile", the session is still valid -- skip to "Upload the video" below. If it redirects to the login page, the session has expired or was never created -- proceed to "Auth setup".
 
-建立经过身份验证的 GitHub 会话。这只需要发生一次——会话 cookie 通过 `--session-name` 标志在运行中持续存在。
+#### Auth setup (one-time)
 
-关闭当前会话并在带标题的 Chrome 窗口中打开 GitHub 登录页面：
+Establish an authenticated GitHub session. This only needs to happen once -- session cookies persist across runs via the `--session-name` flag.
+
+Close the current session and open the GitHub login page in a headed Chrome window:
+
 ```bash
 agent-browser close
 agent-browser --engine chrome --headed --session-name github open https://github.com/login
 ```
-用户必须在浏览器窗口中手动登录（处理 2FA、SSO、OAuth - 任何登录方法）。 **使用平台的屏蔽问题工具**（Claude Code 中为 `AskUserQuestion`，Codex 中为 `request_user_input`，Gemini 中为 `ask_user`。否则，请显示消息并等待用户回复，然后再继续：
+
+The user must log in manually in the browser window (handles 2FA, SSO, OAuth -- any login method). **Use the platform's blocking question tool** (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present the message and wait for the user's reply before proceeding:
+
 ```
 GitHub login required for video upload.
 
 A Chrome window has opened to github.com/login. Please log in manually
 (this handles 2FA/SSO/OAuth automatically). Reply when done.
 ```
-登录后，验证会话是否有效：
+
+After login, verify the session works:
+
 ```bash
 agent-browser open https://github.com/settings/profile
 ```
-如果配置文件页面加载，则身份验证得到确认。 `github` 会话现已保存并可重复使用。
 
-####上传视频
+If the profile page loads, auth is confirmed. The `github` session is now saved and reusable.
 
-导航到 PR 页面并滚动到评论表单：
+#### Upload the video
+
+Navigate to the PR page and scroll to the comment form:
+
 ```bash
 agent-browser open "https://github.com/[owner]/[repo]/pull/[number]"
 agent-browser scroll down 5000
 ```
-上传前保存任何现有的文本区域内容（评论框可能包含未发送的草稿）：
+
+Save any existing textarea content before uploading (the comment box may contain an unsent draft):
+
 ```bash
 agent-browser eval "document.getElementById('new_comment_field').value"
 ```
-将此值存储为 `SAVED_TEXTAREA`。如果非空，则提取上传URL后恢复。
 
-通过隐藏文件输入上传视频。如果处于仅上传恢复模式，则使用调用者提供的 `.mp4` 路径，否则使用当前运行的编码视频：
+Store this value as `SAVED_TEXTAREA`. If non-empty, it will be restored after extracting the upload URL.
+
+Upload the video via the hidden file input. Use the caller-provided `.mp4` path if in upload-only resume mode, otherwise use the current run's encoded video:
+
 ```bash
 agent-browser upload '#fc-new_comment_field' [VIDEO_FILE_PATH]
 ```
-其中 `[VIDEO_FILE_PATH]` 是：
-- 作为第一个参数传递的 `.mp4` 路径（仅上传恢复模式）
-- `.context/spec-first/feature-video/[RUN_ID]/videos/feature-demo.mp4`（正常录制流程）
 
-等待 GitHub 处理上传（通常 3-5 秒），然后读取 textarea 值：
+Where `[VIDEO_FILE_PATH]` is either:
+- The `.mp4` path passed as the first argument (upload-only resume mode)
+- `.spec-first/workflows/feature-video/[RUN_ID]/videos/feature-demo.mp4` (normal recording flow)
+
+Wait for GitHub to process the upload (typically 3-5 seconds), then read the textarea value:
+
 ```bash
 agent-browser wait 5000
 agent-browser eval "document.getElementById('new_comment_field').value"
 ```
-**验证提取的 URL。** 该值必须包含 `user-attachments/assets/` 以确认本机上传成功。如果文本区域为空、仅包含占位符文本或 URL 不匹配，则不要继续执行步骤 7。而是：
 
-1. 检查`agent-browser get url`——如果显示`github.com/login`，则会话已过期。重新运行身份验证设置。
-2. 如果仍在 PR 页面上，请再等待 5 秒并重新读取文本区域（GitHub 处理可能很慢）。
-3. 如果重试后验证仍然失败，请报告失败并报告本地视频路径，以便用户手动上传。
+**Validate the extracted URL.** The value must contain `user-attachments/assets/` to confirm a successful native upload. If the textarea is empty, contains only placeholder text, or the URL does not match, do not proceed to Step 7. Instead:
 
-恢复原始文本区域内容（如果为空则清除）。 JSON 编码的字符串也是有效的 JavaScript 字符串文字，因此直接分配它而不使用 `JSON.parse`：
+1. Check `agent-browser get url` -- if it shows `github.com/login`, the session expired. Re-run auth setup.
+2. If still on the PR page, wait an additional 5 seconds and re-read the textarea (GitHub processing can be slow).
+3. If validation still fails after retry, report the failure and the local video path so the user can upload manually.
+
+Restore the original textarea content (or clear if it was empty). A JSON-encoded string is also a valid JavaScript string literal, so assign it directly without `JSON.parse`:
+
 ```bash
 agent-browser eval "const ta = document.getElementById('new_comment_field'); ta.value = [SAVED_TEXTAREA_AS_JS_STRING]; ta.dispatchEvent(new Event('input', { bubbles: true }))"
 ```
-要准备该值：获取 SAVED_TEXTAREA 字符串并从中生成 JS 字符串文字 - 转义反斜杠、双引号和换行符（例如 `"text with \"quotes\" and\nnewlines"`）。如果 SAVED_TEXTAREA 为空，则使用 `""`。结果直接嵌入到赋值的右侧——不需要 `JSON.parse` 调用。
 
-### 7.更新PR描述
+To prepare the value: take the SAVED_TEXTAREA string and produce a JS string literal from it -- escape backslashes, double quotes, and newlines (e.g., `"text with \"quotes\" and\nnewlines"`). If SAVED_TEXTAREA was empty, use `""`. The result is embedded directly as the right-hand side of the assignment -- no `JSON.parse` call needed.
 
-获取当前 PR 正文：
+### 7. Update PR Description
+
+Get the current PR body:
+
 ```bash
 gh pr view [number] --json body -q '.body'
 ```
-附加演示部分（或替换现有的演示部分）。当视频 URL 放置在自己的行上时，会呈现为内联播放器：
+
+Append a Demo section (or replace an existing one). The video URL renders as an inline player when placed on its own line:
+
 ```markdown
 ## Demo
 
@@ -259,23 +312,31 @@ https://github.com/user-attachments/assets/[uuid]
 
 *Automated video walkthrough*
 ```
-更新 PR：
+
+Update the PR:
+
 ```bash
 gh pr edit [number] --body "[updated body with demo section]"
 ```
-### 8. 清理
 
-删除临时文件之前询问用户。如果确认，仅清理当前运行的暂存目录（其他运行可能仍在进行中或等待上传）。
+### 8. Cleanup
 
-**如果视频上传成功**，删除整个运行目录：
+Ask the user before removing temporary files. If confirmed, clean up only the current run's scratch directory (other runs may still be in progress or awaiting upload).
+
+**If the video was successfully uploaded**, remove the entire run directory:
+
 ```bash
-rm -r .context/spec-first/feature-video/[RUN_ID]
+rm -r .spec-first/workflows/feature-video/[RUN_ID]
 ```
-**如果处于仅记录模式或上传失败**，仅删除屏幕截图但保留视频，以便用户稍后上传：
+
+**If in record-only mode or upload failed**, remove only the screenshots but preserve the video so the user can upload later:
+
 ```bash
-rm -r .context/spec-first/feature-video/[RUN_ID]/screenshots
+rm -r .spec-first/workflows/feature-video/[RUN_ID]/screenshots
 ```
-呈现完成摘要：
+
+Present a completion summary:
+
 ```
 Feature Video Complete
 
@@ -290,36 +351,133 @@ Shots captured:
 
 PR description updated with demo section.
 ```
-## 用法示例
+
+## Tiered Evidence Mode
+
+Use this path when the change is better demonstrated as a GIF, terminal reel, or screenshots, or when the user asked for general visual evidence rather than a GitHub-native inline video.
+
+### A. Discover the capture target
+
+Treat target discovery as branch-aware and evidence-first. Use the lightest available context:
+
+- current branch name
+- open PR title/body when a PR exists
+- changed files and diff against the base branch
+- recent commits
+- a referenced plan file only when it is clearly tied to the branch or request
+
+Form a hypothesis such as: "The clearest evidence is [behavior]."
+
+If there are multiple plausible observable behaviors and none is clearly primary, ask the user what to demonstrate before capturing anything.
+
+### B. Exercise the actual product
+
+Evidence means using the product, not running tests. Before capture:
+
+- **CLI tool** -- run the changed command and confirm the output is correct
+- **Web app** -- open the changed route and confirm it renders/behaves correctly
+- **Library** -- run an example that exercises the new API
+- **Bug fix** -- reproduce the original scenario and confirm the fixed state
+
+If real product usage requires credentials, paid services, or environment the agent cannot create, say so explicitly and fall back to the lightest honest evidence mode.
+
+### C. Detect project type
+
+Choose the directory that best represents the changed surface, then run:
+
 ```bash
-# Record video for current branch's PR
-/feature-video
-
-# Record video for specific PR
-/feature-video 847
-
-# Record with custom base URL
-/feature-video 847 http://localhost:5000
-
-# Record for staging environment
-/feature-video current https://staging.example.com
+python3 scripts/capture-demo.py detect --repo-root [TARGET_DIR]
 ```
-## 提示
 
-- 保持简短：10-30 秒是 PR 演示的理想选择
-- 专注于改变：不包含不相关的UI
-- 显示之前/之后：如果修复错误，首先显示损坏的状态（如果可能）
-- 当 GitHub 使 cookie 失效时（通常是几周），`--session-name github` 会话就会过期。如果上传因登录重定向而失败，请重新运行身份验证设置。
-- 如果 GitHub 更新其 UI，GitHub DOM 选择器（`#fc-new_comment_field`、`#new_comment_field`）可能会更改。如果上传失败，请检查 PR 页面是否有更新的选择器。
+This returns a JSON classification such as `web-app`, `cli-tool`, `desktop-app`, `library`, or `text-only`.
 
-## 故障排除
+### D. Classify the change
 
-|症状|原因 |修复 |
+Classify the observable behavior:
+
+- `motion` -- animations, typing, drag-and-drop, streaming output, interactive terminal flows
+- `states` -- before/after UI, a page render, a command result, screenshots of distinct states
+
+### E. Preflight required tools
+
+```bash
+python3 scripts/capture-demo.py preflight
+```
+
+Summarize the available tools (`agent-browser`, `vhs`, `silicon`, `ffmpeg`, `ffprobe`) for the user before recommending a tier.
+
+### F. Create a run directory
+
+```bash
+mktemp -d -t feature-evidence-XXXXXX
+```
+
+Use the resulting path as `RUN_DIR` for all tier-specific steps below.
+
+### G. Recommend a tier and confirm
+
+Use the detection result, change type, and preflight JSON:
+
+```bash
+python3 scripts/capture-demo.py recommend --project-type [TYPE] --change-type [motion|states] --tools '[PREFLIGHT_JSON]'
+```
+
+Present the available tiers and mark the recommended option:
+
+1. **Browser reel** -- best for web or desktop UI changes
+2. **Terminal recording** -- best for CLI interaction or motion
+3. **Screenshot reel** -- best for discrete CLI states
+4. **Static screenshots** -- best fallback or simple state capture
+5. **No evidence needed** -- only when the diff is clearly non-observable
+
+### H. Execute the selected tier
+
+Load the matching reference and follow it using the concrete `RUN_DIR`:
+
+- `references/tier-browser-reel.md`
+- `references/tier-terminal-recording.md`
+- `references/tier-screenshot-reel.md`
+- `references/tier-static-screenshots.md`
+
+Use `scripts/capture-demo.py` as the shared pipeline for preflight, detection, recommendation, stitching, preview upload, and permanent upload.
+
+### I. Upload, approval, and PR update
+
+Read `references/upload-and-approval.md` after the tier produces an artifact.
+
+If a PR exists and the user wants the evidence attached:
+
+- For GIF/video-like evidence, append or replace a `## Demo` section
+- For PNG screenshots, append or replace a `## Screenshots` section
+
+If no PR exists, return the permanent evidence URL(s) and a one-line summary of what they show.
+
+## Example Inputs
+
+Load the `feature-video` skill with one of these argument shapes:
+
+- `current` — record evidence for the current branch's PR
+- `847` — record evidence for PR `#847`
+- `847 http://localhost:5000` — record against a custom local base URL
+- `current https://staging.example.com` — record against a staging environment
+- `.spec-first/workflows/feature-video/1711234567/videos/feature-demo.mp4` — resume in upload-only mode with an existing MP4
+
+## Tips
+
+- Keep it short: 10-30 seconds is ideal for PR demos
+- Focus on the change: don't include unrelated UI
+- Show before/after: if fixing a bug, show the broken state first (if possible)
+- The `--session-name github` session expires when GitHub invalidates the cookies (typically weeks). If upload fails with a login redirect, re-run the auth setup.
+- GitHub DOM selectors (`#fc-new_comment_field`, `#new_comment_field`) may change if GitHub updates its UI. If the upload silently fails, inspect the PR page for updated selectors.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
 |---|---|---|
-| `ffmpeg: command not found` |未安装 ffmpeg |通过 `brew install ffmpeg` (macOS) 或同等方式安装 |
-| `agent-browser: command not found` |代理浏览器未安装 |加载`agent-browser`技能以获取安装说明 |
-|上传等待后文本区域为空 |会话已过期，或 GitHub 处理速度缓慢 |检查会话有效性（步骤 6 身份验证检查）。如果有效，请增加等待时间并重试。 |
-|文本区域为空，URL 为 `github.com/login` |会话已过期 |重新运行身份验证设置（第 6 步）|
-| `gh pr view` 失败 |当前分支没有 PR |第 1 步处理此问题 - 选择创建草稿 PR 或仅记录模式 |
-|视频文件太大，无法上传 |超过 GitHub 的 10MB（免费）或 100MB（付费）限制 |重新编码：降低帧速率 (`-framerate 0.33`)、降低分辨率 (`scale=960:-2`) 或增加 CRF (`-crf 28`) |
-|上传网址不包含`user-attachments/assets/` |上传方式错误或GitHub更改 |通过检查 PR 页面来验证文件输入选择器是否仍然正确 |
+| `ffmpeg: command not found` | ffmpeg not installed | Install via `brew install ffmpeg` (macOS) or equivalent |
+| `agent-browser: command not found` | agent-browser not installed | Load the `agent-browser` skill for installation instructions |
+| Textarea empty after upload wait | Session expired, or GitHub processing slow | Check session validity (Step 6 auth check). If valid, increase wait time and retry. |
+| Textarea empty, URL is `github.com/login` | Session expired | Re-run auth setup (Step 6) |
+| `gh pr view` fails | No PR for current branch | Step 1 handles this -- choose to create a draft PR or record-only mode |
+| Video file too large for upload | Exceeds GitHub's 10MB (free) or 100MB (paid) limit | Re-encode: lower framerate (`-framerate 0.33`), reduce resolution (`scale=960:-2`), or increase CRF (`-crf 28`) |
+| Upload URL does not contain `user-attachments/assets/` | Wrong upload method or GitHub change | Verify the file input selector is still correct by inspecting the PR page |

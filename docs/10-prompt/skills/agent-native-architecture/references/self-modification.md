@@ -1,54 +1,54 @@
-<概述>
-自我修改是代理本机工程的高级层：可以发展自己的代码、提示和行为的代理。并非每个应用程序都需要，但未来的很大一部分。
+<overview>
+Self-modification is the advanced tier of agent native engineering: agents that can evolve their own code, prompts, and behavior. Not required for every app, but a big part of the future.
 
-这就是“开发商能做什么，代理商也能做什么”的逻辑延伸。
-</概述>
+This is the logical extension of "whatever the developer can do, the agent can do."
+</overview>
 
-<为什么自我修改>
-## 为什么要自我修改？
+<why_self_modification>
+## Why Self-Modification?
 
-传统软件是静态的——它只做你所写的事情，仅此而已。自改性剂可以：
+Traditional software is static—it does what you wrote, nothing more. Self-modifying agents can:
 
-- **修复自己的错误** - 看到错误，修补代码，重新启动
-- **添加新功能** - 用户请求新功能，代理实现它
-- **进化行为** - 从反馈中学习并调整提示
-- **自行部署** - 推送代码、触发构建、重新启动
+- **Fix their own bugs** - See an error, patch the code, restart
+- **Add new capabilities** - User asks for something new, agent implements it
+- **Evolve behavior** - Learn from feedback and adjust prompts
+- **Deploy themselves** - Push code, trigger builds, restart
 
-代理成为一个随着时间的推移而改进的活系统，而不是冻结的代码。
+The agent becomes a living system that improves over time, not frozen code.
 </why_self_modification>
 
-<能力>
-## 自我修改可以实现什么
+<capabilities>
+## What Self-Modification Enables
 
-**代码修改：**
-- 阅读并理解源文件
-- 编写修复程序和新功能
-- 提交并推送到版本控制
-- 触发构建并验证它们是否通过
+**Code modification:**
+- Read and understand source files
+- Write fixes and new features
+- Commit and push to version control
+- Trigger builds and verify they pass
 
-**迅速进化：**
-- 根据反馈编辑系统提示
-- 添加新功能作为提示部分
-- 细化无效的判断标准
+**Prompt evolution:**
+- Edit the system prompt based on feedback
+- Add new features as prompt sections
+- Refine judgment criteria that aren't working
 
-**基础设施控制：**
-- 从上游拉取最新代码
-- 从其他分支/实例合并
-- 更改后重新启动
-- 如果出现问题则回滚
+**Infrastructure control:**
+- Pull latest code from upstream
+- Merge from other branches/instances
+- Restart after changes
+- Roll back if something breaks
 
-**站点/输出生成：**
-- 生成和维护网站
-- 创建文档
-- 根据数据构建仪表板
-</功能>
+**Site/output generation:**
+- Generate and maintain websites
+- Create documentation
+- Build dashboards from data
+</capabilities>
 
-<护栏>
-## 所需的护栏
+<guardrails>
+## Required Guardrails
 
-自我改造的力量是强大的。它需要安全机制。
+Self-modification is powerful. It needs safety mechanisms.
 
-**代码更改的批准门：**
+**Approval gates for code changes:**
 ```typescript
 tool("write_file", async ({ path, content }) => {
   if (isCodeFile(path)) {
@@ -62,7 +62,8 @@ tool("write_file", async ({ path, content }) => {
   return { text: `Wrote ${path}` };
 });
 ```
-**更改前自动提交：**
+
+**Auto-commit before changes:**
 ```typescript
 tool("self_deploy", async () => {
   // Save current state first
@@ -79,7 +80,8 @@ tool("self_deploy", async () => {
   scheduleRestart();
 });
 ```
-**构建验证：**
+
+**Build verification:**
 ```typescript
 // Don't restart unless build passes
 try {
@@ -90,7 +92,8 @@ try {
   return { text: "Build failed, aborting deploy", isError: true };
 }
 ```
-**重启后健康检查：**
+
+**Health checks after restart:**
 ```typescript
 tool("health_check", async () => {
   const uptime = process.uptime();
@@ -107,18 +110,18 @@ tool("health_check", async () => {
   };
 });
 ```
-</护栏>
+</guardrails>
 
-<git_架构>
-## 基于Git的自我修改
+<git_architecture>
+## Git-Based Self-Modification
 
-使用git作为自我修改的基础。它提供：
-- 版本历史（回滚能力）
-- 分支（安全实验）
-- 合并（与其他实例同步）
-- 推/拉（部署和协作）
+Use git as the foundation for self-modification. It provides:
+- Version history (rollback capability)
+- Branching (experiment safely)
+- Merge (sync with other instances)
+- Push/pull (deploy and collaborate)
 
-**基本的 git 工具：**
+**Essential git tools:**
 ```typescript
 tool("status", "Show git status", {}, ...);
 tool("diff", "Show file changes", { path: z.string().optional() }, ...);
@@ -128,24 +131,27 @@ tool("git_push", "Push to GitHub", { branch: z.string().optional() }, ...);
 tool("pull", "Pull from GitHub", { source: z.enum(["main", "instance"]) }, ...);
 tool("rollback", "Revert recent commits", { commits: z.number() }, ...);
 ```
-**多实例架构：**
+
+**Multi-instance architecture:**
 ```
 main                      # Shared code
 ├── instance/bot-a       # Instance A's branch
 ├── instance/bot-b       # Instance B's branch
 └── instance/bot-c       # Instance C's branch
 ```
-每个实例可以：
-- 从主库拉取更新
-- 将改进推回主干（通过 PR）
-- 同步其他实例的功能
-- 维护特定于实例的配置
-</git_架构>
 
-<提示进化>
-## 自修改提示
+Each instance can:
+- Pull updates from main
+- Push improvements back to main (via PR)
+- Sync features from other instances
+- Maintain instance-specific config
+</git_architecture>
 
-系统提示符是代理可以读写的文件。
+<prompt_evolution>
+## Self-Modifying Prompts
+
+The system prompt is a file the agent can read and write.
+
 ```typescript
 // Agent can read its own prompt
 tool("read_file", ...);  // Can read src/prompts/system.md
@@ -153,7 +159,8 @@ tool("read_file", ...);  // Can read src/prompts/system.md
 // Agent can propose changes
 tool("write_file", ...);  // Can write to src/prompts/system.md (with approval)
 ```
-**系统提示为活文件：**
+
+**System prompt as living document:**
 ```markdown
 ## Feedback Processing
 
@@ -165,33 +172,35 @@ When someone shares feedback:
 <!-- Note to self: Video walkthroughs should always be 4-5,
      learned this from Dan's feedback on 2024-12-07 -->
 ```
-代理人可以：
-- 给自己添加注释
+
+The agent can:
+- Add notes to itself
 - Refine judgment criteria
 - Add new feature sections
 - Document edge cases it learned
 </prompt_evolution>
 
-<何时使用>
+<when_to_use>
 ## When to Implement Self-Modification
 
-**好的候选人：**
+**Good candidates:**
 - Long-running autonomous agents
 - Agents that need to adapt to feedback
 - Systems where behavior evolution is valuable
 - Internal tools where rapid iteration matters
 
-**不需要：**
-- 简单的单任务代理
+**Not necessary for:**
+- Simple single-task agents
 - Highly regulated environments
 - Systems where behavior must be auditable
 - One-off or short-lived agents
 
-从非自修改提示本机代理开始。 Add self-modification when you need it.
+Start with a non-self-modifying prompt-native agent. Add self-modification when you need it.
 </when_to_use>
 
-<示例工具>
-## 完整的自我修改工具集
+<example_tools>
+## Complete Self-Modification Toolset
+
 ```typescript
 const selfMcpServer = createSdkMcpServer({
   name: "self",
@@ -237,24 +246,24 @@ const gitMcpServer = createSdkMcpServer({
   ],
 });
 ```
-</示例_工具>
+</example_tools>
 
-<清单>
-## 自我修改清单
+<checklist>
+## Self-Modification Checklist
 
-启用自我修改之前：
-- [ ] 基于 Git 的版本控制设置
-- [ ] 代码更改的批准门
-- [ ] 重启前构建验证
-- [ ] 可用回滚机制
-- [ ] 健康检查端点
-- [ ] 实例标识已配置
+Before enabling self-modification:
+- [ ] Git-based version control set up
+- [ ] Approval gates for code changes
+- [ ] Build verification before restart
+- [ ] Rollback mechanism available
+- [ ] Health check endpoint
+- [ ] Instance identity configured
 
-实施时：
-- [ ] 代理可以读取所有项目文件
-- [ ] 代理可以写入文件（经过适当的批准）
-- [ ] 代理可以提交和推送
-- [ ] 代理可以拉取更新
-- [ ] 代理可以自行重启
-- [ ] 代理可以根据需要回滚
-</清单>
+When implementing:
+- [ ] Agent can read all project files
+- [ ] Agent can write files (with appropriate approval)
+- [ ] Agent can commit and push
+- [ ] Agent can pull updates
+- [ ] Agent can restart itself
+- [ ] Agent can roll back if needed
+</checklist>

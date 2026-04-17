@@ -1,63 +1,68 @@
 ---
 name: deploy-docs
-description: 验证并准备文档站点，以部署到 GitHub Pages
+description: Validate and prepare documentation for GitHub Pages deployment
 disable-model-invocation: true
 ---
 
-# 文档部署命令
+# Deploy Documentation Command
 
-验证文档站点，并为 GitHub Pages 部署做好准备。
+Validate the documentation site and prepare it for GitHub Pages deployment.
 
-## 第 1 步：验证文档
+## Step 1: Validate Documentation
 
-运行以下检查：
+Run these checks:
 
 ```bash
-# 统计组件数量
-echo "Agents: $(ls plugins/spec-first/agents/*.md | wc -l)"
-echo "Skills: $(ls -d plugins/spec-first/skills/*/ 2>/dev/null | wc -l)"
+# Count source-of-truth components from the current repo root
+echo "Agents: $(find agents -maxdepth 1 -name '*.md' | wc -l)"
+echo "Skills: $(find skills -mindepth 1 -maxdepth 1 -type d | wc -l)"
 
-# 校验 JSON
-cat .claude-plugin/marketplace.json | jq . > /dev/null && echo "✓ marketplace.json 有效"
-cat plugins/spec-first/.claude-plugin/plugin.json | jq . > /dev/null && echo "✓ plugin.json 有效"
+# Validate JSON
+cat .claude-plugin/marketplace.json | jq . > /dev/null && echo "✓ marketplace.json valid"
+cat .claude-plugin/plugin.json | jq . > /dev/null && echo "✓ plugin.json valid"
 
-# 检查所有 HTML 文件是否存在
-for page in index agents commands skills mcp-servers changelog getting-started; do
-  if [ -f "plugins/spec-first/docs/pages/${page}.html" ] || [ -f "plugins/spec-first/docs/${page}.html" ]; then
-    echo "✓ ${page}.html 存在"
+# Check markdown-first documentation entrypoints exist
+for path in \
+  "docs/05-用户手册/README.md" \
+  "docs/10-prompt/README.md" \
+  "docs/contexts/README.md" \
+  "docs/02-架构设计/01-整体架构.md" \
+  "docs/03-实施方案/02-Skills改造详细指南.md"; do
+  if [ -f "$path" ]; then
+    echo "✓ ${path} exists"
   else
-    echo "✗ ${page}.html 缺失"
+    echo "✗ ${path} MISSING"
   fi
 done
 ```
 
-## 第 2 步：检查未提交变更
+## Step 2: Check for Uncommitted Changes
 
 ```bash
-git status --porcelain plugins/spec-first/docs/
+git status --porcelain docs/ .claude-plugin/plugin.json
 ```
 
-如果存在未提交变更，提醒用户先提交。
+If there are uncommitted changes, warn the user to commit first.
 
-## 第 3 步：部署说明
+## Step 3: Deployment Instructions
 
-由于 GitHub Pages 部署需要带有特殊权限的 workflow 文件，请提供以下说明：
+Since GitHub Pages deployment requires a workflow file with special permissions, provide these instructions:
 
-### 首次配置
+### First-time Setup
 
-1. 创建 `.github/workflows/deploy-docs.yml`，写入 GitHub Pages workflow
-2. 前往仓库 `Settings > Pages`
-3. 将 `Source` 设置为 `GitHub Actions`
+1. Create `.github/workflows/deploy-docs.yml` with the GitHub Pages workflow
+2. Go to repository Settings > Pages
+3. Set Source to "GitHub Actions"
 
-### 部署方式
+### Deploying
 
-合并到 `main` 后，文档会自动部署。也可以手动执行：
+After merging to `main`, the docs will auto-deploy. Or:
 
-1. 打开 `Actions` 标签页
-2. 选择 `Deploy Documentation to GitHub Pages`
-3. 点击 `Run workflow`
+1. Go to Actions tab
+2. Select "Deploy Documentation to GitHub Pages"
+3. Click "Run workflow"
 
-### Workflow 文件内容
+### Workflow File Content
 
 ```yaml
 name: Deploy Documentation to GitHub Pages
@@ -66,7 +71,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'plugins/spec-first/docs/**'
+      - 'docs/**'
+      - '.claude-plugin/plugin.json'
   workflow_dispatch:
 
 permissions:
@@ -89,24 +95,24 @@ jobs:
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: 'plugins/spec-first/docs'
+          path: 'docs'
       - uses: actions/deploy-pages@v4
 ```
 
-## 第 4 步：汇报状态
+## Step 4: Report Status
 
-提供如下摘要：
+Provide a summary:
 
 ```
-## 部署就绪状态
+## Deployment Readiness
 
-✓ 所有 HTML 页面均已存在
-✓ JSON 文件有效
-✓ 组件数量匹配
+✓ All HTML pages present
+✓ JSON files valid
+✓ Component counts match
 
-### 下一步
-- [ ] 提交所有待提交变更
-- [ ] 推送到 main 分支
-- [ ] 确认 GitHub Pages workflow 已存在
-- [ ] 在 https://everyinc.github.io/spec-first-plugin/ 检查部署结果
+### Next Steps
+- [ ] Commit any pending changes
+- [ ] Push to main branch
+- [ ] Verify GitHub Pages workflow exists
+- [ ] Check deployment at the repository's configured GitHub Pages URL
 ```

@@ -162,6 +162,74 @@ function buildModuleNode(filePath, isTestFile = false) {
   );
 }
 
+function trimRight(line) {
+  return String(line || '').replace(/\s+$/, '');
+}
+
+function extractLeadingComment(lines, lineStart) {
+  const collected = [];
+  let index = Math.max((lineStart || 1) - 2, -1);
+
+  while (index >= 0) {
+    const rawLine = lines[index];
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      if (collected.length > 0) break;
+      index--;
+      continue;
+    }
+
+    if (/^(\/\/|#|\*|\/\*|\*\/|"""|''')/.test(trimmed)) {
+      collected.unshift(trimmed
+        .replace(/^\/\*\*?/, '')
+        .replace(/\*\/$/, '')
+        .replace(/^\/\/\s?/, '')
+        .replace(/^#\s?/, '')
+        .replace(/^\*\s?/, '')
+        .replace(/^"""|"""$/g, '')
+        .replace(/^'''|'''$/g, '')
+        .trim());
+      index--;
+      continue;
+    }
+
+    break;
+  }
+
+  return collected.filter(Boolean).join(' ').trim();
+}
+
+function buildRetrievalExcerpt(lines, maxLines = 12) {
+  return lines
+    .map((line) => trimRight(line).trim())
+    .filter((line) => line && line !== ';')
+    .slice(0, maxLines)
+    .join('\n');
+}
+
+function attachRetrievalSignals(nodes, content) {
+  const lines = String(content || '').split(/\r?\n/);
+
+  for (const node of nodes) {
+    if (!node || node.kind === 'module') continue;
+
+    const lineStart = Number.isFinite(node.line_start) && node.line_start > 0 ? node.line_start : 1;
+    const lineEnd = Number.isFinite(node.line_end) && node.line_end >= lineStart
+      ? node.line_end
+      : lineStart;
+    const sourceLines = lines.slice(lineStart - 1, lineEnd);
+    const sourceText = sourceLines.map(trimRight).join('\n').trim();
+    const codeExcerpt = buildRetrievalExcerpt(sourceLines);
+    const comment = extractLeadingComment(lines, lineStart);
+
+    node.source_text = sourceText || null;
+    node.retrieval_text = [comment, codeExcerpt]
+      .filter(Boolean)
+      .join('\n')
+      .trim() || node.retrieval_text;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // tree-sitter AST 节点遍历辅助
 // ---------------------------------------------------------------------------
@@ -1802,6 +1870,7 @@ function parseFile(filePath, repoRoot, options = {}) {
   }
 
   attachLocalTargetIds(nodes, rawEdges);
+  attachRetrievalSignals(nodes, content);
 
   // 为所有顶层非 module 节点添加 defined_in 边（指向 module 节点）
   // （已通过 contains 边在递归中添加；此处补充直接子节点的 defined_in 边）

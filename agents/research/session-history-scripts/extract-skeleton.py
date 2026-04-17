@@ -1,31 +1,54 @@
 #!/usr/bin/env python3
-"""Extract the conversation skeleton from a Claude Code, Codex, or Cursor JSONL session file."""
+"""Extract the conversation skeleton from a Claude Code, Codex, or Cursor JSONL session file.
 
+Usage: cat <session.jsonl> | python3 extract-skeleton.py
+
+Auto-detects platform (Claude Code, Codex, or Cursor) from the JSONL structure.
+Extracts:
+  - User messages (text only, no tool results)
+  - Assistant text (no thinking/reasoning blocks)
+  - Collapsed tool call summaries (consecutive same-tool calls grouped)
+
+Consecutive tool calls of the same type are collapsed:
+  3+ Read calls -> "[tools] 3x Read (file1, file2, +1 more) -> all ok"
+Codex call/result pairs are deduplicated (only the result with status is kept).
+Outputs a _meta line at the end with processing stats.
+"""
+import sys
 import json
 import re
-import sys
 
 stats = {"lines": 0, "parse_errors": 0, "user": 0, "assistant": 0, "tool": 0}
-pending_tools = []
 
+# Claude Code wrapper tags to strip from user message content.
+# Strip entirely (tag + content): framework noise and raw command output.
+# Strip tags only (keep content): command-message, command-name, command-args, user_query.
 _STRIP_BLOCK = re.compile(
     r"<(?:task-notification|local-command-caveat|local-command-stdout|local-command-stderr|system-reminder)[^>]*>.*?</(?:task-notification|local-command-caveat|local-command-stdout|local-command-stderr|system-reminder)>",
     re.DOTALL,
 )
-_STRIP_TAG = re.compile(r"</?(?:command-message|command-name|command-args|user_query)[^>]*>")
+_STRIP_TAG = re.compile(
+    r"</?(?:command-message|command-name|command-args|user_query)[^>]*>"
+)
 
 
 def clean_text(text):
+    """Strip framework wrapper tags from message text (Claude and Cursor)."""
     text = _STRIP_BLOCK.sub("", text)
     text = _STRIP_TAG.sub("", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     return text
 
+# Buffer for pending tool entries: [{"ts", "name", "target", "status"}]
+pending_tools = []
+
 
 def flush_tools():
+    """Print buffered tool entries, collapsing consecutive same-name groups."""
     if not pending_tools:
         return
 
+    # Group consecutive entries by tool name
     groups = []
     for entry in pending_tools:
         if groups and groups[-1][0]["name"] == entry["name"]:
@@ -36,18 +59,21 @@ def flush_tools():
     for group in groups:
         name = group[0]["name"]
         if len(group) <= 2:
-            for entry in group:
-                status = f" -> {entry['status']}" if entry.get("status") else ""
-                ts_prefix = f"[{entry['ts']}] " if entry.get("ts") else ""
-                print(f"{ts_prefix}[tool] {name} {entry['target']}{status}")
+            # Print individually
+            for e in group:
+                status = f" -> {e['status']}" if e.get("status") else ""
+                ts_prefix = f"[{e['ts']}] " if e.get("ts") else ""
+                print(f"{ts_prefix}[tool] {name} {e['target']}{status}")
                 stats["tool"] += 1
         else:
+            # Collapse
             ts = group[0].get("ts", "")
-            targets = [entry["target"] for entry in group if entry.get("target")]
-            ok = sum(1 for entry in group if entry.get("status") == "ok")
-            err = sum(1 for entry in group if entry.get("status") and entry["status"] != "ok")
+            targets = [e["target"] for e in group if e.get("target")]
+            ok = sum(1 for e in group if e.get("status") == "ok")
+            err = sum(1 for e in group if e.get("status") and e["status"] != "ok")
             no_status = len(group) - ok - err
 
+            # Show first 2 targets, then "+N more"
             if len(targets) > 2:
                 target_str = ", ".join(targets[:2]) + f", +{len(targets) - 2} more"
             elif targets:
@@ -70,15 +96,16 @@ def flush_tools():
 
 
 def summarize_claude_tool(block):
+    """Extract name and target from a Claude Code tool_use block."""
     name = block.get("name", "unknown")
-    tool_input = block.get("input", {})
+    inp = block.get("input", {})
     target = (
-        tool_input.get("file_path")
-        or tool_input.get("path")
-        or tool_input.get("command", "")[:120]
-        or tool_input.get("pattern", "")
-        or tool_input.get("query", "")[:80]
-        or tool_input.get("prompt", "")[:80]
+        inp.get("file_path")
+        or inp.get("path")
+        or inp.get("command", "")[:120]
+        or inp.get("pattern", "")
+        or inp.get("query", "")[:80]
+        or inp.get("prompt", "")[:80]
         or ""
     )
     if isinstance(target, str) and len(target) > 120:
@@ -91,8 +118,8 @@ def handle_claude(obj):
     ts = obj.get("timestamp", "")[:19]
 
     if msg_type == "user":
-        message = obj.get("message", {})
-        content = message.get("content", "")
+        msg = obj.get("message", {})
+        content = msg.get("content", "")
 
         if isinstance(content, list):
             for block in content:
@@ -108,15 +135,16 @@ def handle_claude(obj):
                                 matched = True
                                 break
                     if not matched:
+                        # Fallback: assign to earliest pending entry without a status
                         for entry in pending_tools:
                             if not entry.get("status"):
                                 entry["status"] = status
                                 break
 
             texts = [
-                item.get("text", "")
-                for item in content
-                if item.get("type") == "text" and len(item.get("text", "")) > 10
+                c.get("text", "")
+                for c in content
+                if c.get("type") == "text" and len(c.get("text", "")) > 10
             ]
             content = " ".join(texts)
 
@@ -129,8 +157,8 @@ def handle_claude(obj):
                 stats["user"] += 1
 
     elif msg_type == "assistant":
-        message = obj.get("message", {})
-        content = message.get("content", [])
+        msg = obj.get("message", {})
+        content = msg.get("content", [])
         if isinstance(content, list):
             has_text = False
             for block in content:
@@ -157,9 +185,9 @@ def handle_codex(obj):
     ts = obj.get("timestamp", "")[:19]
 
     if msg_type == "event_msg":
-        payload = obj.get("payload", {})
-        if payload.get("type") == "user_message":
-            text = payload.get("message", "")
+        p = obj.get("payload", {})
+        if p.get("type") == "user_message":
+            text = p.get("message", "")
             if isinstance(text, str) and len(text) > 15:
                 parts = text.split("</system_instruction>")
                 user_text = parts[-1].strip() if parts else text
@@ -168,10 +196,12 @@ def handle_codex(obj):
                     print(f"[{ts}] [user] {user_text[:800]}")
                     print("---")
                     stats["user"] += 1
-        elif payload.get("type") == "exec_command_end":
-            command = payload.get("command", [])
+
+        elif p.get("type") == "exec_command_end":
+            # This is the deduplicated result — has status info
+            command = p.get("command", [])
             cmd_str = command[-1] if command else ""
-            output = payload.get("aggregated_output", "")
+            output = p.get("aggregated_output", "")
 
             status = "ok"
             if "Process exited with code " in output:
@@ -183,56 +213,73 @@ def handle_codex(obj):
                     pass
 
             if cmd_str:
-                pending_tools.append({"ts": ts, "name": "exec", "target": cmd_str[:120], "status": status})
+                # Shorten common patterns for readability
+                short_cmd = cmd_str[:120]
+                pending_tools.append({"ts": ts, "name": "exec", "target": short_cmd, "status": status})
 
     elif msg_type == "response_item":
-        payload = obj.get("payload", {})
-        if payload.get("type") == "message" and payload.get("role") == "assistant":
-            for item in payload.get("content", []):
-                if item.get("type") == "output_text":
-                    text = clean_text(item.get("text", ""))
-                    if len(text) > 20:
-                        flush_tools()
-                        print(f"[{ts}] [assistant] {text[:800]}")
-                        print("---")
-                        stats["assistant"] += 1
+        p = obj.get("payload", {})
+        if p.get("type") == "message" and p.get("role") == "assistant":
+            for block in p.get("content", []):
+                if block.get("type") == "output_text" and len(block.get("text", "")) > 20:
+                    flush_tools()
+                    print(f"[{ts}] [assistant] {block['text'][:800]}")
+                    print("---")
+                    stats["assistant"] += 1
+
+        # Skip function_call — exec_command_end is the deduplicated version with status
 
 
 def handle_cursor(obj):
+    """Cursor agent transcripts: role-based, no timestamps, same content structure as Claude."""
     role = obj.get("role")
-    content = obj.get("content", [])
+    content = obj.get("message", {}).get("content", [])
 
     if role == "user":
-        text_parts = []
-        if isinstance(content, list):
-            for block in content:
-                if block.get("type") == "text":
-                    text_parts.append(block.get("text", ""))
-        text = clean_text("\n".join(text_parts))
+        texts = []
+        for block in (content if isinstance(content, list) else []):
+            if block.get("type") == "text":
+                texts.append(block.get("text", ""))
+        text = clean_text(" ".join(texts))
         if len(text) > 15:
             flush_tools()
+            # No timestamps available in Cursor transcripts
             print(f"[user] {text[:800]}")
             print("---")
             stats["user"] += 1
 
     elif role == "assistant":
-        if isinstance(content, list):
-            for block in content:
-                if block.get("type") == "text":
-                    text = clean_text(block.get("text", ""))
-                    if len(text) > 20:
+        has_text = False
+        for block in (content if isinstance(content, list) else []):
+            if block.get("type") == "text":
+                text = block.get("text", "")
+                # Skip [REDACTED] placeholder blocks
+                if len(text) > 20 and text.strip() != "[REDACTED]":
+                    if not has_text:
                         flush_tools()
-                        print(f"[assistant] {text[:800]}")
-                        print("---")
-                        stats["assistant"] += 1
-                elif block.get("type") == "tool_use":
-                    pending_tools.append({
-                        "ts": "",
-                        "name": block.get("name", "unknown"),
-                        "target": "",
-                    })
+                        has_text = True
+                    print(f"[assistant] {text[:800]}")
+                    print("---")
+                    stats["assistant"] += 1
+            elif block.get("type") == "tool_use":
+                name = block.get("name", "unknown")
+                inp = block.get("input", {})
+                target = (
+                    inp.get("path")
+                    or inp.get("file_path")
+                    or inp.get("command", "")[:120]
+                    or inp.get("pattern", "")
+                    or inp.get("glob_pattern", "")
+                    or inp.get("target_directory", "")
+                    or ""
+                )
+                if isinstance(target, str) and len(target) > 120:
+                    target = target[:120]
+                # No status info available — Cursor doesn't log tool results
+                pending_tools.append({"ts": "", "name": name, "target": target})
 
 
+# Auto-detect platform from first few lines, then process all
 detected = None
 buffer = []
 
@@ -256,7 +303,7 @@ for line in sys.stdin:
             pass
 
 handlers = {"claude": handle_claude, "codex": handle_codex, "cursor": handle_cursor}
-handler = handlers.get(detected, lambda _obj: None)
+handler = handlers.get(detected, handle_codex)
 
 for line in buffer:
     try:
@@ -264,5 +311,7 @@ for line in buffer:
     except (json.JSONDecodeError, KeyError):
         stats["parse_errors"] += 1
 
+# Flush any remaining buffered tools
 flush_tools()
+
 print(json.dumps({"_meta": True, **stats}))

@@ -75,11 +75,13 @@ Parse `$ARGUMENTS` for the following optional tokens. Strip each recognized toke
 
 All tokens are optional. Each one present means one less thing to infer. When absent, fall back to existing behavior for that stage.
 
+**Conflicting mode flags:** If multiple mode tokens appear in arguments, stop and do not dispatch agents. Emit: `Review failed. Reason: conflicting mode flags — <mode_a> and <mode_b> cannot be combined.`
+
 ## Mode Detection
 
 | Mode | When | Behavior |
 |------|------|----------|
-| **Interactive** (default) | No mode token present | Review, present findings, ask for policy decisions when needed, and optionally continue into fix/push/PR next steps |
+| **Interactive** (default) | No mode token present | Review, apply `safe_auto` fixes automatically, present findings, ask for policy decisions on `gated_auto` / `manual` findings, and optionally continue into fix/push/PR next steps |
 | **Autofix** | `mode:autofix` in arguments | No user interaction. Review, apply only policy-allowed `safe_auto` fixes, re-review in bounded rounds, write a run artifact, and emit residual downstream work when needed |
 | **Report-only** | `mode:report-only` in arguments | Strictly read-only. Review and report only, then stop with no edits, artifacts, todos, commits, pushes, or PR actions |
 
@@ -130,7 +132,7 @@ Routing rules:
 
 ## Reviewers
 
-15 reviewer personas in layered conditionals, plus CE-specific agents. See the persona catalog included below for the full catalog.
+17 reviewer personas in layered conditionals, plus CE-specific agents. See the persona catalog included below for the full catalog.
 
 **Always-on (every review):**
 
@@ -153,6 +155,8 @@ Routing rules:
 | `spec-first:review:data-migrations-reviewer` | Migrations, schema changes, backfills |
 | `spec-first:review:reliability-reviewer` | Error handling, retries, timeouts, background jobs |
 | `spec-first:review:adversarial-reviewer` | Diff >=50 changed lines of executable code (not prose/instruction Markdown, JSON schemas, or config), or auth, payments, data mutations, external APIs |
+| `spec-first:review:cli-readiness-reviewer` | CLI command definitions, argument parsing, CLI framework usage, command handler implementations |
+| `spec-first:review:previous-comments-reviewer` | Reviewing a PR that has existing review comments or threads |
 
 **Stack-specific conditional (selected per diff):**
 
@@ -316,7 +320,7 @@ echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:"
 
 Using `git diff $BASE` (without `..HEAD`) diffs the merge-base against the working tree, which includes committed, staged, and unstaged changes together.
 
-**Untracked file handling:** Always inspect the `UNTRACKED:` list, even when `FILES:`/`DIFF:` are non-empty. Untracked files are outside review scope until staged. If the list is non-empty, tell the user which files are excluded. If any of them should be reviewed, stop and tell the user to `git add` them first and rerun. Only continue when the user is intentionally reviewing tracked changes only.
+**Untracked file handling:** Always inspect the `UNTRACKED:` list, even when `FILES:`/`DIFF:` are non-empty. Untracked files are outside review scope until staged. If the list is non-empty, tell the user which files are excluded. If any of them should be reviewed, stop and tell the user to `git add` them first and rerun. Only continue when the user is intentionally reviewing tracked changes only. In `mode:autofix`, do not stop to ask — proceed with tracked changes only and note the excluded untracked files in the Coverage section of the output.
 
 ### Stage 2: Intent discovery
 
@@ -368,6 +372,8 @@ Read the diff and file list from Stage 1. The 4 always-on personas and 2 CE alwa
 
 **File-type awareness for conditional selection:** Instruction-prose files (Markdown skill definitions, JSON schemas, config files) are product code but do not benefit from runtime-focused reviewers. The adversarial reviewer's techniques target executable code behavior. For diffs that only change instruction-prose files, skip adversarial unless the prose describes auth, payment, or data-mutation behavior. Count only executable code lines toward line-count thresholds.
 
+**`previous-comments` is PR-only.** Only select this persona when Stage 1 gathered PR metadata (PR number or URL was provided as an argument, or `gh pr view` returned metadata for the current branch). Skip it entirely for standalone branch reviews with no associated PR -- there are no prior comments to check.
+
 Stack-specific personas are additive. A Rails UI change may warrant `kieran-rails` plus `julik-frontend-races`; a TypeScript API diff may warrant `kieran-typescript` plus `api-contract` and `reliability`.
 
 For CE conditional agents, check if the diff includes files matching `db/migrate/*.rb`, `db/schema.rb`, or data backfill scripts.
@@ -402,9 +408,19 @@ Pass the resulting path list to the `project-standards` persona inside a `<stand
 
 ### Stage 4: Spawn sub-agents
 
+#### Model tiering
+
+Persona sub-agents do focused, scoped work and should use a fast mid-tier model to reduce cost and latency without sacrificing review quality. The orchestrator itself stays on the default (most capable) model.
+
+Use the platform's mid-tier model for all persona and CE sub-agents. In Claude Code, pass `model: "sonnet"` in the Agent tool call. On other platforms, use the equivalent mid-tier. If the platform has no model override mechanism or the available model names are unknown, omit the model parameter and let agents inherit the default -- a working review on the parent model is better than a broken dispatch from an unrecognized model name.
+
+CE always-on agents (agent-native-reviewer, learnings-researcher) and CE conditional agents (schema-drift-detector, deployment-verification-agent) also use the mid-tier model since they perform scoped, focused work.
+
+The orchestrator (this skill) stays on the default model because it handles intent discovery, reviewer selection, finding merge/dedup, and synthesis -- tasks that benefit from stronger reasoning.
+
 #### Run ID
 
-Generate a unique run identifier before dispatching persona reviewers. This ID scopes per-reviewer artifact files and the final review artifact to the same directory.
+Generate a unique run identifier before dispatching any agents. This ID scopes all agent artifact files and the post-review run artifact to the same directory.
 
 ```bash
 RUN_ID=$(date +%Y%m%d-%H%M%S)-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' ')
@@ -422,7 +438,7 @@ Spawn each selected persona reviewer as a parallel sub-agent using the subagent 
 1. Their persona file content (identity, failure modes, calibration, suppress conditions)
 2. Shared diff-scope rules from the diff-scope reference included below
 3. The JSON output contract from the findings schema included below
-4. PR metadata: title, body, and URL when reviewing a PR (empty string otherwise)
+4. PR metadata: title, body, and URL when reviewing a PR (empty string otherwise). Passed in a `<pr-context>` block so reviewers can verify code against stated intent
 5. Review context: intent summary, file list, diff
 6. Run ID and reviewer name for the artifact file path
 7. **For `project-standards` only:** the standards file path list from Stage 3b, wrapped in a `<standards-paths>` block appended to the review context
@@ -463,20 +479,32 @@ Detail-tier fields (`why_it_matters`, `evidence`) stay in the artifact file only
 
 ### Stage 5: Merge findings
 
-Convert multiple reviewer compact JSON payloads into one deduplicated, confidence-gated finding set. The compact returns contain merge-tier fields only; detail-tier fields stay on disk in the per-agent artifact files.
+Convert multiple reviewer compact JSON returns into one deduplicated, confidence-gated finding set. The compact returns contain merge-tier fields (title, severity, file, line, confidence, autofix_class, owner, requires_verification, pre_existing) plus the optional suggested_fix. Detail-tier fields (why_it_matters, evidence) are on disk in the per-agent artifact files and are not loaded at this stage.
 
-1. **Validate.** Check each compact return for required top-level and per-finding fields. Drop malformed returns or findings. Record the drop count. Do not validate compact returns against the full schema because `why_it_matters` and `evidence` are intentionally omitted from the merge tier.
-2. **Confidence gate.** Suppress findings below 0.60 confidence. Exception: P0 findings at 0.50+ confidence survive the gate. Record the suppressed count.
-3. **Deduplicate.** Compute fingerprint: `normalize(file) + line_bucket(line, +/-3) + normalize(title)`. When fingerprints match, merge: keep highest severity, keep highest confidence, and note which reviewers flagged it.
-4. **Separate pre-existing.** Pull out findings with `pre_existing: true` into a separate list.
-5. **Normalize routing.** For each merged finding, set the final `autofix_class`, `owner`, and `requires_verification`. If reviewers disagree, keep the most conservative route. Synthesis may narrow a finding from `safe_auto` to `gated_auto` or `manual`, but must not widen it without new evidence.
-6. **Partition the work.** Build three sets:
+1. **Validate.** Check each compact return for required top-level and per-finding fields, plus value constraints. Drop malformed returns or findings. Record the drop count.
+   - **Top-level required:** reviewer (string), findings (array), residual_risks (array), testing_gaps (array). Drop the entire return if any are missing or wrong type.
+   - **Per-finding required:** title, severity, file, line, confidence, autofix_class, owner, requires_verification, pre_existing
+   - **Value constraints:**
+     - severity: P0 | P1 | P2 | P3
+     - autofix_class: safe_auto | gated_auto | manual | advisory
+     - owner: review-fixer | downstream-resolver | human | release
+     - confidence: numeric, 0.0-1.0
+     - line: positive integer
+     - pre_existing, requires_verification: boolean
+   - Do not validate against the full schema here -- the full schema (including why_it_matters and evidence) applies to the artifact files on disk, not the compact returns.
+2. **Confidence gate.** Suppress findings below 0.60 confidence. Exception: P0 findings at 0.50+ confidence survive the gate. Record the suppressed count. This matches the persona instructions and the schema's confidence thresholds.
+3. **Deduplicate.** Compute fingerprint: `normalize(file) + line_bucket(line, +/-3) + normalize(title)`. When fingerprints match, merge: keep highest severity, keep highest confidence, note which reviewers flagged it.
+4. **Cross-reviewer agreement.** When 2+ independent reviewers flag the same issue (same fingerprint), boost the merged confidence by 0.10 (capped at 1.0). Cross-reviewer agreement is strong signal -- independent reviewers converging on the same issue is more reliable than any single reviewer's confidence. Note the agreement in the Reviewer column of the output (e.g., "security, correctness").
+5. **Separate pre-existing.** Pull out findings with `pre_existing: true` into a separate list.
+6. **Resolve disagreements.** When reviewers flag the same code region but disagree on severity, autofix_class, or owner, annotate the Reviewer column with the disagreement (e.g., "security (P0), correctness (P1) -- kept P0"). This transparency helps the user understand why a finding was routed the way it was.
+7. **Normalize routing.** For each merged finding, set the final `autofix_class`, `owner`, and `requires_verification`. If reviewers disagree, keep the most conservative route. Synthesis may narrow a finding from `safe_auto` to `gated_auto` or `manual`, but must not widen it without new evidence.
+8. **Partition the work.** Build three sets:
    - in-skill fixer queue: only `safe_auto -> review-fixer`
    - residual actionable queue: unresolved `gated_auto` or `manual` findings whose owner is `downstream-resolver`
    - report-only queue: `advisory` findings plus anything owned by `human` or `release`
-7. **Sort.** Order by severity (P0 first) -> confidence (descending) -> file path -> line number.
-8. **Collect coverage data.** Union residual_risks and testing_gaps across reviewers.
-9. **Preserve CE agent artifacts.** Keep the learnings, agent-native, schema-drift, and deployment-verification outputs alongside the merged finding set. Do not drop unstructured agent output just because it does not match the persona JSON schema.
+9. **Sort.** Order by severity (P0 first) -> confidence (descending) -> file path -> line number.
+10. **Collect coverage data.** Union residual_risks and testing_gaps across reviewers.
+11. **Preserve CE agent artifacts.** Keep the learnings, agent-native, schema-drift, and deployment-verification outputs alongside the merged finding set. Do not drop unstructured agent output just because it does not match the persona JSON schema.
 
 ### Stage 6: Synthesize and present
 
@@ -537,17 +565,26 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 
 **Interactive mode**
 
-- Ask a single policy question only when actionable work exists.
-- Recommended default:
+- Apply `safe_auto -> review-fixer` findings automatically without asking. These are safe by definition.
+- Ask a policy question **using the platform's blocking question tool** (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini) only when `gated_auto` or `manual` findings remain after safe fixes. Do not replace with a conversational open-ended question. Adapt the options to match what actually remains:
 
+  **When `gated_auto` findings are present** (with or without `manual`):
   ```
-  What should I do with the actionable findings?
-  1. Apply safe_auto fixes and leave the rest as residual work (Recommended)
-  2. Apply safe_auto fixes only
-  3. Review report only
+  Safe fixes have been applied. What should I do with the remaining findings?
+  1. Review and approve specific gated fixes (Recommended)
+  2. Leave as residual work
+  3. Report only -- no further action
   ```
 
-- Tailor the prompt to the actual action sets. If the fixer queue is empty, do not offer "Apply safe_auto fixes" options. Ask whether to externalize the residual actionable work or keep the review report-only instead.
+  **When only `manual` findings remain** (no `gated_auto`):
+  ```
+  Safe fixes have been applied. The remaining findings need manual resolution. What should I do?
+  1. Leave as residual work (Recommended)
+  2. Report only -- no further action
+  ```
+
+  If no blocking question tool is available, present the applicable numbered options as text and wait for the user's selection before proceeding.
+- If no `gated_auto` or `manual` findings remain after safe fixes, skip the policy question entirely — report what was fixed and proceed to next steps.
 - Only include `gated_auto` findings in the fixer queue after the user explicitly approves the specific items. Do not widen the queue based on severity alone.
 
 **Autofix mode**

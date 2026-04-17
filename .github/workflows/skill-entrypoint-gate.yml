@@ -1,0 +1,29 @@
+name: Skill Entrypoint Gate
+
+on:
+  pull_request:
+    paths:
+      - 'skills/**'
+      - 'docs/10-prompt/skills/**'
+      - 'docs/contracts/dual-host-governance/**'
+      - 'scripts/lint-skill-entrypoints.js'
+      - 'scripts/lint-skill-entrypoints.config.json'
+      - '.claude-plugin/plugin.json'
+      - 'package.json'
+  workflow_dispatch:
+
+jobs:
+  lint-skill-entrypoints:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run skill entrypoint lint
+        run: npm run lint:skill-entrypoints

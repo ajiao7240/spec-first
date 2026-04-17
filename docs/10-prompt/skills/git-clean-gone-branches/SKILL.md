@@ -1,76 +1,63 @@
 ---
 name: git-clean-gone-branches
-description: 清理远端跟踪分支已不存在的本地分支。当用户说“清理分支”“删除 gone 分支”“清理本地陈旧分支”或希望移除远端已删除的本地分支时使用。也会处理这些分支关联的 worktree。
+description: Clean up local branches whose remote tracking branch is gone. Use when the user says "clean up branches", "delete gone branches", "prune local branches", "clean gone", or wants to remove stale local branches that no longer exist on the remote. Also handles removing associated worktrees for branches that have them.
 ---
 
-# Git 清理 Gone 分支
+# Clean Gone Branches
 
-清理那些远端跟踪分支已经消失的本地分支。
+Delete local branches whose remote tracking branch has been deleted, including any associated worktrees.
 
-## 工作流
+## Workflow
 
-### 第 1 步：获取上下文
+### Step 1: Discover gone branches
 
-运行以下命令：
-
-```bash
-git fetch --prune
-git branch -vv
-git worktree list
-```
-
-找出 `git branch -vv` 输出中标记为 `: gone]` 的分支。
-
-### 第 2 步：分析每个分支
-
-对每个 gone 分支：
-
-1. 检查它是否关联了 worktree
-2. 检查它是否已经完全合并到默认分支
-3. 检查它是否包含未合并提交
-
-可使用：
+Run the discovery script to fetch the latest remote state and identify gone branches:
 
 ```bash
-git branch --merged <default-branch>
-git log <default-branch>..<branch> --oneline
+bash scripts/clean-gone
 ```
 
-### 第 3 步：制定清理计划
+[scripts/clean-gone](./scripts/clean-gone)
 
-将 gone 分支分成两类：
+The script runs `git fetch --prune` first, then parses `git branch -vv` for branches marked `: gone]`.
 
-- `safe to delete`：已合并，或明显是已完成工作
-- `needs review`：仍有未合并提交，可能需要保留
+If the script outputs `__NONE__`, report that no stale branches were found and stop.
 
-如果分支附带 worktree，先移除 worktree，再删除分支。
+### Step 2: Present branches and ask for confirmation
 
-### 第 4 步：向用户展示计划
+Show the user the list of branches that will be deleted. Format as a simple list:
 
-汇总如下内容：
+```
+These local branches have been deleted from the remote:
 
-- 可安全删除的分支
-- 需要用户确认的分支
-- 将被移除的 worktree
+  - feature/old-thing
+  - bugfix/resolved-issue
+  - experiment/abandoned
 
-如果没有找到 gone 分支，直接说明并停止。
-
-### 第 5 步：执行清理
-
-删除前必须得到用户确认。
-
-对于每个已确认删除的分支：
-
-```bash
-git worktree remove <path>   # 如果该分支有 worktree
-git branch -d <branch>       # 已合并时
-git branch -D <branch>       # 用户明确同意强制删除时
+Delete all of them? (y/n)
 ```
 
-### 第 6 步：报告结果
+Wait for the user's answer using the platform's question tool (e.g., `AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). If no question tool is available, present the list and wait for the user's reply before proceeding.
 
-报告：
+This is a yes-or-no decision on the entire list -- do not offer multi-selection or per-branch choices.
 
-- 已删除的分支
-- 已移除的 worktree
-- 因存在未合并提交而保留的分支
+### Step 3: Delete confirmed branches
+
+If the user confirms, delete each branch. For each branch:
+
+1. Check if it has an associated worktree (`git worktree list | grep "\\[$branch\\]"`)
+2. If a worktree exists and is not the main repo root, remove it first: `git worktree remove --force "$worktree_path"`
+3. Delete the branch: `git branch -D "$branch"`
+
+Report results as you go:
+
+```
+Removed worktree: .worktrees/feature/old-thing
+Deleted branch: feature/old-thing
+Deleted branch: bugfix/resolved-issue
+Deleted branch: experiment/abandoned
+
+Cleaned up 3 branches.
+```
+
+If the user declines, acknowledge and stop without deleting anything.

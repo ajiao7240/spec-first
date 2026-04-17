@@ -58,7 +58,7 @@ dependencies: ["001"]     # Issue IDs this is blocked by
 ### Creating a New Todo
 
 1. `mkdir -p docs/todos/`
-2. Search both paths for `[0-9]*-*.md`, find the highest numeric prefix, increment, zero-pad to 3 digits.
+2. Search all three paths for `[0-9]*-*.md`, find the highest numeric prefix, increment, zero-pad to 3 digits.
 3. Use the todo template included below, write to canonical path as `{NEXT_ID}-pending-{priority}-{description}.md`.
 4. Fill Problem Statement, Findings, Proposed Solutions, Acceptance Criteria, and initial Work Log entry.
 5. Set status: `pending` (needs triage) or `ready` (pre-approved).
@@ -67,7 +67,7 @@ dependencies: ["001"]     # Issue IDs this is blocked by
 
 ### Triaging Pending Items
 
-1. Glob `*-pending-*.md` in both paths.
+1. Glob `*-pending-*.md` in all three paths.
 2. Review each todo's Problem Statement, Findings, and Proposed Solutions.
 3. Approve: rename `pending` -> `ready` in filename and frontmatter, fill Recommended Action.
 4. Defer: leave as `pending`.
@@ -81,7 +81,7 @@ dependencies: ["002", "005"]  # Blocked by these issues
 dependencies: []               # No blockers
 ```
 
-To check blockers: search for `{dep_id}-complete-*.md` in both paths. Missing matches = incomplete blockers.
+To check blockers: search for `{dep_id}-complete-*.md` in all three paths. Missing matches = incomplete blockers.
 
 ### Completing a Todo
 
@@ -94,9 +94,9 @@ To check blockers: search for `{dep_id}-complete-*.md` in both paths. Missing ma
 
 | Trigger | Flow |
 |---------|------|
-| Code review | `/spec:review` -> Findings -> `/todo-triage` -> Todos |
-| Autonomous review | `/spec:review mode:autofix` -> Residual todos -> `/todo-resolve` |
-| Code TODOs | `/todo-resolve` -> Fixes + Complex todos |
+| Code review | `/spec:review` -> Findings -> `todo-triage` skill -> Todos |
+| Autonomous review | `/spec:review mode:autofix` -> Residual todos -> `todo-resolve` skill |
+| Code TODOs | `todo-resolve` skill -> Fixes + Complex todos |
 | Planning | Brainstorm -> Create todo -> Work -> Complete |
 
 ## Key Distinction

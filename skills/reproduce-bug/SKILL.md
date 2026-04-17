@@ -1,12 +1,18 @@
 ---
 name: reproduce-bug
-description: Systematically reproduce and investigate a bug from a GitHub issue. Use when the user provides a GitHub issue number or URL for a bug they want reproduced or investigated.
+description: Systematically reproduce and investigate a bug from a GitHub issue. Use when the user provides a GitHub issue number or URL and wants an issue-grounded reproduction/investigation entrypoint before broader debugging or fixing.
 argument-hint: "[GitHub issue number or URL]"
 ---
 
 # Reproduce Bug
 
 A framework-agnostic, hypothesis-driven workflow for reproducing and investigating bugs from issue reports. Works across any language, framework, or project type.
+
+## Boundaries
+
+This skill is the narrow entrypoint for **existing GitHub issues**. It owns issue intake, reproduction, evidence capture, and investigation notes tied to that issue.
+
+If the user wants a general-purpose debug workflow, root-cause gate, or test-first fix loop, continue with `/spec:debug` after this investigation. If the user needs to file a new bug rather than investigate an existing issue, use the `report-bug` skill.
 
 ## Phase 1: Understand the Issue
 
@@ -170,9 +176,11 @@ Ask the user (using the platform's question tool, or present options and wait):
 Investigation complete. How to proceed?
 
 1. Post findings to the issue as a comment
-2. Start working on a fix
+2. Continue with /spec:debug to root-cause and fix
 3. Just review the findings (no external action)
 ```
+
+If the user chooses option 2, hand off the confirmed reproduction steps, evidence, and the current best hypothesis to `/spec:debug` rather than expanding this skill into a full debug-and-fix workflow.
 
 If the user chooses to post to the issue:
 

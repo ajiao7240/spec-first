@@ -1,10 +1,11 @@
-# DSPy.rb 核心概念
+# DSPy.rb Core Concepts
 
-## 签名
+## Signatures
 
-签名定义应用程序代码和语言模型之间的接口。它们使用 Sorbet 类型指定输入、输出和任务描述，以实现编译时和运行时类型安全。
+Signatures define the interface between application code and language models. They specify inputs, outputs, and a task description using Sorbet types for compile-time and runtime type safety.
 
-＃＃＃ 结构
+### Structure
+
 ```ruby
 class ClassifyEmail < DSPy::Signature
   description "Classify customer support emails by urgency and category"
@@ -20,24 +21,26 @@ class ClassifyEmail < DSPy::Signature
   end
 end
 ```
-### 支持的类型
 
-|类型 | JSON 架构 |笔记|
-|------|-------------|--------|
-| `String` | `string` |必填字符串 |
-| `Integer` | `integer` |整数 |
-| `Float` | `number` |小数 |
-| `T::Boolean` | `boolean` |真/假|
-| `T::Array[X]` | `array` |类型化数组 |
-| `T::Hash[K, V]` | `object` |类型键值映射 |
-| `T.nilable(X)` |可为空 |可选字段 |
-| `Date` | `string` (ISO 8601) |自动转换 |
-| `DateTime` | `string` (ISO 8601) |保留时区 |
-| `Time` | `string`（ISO 8601）|转换为 UTC |
+### Supported Types
 
-### 日期和时间类型
+| Type | JSON Schema | Notes |
+|------|-------------|-------|
+| `String` | `string` | Required string |
+| `Integer` | `integer` | Whole numbers |
+| `Float` | `number` | Decimal numbers |
+| `T::Boolean` | `boolean` | true/false |
+| `T::Array[X]` | `array` | Typed arrays |
+| `T::Hash[K, V]` | `object` | Typed key-value maps |
+| `T.nilable(X)` | nullable | Optional fields |
+| `Date` | `string` (ISO 8601) | Auto-converted |
+| `DateTime` | `string` (ISO 8601) | Preserves timezone |
+| `Time` | `string` (ISO 8601) | Converted to UTC |
 
-Date、DateTime 和 Time 字段序列化为 ISO 8601 字符串，并在输出时自动转换回 Ruby 对象。
+### Date and Time Types
+
+Date, DateTime, and Time fields serialize to ISO 8601 strings and auto-convert back to Ruby objects on output.
+
 ```ruby
 class EventScheduler < DSPy::Signature
   description "Schedule events based on requirements"
@@ -67,11 +70,13 @@ result = predictor.call(
 result.scheduled_date.class  # => Date
 result.event_datetime.class  # => DateTime
 ```
-时区约定遵循 ActiveRecord：时间对象转换为 UTC，DateTime 对象保留时区，Date 对象与时区无关。
 
-### 带有 T::Enum 的枚举
+Timezone conventions follow ActiveRecord: Time objects convert to UTC, DateTime objects preserve timezone, Date objects are timezone-agnostic.
 
-使用 `T::Enum` 类定义约束输出值。不要使用内联 `T.enum([...])` 语法。
+### Enums with T::Enum
+
+Define constrained output values using `T::Enum` classes. Do not use inline `T.enum([...])` syntax.
+
 ```ruby
 class SentimentAnalysis < DSPy::Signature
   description "Analyze sentiment of text"
@@ -101,11 +106,13 @@ result.sentiment              # => #<Sentiment::Positive>
 result.sentiment.serialize    # => "positive"
 result.confidence             # => 0.92
 ```
-枚举匹配不区分大小写。返回 `"POSITIVE"` 的 LLM 与 `new('positive')` 匹配。
 
-### 默认值
+Enum matching is case-insensitive. The LLM returning `"POSITIVE"` matches `new('positive')`.
 
-默认值适用于输入和输出。输入默认值减少了调用者样板文件。当 LLM 省略可选字段时，输出默认值提供后备。
+### Default Values
+
+Default values work on both inputs and outputs. Input defaults reduce caller boilerplate. Output defaults provide fallbacks when the LLM omits optional fields.
+
 ```ruby
 class SmartSearch < DSPy::Signature
   description "Search with intelligent defaults"
@@ -128,9 +135,11 @@ result = search.call(query: "Ruby programming")
 # max_results defaults to 10, language defaults to "English"
 # If LLM omits `cached`, it defaults to false
 ```
-### 字段说明
 
-将 `description:` 添加到任何字段，以指导法学硕士了解预期内容。这些描述出现在发送到模型的生成的 JSON 架构中。
+### Field Descriptions
+
+Add `description:` to any field to guide the LLM on expected content. These descriptions appear in the generated JSON schema sent to the model.
+
 ```ruby
 class ASTNode < T::Struct
   const :node_type, String, description: "The type of AST node (heading, paragraph, code_block)"
@@ -142,7 +151,9 @@ end
 ASTNode.field_descriptions[:node_type]  # => "The type of AST node ..."
 ASTNode.field_descriptions[:children]   # => nil (no description set)
 ```
-字段描述也适用于签名 `input` 和 `output` 块内：
+
+Field descriptions also work inside signature `input` and `output` blocks:
+
 ```ruby
 class ExtractEntities < DSPy::Signature
   description "Extract named entities from text"
@@ -158,17 +169,19 @@ class ExtractEntities < DSPy::Signature
   end
 end
 ```
-### 架构格式
 
-DSPy.rb 支持三种模式格式，用于将类型结构传递给 LLM。
+### Schema Formats
 
-#### JSON 架构（默认）
+DSPy.rb supports three schema formats for communicating type structure to LLMs.
 
-冗长但普遍支持。通过`YourSignature.output_json_schema`访问。
+#### JSON Schema (default)
 
-#### BAML 架构
+Verbose but universally supported. Access via `YourSignature.output_json_schema`.
 
-紧凑格式，可减少 80-85% 的架构标记。需要 `sorbet-baml` 宝石。
+#### BAML Schema
+
+Compact format that reduces schema tokens by 80-85%. Requires the `sorbet-baml` gem.
+
 ```ruby
 DSPy.configure do |c|
   c.lm = DSPy::LM.new('openai/gpt-4o-mini',
@@ -177,11 +190,13 @@ DSPy.configure do |c|
   )
 end
 ```
-BAML 仅适用于增强提示模式 (`structured_outputs: false`)。当 `structured_outputs: true` 时，提供者直接接收 JSON Schema。
 
-#### TOON 架构 + 数据格式
+BAML applies only in Enhanced Prompting mode (`structured_outputs: false`). When `structured_outputs: true`, the provider receives JSON Schema directly.
 
-面向表的文本格式，可缩小架构定义和提示值。
+#### TOON Schema + Data Format
+
+Table-oriented text format that shrinks both schema definitions and prompt values.
+
 ```ruby
 DSPy.configure do |c|
   c.lm = DSPy::LM.new('openai/gpt-4o-mini',
@@ -191,11 +206,13 @@ DSPy.configure do |c|
   )
 end
 ```
-`schema_format: :toon` 替换系统提示符中的架构块。 `data_format: :toon` 在 `toon` 栅栏内呈现输入值和输出模板。仅适用于增强提示模式。 `sorbet-toon` gem 作为依赖项自动包含在内。
 
-### 递归类型
+`schema_format: :toon` replaces the schema block in the system prompt. `data_format: :toon` renders input values and output templates inside `toon` fences. Only works with Enhanced Prompting mode. The `sorbet-toon` gem is included automatically as a dependency.
 
-引用自身的结构在生成的 JSON 模式中生成 `$defs` 条目，使用 `$ref` 指针来避免无限递归。
+### Recursive Types
+
+Structs that reference themselves produce `$defs` entries in the generated JSON schema, using `$ref` pointers to avoid infinite recursion.
+
 ```ruby
 class ASTNode < T::Struct
   const :node_type, String
@@ -203,7 +220,9 @@ class ASTNode < T::Struct
   const :children, T::Array[ASTNode], default: []
 end
 ```
-模式生成器检测 `T::Array[ASTNode]` 中的自引用并发出：
+
+The schema generator detects the self-reference in `T::Array[ASTNode]` and emits:
+
 ```json
 {
   "$defs": {
@@ -217,17 +236,21 @@ end
   }
 }
 ```
-通过 `YourSignature.output_json_schema_with_defs` 访问具有累积定义的模式。
 
-### 与 T.any() 的联合类型
+Access the schema with accumulated definitions via `YourSignature.output_json_schema_with_defs`.
 
-指定接受多种类型的字段：
+### Union Types with T.any()
+
+Specify fields that accept multiple types:
+
 ```ruby
 output do
   const :result, T.any(Float, String)
 end
 ```
-对于结构联合，DSPy.rb 会自动将 `_type` 鉴别器字段添加到每个结构的 JSON 架构中。 LLM 在其响应中返回 `_type`，DSPy 将哈希转换为正确的结构实例。
+
+For struct unions, DSPy.rb automatically adds a `_type` discriminator field to each struct's JSON schema. The LLM returns `_type` in its response, and DSPy converts the hash to the correct struct instance.
+
 ```ruby
 class CreateTask < T::Struct
   const :title, String
@@ -255,28 +278,34 @@ result = DSPy::Predict.new(TaskRouter).call(request: "Create a task for Q4 revie
 result.action.class  # => CreateTask
 result.action.title  # => "Q4 Review"
 ```
-模式匹配对结果起作用：
+
+Pattern matching works on the result:
+
 ```ruby
 case result.action
 when CreateTask then puts "Creating: #{result.action.title}"
 when DeleteTask then puts "Deleting: #{result.action.task_id}"
 end
 ```
-联合类型也适用于异构集合的数组：
+
+Union types also work inside arrays for heterogeneous collections:
+
 ```ruby
 output do
   const :events, T::Array[T.any(LoginEvent, PurchaseEvent)]
 end
 ```
-将联合限制为 2-4 种类型，以实现可靠的 LLM 理解。使用明确的结构名称，因为它们成为 `_type` 鉴别器值。
+
+Limit unions to 2-4 types for reliable LLM comprehension. Use clear struct names since they become the `_type` discriminator values.
 
 ---
 
-## 模块
+## Modules
 
-模块是包装预测器的可组合构建块。定义一个`forward`方法；使用 `.call()` 调用模块。
+Modules are composable building blocks that wrap predictors. Define a `forward` method; invoke the module with `.call()`.
 
-### 基本结构
+### Basic Structure
+
 ```ruby
 class SentimentAnalyzer < DSPy::Module
   def initialize
@@ -295,13 +324,15 @@ result = analyzer.call(text: "I love this product!")
 result.sentiment    # => "positive"
 result.confidence   # => 0.9
 ```
-**API规则：**
-- 使用 `.call()` 调用模块和预测器，而不是 `.forward()`。
-- 使用 `result.field` 访问结果字段，而不是 `result[:field]`。
 
-### 模块组成
+**API rules:**
+- Invoke modules and predictors with `.call()`, not `.forward()`.
+- Access result fields with `result.field`, not `result[:field]`.
 
-通过`forward`中的显式方法调用组合多个模块：
+### Module Composition
+
+Combine multiple modules through explicit method calls in `forward`:
+
 ```ruby
 class DocumentProcessor < DSPy::Module
   def initialize
@@ -321,17 +352,19 @@ class DocumentProcessor < DSPy::Module
   end
 end
 ```
-### 生命周期回调
 
-模块支持 `forward` 上的 `before`、`after` 和 `around` 回调。将它们声明为引用私有方法的类级宏。
+### Lifecycle Callbacks
 
-#### 执行顺序
+Modules support `before`, `after`, and `around` callbacks on `forward`. Declare them as class-level macros referencing private methods.
 
-1. `before`回调（按注册顺序）
-2. `around`回调（在`yield`之前）
-3.`forward`方法
-4. `around`回调（在`yield`之后）
-5. `after`回调（按注册顺序）
+#### Execution order
+
+1. `before` callbacks (in registration order)
+2. `around` callbacks (before `yield`)
+3. `forward` method
+4. `around` callbacks (after `yield`)
+5. `after` callbacks (in registration order)
+
 ```ruby
 class InstrumentedModule < DSPy::Module
   before :setup_metrics
@@ -366,11 +399,13 @@ class InstrumentedModule < DSPy::Module
   end
 end
 ```
-相同类型的多个回调按注册顺序执行。回调继承自父类；父回调首先运行。
 
-#### 围绕回调
+Multiple callbacks of the same type execute in registration order. Callbacks inherit from parent classes; parent callbacks run first.
 
-周围回调必须调用 `yield` 来执行包装的方法并返回结果：
+#### Around callbacks
+
+Around callbacks must call `yield` to execute the wrapped method and return the result:
+
 ```ruby
 def with_retry
   retries = 0
@@ -383,9 +418,11 @@ def with_retry
   end
 end
 ```
-### 指令更新合约
 
-提词器（GEPA、MIPROv2）需要模块公开不可变的更新挂钩。包含 `DSPy::Mixins::InstructionUpdatable` 并实现 `with_instruction` 和 `with_examples`，每个返回一个新实例：
+### Instruction Update Contract
+
+Teleprompters (GEPA, MIPROv2) require modules to expose immutable update hooks. Include `DSPy::Mixins::InstructionUpdatable` and implement `with_instruction` and `with_examples`, each returning a new instance:
+
 ```ruby
 class SentimentPredictor < DSPy::Module
   include DSPy::Mixins::InstructionUpdatable
@@ -408,17 +445,19 @@ class SentimentPredictor < DSPy::Module
   end
 end
 ```
-如果模块省略这些钩子，提词器会引发 `DSPy::InstructionUpdateError` 而不是默默地改变状态。
+
+If a module omits these hooks, teleprompters raise `DSPy::InstructionUpdateError` instead of silently mutating state.
 
 ---
 
-## 预测器
+## Predictors
 
-预测器是获取签名并从语言模型生成结构化结果的执行引擎。 DSPy.rb 提供四种预测器类型。
+Predictors are execution engines that take a signature and produce structured results from a language model. DSPy.rb provides four predictor types.
 
-### 预测
+### Predict
 
-通过输入/输出直接调用 LLM。最快的选项，最低的代币使用量。
+Direct LLM call with typed input/output. Fastest option, lowest token usage.
+
 ```ruby
 classifier = DSPy::Predict.new(ClassifyText)
 result = classifier.call(text: "Technical document about APIs")
@@ -427,9 +466,11 @@ result.sentiment    # => #<Sentiment::Positive>
 result.topics       # => ["APIs", "technical"]
 result.confidence   # => 0.92
 ```
-### 思想链
 
-自动将 `reasoning` 字段添加到输出。该模型在最终答案之前生成逐步推理。使用 ChainOfThought 时，请勿在签名输出中定义 `:reasoning` 字段。
+### ChainOfThought
+
+Adds a `reasoning` field to the output automatically. The model generates step-by-step reasoning before the final answer. Do not define a `:reasoning` field in the signature output when using ChainOfThought.
+
 ```ruby
 class SolveMathProblem < DSPy::Signature
   description "Solve mathematical word problems step by step"
@@ -450,11 +491,13 @@ result = solver.call(problem: "Sarah has 15 apples. She gives 7 away and buys 12
 result.reasoning  # => "Step by step: 15 - 7 = 8, then 8 + 12 = 20"
 result.answer     # => "20 apples"
 ```
-使用 ChainOfThought 进行复杂分析、多步骤推理或当可解释性很重要时。
 
-### 反应
+Use ChainOfThought for complex analysis, multi-step reasoning, or when explainability matters.
 
-在迭代循环中使用工具的推理 + 行动代理。通过子类化 `DSPy::Tools::Base` 来定义工具。将相关工具分组为 `DSPy::Tools::Toolset`。
+### ReAct
+
+Reasoning + Action agent that uses tools in an iterative loop. Define tools by subclassing `DSPy::Tools::Base`. Group related tools with `DSPy::Tools::Toolset`.
+
 ```ruby
 class WeatherTool < DSPy::Tools::Base
   extend T::Sig
@@ -492,14 +535,18 @@ result.history          # => Array of reasoning steps, actions, observations
 result.iterations       # => 3
 result.tools_used       # => ["weather"]
 ```
-使用工具集公开单个类中的多个工具方法：
+
+Use toolsets to expose multiple tool methods from a single class:
+
 ```ruby
 text_tools = DSPy::Tools::TextProcessingToolset.to_tools
 agent = DSPy::ReAct.new(MySignature, tools: text_tools)
 ```
-### 代码法案
 
-Think-Code-Observe 代理，用于合成和执行 Ruby 代码。作为单独的宝石发货。
+### CodeAct
+
+Think-Code-Observe agent that synthesizes and executes Ruby code. Ships as a separate gem.
+
 ```ruby
 # Gemfile
 gem 'dspy-code_act', '~> 0.29'
@@ -509,18 +556,20 @@ gem 'dspy-code_act', '~> 0.29'
 programmer = DSPy::CodeAct.new(ProgrammingSignature, max_iterations: 10)
 result = programmer.call(task: "Calculate the factorial of 20")
 ```
-### 预测器比较
 
-|预测器 |速度|代币使用 |最适合 |
-|------------|---------|-------------|---------|
-|预测|最快|低|分类、提取|
-|思想链|中等|中高|复杂推理、分析 |
-|反应 |慢一点 |高|使用工具执行多步骤任务 |
-|法典 |最慢|非常高 |动态规划、计算 |
+### Predictor Comparison
 
-### 并发预测
+| Predictor | Speed | Token Usage | Best For |
+|-----------|-------|-------------|----------|
+| Predict | Fastest | Low | Classification, extraction |
+| ChainOfThought | Moderate | Medium-High | Complex reasoning, analysis |
+| ReAct | Slower | High | Multi-step tasks with tools |
+| CodeAct | Slowest | Very High | Dynamic programming, calculations |
 
-使用 `Async::Barrier` 同时处理多个独立预测：
+### Concurrent Predictions
+
+Process multiple independent predictions simultaneously using `Async::Barrier`:
+
 ```ruby
 require 'async'
 require 'async/barrier'
@@ -541,7 +590,9 @@ Async do
   predictions.each { |p| puts p.sentiment }
 end
 ```
-将 `gem 'async', '~> 2.29'` 添加到 Gemfile 中。处理每个 `barrier.async` 块内的错误，以防止一个故障取消其他故障：
+
+Add `gem 'async', '~> 2.29'` to the Gemfile. Handle errors within each `barrier.async` block to prevent one failure from cancelling others:
+
 ```ruby
 barrier.async do
   begin
@@ -551,7 +602,9 @@ barrier.async do
   end
 end
 ```
-### 少量示例和指令调整
+
+### Few-Shot Examples and Instruction Tuning
+
 ```ruby
 classifier = DSPy::Predict.new(SentimentAnalysis)
 
@@ -565,22 +618,24 @@ examples = [
 optimized = classifier.with_examples(examples)
 tuned = classifier.with_instruction("Be precise and confident.")
 ```
+
 ---
 
-## 类型系统
+## Type System
 
-### 自动类型转换
+### Automatic Type Conversion
 
-DSPy.rb v0.9.0+ 自动将 LLM JSON 响应转换为类型化 Ruby 对象：
+DSPy.rb v0.9.0+ automatically converts LLM JSON responses to typed Ruby objects:
 
-- **枚举**：字符串值变为 `T::Enum` 实例（不区分大小写）
-- **结构**：嵌套哈希成为 `T::Struct` 对象
-- **数组**：元素递归转换
-- **默认值**：缺少的字段使用声明的默认值
+- **Enums**: String values become `T::Enum` instances (case-insensitive)
+- **Structs**: Nested hashes become `T::Struct` objects
+- **Arrays**: Elements convert recursively
+- **Defaults**: Missing fields use declared defaults
 
-### 联合类型的鉴别器
+### Discriminators for Union Types
 
-当字段使用具有结构类型的 `T.any()` 时，DSPy 会向每个结构的架构添加一个 `_type` 字段。反序列化时，`_type` 选择正确的结构类：
+When a field uses `T.any()` with struct types, DSPy adds a `_type` field to each struct's schema. On deserialization, `_type` selects the correct struct class:
+
 ```json
 {
   "action": {
@@ -589,28 +644,31 @@ DSPy.rb v0.9.0+ 自动将 LLM JSON 响应转换为类型化 Ruby 对象：
   }
 }
 ```
-DSPy 将 `"CreateTask"` 与联合成员进行匹配并实例化正确的结构。不需要手动鉴别器字段。
 
-### 递归类型
+DSPy matches `"CreateTask"` against the union members and instantiates the correct struct. No manual discriminator field is needed.
 
-支持引用自身的结构。模式生成器跟踪访问的类型并在 `$defs` 下生成 `$ref` 指针：
+### Recursive Types
+
+Structs referencing themselves are supported. The schema generator tracks visited types and produces `$ref` pointers under `$defs`:
+
 ```ruby
 class TreeNode < T::Struct
   const :label, String
   const :children, T::Array[TreeNode], default: []
 end
 ```
-生成的模式使用 `"$ref": "#/$defs/TreeNode"` 作为子数组项，防止无限模式扩展。
 
-### 嵌套深度
+The generated schema uses `"$ref": "#/$defs/TreeNode"` for the children array items, preventing infinite schema expansion.
 
-- 1-2 级：在所有提供商中均可靠。
-- 3-4 级：有效，但会增加模式复杂性。
-- 5 个以上级别：可能会触发 OpenAI 深度验证警告并降低 LLM 准确性。展平深层嵌套结构或拆分为多个签名。
+### Nesting Depth
 
-### 提示
+- 1-2 levels: reliable across all providers.
+- 3-4 levels: works but increases schema complexity.
+- 5+ levels: may trigger OpenAI depth validation warnings and reduce LLM accuracy. Flatten deeply nested structures or split into multiple signatures.
 
-- 优先选择 `T::Array[X], default: []` 而不是 `T.nilable(T::Array[X])`——nilable 形式会导致 OpenAI 结构化输出出现架构问题。
-- 对联合类型使用清晰的结构名称，因为它们成为 `_type` 鉴别器值。
-- 将联合类型限制为 2-4 个成员，以实现可靠的模型理解。
-- 检查与 `DSPy::OpenAI::LM::SchemaConverter.validate_compatibility(schema)` 的架构兼容性。
+### Tips
+
+- Prefer `T::Array[X], default: []` over `T.nilable(T::Array[X])` -- the nilable form causes schema issues with OpenAI structured outputs.
+- Use clear struct names for union types since they become `_type` discriminator values.
+- Limit union types to 2-4 members for reliable model comprehension.
+- Check schema compatibility with `DSPy::OpenAI::LM::SchemaConverter.validate_compatibility(schema)`.

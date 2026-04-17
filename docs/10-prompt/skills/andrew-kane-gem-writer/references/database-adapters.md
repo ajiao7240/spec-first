@@ -1,6 +1,7 @@
-# 数据库适配器模式
+# Database Adapter Patterns
 
-## 抽象基类模式
+## Abstract Base Class Pattern
+
 ```ruby
 # lib/strong_migrations/adapters/abstract_adapter.rb
 module StrongMigrations
@@ -35,7 +36,9 @@ module StrongMigrations
   end
 end
 ```
-## PostgreSQL 适配器
+
+## PostgreSQL Adapter
+
 ```ruby
 # lib/strong_migrations/adapters/postgresql_adapter.rb
 module StrongMigrations
@@ -73,7 +76,9 @@ module StrongMigrations
   end
 end
 ```
-## MySQL 适配器
+
+## MySQL Adapter
+
 ```ruby
 # lib/strong_migrations/adapters/mysql_adapter.rb
 module StrongMigrations
@@ -95,7 +100,9 @@ module StrongMigrations
   end
 end
 ```
-## MariaDB 适配器（MySQL 变体）
+
+## MariaDB Adapter (MySQL variant)
+
 ```ruby
 # lib/strong_migrations/adapters/mariadb_adapter.rb
 module StrongMigrations
@@ -113,9 +120,11 @@ module StrongMigrations
   end
 end
 ```
-## 适配器检测模式
 
-对适配器名称使用正则表达式匹配：
+## Adapter Detection Pattern
+
+Use regex matching on adapter name:
+
 ```ruby
 def adapter
   @adapter ||= case connection.adapter_name
@@ -134,7 +143,9 @@ def adapter
     end
 end
 ```
-## 多数据库支持（PgHero 模式）
+
+## Multi-Database Support (PgHero pattern)
+
 ```ruby
 module PgHero
   class << self
@@ -176,7 +187,9 @@ module PgHero
   end
 end
 ```
-## 连接切换
+
+## Connection Switching
+
 ```ruby
 def with_connection(database_name)
   db = databases[database_name.to_s]
@@ -190,7 +203,9 @@ PgHero.with_connection(:replica) do |conn|
   conn.execute("SELECT * FROM users")
 end
 ```
-## SQL 方言处理
+
+## SQL Dialect Handling
+
 ```ruby
 def quote_column(column)
   case adapter_name

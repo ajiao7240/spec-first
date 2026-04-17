@@ -95,7 +95,7 @@ Create a well-structured bug report with:
 [Any other relevant information]
 
 ---
-*Reported via `/report-bug` skill*
+*Reported via `report-bug` skill*
 ```
 
 ## Step 4: Create GitHub Issue
@@ -123,7 +123,7 @@ gh issue create \
 After the issue is created:
 1. Display the issue URL to the user
 2. Thank them for reporting the bug
-3. Let them know the maintainer (Kieran Klaassen) will be notified
+3. Let them know the maintainer will be notified
 
 ## Output Format
 

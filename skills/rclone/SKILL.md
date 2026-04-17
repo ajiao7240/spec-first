@@ -5,9 +5,21 @@ description: Upload, sync, and manage files across cloud storage providers using
 
 # rclone File Transfer Skill
 
+## Boundaries
+
+Use this skill for **provider-agnostic remote file transfer**: uploading artifacts, syncing directories, verifying remote objects, or backing up generated files to an existing `rclone` remote.
+
+Do **not** use this skill as a replacement for `deploy-docs` or `feature-video`. Those workflows own GitHub Pages deployment and GitHub PR evidence upload. Use `rclone` when the task is generic cloud/object-storage transfer rather than a product-specific publishing workflow.
+
 ## Setup Check (Always Run First)
 
 Before any rclone operation, verify installation and configuration:
+
+```bash
+bash skills/rclone/scripts/check_setup.sh
+```
+
+If you need the checks inline or the repo-local helper is unavailable, run:
 
 ```bash
 # Check if rclone is installed
@@ -87,6 +99,8 @@ rclone copy /path/to/folder remote:bucket/folder/ --progress
 ```bash
 rclone sync /local/path remote:bucket/path/ --progress
 ```
+
+`sync` can delete remote files that are missing locally. Require explicit user confirmation before using `sync` when the target already contains important data.
 
 ### List remote contents
 ```bash

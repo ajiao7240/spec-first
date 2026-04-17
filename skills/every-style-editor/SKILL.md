@@ -1,6 +1,6 @@
 ---
 name: every-style-editor
-description: This skill should be used when reviewing or editing copy to ensure adherence to Every's style guide. It provides a systematic line-by-line review process for grammar, punctuation, mechanics, and style guide compliance.
+description: "This skill should be used when reviewing or editing copy to ensure adherence to Every's style guide. It provides a systematic line-by-line review process for grammar, punctuation, mechanics, and style guide compliance. 适用场景：英文文章审查、按照 Every 风格规范润色、英文语法和标点检查、review English copy。"
 ---
 
 # Every Style Editor
@@ -60,40 +60,40 @@ Verify:
 
 Present findings using this structure:
 
-```
-DOCUMENT REVIEW SUMMARY
-=====================
-Document Type: [type]
-Word Count: [approximate]
-Overall Assessment: [brief overview]
+```markdown
+## Document Review Summary
 
-ERRORS FOUND: [total number]
-
-DETAILED CORRECTIONS
-===================
-
-[For each error found:]
-
-**Location**: [Paragraph #, Sentence #]
-**Issue Type**: [Grammar/Punctuation/Mechanics/Style Guide]
-**Original**: "[exact text with error]"
-**Correction**: "[corrected text]"
-**Rule Reference**: [Specific style guide rule violated]
-**Explanation**: [Brief explanation of why this is an error]
+**Document Type:** [type]
+**Word Count:** [approximate]
+**Overall Assessment:** [brief overview]
+**Errors Found:** [total number]
 
 ---
 
-RECURRING ISSUES
-===============
+## Detailed Corrections
+
+### Error 1
+
+- **Location:** Paragraph #, Sentence #
+- **Issue Type:** Grammar / Punctuation / Mechanics / Style Guide
+- **Original:** "[exact text with error]"
+- **Correction:** "[corrected text]"
+- **Rule Reference:** [specific style guide rule violated]
+- **Explanation:** [brief explanation of why this is an error]
+
+---
+
+## Recurring Issues
+
 [List patterns of errors that appear multiple times]
 
-STYLE GUIDE COMPLIANCE CHECKLIST
-==============================
-✓ [Rule followed correctly]
-✗ [Rule violated - with count of violations]
+## Style Guide Compliance Checklist
 
-FINAL RECOMMENDATIONS
-===================
+- ✅ [Rule followed correctly]
+- ❌ [Rule violated — with count of violations]
+
+## Final Recommendations
+
 [2-3 actionable suggestions for improving the draft]
 ```
 

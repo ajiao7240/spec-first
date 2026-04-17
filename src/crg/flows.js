@@ -52,11 +52,12 @@ function bfsFlow(entryId, adjacency, maxDepth = 5, maxNodes = 20) {
   const visited = new Set([entryId]);
   // 队列元素：[nodeId, depth]
   const queue = [[entryId, 0]];
+  let head = 0;
   const flowNodes = [entryId];
   let reachedDepth = 0;
 
-  while (queue.length > 0 && flowNodes.length < maxNodes) {
-    const [cur, depth] = queue.shift();
+  while (head < queue.length && flowNodes.length < maxNodes) {
+    const [cur, depth] = queue[head++];
 
     if (depth >= maxDepth) continue;
 

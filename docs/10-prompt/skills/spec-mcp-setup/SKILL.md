@@ -1,61 +1,63 @@
 ---
 name: spec-mcp-setup
-description: “一键式 MCP 工具安装和配置，用于规范优先工作流程。安装 Serena、Sequential Thinking、Context7（必需）和 Playwright MCP（可选），支持 Claude Code / Codex / Windows PowerShell 宿主。”
+description: "Use when installing MCP tools for a Claude Code, Codex, or Windows PowerShell session and the host-specific MCP config needs to be detected, configured, or verified."
 argument-hint: "[quick|custom]"
 ---
 
-# MCP 工具设置
+# MCP Tools Setup
 
-安装并配置 spec-first 工作流所需的 MCP 工具。
+Install and configure the MCP tools needed by spec-first workflows.
 
-**克劳德入口点：** `/spec:mcp-setup [quick|custom]`
-**法典入口点：** `/spec:mcp-setup [quick|custom]`
-如果你在 Codex 会话里直接调用技能命名空间，`$spec-mcp-setup [quick|custom]` 仍然可用。
-如果两个宿主 CLI 都存在且没有环境提示，请显式设置 `MCP_SETUP_HOST=claude|codex`，脚本不会猜测宿主。
+**Claude entry point:** `/spec:mcp-setup [quick|custom]`
+**Codex entry point:** `$spec-mcp-setup [quick|custom]`
 
-## 概述
+## Overview
 
-此技能负责安装和配置 spec-first 使用的 MCP 工具：
+This skill automates the installation and configuration of the MCP tools used by spec-first:
 
-平台入口：
-- macOS / Linux：使用 `bash` 执行 `*.sh`
-- Windows：使用 `pwsh` 7+ 执行对应的 `*.ps1`
+| Tool | Category | Purpose |
+|------|----------|---------|
+| Serena | Required | Symbol-level precision editing for spec-bootstrap Enhanced mode |
+| Sequential Thinking | Required | Dynamic reflective problem solving |
+| Context7 | Required | Latest framework documentation lookup |
+| Playwright MCP | Optional | Frontend automation testing |
+| 飞书 MCP | Optional | 飞书聊天与文档 API（feishu-chat-researcher / feishu-doc-reader 依赖） |
 
-| 工具 | 类别 | 用途 |
-|------|------|------|
-| Serena | 必需 | 为 spec-bootstrap 的增强模式提供符号级精确编辑 |
-| Sequential Thinking | 必需 | 提供动态反思式问题求解 |
-| Context7 | 必需 | 提供最新框架文档查询 |
-| Playwright MCP | 可选 | 前端自动化测试 |
+The active host is detected automatically. Claude Code writes to `~/.claude.json` and `~/.claude/spec-first/host-setup.json`; Codex writes to `~/.codex/config.toml` and `~/.codex/spec-first/host-setup.json`.
+If both CLIs are present and no host hint is available, set `MCP_SETUP_HOST=claude|codex` explicitly; the skill will not guess.
 
-**实际流程：** `/spec:mcp-setup` → 重启当前宿主 → `/spec:bootstrap` → 完成。
+Platform entrypoints:
+- macOS/Linux: use the `*.sh` scripts with `bash`
+- Windows: use the matching `*.ps1` scripts with `pwsh` 7+
 
-## 配置
+**Actual flow:** run the current host's `mcp-setup` entrypoint → restart the active host → run the current host's `bootstrap` entrypoint → done.
 
-工具元数据定义在 `skills/mcp-setup/mcp-tools.json` 中。每个条目包含：
-- `id`、`name`、`category`
-- `dependencies`（node / uv）
-- `mcp_config`（MCP 服务注册命令与参数；`__HOST_CONTEXT__` 这类占位符会在安装时按宿主解析；Codex 工具可额外声明 `startup_timeout_sec`）
-- `detect`（检测方法和参数）
+## Configuration
+
+Tool metadata is defined in `skills/spec-mcp-setup/mcp-tools.json`. Each tool entry includes:
+- `id`, `name`, `category`
+- `dependencies` (node / uv)
+- `mcp_config` (command + args for MCP server registration; host placeholders such as `__HOST_CONTEXT__` are resolved at install time; Codex tools can also declare `startup_timeout_sec`)
+- `detect` (detection method and parameters)
 
 ---
 
-## 第 1 阶段：依赖检测
+## Phase 1: Dependency Detection
 
-**目标：** 检测前置依赖（`node`、`uv`、`jq`）并在用户同意后自动安装。
+**Goal:** Detect prerequisites (`node`, `uv`, `jq`) and auto-install with user consent.
 
-### 1.1 运行依赖检查
+### 1.1 Run Dependency Check
 
 ```bash
-bash skills/mcp-setup/scripts/check-deps.sh
+bash skills/spec-mcp-setup/scripts/check-deps.sh
 ```
 
-Windows：
+Windows:
 ```powershell
-pwsh -File skills/mcp-setup/scripts/check-deps.ps1
+pwsh -File skills/spec-mcp-setup/scripts/check-deps.ps1
 ```
 
-输出示例：
+This script outputs JSON with the status of each dependency:
 
 ```json
 {
@@ -65,43 +67,50 @@ pwsh -File skills/mcp-setup/scripts/check-deps.ps1
 }
 ```
 
-### 1.2 处理缺失依赖
+### 1.2 Handle Missing Dependencies
 
-| 依赖 | 安全级别 | 行为 |
-|------|----------|------|
-| uv | safe_auto | 直接安装：`curl -LsSf https://astral.sh/uv/install.sh | sh` |
-| jq | safe_auto | 包管理器安装：`brew install jq` / `apt install jq` |
-| Node.js | gated_auto | 通过 fnm 安装，并提示 PATH 兼容风险 |
+For each missing dependency, ask the user whether to auto-install:
 
-如果用户拒绝自动安装，则显示手动安装说明并退出。
+| Dependency | Safety | Behavior |
+|------------|--------|----------|
+| uv | safe_auto | Direct install: `curl -LsSf https://astral.sh/uv/install.sh | sh` |
+| jq | safe_auto | Package manager install: `brew install jq` / `apt install jq` |
+| Node.js | gated_auto | Install via fnm with a PATH-risk warning |
 
-### 1.3 验证依赖
+If the user declines auto-install, display manual installation instructions and exit.
 
-自动安装后或所有依赖都存在时，重新运行当前平台对应的依赖检测脚本。如果仍然缺失，显示说明并退出。
+### 1.3 Verify Dependencies
+
+After auto-install or when all dependencies are present, rerun the matching platform dependency script. If any dependency is still missing, display instructions and exit.
 
 ---
 
-## 第 2 阶段：快速安装 + 配置合并
+## Phase 2: Quick Install + Configuration Merge
 
-**目标：** 安装所有必需工具，并把 MCP 配置写入当前宿主的配置文件。
+**Goal:** Install all required tools and write their MCP configurations to the current host's MCP config.
 
-Windows：
-```powershell
-pwsh -File skills/mcp-setup/scripts/install-coordinator.ps1
+macOS/Linux:
+```bash
+bash skills/spec-mcp-setup/scripts/install-coordinator.sh
 ```
 
-### 2.1 检测现有工具
+Windows:
+```powershell
+pwsh -File skills/spec-mcp-setup/scripts/install-coordinator.ps1
+```
+
+### 2.1 Detect Existing Tools
 
 ```bash
-bash skills/mcp-setup/scripts/detect-tools.sh
+bash skills/spec-mcp-setup/scripts/detect-tools.sh
 ```
 
-Windows：
+Windows:
 ```powershell
-pwsh -File skills/mcp-setup/scripts/detect-tools.ps1
+pwsh -File skills/spec-mcp-setup/scripts/detect-tools.ps1
 ```
 
-输出示例：
+Expected output shape:
 
 ```json
 {
@@ -110,15 +119,17 @@ pwsh -File skills/mcp-setup/scripts/detect-tools.ps1
 }
 ```
 
-### 2.2 安装所需工具
+### 2.2 Install Required Tools
 
-对每个缺失的必需工具，写入对应的 `mcp_config`。
-如果是 Codex 且工具声明了 `mcp_config.startup_timeout_sec`，则同步写入对应 `[mcp_servers.<tool>]` 节点。
-若该字段已存在但数值低于声明值，则提升到声明值；更高的用户自定义值不下调。
+For each missing required tool, write its `mcp_config` into the current host config:
+- Claude Code: `~/.claude.json`
+- Codex: `~/.codex/config.toml`
 
-显示进度：
+For Codex, if a tool declares `mcp_config.startup_timeout_sec`, write that value into the corresponding `[mcp_servers.<tool>]` section.
+If the field already exists but is lower than the declared value, raise it to the declared value; never downgrade higher user-defined values.
 
-```text
+Display progress in real time:
+```
 🧭 我会先检查当前宿主的配置，再逐个补齐缺失工具。
 ⏳ Configuring Serena...
 ✅ Serena configured
@@ -126,158 +137,175 @@ pwsh -File skills/mcp-setup/scripts/detect-tools.ps1
 ✅ Context7 configured
 ```
 
-带有 `mcp_config` 的工具不需要额外二进制安装。
-跳过已配置工具。
+Tools with `mcp_config` only do not need a binary install step.
+Skip already configured tools.
 
-### 2.3 配置合并
+### 2.3 Configuration Merge
 
-使用原子化合并：
+Use an atomic host-aware update:
 
-1. 备份当前宿主配置文件
-2. 获取锁
-3. 只添加缺失的宿主专属 MCP 条目
-4. 校验命令返回后条目已存在
-5. 配置失败时恢复备份
-6. 释放锁
+1. Backup the current host config
+2. Acquire a lock
+3. Add only missing host-specific MCP entries with the host CLI
+4. Verify the entry is present after the command returns
+5. Restore the backup if configuration fails
+6. Release the lock
 
-现有配置绝不覆盖。
+Existing entries must never be overwritten.
 
 ---
 
-## 第 3 阶段：可选工具
+## Phase 3: Optional Tools
 
-在必需工具安装完成后，再询问可选工具。
+Offer optional tools only after required tools are installed.
 
-### 3.1 询问可选工具
+### 3.1 Prompt for Optional Tools
 
-询问用户是否安装可选工具。
+Ask whether to install optional tools.
 
-可选工具：
+Available optional tools:
 - Playwright MCP
+- 飞书 MCP（需要交互式输入 App ID / App Secret）
 
-如果用户选择，则复用第 2 阶段的安装 + 配置流程。
+If the user selects any of them, run the same install + configure flow from Phase 2 for the selected tools.
 
-### 3.2 非交互模式跳过
+### 3.2 Skip in Non-Interactive Mode
 
-如果参数是 `quick`，跳过可选工具提示。
+If the argument is `quick`, skip optional prompts entirely.
 
 ---
 
-## 第 4 阶段：宿主验证
+## Phase 4: Host Verification
 
-在第 3 阶段后运行，用于记录宿主级安装状态。
+Run after Phase 3 to record host-level install state.
 
-### 4.1 写入宿主就绪标记
+### 4.1 Write Host Readiness Marker
 
-运行 `skills/mcp-setup/scripts/verify-tools.sh`，验证宿主级安装状态并写入当前宿主的 `spec-first/host-setup.json`。
+Run `skills/spec-mcp-setup/scripts/verify-tools.sh` to validate host-level install state and write the current host's `spec-first/host-setup.json` marker.
 
-Windows：
+Windows:
 ```powershell
-pwsh -File skills/mcp-setup/scripts/verify-tools.ps1
+pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1
 ```
 
-验证步骤会打印当前宿主的基础状态和最终标记路径，方便用户判断是否需要重启。
+The verification step will print the current host's baseline status and the final marker path so users can immediately tell whether they need to restart.
 
-Claude Code 写入 `~/.claude/spec-first/host-setup.json`，Codex 写入 `~/.codex/spec-first/host-setup.json`。
+`setup_success` means the baseline host-level prerequisites are actually ready:
+- `serena`, `context7`, `sequential-thinking` are configured in the current host config
 
-`setup_success` 表示基础宿主前置条件已经准备就绪：
-- `serena`、`context7`、`sequential-thinking` 已写入当前宿主配置文件
+`crg` block reports CRG subsystem readiness:
+- `cli_available`: whether `spec-first crg --help` exits successfully
+- `native_modules`: `"ok"` (better-sqlite3 + tree-sitter loadable), `"missing"` (one or both failed), `"unchecked"` (CLI unavailable)
 
-如果 `verify-tools.sh` 退出非零：
-- 使用脚本错误输出报告失败
-- 不要声称设置已完成
+If `verify-tools.sh` exits non-zero:
+- Report the failure with the script's error output
+- Do not claim setup is complete
 
-如果验证后 `setup_success == false`：
-- 报告缺失或配置错误的基础工具
-- 不要声称设置已完成
+If `setup_success == false` after verification:
+- Report which baseline tools are still missing or misconfigured
+- Do not claim setup is complete
 
-如果可选工具缺失：
-- 报告为可选项未安装
-- 只要基础工具就绪，就视为完成
+If optional tools are missing after verification:
+- Report that optional tools were skipped or unavailable
+- Continue and treat setup as complete when baseline tools are ready
 
 ---
 
-## 验证
+## Verification
 
-全部安装完成后：
+After all installations:
 
-1. 重新运行当前平台对应的检测脚本，基础工具应显示为已安装
-2. 验证当前宿主配置文件包含基础 MCP 条目（`serena`、`context7`、`sequential-thinking`）
-3. 读取当前宿主的 `spec-first/host-setup.json` 并确认 `setup_success == true`
-4. 输出摘要：
+1. Re-run the matching platform detection script — baseline tools should appear as installed
+2. Verify the current host config contains baseline MCP entries (`serena`, `context7`, `sequential-thinking`)
+3. Read the current host's `spec-first/host-setup.json` and confirm `setup_success == true`
+4. Display summary:
 
 ```text
 ✅ MCP Tools Setup Complete
 
 Installed: Serena, Sequential Thinking, Context7
 Skipped (already present): [list]
-Optional: Playwright MCP [installed / not installed]
+Optional: Playwright MCP / 飞书 MCP [installed / skipped / not installed]
 
 Host readiness:
 - dependencies: ready
 - mcp config: ready
+- CRG: CLI available / CLI unavailable
 - host marker: written (current host's `spec-first/host-setup.json`)
 
 Next steps:
-1. 重启当前宿主（需要加载新的 MCP 配置）
-2. Run /spec:bootstrap
+1. Restart the current host (required to load new MCP configuration)
+2. Run the current host's bootstrap entrypoint (`/spec:bootstrap` or `$spec-bootstrap`)
 ```
 
 ---
 
-## 错误处理
+## Error Handling
 
-| 场景 | 行动 |
-|------|------|
-| 依赖项缺失且用户拒绝安装 | 显示手动说明并退出 |
-| 单个工具安装失败 | 继续处理其他工具，最后汇报失败 |
-| 配置合并失败 | 从备份恢复并报告错误 |
-| 当前宿主配置文件不存在 | 通过宿主 CLI 创建初始结构 |
-| jq 不可用 | 要求安装 jq |
-
----
-
-## 范围边界
-
-**包含：**
-- 3 个必需工具 + 1 个可选工具的安装与配置
-- 安装状态检测与验证
-- 用户交互和进度反馈
-- macOS / Linux / Windows 支持
-
-**不包含：**
-- MCP 工具卸载
-- MCP 工具更新/升级
-- 自定义 MCP 配置参数
-- `mcp-tools.json` 之外的工具
-- 运行时 MCP 服务可用性验证（由 spec-bootstrap 在项目级探测中处理）
+| Scenario | Action |
+|----------|--------|
+| Dependency missing and user declines install | Show manual instructions, exit |
+| Single tool install fails | Restore backup, stop all further installs (atomic rollback) |
+| Configuration merge fails | Restore from backup, report error |
+| Current host config doesn't exist | Create the host-specific config file via the host CLI |
+| `jq` not available | Require jq, show install instructions |
 
 ---
 
-## 附录：host-setup.json Schema
+## Scope Boundaries
 
-`~/.claude/spec-first/host-setup.json` 和 `~/.codex/spec-first/host-setup.json` 是 mcp-setup 和 spec-bootstrap 之间的协调文件。
+**Includes:**
+- MCP tool installation and configuration (3 required tools + 2 optional tools)
+- Installation status detection and verification
+- CRG CLI availability and native module health detection
+- User interaction and progress feedback
+- macOS/Linux/Windows support
 
-### Schema v4
+**Excludes:**
+- MCP tool uninstallation
+- MCP tool update/upgrade
+- Custom MCP tool configuration parameters
+- Tools not in `mcp-tools.json`
+- Runtime MCP server availability verification (handled by spec-bootstrap at project level)
+
+---
+
+## Appendix: host-setup.json Schema
+
+The coordination file between mcp-setup and spec-bootstrap is host-specific:
+
+- Claude Code: `~/.claude/spec-first/host-setup.json`
+- Codex: `~/.codex/spec-first/host-setup.json`
+
+### Schema v5
 
 ```json
 {
-  "version": "4",
+  "version": "5",
   "host": "claude",
-  "completed_at": "2026-04-08T12:00:00Z",
+  "completed_at": "2026-04-13T12:00:00Z",
   "setup_success": true,
   "tools": {
     "serena": { "configured": true },
     "context7": { "configured": true },
-    "sequential-thinking": { "configured": true }
+    "sequential-thinking": { "configured": true },
+    "playwright": { "configured": false }
+  },
+  "crg": {
+    "cli_available": true,
+    "native_modules": "ok",
+    "checked_at": "2026-04-13T12:00:00Z"
   }
 }
 ```
 
-### 消费方
+### Consumers
 
-| 字段 | 消费方 | 用途 |
-|------|------|------|
-| `host` | spec-bootstrap Host Readiness Gate Step 0 | 选择匹配的运行时 marker 和探针路径 |
-| `setup_success` | spec-bootstrap Host Readiness Gate Step 1 | 判断宿主前置条件是否就绪 |
-| `tools.*.configured` | spec-bootstrap 运行时检查 | 跳过已知缺失的工具 |
+| Field | Consumer | Purpose |
+|------|--------|---------|
+| `host` | spec-bootstrap Host Readiness Gate Step 0 | Select the matching runtime marker and probe path |
+| `setup_success` | spec-bootstrap Host Readiness Gate Step 1 | Determine whether baseline host prerequisites are ready |
+| `tools.*.configured` | spec-bootstrap runtime checks | Skip known-missing tools |
+| `crg.cli_available` | spec-graph-bootstrap Phase 0.2b | Skip CRG operations when CLI unavailable |
+| `crg.native_modules` | spec-graph-bootstrap Phase 0.2b | Warn before attempting crg build |
+| `crg.checked_at` | spec-graph-bootstrap Phase 0.2b | Stale detection (re-check if >30 days old) |

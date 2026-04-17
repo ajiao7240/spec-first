@@ -1,316 +1,259 @@
 ---
 name: brainstorm-workflow
-description: “在编写适当大小的需求文件并规划实施之前，通过协作对话探索需求和方法。用于功能创意、问题框架，当用户说“让我们集思广益”时，或者当他们想在决定构建什么之前仔细考虑选项时。当用户描述模糊或雄心勃勃的功能请求，询问“我们应该构建什么”，“帮助我思考 X”，提出具有多个有效解决方案的问题，或者似乎不确定范围或方向 - 即使他们没有明确要求集思广益时也可以使用。
+description: 'Explore requirements and approaches through collaborative dialogue before writing a right-sized requirements document and planning implementation. Use for feature ideas, problem framing, when the user says ''let''s brainstorm'', or when they want to think through options before deciding what to build. Also use when a user describes a vague or ambitious feature request, asks ''what should we build'', ''help me think through X'', presents a problem with multiple valid solutions, or seems unsure about scope or direction — even if they don''t explicitly ask to brainstorm.'
 argument-hint: "[feature idea or problem to explore]"
 ---
-# 集体讨论功能或改进
 
-**注意：当前年份是 2026 年。** 在确定需求文档的日期时使用此选项。
+# Brainstorm a Feature or Improvement
 
-头脑风暴有助于回答通过协作对话构建**什么**。它位于 `/spec:plan` 之前，它回答了 **如何** 构建它。
+**Note: The current year is 2026.** Use this when dating requirements documents.
 
-此工作流程的持久输出是**需求文档**。在其他工作流程中，这可能称为轻量级 PRD 或功能简介。在复合工程中，保留工作流名称 `brainstorm`，但使书面工件足够强大，以便规划不需要发明产品行为、范围边界或成功标准。
+Brainstorming helps answer **WHAT** to build through collaborative dialogue. It precedes `/spec:plan`, which answers **HOW** to build it.
 
-该技能不实现代码。它探索、澄清并记录决策，以供以后规划或执行。
+The durable output of this workflow is a **requirements document**. In other workflows this might be called a lightweight PRD or feature brief. In compound engineering, keep the workflow name `brainstorm`, but make the written artifact strong enough that planning does not need to invent product behavior, scope boundaries, or success criteria.
 
-## 核心原则1. **首先评估范围** - 将仪式的数量与工作的规模和模糊性相匹配。
-2. **成为一个有思想的合作伙伴** - 提出替代方案、挑战假设并探索假设，而不仅仅是提取需求。
-3. **在此处解决产品决策** - 面向用户的行为、范围边界和成功标准属于此工作流程。具体实施属于规划。
-4. **默认情况下将实现排除在需求文档之外** - 不要包含库、模式、端点、文件布局或代码级设计，除非头脑风暴本身本质上是关于技术或架构变更的。
-5. **调整工件大小** - 简单的工作可以获得紧凑的需求文档或简短的对齐。更大的工作会得到更完整的文档。不要添加无助于计划的仪式。
-6. **将 YAGNI 应用于承载成本，而不是编码工作** - 更喜欢能够提供有意义价值的最简单方法。避免推测的复杂性和假设的面向未来的能力，但当其持续成本很小且易于维护时，低成本的改进或乐趣是值得包括的。
+This skill does not implement code. It explores, clarifies, and documents decisions for later planning or execution.
 
-## 交互规则1. **一次问一个问题** - 不要将多个不相关的问题批量放入一条消息中。
-2. **首选单选多项选择** - 在选择一个方向、一项优先事项或一项下一步时使用单选。
-3. **很少有意地使用多选** - 仅将其用于兼容的集合，例如可以共存的目标、约束、非目标或成功标准。如果优先级很重要，请询问哪个所选项目是主要的。
-4. **如果可用，请使用平台的提问工具** - 当向用户提问时，优先选择平台的阻止提问工具（如果存在的话）（Claude Code 中为 `AskUserQuestion`，Codex 中为 `request_user_input`，Gemini 中为 `ask_user`。否则，在聊天中显示编号选项并等待用户回复后再继续。
+**IMPORTANT: All file references in generated documents must use repo-relative paths (e.g., `src/models/user.rb`), never absolute paths. Absolute paths break portability across machines, worktrees, and teammates.**
 
-## 输出指导
+## Core Principles
 
-- **保持输出简洁** - 更喜欢简短的部分、简短的项目符号，并且只有足够的细节来支持下一个决策。
+1. **Assess scope first** - Match the amount of ceremony to the size and ambiguity of the work.
+2. **Be a thinking partner** - Suggest alternatives, challenge assumptions, and explore what-ifs instead of only extracting requirements.
+3. **Resolve product decisions here** - User-facing behavior, scope boundaries, and success criteria belong in this workflow. Detailed implementation belongs in planning.
+4. **Keep implementation out of the requirements doc by default** - Do not include libraries, schemas, endpoints, file layouts, or code-level design unless the brainstorm itself is inherently about a technical or architectural change.
+5. **Right-size the artifact** - Simple work gets a compact requirements document or brief alignment. Larger work gets a fuller document. Do not add ceremony that does not help planning.
+6. **Apply YAGNI to carrying cost, not coding effort** - Prefer the simplest approach that delivers meaningful value. Avoid speculative complexity and hypothetical future-proofing, but low-cost polish or delight is worth including when its ongoing cost is small and easy to maintain.
 
-## 功能描述
+## Interaction Rules
 
-<功能描述> #$ARGUMENTS </功能描述>
+1. **Ask one question at a time** - Do not batch several unrelated questions into one message.
+2. **Prefer single-select multiple choice** - Use single-select when choosing one direction, one priority, or one next step.
+3. **Use multi-select rarely and intentionally** - Use it only for compatible sets such as goals, constraints, non-goals, or success criteria that can all coexist. If prioritization matters, follow up by asking which selected item is primary.
+4. **Use the platform's question tool when available** - When asking the user a question, prefer the platform's blocking question tool if one exists (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present numbered options in chat and wait for the user's reply before proceeding.
 
-**如果上面的功能描述为空，请询问用户：**“您想探索什么？请描述您正在考虑的功能、问题或改进。”
+## Output Guidance
 
-在获得用户的功能描述之前，请勿继续。
+- **Keep outputs concise** - Prefer short sections, brief bullets, and only enough detail to support the next decision.
+- **Use repo-relative paths** - When referencing files, use paths relative to the repo root (e.g., `src/models/user.rb`), never absolute paths. Absolute paths make documents non-portable across machines and teammates.
 
-## 执行流程
+## Feature Description
 
-### 第 0 阶段：恢复、评估和路线
+<feature_description> #$ARGUMENTS </feature_description>
 
-#### 0.1 适当时恢复现有工作如果用户引用现有的头脑风暴主题或文档，或者 `docs/brainstorms/` 中存在明显的最近匹配的 `*-requirements.md` 文件：
-- 阅读文档
-- 继续之前与用户确认：“找到 [主题] 的现有需求文档。我应该从此继续，还是重新开始？”
-- 如果恢复，请简要总结当前状态，继续现有决策和未决问题，并更新现有文档而不是创建副本
+**If the feature description above is empty, ask the user:** "What would you like to explore? Please describe the feature, problem, or improvement you're thinking about."
 
-#### 0.2 评估是否需要头脑风暴
+Do not proceed until you have a feature description from the user.
 
-**明确的需求指标：**
-- 提供具体的验收标准
-- 参考现有模式以遵循
-- 描述了确切的预期行为
-- 有限的、明确的范围
+## Execution Flow
 
-**如果要求已经明确：**
-保持互动简短。确认理解并提出简洁的下一步选项，而不是强迫进行长时间的头脑风暴。只有当持久移交到计划或以后的审查很有价值时，才编写简短的需求文档。完全跳过阶段 1.1 和 1.2 — 直接进入阶段 1.3 或阶段 3。
+### Phase 0: Resume, Assess, and Route
 
-#### 0.3 评估范围
+#### 0.1 Resume Existing Work When Appropriate
 
-使用功能描述加上简单的回购扫描来对工作进行分类：
-- **轻量级** - 小、界限清楚、模糊性低
-- **标准** - 正常功能或有界重构，需要做出一些决定
-- **深入** - 交叉、战略性或高度模糊
+If the user references an existing brainstorm topic or document, or there is an obvious recent matching `*-requirements.md` file in `docs/brainstorms/`:
+- Read the document
+- Confirm with the user before resuming: "Found an existing requirements doc for [topic]. Should I continue from this, or start fresh?"
+- If resuming, summarize the current state briefly, continue from its existing decisions and outstanding questions, and update the existing document instead of creating a duplicate
 
-如果范围不清楚，请提出一个有针对性的问题来消除歧义，然后继续。
+#### 0.1b Classify Task Domain
 
-### 第一阶段：理解想法
+Before proceeding to Phase 0.2, classify whether this is a software task. The key question is: **does the task involve building, modifying, or architecting software?** -- not whether the task *mentions* software topics.
 
-#### 1.1 现有上下文扫描
+**Software** (continue to Phase 0.2) -- the task references code, repositories, APIs, databases, or asks to build/modify/debug/deploy software.
 
-在进行实质性头脑风暴之前先浏览一下存储库。将深度与范围相匹配：
+**Non-software brainstorming** (route to universal brainstorming) -- BOTH conditions must be true:
+- None of the software signals above are present
+- The task describes something the user wants to explore, decide, or think through in a non-software domain
 
-**轻量级** — 搜索主题，检查类似的内容是否已存在，然后继续。
+**Neither** (respond directly, skip all brainstorming phases) -- the input is a quick-help request, error message, factual question, or single-step task that doesn't need a brainstorm.
 
-**标准和深度** — 两次通过：*约束检查* - 检查项目说明文件（`AGENTS.md` 和 `CLAUDE.md`，仅当保留为兼容性上下文时）是否存在影响头脑风暴的工作流程、产品或范围约束。如果这些没有添加任何内容，请继续。
+**If non-software brainstorming is detected:** Read `references/universal-brainstorming.md` and use those facilitation principles to brainstorm with the user naturally. Do not follow the software brainstorming phases below.
 
-*主题扫描* — 搜索相关术语。阅读最相关的现有工件（如果存在）（头脑风暴、计划、规范、技能、功能文档）。浏览涵盖类似行为的相邻示例。
+#### 0.2 Assess Whether Brainstorming Is Needed
 
-如果短暂扫描后没有出现任何明显的情况，请说出来并继续。不要陷入技术规划——避免检查测试、迁移、部署或低级架构，除非头脑风暴本身就是关于技术决策的。
+**Clear requirements indicators:**
+- Specific acceptance criteria provided
+- Referenced existing patterns to follow
+- Described exact expected behavior
+- Constrained, well-defined scope
 
-#### 1.2 产品压力测试
+**If requirements are already clear:**
+Keep the interaction brief. Confirm understanding and present concise next-step options rather than forcing a long brainstorm. Only write a short requirements document when a durable handoff to planning or later review would be valuable. Skip Phase 1.1 and 1.2 entirely — go straight to Phase 1.3 or Phase 3.
 
-在生成方法之前，挑战捕获错误框架的请求。将深度与范围相匹配：
+#### 0.3 Assess Scope
 
-**轻量级：**
-- 这能解决真正的用户问题吗？
-- 我们是否在重复已经涵盖这一点的内容？
-- 是否有明显更好且额外成本几乎为零的框架？
+Use the feature description plus a light repo scan to classify the work:
+- **Lightweight** - small, well-bounded, low ambiguity
+- **Standard** - normal feature or bounded refactor with some decisions to make
+- **Deep** - cross-cutting, strategic, or highly ambiguous
 
-**标准：**
-- 这是正确的问题，还是更重要问题的替代品？
-- 哪些用户或业务成果在这里真正重要？
-- 如果我们什么都不做会怎样？
-- 附近是否有一个框架可以在不增加携带成本的情况下创造更多用户价值？如果是这样，它会增加什么复杂性？
-- 考虑到当前的项目状态、用户目标和限制，目前影响力最高的单一举措是什么：框架请求、重新框架、相邻添加、简化还是什么也不做？
-- 倾向于复合价值、降低未来持有成本或使产品更有用或更有吸引力的举措
-- 使用结果来加强对话，而不是压制用户的意图**深入** — 标准问题加上：
-- 这应该在 6-12 个月内创造出什么样的持久能力？
-- 这是否会让产品朝这个方向发展，或者只是一个本地补丁？
+If the scope is unclear, ask one targeted question to disambiguate and then proceed.
 
-#### 1.3 协作对话
+### Phase 1: Understand the Idea
 
-如果可用，请使用平台的阻止问题工具（请参阅交互规则）。否则，在聊天中显示编号选项并等待用户回复后再继续。
+#### 1.1 Existing and Supplemental Context Scan
 
-**指南：**
-- 提出问题**一次一个**
-- 当存在自然选项时更喜欢多项选择
-- 在选择一个方向、一个优先事项或一个下一步时，首选**单选**
-- 仅对可以共存的兼容集使用**多选**；如果优先级很重要，询问哪个所选项目是主要的
-- 从广泛开始（问题、用户、价值），然后缩小范围（约束、排除、边缘情况）
-- 澄清问题框架，验证假设，并询问成功标准
-- 使需求足够具体，以便规划不需要发明行为
-- 仅当它们对范围产生重大影响时才表面依赖性或先决条件
-- 在这里解决产品决策；将技术实施选择留给规划
-- 带来想法、替代方案和挑战，而不仅仅是面试
+Scan the repo before substantive brainstorming. Match depth to scope:
 
-**退出条件：**继续，直到想法清晰或用户明确想要继续。
+**Lightweight** — Search for the topic, check if something similar already exists, and move on.
 
-### 第二阶段：探索方法
+**Standard and Deep** — Two passes:
 
-如果仍然有多个可行的方向，请根据研究和对话提出 **2-3 个具体方法**。否则直接说明推荐方向。有用时，请故意添加一种更高价值的替代方案：
-- 确定哪些相邻的添加或重构最能提高实用性、复合价值或耐用性，而不会造成不成比例的持有成本。将其作为基线旁边的挑战者选项，而不是默认选项。当工作已经明显超出范围或者基线请求显然是正确的举动时，请忽略它。
+*Constraint Check* — Check project instruction files (`AGENTS.md`, and `CLAUDE.md` only if retained as compatibility context) for workflow, product, or scope constraints that affect the brainstorm. If these add nothing, move on.
 
-对于每种方法，请提供：
-- 简要说明（2-3句话）
-- 优点和缺点
-- 主要风险或未知因素
-- 当它最适合时
+*Topic Scan* — Search for relevant terms. Read the most relevant existing artifact if one exists (brainstorm, plan, spec, skill, feature doc). Skim adjacent examples covering similar behavior.
 
-提出您的建议并解释原因。当增加的复杂性产生实际的运输成本时，更喜欢更简单的解决方案，但不要仅仅因为并非绝对必要而拒绝低成本、高价值的抛光。
+If nothing obvious appears after a short scan, say so and continue. Two rules govern technical depth during the scan:
 
-如果一种方法显然是最好的，而其他方法没有意义，请跳过菜单并直接陈述建议。
+1. **Verify before claiming** — When the brainstorm touches checkable infrastructure (database tables, routes, config files, dependencies, model definitions), read the relevant source files to confirm what actually exists. Any claim that something is absent — a missing table, an endpoint that doesn't exist, a dependency not in the manifest, a config option with no current support — must be verified against the codebase first; if not verified, label it as an unverified assumption. This applies to every brainstorm regardless of topic.
 
-如果相关，请说明选择是否：
-- 重用现有模式
-- 扩展现有功能
-- 构建一些全新的东西
+2. **Defer design decisions to planning** — Implementation details like schemas, migration strategies, endpoint structure, or deployment topology belong in planning, not here — unless the brainstorm is itself about a technical or architectural decision, in which case those details are the subject of the brainstorm and should be explored.
 
-### 第 3 阶段：捕获需求
+**Supplemental context** (opt-in / source-driven) — external readers never auto-dispatch from topic alone. Route by condition:
 
-仅当对话产生值得保留的持久决策时才编写或更新需求文档。
+Use bare agent names inside Task calls.
 
-该文档的行为应该像一个没有 PRD 仪式的轻量级 PRD。包括哪些计划需要良好执行，并跳过对范围没有任何价值的部分。
+- **Explicit local path or repo doc path**
+- Task spec-first:research:local-doc-reader(Read the explicit local document path(s) relevant to this brainstorm. Return a research digest, not raw excerpts. {brainstorm topic summary})
 
-需求文档用于产品定义和范围控制。 **不要**包括库、模式、端点、文件布局或代码结构等实现细节，除非头脑风暴本质上是技术性的，并且这些细节本身就是决策的主题。
+- **Institutional knowledge intent** (`docs/solutions/`, prior learnings, "have we solved this before?")
+- Task spec-first:research:learnings-researcher({brainstorm topic summary})
 
-**重要工作所需的内容：**
-- 问题框架
-- 具有稳定 ID 的具体要求或预期行为
-- 范围边界
-- 成功标准**包括实质性有用的情况：**
-- 关键决策和理由
-- 依赖性或假设
-- 未解决的问题
-- 考虑的替代方案
-- 仅当工作本质上是技术性的并且该方向是产品/架构决策的一部分时才提供高级技术方向
+- **Explicit Feishu chat request**
+- Task spec-first:research:feishu-chat-researcher(Search the requested Feishu chat context for this brainstorm topic and return a research digest. {brainstorm topic summary})
 
-**文档结构：** 使用此模板并省略明显不适用的可选部分：
+- **Explicit Feishu document link**
+- Task spec-first:research:feishu-doc-reader(Read the provided Feishu document link and return a research digest. {brainstorm topic summary})
+
+- **Explicit GitHub URL**
+- Task spec-first:research:github-context-reader(Read the provided GitHub URL and return a research digest. {brainstorm topic summary})
+
+- **Explicit documentation URL**
+- Task spec-first:research:docs-context-reader(Read the provided documentation URL and return a research digest. {brainstorm topic summary})
+
+- **Explicit generic http/https URL**
+- Task spec-first:research:web-context-reader(Read the provided web URL and return a research digest. {brainstorm topic summary})
+
+- **No explicit source + user asked for skill/tool discovery**: Only use `find-skills` when the current environment clearly exposes it. Never assume it is repo-bundled. If it is unavailable, say so and continue the brainstorm without blocking.
+
+Additional routing rules:
+- `local-doc-reader` handles explicit file reads. It does **not** replace `learnings-researcher` for `docs/solutions/` topic search.
+- If the user gives an explicit `docs/solutions/...` file path, `local-doc-reader` may read that file directly, but do not also trigger `learnings-researcher` unless the user asks for broader prior-art search.
+- When no explicit supplemental source was provided, do not automatically search GitHub, the web, docs sites, or Feishu. You may note that those source types can be incorporated if the user provides them.
+
+All supplemental readers must return a **research digest** with this contract:
+
 ```markdown
----
-date: YYYY-MM-DD
-topic: <kebab-case-topic>
----
+## Research Digest
+- **Source Type:** `<local-doc|feishu-chat|feishu-doc|github-url|docs-url|web-url|learnings>`
+- **Source Ref:** `<path, URL, or search scope>`
+- **Status:** `success | no-result | tool-unavailable | permission-denied | source-unparseable | executor-unavailable`
+- **Research Value:** `<high|moderate|low|none>`
 
-# <Topic Title>
+### Summary
+[Concise synthesis, never raw dumps]
 
-## Problem Frame
-[Who is affected, what is changing, and why it matters]
+### Constraints
+- [Relevant constraint]
 
-## Requirements
+### Open Questions
+- [Question still unresolved]
 
-**[Group Header]**
-- R1. [Concrete requirement in this group]
-- R2. [Concrete requirement in this group]
-
-**[Group Header]**
-- R3. [Concrete requirement in this group]
-
-## Success Criteria
-- [How we will know this solved the right problem]
-
-## Scope Boundaries
-- [Deliberate non-goal or exclusion]
-
-## Key Decisions
-- [Decision]: [Rationale]
-
-## Dependencies / Assumptions
-- [Only include if material]
-
-## Outstanding Questions
-
-### Resolve Before Planning
-- [Affects R1][User decision] [Question that must be answered before planning can proceed]
-
-### Deferred to Planning
-- [Affects R2][Technical] [Question that should be answered during planning or codebase exploration]
-- [Affects R2][Needs research] [Question that likely requires research during planning]
-
-## Next Steps
-[If `Resolve Before Planning` is empty: `→ /spec:plan` for structured implementation planning]
-[If `Resolve Before Planning` is not empty: `→ Resume /spec:brainstorm` to resolve blocking questions before planning]
+### Evidence
+- [Quoted path, URL, page, section, or thread reference]
 ```
-对于**标准**和**深度**头脑风暴，通常需要一份需求文件。
 
-对于**轻量级**头脑风暴，请保持文档紧凑。当用户只需要简短的对齐并且不需要保留持久的决策时，跳过文档创建。
+Failure handling rules:
+- **`no-result`** -- no relevant context was found for the requested source
+- **`tool-unavailable`** -- the required API, MCP, CLI, or host integration is not available
+- **`permission-denied`** -- the source exists but cannot be accessed with current credentials or permissions
+- **`source-unparseable`** -- the source exists but could not be parsed into usable content
+- **`executor-unavailable`** -- the required page/document executor is not installed or cannot run in this environment
 
-对于只有 1-3 个简单需求的非常小的需求文档，简单的项目符号需求是可以接受的。对于 **标准** 和 **深度** 需求文档，请使用稳定的 ID，例如 `R1`、`R2`、`R3`，以便规划和以后的审查可以明确地引用它们。
+When a supplemental reader returns any non-`success` status:
+- Surface the status to the user visibly
+- Do not silently ignore the failure
+- Continue the brainstorm unless the user explicitly says the external context is mandatory
+- If the status is `executor-unavailable`, tell the user that the current environment does not support page reading for this source type; do not retry repeatedly unless the user changes the source or environment; for document-type sources (Feishu docs, web pages, docs URLs), suggest using a local file path or pasting the content manually instead
 
-当需求跨越多个不同的关注点时，请将它们分组在“需求”部分中的粗体主题标题下。分组的触发因素是不同的逻辑区域，而不是项目计数——如果四个需求涵盖三个不同的主题，那么它们甚至可以从标题中受益。按逻辑主题（例如“打包”、“迁移和兼容性”、“贡献者工作流程”）分组，而不是按讨论顺序分组。要求保留其原始稳定 ID — 编号不会按组重新启动。需求属于最适合的组；不要在组之间重复它。仅当所有要求都相同时才跳过分组。
+#### 1.2 Product Pressure Test
 
-当工作很简单时，将各个部分组合起来而不是填充它们。一份简短的需求文档比一份臃肿的需求文档要好。
+Before generating approaches, challenge the request to catch misframing. Match depth to scope:
 
-在最终确定之前，请检查：
-- 如果这次头脑风暴现在结束，`spec:plan` 还需要发明什么？
-- 是否有任何要求依赖于声称超出范围的内容？
-- 是否有任何未解决的项目实际上是产品决策而不是规划问题？
-- 实施细节是否在不应该泄露的时候泄露了？
-- 是否有一个低成本的改变可以让这个变得更有用？如果规划需要发明产品行为、范围边界或成功标准，那么头脑风暴尚未完成。
+**Lightweight:**
+- Is this solving the real user problem?
+- Are we duplicating something that already covers this?
+- Is there a clearly better framing with near-zero extra cost?
 
-写入前请确保 `docs/brainstorms/` 目录存在。
+**Standard:**
+- Is this the right problem, or a proxy for a more important one?
+- What user or business outcome actually matters here?
+- What happens if we do nothing?
+- Is there a nearby framing that creates more user value without more carrying cost? If so, what complexity does it add?
+- Given the current project state, user goal, and constraints, what is the single highest-leverage move right now: the request as framed, a reframing, one adjacent addition, a simplification, or doing nothing?
+- Favor moves that compound value, reduce future carrying cost, or make the product meaningfully more useful or compelling
+- Use the result to sharpen the conversation, not to bulldoze the user's intent
 
-如果文档包含未解决的问题：
-- 仅对真正阻碍计划的问题使用 `Resolve Before Planning`
-- 如果`Resolve Before Planning`非空，则默认在头脑风暴期间继续解决这些问题
-- 如果用户明确想要继续，请在继续之前将每个剩余项目转换为明确的决策、假设或 `Deferred to Planning` 问题
-- 不要仅仅为了消除不确定性而在头脑风暴期间强制解决技术问题
-- 将技术问题或需要验证或研究的问题放在 `Deferred to Planning` 下，以便在那里得到更好的答案
-- 当规划者可能应该调查问题而不是仅从存储库上下文中回答问题时，请使用 `[Needs research]` 等标签
-- 明确提出推迟的问题，而不是将其视为未能完成需求文档
+**Deep** — Standard questions plus:
+- What durable capability should this create in 6-12 months?
+- Does this move the product toward that, or is it only a local patch?
 
-### 第 4 阶段：交接
+#### 1.3 Collaborative Dialogue
 
-#### 4.1 提出下一步选项
+Follow the Interaction Rules above. Use the platform's blocking question tool when available.
 
-使用平台的阻止问题工具（如果可用）展示后续步骤（请参阅交互规则）。否则在聊天中显示编号选项并结束回合。
+**Guidelines:**
+- Ask what the user is already thinking before offering your own ideas. This surfaces hidden context and prevents fixation on AI-generated framings.
+- Start broad (problem, users, value) then narrow (constraints, exclusions, edge cases)
+- Clarify the problem frame, validate assumptions, and ask about success criteria
+- Make requirements concrete enough that planning will not need to invent behavior
+- Surface dependencies or prerequisites only when they materially affect scope
+- Resolve product decisions here; leave technical implementation choices for planning
+- Bring ideas, alternatives, and challenges instead of only interviewing
 
-如果 `Resolve Before Planning` 包含任何项目：
-- 默认情况下，立即询问阻塞问题，一次一个
-- 如果用户明确想要继续，请首先将每个剩余项目转换为明确的决策、假设或 `Deferred to Planning` 问题
-- 如果用户选择暂停，则将切换显示为暂停或阻止而不是完成
-- 当 `Resolve Before Planning` 不为空时，请勿提供 `Proceed to planning` 或 `Proceed directly to work`**当没有剩余阻塞问题时提出问题：**“头脑风暴完成。接下来你想做什么？”
+**Exit condition:** Continue until the idea is clear OR the user explicitly wants to proceed.
 
-**当阻塞问题仍然存在且用户想要暂停时出现的问题：**“头脑风暴已暂停。计划被阻塞，直到剩余问题得到解决。下一步您想做什么？”
+### Phase 2: Explore Approaches
 
-仅显示适用的选项：
-- **继续规划（推荐）** - 运行 `/spec:plan` 进行结构化实施规划
-- **直接开始工作** - 仅在范围较轻、成功标准明确、范围边界明确且不存在任何有意义的技术或研究问题时才提供此服务
-- **审查和完善** - 仅当需求文档存在并且可以通过结构化审查进行改进时才提供此服务
-- **提出更多问题** - 继续澄清范围、偏好或边缘情况
-- **分享到证明** - 仅当存在需求文档时才提供此内容
-- **暂时完成** - 稍后返回
+If multiple plausible directions remain, propose **2-3 concrete approaches** based on research and conversation. Otherwise state the recommended direction directly.
 
-如果不满足直接上班的要求，请完全忽略该选项。
+Use at least one non-obvious angle — inversion (what if we did the opposite?), constraint removal (what if X weren't a limitation?), or analogy from how another domain solves this. The first approaches that come to mind are usually variations on the same axis.
 
-#### 4.2 处理所选选项
+Present approaches first, then evaluate. Let the user see all options before hearing which one is recommended — leading with a recommendation before the user has seen alternatives anchors the conversation prematurely.
 
-**如果用户选择“继续规划（推荐）”：**
+When useful, include one deliberately higher-upside alternative:
+- Identify what adjacent addition or reframing would most increase usefulness, compounding value, or durability without disproportionate carrying cost. Present it as a challenger option alongside the baseline, not as the default. Omit it when the work is already obviously over-scoped or the baseline request is clearly the right move.
 
-立即在当前会话中运行 `/spec:plan`。当需求文档路径存在时，传递该路径；否则通过最终头脑风暴决策的简明摘要。不要先打印结束摘要。
+For each approach, provide:
+- Brief description (2-3 sentences)
+- Pros and cons
+- Key risks or unknowns
+- When it's best suited
 
-**如果用户选择“直接继续工作”：**
+After presenting all approaches, state your recommendation and explain why. Prefer simpler solutions when added complexity creates real carrying cost, but do not reject low-cost, high-value polish just because it is not strictly necessary.
 
-使用最终的头脑风暴输出作为上下文，立即在当前会话中运行 `/spec:work`。如果存在紧凑的需求文档，则传递其路径。不要先打印结束摘要。
+If one approach is clearly best and alternatives are not meaningful, skip the menu and state the recommendation directly.
 
-**如果用户选择“共享到证明”：**
-```bash
-CONTENT=$(cat docs/brainstorms/YYYY-MM-DD-<topic>-requirements.md)
-TITLE="Requirements: <topic title>"
-RESPONSE=$(curl -s -X POST https://www.proofeditor.ai/share/markdown \
-  -H "Content-Type: application/json" \
-  -d "$(jq -n --arg title "$TITLE" --arg markdown "$CONTENT" --arg by "ai:compound" '{title: $title, markdown: $markdown, by: $by}')")
-PROOF_URL=$(echo "$RESPONSE" | jq -r '.tokenUrl')
-```
-突出显示 URL：`View & collaborate in Proof: <PROOF_URL>`
+If relevant, call out whether the choice is:
+- Reuse an existing pattern
+- Extend an existing capability
+- Build something net new
 
-如果卷曲失败，请静默跳过。然后返回到第 4 阶段选项。
+### Phase 3: Capture the Requirements
 
-**如果用户选择“提出更多问题”：** 返回阶段 1.3（协作对话）并继续一次向用户询问一个问题，以进一步完善设计。更深入地探究边缘情况、约束、偏好或尚未探索的领域。继续，直到用户满意，然后返回到阶段 4。暂时不要显示结束摘要。
+Write or update a requirements document only when the conversation produced durable decisions worth preserving. Read `references/requirements-capture.md` for the document template, formatting rules, visual aid guidance, and completeness checks.
 
-**如果用户选择“审查和完善”：**
+For **Lightweight** brainstorms, keep the document compact. Skip document creation when the user only needs brief alignment and no durable decisions need to be preserved.
 
-加载 `document-review` 技能并将其应用到需求文档中。
+### Phase 3.5: Document Review
 
-当文档审核返回“审核完成”时，返回正常的第 4 阶段选项并仅显示仍然适用的选项。暂不显示结束摘要。
+When a requirements document was created or updated, run the `document-review` skill on it before presenting handoff options. Pass the document path as the argument.
 
-#### 4.3 结束语总结
+If document-review returns findings that were auto-applied, note them briefly when presenting handoff options. If residual P0/P1 findings were surfaced, mention them so the user can decide whether to address them before proceeding.
 
-仅当工作流运行结束或移交时才使用结束摘要，而不是返回到第 4 阶段选项时使用结束摘要。
+When document-review returns "Review complete", proceed to Phase 4.
 
-完成并准备好规划后，显示：
-```text
-Brainstorm complete!
+### Phase 4: Handoff
 
-Requirements doc: docs/brainstorms/YYYY-MM-DD-<topic>-requirements.md  # if one was created
-
-Key decisions:
-- [Decision 1]
-- [Decision 2]
-
-Recommended next step: `/spec:plan`
-```
-如果用户暂停且 `Resolve Before Planning` 仍填充，则显示：
-```text
-Brainstorm paused.
-
-Requirements doc: docs/brainstorms/YYYY-MM-DD-<topic>-requirements.md  # if one was created
-
-Planning is blocked by:
-- [Blocking question 1]
-- [Blocking question 2]
-
-Resume with `/spec:brainstorm` when ready to resolve these before planning.
-```
+Present next-step options and execute the user's selection. Read `references/handoff.md` for the option logic, dispatch instructions, and closing summary format.

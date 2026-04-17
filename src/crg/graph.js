@@ -245,7 +245,6 @@ function resolveEdges(db, rawEdges, repoRoot) {
   //   若全局重名，再尝试同文件精确匹配（同文件优先消歧）
   // ------------------------------------------------------------------
   const symbolCache = Object.create(null);
-  const AMBIGUOUS = '__AMBIGUOUS__';
 
   // 全局查询：返回所有同名节点（非 module）
   const getAllSymbolRows = db.prepare(
@@ -253,29 +252,22 @@ function resolveEdges(db, rawEdges, repoRoot) {
   );
 
   const getSymbolId = (name, srcFile) => {
-    if (symbolCache[name] !== undefined) {
-      const cached = symbolCache[name];
-      // 全局唯一或全局为空：直接返回缓存
-      if (cached !== AMBIGUOUS) return cached;
-      // 全局重名：尝试同文件精确匹配
+    let cached = symbolCache[name];
+    if (cached === undefined) {
       const rows = getAllSymbolRows.all(name);
-      const sameFile = rows.filter((r) => r.file_path === srcFile);
-      return sameFile.length === 1 ? sameFile[0].id : null;
+      cached = rows.length === 0
+        ? { status: 'none' }
+        : rows.length === 1
+          ? { status: 'unique', id: rows[0].id }
+          : { status: 'ambiguous', rows };
+      symbolCache[name] = cached;
     }
 
-    const rows = getAllSymbolRows.all(name);
-    if (rows.length === 1) {
-      symbolCache[name] = rows[0].id;
-    } else if (rows.length === 0) {
-      symbolCache[name] = null;
-    } else {
-      symbolCache[name] = AMBIGUOUS;
-    }
+    if (cached.status === 'none') return null;
+    if (cached.status === 'unique') return cached.id;
 
-    const cached = symbolCache[name];
-    if (cached !== AMBIGUOUS) return cached;
     // 全局重名：同文件优先消歧
-    const sameFile = rows.filter((r) => r.file_path === srcFile);
+    const sameFile = cached.rows.filter((r) => r.file_path === srcFile);
     return sameFile.length === 1 ? sameFile[0].id : null;
   };
 

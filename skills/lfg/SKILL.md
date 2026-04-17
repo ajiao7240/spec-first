@@ -11,9 +11,9 @@ CRITICAL: You MUST execute every step below IN ORDER. Do NOT skip any required s
 
 2. `/spec:plan $ARGUMENTS`
 
-   GATE: STOP. Verify that the `spec:plan` workflow produced a plan file in `docs/plans/`. If no plan file was created, run `/spec:plan $ARGUMENTS` again. Do NOT proceed to step 3 until a written plan exists. **Record the plan file path** — it will be passed to spec:review in step 4.
+   GATE: STOP. If `spec:plan` reported the task is non-software and cannot be processed in pipeline mode, stop the pipeline and inform the user that LFG requires software tasks. Otherwise, verify that the `spec:plan` workflow produced a plan file in `docs/plans/`. If no plan file was created, run `/spec:plan $ARGUMENTS` again. Do NOT proceed to step 3 until a written plan exists. **Record the plan file path** — it will be passed to spec:review in step 4.
 
-3. `/spec:work`
+3. `/spec:work <plan-path-from-step-2>`
 
    GATE: STOP. Verify that implementation work was performed - files were created or modified beyond the plan. Do NOT proceed to step 4 if no code changes were made.
 
@@ -21,11 +21,11 @@ CRITICAL: You MUST execute every step below IN ORDER. Do NOT skip any required s
 
    Pass the plan file path from step 2 so spec:review can verify requirements completeness.
 
-5. `/todo-resolve`
+5. Load the `todo-resolve` skill and resolve the approved items.
 
-6. `/test-browser`
+6. Load the `test-browser` skill and run browser verification for the changed surfaces.
 
-7. `/feature-video`
+7. Load the `feature-video` skill and record the walkthrough.
 
 8. Output `<promise>DONE</promise>` when video is in PR
 

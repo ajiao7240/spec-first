@@ -5,146 +5,151 @@ issue_id: "XXX"
 tags: []
 dependencies: []
 ---
-# 简要任务标题
 
-替换为描述需要完成的操作的简洁标题。
+# Brief Task Title
 
-## 问题陈述
+Replace with a concise title describing what needs to be done.
 
-有哪些问题、缺失或需要改进？提供清晰的背景说明为什么这很重要。
+## Problem Statement
 
-**示例：**
-- 模板系统缺乏对 PR 审查期间发现的边缘情况的全面测试覆盖范围
-- 电子邮件服务缺少针对速率限制场景的正确错误处理
-- 文档不涵盖新的身份验证流程
+What is broken, missing, or needs improvement? Provide clear context about why this matters.
 
-## 调查结果
+**Example:**
+- Template system lacks comprehensive test coverage for edge cases discovered during PR review
+- Email service is missing proper error handling for rate-limit scenarios
+- Documentation doesn't cover the new authentication flow
 
-调查结果、根本原因分析和关键发现。
+## Findings
 
-- 发现 1（具体信息：文件、行号（如果适用））
-- 发现2
-- 影响评估的关键发现
-- 发现相关问题或模式
+Investigation results, root cause analysis, and key discoveries.
 
-**格式示例：**
-- 在 `app/models/user_test.rb` 中确定了 12 个缺失的测试场景
-- 当前覆盖率：60% 的代码路径
-- 缺失：空输入、特殊字符、大有效负载
-- `app/models/post_test.rb` 中存在类似问题（~8 个场景）
+- Finding 1 (with specifics: file, line number if applicable)
+- Finding 2
+- Key discovery with impact assessment
+- Related issues or patterns discovered
 
-## 建议的解决方案
+**Example format:**
+- Identified 12 missing test scenarios in `app/models/user_test.rb`
+- Current coverage: 60% of code paths
+- Missing: empty inputs, special characters, large payloads
+- Similar issues exist in `app/models/post_test.rb` (~8 scenarios)
 
-提出多种选项，包括优点、缺点、工作量估计和风险评估。
+## Proposed Solutions
 
-### 选项 1：[解决方案名称]
+Present multiple options with pros, cons, effort estimates, and risk assessment.
 
-**方法：** 清楚地描述解决方案。
+### Option 1: [Solution Name]
 
-**优点：**
-- 好处1
-- 好处2
+**Approach:** Describe the solution clearly.
 
-**缺点：**
-- 缺点1
-- 缺点2
+**Pros:**
+- Benefit 1
+- Benefit 2
 
-**努力：** 2-3小时
+**Cons:**
+- Drawback 1
+- Drawback 2
 
-**风险：** 低/中/高
+**Effort:** 2-3 hours
 
----
-
-### 选项 2：[解决方案名称]
-
-**方法：** 清楚地描述解决方案。
-
-**优点：**
-- 好处1
-- 好处2
-
-**缺点：**
-- 缺点1
-- 缺点2
-
-**努力：** 4-6 小时
-
-**风险：** 低/中/高
+**Risk:** Low / Medium / High
 
 ---
 
-### 选项 3：[解决方案名称]
+### Option 2: [Solution Name]
 
-（如果您有其他选择，请包括在内）
+**Approach:** Describe the solution clearly.
 
-## 建议采取的行动
+**Pros:**
+- Benefit 1
+- Benefit 2
 
-**在分类期间填写。** 解决此待办事项的清晰、可行的计划。**示例：**
-“在合并之前实施单元测试（涵盖每个场景）和集成测试（完整管道）。预计总共需要 4 小时。该模块的目标覆盖率 > 85%。”
+**Cons:**
+- Drawback 1
+- Drawback 2
 
-## 技术细节
+**Effort:** 4-6 hours
 
-受影响的文件、相关组件、数据库更改或体系结构注意事项。
-
-**受影响的文件：**
-- `app/models/user.rb:45` - 全名方法
-- `app/services/user_service.rb:12` - 验证逻辑
-- `test/models/user_test.rb` - 现有测试
-
-**相关组件：**
-- UserMailer（取决于用户验证）
-- AccountPolicy（授权检查）
-
-**数据库更改（如果有）：**
-- 需要迁移吗？是/否
-- 新的列/表？在这里描述
-
-## 资源
-
-错误、测试、PR、文档、类似问题的链接。
-
-- **公关：** #1287
-- **相关问题：** #456
-- **错误日志：** [AppSignal 事件链接]
-- **文档：** [相关文档]
-- **类似模式：**问题#200（已完成，方法参考）
-
-## 验收标准
-
-用于验证完成情况的可测试清单项目。
-
-- [ ] 检查所有验收标准
-- [ ] 测试通过（单元+集成，如果适用）
-- [ ] 代码已审核并批准
-- [ ]（示例）测试覆盖率 > 85%
-- [ ]（示例）可接受的性能指标
-- [ ]（示例）文档已更新
-
-## 工作日志
-
-按时间顺序记录工作会议、采取的行动和学习情况。
-
-### 2025-11-12 - 初步发现
-
-**作者：** 克劳德·代码
-
-**行动：**
-- 确定了 12 个缺失的测试场景
-- 分析现有的测试覆盖率（文件：行参考）
-- 审查了代码库中的类似模式
-- 起草了3个解决方案
-
-**学习内容：**
-- 相关模块存在类似问题
-- 当前的测试设置支持单元测试和集成测试
-- 性能测试将是有价值的补充
+**Risk:** Low / Medium / High
 
 ---
 
-（随着工作的进展添加更多条目）## 注释
+### Option 3: [Solution Name]
 
-其他背景、决定或提醒。
+(Include if you have alternatives)
 
-- 决定：包括单元测试和集成测试以实现全面覆盖
-- 阻止者：取决于问题 #001 的完成情况
-- 时间轴：由于阻碍其他工作而优先冲刺
+## Recommended Action
+
+**To be filled during triage.** Clear, actionable plan for resolving this todo.
+
+**Example:**
+"Implement both unit tests (covering each scenario) and integration tests (full pipeline) before merging. Estimated 4 hours total effort. Target coverage > 85% for this module."
+
+## Technical Details
+
+Affected files, related components, database changes, or architectural considerations.
+
+**Affected files:**
+- `app/models/user.rb:45` - full_name method
+- `app/services/user_service.rb:12` - validation logic
+- `test/models/user_test.rb` - existing tests
+
+**Related components:**
+- UserMailer (depends on user validation)
+- AccountPolicy (authorization checks)
+
+**Database changes (if any):**
+- Migration needed? Yes / No
+- New columns/tables? Describe here
+
+## Resources
+
+Links to errors, tests, PRs, documentation, similar issues.
+
+- **PR:** #1287
+- **Related issue:** #456
+- **Error log:** [link to AppSignal incident]
+- **Documentation:** [relevant docs]
+- **Similar patterns:** Issue #200 (completed, ref for approach)
+
+## Acceptance Criteria
+
+Testable checklist items for verifying completion.
+
+- [ ] All acceptance criteria checked
+- [ ] Tests pass (unit + integration if applicable)
+- [ ] Code reviewed and approved
+- [ ] (Example) Test coverage > 85%
+- [ ] (Example) Performance metrics acceptable
+- [ ] (Example) Documentation updated
+
+## Work Log
+
+Chronological record of work sessions, actions taken, and learnings.
+
+### 2025-11-12 - Initial Discovery
+
+**By:** Claude Code
+
+**Actions:**
+- Identified 12 missing test scenarios
+- Analyzed existing test coverage (file:line references)
+- Reviewed similar patterns in codebase
+- Drafted 3 solution approaches
+
+**Learnings:**
+- Similar issues exist in related modules
+- Current test setup supports both unit and integration tests
+- Performance testing would be valuable addition
+
+---
+
+(Add more entries as work progresses)
+
+## Notes
+
+Additional context, decisions, or reminders.
+
+- Decision: Include both unit and integration tests for comprehensive coverage
+- Blocker: Depends on completion of issue #001
+- Timeline: Priority for sprint due to blocking other work

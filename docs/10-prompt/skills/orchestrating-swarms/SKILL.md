@@ -1,28 +1,40 @@
 ---
 name: orchestrating-swarms
-description: 当使用 Claude Code 的 TeammateTool 和任务系统编排多代理群时，应该使用此技能。它适用于协调多个代理、运行并行代码审查、创建具有依赖关系的管道工作流、构建自组织任务队列或任何受益于分而治之模式的任务。
+description: This skill should be used when orchestrating multi-agent swarms using Claude Code's TeammateTool and Task system. It applies when coordinating multiple agents, running parallel code reviews, creating pipeline workflows with dependencies, building self-organizing task queues, or any task benefiting from divide-and-conquer patterns.
 disable-model-invocation: true
 ---
-# Claude Code Swarm 编排
 
-使用 Claude Code 的 TeammateTool 和任务系统掌握多代理编排。
+# Claude Code Swarm Orchestration
+
+Master multi-agent orchestration using Claude Code's TeammateTool and Task system.
 
 ---
 
-## 基元
+## Boundaries
 
-|原始|它是什么 |文件位置 |
-|----------|----------|--------------|
-| **代理** |可以使用工具的克劳德实例。你是一名代理人。子代理是您生成的代理。 |不适用（过程）|
-| **团队** |一组指定的特工一起工作。一名领导者，多名队友。 | `~/.claude/teams/{name}/config.json` |
-| **队友** |加入团队的特工。有名称、颜色、收件箱。通过带有 `team_name` + `name` 的任务生成。 |列于团队配置 |
-| **领导者** |创建团队的代理人。接收队友消息，批准计划/关闭。 |配置中的第一个成员 |
-| **任务** |具有主题、描述、状态、所有者和依赖项的工作项。 |平台管理的任务存储（不要假设存储库本地文件路径）|
-| **收件箱** |代理从队友接收消息的 JSON 文件。 | `~/.claude/teams/{name}/inboxes/{agent}.json` |
-| **留言** |在代理之间发送的 JSON 对象。可以是文本或结构化（shutdown_request、idle_notification 等）。 |存储在收件箱文件中 |
-| **后端** |队友怎么跑。自动检测：`in-process`（相同的 Node.js，不可见）、`tmux`（单独的窗格，可见）、`iterm2`（iTerm2 中的拆分窗格）。请参阅[Spawn 后端](#spawn-backends)。 |根据环境自动检测 |
+This is a **Claude Code host-specific orchestration skill**. Use it when the task explicitly needs team lifecycle primitives such as `Teammate(...)`, shared inboxes, persistent teammates, or task queues with explicit ownership/dependencies.
 
-### 他们如何联系
+If you only need ordinary parallel execution for feature delivery, stay in `spec-work` or `spec-work-beta` and use standard subagent dispatch. Those workflows should route here only when the user explicitly asks for swarm mode / agent teams or the solution truly depends on Claude team mechanics.
+
+This skill is **not** a replacement for `spec-work`, `spec-work-beta`, or `lfg`. It explains how to orchestrate multi-agent teams; it does not own plan-driven feature delivery, review/shipping policy, or the fixed `lfg` pipeline.
+
+---
+
+## Primitives
+
+| Primitive | What It Is | File Location |
+|-----------|-----------|---------------|
+| **Agent** | A Claude instance that can use tools. You are an agent. Subagents are agents you spawn. | N/A (process) |
+| **Team** | A named group of agents working together. One leader, multiple teammates. | `~/.claude/teams/{name}/config.json` |
+| **Teammate** | An agent that joined a team. Has a name, color, inbox. Spawned via Task with `team_name` + `name`. | Listed in team config |
+| **Leader** | The agent that created the team. Receives teammate messages, approves plans/shutdowns. | First member in config |
+| **Task** | A work item with subject, description, status, owner, and dependencies. | Platform-managed task store (do not assume a repo-local file path) |
+| **Inbox** | JSON file where an agent receives messages from teammates. | `~/.claude/teams/{name}/inboxes/{agent}.json` |
+| **Message** | A JSON object sent between agents. Can be text or structured (shutdown_request, idle_notification, etc). | Stored in inbox files |
+| **Backend** | How teammates run. Auto-detected: `in-process` (same Node.js, invisible), `tmux` (separate panes, visible), `iterm2` (split panes in iTerm2). See [Spawn Backends](#spawn-backends). | Auto-detected based on environment |
+
+### How They Connect
+
 ```mermaid
 flowchart TB
     subgraph TEAM[TEAM]
@@ -45,7 +57,9 @@ flowchart TB
     T2 --> Task2
     Task2 -.->|unblocks| Task3
 ```
-### 生命周期
+
+### Lifecycle
+
 ```mermaid
 flowchart LR
     A[1. Create Team] --> B[2. Create Tasks]
@@ -55,7 +69,9 @@ flowchart LR
     E --> F[6. Shutdown]
     F --> G[7. Cleanup]
 ```
-### 消息流
+
+### Message Flow
+
 ```mermaid
 sequenceDiagram
     participant L as Leader
@@ -85,36 +101,38 @@ sequenceDiagram
 
     L->>L: cleanup
 ```
----
-
-## 目录
-
-1. [核心架构](#core-architecture)
-2. [生成代理的两种方式](#two-ways-to-spawn-agents)
-3. [内置代理类型](#built-in-agent-types)
-4. [插件代理类型](#plugin-agent-types)
-5. [TeammateTool 操作](#teammatetool-operations)
-6. [任务系统集成](#task-system-integration)
-7. [消息格式](#message-formats)
-8. [编排模式](#orchestration-patterns)
-9. [环境变量](#environment-variables)
-10. [Spawn 后端](#spawn-backends)
-11. [错误处理](#error-handling)
-12.[完整工作流程](#complete-workflows)
 
 ---
 
-## 核心架构
+## Table of Contents
 
-### 群体如何工作
+1. [Core Architecture](#core-architecture)
+2. [Two Ways to Spawn Agents](#two-ways-to-spawn-agents)
+3. [Built-in Agent Types](#built-in-agent-types)
+4. [Plugin Agent Types](#plugin-agent-types)
+5. [TeammateTool Operations](#teammatetool-operations)
+6. [Task System Integration](#task-system-integration)
+7. [Message Formats](#message-formats)
+8. [Orchestration Patterns](#orchestration-patterns)
+9. [Environment Variables](#environment-variables)
+10. [Spawn Backends](#spawn-backends)
+11. [Error Handling](#error-handling)
+12. [Complete Workflows](#complete-workflows)
 
-群由以下部分组成：
-- **领导者**（你） - 创建团队，产生工人，协调工作
-- **队友**（产生的代理） - 执行任务，报告回来
-- **任务列表** - 具有依赖项的共享工作队列
-- **收件箱** - 用于代理间消息传递的 JSON 文件
+---
 
-### 文件结构
+## Core Architecture
+
+### How Swarms Work
+
+A swarm consists of:
+- **Leader** (you) - Creates team, spawns workers, coordinates work
+- **Teammates** (spawned agents) - Execute tasks, report back
+- **Task List** - Shared work queue with dependencies
+- **Inboxes** - JSON files for inter-agent messaging
+
+### File Structure
+
 ```
 ~/.claude/teams/{team-name}/
 ├── config.json              # Team metadata and member list
@@ -128,7 +146,9 @@ Platform task system
 ├── Task #2
 └── Task #3
 ```
-### 团队配置结构
+
+### Team Config Structure
+
 ```json
 {
   "name": "my-project",
@@ -160,13 +180,15 @@ Platform task system
   ]
 }
 ```
+
 ---
 
-## 生成代理的两种方法
+## Two Ways to Spawn Agents
 
-### 方法 1：任务工具（子代理）
+### Method 1: Task Tool (Subagents)
 
-使用 Task 进行**短暂、专注的工作**并返回结果：
+Use Task for **short-lived, focused work** that returns a result:
+
 ```javascript
 Task({
   subagent_type: "Explore",
@@ -175,15 +197,17 @@ Task({
   model: "haiku"  // Optional: haiku, sonnet, opus
 })
 ```
-**特点：**
-- 同步运行（阻塞直到完成）或与 `run_in_background: true` 异步运行
-- 将结果直接返回给您
-- 无需团队成员资格
-- 最适合：搜索、分析、重点研究
 
-### 方法2：任务工具+团队名称+姓名（队友）
+**Characteristics:**
+- Runs synchronously (blocks until complete) or async with `run_in_background: true`
+- Returns result directly to you
+- No team membership required
+- Best for: searches, analysis, focused research
 
-使用带有 `team_name` 和 `name` 的任务来**产生持久的队友**：
+### Method 2: Task Tool + team_name + name (Teammates)
+
+Use Task with `team_name` and `name` to **spawn persistent teammates**:
+
 ```javascript
 // First create a team
 Teammate({ operation: "spawnTeam", team_name: "my-project" })
@@ -197,30 +221,31 @@ Task({
   run_in_background: true         // Teammates usually run in background
 })
 ```
-**特点：**
-- 加入队伍，出现在`config.json`
-- 通过收件箱消息进行交流
-- 可以从共享任务列表中领取任务
-- 持续到关闭为止
-- 最适合：并行工作、持续协作、管道阶段
 
-### 主要区别
+**Characteristics:**
+- Joins team, appears in `config.json`
+- Communicates via inbox messages
+- Can claim tasks from shared task list
+- Persists until shutdown
+- Best for: parallel work, ongoing collaboration, pipeline stages
 
-|方面|任务（子代理）|任务+团队名称+姓名（队友）|
-|--------------------|-----------------|------------------------------------------------|
-|寿命 |直到任务完成 |直到请求关闭为止|
-|通讯 |返回值 |收件箱消息 |
-|任务访问 |无 |共享任务列表 |
-|团队成员 |没有 |是的 |
-|协调|一次性 |正在进行 |
+### Key Difference
+
+| Aspect | Task (subagent) | Task + team_name + name (teammate) |
+|--------|-----------------|-----------------------------------|
+| Lifespan | Until task complete | Until shutdown requested |
+| Communication | Return value | Inbox messages |
+| Task access | None | Shared task list |
+| Team membership | No | Yes |
+| Coordination | One-off | Ongoing |
 
 ---
 
-## 内置代理类型
+## Built-in Agent Types
 
-这些始终无需插件即可使用：
+These are always available without plugins:
 
-### 猛击
+### Bash
 ```javascript
 Task({
   subagent_type: "Bash",
@@ -228,11 +253,11 @@ Task({
   prompt: "Check git status and show recent commits"
 })
 ```
-- **工具：** 仅 Bash
-- **型号：** 继承自父级
-- **最适合：** Git 操作、命令执行、系统任务
+- **Tools:** Bash only
+- **Model:** Inherits from parent
+- **Best for:** Git operations, command execution, system tasks
 
-### 探索
+### Explore
 ```javascript
 Task({
   subagent_type: "Explore",
@@ -241,12 +266,12 @@ Task({
   model: "haiku"  // Fast and cheap
 })
 ```
-- **工具：** 所有只读工具（无编辑、写入、NotebookEdit、任务）
-- **模型：**俳句（速度优化）
-- **最适合：** 代码库探索、文件搜索、代码理解
-- **彻底程度：**“快速”、“中等”、“非常彻底”
+- **Tools:** All read-only tools (no Edit, Write, NotebookEdit, Task)
+- **Model:** Haiku (optimized for speed)
+- **Best for:** Codebase exploration, file searches, code understanding
+- **Thoroughness levels:** "quick", "medium", "very thorough"
 
-### 计划
+### Plan
 ```javascript
 Task({
   subagent_type: "Plan",
@@ -254,11 +279,11 @@ Task({
   prompt: "Create an implementation plan for adding OAuth2 authentication"
 })
 ```
-- **工具：** 所有只读工具
-- **型号：** 继承自父级
-- **最适合：** 架构规划、实施策略
+- **Tools:** All read-only tools
+- **Model:** Inherits from parent
+- **Best for:** Architecture planning, implementation strategies
 
-### 通用
+### general-purpose
 ```javascript
 Task({
   subagent_type: "general-purpose",
@@ -266,11 +291,11 @@ Task({
   prompt: "Research React Query best practices and implement caching for the user API"
 })
 ```
-- **工具：** 所有工具 (*)
-- **型号：** 继承自父级
-- **最适合：** 多步骤任务、研究 + 行动组合
+- **Tools:** All tools (*)
+- **Model:** Inherits from parent
+- **Best for:** Multi-step tasks, research + action combinations
 
-### 克劳德代码指南
+### claude-code-guide
 ```javascript
 Task({
   subagent_type: "claude-code-guide",
@@ -278,10 +303,10 @@ Task({
   prompt: "How do I configure MCP servers?"
 })
 ```
-- **工具：**只读 + WebFetch + WebSearch
-- **最适合：** 有关 Claude Code、Agent SDK、Anthropic API 的问题
+- **Tools:** Read-only + WebFetch + WebSearch
+- **Best for:** Questions about Claude Code, Agent SDK, Anthropic API
 
-### 状态行设置
+### statusline-setup
 ```javascript
 Task({
   subagent_type: "statusline-setup",
@@ -289,17 +314,17 @@ Task({
   prompt: "Set up a status line showing git branch and node version"
 })
 ```
-- **工具：** 只读、编辑
-- **型号：**十四行诗
-- **最适合：** 配置 Claude Code 状态行
+- **Tools:** Read, Edit only
+- **Model:** Sonnet
+- **Best for:** Configuring Claude Code status line
 
 ---
 
-## 插件代理类型
+## Plugin Agent Types
 
-来自 `spec-first` 插件（示例）：
+From the `spec-first` plugin (examples):
 
-### 审核代理
+### Review Agents
 ```javascript
 // Security review
 Task({
@@ -336,23 +361,24 @@ Task({
   prompt: "Check if this implementation can be simplified"
 })
 ```
-**来自规范优先的所有审查代理：**
-- `agent-native-reviewer` - 确保功能也适用于代理
-- `architecture-strategist` - 架构合规性
-- `code-simplicity-reviewer` - YAGNI 和极简主义
-- `data-integrity-guardian` - 数据库和数据安全
-- `data-migration-expert` - 迁移验证
-- `deployment-verification-agent` - 预部署清单
-- `dhh-rails-reviewer` - DHH/37signals 导轨式
-- `julik-frontend-races-reviewer` - JavaScript 竞争条件
-- `kieran-python-reviewer` - Python最佳实践
-- `kieran-rails-reviewer` - Rails 最佳实践
-- `kieran-typescript-reviewer` - TypeScript 最佳实践
-- `pattern-recognition-specialist` - 设计模式和反模式
-- `performance-oracle` - 性能分析
-- `security-sentinel` - 安全漏洞
 
-### 研究代理
+**All review agents from spec-first:**
+- `agent-native-reviewer` - Ensures features work for agents too
+- `architecture-strategist` - Architectural compliance
+- `code-simplicity-reviewer` - YAGNI and minimalism
+- `data-integrity-guardian` - Database and data safety
+- `data-migration-expert` - Migration validation
+- `deployment-verification-agent` - Pre-deploy checklists
+- `dhh-rails-reviewer` - DHH/37signals Rails style
+- `julik-frontend-races-reviewer` - JavaScript race conditions
+- `kieran-python-reviewer` - Python best practices
+- `kieran-rails-reviewer` - Rails best practices
+- `kieran-typescript-reviewer` - TypeScript best practices
+- `pattern-recognition-specialist` - Design patterns and anti-patterns
+- `performance-oracle` - Performance analysis
+- `security-sentinel` - Security vulnerabilities
+
+### Research Agents
 ```javascript
 // Best practices research
 Task({
@@ -375,14 +401,15 @@ Task({
   prompt: "Analyze the git history of the authentication module to understand its evolution"
 })
 ```
-**所有研究人员：**
-- `best-practices-researcher` - 外部最佳实践
-- `framework-docs-researcher` - 框架文档
-- `git-history-analyzer` - 代码考古
-- `learnings-researcher` - 搜索文档/解决方案/
-- `repo-research-analyst` - 存储库模式
 
-### 设计代理
+**All research agents:**
+- `best-practices-researcher` - External best practices
+- `framework-docs-researcher` - Framework documentation
+- `git-history-analyzer` - Code archaeology
+- `learnings-researcher` - Search docs/solutions/
+- `repo-research-analyst` - Repository patterns
+
+### Design Agents
 ```javascript
 Task({
   subagent_type: "spec-first:design:figma-design-sync",
@@ -390,7 +417,8 @@ Task({
   prompt: "Compare implementation with Figma design at [URL]"
 })
 ```
-### 工作流程代理
+
+### Workflow Agents
 ```javascript
 Task({
   subagent_type: "spec-first:workflow:bug-reproduction-validator",
@@ -398,11 +426,13 @@ Task({
   prompt: "Reproduce and validate this reported bug: [description]"
 })
 ```
+
 ---
 
-## Teammate工具操作
+## TeammateTool Operations
 
-### 1.spawnTeam - 创建团队
+### 1. spawnTeam - Create a Team
+
 ```javascript
 Teammate({
   operation: "spawnTeam",
@@ -410,18 +440,22 @@ Teammate({
   description: "Implementing OAuth2 authentication"
 })
 ```
-**创建：**
-- `~/.claude/teams/feature-auth/config.json`
-- `feature-auth` 的平台管理任务记录
-- 你成为团队领导者
 
-### 2.discoverTeams - 列出可用团队
+**Creates:**
+- `~/.claude/teams/feature-auth/config.json`
+- platform-managed task records for `feature-auth`
+- You become the team leader
+
+### 2. discoverTeams - List Available Teams
+
 ```javascript
 Teammate({ operation: "discoverTeams" })
 ```
-**返回：** 您可以加入的团队列表（还不是成员）
 
-### 3. requestJoin - 请求加入团队
+**Returns:** List of teams you can join (not already a member of)
+
+### 3. requestJoin - Request to Join Team
+
 ```javascript
 Teammate({
   operation: "requestJoin",
@@ -430,13 +464,15 @@ Teammate({
   capabilities: "I can help with code review and testing"
 })
 ```
-### 4.approveJoin - 接受加入请求（仅限领导者）
 
-当您收到 `join_request` 消息时：
+### 4. approveJoin - Accept Join Request (Leader Only)
+
+When you receive a `join_request` message:
 ```json
 {"type": "join_request", "proposedName": "helper", "requestId": "join-123", ...}
 ```
-批准它：
+
+Approve it:
 ```javascript
 Teammate({
   operation: "approveJoin",
@@ -444,7 +480,9 @@ Teammate({
   request_id: "join-123"
 })
 ```
-### 5.rejectJoin - 拒绝加入请求（仅限领导者）
+
+### 5. rejectJoin - Decline Join Request (Leader Only)
+
 ```javascript
 Teammate({
   operation: "rejectJoin",
@@ -453,7 +491,9 @@ Teammate({
   reason: "Team is at capacity"
 })
 ```
-### 6. 写 - 向队友发送消息
+
+### 6. write - Message One Teammate
+
 ```javascript
 Teammate({
   operation: "write",
@@ -461,9 +501,11 @@ Teammate({
   value: "Please prioritize the authentication module. The deadline is tomorrow."
 })
 ```
-**对队友很重要：** 您的文本输出对团队不可见。您必须使用 `write` 进行通信。
 
-### 7. 广播 - 向所有队友发送消息
+**Important for teammates:** Your text output is NOT visible to the team. You MUST use `write` to communicate.
+
+### 7. broadcast - Message ALL Teammates
+
 ```javascript
 Teammate({
   operation: "broadcast",
@@ -471,18 +513,20 @@ Teammate({
   value: "Status check: Please report your progress"
 })
 ```
-**警告：** 广播的成本很高 - 为 N 个队友发送 N 个单独的消息。优先选择 `write` 而非特定队友。
 
-**播出时间：**
-- 需要立即关注的关键问题
-- 影响每个人的重大公告
+**WARNING:** Broadcasting is expensive - sends N separate messages for N teammates. Prefer `write` to specific teammates.
 
-**何时不广播：**
-- 回复一名队友
-- 正常来回
-- 仅与部分队友相关的信息
+**When to broadcast:**
+- Critical issues requiring immediate attention
+- Major announcements affecting everyone
 
-### 8. requestShutdown - 要求队友退出（仅限领导者）
+**When NOT to broadcast:**
+- Responding to one teammate
+- Normal back-and-forth
+- Information relevant to only some teammates
+
+### 8. requestShutdown - Ask Teammate to Exit (Leader Only)
+
 ```javascript
 Teammate({
   operation: "requestShutdown",
@@ -490,22 +534,26 @@ Teammate({
   reason: "All tasks complete, wrapping up"
 })
 ```
-### 9.approveShutdown - 接受关闭（仅限队友）
 
-当您收到 `shutdown_request` 消息时：
+### 9. approveShutdown - Accept Shutdown (Teammate Only)
+
+When you receive a `shutdown_request` message:
 ```json
 {"type": "shutdown_request", "requestId": "shutdown-123", "from": "team-lead", "reason": "Done"}
 ```
-**必须**致电：
+
+**MUST** call:
 ```javascript
 Teammate({
   operation: "approveShutdown",
   request_id: "shutdown-123"
 })
 ```
-这会发送确认并终止您的进程。
 
-### 10.rejectShutdown - 拒绝关机（仅限队友）
+This sends confirmation and terminates your process.
+
+### 10. rejectShutdown - Decline Shutdown (Teammate Only)
+
 ```javascript
 Teammate({
   operation: "rejectShutdown",
@@ -513,13 +561,15 @@ Teammate({
   reason: "Still working on task #3, need 5 more minutes"
 })
 ```
-### 11.approvePlan - 批准队友的计划（仅限领导者）
 
-当`plan_mode_required`的队友发送计划时：
+### 11. approvePlan - Approve Teammate's Plan (Leader Only)
+
+When teammate with `plan_mode_required` sends a plan:
 ```json
 {"type": "plan_approval_request", "from": "architect", "requestId": "plan-456", ...}
 ```
-批准：
+
+Approve:
 ```javascript
 Teammate({
   operation: "approvePlan",
@@ -527,7 +577,9 @@ Teammate({
   request_id: "plan-456"
 })
 ```
-### 12.rejectPlan - 拒绝带有反馈的计划（仅限领导者）
+
+### 12. rejectPlan - Reject Plan with Feedback (Leader Only)
+
 ```javascript
 Teammate({
   operation: "rejectPlan",
@@ -536,21 +588,25 @@ Teammate({
   feedback: "Please add error handling for the API calls and consider rate limiting"
 })
 ```
-### 13. cleanup - 删除团队资源
+
+### 13. cleanup - Remove Team Resources
+
 ```javascript
 Teammate({ operation: "cleanup" })
 ```
-**删除：**
-- `~/.claude/teams/{team-name}/`目录
-- 由平台任务系统管理的团队相关任务元数据
 
-**重要：**如果队友仍然活跃，将会失败。首先使用`requestShutdown`。
+**Removes:**
+- `~/.claude/teams/{team-name}/` directory
+- team-associated task metadata managed by the platform task system
+
+**IMPORTANT:** Will fail if teammates are still active. Use `requestShutdown` first.
 
 ---
 
-## 任务系统集成
+## Task System Integration
 
-### TaskCreate - 创建工作项
+### TaskCreate - Create Work Items
+
 ```javascript
 TaskCreate({
   subject: "Review authentication module",
@@ -558,23 +614,30 @@ TaskCreate({
   activeForm: "Reviewing auth module..."  // Shown in spinner when in_progress
 })
 ```
-### 任务列表 - 查看所有任务
+
+### TaskList - See All Tasks
+
 ```javascript
 TaskList()
 ```
-返回：
+
+Returns:
 ```
 #1 [completed] Analyze codebase structure
 #2 [in_progress] Review authentication module (owner: security-reviewer)
 #3 [pending] Generate summary report [blocked by #2]
 ```
-### TaskGet - 获取任务详细信息
+
+### TaskGet - Get Task Details
+
 ```javascript
 TaskGet({ taskId: "2" })
 ```
-返回包含描述、状态、阻塞者等的完整任务。
 
-### TaskUpdate - 更新任务状态
+Returns full task with description, status, blockedBy, etc.
+
+### TaskUpdate - Update Task Status
+
 ```javascript
 // Claim a task
 TaskUpdate({ taskId: "2", owner: "security-reviewer" })
@@ -588,9 +651,11 @@ TaskUpdate({ taskId: "2", status: "completed" })
 // Set up dependencies
 TaskUpdate({ taskId: "3", addBlockedBy: ["1", "2"] })
 ```
-### 任务依赖关系
 
-当阻塞任务完成后，阻塞任务会自动解除阻塞：
+### Task Dependencies
+
+When a blocking task is completed, blocked tasks are automatically unblocked:
+
 ```javascript
 // Create pipeline
 TaskCreate({ subject: "Step 1: Research" })        // #1
@@ -607,9 +672,10 @@ TaskUpdate({ taskId: "4", addBlockedBy: ["3"] })   // #4 waits for #3
 // When #2 completes, #3 auto-unblocks
 // etc.
 ```
-### 逻辑任务记录示例
 
-代表任务记录：
+### Logical Task Record Example
+
+Representative task record:
 ```json
 {
   "id": "1",
@@ -624,11 +690,13 @@ TaskUpdate({ taskId: "4", addBlockedBy: ["3"] })   // #4 waits for #3
   "updatedAt": 1706000001000
 }
 ```
+
 ---
 
-## 消息格式
+## Message Formats
 
-### 常规消息
+### Regular Message
+
 ```json
 {
   "from": "team-lead",
@@ -637,9 +705,10 @@ TaskUpdate({ taskId: "4", addBlockedBy: ["3"] })   // #4 waits for #3
   "read": false
 }
 ```
-### 结构化消息（文本字段中的 JSON）
 
-#### 关闭请求
+### Structured Messages (JSON in text field)
+
+#### Shutdown Request
 ```json
 {
   "type": "shutdown_request",
@@ -649,7 +718,8 @@ TaskUpdate({ taskId: "4", addBlockedBy: ["3"] })   // #4 waits for #3
   "timestamp": "2026-01-25T23:38:32.588Z"
 }
 ```
-#### 关闭已批准
+
+#### Shutdown Approved
 ```json
 {
   "type": "shutdown_approved",
@@ -660,7 +730,8 @@ TaskUpdate({ taskId: "4", addBlockedBy: ["3"] })   // #4 waits for #3
   "timestamp": "2026-01-25T23:39:00.000Z"
 }
 ```
-#### 空闲通知（当队友停止时自动发送）
+
+#### Idle Notification (auto-sent when teammate stops)
 ```json
 {
   "type": "idle_notification",
@@ -670,7 +741,8 @@ TaskUpdate({ taskId: "4", addBlockedBy: ["3"] })   // #4 waits for #3
   "completedStatus": "completed"
 }
 ```
-#### 任务完成
+
+#### Task Completed
 ```json
 {
   "type": "task_completed",
@@ -680,7 +752,8 @@ TaskUpdate({ taskId: "4", addBlockedBy: ["3"] })   // #4 waits for #3
   "timestamp": "2026-01-25T23:40:00.000Z"
 }
 ```
-#### 计划批准请求
+
+#### Plan Approval Request
 ```json
 {
   "type": "plan_approval_request",
@@ -690,7 +763,8 @@ TaskUpdate({ taskId: "4", addBlockedBy: ["3"] })   // #4 waits for #3
   "timestamp": "2026-01-25T23:41:00.000Z"
 }
 ```
-#### 加入请求
+
+#### Join Request
 ```json
 {
   "type": "join_request",
@@ -700,7 +774,8 @@ TaskUpdate({ taskId: "4", addBlockedBy: ["3"] })   // #4 waits for #3
   "timestamp": "2026-01-25T23:42:00.000Z"
 }
 ```
-#### 权限请求（沙箱/工具权限）
+
+#### Permission Request (for sandbox/tool permissions)
 ```json
 {
   "type": "permission_request",
@@ -716,13 +791,15 @@ TaskUpdate({ taskId: "4", addBlockedBy: ["3"] })   // #4 waits for #3
   "createdAt": 1706000000000
 }
 ```
+
 ---
 
-## 编排模式
+## Orchestration Patterns
 
-### 模式1：并行专家（领导者模式）
+### Pattern 1: Parallel Specialists (Leader Pattern)
 
-多名专家同时审查代码：
+Multiple specialists review code simultaneously:
+
 ```javascript
 // 1. Create team
 Teammate({ operation: "spawnTeam", team_name: "code-review" })
@@ -762,9 +839,11 @@ Teammate({ operation: "requestShutdown", target_agent_id: "simplicity" })
 // Wait for approvals...
 Teammate({ operation: "cleanup" })
 ```
-### 模式 2：管道（顺序依赖）
 
-每个阶段都取决于前一个阶段：
+### Pattern 2: Pipeline (Sequential Dependencies)
+
+Each stage depends on the previous:
+
 ```javascript
 // 1. Create team and task pipeline
 Teammate({ operation: "spawnTeam", team_name: "feature-pipeline" })
@@ -800,9 +879,11 @@ Task({
 
 // Tasks auto-unblock as dependencies complete
 ```
-### 模式 3：群体（自组织）
 
-工作人员从池中获取可用任务：
+### Pattern 3: Swarm (Self-Organizing)
+
+Workers grab available tasks from a pool:
+
 ```javascript
 // 1. Create team and task pool
 Teammate({ operation: "spawnTeam", team_name: "file-review-swarm" })
@@ -852,9 +933,11 @@ Task({
 
 // Workers race to claim tasks, naturally load-balance
 ```
-### 模式 4：研究 + 实施
 
-先研究，再实施：
+### Pattern 4: Research + Implementation
+
+Research first, then implement:
+
 ```javascript
 // 1. Research phase (synchronous, returns results)
 const research = await Task({
@@ -876,9 +959,11 @@ Task({
   `
 })
 ```
-### 模式 5：计划审批工作流程
 
-实施前需要获得计划批准：
+### Pattern 5: Plan Approval Workflow
+
+Require plan approval before implementation:
+
 ```javascript
 // 1. Create team
 Teammate({ operation: "spawnTeam", team_name: "careful-work" })
@@ -910,7 +995,9 @@ Teammate({
   feedback: "Please add rate limiting considerations"
 })
 ```
-### 模式 6：协调多文件重构
+
+### Pattern 6: Coordinated Multi-File Refactoring
+
 ```javascript
 // 1. Create team for coordinated refactoring
 Teammate({ operation: "spawnTeam", team_name: "refactor-auth" })
@@ -962,11 +1049,13 @@ Task({
   run_in_background: true
 })
 ```
+
 ---
 
-## 环境变量
+## Environment Variables
 
-生成的队友会自动收到这些：
+Spawned teammates automatically receive these:
+
 ```bash
 CLAUDE_CODE_TEAM_NAME="my-project"
 CLAUDE_CODE_AGENT_ID="worker-1@my-project"
@@ -976,7 +1065,8 @@ CLAUDE_CODE_AGENT_COLOR="#4A90D9"
 CLAUDE_CODE_PLAN_MODE_REQUIRED="false"
 CLAUDE_CODE_PARENT_SESSION_ID="session-xyz"
 ```
-**在提示中使用：**
+
+**Using in prompts:**
 ```javascript
 Task({
   team_name: "my-project",
@@ -985,23 +1075,25 @@ Task({
   prompt: "Your name is $CLAUDE_CODE_AGENT_NAME. Use it when sending messages to team-lead."
 })
 ```
+
 ---
 
-## 生成后端
+## Spawn Backends
 
-**后端**决定队友 Claude 实例的实际运行方式。 Claude Code 支持三种后端，并根据您的环境**自动检测**最好的后端。
+A **backend** determines how teammate Claude instances actually run. Claude Code supports three backends, and **auto-detects** the best one based on your environment.
 
-### 后端比较
+### Backend Comparison
 
-|后端 |它是如何运作的 |能见度|坚持|速度|
-|--------|-------------|------------|------------|--------|
-| **进行中** |与领导者相同的 Node.js 进程 |隐藏（背景）|与领袖同归于尽|最快|
-| **tmux** | tmux 会话中的单独终端 |在 tmux 中可见 |领导者退出后幸存|中等|
-| **iterm2** | iTerm2 窗口中的拆分窗格 |并排可见 |带窗口模具 |中等|
+| Backend | How It Works | Visibility | Persistence | Speed |
+|---------|-------------|------------|-------------|-------|
+| **in-process** | Same Node.js process as leader | Hidden (background) | Dies with leader | Fastest |
+| **tmux** | Separate terminal in tmux session | Visible in tmux | Survives leader exit | Medium |
+| **iterm2** | Split panes in iTerm2 window | Visible side-by-side | Dies with window | Medium |
 
-### 自动检测逻辑
+### Auto-Detection Logic
 
-Claude Code 使用此决策树自动选择后端：
+Claude Code automatically selects a backend using this decision tree:
+
 ```mermaid
 flowchart TD
     A[Start] --> B{Running inside tmux?}
@@ -1016,28 +1108,29 @@ flowchart TD
     J -->|Yes| K[Use tmux - prompt to install it2]
     J -->|No| L[Error: Install tmux or it2]
 ```
-**检测检查：**
-1. `$TMUX`环境变量→tmux内部
-2. `$TERM_PROGRAM === "iTerm.app"` 或 `$ITERM_SESSION_ID` → 在 iTerm2 中
-3. `which tmux` → tmux 可用
-4. `which it2` → it2 CLI已安装
 
-### 进程内（非 tmux 的默认值）
+**Detection checks:**
+1. `$TMUX` environment variable → inside tmux
+2. `$TERM_PROGRAM === "iTerm.app"` or `$ITERM_SESSION_ID` → in iTerm2
+3. `which tmux` → tmux available
+4. `which it2` → it2 CLI installed
 
-队友在同一 Node.js 进程中作为异步任务运行。
+### in-process (Default for non-tmux)
 
-**它是如何工作的：**
-- 没有产生新的进程
-- 队友共享相同的 Node.js 事件循环
-- 通过内存队列进行通信（快速）
-- 你无法直接看到队友的输出
+Teammates run as async tasks within the same Node.js process.
 
-**使用时：**
-- 不在 tmux 会话内运行
-- 非交互模式（CI、脚本）
-- 通过 `CLAUDE_CODE_SPAWN_BACKEND=in-process` 显式设置
+**How it works:**
+- No new process spawned
+- Teammates share the same Node.js event loop
+- Communication via in-memory queues (fast)
+- You don't see teammate output directly
 
-**特点：**
+**When it's used:**
+- Not running inside tmux session
+- Non-interactive mode (CI, scripts)
+- Explicitly set via `CLAUDE_CODE_SPAWN_BACKEND=in-process`
+
+**Characteristics:**
 ```
 ┌─────────────────────────────────────────┐
 │           Node.js Process               │
@@ -1047,15 +1140,17 @@ flowchart TD
 │  └─────────┘  └─────────┘  └─────────┘ │
 └─────────────────────────────────────────┘
 ```
-**优点：**
-- 最快的启动（无进程生成）
-- 最低的开销
-- 随处可用
 
-**缺点：**
-- 无法实时看到队友输出
-- 如果领袖死了，所有人都会死
-- 更难调试
+**Pros:**
+- Fastest startup (no process spawn)
+- Lowest overhead
+- Works everywhere
+
+**Cons:**
+- Can't see teammate output in real-time
+- All die if leader dies
+- Harder to debug
+
 ```javascript
 // in-process is automatic when not in tmux
 Task({
@@ -1069,24 +1164,25 @@ Task({
 // Force in-process explicitly
 // export CLAUDE_CODE_SPAWN_BACKEND=in-process
 ```
-### 多路复用器
 
-队友在 tmux 窗格/窗口中作为单独的 Claude 实例运行。
+### tmux
 
-**它是如何工作的：**
-- 每个队友都有自己的 tmux 窗格
-- 每个队友都有单独的流程
-- 您可以切换窗格来查看队友的输出
-- 通过收件箱文件进行通信
+Teammates run as separate Claude instances in tmux panes/windows.
 
-**使用时：**
-- 在 tmux 会话中运行（`$TMUX` 已设置）
-- tmux 可用但不在 iTerm2 中
-- 通过 `CLAUDE_CODE_SPAWN_BACKEND=tmux` 显式设置
+**How it works:**
+- Each teammate gets its own tmux pane
+- Separate process per teammate
+- You can switch panes to see teammate output
+- Communication via inbox files
 
-**布局模式：**
+**When it's used:**
+- Running inside a tmux session (`$TMUX` is set)
+- tmux available and not in iTerm2
+- Explicitly set via `CLAUDE_CODE_SPAWN_BACKEND=tmux`
 
-1. **在 tmux 内部（原生）：** 分割当前窗口
+**Layout modes:**
+
+1. **Inside tmux (native):** Splits your current window
 ```
 ┌─────────────────┬─────────────────┐
 │                 │    Worker 1     │
@@ -1096,7 +1192,8 @@ Task({
 │                 │    Worker 3     │
 └─────────────────┴─────────────────┘
 ```
-2. **Outside tmux（外部会话）：** 创建一个名为 `claude-swarm` 的新 tmux 会话
+
+2. **Outside tmux (external session):** Creates a new tmux session called `claude-swarm`
 ```bash
 # Your terminal stays as-is
 # Workers run in separate tmux session
@@ -1104,16 +1201,18 @@ Task({
 # View workers:
 tmux attach -t claude-swarm
 ```
-**优点：**
-- 实时查看队友输出
-- 队友在领导者退出后幸存下来
-- 可以附加/分离会话
-- 适用于 CI/无头环境
 
-**缺点：**
-- 启动速度较慢（进程生成）
-- 需要安装 tmux
-- 更多资源使用
+**Pros:**
+- See teammate output in real-time
+- Teammates survive leader exit
+- Can attach/detach sessions
+- Works in CI/headless environments
+
+**Cons:**
+- Slower startup (process spawn)
+- Requires tmux installed
+- More resource usage
+
 ```bash
 # Start tmux session first
 tmux new-session -s claude
@@ -1121,7 +1220,8 @@ tmux new-session -s claude
 # Or force tmux backend
 export CLAUDE_CODE_SPAWN_BACKEND=tmux
 ```
-**有用的 tmux 命令：**
+
+**Useful tmux commands:**
 ```bash
 # List all panes in current window
 tmux list-panes
@@ -1138,22 +1238,23 @@ tmux attach -t claude-swarm
 # Rebalance pane layout
 tmux select-layout tiled
 ```
-### iterm2（仅限 macOS）
 
-队友在 iTerm2 窗口中作为分割窗格运行。
+### iterm2 (macOS only)
 
-**它是如何工作的：**
-- 通过 `it2` CLI 使用 iTerm2 的 Python API
-- 将当前窗口拆分为多个窗格
-- 每个队友并排可见
-- 通过收件箱文件进行通信
+Teammates run as split panes within your iTerm2 window.
 
-**使用时：**
-- 在 iTerm2 中运行 (`$TERM_PROGRAM === "iTerm.app"`)
-- `it2` CLI 已安装并正在运行
-- 在 iTerm2 首选项中启用 Python API
+**How it works:**
+- Uses iTerm2's Python API via `it2` CLI
+- Splits your current window into panes
+- Each teammate visible side-by-side
+- Communication via inbox files
 
-**布局：**
+**When it's used:**
+- Running in iTerm2 (`$TERM_PROGRAM === "iTerm.app"`)
+- `it2` CLI is installed and working
+- Python API enabled in iTerm2 preferences
+
+**Layout:**
 ```
 ┌─────────────────┬─────────────────┐
 │                 │    Worker 1     │
@@ -1163,18 +1264,19 @@ tmux select-layout tiled
 │                 │    Worker 3     │
 └─────────────────┴─────────────────┘
 ```
-**优点：**
-- 可视化调试 - 查看所有队友
-- 原生 macOS 体验
-- 无需 tmux
-- 自动窗格管理
 
-**缺点：**
-- 仅限 macOS + iTerm2
-- 需要设置（it2 CLI + Python API）
-- 窗格与窗户一起消失
+**Pros:**
+- Visual debugging - see all teammates
+- Native macOS experience
+- No tmux needed
+- Automatic pane management
 
-**设置：**
+**Cons:**
+- macOS + iTerm2 only
+- Requires setup (it2 CLI + Python API)
+- Panes die with window
+
+**Setup:**
 ```bash
 # 1. Install it2 CLI
 uv tool install it2
@@ -1192,13 +1294,15 @@ pip install --user it2
 it2 --version
 it2 session list
 ```
-**如果设置失败：**
-当您第一次生成队友时，克劳德代码将提示您进行设置2。您可以选择：
-1. 立即安装2（引导安装）
-2.使用tmux代替
-3. 取消
 
-### 强制后端
+**If setup fails:**
+Claude Code will prompt you to set up it2 when you first spawn a teammate. You can choose to:
+1. Install it2 now (guided setup)
+2. Use tmux instead
+3. Cancel
+
+### Forcing a Backend
+
 ```bash
 # Force in-process (fastest, no visibility)
 export CLAUDE_CODE_SPAWN_BACKEND=in-process
@@ -1209,9 +1313,11 @@ export CLAUDE_CODE_SPAWN_BACKEND=tmux
 # Auto-detect (default)
 unset CLAUDE_CODE_SPAWN_BACKEND
 ```
-### 团队配置中的后端
 
-每个队友的后端类型记录在 `config.json` 中：
+### Backend in Team Config
+
+The backend type is recorded per-teammate in `config.json`:
+
 ```json
 {
   "members": [
@@ -1228,17 +1334,19 @@ unset CLAUDE_CODE_SPAWN_BACKEND
   ]
 }
 ```
-### 后端故障排除
 
-|问题 |原因 |解决方案 |
-|--------|--------|----------|
-| “没有可用的窗格后端”| tmux 和 iTerm2 都不可用 |安装 tmux: `brew install tmux` |
-| “it2 CLI 未安装”|在 iTerm2 中但缺少 it2 |运行 `uv tool install it2` |
-| “Python API 未启用”| it2 无法与 iTerm2 通信 |在 iTerm2 设置 → 常规 → Magic | 中启用
-|工人不可见 |使用进程内后端 |在 tmux 或 iTerm2 中启动 |
-|工人意外死亡 |在 tmux 之外，leader 退出 |使用 tmux 进行持久化 |
+### Troubleshooting Backends
 
-### 检查当前后端
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| "No pane backend available" | Neither tmux nor iTerm2 available | Install tmux: `brew install tmux` |
+| "it2 CLI not installed" | In iTerm2 but missing it2 | Run `uv tool install it2` |
+| "Python API not enabled" | it2 can't communicate with iTerm2 | Enable in iTerm2 Settings → General → Magic |
+| Workers not visible | Using in-process backend | Start inside tmux or iTerm2 |
+| Workers dying unexpectedly | Outside tmux, leader exited | Use tmux for persistence |
+
+### Checking Current Backend
+
 ```bash
 # See what backend was detected
 cat ~/.claude/teams/{team}/config.json | jq '.members[].backendType'
@@ -1255,24 +1363,26 @@ which tmux
 # Check it2 availability
 which it2
 ```
+
 ---
 
-## 错误处理
+## Error Handling
 
-### 常见错误
+### Common Errors
 
-|错误|原因 |解决方案 |
-|--------|--------|----------|
-| “无法与活跃成员一起清理” |队友还在奔跑| `requestShutdown`全体队友优先，等待审核|
-| “已经领导一个团队”|团队已存在| `cleanup`首先，或者使用不同的团队名称 |
-| “找不到代理”|队友名字错误 |检查 `config.json` 的真实姓名 |
-| “团队不存在”|尚未创建团队 |首先致电 `spawnTeam` |
-| “团队名称为必填项”|缺少团队背景|提供`team_name`参数|
-| “未找到代理类型” |无效的 subagent_type |检查具有正确前缀的可用代理 |
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "Cannot cleanup with active members" | Teammates still running | `requestShutdown` all teammates first, wait for approval |
+| "Already leading a team" | Team already exists | `cleanup` first, or use different team name |
+| "Agent not found" | Wrong teammate name | Check `config.json` for actual names |
+| "Team does not exist" | No team created | Call `spawnTeam` first |
+| "team_name is required" | Missing team context | Provide `team_name` parameter |
+| "Agent type not found" | Invalid subagent_type | Check available agents with proper prefix |
 
-### 优雅的关闭顺序
+### Graceful Shutdown Sequence
 
-**始终遵循以下顺序：**
+**Always follow this sequence:**
+
 ```javascript
 // 1. Request shutdown for all teammates
 Teammate({ operation: "requestShutdown", target_agent_id: "worker-1" })
@@ -1287,16 +1397,18 @@ Teammate({ operation: "requestShutdown", target_agent_id: "worker-2" })
 // 4. Only then cleanup
 Teammate({ operation: "cleanup" })
 ```
-### 处理崩溃的队友
 
-队友有5分钟心跳暂停。如果队友崩溃：
+### Handling Crashed Teammates
 
-1. 超时后会自动标记为不活动
-2. 他们的任务保留在任务列表中
-3.其他队友可以领取任务
-4. 超时后清理将起作用
+Teammates have a 5-minute heartbeat timeout. If a teammate crashes:
 
-### 调试
+1. They'll be automatically marked as inactive after timeout
+2. Their tasks remain in the task list
+3. Another teammate can claim their tasks
+4. Cleanup will work after timeout expires
+
+### Debugging
+
 ```bash
 # Check team config
 cat ~/.claude/teams/{team}/config.json | jq '.members[] | {name, agentType, backendType}'
@@ -1315,11 +1427,13 @@ TaskGet({ taskId: "2" })
 # Watch for new messages
 tail -f ~/.claude/teams/{team}/inboxes/team-lead.json
 ```
+
 ---
 
-## 完整的工作流程
+## Complete Workflows
 
-### 工作流程 1：与并行专家一起进行完整的代码审查
+### Workflow 1: Full Code Review with Parallel Specialists
+
 ```javascript
 // === STEP 1: Setup ===
 Teammate({ operation: "spawnTeam", team_name: "pr-review-123", description: "Reviewing PR #123" })
@@ -1389,7 +1503,9 @@ Teammate({ operation: "requestShutdown", target_agent_id: "arch" })
 // Wait for approvals...
 Teammate({ operation: "cleanup" })
 ```
-### 工作流程 2：研究→计划→实施→测试管道
+
+### Workflow 2: Research → Plan → Implement → Test Pipeline
+
 ```javascript
 // === SETUP ===
 Teammate({ operation: "spawnTeam", team_name: "feature-oauth" })
@@ -1450,7 +1566,9 @@ Task({
 
 // Pipeline auto-progresses as each stage completes
 ```
-### 工作流程 3：自组织代码审查群
+
+### Workflow 3: Self-Organizing Code Review Swarm
+
 ```javascript
 // === SETUP ===
 Teammate({ operation: "spawnTeam", team_name: "codebase-review" })
@@ -1508,14 +1626,15 @@ Task({ team_name: "codebase-review", name: "worker-3", subagent_type: "general-p
 // Workers self-organize: race to claim tasks, naturally load-balance
 // Monitor progress with TaskList() or by reading inbox
 ```
+
 ---
 
-## 最佳实践
+## Best Practices
 
-### 1. 经常清理
-不要离开孤立的团队。完成后始终调用 `cleanup`。
+### 1. Always Cleanup
+Don't leave orphaned teams. Always call `cleanup` when done.
 
-### 2. 使用有意义的名称
+### 2. Use Meaningful Names
 ```javascript
 // Good
 name: "security-reviewer"
@@ -1526,8 +1645,9 @@ name: "test-writer"
 name: "worker-1"
 name: "agent-2"
 ```
-### 3.写下清晰的提示
-准确地告诉工人该做什么：
+
+### 3. Write Clear Prompts
+Tell workers exactly what to do:
 ```javascript
 // Good
 prompt: `
@@ -1540,8 +1660,9 @@ prompt: `
 // Bad
 prompt: "Review the code"
 ```
-### 4. 使用任务依赖关系
-让系统管理解锁：
+
+### 4. Use Task Dependencies
+Let the system manage unblocking:
 ```javascript
 // Good: Auto-unblocking
 TaskUpdate({ taskId: "2", addBlockedBy: ["1"] })
@@ -1549,54 +1670,61 @@ TaskUpdate({ taskId: "2", addBlockedBy: ["1"] })
 // Bad: Manual polling
 "Wait until task #1 is done, check every 30 seconds..."
 ```
-### 5. 检查收件箱中的结果
-工作人员将结果发送到您的收件箱。检查一下：
+
+### 5. Check Inboxes for Results
+Workers send results to your inbox. Check it:
 ```bash
 cat ~/.claude/teams/{team}/inboxes/team-lead.json | jq '.'
 ```
-### 6. 处理工人故障
-- Worker 有 5 分钟心跳超时
-- 崩溃的worker的任务可以被回收
-- 将重试逻辑构建到工作提示中
 
-### 7. 更喜欢写入而不是广播
-`broadcast` 为 N 个队友发送 N 条消息。使用 `write` 进行有针对性的沟通。
+### 6. Handle Worker Failures
+- Workers have 5-minute heartbeat timeout
+- Tasks of crashed workers can be reclaimed
+- Build retry logic into worker prompts
 
-### 8. 将代理类型与任务相匹配
-- **探索**用于搜索/阅读
-- **架构设计计划**
-- **通用**用于实施
-- **专业审稿人** 针对特定审稿类型
+### 7. Prefer write Over broadcast
+`broadcast` sends N messages for N teammates. Use `write` for targeted communication.
+
+### 8. Match Agent Type to Task
+- **Explore** for searching/reading
+- **Plan** for architecture design
+- **general-purpose** for implementation
+- **Specialized reviewers** for specific review types
 
 ---
 
-## 快速参考
+## Quick Reference
 
-### 生成子代理（无团队）
+### Spawn Subagent (No Team)
 ```javascript
 Task({ subagent_type: "Explore", description: "Find files", prompt: "..." })
 ```
-### 生成队友（与团队一起）
+
+### Spawn Teammate (With Team)
 ```javascript
 Teammate({ operation: "spawnTeam", team_name: "my-team" })
 Task({ team_name: "my-team", name: "worker", subagent_type: "general-purpose", prompt: "...", run_in_background: true })
 ```
-### 给队友留言
+
+### Message Teammate
 ```javascript
 Teammate({ operation: "write", target_agent_id: "worker-1", value: "..." })
 ```
-### 创建任务管道
+
+### Create Task Pipeline
 ```javascript
 TaskCreate({ subject: "Step 1", description: "..." })
 TaskCreate({ subject: "Step 2", description: "..." })
 TaskUpdate({ taskId: "2", addBlockedBy: ["1"] })
 ```
-### 关闭团队
+
+### Shutdown Team
 ```javascript
 Teammate({ operation: "requestShutdown", target_agent_id: "worker-1" })
 // Wait for approval...
 Teammate({ operation: "cleanup" })
 ```
+
 ---
 
-*基于 Claude Code v2.1.19 - 于 2026 年 1 月 25 日测试和验证*
+*Based on Claude Code v2.1.19 - Tested and verified 2026-01-25*

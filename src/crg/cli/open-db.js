@@ -48,7 +48,10 @@ function openDb(argv) {
   }
 
   // 5. 以只读模式打开，启用外键约束
-  const db = new Database(dbPath, { readonly: true });
+  //    fileMustExist: true 是配置显式性，与前置的 fs.existsSync 检查对齐；
+  //    readonly 模式下 better-sqlite3 本身就不会创建新库，这里不是为正确性
+  //    修复，而是为了防御未来被复制到 writable 场景时意外自动建库。
+  const db = new Database(dbPath, { readonly: true, fileMustExist: true });
   db.pragma('foreign_keys = ON');
 
   return { db, repoRoot };

@@ -7,6 +7,7 @@ const path = require('node:path');
 const { initDatabase } = require('../../src/crg/migrations');
 const { upsertNodes } = require('../../src/crg/graph');
 const { retrieveContext } = require('../../src/crg/retrieval/api');
+const { semanticRerank } = require('../../src/crg/retrieval/semantic-rerank');
 
 describe('crg semantic rerank', () => {
   test('未启用时主链行为不变，启用时可重排', () => {
@@ -35,5 +36,18 @@ describe('crg semantic rerank', () => {
       db.close();
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+
+  test('semantic rerank 会按 identifier subword 识别 snake_case 查询', () => {
+    const reranked = semanticRerank([
+      { name: 'unrelated', retrieval_text: 'totally different', score: 10, reasons: [] },
+      { name: 'fooBarHandler', retrieval_text: 'handles foo bar', score: 9.5, reasons: [] },
+    ], {
+      query: 'foo_bar',
+      enabled: true,
+    });
+
+    expect(reranked[0].name).toBe('fooBarHandler');
+    expect(reranked[0].reasons).toContain('semantic_overlap');
   });
 });

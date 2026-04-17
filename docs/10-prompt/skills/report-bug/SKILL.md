@@ -1,84 +1,154 @@
 ---
 name: report-bug
-description: 在 spec-first CLI 或打包后的工作流资产中报告缺陷
+description: Report a bug in the spec-first CLI or packaged workflow assets
+argument-hint: "[optional: brief description of the bug]"
+disable-model-invocation: true
 ---
 
-# 报告 Bug
+# Report a Spec-First Bug
 
-当你确认 `spec-first` CLI、安装器、技能包或生成资产存在缺陷时，使用此技能整理一份高质量 bug 报告。
+Report bugs encountered while using spec-first. This skill gathers structured information and creates a GitHub issue for the maintainer.
 
-## 目标
+## Step 1: Gather Bug Information
 
-产出一份可复现、可定位、可分派的缺陷报告，减少来回补充信息的成本。
+Ask the user the following questions (using the platform's blocking question tool — e.g., `AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini — or present numbered options and wait for a reply):
 
-## 收集内容
+**Question 1: Bug Category**
+- What type of issue are you experiencing?
+- Options: Agent not working, Command not working, Skill not working, MCP server issue, Installation problem, Other
 
-至少整理以下信息：
+**Question 2: Specific Component**
+- Which specific component is affected?
+- Ask for the name of the agent, command, skill, or MCP server
 
-- 问题现象
-- 期望行为
-- 实际行为
-- 复现步骤
-- 影响范围
-- 相关环境
-- 相关日志、报错或截图
+**Question 3: What Happened (Actual Behavior)**
+- Ask: "What happened when you used this component?"
+- Get a clear description of the actual behavior
 
-环境信息通常包括：
+**Question 4: What Should Have Happened (Expected Behavior)**
+- Ask: "What did you expect to happen instead?"
+- Get a clear description of expected behavior
 
-- 操作系统
-- Shell / 终端环境
-- `spec-first` 版本
-- Node.js 版本
-- 相关 CLI 命令
-- 是否在 Claude Code / Codex / 其他宿主环境中运行
+**Question 5: Steps to Reproduce**
+- Ask: "What steps did you take before the bug occurred?"
+- Get reproduction steps
 
-## 排查前置
+**Question 6: Error Messages**
+- Ask: "Did you see any error messages? If so, please share them."
+- Capture any error output
 
-提交报告前，先确认：
+## Step 2: Collect Environment Information
 
-1. 问题可以稳定复现，或至少给出复现概率
-2. 行为不是预期限制或配置问题
-3. 已检查相关文档与近期变更
-4. 报告中包含最小可复现场景
+Automatically gather environment details. Detect the coding agent platform and collect what is available:
 
-## 输出格式
-
-建议使用如下结构：
-
-```md
-# Bug: <一句话标题>
-
-## Summary
-<问题概述>
-
-## Environment
-- OS:
-- Shell:
-- Node.js:
-- spec-first:
-- Host:
-
-## Steps to Reproduce
-1.
-2.
-3.
-
-## Expected
-<期望行为>
-
-## Actual
-<实际行为>
-
-## Evidence
-<日志、报错、截图、相关文件路径>
-
-## Suspected Scope
-<可能涉及的模块、skill、脚本或命令>
+**OS info (all platforms):**
+```bash
+uname -a
 ```
 
-## 质量要求
+**Spec-First version:** Read from the current project's `package.json`, the bundled `.claude-plugin/plugin.json`, or installed package metadata if available.
 
-- 标题要具体，避免笼统
-- 复现步骤要可执行，避免主观描述
-- 日志要贴关键片段，不要只说“报错了”
-- 如果怀疑是回归问题，注明大致回归区间
+**Agent CLI version:** Run the platform's version command:
+- Claude Code: `claude --version`
+- Codex: `codex --version`
+- Other platforms: use the appropriate CLI version flag
+
+If any of these fail, note "unknown" and continue — do not block the report.
+
+## Step 3: Format the Bug Report
+
+Create a well-structured bug report with:
+
+```markdown
+## Bug Description
+
+**Component:** [Type] - [Name]
+**Summary:** [Brief description from argument or collected info]
+
+## Environment
+
+- **Spec-First Version:** [from package or manifest metadata]
+- **Agent Platform:** [e.g., Claude Code, Codex, Copilot, Pi, Kilo]
+- **Agent Version:** [from CLI version command]
+- **OS:** [from uname]
+
+## What Happened
+
+[Actual behavior description]
+
+## Expected Behavior
+
+[Expected behavior description]
+
+## Steps to Reproduce
+
+1. [Step 1]
+2. [Step 2]
+3. [Step 3]
+
+## Error Messages
+
+[Any error output]
+
+## Additional Context
+
+[Any other relevant information]
+
+---
+*Reported via `report-bug` skill*
+```
+
+## Step 4: Create GitHub Issue
+
+Use the GitHub CLI to create the issue:
+
+```bash
+gh issue create \
+  --repo sunrain520/spec-first \
+  --title "[spec-first] Bug: [Brief description]" \
+  --body "[Formatted bug report from Step 3]" \
+  --label "bug,spec-first"
+```
+
+**Note:** If labels don't exist, create without labels:
+```bash
+gh issue create \
+  --repo sunrain520/spec-first \
+  --title "[spec-first] Bug: [Brief description]" \
+  --body "[Formatted bug report]"
+```
+
+## Step 5: Confirm Submission
+
+After the issue is created:
+1. Display the issue URL to the user
+2. Thank them for reporting the bug
+3. Let them know the maintainer will be notified
+
+## Output Format
+
+```
+Bug report submitted successfully!
+
+Issue: https://github.com/sunrain520/spec-first/issues/[NUMBER]
+Title: [spec-first] Bug: [description]
+
+Thank you for helping improve spec-first!
+The maintainer will review your report and respond as soon as possible.
+```
+
+## Error Handling
+
+- If `gh` CLI is not installed or not authenticated: prompt the user to install/authenticate first
+- If issue creation fails: display the formatted report so the user can manually create the issue
+- If required information is missing: re-prompt for that specific field
+
+## Privacy Notice
+
+This skill does NOT collect:
+- Personal information
+- API keys or credentials
+- Private code from projects
+- File paths beyond basic OS info
+
+Only technical information about the bug is included in the report.

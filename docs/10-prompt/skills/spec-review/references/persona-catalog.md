@@ -1,65 +1,67 @@
-# 角色目录
+# Persona Catalog
 
-15 个审阅者角色组织成始终在线、横切条件和堆栈特定条件层，以及特定于 CE 的代理。编排器使用此目录来选择为每个审阅生成哪些审阅者。
+17 reviewer personas organized into always-on, cross-cutting conditional, and stack-specific conditional layers, plus CE-specific agents. The orchestrator uses this catalog to select which reviewers to spawn for each review.
 
-## 始终在线（4 个角色 + 2 个 CE 代理）
+## Always-on (4 personas + 2 CE agents)
 
-无论内容如何，​​都会在每次评论中产生。
+Spawned on every review regardless of diff content.
 
-**角色代理（结构化 JSON 输出）：**
+**Persona agents (structured JSON output):**
 
-| 人格面具 | 代理人 | 重点 |
+| Persona | Agent | Focus |
 |---------|-------|-------|
-| `correctness` | `spec-first:review:correctness-reviewer` | 逻辑错误、边缘情况、状态错误、错误传播、意图合规性 |
-| `testing` | `spec-first:review:testing-reviewer` | 覆盖范围差距、弱断言、脆弱测试、缺少边缘情况测试 |
-| `maintainability` | `spec-first:review:maintainability-reviewer` | 耦合、复杂性、命名、死代码、过早抽象 |
-| `project-standards` | `spec-first:review:project-standards-reviewer` | CLAUDE.md 和 AGENTS.md 合规性——前言、参考文献、命名、跨平台可移植性、工具选择 |
+| `correctness` | `spec-first:review:correctness-reviewer` | Logic errors, edge cases, state bugs, error propagation, intent compliance |
+| `testing` | `spec-first:review:testing-reviewer` | Coverage gaps, weak assertions, brittle tests, missing edge case tests |
+| `maintainability` | `spec-first:review:maintainability-reviewer` | Coupling, complexity, naming, dead code, premature abstraction |
+| `project-standards` | `spec-first:review:project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance -- frontmatter, references, naming, cross-platform portability, tool selection |
 
-**CE 代理（非结构化输出，单独合成）：**
+**CE agents (unstructured output, synthesized separately):**
 
-| 代理人 | 重点 |
+| Agent | Focus |
 |-------|-------|
-| `spec-first:review:agent-native-reviewer` | 验证新功能是否可供代理访问 |
-| `spec-first:research:learnings-researcher` | 搜索 docs/solutions/ 以查找与此 PR 模块和模式相关的过去问题 |
+| `spec-first:review:agent-native-reviewer` | Verify new features are agent-accessible |
+| `spec-first:research:learnings-researcher` | Search docs/solutions/ for past issues related to this PR's modules and patterns |
 
-## 有条件（6 个角色）
+## Conditional (8 personas)
 
-当协调器识别差异中的相关模式时生成。协调器读取完整的差异和选择的原因——这是代理判断，而不是关键字匹配。
+Spawned when the orchestrator identifies relevant patterns in the diff. The orchestrator reads the full diff and reasons about selection -- this is agent judgment, not keyword matching.
 
-| 人格面具 | 代理人 | 当 diff 接触时选择... |
+| Persona | Agent | Select when diff touches... |
 |---------|-------|---------------------------|
-| `security` | `spec-first:review:security-reviewer` | 身份验证中间件、公共端点、用户输入处理、权限检查、机密管理 |
-| `performance` | `spec-first:review:performance-reviewer` | 数据库查询、ORM 调用、循环密集型数据转换、缓存层、异步/并发代码 |
-| `api-contract` | `spec-first:review:api-contract-reviewer` | 路由定义、序列化器/接口更改、事件模式、导出类型签名、API 版本控制 |
-| `data-migrations` | `spec-first:review:data-migrations-reviewer` | 迁移文件、架构更改、回填脚本、数据转换 |
-| `reliability` | `spec-first:review:reliability-reviewer` | 错误处理、重试逻辑、断路器、超时、后台作业、异步处理程序、运行状况检查 |
-| `adversarial` | `spec-first:review:adversarial-reviewer` | Diff 已更改 >=50 个非测试、非生成、非锁定文件行，或涉及身份验证、支付、数据突变、外部 API 集成或其他高风险域 |
+| `security` | `spec-first:review:security-reviewer` | Auth middleware, public endpoints, user input handling, permission checks, secrets management |
+| `performance` | `spec-first:review:performance-reviewer` | Database queries, ORM calls, loop-heavy data transforms, caching layers, async/concurrent code |
+| `api-contract` | `spec-first:review:api-contract-reviewer` | Route definitions, serializer/interface changes, event schemas, exported type signatures, API versioning |
+| `data-migrations` | `spec-first:review:data-migrations-reviewer` | Migration files, schema changes, backfill scripts, data transformations |
+| `reliability` | `spec-first:review:reliability-reviewer` | Error handling, retry logic, circuit breakers, timeouts, background jobs, async handlers, health checks |
+| `adversarial` | `spec-first:review:adversarial-reviewer` | Diff has >=50 changed lines of executable code (not prose/instruction Markdown, JSON schemas, or config), OR touches auth, payments, data mutations, external API integrations, or other high-risk domains regardless of file type |
+| `cli-readiness` | `spec-first:review:cli-readiness-reviewer` | CLI command definitions, argument parsing, CLI framework usage, command handler implementations |
+| `previous-comments` | `spec-first:review:previous-comments-reviewer` | **PR-only.** Reviewing a PR that has existing review comments or review threads from prior review rounds. Skip entirely when no PR metadata was gathered in Stage 1. |
 
-## 堆栈特定条件（5 个角色）
+## Stack-Specific Conditional (5 personas)
 
-这些评论家保留了他们最初固执己见的镜头。它们是上述交叉角色的补充，而不是替代品。
+These reviewers keep their original opinionated lens. They are additive with the cross-cutting personas above, not replacements for them.
 
-| 人格面具 | 代理人 | 当 diff 接触时选择... |
+| Persona | Agent | Select when diff touches... |
 |---------|-------|---------------------------|
-| `dhh-rails` | `spec-first:review:dhh-rails-reviewer` | Rails 架构、服务对象、身份验证/会话选择、Hotwire-vs-SPA 边界或可能违反 Rails 约定的抽象 |
-| `kieran-rails` | `spec-first:review:kieran-rails-reviewer` | Rails 控制器、模型、视图、作业、组件、路由或其他应用程序层 Ruby 代码（其中清晰度和约定很重要） |
-| `kieran-python` | `spec-first:review:kieran-python-reviewer` | Python 模块、端点、服务、脚本或类型化域代码 |
-| `kieran-typescript` | `spec-first:review:kieran-typescript-reviewer` | TypeScript 组件、服务、挂钩、实用程序或共享类型 |
-| `julik-frontend-races` | `spec-first:review:julik-frontend-races-reviewer` | Stimulus/Turbo 控制器、DOM 事件连接、计时器、异步 UI 流、动画或具有竞争潜力的前端状态转换 |
+| `dhh-rails` | `spec-first:review:dhh-rails-reviewer` | Rails architecture, service objects, authentication/session choices, Hotwire-vs-SPA boundaries, or abstractions that may fight Rails conventions |
+| `kieran-rails` | `spec-first:review:kieran-rails-reviewer` | Rails controllers, models, views, jobs, components, routes, or other application-layer Ruby code where clarity and conventions matter |
+| `kieran-python` | `spec-first:review:kieran-python-reviewer` | Python modules, endpoints, services, scripts, or typed domain code |
+| `kieran-typescript` | `spec-first:review:kieran-typescript-reviewer` | TypeScript components, services, hooks, utilities, or shared types |
+| `julik-frontend-races` | `spec-first:review:julik-frontend-races-reviewer` | Stimulus/Turbo controllers, DOM event wiring, timers, async UI flows, animations, or frontend state transitions with race potential |
 
-## CE 条件代理（特定于迁移）
+## CE Conditional Agents (migration-specific)
 
-这些 CE 本地代理提供超出角色代理所涵盖范围的专业分析。当差异包含数据库迁移、schema.rb 或数据回填时生成它们。
+These CE-native agents provide specialized analysis beyond what the persona agents cover. Spawn them when the diff includes database migrations, schema.rb, or data backfills.
 
-| 代理人 | 重点 |
+| Agent | Focus |
 |-------|-------|
-| `spec-first:review:schema-drift-detector` | 交叉引用 schema.rb 针对包含的迁移进行更改以捕获不相关的漂移 |
-| `spec-first:review:deployment-verification-agent` | 生成包含 SQL 验证查询和回滚过程的 Go/No-Go 部署清单 |
+| `spec-first:review:schema-drift-detector` | Cross-references schema.rb changes against included migrations to catch unrelated drift |
+| `spec-first:review:deployment-verification-agent` | Produces Go/No-Go deployment checklist with SQL verification queries and rollback procedures |
 
-## 评选规则
+## Selection rules
 
-1. **始终生成所有 4 个始终在线角色**以及 2 个 CE 始终在线代理。
-2. **对于每个横切条件角色**，协调器读取差异并决定角色的域是否相关。这是一个判断调用，而不是关键字匹配。
-3. **对于每个特定于堆栈的条件角色**，使用文件类型和更改的模式作为起点，然后确定差异是否实际上为该审阅者引入了有意义的工作。不要仅仅因为一个配置或生成的文件恰好与扩展名匹配而产生特定于语言的审阅者。
-4. **对于 CE 条件代理**，当差异包含迁移文件（`db/migrate/*.rb`、`db/schema.rb`）或数据回填脚本时生成。
-5. **在生成之前宣布团队**，并为每个选定的条件审核者提供一行理由。
+1. **Always spawn all 4 always-on personas** plus the 2 CE always-on agents.
+2. **For each cross-cutting conditional persona**, the orchestrator reads the diff and decides whether the persona's domain is relevant. This is a judgment call, not a keyword match.
+3. **For each stack-specific conditional persona**, use file types and changed patterns as a starting point, then decide whether the diff actually introduces meaningful work for that reviewer. Do not spawn language-specific reviewers just because one config or generated file happens to match the extension.
+4. **For CE conditional agents**, spawn when the diff includes migration files (`db/migrate/*.rb`, `db/schema.rb`) or data backfill scripts.
+5. **Announce the team** before spawning with a one-line justification per conditional reviewer selected.

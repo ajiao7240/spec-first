@@ -1,10 +1,10 @@
-# 代码审查输出模板
+# Code Review Output Template
 
-呈现综合评价结果时，请使用此**精确格式**。结果按严重程度分组，而不是按审阅者分组。
+Use this **exact format** when presenting synthesized review findings. Findings are grouped by severity, not by reviewer.
 
-**重要提示：** 使用管道分隔的降价表 (`| col | col |`)。不要使用 ASCII 方框图字符。
+**IMPORTANT:** Use pipe-delimited markdown tables (`| col | col |`). Do NOT use ASCII box-drawing characters.
 
-## 例子
+## Example
 
 ```markdown
 ## Code Review Results
@@ -92,24 +92,45 @@
 > **Fix order:** P0 auth bypass -> P1 memory/pagination -> P2 error handling if straightforward
 ```
 
-## 格式规则
+## Anti-patterns
 
-- **管道分隔的降价表** -- 绝不是 ASCII 画框字符
-- **按严重性分组的部分** -- `### P0 -- Critical`、`### P1 -- High`、`### P2 -- Moderate`、`### P3 -- Low`。省略空的严重级别。
-- **始终包含文件：行位置**以解决代码审查问题
-- **审阅者列**显示哪些角色标记了该问题。多个审稿人=跨审稿人协议。
-- **置信度列**显示结果的置信度得分
-- **路线列**将综合处理决策显示为“`<autofix_class> -> <owner>`”。
-- **标题包括**范围、意图和审核团队以及每个条件的理由
-- **模式行** -- 包括 `interactive`、`autofix` 或 `report-only`
-- **应用的修复部分** -- 仅包括在此审查调用中运行修复阶段时
-- **剩余可操作工作部分** - 仅当未解决的可操作结果移交给后续工作时才包含
-- **预先存在的部分** - 单独的表，无置信度列（这些是信息性的）
-- **学习和过去的解决方案部分** - 来自学习研究人员的结果，包含文档/解决方案/文件的链接
-- **代理与本地差距部分**——来自代理本地审核者的结果。如果没有发现间隙则省略。
-- **模式漂移检查部分**——来自模式漂移检测器的结果。如果代理未运行则省略。
-- **部署注释部分** -- 来自部署验证代理的关键清单项目。如果代理未运行则省略。
-- **覆盖范围**——抑制计数、残余风险、测试差距、失败的审阅者
-- **摘要使用块引用**进行判决、推理和修正顺序
-- **水平规则** (`---`) 将调查结果与判决分开
-- **`###` 每个部分的标题**——绝不是纯文本标题
+Do NOT produce output like this. The following is wrong:
+
+```markdown
+Findings
+
+Sev: P1
+File: foo.go:42
+Issue: Some problem description
+Reviewer(s): adversarial
+Confidence: 0.85
+Route: advisory -> human
+[box-drawing separator here]
+Sev: P2
+File: bar.go:99
+Issue: Another problem
+```
+
+This fails because: no pipe-delimited tables, no severity-grouped `###` headers, uses box-drawing horizontal rules, no numbered findings, no `## Code Review Results` title, and the verdict is not in a blockquote. Always use the table format from the example above.
+
+## Formatting Rules
+
+- **Pipe-delimited markdown tables** for findings -- never ASCII box-drawing characters or per-finding horizontal-rule separators between entries (the report-level `---` before the verdict is still required)
+- **Severity-grouped sections** -- `### P0 -- Critical`, `### P1 -- High`, `### P2 -- Moderate`, `### P3 -- Low`. Omit empty severity levels.
+- **Always include file:line location** for code review issues
+- **Reviewer column** shows which persona(s) flagged the issue. Multiple reviewers = cross-reviewer agreement.
+- **Confidence column** shows the finding's confidence score
+- **Route column** shows the synthesized handling decision as ``<autofix_class> -> <owner>``.
+- **Header includes** scope, intent, and reviewer team with per-conditional justifications
+- **Mode line** -- include `interactive`, `autofix`, or `report-only`
+- **Applied Fixes section** -- include only when a fix phase ran in this review invocation
+- **Residual Actionable Work section** -- include only when unresolved actionable findings were handed off for later work
+- **Pre-existing section** -- separate table, no confidence column (these are informational)
+- **Learnings & Past Solutions section** -- results from learnings-researcher, with links to docs/solutions/ files
+- **Agent-Native Gaps section** -- results from agent-native-reviewer. Omit if no gaps found.
+- **Schema Drift Check section** -- results from schema-drift-detector. Omit if the agent did not run.
+- **Deployment Notes section** -- key checklist items from deployment-verification-agent. Omit if the agent did not run.
+- **Coverage section** -- suppressed count, residual risks, testing gaps, failed reviewers
+- **Summary uses blockquotes** for verdict, reasoning, and fix order
+- **Horizontal rule** (`---`) separates findings from verdict
+- **`###` headers** for each section -- never plain text headers

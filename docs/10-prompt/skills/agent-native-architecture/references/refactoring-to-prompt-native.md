@@ -1,13 +1,13 @@
-<概述>
-如何重构现有代理代码以遵循提示本机原则。目标：将行为从代码转移到提示中，并将工具简化为原语。
-</概述>
+<overview>
+How to refactor existing agent code to follow prompt-native principles. The goal: move behavior from code into prompts, and simplify tools into primitives.
+</overview>
 
-<诊断>
-## 诊断非提示本机代码
+<diagnosis>
+## Diagnosing Non-Prompt-Native Code
 
-标志您的代理不是本地提示：
+Signs your agent isn't prompt-native:
 
-**编码工作流程的工具：**
+**Tools that encode workflows:**
 ```typescript
 // RED FLAG: Tool contains business logic
 tool("process_feedback", async ({ message }) => {
@@ -17,14 +17,16 @@ tool("process_feedback", async ({ message }) => {
   if (priority > 3) await notify();            // Decision in code
 });
 ```
-**代理调用函数而不是弄清楚事情：**
+
+**Agent calls functions instead of figuring things out:**
 ```typescript
 // RED FLAG: Agent is just a function caller
 "Use process_feedback to handle incoming messages"
 // vs.
 "When feedback comes in, decide importance, store it, notify if high"
 ```
-**对代理能力的人为限制：**
+
+**Artificial limits on agent capability:**
 ```typescript
 // RED FLAG: Tool prevents agent from doing what users can do
 tool("read_file", async ({ path }) => {
@@ -34,7 +36,8 @@ tool("read_file", async ({ path }) => {
   return readFile(path);
 });
 ```
-**提示指定 HOW 而不是 WHAT：**
+
+**Prompts that specify HOW instead of WHAT:**
 ```markdown
 // RED FLAG: Micromanaging the agent
 When creating a summary:
@@ -43,32 +46,33 @@ When creating a summary:
 3. Format with em-dashes for sub-points
 4. Bold the first word of each bullet
 ```
-</诊断>
+</diagnosis>
 
-<重构工作流程>
-## 逐步重构
+<refactoring_workflow>
+## Step-by-Step Refactoring
 
-**第 1 步：识别工作流程工具**
+**Step 1: Identify workflow tools**
 
-列出你所有的工具。标记任何：
-- 具有业务逻辑（分类、计算、决定）
-- 协调多个操作
-- 代表代理人做出决定
-- 包含条件逻辑（if/else 基于内容）
+List all your tools. Mark any that:
+- Have business logic (categorize, calculate, decide)
+- Orchestrate multiple operations
+- Make decisions on behalf of the agent
+- Contain conditional logic (if/else based on content)
 
-**第2步：提取基元**
+**Step 2: Extract the primitives**
 
-对于每个工作流程工具，确定底层原语：
+For each workflow tool, identify the underlying primitives:
 
-|工作流程工具|隐藏的原语 |
-|--------------|--------------------|
-| `process_feedback` | `store_item`、`send_message` |
-| `generate_report` | `read_file`、`write_file` |
-| `deploy_and_notify` | `git_push`、`send_message` |
+| Workflow Tool | Hidden Primitives |
+|---------------|-------------------|
+| `process_feedback` | `store_item`, `send_message` |
+| `generate_report` | `read_file`, `write_file` |
+| `deploy_and_notify` | `git_push`, `send_message` |
 
-**第 3 步：将行为移至提示**
+**Step 3: Move behavior to the prompt**
 
-从工作流程工具中获取逻辑并用自然语言表达：
+Take the logic from your workflow tools and express it in natural language:
+
 ```typescript
 // Before (in code):
 async function processFeedback(message) {
@@ -93,7 +97,9 @@ When someone shares feedback:
 
 Use your judgment. Context matters more than keywords.
 ```
-**第 4 步：将工具简化为基元**
+
+**Step 4: Simplify tools to primitives**
+
 ```typescript
 // Before: 1 workflow tool
 tool("process_feedback", { message, category, priority }, ...complex logic...)
@@ -102,7 +108,9 @@ tool("process_feedback", { message, category, priority }, ...complex logic...)
 tool("store_item", { key: z.string(), value: z.any() }, ...simple storage...)
 tool("send_message", { channel: z.string(), content: z.string() }, ...simple send...)
 ```
-**步骤 5：消除人为限制**
+
+**Step 5: Remove artificial limits**
+
 ```typescript
 // Before: Limited capability
 tool("read_file", async ({ path }) => {
@@ -116,9 +124,11 @@ tool("read_file", async ({ path }) => {
 });
 // Use approval gates for WRITES, not artificial limits on READS
 ```
-**第 6 步：用结果而不是程序进行测试**
 
-不要测试“它是否调用了正确的函数？”，而是测试“它是否达到了结果？”
+**Step 6: Test with outcomes, not procedures**
+
+Instead of testing "does it call the right function?", test "does it achieve the outcome?"
+
 ```typescript
 // Before: Testing procedure
 expect(mockProcessFeedback).toHaveBeenCalledWith(...)
@@ -127,14 +137,14 @@ expect(mockProcessFeedback).toHaveBeenCalledWith(...)
 // Send feedback → Check it was stored with reasonable importance
 // Send high-priority feedback → Check notification was sent
 ```
-</重构_工作流程>
+</refactoring_workflow>
 
-<之前_之后>
-## 之前/之后示例
+<before_after>
+## Before/After Examples
 
-**示例 1：反馈处理**
+**Example 1: Feedback Processing**
 
-之前：
+Before:
 ```typescript
 tool("handle_feedback", async ({ message, author }) => {
   const category = detectCategory(message);
@@ -155,7 +165,8 @@ tool("handle_feedback", async ({ message, author }) => {
   return { feedbackId, category, priority };
 });
 ```
-后：
+
+After:
 ```typescript
 // Simple storage primitive
 tool("store_feedback", async ({ item }) => {
@@ -169,7 +180,8 @@ tool("send_message", async ({ channel, content }) => {
   return { text: "Sent" };
 });
 ```
-系统提示：
+
+System prompt:
 ```markdown
 ## Feedback Processing
 
@@ -186,9 +198,10 @@ Importance guidelines:
 - 2: Low (cosmetic, edge cases)
 - 1: Minimal (off-topic, duplicates)
 ```
-**示例 2：报告生成**
 
-之前：
+**Example 2: Report Generation**
+
+Before:
 ```typescript
 tool("generate_weekly_report", async ({ startDate, endDate, format }) => {
   const data = await fetchMetrics(startDate, endDate);
@@ -204,7 +217,8 @@ tool("generate_weekly_report", async ({ startDate, endDate, format }) => {
   }
 });
 ```
-后：
+
+After:
 ```typescript
 tool("query_metrics", async ({ start, end }) => {
   const data = await db.metrics.query({ start, end });
@@ -216,7 +230,8 @@ tool("write_file", async ({ path, content }) => {
   return { text: `Wrote ${path}` };
 });
 ```
-系统提示：
+
+System prompt:
 ```markdown
 ## Report Generation
 
@@ -228,14 +243,14 @@ When asked to generate a report:
 
 Use your judgment about format and structure. Make it useful.
 ```
-</之前_之后>
+</before_after>
 
-<常见挑战>
-## 常见的重构挑战
+<common_challenges>
+## Common Refactoring Challenges
 
-**“但是代理可能会犯错误！”**
+**"But the agent might make mistakes!"**
 
-是的，你可以迭代。更改提示以添加指导：
+Yes, and you can iterate. Change the prompt to add guidance:
 ```markdown
 // Before
 Rate importance 1-5.
@@ -244,9 +259,10 @@ Rate importance 1-5.
 Rate importance 1-5. Be conservative—most feedback is 2-3.
 Only use 4-5 for truly blocking or critical issues.
 ```
-**“工作流程很复杂！”**
 
-复杂的工作流程仍然可以通过提示来表达。经纪人很聪明。
+**"The workflow is complex!"**
+
+Complex workflows can still be expressed in prompts. The agent is smart.
 ```markdown
 When processing video feedback:
 1. Check if it's a Loom, YouTube, or direct link
@@ -255,46 +271,47 @@ When processing video feedback:
 4. Extract timestamped issues
 5. Rate based on issue density and severity
 ```
-**“我们需要确定性行为！”**
 
-某些操作应该保留在代码中。没关系。提示本地化并不是全有或全无。
+**"We need deterministic behavior!"**
 
-保留在代码中：
-- 安全验证
-- 速率限制
-- 审计日志记录
-- 准确的格式要求
+Some operations should stay in code. That's fine. Prompt-native isn't all-or-nothing.
 
-移至提示：
-- 分类决策
-- 优先判断
-- 内容生成
-- 工作流程编排
+Keep in code:
+- Security validation
+- Rate limiting
+- Audit logging
+- Exact format requirements
 
-**“测试怎么样？”**
+Move to prompts:
+- Categorization decisions
+- Priority judgments
+- Content generation
+- Workflow orchestration
 
-测试结果，而不是程序：
-- “根据这个输入，智能体是否能得到正确的结果？”
-- “存储的反馈是否具有合理的重要性评级？”
-- “是否为真正高优先级的项目发送通知？”
+**"What about testing?"**
+
+Test outcomes, not procedures:
+- "Given this input, does the agent achieve the right result?"
+- "Does stored feedback have reasonable importance ratings?"
+- "Are notifications sent for truly high-priority items?"
 </common_challenges>
 
-<清单>
-## 重构清单
+<checklist>
+## Refactoring Checklist
 
-诊断：
-- [ ] 列出了所有具有业务逻辑的工具
-- [ ] 确定对代理能力的人为限制
-- [ ] 发现微观管理如何进行的提示
+Diagnosis:
+- [ ] Listed all tools with business logic
+- [ ] Identified artificial limits on agent capability
+- [ ] Found prompts that micromanage HOW
 
-重构：
-- [ ] 从工作流程工具中提取基元
-- [ ] 将业务逻辑移至系统提示符
-- [ ] 删除了人为限制
-- [ ] 简化工具对数据的输入，而不是决策
+Refactoring:
+- [ ] Extracted primitives from workflow tools
+- [ ] Moved business logic to system prompt
+- [ ] Removed artificial limits
+- [ ] Simplified tool inputs to data, not decisions
 
-验证：
-- [ ] 代理与基元实现相同的结果
-- [ ] 可以通过编辑提示来更改行为
-- [ ] 无需新工具即可添加新功能
-</清单>
+Validation:
+- [ ] Agent achieves same outcomes with primitives
+- [ ] Behavior can be changed by editing prompts
+- [ ] New features could be added without new tools
+</checklist>

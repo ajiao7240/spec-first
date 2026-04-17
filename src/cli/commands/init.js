@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const {
+  buildFilteredAssetSet,
   listBundledAgentSupportFiles,
   listBundledAgents,
   listBundledSkills,
@@ -67,11 +68,12 @@ function runInit(argv) {
   }
   let previousState = null;
   let legacyStateDetected = false;
+  let rawManagedState = null;
   try {
     previousState = readState(projectRoot, adapter);
   } catch (error) {
-    const rawState = tryReadRawManagedState(projectRoot, adapter);
-    if (isLegacyManagedState(rawState)) {
+    rawManagedState = tryReadRawManagedState(projectRoot, adapter);
+    if (isLegacyManagedState(rawManagedState)) {
       legacyStateDetected = true;
     } else {
       console.warn(
@@ -80,8 +82,9 @@ function runInit(argv) {
     }
   }
   const manifest = loadPluginManifest();
+  const filteredAssetSet = buildFilteredAssetSet(adapter.id);
   const runtimeCommands = adapter.hasCommands
-    ? manifest.commands.map((command) => ({
+    ? filteredAssetSet.commands.map((command) => ({
       ...command,
       filename: adapter.commandFilename(command),
     }))
@@ -98,11 +101,10 @@ function runInit(argv) {
   }
 
   const commandSkillNames = new Set(manifest.commands.map((cmd) => cmd.skill));
-  const standaloneSkillNames = listBundledSkills().filter((s) => !commandSkillNames.has(s));
   const previewState = buildState(manifest.version, {
     commands: runtimeCommands,
-    skills: standaloneSkillNames,
-    workflowSkills: [...commandSkillNames],
+    skills: filteredAssetSet.skills,
+    workflowSkills: filteredAssetSet.workflowSkills,
     agents: bundledAgentPaths,
     agentSupportFiles: bundledAgentSupportFiles,
     developer,
@@ -110,12 +112,14 @@ function runInit(argv) {
 
   if (legacyStateDetected) {
     console.warn('Detected legacy spec-first state; performing managed hard reset before re-init.');
-    hardResetManagedAssets(projectRoot, buildState(manifest.version, {
-      commands: runtimeCommands,
-      skills: listBundledSkills(),
-      workflowSkills: [...commandSkillNames],
-      agents: bundledAgentPaths,
-      agentSupportFiles: bundledAgentSupportFiles,
+    hardResetManagedAssets(projectRoot, buildLegacyHardResetState({
+      adapter,
+      rawManagedState,
+      runtimeCommands,
+      bundledSkillNames: listBundledSkills(),
+      commandSkillNames: [...commandSkillNames],
+      bundledAgentPaths,
+      bundledAgentSupportFiles,
       developer,
     }), adapter);
     previousState = null;
@@ -255,6 +259,44 @@ function tryReadRawManagedState(projectRoot, adapter) {
   } catch (_error) {
     return null;
   }
+}
+
+function buildLegacyHardResetState({
+  adapter,
+  rawManagedState,
+  runtimeCommands,
+  bundledSkillNames,
+  commandSkillNames,
+  bundledAgentPaths,
+  bundledAgentSupportFiles,
+  developer,
+}) {
+  const rawState = rawManagedState && typeof rawManagedState === 'object' ? rawManagedState : {};
+  const legacyTrackedSkills = mergeStringArrays(rawState.skills, rawState.workflowSkills);
+
+  return {
+    commands: mergeStringArrays(
+      rawState.commands,
+      runtimeCommands.map((command) => command.filename),
+    ),
+    skills: adapter.workflowsRoot === adapter.skillsRoot
+      ? mergeStringArrays(bundledSkillNames, legacyTrackedSkills)
+      : mergeStringArrays(bundledSkillNames, rawState.skills),
+    workflowSkills: adapter.workflowsRoot === adapter.skillsRoot
+      ? []
+      : mergeStringArrays(commandSkillNames, rawState.workflowSkills),
+    agents: mergeStringArrays(rawState.agents, bundledAgentPaths),
+    agentSupportFiles: mergeStringArrays(rawState.agentSupportFiles, bundledAgentSupportFiles),
+    developer: rawState.developer && typeof rawState.developer === 'object' ? rawState.developer : developer,
+  };
+}
+
+function mergeStringArrays(...values) {
+  return [...new Set(values.flatMap((value) => (
+    Array.isArray(value)
+      ? value.filter((entry) => typeof entry === 'string' && entry.length > 0)
+      : []
+  )))].sort((a, b) => a.localeCompare(b));
 }
 
 function findDuplicateClaudeAgentNames(agentPaths) {

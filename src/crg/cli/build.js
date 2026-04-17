@@ -118,6 +118,65 @@ function classifyParseQuality(result) {
   return 'ok';
 }
 
+function summarizeUnresolvedRows(rows, countOverride) {
+  const unresolvedRows = Array.isArray(rows) ? rows : [];
+  const unresolvedByKind = Object.create(null);
+  const unresolvedByFile = Object.create(null);
+
+  for (const row of unresolvedRows) {
+    unresolvedByKind[row.edge_kind] = (unresolvedByKind[row.edge_kind] || 0) + 1;
+    unresolvedByFile[row.source_file] = (unresolvedByFile[row.source_file] || 0) + 1;
+  }
+
+  return {
+    count: typeof countOverride === 'number' ? countOverride : unresolvedRows.length,
+    top_kinds: Object.entries(unresolvedByKind)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([kind, count]) => ({ kind, count })),
+    top_source_files: Object.entries(unresolvedByFile)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([file_path, count]) => ({ file_path, count })),
+    samples: unresolvedRows.slice(0, 10),
+  };
+}
+
+function loadPersistedUnresolvedSnapshot(db) {
+  const metaRow = db.prepare(
+    'SELECT unresolved_edge_count FROM graph_meta WHERE id = 1'
+  ).get();
+  const count = metaRow ? (metaRow.unresolved_edge_count || 0) : 0;
+  const topKinds = db.prepare(`
+    SELECT edge_kind AS kind, COUNT(*) AS count
+    FROM unresolved_edges
+    GROUP BY edge_kind
+    ORDER BY count DESC
+    LIMIT 5
+  `).all();
+  const topSourceFiles = db.prepare(`
+    SELECT source_file AS file_path, COUNT(*) AS count
+    FROM unresolved_edges
+    GROUP BY source_file
+    ORDER BY count DESC
+    LIMIT 5
+  `).all();
+  const samples = db.prepare(`
+    SELECT source_id, source_file, edge_kind, target_name, target_path_raw
+    FROM unresolved_edges
+    LIMIT 10
+  `).all();
+  const sampleCountRow = db.prepare('SELECT COUNT(*) AS c FROM unresolved_edges').get();
+
+  return {
+    count,
+    top_kinds: topKinds,
+    top_source_files: topSourceFiles,
+    samples,
+    sample_count: sampleCountRow ? (sampleCountRow.c || 0) : 0,
+  };
+}
+
 /**
  * build 子命令核心逻辑（async，由 run 入口驱动）
  *
@@ -358,21 +417,13 @@ async function runBuildAsync(argv) {
       });
     }
 
-    const unresolvedByKind = Object.create(null);
-    const unresolvedByFile = Object.create(null);
-    for (const row of unresolved) {
-      unresolvedByKind[row.edge_kind] = (unresolvedByKind[row.edge_kind] || 0) + 1;
-      unresolvedByFile[row.source_file] = (unresolvedByFile[row.source_file] || 0) + 1;
-    }
-    const topUnresolvedKinds = Object.entries(unresolvedByKind)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([kind, count]) => ({ kind, count }));
-    const topUnresolvedFiles = Object.entries(unresolvedByFile)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([file_path, count]) => ({ file_path, count }));
-    const unresolvedSamples = unresolved.slice(0, 10);
+    const currentUnresolvedSnapshot = summarizeUnresolvedRows(unresolved, unresolvedCount);
+    const lastBuildUnresolvedSnapshot = (parsedChanged.length === 0 && !force)
+      ? loadPersistedUnresolvedSnapshot(db)
+      : {
+        ...currentUnresolvedSnapshot,
+        sample_count: unresolved.length,
+      };
     const { assessGenerationHealth } = require('../generations/health');
     const { promoteGeneration } = require('../generations/promote');
     const health = assessGenerationHealth({
@@ -394,14 +445,14 @@ async function runBuildAsync(argv) {
       changed_files: parsedChanged.length,
       duration_ms: durationMs,
       skipped_sensitive: skippedSensitive,
-      unresolved_edge_count: unresolvedCount,
-      last_build_unresolved_edge_count: unresolvedCount,
+      unresolved_edge_count: lastBuildUnresolvedSnapshot.count,
+      last_build_unresolved_edge_count: lastBuildUnresolvedSnapshot.count,
       last_build_unresolved_summary: {
-        top_kinds: topUnresolvedKinds,
-        top_source_files: topUnresolvedFiles,
-        sample_count: unresolved.length,
+        top_kinds: lastBuildUnresolvedSnapshot.top_kinds,
+        top_source_files: lastBuildUnresolvedSnapshot.top_source_files,
+        sample_count: lastBuildUnresolvedSnapshot.sample_count,
       },
-      last_build_unresolved_samples: unresolvedSamples,
+      last_build_unresolved_samples: lastBuildUnresolvedSnapshot.samples,
       build_quality: quality,
     }, { warnings, degraded: hasParserDegradation || !health.healthy });
 
@@ -499,27 +550,7 @@ function runStats(argv) {
       .get();
     const lastBuilt = metaRow ? metaRow.last_built : null;
     const unresolvedEdgeCount = metaRow ? (metaRow.unresolved_edge_count || 0) : 0;
-    const unresolvedKinds = db.prepare(`
-      SELECT edge_kind AS kind, COUNT(*) AS count
-      FROM unresolved_edges
-      GROUP BY edge_kind
-      ORDER BY count DESC
-      LIMIT 5
-    `).all();
-    const unresolvedFiles = db.prepare(`
-      SELECT source_file AS file_path, COUNT(*) AS count
-      FROM unresolved_edges
-      GROUP BY source_file
-      ORDER BY count DESC
-      LIMIT 5
-    `).all();
-    const unresolvedSamples = db.prepare(`
-      SELECT source_id, source_file, edge_kind, target_name, target_path_raw
-      FROM unresolved_edges
-      LIMIT 10
-    `).all();
-    const unresolvedSampleCountRow = db.prepare('SELECT COUNT(*) AS c FROM unresolved_edges').get();
-    const unresolvedSampleCount = unresolvedSampleCountRow ? (unresolvedSampleCountRow.c || 0) : 0;
+    const unresolvedSnapshot = loadPersistedUnresolvedSnapshot(db);
     const fingerprintRows = db
       .prepare('SELECT file_path, sha256 FROM fingerprints')
       .all();
@@ -549,14 +580,14 @@ function runStats(argv) {
         total_loc: totalLoc,
       },
       last_built: lastBuilt,
-      unresolved_edge_count: unresolvedEdgeCount,
-      last_build_unresolved_edge_count: unresolvedEdgeCount,
+      unresolved_edge_count: unresolvedSnapshot.count || unresolvedEdgeCount,
+      last_build_unresolved_edge_count: unresolvedSnapshot.count || unresolvedEdgeCount,
       last_build_unresolved_summary: {
-        top_kinds: unresolvedKinds,
-        top_source_files: unresolvedFiles,
-        sample_count: unresolvedSampleCount,
+        top_kinds: unresolvedSnapshot.top_kinds,
+        top_source_files: unresolvedSnapshot.top_source_files,
+        sample_count: unresolvedSnapshot.sample_count,
       },
-      last_build_unresolved_samples: unresolvedSamples,
+      last_build_unresolved_samples: unresolvedSnapshot.samples,
     }, { warnings });
 
     process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');

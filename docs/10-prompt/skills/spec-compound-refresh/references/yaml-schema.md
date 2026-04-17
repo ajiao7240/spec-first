@@ -1,29 +1,51 @@
-# YAML Frontmatter 架构
+# YAML Frontmatter Schema
 
-该目录中的`schema.yaml`是`spec:compound`编写的`docs/solutions/` frontmatter的规范合约。
+`schema.yaml` in this directory is the canonical contract for `docs/solutions/` frontmatter written by `spec:compound`.
 
-使用此文件作为以下内容的快速参考：
-- 必填字段
-- 枚举值
-- 验证期望
-- 类别映射
+Use this file as the quick reference for:
+- track classification
+- shared required fields
+- track-specific fields
+- validation expectations
+- category mapping
 
-## 必填字段
+## Track Classification
 
-- **模块**：受问题影响的模块或区域
-- **日期**：`YYYY-MM-DD` 中的 ISO 日期
-- **问题类型**：`build_error`、`test_failure`、`runtime_error`、`performance_issue`、`database_issue`、`security_issue`、`ui_bug`、`integration_issue`、`logic_error`、`developer_experience`、`workflow_issue`之一， `best_practice`、`documentation_gap`
-- **组件**：`rails_model`、`rails_controller`、`rails_view`、`service_object`、`background_job`、`database`、`frontend_stimulus`、`hotwire_turbo`、`email_processing`、`brief_system`、`assistant`之一， `authentication`、`payments`、`development_workflow`、`testing_framework`、`documentation`、`tooling`
-- **症状**：具有 1-5 个具体症状的 YAML 数组
-- **根本原因**：`missing_association`、`missing_include`、`missing_index`、`wrong_api`、`scope_issue`、`thread_violation`、`async_timing`、`memory_leak`、`config_error`、`logic_error`之一， `test_isolation`、`missing_validation`、`missing_permission`、`missing_workflow_step`、`inadequate_documentation`、`missing_tooling`、`incomplete_setup`
-- **分辨率类型**：`code_fix`、`migration`、`config_change`、`test_fix`、`dependency_update`、`environment_setup`、`workflow_improvement`、`documentation_update`、`tooling_addition`、`seed_data_update`之一
-- **严重性**：`critical`、`high`、`medium`、`low` 之一
+- **Bug track**: `build_error`, `test_failure`, `runtime_error`, `performance_issue`, `database_issue`, `security_issue`, `ui_bug`, `integration_issue`, `logic_error`
+- **Knowledge track**: `best_practice`, `documentation_gap`, `workflow_issue`, `developer_experience`
 
-## 可选字段- **rails_version**：`X.Y.Z` 格式的 Rails 版本
-- **相关组件**：涉及的其他组件
-- **标签**：搜索关键字，小写和连字符分隔
+## Shared Required Fields
 
-## 类别映射
+- **module**
+- **date**
+- **problem_type**
+- **component**
+- **severity**
+
+## Bug Track Fields
+
+- **Required**:
+  - `symptoms`
+  - `root_cause`
+  - `resolution_type`
+- **Optional**:
+  - `rails_version`
+
+## Knowledge Track Fields
+
+- **Required**:
+  - `applies_when`
+- **Optional**:
+  - `symptoms`
+  - `root_cause`
+  - `resolution_type`
+
+## Optional Fields for Both Tracks
+
+- **related_components**
+- **tags**
+
+## Category Mapping
 
 - `build_error` -> `docs/solutions/build-errors/`
 - `test_failure` -> `docs/solutions/test-failures/`
@@ -39,10 +61,14 @@
 - `best_practice` -> `docs/solutions/best-practices/`
 - `documentation_gap` -> `docs/solutions/documentation-gaps/`
 
-## 验证规则
+## Validation Rules
 
-1. 所有必填字段必须存在。
-2. 枚举字段必须与允许的值完全匹配。
-3. `symptoms` 必须是包含 1-5 项的 YAML 数组。
-4. `date` 必须匹配 `YYYY-MM-DD`。
-5. `rails_version`（如果存在）必须与 `X.Y.Z` 匹配。
+1. Determine track from `problem_type`.
+2. All shared required fields must be present.
+3. Bug-track docs must include `symptoms`, `root_cause`, and `resolution_type`.
+4. Knowledge-track docs must include `applies_when`.
+5. Enum fields must match the allowed values exactly.
+6. Array fields must respect `min_items` / `max_items` when specified.
+7. `date` must match `YYYY-MM-DD`.
+8. `rails_version`, if present, must match `X.Y.Z` and only applies to bug-track docs.
+9. `tags` should be lowercase and hyphen-separated.

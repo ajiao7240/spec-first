@@ -1,58 +1,61 @@
-<概述>
-移动是代理原生应用程序的一流平台。它具有独特的限制和机会。本指南涵盖了为什么移动很重要、iOS 存储架构、检查点/恢复模式和成本意识设计。
-</概述>
+<overview>
+Mobile is a first-class platform for agent-native apps. It has unique constraints and opportunities. This guide covers why mobile matters, iOS storage architecture, checkpoint/resume patterns, and cost-aware design.
+</overview>
 
-<为什么_手机>
-## 为什么移动很重要
+<why_mobile>
+## Why Mobile Matters
 
-移动设备为代理本机应用程序提供了独特的优势：
+Mobile devices offer unique advantages for agent-native apps:
 
-### 文件系统
-代理可以自然地处理文件，使用与其他地方相同的原语。文件系统是通用接口。
+### A File System
+Agents can work with files naturally, using the same primitives that work everywhere else. The filesystem is the universal interface.
 
-### 丰富的上下文
-您可以进入一个有围墙的花园。健康数据、位置、照片、日历——桌面或网络上不存在的上下文。这可以实现深度个性化的座席体验。
+### Rich Context
+A walled garden you get access to. Health data, location, photos, calendars—context that doesn't exist on desktop or web. This enables deeply personalized agent experiences.
 
-### 本地应用程序
-每个人都有自己的应用程序副本。这带来了尚未完全实现的机会：可以自我修改、自我分叉、按用户进化的应用程序。如今，App Store 政策限制了其中一些，但基础已经存在。
+### Local Apps
+Everyone has their own copy of the app. This opens opportunities that aren't fully realized yet: apps that modify themselves, fork themselves, evolve per-user. App Store policies constrain some of this today, but the foundation is there.
 
-### 跨设备同步
-如果您将文件系统与 iCloud 一起使用，则所有设备共享相同的文件系统。代理在一台设备上的工作会出现在所有设备上，而无需构建服务器。
+### Cross-Device Sync
+If you use the file system with iCloud, all devices share the same file system. The agent's work on one device appears on all devices—without you having to build a server.
 
-### 挑战
+### The Challenge
 
-**代理是长期运行的。移动应用程序则不然。**
+**Agents are long-running. Mobile apps are not.**
 
-代理可能需要 30 秒、5 分钟或 1 小时才能完成任务。但 iOS 会在您的应用程序几秒钟不活动后将其置于后台，并可能完全终止它以回收内存。用户可能会在执行任务时切换应用程序、接听电话或锁定手机。
+An agent might need 30 seconds, 5 minutes, or an hour to complete a task. But iOS will background your app after seconds of inactivity, and may kill it entirely to reclaim memory. The user might switch apps, take a call, or lock their phone mid-task.
 
-这意味着移动代理应用程序需要：
-- **检查点** — 保存状态，这样工作就不会丢失
-- **继续** — 中断后从上次中断的地方继续
-- **后台执行** — 明智地利用 iOS 给你的有限时间
-- **设备上与云决策** — 本地运行与需要服务器的内容
-</wh_mobile><ios_存储>
-## iOS 存储架构
+This means mobile agent apps need:
+- **Checkpointing** — Saving state so work isn't lost
+- **Resuming** — Picking up where you left off after interruption
+- **Background execution** — Using the limited time iOS gives you wisely
+- **On-device vs. cloud decisions** — What runs locally vs. what needs a server
+</why_mobile>
 
-> **需要验证：** 这是一种效果很好的方法，但可能存在更好的解决方案。
+<ios_storage>
+## iOS Storage Architecture
 
-对于代理本机 iOS 应用程序，请使用 iCloud Drive 的文档文件夹作为共享工作区。这为您提供**免费、自动的多设备同步**，无需构建同步层或运行服务器。
+> **Needs validation:** This is an approach that works well, but better solutions may exist.
 
-### 为什么选择 iCloud 文档？
+For agent-native iOS apps, use iCloud Drive's Documents folder for your shared workspace. This gives you **free, automatic multi-device sync** without building a sync layer or running a server.
 
-|方法|成本|复杂性 |离线 |多设备|
-|----------|------|------------|---------|----------------|
-|自定义后端+同步| $$$ |高|手册|是的 |
-| CloudKit数据库|免费套餐限制 |中等|手册|是的 |
-| **iCloud 文档** |免费（用户的存储空间）|低|自动|自动|
+### Why iCloud Documents?
 
-iCloud 文档：
-- 使用用户现有的 iCloud 存储空间（免费 5GB，大多数用户有更多）
-- 在所有用户设备之间自动同步
-- 离线工作，在线同步
-- 文件在 Files.app 中可见以实现透明度
-- 无服务器成本，无需维护同步代码
+| Approach | Cost | Complexity | Offline | Multi-Device |
+|----------|------|------------|---------|--------------|
+| Custom backend + sync | $$$ | High | Manual | Yes |
+| CloudKit database | Free tier limits | Medium | Manual | Yes |
+| **iCloud Documents** | Free (user's storage) | Low | Automatic | Automatic |
 
-### 实施：iCloud-First 和本地后备
+iCloud Documents:
+- Uses user's existing iCloud storage (free 5GB, most users have more)
+- Automatic sync across all user's devices
+- Works offline, syncs when online
+- Files visible in Files.app for transparency
+- No server costs, no sync code to maintain
+
+### Implementation: iCloud-First with Local Fallback
+
 ```swift
 // Get the iCloud Documents container
 func iCloudDocumentsURL() -> URL? {
@@ -87,7 +90,9 @@ class SharedWorkspace {
     }
 }
 ```
-### iCloud 中的目录结构
+
+### Directory Structure in iCloud
+
 ```
 iCloud Drive/
 └── YourApp/                          # Your app's container
@@ -105,9 +110,11 @@ iCloud Drive/
         │   └── {conversationId}.json
         └── context.md                # Agent's accumulated knowledge
 ```
-### 处理 iCloud 文件状态
 
-iCloud 文件可能无法下载到本地。处理这个：
+### Handling iCloud File States
+
+iCloud files may not be downloaded locally. Handle this:
+
 ```swift
 func readFile(at url: URL) throws -> String {
     // iCloud may create .icloud placeholder files
@@ -136,16 +143,18 @@ func writeFile(_ content: String, to url: URL) throws {
     if let error = error { throw error }
 }
 ```
-### iCloud 的功能
 
-1. **用户在 iPhone 上开始实验** → 代理创建配置文件
-2. **用户在 iPad 上打开应用程序** → 相同的实验可见，无需同步代码
-3. **代理在 iPhone 上记录观察结果** → 自动同步到 iPad
-4. **用户在 iPad 上编辑日记** → iPhone 会看到编辑内容
+### What iCloud Enables
 
-### 所需权利
+1. **User starts experiment on iPhone** → Agent creates config file
+2. **User opens app on iPad** → Same experiment visible, no sync code needed
+3. **Agent logs observation on iPhone** → Syncs to iPad automatically
+4. **User edits journal on iPad** → iPhone sees the edit
 
-添加到您的应用程序的权利：
+### Entitlements Required
+
+Add to your app's entitlements:
+
 ```xml
 <key>com.apple.developer.icloud-container-identifiers</key>
 <array>
@@ -160,22 +169,24 @@ func writeFile(_ content: String, to url: URL) throws {
     <string>iCloud.com.yourcompany.yourapp</string>
 </array>
 ```
-### 何时不使用 iCloud 文档
 
-- **敏感数据** - 使用钥匙串或加密的本地存储代替
-- **高频写入** - iCloud 同步有延迟；使用本地+定期同步
-- **大型媒体文件** - 考虑 CloudKit 资产或点播资源
-- **在用户之间共享** - iCloud 文档是单用户的；使用CloudKit进行共享
-</ios_存储>
+### When NOT to Use iCloud Documents
 
-<后台执行>
-## 后台执行和恢复
+- **Sensitive data** - Use Keychain or encrypted local storage instead
+- **High-frequency writes** - iCloud sync has latency; use local + periodic sync
+- **Large media files** - Consider CloudKit Assets or on-demand resources
+- **Shared between users** - iCloud Documents is single-user; use CloudKit for sharing
+</ios_storage>
 
-> **需要验证：** 这些模式有效，但可能存在更好的解决方案。
+<background_execution>
+## Background Execution & Resumption
 
-移动应用程序可以随时暂停或终止。特工必须妥善处理此事。
+> **Needs validation:** These patterns work but better solutions may exist.
 
-### 挑战
+Mobile apps can be suspended or terminated at any time. Agents must handle this gracefully.
+
+### The Challenge
+
 ```
 User starts research agent
      ↓
@@ -187,9 +198,11 @@ iOS suspends your app
      ↓
 Agent is mid-execution... what happens?
 ```
+
 ### Checkpoint/Resume Pattern
 
-在后台保存代理状态，在前台恢复：
+Save agent state before backgrounding, restore on foreground:
+
 ```swift
 class AgentOrchestrator: ObservableObject {
     @Published var activeSessions: [AgentSession] = []
@@ -234,7 +247,9 @@ class AgentOrchestrator: ObservableObject {
     }
 }
 ```
-### 代理生命周期的状态机
+
+### State Machine for Agent Lifecycle
+
 ```swift
 enum AgentState {
     case idle           // Not running
@@ -265,9 +280,11 @@ class AgentSession: ObservableObject {
     }
 }
 ```
+
 ### Background Task Extension (iOS)
 
-在关键操作期间处于后台时请求额外时间：
+Request extra time when backgrounded during critical operations:
+
 ```swift
 class AgentOrchestrator {
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
@@ -295,9 +312,11 @@ class AgentOrchestrator {
     }
 }
 ```
-### 用户沟通
 
-让用户知道发生了什么：
+### User Communication
+
+Let users know what's happening:
+
 ```swift
 struct AgentStatusView: View {
     @ObservedObject var session: AgentSession
@@ -320,24 +339,25 @@ struct AgentStatusView: View {
 ```
 </background_execution>
 
-<权限>
-## 权限处理
+<permissions>
+## Permission Handling
 
-移动代理可能需要访问系统资源。优雅地处理权限请求。
+Mobile agents may need access to system resources. Handle permission requests gracefully.
 
-### 通用权限
+### Common Permissions
 
-|资源 | iOS 权限 |使用案例|
-|----------|--------------|----------|
-|图片库| PH照片库 |从照片生成个人资料 |
-|文件|文档选择器 |阅读用户文档 |
-|相机 | AV 捕获设备 |扫描书籍封面|
-|地点 | CL位置管理器|位置感知推荐 |
-|网络| （自动）|网页搜索、API 调用 |
+| Resource | iOS Permission | Use Case |
+|----------|---------------|----------|
+| Photo Library | PHPhotoLibrary | Profile generation from photos |
+| Files | Document picker | Reading user documents |
+| Camera | AVCaptureDevice | Scanning book covers |
+| Location | CLLocationManager | Location-aware recommendations |
+| Network | (automatic) | Web search, API calls |
 
-### 权限感知工具
+### Permission-Aware Tools
 
-执行前检查权限：
+Check permissions before executing:
+
 ```swift
 struct PhotoTools {
     static func readPhotos() -> AgentTool {
@@ -378,9 +398,11 @@ struct PhotoTools {
     }
 }
 ```
-### 优雅的降级
 
-如果未授予权限，请提供替代方案：
+### Graceful Degradation
+
+When permissions aren't granted, offer alternatives:
+
 ```swift
 func readPhotos() async -> ToolResult {
     let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
@@ -402,9 +424,11 @@ func readPhotos() async -> ToolResult {
     }
 }
 ```
-### 权限请求时序
 
-在需要之前不要请求权限：
+### Permission Request Timing
+
+Don't request permissions until needed:
+
 ```swift
 // BAD: Request all permissions at launch
 func applicationDidFinishLaunching() {
@@ -425,16 +449,17 @@ tool("analyze_book_cover", async ({ image }) => {
     }
 })
 ```
-</权限>
+</permissions>
 
-<成本意识>
-## 成本意识设计
+<cost_awareness>
+## Cost-Aware Design
 
-移动用户可能使用蜂窝数据或担心 API 成本。设计高效的代理。
+Mobile users may be on cellular data or concerned about API costs. Design agents to be efficient.
 
-### 模型层选择
+### Model Tier Selection
 
-使用实现结果的最便宜的模型：
+Use the cheapest model that achieves the outcome:
+
 ```swift
 enum ModelTier {
     case fast      // claude-3-haiku: ~$0.25/1M tokens
@@ -459,9 +484,11 @@ let agentConfigs: [AgentType: ModelTier] = [
     .introductionWriter: .balanced,
 ]
 ```
-### 代币预算
 
-限制每个代理会话的令牌：
+### Token Budgets
+
+Limit tokens per agent session:
+
 ```swift
 struct AgentConfig {
     let modelTier: ModelTier
@@ -496,9 +523,11 @@ class AgentSession {
     }
 }
 ```
-### 网络感知执行
 
-将繁重的操作推迟到 WiFi：
+### Network-Aware Execution
+
+Defer heavy operations to WiFi:
+
 ```swift
 class NetworkMonitor: ObservableObject {
     @Published var isOnWiFi: Bool = false
@@ -535,9 +564,11 @@ class AgentOrchestrator {
     }
 }
 ```
-### 批量API调用
 
-合并多个小请求：
+### Batch API Calls
+
+Combine multiple small requests:
+
 ```swift
 // BAD: Many small API calls
 for book in books {
@@ -548,9 +579,11 @@ for book in books {
 let bookList = books.map { $0.title }.joined(separator: ", ")
 await agent.chat("Summarize each of these books briefly: \(bookList)")
 ```
-### 缓存
 
-缓存昂贵的操作：
+### Caching
+
+Cache expensive operations:
+
 ```swift
 class ResearchCache {
     private var cache: [String: CachedResearch] = [:]
@@ -588,9 +621,11 @@ tool("web_search", async ({ query, bookId }) => {
     return ToolResult(text: results.summary)
 })
 ```
-### 成本可见性
 
-向用户展示他们的支出：
+### Cost Visibility
+
+Show users what they're spending:
+
 ```swift
 struct AgentCostView: View {
     @ObservedObject var session: AgentSession
@@ -615,12 +650,13 @@ struct AgentCostView: View {
     }
 }
 ```
-</成本意识>
+</cost_awareness>
 
-<离线处理>
-## 离线优雅降级
+<offline_handling>
+## Offline Graceful Degradation
 
-优雅地处理离线场景：
+Handle offline scenarios gracefully:
+
 ```swift
 class ConnectivityAwareAgent {
     @ObservedObject var network = NetworkMonitor()
@@ -648,9 +684,11 @@ class ConnectivityAwareAgent {
     }
 }
 ```
-### 离线优先工具
 
-有些工具应该完全离线工作：
+### Offline-First Tools
+
+Some tools should work entirely offline:
+
 ```swift
 let offlineTools: Set<String> = [
     "read_file",
@@ -670,9 +708,11 @@ let hybridTools: Set<String> = [
     "publish_to_feed",  // Works offline, syncs later
 ]
 ```
-### 排队操作
 
-需要连接的队列操作：
+### Queued Actions
+
+Queue actions that require connectivity:
+
 ```swift
 class OfflineQueue: ObservableObject {
     @Published var pendingActions: [QueuedAction] = []
@@ -702,10 +742,11 @@ class OfflineQueue: ObservableObject {
 ```
 </offline_handling>
 
-<电池感知>
-## 电池感知执行
+<battery_awareness>
+## Battery-Aware Execution
 
-尊重设备电池状态：
+Respect device battery state:
+
 ```swift
 class BatteryMonitor: ObservableObject {
     @Published var batteryLevel: Float = 1.0
@@ -758,71 +799,73 @@ class AgentOrchestrator {
     }
 }
 ```
-</电池意识>
+</battery_awareness>
 
-<设备上与云上>
-## 设备端与云端
+<on_device_vs_cloud>
+## On-Device vs. Cloud
 
-了解移动代理本机应用程序中的运行位置：
+Understanding what runs where in a mobile agent-native app:
 
-|组件|设备上 |云|
-|------------|------------|--------|
-|编排| ✅ | |
-|工具执行 | ✅（文件操作、照片访问、HealthKit）| |
-| LLM 电话 | | ✅（人择 API）|
-|检查站| ✅（本地文件）|可选通过 iCloud |
-|长期代理|受 iOS 限制 |可以通过服务器 |
+| Component | On-Device | Cloud |
+|-----------|-----------|-------|
+| Orchestration | ✅ | |
+| Tool execution | ✅ (file ops, photo access, HealthKit) | |
+| LLM calls | | ✅ (Anthropic API) |
+| Checkpoints | ✅ (local files) | Optional via iCloud |
+| Long-running agents | Limited by iOS | Possible with server |
 
-### 影响
+### Implications
 
-**推理所需网络：**
-- 该应用程序需要网络连接才能进行 LLM 调用
-- 设计工具在网络不可用时优雅地降级
-- 考虑对常见查询进行离线缓存
+**Network required for reasoning:**
+- The app needs network connectivity for LLM calls
+- Design tools to degrade gracefully when network is unavailable
+- Consider offline caching for common queries
 
-**数据保留在本地：**
-- 文件操作发生在设备上
-- 除非明确同步，否则敏感数据永远不会离开设备
-- 默认情况下保留隐私
+**Data stays local:**
+- File operations happen on device
+- Sensitive data never leaves the device unless explicitly synced
+- Privacy is preserved by default
 
-**长期代理：**
-对于真正长时间运行的代理（数小时），请考虑可以无限期运行的服务器端编排器，并使用移动应用程序作为查看器和输入机制。
+**Long-running agents:**
+For truly long-running agents (hours), consider a server-side orchestrator that can run indefinitely, with the mobile app as a viewer and input mechanism.
 </on_device_vs_cloud>
 
-<清单>
-## 移动代理-本机检查表
+<checklist>
+## Mobile Agent-Native Checklist
 
-**iOS 存储：**
-- [ ] iCloud Documents 作为主存储（或有意识的替代方案）
-- [ ] 当 iCloud 不可用时本地文档回退
-- [ ] 处理 `.icloud` 占位符文件（触发下载）
-- [ ] 使用 NSFileCoordinator 进行冲突安全写入
+**iOS Storage:**
+- [ ] iCloud Documents as primary storage (or conscious alternative)
+- [ ] Local Documents fallback when iCloud unavailable
+- [ ] Handle `.icloud` placeholder files (trigger download)
+- [ ] Use NSFileCoordinator for conflict-safe writes
 
-**后台执行：**
-- [ ] 为所有代理会话实施检查点/恢复
-- [ ] 代理生命周期的状态机（空闲、运行、后台等）
-- [ ] 关键保存的后台任务扩展（30 秒窗口）
-- [ ] 后台代理的用户可见状态**权限：**
-- [ ] 仅在需要时请求权限，而不是在启动时请求
-- [ ] 权限被拒绝时优雅降级
-- [ ] 使用设置深层链接清除错误消息
-- [ ] 权限不可用时的替代路径
+**Background Execution:**
+- [ ] Checkpoint/resume implemented for all agent sessions
+- [ ] State machine for agent lifecycle (idle, running, backgrounded, etc.)
+- [ ] Background task extension for critical saves (30 second window)
+- [ ] User-visible status for backgrounded agents
 
-**成本意识：**
-- [ ] 模型层与任务复杂性相匹配
-- [ ] 每个会话的代币预算
-- [ ] 网络感知（将繁重的工作推迟到 WiFi）
-- [ ] 缓存昂贵的操作
-- [ ] 用户的成本可见性
+**Permissions:**
+- [ ] Permissions requested only when needed, not at launch
+- [ ] Graceful degradation when permissions denied
+- [ ] Clear error messages with Settings deep links
+- [ ] Alternative paths when permissions unavailable
 
-**离线处理：**
-- [ ] 识别出具有离线功能的工具
-- [ ] 仅在线功能的优雅降级
-- [ ] 在线同步的操作队列
-- [ ] 清除有关离线状态的用户通信
+**Cost Awareness:**
+- [ ] Model tier matched to task complexity
+- [ ] Token budgets per session
+- [ ] Network-aware (defer heavy work to WiFi)
+- [ ] Caching for expensive operations
+- [ ] Cost visibility to users
 
-**电池意识：**
-- [ ] 重型操作的电池监控
-- [ ] 低功耗模式检测
-- [ ] 根据电池状态推迟或降级
-</清单>
+**Offline Handling:**
+- [ ] Offline-capable tools identified
+- [ ] Graceful degradation for online-only features
+- [ ] Action queue for sync when online
+- [ ] Clear user communication about offline state
+
+**Battery Awareness:**
+- [ ] Battery monitoring for heavy operations
+- [ ] Low power mode detection
+- [ ] Defer or downgrade based on battery state
+</checklist>

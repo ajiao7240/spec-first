@@ -13,20 +13,25 @@ Validate the documentation site and prepare it for GitHub Pages deployment.
 Run these checks:
 
 ```bash
-# Count components
-echo "Agents: $(ls plugins/spec-first/agents/*.md | wc -l)"
-echo "Skills: $(ls -d plugins/spec-first/skills/*/ 2>/dev/null | wc -l)"
+# Count source-of-truth components from the current repo root
+echo "Agents: $(find agents -maxdepth 1 -name '*.md' | wc -l)"
+echo "Skills: $(find skills -mindepth 1 -maxdepth 1 -type d | wc -l)"
 
 # Validate JSON
 cat .claude-plugin/marketplace.json | jq . > /dev/null && echo "✓ marketplace.json valid"
-cat plugins/spec-first/.claude-plugin/plugin.json | jq . > /dev/null && echo "✓ plugin.json valid"
+cat .claude-plugin/plugin.json | jq . > /dev/null && echo "✓ plugin.json valid"
 
-# Check all HTML files exist
-for page in index agents commands skills mcp-servers changelog getting-started; do
-  if [ -f "plugins/spec-first/docs/pages/${page}.html" ] || [ -f "plugins/spec-first/docs/${page}.html" ]; then
-    echo "✓ ${page}.html exists"
+# Check markdown-first documentation entrypoints exist
+for path in \
+  "docs/05-用户手册/README.md" \
+  "docs/10-prompt/README.md" \
+  "docs/contexts/README.md" \
+  "docs/02-架构设计/01-整体架构.md" \
+  "docs/03-实施方案/02-Skills改造详细指南.md"; do
+  if [ -f "$path" ]; then
+    echo "✓ ${path} exists"
   else
-    echo "✗ ${page}.html MISSING"
+    echo "✗ ${path} MISSING"
   fi
 done
 ```
@@ -34,7 +39,7 @@ done
 ## Step 2: Check for Uncommitted Changes
 
 ```bash
-git status --porcelain plugins/spec-first/docs/
+git status --porcelain docs/ .claude-plugin/plugin.json
 ```
 
 If there are uncommitted changes, warn the user to commit first.
@@ -66,7 +71,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'plugins/spec-first/docs/**'
+      - 'docs/**'
+      - '.claude-plugin/plugin.json'
   workflow_dispatch:
 
 permissions:
@@ -89,7 +95,7 @@ jobs:
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: 'plugins/spec-first/docs'
+          path: 'docs'
       - uses: actions/deploy-pages@v4
 ```
 
@@ -108,5 +114,5 @@ Provide a summary:
 - [ ] Commit any pending changes
 - [ ] Push to main branch
 - [ ] Verify GitHub Pages workflow exists
-- [ ] Check deployment at https://everyinc.github.io/spec-first-plugin/
+- [ ] Check deployment at the repository's configured GitHub Pages URL
 ```

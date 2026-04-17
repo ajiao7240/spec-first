@@ -31,6 +31,28 @@ Follow the repository’s Conventional Commit style: `feat:`, `fix:`, `docs:`, `
 
 Before changing source code, ensure `CHANGELOG.md` has a matching entry. For new features or significant workflow additions, also update `docs/08-版本更新/README.md`. If `AGENTS.md` or `CLAUDE.md` changes as part of the work, commit it with the related code changes.
 
+## Dual-Host Skill Governance
+
+- `skills/` is the only source of truth for skill content. Runtime copies under `.claude/` and `.agents/skills/` are generated artifacts.
+- Skill host classification is governed by `src/cli/contracts/dual-host-governance/skills-governance.json`. Do not invent a second matrix in README, tests, or scripts.
+- Every skill must have a stable classification using `entry_surface`, `host_scope`, and `host_delivery`.
+- `entry_surface=workflow_command` must match `.claude-plugin/plugin.json` command-backed workflows exactly.
+- `entry_surface=standalone_skill` means the skill is user-discoverable as a skill, not a declared slash command.
+- `host_scope=host_exclusive` and `target_host_maintenance` require `owner_host` and must be justified by code facts in the skill content.
+- User-visible entrypoint rules:
+  - Claude workflow entrypoints use `/spec:*`
+  - Codex workflow entrypoints use `$spec-*`
+  - Standalone skills must be described as skills, not as slash commands
+  - `**Codex entry point:** /spec:*` is always wrong
+- Governance boundary:
+  - `Skill(...)`, `skill:`, and other internal DSL/tool-invocation syntax are not user-visible entrypoints and must not be linted as such.
+- When changing skill entrypoints or host delivery behavior, update all of:
+  - `skills/`
+  - `docs/10-prompt/skills/` mirror
+  - `docs/contracts/dual-host-governance/README.md`
+  - `src/cli/contracts/dual-host-governance/skills-governance.json`
+  - related tests / lint rules
+
 <!-- spec-first:lang:start -->
 ## 语言与治理策略（由 spec-first 管理）
 

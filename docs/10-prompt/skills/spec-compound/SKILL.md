@@ -1,55 +1,82 @@
 ---
 name: compound-workflow
-description: 记录最近解决的问题以丰富团队的知识
+description: Document a recently solved problem to compound your team's knowledge
 argument-hint: "[optional: brief context about the fix]"
 ---
-# /化合物
 
-协调并行工作的多个子代理以记录最近解决的问题。
+# Spec-First Compound
 
-## 目的
+Coordinate multiple subagents working in parallel to document a recently solved problem.
 
-在上下文新鲜时捕获问题解决方案，使用 YAML frontmatter 在 `docs/solutions/` 中创建结构化文档，以供搜索和将来参考。使用并行子代理以获得最大效率。
+## Purpose
 
-**为什么要“复合”？** 每个记录在案的解决方案都会复合您团队的知识。第一次解决问题需要进行研究。记录下来，下一次发生需要几分钟的时间。知识复合。
+Captures problem solutions while context is fresh, creating structured documentation in `docs/solutions/` with YAML frontmatter for searchability and future reference. Uses parallel subagents for maximum efficiency.
 
-＃＃ 用法
+**Why "compound"?** Each documented solution compounds your team's knowledge. The first time you solve a problem takes research. Document it, and the next occurrence takes minutes. Knowledge compounds.
+
+## Usage
+
 ```bash
-/spec:compound                    # Document the most recent fix
-/spec:compound [brief context]    # Provide additional context hint
+Claude: /spec:compound [brief context]
+Codex:  $spec-compound [brief context]
 ```
-## 支持文件
 
-这些文件是工作流程的持久合同。在需要它们的步骤中按需阅读它们 - 不要在技能开始时批量加载。
+## Support Files
 
-- `references/schema.yaml` — 规范的 frontmatter 字段和枚举值（验证 YAML 时读取）
-- `references/yaml-schema.md` — 从 Problem_type 到目录的类别映射（分类时读取）
-- `assets/resolution-template.md` — 新文档的节结构（组装时读取）
+These files are the durable contract for the workflow. Read them on-demand at the step that needs them — do not bulk-load at skill start.
 
-生成子代理时，将相关文件内容传递到任务提示中，以便它们无需跨技能路径即可获得合同。
+- `references/schema.yaml` — canonical frontmatter fields and enum values (read when validating YAML)
+- `references/yaml-schema.md` — category mapping from problem_type to directory (read when classifying)
+- `assets/resolution-template.md` — section structure for new docs (read when assembling)
 
-## 执行策略
+When spawning subagents, pass the relevant file contents into the task prompt so they have the contract without needing cross-skill paths.
 
-**默认情况下始终运行完整模式。** 直接进入阶段 1，除非用户明确请求紧凑安全模式（例如，`/spec:compound --compact` 或“使用紧凑模式”）。
+## Execution Strategy
 
-紧凑安全模式作为一种轻量级替代方案存在 - 请参阅下面的 **紧凑安全模式** 部分。如果用户想要它，它就在那里，而不是需要推送的东西。
+Present the user with two options before proceeding, using the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). If no question tool is available, present the options and wait for the user's reply.
+
+```
+1. Full (recommended) — the complete compound workflow. Researches,
+   cross-references, and reviews your solution to produce documentation
+   that compounds your team's knowledge.
+
+2. Lightweight — same documentation, single pass. Faster and uses
+   fewer tokens, but won't detect duplicates or cross-reference
+   existing docs. Best for simple fixes or long sessions nearing
+   context limits.
+```
+
+Do NOT pre-select a mode. Do NOT skip this prompt. Wait for the user's choice before proceeding.
+
+**If the user chooses Full**, ask one follow-up question before proceeding. Detect which harness is running (Claude Code, Codex, or Cursor) and ask:
+
+```
+Would you also like to search your [harness name] session history
+for relevant knowledge to help the Compound process? This adds
+time and token usage.
+```
+
+If the user says yes, dispatch the Session Historian in Phase 1. If no, skip it. Do not ask this in lightweight mode.
 
 ---
 
-### 完整模式
+### Full Mode
 
-<关键要求>
-**仅写入一个文件 - 最终文档。**
+<critical_requirement>
+**The primary output is ONE file - the final documentation.**
 
-第 1 阶段子代理将文本数据返回到协调器。他们不得使用写入、编辑或创建任何文件。只有协调器（第 2 阶段）编写最终文档文件。
-</关键要求>
+Phase 1 subagents return TEXT DATA to the orchestrator. They must NOT use Write, Edit, or create any files. Only the orchestrator writes files: the solution doc in Phase 2, and — if the Discoverability Check finds a gap — a small edit to a project instruction file (`AGENTS.md` or `CLAUDE.md`). The instruction-file edit is maintenance, not a second deliverable; it ensures future agents can discover the knowledge store.
+</critical_requirement>
 
-### 阶段 0.5：自动内存扫描
+### Phase 0.5: Auto Memory Scan
 
-在启动第 1 阶段子代理之前，请检查自动内存目录中与所记录问题相关的注释。1.从自动内存目录中读取MEMORY.md（该路径从系统提示上下文中得知）
-2. 如果目录或 MEMORY.md 不存在、为空或不可读，则跳过此步骤并继续进行阶段 1 不变
-3. 扫描条目以查找与正在记录的问题相关的任何内容——使用语义判断，而不是关键字匹配
-4. 如果找到相关条目，请准备一个带标签的摘录块：
+Before launching Phase 1 subagents, check the auto memory directory for notes relevant to the problem being documented.
+
+1. Read `MEMORY.md` from the auto memory directory (the path is known from the system prompt context)
+2. If the directory or `MEMORY.md` does not exist, is empty, or is unreadable, skip this step and proceed to Phase 1 unchanged
+3. Scan the entries for anything related to the problem being documented -- use semantic judgment, not keyword matching
+4. If relevant entries are found, prepare a labeled excerpt block:
+
 ```
 ## Supplementary notes from auto memory
 Treat as additional context, not primary evidence. Conversation history
@@ -57,243 +84,341 @@ and codebase findings take priority over these notes.
 
 [relevant entries here]
 ```
-5. 将此块作为附加上下文传递给阶段 1 中的上下文分析器和解决方案提取器任务提示。如果任何记忆笔记最终出现在最终文档中（例如，作为调查步骤或根本原因分析的一部分），请用“（自动记忆 [claude]）”标记它们，以便将来的读者清楚其来源。
 
-如果没有找到相关条目，则继续到阶段 1，而不传递内存上下文。
+5. Pass this block as additional context to the Context Analyzer and Solution Extractor task prompts in Phase 1. If any memory notes end up in the final documentation (for example, as part of the investigation steps or root cause analysis), tag them with `(auto memory [claude])` so their origin is clear to future readers.
 
-### 第一阶段：并行研究
+If no relevant entries are found, proceed to Phase 1 without passing memory context.
 
-<并行任务>
+### Phase 1: Research
 
-并行启动这些子代理。每个都将文本数据返回给协调器。
+Launch research subagents. Each returns text data to the orchestrator.
 
-#### 1. **上下文分析器**
-   - 提取对话历史记录
-   - 识别问题类型、组成部分、症状
-   - 在识别问题类型、组件和症状时纳入自动记忆摘录（如果由协调器提供）作为补充证据
-   - 读取 `references/schema.yaml` 进行枚举验证
-   - 读取 `references/yaml-schema.md` 将类别映射到 `docs/solutions/`
-   - 使用模式 `[sanitized-problem-slug]-[date].md` 建议文件名
-   - 返回：YAML frontmatter 骨架（必须包括从 Problem_type 映射的 `category:` 字段）、类别目录路径和建议的文件名
-   - 不会凭记忆发明枚举值、类别或 frontmatter 字段；读取上面的模式和映射文件#### 2. **Solution Extractor**
-   - Analyzes all investigation steps
-   - 找出根本原因
-   - Extracts working solution with code examples
-   - 纳入自动记忆摘录（如果由协调器提供）作为补充证据——对话历史记录和经过验证的修复优先；如果记忆笔记与对话相矛盾，请将此矛盾记为警示语境
-   - 制定预防策略和最佳实践指南
-   - Generates test cases if applicable
-   - 返回：解决方案内容块，包括预防部分
+**Dispatch order:**
+- Launch `Context Analyzer`, `Solution Extractor`, and `Related Docs Finder` in parallel (background)
+- Then dispatch `session-historian` in foreground — it reads session files outside the working directory that background agents may not have access to
+- The foreground dispatch runs while the background agents work, adding no wall-clock time
 
-   **预期输出部分（遵循此结构）：**
+<parallel_tasks>
 
-   - **问题**：1-2 句话的问题描述
-   - **症状**：可观察到的症状（错误消息、行为）
-   - **什么不起作用**：失败的调查尝试以及失败的原因
-   - **解决方案**：带有代码示例的实际修复（适用时之前/之后）
-   - **为什么有效**：根本原因解释以及解决方案解决该问题的原因
-   - **预防**：避免复发的策略、最佳实践和测试用例。包括适用的具体代码示例（例如，gem 配置、测试断言、linting 规则）#### 3. **相关文档查找器**
-   - 搜索 `docs/solutions/` 相关文档
-   - 识别交叉引用和链接
-   - 查找相关的 GitHub 问题
-   - 标记现在可能过时、矛盾或过于宽泛的任何相关学习或模式文档
-   - **评估与跨五个维度创建的新文档重叠**：问题陈述、根本原因、解决方法、引用文件和预防规则。得分为：
-     - **高**：4-5 个维度匹配 — 本质上再次解决了相同的问题
-     - **中等**：2-3 个维度匹配 — 相同面积但不同角度或解决方案
-     - **低**：0-1 维度匹配 — 相关但不同
-   - 返回：链接、关系、刷新候选者和重叠评估（分数+匹配的维度）
+#### 1. **Context Analyzer**
+   - Extracts conversation history
+   - Reads `references/schema.yaml` for enum validation and **track classification**
+   - Determines the track (bug or knowledge) from the `problem_type`
+   - Identifies problem type, component, and track-appropriate fields:
+     - **Bug track**: `symptoms`, `root_cause`, `resolution_type`
+     - **Knowledge track**: `applies_when` (`symptoms` / `root_cause` / `resolution_type` optional)
+   - Incorporates auto memory excerpts (if provided by the orchestrator) as supplementary evidence
+   - Reads `references/yaml-schema.md` for category mapping into `docs/solutions/`
+   - Suggests a filename using the pattern `[sanitized-problem-slug]-[date].md`
+   - Returns: YAML frontmatter skeleton (must include `category:` field mapped from `problem_type`), category directory path, suggested filename, and which track applies
+   - Does not invent enum values, categories, or frontmatter fields from memory; reads the schema and mapping files above
+   - Does not force bug-track fields onto knowledge-track learnings or vice versa
 
-   **搜索策略（grep优先过滤以提高效率）：**
+#### 2. **Solution Extractor**
+   - Reads `references/schema.yaml` for track classification (bug vs knowledge)
+   - Adapts output structure based on the `problem_type` track
+   - Incorporates auto memory excerpts (if provided by the orchestrator) as supplementary evidence -- conversation history and the verified fix take priority; if memory notes contradict the conversation, note the contradiction as cautionary context
 
-   1. 从问题上下文中提取关键字：模块名称、技术术语、错误消息、组件类型
-   2. 如果问题类别明确，则缩小搜索范围至匹配的`docs/solutions/<category>/`目录
-   3. 在阅读任何内容之前，使用本机内容搜索工具（例如 Claude Code 中的 Grep）预先过滤候选文件。并行运行多个搜索，不区分大小写，定位 frontmatter 字段。这些是模板模式——替换实际的关键字：
+   **Bug track output sections:**
+
+   - **Problem**: 1-2 sentence description of the issue
+   - **Symptoms**: Observable symptoms (error messages, behavior)
+   - **What Didn't Work**: Failed investigation attempts and why they failed
+   - **Solution**: The actual fix with code examples (before/after when applicable)
+   - **Why This Works**: Root cause explanation and why the solution addresses it
+   - **Prevention**: Strategies to avoid recurrence, best practices, and test cases. Include concrete code examples where applicable (for example, gem configurations, test assertions, linting rules)
+
+   **Knowledge track output sections:**
+
+   - **Context**: What situation, gap, or friction prompted this guidance
+   - **Guidance**: The practice, pattern, or recommendation with code examples when useful
+   - **Why This Matters**: Rationale and impact of following or not following this guidance
+   - **When to Apply**: Conditions or situations where this applies
+   - **Examples**: Concrete before/after or usage examples showing the practice in action
+
+#### 3. **Related Docs Finder**
+   - Searches `docs/solutions/` for related documentation
+   - Identifies cross-references and links
+   - Finds related GitHub issues
+   - Flags any related learning or pattern docs that may now be stale, contradicted, or overly broad
+   - **Assesses overlap** with the new doc being created across five dimensions: problem statement, root cause, solution approach, referenced files, and prevention rules. Score as:
+     - **High**: 4-5 dimensions match — essentially the same problem solved again
+     - **Moderate**: 2-3 dimensions match — same area but different angle or solution
+     - **Low**: 0-1 dimensions match — related but distinct
+   - Returns: Links, relationships, refresh candidates, and overlap assessment (score + which dimensions matched)
+
+   **Search strategy (grep-first filtering for efficiency):**
+
+   1. Extract keywords from the problem context: module names, technical terms, error messages, component types
+   2. If the problem category is clear, narrow search to the matching `docs/solutions/<category>/` directory
+   3. Use the native content-search tool (for example, Grep in Claude Code) to pre-filter candidate files BEFORE reading any content. Run multiple searches in parallel, case-insensitive, targeting frontmatter fields. These are template patterns -- substitute actual keywords:
       - `title:.*<keyword>`
       - `tags:.*(<keyword1>|<keyword2>)`
       - `module:.*<module name>`
       - `component:.*<component>`
-   4. 如果搜索返回 >25 个候选者，则使用更具体的模式重新运行。如果 <3，则扩大到完整内容搜索
-   5. 只读候选文件的 frontmatter（前 30 行）以评分相关性
-   6.完全只读强/中等匹配
-   7.返回经过提炼的链接和关系，而不是原始文件内容**GitHub问题搜索：**
+   4. If search returns >25 candidates, re-run with more specific patterns. If <3, broaden to full content search
+   5. Read only frontmatter (first 30 lines) of candidate files to score relevance
+   6. Fully read only strong/moderate matches
+   7. Return distilled links and relationships, not raw file contents
 
-   优先使用 `gh` CLI 搜索相关问题：`gh issue list --search "<keywords>" --state all --limit 5`。如果未安装 `gh`，则退回到 GitHub MCP 工具（例如，`unblocked` data_retrieval）（如果可用）。如果两者都不可用，请跳过 GitHub 问题搜索并注意它在输出中已被跳过。
+   **GitHub issue search:**
+
+   Prefer the `gh` CLI for searching related issues: `gh issue list --search "<keywords>" --state all --limit 5`. If `gh` is not installed, fall back to the GitHub MCP tools if available. If neither is available, skip GitHub issue search and note it was skipped in the output.
 
 </parallel_tasks>
 
-### 第 2 阶段：汇编和写入
+#### 4. **Session Historian** (foreground, after launching the above — only if the user opted in)
+   - **Skip entirely** if the user declined session history in the follow-up question
+   - Dispatched as `spec-first:research:session-historian`
+   - Dispatch in **foreground** — this agent reads session files outside the working directory (`~/.claude/projects/`, `~/.codex/sessions/`, `~/.cursor/projects/`) which background agents may not have access to
+   - Searches prior Claude Code, Codex, and Cursor sessions for the same project to find related investigation context
+   - Correlates sessions by repo name across all platforms
+   - In the dispatch prompt, pass:
+     - A specific description of the problem being documented — not a generic topic, but the concrete issue (error messages, module names, what broke and how it was fixed)
+     - The current git branch and working directory
+     - The instruction: "Only surface findings from prior sessions that are directly relevant to this specific problem. Ignore unrelated work from the same sessions or branches."
+     - The output format:
 
-<顺序任务>
+       ```
+       Structure your response with these sections (omit any with no findings):
+       - What was tried before: prior approaches to this specific problem
+       - What didn't work: failed attempts at this problem from prior sessions
+       - Key decisions: choices made about this problem and their rationale
+       - Related context: anything else from prior sessions that directly informs this problem's documentation
+       ```
+   - Omit the `mode` parameter so the user's configured permission settings apply
+   - Returns: structured digest of findings from prior sessions, or "no relevant prior sessions" if none found
 
-**等待所有第 1 阶段子代理完成后再继续。**
+### Phase 2: Assembly & Write
 
-编排代理（主对话）执行以下步骤：
+<sequential_tasks>
 
-1. 收集第一阶段子代理的所有文本结果
-2. **在决定要写什么之前，从相关文档查找器中检查重叠评估**：
+**WAIT for all Phase 1 subagents to complete before proceeding.**
 
-   |重叠|行动|
+The orchestrating agent (main conversation) performs these steps:
+
+1. Collect all text results from Phase 1 subagents
+2. **Check the overlap assessment** from the Related Docs Finder before deciding what to write:
+
+   | Overlap | Action |
    |---------|--------|
-   | **高** — 现有文档涵盖相同的问题、根本原因和解决方案 | **使用更新的上下文（新的代码示例、更新的参考、其他预防提示）更新现有文档**，而不是创建重复的文档。现有文档的路径和结构保持不变。 |
-   | **中等** — 相同的问题领域，但角度、根本原因或解决方案不同 | **正常创建新文档**。标记第 2.5 阶段的重叠，以建议合并审查。 |
-   | **低或无** | **正常创建新文档**。 |
+   | **High** — existing doc covers the same problem, root cause, and solution | **Update the existing doc** with fresher context (new code examples, updated references, additional prevention tips) rather than creating a duplicate. The existing doc's path and structure stay the same. |
+   | **Moderate** — same problem area but different angle, root cause, or solution | **Create the new doc** normally. Flag the overlap for Phase 2.5 to recommend consolidation review. |
+   | **Low or none** | **Create the new doc** normally. |
 
-   更新而不是创建的原因：描述相同问题和解决方案的两个文档将不可避免地出现分歧。新的上下文更新鲜、更值得信赖，因此将其合并到现有文档中，而不是创建第二个需要立即合并的文档。更新现有文档时，保留其文件路径和 frontmatter 结构。更新解决方案、代码示例、预防提示和任何过时的参考。将 `last_updated: YYYY-MM-DD` 字段添加到 frontmatter。除非问题框架发生重大变化，否则不要更改标题。
+   The reason to update rather than create: two docs describing the same problem and solution will inevitably drift apart. The newer context is fresher and more trustworthy, so fold it into the existing doc rather than creating a second one that immediately needs consolidation.
 
-3. 从收集的片段中组装完整的 Markdown 文件，阅读 `assets/resolution-template.md` 了解新文档的部分结构
-4. 根据 `references/schema.yaml` 验证 YAML frontmatter
-5. 如果需要，创建目录：`mkdir -p docs/solutions/[category]/`
-6. 写入文件：更新的现有文档或新的 `docs/solutions/[category]/[filename].md`
+   When updating an existing doc, preserve its file path and frontmatter structure. Update the solution, code examples, prevention tips, and any stale references. Add a `last_updated: YYYY-MM-DD` field to the frontmatter. Do not change the title unless the problem framing has materially shifted.
 
-创建新文档时，保留 `assets/resolution-template.md` 中的节顺序，除非用户明确要求不同的结构。
+3. **Incorporate session history findings** (if available). When the Session History Researcher returned relevant prior-session context:
+   - Fold investigation dead ends and failed approaches into the **What Didn't Work** section (bug track) or **Context** section (knowledge track)
+   - Use cross-session patterns to enrich the **Prevention** or **Why This Matters** sections
+   - Tag session-sourced content with `(session history)` so its origin is clear to future readers
+   - If findings are thin or "no relevant prior sessions," proceed without session context
+4. Assemble complete markdown file from the collected pieces, reading `assets/resolution-template.md` for the section structure of new docs
+5. Validate YAML frontmatter against `references/schema.yaml`
+6. Create directory if needed: `mkdir -p docs/solutions/[category]/`
+7. Write the file: either the updated existing doc or the new `docs/solutions/[category]/[filename].md`
+
+When creating a new doc, preserve the section order from `assets/resolution-template.md` unless the user explicitly asks for a different structure.
 
 </sequential_tasks>
 
-### 阶段 2.5：选择性刷新检查
+### Phase 2.5: Selective Refresh Check
 
-编写新的学习内容后，确定这个新解决方案是否是应该刷新旧文档的证据。
+After writing the new learning, decide whether this new solution is evidence that older docs should be refreshed.
 
-`spec:compound-refresh` **不是**默认的后续行动。当新的学习表明旧的学习或模式文档现在可能不准确时，有选择地使用它。
+`spec:compound-refresh` is **not** a default follow-up. Use it selectively when the new learning suggests an older learning or pattern doc may now be inaccurate.
 
-当其中一个或多个为真时，调用 `spec:compound-refresh` 是有意义的：1. 相关的学习或模式文档推荐了一种与新修复现在相矛盾的方法
-2. 新的修复明显取代了旧的记录解决方案
-3. 当前的工作涉及重构、迁移、重命名或依赖项升级，这可能会使旧文档中的引用无效
-4. 模式文档现在看起来过于宽泛、过时，或者不再受到更新的现实的支持
-5. 相关文档查找器在同一问题空间中显示高可信度的刷新候选者
-6. 相关文档查找器报告与现有文档**适度重叠** - 可能存在受益于重点审查的整合机会
+It makes sense to invoke `spec:compound-refresh` when one or more of these are true:
 
-在以下情况下调用 `spec:compound-refresh` **没有**意义：
+1. A related learning or pattern doc recommends an approach that the new fix now contradicts
+2. The new fix clearly supersedes an older documented solution
+3. The current work involved a refactor, migration, rename, or dependency upgrade that likely invalidated references in older docs
+4. A pattern doc now looks overly broad, outdated, or no longer supported by the refreshed reality
+5. The Related Docs Finder surfaced high-confidence refresh candidates in the same problem space
+6. The Related Docs Finder reported **moderate overlap** with an existing doc — there may be consolidation opportunities that benefit from a focused review
 
-1.没有找到相关文档
-2.相关文档仍然与新学习的内容一致
-3. 重叠是表面的，不会改变先前的指导
-4. 刷新需要在证据薄弱的情况下进行广泛的历史回顾
+It does **not** make sense to invoke `spec:compound-refresh` when:
 
-使用这些规则：
+1. No related docs were found
+2. Related docs still appear consistent with the new learning
+3. The overlap is superficial and does not change prior guidance
+4. Refresh would require a broad historical review with weak evidence
 
-- 如果有**一个明显陈旧的候选者**，则在写入新学习内容后使用窄范围提示调用 `spec:compound-refresh`
-- 如果**同一区域有多个候选**，询问用户是否对该模块、类别或模式集运行有针对性的刷新
-- 如果上下文已经很紧张或者您处于紧凑安全模式，请不要自动扩展为广泛刷新；相反，推荐 `spec:compound-refresh` 作为下一步并带有范围提示
+Use these rules:
 
-当调用或推荐 `spec:compound-refresh` 时，请明确要传递的参数。优先选择最窄的有用范围：- **特定文件** 当一个学习或模式文档可能是过时的工件时
-- **当多个相关文档可能需要审查时的模块或组件名称**
-- **当漂移集中在一个解决方案区域时的类别名称**
-- **当过时指南存在于 `docs/solutions/patterns/` 中时，模式文件名或模式主题**
+- If there is **one obvious stale candidate**, invoke `spec:compound-refresh` with a narrow scope hint after the new learning is written
+- If there are **multiple candidates in the same area**, ask the user whether to run a targeted refresh for that module, category, or pattern set
+- If context is already tight or you are in lightweight mode, do not expand into a broad refresh automatically; instead recommend `spec:compound-refresh` as the next step with a scope hint
 
-示例：
+When invoking or recommending `spec:compound-refresh`, be explicit about the argument to pass. Prefer the narrowest useful scope:
+
+- **Specific file** when one learning or pattern doc is the likely stale artifact
+- **Module or component name** when several related docs may need review
+- **Category name** when the drift is concentrated in one solutions area
+- **Pattern filename or pattern topic** when the stale guidance lives in `docs/solutions/patterns/`
+
+Examples:
 
 - `/spec:compound-refresh plugin-versioning-requirements`
 - `/spec:compound-refresh payments`
 - `/spec:compound-refresh performance-issues`
 - `/spec:compound-refresh critical-patterns`
 
-当更改在一个域、类别或模式区域内横切时，单个范围提示仍可能扩展到多个相关文档。
+A single scope hint may still expand to multiple related docs when the change is cross-cutting within one domain, category, or pattern area.
 
-除非用户明确想要进行广泛的扫描，否则不要在没有参数的情况下调用 `spec:compound-refresh`。
+Do not invoke `spec:compound-refresh` without an argument unless the user explicitly wants a broad sweep.
 
-始终首先捕捉新的学习内容。刷新是有针对性的维护后续行动，而不是记录的先决条件。
+Always capture the new learning first. Refresh is a targeted maintenance follow-up, not a prerequisite for documentation.
 
-### 第 3 阶段：可选增强
+### Discoverability Check
 
-**等待第 2 阶段完成后再继续。**
+After the learning is written and the refresh decision is made, check whether the project's instruction files would lead an agent to discover and search `docs/solutions/` before starting work in a documented area. This runs every time — the knowledge store only compounds value when agents can find it.
 
-<并行任务>
+1. Identify which root-level instruction files exist (`AGENTS.md`, `CLAUDE.md`, or both). Read the file(s) and determine which holds the substantive content — one file may just be a shim that `@`-includes the other (for example, `CLAUDE.md` containing only `@AGENTS.md`, or vice versa). The substantive file is the assessment and edit target; ignore shims. If neither file exists, skip this check entirely.
+2. Assess whether an agent reading the instruction files would learn three things:
+   - That a searchable knowledge store of documented solutions exists
+   - Enough about its structure to search effectively (category organization, YAML frontmatter fields like `module`, `tags`, `problem_type`)
+   - When to search it (before implementing features, debugging issues, or making decisions in documented areas — learnings may cover bugs, best practices, workflow patterns, or other institutional knowledge)
 
-根据问题类型，可以选择调用专门代理来查看文档：
+   This is a semantic assessment, not a string match. The information could be a line in an architecture section, a bullet in a gotchas section, spread across multiple places, or expressed without ever using the exact path `docs/solutions/`. Use judgment — if an agent would reasonably discover and use the knowledge store after reading the file, the check passes.
 
-- **性能问题** → `performance-oracle`
-- **安全问题** → `security-sentinel`
-- **数据库问题** → `data-integrity-guardian`
-- **测试失败** → `cora-test-reviewer`
-- 任何代码量大的问题 → `kieran-rails-reviewer` + `code-simplicity-reviewer`
+3. If the spirit is already met, no action needed — move on.
+4. If not:
+   a. Based on the file's existing structure, tone, and density, identify where a mention fits naturally. Before creating a new section, check whether the information could be a single line in the closest related section — an architecture tree, a directory listing, a documentation section, or a conventions block. A line added to an existing section is almost always better than a new headed section. Only add a new section as a last resort when the file has clear sectioned structure and nothing is even remotely related.
+   b. Draft the smallest addition that communicates the three things. Match the file's existing style and density. The addition should describe the knowledge store itself, not the plugin — an agent without the plugin should still find value in it.
+
+      Keep the tone informational, not imperative. Express timing as description, not instruction — "relevant when implementing or debugging in documented areas" rather than "check before implementing or debugging." Imperative directives like "always search before implementing" cause redundant reads when a workflow already includes a dedicated search step. The goal is awareness: agents learn the folder exists and what's in it, then use their own judgment about when to consult it.
+
+      Examples of calibration (not templates — adapt to the file):
+
+      When there's an existing directory listing or architecture section — add a line:
+      ```
+      docs/solutions/  # documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (module, tags, problem_type)
+      ```
+
+      When nothing in the file is a natural fit — a small headed section is appropriate:
+      ```
+      ## Documented Solutions
+
+      `docs/solutions/` — documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`). Relevant when implementing or debugging in documented areas.
+      ```
+   c. In full mode, explain to the user why this matters — agents working in this repo (including fresh sessions, other tools, or collaborators without the plugin) will not know to check `docs/solutions/` unless the instruction file surfaces it. Show the proposed change and where it would go, then use the platform's blocking question tool to get consent before making the edit. If no question tool is available, present the proposal and wait for the user's reply. In lightweight mode, output a one-line note and move on.
+
+### Phase 3: Optional Enhancement
+
+**WAIT for Phase 2 to complete before proceeding.**
+
+<parallel_tasks>
+
+Based on problem type, optionally invoke specialized agents to review the documentation:
+
+- **performance_issue** → `performance-oracle`
+- **security_issue** → `security-sentinel`
+- **database_issue** → `data-integrity-guardian`
+- Any code-heavy issue → always run `code-simplicity-reviewer`, and additionally run the kieran reviewer that matches the repo's primary stack:
+  - Ruby/Rails → also run `kieran-rails-reviewer`
+  - Python → also run `kieran-python-reviewer`
+  - TypeScript/JavaScript → also run `kieran-typescript-reviewer`
+  - Other stacks → no kieran reviewer needed
 
 </parallel_tasks>
 
 ---
 
-### 紧凑安全模式
+### Lightweight Mode
 
-<关键要求>
-**上下文受限会话的单遍替代方案。**
+<critical_requirement>
+**Single-pass alternative — same documentation, fewer tokens.**
 
-当上下文预算紧张时，此模式完全跳过并行子代理。协调器一次性执行所有工作，生成最小但完整的解决方案文档。
-</关键要求>
+This mode skips parallel subagents entirely. The orchestrator performs all work in a single pass, producing the same solution document without cross-referencing or duplicate detection.
+</critical_requirement>
 
-协调器（主对话）在一次连续传递中执行以下所有操作：1. **对话摘录**：从对话历史记录中识别问题、根本原因和解决方案。还要从自动内存目录中读取 MEMORY.md（如果存在）——使用任何相关注释作为对话历史记录的补充上下文。使用“(自动记忆 [claude])”标记合并到最终文档中的任何源自记忆的内容
-2. **分类**：读取`references/schema.yaml`和`references/yaml-schema.md`，然后从中确定类别和文件名
-3. **编写最少的文档**：使用 `assets/resolution-template.md` 作为基本结构创建 `docs/solutions/[category]/[filename].md`，其中：
-   - YAML frontmatter（标题、类别、日期、标签）
-   - 问题描述（1-2句话）
-   - 根本原因（1-2句话）
-   - 包含关键代码片段的解决方案
-   - 一项预防技巧
-4. **跳过专业代理审查**（第 3 阶段）以保留上下文
+The orchestrator (main conversation) performs ALL of the following in one sequential pass:
 
-**紧凑型安全输出：**
+1. **Extract from conversation**: Identify the problem and solution from conversation history. Also read `MEMORY.md` from the auto memory directory if it exists -- use any relevant notes as supplementary context alongside conversation history. Tag any memory-sourced content incorporated into the final doc with `(auto memory [claude])`
+2. **Classify**: Read `references/schema.yaml` and `references/yaml-schema.md`, then determine track (bug vs knowledge), category, and filename
+3. **Write minimal doc**: Create `docs/solutions/[category]/[filename].md` using the appropriate track template from `assets/resolution-template.md`, with:
+   - YAML frontmatter with track-appropriate fields
+   - Bug track: Problem, root cause, solution with key code snippets, one prevention tip
+   - Knowledge track: Context, guidance with key examples, one applicability note
+4. **Skip specialized agent reviews** (Phase 3) to conserve context
+
+**Lightweight output:**
 ```
-✓ Documentation complete (compact-safe mode)
+✓ Documentation complete (lightweight mode)
 
 File created:
 - docs/solutions/[category]/[filename].md
 
-Note: This was created in compact-safe mode. For richer documentation
+[If discoverability check found instruction files don't surface the knowledge store:]
+Tip: Your AGENTS.md/CLAUDE.md doesn't surface docs/solutions/ to agents —
+a brief mention helps all agents discover these learnings.
+
+Note: This was created in lightweight mode. For richer documentation
 (cross-references, detailed prevention strategies, specialized reviews),
 re-run /compound in a fresh session.
 ```
-**没有启动任何子代理。没有并行任务。写入一个文件。**
 
-在紧凑安全模式下，将跳过重叠检查（无相关文档查找器子代理）。这意味着紧凑安全模式可能会创建与现有文档重叠的文档。这是可以接受的——`spec:compound-refresh`稍后会明白。仅当存在明显的狭窄刷新目标时才建议`spec:compound-refresh`。不要从紧凑安全会话扩展为大型刷新扫描。
+**No subagents are launched. No parallel tasks. One file written.**
+
+In lightweight mode, the overlap check is skipped (no Related Docs Finder subagent). This means lightweight mode may create a doc that overlaps with an existing one. That is acceptable — `spec:compound-refresh` will catch it later. Only suggest `spec:compound-refresh` if there is an obvious narrow refresh target. Do not broaden into a large refresh sweep from a lightweight session.
 
 ---
 
-## 它捕获了什么
+## What It Captures
 
-- **问题症状**：确切的错误消息，可观察的行为
-- **尝试的调查步骤**：什么不起作用以及原因
-- **根本原因分析**：技术解释
-- **工作解决方案**：使用代码示例逐步修复
-- **预防策略**：未来如何避免
-- **交叉引用**：相关问题和文档的链接
+- **Problem symptom**: Exact error messages, observable behavior
+- **Investigation steps tried**: What didn't work and why
+- **Root cause analysis**: Technical explanation
+- **Working solution**: Step-by-step fix with code examples
+- **Prevention strategies**: How to avoid in future
+- **Cross-references**: Links to related issues and docs
 
-## 前提条件
+## Preconditions
 
-<先决条件执行=“咨询”>
-  <检查条件=“问题已解决”>
-    问题已解决（未进行中）
-  </检查>
-  <检查条件=“solution_verified”>
-    解决方案已被验证有效
-  </检查>
-  <检查条件=“non_trivial”>
-    不平凡的问题（不是简单的拼写错误或明显的错误）
-  </检查>
-</前提条件>
+<preconditions enforcement="advisory">
+  <check condition="problem_solved">
+    Problem has been solved (not in-progress)
+  </check>
+  <check condition="solution_verified">
+    Solution has been verified working
+  </check>
+  <check condition="non_trivial">
+    Non-trivial problem (not simple typo or obvious error)
+  </check>
+</preconditions>
 
-## 它创造了什么
+## What It Creates
 
-**组织文档：**
+**Organized documentation:**
 
-- 文件：`docs/solutions/[category]/[filename].md`
+- File: `docs/solutions/[category]/[filename].md`
 
-**从问题中自动检测的类别：**
+**Categories auto-detected from problem:**
 
-- 构建错误/
-- 测试失败/
-- 运行时错误/
-- 性能问题/
-- 数据库问题/
-- 安全问题/
-- 用户界面错误/
-- 整合问题/
-- 逻辑错误/
+- build-errors/
+- test-failures/
+- runtime-errors/
+- performance-issues/
+- database-issues/
+- security-issues/
+- ui-bugs/
+- integration-issues/
+- logic-errors/
 
-## 要避免的常见错误| ❌ 错 | ✅ 正确 |
-|----------|------------|
-|子代理写入 `context-analysis.md`、`solution-draft.md` | 等文件子代理返回文本数据； Orchestrator 写入一个最终文件 |
-|研究和组装并行进行|研究完成 → 然后组装运行 |
-|工作流程期间创建的多个文件 |写入或更新的一个文件：`docs/solutions/[category]/[filename].md` |
-|当现有文档涵盖相同问题时创建新文档 |检查重叠评估；当重叠度较高时更新现有文档 |
+## Common Mistakes to Avoid
 
-## 成功输出
+| ❌ Wrong | ✅ Correct |
+|----------|-----------|
+| Subagents write files like `context-analysis.md`, `solution-draft.md` | Subagents return text data; orchestrator writes one final file |
+| Research and assembly run in parallel | Research completes → then assembly runs |
+| Multiple files created during workflow | One file written or updated: `docs/solutions/[category]/[filename].md` |
+| Creating a new doc when an existing doc covers the same problem | Check overlap assessment; update the existing doc when overlap is high |
+
+## Success Output
+
 ```
 ✓ Documentation complete
 
@@ -306,9 +431,8 @@ Subagent Results:
 
 Specialized Agent Reviews (Auto-Triggered):
   ✓ performance-oracle: Validated query optimization approach
-  ✓ kieran-rails-reviewer: Code examples meet Rails standards
+  ✓ kieran-typescript-reviewer: Code examples meet TypeScript standards
   ✓ code-simplicity-reviewer: Solution is appropriately minimal
-  ✓ every-style-editor: Documentation style verified
 
 File created:
 - docs/solutions/performance-issues/n-plus-one-brief-generation.md
@@ -323,7 +447,11 @@ What's next?
 4. View documentation
 5. Other
 ```
-**替代输出（由于高度重叠而更新现有文档时）：**
+
+**After displaying the success output, present the "What's next?" options using the platform's blocking question tool when available.** If no question tool is available, present the numbered options and wait for the user's reply before proceeding. Do not continue the workflow or end the turn without the user's selection.
+
+**Alternate output (when updating an existing doc due to high overlap):**
+
 ```
 ✓ Documentation updated (existing doc refreshed with current context)
 
@@ -334,58 +462,61 @@ Overlap detected: docs/solutions/performance-issues/n-plus-one-queries.md
 File updated:
 - docs/solutions/performance-issues/n-plus-one-queries.md (added last_updated: 2026-03-24)
 ```
-## 复合哲学
 
-这就创建了一个复合知识系统：
+## The Compounding Philosophy
 
-1. 第一次解决“简短生成中的 N+1 查询” → 研究（30 分钟）
-2. 记录解决方案 → docs/solutions/performance-issues/n-plus-one-briefs.md（5 分钟）
-3.下次出现类似问题→快速查找（2分钟）
-4. 知识复合→团队变得更聪明
+This creates a compounding knowledge system:
 
-反馈循环：
+1. First time you solve "N+1 query in brief generation" → Research (30 min)
+2. Document the solution → docs/solutions/performance-issues/n-plus-one-briefs.md (5 min)
+3. Next time similar issue occurs → Quick lookup (2 min)
+4. Knowledge compounds → Team gets smarter
+
+The feedback loop:
+
 ```
 Build → Test → Find Issue → Research → Improve → Document → Validate → Deploy
     ↑                                                                      ↓
     └──────────────────────────────────────────────────────────────────────┘
 ```
-**每个工程工作单元都应该使后续工作单元变得更容易，而不是更困难。**
 
-## 自动调用
+**Each unit of engineering work should make subsequent units of work easier—not harder.**
 
-<auto_invoke> <trigger_phrases> - “有效” - “已修复” - “正在工作” - “问题已解决” </trigger_phrases>
+## Auto-Invoke
 
-<manual_override> 使用 /spec:compound [context] 立即记录，无需等待自动检测。 </手动覆盖> </自动调用>
+<auto_invoke> <trigger_phrases> - "that worked" - "it's fixed" - "working now" - "problem solved" </trigger_phrases>
 
-## 输出
+<manual_override> Use /spec:compound [context] to document immediately without waiting for auto-detection. </manual_override> </auto_invoke>
 
-将最终的学习结果直接写入`docs/solutions/`。
+## Output
 
-## 适用的专业代理商
+Writes the final learning directly into `docs/solutions/`.
 
-根据问题类型，这些代理可以增强文档记录：
+## Applicable Specialized Agents
 
-### 代码质量和审查
-- **kieran-rails-reviewer**：审查 Rails 最佳实践的代码示例
-- **code-simplicity-reviewer**：确保解决方案代码最少且清晰
-- **模式识别专家**：识别反模式或重复问题
+Based on problem type, these agents can enhance documentation:
 
-### 特定领域专家
-- **performance-oracle**：分析 Performance_issue 类别解决方案
-- **security-sentinel**：审查安全问题解决方案中的漏洞
-- **cora-test-reviewer**：为预防策略创建测试用例
-- **data-integrity-guardian**：审查数据库问题迁移和查询
+### Code Quality & Review
+- **kieran-rails-reviewer**: Reviews code examples for Rails best practices
+- **kieran-python-reviewer**: Reviews code examples for Python best practices
+- **kieran-typescript-reviewer**: Reviews code examples for TypeScript best practices
+- **code-simplicity-reviewer**: Ensures solution code is minimal and clear
+- **pattern-recognition-specialist**: Identifies anti-patterns or repeating issues
 
-### 增强和文档
-- **最佳实践研究员**：通过行业最佳实践丰富解决方案
-- **every-style-editor**：审查文档风格和清晰度
-- **framework-docs-researcher**：Rails/gem 文档参考的链接
+### Specific Domain Experts
+- **performance-oracle**: Analyzes performance_issue category solutions
+- **security-sentinel**: Reviews security_issue solutions for vulnerabilities
+- **data-integrity-guardian**: Reviews database_issue migrations and queries
 
-### 何时调用
-- **自动触发**（可选）：代理可以运行后期文档以进行增强
-- **手动触发**：用户可以在 /spec:compound 完成后调用代理以进行更深入的审查
+### Enhancement & Documentation
+- **best-practices-researcher**: Enriches solution with industry best practices
+- **framework-docs-researcher**: Links to Rails/gem documentation references
 
-## 相关命令
+### When to Invoke
+- **Auto-triggered** (optional): Agents can run post-documentation for enhancement
+- **Manual trigger**: User can invoke agents after /spec:compound completes for deeper review
 
-- `/research [topic]` - 深入调查（搜索文档/解决方案/模式）
-- `/spec:plan` - 规划工作流程（参考记录的解决方案）
+## Related Commands
+
+- `spec-sessions` workflow - Search prior agent sessions for related historical context
+- `spec:plan` workflow - Planning workflow that can reuse documented solutions

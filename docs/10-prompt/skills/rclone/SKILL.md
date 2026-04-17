@@ -1,73 +1,164 @@
 ---
 name: rclone
-description: 使用 rclone 在多种云存储之间上传、同步和管理文件。适用于上传图片、视频、文档到 S3、Cloudflare R2、Backblaze B2、Google Drive、Dropbox 或任意 S3 兼容存储。
+description: Upload, sync, and manage files across cloud storage providers using rclone. Use when uploading files (images, videos, documents) to S3, Cloudflare R2, Backblaze B2, Google Drive, Dropbox, or any S3-compatible storage. Triggers on "upload to S3", "sync to cloud", "rclone", "backup files", "upload video/image to bucket", or requests to transfer files to remote storage.
 ---
 
-# Rclone
+# rclone File Transfer Skill
 
-使用 `rclone` 在本地与云存储之间传输文件。
+## Boundaries
 
-## 适用场景
+Use this skill for **provider-agnostic remote file transfer**: uploading artifacts, syncing directories, verifying remote objects, or backing up generated files to an existing `rclone` remote.
 
-- 上传文件到对象存储或网盘
-- 同步目录到远端
-- 备份生成产物
-- 校验远端文件是否存在
+Do **not** use this skill as a replacement for `deploy-docs` or `feature-video`. Those workflows own GitHub Pages deployment and GitHub PR evidence upload. Use `rclone` when the task is generic cloud/object-storage transfer rather than a product-specific publishing workflow.
 
-## 工作流
+## Setup Check (Always Run First)
 
-### 第 1 步：确认目标
-
-明确以下信息：
-
-- 要上传或同步的本地路径
-- 目标 remote 名称
-- bucket / 目录路径
-- 期望动作：`copy`、`sync`、`move` 还是 `ls`
-
-### 第 2 步：检查配置
-
-先验证 `rclone` 是否可用，以及 remote 是否已配置。
-
-常用命令：
+Before any rclone operation, verify installation and configuration:
 
 ```bash
-rclone version
-rclone listremotes
-rclone config show
+bash skills/rclone/scripts/check_setup.sh
 ```
 
-如果 remote 未配置，先提示用户完成配置，再继续。
-
-### 第 3 步：执行操作
-
-根据任务选择最小必要命令：
+If you need the checks inline or the repo-local helper is unavailable, run:
 
 ```bash
-rclone copy <src> <remote>:<path>
-rclone sync <src> <remote>:<path>
-rclone move <src> <remote>:<path>
-rclone ls <remote>:<path>
+# Check if rclone is installed
+command -v rclone >/dev/null 2>&1 && echo "rclone installed: $(rclone version | head -1)" || echo "NOT INSTALLED"
+
+# List configured remotes
+rclone listremotes 2>/dev/null || echo "NO REMOTES CONFIGURED"
 ```
 
-上传前，可先用：
+### If rclone is NOT installed
+
+Guide the user to install:
 
 ```bash
-rclone copy --dry-run <src> <remote>:<path>
+# macOS
+brew install rclone
+
+# Linux (script install)
+curl https://rclone.org/install.sh | sudo bash
+
+# Or via package manager
+sudo apt install rclone  # Debian/Ubuntu
+sudo dnf install rclone  # Fedora
 ```
 
-### 第 4 步：验证结果
+### If NO remotes are configured
 
-上传或同步后，检查：
+Walk the user through interactive configuration:
 
-- 命令退出状态
-- 传输文件数量
-- 目标路径中的文件是否存在
-- 如有需要，比较文件大小或校验和
+```bash
+rclone config
+```
 
-## 原则
+**Common provider setup quick reference:**
 
-- 默认优先 `copy`，除非用户明确要求删除源文件
-- `sync` 可能删除远端多余文件，执行前必须确认
-- 对大批量传输，优先先做 `--dry-run`
-- 汇报时说明源路径、目标路径、实际执行命令和验证结果
+| Provider | Type | Key Settings |
+|----------|------|--------------|
+| AWS S3 | `s3` | access_key_id, secret_access_key, region |
+| Cloudflare R2 | `s3` | access_key_id, secret_access_key, endpoint (account_id.r2.cloudflarestorage.com) |
+| Backblaze B2 | `b2` | account (keyID), key (applicationKey) |
+| DigitalOcean Spaces | `s3` | access_key_id, secret_access_key, endpoint (region.digitaloceanspaces.com) |
+| Google Drive | `drive` | OAuth flow (opens browser) |
+| Dropbox | `dropbox` | OAuth flow (opens browser) |
+
+**Example: Configure Cloudflare R2**
+```bash
+rclone config create r2 s3 \
+  provider=Cloudflare \
+  access_key_id=YOUR_ACCESS_KEY \
+  secret_access_key=YOUR_SECRET_KEY \
+  endpoint=ACCOUNT_ID.r2.cloudflarestorage.com \
+  acl=private
+```
+
+**Example: Configure AWS S3**
+```bash
+rclone config create aws s3 \
+  provider=AWS \
+  access_key_id=YOUR_ACCESS_KEY \
+  secret_access_key=YOUR_SECRET_KEY \
+  region=us-east-1
+```
+
+## Common Operations
+
+### Upload single file
+```bash
+rclone copy /path/to/file.mp4 remote:bucket/path/ --progress
+```
+
+### Upload directory
+```bash
+rclone copy /path/to/folder remote:bucket/folder/ --progress
+```
+
+### Sync directory (mirror, deletes removed files)
+```bash
+rclone sync /local/path remote:bucket/path/ --progress
+```
+
+`sync` can delete remote files that are missing locally. Require explicit user confirmation before using `sync` when the target already contains important data.
+
+### List remote contents
+```bash
+rclone ls remote:bucket/
+rclone lsd remote:bucket/  # directories only
+```
+
+### Check what would be transferred (dry run)
+```bash
+rclone copy /path remote:bucket/ --dry-run
+```
+
+## Useful Flags
+
+| Flag | Purpose |
+|------|---------|
+| `--progress` | Show transfer progress |
+| `--dry-run` | Preview without transferring |
+| `-v` | Verbose output |
+| `--transfers=N` | Parallel transfers (default 4) |
+| `--bwlimit=RATE` | Bandwidth limit (e.g., `10M`) |
+| `--checksum` | Compare by checksum, not size/time |
+| `--exclude="*.tmp"` | Exclude patterns |
+| `--include="*.mp4"` | Include only matching |
+| `--min-size=SIZE` | Skip files smaller than SIZE |
+| `--max-size=SIZE` | Skip files larger than SIZE |
+
+## Large File Uploads
+
+For videos and large files, use chunked uploads:
+
+```bash
+# S3 multipart upload (automatic for >200MB)
+rclone copy large_video.mp4 remote:bucket/ --s3-chunk-size=64M --progress
+
+# Resume interrupted transfers
+rclone copy /path remote:bucket/ --progress --retries=5
+```
+
+## Verify Upload
+
+```bash
+# Check file exists and matches
+rclone check /local/file remote:bucket/file
+
+# Get file info
+rclone lsl remote:bucket/path/to/file
+```
+
+## Troubleshooting
+
+```bash
+# Test connection
+rclone lsd remote:
+
+# Debug connection issues
+rclone lsd remote: -vv
+
+# Check config
+rclone config show remote
+```

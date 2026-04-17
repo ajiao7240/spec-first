@@ -1,46 +1,49 @@
 ---
 name: agent-native-audit
-description: 使用评分原则运行全面的代理本机架构审查
+description: Run comprehensive agent-native architecture review with scored principles
 argument-hint: "[optional: specific principle to audit]"
 disable-model-invocation: true
 ---
-# Agent-Native 架构审计
 
-根据代理本机架构原则对代码库进行全面审查，为每个原则启动并行子代理并生成评分报告。
+# Agent-Native Architecture Audit
 
-## 审计的核心原则
+Conduct a comprehensive review of the codebase against agent-native architecture principles, launching parallel sub-agents for each principle and producing a scored report.
 
-1. **动作对等** - “用户能做的，代理也能做”
-2. **工具作为原语** - “工具提供能力，而不是行为”
-3. **上下文注入** - “系统提示包含有关应用程序状态的动态上下文”
-4. **共享工作空间** - “代理和用户在同一数据空间中工作”
-5. **CRUD 完整性** - “每个实体都有完整的 CRUD（创建、读取、更新、删除）”
-6. **UI 集成** - “代理操作立即反映在 UI 中”
-7. **能力发现** - “用户可以发现代理可以做什么”
-8. **提示原生功能** - “功能是定义结果的提示，而不是代码”
+## Core Principles to Audit
 
-## 工作流程
+1. **Action Parity** - "Whatever the user can do, the agent can do"
+2. **Tools as Primitives** - "Tools provide capability, not behavior"
+3. **Context Injection** - "System prompt includes dynamic context about app state"
+4. **Shared Workspace** - "Agent and user work in the same data space"
+5. **CRUD Completeness** - "Every entity has full CRUD (Create, Read, Update, Delete)"
+6. **UI Integration** - "Agent actions immediately reflected in UI"
+7. **Capability Discovery** - "Users can discover what the agent can do"
+8. **Prompt-Native Features** - "Features are prompts defining outcomes, not code"
 
-### 第 1 步：加载 Agent-Native 技能
+## Workflow
 
-首先，调用代理原生架构技能来理解所有原理：
+### Step 1: Load the Agent-Native Skill
+
+First, invoke the agent-native-architecture skill to understand all principles:
+
 ```
-/agent-native-architecture
+Load the `agent-native-architecture` skill
 ```
-选择选项 7（操作奇偶校验）以加载完整的参考材料。
 
-### 第 2 步：启动并行子代理
+Select option 7 (action parity) to load the full reference material.
 
-使用带有 `subagent_type: Explore` 的任务工具启动 8 个并行子代理，每个原则一个。每个代理人应该：
+### Step 2: Launch Parallel Sub-Agents
 
-1. 枚举代码库中的所有实例（用户操作、工具、上下文、数据存储等）
-2.检查是否符合原则
-3. 提供具体分数，例如“Y 中的 X（百分比%）”
-4. 列出具体差距和建议
+Launch 8 parallel sub-agents using the Task tool with `subagent_type: Explore`, one for each principle. Each agent should:
 
-<子代理>
+1. Enumerate ALL instances in the codebase (user actions, tools, contexts, data stores, etc.)
+2. Check compliance against the principle
+3. Provide a SPECIFIC SCORE like "X out of Y (percentage%)"
+4. List specific gaps and recommendations
 
-**代理 1：行动平等**
+<sub-agents>
+
+**Agent 1: Action Parity**
 ```
 Audit for ACTION PARITY - "Whatever the user can do, the agent can do."
 
@@ -61,7 +64,8 @@ Format:
 ### Missing Agent Tools
 ### Recommendations
 ```
-**代理 2：作为原语的工具**
+
+**Agent 2: Tools as Primitives**
 ```
 Audit for TOOLS AS PRIMITIVES - "Tools provide capability, not behavior."
 
@@ -80,7 +84,8 @@ Format:
 ### Problematic Tools (workflows that should be primitives)
 ### Recommendations
 ```
-**代理 3：上下文注入**
+
+**Agent 3: Context Injection**
 ```
 Audit for CONTEXT INJECTION - "System prompt includes dynamic context about app state"
 
@@ -103,7 +108,8 @@ Format:
 ### Missing Context
 ### Recommendations
 ```
-**代理 4：共享工作空间**
+
+**Agent 4: Shared Workspace**
 ```
 Audit for SHARED WORKSPACE - "Agent and user work in the same data space"
 
@@ -120,7 +126,8 @@ Format:
 ### Isolated Data (anti-pattern)
 ### Recommendations
 ```
-**代理 5：CRUD 完整性**
+
+**Agent 5: CRUD Completeness**
 ```
 Audit for CRUD COMPLETENESS - "Every entity has full CRUD"
 
@@ -141,7 +148,8 @@ Format:
 ### Incomplete Entities (list missing operations)
 ### Recommendations
 ```
-**代理 6：UI 集成**
+
+**Agent 6: UI Integration**
 ```
 Audit for UI INTEGRATION - "Agent actions immediately reflected in UI"
 
@@ -163,7 +171,8 @@ Format:
 ### Silent Actions (anti-pattern)
 ### Recommendations
 ```
-**代理 7：能力发现**
+
+**Agent 7: Capability Discovery**
 ```
 Audit for CAPABILITY DISCOVERY - "Users can discover what the agent can do"
 
@@ -186,7 +195,8 @@ Format:
 ### Missing Discovery
 ### Recommendations
 ```
-**代理 8：提示本地功能**
+
+**Agent 8: Prompt-Native Features**
 ```
 Audit for PROMPT-NATIVE FEATURES - "Features are prompts defining outcomes, not code"
 
@@ -205,11 +215,13 @@ Format:
 ### Code-Defined Features (anti-pattern)
 ### Recommendations
 ```
-</子代理>
 
-### 第 3 步：编写总结报告
+</sub-agents>
 
-所有代理完成后，使用以下内容编译摘要：
+### Step 3: Compile Summary Report
+
+After all agents complete, compile a summary with:
+
 ```markdown
 ## Agent-Native Architecture Review: [Project Name]
 
@@ -242,24 +254,25 @@ Format:
 
 [List top 5 strengths]
 ```
-## 成功标准
 
-- [ ] 8 个分代理全部完成审核
-- [ ] 每个原则都有一个特定的数字分数（X/Y 格式）
-- [ ] 汇总表显示所有分数和状态指标
-- [ ] 前 10 条建议按影响优先排序
-- [ ] 报告指出了优势和差距
+## Success Criteria
 
-## 可选：单一原则审核
+- [ ] All 8 sub-agents complete their audits
+- [ ] Each principle has a specific numeric score (X/Y format)
+- [ ] Summary table shows all scores and status indicators
+- [ ] Top 10 recommendations are prioritized by impact
+- [ ] Report identifies both strengths and gaps
 
-如果 $ARGUMENTS 指定单个原则（例如“操作奇偶校验”），则仅运行该子代理并单独提供该原则的详细结果。
+## Optional: Single Principle Audit
 
-有效参数：
-- `action parity` 或 `1`
-- `tools` 或 `primitives` 或 `2`
-- `context` 或 `injection` 或 `3`
-- `shared` 或 `workspace` 或 `4`
-- `crud` 或 `5`
-- `ui` 或 `integration` 或 `6`
-- `discovery` 或 `7`
-- `prompt` 或 `features` 或 `8`
+If $ARGUMENTS specifies a single principle (e.g., "action parity"), only run that sub-agent and provide detailed findings for that principle alone.
+
+Valid arguments:
+- `action parity` or `1`
+- `tools` or `primitives` or `2`
+- `context` or `injection` or `3`
+- `shared` or `workspace` or `4`
+- `crud` or `5`
+- `ui` or `integration` or `6`
+- `discovery` or `7`
+- `prompt` or `features` or `8`

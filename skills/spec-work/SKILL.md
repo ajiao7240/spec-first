@@ -12,6 +12,9 @@ Execute a work plan efficiently while maintaining quality and finishing features
 
 This command takes a work document (plan, specification, or todo file) and executes it systematically. The focus is on **shipping complete features** by understanding requirements quickly, following existing patterns, and maintaining quality throughout.
 
+If you have a feature idea or rough description rather than a document, run `/spec:plan` first to produce one — then come back here to execute it.
+If the task is experiment-driven optimization against a stable measurement harness rather than feature delivery, route to `spec-optimize` instead of forcing it through `spec-work`.
+
 ## Input Document
 
 <input_document> #$ARGUMENTS </input_document>
@@ -150,7 +153,7 @@ This command takes a work document (plan, specification, or todo file) and execu
    - Any resolved deferred questions relevant to that unit
    - Instruction to check whether the unit's test scenarios cover all applicable categories (happy paths, edge cases, error paths, integration) and supplement gaps before writing tests
 
-   **Permission mode:** Omit the `mode` parameter when dispatching subagents so the user's configured permission settings apply. Do not pass `mode: "auto"`.
+   **Permission mode:** Omit the `mode` parameter when dispatching subagents so the user's configured permission settings apply. Do not pass `mode: "auto"` — it overrides user-level settings like `bypassPermissions`.
 
    After each subagent completes, update the plan checkboxes and task list before dispatching the next dependent unit.
 
@@ -264,7 +267,7 @@ This command takes a work document (plan, specification, or todo file) and execu
 
    Don't simplify after every single unit — early patterns may look duplicated but diverge intentionally in later units. Wait for a natural phase boundary or when you notice accumulated complexity.
 
-   If a `/simplify` skill or equivalent is available, use it. Otherwise, review the changed files yourself for reuse and consolidation opportunities.
+   If a simplify skill or equivalent capability is available, use it. Otherwise, review the changed files yourself for reuse and consolidation opportunities.
 
 6. **Figma Design Sync** (if applicable)
 
@@ -303,6 +306,8 @@ For genuinely large plans where agents need to communicate with each other, chal
 | User explicitly requests "swarm mode" or "agent teams" | Default for most plans |
 
 Most plans should use subagent dispatch from standard mode. Agent teams add significant token cost and coordination overhead — use them when the inter-agent communication genuinely improves the outcome.
+
+If the user explicitly wants Claude Code team primitives such as shared inboxes, `Teammate(...)`, or persistent teammates, route to `orchestrating-swarms` rather than inventing that contract inline here. Otherwise stay in standard subagent mode.
 
 ### Agent Teams Workflow
 
@@ -347,22 +352,6 @@ Most plans should use subagent dispatch from standard mode. Agent teams add sign
 - Don't leave features 80% done
 - A finished feature that ships beats a perfect feature that doesn't
 
-## Quality Checklist
-
-Before creating PR, verify:
-
-- [ ] All clarifying questions asked and answered
-- [ ] All tasks marked completed
-- [ ] Tests pass (run project's test command)
-- [ ] Linting passes (use linting-agent)
-- [ ] Code follows existing patterns
-- [ ] Figma designs match implementation (if applicable)
-- [ ] Before/after screenshots captured and uploaded (for UI changes)
-- [ ] Commit messages follow conventional format
-- [ ] PR description includes Post-Deploy Monitoring & Validation section (or explicit no-impact rationale)
-- [ ] PR description includes summary, testing notes, and screenshots
-- [ ] PR description includes Compound Engineered badge with accurate model, harness, and version
-
 ## When to Use Reviewer Agents
 
 **Don't use by default.** Use reviewer agents only when:
@@ -373,7 +362,7 @@ Before creating PR, verify:
 - Complex algorithms or business logic
 - User explicitly requests thorough review
 
-For most features: tests + linting + following patterns is sufficient.
+For most features: Tier 1 inline self-review is sufficient — reserve full `spec-review` (Tier 2) for the high-risk cases above.
 
 ## Common Pitfalls to Avoid
 
@@ -383,4 +372,4 @@ For most features: tests + linting + following patterns is sufficient.
 - **Testing at the end** - Test continuously or suffer later
 - **Forgetting to track progress** - Update task status as you go or lose track of what's done
 - **80% done syndrome** - Finish the feature, don't move on early
-- **Over-reviewing simple changes** - Save reviewer agents for complex work
+- **Skipping review** - Every change gets reviewed; only the depth varies

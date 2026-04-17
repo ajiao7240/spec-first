@@ -104,23 +104,26 @@ function surprisingConnections(db) {
     // F2: cross_language（30分）— 源/目标文件语言不同
     const srcLang = inferLanguage(src.file_path);
     const tgtLang = inferLanguage(tgt.file_path);
-    if (srcLang !== tgtLang && srcLang !== 'unknown' && tgtLang !== 'unknown') {
+    const crossLanguage = srcLang !== tgtLang && srcLang !== 'unknown' && tgtLang !== 'unknown';
+    if (crossLanguage) {
       score += 30;
       reasons.push(`cross_language:${srcLang}→${tgtLang}`);
-    }
-
-    // F3: cross_community（40分）— 社区不同
-    if (src.community_id !== tgt.community_id) {
-      score += 40;
-      reasons.push('cross_community');
     }
 
     // F4: peripheral_to_hub（20分）— 外围节点（入度=0）调用中枢节点
     const srcDeg = inDegree.get(edge.source_id) || 0;
     const tgtDeg = inDegree.get(edge.target_id) || 0;
-    if (srcDeg === 0 && tgtDeg >= hubThreshold) {
+    const peripheralToHub = srcDeg === 0 && tgtDeg >= hubThreshold;
+    if (peripheralToHub) {
       score += 20;
       reasons.push('peripheral_to_hub');
+    }
+
+    // F3: cross_community（30分）— 仅当同时具备跨语言或 peripheral_to_hub 时才加权
+    const crossCommunity = src.community_id !== tgt.community_id;
+    if (crossCommunity && (crossLanguage || peripheralToHub)) {
+      score += 30;
+      reasons.push('cross_community');
     }
 
     // 过滤 score < 30 的（不够惊喜）

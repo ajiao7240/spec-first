@@ -13,11 +13,60 @@ Execute a work plan efficiently while maintaining quality and finishing features
 
 This command takes a work document (plan, specification, or todo file) and executes it systematically. The focus is on **shipping complete features** by understanding requirements quickly, following existing patterns, and maintaining quality throughout.
 
+If you have a feature idea or rough description rather than a document, run `/spec:plan` first to produce one — then come back here to execute it. `spec:work-beta` is plan-driven and does not accept bare prompts.
+If the task is experiment-driven optimization against a stable measurement harness rather than feature delivery, route to `spec-optimize` instead of forcing it through `spec:work-beta`.
+
 **Beta rollout note:** Invoke `spec:work-beta` manually when you want to trial Codex delegation. During the beta period, planning and workflow handoffs remain pointed at stable `spec:work` to avoid dual-path orchestration complexity.
 
 ## Input Document
 
 <input_document> #$ARGUMENTS </input_document>
+
+## Stage-0 上下文预载（可选增强，不阻断主工作流）
+
+> 此步骤读取 `spec-graph-bootstrap` 生成的 Stage-0 产物作为增强上下文。
+> 优先以 evaluator 输出 contract 为真源；任何文件缺失、JSON 解析失败、目录不存在均只触发降级，不中止主工作流。
+
+**本 workflow stage 标识**：`work`
+
+**Contract note:** `spec:work-beta` 当前有意复用 stable `work` Stage-0 产物与 telemetry 口径。不要把这里改成 `work-beta`，除非 bootstrap evaluator、asset naming、以及下游消费方在同一变更里一起更新并重新验证。
+
+### 预载步骤
+
+1. **解析 slug**
+   - 取当前仓库根目录名：`slug = basename(git rev-parse --show-toplevel)`
+   - context 路径：`docs/contexts/<slug>/`
+   - 若命令失败或路径不存在 → 跳过整个预载步骤（Level 3）
+
+2. **读取 control plane contract**
+   - 控制面路径：`.spec-first/workflows/bootstrap/<slug>/`
+   - 优先读取 `context-routing.json` 与 `artifact-manifest.json`
+   - 若存在 `minimal-context/work.json`，视为最高优先级 machine context
+   - 任一关键 contract 缺失或解析失败 → 进入 Level 2 降级
+
+3. **按 evaluator 输出 contract 组织上下文**
+   - 统一以 `selected_assets / fallback_reason / level / skipped_rules` 为 Stage-0 真源
+   - `work` 场景优先读取：
+     - `minimal-context/work.json`
+     - `code-facts/test-map.md`
+     - `context-packs/review-change.md`
+   - `injection-index.yaml` 仅作为人类视图，不再是运行时唯一判定逻辑
+   - 每个文件：存在则读取，缺失则跳过（Level 1）
+   - 默认写一条 Stage-0 telemetry，至少记录 `stage / profile / selected_assets / fallback_reason / skipped_rules`
+
+4. **Level 2 固定最小集合**（control plane contract 不可用时）
+   - `docs/contexts/<slug>/00-summary.md`
+   - `docs/contexts/<slug>/pitfalls/index.md`
+   - `docs/contexts/<slug>/code-facts/public-entrypoints.md`
+   - `docs/contexts/<slug>/code-facts/test-map.md`
+
+5. **降级说明**
+   - 触发降级时，在响应中一句话说明原因
+   - 不要求用户先补 bootstrap 产物，主任务继续执行
+
+6. **workspace v1 边界**
+   - 默认仍按单仓 Stage-0 消费，不改变现有 selected assets 顺序
+   - 只有显式提供 `repoRoots` 时，才进入 workspace 聚合路径
 
 ## Argument Parsing
 
@@ -77,6 +126,8 @@ Store the resolved state for downstream consumption:
    - Treat the plan as a decision artifact, not an execution script
    - If the plan includes sections such as `Implementation Units`, `Work Breakdown`, `Requirements Trace`, `Files`, `Test Scenarios`, or `Verification`, use those as the primary source material for execution
    - Check for `Execution note` on each implementation unit — these carry the plan's execution posture signal for that unit (for example, test-first or characterization-first). Note them when creating tasks.
+   - Treat the exact string `Execution target: external-delegate` as the canonical delegation signal. Do not infer delegation from synonyms, paraphrases, or case variants in this workflow.
+   - Record any implementation unit carrying that exact signal as a `delegation candidate` so the later routing decision is explicit and reviewable.
    - Check for a `Deferred to Implementation` or `Implementation-Time Unknowns` section — these are questions the planner intentionally left for you to resolve during execution. Note them before starting so they inform your approach rather than surprising you mid-task
    - Check for a `Scope Boundaries` section — these are explicit non-goals. Refer back to them if implementation starts pulling you toward adjacent work
    - Review any references or links provided in the plan
@@ -133,6 +184,7 @@ Store the resolved state for downstream consumption:
    - Use your available task tracking tool (e.g., TodoWrite, task lists) to break the plan into actionable tasks
    - Derive tasks from the plan's implementation units, dependencies, files, test targets, and verification criteria
    - Carry each unit's `Execution note` into the task when present
+   - When a unit carries the canonical `Execution target: external-delegate` signal, tag the corresponding task(s) as `delegation candidate` work so later routing is deterministic
    - For each unit, read the `Patterns to follow` field before implementing — these point to specific files or conventions to mirror
    - Use each unit's `Verification` field as the primary "done" signal for that task
    - Do not expect the plan to contain implementation code, micro-step TDD instructions, or exact shell commands
@@ -143,7 +195,16 @@ Store the resolved state for downstream consumption:
 
 4. **Choose Execution Strategy**
 
-   **Delegation routing gate:** If `delegation_active` is true, read `references/codex-delegation-workflow.md` and follow its Pre-Delegation Checks and Delegation Decision flow. If all checks pass and delegation proceeds, force **serial execution** and proceed directly to Phase 2 using the workflow's batched execution loop. If any check disables delegation, fall through to the standard strategy table below.
+   Before choosing a strategy, resolve `delegation_scope` for this invocation:
+
+   | State | Routing rule |
+   |------|--------------|
+   | `delegation_active = false` and no `delegation candidate` units | Set `delegation_scope = none` and use the standard strategy table below |
+   | `delegation_active = false` and one or more `delegation candidate` units | Ask once whether to temporarily enable Codex delegation for those candidate units only in this session. If the user declines, set `delegation_scope = none`. If the user accepts, set `delegation_scope = candidate-only`. Do not write that temporary choice to `.spec-first/config.local.yaml`. |
+   | `delegation_active = true` and one or more `delegation candidate` units | Set `delegation_scope = candidate-only` by default. Only tasks belonging to candidate units enter the delegated path; non-candidate tasks continue through the local strategy table below. If the user explicitly asks for full-plan delegation, set `delegation_scope = full-plan`. |
+   | `delegation_active = true` and no `delegation candidate` units | Set `delegation_scope = full-plan` and keep the existing argument/config-selected delegation behavior |
+
+   **Delegation routing gate:** If `delegation_scope` is `candidate-only` or `full-plan`, read `references/codex-delegation-workflow.md` and follow its Pre-Delegation Checks and Delegation Decision flow. If all checks pass and delegation proceeds, force **serial execution** for the delegated portion and proceed directly to Phase 2 using the workflow's batched execution loop. If any check disables delegation, set `delegation_scope = none` and fall through to the standard strategy table below.
 
    After creating the task list, decide how to execute based on the plan's size and dependency structure:
 
@@ -159,7 +220,7 @@ Store the resolved state for downstream consumption:
    - Any resolved deferred questions relevant to that unit
    - Instruction to check whether the unit's test scenarios cover all applicable categories (happy paths, edge cases, error paths, integration) and supplement gaps before writing tests
 
-   **Permission mode:** Omit the `mode` parameter when dispatching subagents so the user's configured permission settings apply. Do not pass `mode: "auto"`.
+   **Permission mode:** Omit the `mode` parameter when dispatching subagents so the user's configured permission settings apply. Do not pass `mode: "auto"` — it overrides user-level settings like `bypassPermissions`.
 
    After each subagent completes, update the plan checkboxes and task list before dispatching the next dependent unit.
 
@@ -177,7 +238,7 @@ Store the resolved state for downstream consumption:
      - Read any referenced files from the plan
      - Look for similar patterns in codebase
      - Find existing test files for implementation files being changed (Test Discovery — see below)
-     - If delegation_active: branch to the Codex Delegation Execution Loop
+     - If `delegation_scope` covers the current task: branch to the Codex Delegation Execution Loop
        (see `references/codex-delegation-workflow.md`)
      - Otherwise: implement following existing conventions
      - Add, update, or remove tests to match implementation changes (see Test Discovery below)
@@ -274,7 +335,7 @@ Store the resolved state for downstream consumption:
 
    Don't simplify after every single unit — early patterns may look duplicated but diverge intentionally in later units. Wait for a natural phase boundary or when you notice accumulated complexity.
 
-   If a `/simplify` skill or equivalent is available, use it. Otherwise, review the changed files yourself for reuse and consolidation opportunities.
+   If a simplify skill or equivalent capability is available, use it. Otherwise, review the changed files yourself for reuse and consolidation opportunities.
 
 6. **Figma Design Sync** (if applicable)
 
@@ -328,6 +389,8 @@ For genuinely large plans where agents need to communicate with each other, chal
 
 Most plans should use subagent dispatch from standard mode. Agent teams add significant token cost and coordination overhead — use them when the inter-agent communication genuinely improves the outcome.
 
+If the user explicitly wants Claude Code team primitives such as shared inboxes, `Teammate(...)`, or persistent teammates, route to `orchestrating-swarms` rather than inventing that contract inline here. Otherwise stay in standard subagent mode.
+
 ### Agent Teams Workflow
 
 1. **Create team** — use your available team creation mechanism
@@ -368,6 +431,18 @@ Most plans should use subagent dispatch from standard mode. Agent teams add sign
 - Mark all tasks completed before moving on
 - Don't leave features 80% done
 - A finished feature that ships beats a perfect feature that doesn't
+
+## When to Use Reviewer Agents
+
+**Don't use by default.** Use reviewer agents only when:
+
+- Large refactor affecting many files (10+)
+- Security-sensitive changes (authentication, permissions, data access)
+- Performance-critical code paths
+- Complex algorithms or business logic
+- User explicitly requests thorough review
+
+For most features: Tier 1 inline self-review is sufficient — reserve full `spec-review` (Tier 2) for the high-risk cases above.
 
 ## Common Pitfalls to Avoid
 

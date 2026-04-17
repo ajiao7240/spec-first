@@ -1,8 +1,9 @@
-# DSPy.rb LLM 提供商
+# DSPy.rb LLM Providers
 
-## 适配器架构
+## Adapter Architecture
 
-DSPy.rb 将提供者 SDK 作为单独的适配器 gem 提供。仅安装项目需要的适配器。每个适配器 gem 都依赖于其提供程序的官方 SDK，并在存在时自动加载 - 无需显式 `require`。
+DSPy.rb ships provider SDKs as separate adapter gems. Install only the adapters the project needs. Each adapter gem depends on the official SDK for its provider and auto-loads when present -- no explicit `require` necessary.
+
 ```ruby
 # Gemfile
 gem 'dspy'              # core framework (no provider SDKs)
@@ -11,15 +12,17 @@ gem 'dspy-anthropic'    # Claude
 gem 'dspy-gemini'       # Gemini
 gem 'dspy-ruby_llm'     # RubyLLM unified adapter (12+ providers)
 ```
+
 ---
 
 ## Per-Provider Adapters
 
 ### dspy-openai
 
-涵盖使用 OpenAI 聊天完成协议的任何端点：OpenAI 本身、OpenRouter 和 Ollama。
+Covers any endpoint that speaks the OpenAI chat-completions protocol: OpenAI itself, OpenRouter, and Ollama.
 
-**SDK依赖：** `openai ~> 0.17`
+**SDK dependency:** `openai ~> 0.17`
+
 ```ruby
 # OpenAI
 lm = DSPy::LM.new('openai/gpt-4o-mini', api_key: ENV['OPENAI_API_KEY'])
@@ -38,26 +41,32 @@ lm = DSPy::LM.new('ollama/llama3.2',
   api_key: 'optional-auth-token'
 )
 ```
-所有三个子适配器共享相同的请求处理、结构化输出支持和错误报告。交换提供商而不更改更高级别的 DSPy 代码。
 
-对于缺乏本机结构化输出支持的 OpenRouter 模型，请显式禁用它：
+All three sub-adapters share the same request handling, structured-output support, and error reporting. Swap providers without changing higher-level DSPy code.
+
+For OpenRouter models that lack native structured-output support, disable it explicitly:
+
 ```ruby
 lm = DSPy::LM.new('openrouter/deepseek/deepseek-chat-v3.1:free',
   api_key: ENV['OPENROUTER_API_KEY'],
   structured_outputs: false
 )
 ```
-### dspy-人类
 
-提供克劳德适配器。为任何 `anthropic/*` 型号 ID 安装它。
+### dspy-anthropic
 
-**SDK依赖：** `anthropic ~> 1.12`
+Provides the Claude adapter. Install it for any `anthropic/*` model id.
+
+**SDK dependency:** `anthropic ~> 1.12`
+
 ```ruby
 lm = DSPy::LM.new('anthropic/claude-sonnet-4-20250514',
   api_key: ENV['ANTHROPIC_API_KEY']
 )
 ```
-结构化输出默认为基于工具的 JSON 提取 (`structured_outputs: true`)。设置 `structured_outputs: false` 以使用增强提示提取。
+
+Structured outputs default to tool-based JSON extraction (`structured_outputs: true`). Set `structured_outputs: false` to use enhanced-prompting extraction instead.
+
 ```ruby
 # Tool-based extraction (default, most reliable)
 lm = DSPy::LM.new('anthropic/claude-sonnet-4-20250514',
@@ -71,35 +80,41 @@ lm = DSPy::LM.new('anthropic/claude-sonnet-4-20250514',
   structured_outputs: false
 )
 ```
-### dspy 双子座
 
-提供 Gemini 适配器。为任何 `gemini/*` 型号 ID 安装它。
+### dspy-gemini
 
-**SDK依赖：** `gemini-ai ~> 4.3`
+Provides the Gemini adapter. Install it for any `gemini/*` model id.
+
+**SDK dependency:** `gemini-ai ~> 4.3`
+
 ```ruby
 lm = DSPy::LM.new('gemini/gemini-2.5-flash',
   api_key: ENV['GEMINI_API_KEY']
 )
 ```
-**环境变量：** `GEMINI_API_KEY`（也接受`GOOGLE_API_KEY`）。
+
+**Environment variable:** `GEMINI_API_KEY` (also accepts `GOOGLE_API_KEY`).
 
 ---
 
-## RubyLLM 统一适配器
+## RubyLLM Unified Adapter
 
-`dspy-ruby_llm` gem 提供了一个适配器，可通过 [RubyLLM](https://rubyllm.com) 路由到 12 个以上的提供商。当项目与多个提供商对话或需要访问 Bedrock、VertexAI、DeepSeek 或 Mistral 而无需专用适配器 gem 时，请使用它。
+The `dspy-ruby_llm` gem provides a single adapter that routes to 12+ providers through [RubyLLM](https://rubyllm.com). Use it when a project talks to multiple providers or needs access to Bedrock, VertexAI, DeepSeek, or Mistral without dedicated adapter gems.
 
-**SDK依赖：** `ruby_llm ~> 1.3`
+**SDK dependency:** `ruby_llm ~> 1.3`
 
-### 型号 ID 格式
+### Model ID Format
 
-每个模型 ID 前面加上 `ruby_llm/` 前缀：
+Prefix every model id with `ruby_llm/`:
+
 ```ruby
 lm = DSPy::LM.new('ruby_llm/gpt-4o-mini')
 lm = DSPy::LM.new('ruby_llm/claude-sonnet-4-20250514')
 lm = DSPy::LM.new('ruby_llm/gemini-2.5-flash')
 ```
-适配器自动从 RubyLLM 的模型注册表中检测提供程序。对于不在注册表中的模型，请显式传递 `provider:`：
+
+The adapter detects the provider from RubyLLM's model registry automatically. For models not in the registry, pass `provider:` explicitly:
+
 ```ruby
 lm = DSPy::LM.new('ruby_llm/llama3.2', provider: 'ollama')
 lm = DSPy::LM.new('ruby_llm/anthropic/claude-3-opus',
@@ -107,9 +122,11 @@ lm = DSPy::LM.new('ruby_llm/anthropic/claude-3-opus',
   provider: 'openrouter'
 )
 ```
-### 使用现有的 RubyLLM 配置
 
-当 RubyLLM 已全局配置时，请省略 `api_key:` 参数。 DSPy 自动重用全局配置：
+### Using Existing RubyLLM Configuration
+
+When RubyLLM is already configured globally, omit the `api_key:` argument. DSPy reuses the global config automatically:
+
 ```ruby
 RubyLLM.configure do |config|
   config.openai_api_key = ENV['OPENAI_API_KEY']
@@ -121,11 +138,13 @@ DSPy.configure do |c|
   c.lm = DSPy::LM.new('ruby_llm/gpt-4o-mini')
 end
 ```
-当传递 `api_key:`（或 `base_url:`、`timeout:`、`max_retries:` 中的任何一个）时，DSPy 会创建一个**作用域上下文**，而不是重用全局配置。
 
-### 云托管提供商（Bedrock、VertexAI）
+When an `api_key:` (or any of `base_url:`, `timeout:`, `max_retries:`) is passed, DSPy creates a **scoped context** instead of reusing the global config.
 
-首先全局配置RubyLLM，然后引用模型：
+### Cloud-Hosted Providers (Bedrock, VertexAI)
+
+Configure RubyLLM globally first, then reference the model:
+
 ```ruby
 # AWS Bedrock
 RubyLLM.configure do |c|
@@ -142,27 +161,29 @@ RubyLLM.configure do |c|
 end
 lm = DSPy::LM.new('ruby_llm/gemini-pro', provider: 'vertexai')
 ```
-### 支持的提供商表
 
-|供应商|型号 ID 示例 |笔记|
-|------------------------|--------------------------------------------------------|--------------------------------|
-|开放人工智能 | `ruby_llm/gpt-4o-mini` |从注册表自动检测 |
-|人择 | `ruby_llm/claude-sonnet-4-20250514` |从注册表自动检测 |
-|双子座| `ruby_llm/gemini-2.5-flash` |从注册表自动检测 |
-|深度搜索 | `ruby_llm/deepseek-chat` |从注册表自动检测 |
-|米斯特拉尔| `ruby_llm/mistral-large` |从注册表自动检测 |
-|奥拉玛 | `ruby_llm/llama3.2` |使用`provider: 'ollama'` |
-| AWS 基岩 | `ruby_llm/anthropic.claude-3-5-sonnet` |全局配置RubyLLM |
-|顶点人工智能 | `ruby_llm/gemini-pro` |全局配置RubyLLM |
-|开放路由器| `ruby_llm/anthropic/claude-3-opus` |使用`provider: 'openrouter'` |
-|困惑| `ruby_llm/llama-3.1-sonar-large` |使用`provider: 'perplexity'` |
-| GPU堆栈| `ruby_llm/model-name` |使用`provider: 'gpustack'`|
+### Supported Providers Table
+
+| Provider    | Example Model ID                           | Notes                           |
+|-------------|--------------------------------------------|---------------------------------|
+| OpenAI      | `ruby_llm/gpt-4o-mini`                    | Auto-detected from registry     |
+| Anthropic   | `ruby_llm/claude-sonnet-4-20250514`       | Auto-detected from registry     |
+| Gemini      | `ruby_llm/gemini-2.5-flash`               | Auto-detected from registry     |
+| DeepSeek    | `ruby_llm/deepseek-chat`                  | Auto-detected from registry     |
+| Mistral     | `ruby_llm/mistral-large`                  | Auto-detected from registry     |
+| Ollama      | `ruby_llm/llama3.2`                       | Use `provider: 'ollama'`        |
+| AWS Bedrock | `ruby_llm/anthropic.claude-3-5-sonnet`    | Configure RubyLLM globally      |
+| VertexAI    | `ruby_llm/gemini-pro`                     | Configure RubyLLM globally      |
+| OpenRouter  | `ruby_llm/anthropic/claude-3-opus`        | Use `provider: 'openrouter'`    |
+| Perplexity  | `ruby_llm/llama-3.1-sonar-large`          | Use `provider: 'perplexity'`    |
+| GPUStack    | `ruby_llm/model-name`                     | Use `provider: 'gpustack'`      |
 
 ---
 
-## Rails 初始化器模式
+## Rails Initializer Pattern
 
-在 `after_initialize` 块内配置 DSPy，以便完全加载 Rails 凭证和环境：
+Configure DSPy inside an `after_initialize` block so Rails credentials and environment are fully loaded:
+
 ```ruby
 # config/initializers/dspy.rb
 Rails.application.config.after_initialize do
@@ -187,18 +208,20 @@ Rails.application.config.after_initialize do
   end
 end
 ```
-要点：
 
-- 包裹在 `after_initialize` 中，以便 `Rails.application.credentials` 可用。
-- 尽早返回测试环境。依靠 VCR 磁带来获得确定性的 LLM 响应。
-- 设置 `structured_outputs: true`（默认值）以进行提供商本机 JSON 提取。
-- 在生产中使用 `Dry.Logger` 和 `:json` 格式化程序进行结构化日志解析。
+Key points:
+
+- Wrap in `after_initialize` so `Rails.application.credentials` is available.
+- Return early in the test environment. Rely on VCR cassettes for deterministic LLM responses.
+- Set `structured_outputs: true` (the default) for provider-native JSON extraction.
+- Use `Dry.Logger` with `:json` formatter in production for structured log parsing.
 
 ---
 
-## 光纤本地 LM 上下文
+## Fiber-Local LM Context
 
-`DSPy.with_lm` 设置范围为当前 Fiber 的临时语言模型覆盖。块内的每个预测器调用都使用覆盖；在区块之外，先前的 LM 再次生效。
+`DSPy.with_lm` sets a temporary language-model override scoped to the current Fiber. Every predictor call inside the block uses the override; outside the block the previous LM takes effect again.
+
 ```ruby
 fast = DSPy::LM.new('openai/gpt-4o-mini', api_key: ENV['OPENAI_API_KEY'])
 powerful = DSPy::LM.new('anthropic/claude-sonnet-4-20250514', api_key: ENV['ANTHROPIC_API_KEY'])
@@ -218,15 +241,17 @@ DSPy.with_lm(powerful) do
   result = classifier.call(text: "Hello")   # uses claude-sonnet-4
 end
 ```
-### LM 解析层次结构
 
-DSPy 按以下顺序解析活动语言模型：
+### LM Resolution Hierarchy
 
-1. **实例级LM**——通过`configure`直接在模块实例上设置
-2. **光纤本地 LM** -- 通过 `DSPy.with_lm` 设置
-3. **全局 LM** -- 通过 `DSPy.configure` 设置
+DSPy resolves the active language model in this order:
 
-实例级配置总是获胜，即使在 `DSPy.with_lm` 块内：
+1. **Instance-level LM** -- set directly on a module instance via `configure`
+2. **Fiber-local LM** -- set via `DSPy.with_lm`
+3. **Global LM** -- set via `DSPy.configure`
+
+Instance-level configuration always wins, even inside a `DSPy.with_lm` block:
+
 ```ruby
 classifier = Classifier.new
 classifier.configure { |c| c.lm = DSPy::LM.new('anthropic/claude-sonnet-4-20250514', api_key: ENV['ANTHROPIC_API_KEY']) }
@@ -237,9 +262,11 @@ DSPy.with_lm(fast) do
   classifier.call(text: "Test")  # still uses claude-sonnet-4 (instance-level wins)
 end
 ```
-###用于细粒度代理控制的configure_predictor
 
-复杂智能体（`ReAct`、`CodeAct`、`DeepResearch`、`DeepSearch`）包含内部预测变量。使用 `configure` 进行覆盖覆盖，使用 `configure_predictor` 来定位特定的子预测器：
+### configure_predictor for Fine-Grained Agent Control
+
+Complex agents (`ReAct`, `CodeAct`, `DeepResearch`, `DeepSearch`) contain internal predictors. Use `configure` for a blanket override and `configure_predictor` to target a specific sub-predictor:
+
 ```ruby
 agent = DSPy::ReAct.new(MySignature, tools: tools)
 
@@ -253,32 +280,36 @@ end
 
 result = agent.call(question: "Summarize the report")
 ```
-两种方法都支持链接：
+
+Both methods support chaining:
+
 ```ruby
 agent
   .configure { |c| c.lm = cheap_model }
   .configure_predictor('thought_generator') { |c| c.lm = expensive_model }
 ```
-#### 按代理类型划分的可用预测器
 
-|代理|内部预测器 |
-|----------------------------------|--------------------------------------------------------------------------------|
-| `DSPy::ReAct` | `thought_generator`、`observation_processor` |
-| `DSPy::CodeAct` | `code_generator`、`observation_processor` |
-| `DSPy::DeepResearch` | `planner`、`synthesizer`、`qa_reviewer`、`reporter` |
-| `DSPy::DeepSearch` | `seed_predictor`、`search_predictor`、`reader_predictor`、`reason_predictor` |
+#### Available Predictors by Agent Type
 
-#### 传播规则
+| Agent                | Internal Predictors                                              |
+|----------------------|------------------------------------------------------------------|
+| `DSPy::ReAct`        | `thought_generator`, `observation_processor`                    |
+| `DSPy::CodeAct`      | `code_generator`, `observation_processor`                       |
+| `DSPy::DeepResearch`  | `planner`, `synthesizer`, `qa_reviewer`, `reporter`            |
+| `DSPy::DeepSearch`    | `seed_predictor`, `search_predictor`, `reader_predictor`, `reason_predictor` |
 
-- 配置递归地传播到子代和孙代。
-- 具有已配置 LM 的子级不会被稍后的父级 `configure` 调用覆盖。
-- 首先配置父级，然后覆盖特定的子级。
+#### Propagation Rules
+
+- Configuration propagates recursively to children and grandchildren.
+- Children with an already-configured LM are **not** overwritten by a later parent `configure` call.
+- Configure the parent first, then override specific children.
 
 ---
 
-## 特征标记模型选择
+## Feature-Flagged Model Selection
 
-使用 ENV 变量支持的 `FeatureFlags` 模块来集中模型选择。每个工具或代理从标志中读取其模型，回退到全局默认值。
+Use a `FeatureFlags` module backed by ENV vars to centralize model selection. Each tool or agent reads its model from the flags, falling back to a global default.
+
 ```ruby
 module FeatureFlags
   module_function
@@ -302,9 +333,11 @@ module FeatureFlags
   end
 end
 ```
-### 每个工具模型覆盖
 
-覆盖单个工具的模型而不触及应用程序代码：
+### Per-Tool Model Override
+
+Override an individual tool's model without touching application code:
+
 ```bash
 # .env
 DSPY_DEFAULT_MODEL=openai/gpt-4o-mini
@@ -318,7 +351,9 @@ DSPY_API_KEY_CLASSIFIER=sk-ant-...
 DSPY_MODEL_SUMMARIZER=gemini/gemini-2.5-flash
 DSPY_API_KEY_SUMMARIZER=...
 ```
-在初始化时将每个代理连接到其标志：
+
+Wire each agent to its flag at initialization:
+
 ```ruby
 class ClassifierAgent < DSPy::Module
   def initialize
@@ -335,46 +370,49 @@ class ClassifierAgent < DSPy::Module
   end
 end
 ```
-此模式保持模型路由声明性，并避免在代码库中分散 `DSPy::LM.new` 调用。
+
+This pattern keeps model routing declarative and avoids scattering `DSPy::LM.new` calls across the codebase.
 
 ---
 
-## 兼容性矩阵
+## Compatibility Matrix
 
-跨直接适配器 gem 的功能支持。列出的所有功能均采用 `structured_outputs: true`（默认值）。
+Feature support across direct adapter gems. All features listed assume `structured_outputs: true` (the default).
 
-|特色 |开放人工智能 |人择 |双子座|奥拉玛 |开放路由器| Ruby 法学硕士 |
-|----------------------|--------|------------|--------|---------|------------|----------|
-|结构化输出|原生JSON模式|基于工具的提取 |原生 JSON 架构 |兼容 OpenAI 的 JSON |因型号而异 |通过 `with_schema` |
-|愿景（图像）|文件 + 网址 |文件 + Base64 |文件 + Base64 |有限公司|变化 |委托给底层提供商 |
-|图像 URL |是的 |没有 |没有 |没有 |变化 |取决于提供商 |
-|工具调用|是的 |是的 |是的 |变化 |变化 |是的 |
-|流媒体|是的 |是的 |是的 |是的 |是的 |是的 |
+| Feature              | OpenAI | Anthropic | Gemini | Ollama   | OpenRouter | RubyLLM     |
+|----------------------|--------|-----------|--------|----------|------------|-------------|
+| Structured Output    | Native JSON mode | Tool-based extraction | Native JSON schema | OpenAI-compatible JSON | Varies by model | Via `with_schema` |
+| Vision (Images)      | File + URL | File + Base64 | File + Base64 | Limited  | Varies     | Delegates to underlying provider |
+| Image URLs           | Yes    | No        | No     | No       | Varies     | Depends on provider |
+| Tool Calling         | Yes    | Yes       | Yes    | Varies   | Varies     | Yes         |
+| Streaming            | Yes    | Yes       | Yes    | Yes      | Yes        | Yes         |
 
-**注释：**
+**Notes:**
 
-- **结构化输出** 默认情况下在每个适配器上启用。设置 `structured_outputs: false` 以退回到增强提示提取。
-- **视觉/图像 URL：** 只有 OpenAI 支持直接传递 URL。对于 Anthropic 和 Gemini，从文件或 Base64 加载图像：
+- **Structured Output** is enabled by default on every adapter. Set `structured_outputs: false` to fall back to enhanced-prompting extraction.
+- **Vision / Image URLs:** Only OpenAI supports passing a URL directly. For Anthropic and Gemini, load images from file or Base64:
   ```ruby
   DSPy::Image.from_url("https://example.com/img.jpg")    # OpenAI only
   DSPy::Image.from_file("path/to/image.jpg")             # all providers
   DSPy::Image.from_base64(data, mime_type: "image/jpeg")  # all providers
   ```
-- **RubyLLM** 委托给底层提供商，因此功能支持与表中的提供商列相匹配。
+- **RubyLLM** delegates to the underlying provider, so feature support matches the provider column in the table.
 
-### 选择适配器策略|场景|推荐适配器 |
-|--------------------------------------------------------|--------------------------------|
-|单一提供商（OpenAI、Claude 或 Gemini）|专用宝石 (`dspy-openai`, `dspy-anthropic`, `dspy-gemini`) |
-|具有每个代理模型路由的多提供商 | `dspy-ruby_llm` |
-| AWS Bedrock 或 Google VertexAI | `dspy-ruby_llm` |
-|与 Ollama 一起进行本地开发 | `dspy-openai`（Ollama 子适配器）或 `dspy-ruby_llm` |
-| OpenRouter 用于成本优化 | `dspy-openai`（OpenRouter 子适配器）|
+### Choosing an Adapter Strategy
 
-### 当前推荐型号
+| Scenario                                  | Recommended Adapter            |
+|-------------------------------------------|--------------------------------|
+| Single provider (OpenAI, Claude, or Gemini) | Dedicated gem (`dspy-openai`, `dspy-anthropic`, `dspy-gemini`) |
+| Multi-provider with per-agent model routing | `dspy-ruby_llm`               |
+| AWS Bedrock or Google VertexAI             | `dspy-ruby_llm`               |
+| Local development with Ollama              | `dspy-openai` (Ollama sub-adapter) or `dspy-ruby_llm` |
+| OpenRouter for cost optimization           | `dspy-openai` (OpenRouter sub-adapter) |
 
-|供应商|型号 ID |使用案例|
-|----------|----------------------------------------------------|------------------------|
-|开放人工智能 | `openai/gpt-4o-mini` |速度快，性价比高|
-|人择 | `anthropic/claude-sonnet-4-20250514` |平衡推理 |
-|双子座| `gemini/gemini-2.5-flash` |速度快，性价比高|
-|奥拉玛 | `ollama/llama3.2` |本地化，零 API 成本 |
+### Current Recommended Models
+
+| Provider  | Model ID                              | Use Case              |
+|-----------|---------------------------------------|-----------------------|
+| OpenAI    | `openai/gpt-4o-mini`                 | Fast, cost-effective  |
+| Anthropic | `anthropic/claude-sonnet-4-20250514` | Balanced reasoning    |
+| Gemini    | `gemini/gemini-2.5-flash`            | Fast, cost-effective  |
+| Ollama    | `ollama/llama3.2`                    | Local, zero API cost  |

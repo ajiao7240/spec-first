@@ -13,12 +13,18 @@ describe('spec-compound contracts', () => {
   test('spec-compound restores explicit full/lightweight mode selection and session historian flow', () => {
     const skill = read('skills/spec-compound/SKILL.md');
 
+    expect(skill).toContain('# Spec-First Compound');
+    expect(skill).toContain('Claude: /spec:compound [brief context]');
+    expect(skill).toContain('Codex:  $spec-compound [brief context]');
     expect(skill).toContain('1. Full (recommended)');
     expect(skill).toContain('2. Lightweight');
     expect(skill).toContain('Would you also like to search your [harness name] session history');
     expect(skill).toContain('spec-first:research:session-historian');
     expect(skill).toContain('Knowledge track output sections');
     expect(skill).toContain('What Didn\'t Work** section (bug track) or **Context** section (knowledge track)');
+    expect(skill).toContain('`spec-sessions` workflow');
+    expect(skill).not.toContain('# /compound');
+    expect(skill).not.toContain('/research [topic]');
   });
 
   test('compound schemas and templates are dual-track aware', () => {

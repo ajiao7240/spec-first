@@ -1,29 +1,30 @@
-# 身份验证模式
+# Authentication Patterns
 
-登录流程、会话持久性、OAuth、2FA 和经过身份验证的浏览。
+Login flows, session persistence, OAuth, 2FA, and authenticated browsing.
 
-**相关**：[commands.md](commands.md) 用于完整命令参考，[SKILL.md](../SKILL.md) 用于快速入门。
+**Related**: [commands.md](commands.md) for full command reference, [SKILL.md](../SKILL.md) for quick start.
 
-## 内容
+## Contents
 
-- [从浏览器导入身份验证](#import-auth-from-your-browser)
-- [持久配置文件](#persistent-profiles)
-- [会话持久化](#session-persistence)
-- [基本登录流程](#basic-login-flow)
-- [保存身份验证状态](# saving-authentication-state)
-- [恢复身份验证](#retoring-authentication)
-- [OAuth / SSO 流程](#oauth--sso-flows)
-- [双因素身份验证](#双因素身份验证)
-- [HTTP 基本身份验证](#http-basic-auth)
-- [基于 Cookie 的身份验证](#cookie-based-auth)
-- [令牌刷新处理](#token-refresh-handling)
-- [安全最佳实践](#security-best-practices)
+- [Import Auth from Your Browser](#import-auth-from-your-browser)
+- [Persistent Profiles](#persistent-profiles)
+- [Session Persistence](#session-persistence)
+- [Basic Login Flow](#basic-login-flow)
+- [Saving Authentication State](#saving-authentication-state)
+- [Restoring Authentication](#restoring-authentication)
+- [OAuth / SSO Flows](#oauth--sso-flows)
+- [Two-Factor Authentication](#two-factor-authentication)
+- [HTTP Basic Auth](#http-basic-auth)
+- [Cookie-Based Auth](#cookie-based-auth)
+- [Token Refresh Handling](#token-refresh-handling)
+- [Security Best Practices](#security-best-practices)
 
-## 从浏览器导入身份验证
+## Import Auth from Your Browser
 
-最快的身份验证方法是重复使用您已登录的 Chrome 会话中的 Cookie。
+The fastest way to authenticate is to reuse cookies from a Chrome session you are already logged into.
 
-**第 1 步：启动 Chrome 并进行远程调试**
+**Step 1: Start Chrome with remote debugging**
+
 ```bash
 # macOS
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --remote-debugging-port=9222
@@ -34,16 +35,20 @@ google-chrome --remote-debugging-port=9222
 # Windows
 "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
 ```
-像平常一样在此 Chrome 窗口中登录您的目标网站。
 
-> **安全说明：** `--remote-debugging-port` 在本地主机上公开了完整的浏览器控制。任何本地进程都可以连接并读取 cookie、执行 JS 等。仅在受信任的计算机上使用，完成后关闭 Chrome。
+Log in to your target site(s) in this Chrome window as you normally would.
 
-**第 2 步：获取身份验证状态**
+> **Security note:** `--remote-debugging-port` exposes full browser control on localhost. Any local process can connect and read cookies, execute JS, etc. Only use on trusted machines and close Chrome when done.
+
+**Step 2: Grab the auth state**
+
 ```bash
 # Auto-discover the running Chrome and save its cookies + localStorage
 agent-browser --auto-connect state save ./my-auth.json
 ```
-**第 3 步：自动化重用**
+
+**Step 3: Reuse in automation**
+
 ```bash
 # Load auth at launch
 agent-browser --state ./my-auth.json open https://app.example.com/dashboard
@@ -52,18 +57,22 @@ agent-browser --state ./my-auth.json open https://app.example.com/dashboard
 agent-browser state load ./my-auth.json
 agent-browser open https://app.example.com/dashboard
 ```
-这适用于任何站点，包括那些具有复杂 OAuth 流程、SSO 或 2FA 的站点 - 只要 Chrome 已经具有有效的会话 cookie。
 
-> **安全说明：** 状态文件包含明文形式的会话令牌。将它们添加到 `.gitignore`，不再需要时删除，并设置 `AGENT_BROWSER_ENCRYPTION_KEY` 进行静态加密。请参阅[安全最佳实践](#security-best-practices)。
+This works for any site, including those with complex OAuth flows, SSO, or 2FA -- as long as Chrome already has valid session cookies.
 
-**提示：** 与 `--session-name` 结合使用，以便导入的身份验证在重新启动后自动保留：
+> **Security note:** State files contain session tokens in plaintext. Add them to `.gitignore`, delete when no longer needed, and set `AGENT_BROWSER_ENCRYPTION_KEY` for encryption at rest. See [Security Best Practices](#security-best-practices).
+
+**Tip:** Combine with `--session-name` so the imported auth auto-persists across restarts:
+
 ```bash
 agent-browser --session-name myapp state load ./my-auth.json
 # From now on, state is auto-saved/restored for "myapp"
 ```
-## 持久配置文件
 
-使用 `--profile` 将代理浏览器指向 Chrome 用户数据目录。这会在浏览器重新启动时保留所有内容（cookie、IndexedDB、服务工作者、缓存），而无需显式保存/加载：
+## Persistent Profiles
+
+Use `--profile` to point agent-browser at a Chrome user data directory. This persists everything (cookies, IndexedDB, service workers, cache) across browser restarts without explicit save/load:
+
 ```bash
 # First run: login once
 agent-browser --profile ~/.myapp-profile open https://app.example.com/login
@@ -72,19 +81,25 @@ agent-browser --profile ~/.myapp-profile open https://app.example.com/login
 # All subsequent runs: already authenticated
 agent-browser --profile ~/.myapp-profile open https://app.example.com/dashboard
 ```
-对于不同的项目或测试用户使用不同的路径：
+
+Use different paths for different projects or test users:
+
 ```bash
 agent-browser --profile ~/.profiles/admin open https://app.example.com
 agent-browser --profile ~/.profiles/viewer open https://app.example.com
 ```
-或者通过环境变量设置：
+
+Or set via environment variable:
+
 ```bash
 export AGENT_BROWSER_PROFILE=~/.myapp-profile
 agent-browser open https://app.example.com/dashboard
 ```
-## 会话保持
 
-使用`--session-name`按名称自动保存和恢复cookies+localStorage，无需管理文件：
+## Session Persistence
+
+Use `--session-name` to auto-save and restore cookies + localStorage by name, without managing files:
+
 ```bash
 # Auto-saves state on close, auto-restores on next launch
 agent-browser --session-name twitter open https://twitter.com
@@ -94,12 +109,16 @@ agent-browser close  # state saved to ~/.agent-browser/sessions/
 # Next time: state is automatically restored
 agent-browser --session-name twitter open https://twitter.com
 ```
-加密静态状态：
+
+Encrypt state at rest:
+
 ```bash
 export AGENT_BROWSER_ENCRYPTION_KEY=$(openssl rand -hex 32)
 agent-browser --session-name secure open https://app.example.com
 ```
-## 基本登录流程
+
+## Basic Login Flow
+
 ```bash
 # Navigate to login page
 agent-browser open https://app.example.com/login
@@ -120,9 +139,11 @@ agent-browser wait --load networkidle
 # Verify login succeeded
 agent-browser get url  # Should be dashboard, not login
 ```
-## 保存身份验证状态
 
-登录后，保存状态以供重复使用：
+## Saving Authentication State
+
+After logging in, save state for reuse:
+
 ```bash
 # Login first (see above)
 agent-browser open https://app.example.com/login
@@ -135,9 +156,11 @@ agent-browser wait --url "**/dashboard"
 # Save authenticated state
 agent-browser state save ./auth-state.json
 ```
-## 恢复身份验证
 
-通过加载保存的状态跳过登录：
+## Restoring Authentication
+
+Skip login by loading saved state:
+
 ```bash
 # Load saved auth state
 agent-browser state load ./auth-state.json
@@ -148,9 +171,11 @@ agent-browser open https://app.example.com/dashboard
 # Verify authenticated
 agent-browser snapshot -i
 ```
-## OAuth / SSO 流程
 
-对于 OAuth 重定向：
+## OAuth / SSO Flows
+
+For OAuth redirects:
+
 ```bash
 # Start OAuth flow
 agent-browser open https://app.example.com/auth/google
@@ -171,9 +196,11 @@ agent-browser click @e4  # Sign in
 agent-browser wait --url "**/app.example.com**"
 agent-browser state save ./oauth-state.json
 ```
-## 双因素身份验证
 
-通过手动干预处理 2FA：
+## Two-Factor Authentication
+
+Handle 2FA with manual intervention:
+
 ```bash
 # Login with credentials
 agent-browser open https://app.example.com/login --headed  # Show browser
@@ -189,9 +216,11 @@ agent-browser wait --url "**/dashboard" --timeout 120000
 # Save state after 2FA
 agent-browser state save ./2fa-state.json
 ```
-## HTTP 基本身份验证
 
-对于使用 HTTP 基本身份验证的站点：
+## HTTP Basic Auth
+
+For sites using HTTP Basic Authentication:
+
 ```bash
 # Set credentials before navigation
 agent-browser set credentials username password
@@ -199,9 +228,11 @@ agent-browser set credentials username password
 # Navigate to protected resource
 agent-browser open https://protected.example.com/api
 ```
-## 基于 Cookie 的身份验证
 
-手动设置身份验证cookie：
+## Cookie-Based Auth
+
+Manually set authentication cookies:
+
 ```bash
 # Set auth cookie
 agent-browser cookies set session_token "abc123xyz"
@@ -209,9 +240,11 @@ agent-browser cookies set session_token "abc123xyz"
 # Navigate to protected page
 agent-browser open https://app.example.com/dashboard
 ```
-## 令牌刷新处理
 
-对于具有过期令牌的会话：
+## Token Refresh Handling
+
+For sessions with expiring tokens:
+
 ```bash
 #!/bin/bash
 # Wrapper that handles token refresh
@@ -241,9 +274,10 @@ else
     # ... login flow ...
 fi
 ```
-## 安全最佳实践
 
-1. **永远不要提交状态文件** - 它们包含会话令牌
+## Security Best Practices
+
+1. **Never commit state files** - They contain session tokens
    ```bash
    echo "*.auth-state.json" >> .gitignore
    ```

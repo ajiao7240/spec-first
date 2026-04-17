@@ -42,10 +42,11 @@ function bfsComponents(nodeSet, intraAdj) {
     // BFS 遍历单个连通分量
     const component = new Set();
     const queue = [startId];
+    let head = 0;
     visited.add(startId);
 
-    while (queue.length > 0) {
-      const cur = queue.shift();
+    while (head < queue.length) {
+      const cur = queue[head++];
       component.add(cur);
 
       const neighbors = intraAdj.get(cur) || [];

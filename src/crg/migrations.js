@@ -21,6 +21,10 @@ const DDL_STATEMENTS = [
   // PRAGMA 设置
   `PRAGMA foreign_keys = ON`,
   `PRAGMA journal_mode = WAL`,
+  `PRAGMA synchronous = NORMAL`,
+  `PRAGMA cache_size = -64000`,
+  `PRAGMA temp_store = MEMORY`,
+  `PRAGMA mmap_size = 268435456`,
 
   // communities 表（先建，供 nodes 外键引用）
   `CREATE TABLE IF NOT EXISTS communities (
@@ -146,6 +150,8 @@ const DDL_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS idx_nodes_is_test ON nodes(is_test)`,
   `CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id)`,
   `CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_edges_source_kind ON edges(source_id, kind)`,
+  `CREATE INDEX IF NOT EXISTS idx_edges_target_kind ON edges(target_id, kind)`,
   // F3/F5 assessNodeRisk：edges WHERE kind IN ('calls','imports_from') 过滤
   `CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind)`,
   `CREATE INDEX IF NOT EXISTS idx_unresolved_edges_source_file ON unresolved_edges(source_file)`,

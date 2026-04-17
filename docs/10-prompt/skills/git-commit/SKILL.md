@@ -1,75 +1,95 @@
 ---
 name: git-commit
-description: 创建一条清晰、能表达变更价值的 git 提交信息。当用户说“commit”“保存这些改动”“创建提交”或希望提交已暂存/未暂存改动时使用。会遵循仓库现有约定；若没有，则默认使用 conventional commit。
+description: Create a git commit with a clear, value-communicating message. Use when the user says "commit", "commit this", "save my changes", "create a commit", or wants to commit staged or unstaged work. Produces well-structured commit messages that follow repo conventions when they exist, and defaults to conventional commit format otherwise.
 ---
 
-# Git 提交
+# Git Commit
 
-把当前工作区改动整理成一条高质量的 git commit。
+Create a single, well-crafted git commit from the current working tree changes.
 
-## 工作流
+## Context
 
-### 第 1 步：收集上下文
+**If you are not Claude Code**, skip to the "Context fallback" section below and run the command there to gather context.
 
-运行以下命令了解当前状态：
+**If you are Claude Code**, the five labeled sections below (Git status, Working tree diff, Current branch, Recent commits, Remote default branch) contain pre-populated data. Use them directly throughout this skill -- do not re-run these commands.
+
+**Git status:**
+!`git status`
+
+**Working tree diff:**
+!`git diff HEAD`
+
+**Current branch:**
+!`git branch --show-current`
+
+**Recent commits:**
+!`git log --oneline -10`
+
+**Remote default branch:**
+!`git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo '__DEFAULT_BRANCH_UNRESOLVED__'`
+
+### Context fallback
+
+**If you are Claude Code, skip this section — the data above is already available.**
+
+Run this single command to gather all context:
 
 ```bash
-git status
-git diff HEAD
-git branch --show-current
-git log --oneline -10
-git rev-parse --abbrev-ref origin/HEAD
+printf '=== STATUS ===\n'; git status; printf '\n=== DIFF ===\n'; git diff HEAD; printf '\n=== BRANCH ===\n'; git branch --show-current; printf '\n=== LOG ===\n'; git log --oneline -10; printf '\n=== DEFAULT_BRANCH ===\n'; git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo '__DEFAULT_BRANCH_UNRESOLVED__'
 ```
 
-最后一条命令会返回远端默认分支（例如 `origin/main`）。去掉 `origin/` 前缀即可得到分支名。如果命令失败，或者只返回 `HEAD`，尝试：
+---
+
+## Workflow
+
+### Step 1: Gather context
+
+Use the context above (git status, working tree diff, current branch, recent commits, remote default branch). All data needed for this step is already available -- do not re-run those commands.
+
+The remote default branch value returns something like `origin/main`. Strip the `origin/` prefix to get the branch name. If it returned `__DEFAULT_BRANCH_UNRESOLVED__` or a bare `HEAD`, try:
 
 ```bash
 gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'
 ```
 
-如果两者都失败，则回退为 `main`。
+If both fail, fall back to `main`.
 
-如果这一步的 `git status` 显示工作树干净，没有已暂存、已修改或未跟踪文件，说明没有内容可提交，直接停止。
+If the git status from the context above shows a clean working tree (no staged, modified, or untracked files), report that there is nothing to commit and stop.
 
-如果 `git branch --show-current` 返回空值，说明仓库处于 detached HEAD。若用户希望把工作附着到某个分支上，应先说明需要分支，并询问是否现在创建 feature branch。使用平台的阻塞式提问工具；如果没有提问工具，则展示选项并等待用户回复。
+If the current branch from the context above is empty, the repository is in detached HEAD state. Explain that a branch is required before committing if the user wants this work attached to a branch. Ask whether to create a feature branch now. Use the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). If no question tool is available, present the options and wait for the user's reply before proceeding.
 
-- 如果用户选择创建分支，根据改动内容推导分支名，执行 `git checkout -b <branch-name>`，然后重新获取当前分支名。
-- 如果用户拒绝，则继续在 detached HEAD 上提交。
+- If the user chooses to create a branch, derive the name from the change content, create it with `git checkout -b <branch-name>`, then run `git branch --show-current` again and use that result as the current branch name for the rest of the workflow.
+- If the user declines, continue with the detached HEAD commit.
 
-### 第 2 步：确定提交信息约定
+### Step 2: Determine commit message convention
 
-按以下优先级判断：
+Follow this priority order:
 
-1. 已在上下文中的仓库约定
-2. 最近 10 条提交历史
-3. 默认使用 conventional commits：`type(scope): description`
+1. **Repo conventions already in context** -- If project instructions (AGENTS.md, CLAUDE.md, or similar) are already loaded and specify commit message conventions, follow those. Do not re-read these files; they are loaded at session start.
+2. **Recent commit history** -- If no explicit convention is documented, examine the 10 most recent commits from Step 1. If a clear pattern emerges (e.g., conventional commits, ticket prefixes, emoji prefixes), match that pattern.
+3. **Default: conventional commits** -- If neither source provides a pattern, use conventional commit format: `type(scope): description` where type is one of `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`, `style`, `build`.
 
-### 第 3 步：判断是否应拆分逻辑提交
+### Step 3: Consider logical commits
 
-在把所有文件一起暂存之前，先检查改动是否天然分成多个独立关注点。
+Before staging everything together, scan the changed files for naturally distinct concerns. If modified files clearly group into separate logical changes (e.g., a refactor in one directory and a new feature in another, or test files for a different change than source files), create separate commits for each group.
 
-原则：
+Keep this lightweight:
+- Group at the **file level only** -- do not use `git add -p` or try to split hunks within a file.
+- If the separation is obvious (different features, unrelated fixes), split. If it's ambiguous, one commit is fine.
+- Two or three logical commits is the sweet spot. Do not over-slice into many tiny commits.
 
-- 只在**文件级别**拆分，不用 `git add -p`
-- 如果区分很明确，就拆分
-- 如果边界模糊，一条提交即可
-- 2 到 3 条逻辑提交通常最合适，不要过度切分
+### Step 4: Stage and commit
 
-### 第 4 步：暂存并提交
+If the current branch from the context above is `main`, `master`, or the resolved default branch from Step 1, warn the user and ask whether to continue committing here or create a feature branch first. Use the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). If no question tool is available, present the options and wait for the user's reply before proceeding. If the user chooses to create a branch, derive the name from the change content, create it with `git checkout -b <branch-name>`, then continue.
 
-再次运行 `git branch --show-current`。如果当前分支是 `main`、`master`，或前面解析出的默认分支，提醒用户当前正在主分支提交，并询问是继续还是先建 feature branch。使用平台的阻塞式提问工具；如果不可用，则展示选项并等待回复。
+Write the commit message:
+- **Subject line**: Concise, imperative mood, focused on *why* not *what*. Follow the convention determined in Step 2.
+- **Body** (when needed): Add a body separated by a blank line for non-trivial changes. Explain motivation, trade-offs, or anything a future reader would need. Omit the body for obvious single-purpose changes.
 
-优先按文件名精确暂存相关文件，而不是使用 `git add -A` 或 `git add .`，以免意外把 `.env`、凭据文件或无关改动一并提交。
-
-编写提交信息：
-
-- **Subject**：简洁、祈使句，聚焦“为什么”
-- **Body**：仅在必要时补充动机、权衡或背景
-
-使用 heredoc 保留格式：
+For each commit group, stage and commit in a single call. Prefer staging specific files by name over `git add -A` or `git add .` to avoid accidentally including sensitive files (.env, credentials) or unrelated changes. Use a heredoc to preserve formatting:
 
 ```bash
-git commit -m "$(cat <<'EOF'
+git add file1 file2 file3 && git commit -m "$(cat <<'EOF'
 type(scope): subject line here
 
 Optional body explaining why this change was made,
@@ -78,6 +98,6 @@ EOF
 )"
 ```
 
-### 第 5 步：确认结果
+### Step 5: Confirm
 
-提交后运行 `git status` 验证成功，并汇报提交哈希和主题行。
+Run `git status` after the commit to verify success. Report the commit hash(es) and subject line(s).

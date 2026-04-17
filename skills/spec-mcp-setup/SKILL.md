@@ -9,8 +9,7 @@ argument-hint: "[quick|custom]"
 Install and configure the MCP tools needed by spec-first workflows.
 
 **Claude entry point:** `/spec:mcp-setup [quick|custom]`
-**Codex entry point:** `/spec:mcp-setup [quick|custom]`
-If you invoke the skill directly inside a Codex session, `$spec-mcp-setup [quick|custom]` still works.
+**Codex entry point:** `$spec-mcp-setup [quick|custom]`
 
 ## Overview
 
@@ -31,11 +30,11 @@ Platform entrypoints:
 - macOS/Linux: use the `*.sh` scripts with `bash`
 - Windows: use the matching `*.ps1` scripts with `pwsh` 7+
 
-**Actual flow:** `/spec:mcp-setup` → restart the active host → `/spec:bootstrap` → done.
+**Actual flow:** run the current host's `mcp-setup` entrypoint → restart the active host → run the current host's `bootstrap` entrypoint → done.
 
 ## Configuration
 
-Tool metadata is defined in `skills/mcp-setup/mcp-tools.json`. Each tool entry includes:
+Tool metadata is defined in `skills/spec-mcp-setup/mcp-tools.json`. Each tool entry includes:
 - `id`, `name`, `category`
 - `dependencies` (node / uv)
 - `mcp_config` (command + args for MCP server registration; host placeholders such as `__HOST_CONTEXT__` are resolved at install time; Codex tools can also declare `startup_timeout_sec`)
@@ -50,12 +49,12 @@ Tool metadata is defined in `skills/mcp-setup/mcp-tools.json`. Each tool entry i
 ### 1.1 Run Dependency Check
 
 ```bash
-bash skills/mcp-setup/scripts/check-deps.sh
+bash skills/spec-mcp-setup/scripts/check-deps.sh
 ```
 
 Windows:
 ```powershell
-pwsh -File skills/mcp-setup/scripts/check-deps.ps1
+pwsh -File skills/spec-mcp-setup/scripts/check-deps.ps1
 ```
 
 This script outputs JSON with the status of each dependency:
@@ -90,20 +89,25 @@ After auto-install or when all dependencies are present, rerun the matching plat
 
 **Goal:** Install all required tools and write their MCP configurations to the current host's MCP config.
 
+macOS/Linux:
+```bash
+bash skills/spec-mcp-setup/scripts/install-coordinator.sh
+```
+
 Windows:
 ```powershell
-pwsh -File skills/mcp-setup/scripts/install-coordinator.ps1
+pwsh -File skills/spec-mcp-setup/scripts/install-coordinator.ps1
 ```
 
 ### 2.1 Detect Existing Tools
 
 ```bash
-bash skills/mcp-setup/scripts/detect-tools.sh
+bash skills/spec-mcp-setup/scripts/detect-tools.sh
 ```
 
 Windows:
 ```powershell
-pwsh -File skills/mcp-setup/scripts/detect-tools.ps1
+pwsh -File skills/spec-mcp-setup/scripts/detect-tools.ps1
 ```
 
 Expected output shape:
@@ -159,10 +163,11 @@ Offer optional tools only after required tools are installed.
 
 Ask whether to install optional tools.
 
-Available optional tool:
+Available optional tools:
 - Playwright MCP
+- 飞书 MCP（需要交互式输入 App ID / App Secret）
 
-If the user selects it, run the same install + configure flow from Phase 2.
+If the user selects any of them, run the same install + configure flow from Phase 2 for the selected tools.
 
 ### 3.2 Skip in Non-Interactive Mode
 
@@ -176,11 +181,11 @@ Run after Phase 3 to record host-level install state.
 
 ### 4.1 Write Host Readiness Marker
 
-Run `skills/mcp-setup/scripts/verify-tools.sh` to validate host-level install state and write the current host's `spec-first/host-setup.json` marker.
+Run `skills/spec-mcp-setup/scripts/verify-tools.sh` to validate host-level install state and write the current host's `spec-first/host-setup.json` marker.
 
 Windows:
 ```powershell
-pwsh -File skills/mcp-setup/scripts/verify-tools.ps1
+pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1
 ```
 
 The verification step will print the current host's baseline status and the final marker path so users can immediately tell whether they need to restart.
@@ -220,7 +225,7 @@ After all installations:
 
 Installed: Serena, Sequential Thinking, Context7
 Skipped (already present): [list]
-Optional: Playwright MCP [installed / not installed]
+Optional: Playwright MCP / 飞书 MCP [installed / skipped / not installed]
 
 Host readiness:
 - dependencies: ready
@@ -230,7 +235,7 @@ Host readiness:
 
 Next steps:
 1. Restart the current host (required to load new MCP configuration)
-2. Run /spec:bootstrap
+2. Run the current host's bootstrap entrypoint (`/spec:bootstrap` or `$spec-bootstrap`)
 ```
 
 ---
@@ -250,7 +255,7 @@ Next steps:
 ## Scope Boundaries
 
 **Includes:**
-- MCP tool installation and configuration (3 required tools + 1 optional tool)
+- MCP tool installation and configuration (3 required tools + 2 optional tools)
 - Installation status detection and verification
 - CRG CLI availability and native module health detection
 - User interaction and progress feedback
@@ -304,4 +309,3 @@ The coordination file between mcp-setup and spec-bootstrap is host-specific:
 | `crg.cli_available` | spec-graph-bootstrap Phase 0.2b | Skip CRG operations when CLI unavailable |
 | `crg.native_modules` | spec-graph-bootstrap Phase 0.2b | Warn before attempting crg build |
 | `crg.checked_at` | spec-graph-bootstrap Phase 0.2b | Stale detection (re-check if >30 days old) |
-

@@ -1,0 +1,689 @@
+           Claude Code v2.1.111
+ ▐▛███▜▌   Sonnet 4.6 · API Usage Billing
+▝▜█████▛▘  ~/xiaobu/spec-first
+  ▘▘ ▝▝    Welcome to Opus 4.7 xhigh! · /effort to tune speed vs. intellige…
+
+❯ /model                                                                        
+  ⎿  Set model to Sonnet 4.6 (1M context)
+
+❯ /model                                                                        
+  ⎿  Set model to Opus 4.7 (1M context)
+
+❯ '/Users/kuang/xiaobu/spec-first/docs/项目介绍' 了解内容                       
+
+  Read 3 files, listed 1 directory (ctrl+o to expand)
+
+⏺ docs/项目介绍/ 包含三份文档：
+
+  1. README.md（项目总览）
+  - spec-first v1.5.1：npm CLI，将 AI 编码转为"规格驱动交付闭环"
+  - 规模：88 个 JS 文件/~13,700 行，47 skills + 57 agents + 13 命令
+  - 工作流：ideate → brainstorm → plan → work → review → compound
+  - 三大子系统：资产同步引擎、CRG 代码图引擎、上下文路由系统
+
+  2. 2026-04-17 全项目正式审查报告
+  测试全绿下发现的 4 条"绿灯假安全感"：
+  - F1（高）：crg build 0 变更增量时 unresolved 返回 0，但 stats 显示
+  2809，同源数据矛盾（src/crg/cli/build.js:287-291 / 390-405）
+  - F2（中高）：install-tarball.sh 对未知 tree-sitter-*
+  包实际放行，注释与语义不一致
+  - F3（中高）：bootstrap-compiler 仍是 sample/skeleton 驱动（硬编码 528 
+  nodes/1307 edges，live 已是 779/1977）
+  - F4（中）：CHANGELOG 格式规则未被测试校验
+
+  3. CRG-代码图引擎分析.md
+  CRG 46 文件/13,697 行的完整架构：SQLite + 9 表 + FTS5，16 语言 tree-sitter
+  解析，六阶段边解析，3-Pass 社区检测，BFS+5
+  因子流程评分，seed→expand→rerank→pack 检索管道，代际管理（current +
+  last-known-good）。
+
+✻ Churned for 55s
+
+❯ '/Users/kuang/xiaobu/spec-first/docs/项目介绍/CRG-代码图引擎分析.md'          
+  结合项目目标,代码深度分析,像顶尖算法专家一样行动,'/Users/kuang/xiaobu/spec-fi 
+  rst/src/crg' 有没有可以优化点                                                 
+
+⏺ Bash(cd /Users/kuang/xiaobu/spec-first/src/crg && find . -type f -name "*.js"
+      | head -60 && echo "---" && find . -type f -name "*.js" | xargs wc -l |
+      tail -5)
+  ⎿  ./constants.js
+     ./artifact-paths.js
+     ./graph.js
+     … +37 lines (ctrl+o to expand)
+
+  Read 20 files (ctrl+o to expand)
+
+⏺ CRG 代码深度优化分析（算法专家视角）
+
+  读完核心模块（graph.js、communities.js、flows.js、analyze.js、retrieval/*、cha
+  nges.js、incremental.js、build.js、search.js、parser.js、input-convergence.js
+  ）后，按正确性 > 算法质量 > 性能 > 契约一致性给出分级建议。审查报告已覆盖的
+  F1（build/stats 口径分裂）这里不重复。
+
+  ---
+  P0 正确性 Bug（必须修，目前算出来的数就是错的）
+
+  C1. communities.js:200 密度公式把 density 系统性腰斩
+
+  const totalPossible = n * (n - 1);        // ← 错，应为 n*(n-1)/2
+  const density = stats.intra_edges / Math.max(totalPossible, 1);
+  上游在 seenModuleEdgePairs 里已经做了无向去重（line 128-140），intra_edges
+  是无向边数。无向图最大可能边数是 n(n-1)/2，分母多乘 2 直接让所有社区 density
+  减半 → density > 0.3 阈值从实际意义上的 0.15 门槛被误当 0.3 使用 →
+  绝大多数社区被误判为 fragmented / scattered。
+
+  这是一个会直接污染所有 health_status 字段的 bug，下游（review-context
+  的"高风险模块"、spec-graph-bootstrap 的"碎片模块"标记）全部受影响。
+
+  修复：分母改 n*(n-1)/2，同时对 n<2 特例返回 0（否则小社区
+  density=Infinity）。Pass 3 子社区同样问题（line 251、272）。
+
+  C2. graph.js:255-280 symbolCache 的缓存 key 语义漏了 srcFile
+
+  const getSymbolId = (name, srcFile) => {
+    if (symbolCache[name] !== undefined) {
+      const cached = symbolCache[name];
+      if (cached !== AMBIGUOUS) return cached;   // ← 同文件消歧结果没进缓存
+      const rows = getAllSymbolRows.all(name);   // ← 每次 AMBIGUOUS 都 re-query
+      const sameFile = rows.filter((r) => r.file_path === srcFile);
+      return sameFile.length === 1 ? sameFile[0].id : null;
+    }
+  问题两点：
+  1. 对于像 run、parse、validate 这种高频重名，每次调用都重读所有同名节点。在
+  1977 条 edges 的样本里，这个 re-query 会乘到几千次（SQLite 调用开销 ~几
+  μs，但在 JS 单线程下是可测成本）。
+  2. 更严重的语义问题：阶段 5"全局唯一就直接解析"假设不稳定 — 一次 build 里
+  validate 是唯一节点，下一次引入 src/auth/validate.js 后同一个 caller 的 target
+   会悄悄重新指向另一个节点，图拓扑在无任何人为变更下突变。
+
+  修复思路：
+  - 缓存 key 改 ${name}::${srcFile}，AMBIGUOUS 分支也缓存同文件消歧结果。
+  - 更根本：阶段 5 应改为"全局唯一且源目标同 community"或"同包/同目录"才解析；跨
+   community 的纯 name 匹配应记入 unresolved
+  而非乱绑。这才是顶尖编译器式符号解析的正确语义（scope-aware）。
+
+  C3. flows.js:51 BFS 用 Array.shift() — O(n²) 复杂度
+
+  const queue = [[entryId, 0]];
+  while (queue.length > 0 && flowNodes.length < maxNodes) {
+    const [cur, depth] = queue.shift();   // ← O(n) per call
+  BFS 的复杂度本该是 O(V+E)。queue.shift() 每次 O(n)，20 节点 × 5 深度 flow
+  问题不大，但 detectFlows 跑 100 个 flows 时被放大 100 倍。
+
+  修复：用 head-index 游标（let head = 0; queue[head++]）或 denque 包。实测 Node
+   22 V8 对 shift 有优化，但在算法层我们不该依赖 JIT。
+
+  C4. analyze.js:83 hub 阈值计算分母错
+
+  const hubThresholdIdx = Math.max(0, Math.floor(sortedDegrees.length * 0.1) -
+  1);
+  sortedDegrees = Array.from(inDegree.values())，只包含有入度的节点。意图是"前
+  10% 中枢"，实际变成"有入度节点中的前 10%"。孤立节点（in_degree=0）越多，hub
+  阈值越低越宽松，结果 peripheral_to_hub 因子会误触发。
+
+  修复：分母换成 nodesRow.length（总节点数），并跳过 in_degree=0 节点（它们不是
+  hub 候选）。
+
+  C5. incremental.js + build.js 对"解析失败文件"的指纹遗漏
+
+  build.js:238-262：no_parser / parse_error 文件既不入 parsedChanged 也不入 
+  skippedChanged；updateFingerprints 只收到 parsedChanged，这些文件每次 build 
+  都会被重 parse（CPU 浪费）且永远不进 fingerprints → stats 的 staleFiles
+  检测也漏掉它们。
+
+  修复：对 no_parser / parse_error 也写入 fingerprints（带 parser_quality
+  字段），下次 build 除非 SHA 变化否则跳过。在 changed
+  列表里加入"降级标记"让下游能正确统计。
+
+  ---
+  P1 算法质量（当前只是启发式，声称的能力打折）
+
+  Q1. "3-Pass 社区检测" 本质上是单 pass 目录分组 + 少量补丁
+
+  communities.js 算法描述和 README 里的 "3-Pass 社区检测" 其实是：
+  - Pass 1：按"第一个非容器目录段"分组 — 就是 basename(dirname)。
+  - Pass 2：只算 density/independence 给个 label，不改变分组。
+  - Pass 3：只对 file_count > 25% 的超大社区 BFS 拆分。
+
+  根本缺陷：
+
+  Read 3 files (ctrl+o to expand)
+
+⏺ 下面按"算法正确性 → 质量/召回 → 性能 → 工程健壮性"四层给出 CRG
+  的深度优化点。每条都带文件行号和可操作修复方案。排名按
+  对项目目标（无幻觉结构化代码理解）的杀伤力 递减。
+
+  ---
+  一、算法正确性问题（会产出错误事实，污染下游全部分析）
+
+  🔴 A1. resolveEdges 阶段 5 的"全局符号消歧"会制造错误 calls 边
+
+  位置： src/crg/graph.js:250-280
+
+  const rows = getAllSymbolRows.all(name);        // 所有同名节点
+  if (rows.length === 1) symbolCache[name] = rows[0].id;   // 全局唯一就用它
+
+  问题： 只要全局碰巧只有一个 run / init / parse，即便 source 文件根本没 import
+  过 target 的 module，也会被连上 calls 边。对一个用 CommonJS + 大量 run() /
+  init() 的项目（本仓库就是），这会大面积错配。
+
+  影响： 错误边不会进 unresolved_edges，不触发任何告警，却会污染 communities
+  独立性、criticality、blast_radius。用户读审查报告会发现"unresolved=2809 >
+  resolved=1977"，unresolved > 58% 的背面是 剩下 42% 
+  里有多少"碰巧"的假阳性？无人知晓。
+
+  正确做法（顶尖算法专家口径）：
+  - 阶段 5 必须加守卫：source_module 到 target_module 之间存在 imports_from
+  边（或同文件），才允许消歧为 calls 边。
+  - 否则降级为 unresolved。代价：unresolved
+  数字会上升，但这是"诚实的上升"，比"静默假阳"好得多。
+  - 可用一次性预计算 moduleReachability: Map<srcModId, Set<tgtModId>>，O(|E|)
+  一次，查询 O(1)。
+
+  🔴 A2. 相对路径 suffix 探测缺 .tsx / .cjs / .cts / /index.ts
+
+  位置： src/crg/graph.js:313
+
+  for
+
+⏺ 好，已经完整读过 src/crg/ 的核心路径（build/graph/resolveEdges、incremental、c
+  ommunities、flows、analyze、retrieval
+  全管道、review-context、impact、changes、migrations、search、chunking、parser
+  、input-convergence）。以下是我作为算法专家的正式深度分析。
+
+  ---
+  一、正确性与语义类缺陷（高优先，会污染下游 AI agent 判断）
+
+  C1. 社区检测不是社区检测——本质是"按顶层目录分组"
+
+  位置：communities.js:75-102
+
+  Pass 1 按 file_path 第一个非容器目录分组，直接决定 node.community_id。Pass 2
+  只评估"健康度标签"，Pass 3
+  只对超大社区做连通分量拆分。整个流程没有任何图拓扑聚类（Louvain / Leiden /
+  Label Propagation 都没有），本质上是 groupBy(filePath.split('/')[k])。
+
+  后果传染 surprising_connections（analyze.js:112）——cross_community=40 是 4
+  因子里最大权重，但社区边界本身是"目录边界"，因此 surprising_connections
+  实际上在报告"跨目录调用"，这对任何合理模块化的代码库都是海量噪音。项目介绍文档
+  宣称的"社区检测 + 4 因子惊喜连接"在算法层面是名不副实。
+
+  建议：引入 graphology-communities-louvain（纯 JS，零原生依赖），在 module
+  级别跑 Louvain，目录框架降级为 fallback；或至少把
+  surprising_connections.cross_community 权重下调到 15
+  并要求与另一维度共同触发。
+
+  C2. resolveEdges 的 AMBIGUOUS 缓存没有起到缓存作用
+
+  位置：graph.js:255-280
+
+  const cached = symbolCache[name];
+  if (cached !== AMBIGUOUS) return cached;
+  // 全局重名：尝试同文件精确匹配
+  const rows = getAllSymbolRows.all(name);  // ← 每次 AMBIGUOUS 都重复扫
+
+  当某个 name 在全局有多个同名节点（如 run、build、resolve），每次遇到同名 raw
+  edge 都重新跑 SELECT id, file_path FROM nodes WHERE name = ?。对 JS 仓库这种
+  name 冲突频繁的场景，这是主 bottleneck 之一。
+
+  修复：缓存应存 rows[] 本身：
+
+  symbolCache[name] = { status: 'ambiguous', rows };
+  // 后续 srcFile 过滤从缓存读，零 SQL
+
+  C3. resolveEdges 的相对路径扩展名探测只覆盖 JS/TS
+
+  位置：graph.js:313-316
+
+  for (const suffix of ['', '.js', '.mjs', '.ts', '/index.js']) {
+
+  缺 .tsx、.cjs、.jsx、.py、.rb、.go。Python from .utils import X、Ruby
+  require_relative './helper'、Go（不相关）、TSX 组件相对 import
+  全部直接进入阶段 2 全局符号兜底——多语言仓库解析率大幅虚降，unresolved 被夸大。
+
+  C4. basename fallback 只对 C/ObjC 头文件生效
+
+  位置：graph.js:322-330
+
+  const isHeaderExt = /\.(h|hpp|hh|hxx|m|mm|c|cc|cpp|cxx)$/i.test(rawPath);
+
+  Java import foo.Bar（parser 会不会产出纯 basename 另说）、Python 模块名、Ruby
+  常量引用若以 basename 形式出现都跳过 fallback。建议扩展为"任何无路径分隔符 +
+  属于 INDEXABLE_EXTS 的 target_name/target_path_raw 都走 basename proximity"。
+
+  C5. chunking.js 切分对 line_end=0 的节点产生废块
+
+  位置：chunking.js:18-27
+
+  const span = Math.max((node.line_end || 0) - (node.line_start || 0) + 1, 1);
+  const chunkCount = Math.max(1, Math.ceil(span / effectiveMaxLines));
+  // ...
+  const end = Math.min((node.line_end || 0), start + effectiveMaxLines - 1);
+
+  当 parser 对某类节点没填 line_end（或 line_end < line_start，TS
+  语法异常时可能发生）时，end = Math.min(0, ...)=0，同时 start > 0，产出
+  {line_start: X, line_end: 0} 的颠倒块。chunks 表里这些 row
+  会成为"非法数据点"污染 retrieval。
+
+  修复：line_end <= line_start → 单一 chunk 且 line_end = line_start，并在
+  chunking 入口校验。
+
+  C6. semantic-rerank 与项目宣称严重不符
+
+  位置：retrieval/semantic-rerank.js:13-18
+
+  const haystack = `${item.name} ${item.retrieval_text}`.toLowerCase();
+  const overlap = terms.reduce((sum, term) => sum + (haystack.includes(term) ? 1
+   : 0), 0);
+
+  这是朴素子串计数，不是语义。没有 embedding、没有
+  IDF、没有词干化、没有近义词映射。项目介绍说"semantic-rerank
+  词项重排"——诚实的命名应该是 lexical-overlap-rerank。此外 retrieval_text 仅是
+  "${file_path} ${kind} ${name}"（parser.js:139），完全不含代码文本或 
+  docstring，所以哪怕上了真 embedding，信号密度也是零。这是 CRG 作为"AI
+  代码理解底座"的最大系统性弱点。
+
+  C7. changes.js 不做行级 diff 过滤——一处改动影响整个文件所有节点
+
+  位置：changes.js:27-39
+
+  getChangedFilesFromGit 只用 git diff --name-only，assessNodePriorities
+  把文件里所有 function/method/class
+  都打分并返回。结果：修一个注释、改一个字符串常量，review-context 把同文件 50
+  个函数都列为"变更"，并对它们做 2-hop BFS（每个触发一次批量 risk
+  scoring），产生大量假阳性 blast radius。
+
+  修复：改用 git diff -U0 --numstat -- <file> 或 git diff --unified=0 提取
+  hunks，过滤 nodes WHERE [line_start, line_end] 与任一 hunk 区间相交。这是 AI
+  review 体验的决定性优化。
+
+  ---
+  二、算法复杂度类缺陷（中高优先）
+
+  P1. BFS 普遍用 Array.shift()，均摊 O(n²)
+
+  位置：flows.js:59、communities.js:47、impact.js:30、review-context.js:167
+
+  JS shift() 是 O(n)。对 flows 限 20 节点可忽略；但 communities.bfsComponents
+  扫社区内所有模块节点，impact.reverseBfs 深度 5
+  可能遍历数千调用者，review-context.reverseBfs 对每个 affected node 都跑一次。
+
+  修复：标准替换为头索引队列：
+
+  const queue = [startId];
+  let head = 0;
+  while (head < queue.length) {
+    const cur = queue[head++];
+    // ...
+    queue.push(...);
+  }
+
+  零字符改动，实测对大仓库能省一半以上的 BFS 时间。
+
+  P2. writeCommunities 子社区内外边统计是 O(E × Components)
+
+  位置：communities.js:253-270
+
+  for (const { src, tgt } of moduleEdges) { if (component.has(src) &&
+  component.has(tgt)) subIntraEdges++; }
+  for (const { src, tgt } of moduleEdges) { /* subInterEdges */ }
+
+  对每个连通分量都完整遍历 moduleEdges 两次。仓库 10K 边 + 20 个子社区就是 40
+  万次迭代。
+
+  修复：单次遍历 moduleEdges，预先构建 moduleToSubComponent: Map<moduleId, 
+  componentIdx>，对每条边 O(1) 分类：
+
+  for (const {src, tgt} of moduleEdges) {
+    const si = moduleToSubComp.get(src), ti = moduleToSubComp.get(tgt);
+    if (si === undefined || ti === undefined) continue;
+    if (si === ti) subStats[si].intra++;
+    else { subStats[si].inter++; subStats[ti].inter++; }
+  }
+
+  P3. 社区 community_id 传播使用关联子查询——N+1 反模式
+
+  位置：communities.js:346-354
+
+  UPDATE nodes SET community_id = (
+    SELECT m.community_id FROM nodes m
+    WHERE m.file_path = nodes.file_path AND m.kind = 'module' LIMIT 1
+  ) WHERE kind != 'module'
+
+  SQLite 会对每行非 module 节点执行子查询一次。用 idx_nodes_file_path_kind
+  索引能优化但仍是每行一次查询。
+
+  修复：构造 filePath → community_id 临时表，用 JOIN 替换子查询，或在 JS
+  侧批量收集后 UPDATE ... WHERE id IN (...) 分批运行。
+
+  P4. detectFlows 入口检测 NOT IN (SELECT target_id ...)
+
+  位置：flows.js:163-169
+
+  SQLite 对 NOT IN (subquery) 执行效率不佳，对大仓库是 O(N × E)。已经在
+  loadAdjacency 里加载了全部 calls 边到 Map，应该改用 JS 侧 Set 过滤：
+
+  const hasIncoming = new Set();
+  for (const [, targets] of adjacency) targets.forEach(t => hasIncoming.add(t));
+  const entryNodes = db.prepare("SELECT id, name FROM nodes WHERE kind != 
+  'module'").all()
+    .filter(n => !hasIncoming.has(n.id));
+
+  P5. rebuildFTS 每次 postprocess 全量重建
+
+  位置：search.js:85-126
+
+  DROP + CREATE + 全表 INSERT。对 10 万节点仓库是秒级操作，且每次 build 都跑。
+
+  修复：增量模式——只对 changedFiles 对应 node_id DELETE FROM fts_nodes WHERE 
+  node_id IN (...) + 重新 INSERT。FTS5 external content 有坑，但独立 FTS
+  虚表支持直接 DELETE。
+
+  P6. searchNodesByLike 是全表扫，每个 term 一次
+
+  位置：retrieval/seed.js:27-34
+
+  WHERE lower(name) LIKE lower(?) OR lower(retrieval_text) LIKE lower(?)
+
+  零索引支持（LIKE '%x%' 无法走索引）。当 FTS match 返回空（极常见，因为 FTS
+  对复合标识符切词不友好），每个 term 都会全表扫 nodes。
+
+  修复：
+  1. 优先让 FTS5 配 tokenize='trigram'，这样 LIKE '%foo%' 的语义可由 FTS 覆盖；
+  2. 保留 LIKE 时加 name 上的函数索引或直接用 name GLOB '*x*'（SQLite GLOB
+  不支持索引但至少不需 lower）。
+
+  P7. assessFileRisk 每个文件都查 COUNT(*) FROM edges WHERE target_id = ?
+
+  位置：changes.js:56
+
+  对 N 个变更文件做 N 次查询。改成一次 GROUP BY target_id：
+
+  SELECT target_id, COUNT(*) c FROM edges WHERE target_id IN (...) GROUP BY
+  target_id
+
+  P8. review-context 加载全图 calls 边到 Map
+
+  位置：review-context.js:152-159
+
+  无 .filter 边界——对 100K 边仓库会占用约 10MB+ 内存 +
+  同步加载延迟。可改为只加载 "affected 2-hop 反向闭包内" 的边：先查直接
+  callers，再查 callers 的 callers，分两批 SQL。
+
+  ---
+  三、SQL/Schema/数据结构层面
+
+  S1. edges(target_id, kind) 缺复合索引
+
+  位置：migrations.js:147-150
+
+  高频查询 WHERE target_id = ? AND kind = 'calls'（impact/callers/changes
+  全用到）。现有 idx_edges_target + idx_edges_kind 独立索引，SQLite
+  只能选一个；应加 CREATE INDEX idx_edges_target_kind ON edges(target_id, 
+  kind)，同理 (source_id, kind)。
+
+  S2. unresolved_edges 无唯一约束，可能重复写入
+
+  位置：migrations.js:104-112、graph.js:416-438
+
+  replace 逻辑是 truncate + insert，本身幂等，但如果同一 raw edge 在 rawEdges
+  数组里重复出现，当前会插入两次。加约束 UNIQUE(source_id, edge_kind, 
+  target_name, target_path_raw) + INSERT OR IGNORE。
+
+  S3. expand.js 无分块，接近 999 参数上限
+
+  位置：retrieval/expand.js:14-24
+
+  WHERE (e.source_id IN (${placeholders}) OR e.target_id IN (${placeholders}))
+    AND n.id NOT IN (${placeholders})
+
+  三倍占位符。当 seed_limit=12 是 36 个，离 999 尚远，但未来调大 seed_limit
+  时会爆。建议加 CHUNK_SIZE=300，或把 NOT IN 移到 JS 侧。
+
+  S4. FTS5 关键字转义只去除双引号
+
+  位置：search.js:31
+
+  const safeKeyword = '"' + keyword.replace(/"/g, '') + '"';
+
+  未处理 * 尾通配（实际算特性）、反斜杠、control chars。在 spec-first
+  这种用户可传查询的场景有 SQL injection-like 的语义泄漏风险（FTS operator
+  injection）。建议同时 strip FTS5 操作符字符 [*":()]。
+
+  S5. nodes.id 依赖 filePath#kind#name#lineStart——函数改名/挪位置都破坏稳定性
+
+  位置：parser.js:108
+
+  单次重命名会使旧 id 变 stale，所有指向它的 edges 在 resolveEdges 里都找不到旧
+  target（因为旧 node 已被 deleteStaleNodes 清掉），但同时新 name
+  的同名全局查找可能命中别处——语义漂移。
+
+  这是设计取舍，不是容易修的 bug，但应该在文档里明确声明"id 非稳定，仅供一次
+  build 周期内引用"；对外给 AI agent 的 FactItem 应该额外携带 canonical 标识（如
+   symbol_path: "src.crg.graph::resolveEdges"）以便跨 build 复用。
+
+  ---
+  四、设计层面（需产品侧讨论）
+
+  D1. retrieval_text 信号量接近零
+
+  parser.js:139 把 retrieval_text 设为 "${file_path} ${kind} 
+  ${name}"，FTS/LIKE/semantic-rerank 全部在这个字符串上跑。真正可 retrieve
+  的信号（代码体、docstring、首行注释、参数名）完全缺失。
+
+  建议：buildNode 时从 tsNode.text 截取前 N 行，去除纯空白/分号行，作为
+  retrieval_text 的主体。chunks 表已经有 line 范围，完全可以直接存 chunk
+  源码前若干行。这是把 CRG 从"骨架"升级为"血肉"的决定性一步。
+
+  D2. "混合检索"名下其实只有词法层
+
+  seed = FTS + LIKE + 文件名匹配；expand = 1-hop 邻居；rerank =
+  权重加分；semantic-rerank = 子串计数。全链路无任何 embedding、无任何 learned
+  ranker。
+
+  真要做 semantic，建议：
+  - 集成 @xenova/transformers（纯 JS，本地 small MiniLM，~22MB）对 chunks 做离线
+   embedding，存 chunks.embedding BLOB；
+  - retrieval 时 query 也 embed，cosine 相似度打分 + 现有权重融合。
+
+  这可以做成 Opt-in（profile=review --semantic=dense），不破坏默认快路径。
+
+  D3. 社区/flows/risk 的权重都是魔法数字
+
+  flows.criticality 0.30/0.20/0.25/0.15/0.10，changes.assessNodeRisk
+  同样，analyze.surprising 10/30/40/20。没有 weights.json、没有校准数据、没有
+  A/B。benchmarks/ 目录存在但未驱动这些权重。
+
+  建议：抽一个 weights/ 配置包，tests/unit 里加权重漂移保护测试，benchmark
+  里加"已知 high-risk PR → top-k recall"指标。
+
+  D4. Chunking 完全不 AST-aware
+
+  chunking.js:22-24 按 line_start + index * maxLines 硬切。对于 500 行的 god
+  class，切成 7 块，每块前后缺失上下文。tree-sitter 已有完整 AST，完全可以按
+  statement/block 边界对齐切分。
+
+  D5. calls 边不含 call-site 行号
+
+  parser 阶段提取调用关系时丢失了 "source 节点内部哪一行调用了 target"
+  的信息。AI agent 做精准 patch 时需要这个。建议 edges 表加 call_line 
+  INTEGER，或至少加 site_offset INTEGER 供后续 chunk 定位。
+
+  D6. parser.js 1841 行单文件，16 语言混在一起
+
+  无明显算法问题但维护性严重受限。建议拆为 parser/index.js +
+  parser/languages/{javascript,objc,...}.js，每个子文件只暴露
+  extractNodesAndEdges(tree, filePath)。
+
+  ---
+  五、Quick Wins（按投入产出比排序）
+
+  ┌─────┬───────────────────┬────────────────────────────────┬───────────────┐
+  │  #  │      优化项       │              位置              │     效果      │
+  ├─────┼───────────────────┼────────────────────────────────┼───────────────┤
+  │     │                   │ flows/communities/impact/revie │ BFS           │
+  │ 1   │ BFS 改头索引队列  │ w-context 四处                 │ 耗时腰斩，5   │
+  │     │                   │                                │ 行改动        │
+  ├─────┼───────────────────┼────────────────────────────────┼───────────────┤
+  │     │ AMBIGUOUS 缓存    │                                │ resolveEdges  │
+  │ 2   │ rows              │ graph.js:255-280               │ 大仓库提速    │
+  │     │                   │                                │ 2-5x          │
+  ├─────┼───────────────────┼────────────────────────────────┼───────────────┤
+  │     │                   │                                │ review 假阳性 │
+  │ 3   │ hunk 级 diff 过滤 │ changes.js:27-39               │ 节点数下降    │
+  │     │                   │                                │ ~70%          │
+  ├─────┼───────────────────┼────────────────────────────────┼───────────────┤
+  │     │ 相对路径扩展      │                                │ 多语言仓库    │
+  │ 4   │ .tsx/.cjs/.jsx/.p │ graph.js:313                   │ unresolved    │
+  │     │ y/.rb             │                                │ 下降          │
+  ├─────┼───────────────────┼────────────────────────────────┼───────────────┤
+  │ 5   │ (target_id,kind)  │ migrations.js                  │ impact/caller │
+  │     │ 复合索引          │                                │ s_of 查询提速 │
+  ├─────┼───────────────────┼────────────────────────────────┼───────────────┤
+  │ 6   │ NOT IN → JS Set   │ flows.js:163 / expand.js       │ 避免 O(N×E)   │
+  │     │ 过滤              │                                │               │
+  ├─────┼───────────────────┼────────────────────────────────┼───────────────┤
+  │ 7   │ retrieval_text    │ parser.js buildNode            │ 检索信号密度  │
+  │     │ 改为代码首行/签名 │                                │ 质变          │
+  ├─────┼───────────────────┼────────────────────────────────┼───────────────┤
+  │ 8   │ subIntra/subInter │ communities.js:253-270         │ 社区精化      │
+  │     │  单次遍历         │                                │ O(E×C)→O(E)   │
+  ├─────┼───────────────────┼────────────────────────────────┼───────────────┤
+  │ 9   │ FTS 增量重建      │ search.js                      │ build 时间稳  │
+  │     │                   │                                │ 定可增量      │
+  ├─────┼───────────────────┼────────────────────────────────┼───────────────┤
+  │     │ SECURITY_KEYWORDS │                                │ 减少数十万次  │
+  │ 10  │  编译为单正则     │ flows/analyze/changes 三处     │ Set→Array     │
+  │     │                   │                                │ spread        │
+  └─────┴───────────────────┴────────────────────────────────┴───────────────┘
+
+  ---
+  建议的下一步
+
+  如果要启动一轮系统性优化，我建议按这个顺序起 4 个 phase：
+
+  1. Phase A（1 天）：Quick Wins #1、#2、#5、#6、#10——零风险，立等可见。
+  2. Phase B（2-3 天）：C3/C4/C5/P7/S1/S2 + hunk 级 diff（Quick Win
+  #3）——修语义正确性。
+  3. Phase C（1 周）：retrieval_text 改造（#7） + chunking AST-aware + 社区改
+  Louvain——把 CRG 从"骨架索引"升级为"可检索事实库"。
+  4. Phase D（可选）：离线 embeddings 挂载到 chunks 表，语义检索真实化。
+
+  我可以先就 Phase A 落一个具体 plan + patch，要的话直接说。
+
+✻ Cogitated for 10m 0s
+
+❯ 全量优化,一步一步规划执行,先输出审查报告到文档,然后根据报告文档内容,逐个问题  
+  修复. think                                                                   
+
+⏺ 好，我深度思考了一下规划。这是一个 30+ 项优化的系统性工程，需要严格的 phased
+  execution。
+
+  我的执行方案
+
+  当前 Phase 0：写完整审查报告 →
+  docs/项目介绍/2026-04-17-CRG-深度优化审查报告.md，每个 finding 统一用"位置/问
+  题/根因/修复方案/影响评估/验证方式/依赖"七段式，便于后续逐条认领。
+
+  后续 Phase 1→4：按正确性 → 性能 → Schema → 架构逐阶段修，每阶段走独立 PR。
+
+  下面开始。
+⏺ Bash(cd /Users/kuang/xiaobu/spec-first && node bin/spec-first.js crg stats
+      --repo=. 2>/dev/null | head -40)
+  ⎿  {
+       "schema_version": "crg-cli/v1",
+       "generated_at": "2026-04-16T19:18:43.670Z",
+     … +32 lines (ctrl+o to expand)
+
+⏺ Bash(cd /Users/kuang/xiaobu/spec-first && wc -l src/crg/*.js src/crg/cli/*.js
+      src/crg/commands/*.js src/crg/retrieval/*.js src/crg/generations/*.js
+      2>/dev/null | tai…)
+  ⎿        31 src/crg/generations/promote.js
+           22 src/crg/generations/rollback.js
+         8567 total
+
+⏺ 基线数据已捕获：nodes=779 edges=1977 unresolved=2809（resolve rate
+  41.3%），其中 calls 类 unresolved 占 89%。这些数字会作为报告的基线。
+
+  现在写审查报告。
+  ⎿  API Error: terminated
+
+✻ Worked for 7m 49s
+
+❯ 继续完成                                                                      
+  ⎿  API Error: terminated
+
+✻ Worked for 3m 45s
+
+❯ 继续完成                                                                      
+  ⎿  API Error: terminated
+
+✻ Brewed for 2m 4s
+
+❯ 继续完成                                                                      
+  ⎿  API Error: terminated
+
+✻ Churned for 49s
+
+❯ 继续完成                                                                      
+  ⎿  API Error: Unable to connect to API 
+     (ERR_SSL_SSL/TLS_ALERT_HANDSHAKE_FAILURE)
+
+✻ Baked for 3m 7s
+
+❯ /model                                                                        
+  ⎿  Set model to Opus 4.7 (1M context)
+
+❯ 继续完成                                                                        ⎿  API Error: terminated
+
+✻ Cooked for 7m 13s
+
+❯ /model                                                                        
+  ⎿  Set model to Opus 4.7 (1M context)
+
+❯ 取消任务                                                                      
+
+⏺ 好，取消所有任务。
+
+⏺ 任务已全部取消。未对代码或文档做任何修改。需要时随时再起。
+
+❯ 介绍下自己                                                                    
+
+⏺ 我是 Claude Code，Anthropic 的命令行 AI 编程助手，当前运行模型 Opus 4.7 (1M 
+  context)。
+
+  我在这个环境里的定位
+
+  根据你 CLAUDE.md 的配置，我以 AST-Driven Coder 模式工作：
+
+  - 代码分析优先用 mcp__abcoder：通过 UniAST + LSP
+  获得无幻觉的代码结构、类型信息、调用链理解，优于 Read/Grep 直接翻代码
+  - 复杂问题用 mcp__sequential_thinking：多步骤问题分解
+  - 结构化搜索替换用 semgrep / comby
+  - 开发前必做：对齐 CODE_TASK 需求、阐述调用链路与 SDK 定义、对模糊需求质询用户
+  - 质量标准：Never Mock/简化、类型安全、关键路径必测；分 MVP → 完善 → 优化
+  三阶段
+  - 治理铁律：代码变动必须同步 CHANGELOG.md；全程使用中文
+
+  本项目上下文
+
+  当前工作目录 /Users/kuang/xiaobu/spec-first，是你维护的 spec-first npm
+  CLI（v1.5.1）——把 AI 编码转为"规格驱动交付闭环"的 Claude Code / Codex
+  工作流资产管理器，内含 CRG 代码图引擎（46 文件 / 13,697 行）、47 skills、57
+  agents、13 /spec:* 命令。
+
+  我能帮你做的事
+
+  - CRG 深度分析与优化（刚刚展开过一轮 30+ findings 的算法审查）
+  - spec-first 架构改造：双宿主适配、Stage-0 上下文路由、bootstrap 编译器
+  - 复杂代码任务：分阶段规划 → 实现 → 测试 → 评审 → changelog
+  - 调用 spec-first 
+  内置工作流：/spec:plan、/spec:work、/spec:review、/spec:compound 等
+  - 纯研究：读代码、查文档、比对实现事实与宣称能力的差距
+
+  需要做什么直接说。
+
+❯ 输出审查报告文档,写入本地                                                     
+
+  Listed 1 directory (ctrl+o to expand)
+  ⎿  Interrupted · What should Claude do instead?

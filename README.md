@@ -52,7 +52,7 @@ It packages **AI coding workflow**, **spec-driven development**, and **harness e
 
 It is designed for teams that want `requirements → plan → implementation → review → compound` instead of one-off AI chat output.
 
-Codex now also receives shared `/spec:*` command files under `.codex/commands/spec/`, while still supporting `$spec-*` skill entrypoints.
+Claude continues to expose `/spec:*` workflow commands, while Codex uses `$spec-*` skill entrypoints discovered from `.agents/skills/`.
 
 ### Best For
 
@@ -64,11 +64,11 @@ Stage-0 currently has two parallel entrypoints:
 
 - `/spec:bootstrap` or `$spec-bootstrap` is the stable default.
 - `/spec:graph-bootstrap` or `$spec-graph-bootstrap` is the graph-informed Phase 0-4 entrypoint for fact extraction and context generation.
-- In Codex, canonical availability still depends on host discovery of `.agents/skills/spec-graph-bootstrap/`; `.codex/commands/spec/graph-bootstrap.md` is the compatibility command layer.
 
-For first-time Claude Code setup, use:
+For first-time host setup, use:
 
-`spec-first init --claude` → `/spec:mcp-setup` → restart Claude Code → `/spec:bootstrap`
+- Claude Code: `spec-first init --claude` → `/spec:mcp-setup` → restart Claude Code → `/spec:bootstrap`
+- Codex: `spec-first init --codex` → `$spec-mcp-setup` → restart Codex → `$spec-bootstrap`
 
 ## Quick Start
 
@@ -147,7 +147,7 @@ spec-first init --claude
 /spec:compound
 ```
 
-`/spec:bootstrap` performs a Host Readiness Gate at startup. If `/spec:mcp-setup` was skipped or Claude Code was not restarted, it stops with explicit guidance instead of degrading silently.
+`bootstrap` performs a Host Readiness Gate at startup. If the current host's `mcp-setup` entrypoint was skipped or the host was not restarted, it stops with explicit guidance instead of degrading silently.
 
 #### Codex
 
@@ -155,7 +155,12 @@ spec-first init --claude
 # Step 1: Initialize project runtime
 spec-first init --codex
 
-# Step 2: Generate project context
+# Step 2: Install MCP tools
+$spec-mcp-setup
+
+# Step 3: Restart Codex
+
+# Step 4: Generate project context
 $spec-bootstrap
 
 # Optional graph-informed entrypoint
@@ -176,9 +181,9 @@ $spec-compound
 $ spec-first init --claude
 
 📋 Wrote language policy to CLAUDE.md
-📦 Generated 10 command file(s) in .claude/commands/spec
-🧩 Generated 35 skill directory(ies) in .claude/skills
-🤖 Generated 54 agent file(s) in .claude/agents
+📦 Generated 13 command file(s) in .claude/commands/spec
+🧩 Generated 34 skill directory(ies) in .claude/skills
+🤖 Generated 57 agent file(s) in .claude/agents
 🧰 Generated 4 agent support file(s) in .claude/agents
 🪪 Wrote project developer profile:
   📍 path: .claude/spec-first/.developer
@@ -194,7 +199,7 @@ After init, the usual first-run paths are:
 
 ```text
 Claude Code: /spec:mcp-setup → restart → /spec:bootstrap → /spec:ideate → /spec:brainstorm → /spec:plan → /spec:work → /spec:review → /spec:compound
-Codex:       $spec-bootstrap → $spec-ideate → $spec-brainstorm → $spec-plan → $spec-work → $spec-review → $spec-compound
+Codex:       $spec-mcp-setup → restart → $spec-bootstrap → $spec-ideate → $spec-brainstorm → $spec-plan → $spec-work → $spec-review → $spec-compound
 ```
 
 If you need the graph-informed Stage-0 path, use `/spec:graph-bootstrap` or `$spec-graph-bootstrap`. It covers Phase 0-4 fact extraction and context generation, while `bootstrap` remains the stable default.
@@ -222,7 +227,7 @@ Spec-First focuses on the full delivery loop, not a single response:
 | Dual platform support | Works with both Claude Code and Codex |
 | CLI control plane | Manage install, health checks, and cleanup with three core commands |
 | Workflow layer | Includes Stage-0, Ideate, Brainstorm, Plan, Work, Review, and Compound |
-| Capability layer | Ships with `45` skills, `54` agents, and `4` agent support files |
+| Capability layer | Ships with `47` skills, `57` agents, and `4` agent support files |
 | Runtime governance | Managed runtime assets can be synchronized, refreshed, recovered, and cleaned |
 | Open documentation | Includes manuals, architecture docs, plans, and accumulated learnings |
 
@@ -234,7 +239,7 @@ Spec-First focuses on the full delivery loop, not a single response:
 
 | Stage | Claude Code | Codex | Goal | Main Artifact |
 |------------|-------------|-------|-----------|--------------------|
-| Host Setup | `/spec:mcp-setup` → restart Claude Code | — | Install and configure the MCP toolchain; write host readiness markers | `~/.claude/spec-first/host-setup.json` |
+| Host Setup | `/spec:mcp-setup` → restart Claude Code | `$spec-mcp-setup` → restart Codex | Install and configure the MCP toolchain; write host readiness markers | `~/.claude/spec-first/host-setup.json` / `~/.codex/spec-first/host-setup.json` |
 | Stage-0 | `/spec:bootstrap` (stable)<br>`/spec:graph-bootstrap` (graph-informed) | `$spec-bootstrap` (stable)<br>`$spec-graph-bootstrap` (graph-informed) | Build long-lived project context | `docs/contexts/<slug>/` |
 | Ideate | `/spec:ideate` | `$spec-ideate` | Generate and rank candidate directions | `docs/ideation/*.md` |
 | Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | Clarify requirements, narrow scope, define acceptance | `docs/brainstorms/*.md` |

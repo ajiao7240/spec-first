@@ -130,8 +130,9 @@ For each relevant document, return a summary in this format:
 
 ## Frontmatter Schema Reference
 
-Use this on-demand schema reference when you need the full contract:
-`../../skills/spec-compound/references/yaml-schema.md`
+Use the current project's compound documentation schema references when you need the full contract:
+- `references/schema.yaml` from the compound documentation workflow for canonical frontmatter fields, enum validation, and track classification
+- `references/yaml-schema.md` from the same workflow for `problem_type`-to-directory mapping
 
 Key enum values:
 
@@ -237,7 +238,7 @@ Structure your findings as:
 ## Integration Points
 
 This agent is designed to be invoked by:
-- `/spec:plan` - To inform planning with institutional knowledge and add depth during confidence checking
+- The project's planning workflow - To inform planning with institutional knowledge and add depth during confidence checking
 - Manual invocation before starting work on a feature
 
 The goal is to surface relevant learnings in under 30 seconds for a typical solutions directory, enabling fast knowledge retrieval during planning phases.

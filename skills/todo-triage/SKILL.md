@@ -9,9 +9,9 @@ disable-model-invocation: true
 
 Interactive workflow for reviewing pending todos one by one and deciding whether to approve, skip, or modify each.
 
-**Do not write code during triage.** This is purely for review and prioritization -- implementation happens in `/todo-resolve`.
+**Do not write code during triage.** This is purely for review and prioritization -- implementation happens in the `todo-resolve` skill.
 
-- First set the /model to Haiku
+- If you need a faster or lower-cost pass, switch to the current host's fast/low-cost model before triage.
 - Read all pending todos from `docs/todos/` (canonical), `.context/spec-first/todos/` (legacy-v2), and `todos/` (legacy-v1) directories
 
 ## Workflow
@@ -61,10 +61,10 @@ After all items processed:
 
 ### 4. Next Steps
 
-```markdown
+ ```markdown
 What would you like to do next?
 
-1. run /todo-resolve to resolve the todos
+1. load the `todo-resolve` skill to resolve the todos
 2. commit the todos
 3. nothing, go chill
 ```

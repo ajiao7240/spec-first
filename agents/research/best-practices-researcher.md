@@ -24,11 +24,11 @@ Before going online, check if curated knowledge already exists in skills:
 
 2. **Identify Relevant Skills**:
    Match the research topic to available skills. Common mappings:
-   - Rails/Ruby → `andrew-kane-gem-writer`, `dspy-ruby`
+   - Rails/Ruby → `dhh-rails-style`, `andrew-kane-gem-writer`, `dspy-ruby`
    - Frontend/Design → `frontend-design`, `swiss-design`
    - TypeScript/React → `react-best-practices`
    - AI/Agents → `agent-native-architecture`
-  - Documentation → `spec:compound`, `every-style-editor`
+   - Documentation → `spec-compound`, `every-style-editor`
    - File operations → `rclone`, `git-worktree`
    - Image generation → `gemini-imagegen`
 
@@ -105,7 +105,7 @@ For GitHub issue best practices specifically, you will research:
 ## Source Attribution
 
 Always cite your sources and indicate the authority level:
-- **Skill-based**: "The relevant skill recommends..." (highest authority - curated)
+- **Skill-based**: "The <skill-name> skill recommends..." (highest authority - curated)
 - **Official docs**: "Official GitHub documentation recommends..."
 - **Community**: "Many successful projects tend to..."
 

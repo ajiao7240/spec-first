@@ -945,7 +945,7 @@ describe('crg-cli-v1 contract', () => {
 
   // ─── crg review-context ────────────────────────────────────────────────────
   describe('crg review-context', () => {
-    test('data 含 diff_summary, affected_nodes, candidate_tests, graph_expansion, review_guidance', () => {
+    test('data 含 diff_summary, affected_nodes, hunk_hit, candidate_tests, graph_expansion, review_guidance', () => {
       const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
       const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code) => {
         throw new Error(`EXIT:${code}`);
@@ -978,6 +978,7 @@ describe('crg-cli-v1 contract', () => {
       const payload = JSON.parse(outputSpy.mock.calls[0][0]);
       expect(payload.data).toHaveProperty('diff_summary');
       expect(payload.data).toHaveProperty('affected_nodes');
+      expect(payload.data).toHaveProperty('hunk_hit');
       expect(payload.data).toHaveProperty('candidate_tests');
       expect(payload.data).toHaveProperty('graph_expansion');
       expect(payload.data).toHaveProperty('review_guidance');

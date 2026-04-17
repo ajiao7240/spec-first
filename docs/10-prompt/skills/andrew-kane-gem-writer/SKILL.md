@@ -1,18 +1,20 @@
 ---
 name: andrew-kane-gem-writer
-description: 在遵循 Andrew Kane 经过验证的模式和理念编写 Ruby gem 时，应该使用此技能。它适用于创建新的 Ruby gem、重构现有 gem、设计 gem API，或者需要干净、最小、可用于生产的 Ruby 库代码时。触发“创建 gem”、“编写 Ruby 库”、“设计 gem API”或提及 Andrew Kane 的风格等请求。
+description: This skill should be used when writing Ruby gems following Andrew Kane's proven patterns and philosophy. It applies when creating new Ruby gems, refactoring existing gems, designing gem APIs, or when clean, minimal, production-ready Ruby library code is needed. Triggers on requests like "create a gem", "write a Ruby library", "design a gem API", or mentions of Andrew Kane's style.
 ---
-# 安德鲁·凯恩 宝石作家
 
-遵循 Andrew Kane 久经考验的模式，从 100 多个 gems 中编写 Ruby gems，下载次数超过 374M（Searchkick、PgHero、Chartkick、Strong Migrations、Lockbox、Ahoy、Blazer、Groupdate、Neighbor、Blind Index）。
+# Andrew Kane Gem Writer
 
-## 核心理念
+Write Ruby gems following Andrew Kane's battle-tested patterns from 100+ gems with 374M+ downloads (Searchkick, PgHero, Chartkick, Strong Migrations, Lockbox, Ahoy, Blazer, Groupdate, Neighbor, Blind Index).
 
-**简单胜过聪明。** 零依赖或最小依赖。显式代码优于元编程。无需 Rails 耦合的 Rails 集成。每个模式都服务于生产用例。
+## Core Philosophy
 
-## 入口点结构
+**Simplicity over cleverness.** Zero or minimal dependencies. Explicit code over metaprogramming. Rails integration without Rails coupling. Every pattern serves production use cases.
 
-每颗宝石都遵循 `lib/gemname.rb` 中的精确模式：
+## Entry Point Structure
+
+Every gem follows this exact pattern in `lib/gemname.rb`:
+
 ```ruby
 # 1. Dependencies (stdlib preferred)
 require "forwardable"
@@ -37,9 +39,11 @@ module GemName
   self.timeout = 10  # Defaults set immediately
 end
 ```
-## 类宏 DSL 模式
 
-标志性的 Kane 模式——单一方法调用即可配置一切：
+## Class Macro DSL Pattern
+
+The signature Kane pattern—single method call configures everything:
+
 ```ruby
 # Usage
 class Product < ApplicationRecord
@@ -69,9 +73,11 @@ module GemName
   end
 end
 ```
-## Rails 集成
 
-**始终使用 `ActiveSupport.on_load` - 永远不要直接需要 Rails gem：**
+## Rails Integration
+
+**Always use `ActiveSupport.on_load`—never require Rails gems directly:**
+
 ```ruby
 # WRONG
 require "active_record"
@@ -87,9 +93,11 @@ ActiveSupport.on_load(:active_record) do
   ActiveRecord::Migration.prepend(GemName::Migration)
 end
 ```
-## 配置模式
 
-将 `class << self` 与 `attr_accessor` 一起使用，而不是配置对象：
+## Configuration Pattern
+
+Use `class << self` with `attr_accessor`, not Configuration objects:
+
 ```ruby
 module GemName
   class << self
@@ -105,9 +113,11 @@ module GemName
   self.logger = nil
 end
 ```
-## 错误处理
 
-带有信息性消息的简单层次结构：
+## Error Handling
+
+Simple hierarchy with informative messages:
+
 ```ruby
 module GemName
   class Error < StandardError; end
@@ -120,7 +130,9 @@ def initialize(key:)
   raise ArgumentError, "Key must be 32 bytes" unless key&.bytesize == 32
 end
 ```
-## 测试（仅限最小测试）
+
+## Testing (Minitest Only)
+
 ```ruby
 # test/test_helper.rb
 require "bundler/setup"
@@ -135,9 +147,11 @@ class ModelTest < Minitest::Test
   end
 end
 ```
-## Gemspec 模式
 
-尽可能零运行时依赖：
+## Gemspec Pattern
+
+Zero runtime dependencies when possible:
+
 ```ruby
 Gem::Specification.new do |spec|
   spec.name = "gemname"
@@ -148,22 +162,23 @@ Gem::Specification.new do |spec|
   # NO add_dependency lines - dev deps go in Gemfile
 end
 ```
-## 要避免的反模式
 
-- `method_missing`（使用`define_method`代替）
-- 配置对象（使用类访问器）
-- `@@class_variables`（使用`class << self`）
-- 直接需要 Rails gem
-- 许多运行时依赖项
-- 在 gems 中提交 Gemfile.lock
-- RSpec（使用 Minitest）
-- 重型 DSL（更喜欢显式 Ruby）
+## Anti-Patterns to Avoid
 
-## 参考文件
+- `method_missing` (use `define_method` instead)
+- Configuration objects (use class accessors)
+- `@@class_variables` (use `class << self`)
+- Requiring Rails gems directly
+- Many runtime dependencies
+- Committing Gemfile.lock in gems
+- RSpec (use Minitest)
+- Heavy DSLs (prefer explicit Ruby)
 
-对于更深层次的模式，请参阅：
-- `references/module-organization.md` - 目录布局、方法分解
-- `references/rails-integration.md` - Railtie、引擎、on_load 模式
-- `references/database-adapters.md` - 多数据库支持模式
-- `references/testing-patterns.md` - 多版本测试、CI 设置
-- `references/resources.md` - 凯恩的存储库和文章的链接
+## Reference Files
+
+For deeper patterns, see:
+- `references/module-organization.md` - Directory layouts, method decomposition
+- `references/rails-integration.md` - Railtie, Engine, on_load patterns
+- `references/database-adapters.md` - Multi-database support patterns
+- `references/testing-patterns.md` - Multi-version testing, CI setup
+- `references/resources.md` - Links to Kane's repos and articles

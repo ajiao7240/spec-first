@@ -8,8 +8,7 @@ description: "Stage-0 supporting workflow: analyze a target project and generate
 Bootstrap a durable project context for a target repository. This is a **Stage-0 supporting workflow** — it runs once (or on demand) to generate context assets that subsequent spec-first workflows can consume.
 
 **Claude entry point:** `/spec:bootstrap [target-repo-path-or-slug]`
-**Codex entry point:** `/spec:bootstrap [target-repo-path-or-slug]`
-If you invoke the skill directly inside a Codex session, `$spec-bootstrap [target-repo-path-or-slug]` still works.
+**Codex entry point:** `$spec-bootstrap [target-repo-path-or-slug]`
 
 ## Why This Exists
 
@@ -34,8 +33,9 @@ Before running bootstrap:
 
 To enable Enhanced analysis mode, install the baseline MCP tools:
 
-```bash
-/spec:mcp-setup quick
+```text
+Claude: /spec:mcp-setup quick
+Codex:  $spec-mcp-setup quick
 ```
 
 This installs:
@@ -97,11 +97,15 @@ Check whether the current host's `spec-first/host-setup.json` exists **and** `se
   ⛔ spec-bootstrap 无法继续：宿主尚未完成 MCP 工具安装。
 
   原因：未检测到当前宿主的 spec-first/host-setup.json（或 setup_success 不为 true），
-        说明 /spec:mcp-setup 尚未在本机成功执行。
+        说明当前宿主的 mcp-setup 入口尚未在本机成功执行。
 
-  操作：请先运行 /spec:mcp-setup 并等待完成。
+  操作：请先运行当前宿主对应的 mcp-setup 入口并等待完成。
+        Claude: /spec:mcp-setup
+        Codex:  $spec-mcp-setup
 
-  完成后：重启当前宿主，然后重新运行 /spec:bootstrap。
+  完成后：重启当前宿主，然后重新运行当前宿主对应的 bootstrap 入口。
+          Claude: /spec:bootstrap
+          Codex:  $spec-bootstrap
   ```
 
   Stop. Do not proceed to Step 2 or any Phase.
@@ -127,10 +131,12 @@ Fallback probe: `serena get_current_config`.
 
   操作：请重启当前宿主。
 
-  完成后：重新运行 /spec:bootstrap。
+  完成后：重新运行当前宿主对应的 bootstrap 入口。
+          Claude: /spec:bootstrap
+          Codex:  $spec-bootstrap
 
   如果重启后仍看到此提示，请运行当前宿主对应的 `mcp list` 确认 MCP 服务已注册，
-  或重新运行 /spec:mcp-setup。
+  或重新运行当前宿主对应的 mcp-setup 入口。
   ```
 
   Stop. Do not proceed to Phase 1.
@@ -239,7 +245,7 @@ Partial MCP mount 场景示例：
 ```
 Serena:   ready=no,  reason=serena-not-mounted-in-session
           (host-setup.json 显示 serena.configured=true，但当前宿主会话未挂载 Serena；
-           请先运行当前宿主对应的 `mcp list` 检查，再重启宿主或重新运行 /spec:mcp-setup)
+           请先运行当前宿主对应的 `mcp list` 检查，再重启宿主或重新运行当前宿主对应的 mcp-setup 入口)
 
 📊 分析模式: Basic
 ```

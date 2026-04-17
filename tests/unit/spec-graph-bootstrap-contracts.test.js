@@ -24,6 +24,10 @@ const GRAPH_BOOTSTRAP_SKILL_PATH = path.join(
   REPO_ROOT,
   'skills/spec-graph-bootstrap/SKILL.md'
 );
+const GRAPH_BOOTSTRAP_SCHEMAS_PATH = path.join(
+  REPO_ROOT,
+  'skills/spec-graph-bootstrap/references/artifact-schemas.md'
+);
 const SAMPLE_INJECTION_INDEX_PATH = path.join(
   REPO_ROOT,
   'docs/contexts/spec-first/injection-index.yaml'
@@ -85,15 +89,16 @@ describe('spec-graph-bootstrap contracts', () => {
   });
 
   test('source skill schema requires updated_at for layer facts and risk signal facts', () => {
-    const skill = fs.readFileSync(GRAPH_BOOTSTRAP_SKILL_PATH, 'utf8');
+    // 字段定义已移至 references/artifact-schemas.md（SKILL.md 重构为流程骨架 + references 按需加载）
+    const schemas = fs.readFileSync(GRAPH_BOOTSTRAP_SCHEMAS_PATH, 'utf8');
 
-    expect(skill).toContain(
+    expect(schemas).toContain(
       'layers: { frontend: { present, confidence, inference_reason, evidence, updated_at }, ... }'
     );
-    expect(skill).toContain(
+    expect(schemas).toContain(
       'signals: [{ path, symbol, kind, summary, severity, confidence, inference_reason, evidence, updated_at }]'
     );
-    expect(skill).toContain(
+    expect(schemas).toContain(
       'top_hubs: [{ id, name, file_path, kind, in_degree, confidence, inference_reason, evidence, updated_at }]'
     );
   });

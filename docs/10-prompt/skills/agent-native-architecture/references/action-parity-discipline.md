@@ -1,46 +1,48 @@
-<概述>
-确保代理可以完成用户可以做的所有事情的结构化规则。每个 UI 操作都应该有一个等效的代理工具。这不是一次性检查，而是集成到您的开发工作流程中的持续实践。
+<overview>
+A structured discipline for ensuring agents can do everything users can do. Every UI action should have an equivalent agent tool. This isn't a one-time check—it's an ongoing practice integrated into your development workflow.
 
-**核心原则：** 添加UI功能时，在同一个PR中添加相应的工具。
-</概述>
+**Core principle:** When adding a UI feature, add the corresponding tool in the same PR.
+</overview>
 
-<为什么奇偶校验>
-## 为什么行动平等很重要
+<why_parity>
+## Why Action Parity Matters
 
-**失败案例：**
+**The failure case:**
 ```
 User: "Write something about Catherine the Great in my reading feed"
 Agent: "What system are you referring to? I'm not sure what reading feed means."
 ```
-用户可以通过 UI 发布到他们的提要。但特工没有`publish_to_feed`工具。解决方法很简单——添加工具。但其中的见解却是深刻的：
 
-**用户可以通过 UI 执行的每个操作都必须有代理可以调用的等效工具。**
+The user could publish to their feed through the UI. But the agent had no `publish_to_feed` tool. The fix was simple—add the tool. But the insight is profound:
 
-如果没有这个奇偶校验：
-- 用户要求代理商做他们不能做的事情
-- 代理询问有关他们应该理解的功能的澄清问题
-- 与直接使用应用程序相比，代理感觉受到限制
-- 用户对代理的能力失去信任
+**Every action a user can take through the UI must have an equivalent tool the agent can call.**
+
+Without this parity:
+- Users ask agents to do things they can't do
+- Agents ask clarifying questions about features they should understand
+- The agent feels limited compared to direct app usage
+- Users lose trust in the agent's capabilities
 </why_parity>
 
-<能力映射>
-## 能力图
+<capability_mapping>
+## The Capability Map
 
-维护 UI 操作到代理工具的结构化映射：
+Maintain a structured map of UI actions to agent tools:
 
-|用户界面操作 |用户界面位置 |代理工具|系统提示参考|
-|------------|-------------|------------|------------------------|
-|查看图书馆 |图书馆选项卡 | `read_library` | “查看书籍和亮点”|
-|添加图书 |图书馆 → 添加 | `add_book` | “将书籍添加到图书馆” |
-|发表见解 |分析视图| `publish_to_feed` | “为 Feed 选项卡创建见解”|
-|开始研究 |图书详情 | `start_research` | “通过网络搜索研究书籍”|
-|编辑个人资料 |设置 | `write_file(profile.md)` | “更新阅读资料”|
-|截图|相机 |不适用（用户操作）| — |
-|搜索网页 |聊天 | `web_search` | “搜索互联网” |
+| UI Action | UI Location | Agent Tool | System Prompt Reference |
+|-----------|-------------|------------|-------------------------|
+| View library | Library tab | `read_library` | "View books and highlights" |
+| Add book | Library → Add | `add_book` | "Add books to library" |
+| Publish insight | Analysis view | `publish_to_feed` | "Create insights for Feed tab" |
+| Start research | Book detail | `start_research` | "Research books via web search" |
+| Edit profile | Settings | `write_file(profile.md)` | "Update reading profile" |
+| Take screenshot | Camera | N/A (user action) | — |
+| Search web | Chat | `web_search` | "Search the internet" |
 
-**每当添加功能时更新此表。**
+**Update this table whenever adding features.**
 
-### 您的应用程序模板
+### Template for Your App
+
 ```markdown
 # Capability Map - [Your App Name]
 
@@ -50,18 +52,20 @@ Agent: "What system are you referring to? I'm not sure what reading feed means."
 | | | | | ✅ Done |
 | | | | | 🚫 N/A |
 ```
-状态含义：
-- ✅ 完成：工具存在并记录在系统提示中
-- ⚠️ 缺失：UI 操作存在，但没有等效的代理
-- 🚫 N/A：仅限用户执行的操作（例如生物识别身份验证、相机捕获）
-</能力映射>
 
-<奇偶校验工作流程>
-## Action Parity 工作流程
+Status meanings:
+- ✅ Done: Tool exists and is documented in system prompt
+- ⚠️ Missing: UI action exists but no agent equivalent
+- 🚫 N/A: User-only action (e.g., biometric auth, camera capture)
+</capability_mapping>
 
-### 添加新功能时
+<parity_workflow>
+## The Action Parity Workflow
 
-在合并任何添加 UI 功能的 PR 之前：
+### When Adding a New Feature
+
+Before merging any PR that adds UI functionality:
+
 ```
 1. What action is this?
    → "User can publish an insight to their reading feed"
@@ -82,9 +86,11 @@ Agent: "What system are you referring to? I'm not sure what reading feed means."
 5. Update the capability map
    → Add row to tracking document
 ```
-### 公关清单
 
-添加到您的 PR 模板：
+### PR Checklist
+
+Add to your PR template:
+
 ```markdown
 ## Agent-Native Checklist
 
@@ -94,16 +100,17 @@ Agent: "What system are you referring to? I'm not sure what reading feed means."
 - [ ] Capability map updated
 - [ ] Tested with natural language request
 ```
-</parity_工作流程>
+</parity_workflow>
 
-<奇偶校验>
-## 奇偶校验
+<parity_audit>
+## The Parity Audit
 
-定期审核您的应用程序是否存在操作平等差距：
+Periodically audit your app for action parity gaps:
 
-### 第 1 步：列出所有 UI 操作
+### Step 1: List All UI Actions
 
-浏览每个屏幕并列出用户可以执行的操作：
+Walk through every screen and list what users can do:
+
 ```
 Library Screen:
 - View list of books
@@ -134,9 +141,11 @@ Settings:
 - Export data
 - Delete account
 ```
-### 第 2 步：检查工具覆盖范围
 
-对于每个操作，验证：
+### Step 2: Check Tool Coverage
+
+For each action, verify:
+
 ```
 ✅ View list of books      → read_library
 ✅ Search books            → read_library (with query param)
@@ -155,32 +164,34 @@ Settings:
 ⚠️ Edit insight           → MISSING (need update_feed_item tool)
 ⚠️ Delete insight         → MISSING (need delete_feed_item tool)
 ```
-### 第 3 步：确定差距的优先顺序
 
-并非所有间隙都是相等的：
+### Step 3: Prioritize Gaps
 
-**高优先级（用户会要求这样做）：**
-- 添加新书
-- 创建/编辑/删除内容
-- 核心工作流程操作
+Not all gaps are equal:
 
-**中优先级（偶尔请求）：**
-- 过滤/搜索变体
-- 导出功能
-- 分享功能
+**High priority (users will ask for this):**
+- Add new book
+- Create/edit/delete content
+- Core workflow actions
 
-**低优先级（很少通过代理请求）：**
-- 主题更改
-- 帐户删除
-- UI 偏好设置
+**Medium priority (occasional requests):**
+- Filter/search variations
+- Export functionality
+- Sharing features
+
+**Low priority (rarely requested via agent):**
+- Theme changes
+- Account deletion
+- Settings that are UI-preference
 </parity_audit>
 
-<奇偶校验工具设计>
-## 设计奇偶校验工具
+<tool_design_for_parity>
+## Designing Tools for Parity
 
-### 将工具粒度与 UI 粒度相匹配
+### Match Tool Granularity to UI Granularity
 
-如果 UI 有单独的“编辑”和“删除”按钮，请考虑单独的工具：
+If the UI has separate buttons for "Edit" and "Delete", consider separate tools:
+
 ```typescript
 // Matches UI granularity
 tool("update_feed_item", { id, content, headline }, ...);
@@ -189,7 +200,9 @@ tool("delete_feed_item", { id }, ...);
 // vs. combined (harder for agent to discover)
 tool("modify_feed_item", { id, action: "update" | "delete", ... }, ...);
 ```
-### 在工具名称中使用用户词汇
+
+### Use User Vocabulary in Tool Names
+
 ```typescript
 // Good: Matches what users say
 tool("publish_to_feed", ...);  // "publish to my feed"
@@ -201,9 +214,11 @@ tool("create_analysis_record", ...);
 tool("insert_library_item", ...);
 tool("initiate_web_scrape_workflow", ...);
 ```
-### 返回 UI 显示的内容
 
-如果 UI 显示包含详细信息的确认信息，该工具也应该：
+### Return What the UI Shows
+
+If the UI shows a confirmation with details, the tool should too:
+
 ```typescript
 // UI shows: "Added 'Moby Dick' to your library"
 // Tool should return the same:
@@ -216,12 +231,13 @@ tool("add_book", async ({ title, author }) => {
 ```
 </tool_design_for_parity>
 
-<上下文奇偶性>
-## 上下文奇偶校验
+<context_parity>
+## Context Parity
 
-无论用户看到什么，代理都应该能够访问。
+Whatever the user sees, the agent should be able to access.
 
-＃＃＃ 问题
+### The Problem
+
 ```swift
 // UI shows recent analyses in a list
 ForEach(analysisRecords) { record in
@@ -235,9 +251,11 @@ let systemPrompt = """
 // Missing: recent analyses!
 """
 ```
-用户看到他们的阅读日记。代理没有。这会造成脱节。
 
-### 修复
+The user sees their reading journal. The agent doesn't. This creates a disconnect.
+
+### The Fix
+
 ```swift
 // System prompt includes what UI shows
 let systemPrompt = """
@@ -248,18 +266,20 @@ let systemPrompt = """
 \(analysisRecords.prefix(10).map { "- \($0.summary)" }.joined(separator: "\n"))
 """
 ```
-### 上下文奇偶校验清单
 
-对于应用程序中的每个屏幕：
-- [ ] 该屏幕显示什么数据？
-- [ ] 该数据可供代理使用吗？
-- [ ] 代理可以访问相同级别的详细信息吗？
+### Context Parity Checklist
+
+For each screen in your app:
+- [ ] What data does this screen display?
+- [ ] Is that data available to the agent?
+- [ ] Can the agent access the same level of detail?
 </context_parity>
 
-<连续奇偶校验>
-## 随着时间的推移保持平价
+<continuous_parity>
+## Maintaining Parity Over Time
 
-### Git Hooks/CI 检查
+### Git Hooks / CI Checks
+
 ```bash
 #!/bin/bash
 # pre-commit hook: check for new UI actions without tools
@@ -277,7 +297,9 @@ if [ -n "$NEW_ACTIONS" ]; then
     echo "  [ ] Capability map updated"
 fi
 ```
-### 自动奇偶校验测试
+
+### Automated Parity Testing
+
 ```typescript
 // parity.test.ts
 describe('Action Parity', () => {
@@ -296,9 +318,11 @@ describe('Action Parity', () => {
   }
 });
 ```
-### 定期审核
 
-安排定期审查：
+### Regular Audits
+
+Schedule periodic reviews:
+
 ```markdown
 ## Monthly Parity Audit
 
@@ -308,23 +332,26 @@ describe('Action Parity', () => {
 4. Update capability map
 5. Test with natural language requests
 ```
-</连续奇偶校验>
+</continuous_parity>
 
-<例子>
-## 真实示例：饲料缺口
+<examples>
+## Real Example: The Feed Gap
 
-**之前：** 每个读者都有一个显示见解的提要，但没有可以在那里发布的代理工具。
+**Before:** Every Reader had a feed where insights appeared, but no agent tool to publish there.
+
 ```
 User: "Write something about Catherine the Great in my reading feed"
 Agent: "I'm not sure what system you're referring to. Could you clarify?"
 ```
-**诊断：**
-- ✅ UI 操作：用户可以从分析视图发布见解
-- ❌代理工具：无`publish_to_feed`工具
-- ❌系统提示：没有提及“feed”或如何发布
-- ❌ 背景：特工不知道“feed”是什么意思
 
-**修复：**
+**Diagnosis:**
+- ✅ UI action: User can publish insights from the analysis view
+- ❌ Agent tool: No `publish_to_feed` tool
+- ❌ System prompt: No mention of "feed" or how to publish
+- ❌ Context: Agent didn't know what "feed" meant
+
+**Fix:**
+
 ```swift
 // 1. Add the tool
 tool("publish_to_feed",
@@ -354,28 +381,29 @@ When the user mentions "the feed" or "reading feed", they mean the Feed tab
 where insights appear. Use `publish_to_feed` to create content there.
 """
 ```
-**后：**
+
+**After:**
 ```
 User: "Write something about Catherine the Great in my reading feed"
 Agent: [Uses publish_to_feed to create insight]
        "Done! I've published 'The Enlightened Empress' to your reading feed."
 ```
-</例子>
+</examples>
 
-<清单>
-## 行动对等清单
+<checklist>
+## Action Parity Checklist
 
-对于每个带有 UI 更改的 PR：
-- [ ] 列出了所有新的 UI 操作
-- [ ] 每个操作均存在经过验证的代理工具
-- [ ] 使用新功能更新了系统提示
-- [ ] 添加到能力地图
-- [ ] 使用自然语言请求进行测试
+For every PR with UI changes:
+- [ ] Listed all new UI actions
+- [ ] Verified agent tool exists for each action
+- [ ] Updated system prompt with new capabilities
+- [ ] Added to capability map
+- [ ] Tested with natural language request
 
-对于定期审核：
-- [ ] 走过每个屏幕
-- [ ] 列出所有可能的用户操作
-- [ ] 检查每个工具的覆盖范围
-- [ ] 根据用户请求的可能性对差距进行优先排序
-- [ ] 为高优先级差距创建问题
-</清单>
+For periodic audits:
+- [ ] Walked through every screen
+- [ ] Listed all possible user actions
+- [ ] Checked tool coverage for each
+- [ ] Prioritized gaps by likelihood of user request
+- [ ] Created issues for high-priority gaps
+</checklist>

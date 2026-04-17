@@ -23,6 +23,15 @@ const { detectChanges, assessNodeRiskBatch } = require('../changes');
 const { isSensitiveFile } = require('../input-convergence');
 const { retrieveContext } = require('../retrieval/api');
 
+function intersectsHunks(node, hunks) {
+  if (!Array.isArray(hunks) || hunks.length === 0) return false;
+  const lineStart = Number.isFinite(node.line_start) ? node.line_start : 0;
+  const lineEnd = Number.isFinite(node.line_end) && node.line_end >= lineStart
+    ? node.line_end
+    : lineStart;
+  return hunks.some((hunk) => !(lineEnd < hunk.start || lineStart > hunk.end));
+}
+
 /**
  * review-context 子命令入口（由 router.js 调用）
  *
@@ -109,6 +118,9 @@ function run(argv) {
   };
 
   const changedFiles = changeSummary.map(c => c.file);
+  const hunksByFile = new Map(
+    changeSummary.map((item) => [item.file, Array.isArray(item.hunks) ? item.hunks : []])
+  );
   for (const filePath of changedFiles) {
     const ext = path.extname(filePath);
     const base = path.basename(filePath, ext);
@@ -147,6 +159,8 @@ function run(argv) {
     }
   }
 
+  const hunkHit = affectedNodes.filter((node) => intersectsHunks(node, hunksByFile.get(node.file_path)));
+
   // === 图扩展：2层反向 BFS，找出受变更影响的调用方 ===
   // 加载 calls 边的反向邻接表（target → callers）
   const edgeRows = db.prepare(
@@ -162,9 +176,10 @@ function run(argv) {
   function reverseBfs(startId, maxDepth) {
     const visited = new Map(); // nodeId → depth
     const queue = [[startId, 0]];
+    let head = 0;
     visited.set(startId, 0);
-    while (queue.length > 0) {
-      const [cur, depth] = queue.shift();
+    while (head < queue.length) {
+      const [cur, depth] = queue[head++];
       if (depth >= maxDepth) continue;
       for (const caller of (reverseAdj.get(cur) || [])) {
         if (!visited.has(caller)) {
@@ -249,6 +264,7 @@ function run(argv) {
   const data = {
     diff_summary: `${changeSummary.length} file(s) changed since ${since}`,
     affected_nodes: affectedNodes,
+    hunk_hit: hunkHit,
     candidate_tests: candidateTests,
     graph_expansion: graphExpansion,
     review_guidance,

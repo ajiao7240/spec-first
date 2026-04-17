@@ -1,0 +1,31 @@
+{
+  "scanRoots": [
+    "skills",
+    "docs/10-prompt/skills"
+  ],
+  "markdownExtensions": [
+    ".md"
+  ],
+  "ignoredLineContains": [
+    "Skill(",
+    "skill:"
+  ],
+  "blockedPatterns": [
+    {
+      "id": "heading-leading-slash",
+      "pattern": "^# /",
+      "message": "Heading must use a descriptive title, not a slash entrypoint."
+    },
+    {
+      "id": "codex-entrypoint-spec",
+      "pattern": "\\*\\*Codex entry point:\\*\\*\\s*`?/spec:[^`\\s]*`?",
+      "message": "Codex user-visible workflow entrypoints must use $spec-*."
+    },
+    {
+      "id": "legacy-free-command",
+      "pattern": "(^|[^A-Za-z0-9_.-])/(research|simplify)(?=$|[^A-Za-z0-9-])",
+      "message": "Legacy slash command aliases are not valid user-visible entrypoints."
+    }
+  ],
+  "warnPatterns": []
+}

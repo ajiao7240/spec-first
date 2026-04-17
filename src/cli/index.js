@@ -49,8 +49,8 @@ function printHelp(withErrorPrefix = false) {
     'Usage: spec-first <command> [options]',
     '',
     'Commands:',
-    '  doctor         Check the local environment plus bundled plugin manifest, commands, skills, and agents',
-    '  init (--claude|--codex)  Generate platform-specific commands, skills, agents, and developer profile',
+    '  doctor         Check the local environment plus bundled plugin manifest and managed runtime assets',
+    '  init (--claude|--codex)  Generate platform-specific workflow assets, skills, agents, and developer profile',
     '  clean (--claude|--codex) Remove spec-first managed assets from the current project',
     '',
     'Global options:',
@@ -86,9 +86,9 @@ function printVersion() {
     2. 初始化项目
        $ spec-first init --claude    # 或 --codex
 
-    3. 重启宿主 CLI，使 /spec:* 命令生效
+    3. 重启宿主 CLI，使 Claude 的 /spec:* 或 Codex 的 $spec-* 入口生效
 
-    4. 在对话中使用 /spec:* 开始工作流
+    4. 在对话中使用当前宿主对应入口开始工作流
 
   了解更多:
     $ spec-first --help

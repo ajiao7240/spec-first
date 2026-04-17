@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "spec-first",
   "version": "1.5.1",
-  "description": "AI-assisted work framework for Claude Code with plugin-style packaged assets",
+  "description": "AI-assisted work framework for Claude Code and Codex with packaged workflow assets",
   "repository": "https://github.com/sunrain520/spec-first.git",
   "directories": {
     "commands": "templates/claude/commands/spec",
@@ -37,6 +37,13 @@
       "description": "Run the Spec-First execution workflow",
       "argumentHint": "[plan file path]",
       "skill": "spec-work"
+    },
+    {
+      "name": "debug",
+      "filename": "debug.md",
+      "description": "Run the Spec-First debug workflow",
+      "argumentHint": "[issue reference, error message, test path, or description of broken behavior]",
+      "skill": "spec-debug"
     },
     {
       "name": "review",
@@ -79,6 +86,20 @@
       "description": "One-click MCP tools installation and configuration for spec-first workflows",
       "argumentHint": "[quick|custom]",
       "skill": "spec-mcp-setup"
+    },
+    {
+      "name": "update",
+      "filename": "update.md",
+      "description": "Run the Spec-First update and runtime repair workflow",
+      "argumentHint": "[check|repair]",
+      "skill": "spec-update"
+    },
+    {
+      "name": "setup",
+      "filename": "setup.md",
+      "description": "Diagnose and configure the spec-first environment for the current repo and host",
+      "argumentHint": "[optional issue or tool]",
+      "skill": "setup"
     }
   ],
   "extensibleDirectories": {

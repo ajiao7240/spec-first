@@ -142,6 +142,15 @@ describe('parseFile - 敏感文件过滤', () => {
       retrieval_text: expect.any(String),
     }));
   });
+
+  test('函数节点 retrieval_text 包含真实代码信号，而不是纯文件元数据', () => {
+    const result = parseFile('js/basic.js', REPO_ROOT);
+    const addFn = result.nodes.find((node) => node.kind === 'function' && node.name === 'add');
+
+    expect(addFn.retrieval_text).toContain('function add');
+    expect(addFn.retrieval_text).toContain('return a + b;');
+    expect(addFn.retrieval_text).not.toBe('js/basic.js function add');
+  });
 });
 
 // ---------------------------------------------------------------------------

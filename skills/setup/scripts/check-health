@@ -1,0 +1,253 @@
+#!/usr/bin/env bash
+# Spec-First environment health check
+# Outputs a formatted diagnostic report in one pass.
+
+set -euo pipefail
+
+plugin_version=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --version)
+      if [ $# -ge 2 ]; then
+        plugin_version="$2"
+        shift 2
+      else
+        shift
+      fi
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+detect_os() {
+  local os
+  os="$(uname -s 2>/dev/null || echo "unknown")"
+  case "$os" in
+    Darwin) echo "macos" ;;
+    Linux) echo "linux" ;;
+    *) echo "unknown" ;;
+  esac
+}
+
+build_install_command() {
+  local name="$1"
+  local os="$2"
+
+  case "$name" in
+    agent-browser)
+      echo "CI=true npm install -g agent-browser --no-audit --no-fund --loglevel=error && agent-browser install && npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y"
+      ;;
+    gh)
+      if [ "$os" = "linux" ]; then
+        echo "sudo apt-get install -y gh"
+      else
+        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q gh"
+      fi
+      ;;
+    jq)
+      if [ "$os" = "linux" ]; then
+        echo "sudo apt-get install -y jq"
+      else
+        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q jq"
+      fi
+      ;;
+    vhs)
+      if [ "$os" = "linux" ]; then
+        echo "go install github.com/charmbracelet/vhs@latest"
+      else
+        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q vhs"
+      fi
+      ;;
+    silicon)
+      if [ "$os" = "linux" ]; then
+        echo "cargo install silicon"
+      else
+        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q silicon"
+      fi
+      ;;
+    ffmpeg)
+      if [ "$os" = "linux" ]; then
+        echo "sudo apt-get install -y ffmpeg"
+      else
+        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ffmpeg"
+      fi
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
+build_project_url() {
+  local name="$1"
+  case "$name" in
+    agent-browser) echo "https://github.com/vercel-labs/agent-browser" ;;
+    gh) echo "https://cli.github.com" ;;
+    jq) echo "https://jqlang.github.io/jq/" ;;
+    vhs) echo "https://github.com/charmbracelet/vhs" ;;
+    silicon) echo "https://github.com/Aloxaf/silicon" ;;
+    ffmpeg) echo "https://ffmpeg.org/download.html" ;;
+    *) echo "" ;;
+  esac
+}
+
+ok()      { echo "  🟢  $1"; }
+warn()    { echo "  🟡  $1"; }
+detail()  { echo "       $1"; }
+section() { echo ""; echo " $1"; }
+
+os="$(detect_os)"
+has_brew="$(command -v brew >/dev/null 2>&1 && echo "yes" || echo "no")"
+in_repo="$(git rev-parse --is-inside-work-tree >/dev/null 2>&1 && echo "yes" || echo "no")"
+
+deps=(
+  "agent-browser|recommended"
+  "gh|recommended"
+  "jq|recommended"
+  "vhs|recommended"
+  "silicon|recommended"
+  "ffmpeg|recommended"
+)
+
+cli_ok=0
+cli_total=0
+issues=0
+results=()
+
+for entry in "${deps[@]}"; do
+  IFS='|' read -r name tier <<<"$entry"
+  cli_total=$((cli_total + 1))
+  install_cmd="$(build_install_command "$name" "$os")"
+  url="$(build_project_url "$name")"
+
+  if command -v "$name" >/dev/null 2>&1; then
+    cli_ok=$((cli_ok + 1))
+    results+=("$name|$tier|ok|$install_cmd|$url")
+  else
+    results+=("$name|$tier|missing|$install_cmd|$url")
+  fi
+done
+
+legacy_markdown="skip"
+legacy_ce_config="skip"
+repo_cfg="skip"
+repo_cfg_gitignore="skip"
+example_cfg="skip"
+
+if [ "$in_repo" = "yes" ]; then
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  legacy_markdown="missing"
+  if [ -f "$repo_root/compound-engineering.local.md" ]; then
+    legacy_markdown="present"
+  fi
+
+  legacy_ce_config="missing"
+  if [ -f "$repo_root/.compound-engineering/config.local.yaml" ]; then
+    legacy_ce_config="present"
+  fi
+
+  repo_cfg="missing"
+  if [ -f "$repo_root/.spec-first/config.local.yaml" ]; then
+    repo_cfg="ok"
+  fi
+
+  if [ "$repo_cfg" = "ok" ]; then
+    if git check-ignore -q "$repo_root/.spec-first/config.local.yaml" 2>/dev/null; then
+      repo_cfg_gitignore="ok"
+    else
+      repo_cfg_gitignore="missing"
+    fi
+  fi
+
+  script_dir="$(cd "$(dirname "$0")" && pwd)"
+  template="$script_dir/../references/config-template.yaml"
+  example="$repo_root/.spec-first/config.local.example.yaml"
+  if [ ! -f "$example" ]; then
+    example_cfg="missing"
+  elif [ -f "$template" ] && ! diff -q "$template" "$example" >/dev/null 2>&1; then
+    example_cfg="outdated"
+  else
+    example_cfg="ok"
+  fi
+fi
+
+echo ""
+if [ -n "$plugin_version" ]; then
+  ok "Spec-First version v${plugin_version}"
+fi
+
+section "Tools  ${cli_ok}/${cli_total}"
+
+for result in "${results[@]}"; do
+  IFS='|' read -r name tier status install_cmd url <<<"$result"
+  if [ "$status" = "ok" ]; then
+    ok "$name"
+  else
+    warn "$name"
+    issues=$((issues + 1))
+    if [ -n "$install_cmd" ]; then
+      if [[ "$install_cmd" == *"brew install"* ]] && [ "$has_brew" != "yes" ]; then
+        detail "$url"
+      else
+        detail "$install_cmd"
+      fi
+    fi
+    if [ -n "$url" ]; then
+      detail "$url"
+    fi
+  fi
+done
+
+if [ "$in_repo" = "yes" ]; then
+  has_project_issues="no"
+  for state in "$legacy_markdown" "$legacy_ce_config" "$repo_cfg" "$repo_cfg_gitignore" "$example_cfg"; do
+    case "$state" in
+      present|missing|outdated)
+        has_project_issues="yes"
+        ;;
+    esac
+  done
+
+  if [ "$has_project_issues" = "yes" ]; then
+    section "Project"
+
+    if [ "$legacy_markdown" = "present" ]; then
+      warn "Outdated Compound Engineering config in this repo"
+      issues=$((issues + 1))
+    fi
+
+    if [ "$legacy_ce_config" = "present" ]; then
+      warn "Legacy Compound Engineering local config detected (.compound-engineering/config.local.yaml)"
+      issues=$((issues + 1))
+    fi
+
+    if [ "$repo_cfg" = "missing" ]; then
+      warn "Local config missing (.spec-first/config.local.yaml)"
+      issues=$((issues + 1))
+    fi
+
+    if [ "$repo_cfg_gitignore" = "missing" ]; then
+      warn "Local config not safely gitignored"
+      issues=$((issues + 1))
+    fi
+
+    if [ "$example_cfg" = "missing" ]; then
+      warn "Example config missing (.spec-first/config.local.example.yaml)"
+      issues=$((issues + 1))
+    elif [ "$example_cfg" = "outdated" ]; then
+      warn "Example config outdated (.spec-first/config.local.example.yaml)"
+      issues=$((issues + 1))
+    fi
+  fi
+fi
+
+echo ""
+if [ "$issues" -eq 0 ]; then
+  echo " ✅  All clear  ${cli_ok}/${cli_total} tools"
+else
+  echo " ⚠️   ${issues} issue(s) found  ${cli_ok}/${cli_total} tools"
+fi
+
+echo ""

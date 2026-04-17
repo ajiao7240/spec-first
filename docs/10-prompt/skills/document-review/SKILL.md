@@ -1,61 +1,94 @@
 ---
 name: document-review
-description: 使用呈现特定于角色的问题的并行角色代理来审查需求或计划文档。当需求文档或计划文档存在并且用户想要改进它时使用。
+description: Review requirements or plan documents using parallel persona agents that surface role-specific issues. Use when a requirements document or plan document exists and the user wants to improve it.
+argument-hint: "[mode:headless] [path/to/document.md]"
 ---
-# 文件审查
 
-通过多角色分析审查需求或计划文档。并行派遣专门的审阅代理，自动修复质量问题，并提出战略问题以供用户决策。
+# Document Review
 
-## 第 1 阶段：获取并分析文档
+Review requirements or plan documents through multi-persona analysis. Dispatches specialized reviewer agents in parallel, auto-fixes quality issues, and presents strategic questions for user decision.
 
-**如果提供了文档路径：** 阅读它，然后继续。
+## Phase 0: Detect Mode
 
-**如果未指定文档：** 询问要查看哪个文档，或使用文件搜索/glob 工具（例如 Claude Code 中的 Glob）在 `docs/brainstorms/` 或 `docs/plans/` 中查找最新文档。
+Check the skill arguments for `mode:headless`. Arguments may contain a document path, `mode:headless`, or both. Tokens starting with `mode:` are flags, not file paths. Strip them from the arguments and use the remaining token, if any, as the document path for Phase 1.
 
-### 对文档类型进行分类
+If `mode:headless` is present, set **headless mode** for the rest of the workflow.
 
-阅读完后，对文档进行分类：
-- **需求** -- 来自 `docs/brainstorms/`，重点关注要构建什么以及为什么
-- **计划** -- 来自 `docs/plans/`，重点关注如何通过实现细节来构建它
+**Headless mode** changes the interaction model, not the classification boundaries. Document-review still applies the same judgment about what has one clear correct fix vs. what needs user judgment. The only difference is how non-auto findings are delivered:
+- `auto` fixes are applied silently, same as interactive mode
+- `batch_confirm` and `present` findings are returned as structured text for the caller to handle. Do not use interactive question tools.
+- Phase 5 returns immediately with `Review complete`
 
-### 选择条件角色
+Callers invoke headless mode by including `mode:headless` in the skill arguments, for example:
+```
+Skill("spec-first:document-review", "mode:headless docs/plans/my-plan.md")
+```
 
-分析文档内容以确定要激活哪些条件角色。检查这些信号：
+If `mode:headless` is not present, run the default interactive workflow.
 
-**product-lens** -- 当文档包含以下内容时激活：
-- 面向用户的功能、用户故事或以客户为中心的语言
-- 市场主张、竞争定位或商业理由
-- 范围决策、优先级语言或具有功能分配的优先级
-- 以用户/客户/业务成果为重点的要求
+## Phase 1: Get and Analyze Document
 
-**design-lens** -- 当文档包含以下内容时激活：
-- UI/UX 参考、前端组件或视觉设计语言
-- 用户流程、线框图、屏幕/页面/视图提及
-- 交互描述（表单、按钮、导航、模式）
-- 参考响应行为或可访问性**security-lens** -- 当文档包含以下内容时激活：
-- 身份验证/授权提及、登录流程、会话管理
-- 向外部客户端公开的 API 端点
-- 数据处理、PII、支付、令牌、凭证、加密
-- 具有信任边界影响的第三方集成
+**If a document path is provided:** Read it, then proceed.
 
-**scope-guardian** -- 当文档包含以下内容时激活：
-- 多个优先级（P0/P1/P2、必须拥有/应该拥有/最好拥有）
-- 需求数量较多（>8 个不同的需求或实施单元）
-- 延伸目标、必备品或“未来工作”部分
-- 范围边界语言似乎与既定目标不一致
-- 目标与需求没有明确联系
+**If no document is specified (interactive mode):** Ask which document to review, or find the most recent in `docs/brainstorms/` or `docs/plans/` using a file-search/glob tool (e.g., Glob in Claude Code).
 
-**对抗性** - 当文档包含以下内容时激活：
-- 超过 5 个不同的要求或实施单位
-- 具有明确理由的明确架构或范围决策
-- 高风险领域（身份验证、支付、数据迁移、外部集成）
-- 新抽象、框架或重要架构模式的提案
+**If no document is specified (headless mode):** Output `Review failed: headless mode requires a document path. Re-invoke with: Skill("spec-first:document-review", "mode:headless <path>")` without dispatching agents.
 
-## 第 2 阶段：公告和分发角色
+### Classify Document Type
 
-### 宣布审核小组
+After reading, classify the document:
+- **requirements** -- from `docs/brainstorms/`, focuses on what to build and why
+- **plan** -- from `docs/plans/`, focuses on how to build it with implementation details
 
-告诉用户哪些角色将进行评论以及原因。对于条件角色，请包括理由：
+### Select Conditional Personas
+
+Analyze the document content to determine which conditional personas to activate. Check for these signals:
+
+**product-lens** -- activate when the document makes challengeable claims about what to build and why, or when the proposed work carries strategic weight beyond the immediate problem. The system's users may be end users, developers, operators, maintainers, or any other audience. The criteria are domain-agnostic. Check for either leg:
+
+*Leg 1 -- Premise claims:* The document stakes a position on what to build or why that a knowledgeable stakeholder could reasonably challenge, not merely describing a task or restating known requirements:
+- Problem framing where the stated need is non-obvious or debatable, not self-evident from existing context
+- Solution selection where alternatives plausibly exist, implicit or explicit
+- Prioritization decisions that explicitly rank what gets built versus deferred
+- Goal statements that predict specific user outcomes, not just restate constraints or describe deliverables
+
+*Leg 2 -- Strategic weight:* The proposed work could affect system trajectory, user perception, or competitive positioning, even if the premise is sound:
+- Changes that shape how the system is perceived or what it becomes known for
+- Complexity or simplicity bets that affect adoption, onboarding, or cognitive load
+- Work that opens or closes future directions, such as path dependencies or architectural commitments
+- Opportunity cost implications, where building this means not building something else
+
+**design-lens** -- activate when the document contains:
+- UI/UX references, frontend components, or visual design language
+- User flows, wireframes, screen/page/view mentions
+- Interaction descriptions (forms, buttons, navigation, modals)
+- References to responsive behavior or accessibility
+
+**security-lens** -- activate when the document contains:
+- Auth/authorization mentions, login flows, session management
+- API endpoints exposed to external clients
+- Data handling, PII, payments, tokens, credentials, encryption
+- Third-party integrations with trust boundary implications
+
+**scope-guardian** -- activate when the document contains:
+- Multiple priority tiers (P0/P1/P2, must-have/should-have/nice-to-have)
+- Large requirement count (>8 distinct requirements or implementation units)
+- Stretch goals, nice-to-haves, or "future work" sections
+- Scope boundary language that seems misaligned with stated goals
+- Goals that don't clearly connect to requirements
+
+**adversarial** -- activate when the document contains:
+- More than 5 distinct requirements or implementation units
+- Explicit architectural or scope decisions with stated rationale
+- High-stakes domains (auth, payments, data migrations, external integrations)
+- Proposals of new abstractions, frameworks, or significant architectural patterns
+
+## Phase 2: Announce and Dispatch Personas
+
+### Announce the Review Team
+
+Tell the user which personas will review and why. For conditional personas, include the justification:
+
 ```
 Reviewing with:
 - coherence-reviewer (always-on)
@@ -63,175 +96,58 @@ Reviewing with:
 - scope-guardian-reviewer -- plan has 12 requirements across 3 priority levels
 - security-lens-reviewer -- plan adds API endpoints with auth flow
 ```
-### 建立代理列表
 
-始终包括：
+### Build Agent List
+
+Always include:
 - `spec-first:document-review:coherence-reviewer`
 - `spec-first:document-review:feasibility-reviewer`
 
-添加激活的条件角色：
+Add activated conditional personas:
 - `spec-first:document-review:product-lens-reviewer`
 - `spec-first:document-review:design-lens-reviewer`
 - `spec-first:document-review:security-lens-reviewer`
 - `spec-first:document-review:scope-guardian-reviewer`
 - `spec-first:document-review:adversarial-document-reviewer`
 
-### 调度
+### Dispatch
 
-使用平台的任务/代理工具（例如，Claude Code 中的 Agent 工具、Codex 中的 spawn）以**并行**方式调度所有代理。每个代理都会收到从下面包含的子代理模板构建的提示，并填充了这些变量：
+Dispatch all agents in **parallel** using the platform's task/agent tool (e.g., Agent tool in Claude Code, spawn in Codex). Omit the `mode` parameter so the user's configured permission settings apply. Each agent receives the prompt built from the subagent template included below with these variables filled:
 
-|变量|价值|
-|----------|--------|
-| `{persona_file}` |代理markdown文件完整内容 |
-| `{schema}` |调查结果架构的内容如下 |
-| `{document_type}` |第一阶段分类中的“要求”或“计划”|
-| `{document_path}` |文档路径 |
-| `{document_content}` |文件全文 |
+| Variable | Value |
+|----------|-------|
+| `{persona_file}` | Full content of the agent's markdown file |
+| `{schema}` | Content of the findings schema included below |
+| `{document_type}` | "requirements" or "plan" from Phase 1 classification |
+| `{document_path}` | Path to the document |
+| `{document_content}` | Full text of the document |
 
-将**完整文档**传递给每个代理 - 不要分成几个部分。
+Pass each agent the **full document** -- do not split into sections.
 
-**错误处理：** 如果代理失败或超时，请继续处理已完成的代理的调查结果。请注意“覆盖范围”部分中失败的代理。不要因单个代理故障而阻止整个审核。
+**Error handling:** If an agent fails or times out, proceed with findings from agents that completed. Note the failed agent in the Coverage section. Do not block the entire review on a single agent failure.
 
-**调度限制：** 即使最多（7 个代理），也使用并行调度。这些文档审阅者的范围有限，可以阅读单个文档——并行是安全且快速的。
+**Dispatch limit:** Even at maximum (7 agents), use parallel dispatch. These are document reviewers with bounded scope reading a single document -- parallel is safe and fast.
 
-## 第 3 阶段：综合调查结果
+## Phases 3-5: Synthesis, Presentation, and Next Action
 
-通过此管道处理所有代理的结果。 **顺序很重要**——每一步都取决于前一步。
-
-### 3.1 验证根据下面包含的结果架构检查每个代理返回的 JSON：
-- 删除缺少架构中定义的任何必填字段的结果
-- 删除具有无效枚举值的结果
-- 记下“覆盖范围”部分中任何格式错误的输出的代理名称
-
-### 3.2 置信门
-
-抑制置信度低于 0.50 的结果。将它们存储为步骤 3.4 中潜在促销的剩余关注点。
-
-### 3.3 重复数据删除
-
-使用 `normalize(section) + normalize(title)` 对每个发现进行指纹识别。规范化：小写、去掉标点符号、折叠空格。
-
-当指纹跨角色匹配时：
-- 如果调查结果建议 **相反的行动**（例如，一个说削减，另一个说保留），则不要合并 - 保留两者以在 3.5 中解决矛盾
-- 否则合并：保持最高的严重性，保持最高的置信度，合并所有证据数组，记下所有同意的审稿人（例如，“连贯性、可行性”）
-- **覆盖归因：** 将合并的发现归因于置信度最高的角色。减少失败角色的发现计数*和*相应的路线存储桶（自动、批量或当前），以便 `Findings = Auto + Batch + Present` 保持准确。
-
-### 3.4 促进残余问题扫描剩余问题（3.2 中抑制的发现）：
-- **跨角色验证**：角色 A 的残留关注点与角色 B 的阈值以上发现重叠。以 0.55-0.65 的置信度提升到 P2。从证实的阈值以上发现中继承 `finding_type`。
-- **具体阻碍风险**：残留问题描述了会阻碍实施的特定、具体风险。以 0.55 的置信度提升到 P2。设置`finding_type: omission`（阻碍风险浮出水面，因为残留的担忧本质上是关于文件未能解决的问题）。
-
-### 3.5 解决矛盾
-
-当角色在同一部分上存在分歧时：
-- 创建一个呈现两种观点的**综合发现**
-- 设置`autofix_class: present`
-- 设置`finding_type: error`（根据定义，矛盾是关于文档所说的相互冲突的事情，而不是它省略的事情）
-- 框架作为权衡，而不是判决
-
-具体冲突模式：
-- Coherence 说“保持一致性”+scope-guardian 说“为了简单而削减”-> 合并查找，让用户决定
-- 可行性说“这是不可能的” + 产品镜头说“这是必要的” -> P1 发现被视为一种权衡
-- 多个角色标记同一问题 -> 合并为单一发现，记录共识，增加信心
-
-### 3.6 通过 Autofix 类进行路由
-
-**严重性和 autofix_class 是独立的。** 如果正确的修复是确定性的，则 P1 发现可以是 `auto`。测试不是“有多重要？”但是“是否可以在不进行判断的情况下从文档本身的内容中得出修复程序？”|自动修复类 |路线 |
-|----------------|--------|
-| `auto` |自动应用——修复可从文档本身导出。文件的一部分显然比另一部分具有权威性；向权威妥协。 |
-| `batch_confirm` |单批审批小组——一个明确的正确答案，但作者的新内容的确切措辞需要验证 |
-| `present` |单独呈现以供用户判断|
-
-将任何缺少 `suggested_fix` 的 `auto` 发现降级为 `batch_confirm`。将任何缺少 `suggested_fix` 的 `batch_confirm` 发现降级为 `present`。
-
-**自动符合条件的模式：** 摘要/细节不匹配（正文比概述更权威）、计数错误、缺少源自文档其他地方的列表条目、过时的内部交叉引用、术语漂移、散文更详细的散文/图表矛盾。如果修复需要判断要写入*什么*（而不仅仅是*那个*需要更新的东西），那么它属于`batch_confirm`或`present`。
-
-### 3.7 排序
-
-对结果进行排序以供演示：P0 -> P1 -> P2 -> P3，然后按查找类型（遗漏之前的错误），然后按置信度（降序），然后按文档顺序（章节位置）。
-
-## 第 4 阶段：申请并展示
-
-### 应用自动修复
-
-将所有 `auto` 结果一次性应用到文档中**：
-- 使用平台的编辑工具内联编辑文档
-- 跟踪“应用的自动修复”部分的更改内容
-- 不要寻求批准——这些毫无疑问是正确的
-
-### 批量确认
-
-如果存在任何 `batch_confirm` 发现：1. 在编号表中提出建议的修复方案（参见模板）
-2. **使用平台的交互式问题工具请求批准** -- 不要将问题打印为纯文本输出：
-   - 克劳德代码：`AskUserQuestion`
-   - 法典：`request_user_input`
-   - 双子座：`ask_user`
-   - 后备（没有可用的提问工具）：呈现编号选项并停止；在继续之前等待用户的下一条消息
-3. 问题文本：“应用这 N 个修复？（是/否/选择）”
-4. 处理响应：
-   - **是**：一次性应用所有内容
-   - **选择**：让用户选择要应用的
-   - **否**：将剩余内容降级至 `present` 结果列表
-
-这将 N 个明显但有意义的修复变成 1 次交互，而不是 N 次。
-
-### 目前剩余的调查结果
-
-使用下面包含的审核输出模板呈现 `present` 结果。在每个严重性级别中，按类型分隔结果：
-- 首先是**错误**（设计紧张、矛盾、不正确的陈述）——这些需要解决
-- **遗漏**（缺少步骤、缺少细节、忘记条目）第二——这些需要补充
-
-顶部的简短摘要：“应用了 N 个自动修复。批量 M 个修复以供批准。需要考虑 K 个发现（X 个错误，Y 个遗漏）。”
-
-包括覆盖范围表、应用的自动修复、剩余问题和推迟的问题。
-
-### 受保护的文物
-
-在综合过程中，放弃任何建议删除或删除以下位置的文件的发现：
-- `docs/brainstorms/`
-- `docs/plans/`
-- `docs/solutions/`
-
-这些是管道工件，不得标记为要删除。
-
-## 第 5 阶段：下一步行动**使用平台的交互式问题工具提问** - 不要将问题打印为纯文本输出：
-- 克劳德代码：`AskUserQuestion`
-- 法典：`request_user_input`
-- 双子座：`ask_user`
-- 后备（没有可用的提问工具）：呈现编号选项并停止；等待用户的下一条消息
-
-优惠：
-
-1. **再次细化**——再次审核通过
-2. **审核完成** -- 文件已准备就绪
-
-经过 2 次细化后，建议完成——收益可能会递减。但如果用户想继续，请允许。
-
-返回“审核完成”作为呼叫者的终端信号。
-
-## 不该做什么
-
-- 不要重写整个文档
-- 不要添加用户未讨论的新部分或要求
-- 不要过度设计或增加复杂性
-- 不要创建单独的审阅文件或添加元数据部分
-- 不要修改任何 2 个呼叫者技能（规格-头脑风暴、规格-计划）
-
-## 迭代指导
-
-在后续传递中，重新调度角色并重新合成。自动修复机制和置信门可防止修复后再次出现相同的问题。如果结果在各遍中重复，建议完成。
+After all dispatched agents return, read `references/synthesis-and-presentation.md` for the synthesis pipeline (validate, gate, dedup, promote, resolve contradictions, pattern-resolved auto promotion, route by autofix class), auto-fix application, finding presentation, and next-action menu. Do not load this file before agent dispatch completes.
 
 ---
 
-## 包含的参考资料
+## Included References
 
-### 子代理模板
+### Subagent Template
 
 @./references/subagent-template.md
 
-### 调查结果架构
+### Findings Schema
 
 @./references/findings-schema.json
 
-### 查看输出模板
+### Review Output Template
 
 @./references/review-output-template.md
+
+### Synthesis And Presentation
+
+@./references/synthesis-and-presentation.md

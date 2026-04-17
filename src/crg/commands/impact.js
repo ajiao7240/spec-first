@@ -24,10 +24,11 @@ const DEFAULT_DEPTH = 3;
 function reverseBfs(startId, reverseAdj, maxDepth) {
   const visited = new Map(); // nodeId → depth
   const queue = [[startId, 0]];
+  let head = 0;
   visited.set(startId, 0);
 
-  while (queue.length > 0) {
-    const [cur, depth] = queue.shift();
+  while (head < queue.length) {
+    const [cur, depth] = queue[head++];
     if (depth >= maxDepth) continue;
 
     const callers = reverseAdj.get(cur) || [];

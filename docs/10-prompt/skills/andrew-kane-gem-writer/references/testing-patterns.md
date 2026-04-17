@@ -1,8 +1,9 @@
-# 测试模式
+# Testing Patterns
 
-## 最小测试设置
+## Minitest Setup
 
-Kane 只使用 Minitest，而不使用 RSpec。
+Kane exclusively uses Minitest—never RSpec.
+
 ```ruby
 # test/test_helper.rb
 require "bundler/setup"
@@ -26,7 +27,9 @@ class Minitest::Test
   end
 end
 ```
-## 测试文件结构
+
+## Test File Structure
+
 ```ruby
 # test/model_test.rb
 require_relative "test_helper"
@@ -54,9 +57,11 @@ class ModelTest < Minitest::Test
   end
 end
 ```
-## 多版本测试
 
-使用 gemfiles 测试多个 Rails/Ruby 版本：
+## Multi-Version Testing
+
+Test against multiple Rails/Ruby versions using gemfiles:
+
 ```
 test/
 ├── test_helper.rb
@@ -83,12 +88,16 @@ gemspec path: "../../"
 gem "activerecord", "~> 7.2.0"
 gem "sqlite3"
 ```
-使用特定的 gemfile 运行：
+
+Run with specific gemfile:
+
 ```bash
 BUNDLE_GEMFILE=test/gemfiles/activerecord70.gemfile bundle install
 BUNDLE_GEMFILE=test/gemfiles/activerecord70.gemfile bundle exec rake test
 ```
-## 耙文件
+
+## Rakefile
+
 ```ruby
 # Rakefile
 require "bundler/gem_tasks"
@@ -101,7 +110,9 @@ end
 
 task default: :test
 ```
+
 ## GitHub Actions CI
+
 ```yaml
 # .github/workflows/build.yml
 name: build
@@ -136,7 +147,9 @@ jobs:
 
       - run: bundle exec rake test
 ```
-## 特定于数据库的测试
+
+## Database-Specific Testing
+
 ```yaml
 # .github/workflows/build.yml (with services)
 services:
@@ -156,7 +169,9 @@ services:
 env:
   DATABASE_URL: postgres://postgres:postgres@localhost/gemname_test
 ```
-## 测试数据库设置
+
+## Test Database Setup
+
 ```ruby
 # test/test_helper.rb
 require "active_record"
@@ -183,7 +198,9 @@ class User < ActiveRecord::Base
   gemname_feature :email
 end
 ```
-## 断言模式
+
+## Assertion Patterns
+
 ```ruby
 # Basic assertions
 assert result
@@ -204,7 +221,9 @@ refute condition
 refute_equal unexpected, actual
 refute_nil value
 ```
-## 测试助手
+
+## Test Helpers
+
 ```ruby
 # test/test_helper.rb
 class Minitest::Test
@@ -227,7 +246,9 @@ class Minitest::Test
   end
 end
 ```
-## 跳过测试
+
+## Skipping Tests
+
 ```ruby
 def test_postgresql_specific
   skip "PostgreSQL only" unless postgresql?

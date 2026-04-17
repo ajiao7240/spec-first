@@ -6,9 +6,9 @@ const PlatformAdapter = require('./base');
 /**
  * Codex platform adapter
  *
- * Codex support is project-scoped and mirrors the Trellis model:
- * - shared workflow commands live in `.codex/commands/spec/`
- * - shared workflow skills live in `.agents/skills/`
+ * Codex support is project-scoped:
+ * - user-visible workflow entrypoints are discovered from `.agents/skills/`
+ * - `.codex/commands/spec/` is treated as a legacy compatibility layer cleanup target only
  * - reusable reviewer/research agent profiles live in `.codex/agents/`
  * - spec-first state remains under `.codex/spec-first/`
  */
@@ -26,7 +26,7 @@ class CodexAdapter extends PlatformAdapter {
   }
 
   get hasCommands() {
-    return true;
+    return false;
   }
 
   get commandRoot() {
@@ -99,7 +99,7 @@ class CodexAdapter extends PlatformAdapter {
     return {
       platform: this.id,
       runtimeExists: fs.existsSync(runtimeDir),
-      commands: fs.existsSync(commandDir),
+      commands: this.hasCommands ? fs.existsSync(commandDir) : false,
       skills: fs.existsSync(skillsDir),
       agents: fs.existsSync(agentsDir),
       state: fs.existsSync(stateFilePath),
@@ -108,6 +108,7 @@ class CodexAdapter extends PlatformAdapter {
   }
 
   syncRuntimeFiles(projectRoot) {
+    removeManagedDirectory(path.join(projectRoot, this.commandRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyCommandRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyCodexSkillsRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyMarketplaceRoot), projectRoot);
@@ -121,6 +122,7 @@ class CodexAdapter extends PlatformAdapter {
   }
 
   removeRuntimeFiles(projectRoot) {
+    removeManagedDirectory(path.join(projectRoot, this.commandRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyCommandRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyCodexSkillsRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyMarketplaceRoot), projectRoot);

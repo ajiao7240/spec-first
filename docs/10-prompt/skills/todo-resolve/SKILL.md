@@ -1,62 +1,68 @@
 ---
 name: todo-resolve
-description: 在批量解决批准的待办事项时使用，特别是在代码审查或分类会议之后
+description: Use when batch-resolving approved todos, especially after code review or triage sessions
 argument-hint: "[optional: specific todo ID or pattern]"
 ---
-使用并行处理解决已批准的待办事项，记录经验教训，然后进行清理。
 
-仅解决 `ready` 待办事项。 `pending` 待办事项被跳过——它们尚未被分类。如果存在待处理的待办事项，请将它们列在最后，以便用户知道留下了什么。
+Resolve approved todos using parallel processing, document lessons learned, then clean up.
 
-## 工作流程
+Only `ready` todos are resolved. `pending` todos are skipped — they haven't been triaged yet. If pending todos exist, list them at the end so the user knows what was left behind.
 
-### 1. 分析
+## Workflow
 
-扫描 `.context/spec-first/todos/*.md` 和旧版 `todos/*.md`。按状态划分：
+### 1. Analyze
 
-- **`ready`**（状态字段或文件名中的 `-ready-`：解决这些问题。
-- **`pending`**：跳过。最后报告他们。
-- **`complete`**：忽略，已经完成。
+Scan `docs/todos/*.md` (canonical), `.context/spec-first/todos/*.md` (legacy-v2), and `todos/*.md` (legacy-v1). Partition by status:
 
-如果特定的待办事项 ID 或模式作为参数传递，则仅过滤到匹配的待办事项（仍然必须是 `ready`）。
+- **`ready`** (status field or `-ready-` in filename): resolve these.
+- **`pending`**: skip. Report them at the end.
+- **`complete`**: ignore, already done.
 
-`safe_auto` 通过后 `spec:review mode:autofix` 的剩余可操作工作将已经是 `ready`。
+If a specific todo ID or pattern was passed as an argument, filter to matching todos only (still must be `ready`).
 
-跳过任何建议删除、移除或 gitignoring `docs/brainstorms/`、`docs/plans/` 或 `docs/solutions/` 中文件的待办事项 — 这些是有意的管道工件。
+Residual actionable work from `spec:review mode:autofix` after its `safe_auto` pass will already be `ready`.
 
-### 2. 计划
+Skip any todo that recommends deleting, removing, or gitignoring files in `docs/brainstorms/`, `docs/plans/`, or `docs/solutions/` — these are intentional pipeline artifacts.
 
-创建按类型分组的任务列表（例如，Claude Code 中的 `TaskCreate`，Codex 中的 `update_plan`。分析依赖关系——其他人依赖的项目首先运行。输出显示执行顺序和并行性的美人鱼图。
+### 2. Plan
 
-### 3. 实施（并行）
+Create a task list grouped by type (e.g., `TaskCreate` in Claude Code, `update_plan` in Codex). Analyze dependencies -- items that others depend on run first. Output a mermaid diagram showing execution order and parallelism.
 
-每个物品生成一个 `spec-first:workflow:pr-comment-resolver` 特工。优先选择平行；回退到尊重依赖顺序的顺序。
+### 3. Implement (PARALLEL)
 
-**批量：** 1-4 项：直接并行返回。 5 个以上项目：4 个批次，每个批次仅返回一个简短的状态摘要（待办事项已处理、文件已更改、测试运行/跳过、阻止程序）。
+Spawn a `spec-first:workflow:pr-comment-resolver` agent per item. Prefer parallel; fall back to sequential respecting dependency order.
 
-对于大型集，请使用 `.context/spec-first/todo-resolve/<run-id>/` 处的暂存目录来存储每个解析器工件。仅将完成摘要返回给父级。
+**Batching:** 1-4 items: direct parallel returns. 5+ items: batches of 4, each returning only a short status summary (todo handled, files changed, tests run/skipped, blockers).
 
-### 4. 提交并解决
+For large sets, use a scratch directory at `.spec-first/workflows/todo-resolve/<run-id>/` for per-resolver artifacts. Return only completion summaries to parent.
 
-提交更改，标记待办事项已解决，推送到远程。门：停止。在继续之前验证待办事项已解决并已提交更改。
+### 4. Commit & Resolve
 
-### 5. 总结经验教训
+Commit changes, mark todos resolved, push to remote.
 
-加载 `spec:compound` 工作流程以记录所学到的内容。待办事项决议通常会浮出值得捕捉的模式和架构见解。
+GATE: STOP. Verify todos resolved and changes committed before proceeding.
 
-门：停止。验证复合技能在`docs/solutions/`中生成了解决方案文档。如果没有（用户拒绝或没有学习），请继续。
+### 5. Compound on Lessons Learned
 
-### 6. 清理
+Load the `spec:compound` workflow to document what was learned. Todo resolutions often surface patterns and architectural insights worth capturing.
 
-从两个路径中删除已完成/已解决的待办事项文件。如果在 `.context/spec-first/todo-resolve/<run-id>/` 创建了临时目录，请将其删除（除非用户要求检查）。
+GATE: STOP. Verify the compound skill produced a solution document in `docs/solutions/`. If none (user declined or no learnings), continue.
+
+### 6. Clean Up
+
+Delete completed/resolved todo files from all three paths. If a scratch directory was created at `.spec-first/workflows/todo-resolve/<run-id>/`, delete it (unless user asked to inspect).
+
 ```
 Todos resolved: [count]
 Pending (skipped): [count, or "none"]
 Lessons documented: [path to solution doc, or "skipped"]
 Todos cleaned up: [count deleted]
 ```
-如果跳过待处理的待办事项，请列出它们：
+
+If pending todos were skipped, list them:
+
 ```
-Skipped pending todos (run /todo-triage to approve):
+Skipped pending todos (load the `todo-triage` skill to approve):
   - 003-pending-p2-missing-index.md
   - 005-pending-p3-rename-variable.md
 ```

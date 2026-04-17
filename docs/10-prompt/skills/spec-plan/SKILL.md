@@ -1,376 +1,484 @@
 ---
 name: plan-workflow
-description: “将功能描述或需求转化为基于回购模式和研究的结构化实施计划。当用户说‘计划这个’、‘创建计划’、‘编写技术计划’、‘计划实施’、‘我们应该如何构建’、‘方法是什么’、‘分解这个’，或者当头脑风暴/需求文档准备好进行技术规划时使用。最好是在需求至少被粗略定义时使用；对于探索性或模糊的请求，更喜欢规格：首先进行头脑风暴。”
-argument-hint: "[feature description, requirements doc path, or improvement idea]"
+description: "Create structured implementation plans grounded in repo patterns and research for software features, and structured plans for non-software multi-step tasks. Use when the user says 'plan this', 'create a plan', 'write a tech plan', 'plan the implementation', 'how should we build', 'what's the approach for', 'break this down', or asks for a plan for a trip, study plan, event, research workflow, or similar multi-step task. Best when requirements are at least roughly defined; for exploratory or ambiguous software requests, prefer spec:brainstorm first."
+argument-hint: "[feature description, requirements doc path, plan path to deepen, or task to plan]"
 ---
-# 创建技术计划
 
-**注意：当前年份是 2026 年。** 在约会计划和搜索最近的文档时使用此选项。
+# Create Technical Plan
 
-`spec:brainstorm` 定义了要构建的**内容**。 `spec:plan` 定义了构建它的**方式**。 `spec:work` 执行计划。
+**Note: The current year is 2026.** Use this when dating plans and searching for recent documentation.
 
-此工作流程会产生持久的实施计划。它**不**实现代码、运行测试或从执行时结果中学习。如果答案取决于更改代码并查看会发生什么，那么那属于 `spec:work`，而不是这里。
+`spec:brainstorm` defines **WHAT** to build. `spec:plan` defines **HOW** to build it. `spec:work` executes the plan.
 
-## 交互方式
+This workflow produces a durable implementation plan. It does **not** implement code, run tests, or learn from execution-time results. If the answer depends on changing code and seeing what happens, that belongs in `spec:work`, not here.
 
-如果可用，请使用平台的问题工具。当向用户提问时，最好使用平台的屏蔽提问工具（如果存在）（Claude Code 中的 `AskUserQuestion`、Codex 中的 `request_user_input`、Gemini 中的 `ask_user`。否则，在聊天中显示编号选项并等待用户回复后再继续。
+## Interaction Method
 
-一次问一个问题。当存在自然选项时，更喜欢简洁的单选选择。
+Use the platform's question tool when available. When asking the user a question, prefer the platform's blocking question tool if one exists (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present numbered options in chat and wait for the user's reply before proceeding.
 
-## 功能描述
+Ask one question at a time. Prefer a concise single-select choice when natural options exist.
 
-<功能描述> #$ARGUMENTS </功能描述>
+## Feature Description
 
-**如果上面的功能描述为空，请询问用户：**“您想要计划什么？请描述您想要的功能、错误修复或改进。”
+<feature_description> #$ARGUMENTS </feature_description>
 
-在您有明确的计划输入之前不要继续。
+**If the feature description above is empty, ask the user:** "What would you like to plan? Please describe the feature, bug fix, or multi-step task you have in mind."
 
-## 核心原则1. **使用需求作为事实来源** - 如果`spec:brainstorm`生成了需求文档，那么规划应该根据它来构建，而不是重新发明行为。
-2. **决策，而不是代码** - 捕获方法、边界、文件、依赖项、风险和测试场景。不要预先编写实现代码或 shell 命令编排。传达高级技术设计的伪代码草图或 DSL 语法在帮助审阅者验证方向时受到欢迎，但它们必须明确地构建为方向指导，而不是实现规范。
-3. **构建之前进行研究** - 在最终确定计划之前，在必要时探索代码库、机构学习和外部指导。
-4. **调整工件大小** - 小工作得到紧凑的计划。大型工作变得更加结构化。这一理念在每个深度上都保持不变。
-5. **将计划与执行发现分开** - 在此解决计划时间问题。明确地将执行时间未知数推迟到实现。
-6. **保持计划可移植** - 计划应作为动态文档、审查工件或问题主体，而不嵌入特定于工具的执行器指令。
-7. **在重要时轻松执行执行姿势** - 如果请求、原始文档或存储库上下文明确暗示测试优先、特征优先或其他非默认执行姿势，请在计划中将其反映为轻量级信号。不要把计划变成一步一步的执行编排。
+Do not proceed until you have a clear planning input.
 
-## 计划质量栏每个计划应包含：
-- 清晰的问题框架和范围边界
-- 具体需求可追溯至请求或原始文档
-- 所提议工作的确切文件路径
-- 具有功能的实现单元的显式测试文件路径
-- 有理由的决定，而不仅仅是任务
-- 遵循现有模式或代码参考
-- 枚举每个功能承载单元的测试场景，足够具体，使实施者确切地知道要测试什么，而无需自己发明覆盖范围
-- 清晰的依赖关系和顺序
+**IMPORTANT: All file references in the plan document must use repo-relative paths (e.g., `src/models/user.rb`), never absolute paths (e.g., `/Users/name/Code/project/src/models/user.rb`). This applies everywhere — implementation unit file lists, pattern references, origin document links, and prose mentions. Absolute paths break portability across machines, worktrees, and teammates.**
 
-当实施者可以自信地开始而不需要计划为他们编写代码时，计划就准备好了。
+## Core Principles
 
-## 工作流程
+1. **Use requirements as the source of truth** - If `spec:brainstorm` produced a requirements document, planning should build from it rather than re-inventing behavior.
+2. **Decisions, not code** - Capture approach, boundaries, files, dependencies, risks, and test scenarios. Do not pre-write implementation code or shell command choreography. Pseudo-code sketches or DSL grammars that communicate high-level technical design are welcome when they help a reviewer validate direction — but they must be explicitly framed as directional guidance, not implementation specification.
+3. **Research before structuring** - Explore the codebase, institutional learnings, and external guidance when warranted before finalizing the plan.
+4. **Right-size the artifact** - Small work gets a compact plan. Large work gets more structure. The philosophy stays the same at every depth.
+5. **Separate planning from execution discovery** - Resolve planning-time questions here. Explicitly defer execution-time unknowns to implementation.
+6. **Keep the plan portable** - The plan should work as a living document, review artifact, or issue body without embedding tool-specific executor instructions.
+7. **Carry execution posture lightly when it matters** - If the request, origin document, or repo context clearly implies test-first, characterization-first, or another non-default execution posture, reflect that in the plan as a lightweight signal. Do not turn the plan into step-by-step execution choreography.
 
-### 第 0 阶段：简历、来源和范围
+## Plan Quality Bar
 
-#### 0.1 适当时恢复现有计划工作
+Every plan should contain:
+- A clear problem frame and scope boundary
+- Concrete requirements traceability back to the request or origin document
+- Repo-relative file paths for the work being proposed (never absolute paths — see Planning Rules)
+- Explicit test file paths for feature-bearing implementation units
+- Decisions with rationale, not just tasks
+- Existing patterns or code references to follow
+- Enumerated test scenarios for each feature-bearing unit, specific enough that an implementer knows exactly what to test without inventing coverage themselves
+- Clear dependencies and sequencing
 
-如果用户引用现有计划文件或`docs/plans/`中有明显的最近匹配计划：
-- 阅读它
-- 确认是否就地更新或创建新计划
-- 如果更新，保留已完成的复选框并仅修改仍然相关的部分
+A plan is ready when an implementer can start confidently without needing the plan to write the code for them.
 
-**重新深化快速路径：** 如果计划看起来完整（所有主要部分均已存在，已定义实施单位，`status: active`）并且用户的请求具体是关于深化或加强计划 - 通过“深化”、“加强”、“信心”、“差距”等信号词检测到，或明确要求重新深化 - 直接短路至阶段 5.3（置信度检查和深化）。这避免了仅仅为了评估深化而重新运行完整的规划工作流程。
+## Stage-0 上下文预载（可选增强，不阻断主工作流）
 
-正常的编辑请求（例如，“更新测试场景”、“添加新的实现单元”）不应触发快速路径 - 它们遵循标准恢复流程。如果计划已经有 `deepened: YYYY-MM-DD` frontmatter 字段并且没有明确的用户请求重新深化，则快速路径仍然应用相同的置信差距评估 - 它不会强制深化。
+> 此步骤读取 `spec-graph-bootstrap` 生成的 Stage-0 产物作为增强上下文。
+> 优先以 evaluator 输出 contract 为真源；任何文件缺失、JSON 解析失败、目录不存在均只触发降级，不中止主工作流。
 
-#### 0.2 查找上游需求文档
+**本 workflow stage 标识**：`plan`
 
-在提出规划问题之前，请搜索 `docs/brainstorms/` 匹配 `*-requirements.md` 的文件。
+### 预载步骤
 
-**相关性标准：** 如果满足以下条件，则需求文档是相关的：
-- 主题在语义上与功能描述相匹配
-- 它是在过去 30 天内创建的（如果文档明显仍然相关或明显过时，请使用判断来覆盖）
-- 它似乎涵盖了相同的用户问题或范围
+1. **解析 slug**
+   - 取当前仓库根目录名：`slug = basename(git rev-parse --show-toplevel)`
+   - context 路径：`docs/contexts/<slug>/`
+   - 若命令失败或路径不存在 → 跳过整个预载步骤（Level 3）
 
-如果多个源文档匹配，请使用平台的阻塞问题工具（如果可用）询问使用哪一个（请参阅交互方法）。否则，在聊天中显示编号选项并等待用户回复后再继续。
+2. **读取 control plane contract**
+   - 控制面路径：`.spec-first/workflows/bootstrap/<slug>/`
+   - 优先读取 `context-routing.json` 与 `artifact-manifest.json`
+   - 若存在 `minimal-context/plan.json`，视为最高优先级 machine context
+   - 任一关键 contract 缺失或解析失败 → 进入 Level 2 降级
 
-#### 0.3 使用源文档作为主要输入
+3. **按 evaluator 输出 contract 组织上下文**
+   - 统一以 `selected_assets / fallback_reason / level / skipped_rules` 为 Stage-0 真源
+   - `plan` 场景优先读取：
+     - `minimal-context/plan.json`
+     - `architecture/module-map.md`
+     - `code-facts/public-entrypoints.md`
+   - `injection-index.yaml` 仅作为人类视图，不再是运行时唯一判定逻辑
+   - 每个文件：存在则读取，缺失则跳过（Level 1）
+   - 默认写一条 Stage-0 telemetry，至少记录 `stage / profile / selected_assets / fallback_reason / skipped_rules`
 
-如果存在相关要求文档：
-1. 仔细阅读
-2、宣布作为规划原始文件
-3. 继承以下所有内容：
-   - 问题框架
-   - 要求和成功标准
-   - 范围边界
-   - 关键决策和理由
-   - 依赖性或假设
-   - 未解决的问题，保留它们是否被阻止或推迟
-4. 使用源文件作为规划和研究的主要输入
-5. 在计划中引用重要的结转决策`(see origin: <source-path>)`
-6. 不要默默地省略源内容——如果原始文档讨论过它，计划必须解决它，即使是简短的。在最终确定之前，扫描原始文档的每个部分以验证没有任何内容丢失。如果没有相关的需求文件，则可以直接根据用户的请求进行规划。
+4. **Level 2 固定最小集合**（control plane contract 不可用时）
+   - `docs/contexts/<slug>/00-summary.md`
+   - `docs/contexts/<slug>/pitfalls/index.md`
+   - `docs/contexts/<slug>/code-facts/public-entrypoints.md`
+   - `docs/contexts/<slug>/code-facts/test-map.md`
 
-#### 0.4 无要求文档后备
+5. **降级说明**
+   - 触发降级时，在响应中一句话说明原因
+   - 不要求用户先补 bootstrap 产物，主任务继续执行
 
-如果没有相关要求文件：
-- 评估请求是否已经足够明确以进行直接技术规划
-- 如果歧义主要是产品框架、用户行为或范围定义，则首先推荐 `spec:brainstorm`
-- 如果用户无论如何都想继续这里，请运行一个简短的计划引导程序而不是拒绝
+6. **workspace v1 边界**
+   - 默认仍按单仓 Stage-0 消费，不改变现有 selected assets 顺序
+   - 只有显式提供 `repoRoots` 时，才进入 workspace 聚合路径
 
-规划引导程序应建立：
-- 问题框架
-- 预期行为
-- 范围边界和明显的非目标
-- 成功标准
-- 阻止问题或假设
+## Workflow
 
-保持这个引导程序简短。它的存在是为了保持直接输入的便利，而不是取代全面的头脑风暴。
+### Phase 0: Resume, Source, and Scope
 
-如果引导程序发现主要的未解决的产品问题：
-- 再次推荐`spec:brainstorm`
-- 如果用户仍想继续，则在继续之前需要明确的假设
+#### 0.1 Resume Existing Plan Work When Appropriate
 
-#### 0.5 在计划之前对悬而未决的问题进行分类
+If the user references an existing plan file or there is an obvious recent matching plan in `docs/plans/`:
+- Read it
+- Confirm whether to update it in place or create a new plan
+- If updating, preserve completed checkboxes and revise only the still-relevant sections
 
-如果原始文档包含 `Resolve Before Planning` 或类似的阻止问题：
-- 在继续之前检查每一项
-- 将其重新分类为规划所属的工作**仅当**它实际上是技术、架构或研究问题时
-- 如果它会改变产品行为、范围或成功标准，请将其作为阻碍因素
+**Deepen intent:** The word "deepen" (or "deepening") in reference to a plan is the primary trigger for the deepening fast path. When the user says "deepen the plan", "deepen my plan", "run a deepening pass", or similar, the target document is a **plan** in `docs/plans/`, not a requirements document. Use any path, keyword, or context the user provides to identify the right plan. If a path is provided, verify it is actually a plan document. If the match is not obvious, confirm with the user before proceeding.
 
-如果真正的产品阻碍仍然存在：
-- 清晰地呈现它们
-- 使用平台的屏蔽问题工具（如果可用）（请参阅交互方法）询问用户是否：
-  1. 继续`spec:brainstorm`来解决它们
-  2. 将它们转化为明确的假设或决策并继续
-- 在真正的阻碍仍未解决时，不要继续计划
+Words like "strengthen", "confidence", "gaps", and "rigor" are NOT sufficient on their own to trigger deepening. These words appear in normal editing requests ("strengthen that section about the diagram", "there are gaps in the test scenarios") and should not cause a holistic deepening pass. Only treat them as deepening intent when the request clearly targets the plan as a whole and does not name a specific section or content area to change — and even then, prefer to confirm with the user before entering the deepening flow.
 
-#### 0.6 评估计划深度
+Once the plan is identified and appears complete (all major sections present, implementation units defined, `status: active`):
+- If the plan lacks YAML frontmatter (non-software plans use a simple `# Title` heading with `Created:` date instead of frontmatter), route to `references/universal-planning.md` for editing or deepening instead of Phase 5.3. Non-software plans do not use the software confidence check.
+- Otherwise, short-circuit to Phase 5.3 (Confidence Check and Deepening) in **interactive mode**. This avoids re-running the full planning workflow and gives the user control over which findings are integrated.
 
-将工作分类为以下计划深度之一：- **轻量级** - 小、界限清楚、模糊性低
-- **标准** - 正常功能或有限重构，并记录一些技术决策
-- **深入** - 跨领域、战略性、高风险或高度模糊的实施工作
+Normal editing requests (e.g., "update the test scenarios", "add a new implementation unit", "strengthen the risk section") should NOT trigger the fast path — they follow the standard resume flow.
 
-如果深度不清楚，请提出一个有针对性的问题，然后继续。
+If the plan already has a `deepened: YYYY-MM-DD` frontmatter field and there is no explicit user request to re-deepen, the fast path still applies the same confidence-gap evaluation — it does not force deepening.
 
-### 第 1 阶段：收集背景信息
+#### 0.1b Classify Task Domain
 
-#### 1.1 本地研究（始终运行）
+If the task involves building, modifying, or architecting software (references code, repos, APIs, databases, or asks to build/modify/deploy), continue to Phase 0.2.
 
-准备一份简明的规划背景摘要（一两段）作为研究代理的输入：
-- 如果存在原始文档，请总结该文档中的问题框架、要求和关键决策
-- 否则直接使用功能描述
+If the task is about a non-software domain and describes a multi-step goal worth planning, read `references/universal-planning.md` and follow that workflow instead. Skip all subsequent phases.
 
-并行运行这些代理：
+If genuinely ambiguous (e.g., "plan a migration" with no other context), ask the user before routing.
 
-- 任务spec-first:research:repo-research-analyst(范围:技术、架构、模式。{规划上下文摘要})
-- 任务规范-优先：研究：学习-研究员（规划背景摘要）
+For everything else (quick questions, error messages, factual lookups), respond directly without any planning workflow.
 
-收集：
-- 技术堆栈和版本（在第 1.2 节中用于做出更清晰的外部研究决策）
-- 要遵循的架构模式和约定
-- 实施模式、相关文件、模块和测试
-- AGENTS.md 指导对计划产生重大影响，CLAUDE.md 仅在存在时用作兼容性后备
-- 来自`docs/solutions/`的制度学习
+#### 0.2 Find Upstream Requirements Document
 
-#### 1.1b 检测执行状态信号
+Before asking planning questions, search `docs/brainstorms/` for files matching `*-requirements.md`.
 
-决定计划是否应该携带轻量级执行态势信号。寻找以下信号：
-- 用户明确要求 TDD、测试优先或表征优先工作
-- 原始文档要求测试优先实施或对遗留代码进行探索性强化
-- 当地研究表明目标区域是遗留的、测试不力或历史上脆弱的，建议在改变行为之前进行特征覆盖
-- 用户请求外部委托，说“使用codex”，“委托模式”，或者提到令牌保护——将`Execution target: external-delegate`添加到纯代码编写的实现单元
+**Relevance criteria:** A requirements document is relevant if:
+- The topic semantically matches the feature description
+- It was created within the last 30 days (use judgment to override if the document is clearly still relevant or clearly stale)
+- It appears to cover the same user problem or scope
 
-当信号明确后，在相关实施单位默默转发。
+If multiple source documents match, ask which one to use using the platform's blocking question tool when available (see Interaction Method). Otherwise, present numbered options in chat and wait for the user's reply before proceeding.
 
-仅询问用户该姿势是否会严重改变顺序或风险且无法负责任地推断。
+#### 0.3 Use the Source Document as Primary Input
 
-#### 1.2 决定外部研究
+If a relevant requirements document exists:
+1. Read it thoroughly
+2. Announce that it will serve as the origin document for planning
+3. Carry forward all of the following:
+   - Problem frame
+   - Requirements and success criteria
+   - Scope boundaries
+   - Key decisions and rationale
+   - Dependencies or assumptions
+   - Outstanding questions, preserving whether they are blocking or deferred
+4. Use the source document as the primary input to planning and research
+5. Reference important carried-forward decisions in the plan with `(see origin: <source-path>)`
+6. Do not silently omit source content — if the origin document discussed it, the plan must address it even if briefly. Before finalizing, scan each section of the origin document to verify nothing was dropped.
 
-根据原始文件、用户信号和当地发现，决定外部研究是否增加价值。
+If no relevant requirements document exists, planning may proceed from the user's request directly.
 
-**体会言外之意。** 注意目前对话中发出的信号：
-- **用户熟悉度** — 他们是否指向特定文件或模式？他们可能很了解代码库。
-- **用户意图** — 他们想要速度还是彻底性？探索还是执行？
-- **主题风险** - 无论用户信号如何，安全、支付、外部 API 都需要更加谨慎。
-- **不确定性** - 该方法是否明确或仍然是开放式的？
+#### 0.4 No-Requirements-Doc Fallback
 
-**利用回购研究分析师的技术背景：**
+If no relevant requirements document exists:
+- Assess whether the request is already clear enough for direct technical planning
+- If the ambiguity is mainly product framing, user behavior, or scope definition, recommend `spec:brainstorm` first
+- If the user wants to continue here anyway, run a short planning bootstrap instead of refusing
 
-回购研究分析师的输出包括结构化的技术和基础设施摘要。用它来做出更明智的外部研究决策：- 如果检测到特定的框架和版本（例如，Rails 7.2、Next.js 14、Go 1.22），请将这些确切的标识符传递给framework-docs-researcher，以便它获取特定于版本的文档
-- 如果该功能触及存储库中已建立的扫描技术层（例如，规划新后台作业时现有的 Sidekiq 作业），则倾向于跳过外部研究 - 本地模式可能就足够了
-- 如果该功能触及扫描发现不存在或薄弱的技术层（例如，在规划新的 gRPC 服务时没有现有的原型文件），则倾向于外部研究 - 没有本地模式可遵循
-- 如果扫描检测到部署基础设施（Docker、K8s、无服务器），请在传递给下游代理的规划上下文中记下它，以便他们可以考虑部署约束
-- 如果扫描检测到单一存储库并限定特定服务，则将该服务的技术上下文传递给下游研究代理，而不是所有服务的聚合。如果扫描显示了工作区地图但未确定范围，请在继续研究之前使用功能描述来识别相关服务**在以下情况下始终倾向于外部研究：**
-- 主题是高风险的：安全、支付、隐私、外部 API、迁移、合规性
-- 代码库缺乏相关的本地模式——该计划所需模式的直接示例少于 3 个
-- 相邻域存在本地模式，但不是确切的模式 - 例如，代码库有 HTTP 客户端，但没有 Webhook 接收器，或者有后台作业，但没有事件驱动的发布/订阅。相邻模式表明团队对技术层感到满意，但可能不知道特定领域的陷阱。当存在此信号时，专门围绕领域差距构建外部研究查询，而不是通用技术
-- 用户正在探索不熟悉的领域
-- 技术扫描发现代码库中相关层缺失或薄弱
+The planning bootstrap should establish:
+- Problem frame
+- Intended behavior
+- Scope boundaries and obvious non-goals
+- Success criteria
+- Blocking questions or assumptions
 
-**在以下情况下跳过外部研究：**
-- 代码库已经显示出强大的本地模式——多个直接示例（非相邻域），最近接触过，遵循当前约定
-- 用户已经知道想要的形状
-- 额外的外部背景几乎不会增加实际价值
-- 技术扫描发现相关层已建立并具有可遵循的现有示例
+Keep this bootstrap brief. It exists to preserve direct-entry convenience, not to replace a full brainstorm.
 
-在继续之前简要宣布决定。示例：
-- “你的代码库对此有可靠的模式。无需外部研究即可继续。”
-- “这涉及付款处理，所以我将首先研究当前的最佳实践。”
+If the bootstrap uncovers major unresolved product questions:
+- Recommend `spec:brainstorm` again
+- If the user still wants to continue, require explicit assumptions before proceeding
 
-#### 1.3 外部研究（有条件）
+#### 0.5 Classify Outstanding Questions Before Planning
 
-如果步骤 1.2 表明外部研究有用，请并行运行这些代理：
+If the origin document contains `Resolve Before Planning` or similar blocking questions:
+- Review each one before proceeding
+- Reclassify it into planning-owned work **only if** it is actually a technical, architectural, or research question
+- Keep it as a blocker if it would change product behavior, scope, or success criteria
 
-- 任务规范第一：研究：最佳实践研究员（规划背景摘要）
-- 任务spec-first：研究：framework-docs-researcher（规划上下文摘要）
+If true product blockers remain:
+- Surface them clearly
+- Ask the user, using the platform's blocking question tool when available (see Interaction Method), whether to:
+  1. Resume `spec:brainstorm` to resolve them
+  2. Convert them into explicit assumptions or decisions and continue
+- Do not continue planning while true blockers remain unresolved
 
-#### 1.4 巩固研究总结一下：
-- 相关代码库模式和文件路径
-- 相关机构学习
-- 外部参考和最佳实践（如果收集）
-- 相关问题、PR 或现有技术
-- 任何对计划有实质性影响的限制
+#### 0.6 Assess Plan Depth
 
-#### 1.4b 当研究揭示外部接触面时重新分类深度
+Classify the work into one of these plan depths:
 
-如果当前分类为 **轻量级** 并且第一阶段研究发现作品接触了任何这些外部接触面，则重新分类为 **标准**：
+- **Lightweight** - small, well-bounded, low ambiguity
+- **Standard** - normal feature or bounded refactor with some technical decisions to document
+- **Deep** - cross-cutting, strategic, high-risk, or highly ambiguous implementation work
 
-- 外部系统、CI 或其他存储库消耗的环境变量
-- 导出的公共 API、CLI 标志或命令行界面合约
-- CI/CD 配置文件（`.github/workflows/`、`Dockerfile`、部署脚本）
-- 下游消费者导入的共享类型或接口
-- 由外部 URL 引用或从其他系统链接的文档
+If depth is unclear, ask one targeted question and then continue.
 
-这可确保流程分析（阶段 1.5）运行，并且置信度检查（阶段 5.3）应用关键部分奖励。简要宣布重新分类：“重新分类为标准 - 此更改涉及外部消费者的[环境变量/导出的 API/CI 配置]。”
+### Phase 1: Gather Context
 
-#### 1.5 流程和边缘情况分析（有条件）
+#### 1.1 Local Research (Always Runs)
 
-对于 **Standard** 或 **Deep** 计划，或者当用户流程完整性仍不清楚时，运行：
+Prepare a concise planning context summary (a paragraph or two) to pass as input to the research agents:
+- If an origin document exists, summarize the problem frame, requirements, and key decisions from that document
+- Otherwise use the feature description directly
 
-- 任务spec-first:workflow:spec-flow-analyzer(规划背景摘要、研究结果)
+Run these agents in parallel:
 
-使用输出来：
-- 识别缺失的边缘情况、状态转换或切换间隙
-- 加强需求跟踪或验证策略
-- 仅添加能够实质性改进计划的流程细节
+- Task spec-first:research:repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
+- Task spec-first:research:learnings-researcher(planning context summary)
 
-### 第 2 阶段：解决规划问题
+Collect:
+- Technology stack and versions (used in section 1.2 to make sharper external research decisions)
+- Architectural patterns and conventions to follow
+- Implementation patterns, relevant files, modules, and tests
+- AGENTS.md guidance that materially affects the plan, with CLAUDE.md used only as compatibility fallback when present
+- Institutional learnings from `docs/solutions/`
 
-根据以下内容构建规划问题列表：
-- 原始文件中推迟的问题
-- 在回购或外部研究中发现的差距
-- 制定有用计划所需的技术决策对于每个问题，决定是否应该：
-- **在规划期间解决** - 答案可以从存储库上下文、文档或用户选择中得知
-- **推迟到实现** - 答案取决于代码更改、运行时行为或执行时发现
+#### 1.1b Detect Execution Posture Signals
 
-仅当答案对架构、范围、排序或风险产生重大影响并且无法负责任地推断时才询问用户。如果可用，请使用平台的屏蔽问题工具（请参阅交互方法）。
+Decide whether the plan should carry a lightweight execution posture signal.
 
-**不要**在此阶段运行测试、构建应用程序或探测运行时行为。目标是一个强有力的计划，而不是部分执行。
+Look for signals such as:
+- The user explicitly asks for TDD, test-first, or characterization-first work
+- The origin document calls for test-first implementation or exploratory hardening of legacy code
+- Local research shows the target area is legacy, weakly tested, or historically fragile, suggesting characterization coverage before changing behavior
+- The user asks for external delegation, says "use codex", "delegate mode", or mentions token conservation -- add `Execution target: external-delegate` to implementation units that are pure code writing
 
-### 第三阶段：构建计划
+When the signal is clear, carry it forward silently in the relevant implementation units.
 
-#### 3.1 标题和文件命名
+Ask the user only if the posture would materially change sequencing or risk and cannot be responsibly inferred.
 
-- 使用传统格式（例如 `feat: Add user authentication` 或 `fix: Prevent checkout double-submit` 起草清晰、可搜索的标题
-- 确定计划类型：`feat`、`fix` 或 `refactor`
-- 按照存储库约定构建文件名：`docs/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.md`
-  - 如果不存在则创建`docs/plans/`
-  - 检查现有文件中的今天日期以确定下一个序列号（以零填充到 3 位数字，从 001 开始）
-  - 保持描述性名称简洁（3-5 个单词）并采用短横线格式
-  - 示例：`2026-01-15-001-feat-user-authentication-flow-plan.md`、`2026-02-03-002-fix-checkout-race-condition-plan.md`
-  - 避免：缺少序列号、模糊名称（例如“新功能”）、无效字符（冒号、空格）
+#### 1.2 Decide on External Research
 
-#### 3.2 利益相关者和影响意识
+Based on the origin document, user signals, and local findings, decide whether external research adds value.
 
-对于**标准**或**深度**计划，请简要考虑谁会受到此更改的影响 - 最终用户、开发人员、运营、其他团队 - 以及应如何制定计划。对于跨领域工作，请在“全系统影响”部分注明受影响的各方。#### 3.3 将工作分解为实施单元
+**Read between the lines.** Pay attention to signals from the conversation so far:
+- **User familiarity** — Are they pointing to specific files or patterns? They likely know the codebase well.
+- **User intent** — Do they want speed or thoroughness? Exploration or execution?
+- **Topic risk** — Security, payments, external APIs warrant more caution regardless of user signals.
+- **Uncertainty level** — Is the approach clear or still open-ended?
 
-将工作分解为逻辑实施单元。每个单元应该代表一个有意义的更改，实施者通常可以将其作为原子提交来实现。
+**Leverage repo-research-analyst's technology context:**
 
-好的单位有：
-- 专注于一个组件、行为或集成接缝
-- 通常接触一小群相关文件
-- 按依赖关系排序
-- 足够具体，无需预先编写代码即可执行
-- 用复选框语法标记用于进度跟踪
+The repo-research-analyst output includes a structured Technology & Infrastructure summary. Use it to make sharper external research decisions:
 
-避免：
-- 2-5 分钟微步
-- 跨越多个不相关问题的单元
-- 单位如此模糊，实施者仍然必须发明计划
+- If specific frameworks and versions were detected (e.g., Rails 7.2, Next.js 14, Go 1.22), pass those exact identifiers to framework-docs-researcher so it fetches version-specific documentation
+- If the feature touches a technology layer the scan found well-established in the repo (e.g., existing Sidekiq jobs when planning a new background job), lean toward skipping external research -- local patterns are likely sufficient
+- If the feature touches a technology layer the scan found absent or thin (e.g., no existing proto files when planning a new gRPC service), lean toward external research -- there are no local patterns to follow
+- If the scan detected deployment infrastructure (Docker, K8s, serverless), note it in the planning context passed to downstream agents so they can account for deployment constraints
+- If the scan detected a monorepo and scoped to a specific service, pass that service's tech context to downstream research agents -- not the aggregate of all services. If the scan surfaced the workspace map without scoping, use the feature description to identify the relevant service before proceeding with research
 
-#### 3.4 高级技术设计（可选）
+**Always lean toward external research when:**
+- The topic is high-risk: security, payments, privacy, external APIs, migrations, compliance
+- The codebase lacks relevant local patterns -- fewer than 3 direct examples of the pattern this plan needs
+- Local patterns exist for an adjacent domain but not the exact one -- e.g., the codebase has HTTP clients but not webhook receivers, or has background jobs but not event-driven pub/sub. Adjacent patterns suggest the team is comfortable with the technology layer but may not know domain-specific pitfalls. When this signal is present, frame the external research query around the domain gap specifically, not the general technology
+- The user is exploring unfamiliar territory
+- The technology scan found the relevant layer absent or thin in the codebase
 
-在详细说明实施单元之前，请确定概述是否有助于审阅者验证预期的方法。本节传达解决方案的“形状”——各个部分如何组合在一起——而不指定实施方式。
+**Skip external research when:**
+- The codebase already shows a strong local pattern -- multiple direct examples (not adjacent-domain), recently touched, following current conventions
+- The user already knows the intended shape
+- Additional external context would add little practical value
+- The technology scan found the relevant layer well-established with existing examples to follow
 
-**何时包含它：**
+Announce the decision briefly before continuing. Examples:
+- "Your codebase has solid patterns for this. Proceeding without external research."
+- "This involves payment processing, so I'll research current best practices first."
 
-|工作涉及... |最佳概述表|
+#### 1.3 External Research (Conditional)
+
+If Step 1.2 indicates external research is useful, run these agents in parallel:
+
+- Task spec-first:research:best-practices-researcher(planning context summary)
+- Task spec-first:research:framework-docs-researcher(planning context summary)
+
+#### 1.4 Consolidate Research
+
+Summarize:
+- Relevant codebase patterns and file paths
+- Relevant institutional learnings
+- External references and best practices, if gathered
+- Related issues, PRs, or prior art
+- Any constraints that should materially shape the plan
+
+#### 1.4b Reclassify Depth When Research Reveals External Contract Surfaces
+
+If the current classification is **Lightweight** and Phase 1 research found that the work touches any of these external contract surfaces, reclassify to **Standard**:
+
+- Environment variables consumed by external systems, CI, or other repositories
+- Exported public APIs, CLI flags, or command-line interface contracts
+- CI/CD configuration files (`.github/workflows/`, `Dockerfile`, deployment scripts)
+- Shared types or interfaces imported by downstream consumers
+- Documentation referenced by external URLs or linked from other systems
+
+This ensures flow analysis (Phase 1.5) runs and the confidence check (Phase 5.3) applies critical-section bonuses. Announce the reclassification briefly: "Reclassifying to Standard — this change touches [environment variables / exported APIs / CI config] with external consumers."
+
+#### 1.5 Flow and Edge-Case Analysis (Conditional)
+
+For **Standard** or **Deep** plans, or when user flow completeness is still unclear, run:
+
+- Task spec-first:workflow:spec-flow-analyzer(planning context summary, research findings)
+
+Use the output to:
+- Identify missing edge cases, state transitions, or handoff gaps
+- Tighten requirements trace or verification strategy
+- Add only the flow details that materially improve the plan
+
+### Phase 2: Resolve Planning Questions
+
+Build a planning question list from:
+- Deferred questions in the origin document
+- Gaps discovered in repo or external research
+- Technical decisions required to produce a useful plan
+
+For each question, decide whether it should be:
+- **Resolved during planning** - the answer is knowable from repo context, documentation, or user choice
+- **Deferred to implementation** - the answer depends on code changes, runtime behavior, or execution-time discovery
+
+Ask the user only when the answer materially affects architecture, scope, sequencing, or risk and cannot be responsibly inferred. Use the platform's blocking question tool when available (see Interaction Method).
+
+**Do not** run tests, build the app, or probe runtime behavior in this phase. The goal is a strong plan, not partial execution.
+
+### Phase 3: Structure the Plan
+
+#### 3.1 Title and File Naming
+
+- Draft a clear, searchable title using conventional format such as `feat: Add user authentication` or `fix: Prevent checkout double-submit`
+- Determine the plan type: `feat`, `fix`, or `refactor`
+- Build the filename following the repository convention: `docs/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.md`
+  - Create `docs/plans/` if it does not exist
+  - Check existing files for today's date to determine the next sequence number (zero-padded to 3 digits, starting at 001)
+  - Keep the descriptive name concise (3-5 words) and kebab-cased
+  - Examples: `2026-01-15-001-feat-user-authentication-flow-plan.md`, `2026-02-03-002-fix-checkout-race-condition-plan.md`
+  - Avoid: missing sequence numbers, vague names like "new-feature", invalid characters (colons, spaces)
+
+#### 3.2 Stakeholder and Impact Awareness
+
+For **Standard** or **Deep** plans, briefly consider who is affected by this change — end users, developers, operations, other teams — and how that should shape the plan. For cross-cutting work, note affected parties in the System-Wide Impact section.
+
+#### 3.3 Break Work into Implementation Units
+
+Break the work into logical implementation units. Each unit should represent one meaningful change that an implementer could typically land as an atomic commit.
+
+Good units are:
+- Focused on one component, behavior, or integration seam
+- Usually touching a small cluster of related files
+- Ordered by dependency
+- Concrete enough for execution without pre-writing code
+- Marked with checkbox syntax for progress tracking
+
+Avoid:
+- 2-5 minute micro-steps
+- Units that span multiple unrelated concerns
+- Units that are so vague an implementer still has to invent the plan
+
+#### 3.4 High-Level Technical Design (Optional)
+
+Before detailing implementation units, decide whether an overview would help a reviewer validate the intended approach. This section communicates the *shape* of the solution — how pieces fit together — without dictating implementation.
+
+**When to include it:**
+
+| Work involves... | Best overview form |
 |---|---|
-| DSL或API表面设计|伪代码语法或合约草图 |
-|多组件集成|美人鱼序列或组件图|
-|数据管道或转换 |数据流示意图|
-|状态重的生命周期 |状态图|
-|复杂的分支逻辑 |流程图|
-|模式/标志组合或多输入行为 |决策矩阵（输入 -> 结果）|
-|形状不明显的单组分 |伪代码草图 |
+| DSL or API surface design | Pseudo-code grammar or contract sketch |
+| Multi-component integration | Mermaid sequence or component diagram |
+| Data pipeline or transformation | Data flow sketch |
+| State-heavy lifecycle | State diagram |
+| Complex branching logic | Flowchart |
+| Mode/flag combinations or multi-input behavior | Decision matrix (inputs -> outcomes) |
+| Single-component with non-obvious shape | Pseudo-code sketch |
 
-**何时跳过它：**
-- 格式良好的作品，散文和文件路径讲述了整个故事
-- 简单的 CRUD 或遵循约定的更改
-- 方法显而易见的轻量级计划
+**When to skip it:**
+- Well-patterned work where prose and file paths tell the whole story
+- Straightforward CRUD or convention-following changes
+- Lightweight plans where the approach is obvious
 
-选择适合工作的媒介。当图表能够更好地传达信息时，不要默认使用伪代码，反之亦然。用以下内容构建每个草图：*“这说明了预期的方法，并且是审查的方向指导，而不是实施规范。实施代理应将其视为上下文，而不是要重现的代码。”*
+Choose the medium that fits the work. Do not default to pseudo-code when a diagram communicates better, and vice versa.
 
-保持草图简洁——足以验证方向，但不足以复制粘贴到生产中。
+Frame every sketch with: *"This illustrates the intended approach and is directional guidance for review, not implementation specification. The implementing agent should treat it as context, not code to reproduce."*
 
-#### 3.5 定义各个实施单元对于每个单元，包括：
-- **目标** - 该单位完成的任务
-- **要求** - 它提出了哪些要求或成功标准
-- **依赖关系** - 首先必须存在的东西
-- **文件** - 要创建、修改或测试的确切文件路径
-- **方法** - 关键决策、数据流、组件边界或集成说明
-- **执行注释** - 可选，仅当单元受益于非默认执行状态（例如测试优先、表征优先或外部委派）时
-- **技术设计** - 当单元的方法不明显并且单独的散文会使它变得模糊时，可选的伪代码或图表。明确框架作为方向性指导，而不是实施规范
-- **要遵循的模式** - 要镜像的现有代码或约定
-- **测试场景** - 枚举实施者应编写的特定测试用例，并根据单元的复杂性和风险调整大小。考虑下面的每个类别，并包括适用于本单元的每个类别的场景。一个简单的配置更改可能需要一种场景；一个支付流程可能需要十几个。质量信号是特异性的——每个场景都应该指定输入、操作和预期结果，这样实施者就不必发明覆盖范围。
-  - **快乐路径行为** - 具有预期输入和输出的核心功能
-  - **边缘情况**（当单元具有有意义的边界时） - 边界值、空输入、nil/null 状态、并发访问
-  - **错误和故障路径**（当设备具有故障模式时） - 无效输入、下游服务故障、超时行为、权限拒绝
-  - **集成场景**（当单元跨层时） - 单独模拟的行为无法证明，例如，“创建 X 触发回调 Y 并持久保留 Z”。包括任何单元接触回调、中间件或多层交互
-- **验证** - 实施者应该如何知道单元是完整的，表示为结果而不是 shell 命令脚本每个功能承载单元都应在 `**Files:**` 中包含测试文件路径。
+Keep sketches concise — enough to validate direction, not enough to copy-paste into production.
 
-谨慎使用 `Execution note`。好的用途包括：
+#### 3.4b Output Structure (Optional)
+
+For greenfield plans that create a new directory structure (new plugin, service, package, or module), include an `## Output Structure` section with a file tree showing the expected layout. This gives reviewers the overall shape before diving into per-unit details.
+
+**When to include it:**
+- The plan creates 3+ new files in a new directory hierarchy
+- The directory layout itself is a meaningful design decision
+
+**When to skip it:**
+- The plan only modifies existing files
+- The plan creates 1-2 files in an existing directory — the per-unit file lists are sufficient
+
+The tree is a scope declaration showing the expected output shape. It is not a constraint — the implementer may adjust the structure if implementation reveals a better layout. The per-unit `**Files:**` sections remain authoritative for what each unit creates or modifies.
+
+#### 3.5 Define Each Implementation Unit
+
+For each unit, include:
+- **Goal** - what this unit accomplishes
+- **Requirements** - which requirements or success criteria it advances
+- **Dependencies** - what must exist first
+- **Files** - repo-relative file paths to create, modify, or test (never absolute paths)
+- **Approach** - key decisions, data flow, component boundaries, or integration notes
+- **Execution note** - optional, only when the unit benefits from a non-default execution posture such as test-first, characterization-first, or external delegation
+- **Technical design** - optional pseudo-code or diagram when the unit's approach is non-obvious and prose alone would leave it ambiguous. Frame explicitly as directional guidance, not implementation specification
+- **Patterns to follow** - existing code or conventions to mirror
+- **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage. For units with no behavioral change (pure config, scaffolding, styling), use `Test expectation: none -- [reason]` instead of leaving the field blank.
+  - **Happy path behaviors** - core functionality with expected inputs and outputs
+  - **Edge cases** (when the unit has meaningful boundaries) - boundary values, empty inputs, nil/null states, concurrent access
+  - **Error and failure paths** (when the unit has failure modes) - invalid input, downstream service failures, timeout behavior, permission denials
+  - **Integration scenarios** (when the unit crosses layers) - behaviors that mocks alone will not prove, e.g., "creating X triggers callback Y which persists Z". Include these for any unit touching callbacks, middleware, or multi-layer interactions
+- **Verification** - how an implementer should know the unit is complete, expressed as outcomes rather than shell command scripts
+
+Every feature-bearing unit should include the test file path in `**Files:**`.
+
+Use `Execution note` sparingly. Good uses include:
 - `Execution note: Start with a failing integration test for the request/response contract.`
 - `Execution note: Add characterization coverage before modifying this legacy parser.`
 - `Execution note: Implement new domain behavior test-first.`
 - `Execution note: Execution target: external-delegate`
 
-不要将单位扩展为文字 `RED/GREEN/REFACTOR` 子步骤。
+Do not expand units into literal `RED/GREEN/REFACTOR` substeps.
 
-#### 3.6 将计划时间和实施时间的未知因素分开
+#### 3.6 Keep Planning-Time and Implementation-Time Unknowns Separate
 
-如果某件事很重要但尚不可知，请将其明确记录在推迟的实施说明中，而不是假装在计划中解决它。
+If something is important but not knowable yet, record it explicitly under deferred implementation notes rather than pretending to resolve it in the plan.
 
-示例：
-- 确切的方法或助手名称
-- 接触真实代码后的最终 SQL 或查询详细信息
-- 运行时行为取决于看到实际的测试失败
-- 一旦实施开始，重构可能变得不必要
+Examples:
+- Exact method or helper names
+- Final SQL or query details after touching real code
+- Runtime behavior that depends on seeing actual test failures
+- Refactors that may become unnecessary once implementation starts
 
-### 第 4 阶段：编写计划
+### Phase 4: Write the Plan
 
-在所有深度上使用一种规划理念。改变细节的数量，而不是计划和执行之间的界限。
+Use one planning philosophy across all depths. Change the amount of detail, not the boundary between planning and execution.
 
-#### 4.1 计划深度指导
+#### 4.1 Plan Depth Guidance
 
-**轻量级**
-- 保持计划紧凑
-- 通常有2-4个实施单位
-- 省略几乎没有增加价值的可选部分
+**Lightweight**
+- Keep the plan compact
+- Usually 2-4 implementation units
+- Omit optional sections that add little value
 
-**标准**
-- 使用完整的核心模板，省略对本特定工作没有任何价值的可选部分（包括高级技术设计）
-- 通常有3-6个实施单位
-- 包括风险、延迟问题和相关的系统范围影响
+**Standard**
+- Use the full core template, omitting optional sections (including High-Level Technical Design) that add no value for this particular work
+- Usually 3-6 implementation units
+- Include risks, deferred questions, and system-wide impact when relevant
 
-**深**
-- 使用完整的核心模板以及必要的可选分析部分
-- 通常有4-8个实施单位
-- 将单元分为几个阶段，以提高清晰度
-- 包括考虑的替代方案、记录影响以及必要时更深入的风险处理#### 4.1b 可选的深度计划扩展
+**Deep**
+- Use the full core template plus optional analysis sections where warranted
+- Usually 4-8 implementation units
+- Group units into phases when that improves clarity
+- Include alternatives considered, documentation impacts, and deeper risk treatment when warranted
 
-对于足够大、有风险或交叉的工作，请添加真正有帮助的部分：
-- **考虑替代方法**
-- **成功指标**
-- **依赖项/先决条件**
-- **风险分析与缓解**
-- **分阶段交付**
-- **文档计划**
-- **操作/推出说明**
-- **未来考虑因素** 仅当它们对当前设计产生重大影响时
+#### 4.1b Optional Deep Plan Extensions
 
-不要将它们添加为样板。仅当它们提高执行质量或利益相关者一致性时才包含它们。
+For sufficiently large, risky, or cross-cutting work, add the sections that genuinely help:
+- **Alternative Approaches Considered**
+- **Success Metrics**
+- **Dependencies / Prerequisites**
+- **Risk Analysis & Mitigation**
+- **Phased Delivery**
+- **Documentation Plan**
+- **Operational / Rollout Notes**
+- **Future Considerations** only when they materially affect current design
 
-#### 4.2 核心计划模板
+Do not add these as boilerplate. Include them only when they improve execution quality or stakeholder alignment.
 
-省略明显不适用的可选部分，尤其是对于轻量级计划。
+#### 4.2 Core Plan Template
+
+Omit clearly inapplicable optional sections, especially for Lightweight plans.
+
 ```markdown
 ---
 title: [Plan Title]
@@ -400,6 +508,12 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 - [Explicit non-goal or exclusion]
 
+<!-- Optional: When some items are planned work that will happen in a separate PR, issue,
+     or repo, use this sub-heading to distinguish them from true non-goals. -->
+### Deferred to Separate Tasks
+
+- [Work that will be done separately]: [Where or when -- e.g., "separate PR in repo-x", "future iteration"]
+
 ## Context & Research
 
 ### Relevant Code and Patterns
@@ -427,6 +541,14 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 ### Deferred to Implementation
 
 - [Question or unknown]: [Why it is intentionally deferred]
+
+<!-- Optional: Include when the plan creates a new directory structure (greenfield plugin,
+     new service, new package). Shows the expected output shape at a glance. Omit for plans
+     that only modify existing files. This is a scope declaration, not a constraint --
+     the implementer may adjust the structure if implementation reveals a better layout. -->
+## Output Structure
+
+    [directory tree showing new directories and files]
 
 <!-- Optional: Include this section only when the work involves DSL design, multi-component
      integration, complex data flow, state-heavy lifecycle, or other cases where prose alone
@@ -496,7 +618,9 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 - Related PRs/issues: #[number]
 - External docs: [url]
 ```
-对于较大的 `Deep` 计划，仅在对以下部分有用时才扩展核心模板：
+
+For larger `Deep` plans, extend the core template only when useful with sections such as:
+
 ```markdown
 ## Alternative Approaches Considered
 
@@ -532,352 +656,114 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 - [Monitoring, migration, feature flag, or rollout considerations]
 ```
-#### 4.3 规划规则
 
-- 优先选择路径加上类/组件/模式引用而不是脆弱的行号
-- 使用 `- [ ]` 语法保持实施单元可检查以进行进度跟踪
-- 不包含实现代码——没有导入、精确的方法签名或特定于框架的语法
-- 在传达设计方向时，高级技术设计部分和每单元技术设计字段中允许使用伪代码草图和 DSL 语法。将它们明确地构建为方向性指导，而不是实施规范
-- 当美人鱼图阐明单独的散文很难理解的关系或流程时，我们鼓励使用美人鱼图——用于数据模型更改的 ERD、用于多服务交互的序列图、用于生命周期转换的状态图、用于复杂分支逻辑的流程图
-- 不包含 git 命令、提交消息或精确的测试命令配方
-- 不要将执行单元扩展为微步`RED/GREEN/REFACTOR`指令
-- 不要假装执行时问题已经解决，只是为了让计划看起来很完整
+#### 4.3 Planning Rules
 
-### 第 5 阶段：最终审查、编写文件和移交
+- **All file paths must be repo-relative** — never use absolute paths like `/Users/name/Code/project/src/file.ts`. Use `src/file.ts` instead. Absolute paths make plans non-portable across machines, worktrees, and teammates. When a plan targets a different repo than the document's home, state the target repo once at the top of the plan (e.g., `**Target repo:** my-other-project`) and use repo-relative paths throughout
+- Prefer path plus class/component/pattern references over brittle line numbers
+- Keep implementation units checkable with `- [ ]` syntax for progress tracking
+- Do not include implementation code — no imports, exact method signatures, or framework-specific syntax
+- Pseudo-code sketches and DSL grammars are allowed in the High-Level Technical Design section and per-unit technical design fields when they communicate design direction. Frame them explicitly as directional guidance, not implementation specification
+- Mermaid diagrams are encouraged when they clarify relationships or flows that prose alone would make hard to follow — ERDs for data model changes, sequence diagrams for multi-service interactions, state diagrams for lifecycle transitions, flowcharts for complex branching logic
+- Do not include git commands, commit messages, or exact test command recipes
+- Do not expand implementation units into micro-step `RED/GREEN/REFACTOR` instructions
+- Do not pretend an execution-time question is settled just to make the plan look complete
 
-#### 5.1 写作前回顾在最终确定之前，请检查：
-- 该计划没有发明应在 `spec:brainstorm` 中定义的产品行为
-- 如果没有原始文档，有界规划引导程序会建立足够的产品清晰度来负责任地进行规划
-- 每个重大决策均以原始文件或研究为基础
-- 每个实现单元都是具体的、依存顺序的且可实现
-- 如果测试优先或表征优先的姿势是明确的或强烈暗示的，相关单位会以轻量级的`Execution note`来推进它
-- 每个承载功能的单元都有来自每个适用类别的测试场景（快乐路径、边缘情况、错误路径、集成）——大小适合单元的复杂性，而不是填充或精简
-- 测试场景命名特定的输入、操作和预期结果，但不会成为测试代码
-- 延期项目是明确的，不会被隐藏为虚假的确定性
-- 如果包含高级技术设计部分，则它使用正确的工作媒介，携带非规定性框架，并且不包含实现代码（无导入、精确签名或特定于框架的语法）
-- 每个单元的技术设计字段（如果存在）是简洁且有方向性的，而不是复制粘贴就绪的
+#### 4.4 Visual Communication in Plan Documents
 
-如果计划源自需求文档，请重新阅读该文档并验证：
-- 所选择的方法仍然符合产品意图
-- 保留范围边界和成功标准
-- 阻塞问题要么被解决，要么被明确假设，要么被发送回`spec:brainstorm`
-- 原始文档的每个部分都在计划中得到解决 - 扫描每个部分以确认没有任何内容被悄悄丢弃
+When the plan contains 4+ implementation units with non-linear dependencies, 3+ interacting surfaces in System-Wide Impact, 3+ behavioral modes/variants in Overview or Problem Frame, or 3+ interacting decisions in Key Technical Decisions or alternatives in Alternative Approaches, read `references/visual-communication.md` for diagram and table guidance. This covers plan-structure visuals (dependency graphs, interaction diagrams, comparison tables) — not solution-design diagrams, which are covered in Section 3.4.
 
-#### 5.2 编写计划文件
+### Phase 5: Final Review, Write File, and Handoff
 
-**必需：在提供任何选项之前将计划文件写入磁盘。**使用写入工具将完整计划保存到：
+#### 5.1 Review Before Writing
+
+Before finalizing, check:
+- The plan does not invent product behavior that should have been defined in `spec:brainstorm`
+- If there was no origin document, the bounded planning bootstrap established enough product clarity to plan responsibly
+- Every major decision is grounded in the origin document or research
+- Each implementation unit is concrete, dependency-ordered, and implementation-ready
+- If test-first or characterization-first posture was explicit or strongly implied, the relevant units carry it forward with a lightweight `Execution note`
+- Each feature-bearing unit has test scenarios from every applicable category (happy path, edge cases, error paths, integration) — right-sized to the unit's complexity, not padded or skimped
+- Test scenarios name specific inputs, actions, and expected outcomes without becoming test code
+- Deferred items are explicit and not hidden as fake certainty
+- If a High-Level Technical Design section is included, it uses the right medium for the work, carries the non-prescriptive framing, and does not contain implementation code (no imports, exact signatures, or framework-specific syntax)
+- Per-unit technical design fields, if present, are concise and directional rather than copy-paste-ready
+- If the plan creates a new directory structure, would an Output Structure tree help reviewers see the overall shape?
+- If Scope Boundaries lists items that are planned work for a separate PR or task, are they under `### Deferred to Separate Tasks` rather than mixed with true non-goals?
+- Would a visual aid (dependency graph, interaction diagram, comparison table) help a reader grasp the plan structure faster than scanning prose alone?
+
+If the plan originated from a requirements document, re-read that document and verify:
+- The chosen approach still matches the product intent
+- Scope boundaries and success criteria are preserved
+- Blocking questions were either resolved, explicitly assumed, or sent back to `spec:brainstorm`
+- Every section of the origin document is addressed in the plan — scan each section to confirm nothing was silently dropped
+
+#### 5.2 Write Plan File
+
+**REQUIRED: Write the plan file to disk before presenting any options.**
+
+Use the Write tool to save the complete plan to:
+
 ```text
 docs/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.md
 ```
-确认：
+
+Confirm:
+
 ```text
 Plan written to docs/plans/[filename]
 ```
-**管道模式：** 如果从自动化工作流程（例如 LFG、SLFG 或任何 `disable-model-invocation` 上下文中调用），请跳过交互式问题。自动做出所需的选择并继续编写计划。
-
-#### 5.3 置信度检查和深化
-
-编写计划文件后，自动评估计划是否需要加强。此阶段的运行无需请求用户批准。用户可以看到正在加强的内容，但不需要做出决定。
-
-`document-review` 和这个置信度检查是不同的：
-- 当文档需要清晰、简化、完整性或范围控制时，使用 `document-review` 技能
-- 当计划结构合理但仍需要更坚实的基础时，这种信心检查会加强理由、排序、风险处理和全系统思维
-
-**管道模式：** 此阶段使用下面描述的相同门逻辑以管道/禁用模型调用模式运行。无需用户交互。
-
-##### 5.3.1 对计划深度和主题风险进行分类
-
-从文档中确定计划深度：
-- **轻量级** - 小、有界、低歧义，通常 2-4 个实现单元
-- **标准** - 中等复杂性，一些技术决策，通常 3-6 个单元
-- **深度** - 跨领域、高风险或具有战略重要性的工作，通常为 4-8 个单元或分阶段交付
-
-建立风险概况。将这些视为高风险信号：
-- 身份验证、授权或安全敏感行为
-- 付款、账单或资金流
-- 数据迁移、回填或持久数据更改
-- 外部 API 或第三方集成
-- 隐私、合规性或用户数据处理
-- 跨接口奇偶校验或多表面行为
-- 重大的部署、监控或运营问题##### 5.3.2 Gate：决定是否深化
-
-- **轻量级**计划通常不需要深化，除非它们是高风险的
-- 当一个或多个重要部分看起来仍然很薄弱时，**标准**计划通常会受益
-- **深度**或高风险计划通常受益于有针对性的第二遍
-- **薄局部接地覆盖：** 如果阶段 1.2 因局部模式薄（少于 3 个直接示例或相邻域匹配）而触发外部研究，则无论计划看起来如何接地，始终继续评分。当计划建立在不熟悉的领域时，有关系统行为的主张更有可能是假设，而不是经过验证的事实。得分传球很便宜——如果计划确实可靠，得分什么也找不到并很快退出
-
-如果该计划已经显得足够接地气并且薄接地覆盖不适用，则报告“置信度检查已通过 - 没有部分需要加强”并继续到阶段 5.4。
-
-##### 5.3.3 分数置信度差距
-
-使用检查表优先、风险加权的评分方式。
-
-对于每个部分，计算：
-- **触发计数** - 适用的清单问题数量
-- **风险奖励** - 如果主题是高风险且本节与该风险密切相关，则加 1
-- **关键部分奖励** - 为 `Standard` 或 `Deep` 计划中的 `Key Technical Decisions`、`Implementation Units`、`System-Wide Impact`、`Risks & Dependencies` 或 `Open Questions` 添加 1
-
-如果满足以下条件，则将节视为候选节：
-- 达到 **2+ 总分**，或
-- 在高风险领域达到**1+点**，并且该部分非常重要
-
-仅选择按分数排名最高的 **2-5** 部分。如果深化轻量级计划（高风险例外），则上限为 **1-2** 部分。如果计划已有 `deepened:` 日期：
-- 如果分数具有可比性，则优先选择尚未大幅强化的部分
-- 只有当它的分数仍然明显高于其他部分时，才重新访问已经加深的部分
-
-**部分清单：**
-
-**需求跟踪**
-- 要求模糊或与实施单位脱节
-- 成功标准缺失或未反映在下游
-——单位未明确推进追溯要求
-- 原产地要求没有明确延续
-
-**背景与研究/来源与参考文献**
-- 相关的回购模式被命名但从未在决策或实施单元中使用
-- 引用的经验或参考文献不会对计划产生实质性影响
-- 高风险工作缺乏适当的外部或内部接地
-- 研究是通用的，而不是与此存储库或此计划相关
-
-**关键技术决策**
-- 做出的决定没有任何理由
-- 基本原理没有解释权衡或被拒绝的替代方案
-- 该决策与范围、需求或原始上下文无关
-- 存在明显的设计分叉，但该计划从未解决为什么一条路径获胜的原因
-
-**开放问题**
-- 产品阻碍因素被隐藏为假设
-- 规划问题被错误地推迟到实施
-- 已解决的问题在回购背景、研究或来源决策中没有明确的基础
-- 推迟的项目太模糊，以后没有用处
-
-**高级技术设计（如果存在）**
-- 草图使用了错误的作品媒介
-- 草图包含实现代码而不是伪代码
-- 非规定性框架缺失或薄弱
-- 草图与关键技术决策或实施单位没有联系**高级技术设计（缺席时）** *（仅限标准或深度计划）*
-- 工作涉及 DSL 设计、API 表面设计、多组件集成、复杂数据流或状态密集的生命周期
-- 通过视觉或伪代码表示更容易验证关键技术决策
-- 实施单元的方法部分很薄弱，更高级别的技术设计将提供背景
-
-**实施单位**
-- 依赖顺序不明确或可能错误
-- 文件路径或测试文件路径在应该明确的地方丢失
-- 单位太大、太模糊或被分解为微步骤
-- 方法注释很薄或者没有指定要遵循的模式
-- 测试场景模糊（不指定输入和预期结果），跳过适用的类别（例如，具有故障模式的单元没有错误路径，跨层单元没有集成场景），或者与单元的复杂性不成比例
-- 验证结果含糊不清或未表达为可观察的结果
-
-**全系统影响**
-- 受影响的接口、回调、中间件、入口点或奇偶校验表面丢失
-- 故障传播尚未得到充分探索
-- 不存在相关的状态生命周期、缓存或数据完整性风险
-- 跨层工作的集成覆盖率较弱
-
-**风险和依赖性/文档/操作说明**
-- 列出风险但未采取缓解措施
-- 在必要时缺少推出、监控、迁移或支持影响
-- 外部依赖性假设薄弱或未说明
-- 在明显适用的地方不存在安全、隐私、性能或数据风险使用计划自己的`Context & Research`和`Sources & References`作为证据。如果这些部分引用的模式、学习或风险从不影响决策、实施单元或验证，请将其视为置信差距。
 
-##### 5.3.4 报告和发送有针对性的研究
+**Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context, skip interactive questions. Make the needed choices automatically and proceed to writing the plan.
 
-在派遣特工之前，报告正在加强哪些部分以及原因：
-```text
-Strengthening [section names] — [brief reason for each, e.g., "decision rationale is thin", "cross-boundary effects aren't mapped"]
-```
-对于每个选定的部分，选择最小的有用代理集。 **不要**运行每个代理。 **每部分最多使用 1-3 个药剂**，通常总共不超过 **8 个药剂**。
-
-在任务调用中使用完全限定的代理名称。
+#### 5.3 Confidence Check and Deepening
 
-**确定性部分到代理的映射：**
-
-**需求跟踪/开放问题分类**
-- `spec-first:workflow:spec-flow-analyzer` 用于丢失用户流、边缘情况和切换间隙
-- `spec-first:research:repo-research-analyst`（范围：`architecture, patterns`）用于基于回购的模式、约定和实施现实检查
-
-**背景和研究/来源和参考文献的差距**
-- `spec-first:research:learnings-researcher` 机构知识和过去解决的问题
-- `spec-first:research:framework-docs-researcher` 用于官方框架或库行为
-- `spec-first:research:best-practices-researcher`了解当前的外部模式和行业指导
-- 仅当历史原理或现有技术严重缺失时添加`spec-first:research:git-history-analyzer`
-
-**关键技术决策**
-- `spec-first:review:architecture-strategist` 用于设计完整性、边界和架构权衡
-- 当决策需要回购证据之外的外部依据时，添加 `spec-first:research:framework-docs-researcher` 或 `spec-first:research:best-practices-researcher`**高级技术设计**
-- `spec-first:review:architecture-strategist` 用于验证技术设计是否准确地代表了预期方法并识别差距
-- `spec-first:research:repo-research-analyst`（范围：`architecture, patterns`）将技术设计扎根于现有的回购模式和惯例中
-- 当技术设计涉及 DSL、API 表面或受益于外部验证的模式时添加 `spec-first:research:best-practices-researcher`
-
-**实施单位/验证**
-- `spec-first:research:repo-research-analyst`（范围：`patterns`）用于具体文件目标、要遵循的模式以及特定于存储库的排序线索
-- `spec-first:review:pattern-recognition-specialist` 的一致性、重复风险以及与现有模式的一致性
-- 当排序取决于用户流程或切换完整性时添加 `spec-first:workflow:spec-flow-analyzer`
-
-**全系统影响**
-- `spec-first:review:architecture-strategist` 用于跨界效果、界面表面和建筑连锁影响
-- 添加与风险匹配的特定专家：
-  - `spec-first:review:performance-oracle` 用于可扩展性、延迟、吞吐量和资源风险分析
-  - `spec-first:review:security-sentinel` 用于身份验证、验证、漏洞利用表面和安全边界审查
-  - `spec-first:review:data-integrity-guardian` 用于迁移、持久状态安全性、一致性和数据生命周期风险**风险和依赖性/操作说明**
-- 使用与实际风险相匹配的专家：
-  - `spec-first:review:security-sentinel` 用于安全、身份验证、隐私和利用风险
-  - `spec-first:review:data-integrity-guardian` 用于持久数据安全、约束和事务边界
-  - `spec-first:review:data-migration-expert` 用于迁移现实性、回填和生产数据转换风险
-  - `spec-first:review:deployment-verification-agent` 用于推出清单、回滚计划和启动验证
-  - `spec-first:review:performance-oracle` 解决容量、延迟和扩展问题
+After writing the plan file, automatically evaluate whether the plan needs strengthening.
 
-**代理提示形状：**
+**Two deepening modes:**
 
-对于每个选定的部分，传递：
-- 当代理支持范围调用时，上面映射中的范围前缀
-- 简短的计划摘要
-- 确切的部分文本
-- 为什么选择该部分，包括触发哪些清单触发器
-- 计划深度和风险状况
-- 要回答的具体问题
-
-指示代理返回：
-- 改变规划质量的发现
-- 更有力的理由、排序、验证、风险处理或参考
-- 没有实现代码
-- 没有 shell 命令
-
-##### 5.3.5 选择研究执行模式
-
-使用可行的最轻模式：
-
-- **直接模式** - 默认。当所选部分集较小并且家长可以安全地内联读取代理输出时使用。
-- **工件支持模式** - 仅当所选研究范围足够大以至于内联返回会产生不必要的上下文压力时才使用。证明工件支持模式合理的信号：
-- 超过 5 个代理可能会返回有意义的发现
-- 所选部分摘录足够长，在多个代理输出中重复它们会很浪费
-- 该主题风险较高，可能会吸引大量来源支持的分析
-
-如果没有明确保证工件支持模式，请保持直接模式。
-
-工件支持模式使用 `.context/spec-first/spec-plan/deepen/` 下的每次运行暂存目录。
-
-##### 5.3.6 进行有针对性的研究
-
-使用上面选择的执行模式并行启动选定的代理。如果当前平台不支持并行调度，请改为按顺序运行它们。
-
-首先优先考虑本地回购和机构证据。仅当无法从回购上下文或已引用的来源负责任地缩小差距时，才使用外部研究。
-
-如果可以通过更仔细地阅读原始文档来改进所选部分，请在派遣外部代理之前执行此操作。
-
-**直接模式：** 让每个选定的代理将其结果直接返回给父级。保持返回有效载荷的重点：仅最强的发现、重要的证据或来源、发现所暗示的具体规划改进。
-
-**工件支持模式：** 对于每个选定的代理，指示它在暂存目录中写入一个紧凑的工件文件，并仅返回一个简短的完成摘要。每个工件应包含：目标部分、选择原因、3-7 个发现、来源支持的基本原理、每个发现隐含的具体计划变更。没有实现代码，没有 shell 命令。
-
-如果工件丢失或明显畸形，请重新运行该代理或回退到该部分的直接模式推理。如果代理输出冲突：
-- 与一般建议相比，更喜欢基于回购和起源的证据
-- 当冲突与库行为有关时，优先选择官方框架文档而不是次要最佳实践摘要
-- 如果仍然存在真正的权衡，请将其明确记录在计划中
-
-##### 5.3.7 综合和更新计划
-
-仅加强选定的部分。保持计划的连贯性并保持其整体结构。
-
-允许的更改：
-- 澄清或强化决策理由
-- 收紧追踪或起源保真度要求
-- 当排序较弱时重新排序或拆分实施单元
-- 添加缺失的模式引用、文件/测试路径或验证结果
-- 在合理的情况下扩大全系统的影响、风险或推出处理
-- 当证据支持更改时，重新分类 `Resolved During Planning` 和 `Deferred to Implementation` 之间的未决问题
-- 当工作需要且当前代表性较弱时，加强、替换或添加高级技术设计部分
-- 加强或增加单位方法不明显的单位技术设计领域
-- 当计划得到实质性改进时，在frontmatter中添加或更新`deepened: YYYY-MM-DD`
-
-**不要**：
-- 添加实现代码 - 无需导入、精确的方法签名或特定于框架的语法。允许使用伪代码草图和 DSL 语法
-- 添加 git 命令、提交编排或精确的测试命令配方
-- 在各处添加通用 `Research Insights` 小节
-- 从头开始重写整个计划
-- 发明新的产品要求、范围变更或成功标准，但未明确提出如果研究揭示了产品层面的模糊性，应该改变行为或范围：
-- 不要在这里默默决定
-- 将其记录在`Open Questions`下
-- Recommend `spec:brainstorm` if the gap is truly product-defining
-
-##### 5.3.8 最终检查和清理
-
-在继续进行后生成选项之前：
-- 确认计划在特定方面更强大，而不仅仅是更长
-- 确认规划边界完好无损
-- 当原始文档存在时，确认保留原始决策
-
-如果使用工件支持模式：
-- 计划安全更新后清理临时暂存目录
-- 如果清理在当前平台上不可行，请记下工件残留的位置
-
-#### 5.4 生成后选项
-
-**管道模式：** 如果从自动化工作流程（例如 LFG 或任何 `disable-model-invocation` 上下文中调用），请跳过下面的交互式菜单并立即将控制权返回给调用者。计划文件已经写入并且置信度检查已经运行 - 调用者（例如 lfg）确定下一步。
-
-置信度检查完成（或跳过）后，使用平台的阻止问题工具（如果可用）呈现选项（请参阅交互方法）。否则，在聊天中显示编号选项并等待用户回复后再继续。
-
-**问题：**“计划已在 `docs/plans/YYYY-MM-DD-NNN-<type>-<name>-plan.md` 准备好。接下来您想做什么？”
-
-**选项排序取决于计划特征。** 当满足以下任何条件时，领导进行文档审查：- **深度**计划
-- 存在高风险信号
-- 置信度检查加深了 3+ 个部分
-- **标准**计划，其中第 1.2 阶段由于局部基础薄弱（少于 3 个直接示例或相邻域匹配）而触发了外部研究 - 当计划建立在不熟悉的领域时，对抗性审查者的假设浮出水面，捕获了结构评分无法验证的有关系统行为的事实主张
-
-包括解释原因的建议：
-
-“该计划具有[重大架构决策/高风险安全问题/跨领域影响/关键领域的局部基础薄弱]。其敌对审查者将在实施之前对前提和决策进行压力测试。”
-
-**建议进行文档审查时的选项：**
-1. **运行 `document-review` 技能** - 通过结构化文档审查对前提和决策进行压力测试（推荐）
-2. **在编辑器中打开计划** - 打开计划文件进行审查
-3. **分享到证明** - 上传计划以供协作审查和共享
-4. **开始`/spec:work`** - 在当前环境中开始实施此计划
-5. **在另一个会话中启动 `/spec:work` - 当当前平台支持时，在单独的代理会话中开始实施
-6. **创建问题** - 在配置的跟踪器中创建问题**标准或轻量级计划的选项：**
-1. **在编辑器中打开计划** - 打开计划文件进行审查
-2. **运行`document-review`技能** - 通过结构化文档审查改进计划
-3. **分享到证明** - 上传计划以供协作审查和共享
-4. **开始`/spec:work`** - 在当前环境中开始实施此计划
-5. **在另一个会话中启动 `/spec:work` - 当当前平台支持时，在单独的代理会话中开始实施
-6. **创建问题** - 在配置的跟踪器中创建问题根据选择：
-- **在编辑器中打开计划** → 使用当前平台的文件打开或编辑器机制打开 `docs/plans/<plan_filename>.md`（例如，macOS 上的 `open`、Linux 上的 `xdg-open` 或 IDE 的文件打开 API）
-- **`document-review`技能** → 使用计划路径加载`document-review`技能
-- **分享到证明** → 上传计划：
-  ```bash
-  CONTENT=$(cat docs/plans/<plan_filename>.md)
-  TITLE="Plan: <plan title from frontmatter>"
-  RESPONSE=$(curl -s -X POST https://www.proofeditor.ai/share/markdown \
-    -H "Content-Type: application/json" \
-    -d "$(jq -n --arg title "$TITLE" --arg markdown "$CONTENT" --arg by "ai:compound" '{title: $title, markdown: $markdown, by: $by}')")
-  PROOF_URL=$(echo "$RESPONSE" | jq -r '.tokenUrl')
-  ```
-  Display `在校样中查看和协作： <PROOF_URL>` if successful, then return to the options
-- **`/spec:work`** → Call `/spec:work` with the plan path
-- **`/spec:work` in another session** → If the current platform supports launching a separate agent session, start `/spec:work` with the plan path there. Otherwise, explain the limitation briefly and offer to run `/spec:work` in the current session instead.
-- **Create Issue** → Follow the Issue Creation section below
-- **Other** → Accept free text for revisions and loop back to options
-
-## Issue Creation
-
-When the user selects "Create Issue", detect their project tracker from `AGENTS.md` or, if needed for compatibility, `CLAUDE.md`:
-
-1. Look for `project_tracker： github` or `project_tracker：线性`
-2. If GitHub:
-
-   ```bash
-   gh issue create --title "<type>: <title>" --body-file <plan_path>
-   ```
-
-3. If Linear:
-
-   ```bash
-   linear issue create --title "<title>" --description "$(cat <plan_path>)"
-   ```4. 如果没有配置Tracker：
-   - 使用平台的阻止问题工具（如果可用）询问他们使用哪个跟踪器（请参阅交互方法）
-   - 建议将跟踪器添加到 `AGENTS.md` 以供将来运行
-
-创建问题后：
-- 显示问题 URL
-- 询问是否继续`/spec:work`
-
-永远不要编码！研究、决定并编写计划。
+- **Auto mode** (default during plan generation): Runs without asking the user for approval. The user sees what is being strengthened but does not need to make a decision. Sub-agent findings are synthesized directly into the plan.
+- **Interactive mode** (activated by the re-deepen fast path in Phase 0.1): The user explicitly asked to deepen an existing plan. Sub-agent findings are presented individually for review before integration. The user can accept, reject, or discuss each agent's findings. Only accepted findings are synthesized into the plan.
+
+Interactive mode exists because on-demand deepening is a different user posture — the user already has a plan they are invested in and wants to be surgical about what changes. This applies whether the plan was generated by this skill, written by hand, or produced by another tool.
+
+`document-review` and this confidence check are different:
+- Use the `document-review` skill when the document needs clarity, simplification, completeness, or scope control
+- This confidence check strengthens rationale, sequencing, risk treatment, and system-wide thinking when the plan is structurally sound but still needs stronger grounding
+
+**Pipeline mode:** This phase always runs in auto mode in pipeline/disable-model-invocation contexts. No user interaction needed.
+
+##### 5.3.1 Classify Plan Depth and Topic Risk
+
+Determine the plan depth from the document:
+- **Lightweight** - small, bounded, low ambiguity, usually 2-4 implementation units
+- **Standard** - moderate complexity, some technical decisions, usually 3-6 units
+- **Deep** - cross-cutting, high-risk, or strategically important work, usually 4-8 units or phased delivery
+
+Build a risk profile. Treat these as high-risk signals:
+- Authentication, authorization, or security-sensitive behavior
+- Payments, billing, or financial flows
+- Data migrations, backfills, or persistent data changes
+- External APIs or third-party integrations
+- Privacy, compliance, or user data handling
+- Cross-interface parity or multi-surface behavior
+- Significant rollout, monitoring, or operational concerns
+
+##### 5.3.2 Gate: Decide Whether to Deepen
+
+- **Lightweight** plans usually do not need deepening unless they are high-risk
+- **Standard** plans often benefit when one or more important sections still look thin
+- **Deep** or high-risk plans often benefit from a targeted second pass
+- **Thin local grounding override:** If Phase 1.2 triggered external research because local patterns were thin (fewer than 3 direct examples or adjacent-domain match), always proceed to scoring regardless of how grounded the plan appears. When the plan was built on unfamiliar territory, claims about system behavior are more likely to be assumptions than verified facts. The scoring pass is cheap — if the plan is genuinely solid, scoring finds nothing and exits quickly
+
+If the plan already appears sufficiently grounded and the thin-grounding override does not apply, report "Confidence check passed — no sections need strengthening" and skip to Phase 5.3.8 (Document Review). Document-review always runs regardless of whether deepening was needed — the two tools catch different classes of issues.
+
+##### 5.3.3–5.3.7 Deepening Execution
+
+When deepening is warranted, read `references/deepening-workflow.md` for confidence scoring checklists, section-to-agent dispatch mapping, execution mode selection, research execution, interactive finding review, and plan synthesis instructions. Execute steps 5.3.3 through 5.3.7 from that file, then return here for 5.3.8.
+
+##### 5.3.8–5.4 Document Review, Final Checks, and Post-Generation Options
+
+When reaching this phase, read `references/plan-handoff.md` for document review instructions (5.3.8), final checks and cleanup (5.3.9), post-generation options menu (5.4), and issue creation. Do not load this file earlier. Document review is mandatory — do not skip it even if the confidence check already ran.
+
+NEVER CODE! Research, decide, and write the plan.

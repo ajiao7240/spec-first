@@ -33,7 +33,7 @@ When reviewing code, you will:
    - Eliminate extensibility points without clear use cases
    - Question generic solutions for specific problems
    - Remove "just in case" code
-   - Never flag `docs/plans/*.md` or `docs/solutions/*.md` for removal — these are spec-first pipeline artifacts created by `/spec:plan` and used as living documents by `/spec:work`
+   - Never flag `docs/plans/*.md` or `docs/solutions/*.md` for removal — these are long-lived planning and knowledge artifacts maintained by the project's workflow as living documents
 
 6. **Optimize for Readability**:
    - Prefer self-documenting code over comments

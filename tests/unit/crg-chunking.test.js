@@ -31,6 +31,48 @@ describe('crg chunking', () => {
     expect(chunks.filter((item) => item.parent_symbol_id.includes('#large#'))).toHaveLength(3);
   });
 
+  test('line_end < line_start 时退化为单行 chunk，summary 置空并保留原 retrieval_text', () => {
+    const chunks = buildChunksForNodes([
+      {
+        id: 'src/a.js#function#broken#L10',
+        file_path: 'src/a.js',
+        name: 'broken',
+        kind: 'function',
+        line_start: 10,
+        line_end: 0,
+        retrieval_text: 'const value = compute();',
+      },
+    ], { maxLines: 80 });
+
+    expect(chunks).toEqual([
+      expect.objectContaining({
+        line_start: 10,
+        line_end: 10,
+        summary: null,
+        retrieval_text: 'const value = compute();',
+      }),
+    ]);
+  });
+
+  test('多 chunk 节点会按 chunk 窗口切分 retrieval_text，而不是每个 chunk 都带全量文本', () => {
+    const chunks = buildChunksForNodes([
+      {
+        id: 'src/a.js#function#paged#L1',
+        file_path: 'src/a.js',
+        name: 'paged',
+        kind: 'function',
+        line_start: 1,
+        line_end: 5,
+        retrieval_text: ['line1', 'line2', 'line3', 'line4', 'line5'].join('\n'),
+      },
+    ], { maxLines: 2 });
+
+    expect(chunks).toHaveLength(3);
+    expect(chunks[0].retrieval_text).toBe('line1\nline2');
+    expect(chunks[1].retrieval_text).toBe('line3\nline4');
+    expect(chunks[2].retrieval_text).toBe('line5');
+  });
+
   test('chunk 能入库并被 retrieval API 选中', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-chunking-'));
     const db = initDatabase(path.join(tmpDir, 'graph.db'));

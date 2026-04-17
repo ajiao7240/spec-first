@@ -1,67 +1,69 @@
 ---
 name: agent-native-architecture
-description: 构建让代理成为一等公民的应用程序。在设计自主代理、创建 MCP 工具、实现自我修改系统或构建应用程序时使用此技能，其中功能是由代理在循环中运行所实现的结果。
----
-<为什么现在>
-## 为什么现在
-
-软件代理现在可以可靠地工作。 Claude Code 证明，能够访问 bash 和文件工具的法学硕士可以循环操作直到实现目标，可以自主完成复杂的多步骤任务。
-
-令人惊讶的发现：**一个真正好的编码代理实际上是一个非常好的通用代理。** 让 Claude Code 重构代码库的相同架构可以让代理组织您的文件、管理您的阅读列表或自动化您的工作流程。
-
-Claude Code SDK 可以实现这一点。您可以构建应用程序，其中的功能不是您编写的代码，而是您描述的结果，由具有工具的代理实现，循环运行直到达到结果。
-
-这开辟了一个新领域：以 Claude Code 的方式工作的软件，其应用范围远远超出了编码范围。
-</为什么现在>
-
-<核心原则>
-## 核心原则
-
-### 1. 奇偶校验
-
-**无论用户可以通过 UI 做什么，代理都应该能够通过工具来实现。**
-
-这是基本原则。没有它，其他一切都不重要。
-
-想象一下，您构建了一个具有漂亮界面的笔记应用程序，用于创建、组织和标记笔记。用户询问客服人员：“创建一个笔记来总结我的会议并将其标记为紧急。”
-
-如果您构建了用于创建笔记的 UI，但没有代理执行相同操作的功能，则代理会被卡住。它可能会道歉或提出澄清问题，但它无济于事——即使这个动作对于使用界面的人来说是微不足道的。
-
-**修复：** 确保代理拥有可以完成 UI 可以完成的任何操作的工具（或工具组合）。
-
-这并不是要创建 UI 按钮到工具的 1:1 映射。这是为了确保代理能够**实现相同的结果**。有时这是一个单一的工具（`create_note`）。有时它会组合基元（`write_file`到具有正确格式的注释目录）。
-
-**纪律：** 添加任何 UI 功能时，询问：代理能否实现此结果？如果没有，请添加必要的工具或基元。
-
-能力图有助于：
-
-|用户操作 |代理如何实现这一目标|
-|----------|------------------------|
-|创建笔记 | `write_file` 到笔记目录，或 `create_note` 工具 |
-|将注释标记为紧急 | `update_file`元数据，或`tag_note`工具|
-|搜索笔记 | `search_files` 或 `search_notes` 工具 |
-|删除笔记 | `delete_file` 或 `delete_note` 工具 |
-
-**测试：** 选择用户可以在您的 UI 中执行的任何操作。向代理描述一下。能达到这样的结果吗？
-
+description: Build applications where agents are first-class citizens. Use this skill when designing autonomous agents, creating MCP tools, implementing self-modifying systems, or building apps where features are outcomes achieved by agents operating in a loop.
 ---
 
-### 2. 粒度
+<why_now>
+## Why Now
 
-**更喜欢原子原语。特征是由循环运行的代理实现的结果。**
+Software agents work reliably now. Claude Code demonstrated that an LLM with access to bash and file tools, operating in a loop until an objective is achieved, can accomplish complex multi-step tasks autonomously.
 
-工具是一种原始功能：读取文件、写入文件、运行 bash 命令、存储记录、发送通知。
+The surprising discovery: **a really good coding agent is actually a really good general-purpose agent.** The same architecture that lets Claude Code refactor a codebase can let an agent organize your files, manage your reading list, or automate your workflows.
 
-**功能**不是您编写的函数。这是您在提示中描述的结果，由拥有工具并循环运行直到达到结果的代理实现。
+The Claude Code SDK makes this accessible. You can build applications where features aren't code you write—they're outcomes you describe, achieved by an agent with tools, operating in a loop until the outcome is reached.
 
-**粒度较小（限制代理）：**
+This opens up a new field: software that works the way Claude Code works, applied to categories far beyond coding.
+</why_now>
+
+<core_principles>
+## Core Principles
+
+### 1. Parity
+
+**Whatever the user can do through the UI, the agent should be able to achieve through tools.**
+
+This is the foundational principle. Without it, nothing else matters.
+
+Imagine you build a notes app with a beautiful interface for creating, organizing, and tagging notes. A user asks the agent: "Create a note summarizing my meeting and tag it as urgent."
+
+If you built UI for creating notes but no agent capability to do the same, the agent is stuck. It might apologize or ask clarifying questions, but it can't help—even though the action is trivial for a human using the interface.
+
+**The fix:** Ensure the agent has tools (or combinations of tools) that can accomplish anything the UI can do.
+
+This isn't about creating a 1:1 mapping of UI buttons to tools. It's about ensuring the agent can **achieve the same outcomes**. Sometimes that's a single tool (`create_note`). Sometimes it's composing primitives (`write_file` to a notes directory with proper formatting).
+
+**The discipline:** When adding any UI capability, ask: can the agent achieve this outcome? If not, add the necessary tools or primitives.
+
+A capability map helps:
+
+| User Action | How Agent Achieves It |
+|-------------|----------------------|
+| Create a note | `write_file` to notes directory, or `create_note` tool |
+| Tag a note as urgent | `update_file` metadata, or `tag_note` tool |
+| Search notes | `search_files` or `search_notes` tool |
+| Delete a note | `delete_file` or `delete_note` tool |
+
+**The test:** Pick any action a user can take in your UI. Describe it to the agent. Can it accomplish the outcome?
+
+---
+
+### 2. Granularity
+
+**Prefer atomic primitives. Features are outcomes achieved by an agent operating in a loop.**
+
+A tool is a primitive capability: read a file, write a file, run a bash command, store a record, send a notification.
+
+A **feature** is not a function you write. It's an outcome you describe in a prompt, achieved by an agent that has tools and operates in a loop until the outcome is reached.
+
+**Less granular (limits the agent):**
 ```
 Tool: classify_and_organize_files(files)
 → You wrote the decision logic
 → Agent executes your code
 → To change behavior, you refactor
 ```
-**更细粒度（授权代理）：**
+
+**More granular (empowers the agent):**
 ```
 Tools: read_file, write_file, move_file, list_directory, bash
 Prompt: "Organize the user's downloads folder. Analyze each file,
@@ -72,167 +74,174 @@ Agent: Operates in a loop—reads files, makes judgments, moves things,
 → Agent makes the decisions
 → To change behavior, you edit the prompt
 ```
-**关键转变：** 智能体通过判断来追求结果，而不是执行精心设计的序列。它可能会遇到意外的文件类型、调整其方法或提出澄清问题。循环继续，直到达到结果。
 
-您的工具越原子，代理可以更灵活地使用它们。如果您将决策逻辑捆绑到工具中，那么您就将判断移回了代码中。
+**The key shift:** The agent is pursuing an outcome with judgment, not executing a choreographed sequence. It might encounter unexpected file types, adjust its approach, or ask clarifying questions. The loop continues until the outcome is achieved.
 
-**测试：** 要更改功能的行为方式，您是否编辑散文或重构代码？
+The more atomic your tools, the more flexibly the agent can use them. If you bundle decision logic into tools, you've moved judgment back into code.
+
+**The test:** To change how a feature behaves, do you edit prose or refactor code?
 
 ---
 
-### 3.可组合性
+### 3. Composability
 
-**使用原子工具和奇偶校验，您只需编写新提示即可创建新功能。**
+**With atomic tools and parity, you can create new features just by writing new prompts.**
 
-这是前两个原则的回报。当您的工具是原子的并且代理可以执行用户可以执行的任何操作时，新功能只是新提示。
+This is the payoff of the first two principles. When your tools are atomic and the agent can do anything users can do, new features are just new prompts.
 
-想要“每周回顾”功能来总结活动并建议优先事项吗？这是一个提示：
+Want a "weekly review" feature that summarizes activity and suggests priorities? That's a prompt:
+
 ```
 "Review files modified this week. Summarize key changes. Based on
 incomplete items and approaching deadlines, suggest three priorities
 for next week."
 ```
-代理使用 `list_files`、`read_file` 及其判断来完成此操作。您没有编写每周审查代码。您描述了一个结果，代理将循环运行直到实现该结果。
 
-**这适用于开发人员和用户。** 您可以通过添加提示来发布新功能。用户可以通过修改提示或创建自己的提示来自定义行为。 “当我说‘归档此文件’时，请始终将其移至我的操作文件夹并将其标记为紧急”成为扩展应用程序的用户级提示。
+The agent uses `list_files`, `read_file`, and its judgment to accomplish this. You didn't write weekly-review code. You described an outcome, and the agent operates in a loop until it's achieved.
 
-**约束：**只有当工具足够原子化，能够以您意想不到的方式组合，并且代理与用户具有同等地位时，这才有效。如果工具编码太多逻辑，或者代理无法访问关键功能，组合就会崩溃。
+**This works for developers and users.** You can ship new features by adding prompts. Users can customize behavior by modifying prompts or creating their own. "When I say 'file this,' always move it to my Action folder and tag it urgent" becomes a user-level prompt that extends the application.
 
-**测试：** 你能否通过编写新的提示部分来添加新功能，而不添加新代码？
+**The constraint:** This only works if tools are atomic enough to be composed in ways you didn't anticipate, and if the agent has parity with users. If tools encode too much logic, or the agent can't access key capabilities, composition breaks down.
 
----
-
-### 4. 新兴能力
-
-**代理可以完成您未明确设计的任务。**
-
-当工具是原子的、奇偶性得到维护并且提示是可组合的时，用户将向代理询问您从未预料到的事情。通常，代理人可以解决这个问题。
-
-*“将我的会议记录与我的任务列表交叉引用，并告诉我我已承诺但尚未安排的内容。”*
-
-您没有构建“承诺跟踪器”功能。但是，如果智能体能够阅读笔记、阅读任务并对它们进行推理（循环操作直到得到答案），它就可以实现这一目标。
-
-**这揭示了潜在需求。** 您无需猜测用户想要什么功能，而是观察他们要求代理做什么。当模式出现时，您可以使用特定于领域的工具或专用提示来优化它们。但你不必预见它们——你发现了它们。
-
-**飞轮：**
-1. 使用原子工具和奇偶校验进行构建
-2. 用户询问你没有预料到的事情
-3. 代理编写工具来完成这些任务（或者失败，暴露差距）
-4. 您观察所请求内容的模式
-5. 添加领域工具或提示，使常用模式变得高效
-6. 重复
-
-这会改变您构建产品的方式。您不会试图预先想象每个功能。您正在创建一个有能力的基础并从出现的情况中学习。
-
-**测试：** 向代理提供与您的域相关的开放式请求。它能找出一个合理的方法，循环运行直到成功吗？如果它只是说“我没有这方面的功能”，那么您的架构就太受限了。
+**The test:** Can you add a new feature by writing a new prompt section, without adding new code?
 
 ---
 
-### 5. 随着时间的推移不断改进
+### 4. Emergent Capability
 
-**代理本机应用程序通过积累上下文和及时改进而变得更好。**
+**The agent can accomplish things you didn't explicitly design for.**
 
-与传统软件不同，代理本机应用程序无需交付代码即可改进：
+When tools are atomic, parity is maintained, and prompts are composable, users will ask the agent for things you never anticipated. And often, the agent can figure it out.
 
-**累积上下文：**代理可以跨会话维护状态——存在什么、用户做了什么、什么有效、什么无效。代理读取和更新的 `context.md` 文件是第一层。更复杂的方法涉及结构化记忆和学习偏好。
+*"Cross-reference my meeting notes with my task list and tell me what I've committed to but haven't scheduled."*
 
-**多层次及时细化：**
-- **开发人员级别：** 您发布更新的提示，更改所有用户的代理行为
-- **用户级别：** 用户为其工作流程自定义提示
-- **代理级别：**代理根据反馈修改自己的提示（高级）
+You didn't build a "commitment tracker" feature. But if the agent can read notes, read tasks, and reason about them—operating in a loop until it has an answer—it can accomplish this.
 
-**自我修改（高级）：** 可以编辑自己的提示甚至自己的代码的代理。对于生产用例，请考虑添加安全栏——批准门、回滚自动检查点、运行状况检查。这就是事情的发展方向。改进机制仍在探索中。上下文和及时改进已得到证实。自我改造正在兴起。显而易见的是：该架构支持以传统软件无法做到的方式变得更好。
+**This reveals latent demand.** Instead of guessing what features users want, you observe what they're asking the agent to do. When patterns emerge, you can optimize them with domain-specific tools or dedicated prompts. But you didn't have to anticipate them—you discovered them.
 
-**测试：** 即使没有更改代码，应用程序在使用一个月后是否比第一天运行得更好？
-</核心原则>
+**The flywheel:**
+1. Build with atomic tools and parity
+2. Users ask for things you didn't anticipate
+3. Agent composes tools to accomplish them (or fails, revealing a gap)
+4. You observe patterns in what's being requested
+5. Add domain tools or prompts to make common patterns efficient
+6. Repeat
 
-<摄入量>
-## 您需要代理本机架构的哪些方面的帮助？
+This changes how you build products. You're not trying to imagine every feature upfront. You're creating a capable foundation and learning from what emerges.
 
-1. **设计架构** - 从头开始规划一个新的代理原生系统
-2. **文件和工作空间** - 使用文件作为通用界面，共享工作空间模式
-3. **工具设计** - 构建原始工具、动态能力发现、CRUD完整性
-4. **领域工具** - 知道何时添加领域工具而不是保留原语
-5. **执行模式** - 完成信号、部分完成、上下文限制
-6. **系统提示** - 在提示中定义座席行为，判断标准
-7. **上下文注入** - 将运行时应用程序状态注入代理提示中
-8. **操作对等** - 确保代理可以做用户可以做的所有事情
-9. **自我修改** - 使智能体能够安全地自我进化
-10. **产品设计** - 渐进披露、潜在需求、审批模式
-11. **移动模式** - iOS 存储、后台执行、检查点/恢复
-12. **测试** - 测试代理本机应用程序的功能和奇偶校验
-13. **重构** - 使现有代码更加代理原生
+**The test:** Give the agent an open-ended request relevant to your domain. Can it figure out a reasonable approach, operating in a loop until it succeeds? If it just says "I don't have a feature for that," your architecture is too constrained.
 
-**等待回复后再继续。**
-</摄入量>
+---
 
-<路由>
-|回应 |行动|
+### 5. Improvement Over Time
+
+**Agent-native applications get better through accumulated context and prompt refinement.**
+
+Unlike traditional software, agent-native applications can improve without shipping code:
+
+**Accumulated context:** The agent can maintain state across sessions—what exists, what the user has done, what worked, what didn't. A `context.md` file the agent reads and updates is layer one. More sophisticated approaches involve structured memory and learned preferences.
+
+**Prompt refinement at multiple levels:**
+- **Developer level:** You ship updated prompts that change agent behavior for all users
+- **User level:** Users customize prompts for their workflow
+- **Agent level:** The agent modifies its own prompts based on feedback (advanced)
+
+**Self-modification (advanced):** Agents that can edit their own prompts or even their own code. For production use cases, consider adding safety rails—approval gates, automatic checkpoints for rollback, health checks. This is where things are heading.
+
+The improvement mechanisms are still being discovered. Context and prompt refinement are proven. Self-modification is emerging. What's clear: the architecture supports getting better in ways traditional software doesn't.
+
+**The test:** Does the application work better after a month of use than on day one, even without code changes?
+</core_principles>
+
+<intake>
+## What aspect of agent-native architecture do you need help with?
+
+1. **Design architecture** - Plan a new agent-native system from scratch
+2. **Files & workspace** - Use files as the universal interface, shared workspace patterns
+3. **Tool design** - Build primitive tools, dynamic capability discovery, CRUD completeness
+4. **Domain tools** - Know when to add domain tools vs stay with primitives
+5. **Execution patterns** - Completion signals, partial completion, context limits
+6. **System prompts** - Define agent behavior in prompts, judgment criteria
+7. **Context injection** - Inject runtime app state into agent prompts
+8. **Action parity** - Ensure agents can do everything users can do
+9. **Self-modification** - Enable agents to safely evolve themselves
+10. **Product design** - Progressive disclosure, latent demand, approval patterns
+11. **Mobile patterns** - iOS storage, background execution, checkpoint/resume
+12. **Testing** - Test agent-native apps for capability and parity
+13. **Refactoring** - Make existing code more agent-native
+
+**Wait for response before proceeding.**
+</intake>
+
+<routing>
+| Response | Action |
 |----------|--------|
-| 1、“设计”、“建筑”、“规划” |阅读 `references/architecture-patterns.md`，然后应用下面的架构清单 |
-| 2、“文件”、“工作空间”、“文件系统”|阅读 `references/files-universal-interface.md` 和 `references/shared-workspace-architecture.md` |
-| 3、“工具”、“mcp”、“原始”、“增删改查”|阅读 `references/mcp-tool-design.md` |
-| 4、“域名工具”、“何时添加” |阅读`references/from-primitives-to-domain-tools.md` |
-| 5、“执行”、“完成”、“循环”|阅读`references/agent-execution-patterns.md` |
-| 6、“提示”、“系统提示”、“行为”|阅读`references/system-prompt-design.md` |
-| 7、“上下文”、“注入”、“运行时”、“动态”|阅读 `references/dynamic-context-injection.md` |
-| 8、“比价”、“ui操作”、“能力图” |阅读`references/action-parity-discipline.md` |
-| 9、“自我修改”、“进化”、“git”|阅读`references/self-modification.md` |
-| 10、“产品”、“进步”、“认可”、“潜在需求”|阅读`references/product-implications.md` |
-| 11、“移动”、“ios”、“android”、“后台”、“检查点”|阅读`references/mobile-patterns.md` |
-| 12、“测试”、“测试”、“验证”、“验证”|阅读`references/agent-native-testing.md` |
-| 13、“审查”、“重构”、“现有”|阅读`references/refactoring-to-prompt-native.md` |
+| 1, "design", "architecture", "plan" | Read `references/architecture-patterns.md`, then apply Architecture Checklist below |
+| 2, "files", "workspace", "filesystem" | Read `references/files-universal-interface.md` and `references/shared-workspace-architecture.md` |
+| 3, "tool", "mcp", "primitive", "crud" | Read `references/mcp-tool-design.md` |
+| 4, "domain tool", "when to add" | Read `references/from-primitives-to-domain-tools.md` |
+| 5, "execution", "completion", "loop" | Read `references/agent-execution-patterns.md` |
+| 6, "prompt", "system prompt", "behavior" | Read `references/system-prompt-design.md` |
+| 7, "context", "inject", "runtime", "dynamic" | Read `references/dynamic-context-injection.md` |
+| 8, "parity", "ui action", "capability map" | Read `references/action-parity-discipline.md` |
+| 9, "self-modify", "evolve", "git" | Read `references/self-modification.md` |
+| 10, "product", "progressive", "approval", "latent demand" | Read `references/product-implications.md` |
+| 11, "mobile", "ios", "android", "background", "checkpoint" | Read `references/mobile-patterns.md` |
+| 12, "test", "testing", "verify", "validate" | Read `references/agent-native-testing.md` |
+| 13, "review", "refactor", "existing" | Read `references/refactoring-to-prompt-native.md` |
 
-**阅读参考资料后，将这些模式应用到用户的特定上下文中。**
-</路由>
+**After reading the reference, apply those patterns to the user's specific context.**
+</routing>
 
-<架构检查表>
-## 架构审查清单
+<architecture_checklist>
+## Architecture Review Checklist
 
-在设计原生代理系统时，请在**实施之前验证这些**：
+When designing an agent-native system, verify these **before implementation**:
 
-### 核心原则
-- [ ] **奇偶校验：** 每个UI操作都有对应的代理能力
-- [ ] **粒度：** 工具是原语；特征是即时定义的结果
-- [ ] **可组合性：** 可以仅通过提示添加新功能
-- [ ] **紧急能力：** 代理可以处理您域中的开放式请求### 工具设计
-- [ ] **动态与静态：** 对于代理应具有完全访问权限的外部 API，请使用动态功能发现
-- [ ] **CRUD 完整性：** 每个实体都有创建、读取、更新和删除
-- [ ] **原语而非工作流程：**工具启用功能，不编码业务逻辑
-- [ ] **API 作为验证器：** 在 API 验证时使用 `z.string()` 输入，而不是 `z.enum()`
+### Core Principles
+- [ ] **Parity:** Every UI action has a corresponding agent capability
+- [ ] **Granularity:** Tools are primitives; features are prompt-defined outcomes
+- [ ] **Composability:** New features can be added via prompts alone
+- [ ] **Emergent Capability:** Agent can handle open-ended requests in your domain
 
-### 文件和工作区
-- [ ] **共享工作空间：** 代理和用户在同一数据空间中工作
-- [ ] **context.md 模式：** 代理读取/更新上下文文件以积累知识
-- [ ] **文件组织：** 具有一致命名的实体范围目录
+### Tool Design
+- [ ] **Dynamic vs Static:** For external APIs where agent should have full access, use Dynamic Capability Discovery
+- [ ] **CRUD Completeness:** Every entity has create, read, update, AND delete
+- [ ] **Primitives not Workflows:** Tools enable capability, don't encode business logic
+- [ ] **API as Validator:** Use `z.string()` inputs when the API validates, not `z.enum()`
 
-### 代理执行
-- [ ] **完成信号：** 代理具有显式的 `complete_task` 工具（不是启发式检测）
-- [ ] **部分完成：** 多步骤任务跟踪恢复进度
-- [ ] **上下文限制：** 从一开始就为有界上下文而设计
+### Files & Workspace
+- [ ] **Shared Workspace:** Agent and user work in same data space
+- [ ] **context.md Pattern:** Agent reads/updates context file for accumulated knowledge
+- [ ] **File Organization:** Entity-scoped directories with consistent naming
 
-### 上下文注入
-- [ ] **可用资源：**系统提示包括存在的资源（文件、数据、类型）
-- [ ] **可用功能：** 带有用户词汇的系统提示文档工具
-- [ ] **动态上下文：** 长时间会话的上下文刷新（或提供 `refresh_context` 工具）
+### Agent Execution
+- [ ] **Completion Signals:** Agent has explicit `complete_task` tool (not heuristic detection)
+- [ ] **Partial Completion:** Multi-step tasks track progress for resume
+- [ ] **Context Limits:** Designed for bounded context from the start
 
-### 用户界面集成
-- [ ] **代理 → UI：** 代理更改反映在 UI 中（共享服务、文件监视或事件总线）
-- [ ] **无静默操作：** 代理立即写入触发 UI 更新
-- [ ] **能力发现：** 用户可以了解代理可以做什么
+### Context Injection
+- [ ] **Available Resources:** System prompt includes what exists (files, data, types)
+- [ ] **Available Capabilities:** System prompt documents tools with user vocabulary
+- [ ] **Dynamic Context:** Context refreshes for long sessions (or provide `refresh_context` tool)
 
-### 手机（如果适用）
-- [ ] **检查点/恢复：** 优雅地处理 iOS 应用程序暂停
-- [ ] **iCloud 存储：** iCloud 优先，具有多设备同步的本地回退功能
-- [ ] **成本意识：** 模型层选择（俳句/十四行诗/作品）
+### UI Integration
+- [ ] **Agent → UI:** Agent changes reflect in UI (shared service, file watching, or event bus)
+- [ ] **No Silent Actions:** Agent writes trigger UI updates immediately
+- [ ] **Capability Discovery:** Users can learn what agent can do
 
-**设计架构时，明确解决计划中的每个复选框。**
-</架构_清单>
+### Mobile (if applicable)
+- [ ] **Checkpoint/Resume:** Handle iOS app suspension gracefully
+- [ ] **iCloud Storage:** iCloud-first with local fallback for multi-device sync
+- [ ] **Cost Awareness:** Model tier selection (Haiku/Sonnet/Opus)
 
-<快速开始>
-## 快速入门：构建代理本机功能
+**When designing architecture, explicitly address each checkbox in your plan.**
+</architecture_checklist>
 
-**第 1 步：定义原子工具**
+<quick_start>
+## Quick Start: Build an Agent-Native Feature
+
+**Step 1: Define atomic tools**
 ```typescript
 const tools = [
   tool("read_file", "Read any file", { path: z.string() }, ...),
@@ -241,7 +250,8 @@ const tools = [
   tool("complete_task", "Signal task completion", { summary: z.string() }, ...),
 ];
 ```
-**第二步：在系统提示符中写入行为**
+
+**Step 2: Write behavior in the system prompt**
 ```markdown
 ## Your Responsibilities
 When asked to organize content, you should:
@@ -253,7 +263,8 @@ When asked to organize content, you should:
 
 You decide the structure. Make it good.
 ```
-**第3步：让代理循环工作**
+
+**Step 3: Let the agent work in a loop**
 ```typescript
 const result = await agent.run({
   prompt: userMessage,
@@ -262,56 +273,57 @@ const result = await agent.run({
   // Agent loops until it calls complete_task
 });
 ```
-</快速开始>
+</quick_start>
 
-<参考索引>
-## 参考文件
+<reference_index>
+## Reference Files
 
-`references/`中的所有参考文献：
+All references in `references/`:
 
-**核心模式：**
-- `references/architecture-patterns.md` - 事件驱动、统一编排器、代理到 UI
-- `references/files-universal-interface.md` - 为什么文件、组织模式、context.md
-- `references/mcp-tool-design.md` - 工具设计、动态能力发现、CRUD
-- `references/from-primitives-to-domain-tools.md` - 何时添加域工具，升级到代码
-- `references/agent-execution-patterns.md` - 完成信号、部分完成、上下文限制
-- `references/system-prompt-design.md` - 作为提示、判断标准的功能
+**Core Patterns:**
+- `references/architecture-patterns.md` - Event-driven, unified orchestrator, agent-to-UI
+- `references/files-universal-interface.md` - Why files, organization patterns, context.md
+- `references/mcp-tool-design.md` - Tool design, dynamic capability discovery, CRUD
+- `references/from-primitives-to-domain-tools.md` - When to add domain tools, graduating to code
+- `references/agent-execution-patterns.md` - Completion signals, partial completion, context limits
+- `references/system-prompt-design.md` - Features as prompts, judgment criteria
 
-**特工本土学科：**
-- `references/dynamic-context-injection.md` - 运行时上下文，注入什么
-- `references/action-parity-discipline.md` - 能力映射、奇偶校验工作流程
-- `references/shared-workspace-architecture.md` - 共享数据空间，UI集成
-- `references/product-implications.md` - 渐进披露、潜在需求、批准
-- `references/agent-native-testing.md` - 测试结果、奇偶校验测试
+**Agent-Native Disciplines:**
+- `references/dynamic-context-injection.md` - Runtime context, what to inject
+- `references/action-parity-discipline.md` - Capability mapping, parity workflow
+- `references/shared-workspace-architecture.md` - Shared data space, UI integration
+- `references/product-implications.md` - Progressive disclosure, latent demand, approval
+- `references/agent-native-testing.md` - Testing outcomes, parity tests
 
-**特定于平台：**
-- `references/mobile-patterns.md` - iOS 存储、检查点/恢复、成本意识
-- `references/self-modification.md` - 基于Git的进化，护栏
-- `references/refactoring-to-prompt-native.md` - 迁移现有代码
-</参考索引>
+**Platform-Specific:**
+- `references/mobile-patterns.md` - iOS storage, checkpoint/resume, cost awareness
+- `references/self-modification.md` - Git-based evolution, guardrails
+- `references/refactoring-to-prompt-native.md` - Migrating existing code
+</reference_index>
 
-<反模式>
-## 反模式
+<anti_patterns>
+## Anti-Patterns
 
-### 不完全代理原生的常见方法
+### Common Approaches That Aren't Fully Agent-Native
 
-这些不一定是错误的——它们可能适合您的用例。但值得注意的是它们与本文档描述的架构不同。
+These aren't necessarily wrong—they may be appropriate for your use case. But they're worth recognizing as different from the architecture this document describes.
 
-**代理作为路由器** — 代理找出用户想要什么，然后调用正确的函数。特工的情报用于制定路线，而不是采取行动。这可行，但您使用的只是代理功能的一小部分。
+**Agent as router** — The agent figures out what the user wants, then calls the right function. The agent's intelligence is used to route, not to act. This can work, but you're using a fraction of what agents can do.
 
-**构建应用程序，然后添加代理** - 您以传统方式（作为代码）构建功能，然后将它们公开给代理。代理只能执行您的功能已经执行的操作。你不会获得紧急能力。
+**Build the app, then add agent** — You build features the traditional way (as code), then expose them to an agent. The agent can only do what your features already do. You won't get emergent capability.
 
-**请求/响应思维** - 代理获取输入，做一件事，返回输出。这错过了循环：代理获得要实现的结果，一直运行直到完成，并在此过程中处理意外情况。
+**Request/response thinking** — Agent gets input, does one thing, returns output. This misses the loop: agent gets an outcome to achieve, operates until it's done, handles unexpected situations along the way.
 
-**防御性工具设计** — 您过度限制工具输入，因为您习惯于防御性编程。严格的枚举，每一层的验证。这是安全的，但它可以防止代理执行您未预料到的操作。
+**Defensive tool design** — You over-constrain tool inputs because you're used to defensive programming. Strict enums, validation at every layer. This is safe, but it prevents the agent from doing things you didn't anticipate.
 
-**代码中的快乐路径，代理只需执行** - 传统软件处理代码中的边缘情况 - 您编写 X 出错时发生的情况的逻辑。代理原生让代理能够通过判断来处理边缘情况。如果您的代码处理所有边缘情况，则代理只是调用者。
+**Happy path in code, agent just executes** — Traditional software handles edge cases in code—you write the logic for what happens when X goes wrong. Agent-native lets the agent handle edge cases with judgment. If your code handles all the edge cases, the agent is just a caller.
 
 ---
 
-### 特定反模式
+### Specific Anti-Patterns
 
-**大罪：代理执行您的代码而不是弄清楚事情**
+**THE CARDINAL SIN: Agent executes your code instead of figuring things out**
+
 ```typescript
 // WRONG - You wrote the workflow, agent just executes it
 tool("process_feedback", async ({ message }) => {
@@ -325,22 +337,23 @@ tool("process_feedback", async ({ message }) => {
 tools: store_item, send_message  // Primitives
 prompt: "Rate importance 1-5 based on actionability, store feedback, notify if >= 4"
 ```
-**工作流程型工具** — `analyze_and_organize` 将判断捆绑到工具中。将其分解为基元并让代理组合它们。
 
-**上下文匮乏** - 代理不知道应用程序中存在哪些资源。
+**Workflow-shaped tools** — `analyze_and_organize` bundles judgment into the tool. Break it into primitives and let the agent compose them.
+
+**Context starvation** — Agent doesn't know what resources exist in the app.
 ```
 User: "Write something about Catherine the Great in my feed"
 Agent: "What feed? I don't understand what system you're referring to."
 ```
-修复：将可用资源、功能和词汇注入系统提示中。
+Fix: Inject available resources, capabilities, and vocabulary into system prompt.
 
-**孤立 UI 操作** — 用户可以通过 UI 执行代理无法完成的操作。修复：保持奇偶校验。
+**Orphan UI actions** — User can do something through the UI that the agent can't achieve. Fix: maintain parity.
 
-**静默操作** — 代理更改状态，但 UI 不更新。修复：使用具有反应式绑定或文件系统观察的共享数据存储。
+**Silent actions** — Agent changes state but UI doesn't update. Fix: Use shared data stores with reactive binding, or file system observation.
 
-**启发式完成检测** - 通过启发式检测代理完成情况（无需工具调用的连续迭代，检查预期的输出文件）。这是脆弱的。修复：要求代理通过 `complete_task` 工具明确发出完成信号。
+**Heuristic completion detection** — Detecting agent completion through heuristics (consecutive iterations without tool calls, checking for expected output files). This is fragile. Fix: Require agents to explicitly signal completion through a `complete_task` tool.
 
-**动态 API 的静态工具映射** — 当 `discover` + `access` 模式提供更大灵活性时，为 50 个 API 端点构建 50 个工具。
+**Static tool mapping for dynamic APIs** — Building 50 tools for 50 API endpoints when a `discover` + `access` pattern would give more flexibility.
 ```typescript
 // WRONG - Every API type needs a hardcoded tool
 tool("read_steps", ...)
@@ -352,70 +365,72 @@ tool("read_sleep", ...)
 tool("list_available_types", ...)  // Discover what's available
 tool("read_health_data", { dataType: z.string() }, ...)  // Access any type
 ```
-**不完整的 CRUD** — 代理可以创建，但不能更新或删除。
+
+**Incomplete CRUD** — Agent can create but not update or delete.
 ```typescript
 // User: "Delete that journal entry"
 // Agent: "I don't have a tool for that"
 tool("create_journal_entry", ...)  // Missing: update, delete
 ```
-修复：每个实体都需要完整的 CRUD。
+Fix: Every entity needs full CRUD.
 
-**沙盒隔离** - 代理在与用户不同的数据空间中工作。
+**Sandbox isolation** — Agent works in separate data space from user.
 ```
 Documents/
 ├── user_files/        ← User's space
 └── agent_output/      ← Agent's space (isolated)
 ```
-修复：使用共享工作区，两者都操作相同的文件。
+Fix: Use shared workspace where both operate on same files.
 
-**无缘无故的关门** — 域工具是做某事的唯一方法，并且您无意限制访问。默认是打开的。保持原语可用，除非有特定的门控原因。
+**Gates without reason** — Domain tool is the only way to do something, and you didn't intend to restrict access. The default is open. Keep primitives available unless there's a specific reason to gate.
 
-**人为能力限制** - 出于模糊的安全考虑而不是特定的风险来限制代理可以执行的操作。考虑限制能力。代理通常应该能够做用户​​能做的事情。
-</反模式>
+**Artificial capability limits** — Restricting what the agent can do out of vague safety concerns rather than specific risks. Be thoughtful about restricting capabilities. The agent should generally be able to do what users can do.
+</anti_patterns>
 
-<成功标准>
-## 成功标准
+<success_criteria>
+## Success Criteria
 
-在以下情况下，您已构建了代理本机应用程序：
+You've built an agent-native application when:
 
-### 架构
-- [ ] 代理可以实现用户可以通过 UI 实现的任何功能（奇偶校验）
-- [ ] 工具是原子原语；领域工具是捷径，而不是门（粒度）
-- [ ] 可以通过编写新提示来添加新功能（可组合性）
-- [ ] 代理可以完成您未明确设计的任务（紧急能力）
-- [ ] 改变行为意味着编辑提示，而不是重构代码
+### Architecture
+- [ ] The agent can achieve anything users can achieve through the UI (parity)
+- [ ] Tools are atomic primitives; domain tools are shortcuts, not gates (granularity)
+- [ ] New features can be added by writing new prompts (composability)
+- [ ] The agent can accomplish tasks you didn't explicitly design for (emergent capability)
+- [ ] Changing behavior means editing prompts, not refactoring code
 
-### 实施
-- [ ] 系统提示包括有关应用程序状态的动态上下文
-- [ ] 每个UI动作都有对应的代理工具（动作奇偶校验）
-- [ ] 代理工具以用户词汇记录在系统提示中
-- [ ] 代理和用户在同一数据空间（共享工作空间）中工作
-- [ ] 代理操作立即反映在 UI 中
-- [ ] 每个实体都有完整的 CRUD（创建、读取、更新、删除）
-- [ ] 代理明确发出完成信号（无启发式检测）
-- [ ] context.md 或等效的积累知识
+### Implementation
+- [ ] System prompt includes dynamic context about app state
+- [ ] Every UI action has a corresponding agent tool (action parity)
+- [ ] Agent tools are documented in system prompt with user vocabulary
+- [ ] Agent and user work in the same data space (shared workspace)
+- [ ] Agent actions are immediately reflected in the UI
+- [ ] Every entity has full CRUD (Create, Read, Update, Delete)
+- [ ] Agents explicitly signal completion (no heuristic detection)
+- [ ] context.md or equivalent for accumulated knowledge
 
-### 产品
-- [ ] 简单的请求立即生效，无需学习曲线
-- [ ] 高级用户可以将系统推向意想不到的方向
-- [ ] 通过观察用户要求代理做什么来了解用户想要什么
-- [ ] 批准要求匹配赌注和可逆性
+### Product
+- [ ] Simple requests work immediately with no learning curve
+- [ ] Power users can push the system in unexpected directions
+- [ ] You're learning what users want by observing what they ask the agent to do
+- [ ] Approval requirements match stakes and reversibility
 
-### 手机（如果适用）
-- [ ] 检查点/恢复处理应用程序中断
-- [ ] iCloud 优先存储，具有本地后备功能
-- [ ] 后台执行明智地使用可用时间
-- [ ] 模型层与任务复杂性相匹配
+### Mobile (if applicable)
+- [ ] Checkpoint/resume handles app interruption
+- [ ] iCloud-first storage with local fallback
+- [ ] Background execution uses available time wisely
+- [ ] Model tier matched to task complexity
 
 ---
 
-### 终极测试
+### The Ultimate Test
 
-**描述应用程序域内的代理的结果，但您没有为其构建特定功能。**
+**Describe an outcome to the agent that's within your application's domain but that you didn't build a specific feature for.**
 
-它能弄清楚如何完成它，循环运行直到成功吗？
+Can it figure out how to accomplish it, operating in a loop until it succeeds?
 
-如果是，那么您已经构建了代理原生的东西。
+If yes, you've built something agent-native.
 
-如果它说“我没有这方面的功能”，那么您的架构仍然受到太多限制。
-</成功标准>
+If it says "I don't have a feature for that"—your architecture is still too constrained.
+</success_criteria>
+

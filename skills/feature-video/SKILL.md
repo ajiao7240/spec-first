@@ -1,12 +1,19 @@
 ---
 name: feature-video
-description: Record a video walkthrough of a feature and add it to the PR description. Use when a PR needs a visual demo for reviewers, when the user asks to demo a feature, create a PR video, record a walkthrough, show what changed visually, or add a video to a pull request.
+description: Capture reviewer evidence as a GitHub-native video, GIF demo reel, terminal recording, or screenshots, and optionally add it to the PR description. Use when a PR needs visual proof, when the user asks to demo a feature, record a walkthrough, capture screenshots, show CLI output visually, or show what changed in a way reviewers can inspect quickly.
 argument-hint: "[PR number or 'current' or path/to/video.mp4] [optional: base URL, default localhost:3000]"
 ---
 
-# Feature Video Walkthrough
+# Feature Evidence Capture
 
-Record browser interactions demonstrating a feature, stitch screenshots into an MP4 video, upload natively to GitHub, and embed in the PR description as an inline video player.
+Capture reviewer evidence for a change and attach it to the PR when useful.
+
+This skill supports two evidence paths:
+
+1. **Tiered evidence capture** -- GIF demo reel, terminal recording, screenshot reel, or static screenshots. Use this when the user asks for screenshots, a GIF, CLI proof, or generic visual evidence, or when a full inline video is unnecessary.
+2. **Native GitHub video upload** -- MP4 walkthrough uploaded to the PR as a GitHub-hosted inline video player. Use this when the user explicitly wants a PR video, provides a PR number/current PR, or already has an `.mp4` artifact to upload.
+
+If the request is ambiguous, prefer the lightest evidence that proves the change clearly. Do not force an MP4 when screenshots or a GIF communicate the change better.
 
 ## Prerequisites
 
@@ -17,7 +24,7 @@ Record browser interactions demonstrating a feature, stitch screenshots into an 
 - Git repository on a feature branch (PR optional -- skill can create a draft or record-only)
 - One-time GitHub browser auth (see Step 6 auth check)
 
-## Main Tasks
+## Native GitHub Video Mode
 
 ### 1. Parse Arguments & Resolve PR
 
@@ -59,7 +66,7 @@ gh pr create --draft --title "[branch-name-humanized]" --body "Draft PR for vide
 
 If option 2: set `RECORD_ONLY=true`. Proceed through Steps 2-5 (record and encode), skip Steps 6-7 (upload and PR update), and report the local video path and `[RUN_ID]` at the end.
 
-**Upload-only resume:** To upload a previously recorded video, pass an existing video file path as the first argument (e.g., `/feature-video .spec-first/workflows/feature-video/1711234567/videos/feature-demo.mp4`). When the first argument is a path to an `.mp4` file, skip Steps 2-5 and proceed directly to Step 6 using that file for upload.
+**Upload-only resume:** To upload a previously recorded video, pass an existing video file path as the first argument (e.g., `.spec-first/workflows/feature-video/1711234567/videos/feature-demo.mp4`). When the first argument is a path to an `.mp4` file, skip Steps 2-5 and proceed directly to Step 6 using that file for upload.
 
 ### 1b. Verify Required Tools
 
@@ -345,21 +352,115 @@ Shots captured:
 PR description updated with demo section.
 ```
 
-## Usage Examples
+## Tiered Evidence Mode
+
+Use this path when the change is better demonstrated as a GIF, terminal reel, or screenshots, or when the user asked for general visual evidence rather than a GitHub-native inline video.
+
+### A. Discover the capture target
+
+Treat target discovery as branch-aware and evidence-first. Use the lightest available context:
+
+- current branch name
+- open PR title/body when a PR exists
+- changed files and diff against the base branch
+- recent commits
+- a referenced plan file only when it is clearly tied to the branch or request
+
+Form a hypothesis such as: "The clearest evidence is [behavior]."
+
+If there are multiple plausible observable behaviors and none is clearly primary, ask the user what to demonstrate before capturing anything.
+
+### B. Exercise the actual product
+
+Evidence means using the product, not running tests. Before capture:
+
+- **CLI tool** -- run the changed command and confirm the output is correct
+- **Web app** -- open the changed route and confirm it renders/behaves correctly
+- **Library** -- run an example that exercises the new API
+- **Bug fix** -- reproduce the original scenario and confirm the fixed state
+
+If real product usage requires credentials, paid services, or environment the agent cannot create, say so explicitly and fall back to the lightest honest evidence mode.
+
+### C. Detect project type
+
+Choose the directory that best represents the changed surface, then run:
 
 ```bash
-# Record video for current branch's PR
-/feature-video
-
-# Record video for specific PR
-/feature-video 847
-
-# Record with custom base URL
-/feature-video 847 http://localhost:5000
-
-# Record for staging environment
-/feature-video current https://staging.example.com
+python3 scripts/capture-demo.py detect --repo-root [TARGET_DIR]
 ```
+
+This returns a JSON classification such as `web-app`, `cli-tool`, `desktop-app`, `library`, or `text-only`.
+
+### D. Classify the change
+
+Classify the observable behavior:
+
+- `motion` -- animations, typing, drag-and-drop, streaming output, interactive terminal flows
+- `states` -- before/after UI, a page render, a command result, screenshots of distinct states
+
+### E. Preflight required tools
+
+```bash
+python3 scripts/capture-demo.py preflight
+```
+
+Summarize the available tools (`agent-browser`, `vhs`, `silicon`, `ffmpeg`, `ffprobe`) for the user before recommending a tier.
+
+### F. Create a run directory
+
+```bash
+mktemp -d -t feature-evidence-XXXXXX
+```
+
+Use the resulting path as `RUN_DIR` for all tier-specific steps below.
+
+### G. Recommend a tier and confirm
+
+Use the detection result, change type, and preflight JSON:
+
+```bash
+python3 scripts/capture-demo.py recommend --project-type [TYPE] --change-type [motion|states] --tools '[PREFLIGHT_JSON]'
+```
+
+Present the available tiers and mark the recommended option:
+
+1. **Browser reel** -- best for web or desktop UI changes
+2. **Terminal recording** -- best for CLI interaction or motion
+3. **Screenshot reel** -- best for discrete CLI states
+4. **Static screenshots** -- best fallback or simple state capture
+5. **No evidence needed** -- only when the diff is clearly non-observable
+
+### H. Execute the selected tier
+
+Load the matching reference and follow it using the concrete `RUN_DIR`:
+
+- `references/tier-browser-reel.md`
+- `references/tier-terminal-recording.md`
+- `references/tier-screenshot-reel.md`
+- `references/tier-static-screenshots.md`
+
+Use `scripts/capture-demo.py` as the shared pipeline for preflight, detection, recommendation, stitching, preview upload, and permanent upload.
+
+### I. Upload, approval, and PR update
+
+Read `references/upload-and-approval.md` after the tier produces an artifact.
+
+If a PR exists and the user wants the evidence attached:
+
+- For GIF/video-like evidence, append or replace a `## Demo` section
+- For PNG screenshots, append or replace a `## Screenshots` section
+
+If no PR exists, return the permanent evidence URL(s) and a one-line summary of what they show.
+
+## Example Inputs
+
+Load the `feature-video` skill with one of these argument shapes:
+
+- `current` — record evidence for the current branch's PR
+- `847` — record evidence for PR `#847`
+- `847 http://localhost:5000` — record against a custom local base URL
+- `current https://staging.example.com` — record against a staging environment
+- `.spec-first/workflows/feature-video/1711234567/videos/feature-demo.mp4` — resume in upload-only mode with an existing MP4
 
 ## Tips
 

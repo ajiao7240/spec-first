@@ -1,131 +1,145 @@
 ---
 name: compound-refresh-workflow
-description: 通过根据当前代码库检查、更新、合并、替换或删除来刷新文档/解决方案/中陈旧或漂移的学习和模式文档。在重构、迁移、依赖升级之后或者当检索到的学习内容感觉过时或错误时使用。当检查文档/解决方案/的准确性时，当最近解决的问题与现有学习相矛盾时，当模式文档不再反映当前代码时，或者当多个文档似乎涵盖相同主题并且可能从整合中受益时，也可以使用。
+description: Refresh stale or drifting learnings and pattern docs in docs/solutions/ by reviewing, updating, consolidating, replacing, or deleting them against the current codebase. Use after refactors, migrations, dependency upgrades, or when a retrieved learning feels outdated or wrong. Also use when reviewing docs/solutions/ for accuracy, when a recently solved problem contradicts an existing learning, when pattern docs no longer reflect current code, or when multiple docs seem to cover the same topic and might benefit from consolidation.
 argument-hint: "[mode:autofix] [optional: scope hint]"
 disable-model-invocation: true
 ---
-# 复合刷新
 
-随着时间的推移保持 `docs/solutions/` 的质量。此工作流程根据当前代码库审查现有学习内容，然后刷新依赖于它们的任何派生模式文档。
+# Compound Refresh
 
-## 模式检测
+Maintain the quality of `docs/solutions/` over time. This workflow reviews existing learnings against the current codebase, then refreshes any derived pattern docs that depend on them.
 
-检查`$ARGUMENTS`是否包含`mode:autofix`。如果存在，请将其从参数中剥离（使用剩余部分作为范围提示）并在 **自动修复模式** 下运行。
+## Mode Detection
 
-|模式|当 |行为 |
+Check if `$ARGUMENTS` contains `mode:autofix`. If present, strip it from arguments (use the remainder as a scope hint) and run in **autofix mode**.
+
+| Mode | When | Behavior |
 |------|------|----------|
-| **交互式**（默认）|用户在场并且可以回答问题 |要求对模棱两可的案件做出决定，确认行动 |
-| **自动修复** |参数中的 `mode:autofix` |没有用户交互。应用所有明确的操作（保留、更新、合并、自动删除、用足够的证据替换）。将不明确的案例标记为过时的。最后生成总结报告。 |
+| **Interactive** (default) | User is present and can answer questions | Ask for decisions on ambiguous cases, confirm actions |
+| **Autofix** | `mode:autofix` in arguments | No user interaction. Apply all unambiguous actions (Keep, Update, Consolidate, auto-Delete, Replace with sufficient evidence). Mark ambiguous cases as stale. Generate a summary report at the end. |
 
-### 自动修复模式规则- **跳过所有用户问题。** 永远不要暂停输入。
-- **处理范围内的所有文档。**没有范围缩小问题 - 如果没有提供范围提示，则处理所有内容。
-- **尝试所有安全操作：** 保留（无操作）、更新（修复引用）、合并（合并和删除包含的文档）、自动删除（满足明确标准）、替换（当证据充足时）。如果写入成功，则将其记录为**已应用**。如果写入失败（例如，权限被拒绝），请在报告中将操作记录为**推荐**并继续 - 不要停止或请求权限。
-- **不确定时标记为过时。** 如果分类确实不明确（更新 vs 替换 vs 合并 vs 删除）或替换证据不足，请在 frontmatter 中使用 `status: stale`、`stale_reason` 和 `stale_date` 标记为过时。如果陈旧标记写入失败，请将其作为建议包含在内。
-- **使用保守的信心。** 在交互模式下，边界情况会引起用户问题。在自动修复模式下，边界情况会被标记为过时。由于不正确的操作而导致陈旧标记。
-- **始终生成报告。** 报告是主要交付成果。它有两个部分：**已应用**（已成功编写的操作）和**推荐**（无法编写的操作，具有完整的理由，以便人们可以应用它们或交互式运行技能）。无论授予什么权限，报告结构都是相同的 - 唯一的区别是每个操作位于哪个部分。
+### Autofix mode rules
 
-## 交互原则
+- **Skip all user questions.** Never pause for input.
+- **Process all docs in scope.** No scope narrowing questions — if no scope hint was provided, process everything.
+- **Attempt all safe actions:** Keep (no-op), Update (fix references), Consolidate (merge and delete subsumed doc), auto-Delete (unambiguous criteria met), Replace (when evidence is sufficient). If a write succeeds, record it as **applied**. If a write fails (e.g., permission denied), record the action as **recommended** in the report and continue — do not stop or ask for permissions.
+- **Mark as stale when uncertain.** If classification is genuinely ambiguous (Update vs Replace vs Consolidate vs Delete) or Replace evidence is insufficient, mark as stale with `status: stale`, `stale_reason`, and `stale_date` in the frontmatter. If even the stale-marking write fails, include it as a recommendation.
+- **Use conservative confidence.** In interactive mode, borderline cases get a user question. In autofix mode, borderline cases get marked stale. Err toward stale-marking over incorrect action.
+- **Always generate a report.** The report is the primary deliverable. It has two sections: **Applied** (actions that were successfully written) and **Recommended** (actions that could not be written, with full rationale so a human can apply them or run the skill interactively). The report structure is the same regardless of what permissions were granted — the only difference is which section each action lands in.
 
-**这些原则仅适用于交互模式。在自动修复模式下，跳过所有用户问题并应用上面的自动修复模式规则。**
+## Interaction Principles
 
-遵循与`spec:brainstorm`相同的交互风格：- 提出问题**一次一个** - 使用平台的屏蔽问题工具（Claude Code 中的 `AskUserQuestion`、Codex 中的 `request_user_input`、Gemini 中的 `ask_user`）。否则，以纯文本形式显示编号选项并等待用户回复后再继续
-- 当存在自然选择时更喜欢**多项选择**
-- 从**范围和意图**开始，然后仅在需要时缩小范围
-- 在有证据之前**不要**要求用户做出决定
-- 以建议开头并简要解释
+**These principles apply to interactive mode only. In autofix mode, skip all user questions and apply the autofix mode rules above.**
 
-目标不是强迫用户通过检查表。目标是帮助他们以最小的摩擦做出良好的维护决策。
+Follow the same interaction style as `spec:brainstorm`:
 
-## 刷新订单
+- Ask questions **one at a time** — use the platform's blocking question tool when available (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present numbered options in plain text and wait for the user's reply before continuing
+- Prefer **multiple choice** when natural options exist
+- Start with **scope and intent**, then narrow only when needed
+- Do **not** ask the user to make decisions before you have evidence
+- Lead with a recommendation and explain it briefly
 
-按此顺序刷新：
+The goal is not to force the user through a checklist. The goal is to help them make a good maintenance decision with the smallest amount of friction.
 
-1.先查看相关个人学习文档
-2. 注意哪些学习内容仍然有效、已更新、已合并、已替换或已删除
-3. 然后查看依赖于这些知识的任何模式文档
+## Refresh Order
 
-为什么这个订单：
+Refresh in this order:
 
-- 学习文档是主要证据
-- 模式文档源自一项或多项学习
-- 过时的学习会使模式看起来比实际情况更有效
+1. Review the relevant individual learning docs first
+2. Note which learnings stayed valid, were updated, were consolidated, were replaced, or were deleted
+3. Then review any pattern docs that depend on those learnings
 
-如果用户首先命名一个模式文档，您可以从那里开始理解问题，但在更改模式之前检查支持的学习文档。
+Why this order:
 
-## 维护模型
+- learning docs are the primary evidence
+- pattern docs are derived from one or more learnings
+- stale learnings can make a pattern look more valid than it really is
 
-对于每个候选工件，将其分类为五个结果之一：|结果|意义|默认操作 |
-|--------|---------|----------------|
-| **保留** |仍然准确且仍然有用 |默认不编辑文件；报告称其已经过审查并且仍然值得信赖 |
-| **更新** |核心解决方案仍然正确，但引用发生了漂移 |应用有证据支持的就地编辑 |
-| **巩固** |两个或多个文档严重重叠但都是正确的 |将独特内容合并到规范文档中，删除包含的文档 |
-| **更换** |旧的神器现在具有误导性，但有一个已知的更好的替代品 |创建一个值得信赖的继任者，然后删​​除旧神器 |
-| **删除** |不再有用、适用或独特 |删除文件 - git 历史记录会保留它，如果有人需要稍后恢复它 |
+If the user starts by naming a pattern doc, you may begin there to understand the concern, but inspect the supporting learning docs before changing the pattern.
 
-## 核心规则1. **证据为判断提供依据。** 以下信号是输入信号，而不是机械记分卡。使用工程判断来决定工件是否仍然值得信赖。
-2. **首选无写保留。** 不要仅仅为了留下评论痕迹而更新文档。
-3. **将文档与现实相匹配，而不是相反。** 当当前代码与学习内容不同时，更新学习内容以反映当前代码。该技能的工作是文档准确性，而不是代码审查——不要询问用户代码更改是“有意的”还是“回归”。如果代码发生更改，文档应该匹配。如果用户认为代码是错误的，那么这是该工作流程之外的一个单独的问题。
-4. **果断，尽量减少问题。** 当证据明确（文件重命名、类移动、参考损坏）时，应用更新。在交互模式下，仅在正确的操作确实不明确时才询问用户。在自动修复模式下，将不明确的案例标记为过时而不是询问。目标是自动化维护，并根据判断进行人工监督，而不是针对每个发现提出问题。
-5. **避免低价值流失。** 不要仅仅为了修复拼写错误、润色措辞或进行不会实质性提高准确性或可用性的修饰性更改而编辑文档。
-6. **仅将更新用于有意义的、有证据支持的偏差。** 路径、模块名称、相关链接、类别元数据、代码片段和明显过时的措辞在修复它们可显着提高准确性时都是公平的游戏。
-7. **仅当存在真正的替换时才使用替换。** 这意味着：
-   - 当前对话包含最近解决的、经过验证的替换修复，或者
-   - 用户提供了足够具体的替换上下文来诚实地记录后继者，或者
-   - 代码库调查发现了当前方法并可以将其记录为后继方法，或者
-   - 较新的文档、模式文档、PR 或问题提供了强有力的后续证据。
-8. **当代码消失时删除。** 如果引用的代码、控制器或工作流程不再存在于代码库中并且找不到后继者，请删除该文件 - 不要仅仅因为一般建议仍然“合理”而默认保留。了解已删除的功能会误导读者，让他们认为该功能仍然存在。如果在保留和删除之间有疑问，请询问用户（在交互模式下）或标记为过时（在自动修复模式下）。但是缺少没有匹配代码的引用文件并不是一个值得怀疑的案例——它是强有力的、明确的删除证据。自动删除它。
-9. **评估文档集设计，而不仅仅是准确性。** 除了检查每个文档是否准确之外，还要评估它是否仍然是正确的知识单元。如果两个或多个文档严重重叠，请确定它们是否应该保持独立、更清晰地跨范围，或者合并到一个规范文档中。冗余文档很危险，因为它们会悄无声息地漂移——两个文档说同样的事情最终会说不同的事情。
-10. **删除，不存档。** 没有`_archived/`目录。当文档不再有用时，将其删除。 Git 历史记录会保留每个已删除的文件——即存档。专用的存档目录会产生问题：存档文档会累积，污染搜索结果，并且没有人会阅读它们。如果有人需要已删除的文档，`git log --diff-filter=D -- docs/solutions/` 会找到它。## 范围选择
+## Maintenance Model
 
-首先在 `docs/solutions/` 下发现学习内容和模式文档。
+For each candidate artifact, classify it into one of five outcomes:
 
-排除：
+| Outcome | Meaning | Default action |
+|---------|---------|----------------|
+| **Keep** | Still accurate and still useful | No file edit by default; report that it was reviewed and remains trustworthy |
+| **Update** | Core solution is still correct, but references drifted | Apply evidence-backed in-place edits |
+| **Consolidate** | Two or more docs overlap heavily but are both correct | Merge unique content into the canonical doc, delete the subsumed doc |
+| **Replace** | The old artifact is now misleading, but there is a known better replacement | Create a trustworthy successor, then delete the old artifact |
+| **Delete** | No longer useful, applicable, or distinct | Delete the file — git history preserves it if anyone needs to recover it later |
+
+## Core Rules
+
+1. **Evidence informs judgment.** The signals below are inputs, not a mechanical scorecard. Use engineering judgment to decide whether the artifact is still trustworthy.
+2. **Prefer no-write Keep.** Do not update a doc just to leave a review breadcrumb.
+3. **Match docs to reality, not the reverse.** When current code differs from a learning, update the learning to reflect the current code. The skill's job is doc accuracy, not code review — do not ask the user whether code changes were "intentional" or "a regression." If the code changed, the doc should match. If the user thinks the code is wrong, that is a separate concern outside this workflow.
+4. **Be decisive, minimize questions.** When evidence is clear (file renamed, class moved, reference broken), apply the update. In interactive mode, only ask the user when the right action is genuinely ambiguous. In autofix mode, mark ambiguous cases as stale instead of asking. The goal is automated maintenance with human oversight on judgment calls, not a question for every finding.
+5. **Avoid low-value churn.** Do not edit a doc just to fix a typo, polish wording, or make cosmetic changes that do not materially improve accuracy or usability.
+6. **Use Update only for meaningful, evidence-backed drift.** Paths, module names, related links, category metadata, code snippets, and clearly stale wording are fair game when fixing them materially improves accuracy.
+7. **Use Replace only when there is a real replacement.** That means either:
+   - the current conversation contains a recently solved, verified replacement fix, or
+   - the user has provided enough concrete replacement context to document the successor honestly, or
+   - the codebase investigation found the current approach and can document it as the successor, or
+   - newer docs, pattern docs, PRs, or issues provide strong successor evidence.
+8. **Delete when the code is gone.** If the referenced code, controller, or workflow no longer exists in the codebase and no successor can be found, delete the file — don't default to Keep just because the general advice is still "sound." A learning about a deleted feature misleads readers into thinking that feature still exists. When in doubt between Keep and Delete, ask the user (in interactive mode) or mark as stale (in autofix mode). But missing referenced files with no matching code is **not** a doubt case — it is strong, unambiguous Delete evidence. Auto-delete it.
+9. **Evaluate document-set design, not just accuracy.** In addition to checking whether each doc is accurate, evaluate whether it is still the right unit of knowledge. If two or more docs overlap heavily, determine whether they should remain separate, be cross-scoped more clearly, or be consolidated into one canonical document. Redundant docs are dangerous because they drift silently — two docs saying the same thing will eventually say different things.
+10. **Delete, don't archive.** There is no `_archived/` directory. When a doc is no longer useful, delete it. Git history preserves every deleted file — that is the archive. A dedicated archive directory creates problems: archived docs accumulate, pollute search results, and nobody reads them. If someone needs a deleted doc, `git log --diff-filter=D -- docs/solutions/` will find it.
+
+## Scope Selection
+
+Start by discovering learnings and pattern docs under `docs/solutions/`.
+
+Exclude:
 
 - `README.md`
-- `docs/solutions/_archived/`（旧版 - 如果此目录存在，则在报告中将其标记为清理）
+- `docs/solutions/_archived/` (legacy — if this directory exists, flag it for cleanup in the report)
 
-查找 `docs/solutions/` 下的所有 `.md` 文件，不包括 `README.md` 文件和 `_archived/` 下的任何内容。如果存在 `_archived/` 目录，请在报告中将其标记为应清理的遗留工件（恢复或删除文件）。
+Find all `.md` files under `docs/solutions/`, excluding `README.md` files and anything under `_archived/`. If an `_archived/` directory exists, note it in the report as a legacy artifact that should be cleaned up (files either restored or deleted).
 
-如果提供了 `$ARGUMENTS`，请在继续之前使用它来缩小范围。按顺序尝试这些匹配策略，在第一个产生结果时停止：
+If `$ARGUMENTS` is provided, use it to narrow scope before proceeding. Try these matching strategies in order, stopping at the first that produces results:
 
-1. **目录匹配** — 检查参数是否与 `docs/solutions/` 下的子目录名称匹配（例如，`performance-issues`、`database-issues`）
-2. **Frontmatter 匹配** — 在学习 frontmatter 中搜索 `module`、`component` 或 `tags` 字段以查找参数
-3. **文件名匹配** — 与文件名匹配（部分匹配即可）
-4. **内容搜索** — 以关键字形式搜索参数的文件内容（对于功能名称或功能区域很有用）
+1. **Directory match** — check if the argument matches a subdirectory name under `docs/solutions/` (e.g., `performance-issues`, `database-issues`)
+2. **Frontmatter match** — search `module`, `component`, or `tags` fields in learning frontmatter for the argument
+3. **Filename match** — match against filenames (partial matches are fine)
+4. **Content search** — search file contents for the argument as a keyword (useful for feature names or feature areas)
 
-如果未找到匹配项，请报告并要求用户进行澄清。在自动修复模式下，报告未命中并停止 - 不要猜测范围。
+If no matches are found, report that and ask the user to clarify. In autofix mode, report the miss and stop — do not guess at scope.
 
-如果没有找到候选文档，则报告：
+If no candidate docs are found, report:
+
 ```text
 No candidate docs found in docs/solutions/.
 Run `spec:compound` after solving problems to start building your knowledge base.
 ```
-## 第 0 阶段：评估和路线
 
-在要求用户对任何内容进行分类之前：
+## Phase 0: Assess and Route
 
-1. 发现候选工件
-2. 预估范围
-3. 选择最适合的最轻交互路径
+Before asking the user to classify anything:
 
-### 按范围划分的路线
+1. Discover candidate artifacts
+2. Estimate scope
+3. Choose the lightest interaction path that fits
 
-|范围 |何时使用它 |交互风格|
-|--------------------|----------------|--------------------|
-| **专注** | 1-2 个可能的文件或用户命名为特定文档 |直接调查，然后提出建议 |
-| **批次** |多达 ~8 个大部分独立的文档 |首先调查，然后提出分组建议 |
-| **广泛** | 9 个以上文档、不明确或整个存储库范围内的过时文档清理 |先分诊，再分批排查 |
+### Route by Scope
 
-### 广泛范围分类
+| Scope | When to use it | Interaction style |
+|-------|----------------|-------------------|
+| **Focused** | 1-2 likely files or user named a specific doc | Investigate directly, then present a recommendation |
+| **Batch** | Up to ~8 mostly independent docs | Investigate first, then present grouped recommendations |
+| **Broad** | 9+ docs, ambiguous, or repo-wide stale-doc sweep | Triage first, then investigate in batches |
 
-当范围广泛（9 个以上候选文档）时，在深入调查之前进行轻量级分类：
+### Broad Scope Triage
 
-1. **Inventory** — 读取所有候选文档的 frontmatter，按模块/组件/类别分组
-2. **影响聚类** — 识别学习+模式文档最密集的区域。覆盖同一模块的 5 个学习内容和 2 个模式的集群比 5 个孤立的单文档区域具有更高的影响力，因为一个文档的陈旧性可能会影响其他文档。
-3. **抽查漂移** — 对于每个集群，检查主要引用的文件是否仍然存在。高影响力集群中缺少参考=从哪里开始的最强信号。
-4. **推荐起始区域** — 呈现影响力最大的集群并附上简短的理由，并要求用户确认或重定向。在自动修复模式下，跳过问题并按影响顺序处理所有集群。
+When scope is broad (9+ candidate docs), do a lightweight triage before deep investigation:
 
-例子：
+1. **Inventory** — read frontmatter of all candidate docs, group by module/component/category
+2. **Impact clustering** — identify areas with the densest clusters of learnings + pattern docs. A cluster of 5 learnings and 2 patterns covering the same module is higher-impact than 5 isolated single-doc areas, because staleness in one doc is likely to affect the others.
+3. **Spot-check drift** — for each cluster, check whether the primary referenced files still exist. Missing references in a high-impact cluster = strongest signal for where to start.
+4. **Recommend a starting area** — present the highest-impact cluster with a brief rationale and ask the user to confirm or redirect. In autofix mode, skip the question and process all clusters in impact order.
+
+Example:
+
 ```text
 Found 24 learnings across 5 areas.
 
@@ -137,246 +151,270 @@ I'd start there.
 2. Pick a different area
 3. Review everything
 ```
-暂时不要问行动选择问题。首先收集证据。
 
-## 第一阶段：调查候选人的学习情况
+Do not ask action-selection questions yet. First gather evidence.
 
-对于范围内的每个学习，阅读它，将其声明与当前代码库交叉引用，并形成建议。
+## Phase 1: Investigate Candidate Learnings
 
-学习有几个维度，这些维度可能会独立地变得陈旧。表面层检查可以捕捉到明显的偏差，但陈旧性往往隐藏得更深：
+For each learning in scope, read it, cross-reference its claims against the current codebase, and form a recommendation.
 
-- **参考** — 它提到的文件路径、类名和模块是否仍然存在或已移动？
-- **推荐的解决方案** - 修复是否仍然符合代码今天的实际工作方式？具有完全不同的实现模式的重命名文件不仅仅是路径更新。
-- **代码示例** — 如果学习内容包含代码片段，它们是否仍然反映当前的实现？
-- **相关文档** — 交叉引用的学习和模式是否仍然存在且一致？
-- **自动记忆** — 自动记忆目录是否包含同一问题域中的注释？从自动内存目录中读取MEMORY.md（该路径从系统提示上下文中得知）。如果不存在或者为空，则跳过该维度。描述与学习建议不同的方法的记忆笔记是补充漂移信号。
-- **重叠** - 在调查时，请注意范围内的另一个文档何时涵盖相同的问题域、引用相同的文件或推荐类似的解决方案。对于每个重叠，记录：两个文件路径，哪些维度重叠（问题、解决方案、根本原因、文件、预防），以及哪个文档显得更广泛或更最新。这些信号馈送到阶段 1.75（文档集分析）。将调查深度与学习的特殊性相匹配——引用确切文件路径和代码片段的学习比描述一般原理的学习需要更多的验证。
+A learning has several dimensions that can independently go stale. Surface-level checks catch the obvious drift, but staleness often hides deeper:
 
-### 漂移分类：更新与替换
+- **References** — do the file paths, class names, and modules it mentions still exist or have they moved?
+- **Recommended solution** — does the fix still match how the code actually works today? A renamed file with a completely different implementation pattern is not just a path update.
+- **Code examples** — if the learning includes code snippets, do they still reflect the current implementation?
+- **Related docs** — are cross-referenced learnings and patterns still present and consistent?
+- **Auto memory** — does the auto memory directory contain notes in the same problem domain? Read MEMORY.md from the auto memory directory (the path is known from the system prompt context). If it does not exist or is empty, skip this dimension. A memory note describing a different approach than what the learning recommends is a supplementary drift signal.
+- **Overlap** — while investigating, note when another doc in scope covers the same problem domain, references the same files, or recommends a similar solution. For each overlap, record: the two file paths, which dimensions overlap (problem, solution, root cause, files, prevention), and which doc appears broader or more current. These signals feed Phase 1.75 (Document-Set Analysis).
 
-关键区别在于漂移是**表面**（参考文献已移动，但解决方案相同）还是**实质性**（解决方案本身发生了变化）：
+Match investigation depth to the learning's specificity — a learning referencing exact file paths and code snippets needs more verification than one describing a general principle.
 
-- **更新领土** - 文件路径移动、类重命名、链接损坏、元数据漂移，但核心推荐方法仍然是代码的工作方式。 `spec:compound-refresh` 直接修复了这些问题。
-- **替换区域** - 推荐的解决方案与当前代码冲突，架构方法发生变化，或者模式不再是首选方式。这意味着需要编写新的学习内容。替换子代理使用已收集的调查证据，按照 `spec:compound` 的文档格式（前题、问题、根本原因、解决方案、预防）编写后继者。编排器不会内联重写学习内容 - 它委托给子代理进行上下文隔离。
+### Drift Classification: Update vs Replace
 
-**边界：**如果您发现自己重写了解决方案部分或更改了学习建议的内容，请停止 - 即替换，而不是更新。
+The critical distinction is whether the drift is **cosmetic** (references moved but the solution is the same) or **substantive** (the solution itself changed):
 
-**源自内存的漂移信号**是补充信号，而不是主要信号。描述不同方法的内存注释并不能单独证明替换或删除的合理性。使用内存信号可以：
-- 证实源自代码库的漂移（强化替换的理由）
-- 当代码库证据处于边缘时提示进行更深入的调查
-- 在证据报告中添加上下文（“（自动记忆[克劳德]）注释表明方法 X 可能在编写本学习内容后发生了变化”）在自动修复模式下，仅内存漂移（无代码库证实）应该导致陈旧标记，而不是操作。
+- **Update territory** — file paths moved, classes renamed, links broke, metadata drifted, but the core recommended approach is still how the code works. `spec:compound-refresh` fixes these directly.
+- **Replace territory** — the recommended solution conflicts with current code, the architectural approach changed, or the pattern is no longer the preferred way. This means a new learning needs to be written. A replacement subagent writes the successor following `spec:compound`'s document format (frontmatter, problem, root cause, solution, prevention), using the investigation evidence already gathered. The orchestrator does not rewrite learnings inline — it delegates to a subagent for context isolation.
 
-### 判断指南
+**The boundary:** if you find yourself rewriting the solution section or changing what the learning recommends, stop — that is Replace, not Update.
 
-三个容易出错的准则：
+**Memory-sourced drift signals** are supplementary, not primary. A memory note describing a different approach does not alone justify Replace or Delete. Use memory signals to:
+- Corroborate codebase-sourced drift (strengthens the case for Replace)
+- Prompt deeper investigation when codebase evidence is borderline
+- Add context to the evidence report ("(auto memory [claude]) notes suggest approach X may have changed since this learning was written")
 
-1. **矛盾 = 强替换信号。** 如果学习的建议与当前的代码模式或最近验证的修复相冲突，那么这不是一个小偏差 - 学习是积极误导的。分类为替换。
-2. **年龄本身并不是一个陈旧的信号。** 2 岁的学习仍然符合当前的代码就可以了。仅使用年龄作为提示来更仔细地检查。
-3. **删除前检查后继者。** 在建议替换或删除之前，请查找更新的学习内容、模式文档、PR 或涵盖相同问题空间的问题。如果存在后续证据，则优先选择“替换”而不是“删除”，以便读者可以定向到较新的指南。
+In autofix mode, memory-only drift (no codebase corroboration) should result in stale-marking, not action.
 
-## 阶段 1.5：调查模式文档
+### Judgment Guidelines
 
-查看基础学习文档后，调查 `docs/solutions/patterns/` 下的任何相关模式文档。
+Three guidelines that are easy to get wrong:
 
-模式文档具有很高的杠杆作用——陈旧的模式比陈旧的个人学习更危险，因为未来的工作可能会将其视为广泛适用的指导。在给定其所依赖的学习的刷新状态的情况下，评估广义规则是否仍然成立。
+1. **Contradiction = strong Replace signal.** If the learning's recommendation conflicts with current code patterns or a recently verified fix, that is not a minor drift — the learning is actively misleading. Classify as Replace.
+2. **Age alone is not a stale signal.** A 2-year-old learning that still matches current code is fine. Only use age as a prompt to inspect more carefully.
+3. **Check for successors before deleting.** Before recommending Replace or Delete, look for newer learnings, pattern docs, PRs, or issues covering the same problem space. If successor evidence exists, prefer Replace over Delete so readers are directed to the newer guidance.
 
-没有明确支持学习的模式文档是一个陈旧的信号——在保持不变之前仔细调查。
+## Phase 1.5: Investigate Pattern Docs
 
-## 阶段 1.75：文档集分析
+After reviewing the underlying learning docs, investigate any relevant pattern docs under `docs/solutions/patterns/`.
 
-研究完单个文档后，退后一步并评估整个文档集。目标是发现只有在将文档相互比较时才变得可见的问题，而不仅仅是与现实进行比较。
+Pattern docs are high-leverage — a stale pattern is more dangerous than a stale individual learning because future work may treat it as broadly applicable guidance. Evaluate whether the generalized rule still holds given the refreshed state of the learnings it depends on.
 
-### 重叠检测
+A pattern doc with no clear supporting learnings is a stale signal — investigate carefully before keeping it unchanged.
 
-对于共享相同模块、组件、标签或问题域的文档，请在以下维度上对它们进行比较：- **问题陈述** — 它们是否描述了相同的根本问题？
-- **解决方案形状** - 他们是否推荐相同的方法，即使措辞不同？
-- **引用的文件** — 它们是否指向相同的代码路径？
-- **预防规则** — 他们是否重复相同的预防要点？
-- **根本原因** — 他们是否确定了相同的根本原因？
+## Phase 1.75: Document-Set Analysis
 
-3 个以上维度的高度重叠是一个强烈的整合信号。要问的问题是：“未来的维护者是否需要阅读这两份文档才能了解当前的事实，或者其中一个大部分是在重复另一个文档？”
+After investigating individual docs, step back and evaluate the document set as a whole. The goal is to catch problems that only become visible when comparing docs to each other — not just to reality.
 
-### 取代信号
+### Overlap Detection
 
-检测“较旧的窄前体，较新的规范文档”模式：
+For docs that share the same module, component, tags, or problem domain, compare them across these dimensions:
 
-- 较旧的文档涵盖相同的文件、相同的工作流程和更广泛的运行时行为
-- 旧文档描述了一个特定事件，新文档将其概括为一种模式
-- 两个文档建议相同的修复，但较新的文档具有更好的上下文、示例或范围
+- **Problem statement** — do they describe the same underlying problem?
+- **Solution shape** — do they recommend the same approach, even if worded differently?
+- **Referenced files** — do they point to the same code paths?
+- **Prevention rules** — do they repeat the same prevention bullets?
+- **Root cause** — do they identify the same root cause?
 
-当较新的文档明确包含较旧的文档时，较旧的文档是合并候选者 - 其独特的内容（如果有）应合并到较新的文档中，并且应删除较旧的文档。
+High overlap across 3+ dimensions is a strong Consolidate signal. The question to ask: "Would a future maintainer need to read both docs to get the current truth, or is one mostly repeating the other?"
 
-### 规范文档识别
+### Supersession Signals
 
-对于每个主题集群（共享问题域的文档），确定哪个文档是**规范的事实来源**：
+Detect "older narrow precursor, newer canonical doc" patterns:
 
-- 通常是集群中最新、最广泛、最准确的文档
-- 维护者在搜索该主题时应首先找到的主题
-- 其他文档应该指出的，而不是重复的集群中的所有其他文档都是：
-- **独特** - 它们涵盖了有意义的不同子问题并具有独立的检索价值。将它们分开。
-- **纳入** — 它们独特的内容适合作为规范文档中的一部分。巩固。
-- **冗余** - 他们没有添加规范文档中未提及的任何内容。删除。
+- A newer doc covers the same files, same workflow, and broader runtime behavior than an older doc
+- An older doc describes a specific incident that a newer doc generalizes into a pattern
+- Two docs recommend the same fix but the newer one has better context, examples, or scope
 
-### 检索值测试
+When a newer doc clearly subsumes an older one, the older doc is a consolidation candidate — its unique content (if any) should be merged into the newer doc, and the older doc should be deleted.
 
-在建议两个文档保持独立之前，请应用此测试：“如果维护人员从现在起六个月后搜索该主题，将这些文档作为单独的文档会提高可发现性，还是只会产生漂移风险？”
+### Canonical Doc Identification
 
-单独的文档只有在以下情况下才能获得保留：
-- 它们涵盖了人们可能独立搜索的真正不同的子问题
-- 它们针对不同的受众或环境（例如，一个是关于调试，另一个是关于预防）
-- 合并它们会创建一个笨重的文档，比两个集中的文档更难导航
+For each topic cluster (docs sharing a problem domain), identify which doc is the **canonical source of truth**:
 
-如果这些都不适用，则更倾向于合并。涉及相同领域的两篇文档最终会分道扬镳并相互矛盾——这比一篇稍长的单个文档更糟糕。
+- Usually the most recent, broadest, most accurate doc in the cluster
+- The one a maintainer should find first when searching for this topic
+- The one that other docs should point to, not duplicate
 
-### 跨文档冲突检查
+All other docs in the cluster are either:
+- **Distinct** — they cover a meaningfully different sub-problem and have independent retrieval value. Keep them separate.
+- **Subsumed** — their unique content fits as a section in the canonical doc. Consolidate.
+- **Redundant** — they add nothing the canonical doc doesn't already say. Delete.
 
-寻找范围内文档之间的彻底矛盾：
-- 医生 A 说“始终使用方法 X”，而医生 B 说“避免方法 X”
-- 文档 A 引用了文档 B 表示已弃用的文件路径
-- Doc A 和 Doc B 描述了看似相同问题的不同根本原因
+### Retrieval-Value Test
 
-文档之间的矛盾比个人的陈旧更紧迫——它们会让读者感到困惑。通过整合（如果一个是正确的而另一个是同一事实的陈旧版本）或通过有针对性的更新/替换，标记这些问题以便立即解决。
+Before recommending that two docs stay separate, apply this test: "If a maintainer searched for this topic six months from now, would having these as separate docs improve discoverability, or just create drift risk?"
 
-## 子代理策略在调查多个工件时使用子代理进行上下文隔离 - 不仅仅是因为任务听起来很复杂。选择最适合的最轻方法：
+Separate docs earn their keep only when:
+- They cover genuinely different sub-problems that someone might search for independently
+- They target different audiences or contexts (e.g., one is about debugging, another about prevention)
+- Merging them would create an unwieldy doc that is harder to navigate than two focused ones
 
-|方法|何时使用 |
+If none of these apply, prefer consolidation. Two docs covering the same ground will eventually drift apart and contradict each other — that is worse than a slightly longer single doc.
+
+### Cross-Doc Conflict Check
+
+Look for outright contradictions between docs in scope:
+- Doc A says "always use approach X" while Doc B says "avoid approach X"
+- Doc A references a file path that Doc B says was deprecated
+- Doc A and Doc B describe different root causes for what appears to be the same problem
+
+Contradictions between docs are more urgent than individual staleness — they actively confuse readers. Flag these for immediate resolution, either through Consolidate (if one is right and the other is a stale version of the same truth) or through targeted Update/Replace.
+
+## Subagent Strategy
+
+Use subagents for context isolation when investigating multiple artifacts — not just because the task sounds complex. Choose the lightest approach that fits:
+
+| Approach | When to use |
 |----------|-------------|
-| **仅限主线程** |范围小，文档短 |
-| **顺序子代理** | 1-2 件具有许多支持文件可供阅读的工件 |
-| **并行子代理** | 3+ 真正独立的工件，重叠度低 |
-| **批量子代理** |大扫除——先缩小范围，再分批调查|
+| **Main thread only** | Small scope, short docs |
+| **Sequential subagents** | 1-2 artifacts with many supporting files to read |
+| **Parallel subagents** | 3+ truly independent artifacts with low overlap |
+| **Batched subagents** | Broad sweeps — narrow scope first, then investigate in batches |
 
-**生成任何子代理时，请在其任务提示中包含此指令：**
+**When spawning any subagent, include this instruction in its task prompt:**
 
-> 使用专用文件搜索和读取工具（Glob、Grep、Read）进行所有调查。不要使用 shell 命令（ls、find、cat、grep、test、bash）进行文件操作。这样就避免了权限提示，更加可靠。
+> Use dedicated file search and read tools (Glob, Grep, Read) for all investigation. Do NOT use shell commands (ls, find, cat, grep, test, bash) for file operations. This avoids permission prompts and is more reliable.
 >
-> 如果存在的话，还要从自动内存目录中读取 MEMORY.md。检查与学习问题领域相关的注释。将任何源自内存的漂移信号与源自代码库的证据分开报告，并在证据部分标记为“（自动内存[claude]）”。如果 MEMORY.md 不存在或为空，则跳过此检查。
+> Also read MEMORY.md from the auto memory directory if it exists. Check for notes related to the learning's problem domain. Report any memory-sourced drift signals separately from codebase-sourced evidence, tagged with "(auto memory [claude])" in the evidence section. If MEMORY.md does not exist or is empty, skip this check.
 
-有两种子代理角色：
+There are two subagent roles:
 
-1. **调查子代理** — 只读。他们不得编辑文件、创建继任者或删除任何内容。每个返回：文件路径、证据、建议的操作、置信度和悬而未决的问题。当工件独立时，它们可以并行运行。
-2. **替换子代理** — 编写一个新的学习来替换陈旧的学习。这些运行**一次一个，顺序运行**（每个替换子代理可能需要读取重要代码，并行运行多个子代理可能会导致上下文耗尽）。每次替换完成后，协调器会处理所有删除和元数据更新。协调器合并调查结果，检测矛盾，协调替换子代理，并集中执行所有删除/元数据编辑。在交互模式下，它会向用户询问有关不明确情况的问题。在自动修复模式下，它将不明确的情况标记为过时的。如果两个工件重叠或讨论相同的根本问题，请一起研究它们而不是并行化。
+1. **Investigation subagents** — read-only. They must not edit files, create successors, or delete anything. Each returns: file path, evidence, recommended action, confidence, and open questions. These can run in parallel when artifacts are independent.
+2. **Replacement subagents** — write a single new learning to replace a stale one. These run **one at a time, sequentially** (each replacement subagent may need to read significant code, and running multiple in parallel risks context exhaustion). The orchestrator handles all deletions and metadata updates after each replacement completes.
 
-## 第 2 阶段：对正确的维护操作进行分类
+The orchestrator merges investigation results, detects contradictions, coordinates replacement subagents, and performs all deletions/metadata edits centrally. In interactive mode, it asks the user questions on ambiguous cases. In autofix mode, it marks ambiguous cases as stale instead. If two artifacts overlap or discuss the same root issue, investigate them together rather than parallelizing.
 
-收集证据后，分配一项建议的行动。
+## Phase 2: Classify the Right Maintenance Action
 
-### 保留
+After gathering evidence, assign one recommended action.
 
-学习的还是准确的，有用的。请勿编辑该文件 - 报告该文件已经过审核并且仍然值得信赖。仅当您已经出于其他原因进行有意义的更新时才添加 `last_refreshed`。
+### Keep
 
-### 更新
+The learning is still accurate and useful. Do not edit the file — report that it was reviewed and remains trustworthy. Only add `last_refreshed` if you are already making a meaningful update for another reason.
 
-核心解决方案仍然有效，但引用已经发生变化（路径、类名、链接、代码片段、元数据）。直接应用修复。
+### Update
 
-### 巩固
+The core solution is still valid but references have drifted (paths, class names, links, code snippets, metadata). Apply the fixes directly.
 
-当阶段 1.75 识别出严重重叠但实质上正确的文档时，请选择 **合并**。这与更新（修复单个文档中的偏差）和替换（重写误导性指南）不同。 Consolidate 处理“两者都正确，一个包含另一个”的情况。
+### Consolidate
 
-**何时合并：**
+Choose **Consolidate** when Phase 1.75 identified docs that overlap heavily but are both materially correct. This is different from Update (which fixes drift in a single doc) and Replace (which rewrites misleading guidance). Consolidate handles the "both right, one subsumes the other" case.
 
-- 两个文档描述了相同的问题并推荐相同（或兼容）的解决方案
-- 一篇文档是一个狭隘的前身，而一篇较新的文档则更广泛地涵盖相同的领域
-- 包含文档中的独特内容可以作为规范文档中的章节或附录
-- 保留两者会产生漂移风险，而没有有意义的检索效益
+**When to consolidate:**
 
-**何时不合并**（应用阶段 1.75 的检索值测试）：- 这些文档涵盖了人们会独立搜索的真正不同的子问题
-- 合并会创建一个笨重的文档，它对导航的损害比漂移风险对准确性的损害更大
+- Two docs describe the same problem and recommend the same (or compatible) solution
+- One doc is a narrow precursor and a newer doc covers the same ground more broadly
+- The unique content from the subsumed doc can fit as a section or addendum in the canonical doc
+- Keeping both creates drift risk without meaningful retrieval benefit
 
-**合并与删除：**如果包含的文档具有值得保留的独特内容（边缘情况、替代方法、额外的预防规则），请首先使用合并来合并该内容。如果包含的文档未添加规范文档未提及的任何内容，请直接跳至“删除”。
+**When NOT to consolidate** (apply the Retrieval-Value Test from Phase 1.75):
 
-合并操作是：将包含的文档中的唯一内容合并到规范文档中，然后删除包含的文档。不归档——删除。 Git 历史记录保存了它。
+- The docs cover genuinely different sub-problems that someone would search for independently
+- Merging would create an unwieldy doc that harms navigation more than drift risk harms accuracy
 
-### 替换
+**Consolidate vs Delete:** If the subsumed doc has unique content worth preserving (edge cases, alternative approaches, extra prevention rules), use Consolidate to merge that content first. If the subsumed doc adds nothing the canonical doc doesn't already say, skip straight to Delete.
 
-当学习的核心指导现在具有误导性时，选择 **替换** - 建议的修复发生重大变化，根本原因或架构发生变化，或者首选模式不同。
+The Consolidate action is: merge unique content from the subsumed doc into the canonical doc, then delete the subsumed doc. Not archive — delete. Git history preserves it.
 
-用户可能在原始学习内容编写几个月后调用了刷新。不要要求他们提供他们不太可能拥有的替换上下文——使用代理智能来调查代码库并合成替换内容。
+### Replace
 
-**证据评估：**
+Choose **Replace** when the learning's core guidance is now misleading — the recommended fix changed materially, the root cause or architecture shifted, or the preferred pattern is different.
 
-当您确定替换候选者时，第一阶段调查已经收集了重要证据：旧知识的主张、当前代码的实际用途以及发生偏差的位置。评估这些证据是否足以编写值得信赖的替代品：- **足够的证据** - 您了解旧的学习建议是什么以及当前的方法是什么。调查发现了当前的代码模式、新的文件位置和更改的架构。 → 继续写入替换（请参阅第 4 阶段替换流程）。
-- **证据不足** - 这种偏差是如此根本，以至于您无法自信地记录当前的方法。整个子系统被替换，或者新的架构太复杂，无法仅通过文件扫描来理解。 → 就地标记为过时：
-   - 在前面添加`status: stale`、`stale_reason: [what you found]`、`stale_date: YYYY-MM-DD`
-   - 报告您发现了什么证据以及缺少什么证据
-   - 建议用户在下次遇到该区域后，当他们有新的解决问题的上下文时运行 `spec:compound`
+The user may have invoked the refresh months after the original learning was written. Do not ask them for replacement context they are unlikely to have — use agent intelligence to investigate the codebase and synthesize the replacement.
 
-### 删除
+**Evidence assessment:**
 
-在以下情况下选择 **删除**：
+By the time you identify a Replace candidate, Phase 1 investigation has already gathered significant evidence: the old learning's claims, what the current code actually does, and where the drift occurred. Assess whether this evidence is sufficient to write a trustworthy replacement:
 
-- 代码或工作流程不再存在，问题域也消失了
-- 学习内容已经过时，并且没有值得记录的现代替代品
-- 学习内容与另一个文档完全冗余（如果有独特的内容需要首先合并，请使用合并）
-- 没有有意义的后继证据表明应该替换它
+- **Sufficient evidence** — you understand both what the old learning recommended AND what the current approach is. The investigation found the current code patterns, the new file locations, the changed architecture. → Proceed to write the replacement (see Phase 4 Replace Flow).
+- **Insufficient evidence** — the drift is so fundamental that you cannot confidently document the current approach. The entire subsystem was replaced, or the new architecture is too complex to understand from a file scan alone. → Mark as stale in place:
+   - Add `status: stale`, `stale_reason: [what you found]`, `stale_date: YYYY-MM-DD` to the frontmatter
+   - Report what evidence you found and what is missing
+   - Recommend the user run `spec:compound` after their next encounter with that area, when they have fresh problem-solving context
 
-操作：删除该文件。没有存档目录，没有元数据——只需将其删除即可。如果需要恢复，Git 历史记录会保留每个已删除的文件。
+### Delete
 
-### 删除之前：检查问题域是否仍然处于活动状态
+Choose **Delete** when:
 
-当学习的参考文件消失时，这是强有力的证据——但只是**实现**消失了。在删除之前，先分析一下**学习解决的问题**是否仍然是代码库中的一个问题：- 了解 `auth_token.rb` 消失的会话令牌存储 — 应用程序是否仍然处理会话令牌？如果是这样，这个概念在新的实施中仍然存在。那是替换，而不是删除。
-- 了解已弃用的 API 端点，其中整个功能已被删除 - 问题域消失了。那就是删除。
+- The code or workflow no longer exists and the problem domain is gone
+- The learning is obsolete and has no modern replacement worth documenting
+- The learning is fully redundant with another doc (use Consolidate if there is unique content to merge first)
+- There is no meaningful successor evidence suggesting it should be replaced instead
 
-不要机械地从旧的学习中搜索关键字。相反，了解学习要解决什么问题，然后调查该问题域是否仍然存在于代码库中。代理理解概念——利用这种理解来查找问题现在所在的位置，而不是旧代码曾经所在的位置。
+Action: delete the file. No archival directory, no metadata — just delete it. Git history preserves every deleted file if recovery is ever needed.
 
-**仅当实现和问题域都消失时才自动删除：**
+### Before deleting: check if the problem domain is still active
 
-- 引用的代码消失了并且应用程序不再处理该问题域
-- 学习内容完全被明显更好的继任者取代，并且旧文档没有增加明显的价值
-- 该文档显然是多余的，并且没有添加规范文档未提及的任何内容
+When a learning's referenced files are gone, that is strong evidence — but only that the **implementation** is gone. Before deleting, reason about whether the **problem the learning solves** is still a concern in the codebase:
 
-如果实施已消失，但问题域仍然存在（应用程序仍然进行身份验证，仍然处理付款，仍然处理迁移），则分类为 **替换** - 问题仍然很重要，并且应记录当前的方法。
+- A learning about session token storage where `auth_token.rb` is gone — does the application still handle session tokens? If so, the concept persists under a new implementation. That is Replace, not Delete.
+- A learning about a deprecated API endpoint where the entire feature was removed — the problem domain is gone. That is Delete.
 
-不要仅仅因为学习内容的一般建议“仍然合理”而保留学习内容——如果它引用的特定代码消失了，学习内容就会误导读者。但不要删除问题领域仍然活跃的学习——知识空白应该用替代品来填补。
+Do not search mechanically for keywords from the old learning. Instead, understand what problem the learning addresses, then investigate whether that problem domain still exists in the codebase. The agent understands concepts — use that understanding to look for where the problem lives now, not where the old code used to be.
 
-## 模式指导
+**Auto-delete only when both the implementation AND the problem domain are gone:**
 
-将相同的五个结果（保留、更新、合并、替换、删除）应用于模式文档，但将它们评估为**派生指导**而不是事件级别的学习。主要区别：- **保留**：基础知识仍然支持通用规则，示例仍然具有代表性
-- **更新**：规则成立，但示例、链接、范围或支持参考文献发生了变化
-- **合并**：两个模式文档概括了同一组学习内容或涵盖相同的设计问题 - 合并为一个规范模式
-- **替换**：通用规则现在具有误导性，或者底层学习支持不同的综合。基于更新的学习集进行替换——不要凭猜测发明新规则
-- **删除**：模式不再有效，不再重复出现，或完全被更强大的模式文档包含，没有剩余的唯一内容
+- the referenced code is gone AND the application no longer deals with that problem domain
+- the learning is fully superseded by a clearly better successor AND the old doc adds no distinct value
+- the document is plainly redundant and adds nothing the canonical doc doesn't already say
 
-## 第三阶段：征求决定
+If the implementation is gone but the problem domain persists (the app still does auth, still processes payments, still handles migrations), classify as **Replace** — the problem still matters and the current approach should be documented.
 
-### 自动修复模式
+Do not keep a learning just because its general advice is "still sound" — if the specific code it references is gone, the learning misleads readers. But do not delete a learning whose problem domain is still active — that knowledge gap should be filled with a replacement.
 
-**跳过这整个阶段。不要问任何问题。不提供选项。不等待输入。** 直接进入阶段 4，并根据阶段 2 的分类执行所有操作：
+## Pattern Guidance
 
-- 明确的保留、更新、合并、自动删除和替换（有足够证据）→直接执行
-- 不明确的情况 → 标记为过时
-- 然后生成报告（请参阅输出格式）
+Apply the same five outcomes (Keep, Update, Consolidate, Replace, Delete) to pattern docs, but evaluate them as **derived guidance** rather than incident-level learnings. Key differences:
 
-### 交互模式
+- **Keep**: the underlying learnings still support the generalized rule and examples remain representative
+- **Update**: the rule holds but examples, links, scope, or supporting references drifted
+- **Consolidate**: two pattern docs generalize the same set of learnings or cover the same design concern — merge into one canonical pattern
+- **Replace**: the generalized rule is now misleading, or the underlying learnings support a different synthesis. Base the replacement on the refreshed learning set — do not invent new rules from guesswork
+- **Delete**: the pattern is no longer valid, no longer recurring, or fully subsumed by a stronger pattern doc with no unique content remaining
 
-大多数更新和整合应直接应用，无需询问。仅在以下情况下询问用户：
+## Phase 3: Ask for Decisions
 
-- 正确的操作确实不明确（更新、替换、合并、删除）
-- 您即将删除文档 **并且** 证据并不明确（请参阅第 2 阶段中的自动删除标准）。当满足自动删除条件时，无需询问即可继续。
-- 您即将进行整合，而规范文档的选择并不明确
-- 您即将通过替换创建继任者**不要**询问有关代码更改是否是有意的、用户是否想要修复代码中的错误或文档维护之外的其他问题的问题。保持在自己的车道上——文档准确性。
+### Autofix mode
 
-#### 问题风格
+**Skip this entire phase. Do not ask any questions. Do not present options. Do not wait for input.** Proceed directly to Phase 4 and execute all actions based on the classifications from Phase 2:
 
-始终使用平台的阻塞问题工具（Claude Code 中的 `AskUserQuestion`、Codex 中的 `request_user_input`、Gemini 中的 `ask_user` 来提供选择。否则，以纯文本形式显示编号选项并等待用户回复后再继续。
+- Unambiguous Keep, Update, Consolidate, auto-Delete, and Replace (with sufficient evidence) → execute directly
+- Ambiguous cases → mark as stale
+- Then generate the report (see Output Format)
 
-提问规则：
+### Interactive mode
 
-- 提出**一次一个问题**
-- 更喜欢**多项选择**
-- 以**推荐选项**为主导
-- 用简洁的句子解释建议的理由
-- 避免要求用户从实际上不合理的操作中进行选择
+Most Updates and Consolidations should be applied directly without asking. Only ask the user when:
 
-#### 重点范围
+- The right action is genuinely ambiguous (Update vs Replace vs Consolidate vs Delete)
+- You are about to Delete a document **and** the evidence is not unambiguous (see auto-delete criteria in Phase 2). When auto-delete criteria are met, proceed without asking.
+- You are about to Consolidate and the choice of canonical doc is not clear-cut
+- You are about to create a successor via Replace
 
-对于单个工件，呈现：
+Do **not** ask questions about whether code changes were intentional, whether the user wants to fix bugs in the code, or other concerns outside doc maintenance. Stay in your lane — doc accuracy.
 
-- 文件路径
-- 2-4 个证据
-- 建议采取的行动
+#### Question Style
 
-然后问：
+Always present choices using the platform's blocking question tool when available (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present numbered options in plain text and wait for the user's reply before proceeding.
+
+Question rules:
+
+- Ask **one question at a time**
+- Prefer **multiple choice**
+- Lead with the **recommended option**
+- Explain the rationale for the recommendation in one concise sentence
+- Avoid asking the user to choose from actions that are not actually plausible
+
+#### Focused Scope
+
+For a single artifact, present:
+
+- file path
+- 2-4 bullets of evidence
+- recommended action
+
+Then ask:
+
 ```text
 This [learning/pattern] looks like a [Keep/Update/Consolidate/Replace/Delete].
 
@@ -388,108 +426,118 @@ What would you like to do?
 2. [Second plausible action]
 3. Skip for now
 ```
-不要列出所有五项行动，除非所有五项行动都确实合理。
 
-#### 批次范围
+Do not list all five actions unless all five are genuinely plausible.
 
-对于几个学习：
+#### Batch Scope
 
-1. 将明显**将**案例分组在一起
-2. 当修复很简单时，将明显的**更新**案例分组在一起
-3. 当规范文档明确时，将**合并**案例放在一起
-4. 单独或以小组形式呈现 **替换** 案例
-5. 单独呈现 **删除** 案例，除非它们是强自动删除候选者
+For several learnings:
 
-分阶段请求确认：
+1. Group obvious **Keep** cases together
+2. Group obvious **Update** cases together when the fixes are straightforward
+3. Present **Consolidate** cases together when the canonical doc is clear
+4. Present **Replace** cases individually or in very small groups
+5. Present **Delete** cases individually unless they are strong auto-delete candidates
 
-1. 确认分组的保留/更新建议
-2. 然后处理合并组（呈现规范文档以及合并的内容）
-3.然后处理一次更换一个
-4. 然后一次删除一个，除非删除是明确的并且可以安全地自动应用
+Ask for confirmation in stages:
 
-#### 广泛的范围
+1. Confirm grouped Keep/Update recommendations
+2. Then handle Consolidate groups (present the canonical doc and what gets merged)
+3. Then handle Replace one at a time
+4. Then handle Delete one at a time unless the deletion is unambiguous and safe to auto-apply
 
-如果用户要求彻底刷新，请保持交互增量：
+#### Broad Scope
 
-1. 首先缩小范围
-2. 研究可管理的批次
-3. 提出建议
-4.询问是否继续下一批
+If the user asked for a sweeping refresh, keep the interaction incremental:
 
-不要向用户预先加载完整的维护队列。
+1. Narrow scope first
+2. Investigate a manageable batch
+3. Present recommendations
+4. Ask whether to continue to the next batch
 
-## 第 4 阶段：执行所选操作
+Do not front-load the user with a full maintenance queue.
 
-### 保持流畅
+## Phase 4: Execute the Chosen Action
 
-默认情况下不编辑文件。总结为什么学习仍然值得信赖。
+### Keep Flow
 
-### 更新流程
+No file edit by default. Summarize why the learning remains trustworthy.
 
-仅当解决方案仍然基本正确时才应用就地编辑。
+### Update Flow
 
-有效就地更新的示例：
+Apply in-place edits only when the solution is still substantively correct.
 
-- 将 `app/models/auth_token.rb` 引用重命名为 `app/models/session_token.rb`
-- 将`module: AuthToken`更新为`module: SessionToken`
-- 修复相关文档的过时链接
-- 目录移动后刷新实施说明
+Examples of valid in-place updates:
 
-**不**应该是就地更新的示例：- 修复了不影响理解的拼写错误
-- 仅仅为了风格而重新措辞散文
-- 小型清理不会显着提高准确性或可用性
-- 旧的修复现在是一种反模式
-- 系统架构发生了足够大的变化，旧的指导具有误导性
-- 故障排除路径有很大不同
+- Rename `app/models/auth_token.rb` reference to `app/models/session_token.rb`
+- Update `module: AuthToken` to `module: SessionToken`
+- Fix outdated links to related docs
+- Refresh implementation notes after a directory move
 
-这些情况需要**替换**，而不是更新。
+Examples that should **not** be in-place updates:
 
-### 整合流程
+- Fixing a typo with no effect on understanding
+- Rewording prose for style alone
+- Small cleanup that does not materially improve accuracy or usability
+- The old fix is now an anti-pattern
+- The system architecture changed enough that the old guidance is misleading
+- The troubleshooting path is materially different
 
-编排器直接处理合并（不需要子代理 - 文档已被读取并且合并是集中编辑）。流程按主题集群合并候选者。对于阶段 1.75 中确定的每个集群：
+Those cases require **Replace**, not Update.
 
-1. **确认规范文档** — 集群中更广泛、更最新、更准确的文档。
-2. **从包含的文档中提取独特的内容** - 规范文档尚未涵盖的任何内容。这可能是特定的边缘情况、附加的预防规则或替代的调试方法。
-3. **将独特内容**合并到规范文档中的自然位置。不要只是追加——将其集成到其逻辑所属的位置。如果独特的内容很小（一个要点、一个句子），请将其内联。如果它是一个重要的子主题，请将其添加为明确标记的部分。
-4. **更新交叉引用** - 如果任何其他文档引用了包含的文档，请更新这些引用以指向规范文档。
-5. **删除包含的文档。** 不要存档它，不要添加重定向元数据 - 只需删除该文件。 Git 历史记录保存了它。
+### Consolidate Flow
 
-如果文档集群有 3 个以上重叠文档，则成对处理：首先合并两个最重叠的文档，然后评估合并结果是否应与下一个文档合并。**合并之外的结构编辑：** Consolidate 还涵盖相反的情况。如果一篇文档变得笨重并且涵盖了多个不同的问题，而这些问题可以从单独检索中受益，那么建议将其拆分是有效的。仅当子主题真正独立并且维护者可能会搜索一个子主题而不需要另一个时才执行此操作。
+The orchestrator handles consolidation directly (no subagent needed — the docs are already read and the merge is a focused edit). Process Consolidate candidates by topic cluster. For each cluster identified in Phase 1.75:
 
-### 替换流程
+1. **Confirm the canonical doc** — the broader, more current, more accurate doc in the cluster.
+2. **Extract unique content** from the subsumed doc(s) — anything the canonical doc does not already cover. This might be specific edge cases, additional prevention rules, or alternative debugging approaches.
+3. **Merge unique content** into the canonical doc in a natural location. Do not just append — integrate it where it logically belongs. If the unique content is small (a bullet point, a sentence), inline it. If it is a substantial sub-topic, add it as a clearly labeled section.
+4. **Update cross-references** — if any other docs reference the subsumed doc, update those references to point to the canonical doc.
+5. **Delete the subsumed doc.** Do not archive it, do not add redirect metadata — just delete the file. Git history preserves it.
 
-流程 替换候选人**一次一个，按顺序**。每个替换都是由子代理编写的，以保护主上下文窗口。
+If a doc cluster has 3+ overlapping docs, process pairwise: consolidate the two most overlapping docs first, then evaluate whether the merged result should be consolidated with the next doc.
 
-当需要替换时，阅读文档合同文件并将其内容传递到替换子代理的任务提示中：
+**Structural edits beyond merge:** Consolidate also covers the reverse case. If one doc has grown unwieldy and covers multiple distinct problems that would benefit from separate retrieval, it is valid to recommend splitting it. Only do this when the sub-topics are genuinely independent and a maintainer might search for one without needing the other.
 
-- `references/schema.yaml` — frontmatter 字段和枚举值
-- `references/yaml-schema.md` — 类别映射
-- `assets/resolution-template.md` — 节结构
+### Replace Flow
 
-不要让替换子代理从内存中发明 frontmatter 字段、枚举值或节顺序。
+Process Replace candidates **one at a time, sequentially**. Each replacement is written by a subagent to protect the main context window.
 
-**当证据充足时：**1. 生成一个子代理来编写替换学习。通过它：
-   - 旧学的全部内容
-   - 调查证据摘要（发生了什么变化，当前代码的作用，为什么旧的指导具有误导性）
-   - 目标路径和类别（与旧学习的类别相同，除非类别本身发生变化）
-   - 上面列出的三个支持文件的相关内容
-2. 子代理使用支持文件作为事实来源来编写新的学习内容：`references/schema.yaml` 用于 frontmatter 字段和枚举值，`references/yaml-schema.md` 用于类别映射，`assets/resolution-template.md` 用于部分顺序。如果它需要超出传递内容的附加上下文，则应使用专用的文件搜索和读取工具。
-3. 子代理完成后，协调器将删除旧的学习文件。新学习的 frontmatter 可能包括用于可追溯性的 `supersedes: [old learning filename]`，但这是可选的 — git 历史记录和提交消息提供相同的信息。
+When a replacement is needed, read the documentation contract files and pass their contents into the replacement subagent's task prompt:
 
-**当证据不足时：**
+- `references/schema.yaml` — frontmatter fields and enum values
+- `references/yaml-schema.md` — category mapping
+- `assets/resolution-template.md` — section structure
 
-1. 将学习标记为陈旧：
-   - 添加到前面：`status: stale`、`stale_reason: [what you found]`、`stale_date: YYYY-MM-DD`
-2. 报告发现了什么证据以及缺少什么证据
-3.建议用户在下次遇到该区域后运行`spec:compound`
+Do not let replacement subagents invent frontmatter fields, enum values, or section order from memory.
 
-### 删除流
+**When evidence is sufficient:**
 
-仅当学习内容明显过时、多余（没有可合并的独特内容）或其问题域消失时才删除。不要仅仅因为文档太旧就删除它——仅旧的时间并不是一个信号。
+1. Spawn a single subagent to write the replacement learning. Pass it:
+   - The old learning's full content
+   - A summary of the investigation evidence (what changed, what the current code does, why the old guidance is misleading)
+   - The target path and category (same category as the old learning unless the category itself changed)
+   - The relevant contents of the three support files listed above
+2. The subagent writes the new learning using the support files as the source of truth: `references/schema.yaml` for frontmatter fields and enum values, `references/yaml-schema.md` for category mapping, and `assets/resolution-template.md` for section order. It should use dedicated file search and read tools if it needs additional context beyond what was passed.
+3. After the subagent completes, the orchestrator deletes the old learning file. The new learning's frontmatter may include `supersedes: [old learning filename]` for traceability, but this is optional — the git history and commit message provide the same information.
 
-## 输出格式**完整的报告必须以降价输出的形式打印。** 不要在内部总结调查结果，然后输出一行行内容。报告是可交付成果——完整打印每个部分，格式为带有标题、表格和项目符号的可读降价格式。
+**When evidence is insufficient:**
 
-处理选定的范围后，输出以下报告：
+1. Mark the learning as stale in place:
+   - Add to frontmatter: `status: stale`, `stale_reason: [what you found]`, `stale_date: YYYY-MM-DD`
+2. Report what evidence was found and what is missing
+3. Recommend the user run `spec:compound` after their next encounter with that area
+
+### Delete Flow
+
+Delete only when a learning is clearly obsolete, redundant (with no unique content to merge), or its problem domain is gone. Do not delete a document just because it is old — age alone is not a signal.
+
+## Output Format
+
+**The full report MUST be printed as markdown output.** Do not summarize findings internally and then output a one-liner. The report is the deliverable — print every section in full, formatted as readable markdown with headers, tables, and bullet points.
+
+After processing the selected scope, output the following report:
+
 ```text
 Compound Refresh Summary
 ========================
@@ -503,87 +551,130 @@ Deleted: W
 Skipped: V
 Marked stale: S
 ```
-然后对于处理的每个文件，列出：
-- 文件路径
-- 分类（保留/更新/合并/替换/删除/过时）
-- 发现了什么证据——用“（自动记忆[claude]）”标记任何来自内存的发现，以将它们与来自代码库的证据区分开来
-- 采取了什么行动（或建议采取什么行动）
-- 对于合并：哪个文档是规范的、合并了哪些独特内容、删除了哪些内容
 
-对于**保留**结果，请将它们列在“已审核但无需编辑”部分下，以便结果可见而无需创建 git 流失。
+Then for EVERY file processed, list:
+- The file path
+- The classification (Keep/Update/Consolidate/Replace/Delete/Stale)
+- What evidence was found -- tag any memory-sourced findings with "(auto memory [claude])" to distinguish them from codebase-sourced evidence
+- What action was taken (or recommended)
+- For Consolidate: which doc was canonical, what unique content was merged, what was deleted
 
-### 自动修复模式报告
+For **Keep** outcomes, list them under a reviewed-without-edits section so the result is visible without creating git churn.
 
-在自动修复模式下，报告是唯一可交付的内容 - 没有用户在场询问后续问题，因此报告必须是独立且完整的。 **打印完整报告。请勿缩写、总结或跳过章节。**
+### Autofix mode report
 
-将操作分为两部分：
+In autofix mode, the report is the sole deliverable — there is no user present to ask follow-up questions, so the report must be self-contained and complete. **Print the full report. Do not abbreviate, summarize, or skip sections.**
 
-**已应用**（写入成功）：
-- 对于每个 **更新的** 文件：文件路径、修复了哪些引用以及原因
-- 对于每个 **Consolidated** 集群：规范文档、从每个包含的文档中合并的唯一内容以及已删除的包含的文档
-- 对于每个 **替换** 文件：旧学习建议的内容与当前代码的用途，以及新后继者的路径
-- 对于每个 **已删除** 文件：文件路径以及删除原因（问题域消失、完全冗余等）
-- 对于每个 **标记为过时** 文件：文件路径、找到的证据以及为什么不明确
+Split actions into two sections:
 
-**推荐**（无法写入的操作 - 例如，权限被拒绝）：
-- 与上面相同的细节，但作为人类应用的建议
-- 包含足够的上下文，以便用户可以手动应用更改或以交互方式重新运行技能如果所有写入均成功，则Recommended 部分为空。如果没有写入成功（例如，只读调用），则所有操作都会显示在“推荐”下 - 该报告将成为维护计划。
+**Applied** (writes that succeeded):
+- For each **Updated** file: the file path, what references were fixed, and why
+- For each **Consolidated** cluster: the canonical doc, what unique content was merged from each subsumed doc, and the subsumed docs that were deleted
+- For each **Replaced** file: what the old learning recommended vs what the current code does, and the path to the new successor
+- For each **Deleted** file: the file path and why it was removed (problem domain gone, fully redundant, etc.)
+- For each **Marked stale** file: the file path, what evidence was found, and why it was ambiguous
 
-**遗留清理**（如果 `docs/solutions/_archived/` 存在）：
-- 列出找到的存档文件并建议处置：恢复（如果仍然相关）、删除（如果确实过时）或合并（如果与活动文档重叠）
+**Recommended** (actions that could not be written — e.g., permission denied):
+- Same detail as above, but framed as recommendations for a human to apply
+- Include enough context that the user can apply the change manually or re-run the skill interactively
 
-## 第 5 阶段：提交更改
+If all writes succeed, the Recommended section is empty. If no writes succeed (e.g., read-only invocation), all actions appear under Recommended — the report becomes a maintenance plan.
 
-执行所有操作并生成报告后，处理提交更改。如果没有文件被修改（全部保留，或全部写入失败），则跳过此阶段。
+**Legacy cleanup** (if `docs/solutions/_archived/` exists):
+- List archived files found and recommend disposition: restore (if still relevant), delete (if truly obsolete), or consolidate (if overlapping with active docs)
 
-### 检测 git 上下文
+## Phase 5: Commit Changes
 
-在提供选项之前，请检查：
-1.当前签出哪个分支（main/master vs feature分支）
-2.工作树是否还有除compound-refresh修改之外的其他未提交的更改
-3.最近提交消息以匹配存储库的提交风格
+After all actions are executed and the report is generated, handle committing the changes. Skip this phase if no files were modified (all Keep, or all writes failed).
 
-### 自动修复模式
+### Detect git context
 
-使用合理的默认值——无需用户询问：
+Before offering options, check:
+1. Which branch is currently checked out (main/master vs feature branch)
+2. Whether the working tree has other uncommitted changes beyond what compound-refresh modified
+3. Recent commit messages to match the repo's commit style
 
-|背景 |默认操作 |
-|--------|----------------|
-|关于主/主 |创建一个以刷新内容命名的分支（例如，`docs/refresh-auth-and-ci-learnings`），提交，尝试打开 PR。如果 PR 创建失败，请报告分支名称。 |
-|在功能分支上 |在当前分支上作为单独的提交提交 |
-| Git 操作失败 |在报告中包含推荐的 git 命令并继续 |
+### Autofix mode
 
-仅暂存复合刷新修改的文​​件，而不暂存工作树中的其他脏文件。
+Use sensible defaults — no user to ask:
 
-### 交互模式
+| Context | Default action |
+|---------|---------------|
+| On main/master | Create a branch named for what was refreshed (e.g., `docs/refresh-auth-and-ci-learnings`), commit, attempt to open a PR. If PR creation fails, report the branch name. |
+| On a feature branch | Commit as a separate commit on the current branch |
+| Git operations fail | Include the recommended git commands in the report and continue |
 
-首先，运行`git branch --show-current`来确定当前分支。然后根据结果提出正确的选项。无论用户选择哪个选项，都仅暂存复合刷新文件。
+Stage only the files that compound-refresh modified — not other dirty files in the working tree.
 
-**如果当前分支是 main、master 或存储库的默认分支：**1. 创建分支、提交并打开 PR（推荐）——分支名称应该特定于刷新的内容，而不是通用的（例如，`docs/refresh-auth-learnings` 而不是 `docs/compound-refresh`）
-2. 直接承诺`{current branch name}`
-3. 不要承诺——我会处理的
+### Interactive mode
 
-**如果当前分支是功能分支，则清理工作树：**
+First, run `git branch --show-current` to determine the current branch. Then present the correct options based on the result. Stage only compound-refresh files regardless of which option the user picks.
 
-1. 提交 `{current branch name}` 作为单独提交（推荐）
-2.创建单独的分支并提交
-3.不要承诺
+**If the current branch is main, master, or the repo's default branch:**
 
-**如果当前分支是功能分支，脏工作树（其他未提交的更改）：**
+1. Create a branch, commit, and open a PR (recommended) — the branch name should be specific to what was refreshed, not generic (e.g., `docs/refresh-auth-learnings` not `docs/compound-refresh`)
+2. Commit directly to `{current branch name}`
+3. Don't commit — I'll handle it
 
-1. 仅将复合刷新更改提交到 `{current branch name}`（选择性暂存 — 其他脏文件保持不变）
-2.不要承诺
+**If the current branch is a feature branch, clean working tree:**
 
-### 提交消息
+1. Commit to `{current branch name}` as a separate commit (recommended)
+2. Create a separate branch and commit
+3. Don't commit
 
-编写一条描述性提交消息：
-- 总结更新的内容（例如，“更新 3 个陈旧的学习内容，合并 2 个重叠的文档，删除 1 个过时的文档”）
-- 遵循存储库现有的提交约定（检查最近的 git 日志的风格）
-- 简洁 - 详细信息位于更改的文件本身中
+**If the current branch is a feature branch, dirty working tree (other uncommitted changes):**
 
-## 与spec:compound的关系
+1. Commit only the compound-refresh changes to `{current branch name}` (selective staging — other dirty files stay untouched)
+2. Don't commit
 
-- `spec:compound` 捕获一个新解决的、已验证的问题
-- `spec:compound-refresh` 随着代码库的发展保留了旧的知识——它们的个体准确性和作为文档集的集体设计
+### Commit message
 
-仅当刷新过程有足够的真实证据来编写值得信赖的后继者时才使用**替换**。当证据不足时，标记为过时，并在用户下次遇到该问题区域时推荐 `spec:compound`。当文档集有机增长并且冗余逐渐出现时，主动使用 **Consolidate**。每次 `spec:compound` 调用都会添加一个新文档 - 随着时间的推移，多个文档可能会从略有不同的角度涵盖相同的问题。定期合并可以保持文档集的精简和权威。
+Write a descriptive commit message that:
+- Summarizes what was refreshed (e.g., "update 3 stale learnings, consolidate 2 overlapping docs, delete 1 obsolete doc")
+- Follows the repo's existing commit conventions (check recent git log for style)
+- Is succinct — the details are in the changed files themselves
+
+## Relationship to spec:compound
+
+- `spec:compound` captures a newly solved, verified problem
+- `spec:compound-refresh` maintains older learnings as the codebase evolves — both their individual accuracy and their collective design as a document set
+
+Use **Replace** only when the refresh process has enough real evidence to write a trustworthy successor. When evidence is insufficient, mark as stale and recommend `spec:compound` for when the user next encounters that problem area.
+
+Use **Consolidate** proactively when the document set has grown organically and redundancy has crept in. Every `spec:compound` invocation adds a new doc — over time, multiple docs may cover the same problem from slightly different angles. Periodic consolidation keeps the document set lean and authoritative.
+
+## Discoverability Check
+
+After the refresh report is generated, check whether the project's instruction files would lead an agent to discover and search `docs/solutions/` before starting work in a documented area. This runs every time — the knowledge store only compounds value when agents can find it. If this check produces edits, they are committed as part of, or immediately after, the Phase 5 commit flow.
+
+1. Identify which root-level instruction files exist (`AGENTS.md`, `CLAUDE.md`, or both). Read the file(s) and determine which holds the substantive content — one file may just be a shim that `@`-includes the other. The substantive file is the assessment and edit target; ignore shims. If neither file exists, skip this check entirely.
+2. Assess whether an agent reading the instruction files would learn three things:
+   - That a searchable knowledge store of documented solutions exists
+   - Enough about its structure to search effectively (category organization, YAML frontmatter fields like `module`, `tags`, `problem_type`)
+   - When to search it (before implementing features, debugging issues, or making decisions in documented areas)
+
+   This is a semantic assessment, not a string match. The information could be a line in an architecture section, a bullet in a gotchas section, spread across multiple places, or expressed without ever using the exact path `docs/solutions/`. Use judgment — if an agent would reasonably discover and use the knowledge store after reading the file, the check passes.
+
+3. If the spirit is already met, no action needed.
+4. If not:
+   a. Based on the file's existing structure, tone, and density, identify where a mention fits naturally. Before creating a new section, check whether the information could be a single line in the closest related section — an architecture tree, a directory listing, a documentation section, or a conventions block. A line added to an existing section is almost always better than a new headed section. Only add a new section as a last resort when the file has clear sectioned structure and nothing is even remotely related.
+   b. Draft the smallest addition that communicates the three things. Match the file's existing style and density. The addition should describe the knowledge store itself, not the workflow.
+
+      Keep the tone informational, not imperative. Express timing as description, not instruction — "relevant when implementing or debugging in documented areas" rather than "check before implementing or debugging." The goal is awareness: agents learn the folder exists and what's in it, then use their own judgment about when to consult it.
+
+      Examples of calibration (not templates — adapt to the file):
+
+      When there's an existing directory listing or architecture section — add a line:
+      ```
+      docs/solutions/  # documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (module, tags, problem_type)
+      ```
+
+      When nothing in the file is a natural fit — a small headed section is appropriate:
+      ```
+      ## Documented Solutions
+
+      `docs/solutions/` — documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`). Relevant when implementing or debugging in documented areas.
+      ```
+   c. In interactive mode, explain why this matters, show the proposed change, and get consent before editing the instruction file. In autofix mode, include it as a "Discoverability recommendation" line in the report — do not attempt to edit instruction files.
+
+5. **Amend or create a follow-up commit when the check produces edits.** If step 4 resulted in an edit to an instruction file and Phase 5 already committed the refresh changes, stage the newly edited file and either amend the existing commit (if still on the same branch and no push has occurred) or create a small follow-up commit (for example, `docs: add docs/solutions discoverability to AGENTS.md`). If Phase 5 already pushed the branch to a remote, push the follow-up commit as well so the remote stays in sync. If the user chose "Don't commit" in Phase 5, leave the instruction-file edit unstaged alongside the other uncommitted refresh changes.

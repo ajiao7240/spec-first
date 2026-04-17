@@ -1,31 +1,31 @@
-# 差异范围规则
+# Diff Scope Rules
 
-这些规则适用于每个审稿人。他们定义什么是“要审查的代码”与预先存在的上下文。
+These rules apply to every reviewer. They define what is "your code to review" versus pre-existing context.
 
-## 范围发现
+## Scope Discovery
 
-使用此优先级顺序确定要查看的差异：
+Determine the diff to review using this priority order:
 
-1. **用户指定的范围。** 如果调用者传递了 `BASE:`、`FILES:` 或 `DIFF:` 标记，请准确使用该范围。
-2. **工作副本更改。** 如果存在未暂存或已暂存的更改（`git diff HEAD` 非空），请查看这些更改。
-3. **未推送的提交与基础分支。** 如果工作副本是干净的，请查看 `git diff $(git merge-base HEAD <base>)..HEAD`，其中 `<base>` 是默认分支（主分支或主分支）。
+1. **User-specified scope.** If the caller passed `BASE:`, `FILES:`, or `DIFF:` markers, use that scope exactly.
+2. **Working copy changes.** If there are unstaged or staged changes (`git diff HEAD` is non-empty), review those.
+3. **Unpushed commits vs base branch.** If the working copy is clean, review `git diff $(git merge-base HEAD <base>)..HEAD` where `<base>` is the default branch (main or master).
 
-SKILL.md 中的范围步骤处理发现并向您传递已解析的差异。您不需要自己运行 git 命令。
+The scope step in the SKILL.md handles discovery and passes you the resolved diff. You do not need to run git commands yourself.
 
-## 查找分类层
+## Finding Classification Tiers
 
-您报告的每个发现根据其与差异的关系分为三个级别之一：
+Every finding you report falls into one of three tiers based on its relationship to the diff:
 
-### 初级（直接改代码）
+### Primary (directly changed code)
 
-在 diff 中添加或修改的行。这是你的主要关注点。完全保密地报告这些方面的发现。
+Lines added or modified in the diff. This is your main focus. Report findings against these lines at full confidence.
 
-### 次要（紧邻代码）
+### Secondary (immediately surrounding code)
 
-与已更改的行相同的函数、方法或块中的未更改代码。如果更改引入了只有通过阅读周围上下文才能看到的错误，请报告它 - 但请注意，该问题存在于新代码和现有代码之间的交互中。
+Unchanged code within the same function, method, or block as a changed line. If a change introduces a bug that's only visible by reading the surrounding context, report it -- but note that the issue exists in the interaction between new and existing code.
 
-### 预先存在的（与此差异无关）
+### Pre-existing (unrelated to this diff)
 
-未更改的代码中存在差异未触及且不与之交互的问题。在输出中将它们标记为 `"pre_existing": true`。它们是单独报告的，不计入审查结论。
+Issues in unchanged code that the diff didn't touch and doesn't interact with. Mark these as `"pre_existing": true` in your output. They're reported separately and don't count toward the review verdict.
 
-**规则：** 如果您在不包含周围文件的相同差异上标记相同的问题，则该问题是预先存在的。如果差异使问题变得*新相关*（例如，新的调用者遇到了现有的有缺陷的函数），那么它就是次要的。
+**The rule:** If you'd flag the same issue on an identical diff that didn't include the surrounding file, it's pre-existing. If the diff makes the issue *newly relevant* (e.g., a new caller hits an existing buggy function), it's secondary.

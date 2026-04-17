@@ -1,33 +1,35 @@
 ---
 name: gemini-imagegen
-description: 使用 Gemini API (Nano Banana Pro) 生成和编辑图像时应使用此技能。它适用于从文本提示创建图像、编辑现有图像、应用样式转换、用文本生成徽标、创建贴纸、产品模型或任何图像生成/操作任务。支持文本转图像、图像编辑、多轮细化以及多个参考图像的合成。
+description: This skill should be used when generating and editing images using the Gemini API (Nano Banana Pro). It applies when creating images from text prompts, editing existing images, applying style transfers, generating logos with text, creating stickers, product mockups, or any image generation/manipulation task. Supports text-to-image, image editing, multi-turn refinement, and composition from multiple reference images.
 ---
-# Gemini 图像生成 (Nano Banana Pro)
 
-使用 Google 的 Gemini API 生成和编辑图像。必须设置环境变量`GEMINI_API_KEY`。
+# Gemini Image Generation (Nano Banana Pro)
 
-## 默认模型
+Generate and edit images using Google's Gemini API. The environment variable `GEMINI_API_KEY` must be set.
 
-|型号|分辨率|最适合 |
-|--------|------------|----------|
-| `gemini-3-pro-image-preview` | 1K-4K |所有图像生成（默认）|
+## Default Model
 
-**注意：** 始终使用此 Pro 型号。仅在明确要求时才使用不同的模型。
+| Model | Resolution | Best For |
+|-------|------------|----------|
+| `gemini-3-pro-image-preview` | 1K-4K | All image generation (default) |
 
-## 快速参考
+**Note:** Always use this Pro model. Only use a different model if explicitly requested.
 
-### 默认设置
-- **型号：** `gemini-3-pro-image-preview`
-- **分辨率：** 1K（默认，选项：1K、2K、4K）
-- **纵横比：** 1:1（默认）
+## Quick Reference
 
-### 可用的宽高比
-`1:1`、`2:3`、`3:2`、`3:4`、`4:3`、`4:5`、`5:4`、`9:16`、`16:9`、`21:9`
+### Default Settings
+- **Model:** `gemini-3-pro-image-preview`
+- **Resolution:** 1K (default, options: 1K, 2K, 4K)
+- **Aspect Ratio:** 1:1 (default)
 
-### 可用分辨率
-`1K`（默认）、`2K`、`4K`
+### Available Aspect Ratios
+`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9`
 
-## 核心 API 模式
+### Available Resolutions
+`1K` (default), `2K`, `4K`
+
+## Core API Pattern
+
 ```python
 import os
 from google import genai
@@ -51,7 +53,9 @@ for part in response.parts:
         image = part.as_image()
         image.save("output.png")
 ```
-## 自定义分辨率和宽高比
+
+## Custom Resolution & Aspect Ratio
+
 ```python
 from google.genai import types
 
@@ -67,7 +71,9 @@ response = client.models.generate_content(
     )
 )
 ```
-### 分辨率示例
+
+### Resolution Examples
+
 ```python
 # 1K (default) - Fast, good for previews
 image_config=types.ImageConfig(image_size="1K")
@@ -78,7 +84,9 @@ image_config=types.ImageConfig(image_size="2K")
 # 4K - Maximum quality, slower
 image_config=types.ImageConfig(image_size="4K")
 ```
-### 纵横比示例
+
+### Aspect Ratio Examples
+
 ```python
 # Square (default)
 image_config=types.ImageConfig(aspect_ratio="1:1")
@@ -95,9 +103,11 @@ image_config=types.ImageConfig(aspect_ratio="9:16")
 # Photo standard
 image_config=types.ImageConfig(aspect_ratio="4:3")
 ```
-## 编辑图像
 
-传递带有文本提示的现有图像：
+## Editing Images
+
+Pass existing images with text prompts:
+
 ```python
 from PIL import Image
 
@@ -110,9 +120,11 @@ response = client.models.generate_content(
     ),
 )
 ```
-## 多轮细化
 
-使用聊天进行迭代编辑：
+## Multi-Turn Refinement
+
+Use chat for iterative editing:
+
 ```python
 from google.genai import types
 
@@ -127,28 +139,30 @@ response = chat.send_message("Create a logo for 'Acme Corp'")
 response = chat.send_message("Make the text bolder and add a blue gradient")
 # Save refined image...
 ```
-## 提示最佳实践
 
-### 逼真的场景
-包括相机详细信息：镜头类型、灯光、角度、情绪。
-> “逼真的特写肖像，85mm 镜头，柔和的黄金时段光线，浅景深”
+## Prompting Best Practices
 
-### 风格化艺术
-明确指定样式：
-> “卡哇伊风格的快乐小熊猫贴纸，粗体轮廓，卡通阴影，白色背景”
+### Photorealistic Scenes
+Include camera details: lens type, lighting, angle, mood.
+> "A photorealistic close-up portrait, 85mm lens, soft golden hour light, shallow depth of field"
 
-### 图像中的文本
-明确字体样式和位置：
-> “使用干净的无衬线、黑白、咖啡豆图案的文本‘Daily Grind’创建徽标”
+### Stylized Art
+Specify style explicitly:
+> "A kawaii-style sticker of a happy red panda, bold outlines, cel-shading, white background"
 
-### 产品模型
-描述照明设置和表面：
-> “工作室照明的抛光混凝土产品照片，三点柔光箱设置，45 度角”
+### Text in Images
+Be explicit about font style and placement:
+> "Create a logo with text 'Daily Grind' in clean sans-serif, black and white, coffee bean motif"
 
-## 高级功能
+### Product Mockups
+Describe lighting setup and surface:
+> "Studio-lit product photo on polished concrete, three-point softbox setup, 45-degree angle"
 
-### Google 搜索基础
-根据实时数据生成图像：
+## Advanced Features
+
+### Google Search Grounding
+Generate images based on real-time data:
+
 ```python
 response = client.models.generate_content(
     model="gemini-3-pro-image-preview",
@@ -159,8 +173,10 @@ response = client.models.generate_content(
     )
 )
 ```
-### 多个参考图像（最多 14 个）
-组合来自多个来源的元素：
+
+### Multiple Reference Images (Up to 14)
+Combine elements from multiple sources:
+
 ```python
 response = client.models.generate_content(
     model="gemini-3-pro-image-preview",
@@ -175,9 +191,11 @@ response = client.models.generate_content(
     ),
 )
 ```
-## 重要提示：文件格式和媒体类型
 
-**关键：** Gemini API 默认返回 JPEG 格式的图像。保存时，请始终使用 `.jpg` 扩展名，以避免媒体类型不匹配。
+## Important: File Format & Media Type
+
+**CRITICAL:** The Gemini API returns images in JPEG format by default. When saving, always use `.jpg` extension to avoid media type mismatches.
+
 ```python
 # CORRECT - Use .jpg extension (Gemini returns JPEG)
 image.save("output.jpg")
@@ -185,9 +203,11 @@ image.save("output.jpg")
 # WRONG - Will cause "Image does not match media type" errors
 image.save("output.png")  # Creates JPEG with PNG extension!
 ```
-### 转换为 PNG（如果需要）
 
-如果您特别需要 PNG 格式：
+### Converting to PNG (if needed)
+
+If you specifically need PNG format:
+
 ```python
 from PIL import Image
 
@@ -198,17 +218,20 @@ for part in response.parts:
         # Convert to PNG by saving with explicit format
         img.save("output.png", format="PNG")
 ```
-### 验证图像格式
 
-使用 `file` 命令检查实际格式与扩展名：
+### Verifying Image Format
+
+Check actual format vs extension with the `file` command:
+
 ```bash
 file image.png
 # If output shows "JPEG image data" - rename to .jpg!
 ```
-## 注释
 
-- 所有生成的图像都包含 SynthID 水印
-- Gemini 返回 **默认 JPEG 格式** - 始终使用 `.jpg` 扩展名
-- 仅图像模式 (`responseModalities: ["IMAGE"]`) 不适用于 Google 搜索接地
-- 对于编辑，以对话方式描述更改 - 模型理解语义屏蔽
-- 默认为 1K 分辨率以提高速度；当质量至关重要时使用 2K/4K
+## Notes
+
+- All generated images include SynthID watermarks
+- Gemini returns **JPEG format by default** - always use `.jpg` extension
+- Image-only mode (`responseModalities: ["IMAGE"]`) won't work with Google Search grounding
+- For editing, describe changes conversationally—the model understands semantic masking
+- Default to 1K resolution for speed; use 2K/4K when quality is critical

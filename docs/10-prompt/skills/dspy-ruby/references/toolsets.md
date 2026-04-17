@@ -1,12 +1,13 @@
-# DSPy.rb 工具集
+# DSPy.rb Toolsets
 
-## 工具::基础
+## Tools::Base
 
-`DSPy::Tools::Base` 是单一用途工具的基类。每个子类通过 `call` 方法向 LLM 代理公开一个操作。
+`DSPy::Tools::Base` is the base class for single-purpose tools. Each subclass exposes one operation to an LLM agent through a `call` method.
 
-### 定义工具
+### Defining a Tool
 
-使用 `tool_name` 和 `tool_description` 类级 DSL 方法设置工具的标识。使用 Sorbet `sig` 声明定义 `call` 实例方法，以便 DSPy.rb 可以生成 LLM 用于调用该工具的 JSON 模式。
+Set the tool's identity with the `tool_name` and `tool_description` class-level DSL methods. Define the `call` instance method with a Sorbet `sig` declaration so DSPy.rb can generate the JSON schema the LLM uses to invoke the tool.
+
 ```ruby
 class WeatherLookup < DSPy::Tools::Base
   extend T::Sig
@@ -21,17 +22,19 @@ class WeatherLookup < DSPy::Tools::Base
   end
 end
 ```
-要点：
 
-- 继承自`DSPy::Tools::Base`，而不是`DSPy::Tool`。
-- 使用`tool_name`（类方法）设置LLM看到的名称。如果没有它，类名将小写作为后备。
-- 使用`tool_description`（类方法）设置工具模式中显示的人类可读的描述。
-- `call` 方法必须使用 **关键字参数**。支持位置参数，但关键字参数会产生更好的模式。
-- 始终将冰糕 `sig` 连接到 `call`。如果没有签名，生成的模式具有空属性，并且 LLM 无法确定参数类型。
+Key points:
 
-### 模式生成
+- Inherit from `DSPy::Tools::Base`, not `DSPy::Tool`.
+- Use `tool_name` (class method) to set the name the LLM sees. Without it, the class name is lowercased as a fallback.
+- Use `tool_description` (class method) to set the human-readable description surfaced in the tool schema.
+- The `call` method must use **keyword arguments**. Positional arguments are supported but keyword arguments produce better schemas.
+- Always attach a Sorbet `sig` to `call`. Without a signature, the generated schema has empty properties and the LLM cannot determine parameter types.
 
-`call_schema_object` 内省 `call` 上的 Sorbet 签名并返回表示 JSON 模式 `parameters` 对象的哈希值：
+### Schema Generation
+
+`call_schema_object` introspects the Sorbet signature on `call` and returns a hash representing the JSON Schema `parameters` object:
+
 ```ruby
 WeatherLookup.call_schema_object
 # => {
@@ -43,7 +46,9 @@ WeatherLookup.call_schema_object
 #   required: ["city"]
 # }
 ```
-`call_schema` 将其包装在完整的 LLM 工具调用格式中：
+
+`call_schema` wraps this in the full LLM tool-calling format:
+
 ```ruby
 WeatherLookup.call_schema
 # => {
@@ -55,9 +60,11 @@ WeatherLookup.call_schema
 #   }
 # }
 ```
-### 将工具与 ReAct 一起使用
 
-将数组中的工具实例传递给 `DSPy::ReAct`：
+### Using Tools with ReAct
+
+Pass tool instances in an array to `DSPy::ReAct`:
+
 ```ruby
 agent = DSPy::ReAct.new(
   MySignature,
@@ -67,15 +74,17 @@ agent = DSPy::ReAct.new(
 result = agent.call(question: "What is the weather in Berlin?")
 puts result.answer
 ```
-使用点表示法 (`result.answer`) 访问输出字段，而不是散列访问 (`result[:answer]`)。
+
+Access output fields with dot notation (`result.answer`), not hash access (`result[:answer]`).
 
 ---
 
-## 工具::工具集
+## Tools::Toolset
 
-`DSPy::Tools::Toolset` 将多个相关方法分组到一个类中。从法学硕士的角度来看，每个公开的方法都成为一个独立的工具。
+`DSPy::Tools::Toolset` groups multiple related methods into a single class. Each exposed method becomes an independent tool from the LLM's perspective.
 
-### 定义工具集
+### Defining a Toolset
+
 ```ruby
 class DatabaseToolset < DSPy::Tools::Toolset
   extend T::Sig
@@ -102,36 +111,44 @@ class DatabaseToolset < DSPy::Tools::Toolset
   end
 end
 ```
-### DSL 方法
 
-**`toolset_name(name)`** -- 设置所有生成的工具名称的前缀。如果省略，则类名减去 `Toolset` 后缀将小写（例如，`DatabaseToolset` 变为 `database`）。
+### DSL Methods
+
+**`toolset_name(name)`** -- Set the prefix for all generated tool names. If omitted, the class name minus `Toolset` suffix is lowercased (e.g., `DatabaseToolset` becomes `database`).
+
 ```ruby
 toolset_name "db"
 # tool :query produces a tool named "db_query"
 ```
-**`tool(method_name, tool_name:, description:)`** -- 将方法公开为工具。
 
-- `method_name`（符号，必需）--要公开的实例方法。
-- `tool_name:`（字符串，可选）--覆盖默认的 `<toolset_name>_<method_name>` 命名。
-- `description:`（字符串，可选）--向法学硕士显示的描述。默认为方法名称的人性化版本。
+**`tool(method_name, tool_name:, description:)`** -- Expose a method as a tool.
+
+- `method_name` (Symbol, required) -- the instance method to expose.
+- `tool_name:` (String, optional) -- override the default `<toolset_name>_<method_name>` naming.
+- `description:` (String, optional) -- description shown to the LLM. Defaults to a humanized version of the method name.
+
 ```ruby
 tool :word_count, tool_name: "text_wc", description: "Count lines, words, and characters"
 # Produces a tool named "text_wc" instead of "text_word_count"
 ```
-### 转换为工具数组
 
-在类（不是实例）上调用 `to_tools` 来获取与 `DSPy::Tools::Base` 兼容的 `ToolProxy` 对象数组：
+### Converting to a Tool Array
+
+Call `to_tools` on the class (not an instance) to get an array of `ToolProxy` objects compatible with `DSPy::Tools::Base`:
+
 ```ruby
 agent = DSPy::ReAct.new(
   AnalyzeText,
   tools: DatabaseToolset.to_tools
 )
 ```
-每个 `ToolProxy` 包装一个方法，将 `call` 委托给底层工具集实例，并根据方法的 Sorbet 签名生成自己的 JSON 架构。
 
-### 共享状态
+Each `ToolProxy` wraps one method, delegates `call` to the underlying toolset instance, and generates its own JSON schema from the method's Sorbet signature.
 
-来自单个 `to_tools` 调用的所有工具代理共享一个工具集实例。将共享状态（连接、缓存、配置）存储在工具集的 `initialize` 中：
+### Shared State
+
+All tool proxies from a single `to_tools` call share one toolset instance. Store shared state (connections, caches, configuration) in the toolset's `initialize`:
+
 ```ruby
 class ApiToolset < DSPy::Tools::Toolset
   extend T::Sig
@@ -158,13 +175,15 @@ class ApiToolset < DSPy::Tools::Toolset
   end
 end
 ```
+
 ---
 
-## 类型安全
+## Type Safety
 
-工具方法上的 Sorbet 签名驱动 JSON 模式生成和 LLM 响应的自动类型强制。
+Sorbet signatures on tool methods drive both JSON schema generation and automatic type coercion of LLM responses.
 
-### 基本类型
+### Basic Types
+
 ```ruby
 sig { params(
   text: String,
@@ -177,24 +196,26 @@ def analyze(text:, count:, score:, enabled:, threshold:)
   # ...
 end
 ```
-|冰糕类型| JSON 架构 |
-|------------------|----------------------------------------------------------------|
-| `String` | `{"type": "string"}` |
-| `Integer` | `{"type": "integer"}` |
-| `Float` | `{"type": "number"}` |
-| `Numeric` | `{"type": "number"}` |
-| `T::Boolean` | `{"type": "boolean"}` |
-| `T::Enum` | `{"type": "string", "enum": [...]}` |
-| `T::Struct` | `{"type": "object", "properties": {...}}` |
-| `T::Array[Type]` | `{"type": "array", "items": {...}}` |
-| `T::Hash[K, V]` | `{"type": "object", "additionalProperties": {...}}`|
-| `T.nilable(Type)`| `{"type": [original, "null"]}` |
-| `T.any(T1, T2)` | `{"oneOf": [{...}, {...}]}` |
-| `T.class_of(X)` | `{"type": "string"}` |
 
-### T::Enum 参数
+| Sorbet Type      | JSON Schema                                        |
+|------------------|----------------------------------------------------|
+| `String`         | `{"type": "string"}`                               |
+| `Integer`        | `{"type": "integer"}`                              |
+| `Float`          | `{"type": "number"}`                               |
+| `Numeric`        | `{"type": "number"}`                               |
+| `T::Boolean`     | `{"type": "boolean"}`                              |
+| `T::Enum`        | `{"type": "string", "enum": [...]}`                |
+| `T::Struct`      | `{"type": "object", "properties": {...}}`          |
+| `T::Array[Type]` | `{"type": "array", "items": {...}}`                |
+| `T::Hash[K, V]`  | `{"type": "object", "additionalProperties": {...}}`|
+| `T.nilable(Type)`| `{"type": [original, "null"]}`                     |
+| `T.any(T1, T2)`  | `{"oneOf": [{...}, {...}]}`                        |
+| `T.class_of(X)`  | `{"type": "string"}`                               |
 
-定义 `T::Enum` 并在工具签名中引用它。 DSPy.rb 生成 JSON 模式 `enum` 约束并自动将 LLM 的字符串响应反序列化为正确的枚举实例。
+### T::Enum Parameters
+
+Define a `T::Enum` and reference it in a tool signature. DSPy.rb generates a JSON Schema `enum` constraint and automatically deserializes the LLM's string response into the correct enum instance.
+
 ```ruby
 class Priority < T::Enum
   enums do
@@ -218,7 +239,9 @@ def update_task(priority:, status:)
   "Updated to #{priority.serialize} / #{status.serialize}"
 end
 ```
-生成的模式将参数限制为有效值：
+
+The generated schema constrains the parameter to valid values:
+
 ```json
 {
   "priority": {
@@ -227,11 +250,13 @@ end
   }
 }
 ```
-**不区分大小写的匹配**：当 LLM 返回 `"HIGH"` 或 `"High"` 而不是 `"high"` 时，DSPy.rb 首先尝试精确的 `try_deserialize`，然后回退到不区分大小写的查找。这可以防止因 LLM 外壳变化而导致的故障。
 
-### T::结构参数
+**Case-insensitive matching**: When the LLM returns `"HIGH"` or `"High"` instead of `"high"`, DSPy.rb first tries an exact `try_deserialize`, then falls back to a case-insensitive lookup. This prevents failures caused by LLM casing variations.
 
-对于复杂的嵌套对象，请使用 `T::Struct`。 DSPy.rb 生成嵌套的 JSON 模式属性，并递归地将 LLM 的哈希响应强制转换为结构实例。
+### T::Struct Parameters
+
+Use `T::Struct` for complex nested objects. DSPy.rb generates nested JSON Schema properties and recursively coerces the LLM's hash response into struct instances.
+
 ```ruby
 class TaskMetadata < T::Struct
   prop :id, String
@@ -253,11 +278,13 @@ def create_task(task:)
   "Created: #{task.title} (#{task.status.serialize})"
 end
 ```
-LLM 可查看完整的嵌套对象模式，DSPy.rb 根据 JSON 响应重建结构树，包括嵌套结构内的枚举字段。
 
-### 可空参数
+The LLM sees the full nested object schema and DSPy.rb reconstructs the struct tree from the JSON response, including enum fields inside nested structs.
 
-用 `T.nilable(...)` 标记可选参数，并在方法签名中提供默认值 `nil`。这些参数不包含在 JSON 架构 `required` 数组中。
+### Nilable Parameters
+
+Mark optional parameters with `T.nilable(...)` and provide a default value of `nil` in the method signature. These parameters are excluded from the JSON Schema `required` array.
+
 ```ruby
 sig { params(
   query: String,
@@ -268,9 +295,11 @@ def search(query:, max_results: nil, filter: nil)
   # query is required; max_results and filter are optional
 end
 ```
-### 收藏
 
-类型化数组和哈希生成精确的项/值模式：
+### Collections
+
+Typed arrays and hashes generate precise item/value schemas:
+
 ```ruby
 sig { params(
   tags: T::Array[String],
@@ -281,35 +310,39 @@ def configure(tags:, priorities:, config:)
   # Array elements and hash values are validated and coerced
 end
 ```
-### 联合类型
 
-`T.any(...)` 生成 `oneOf` JSON 架构。当联合成员之一是 `T::Struct` 时，DSPy.rb 在强制转换期间使用 `_type` 鉴别器字段来选择正确的结构类。
+### Union Types
+
+`T.any(...)` generates a `oneOf` JSON Schema. When one of the union members is a `T::Struct`, DSPy.rb uses the `_type` discriminator field to select the correct struct class during coercion.
+
 ```ruby
 sig { params(value: T.any(String, Integer, Float)).returns(String) }
 def handle_flexible(value:)
   # Accepts multiple types
 end
 ```
+
 ---
 
-## 内置工具集
+## Built-in Toolsets
 
-### 文本处理工具集
+### TextProcessingToolset
 
-`DSPy::Tools::TextProcessingToolset` 提供 Unix 风格的文本分析和操作操作。工具集名称前缀：`text`。
+`DSPy::Tools::TextProcessingToolset` provides Unix-style text analysis and manipulation operations. Toolset name prefix: `text`.
 
-|工具名称|方法|描述 |
-|------------------------------------------------|--------------------------------|--------------------------------------------------------|
-| `text_grep` | `grep` |使用可选的不区分大小写和仅计数模式搜索模式 |
-| `text_wc` | `word_count` |计算行数、单词数和字符数 |
-| `text_rg` | `ripgrep` |使用上下文线进行快速模式搜索 |
-| `text_extract_lines` | `extract_lines` |按编号提取一系列行 |
-| `text_filter_lines` | `filter_lines` |保留或拒绝与正则表达式匹配的行 |
-| `text_unique_lines` | `unique_lines` |删除重复行，可选择保留顺序 |
-| `text_sort_lines` | `sort_lines` |按字母或数字对行进行排序 |
-| `text_summarize_text` | `summarize_text` |生成统计摘要（计数、平均值、常用词）|
+| Tool Name                         | Method            | Description                                |
+|-----------------------------------|-------------------|--------------------------------------------|
+| `text_grep`                       | `grep`            | Search for patterns with optional case-insensitive and count-only modes |
+| `text_wc`                         | `word_count`      | Count lines, words, and characters         |
+| `text_rg`                         | `ripgrep`         | Fast pattern search with context lines     |
+| `text_extract_lines`              | `extract_lines`   | Extract a range of lines by number         |
+| `text_filter_lines`               | `filter_lines`    | Keep or reject lines matching a regex      |
+| `text_unique_lines`               | `unique_lines`    | Deduplicate lines, optionally preserving order |
+| `text_sort_lines`                 | `sort_lines`      | Sort lines alphabetically or numerically   |
+| `text_summarize_text`             | `summarize_text`  | Produce a statistical summary (counts, averages, frequent words) |
 
-用法：
+Usage:
+
 ```ruby
 agent = DSPy::ReAct.new(
   AnalyzeText,
@@ -319,34 +352,38 @@ agent = DSPy::ReAct.new(
 result = agent.call(text: log_contents, question: "How many error lines are there?")
 puts result.answer
 ```
-### GitHubCLI工具集
 
-`DSPy::Tools::GitHubCLIToolset` 包装 `gh` CLI 以进行面向读取的 GitHub 操作。工具集名称前缀：`github`。
+### GitHubCLIToolset
 
-|工具名称|方法|描述 |
-|------------------------------------|--------------------------------|----------------------------------------------------------------|
-| `github_list_issues` | `list_issues` |列出按状态、标签、受让人过滤的问题 |
-| `github_list_prs` | `list_prs` |列出按状态、作者、基础过滤的拉取请求|
-| `github_get_issue` | `get_issue` |检索单个问题的详细信息 |
-| `github_get_pr` | `get_pr` |检索单个拉取请求的详细信息 |
-| `github_api_request` | `api_request` |向 GitHub API 发出任意 GET 请求 |
-| `github_traffic_views` | `traffic_views` |获取存储库流量查看计数 |
-| `github_traffic_clones`| `traffic_clones` |获取存储库流量克隆计数 |
+`DSPy::Tools::GitHubCLIToolset` wraps the `gh` CLI for read-oriented GitHub operations. Toolset name prefix: `github`.
 
-该工具集使用 `T::Enum` 参数（`IssueState`、`PRState`、`ReviewState` 进行状态过滤器，在实践中演示基于枚举的工具签名。
+| Tool Name              | Method            | Description                                       |
+|------------------------|-------------------|---------------------------------------------------|
+| `github_list_issues`   | `list_issues`     | List issues filtered by state, labels, assignee   |
+| `github_list_prs`      | `list_prs`        | List pull requests filtered by state, author, base|
+| `github_get_issue`     | `get_issue`       | Retrieve details of a single issue                |
+| `github_get_pr`        | `get_pr`          | Retrieve details of a single pull request         |
+| `github_api_request`   | `api_request`     | Make an arbitrary GET request to the GitHub API    |
+| `github_traffic_views` | `traffic_views`   | Fetch repository traffic view counts              |
+| `github_traffic_clones`| `traffic_clones`  | Fetch repository traffic clone counts             |
+
+This toolset uses `T::Enum` parameters (`IssueState`, `PRState`, `ReviewState`) for state filters, demonstrating enum-based tool signatures in practice.
+
 ```ruby
 agent = DSPy::ReAct.new(
   RepoAnalysis,
   tools: DSPy::Tools::GitHubCLIToolset.to_tools
 )
 ```
+
 ---
 
-## 测试
+## Testing
 
-### 单元测试单个工具
+### Unit Testing Individual Tools
 
-通过直接实例化和调用 `call` 来测试 `DSPy::Tools::Base` 子类：
+Test `DSPy::Tools::Base` subclasses by instantiating and calling `call` directly:
+
 ```ruby
 RSpec.describe WeatherLookup do
   subject(:tool) { described_class.new }
@@ -367,9 +404,11 @@ RSpec.describe WeatherLookup do
   end
 end
 ```
-### 单元测试工具集
 
-直接在实例上测试工具集方法。使用 `to_tools` 验证工具生成：
+### Unit Testing Toolsets
+
+Test toolset methods directly on an instance. Verify tool generation with `to_tools`:
+
 ```ruby
 RSpec.describe DatabaseToolset do
   subject(:toolset) { described_class.new }
@@ -392,9 +431,11 @@ RSpec.describe DatabaseToolset do
   end
 end
 ```
-### 模拟工具内部的预测
 
-当工具在内部调用 DSPy 预测器时，对预测器进行存根以将工具逻辑与 LLM 调用隔离：
+### Mocking Predictions Inside Tools
+
+When a tool calls a DSPy predictor internally, stub the predictor to isolate tool logic from LLM calls:
+
 ```ruby
 class SmartSearchTool < DSPy::Tools::Base
   extend T::Sig
@@ -435,9 +476,11 @@ RSpec.describe SmartSearchTool do
   end
 end
 ```
-### 测试枚举强制
 
-验证 LLM 响应中的字符串值是否反序列化为正确的枚举实例：
+### Testing Enum Coercion
+
+Verify that string values from LLM responses deserialize into the correct enum instances:
+
 ```ruby
 RSpec.describe "enum coercion" do
   it "handles case-insensitive enum values" do
@@ -448,11 +491,12 @@ RSpec.describe "enum coercion" do
   end
 end
 ```
+
 ---
 
-## 约束条件
+## Constraints
 
-- 所有公开的工具方法必须使用**关键字参数**。仅位置参数生成模式，但关键字参数生成更可靠的 LLM 交互。
-- 每个公开的方法都成为**单独的、独立的工具**。不支持单个工具调用中的方法链接或多步骤序列。
-- 工具代理之间的共享状态仅限于单个 `to_tools` 调用。单独的 `to_tools` 调用创建单独的工具集实例。
-- 没有 Sorbet `sig` 的方法会产生空参数模式。法学硕士不知道要通过什么论据。
+- All exposed tool methods must use **keyword arguments**. Positional-only parameters generate schemas but keyword arguments produce more reliable LLM interactions.
+- Each exposed method becomes a **separate, independent tool**. Method chaining or multi-step sequences within a single tool call are not supported.
+- Shared state across tool proxies is scoped to a single `to_tools` call. Separate `to_tools` invocations create separate toolset instances.
+- Methods without a Sorbet `sig` produce an empty parameter schema. The LLM will not know what arguments to pass.
