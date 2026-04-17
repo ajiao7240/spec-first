@@ -177,6 +177,15 @@ resolveStage0Entry({
 }
 ```
 
+补充约束：
+
+1. `workspace-registry.json` 的查找不能假设当前目录就是 `workspaceRoot`
+2. `entry-resolver` 应从 `target || cwd` 开始，按祖先目录逐级向上探测
+3. 对每个候选目录 `candidateDir`，检查：
+   - `<candidateDir>/.spec-first/workflows/bootstrap/<basename(candidateDir)>/workspace-registry.json`
+4. 首个命中的候选目录即视为 `workspaceRoot`
+5. 若 registry 文件存在但 JSON 解析失败、缺少关键字段或 `schema_version` 不支持，必须锁定该候选目录并进入 workspace degrade 路径，禁止继续向上搜索或直接掉回单仓 fallback
+
 ### 6.2 固定入口优先级
 
 入口优先级必须写死，禁止各模块各自猜测：
@@ -370,6 +379,31 @@ workspace mode 需要新增以下字段：
 - workspace 运行时的 telemetry 有唯一归属目录
 - 后续回放与问题排查能以 workspace 级 run 为单位查看
 
+### 6.8 workspace degrade matrix
+
+workspace mode 不允许在实现时临场发明 fallback 语义。本方案要求沿用现有 `L0-L3` 严重度，并固化如下矩阵：
+
+| 场景 | 建议 level | fallback_reason | 结果 |
+|---|---|---|---|
+| `single-repo` 正常 | `L0` | `null` | 继续沿用当前 evaluator 结果 |
+| workspace registry 正常，child 选择正常 | `L0` | `null` | 返回 workspace overview + child contexts |
+| workspace registry 存在，但 JSON 损坏或缺少关键字段 | `L2` | `workspace_registry_invalid` | 若 workspace overview 可用则只返回 overview，否则走现有 Level 3 降级 |
+| workspace registry 存在，但 `schema_version` 不支持 | `L2` | `workspace_registry_schema_unsupported` | 若 workspace overview 可用则只返回 overview，否则走现有 Level 3 降级 |
+| workspace registry 正常，但未命中 child | `L1` | `workspace_child_unresolved` | 只返回 workspace overview |
+| workspace registry 正常，但部分 child control-plane 缺失 | `L1` | `workspace_child_partial_degraded` | 返回 workspace overview + 可用 child contexts |
+| workspace registry 存在，但 `workspace-routing.json` 缺失或损坏 | `L2` | `workspace_routing_missing` | 只返回 workspace overview，禁止猜 child |
+| workspace registry 存在，但 `workspace-routing.json` 的 `schema_version` 不支持 | `L2` | `workspace_routing_schema_unsupported` | 只返回 workspace overview，禁止猜 child |
+| workspace 入口成立，但 child context 全部不可用 | `L2` | `workspace_children_unavailable` | 只返回 workspace overview |
+| 单仓入口失败且 workspace 入口也失败 | `L3` | `context_dir_missing` 或等价现有 fallback | 回到现有 Level 3 降级 |
+
+补充约束：
+
+1. workspace mode 复用现有 `L0-L3` 语义，不再平行定义第二套等级体系
+2. `review` / `plan` / `work` 的差异只体现在 stage 资产选择，不体现在 degrade level 定义
+3. 多 child 命中且部分 child degraded 时，默认保留可用 child，不因单个 child 失败直接打成 `L3`
+4. `freshness` 语义保持与现有 repo evaluator 一致：它是正交信号，不单独决定 mode 切换
+5. workspace mode 需要聚合 `selected_contexts` 的 `freshness_status`；若任一 selected context 为 `stale` 且没有更强的 contract 失败，保留当前 level，并将 `fallback_reason` 置为 `freshness_stale`
+
 ---
 
 ## 7. 实施分期
@@ -387,6 +421,7 @@ workspace mode 需要新增以下字段：
 - 改造 `workspace-loader.js`
 - 改造 `workspace-compiler.js`
 - 改造三个 skill 的 preload 文案
+- 同步 source skill / mirror / contract tests
 
 本阶段不做：
 
@@ -399,6 +434,8 @@ workspace mode 需要新增以下字段：
 - 单仓路径完全兼容
 - 已有 `workspace-registry.json` 时可不依赖 git root 进入 workspace mode
 - 支持 `single-repo / workspace-explicit / workspace-registered` 三种模式
+- workspace degrade matrix 定稿
+- source skill / mirror / tests 与实际 runtime 行为一致
 
 ### Phase 2：workspace registry 接入
 
@@ -454,6 +491,11 @@ workspace mode 需要新增以下字段：
 4. 单仓模式下 `selected_assets` 顺序完全不变
 5. workspace mode 同时返回 `selected_contexts` 与 `selected_assets`
 6. `sourceRepoRoot` 与 `artifactAnchorRoot` 分离后的路径解析正确
+7. 从非 git 的嵌套子目录启动时，ancestor lookup 能正确找到 `workspaceRoot`
+8. `workspace-registry.json` 损坏或缺少关键字段时，返回 `L2 workspace_registry_invalid`，而不是静默掉回 fallback
+9. `workspace-registry.json` 的 `schema_version` 不支持时，返回 `L2 workspace_registry_schema_unsupported`
+10. `workspace-routing.json` 的 `schema_version` 不支持时，返回 `L2 workspace_routing_schema_unsupported`
+11. workspace mode 的 freshness 聚合能在无更强错误时产出 `fallback_reason = freshness_stale`
 
 ### 8.2 集成测试
 

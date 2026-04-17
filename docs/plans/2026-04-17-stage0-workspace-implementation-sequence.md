@@ -65,6 +65,8 @@
 
 - 定义 `workspace-registry.json` schema
 - 定义 `workspace-routing.json` schema
+- 定义 `workspaceRoot` ancestor lookup 规则：从 `target || cwd` 向上逐级探测
+- 定义 registry/routing 的 `schema_version` 与不兼容降级策略
 - 写死 child 匹配信号优先级：
   - `repoRoots`
   - `targetPath`
@@ -82,6 +84,7 @@
 
 - workspace mode 可输出 `selected_contexts`
 - 仍保留兼容投影的 `selected_assets`
+- registry/routing 损坏或 schema 不兼容时，返回确定性的 workspace degrade，而不是静默掉回 directory fallback
 - 明确 repo 级选择继续委托 child evaluator
 
 此步对应来源：
@@ -91,7 +94,41 @@
 
 ---
 
-### Step 3：补 telemetry 与 workspace run 归属
+### Step 3：先落地路径模型升级
+
+目标：
+
+- 让单仓与 workspace 共享同一套 path resolver
+- 明确 `sourceRepoRoot` 与 `artifactAnchorRoot` 分离
+
+优先改动：
+
+- `src/crg/artifact-paths.js`
+- `src/bootstrap-compiler/run-bootstrap.js`
+
+必须支持：
+
+- `single-repo`：`artifactAnchorRoot = sourceRepoRoot`
+- `workspace-*`：`artifactAnchorRoot = workspaceRoot`
+
+完成标准：
+
+- child pack 可以写到 workspace 根目录
+- 单仓 pack 路径不变
+- 后续 telemetry / registry / bootstrap 都不需要各自再猜一遍输出根
+
+此步对应来源：
+
+- `auto-discover-child-git-bootstrap` 的路径锚点模型
+
+为什么必须放在 telemetry 前：
+
+- telemetry 的落盘目录依赖 `artifactAnchorRoot`
+- 如果路径模型没先定，telemetry 就会临时复制一套路径决策，后面还得返工
+
+---
+
+### Step 4：补 telemetry 与 workspace run 归属
 
 目标：
 
@@ -118,6 +155,7 @@
 - 单仓 telemetry 路径不变
 - workspace mode 有唯一归属目录
 - 不做 child repo 级 telemetry 双写
+- freshness 聚合保持与现有 repo evaluator 一致：若任一 selected context 为 `stale` 且没有更强错误，保留当前 level，并将 `fallback_reason` 置为 `freshness_stale`
 
 此步对应来源：
 
@@ -126,43 +164,12 @@
 
 ---
 
-### Step 4：再改 bootstrap 输出路径模型
-
-目标：
-
-- 让单仓与 workspace 共享同一套 path resolver
-- 明确 `sourceRepoRoot` 与 `artifactAnchorRoot` 分离
-
-优先改动：
-
-- `src/crg/artifact-paths.js`
-- `src/bootstrap-compiler/run-bootstrap.js`
-
-必须支持：
-
-- `single-repo`：`artifactAnchorRoot = sourceRepoRoot`
-- `workspace-*`：`artifactAnchorRoot = workspaceRoot`
-
-完成标准：
-
-- child pack 可以写到 workspace 根目录
-- 单仓 pack 路径不变
-
-此步对应来源：
-
-- `auto-discover-child-git-bootstrap` 的路径锚点模型
-
-为什么不能更早做：
-
-- 入口和 workspace contract 没先定好，路径怎么拆都会反复返工。
-
----
-
 ### Step 5：接入 workspace registry 生成能力
 
 目标：
 
-- 把 workspace mode 从“能消费已有 registry”升级成“能生成 registry”
+- 把 workspace mode 从“能消费已有 registry”升级成“能写出 registry”
+- 但本步只处理“repo 列表已知”的情况，不负责自动发现 repo 列表
 
 优先改动：
 
@@ -178,8 +185,11 @@
 
 完成标准：
 
-- 对顶层非 git workspace，bootstrap 能生成 workspace 级 control-plane
+- 在以下前提之一成立时，bootstrap 能生成 workspace 级 control-plane：
+  - 显式传入 `repoRoots`
+  - 或调用方已提供预发现的 child repo 列表
 - runtime 能直接消费这些产物
+- 不要求本步自己去扫描并发现 child `.git`
 
 此步对应来源：
 
@@ -205,6 +215,7 @@
 - 发现 child repo 后停止继续下钻
 - 默认排除 `node_modules`、`docs`、`.spec-first` 等生成目录
 - 单成员 workspace 不塌缩回单仓
+- 首轮 rollout 置于 feature flag 后，例如 `SPEC_BOOTSTRAP_DISCOVER_CHILD_GIT=1`
 
 完成标准：
 
@@ -250,7 +261,7 @@
 
 ---
 
-### Step 8：最后同步 skill 文案与镜像
+### Step 8：横切门禁，按 Wave 同步 skill 文案与镜像
 
 目标：
 
@@ -262,23 +273,30 @@
 - `skills/spec-work/SKILL.md`
 - `skills/spec-review/SKILL.md`
 - `docs/10-prompt/skills/` 对应镜像
+- 相关 contract tests
+- 如涉及治理边界，补相关 governance 文档与 lint/tests
 
-统一改为：
+同步口径原则：
 
-- `repoRoots -> git root -> workspace registry -> child discovery -> fallback`
+- Wave 1：`repoRoots -> git root -> workspace registry -> fallback`
+- Wave 2 及以后：`repoRoots -> git root -> workspace registry -> child discovery -> fallback`
 
 完成标准：
 
 - skill 文案不再写死“只认 git root”
 - 镜像文档无 drift
+- 任何改变 runtime-visible Stage-0 行为的 wave，都必须在同一 wave 内完成 source skill、mirror 和 tests 同步
+- 任何源码改动都必须同步更新 `CHANGELOG.md`
+- 若该 wave 构成显著 workflow 能力升级，同步更新 `docs/08-版本更新/README.md`
 
 此步对应来源：
 
 - 两份方案中关于 Stage-0 preload 的统一要求
 
-为什么放最后：
+为什么改成横切门禁：
 
-- 文案应该跟随真实实现，而不是先写新口径再等代码慢慢追。
+- 文案应该跟随每个 wave 的真实实现同步更新
+- 不能把 skill/mirror 同步拖到所有代码都改完之后，否则中间阶段一定发生 drift
 
 ---
 
@@ -291,6 +309,8 @@
 - Step 1
 - Step 2
 - Step 3
+- Step 4
+- Step 8（仅同步本 wave 涉及的 skill/mirror/tests）
 
 预期效果：
 
@@ -299,9 +319,9 @@
 
 ### Wave 2：产物生成
 
-- Step 4
 - Step 5
 - Step 6
+- Step 8（仅同步本 wave 涉及的 skill/mirror/tests）
 
 预期效果：
 
@@ -310,7 +330,7 @@
 ### Wave 3：工程硬化
 
 - Step 7
-- Step 8
+- Step 8（做最终全量 drift sweep）
 
 预期效果：
 
@@ -326,6 +346,8 @@
 - Step 1
 - Step 2
 - Step 3
+- Step 4
+- Step 8（仅同步 Wave 1 涉及的 skill/mirror/tests）
 
 也就是：
 
@@ -344,12 +366,39 @@
 - 单仓 Stage-0 路径不变
 - 显式 `repoRoots` 路径不变
 - 已存在 workspace registry 时能进入 workspace mode
+- telemetry 能正确落到 workspace 目录
+
+### Workspace degrade matrix（Wave 1 必须定稿）
+
+为了避免 workspace mode 在实现时各写一套 fallback，本清单要求在 Wave 1 内把以下 degrade matrix 固化：
+
+| 场景 | 建议 level | fallback_reason | 结果 |
+|---|---|---|---|
+| `single-repo` 正常 | `L0` | `null` | 继续沿用当前 evaluator 结果 |
+| workspace registry 正常，child 选择正常 | `L0` | `null` | 返回 workspace overview + child contexts |
+| workspace registry 存在，但 JSON 损坏或缺少关键字段 | `L2` | `workspace_registry_invalid` | 若 workspace overview 可用则只返回 overview，否则走现有 Level 3 降级 |
+| workspace registry 存在，但 `schema_version` 不支持 | `L2` | `workspace_registry_schema_unsupported` | 若 workspace overview 可用则只返回 overview，否则走现有 Level 3 降级 |
+| workspace registry 正常，但未命中 child | `L1` | `workspace_child_unresolved` | 只返回 workspace overview |
+| workspace registry 正常，但部分 child control-plane 缺失 | `L1` | `workspace_child_partial_degraded` | 返回 workspace overview + 可用 child contexts |
+| workspace registry 存在，但 `workspace-routing.json` 缺失或损坏 | `L2` | `workspace_routing_missing` | 只返回 workspace overview，禁止猜 child |
+| workspace registry 存在，但 `workspace-routing.json` 的 `schema_version` 不支持 | `L2` | `workspace_routing_schema_unsupported` | 只返回 workspace overview，禁止猜 child |
+| workspace 入口成立，但 child context 全部不可用 | `L2` | `workspace_children_unavailable` | 只返回 workspace overview |
+| 单仓入口失败且 workspace 入口也失败 | `L3` | `context_dir_missing` 或等价现有 fallback | 回到现有 Level 3 降级 |
+
+约束：
+
+1. workspace mode 必须复用现有 `L0-L3` 语义，不再平行发明第二套严重度体系
+2. `review`/`plan`/`work` 的差异只体现在 stage 资产选择，不体现在 degrade level 定义
+3. 当多个 child 同时命中且其中一个 degraded 时，默认保留可用 child，不因单个 child 失败把整个 workspace run 直接打成 `L3`
+4. `freshness` 是正交信号，不单独决定入口 mode；workspace mode 需要聚合 selected contexts 的 `freshness_status`
+5. 若任一 selected context 为 `stale` 且没有更强 contract 失败，保留当前 level，并将 `fallback_reason` 置为 `freshness_stale`
 
 ### Wave 2 后
 
 - 顶层非 git workspace 能生成 workspace pack + child packs
 - child pack 落到 workspace 根目录，而不是 child repo 自己目录
 - `selected_contexts` 与 `selected_assets` 同时存在且语义一致
+- `SPEC_BOOTSTRAP_DISCOVER_CHILD_GIT=1` 打开时，真实 workspace 与 fixture 行为一致；默认开关策略明确
 
 ### Wave 3 后
 

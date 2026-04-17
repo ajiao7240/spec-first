@@ -397,3 +397,4 @@
 - v1.4.0 2026-04-01 kuang: write lang-governance policy to CLAUDE.md/AGENTS.md on init (user-visible)
 - v1.4.0 2026-04-01 kuang: fix lang fallback order — project .developer lang now takes precedence over global before defaulting to zh (user-visible)
 - v1.4.0 2026-04-01 kuang: add test:unit script and developer identity unit tests
+- v1.4.0 2026-04-17 12:10:00 kuang: 补充 Stage0 升级计划文档、brainstorm 分析报告与 spec debug/setup/update 命令模板 (user-visible)
