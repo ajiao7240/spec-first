@@ -302,7 +302,17 @@ function resolveEdges(db, rawEdges, repoRoot) {
           else segs.push(p);
         }
         const resolvedBase = segs.join('/');
-        for (const suffix of ['', '.js', '.mjs', '.ts', '/index.js']) {
+        // 扩展名解析顺序遵循 Node/TS 实际模块解析规则：
+        //   优先裸路径（指向已索引的 module 节点）
+        //   → JS 家族（.js/.mjs/.cjs/.jsx）
+        //   → TS 家族（.ts/.tsx/.d.ts）
+        //   → 目录 index 兜底（.js → .ts → .tsx）
+        for (const suffix of [
+          '',
+          '.js', '.mjs', '.cjs', '.jsx',
+          '.ts', '.tsx', '.d.ts',
+          '/index.js', '/index.ts', '/index.tsx',
+        ]) {
           targetId = getModuleId(resolvedBase + suffix);
           if (targetId) break;
         }

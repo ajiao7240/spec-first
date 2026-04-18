@@ -67,6 +67,12 @@ function bfsComponents(nodeSet, intraAdj) {
 /**
  * 3-Pass 社区检测：将 nodes 按目录分组，评估健康度，精化超大社区
  *
+ * 密度公式说明：moduleEdges 已做无向去重（每对文件只计一次），
+ * 因此最大可能边数为 n*(n-1)/2，而非有向口径的 n*(n-1)。
+ * 历史版本错用有向分母导致 density 恒被低估 2 倍，配合 0.3 阈值使得
+ * 绝大多数社区被错标为 scattered。修正分母后同步把 density 阈值从 0.3
+ * 提到 0.6，做等价迁移（0.3 在有向分母下等价 0.6 在无向分母）。
+ *
  * @param {import('better-sqlite3').Database} db - better-sqlite3 db 实例
  */
 function writeCommunities(db) {
@@ -195,21 +201,26 @@ function writeCommunities(db) {
   // 最终要写入的社区列表（Pass 3 精化后可能增加子社区）
   const finalCommunities = [];
 
+  // 健康度阈值（spec §14.5，修正后密度分母 n*(n-1)/2）
+  // D_THRESHOLD 从 0.3 调到 0.6，做等价迁移（0.3 * 有向分母 ≈ 0.6 * 无向分母）
+  const D_THRESHOLD = 0.6;
+  const I_THRESHOLD = 0.5;
+
   for (const [communityId, nodes] of Object.entries(communityMap)) {
     const n = nodes.length;
     const stats = communityStats[communityId] || { intra_edges: 0, inter_edges: 0 };
-    const totalPossible = n * (n - 1);
+    const totalPossible = n * (n - 1) / 2;
     const density = stats.intra_edges / Math.max(totalPossible, 1);
     const independence =
       stats.intra_edges / Math.max(stats.intra_edges + stats.inter_edges, 1);
 
-    // 四象限分类（spec §14.5，I_THRESHOLD = 0.5）
+    // 四象限分类（spec §14.5）
     let healthStatus;
-    if (density > 0.3 && independence > 0.5) {
+    if (density > D_THRESHOLD && independence > I_THRESHOLD) {
       healthStatus = 'healthy';
-    } else if (density <= 0.3 && independence > 0.5) {
+    } else if (density <= D_THRESHOLD && independence > I_THRESHOLD) {
       healthStatus = 'isolated';
-    } else if (density > 0.3 && independence <= 0.5) {
+    } else if (density > D_THRESHOLD && independence <= I_THRESHOLD) {
       healthStatus = 'fragmented';
     } else {
       healthStatus = 'scattered';
@@ -228,6 +239,12 @@ function writeCommunities(db) {
     // -------------------------------------------------------------------------
     // Pass 3: 超大社区精化（file_count > total_nodes*25% 且绝对数量 >= 4）
     //   绝对下限防止小型仓库的所有社区都被误判为"超大"并被 BFS 拆散
+    //
+    // 空边集保护：当社区内部无任何 AST 调用（纯配置/i18n/DTO 目录），
+    //   bfsComponents 会返回 N 个单点连通分量。历史版本会把它们全部拆成
+    //   N 个 size=1 子社区，污染社区表并放大下游 `crg community --id=X/42`
+    //   查询次数。修正后：仅当至少存在一个 size>=2 的连通分量时才拆分，
+    //   否则保留父社区并标 health_note。
     // -------------------------------------------------------------------------
     const PASS3_MIN_NODES = 4;
     if (n > threshold && n >= PASS3_MIN_NODES) {
@@ -235,21 +252,25 @@ function writeCommunities(db) {
       const adj = intraAdjMap[communityId];
 
       const components = bfsComponents(nodeSet, adj);
+      const hasMeaningfulSplit = components.length > 1
+        && components.some((c) => c.size >= 2);
 
-      if (components.length <= 1) {
-        // 单连通分量，无需拆分
+      if (!hasMeaningfulSplit) {
+        // 单连通分量、或全部是孤立单点 → 不拆分
         if (stats.intra_edges === 0) {
           baseCommunity.health_note = 'oversized, no split boundary found';
+        } else if (components.length > 1) {
+          baseCommunity.health_note = 'oversized, only singleton components found';
         }
         finalCommunities.push(baseCommunity);
       } else {
-        // 多个连通分量，拆分为子社区
+        // 多个有意义的连通分量，拆分为子社区
         for (let idx = 0; idx < components.length; idx++) {
           const component = components[idx];
           const subId = `${communityId}/${idx}`;
           const subNodes = nodes.filter((nd) => component.has(nd.id));
           const subN = subNodes.length;
-          const subTotalPossible = subN * (subN - 1);
+          const subTotalPossible = subN * (subN - 1) / 2;
 
           // 子社区内部边数（基于 module 级别去重边集合重新统计）
           let subIntraEdges = 0;
@@ -275,11 +296,11 @@ function writeCommunities(db) {
             subIntraEdges / Math.max(subIntraEdges + subInterEdges, 1);
 
           let subHealthStatus;
-          if (subDensity > 0.3 && subIndependence > 0.5) {
+          if (subDensity > D_THRESHOLD && subIndependence > I_THRESHOLD) {
             subHealthStatus = 'healthy';
-          } else if (subDensity <= 0.3 && subIndependence > 0.5) {
+          } else if (subDensity <= D_THRESHOLD && subIndependence > I_THRESHOLD) {
             subHealthStatus = 'isolated';
-          } else if (subDensity > 0.3 && subIndependence <= 0.5) {
+          } else if (subDensity > D_THRESHOLD && subIndependence <= I_THRESHOLD) {
             subHealthStatus = 'fragmented';
           } else {
             subHealthStatus = 'scattered';

@@ -66,10 +66,10 @@ Skill/Agent 源文件统一使用 `spec-first:category:name` 作为 canonical ag
 | `input-convergence.js` | 候选文件收敛（git ls-files + 排除链 + Pod 适配）；步骤8 EXT_TO_LANG 语言过滤保证 finalInputs 为纯代码文件；isIos=true 时调用 computePodExcludePaths（Pods/** 兜底 + 本地 :path: Pod 白名单）；getTrackedFiles/getUntrackedFiles maxBuffer=256MB 防大仓库 ENOBUFS fallback；DEFAULT_EXCLUDES 包含 `.spec-first/**`（已替换旧 `.spec-first-graph/**`）；ignore 文件为 `.spec-firstignore`（GRAPH_IGNORE_FILE 常量，已替换旧 `.spec-first-graphignore`） |
 | `parser.js` | tree-sitter AST 解析 → symbol_key + raw_edges；CommonJS require() → imports_from 边；module 节点继承 isTestFile 标记；ObjC：.m/.mm → tree-sitter-objc，@interface/@implementation/@protocol 提取 class/interface + 方法选择器，.h ObjC 启发式路由，NS_ASSUME_NONNULL_BEGIN/END 预处理 |
 | `incremental.js` | SHA256 增量检测 + fingerprints 更新（detectChangedFiles 返回 changedShas 供复用） |
-| `graph.js` | upsertNodes/upsertEdges + resolveEdges 六阶段解析（直接 target_id → 精确 file_path → 相对路径解析（require('./x')＋扩展名探测）→ basename 模糊匹配（ObjC #import "file.h" 无路径，按 basename 查 module 节点，多候选取最近邻）→ 全局符号 → 同文件消歧；缓存用 Object.create(null) 防原型污染） |
-| `communities.js` | 3-Pass 社区检测（Pass1 CONTAINER_DIRS、Pass2 fragmented/scattered、Pass3 最小4节点） |
-| `flows.js` | PageRank + BFS 流程检测 |
-| `analyze.js` | surprising_connections（spec§14.6 4因子：confidence_weight/cross_language/cross_community/peripheral_to_hub）+ god_nodes 分析 |
+| `graph.js` | upsertNodes/upsertEdges + resolveEdges 六阶段解析（直接 target_id → 精确 file_path → 相对路径解析（require('./x')＋扩展名探测，扩展名列表含 `.js/.cjs/.mjs/.ts/.tsx/.jsx/.d.ts/index.ts/index.tsx`）→ basename 模糊匹配（ObjC #import "file.h" 无路径，按 basename 查 module 节点，多候选取最近邻）→ 全局符号 → 同文件消歧；缓存用 Object.create(null) 防原型污染） |
+| `communities.js` | 3-Pass 社区检测（Pass1 CONTAINER_DIRS、Pass2 fragmented/scattered、Pass3 最小4节点）；密度分母为无向口径 `n*(n-1)/2`（moduleEdges 已去重），D_THRESHOLD=0.6；Pass3 带空边集保护：至少存在一个 size>=2 连通分量才拆分，否则保留父社区并标 `health_note`，避免配置/i18n/DTO 目录被切成单点子社区 |
+| `flows.js` | PageRank + BFS 流程检测；entry 查询加 `ORDER BY id ASC` 保证 100 条 flow 截断的确定性 |
+| `analyze.js` | surprising_connections（spec§14.6 4因子：confidence_weight/cross_language/cross_community/peripheral_to_hub）；F3 `cross_community` 独立加 40 分并解除对 F2/F4 的门控（纯跨社区调用不再被 0 分过滤），过滤阈值 40；in_degree 与 god_nodes LEFT JOIN 均过滤 `imports_from/contains/defined_in` 结构边，消除 contains 污染 |
 | `search.js` | FTS5 搜索 + rebuildFTS（独立虚表，drop-recreate 全量重建） |
 | `changes.js` | git diff 风险评分（High/Medium/Low） |
 | `cli/build.js` | build + stats CLI handler；自动检测 iOS 仓库（Podfile.lock/.xcodeproj）并传 isIos 给 collectInputFiles；prunedPaths 清理历史残留路径；增量构建 0 变更时保留 graph_meta.unresolved_edge_count 不归零 |

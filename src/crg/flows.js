@@ -161,12 +161,16 @@ function detectFlows(db) {
   const { adjacency } = loadAdjacency(db);
 
   // 找入口点：kind != 'module' 且不在任何 calls 边的 target_id 中
+  // ORDER BY id ASC 保证 100 条 flow 截断时的确定性——
+  // 否则 SQLite 默认顺序实现定义，不同 build 选出的 top-100 会抖动，
+  // 污染下游 SKILL B-Round2 的 top-5 criticality 选取稳定性。
   const entryNodes = db.prepare(`
     SELECT id, name FROM nodes
     WHERE kind != 'module'
       AND id NOT IN (
         SELECT target_id FROM edges WHERE kind = 'calls'
       )
+    ORDER BY id ASC
   `).all();
 
   // 清空旧 flows 数据（先 flow_nodes，再 flows，CASCADE 会自动处理）

@@ -50,8 +50,14 @@ function inferLanguage(filePath) {
  * 4 个因子：
  * F1. confidence_weight (10分): 至少一方置信度为 'Inferred'
  * F2. cross_language (30分): 源节点和目标节点所在文件语言不同
- * F3. cross_community (40分): source 和 target 的 community_id 不同
+ * F3. cross_community (30分, 门控): source/target 社区不同，且需 F2 或 F4 共现才加分
+ *     （Phase 1a 刻意收紧：单纯跨社区调用在大仓库里太常见，门控后只有"跨社区 + 跨语言/外围触中枢"的罕见组合才算惊喜）
  * F4. peripheral_to_hub (20分): 低入度（外围）节点调用高入度（中枢）节点
+ *
+ * 过滤阈值 score < 30。
+ *
+ * in_degree 计算仅使用语义边（跳过 imports_from/contains/defined_in 结构边），
+ * 否则 contains 边会给每个函数节点至少 +1 in_degree 噪声，污染 hubThreshold 分布。
  *
  * @param {import('better-sqlite3').Database} db
  * @returns {Array<{ source: string, target: string, score: number, reasons: string[] }>}
@@ -73,8 +79,11 @@ function surprisingConnections(db) {
   }
 
   // 统计每个节点的 in_degree（被调用次数）
+  // 仅计入语义边：结构边（imports_from/contains/defined_in）会让每个函数节点
+  // 天然 +1，把 hubThreshold 和 peripheral_to_hub 的分布抬高，污染判定。
   const inDegree = new Map();
   for (const edge of edges) {
+    if (STRUCTURAL_EDGE_KINDS.has(edge.kind)) continue;
     inDegree.set(edge.target_id, (inDegree.get(edge.target_id) || 0) + 1);
   }
 
@@ -119,7 +128,9 @@ function surprisingConnections(db) {
       reasons.push('peripheral_to_hub');
     }
 
-    // F3: cross_community（30分）— 仅当同时具备跨语言或 peripheral_to_hub 时才加权
+    // F3: cross_community（30分）— 门控：仅当同时具备跨语言或 peripheral_to_hub 时才加权
+    // 设计意图（Phase 1a 收紧）：大仓库里单纯跨社区调用过于常见，
+    // 与 F2/F4 共现的组合才算"惊喜"，避免结果被跨社区噪声淹没。
     const crossCommunity = src.community_id !== tgt.community_id;
     if (crossCommunity && (crossLanguage || peripheralToHub)) {
       score += 30;
@@ -163,16 +174,20 @@ function surprisingConnections(db) {
  * @returns {Array<object>} God node FactItem 列表
  */
 function godNodes(db) {
-  // 统计每个非 module 节点的 in_degree
+  // 统计每个非 module 节点的语义 in_degree
+  // 结构边（imports_from/contains/defined_in）会给每个符号至少 +1，
+  // 让 god_nodes 的"过度中心化"判定失真，因此在 SQL 层直接排除。
   const inDegreeRows = db.prepare(`
     SELECT n.id, n.name, n.file_path, n.kind, n.line_start, n.line_end, n.is_test,
            COUNT(e.source_id) AS in_degree
     FROM nodes n
-    LEFT JOIN edges e ON e.target_id = n.id
+    LEFT JOIN edges e
+      ON e.target_id = n.id
+      AND e.kind NOT IN ('imports_from', 'contains', 'defined_in')
     WHERE n.kind != 'module'
     GROUP BY n.id
     HAVING in_degree > 0
-    ORDER BY in_degree DESC
+    ORDER BY in_degree DESC, n.id ASC
   `).all();
 
   if (inDegreeRows.length === 0) return [];
