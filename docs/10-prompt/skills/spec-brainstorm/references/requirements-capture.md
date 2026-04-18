@@ -27,6 +27,7 @@ The requirements document is for product definition and scope control. Do **not*
 ---
 date: YYYY-MM-DD
 topic: <kebab-case-topic>
+epic: <epic-slug> # optional, only when this requirements doc belongs to an epic decomposition
 ---
 
 # <Topic Title>
@@ -69,6 +70,22 @@ topic: <kebab-case-topic>
 [If `Resolve Before Planning` is not empty: `-> Resume /spec:brainstorm` to resolve blocking questions before planning]
 ```
 
+**Section-by-section confirmation for Standard and Deep work** — do not draft the full document in one shot. Confirm the sections in this order:
+- Problem Frame
+- Requirements (one logical group at a time)
+- Success Criteria
+- Scope Boundaries
+- Key Decisions, when needed
+- Dependencies / Assumptions, when needed
+- Outstanding Questions
+
+For each section:
+- Present a compact draft in chat first
+- Ask whether to continue, adjust this section, or go back
+- Write the requirements file only after all sections are confirmed
+
+**Lightweight fast path** — Lightweight work may still use a one-shot compact requirements document or skip document creation entirely when no durable artifact is needed.
+
 **Visual communication** — Include a visual aid when the requirements would be significantly easier to understand with one. Read `references/visual-communication.md` for the decision criteria, format selection, and placement rules.
 
 For **Standard** and **Deep** brainstorms, a requirements document is usually warranted.
@@ -81,6 +98,16 @@ When requirements span multiple distinct concerns, group them under bold topic h
 
 When the work is simple, combine sections rather than padding them. A short requirements document is better than a bloated one.
 
+**Design for isolation** — when the requirements describe multiple moving parts, prefer boundaries where each part has one clear purpose, a stable interface, and dependencies that can be understood without reading everything else.
+
+**Targeted improvements in existing codebases** — when the surrounding code has obvious issues that directly affect this work, include only the improvements that are necessary to make the scoped change cleaner or safer. Do not turn the requirements document into a wishlist of unrelated refactors.
+
+**Epic metadata contract** — if this requirements document belongs to an epic decomposition:
+- Set frontmatter `epic: <epic-slug>`
+- Keep `<epic-slug>` identical to the parent decomposition doc's `topic`
+- Treat frontmatter `epic` as the only structured source of truth for downstream planning
+- Do not duplicate the epic slug in Key Decisions or other freeform prose just to make it machine-readable
+
 Before finalizing, check:
 - What would `spec:plan` still have to invent if this brainstorm ended now?
 - Do any requirements depend on something claimed to be out of scope?
@@ -89,6 +116,14 @@ Before finalizing, check:
 - Do any requirements claim that infrastructure is absent without that claim having been verified against the codebase? If so, verify now or label as an unverified assumption.
 - Is there a low-cost change that would make this materially more useful?
 - Would a visual aid (flow diagram, comparison table, relationship diagram) help a reader grasp the requirements faster than prose alone?
+
+Before handing off to document-review, run a Preflight Self-Check:
+- Placeholder scan
+- Contradiction scan
+- Scope sanity
+- Ambiguity scan
+
+If the preflight reveals a user-intent issue, return to the relevant section before continuing.
 
 If planning would need to invent product behavior, scope boundaries, or success criteria, the brainstorm is not complete yet.
 

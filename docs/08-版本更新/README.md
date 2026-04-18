@@ -6,6 +6,7 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-17 | feat | `spec-brainstorm-capability-upgrade` | `spec-brainstorm` 补齐 Current Work Pulse、Scope Decomposition、Preflight Self-Check、User Review Gate、Terminal State Lock 与 epic decomposition template，并让 `spec-plan` 消费 requirements frontmatter `epic`；同步补 smoke/integration 接线与 release-facing 文档 |
 | 2026-04-17 | fix | `release-gate-hardening` | 默认 `test:release` 从“仅双宿主治理专项 smoke”恢复为“治理专项 smoke + 完整 tarball 安装回归”的总门禁，并给治理专项 smoke 增加 docs-side JSON/schema 不得进入 tarball 的负向断言，防止发布链路只守住新真源、不守旧真源回流 |
 | 2026-04-16 | fix | `resolve-pr-feedback` | 恢复 `resolve-pr-feedback` skill 本体对全部 review feedback text 的宽口径不可信输入边界，保留 `cross_invocation` 四键输出与更深查询窗口，并补强 contract test，防止 future drift 回退到只覆盖 PR comment 的窄口径 |
 | 2026-04-16 | fix | `dual-host-release-contract` | 将双宿主治理 machine-readable 真源迁移到 `src/cli/contracts/dual-host-governance/`，补齐默认 `test:release` 发布验证与 runtime/docs 边界闸门，消除 tarball 安装态治理断链 |
@@ -80,6 +81,69 @@
 - 旧 docs-side machine-readable 真源重新混入 tarball
 
 这样后续继续调整双宿主治理 contract 时，发布前能同时看住“该有的文件在”和“不该有的文件不在”。
+
+---
+
+## 2026-04-17 `feat(spec-brainstorm-capability-upgrade)`
+
+### 更新内容
+
+围绕 `spec-brainstorm` 做一次流程纪律升级，把此前“已追平 `ce-brainstorm`、但仍缺少 superpowers 式 guardrails”的状态，收口为可回归的 workflow contract。
+
+### 主要变化
+
+- `spec-brainstorm` 主流程升级
+  - [skills/spec-brainstorm/SKILL.md](../../skills/spec-brainstorm/SKILL.md)
+  - 新增：
+    - `0.1a Current Work Pulse`
+    - `0.3a Scope Decomposition`
+    - `3.4 Preflight Self-Check`
+    - `3.6 User Review Gate`
+    - `Phase 4: Handoff and Terminal State Lock`
+  - 明确 HARD-GATE 与“简单需求也不能跳过对齐”的反模式声明
+- brainstorm reference 收口
+  - [skills/spec-brainstorm/references/requirements-capture.md](../../skills/spec-brainstorm/references/requirements-capture.md)
+  - [skills/spec-brainstorm/references/decomposition-capture.md](../../skills/spec-brainstorm/references/decomposition-capture.md)
+  - [skills/spec-brainstorm/references/handoff.md](../../skills/spec-brainstorm/references/handoff.md)
+  - 新增 epic decomposition 文档模板
+  - requirements capture 增加分节确认、design-for-isolation、targeted improvements、preflight 检查与 `epic` frontmatter contract
+  - handoff 增加 Terminal State Lock 三层模型、escape hatch 与 Proof 边界
+- `spec-plan` 补 epic consumer prompt contract
+  - [skills/spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
+  - 当 requirements doc frontmatter 存在 `epic` 时，planning 会按 `docs/brainstorms/*-<epic>-decomposition.md` 读取补充上下文
+  - epic doc 缺失时只 warning + continue，不阻断 planning
+  - 本轮仍不把 epic consumer 下放到 `spec-work`
+- 测试与默认入口
+  - [tests/unit/spec-brainstorm-contracts.test.js](../../tests/unit/spec-brainstorm-contracts.test.js)
+  - [tests/unit/spec-plan-contracts.test.js](../../tests/unit/spec-plan-contracts.test.js)
+  - [tests/smoke/cli.sh](../../tests/smoke/cli.sh)
+  - [tests/integration/spec-brainstorm-flow.sh](../../tests/integration/spec-brainstorm-flow.sh)
+  - [tests/integration/e2e.sh](../../tests/integration/e2e.sh)
+  - smoke 现在显式验证 `decomposition-capture.md` 已进入 Claude/Codex runtime
+  - integration 默认入口现在会独立调用 `spec-brainstorm-flow.sh` 做确定性 wiring check
+- prompt mirror 同步
+  - `docs/10-prompt/skills/spec-brainstorm/`
+  - `docs/10-prompt/skills/spec-plan/`
+  - source/mirror 同 wave 更新，避免 runtime-visible drift
+
+### 保持的边界
+
+- `Visual Companion` 仍未在本轮落地，只保留 deferred-not-absorbed 边界
+- 本轮没有新增 public command
+- 本轮没有修改 dual-host governance JSON
+- 本轮没有让 `spec-work` 开始消费 epic metadata
+
+### 版本意义
+
+这次升级把 `spec-brainstorm` 从“能写需求文档”推进到“有节奏地控 scope、控出口、控 handoff 质量”的状态。结果上，brainstorm 不再只是收集需求，而是具备了：
+
+- 大需求先拆分
+- 文档写作前后两道轻量质量门
+- 用户本人确认 gate
+- 受控的 terminal handoff
+- 与 `spec-plan` 的结构化 epic 上下游契约
+
+同时，自动化验证仍然保持诚实边界：unit/smoke/integration 只证明 prompt contract、runtime asset 和默认入口接线，不伪装成已经自动证明完整对话质量。
 
 ---
 

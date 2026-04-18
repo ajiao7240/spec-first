@@ -3,7 +3,7 @@ date: 2026-04-17
 topic: spec-brainstorm-capability-upgrade
 type: enhancement-proposal
 status: draft
-version: v1.2
+version: v1.3
 source_refs:
   - skills/spec-brainstorm/
   - /Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/skills/ce-brainstorm/
@@ -12,10 +12,12 @@ source_refs:
 
 # spec-first Brainstorm 能力升级方案
 
-**方案版本**：v1.2 · 日期 2026-04-17
+**方案版本**：v1.3 · 日期 2026-04-17
 **范围**：`skills/spec-brainstorm/` 及其下游契约
 **正式同步基线**：`compound-engineering-plugin/plugins/compound-engineering/skills/ce-brainstorm/`
 **外部借鉴源**：`superpowers/skills/brainstorming/`
+
+**v1.3 变更**（相对 v1.2）：补齐 5 个结构性缺口——新增“源项目优势覆盖矩阵”（§2.5）、补入 `P1.5 Context Pulse` 吸收 `recent commits / current work pulse`（§4.P1.5）、补入 `P1.6 Preflight Self-Check` 吸收 deterministic spec self-review（§4.P1.6）、在 `P0.4` 下显式声明对 source terminal state 的 `Deliberate Divergence`（§4.P0.4）、将 `P2.1 Visual Companion` 明确收口为 deferred-not-absorbed 并补充协议边界（§4.P2.1 / §4.5）。
 
 **v1.2 变更**（相对 v1.1）：修订 3 个执行级缺陷——集成测试接线动作写入 S1 范围（§7）、HARD-GATE 范围明确限定为"禁止跳到 implementation"而非"必须落盘文档"（§4.P1.1）、Terminal State Lock denylist 原则收敛为"会修改源码或宿主运行环境"（§4.P0.4）。
 
@@ -25,7 +27,12 @@ source_refs:
 
 ## 一、背景与目标
 
-`skills/spec-brainstorm` 目前是 spec-first 的前端入口，已具备**研究路由（7 源）+ 非软件分流 + 三档 scope + blocking/deferred 问题分类 + multi-persona document-review**等差异化能力。经对**当前正式同步基线** `ce-brainstorm` 与**外部方法参考** `superpowers/brainstorming` 做对比，识别出 4 项 P0、4 项 P1、1 项 P2 的增强项。本方案目标：
+`skills/spec-brainstorm` 目前是 spec-first 的前端入口，已具备**研究路由（7 源）+ 非软件分流 + 三档 scope + blocking/deferred 问题分类 + multi-persona document-review**等差异化能力。经对**当前正式同步基线** `ce-brainstorm` 与**外部方法参考** `superpowers/brainstorming` 做对比，结论不是“当前仓库明显落后于正式基线”，而是：
+
+- 相对 `ce-brainstorm`：当前 `spec-brainstorm` 已基本追平正式同步基线，并在 supplemental context、research digest、dual-host 适配上有所增强；
+- 真正尚未系统吸收的，是 `superpowers/brainstorming` 中关于**流程纪律、上下文脉冲、自检闭环、单出口安全意图**的部分做法。
+
+基于此，识别出 4 项 P0、6 项 P1、1 项 P2 的增强项。本方案目标：
 
 1. 在**不破坏现有优势**（research digest 契约 / 非软件路由 / document-review 多 persona）前提下吸收外部最佳实践；
 2. 以**最小改动面**覆盖 4 个真实痛点：大型需求识别缺失 / 一次性交付偏差纠正成本高 / 用户层 review 缺 gate / 出口路径无硬约束；
@@ -48,6 +55,28 @@ source_refs:
 
 ---
 
+## 二.五、源项目优势覆盖矩阵
+
+下表用于回答本轮最关键的问题：**当前方案是否真的把源项目的优势吸收完整了。** 结论必须分成“已具备 / 本期吸收 / 延后吸收 / 刻意不吸收”，不能只说“参考了 source”。
+
+| 源能力 | 来源 | 当前项目状态 | 本方案动作 | 结论 | 理由 |
+|---|---|---|---|---|---|
+| HARD-GATE：未完成需求对齐前不得进入 implementation | `superpowers/brainstorming/SKILL.md` | 部分具备，当前文案不够硬 | `P1.1` 明文化 | 本期吸收 | 保留 spec-first 的 WHAT/HOW 边界，同时补齐硬约束 |
+| “简单需求也不能跳过对齐”反模式声明 | 同上 | 未显式写出 | `P1.1` 明文化 | 本期吸收 | 可减少“看起来简单就直写代码”的漂移 |
+| 探索上下文时显式看 `files / docs / recent commits` | 同上 | `files / docs` 已有，`recent commits` 缺显式合同 | `P1.5 Context Pulse` | 本期吸收 | 低成本补齐“继续上次那个”与近期脉冲场景 |
+| 大型需求先拆 decomposition 再做首个子项目 | 同上 | 缺显式早检测 | `P0.1` | 本期吸收 | 这是当前痛点之一，且与 spec-first 下游契约兼容 |
+| 提出 2-3 approaches 供用户比较 | `superpowers` 与当前/正式基线共有 | 已具备，且当前方案更克制 | 保持现状 | 已具备 | 当前 `spec-brainstorm` 已有 approaches phase；仅在“推荐先后顺序”上与 source 保持刻意差异 |
+| design-for-isolation 边界自检 | `superpowers/brainstorming/SKILL.md` | 未显式写入 requirements capture | `P1.2` | 本期吸收 | 能提升 requirements 对职责边界的表达质量 |
+| working in existing codebase 时允许 targeted improvements | 同上 | 精神上接近，边界规则不清 | `P1.3` | 本期吸收 | 吸收“顺手做必要改进”，但禁止实现层重构写进 requirements |
+| 写完 spec 后做 deterministic self-review | `spec-document-reviewer-prompt.md` / `SKILL.md` | 依赖 `document-review`，缺本地 preflight | `P1.6` | 本期吸收 | 以轻量 preflight 吸收该优势，减少后续 review 噪音 |
+| 用户亲自 review spec 后再进入下一阶段 | `superpowers/brainstorming/SKILL.md` | 缺显式 gate | `P0.3` | 本期吸收 | `document-review` 不能替代用户本人意图确认 |
+| terminal state 只允许进入 writing-plans | `superpowers/brainstorming/SKILL.md` | 当前产品面更宽 | `P0.4` + Deliberate Divergence | 刻意不原样吸收 | 吸收安全意图，但不复制单出口模型 |
+| Visual Companion | `visual-companion.md` | 当前无此能力 | `P2.1` 独立立项占位 | 延后吸收 | 依赖本地 server、host matrix、state 契约，复杂度高 |
+| spec 写入 `docs/superpowers/specs/` 并立即 commit | `superpowers/brainstorming/SKILL.md` | 当前不采用 | §4.5 明确不吸收 | 刻意不吸收 | spec-first 路径、治理和工作流不同，brainstorm 阶段不强制 commit |
+| 每个 checklist item 强制创建 task | `superpowers/brainstorming/SKILL.md` | 当前不采用 | §4.5 明确不吸收 | 刻意不吸收 | spec-first 不要求 brainstorm 阶段绑定独立 task 系统 |
+
+---
+
 ## 三、集成方案总览
 
 ### P0（本次主线·4 项）
@@ -56,14 +85,16 @@ source_refs:
 - P0.3 用户本人 Review Gate
 - P0.4 Terminal State Lock
 
-### P1（次迭代·4 项）
+### P1（次迭代·6 项）
 - P1.1 HARD-GATE + 反模式显式声明
 - P1.2 Design-for-isolation 边界检查
 - P1.3 Targeted Improvements Scope Rule
 - P1.4 Process Flow 图
+- P1.5 Context Pulse
+- P1.6 Preflight Self-Check
 
 ### P2（独立立项·1 项）
-- P2.1 Visual Companion → 独立为 `skills/spec-brainstorm-visual/`，按需 offer
+- P2.1 Visual Companion（deferred-not-absorbed）→ 独立为 `skills/spec-brainstorm-visual/`，按需 offer
 
 ---
 
@@ -237,6 +268,12 @@ SP1 → SP2 → ...（理由）
 - `SKILL.md` Phase 4 开头段落明文声明三层模型
 - `references/handoff.md` Phase 4.2 新增 "Unlisted skill requested" 分支处理指南（先按三层模型分类，再决定路径）
 
+**Deliberate Divergence（显式偏离声明）**：
+- `superpowers/brainstorming` 的 terminal state 是**单出口**：spec 通过后只能进入 `writing-plans`
+- `spec-first` 的产品面不同，必须保留现有合法出口：`/spec:plan`、通过 gate 的 `/spec:work` direct-to-work、重跑 `document-review`、以及 `Share to Proof`
+- 因此本方案**吸收的是 terminal safety intent**：brainstorm 不得被实现类 skill 劫持；**不吸收的是 single-exit form**：不把所有后续动作都折叠成一个写计划技能
+- 该偏离属于刻意设计，不是漏抄 source
+
 ---
 
 ### P1.1 HARD-GATE + 反模式显式声明
@@ -295,14 +332,69 @@ SP1 → SP2 → ...（理由）
 
 ---
 
+### P1.5 Context Pulse
+
+**目的**：吸收 `superpowers` 中“探索项目上下文时显式查看 recent commits”的优势，但控制在轻量脉冲级别，不升级为完整 code review。
+
+**落地位置**：`SKILL.md` 在 Phase 0.1 之后新增 `0.1a Current Work Pulse`；并在 Phase 1.1 Context Scan 中补一条触发说明。
+
+**触发条件**（任一成立才触发）：
+- 用户明确说“继续上次那个”“基于刚才的 brainstorm 继续”
+- Phase 0.1 命中 resume existing work
+- 当前 topic 与最近提交主题明显相关
+- 当前工作区存在与 topic 强相关的脏改动
+
+**动作边界**：
+- 读取最近 5-10 条 commits 的摘要（主题 + 受影响路径），必要时读取 `git status --short`
+- 只输出**Current Work Pulse 简报**，包括：
+  1. 近期发生了什么
+  2. 哪些变化可能影响本次 brainstorm
+  3. 哪些结论仍需在 requirements 中显式确认
+- 不做完整 code review，不逐文件展开，不把近期提交自动视为“既定产品决策”
+
+**不触发场景**：
+- 全新 topic，且当前工作区无相关近期脉冲
+- Lightweight 新需求，repo scan 已足够回答问题
+
+**价值**：降低“继续既有讨论”时的上下文断裂，避免 brainstorm 与最新工作状态脱节。
+
+---
+
+### P1.6 Preflight Self-Check
+
+**目的**：吸收 `superpowers` 的 deterministic spec self-review 优势，在进入 `document-review` 之前先做一次本地低成本预检。
+
+**落地位置**：`SKILL.md` 在 Phase 3 与 Phase 3.5 之间新增 `Phase 3.4 Preflight Self-Check`；`references/requirements-capture.md` 的完成性检查中同步补入。
+
+**四项固定检查**：
+1. **Placeholder scan**：是否存在 `TODO`、`TBD`、占位符或未完成段落
+2. **Contradiction scan**：Requirements / Success Criteria / Scope Boundaries / Key Decisions 之间是否互相打架
+3. **Scope sanity**：文档是否已经膨胀为多个独立子系统，需要回退到 decomposition
+4. **Ambiguity scan**：是否存在足以让 `spec-plan` 或执行阶段做出两种相反实现的模糊描述
+
+**执行规则**：
+- 能在本地直接修正的，先 inline 修正，再进入 `document-review`
+- 若发现需要用户补决策的问题，回到对应节确认，不把模糊点带进 Phase 3.5
+- Lightweight 且未产出 requirements doc 时，此步骤为 no-op
+
+**与 `document-review` 的边界**：
+- `Preflight Self-Check` 是作者自检，不替代 multi-persona review
+- `document-review` 仍是正式质量门；preflight 的作用是减少显而易见的低级缺陷，把 reviewer 注意力留给真正的产品/范围/风险问题
+
+---
+
 ### P2.1 Visual Companion（独立立项）
 
-**决策**：不并入 `spec-brainstorm` 主体。
+**决策**：本期**deferred-not-absorbed**，不并入 `spec-brainstorm` 主体。
 
 **理由**：
 - 依赖本地 server + scripts + `.gitignore` 副作用 + 30 分钟保活
 - 跨平台（Claude Code mac/Linux/Win、Codex、Gemini）分支多
 - 与 spec-first 现有资产同步模型（plugin.json / adapters / state.json）耦合点复杂，值得独立评估
+
+**本期明确结论**：
+- 当前方案**没有吸收** `visual-companion.md` 的能力，只保留一个后续独立立项占位
+- 因此不能把它算作“本方案已吸收的 source 优势”，最多算“已识别但延期”
 
 **接入方案（草图，留给下一次立项细化）**：
 - 新 skill：`skills/spec-brainstorm-visual/` fork superpowers 的 `scripts/*` + `frame-template.html`
@@ -310,6 +402,33 @@ SP1 → SP2 → ...（理由）
 - `.gitignore` 注入：仿照 `lang-policy.js` 的标记式幂等注入机制
 - 接入点：`spec-brainstorm` 在 1.3 启动前新增一条独立 offer 消息（不与 clarifying question 合并），用户同意后加载 `spec-brainstorm-visual`
 - Codex adapter：复核 rewriteSkillName 与 skill path 重写不受影响
+
+**后续立项必须覆盖的协议边界**（否则不能称为“已吸收”）：
+- **server lifecycle**：启动、存活探测、30 分钟 inactivity timeout、异常重启
+- **session dir contract**：`screen_dir` / `state_dir` / `server-info` 的路径与可恢复性
+- **events protocol**：浏览器点击事件写入 `state_dir/events` 的读取与消费契约
+- **host-specific startup matrix**：Claude Code mac/Linux、Claude Code Windows、Codex、Gemini 的启动方式差异
+- **waiting screen / unload**：视觉回合结束后如何清理陈旧屏幕
+- **cleanup / timeout**：会话结束后的目录清理、`.gitignore`、治理与状态文件影响
+
+---
+
+## 四.五、刻意不吸收与延后吸收清单
+
+这一节用于防止“把 source 每一条都照搬”造成产品面错位。以下项不是遗漏，而是**经过判断后的非采纳结论**：
+
+| 项目 | 状态 | 原因 |
+|---|---|---|
+| `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` 作为固定产物路径 | 刻意不吸收 | spec-first 已有 `docs/brainstorms/` 契约，且与现有下游消费者一致 |
+| brainstorm 阶段写完 spec 后必须立即 commit | 刻意不吸收 | 当前仓库没有“brainstorm 必须提交 git”治理要求；过早 commit 会放大文档试错成本 |
+| 以 architecture / components / data flow / testing 作为 brainstorm 主体结构 | 刻意不吸收 | 这些内容更接近 implementation planning；spec-first 保留 WHAT/HOW 边界 |
+| terminal state 只允许进入 writing-plans | 刻意不吸收 | 当前产品面需要保留 `/spec:plan`、受 gate 约束的 `/spec:work`、`document-review`、Proof |
+| 每个流程环节都强制创建 checklist task | 刻意不吸收 | spec-first 当前没有把 brainstorm 与 task 系统强绑定的必要性 |
+| Visual Companion | 延后吸收 | 能力有价值，但依赖本地 server 与多宿主协议，独立立项更合理 |
+
+**补充说明**：
+- `superpowers` 的“推荐先于选项展示”不直接移植。当前 `spec-brainstorm` 保留“先展示 approach，再给 recommendation”的顺序，以避免用户被过早锚定。
+- `spec-first` 吸收的是 source 中能提升 requirements 质量与流程安全性的部分，而不是复制其所有产品形态。
 
 ---
 
@@ -326,6 +445,8 @@ SP1 → SP2 → ...（理由）
 - `P0.3` skip future gates 仅作用于当前 skill 运行期，不落 state.json / memory
 - `P0.4` Denylist + 双 Allowlist 三层模型契约（implementation skill 被拒 / workflow 通过 / Proof 通过 / 逃生口二次确认）
 - **§3.5 blocking tool fallback**：宿主无 blocking 工具时，所有 P0 决策点等价降级到编号选项流
+- `P1.5` Context Pulse 触发矩阵（resume / 相关 recent commits / 相关 dirty changes / 全新 lightweight topic 不触发）
+- `P1.6` Preflight Self-Check 四项固定检查的分支覆盖（可自动修复 / 需回问用户 / Lightweight no-op）
 
 **下游消费端契约**（v1.1 新增，防止"plan 被迫发明产品"在契约层重现）
 - `tests/unit/spec-plan-contracts.test.js` 新增 "epic metadata consumption" 用例
@@ -339,8 +460,9 @@ SP1 → SP2 → ...（理由）
 `tests/integration/spec-brainstorm-flow.sh`
 - Epic 场景 → 生成 decomposition.md + 引导首个 sub-project + 下游 plan 正确 glob 到 epic doc
 - 单需求 Lightweight → 不触发分节、不触发 review gate
-- 单需求 Standard → 走完 7 节确认 + review gate + handoff 选项正确
+- 单需求 Standard → 走完 7 节确认 + preflight self-check + review gate + handoff 选项正确
 - **Proof 出口场景**：Phase 4 选择 Share to Proof 后 Terminal State Lock 不拦截
+- **Resume/continue 场景**：命中 existing work 时会生成 Current Work Pulse，而不是直接丢失最近工作上下文
 
 ### 回归
 - `npm run test:smoke` 保证 skill 同步 / rewrite / state.json 写入无回归
@@ -353,6 +475,7 @@ SP1 → SP2 → ...（理由）
 - Anti-case：已明确 PRD 的需求 → HARD-GATE 不过度打断
 - **Fallback case**：模拟无 blocking 工具的宿主 → P0 交互点等价降级
 - **Proof case**：选择 Share to Proof 出口 → Terminal State Lock 放行
+- **Resume pulse case**：用户说“继续上次那个” → recent commits / git status 只产出轻量 pulse，不升级为 code review
 
 ---
 
@@ -388,7 +511,7 @@ SP1 → SP2 → ...（理由）
 | Sprint | 周期 | 范围 | 验收 |
 |---|---|---|---|
 | S1 | 1 周 | P0.1 + P0.2 + P0.3 + P0.4 + 配套单元/集成测试 + **测试 runner 接线**（见下）+ 4 条 CHANGELOG | 新增测试**在默认 `npm run test:integration` 入口下被执行**，全绿 + smoke 无回归 |
-| S2 | 0.5 周 | P1.1 + P1.2 + P1.3 + P1.4 + 手工验证剧本 | 4 条 CHANGELOG + 手工剧本通过 |
+| S2 | 0.5 周 | P1.1 + P1.2 + P1.3 + P1.4 + P1.5 + P1.6 + 手工验证剧本 | 6 条 CHANGELOG + 手工剧本通过 |
 | S3 | 独立立项 | P2.1 Visual Companion 独立 skill 的 brainstorm + plan | 不在本方案主线范围 |
 
 **S1 测试 runner 接线细则**（v1.2 强化，避免"文档写了会测，CI 根本没跑"的假象）：
@@ -408,6 +531,7 @@ SP1 → SP2 → ...（理由）
 | Decomposition 误检 | 中 | 用户被打断 | 双条件阈值（名词数 + 字数/关键词）+ 用户否定后无摩擦回到标准路径 |
 | User Review Gate 疲劳 | 低 | 用户体验 | 允许 session 级 `skip future gates`（session flag，不入 memory）|
 | Terminal State Lock 拦合法用例 | 低 | 流程卡顿 | 逃生口 + Key Decisions 记录 + 支持一次性 override |
+| Context Pulse 带入无关近期提交噪音 | 中 | 低 | 仅在 4 类触发条件启动；最多看 5-10 条 commits；只输出 pulse 简报 |
 | 与 spec-plan 契约漂移，或误把 epic contract 下放到 spec-work | 中 | 下游失灵 | 本方案显式限定 epic consumer 仅为 `spec-plan`；`spec-work` 维持现有边界，未来扩展再单列立项 |
 
 ---
@@ -428,12 +552,19 @@ SP1 → SP2 → ...（理由）
 
 ## 十、决策请求
 
+**v1.3 修订已闭环 5 个结构性缺口**：
+1. ✅ 用“源项目优势覆盖矩阵”把 source 优势分成已具备 / 本期吸收 / 延后吸收 / 刻意不吸收，文档可自证完整性
+2. ✅ 补入 `P1.5 Context Pulse`，显式吸收 `recent commits / current work pulse`
+3. ✅ 补入 `P1.6 Preflight Self-Check`，补上 `document-review` 之前的 deterministic preflight
+4. ✅ 在 `P0.4` 下加入 `Deliberate Divergence`，明确吸收的是 terminal safety intent，而不是单出口形式
+5. ✅ 将 `P2.1 Visual Companion` 收口为 deferred-not-absorbed，并写清后续立项必须覆盖的协议边界
+
 **v1.2 修订已闭环 3 个执行级缺陷**：
 1. ✅ 集成测试 runner 接线写入 S1 范围，验收硬条件改为 `npm run test:integration` 的真实覆盖证明，而非 `git log` 证据
 2. ✅ HARD-GATE 范围限定为"禁止跳到 implementation"，与 Lightweight fast path 无文档路径正交，不再互搏
 3. ✅ Terminal State Lock denylist 原则收敛为"修改源码或宿主运行环境"，mcp-setup 归类与原则一致
 
-**v1.1 已闭环 4 个 contract 级缺陷**（保持不变）：
+**v1.1 已闭环 5 个 contract 级缺陷**（保持不变）：
 1. ✅ Epic 元数据单一来源 = requirements doc frontmatter
 2. ✅ Blocking tool fallback 全局继承声明（§3.5）
 3. ✅ Terminal State Lock 三层模型显式收纳 Proof
@@ -442,7 +573,7 @@ SP1 → SP2 → ...（理由）
 
 本方案建议：
 1. **立即启动 S1**（P0 全部 4 项），contract 与执行级缺陷已修订，可进入立项执行
-2. **S2 与 S1 并行或紧接**（P1 全部 4 项），多为文档侧改动
+2. **S2 与 S1 并行或紧接**（P1 全部 6 项），多为文档侧改动
 3. **S3 独立立项**，不阻塞本方案落地
 
-如认可 v1.2 骨架，建议下一步：启动 S1 → 生成对应 CODE_TASK 文档（`abcoder:task`）→ 走 `/spec:plan` 结构化分解 → 进入 `/spec:work` 执行。
+如认可 v1.3 骨架，建议下一步：启动 S1 → 生成对应 CODE_TASK 文档（`abcoder:task`）→ 走 `/spec:plan` 结构化分解 → 进入 `/spec:work` 执行。

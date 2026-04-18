@@ -184,4 +184,9 @@ bash tests/e2e/spec-graph-bootstrap-mainline.sh
 echo "✓ spec-graph-bootstrap 主链通过"
 
 echo ""
+echo "10. 测试 spec-brainstorm 确定性 contract 接线..."
+bash tests/integration/spec-brainstorm-flow.sh
+echo "✓ spec-brainstorm 确定性 contract 接线通过"
+
+echo ""
 echo "=== E2E 测试全部通过 ✓ ==="

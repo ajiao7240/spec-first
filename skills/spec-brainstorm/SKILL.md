@@ -16,6 +16,10 @@ This skill does not implement code. It explores, clarifies, and documents decisi
 
 **IMPORTANT: All file references in generated documents must use repo-relative paths (e.g., `src/models/user.rb`), never absolute paths. Absolute paths break portability across machines, worktrees, and teammates.**
 
+<HARD-GATE>
+Do not jump to `/spec:work`, implementation skills, or environment-changing workflows until requirements are aligned and the terminal handoff rules explicitly allow that path. "Simple" work still requires alignment; the artifact may be brief, but the alignment step is not optional.
+</HARD-GATE>
+
 ## Core Principles
 
 1. **Assess scope first** - Match the amount of ceremony to the size and ambiguity of the work.
@@ -37,6 +41,10 @@ This skill does not implement code. It explores, clarifies, and documents decisi
 - **Keep outputs concise** - Prefer short sections, brief bullets, and only enough detail to support the next decision.
 - **Use repo-relative paths** - When referencing files, use paths relative to the repo root (e.g., `src/models/user.rb`), never absolute paths. Absolute paths make documents non-portable across machines and teammates.
 
+## Anti-Pattern: "This Is Too Simple To Need Alignment"
+
+Do not skip alignment just because a request looks small. A tiny change can still hide scope confusion, user-behavior ambiguity, or a better framing. The brainstorm can be short, but the alignment step still happens.
+
 ## Feature Description
 
 <feature_description> #$ARGUMENTS </feature_description>
@@ -47,6 +55,30 @@ Do not proceed until you have a feature description from the user.
 
 ## Execution Flow
 
+## Process Flow
+
+```mermaid
+flowchart TD
+    A[Resume check] --> B{Software task?}
+    B -->|No| U[Use universal brainstorming]
+    B -->|Direct answer| R[Respond directly]
+    B -->|Yes| P[Current Work Pulse if relevant]
+    P --> N[Assess whether brainstorming is needed]
+    N --> S[Assess scope]
+    S --> D{Needs decomposition?}
+    D -->|Yes| E[Load references/decomposition-capture.md]
+    D -->|No| C[Context scan]
+    E --> C
+    C --> T[Pressure test]
+    T --> G[Collaborative dialogue]
+    G --> H[Approaches]
+    H --> Q[Requirements capture]
+    Q --> F[Preflight Self-Check]
+    F --> V[document-review]
+    V --> Y[User Review Gate]
+    Y --> Z[Handoff with Terminal State Lock]
+```
+
 ### Phase 0: Resume, Assess, and Route
 
 #### 0.1 Resume Existing Work When Appropriate
@@ -55,6 +87,25 @@ If the user references an existing brainstorm topic or document, or there is an 
 - Read the document
 - Confirm with the user before resuming: "Found an existing requirements doc for [topic]. Should I continue from this, or start fresh?"
 - If resuming, summarize the current state briefly, continue from its existing decisions and outstanding questions, and update the existing document instead of creating a duplicate
+
+#### 0.1a Current Work Pulse
+
+Before continuing, decide whether a lightweight Current Work Pulse is useful. Trigger it only when at least one of these is true:
+- The user says "continue the previous brainstorm" or similar
+- Phase 0.1 resumed an existing requirements document
+- The current topic is obviously related to recent commits
+- The working tree has obviously related dirty changes
+
+If triggered:
+- Review only a lightweight pulse: recent 5-10 commit summaries plus affected paths, and `git status --short` only when useful
+- Summarize:
+  - what changed recently
+  - what might affect this brainstorm
+  - what still needs explicit confirmation in the requirements
+- Treat the pulse as situational context, not as an implicit product decision
+- Do **not** turn this into a code review or file-by-file audit
+
+If not triggered, skip it silently.
 
 #### 0.1b Classify Task Domain
 
@@ -89,6 +140,29 @@ Use the feature description plus a light repo scan to classify the work:
 - **Deep** - cross-cutting, strategic, or highly ambiguous
 
 If the scope is unclear, ask one targeted question to disambiguate and then proceed.
+
+#### 0.3a Scope Decomposition
+
+Before spending several rounds refining details, check whether the request should be decomposed into multiple sub-project brainstorms first.
+
+Use a conservative trigger:
+- The request appears to contain 3 or more distinct functional areas or subsystems
+- And at least one of these is also true:
+  - the description is long or broad enough that planning would have to invent product structure
+  - it uses platform / ecosystem / suite language
+  - it spans 3 or more user roles or operating surfaces
+
+If decomposition is warranted:
+- Ask whether to decompose now or continue as one brainstorm
+- If the user chooses decomposition:
+  - Read `references/decomposition-capture.md`
+  - Write `docs/brainstorms/YYYY-MM-DD-<epic>-decomposition.md`
+  - Ask which sub-project to start with
+  - Continue this workflow for the first selected sub-project
+- If the user chooses to keep it together:
+  - Record a Key Decision that the user accepted higher planning complexity by keeping multiple subsystems in one brainstorm
+
+If the user explicitly says "skip future gates" for this run, you may treat this decomposition decision as pre-approved for the current invocation only. Never persist that preference across sessions. Never use it to bypass the Terminal State Lock escape hatch later.
 
 ### Phase 1: Understand the Idea
 
@@ -177,6 +251,8 @@ When a supplemental reader returns any non-`success` status:
 - Continue the brainstorm unless the user explicitly says the external context is mandatory
 - If the status is `executor-unavailable`, tell the user that the current environment does not support page reading for this source type; do not retry repeatedly unless the user changes the source or environment; for document-type sources (Feishu docs, web pages, docs URLs), suggest using a local file path or pasting the content manually instead
 
+If Phase 0.1a produced a Current Work Pulse, incorporate it here as lightweight context only. Recent commits or dirty changes can inform what to confirm, but they do not automatically settle product behavior.
+
 #### 1.2 Product Pressure Test
 
 Before generating approaches, challenge the request to catch misframing. Match depth to scope:
@@ -244,7 +320,27 @@ If relevant, call out whether the choice is:
 
 Write or update a requirements document only when the conversation produced durable decisions worth preserving. Read `references/requirements-capture.md` for the document template, formatting rules, visual aid guidance, and completeness checks.
 
+For **Standard** and **Deep** work, use the section-by-section confirmation flow from `references/requirements-capture.md` instead of drafting the full document in one shot. Confirm each section in chat first, then write the requirements document once all sections are aligned.
+
+If this brainstorm is operating inside an epic decomposition path, read `references/decomposition-capture.md` before writing the sub-project requirements document so the frontmatter and epic linkage stay consistent.
+
 For **Lightweight** brainstorms, keep the document compact. Skip document creation when the user only needs brief alignment and no durable decisions need to be preserved.
+
+#### 3.4 Preflight Self-Check
+
+When a requirements document was created or updated, run a low-cost deterministic preflight before document-review.
+
+Check these four things:
+- Placeholder scan — `TODO`, `TBD`, incomplete sections, or obvious placeholders
+- Contradiction scan — requirements, success criteria, scope boundaries, and key decisions disagreeing with each other
+- Scope sanity — the document has expanded into multiple independent subsystems and should decompose first
+- Ambiguity scan — wording loose enough that planning could produce two materially different implementations
+
+If an issue can be fixed inline without changing intent, fix it before review.
+
+If the issue needs user intent, return to the relevant section and confirm it before proceeding.
+
+If the brainstorm is Lightweight and no requirements doc was written, this step is a no-op.
 
 ### Phase 3.5: Document Review
 
@@ -254,6 +350,31 @@ If document-review returns findings that were auto-applied, note them briefly wh
 
 When document-review returns "Review complete", proceed to Phase 4.
 
-### Phase 4: Handoff
+#### 3.6 User Review Gate
+
+When a requirements document exists, add a separate user review gate after document-review and before any handoff.
+
+Ask the user to open the document and confirm that it reflects their real intent before continuing.
+
+Rules:
+- If the user requests changes, return to Phase 3, update the relevant section, then re-run Phase 3.4 and Phase 3.5 as needed
+- If the user explicitly says to skip this gate, record that decision in the requirements doc as a Key Decision for this run
+- If the user explicitly says "skip future gates" for this run, you may also treat this gate as pre-approved for the current invocation only
+- Never persist skip-gate preferences across sessions
+- Never let skip-gate preferences bypass the Terminal State Lock escape hatch
+- If no requirements document exists, this gate can be skipped automatically
+
+### Phase 4: Handoff and Terminal State Lock
+
+Before offering or executing any next step, read `references/handoff.md` and enforce its Terminal State Lock.
+
+This workflow intentionally diverges from the single-exit superpowers model. The allowed exits are:
+- planning
+- eligible direct-to-work
+- additional document review
+- continuing the brainstorm
+- lightweight sharing such as Proof
+
+Unlisted next steps are denied unless the handoff rules explicitly allow them via the escape hatch.
 
 Present next-step options and execute the user's selection. Read `references/handoff.md` for the option logic, dispatch instructions, and closing summary format.

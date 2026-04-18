@@ -4,6 +4,43 @@ This content is loaded when Phase 4 begins — after the requirements document i
 
 ---
 
+#### 4.0 Terminal State Lock
+
+This workflow does **not** hand off to arbitrary next steps.
+
+Before offering or executing any option, classify the requested next action:
+
+**Denylist — blocked unless the escape hatch is used**
+- Any skill or workflow whose normal effect is to modify source code
+- Any skill or workflow whose normal effect is to change the host runtime or environment
+- Examples: implementation skills, package-install flows, git-writing flows, environment or MCP mutation flows
+
+**Allowlist-Workflow — normal brainstorm exits**
+- `/spec:plan`
+- `/spec:work` only when the direct-to-work gate is satisfied
+- `document-review`
+- `/spec:brainstorm`
+- `/spec:review` only when a PR already exists and the user is explicitly routing there
+
+**Allowlist-SideEffect — allowed non-implementation side effects**
+- `Share to Proof`
+- Read-only export or sharing actions that do not mutate code or host runtime
+
+This is an intentional divergence from the single-exit superpowers model. Brainstorm may end in planning, eligible direct-to-work, additional review, continued brainstorming, or lightweight sharing — but it does not jump straight into arbitrary implementation or environment-changing skills.
+
+**Unlisted requests**
+- If the request clearly maps to one of the allowlisted categories above, explain the mapping and use the canonical option
+- If the request falls into the denylist, refuse it and keep the user in the brainstorm handoff menu
+- If the user explicitly insists on a denylisted path, use the escape hatch only after a second explicit confirmation that they are deliberately diverging from the brainstorm terminal state
+- Record escape-hatch use as a Key Decision for the current run when a requirements document exists
+- `skip future gates` never applies to the escape hatch
+
+#### 4.0a Escape Hatch Confirmation
+
+Use escape hatch wording like:
+
+> "That next step falls outside the normal brainstorm exits because it would modify code or the host environment. If you want to deliberately diverge anyway, confirm explicitly and I will record that choice before handing off."
+
 #### 4.1 Present Next-Step Options
 
 Present next steps using the platform's blocking question tool when available (see Interaction Rules in the main skill). Otherwise present numbered options in chat and end the turn.
@@ -27,6 +64,8 @@ Present only the options that apply:
 - **Done for now** - Return later
 
 If the direct-to-work gate is not satisfied, omit that option entirely.
+
+If the user requests an unlisted next step here, resolve it through the Terminal State Lock before doing anything else.
 
 #### 4.2 Handle the Selected Option
 
