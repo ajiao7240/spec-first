@@ -43,6 +43,7 @@ npm pack                          # 发布前构建 tarball
 - **`vendor/tree-sitter-swift/`** — 受控 Swift parser 包（从上游 tree-sitter-swift fork，移除 tree-sitter-cli 安装期依赖，收敛 peerDependency 到 `>=0.21.0`），通过 `file:` 协议引用
 - **`.claude-plugin/plugin.json`** — plugin manifest，声明 commands 列表和目录映射
 - **bootstrap 控制面**：`spec-bootstrap` / `spec-graph-bootstrap` 工作流产物路径为 `.spec-first/workflows/bootstrap/<slug>/`（已从旧 `.context/spec-first/bootstrap/<slug>/` 迁移）；manifest 文件为 `artifact-manifest.json`（已从旧 `fingerprints.json` 重命名）；`spec-graph-bootstrap` Phase 4 生成的 `docs/contexts/<slug>/injection-index.yaml` 已收敛为 `always + stages + selection_rules + advice` 结构，`task_types` 字段不再生成，`output_exists.*` 规则以 `inject[]` 路径存在性为准；仓库内 `docs/contexts/spec-first/` 作为 graph-bootstrap 自举样本与测试基线纳入版本控制；`runWorkspaceBootstrap` 返回值含 `prunedChildSlugs: string[]`（成功清理的已移除 child slug）与 `failedPrunes: Array<{childSlug, error}>`（rm 失败明细），调用方据此审计 rerun 期间被 prune 或清理失败的 child 产物
+- **bootstrap 数据质量信号**（2026-04-19）：`artifact-manifest.json` 新增 `data_quality` 字段（`fact-backed` / `partial` / `empty`），由 `buildArtifactManifest` 根据 `factInventory.modules` 与 `entrypoints` 长度计算；`evaluateContext` L0 门控收紧——`data_quality: 'empty'` 时降为 L1，`fallback_reason: 'empty_fact_inventory'`；`compile-minimal-context.js` 为 plan/work/review 三份 context 追加 `provenance`（`fact-inventory` / `empty-fallback`）与 `confidence`（`high` / `medium` / `low`）元字段，供下游 skill 感知数据可信度；workspace 空仓库 bootstrap 现在正确报告 `workspace_child_partial_degraded`，不再误给 L0
 - **Stage-0 消费接入**：`spec-plan`、`spec-work`、`spec-review` 源 skill 已接入 Stage-0 上下文预载块；消费顺序固定为 `always[] -> stages.<stage>[] -> selection_rules(output_exists.*) -> advice.<stage>`，`fact.*` 规则在 v1 显式跳过，`injection-index.yaml` 不可用时统一回退到 `00-summary.md`、`pitfalls/index.md`、`code-facts/public-entrypoints.md`、`code-facts/test-map.md`；其中 `output_exists.*` 仅按 `inject[]` 各路径是否存在决定追加，不再依赖额外 sample 路由去重
 - **spec-mcp-setup 飞书 MCP 集成**：`mcp-tools.json` 新增第 5 个工具 `feishu`（`category: optional`）；引入 `detect.method: mcp_key_only`——只检测 key 存在而不校验 args，用于凭据因用户不同而各异的 MCP 工具；`install-coordinator.sh/ps1` 新增 `install_feishu/Install-Feishu` 函数，交互采集 App ID/Secret 并通过 `mcp add-json` 写入配置；`verify-tools.sh/ps1` 新增 `check_mcp_key_only/Check-McpKeyOnly` 与 `check_feishu_whoami/Get-FeishuWhoami`（调 Feishu auth API 验证凭据，带超时保护），`host-setup.json` 升至 v6 格式（新增 `tools.feishu.configured/whoami` 字段）；`setup_success` 门控不变，仍只看 3 个 required 工具；可选工具（feishu）安装失败不再触发必选工具回滚，`install_feishu` 安装后新增 post-configure 验证，sh 函数末尾补充显式 `return 0`；`read` 改用 `/dev/tty` 修复 stdin 重定向导致提示静默跳过，App Secret 改为 `-s`/`-AsSecureString` 静默输入；测试补充 `feishu.configured`/`whoami` 断言与 mcp_key_only true 分支 5.3.2 fixture
 - **spec-sessions skill**：`skills/spec-sessions/` 提供会话历史检索能力，入口命令 `/spec:sessions`；对应命令模板 `templates/claude/commands/spec/sessions.md`；`agents/research/` 新增 `docs-context-reader`、`feishu-chat-researcher`、`feishu-doc-reader`、`github-context-reader`、`local-doc-reader`、`session-historian`、`web-context-reader` 等研究类 agent
@@ -56,6 +57,23 @@ npm pack                          # 发布前构建 tarball
 Skill/Agent 源文件统一使用 `spec-first:category:name` 作为 canonical agent name。Claude adapter 在 init 时会把 skill 内的 canonical 引用重写为 bare name（`name`），并把 Task 调用改写为宿主可执行的 bare-agent 形式；Codex adapter 会把 canonical 引用与 Task 调用重写为显式的 `.codex/agents/...` 路径，同时把共享 skill/command 路径改写到 Codex runtime 布局。
 
 `doctor` 当前仅对 Claude runtime 检测是否残留未重写的 canonical 名称与未解析的 Task agent 引用；Codex 侧的 transform contract 主要由 unit/smoke 测试守护。
+
+## AI 决策输入原则
+
+始终牢记这个思想：
+
+`轻 contract + 明确边界 + 让 LLM 决策`
+
+在本仓库里，这不是一句口号，而是必须遵守的实现约束：
+
+- **轻 contract**：只暴露稳定、必要、可组合的结构化事实，不把 orchestration、固定执行顺序、宿主特定流程树硬编码进 contract。
+- **明确边界**：repo profile、diff recommendation、verifier dispatch、gate state、workflow prose、telemetry 各自回答各自的问题，不能越权替别的层做决策。
+- **让 LLM 决策**：control plane 和 runtime 的职责是给模型提供更高质量的决策输入，提高当前任务的清晰度、相关性与可解释性，而不是过早剥夺模型的判断空间。
+- **优先提高输入质量而不是增加耦合**：如果两种方案都能工作，优先选择让 LLM 拿到更干净、更真实、更贴近当前改动输入的方案，而不是选择更重、更硬编码的自动化。
+- **质量提升优先来自更好的决策输入**：优先补真实上下文、provenance、freshness、confidence、fallback_reason、verification signals，而不是优先补更复杂的流转控制。
+- **不要把质量门做成“多状态流转 + 强编排”的状态机**：不要为了追求表面上的确定性，引入过重的 stage transition、强绑定执行树、审批分支或策略引擎。
+- **质量门应该暴露事实，不应该代替模型做流程编排**：verification summary、verifier dispatch、gate state、freshness、confidence、fallback reason 应保持独立、可组合、各司其职，而不是被压成一个大而全的 orchestration 对象。
+- **判断方向是否正确的标准**：如果一个新增机制主要增加的是状态流转、耦合和固定执行路径，而不是显著提升 LLM 决策输入质量，那么它不符合本仓库的演进方向。
 
 ### CRG 模块（`src/crg/`）
 
@@ -101,30 +119,31 @@ Skill/Agent 源文件统一使用 `spec-first:category:name` 作为 canonical ag
 **已移除 skill**：`dhh-rails-style`（迁至宿主侧独立 skill）、`slfg`（废弃）
 
 <!-- spec-first:lang:start -->
-## Language and Governance Policy (managed by spec-first)
+## 语言与治理策略（由 spec-first 管理）
 
-**Language setting:** `English`
+**语言设置：** `中文`
 
-### Language Rules
-- All natural language output including responses, status updates, generated documentation, review comments, and plan notes must use **English**
-- Code identifiers (variables, functions, classes, modules, technical identifiers in filenames) remain in English
-- New code comments use English — concise and clear
-- Technical identifiers such as code, commands, paths, config keys, env var names, API names, and protocol names are never translated
+### 语言规则
+- 回复、状态更新、生成文档、评审意见、计划说明等所有自然语言输出使用**中文**
+- 允许混用英文技术术语，不要求强行翻译常见技术词
+- 代码标识符（变量、函数、类、模块、文件名中的技术标识）保持英文
+- 新增代码注释使用中文，简洁清晰，不写空洞注释
+- 代码、命令、路径、配置键、环境变量名、API 名称、协议名等技术标识不因语言偏好而被翻译
 
-### Changelog Governance
-**Code Change Iron Law (No Exceptions)**
-- Any addition, deletion, or modification to project source code must include a matching entry in the repo-root `CHANGELOG.md`
-- If no matching entry exists, refuse to generate the code change
-- Use the repository's existing changelog format
-- **Example:** `- vX.Y.Z YYYY-MM-DD author: one-line summary`
-- Append `(user-visible)` for user-visible changes
+### Changelog 治理规则
+**代码变动铁律（无例外）**
+- 任何对项目源码的新增、删除、修改，必须同步在项目根目录 `CHANGELOG.md` 中添加一条记录
+- 无此记录的代码变动，一律拒绝生成
+- 记录格式以仓库现行格式为准
+- **示例：** `- vX.Y.Z YYYY-MM-DD 作者: 一句话摘要`
+- 用户可见变更在末尾追加 `(user-visible)`
 <!-- spec-first:lang:end -->
 
 <!-- spec-first:bootstrap:start -->
-## Workflow Entry Governance (managed by spec-first)
+## Workflow 入口治理（由 spec-first 管理）
 
-- This project installs `using-spec-first`
-- Before substantial work, route the request with `using-spec-first`
-- Claude workflow entrypoints use `/spec:*`
-- Do not treat `using-spec-first` itself as a command-backed workflow
+- 当前项目已安装 `using-spec-first`
+- 开始 substantial work 前，先按 `using-spec-first` 做 workflow 判定
+- Claude workflow 入口使用 `/spec:*`
+- 不要把 `using-spec-first` 本身当作 command-backed workflow
 <!-- spec-first:bootstrap:end -->

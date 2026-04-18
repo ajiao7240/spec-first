@@ -129,8 +129,10 @@ function evaluateContext({
   const { selectedAssets, estimatedTokens } = trimAssetsToBudget(assets, maxTokens);
   const freshnessStatus = freshness && freshness.status ? freshness.status : 'unknown';
 
-  let level = minimalContextMissing ? 'L1' : 'L0';
-  let fallbackReason = minimalContextMissing ? 'minimal_context_missing' : null;
+  const qualitySufficient = (manifest.data_quality ?? 'empty') !== 'empty';
+  let level = minimalContextMissing ? 'L1' : !qualitySufficient ? 'L1' : 'L0';
+  let fallbackReason = minimalContextMissing  ? 'minimal_context_missing' :
+                       !qualitySufficient     ? 'empty_fact_inventory'    : null;
   if (!fallbackReason && freshnessStatus === 'stale') {
     fallbackReason = 'freshness_stale';
   }

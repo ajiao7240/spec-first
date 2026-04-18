@@ -10,6 +10,9 @@ const {
 const {
   buildArtifactManifestSample,
   buildContextRoutingSample,
+  buildOwnershipRegistrySample,
+  buildReviewQueueSample,
+  buildVerificationProfileSample,
   serializeInjectionIndex,
 } = require('../../src/bootstrap-compiler/sample-generator');
 const {
@@ -17,6 +20,14 @@ const {
   buildReviewMinimalContext,
   buildWorkMinimalContext,
 } = require('../../src/bootstrap-compiler/compile-minimal-context');
+const {
+  FACT_INVENTORY_SAMPLE,
+  PLAN_MINIMAL_CONTEXT_SAMPLE,
+  REVIEW_MINIMAL_CONTEXT_SAMPLE,
+  RISK_SIGNALS_SAMPLE,
+  TEST_SURFACE_SAMPLE,
+  WORK_MINIMAL_CONTEXT_SAMPLE,
+} = require('../fixtures/bootstrap/spec-first-bootstrap-sample');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const GITIGNORE_PATH = path.join(REPO_ROOT, '.gitignore');
@@ -32,47 +43,6 @@ const SAMPLE_INJECTION_INDEX_PATH = path.join(
   REPO_ROOT,
   'docs/contexts/spec-first/injection-index.yaml'
 );
-const SAMPLE_CONTEXT_ROUTING_PATH = path.join(
-  REPO_ROOT,
-  '.spec-first/workflows/bootstrap/spec-first/context-routing.json'
-);
-const SAMPLE_ARTIFACT_MANIFEST_PATH = path.join(
-  REPO_ROOT,
-  '.spec-first/workflows/bootstrap/spec-first/artifact-manifest.json'
-);
-const SAMPLE_REVIEW_MINIMAL_CONTEXT_PATH = path.join(
-  REPO_ROOT,
-  '.spec-first/workflows/bootstrap/spec-first/minimal-context/review.json'
-);
-const SAMPLE_PLAN_MINIMAL_CONTEXT_PATH = path.join(
-  REPO_ROOT,
-  '.spec-first/workflows/bootstrap/spec-first/minimal-context/plan.json'
-);
-const SAMPLE_WORK_MINIMAL_CONTEXT_PATH = path.join(
-  REPO_ROOT,
-  '.spec-first/workflows/bootstrap/spec-first/minimal-context/work.json'
-);
-const SAMPLE_OWNERSHIP_PATH = path.join(
-  REPO_ROOT,
-  '.spec-first/workflows/bootstrap/spec-first/ownership.json'
-);
-const SAMPLE_REVIEW_QUEUE_PATH = path.join(
-  REPO_ROOT,
-  '.spec-first/workflows/bootstrap/spec-first/review-queue.json'
-);
-const SAMPLE_RISK_SIGNALS_PATH = path.join(
-  REPO_ROOT,
-  '.spec-first/workflows/bootstrap/spec-first/risk-signals.json'
-);
-const SAMPLE_TEST_SURFACE_PATH = path.join(
-  REPO_ROOT,
-  '.spec-first/workflows/bootstrap/spec-first/test-surface.json'
-);
-const SAMPLE_FACT_INVENTORY_PATH = path.join(
-  REPO_ROOT,
-  '.spec-first/workflows/bootstrap/spec-first/fact-inventory.json'
-);
-
 describe('spec-graph-bootstrap contracts', () => {
   test('.gitignore keeps .spec-first runtime ignored while allowing docs/contexts samples', () => {
     const gitignore = fs.readFileSync(GITIGNORE_PATH, 'utf8');
@@ -113,23 +83,34 @@ describe('spec-graph-bootstrap contracts', () => {
     expect(yaml).toMatch(/condition: "output_exists\.code_facts_public_entrypoints"/);
   });
 
-  test('artifact-manifest and context-routing checked-in samples satisfy the P0 schemas', () => {
+  test('artifact-manifest, context-routing, and verification-profile generator outputs satisfy schemas', () => {
     const schemas = loadBootstrapSchemas();
-    const artifactManifest = JSON.parse(fs.readFileSync(SAMPLE_ARTIFACT_MANIFEST_PATH, 'utf8'));
-    const contextRouting = JSON.parse(fs.readFileSync(SAMPLE_CONTEXT_ROUTING_PATH, 'utf8'));
+    const artifactManifest = buildArtifactManifestSample();
+    const contextRouting = buildContextRoutingSample();
+    const verificationProfile = buildVerificationProfileSample();
+    const factInventory = FACT_INVENTORY_SAMPLE;
+    const riskSignals = RISK_SIGNALS_SAMPLE;
+    const testSurface = TEST_SURFACE_SAMPLE;
 
     expect(validateAgainstSchema(schemas.artifactManifest, artifactManifest).errors).toEqual([]);
     expect(validateAgainstSchema(schemas.contextRouting, contextRouting).errors).toEqual([]);
+    expect(validateAgainstSchema(schemas.factInventory, factInventory).errors).toEqual([]);
+    expect(validateAgainstSchema(schemas.riskSignals, riskSignals).errors).toEqual([]);
+    expect(validateAgainstSchema(schemas.testSurface, testSurface).errors).toEqual([]);
+    expect(validateAgainstSchema(schemas.verificationProfile, verificationProfile).errors).toEqual([]);
   });
 
-  test('sample generator stays in sync with checked-in artifact-manifest and context-routing samples', () => {
-    const expectedManifest = JSON.parse(fs.readFileSync(SAMPLE_ARTIFACT_MANIFEST_PATH, 'utf8'));
-    const expectedRouting = JSON.parse(fs.readFileSync(SAMPLE_CONTEXT_ROUTING_PATH, 'utf8'));
-    const generatedManifest = buildArtifactManifestSample();
-    const generatedRouting = buildContextRoutingSample();
+  test('sample generator keeps manifest and verification-profile outputs deterministic', () => {
+    const manifestA = buildArtifactManifestSample();
+    const manifestB = buildArtifactManifestSample();
+    const routingA = buildContextRoutingSample();
+    const routingB = buildContextRoutingSample();
+    const verificationA = buildVerificationProfileSample();
+    const verificationB = buildVerificationProfileSample();
 
-    expect(generatedManifest).toEqual(expectedManifest);
-    expect(generatedRouting).toEqual(expectedRouting);
+    expect(manifestA).toEqual(manifestB);
+    expect(routingA).toEqual(routingB);
+    expect(verificationA).toEqual(verificationB);
   });
 
   test('sample generator stays in sync with checked-in human-view injection index sample', () => {
@@ -140,34 +121,49 @@ describe('spec-graph-bootstrap contracts', () => {
 
   test('review minimal-context sample satisfies schema and compiler output', () => {
     const schemas = loadBootstrapSchemas();
-    const riskSignals = JSON.parse(fs.readFileSync(SAMPLE_RISK_SIGNALS_PATH, 'utf8'));
-    const testSurface = JSON.parse(fs.readFileSync(SAMPLE_TEST_SURFACE_PATH, 'utf8'));
-    const expectedReview = JSON.parse(fs.readFileSync(SAMPLE_REVIEW_MINIMAL_CONTEXT_PATH, 'utf8'));
-    const compiledReview = buildReviewMinimalContext({ riskSignals, testSurface });
+    const verificationProfile = buildVerificationProfileSample();
+    const compiledReview = buildReviewMinimalContext({
+      riskSignals: RISK_SIGNALS_SAMPLE,
+      testSurface: TEST_SURFACE_SAMPLE,
+      verificationProfile,
+    });
 
-    expect(validateAgainstSchema(schemas.minimalContext, expectedReview).errors).toEqual([]);
-    expect(compiledReview).toEqual(expectedReview);
+    expect(validateAgainstSchema(schemas.minimalContext, REVIEW_MINIMAL_CONTEXT_SAMPLE).errors).toEqual([]);
+    expect(compiledReview).toEqual(REVIEW_MINIMAL_CONTEXT_SAMPLE);
   });
 
   test('plan/work minimal-context checked-in samples satisfy schema and compiler output', () => {
     const schemas = loadBootstrapSchemas();
-    const factInventory = JSON.parse(fs.readFileSync(SAMPLE_FACT_INVENTORY_PATH, 'utf8'));
-    const riskSignals = JSON.parse(fs.readFileSync(SAMPLE_RISK_SIGNALS_PATH, 'utf8'));
-    const testSurface = JSON.parse(fs.readFileSync(SAMPLE_TEST_SURFACE_PATH, 'utf8'));
-    const expectedPlan = JSON.parse(fs.readFileSync(SAMPLE_PLAN_MINIMAL_CONTEXT_PATH, 'utf8'));
-    const expectedWork = JSON.parse(fs.readFileSync(SAMPLE_WORK_MINIMAL_CONTEXT_PATH, 'utf8'));
+    const verificationProfile = buildVerificationProfileSample();
 
-    expect(validateAgainstSchema(schemas.minimalContext, expectedPlan).errors).toEqual([]);
-    expect(validateAgainstSchema(schemas.minimalContext, expectedWork).errors).toEqual([]);
-    expect(buildPlanMinimalContext({ factInventory })).toEqual(expectedPlan);
-    expect(buildWorkMinimalContext({ factInventory, riskSignals, testSurface })).toEqual(expectedWork);
+    expect(validateAgainstSchema(schemas.minimalContext, PLAN_MINIMAL_CONTEXT_SAMPLE).errors).toEqual([]);
+    expect(validateAgainstSchema(schemas.minimalContext, WORK_MINIMAL_CONTEXT_SAMPLE).errors).toEqual([]);
+    expect(buildPlanMinimalContext({ factInventory: FACT_INVENTORY_SAMPLE, verificationProfile })).toEqual(PLAN_MINIMAL_CONTEXT_SAMPLE);
+    expect(buildWorkMinimalContext({
+      factInventory: FACT_INVENTORY_SAMPLE,
+      riskSignals: RISK_SIGNALS_SAMPLE,
+      testSurface: TEST_SURFACE_SAMPLE,
+      verificationProfile,
+    })).toEqual(WORK_MINIMAL_CONTEXT_SAMPLE);
   });
 
   test('governance samples 已纳入 bootstrap control plane outputs', () => {
-    const manifest = JSON.parse(fs.readFileSync(SAMPLE_ARTIFACT_MANIFEST_PATH, 'utf8'));
-    const ownership = JSON.parse(fs.readFileSync(SAMPLE_OWNERSHIP_PATH, 'utf8'));
-    const reviewQueue = JSON.parse(fs.readFileSync(SAMPLE_REVIEW_QUEUE_PATH, 'utf8'));
+    const manifest = buildArtifactManifestSample();
+    const ownership = buildOwnershipRegistrySample();
+    const reviewQueue = buildReviewQueueSample();
 
+    expect(manifest.outputs['fact-inventory.json']).toMatchObject({
+      plane: 'control',
+      status: 'required',
+    });
+    expect(manifest.outputs['risk-signals.json']).toMatchObject({
+      plane: 'control',
+      status: 'required',
+    });
+    expect(manifest.outputs['test-surface.json']).toMatchObject({
+      plane: 'control',
+      status: 'required',
+    });
     expect(manifest.outputs['ownership.json']).toMatchObject({
       plane: 'control',
       status: 'optional',
@@ -178,5 +174,58 @@ describe('spec-graph-bootstrap contracts', () => {
     });
     expect(ownership.schema_version).toBe('v1');
     expect(reviewQueue.schema_version).toBe('v1');
+  });
+
+  test('artifact-manifest sample 包含 data_quality 字段', () => {
+    const manifest = buildArtifactManifestSample();
+    expect(manifest.data_quality).toBe('fact-backed');
+  });
+
+  test('buildArtifactManifest：空 factInventory -> data_quality empty', () => {
+    const { buildArtifactManifest } = require('../../src/bootstrap-compiler/compile-routing');
+    const manifest = buildArtifactManifest({});
+    expect(manifest.data_quality).toBe('empty');
+  });
+
+  test('buildArtifactManifest：有 modules 无 entrypoints -> data_quality partial', () => {
+    const { buildArtifactManifest } = require('../../src/bootstrap-compiler/compile-routing');
+    const manifest = buildArtifactManifest({
+      factInventory: { modules: [{ path: 'src/' }], entrypoints: [] },
+    });
+    expect(manifest.data_quality).toBe('partial');
+  });
+
+  test('buildArtifactManifest：有 modules 和 entrypoints -> data_quality fact-backed', () => {
+    const { buildArtifactManifest } = require('../../src/bootstrap-compiler/compile-routing');
+    const manifest = buildArtifactManifest({
+      factInventory: {
+        modules: [{ path: 'src/' }],
+        entrypoints: [{ path: 'src/index.js' }],
+      },
+    });
+    expect(manifest.data_quality).toBe('fact-backed');
+  });
+
+  test('minimal-context 三份 context 都包含 provenance 和 confidence 字段', () => {
+    const verificationProfile = buildVerificationProfileSample();
+    const plan = buildPlanMinimalContext({ factInventory: FACT_INVENTORY_SAMPLE, verificationProfile });
+    const work = buildWorkMinimalContext({
+      factInventory: FACT_INVENTORY_SAMPLE,
+      riskSignals: RISK_SIGNALS_SAMPLE,
+      testSurface: TEST_SURFACE_SAMPLE,
+      verificationProfile,
+    });
+    const review = buildReviewMinimalContext({
+      riskSignals: RISK_SIGNALS_SAMPLE,
+      testSurface: TEST_SURFACE_SAMPLE,
+      verificationProfile,
+    });
+
+    expect(plan.provenance).toBe('fact-inventory');
+    expect(plan.confidence).toBe('medium'); // modules > 0, testSurface not passed
+    expect(work.provenance).toBe('fact-inventory');
+    expect(work.confidence).toBe('high'); // modules > 0 and test_files > 0
+    expect(review.provenance).toBe('empty-fallback');
+    expect(review.confidence).toBe('low'); // no factInventory passed
   });
 });

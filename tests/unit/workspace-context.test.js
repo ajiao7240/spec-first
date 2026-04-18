@@ -28,6 +28,7 @@ function createRepoFixture(root, slug) {
     generated_at: '2026-04-15T00:00:00.000Z',
     updated_at: '2026-04-15T00:00:00.000Z',
     status: 'complete',
+    data_quality: 'fact-backed',
     outputs: {
       'minimal-context/plan.json': { depends_on: [] },
       'architecture/module-map.md': { depends_on: [] },
@@ -50,7 +51,64 @@ function createRepoFixture(root, slug) {
     fallback_reason: null,
     advice: 'plan',
   }, null, 2));
+  fs.writeFileSync(path.join(repoRoot, '.spec-first', 'workflows', 'bootstrap', slug, 'minimal-context', 'work.json'), JSON.stringify({
+    schema_version: 'v1',
+    generated_at: '2026-04-15T00:00:00.000Z',
+    stage: 'work',
+    profile: 'work-default',
+    selected_assets: ['code-facts/test-map.md'],
+    platform_focus: ['web'],
+    required_verifications: ['unit-tests', 'integration-tests', 'browser-smoke'],
+    optional_verifications: ['browser-evidence'],
+    fallback_reason: null,
+    advice: 'work',
+  }, null, 2));
+  fs.writeFileSync(path.join(repoRoot, '.spec-first', 'workflows', 'bootstrap', slug, 'minimal-context', 'review.json'), JSON.stringify({
+    schema_version: 'v1',
+    generated_at: '2026-04-15T00:00:00.000Z',
+    stage: 'review',
+    profile: 'review-default',
+    selected_assets: ['code-facts/high-risk-modules.md'],
+    platform_focus: ['web'],
+    verification_gaps_to_check: ['confirm unit-tests', 'confirm integration-tests', 'confirm browser-smoke'],
+    fallback_reason: null,
+    advice: 'review',
+  }, null, 2));
+  fs.writeFileSync(path.join(repoRoot, '.spec-first', 'workflows', 'bootstrap', slug, 'verification-profile.json'), JSON.stringify({
+    schema_version: 'v1',
+    generated_at: '2026-04-15T00:00:00.000Z',
+    profile_id: 'web+jest',
+    platforms: ['web'],
+    languages: ['typescript'],
+    detected_test_frameworks: ['jest'],
+    required_gates: [
+      { id: 'unit-tests', scope: 'repository' },
+      { id: 'integration-tests', scope: 'cross-module' },
+      { id: 'browser-smoke', scope: 'web-surface' },
+    ],
+    optional_gates: [
+      { id: 'browser-evidence', scope: 'web-surface' },
+    ],
+    verifier_hints: [],
+    environment_prerequisites: [],
+    fallback_reason: null,
+  }, null, 2));
   return repoRoot;
+}
+
+function writeVerificationEvidence(repoRoot, slug, evidenceItems) {
+  const artifactDir = path.join(repoRoot, '.spec-first', 'workflows', 'verification', slug);
+  fs.mkdirSync(artifactDir, { recursive: true });
+  fs.writeFileSync(path.join(artifactDir, 'verification-evidence.json'), JSON.stringify({
+    schema_version: 'v1',
+    evidence_items: evidenceItems,
+  }, null, 2));
+}
+
+function writeAiDevQualityGateResult(repoRoot, gateResult) {
+  const artifactDir = path.join(repoRoot, '.spec-first', 'workflows', 'quality-gates', 'ai-dev-quality-gate');
+  fs.mkdirSync(artifactDir, { recursive: true });
+  fs.writeFileSync(path.join(artifactDir, 'ai-dev-quality-gate-result.json'), JSON.stringify(gateResult, null, 2));
 }
 
 describe('workspace context', () => {
@@ -79,6 +137,10 @@ describe('workspace context', () => {
 
       expect(loaded.filter((item) => item.status === 'ok')).toHaveLength(2);
       expect(loaded.some((item) => item.status === 'degraded')).toBe(true);
+      expect(compiled.workspace_slug).toBe(path.basename(tmpDir));
+      expect(compiled.matched_child_slugs).toEqual(['repo-a', 'repo-b']);
+      expect(compiled.level).toBe('L0');
+      expect(compiled.fallback_reason).toBe(null);
       expect(compiled.selected_assets).toContain('repo-a:minimal-context/plan.json');
       expect(compiled.selected_assets).toContain('repo-b:architecture/module-map.md');
     } finally {
@@ -97,6 +159,273 @@ describe('workspace context', () => {
       expect(workspace.mode).toBe('single-repo');
       expect(workspace.selected_assets).toEqual(direct.selected_assets);
       expect(workspace.repo_count).toBe(1);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('single repo work compile 会产出 diff-aware verification_summary', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-context-work-verification-'));
+
+    try {
+      const repoA = createRepoFixture(tmpDir, 'repo-a');
+      const workspace = compileWorkspaceContext({
+        repoRoots: [repoA],
+        stage: 'work',
+        changedFiles: ['src/app/home/page.tsx'],
+      });
+
+      expect(workspace.mode).toBe('single-repo');
+      expect(workspace.verification_summary).toMatchObject({
+        stage: 'work',
+        source: 'change-surface',
+        platform_focus: ['web'],
+        impacted_modules: ['src/app/'],
+        impacted_languages: ['typescript'],
+        impacted_platforms: ['web'],
+        required_verifications: ['unit-tests', 'integration-tests', 'browser-smoke'],
+        optional_verifications: ['browser-evidence'],
+        recommended_required_verifications: ['unit-tests', 'integration-tests', 'browser-smoke'],
+        recommended_optional_verifications: ['browser-evidence'],
+        repo_required_verifications: ['unit-tests', 'integration-tests', 'browser-smoke'],
+        repo_optional_verifications: ['browser-evidence'],
+        confidence: 'high',
+        fallback_reason: null,
+      });
+      expect(workspace.verifier_dispatch).toMatchObject({
+        handoff_posture: 'manual-only',
+        dispatch_candidates: expect.arrayContaining([
+          expect.objectContaining({
+            verifier: 'test-browser',
+            posture: 'manual-handoff',
+          }),
+        ]),
+        manual_required_verifications: ['unit-tests', 'integration-tests'],
+      });
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('single repo review compile 会优先用 diff-aware verification gaps，而不是 repo 级固定 gaps', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-context-review-verification-'));
+
+    try {
+      const repoA = createRepoFixture(tmpDir, 'repo-a');
+      const workspace = compileWorkspaceContext({
+        repoRoots: [repoA],
+        stage: 'review',
+        changedFiles: ['docs/guide.md'],
+      });
+
+      expect(workspace.mode).toBe('single-repo');
+      expect(workspace.verification_summary).toMatchObject({
+        stage: 'review',
+        source: 'change-surface',
+        platform_focus: [],
+        impacted_modules: ['docs/'],
+        impacted_languages: ['markdown'],
+        impacted_platforms: [],
+        recommended_required_verifications: [],
+        recommended_optional_verifications: [],
+        verification_gaps_to_check: [],
+        repo_verification_gaps_to_check: ['confirm unit-tests', 'confirm integration-tests', 'confirm browser-smoke'],
+        confidence: 'low',
+        fallback_reason: null,
+      });
+      expect(workspace.verifier_dispatch).toMatchObject({
+        handoff_posture: 'not-needed',
+        dispatch_candidates: [],
+      });
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('single repo work compile 会把 verification evidence 合并进独立 contract 与 gate state', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-context-evidence-'));
+
+    try {
+      const repoA = createRepoFixture(tmpDir, 'repo-a');
+      writeVerificationEvidence(repoA, 'repo-a', [
+        {
+          evidence_ref: 'evidence://browser-smoke/1',
+          verifier: 'test-browser',
+          gate_ids: ['browser-smoke', 'browser-evidence'],
+          evidence_type: 'browser-snapshot',
+          status: 'captured',
+          artifact_path: '.spec-first/workflows/verification/repo-a/browser-smoke.png',
+          captured_at: '2026-04-18T22:10:00.000Z',
+          stage: 'work',
+        },
+      ]);
+
+      const workspace = compileWorkspaceContext({
+        repoRoots: [repoA],
+        stage: 'work',
+        changedFiles: ['src/app/home/page.tsx'],
+      });
+
+      expect(workspace.verification_evidence).toEqual({
+        schema_version: 'v1',
+        evidence_source: 'workflow-artifacts',
+        evidence_items: [
+          expect.objectContaining({
+            evidence_ref: 'evidence://browser-smoke/1',
+            verifier: 'test-browser',
+          }),
+        ],
+      });
+      expect(workspace.verification_gate_state).toMatchObject({
+        overall_status: 'pending',
+        evidence_locations: ['evidence://browser-smoke/1'],
+        required_gates: expect.arrayContaining([
+          expect.objectContaining({
+            gate_id: 'browser-smoke',
+            status: 'satisfied',
+          }),
+        ]),
+        ci_gate: {
+          status: 'pending',
+          satisfied_required_gate_count: 1,
+        },
+      });
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('single repo compile 会暴露 ai-dev quality gate result，多 repo workspace 保持 null 以避免发明聚合语义', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-context-ai-dev-gate-'));
+
+    try {
+      const repoA = createRepoFixture(tmpDir, 'repo-a');
+      const repoB = createRepoFixture(tmpDir, 'repo-b');
+      writeAiDevQualityGateResult(repoA, {
+        schema_version: 'v1',
+        generated_at: '2026-04-18T13:20:00.000Z',
+        gate_id: 'ai-dev-quality-gate',
+        passed: true,
+        checks: [],
+        failures: [],
+      });
+
+      const singleRepo = compileWorkspaceContext({
+        repoRoots: [repoA],
+        stage: 'work',
+        changedFiles: ['src/app/home/page.tsx'],
+      });
+      const workspace = compileWorkspaceContext({
+        repoRoots: [repoA, repoB],
+        stage: 'work',
+        cwd: tmpDir,
+        target: tmpDir,
+        changedFiles: ['repo-a/src/app/home/page.tsx'],
+      });
+
+      expect(singleRepo.ai_dev_quality_gate_result).toEqual({
+        schema_version: 'v1',
+        generated_at: '2026-04-18T13:20:00.000Z',
+        gate_id: 'ai-dev-quality-gate',
+        passed: true,
+        checks: [],
+        failures: [],
+      });
+      expect(workspace.ai_dev_quality_gate_result).toBe(null);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('multi repo work compile 在 docs-only 改动下保持 effective verification 为空，不回填 repo baseline', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-context-workspace-verification-'));
+
+    try {
+      const repoA = createRepoFixture(tmpDir, 'repo-a');
+      const repoB = createRepoFixture(tmpDir, 'repo-b');
+      const workspace = compileWorkspaceContext({
+        repoRoots: [repoA, repoB],
+        stage: 'work',
+        changedFiles: [path.join(repoA, 'docs', 'guide.md')],
+      });
+
+      expect(workspace.mode).toBe('workspace');
+      expect(workspace.verification_summary).toMatchObject({
+        stage: 'work',
+        source: 'change-surface',
+        impacted_modules: ['docs/'],
+        impacted_languages: ['markdown'],
+        impacted_platforms: [],
+        required_verifications: [],
+        optional_verifications: [],
+        recommended_required_verifications: [],
+        recommended_optional_verifications: [],
+        repo_required_verifications: ['unit-tests', 'integration-tests', 'browser-smoke'],
+        repo_optional_verifications: ['browser-evidence'],
+        confidence: 'low',
+      });
+      expect(workspace.verifier_dispatch).toMatchObject({
+        handoff_posture: 'not-needed',
+        dispatch_candidates: [],
+      });
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace bootstrap 锚定 child 产物时仍能产出 diff-aware verification summary', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-context-anchored-verification-'));
+    const workspaceRoot = path.join(tmpDir, 'workspace');
+    const repoA = path.join(workspaceRoot, 'packages', 'repo-a');
+    const repoB = path.join(workspaceRoot, 'packages', 'repo-b');
+
+    try {
+      fs.mkdirSync(path.join(repoA, '.git'), { recursive: true });
+      fs.mkdirSync(path.join(repoB, '.git'), { recursive: true });
+      fs.mkdirSync(path.join(repoA, 'src', 'app', 'home'), { recursive: true });
+      fs.writeFileSync(path.join(repoA, 'package.json'), JSON.stringify({
+        name: 'repo-a',
+        scripts: {
+          'test:unit': 'jest',
+          'test:integration': 'jest',
+        },
+      }, null, 2));
+      fs.writeFileSync(path.join(repoA, 'src', 'app', 'home', 'page.tsx'), 'export default function Page() { return null; }\n');
+      fs.writeFileSync(path.join(repoB, 'package.json'), JSON.stringify({ name: 'repo-b' }, null, 2));
+
+      runBootstrap({
+        repoRoot: workspaceRoot,
+        generatedAt: '2026-04-17T00:00:00.000Z',
+        repoRoots: [repoA, repoB],
+      });
+
+      const compiled = compileWorkspaceContext({
+        repoRoots: [repoA, repoB],
+        stage: 'work',
+        cwd: workspaceRoot,
+        target: path.join(repoA, 'src', 'app', 'home', 'page.tsx'),
+        changedFiles: [path.join(repoA, 'src', 'app', 'home', 'page.tsx')],
+      });
+
+      expect(compiled.mode).toBe('workspace');
+      expect(compiled.verification_summary.required_verifications).toEqual(
+        expect.arrayContaining(['unit-tests', 'integration-tests'])
+      );
+      expect(compiled.verification_summary.repo_required_verifications).toEqual(
+        expect.arrayContaining(['unit-tests', 'integration-tests'])
+      );
+      expect(compiled.verification_summary).toMatchObject({
+        stage: 'work',
+        source: 'change-surface',
+        platform_focus: ['web'],
+        impacted_modules: ['src/app/'],
+        impacted_languages: ['typescript'],
+        impacted_platforms: ['web'],
+      });
+      expect(compiled.verifier_dispatch).toMatchObject({
+        handoff_posture: 'manual-only',
+        manual_required_verifications: ['unit-tests', 'integration-tests'],
+      });
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -129,6 +458,52 @@ describe('workspace context', () => {
         `${path.basename(workspaceRoot)}:workspace/routing-overview.md`,
         `${path.basename(workspaceRoot)}:00-summary.md`,
       ]);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace root 未命中 child repo 时不会把 idle child baseline 合并进 verification_summary', () => {
+    const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-context-root-verification-'));
+    const repoA = path.join(workspaceRoot, 'packages', 'repo-a');
+    const repoB = path.join(workspaceRoot, 'packages', 'repo-b');
+
+    try {
+      fs.mkdirSync(path.join(repoA, '.git'), { recursive: true });
+      fs.mkdirSync(path.join(repoB, '.git'), { recursive: true });
+      fs.writeFileSync(path.join(repoA, 'package.json'), JSON.stringify({
+        name: 'repo-a',
+        scripts: {
+          'test:unit': 'jest',
+          'test:integration': 'jest',
+          'test:smoke': 'jest',
+        },
+        bin: 'bin/repo-a.js',
+        dependencies: {
+          jest: '^29.0.0',
+        },
+      }, null, 2));
+      fs.writeFileSync(path.join(repoB, 'package.json'), JSON.stringify({ name: 'repo-b' }, null, 2));
+
+      runBootstrap({
+        repoRoot: workspaceRoot,
+        generatedAt: '2026-04-17T00:00:00.000Z',
+        repoRoots: [repoA, repoB],
+      });
+
+      const compiled = compileWorkspaceContext({
+        stage: 'work',
+        cwd: workspaceRoot,
+        target: workspaceRoot,
+      });
+
+      expect(compiled.mode).toBe('workspace');
+      expect(compiled.matched_child_slugs).toEqual([]);
+      expect(compiled.selected_assets).toEqual([
+        `${path.basename(workspaceRoot)}:workspace/routing-overview.md`,
+        `${path.basename(workspaceRoot)}:00-summary.md`,
+      ]);
+      expect(compiled.verification_summary).toBe(null);
     } finally {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
     }
@@ -181,6 +556,7 @@ describe('workspace context', () => {
         'utf8'
       ));
       const childSlug = registry.children[0].childSlug;
+
       const loaded = loadWorkspaceContext({
         stage: 'plan',
         cwd: workspaceRoot,
@@ -190,7 +566,8 @@ describe('workspace context', () => {
       expect(loaded).toHaveLength(1);
       expect(loaded[0].evaluation.matched_child_slugs).toEqual([childSlug]);
       expect(loaded[0].evaluation.freshness_status).toBe('healthy');
-      expect(loaded[0].evaluation.fallback_reason).toBe(null);
+      // 空仓库 bootstrap 产出 data_quality=empty，child 评估为 L1，workspace 正确报告 partial degraded
+      expect(loaded[0].evaluation.fallback_reason).toBe('workspace_child_partial_degraded');
     } finally {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
     }

@@ -216,6 +216,81 @@ describe('context-routing evaluator', () => {
     }
   });
 
+  test('characterization: plan/work/review selected_assets 顺序保持稳定', () => {
+    const fixture = makeRuntimeFixture();
+
+    try {
+      for (const stage of ['plan', 'work', 'review']) {
+        fs.writeFileSync(
+          path.join(fixture.controlPlaneDir, 'minimal-context', `${stage}.json`),
+          JSON.stringify({
+            schema_version: 'v1',
+            generated_at: '2026-04-15T00:00:00.000Z',
+            stage,
+            profile: `${stage}-default`,
+            selected_assets: [],
+            fallback_reason: null,
+            advice: stage,
+          }, null, 2)
+        );
+      }
+
+      const routing = buildContextRoutingSample();
+      const manifest = buildArtifactManifestSample();
+
+      expect(evaluateContext({
+        stage: 'plan',
+        contextDir: fixture.contextDir,
+        controlPlaneDir: fixture.controlPlaneDir,
+        routing,
+        manifest,
+      }).selected_assets).toEqual([
+        'minimal-context/plan.json',
+        'code-facts/high-risk-modules.md',
+        'code-facts/public-entrypoints.md',
+        'architecture/module-map.md',
+        '00-summary.md',
+        'README.md',
+        'context-packs/review-change.md',
+      ]);
+
+      expect(evaluateContext({
+        stage: 'work',
+        contextDir: fixture.contextDir,
+        controlPlaneDir: fixture.controlPlaneDir,
+        routing,
+        manifest,
+      }).selected_assets).toEqual([
+        'minimal-context/work.json',
+        'code-facts/high-risk-modules.md',
+        'code-facts/public-entrypoints.md',
+        'code-facts/test-map.md',
+        '00-summary.md',
+        'README.md',
+        'context-packs/review-change.md',
+      ]);
+
+      expect(evaluateContext({
+        stage: 'review',
+        contextDir: fixture.contextDir,
+        controlPlaneDir: fixture.controlPlaneDir,
+        routing,
+        manifest,
+      }).selected_assets).toEqual([
+        'minimal-context/review.json',
+        'code-facts/high-risk-modules.md',
+        'code-facts/public-entrypoints.md',
+        'code-facts/test-map.md',
+        '00-summary.md',
+        'README.md',
+        'context-packs/review-change.md',
+        'pitfalls/index.md',
+      ]);
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
   test('freshness stale sets fallback reason without aborting selection', () => {
     const fixture = makeRuntimeFixture();
 
@@ -312,6 +387,55 @@ describe('context-routing evaluator', () => {
       expect(work.fallback_reason).toBe('minimal_context_missing');
       expect(work.selected_assets).toContain('code-facts/test-map.md');
       expect(work.selected_assets).toContain('context-packs/review-change.md');
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('data_quality empty -> L1 + empty_fact_inventory（即便 minimal-context 存在）', () => {
+    const fixture = makeRuntimeFixture();
+
+    try {
+      fs.writeFileSync(
+        path.join(fixture.controlPlaneDir, 'minimal-context', 'work.json'),
+        JSON.stringify({ schema_version: 'v1', stage: 'work', fallback_reason: null }, null, 2)
+      );
+
+      const emptyManifest = { ...buildArtifactManifestSample(), data_quality: 'empty' };
+      const result = evaluateContext({
+        stage: 'work',
+        contextDir: fixture.contextDir,
+        controlPlaneDir: fixture.controlPlaneDir,
+        routing: buildContextRoutingSample(),
+        manifest: emptyManifest,
+      });
+
+      expect(result.level).toBe('L1');
+      expect(result.fallback_reason).toBe('empty_fact_inventory');
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('data_quality fact-backed -> L0（minimal-context 存在时）', () => {
+    const fixture = makeRuntimeFixture();
+
+    try {
+      fs.writeFileSync(
+        path.join(fixture.controlPlaneDir, 'minimal-context', 'work.json'),
+        JSON.stringify({ schema_version: 'v1', stage: 'work', fallback_reason: null }, null, 2)
+      );
+
+      const result = evaluateContext({
+        stage: 'work',
+        contextDir: fixture.contextDir,
+        controlPlaneDir: fixture.controlPlaneDir,
+        routing: buildContextRoutingSample(),
+        manifest: buildArtifactManifestSample(), // data_quality: 'fact-backed'
+      });
+
+      expect(result.level).toBe('L0');
+      expect(result.fallback_reason).toBeNull();
     } finally {
       fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
     }

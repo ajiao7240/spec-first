@@ -70,6 +70,7 @@ function buildArtifactManifestSample({
     generated_at: generatedAt,
     updated_at: updatedAt,
     status: 'complete',
+    data_quality: 'fact-backed',
     inputs: {
       crg: {
         graph_last_built: graphLastBuilt,
@@ -94,6 +95,27 @@ function buildArtifactManifestSample({
       },
     },
     outputs: {
+      'fact-inventory.json': {
+        plane: 'control',
+        status: 'required',
+        depends_on: [
+          'filesystem-scan',
+        ],
+      },
+      'risk-signals.json': {
+        plane: 'control',
+        status: 'required',
+        depends_on: [
+          'filesystem-scan',
+        ],
+      },
+      'test-surface.json': {
+        plane: 'control',
+        status: 'required',
+        depends_on: [
+          'filesystem-scan',
+        ],
+      },
       'context-routing.json': {
         depends_on: [
           'schema:fact_inventory@v1',
@@ -111,6 +133,14 @@ function buildArtifactManifestSample({
       'minimal-context/plan.json': {
         depends_on: [
           'schema:fact_inventory@v1',
+        ],
+      },
+      'verification-profile.json': {
+        plane: 'control',
+        status: 'required',
+        depends_on: [
+          'schema:fact_inventory@v1',
+          'schema:test_surface@v1',
         ],
       },
       'minimal-context/work.json': {
@@ -217,6 +247,78 @@ function buildArtifactManifestSample({
         ],
       },
     },
+  };
+}
+
+function buildVerificationProfileSample({ generatedAt = DEFAULT_GENERATED_AT } = {}) {
+  return {
+    schema_version: 'v1',
+    generated_at: generatedAt,
+    profile_id: 'cli+jest',
+    platforms: ['cli'],
+    languages: ['javascript'],
+    detected_test_frameworks: ['jest'],
+    required_gates: [
+      {
+        id: 'unit-tests',
+        kind: 'automated-test',
+        scope: 'repository',
+        required: true,
+        reason: '仓库声明了 test:unit 脚本，可作为基础回归门。',
+        suggested_commands: ['npm run test:unit'],
+        evidence_type: 'command-output',
+      },
+      {
+        id: 'smoke-tests',
+        kind: 'automated-test',
+        scope: 'cli-surface',
+        required: true,
+        reason: '仓库声明了 test:smoke 脚本，可作为主用户路径 smoke gate。',
+        suggested_commands: ['npm run test:smoke'],
+        evidence_type: 'command-output',
+      },
+      {
+        id: 'integration-tests',
+        kind: 'automated-test',
+        scope: 'cross-module',
+        required: true,
+        reason: '仓库声明了 test:integration 脚本，可作为跨模块回归门。',
+        suggested_commands: ['npm run test:integration'],
+        evidence_type: 'command-output',
+      },
+    ],
+    optional_gates: [
+      {
+        id: 'crg-e2e-tests',
+        kind: 'automated-test',
+        scope: 'crg-surface',
+        required: false,
+        reason: '仓库声明了 test:e2e:crg，可作为 CRG 子系统补充证据。',
+        suggested_commands: ['npm run test:e2e:crg'],
+        evidence_type: 'command-output',
+      },
+      {
+        id: 'release-tests',
+        kind: 'release-gate',
+        scope: 'packaging',
+        required: false,
+        reason: '仓库声明了 test:release，可作为发版路径补充验证。',
+        suggested_commands: ['npm run test:release'],
+        evidence_type: 'command-output',
+      },
+    ],
+    verifier_hints: [
+      {
+        verifier: 'repo-test-command',
+        platforms: ['cli'],
+        available: true,
+        prerequisites: [],
+        evidence_outputs: ['command-output'],
+      },
+    ],
+    environment_prerequisites: ['node >=20.0.0'],
+    confidence: 'high',
+    fallback_reason: null,
   };
 }
 
@@ -334,6 +436,7 @@ function generateStage0Samples(options = {}) {
     injectionIndex: buildInjectionIndexSample(options),
     ownership: buildOwnershipRegistrySample(options),
     reviewQueue: buildReviewQueueSample(options),
+    verificationProfile: buildVerificationProfileSample(options),
   };
 }
 
@@ -344,6 +447,7 @@ module.exports = {
   buildInjectionIndexSample,
   buildOwnershipRegistrySample,
   buildReviewQueueSample,
+  buildVerificationProfileSample,
   generateStage0Samples,
   serializeInjectionIndex,
 };
