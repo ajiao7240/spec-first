@@ -11,11 +11,16 @@ function detectSlug(repoRoot) {
   return path.basename(repoRoot);
 }
 
-function resolveBootstrapRuntimePaths({ repoRoot, slug = detectSlug(repoRoot) }) {
+function resolveBootstrapRuntimePaths({
+  repoRoot,
+  slug = detectSlug(repoRoot),
+  artifactAnchorRoot = repoRoot,
+} = {}) {
   return {
     slug,
-    contextDir: resolveContextDocsDir(repoRoot, slug),
-    controlPlaneDir: resolveWorkflowArtifactDir(repoRoot, 'bootstrap', slug),
+    artifactAnchorRoot,
+    contextDir: resolveContextDocsDir(repoRoot, slug, { artifactAnchorRoot }),
+    controlPlaneDir: resolveWorkflowArtifactDir(repoRoot, 'bootstrap', slug, { artifactAnchorRoot }),
   };
 }
 
@@ -28,8 +33,8 @@ function safeReadJson(filePath) {
   }
 }
 
-function loadBootstrapRuntimeState({ repoRoot, slug }) {
-  const paths = resolveBootstrapRuntimePaths({ repoRoot, slug });
+function loadBootstrapRuntimeState({ repoRoot, slug, artifactAnchorRoot = repoRoot } = {}) {
+  const paths = resolveBootstrapRuntimePaths({ repoRoot, slug, artifactAnchorRoot });
   const controlPlaneDir = paths.controlPlaneDir;
 
   return {

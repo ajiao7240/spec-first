@@ -78,7 +78,7 @@ Skill/Agent 源文件统一使用 `spec-first:category:name` 作为 canonical ag
 | `cli/postprocess.js` | 后处理编排（writeCommunities→detectFlows→analyzeGraph→rebuildFTS） |
 | `cli/open-db.js` | 共享 DB open 工具 |
 | `cli/envelope.js` | JSON 信封工厂 |
-| `artifact-paths.js` | 集中路径解析模块；纯函数，无 I/O；导出 resolveGraphDir/Db/InputFingerprints（→ `.spec-first/graph/`）、resolveWorkflowArtifactDir（→ `.spec-first/workflows/<wf>/<slug>/`）、resolveContextDocsDir（→ `docs/contexts/<slug>/`）及 R4 文件名常量（GRAPH_INPUT_FINGERPRINTS_FILE / BOOTSTRAP_ARTIFACT_MANIFEST_FILE / GRAPH_IGNORE_FILE）；todos 持久工作项目录（→ `docs/todos/`，VCS 资产，todo-create/triage/resolve 共享） |
+| `artifact-paths.js` | 集中路径解析模块；纯函数，无 I/O；导出 resolveGraphDir/Db/InputFingerprints（→ `.spec-first/graph/`）、resolveWorkflowArtifactDir（→ `.spec-first/workflows/<wf>/<slug>/`，支持 `artifactAnchorRoot` 选项用于 workspace/child 锚定）、resolveContextDocsDir（→ `docs/contexts/<slug>/`，同样支持 `artifactAnchorRoot`）及 R4 文件名常量（GRAPH_INPUT_FINGERPRINTS_FILE / BOOTSTRAP_ARTIFACT_MANIFEST_FILE / GRAPH_IGNORE_FILE）；todos 持久工作项目录（→ `docs/todos/`，VCS 资产，todo-create/triage/resolve 共享） |
 | `commands/` | 13 个子命令处理器（flows/flow/affected-flows/communities/community/architecture/surprising-connections/god-nodes/impact/large-functions/search/detect-changes/review-context） |
 | `chunking.js` | 语义分块：按 symbol 边界切分代码为 chunk，供 retrieval 向量化 |
 | `retrieval/` | 语义检索层：向量编码、ANN 索引（HNSW）、混合搜索（BM25 + 向量）、重排 |
@@ -87,8 +87,8 @@ Skill/Agent 源文件统一使用 `spec-first:category:name` 作为 canonical ag
 **顶层模块**：
 | 目录 | 职责 |
 |---|---|
-| `src/context-routing/` | 跨工作流上下文路由：解析 injection-index.yaml、按阶段/输出存在性选择注入文件 |
-| `src/bootstrap-compiler/` | bootstrap 产物编译器：将 Phase 0–4 产物编译为 Stage-0 可消费的标准化上下文包 |
+| `src/context-routing/` | 跨工作流上下文路由：解析 injection-index.yaml、按阶段/输出存在性选择注入文件；含 `workspace-loader.js`（workspace/child 分层加载）、`entry-resolver.js`（入口查询）、`evaluator.js`、`loader.js`、`telemetry.js` |
+| `src/bootstrap-compiler/` | bootstrap 产物编译器：将 Phase 0–4 产物编译为 Stage-0 可消费的标准化上下文包；支持 workspace/child control-plane、overview 发布、workspace telemetry、child 产物锚定读取与 batch rollback；包含 `workspace-registry.js` 注册表、`workspace-compiler.js` 编译器、`run-bootstrap.js` 编排与 `rollback.js` 回滚 |
 
 **JSON 契约**：`docs/contracts/crg-cli-v1.schema.json`（JSON Schema Draft 2020-12）；`docs/contracts/` 目录集中存放所有 CLI/API 契约 Schema
 

@@ -75,10 +75,50 @@ function removeBootstrapBackup(backupDir) {
   return true;
 }
 
+function createBatchBackup({ entries = [], backupRoot }) {
+  if (!backupRoot) return null;
+  fs.mkdirSync(backupRoot, { recursive: true });
+  const manifest = [];
+
+  for (const entry of entries) {
+    if (!entry || !entry.sourceDir || !entry.key) continue;
+    const backupDir = path.join(backupRoot, entry.key);
+    const sourceExisted = fs.existsSync(entry.sourceDir);
+    if (sourceExisted) {
+      copyDirectory(entry.sourceDir, backupDir);
+    }
+    manifest.push({ key: entry.key, sourceDir: entry.sourceDir, backupDir, sourceExisted });
+  }
+
+  return { backupRoot, manifest };
+}
+
+function restoreBatchBackup(batchBackup) {
+  if (!batchBackup || !Array.isArray(batchBackup.manifest)) return false;
+  for (const entry of batchBackup.manifest) {
+    fs.rmSync(entry.sourceDir, { recursive: true, force: true });
+    if (entry.sourceExisted && fs.existsSync(entry.backupDir)) {
+      copyDirectory(entry.backupDir, entry.sourceDir);
+    }
+  }
+  return true;
+}
+
+function removeBatchBackup(batchBackup) {
+  if (!batchBackup || !batchBackup.backupRoot || !fs.existsSync(batchBackup.backupRoot)) {
+    return false;
+  }
+  fs.rmSync(batchBackup.backupRoot, { recursive: true, force: true });
+  return true;
+}
+
 module.exports = {
   copyDirectory,
   countFiles,
+  createBatchBackup,
   createBootstrapBackup,
+  removeBatchBackup,
   removeBootstrapBackup,
+  restoreBatchBackup,
   restoreBootstrapBackup,
 };

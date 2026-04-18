@@ -70,14 +70,15 @@ function resolveGraphInputFingerprints(repoRoot) {
  * @returns {string}
  * @throws {Error} If workflow or slug is empty.
  */
-function resolveWorkflowArtifactDir(repoRoot, workflow, slug) {
+function resolveWorkflowArtifactDir(repoRoot, workflow, slug, options = {}) {
   if (!workflow || typeof workflow !== 'string') {
     throw new Error('resolveWorkflowArtifactDir: workflow must be a non-empty string');
   }
   if (!slug || typeof slug !== 'string') {
     throw new Error('resolveWorkflowArtifactDir: slug must be a non-empty string');
   }
-  return path.join(repoRoot, SPEC_FIRST_DIR, WORKFLOWS_SUBDIR, workflow, slug);
+  const artifactAnchorRoot = options.artifactAnchorRoot || repoRoot;
+  return path.join(artifactAnchorRoot, SPEC_FIRST_DIR, WORKFLOWS_SUBDIR, workflow, slug);
 }
 
 /**
@@ -89,8 +90,9 @@ function resolveWorkflowArtifactDir(repoRoot, workflow, slug) {
  * @param {string} slug      Project/context slug.
  * @returns {string}
  */
-function resolveContextDocsDir(repoRoot, slug) {
-  return path.join(repoRoot, DOCS_CONTEXTS_SUBDIR, slug);
+function resolveContextDocsDir(repoRoot, slug, options = {}) {
+  const artifactAnchorRoot = options.artifactAnchorRoot || repoRoot;
+  return path.join(artifactAnchorRoot, DOCS_CONTEXTS_SUBDIR, slug);
 }
 
 // ---------------------------------------------------------------------------

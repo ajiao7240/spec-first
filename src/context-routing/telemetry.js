@@ -22,6 +22,10 @@ function buildTelemetryRecord({
     generated_at: generatedAt,
     workflow,
     slug,
+    mode: evaluation.mode || 'single-repo',
+    workspace_slug: evaluation.workspace_slug || null,
+    matched_child_slugs: evaluation.matched_child_slugs || [],
+    selected_context_count: evaluation.selected_context_count || 0,
     stage,
     profile: evaluation.profile || resolveProfile(stage),
     selected_assets: evaluation.selected_assets || [],
@@ -38,6 +42,7 @@ function recordWorkflowTelemetry({
   evaluation,
   freshnessStatus,
   generatedAt = new Date().toISOString(),
+  artifactAnchorRoot = repoRoot,
 } = {}) {
   const record = buildTelemetryRecord({
     workflow,
@@ -46,7 +51,10 @@ function recordWorkflowTelemetry({
     freshnessStatus,
     generatedAt,
   });
-  const dir = path.join(repoRoot, '.spec-first', 'workflows', workflow, slug);
+  const telemetrySlug = record.mode.startsWith('workspace')
+    ? (record.workspace_slug || slug)
+    : slug;
+  const dir = path.join(artifactAnchorRoot, '.spec-first', 'workflows', workflow, telemetrySlug);
   fs.mkdirSync(dir, { recursive: true });
   const filePath = path.join(dir, `${generatedAt.replace(/[:.]/g, '-')}.json`);
   fs.writeFileSync(filePath, JSON.stringify(record, null, 2));

@@ -20,7 +20,9 @@ const {
   buildArtifactManifestSample,
 } = require('../../src/bootstrap-compiler/sample-generator');
 const { runBootstrap } = require('../../src/bootstrap-compiler/run-bootstrap');
+const { buildChildSlug } = require('../../src/bootstrap-compiler/workspace-registry');
 const { evaluateContextForRepo } = require('../../src/context-routing/evaluator');
+const { buildWorkspaceControlPlanePaths } = require('../../src/context-routing/entry-resolver');
 
 function readTree(rootDir) {
   const files = [];
@@ -177,6 +179,124 @@ describe('spec-graph-bootstrap compiler modules', () => {
       expect(fs.readFileSync(path.join(contextDir, 'README.md'), 'utf8')).toBe('# old readme\n');
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace bootstrap 生成 workspace 与 child control-plane，并记录 telemetry', () => {
+    const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-bootstrap-'));
+    const childRepoRoot = path.join(workspaceRoot, 'packages', 'repo-a');
+    fs.mkdirSync(path.join(childRepoRoot, '.git'), { recursive: true });
+
+    try {
+      const result = runBootstrap({
+        repoRoot: workspaceRoot,
+        generatedAt: '2026-04-15T00:00:00.000Z',
+        repoRoots: [childRepoRoot],
+      });
+
+      const workspacePaths = buildWorkspaceControlPlanePaths(workspaceRoot);
+      expect(result.mode).toBe('workspace');
+      expect(fs.existsSync(workspacePaths.registryPath)).toBe(true);
+      expect(fs.existsSync(workspacePaths.routingPath)).toBe(true);
+      expect(fs.existsSync(path.join(workspacePaths.contextDir, 'workspace', 'routing-overview.md'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', 'workspace-bootstrap-', '2026-04-15T00-00-00-000Z.json'))).toBe(false);
+
+      const registry = JSON.parse(fs.readFileSync(workspacePaths.registryPath, 'utf8'));
+      const childSlug = registry.children[0].childSlug;
+      expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', childSlug, 'context-routing.json'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, 'docs', 'contexts', childSlug, 'README.md'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', registry.workspaceSlug, '2026-04-15T00-00-00-000Z.json'))).toBe(true);
+
+      const workspaceTelemetry = JSON.parse(fs.readFileSync(
+        path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', registry.workspaceSlug, '2026-04-15T00-00-00-000Z.json'),
+        'utf8'
+      ));
+      expect(workspaceTelemetry.matched_child_slugs).toEqual([childSlug]);
+      expect(workspaceTelemetry.fallback_reason).toBe(null);
+      expect(workspaceTelemetry.selected_assets).toContain(`${childSlug}:architecture/module-map.md`);
+
+      const childTelemetry = JSON.parse(fs.readFileSync(
+        path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', childSlug, '2026-04-15T00-00-00-000Z.json'),
+        'utf8'
+      ));
+      expect(childTelemetry.selected_assets).toContain('architecture/module-map.md');
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace bootstrap 失败时回滚 workspace 与 child 发布内容', () => {
+    const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-bootstrap-rollback-'));
+    const childRepoRoot = path.join(workspaceRoot, 'packages', 'repo-a');
+    fs.mkdirSync(path.join(childRepoRoot, '.git'), { recursive: true });
+
+    try {
+      const initial = runBootstrap({
+        repoRoot: workspaceRoot,
+        generatedAt: '2026-04-15T00:00:00.000Z',
+        repoRoots: [childRepoRoot],
+      });
+      const baseline = {
+        control: readTree(initial.controlPlaneDir),
+        context: readTree(initial.contextDir),
+        childControl: readTree(path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', initial.registry.children[0].childSlug)),
+        childContext: readTree(path.join(workspaceRoot, 'docs', 'contexts', initial.registry.children[0].childSlug)),
+      };
+
+      expect(() => {
+        runBootstrap({
+          repoRoot: workspaceRoot,
+          generatedAt: '2026-04-15T00:00:01.000Z',
+          repoRoots: [childRepoRoot],
+          hooks: {
+            beforeWorkspacePublish() {
+              throw new Error('workspace publish failure');
+            },
+          },
+        });
+      }).toThrow('workspace publish failure');
+
+      expect(readTree(initial.controlPlaneDir)).toEqual(baseline.control);
+      expect(readTree(initial.contextDir)).toEqual(baseline.context);
+      expect(readTree(path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', initial.registry.children[0].childSlug))).toEqual(baseline.childControl);
+      expect(readTree(path.join(workspaceRoot, 'docs', 'contexts', initial.registry.children[0].childSlug))).toEqual(baseline.childContext);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace bootstrap 首次发布失败时不留下空目录', () => {
+    const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-bootstrap-first-failure-'));
+    const childRepoRoot = path.join(workspaceRoot, 'packages', 'repo-a');
+    const workspaceSlug = path.basename(workspaceRoot);
+    const childSlug = buildChildSlug(workspaceRoot, childRepoRoot);
+    fs.mkdirSync(path.join(childRepoRoot, '.git'), { recursive: true });
+
+    const workspaceControlDir = path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', workspaceSlug);
+    const workspaceContextDir = path.join(workspaceRoot, 'docs', 'contexts', workspaceSlug);
+    const childControlDir = path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', childSlug);
+    const childContextDir = path.join(workspaceRoot, 'docs', 'contexts', childSlug);
+
+    try {
+      expect(() => {
+        runBootstrap({
+          repoRoot: workspaceRoot,
+          generatedAt: '2026-04-15T00:00:00.000Z',
+          repoRoots: [childRepoRoot],
+          hooks: {
+            beforeWorkspacePublish() {
+              throw new Error('workspace initial publish failure');
+            },
+          },
+        });
+      }).toThrow('workspace initial publish failure');
+
+      expect(fs.existsSync(workspaceControlDir)).toBe(false);
+      expect(fs.existsSync(workspaceContextDir)).toBe(false);
+      expect(fs.existsSync(childControlDir)).toBe(false);
+      expect(fs.existsSync(childContextDir)).toBe(false);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
     }
   });
 

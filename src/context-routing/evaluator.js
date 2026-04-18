@@ -148,9 +148,15 @@ function evaluateContext({
   };
 }
 
-function evaluateContextForRepo({ repoRoot, slug, stage, maxTokens = Infinity }) {
+function evaluateContextForRepo({
+  repoRoot,
+  slug,
+  stage,
+  maxTokens = Infinity,
+  artifactAnchorRoot = repoRoot,
+} = {}) {
   const { loadBootstrapRuntimeState } = require('./loader');
-  const state = loadBootstrapRuntimeState({ repoRoot, slug });
+  const state = loadBootstrapRuntimeState({ repoRoot, slug, artifactAnchorRoot });
   return evaluateContext({
     stage,
     contextDir: state.contextDir,

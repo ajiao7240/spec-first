@@ -1,7 +1,7 @@
 # Stage-0 Workspace 实际开发顺序清单
 
 **日期：** 2026-04-17  
-**状态：** Proposed  
+**状态：** In Progress（核心实现已完成，Wave 3 收尾中）  
 **来源文档：**
 - `docs/plans/2026-04-17-stage0-index-entry-upgrade-plan.md`
 - `docs/plans/2026-04-17-auto-discover-child-git-bootstrap-plan.md`
@@ -297,6 +297,29 @@
 
 - 文案应该跟随每个 wave 的真实实现同步更新
 - 不能把 skill/mirror 同步拖到所有代码都改完之后，否则中间阶段一定发生 drift
+
+---
+
+## 状态更新（2026-04-17）
+
+- Wave 1：已完成
+- Wave 2：已完成
+- Wave 3：核心实现已完成；batch rollback 缺陷已修复并补测通过；剩余 final drift sweep / 文档镜像逐项核对
+- 已验证通过：
+  - `tests/unit/spec-graph-bootstrap-compiler.test.js`
+  - `tests/unit/workspace-context.test.js`
+  - `tests/unit/workflow-stage0-consumption.test.js`
+
+### 当前判断
+
+- Step 1：已完成
+- Step 2：已完成
+- Step 3：已完成
+- Step 4：已完成
+- Step 5：已完成
+- Step 6：已完成
+- Step 7：已完成
+- Step 8：进行中（需做最终全量 drift sweep）
 
 ---
 

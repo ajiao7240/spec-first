@@ -9,6 +9,7 @@ const {
   resolveWorkspaceSlug,
 } = require('../../src/context-routing/workspace-loader');
 const { compileWorkspaceContext } = require('../../src/bootstrap-compiler/workspace-compiler');
+const { runBootstrap } = require('../../src/bootstrap-compiler/run-bootstrap');
 const { evaluateContextForRepo } = require('../../src/context-routing/evaluator');
 
 function createRepoFixture(root, slug) {
@@ -68,6 +69,8 @@ describe('workspace context', () => {
       const compiled = compileWorkspaceContext({
         repoRoots: [repoA, repoB],
         stage: 'plan',
+        cwd: tmpDir,
+        target: tmpDir,
       });
 
       expect(loaded.filter((item) => item.status === 'ok')).toHaveLength(2);
@@ -92,6 +95,38 @@ describe('workspace context', () => {
       expect(workspace.repo_count).toBe(1);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace root 未命中 child repo 时只返回 workspace overview', () => {
+    const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-context-root-'));
+    const repoA = path.join(workspaceRoot, 'packages', 'repo-a');
+    const repoB = path.join(workspaceRoot, 'packages', 'repo-b');
+    fs.mkdirSync(path.join(repoA, '.git'), { recursive: true });
+    fs.mkdirSync(path.join(repoB, '.git'), { recursive: true });
+
+    try {
+      runBootstrap({
+        repoRoot: workspaceRoot,
+        generatedAt: '2026-04-17T00:00:00.000Z',
+        repoRoots: [repoA, repoB],
+      });
+
+      const loaded = loadWorkspaceContext({
+        stage: 'plan',
+        cwd: workspaceRoot,
+        target: workspaceRoot,
+      });
+
+      expect(loaded).toHaveLength(1);
+      expect(loaded[0].evaluation.matched_child_slugs).toEqual([]);
+      expect(loaded[0].evaluation.fallback_reason).toBe('workspace_child_unresolved');
+      expect(loaded[0].evaluation.selected_assets).toEqual([
+        `${path.basename(workspaceRoot)}:workspace/routing-overview.md`,
+        `${path.basename(workspaceRoot)}:00-summary.md`,
+      ]);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
     }
   });
 });
