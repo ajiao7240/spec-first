@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.1 2026-04-19 15:00:00 kuang: refactor(spec-work): 接入 Karpathy execution-boundary delta R1-R5（plan 004 Step 1）——Phase 1 Read Plan and Clarify 新增 `allowed change surface` 识别 / `Every changed line must trace` trace 义务 / `materially different approaches` tradeoff 声明；Phase 2 Task Execution Loop 增加 Change discipline guardrails（`Implement the minimum code the current task requires.` / opportunistic cleanup 禁令 / own-wave orphan 清理义务）；Phase 2 Track Progress 强制 scope expansion 分类；Simplify as You Go 补 `noticeably simpler` 收口；contract test 加精确 wording + 语义锚点组合 + mirror 同步断言；source 与 docs/10-prompt mirror byte-equal 同步
 - v1.5.1 2026-04-19 14:00:00 kuang: chore(spec-work): 同步 Stage-0 verification 合同 wording 至 `spec-work` / `spec-work-beta` + 对应 `docs/10-prompt/` mirror + contract tests（新增 `platform_focus` / `verification_summary` / `verifier_dispatch` / `ai_dev_quality_gate_result` / `verification_evidence` / `verification_gate_state` 条款解析指引）；作为 plan 004 execution-boundary delta 开工前的工作区 checkpoint
 - v1.5.1 2026-04-19 12:35:00 kuang: docs(readme): 以当前 `README.zh-CN.md` 为对齐基准重写英文 `README.md`，确保中英章节、表格、代码块、anchor 一一对应；保留单版本形态（不再有 v1/v2 双入口） (user-visible)
 - v1.5.1 2026-04-19 12:10:00 kuang: docs(readme): 将 `README.v2.md` 升格为正式 `README.md`（v2 审查通过收尾），删除 `.v2.md` 后缀文件；同步更新 `README.md` 与 `README.zh-CN.md` 首部语言切换链接为单版本形态 `[English](./README.md) | [简体中文](./README.zh-CN.md)` (user-visible)

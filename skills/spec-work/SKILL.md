@@ -84,6 +84,9 @@ If the task is experiment-driven optimization against a stable measurement harne
    - Check for `Execution note` on each implementation unit — these carry the plan's execution posture signal for that unit (for example, test-first or characterization-first). Note them when creating tasks.
    - Check for a `Deferred to Implementation` or `Implementation-Time Unknowns` section — these are questions the planner intentionally left for you to resolve during execution. Note them before starting so they inform your approach rather than surprising you mid-task
    - Check for a `Scope Boundaries` section — these are explicit non-goals. Refer back to them if implementation starts pulling you toward adjacent work
+   - Identify the allowed change surface before editing — the files, call sites, and behavior slices that belong to the current task. Derive it from the plan's `Files` / `Scope Boundaries` / `Implementation Units` first; fill in gaps explicitly.
+   - Every changed line must trace to a plan implementation unit, task, or the current user request. If a change has no such trace, stop and reclassify it as a separate follow-up.
+   - If multiple materially different approaches exist, state the tradeoffs before proceeding. (Materially different = different behavior contract, API shape, data structure, or error semantics; naming or ordering variations do not trigger this.)
    - Review any references or links provided in the plan
    - If Stage-0 runtime `verification_summary` provides `required_verifications`, record `required_verifications / optional_verifications` as the default verification checklist for this run before editing files
    - If `verification_summary.source === 'change-surface'`, treat empty effective verification lists as a valid outcome for this diff and keep `repo_required_verifications / repo_optional_verifications` as background baseline only
@@ -203,6 +206,11 @@ If the task is experiment-driven optimization against a stable measurement harne
    - Do not over-implement beyond the current behavior slice when working test-first
    - Skip test-first discipline for trivial renames, pure configuration, and pure styling work
 
+   Change discipline guardrails:
+   - Implement the minimum code the current task requires. Do not add single-use abstractions, unrequested configurability, or speculative guards for failure modes the current task does not justify.
+   - Do not bundle opportunistic cleanup into the current change unless it is a direct dependency of the task; explain the reason when you do bundle.
+   - Remove imports, variables, or functions your change made orphan (unused as a result of this change). Do not touch pre-existing dead code unless asked.
+
    **Test Discovery** — Before implementing changes to a file, find its existing test files (search for test/spec files that import, reference, or share naming patterns with the implementation file). When a plan specifies test scenarios or test files, start there, then check for additional test coverage the plan may not have enumerated. Changes to implementation files should be accompanied by corresponding test updates — new tests for new behavior, modified tests for changed behavior, removed or updated tests for deleted behavior.
 
    **Test Scenario Completeness** — Before writing tests for a feature-bearing unit, check whether the plan's `Test scenarios` cover all categories that apply to this unit. If a category is missing or scenarios are vague (e.g., "validates correctly" without naming inputs and expected outcomes), supplement from the unit's own context before writing tests:
@@ -284,6 +292,8 @@ If the task is experiment-driven optimization against a stable measurement harne
 
    If a simplify skill or equivalent capability is available, use it. Otherwise, review the changed files yourself for reuse and consolidation opportunities.
 
+   If the current implementation could be noticeably simpler without expanding the task boundary, converge to the simpler version before moving on.
+
 6. **Figma Design Sync** (if applicable)
 
    For UI work with Figma designs:
@@ -296,7 +306,7 @@ If the task is experiment-driven optimization against a stable measurement harne
 6. **Track Progress**
    - Keep the task list updated as you complete tasks
    - Note any blockers or unexpected discoveries
-   - Create new tasks if scope expands
+   - Create new tasks if scope expands. When scope expands, classify each new task explicitly as either a `required dependency` (blocks the current task) or a `separate follow-up` (runs in parallel or later). Do not silently expand the current task's boundary.
    - Keep user informed of major milestones
 
 ### Phase 3-4: Quality Check and Ship It

@@ -140,4 +140,75 @@ describe('spec-work contracts', () => {
     expect(mirror).toContain('default verification checklist');
     expect(mirror).toContain('pending-vs-blocked-or-satisfied verification ledger');
   });
+
+  // plan 004: Karpathy execution-boundary delta (R1-R5) + Simplify converge note
+  // Wording 精度分层:精确 wording 锁语义源自 karpathy-guidelines §1/§2/§3;
+  // 语义锚点组合锁 plan 现场造的 wording——守边界不守句子。
+
+  test('source skill includes plan 004 R1-R5 karpathy execution boundary delta', () => {
+    const skill = read(SKILL_PATH);
+
+    // Precise wording (verbatim;外部源 skill 原语义)
+    expect(skill).toContain('Every changed line must trace'); // R1 后半 (§3 原文近似)
+    expect(skill).toContain('implementation unit'); // R1 后半 tail anchor,防前缀假阳性
+    expect(skill).toContain('Implement the minimum code the current task requires.'); // R4 (§2 核心)
+    expect(skill).toContain(
+      'If multiple materially different approaches exist, state the tradeoffs before proceeding.'
+    ); // R5 (§1 收缩版)
+
+    // 语义锚点组合(plan 现场造,组合锚定不守精确句式)
+    // R1 前半: allowed change surface + 识别动词
+    expect(skill).toContain('allowed change surface');
+    expect(skill).toMatch(/\b(?:Identify|identify|Derive|derive|record|note)\b/);
+
+    // R2 前半: opportunistic + direct dependency + bundle/include
+    expect(skill).toContain('opportunistic');
+    expect(skill).toContain('direct dependency');
+    expect(skill).toMatch(/\bbundle\b|\binclude\b/);
+
+    // R2 后半: orphan(或 unused imports/variables)+ pre-existing + 禁令动词
+    expect(skill).toMatch(/\borphan\b|unused imports|unused variables/);
+    expect(skill).toContain('pre-existing');
+    expect(skill).toMatch(/\bDo not\b|\bmust not\b/);
+
+    // R3: required dependency + separate follow-up(Definitions 二元分类)
+    expect(skill).toContain('required dependency');
+    expect(skill).toContain('separate follow-up');
+
+    // R4 辅助: single-use abstractions + unrequested configurability + speculative guards
+    expect(skill).toContain('single-use abstractions');
+    expect(skill).toContain('unrequested configurability');
+    expect(skill).toContain('speculative guards');
+
+    // Simplify as You Go 收口补句
+    expect(skill).toContain('noticeably simpler');
+  });
+
+  test('docs mirror includes plan 004 R1-R5 karpathy execution boundary delta', () => {
+    const mirror = read(PROMPT_MIRROR_SKILL_PATH);
+
+    // Precise wording
+    expect(mirror).toContain('Every changed line must trace');
+    expect(mirror).toContain('implementation unit');
+    expect(mirror).toContain('Implement the minimum code the current task requires.');
+    expect(mirror).toContain(
+      'If multiple materially different approaches exist, state the tradeoffs before proceeding.'
+    );
+
+    // 语义锚点组合(与 source 对齐,mirror drift 在 CI 层可检出)
+    expect(mirror).toContain('allowed change surface');
+    expect(mirror).toMatch(/\b(?:Identify|identify|Derive|derive|record|note)\b/);
+    expect(mirror).toContain('opportunistic');
+    expect(mirror).toContain('direct dependency');
+    expect(mirror).toMatch(/\bbundle\b|\binclude\b/);
+    expect(mirror).toMatch(/\borphan\b|unused imports|unused variables/);
+    expect(mirror).toContain('pre-existing');
+    expect(mirror).toMatch(/\bDo not\b|\bmust not\b/);
+    expect(mirror).toContain('required dependency');
+    expect(mirror).toContain('separate follow-up');
+    expect(mirror).toContain('single-use abstractions');
+    expect(mirror).toContain('unrequested configurability');
+    expect(mirror).toContain('speculative guards');
+    expect(mirror).toContain('noticeably simpler');
+  });
 });
