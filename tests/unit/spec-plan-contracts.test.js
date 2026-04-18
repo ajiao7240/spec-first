@@ -42,6 +42,12 @@ describe('spec-plan contracts', () => {
     expect(skill).toContain('minimal-context/plan.json');
     expect(skill).toContain('selected_assets / fallback_reason / level / skipped_rules');
     expect(skill).toContain('#### 0.1b Classify Task Domain');
+    expect(skill).toContain('#### 0.3a Load Epic Decomposition Context When Declared');
+    expect(skill).toContain('frontmatter `epic: <epic-slug>`');
+    expect(skill).toContain('docs/brainstorms/*-<epic-slug>-decomposition.md');
+    expect(skill).toContain('warn and continue planning without epic context');
+    expect(skill).toContain('Do **not** infer structured epic metadata from Key Decisions');
+    expect(skill).toContain('not a requirement to create a dedicated runtime helper');
     expect(skill).toContain('references/universal-planning.md');
     expect(skill).toContain('Execution target: external-delegate');
     expect(skill).toContain('in **interactive mode**');

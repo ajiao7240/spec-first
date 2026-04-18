@@ -158,6 +158,19 @@ If a relevant requirements document exists:
 
 If no relevant requirements document exists, planning may proceed from the user's request directly.
 
+#### 0.3a Load Epic Decomposition Context When Declared
+
+If the selected requirements document includes frontmatter `epic: <epic-slug>`:
+- Treat that frontmatter value as the only structured epic metadata source
+- Look for `docs/brainstorms/*-<epic-slug>-decomposition.md`
+- If exactly one file matches, read it as supplementary origin context
+- If multiple files match, pick the file with the latest date prefix (equivalently, the lexicographically greatest filename)
+- If no file matches, warn and continue planning without epic context
+
+Do **not** infer structured epic metadata from Key Decisions or other freeform prose.
+
+This is a prompt contract for the planning workflow, not a requirement to create a dedicated runtime helper, parser helper, or glob resolver in this iteration.
+
 #### 0.4 No-Requirements-Doc Fallback
 
 If no relevant requirements document exists:

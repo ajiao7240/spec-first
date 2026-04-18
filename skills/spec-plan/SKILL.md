@@ -37,6 +37,7 @@ Do not proceed until you have a clear planning input.
 5. **Separate planning from execution discovery** - Resolve planning-time questions here. Explicitly defer execution-time unknowns to implementation.
 6. **Keep the plan portable** - The plan should work as a living document, review artifact, or issue body without embedding tool-specific executor instructions.
 7. **Carry execution posture lightly when it matters** - If the request, origin document, or repo context clearly implies test-first, characterization-first, or another non-default execution posture, reflect that in the plan as a lightweight signal. Do not turn the plan into step-by-step execution choreography.
+8. **Assume code fluency, not assumption fluency** - Write plans as if the implementer understands code, but not your unstated assumptions. Name concrete pattern anchors, done signals, and sequencing constraints instead of leaving them implicit.
 
 ## Plan Quality Bar
 
@@ -49,6 +50,13 @@ Every plan should contain:
 - Existing patterns or code references to follow
 - Enumerated test scenarios for each feature-bearing unit, specific enough that an implementer knows exactly what to test without inventing coverage themselves
 - Clear dependencies and sequencing
+
+### Execution Readiness
+- Each implementation unit minimizes unstated implementer decisions
+- Concrete pattern anchors are named when the plan relies on an existing pattern
+- Test scenarios are specific enough to become tests without inventing coverage shape
+- Verification distinguishes partial completion from done
+- Dependency order is explicit enough to avoid incorrect execution reordering
 
 A plan is ready when an implementer can start confidently without needing the plan to write the code for them.
 
@@ -157,6 +165,19 @@ If a relevant requirements document exists:
 6. Do not silently omit source content — if the origin document discussed it, the plan must address it even if briefly. Before finalizing, scan each section of the origin document to verify nothing was dropped.
 
 If no relevant requirements document exists, planning may proceed from the user's request directly.
+
+#### 0.3a Load Epic Decomposition Context When Declared
+
+If the selected requirements document includes frontmatter `epic: <epic-slug>`:
+- Treat that frontmatter value as the only structured epic metadata source
+- Look for `docs/brainstorms/*-<epic-slug>-decomposition.md`
+- If exactly one file matches, read it as supplementary origin context
+- If multiple files match, pick the file with the latest date prefix (equivalently, the lexicographically greatest filename)
+- If no file matches, warn and continue planning without epic context
+
+Do **not** infer structured epic metadata from Key Decisions or other freeform prose.
+
+This is a prompt contract for the planning workflow, not a requirement to create a dedicated runtime helper, parser helper, or glob resolver in this iteration.
 
 #### 0.4 No-Requirements-Doc Fallback
 
@@ -409,9 +430,10 @@ For each unit, include:
 - **Dependencies** - what must exist first
 - **Files** - repo-relative file paths to create, modify, or test (never absolute paths)
 - **Approach** - key decisions, data flow, component boundaries, or integration notes
-- **Execution note** - optional, only when the unit benefits from a non-default execution posture such as test-first, characterization-first, or external delegation
+- **Execution note** - optional, only when the unit benefits from a non-default execution posture. Prefer controlled posture labels such as `test-first`, `characterization-first`, `integration-first`, `contract-first`, `migration-safety-first`, or `external-delegate`. A short clarifying phrase is allowed after the label when needed
+- **Starting point** - optional, used when a unit spans multiple files, is easy to mis-start, or touches a legacy or integration-heavy area. Name the first file, boundary, or failing test the implementer should inspect rather than listing micro-steps
 - **Technical design** - optional pseudo-code or diagram when the unit's approach is non-obvious and prose alone would leave it ambiguous. Frame explicitly as directional guidance, not implementation specification
-- **Patterns to follow** - existing code or conventions to mirror
+- **Patterns to follow** - existing code or conventions to mirror. Do not write generic phrases like `follow existing patterns` without naming the actual file, component, or test anchor
 - **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage. For units with no behavioral change (pure config, scaffolding, styling), use `Test expectation: none -- [reason]` instead of leaving the field blank.
   - **Happy path behaviors** - core functionality with expected inputs and outputs
   - **Edge cases** (when the unit has meaningful boundaries) - boundary values, empty inputs, nil/null states, concurrent access
@@ -421,11 +443,14 @@ For each unit, include:
 
 Every feature-bearing unit should include the test file path in `**Files:**`.
 
-Use `Execution note` sparingly. Good uses include:
-- `Execution note: Start with a failing integration test for the request/response contract.`
-- `Execution note: Add characterization coverage before modifying this legacy parser.`
-- `Execution note: Implement new domain behavior test-first.`
-- `Execution note: Execution target: external-delegate`
+Use `Execution note` sparingly. Prefer controlled posture labels. Good uses include:
+- `Execution note: integration-first — start with a failing request/response contract test`
+- `Execution note: characterization-first — capture current legacy parser behavior before modifying it`
+- `Execution note: test-first`
+- `Execution note: contract-first`
+- `Execution note: external-delegate`
+
+When a unit is easy to mis-start, add a `Starting point` field that names the first file, boundary, or failing test to inspect.
 
 Do not expand units into literal `RED/GREEN/REFACTOR` substeps.
 
@@ -578,12 +603,14 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 **Approach:**
 - [Key design or sequencing decision]
 
-**Execution note:** [Optional test-first, characterization-first, external-delegate, or other execution posture signal]
+**Execution note:** [Optional controlled posture label such as test-first, characterization-first, integration-first, contract-first, migration-safety-first, or external-delegate. A short clarifying phrase may follow the label when needed]
+
+**Starting point:** [Optional first file, boundary, or failing test to inspect when the unit is easy to mis-start]
 
 **Technical design:** *(optional -- pseudo-code or diagram when the unit's approach is non-obvious. Directional guidance, not implementation specification.)*
 
 **Patterns to follow:**
-- [Existing file, class, or pattern]
+- [Existing file, class, or pattern anchor]
 
 **Test scenarios:**
 <!-- Include only categories that apply to this unit. Omit categories that don't. -->
@@ -691,6 +718,10 @@ Before finalizing, check:
 - If the plan creates a new directory structure, would an Output Structure tree help reviewers see the overall shape?
 - If Scope Boundaries lists items that are planned work for a separate PR or task, are they under `### Deferred to Separate Tasks` rather than mixed with true non-goals?
 - Would a visual aid (dependency graph, interaction diagram, comparison table) help a reader grasp the plan structure faster than scanning prose alone?
+- Run an execution placeholder scan: reject phrases like `follow existing patterns`, `update tests accordingly`, `validate integration`, or `handle edge cases appropriately` when they do not name the concrete anchor, boundary, or cases
+- Check first-move clarity: for each implementation unit, the plan should make it obvious what file, boundary, or failing test the implementer starts from
+- Check done/not-done clarity: each unit's `Verification` should distinguish partial completion from complete behavior
+- Check execution posture consistency: if a unit clearly benefits from test-first, characterization-first, integration-first, contract-first, or migration-safety-first posture, signal it explicitly rather than leaving it implicit
 
 If the plan originated from a requirements document, re-read that document and verify:
 - The chosen approach still matches the product intent

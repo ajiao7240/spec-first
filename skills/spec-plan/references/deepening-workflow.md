@@ -63,9 +63,12 @@ If the plan already has a `deepened:` date:
 - File paths or test file paths are missing where they should be explicit
 - Units are too large, too vague, or broken into micro-steps
 - Approach notes are thin or do not name the pattern to follow
-- Test scenarios are vague (don't name inputs and expected outcomes), skip applicable categories (e.g., no error paths for a unit with failure modes, no integration scenarios for a unit crossing layers), or are disproportionate to the unit's complexity
+- Starting ambiguity is high — an implementer would not know where to begin
+- The unit relies on an existing pattern but does not name the actual anchor file or module
+- Test scenarios are vague (don't name inputs and expected outcomes), require the implementer to invent coverage shape, skip applicable categories (e.g., no error paths for a unit with failure modes, no integration scenarios for a unit crossing layers), or are disproportionate to the unit's complexity
 - Feature-bearing units have blank or missing test scenarios (feature-bearing units require actual test scenarios; the `Test expectation: none` annotation is only valid for non-feature-bearing units)
-- Verification outcomes are vague or not expressed as observable results
+- Verification outcomes are vague, not expressed as observable results, or cannot distinguish partial completion from done
+- Execution posture is implied by the work but not signaled
 
 **System-Wide Impact**
 - Affected interfaces, callbacks, middleware, entry points, or parity surfaces are missing
@@ -219,6 +222,10 @@ Allowed changes:
 - Tighten requirements trace or origin fidelity
 - Reorder or split implementation units when sequencing is weak
 - Add missing pattern references, file/test paths, or verification outcomes
+- Add or tighten `Starting point` when a unit is easy to mis-start
+- Convert vague `Execution note` prose into a controlled posture label
+- Rewrite verification into observable done signals
+- Strengthen test scenarios to reduce coverage invention
 - Expand system-wide impact, risks, or rollout treatment where justified
 - Reclassify open questions between `Resolved During Planning` and `Deferred to Implementation` when evidence supports the change
 - Strengthen, replace, or add a High-Level Technical Design section when the work warrants it and the current representation is weak
@@ -228,6 +235,7 @@ Allowed changes:
 Do **not**:
 - Add implementation code — no imports, exact method signatures, or framework-specific syntax. Pseudo-code sketches and DSL grammars are allowed
 - Add git commands, commit choreography, or exact test command recipes
+- Turn execution-readiness improvements into shell choreography or literal `RED/GREEN/REFACTOR` micro-steps
 - Add generic `Research Insights` subsections everywhere
 - Rewrite the entire plan from scratch
 - Invent new product requirements, scope changes, or success criteria without surfacing them explicitly

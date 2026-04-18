@@ -23,6 +23,21 @@ Before proceeding to post-generation options:
 - Confirm the planning boundary is intact
 - Confirm origin decisions were preserved when an origin document exists
 
+If the plan is likely to be handed to a low-context implementer, generate or prepare an execution-facing summary layer derived from the plan.
+- This summary does not replace the plan and must not introduce new decisions
+- The main plan remains the source of truth
+- The derived layer should only restate execution-relevant signals already present in the plan
+
+When preparing an execution-facing summary layer, prefer to include for each implementation unit:
+- Goal
+- Dependencies
+- Starting point
+- Concrete pattern anchors
+- Test landing hints
+- Execution note
+- Done signal
+- Common misread or caution when warranted
+
 If artifact-backed mode was used:
 - Clean up the temporary scratch directory after the plan is safely updated
 - If cleanup is not practical on the current platform, note where the artifacts were left
