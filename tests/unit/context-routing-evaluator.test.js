@@ -440,4 +440,56 @@ describe('context-routing evaluator', () => {
       fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
     }
   });
+
+  test('data_quality partial -> L0（modules 有值无 entrypoints 时仍通过门控）', () => {
+    const fixture = makeRuntimeFixture();
+
+    try {
+      fs.writeFileSync(
+        path.join(fixture.controlPlaneDir, 'minimal-context', 'work.json'),
+        JSON.stringify({ schema_version: 'v1', stage: 'work', fallback_reason: null }, null, 2)
+      );
+
+      const partialManifest = { ...buildArtifactManifestSample(), data_quality: 'partial' };
+      const result = evaluateContext({
+        stage: 'work',
+        contextDir: fixture.contextDir,
+        controlPlaneDir: fixture.controlPlaneDir,
+        routing: buildContextRoutingSample(),
+        manifest: partialManifest,
+      });
+
+      expect(result.level).toBe('L0');
+      expect(result.fallback_reason).toBeNull();
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('旧 manifest（缺少 data_quality 字段）向后兼容 -> 仍为 L0，不触发 empty_fact_inventory', () => {
+    const fixture = makeRuntimeFixture();
+
+    try {
+      fs.writeFileSync(
+        path.join(fixture.controlPlaneDir, 'minimal-context', 'work.json'),
+        JSON.stringify({ schema_version: 'v1', stage: 'work', fallback_reason: null }, null, 2)
+      );
+
+      const legacyManifest = { ...buildArtifactManifestSample() };
+      delete legacyManifest.data_quality;
+
+      const result = evaluateContext({
+        stage: 'work',
+        contextDir: fixture.contextDir,
+        controlPlaneDir: fixture.controlPlaneDir,
+        routing: buildContextRoutingSample(),
+        manifest: legacyManifest,
+      });
+
+      expect(result.level).toBe('L0');
+      expect(result.fallback_reason).toBeNull();
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
 });

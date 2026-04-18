@@ -129,7 +129,7 @@ function evaluateContext({
   const { selectedAssets, estimatedTokens } = trimAssetsToBudget(assets, maxTokens);
   const freshnessStatus = freshness && freshness.status ? freshness.status : 'unknown';
 
-  const qualitySufficient = (manifest.data_quality ?? 'empty') !== 'empty';
+  const qualitySufficient = manifest.data_quality !== 'empty';
   let level = minimalContextMissing ? 'L1' : !qualitySufficient ? 'L1' : 'L0';
   let fallbackReason = minimalContextMissing  ? 'minimal_context_missing' :
                        !qualitySufficient     ? 'empty_fact_inventory'    : null;

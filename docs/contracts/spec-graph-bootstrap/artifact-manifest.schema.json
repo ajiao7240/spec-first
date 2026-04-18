@@ -18,6 +18,10 @@
       "type": "string",
       "enum": ["in_progress", "complete", "failed"]
     },
+    "data_quality": {
+      "type": "string",
+      "enum": ["fact-backed", "partial", "empty"]
+    },
     "inputs": {
       "type": "object",
       "required": ["crg", "files", "analyzer_versions", "schema_versions"],
