@@ -178,6 +178,7 @@ function loadWorkspaceContext({
 
   let hasDegradedChild = false;
   let freshnessStatus = 'unknown';
+  let sawFreshChild = false;
   for (const { child, state } of childStates) {
     const evaluation = evaluateContextForRepo({
       repoRoot: child.repoRoot,
@@ -187,7 +188,15 @@ function loadWorkspaceContext({
     });
 
     if (evaluation.level !== 'L0') hasDegradedChild = true;
-    if (evaluation.freshness_status === 'stale') freshnessStatus = 'stale';
+    // freshness 聚合与 buildWorkspaceBootstrapTelemetryEvaluation 保持一致：
+    //   任一 stale → 全局 stale
+    //   非 stale 且至少一个 healthy → 全局 healthy
+    //   其余 → unknown
+    if (evaluation.freshness_status === 'stale') {
+      freshnessStatus = 'stale';
+    } else if (evaluation.freshness_status === 'healthy' && freshnessStatus !== 'stale') {
+      sawFreshChild = true;
+    }
 
     for (const [index, assetPath] of evaluation.selected_assets.entries()) {
       selectedContexts.push(toSelectedContext({
@@ -199,6 +208,10 @@ function loadWorkspaceContext({
         priority: 100 + index,
       }));
     }
+  }
+
+  if (freshnessStatus !== 'stale' && sawFreshChild) {
+    freshnessStatus = 'healthy';
   }
 
   let fallbackReason = null;

@@ -89,7 +89,7 @@ Skill/Agent 源文件统一使用 `spec-first:category:name` 作为 canonical ag
 **顶层模块**：
 | 目录 | 职责 |
 |---|---|
-| `src/context-routing/` | 跨工作流上下文路由：解析 injection-index.yaml、按阶段/输出存在性选择注入文件；含 `workspace-loader.js`（workspace/child 分层加载）、`entry-resolver.js`（入口查询）、`evaluator.js`、`loader.js`、`telemetry.js` |
+| `src/context-routing/` | 跨工作流上下文路由：解析 injection-index.yaml、按阶段/输出存在性选择注入文件；含 `workspace-loader.js`（workspace/child 分层加载，freshness 聚合支持 healthy/fresh 等价判定）、`entry-resolver.js`（入口查询；`chooseMatchedChildren` 的 targetPath/cwd/changedFiles 按 `workspaceRoot` 锚点解析相对路径，避免相对 changedFiles 静默 miss）、`evaluator.js`、`loader.js`、`telemetry.js` |
 | `src/bootstrap-compiler/` | bootstrap 产物编译器：将 Phase 0–4 产物编译为 Stage-0 可消费的标准化上下文包；支持 workspace/child control-plane、overview 发布、workspace telemetry、child 产物锚定读取与 batch rollback；包含 `workspace-registry.js` 注册表、`workspace-compiler.js` 编译器、`run-bootstrap.js` 编排与 `rollback.js` 回滚 |
 
 **JSON 契约**：`docs/contracts/crg-cli-v1.schema.json`（JSON Schema Draft 2020-12）；`docs/contracts/` 目录集中存放所有 CLI/API 契约 Schema

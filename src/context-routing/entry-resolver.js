@@ -103,7 +103,7 @@ function findWorkspaceCandidate(startPath) {
   return null;
 }
 
-function chooseMatchedChildren({ registry, routing, repoRoots = [], targetPath, cwd, changedFiles = [] }) {
+function chooseMatchedChildren({ registry, routing, repoRoots = [], targetPath, cwd, changedFiles = [], workspaceRoot }) {
   const normalizedChildren = registry.children.map((child) => ({
     ...child,
     repoRoot: normalizeAbsolutePath(child.repoRoot),
@@ -112,9 +112,18 @@ function chooseMatchedChildren({ registry, routing, repoRoots = [], targetPath, 
   const byRepoRoot = new Map(normalizedChildren.map((child) => [child.repoRoot, child]));
   const byPrefix = normalizedChildren.slice().sort((a, b) => b.repoRoot.length - a.repoRoot.length);
 
+  // workspace 场景下，targetPath/cwd/changedFiles 允许是相对路径。
+  // 如果直接用 path.resolve() 会按进程当前目录解析，导致 cwd=workspaceRoot
+  // 且 changedFiles=['packages/repo-a/src/x.js'] 这类情况静默 miss。
+  // 这里显式以 workspaceRoot 作为锚点：path.resolve(anchor, candidate) 在
+  // candidate 为绝对路径时忽略 anchor，为相对路径时相对 anchor 解析。
+  const anchor = normalizeAbsolutePath(workspaceRoot);
+
   function matchPath(candidate) {
-    const resolved = normalizeAbsolutePath(candidate);
-    if (!resolved) return [];
+    if (typeof candidate !== 'string' || candidate.trim() === '') return [];
+    const resolved = anchor
+      ? path.resolve(anchor, candidate)
+      : path.resolve(candidate);
     for (const child of byPrefix) {
       if (resolved === child.repoRoot || resolved.startsWith(`${child.repoRoot}${path.sep}`)) {
         return [child.childSlug];
@@ -237,6 +246,7 @@ function resolveStage0Entry({ cwd, target, repoRoots = [], changedFiles = [] } =
     targetPath: target,
     cwd,
     changedFiles,
+    workspaceRoot: workspaceCandidate.workspaceRoot,
   });
 
   return {

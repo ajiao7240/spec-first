@@ -125,6 +125,24 @@ function unique(array) {
   return [...new Set(array)];
 }
 
+/**
+ * 解析 workspace 内 child 的产物目录（context + control-plane）
+ *
+ * 所有 child 产物都锚定在 workspaceRoot 下，`child.repoRoot` 仅作占位
+ * 传给 resolveContextDocsDir/resolveWorkflowArtifactDir（其实际路径由 artifactAnchorRoot 决定）。
+ *
+ * @param {{ childSlug: string, repoRoot?: string }} child
+ * @param {string} anchorRoot  workspaceRoot 绝对路径
+ * @returns {{ contextDir: string, controlPlaneDir: string }}
+ */
+function resolveChildArtifactDirs(child, anchorRoot) {
+  const repoRoot = child.repoRoot || anchorRoot;
+  return {
+    contextDir: resolveContextDocsDir(repoRoot, child.childSlug, { artifactAnchorRoot: anchorRoot }),
+    controlPlaneDir: resolveWorkflowArtifactDir(repoRoot, 'bootstrap', child.childSlug, { artifactAnchorRoot: anchorRoot }),
+  };
+}
+
 function buildSingleRepoBootstrapTelemetryEvaluation({
   repoRoot,
   slug,
@@ -176,7 +194,7 @@ function buildWorkspaceBootstrapTelemetryEvaluation({
     if (evaluation.level !== 'L0') hasDegradedChild = true;
     if (evaluation.freshness_status === 'stale') {
       freshnessStatus = 'stale';
-    } else if (evaluation.freshness_status === 'fresh' && freshnessStatus !== 'stale') {
+    } else if (evaluation.freshness_status === 'healthy' && freshnessStatus !== 'stale') {
       sawFreshChild = true;
     }
 
@@ -187,7 +205,7 @@ function buildWorkspaceBootstrapTelemetryEvaluation({
   }
 
   if (freshnessStatus !== 'stale' && sawFreshChild) {
-    freshnessStatus = 'fresh';
+    freshnessStatus = 'healthy';
   }
 
   let fallbackReason = null;
@@ -210,6 +228,32 @@ function buildWorkspaceBootstrapTelemetryEvaluation({
   };
 }
 
+/**
+ * 执行 workspace 级 bootstrap：为每个 child repo 跑一次 runBootstrap，
+ * 发布 workspace overview 与 control plane，并清理上次 registry 中已被移除的 child 产物。
+ *
+ * @param {object} options
+ * @param {string} options.workspaceRoot  workspace 绝对路径
+ * @param {string[]} [options.repoRoots]  显式给定的 child repo 列表
+ * @param {string} [options.generatedAt]  ISO 时间戳
+ * @param {boolean} [options.discoverChildGit]  为 true 时自动发现 .git 子仓
+ * @param {object} [options.hooks]  lifecycle hooks（beforeWorkspacePublish / afterControlPlaneWrite / afterContextWrite）
+ *
+ * @returns {{
+ *   status: 'complete',
+ *   mode: 'workspace',
+ *   slug: string,
+ *   controlPlaneDir: string,
+ *   contextDir: string,
+ *   registry: object,
+ *   routing: object,
+ *   prunedChildSlugs: string[],       // 成功 prune 的已移除 child slug（不含 failedPrunes 内的）
+ *   failedPrunes: Array<{ childSlug: string, error: string }>,  // prune 中 rm 失败的 child（bootstrap 主产出仍成功）
+ * }}
+ *
+ * 失败时抛出，错误捕获后调用 restoreBatchBackup 回滚所有产物。
+ * 单 child prune 失败不触发整体回滚，只记入 failedPrunes 返回。
+ */
 function runWorkspaceBootstrap({
   workspaceRoot,
   repoRoots = [],
@@ -240,26 +284,46 @@ function runWorkspaceBootstrap({
 
   let batchBackup = null;
 
+  // 计算被移除的 child：读取上次 workspace-registry.json，与当前 registry.children 取差集。
+  // rerun 时如果旧 registry 里有但新 registry 里不再存在的 child，它们的 control-plane
+  // 与 context 产物应被 prune，否则会长期残留、与当前 workspace 视图不一致。
+  const previousRegistryPath = path.join(controlPlaneDir, 'workspace-registry.json');
+  const currentChildSlugs = new Set(registry.children.map((child) => child.childSlug));
+  let removedChildren = [];
+  if (fs.existsSync(previousRegistryPath)) {
+    try {
+      const previous = JSON.parse(fs.readFileSync(previousRegistryPath, 'utf8'));
+      if (previous && Array.isArray(previous.children)) {
+        removedChildren = previous.children.filter(
+          (child) => child && child.childSlug && !currentChildSlugs.has(child.childSlug)
+        );
+      }
+    } catch (_error) {
+      // 旧 registry 损坏时静默跳过 prune（不阻塞主流程）
+    }
+  }
+
   try {
     batchBackup = createBatchBackup({
       backupRoot: fs.mkdtempSync(path.join(os.tmpdir(), `spec-first-workspace-backup-${generatedAt.replace(/[:.]/g, '-')}-`)),
       entries: [
         { key: 'workspace-context', sourceDir: contextDir },
         { key: 'workspace-control-plane', sourceDir: controlPlaneDir },
-        ...registry.children.flatMap((child) => ([
-          {
-            key: `child-context-${child.childSlug}`,
-            sourceDir: resolveContextDocsDir(child.repoRoot, child.childSlug, {
-              artifactAnchorRoot: normalizedWorkspaceRoot,
-            }),
-          },
-          {
-            key: `child-control-plane-${child.childSlug}`,
-            sourceDir: resolveWorkflowArtifactDir(child.repoRoot, 'bootstrap', child.childSlug, {
-              artifactAnchorRoot: normalizedWorkspaceRoot,
-            }),
-          },
-        ])),
+        ...registry.children.flatMap((child) => {
+          const dirs = resolveChildArtifactDirs(child, normalizedWorkspaceRoot);
+          return [
+            { key: `child-context-${child.childSlug}`, sourceDir: dirs.contextDir },
+            { key: `child-control-plane-${child.childSlug}`, sourceDir: dirs.controlPlaneDir },
+          ];
+        }),
+        // 被移除的 child 纳入 backup：rollback 时可恢复；否则只是 rm
+        ...removedChildren.flatMap((child) => {
+          const dirs = resolveChildArtifactDirs(child, normalizedWorkspaceRoot);
+          return [
+            { key: `removed-child-context-${child.childSlug}`, sourceDir: dirs.contextDir },
+            { key: `removed-child-control-plane-${child.childSlug}`, sourceDir: dirs.controlPlaneDir },
+          ];
+        }),
       ],
     });
 
@@ -294,6 +358,25 @@ function runWorkspaceBootstrap({
       generatedAt,
     });
 
+    // Prune 被移除的 child 产物（已在 batchBackup 中备份，失败可 restoreBatchBackup 恢复）
+    // 单 child rm 失败不再抛出整体 rollback：failedPrunes 收集后继续处理剩余 child，
+    // 最终随返回值返还调用方。这样个别 child 路径被外部占用（Windows EBUSY、权限问题）
+    // 不会拖累其他 child 的 prune 与本次 bootstrap 的成功产出。
+    const failedPrunes = [];
+    for (const child of removedChildren) {
+      const { contextDir: removedContextDir, controlPlaneDir: removedControlPlaneDir } =
+        resolveChildArtifactDirs(child, normalizedWorkspaceRoot);
+      try {
+        fs.rmSync(removedContextDir, { recursive: true, force: true });
+        fs.rmSync(removedControlPlaneDir, { recursive: true, force: true });
+      } catch (error) {
+        failedPrunes.push({
+          childSlug: child.childSlug,
+          error: error && error.message ? error.message : String(error),
+        });
+      }
+    }
+
     removeBatchBackup(batchBackup);
 
     return {
@@ -304,6 +387,10 @@ function runWorkspaceBootstrap({
       contextDir,
       registry,
       routing,
+      prunedChildSlugs: removedChildren
+        .map((child) => child.childSlug)
+        .filter((slug) => !failedPrunes.some((failure) => failure.childSlug === slug)),
+      failedPrunes,
     };
   } catch (error) {
     restoreBatchBackup(batchBackup);

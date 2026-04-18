@@ -213,6 +213,7 @@ describe('spec-graph-bootstrap compiler modules', () => {
       ));
       expect(workspaceTelemetry.matched_child_slugs).toEqual([childSlug]);
       expect(workspaceTelemetry.fallback_reason).toBe(null);
+      expect(workspaceTelemetry.freshness_status).toBe('healthy');
       expect(workspaceTelemetry.selected_assets).toContain(`${childSlug}:architecture/module-map.md`);
 
       const childTelemetry = JSON.parse(fs.readFileSync(
@@ -220,6 +221,42 @@ describe('spec-graph-bootstrap compiler modules', () => {
         'utf8'
       ));
       expect(childTelemetry.selected_assets).toContain('architecture/module-map.md');
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace bootstrap rerun 会 prune 已移除 child 的 control-plane 与 context', () => {
+    const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-bootstrap-prune-'));
+    const repoA = path.join(workspaceRoot, 'packages', 'repo-a');
+    const repoB = path.join(workspaceRoot, 'packages', 'repo-b');
+    fs.mkdirSync(path.join(repoA, '.git'), { recursive: true });
+    fs.mkdirSync(path.join(repoB, '.git'), { recursive: true });
+
+    try {
+      runBootstrap({
+        repoRoot: workspaceRoot,
+        generatedAt: '2026-04-15T00:00:00.000Z',
+        repoRoots: [repoA, repoB],
+      });
+
+      const childSlugA = buildChildSlug(workspaceRoot, repoA);
+      const childSlugB = buildChildSlug(workspaceRoot, repoB);
+
+      expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', childSlugB))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, 'docs', 'contexts', childSlugB))).toBe(true);
+
+      const rerun = runBootstrap({
+        repoRoot: workspaceRoot,
+        generatedAt: '2026-04-15T00:00:01.000Z',
+        repoRoots: [repoA],
+      });
+
+      expect(rerun.prunedChildSlugs).toEqual([childSlugB]);
+      expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', childSlugA))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, 'docs', 'contexts', childSlugA))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', childSlugB))).toBe(false);
+      expect(fs.existsSync(path.join(workspaceRoot, 'docs', 'contexts', childSlugB))).toBe(false);
     } finally {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
     }
