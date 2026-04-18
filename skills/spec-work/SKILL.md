@@ -46,6 +46,15 @@ If the task is experiment-driven optimization against a stable measurement harne
      - `code-facts/test-map.md`
      - `context-packs/review-change.md`
    - `injection-index.yaml` 仅作为人类视图，不再是运行时唯一判定逻辑
+   - 若 `minimal-context/work.json` 提供 `platform_focus`、`required_verifications` 或 `optional_verifications`，将其视为 repo 级 verification summary baseline
+   - 若当前 runtime `verification_summary` 还提供 `source / required_verifications / optional_verifications / recommended_required_verifications / recommended_optional_verifications / repo_required_verifications / repo_optional_verifications`，则以 `required_verifications / optional_verifications` 作为本次运行的 effective checklist；若同时提供顶层 `verifier_dispatch`，则把 `verifier_dispatch.handoff_posture / dispatch_candidates / manual_required_verifications / dispatch_blockers` 视为“候选 verifier + blocker”输入，而不是固定执行树
+   - 若 `verification_summary.source === 'change-surface'`，即使 `required_verifications` 为空，也不要把 `repo_required_verifications / repo_optional_verifications` 回填成当前改动的必跑项；这些字段只用于了解仓库级 baseline
+   - 若当前 runtime 还提供 `ai_dev_quality_gate_result.passed / checks / failures / artifact_path`，则把它视为最近一次 CI/gate 的事实快照；它只回答“最近 gate 发生了什么”，不回答“这次任务必须怎么流转”
+   - 若当前 runtime 还提供 `verification_evidence.evidence_items`，则把它当成独立证据引用清单；它只回答“已有何种证据、来自哪个 verifier、落在哪”，不回答执行编排
+   - 若当前 runtime 还提供 `verification_gate_state.overall_status / required_gates / optional_evidence / blockers / ci_gate`，则用它区分 `pending / blocked / satisfied / not-needed`，不要把它解释成“已经自动完成验证”；只有挂上真实 evidence reference 时，`satisfied` 才成立
+   - **Runtime Stage-0 context（best-effort, pre-resolved JSON）**
+!`repo=$(git rev-parse --show-toplevel 2>/dev/null || pwd); if command -v spec-first >/dev/null 2>&1 && spec-first stage0-context --stage work --workflow spec-work --format json 2>/dev/null; then true; elif [ -f "$repo/bin/spec-first.js" ] && node "$repo/bin/spec-first.js" stage0-context --stage work --workflow spec-work --format json 2>/dev/null; then true; elif [ -f "$repo/node_modules/spec-first/bin/spec-first.js" ] && node "$repo/node_modules/spec-first/bin/spec-first.js" stage0-context --stage work --workflow spec-work --format json 2>/dev/null; then true; else echo '__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__'; fi`
+   - 若输出为 `__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__`，说明 runtime helper 当前不可用；继续按上面的 control plane contract 手工预载，不阻断主任务
    - 每个文件：存在则读取，缺失则跳过（Level 1）
    - 默认写一条 Stage-0 telemetry，至少记录 `stage / profile / selected_assets / fallback_reason / skipped_rules`
 
@@ -76,6 +85,12 @@ If the task is experiment-driven optimization against a stable measurement harne
    - Check for a `Deferred to Implementation` or `Implementation-Time Unknowns` section — these are questions the planner intentionally left for you to resolve during execution. Note them before starting so they inform your approach rather than surprising you mid-task
    - Check for a `Scope Boundaries` section — these are explicit non-goals. Refer back to them if implementation starts pulling you toward adjacent work
    - Review any references or links provided in the plan
+   - If Stage-0 runtime `verification_summary` provides `required_verifications`, record `required_verifications / optional_verifications` as the default verification checklist for this run before editing files
+   - If `verification_summary.source === 'change-surface'`, treat empty effective verification lists as a valid outcome for this diff and keep `repo_required_verifications / repo_optional_verifications` as background baseline only
+   - If top-level `verifier_dispatch` exists, treat `dispatch_candidates` as verifier options, `manual_required_verifications` as non-registry gates that still need handling, and `dispatch_blockers` as real blockers to surface before claiming coverage
+   - If `ai_dev_quality_gate_result` exists, treat it as the latest passive CI/gate snapshot only; it can inform judgment, but it must not be treated as a workflow state machine or an auto-blocking orchestration rule
+   - If `verification_evidence` exists, treat `evidence_items` as factual proof references only; they record verifier/output/artifact links, not dispatch instructions
+   - If `verification_gate_state` exists, use `overall_status / required_gates / blockers` to keep an explicit pending-vs-blocked-or-satisfied verification ledger during execution; it is status input, not an auto-dispatch contract
    - If the user explicitly asks for TDD, test-first, or characterization-first execution in this session, honor that request even if the plan has no `Execution note`
    - If anything is unclear or ambiguous, ask clarifying questions now
    - Get user approval to proceed

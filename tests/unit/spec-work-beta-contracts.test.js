@@ -8,6 +8,7 @@ const CodexAdapter = require('../../src/cli/adapters/codex');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-work-beta/SKILL.md');
+const PROMPT_MIRROR_SKILL_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-work-beta/SKILL.md');
 const DELEGATION_WORKFLOW_PATH = path.join(
   REPO_ROOT,
   'skills/spec-work-beta/references/codex-delegation-workflow.md',
@@ -44,8 +45,29 @@ describe('spec-work-beta contracts', () => {
     expect(skill).toContain('context-routing.json');
     expect(skill).toContain('artifact-manifest.json');
     expect(skill).toContain('minimal-context/work.json');
+    expect(skill).toContain('platform_focus');
+    expect(skill).toContain('required_verifications');
+    expect(skill).toContain('optional_verifications');
+    expect(skill).toContain('recommended_required_verifications');
+    expect(skill).toContain('repo_required_verifications');
+    expect(skill).toContain('verifier_dispatch');
+    expect(skill).toContain('handoff_posture');
+    expect(skill).toContain('dispatch_candidates');
+    expect(skill).toContain('manual_required_verifications');
+    expect(skill).toContain('dispatch_blockers');
+    expect(skill).toContain('ai_dev_quality_gate_result');
+    expect(skill).toContain('verification_evidence');
+    expect(skill).toContain('verification_gate_state');
+    expect(skill).toContain('overall_status / required_gates / blockers');
+    expect(skill).toContain('verification summary');
+    expect(skill).toContain('effective checklist');
+    expect(skill).toContain('change-surface');
+    expect(skill).toContain('stage0-context --stage work --workflow spec-work-beta --format json');
+    expect(skill).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
     expect(skill).toContain('selected_assets / fallback_reason / level / skipped_rules');
     expect(skill).toContain('`spec:work-beta` 当前有意复用 stable `work` Stage-0 产物与 telemetry 口径');
+    expect(skill).toContain('default verification checklist');
+    expect(skill).toContain('pending-vs-blocked-or-satisfied verification ledger');
     expect(countMatches(skill, /^## Stage-0 上下文预载（可选增强，不阻断主工作流）$/gm)).toBe(1);
 
     // Execution governance — bypassPermissions rationale
@@ -143,5 +165,31 @@ describe('spec-work-beta contracts', () => {
     // Neither runtime should have stale upstream names
     expect(claudeRuntime).not.toContain('ce:work-beta');
     expect(codexRuntime).not.toContain('ce:work-beta');
+  });
+
+  test('docs mirror stays aligned on verification summary Stage-0 contract', () => {
+    const mirror = read(PROMPT_MIRROR_SKILL_PATH);
+
+    expect(mirror).toContain('platform_focus');
+    expect(mirror).toContain('required_verifications');
+    expect(mirror).toContain('optional_verifications');
+    expect(mirror).toContain('recommended_required_verifications');
+    expect(mirror).toContain('repo_required_verifications');
+    expect(mirror).toContain('verifier_dispatch');
+    expect(mirror).toContain('handoff_posture');
+    expect(mirror).toContain('dispatch_candidates');
+    expect(mirror).toContain('manual_required_verifications');
+    expect(mirror).toContain('dispatch_blockers');
+    expect(mirror).toContain('ai_dev_quality_gate_result');
+    expect(mirror).toContain('verification_evidence');
+    expect(mirror).toContain('verification_gate_state');
+    expect(mirror).toContain('overall_status / required_gates / blockers');
+    expect(mirror).toContain('verification summary');
+    expect(mirror).toContain('effective checklist');
+    expect(mirror).toContain('change-surface');
+    expect(mirror).toContain('stage0-context --stage work --workflow spec-work-beta --format json');
+    expect(mirror).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
+    expect(mirror).toContain('default verification checklist');
+    expect(mirror).toContain('pending-vs-blocked-or-satisfied verification ledger');
   });
 });

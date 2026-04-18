@@ -8,6 +8,14 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.1 2026-04-19 14:00:00 kuang: chore(spec-work): 同步 Stage-0 verification 合同 wording 至 `spec-work` / `spec-work-beta` + 对应 `docs/10-prompt/` mirror + contract tests（新增 `platform_focus` / `verification_summary` / `verifier_dispatch` / `ai_dev_quality_gate_result` / `verification_evidence` / `verification_gate_state` 条款解析指引）；作为 plan 004 execution-boundary delta 开工前的工作区 checkpoint
+- v1.5.1 2026-04-19 12:35:00 kuang: docs(readme): 以当前 `README.zh-CN.md` 为对齐基准重写英文 `README.md`，确保中英章节、表格、代码块、anchor 一一对应；保留单版本形态（不再有 v1/v2 双入口） (user-visible)
+- v1.5.1 2026-04-19 12:10:00 kuang: docs(readme): 将 `README.v2.md` 升格为正式 `README.md`（v2 审查通过收尾），删除 `.v2.md` 后缀文件；同步更新 `README.md` 与 `README.zh-CN.md` 首部语言切换链接为单版本形态 `[English](./README.md) | [简体中文](./README.zh-CN.md)` (user-visible)
+- v1.5.1 2026-04-19 11:20:00 Codex: docs(readme-zh): 将 `README.zh-CN.md` 重写为 `README.v2.md` 的完整中文对应版，补齐 Design Philosophy、bootstrap 对比、Stage-0 信号、CRG 命令、`init` 写入/回滚边界与本地开发说明，统一中英结构与导航 (user-visible)
+- v1.5.1 2026-04-19 11:05:00 kuang: docs(readme-v2): 新增 `README.v2.md`（不改动原 `README.md`），按四视角审查（工程/AI 工作流/Spec Engineering/DevEx CLI）逐项修复 26 条 findings：补齐 `spec-first stage0-context` 与 `spec-first crg` 17 子命令章节、新增 15 语言支持矩阵、新增 Design Philosophy 与 Evaluator levels 定义、bootstrap vs graph-bootstrap 对比表、init 破坏性写入披露与 clean 回滚边界、fallback_reason 多值、Auxiliary 工作流（debug/update/sessions/setup）、Capability Layer 6 分类、badges 分层、移除裸 IP Website 链接、示例输出改占位符；原 `README.md` 保持不变 (user-visible)
+- v1.5.1 2026-04-19 10:40:00 kuang: docs(readme-zh): 同步中文版 README，与英文版结构对齐——新增首图 GIF、工作原理节、约束模型表、图表移位、文档改表格、Core Workflow 补约束列 (user-visible)
+- v1.5.1 2026-04-19 10:35:00 kuang: docs(readme): 替换首图为 workflow 动画 GIF (user-visible)
+- v1.5.1 2026-04-19 10:30:00 kuang: docs(readme): 按工程审查框架重写 README，明确 hard/soft enforcement 边界，新增 How It Works 机制节、graph-bootstrap 定位说明、enforcement model 表、Not For 适用边界、ASCII 分层架构图；Hero tagline 改为机制性描述，文档列表改为表格，Example Output 并入 Quick Start (user-visible)
 - v1.6.0 2026-04-19 01:15:00 kuang: fix(evaluator): fallback_reason 优先根因 empty_fact_inventory 而非次因 minimal_context_missing；补充生产路径 provenance 断言（review/plan/work 均验证 fact-inventory）
 - v1.6.0 2026-04-19 01:00:00 kuang: fix(evaluator): 移除 data_quality 的 ?? 'empty' fallback，修复旧 manifest 向后兼容降级；补充 provenance/confidence 到 minimal-context schema；补充 data_quality 到 artifact-manifest schema；补充 partial 和 legacy manifest 的 evaluator 测试
 - v1.6.0 2026-04-19 00:30:00 kuang: feat(bootstrap): manifest 新增 data_quality 字段（fact-backed/partial/empty），evaluator L0 门控收紧（空数据降为 L1），minimal-context 三份 context 补 provenance/confidence 元信号，让下游 skill 可感知 Stage-0 数据可信度
