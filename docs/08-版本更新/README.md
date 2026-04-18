@@ -53,13 +53,13 @@
 ### 主要变化
 
 - release 总门禁恢复完整覆盖
-  - [package.json](/Users/kuang/xiaobu/spec-first/package.json) 中默认 `npm run test:release`
+  - [package.json](../../package.json) 中默认 `npm run test:release`
   - 现在串联：
     - `npm run test:release:governance`
     - `npm run test:release:install`
   - 这样双宿主治理专项验证和既有 `install-tarball.sh` 完整安装回归重新回到同一个默认发布门禁
 - 治理专项 smoke 增加负向断言
-  - [tests/smoke/release-dual-host-governance.sh](/Users/kuang/xiaobu/spec-first/tests/smoke/release-dual-host-governance.sh)
+  - [tests/smoke/release-dual-host-governance.sh](../../tests/smoke/release-dual-host-governance.sh)
   - 除继续断言 tarball 必须包含：
     - `package/src/cli/contracts/dual-host-governance/skills-governance.json`
     - `package/src/cli/contracts/dual-host-governance/skills-governance.schema.json`
@@ -67,10 +67,10 @@
     - `package/docs/contracts/dual-host-governance/skills-governance.json`
     - `package/docs/contracts/dual-host-governance/skills-governance.schema.json`
 - 回归守卫同步补强
-  - [tests/unit/dual-host-governance-contracts.test.js](/Users/kuang/xiaobu/spec-first/tests/unit/dual-host-governance-contracts.test.js)
+  - [tests/unit/dual-host-governance-contracts.test.js](../../tests/unit/dual-host-governance-contracts.test.js)
   - 新增默认 release gate 组合脚本断言，并冻结治理专项 smoke 对 docs-side machine-readable assets 的负向检查要求
 - 安装回归脚本健壮性修复
-  - [tests/smoke/install-tarball.sh](/Users/kuang/xiaobu/spec-first/tests/smoke/install-tarball.sh)
+  - [tests/smoke/install-tarball.sh](../../tests/smoke/install-tarball.sh)
   - 修复未知 `tree-sitter` 包分支中 `$pkg` 紧跟全角括号触发 `set -u` 的变量展开错误，确保完整 tarball 安装回归能稳定跑完
 
 ### 版本意义
