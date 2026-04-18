@@ -130,9 +130,9 @@ function evaluateContext({
   const freshnessStatus = freshness && freshness.status ? freshness.status : 'unknown';
 
   const qualitySufficient = manifest.data_quality !== 'empty';
-  let level = minimalContextMissing ? 'L1' : !qualitySufficient ? 'L1' : 'L0';
-  let fallbackReason = minimalContextMissing  ? 'minimal_context_missing' :
-                       !qualitySufficient     ? 'empty_fact_inventory'    : null;
+  let level = minimalContextMissing || !qualitySufficient ? 'L1' : 'L0';
+  let fallbackReason = !qualitySufficient        ? 'empty_fact_inventory'    :
+                       minimalContextMissing     ? 'minimal_context_missing' : null;
   if (!fallbackReason && freshnessStatus === 'stale') {
     fallbackReason = 'freshness_stale';
   }

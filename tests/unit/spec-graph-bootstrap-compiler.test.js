@@ -123,6 +123,10 @@ describe('spec-graph-bootstrap compiler modules', () => {
     expect(result.minimal_context.work.optional_verifications).toContain('release-tests');
     expect(result.minimal_context.review.verification_gaps_to_check).toContain('confirm smoke-tests');
     expect(result.minimal_context.review.stage).toBe('review');
+    // 生产路径传入 factInventory（modules > 0）→ provenance 应为 fact-inventory
+    expect(result.minimal_context.review.provenance).toBe('fact-inventory');
+    expect(result.minimal_context.plan.provenance).toBe('fact-inventory');
+    expect(result.minimal_context.work.provenance).toBe('fact-inventory');
     expect(result.freshness.schema_version).toBe('v1');
     expect(result.lint_report.status).toBe('ok');
   });

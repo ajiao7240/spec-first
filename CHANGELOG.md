@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.6.0 2026-04-19 01:15:00 kuang: fix(evaluator): fallback_reason 优先根因 empty_fact_inventory 而非次因 minimal_context_missing；补充生产路径 provenance 断言（review/plan/work 均验证 fact-inventory）
 - v1.6.0 2026-04-19 01:00:00 kuang: fix(evaluator): 移除 data_quality 的 ?? 'empty' fallback，修复旧 manifest 向后兼容降级；补充 provenance/confidence 到 minimal-context schema；补充 data_quality 到 artifact-manifest schema；补充 partial 和 legacy manifest 的 evaluator 测试
 - v1.6.0 2026-04-19 00:30:00 kuang: feat(bootstrap): manifest 新增 data_quality 字段（fact-backed/partial/empty），evaluator L0 门控收紧（空数据降为 L1），minimal-context 三份 context 补 provenance/confidence 元信号，让下游 skill 可感知 Stage-0 数据可信度
 - v1.6.0 2026-04-18 23:41:43 Codex: docs(plans): 将 004 Karpathy rollout 计划收窄为只保留仍需改造的执行链内容，删除背景审计和无需修改的 skill 范围，并修正 `resolve-pr-feedback` 与 cluster-based holistic fix 设计的边界表述 (user-visible)
