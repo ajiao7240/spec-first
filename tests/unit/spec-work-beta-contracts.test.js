@@ -192,4 +192,62 @@ describe('spec-work-beta contracts', () => {
     expect(mirror).toContain('default verification checklist');
     expect(mirror).toContain('pending-vs-blocked-or-satisfied verification ledger');
   });
+
+  // plan 004: Karpathy execution-boundary delta (R1-R5) + Simplify converge note
+  // Wording 精度分层:精确 wording 锁语义源自 karpathy-guidelines §1/§2/§3;
+  // 语义锚点组合锁 plan 现场造的 wording——守边界不守句子。
+  // beta 与 stable spec-work 执行边界 wording 保持一致(plan 004 R6)。
+
+  test('source skill includes plan 004 R1-R5 karpathy execution boundary delta', () => {
+    const skill = read(SKILL_PATH);
+
+    // Precise wording (verbatim)
+    expect(skill).toContain('Every changed line must trace');
+    expect(skill).toContain('implementation unit');
+    expect(skill).toContain('Implement the minimum code the current task requires.');
+    expect(skill).toContain(
+      'If multiple materially different approaches exist, state the tradeoffs before proceeding.'
+    );
+
+    // 语义锚点组合
+    expect(skill).toContain('allowed change surface');
+    expect(skill).toMatch(/\b(?:Identify|identify|Derive|derive|record|note)\b/);
+    expect(skill).toContain('opportunistic');
+    expect(skill).toContain('direct dependency');
+    expect(skill).toMatch(/\bbundle\b|\binclude\b/);
+    expect(skill).toMatch(/\borphan\b|unused imports|unused variables/);
+    expect(skill).toContain('pre-existing');
+    expect(skill).toMatch(/\bDo not\b|\bmust not\b/);
+    expect(skill).toContain('required dependency');
+    expect(skill).toContain('separate follow-up');
+    expect(skill).toContain('single-use abstractions');
+    expect(skill).toContain('unrequested configurability');
+    expect(skill).toContain('speculative guards');
+    expect(skill).toContain('noticeably simpler');
+  });
+
+  test('docs mirror includes plan 004 R1-R5 karpathy execution boundary delta', () => {
+    const mirror = read(PROMPT_MIRROR_SKILL_PATH);
+
+    expect(mirror).toContain('Every changed line must trace');
+    expect(mirror).toContain('implementation unit');
+    expect(mirror).toContain('Implement the minimum code the current task requires.');
+    expect(mirror).toContain(
+      'If multiple materially different approaches exist, state the tradeoffs before proceeding.'
+    );
+    expect(mirror).toContain('allowed change surface');
+    expect(mirror).toMatch(/\b(?:Identify|identify|Derive|derive|record|note)\b/);
+    expect(mirror).toContain('opportunistic');
+    expect(mirror).toContain('direct dependency');
+    expect(mirror).toMatch(/\bbundle\b|\binclude\b/);
+    expect(mirror).toMatch(/\borphan\b|unused imports|unused variables/);
+    expect(mirror).toContain('pre-existing');
+    expect(mirror).toMatch(/\bDo not\b|\bmust not\b/);
+    expect(mirror).toContain('required dependency');
+    expect(mirror).toContain('separate follow-up');
+    expect(mirror).toContain('single-use abstractions');
+    expect(mirror).toContain('unrequested configurability');
+    expect(mirror).toContain('speculative guards');
+    expect(mirror).toContain('noticeably simpler');
+  });
 });
