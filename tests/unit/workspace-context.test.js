@@ -251,7 +251,10 @@ describe('workspace context', () => {
   test('chooseMatchedChildren 无 workspaceRoot 时按 process.cwd 解析（向后兼容）', () => {
     // 修复保留了"无 anchor 时 fallback 到 path.resolve(candidate)"向后兼容分支。
     // 该路径若未来被简化或反转，此测试会首先失败，避免悄悄破坏旧调用方。
-    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-context-cwd-fallback-'));
+    // 注：macOS 下 os.tmpdir() 是 /var/... → /private/var/... 符号链接，
+    //   process.cwd() 会返回 canonical 路径，因此 expectedRepoRoot 必须走 realpathSync 归一化。
+    const tmpCwdRaw = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-context-cwd-fallback-'));
+    const tmpCwd = fs.realpathSync(tmpCwdRaw);
     const originalCwd = process.cwd();
 
     try {
@@ -275,7 +278,7 @@ describe('workspace context', () => {
       });
     } finally {
       process.chdir(originalCwd);
-      fs.rmSync(tmpCwd, { recursive: true, force: true });
+      fs.rmSync(tmpCwdRaw, { recursive: true, force: true });
     }
   });
 

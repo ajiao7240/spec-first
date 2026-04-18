@@ -56,7 +56,7 @@ Before changing source code, ensure `CHANGELOG.md` has a matching entry. For new
 <!-- spec-first:lang:start -->
 ## 语言与治理策略（由 spec-first 管理）
 
-**语言设置：** `zh`
+**语言设置：** `中文`
 
 ### 语言规则
 - 回复、状态更新、生成文档、评审意见、计划说明等所有自然语言输出使用**中文**

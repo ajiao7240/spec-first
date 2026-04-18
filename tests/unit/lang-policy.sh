@@ -85,33 +85,45 @@ assert_contains "zh block has end marker" "<!-- spec-first:lang:end -->" "$zh_bl
 echo "1.3 zh block contains Chinese language directive"
 assert_contains "zh block has Chinese directive" "中文" "$zh_block"
 
-echo "1.4 en block contains English language directive"
+echo "1.4 zh block uses localized language setting label"
+assert_contains "zh block uses 中文 label" '**语言设置：** `中文`' "$zh_block"
+
+echo "1.5 zh block does not expose raw zh code in language setting"
+assert_not_contains "zh block omits raw zh code" '**语言设置：** `zh`' "$zh_block"
+
+echo "1.6 en block contains English language directive"
 en_block=$(node_run "process.stdout.write(buildManagedBlock('en'))")
 assert_contains "en block has English directive" "English" "$en_block"
 
-echo "1.5 en block contains START and END markers"
+echo "1.7 en block uses localized language setting label"
+assert_contains "en block uses English label" '**Language setting:** `English`' "$en_block"
+
+echo "1.8 en block does not expose raw en code in language setting"
+assert_not_contains "en block omits raw en code" '**Language setting:** `en`' "$en_block"
+
+echo "1.9 en block contains START and END markers"
 assert_contains "en block has start marker" "<!-- spec-first:lang:start -->" "$en_block"
 assert_contains "en block has end marker" "<!-- spec-first:lang:end -->" "$en_block"
 
-echo "1.6 zh block does not contain 'English'"
+echo "1.10 zh block does not contain 'English'"
 assert_not_contains "zh block has no 'English'" "English" "$zh_block"
 
-echo "1.7 en block contains changelog governance rule"
+echo "1.11 en block contains changelog governance rule"
 assert_contains "en block has changelog rule" "CHANGELOG" "$en_block"
 
-echo "1.8 zh block contains changelog governance rule"
+echo "1.12 zh block contains changelog governance rule"
 assert_contains "zh block has changelog rule" "CHANGELOG" "$zh_block"
 
-echo "1.9 zh block contains refusal rule"
+echo "1.13 zh block contains refusal rule"
 assert_contains "zh block has refusal rule" "拒绝生成" "$zh_block"
 
-echo "1.10 en block contains refusal rule"
+echo "1.14 en block contains refusal rule"
 assert_contains "en block has refusal rule" "refuse to generate" "$en_block"
 
-echo "1.11 zh block does not contain governance file commit rule"
+echo "1.15 zh block does not contain governance file commit rule"
 assert_not_contains "zh block omits governance file commit rule" "规范文件提交规则" "$zh_block"
 
-echo "1.12 en block does not contain governance file commit rule"
+echo "1.16 en block does not contain governance file commit rule"
 assert_not_contains "en block omits governance file commit rule" "Governance File Commit Rule" "$en_block"
 
 echo ""
