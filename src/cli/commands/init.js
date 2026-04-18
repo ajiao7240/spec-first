@@ -25,6 +25,8 @@ const {
 const { getAdapter } = require('../adapters');
 const { writeLangPolicy } = require('../lang-policy');
 const { bootstrapChangelog } = require('../changelog');
+const { writeInstructionBootstrap } = require('../instruction-bootstrap');
+const { upsertManagedSessionStartHook, validateClaudeSettingsFile } = require('../claude-settings');
 
 function runInit(argv) {
   const args = [...argv];
@@ -63,9 +65,6 @@ function runInit(argv) {
 
   const projectRoot = process.cwd();
   const commandDir = adapter.hasCommands ? path.join(projectRoot, adapter.commandRoot) : '';
-  if (adapter.hasCommands) {
-    fs.mkdirSync(commandDir, { recursive: true });
-  }
   let previousState = null;
   let legacyStateDetected = false;
   let rawManagedState = null;
@@ -110,6 +109,20 @@ function runInit(argv) {
     developer,
   });
 
+  if (platform === 'claude') {
+    try {
+      validateClaudeSettingsFile(projectRoot);
+    } catch (error) {
+      console.error(
+        `Could not read Claude settings before init. ${error instanceof Error ? error.message : String(error)}`,
+      );
+      console.error(
+        'Fix `.claude/settings.json` so it contains valid JSON, then rerun `spec-first init --claude`.',
+      );
+      return 1;
+    }
+  }
+
   if (legacyStateDetected) {
     console.warn('Detected legacy spec-first state; performing managed hard reset before re-init.');
     hardResetManagedAssets(projectRoot, buildLegacyHardResetState({
@@ -140,11 +153,16 @@ function runInit(argv) {
       version: developer.version,
     },
   });
-  writeDeveloperFile(projectRoot, developer, adapter);
-  writeState(projectRoot, nextState, adapter);
   adapter.syncRuntimeFiles(projectRoot, { manifest, synced });
   writeLangPolicy(projectRoot, developer, adapter);
+  writeInstructionBootstrap(projectRoot, adapter, developer.lang);
+  if (platform === 'claude') {
+    upsertManagedSessionStartHook(projectRoot);
+    console.log('🪝 Installed Claude SessionStart matcher in .claude/settings.json');
+  }
   const changelogCreated = bootstrapChangelog(projectRoot, developer);
+  writeDeveloperFile(projectRoot, developer, adapter);
+  writeState(projectRoot, nextState, adapter);
   const written = synced.commands.map((command) => command.filename);
   const skillNames = synced.skills;
   const agentPaths = synced.agents;

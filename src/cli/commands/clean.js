@@ -8,6 +8,8 @@ const {
   removeManagedAssets,
 } = require('../state');
 const { getAdapter } = require('../adapters');
+const { removeInstructionBootstrap } = require('../instruction-bootstrap');
+const { removeManagedSessionStartHook, validateClaudeSettingsFile } = require('../claude-settings');
 
 function runClean(argv) {
   const args = [...argv];
@@ -62,7 +64,25 @@ function runClean(argv) {
     return 0;
   }
 
+  if (platform === 'claude') {
+    try {
+      validateClaudeSettingsFile(projectRoot);
+    } catch (error) {
+      console.error(
+        `Could not read Claude settings before clean. ${error instanceof Error ? error.message : String(error)}`,
+      );
+      console.error(
+        'Fix `.claude/settings.json` so it contains valid JSON, then rerun `spec-first clean --claude`.',
+      );
+      return 1;
+    }
+  }
+
   removeManagedAssets(projectRoot, state, adapter);
+  removeInstructionBootstrap(projectRoot, adapter);
+  if (platform === 'claude') {
+    removeManagedSessionStartHook(projectRoot);
+  }
   adapter.removeRuntimeFiles(projectRoot);
   clearState(projectRoot, adapter);
   removeEmptyManagedRoots(projectRoot, adapter);

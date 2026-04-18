@@ -181,8 +181,10 @@ $spec-compound
 $ spec-first init --claude
 
 📋 Wrote language policy to CLAUDE.md
+🧭 Wrote using-spec-first bootstrap to CLAUDE.md
+🪝 Installed Claude SessionStart matcher in .claude/settings.json
 📦 Generated 13 command file(s) in .claude/commands/spec
-🧩 Generated 34 skill directory(ies) in .claude/skills
+🧩 Generated 35 skill directory(ies) in .claude/skills
 🤖 Generated 57 agent file(s) in .claude/agents
 🧰 Generated 4 agent support file(s) in .claude/agents
 🪪 Wrote project developer profile:
@@ -227,7 +229,7 @@ Spec-First focuses on the full delivery loop, not a single response:
 | Dual platform support | Works with both Claude Code and Codex |
 | CLI control plane | Manage install, health checks, and cleanup with three core commands |
 | Workflow layer | Includes Stage-0, Ideate, Brainstorm, Plan, Work, Review, and Compound |
-| Capability layer | Ships with `47` skills, `57` agents, and `4` agent support files |
+| Capability layer | Ships with `48` skills, `57` agents, and `4` agent support files |
 | Runtime governance | Managed runtime assets can be synchronized, refreshed, recovered, and cleaned |
 | Open documentation | Includes manuals, architecture docs, plans, and accumulated learnings |
 

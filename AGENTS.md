@@ -73,3 +73,12 @@ Before changing source code, ensure `CHANGELOG.md` has a matching entry. For new
 - **示例：** `- vX.Y.Z YYYY-MM-DD 作者: 一句话摘要`
 - 用户可见变更在末尾追加 `(user-visible)`
 <!-- spec-first:lang:end -->
+
+<!-- spec-first:bootstrap:start -->
+## Workflow 入口治理（由 spec-first 管理）
+
+- 当前项目已安装 `using-spec-first`
+- 开始 substantial work 前，先按 `using-spec-first` 做 workflow 判定
+- Codex workflow 入口使用 `$spec-*`
+- 不要把 `using-spec-first` 写成 `/spec:*` 或 command-backed workflow
+<!-- spec-first:bootstrap:end -->

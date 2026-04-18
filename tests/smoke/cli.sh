@@ -183,6 +183,26 @@ grep -q '^name=kuang$' "$TMP_DIR/.claude/spec-first/.developer"
 grep -q '^lang=en$' "$TMP_DIR/.claude/spec-first/.developer"
 grep -q '^initialized_at=' "$TMP_DIR/.claude/spec-first/.developer"
 grep -q "^version=${expected_version}$" "$TMP_DIR/.claude/spec-first/.developer"
+test -f "$TMP_DIR/.claude/hooks/session-start"
+grep -q 'using-spec-first SessionStart injection' "$TMP_DIR/.claude/hooks/session-start"
+node - "$TMP_DIR/.claude/settings.json" <<'EOF'
+const fs = require('node:fs');
+const settingsPath = process.argv[2];
+const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+const hooks = settings.hooks?.SessionStart || [];
+if (hooks.length !== 1) {
+  console.error('expected exactly one managed SessionStart matcher');
+  process.exit(1);
+}
+if (hooks[0].matcher !== 'startup|resume|clear|compact') {
+  console.error('unexpected managed SessionStart matcher');
+  process.exit(1);
+}
+if (hooks[0].hooks?.[0]?.command !== '"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start') {
+  console.error('unexpected managed SessionStart command');
+  process.exit(1);
+}
+EOF
 node - "$TMP_DIR/.claude/spec-first/state.json" <<'EOF'
 const fs = require('node:fs');
 const statePath = process.argv[2];
@@ -496,6 +516,9 @@ grep -q "standalone skills" <<<"$doctor_output"
 grep -q "workflow skills" <<<"$doctor_output"
 grep -q "support files" <<<"$doctor_output"
 grep -q ".claude/commands/spec" <<<"$doctor_output"
+grep -q "CLAUDE.md using-spec-first bootstrap" <<<"$doctor_output"
+grep -q ".claude/hooks/session-start" <<<"$doctor_output"
+grep -q ".claude/settings.json SessionStart" <<<"$doctor_output"
 grep -q ".claude/skills" <<<"$doctor_output"
 grep -q ".claude/agents" <<<"$doctor_output"
 grep -q ".claude/agents support assets" <<<"$doctor_output"
@@ -554,6 +577,8 @@ echo "✓ doctor catches Claude runtime agent reference drift"
 echo "3a-2. Verify CLAUDE.md lang policy block was written..."
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md"
 grep -q '<!-- spec-first:lang:end -->' "$TMP_DIR/CLAUDE.md"
+grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/CLAUDE.md"
+grep -Fq 'Claude workflow entrypoints use `/spec:*`' "$TMP_DIR/CLAUDE.md"
 # Last init used --lang en, so English directive must be present
 grep -q 'English' "$TMP_DIR/CLAUDE.md"
 # Changelog governance rule must be present
@@ -672,6 +697,8 @@ test -f "$TMP_DIR/.codex/spec-first/.developer"
 grep -q '^name=kuang$' "$TMP_DIR/.codex/spec-first/.developer"
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/AGENTS.md"
 grep -q '<!-- spec-first:lang:end -->' "$TMP_DIR/AGENTS.md"
+grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/AGENTS.md"
+grep -Fq 'Codex workflow entrypoints use `$spec-*`' "$TMP_DIR/AGENTS.md"
 grep -q 'English' "$TMP_DIR/AGENTS.md"
 grep -q 'refuse to generate' "$TMP_DIR/AGENTS.md"
 ! grep -q 'Governance File Commit Rule' "$TMP_DIR/AGENTS.md"
@@ -721,12 +748,17 @@ echo "✓ Codex todo skills use docs/todos as canonical path with scoped legacy 
 
 codex_doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor --codex)"
 grep -q ".codex/spec-first/.developer" <<<"$codex_doctor_output"
+grep -q "AGENTS.md using-spec-first bootstrap" <<<"$codex_doctor_output"
 grep -q ".agents/skills" <<<"$codex_doctor_output"
 grep -q "standalone skills" <<<"$codex_doctor_output"
 grep -q "workflow skills" <<<"$codex_doctor_output"
 grep -q "support files" <<<"$codex_doctor_output"
 grep -q ".codex/agents" <<<"$codex_doctor_output"
 grep -q ".codex/agents support assets" <<<"$codex_doctor_output"
+if grep -q ".claude/settings.json SessionStart" <<<"$codex_doctor_output"; then
+  echo "✗ codex doctor should not report Claude SessionStart settings"
+  exit 1
+fi
 if grep -q ".codex/commands/spec" <<<"$codex_doctor_output"; then
   echo "✗ codex doctor should not treat .codex/commands/spec as a managed product surface"
   exit 1

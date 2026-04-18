@@ -5,6 +5,8 @@ const { inspectInstalledAssets, listBundledCommands, loadPluginManifest } = requ
 const { readDeveloperFile, getProjectDeveloperPath } = require('../developer');
 const { isLegacyManagedState, readState, readStateFileRaw } = require('../state');
 const { getAdapter, getSupportedPlatforms } = require('../adapters');
+const { inspectInstructionBootstrap } = require('../instruction-bootstrap');
+const { inspectManagedSessionStartHook } = require('../claude-settings');
 
 function runDoctor(argv) {
   const args = [...argv];
@@ -65,7 +67,9 @@ function runDoctor(argv) {
       checkPlatformCli(platform),
       checkProjectDeveloper(projectRoot, adapter),
       checkManagedState(projectRoot, adapter),
+      checkInstructionBootstrap(projectRoot, adapter),
       ...runtimeChecks,
+      ...buildHostSpecificChecks(projectRoot, adapter),
       checkInstalledSkills(projectRoot, adapter),
       checkInstalledAgents(projectRoot, adapter),
       checkInstalledAgentSupportFiles(projectRoot, adapter),
@@ -484,6 +488,46 @@ function checkManagedState(projectRoot, adapter) {
       fix: `Run \`spec-first init --${adapter.id}\` in this project to regenerate the managed asset state.`,
     };
   }
+}
+
+function checkInstructionBootstrap(projectRoot, adapter) {
+  const status = inspectInstructionBootstrap(projectRoot, adapter);
+  if (status.status === 'installed') {
+    return {
+      level: 'PASS',
+      name: `${adapter.instructionFile} using-spec-first bootstrap`,
+      message: status.message,
+    };
+  }
+
+  return {
+    level: 'WARNING',
+    name: `${adapter.instructionFile} using-spec-first bootstrap`,
+    message: status.message,
+    fix: `Run \`spec-first init --${adapter.id}\` in this project to restore the managed bootstrap block.`,
+  };
+}
+
+function buildHostSpecificChecks(projectRoot, adapter) {
+  if (adapter.id !== 'claude') {
+    return [];
+  }
+
+  const status = inspectManagedSessionStartHook(projectRoot);
+  if (status.status === 'installed') {
+    return [{
+      level: 'PASS',
+      name: '.claude/settings.json SessionStart',
+      message: status.message,
+    }];
+  }
+
+  return [{
+    level: 'WARNING',
+    name: '.claude/settings.json SessionStart',
+    message: status.message,
+    fix: 'Run `spec-first init --claude` in this project to restore the managed SessionStart matcher.',
+  }];
 }
 
 function printHelp() {

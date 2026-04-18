@@ -2,6 +2,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PlatformAdapter = require('./base');
+const SESSION_START_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'claude', 'hooks', 'session-start');
+const SESSION_START_RELATIVE_PATH = path.join('.claude', 'hooks', 'session-start');
 
 /**
  * Claude platform adapter
@@ -79,12 +81,14 @@ class ClaudeAdapter extends PlatformAdapter {
     const skillsRoot = path.join(projectRoot, this.skillsRoot);
     const workflowsRoot = path.join(projectRoot, this.workflowsRoot);
     const agentsRoot = path.join(projectRoot, this.agentsRoot);
+    const hookCheck = inspectSessionStartHook(projectRoot);
+
+    const checks = [hookCheck];
 
     if (!fs.existsSync(runtimeRoot) || !fs.existsSync(skillsRoot) || !fs.existsSync(agentsRoot)) {
-      return [];
+      return checks;
     }
 
-    const checks = [];
     const workflowFiles = fs.existsSync(workflowsRoot) ? listMarkdownFiles(workflowsRoot) : [];
     const skillFiles = [...listMarkdownFiles(skillsRoot), ...workflowFiles];
     const markdownFiles = [...skillFiles, ...listMarkdownFiles(agentsRoot)];
@@ -123,6 +127,18 @@ class ClaudeAdapter extends PlatformAdapter {
     }
 
     return checks;
+  }
+
+  syncRuntimeFiles(projectRoot) {
+    const targetPath = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.copyFileSync(SESSION_START_TEMPLATE_PATH, targetPath);
+    fs.chmodSync(targetPath, 0o755);
+    return [SESSION_START_RELATIVE_PATH];
+  }
+
+  removeRuntimeFiles(projectRoot) {
+    removeManagedFile(path.join(projectRoot, SESSION_START_RELATIVE_PATH), projectRoot);
   }
 }
 
@@ -190,4 +206,55 @@ function findTaskAgentRefs(filePaths) {
   }
 
   return refs;
+}
+
+function inspectSessionStartHook(projectRoot) {
+  const targetPath = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
+  if (!fs.existsSync(targetPath)) {
+    return {
+      level: 'WARNING',
+      name: SESSION_START_RELATIVE_PATH,
+      message: 'missing',
+      fix: 'Run `spec-first init --claude` in this project to install the managed SessionStart hook.',
+    };
+  }
+
+  const actual = fs.readFileSync(targetPath, 'utf8');
+  const expected = fs.readFileSync(SESSION_START_TEMPLATE_PATH, 'utf8');
+  if (actual !== expected) {
+    return {
+      level: 'WARNING',
+      name: SESSION_START_RELATIVE_PATH,
+      message: 'drifted from bundled template',
+      fix: 'Run `spec-first init --claude` in this project to restore the managed SessionStart hook.',
+    };
+  }
+
+  return {
+    level: 'PASS',
+    name: SESSION_START_RELATIVE_PATH,
+    message: 'managed SessionStart hook present',
+  };
+}
+
+function removeManagedFile(filePath, projectRoot) {
+  fs.rmSync(filePath, { force: true });
+  removeEmptyParents(path.dirname(filePath), projectRoot);
+}
+
+function removeEmptyParents(startPath, stopRoot) {
+  let current = startPath;
+  while (current.startsWith(stopRoot) && current !== stopRoot) {
+    if (!fs.existsSync(current)) {
+      current = path.dirname(current);
+      continue;
+    }
+
+    if (fs.readdirSync(current).length > 0) {
+      break;
+    }
+
+    fs.rmdirSync(current);
+    current = path.dirname(current);
+  }
 }

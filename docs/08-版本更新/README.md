@@ -6,6 +6,7 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-18 | feat | `using-spec-first-sessionstart-bootstrap` | 为 `using-spec-first` 补齐双宿主 instruction bootstrap，并给 Claude 增加受管 `SessionStart` hook / `.claude/settings.json` matcher；`init / doctor / clean` 形成可安装、可诊断、可清理的最小闭环 |
 | 2026-04-17 | feat | `spec-brainstorm-capability-upgrade` | `spec-brainstorm` 补齐 Current Work Pulse、Scope Decomposition、Preflight Self-Check、User Review Gate、Terminal State Lock 与 epic decomposition template，并让 `spec-plan` 消费 requirements frontmatter `epic`；同步补 smoke/integration 接线与 release-facing 文档 |
 | 2026-04-17 | fix | `release-gate-hardening` | 默认 `test:release` 从“仅双宿主治理专项 smoke”恢复为“治理专项 smoke + 完整 tarball 安装回归”的总门禁，并给治理专项 smoke 增加 docs-side JSON/schema 不得进入 tarball 的负向断言，防止发布链路只守住新真源、不守旧真源回流 |
 | 2026-04-16 | fix | `resolve-pr-feedback` | 恢复 `resolve-pr-feedback` skill 本体对全部 review feedback text 的宽口径不可信输入边界，保留 `cross_invocation` 四键输出与更深查询窗口，并补强 contract test，防止 future drift 回退到只覆盖 PR comment 的窄口径 |
@@ -41,6 +42,46 @@
 | 2026-04-01 | feat | `mcp-setup` | 把 MCP 工具安装、检测、配置合并为一条一键化路径，降低 Full mode 落地门槛 |
 | 2026-03-31 | fix | `spec-bootstrap` | 基于 review 结论补强原子备份、失败恢复、MCP 连接校验等关键可靠性能力 |
 | 2026-03-31 | feat | `spec-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
+
+---
+
+## 2026-04-18 `feat(using-spec-first-sessionstart-bootstrap)`
+
+### 更新内容
+
+`using-spec-first` 从“仅有 runtime skill 安装”升级为真正的宿主级入口治理层：
+
+- Claude 现在会在项目内安装 repo-root instruction bootstrap、`.claude/hooks/session-start` 与受管 `.claude/settings.json` matcher
+- Codex 现在会在 `AGENTS.md` 中写入对应的 instruction bootstrap，但不会伪造不存在的 hook 机制
+- `init / doctor / clean` 三条主链同时认识这批新资产，形成最小可用的生命周期闭环
+
+### 主要变化
+
+- 双宿主 instruction bootstrap
+  - 新增 `src/cli/instruction-bootstrap.js`
+  - 在 `CLAUDE.md` / `AGENTS.md` 中幂等维护 `<!-- spec-first:bootstrap:* -->` 区块
+  - block 只保留轻量入口治理提示，不复制完整 workflow 决策树
+- Claude SessionStart 最小闭环
+  - 新增 `templates/claude/hooks/session-start`
+  - 新增 `src/cli/claude-settings.js`
+  - 在项目 `.claude/settings.json` 写入受管 SessionStart matcher（`startup|resume|clear|compact`）与对应 `hooks` 入口
+- `init / doctor / clean` 接入
+  - `src/cli/commands/init.js` 首装路径前置 settings preflight，非法时立刻报错且不创建 `.claude/commands/spec`
+  - `src/cli/commands/doctor.js` 识别 bootstrap 块与 hook 安装状态
+  - `src/cli/commands/clean.js` 能按受管模式清理 bootstrap/hook/settings 副本
+- 回归守卫
+  - 新增 `tests/unit/instruction-bootstrap.test.js`、`tests/unit/claude-settings.test.js`
+  - 扩展 `tests/unit/using-spec-first-runtime-contracts.test.js` 与 `tests/smoke/cli.sh` 断言受管 SessionStart matcher 与 hook 文件
+
+### 保持的边界
+
+- 不为 Codex 伪造 hook 机制
+- 不强制把 workflow 决策树灌入 `CLAUDE.md`/`AGENTS.md`
+- 不改变 runtime skill discovery 与双宿主治理 contract
+
+### 版本意义
+
+`using-spec-first` 的安装、诊断、清理首次形成最小可用闭环；仓库也把"哪些文件由 spec-first 管理、可以安全覆写"这条边界在 hook / settings 层落了实。
 
 ---
 

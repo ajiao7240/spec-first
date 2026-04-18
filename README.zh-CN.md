@@ -167,9 +167,11 @@ $spec-compound
 $ spec-first init --claude
 
 📋 Wrote language policy to CLAUDE.md
-📦 Generated 10 command file(s) in .claude/commands/spec
+🧭 Wrote using-spec-first bootstrap to CLAUDE.md
+🪝 Installed Claude SessionStart matcher in .claude/settings.json
+📦 Generated 13 command file(s) in .claude/commands/spec
 🧩 Generated 35 skill directory(ies) in .claude/skills
-🤖 Generated 54 agent file(s) in .claude/agents
+🤖 Generated 57 agent file(s) in .claude/agents
 🧰 Generated 4 agent support file(s) in .claude/agents
 🪪 Wrote project developer profile:
   📍 path: .claude/spec-first/.developer
@@ -213,7 +215,7 @@ Spec-First 关注的是完整交付闭环，而不是单次回答：
 | 双平台支持 | 同时支持 Claude Code 与 Codex |
 | CLI 控制面 | 用 3 个核心命令管理安装、诊断与清理 |
 | 工作流层 | 内置 Stage-0、Ideate、Brainstorm、Plan、Work、Review、Compound |
-| 能力层 | 内置 `45` 个 skills、`54` 个 agents、`4` 个 agent support files |
+| 能力层 | 内置 `48` 个 skills、`57` 个 agents、`4` 个 agent support files |
 | 运行时治理 | 受管运行时资产可同步、恢复、更新、清理 |
 | 开放文档 | 提供用户手册、架构文档、方案文档与经验沉淀 |
 

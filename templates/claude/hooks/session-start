@@ -1,0 +1,34 @@
+#!/bin/bash
+set -euo pipefail
+
+project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+skill_path="$project_dir/.claude/skills/using-spec-first/SKILL.md"
+
+node - "$skill_path" <<'EOF'
+const fs = require('node:fs');
+
+const skillPath = process.argv[2];
+const missingMessage = [
+  '[spec-first] using-spec-first SessionStart injection',
+  'Managed runtime skill is missing at `.claude/skills/using-spec-first/SKILL.md`.',
+  'Run `spec-first init --claude` in this project to restore the managed skill.',
+].join('\n');
+
+let additionalContext = missingMessage;
+if (fs.existsSync(skillPath)) {
+  const skillBody = fs.readFileSync(skillPath, 'utf8');
+  additionalContext = [
+    '[spec-first] using-spec-first SessionStart injection',
+    'Use the following managed runtime skill as the workflow-entry source of truth for this repository.',
+    '',
+    skillBody,
+  ].join('\n');
+}
+
+process.stdout.write(JSON.stringify({
+  hookSpecificOutput: {
+    hookEventName: 'SessionStart',
+    additionalContext,
+  },
+}));
+EOF

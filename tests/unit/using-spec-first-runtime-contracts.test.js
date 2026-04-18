@@ -14,7 +14,7 @@ function makeTempDir() {
 }
 
 describe('using-spec-first runtime contracts', () => {
-  test('Claude init installs using-spec-first as a managed standalone skill and tracks it in state', () => {
+  test('Claude init installs using-spec-first runtime skill, bootstrap block, hook, and managed SessionStart matcher', () => {
     const projectRoot = makeTempDir();
     const previousCwd = process.cwd();
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -25,9 +25,28 @@ describe('using-spec-first runtime contracts', () => {
 
       const adapter = getAdapter('claude');
       const runtimeSkillPath = path.join(projectRoot, '.claude/skills/using-spec-first/SKILL.md');
+      const hookPath = path.join(projectRoot, '.claude/hooks/session-start');
+      const settingsPath = path.join(projectRoot, '.claude/settings.json');
       const state = readState(projectRoot, adapter);
 
       expect(fs.existsSync(runtimeSkillPath)).toBe(true);
+      expect(fs.existsSync(hookPath)).toBe(true);
+      expect(fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8')).toContain('<!-- spec-first:bootstrap:start -->');
+      expect(JSON.parse(fs.readFileSync(settingsPath, 'utf8'))).toEqual({
+        hooks: {
+          SessionStart: [
+            {
+              matcher: 'startup|resume|clear|compact',
+              hooks: [
+                {
+                  type: 'command',
+                  command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start',
+                },
+              ],
+            },
+          ],
+        },
+      });
       expect(state.skills).toContain('using-spec-first');
       expect(fs.readFileSync(runtimeSkillPath, 'utf8')).toContain('name: using-spec-first');
     } finally {
@@ -37,7 +56,7 @@ describe('using-spec-first runtime contracts', () => {
     }
   });
 
-  test('Codex init installs using-spec-first as a managed standalone skill and tracks it in state', () => {
+  test('Codex init installs using-spec-first runtime skill and bootstrap block without inventing hook assets', () => {
     const projectRoot = makeTempDir();
     const previousCwd = process.cwd();
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -51,6 +70,8 @@ describe('using-spec-first runtime contracts', () => {
       const state = readState(projectRoot, adapter);
 
       expect(fs.existsSync(runtimeSkillPath)).toBe(true);
+      expect(fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8')).toContain('<!-- spec-first:bootstrap:start -->');
+      expect(fs.existsSync(path.join(projectRoot, '.codex/hooks'))).toBe(false);
       expect(state.skills).toContain('using-spec-first');
       expect(fs.readFileSync(runtimeSkillPath, 'utf8')).toContain('name: using-spec-first');
     } finally {
@@ -60,7 +81,7 @@ describe('using-spec-first runtime contracts', () => {
     }
   });
 
-  test('clean removes managed using-spec-first runtime skill for Claude without touching custom skills', () => {
+  test('clean removes managed using-spec-first assets for Claude without touching custom hooks, settings, or skills', () => {
     const projectRoot = makeTempDir();
     const previousCwd = process.cwd();
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -70,14 +91,138 @@ describe('using-spec-first runtime contracts', () => {
       expect(runInit(['--claude', '-u', 'reviewer', '--lang', 'zh'])).toBe(0);
 
       const customSkillPath = path.join(projectRoot, '.claude/skills/custom-skill/SKILL.md');
+      const customHookPath = path.join(projectRoot, '.claude/hooks/custom-start');
+      const settingsPath = path.join(projectRoot, '.claude/settings.json');
       fs.mkdirSync(path.dirname(customSkillPath), { recursive: true });
       fs.writeFileSync(customSkillPath, 'name: custom-skill\n', 'utf8');
+      fs.writeFileSync(customHookPath, '#!/bin/bash\n', 'utf8');
+      fs.writeFileSync(settingsPath, `${JSON.stringify({
+        hooks: {
+          SessionStart: [
+            {
+              matcher: 'startup|resume|clear|compact',
+              hooks: [
+                {
+                  type: 'command',
+                  command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start',
+                },
+              ],
+            },
+            {
+              matcher: 'startup',
+              hooks: [
+                {
+                  type: 'command',
+                  command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/custom-start',
+                },
+              ],
+            },
+          ],
+        },
+      }, null, 2)}\n`, 'utf8');
 
       expect(runClean(['--claude'])).toBe(0);
 
       expect(fs.existsSync(path.join(projectRoot, '.claude/skills/using-spec-first'))).toBe(false);
+      expect(fs.existsSync(path.join(projectRoot, '.claude/hooks/session-start'))).toBe(false);
       expect(fs.existsSync(customSkillPath)).toBe(true);
+      expect(fs.existsSync(customHookPath)).toBe(true);
+      expect(fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8')).not.toContain('<!-- spec-first:bootstrap:start -->');
+      expect(JSON.parse(fs.readFileSync(settingsPath, 'utf8'))).toEqual({
+        hooks: {
+          SessionStart: [
+            {
+              matcher: 'startup',
+              hooks: [
+                {
+                  type: 'command',
+                  command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/custom-start',
+                },
+              ],
+            },
+          ],
+        },
+      });
     } finally {
+      logSpy.mockRestore();
+      process.chdir(previousCwd);
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Claude init fails before side effects when .claude/settings.json is invalid', () => {
+    const projectRoot = makeTempDir();
+    const previousCwd = process.cwd();
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      fs.mkdirSync(path.join(projectRoot, '.claude'), { recursive: true });
+      fs.writeFileSync(path.join(projectRoot, '.claude/settings.json'), '{"hooks":', 'utf8');
+
+      process.chdir(projectRoot);
+      expect(runInit(['--claude', '-u', 'reviewer', '--lang', 'zh'])).toBe(1);
+
+      expect(fs.existsSync(path.join(projectRoot, '.claude/spec-first/state.json'))).toBe(false);
+      expect(fs.existsSync(path.join(projectRoot, '.claude/commands/spec'))).toBe(false);
+      expect(fs.existsSync(path.join(projectRoot, '.claude/hooks/session-start'))).toBe(false);
+      expect(fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))).toBe(false);
+      expect(fs.existsSync(path.join(projectRoot, '.claude/spec-first/.developer'))).toBe(false);
+    } finally {
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+      process.chdir(previousCwd);
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Claude re-init fails before destructive managed cleanup when .claude/settings.json is invalid', () => {
+    const projectRoot = makeTempDir();
+    const previousCwd = process.cwd();
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      process.chdir(projectRoot);
+      expect(runInit(['--claude', '-u', 'reviewer', '--lang', 'zh'])).toBe(0);
+      const runtimeSkillPath = path.join(projectRoot, '.claude/skills/using-spec-first/SKILL.md');
+      const hookPath = path.join(projectRoot, '.claude/hooks/session-start');
+      const statePath = path.join(projectRoot, '.claude/spec-first/state.json');
+      fs.writeFileSync(path.join(projectRoot, '.claude/settings.json'), '{"hooks":', 'utf8');
+
+      expect(runInit(['--claude', '-u', 'reviewer', '--lang', 'zh'])).toBe(1);
+
+      expect(fs.existsSync(runtimeSkillPath)).toBe(true);
+      expect(fs.existsSync(hookPath)).toBe(true);
+      expect(fs.existsSync(statePath)).toBe(true);
+      expect(fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8')).toContain('<!-- spec-first:bootstrap:start -->');
+    } finally {
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+      process.chdir(previousCwd);
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Claude clean fails before removals when .claude/settings.json is invalid', () => {
+    const projectRoot = makeTempDir();
+    const previousCwd = process.cwd();
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      process.chdir(projectRoot);
+      expect(runInit(['--claude', '-u', 'reviewer', '--lang', 'zh'])).toBe(0);
+      fs.writeFileSync(path.join(projectRoot, '.claude/settings.json'), '{"hooks":', 'utf8');
+
+      expect(runClean(['--claude'])).toBe(1);
+
+      expect(fs.existsSync(path.join(projectRoot, '.claude/skills/using-spec-first/SKILL.md'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.claude/hooks/session-start'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.claude/spec-first/state.json'))).toBe(true);
+      expect(fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8')).toContain('<!-- spec-first:bootstrap:start -->');
+    } finally {
+      errorSpy.mockRestore();
       logSpy.mockRestore();
       process.chdir(previousCwd);
       fs.rmSync(projectRoot, { recursive: true, force: true });
