@@ -19,6 +19,7 @@ npm pack                          # 发布前构建 tarball
 pnpm run release:publish -- auto --dry-run   # 按 git-npm 契约执行发布预演（支持 auto|patch|minor|major）
 pnpm run release:publish -- auto             # 真实发布时会先提升 package.json version，再跑发布校验与 npm publish
 # 若 `git-npm auto` 中途重试导致版本前滚，应先提交最终 version/changelog 收口，再避免重复 auto bump
+# npm publish 若提示自动纠正 `bin` 或 `repository.url`，应先把这些修正落回 package.json 再重试发布
 ```
 
 ## 架构

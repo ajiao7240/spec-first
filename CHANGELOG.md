@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.3 2026-04-19 18:10:00 矿工: fix(release): 按 npm publish 规范修正 `package.json` 的 `bin.spec-first` 路径与 `repository.url`，消除发布阶段自动纠正告警
 - v1.5.3 2026-04-19 18:00:00 矿工: chore(release): 收口多次 `git-npm` 真实发布尝试后的版本状态，并以 `1.5.3` 作为最终待发布版本
 - v1.5.2 2026-04-19 17:45:00 矿工: chore(release): 进入 `git-npm` 真实发布路径并将包版本提升到 `1.5.2`
 - v1.5.1 2026-04-19 17:30:00 矿工: fix(release): 对齐 `git-npm` skill 的版本类型契约，`release:publish` 现支持 `auto|patch|minor|major` 解析并在真实发布时写入 `package.json` 版本 (user-visible)
