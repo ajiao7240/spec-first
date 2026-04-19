@@ -73,6 +73,11 @@ function writeVerificationEvidence(projectRoot, slug, evidenceItems) {
   );
 }
 
+function relativeCapturedAt({ daysAgo = 0, minutesAgo = 0 } = {}) {
+  const capturedMs = Date.now() - (daysAgo * 24 * 60 * 60 * 1000) - (minutesAgo * 60 * 1000);
+  return new Date(capturedMs).toISOString();
+}
+
 describe('doctor --json contract', () => {
   test('reports no-platform projects as install-only facts without claiming workflow runnability', () => {
     const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'doctor-json-empty-'));
@@ -177,7 +182,7 @@ describe('doctor --json contract', () => {
           evidence_type: 'browser-snapshot',
           status: 'captured',
           artifact_path: `.spec-first/workflows/verification/${slug}/browser-smoke.png`,
-          captured_at: '2026-04-19T00:00:00.000Z',
+          captured_at: relativeCapturedAt({ minutesAgo: 5 }),
           stage: 'work',
         },
       ]);
@@ -216,7 +221,7 @@ describe('doctor --json contract', () => {
           evidence_type: 'browser-snapshot',
           status: 'captured',
           artifact_path: `.spec-first/workflows/verification/${slug}/browser-smoke.png`,
-          captured_at: '2025-04-19T00:00:00.000Z',
+          captured_at: relativeCapturedAt({ daysAgo: 30 }),
           stage: 'work',
         },
       ]);
@@ -261,7 +266,7 @@ describe('doctor --json contract', () => {
               gate_ids: ['browser-smoke'],
               status: 'captured',
               artifact_path: `.spec-first/workflows/verification/${slug}/browser-smoke.png`,
-              captured_at: '2026-04-19T00:00:00.000Z',
+              captured_at: relativeCapturedAt({ minutesAgo: 5 }),
               stage: 'work',
             },
           ],
