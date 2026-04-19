@@ -465,6 +465,7 @@
 - v1.5.4 2026-04-19 19:45:00 kuang: 收紧 doctor verification evidence 真源，新增 runtime 内容级漂移诊断，并将 init/clean dry-run 升级为 file-level operation preview (user-visible)
 - v1.5.4 2026-04-19 20:20:00 kuang: 修复 doctor JSON contract 单测使用绝对 verification 时间戳导致一周后自然失效的问题，改为基于当前时间生成 fresh/stale 证据 (user-visible)
 - v1.5.4 2026-04-19 20:35:00 kuang: 将 init 的 platform runtime sync 收敛为 adapter plan contract，统一 dry-run preview 与真实 apply 的执行链，消除 Claude hook/Codex cleanup 的 preview-apply 漂移 (user-visible)
+- v1.5.4 2026-04-19 21:05:00 kuang: 前置 init/clean preview-apply parity 护栏，新增 adapter runtime plan contract 单测，并将 clean 真实执行切换到共享 runtime cleanup plan，补齐 Codex legacy cleanup 的 dry-run 预览面 (user-visible)
 - v1.4.0 2026-04-01 kuang: refresh README visual assets and add npm version reminder planning artifacts (user-visible)
 - v1.4.0 2026-04-01 kuang: replace three-layer architecture SVG with a static GitHub-compatible version to fix broken README rendering (user-visible)
 - v1.4.0 2026-04-01 kuang: strengthen spec-graph-bootstrap contracts, PRD templates, and workflow pattern docs (user-visible)

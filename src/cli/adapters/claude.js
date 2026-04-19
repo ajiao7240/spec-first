@@ -147,6 +147,21 @@ class ClaudeAdapter extends PlatformAdapter {
     };
   }
 
+  planRuntimeFilesRemoval() {
+    return {
+      operations: [
+        {
+          kind: 'remove_file',
+          path: SESSION_START_RELATIVE_PATH.replace(/\\/g, '/'),
+          reason: 'managed_runtime_hook',
+        },
+      ],
+      summary: {
+        remove_file: 1,
+      },
+    };
+  }
+
   removeRuntimeFiles(projectRoot) {
     removeManagedFile(path.join(projectRoot, SESSION_START_RELATIVE_PATH), projectRoot);
   }

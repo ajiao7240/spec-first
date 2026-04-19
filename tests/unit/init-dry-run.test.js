@@ -97,4 +97,32 @@ describe('init --dry-run', () => {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
   });
+
+  test('Claude init apply materializes the high-value paths promised by dry-run', () => {
+    const projectRoot = makeTempDir();
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const dryRun = captureInit(projectRoot, ['--claude', '--dry-run', '-u', 'reviewer', '--lang', 'zh']);
+      expect(dryRun.exitCode).toBe(0);
+
+      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+
+      for (const relativePath of [
+        '.claude/commands/spec/work.md',
+        '.claude/spec-first/workflows/spec-work/SKILL.md',
+        '.claude/agents/review/security-reviewer.md',
+        '.claude/hooks/session-start',
+        '.claude/settings.json',
+        '.claude/spec-first/state.json',
+        'CLAUDE.md',
+      ]) {
+        expect(dryRun.stdout).toContain(relativePath);
+        expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(true);
+      }
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
 });

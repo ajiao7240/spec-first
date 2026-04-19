@@ -99,4 +99,70 @@ describe('clean --dry-run', () => {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
   });
+
+  test('Claude clean apply matches the high-value paths promised by dry-run', () => {
+    const projectRoot = makeTempDir();
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+
+      const dryRun = captureCommand(projectRoot, runClean, ['--claude', '--dry-run']);
+      expect(dryRun.exitCode).toBe(0);
+
+      const cleanResult = captureCommand(projectRoot, runClean, ['--claude']);
+      expect(cleanResult.exitCode).toBe(0);
+
+      const removedPaths = [
+        '.claude/spec-first/state.json',
+        '.claude/hooks/session-start',
+        '.claude/settings.json',
+      ];
+      for (const relativePath of removedPaths) {
+        expect(dryRun.stdout).toContain(relativePath);
+        expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(false);
+      }
+
+      expect(dryRun.stdout).toContain('CLAUDE.md');
+      expect(fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))).toBe(true);
+      expect(fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8')).not.toContain('spec-first:bootstrap:start');
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Codex clean --dry-run previews legacy runtime cleanup paths and apply removes them', () => {
+    const projectRoot = makeTempDir();
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const legacyPaths = [
+      '.codex/commands/spec',
+      '.codex/spec-first/commands',
+      '.codex/skills',
+      '.agents/plugins',
+      'plugins/spec',
+      'plugins/spec-first',
+    ];
+
+    try {
+      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      for (const relativePath of legacyPaths) {
+        fs.mkdirSync(path.join(projectRoot, relativePath), { recursive: true });
+      }
+
+      const dryRun = captureCommand(projectRoot, runClean, ['--codex', '--dry-run']);
+      expect(dryRun.exitCode).toBe(0);
+
+      const cleanResult = captureCommand(projectRoot, runClean, ['--codex']);
+      expect(cleanResult.exitCode).toBe(0);
+
+      for (const relativePath of legacyPaths) {
+        expect(dryRun.stdout).toContain(relativePath);
+        expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(false);
+      }
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
 });

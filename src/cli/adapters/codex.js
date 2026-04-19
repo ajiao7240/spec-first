@@ -108,19 +108,18 @@ class CodexAdapter extends PlatformAdapter {
   }
 
   planRuntimeFilesSync() {
-    const operations = [
-      this.commandRoot,
-      this.legacyCommandRoot,
-      this.legacyCodexSkillsRoot,
-      this.legacyMarketplaceRoot,
-      this.legacyPluginRoot,
-      this.legacyPluginRootAlt,
-    ].map((relativePath) => ({
-      kind: 'remove_dir',
-      path: relativePath,
-      reason: 'managed_runtime_cleanup',
-    }));
+    const operations = buildRuntimeCleanupOperations(this);
 
+    return {
+      operations,
+      summary: {
+        remove_dir: operations.length,
+      },
+    };
+  }
+
+  planRuntimeFilesRemoval() {
+    const operations = buildRuntimeCleanupOperations(this);
     return {
       operations,
       summary: {
@@ -203,6 +202,21 @@ function rewriteSkillName(content, skillName) {
 
 function codexAgentPath(category, agentName) {
   return `.codex/agents/${category}/${agentName}.md`;
+}
+
+function buildRuntimeCleanupOperations(adapter) {
+  return [
+    adapter.commandRoot,
+    adapter.legacyCommandRoot,
+    adapter.legacyCodexSkillsRoot,
+    adapter.legacyMarketplaceRoot,
+    adapter.legacyPluginRoot,
+    adapter.legacyPluginRootAlt,
+  ].map((relativePath) => ({
+    kind: 'remove_dir',
+    path: relativePath,
+    reason: 'managed_runtime_cleanup',
+  }));
 }
 
 function removeManagedDirectory(directoryPath, projectRoot) {

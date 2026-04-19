@@ -133,6 +133,19 @@ class PlatformAdapter {
   }
 
   /**
+   * Plan any additional platform-specific runtime removal operations.
+   * @param {string} _projectRoot
+   * @param {object} _options
+   * @returns {{ operations: object[], summary: object }}
+   */
+  planRuntimeFilesRemoval(_projectRoot, _options = {}) {
+    return {
+      operations: [],
+      summary: {},
+    };
+  }
+
+  /**
    * Inspect any additional platform-specific runtime files.
    * @param {string} projectRoot
    * @returns {Array<{ level: string, name: string, message: string, fix?: string }>}

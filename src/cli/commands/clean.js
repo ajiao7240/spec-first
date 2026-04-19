@@ -3,17 +3,16 @@ const path = require('node:path');
 
 const {
   applyOperationPlan,
-  clearState,
   isLegacyManagedState,
+  mergeOperationPlans,
   planEmptyManagedRootCleanup,
   planManagedAssetRemoval,
   readState,
   readStateFileRaw,
 } = require('../state');
 const { getAdapter } = require('../adapters');
-const { removeInstructionBootstrap, removeManagedBootstrapBlock } = require('../instruction-bootstrap');
+const { removeManagedBootstrapBlock } = require('../instruction-bootstrap');
 const {
-  removeManagedSessionStartHook,
   renderManagedSessionStartHookRemoval,
   validateClaudeSettingsFile,
 } = require('../claude-settings');
@@ -91,13 +90,7 @@ function runClean(argv) {
     return 0;
   }
 
-  applyOperationPlan(projectRoot, cleanPlan.managedPlan);
-  removeInstructionBootstrap(projectRoot, adapter);
-  if (platform === 'claude') {
-    removeManagedSessionStartHook(projectRoot);
-  }
-  adapter.removeRuntimeFiles(projectRoot);
-  clearState(projectRoot, adapter);
+  applyOperationPlan(projectRoot, mergeOperationPlans(cleanPlan.managedPlan, cleanPlan.runtimeCleanup));
   applyOperationPlan(projectRoot, planEmptyManagedRootCleanup(projectRoot, adapter));
 
   console.log(`Removed spec-first managed ${platform === 'claude' ? 'Claude Code' : 'Codex'} assets from the current project.`);
@@ -154,7 +147,7 @@ function buildCleanPlan(projectRoot, state, adapter) {
 function buildRuntimeCleanupPreview(projectRoot, adapter) {
   const operations = [
     {
-      kind: 'update_file',
+      kind: fs.existsSync(path.join(projectRoot, adapter.instructionFile)) ? 'update_file' : 'remove_file',
       path: adapter.instructionFile,
       reason: 'instruction_bootstrap_cleanup',
     },
@@ -171,11 +164,6 @@ function buildRuntimeCleanupPreview(projectRoot, adapter) {
   }
 
   if (adapter.id === 'claude') {
-    operations.push({
-      kind: 'remove_file',
-      path: '.claude/hooks/session-start',
-      reason: 'managed_runtime_hook',
-    });
     const rendered = renderManagedSessionStartHookRemoval(projectRoot);
     operations.push(
       rendered && rendered.existsAfter
@@ -192,6 +180,7 @@ function buildRuntimeCleanupPreview(projectRoot, adapter) {
         },
     );
   }
+  operations.push(...adapter.planRuntimeFilesRemoval(projectRoot).operations);
 
   return {
     operations,
@@ -206,7 +195,8 @@ function printCleanDryRun(platform, cleanPlan) {
   const removeCount =
     (cleanPlan.managedPlan.summary.remove_file || 0) +
     (cleanPlan.managedPlan.summary.remove_dir || 0) +
-    (cleanPlan.runtimeCleanup.summary.remove_file || 0);
+    (cleanPlan.runtimeCleanup.summary.remove_file || 0) +
+    (cleanPlan.runtimeCleanup.summary.remove_dir || 0);
   const updateCount = cleanPlan.runtimeCleanup.summary.update_file || 0;
   const emptyRootCount = cleanPlan.emptyRootPlan.summary.remove_empty_root || 0;
 
@@ -215,7 +205,9 @@ function printCleanDryRun(platform, cleanPlan) {
   for (const operation of cleanPlan.managedPlan.operations) {
     console.log(`  - ${operation.path}`);
   }
-  for (const operation of cleanPlan.runtimeCleanup.operations.filter((entry) => entry.kind === 'remove_file')) {
+  for (const operation of cleanPlan.runtimeCleanup.operations.filter((entry) =>
+    entry.kind === 'remove_file' || entry.kind === 'remove_dir'
+  )) {
     console.log(`  - ${operation.path}`);
   }
   console.log(`Would update ${updateCount} managed file(s).`);
