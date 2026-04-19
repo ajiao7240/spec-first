@@ -36,6 +36,10 @@ describe('spec-debug contracts', () => {
     expect(skill).toContain('/spec:compound');
     expect(skill).toContain('load the `proof` skill');
     expect(skill).toContain('agent-browser');
+    expect(skill).toContain('Restated Understanding');
+    expect(skill).toContain('Current Core Goal');
+    expect(skill).toContain('Scope / Non-goals');
+    expect(skill).toContain('Verification-as-Done');
     expect(skill).not.toContain('/ce:brainstorm');
     expect(skill).not.toContain('/ce:compound');
     expect(skill).not.toContain('/proof');

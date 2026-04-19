@@ -1,5 +1,6 @@
 'use strict';
 
+const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -18,6 +19,7 @@ const {
 } = require('../../src/bootstrap-compiler/compile-routing');
 const {
   buildArtifactManifestSample,
+  buildDatabaseRoutingSample,
   buildVerificationProfileSample,
 } = require('../../src/bootstrap-compiler/sample-generator');
 const { runBootstrap } = require('../../src/bootstrap-compiler/run-bootstrap');
@@ -111,7 +113,7 @@ describe('spec-graph-bootstrap compiler modules', () => {
       riskSignals: RISK_SIGNALS_SAMPLE,
       testSurface: TEST_SURFACE_SAMPLE,
       manifest,
-      actualAssets: Object.keys(manifest.outputs),
+      actualAssets: ['artifact-manifest.json', ...Object.keys(manifest.outputs)],
     });
 
     expect(result.fact_inventory).toEqual(FACT_INVENTORY_SAMPLE);
@@ -169,14 +171,23 @@ describe('spec-graph-bootstrap compiler modules', () => {
           'fact-inventory.json',
           'risk-signals.json',
           'test-surface.json',
+          'database-routing.json',
           'context-routing.json',
           'artifact-manifest.json',
+          'freshness.json',
+          'minimal-context/plan.json',
+          'minimal-context/work.json',
           'minimal-context/review.json',
           'verification-profile.json',
         ],
       });
 
       expect(result.fact_inventory.project_identity.name).toBe('derived-bootstrap-app');
+      expect(result.fact_inventory.topology).toMatchObject({
+        kind: 'single_repo',
+        container_kind: 'git_repo',
+        selection_granularity: 'project',
+      });
       expect(result.fact_inventory.project_identity.primary_frameworks).toEqual(
         expect.arrayContaining(['Node.js CLI', 'Jest', 'tree-sitter', 'better-sqlite3'])
       );
@@ -215,7 +226,7 @@ describe('spec-graph-bootstrap compiler modules', () => {
     expect(result.generated_assets).toContain('README.md');
     expect(result.docs_assets).toContain('architecture/module-map.md');
     expect(result.context_docs['00-summary.md']).toContain('主语言：JavaScript');
-    expect(result.context_docs['architecture/module-map.md']).toContain('src/crg/');
+    expect(result.context_docs['architecture/module-map.md']).toContain('[project] .');
   });
 
   test('routing compiler 输出真实 control-plane contract', () => {
@@ -225,9 +236,21 @@ describe('spec-graph-bootstrap compiler modules', () => {
       factInventory: FACT_INVENTORY_SAMPLE,
       riskSignals: RISK_SIGNALS_SAMPLE,
       testSurface: TEST_SURFACE_SAMPLE,
+      env: {
+        PATH: process.env.PATH || '',
+        DB_HOST: 'localhost',
+        DB_NAME: 'spec_first',
+        DB_PASSWORD: 'secret',
+        DB_USER: 'spec_first',
+      },
+      tooling: {
+        hasMysqlCli: true,
+      },
     });
 
+    expect(result.database_routing).toEqual(buildDatabaseRoutingSample());
     expect(result.context_routing.schema_version).toBe('v1');
+    expect(result.artifact_manifest.outputs['database-routing.json']).toBeDefined();
     expect(result.artifact_manifest.outputs['fact-inventory.json']).toBeDefined();
     expect(result.artifact_manifest.outputs['risk-signals.json']).toBeDefined();
     expect(result.artifact_manifest.outputs['test-surface.json']).toBeDefined();
@@ -252,6 +275,7 @@ describe('spec-graph-bootstrap compiler modules', () => {
       expect(fs.existsSync(path.join(result.controlPlaneDir, 'fact-inventory.json'))).toBe(true);
       expect(fs.existsSync(path.join(result.controlPlaneDir, 'risk-signals.json'))).toBe(true);
       expect(fs.existsSync(path.join(result.controlPlaneDir, 'test-surface.json'))).toBe(true);
+      expect(fs.existsSync(path.join(result.controlPlaneDir, 'database-routing.json'))).toBe(true);
       expect(fs.existsSync(path.join(result.controlPlaneDir, 'context-routing.json'))).toBe(true);
       expect(fs.existsSync(path.join(result.controlPlaneDir, 'minimal-context', 'review.json'))).toBe(true);
       expect(fs.existsSync(path.join(result.controlPlaneDir, 'verification-profile.json'))).toBe(true);
@@ -298,6 +322,87 @@ describe('spec-graph-bootstrap compiler modules', () => {
     }
   });
 
+  test('compiler 从仓库文件系统推导数据库候选，并在 routing artifact 中显式收口 fallback 语义', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-database-routing-'));
+
+    try {
+      fs.mkdirSync(path.join(repoRoot, 'config'), { recursive: true });
+      fs.writeFileSync(path.join(repoRoot, '.env.example'), [
+        'DB_HOST=localhost',
+        'DB_USER=app',
+        'DB_PASSWORD=secret',
+        'DB_NAME=app_development',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(path.join(repoRoot, 'config', 'database.yml'), [
+        'default: &default',
+        '  adapter: mysql2',
+        '  host: <%= ENV[\"DB_HOST\"] %>',
+        '  username: <%= ENV[\"DB_USER\"] %>',
+        '  password: <%= ENV[\"DB_PASSWORD\"] %>',
+        '  database: <%= ENV[\"DB_NAME\"] %>',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(path.join(repoRoot, 'package.json'), JSON.stringify({ name: 'db-routing-fixture' }, null, 2));
+
+      const machineArtifacts = compileMachineArtifacts({
+        generatedAt: '2026-04-15T00:00:00.000Z',
+        repoRoot,
+      });
+      const routing = compileRouting({
+        generatedAt: '2026-04-15T00:00:00.000Z',
+        repoRoot,
+        factInventory: machineArtifacts.fact_inventory,
+        riskSignals: machineArtifacts.risk_signals,
+        testSurface: machineArtifacts.test_surface,
+        env: {
+          PATH: process.env.PATH || '',
+          DB_HOST: 'localhost',
+          DB_USER: 'app',
+          DB_PASSWORD: 'secret',
+          DB_NAME: 'app_development',
+        },
+        tooling: {
+          hasMysqlCli: true,
+        },
+      });
+
+      expect(machineArtifacts.fact_inventory.database).toEqual([
+        expect.objectContaining({
+          present: true,
+          connection_name: 'default',
+          config_source: '.env.example',
+          db_type: 'mysql',
+          credential_keys: expect.arrayContaining(['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']),
+          static_access_hints: ['cli'],
+        }),
+      ]);
+      expect(routing.database_routing.secret_resolution).toEqual([
+        expect.objectContaining({
+          connection_name: 'default',
+          status: 'resolved',
+          resolved_credential_keys: expect.arrayContaining(['DB_HOST', 'DB_USER']),
+        }),
+      ]);
+      expect(routing.database_routing.route_decisions).toEqual([
+        expect.objectContaining({
+          connection_name: 'default',
+          selected_route: 'cli',
+          decision: 'selected',
+          fallback_reason: 'mcp-probe-unavailable-in-bootstrap-runtime',
+        }),
+      ]);
+      expect(routing.database_routing.selected_connections).toEqual([
+        expect.objectContaining({
+          connection_name: 'default',
+          route: 'cli',
+        }),
+      ]);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   test('workspace bootstrap 生成 workspace 与 child control-plane，并记录 telemetry', () => {
     const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-bootstrap-'));
     const childRepoRoot = path.join(workspaceRoot, 'packages', 'repo-a');
@@ -314,11 +419,28 @@ describe('spec-graph-bootstrap compiler modules', () => {
       expect(result.mode).toBe('workspace');
       expect(fs.existsSync(workspacePaths.registryPath)).toBe(true);
       expect(fs.existsSync(workspacePaths.routingPath)).toBe(true);
+      expect(fs.existsSync(path.join(workspacePaths.controlPlaneDir, 'workspace-readiness-summary.json'))).toBe(true);
       expect(fs.existsSync(path.join(workspacePaths.contextDir, 'workspace', 'routing-overview.md'))).toBe(true);
       expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', 'workspace-bootstrap-', '2026-04-15T00-00-00-000Z.json'))).toBe(false);
 
       const registry = JSON.parse(fs.readFileSync(workspacePaths.registryPath, 'utf8'));
       const childSlug = registry.children[0].childSlug;
+      expect(registry.children[0]).toMatchObject({
+        topology_kind: 'single_repo',
+        build_system: 'unknown',
+        module_count: 0,
+      });
+      const readinessSummary = JSON.parse(fs.readFileSync(
+        path.join(workspacePaths.controlPlaneDir, 'workspace-readiness-summary.json'),
+        'utf8',
+      ));
+      expect(readinessSummary.children[0]).toMatchObject({
+        childSlug,
+        topology_kind: 'single_repo',
+        build_system: 'unknown',
+        module_count: 0,
+        source: 'bootstrap-summary',
+      });
       expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', childSlug, 'context-routing.json'))).toBe(true);
       expect(fs.existsSync(path.join(workspaceRoot, 'docs', 'contexts', childSlug, 'README.md'))).toBe(true);
       const wsTelemetryDir = path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', registry.workspaceSlug);
@@ -340,6 +462,44 @@ describe('spec-graph-bootstrap compiler modules', () => {
     } finally {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
     }
+  });
+
+  test('workspace bootstrap 在非 git 聚合目录省略 repoRoots 时会自动发现 child repo 并进入 workspace 模式', () => {
+    const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-bootstrap-autodiscover-'));
+    const repoA = path.join(workspaceRoot, 'packages', 'repo-a');
+    const repoB = path.join(workspaceRoot, 'packages', 'repo-b');
+
+    try {
+      for (const repoRoot of [repoA, repoB]) {
+        fs.mkdirSync(repoRoot, { recursive: true });
+        execFileSync('git', ['init'], { cwd: repoRoot, stdio: 'ignore' });
+        execFileSync('git', ['config', 'user.name', 'spec-first'], { cwd: repoRoot, stdio: 'ignore' });
+        execFileSync('git', ['config', 'user.email', 'spec-first@example.com'], { cwd: repoRoot, stdio: 'ignore' });
+      }
+
+      const result = runBootstrap({
+        repoRoot: workspaceRoot,
+        generatedAt: '2026-04-15T00:00:00.000Z',
+      });
+
+      expect(result.mode).toBe('workspace');
+      expect(result.registry.children.map((child) => child.relativePath)).toEqual([
+        'packages/repo-a',
+        'packages/repo-b',
+      ]);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('buildChildSlug 会稳定避开 workspaceSlug 命名冲突', () => {
+    const workspaceRoot = path.join(os.tmpdir(), 'repo-a');
+    const childRepoRoot = path.join(workspaceRoot, 'packages', 'repo-a');
+
+    const childSlug = buildChildSlug(workspaceRoot, childRepoRoot);
+
+    expect(childSlug).not.toBe('repo-a');
+    expect(childSlug).toMatch(/^packages-repo-a(?:-[0-9a-f]{4})?$/);
   });
 
   test('workspace bootstrap rerun 会 prune 已移除 child 的 control-plane 与 context', () => {

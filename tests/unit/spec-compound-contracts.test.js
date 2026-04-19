@@ -25,6 +25,11 @@ describe('spec-compound contracts', () => {
     expect(skill).toContain('supplementary hints, not primary evidence');
     expect(skill).toContain('Knowledge track output sections');
     expect(skill).toContain('What Didn\'t Work** section (bug track) or **Context** section (knowledge track)');
+    expect(skill).toContain('single durable file');
+    expect(skill).toContain('Human Summary');
+    expect(skill).toContain('LLM Reuse Context');
+    expect(skill).toContain('primary reuse surface');
+    expect(skill).toContain('Do not create a second durable artifact');
     expect(skill).toContain('`spec-sessions` workflow');
     expect(skill).not.toContain('# /compound');
     expect(skill).not.toContain('/research [topic]');
@@ -48,23 +53,39 @@ describe('spec-compound contracts', () => {
       expect(template).toContain('## Knowledge Track Template');
       expect(template).toContain('## Context');
       expect(template).toContain('## Guidance');
+      expect(template).toContain('## Human Summary');
+      expect(template).toContain('## LLM Reuse Context');
+      expect(template).toContain('Prefer repo-factual details');
+      expect(template).toContain('say so explicitly rather than guessing');
+      expect(template).toContain('### Code Touchpoints');
+      expect(template).toContain('### Provenance');
     }
   });
 
-  test('spec-compound-refresh treats quality feedback artifacts as passive drift signals', () => {
+  test('spec-compound-refresh treats quality feedback artifacts as passive drift signals and preserves dual-view docs', () => {
     const skill = read('skills/spec-compound-refresh/SKILL.md');
 
     expect(skill).toContain('quality-feedback-topics.json');
     expect(skill).toContain('candidate_topics');
     expect(skill).toContain('supplementary drift signal');
     expect(skill).toContain('must not be treated as an automatic refresh queue');
+    expect(skill).toContain('Human Summary');
+    expect(skill).toContain('LLM Reuse Context');
+    expect(skill).toContain('same durable file');
+    expect(skill).toContain('section-aware');
+    expect(skill).toContain('Code Touchpoints');
+    expect(skill).toContain('Provenance');
   });
 
-  test('learnings-researcher treats critical-patterns as optional input', () => {
+  test('learnings-researcher treats critical-patterns and dual-view sections as optional input', () => {
     const agent = read('agents/research/learnings-researcher.md');
 
     expect(agent).toContain('If `docs/solutions/patterns/critical-patterns.md` exists');
     expect(agent).toContain('Missing this file is not an error');
     expect(agent).toContain('applies_when');
+    expect(agent).toContain('## Human Summary');
+    expect(agent).toContain('## LLM Reuse Context');
+    expect(agent).toContain('primary reuse surface');
+    expect(agent).toContain('Missing these sections is not an error');
   });
 });

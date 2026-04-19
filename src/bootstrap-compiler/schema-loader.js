@@ -24,6 +24,7 @@ function loadBootstrapSchemas() {
   return {
     artifactManifest: loadSchema('artifact-manifest.schema.json'),
     contextRouting: loadSchema('context-routing.schema.json'),
+    databaseRouting: loadSchema('database-routing.schema.json'),
     factInventory: loadSchema('fact-inventory.schema.json'),
     minimalContext: loadSchema('minimal-context.schema.json'),
     freshness: loadSchema('freshness.schema.json'),

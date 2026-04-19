@@ -155,6 +155,10 @@ function buildEmptyOperationPlan() {
   };
 }
 
+function normalizeOperationPath(filePath) {
+  return String(filePath || '').replace(/\\/g, '/');
+}
+
 function mergeOperationPlans(...plans) {
   const merged = buildEmptyOperationPlan();
   const seen = new Set();
@@ -187,17 +191,43 @@ function summarizeOperations(operations) {
   return summary;
 }
 
-function buildOperation(kind, absolutePath, projectRoot, reason) {
+function summarizeOperationPlan(operations) {
+  return summarizeOperations(operations);
+}
+
+function buildRelativeOperation(kind, relativePath, reason, extra = {}) {
   return {
     kind,
-    path: toRelativeProjectPath(absolutePath, projectRoot),
+    path: normalizeOperationPath(relativePath),
     reason,
+    ...extra,
   };
+}
+
+function buildOperation(kind, absolutePath, projectRoot, reason) {
+  return buildRelativeOperation(kind, toRelativeProjectPath(absolutePath, projectRoot), reason);
 }
 
 function toRelativeProjectPath(absolutePath, projectRoot) {
   const relative = path.relative(projectRoot, absolutePath);
-  return relative.length > 0 ? relative : '.';
+  return normalizeOperationPath(relative.length > 0 ? relative : '.');
+}
+
+function buildFileWriteOperation(projectRoot, absolutePath, contents, reason, mode, encoding) {
+  const extra = { contents };
+  if (typeof mode === 'number') {
+    extra.mode = mode;
+  }
+  if (encoding) {
+    extra.encoding = encoding;
+  }
+
+  return buildRelativeOperation(
+    fs.existsSync(absolutePath) ? 'update_file' : 'write_file',
+    toRelativeProjectPath(absolutePath, projectRoot),
+    reason,
+    extra,
+  );
 }
 
 function planManagedAssetRemoval(projectRoot, managedState, adapter) {
@@ -567,12 +597,16 @@ function removeEmptyParents(startPath, stopRoot) {
 
 module.exports = {
   applyOperationPlan,
+  buildEmptyOperationPlan,
+  buildFileWriteOperation,
+  buildRelativeOperation,
   buildState,
   clearState,
   getStateFilePath,
   hardResetManagedAssets,
   isLegacyManagedState,
   mergeOperationPlans,
+  normalizeOperationPath,
   planCommandNamespacePrune,
   planEmptyManagedRootCleanup,
   planHardResetManagedAssets,
@@ -583,5 +617,6 @@ module.exports = {
   readState,
   removeManagedAssets,
   removeObsoleteManagedAssets,
+  summarizeOperationPlan,
   writeState,
 };

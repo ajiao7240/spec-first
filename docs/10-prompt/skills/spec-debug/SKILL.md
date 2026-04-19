@@ -31,6 +31,14 @@ These principles govern every phase. They are repeated at decision points becaus
 
 All phases self-size — a simple bug flows through them in seconds, a complex bug spends more time in each naturally. No complexity classification, no phase skipping.
 
+Use a lightweight debug anchor at the moments where alignment matters most: after reproduction is understood, before proposing a fix, and in the final summary. Keep it short and grounded in investigated facts:
+- `Restated Understanding`
+- `Current Core Goal`
+- `Scope / Non-goals`
+- `Verification-as-Done`
+
+For simple bugs, 1-2 sentences can cover the same ground. Do not let the anchor turn into a premature diagnosis before the investigation supports it.
+
 ---
 
 ### Phase 0: Triage
@@ -175,8 +183,10 @@ How was this introduced? What allowed it to survive? If a systemic gap was found
 
 ```
 ## Debug Summary
+**Current Core Goal**: [What this debug run is trying to prove or restore]
 **Problem**: [What was broken]
 **Root Cause**: [Full causal chain, with file:line references]
+**Verification-as-Done**: [What evidence would show the bug is actually fixed or the diagnosis is complete]
 **Recommended Tests**: [Tests to add/modify to prevent recurrence, with specific file and assertion guidance]
 **Fix**: [What was changed — or "diagnosis only" if Phase 3 was skipped]
 **Prevention**: [Test coverage added; defense-in-depth if applicable]

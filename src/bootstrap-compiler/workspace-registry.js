@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { summarizeRepoTopology } = require('./topology');
 const {
   WORKSPACE_MATCH_SIGNAL_PRIORITY,
   detectGitRoot,
@@ -27,8 +28,16 @@ function slugifySegment(value) {
     .toLowerCase();
 }
 
-function buildChildSlug(workspaceRoot, repoRoot, used = new Set()) {
+function buildChildSlug(workspaceRoot, repoRoot, used = new Set(), options = {}) {
   const relativePath = path.relative(workspaceRoot, repoRoot) || path.basename(repoRoot);
+  const workspaceSlug = options.workspaceSlug || slugifySegment(path.basename(workspaceRoot));
+  const reservedNames = new Set([
+    workspaceSlug,
+    'workspace',
+    'bootstrap',
+    'contexts',
+    ...(options.reservedNames || []),
+  ].filter(Boolean));
   const baseSlug = relativePath
     .split(path.sep)
     .filter(Boolean)
@@ -37,7 +46,7 @@ function buildChildSlug(workspaceRoot, repoRoot, used = new Set()) {
     .join('-') || slugifySegment(path.basename(repoRoot)) || 'child-repo';
 
   let slug = baseSlug;
-  if (!used.has(slug)) {
+  if (!used.has(slug) && !reservedNames.has(slug)) {
     used.add(slug);
     return slug;
   }
@@ -100,14 +109,19 @@ function buildWorkspaceRegistry({
   generatedAt = new Date().toISOString(),
 } = {}) {
   const normalizedWorkspaceRoot = normalizeAbsolutePath(workspaceRoot);
+  const workspaceSlug = path.basename(normalizedWorkspaceRoot);
   const usedSlugs = new Set();
   const children = repoRoots.map((repoRoot) => {
     const normalizedRepoRoot = normalizeAbsolutePath(repoRoot);
+    const topologySummary = summarizeRepoTopology({ repoRoot: normalizedRepoRoot });
     return {
-      childSlug: buildChildSlug(normalizedWorkspaceRoot, normalizedRepoRoot, usedSlugs),
+      childSlug: buildChildSlug(normalizedWorkspaceRoot, normalizedRepoRoot, usedSlugs, { workspaceSlug }),
       repoRoot: normalizedRepoRoot,
       relativePath: path.relative(normalizedWorkspaceRoot, normalizedRepoRoot) || path.basename(normalizedRepoRoot),
       headCommit: detectHeadCommit(normalizedRepoRoot),
+      topology_kind: topologySummary.topologyKind,
+      build_system: topologySummary.buildSystem,
+      module_count: topologySummary.moduleCount,
       languageHints: [],
       status: 'ready',
     };
@@ -116,7 +130,7 @@ function buildWorkspaceRegistry({
   return {
     schema_version: 'v1',
     generated_at: generatedAt,
-    workspaceSlug: path.basename(normalizedWorkspaceRoot),
+    workspaceSlug,
     workspaceRoot: normalizedWorkspaceRoot,
     mode: 'workspace',
     children,

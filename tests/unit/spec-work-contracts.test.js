@@ -46,9 +46,26 @@ describe('spec-work contracts', () => {
     expect(skill).toContain('verification summary');
     expect(skill).toContain('effective checklist');
     expect(skill).toContain('change-surface');
+    expect(skill).toContain('### Reload Before Act');
+    expect(skill).toContain('### Run Artifact Contract');
+    expect(skill).toContain('freshness_stale');
+    expect(skill).toContain('Verification-as-Done');
+    expect(skill).toContain('pre-execution checkpoint');
+    expect(skill).toContain('docs/contracts/workflows/spec-work-run-artifact.schema.json');
+    expect(skill).toContain('artifact_dir = .spec-first/workflows/spec-work/<slug>/<run-id>/');
+    expect(skill).toContain('artifact_dir/run.json');
+    expect(skill).toContain('closure-summary.md');
+    expect(skill).toContain('work_run:<run-id>');
+    expect(skill).toContain('work_artifact_dir:<artifact_dir>');
+    expect(skill).toContain('Only an explicit caller contract that forbids user interaction makes the run `non-interactive`');
+    expect(skill).toContain('Do not split checkpoint and approval into separate pauses.');
+    expect(skill).toContain('Do not present `freshness_stale` as `L0`');
     expect(skill).toContain('stage0-context --stage work --workflow spec-work --format json');
     expect(skill).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
+    expect(skill).toContain('selection_subject / selected_contexts');
     expect(skill).toContain('selected_assets / fallback_reason / level / skipped_rules');
+    expect(skill).toContain('compatibility view');
+    expect(skill).toContain('selection_subject.kind = workspace');
 
     // Local execution governance enhancements
     expect(skill).toContain('Swarm Mode with Agent Teams');
@@ -84,6 +101,10 @@ describe('spec-work contracts', () => {
 
     // Review skill reference
     expect(shipping).toContain('spec-review');
+    expect(shipping).toContain('Emit Work Run Artifact');
+    expect(shipping).toContain('docs/contracts/workflows/spec-work-run-artifact.schema.json');
+    expect(shipping).toContain('work_run:<run-id>');
+    expect(shipping).toContain('work_artifact_dir:<artifact_dir>');
     expect(shipping).not.toContain('ce:review');
 
     // Badge migration
@@ -135,8 +156,23 @@ describe('spec-work contracts', () => {
     expect(mirror).toContain('verification summary');
     expect(mirror).toContain('effective checklist');
     expect(mirror).toContain('change-surface');
+    expect(mirror).toContain('### Reload Before Act');
+    expect(mirror).toContain('### Run Artifact Contract');
+    expect(mirror).toContain('freshness_stale');
+    expect(mirror).toContain('Verification-as-Done');
+    expect(mirror).toContain('pre-execution checkpoint');
+    expect(mirror).toContain('docs/contracts/workflows/spec-work-run-artifact.schema.json');
+    expect(mirror).toContain('artifact_dir = .spec-first/workflows/spec-work/<slug>/<run-id>/');
+    expect(mirror).toContain('artifact_dir/run.json');
+    expect(mirror).toContain('closure-summary.md');
+    expect(mirror).toContain('work_run:<run-id>');
+    expect(mirror).toContain('work_artifact_dir:<artifact_dir>');
+    expect(mirror).toContain('Only an explicit caller contract that forbids user interaction makes the run `non-interactive`');
+    expect(mirror).toContain('Do not split checkpoint and approval into separate pauses.');
+    expect(mirror).toContain('Do not present `freshness_stale` as `L0`');
     expect(mirror).toContain('stage0-context --stage work --workflow spec-work --format json');
     expect(mirror).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
+    expect(mirror).toContain('selection_subject / selected_contexts');
     expect(mirror).toContain('default verification checklist');
     expect(mirror).toContain('pending-vs-blocked-or-satisfied verification ledger');
   });

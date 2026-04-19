@@ -90,6 +90,7 @@ function buildArtifactManifestSample({
       },
       schema_versions: {
         fact_inventory: 'v1',
+        database_routing: 'v1',
         risk_signals: 'v1',
         test_surface: 'v1',
       },
@@ -116,7 +117,17 @@ function buildArtifactManifestSample({
           'filesystem-scan',
         ],
       },
+      'database-routing.json': {
+        plane: 'control',
+        status: 'required',
+        depends_on: [
+          'schema:fact_inventory@v1',
+          'runtime:secret-resolution',
+        ],
+      },
       'context-routing.json': {
+        plane: 'control',
+        status: 'required',
         depends_on: [
           'schema:fact_inventory@v1',
           'schema:risk_signals@v1',
@@ -124,6 +135,8 @@ function buildArtifactManifestSample({
         ],
       },
       'minimal-context/review.json': {
+        plane: 'control',
+        status: 'required',
         depends_on: [
           'schema:risk_signals@v1',
           'schema:test_surface@v1',
@@ -131,6 +144,8 @@ function buildArtifactManifestSample({
         ],
       },
       'minimal-context/plan.json': {
+        plane: 'control',
+        status: 'required',
         depends_on: [
           'schema:fact_inventory@v1',
         ],
@@ -144,6 +159,8 @@ function buildArtifactManifestSample({
         ],
       },
       'minimal-context/work.json': {
+        plane: 'control',
+        status: 'required',
         depends_on: [
           'schema:risk_signals@v1',
           'schema:test_surface@v1',
@@ -247,6 +264,76 @@ function buildArtifactManifestSample({
         ],
       },
     },
+  };
+}
+
+function buildDatabaseRoutingSample({ generatedAt = DEFAULT_GENERATED_AT } = {}) {
+  return {
+    schema_version: 'v1',
+    generated_at: generatedAt,
+    candidate_connections: [
+      {
+        connection_name: 'primary',
+        db_type: 'mysql',
+        config_source: '.env.example',
+        database_name_guess: null,
+        credential_keys: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
+        static_access_hints: ['cli'],
+        confidence: 'high',
+        inference_reason: 'database-config-pattern',
+        evidence: [
+          '.env.example:DB_HOST',
+          '.env.example:DB_USER',
+          'config/database.yml:adapter=mysql2',
+        ],
+      },
+    ],
+    secret_resolution: [
+      {
+        connection_name: 'primary',
+        status: 'resolved',
+        required_credential_keys: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
+        resolved_credential_keys: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
+        missing_credential_keys: [],
+        provenance: 'process.env',
+      },
+    ],
+    probe_attempts: [
+      {
+        connection_name: 'primary',
+        route: 'mcp',
+        status: 'unavailable',
+        reason: 'bootstrap-runtime-mcp-probe-unavailable',
+      },
+      {
+        connection_name: 'primary',
+        route: 'cli',
+        status: 'ready',
+        reason: 'ready',
+      },
+    ],
+    route_decisions: [
+      {
+        connection_name: 'primary',
+        selected_route: 'cli',
+        decision: 'selected',
+        fallback_reason: 'mcp-probe-unavailable-in-bootstrap-runtime',
+        provenance: [
+          'candidate:primary',
+          'secret_resolution:primary',
+          'probe_attempt:primary:cli',
+        ],
+      },
+    ],
+    selected_connections: [
+      {
+        connection_name: 'primary',
+        route: 'cli',
+        db_type: 'mysql',
+        config_source: '.env.example',
+      },
+    ],
+    generation_blockers: [],
   };
 }
 
@@ -433,6 +520,7 @@ function generateStage0Samples(options = {}) {
   return {
     contextRouting: buildContextRoutingSample(options),
     artifactManifest: buildArtifactManifestSample(options),
+    databaseRouting: buildDatabaseRoutingSample(options),
     injectionIndex: buildInjectionIndexSample(options),
     ownership: buildOwnershipRegistrySample(options),
     reviewQueue: buildReviewQueueSample(options),
@@ -444,6 +532,7 @@ module.exports = {
   DEFAULT_GENERATED_AT,
   buildArtifactManifestSample,
   buildContextRoutingSample,
+  buildDatabaseRoutingSample,
   buildInjectionIndexSample,
   buildOwnershipRegistrySample,
   buildReviewQueueSample,

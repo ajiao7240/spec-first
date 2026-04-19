@@ -8,6 +8,10 @@ const {
   loadChildRuntimeStates,
   resolveStage0Entry,
 } = require('./entry-resolver');
+const {
+  buildSelectionSubject,
+  toSelectedContext,
+} = require('./selection-context');
 
 function resolveWorkspaceSlug(repoRoot) {
   if (typeof repoRoot !== 'string') return '';
@@ -40,18 +44,6 @@ function resolveWorkspaceFallback({ entry, workspaceOverviewAssets = [] }) {
     level: hasOverview ? 'L1' : 'L3',
     fallback_reason: entry.fallbackReason || 'workspace_child_unresolved',
   };
-}
-
-function toSelectedContext({ scope, slug, repoRoot = null, assetPath, reason, priority }) {
-  const result = {
-    scope,
-    slug,
-    asset_path: assetPath,
-    reason,
-    priority,
-  };
-  if (repoRoot) result.repo_root = repoRoot;
-  return result;
 }
 
 function projectSelectedAssets(selectedContexts) {
@@ -130,6 +122,14 @@ function loadWorkspaceContext({
         child_match_signal_priority: WORKSPACE_MATCH_SIGNAL_PRIORITY,
         matched_child_slugs: [],
         selected_contexts: selectedContexts,
+        selection_subject: buildSelectionSubject({
+          kind: 'workspace',
+          ownerSlug: entry.workspaceSlug,
+          subjectSlug: entry.workspaceSlug,
+          targetPath: '.',
+          matchReason: entry.matchReason || 'default',
+          provenance: 'workspace-routing',
+        }),
         selected_assets: projectSelectedAssets(selectedContexts),
         selected_context_count: selectedContexts.length,
         level: fallback.level,
@@ -155,6 +155,14 @@ function loadWorkspaceContext({
         child_match_signal_priority: WORKSPACE_MATCH_SIGNAL_PRIORITY,
         matched_child_slugs: [],
         selected_contexts: selectedContexts,
+        selection_subject: buildSelectionSubject({
+          kind: 'workspace',
+          ownerSlug: entry.workspaceSlug,
+          subjectSlug: entry.workspaceSlug,
+          targetPath: '.',
+          matchReason: entry.matchReason || 'default',
+          provenance: 'workspace-routing',
+        }),
         selected_assets: projectSelectedAssets(selectedContexts),
         selected_context_count: selectedContexts.length,
         level: 'L1',
@@ -240,6 +248,19 @@ function loadWorkspaceContext({
       child_match_signal_priority: WORKSPACE_MATCH_SIGNAL_PRIORITY,
       matched_child_slugs: entry.matchedChildSlugs,
       selected_contexts: selectedContexts,
+      selection_subject: buildSelectionSubject({
+        kind: 'repo',
+        ownerSlug: entry.workspaceSlug,
+        subjectSlug: entry.matchedChildSlugs[0] || null,
+        targetPath: entry.workspace && entry.workspace.registry && Array.isArray(entry.workspace.registry.children)
+          ? (() => {
+            const matchedChild = entry.workspace.registry.children.find((child) => child.childSlug === entry.matchedChildSlugs[0]);
+            return matchedChild ? matchedChild.relativePath : null;
+          })()
+          : null,
+        matchReason: entry.matchReason || 'default',
+        provenance: 'workspace-routing',
+      }),
       selected_assets: projectSelectedAssets(selectedContexts),
       selected_context_count: selectedContexts.length,
       level,

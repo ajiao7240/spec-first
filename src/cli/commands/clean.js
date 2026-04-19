@@ -3,14 +3,17 @@ const path = require('node:path');
 
 const {
   applyOperationPlan,
+  buildRelativeOperation,
   isLegacyManagedState,
   mergeOperationPlans,
   planEmptyManagedRootCleanup,
   planManagedAssetRemoval,
   readState,
   readStateFileRaw,
+  summarizeOperationPlan,
 } = require('../state');
 const { getAdapter } = require('../adapters');
+const { removeManagedCodingGuidelinesBlock } = require('../coding-guidelines');
 const { removeManagedBootstrapBlock } = require('../instruction-bootstrap');
 const {
   renderManagedSessionStartHookRemoval,
@@ -133,7 +136,15 @@ function parseCleanArgs(argv) {
 }
 
 function printHelp() {
-  console.log('Usage: spec-first clean (--claude|--codex) [--dry-run]');
+  console.log([
+    '🧹 spec-first clean',
+    '',
+    '📘 Usage:',
+    '  spec-first clean (--claude|--codex) [--dry-run]',
+    '',
+    '🔗 Repository:',
+    '  https://github.com/sunrain520/spec-first',
+  ].join('\n'));
 }
 
 function buildCleanPlan(projectRoot, state, adapter) {
@@ -146,48 +157,43 @@ function buildCleanPlan(projectRoot, state, adapter) {
 
 function buildRuntimeCleanupPreview(projectRoot, adapter) {
   const operations = [
-    {
-      kind: fs.existsSync(path.join(projectRoot, adapter.instructionFile)) ? 'update_file' : 'remove_file',
-      path: adapter.instructionFile,
-      reason: 'instruction_bootstrap_cleanup',
-    },
-    {
-      kind: 'remove_file',
-      path: adapter.stateFile,
-      reason: 'managed_state_file',
-    },
+    buildRelativeOperation(
+      fs.existsSync(path.join(projectRoot, adapter.instructionFile)) ? 'update_file' : 'remove_file',
+      adapter.instructionFile,
+      'managed_instruction_cleanup',
+    ),
+    buildRelativeOperation('remove_file', adapter.stateFile, 'managed_state_file'),
   ];
 
   const instructionPath = path.join(projectRoot, adapter.instructionFile);
   if (fs.existsSync(instructionPath)) {
-    operations[0].contents = removeManagedBootstrapBlock(fs.readFileSync(instructionPath, 'utf8'));
+    operations[0].contents = removeManagedCodingGuidelinesBlock(
+      removeManagedBootstrapBlock(fs.readFileSync(instructionPath, 'utf8')),
+    );
   }
 
   if (adapter.id === 'claude') {
     const rendered = renderManagedSessionStartHookRemoval(projectRoot);
     operations.push(
       rendered && rendered.existsAfter
-        ? {
-          kind: 'update_file',
-          path: '.claude/settings.json',
-          reason: 'managed_session_start_matcher_cleanup',
-          contents: rendered.contents,
-        }
-        : {
-          kind: 'remove_file',
-          path: '.claude/settings.json',
-          reason: 'managed_session_start_matcher_cleanup',
-        },
+        ? buildRelativeOperation(
+          'update_file',
+          '.claude/settings.json',
+          'managed_session_start_matcher_cleanup',
+          { contents: rendered.contents },
+        )
+        : buildRelativeOperation(
+          'remove_file',
+          '.claude/settings.json',
+          'managed_session_start_matcher_cleanup',
+        ),
     );
   }
   operations.push(...adapter.planRuntimeFilesRemoval(projectRoot).operations);
 
   return {
     operations,
-    summary: operations.reduce((summary, operation) => {
-      summary[operation.kind] = (summary[operation.kind] || 0) + 1;
-      return summary;
-    }, {}),
+    summary: summarizeOperationPlan(operations),
   };
 }
 

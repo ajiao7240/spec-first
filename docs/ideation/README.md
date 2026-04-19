@@ -1,6 +1,6 @@
 # Ideation 文档索引
 
-本目录当前主要承载 `spec-first` 连载博客的选题、总纲、大纲与正文初稿，方便后续持续迭代。
+本目录承载 `spec-first` 的想法收敛、改进候选、方法论对照、连载选题与正文草稿，方便后续持续迭代。
 
 ## 当前文档
 
@@ -15,6 +15,12 @@
 
 4. [首篇正文初稿](./2026-04-03-spec-first-blog-series-article-1-draft.md)
    - 用于记录第一篇总论的可继续改稿版本
+
+5. [sdd-riper 可集成能力评估](./2026-04-19-sdd-riper-integration-ideation.md)
+   - 用于评估 `sdd-riper` 中哪些轻量协作约束适合迁移到 `spec-first`
+
+6. [sdd-riper 流程与节点实现借鉴](./2026-04-19-sdd-riper-flow-node-borrowing.md)
+   - 用于拆分“流程中可借鉴点”和“已有流程节点内部实现可借鉴点”
 
 ## 当前主线
 
@@ -34,3 +40,8 @@
 2. 再看 [连载总纲与标题集](./2026-04-03-spec-first-blog-series-outline.md)
 3. 再看 [首篇详细大纲](./2026-04-03-spec-first-blog-series-article-1-outline.md)
 4. 最后进入 [首篇正文初稿](./2026-04-03-spec-first-blog-series-article-1-draft.md)
+
+## sdd-riper 集成阅读顺序
+
+1. 先看 [sdd-riper 可集成能力评估](./2026-04-19-sdd-riper-integration-ideation.md)
+2. 再看 [sdd-riper 流程与节点实现借鉴](./2026-04-19-sdd-riper-flow-node-borrowing.md)

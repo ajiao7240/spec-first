@@ -37,13 +37,28 @@ function read(relativePath) {
 
 const HIGH_RISK_SKILL_ANCHORS = [
   {
+    skillName: 'spec-brainstorm',
+    sourcePath: 'skills/spec-brainstorm/SKILL.md',
+    mirrorPath: 'docs/10-prompt/skills/spec-brainstorm/SKILL.md',
+    anchors: [
+      'Restated Understanding',
+      'Current Core Goal',
+      'Scope / Non-goals',
+      'Verification-as-Done',
+    ],
+  },
+  {
     skillName: 'spec-plan',
     sourcePath: 'skills/spec-plan/SKILL.md',
     mirrorPath: 'docs/10-prompt/skills/spec-plan/SKILL.md',
     anchors: [
+      'selection_subject / selected_contexts',
       'selected_assets / fallback_reason / level / skipped_rules',
       'verifier_dispatch',
       'verification_gate_state',
+      'Verification-as-Done',
+      'Reload Before Act',
+      'freshness_stale',
       'stage0-context --stage plan --workflow spec-plan --format json',
     ],
   },
@@ -52,9 +67,16 @@ const HIGH_RISK_SKILL_ANCHORS = [
     sourcePath: 'skills/spec-work/SKILL.md',
     mirrorPath: 'docs/10-prompt/skills/spec-work/SKILL.md',
     anchors: [
+      'selection_subject / selected_contexts',
       'required_verifications',
       'verifier_dispatch',
       'verification_gate_state',
+      'Verification-as-Done',
+      'pre-execution checkpoint',
+      'Run Artifact Contract',
+      'spec-work-run-artifact.schema.json',
+      'work_run:<run-id>',
+      'freshness_stale',
       'stage0-context --stage work --workflow spec-work --format json',
     ],
   },
@@ -63,9 +85,13 @@ const HIGH_RISK_SKILL_ANCHORS = [
     sourcePath: 'skills/spec-work-beta/SKILL.md',
     mirrorPath: 'docs/10-prompt/skills/spec-work-beta/SKILL.md',
     anchors: [
+      'selection_subject / selected_contexts',
       'required_verifications',
       'verifier_dispatch',
       'verification_gate_state',
+      'Verification-as-Done',
+      'pre-execution checkpoint',
+      'freshness_stale',
       'stage0-context --stage work --workflow spec-work-beta --format json',
     ],
   },
@@ -74,10 +100,54 @@ const HIGH_RISK_SKILL_ANCHORS = [
     sourcePath: 'skills/spec-review/SKILL.md',
     mirrorPath: 'docs/10-prompt/skills/spec-review/SKILL.md',
     anchors: [
+      'selection_subject / selected_contexts',
       'verification summary',
       'verifier_dispatch',
       'verification_gate_state',
+      'Reload Before Act',
+      'Optional Upstream Work Handoff',
+      'work_run:<run-id>',
+      'Three-Axis Verdict',
+      'Requirement Completion',
+      'Plan-Diff Fidelity',
+      'Code Intrinsic Quality',
+      'freshness_stale',
       'stage0-context --stage review --workflow spec-review --format json',
+    ],
+  },
+  {
+    skillName: 'spec-compound',
+    sourcePath: 'skills/spec-compound/SKILL.md',
+    mirrorPath: 'docs/10-prompt/skills/spec-compound/SKILL.md',
+    anchors: [
+      'single durable file',
+      'Human Summary',
+      'LLM Reuse Context',
+      'primary reuse surface',
+      'Do not create a second durable artifact',
+    ],
+  },
+  {
+    skillName: 'spec-compound-refresh',
+    sourcePath: 'skills/spec-compound-refresh/SKILL.md',
+    mirrorPath: 'docs/10-prompt/skills/spec-compound-refresh/SKILL.md',
+    anchors: [
+      'same durable file',
+      'section-aware',
+      'Code Touchpoints',
+      'Provenance',
+      'upgrade opportunity',
+    ],
+  },
+  {
+    skillName: 'spec-debug',
+    sourcePath: 'skills/spec-debug/SKILL.md',
+    mirrorPath: 'docs/10-prompt/skills/spec-debug/SKILL.md',
+    anchors: [
+      'Restated Understanding',
+      'Current Core Goal',
+      'Scope / Non-goals',
+      'Verification-as-Done',
     ],
   },
   {
@@ -87,9 +157,25 @@ const HIGH_RISK_SKILL_ANCHORS = [
     anchors: [
       'Runs Phase 0–4',
       'fact-inventory.json',
+      'database-routing.json',
       'risk-signals.json',
       'test-surface.json',
       '/spec:graph-bootstrap',
+    ],
+  },
+];
+
+const HIGH_RISK_AGENT_ANCHORS = [
+  {
+    agentName: 'learnings-researcher',
+    sourcePath: 'agents/research/learnings-researcher.md',
+    mirrorPath: 'docs/10-prompt/agents/research/learnings-researcher.md',
+    anchors: [
+      '## LLM Reuse Context',
+      'primary reuse surface',
+      'Missing these sections is not an error',
+      "the current project's compound documentation schema references",
+      "The project's planning workflow",
     ],
   },
 ];
@@ -126,6 +212,26 @@ describe('asset consistency governance', () => {
         }
         if (!mirror.includes(anchor)) {
           drift.push(`${record.skillName} mirror missing anchor: ${anchor}`);
+        }
+      }
+    }
+
+    expect(drift).toEqual([]);
+  });
+
+  test('high-risk agents keep critical contract anchors aligned between source and prompt mirror', () => {
+    const drift = [];
+
+    for (const record of HIGH_RISK_AGENT_ANCHORS) {
+      const source = read(record.sourcePath);
+      const mirror = read(record.mirrorPath);
+
+      for (const anchor of record.anchors) {
+        if (!source.includes(anchor)) {
+          drift.push(`${record.agentName} source missing anchor: ${anchor}`);
+        }
+        if (!mirror.includes(anchor)) {
+          drift.push(`${record.agentName} mirror missing anchor: ${anchor}`);
         }
       }
     }

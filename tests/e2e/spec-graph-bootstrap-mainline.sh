@@ -90,6 +90,7 @@ const requiredArtifacts = [
   path.join(result.controlPlaneDir, 'fact-inventory.json'),
   path.join(result.controlPlaneDir, 'risk-signals.json'),
   path.join(result.controlPlaneDir, 'test-surface.json'),
+  path.join(result.controlPlaneDir, 'database-routing.json'),
   path.join(result.controlPlaneDir, 'context-routing.json'),
   path.join(result.controlPlaneDir, 'artifact-manifest.json'),
   path.join(result.controlPlaneDir, 'freshness.json'),

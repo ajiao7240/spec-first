@@ -16,11 +16,31 @@ This file contains the shipping workflow (Phase 3-4). Load it only when all Phas
    # Use linting-agent before pushing to origin
    ```
 
-2. **Code Review** (REQUIRED)
+2. **Emit Work Run Artifact** (REQUIRED)
+
+   Before review or PR handoff, write the execution closure artifact for this run:
+
+   - Generate a unique `run_id`
+   - Reserve `artifact_dir = .spec-first/workflows/spec-work/<slug>/<run-id>/`
+   - Write `artifact_dir/run.json` matching `docs/contracts/workflows/spec-work-run-artifact.schema.json`
+   - If a human-readable projection is useful, emit `artifact_dir/closure-summary.md` from the same facts as `run.json`
+
+   The artifact must include:
+   - current core goal
+   - changes made
+   - plan deviations
+   - verification outcome and evidence pointers
+   - residual risks
+   - a resume anchor
+   - the next recommended action
+
+   If the artifact write fails, surface that failure. Do not describe the run as fully closed.
+
+3. **Code Review** (REQUIRED)
 
    Every change gets reviewed before shipping. The depth scales with the change's risk profile, but review itself is never skipped.
 
-   **Tier 2: Full review (default)** -- REQUIRED unless Tier 1 criteria are explicitly met. Invoke the `spec-review` skill with `mode:autofix` to run specialized reviewer agents, auto-apply safe fixes, and surface residual work as todos. When the plan file path is known, pass it as `plan:<path>`. This is the mandatory default -- proceed to Tier 1 only after confirming every criterion below.
+   **Tier 2: Full review (default)** -- REQUIRED unless Tier 1 criteria are explicitly met. Invoke the `spec-review` skill with `mode:autofix` to run specialized reviewer agents, auto-apply safe fixes, and surface residual work as todos. When the plan file path is known, pass it as `plan:<path>`. When the work run artifact exists, pass `work_run:<run-id>` or `work_artifact_dir:<artifact_dir>` explicitly. This is the mandatory default -- proceed to Tier 1 only after confirming every criterion below.
 
    **Tier 1: Inline self-review** -- A lighter alternative permitted only when **all four** criteria are true. Before choosing Tier 1, explicitly state which criteria apply and why. If any criterion is uncertain, use Tier 2.
    - Purely additive (new files only, no existing behavior modified)
@@ -28,7 +48,7 @@ This file contains the shipping workflow (Phase 3-4). Load it only when all Phas
    - Pattern-following (implementation mirrors an existing example with no novel logic)
    - Plan-faithful (no scope growth, no deferred questions resolved with surprising answers)
 
-3. **Final Validation**
+4. **Final Validation**
    - All tasks marked completed
    - Testing addressed -- tests pass and new/changed behavior has corresponding test coverage (or an explicit justification for why tests are not needed)
    - Linting passes
@@ -38,7 +58,7 @@ This file contains the shipping workflow (Phase 3-4). Load it only when all Phas
    - If the plan has a `Requirements Trace`, verify each requirement is satisfied by the completed work
    - If any `Deferred to Implementation` questions were noted, confirm they were resolved during execution
 
-4. **Prepare Operational Validation Plan** (REQUIRED)
+5. **Prepare Operational Validation Plan** (REQUIRED)
    - Add a `## Post-Deploy Monitoring & Validation` section to the PR description for every change.
    - Include concrete:
      - Log queries/search terms

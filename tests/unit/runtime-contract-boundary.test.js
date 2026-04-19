@@ -17,6 +17,9 @@ const FORBIDDEN_DOCS_SIDE_GOVERNANCE_PATHS = [
   'docs/contracts/dual-host-governance/skills-governance.json',
   'docs/contracts/dual-host-governance/skills-governance.schema.json',
 ];
+const FORBIDDEN_DOCS_SIDE_WORKFLOW_CONTRACT_PATHS = [
+  'docs/contracts/workflows/spec-work-run-artifact.schema.json',
+];
 
 function collectJsFiles(currentPath) {
   const files = [];
@@ -58,5 +61,16 @@ describe('runtime contract boundary', () => {
       .sort((a, b) => a.localeCompare(b));
 
     expect(owners).toEqual([...ALLOWED_RUNTIME_GOVERNANCE_OWNERS].sort((a, b) => a.localeCompare(b)));
+  });
+
+  test('src/cli runtime code does not implicitly adopt docs-side spec-work run artifact schema', () => {
+    const offenders = collectJsFiles(CLI_ROOT)
+      .filter((filePath) => {
+        const content = fs.readFileSync(filePath, 'utf8');
+        return FORBIDDEN_DOCS_SIDE_WORKFLOW_CONTRACT_PATHS.some((forbiddenPath) => content.includes(forbiddenPath));
+      })
+      .map((filePath) => path.relative(REPO_ROOT, filePath));
+
+    expect(offenders).toEqual([]);
   });
 });

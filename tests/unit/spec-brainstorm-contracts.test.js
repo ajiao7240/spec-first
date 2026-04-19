@@ -45,6 +45,10 @@ describe('spec-brainstorm contracts', () => {
     expect(skill).toContain('#### 0.1b Classify Task Domain');
     expect(skill).toContain('#### 0.3a Scope Decomposition');
     expect(skill).toContain('references/decomposition-capture.md');
+    expect(skill).toContain('Restated Understanding');
+    expect(skill).toContain('Current Core Goal');
+    expect(skill).toContain('Scope / Non-goals');
+    expect(skill).toContain('Verification-as-Done');
     expect(skill).toContain('#### 3.4 Preflight Self-Check');
     expect(skill).toContain('#### 3.6 User Review Gate');
     expect(skill).toContain('### Phase 4: Handoff and Terminal State Lock');

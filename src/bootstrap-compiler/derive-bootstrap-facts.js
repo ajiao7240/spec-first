@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
+const { buildRepoTopology } = require('./topology');
 
 const LANGUAGE_LABELS = {
   '.js': 'JavaScript',
@@ -35,6 +36,34 @@ const SKIP_ROOTS = new Set([
 
 const RUNTIME_EXTENSION_RE = /\.(cjs|go|java|js|jsx|kt|kts|mjs|py|rb|rs|swift|ts|tsx)$/i;
 const TEST_FILE_RE = /(^|\/)(tests?|__tests__)\/|(\.test\.|\.(spec)\.)/i;
+const TEXT_SCAN_EXTENSION_RE = /\.(cjs|conf|env|go|ini|java|js|json|kt|kts|mjs|properties|py|rb|sh|sql|toml|ts|tsx|txt|ya?ml)$/i;
+const DATABASE_SCAN_PATH_HINT_RE = /(^|\/)(\.env[^/]*|config\/|docker-compose|compose\.(ya?ml)|.*(database|mysql|postgres|sqlite|mongo|prisma|knex|typeorm|sequelize|datasource|connection).*)$/i;
+const DATABASE_TYPE_PATTERNS = [
+  { type: 'mysql', pattern: /(mysql2?|mariadb|mysql:\/\/)/i },
+  { type: 'postgres', pattern: /(postgres|postgresql|pg_|postgres:\/\/)/i },
+  { type: 'sqlite', pattern: /(sqlite|\.sqlite3?)/i },
+  { type: 'mongodb', pattern: /(mongodb|mongo:\/\/)/i },
+];
+const DATABASE_KEY_SUFFIXES = [
+  'DATABASE_URL',
+  'DB_URL',
+  'DB_HOST',
+  'DB_PORT',
+  'DB_USER',
+  'DB_USERNAME',
+  'DB_PASS',
+  'DB_PASSWORD',
+  'DB_NAME',
+  'DB_DATABASE',
+  'MYSQL_URL',
+  'MYSQL_HOST',
+  'MYSQL_PORT',
+  'MYSQL_USER',
+  'MYSQL_USERNAME',
+  'MYSQL_PASS',
+  'MYSQL_PASSWORD',
+  'MYSQL_DATABASE',
+];
 
 function normalizePath(value) {
   return String(value || '').replace(/\\/g, '/').replace(/^\.\//, '');
@@ -80,6 +109,161 @@ function countLines(filePath) {
   return content.split(/\r?\n/).length;
 }
 
+function isTextScanCandidate(filePath) {
+  const basename = path.basename(filePath);
+  return basename.startsWith('.env') || TEXT_SCAN_EXTENSION_RE.test(filePath);
+}
+
+function shouldInspectForDatabase(filePath) {
+  if (
+    filePath.startsWith('docs/')
+    || filePath.startsWith('tests/')
+    || filePath.startsWith('skills/')
+    || filePath.startsWith('agents/')
+  ) {
+    return false;
+  }
+
+  return DATABASE_SCAN_PATH_HINT_RE.test(filePath);
+}
+
+function safeReadTextFile(filePath, maxBytes = 65536) {
+  try {
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile() || stat.size > maxBytes) return null;
+    const content = fs.readFileSync(filePath, 'utf8');
+    if (content.includes('\u0000')) return null;
+    return content;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function collectMatches(pattern, content) {
+  const matches = [];
+  for (const match of content.matchAll(pattern)) {
+    if (match[1]) matches.push(match[1]);
+  }
+  return matches;
+}
+
+function isDatabaseCredentialKey(key) {
+  const upper = String(key || '').toUpperCase();
+  if (!upper) return false;
+  if (upper === 'DATABASE_URL') return true;
+  return DATABASE_KEY_SUFFIXES.some((suffix) => upper === suffix || upper.endsWith(`_${suffix}`));
+}
+
+function inferConnectionNameFromKey(key) {
+  const upper = String(key || '').toUpperCase();
+  for (const suffix of DATABASE_KEY_SUFFIXES) {
+    if (upper === suffix) return 'default';
+    if (!upper.endsWith(`_${suffix}`)) continue;
+    const prefix = upper.slice(0, -1 * (`_${suffix}`.length));
+    if (!prefix) return 'default';
+    return prefix
+      .toLowerCase()
+      .replace(/__/g, '_')
+      .replace(/_/g, '-')
+      .replace(/^-+|-+$/g, '') || 'default';
+  }
+  return 'default';
+}
+
+function inferDatabaseType({ filePath, content, credentialKeys }) {
+  const haystack = [filePath, content, credentialKeys.join(' ')].join('\n');
+  for (const record of DATABASE_TYPE_PATTERNS) {
+    if (record.pattern.test(haystack)) return record.type;
+  }
+  return 'unknown';
+}
+
+function inferDatabaseConfidence({ content, credentialKeys, dbType }) {
+  if (dbType !== 'unknown' && /(adapter|datasource|database_url|mysql:\/\/|postgres:\/\/)/i.test(content)) {
+    return 'high';
+  }
+  if (credentialKeys.length >= 2 || dbType !== 'unknown') return 'medium';
+  return 'low';
+}
+
+function collectDatabaseCandidates({ repoRoot, files }) {
+  const candidates = new Map();
+
+  for (const filePath of files) {
+    if (!isTextScanCandidate(filePath) || !shouldInspectForDatabase(filePath)) continue;
+    const absolutePath = path.join(repoRoot, filePath);
+    const content = safeReadTextFile(absolutePath);
+    if (!content) continue;
+
+    const rawKeys = unique([
+      ...collectMatches(/\b([A-Z][A-Z0-9_]{2,})\b(?=\s*=)/g, content),
+      ...collectMatches(/process\.env\.([A-Z][A-Z0-9_]{2,})/g, content),
+      ...collectMatches(/ENV\[['"]([A-Z][A-Z0-9_]{2,})['"]\]/g, content),
+      ...collectMatches(/System\.getenv\(['"]([A-Z][A-Z0-9_]{2,})['"]\)/g, content),
+      ...collectMatches(/os\.getenv\(['"]([A-Z][A-Z0-9_]{2,})['"]\)/g, content),
+    ].filter(isDatabaseCredentialKey));
+
+    if (rawKeys.length === 0 && !/(database|mysql|postgres|sqlite|mongo)/i.test(content)) continue;
+
+    const keysByConnection = new Map();
+    for (const key of rawKeys) {
+      const connectionName = inferConnectionNameFromKey(key);
+      const next = keysByConnection.get(connectionName) || [];
+      next.push(key);
+      keysByConnection.set(connectionName, next);
+    }
+
+    if (keysByConnection.size === 0) {
+      keysByConnection.set('default', []);
+    }
+
+    for (const [connectionName, credentialKeys] of keysByConnection.entries()) {
+      const dbType = inferDatabaseType({ filePath, content, credentialKeys });
+      const record = candidates.get(connectionName) || {
+        present: true,
+        connection_name: connectionName,
+        config_source: filePath,
+        db_type: 'unknown',
+        database_name_guess: null,
+        credential_keys: [],
+        static_access_hints: [],
+        confidence: 'low',
+        inference_reason: 'database-config-pattern',
+        evidence: [],
+      };
+
+      record.credential_keys = unique([...record.credential_keys, ...credentialKeys]).sort();
+      record.evidence = unique([
+        ...record.evidence,
+        ...credentialKeys.map((key) => `${filePath}:${key}`),
+        ...(credentialKeys.length === 0 ? [`${filePath}:database-hint`] : []),
+      ]).sort();
+
+      if (record.db_type === 'unknown' || (record.db_type !== 'mysql' && dbType === 'mysql')) {
+        record.db_type = dbType;
+      }
+
+      if (record.db_type === 'mysql') {
+        const hasHostKey = record.credential_keys.some((key) => /(?:^|_)(DB_HOST|MYSQL_HOST)$/.test(key));
+        const hasUserKey = record.credential_keys.some((key) => /(?:^|_)(DB_USER|DB_USERNAME|MYSQL_USER|MYSQL_USERNAME)$/.test(key));
+        if (hasHostKey && hasUserKey) {
+          record.static_access_hints = unique([...record.static_access_hints, 'cli']).sort();
+        }
+      }
+
+      const confidence = inferDatabaseConfidence({ content, credentialKeys: record.credential_keys, dbType: record.db_type });
+      if (record.confidence === 'low' || confidence === 'high' || (record.confidence !== 'high' && confidence === 'medium')) {
+        record.confidence = confidence;
+      }
+
+      candidates.set(connectionName, record);
+    }
+  }
+
+  return [...candidates.values()]
+    .sort((a, b) => a.connection_name.localeCompare(b.connection_name));
+}
+
 function detectPrimaryLanguage(files) {
   const counts = new Map();
   for (const filePath of files) {
@@ -121,7 +305,10 @@ function detectPrimaryFrameworks({ pkg, files }) {
   return unique(frameworks);
 }
 
-function detectRepoShape({ repoRoot, pkg, files }) {
+function detectRepoShape({ repoRoot, pkg, files, topology }) {
+  if (topology && topology.kind === 'monorepo_multi_module') {
+    return 'multi-module git repository';
+  }
   if (pkg && Array.isArray(pkg.workspaces) && pkg.workspaces.length > 0) {
     return 'workspace repository with managed CLI and shared workflow assets';
   }
@@ -313,6 +500,7 @@ function deriveBootstrapInputs({ repoRoot, factInventory, riskSignals, testSurfa
 
   const repoFiles = listRepoFiles(repoRoot).sort();
   const packageJson = readJsonIfExists(path.join(repoRoot, 'package.json'));
+  const topology = buildRepoTopology({ repoRoot, files: repoFiles });
 
   const effectiveTestSurface = testSurface || collectTestSurface(repoFiles);
   const effectiveFactInventory = factInventory || {
@@ -320,12 +508,14 @@ function deriveBootstrapInputs({ repoRoot, factInventory, riskSignals, testSurfa
       name: packageJson && packageJson.name ? packageJson.name : path.basename(repoRoot),
       primary_language: detectPrimaryLanguage(repoFiles),
       primary_frameworks: detectPrimaryFrameworks({ pkg: packageJson, files: repoFiles }),
-      repo_shape: detectRepoShape({ repoRoot, pkg: packageJson, files: repoFiles }),
+      repo_shape: detectRepoShape({ repoRoot, pkg: packageJson, files: repoFiles, topology }),
     },
+    topology,
     entrypoints: collectEntrypoints({ repoRoot, pkg: packageJson, files: repoFiles }),
     modules: collectModules(repoFiles),
     integrations: collectIntegrations(packageJson),
     testing_surface: collectTestingSurface(effectiveTestSurface),
+    database: collectDatabaseCandidates({ repoRoot, files: repoFiles }),
   };
   const effectiveRiskSignals = riskSignals || collectRiskSignals({ repoRoot, files: repoFiles });
 

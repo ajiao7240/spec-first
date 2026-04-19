@@ -78,6 +78,16 @@ function relativeCapturedAt({ daysAgo = 0, minutesAgo = 0 } = {}) {
   return new Date(capturedMs).toISOString();
 }
 
+function expectMissingEvidenceAgeSummary(summary) {
+  expect(summary).toEqual({
+    oldest_captured_at: null,
+    oldest_age_ms: null,
+    newest_captured_at: null,
+    newest_age_ms: null,
+    max_age_ms: 7 * 24 * 60 * 60 * 1000,
+  });
+}
+
 describe('doctor --json contract', () => {
   test('reports no-platform projects as install-only facts without claiming workflow runnability', () => {
     const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'doctor-json-empty-'));
@@ -103,6 +113,7 @@ describe('doctor --json contract', () => {
         workflow_surface_resolved: false,
         execution_evidence_present: false,
       });
+      expectMissingEvidenceAgeSummary(payload.workflow_runnability_basis.evidence_age_summary);
       expect(Array.isArray(payload.checks)).toBe(true);
       expect(Array.isArray(payload.warnings)).toBe(true);
     } finally {
@@ -126,6 +137,7 @@ describe('doctor --json contract', () => {
         workflow_surface_resolved: false,
         execution_evidence_present: false,
       });
+      expectMissingEvidenceAgeSummary(payload.workflow_runnability_basis.evidence_age_summary);
       expect(payload.runtime_asset_health).toMatch(/^(pass|warn|error)$/);
       expect(payload.host_readiness).toMatch(/^(pass|warn|error)$/);
       expect(payload.platform_checks.claude).toEqual(
@@ -160,6 +172,90 @@ describe('doctor --json contract', () => {
         workflow_surface_resolved: true,
         execution_evidence_present: false,
       });
+      expectMissingEvidenceAgeSummary(payload.workflow_runnability_basis.evidence_age_summary);
+      expect(payload.platform_checks.claude).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'CLAUDE.md coding guidelines',
+            level: 'PASS',
+          }),
+        ])
+      );
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('reports warning when the managed coding-guidelines block is missing', () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'doctor-json-guidelines-missing-'));
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const initExitCode = withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']));
+      expect(initExitCode).toBe(0);
+
+      const instructionPath = path.join(projectRoot, 'CLAUDE.md');
+      const stripped = fs.readFileSync(instructionPath, 'utf8')
+        .replace(/<!-- spec-first:coding-guidelines:start -->[\s\S]*?<!-- spec-first:coding-guidelines:end -->\n?/g, '');
+      fs.writeFileSync(instructionPath, stripped, 'utf8');
+
+      const result = withCwd(projectRoot, () => captureDoctor(['--claude', '--json']));
+      const payload = JSON.parse(result.stdout);
+
+      expect(result.exitCode).toBe(0);
+      expect(payload.platform_checks.claude).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'CLAUDE.md coding guidelines',
+            level: 'WARNING',
+            fix: expect.stringContaining('spec-first init --claude'),
+          }),
+        ])
+      );
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('reports warning when Claude and Codex project developer names drift apart', () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'doctor-json-developer-drift-'));
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const initExitCode = withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']));
+      expect(initExitCode).toBe(0);
+
+      fs.mkdirSync(path.join(projectRoot, '.codex', 'spec-first'), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, '.codex', 'spec-first', '.developer'),
+        'name=codex-user\nlang=zh\ninitialized_at=2026-04-20T00:00:00.000Z\nversion=1.5.4\n',
+        'utf8',
+      );
+
+      const result = withCwd(projectRoot, () => captureDoctor(['--claude', '--json']));
+      const payload = JSON.parse(result.stdout);
+
+      expect(result.exitCode).toBe(0);
+      expect(payload.common_checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'project developer identity',
+            level: 'WARNING',
+            message: expect.stringContaining('claude=reviewer'),
+            fix: expect.stringContaining('spec-first init --claude'),
+          }),
+        ]),
+      );
+      expect(payload.common_checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'project developer identity',
+            message: expect.stringContaining('codex=codex-user'),
+          }),
+        ]),
+      );
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -198,6 +294,17 @@ describe('doctor --json contract', () => {
         workflow_surface_resolved: true,
         execution_evidence_present: true,
       });
+      expect(payload.workflow_runnability_basis.evidence_age_summary).toMatchObject({
+        oldest_captured_at: expect.any(String),
+        newest_captured_at: expect.any(String),
+        max_age_ms: 7 * 24 * 60 * 60 * 1000,
+      });
+      expect(payload.workflow_runnability_basis.evidence_age_summary.oldest_captured_at)
+        .toBe(payload.workflow_runnability_basis.evidence_age_summary.newest_captured_at);
+      expect(payload.workflow_runnability_basis.evidence_age_summary.oldest_age_ms)
+        .toBeGreaterThanOrEqual(0);
+      expect(payload.workflow_runnability_basis.evidence_age_summary.oldest_age_ms)
+        .toBeLessThan(payload.workflow_runnability_basis.evidence_age_summary.max_age_ms);
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -224,6 +331,16 @@ describe('doctor --json contract', () => {
           captured_at: relativeCapturedAt({ daysAgo: 30 }),
           stage: 'work',
         },
+        {
+          evidence_ref: 'evidence://browser-smoke/2',
+          verifier: 'test-browser',
+          gate_ids: ['browser-smoke'],
+          evidence_type: 'browser-snapshot',
+          status: 'captured',
+          artifact_path: `.spec-first/workflows/verification/${slug}/browser-smoke-2.png`,
+          captured_at: relativeCapturedAt({ minutesAgo: 5 }),
+          stage: 'work',
+        },
       ]);
 
       const result = withCwd(projectRoot, () => captureDoctor(['--claude', '--json']));
@@ -237,6 +354,17 @@ describe('doctor --json contract', () => {
         evidence_freshness: 'stale',
         fallback_reason: 'verification_evidence_stale',
       });
+      expect(payload.workflow_runnability_basis.evidence_age_summary).toMatchObject({
+        oldest_captured_at: expect.any(String),
+        newest_captured_at: expect.any(String),
+        max_age_ms: 7 * 24 * 60 * 60 * 1000,
+      });
+      expect(payload.workflow_runnability_basis.evidence_age_summary.oldest_captured_at)
+        .not.toBe(payload.workflow_runnability_basis.evidence_age_summary.newest_captured_at);
+      expect(payload.workflow_runnability_basis.evidence_age_summary.oldest_age_ms)
+        .toBeGreaterThan(payload.workflow_runnability_basis.evidence_age_summary.max_age_ms);
+      expect(payload.workflow_runnability_basis.evidence_age_summary.newest_age_ms)
+        .toBeLessThan(payload.workflow_runnability_basis.evidence_age_summary.max_age_ms);
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -284,6 +412,7 @@ describe('doctor --json contract', () => {
         evidence_schema_valid: false,
         fallback_reason: 'verification_evidence_schema_invalid',
       });
+      expectMissingEvidenceAgeSummary(payload.workflow_runnability_basis.evidence_age_summary);
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

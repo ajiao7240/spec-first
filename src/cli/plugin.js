@@ -1,6 +1,13 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { mergeOperationPlans } = require('./state');
+const {
+  buildEmptyOperationPlan,
+  buildFileWriteOperation: buildSharedFileWriteOperation,
+  buildRelativeOperation,
+  mergeOperationPlans,
+  normalizeOperationPath,
+  summarizeOperationPlan,
+} = require('./state');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const MANIFEST_PATH = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
@@ -538,7 +545,7 @@ function planCommandsSync(projectRoot, adapter, commands = listBundledCommands()
   return {
     plan: {
       operations,
-      summary: summarizePlanOperations(operations),
+      summary: summarizeOperationPlan(operations),
     },
     runtimeCommands,
   };
@@ -628,7 +635,7 @@ function planSkillsSync(projectRoot, adapter, filteredAssetSet = buildFilteredAs
   return {
     plan: {
       operations,
-      summary: summarizePlanOperations(operations),
+      summary: summarizeOperationPlan(operations),
     },
     skills: standaloneNames,
     workflowSkills: workflowNames,
@@ -694,7 +701,7 @@ function planAgentsSync(projectRoot, adapter) {
   return {
     plan: {
       operations,
-      summary: summarizePlanOperations(operations),
+      summary: summarizeOperationPlan(operations),
     },
     agents: agentPaths,
     agentSupportFiles,
@@ -836,42 +843,19 @@ function isTextFile(filePath) {
 }
 
 function emptyPlan() {
-  return {
-    operations: [],
-    summary: {},
-  };
-}
-
-function summarizePlanOperations(operations) {
-  return operations.reduce((summary, operation) => {
-    summary[operation.kind] = (summary[operation.kind] || 0) + 1;
-    return summary;
-  }, {});
+  return buildEmptyOperationPlan();
 }
 
 function buildPlanOperation(kind, relativePath, reason, extra = {}) {
-  return {
-    kind,
-    path: normalizePathForContent(relativePath),
-    reason,
-    ...extra,
-  };
+  return buildRelativeOperation(kind, relativePath, reason, extra);
 }
 
 function toRelativeProjectPath(absolutePath, projectRoot) {
-  return normalizePathForContent(path.relative(projectRoot, absolutePath));
+  return normalizeOperationPath(path.relative(projectRoot, absolutePath));
 }
 
 function buildFileWriteOperation(projectRoot, absolutePath, contents, reason, mode) {
-  return buildPlanOperation(
-    fs.existsSync(absolutePath) ? 'update_file' : 'write_file',
-    toRelativeProjectPath(absolutePath, projectRoot),
-    reason,
-    {
-      contents,
-      mode,
-    },
-  );
+  return buildSharedFileWriteOperation(projectRoot, absolutePath, contents, reason, mode);
 }
 
 function planDirectoryWithTransform({
@@ -955,7 +939,7 @@ function unique(values) {
 }
 
 function normalizePathForContent(filePath) {
-  return String(filePath || '').replace(/\\/g, '/');
+  return normalizeOperationPath(filePath);
 }
 
 function normalizedWorkflowSkillRuntimePath(adapter, skillName) {

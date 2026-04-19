@@ -545,6 +545,7 @@ grep -q ".claude/spec-first/state.json" <<<"$doctor_output"
 grep -q "standalone skills" <<<"$doctor_output"
 grep -q "workflow skills" <<<"$doctor_output"
 grep -q "support files" <<<"$doctor_output"
+grep -q "CLAUDE.md coding guidelines" <<<"$doctor_output"
 grep -q ".claude/commands/spec" <<<"$doctor_output"
 grep -q "CLAUDE.md using-spec-first bootstrap" <<<"$doctor_output"
 grep -q ".claude/hooks/session-start" <<<"$doctor_output"
@@ -626,7 +627,9 @@ echo "3a-2. Verify CLAUDE.md lang policy block was written..."
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md"
 grep -q '<!-- spec-first:lang:end -->' "$TMP_DIR/CLAUDE.md"
 grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/CLAUDE.md"
+grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/CLAUDE.md"
 grep -Fq 'Claude workflow entrypoints use `/spec:*`' "$TMP_DIR/CLAUDE.md"
+grep -q 'Coding Execution Guidelines (managed by spec-first)' "$TMP_DIR/CLAUDE.md"
 # Last init used --lang en, so English directive must be present
 grep -q 'English' "$TMP_DIR/CLAUDE.md"
 # Changelog governance rule must be present
@@ -638,6 +641,15 @@ grep -q 'refuse to generate' "$TMP_DIR/CLAUDE.md"
 # Exactly one start marker (idempotent across multiple inits)
 lang_marker_count=$(grep -c '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md")
 [ "$lang_marker_count" = "1" ]
+bootstrap_marker_count=$(grep -c '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/CLAUDE.md")
+[ "$bootstrap_marker_count" = "1" ]
+guidelines_marker_count=$(grep -c '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/CLAUDE.md")
+[ "$guidelines_marker_count" = "1" ]
+lang_line=$(grep -n '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md" | head -n1 | cut -d: -f1)
+bootstrap_line=$(grep -n '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/CLAUDE.md" | head -n1 | cut -d: -f1)
+guidelines_line=$(grep -n '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/CLAUDE.md" | head -n1 | cut -d: -f1)
+[ "$lang_line" -lt "$bootstrap_line" ]
+[ "$bootstrap_line" -lt "$guidelines_line" ]
 # CHANGELOG.md bootstrapped
 test -f "$TMP_DIR/CHANGELOG.md"
 grep -q -- '- 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 \[(user-visible)\]`' "$TMP_DIR/CHANGELOG.md"
@@ -647,6 +659,32 @@ grep -Eq -- "- v${expected_version_regex} [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0
 grep -q 'kuang' "$TMP_DIR/CHANGELOG.md"
 grep -q '使用 spec-first 初始化项目' "$TMP_DIR/CHANGELOG.md"
 echo "✓ CLAUDE.md lang policy block written; CHANGELOG.md bootstrapped"
+
+echo "3a-2a. Verify init appends managed instruction blocks instead of overwriting existing CLAUDE.md..."
+APPEND_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR" "$APPEND_DIR"' EXIT
+cat > "$APPEND_DIR/CLAUDE.md" <<'EOF'
+# Existing Notes
+
+Project-specific guidance.
+EOF
+(
+  cd "$APPEND_DIR"
+  node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang zh >/dev/null
+)
+grep -q '# Existing Notes' "$APPEND_DIR/CLAUDE.md"
+grep -q 'Project-specific guidance.' "$APPEND_DIR/CLAUDE.md"
+grep -q '<!-- spec-first:lang:start -->' "$APPEND_DIR/CLAUDE.md"
+grep -q '<!-- spec-first:bootstrap:start -->' "$APPEND_DIR/CLAUDE.md"
+grep -q '<!-- spec-first:coding-guidelines:start -->' "$APPEND_DIR/CLAUDE.md"
+existing_line=$(grep -n '# Existing Notes' "$APPEND_DIR/CLAUDE.md" | head -n1 | cut -d: -f1)
+append_lang_line=$(grep -n '<!-- spec-first:lang:start -->' "$APPEND_DIR/CLAUDE.md" | head -n1 | cut -d: -f1)
+append_bootstrap_line=$(grep -n '<!-- spec-first:bootstrap:start -->' "$APPEND_DIR/CLAUDE.md" | head -n1 | cut -d: -f1)
+append_guidelines_line=$(grep -n '<!-- spec-first:coding-guidelines:start -->' "$APPEND_DIR/CLAUDE.md" | head -n1 | cut -d: -f1)
+[ "$existing_line" -lt "$append_lang_line" ]
+[ "$append_lang_line" -lt "$append_bootstrap_line" ]
+[ "$append_bootstrap_line" -lt "$append_guidelines_line" ]
+echo "✓ init appends managed instruction blocks after existing CLAUDE.md content"
 
 echo "3a-1. Verify Codex init/doctor/clean work..."
 codex_output="$(
@@ -749,10 +787,17 @@ grep -q '^name=kuang$' "$TMP_DIR/.codex/spec-first/.developer"
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/AGENTS.md"
 grep -q '<!-- spec-first:lang:end -->' "$TMP_DIR/AGENTS.md"
 grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/AGENTS.md"
+grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/AGENTS.md"
 grep -Fq 'Codex workflow entrypoints use `$spec-*`' "$TMP_DIR/AGENTS.md"
+grep -q 'Coding Execution Guidelines (managed by spec-first)' "$TMP_DIR/AGENTS.md"
 grep -q 'English' "$TMP_DIR/AGENTS.md"
 grep -q 'refuse to generate' "$TMP_DIR/AGENTS.md"
 ! grep -q 'Governance File Commit Rule' "$TMP_DIR/AGENTS.md"
+codex_lang_line=$(grep -n '<!-- spec-first:lang:start -->' "$TMP_DIR/AGENTS.md" | head -n1 | cut -d: -f1)
+codex_bootstrap_line=$(grep -n '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/AGENTS.md" | head -n1 | cut -d: -f1)
+codex_guidelines_line=$(grep -n '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/AGENTS.md" | head -n1 | cut -d: -f1)
+[ "$codex_lang_line" -lt "$codex_bootstrap_line" ]
+[ "$codex_bootstrap_line" -lt "$codex_guidelines_line" ]
 echo "✓ AGENTS.md lang policy block written"
 
 echo "3a-1a. Verify Codex installed skill assets do not contain old path strings (negative guard)..."
@@ -799,6 +844,7 @@ echo "✓ Codex todo skills use docs/todos as canonical path with scoped legacy 
 
 codex_doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor --codex)"
 grep -q ".codex/spec-first/.developer" <<<"$codex_doctor_output"
+grep -q "AGENTS.md coding guidelines" <<<"$codex_doctor_output"
 grep -q "AGENTS.md using-spec-first bootstrap" <<<"$codex_doctor_output"
 grep -q ".agents/skills" <<<"$codex_doctor_output"
 grep -q "standalone skills" <<<"$codex_doctor_output"
@@ -847,6 +893,9 @@ test ! -e "$TMP_DIR/.codex/agents/review/correctness-reviewer.md"
 test ! -e "$TMP_DIR/.codex/agents/research/session-history-scripts/discover-sessions.sh"
 test ! -e "$TMP_DIR/.codex/spec-first/.developer"
 test -e "$TMP_DIR/.agents/skills/custom-codex-skill/SKILL.md"
+grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/AGENTS.md"
+! grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/AGENTS.md"
+! grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/AGENTS.md"
 grep -q "Update available for spec-first" "$TMP_DIR/codex-clean.err"
 echo "✓ codex init/doctor/clean work"
 
@@ -876,6 +925,9 @@ test ! -e "$TMP_DIR/.claude/agents/review/correctness-reviewer.md"
 test ! -e "$TMP_DIR/.claude/agents/research/session-history-scripts/discover-sessions.sh"
 test ! -e "$TMP_DIR/.claude/spec-first/.developer"
 test -e "$TMP_DIR/.claude/skills/custom-skill/SKILL.md"
+grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md"
+! grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/CLAUDE.md"
+! grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/CLAUDE.md"
 echo "✓ clean removes managed assets and preserves custom assets"
 
 echo "3c. Re-init after clean..."

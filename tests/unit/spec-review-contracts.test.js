@@ -21,6 +21,10 @@ const REVIEW_OUTPUT_TEMPLATE_PATH = path.join(
   REPO_ROOT,
   'skills/spec-review/references/review-output-template.md'
 );
+const PROMPT_MIRROR_REVIEW_OUTPUT_TEMPLATE_PATH = path.join(
+  REPO_ROOT,
+  'docs/10-prompt/skills/spec-review/references/review-output-template.md'
+);
 const FINDINGS_SCHEMA_PATH = path.join(
   REPO_ROOT,
   'skills/spec-review/references/findings-schema.json'
@@ -96,9 +100,27 @@ describe('spec-review contracts', () => {
     expect(skill).toContain('verification summary');
     expect(skill).toContain('effective gap checklist');
     expect(skill).toContain('change-surface');
+    expect(skill).toContain('### Reload Before Act');
+    expect(skill).toContain('freshness_stale');
+    expect(skill).toContain('Do not present `freshness_stale` as `L0`');
+    expect(skill).toContain('work_run:<run-id>');
+    expect(skill).toContain('work_artifact_dir:<path>');
+    expect(skill).toContain('### Optional Upstream Work Handoff');
+    expect(skill).toContain('artifact_dir/run.json');
+    expect(skill).toContain('plan_deviations');
+    expect(skill).toContain('resume_anchor');
+    expect(skill).toContain('Three-Axis Verdict');
+    expect(skill).toContain('Requirement Completion');
+    expect(skill).toContain('Plan-Diff Fidelity');
+    expect(skill).toContain('Code Intrinsic Quality');
+    expect(skill).toContain('`missing` plan source:');
+    expect(skill).toContain('show only `Code Intrinsic Quality`');
     expect(skill).toContain('stage0-context --stage review --workflow spec-review --format json');
     expect(skill).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
+    expect(skill).toContain('selection_subject / selected_contexts');
     expect(skill).toContain('selected_assets / fallback_reason / level / skipped_rules');
+    expect(skill).toContain('compatibility view');
+    expect(skill).toContain('selection_subject.kind = workspace');
     expect(skill).toContain('Review failed. Reason: conflicting mode flags');
     expect(skill).toContain('apply `safe_auto` fixes automatically');
     expect(skill).toContain('17 reviewer personas');
@@ -146,6 +168,13 @@ describe('spec-review contracts', () => {
 
     expect(outputTemplate).toContain('## Code Review Results');
     expect(outputTemplate).toContain('**Mode:** autofix');
+    expect(outputTemplate).toContain('### Requirements Completeness');
+    expect(outputTemplate).toContain('### Three-Axis Verdict');
+    expect(outputTemplate).toContain('| Axis | Status | Basis |');
+    expect(outputTemplate).toContain('Requirement Completion');
+    expect(outputTemplate).toContain('Plan-Diff Fidelity');
+    expect(outputTemplate).toContain('Code Intrinsic Quality');
+    expect(outputTemplate).toContain('`missing` plan means only `Code Intrinsic Quality`');
     expect(outputTemplate).toContain('`safe_auto -> review-fixer`');
     expect(outputTemplate).toContain('[change-discipline:<dimension_tag>]');
     expect(outputTemplate).not.toContain('headless');
@@ -196,6 +225,18 @@ describe('spec-review contracts', () => {
     expect(previousCommentsAgent).toContain('"reviewer": "previous-comments"');
   });
 
+  test('docs mirror review output template preserves three-axis verdict structure', () => {
+    const mirrorTemplate = read(PROMPT_MIRROR_REVIEW_OUTPUT_TEMPLATE_PATH);
+
+    expect(mirrorTemplate).toContain('### Requirements Completeness');
+    expect(mirrorTemplate).toContain('### Three-Axis Verdict');
+    expect(mirrorTemplate).toContain('| Axis | Status | Basis |');
+    expect(mirrorTemplate).toContain('Requirement Completion');
+    expect(mirrorTemplate).toContain('Plan-Diff Fidelity');
+    expect(mirrorTemplate).toContain('Code Intrinsic Quality');
+    expect(mirrorTemplate).toContain('`missing` plan means only `Code Intrinsic Quality`');
+  });
+
   test('runtime transforms preserve host-specific review naming and agent adaptation', () => {
     const sourceSkill = read(SKILL_PATH);
     const claude = new ClaudeAdapter();
@@ -237,8 +278,25 @@ describe('spec-review contracts', () => {
     expect(mirror).toContain('verification summary');
     expect(mirror).toContain('effective gap checklist');
     expect(mirror).toContain('change-surface');
+    expect(mirror).toContain('### Reload Before Act');
+    expect(mirror).toContain('freshness_stale');
+    expect(mirror).toContain('Do not present `freshness_stale` as `L0`');
+    expect(mirror).toContain('work_run:<run-id>');
+    expect(mirror).toContain('work_artifact_dir:<path>');
+    expect(mirror).toContain('### Optional Upstream Work Handoff');
+    expect(mirror).toContain('artifact_dir/run.json');
+    expect(mirror).toContain('plan_deviations');
+    expect(mirror).toContain('resume_anchor');
+    expect(mirror).toContain('Three-Axis Verdict');
+    expect(mirror).toContain('Requirement Completion');
+    expect(mirror).toContain('Plan-Diff Fidelity');
+    expect(mirror).toContain('Code Intrinsic Quality');
+    expect(mirror).toContain('`missing` plan source:');
+    expect(mirror).toContain('show only `Code Intrinsic Quality`');
     expect(mirror).toContain('stage0-context --stage review --workflow spec-review --format json');
     expect(mirror).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
+    expect(mirror).toContain('selection_subject / selected_contexts');
     expect(mirror).toContain('selected_assets / fallback_reason / level / skipped_rules');
+    expect(mirror).toContain('compatibility view');
   });
 });

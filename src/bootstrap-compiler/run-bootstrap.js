@@ -43,6 +43,7 @@ const DEFAULT_BOOTSTRAP_ASSETS = [
   'fact-inventory.json',
   'risk-signals.json',
   'test-surface.json',
+  'database-routing.json',
   'context-routing.json',
   'artifact-manifest.json',
   'freshness.json',
@@ -76,6 +77,7 @@ function writeControlPlaneArtifacts(controlPlaneDir, artifacts) {
   writeJson(path.join(controlPlaneDir, 'fact-inventory.json'), artifacts.machine_artifacts.fact_inventory);
   writeJson(path.join(controlPlaneDir, 'risk-signals.json'), artifacts.machine_artifacts.risk_signals);
   writeJson(path.join(controlPlaneDir, 'test-surface.json'), artifacts.machine_artifacts.test_surface);
+  writeJson(path.join(controlPlaneDir, 'database-routing.json'), artifacts.routing.database_routing);
   writeJson(path.join(controlPlaneDir, 'context-routing.json'), artifacts.routing.context_routing);
   writeJson(path.join(controlPlaneDir, 'artifact-manifest.json'), artifacts.routing.artifact_manifest);
   writeJson(path.join(controlPlaneDir, 'freshness.json'), artifacts.machine_artifacts.freshness);
@@ -128,10 +130,46 @@ function writeWorkspaceControlPlaneArtifacts(controlPlaneDir, { registry, routin
     outputs: {
       'workspace-registry.json': { depends_on: [] },
       'workspace-routing.json': { depends_on: [] },
+      'workspace-readiness-summary.json': { depends_on: [] },
       'workspace/routing-overview.md': { depends_on: [] },
       '00-summary.md': { depends_on: [] },
     },
   });
+}
+
+function buildWorkspaceReadinessSummary({
+  workspaceRoot,
+  registry,
+  generatedAt,
+  stage = 'plan',
+} = {}) {
+  const children = (Array.isArray(registry && registry.children) ? registry.children : []).map((child) => {
+    const evaluation = evaluateContextForRepo({
+      repoRoot: child.repoRoot,
+      slug: child.childSlug,
+      stage,
+      artifactAnchorRoot: workspaceRoot,
+    });
+    return {
+      childSlug: child.childSlug,
+      topology_kind: child.topology_kind || 'single_repo',
+      build_system: child.build_system || 'unknown',
+      module_count: Number.isInteger(child.module_count) ? child.module_count : 0,
+      data_quality: evaluation.data_quality || 'unknown',
+      freshness_status: evaluation.freshness_status || 'unknown',
+      fallback_reason: evaluation.fallback_reason || null,
+      observed_at: generatedAt,
+      source: 'bootstrap-summary',
+    };
+  });
+
+  return {
+    schema_version: 'v1',
+    generated_at: generatedAt,
+    workspaceSlug: registry.workspaceSlug,
+    workspaceRoot: registry.workspaceRoot,
+    children,
+  };
 }
 
 function writeWorkspaceOverviewArtifacts(contextDir, { workspaceSlug, registry }) {
@@ -300,6 +338,11 @@ function runWorkspaceBootstrap({
     workspaceSlug: registry.workspaceSlug,
     generatedAt,
   });
+  const readinessSummary = buildWorkspaceReadinessSummary({
+    workspaceRoot: normalizedWorkspaceRoot,
+    registry,
+    generatedAt,
+  });
   const workspaceSlug = registry.workspaceSlug;
   const controlPlaneDir = resolveWorkflowArtifactDir(normalizedWorkspaceRoot, 'bootstrap', workspaceSlug, {
     artifactAnchorRoot: normalizedWorkspaceRoot,
@@ -368,6 +411,7 @@ function runWorkspaceBootstrap({
     }
 
     writeWorkspaceControlPlaneArtifacts(controlPlaneDir, { registry, routing, generatedAt });
+    writeJson(path.join(controlPlaneDir, 'workspace-readiness-summary.json'), readinessSummary);
     writeWorkspaceOverviewArtifacts(contextDir, { workspaceSlug, registry });
 
     recordWorkflowTelemetry({
@@ -424,13 +468,17 @@ function runWorkspaceBootstrap({
   }
 }
 
-function repoRootsOrDiscoverRequested(options) {
-  return Boolean(
-    options && (
-      (Array.isArray(options.repoRoots) && options.repoRoots.length > 0) ||
-      process.env.SPEC_BOOTSTRAP_DISCOVER_CHILD_GIT === '1'
-    )
-  );
+function resolveWorkspaceRepoRoots({ repoRoot, repoRoots = [] } = {}) {
+  if (Array.isArray(repoRoots) && repoRoots.length > 0) {
+    return repoRoots;
+  }
+
+  const normalizedRepoRoot = path.resolve(repoRoot);
+  if (detectGitRoot(normalizedRepoRoot)) {
+    return [];
+  }
+
+  return discoverChildGitRepos(normalizedRepoRoot);
 }
 
 function runBootstrap({
@@ -453,12 +501,12 @@ function runBootstrap({
   const contextDir = resolveContextDocsDir(repoRoot, slug, { artifactAnchorRoot });
   let backupDir = null;
 
-  if (!detectGitRoot(repoRoot) && repoRoot === artifactAnchorRoot && repoRootsOrDiscoverRequested({ repoRoots })) {
+  const workspaceRepoRoots = resolveWorkspaceRepoRoots({ repoRoot, repoRoots });
+  if (!detectGitRoot(repoRoot) && repoRoot === artifactAnchorRoot && workspaceRepoRoots.length > 0) {
     return runWorkspaceBootstrap({
       workspaceRoot: repoRoot,
-      repoRoots,
+      repoRoots: workspaceRepoRoots,
       generatedAt,
-      discoverChildGit: process.env.SPEC_BOOTSTRAP_DISCOVER_CHILD_GIT === '1',
       hooks,
     });
   }

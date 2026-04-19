@@ -50,6 +50,7 @@ Every plan should contain:
 - Existing patterns or code references to follow
 - Enumerated test scenarios for each feature-bearing unit, specific enough that an implementer knows exactly what to test without inventing coverage themselves
 - Clear dependencies and sequencing
+- A `Verification` section that acts as the plan's `Verification-as-Done` surface, naming what evidence proves done and what still counts as not done
 
 ### Execution Readiness
 - Each implementation unit minimizes unstated implementer decisions
@@ -59,6 +60,16 @@ Every plan should contain:
 - Dependency order is explicit enough to avoid incorrect execution reordering
 
 A plan is ready when an implementer can start confidently without needing the plan to write the code for them.
+
+### Lightweight Planning Anchor
+
+At workflow entry, when resuming after drift, and before finalizing the plan, briefly restate:
+- `Restated Understanding`
+- `Current Core Goal`
+- `Scope / Non-goals`
+- `Verification-as-Done`
+
+For lightweight work, 1-2 sentences can cover the same ground. This is an alignment anchor, not a new required document section. Keep `Verification` as the only durable done contract surface.
 
 ## Stage-0 上下文预载（可选增强，不阻断主工作流）
 
@@ -81,19 +92,21 @@ A plan is ready when an implementer can start confidently without needing the pl
    - 任一关键 contract 缺失或解析失败 → 进入 Level 2 降级
 
 3. **按 evaluator 输出 contract 组织上下文**
-   - 统一以 `selected_assets / fallback_reason / level / skipped_rules` 为 Stage-0 真源
+   - 优先以 `selection_subject / selected_contexts` 作为 Stage-0 的解释型真源，回答“命中了谁、为什么命中、当前上下文边界是什么”
+   - `selected_assets / fallback_reason / level / skipped_rules` 保留为 compatibility view；它们必须由解释层单向派生，不再反向决定命中主体
    - `plan` 场景优先读取：
      - `minimal-context/plan.json`
      - `architecture/module-map.md`
      - `code-facts/public-entrypoints.md`
    - `injection-index.yaml` 仅作为人类视图，不再是运行时唯一判定逻辑
+   - 若 runtime 输出 `selection_subject.kind = workspace`，仅把它视为 overview / unresolved fallback，不要把 workspace 当成常规 `L0` 规划主体
    - 若 `minimal-context/plan.json` 提供 `platform_focus` 或 `required_verifications`，将其视为 verification summary；在计划里把这些信号收敛成验证矩阵，而不是退化成泛化“自行补测试”
    - 若 runtime 还提供顶层 `verifier_dispatch`、`ai_dev_quality_gate_result`、`verification_evidence` 与 `verification_gate_state`，前者只表示 verifier 候选与 blocker，第二层只表示最近 gate 事实快照，第三层只表示已有证据引用，后者只表示 `planned / blocked / not-needed` 账本；不要把它们写成强制执行树
    - **Runtime Stage-0 context（best-effort, pre-resolved JSON）**
 !`repo=$(git rev-parse --show-toplevel 2>/dev/null || pwd); if command -v spec-first >/dev/null 2>&1 && spec-first stage0-context --stage plan --workflow spec-plan --format json 2>/dev/null; then true; elif [ -f "$repo/bin/spec-first.js" ] && node "$repo/bin/spec-first.js" stage0-context --stage plan --workflow spec-plan --format json 2>/dev/null; then true; elif [ -f "$repo/node_modules/spec-first/bin/spec-first.js" ] && node "$repo/node_modules/spec-first/bin/spec-first.js" stage0-context --stage plan --workflow spec-plan --format json 2>/dev/null; then true; else echo '__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__'; fi`
    - 若输出为 `__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__`，说明 runtime helper 当前不可用；继续按上面的 control plane contract 手工预载，不阻断主任务
    - 每个文件：存在则读取，缺失则跳过（Level 1）
-   - 默认写一条 Stage-0 telemetry，至少记录 `stage / profile / selected_assets / fallback_reason / skipped_rules`
+   - 默认写一条 Stage-0 telemetry，至少记录 `stage / profile / selection_subject / selected_contexts / selected_assets / fallback_reason / skipped_rules`
 
 4. **Level 2 固定最小集合**（control plane contract 不可用时）
    - `docs/contexts/<slug>/00-summary.md`
@@ -107,7 +120,25 @@ A plan is ready when an implementer can start confidently without needing the pl
 
 6. **workspace v1 边界**
    - 默认仍按单仓 Stage-0 消费，不改变现有 selected assets 顺序
+   - 若 runtime 已解析出 workspace / module / nested topology，以 `selection_subject / selected_contexts` 为准，不再把 repo-only 路径假设当成唯一语义
    - 只有显式提供 `repoRoots` 时，才进入 workspace 聚合路径
+
+### Reload Before Act
+
+Treat freshness and fallback as trust-shaping inputs, not as blockers:
+
+- `L0` and non-stale context: consume Stage-0 directly; no forced reload
+- `L1` with `freshness_stale`: before making planning decisions, re-read the current plan or origin document plus the most relevant `selected_assets`
+- `L2`: treat Stage-0 as degraded context; re-read the local source document, the most relevant code facts, and any current user-provided paths before planning further
+- `L3` or runtime helper unavailable: continue, but say bootstrap context is unavailable and rely on direct repo reads
+
+Reload priority should be:
+1. The current user-provided or explicitly referenced plan / requirements document
+2. Stage-0 `selected_assets`
+3. The currently relevant implementation files or diff surface
+4. Broader repo context only if still needed
+
+Do not ask the user to re-run bootstrap before continuing. Do not present `freshness_stale` as `L0`.
 
 ## Workflow
 
@@ -445,6 +476,7 @@ For each unit, include:
   - **Error and failure paths** (when the unit has failure modes) - invalid input, downstream service failures, timeout behavior, permission denials
   - **Integration scenarios** (when the unit crosses layers) - behaviors that mocks alone will not prove, e.g., "creating X triggers callback Y which persists Z". Include these for any unit touching callbacks, middleware, or multi-layer interactions
 - **Verification** - how an implementer should know the unit is complete, expressed as outcomes rather than shell command scripts
+- In `Verification`, name the observable evidence that proves done and the states that still count as not done. Do not create a parallel done field.
 
 Every feature-bearing unit should include the test file path in `**Files:**`.
 
@@ -622,7 +654,7 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 - [Scenario: specific input/action -> expected outcome. Prefix with category — Happy path, Edge case, Error path, or Integration — to signal intent]
 
 **Verification:**
-- [Outcome that should hold when this unit is complete]
+- [Outcome that should hold when this unit is complete, including what evidence proves done and what still counts as not done]
 
 ## System-Wide Impact
 

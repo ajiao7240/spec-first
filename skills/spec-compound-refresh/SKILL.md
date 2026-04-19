@@ -9,6 +9,16 @@ disable-model-invocation: true
 
 Maintain the quality of `docs/solutions/` over time. This workflow reviews existing learnings against the current codebase, then refreshes any derived pattern docs that depend on them.
 
+`docs/solutions/*.md` remains the same durable file for both human-facing and machine-facing reuse. When a learning contains `Human Summary` and `LLM Reuse Context`, keep both views in that same durable file. Do not create a second durable artifact just to hold the LLM-facing view.
+
+When dual-view sections already exist, refresh them in a section-aware way:
+- update `Code Touchpoints` first for path/module drift
+- update `Provenance` first for evidence drift
+- update `Patterns to Reuse` / `Anti-patterns to Avoid` first for reusable-guidance drift
+- update `Human Summary` only when the outcome or conclusion changed
+
+Missing dual-view sections in older docs is an upgrade opportunity, not a schema error.
+
 ## Mode Detection
 
 Check if `$ARGUMENTS` contains `mode:autofix`. If present, strip it from arguments (use the remainder as a scope hint) and run in **autofix mode**.
@@ -163,6 +173,7 @@ A learning has several dimensions that can independently go stale. Surface-level
 - **References** — do the file paths, class names, and modules it mentions still exist or have they moved?
 - **Recommended solution** — does the fix still match how the code actually works today? A renamed file with a completely different implementation pattern is not just a path update.
 - **Code examples** — if the learning includes code snippets, do they still reflect the current implementation?
+- **Human Summary / LLM Reuse Context** — if those sections exist, do they still match the underlying learning, current code touchpoints, reusable patterns, and provenance? Missing these sections in older docs is not an error; add or refresh them when you already have enough evidence to do so honestly, and prefer section-aware refresh over whole-doc rewrites.
 - **Related docs** — are cross-referenced learnings and patterns still present and consistent?
 - **Auto memory** — does the auto memory directory contain notes in the same problem domain? Read MEMORY.md from the auto memory directory (the path is known from the system prompt context). If it does not exist or is empty, skip this dimension. A memory note describing a different approach than what the learning recommends is a supplementary drift signal.
 - **Passive quality feedback** — if `.spec-first/workflows/quality-gates/ai-dev-quality-gate/quality-feedback-topics.json` exists, read `candidate_topics` as a supplementary drift signal only. Use matching `summary / scope_hint / artifact_paths / evidence_refs` to narrow investigation, but do not treat it as primary truth, an automatic refresh queue, or workflow state.
@@ -297,7 +308,7 @@ The learning is still accurate and useful. Do not edit the file — report that 
 
 ### Update
 
-The core solution is still valid but references have drifted (paths, class names, links, code snippets, metadata). Apply the fixes directly.
+The core solution is still valid but references have drifted (paths, class names, links, code snippets, metadata). Apply the fixes directly. Prefer section-aware refresh over whole-doc rewrites.
 
 ### Consolidate
 
@@ -469,6 +480,15 @@ No file edit by default. Summarize why the learning remains trustworthy.
 ### Update Flow
 
 Apply in-place edits only when the solution is still substantively correct.
+
+When the doc already has dual-view sections, update the narrowest section that matches the drift:
+
+- Path/module drift → `Code Touchpoints`
+- Evidence/reference drift → `Provenance`
+- Reuse-guidance drift → `Patterns to Reuse` / `Anti-patterns to Avoid`
+- Outcome/conclusion drift → `Human Summary`
+
+Do not escalate to Replace just because one dual-view subsection drifted. Replace is for substantively misleading guidance, not section-level maintenance.
 
 Examples of valid in-place updates:
 

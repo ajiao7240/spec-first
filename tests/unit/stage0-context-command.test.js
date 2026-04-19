@@ -147,6 +147,17 @@ describe('stage0-context command', () => {
 
       expect(result.stage).toBe('work');
       expect(result.mode).toBe('single-repo');
+      expect(result.selection_subject).toMatchObject({
+        kind: 'project',
+        subject_slug: 'repo-a',
+      });
+      expect(result.selected_contexts).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'project',
+          slug: 'repo-a',
+          asset_path: 'minimal-context/work.json',
+        }),
+      ]));
       expect(result.selected_assets).toContain('minimal-context/work.json');
       expect(result.verification_summary).toMatchObject({
         source: 'change-surface',
@@ -410,6 +421,17 @@ describe('stage0-context command', () => {
       expect(result.mode).toBe('workspace');
       expect(result.workspace_slug).toBe(workspaceSlug);
       expect(result.matched_child_slugs).toEqual(['repo-a', 'repo-b']);
+      expect(result.selection_subject).toMatchObject({
+        kind: 'repo',
+        owner_slug: workspaceSlug,
+      });
+      expect(result.selected_contexts).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'repo',
+          slug: 'repo-a',
+          asset_path: 'minimal-context/plan.json',
+        }),
+      ]));
       expect(result.level).toBe('L0');
       expect(result.fallback_reason).toBe(null);
       expect(result.selected_assets).toContain('repo-a:minimal-context/plan.json');
@@ -513,6 +535,23 @@ describe('stage0-context command', () => {
       expect(result.mode).toBe('workspace');
       expect(result.workspace_slug).toBe(path.basename(workspaceRoot));
       expect(result.matched_child_slugs).toEqual([childSlug]);
+      expect(result.selection_subject).toMatchObject({
+        kind: 'repo',
+        owner_slug: path.basename(workspaceRoot),
+        subject_slug: childSlug,
+      });
+      expect(result.selected_contexts).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'workspace',
+          slug: path.basename(workspaceRoot),
+          asset_path: 'workspace/routing-overview.md',
+        }),
+        expect.objectContaining({
+          scope: 'repo',
+          slug: childSlug,
+          asset_path: 'minimal-context/work.json',
+        }),
+      ]));
       expect(result.level).toBe('L0');
       expect(result.fallback_reason).toBe(null);
       expect(result.selected_assets).toEqual(expect.arrayContaining([

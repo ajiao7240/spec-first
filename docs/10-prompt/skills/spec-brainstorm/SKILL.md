@@ -104,6 +104,11 @@ If triggered:
   - what still needs explicit confirmation in the requirements
 - Treat the pulse as situational context, not as an implicit product decision
 - Do **not** turn this into a code review or file-by-file audit
+- If the brainstorm is being resumed or clearly re-anchored, give a short alignment anchor before moving on:
+  - `Restated Understanding`
+  - `Current Core Goal`
+  - `Scope / Non-goals`
+- For lightweight work, 1-2 sentences can cover the same ground. Do not force a rigid template on every turn.
 
 If not triggered, skip it silently.
 
@@ -253,6 +258,8 @@ When a supplemental reader returns any non-`success` status:
 
 If Phase 0.1a produced a Current Work Pulse, incorporate it here as lightweight context only. Recent commits or dirty changes can inform what to confirm, but they do not automatically settle product behavior.
 
+When the conversation has drifted, resumed, or is about to move from exploration into requirements capture, briefly restate the current understanding and core goal before continuing. Keep it short and only surface the boundary that matters now.
+
 #### 1.2 Product Pressure Test
 
 Before generating approaches, challenge the request to catch misframing. Match depth to scope:
@@ -325,6 +332,8 @@ For **Standard** and **Deep** work, use the section-by-section confirmation flow
 If this brainstorm is operating inside an epic decomposition path, read `references/decomposition-capture.md` before writing the sub-project requirements document so the frontmatter and epic linkage stay consistent.
 
 For **Lightweight** brainstorms, keep the document compact. Skip document creation when the user only needs brief alignment and no durable decisions need to be preserved.
+
+When a document will hand off to planning, make sure the requirements capture leaves behind a clear `Verification-as-Done` direction through concrete success criteria. Do not add a separate done section here; make the success criteria sharp enough that planning can convert them into `Verification` without inventing behavior.
 
 #### 3.4 Preflight Self-Check
 

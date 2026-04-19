@@ -2,6 +2,7 @@
 
 const { loadBootstrapRuntimeState } = require('./loader');
 const { resolveStage0Entry } = require('./entry-resolver');
+const { matchTopologyUnitsForFiles } = require('../bootstrap-compiler/topology');
 
 const LANGUAGE_BY_EXTENSION = {
   '.js': 'javascript',
@@ -335,8 +336,12 @@ function summarizeChangeSurface({
       artifactAnchorRoot: profileLookup.artifactAnchorRoot,
     });
   const profile = verificationProfile || (runtimeState && runtimeState.verificationProfile) || null;
-
-  const impactedModules = sortStrings(normalizedFiles.map(inferModuleBucket));
+  const topologyModuleMatches = runtimeState && runtimeState.factInventory && runtimeState.factInventory.topology
+    ? matchTopologyUnitsForFiles(runtimeState.factInventory.topology, normalizedFiles)
+    : [];
+  const impactedModules = topologyModuleMatches.length > 0
+    ? sortStrings(topologyModuleMatches)
+    : sortStrings(normalizedFiles.map(inferModuleBucket));
   const impactedLanguages = sortStrings(normalizedFiles.map(inferLanguage));
   const runtimeFiles = normalizedFiles.filter(isRuntimeRelevantFile);
   const runtimeChange = runtimeFiles.length > 0;
