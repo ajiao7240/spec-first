@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-first spec-work run artifact",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "workflow",
+    "run_id",
+    "mode",
+    "plan_path",
+    "plan_source",
+    "workspace_slug",
+    "current_core_goal",
+    "changes_made",
+    "plan_deviations",
+    "verification",
+    "residual_risks",
+    "resume_anchor",
+    "next_recommended_action"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "v1"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "workflow": {
+      "type": "string",
+      "const": "spec-work"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["interactive", "non-interactive"]
+    },
+    "plan_path": {
+      "type": ["string", "null"]
+    },
+    "plan_source": {
+      "type": "string",
+      "enum": ["explicit", "inferred", "missing"]
+    },
+    "workspace_slug": {
+      "type": "string"
+    },
+    "git_branch": {
+      "type": ["string", "null"]
+    },
+    "head_sha": {
+      "type": ["string", "null"]
+    },
+    "current_core_goal": {
+      "type": "string"
+    },
+    "changes_made": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["summary"],
+        "properties": {
+          "summary": { "type": "string" },
+          "files": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "plan_deviations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["summary", "disposition"],
+        "properties": {
+          "summary": { "type": "string" },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "accepted-deviation",
+              "required-dependency",
+              "separate-follow-up",
+              "unresolved"
+            ]
+          }
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": ["status", "summary", "evidence_items"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["complete", "partial", "blocked"]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "evidence_items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label", "status"],
+            "properties": {
+              "label": { "type": "string" },
+              "status": {
+                "type": "string",
+                "enum": ["passed", "failed", "not-run", "advisory"]
+              },
+              "artifact_path": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "residual_risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["summary"],
+        "properties": {
+          "summary": { "type": "string" },
+          "severity": {
+            "type": ["string", "null"],
+            "enum": ["P0", "P1", "P2", "P3", null]
+          }
+        }
+      }
+    },
+    "resume_anchor": {
+      "type": "object",
+      "required": ["summary", "next_focus"],
+      "properties": {
+        "summary": { "type": "string" },
+        "next_focus": { "type": "string" },
+        "open_questions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "next_recommended_action": {
+      "type": "string"
+    }
+  }
+}

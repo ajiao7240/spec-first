@@ -6,6 +6,9 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-20 | feat | `spec-review-three-axis-verdict` | 为 `spec-review` 增加 `Requirement Completion / Plan-Diff Fidelity / Code Intrinsic Quality` 三轴聚合视图，并明确 explicit/inferred/missing plan 的条件式输出，让 review 更快回答“需求做完没、实现偏计划没、代码本身质量如何” |
+| 2026-04-19 | feat | `spec-work-run-artifact-contract` | 为 `spec-work` 增加 machine-truth `run.json` schema、可选 `closure-summary.md` 投影，以及 `spec-review` 消费上游 work artifact 的显式 handoff contract；先固定结构化闭环语义，不急着引入更重的 runtime 编排 |
+| 2026-04-19 | feat | `sdd-riper-light-contracts-u1-u2` | 为 `spec-brainstorm/spec-plan/spec-work/spec-work-beta/spec-debug/spec-review` 引入轻量 loop anchors 与 freshness-driven reload contract：在关键节点复述当前理解 / 核心目标 / done evidence，并在 Stage-0 stale/partial/fallback 时先补读事实再动作，减少长会话偏航和旧上下文误判 |
 | 2026-04-19 | fix | `runtime-truth-hardening` | 收紧 `doctor` 的 verification evidence 真源到 workflow artifacts contract，并把 schema/freshness 纳入 `verified` 判定；同时为 runtime command/skill/agent 增加内容级 drift 检查，并把 `init/clean --dry-run` 升级为 file-level operation preview，让诊断和预览更接近真实执行面 |
 | 2026-04-18 | feat | `crg-benchmark-evidence` | 为 `CRG Quality Gate` 增加 `benchmark-evidence` PR job 和轻量聚合 artifact，形成 `regression-gate + benchmark-evidence` 的双轨组合；evidence 只收集事实，不发明新的 gate 状态 |
 | 2026-04-18 | feat | `external-benchmark-fixture` | 为 review/repo-qa/context-efficiency benchmark 增加受控 `demo-store + wallet-suite` external fixture repo 样本，并让 runner 只在显式 `fixture_repo_root` 存在时切换输入根目录；继续保持证据层定位，不引入自动下载、自动同步或新 gate 状态 |
@@ -65,6 +68,149 @@
 | 2026-03-31 | feat | `spec-graph-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
 
 ---
+
+## 2026-04-20 `feat(spec-review-three-axis-verdict)`
+
+### 更新内容
+
+这一步不是把 `spec-review` 变成第二个 gating engine，而是在现有 findings / overall verdict 主结构之外，增加一个更便于决策的聚合视图：
+
+- `Requirement Completion`
+- `Plan-Diff Fidelity`
+- `Code Intrinsic Quality`
+
+同时把 plan source 语义明确分成三类：
+
+- `explicit`：可以进入阻断级判断
+- `inferred`：只做 advisory，不单独阻断
+- `missing`：只输出可成立的轴，不强行补 `N/A`
+
+### 主要变化
+
+- `spec-review` synthesis contract
+  - `skills/spec-review/SKILL.md`
+- review output template
+  - `skills/spec-review/references/review-output-template.md`
+- prompt docs mirror 同步
+  - `docs/10-prompt/skills/spec-review/SKILL.md`
+  - `docs/10-prompt/skills/spec-review/references/review-output-template.md`
+
+### 验证
+
+- `npx jest tests/unit/spec-review-contracts.test.js tests/unit/asset-consistency.test.js --runInBand`
+- `npm run test:smoke`
+
+### 版本意义
+
+这一步让 review 的决策表达更快、更清楚：
+
+- 需求有没有做完
+- diff 是否忠于计划
+- 代码本身质量是否过关
+
+仍然保持 findings / severity / route / overall verdict 为主结构，不引入新的强编排状态。
+
+## 2026-04-19 `feat(spec-work-run-artifact-contract)`
+
+### 更新内容
+
+这一步收口的是 `spec-work` 的执行闭环 contract，而不是新增执行器：
+
+- 新增 `docs/contracts/workflows/spec-work-run-artifact.schema.json`
+- 明确 `artifact_dir = .spec-first/workflows/spec-work/<slug>/<run-id>/`
+- 固定 `run.json` 为唯一 machine truth
+- 允许 `closure-summary.md` 作为同一份结构化事实的可读投影
+- `spec-review` 新增显式 `work_run:<run-id>` / `work_artifact_dir:<path>` handoff 读取规则
+
+这里刻意没有把仓库往更重的 runtime orchestrator 推。当前阶段先把：
+
+- 字段边界
+- 写入位置
+- 显式 handoff
+- 缺失时的降级语义
+- consumer 读取范围
+
+这些关键 contract 固定下来，再决定未来是否需要真正的 runtime 写入实现。
+
+### 主要变化
+
+- 新增 workflow contract schema
+  - `docs/contracts/workflows/spec-work-run-artifact.schema.json`
+- `spec-work` run artifact contract
+  - `skills/spec-work/SKILL.md`
+  - `skills/spec-work/references/shipping-workflow.md`
+- `spec-review` upstream handoff contract
+  - `skills/spec-review/SKILL.md`
+- prompt docs mirror 同步
+  - `docs/10-prompt/skills/spec-work/SKILL.md`
+  - `docs/10-prompt/skills/spec-work/references/shipping-workflow.md`
+  - `docs/10-prompt/skills/spec-review/SKILL.md`
+
+### 验证
+
+- `npx jest tests/unit/spec-work-contracts.test.js tests/unit/spec-review-contracts.test.js tests/unit/spec-work-run-artifact-contract.test.js tests/unit/runtime-contract-boundary.test.js tests/unit/asset-consistency.test.js --runInBand`
+- `npm run test:smoke`
+
+### 版本意义
+
+这一步的价值是把“执行结束后留下什么真相、下游怎么接”讲清楚：
+
+- `spec-work` 不再只靠会话记忆描述收口状态
+- `spec-review` 可以显式接上游执行闭环上下文，而不是重新猜测
+- 仍然遵守 `轻 contract + 明确边界 + 让 LLM 决策`
+
+## 2026-04-19 `feat(sdd-riper-light-contracts-u1-u2)`
+
+### 更新内容
+
+这一步没有把 `sdd-riper` 的 RIPER 状态机搬进来，而是只吸收对当前主链最有价值的两类轻量约束：
+
+- `spec-brainstorm`、`spec-plan`、`spec-work`、`spec-work-beta`、`spec-debug` 在关键节点增加轻量锚点，要求明确当前理解、核心目标、边界和完成证据
+- `spec-plan`、`spec-work`、`spec-work-beta`、`spec-review` 在 Stage-0 出现 `freshness_stale`、`partial` 或更深降级时，先补读 plan / source / selected assets / 关键代码事实，再继续动作
+
+收口原则保持不变：
+
+- 不新增平行 workflow
+- 不新增 `Verification` 之外的平行 done 字段
+- 不把 stale/partial 变成硬阻塞
+- `spec-work` 只保留 `interactive / non-interactive` 两层 mode 语义
+
+### 主要变化
+
+- workflow anchor contract
+  - `skills/spec-brainstorm/SKILL.md`
+  - `skills/spec-plan/SKILL.md`
+  - `skills/spec-work/SKILL.md`
+  - `skills/spec-work-beta/SKILL.md`
+  - `skills/spec-debug/SKILL.md`
+- freshness-driven reload contract
+  - `skills/spec-plan/SKILL.md`
+  - `skills/spec-work/SKILL.md`
+  - `skills/spec-work-beta/SKILL.md`
+  - `skills/spec-review/SKILL.md`
+- prompt docs mirror 同步
+  - `docs/10-prompt/skills/spec-brainstorm/SKILL.md`
+  - `docs/10-prompt/skills/spec-plan/SKILL.md`
+  - `docs/10-prompt/skills/spec-work/SKILL.md`
+  - `docs/10-prompt/skills/spec-work-beta/SKILL.md`
+  - `docs/10-prompt/skills/spec-debug/SKILL.md`
+  - `docs/10-prompt/skills/spec-review/SKILL.md`
+
+### 验证
+
+- `npx jest tests/unit/spec-brainstorm-contracts.test.js tests/unit/spec-plan-contracts.test.js tests/unit/spec-work-contracts.test.js tests/unit/spec-work-beta-contracts.test.js tests/unit/spec-debug-contracts.test.js tests/unit/spec-review-contracts.test.js tests/unit/workflow-stage0-consumption.test.js tests/unit/asset-consistency.test.js --runInBand`
+- `bash tests/integration/spec-brainstorm-flow.sh`
+- `npm run test:smoke`
+
+### 版本意义
+
+这一步强化的是主链 workflow 的决策输入质量，不是新增编排层：
+
+- 长会话里更容易守住当前目标和边界
+- `spec-plan` 的 done 语义更容易被 `spec-work` 直接消费
+- stale / partial Stage-0 不再被默认为高可信上下文
+
+仍然遵守 `轻 contract + 明确边界 + 让 LLM 决策`。
 
 ## 2026-04-18 `feat(crg-benchmark-contract)`
 

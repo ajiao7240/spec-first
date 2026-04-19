@@ -42,6 +42,20 @@ Use this **exact format** when presenting synthesized review findings. Findings 
 |---|------|-------|----------|------------|-------|
 | 5 | `export_helper.rb:12` | [change-discipline:over_engineering] Format strategy abstraction adds indirection the endpoint does not use | maintainability | 0.70 | `advisory -> human` |
 
+### Requirements Completeness
+
+- R1 -- met
+- R2 -- partially addressed
+- Unit 3 -- met
+
+### Three-Axis Verdict
+
+| Axis | Status | Basis |
+|---|---|---|
+| Requirement Completion | Partial | R2 is only partially addressed in the diff |
+| Plan-Diff Fidelity | Medium | The implementation follows the planned export path, but omits the pagination contract work |
+| Code Intrinsic Quality | Mixed | One critical auth bug remains alongside otherwise solid structure |
+
 ### Applied Fixes
 
 - `safe_auto`: Added bounded export pagination guard and CSV serialization failure test coverage in this run
@@ -125,6 +139,10 @@ This fails because: no pipe-delimited tables, no severity-grouped `###` headers,
 - **Header includes** scope, intent, and reviewer team with per-conditional justifications
 - **Mode line** -- include `interactive`, `autofix`, or `report-only`
 - **Applied Fixes section** -- include only when a fix phase ran in this review invocation
+- **Requirements Completeness section** -- include only when a plan exists; use a compact checklist, not a second findings table
+- **Three-Axis Verdict section** -- place it after `Requirements Completeness` and before `Applied Fixes`
+- **Axis names are fixed** -- `Requirement Completion`, `Plan-Diff Fidelity`, `Code Intrinsic Quality`
+- **Plan-source behavior must stay conditional** -- `missing` plan means only `Code Intrinsic Quality`; no `N/A` padding
 - **Residual Actionable Work section** -- include only when unresolved actionable findings were handed off for later work
 - **Pre-existing section** -- separate table, no confidence column (these are informational)
 - **Learnings & Past Solutions section** -- results from learnings-researcher, with links to docs/solutions/ files

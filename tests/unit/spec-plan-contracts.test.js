@@ -49,6 +49,11 @@ describe('spec-plan contracts', () => {
     expect(skill).toContain('verification_gate_state');
     expect(skill).toContain('planned / blocked / not-needed');
     expect(skill).toContain('verification summary');
+    expect(skill).toContain('Verification-as-Done');
+    expect(skill).toContain('### Lightweight Planning Anchor');
+    expect(skill).toContain('### Reload Before Act');
+    expect(skill).toContain('freshness_stale');
+    expect(skill).toContain('Do not present `freshness_stale` as `L0`');
     expect(skill).toContain('stage0-context --stage plan --workflow spec-plan --format json');
     expect(skill).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
     expect(skill).toContain('selected_assets / fallback_reason / level / skipped_rules');
@@ -128,6 +133,11 @@ describe('spec-plan contracts', () => {
     expect(mirror).toContain('verification_gate_state');
     expect(mirror).toContain('planned / blocked / not-needed');
     expect(mirror).toContain('verification summary');
+    expect(mirror).toContain('Verification-as-Done');
+    expect(mirror).toContain('### Lightweight Planning Anchor');
+    expect(mirror).toContain('### Reload Before Act');
+    expect(mirror).toContain('freshness_stale');
+    expect(mirror).toContain('Do not present `freshness_stale` as `L0`');
     expect(mirror).toContain('stage0-context --stage plan --workflow spec-plan --format json');
     expect(mirror).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
     expect(mirror).toContain('selected_assets / fallback_reason / level / skipped_rules');

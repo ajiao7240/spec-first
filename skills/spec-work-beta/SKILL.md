@@ -77,6 +77,23 @@ If the task is experiment-driven optimization against a stable measurement harne
    - 默认仍按单仓 Stage-0 消费，不改变现有 selected assets 顺序
    - 只有显式提供 `repoRoots` 时，才进入 workspace 聚合路径
 
+### Reload Before Act
+
+Treat freshness and fallback as trust-shaping inputs, not as blockers:
+
+- `L0` and non-stale context: consume Stage-0 directly; no forced reload before editing
+- `L1` with `freshness_stale`: before editing and again before claiming done, re-read the current plan or requirements source plus the most relevant `selected_assets`
+- `L2`: treat Stage-0 as degraded context; re-read the local plan, the touched behavior slice, and the most relevant code facts before continuing
+- `L3` or runtime helper unavailable: continue, but state that bootstrap context is unavailable and rely on direct repo reads
+
+Reload priority should be:
+1. The current user-provided or explicitly referenced plan / requirements document
+2. Stage-0 `selected_assets`
+3. The current diff surface or implementation files
+4. Broader repo context only if still needed
+
+Do not block execution solely because context is stale or partial. Do not present `freshness_stale` as `L0`.
+
 ## Argument Parsing
 
 Parse `$ARGUMENTS` for the following optional tokens. Strip each recognized token before interpreting the remainder as the plan file path.
@@ -149,10 +166,19 @@ Store the resolved state for downstream consumption:
    - If `ai_dev_quality_gate_result` exists, treat it as the latest passive CI/gate snapshot only; it can inform judgment, but it must not be treated as a workflow state machine or an auto-blocking orchestration rule
    - If `verification_evidence` exists, treat `evidence_items` as factual proof references only; they record verifier/output/artifact links, not dispatch instructions
    - If `verification_gate_state` exists, use `overall_status / required_gates / blockers` to keep an explicit pending-vs-blocked-or-satisfied verification ledger during execution; it is status input, not an auto-dispatch contract
+   - Translate the plan's `Verification` into the run's `Verification-as-Done`. Do not invent a second done contract.
    - If the user explicitly asks for TDD, test-first, or characterization-first execution in this session, honor that request even if the plan has no `Execution note`
-   - If anything is unclear or ambiguous, ask clarifying questions now
-   - Get user approval to proceed
-   - **Do not skip this** - better to ask questions now than build the wrong thing
+   - Determine mode from caller posture only: `interactive` is the default. Only an explicit caller contract that forbids user interaction makes the run `non-interactive`. `pipeline` and `headless` are examples of `non-interactive` posture, not separate mode enums.
+   - Never infer `non-interactive` from CI environment variables, branch names, or user silence.
+   - Before execution, prepare a short pre-execution checkpoint covering:
+     - `Restated Understanding`
+     - `Current Core Goal`
+     - `Scope / Non-goals`
+     - `Verification-as-Done`
+   - If anything is unclear or ambiguous in a way that blocks safe execution, ask clarifying questions before editing.
+   - In `interactive` mode, present the checkpoint and ask for approval in the same pre-execution block. Do not split checkpoint and approval into separate pauses.
+   - In `non-interactive` mode, do not wait for approval. Carry the same checkpoint facts into task setup and final reporting, then proceed.
+   - **Do not skip this calibration** - better to align once up front than drift through the implementation.
 
 2. **Setup Environment**
 

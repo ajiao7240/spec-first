@@ -62,6 +62,13 @@ describe('spec-work-beta contracts', () => {
     expect(skill).toContain('verification summary');
     expect(skill).toContain('effective checklist');
     expect(skill).toContain('change-surface');
+    expect(skill).toContain('### Reload Before Act');
+    expect(skill).toContain('freshness_stale');
+    expect(skill).toContain('Verification-as-Done');
+    expect(skill).toContain('pre-execution checkpoint');
+    expect(skill).toContain('Only an explicit caller contract that forbids user interaction makes the run `non-interactive`');
+    expect(skill).toContain('Do not split checkpoint and approval into separate pauses.');
+    expect(skill).toContain('Do not present `freshness_stale` as `L0`');
     expect(skill).toContain('stage0-context --stage work --workflow spec-work-beta --format json');
     expect(skill).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
     expect(skill).toContain('selected_assets / fallback_reason / level / skipped_rules');
@@ -187,6 +194,13 @@ describe('spec-work-beta contracts', () => {
     expect(mirror).toContain('verification summary');
     expect(mirror).toContain('effective checklist');
     expect(mirror).toContain('change-surface');
+    expect(mirror).toContain('### Reload Before Act');
+    expect(mirror).toContain('freshness_stale');
+    expect(mirror).toContain('Verification-as-Done');
+    expect(mirror).toContain('pre-execution checkpoint');
+    expect(mirror).toContain('Only an explicit caller contract that forbids user interaction makes the run `non-interactive`');
+    expect(mirror).toContain('Do not split checkpoint and approval into separate pauses.');
+    expect(mirror).toContain('Do not present `freshness_stale` as `L0`');
     expect(mirror).toContain('stage0-context --stage work --workflow spec-work-beta --format json');
     expect(mirror).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
     expect(mirror).toContain('default verification checklist');

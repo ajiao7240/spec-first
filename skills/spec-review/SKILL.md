@@ -63,6 +63,23 @@ Reviews code changes using dynamically selected reviewer personas. Spawns parall
    - 默认仍按单仓 Stage-0 消费，不改变现有 selected assets 顺序
    - 只有显式提供 `repoRoots` 时，才进入 workspace 聚合路径
 
+### Reload Before Act
+
+Treat freshness and fallback as trust-shaping inputs, not as blockers:
+
+- `L0` and non-stale context: consume Stage-0 directly; no forced reload before reviewer dispatch
+- `L1` with `freshness_stale`: before spawning reviewers, re-read the explicit plan (if any), the diff scope, and the most relevant `selected_assets`
+- `L2`: treat Stage-0 as degraded context; re-read the current diff, the most relevant code facts, and any explicit plan/source path before review
+- `L3` or runtime helper unavailable: continue, but say bootstrap context is unavailable and rely on direct repo reads
+
+Reload priority should be:
+1. Explicit `plan:<path>` input or other user-provided source path
+2. Stage-0 `selected_assets`
+3. Current diff / review scope
+4. Broader repo context only if still needed
+
+Do not block review solely because context is stale or partial. Do not present `freshness_stale` as `L0`.
+
 ## When to Use
 
 - Before creating a PR
@@ -81,8 +98,25 @@ Parse `$ARGUMENTS` for the following optional tokens. Strip each recognized toke
 | `mode:report-only` | `mode:report-only` | Select report-only mode |
 | `base:<sha-or-ref>` | `base:abc1234` or `base:origin/main` | Skip scope detection — use this as the diff base directly |
 | `plan:<path>` | `plan:docs/plans/2026-03-25-001-feat-foo-plan.md` | Load this plan for requirements verification |
+| `work_run:<run-id>` | `work_run:20260419-231500-ab12cd34` | Load the explicit upstream `spec-work` run artifact for execution context |
+| `work_artifact_dir:<path>` | `work_artifact_dir:.spec-first/workflows/spec-work/demo/20260419-231500-ab12cd34` | Load the explicit upstream `spec-work` artifact directory |
 
 All tokens are optional. Each one present means one less thing to infer. When absent, fall back to existing behavior for that stage.
+
+### Optional Upstream Work Handoff
+
+When `work_run:<run-id>` or `work_artifact_dir:<path>` is provided:
+
+- Prefer that explicit handoff over any directory inference.
+- Read `artifact_dir/run.json` as the machine truth from upstream execution.
+- Treat `artifact_dir/closure-summary.md` as optional human-readable projection only.
+- Use `current_core_goal`, `plan_deviations`, `verification`, `residual_risks`, and `resume_anchor` as advisory review context. They can sharpen review focus, but they do not replace diff analysis or create a second verdict engine.
+
+When no explicit work handoff is provided but the review is clearly downstream of `spec-work`:
+
+- You may infer the latest matching work artifact using `plan_path + workspace_slug`, optionally narrowed by `git_branch` or `head_sha`.
+- Do not treat a leaf file path such as `run.json` as the stable cross-workflow identifier.
+- If no matching artifact is found, continue without it. Missing work artifacts are a degraded-input condition, not a blocker.
 
 **Conflicting mode flags:** If multiple mode tokens appear in arguments, stop and do not dispatch agents. Emit: `Review failed. Reason: conflicting mode flags — <mode_a> and <mode_b> cannot be combined.`
 
@@ -526,15 +560,26 @@ Assemble the final report using the review output template included below:
    - **`explicit`** (caller-provided or PR body): Flag unaddressed requirements as P1 findings with `autofix_class: manual`, `owner: downstream-resolver`. These enter the residual actionable queue and can become todos.
    - **`inferred`** (auto-discovered): Flag unaddressed requirements as P3 findings with `autofix_class: advisory`, `owner: human`. These stay in the report only — no todos, no autonomous follow-up. An inferred plan match is a hint, not a contract.
    Omit this section entirely when no plan was found — do not mention the absence of a plan.
-4. **Applied Fixes.** Include only if a fix phase ran in this invocation.
-5. **Residual Actionable Work.** Include when unresolved actionable findings were handed off or should be handed off.
-6. **Pre-existing.** Separate section, does not count toward verdict.
-7. **Learnings & Past Solutions.** Surface learnings-researcher results: if past solutions are relevant, flag them as "Known Pattern" with links to docs/solutions/ files.
-8. **Agent-Native Gaps.** Surface agent-native-reviewer results. Omit section if no gaps found.
-9. **Schema Drift Check.** If schema-drift-detector ran, summarize whether drift was found. If drift exists, list the unrelated schema objects and the required cleanup command. If clean, say so briefly.
-10. **Deployment Notes.** If deployment-verification-agent ran, surface the key Go/No-Go items: blocking pre-deploy checks, the most important verification queries, rollback caveats, and monitoring focus areas. Keep the checklist actionable rather than dropping it into Coverage.
-11. **Coverage.** Suppressed count, residual risks, testing gaps, failed/timed-out reviewers, and any intent uncertainty carried by non-interactive modes.
-12. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements, note it in the verdict reasoning but do not block on it alone.
+4. **Three-Axis Verdict.** Render this immediately after Requirements Completeness and before Applied Fixes. This is a compact aggregation layer, not a second verdict engine. Use exactly these axes:
+   - `Requirement Completion`
+   - `Plan-Diff Fidelity`
+   - `Code Intrinsic Quality`
+   Axis rules:
+   - **`explicit` plan source:** all three axes may be shown and may inform the final verdict.
+   - **`inferred` plan source:** show all three axes only when the inferred mapping is strong enough to say something useful, but keep `Requirement Completion` and `Plan-Diff Fidelity` advisory in wording. They must not block on their own.
+   - **`missing` plan source:** show only `Code Intrinsic Quality`. Omit `Requirement Completion` and `Plan-Diff Fidelity` entirely. Do not emit placeholder `N/A` rows or prose just to keep the shape symmetric.
+   - `Plan-Diff Fidelity` may only use the diff, the resolved plan source, and explicitly available plan content. Never fabricate fidelity from branch names or vague user intent.
+   - `Code Intrinsic Quality` summarizes code-level quality independent of plan availability. It may still be negative even when no plan exists.
+   Keep the axis language concise: status + one-line reasoning per axis.
+5. **Applied Fixes.** Include only if a fix phase ran in this invocation.
+6. **Residual Actionable Work.** Include when unresolved actionable findings were handed off or should be handed off.
+7. **Pre-existing.** Separate section, does not count toward verdict.
+8. **Learnings & Past Solutions.** Surface learnings-researcher results: if past solutions are relevant, flag them as "Known Pattern" with links to docs/solutions/ files.
+9. **Agent-Native Gaps.** Surface agent-native-reviewer results. Omit section if no gaps found.
+10. **Schema Drift Check.** If schema-drift-detector ran, summarize whether drift was found. If drift exists, list the unrelated schema objects and the required cleanup command. If clean, say so briefly.
+11. **Deployment Notes.** If deployment-verification-agent ran, surface the key Go/No-Go items: blocking pre-deploy checks, the most important verification queries, rollback caveats, and monitoring focus areas. Keep the checklist actionable rather than dropping it into Coverage.
+12. **Coverage.** Suppressed count, residual risks, testing gaps, failed/timed-out reviewers, and any intent uncertainty carried by non-interactive modes.
+13. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements, note it in the verdict reasoning but do not block on it alone. The three-axis view should sharpen this reasoning, not replace it.
 
 Do not include time estimates.
 

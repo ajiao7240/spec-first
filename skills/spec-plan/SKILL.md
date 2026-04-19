@@ -50,6 +50,7 @@ Every plan should contain:
 - Existing patterns or code references to follow
 - Enumerated test scenarios for each feature-bearing unit, specific enough that an implementer knows exactly what to test without inventing coverage themselves
 - Clear dependencies and sequencing
+- A `Verification` section that acts as the plan's `Verification-as-Done` surface, naming what evidence proves done and what still counts as not done
 
 ### Execution Readiness
 - Each implementation unit minimizes unstated implementer decisions
@@ -59,6 +60,16 @@ Every plan should contain:
 - Dependency order is explicit enough to avoid incorrect execution reordering
 
 A plan is ready when an implementer can start confidently without needing the plan to write the code for them.
+
+### Lightweight Planning Anchor
+
+At workflow entry, when resuming after drift, and before finalizing the plan, briefly restate:
+- `Restated Understanding`
+- `Current Core Goal`
+- `Scope / Non-goals`
+- `Verification-as-Done`
+
+For lightweight work, 1-2 sentences can cover the same ground. This is an alignment anchor, not a new required document section. Keep `Verification` as the only durable done contract surface.
 
 ## Stage-0 上下文预载（可选增强，不阻断主工作流）
 
@@ -108,6 +119,23 @@ A plan is ready when an implementer can start confidently without needing the pl
 6. **workspace v1 边界**
    - 默认仍按单仓 Stage-0 消费，不改变现有 selected assets 顺序
    - 只有显式提供 `repoRoots` 时，才进入 workspace 聚合路径
+
+### Reload Before Act
+
+Treat freshness and fallback as trust-shaping inputs, not as blockers:
+
+- `L0` and non-stale context: consume Stage-0 directly; no forced reload
+- `L1` with `freshness_stale`: before making planning decisions, re-read the current plan or origin document plus the most relevant `selected_assets`
+- `L2`: treat Stage-0 as degraded context; re-read the local source document, the most relevant code facts, and any current user-provided paths before planning further
+- `L3` or runtime helper unavailable: continue, but say bootstrap context is unavailable and rely on direct repo reads
+
+Reload priority should be:
+1. The current user-provided or explicitly referenced plan / requirements document
+2. Stage-0 `selected_assets`
+3. The currently relevant implementation files or diff surface
+4. Broader repo context only if still needed
+
+Do not ask the user to re-run bootstrap before continuing. Do not present `freshness_stale` as `L0`.
 
 ## Workflow
 
@@ -445,6 +473,7 @@ For each unit, include:
   - **Error and failure paths** (when the unit has failure modes) - invalid input, downstream service failures, timeout behavior, permission denials
   - **Integration scenarios** (when the unit crosses layers) - behaviors that mocks alone will not prove, e.g., "creating X triggers callback Y which persists Z". Include these for any unit touching callbacks, middleware, or multi-layer interactions
 - **Verification** - how an implementer should know the unit is complete, expressed as outcomes rather than shell command scripts
+- In `Verification`, name the observable evidence that proves done and the states that still count as not done. Do not create a parallel done field.
 
 Every feature-bearing unit should include the test file path in `**Files:**`.
 
@@ -622,7 +651,7 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 - [Scenario: specific input/action -> expected outcome. Prefix with category — Happy path, Edge case, Error path, or Integration — to signal intent]
 
 **Verification:**
-- [Outcome that should hold when this unit is complete]
+- [Outcome that should hold when this unit is complete, including what evidence proves done and what still counts as not done]
 
 ## System-Wide Impact
 

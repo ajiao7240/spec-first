@@ -32,4 +32,20 @@ describe('workflow Stage-0 consumption contract', () => {
       expect(content).toContain('verification_gate_state');
     });
   }
+
+  for (const relativePath of [
+    'skills/spec-plan/SKILL.md',
+    'skills/spec-work/SKILL.md',
+    'skills/spec-work-beta/SKILL.md',
+    'skills/spec-review/SKILL.md',
+  ]) {
+    test(`${relativePath} reloads facts before acting when Stage-0 is stale or degraded`, () => {
+      const content = read(relativePath);
+
+      expect(content).toContain('### Reload Before Act');
+      expect(content).toContain('freshness_stale');
+      expect(content).toContain('selected_assets');
+      expect(content).toContain('Do not present `freshness_stale` as `L0`');
+    });
+  }
 });
