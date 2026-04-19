@@ -16,6 +16,7 @@ npm run test:jest                 # CRG Jest 单元测试（需先 npm install -
 bash tests/unit/lang-policy.sh   # 单独验证语言策略注入逻辑
 bash tests/unit/mcp-setup.sh     # 单独验证 mcp-setup skill 脚本和配置
 npm pack                          # 发布前构建 tarball
+pnpm run release:publish -- auto --dry-run   # 按 git-npm 契约执行发布预演（支持 auto|patch|minor|major）
 ```
 
 ## 架构

@@ -8,6 +8,8 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.1 2026-04-19 17:30:00 矿工: fix(release): 对齐 `git-npm` skill 的版本类型契约，`release:publish` 现支持 `auto|patch|minor|major` 解析并在真实发布时写入 `package.json` 版本 (user-visible)
+- v1.5.1 2026-04-19 17:20:00 矿工: feat(release): 为当前 CommonJS npm CLI 结构恢复 `release:publish` 发布入口，复用 `test:release` + `npm pack` 完成 dry-run/真实发布前置链路 (user-visible)
 - v1.5.1 2026-04-19 16:50:00 矿工: refactor(stage0): 删除 `spec-bootstrap` workflow 及其 Claude command template，收口 using-spec-first / governance / plugin / smoke / active docs 到 `spec-graph-bootstrap` 与 `spec-compound` 新入口事实 (user-visible)
 - v1.5.1 2026-04-19 16:35:00 Codex: docs(faq): 在用户手册常见问题中补充“如何查看 skill 调用链路”，说明 command wrapper -> SKILL.md -> agent/references 的查看顺序、`rg` 快速检索方法，以及当前暂无专门 runtime trace viewer 的边界 (user-visible)
 - v1.5.1 2026-04-19 16:10:00 Codex: fix(stage0-context): 修正 registered workspace 下显式单 child repo 被误降成 single-repo 的 runtime contract，保持 workspace shape 并读取真实 child slug；同时将 change-surface 平台识别改为逐文件推断 + 稳定排序，修复 web+cli 混合改动漏报 cli verifier 的问题，补充对应 workspace/context 回归测试 (user-visible)
