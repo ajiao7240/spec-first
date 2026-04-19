@@ -32,6 +32,14 @@ jobs:
       - name: Fetch master and main
         run: git fetch origin master main
 
+      - name: Verify main is still a pure mirror
+        run: |
+          git checkout main
+          if ! git merge-base --is-ancestor HEAD origin/master; then
+            echo "main has diverged from master. Align main back to origin/master before this mirror sync can continue."
+            exit 1
+          fi
+
       - name: Fast-forward main to master
         run: |
           git checkout main

@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.4 2026-04-20 03:30:00 矿工: docs(branch-governance): 统一 `master` 为唯一直接更新分支、`main` 为自动镜像分支的 README / workflow 治理口径，并为镜像同步增加偏离提示 (user-visible)
 - 说明：
   - `v版本号` 使用本次变更对应的发布版本
   - 日期时间必须使用 `YYYY-MM-DD HH:MM:SS`
@@ -8,6 +9,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.4 2026-04-20 03:10:00 矿工: fix(wechat-article): 改用真实系统剪贴板粘贴发布微信公众号文章正文，并收紧 `.ProseMirror` 非空校验，修复草稿正文误判成功但实际为空的问题 (user-visible)
 - v1.5.4 2026-04-20 02:45:00 矿工: feat(cli-help): 统一 `spec-first` / `init` / `doctor` / `clean` 四个 help 面板样式，增加分区图标与仓库地址入口，提升可读性 (user-visible)
 - v1.5.4 2026-04-20 02:29:50 Codex: feat(stage0-topology): 为 `spec-graph-bootstrap` / `stage0-context` 收口统一 topology contract，正式支持 workspace 多 git 工程、单 git 多 module 与单 git 单项目三类场景；新增 `selection_subject` / `selected_contexts` 解释型真源、workspace child repo 自动发现、nested topology 命中与关键 control-plane 产物必需校验，并同步更新下游 workflow skill/mirror、README 与回归测试 (user-visible)
 - v1.5.4 2026-04-20 02:17:24 leokuang: fix(changelog-author): 恢复 changelog 作者默认沿用原有 developer identity 逻辑（显式用户 -> 全局 `.developer` -> git `user.name`），不再默认读取项目级 `.developer.name`；保留 `doctor --json` 的跨 host developer 名称漂移提示，并同步回归测试 (user-visible)

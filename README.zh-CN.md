@@ -463,11 +463,12 @@ npm pack                    # release tarball dry run
 
 如果你要贡献代码：
 
-1. Fork 仓库，并从 `main` 创建 feature branch。
-2. 阅读 [AGENTS.md](./AGENTS.md)，了解仓库 workflow 约定。
-3. 运行 `npm install --legacy-peer-deps`，然后执行 `npm test`。
-4. 提交 PR，说明变更目标和验证细节。
-5. 每一次 code / doc 变更，都必须按文件顶部定义的格式，在 [CHANGELOG.md](./CHANGELOG.md) 追加一行记录。
+1. Fork 仓库，并从 `master` 创建 feature branch。
+2. 将 `master` 视为唯一接受直接更新的分支；`main` 仅作为自动同步的镜像分支，不应直接开发或提交。
+3. 阅读 [AGENTS.md](./AGENTS.md)，了解仓库 workflow 约定。
+4. 运行 `npm install --legacy-peer-deps`，然后执行 `npm test`。
+5. 提交 PR，说明变更目标和验证细节。
+6. 每一次 code / doc 变更，都必须按文件顶部定义的格式，在 [CHANGELOG.md](./CHANGELOG.md) 追加一行记录。
 
 提交前建议先阅读：[AGENTS.md](./AGENTS.md) · [User Manual](./docs/05-用户手册/README.md) · [CHANGELOG](./CHANGELOG.md)
 

@@ -463,11 +463,12 @@ To report a bug, open an [Issue](https://github.com/sunrain520/spec-first/issues
 
 To contribute code:
 
-1. Fork the repository and create a feature branch from `main`.
-2. Read [AGENTS.md](./AGENTS.md) for repository workflow conventions.
-3. Run `npm install --legacy-peer-deps`, then `npm test`.
-4. Open a PR with the change goal and verification details.
-5. Every code / doc change must add a line to [CHANGELOG.md](./CHANGELOG.md) following the format defined at the top of that file.
+1. Fork the repository and create a feature branch from `master`.
+2. Treat `master` as the only branch that accepts direct updates; `main` is an automatically synced mirror branch and should not receive direct development or commits.
+3. Read [AGENTS.md](./AGENTS.md) for repository workflow conventions.
+4. Run `npm install --legacy-peer-deps`, then `npm test`.
+5. Open a PR with the change goal and verification details.
+6. Every code / doc change must add a line to [CHANGELOG.md](./CHANGELOG.md) following the format defined at the top of that file.
 
 Recommended reading before contributing: [AGENTS.md](./AGENTS.md) · [User Manual](./docs/05-用户手册/README.md) · [CHANGELOG](./CHANGELOG.md)
 
