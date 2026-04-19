@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.5 2026-04-20 04:00:00 矿工: chore(release): 发布 `spec-first@1.5.5` 到 npm registry，并收口 package.json 版本到最新发布版本
 - v1.5.4 2026-04-20 03:30:00 矿工: docs(branch-governance): 统一 `master` 为唯一直接更新分支、`main` 为自动镜像分支的 README / workflow 治理口径，并为镜像同步增加偏离提示 (user-visible)
 - 说明：
   - `v版本号` 使用本次变更对应的发布版本
