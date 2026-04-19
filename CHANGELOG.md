@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.4 2026-04-19 21:20:00 Codex: fix(stage0): 收紧 Stage-0 evaluator 质量等级，`fact-backed` 才允许 L0，新增 minimal-context coverage gaps 与 `doctor --json` 分层健康输出，并补充资产一致性、retired 入口回归和 doctor JSON 测试 (user-visible)
 - v1.5.4 2026-04-19 20:35:00 Codex: docs(stage0): 全仓清理旧 bootstrap workflow 命名、文件名与历史文档残留，同步 README 中英文口径为仅保留 `spec-graph-bootstrap` 与 `spec-compound` Stage-0 入口，并修正 graph-bootstrap E2E fixture 为最小 Git 源码仓库 (user-visible)
 - v1.5.4 2026-04-19 20:10:00 Codex: fix(stage0): 清理 `mcp-setup` / `setup` / `graph-bootstrap` 活跃入口中残留的旧 Stage-0 bootstrap 叙事，统一引导到 `spec-graph-bootstrap`，并补充 source-of-truth 守卫测试 (user-visible)
 - v1.5.3 2026-04-19 18:10:00 矿工: fix(release): 按 npm publish 规范修正 `package.json` 的 `bin.spec-first` 路径与 `repository.url`，消除发布阶段自动纠正告警

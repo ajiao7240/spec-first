@@ -86,6 +86,21 @@ grep -q "Update available for spec-first" "$doctor_fresh_stderr"
 grep -q "npm install -g spec-first@latest" "$doctor_fresh_stderr"
 echo "✓ doctor reports missing skills concisely"
 
+doctor_fresh_json="$(
+  cd "$TMP_DIR"
+  SPEC_FIRST_VERSION_REMINDER_LATEST="$expected_version" node "$REPO_ROOT/bin/spec-first.js" doctor --json
+)"
+node - "$doctor_fresh_json" <<'EOF'
+const payload = JSON.parse(process.argv[2]);
+if (payload.workflow_runnability !== 'not_verified') {
+  throw new Error(`expected workflow_runnability=not_verified, got ${payload.workflow_runnability}`);
+}
+if (payload.runtime_asset_health !== 'not_applicable') {
+  throw new Error(`expected runtime_asset_health=not_applicable, got ${payload.runtime_asset_health}`);
+}
+EOF
+echo "✓ doctor --json reports layered no-platform facts"
+
 echo "2. Initialize Claude commands in a fresh project..."
 init_stderr="$TMP_DIR/init.err"
 init_output="$(
@@ -519,6 +534,21 @@ grep -q ".claude/skills" <<<"$doctor_output"
 grep -q ".claude/agents" <<<"$doctor_output"
 grep -q ".claude/agents support assets" <<<"$doctor_output"
 echo "✓ doctor reports generated commands, skills, and agents"
+
+doctor_json="$(cd "$TMP_DIR" && SPEC_FIRST_VERSION_REMINDER_LATEST="$expected_version" node "$REPO_ROOT/bin/spec-first.js" doctor --claude --json)"
+node - "$doctor_json" <<'EOF'
+const payload = JSON.parse(process.argv[2]);
+if (payload.workflow_runnability !== 'not_verified') {
+  throw new Error(`expected workflow_runnability=not_verified, got ${payload.workflow_runnability}`);
+}
+if (!payload.platform_checks || !Array.isArray(payload.platform_checks.claude)) {
+  throw new Error('missing claude platform_checks');
+}
+if (!['pass', 'warn', 'error'].includes(payload.runtime_asset_health)) {
+  throw new Error(`unexpected runtime_asset_health: ${payload.runtime_asset_health}`);
+}
+EOF
+echo "✓ doctor --json reports layered Claude platform facts"
 
 echo "3a-0. Verify legacy managed state triggers hard reset on init..."
 node - "$TMP_DIR/.claude/spec-first/state.json" <<'EOF'

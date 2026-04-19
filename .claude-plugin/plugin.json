@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "name": "spec-first",
-  "version": "1.5.1",
+  "version": "1.5.4",
   "description": "AI-assisted work framework for Claude Code and Codex with packaged workflow assets",
   "repository": "https://github.com/sunrain520/spec-first.git",
   "directories": {

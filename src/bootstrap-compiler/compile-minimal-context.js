@@ -5,10 +5,39 @@ function deriveContextMeta(factInventory, testSurface) {
     ? factInventory.modules.length : 0;
   const testCount = Array.isArray(testSurface && testSurface.test_files)
     ? testSurface.test_files.length : 0;
+  const entrypointCount = Array.isArray(factInventory && factInventory.entrypoints)
+    ? factInventory.entrypoints.length : 0;
+  const coverageGaps = [];
+
+  if (moduleCount === 0) {
+    coverageGaps.push({
+      field: 'modules',
+      reason: 'empty',
+      impact: 'stage context cannot ground module boundaries from extracted facts',
+    });
+  }
+
+  if (entrypointCount === 0) {
+    coverageGaps.push({
+      field: 'entrypoints',
+      reason: 'empty',
+      impact: 'plan context may miss public API and CLI boundaries',
+    });
+  }
+
+  if (testCount === 0) {
+    coverageGaps.push({
+      field: 'test_files',
+      reason: 'empty',
+      impact: 'work and review context cannot suggest repository-specific tests',
+    });
+  }
+
   return {
     provenance: moduleCount > 0 ? 'fact-inventory' : 'empty-fallback',
     confidence: moduleCount > 0 && testCount > 0 ? 'high'   :
                 moduleCount > 0                  ? 'medium' : 'low',
+    coverage_gaps: coverageGaps,
   };
 }
 

@@ -47,6 +47,59 @@ function unique(array) {
   return [...new Set(array)];
 }
 
+function normalizeDataQuality(manifest) {
+  return typeof (manifest && manifest.data_quality) === 'string' && manifest.data_quality.length > 0
+    ? manifest.data_quality
+    : 'unknown';
+}
+
+function qualityFallbackFor(dataQuality) {
+  if (dataQuality === 'fact-backed') {
+    return { sufficient: true, level: null, reason: null };
+  }
+
+  if (dataQuality === 'partial' || dataQuality === 'mixed') {
+    return { sufficient: false, level: 'L1', reason: `data_quality_${dataQuality.replace(/-/g, '_')}` };
+  }
+
+  if (dataQuality === 'unknown') {
+    return { sufficient: false, level: 'L1', reason: 'legacy_manifest_missing_quality_fields' };
+  }
+
+  if (dataQuality === 'empty') {
+    return { sufficient: false, level: 'L2', reason: 'empty_fact_inventory' };
+  }
+
+  if (dataQuality === 'sample-backed' || dataQuality === 'skeletal') {
+    return { sufficient: false, level: 'L2', reason: `data_quality_${dataQuality.replace(/-/g, '_')}` };
+  }
+
+  return { sufficient: false, level: 'L1', reason: `data_quality_${dataQuality.replace(/-/g, '_')}` };
+}
+
+function readMinimalContextMeta(minimalContextInfo) {
+  if (!minimalContextInfo || !minimalContextInfo.exists) {
+    return {
+      confidence: 'unknown',
+      provenance: 'unknown',
+      coverage_gaps: [],
+    };
+  }
+
+  const minimalContext = safeReadJson(minimalContextInfo.absolutePath);
+  return {
+    confidence: typeof (minimalContext && minimalContext.confidence) === 'string'
+      ? minimalContext.confidence
+      : 'unknown',
+    provenance: typeof (minimalContext && minimalContext.provenance) === 'string'
+      ? minimalContext.provenance
+      : 'unknown',
+    coverage_gaps: Array.isArray(minimalContext && minimalContext.coverage_gaps)
+      ? minimalContext.coverage_gaps
+      : [],
+  };
+}
+
 function evaluateContext({
   stage,
   contextDir,
@@ -115,8 +168,9 @@ function evaluateContext({
 
   const minimalContextPath = preferredMinimalContext(normalizedStage);
   let minimalContextMissing = false;
+  let minimalContextInfo = null;
   if (minimalContextPath) {
-    const minimalContextInfo = findExistingAsset(minimalContextPath, runtimePaths);
+    minimalContextInfo = findExistingAsset(minimalContextPath, runtimePaths);
     if (minimalContextInfo.exists) {
       assets.unshift(minimalContextPath);
     } else {
@@ -128,13 +182,17 @@ function evaluateContext({
 
   const { selectedAssets, estimatedTokens } = trimAssetsToBudget(assets, maxTokens);
   const freshnessStatus = freshness && freshness.status ? freshness.status : 'unknown';
-
-  const qualitySufficient = manifest.data_quality !== 'empty';
-  let level = minimalContextMissing || !qualitySufficient ? 'L1' : 'L0';
-  let fallbackReason = !qualitySufficient        ? 'empty_fact_inventory'    :
-                       minimalContextMissing     ? 'minimal_context_missing' : null;
+  const dataQuality = normalizeDataQuality(manifest);
+  const quality = qualityFallbackFor(dataQuality);
+  const minimalContextMeta = readMinimalContextMeta(minimalContextInfo);
+  let level = quality.sufficient ? 'L0' : quality.level;
+  let fallbackReason = quality.reason || (minimalContextMissing ? 'minimal_context_missing' : null);
+  if (minimalContextMissing && quality.sufficient) {
+    level = 'L1';
+  }
   if (!fallbackReason && freshnessStatus === 'stale') {
     fallbackReason = 'freshness_stale';
+    level = level === 'L0' ? 'L1' : level;
   }
 
   return {
@@ -146,6 +204,10 @@ function evaluateContext({
     fallback_reason: fallbackReason,
     skipped_rules: skippedRules,
     freshness_status: freshnessStatus,
+    data_quality: dataQuality,
+    confidence: minimalContextMeta.confidence,
+    provenance: minimalContextMeta.provenance,
+    coverage_gaps: minimalContextMeta.coverage_gaps,
     advice,
   };
 }

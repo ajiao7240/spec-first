@@ -392,7 +392,7 @@ describe('context-routing evaluator', () => {
     }
   });
 
-  test('data_quality empty -> L1 + empty_fact_inventory（即便 minimal-context 存在）', () => {
+  test('data_quality empty -> L2 + empty_fact_inventory（即便 minimal-context 存在）', () => {
     const fixture = makeRuntimeFixture();
 
     try {
@@ -410,14 +410,15 @@ describe('context-routing evaluator', () => {
         manifest: emptyManifest,
       });
 
-      expect(result.level).toBe('L1');
+      expect(result.level).toBe('L2');
       expect(result.fallback_reason).toBe('empty_fact_inventory');
+      expect(result.data_quality).toBe('empty');
     } finally {
       fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
     }
   });
 
-  test('data_quality fact-backed -> L0（minimal-context 存在时）', () => {
+  test('data_quality fact-backed -> L0 并暴露质量信号（minimal-context 存在时）', () => {
     const fixture = makeRuntimeFixture();
 
     try {
@@ -436,12 +437,16 @@ describe('context-routing evaluator', () => {
 
       expect(result.level).toBe('L0');
       expect(result.fallback_reason).toBeNull();
+      expect(result.data_quality).toBe('fact-backed');
+      expect(result.confidence).toBe('unknown');
+      expect(result.provenance).toBe('unknown');
+      expect(result.coverage_gaps).toEqual([]);
     } finally {
       fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
     }
   });
 
-  test('data_quality partial -> L0（modules 有值无 entrypoints 时仍通过门控）', () => {
+  test('data_quality partial -> L1 + data_quality_partial，不再通过 L0 门控', () => {
     const fixture = makeRuntimeFixture();
 
     try {
@@ -459,14 +464,42 @@ describe('context-routing evaluator', () => {
         manifest: partialManifest,
       });
 
-      expect(result.level).toBe('L0');
-      expect(result.fallback_reason).toBeNull();
+      expect(result.level).toBe('L1');
+      expect(result.fallback_reason).toBe('data_quality_partial');
+      expect(result.data_quality).toBe('partial');
     } finally {
       fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
     }
   });
 
-  test('旧 manifest（缺少 data_quality 字段）向后兼容 -> 仍为 L0，不触发 empty_fact_inventory', () => {
+  test('sample-backed manifest -> L2 + data_quality_sample_backed，不伪装成高可信事实', () => {
+    const fixture = makeRuntimeFixture();
+
+    try {
+      fs.writeFileSync(
+        path.join(fixture.controlPlaneDir, 'minimal-context', 'work.json'),
+        JSON.stringify({ schema_version: 'v1', stage: 'work', fallback_reason: null }, null, 2)
+      );
+
+      const sampleManifest = { ...buildArtifactManifestSample(), data_quality: 'sample-backed' };
+
+      const result = evaluateContext({
+        stage: 'work',
+        contextDir: fixture.contextDir,
+        controlPlaneDir: fixture.controlPlaneDir,
+        routing: buildContextRoutingSample(),
+        manifest: sampleManifest,
+      });
+
+      expect(result.level).toBe('L2');
+      expect(result.fallback_reason).toBe('data_quality_sample_backed');
+      expect(result.data_quality).toBe('sample-backed');
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('旧 manifest（缺少 data_quality 字段）向后兼容为 L1，并显式标出 legacy fallback', () => {
     const fixture = makeRuntimeFixture();
 
     try {
@@ -486,8 +519,9 @@ describe('context-routing evaluator', () => {
         manifest: legacyManifest,
       });
 
-      expect(result.level).toBe('L0');
-      expect(result.fallback_reason).toBeNull();
+      expect(result.level).toBe('L1');
+      expect(result.fallback_reason).toBe('legacy_manifest_missing_quality_fields');
+      expect(result.data_quality).toBe('unknown');
     } finally {
       fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
     }

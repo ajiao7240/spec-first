@@ -57,6 +57,19 @@
     "confidence": {
       "type": "string",
       "enum": ["high", "medium", "low"]
+    },
+    "coverage_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "reason", "impact"],
+        "properties": {
+          "field": { "type": "string" },
+          "reason": { "type": "string" },
+          "impact": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
     }
   }
 }

@@ -101,6 +101,13 @@ const TEST_SURFACE_SAMPLE = {
 const PLAN_MINIMAL_CONTEXT_SAMPLE = {
   provenance: 'fact-inventory',
   confidence: 'medium',
+  coverage_gaps: [
+    {
+      field: 'test_files',
+      reason: 'empty',
+      impact: 'work and review context cannot suggest repository-specific tests',
+    },
+  ],
   schema_version: 'v1',
   generated_at: '2026-04-15T00:00:00.000Z',
   stage: 'plan',
@@ -146,6 +153,7 @@ const PLAN_MINIMAL_CONTEXT_SAMPLE = {
 const WORK_MINIMAL_CONTEXT_SAMPLE = {
   provenance: 'fact-inventory',
   confidence: 'high',
+  coverage_gaps: [],
   schema_version: 'v1',
   generated_at: '2026-04-15T00:00:00.000Z',
   stage: 'work',
@@ -193,6 +201,18 @@ const WORK_MINIMAL_CONTEXT_SAMPLE = {
 const REVIEW_MINIMAL_CONTEXT_SAMPLE = {
   provenance: 'empty-fallback',
   confidence: 'low',
+  coverage_gaps: [
+    {
+      field: 'modules',
+      reason: 'empty',
+      impact: 'stage context cannot ground module boundaries from extracted facts',
+    },
+    {
+      field: 'entrypoints',
+      reason: 'empty',
+      impact: 'plan context may miss public API and CLI boundaries',
+    },
+  ],
   schema_version: 'v1',
   generated_at: '2026-04-15T00:00:00.000Z',
   stage: 'review',

@@ -18,7 +18,7 @@ function runDoctor(argv) {
   }
 
   if (parsed.unknown.length > 0) {
-    console.error('Usage: spec-first doctor [--claude|--codex]');
+    console.error('Usage: spec-first doctor [--claude|--codex] [--json]');
     return 1;
   }
 
@@ -35,20 +35,24 @@ function runDoctor(argv) {
   }
 
   if (platforms.length === 0) {
+    if (parsed.json) {
+      printDoctorJson(buildDoctorReport({ projectRoot, platforms }));
+      return 0;
+    }
+
     console.log('No spec-first platform detected in this project.');
     console.log('Run `spec-first init --claude` or `spec-first init --codex` to initialize.');
     return 0;
   }
 
-  // 通用检查
-  const commonChecks = [
-    checkNodeVersion(),
-    checkGit(),
-    checkPluginManifest(),
-    checkCrgNativeModules(),
-  ];
+  const report = buildDoctorReport({ projectRoot, platforms });
 
-  for (const check of commonChecks) {
+  if (parsed.json) {
+    printDoctorJson(report);
+    return report.has_error ? 1 : 0;
+  }
+
+  for (const check of report.common_checks) {
     const label = check.level.toUpperCase().padEnd(7);
     console.log(`${label} ${check.name}: ${check.message}`);
     if (check.fix) {
@@ -57,26 +61,11 @@ function runDoctor(argv) {
   }
 
   // 平台特定检查
-  let hasError = commonChecks.some((check) => check.level === 'ERROR');
+  let hasError = report.has_error;
 
   for (const platform of platforms) {
     console.log(`\n=== ${platform.toUpperCase()} Platform ===`);
-    const adapter = getAdapter(platform);
-    const runtimeChecks = adapter.inspectRuntimeFiles(projectRoot);
-    const platformChecks = [
-      checkPlatformCli(platform),
-      checkProjectDeveloper(projectRoot, adapter),
-      checkManagedState(projectRoot, adapter),
-      checkInstructionBootstrap(projectRoot, adapter),
-      ...runtimeChecks,
-      ...buildHostSpecificChecks(projectRoot, adapter),
-      checkInstalledSkills(projectRoot, adapter),
-      checkInstalledAgents(projectRoot, adapter),
-      checkInstalledAgentSupportFiles(projectRoot, adapter),
-    ];
-    if (adapter.hasCommands) {
-      platformChecks.splice(3 + runtimeChecks.length, 0, checkGeneratedCommands(projectRoot, adapter));
-    }
+    const platformChecks = report.platform_checks[platform] || [];
 
     for (const check of platformChecks) {
       const label = check.level.toUpperCase().padEnd(7);
@@ -377,6 +366,105 @@ function checkCrgNativeModules() {
   };
 }
 
+function buildDoctorReport({ projectRoot, platforms }) {
+  const commonChecks = [
+    checkNodeVersion(),
+    checkGit(),
+    checkPluginManifest(),
+    checkCrgNativeModules(),
+  ];
+  const platformChecksByPlatform = {};
+  const runtimeChecksByPlatform = {};
+  const hostChecksByPlatform = {};
+
+  for (const platform of platforms) {
+    const adapter = getAdapter(platform);
+    const platformCliCheck = checkPlatformCli(platform);
+    const runtimeFileChecks = adapter.inspectRuntimeFiles(projectRoot);
+    const commandChecks = adapter.hasCommands ? [checkGeneratedCommands(projectRoot, adapter)] : [];
+    const hostSpecificChecks = buildHostSpecificChecks(projectRoot, adapter);
+    const coreRuntimeChecks = [
+      checkProjectDeveloper(projectRoot, adapter),
+      checkManagedState(projectRoot, adapter),
+      checkInstructionBootstrap(projectRoot, adapter),
+      ...runtimeFileChecks,
+      ...commandChecks,
+    ];
+    const inventoryChecks = [
+      checkInstalledSkills(projectRoot, adapter),
+      checkInstalledAgents(projectRoot, adapter),
+      checkInstalledAgentSupportFiles(projectRoot, adapter),
+    ];
+    const runtimeChecks = [
+      ...coreRuntimeChecks,
+      ...inventoryChecks,
+    ];
+    const hostChecks = [
+      platformCliCheck,
+      ...hostSpecificChecks,
+    ];
+
+    runtimeChecksByPlatform[platform] = runtimeChecks;
+    hostChecksByPlatform[platform] = hostChecks;
+    platformChecksByPlatform[platform] = [
+      platformCliCheck,
+      ...coreRuntimeChecks,
+      ...hostSpecificChecks,
+      ...inventoryChecks,
+    ];
+  }
+
+  const installHealth = summarizeChecks(commonChecks);
+  const runtimeAssetHealth = platforms.length === 0
+    ? 'not_applicable'
+    : summarizeChecks(Object.values(runtimeChecksByPlatform).flat());
+  const hostReadiness = platforms.length === 0
+    ? 'not_applicable'
+    : summarizeChecks(Object.values(hostChecksByPlatform).flat());
+  const allChecks = [
+    ...commonChecks,
+    ...Object.values(platformChecksByPlatform).flat(),
+  ];
+
+  return {
+    schema_version: 'v1',
+    platforms,
+    install_health: installHealth,
+    runtime_asset_health: runtimeAssetHealth,
+    host_readiness: hostReadiness,
+    decision_input_health: 'not_checked',
+    workflow_runnability: 'not_verified',
+    common_checks: commonChecks,
+    platform_checks: platformChecksByPlatform,
+    checks: allChecks,
+    warnings: allChecks.filter((check) => check.level === 'WARNING'),
+    has_error: allChecks.some((check) => check.level === 'ERROR'),
+  };
+}
+
+function summarizeChecks(checks) {
+  if (!Array.isArray(checks) || checks.length === 0) return 'not_applicable';
+  if (checks.some((check) => check.level === 'ERROR')) return 'error';
+  if (checks.some((check) => check.level === 'WARNING')) return 'warn';
+  return 'pass';
+}
+
+function printDoctorJson(report) {
+  console.log(JSON.stringify({
+    schema_version: report.schema_version,
+    platforms: report.platforms,
+    install_health: report.install_health,
+    runtime_asset_health: report.runtime_asset_health,
+    host_readiness: report.host_readiness,
+    decision_input_health: report.decision_input_health,
+    workflow_runnability: report.workflow_runnability,
+    checks: report.checks,
+    common_checks: report.common_checks,
+    platform_checks: report.platform_checks,
+    warnings: report.warnings,
+  }, null, 2));
+}
+
 function checkProjectDeveloper(projectRoot, adapter) {
   const developerPath = getProjectDeveloperPath(projectRoot, adapter);
   if (!fs.existsSync(developerPath)) {
@@ -531,7 +619,7 @@ function buildHostSpecificChecks(projectRoot, adapter) {
 }
 
 function printHelp() {
-  console.log('Usage: spec-first doctor [--claude|--codex]');
+  console.log('Usage: spec-first doctor [--claude|--codex] [--json]');
 }
 
 function detectPlatforms(projectRoot) {
@@ -546,6 +634,7 @@ function parseDoctorArgs(argv) {
     help: false,
     claude: false,
     codex: false,
+    json: false,
     unknown: [],
   };
 
@@ -556,6 +645,8 @@ function parseDoctorArgs(argv) {
       parsed.claude = true;
     } else if (arg === '--codex') {
       parsed.codex = true;
+    } else if (arg === '--json') {
+      parsed.json = true;
     } else {
       parsed.unknown.push(arg);
     }

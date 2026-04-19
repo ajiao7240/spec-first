@@ -31,7 +31,12 @@ fs.writeFileSync(path.join(repoRoot, 'package.json'), JSON.stringify({
   name: 'bootstrap-e2e-fixture',
   version: '1.0.0',
   type: 'commonjs',
+  bin: {
+    'bootstrap-e2e-fixture': './bin/bootstrap-e2e-fixture.js',
+  },
 }, null, 2));
+fs.mkdirSync(path.join(repoRoot, 'bin'), { recursive: true });
+fs.writeFileSync(path.join(repoRoot, 'bin', 'bootstrap-e2e-fixture.js'), '#!/usr/bin/env node\n');
 fs.writeFileSync(path.join(repoRoot, 'src', 'index.js'), [
   '\'use strict\';',
   '',
@@ -43,7 +48,7 @@ fs.writeFileSync(path.join(repoRoot, 'src', 'index.js'), [
   '',
 ].join('\n'));
 execFileSync('git', ['init'], { cwd: repoRoot, stdio: 'ignore' });
-execFileSync('git', ['add', 'package.json', 'src/index.js'], { cwd: repoRoot, stdio: 'ignore' });
+execFileSync('git', ['add', 'package.json', 'bin/bootstrap-e2e-fixture.js', 'src/index.js'], { cwd: repoRoot, stdio: 'ignore' });
 
 const result = runBootstrap({ repoRoot, generatedAt });
 if (result.status !== 'complete') {

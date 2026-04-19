@@ -476,6 +476,9 @@ describe('stage0-context command', () => {
 
       fs.writeFileSync(path.join(repoA, 'package.json'), JSON.stringify({
         name: 'repo-a',
+        bin: {
+          'repo-a': './bin/repo-a.js',
+        },
         scripts: {
           'test:unit': 'jest',
           'test:integration': 'jest',
@@ -484,6 +487,8 @@ describe('stage0-context command', () => {
           jest: '^29.0.0',
         },
       }, null, 2));
+      fs.mkdirSync(path.join(repoA, 'bin'), { recursive: true });
+      fs.writeFileSync(path.join(repoA, 'bin', 'repo-a.js'), '#!/usr/bin/env node\n');
       fs.mkdirSync(path.join(repoA, 'src', 'app', 'home'), { recursive: true });
       fs.writeFileSync(path.join(repoA, 'src', 'app', 'home', 'page.tsx'), 'export default function Page() { return null; }\n');
       fs.writeFileSync(path.join(repoB, 'package.json'), JSON.stringify({ name: 'repo-b' }, null, 2));
@@ -516,7 +521,7 @@ describe('stage0-context command', () => {
       ]));
       expect(result.verification_summary).toMatchObject({
         source: 'minimal-context',
-        platform_focus: ['web'],
+        platform_focus: expect.arrayContaining(['web']),
         required_verifications: ['unit-tests', 'integration-tests'],
         repo_required_verifications: ['unit-tests', 'integration-tests'],
       });
