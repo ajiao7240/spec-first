@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.2 2026-04-19 17:45:00 矿工: chore(release): 进入 `git-npm` 真实发布路径并将包版本提升到 `1.5.2`
 - v1.5.1 2026-04-19 17:30:00 矿工: fix(release): 对齐 `git-npm` skill 的版本类型契约，`release:publish` 现支持 `auto|patch|minor|major` 解析并在真实发布时写入 `package.json` 版本 (user-visible)
 - v1.5.1 2026-04-19 17:20:00 矿工: feat(release): 为当前 CommonJS npm CLI 结构恢复 `release:publish` 发布入口，复用 `test:release` + `npm pack` 完成 dry-run/真实发布前置链路 (user-visible)
 - v1.5.1 2026-04-19 16:50:00 矿工: refactor(stage0): 删除 `spec-bootstrap` workflow 及其 Claude command template，收口 using-spec-first / governance / plugin / smoke / active docs 到 `spec-graph-bootstrap` 与 `spec-compound` 新入口事实 (user-visible)

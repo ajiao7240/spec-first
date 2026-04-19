@@ -17,6 +17,7 @@ bash tests/unit/lang-policy.sh   # 单独验证语言策略注入逻辑
 bash tests/unit/mcp-setup.sh     # 单独验证 mcp-setup skill 脚本和配置
 npm pack                          # 发布前构建 tarball
 pnpm run release:publish -- auto --dry-run   # 按 git-npm 契约执行发布预演（支持 auto|patch|minor|major）
+pnpm run release:publish -- auto             # 真实发布时会先提升 package.json version，再跑发布校验与 npm publish
 ```
 
 ## 架构
