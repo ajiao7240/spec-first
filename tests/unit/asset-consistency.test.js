@@ -112,6 +112,17 @@ const HIGH_RISK_SKILL_ANCHORS = [
     ],
   },
   {
+    skillName: 'spec-compound',
+    sourcePath: 'skills/spec-compound/SKILL.md',
+    mirrorPath: 'docs/10-prompt/skills/spec-compound/SKILL.md',
+    anchors: [
+      'single durable file',
+      'Human Summary',
+      'LLM Reuse Context',
+      'Do not create a second durable artifact',
+    ],
+  },
+  {
     skillName: 'spec-debug',
     sourcePath: 'skills/spec-debug/SKILL.md',
     mirrorPath: 'docs/10-prompt/skills/spec-debug/SKILL.md',

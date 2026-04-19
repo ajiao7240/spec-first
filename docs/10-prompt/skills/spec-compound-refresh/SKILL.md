@@ -9,6 +9,8 @@ disable-model-invocation: true
 
 Maintain the quality of `docs/solutions/` over time. This workflow reviews existing learnings against the current codebase, then refreshes any derived pattern docs that depend on them.
 
+`docs/solutions/*.md` remains the same durable file for both human-facing and machine-facing reuse. When a learning contains `Human Summary` and `LLM Reuse Context`, keep both views in that same durable file. Do not create a second durable artifact just to hold the LLM-facing view.
+
 ## Mode Detection
 
 Check if `$ARGUMENTS` contains `mode:autofix`. If present, strip it from arguments (use the remainder as a scope hint) and run in **autofix mode**.
@@ -163,6 +165,7 @@ A learning has several dimensions that can independently go stale. Surface-level
 - **References** — do the file paths, class names, and modules it mentions still exist or have they moved?
 - **Recommended solution** — does the fix still match how the code actually works today? A renamed file with a completely different implementation pattern is not just a path update.
 - **Code examples** — if the learning includes code snippets, do they still reflect the current implementation?
+- **Human Summary / LLM Reuse Context** — if those sections exist, do they still match the underlying learning, current code touchpoints, reusable patterns, and provenance? Missing these sections in older docs is not an error; add or refresh them when you already have enough evidence to do so honestly.
 - **Related docs** — are cross-referenced learnings and patterns still present and consistent?
 - **Auto memory** — does the auto memory directory contain notes in the same problem domain? Read MEMORY.md from the auto memory directory (the path is known from the system prompt context). If it does not exist or is empty, skip this dimension. A memory note describing a different approach than what the learning recommends is a supplementary drift signal.
 - **Passive quality feedback** — if `.spec-first/workflows/quality-gates/ai-dev-quality-gate/quality-feedback-topics.json` exists, read `candidate_topics` as a supplementary drift signal only. Use matching `summary / scope_hint / artifact_paths / evidence_refs` to narrow investigation, but do not treat it as primary truth, an automatic refresh queue, or workflow state.

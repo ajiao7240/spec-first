@@ -6,6 +6,7 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-20 | feat | `spec-compound-dual-view` | 为 `spec-compound` / `spec-compound-refresh` 增加 `Human Summary + LLM Reuse Context` 单文件双视角 contract，保持 `docs/solutions/` 仍是唯一持久化目录；同时让 `learnings-researcher` 和 prompt mirror 直接消费这层结构，把“人类汇报视图”和“LLM 检索复用视图”统一收敛到同一份事实文档里 |
 | 2026-04-20 | feat | `spec-review-three-axis-verdict` | 为 `spec-review` 增加 `Requirement Completion / Plan-Diff Fidelity / Code Intrinsic Quality` 三轴聚合视图，并明确 explicit/inferred/missing plan 的条件式输出，让 review 更快回答“需求做完没、实现偏计划没、代码本身质量如何” |
 | 2026-04-19 | feat | `spec-work-run-artifact-contract` | 为 `spec-work` 增加 machine-truth `run.json` schema、可选 `closure-summary.md` 投影，以及 `spec-review` 消费上游 work artifact 的显式 handoff contract；先固定结构化闭环语义，不急着引入更重的 runtime 编排 |
 | 2026-04-19 | feat | `sdd-riper-light-contracts-u1-u2` | 为 `spec-brainstorm/spec-plan/spec-work/spec-work-beta/spec-debug/spec-review` 引入轻量 loop anchors 与 freshness-driven reload contract：在关键节点复述当前理解 / 核心目标 / done evidence，并在 Stage-0 stale/partial/fallback 时先补读事实再动作，减少长会话偏航和旧上下文误判 |

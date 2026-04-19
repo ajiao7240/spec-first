@@ -68,6 +68,17 @@ If the user says yes, dispatch the Session Historian in Phase 1. If no, skip it.
 Phase 1 subagents return TEXT DATA to the orchestrator. They must NOT use Write, Edit, or create any files. Only the orchestrator writes files: the solution doc in Phase 2, and — if the Discoverability Check finds a gap — a small edit to a project instruction file (`AGENTS.md` or `CLAUDE.md`). The instruction-file edit is maintenance, not a second deliverable; it ensures future agents can discover the knowledge store.
 </critical_requirement>
 
+### Durable Output Contract
+
+The solution doc is a **single durable file** under `docs/solutions/`. Do not create a second durable artifact, sidecar machine file, or parallel archive root.
+
+Every new or replacement learning should carry two stable views in that same durable file:
+
+- **Human Summary** — concise handoff/reporting view covering outcome, key decisions, validation/result, and remaining risks
+- **LLM Reuse Context** — retrieval/reuse view covering constraints, touched interfaces or code touchpoints, reusable patterns, anti-patterns, and provenance
+
+Older learnings may not yet contain these sections. Treat missing dual-view sections as an upgrade opportunity when editing, not as a schema error.
+
 ### Phase 0.5: Auto Memory Scan
 
 Before launching Phase 1 subagents, check the auto memory directory for notes relevant to the problem being documented.
@@ -158,6 +169,12 @@ Launch research subagents. Each returns text data to the orchestrator.
    - **When to Apply**: Conditions or situations where this applies
    - **Examples**: Concrete before/after or usage examples showing the practice in action
 
+   **Dual-view sections for every track:**
+
+   - **Human Summary**: outcome, key decisions, validation/result, and remaining risks
+   - **LLM Reuse Context**: constraints, code touchpoints, reusable patterns, anti-patterns, and provenance
+   - When evidence for part of the LLM-facing view is unavailable, say so explicitly instead of inventing detail
+
 #### 3. **Related Docs Finder**
    - Searches `docs/solutions/` for related documentation
    - Identifies cross-references and links
@@ -230,7 +247,7 @@ The orchestrating agent (main conversation) performs these steps:
 
    The reason to update rather than create: two docs describing the same problem and solution will inevitably drift apart. The newer context is fresher and more trustworthy, so fold it into the existing doc rather than creating a second one that immediately needs consolidation.
 
-   When updating an existing doc, preserve its file path and frontmatter structure. Update the solution, code examples, prevention tips, and any stale references. Add a `last_updated: YYYY-MM-DD` field to the frontmatter. Do not change the title unless the problem framing has materially shifted.
+   When updating an existing doc, preserve its file path and frontmatter structure. Update the solution, code examples, prevention tips, and any stale references. Add a `last_updated: YYYY-MM-DD` field to the frontmatter. Do not change the title unless the problem framing has materially shifted. Keep `Human Summary` and `LLM Reuse Context` in the same durable file rather than splitting them into separate artifacts.
 
 3. **Incorporate session history findings** (if available). When the Session History Researcher returned relevant prior-session context:
    - Fold investigation dead ends and failed approaches into the **What Didn't Work** section (bug track) or **Context** section (knowledge track)
@@ -238,9 +255,12 @@ The orchestrating agent (main conversation) performs these steps:
    - Tag session-sourced content with `(session history)` so its origin is clear to future readers
    - If findings are thin or "no relevant prior sessions," proceed without session context
 4. Assemble complete markdown file from the collected pieces, reading `assets/resolution-template.md` for the section structure of new docs
-5. Validate YAML frontmatter against `references/schema.yaml`
-6. Create directory if needed: `mkdir -p docs/solutions/[category]/`
-7. Write the file: either the updated existing doc or the new `docs/solutions/[category]/[filename].md`
+5. Ensure the final doc contains both `Human Summary` and `LLM Reuse Context` sections in the same durable file. Do not create a second durable artifact for the LLM-facing view
+6. In `LLM Reuse Context`, prefer repo-factual details: constraints, code touchpoints, reusable patterns, anti-patterns, and provenance references to plans, diffs, verifiers, issues, or session history when available
+7. If any part of the LLM-facing view is unknown from current evidence, say that directly instead of guessing
+8. Validate YAML frontmatter against `references/schema.yaml`
+9. Create directory if needed: `mkdir -p docs/solutions/[category]/`
+10. Write the file: either the updated existing doc or the new `docs/solutions/[category]/[filename].md`
 
 When creating a new doc, preserve the section order from `assets/resolution-template.md` unless the user explicitly asks for a different structure.
 

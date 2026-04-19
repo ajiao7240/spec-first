@@ -114,6 +114,15 @@ Only for files that pass the filter (strong or moderate matches), read the compl
 - Prevention guidance
 - Code examples
 
+### Step 6b: Dual-View Sections When Present
+
+If a doc contains `## Human Summary` or `## LLM Reuse Context`, use them as retrieval accelerators after reading the core learning:
+
+- `## Human Summary` helps extract the fastest accurate view of outcome, key decisions, validation/result, and remaining risks
+- `## LLM Reuse Context` helps extract reusable constraints, code touchpoints, patterns, anti-patterns, and provenance
+
+Missing these sections is not an error for older docs. Fall back to the track-specific sections when they are absent.
+
 ### Step 7: Return Distilled Summaries
 
 For each relevant document, return a summary in this format:

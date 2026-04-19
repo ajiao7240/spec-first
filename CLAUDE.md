@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概览
 
-`spec-first` 是一个 Node.js CLI 工具，将 workflow 资产（skills、agents、commands）安装并管理到用户项目的 `.claude/` 或 `.codex/` 目录中。源码在 `src/cli/`，可发布资产在 `skills/`、`agents/`、`templates/`，生成的运行时副本（`.claude/`、`.codex/`）是输出，不是源码。`docs/solutions/` 存放按分类组织的问题解决文档与 workflow patterns，带 YAML frontmatter（如 `module`、`tags`、`problem_type`）；在已覆盖的领域做实现、排障或决策时，应优先检索这里。
+`spec-first` 是一个 Node.js CLI 工具，将 workflow 资产（skills、agents、commands）安装并管理到用户项目的 `.claude/` 或 `.codex/` 目录中。源码在 `src/cli/`，可发布资产在 `skills/`、`agents/`、`templates/`，生成的运行时副本（`.claude/`、`.codex/`）是输出，不是源码。`docs/solutions/` 存放按分类组织的问题解决文档与 workflow patterns，带 YAML frontmatter（如 `module`、`tags`、`problem_type`）；在已覆盖的领域做实现、排障或决策时，应优先检索这里。新生成或替换的 compound learning 采用单文件双视角 contract：同一份 `docs/solutions/*.md` 内同时维护 `Human Summary` 与 `LLM Reuse Context`，不新增第二份持久化归档。
 
 ## 开发命令
 

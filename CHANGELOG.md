@@ -9,6 +9,7 @@
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
 - v1.5.4 2026-04-20 00:09:09 Codex: feat(spec-review-verdict): 为 `spec-review` 增加 `Requirement Completion / Plan-Diff Fidelity / Code Intrinsic Quality` 三轴 verdict 视图，区分 explicit/inferred/missing plan 语义，并同步更新输出模板与回归测试 (user-visible)
+- v1.5.4 2026-04-20 00:45:00 Codex: feat(spec-compound-dual-view): 为 `spec-compound` / `spec-compound-refresh` 引入 `Human Summary + LLM Reuse Context` 单文件双视角 contract，保持 `docs/solutions/` 为唯一持久化目录，并让 `learnings-researcher` / prompt mirror / 资产一致性测试同步消费该结构 (user-visible)
 - v1.5.4 2026-04-19 23:50:32 Codex: feat(spec-work-artifact): 为 `spec-work` 增加 run artifact schema、`run.json` / `closure-summary.md` prompt contract、显式 `work_run` / `work_artifact_dir` handoff 语义，并让 `spec-review` 支持消费上游 work artifact 上下文 (user-visible)
 - v1.5.4 2026-04-19 23:24:36 Codex: feat(workflow-contracts): 为 spec-brainstorm/spec-plan/spec-work/spec-work-beta/spec-debug/spec-review 收口 sdd-riper 轻量锚点与 Stage-0 stale/partial 补读 contract，同步更新 prompt mirror 与回归测试 (user-visible)
 - v1.5.4 2026-04-19 22:10:00 Codex: feat(cli-safety): 为 `init` / `clean` 增加 `--dry-run` 预览与 managed boundary 输出，资产一致性升级为高风险 contract anchor 守卫，并将 `doctor --json` 的 workflow runnability 扩展为 `not_verified/simulated/verified` + basis 依据，同时补充 unit/smoke 覆盖 (user-visible)

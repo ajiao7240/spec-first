@@ -44,6 +44,35 @@ tags: [keyword-one, keyword-two]
 ## Prevention
 - [Concrete practice, test, or guardrail]
 
+## Human Summary
+### Outcome
+[What changed, what was fixed, or what guidance now applies]
+
+### Key Decisions
+- [Decision and why it mattered]
+
+### Validation / Result
+- [Verifier, test, review, or observable result]
+
+### Remaining Risks
+- [Known gap, follow-up, or "None currently identified"]
+
+## LLM Reuse Context
+### Constraints
+- [Boundary, invariant, or assumption future agents must respect]
+
+### Code Touchpoints
+- `[path/to/file]` — [why it matters]
+
+### Patterns to Reuse
+- [Reusable pattern or workflow move]
+
+### Anti-patterns to Avoid
+- [Common trap, false lead, or invalid shortcut]
+
+### Provenance
+- [Plan, diff, verifier, issue, session history, or other source]
+
 ## Related Issues
 - [Related docs or issues, if any]
 ```
@@ -84,6 +113,35 @@ tags: [keyword-one, keyword-two]
 
 ## Examples
 [Concrete before/after or usage examples showing the practice in action]
+
+## Human Summary
+### Outcome
+[What changed, what guidance was added, or what behavior was clarified]
+
+### Key Decisions
+- [Decision and why it mattered]
+
+### Validation / Result
+- [Verifier, review, or observable result]
+
+### Remaining Risks
+- [Known gap, follow-up, or "None currently identified"]
+
+## LLM Reuse Context
+### Constraints
+- [Boundary, invariant, or assumption future agents must respect]
+
+### Code Touchpoints
+- `[path/to/file]` — [why it matters]
+
+### Patterns to Reuse
+- [Reusable pattern or workflow move]
+
+### Anti-patterns to Avoid
+- [Common trap, false lead, or invalid shortcut]
+
+### Provenance
+- [Plan, diff, verifier, issue, session history, or other source]
 
 ## Related
 - [Related docs or issues, if any]
