@@ -62,6 +62,9 @@ if (telemetryRecord.stage !== 'review') {
 }
 
 const requiredArtifacts = [
+  path.join(result.controlPlaneDir, 'fact-inventory.json'),
+  path.join(result.controlPlaneDir, 'risk-signals.json'),
+  path.join(result.controlPlaneDir, 'test-surface.json'),
   path.join(result.controlPlaneDir, 'context-routing.json'),
   path.join(result.controlPlaneDir, 'artifact-manifest.json'),
   path.join(result.controlPlaneDir, 'freshness.json'),
@@ -73,6 +76,11 @@ for (const artifactPath of requiredArtifacts) {
   if (!fs.existsSync(artifactPath)) {
     throw new Error(`missing artifact: ${artifactPath}`);
   }
+}
+
+const readme = fs.readFileSync(path.join(result.contextDir, 'README.md'), 'utf8');
+if (!readme.includes('source_of_truth')) {
+  throw new Error('generated README did not include control-plane source_of_truth hint');
 }
 
 console.log('bootstrap mainline verified');

@@ -17,7 +17,28 @@ const WORKSPACE_MATCH_SIGNAL_PRIORITY = [
 
 function normalizeAbsolutePath(value) {
   if (typeof value !== 'string' || value.trim() === '') return null;
-  return path.resolve(value);
+  const resolved = path.resolve(value);
+  try {
+    return fs.realpathSync.native ? fs.realpathSync.native(resolved) : fs.realpathSync(resolved);
+  } catch (_error) {
+    let probe = resolved;
+    while (probe && !fs.existsSync(probe)) {
+      const parent = path.dirname(probe);
+      if (parent === probe) break;
+      probe = parent;
+    }
+
+    if (!probe || !fs.existsSync(probe)) {
+      return resolved;
+    }
+
+    try {
+      const canonicalProbe = fs.realpathSync.native ? fs.realpathSync.native(probe) : fs.realpathSync(probe);
+      return path.join(canonicalProbe, path.relative(probe, resolved));
+    } catch (_innerError) {
+      return resolved;
+    }
+  }
 }
 
 function detectGitRoot(startPath) {
@@ -121,9 +142,10 @@ function chooseMatchedChildren({ registry, routing, repoRoots = [], targetPath, 
 
   function matchPath(candidate) {
     if (typeof candidate !== 'string' || candidate.trim() === '') return [];
-    const resolved = anchor
+    const resolved = normalizeAbsolutePath(anchor
       ? path.resolve(anchor, candidate)
-      : path.resolve(candidate);
+      : path.resolve(candidate));
+    if (!resolved) return [];
     for (const child of byPrefix) {
       if (resolved === child.repoRoot || resolved.startsWith(`${child.repoRoot}${path.sep}`)) {
         return [child.childSlug];
@@ -153,54 +175,13 @@ function chooseMatchedChildren({ registry, routing, repoRoots = [], targetPath, 
   return { matchedChildSlugs: [], matchReason: 'default' };
 }
 
-function resolveStage0Entry({ cwd, target, repoRoots = [], changedFiles = [] } = {}) {
-  const normalizedRepoRoots = repoRoots.map(normalizeAbsolutePath).filter(Boolean);
-  if (normalizedRepoRoots.length > 0) {
-    const workspaceRoot = normalizeAbsolutePath(cwd || target || normalizedRepoRoots[0]);
-    return {
-      mode: 'workspace-explicit',
-      reason: 'explicit-repo-roots',
-      workspaceRoot,
-      workspaceSlug: workspaceRoot ? path.basename(workspaceRoot) : null,
-      artifactAnchorRoot: workspaceRoot,
-      repoRoots: normalizedRepoRoots,
-      matchedChildSlugs: normalizedRepoRoots.map((repoRoot) => path.basename(repoRoot)),
-      fallbackReason: null,
-      workspace: null,
-    };
-  }
-
-  const probeRoot = normalizeAbsolutePath(target || cwd);
-  const gitRoot = detectGitRoot(probeRoot);
-  if (gitRoot) {
-    return {
-      mode: 'single-repo',
-      reason: 'git-root',
-      workspaceRoot: gitRoot,
-      workspaceSlug: path.basename(gitRoot),
-      artifactAnchorRoot: gitRoot,
-      repoRoots: [gitRoot],
-      matchedChildSlugs: [path.basename(gitRoot)],
-      fallbackReason: null,
-      workspace: null,
-    };
-  }
-
-  const workspaceCandidate = findWorkspaceCandidate(probeRoot);
-  if (!workspaceCandidate) {
-    return {
-      mode: 'fallback',
-      reason: 'fallback',
-      workspaceRoot: probeRoot,
-      workspaceSlug: probeRoot ? path.basename(probeRoot) : null,
-      artifactAnchorRoot: probeRoot,
-      repoRoots: [],
-      matchedChildSlugs: [],
-      fallbackReason: 'context_dir_missing',
-      workspace: null,
-    };
-  }
-
+function buildRegisteredWorkspaceEntry({
+  workspaceCandidate,
+  normalizedRepoRoots = [],
+  target,
+  cwd,
+  changedFiles = [],
+} = {}) {
   const registry = safeReadJson(workspaceCandidate.registryPath);
   const registryState = validateWorkspaceRegistry(registry);
   const routing = safeReadJson(workspaceCandidate.routingPath);
@@ -263,6 +244,75 @@ function resolveStage0Entry({ cwd, target, repoRoots = [], changedFiles = [] } =
   };
 }
 
+function resolveStage0Entry({ cwd, target, repoRoots = [], changedFiles = [] } = {}) {
+  const normalizedRepoRoots = repoRoots.map(normalizeAbsolutePath).filter(Boolean);
+  if (normalizedRepoRoots.length > 0) {
+    const probeRoot = normalizeAbsolutePath(target || cwd || normalizedRepoRoots[0]);
+    const workspaceCandidate = findWorkspaceCandidate(probeRoot);
+    if (workspaceCandidate) {
+      return buildRegisteredWorkspaceEntry({
+        workspaceCandidate,
+        normalizedRepoRoots,
+        target,
+        cwd,
+        changedFiles,
+      });
+    }
+
+    const workspaceRoot = normalizeAbsolutePath(cwd || target || normalizedRepoRoots[0]);
+    return {
+      mode: 'workspace-explicit',
+      reason: 'explicit-repo-roots',
+      workspaceRoot,
+      workspaceSlug: workspaceRoot ? path.basename(workspaceRoot) : null,
+      artifactAnchorRoot: workspaceRoot,
+      repoRoots: normalizedRepoRoots,
+      matchedChildSlugs: normalizedRepoRoots.map((repoRoot) => path.basename(repoRoot)),
+      fallbackReason: null,
+      workspace: null,
+    };
+  }
+
+  const probeRoot = normalizeAbsolutePath(target || cwd);
+  const workspaceCandidate = findWorkspaceCandidate(probeRoot);
+  if (workspaceCandidate) {
+    return buildRegisteredWorkspaceEntry({
+      workspaceCandidate,
+      normalizedRepoRoots,
+      target,
+      cwd,
+      changedFiles,
+    });
+  }
+
+  const gitRoot = detectGitRoot(probeRoot);
+  if (gitRoot) {
+    return {
+      mode: 'single-repo',
+      reason: 'git-root',
+      workspaceRoot: gitRoot,
+      workspaceSlug: path.basename(gitRoot),
+      artifactAnchorRoot: gitRoot,
+      repoRoots: [gitRoot],
+      matchedChildSlugs: [path.basename(gitRoot)],
+      fallbackReason: null,
+      workspace: null,
+    };
+  }
+
+  return {
+    mode: 'fallback',
+    reason: 'fallback',
+    workspaceRoot: probeRoot,
+    workspaceSlug: probeRoot ? path.basename(probeRoot) : null,
+    artifactAnchorRoot: probeRoot,
+    repoRoots: [],
+    matchedChildSlugs: [],
+    fallbackReason: 'context_dir_missing',
+    workspace: null,
+  };
+}
+
 function loadChildRuntimeStates({ workspaceRoot, matchedChildSlugs = [], registry } = {}) {
   if (!workspaceRoot || !registry || !Array.isArray(registry.children)) return [];
   const wanted = new Set(matchedChildSlugs);
@@ -290,6 +340,7 @@ module.exports = {
   loadChildRuntimeStates,
   normalizeAbsolutePath,
   resolveStage0Entry,
+  buildRegisteredWorkspaceEntry,
   validateWorkspaceRegistry,
   validateWorkspaceRouting,
 };

@@ -431,6 +431,60 @@ describe('workspace context', () => {
     }
   });
 
+  test('registered workspace 中显式单 child repo 仍保持 workspace shape，并使用 child 的 runtime contract', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-context-single-child-'));
+    const workspaceRoot = path.join(tmpDir, 'workspace');
+    const repoA = path.join(workspaceRoot, 'packages', 'repo-a');
+    const repoB = path.join(workspaceRoot, 'packages', 'repo-b');
+
+    try {
+      fs.mkdirSync(path.join(repoA, '.git'), { recursive: true });
+      fs.mkdirSync(path.join(repoB, '.git'), { recursive: true });
+      fs.mkdirSync(path.join(repoA, 'src', 'app', 'home'), { recursive: true });
+      fs.writeFileSync(path.join(repoA, 'package.json'), JSON.stringify({
+        name: 'repo-a',
+        scripts: {
+          'test:unit': 'jest',
+          'test:integration': 'jest',
+        },
+      }, null, 2));
+      fs.writeFileSync(path.join(repoA, 'src', 'app', 'home', 'page.tsx'), 'export default function Page() { return null; }\n');
+      fs.writeFileSync(path.join(repoB, 'package.json'), JSON.stringify({ name: 'repo-b' }, null, 2));
+
+      runBootstrap({
+        repoRoot: workspaceRoot,
+        generatedAt: '2026-04-17T00:00:00.000Z',
+        repoRoots: [repoA, repoB],
+      });
+
+      const compiled = compileWorkspaceContext({
+        repoRoots: [repoA],
+        stage: 'work',
+        cwd: workspaceRoot,
+        target: repoA,
+        changedFiles: [path.join(repoA, 'src', 'app', 'home', 'page.tsx')],
+      });
+
+      expect(compiled.mode).toBe('workspace');
+      expect(compiled.workspace_slug).toBe(path.basename(workspaceRoot));
+      expect(compiled.matched_child_slugs).toEqual(['packages-repo-a']);
+      expect(compiled.selected_assets).toContain('packages-repo-a:minimal-context/work.json');
+      expect(compiled.selected_assets).not.toContain('pitfalls/index.md');
+      expect(compiled.verification_summary).toMatchObject({
+        stage: 'work',
+        source: 'change-surface',
+        platform_focus: ['web'],
+        impacted_modules: ['src/app/'],
+        impacted_languages: ['typescript'],
+        impacted_platforms: ['web'],
+        required_verifications: ['unit-tests', 'integration-tests'],
+        repo_required_verifications: ['unit-tests', 'integration-tests'],
+      });
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   test('workspace root 未命中 child repo 时只返回 workspace overview', () => {
     const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-context-root-'));
     const repoA = path.join(workspaceRoot, 'packages', 'repo-a');

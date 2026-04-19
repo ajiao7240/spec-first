@@ -89,6 +89,28 @@ and codebase findings take priority over these notes.
 
 If no relevant entries are found, proceed to Phase 1 without passing memory context.
 
+### Phase 0.6: Passive Quality Feedback Scan
+
+Before launching Phase 1 subagents, check whether recent quality-gate feedback artifacts can provide reusable failure context.
+
+1. Read `.spec-first/workflows/quality-gates/ai-dev-quality-gate/quality-feedback-topics.json` if it exists
+2. If the file does not exist, is unreadable, or has no relevant `candidate_topics`, skip this step
+3. Treat `candidate_topics` as supplementary hints, not primary evidence and not a task queue
+4. Only pass through items that clearly relate to the problem being documented
+5. If used, prepare a labeled excerpt block:
+
+```
+## Supplementary quality feedback
+Treat these as supplementary hints, not primary evidence.
+Conversation history, codebase findings, and verified fixes take priority.
+
+[relevant candidate_topics here]
+```
+
+6. Pass this block as additional context to the Context Analyzer, Solution Extractor, and Related Docs Finder
+7. Never auto-run `spec:compound-refresh` or invent workflow state from this artifact; it only narrows likely learning topics and follow-up scope hints
+8. When any final learning cites this source, label it `(quality feedback artifact)` so future readers know it came from passive gate feedback rather than direct code investigation
+
 ### Phase 1: Research
 
 Launch research subagents. Each returns text data to the orchestrator.

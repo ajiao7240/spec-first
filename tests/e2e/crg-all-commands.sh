@@ -533,6 +533,24 @@ if(wrongIsTest.length>0){console.error('is_test!=1:',wrongIsTest[0]);process.exi
 console.log('ok candidate_tests='+tests.length);
 " 2>/dev/null && ok "review-context.candidate_tests FactItem 字段完整（is_test=1）" || fail "review-context.candidate_tests 字段异常"
 
+# verification recommendation contract 验证
+echo "$RC_OUT" | node -e "
+const j=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+const data=j.data||{};
+const fields=['impacted_modules','impacted_languages','impacted_platforms','recommended_required_verifications','recommended_optional_verifications'];
+for (const key of fields) {
+  if (!Array.isArray(data[key])) {
+    console.error(key+' is not array');
+    process.exit(1);
+  }
+}
+if (!['high','medium','low'].includes(data.confidence)) {
+  console.error('bad confidence:', data.confidence);
+  process.exit(1);
+}
+console.log('ok verification recommendation fields');
+" 2>/dev/null && ok "review-context verification recommendation 字段完整且 confidence 合法" || fail "review-context verification recommendation 字段异常"
+
 check_exit "review-context 缺 --since → exit 1" 1 review-context --repo="$REPO"
 
 # =============================================================================

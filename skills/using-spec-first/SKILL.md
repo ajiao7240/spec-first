@@ -51,9 +51,9 @@ Use a decision tree, not a blanket “brainstorm first” rule.
    - Claude: `/spec:review`
    - Codex: `$spec-review`
    - Or `document-review` when the work is explicitly document-review scoped.
-6. If the goal is bootstrap, graph bootstrap, or context-building, route to:
-   - Claude: `/spec:bootstrap`, `/spec:graph-bootstrap`, or `/spec:compound`
-   - Codex: `$spec-bootstrap`, `$spec-graph-bootstrap`, or `$spec-compound`
+6. If the goal is graph bootstrap or context-building, route to:
+   - Claude: `/spec:graph-bootstrap` or `/spec:compound`
+   - Codex: `$spec-graph-bootstrap` or `$spec-compound`
 7. If the user is still defining WHAT to build, or scope/requirements are genuinely unclear, route to:
    - Claude: `/spec:brainstorm` or `/spec:ideate`
    - Codex: `$spec-brainstorm` or `$spec-ideate`

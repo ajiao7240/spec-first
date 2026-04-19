@@ -4,6 +4,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { evaluateContextForRepo } = require('../../src/context-routing/evaluator');
+const {
+  BENCHMARK_CONTRACT_VERSION,
+  buildContextRoutingAnalyzerRevision,
+  digestFile,
+} = require('../shared/benchmark-metadata');
 
 function loadQuestions(questionsPath) {
   const questions = JSON.parse(fs.readFileSync(questionsPath, 'utf8'));
@@ -11,7 +16,14 @@ function loadQuestions(questionsPath) {
     throw new Error('repo qa questions must be an array');
   }
   for (const item of questions) {
-    if (!item.id || !item.repo_slug || !item.stage || !item.question || !Array.isArray(item.expected_evidence)) {
+    if (
+      !item.id ||
+      !item.repo_slug ||
+      !item.stage ||
+      !item.question ||
+      !Array.isArray(item.expected_evidence) ||
+      (item.fixture_repo_root !== undefined && typeof item.fixture_repo_root !== 'string')
+    ) {
       throw new Error(`invalid repo qa question: ${JSON.stringify(item)}`);
     }
   }
@@ -21,14 +33,18 @@ function loadQuestions(questionsPath) {
 function runRepoQaBenchmark({ repoRoot, questionsPath }) {
   const questions = loadQuestions(questionsPath);
   const results = questions.map((item) => {
+    const targetRepoRoot = item.fixture_repo_root
+      ? path.resolve(repoRoot, item.fixture_repo_root)
+      : repoRoot;
     const evaluation = evaluateContextForRepo({
-      repoRoot,
+      repoRoot: targetRepoRoot,
       slug: item.repo_slug,
       stage: item.stage,
     });
     const matchedEvidence = item.expected_evidence.filter((assetPath) => evaluation.selected_assets.includes(assetPath));
     return {
       id: item.id,
+      repo_slug: item.repo_slug,
       question: item.question,
       stage: item.stage,
       level: evaluation.level,
@@ -41,6 +57,9 @@ function runRepoQaBenchmark({ repoRoot, questionsPath }) {
   });
 
   return {
+    benchmark_contract_version: BENCHMARK_CONTRACT_VERSION,
+    analyzer_revision: buildContextRoutingAnalyzerRevision(repoRoot),
+    input_digest: digestFile(questionsPath),
     generated_at: new Date().toISOString(),
     question_count: results.length,
     average_hit_rate: results.length === 0 ? 0 : results.reduce((sum, item) => sum + item.hit_rate, 0) / results.length,

@@ -40,7 +40,7 @@ Use this **exact format** when presenting synthesized review findings. Findings 
 
 | # | File | Issue | Reviewer | Confidence | Route |
 |---|------|-------|----------|------------|-------|
-| 5 | `export_helper.rb:12` | Format detection could use early return instead of nested conditional | maintainability | 0.70 | `advisory -> human` |
+| 5 | `export_helper.rb:12` | [change-discipline:over_engineering] Format strategy abstraction adds indirection the endpoint does not use | maintainability | 0.70 | `advisory -> human` |
 
 ### Applied Fixes
 
@@ -119,6 +119,7 @@ This fails because: no pipe-delimited tables, no severity-grouped `###` headers,
 - **Severity-grouped sections** -- `### P0 -- Critical`, `### P1 -- High`, `### P2 -- Moderate`, `### P3 -- Low`. Omit empty severity levels.
 - **Always include file:line location** for code review issues
 - **Reviewer column** shows which persona(s) flagged the issue. Multiple reviewers = cross-reviewer agreement.
+- **Change-discipline findings stay labeled** -- when a finding carries `dimension_tag`, prefix the Issue cell with `[change-discipline:<dimension_tag>] `
 - **Confidence column** shows the finding's confidence score
 - **Route column** shows the synthesized handling decision as ``<autofix_class> -> <owner>``.
 - **Header includes** scope, intent, and reviewer team with per-conditional justifications

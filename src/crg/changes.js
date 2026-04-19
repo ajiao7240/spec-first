@@ -9,12 +9,12 @@
  * F1 flow_count      (0.25): 节点参与的执行流数量
  * F2 cross_community (0.15): 来自不同社区的调用方数量
  * F3 is_test_covered (0.30): 有 is_test 节点通过 imports_from 边指向该节点 → 0.05；无 → 0.30
- * F4 security_kw     (0.20): 节点名含安全关键词
+ * F4 security_signal (0.20): 强安全信号，或带安全路径上下文的弱信号
  * F5 caller_count    (0.10): 入边总数（归一化，上限 20）
  */
 
 const { execFileSync } = require('child_process');
-const { SECURITY_KEYWORDS } = require('./constants');
+const { scoreSecuritySignal } = require('./constants');
 
 /**
  * 获取自 since 以来的变更文件列表（相对于 repoRoot 的路径）
@@ -139,7 +139,7 @@ function assessFileRiskBatch(filePaths, db) {
  * F1 flow_count      (0.25): 节点参与的执行流数量（归一化，上限 10）
  * F2 cross_community (0.15): 来自不同社区的调用方社区数量（归一化，上限 5）
  * F3 is_test_covered (0.30): 有 is_test 节点通过 imports_from 边指向 → 0.05；无 → 0.30
- * F4 security_kw     (0.20): 节点名含安全关键词 → 0.20；否则 0
+ * F4 security_signal (0.20): 强安全信号 → 0.20；安全路径中的弱信号 → 0.10；否则 0
  * F5 caller_count    (0.10): 入边总数（归一化，上限 20）
  *
  * @param {string} nodeId
@@ -197,9 +197,8 @@ function assessNodeRisk(nodeId, db) {
     }
     const f3 = testCovered > 0 ? 0.05 : 0.30;
 
-    // F4: 安全关键词
-    const f4 = (node.name && [...SECURITY_KEYWORDS].some(kw => node.name.toLowerCase().includes(kw)))
-      ? 0.20 : 0;
+    // F4: 安全信号（强信号与安全路径里的弱信号）
+    const f4 = scoreSecuritySignal({ name: node.name, filePath: node.file_path }) * 0.20;
 
     // F5: 入边总数（caller count）
     const callerCount = db.prepare(
@@ -330,8 +329,7 @@ function assessNodeRiskBatch(nodeIds, db) {
       : false;
     const f3 = (directCovered || moduleCovered) ? 0.05 : 0.30;
 
-    const f4 = (node.name && [...SECURITY_KEYWORDS].some(kw => node.name.toLowerCase().includes(kw)))
-      ? 0.20 : 0;
+    const f4 = scoreSecuritySignal({ name: node.name, filePath: node.file_path }) * 0.20;
     const f5 = Math.min((f5Map.get(nodeId) || 0) / 20, 1.0) * 0.10;
 
     result.set(nodeId, Math.min(f1 + f2 + f3 + f4 + f5, 1.0));

@@ -168,4 +168,41 @@ describe('crg changes', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test('assessNodeRisk 对普通 request 命名保持克制，只在安全语境中放大 validate/verify', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-changes-risk-'));
+    const db = initDatabase(path.join(tmpDir, 'graph.db'));
+
+    try {
+      upsertNodes(db, [
+        {
+          id: 'src/web/request.js#function#handleRequest#L1',
+          file_path: 'src/web/request.js',
+          name: 'handleRequest',
+          kind: 'function',
+          line_start: 1,
+          line_end: 5,
+          is_test: 0,
+        },
+        {
+          id: 'src/auth/token.js#function#verifyJwtToken#L10',
+          file_path: 'src/auth/token.js',
+          name: 'verifyJwtToken',
+          kind: 'function',
+          line_start: 10,
+          line_end: 15,
+          is_test: 0,
+        },
+      ]);
+
+      const { assessNodeRisk } = require('../../src/crg/changes');
+      const requestRisk = assessNodeRisk('src/web/request.js#function#handleRequest#L1', db);
+      const authRisk = assessNodeRisk('src/auth/token.js#function#verifyJwtToken#L10', db);
+
+      expect(authRisk).toBeGreaterThan(requestRisk);
+    } finally {
+      db.close();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

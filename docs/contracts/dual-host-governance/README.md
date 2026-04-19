@@ -233,7 +233,7 @@ machine-readable 真源文件固定落位：
 1. CodexAdapter 不再安装 `.codex/commands/spec/*`
 2. `init` 对 Codex 改为 `$spec-*` 用户可见口径
 3. `doctor` 不再把 `.codex/commands/spec/*` 当成正式产品面检查项
-4. README、CLI banner、`spec-mcp-setup`、`spec-bootstrap`、`setup` 全量收口到正确宿主入口
+4. README、CLI banner、`spec-mcp-setup`、`spec-graph-bootstrap`、`setup` 全量收口到正确宿主入口
 5. smoke 断言同步切换到新契约
 
 ## 6. Contributor Maintenance Rules

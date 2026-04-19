@@ -39,6 +39,25 @@ const DEFAULT_CONTEXT_DOCS = {
   'context-packs/review-change.md': '# review change\n',
 };
 
+const DEFAULT_BOOTSTRAP_ASSETS = [
+  'fact-inventory.json',
+  'risk-signals.json',
+  'test-surface.json',
+  'context-routing.json',
+  'artifact-manifest.json',
+  'freshness.json',
+  'lint-report.json',
+  'contradictions.json',
+  'verification-profile.json',
+  'ownership.json',
+  'review-queue.json',
+  'minimal-context/review.json',
+  'minimal-context/plan.json',
+  'minimal-context/work.json',
+  ...Object.keys(DEFAULT_CONTEXT_DOCS),
+  'injection-index.yaml',
+];
+
 function detectSlug(repoRoot) {
   return path.basename(repoRoot);
 }
@@ -54,11 +73,18 @@ function writeText(filePath, content) {
 }
 
 function writeControlPlaneArtifacts(controlPlaneDir, artifacts) {
+  writeJson(path.join(controlPlaneDir, 'fact-inventory.json'), artifacts.machine_artifacts.fact_inventory);
+  writeJson(path.join(controlPlaneDir, 'risk-signals.json'), artifacts.machine_artifacts.risk_signals);
+  writeJson(path.join(controlPlaneDir, 'test-surface.json'), artifacts.machine_artifacts.test_surface);
   writeJson(path.join(controlPlaneDir, 'context-routing.json'), artifacts.routing.context_routing);
   writeJson(path.join(controlPlaneDir, 'artifact-manifest.json'), artifacts.routing.artifact_manifest);
   writeJson(path.join(controlPlaneDir, 'freshness.json'), artifacts.machine_artifacts.freshness);
   writeJson(path.join(controlPlaneDir, 'lint-report.json'), artifacts.machine_artifacts.lint_report);
   writeJson(path.join(controlPlaneDir, 'contradictions.json'), artifacts.machine_artifacts.contradictions);
+  writeJson(
+    path.join(controlPlaneDir, 'verification-profile.json'),
+    artifacts.machine_artifacts.verification_profile
+  );
   writeJson(path.join(controlPlaneDir, 'ownership.json'), buildOwnershipRegistrySample());
   writeJson(
     path.join(controlPlaneDir, 'review-queue.json'),
@@ -78,8 +104,8 @@ function writeControlPlaneArtifacts(controlPlaneDir, artifacts) {
   );
 }
 
-function writeContextArtifacts(contextDir, { contextDocs = {}, injectionIndex }) {
-  const mergedDocs = { ...DEFAULT_CONTEXT_DOCS, ...contextDocs };
+function writeContextArtifacts(contextDir, { generatedDocs = {}, contextDocs = {}, injectionIndex }) {
+  const mergedDocs = { ...DEFAULT_CONTEXT_DOCS, ...generatedDocs, ...contextDocs };
 
   for (const [relativePath, content] of Object.entries(mergedDocs)) {
     writeText(path.join(contextDir, relativePath), content);
@@ -415,7 +441,7 @@ function runBootstrap({
   factInventory,
   riskSignals,
   testSurface,
-  actualAssets,
+  actualAssets = DEFAULT_BOOTSTRAP_ASSETS,
   contextAssets = [...Object.keys(DEFAULT_CONTEXT_DOCS), 'injection-index.yaml'],
   contradictionAssets = [],
   contextDocs = {},
@@ -442,6 +468,7 @@ function runBootstrap({
 
     const artifacts = compileBootstrapArtifacts({
       generatedAt,
+      repoRoot,
       factInventory,
       riskSignals,
       testSurface,
@@ -461,6 +488,7 @@ function runBootstrap({
     }
 
     writeContextArtifacts(contextDir, {
+      generatedDocs: artifacts.human_assets.context_docs,
       contextDocs,
       injectionIndex: artifacts.routing.injection_index,
     });

@@ -53,6 +53,25 @@ Before changing source code, ensure `CHANGELOG.md` has a matching entry. For new
   - `src/cli/contracts/dual-host-governance/skills-governance.json`
   - related tests / lint rules
 
+## AI Decision Input Principle
+
+Always remember this guiding idea:
+
+`轻 contract + 明确边界 + 让 LLM 决策`
+
+This is a mandatory engineering principle for this repository, not a soft preference.
+
+The implementation standard behind it is:
+
+- Prefer light contracts that expose stable, necessary, composable facts instead of hard-coded orchestration trees.
+- Keep boundaries explicit: repo profile, diff recommendation, verifier dispatch, gate state, workflow prose, and runtime telemetry must each answer their own question without overreaching into another layer.
+- Optimize for higher-quality decision input to the LLM. Runtime and control-plane outputs should improve clarity, relevance, and explainability for the current task, not remove the model's ability to reason.
+- When forced to choose, prefer cleaner decision inputs over more aggressive automation. Do not add coupling or fixed execution policy unless the boundary truly requires it.
+- Quality improvement must come primarily from better decision inputs: more truthful context, clearer provenance, sharper verification signals, explicit fallback semantics, and lower context drift.
+- Do not turn quality gates into a multi-state flow-control machine. Avoid introducing heavyweight stage transitions, strongly orchestrated execution trees, or rigid policy engines just to simulate certainty.
+- Quality gates should record and expose facts, not over-direct execution. Prefer independent structures such as verification summary, verifier dispatch, gate state, freshness, confidence, and fallback reason over one merged orchestration object.
+- If a new mechanism mainly increases state transitions, approval branches, or orchestration coupling without materially improving LLM decision quality, it is the wrong direction for this repo.
+
 <!-- spec-first:lang:start -->
 ## 语言与治理策略（由 spec-first 管理）
 

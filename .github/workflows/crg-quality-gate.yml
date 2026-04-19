@@ -6,11 +6,19 @@ on:
       - 'src/crg/**'
       - 'src/context-routing/**'
       - 'src/bootstrap-compiler/**'
+      - 'src/cli/commands/stage0-context.js'
+      - 'src/cli/contracts/quality-gates/**'
       - 'skills/spec-graph-bootstrap/**'
       - 'skills/spec-plan/**'
       - 'skills/spec-work/**'
       - 'skills/spec-review/**'
+      - 'docs/contracts/spec-graph-bootstrap/**'
+      - 'docs/contracts/verifiers/**'
+      - 'docs/contracts/quality-gates/**'
+      - '.github/workflows/crg-quality-gate.yml'
       - 'benchmarks/**'
+      - 'tests/fixtures/benchmarks/**'
+      - 'scripts/run-crg-benchmark-evidence.js'
       - 'tests/unit/**'
       - 'tests/e2e/spec-graph-bootstrap-mainline.sh'
       - 'tests/integration/e2e.sh'
@@ -37,3 +45,29 @@ jobs:
 
       - name: Run CRG quality gate
         run: npm run test:crg:gate
+
+  benchmark-evidence:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Collect CRG benchmark evidence
+        run: npm run test:crg:benchmark-evidence
+
+      - name: Upload CRG benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crg-benchmark-evidence
+          path: .spec-first/workflows/quality-gates/crg-benchmark-evidence/

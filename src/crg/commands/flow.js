@@ -12,6 +12,7 @@
 function run(argv) {
   const { openDb } = require('../cli/open-db');
   const { makeEnvelope } = require('../cli/envelope');
+  const { annotateFlowOutput } = require('../flows');
 
   // --id 参数是必填项
   const idArg = argv.find(a => a.startsWith('--id='));
@@ -58,11 +59,16 @@ function run(argv) {
 
   db.close();
 
+  const flowData = annotateFlowOutput({
+    flow_id: flow.id,
+    entry_node: flow.entry_node_id,
+    criticality: flow.criticality,
+    node_count: flow.node_count,
+  });
+
   process.stdout.write(
     JSON.stringify(makeEnvelope(repoRoot, {
-      flow_id: flow.id,
-      entry_node: flow.entry_node_id,
-      criticality: flow.criticality,
+      ...flowData,
       nodes,
     })) + '\n'
   );

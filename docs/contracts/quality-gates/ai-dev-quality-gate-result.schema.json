@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-first ai dev quality gate result",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "gate_id",
+    "passed",
+    "checks",
+    "failures"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "generated_at": { "type": "string" },
+    "gate_id": { "type": "string" },
+    "passed": { "type": "boolean" },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "check_id",
+          "kind",
+          "passed",
+          "summary",
+          "artifact_path"
+        ],
+        "properties": {
+          "check_id": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": ["unit-suite", "benchmark"]
+          },
+          "passed": { "type": "boolean" },
+          "summary": {
+            "type": "object",
+            "additionalProperties": {
+              "type": ["string", "number", "boolean", "array", "object", "null"]
+            }
+          },
+          "artifact_path": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

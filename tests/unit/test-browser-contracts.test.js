@@ -22,6 +22,9 @@ describe('test-browser contracts', () => {
     expect(skill).toContain('Human Verification Needed');
     expect(skill).toContain('load the `todo-create` skill and create a todo with priority p1');
     expect(skill).toContain('Load the `test-browser` skill with one of these argument shapes:');
+    expect(skill).toContain('## Verifier Registry Metadata');
+    expect(skill).toContain('Verifier id: `test-browser`');
+    expect(skill).toContain('Supported platforms: `web`');
   });
 
   test('skill keeps spec-first installation enhancement and avoids stale upstream setup command', () => {

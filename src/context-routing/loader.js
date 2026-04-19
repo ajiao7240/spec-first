@@ -42,6 +42,7 @@ function loadBootstrapRuntimeState({ repoRoot, slug, artifactAnchorRoot = repoRo
     routing: safeReadJson(path.join(controlPlaneDir, 'context-routing.json')),
     manifest: safeReadJson(path.join(controlPlaneDir, 'artifact-manifest.json')),
     freshness: safeReadJson(path.join(controlPlaneDir, 'freshness.json')),
+    verificationProfile: safeReadJson(path.join(controlPlaneDir, 'verification-profile.json')),
   };
 }
 

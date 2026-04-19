@@ -67,13 +67,6 @@
       "skill": "spec-sessions"
     },
     {
-      "name": "bootstrap",
-      "filename": "bootstrap.md",
-      "description": "Stage-0 project context bootstrap workflow",
-      "argumentHint": "[target repo path or context slug]",
-      "skill": "spec-bootstrap"
-    },
-    {
       "name": "graph-bootstrap",
       "filename": "graph-bootstrap.md",
       "description": "Stage-0 graph bootstrap validation workflow",

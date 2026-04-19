@@ -53,11 +53,27 @@ describe('crg analyze', () => {
           line_end: 60,
           community_id: 'payments',
         },
+        {
+          id: 'src/auth/seed.js#function#warmup#L70',
+          file_path: 'src/auth/seed.js',
+          name: 'warmup',
+          kind: 'function',
+          line_start: 70,
+          line_end: 75,
+          community_id: 'auth',
+        },
       ]);
       upsertEdges(db, [
         {
           id: 'helper:entry:calls',
           source_id: 'src/shared.js#function#helper#L1',
+          target_id: 'src/auth/a.js#function#entry#L10',
+          kind: 'calls',
+          weight: 1,
+        },
+        {
+          id: 'warmup:entry:calls',
+          source_id: 'src/auth/seed.js#function#warmup#L70',
           target_id: 'src/auth/a.js#function#entry#L10',
           kind: 'calls',
           weight: 1,
@@ -98,6 +114,7 @@ describe('crg analyze', () => {
 
       // targetPy：cross_community + cross_language → F2(30) + F3(30, 门控通过) = 60，应触发
       expect(targets).toContain('src/payments/c.py#function#targetPy#L50');
+      // entry 现在有 2 条语义入边，避免被 srcDeg<=1 的 peripheral_to_hub 放宽误命中。
       // targetJs：仅 cross_community（同语言 js）→ F3 门控不通过，score 不够 30 阈值，不触发
       expect(targets).not.toContain('src/payments/b.js#function#targetJs#L30');
     } finally {
@@ -199,6 +216,122 @@ describe('crg analyze', () => {
 
       const realHub = hubs.find((h) => h.id === 'src/mod.js#function#realHub#L10');
       expect(realHub.in_degree).toBe(2);
+    } finally {
+      db.close();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('peripheral_to_hub 放宽到 srcDeg<=1，但不放开 cross_community 门控', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-analyze-peripheral-'));
+    const db = initDatabase(path.join(tmpDir, 'graph.db'));
+
+    try {
+      upsertNodes(db, [
+        {
+          id: 'src/a.js#function#seed#L1',
+          file_path: 'src/a.js',
+          name: 'seed',
+          kind: 'function',
+          line_start: 1,
+          line_end: 3,
+          confidence: 'Observed',
+        },
+        {
+          id: 'src/a.js#function#edgeNode#L10',
+          file_path: 'src/a.js',
+          name: 'edgeNode',
+          kind: 'function',
+          line_start: 10,
+          line_end: 20,
+          confidence: 'Inferred',
+        },
+        {
+          id: 'src/a.js#function#hubNode#L30',
+          file_path: 'src/a.js',
+          name: 'hubNode',
+          kind: 'function',
+          line_start: 30,
+          line_end: 40,
+          confidence: 'Observed',
+        },
+        {
+          id: 'src/a.js#function#caller1#L50',
+          file_path: 'src/a.js',
+          name: 'caller1',
+          kind: 'function',
+          line_start: 50,
+          line_end: 55,
+          confidence: 'Observed',
+        },
+        {
+          id: 'src/a.js#function#caller2#L60',
+          file_path: 'src/a.js',
+          name: 'caller2',
+          kind: 'function',
+          line_start: 60,
+          line_end: 65,
+          confidence: 'Observed',
+        },
+        {
+          id: 'src/a.js#function#caller3#L70',
+          file_path: 'src/a.js',
+          name: 'caller3',
+          kind: 'function',
+          line_start: 70,
+          line_end: 75,
+          confidence: 'Observed',
+        },
+      ]);
+
+      upsertEdges(db, [
+        {
+          id: 'seed:edge:calls',
+          source_id: 'src/a.js#function#seed#L1',
+          target_id: 'src/a.js#function#edgeNode#L10',
+          kind: 'calls',
+          weight: 1,
+        },
+        {
+          id: 'edge:hub:calls',
+          source_id: 'src/a.js#function#edgeNode#L10',
+          target_id: 'src/a.js#function#hubNode#L30',
+          kind: 'calls',
+          weight: 1,
+        },
+        {
+          id: 'caller1:hub:calls',
+          source_id: 'src/a.js#function#caller1#L50',
+          target_id: 'src/a.js#function#hubNode#L30',
+          kind: 'calls',
+          weight: 1,
+        },
+        {
+          id: 'caller2:hub:calls',
+          source_id: 'src/a.js#function#caller2#L60',
+          target_id: 'src/a.js#function#hubNode#L30',
+          kind: 'calls',
+          weight: 1,
+        },
+        {
+          id: 'caller3:hub:calls',
+          source_id: 'src/a.js#function#caller3#L70',
+          target_id: 'src/a.js#function#hubNode#L30',
+          kind: 'calls',
+          weight: 1,
+        },
+      ]);
+
+      const result = surprisingConnections(db);
+      const item = result.find((entry) => entry.target === 'src/a.js#function#hubNode#L30');
+
+      expect(item).toEqual(expect.objectContaining({
+        source: 'src/a.js#function#edgeNode#L10',
+        target: 'src/a.js#function#hubNode#L30',
+        score: 30,
+      }));
+      expect(item.reasons).toEqual(expect.arrayContaining(['confidence_weight', 'peripheral_to_hub']));
+      expect(item.reasons).not.toContain('cross_community');
     } finally {
       db.close();
       fs.rmSync(tmpDir, { recursive: true, force: true });

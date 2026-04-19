@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-graph-bootstrap fact-inventory",
+  "type": "object",
+  "required": [
+    "project_identity",
+    "entrypoints",
+    "modules",
+    "integrations",
+    "testing_surface"
+  ],
+  "properties": {
+    "project_identity": {
+      "type": "object",
+      "required": ["name", "primary_language", "primary_frameworks", "repo_shape"],
+      "properties": {
+        "name": { "type": "string" },
+        "primary_language": { "type": "string" },
+        "primary_frameworks": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "repo_shape": { "type": "string" }
+      }
+    },
+    "entrypoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path"],
+        "properties": {
+          "path": { "type": "string" }
+        }
+      }
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path"],
+        "properties": {
+          "path": { "type": "string" }
+        }
+      }
+    },
+    "integrations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["symbol"],
+        "properties": {
+          "symbol": { "type": "string" }
+        }
+      }
+    },
+    "testing_surface": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["target_path", "source_test"],
+        "properties": {
+          "target_path": { "type": "string" },
+          "source_test": { "type": "string" }
+        }
+      }
+    }
+  }
+}

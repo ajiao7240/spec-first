@@ -24,8 +24,12 @@ function loadBootstrapSchemas() {
   return {
     artifactManifest: loadSchema('artifact-manifest.schema.json'),
     contextRouting: loadSchema('context-routing.schema.json'),
+    factInventory: loadSchema('fact-inventory.schema.json'),
     minimalContext: loadSchema('minimal-context.schema.json'),
     freshness: loadSchema('freshness.schema.json'),
+    riskSignals: loadSchema('risk-signals.schema.json'),
+    testSurface: loadSchema('test-surface.schema.json'),
+    verificationProfile: loadSchema('verification-profile.schema.json'),
   };
 }
 

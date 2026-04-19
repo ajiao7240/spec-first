@@ -13,6 +13,19 @@ function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-using-spec-first-'));
 }
 
+function expectStage0RuntimeContract(content, { stage, minimalContextPath }) {
+  expect(content).toContain('context-routing.json');
+  expect(content).toContain('artifact-manifest.json');
+  expect(content).toContain(minimalContextPath);
+  expect(content).toContain('selected_assets / fallback_reason / level / skipped_rules');
+  expect(content).toContain('injection-index.yaml');
+  expect(content).toContain('仅作为人类视图');
+  expect(content).toContain('stage0-context --stage');
+  expect(content).toContain(`--stage ${stage}`);
+  expect(content).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
+  expect(content).not.toContain('按 yaml 路由加载文件');
+}
+
 describe('using-spec-first runtime contracts', () => {
   test('Claude init installs using-spec-first runtime skill, bootstrap block, hook, and managed SessionStart matcher', () => {
     const projectRoot = makeTempDir();
@@ -74,6 +87,88 @@ describe('using-spec-first runtime contracts', () => {
       expect(fs.existsSync(path.join(projectRoot, '.codex/hooks'))).toBe(false);
       expect(state.skills).toContain('using-spec-first');
       expect(fs.readFileSync(runtimeSkillPath, 'utf8')).toContain('name: using-spec-first');
+    } finally {
+      logSpy.mockRestore();
+      process.chdir(previousCwd);
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Claude init 生成的 plan/work/review runtime skills 保持 Stage-0 control-plane 真源口径', () => {
+    const projectRoot = makeTempDir();
+    const previousCwd = process.cwd();
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      process.chdir(projectRoot);
+      expect(runInit(['--claude', '-u', 'reviewer', '--lang', 'zh'])).toBe(0);
+
+      const planSkill = fs.readFileSync(
+        path.join(projectRoot, '.claude/spec-first/workflows/spec-plan/SKILL.md'),
+        'utf8'
+      );
+      const workSkill = fs.readFileSync(
+        path.join(projectRoot, '.claude/spec-first/workflows/spec-work/SKILL.md'),
+        'utf8'
+      );
+      const reviewSkill = fs.readFileSync(
+        path.join(projectRoot, '.claude/spec-first/workflows/spec-review/SKILL.md'),
+        'utf8'
+      );
+
+      expectStage0RuntimeContract(planSkill, {
+        stage: 'plan',
+        minimalContextPath: 'minimal-context/plan.json',
+      });
+      expectStage0RuntimeContract(workSkill, {
+        stage: 'work',
+        minimalContextPath: 'minimal-context/work.json',
+      });
+      expectStage0RuntimeContract(reviewSkill, {
+        stage: 'review',
+        minimalContextPath: 'minimal-context/review.json',
+      });
+    } finally {
+      logSpy.mockRestore();
+      process.chdir(previousCwd);
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Codex init 生成的 plan/work/review runtime skills 保持 Stage-0 control-plane 真源口径', () => {
+    const projectRoot = makeTempDir();
+    const previousCwd = process.cwd();
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      process.chdir(projectRoot);
+      expect(runInit(['--codex', '-u', 'reviewer', '--lang', 'zh'])).toBe(0);
+
+      const planSkill = fs.readFileSync(
+        path.join(projectRoot, '.agents/skills/spec-plan/SKILL.md'),
+        'utf8'
+      );
+      const workSkill = fs.readFileSync(
+        path.join(projectRoot, '.agents/skills/spec-work/SKILL.md'),
+        'utf8'
+      );
+      const reviewSkill = fs.readFileSync(
+        path.join(projectRoot, '.agents/skills/spec-review/SKILL.md'),
+        'utf8'
+      );
+
+      expectStage0RuntimeContract(planSkill, {
+        stage: 'plan',
+        minimalContextPath: 'minimal-context/plan.json',
+      });
+      expectStage0RuntimeContract(workSkill, {
+        stage: 'work',
+        minimalContextPath: 'minimal-context/work.json',
+      });
+      expectStage0RuntimeContract(reviewSkill, {
+        stage: 'review',
+        minimalContextPath: 'minimal-context/review.json',
+      });
     } finally {
       logSpy.mockRestore();
       process.chdir(previousCwd);

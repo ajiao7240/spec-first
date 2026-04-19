@@ -22,6 +22,7 @@ const { makeEnvelope } = require('../cli/envelope');
 const { detectChanges, assessNodeRiskBatch } = require('../changes');
 const { isSensitiveFile } = require('../input-convergence');
 const { retrieveContext } = require('../retrieval/api');
+const { summarizeChangeSurface } = require('../../context-routing/change-surface');
 
 function intersectsHunks(node, hunks) {
   if (!Array.isArray(hunks) || hunks.length === 0) return false;
@@ -118,6 +119,10 @@ function run(argv) {
   };
 
   const changedFiles = changeSummary.map(c => c.file);
+  const changeSurface = summarizeChangeSurface({
+    repoRoot,
+    changedFiles,
+  });
   const hunksByFile = new Map(
     changeSummary.map((item) => [item.file, Array.isArray(item.hunks) ? item.hunks : []])
   );
@@ -259,14 +264,31 @@ function run(argv) {
       `TEST_GAP: ${allTestGaps.length} node(s) lack test coverage — ${names}${allTestGaps.length > 3 ? ' ...' : ''}`
     );
   }
+  if (changeSurface.recommended_required_verifications.length > 0) {
+    review_guidance.push(
+      `RECOMMENDED_REQUIRED: ${changeSurface.recommended_required_verifications.join(', ')}`
+    );
+  }
+  if (changeSurface.recommended_optional_verifications.length > 0) {
+    review_guidance.push(
+      `RECOMMENDED_OPTIONAL: ${changeSurface.recommended_optional_verifications.join(', ')}`
+    );
+  }
+  review_guidance.push(`VERIFICATION_CONFIDENCE: ${changeSurface.confidence}`);
   review_guidance.push(`BLAST_RADIUS: ${graphExpansion.length} caller(s) within 2 hops of changed code`);
 
   const data = {
-    diff_summary: `${changeSummary.length} file(s) changed since ${since}`,
+    diff_summary: changeSummary.length > 0 ? `${changeSummary.length} file(s) changed since ${since}` : '',
     affected_nodes: affectedNodes,
     hunk_hit: hunkHit,
     candidate_tests: candidateTests,
     graph_expansion: graphExpansion,
+    impacted_modules: changeSurface.impacted_modules,
+    impacted_languages: changeSurface.impacted_languages,
+    impacted_platforms: changeSurface.impacted_platforms,
+    recommended_required_verifications: changeSurface.recommended_required_verifications,
+    recommended_optional_verifications: changeSurface.recommended_optional_verifications,
+    confidence: changeSurface.confidence,
     review_guidance,
     ranked_context: retrieveContext(db, {
       profile: 'review',

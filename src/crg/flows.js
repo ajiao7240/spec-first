@@ -5,7 +5,7 @@
  *
  * 功能：
  *   - loadAdjacency: 从 edges 表加载整图邻接表和反向邻接表
- *   - computeFlowCriticality: 5因子加权评分
+ *   - computeFlowCriticality: 4因子加权评分
  *   - detectFlows: 找入口节点 → BFS 展开 → 写入 flows/flow_nodes 表
  *
  * 简化策略（防止指数爆炸）：
@@ -14,7 +14,10 @@
  *   - 每个 flow 最多 20 个节点
  */
 
-const { SECURITY_KEYWORDS } = require('./constants');
+const { scoreSecuritySignal } = require('./constants');
+
+const FLOW_ENTRY_CONFIDENCE = 'Inferred';
+const FLOW_ENTRY_INFERENCE_REASON = 'zero_in_degree_calls';
 
 /**
  * 加载整图邻接表和反向邻接表
@@ -79,13 +82,32 @@ function bfsFlow(entryId, adjacency, maxDepth = 5, maxNodes = 20) {
 }
 
 /**
- * 计算单个 flow 的 5因子 criticality 评分（0.0 - 1.0）
+ * 为 flow 输出补充入口启发式元数据。
+ * entry 目前只是 calls 图上的零入度启发式推断，需要显式告诉消费方其边界。
  *
- * F1 file_spread  (0.30)：flow 涉及文件数，1 file→0.0，5+→1.0
- * F2 depth_score  (0.20)：BFS 节点数近似深度，0→0.0，20+→1.0
- * F3 security_score (0.25)：flow 节点名含安全关键词的占比
- * F4 test_gap     (0.15)：1 - flow 内 is_test 节点占比（无测试覆盖则高）
- * F5 external_score (0.10)：flow 节点中有出向 unresolved 边的节点占比（外部调用估算）
+ * @param {object} row
+ * @returns {object}
+ */
+function annotateFlowOutput(row) {
+  return {
+    ...row,
+    entry_confidence: FLOW_ENTRY_CONFIDENCE,
+    entry_inference_reason: FLOW_ENTRY_INFERENCE_REASON,
+  };
+}
+
+/**
+ * 计算单个 flow 的 4因子 criticality 评分（0.0 - 1.0）
+ *
+ * F1 file_spread    (0.35)：flow 涉及文件数，1 file→0.0，5+→1.0
+ * F2 depth_score    (0.25)：BFS 节点数近似深度，0→0.0，20+→1.0
+ * F3 security_score (0.25)：flow 节点的安全信号强度占比
+ * F4 external_score (0.15)：flow 节点中有出向 unresolved 边的节点占比（外部调用估算）
+ *
+ * 刻意不再纳入 `test_gap`：
+ * - 当前 CRG 没有可靠的测试覆盖事实
+ * - `flow 内 is_test 节点占比` 会把几乎所有业务 flow 都抬成“高缺口”
+ * - 这是伪语义，不适合作为 LLM 决策输入
  *
  * @param {string[]} flowNodeIds - flow 的节点 ID 列表
  * @param {import('better-sqlite3').Database} db
@@ -101,7 +123,7 @@ function computeFlowCriticality(flowNodeIds, db) {
     const chunk = flowNodeIds.slice(i, i + CHUNK);
     const ph = chunk.map(() => '?').join(',');
     const rows = db.prepare(
-      `SELECT id, name, file_path, is_test FROM nodes WHERE id IN (${ph})`
+      `SELECT id, name, file_path FROM nodes WHERE id IN (${ph})`
     ).all(...chunk);
     nodeRows.push(...rows);
   }
@@ -113,15 +135,12 @@ function computeFlowCriticality(flowNodeIds, db) {
   // F2: depth_score（节点数近似深度，上限 20）
   const depthScore = Math.min(flowNodeIds.length / 20, 1.0);
 
-  // F3: security_score（含安全关键词节点占比）
-  const secCount = nodeRows.filter(n =>
-    n.name && [...SECURITY_KEYWORDS].some(kw => n.name.toLowerCase().includes(kw))
-  ).length;
-  const securityScore = nodeRows.length > 0 ? secCount / nodeRows.length : 0;
-
-  // F4: test_gap（1 - 测试节点占比；无测试则高）
-  const testCount = nodeRows.filter(n => n.is_test).length;
-  const testGap = 1 - (nodeRows.length > 0 ? testCount / nodeRows.length : 0);
+  // F3: security_score（强信号=1，带上下文弱信号=0.5）
+  const securityWeight = nodeRows.reduce(
+    (sum, node) => sum + scoreSecuritySignal({ name: node.name, filePath: node.file_path }),
+    0
+  );
+  const securityScore = nodeRows.length > 0 ? Math.min(securityWeight / nodeRows.length, 1.0) : 0;
 
   // F5: external_score（flow 节点中在 unresolved_edges 表有记录的节点占比，近似外部调用）
   // 注意：edges 表中 target_id NOT NULL，无法用 target_id IS NULL 表示 unresolved；
@@ -138,11 +157,10 @@ function computeFlowCriticality(flowNodeIds, db) {
   const externalScore = flowNodeIds.length > 0 ? Math.min(unresolvedSources / flowNodeIds.length, 1.0) : 0;
 
   return Math.min(
-    fileSpread   * 0.30 +
-    depthScore   * 0.20 +
+    fileSpread   * 0.35 +
+    depthScore   * 0.25 +
     securityScore * 0.25 +
-    testGap      * 0.15 +
-    externalScore * 0.10,
+    externalScore * 0.15,
     1.0
   );
 }
@@ -223,4 +241,11 @@ function detectFlows(db) {
   };
 }
 
-module.exports = { loadAdjacency, detectFlows };
+module.exports = {
+  FLOW_ENTRY_CONFIDENCE,
+  FLOW_ENTRY_INFERENCE_REASON,
+  annotateFlowOutput,
+  computeFlowCriticality,
+  loadAdjacency,
+  detectFlows,
+};

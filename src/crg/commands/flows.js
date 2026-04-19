@@ -12,6 +12,7 @@
 function run(argv) {
   const { openDb } = require('../cli/open-db');
   const { makeEnvelope } = require('../cli/envelope');
+  const { annotateFlowOutput } = require('../flows');
 
   const { db, repoRoot } = openDb(argv);
 
@@ -27,7 +28,7 @@ function run(argv) {
     sql += ' ORDER BY node_count DESC';
   }
 
-  const items = db.prepare(sql).all();
+  const items = db.prepare(sql).all().map((row) => annotateFlowOutput(row));
 
   db.close();
 

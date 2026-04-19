@@ -12,11 +12,14 @@ describe('review benchmark smoke', () => {
     const casesPath = path.join(repoRoot, 'benchmarks', 'review', 'cases.json');
     const result = runReviewBenchmark({ repoRoot, casesPath });
 
-    expect(result.case_count).toBeGreaterThanOrEqual(2);
+    expect(result.case_count).toBeGreaterThanOrEqual(3);
     expect(result.results[0]).toEqual(expect.objectContaining({
       id: expect.any(String),
       hit_rate: expect.any(Number),
     }));
+    expect(result.benchmark_contract_version).toBe('v1');
+    expect(typeof result.analyzer_revision).toBe('string');
+    expect(typeof result.input_digest).toBe('string');
     expect(result.fallback_rate).toEqual(expect.any(Number));
     expect(result.average_irrelevant_evidence_count).toEqual(expect.any(Number));
   });
@@ -39,5 +42,30 @@ describe('review benchmark smoke', () => {
     const result = runReviewBenchmark({ repoRoot, casesPath });
 
     expect(result.results[0].matched_assets.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('支持受控 external fixture repo benchmark case', () => {
+    const repoRoot = path.join(__dirname, '..', '..');
+    const casesPath = path.join(repoRoot, 'benchmarks', 'review', 'cases.json');
+    const result = runReviewBenchmark({ repoRoot, casesPath });
+    const fixtureCase = result.results.find((item) => item.id === 'demo-store-review-fixture');
+    const walletFixtureCase = result.results.find((item) => item.id === 'wallet-suite-review-fixture');
+
+    expect(fixtureCase).toEqual(expect.objectContaining({
+      repo_slug: 'demo-store',
+      hit_rate: 1,
+      matched_assets: expect.arrayContaining([
+        'minimal-context/review.json',
+        'code-facts/high-risk-modules.md',
+      ]),
+    }));
+    expect(walletFixtureCase).toEqual(expect.objectContaining({
+      repo_slug: 'wallet-suite',
+      hit_rate: 1,
+      matched_assets: expect.arrayContaining([
+        'minimal-context/review.json',
+        'code-facts/high-risk-modules.md',
+      ]),
+    }));
   });
 });

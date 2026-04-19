@@ -280,6 +280,14 @@ Load the `test-browser` skill with one of these argument shapes:
 - `feature/new-dashboard` — test a specific branch diff
 - `--port 5000` — force a specific local dev-server port
 
+## Verifier Registry Metadata
+
+- Verifier id: `test-browser`
+- Supported platforms: `web`
+- Primary prerequisites: `agent-browser`
+- Evidence outputs: `browser-snapshot`, `console-errors`, `network-observations`
+- Invocation posture: standalone skill; repo-specific routes and commands stay outside the registry
+
 ## agent-browser CLI Reference
 
 ```bash

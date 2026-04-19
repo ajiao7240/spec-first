@@ -165,6 +165,7 @@ A learning has several dimensions that can independently go stale. Surface-level
 - **Code examples** — if the learning includes code snippets, do they still reflect the current implementation?
 - **Related docs** — are cross-referenced learnings and patterns still present and consistent?
 - **Auto memory** — does the auto memory directory contain notes in the same problem domain? Read MEMORY.md from the auto memory directory (the path is known from the system prompt context). If it does not exist or is empty, skip this dimension. A memory note describing a different approach than what the learning recommends is a supplementary drift signal.
+- **Passive quality feedback** — if `.spec-first/workflows/quality-gates/ai-dev-quality-gate/quality-feedback-topics.json` exists, read `candidate_topics` as a supplementary drift signal only. Use matching `summary / scope_hint / artifact_paths / evidence_refs` to narrow investigation, but do not treat it as primary truth, an automatic refresh queue, or workflow state.
 - **Overlap** — while investigating, note when another doc in scope covers the same problem domain, references the same files, or recommends a similar solution. For each overlap, record: the two file paths, which dimensions overlap (problem, solution, root cause, files, prevention), and which doc appears broader or more current. These signals feed Phase 1.75 (Document-Set Analysis).
 
 Match investigation depth to the learning's specificity — a learning referencing exact file paths and code snippets needs more verification than one describing a general principle.
@@ -184,6 +185,8 @@ The critical distinction is whether the drift is **cosmetic** (references moved 
 - Add context to the evidence report ("(auto memory [claude]) notes suggest approach X may have changed since this learning was written")
 
 In autofix mode, memory-only drift (no codebase corroboration) should result in stale-marking, not action.
+
+The same boundary applies to passive quality feedback artifacts: they can narrow where to look, but they must not be treated as an automatic refresh queue or as stronger evidence than the current codebase.
 
 ### Judgment Guidelines
 

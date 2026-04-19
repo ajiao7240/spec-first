@@ -26,5 +26,27 @@
       "code-facts/test-map.md",
       "context-packs/review-change.md"
     ]
+  },
+  {
+    "id": "demo-store-work-efficiency",
+    "repo_slug": "demo-store",
+    "fixture_repo_root": "tests/fixtures/benchmarks/demo-store",
+    "stage": "work",
+    "expected_key_evidence": [
+      "minimal-context/work.json",
+      "code-facts/test-map.md",
+      "context-packs/review-change.md"
+    ]
+  },
+  {
+    "id": "wallet-suite-review-efficiency",
+    "repo_slug": "wallet-suite",
+    "fixture_repo_root": "tests/fixtures/benchmarks/wallet-suite",
+    "stage": "review",
+    "expected_key_evidence": [
+      "minimal-context/review.json",
+      "code-facts/high-risk-modules.md",
+      "code-facts/test-map.md"
+    ]
   }
 ]

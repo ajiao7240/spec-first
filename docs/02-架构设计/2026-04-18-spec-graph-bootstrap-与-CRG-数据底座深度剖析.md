@@ -4,6 +4,12 @@
 > 范围：`skills/spec-graph-bootstrap/`（Skill 层）+ `src/crg/`（数据底座）+ `src/bootstrap-compiler/`（编译层）+ `src/context-routing/`（消费层）
 > 目的：系统化梳理 graph-informed Stage-0 的阶段合约、工具链、SQLite schema、降级链路、并行语义与铁律，作为后续工程演进与 Review 的基线。
 
+## 当前状态（2026-04-18）
+
+- `implemented`：当前代码已经上线并可验证的主链，是 `context-routing.json` / `artifact-manifest.json` / `verification-profile.json` + `src/context-routing/evaluator.js` / `stage0-context` / `crg review-context` 这一套轻量 contract 与消费链路；本轮又补了 `context-routing evaluator` 与 `crg flows/context/review-context` 的 characterization baseline，用测试锁定当前公开输出边界。
+- `active`：当前执行中的整改主文档是 `docs/plans/2026-04-18-spec-first-ai-dev-quality-remediation-plan.md`。这条主线优先做“事实收敛 + characterization + 轻 contract 守卫”，先提升 LLM 的决策输入质量，再决定是否推进更深的编译器或算法整改。
+- `design-discussion`：本文中关于更大范围的 compiler 去 sample 化、CRG 事实底座重构、Phase 0-4 终局语义与分层演进的内容，当前仍主要是审计/设计讨论输入，不等同于“代码已实现”或“已成为运行时强约束”。
+
 ---
 
 ## 一、总体定位与分层

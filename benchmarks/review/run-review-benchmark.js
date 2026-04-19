@@ -4,6 +4,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { evaluateContextForRepo } = require('../../src/context-routing/evaluator');
+const {
+  BENCHMARK_CONTRACT_VERSION,
+  buildContextRoutingAnalyzerRevision,
+  digestFile,
+} = require('../shared/benchmark-metadata');
 
 function loadCases(casesPath) {
   const cases = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
@@ -11,7 +16,13 @@ function loadCases(casesPath) {
     throw new Error('review benchmark cases must be an array');
   }
   for (const item of cases) {
-    if (!item.id || !item.repo_slug || !item.stage || !Array.isArray(item.expected_assets)) {
+    if (
+      !item.id ||
+      !item.repo_slug ||
+      !item.stage ||
+      !Array.isArray(item.expected_assets) ||
+      (item.fixture_repo_root !== undefined && typeof item.fixture_repo_root !== 'string')
+    ) {
       throw new Error(`invalid review benchmark case: ${JSON.stringify(item)}`);
     }
   }
@@ -21,8 +32,11 @@ function loadCases(casesPath) {
 function runReviewBenchmark({ repoRoot, casesPath }) {
   const cases = loadCases(casesPath);
   const results = cases.map((testCase) => {
+    const targetRepoRoot = testCase.fixture_repo_root
+      ? path.resolve(repoRoot, testCase.fixture_repo_root)
+      : repoRoot;
     const evaluation = evaluateContextForRepo({
-      repoRoot,
+      repoRoot: targetRepoRoot,
       slug: testCase.repo_slug,
       stage: testCase.stage,
     });
@@ -31,6 +45,7 @@ function runReviewBenchmark({ repoRoot, casesPath }) {
 
     return {
       id: testCase.id,
+      repo_slug: testCase.repo_slug,
       stage: testCase.stage,
       level: evaluation.level,
       hit_rate: testCase.expected_assets.length === 0
@@ -44,6 +59,9 @@ function runReviewBenchmark({ repoRoot, casesPath }) {
   });
 
   return {
+    benchmark_contract_version: BENCHMARK_CONTRACT_VERSION,
+    analyzer_revision: buildContextRoutingAnalyzerRevision(repoRoot),
+    input_digest: digestFile(casesPath),
     generated_at: new Date().toISOString(),
     case_count: results.length,
     average_hit_rate: results.length === 0

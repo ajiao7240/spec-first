@@ -65,7 +65,9 @@ function loadWorkspaceContext({
   target,
   changedFiles = [],
 } = {}) {
-  if (repoRoots.length > 0) {
+  const entry = resolveStage0Entry({ cwd, target, repoRoots, changedFiles, stage });
+
+  if (repoRoots.length > 0 && entry.mode !== 'workspace-registered') {
     return repoRoots.map((repoRoot) => {
       const slug = resolveWorkspaceSlug(repoRoot);
       try {
@@ -94,8 +96,6 @@ function loadWorkspaceContext({
       }
     });
   }
-
-  const entry = resolveStage0Entry({ cwd, target, repoRoots, changedFiles, stage });
   if (entry.mode !== 'workspace-registered' || !entry.workspace) {
     return [];
   }

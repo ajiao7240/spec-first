@@ -204,6 +204,14 @@ Load the `test-xcode` skill with one of these argument shapes:
 - `MyApp-Debug` — test a specific scheme
 - `current` — reuse the current or last-used scheme
 
+## Verifier Registry Metadata
+
+- Verifier id: `test-xcode`
+- Supported platforms: `mobile-ios`
+- Primary prerequisites: `XcodeBuildMCP`
+- Evidence outputs: `simulator-screenshot`, `simulator-logs`
+- Invocation posture: standalone skill; scheme and project discovery stay outside the registry
+
 ## Integration with spec:review
 
 When reviewing PRs that touch iOS code, the `spec:review` workflow can spawn an agent to run this skill, build on the simulator, test key screens, and check for crashes.

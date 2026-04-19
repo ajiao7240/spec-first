@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-graph-bootstrap test-surface",
+  "type": "object",
+  "required": ["test_files", "coverage_gaps"],
+  "properties": {
+    "test_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "kind"],
+        "properties": {
+          "path": { "type": "string" },
+          "kind": { "type": "string" },
+          "target_path": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "coverage_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

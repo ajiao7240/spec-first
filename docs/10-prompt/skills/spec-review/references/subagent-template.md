@@ -27,7 +27,7 @@ You produce up to two outputs depending on whether a run ID was provided:
    If no Run ID is provided (the field is empty or absent), skip this step entirely -- do not attempt any file write.
 
 2. **Compact return (always).** RETURN compact JSON to the parent with ONLY merge-tier fields per finding:
-   title, severity, file, line, confidence, autofix_class, owner, requires_verification, pre_existing, suggested_fix.
+   title, severity, file, line, confidence, autofix_class, owner, requires_verification, pre_existing, suggested_fix, dimension_tag.
    Do NOT include why_it_matters or evidence in the returned JSON.
    Include reviewer, residual_risks, and testing_gaps at the top level.
 
@@ -40,7 +40,7 @@ The schema below describes the **full artifact file format** (all fields require
 
 Confidence rubric (0.0-1.0 scale):
 - 0.00-0.29: Not confident / likely false positive. Do not report.
-- 0.30-0.49: Somewhat confident. Do not report -- too speculative for actionable review.
+- 0.30-0.49: Somewhat confident. Do not report -- confidence too low for actionable review.
 - 0.50-0.59: Moderately confident. Real but uncertain. Do not report unless P0 severity.
 - 0.60-0.69: Confident enough to flag. Include only when the issue is clearly actionable.
 - 0.70-0.84: Highly confident. Real and important. Report with full evidence.
@@ -55,6 +55,15 @@ False-positive categories to actively suppress:
 - Issues already handled elsewhere in the codebase (check callers, guards, middleware)
 - Suggestions that restate what the code already does in different words
 - Generic "consider adding" advice without a concrete failure mode
+
+Change-discipline dimensions to explicitly consider during analysis:
+- `orthogonal_edits` -- the diff changes code outside the intended task or plan boundary without a verified dependency forcing it
+- `over_engineering` -- the diff introduces abstraction, indirection, or future-proofing not required by the current task
+- `assumption_leak` -- the diff depends on an unstated prerequisite, invariant, or environmental assumption
+
+When one of these issues is real and actionable, report it as a finding rather than burying it in generic maintainability commentary or `residual_risks`.
+When you report a change-discipline finding, set `dimension_tag` to the primary matching tag in both the full artifact file and the compact return.
+If no change-discipline dimension applies, omit `dimension_tag` entirely.
 
 Rules:
 - You are a leaf reviewer inside an already-running spec-first review workflow. Do not invoke spec-first skills or agents unless this template explicitly instructs you to. Perform your analysis directly and return findings in the required output format only.

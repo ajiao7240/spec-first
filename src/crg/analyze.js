@@ -119,10 +119,12 @@ function surprisingConnections(db) {
       reasons.push(`cross_language:${srcLang}→${tgtLang}`);
     }
 
-    // F4: peripheral_to_hub（20分）— 外围节点（入度=0）调用中枢节点
+    // F4: peripheral_to_hub（20分）— 低入度（入度<=1）节点调用中枢节点
+    // 这里保持保守放宽：从严格外围（0）扩到近外围（<=1），
+    // 目的是少量提高召回，不直接放开到更高噪声范围。
     const srcDeg = inDegree.get(edge.source_id) || 0;
     const tgtDeg = inDegree.get(edge.target_id) || 0;
-    const peripheralToHub = srcDeg === 0 && tgtDeg >= hubThreshold;
+    const peripheralToHub = srcDeg <= 1 && tgtDeg >= hubThreshold;
     if (peripheralToHub) {
       score += 20;
       reasons.push('peripheral_to_hub');

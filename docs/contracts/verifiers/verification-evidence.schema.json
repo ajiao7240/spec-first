@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-first verification evidence",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evidence_source",
+    "evidence_items"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "evidence_source": { "type": "string" },
+    "evidence_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "evidence_ref",
+          "verifier",
+          "gate_ids",
+          "evidence_type",
+          "status",
+          "artifact_path",
+          "captured_at",
+          "stage"
+        ],
+        "properties": {
+          "evidence_ref": { "type": "string" },
+          "verifier": { "type": "string" },
+          "gate_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "evidence_type": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["captured", "failed"]
+          },
+          "artifact_path": { "type": ["string", "null"] },
+          "captured_at": { "type": ["string", "null"] },
+          "stage": {
+            "type": "string",
+            "enum": ["plan", "work", "review", "verify", "unknown"]
+          }
+        }
+      }
+    }
+  }
+}

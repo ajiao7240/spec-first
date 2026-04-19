@@ -18,6 +18,7 @@ function defaultCompilers() {
 
 function compileBootstrapArtifacts({
   generatedAt = '2026-04-15T00:00:00.000Z',
+  repoRoot,
   factInventory,
   riskSignals,
   testSurface,
@@ -32,6 +33,7 @@ function compileBootstrapArtifacts({
   try {
     const machineArtifacts = pipeline.machine({
       generatedAt,
+      repoRoot,
       factInventory,
       riskSignals,
       testSurface,
@@ -43,11 +45,22 @@ function compileBootstrapArtifacts({
 
     const humanAssets = pipeline.human({
       generatedAt,
+      factInventory: machineArtifacts.fact_inventory,
+      riskSignals: machineArtifacts.risk_signals,
+      testSurface: machineArtifacts.test_surface,
+      verificationProfile: machineArtifacts.verification_profile,
       contextAssets,
     });
     stageResults.push(buildStageResult('human-assets', 'success'));
 
-    const routing = pipeline.routing({ generatedAt });
+    const routing = pipeline.routing({
+      generatedAt,
+      repoRoot,
+      factInventory: machineArtifacts.fact_inventory,
+      riskSignals: machineArtifacts.risk_signals,
+      testSurface: machineArtifacts.test_surface,
+      generatedAssets: humanAssets.generated_assets,
+    });
     stageResults.push(buildStageResult('routing', 'success'));
 
     return {

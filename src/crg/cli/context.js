@@ -14,6 +14,7 @@ const fs = require('fs');
 const { makeEnvelope } = require('./envelope');
 const { resolveActiveGraphDb } = require('../generations/paths');
 const { retrieveContext } = require('../retrieval/api');
+const { annotateFlowOutput } = require('../flows');
 
 /**
  * 加载 better-sqlite3，失败时 exit 2
@@ -118,7 +119,8 @@ function run(argv) {
          ORDER BY criticality DESC
          LIMIT 3`
       )
-      .all();
+      .all()
+      .map((row) => annotateFlowOutput(row));
 
     // summary：图规模摘要，供 AI 消费者快速建立仓库全局视角
     const stats = db.prepare(

@@ -11,6 +11,7 @@ describe('workflow Stage-0 consumption contract', () => {
   for (const relativePath of [
     'skills/spec-plan/SKILL.md',
     'skills/spec-work/SKILL.md',
+    'skills/spec-work-beta/SKILL.md',
     'skills/spec-review/SKILL.md',
   ]) {
     test(`${relativePath} uses evaluator output contract as the Stage-0 source of truth`, () => {
@@ -19,7 +20,16 @@ describe('workflow Stage-0 consumption contract', () => {
       expect(content).toContain('selected_assets / fallback_reason / level / skipped_rules');
       expect(content).toContain('telemetry');
       expect(content).toContain('context-routing.json');
+      expect(content).toContain('verification summary');
+      expect(content).toContain('platform_focus');
+      expect(content).toContain('stage0-context --stage');
+      expect(content).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
       expect(content).not.toContain('按 yaml 路由加载文件');
+
+      expect(content).toContain('verifier_dispatch');
+      expect(content).toContain('ai_dev_quality_gate_result');
+      expect(content).toContain('verification_evidence');
+      expect(content).toContain('verification_gate_state');
     });
   }
 });

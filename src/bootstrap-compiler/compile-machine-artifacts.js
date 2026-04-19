@@ -1,49 +1,81 @@
 'use strict';
 
 const { compileMinimalContexts } = require('./compile-minimal-context');
+const { buildVerificationProfile } = require('./compile-verification-profile');
 const { buildFreshnessReport } = require('./freshness');
 const { buildLintReport } = require('./lint');
 const { buildContradictionsReport } = require('./contradictions');
-const { buildArtifactManifestSample } = require('./sample-generator');
+const { buildArtifactManifest } = require('./compile-routing');
+const { deriveBootstrapInputs } = require('./derive-bootstrap-facts');
 
 function compileMachineArtifacts({
   generatedAt = '2026-04-15T00:00:00.000Z',
+  repoRoot,
   factInventory,
   riskSignals,
   testSurface,
-  manifest = buildArtifactManifestSample({
-    generatedAt,
-    updatedAt: generatedAt,
-    graphLastBuilt: generatedAt,
-  }),
+  manifest,
   actualAssets = [],
   contextAssets = [],
   contradictionAssets = [],
 } = {}) {
+  const derived = deriveBootstrapInputs({
+    repoRoot,
+    factInventory,
+    riskSignals,
+    testSurface,
+  });
+  const effectiveFactInventory = derived.factInventory;
+  const effectiveRiskSignals = derived.riskSignals;
+  const effectiveTestSurface = derived.testSurface;
+  const effectiveManifest = manifest || buildArtifactManifest({
+    generatedAt,
+    repoRoot,
+    factInventory: effectiveFactInventory,
+    riskSignals: effectiveRiskSignals,
+    testSurface: effectiveTestSurface,
+  });
+
+  const verificationProfile = buildVerificationProfile({
+    generatedAt,
+    repoRoot,
+    factInventory: effectiveFactInventory,
+    testSurface: effectiveTestSurface,
+  });
+
   return {
+    fact_inventory: effectiveFactInventory,
+    risk_signals: effectiveRiskSignals,
+    test_surface: effectiveTestSurface,
+    verification_profile: verificationProfile,
     minimal_context: compileMinimalContexts({
       generatedAt,
-      factInventory,
-      riskSignals,
-      testSurface,
+      factInventory: effectiveFactInventory,
+      riskSignals: effectiveRiskSignals,
+      testSurface: effectiveTestSurface,
+      verificationProfile,
     }),
     freshness: buildFreshnessReport({
       generatedAt,
-      graphLastBuilt: manifest && manifest.inputs && manifest.inputs.crg
-        ? manifest.inputs.crg.graph_last_built
+      graphLastBuilt: effectiveManifest && effectiveManifest.inputs && effectiveManifest.inputs.crg
+        ? effectiveManifest.inputs.crg.graph_last_built
         : generatedAt,
-      outputUpdatedAt: manifest ? manifest.updated_at : generatedAt,
-      inputs: manifest ? manifest.inputs : {},
+      outputUpdatedAt: effectiveManifest ? effectiveManifest.updated_at : generatedAt,
+      inputs: effectiveManifest ? effectiveManifest.inputs : {},
     }),
     lint_report: buildLintReport({
       generatedAt,
-      manifest,
+      manifest: effectiveManifest,
       actualAssets,
       contextAssets,
       requiredAssets: [
+        'fact-inventory.json',
+        'risk-signals.json',
+        'test-surface.json',
         'context-routing.json',
         'artifact-manifest.json',
         'minimal-context/review.json',
+        'verification-profile.json',
       ],
     }),
     contradictions: buildContradictionsReport({

@@ -28,10 +28,16 @@ function buildTelemetryRecord({
     selected_context_count: evaluation.selected_context_count || 0,
     stage,
     profile: evaluation.profile || resolveProfile(stage),
+    level: evaluation.level || null,
     selected_assets: evaluation.selected_assets || [],
     skipped_rules: evaluation.skipped_rules || [],
     fallback_reason: evaluation.fallback_reason || null,
     freshness_status: freshnessStatus || evaluation.freshness_status || 'unknown',
+    verification_summary: evaluation.verification_summary || null,
+    verifier_dispatch: evaluation.verifier_dispatch || null,
+    ai_dev_quality_gate_result: evaluation.ai_dev_quality_gate_result || null,
+    verification_evidence: evaluation.verification_evidence || null,
+    verification_gate_state: evaluation.verification_gate_state || null,
   };
 }
 
@@ -55,10 +61,15 @@ function recordWorkflowTelemetry({
     ? (record.workspace_slug || slug)
     : slug;
   const dir = path.join(artifactAnchorRoot, '.spec-first', 'workflows', workflow, telemetrySlug);
-  fs.mkdirSync(dir, { recursive: true });
   const filePath = path.join(dir, `${generatedAt.replace(/[:.]/g, '-')}.json`);
-  fs.writeFileSync(filePath, JSON.stringify(record, null, 2));
-  return { filePath, record };
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(record, null, 2));
+    return { filePath, record };
+  } catch (err) {
+    process.stderr.write(`[spec-first] telemetry write failed: ${err.message}\n`);
+    return { filePath: null, record };
+  }
 }
 
 module.exports = {

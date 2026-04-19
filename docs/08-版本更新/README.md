@@ -6,6 +6,26 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-18 | feat | `crg-benchmark-evidence` | 为 `CRG Quality Gate` 增加 `benchmark-evidence` PR job 和轻量聚合 artifact，形成 `regression-gate + benchmark-evidence` 的双轨组合；evidence 只收集事实，不发明新的 gate 状态 |
+| 2026-04-18 | feat | `external-benchmark-fixture` | 为 review/repo-qa/context-efficiency benchmark 增加受控 `demo-store + wallet-suite` external fixture repo 样本，并让 runner 只在显式 `fixture_repo_root` 存在时切换输入根目录；继续保持证据层定位，不引入自动下载、自动同步或新 gate 状态 |
+| 2026-04-18 | feat | `branch-protection-policy-baseline` | 新增 machine-readable `advisory` branch protection policy，明确 `AI Dev Quality Gate` 与 `CRG Quality Gate` 是建议保护 `main` 的 required checks；只提供治理真源与一致性守卫，不自动改 GitHub 设置，也不引入 gate 状态机 |
+| 2026-04-18 | feat | `crg-benchmark-contract` | 为 benchmark/gate 增加轻量可比对 contract，显式输出 `benchmark_contract_version`、`analyzer_revision` 与输入 digest；让质量门表达“这次结果是否可比”，而不是发明更多流程状态 |
+| 2026-04-18 | fix | `crg-flow-signals` | 收紧 CRG flow 风险输入：移除伪语义 `test_gap`、把安全关键词改为“强信号 + 安全路径弱信号”，并为 flow 相关输出显式补 `entry_confidence/entry_inference_reason`，让 LLM 拿到更干净的决策输入，而不是把启发式误当事实 |
+| 2026-04-18 | feat | `stage0-real-machine-artifacts` | 为 bootstrap compiler 增加基于仓库文件系统的轻量 fact inference，开始真实产出 `fact-inventory.json / risk-signals.json / test-surface.json`，并让 human assets / routing / runBootstrap 主链消费这些事实输入；保持轻 contract，不把 bootstrap 演化成更厚的状态机 |
+| 2026-04-18 | feat | `quality-feedback-loop` | 为 `AI Dev Quality Gate` 增加被动 `quality-feedback-topics.json` artifact，并让 `spec-compound` / `spec-compound-refresh` 把 `candidate_topics` 作为补充决策输入读取，形成轻量 feedback loop；仍然不自动触发回灌，也不引入 gate 状态机 |
+| 2026-04-18 | feat | `runtime-ai-dev-gate-facts` | 将最近一次 `ai-dev-quality-gate-result` 作为可选顶层事实接入 runtime / telemetry / workflow docs，帮助 LLM 读取最近的 CI/gate 质量背景；同时明确多仓 workspace 不做聚合，避免发明额外状态语义 |
+| 2026-04-18 | feat | `ai-dev-gate-result` | 为 `AI Dev Quality Gate` 新增独立 machine-readable result artifact 与 schema，CI 现在不仅“跑了 gate”，还会产出轻量结果快照供 LLM / 人消费；保持被动事实层，不引入 gate 状态机 |
+| 2026-04-18 | feat | `ai-dev-quality-gate` | 新增 `AI Dev Quality Gate` workflow 与 `test:ai-dev:gate`，把 Stage-0 verification contracts 收成独立 CI 入口，并让现有 `CRG Quality Gate` 同步监听共享 verification contract 变更，使 Phase D 从“只有 evidence 真源”推进到“CI-ready gate baseline” |
+| 2026-04-18 | feat | `stage0-verification-evidence` | 新增独立 `verification_evidence` contract，并让 `verification_gate_state` 基于真实 evidence reference 反映 `satisfied` gate / `evidence_locations` / `satisfied_required_gate_count`，把 runtime verification 输入从“只有建议和状态”推进到“事实 / 候选 / 证据 / 状态”四层轻量闭环 |
+| 2026-04-18 | fix | `stage0-verification-contract-boundaries` | 将 `verifier_dispatch` 从 `verification_summary` 中抽离为顶层 contract，并让 `verification_gate_state` 只保留 gate ledger，不再混入 `handoff_posture` 这类路由建议，进一步收紧 runtime 边界，让 workflow/LLM 读到“事实 / 候选 / 状态”三层清晰输入 |
+| 2026-04-18 | feat | `stage0-verifier-dispatch-and-gate-state` | 为 runtime verification summary 增加 stage-aware verifier candidates / blockers / manual gates，并拆出独立 `verification_gate_state`，让 workflow/LLM 拿到更完整但仍轻量的验证决策输入，而不是被固定执行树绑死 |
+| 2026-04-18 | fix | `stage0-workspace-runtime-boundaries` | 收紧 Stage-0 workspace runtime contract：child git cwd 不再误退 `single-repo`，explicit / overview-only 路径只暴露稳定 boundary 字段，不再把 idle child baseline 伪装成当前改动 checklist，给 workflow/LLM 更干净的决策输入 |
+| 2026-04-18 | feat | `verifier-registry-baseline` | 新增 verifier registry 真源，并把 `test-browser` / `test-xcode` 从 `verification-profile` 编译器的硬编码分支抽成 registry-backed capability metadata，为后续 stage-aware dispatch 留出稳定扩展位 |
+| 2026-04-18 | feat | `stage0-runtime-telemetry-default` | `stage0-context` 现在会默认把 workflow telemetry 写入真实 workflow 目录，并保留 `verification_summary`，使 `spec-plan/spec-work/spec-work-beta/spec-review` 的 Stage-0 消费从“只读 runtime JSON”升级为“可追溯的默认运行闭环” |
+| 2026-04-18 | feat | `workflow-stage0-runtime-preload` | 新增内部 CLI `stage0-context` 并把它接到 `spec-plan/spec-work/spec-work-beta/spec-review` 的默认运行链，让 Stage-0 / verification summary 不再停留在“workflow 文案要求手工读取”，而是每次运行自动注入 best-effort runtime JSON |
+| 2026-04-18 | feat | `runtime-verification-summary-consumption` | 将 diff-aware verification recommendation 接到 `compileWorkspaceContext` 与 `spec-work/spec-work-beta/spec-review` 的运行时消费口径，workflow 直接按当前改动的 effective checklist 工作，docs-only 改动不再被 repo baseline 伪造必跑项污染 |
+| 2026-04-18 | feat | `change-surface-verification-recommendation` | 为 `crg review-context` 新增 `change surface -> verification recommendation` 链路，输出 `impacted_*`、`recommended_*_verifications` 与 `confidence`，让系统从“仓库级能测什么”进一步收敛到“本次改动最少该验证什么” |
+| 2026-04-18 | feat | `stage0-verification-profile` | 为 Stage-0 新增 `verification-profile` machine contract，并把 platform-aware verification summary 接进 `minimal-context` 与 `spec-plan/spec-work/spec-review/spec-work-beta`，让 workflow 从“泛化测试建议”升级为“默认验证矩阵 + required gate checklist” |
 | 2026-04-18 | feat | `using-spec-first-sessionstart-bootstrap` | 为 `using-spec-first` 补齐双宿主 instruction bootstrap，并给 Claude 增加受管 `SessionStart` hook / `.claude/settings.json` matcher；`init / doctor / clean` 形成可安装、可诊断、可清理的最小闭环 |
 | 2026-04-17 | feat | `spec-brainstorm-capability-upgrade` | `spec-brainstorm` 补齐 Current Work Pulse、Scope Decomposition、Preflight Self-Check、User Review Gate、Terminal State Lock 与 epic decomposition template，并让 `spec-plan` 消费 requirements frontmatter `epic`；同步补 smoke/integration 接线与 release-facing 文档 |
 | 2026-04-17 | fix | `release-gate-hardening` | 默认 `test:release` 从“仅双宿主治理专项 smoke”恢复为“治理专项 smoke + 完整 tarball 安装回归”的总门禁，并给治理专项 smoke 增加 docs-side JSON/schema 不得进入 tarball 的负向断言，防止发布链路只守住新真源、不守旧真源回流 |
@@ -44,6 +64,1096 @@
 | 2026-03-31 | feat | `spec-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
 
 ---
+
+## 2026-04-18 `feat(crg-benchmark-contract)`
+
+### 更新内容
+
+这一步不是把质量门做得更重，而是把 benchmark 结果变得“可比较”：
+
+- 每个 benchmark runner 都显式输出
+  - `benchmark_contract_version`
+  - `analyzer_revision`
+  - `input_digest`
+- regression gate 会额外判断：
+  - 当前结果和 baseline 是否处在同一个 analyzer / 输入集合上
+  - 如果不可比，明确返回 `baseline_incompatible`
+
+这解决的是一个长期隐患：
+
+- 之前分数可能变了，但无法区分是“质量退化”
+- 还是“analyzer 代码 / benchmark case 集合变了”
+
+### 主要变化
+
+- benchmark metadata helper
+  - [benchmark-metadata.js](../../benchmarks/shared/benchmark-metadata.js)
+  - 用轻量 digest 生成 `context-routing-evaluator` 的 revision 指纹
+- 三个 benchmark runner 补 metadata
+  - [run-review-benchmark.js](../../benchmarks/review/run-review-benchmark.js)
+  - [run-repo-qa.js](../../benchmarks/repo-qa/run-repo-qa.js)
+  - [run-context-efficiency.js](../../benchmarks/context-efficiency/run-context-efficiency.js)
+- regression gate 收口 comparability
+  - [run-regression.js](../../benchmarks/regression/run-regression.js)
+  - [baselines.json](../../benchmarks/regression/baselines.json)
+  - [update-crg-baselines.js](../../scripts/update-crg-baselines.js)
+- AI dev gate 透传 benchmark 可比性摘要
+  - [run-ai-dev-quality-gate.js](../../scripts/run-ai-dev-quality-gate.js)
+
+### 验证
+
+- [regression-gate.test.js](../../tests/unit/regression-gate.test.js)
+- [review-benchmark-smoke.test.js](../../tests/unit/review-benchmark-smoke.test.js)
+- [repo-qa-benchmark-smoke.test.js](../../tests/unit/repo-qa-benchmark-smoke.test.js)
+- [context-efficiency-benchmark-smoke.test.js](../../tests/unit/context-efficiency-benchmark-smoke.test.js)
+- [ai-dev-quality-gate.test.js](../../tests/unit/ai-dev-quality-gate.test.js)
+
+### 版本意义
+
+这一步强化的是“benchmark 结果的解释力”，不是 gate 编排能力：
+
+- 让 LLM / 人知道这次结果基于哪个 analyzer revision
+- 让 baseline 比较有明确边界
+- 保持轻 contract，不扩状态流转
+
+---
+
+## 2026-04-18 `feat(external-benchmark-fixture)`
+
+### 更新内容
+
+这一步补的是 benchmark 的“外部参照物”，不是把 gate 继续做厚：
+
+- 为 review / repo-qa / context-efficiency 增加受控 `demo-store` 与 `wallet-suite` external fixture repo
+- benchmark runner 只在 case/question 显式提供 `fixture_repo_root` 时切换输入根目录
+- regression baseline 随输入摘要变化同步更新，继续保持“可比较的事实输入”语义
+
+这样做的价值是：
+
+- 不再只在 `spec-first` 自仓库里自证正确
+- 给 `cross_community` / `peripheral_to_hub` 这类 CRG 信号调整提供外部样本证据
+- 继续把 benchmark 保持在证据层，而不是引入自动下载、自动同步或多状态 gate 编排
+
+### 主要变化
+
+- 外部 fixture repo
+  - [demo-store](../../tests/fixtures/benchmarks/demo-store)
+  - [wallet-suite](../../tests/fixtures/benchmarks/wallet-suite)
+- 三个 benchmark runner 支持可选 fixture 根目录
+  - [run-review-benchmark.js](../../benchmarks/review/run-review-benchmark.js)
+  - [run-repo-qa.js](../../benchmarks/repo-qa/run-repo-qa.js)
+  - [run-context-efficiency.js](../../benchmarks/context-efficiency/run-context-efficiency.js)
+- dataset 与 baseline 同步收口
+  - [cases.json](../../benchmarks/review/cases.json)
+  - [questions.json](../../benchmarks/repo-qa/questions.json)
+  - [cases.json](../../benchmarks/context-efficiency/cases.json)
+  - [baselines.json](../../benchmarks/regression/baselines.json)
+
+### 验证
+
+- [review-benchmark-smoke.test.js](../../tests/unit/review-benchmark-smoke.test.js)
+- [repo-qa-benchmark-smoke.test.js](../../tests/unit/repo-qa-benchmark-smoke.test.js)
+- [context-efficiency-benchmark-smoke.test.js](../../tests/unit/context-efficiency-benchmark-smoke.test.js)
+- `npm run test:crg:gate`
+- `npm run test:ai-dev:gate`
+
+### 版本意义
+
+这一步强化的是“外部可对照性”，不是新的质量门状态：
+
+- benchmark 结果开始有自仓库之外的对照样本
+- CRG 调参可以先看证据，再决定是否动默认门控
+- 仍然遵守“轻 contract + 明确边界 + 让 LLM 决策”
+
+---
+
+## 2026-04-18 `feat(crg-benchmark-evidence)`
+
+### 更新内容
+
+这一步不是新增 blocker，而是把 PR 上的 benchmark 证据链补完整：
+
+- `CRG Quality Gate` workflow 现在除了 `regression-gate`，还会跑 `benchmark-evidence`
+- 新增 `test:crg:benchmark-evidence`，把 review / repo-qa / context-efficiency 三类 benchmark 收成一份轻量聚合 artifact
+- evidence artifact 只表达 benchmark contract、input digest、summary 与 artifact path，不扩成新的 gate 状态机
+
+### 主要变化
+
+- benchmark evidence runner
+  - [run-crg-benchmark-evidence.js](../../scripts/run-crg-benchmark-evidence.js)
+- workflow 双轨组合
+  - [crg-quality-gate.yml](../../.github/workflows/crg-quality-gate.yml)
+  - `regression-gate` 继续负责 blocker
+  - `benchmark-evidence` 负责上传 evidence artifact
+- package script
+  - [package.json](../../package.json)
+  - `npm run test:crg:benchmark-evidence`
+- 守卫测试
+  - [crg-benchmark-evidence.test.js](../../tests/unit/crg-benchmark-evidence.test.js)
+  - [ai-dev-quality-gate.test.js](../../tests/unit/ai-dev-quality-gate.test.js)
+  - [verification-gate.integration.test.js](../../tests/integration/verification-gate.integration.test.js)
+
+### 验证
+
+- `npx jest tests/unit/crg-benchmark-evidence.test.js tests/unit/ai-dev-quality-gate.test.js tests/integration/verification-gate.integration.test.js --runInBand`
+- `npm run test:crg:benchmark-evidence`
+
+### 版本意义
+
+这一步把 PR 里的 benchmark 信号分成两层：
+
+- 需要阻断回退的，继续走 `regression-gate`
+- 需要给人和 LLM 看证据的，走 `benchmark-evidence`
+
+仍然遵守“轻 contract + 明确边界 + 让 LLM 决策”，没有把质量门做成多状态流转系统。
+
+---
+
+## 2026-04-18 `fix(crg-flow-signals)`
+
+### 更新内容
+
+这一步针对的不是“让 CRG 更复杂”，而是把当前最会误导 LLM 的 flow 信号先收窄：
+
+- `flows` 的 `criticality` 不再把 `flow 内 is_test 占比` 伪装成测试覆盖缺口
+- 安全信号从宽泛关键词改成：
+  - 强信号直接命中
+  - 弱信号只有在 `auth/security/crypto` 等安全路径语境里才生效
+- `flows/context/flow/affected-flows` 相关输出显式补：
+  - `entry_confidence`
+  - `entry_inference_reason`
+
+目标不是替 LLM 下判断，而是把“这是启发式，不是事实”的边界说清楚。
+
+### 主要变化
+
+- flow scoring 收口
+  - [flows.js](../../src/crg/flows.js)
+  - 删除伪语义 `test_gap`
+  - `criticality` 改为只依赖：
+    - `file_spread`
+    - `depth_score`
+    - `security_score`
+    - `external_score`
+- 安全信号降噪
+  - [constants.js](../../src/crg/constants.js)
+  - [changes.js](../../src/crg/changes.js)
+  - 普通 `request/http/query` 命名不再默认被抬成安全风险
+  - `validate/verify/sign/connect/sql` 等弱信号只有在安全路径语境里才放大
+- flow 输出边界显式化
+  - [flows.js](../../src/crg/commands/flows.js)
+  - [flow.js](../../src/crg/commands/flow.js)
+  - [affected-flows.js](../../src/crg/commands/affected-flows.js)
+  - [context.js](../../src/crg/cli/context.js)
+
+### 验证
+
+- [crg-flows-scoring.test.js](../../tests/unit/crg-flows-scoring.test.js)
+- [crg-changes.test.js](../../tests/unit/crg-changes.test.js)
+- [crg-characterization.test.js](../../tests/unit/crg-characterization.test.js)
+- [crg-cli-v1.test.js](../../tests/contracts/crg-cli-v1.test.js)
+- `bash tests/e2e/crg-all-commands.sh`
+
+### 版本意义
+
+这一步本质上是在给 LLM 更干净、更可解释的 flow 输入：
+
+- 少一点伪覆盖语义
+- 少一点 Web 高频词噪声
+- 多一点“这是启发式入口”的边界提示
+
+依然遵守：
+
+- 轻 contract
+- 明确边界
+- 让 LLM 决策
+
+---
+
+## 2026-04-18 `feat(branch-protection-policy-baseline)`
+
+### 更新内容
+
+这一步做的不是“自动配置 GitHub branch protection”，而是先把 branch protection 语义收成 machine-readable 的 advisory policy。
+
+这样系统里第一次有了一个明确的治理真源，回答：
+
+- `main` 分支建议保护哪些 required checks
+- 这些 checks 对应哪个 workflow / job / command
+- 它们覆盖哪些质量面
+
+但依然坚持边界：
+
+- 不自动修改 GitHub 设置
+- 不把 branch protection 变成 runtime 编排状态
+- 不发明新的 gate 流转状态机
+
+### 主要变化
+
+- 新增 advisory policy 真源
+  - [branch-protection-policy.json](../../src/cli/contracts/quality-gates/branch-protection-policy.json)
+  - [branch-protection-policy.schema.json](../../src/cli/contracts/quality-gates/branch-protection-policy.schema.json)
+  - 当前仅表达 GitHub 下 `main` 分支的建议 required checks：
+    - `AI Dev Quality Gate`
+    - `CRG Quality Gate`
+- workflow 触发面补盲
+  - [ai-dev-quality-gate.yml](../../.github/workflows/ai-dev-quality-gate.yml)
+  - [crg-quality-gate.yml](../../.github/workflows/crg-quality-gate.yml)
+  - 现在会覆盖：
+    - quality-gate governance contracts
+    - quality-gate schemas
+    - workflow 自身文件修改
+    - branch protection policy test
+- 守卫测试补齐
+  - [branch-protection-policy.test.js](../../tests/unit/branch-protection-policy.test.js)
+  - [ai-dev-quality-gate.test.js](../../tests/unit/ai-dev-quality-gate.test.js)
+  - [verification-gate.integration.test.js](../../tests/integration/verification-gate.integration.test.js)
+
+### 版本意义
+
+这一步完成的是 branch protection 的“治理基线”，不是“宿主自动化编排”：
+
+- 给 LLM / 人更明确的治理输入
+- 让 required checks 有机器可读真源
+- 但不越界去控制宿主平台或当前任务流转
+
+---
+
+## 2026-04-18 `feat(quality-feedback-loop)`
+
+### 更新内容
+
+这一步补的不是新的 gate 状态，也不是自动回灌编排，而是一个更轻的 feedback bridge：
+
+- `AI Dev Quality Gate` 现在会额外产出
+  - `quality-feedback-topics.json`
+- `spec-compound` 与 `spec-compound-refresh`
+  - 可以把其中的 `candidate_topics` 当作补充输入读取
+  - 但不能把它当成 primary truth、自动任务队列或 workflow state
+
+这样做的目标是把高价值失败模式变成更容易被 LLM 检索和复用的输入，同时继续保持：
+
+- 轻 contract
+- 明确边界
+- 让 LLM 决策
+
+### 主要变化
+
+- 新增被动 feedback artifact
+  - [quality-feedback.js](../../src/context-routing/quality-feedback.js)
+  - [quality-feedback-topics.schema.json](../../docs/contracts/quality-gates/quality-feedback-topics.schema.json)
+  - [run-ai-dev-quality-gate.js](../../scripts/run-ai-dev-quality-gate.js)
+  - `AI Dev Quality Gate` 运行后会额外写出：
+    - `.spec-first/workflows/quality-gates/ai-dev-quality-gate/quality-feedback-topics.json`
+- compound / refresh 只做补充读取
+  - [spec-compound/SKILL.md](../../skills/spec-compound/SKILL.md)
+  - [spec-compound-refresh/SKILL.md](../../skills/spec-compound-refresh/SKILL.md)
+  - [docs/10-prompt/skills/spec-compound/SKILL.md](../../docs/10-prompt/skills/spec-compound/SKILL.md)
+  - [docs/10-prompt/skills/spec-compound-refresh/SKILL.md](../../docs/10-prompt/skills/spec-compound-refresh/SKILL.md)
+  - 明确要求：
+    - 只作为 supplementary hints
+    - 不自动触发 `spec:compound-refresh`
+    - 不把 gate 失败解释成 workflow 流转状态
+- 测试补齐
+  - [quality-feedback.test.js](../../tests/unit/quality-feedback.test.js)
+  - [spec-compound-contracts.test.js](../../tests/unit/spec-compound-contracts.test.js)
+  - [ai-dev-quality-gate.test.js](../../tests/unit/ai-dev-quality-gate.test.js)
+
+### 版本意义
+
+这一步让“验证结果 -> 可复用经验输入”的链路第一次闭合，但闭合方式仍然是被动、可读、可引用的：
+
+- 不自动编排
+- 不新增强状态流转
+- 不把 quality gate 变成总控状态机
+
+所以它更像是一个让 LLM 做更好判断的事实桥，而不是一个更重的 orchestrator。
+
+---
+
+## 2026-04-18 `feat(runtime-ai-dev-gate-facts)`
+
+### 更新内容
+
+在有了独立 `ai-dev-quality-gate-result` artifact 之后，这一步继续做的不是新增 gate 流程控制，而是把这个 artifact 作为可选顶层事实暴露给 runtime。
+
+这样做的目的很简单：
+
+- 让 workflow / LLM 能读到“最近一次 CI/gate 的事实背景”
+- 但不让这个结果反向主导当前任务的编排
+
+因此这一步有两个明确边界：
+
+- `ai_dev_quality_gate_result` 只是被动事实快照
+- 多仓 workspace 先保持 `null`，不发明聚合语义
+
+### 主要变化
+
+- runtime 开始暴露最近 gate 结果
+  - [quality-gate-result.js](../../src/context-routing/quality-gate-result.js)
+  - [workspace-compiler.js](../../src/bootstrap-compiler/workspace-compiler.js)
+  - [stage0-context.js](../../src/cli/commands/stage0-context.js)
+  - [telemetry.js](../../src/context-routing/telemetry.js)
+  - 单仓场景下会读取最近一次：
+    - `ai-dev-quality-gate-result.json`
+- workspace 边界保持克制
+  - [workspace-context.test.js](../../tests/unit/workspace-context.test.js)
+  - 多仓 workspace 当前显式返回 `null`
+  - 不做 pass/fail 聚合，不做 child 优先级裁决
+- workflow 文案同步收口
+  - [spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
+  - [spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
+  - [spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
+  - [spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-plan/SKILL.md](../../docs/10-prompt/skills/spec-plan/SKILL.md)
+  - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
+  - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
+  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - 统一强调：
+    - 这是最近 gate 的事实快照
+    - 不是 workflow 状态机
+    - 不能被解释成自动阻断规则
+
+### 版本意义
+
+这一步让 LLM 拿到更高质量的质量背景输入，但依然保持“轻 contract + 明确边界 + 让 LLM 决策”：
+
+- 有事实
+- 无编排
+- 无额外状态机
+
+---
+
+## 2026-04-18 `feat(ai-dev-gate-result)`
+
+### 更新内容
+
+在已经接上 `AI Dev Quality Gate` 之后，这一步继续收口的重点不是新增更多 gate 语义，而是把 gate 结果本身变成可消费的 machine-readable artifact。
+
+这里刻意保持边界很窄：
+
+- 结果只回答这次 gate 跑了什么、哪些通过、哪些失败、结果文件在哪
+- 不回答下一步该怎么流转
+- 不引入 `queued / running / retrying / approved` 这类状态机字段
+
+### 主要变化
+
+- 新增 gate result schema
+  - [ai-dev-quality-gate-result.schema.json](../../docs/contracts/quality-gates/ai-dev-quality-gate-result.schema.json)
+  - 只包含：
+    - `passed`
+    - `checks`
+    - `failures`
+    - `artifact_path`
+    - 轻量 summary
+- 新增 runner
+  - [run-ai-dev-quality-gate.js](../../scripts/run-ai-dev-quality-gate.js)
+  - `test:ai-dev:gate` 现在统一由该脚本执行
+  - 会写出：
+    - `.spec-first/workflows/quality-gates/ai-dev-quality-gate/ai-dev-quality-gate-result.json`
+    - Stage-0 contracts suite JSON
+    - CRG regression JSON
+- workflow 上传结果 artifact
+  - [ai-dev-quality-gate.yml](../../.github/workflows/ai-dev-quality-gate.yml)
+  - CI 中会把 `.spec-first/workflows/quality-gates/ai-dev-quality-gate/` 整体上传
+- 测试补齐
+  - [ai-dev-quality-gate.test.js](../../tests/unit/ai-dev-quality-gate.test.js)
+  - [verification-gate.integration.test.js](../../tests/integration/verification-gate.integration.test.js)
+
+### 版本意义
+
+这一步的真正价值是：LLM 和人现在都可以基于 gate 的事实结果做判断，而不是只能看 CI 红绿灯或 workflow 文案。
+
+但它仍然只是“被动结果快照”，不是编排状态机。这一点会继续保持。
+
+---
+
+## 2026-04-18 `feat(ai-dev-quality-gate)`
+
+### 更新内容
+
+在补齐 `verification_evidence` 之后，这一步继续推进 Phase D，但仍然坚持轻量边界：先把 CI 可消费入口建立起来，而不是直接在 repo 里硬编码 branch protection 或重型 verifier 自动执行。
+
+这次新增的是：
+
+- 独立 package script：`test:ai-dev:gate`
+- 独立 GitHub workflow：`AI Dev Quality Gate`
+- 独立 integration guard：锁定 workflow 与 package script 接线
+
+目标是让仓库开始具备一个稳定的 AI-dev quality gate 基线，能自动检查：
+
+- Stage-0 contract 完整性
+- verification profile / verifier registry 基线
+- workflow verification contract 边界
+- CRG regression benchmark
+
+### 主要变化
+
+- 新增 CI-ready gate 入口
+  - [package.json](../../package.json)
+  - 新增：
+    - `test:ai-dev:gate`
+  - `test:integration` 现在会先跑：
+    - [tests/integration/verification-gate.integration.test.js](../../tests/integration/verification-gate.integration.test.js)
+- 新增 GitHub workflow
+  - [ai-dev-quality-gate.yml](../../.github/workflows/ai-dev-quality-gate.yml)
+  - 只在 Stage-0 / verification contract / workflow contract 相关面变动时触发
+  - 运行 `npm run test:ai-dev:gate`
+- 现有 CRG gate 同步监听共享 verification contracts
+  - [crg-quality-gate.yml](../../.github/workflows/crg-quality-gate.yml)
+  - 新增对以下变化面的监听：
+    - `src/cli/commands/stage0-context.js`
+    - `docs/contracts/spec-graph-bootstrap/**`
+    - `docs/contracts/verifiers/**`
+- 新增最小 integration 守卫
+  - [verification-gate.integration.test.js](../../tests/integration/verification-gate.integration.test.js)
+  - 锁定：
+    - workflow 名称
+    - paths 触发面
+    - `npm run test:ai-dev:gate` 接线
+    - `crg-quality-gate` 对共享 contract 的监听面
+
+### 版本意义
+
+这一步的意义不是“CI 已经完全替代人工判断”，而是把 Phase D 从“只有 evidence 真源”推进到“CI-ready gate baseline”。
+
+也就是说，仓库现在已经有：
+
+- verification evidence 真源
+- verification gate state 真源
+- 独立 AI-dev quality gate 入口
+
+但在本轮范围内，真正需要补的主链已经完成：
+
+- branch protection 已先收口为 advisory policy baseline
+- optional/required gate 的仓库级强制策略暂不进入本轮范围
+- compound / Stage-0 feedback loop 已通过被动 `quality-feedback-topics` bridge 建成轻量闭环
+
+---
+
+## 2026-04-18 `feat(stage0-verification-evidence)`
+
+### 更新内容
+
+这次补的不是新的重型 verifier 编排层，而是 Phase D 的最小前置件：独立 `verification_evidence` contract。
+
+目标很明确：
+
+- 不让 `verification_gate_state` 继续只有空的 `evidence_locations`
+- 不把 evidence 再塞回 `verification_summary` 或 `verifier_dispatch`
+- 只把“已经拿到的证据引用”作为事实暴露给 workflow / LLM
+
+这符合当前持续收紧的设计原则：
+
+- `verification_summary` 回答当前改动要关注什么
+- `verifier_dispatch` 回答有哪些 verifier 候选与 blocker
+- `verification_evidence` 回答已经拿到了哪些证据引用
+- `verification_gate_state` 回答 gate 现在是 `planned / pending / blocked / satisfied / not-needed` 中的哪一种
+
+### 主要变化
+
+- 新增独立 evidence contract
+  - [docs/contracts/verifiers/verification-evidence.schema.json](../../docs/contracts/verifiers/verification-evidence.schema.json)
+  - [src/context-routing/verification-evidence.js](../../src/context-routing/verification-evidence.js)
+  - contract 只表达：
+    - `evidence_ref`
+    - `verifier`
+    - `gate_ids`
+    - `evidence_type`
+    - `artifact_path`
+    - `captured_at`
+    - `status`
+- gate state 开始消费真实 evidence reference
+  - [src/context-routing/verification-gate-state.js](../../src/context-routing/verification-gate-state.js)
+  - [docs/contracts/verifiers/verification-gate-state.schema.json](../../docs/contracts/verifiers/verification-gate-state.schema.json)
+  - 有真实 evidence 时：
+    - 对应 gate 的 `evidence_locations` 不再为空
+    - 对应 gate 状态会变成 `satisfied`
+    - `ci_gate.satisfied_required_gate_count` 会按真实证据累计
+  - 但如果只满足部分 required gates，整体状态仍保持 `pending`，不伪造“全量已验证”
+- runtime / telemetry / workflow 文档同步收口
+  - [src/bootstrap-compiler/workspace-compiler.js](../../src/bootstrap-compiler/workspace-compiler.js)
+  - [src/cli/commands/stage0-context.js](../../src/cli/commands/stage0-context.js)
+  - [src/context-routing/telemetry.js](../../src/context-routing/telemetry.js)
+  - [skills/spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
+  - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
+  - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
+  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-plan/SKILL.md](../../docs/10-prompt/skills/spec-plan/SKILL.md)
+  - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
+  - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
+  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - workflow 文案现在明确把 `verification_evidence` 当成独立事实层，而不是 dispatch 指令
+- 回归测试补齐
+  - [tests/unit/verification-evidence.test.js](../../tests/unit/verification-evidence.test.js)
+  - [tests/unit/verification-gate-state.test.js](../../tests/unit/verification-gate-state.test.js)
+  - [tests/unit/stage0-context-command.test.js](../../tests/unit/stage0-context-command.test.js)
+  - [tests/unit/workspace-context.test.js](../../tests/unit/workspace-context.test.js)
+  - [tests/unit/workflow-telemetry.test.js](../../tests/unit/workflow-telemetry.test.js)
+  - [tests/unit/spec-plan-contracts.test.js](../../tests/unit/spec-plan-contracts.test.js)
+  - [tests/unit/spec-work-contracts.test.js](../../tests/unit/spec-work-contracts.test.js)
+  - [tests/unit/spec-work-beta-contracts.test.js](../../tests/unit/spec-work-beta-contracts.test.js)
+  - [tests/unit/spec-review-contracts.test.js](../../tests/unit/spec-review-contracts.test.js)
+  - [tests/unit/workflow-stage0-consumption.test.js](../../tests/unit/workflow-stage0-consumption.test.js)
+
+### 版本意义
+
+这一步不是“自动执行验证”，而是先把验证证据变成 machine-readable 真源。这样后续无论接 CI gate、branch protection，还是把验证经验回灌到 compound，都建立在真实 evidence reference 之上，而不是建立在 workflow 文案或会话文本之上。
+
+---
+
+## 2026-04-18 `fix(stage0-verification-contract-boundaries)`
+
+### 更新内容
+
+在补齐 `verifier_dispatch` 与 `verification_gate_state` 之后，这一轮继续把 runtime contract 收窄成更清晰的三层：
+
+- `verification_summary` 只保留“当前改动事实 + repo baseline”
+- `verifier_dispatch` 只保留 verifier 候选、manual gate 与 blocker
+- `verification_gate_state` 只保留 gate ledger，不再混入 handoff / dispatch 建议
+
+目标是减少 runtime 帮 workflow/LLM 预先决定“应该怎么走”的倾向，改成只提供更高质量、更低耦合的决策输入。
+
+### 主要变化
+
+- `verification_summary` 不再内联 dispatch posture
+  - [src/context-routing/verification-summary.js](../../src/context-routing/verification-summary.js)
+  - `plan/work/review` summary 都只输出：
+    - verification facts
+    - recommended/effective gate lists
+    - repo baseline / confidence / fallback
+- 顶层统一新增 `verifier_dispatch`
+  - [src/bootstrap-compiler/workspace-compiler.js](../../src/bootstrap-compiler/workspace-compiler.js)
+  - [src/cli/commands/stage0-context.js](../../src/cli/commands/stage0-context.js)
+  - [src/context-routing/telemetry.js](../../src/context-routing/telemetry.js)
+  - `compileWorkspaceContext()`、`stage0-context`、workflow telemetry 现在统一输出：
+    - `verification_summary`
+    - `verifier_dispatch`
+    - `verification_gate_state`
+- `verification_gate_state` 去掉 `handoff_posture`
+  - [src/context-routing/verification-gate-state.js](../../src/context-routing/verification-gate-state.js)
+  - [docs/contracts/verifiers/verification-gate-state.schema.json](../../docs/contracts/verifiers/verification-gate-state.schema.json)
+  - gate state 只表示：
+    - `overall_status`
+    - `required_gates`
+    - `optional_evidence`
+    - `blockers`
+    - `ci_gate`
+- workflow 文档消费口径同步收敛
+  - [skills/spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
+  - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
+  - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
+  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-plan/SKILL.md](../../docs/10-prompt/skills/spec-plan/SKILL.md)
+  - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
+  - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
+  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - workflow 统一按：
+    - `verification_summary` 读事实与 baseline
+    - `verifier_dispatch` 读候选 verifier / blockers
+    - `verification_gate_state` 读 pending-vs-blocked ledger
+- 回归测试补强
+  - [tests/unit/stage0-context-command.test.js](../../tests/unit/stage0-context-command.test.js)
+  - [tests/unit/workspace-context.test.js](../../tests/unit/workspace-context.test.js)
+  - [tests/unit/workflow-telemetry.test.js](../../tests/unit/workflow-telemetry.test.js)
+  - [tests/unit/verification-gate-state.test.js](../../tests/unit/verification-gate-state.test.js)
+  - [tests/unit/spec-work-contracts.test.js](../../tests/unit/spec-work-contracts.test.js)
+  - [tests/unit/spec-work-beta-contracts.test.js](../../tests/unit/spec-work-beta-contracts.test.js)
+  - [tests/unit/spec-review-contracts.test.js](../../tests/unit/spec-review-contracts.test.js)
+  - [tests/unit/workflow-stage0-consumption.test.js](../../tests/unit/workflow-stage0-consumption.test.js)
+
+### 版本意义
+
+这次修正不是再加一层 contract，而是把已有 contract 做薄。对后续 AI 辅助开发来说，这能明显减少“状态字段、建议字段、事实字段混在一起”带来的误读，让 workflow 和 LLM 更容易基于事实做自主判断。
+
+---
+
+## 2026-04-18 `feat(stage0-verifier-dispatch-and-gate-state)`
+
+### 更新内容
+
+在已有 `verification-profile` 和 diff-aware `verification_summary` 的基础上，再往前补一层“轻 contract，不替 workflow/LLM 做死决策”的 runtime handoff。现在 Stage-0 不仅会告诉 workflow “这次改动建议验证什么”，还会结构化告诉它：
+
+- 哪些 verifier 是候选项
+- 哪些 gate 需要人工兜底
+- 哪些前置条件阻塞了 verifier
+- 当前 required / optional gate 整体处于 `planned / pending / blocked / not-needed` 的哪种状态
+
+这一步的目标不是把执行顺序硬编码进 runtime，而是把 verifier capability、verifier dispatch 和 gate state 分层表达，让 LLM 有更好的输入去做自主决策。
+
+### 主要变化
+
+- runtime 新增独立 `verifier_dispatch`
+  - [src/context-routing/verification-summary.js](../../src/context-routing/verification-summary.js)
+  - `work` / `review` / `plan` 场景统一暴露：
+    - `handoff_posture`
+    - `dispatch_candidates`
+    - `manual_required_verifications`
+    - `manual_optional_verifications`
+    - `dispatch_blockers`
+  - `dispatch_candidates` 只表达“有哪些 verifier 候选、当前是 dispatch-ready / manual-handoff / blocked”，不表达固定执行顺序
+- verifier registry capability metadata 扩到可用于 dispatch 推断
+  - [src/context-routing/verifier-registry.js](../../src/context-routing/verifier-registry.js)
+  - [docs/contracts/verifiers/verifier-registry.schema.json](../../docs/contracts/verifiers/verifier-registry.schema.json)
+  - 新增能力字段：
+    - `supported_gate_kinds`
+    - `supported_evidence_types`
+    - `availability_checks`
+  - 通过 `buildVerifierDispatchPosture()` 把 gate catalog、平台面、宿主前置条件映射成 runtime 候选 verifier / blocker
+- 拆出独立 `verification_gate_state` contract
+  - [src/context-routing/verification-gate-state.js](../../src/context-routing/verification-gate-state.js)
+  - [docs/contracts/verifiers/verification-gate-state.schema.json](../../docs/contracts/verifiers/verification-gate-state.schema.json)
+  - 统一输出：
+    - `overall_status`
+    - `required_gates`
+    - `optional_evidence`
+    - `blockers`
+    - `ci_gate`
+  - 每个 gate 都会标明 `status / fulfillment_mode / verifier / expected_evidence`
+- runtime 输出链打通
+  - [src/bootstrap-compiler/workspace-compiler.js](../../src/bootstrap-compiler/workspace-compiler.js)
+  - [src/cli/commands/stage0-context.js](../../src/cli/commands/stage0-context.js)
+  - [src/context-routing/telemetry.js](../../src/context-routing/telemetry.js)
+  - `compileWorkspaceContext()`、`stage0-context` 与 telemetry record 现在都会带上：
+    - `verification_summary`
+    - `verifier_dispatch`
+    - `verification_gate_state`
+- workflow 文档消费口径同步
+  - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
+  - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
+  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
+  - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
+  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - workflow 约定改成：
+    - 把 `dispatch_candidates` 当成 verifier 候选，不当成强制 dispatch 树
+    - 把 `manual_required_verifications` 当成仍需人工处理的 gate
+    - 把 `dispatch_blockers` 当成真实前置阻塞项
+    - 把 `verification_gate_state` 当成 pending-vs-blocked ledger
+- 守卫测试补齐
+  - [tests/unit/verifier-registry.test.js](../../tests/unit/verifier-registry.test.js)
+  - [tests/unit/verification-gate-state.test.js](../../tests/unit/verification-gate-state.test.js)
+  - [tests/unit/spec-work-contracts.test.js](../../tests/unit/spec-work-contracts.test.js)
+  - [tests/unit/spec-work-beta-contracts.test.js](../../tests/unit/spec-work-beta-contracts.test.js)
+  - [tests/unit/spec-review-contracts.test.js](../../tests/unit/spec-review-contracts.test.js)
+  - [tests/unit/workflow-stage0-consumption.test.js](../../tests/unit/workflow-stage0-consumption.test.js)
+  - [tests/unit/workflow-telemetry.test.js](../../tests/unit/workflow-telemetry.test.js)
+  - [tests/unit/stage0-context-command.test.js](../../tests/unit/stage0-context-command.test.js)
+
+### 保持的边界
+
+- 没有在 runtime 里新增“先跑哪个 verifier、失败后切到哪个 verifier”的硬编码 orchestration
+- `verifier_dispatch` 回答的是 capability / readiness / blockers，不是固定 skill dispatch tree
+- `verification_gate_state` 先表达 pending / blocked / not-needed，不伪造“已完成”状态
+- repo-specific test command 仍然留在 repo 级 contract，不塞进 verifier registry 变成另一套 workflow 编排系统
+
+### 版本意义
+
+这次更新把 Stage-0 verification handoff 从“推荐哪些验证”推进到“把验证决策输入组织得更适合 LLM 使用”：
+
+- `spec-work` 能区分“有 verifier 可接”与“只能人工兜底”的 gate
+- `spec-review` 能明确看到哪些 verification gap 被 blocker 卡住，而不是只看到一串建议项
+- telemetry 和 runtime JSON 对验证状态的描述终于统一，不再分裂成“文档里有、产物里没有”
+- 整体依然保持轻 contract，避免过度设计和强耦合，给后续多语言、多端 verifier 扩展留下空间
+
+## 2026-04-18 `feat(verifier-registry-baseline)`
+
+### 更新内容
+
+把现有平台 verifier 的能力描述从 `compile-verification-profile.js` 里的硬编码条件分支收口成一份独立 registry。这样 `verification-profile` 继续负责 repo 级画像，但“有哪些 verifier、覆盖哪些平台、需要什么前置条件、能产出什么证据”开始有单独真源，不再混在 profile 编译器逻辑里。
+
+### 主要变化
+
+- 新增 verifier registry contract 与 runtime helper
+  - [docs/contracts/verifiers/verifier-registry.schema.json](../../docs/contracts/verifiers/verifier-registry.schema.json)
+  - [src/context-routing/verifier-registry.js](../../src/context-routing/verifier-registry.js)
+  - 目前先纳入：
+    - `test-browser`
+    - `test-xcode`
+- `verification-profile` 编译器改为复用 registry-backed hints
+  - [src/bootstrap-compiler/compile-verification-profile.js](../../src/bootstrap-compiler/compile-verification-profile.js)
+  - `test-browser` / `test-xcode` 不再由 profile 编译器自己手写分支拼装
+  - `repo-test-command` 仍保留为 repo-specific dynamic hint，不进入 registry 充当业务命令真源
+- skill / docs mirror 补齐 registry metadata
+  - [skills/test-browser/SKILL.md](../../skills/test-browser/SKILL.md)
+  - [skills/test-xcode/SKILL.md](../../skills/test-xcode/SKILL.md)
+  - [docs/10-prompt/skills/test-browser/SKILL.md](../../docs/10-prompt/skills/test-browser/SKILL.md)
+  - [docs/10-prompt/skills/test-xcode/SKILL.md](../../docs/10-prompt/skills/test-xcode/SKILL.md)
+- 守卫测试补齐
+  - [tests/unit/verifier-registry.test.js](../../tests/unit/verifier-registry.test.js)
+  - [tests/unit/test-browser-contracts.test.js](../../tests/unit/test-browser-contracts.test.js)
+  - [tests/unit/test-xcode-contracts.test.js](../../tests/unit/test-xcode-contracts.test.js)
+
+### 保持的边界
+
+- 本轮没有让 workflow 自动执行 `test-browser` / `test-xcode`
+- registry 只回答 verifier capability，不回答 repo-specific command
+- `verification-profile` 里的 `verifier_hints` 仍是消费视图，不是 registry 的替身
+
+### 版本意义
+
+这一步把 verification control plane 再拆干净了一层：
+
+- repo profile 负责“仓库默认怎么验证”
+- verifier registry 负责“有哪些 verifier 能验证这些平台面”
+
+后续要接 Android / Desktop verifier，或者给 `spec-work/spec-review` 做 stage-aware dispatch，就不需要继续往 profile 编译器里堆条件分支。
+
+## 2026-04-18 `feat(stage0-runtime-telemetry-default)`
+
+### 更新内容
+
+把之前只存在于 helper 层的 workflow telemetry 真正接进默认运行链。现在 `stage0-context` 在输出 runtime Stage-0 JSON 的同时，会 best-effort 把本次运行的 telemetry 写到对应 workflow 目录下，而不是再依赖调用方额外拼第二段 telemetry helper。
+
+这一步解决的是：
+
+`Stage-0 runtime consumption -> structured telemetry`
+
+这条链的最后一段。之前 workflow 文案里已经写了“默认写 telemetry”，但实现上仍然停留在“有 helper、没默认接入”；这次把它补成真实闭环。
+
+### 主要变化
+
+- `stage0-context` 默认写 telemetry
+  - [src/cli/commands/stage0-context.js](../../src/cli/commands/stage0-context.js)
+  - 新增可选 `--workflow <id>`
+  - 默认仍按 `stage` 映射：
+    - `plan -> spec-plan`
+    - `work -> spec-work`
+    - `review -> spec-review`
+  - `spec-work-beta` 显式传 `--workflow spec-work-beta`，避免 telemetry 被误记到 stable `spec-work`
+- telemetry record 扩展 runtime 可观测字段
+  - [src/context-routing/telemetry.js](../../src/context-routing/telemetry.js)
+  - 新增：
+    - `level`
+    - `verification_summary`
+  - 这样 telemetry 不仅知道“选了哪些资产”，也知道“本次 effective verification checklist 是什么”
+- workflow source / docs mirror 同步传真实 workflow id
+  - [skills/spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
+  - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
+  - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
+  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-plan/SKILL.md](../../docs/10-prompt/skills/spec-plan/SKILL.md)
+  - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
+  - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
+  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+- 守卫测试补齐
+  - [tests/unit/stage0-context-command.test.js](../../tests/unit/stage0-context-command.test.js)
+  - [tests/unit/workflow-telemetry.test.js](../../tests/unit/workflow-telemetry.test.js)
+  - [tests/unit/workflow-stage0-consumption.test.js](../../tests/unit/workflow-stage0-consumption.test.js)
+  - [tests/unit/spec-plan-contracts.test.js](../../tests/unit/spec-plan-contracts.test.js)
+  - [tests/unit/spec-work-contracts.test.js](../../tests/unit/spec-work-contracts.test.js)
+  - [tests/unit/spec-work-beta-contracts.test.js](../../tests/unit/spec-work-beta-contracts.test.js)
+  - [tests/unit/spec-review-contracts.test.js](../../tests/unit/spec-review-contracts.test.js)
+  - [tests/smoke/cli.sh](../../tests/smoke/cli.sh)
+
+### 保持的边界
+
+- 没有再新增第二个内部 CLI，如 `stage0-telemetry`
+- telemetry 仍然是 local runtime artifact，不是新的 tracked source-of-truth
+- `stage0-context` 的 JSON 输出 contract 不变，workflow 仍以 evaluator / runtime summary 为真源
+
+### 版本意义
+
+这次更新把 Stage-0 运行时增强从“文档约定 + helper 能力”推进到“默认执行行为 + 可追溯产物”。结果上，`spec-first` 在以下方面更稳了一步：
+
+- `spec-plan/spec-work/spec-work-beta/spec-review` 的 Stage-0 预载现在都有真实运行记录
+- telemetry 可以直接解释当前运行为什么拿到这组上下文、处于哪个 degrade level、以及本次 verification summary 是什么
+- 后续做 status / benchmark / verifier completeness 审查时，不需要再补第二套运行时采样逻辑
+
+## 2026-04-18 `feat(stage0-verification-profile)`
+
+### 更新内容
+
+为 `spec-graph-bootstrap` 的 Stage-0 control plane 增加一份新的 machine-readable contract：`verification-profile.json`，并把其中最小必要的验证摘要接到 `minimal-context` 与 `spec-plan` / `spec-work` / `spec-review` / `spec-work-beta` 的统一消费口径上。
+
+这次更新解决的不是“多加几个测试命令提示”，而是把：
+
+`repo facts -> verification profile -> workflow handoff`
+
+这条桥补上。之后 workflow 不再只能泛化地说“自己补测试”，而能基于仓库事实拿到默认验证矩阵、必跑 gate 和补充验证建议。
+
+### 主要变化
+
+- Stage-0 新增 verification profile contract
+  - [docs/contracts/spec-graph-bootstrap/verification-profile.schema.json](../../docs/contracts/spec-graph-bootstrap/verification-profile.schema.json)
+  - [src/bootstrap-compiler/compile-verification-profile.js](../../src/bootstrap-compiler/compile-verification-profile.js)
+  - [src/bootstrap-compiler/schema-loader.js](../../src/bootstrap-compiler/schema-loader.js)
+  - 统一输出：
+    - `platforms`
+    - `languages`
+    - `detected_test_frameworks`
+    - `required_gates`
+    - `optional_gates`
+    - `verifier_hints`
+    - `environment_prerequisites`
+    - `fallback_reason`
+- compiler / orchestrator / bootstrap 主链打通
+  - [src/bootstrap-compiler/compile-machine-artifacts.js](../../src/bootstrap-compiler/compile-machine-artifacts.js)
+  - [src/bootstrap-compiler/orchestrator.js](../../src/bootstrap-compiler/orchestrator.js)
+  - [src/bootstrap-compiler/run-bootstrap.js](../../src/bootstrap-compiler/run-bootstrap.js)
+  - `runBootstrap()` 现在会稳定写出 `verification-profile.json`
+  - `artifact-manifest.json` 也把它视为正式 control-plane output
+- minimal-context 暴露 verification summary
+  - [src/bootstrap-compiler/compile-minimal-context.js](../../src/bootstrap-compiler/compile-minimal-context.js)
+  - [docs/contracts/spec-graph-bootstrap/minimal-context.schema.json](../../docs/contracts/spec-graph-bootstrap/minimal-context.schema.json)
+  - `plan` 暴露：
+    - `platform_focus`
+    - `required_verifications`
+  - `work` 暴露：
+    - `platform_focus`
+    - `required_verifications`
+    - `optional_verifications`
+  - `review` 暴露：
+    - `platform_focus`
+    - `verification_gaps_to_check`
+- workflow handoff 改为显式消费 verification summary
+  - [skills/spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
+  - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
+  - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
+  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-plan/SKILL.md](../../docs/10-prompt/skills/spec-plan/SKILL.md)
+  - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
+  - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
+  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - workflow 继续以 `selected_assets / fallback_reason / level / skipped_rules` 为 Stage-0 真源
+  - 不允许每个 workflow 自己绕过 evaluator 去直接读取 `verification-profile.json`
+- sample / fixture / 合同测试补齐
+  - [tests/fixtures/bootstrap/spec-first-bootstrap-sample.js](../../tests/fixtures/bootstrap/spec-first-bootstrap-sample.js)
+  - [tests/unit/spec-graph-bootstrap-contracts.test.js](../../tests/unit/spec-graph-bootstrap-contracts.test.js)
+  - [tests/unit/spec-graph-bootstrap-compiler.test.js](../../tests/unit/spec-graph-bootstrap-compiler.test.js)
+  - [tests/unit/spec-plan-contracts.test.js](../../tests/unit/spec-plan-contracts.test.js)
+  - [tests/unit/spec-work-contracts.test.js](../../tests/unit/spec-work-contracts.test.js)
+  - [tests/unit/spec-work-beta-contracts.test.js](../../tests/unit/spec-work-beta-contracts.test.js)
+  - [tests/unit/spec-review-contracts.test.js](../../tests/unit/spec-review-contracts.test.js)
+  - [tests/unit/workflow-stage0-consumption.test.js](../../tests/unit/workflow-stage0-consumption.test.js)
+
+### 保持的边界
+
+- 本轮还没有做 diff-aware 的 `change surface -> required/optional verification recommendation`
+- 本轮还没有把 `test-browser` / `test-xcode` 自动编排进 `spec-work`
+- `minimal-context` 只暴露 verification summary，不复制整份 profile
+- `verification-profile` 仍是 repo 级画像，不是本次改动级 recommendation
+
+### 版本意义
+
+这次更新把“验证”正式提升为 Stage-0 control plane 的第一等事实，而不再只是 workflow prose。结果上，`spec-first` 往“更高质量辅助 AI 开发”的方向前进了一步：
+
+- 计划阶段能看到默认验证矩阵
+- 执行阶段能先建立 required gate checklist
+- 评审阶段能显式检查 verification gap
+- 跨语言、多端扩展以后也有统一的 handoff 落点，而不是为每个平台复制一套 workflow
+
+## 2026-04-18 `feat(change-surface-verification-recommendation)`
+
+### 更新内容
+
+在已有 repo 级 `verification-profile.json` 之上，继续补上“本次改动最少该验证什么”这层桥。现在 `crg review-context` 不再只输出 `affected_nodes`、`candidate_tests` 和 `review_guidance`，还会给出结构化的改动面验证建议。
+
+### 主要变化
+
+- 新增 change-surface helper
+  - [src/context-routing/change-surface.js](../../src/context-routing/change-surface.js)
+  - 基于 `changedFiles` + repo 级 `verification-profile`
+  - 输出：
+    - `impacted_modules`
+    - `impacted_languages`
+    - `impacted_platforms`
+    - `recommended_required_verifications`
+    - `recommended_optional_verifications`
+    - `confidence`
+- runtime loader 暴露 verification profile
+  - [src/context-routing/loader.js](../../src/context-routing/loader.js)
+  - `loadBootstrapRuntimeState()` 现在会一并返回 `verificationProfile`
+- `crg review-context` 接上 recommendation 主链
+  - [src/crg/commands/review-context.js](../../src/crg/commands/review-context.js)
+  - 输出 JSON 中新增 `impacted_*` 与 `recommended_*_verifications`
+  - `review_guidance` 中新增：
+    - `RECOMMENDED_REQUIRED: ...`
+    - `RECOMMENDED_OPTIONAL: ...`
+    - `VERIFICATION_CONFIDENCE: ...`
+- 测试与 contract 守卫补齐
+  - [tests/unit/change-surface.test.js](../../tests/unit/change-surface.test.js)
+  - [tests/unit/review-context.test.js](../../tests/unit/review-context.test.js)
+  - [tests/contracts/crg-cli-v1.test.js](../../tests/contracts/crg-cli-v1.test.js)
+  - [tests/e2e/crg-all-commands.sh](../../tests/e2e/crg-all-commands.sh)
+
+### 保持的边界
+
+- 目前 recommendation 仍建立在 repo 级 `verification-profile` 之上，不是更细粒度的 AST / symbol 级验证图
+- docs-only / prompt-only 改动会显式降级，不伪造 required verification
+- 这一步还没有把 recommendation 自动下发给 `spec-work` / `spec-review` 去执行 verifier，只先把 machine-readable bridge 建起来
+
+### 版本意义
+
+这次更新把系统从“知道仓库理论上有哪些验证方式”推进到“能对当前改动给出最小验证建议”。它对后续两件事直接铺路：
+
+- `spec-work` 基于改动面生成 required gate checklist
+- `spec-review` 基于改动面检查 verification completeness
+
+## 2026-04-18 `fix(stage0-workspace-runtime-boundaries)`
+
+### 更新内容
+
+把 Stage-0 runtime 在 workspace 场景下的边界重新收紧，避免把“路径推断错误”或“作用域过宽的 baseline”继续下发给 workflow / LLM。当 runtime contract 过重、过宽时，LLM 拿到的不是更强上下文，而是更脏的决策输入；这次修复的目标就是把 contract 收回到稳定边界内。
+
+### 主要变化
+
+- child git repo 默认入口改为优先命中 ancestor workspace
+  - [src/context-routing/entry-resolver.js](../../src/context-routing/entry-resolver.js)
+  - `resolveStage0Entry()` 现在在无显式 `repoRoots` 时，会先检查 ancestor workspace registry，再决定是否退回 `single-repo`
+  - 修复真实 child git repo 从 `cwd` 进入时，被错误短路成 `git-root -> single-repo` 的问题
+  - 同时把绝对路径规范化收紧为 canonical realpath，消除 macOS `/var` vs `/private/var` 这类等价路径导致的 child 匹配静默 miss
+- explicit multi-repo workspace contract 补齐稳定语义字段
+  - [src/bootstrap-compiler/workspace-compiler.js](../../src/bootstrap-compiler/workspace-compiler.js)
+  - `workspace-explicit` 路径现在也会稳定输出：
+    - `workspace_slug`
+    - `matched_child_slugs`
+    - `fallback_reason`
+    - `level`
+  - 让 `stage0-context` 的 JSON 输出与 telemetry 口径一致，不再出现“telemetry 有 workspace 语义、runtime JSON 却丢字段”的分叉
+- workspace overview-only 不再伪造 child verification checklist
+  - [src/bootstrap-compiler/workspace-compiler.js](../../src/bootstrap-compiler/workspace-compiler.js)
+  - 当 runtime 只选中了 workspace overview、未命中任何 child repo 时，`verification_summary` 不再聚合 idle child 的 baseline
+  - 保持 contract 轻量：只把当前 selection scope 内真实成立的 verification 信息下发给 workflow
+- review-context 自动解析 workspace child 的 profile 锚点
+  - [src/context-routing/change-surface.js](../../src/context-routing/change-surface.js)
+  - `summarizeChangeSurface()` 现在会在需要时自动解析 workspace child 的 `slug + artifactAnchorRoot`
+  - 修复 [src/crg/commands/review-context.js](../../src/crg/commands/review-context.js) 在 workspace child repo 下读不到正确 `verification-profile.json`，从而把 recommendation 静默降成空数组的问题
+- 回归测试补齐
+  - [tests/unit/stage0-context-command.test.js](../../tests/unit/stage0-context-command.test.js)
+  - [tests/unit/workspace-context.test.js](../../tests/unit/workspace-context.test.js)
+  - [tests/unit/review-context.test.js](../../tests/unit/review-context.test.js)
+
+### 保持的边界
+
+- 这次修复没有把 runtime contract 再做厚；相反，是把 contract 收紧到“稳定、可解释、和当前 selection scope 一致”的最小集合
+- 仍然保留 `verification_summary` / `verification_gate_state` 作为 machine-readable 输入，但不再在 workspace overview-only 场景替 LLM 做过度推断
+- verifier 的具体执行策略仍由 workflow / LLM 在拿到更干净的输入后自行决策，不在这个层面硬编码更多分支
+
+### 版本意义
+
+这次修复不是新加功能，而是把已有 Stage-0 runtime contract 从“看起来信息更多”校正成“信息更准、更轻、更可用于决策”：
+
+- workspace child repo 默认入口终于能拿到正确的 child context，而不是错误的单仓 fallback
+- workflow 不会再把未选中的 child baseline 当成当前改动的必跑 gate
+- `review-context` 在 workspace child repo 下能给出真实的 verification recommendation，而不是静默降级为空
+
+## 2026-04-18 `feat(runtime-verification-summary-consumption)`
+
+### 更新内容
+
+把前一阶段的 `change surface -> verification recommendation` 真正接到 workflow 运行时消费口径。`compileWorkspaceContext()` 现在会为 `work` / `review` 生成一份 runtime `verification_summary`，将“当前改动的 effective checklist”和“仓库级 baseline”分开表达。
+
+这次更新解决的核心问题不是“再加一个 recommendation 字段”，而是让 workflow 真正知道：
+
+`当前这次改动要不要跑这些验证`
+
+而不是在 docs-only / prompt-only 变更里被 repo 级 baseline 误导。
+
+### 主要变化
+
+- runtime verification summary overlay
+  - [src/context-routing/verification-summary.js](../../src/context-routing/verification-summary.js)
+  - [src/bootstrap-compiler/workspace-compiler.js](../../src/bootstrap-compiler/workspace-compiler.js)
+  - `compileWorkspaceContext()` 现在会稳定输出 `verification_summary`
+  - `work` 场景输出：
+    - `source`
+    - `required_verifications`
+    - `optional_verifications`
+    - `recommended_required_verifications`
+    - `recommended_optional_verifications`
+    - `repo_required_verifications`
+    - `repo_optional_verifications`
+  - `review` 场景输出：
+    - `source`
+    - `verification_gaps_to_check`
+    - `recommended_required_verifications`
+    - `recommended_optional_verifications`
+    - `repo_verification_gaps_to_check`
+- workflow contract 改为优先消费 effective runtime summary
+  - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
+  - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
+  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
+  - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
+  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - `spec-work` / `spec-work-beta` 以 runtime `verification_summary.required_verifications / optional_verifications` 作为本次运行的 effective checklist
+  - `spec-review` 以 runtime `verification_summary.verification_gaps_to_check` 作为本次 review 的 effective gap checklist
+  - 当 `source === 'change-surface'` 且 effective list 为空时，不得把 `repo_*` baseline 回填成当前改动的必跑项
+- 守卫测试补齐
+  - [tests/unit/workspace-context.test.js](../../tests/unit/workspace-context.test.js)
+  - [tests/unit/spec-work-contracts.test.js](../../tests/unit/spec-work-contracts.test.js)
+  - [tests/unit/spec-work-beta-contracts.test.js](../../tests/unit/spec-work-beta-contracts.test.js)
+  - [tests/unit/spec-review-contracts.test.js](../../tests/unit/spec-review-contracts.test.js)
+  - 新增 workspace 多 repo docs-only 场景守卫，防止后续把 repo baseline 误当成 effective checklist
+
+### 保持的边界
+
+- 目前仍没有自动执行 `test-browser` / `test-xcode` / 语言栈 verifier，只是先把 checklist 正确下发给 workflow
+- `repo_required_verifications`、`repo_optional_verifications`、`repo_verification_gaps_to_check` 仍然保留，但它们是 baseline / explainability 字段，不等于当前改动的 effective gate
+- recommendation 仍以 changed file surface 为主，不是 AST / symbol 级 verification graph
+
+### 版本意义
+
+现在系统从“能算出 verification recommendation”进一步变成“workflow 真正按 recommendation 工作”：
+
+- `spec-work` 能对本次改动形成有效的 required/optional checklist
+- `spec-review` 能对本次 diff 形成有效的 verification gap checklist
+- docs-only / prompt-only 改动不会再被 repo 级 baseline 污染，减少过度验证与错误 gate
+
+## 2026-04-18 `feat(workflow-stage0-runtime-preload)`
+
+### 更新内容
+
+把 Stage-0 / verification summary 从“workflow 文案要求手工读取 control plane 文件”推进成默认 runtime 注入。现在 `spec-plan`、`spec-work`、`spec-work-beta`、`spec-review` 在运行时都会 best-effort 调用内部 CLI `stage0-context`，拿到一份基于 `compileWorkspaceContext()` 的预解析 JSON。
+
+这一步的意义是把“helper 已经存在”推进到“workflow 真正会默认消费”：
+
+- `plan/work/review` 不再只在 SKILL 文本里描述应该怎么读 Stage-0
+- runtime 每次执行都会先拿到一份结构化 Stage-0 summary
+- 降级时返回 sentinel，不中断主工作流
+
+### 主要变化
+
+- 新增内部 CLI 命令
+  - [src/cli/commands/stage0-context.js](../../src/cli/commands/stage0-context.js)
+  - [src/cli/index.js](../../src/cli/index.js)
+  - `spec-first stage0-context --stage <plan|work|review> --format json`
+  - 底层直接调用 [src/bootstrap-compiler/workspace-compiler.js](../../src/bootstrap-compiler/workspace-compiler.js)
+  - 对 `work/review` 会 best-effort 推断当前 git diff changed files，优先输出 diff-aware `verification_summary`
+- workflow 默认 runtime 注入
+  - [skills/spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
+  - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
+  - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
+  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-plan/SKILL.md](../../docs/10-prompt/skills/spec-plan/SKILL.md)
+  - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
+  - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
+  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - 四条 workflow 都新增了 `!` command 预载块，默认读取 runtime Stage-0 JSON
+  - 若命令不可用，则返回 `__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__` 并继续按原 contract 降级，不阻断执行
+- 守卫测试补齐
+  - [tests/unit/stage0-context-command.test.js](../../tests/unit/stage0-context-command.test.js)
+  - [tests/unit/spec-plan-contracts.test.js](../../tests/unit/spec-plan-contracts.test.js)
+  - [tests/unit/spec-work-contracts.test.js](../../tests/unit/spec-work-contracts.test.js)
+  - [tests/unit/spec-work-beta-contracts.test.js](../../tests/unit/spec-work-beta-contracts.test.js)
+  - [tests/unit/spec-review-contracts.test.js](../../tests/unit/spec-review-contracts.test.js)
+  - [tests/unit/workflow-stage0-consumption.test.js](../../tests/unit/workflow-stage0-consumption.test.js)
+  - [tests/smoke/cli.sh](../../tests/smoke/cli.sh)
+
+### 保持的边界
+
+- `stage0-context` 是内部 runtime helper，不是新的用户工作流入口
+- 本轮仍未自动执行平台 verifier；只负责把正确的 Stage-0 / verification summary 注入工作流上下文
+- 无法推断 git diff 时，继续回退到 repo 级 Stage-0 baseline，而不是伪造 diff-aware recommendation
+
+### 版本意义
+
+这次更新把 Stage-0 主链从“有 compiler、有 evaluator、有 helper”推进到“默认运行时真消费”：
+
+- AI 在 `plan/work/review` 开始前就能拿到结构化 Stage-0 JSON
+- `verification_summary` 从 contract 字段真正变成 runtime context
+- 后续无论是 verifier 自动调度还是 telemetry 默认接线，都有了一个稳定的 runtime 注入点
 
 ## 2026-04-18 `feat(using-spec-first-sessionstart-bootstrap)`
 

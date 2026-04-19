@@ -79,6 +79,11 @@ A plan is ready when an implementer can start confidently without needing the pl
      - `architecture/module-map.md`
      - `code-facts/public-entrypoints.md`
    - `injection-index.yaml` 仅作为人类视图，不再是运行时唯一判定逻辑
+   - 若 `minimal-context/plan.json` 提供 `platform_focus` 或 `required_verifications`，将其视为 verification summary；在计划里把这些信号收敛成验证矩阵，而不是退化成泛化“自行补测试”
+   - 若 runtime 还提供顶层 `verifier_dispatch`、`ai_dev_quality_gate_result`、`verification_evidence` 与 `verification_gate_state`，前者只表示 verifier 候选与 blocker，第二层只表示最近 gate 事实快照，第三层只表示已有证据引用，后者只表示 `planned / blocked / not-needed` 账本；不要把它们写成强制执行树
+   - **Runtime Stage-0 context（best-effort, pre-resolved JSON）**
+!`repo=$(git rev-parse --show-toplevel 2>/dev/null || pwd); if command -v spec-first >/dev/null 2>&1 && spec-first stage0-context --stage plan --workflow spec-plan --format json 2>/dev/null; then true; elif [ -f "$repo/bin/spec-first.js" ] && node "$repo/bin/spec-first.js" stage0-context --stage plan --workflow spec-plan --format json 2>/dev/null; then true; elif [ -f "$repo/node_modules/spec-first/bin/spec-first.js" ] && node "$repo/node_modules/spec-first/bin/spec-first.js" stage0-context --stage plan --workflow spec-plan --format json 2>/dev/null; then true; else echo '__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__'; fi`
+   - 若输出为 `__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__`，说明 runtime helper 当前不可用；继续按上面的 control plane contract 手工预载，不阻断主任务
    - 每个文件：存在则读取，缺失则跳过（Level 1）
    - 默认写一条 Stage-0 telemetry，至少记录 `stage / profile / selected_assets / fallback_reason / skipped_rules`
 

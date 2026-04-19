@@ -289,17 +289,6 @@
       }
     },
     {
-      "skill_name": "spec-bootstrap",
-      "entry_surface": "workflow_command",
-      "command_name": "bootstrap",
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "command",
-        "codex": "skill"
-      }
-    },
-    {
       "skill_name": "spec-brainstorm",
       "entry_surface": "workflow_command",
       "command_name": "brainstorm",

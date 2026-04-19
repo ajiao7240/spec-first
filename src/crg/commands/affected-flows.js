@@ -39,6 +39,7 @@ function getChangedFiles(repoRoot, since) {
 function run(argv) {
   const { openDb } = require('../cli/open-db');
   const { makeEnvelope } = require('../cli/envelope');
+  const { annotateFlowOutput } = require('../flows');
 
   // --since 参数是必填项
   const sinceArg = argv.find(a => a.startsWith('--since='));
@@ -92,9 +93,11 @@ function run(argv) {
   for (const row of affectedRows) {
     if (!flowMap.has(row.flow_id)) {
       flowMap.set(row.flow_id, {
-        flow_id: row.flow_id,
-        entry_node: row.entry_node_id,
-        criticality: row.criticality,
+        ...annotateFlowOutput({
+          flow_id: row.flow_id,
+          entry_node: row.entry_node_id,
+          criticality: row.criticality,
+        }),
         affected_nodes: [],
       });
     }

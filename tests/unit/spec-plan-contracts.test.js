@@ -8,6 +8,7 @@ const CodexAdapter = require('../../src/cli/adapters/codex');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-plan/SKILL.md');
+const PROMPT_MIRROR_SKILL_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-plan/SKILL.md');
 const PLAN_HANDOFF_PATH = path.join(
   REPO_ROOT,
   'skills/spec-plan/references/plan-handoff.md'
@@ -40,6 +41,16 @@ describe('spec-plan contracts', () => {
     expect(skill).toContain('context-routing.json');
     expect(skill).toContain('artifact-manifest.json');
     expect(skill).toContain('minimal-context/plan.json');
+    expect(skill).toContain('platform_focus');
+    expect(skill).toContain('required_verifications');
+    expect(skill).toContain('verifier_dispatch');
+    expect(skill).toContain('ai_dev_quality_gate_result');
+    expect(skill).toContain('verification_evidence');
+    expect(skill).toContain('verification_gate_state');
+    expect(skill).toContain('planned / blocked / not-needed');
+    expect(skill).toContain('verification summary');
+    expect(skill).toContain('stage0-context --stage plan --workflow spec-plan --format json');
+    expect(skill).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
     expect(skill).toContain('selected_assets / fallback_reason / level / skipped_rules');
     expect(skill).toContain('#### 0.1b Classify Task Domain');
     expect(skill).toContain('#### 0.3a Load Epic Decomposition Context When Declared');
@@ -104,5 +115,21 @@ describe('spec-plan contracts', () => {
     expect(codexRuntime).toContain('references/visual-communication.md');
     expect(codexRuntime).not.toContain('Task spec-first:research:repo-research-analyst(');
     expect(codexRuntime).not.toContain('Task spec-first:workflow:spec-flow-analyzer(');
+  });
+
+  test('docs mirror stays aligned on verification summary Stage-0 contract', () => {
+    const mirror = read(PROMPT_MIRROR_SKILL_PATH);
+
+    expect(mirror).toContain('platform_focus');
+    expect(mirror).toContain('required_verifications');
+    expect(mirror).toContain('verifier_dispatch');
+    expect(mirror).toContain('ai_dev_quality_gate_result');
+    expect(mirror).toContain('verification_evidence');
+    expect(mirror).toContain('verification_gate_state');
+    expect(mirror).toContain('planned / blocked / not-needed');
+    expect(mirror).toContain('verification summary');
+    expect(mirror).toContain('stage0-context --stage plan --workflow spec-plan --format json');
+    expect(mirror).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
+    expect(mirror).toContain('selected_assets / fallback_reason / level / skipped_rules');
   });
 });

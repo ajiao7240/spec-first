@@ -23,6 +23,9 @@ describe('test-xcode contracts', () => {
     expect(skill).toContain('### 9. Cleanup');
     expect(skill).toContain('load the `todo-create` skill and create a todo with priority p1');
     expect(skill).toContain('Load the `test-xcode` skill with one of these argument shapes:');
+    expect(skill).toContain('## Verifier Registry Metadata');
+    expect(skill).toContain('Verifier id: `test-xcode`');
+    expect(skill).toContain('Supported platforms: `mobile-ios`');
     expect(skill).not.toContain('/test-xcode');
   });
 

@@ -64,7 +64,11 @@ function restoreBootstrapBackup({ backupDir, contextDir } = {}) {
     return false;
   }
 
-  fs.rmSync(contextDir, { recursive: true, force: true });
+  try {
+    fs.rmSync(contextDir, { recursive: true });
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
   copyDirectory(backupDir, contextDir);
   return true;
 }
@@ -96,7 +100,11 @@ function createBatchBackup({ entries = [], backupRoot }) {
 function restoreBatchBackup(batchBackup) {
   if (!batchBackup || !Array.isArray(batchBackup.manifest)) return false;
   for (const entry of batchBackup.manifest) {
-    fs.rmSync(entry.sourceDir, { recursive: true, force: true });
+    try {
+      fs.rmSync(entry.sourceDir, { recursive: true });
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
     if (entry.sourceExisted && fs.existsSync(entry.backupDir)) {
       copyDirectory(entry.backupDir, entry.sourceDir);
     }

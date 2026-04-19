@@ -19,7 +19,6 @@ const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const README_PATH = path.join(REPO_ROOT, 'README.md');
 const RELEASE_SMOKE_PATH = path.join(REPO_ROOT, 'tests/smoke/release-dual-host-governance.sh');
 const MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/SKILL.md');
-const BOOTSTRAP_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-bootstrap/SKILL.md');
 const SETUP_SKILL_PATH = path.join(REPO_ROOT, 'skills/setup/SKILL.md');
 
 function read(filePath) {
@@ -85,18 +84,14 @@ describe('dual-host governance contracts', () => {
   test('Codex-facing docs use $spec-* or $setup instead of /spec:*', () => {
     const readme = read(README_PATH);
     const mcpSetup = read(MCP_SETUP_SKILL_PATH);
-    const bootstrap = read(BOOTSTRAP_SKILL_PATH);
     const setup = read(SETUP_SKILL_PATH);
 
     expect(readme).toContain('$spec-mcp-setup');
-    expect(readme).toContain('$spec-bootstrap');
+    expect(readme).not.toContain('$spec-bootstrap');
     expect(readme).not.toContain('Codex now also receives shared `/spec:*` command files under `.codex/commands/spec/`');
 
     expect(mcpSetup).toContain('**Codex entry point:** `$spec-mcp-setup [quick|custom]`');
     expect(mcpSetup).not.toContain('**Codex entry point:** `/spec:mcp-setup [quick|custom]`');
-
-    expect(bootstrap).toContain('**Codex entry point:** `$spec-bootstrap [target-repo-path-or-slug]`');
-    expect(bootstrap).not.toContain('**Codex entry point:** `/spec:bootstrap [target-repo-path-or-slug]`');
 
     expect(setup).toContain('**Codex entry point:** `$setup`');
     expect(setup).not.toContain('**Codex entry point:** `/spec:setup`');

@@ -4,6 +4,7 @@ const pkg = require('../../package.json');
 const { runClean } = require('./commands/clean');
 const { runDoctor } = require('./commands/doctor');
 const { runInit } = require('./commands/init');
+const { runStage0Context } = require('./commands/stage0-context');
 const { maybeShowVersionReminder } = require('./version-reminder');
 
 async function runCli(argv) {
@@ -37,6 +38,10 @@ async function runCli(argv) {
 
   if (cmd === 'clean') {
     return Promise.resolve(runClean(args.slice(1)));
+  }
+
+  if (cmd === 'stage0-context') {
+    return Promise.resolve(runStage0Context(args.slice(1)));
   }
 
   console.error(`Unknown command: ${cmd}`);

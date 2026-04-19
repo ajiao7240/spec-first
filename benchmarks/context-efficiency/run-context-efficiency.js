@@ -4,6 +4,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { evaluateContextForRepo } = require('../../src/context-routing/evaluator');
+const {
+  BENCHMARK_CONTRACT_VERSION,
+  buildContextRoutingAnalyzerRevision,
+  digestFile,
+} = require('../shared/benchmark-metadata');
 
 function loadCases(casesPath) {
   const cases = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
@@ -11,7 +16,13 @@ function loadCases(casesPath) {
     throw new Error('context efficiency cases must be an array');
   }
   for (const item of cases) {
-    if (!item.id || !item.repo_slug || !item.stage || !Array.isArray(item.expected_key_evidence)) {
+    if (
+      !item.id ||
+      !item.repo_slug ||
+      !item.stage ||
+      !Array.isArray(item.expected_key_evidence) ||
+      (item.fixture_repo_root !== undefined && typeof item.fixture_repo_root !== 'string')
+    ) {
       throw new Error(`invalid context efficiency case: ${JSON.stringify(item)}`);
     }
   }
@@ -21,8 +32,11 @@ function loadCases(casesPath) {
 function runContextEfficiencyBenchmark({ repoRoot, casesPath }) {
   const cases = loadCases(casesPath);
   const results = cases.map((item) => {
+    const targetRepoRoot = item.fixture_repo_root
+      ? path.resolve(repoRoot, item.fixture_repo_root)
+      : repoRoot;
     const evaluation = evaluateContextForRepo({
-      repoRoot,
+      repoRoot: targetRepoRoot,
       slug: item.repo_slug,
       stage: item.stage,
     });
@@ -32,6 +46,7 @@ function runContextEfficiencyBenchmark({ repoRoot, casesPath }) {
 
     return {
       id: item.id,
+      repo_slug: item.repo_slug,
       stage: item.stage,
       level: evaluation.level,
       selected_assets: evaluation.selected_assets,
@@ -44,6 +59,9 @@ function runContextEfficiencyBenchmark({ repoRoot, casesPath }) {
   });
 
   return {
+    benchmark_contract_version: BENCHMARK_CONTRACT_VERSION,
+    analyzer_revision: buildContextRoutingAnalyzerRevision(repoRoot),
+    input_digest: digestFile(casesPath),
     generated_at: new Date().toISOString(),
     case_count: results.length,
     average_irrelevant_context_ratio: results.length === 0

@@ -20,6 +20,9 @@ describe('spec-compound contracts', () => {
     expect(skill).toContain('2. Lightweight');
     expect(skill).toContain('Would you also like to search your [harness name] session history');
     expect(skill).toContain('spec-first:research:session-historian');
+    expect(skill).toContain('quality-feedback-topics.json');
+    expect(skill).toContain('candidate_topics');
+    expect(skill).toContain('supplementary hints, not primary evidence');
     expect(skill).toContain('Knowledge track output sections');
     expect(skill).toContain('What Didn\'t Work** section (bug track) or **Context** section (knowledge track)');
     expect(skill).toContain('`spec-sessions` workflow');
@@ -46,6 +49,15 @@ describe('spec-compound contracts', () => {
       expect(template).toContain('## Context');
       expect(template).toContain('## Guidance');
     }
+  });
+
+  test('spec-compound-refresh treats quality feedback artifacts as passive drift signals', () => {
+    const skill = read('skills/spec-compound-refresh/SKILL.md');
+
+    expect(skill).toContain('quality-feedback-topics.json');
+    expect(skill).toContain('candidate_topics');
+    expect(skill).toContain('supplementary drift signal');
+    expect(skill).toContain('must not be treated as an automatic refresh queue');
   });
 
   test('learnings-researcher treats critical-patterns as optional input', () => {

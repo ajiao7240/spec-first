@@ -37,6 +37,15 @@ Reviews code changes using dynamically selected reviewer personas. Spawns parall
      - `code-facts/test-map.md`
      - `context-packs/review-change.md`
    - `injection-index.yaml` 仅作为人类视图，不再是运行时唯一判定逻辑
+   - 若 `minimal-context/review.json` 提供 `platform_focus` 或 `verification_gaps_to_check`，将其视为 repo 级 verification summary baseline
+   - 若当前 runtime `verification_summary` 还提供 `source / verification_gaps_to_check / recommended_required_verifications / recommended_optional_verifications / repo_verification_gaps_to_check`，则以 `verification_gaps_to_check` 作为本次 review 的 effective gap checklist；若同时提供顶层 `verifier_dispatch`，则把 `verifier_dispatch.handoff_posture / dispatch_candidates / manual_required_verifications / dispatch_blockers` 视为“候选 verifier + blocker”输入，而不是固定 dispatch 树
+   - 若 `verification_summary.source === 'change-surface'`，即使 `verification_gaps_to_check` 为空，也不要把 `repo_verification_gaps_to_check` 回填成当前改动必须检查的缺口；后者只表示仓库级 baseline
+   - 若当前 runtime 还提供 `ai_dev_quality_gate_result.passed / checks / failures / artifact_path`，则把它视为最近一次 CI/gate 的事实快照；它可以帮助判断当前改动的质量背景，但不能被解释成 review 编排状态
+   - 若当前 runtime 还提供 `verification_evidence.evidence_items`，则把它当成独立证据引用清单；它只回答“已有何种证据、来自哪个 verifier、落在哪”，不回答执行编排
+   - 若当前 runtime 还提供 `verification_gate_state.overall_status / required_gates / optional_evidence / blockers / ci_gate`，则用它区分“缺证据 / 被 blocker 阻断 / 已满足 / 当前无需验证”，不要把它当成已经执行过 verifier 的证明；只有挂上真实 evidence reference 时，`satisfied` 才成立
+   - **Runtime Stage-0 context（best-effort, pre-resolved JSON）**
+!`repo=$(git rev-parse --show-toplevel 2>/dev/null || pwd); if command -v spec-first >/dev/null 2>&1 && spec-first stage0-context --stage review --workflow spec-review --format json 2>/dev/null; then true; elif [ -f "$repo/bin/spec-first.js" ] && node "$repo/bin/spec-first.js" stage0-context --stage review --workflow spec-review --format json 2>/dev/null; then true; elif [ -f "$repo/node_modules/spec-first/bin/spec-first.js" ] && node "$repo/node_modules/spec-first/bin/spec-first.js" stage0-context --stage review --workflow spec-review --format json 2>/dev/null; then true; else echo '__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__'; fi`
+   - 若输出为 `__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__`，说明 runtime helper 当前不可用；继续按上面的 control plane contract 手工预载，不阻断主任务
    - 每个文件：存在则读取，缺失则跳过（Level 1）
    - 默认写一条 Stage-0 telemetry，至少记录 `stage / profile / selected_assets / fallback_reason / skipped_rules`
 
@@ -479,7 +488,7 @@ Detail-tier fields (`why_it_matters`, `evidence`) stay in the artifact file only
 
 ### Stage 5: Merge findings
 
-Convert multiple reviewer compact JSON returns into one deduplicated, confidence-gated finding set. The compact returns contain merge-tier fields (title, severity, file, line, confidence, autofix_class, owner, requires_verification, pre_existing) plus the optional suggested_fix. Detail-tier fields (why_it_matters, evidence) are on disk in the per-agent artifact files and are not loaded at this stage.
+Convert multiple reviewer compact JSON returns into one deduplicated, confidence-gated finding set. The compact returns contain merge-tier fields (title, severity, file, line, confidence, autofix_class, owner, requires_verification, pre_existing) plus the optional `suggested_fix` and optional `dimension_tag`. Detail-tier fields (why_it_matters, evidence) are on disk in the per-agent artifact files and are not loaded at this stage.
 
 1. **Validate.** Check each compact return for required top-level and per-finding fields, plus value constraints. Drop malformed returns or findings. Record the drop count.
    - **Top-level required:** reviewer (string), findings (array), residual_risks (array), testing_gaps (array). Drop the entire return if any are missing or wrong type.
@@ -491,13 +500,14 @@ Convert multiple reviewer compact JSON returns into one deduplicated, confidence
      - confidence: numeric, 0.0-1.0
      - line: positive integer
      - pre_existing, requires_verification: boolean
+     - dimension_tag: orthogonal_edits | over_engineering | assumption_leak | null/absent
    - Do not validate against the full schema here -- the full schema (including why_it_matters and evidence) applies to the artifact files on disk, not the compact returns.
 2. **Confidence gate.** Suppress findings below 0.60 confidence. Exception: P0 findings at 0.50+ confidence survive the gate. Record the suppressed count. This matches the persona instructions and the schema's confidence thresholds.
-3. **Deduplicate.** Compute fingerprint: `normalize(file) + line_bucket(line, +/-3) + normalize(title)`. When fingerprints match, merge: keep highest severity, keep highest confidence, note which reviewers flagged it.
+3. **Deduplicate.** Compute fingerprint: `normalize(file) + line_bucket(line, +/-3) + normalize(title)`. When fingerprints match, merge: keep highest severity, keep highest confidence, note which reviewers flagged it, and retain a candidate `dimension_tag` when any reviewer marked the finding as change-discipline.
 4. **Cross-reviewer agreement.** When 2+ independent reviewers flag the same issue (same fingerprint), boost the merged confidence by 0.10 (capped at 1.0). Cross-reviewer agreement is strong signal -- independent reviewers converging on the same issue is more reliable than any single reviewer's confidence. Note the agreement in the Reviewer column of the output (e.g., "security, correctness").
 5. **Separate pre-existing.** Pull out findings with `pre_existing: true` into a separate list.
-6. **Resolve disagreements.** When reviewers flag the same code region but disagree on severity, autofix_class, or owner, annotate the Reviewer column with the disagreement (e.g., "security (P0), correctness (P1) -- kept P0"). This transparency helps the user understand why a finding was routed the way it was.
-7. **Normalize routing.** For each merged finding, set the final `autofix_class`, `owner`, and `requires_verification`. If reviewers disagree, keep the most conservative route. Synthesis may narrow a finding from `safe_auto` to `gated_auto` or `manual`, but must not widen it without new evidence.
+6. **Resolve disagreements.** When reviewers flag the same code region but disagree on severity, autofix_class, owner, or `dimension_tag`, annotate the Reviewer column with the disagreement (e.g., "security (P0), correctness (P1) -- kept P0" or "maintainability (`over_engineering`), correctness (`assumption_leak`) -- kept `over_engineering`"). This transparency helps the user understand why a finding was routed the way it was.
+7. **Normalize routing and dimension.** For each merged finding, set the final `autofix_class`, `owner`, `requires_verification`, and `dimension_tag`. If reviewers disagree on routing, keep the most conservative route. If reviewers disagree on `dimension_tag`, keep the highest-confidence non-null tag as the primary label and preserve the disagreement note in the Reviewer column. A change-discipline finding must stay identifiable as change-discipline rather than being rewritten into generic maintainability wording.
 8. **Partition the work.** Build three sets:
    - in-skill fixer queue: only `safe_auto -> review-fixer`
    - residual actionable queue: unresolved `gated_auto` or `manual` findings whose owner is `downstream-resolver`
@@ -511,7 +521,7 @@ Convert multiple reviewer compact JSON returns into one deduplicated, confidence
 Assemble the final report using the review output template included below:
 
 1. **Header.** Scope, intent, mode, reviewer team with per-conditional justifications.
-2. **Findings.** Grouped by severity (P0, P1, P2, P3) and rendered as pipe-delimited markdown tables. Each finding shows file, issue, reviewer(s), confidence, and synthesized route.
+2. **Findings.** Grouped by severity (P0, P1, P2, P3) and rendered as pipe-delimited markdown tables. Each finding shows file, issue, reviewer(s), confidence, and synthesized route. When a finding carries `dimension_tag`, keep it visible by prefixing the Issue cell with `[change-discipline:<dimension_tag>] ` rather than folding it into generic maintainability wording.
 3. **Requirements Completeness.** Include only when a plan was found in Stage 2b. For each requirement (R1, R2, etc.) and implementation unit in the plan, report whether corresponding work appears in the diff. Use a simple checklist: met / not addressed / partially addressed. Routing depends on `plan_source`:
    - **`explicit`** (caller-provided or PR body): Flag unaddressed requirements as P1 findings with `autofix_class: manual`, `owner: downstream-resolver`. These enter the residual actionable queue and can become todos.
    - **`inferred`** (auto-discovered): Flag unaddressed requirements as P3 findings with `autofix_class: advisory`, `owner: human`. These stay in the report only — no todos, no autonomous follow-up. An inferred plan match is a hint, not a contract.
