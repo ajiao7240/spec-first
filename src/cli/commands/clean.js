@@ -1,11 +1,11 @@
-const fs = require('node:fs');
-const path = require('node:path');
 const {
+  applyOperationPlan,
   clearState,
   isLegacyManagedState,
+  planEmptyManagedRootCleanup,
+  planManagedAssetRemoval,
   readState,
   readStateFileRaw,
-  removeManagedAssets,
 } = require('../state');
 const { getAdapter } = require('../adapters');
 const { removeInstructionBootstrap } = require('../instruction-bootstrap');
@@ -22,7 +22,7 @@ function runClean(argv) {
 
   const platformSelected = parsed.claude || parsed.codex;
   if (!platformSelected || parsed.unknown.length > 0) {
-    console.error('Usage: spec-first clean (--claude|--codex)');
+    console.error('Usage: spec-first clean (--claude|--codex) [--dry-run]');
     return 1;
   }
 
@@ -78,14 +78,20 @@ function runClean(argv) {
     }
   }
 
-  removeManagedAssets(projectRoot, state, adapter);
+  const cleanPlan = buildCleanPlan(projectRoot, state, adapter);
+  if (parsed.dryRun) {
+    printCleanDryRun(platform, cleanPlan);
+    return 0;
+  }
+
+  applyOperationPlan(projectRoot, cleanPlan.managedPlan);
   removeInstructionBootstrap(projectRoot, adapter);
   if (platform === 'claude') {
     removeManagedSessionStartHook(projectRoot);
   }
   adapter.removeRuntimeFiles(projectRoot);
   clearState(projectRoot, adapter);
-  removeEmptyManagedRoots(projectRoot, adapter);
+  applyOperationPlan(projectRoot, planEmptyManagedRootCleanup(projectRoot, adapter));
 
   console.log(`Removed spec-first managed ${platform === 'claude' ? 'Claude Code' : 'Codex'} assets from the current project.`);
   console.log('Custom assets outside the spec-first managed set were left untouched.');
@@ -100,29 +106,12 @@ function tryReadRawManagedState(projectRoot, adapter) {
   }
 }
 
-function removeEmptyManagedRoots(projectRoot, adapter) {
-  const relativePaths = [adapter.skillsRoot, adapter.agentsRoot];
-  if (adapter.hasCommands) {
-    relativePaths.unshift(adapter.commandRoot);
-  }
-
-  for (const relativePath of relativePaths) {
-    const absolutePath = path.join(projectRoot, relativePath);
-    if (!fs.existsSync(absolutePath)) {
-      continue;
-    }
-
-    if (fs.readdirSync(absolutePath).length === 0) {
-      fs.rmdirSync(absolutePath);
-    }
-  }
-}
-
 function parseCleanArgs(argv) {
   const parsed = {
     help: false,
     claude: false,
     codex: false,
+    dryRun: false,
     unknown: [],
   };
 
@@ -133,6 +122,8 @@ function parseCleanArgs(argv) {
       parsed.claude = true;
     } else if (arg === '--codex') {
       parsed.codex = true;
+    } else if (arg === '--dry-run') {
+      parsed.dryRun = true;
     } else {
       parsed.unknown.push(arg);
     }
@@ -142,7 +133,76 @@ function parseCleanArgs(argv) {
 }
 
 function printHelp() {
-  console.log('Usage: spec-first clean (--claude|--codex)');
+  console.log('Usage: spec-first clean (--claude|--codex) [--dry-run]');
+}
+
+function buildCleanPlan(projectRoot, state, adapter) {
+  return {
+    managedPlan: planManagedAssetRemoval(projectRoot, state, adapter),
+    runtimeCleanup: buildRuntimeCleanupPreview(adapter),
+    emptyRootPlan: planEmptyManagedRootCleanup(projectRoot, adapter),
+  };
+}
+
+function buildRuntimeCleanupPreview(adapter) {
+  const operations = [
+    {
+      kind: 'update_file',
+      path: adapter.instructionFile,
+      reason: 'instruction_bootstrap_cleanup',
+    },
+    {
+      kind: 'remove_file',
+      path: adapter.stateFile,
+      reason: 'managed_state_file',
+    },
+  ];
+
+  if (adapter.id === 'claude') {
+    operations.push({
+      kind: 'remove_file',
+      path: '.claude/hooks/session-start',
+      reason: 'managed_runtime_hook',
+    });
+    operations.push({
+      kind: 'update_file',
+      path: '.claude/settings.json',
+      reason: 'managed_session_start_matcher_cleanup',
+    });
+  }
+
+  return {
+    operations,
+    summary: operations.reduce((summary, operation) => {
+      summary[operation.kind] = (summary[operation.kind] || 0) + 1;
+      return summary;
+    }, {}),
+  };
+}
+
+function printCleanDryRun(platform, cleanPlan) {
+  const removeCount =
+    (cleanPlan.managedPlan.summary.remove_file || 0) +
+    (cleanPlan.managedPlan.summary.remove_dir || 0) +
+    (cleanPlan.runtimeCleanup.summary.remove_file || 0);
+  const updateCount = cleanPlan.runtimeCleanup.summary.update_file || 0;
+  const emptyRootCount = cleanPlan.emptyRootPlan.summary.remove_empty_root || 0;
+
+  console.log(`Dry run: spec-first clean (${platform})`);
+  console.log(`Would remove ${removeCount} managed path(s).`);
+  for (const operation of cleanPlan.managedPlan.operations) {
+    console.log(`  - ${operation.path}`);
+  }
+  for (const operation of cleanPlan.runtimeCleanup.operations.filter((entry) => entry.kind === 'remove_file')) {
+    console.log(`  - ${operation.path}`);
+  }
+  console.log(`Would update ${updateCount} managed file(s).`);
+  for (const operation of cleanPlan.runtimeCleanup.operations.filter((entry) => entry.kind === 'update_file')) {
+    console.log(`  - ${operation.path}`);
+  }
+  console.log(`Would remove ${emptyRootCount} empty managed root(s) after cleanup.`);
+  console.log('Custom assets outside the spec-first managed set would remain untouched.');
+  console.log('No files were changed.');
 }
 
 module.exports = {

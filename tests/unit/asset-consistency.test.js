@@ -31,6 +31,69 @@ function isTextFile(filePath) {
   return /\.(cjs|js|json|md|sh|txt|yaml|yml)$/i.test(filePath);
 }
 
+function read(relativePath) {
+  return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+}
+
+const HIGH_RISK_SKILL_ANCHORS = [
+  {
+    skillName: 'spec-plan',
+    sourcePath: 'skills/spec-plan/SKILL.md',
+    mirrorPath: 'docs/10-prompt/skills/spec-plan/SKILL.md',
+    anchors: [
+      'selected_assets / fallback_reason / level / skipped_rules',
+      'verifier_dispatch',
+      'verification_gate_state',
+      'stage0-context --stage plan --workflow spec-plan --format json',
+    ],
+  },
+  {
+    skillName: 'spec-work',
+    sourcePath: 'skills/spec-work/SKILL.md',
+    mirrorPath: 'docs/10-prompt/skills/spec-work/SKILL.md',
+    anchors: [
+      'required_verifications',
+      'verifier_dispatch',
+      'verification_gate_state',
+      'stage0-context --stage work --workflow spec-work --format json',
+    ],
+  },
+  {
+    skillName: 'spec-work-beta',
+    sourcePath: 'skills/spec-work-beta/SKILL.md',
+    mirrorPath: 'docs/10-prompt/skills/spec-work-beta/SKILL.md',
+    anchors: [
+      'required_verifications',
+      'verifier_dispatch',
+      'verification_gate_state',
+      'stage0-context --stage work --workflow spec-work-beta --format json',
+    ],
+  },
+  {
+    skillName: 'spec-review',
+    sourcePath: 'skills/spec-review/SKILL.md',
+    mirrorPath: 'docs/10-prompt/skills/spec-review/SKILL.md',
+    anchors: [
+      'verification summary',
+      'verifier_dispatch',
+      'verification_gate_state',
+      'stage0-context --stage review --workflow spec-review --format json',
+    ],
+  },
+  {
+    skillName: 'spec-graph-bootstrap',
+    sourcePath: 'skills/spec-graph-bootstrap/SKILL.md',
+    mirrorPath: 'docs/10-prompt/skills/spec-graph-bootstrap/SKILL.md',
+    anchors: [
+      'Runs Phase 0–4',
+      'fact-inventory.json',
+      'risk-signals.json',
+      'test-surface.json',
+      '/spec:graph-bootstrap',
+    ],
+  },
+];
+
 describe('asset consistency governance', () => {
   test('every source skill has a prompt docs mirror', () => {
     const skillsRoot = path.join(repoRoot, 'skills');
@@ -48,6 +111,26 @@ describe('asset consistency governance', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, '.claude-plugin', 'plugin.json'), 'utf8'));
 
     expect(manifest.version).toBe(pkg.version);
+  });
+
+  test('high-risk skills keep critical contract anchors aligned between source and prompt mirror', () => {
+    const drift = [];
+
+    for (const record of HIGH_RISK_SKILL_ANCHORS) {
+      const source = read(record.sourcePath);
+      const mirror = read(record.mirrorPath);
+
+      for (const anchor of record.anchors) {
+        if (!source.includes(anchor)) {
+          drift.push(`${record.skillName} source missing anchor: ${anchor}`);
+        }
+        if (!mirror.includes(anchor)) {
+          drift.push(`${record.skillName} mirror missing anchor: ${anchor}`);
+        }
+      }
+    }
+
+    expect(drift).toEqual([]);
   });
 
   test('retired bootstrap entrypoints do not reappear in source assets or docs', () => {

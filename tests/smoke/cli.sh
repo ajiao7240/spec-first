@@ -98,8 +98,27 @@ if (payload.workflow_runnability !== 'not_verified') {
 if (payload.runtime_asset_health !== 'not_applicable') {
   throw new Error(`expected runtime_asset_health=not_applicable, got ${payload.runtime_asset_health}`);
 }
+if (!payload.workflow_runnability_basis || payload.workflow_runnability_basis.execution_evidence_present !== false) {
+  throw new Error('expected workflow_runnability_basis without execution evidence in a fresh project');
+}
 EOF
 echo "✓ doctor --json reports layered no-platform facts"
+
+echo "1c. Check init --dry-run previews changes without writing files..."
+dry_init_dir="$TMP_DIR/dry-init"
+mkdir -p "$dry_init_dir/.claude/commands/spec"
+printf 'custom command\n' > "$dry_init_dir/.claude/commands/spec/custom.md"
+dry_init_output="$(
+  cd "$dry_init_dir"
+  node "$REPO_ROOT/bin/spec-first.js" init --claude --dry-run -u kuang --lang en
+)"
+grep -q "Dry run: spec-first init (claude)" <<<"$dry_init_output"
+grep -q "Would prune 1 unmanaged command file(s)" <<<"$dry_init_output"
+grep -q ".claude/commands/spec/custom.md" <<<"$dry_init_output"
+grep -q "No files were changed." <<<"$dry_init_output"
+test ! -e "$dry_init_dir/.claude/spec-first/state.json"
+test -e "$dry_init_dir/.claude/commands/spec/custom.md"
+echo "✓ init --dry-run previews changes without writing files"
 
 echo "2. Initialize Claude commands in a fresh project..."
 init_stderr="$TMP_DIR/init.err"
@@ -538,14 +557,17 @@ echo "✓ doctor reports generated commands, skills, and agents"
 doctor_json="$(cd "$TMP_DIR" && SPEC_FIRST_VERSION_REMINDER_LATEST="$expected_version" node "$REPO_ROOT/bin/spec-first.js" doctor --claude --json)"
 node - "$doctor_json" <<'EOF'
 const payload = JSON.parse(process.argv[2]);
-if (payload.workflow_runnability !== 'not_verified') {
-  throw new Error(`expected workflow_runnability=not_verified, got ${payload.workflow_runnability}`);
+if (payload.workflow_runnability !== 'simulated') {
+  throw new Error(`expected workflow_runnability=simulated, got ${payload.workflow_runnability}`);
 }
 if (!payload.platform_checks || !Array.isArray(payload.platform_checks.claude)) {
   throw new Error('missing claude platform_checks');
 }
 if (!['pass', 'warn', 'error'].includes(payload.runtime_asset_health)) {
   throw new Error(`unexpected runtime_asset_health: ${payload.runtime_asset_health}`);
+}
+if (!payload.workflow_runnability_basis || payload.workflow_runnability_basis.execution_evidence_present !== false) {
+  throw new Error('expected simulated runnability without execution evidence');
 }
 EOF
 echo "✓ doctor --json reports layered Claude platform facts"
@@ -829,6 +851,18 @@ grep -q "Update available for spec-first" "$TMP_DIR/codex-clean.err"
 echo "✓ codex init/doctor/clean work"
 
 echo "3b. Verify clean removes managed assets and preserves custom assets..."
+clean_dry_run_output="$(
+  cd "$TMP_DIR"
+  node "$REPO_ROOT/bin/spec-first.js" clean --claude --dry-run
+)"
+grep -q "Dry run: spec-first clean (claude)" <<<"$clean_dry_run_output"
+grep -q ".claude/spec-first/state.json" <<<"$clean_dry_run_output"
+grep -q "Custom assets outside the spec-first managed set would remain untouched." <<<"$clean_dry_run_output"
+grep -q "No files were changed." <<<"$clean_dry_run_output"
+test -e "$TMP_DIR/.claude/spec-first/state.json"
+test -e "$TMP_DIR/.claude/skills/custom-skill/SKILL.md"
+echo "✓ clean --dry-run previews managed removals without deleting files"
+
 (
   cd "$TMP_DIR"
   node "$REPO_ROOT/bin/spec-first.js" clean --claude

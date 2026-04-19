@@ -16,6 +16,8 @@ npm run test:jest                 # CRG Jest 单元测试（需先 npm install -
 bash tests/unit/lang-policy.sh   # 单独验证语言策略注入逻辑
 bash tests/unit/mcp-setup.sh     # 单独验证 mcp-setup skill 脚本和配置
 npm pack                          # 发布前构建 tarball
+node bin/spec-first.js init --claude --dry-run -u <name> --lang <zh|en>  # 预演 init 的 managed boundary 与写入面
+node bin/spec-first.js clean --claude --dry-run                           # 预演 clean 的删除/更新边界，不改写项目文件
 pnpm run release:publish -- auto --dry-run   # 按 git-npm 契约执行发布预演（支持 auto|patch|minor|major）
 pnpm run release:publish -- auto             # 真实发布时会先提升 package.json version，再跑发布校验与 npm publish
 # 若 `git-npm auto` 中途重试导致版本前滚，应先提交最终 version/changelog 收口，再避免重复 auto bump

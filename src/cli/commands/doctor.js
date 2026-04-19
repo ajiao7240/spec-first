@@ -7,6 +7,7 @@ const { isLegacyManagedState, readState, readStateFileRaw } = require('../state'
 const { getAdapter, getSupportedPlatforms } = require('../adapters');
 const { inspectInstructionBootstrap } = require('../instruction-bootstrap');
 const { inspectManagedSessionStartHook } = require('../claude-settings');
+const VERIFICATION_EVIDENCE_PATH = path.join('.spec-first', 'runtime', 'verification-evidence.json');
 
 function runDoctor(argv) {
   const args = [...argv];
@@ -421,6 +422,13 @@ function buildDoctorReport({ projectRoot, platforms }) {
   const hostReadiness = platforms.length === 0
     ? 'not_applicable'
     : summarizeChecks(Object.values(hostChecksByPlatform).flat());
+  const workflowRunnability = computeWorkflowRunnability({
+    projectRoot,
+    platforms,
+    runtimeAssetHealth,
+    hostReadiness,
+    runtimeChecksByPlatform,
+  });
   const allChecks = [
     ...commonChecks,
     ...Object.values(platformChecksByPlatform).flat(),
@@ -433,7 +441,8 @@ function buildDoctorReport({ projectRoot, platforms }) {
     runtime_asset_health: runtimeAssetHealth,
     host_readiness: hostReadiness,
     decision_input_health: 'not_checked',
-    workflow_runnability: 'not_verified',
+    workflow_runnability: workflowRunnability.status,
+    workflow_runnability_basis: workflowRunnability.basis,
     common_checks: commonChecks,
     platform_checks: platformChecksByPlatform,
     checks: allChecks,
@@ -458,11 +467,131 @@ function printDoctorJson(report) {
     host_readiness: report.host_readiness,
     decision_input_health: report.decision_input_health,
     workflow_runnability: report.workflow_runnability,
+    workflow_runnability_basis: report.workflow_runnability_basis,
     checks: report.checks,
     common_checks: report.common_checks,
     platform_checks: report.platform_checks,
     warnings: report.warnings,
   }, null, 2));
+}
+
+function computeWorkflowRunnability({
+  projectRoot,
+  platforms,
+  runtimeAssetHealth,
+  hostReadiness,
+  runtimeChecksByPlatform,
+}) {
+  const evidence = readWorkflowVerificationEvidence(projectRoot);
+  const basis = {
+    runtime_assets_ready: runtimeAssetHealth === 'pass',
+    host_readiness_ready: hostReadiness !== 'error' && hostReadiness !== 'not_applicable',
+    managed_state_present: false,
+    workflow_surface_resolved: false,
+    execution_evidence_present: evidence.present,
+    evidence_path: evidence.path,
+    reason: '',
+  };
+
+  if (platforms.length === 0) {
+    basis.reason = 'No initialized platform detected, so workflow runnability is not verified.';
+    return {
+      status: 'not_verified',
+      basis,
+    };
+  }
+
+  basis.managed_state_present = platforms.every((platform) => {
+    const adapter = getAdapter(platform);
+    return hasPassingCheck(runtimeChecksByPlatform[platform], adapter.stateFile);
+  });
+
+  basis.workflow_surface_resolved = platforms.every((platform) => {
+    const adapter = getAdapter(platform);
+    const requiredChecks = [
+      adapter.stateFile,
+      adapter.developerFile,
+      adapter.skillsRoot,
+      adapter.agentsRoot,
+    ];
+
+    if (adapter.hasCommands) {
+      requiredChecks.push(adapter.commandRoot);
+    }
+
+    return requiredChecks.every((checkName) => hasPassingCheck(runtimeChecksByPlatform[platform], checkName));
+  });
+
+  if (
+    basis.runtime_assets_ready &&
+    basis.host_readiness_ready &&
+    basis.managed_state_present &&
+    basis.workflow_surface_resolved
+  ) {
+    if (basis.execution_evidence_present) {
+      basis.reason = hostReadiness === 'warn'
+        ? 'Runtime assets and workflow surfaces are ready, host readiness only has non-blocking warnings, and execution evidence is recorded.'
+        : 'Runtime assets, host readiness, and workflow surfaces are ready, and execution evidence is recorded.';
+      return {
+        status: 'verified',
+        basis,
+      };
+    }
+
+    basis.reason = hostReadiness === 'warn'
+      ? 'Runtime assets and workflow surfaces are ready, host readiness only has non-blocking warnings, but no execution evidence is recorded.'
+      : 'Runtime assets and workflow surfaces are ready, but no execution evidence is recorded.';
+    return {
+      status: 'simulated',
+      basis,
+    };
+  }
+
+  basis.reason = 'Workflow runnability remains unverified because runtime assets or workflow surfaces are incomplete.';
+  return {
+    status: 'not_verified',
+    basis,
+  };
+}
+
+function hasPassingCheck(checks, name) {
+  return Array.isArray(checks) && checks.some((check) => check.name === name && check.level === 'PASS');
+}
+
+function readWorkflowVerificationEvidence(projectRoot) {
+  const evidencePath = path.join(projectRoot, VERIFICATION_EVIDENCE_PATH);
+  if (!fs.existsSync(evidencePath)) {
+    return {
+      present: false,
+      path: VERIFICATION_EVIDENCE_PATH,
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      parsed.schema_version === 'v1' &&
+      Array.isArray(parsed.evidence_items) &&
+      parsed.evidence_items.length > 0
+    ) {
+      return {
+        present: true,
+        path: VERIFICATION_EVIDENCE_PATH,
+      };
+    }
+  } catch (_error) {
+    return {
+      present: false,
+      path: VERIFICATION_EVIDENCE_PATH,
+    };
+  }
+
+  return {
+    present: false,
+    path: VERIFICATION_EVIDENCE_PATH,
+  };
 }
 
 function checkProjectDeveloper(projectRoot, adapter) {

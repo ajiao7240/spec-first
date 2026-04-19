@@ -148,87 +148,273 @@ function normalizeStringArray(value) {
   );
 }
 
-function removeManagedAssets(projectRoot, managedState, adapter) {
+function buildEmptyOperationPlan() {
+  return {
+    operations: [],
+    summary: {},
+  };
+}
+
+function mergeOperationPlans(...plans) {
+  const merged = buildEmptyOperationPlan();
+  const seen = new Set();
+
+  for (const plan of plans) {
+    if (!plan || !Array.isArray(plan.operations)) {
+      continue;
+    }
+
+    for (const operation of plan.operations) {
+      const key = `${operation.kind}:${operation.path}`;
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      merged.operations.push({ ...operation });
+    }
+  }
+
+  merged.summary = summarizeOperations(merged.operations);
+  return merged;
+}
+
+function summarizeOperations(operations) {
+  const summary = {};
+  for (const operation of operations) {
+    summary[operation.kind] = (summary[operation.kind] || 0) + 1;
+  }
+  return summary;
+}
+
+function buildOperation(kind, absolutePath, projectRoot, reason) {
+  return {
+    kind,
+    path: toRelativeProjectPath(absolutePath, projectRoot),
+    reason,
+  };
+}
+
+function toRelativeProjectPath(absolutePath, projectRoot) {
+  const relative = path.relative(projectRoot, absolutePath);
+  return relative.length > 0 ? relative : '.';
+}
+
+function planManagedAssetRemoval(projectRoot, managedState, adapter) {
   const state = normalizeState(managedState);
+  const operations = [];
 
   for (const commandFile of state.commands) {
-    removeFile(path.join(projectRoot, adapter.commandRoot, commandFile), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_file',
+        path.join(projectRoot, adapter.commandRoot, commandFile),
+        projectRoot,
+        'managed_command',
+      ),
+    );
   }
 
   for (const skillName of state.skills) {
-    removeDirectory(path.join(projectRoot, adapter.skillsRoot, skillName), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_dir',
+        path.join(projectRoot, adapter.skillsRoot, skillName),
+        projectRoot,
+        'managed_skill',
+      ),
+    );
   }
 
   for (const skillName of state.workflowSkills) {
-    removeDirectory(path.join(projectRoot, adapter.workflowsRoot, skillName), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_dir',
+        path.join(projectRoot, adapter.workflowsRoot, skillName),
+        projectRoot,
+        'managed_workflow_skill',
+      ),
+    );
   }
 
   for (const agentPath of state.agents) {
-    removeFile(path.join(projectRoot, adapter.agentsRoot, agentPath), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_file',
+        path.join(projectRoot, adapter.agentsRoot, agentPath),
+        projectRoot,
+        'managed_agent',
+      ),
+    );
   }
 
   for (const supportPath of state.agentSupportFiles) {
-    removeFile(path.join(projectRoot, adapter.agentsRoot, supportPath), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_file',
+        path.join(projectRoot, adapter.agentsRoot, supportPath),
+        projectRoot,
+        'managed_agent_support_file',
+      ),
+    );
   }
 
   if (state.developer && state.developer.path) {
-    removeFile(path.join(projectRoot, state.developer.path), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_file',
+        path.join(projectRoot, state.developer.path),
+        projectRoot,
+        'managed_developer_profile',
+      ),
+    );
   } else {
-    removeFile(path.join(projectRoot, adapter.developerFile), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_file',
+        path.join(projectRoot, adapter.developerFile),
+        projectRoot,
+        'managed_developer_profile',
+      ),
+    );
   }
+
+  return {
+    operations,
+    summary: summarizeOperations(operations),
+  };
 }
 
-function hardResetManagedAssets(projectRoot, managedState, adapter) {
-  const state = normalizeState(managedState);
-  removeManagedAssets(projectRoot, state, adapter);
+function removeManagedAssets(projectRoot, managedState, adapter) {
+  applyOperationPlan(projectRoot, planManagedAssetRemoval(projectRoot, managedState, adapter));
+}
+
+function planHardResetManagedAssets(projectRoot, managedState, adapter) {
+  const operations = [...planManagedAssetRemoval(projectRoot, managedState, adapter).operations];
 
   if (adapter.hasCommands) {
-    removeDirectory(path.join(projectRoot, adapter.commandRoot), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_dir',
+        path.join(projectRoot, adapter.commandRoot),
+        projectRoot,
+        'managed_command_root_reset',
+      ),
+    );
   }
 
   if (adapter.workflowsRoot !== adapter.skillsRoot) {
-    removeDirectory(path.join(projectRoot, adapter.workflowsRoot), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_dir',
+        path.join(projectRoot, adapter.workflowsRoot),
+        projectRoot,
+        'managed_workflow_root_reset',
+      ),
+    );
   }
+
+  return {
+    operations,
+    summary: summarizeOperations(operations),
+  };
 }
 
-function removeObsoleteManagedAssets(projectRoot, previousState, nextState, adapter) {
+function hardResetManagedAssets(projectRoot, managedState, adapter) {
+  applyOperationPlan(projectRoot, planHardResetManagedAssets(projectRoot, managedState, adapter));
+}
+
+function planObsoleteManagedAssetRemoval(projectRoot, previousState, nextState, adapter) {
   const previous = normalizeState(previousState);
   const next = normalizeState(nextState);
+  const operations = [];
 
   for (const commandFile of previous.commands.filter((entry) => !next.commands.includes(entry))) {
-    removeFile(path.join(projectRoot, adapter.commandRoot, commandFile), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_file',
+        path.join(projectRoot, adapter.commandRoot, commandFile),
+        projectRoot,
+        'obsolete_managed_command',
+      ),
+    );
   }
 
   for (const skillName of previous.skills.filter((entry) => !next.skills.includes(entry))) {
-    removeDirectory(path.join(projectRoot, adapter.skillsRoot, skillName), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_dir',
+        path.join(projectRoot, adapter.skillsRoot, skillName),
+        projectRoot,
+        'obsolete_managed_skill',
+      ),
+    );
   }
 
   for (const skillName of previous.workflowSkills.filter((entry) => !next.workflowSkills.includes(entry))) {
-    removeDirectory(path.join(projectRoot, adapter.workflowsRoot, skillName), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_dir',
+        path.join(projectRoot, adapter.workflowsRoot, skillName),
+        projectRoot,
+        'obsolete_workflow_skill',
+      ),
+    );
   }
 
   for (const agentPath of previous.agents.filter((entry) => !next.agents.includes(entry))) {
-    removeFile(path.join(projectRoot, adapter.agentsRoot, agentPath), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_file',
+        path.join(projectRoot, adapter.agentsRoot, agentPath),
+        projectRoot,
+        'obsolete_managed_agent',
+      ),
+    );
   }
 
   for (const supportPath of previous.agentSupportFiles.filter((entry) => !next.agentSupportFiles.includes(entry))) {
-    removeFile(path.join(projectRoot, adapter.agentsRoot, supportPath), projectRoot);
+    operations.push(
+      buildOperation(
+        'remove_file',
+        path.join(projectRoot, adapter.agentsRoot, supportPath),
+        projectRoot,
+        'obsolete_managed_agent_support_file',
+      ),
+    );
   }
 
   if (previous.developer && previous.developer.path) {
     const nextDeveloperPath = next.developer && next.developer.path ? next.developer.path : '';
     if (previous.developer.path !== nextDeveloperPath) {
-      removeFile(path.join(projectRoot, previous.developer.path), projectRoot);
+      operations.push(
+        buildOperation(
+          'remove_file',
+          path.join(projectRoot, previous.developer.path),
+          projectRoot,
+          'obsolete_developer_profile',
+        ),
+      );
     }
   }
+
+  return {
+    operations,
+    summary: summarizeOperations(operations),
+  };
 }
 
-function pruneCommandNamespace(projectRoot, managedCommandFiles, adapter) {
+function removeObsoleteManagedAssets(projectRoot, previousState, nextState, adapter) {
+  applyOperationPlan(projectRoot, planObsoleteManagedAssetRemoval(projectRoot, previousState, nextState, adapter));
+}
+
+function planCommandNamespacePrune(projectRoot, managedCommandFiles, adapter) {
   const commandDir = path.join(projectRoot, adapter.commandRoot);
   if (!fs.existsSync(commandDir)) {
-    return;
+    return buildEmptyOperationPlan();
   }
 
+  const operations = [];
   const allowed = new Set(normalizeStringArray(managedCommandFiles));
   for (const entry of fs.readdirSync(commandDir, { withFileTypes: true })) {
     if (!entry.isFile()) {
@@ -236,9 +422,93 @@ function pruneCommandNamespace(projectRoot, managedCommandFiles, adapter) {
     }
 
     if (!allowed.has(entry.name)) {
-      removeFile(path.join(commandDir, entry.name), projectRoot);
+      operations.push(
+        buildOperation(
+          'prune_command',
+          path.join(commandDir, entry.name),
+          projectRoot,
+          'namespace_not_managed',
+        ),
+      );
     }
   }
+
+  return {
+    operations,
+    summary: summarizeOperations(operations),
+  };
+}
+
+function pruneCommandNamespace(projectRoot, managedCommandFiles, adapter) {
+  applyOperationPlan(projectRoot, planCommandNamespacePrune(projectRoot, managedCommandFiles, adapter));
+}
+
+function planEmptyManagedRootCleanup(projectRoot, adapter) {
+  const relativePaths = [adapter.skillsRoot, adapter.agentsRoot];
+  if (adapter.hasCommands) {
+    relativePaths.unshift(adapter.commandRoot);
+  }
+
+  const operations = [];
+  for (const relativePath of relativePaths) {
+    const absolutePath = path.join(projectRoot, relativePath);
+    if (!fs.existsSync(absolutePath)) {
+      continue;
+    }
+
+    if (fs.readdirSync(absolutePath).length === 0) {
+      operations.push(
+        buildOperation(
+          'remove_empty_root',
+          absolutePath,
+          projectRoot,
+          'empty_managed_root',
+        ),
+      );
+    }
+  }
+
+  return {
+    operations,
+    summary: summarizeOperations(operations),
+  };
+}
+
+function applyOperationPlan(projectRoot, plan) {
+  if (!plan || !Array.isArray(plan.operations)) {
+    return;
+  }
+
+  for (const operation of plan.operations) {
+    const targetPath = path.join(projectRoot, operation.path);
+
+    if (operation.kind === 'remove_file' || operation.kind === 'prune_command') {
+      removeFile(targetPath, projectRoot);
+      continue;
+    }
+
+    if (operation.kind === 'remove_dir') {
+      removeDirectory(targetPath, projectRoot);
+      continue;
+    }
+
+    if (operation.kind === 'remove_empty_root') {
+      removeEmptyRoot(targetPath, projectRoot);
+    }
+  }
+}
+
+function removeEmptyRoot(directoryPath, projectRoot) {
+  if (!fs.existsSync(directoryPath)) {
+    return;
+  }
+
+  if (fs.readdirSync(directoryPath).length > 0) {
+    return;
+  }
+
+  fs.rmdirSync(directoryPath);
+  removeEmptyParents(path.dirname(directoryPath), projectRoot);
 }
 
 function removeFile(filePath, projectRoot) {
@@ -270,11 +540,18 @@ function removeEmptyParents(startPath, stopRoot) {
 }
 
 module.exports = {
+  applyOperationPlan,
   buildState,
   clearState,
   getStateFilePath,
   hardResetManagedAssets,
   isLegacyManagedState,
+  mergeOperationPlans,
+  planCommandNamespacePrune,
+  planEmptyManagedRootCleanup,
+  planHardResetManagedAssets,
+  planManagedAssetRemoval,
+  planObsoleteManagedAssetRemoval,
   pruneCommandNamespace,
   readStateFileRaw,
   readState,

@@ -13,13 +13,16 @@ const {
   writeDeveloperFile,
 } = require('../developer');
 const {
+  applyOperationPlan,
   buildState,
   hardResetManagedAssets,
   isLegacyManagedState,
+  mergeOperationPlans,
+  planCommandNamespacePrune,
+  planHardResetManagedAssets,
+  planObsoleteManagedAssetRemoval,
   readStateFileRaw,
-  pruneCommandNamespace,
   readState,
-  removeObsoleteManagedAssets,
   writeState,
 } = require('../state');
 const { getAdapter } = require('../adapters');
@@ -39,7 +42,7 @@ function runInit(argv) {
 
   const platformSelected = parsed.claude || parsed.codex;
   if (!platformSelected || parsed.unknown.length > 0) {
-    console.error('Usage: spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>]');
+    console.error('Usage: spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run]');
     return 1;
   }
 
@@ -125,7 +128,7 @@ function runInit(argv) {
 
   if (legacyStateDetected) {
     console.warn('Detected legacy spec-first state; performing managed hard reset before re-init.');
-    hardResetManagedAssets(projectRoot, buildLegacyHardResetState({
+    const legacyResetState = buildLegacyHardResetState({
       adapter,
       rawManagedState,
       runtimeCommands,
@@ -134,12 +137,50 @@ function runInit(argv) {
       bundledAgentPaths,
       bundledAgentSupportFiles,
       developer,
-    }), adapter);
+    });
+
+    if (parsed.dryRun) {
+      printInitDryRun({
+        platform,
+        plan: planHardResetManagedAssets(projectRoot, legacyResetState, adapter),
+        writeSummary: buildInitWriteSummary({
+          adapter,
+          runtimeCommands,
+          filteredAssetSet,
+          bundledAgentPaths,
+          bundledAgentSupportFiles,
+        }),
+        legacyStateDetected,
+      });
+      return 0;
+    }
+
+    hardResetManagedAssets(projectRoot, legacyResetState, adapter);
     previousState = null;
   }
 
-  removeObsoleteManagedAssets(projectRoot, previousState, previewState, adapter);
-  pruneCommandNamespace(projectRoot, previewState.commands, adapter);
+  const preSyncPlan = mergeOperationPlans(
+    planObsoleteManagedAssetRemoval(projectRoot, previousState, previewState, adapter),
+    planCommandNamespacePrune(projectRoot, previewState.commands, adapter),
+  );
+
+  if (parsed.dryRun) {
+    printInitDryRun({
+      platform,
+      plan: preSyncPlan,
+      writeSummary: buildInitWriteSummary({
+        adapter,
+        runtimeCommands,
+        filteredAssetSet,
+        bundledAgentPaths,
+        bundledAgentSupportFiles,
+      }),
+      legacyStateDetected,
+    });
+    return 0;
+  }
+
+  applyOperationPlan(projectRoot, preSyncPlan);
 
   const synced = syncBundledAssets(projectRoot, adapter);
   const nextState = buildState(manifest.version, {
@@ -196,7 +237,7 @@ function runInit(argv) {
 }
 
 function printHelp() {
-  console.log('Usage: spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>]');
+  console.log('Usage: spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run]');
 }
 
 function parseInitArgs(argv) {
@@ -205,6 +246,7 @@ function parseInitArgs(argv) {
     claude: false,
     codex: false,
     force: false,
+    dryRun: false,
     user: '',
     lang: '',
     unknown: [],
@@ -230,6 +272,11 @@ function parseInitArgs(argv) {
 
     if (arg === '--force') {
       parsed.force = true;
+      continue;
+    }
+
+    if (arg === '--dry-run') {
+      parsed.dryRun = true;
       continue;
     }
 
@@ -331,6 +378,87 @@ function findDuplicateClaudeAgentNames(agentPaths) {
   }
 
   return [...duplicates].sort();
+}
+
+function buildInitWriteSummary({
+  adapter,
+  runtimeCommands,
+  filteredAssetSet,
+  bundledAgentPaths,
+  bundledAgentSupportFiles,
+}) {
+  const writes = [];
+
+  if (adapter.hasCommands) {
+    writes.push({
+      label: 'command file(s)',
+      count: runtimeCommands.length,
+      target: adapter.commandRoot,
+    });
+  }
+
+  writes.push({
+    label: 'standalone skill directorie(s)',
+    count: filteredAssetSet.skills.length,
+    target: adapter.skillsRoot,
+  });
+
+  writes.push({
+    label: 'workflow skill directorie(s)',
+    count: filteredAssetSet.workflowSkills.length,
+    target: adapter.workflowsRoot,
+  });
+
+  writes.push({
+    label: 'agent file(s)',
+    count: bundledAgentPaths.length,
+    target: adapter.agentsRoot,
+  });
+
+  if (bundledAgentSupportFiles.length > 0) {
+    writes.push({
+      label: 'agent support file(s)',
+      count: bundledAgentSupportFiles.length,
+      target: adapter.agentsRoot,
+    });
+  }
+
+  writes.push(
+    { label: 'developer profile', count: 1, target: adapter.developerFile },
+    { label: 'instruction bootstrap', count: 1, target: adapter.instructionFile },
+    { label: 'managed state file', count: 1, target: adapter.stateFile },
+  );
+
+  if (adapter.id === 'claude') {
+    writes.push({ label: 'runtime hook file', count: 1, target: '.claude/hooks/session-start' });
+    writes.push({ label: 'Claude settings matcher update', count: 1, target: '.claude/settings.json' });
+  }
+
+  return writes;
+}
+
+function printInitDryRun({ platform, plan, writeSummary, legacyStateDetected }) {
+  console.log(`Dry run: spec-first init (${platform})`);
+  if (legacyStateDetected) {
+    console.log('Would perform a managed hard reset before regenerating runtime assets.');
+  }
+
+  const pruneCount = plan.summary.prune_command || 0;
+  const removeCount = (plan.summary.remove_file || 0) + (plan.summary.remove_dir || 0);
+
+  console.log(`Would remove ${removeCount} managed obsolete path(s).`);
+  if (pruneCount > 0) {
+    console.log(`Would prune ${pruneCount} unmanaged command file(s):`);
+    for (const operation of plan.operations.filter((entry) => entry.kind === 'prune_command')) {
+      console.log(`  - ${operation.path}`);
+    }
+  }
+
+  console.log('Would write:');
+  for (const entry of writeSummary) {
+    console.log(`  - ${entry.count} ${entry.label} -> ${entry.target}`);
+  }
+  console.log('No files were changed.');
 }
 
 module.exports = {
