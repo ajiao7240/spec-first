@@ -4,7 +4,7 @@
 适用范围：
 
 1. `spec-first` 框架仓库自身
-2. 使用 `spec-first` / `spec-bootstrap` / `spec-graph-bootstrap` 的目标代码仓库
+2. 使用 `spec-first` / `spec-graph-bootstrap` / `spec-graph-bootstrap` 的目标代码仓库
 
 文档目标：
 
@@ -59,7 +59,7 @@
 
 ### 2.3 `docs/contexts/<slug>/` 被设计为 durable asset
 
-`spec-bootstrap` 已明确：
+`spec-graph-bootstrap` 已明确：
 
 1. `docs/contexts/<slug>/` 是 long-lived context library
 2. 它是 durable VCS asset
@@ -67,7 +67,7 @@
 
 ### 2.4 `.spec-first/` control plane 不应提交
 
-`spec-bootstrap` 已明确：
+`spec-graph-bootstrap` 已明确：
 
 1. `.spec-first/` 包含 control plane 和临时 bootstrap state
 2. 它不应提交到版本控制

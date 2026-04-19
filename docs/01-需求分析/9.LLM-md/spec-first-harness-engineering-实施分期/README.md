@@ -27,7 +27,7 @@
 
 | 阶段 | 核心目标 | 主要触达节点 | 不做什么 |
 | --- | --- | --- | --- |
-| 阶段 1 | 建立最小可用交付闭环 | `spec-bootstrap` `spec-brainstorm` `spec-ideate` `spec-plan` `spec-work` | 不引入自动治理闭环，不做重型知识平台 |
+| 阶段 1 | 建立最小可用交付闭环 | `spec-graph-bootstrap` `spec-brainstorm` `spec-ideate` `spec-plan` `spec-work` | 不引入自动治理闭环，不做重型知识平台 |
 | 阶段 2 | 建立反馈回流与记忆复利 | `spec-review` `spec-compound` `history` `knowledge retrieval` | 不自动写回主资产，不做万能规则引擎 |
 | 阶段 3 | 建立系统自进化能力 | `spec-improve` | 不把 improve 变成自动修复器 |
 
@@ -81,9 +81,9 @@
 - 字段重命名或语义变更：主版本递增，例如 `1.0 -> 2.0`
 - 消费方读取到高于自身预期的版本时，应输出 `warn` 而非硬失败
 
-## spec-bootstrap 路径迁移决策
+## spec-graph-bootstrap 路径迁移决策
 
-**当前状态：** 现有 `spec-bootstrap SKILL.md` 将产物写入 `docs/contexts/<slug>/`（VCS 追踪的 Markdown）。本方案要求新增结构化控制面资产写入 `.context/spec-first/bootstrap/<slug>/analysis/`（运行时状态，建议 `.gitignore`）。
+**当前状态：** 现有 `spec-graph-bootstrap SKILL.md` 将产物写入 `docs/contexts/<slug>/`（VCS 追踪的 Markdown）。本方案要求新增结构化控制面资产写入 `.context/spec-first/bootstrap/<slug>/analysis/`（运行时状态，建议 `.gitignore`）。
 
 **两条路径并存的问题：** 若同时维护两套路径，下游 skill（`spec-plan`、`spec-work`、`doctor`）需要知道从哪里加载控制面资产，造成歧义。
 
@@ -111,7 +111,7 @@
 
 ## 统一约束
 
-- `spec-bootstrap` 仍是 supporting workflow，不得在阶段文档里被重新解释成强前置。
+- `spec-graph-bootstrap` 仍是 supporting workflow，不得在阶段文档里被重新解释成强前置。
 - instruction file 仍保持 single writer 语义。实施时通过 `<!-- spec-first:context:start -->` / `<!-- spec-first:context:end -->` 标记管理 block，CLI `init` 是唯一 writer，bootstrap 只产出 `instruction-context.json`。
 - `proposal` 的 WHAT 层真源仍归 `spec-brainstorm` handoff 或 direct-to-plan 例外。direct-to-plan 例外应在 plan frontmatter / metadata 中显式标记 direct 来源，以保证 review 和 improve 知晓来源差异。
 - 所有新增 JSON 资产都应保留 `schema_version`（版本策略见上）。

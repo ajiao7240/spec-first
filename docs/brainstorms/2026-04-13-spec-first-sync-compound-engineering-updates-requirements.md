@@ -11,7 +11,7 @@ topic: spec-first-sync-compound-engineering-updates
 
 - 核心链路仍然高度同构：`brainstorm -> plan -> work -> review -> compound`
 - skill / agent 命名体系已从 `ce-*` 演化为 `spec-*`
-- `spec-bootstrap`、`spec-graph-bootstrap`、`spec-mcp-setup` 等能力已经形成当前项目独有的控制面
+- `spec-graph-bootstrap`、`spec-graph-bootstrap`、`spec-mcp-setup` 等能力已经形成当前项目独有的控制面
 - 平台层、多宿主分发、converter / target / sync / release 等能力已经明显分叉
 
 源项目在 2026-04-13 之前累积了大量更新，其中既包含：

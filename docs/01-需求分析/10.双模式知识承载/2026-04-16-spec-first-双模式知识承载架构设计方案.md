@@ -12,7 +12,7 @@
 
 本方案要解决的问题是：
 
-> 在保留 `项目内文档` 作为正式产品模式的前提下，为 `spec-first` 增加 `外挂知识仓库` 模式，并让 `spec-graph-bootstrap`、`spec-bootstrap`、`spec-compound` 以及后续 `plan / work / review` 可以统一消费同一套 durable knowledge backend。
+> 在保留 `项目内文档` 作为正式产品模式的前提下，为 `spec-first` 增加 `外挂知识仓库` 模式，并让 `spec-graph-bootstrap`、`spec-graph-bootstrap`、`spec-compound` 以及后续 `plan / work / review` 可以统一消费同一套 durable knowledge backend。
 
 架构结论如下：
 
@@ -616,7 +616,7 @@ backup 语义必须拆成两层：
 ## 10.1 Phase 1 必须接入
 
 1. `spec-graph-bootstrap`
-2. `spec-bootstrap`
+2. `spec-graph-bootstrap`
 3. `spec-compound`
 4. `context-routing/loader`
 5. `context-routing/evaluator`
@@ -745,7 +745,7 @@ _meta/repos/<repoSlug>.json
 
 - external mode 可被初始化
 - 当前 repo 可自动注册
-- `spec-graph-bootstrap` 与 `spec-bootstrap` 可正确写 external durable docs
+- `spec-graph-bootstrap` 与 `spec-graph-bootstrap` 可正确写 external durable docs
 - `context-routing` 可正确读 external durable docs
 
 模块：
@@ -782,7 +782,7 @@ _meta/repos/<repoSlug>.json
 | 当前 tests 把 repo-local 当唯一真源 | 将 contract 升级为双模式，增加 external fixture |
 | backup 只保护 repo-local docs | 拆分 control plane rollback 与 durable docs rollback |
 | 编译器无 backend abstraction | 新增 `knowledge-backend/resolver.js` |
-| skill 契约仍是单模式 | 改写 `spec-graph-bootstrap` / `spec-bootstrap` skill 契约 |
+| skill 契约仍是单模式 | 改写 `spec-graph-bootstrap` / `spec-graph-bootstrap` skill 契约 |
 
 ---
 

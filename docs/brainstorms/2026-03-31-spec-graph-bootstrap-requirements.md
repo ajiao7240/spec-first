@@ -1,6 +1,6 @@
 ---
 date: 2026-03-31
-topic: spec-bootstrap
+topic: spec-graph-bootstrap
 ---
 
 # Spec Bootstrap: 项目上下文自动生成
@@ -11,14 +11,14 @@ topic: spec-bootstrap
 
 需要一个 **Stage-0 supporting workflow**，为目标项目自动生成可长期复用的项目上下文资产，为后续五阶段提供可消费的上下文基座。
 
-目标用户：**使用 spec-first 的外部开发者**（非框架维护者），他们会在自己的项目上运行 `/spec:bootstrap`。
+目标用户：**使用 spec-first 的外部开发者**（非框架维护者），他们会在自己的项目上运行 `/spec:graph-bootstrap`。
 
 ## Requirements
 
 **Skill 与命令入口**
-- R1. 新增 canonical skill `skills/spec-bootstrap/SKILL.md`，提供 `/spec:bootstrap` 命令入口（Claude）和 `$spec-bootstrap`（Codex）
+- R1. 新增 canonical skill `skills/spec-graph-bootstrap/SKILL.md`，提供 `/spec:graph-bootstrap` 命令入口（Claude）和 `$spec-graph-bootstrap`（Codex）
 - R2. Skill 文案保持平台中立，面向外部开发者，包含清晰的引导说明和错误提示
-- R3. `spec-first init --claude` 安装 `/spec:bootstrap`，`spec-first init --codex` 同步 `$spec-bootstrap`；需创建 `templates/claude/commands/spec/bootstrap.md` 命令模板，并更新 `.claude-plugin/plugin.json` commands 数组添加 bootstrap 入口
+- R3. `spec-first init --claude` 安装 `/spec:graph-bootstrap`，`spec-first init --codex` 同步 `$spec-graph-bootstrap`；需创建 `templates/claude/commands/spec/graph-bootstrap.md` 命令模板，并更新 `.claude-plugin/plugin.json` commands 数组添加 bootstrap 入口
 
 **产物模型**
 - R4. 长期上下文资产存放在目标项目的 `docs/contexts/<context-slug>/`，作为 durable artifact family
@@ -55,7 +55,7 @@ topic: spec-bootstrap
 - R18. 条件任务：按项目实际存在的层动态生成对应的 layer-context 任务。条件任务的 task→artifact 映射：layer-context → `layers/<layer>/index.md`
 
 **PRD Contract**
-- R19. 保留 Trellis 原始 PRD 骨架（Goal/Context/Tools/Files/Rules/Acceptance/Notes），做必要改写以适配 spec-first 产物路径和 subagent 执行模型。canonical PRD 模板必须作为参考文件包含在 `skills/spec-bootstrap/references/prd-template.md`
+- R19. 保留 Trellis 原始 PRD 骨架（Goal/Context/Tools/Files/Rules/Acceptance/Notes），做必要改写以适配 spec-first 产物路径和 subagent 执行模型。canonical PRD 模板必须作为参考文件包含在 `skills/spec-graph-bootstrap/references/prd-template.md`
 
 **Rerun 行为**
 - R20. Rerun 行为必须明确定义：默认覆盖已有长期资产并更新时间戳；控制面产物每次重建。不允许静默部分覆盖（即某些文件更新而某些保留旧版本）。为防止部分失败导致不一致状态，orchestrator 在 Phase 3 前将已有 `docs/contexts/<slug>/` 备份到 `.context/spec-first/bootstrap/<slug>/backup/`，Phase 3 全部 worker 成功后删除备份；部分失败时由 orchestrator 决定恢复备份或保留部分完成状态并向用户报告
@@ -67,7 +67,7 @@ topic: spec-bootstrap
 
 ## Success Criteria
 
-- 外部开发者可以在自己的项目上运行 `/spec:bootstrap`，自动生成完整的项目上下文资产
+- 外部开发者可以在自己的项目上运行 `/spec:graph-bootstrap`，自动生成完整的项目上下文资产
 - Bootstrap 输出在人工审查中被外部开发者判定为对理解项目架构有帮助（至少覆盖项目结构、核心模块职责、已知风险点）
 - `docs/contexts/<context-slug>/` 下的文件结构一致，每个产物文件包含结构化章节
 - 并行 worker 不出现文件覆盖冲突

@@ -158,7 +158,7 @@ source: docs/ideation/2026-04-03-spec-first-blog-series-outline.md
 
 ## 与后续篇章的衔接
 
-- 下一篇：`Stage-0` / `spec-bootstrap`
+- 下一篇：`Stage-0` / `spec-graph-bootstrap`
 - 再下一篇：`mcp-setup + doctor + init`
 - 后面继续：治理、可靠性、知识闭环、双宿主
 

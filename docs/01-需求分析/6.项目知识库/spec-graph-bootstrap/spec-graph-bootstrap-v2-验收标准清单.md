@@ -1,6 +1,6 @@
-# spec-bootstrap v2 验收标准清单
+# spec-graph-bootstrap v2 验收标准清单
 
-> 本文定义 `spec-bootstrap v2` 的验收标准。
+> 本文定义 `spec-graph-bootstrap v2` 的验收标准。
 > 目标是把前面的方案、产物模型和外部方法论启发，收敛成实现阶段可直接使用的检查清单。
 
 ---
@@ -15,7 +15,7 @@
 
 建议使用顺序：
 
-1. 先读 `spec-bootstrap-v2-需求与实施方案.md`
+1. 先读 `spec-graph-bootstrap-v2-需求与实施方案.md`
 2. 再用本文逐项检查设计和实现
 3. 对未满足项标注：
    - `P0 必须补齐`
@@ -28,7 +28,7 @@
 
 ### A1. 定位正确
 
-`spec-bootstrap v2` 必须明确被定义为：
+`spec-graph-bootstrap v2` 必须明确被定义为：
 
 - 研发质量资产生成器
 
@@ -398,7 +398,7 @@ v1 的备份恢复机制必须保留。
 
 ## 12. 最终判断
 
-如果某一版实现不能通过以下四项，就不应视为真正的 `spec-bootstrap v2`：
+如果某一版实现不能通过以下四项，就不应视为真正的 `spec-graph-bootstrap v2`：
 
 1. `rules/` 是否成立
 2. `patterns/` 是否成立

@@ -171,4 +171,4 @@ grep -n "skillsRoot\\|workflowsRoot" src/cli/adapters/codex.js
 
 - `docs/plans/2026-04-13-002-artifact-path-standardization-design.md` — 产物路径标准化设计，解释了源头/产物分层的整体方案
 - `docs/plans/2026-04-13-003-refactor-artifact-path-hard-cut-plan.md` — Unit 3 明确规定“只改 source-of-truth（skills/ 与 templates/），runtime 副本不作手工编辑入口”
-- `docs/validation/2026-04-01-spec-bootstrap-deep-review.md` — 类似问题：PRD 模板（源头）vs 生成的 worker 产物的边界设计
+- `docs/validation/2026-04-01-spec-graph-bootstrap-deep-review.md` — 类似问题：PRD 模板（源头）vs 生成的 worker 产物的边界设计

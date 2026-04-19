@@ -83,7 +83,7 @@ describe('docs/solutions contracts', () => {
     const files = listMarkdownFiles(SOLUTIONS_ROOT);
 
     expect(files.map((filePath) => path.relative(REPO_ROOT, filePath))).not.toContain(
-      'docs/solutions/logic-errors/spec-bootstrap-deep-review.md',
+      'docs/solutions/logic-errors/spec-graph-bootstrap-deep-review.md',
     );
 
     for (const filePath of files) {

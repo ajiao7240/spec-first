@@ -96,7 +96,7 @@ Spec-First 采用三层工程边界设计：
 
 | Stage | Claude Code | Codex | 职责 | 产出物 |
 |:-----:|-------------|-------|------|--------|
-| 🏗️ | `/spec:bootstrap` | `$spec-bootstrap` | Stage-0 项目上下文生成 | `docs/contexts/<slug>/` |
+| 🏗️ | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Stage-0 项目上下文生成 | `docs/contexts/<slug>/` |
 | 💡 | `/spec:ideate` | `$spec-ideate` | 发散候选、评估方向 | `docs/ideation/*.md` |
 | 🧠 | `/spec:brainstorm` | `$spec-brainstorm` | 澄清问题、控制范围、明确验收标准 | `docs/brainstorms/*.md` |
 | 📋 | `/spec:plan` | `$spec-plan` | 收集上下文、拆解任务、识别风险 | `docs/plans/*.md` |
@@ -114,7 +114,7 @@ Spec-First 采用三层工程边界设计：
 
 | Skill | 定位 | 描述 |
 |-------|------|------|
-| `spec-bootstrap` | Stage-0 | 为目标项目生成可长期复用的上下文资产，输出至 `docs/contexts/<slug>/` |
+| `spec-graph-bootstrap` | Stage-0 | 为目标项目生成可长期复用的上下文资产，输出至 `docs/contexts/<slug>/` |
 | `mcp-setup` | 工具链配置 | 一键安装和配置 MCP 工具（Context7、Sequential Thinking 等） |
 
 <details>
@@ -214,7 +214,7 @@ codex    # Codex
 
 ```bash
 # Claude Code
-/spec:bootstrap    # 🏗️ Stage-0 生成项目上下文
+/spec:graph-bootstrap    # 🏗️ Stage-0 生成项目上下文
 /spec:mcp-setup    # 🔧 一键配置 MCP 工具
 /spec:ideate       # 💡 发散候选
 /spec:brainstorm   # 🧠 澄清需求
@@ -224,7 +224,7 @@ codex    # Codex
 /spec:compound     # 📚 知识沉淀
 
 # Codex
-$spec-bootstrap    # 🏗️ Stage-0 生成项目上下文
+$spec-graph-bootstrap    # 🏗️ Stage-0 生成项目上下文
 $spec-ideate       # 💡 发散候选
 $spec-brainstorm   # 🧠 澄清需求
 $spec-plan         # 📋 生成计划

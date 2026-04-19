@@ -27,7 +27,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/阶段0-CRG安装接入m
 - R3. `install-coordinator.sh` / `.ps1` 通过 `--install=code-review-graph` 能将 CRG 写入宿主配置
 - R4. `SKILL.md` Phase 3 optional tools 列表包含 CRG；`quick` 模式跳过 optional，`custom` 模式仅保留“是否安装 optional tools（整体）”交互，不引入 per-tool 选择
 - R5. `verify-tools.sh` / `.ps1` 从数据驱动读取工具列表，输出 v5 schema，`setup_success` 只由 required tools 决定
-- R6. host marker v5 保留 `tools` 字段（required tools，向后兼容 spec-bootstrap），新增 `optional_tools` 字段
+- R6. host marker v5 保留 `tools` 字段（required tools，向后兼容 spec-graph-bootstrap），新增 `optional_tools` 字段
 - R7. `verify-tools.sh` 与 `verify-tools.ps1` 在同一 PR 同步交付，不允许单端后置
 - ~~R8~~（降级为跨阶段契约约束，不作为本计划验收项）：读取方必须容忍 `optional_tools` 缺失（v4 场景）和未知附加字段，不得因 schema 加法扩展报错。该约束由 spec-graph-bootstrap 阶段 2 实施并验证；本计划通过 KD-5 记录约定，不在此处设验收门控。
 
@@ -36,11 +36,11 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/阶段0-CRG安装接入m
 - 不修改 `check-deps.sh` / `.ps1`（uvx 管理 Python，无需新增 python3 检测）
 - 不修改 `detect-tools.sh` / `.ps1`（已数据驱动）
 - 不修改 `install-coordinator.sh` / `.ps1`（已支持 --install 参数）
-- 不修改 `spec-bootstrap` SKILL.md（`tools.*.configured` 字段保持不变）
+- 不修改 `spec-graph-bootstrap` SKILL.md（`tools.*.configured` 字段保持不变）
 - 不实现任何 repo 级 CRG 操作（build_or_update_graph_tool、list_graph_stats_tool 等）
 - 不实现 per-tool optional 细粒度选择交互（后续产品化迭代）
 - 不在本计划中实现 `spec-graph-bootstrap` 对 v4/v5 marker 的消费逻辑（属于阶段 2）
-- 不在本计划中新增 runtime MCP 可调用性验证（该验证仍由 `spec-bootstrap/spec-graph-bootstrap` 的项目级 probe 负责）
+- 不在本计划中新增 runtime MCP 可调用性验证（该验证仍由 `spec-graph-bootstrap/spec-graph-bootstrap` 的项目级 probe 负责）
 
 ## Context & Research
 
@@ -51,7 +51,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/阶段0-CRG安装接入m
 - `skills/mcp-setup/scripts/install-coordinator.sh` — `should_install()` 函数通过 `--install` 过滤，optional 工具默认跳过，可显式触发
 - `skills/mcp-setup/scripts/verify-tools.sh` — 当前 v4 hardcoded：手动调用 `check_mcp_configured "serena"` 等三次，输出静态 JSON；必须重构为数据驱动
 - `tests/unit/mcp-setup.sh` — 测试 5.x 节检查 `.tools.serena.configured` 等 v4 字段；需更新到 v5，同时不能让现有 required tools 检测逻辑失效
-- `skills/spec-bootstrap/SKILL.md` — Host Readiness Gate Step 2b 消费 `tools.*.configured`；必须保留 `tools` 字段（见关键技术决策 KD-2）
+- `skills/spec-graph-bootstrap/SKILL.md` — Host Readiness Gate Step 2b 消费 `tools.*.configured`；必须保留 `tools` 字段（见关键技术决策 KD-2）
 
 ### Institutional Learnings
 
@@ -66,7 +66,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/阶段0-CRG安装接入m
 - **KD-1: CRG 不需要系统 Python 检测**：启动命令 `uvx code-review-graph serve` 使用 uv 工具链，自 v0.4 起内置 Python 版本管理（`uv python install`），无需系统 Python 3.10+。`uv` 已在 baseline 依赖检测中覆盖，`check-deps.sh` 无需扩展。（see origin: Section 5.4、6.3）
   > **运行时保障边界**：`check-deps.sh` 已验证 `uv` 可执行，即满足 CRG 的宿主前置条件。KD-1 的假设成立前提是 `uv >= 0.4`（内置 Python 管理的最低版本）。若现场 `uv` 版本低于 0.4，`uvx code-review-graph serve` 首次启动时会因缺乏内置 Python 管理失败；此情形属于运行时故障，**不在本计划（mcp-setup）范围内处理**，由 `spec-graph-bootstrap` Phase 0 的 runtime probe 检测并向用户输出 remediation 提示（如 `uv self update`）。本计划只负责将 CRG 写入宿主配置，不验证 uvx 拉包成功与否。
 
-- **KD-2: v5 schema 保留 `tools` 字段（加法兼容，不改名）**：tech spec Section 6.5 原稿提议将 `tools` 改名为 `required_tools`，但 `skills/spec-bootstrap/SKILL.md` Host Readiness Gate Step 2b 明确消费 `tools.*.configured`（见 SKILL.md "Consumers" 表），若改名则 spec-bootstrap 静默失效。正确方案：v5 保留 `tools`（内容不变），新增 `optional_tools`（optional category 工具）。这是加法变更，对 spec-bootstrap 零破坏。
+- **KD-2: v5 schema 保留 `tools` 字段（加法兼容，不改名）**：tech spec Section 6.5 原稿提议将 `tools` 改名为 `required_tools`，但 `skills/spec-graph-bootstrap/SKILL.md` Host Readiness Gate Step 2b 明确消费 `tools.*.configured`（见 SKILL.md "Consumers" 表），若改名则 spec-graph-bootstrap 静默失效。正确方案：v5 保留 `tools`（内容不变），新增 `optional_tools`（optional category 工具）。这是加法变更，对 spec-graph-bootstrap 零破坏。
   > ⚠️ **字段命名裁决**：origin 文档（阶段0技术方案.md）部分段落仍遗留 `required_tools` 表述，与本计划冲突。**以本计划字段契约为准**：写入端输出 `tools`（非 `required_tools`），读取端也按 `tools` 解析。实施时以此计划而非 origin 文档为代码依据。
 
 - **KD-3: `verify-tools.sh` 需重构（非扩展）**：当前脚本完全硬编码（工具列表、输出 JSON 均为静态）。支持 `optional_tools` 分区必须改为从 `mcp-tools.json` 动态读取工具列表并按 `category` 分组。这是该计划工作量最重的单元，PS1 端需同步改造。
@@ -101,7 +101,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/阶段0-CRG安装接入m
   "host": "...",
   "completed_at": "...",
   "setup_success": true,    // still driven by required tools only
-  "tools": {                // ← PRESERVED (backward compat for spec-bootstrap)
+  "tools": {                // ← PRESERVED (backward compat for spec-graph-bootstrap)
     "serena":              { "configured": true },
     "context7":            { "configured": true },
     "sequential-thinking": { "configured": true }
@@ -246,7 +246,7 @@ output JSON:
 - Happy path: CRG 未配置（但 required 全配置）→ `setup_success=true`，`optional_tools.code-review-graph.configured=false`
 - Edge case: 一个 required tool 缺失 → `setup_success=false`，`optional_tools` 仍被正确计算
 - Happy path: schema `version == "5"`
-- Backward compat: `tools` 字段仍存在（spec-bootstrap 消费者不受影响）
+- Backward compat: `tools` 字段仍存在（spec-graph-bootstrap 消费者不受影响）
 - Happy path: Codex 宿主下 verify 也输出 v5 schema（`.codex/spec-first/host-setup.json`）
 - Edge case: 如果 mcp-tools.json 新增一个 optional 工具，verify 输出的 `optional_tools` 自动包含它，无需改脚本
 - Edge case: 如果 mcp-tools.json 出现新类别工具（非 required），verify 仍将其纳入 `optional_tools`，`setup_success` 不受影响
@@ -349,9 +349,9 @@ output JSON:
 
 ## System-Wide Impact
 
-- **向后兼容性（spec-bootstrap）**：`spec-bootstrap/SKILL.md` 第 241 行错误提示明确引用 `serena.configured=true`，消费路径是 `.tools.serena.configured`。v5 marker 保留 `tools` 字段，spec-bootstrap 对新旧 marker 透明，无需修改。
+- **向后兼容性（spec-graph-bootstrap）**：`spec-graph-bootstrap/SKILL.md` 第 241 行错误提示明确引用 `serena.configured=true`，消费路径是 `.tools.serena.configured`。v5 marker 保留 `tools` 字段，spec-graph-bootstrap 对新旧 marker 透明，无需修改。
 
-- **磁盘上已有的 v4 marker 文件**：用户在升级前已有的 `~/.claude/spec-first/host-setup.json`（v4 格式）在本次变更后仍可被 spec-bootstrap 正常读取（`setup_success` 和 `tools` 字段保持不变）。spec-graph-bootstrap 读取这些 v4 文件时，因 `optional_tools` 字段缺失，应降级到 Enhanced/Basic mode（该降级逻辑在阶段 2 实施，超出本计划范围，记录为约定）。用户下次运行 `/spec:mcp-setup` 后 marker 将自动升级为 v5。
+- **磁盘上已有的 v4 marker 文件**：用户在升级前已有的 `~/.claude/spec-first/host-setup.json`（v4 格式）在本次变更后仍可被 spec-graph-bootstrap 正常读取（`setup_success` 和 `tools` 字段保持不变）。spec-graph-bootstrap 读取这些 v4 文件时，因 `optional_tools` 字段缺失，应降级到 Enhanced/Basic mode（该降级逻辑在阶段 2 实施，超出本计划范围，记录为约定）。用户下次运行 `/spec:mcp-setup` 后 marker 将自动升级为 v5。
 
 - **前向兼容约束**：后续 marker 只允许做加法扩展；消费者必须忽略未知字段。`tools` 与 `setup_success` 继续作为 baseline 契约锚点，避免每次 schema 演进触发跨技能联动重构。
 
@@ -370,7 +370,7 @@ output JSON:
 | verify-tools.ps1 重构范围超出预期 | 与 .sh 端并行实施；`.sh/.ps1` 同一 PR 同步交付，不允许后置；任一端未完成则不升级 schema version。|
 | verify-tools.sh 重构时意外改变 `setup_success` 逻辑 | Unit 4 已覆盖 required tool 缺失 → setup_success=false 的完整回归场景 |
 | 现有测试中的硬编码数量（"4 tools"）更新遗漏 | 实施前用 `grep -n '"4"' tests/unit/mcp-setup.sh` 确认全量 |
-| spec-bootstrap 消费 `tools` 字段 —— 若改名则静默失效 | KD-2 已决策：保留 `tools` 字段名，不改名（加法变更） |
+| spec-graph-bootstrap 消费 `tools` 字段 —— 若改名则静默失效 | KD-2 已决策：保留 `tools` 字段名，不改名（加法变更） |
 | v5 发布后消费者遇到未知字段导致解析失败 | KD-5：读取方宽松解析，未知字段忽略；v4 无 `optional_tools` 场景按未安装降级 |
 | 未来新增 tool category 时 verify 漏算 | KD-6：按 "required 严格、非 required 宽松" 分组；新增类别默认进入 `optional_tools` |
 | `configured=true` 不等于 "CRG server 运行中" | `mcp_config` 写入成功只代表宿主配置文件有该条目；`uvx code-review-graph serve` 首次启动时 uvx 会下载 CRG 包（需网络和磁盘），运行时是否可调用必须由 `spec-graph-bootstrap` Phase 0 的项目级 probe 验证，不能以 `optional_tools.code-review-graph.configured` 直接等同于可用性 |
@@ -385,4 +385,4 @@ output JSON:
 - **Origin document:** [阶段0-CRG安装接入mcp-setup技术方案.md](docs/01-需求分析/spec-graph-bootstrap需求/阶段0-CRG安装接入mcp-setup技术方案.md)
 - Related plan: [2026-04-09-001-feat-spec-graph-bootstrap-stage1-plan.md](docs/plans/2026-04-09-001-feat-spec-graph-bootstrap-stage1-plan.md)
 - Relevant code: `skills/mcp-setup/mcp-tools.json`, `scripts/verify-tools.sh`, `tests/unit/mcp-setup.sh`
-- spec-bootstrap consumer: `skills/spec-bootstrap/SKILL.md` → Host Readiness Gate Step 2b
+- spec-graph-bootstrap consumer: `skills/spec-graph-bootstrap/SKILL.md` → Host Readiness Gate Step 2b

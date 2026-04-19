@@ -1,13 +1,13 @@
-# spec-bootstrap v2 演进决策稿
+# spec-graph-bootstrap v2 演进决策稿
 
-> 本文用于收束 `spec-bootstrap` 下一版的演进方向。
+> 本文用于收束 `spec-graph-bootstrap` 下一版的演进方向。
 > 它不是再补一份背景分析，而是明确：为什么要升级、升级到哪里、优先做什么、哪些事情暂时不做。
 
 ---
 
 ## 1. 决策结论
 
-`spec-bootstrap` 下一版应从“项目上下文生成”升级为“研发质量资产生成”。
+`spec-graph-bootstrap` 下一版应从“项目上下文生成”升级为“研发质量资产生成”。
 
 这意味着：
 
@@ -23,7 +23,7 @@
 
 一句话概括：
 
-> v2 的 `spec-bootstrap` 不是“文档生成器”，而是“研发质量资产生产器”。
+> v2 的 `spec-graph-bootstrap` 不是“文档生成器”，而是“研发质量资产生产器”。
 
 ---
 
@@ -486,8 +486,8 @@ v2 的目标是建立正确骨架，而不是一次性做完全部治理。
 
 基于当前知识库状态，建议立刻推进以下事项：
 
-1. 以 `spec-bootstrap-v2-产物清单明细表.md` 作为新的产物定义底稿
-2. 以 `spec-bootstrap-v2-worker-任务拆分与PRD模板升级稿.md` 作为控制面升级底稿
+1. 以 `spec-graph-bootstrap-v2-产物清单明细表.md` 作为新的产物定义底稿
+2. 以 `spec-graph-bootstrap-v2-worker-任务拆分与PRD模板升级稿.md` 作为控制面升级底稿
 3. 把现有 v1 文档明确标记为历史版，避免误用
 4. 下一步进入“v2 规范化文稿”，形成更接近最终设计文档的版本
 
@@ -495,7 +495,7 @@ v2 的目标是建立正确骨架，而不是一次性做完全部治理。
 
 ## 13. 最终判断
 
-`spec-bootstrap` 的下一版不能只做“一轮增强”，因为问题不是“现有文档还不够详细”，而是**产品定义本身还停留在认知层**。
+`spec-graph-bootstrap` 的下一版不能只做“一轮增强”，因为问题不是“现有文档还不够详细”，而是**产品定义本身还停留在认知层**。
 
 真正的升级方向是：
 
@@ -509,6 +509,6 @@ v2 的目标是建立正确骨架，而不是一次性做完全部治理。
 
 ## 14. 关联文档
 
-- `spec-bootstrap-产物文档全览.md`：v1 历史版全览
-- `spec-bootstrap-v2-产物清单明细表.md`：v2 产物模型定义
-- `spec-bootstrap-v2-worker-任务拆分与PRD模板升级稿.md`：v2 worker 与 PRD 升级方案
+- `spec-graph-bootstrap-产物文档全览.md`：v1 历史版全览
+- `spec-graph-bootstrap-v2-产物清单明细表.md`：v2 产物模型定义
+- `spec-graph-bootstrap-v2-worker-任务拆分与PRD模板升级稿.md`：v2 worker 与 PRD 升级方案

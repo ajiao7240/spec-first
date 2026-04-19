@@ -1,6 +1,6 @@
-# spec-bootstrap v2 精简方案
+# spec-graph-bootstrap v2 精简方案
 
-> 本文是对 `spec-bootstrap-v2-需求与实施方案.md` 的精简重写。
+> 本文是对 `spec-graph-bootstrap-v2-需求与实施方案.md` 的精简重写。
 > 目标：在不损失核心价值的前提下，大幅收紧 scope，让 v2 第一版可以真正落地。
 
 ---
@@ -316,6 +316,6 @@ README.md **无论检查结果如何都写**，内容：任务路由、关键规
 | 文档 | 角色 |
 |------|------|
 | 本文（精简方案） | **执行参考**，Phase A 实施依据 |
-| `spec-bootstrap-v2-需求与实施方案.md` | 完整技术规格存档，Phase B/C 参考 |
-| `spec-bootstrap-v2-验收标准清单.md` | 全量验收清单，用于评估偏差 |
-| `spec-bootstrap-v2-产物清单明细表.md` | 详细产物定义，按需参考 |
+| `spec-graph-bootstrap-v2-需求与实施方案.md` | 完整技术规格存档，Phase B/C 参考 |
+| `spec-graph-bootstrap-v2-验收标准清单.md` | 全量验收清单，用于评估偏差 |
+| `spec-graph-bootstrap-v2-产物清单明细表.md` | 详细产物定义，按需参考 |

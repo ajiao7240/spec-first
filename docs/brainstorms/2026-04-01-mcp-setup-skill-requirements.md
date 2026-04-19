@@ -7,7 +7,7 @@ topic: mcp-setup-skill
 
 ## Problem Frame
 
-spec-bootstrap 依赖 GitNexus、ABCoder、Serena 三个 MCP 工具才能运行 Full mode。用户需要手动安装和配置这些工具，流程繁琐且容易出错。需要一个 skill 简化这个过程，让用户可以快速配置完整的 MCP 工具链。
+spec-graph-bootstrap 依赖 GitNexus、ABCoder、Serena 三个 MCP 工具才能运行 Full mode。用户需要手动安装和配置这些工具，流程繁琐且容易出错。需要一个 skill 简化这个过程，让用户可以快速配置完整的 MCP 工具链。
 
 ## Requirements
 
@@ -37,7 +37,7 @@ spec-bootstrap 依赖 GitNexus、ABCoder、Serena 三个 MCP 工具才能运行 
 
 **ABCoder 特殊处理**
 - R17. 安装阶段只安装 ABCoder 二进制
-- R18. spec-bootstrap 启动时检测 ABCoder 配置
+- R18. spec-graph-bootstrap 启动时检测 ABCoder 配置
 - R19. 未配置时自动为当前项目生成 AST
 - R20. 自动写入 AST 路径到配置文件
 
@@ -70,10 +70,10 @@ spec-bootstrap 依赖 GitNexus、ABCoder、Serena 三个 MCP 工具才能运行 
 6. 显示结果 + 提示重启
 ```
 
-### ABCoder 自动配置流程（集成到 spec-bootstrap）
+### ABCoder 自动配置流程（集成到 spec-graph-bootstrap）
 
 ```
-用户运行: /spec:bootstrap
+用户运行: /spec:graph-bootstrap
     ↓
 1. 检测 ABCoder 配置
    读取 ~/.claude.json → mcpServers.abcoder
@@ -151,7 +151,7 @@ SKILL 展示列表 → 用户选择
 - 用户可以通过一个命令 `/mcp:setup` 完成所有 MCP 工具的安装
 - 安装过程有清晰的进度反馈
 - 安装失败时有明确的错误提示和解决建议
-- 安装完成后可以立即运行 spec-bootstrap Full mode
+- 安装完成后可以立即运行 spec-graph-bootstrap Full mode
 
 ## Scope
 
@@ -159,7 +159,7 @@ SKILL 展示列表 → 用户选择
 - MCP 工具安装和配置
 - 安装状态检测和验证
 - 用户交互和进度反馈
-- 安装后可选运行 spec-bootstrap
+- 安装后可选运行 spec-graph-bootstrap
 
 **不包含：**
 - MCP 工具的卸载功能

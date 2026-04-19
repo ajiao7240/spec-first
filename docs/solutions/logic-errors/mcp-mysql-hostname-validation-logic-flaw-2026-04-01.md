@@ -10,7 +10,7 @@ tags:
   - hostname-comparison
   - docker
   - database-consistency
-module: spec-bootstrap
+module: spec-graph-bootstrap
 component: tooling
 symptoms:
   - "@@hostname 比较在 Docker/RDS/代理环境中产生误报"
@@ -28,7 +28,7 @@ related_components:
 
 ## Problem
 
-spec-bootstrap skill 的 MCP MySQL 一致性校验错误使用 `@@hostname` 验证连接目标，在 Docker 和云环境中产生误判，导致正确连接被标记为不匹配。
+spec-graph-bootstrap skill 的 MCP MySQL 一致性校验错误使用 `@@hostname` 验证连接目标，在 Docker 和云环境中产生误判，导致正确连接被标记为不匹配。
 
 ## Symptoms
 
@@ -104,8 +104,8 @@ elif project_config_incomplete:
 
 ### 变更文件
 
-- `skills/spec-bootstrap/SKILL.md` - 一致性校验规则 (R21.1)
-- `skills/spec-bootstrap/references/database-prd-template.md` - worker 模板
+- `skills/spec-graph-bootstrap/SKILL.md` - 一致性校验规则 (R21.1)
+- `skills/spec-graph-bootstrap/references/database-prd-template.md` - worker 模板
 
 ## Why This Works
 
@@ -147,5 +147,5 @@ localhost mysql   # @@hostname = 机器名
 
 ## Related
 
-- `skills/spec-bootstrap/SKILL.md` - R21.1 MCP 一致性校验规则
-- `skills/spec-bootstrap/references/database-prd-template.md` - 验证流程
+- `skills/spec-graph-bootstrap/SKILL.md` - R21.1 MCP 一致性校验规则
+- `skills/spec-graph-bootstrap/references/database-prd-template.md` - 验证流程

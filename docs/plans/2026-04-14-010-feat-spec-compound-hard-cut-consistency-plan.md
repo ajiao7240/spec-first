@@ -192,14 +192,14 @@ origin: docs/业界分析/9.spec-first-vs-compound-engineering-plugin-全量同�
 
 1. `docs/solutions/developer-experience/bash-portability-pitfalls-2026-04-01.md`
 2. `docs/solutions/logic-errors/mcp-mysql-hostname-validation-logic-flaw-2026-04-01.md`
-3. `docs/solutions/logic-errors/spec-bootstrap-deep-review.md`
+3. `docs/solutions/logic-errors/spec-graph-bootstrap-deep-review.md`
 4. `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`
 
 其中：
 
 - `developer-experience` 文档实际上应是 knowledge track
 - `workflow_issue` 文档实际上也应是 knowledge track
-- `spec-bootstrap-deep-review.md` 不是 solution doc，不应留在 `docs/solutions/`
+- `spec-graph-bootstrap-deep-review.md` 不是 solution doc，不应留在 `docs/solutions/`
 
 ### 5.5 安装与测试接线
 
@@ -570,7 +570,7 @@ spec:sessions
 - Modify: `docs/solutions/developer-experience/bash-portability-pitfalls-2026-04-01.md`
 - Modify: `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`
 - Keep: `docs/solutions/logic-errors/mcp-mysql-hostname-validation-logic-flaw-2026-04-01.md`
-- Move: `docs/solutions/logic-errors/spec-bootstrap-deep-review.md` -> `docs/validation/2026-04-01-spec-bootstrap-deep-review.md`
+- Move: `docs/solutions/logic-errors/spec-graph-bootstrap-deep-review.md` -> `docs/validation/2026-04-01-spec-graph-bootstrap-deep-review.md`
 
 **关键改动**
 
@@ -588,7 +588,7 @@ spec:sessions
 
 1. `docs/solutions/` 下所有 `.md` 文件都属于合法 solution doc
 2. knowledge-type 文档不再被迫写成 bug-style
-3. `spec-bootstrap-deep-review.md` 不再参与 `docs/solutions/` 检索
+3. `spec-graph-bootstrap-deep-review.md` 不再参与 `docs/solutions/` 检索
 
 ### 实施单元 6：Phase B 优化收敛
 
@@ -663,7 +663,7 @@ spec:sessions
 
 ### Move
 
-- `docs/solutions/logic-errors/spec-bootstrap-deep-review.md` -> `docs/validation/2026-04-01-spec-bootstrap-deep-review.md`
+- `docs/solutions/logic-errors/spec-graph-bootstrap-deep-review.md` -> `docs/validation/2026-04-01-spec-graph-bootstrap-deep-review.md`
 
 ## 10. 风险与应对
 

@@ -116,7 +116,7 @@ Ideate → Brainstorm → Plan → Work → Review → Compound
 | `/spec:compound` · `$spec-compound` | 你需要更偏知识捕获与复合上下文整理 | 上下文综合文档与可复用知识资产 | **补充型 Stage-0 路径** |
 
 Stage-0 入口启动时都会执行 **Host Readiness Gate**。如果跳过了 MCP setup 或宿主没有重启，它们会直接停止并给出明确提示，而不是静默降级。
-如果你仍看到旧文档提到 `/spec:bootstrap` 或 `$spec-bootstrap`，请迁移到 `/spec:graph-bootstrap` 或 `/spec:compound`。
+如果你仍看到旧版 bootstrap 入口，请迁移到 `/spec:graph-bootstrap` 或 `/spec:compound`。
 
 ### Stage-0 上下文质量信号
 
@@ -144,7 +144,7 @@ Stage-0 入口启动时都会执行 **Host Readiness Gate**。如果跳过了 MC
 | 层级 | 覆盖内容 | 类型 |
 |------|----------|------|
 | CLI（`doctor` / `init` / `clean` / `stage0-context`） | 资产同步、状态追踪、manifest 校验、Stage-0 context 输出 | **Code-hard**，由 shell exit code 强制 |
-| Host Readiness Gate + Stage-0 evaluator L0/L1/L2 | 在 `bootstrap` / `graph-bootstrap` / `stage0-context` 运行时生效，并输出 `fallback_reason` 与降级 level | **Runtime signal**，由代码发出，供 LLM 消费 |
+| Host Readiness Gate + Stage-0 evaluator L0/L1/L2 | 在 `graph-bootstrap` / `stage0-context` 运行时生效，并输出 `fallback_reason` 与降级 level | **Runtime signal**，由代码发出，供 LLM 消费 |
 | Workflow stages（`SKILL.md`） | 阶段 contract、artifact 命名、review 类别、requirements trace | **SKILL contract**，由 LLM 遵循 |
 | Context signals（`provenance` / `confidence` / `fallback_reason`） | 嵌在 artifact 中的元数据 | **SKILL contract**，由 LLM 消费 |
 
@@ -196,8 +196,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | 阶段 | Claude Code | Codex | 输出产物 | 约束方式 |
 |------|-------------|-------|----------|----------|
 | Host Setup | `/spec:mcp-setup` → restart | `$spec-mcp-setup` → restart | `~/.claude/spec-first/host-setup.json` | **Code-hard**（bootstrap gate 会检查它） |
-| Stage-0 | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | `docs/contexts/<slug>/` | **Code-hard gate** + **SKILL.md** 内容 |
-| Stage-0（graph） | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | **Code-hard gate** + **SKILL.md** 内容 |
+| Stage-0 graph bootstrap | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | **Code-hard gate** + **SKILL.md** 内容 |
 | Ideate | `/spec:ideate` | `$spec-ideate` | `docs/ideation/*.md` | **SKILL.md** contract |
 | Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/*.md` | **SKILL.md** contract |
 | Plan | `/spec:plan` | `$spec-plan` | `docs/plans/*.md` | **SKILL.md** contract |
@@ -323,7 +322,7 @@ $ spec-first init --claude
 | 构建上下文 | `/spec:graph-bootstrap` 或 `/spec:compound` | `$spec-graph-bootstrap` 或 `$spec-compound` |
 | 启动工作流 | `/spec:ideate` → `/spec:brainstorm` → `/spec:plan` → `/spec:work` → `/spec:review` → `/spec:compound` | `$spec-ideate` → … → `$spec-compound` |
 
-`bootstrap` 和 `graph-bootstrap` 在启动时都会执行 **Host Readiness Gate**。如果你跳过了 MCP setup，或者宿主没有重启，它们会直接停止并给出明确提示，而不是静默降级。
+`graph-bootstrap` 在启动时会执行 **Host Readiness Gate**。如果你跳过了 MCP setup，或者宿主没有重启，它会直接停止并给出明确提示，而不是静默降级。
 
 ## 架构
 

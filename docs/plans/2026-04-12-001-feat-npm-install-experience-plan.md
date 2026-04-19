@@ -118,7 +118,7 @@ date: 2026-04-12
 
 - **Q: 这次优化的主问题是不是 `postinstall` 文案不够友好？** 不是。真正的首屏失败体验首先来自依赖 warning 噪音，文案只是第二层问题。
 - **Q: `doctor` 是否适合作为安装后第一动作？** 适合。当前实现已经能在未初始化项目中给出简洁、正确的下一步。
-- **Q: 是否应继续在 `postinstall` 中直接展示 `/spec:bootstrap`、`/spec:plan` 等 workflow 列表？** 不应。那是初始化和重启宿主之后的事情，安装阶段提前暴露会增加信息噪音。
+- **Q: 是否应继续在 `postinstall` 中直接展示 `/spec:graph-bootstrap`、`/spec:plan` 等 workflow 列表？** 不应。那是初始化和重启宿主之后的事情，安装阶段提前暴露会增加信息噪音。
 - **Q: 是否可以通过包内 `overrides` 快速遮掉 warning？** 不应作为消除 warning 的主手段，但作为辅助兜底层仍有价值。npm 的 `overrides` 在全局安装场景下不保证生效，核心策略必须是 grammar 包版本降级。
 - **Q: 把 `tree-sitter-swift` 从 `0.7.1` 降到 `0.6.0`，能否同时解决 warning 和安装失败？** 不能。`0.6.0` 仍然依赖 `tree-sitter-cli@^0.23`，安装期 GitHub 下载链依然存在。
 - **Q: 是否可以靠并发安装、多线程或多 subagent 解决当前用户安装失败？** 不能。失败根因是 `tree-sitter-cli` 下载 GitHub release 的单点阻塞；并发只会让其他依赖更早完成，无法移除这个硬阻塞步骤。
@@ -290,7 +290,7 @@ flowchart TD
 **Test scenarios:**
 - Happy path: `postinstall` 输出包含安装完成与 `spec-first doctor`
 - Happy path: `postinstall` 输出包含 `spec-first -v` 作为详情入口
-- Edge case: `postinstall` 不再列出 `/spec:bootstrap`、`/spec:graph-bootstrap`、`/spec:plan` 等后续 workflow 入口
+- Edge case: `postinstall` 不再列出 `/spec:graph-bootstrap`、`/spec:graph-bootstrap`、`/spec:plan` 等后续 workflow 入口
 - Edge case: 输出总行数受控，不再形成长篇说明块
 
 **Verification:**

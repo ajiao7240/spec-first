@@ -1,6 +1,6 @@
-# spec-bootstrap v2 worker 任务拆分与 PRD 模板升级稿
+# spec-graph-bootstrap v2 worker 任务拆分与 PRD 模板升级稿
 
-> 本文定义 `spec-bootstrap` v2 的 worker 拆分方式、执行模型和 PRD 合同升级方案。
+> 本文定义 `spec-graph-bootstrap` v2 的 worker 拆分方式、执行模型和 PRD 合同升级方案。
 > 目标不是让 worker 写更多文档，而是让每个 worker 稳定产出可被后续研发节点直接消费的高密度资产。
 
 ---
@@ -732,7 +732,7 @@ v2 继续保留 v1 的备份机制，但需要更细化的恢复策略。
 
 ## 13. 总结
 
-v2 的 worker 升级，本质上是把 `spec-bootstrap` 从“并行写几篇架构文档”升级为“并行生产研发质量资产”。
+v2 的 worker 升级，本质上是把 `spec-graph-bootstrap` 从“并行写几篇架构文档”升级为“并行生产研发质量资产”。
 
 最关键的变化有四点：
 

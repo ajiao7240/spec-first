@@ -126,7 +126,7 @@ spec-first init --codex
 
 典型例子：
 
-- `spec-bootstrap`
+- `spec-graph-bootstrap`
 - `spec-brainstorm`
 - `spec-plan`
 - `spec-review`
@@ -204,13 +204,13 @@ description: ...
 
 例如：
 
-- `skills/spec-bootstrap/SKILL.md`
+- `skills/spec-graph-bootstrap/SKILL.md`
 
 它直接使用：
 
 ```md
 ---
-name: spec-bootstrap
+name: spec-graph-bootstrap
 user-invocable: true
 ---
 ```

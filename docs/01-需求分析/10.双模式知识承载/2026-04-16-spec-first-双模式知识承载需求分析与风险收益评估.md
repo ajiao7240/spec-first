@@ -2,7 +2,7 @@
 
 > 文档性质：需求分析稿
 > 撰写日期：2026-04-16
-> 适用范围：`spec-first init`、`spec-bootstrap`、`spec-graph-bootstrap`、`context-routing`、`plan/work/review` 消费链路
+> 适用范围：`spec-first init`、`spec-graph-bootstrap`、`spec-graph-bootstrap`、`context-routing`、`plan/work/review` 消费链路
 > 当前阶段：需求收敛与架构判断，不直接作为开发实施手册
 
 ---

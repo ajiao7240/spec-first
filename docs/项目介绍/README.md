@@ -51,7 +51,7 @@ spec-first init --claude / --codex
   (一键安装配置 MCP 工具)
   |
   v
-/spec:bootstrap 或 /spec:graph-bootstrap
+/spec:graph-bootstrap 或 /spec:graph-bootstrap
   (生成项目上下文: 模块结构、入口、测试面、风险信号)
   |
   v
@@ -80,7 +80,7 @@ spec-first init --claude / --codex
 | `/spec:work` | 按计划执行编码（含测试、review、shipping） |
 | `/spec:review` | 17 个 reviewer persona 并行评审 PR |
 | `/spec:compound` | 将解决过的问题沉淀为可复用知识文档 |
-| `/spec:bootstrap` | 稳定版项目上下文生成 |
+| `/spec:graph-bootstrap` | 稳定版项目上下文生成 |
 | `/spec:graph-bootstrap` | 图增强版项目上下文生成（CRG 驱动） |
 | `/spec:mcp-setup` | 一键安装 MCP 工具（context7/fetch/exa/memory/feishu） |
 | `/spec:sessions` | 搜索和总结历史 coding agent 会话 |
@@ -207,7 +207,7 @@ spec-first init --claude / --codex
 | 类别 | Skills | 说明 |
 |------|--------|------|
 | **核心工作流** | spec-plan, spec-work, spec-work-beta, spec-review, spec-ideate, spec-brainstorm, spec-compound, spec-compound-refresh | 日常开发闭环 |
-| **项目上下文** | spec-bootstrap, spec-graph-bootstrap, spec-sessions | 项目理解与上下文生成 |
+| **项目上下文** | spec-graph-bootstrap, spec-graph-bootstrap, spec-sessions | 项目理解与上下文生成 |
 | **基础设施** | spec-mcp-setup, spec-update, spec-debug, spec-optimize, setup, changelog | 环境配置与维护 |
 | **Git 工作流** | git-commit, git-commit-push-pr, git-worktree, git-clean-gone-branches | 版本控制 |
 | **代码质量** | document-review, resolve-pr-feedback, claude-permissions-optimizer | 评审与优化 |

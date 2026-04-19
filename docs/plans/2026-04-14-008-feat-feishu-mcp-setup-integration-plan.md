@@ -67,13 +67,13 @@ origin: docs/brainstorms/2026-04-14-feishu-mcp-setup-integration-requirements.md
 
 - **Q: Codex TOML `mcp_key_only` 检测格式**：已确认 `extract_toml_section()` 使用 `awk -v section="[mcp_servers.$key]"` 精确匹配头部行；`check_mcp_key_only` 用 `grep -qF "[mcp_servers.$key]"` 与之等价
 - **Q: feishu install 是否触发**：`should_install "feishu" "optional"` 默认返回 false；只有明确传 `--install feishu` 时才触发，与 playwright 等 optional 工具一致
-- **Q: `verify-tools.sh` JSON 版本**：feishu 字段追加到 `tools` map 不改变现有字段，不强制消费方升级；版本号是否需要从 "5" 升至 "6" 留到实现时确认（依赖确认 spec-bootstrap 是否检查版本字段）
+- **Q: `verify-tools.sh` JSON 版本**：feishu 字段追加到 `tools` map 不改变现有字段，不强制消费方升级；版本号是否需要从 "5" 升至 "6" 留到实现时确认（依赖确认 spec-graph-bootstrap 是否检查版本字段）
 
 ### Deferred to Implementation
 
 - **`install_feishu` Codex 路径**：Codex `mcp add` 的确切 CLI 参数格式（`codex mcp add feishu -- npx ... --app-id "$ID" ...`）需在实现时通过代码验证确认
 - **`whoami` 超时值**：建议 10 秒（与 `command` 检测对齐），但若飞书首次下载 npx 包速度较慢，可能需要调整
-- **`verify-tools.sh` version bump 确认**：读取 `spec-bootstrap` 中 `host-setup.json` 的消费方，确认是否版本敏感
+- **`verify-tools.sh` version bump 确认**：读取 `spec-graph-bootstrap` 中 `host-setup.json` 的消费方，确认是否版本敏感
 
 ## High-Level Technical Design
 
@@ -372,7 +372,7 @@ verify-tools.sh/ps1
 
 ## System-Wide Impact
 
-- **Interaction graph:** `spec-bootstrap` 消费 `host-setup.json`（由 `verify-tools.sh` 写入）；feishu 字段追加不破坏已有字段读取。`setup_success` 门控不变，bootstrap Host Readiness Gate 行为不受影响
+- **Interaction graph:** `spec-graph-bootstrap` 消费 `host-setup.json`（由 `verify-tools.sh` 写入）；feishu 字段追加不破坏已有字段读取。`setup_success` 门控不变，bootstrap Host Readiness Gate 行为不受影响
 - **Error propagation:** `install_feishu` 在凭据为空或 CLI 写入失败时不应中断整个 install-coordinator 运行（不 `exit 1`，仅 `return`）；失败信息输出到 stderr 或 stdout 带 ⚠️ 标识
 - **API surface parity:** detect/install/verify 三个脚本的 shell 版和 ps1 版必须在语义上完全对等，包括输出 JSON 结构
 - **Unchanged invariants:** serena / sequential-thinking / context7 的检测、安装、验证逻辑不受任何改动；`setup_success` 门控条件不变；mcp-tools.json 中其他条目的 `mcp_config` 检测路径不变
@@ -384,7 +384,7 @@ verify-tools.sh/ps1
 | `install_feishu` 在非交互环境（CI、管道输入）下 `read` 遇 EOF 触发 `set -e` 导致脚本提前退出 | `read` 必须加 `\|\| true` 防护（`read ... \|\| FEISHU_APP_ID=""`），将 exit code 1 转为空值，走空凭据跳过路径 |
 | `whoami` 首次运行需 npx 下载包，超时时间不够 | 10s 超时与 `command` 检测对齐，失败时输出警告而非错误，不阻塞 setup_success |
 | Codex `mcp add feishu` 参数格式未在代码库中验证 | 实现时先读 codex 帮助输出确认 CLI 格式；已在 Open Questions 标注 |
-| `verify-tools.sh` JSON version 字段消费方敏感 | 实现时读 spec-bootstrap Host Readiness Gate 逻辑，确认是否版本敏感后再决定是否升版本号 |
+| `verify-tools.sh` JSON version 字段消费方敏感 | 实现时读 spec-graph-bootstrap Host Readiness Gate 逻辑，确认是否版本敏感后再决定是否升版本号 |
 
 ## Sources & References
 

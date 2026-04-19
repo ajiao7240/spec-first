@@ -1,6 +1,6 @@
-# 胶水编程对 spec-bootstrap v2 的设计启发
+# 胶水编程对 spec-graph-bootstrap v2 的设计启发
 
-> 本文基于文章《97.9%采纳率，胶水编程：业务需求出码最佳实践【天猫AI Coding实践系列】》，提炼其对 `spec-bootstrap v2` 设计的直接启发。
+> 本文基于文章《97.9%采纳率，胶水编程：业务需求出码最佳实践【天猫AI Coding实践系列】》，提炼其对 `spec-graph-bootstrap v2` 设计的直接启发。
 > 重点不是复述文章内容，而是回答：这篇文章对 Stage-0 设计意味着什么。
 
 来源：<https://mp.weixin.qq.com/s/G3aKbzdGUyD2h1aVjvbr2g>
@@ -25,7 +25,7 @@
 3. 消费内部领域知识
 4. 只在业务差异点写最少量胶水代码
 
-这和 `spec-bootstrap v2` 的方向高度一致。
+这和 `spec-graph-bootstrap v2` 的方向高度一致。
 
 ---
 
@@ -51,9 +51,9 @@
 
 ---
 
-## 3. 为什么它对 spec-bootstrap v2 很关键
+## 3. 为什么它对 spec-graph-bootstrap v2 很关键
 
-`spec-bootstrap v1` 的主要强项是项目认知：
+`spec-graph-bootstrap v1` 的主要强项是项目认知：
 
 - summary
 - architecture
@@ -86,7 +86,7 @@
 
 文章里“开发规范”是静态注入、始终在场的底线规则。
 
-这对 `spec-bootstrap v2` 的启发很直接：
+这对 `spec-graph-bootstrap v2` 的启发很直接：
 
 - 规则不能散在 `architecture/*` 或 `pitfalls/*` 里
 - 规则必须独立成一级资产
@@ -273,7 +273,7 @@ worker 最终产物必须帮助后续节点回答：
 
 ## 8. 最终判断
 
-这篇文章对 `spec-bootstrap v2` 最大的价值，不是提供了一个局部技巧，而是再次证明了：
+这篇文章对 `spec-graph-bootstrap v2` 最大的价值，不是提供了一个局部技巧，而是再次证明了：
 
 > 提升研发质量，关键不只是“让 AI 更会理解”，而是“让 AI 拿到更好的团队资产”。
 
@@ -285,4 +285,4 @@ worker 最终产物必须帮助后续节点回答：
 4. 成功指标必须包含“降低原创比例”
 5. Stage-0 必须为后续节点准备可直接消费的执行资产
 
-这篇文章本质上是在外部实践层面，为 `spec-bootstrap v2` 的设计方向提供了一次很强的验证。
+这篇文章本质上是在外部实践层面，为 `spec-graph-bootstrap v2` 的设计方向提供了一次很强的验证。

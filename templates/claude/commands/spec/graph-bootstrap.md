@@ -14,5 +14,5 @@ Rules:
 - Run this against the **target project** — the project you want to generate graph-informed context for.
 - Phase 0 will detect the CRG graph state and select Full / Enhanced / Basic mode automatically.
 - Generate control-plane artifacts under `.spec-first/workflows/bootstrap/<slug>/` and docs under `docs/contexts/<slug>/` in the target project.
-- This workflow runs in parallel with `spec-bootstrap`, not as a replacement. Both produce compatible outputs.
+- This workflow is the Stage-0 bootstrap entrypoint for graph-informed context generation.
 - If `.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md` is missing, stop and tell the user to run `spec-first init --claude`.

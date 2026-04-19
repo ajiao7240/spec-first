@@ -17,7 +17,7 @@
 但从“顶尖 AI 研发效能产品”的要求看，当前清单仍有三个需要进一步校正的地方：
 
 1. `13` 个 workflow source set 的结论成立，但它必须被精确定义为“由 `.claude-plugin/plugin.json` 的 `commands` 驱动的 command-backed workflow skill 集合”，而不是泛化成“仓库天然有 13 个 workflow”
-2. “Stage-0 已被主工作流消费”只能写成“`spec-plan/spec-work/spec-review` 已内建 Stage-0 预载逻辑”，不能直接写成“`spec-bootstrap` 已被自动注入主工作流”，因为 `spec-bootstrap` 自身仍声明“自动注入是未来能力”
+2. “Stage-0 已被主工作流消费”只能写成“`spec-plan/spec-work/spec-review` 已内建 Stage-0 预载逻辑”，不能直接写成“`spec-graph-bootstrap` 已被自动注入主工作流”，因为 `spec-graph-bootstrap` 自身仍声明“自动注入是未来能力”
 3. 当前清单对 P0/P1 的大方向判断基本正确，但仍漏掉少量会继续传播错误产品面的文件，例如 `skills/setup/SKILL.md` 和 `src/cli/index.js`
 
 一句话判断：
@@ -288,21 +288,21 @@ README 也仍然在传播这个错误产品面：
 - `skills/spec-work/SKILL.md:22-64`
 - `skills/spec-review/SKILL.md:11-55`
 
-同时，`spec-bootstrap` 自己又写了：
+同时，`spec-graph-bootstrap` 自己又写了：
 
 > Automatic injection into the five-stage workflow is a future capability.
 
 证据：
 
-- `skills/spec-bootstrap/SKILL.md:20`
+- `skills/spec-graph-bootstrap/SKILL.md:20`
 
 所以，最严谨的结论不是：
 
-> `spec-bootstrap` 已被主工作流自动消费
+> `spec-graph-bootstrap` 已被主工作流自动消费
 
 而应该是：
 
-> 主 workflow 已经具备消费 Stage-0 产物的预载逻辑，但文案上当前明确点名的是 `spec-graph-bootstrap` 产物；`spec-bootstrap` 与主 workflow 之间的叙事仍未完全统一。
+> 主 workflow 已经具备消费 Stage-0 产物的预载逻辑，但文案上当前明确点名的是 `spec-graph-bootstrap` 产物；`spec-graph-bootstrap` 与主 workflow 之间的叙事仍未完全统一。
 
 这是一个**叙事一致性问题**，不是“有没有消费链”的问题。
 
@@ -343,9 +343,9 @@ README 也仍然在传播这个错误产品面：
 1. `skills/setup/SKILL.md`
    - 仍显式写 `**Codex entry point:** /spec:setup`
    - 证据：`skills/setup/SKILL.md:12`
-2. `skills/spec-bootstrap/SKILL.md`
-   - 仍显式写 `**Codex entry point:** /spec:bootstrap`
-   - 证据：`skills/spec-bootstrap/SKILL.md:11`
+2. `skills/spec-graph-bootstrap/SKILL.md`
+   - 仍显式写 `**Codex entry point:** /spec:graph-bootstrap`
+   - 证据：`skills/spec-graph-bootstrap/SKILL.md:11`
 3. `src/cli/index.js`
    - `printVersion()` 仍传播 `/spec:*`
    - 证据：`src/cli/index.js:89-91`
@@ -376,11 +376,11 @@ README 也仍然在传播这个错误产品面：
 1. **个别结论表述还不够工程化**
    - 例如“13 个 workflow”没有写清真源
 2. **Stage-0 叙事还不够精准**
-   - 容易让读者误以为 `spec-bootstrap` 已实现自动注入
+   - 容易让读者误以为 `spec-graph-bootstrap` 已实现自动注入
 3. **第一阶段修复范围还不够闭环**
    - 漏掉 `skills/setup/SKILL.md`
    - 漏掉 `src/cli/index.js`
-   - `spec-bootstrap` 仍被放得偏后
+   - `spec-graph-bootstrap` 仍被放得偏后
 4. **缺少机械化完成定义**
    - 现在更像 expert 清单，不像可批量执行的整改规约
 
@@ -419,7 +419,7 @@ README 也仍然在传播这个错误产品面：
 
 1. Codex 到底应该用 `/spec:*` 还是 `$spec-*`
 2. standalone skill 到底是显式命令还是宿主内 skill 调用
-3. `spec-bootstrap` 与 `spec-graph-bootstrap` 的边界是什么
+3. `spec-graph-bootstrap` 与 `spec-graph-bootstrap` 的边界是什么
 4. Stage-0 是“自动注入”还是“按降级策略预载”
 5. 哪些能力是宿主维护能力，哪些是通用 skill
 
@@ -439,8 +439,8 @@ README 也仍然在传播这个错误产品面：
    - `printVersion()` 仍写 `/spec:*`
 2. `skills/setup/SKILL.md`
    - 显式传播 `Codex entry point: /spec:setup`
-3. `skills/spec-bootstrap/SKILL.md`
-   - 显式传播 `Codex entry point: /spec:bootstrap`
+3. `skills/spec-graph-bootstrap/SKILL.md`
+   - 显式传播 `Codex entry point: /spec:graph-bootstrap`
 4. `skills/spec-mcp-setup/SKILL.md`
    - 除路径漂移外，还显式传播 `Codex entry point: /spec:mcp-setup`
 

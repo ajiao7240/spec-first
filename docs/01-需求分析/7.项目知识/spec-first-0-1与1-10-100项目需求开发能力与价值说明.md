@@ -1,7 +1,7 @@
 # spec-first 在 0-1 新项目与 1-10-100 存量项目中的需求开发能力与价值说明
 
 > 文档性质：场景化能力说明
-> 适用范围：`spec-bootstrap`、`spec-ideate`、`spec-brainstorm`、`spec-plan`、`spec-work`、`spec-review`、`spec-compound`
+> 适用范围：`spec-graph-bootstrap`、`spec-ideate`、`spec-brainstorm`、`spec-plan`、`spec-work`、`spec-review`、`spec-compound`
 > 关联文档：
 > - `docs/01-需求分析/7.项目知识/spec-first-harness-engineering-改造技术方案.md`
 > - `docs/05-用户手册/02-核心概念.md`
@@ -89,7 +89,7 @@
 
 当前主方案已经明确了几件事：
 
-- `spec-bootstrap` 仍是 Stage-0 supporting workflow，不是硬前置
+- `spec-graph-bootstrap` 仍是 Stage-0 supporting workflow，不是硬前置
 - `spec-work` 必须支持 `Harness-enabled` 和 `Reduced-harness`
 - 找不到强本地 reference 时，`spec-plan` 必须显式写出 `No strong local reference found`
 - `spec-brainstorm` / `spec-ideate` 在没有 bootstrap 资产时，也必须走轻量降级路径
@@ -162,7 +162,7 @@
 
 当前方案的很多设计就开始产生复利：
 
-1. `spec-bootstrap`
+1. `spec-graph-bootstrap`
    生成 `docs/contexts/<slug>/`、`analysis.json`、`reference-index.json`、`verify-hints.json`
 2. `spec-plan`
    不再从零分析仓库，而是优先走 `reference-first + history-first`
@@ -283,7 +283,7 @@
 
 因为当前方案里已经明确：
 
-- `spec-bootstrap` 不是强前置
+- `spec-graph-bootstrap` 不是强前置
 - `spec-work` 有 `Reduced-harness`
 - `spec-plan` 可以处理 `No strong local reference found`
 - `spec-brainstorm` / `spec-ideate` 有无 bootstrap 的降级路径
@@ -356,7 +356,7 @@
 
 优先级应为：
 
-1. `spec-bootstrap`
+1. `spec-graph-bootstrap`
 2. `reference-index`
 3. `history-spec-index`
 4. `verify-hints`
@@ -385,7 +385,7 @@
 | `spec-ideate` | 发散方向、筛掉伪需求 | 基于真实上下文提出更高 ROI 改进 |
 | `spec-brainstorm` | 澄清目标、边界、范围 | 避免提出违反现有约束的方案 |
 | `spec-plan` | 把模糊需求编译成可执行 spec | 把 reference/history 纳入差异说明 |
-| `spec-bootstrap` | 初始化最小上下文与规则骨架 | 抽取仓库结构、pitfalls、patterns、索引 |
+| `spec-graph-bootstrap` | 初始化最小上下文与规则骨架 | 抽取仓库结构、pitfalls、patterns、索引 |
 | `spec-work` | 按 spec 落地，避免乱写第一版 | 先找参照、再写 glue code |
 | `spec-review` | 尽早拦截错误骨架和验证缺口 | 基于已有高风险区域做精准审查 |
 | `spec-compound` | 把最早的踩坑沉淀下来 | 持续把实战经验回流成团队资产 |
@@ -412,9 +412,9 @@
 
 **实现代价**：需要在 spec-work、spec-plan、spec-brainstorm 的 SKILL.md 中显式定义 `Greenfield Mode` 触发条件与执行逻辑，当前版本无此内容。
 
-### 10.2 给 `spec-bootstrap` 增加 greenfield bootstrap
+### 10.2 给 `spec-graph-bootstrap` 增加 greenfield bootstrap
 
-**当前状态**：`spec-bootstrap` 的 Stage-0 分析逻辑全部面向已有代码库（repo mining），没有存量代码时强跑会产出空或低质量资产。
+**当前状态**：`spec-graph-bootstrap` 的 Stage-0 分析逻辑全部面向已有代码库（repo mining），没有存量代码时强跑会产出空或低质量资产。
 
 没有存量代码时，不要强做 repo mining，而应优先生成：
 
@@ -424,7 +424,7 @@
 - starter `knowledge points`
 - starter `verification mapping`
 
-**实现代价**：需要在 `spec-bootstrap` 中新增 greenfield 分支逻辑，并建立一套按技术栈分组的 starter 模板库，当前两者均不存在。
+**实现代价**：需要在 `spec-graph-bootstrap` 中新增 greenfield 分支逻辑，并建立一套按技术栈分组的 starter 模板库，当前两者均不存在。
 
 ### 10.3 给 `spec-plan` 增加 template-first 路径
 
@@ -434,7 +434,7 @@
 
 - 使用平台模板（框架官方脚手架、项目自定义 starter）
 - 使用通用模式（社区公认的架构惯例）
-- 使用 starter architecture（在 spec-bootstrap greenfield 产物中定义）
+- 使用 starter architecture（在 spec-graph-bootstrap greenfield 产物中定义）
 
 **实现代价**：依赖 10.2 的 starter 模板库建立后才能落地；同时需要更新 `spec-plan/SKILL.md` 的 reference 消费逻辑。
 

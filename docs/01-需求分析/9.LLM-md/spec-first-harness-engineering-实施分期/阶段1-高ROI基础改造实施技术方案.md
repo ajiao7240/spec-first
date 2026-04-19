@@ -4,7 +4,7 @@
 
 适用范围：
 
-- `spec-bootstrap`
+- `spec-graph-bootstrap`
 - `spec-brainstorm`
 - `spec-ideate`
 - `spec-plan`
@@ -94,7 +94,7 @@ bootstrap
 
 ## 5. 关键实现对象
 
-### 5.1 `spec-bootstrap`
+### 5.1 `spec-graph-bootstrap`
 
 #### 新职责
 
@@ -113,7 +113,7 @@ bootstrap
 - 重点是 starter context、template-first、最小架构边界、初始 verify skeleton
 - 缺少本地代码资产不是失败条件
 
-**template-first 最小约定：** Greenfield 模式下，`spec-bootstrap` 或 `spec-work` 只需能按顺序查找可用起点：
+**template-first 最小约定：** Greenfield 模式下，`spec-graph-bootstrap` 或 `spec-work` 只需能按顺序查找可用起点：
 
 1. `docs/contexts/<slug>/templates/` — 用户已有的本地自定义模板（最高优先级）
 2. 当前仓库已有的 starter / pattern 文档与 validated references
@@ -133,7 +133,7 @@ bootstrap
 - `.context/spec-first/knowledge/retrieval-policy.json`
 
 **knowledge init 消费方说明（阶段 1 范围内）：**
-- `sources.json` / `points.json` / `retrieval-policy.json` 在阶段 1 仅由 `spec-bootstrap` 写入，作为 repo-local knowledge 入口初始化
+- `sources.json` / `points.json` / `retrieval-policy.json` 在阶段 1 仅由 `spec-graph-bootstrap` 写入，作为 repo-local knowledge 入口初始化
 - 阶段 1 内这三个文件的消费方仅为 `spec-plan`（读取 `retrieval-policy.json` 判断知识类型）和 `spec-work`（读取 `points.json` 中 `failure` 类作为背景上下文）
 - 完整双路召回（语义召回 + 索引导航）属于阶段 2 范畴，阶段 1 只保证文件存在且格式合法
 
@@ -198,7 +198,7 @@ bootstrap
 
 阶段 1 的 repo-root instruction file（`CLAUDE.md` 或 `AGENTS.md`）写入模型：
 
-- `spec-bootstrap` 产出 `instruction-context.json`（机器消费）与 `instruction-context.md`（人类可读），但 **不直接写** repo-root instruction file
+- `spec-graph-bootstrap` 产出 `instruction-context.json`（机器消费）与 `instruction-context.md`（人类可读），但 **不直接写** repo-root instruction file
 - repo-root instruction file 的 managed block 仅由 CLI `spec-first init`（或 `sync-instruction` helper）写入
 - managed block 边界标记为：
   ```
@@ -426,13 +426,13 @@ bootstrap
 
 ### 8.1 Skill / prompt
 
-- `skills/spec-bootstrap/SKILL.md`
+- `skills/spec-graph-bootstrap/SKILL.md`
 - `skills/spec-brainstorm/SKILL.md`
 - `skills/spec-ideate/SKILL.md`
 - `skills/spec-plan/SKILL.md`
 - `skills/spec-work/SKILL.md`
-- `skills/spec-bootstrap/references/prd-template.md`
-- `skills/spec-bootstrap/references/database-prd-template.md`
+- `skills/spec-graph-bootstrap/references/prd-template.md`
+- `skills/spec-graph-bootstrap/references/database-prd-template.md`
 
 ### 8.2 CLI / runtime
 
@@ -455,7 +455,7 @@ bootstrap
 
 ## 9. 阶段验收标准
 
-1. `spec-bootstrap` 运行后能生成四类 analysis asset 与三类 knowledge init asset。
+1. `spec-graph-bootstrap` 运行后能生成四类 analysis asset 与三类 knowledge init asset。
 2. `spec-brainstorm` 与 `spec-ideate` 在有无 bootstrap 两种情况下都能运行，且有显式降级提示。
 3. `spec-plan` 能在单文件 plan 中稳定产出 `proposal / design / tasks / doubt points`，并包含 `References / Differences / Structural Constraints / Verification Mapping`。
 4. `spec-plan` 明确支持 `Historical Analogs`，且 greenfield 下不会把“无本地 reference”误判为“无参考可用”。

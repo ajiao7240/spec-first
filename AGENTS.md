@@ -19,7 +19,7 @@ Tests are shell-first: `tests/smoke/` covers install and CLI bootstrap flows, `t
 
 Use CommonJS in `src/cli/` with 2-space indentation, single quotes, and semicolons. Keep functions small and explicit; mirror the existing command split (`commands/`, adapters, helpers). Shell scripts should start with `#!/bin/bash` and `set -euo pipefail`.
 
-Name skill directories in kebab-case, and use clear commit scopes that match the area touched, for example `feat(mcp-setup): ...` or `fix(spec-bootstrap): ...`.
+Name skill directories in kebab-case, and use clear commit scopes that match the area touched, for example `feat(mcp-setup): ...` or `fix(spec-graph-bootstrap): ...`.
 
 ## Testing Guidelines
 

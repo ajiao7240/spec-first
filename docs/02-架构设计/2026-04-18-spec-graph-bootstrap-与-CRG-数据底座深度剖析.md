@@ -14,7 +14,7 @@
 
 ## 一、总体定位与分层
 
-`spec-graph-bootstrap` 是 Stage-0 的 **graph-informed 入口**。相较 `spec-bootstrap`，它把"项目上下文生成"从 LLM 自由探查升级为 **AST 级事实抽取**，以 CRG CLI（`spec-first crg`）为 Tier 1 工具，输出 Observed 事实优先的控制面产物。
+`spec-graph-bootstrap` 是 Stage-0 的 **graph-informed 入口**。相较 `spec-graph-bootstrap`，它把"项目上下文生成"从 LLM 自由探查升级为 **AST 级事实抽取**，以 CRG CLI（`spec-first crg`）为 Tier 1 工具，输出 Observed 事实优先的控制面产物。
 
 ```
 ┌── Skill 层 (skills/spec-graph-bootstrap/SKILL.md + references/)
@@ -779,14 +779,14 @@ docs/
 
 ```
 Host Setup         →  Stage-0          →  Ideate → Brainstorm → Plan → Work → Review → Compound
-(spec-mcp-setup)      ┌─ spec-bootstrap        ↑                                          ↑
+(spec-mcp-setup)      ┌─ spec-graph-bootstrap        ↑                                          ↑
                       └─ spec-graph-bootstrap  │                                          │
                                                └───── 消费 docs/contexts/<slug>/ ────────┘
 ```
 
 它是 Stage-0 两个并列入口之一：
 
-- `spec-bootstrap` — 稳定默认，Serena/Built-in 为主，适合没有本地图索引的项目
+- `spec-graph-bootstrap` — 稳定默认，Serena/Built-in 为主，适合没有本地图索引的项目
 - `spec-graph-bootstrap` — graph-informed，**以 CRG 为 Tier 1**，事实置信度更高（high vs medium/low）
 
 两者产出**同构**的 `docs/contexts/<slug>/` 与 `.spec-first/workflows/bootstrap/<slug>/`，下游消费方不需要感知入口差异——这是把"数据源质量"与"消费合约"解耦的关键设计。
@@ -848,7 +848,7 @@ always[] → stages.<stage>[] → selection_rules(output_exists.*) → advice.<s
 
 | Skill | 与 spec-graph-bootstrap 的关系 |
 |---|---|
-| `spec-bootstrap` | **同级并列替代**，产出同构；共享 `docs/contexts/<slug>/` 命名空间 |
+| `spec-graph-bootstrap` | **同级并列替代**，产出同构；共享 `docs/contexts/<slug>/` 命名空间 |
 | `spec-mcp-setup` | **上游依赖**，Phase 0 需要 host marker + Serena/CRG 就绪状态 |
 | `spec-plan` / `spec-work` / `spec-review` | **下游消费者**，通过 injection-index 读取事实 |
 | `spec-compound` | **间接下游**，沉淀 `docs/solutions/` 时可回引上下文事实 |
@@ -874,8 +874,8 @@ spec-graph-bootstrap 是 spec-first 治理理念的**具象化样本**：
 
 从项目路线图看，spec-graph-bootstrap 的角色在持续扩张：
 
-- **早期**：bootstrap 只有单一入口（现在的 `spec-bootstrap`），完全靠 Serena/Built-in
-- **当前**：`spec-graph-bootstrap` 并列上线，作为 graph-informed 升级路径；`spec-bootstrap` 保持稳定默认
+- **早期**：bootstrap 只有单一入口（现在的 `spec-graph-bootstrap`），完全靠 Serena/Built-in
+- **当前**：`spec-graph-bootstrap` 并列上线，作为 graph-informed 升级路径；`spec-graph-bootstrap` 保持稳定默认
 - **中期趋势**：CRG 数据底座能力（retrieval / semantic-rerank / chunks）将让更多下游 skill 直接消费 `graph.db`，而非仅靠 `docs/contexts/<slug>/` 的 markdown
 - **长期定位**：spec-graph-bootstrap 可能演化为**整个项目的"事实根源层"**，上层所有 AI 判断最终都能追溯到 AST 级 evidence
 

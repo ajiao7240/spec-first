@@ -78,7 +78,7 @@ source: docs/ideation/2026-04-03-spec-first-blog-series-ideation.md
 **讲什么**
 
 - 上下文为什么是 AI 工程的第一性问题
-- `spec-bootstrap` 做了什么
+- `spec-graph-bootstrap` 做了什么
 - PRD、worker、文件边界为什么重要
 - 这一步如何影响后续流程
 

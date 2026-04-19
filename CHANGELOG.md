@@ -8,12 +8,14 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.4 2026-04-19 20:35:00 Codex: docs(stage0): 全仓清理旧 bootstrap workflow 命名、文件名与历史文档残留，同步 README 中英文口径为仅保留 `spec-graph-bootstrap` 与 `spec-compound` Stage-0 入口，并修正 graph-bootstrap E2E fixture 为最小 Git 源码仓库 (user-visible)
+- v1.5.4 2026-04-19 20:10:00 Codex: fix(stage0): 清理 `mcp-setup` / `setup` / `graph-bootstrap` 活跃入口中残留的旧 Stage-0 bootstrap 叙事，统一引导到 `spec-graph-bootstrap`，并补充 source-of-truth 守卫测试 (user-visible)
 - v1.5.3 2026-04-19 18:10:00 矿工: fix(release): 按 npm publish 规范修正 `package.json` 的 `bin.spec-first` 路径与 `repository.url`，消除发布阶段自动纠正告警
 - v1.5.3 2026-04-19 18:00:00 矿工: chore(release): 收口多次 `git-npm` 真实发布尝试后的版本状态，并以 `1.5.3` 作为最终待发布版本
 - v1.5.2 2026-04-19 17:45:00 矿工: chore(release): 进入 `git-npm` 真实发布路径并将包版本提升到 `1.5.2`
 - v1.5.1 2026-04-19 17:30:00 矿工: fix(release): 对齐 `git-npm` skill 的版本类型契约，`release:publish` 现支持 `auto|patch|minor|major` 解析并在真实发布时写入 `package.json` 版本 (user-visible)
 - v1.5.1 2026-04-19 17:20:00 矿工: feat(release): 为当前 CommonJS npm CLI 结构恢复 `release:publish` 发布入口，复用 `test:release` + `npm pack` 完成 dry-run/真实发布前置链路 (user-visible)
-- v1.5.1 2026-04-19 16:50:00 矿工: refactor(stage0): 删除 `spec-bootstrap` workflow 及其 Claude command template，收口 using-spec-first / governance / plugin / smoke / active docs 到 `spec-graph-bootstrap` 与 `spec-compound` 新入口事实 (user-visible)
+- v1.5.1 2026-04-19 16:50:00 矿工: refactor(stage0): 删除旧 Stage-0 bootstrap workflow 及其 Claude command template，收口 using-spec-first / governance / plugin / smoke / active docs 到 `spec-graph-bootstrap` 与 `spec-compound` 新入口事实 (user-visible)
 - v1.5.1 2026-04-19 16:35:00 Codex: docs(faq): 在用户手册常见问题中补充“如何查看 skill 调用链路”，说明 command wrapper -> SKILL.md -> agent/references 的查看顺序、`rg` 快速检索方法，以及当前暂无专门 runtime trace viewer 的边界 (user-visible)
 - v1.5.1 2026-04-19 16:10:00 Codex: fix(stage0-context): 修正 registered workspace 下显式单 child repo 被误降成 single-repo 的 runtime contract，保持 workspace shape 并读取真实 child slug；同时将 change-surface 平台识别改为逐文件推断 + 稳定排序，修复 web+cli 混合改动漏报 cli verifier 的问题，补充对应 workspace/context 回归测试 (user-visible)
 - v1.5.1 2026-04-19 16:20:00 Codex: chore(spec-graph-bootstrap): 刷新 spec-first bootstrap 控制面与上下文摘要，统一 artifact manifest / README 的生成时间与数据质量标记
@@ -109,7 +111,7 @@
 - v1.6.0 2026-04-16 22:09:41 kuang: fix(agent-audit-governance): 修正主审计文档的 agent 差异统计失配，给不一致 Agent 列表补“差异性质”口径，并把 `workflow/lint` 的 `model: haiku` 纳入双宿主治理 contract 与专项测试 (user-visible)
 - v1.6.0 2026-04-16 21:43:46 kuang: fix(agent-tail-optimization): 收口 learnings-researcher 的 schema/planning 中性引用、将 best-practices-researcher 的 Documentation 映射改为真实 skill 标识 `spec-compound`、补齐 pr-comment-resolver 最后一处正文对齐，并把双宿主模型治理扩展为“默认 inherit + coherence-reviewer 固定模型例外”闭环，联动更新审计文档与 contract tests (user-visible)
 - v1.5.1 2026-04-16 21:15:10 kuang: feat(dual-host-governance): 新增 `skills-governance` 真源与 schema，runtime 改为按治理真源构建 filtered asset set，Codex 正式排除 `orchestrating-swarms` 并保留 `claude-permissions-optimizer` 维护路径，补 `lint:skill-entrypoints` 与 PR gate，刷新 report-bug/reproduce-bug 及 `docs/10-prompt/skills` 镜像 (user-visible)
-- v1.5.1 2026-04-16 20:18:12 kuang: test(spec-bootstrap): 补 Stage-0 supporting-workflow 叙事守卫，锁定“不是第六阶段、未自动注入主工作流”的 contract (user-visible)
+- v1.5.1 2026-04-16 20:18:12 kuang: test(spec-graph-bootstrap): 补 Stage-0 supporting-workflow 叙事守卫，锁定“不是第六阶段、未自动注入主工作流”的 contract (user-visible)
 - v1.5.1 2026-04-16 20:16:44 kuang: fix(workflow-entrypoints): 修正 spec-debug/agent-native-audit 的 skill 调用口径，去除 spec-work/spec-work-beta 的 `/simplify` 产品面暗示，并将 spec-compound/spec-sessions 标题与双宿主入口对齐，补 sessions contract 守卫 (user-visible)
 - v1.5.1 2026-04-16 20:11:16 kuang: fix(testing-skill-entrypoints): 清理 test-browser、test-xcode、feature-video 的假 slash command 示例，统一改为 host-neutral 的 skill 参数示例，并补 contract 守卫 (user-visible)
 - v1.5.1 2026-04-16 20:08:27 kuang: fix(todo-workflows): 去除 todo-triage 的 `/model` / `Haiku` 假设与 `/todo-resolve` 假入口，统一 todo-create/todo-resolve 的 standalone skill 调用口径，并补 contract 守卫 (user-visible)
@@ -120,13 +122,13 @@
 - v1.6.0 2026-04-16 19:37:33 kuang: fix(agent-parity): 恢复 product-lens-reviewer 的 Product context/Strategic consequences、best-practices-researcher 的 dhh-rails-style 映射与显式 skill attribution 模板、pr-comment-resolver 的宽口径 untrusted input 表述，并补 3 组内容级 contract 守卫与审计文档回写 (user-visible)
 - v1.6.0 2026-04-16 矿工: fix(spec-graph-bootstrap): P2 建议清单研判修复 13 项（1 项 C1-断点续传设计选择不修复）：Slug 生成精确规则（128 字符上限/非法字符集/. 特判）、host-setup.json 缺失 fallback、crg-communities 零结果降级、top-5 criticality 排序规则、crg-search 精确匹配三级算法、Stage-C ≤10 subjects 选取优先级、backup 两级完整性校验、Level1 MCP SELECT DATABASE 校验语义、删除 InnoDB-NULL stale 启发式、README.md 最小内容规范、output_exists 映射契约显式化、generation_errors 去重+50 条上限、Phase2 前置检查 5 项精确定义
 - v1.6.0 2026-04-16 矿工: fix(spec-graph-bootstrap): 健壮性/鲁棒性审查修复 8 项：P0 补 Full 模式 database 探测（Stage A 4.10 死引用消除）+ graph_support_state 写入 fact-inventory.json schema；P1 补 crg flows 零结果 fallback（Glob 降级）、Enhanced/Basic 并行序列分 3 Batch（防上下文爆炸/隐式依赖竞态）、Level2 DB 环境变量预校验+connect-timeout 保护、domain-tables-combined-hash 算法定义、database worker 局部失败边界（条件产物不触发全量 backup 恢复）、Slug 碰撞检测
-- v1.6.0 2026-04-16 矿工: fix(spec-graph-bootstrap): 宏微观审查修复 8 项缺陷：补 Enhanced/Basic database 字段探测 + db_access_level schema（P0）、明确 manifest 两段写合并语义（P0）、标记前缀重命名 spec-bootstrap→spec-graph-bootstrap（P1）、all-tables-combined-hash 算法定义（P1）、generated-draft 删除指引歧义（P1）、Enhanced/Basic 校验规则第6项矛盾（P1）、嵌套代码块修复（P2）、data-flow 增量基线定义（P2）
+- v1.6.0 2026-04-16 矿工: fix(spec-graph-bootstrap): 宏微观审查修复 8 项缺陷：补 Enhanced/Basic database 字段探测 + db_access_level schema（P0）、明确 manifest 两段写合并语义（P0）、标记前缀统一为 spec-graph-bootstrap（P1）、all-tables-combined-hash 算法定义（P1）、generated-draft 删除指引歧义（P1）、Enhanced/Basic 校验规则第6项矛盾（P1）、嵌套代码块修复（P2）、data-flow 增量基线定义（P2）
 - v1.6.0 2026-04-16 矿工: feat(spec-graph-bootstrap): 补团队协作/增量更新/可维护性三项机制：A 标记分离（auto/manual blocks + per-table SHA256 增量跳过）、B 域 ID 固化（artifact-manifest domain_assignments 稳定域分配）、C data-flow 人工优先（generated-draft 标记，团队确认后 bootstrap 不再覆盖）
 - v1.6.0 2026-04-16 矿工: feat(spec-graph-bootstrap): 升级 database worker 为四层索引方案（Tier 0 总索引 + Tier 1 ER 按域拆分 + Tier 2 数据流叙事 + Tier 3 语义目录），injection-index 改为按存在性注入 database-index 和 data-flow，domains/semantic-catalog 不全量注入
 - v1.6.0 2026-04-16 矿工: docs(database-四层索引方案): 新增 database 四层索引方案文档，含规模-产物矩阵、各层内容规范、injection-index 映射与设计决策记录
 - v1.6.0 2026-04-16 矿工: fix(spec-graph-bootstrap): 修复 database worker 体积约束：从硬编码 <200行/<10KB 改为三档自适应策略（≤30表全量/31-100表域拆分/100+表核心图+全量表目录），表目录无行数上限
 - v1.6.0 2026-04-16 矿工: fix(spec-graph-bootstrap): 修复 4 项 Gap：补 Phase 1 Enhanced/Basic 等价操作序列、Phase 1.6 entrypoints 空校验（flow_id 陷阱防护）、Phase 2 PRD Quality Gate（5 项检查 + 自动 enrich）、database-context 条件 worker + injection-index DB 条件注入
-- v1.6.0 2026-04-16 矿工: docs(bootstrap-analysis): 新增 spec-bootstrap vs spec-graph-bootstrap 全景分析文档，含完整 ASCII 流程图、双 bootstrap 能力矩阵对比、6 项 Gap 分析与优化建议，更新审计文档两行状态为已完成
+- v1.6.0 2026-04-16 矿工: docs(bootstrap-analysis): 新增 legacy bootstrap vs spec-graph-bootstrap 全景分析文档，含完整 ASCII 流程图、双 bootstrap 能力矩阵对比、6 项 Gap 分析与优化建议，更新审计文档两行状态为已完成
 - v1.6.0 2026-04-16 13:34:32 kuang: feat(skill-boundaries): 深审 agent-browser、orchestrating-swarms、rclone、reproduce-bug 的职责边界，补路由说明与 contract 守卫，并回写 spec-only 审计完成态 (user-visible)
 - v1.5.1 2026-04-16 11:04:02 kuang: test(skill-parity): 为 agent-native-architecture、andrew-kane-gem-writer、dspy-ruby、gemini-imagegen 与 git-clean-gone-branches 补齐上游对齐 contract 守卫，并回写审计完成态 (user-visible)
 - v1.6.0 2026-04-16 矿工: feat(agent-browser): 新增 agent-browser-contracts.test.js，四层守护：frontmatter allowed-tools 权限模型、三条安装路径+Chrome 下载步骤、CDP 技术基础与 open/snapshot/interact 工作流、Ref Lifecycle 契约及 7 个 reference 文件存在性（6 个下游 skill 共享依赖）
@@ -229,7 +231,7 @@
 - v1.5.1 2026-04-13 kuang: refactor(crg): 产物目录标准化硬切换，统一隐藏运行态到 .spec-first/ [breaking internal]
 - v1.5.1 2026-04-13 kuang: test(crg): 加入旧路径 negative guard，repo-wide 旧路径收口完成——单元测试验证 .spec-first-graph/ 不被创建、handlers DB 路径不含旧目录、.spec-first-graphignore 不被读取；e2e/smoke 断言旧目录不存在；plan 文档标记所有 Unit 完成
 - v1.6.0 2026-04-13 15:00:00 kuang: feat(crg): 硬切换 graph runtime 到 .spec-first/graph/——所有 CLI（build/stats/open-db/context/query/postprocess）改用 artifact-paths.js 路径解析器；input-convergence 默认排除规则从 .spec-first-graph/** 改为 .spec-first/**；ignore 文件从 .spec-first-graphignore 改为 .spec-firstignore；fingerprints 产物路径更新为 input-fingerprints.json；e2e 测试脚本和单元测试 mock 同步更新
-- v1.6.0 2026-04-13 15:00:00 kuang: feat(skills): 硬切换 bootstrap 控制面契约到 .spec-first/workflows/ — spec-bootstrap/spec-graph-bootstrap SKILL.md 及 PRD 模板全量迁移；fingerprints.json 重命名为 artifact-manifest.json；.spec-first-graph/ 引用改为 .spec-first/graph/；smoke test 同步更新至 workflows 路径 [ARTIFACT-PATH]
+- v1.6.0 2026-04-13 15:00:00 kuang: feat(skills): 硬切换 bootstrap 控制面契约到 .spec-first/workflows/ — spec-graph-bootstrap/spec-graph-bootstrap SKILL.md 及 PRD 模板全量迁移；fingerprints.json 重命名为 artifact-manifest.json；.spec-first-graph/ 引用改为 .spec-first/graph/；smoke test 同步更新至 workflows 路径 [ARTIFACT-PATH]
 - v1.6.0 2026-04-13 14:00:00 kuang: fix(init): 消除 spec-first init --claude 后 /spec:xxx 与 /spec-xxx 双重命令重叠——command-backing skills 从 .claude/skills/ 迁移到 .claude/spec-first/workflows/，Claude Code 不扫描该目录，仅保留 /spec:xxx 入口；同时修复 mcp-setup.md 缺少 .claude/ 前缀的路径 bug (user-visible)
 - v1.6.0 2026-04-13 13:00:00 kuang: feat(crg): 新增集中路径解析模块 artifact-paths.js — 统一 .spec-first/graph/ 和 .spec-first/workflows/<wf>/<slug>/ 路径生成；导出 R4 文件名常量 GRAPH_INPUT_FINGERPRINTS_FILE / BOOTSTRAP_ARTIFACT_MANIFEST_FILE / GRAPH_IGNORE_FILE；纯函数，无 I/O 副作用；17条 jest 测试全绿
 - v1.6.0 2026-04-13 12:00:00 kuang: fix(spec-graph-bootstrap): SKILL.md schema 审查修复——(1) Phase 4 injection-index.yaml 补 advice 块与修订终版 §16.5 对齐；(2) test-surface.json test_files/coverage_gaps 补 evidence/summary/updated_at/inference_reason 字段，满足 FactItem 全量验收合同；(3) 置信度规则补 Enhanced/Basic 模式 inference_reason 规范枚举值（read-source-code/package-json-analysis 等），消除值域漂移；(4) risk-signals.json crg_metrics 补非 Full 模式 null/[] 填充规则，明确 generation_errors 记录要求
@@ -373,9 +375,9 @@
 - v1.6.0 2026-04-08 23:30:00 kuang: feat(codex): 让 init 在 Codex 侧也生成 /spec:* 命令文件，统一命令、技能、代理的安装与 clean/doctor 诊断链路，并同步更新模板、测试和用户文档 (user-visible)
 - v1.6.0 2026-04-08 22:30:00 kuang: docs(mcp-setup): 增加更友好的执行进度提示，安装与验证脚本会显示当前宿主检查、逐项配置、标记写入和完成状态，降低用户等待时的不确定感 (user-visible)
 - v1.6.0 2026-04-08 22:00:00 kuang: feat(mcp-setup): 增加 Windows PowerShell 7+ 支持，补齐 detect/check/install/verify 的 .ps1 入口，更新技能合同与测试断言，允许在 macOS/Linux/Windows 上使用对应宿主脚本 (user-visible)
-- v1.6.0 2026-04-08 21:00:00 kuang: fix(mcp-setup+spec-bootstrap): 让 MCP 安装与引导流程按当前宿主自适应，自动区分 Claude Code / Codex 的配置文件与 host-setup 标记路径，并补齐双宿主 unit 测试与文档同步 (user-visible)
+- v1.6.0 2026-04-08 21:00:00 kuang: fix(mcp-setup+spec-graph-bootstrap): 让 MCP 安装与引导流程按当前宿主自适应，自动区分 Claude Code / Codex 的配置文件与 host-setup 标记路径，并补齐双宿主 unit 测试与文档同步 (user-visible)
 - v1.6.0 2026-04-08 20:00:00 kuang: fix(graphify skill): --out-dir 参数支持与输出路径参数化：(1) 参数声明新增 --out-dir；(2) Phase 1 增加 OUT_DIR 解析逻辑（相对 target_root，非 shell CWD）；(3) 所有执行模板中 graphify-out/ 统一替换为 $OUT_DIR；(4) 重要边界/最小成功标准/handoff 均更新为 $OUT_DIR；(5) 测试更新输出目录断言为 target_root 语义，新增 --out-dir/OUT_DIR/$OUT_DIR/target_root 共5项断言 (user-visible)
-- v1.6.0 2026-04-08 19:00:00 kuang: fix(mcp-setup+spec-bootstrap): 全局删除 GitNexus / ABCoder 安装链与 Full mode 引用，收缩为 Serena / Sequential Thinking / Context7 基础 MCP 套件，并同步重写 host-setup/schema、验证脚本和 PRD 模板 (user-visible)
+- v1.6.0 2026-04-08 19:00:00 kuang: fix(mcp-setup+spec-graph-bootstrap): 全局删除 GitNexus / ABCoder 安装链与 Full mode 引用，收缩为 Serena / Sequential Thinking / Context7 基础 MCP 套件，并同步重写 host-setup/schema、验证脚本和 PRD 模板 (user-visible)
 - v1.6.0 2026-04-08 12:26:42 kuang: docs(mcp-setup): 删除 mcp-setup 概览表中 GitNexus 与 ABCoder 的职责描述，保留工具名与类别，避免重复解释 (user-visible)
 - v1.6.0 2026-04-08 18:00:00 kuang: fix(graphify skill): 按 README.zh-CN.md 更新安装契约：(1) 包名全量迁移 graphifyy→graphify-leo（13处），含 pip install 命令和 importlib.metadata 版本查询；(2) 补 Codex 并行提取前提说明（multi_agent=true）；(3) 扩展 argument-hint 加入 --wiki/--obsidian；测试新增包名防回归断言 (user-visible)
 - v1.6.0 2026-04-08 17:30:00 kuang: fix(graphify skill): 健壮性审查修复4处：(1) pip 安装链末尾补 || exit 1 硬停，移除第一次尝试的 2>/dev/null，消除静默失败；(2) 补 python3 存在性检查，缺失时给出明确错误而非 command not found；(3) 补安装后重新探测解释器的完整 bash 示例（含 hash -r + 路径验证）；(4) --no-viz 输出和 hook 状态说明按宿主/模式区分；测试新增4项断言 (user-visible)
@@ -384,12 +386,12 @@
 - v1.6.0 2026-04-08 10:30:00 kuang: fix(graphify): 校正 graphify skill contract 与上游源码一致性，拆分 Codex 全局安装与项目接入，补回 `.graphify_python` runtime bootstrap，明确 `graphify-out/` 属于当前工作目录并收紧大语料暂停规则 (user-visible)
 - v1.6.0 2026-04-08 01:10:00 kuang: docs(graphify): 强化 graphify skill 健壮性，明确宿主识别、pip/pip3 自动选择、`graphify install` 基础安装、Claude/Codex 平台接入与模式化分析边界 (user-visible)
 - v1.6.0 2026-04-08 00:35:00 kuang: docs(graphify): 收紧 graphify skill 执行契约，明确先自动检测 pip/pip3 并安装 graphifyy，再按 Claude/Codex 宿主执行 `graphify claude|codex install`，随后对当前目录启动图谱分析 (user-visible)
-- v1.6.0 2026-04-08 00:20:00 kuang: refactor(graphify): 删除 spec-graph-bootstrap skill，收敛为单一 graphify 入口；同步移除相关 contract 文件，并将后续流程直接衔接到 spec-bootstrap 与 graphify-out 消费说明 (user-visible)
+- v1.6.0 2026-04-08 00:20:00 kuang: refactor(graphify): 删除早期 graphify-only 分叉 skill，收敛为单一 graphify 入口；同步移除相关 contract 文件，并将后续流程直接衔接到 spec-graph-bootstrap 与 graphify-out 消费说明 (user-visible)
 - v1.6.0 2026-04-07 22:05:00 kuang: feat(graphify): 将上游 graphify 正式纳入 spec-first 运行时，新增 `/spec:graphify` 与 `graphify` skill 入口，打包上游安装/分析参考流程，并将 spec-graph-bootstrap 改为依赖内置 graphify 能力而非外部 `/graphify` 约定 (user-visible)
 - v1.6.0 2026-04-07 矿工: fix(mcp-setup): 多Agent深度审查后修复 10 项健壮性问题——ensure_config mktemp 跨文件系统原子性、macOS mkdir 锁 stale lock 检测与锁失败 abort、Go 安装 URL aarch64→arm64 映射、curl 超时与版本号格式校验、release_lock fd 泄漏、临时文件权限时序修复、verify-tools.sh trap 清理、四个脚本 jq 硬依赖预检、PATH 预修复、all_tools 空数组检查 (user-visible)
 - v1.6.0 2026-04-07 矿工: fix(spec-graph-bootstrap): 3-Agent 深度审查后修复集成方案——修正 graphify CLI 调用假设（graphify 无 `<path>` 子命令，改为纯消费已有 graphify-out/）、补充 SKILL.md 文件输出 contract（.context/ 三文件 schema）、新增决策矩阵和安全边界检查、补充 graphify-out/ 生命周期管理策略、补充 GRAPH_REPORT.md 最小 schema、spec-docs L2 层级归属 (user-visible)
-- v1.5.1 2026-04-07 21:05:56 kuang: feat(spec-graph-bootstrap): 新增 spec-graph-bootstrap skill 与 graphify contract reference，将 graphify 作为 spec-first 的上游结构发现层接入；同步补充集成技术方案、版本更新说明，并修复 spec-bootstrap SKILL.md 缺少 `name` 导致的 smoke 失败 (user-visible)
-- v1.5.1 2026-04-07 矿工: fix(spec-bootstrap): 移除 SKILL.md frontmatter 中的 user-invocable: true，spec-bootstrap 改为命令式入口，不注册为独立 user-invocable skill；同步更新 smoke test (user-visible)
+- v1.5.1 2026-04-07 21:05:56 kuang: feat(spec-graph-bootstrap): 新增 spec-graph-bootstrap skill 与 graphify contract reference，将 graphify 作为 spec-first 的上游结构发现层接入；同步补充集成技术方案、版本更新说明，并修复 spec-graph-bootstrap SKILL.md 缺少 `name` 导致的 smoke 失败 (user-visible)
+- v1.5.1 2026-04-07 矿工: fix(spec-graph-bootstrap): 移除 SKILL.md frontmatter 中的 user-invocable: true，spec-graph-bootstrap 改为命令式入口，不注册为独立 user-invocable skill；同步更新 smoke test (user-visible)
 - v1.5.1 2026-04-07 矿工: docs(bootstrap): 生成 spec-first 项目上下文库 docs/contexts/spec-first/（README + 00-summary + architecture × 3 + pitfalls + layers/cli，共 7 个文档，Basic 分析模式）
 - v1.5.1 2026-04-07 16:32:28 kuang: docs: 新增业界借鉴《2026 年 AI 编码的“渐进式 Spec”实战指南》本地转写稿、6 张配图资源与目录索引更新 (user-visible)
 - v1.5.1 2026-04-07 矿工: docs: 更新 spec-docs 知识库内容规范至 v2.0——综合 LLM Wiki + 胶水编程实践，新增 conventions.md（静态加载规矩层）、internal-apis/（内部 API 文档层）、静态/动态加载策略，明确内容准入标准（AI 能从公开资料获取？）
@@ -398,13 +400,13 @@
 - v1.5.1 2026-04-07 矿工: docs: 修复独立知识库方案文档 9 个健壮性问题（normalizeGitUrl 凭证过滤、Phase 过渡顺序约束、docs-local.json 失效 WARNING、git 操作不变式、writeDocsFields 原子写入、walk-up git 边界、doctor detached HEAD、merge=union JSON 风险、§七 state.sh 验证遗漏）
 - v1.5.1 2026-04-07 矿工: fix(mcp-setup): 修正 Serena MCP 启动参数（serena start-mcp-server --project-from-cwd --context ide-assistant），修复 assert_contains grep 将 -- 参数误解析为选项的 bug (user-visible)
 - v1.5.1 2026-04-07 矿工: docs: 更新独立知识库技术方案——新增 resolveDocsInput/deriveRemoteUrl/walk-up 逻辑；init 交互提示支持 URL 或本地路径输入，本地路径自动推导 remote URL；调整 runInit 顺序（提示在项目发现前），消除 heuristic workspace 排除盲点
-- v1.5.1 2026-04-07 13:28:40 kuang: fix(mcp-setup+spec-bootstrap): 修正 Serena/GitNexus MCP 启动配置为当前官方命令，并为 partial MCP 挂载失败补充显式 reason code 与诊断提示 (user-visible)
+- v1.5.1 2026-04-07 13:28:40 kuang: fix(mcp-setup+spec-graph-bootstrap): 修正 Serena/GitNexus MCP 启动配置为当前官方命令，并为 partial MCP 挂载失败补充显式 reason code 与诊断提示 (user-visible)
 - v1.5.1 2026-04-07 矿工: chore: release 1.5.1 (user-visible)
 - v1.5.0 2026-04-07 11:21:00 kuang: fix(mcp-setup): 调整 host setup 完成判定为 Serena 阻断、ABCoder 和 GitNexus 非阻断；缺失增强工具仅降级 Full mode，不阻止 setup_success 成立 (user-visible)
 - v1.5.0 2026-04-07 矿工: docs: 修复技术方案文档 16 个审查问题（state.js 架构冲突、--global 语义、目录树对齐、分支保护限制声明、v2 边界情况引用等）
 - v1.5.0 2026-04-07 矿工: docs: 新增独立知识库完整技术方案文档，替代两份混血 LLM-md 文档，涵盖内容定义、存储管理、Agent 消费路径、维护策略和 Phase 1 任务分解
 - v1.5.0 2026-04-07 11:01:27 kuang: test(smoke): 将初始化后 CHANGELOG 版本断言改为跟随 package.json 当前版本，修复硬编码 v1.4.0 导致的陈旧 smoke 失败
-- v1.5.0 2026-04-07 11:01:27 kuang: fix(mcp-setup+spec-bootstrap): 修复损坏 abcoder 无法触发重装、setup_success 未覆盖 abcoder MCP 配置，以及 spec-bootstrap 缺少 user-invocable frontmatter 导致 smoke 失败的问题 (user-visible)
+- v1.5.0 2026-04-07 11:01:27 kuang: fix(mcp-setup+spec-graph-bootstrap): 修复损坏 abcoder 无法触发重装、setup_success 未覆盖 abcoder MCP 配置，以及 spec-graph-bootstrap 缺少 user-invocable frontmatter 导致 smoke 失败的问题 (user-visible)
 - v1.5.0 2026-04-07 10:13:00 kuang: fix(mcp-setup): 修复 optional 工具被默认安装、abcoder 宽松误判、host-setup.json 无条件 setup_success=true 和 sequential-thinking 验证缺失问题，并补充对应单元测试 (user-visible)
 - v1.5.0 2026-04-04 kuang: docs: 新增 docs/01-需求分析/7.项目知识/README.md 索引，列出目录下全部文档的性质摘要与推荐阅读顺序
 - v1.5.0 2026-04-04 kuang: docs: 修复 Harness Engineering 实施分期文档全部 P0/P1 问题：阶段1补充 VALID/INVALID 触发条件表、OoS 边界说明、Greenfield template-first 来源约定、single-writer managed block 实现要求、knowledge init 消费方说明、完成标志操作验收指标；阶段2补充首次产出归属声明、路径迁移说明、history-spec-index 写入责任链、automation candidate 人工确认要求、语义召回最小实现、pitfalls-specialist 路由机制；阶段3补充13资产 Reduced-harness 输入矩阵、指标失真背离检测机制、阶段1/2 代理指标可计算条件
@@ -419,9 +421,9 @@
 - v1.5.0 2026-04-03 kuang: docs: 新增 spec-first 最佳实践方案文档，融合 Harness Engineering + 胶水编程，覆盖全部 7 个 skill 改造点、四轮实施路径与素材飞轮机制
 - v1.5.0 2026-04-03 kuang: docs: 新增 spec-first 生态集成优化方案文档，识别生态孤岛问题，提出 AGENTS.md 全局注入点方案及 9 处变更清单
 - v1.5.0 2026-04-03 kuang: docs: 新增 spec-first Harness Engineering 改造技术方案文档，含架构目标、技术设计与分阶段实施计划
-- v1.5.0 2026-04-03 kuang: docs: 新增 spec-bootstrap × Harness Engineering 优化建议文档，覆盖 7 个优化点（agents-md-context、lint hint、verify step、失败记忆等）
+- v1.5.0 2026-04-03 kuang: docs: 新增 spec-graph-bootstrap × Harness Engineering 优化建议文档，覆盖 7 个优化点（agents-md-context、lint hint、verify step、失败记忆等）
 - v1.5.0 2026-04-03 kuang: docs: 新增业界借鉴 Harness Engineering 指南（Qoder 工程实践）及配套 assets
-- v1.5.0 2026-04-03 kuang: docs: 重组项目知识目录（6→7），迁移 spec-bootstrap 分析文档至新目录
+- v1.5.0 2026-04-03 kuang: docs: 重组项目知识目录（6→7），迁移 spec-graph-bootstrap 分析文档至新目录
 - v1.4.0 2026-04-03 18:38:30 kuang: docs(ideation): 修复连载文档中的绝对路径引用，统一改为相对路径以恢复图片和文档链接预览 (user-visible)
 - v1.4.0 2026-04-03 18:36:00 kuang: docs(ideation): 为连载首篇补充 1 张新 SVG 示意图与 2 张复用图，插入正文对应位置增强方法论表达 (user-visible)
 - v1.4.0 2026-04-03 18:32:05 kuang: docs(ideation): 将连载首篇打磨为可发版终稿风格，补充导语、收紧段落节奏并更新状态标记 (user-visible)
@@ -431,24 +433,24 @@
 - v1.4.0 2026-04-03 18:20:09 kuang: docs(ideation): 将 Harness Engineering 作为上位参照整合进连载总纲与首篇大纲，补充与 spec-first 的关系、边界和参考来源 (user-visible)
 - v1.4.0 2026-04-03 18:24:00 kuang: docs(ideation): 输出连载首篇《总论》的详细大纲，补充正文结构、开头引子与结尾转场 (user-visible)
 - v1.4.0 2026-04-03 18:13:41 kuang: docs(ideation): 输出 spec-first 连载博客总纲与公众号标题集到独立文档，并补充发布顺序说明 (user-visible)
-- v1.4.0 2026-04-03 14:00:00 kuang: feat(mcp-setup+spec-bootstrap): Unit 3 — host-setup.json v2 schema Appendix（消费方表格、向后兼容说明）+ spec-bootstrap Host Readiness Gate Step 1 version 检查 (user-visible)
-- v1.4.0 2026-04-03 13:30:00 kuang: feat(spec-bootstrap): Unit 2 — ABCoder probe 重构为 Language Match First（Step 2a-2c）、禁止 npx 标注、Host Readiness Gate Step 2b JDT 预警、报告新增 language-not-supported 场景 (user-visible)
+- v1.4.0 2026-04-03 14:00:00 kuang: feat(mcp-setup+spec-graph-bootstrap): Unit 3 — host-setup.json v2 schema Appendix（消费方表格、向后兼容说明）+ spec-graph-bootstrap Host Readiness Gate Step 1 version 检查 (user-visible)
+- v1.4.0 2026-04-03 13:30:00 kuang: feat(spec-graph-bootstrap): Unit 2 — ABCoder probe 重构为 Language Match First（Step 2a-2c）、禁止 npx 标注、Host Readiness Gate Step 2b JDT 预警、报告新增 language-not-supported 场景 (user-visible)
 - v1.5.1 2026-04-15 14:48:43 kuang: 对齐 spec-ideate 非 Slack 核心 contract，补回 inherited model / mode 约束、收紧数量口径，并新增 ideate contract tests 与 runtime smoke 覆盖 (user-visible)
 - v1.4.0 2026-04-03 13:00:00 kuang: feat(mcp-setup): Unit 1 — verify-tools.sh 新增 Go/Python runtime 检测 + JDT 缓存可写性检测（ls-d glob，jdtls 路径）、host-setup.json 升级 v2 schema、SKILL.md 新增 Phase 4.3 JDT 修复流程、新增测试 10.1-10.8（111 通过）(user-visible)
-- v1.4.0 2026-04-03 11:30:00 kuang: fix(spec-bootstrap): review 修复 — layer-context AC 改用 anti-pattern 措辞（pitfall 语义仅属 pitfalls-context）、删除 L453 stale 行号引用、test 9.1 改用受控 PATH + stub abcoder 消除真实环境依赖
-- v1.4.0 2026-04-03 11:00:00 kuang: feat(spec-bootstrap): Unit 3/4 — Phase 2.4.3 追加 pitfalls 四类发现策略（代码/架构/业务/历史）及 architecture 三文件职责边界表格（system-overview/module-map/integration-boundaries 写什么/不写什么）
-- v1.4.0 2026-04-03 10:30:00 kuang: feat(spec-bootstrap): Unit 2 — Phase 2.4 编排器指引三子章节（Files to Fill 动态策略、task-specific AC 注入、推荐骨架）+ 多点一致性修复（Phase 2.1 条件注释、Phase 3.4/3.5 动态化、Checklist PRD-listed 语义、L619 收紧为 section 级）(user-visible)
-- v1.4.0 2026-04-03 10:00:00 kuang: feat(spec-bootstrap): Unit 1 — SKILL.md Tool Usage Guide 补全（+gitnexus_impact, +find_referencing_symbols）、prd-template.md Tools Available 替换为 Full/Enhanced/Basic 三模式结构化表格（含调用示例）、修正 ABCoder 调用链（get_package_structure → get_file_structure）、补充 smoke 断言 (user-visible)
+- v1.4.0 2026-04-03 11:30:00 kuang: fix(spec-graph-bootstrap): review 修复 — layer-context AC 改用 anti-pattern 措辞（pitfall 语义仅属 pitfalls-context）、删除 L453 stale 行号引用、test 9.1 改用受控 PATH + stub abcoder 消除真实环境依赖
+- v1.4.0 2026-04-03 11:00:00 kuang: feat(spec-graph-bootstrap): Unit 3/4 — Phase 2.4.3 追加 pitfalls 四类发现策略（代码/架构/业务/历史）及 architecture 三文件职责边界表格（system-overview/module-map/integration-boundaries 写什么/不写什么）
+- v1.4.0 2026-04-03 10:30:00 kuang: feat(spec-graph-bootstrap): Unit 2 — Phase 2.4 编排器指引三子章节（Files to Fill 动态策略、task-specific AC 注入、推荐骨架）+ 多点一致性修复（Phase 2.1 条件注释、Phase 3.4/3.5 动态化、Checklist PRD-listed 语义、L619 收紧为 section 级）(user-visible)
+- v1.4.0 2026-04-03 10:00:00 kuang: feat(spec-graph-bootstrap): Unit 1 — SKILL.md Tool Usage Guide 补全（+gitnexus_impact, +find_referencing_symbols）、prd-template.md Tools Available 替换为 Full/Enhanced/Basic 三模式结构化表格（含调用示例）、修正 ABCoder 调用链（get_package_structure → get_file_structure）、补充 smoke 断言 (user-visible)
 - v1.4.0 2026-04-02 17:00:00 kuang: 修复 ABCoder probe 缺少语言检测步骤——Step 3 补充 3a（扫描文件扩展名检测主语言）和 3b（abcoder parse <language> <path> 正确语法） (user-visible)
 - v1.4.0 2026-04-02 16:45:00 kuang: 更新 README：修正工作流命令顺序（mcp-setup → 重启 → bootstrap）、新增 Host Readiness Gate 提示、Core Workflow 表格将 MCP Setup 移至首行并标注先决条件 (user-visible)
-- v1.4.0 2026-04-02 16:30:00 kuang: 实现 spec-bootstrap MCP-first 改造（5 个 Unit）：新增 verify-tools.sh（Unit 1）、改造 mcp-setup SKILL.md 加 Phase 4 Host Verification + ABCoder MCP 配置步骤（Unit 2）、spec-bootstrap 新增 Host Readiness Gate 章节（Unit 3）、重写 Analysis Mode Detection + Phase 1.3 为真实 probe（Unit 4）、新增 verify-tools.sh 测试组 9.1-9.12（Unit 5）(user-visible)
+- v1.4.0 2026-04-02 16:30:00 kuang: 实现 spec-graph-bootstrap MCP-first 改造（5 个 Unit）：新增 verify-tools.sh（Unit 1）、改造 mcp-setup SKILL.md 加 Phase 4 Host Verification + ABCoder MCP 配置步骤（Unit 2）、spec-graph-bootstrap 新增 Host Readiness Gate 章节（Unit 3）、重写 Analysis Mode Detection + Phase 1.3 为真实 probe（Unit 4）、新增 verify-tools.sh 测试组 9.1-9.12（Unit 5）(user-visible)
 - v1.4.0 2026-04-02 15:30:00 kuang: 修复实现计划 P0+P1 问题（共 10 项）：AF-002 补写 ABCoder MCP config 职责归 Unit 2、CSC-002 模式选择加 abcoder.ready 分支、AF-001 新增 setup_success 字段、CSC-003 移除不可实现超时描述、CSC-004 补 context7 测试 9.12、AF-003 加诊断兜底提示、PSM-001/002/003/004 文件记录与锚点修复
 - v1.4.0 2026-04-12 17:05:00 kuang: 将 CRG build 的 parser 降级结果显式标记为 degraded，并在 --force 下增加 partial rebuild 告警，避免阶段0混合快照被误判为完整成功
-- v1.4.0 2026-04-02 14:00:00 kuang: 新增 spec-bootstrap MCP-first 改造实现计划（docs/plans/2026-04-02-001-feat-spec-bootstrap-mcp-first-plan.md），5 个实现单元：verify-tools.sh、mcp-setup SKILL.md、spec-bootstrap 前置门、probe 重写、测试
+- v1.4.0 2026-04-02 14:00:00 kuang: 新增 spec-graph-bootstrap MCP-first 改造实现计划（docs/plans/2026-04-02-001-feat-spec-graph-bootstrap-mcp-first-plan.md），5 个实现单元：verify-tools.sh、mcp-setup SKILL.md、spec-graph-bootstrap 前置门、probe 重写、测试
 - v1.4.0 2026-04-02 12:00:00 kuang: 修复 spec-review 发现的 P0/P1/P2 问题：Section 4.1 阻断语义修正（P0）、MCP ping 超时 10s、ABCoder 60s 外层计时器、host-setup.json write failure 处理、context7 补入 JSON schema、GitNexus reason codes 细化、Serena 路径验证、ABCoder repo identity 校验、Basic 模式行为定义、all-settled 并行语义明确、Java JDT 网络检查补充
-- v1.4.0 2026-04-02 11:00:00 kuang: 新增 spec-bootstrap MCP-first 改造需求文档和设计方案文档
-- v1.4.0 2026-04-01 23:45:39 kuang: 为 spec-bootstrap SKILL.md 补充 MCP 工具安装和使用指引（MCP Tools Setup + GitNexus/ABCoder/Serena 工具表格） (user-visible)
-- v1.4.0 2026-04-01 18:00:00 kuang: 新增 spec-bootstrap 产物文档全览（知识库梳理文档）
+- v1.4.0 2026-04-02 11:00:00 kuang: 新增 spec-graph-bootstrap MCP-first 改造需求文档和设计方案文档
+- v1.4.0 2026-04-01 23:45:39 kuang: 为 spec-graph-bootstrap SKILL.md 补充 MCP 工具安装和使用指引（MCP Tools Setup + GitNexus/ABCoder/Serena 工具表格） (user-visible)
+- v1.4.0 2026-04-01 18:00:00 kuang: 新增 spec-graph-bootstrap 产物文档全览（知识库梳理文档）
 - v1.4.0 2026-04-01 17:45:00 kuang: README 结构重排——新增「实际效果」演示区块（含真实 terminal 输出）、先决条件独立章节，调整章节顺序为价值优先 (user-visible)
 - v1.4.0 2026-04-01 17:30:00 kuang: 新增 README 优化需求文档（brainstorm 产出）
 - v1.4.0 2026-04-01 17:10:00 kuang: 优化 README：去重导航栏、补全英文"为什么需要它"内容、整合工作流表格补充命令、细化 doctor 命令说明、补充贡献指南、引入 workflow-end-to-end.svg (user-visible)
@@ -460,7 +462,7 @@
 - v1.4.0 2026-04-01 16:08:00 kuang: 将 CHANGELOG 记录格式说明改为中文，并支持时分秒时间戳 (user-visible)
 - v1.4.0 2026-04-01 kuang: refresh README visual assets and add npm version reminder planning artifacts (user-visible)
 - v1.4.0 2026-04-01 kuang: replace three-layer architecture SVG with a static GitHub-compatible version to fix broken README rendering (user-visible)
-- v1.4.0 2026-04-01 kuang: strengthen spec-bootstrap contracts, PRD templates, and workflow pattern docs (user-visible)
+- v1.4.0 2026-04-01 kuang: strengthen spec-graph-bootstrap contracts, PRD templates, and workflow pattern docs (user-visible)
 - v1.4.0 2026-04-01 kuang: back up and fully restructure README for a Chinese-first bilingual open-source homepage (user-visible)
 - v1.4.0 2026-04-01 kuang: update 08-版本更新/README.md with lang-governance and version-reminder sections
 - v1.4.0 2026-04-01 kuang: add npm version reminder on real command startup (user-visible)
@@ -470,7 +472,7 @@
 - v1.4.0 2026-04-01 kuang: update bootstrapped CHANGELOG format to versioned entries, remove [Unreleased] section
 - v1.4.0 2026-04-01 kuang: add AGENTS.md with project structure, commands, and coding conventions
 - v1.4.0 2026-04-01 kuang: add mcp-setup skill for one-click MCP tool installation (user-visible)
-- v1.4.0 2026-04-01 kuang: add spec-bootstrap skill for Stage-0 project context generation (user-visible)
+- v1.4.0 2026-04-01 kuang: add spec-graph-bootstrap skill for Stage-0 project context generation (user-visible)
 - v1.4.0 2026-04-01 kuang: write lang-governance policy to CLAUDE.md/AGENTS.md on init (user-visible)
 - v1.4.0 2026-04-01 kuang: fix lang fallback order — project .developer lang now takes precedence over global before defaulting to zh (user-visible)
 - v1.4.0 2026-04-01 kuang: add test:unit script and developer identity unit tests

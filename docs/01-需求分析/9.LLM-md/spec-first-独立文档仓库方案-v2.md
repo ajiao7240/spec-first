@@ -117,7 +117,7 @@ spec-docs/                         ← 独立文档仓库
 │   └── playbooks/
 ├── project-A/
 │   ├── README.md                  ← init 时自动生成，含 slug/created-by 等 meta
-│   ├── contexts/                  ← spec-bootstrap 产物
+│   ├── contexts/                  ← spec-graph-bootstrap 产物
 │   ├── plans/                     ← spec-plan 产物
 │   ├── work/                      ← spec-work meta/signals/verification
 │   ├── reviews/                   ← spec-review 产物
@@ -583,7 +583,7 @@ git pull --ff-only 失败，且不是 unmerged 也不是普通分叉
 #### 场景五：并发 skill 写入同一文档
 
 ```
-A 和 B 同时对 project-C 运行 spec-bootstrap，写入 C/contexts/bootstrap.md
+A 和 B 同时对 project-C 运行 spec-graph-bootstrap，写入 C/contexts/bootstrap.md
 
 预检（8.3 节）：各自检测到本地未落后 → 均继续写入
 A push 成功

@@ -234,7 +234,7 @@ knowledge/patterns/xxx.md                 ← spec-compound，带 source_req: re
 |---|---|
 | 独立文档仓库方案 | `requirements/` 是 docs repo 中的新目录，与 contexts/plans/reviews/knowledge 并列 |
 | Harness 改造技术方案 | spec-req 的 Rabbit Holes → spec-plan doubt points → spec-work preflight，形成完整预检链 |
-| Greenfield / Brownfield 区分 | Greenfield 需求从零录入；Brownfield 需求可从现有代码反向生成草稿（spec-bootstrap 分析结果辅助） |
+| Greenfield / Brownfield 区分 | Greenfield 需求从零录入；Brownfield 需求可从现有代码反向生成草稿（spec-graph-bootstrap 分析结果辅助） |
 
 ---
 

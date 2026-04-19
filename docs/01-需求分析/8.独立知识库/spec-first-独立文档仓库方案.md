@@ -49,7 +49,7 @@ org/
     │   ├── rules/
     │   └── playbooks/
     ├── project-A/
-    │   ├── contexts/           ← spec-bootstrap 产物
+    │   ├── contexts/           ← spec-graph-bootstrap 产物
     │   ├── plans/              ← spec-plan 产物
     │   ├── work/               ← spec-work meta/signals/verification
     │   ├── reviews/            ← spec-review 产物
@@ -168,7 +168,7 @@ spec-first init --claude --docs-repo ~/org/spec-docs
 
 | Skill | in-repo 路径（现有） | docs repo 路径（新增） |
 |---|---|---|
-| `spec-bootstrap` | `docs/contexts/<slug>/` | `<docs-local>/<project-slug>/contexts/<slug>/` |
+| `spec-graph-bootstrap` | `docs/contexts/<slug>/` | `<docs-local>/<project-slug>/contexts/<slug>/` |
 | `spec-plan` | `docs/plans/` | `<docs-local>/<project-slug>/plans/` |
 | `spec-work` | `docs/work/` | `<docs-local>/<project-slug>/work/` |
 | `spec-review` | `docs/reviews/` | `<docs-local>/<project-slug>/reviews/` |

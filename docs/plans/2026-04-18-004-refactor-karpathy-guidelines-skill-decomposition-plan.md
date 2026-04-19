@@ -55,7 +55,7 @@ supersedes: 2026-04-18-001-refactor-karpathy-execution-contract-integration-plan
 - `spec-review`
   - 继续由 `docs/plans/2026-04-18-001-refactor-karpathy-execution-contract-integration-plan.md` 作为 review-side 已完成子集
   - 本计划不新增 review-side 结构，只把它作为现有 secondary detection surface 使用
-- `spec-brainstorm`、`spec-plan`、`using-spec-first`、`spec-bootstrap`、`spec-graph-bootstrap`、`spec-compound`、`spec-compound-refresh`
+- `spec-brainstorm`、`spec-plan`、`using-spec-first`、`spec-graph-bootstrap`、`spec-graph-bootstrap`、`spec-compound`、`spec-compound-refresh`
 - **全局 Karpathy 技术债治理层**：不引入
 
 > **Note on "mention unrelated dead code"**:Karpathy Principle 3 的双向义务——(a) 不删 pre-existing dead code、(b) **mention** 它——本计划只承担 (a)(见 R2 后半)。(b) 的 mention 职责不纳入本 plan,理由:mention 动作的自然落点是 `spec-review` 的 `residual_risks`(已由 001 plan 提供承载结构)或 PR-level workflow(如 `resolve-pr-feedback` / PR description),不在 `spec-work` execution loop 的 scope 内。显式标注避免后续 reviewer 误判为漏项;如未来确认 mention 需进入 execution 合同,独立立项,不回填本 plan。

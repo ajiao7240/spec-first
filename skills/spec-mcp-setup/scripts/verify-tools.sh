@@ -1,7 +1,7 @@
 #!/bin/bash
 # verify-tools.sh - Verify host-level tool installation state after mcp-setup
 # Writes the current host's spec-first/host-setup.json readiness marker
-# Used by spec-bootstrap Host Readiness Gate
+# Used by spec-graph-bootstrap Host Readiness Gate
 
 set -euo pipefail
 

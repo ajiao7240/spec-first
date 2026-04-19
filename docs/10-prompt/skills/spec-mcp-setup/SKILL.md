@@ -17,7 +17,7 @@ This skill automates the installation and configuration of the MCP tools used by
 
 | Tool | Category | Purpose |
 |------|----------|---------|
-| Serena | Required | Symbol-level precision editing for spec-bootstrap Enhanced mode |
+| Serena | Required | Symbol-level precision editing for spec-graph-bootstrap Enhanced mode |
 | Sequential Thinking | Required | Dynamic reflective problem solving |
 | Context7 | Required | Latest framework documentation lookup |
 | Playwright MCP | Optional | Frontend automation testing |
@@ -30,7 +30,7 @@ Platform entrypoints:
 - macOS/Linux: use the `*.sh` scripts with `bash`
 - Windows: use the matching `*.ps1` scripts with `pwsh` 7+
 
-**Actual flow:** run the current host's `mcp-setup` entrypoint → restart the active host → run the current host's `bootstrap` entrypoint → done.
+**Actual flow:** run the current host's `mcp-setup` entrypoint → restart the active host → run the current host's graph bootstrap entrypoint → done.
 
 ## Configuration
 
@@ -235,7 +235,7 @@ Host readiness:
 
 Next steps:
 1. Restart the current host (required to load new MCP configuration)
-2. Run the current host's bootstrap entrypoint (`/spec:bootstrap` or `$spec-bootstrap`)
+2. Run the current host's graph bootstrap entrypoint (`/spec:graph-bootstrap` or `$spec-graph-bootstrap`)
 ```
 
 ---
@@ -266,13 +266,13 @@ Next steps:
 - MCP tool update/upgrade
 - Custom MCP tool configuration parameters
 - Tools not in `mcp-tools.json`
-- Runtime MCP server availability verification (handled by spec-bootstrap at project level)
+- Runtime MCP server availability verification (handled by spec-graph-bootstrap at project level)
 
 ---
 
 ## Appendix: host-setup.json Schema
 
-The coordination file between mcp-setup and spec-bootstrap is host-specific:
+The coordination file between mcp-setup and spec-graph-bootstrap is host-specific:
 
 - Claude Code: `~/.claude/spec-first/host-setup.json`
 - Codex: `~/.codex/spec-first/host-setup.json`
@@ -303,9 +303,9 @@ The coordination file between mcp-setup and spec-bootstrap is host-specific:
 
 | Field | Consumer | Purpose |
 |------|--------|---------|
-| `host` | spec-bootstrap Host Readiness Gate Step 0 | Select the matching runtime marker and probe path |
-| `setup_success` | spec-bootstrap Host Readiness Gate Step 1 | Determine whether baseline host prerequisites are ready |
-| `tools.*.configured` | spec-bootstrap runtime checks | Skip known-missing tools |
+| `host` | spec-graph-bootstrap Host Readiness Gate Step 0 | Select the matching runtime marker and probe path |
+| `setup_success` | spec-graph-bootstrap Host Readiness Gate Step 1 | Determine whether baseline host prerequisites are ready |
+| `tools.*.configured` | spec-graph-bootstrap runtime checks | Skip known-missing tools |
 | `crg.cli_available` | spec-graph-bootstrap Phase 0.2b | Skip CRG operations when CLI unavailable |
 | `crg.native_modules` | spec-graph-bootstrap Phase 0.2b | Warn before attempting crg build |
 | `crg.checked_at` | spec-graph-bootstrap Phase 0.2b | Stale detection (re-check if >30 days old) |

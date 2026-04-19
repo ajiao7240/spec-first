@@ -90,7 +90,7 @@
 │  read current host host-setup.json → confirm setup_success=true         │
 │                                                                          │
 │  ✅ MCP Tools Setup Complete                                              │
-│  下一步: 1) 重启当前宿主  2) /spec:bootstrap                             │
+│  下一步: 1) 重启当前宿主  2) /spec:graph-bootstrap                       │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -132,6 +132,6 @@ mcp-tools.json ──► detect-tools.sh ──► install-coordinator.sh ──
 | `scripts/check-deps.sh` / `check-deps.ps1` | 检测 node/uv/jq，输出 install_suggestion |
 | `scripts/detect-tools.sh` / `detect-tools.ps1` | 读当前宿主配置文件判断工具安装状态 |
 | `scripts/install-coordinator.sh` / `install-coordinator.ps1` | 按宿主 CLI 配置合并与原子写入 |
-| `scripts/verify-tools.sh` / `verify-tools.ps1` | 写当前宿主的 `host-setup.json`，供 spec-bootstrap 读取 |
+| `scripts/verify-tools.sh` / `verify-tools.ps1` | 写当前宿主的 `host-setup.json`，供 spec-graph-bootstrap 读取 |
 | 当前宿主配置文件 | MCP server 配置目标文件 |
 | 当前宿主的 `spec-first/host-setup.json` | Host 就绪状态标记（v4 schema） |

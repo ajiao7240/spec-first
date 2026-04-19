@@ -116,6 +116,7 @@ This solves "how does a requirement get AI-engineered end-to-end?" Every stage h
 | `/spec:compound` · `$spec-compound` | You want broader knowledge capture and reusable context synthesis | Context synthesis docs and reusable knowledge artifacts | **Complementary Stage-0 path** |
 
 Stage-0 entrypoints run a **Host Readiness Gate** at startup. If MCP setup was skipped or the host was not restarted, they stop with explicit guidance rather than degrade silently.
+If you still see an older bootstrap entrypoint in local runtime assets or stale documentation, migrate to `/spec:graph-bootstrap` or `/spec:compound`.
 
 ### Stage-0 Context Quality Signals
 
@@ -143,7 +144,7 @@ Downstream skills are **allowed to proceed at any level**. The evaluator exposes
 | Layer | Scope | Type |
 |-------|-------|------|
 | CLI (`doctor` / `init` / `clean` / `stage0-context`) | Asset sync, state tracking, manifest validation, Stage-0 context emission | **Code-hard**, enforced through shell exit code |
-| Host Readiness Gate + Stage-0 evaluator L0/L1/L2 | Enforced when `bootstrap` / `graph-bootstrap` / `stage0-context` runs, emitting `fallback_reason` and degraded level | **Runtime signal**, emitted by code, consumed by LLM |
+| Host Readiness Gate + Stage-0 evaluator L0/L1/L2 | Enforced when `graph-bootstrap` / `stage0-context` runs, emitting `fallback_reason` and degraded level | **Runtime signal**, emitted by code, consumed by LLM |
 | Workflow stages (`SKILL.md`) | Stage contracts, artifact naming, review classes, requirements trace | **SKILL contract**, followed by LLM |
 | Context signals (`provenance` / `confidence` / `fallback_reason`) | In-artifact metadata | **SKILL contract**, consumed by LLM |
 
@@ -196,8 +197,7 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 | Stage | Claude Code | Codex | Output Artifact | Enforcement |
 |-------|-------------|-------|-----------------|-------------|
 | Host Setup | `/spec:mcp-setup` → restart | `$spec-mcp-setup` → restart | `~/.claude/spec-first/host-setup.json` | **Code-hard** (bootstrap gate checks this) |
-| Stage-0 | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | `docs/contexts/<slug>/` | **Code-hard gate** + **SKILL.md** content |
-| Stage-0 (graph) | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | **Code-hard gate** + **SKILL.md** content |
+| Stage-0 graph bootstrap | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | **Code-hard gate** + **SKILL.md** content |
 | Ideate | `/spec:ideate` | `$spec-ideate` | `docs/ideation/*.md` | **SKILL.md** contract |
 | Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/*.md` | **SKILL.md** contract |
 | Plan | `/spec:plan` | `$spec-plan` | `docs/plans/*.md` | **SKILL.md** contract |
@@ -323,7 +323,7 @@ $ spec-first init --claude
 | Build context | `/spec:graph-bootstrap` or `/spec:compound` | `$spec-graph-bootstrap` or `$spec-compound` |
 | Start the workflow | `/spec:ideate` → `/spec:brainstorm` → `/spec:plan` → `/spec:work` → `/spec:review` → `/spec:compound` | `$spec-ideate` → … → `$spec-compound` |
 
-Both `bootstrap` and `graph-bootstrap` run a **Host Readiness Gate** at startup. If MCP setup was skipped or the host was not restarted, they stop with explicit guidance rather than degrade silently.
+`graph-bootstrap` runs a **Host Readiness Gate** at startup. If MCP setup was skipped or the host was not restarted, it stops with explicit guidance rather than degrade silently.
 
 ## Architecture
 

@@ -54,14 +54,14 @@
 | 2026-04-08 | feat | `codex` | Codex init 现在也会生成 `/spec:*` command files，和 Claude 对齐命令可见性、doctor 检查和 clean 清理链路 |
 | 2026-04-08 | docs | `mcp-setup` | 增加更友好的执行进度提示，安装与验证脚本会显示当前宿主检查、逐项配置、标记写入和完成状态 |
 | 2026-04-08 | feat | `mcp-setup` | 增加 Windows PowerShell 7+ 支持，补齐 detect/check/install/verify 的 .ps1 入口，并把技能合同改成按平台选择脚本 |
-| 2026-04-08 | fix | `mcp-setup/spec-bootstrap` | 让 MCP 安装与引导流程按当前宿主自适应，自动区分 Claude Code / Codex 的配置文件与 host-setup 标记路径，并补齐双宿主 unit 测试与文档同步 |
+| 2026-04-08 | fix | `mcp-setup/spec-graph-bootstrap` | 让 MCP 安装与引导流程按当前宿主自适应，自动区分 Claude Code / Codex 的配置文件与 host-setup 标记路径，并补齐双宿主 unit 测试与文档同步 |
 | 2026-04-08 | refactor | `graphify` | 全局删除 graphify skill、命令模板和运行时引用，移除 spec-first 中的 graphify 入口 |
-| 2026-04-08 | fix | `mcp-setup/spec-bootstrap` | 删除 GitNexus / ABCoder 安装链与 Full mode 引用，收缩为 Serena / Sequential Thinking / Context7 基础 MCP 套件，并同步重写 host schema、验证脚本和 PRD 模板 |
+| 2026-04-08 | fix | `mcp-setup/spec-graph-bootstrap` | 删除 GitNexus / ABCoder 安装链与 Full mode 引用，收缩为 Serena / Sequential Thinking / Context7 基础 MCP 套件，并同步重写 host schema、验证脚本和 PRD 模板 |
 | 2026-04-01 | feat | `version-reminder` | CLI 执行真实命令前自动检查 npm 最新版本，有更新时输出提醒，降低用户使用旧版本的概率 |
 | 2026-04-01 | feat | `lang-governance` | `spec-first init` 将语言和 Changelog 治理规则写入 CLAUDE.md/AGENTS.md，并修复 lang 优先级（项目 > 全局 > 默认） |
 | 2026-04-01 | feat | `mcp-setup` | 把 MCP 工具安装、检测、配置合并为一条一键化路径，降低 Full mode 落地门槛 |
-| 2026-03-31 | fix | `spec-bootstrap` | 基于 review 结论补强原子备份、失败恢复、MCP 连接校验等关键可靠性能力 |
-| 2026-03-31 | feat | `spec-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
+| 2026-03-31 | fix | `spec-graph-bootstrap` | 基于 review 结论补强原子备份、失败恢复、MCP 连接校验等关键可靠性能力 |
+| 2026-03-31 | feat | `spec-graph-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
 
 ---
 
@@ -1709,7 +1709,7 @@
 
 ### 更新内容
 
-新增 `spec-graph-bootstrap` 的阶段 1 安装集成能力。新入口现已进入打包、`init`、`clean`、smoke、install-local 和文档说明链路，但仍以“并行验证入口”身份上线，不替代现有稳定的 `spec-bootstrap`。
+新增 `spec-graph-bootstrap` 的阶段 1 安装集成能力。新入口现已进入打包、`init`、`clean`、smoke、install-local 和文档说明链路，但仍以“并行验证入口”身份上线，完成验证后收敛为当前主要 Stage-0 入口。
 
 ### 主要变化
 
@@ -1817,17 +1817,17 @@ Codex 侧的 `spec-first init` 现在也会生成 `/spec:*` 命令文件，和 C
 
 ---
 
-## 2026-04-08 `fix(mcp-setup+spec-bootstrap)`
+## 2026-04-08 `fix(mcp-setup+spec-graph-bootstrap)`
 
 ### 更新内容
 
-`mcp-setup` 和 `spec-bootstrap` 现在按当前宿主自适应处理 MCP 配置与就绪标记，Claude Code 和 Codex 会分别使用各自的配置文件与 `host-setup.json` 路径。
+`mcp-setup` 和 `spec-graph-bootstrap` 现在按当前宿主自适应处理 MCP 配置与就绪标记，Claude Code 和 Codex 会分别使用各自的配置文件与 `host-setup.json` 路径。
 
 ### 主要变化
 
 - `mcp-setup` 自动识别宿主并写入对应的 MCP 配置文件
 - `verify-tools.sh` 输出宿主字段与 v4 schema 的 `host-setup.json`
-- `spec-bootstrap` 按宿主选择 marker 和 `mcp list` 探针
+- `spec-graph-bootstrap` 按宿主选择 marker 和 `mcp list` 探针
 - unit tests 增加 Claude / Codex 双宿主覆盖
 
 ### 版本意义
@@ -1944,15 +1944,15 @@ Codex 侧的 `spec-first init` 现在也会生成 `/spec:*` 命令文件，和 C
 
 ### 版本意义
 
-这次迭代解决的不是单个 skill 的功能问题，而是 `spec-first` Full mode 的环境落地问题。它把 MCP 准备过程标准化之后，`spec-bootstrap` 等后续工作流就有了更低的使用门槛和更稳定的前置条件。
+这次迭代解决的不是单个 skill 的功能问题，而是 `spec-first` Full mode 的环境落地问题。它把 MCP 准备过程标准化之后，`spec-graph-bootstrap` 等后续工作流就有了更低的使用门槛和更稳定的前置条件。
 
 ---
 
-## 2026-03-31 `fix(spec-bootstrap)`
+## 2026-03-31 `fix(spec-graph-bootstrap)`
 
 ### 更新内容
 
-在 `spec-bootstrap` 首版上线后，围绕 review 反馈进行了一轮可靠性加固，重点补齐“上下文生成流程是否足够安全、可恢复、可验证”这条链路。
+在 `spec-graph-bootstrap` 首版上线后，围绕 review 反馈进行了一轮可靠性加固，重点补齐“上下文生成流程是否足够安全、可恢复、可验证”这条链路。
 
 ### 主要改进
 
@@ -1969,15 +1969,15 @@ Codex 侧的 `spec-first init` 现在也会生成 `/spec:*` 命令文件，和 C
 
 ### 版本意义
 
-这次修复说明 `spec-bootstrap` 已经从“能跑”推进到“可作为长期工作流底座来跑”。对于要把上下文文档持续沉淀到项目内的场景，这类可靠性补强比新增表面功能更关键。
+这次修复说明 `spec-graph-bootstrap` 已经从“能跑”推进到“可作为长期工作流底座来跑”。对于要把上下文文档持续沉淀到项目内的场景，这类可靠性补强比新增表面功能更关键。
 
 ---
 
-## 2026-03-31 `feat(spec-bootstrap)`
+## 2026-03-31 `feat(spec-graph-bootstrap)`
 
 ### 更新内容
 
-新增 `skills/spec-bootstrap`，把它定义为 `spec-first` 五阶段主流程之前的 Stage-0 支撑工作流。它负责分析目标项目，并在 `docs/contexts/<slug>/` 下生成可长期复用的项目上下文资产。
+新增 `skills/spec-graph-bootstrap`，把它定义为 `spec-first` 五阶段主流程之前的 Stage-0 支撑工作流。它负责分析目标项目，并在 `docs/contexts/<slug>/` 下生成可长期复用的项目上下文资产。
 
 ### 主要能力
 
@@ -1996,13 +1996,13 @@ Codex 侧的 `spec-first init` 现在也会生成 `/spec:*` 命令文件，和 C
 
 ### 交付物
 
-- `skills/spec-bootstrap/SKILL.md`
-- `skills/spec-bootstrap/references/prd-template.md`
-- `skills/spec-bootstrap/references/database-prd-template.md`
+- `skills/spec-graph-bootstrap/SKILL.md`
+- `skills/spec-graph-bootstrap/references/prd-template.md`
+- `skills/spec-graph-bootstrap/references/database-prd-template.md`
 
 ### 版本意义
 
-`spec-bootstrap` 的引入，补上了 `spec-first` 过去在“冷启动项目理解”上的空档。它不是新增一个普通 skill，而是在五阶段流程之前增加了一个可复用的项目上下文生产层，让后续每次需求分析都能站在更稳定的基础上开展。
+`spec-graph-bootstrap` 的引入，补上了 `spec-first` 过去在“冷启动项目理解”上的空档。它不是新增一个普通 skill，而是在五阶段流程之前增加了一个可复用的项目上下文生产层，让后续每次需求分析都能站在更稳定的基础上开展。
 
 ---
 
@@ -2010,7 +2010,7 @@ Codex 侧的 `spec-first init` 现在也会生成 `/spec:*` 命令文件，和 C
 
 这几个迭代串起来，可以看出 `spec-first` 当前版本的演进方向很明确：
 
-- 先用 `spec-bootstrap` 补齐项目上下文基础设施
+- 先用 `spec-graph-bootstrap` 补齐项目上下文基础设施
 - 再用 review 驱动的修复把这套基础设施做稳
 - 用 `mcp-setup` 把所需工具链安装配置标准化
 - 用 `lang-governance` 让语言和变更治理规则通过指令文件自动生效

@@ -45,7 +45,7 @@ origin: docs/02-架构设计/全局分析/2026-04-16-spec-first-CRG-统一开发
 
 补充说明：
 
-- 本次没有找到与该主题**精确等价**的 `docs/brainstorms/*-requirements.md`。最接近的历史输入是 `docs/brainstorms/2026-03-31-spec-bootstrap-requirements.md`，但它主要覆盖通用 `spec-bootstrap`，且其中部分控制面路径已过时，因此本计划以用户给定的统一执行清单为主输入，仅把该 brainstorm 文档作为历史背景参考。
+- 本次没有找到与该主题**精确等价**的 `docs/brainstorms/*-requirements.md`。最接近的历史输入是 `docs/brainstorms/2026-03-31-spec-graph-bootstrap-requirements.md`，但它主要覆盖通用 `spec-graph-bootstrap`，且其中部分控制面路径已过时，因此本计划以用户给定的统一执行清单为主输入，仅把该 brainstorm 文档作为历史背景参考。
 - Stage-0 预载可用，但 `freshness.json` 当前为 `stale`，说明它可用于架构与路径研究，不可作为“当前图状态已新鲜”的验收依据。
 
 ## Requirements Trace
@@ -668,7 +668,7 @@ flowchart TB
 - Modify: `skills/spec-plan/SKILL.md`
 - Modify: `skills/spec-work/SKILL.md`
 - Modify: `skills/spec-review/SKILL.md`
-- Modify: `skills/spec-bootstrap/SKILL.md`
+- Modify: `skills/spec-graph-bootstrap/SKILL.md`
 - Modify: `skills/spec-graph-bootstrap/SKILL.md`
 - Modify: `src/cli/adapters/codex.js`
 - Modify: `src/cli/plugin.js`
@@ -690,7 +690,7 @@ flowchart TB
 - `loader.js` / preload helper 的读取边界要同步收紧：三主文件从 `.spec-first/workflows/bootstrap/<slug>/` 真实读取并校验；不允许继续把它们当成“由调用方传进来的隐式内存对象”。
 - 抽出统一 preload helper，由 `spec-plan / spec-work / spec-review` 共享 `evaluateContextForRepo()`、asset load、telemetry 记录和 fallback 结果解释。
 - 对 Claude wrapper、Codex adapter、workflow SKILL 三层入口做同一 contract 收敛，避免只更新 `skills/` 造成 host 级漂移。
-- `skills/spec-bootstrap/SKILL.md` 与 `skills/spec-graph-bootstrap/SKILL.md` 在本单元只做 Stage-0 contract、产物命名和说明文案对齐，不把 bootstrap workflow 本身纳入 Wave 3 主链统一范围。
+- `skills/spec-graph-bootstrap/SKILL.md` 与 `skills/spec-graph-bootstrap/SKILL.md` 在本单元只做 Stage-0 contract、产物命名和说明文案对齐，不把 bootstrap workflow 本身纳入 Wave 3 主链统一范围。
 - 统一 workspace loader 与单仓 loader 的 slug 解析、fallback reason、level 语义与状态表达。
 - `context-routing.json` 与 `injection-index.yaml` 的解释边界在本单元锁死：
   - evaluator / preload helper 只读取 `context-routing.json`。
@@ -972,5 +972,5 @@ flowchart TB
 - **Origin document:** `docs/02-架构设计/全局分析/2026-04-16-spec-first-CRG-统一开发执行清单.md`
 - Related background: `docs/02-架构设计/全局分析/2026-04-16-crg-代码数据索引基座全局审查与优化方案.md`
 - Related background: `docs/02-架构设计/全局分析/2026-04-16-bootstrap-全景分析.md`
-- Historical requirements context: `docs/brainstorms/2026-03-31-spec-bootstrap-requirements.md`
+- Historical requirements context: `docs/brainstorms/2026-03-31-spec-graph-bootstrap-requirements.md`
 - Institutional learning: `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`

@@ -464,7 +464,7 @@ Phase 1 结束前，必须新增一份稳定 handoff artifact，建议位置：
 - `skills/spec-plan/SKILL.md`
 - `skills/spec-work/SKILL.md`
 - `skills/spec-review/SKILL.md`
-- `skills/spec-bootstrap/SKILL.md`
+- `skills/spec-graph-bootstrap/SKILL.md`
 - `skills/spec-graph-bootstrap/SKILL.md`
 - `src/cli/adapters/codex.js`
 - `src/cli/plugin.js`

@@ -1,9 +1,9 @@
-# spec-bootstrap 深度审查与优化方案
+# spec-graph-bootstrap 深度审查与优化方案
 
 > 审查时间: 2026-04-01
-> 审查对象: `skills/spec-bootstrap/SKILL.md`、`skills/spec-bootstrap/references/prd-template.md`、`skills/spec-bootstrap/references/database-prd-template.md`
-> 参考工件: `templates/claude/commands/spec/bootstrap.md`、`docs/plans/2026-03-31-spec-bootstrap-design.md`、`tests/smoke/cli.sh`
-> 审查目标: 评估 `spec-bootstrap` 的 prompt 契约质量、执行可靠性和后续优化优先级
+> 审查对象: `skills/spec-graph-bootstrap/SKILL.md`、`skills/spec-graph-bootstrap/references/prd-template.md`、`skills/spec-graph-bootstrap/references/database-prd-template.md`
+> 参考工件: `templates/claude/commands/spec/graph-bootstrap.md`、`docs/plans/2026-03-31-spec-graph-bootstrap-design.md`、`tests/smoke/cli.sh`
+> 审查目标: 评估 `spec-graph-bootstrap` 的 prompt 契约质量、执行可靠性和后续优化优先级
 
 ---
 
@@ -11,7 +11,7 @@
 
 ### 1.1 总体判断
 
-`spec-bootstrap` 的核心设计是成立的，且已经具备较强的工程约束：
+`spec-graph-bootstrap` 的核心设计是成立的，且已经具备较强的工程约束：
 
 - 三阶段编排清晰：Phase 1 分析，Phase 2 写 PRD，Phase 3 分发 worker
 - 文件所有权边界明确：worker 只写各自持有的上下文文件
@@ -38,7 +38,7 @@
 
 ### 1.3 审查边界
 
-本报告基于当前仓库静态工件交叉审查，不包含一次真实 `/spec:bootstrap` 运行的端到端实测。
+本报告基于当前仓库静态工件交叉审查，不包含一次真实 `/spec:graph-bootstrap` 运行的端到端实测。
 
 因此，本文将问题分为两类：
 
@@ -53,8 +53,8 @@
 
 **位置**
 
-- `skills/spec-bootstrap/SKILL.md` §3.2
-- `docs/plans/2026-03-31-spec-bootstrap-design.md` §执行模型
+- `skills/spec-graph-bootstrap/SKILL.md` §3.2
+- `docs/plans/2026-03-31-spec-graph-bootstrap-design.md` §执行模型
 
 **现状**
 
@@ -107,7 +107,7 @@ If a worker exceeds 20 minutes, treat it as failed and apply Phase 3.4.
 
 **位置**
 
-- `skills/spec-bootstrap/references/prd-template.md` §Acceptance Criteria
+- `skills/spec-graph-bootstrap/references/prd-template.md` §Acceptance Criteria
 
 **现状**
 
@@ -152,8 +152,8 @@ Before reporting completion, verify:
 
 **位置**
 
-- `skills/spec-bootstrap/SKILL.md` §1.3、§1.5、§3.3
-- `skills/spec-bootstrap/references/database-prd-template.md` §2.4、§3.1
+- `skills/spec-graph-bootstrap/SKILL.md` §1.3、§1.5、§3.3
+- `skills/spec-graph-bootstrap/references/database-prd-template.md` §2.4、§3.1
 
 **现状**
 
@@ -186,7 +186,7 @@ Before reporting completion, verify:
 
 **位置**
 
-- `skills/spec-bootstrap/SKILL.md` Phase 2 与 Phase 3 之间
+- `skills/spec-graph-bootstrap/SKILL.md` Phase 2 与 Phase 3 之间
 
 **原因**
 
@@ -217,7 +217,7 @@ Before dispatching a worker, verify:
 
 **位置**
 
-- `skills/spec-bootstrap/references/database-prd-template.md` §2.2
+- `skills/spec-graph-bootstrap/references/database-prd-template.md` §2.2
 
 **现状**
 
@@ -246,7 +246,7 @@ Before dispatching a worker, verify:
 
 **位置**
 
-- `skills/spec-bootstrap/references/prd-template.md`
+- `skills/spec-graph-bootstrap/references/prd-template.md`
 
 **原因**
 
@@ -270,7 +270,7 @@ Before dispatching a worker, verify:
 
 **价值**
 
-`spec-bootstrap` 已经沉淀出一套很值得复用的 prompt 工程模式：
+`spec-graph-bootstrap` 已经沉淀出一套很值得复用的 prompt 工程模式：
 
 1. **PRD Task Contract**: 主控生成任务合同，worker 只消费合同
 2. **File Ownership Boundary**: 用输出文件边界替代口头职责边界
@@ -296,11 +296,11 @@ Before dispatching a worker, verify:
 
 不成立。
 
-原因是 `spec-bootstrap` 从设计上就是跨宿主平台的 supporting workflow：
+原因是 `spec-graph-bootstrap` 从设计上就是跨宿主平台的 supporting workflow：
 
-- `skills/spec-bootstrap/SKILL.md` 同时声明 Claude 与 Codex 入口
-- `templates/claude/commands/spec/bootstrap.md` 只是 Claude 命令入口，不是 skill 主契约
-- `docs/plans/2026-03-31-spec-bootstrap-design.md` 明确写了当前设计“不做 platform gating”
+- `skills/spec-graph-bootstrap/SKILL.md` 同时声明 Claude 与 Codex 入口
+- `templates/claude/commands/spec/graph-bootstrap.md` 只是 Claude 命令入口，不是 skill 主契约
+- `docs/plans/2026-03-31-spec-graph-bootstrap-design.md` 明确写了当前设计“不做 platform gating”
 
 因此，最合理的方向是补“平台无关的 dispatch contract”，而不是写死某个宿主 API。
 
@@ -319,9 +319,9 @@ Before dispatching a worker, verify:
 
 超出审查边界。
 
-本报告只审查了 `spec-bootstrap` 相关工件，不应对“所有 skill”下全局判断。更准确的表述应该是：
+本报告只审查了 `spec-graph-bootstrap` 相关工件，不应对“所有 skill”下全局判断。更准确的表述应该是：
 
-> `spec-bootstrap` 及其当前命令入口，符合命令入口与 skill 主契约分层的设计方向。
+> `spec-graph-bootstrap` 及其当前命令入口，符合命令入口与 skill 主契约分层的设计方向。
 
 ### 4.4 无证据的业界对标和“唯一性”表述
 
@@ -345,7 +345,7 @@ Before dispatching a worker, verify:
 
 1. 在 `SKILL.md` 增加平台无关的 `Worker Dispatch Contract`
 2. 在 `prd-template.md` 增加简短 `Self-Check`
-3. 统一 `spec-bootstrap` 相关文档的语言和状态标记样式
+3. 统一 `spec-graph-bootstrap` 相关文档的语言和状态标记样式
 
 ### 第二批: 提升输出稳定性
 
@@ -362,7 +362,7 @@ Before dispatching a worker, verify:
 
 ## 六、总结
 
-`spec-bootstrap` 当前更准确的评价是：
+`spec-graph-bootstrap` 当前更准确的评价是：
 
 - **设计层面已经成熟**
 - **执行层面已经可用**
@@ -376,4 +376,4 @@ Before dispatching a worker, verify:
 2. 用少量文档增强来提高 worker 一致性，而不是重写整体执行模型
 3. 优先补强平台无关 dispatch contract、自检提示、语言统一和 PRD 质量门
 
-按这个路径推进，能在不破坏现有设计边界的前提下，明显提高 `spec-bootstrap` 的 prompt 稳定性和复用价值。
+按这个路径推进，能在不破坏现有设计边界的前提下，明显提高 `spec-graph-bootstrap` 的 prompt 稳定性和复用价值。

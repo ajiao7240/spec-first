@@ -62,7 +62,7 @@
   - `.claude-plugin/plugin.json`
   - `README.md`
   - `skills/spec-mcp-setup/SKILL.md`
-  - `skills/spec-bootstrap/SKILL.md`
+  - `skills/spec-graph-bootstrap/SKILL.md`
   - `skills/setup/SKILL.md`
   - `docs/contracts/dual-host-governance/README.md`
   - `src/cli/contracts/dual-host-governance/*.json`（machine-readable runtime truth source）
@@ -78,7 +78,7 @@
 - 执行回写：
   - `T00`：已新增 `docs/contracts/dual-host-governance/README.md`，明确 Codex 不再生成 `.codex/commands/spec/*`，并落文治理枚举与 filtered asset set contract
   - `T01`：已在 `src/cli/adapters/codex.js`、`src/cli/index.js`、`tests/smoke/cli.sh` 收口 Codex 产品面与清理链路
-  - `T16`：已在 `.claude-plugin/plugin.json`、`README.md`、`skills/spec-mcp-setup/SKILL.md`、`skills/spec-bootstrap/SKILL.md`、`skills/setup/SKILL.md` 同步外层 copy
+  - `T16`：已在 `.claude-plugin/plugin.json`、`README.md`、`skills/spec-mcp-setup/SKILL.md`、`skills/spec-graph-bootstrap/SKILL.md`、`skills/setup/SKILL.md` 同步外层 copy
   - 验证：`npx jest tests/unit/dual-host-governance-contracts.test.js --runInBand` 通过；`npm run test:smoke` 通过
 
 ### 包 B：`spec-mcp-setup` 收口与残余缺口复核
@@ -238,17 +238,17 @@
 - 覆盖任务：`T15`
 - 状态：`已完成（2026-04-16，分支 feat/sync-compound-core-workflow-updates）`
 - 目标：
-  - 把 `spec-bootstrap` 改成与 `spec-plan/spec-work/spec-review` 一致的 Stage-0 叙事
+  - 把 `spec-graph-bootstrap` 改成与 `spec-plan/spec-work/spec-review` 一致的 Stage-0 叙事
 - 主要文件：
-  - `skills/spec-bootstrap/SKILL.md`
+  - `skills/spec-graph-bootstrap/SKILL.md`
 - 依赖：包 A
 - 验收：
   - 不再自相矛盾
   - 不夸大为“已自动注入主工作流”
 - 执行回写：
-  - `T15`：经代码复核，`skills/spec-bootstrap/SKILL.md` 已明确声明其是 `Stage-0 supporting workflow`，且“不是第六阶段”“自动注入是未来能力”
-  - 为防回流，已新增 `tests/unit/spec-bootstrap-contracts.test.js`
-  - 验证：`npx jest tests/unit/spec-bootstrap-contracts.test.js --runInBand` 通过（`1/1`）
+  - `T15`：经代码复核，`skills/spec-graph-bootstrap/SKILL.md` 已明确声明其是 `Stage-0 supporting workflow`，且“不是第六阶段”“自动注入是未来能力”
+  - 为防回流，已新增 `tests/unit/spec-graph-bootstrap-contracts.test.js`
+  - 验证：`npx jest tests/unit/spec-graph-bootstrap-contracts.test.js --runInBand` 通过（`1/1`）
 
 ### 包 J：文档尾注、reference、镜像刷新
 
@@ -536,7 +536,7 @@
   - 复核与实现口径显式参照 `T00` contract
   - 验证口径与脚本现实一致
 
-### T15 `spec-bootstrap` 叙事统一
+### T15 `spec-graph-bootstrap` 叙事统一
 
 - 来源：整改清单 `4.15`
 - 优先级：`P1`
@@ -545,7 +545,7 @@
   - 统一 Stage-0 叙事，不夸大自动注入
 - 依赖：T01
 - 输出：
-  - `spec-bootstrap` 与主 workflow 叙事一致
+  - `spec-graph-bootstrap` 与主 workflow 叙事一致
 
 ### T16 打包与公开文档 copy 收口
 

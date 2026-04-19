@@ -77,7 +77,7 @@ Config: ✅
 Run the current host's setup entrypoint anytime to re-check.
 ```
 
-If the user also needs MCP-backed workflows such as `spec-bootstrap Enhanced mode`, Serena-backed symbol editing, or Context7 lookup, append:
+If the user also needs MCP-backed workflows such as `spec-graph-bootstrap` Enhanced mode, Serena-backed symbol editing, or Context7 lookup, append:
 
 `Next: run the current host's mcp-setup entrypoint`
 

@@ -227,14 +227,14 @@ Repomix 的长处非常明确：
 
 **Stage-0 的核心价值，不应该是生成一套文档，而应该是成为后续任务的最小上下文分发底座。**
 
-## 4.3 DeepWiki / graphify / spec-bootstrap：核心启发是“人类可读知识层 + 渐进披露”
+## 4.3 DeepWiki / graphify / spec-graph-bootstrap：核心启发是“人类可读知识层 + 渐进披露”
 
 来源：
 
 - https://docs.devin.ai/release-notes/2025
 - https://deepwiki.com/
 - [graphify/ARCHITECTURE.md](../../../graphify/ARCHITECTURE.md)
-- [skills/spec-bootstrap/SKILL.md](../../skills/spec-bootstrap/SKILL.md)
+- [skills/spec-graph-bootstrap/SKILL.md](../../skills/spec-graph-bootstrap/SKILL.md)
 
 这一类方案强调的是：
 
@@ -243,7 +243,7 @@ Repomix 的长处非常明确：
 - 明确证据等级和不确定性
 - 把 durable context files 当作长期资产维护
 
-这类思路和 `spec-bootstrap` 的方向非常一致，也和 `graphify` 的 “one-page map + deeper graph query” 很接近。
+这类思路和 `spec-graph-bootstrap` 的方向非常一致，也和 `graphify` 的 “one-page map + deeper graph query” 很接近。
 
 它们的启发是：
 

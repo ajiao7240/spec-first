@@ -2,7 +2,7 @@
 
 ## 概述
 
-这些模式不是 spec-bootstrap 独有的实现细节，而是从它的执行方式里提炼出来的通用工作流规范。它们的价值在于把“默认会这么做”的经验写成可引用、可复用、可审查的规则。
+这些模式不是 spec-graph-bootstrap 独有的实现细节，而是从它的执行方式里提炼出来的通用工作流规范。它们的价值在于把“默认会这么做”的经验写成可引用、可复用、可审查的规则。
 
 ## 1. PRD Task Contract
 
@@ -22,9 +22,9 @@
 
 ### 实现示例
 
-- `skills/spec-bootstrap/SKILL.md` 的 Phase 2 PRD 生成流程
+- `skills/spec-graph-bootstrap/SKILL.md` 的 Phase 2 PRD 生成流程
 - `.spec-first/workflows/bootstrap/<slug>/tasks/<task-id>/prd.md`
-- `skills/spec-bootstrap/references/prd-template.md`
+- `skills/spec-graph-bootstrap/references/prd-template.md`
 
 ## 2. File Ownership Boundary
 
@@ -44,9 +44,9 @@
 
 ### 实现示例
 
-- `skills/spec-bootstrap/SKILL.md` 的 `### 3.1 File Ownership Rules`
-- `skills/spec-bootstrap/references/prd-template.md` 的 `Files to Fill`
-- `skills/spec-bootstrap/references/database-prd-template.md` 的 `Files to Fill`
+- `skills/spec-graph-bootstrap/SKILL.md` 的 `### 3.1 File Ownership Rules`
+- `skills/spec-graph-bootstrap/references/prd-template.md` 的 `Files to Fill`
+- `skills/spec-graph-bootstrap/references/database-prd-template.md` 的 `Files to Fill`
 
 ## 3. Conditional Generation
 
@@ -66,9 +66,9 @@
 
 ### 实现示例
 
-- `skills/spec-bootstrap/SKILL.md` 的 Phase 1 layer detection
-- `skills/spec-bootstrap/SKILL.md` 的 `database-context` 条件触发
-- `skills/spec-bootstrap/references/prd-template.md` 的 `Context` 填充规则
+- `skills/spec-graph-bootstrap/SKILL.md` 的 Phase 1 layer detection
+- `skills/spec-graph-bootstrap/SKILL.md` 的 `database-context` 条件触发
+- `skills/spec-graph-bootstrap/references/prd-template.md` 的 `Context` 填充规则
 
 ## 4. Multi-Level Degradation
 
@@ -88,9 +88,9 @@
 
 ### 实现示例
 
-- `skills/spec-bootstrap/SKILL.md` 的 Analysis Mode Detection
-- `skills/spec-bootstrap/SKILL.md` 的 Database Configuration Detection
-- `skills/spec-bootstrap/references/database-prd-template.md` 的 DB access level 标记
+- `skills/spec-graph-bootstrap/SKILL.md` 的 Analysis Mode Detection
+- `skills/spec-graph-bootstrap/SKILL.md` 的 Database Configuration Detection
+- `skills/spec-graph-bootstrap/references/database-prd-template.md` 的 DB access level 标记
 
 ## 5. Failure Recovery
 
@@ -110,9 +110,9 @@
 
 ### 实现示例
 
-- `skills/spec-bootstrap/SKILL.md` 的 R20 backup policy
-- `skills/spec-bootstrap/SKILL.md` 的 `### 3.4 Assembly`
-- `skills/spec-bootstrap/SKILL.md` 中对 `summary-context` 和其他 worker 的不同恢复策略
+- `skills/spec-graph-bootstrap/SKILL.md` 的 R20 backup policy
+- `skills/spec-graph-bootstrap/SKILL.md` 的 `### 3.4 Assembly`
+- `skills/spec-graph-bootstrap/SKILL.md` 中对 `summary-context` 和其他 worker 的不同恢复策略
 
 ## 跨工作流引用
 
@@ -120,6 +120,6 @@
 
 - `spec-review` 可以引用 `Failure Recovery` 和 `File Ownership Boundary` 来定义复审边界
 - `spec-work` 可以引用 `PRD Task Contract` 来约束 worker 的输入输出
-- `spec-bootstrap` 之外的文档化流程也可以复用 `Conditional Generation` 和 `Multi-Level Degradation`
+- `spec-graph-bootstrap` 之外的文档化流程也可以复用 `Conditional Generation` 和 `Multi-Level Degradation`
 
 它们的作用是把已经验证过的执行方式沉淀为可复用规范，而不是只留在某一个 skill 的提示词里。

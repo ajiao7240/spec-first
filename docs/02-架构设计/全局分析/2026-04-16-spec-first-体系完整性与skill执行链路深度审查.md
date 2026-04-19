@@ -233,7 +233,7 @@ Claude/Codex runtime assets      .spec-first/graph/*
 - `review -> spec-review`
 - `compound -> spec-compound`
 - `sessions -> spec-sessions`
-- `bootstrap -> spec-bootstrap`（当前代码里仍存在，但按产品演进定位应视为历史兼容入口，不纳入后续优化主轴）
+- `bootstrap -> spec-graph-bootstrap`（当前代码里仍存在，但按产品演进定位应视为历史兼容入口，不纳入后续优化主轴）
 - `graph-bootstrap -> spec-graph-bootstrap`
 - `mcp-setup -> spec-mcp-setup`
 - `update -> spec-update`
@@ -653,7 +653,7 @@ spec-first init
 
 这是当前上下文控制面最真实的不足。
 
-这里讨论的是 `spec-graph-bootstrap` 所依赖的 Stage-0 编译链，不针对历史 `spec-bootstrap` skill 本身。
+这里讨论的是 `spec-graph-bootstrap` 所依赖的 Stage-0 编译链，不针对历史 `spec-graph-bootstrap` skill 本身。
 
 代码事实：
 

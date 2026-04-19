@@ -1,13 +1,13 @@
 ---
 date: 2026-04-02
-topic: spec-bootstrap-v2
+topic: spec-graph-bootstrap-v2
 ---
 
-# spec-bootstrap v2 需求
+# spec-graph-bootstrap v2 需求
 
 ## Problem Frame
 
-`spec-bootstrap v1` 能生成理解类上下文（summary、architecture、pitfalls、layers、database），但不包含研发质量资产：没有独立的规则层（什么不能写错）、没有独立的模式层（最该抄什么）、没有决策层（为什么这样做）。缺少这些资产导致后续节点无法直接定位"什么不能写错"和"最该抄什么"，被迫从零推断，原创比例居高不下，同时面临低一致性和易踩规则坑的问题。
+`spec-graph-bootstrap v1` 能生成理解类上下文（summary、architecture、pitfalls、layers、database），但不包含研发质量资产：没有独立的规则层（什么不能写错）、没有独立的模式层（最该抄什么）、没有决策层（为什么这样做）。缺少这些资产导致后续节点无法直接定位"什么不能写错"和"最该抄什么"，被迫从零推断，原创比例居高不下，同时面临低一致性和易踩规则坑的问题。
 
 v2 的目标是重写 `SKILL.md`，在不向下兼容 v1 的前提下，将 Stage-0 升级为能稳定生产研发质量资产的工具。
 

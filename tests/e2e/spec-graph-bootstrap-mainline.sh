@@ -17,6 +17,7 @@ node <<'NODE'
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
 const { runBootstrap } = require('./src/bootstrap-compiler/run-bootstrap');
 const { evaluateContextForRepo } = require('./src/context-routing/evaluator');
@@ -24,6 +25,25 @@ const { recordWorkflowTelemetry } = require('./src/context-routing/telemetry');
 
 const repoRoot = process.env.BOOTSTRAP_TEST_REPO;
 const generatedAt = '2026-04-15T00:00:00.000Z';
+
+fs.mkdirSync(path.join(repoRoot, 'src'), { recursive: true });
+fs.writeFileSync(path.join(repoRoot, 'package.json'), JSON.stringify({
+  name: 'bootstrap-e2e-fixture',
+  version: '1.0.0',
+  type: 'commonjs',
+}, null, 2));
+fs.writeFileSync(path.join(repoRoot, 'src', 'index.js'), [
+  '\'use strict\';',
+  '',
+  'function greet(name) {',
+  '  return `hello ${name}`;',
+  '}',
+  '',
+  'module.exports = { greet };',
+  '',
+].join('\n'));
+execFileSync('git', ['init'], { cwd: repoRoot, stdio: 'ignore' });
+execFileSync('git', ['add', 'package.json', 'src/index.js'], { cwd: repoRoot, stdio: 'ignore' });
 
 const result = runBootstrap({ repoRoot, generatedAt });
 if (result.status !== 'complete') {

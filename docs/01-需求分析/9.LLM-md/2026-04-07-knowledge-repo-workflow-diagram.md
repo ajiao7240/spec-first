@@ -59,7 +59,7 @@
          spec-docs/                                                          │
            └── <slug>/                                                       │
                ├── README.md (slug/project-path/created-at…)                │
-               ├── contexts/     ← Phase 2 spec-bootstrap 写入               │
+               ├── contexts/     ← Phase 2 spec-graph-bootstrap 写入               │
                └── solutions/    ← Phase 2 spec-compound 写入                │
 
 
@@ -71,7 +71,7 @@
                          │
           ┌──────────────┴──────────────┐
           ▼                             ▼
-   [spec-bootstrap]              [spec-compound]
+   [spec-graph-bootstrap]              [spec-compound]
     项目结构大改后触发            每次解决问题后触发
           │                             │
           ▼                             ▼
@@ -90,7 +90,7 @@
   frontmatter:                     source_commit /
     slug / source_commit /         created_at / updated_at
     updated_at /
-    generated_by: spec-bootstrap
+    generated_by: spec-graph-bootstrap
            │                             │
            └──────────────┬──────────────┘
                           ▼
@@ -130,7 +130,7 @@
   WARNING: 知识库未配置  │  知识不足时的回退策略   │
   使用 in-repo docs/    ├────────────────────────┤
   (当前行为保持不变)     │ contexts/缺失 → 提示运行  │
-                        │   spec-bootstrap        │
+                        │   spec-graph-bootstrap        │
                         │ solutions/缺失 → 静默跳过 │
                         │ docs-local.json失效 →   │
                         │   WARNING+降级in-repo   │
@@ -143,7 +143,7 @@
   │ spec-plan     │ contexts/(项目理解) + solutions/(相似问题经验)  │
   │ spec-work     │ contexts/pitfalls/ + solutions/(相关经验)      │
   │ spec-review   │ contexts/architecture/ + solutions/(已知模式)  │
-  │ spec-bootstrap│ 写入 contexts/ (生产方，不读)                  │
+  │ spec-graph-bootstrap│ 写入 contexts/ (生产方，不读)                  │
   │ spec-compound │ 写入 solutions/ (生产方，不读)                 │
   └───────────────┴───────────────────────────────────────────────┘
 
@@ -173,7 +173,7 @@
           │     否 → WARNING: 建议重跑 init                    │
           │                                                   │
           │  5. contexts/00-summary.md 存在?                  │
-          │     否 → INFO: 建议运行 spec-bootstrap             │
+          │     否 → INFO: 建议运行 spec-graph-bootstrap             │
           │                                                   │
           │  6. 陈旧检测 (Phase 1 轻量)                        │
           │     source_commit = 00-summary.md frontmatter     │
@@ -191,7 +191,7 @@
  │  五、知识生命周期（全貌）                                                  │
  └─────────────────────────────────────────────────────────────────────────┘
 
-   spec-bootstrap/compound
+   spec-graph-bootstrap/compound
     写入 contexts/solutions/
           │
           ▼
@@ -217,7 +217,7 @@
      │                         │
     新鲜                     陈旧
      │                         │
-    继续使用              提示重跑 spec-bootstrap
+    继续使用              提示重跑 spec-graph-bootstrap
                           或更新 solution
                                │
                     ┌──────────┴──────────────┐
@@ -239,7 +239,7 @@
   ┌─────────────┐        ┌─────────────┐      ┌─────────────┐  ┌─────────────┐
   │ CLI基座      │───────►│ 产出接入     │─────►│ 消费接入    │─►│ 维护增强    │
   ├─────────────┤        ├─────────────┤      ├─────────────┤  ├─────────────┤
-  │docs-config.js│       │spec-bootstrap│      │spec-plan    │  │ stale标记   │
+  │docs-config.js│       │spec-graph-bootstrap│      │spec-plan    │  │ stale标记   │
   │workspace.js  │       │  写contexts/ │      │spec-work    │  │ compound-   │
   │state.js扩展  │       │spec-compound │      │spec-review  │  │  refresh    │
   │init.js扩展   │       │  写solutions/│      │  读知识库   │  │ _shared/    │

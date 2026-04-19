@@ -12,7 +12,7 @@ focus: 输出连载博客
 
 当前文档结构也支持“连续内容”而不是零散说明：`docs/05-用户手册/` 适合讲使用路径，`docs/08-版本更新/` 适合讲迭代故事，`docs/09-业界借鉴/` 已经形成外部知识输入索引，`docs/brainstorms/`、`docs/plans/`、`docs/solutions/` 则能把“想法 - 方案 - 修复 - 复盘”串成一条内容链。
 
-最近几次更新给出了很好的博客切面：`mcp-setup` 解决环境落地门槛，`lang-governance` 把语言与 Changelog 规则写进治理层，`version-reminder` 让工具具备自我提醒能力，`spec-bootstrap` 则把项目上下文生产和可靠性加固做成了 Stage-0 底座。再加上最近的解决方案文档里已经出现 Bash 3.2 兼容、MCP MySQL 一致性校验、PRD/worker 契约与失败恢复这些具体坑点，说明这个项目非常适合写成“工程化演进”的连载，而不是抽象的理念散文。
+最近几次更新给出了很好的博客切面：`mcp-setup` 解决环境落地门槛，`lang-governance` 把语言与 Changelog 规则写进治理层，`version-reminder` 让工具具备自我提醒能力，`spec-graph-bootstrap` 则把项目上下文生产和可靠性加固做成了 Stage-0 底座。再加上最近的解决方案文档里已经出现 Bash 3.2 兼容、MCP MySQL 一致性校验、PRD/worker 契约与失败恢复这些具体坑点，说明这个项目非常适合写成“工程化演进”的连载，而不是抽象的理念散文。
 
 ## Ranked Ideas
 
@@ -32,8 +32,8 @@ focus: 输出连载博客
 **Complexity:** Medium
 **Status:** Unexplored
 
-### 3. Stage-0 的真正价值：`spec-bootstrap` 如何把上下文生产成底座
-**Description:** 以 `spec-bootstrap` 为主线，讲它如何把项目理解、层识别、数据库判断、PRD 合同、worker 分工和后续扩展变成可复用资产。
+### 3. Stage-0 的真正价值：`spec-graph-bootstrap` 如何把上下文生产成底座
+**Description:** 以 `spec-graph-bootstrap` 为主线，讲它如何把项目理解、层识别、数据库判断、PRD 合同、worker 分工和后续扩展变成可复用资产。
 **Rationale:** 这是项目最有方法论味道的内容之一，也最容易形成“每篇一个真实问题”的连续专栏。
 **Downsides:** 需要读者接受“上下文先于实现”的思路，前几篇门槛略高。
 **Confidence:** 93%
@@ -65,7 +65,7 @@ focus: 输出连载博客
 **Status:** Unexplored
 
 ### 7. 可靠性不是附加题：从 Host Readiness Gate 到原子恢复
-**Description:** 用 `spec-bootstrap` 的加固、备份恢复、一致性校验、失败回滚和 Bash 兼容问题，讲一个 AI 工程工作流为什么必须把可靠性当主线。
+**Description:** 用 `spec-graph-bootstrap` 的加固、备份恢复、一致性校验、失败回滚和 Bash 兼容问题，讲一个 AI 工程工作流为什么必须把可靠性当主线。
 **Rationale:** 这类内容很适合写成“工程底线”系列，能把项目从“会用”拉到“能长期运行”。
 **Downsides:** 主题偏技术，传播面可能不如“从 Vibe Coding 到工程系统”大。
 **Confidence:** 89%
@@ -75,7 +75,7 @@ focus: 输出连载博客
 ## Recommended Serial Order
 
 1. 从 Vibe Coding 到工程系统：Spec-First 的完整演进叙事
-2. Stage-0 的真正价值：`spec-bootstrap` 如何把上下文生产成底座
+2. Stage-0 的真正价值：`spec-graph-bootstrap` 如何把上下文生产成底座
 3. 冷启动到可用：`mcp-setup` + `doctor` + `init` 的首次成功路径
 4. 把治理写进工具：语言策略、Changelog 铁律和版本提醒
 5. 可靠性不是附加题：从 Host Readiness Gate 到原子恢复

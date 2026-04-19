@@ -257,7 +257,7 @@
 5. `spec-debug`
 6. `spec-review`
 7. `spec-compound`
-8. `spec-bootstrap`
+8. `spec-graph-bootstrap`
 9. `spec-graph-bootstrap`
 10. `spec-mcp-setup`
 11. `spec-sessions`
@@ -429,7 +429,7 @@ decide(request):
 
   # 分叉 4:知识建库 vs 代码生产
   if isContextBuildingGoal(request):
-    return routeAmong(spec_bootstrap, spec_graph_bootstrap, spec_compound)
+    return routeAmong(spec_graph_bootstrap, spec_graph_bootstrap, spec_compound)
 
   # 分叉 5:WHAT vs HOW vs DO
   scopeClarity = assessScopeClarity(request)

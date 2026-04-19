@@ -5,7 +5,7 @@
       "id": "serena",
       "name": "Serena",
       "category": "required",
-      "description": "符号级精确编辑引擎，spec-bootstrap Full/Enhanced mode 必需",
+      "description": "符号级精确编辑引擎，spec-graph-bootstrap Full/Enhanced mode 必需",
       "dependencies": ["uv"],
       "mcp_config": {
         "command": "uvx",

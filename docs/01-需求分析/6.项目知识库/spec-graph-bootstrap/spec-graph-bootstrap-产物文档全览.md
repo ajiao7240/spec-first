@@ -1,8 +1,8 @@
-# spec-bootstrap 产物文档全览（v1 历史版）
+# spec-graph-bootstrap 产物文档全览（v1 历史版）
 
-> 本文记录 `spec-bootstrap` v1 的产物模型。
+> 本文记录 `spec-graph-bootstrap` v1 的产物模型。
 > 当前知识库已补充 v2 方案，v2 不再只关注“项目认知文档”，而是升级为“研发质量资产”模型。
-> 参考来源：`skills/spec-bootstrap/SKILL.md`、`references/prd-template.md`、`references/database-prd-template.md`
+> 参考来源：`skills/spec-graph-bootstrap/SKILL.md`、`references/prd-template.md`、`references/database-prd-template.md`
 
 ---
 
@@ -12,11 +12,11 @@
 
 | 目的 | 建议阅读 |
 |------|----------|
-| 快速了解 v2 的完整主方案 | `spec-bootstrap-v2-总体方案.md` |
-| 了解 v1 当前模型 | `spec-bootstrap-产物文档全览.md`（本文） |
-| 了解 v2 为什么要升级、升级边界和优先级 | `spec-bootstrap-v2-演进决策稿.md` |
-| 了解 v2 目标态产物模型 | `spec-bootstrap-v2-产物清单明细表.md` |
-| 了解 v2 worker 与 PRD 合同升级 | `spec-bootstrap-v2-worker-任务拆分与PRD模板升级稿.md` |
+| 快速了解 v2 的完整主方案 | `spec-graph-bootstrap-v2-总体方案.md` |
+| 了解 v1 当前模型 | `spec-graph-bootstrap-产物文档全览.md`（本文） |
+| 了解 v2 为什么要升级、升级边界和优先级 | `spec-graph-bootstrap-v2-演进决策稿.md` |
+| 了解 v2 目标态产物模型 | `spec-graph-bootstrap-v2-产物清单明细表.md` |
+| 了解 v2 worker 与 PRD 合同升级 | `spec-graph-bootstrap-v2-worker-任务拆分与PRD模板升级稿.md` |
 
 ### v1 与 v2 的关系
 
@@ -30,7 +30,7 @@
 ### 当前状态说明
 
 - 本文保留为 **v1 历史版全览**
-- 若后续要继续演进 `spec-bootstrap`，应以 v2 文档为主
+- 若后续要继续演进 `spec-graph-bootstrap`，应以 v2 文档为主
 - 若需要对照 v1 和 v2 的变化，建议先读本文，再读 v2 产物清单
 
 ---
@@ -50,7 +50,7 @@ docs/contexts/<slug>/          ← 长期资产（持久保留、可提交版本
 
 | 文件 | 负责方 | 内容 |
 |------|--------|------|
-| `README.md` | Orchestrator（串行写入） | 含 `<!-- spec-bootstrap -->` 标记、生成时间戳、所有产物的导航索引。Orchestrator 在全部 worker 完成后统一写入，不允许 worker 写 |
+| `README.md` | Orchestrator（串行写入） | 含 `<!-- spec-graph-bootstrap -->` 标记、生成时间戳、所有产物的导航索引。Orchestrator 在全部 worker 完成后统一写入，不允许 worker 写 |
 | `00-summary.md` | summary-context worker | 项目总览：主语言、主框架、顶层模块结构、技术栈、核心职责 |
 | `architecture/system-overview.md` | architecture-context worker | 系统架构概览：整体结构、关键架构决策、系统边界 |
 | `architecture/module-map.md` | architecture-context worker | 模块地图：顶层目录 + 每个目录的一行职责说明（最低质量保证：必须覆盖顶层目录） |
@@ -168,6 +168,6 @@ docs/contexts/<slug>/
 
 如果目标是推进下一版设计：
 
-1. 先读 `spec-bootstrap-v2-产物清单明细表.md`
-2. 再读 `spec-bootstrap-v2-worker-任务拆分与PRD模板升级稿.md`
+1. 先读 `spec-graph-bootstrap-v2-产物清单明细表.md`
+2. 再读 `spec-graph-bootstrap-v2-worker-任务拆分与PRD模板升级稿.md`
 3. 最后再回看本文，对照哪些内容属于 v1 保留、哪些需要升级

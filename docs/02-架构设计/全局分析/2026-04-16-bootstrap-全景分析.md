@@ -1,6 +1,6 @@
-# Bootstrap 全景分析：spec-bootstrap vs spec-graph-bootstrap
+# Bootstrap 全景分析：legacy bootstrap vs spec-graph-bootstrap
 
-> 基于代码事实（`skills/spec-bootstrap/SKILL.md` + `skills/spec-graph-bootstrap/SKILL.md`），不含推测。
+> 基于代码事实（`skills/spec-graph-bootstrap/SKILL.md` + `skills/spec-graph-bootstrap/SKILL.md`），不含推测。
 >
 > 作者: 2026-04-16 | spec-first 内部架构分析
 
@@ -10,9 +10,9 @@
 
 两个 bootstrap skill 都是 **Stage-0 supporting workflow**，目标是在 spec-first 五阶段工作流（brainstorm→plan→work→review→compound）运行前，为目标项目生成**可复用的项目上下文资产**。
 
-| | spec-bootstrap | spec-graph-bootstrap |
+| | spec-graph-bootstrap | spec-graph-bootstrap |
 |---|---|---|
-| 入口 | `/spec:bootstrap [target]` | `/spec:graph-bootstrap [target]` |
+| 入口 | `/spec:graph-bootstrap [target]` | `/spec:graph-bootstrap [target]` |
 | 核心工具层 | Serena MCP / Read+Grep+Glob | CRG CLI（Tier 1）→ Serena → Read+Grep+Glob |
 | 分析模式数 | 2（Enhanced / Basic） | 3（Full / Enhanced / Basic） |
 | 产物层 | 人类可读 markdown 文档 | 机器可读 JSON 控制面 + 人类可读文档 |
@@ -21,11 +21,11 @@
 
 ---
 
-## 二、spec-bootstrap：全链路分析
+## 二、spec-graph-bootstrap：全链路分析
 
 ### 2.1 宏观架构
 
-spec-bootstrap 是一个 **单层编排器模式**：编排器自身完成分析（Phase 1），写出 PRD 合同（Phase 2），再派发 worker subagent 执行（Phase 3）。
+spec-graph-bootstrap 是一个 **单层编排器模式**：编排器自身完成分析（Phase 1），写出 PRD 合同（Phase 2），再派发 worker subagent 执行（Phase 3）。
 
 核心设计原则：
 - 编排器是唯一的分析者，不依赖外部 JSON 产物
@@ -35,7 +35,7 @@ spec-bootstrap 是一个 **单层编排器模式**：编排器自身完成分析
 ### 2.2 ASCII 全链路流程图
 
 ```
-/spec:bootstrap [target-repo-path-or-slug]
+/spec:graph-bootstrap [target-repo-path-or-slug]
         │
         ▼
 ┌──────────────────────────────────────────────────────────────────┐
@@ -136,7 +136,7 @@ spec-bootstrap 是一个 **单层编排器模式**：编排器自身完成分析
         │
         ▼
   最终产物：docs/contexts/<slug>/
-    README.md（含 <!-- spec-bootstrap --> 标记）
+    README.md（含 <!-- spec-graph-bootstrap --> 标记）
     00-summary.md
     architecture/system-overview.md
     architecture/module-map.md
@@ -151,7 +151,7 @@ spec-bootstrap 是一个 **单层编排器模式**：编排器自身完成分析
 
 #### Slug 生成不阻断（R12-R13）
 
-三级优先级：用户显式参数 → 扫描已有 `<!-- spec-bootstrap -->` 标记 → 目录名 kebab-case。全程不等待用户确认，只在 summary 中告知用户选定值。**设计意图**：避免让用户在工作流入口处反复确认标识符。
+三级优先级：用户显式参数 → 扫描已有 `<!-- spec-graph-bootstrap -->` 标记 → 目录名 kebab-case。全程不等待用户确认，只在 summary 中告知用户选定值。**设计意图**：避免让用户在工作流入口处反复确认标识符。
 
 #### PRD Quality Gate 自动 enrich（Phase 2.5）
 
@@ -195,7 +195,7 @@ spec-graph-bootstrap 是 **双层架构**：
 │      slug = basename(resolve(target))，特殊字符→'-'               │
 │      立即打印: 📁 Slug + 产物路径                                   │
 │                                                                  │
-│  0.2 MCP 就绪探测（沿用 spec-bootstrap 两步）                       │
+│  0.2 MCP 就绪探测（沿用 spec-graph-bootstrap 两步）                       │
 │      Step 1: host-setup.json setup_success 检查                  │
 │      Step 2: Serena probe → serena.ready=true/false              │
 │                                                                  │
@@ -254,7 +254,7 @@ spec-graph-bootstrap 是 **双层架构**：
 │  │ crg search "schema" / "entity" / "model" /     │              │
 │  │   "dto" / "migration" / "validation"           │ → data_shapes│
 │  │ crg search "<框架特征>" × 10 类型               │ → layers     │
-│  │ Glob + Read（DB detection，沿用 spec-bootstrap）│ → database   │
+│  │ Glob + Read（DB detection，沿用 spec-graph-bootstrap）│ → database   │
 │  └────────────────────────────────────────────────┘              │
 │        │ 数据依赖                                                  │
 │        ▼                                                          │
@@ -431,14 +431,14 @@ Phase 0 写入 `status: in_progress`，Phase 3 完成后写入 `status: complete
 
 ### 4.1 能力矩阵
 
-| 能力维度 | spec-bootstrap | spec-graph-bootstrap |
+| 能力维度 | spec-graph-bootstrap | spec-graph-bootstrap |
 |---|---|---|
 | **事实质量** | 人工分析，质量依赖 PRD 上下文注入 | CRG AST 级事实，无幻觉 |
 | **置信度建模** | ❌ 无置信度模型 | ✅ Observed/Inferred 两级 + 枚举 inference_reason |
 | **下游路由对接** | ❌ 无 injection-index.yaml | ✅ Phase 4 生成，下游工作流自动消费 |
 | **增量检测** | ❌ 每次全量 | ✅ artifact-manifest.json stale 检测 |
 | **机器可读产物** | ❌ 纯 markdown | ✅ fact-inventory.json + risk-signals.json + test-surface.json |
-| **DB 支持** | ✅ 详细（3 级 + 5 类连接状态 + R23 backup filter） | ⚠️ 仅 Phase 1.5 引用"沿用 spec-bootstrap" |
+| **DB 支持** | ✅ 详细（3 级 + 5 类连接状态 + R23 backup filter） | ⚠️ 仅 Phase 1.5 引用"沿用 spec-graph-bootstrap" |
 | **PRD 质量门** | ✅ Phase 2.5 四检查 + 自动 enrich | ⚠️ 仅"fact-inventory.json 非空"前置检查 |
 | **编译责任归属** | 编排器内联 | `src/bootstrap-compiler/` 独立模块 |
 | **schema 真源** | SKILL.md 内文本 | `docs/contracts/spec-graph-bootstrap/`（外置） |
@@ -449,7 +449,7 @@ Phase 0 写入 `status: in_progress`，Phase 3 完成后写入 `status: complete
 ### 4.2 执行链路对比
 
 ```
-spec-bootstrap（简洁版）：
+spec-graph-bootstrap（简洁版）：
 
   Probe → Analyze → Write PRDs → Dispatch Workers → README
 
@@ -468,16 +468,16 @@ spec-graph-bootstrap（分层版）：
 
 ```
 新项目（无 CRG 图索引）:
-  第一次 → spec-bootstrap（快速上手）
+  第一次 → spec-graph-bootstrap（快速上手）
          ↓ 积累后运行 spec-first crg build
   升级 → spec-graph-bootstrap（Full 模式，完整事实链）
 
 CRG 不可用的环境（仅有 Serena）:
   → spec-graph-bootstrap（Enhanced 模式）
-    = spec-bootstrap（Enhanced 模式）的超集（多 code-facts + injection-index）
+    = spec-graph-bootstrap（Enhanced 模式）的超集（多 code-facts + injection-index）
 
 纯离线/受限环境（无 MCP）:
-  → spec-bootstrap（Basic 模式）
+  → spec-graph-bootstrap（Basic 模式）
     注意：spec-graph-bootstrap Basic 模式 Phase 1 Enhanced/Basic 路径的
     具体调用序列在 SKILL.md 中未完整定义（见 Gap 分析）
 ```
@@ -486,16 +486,16 @@ CRG 不可用的环境（仅有 Serena）:
 
 ## 五、Gap 分析与优化建议
 
-### Gap 1：spec-bootstrap 无 Stage-0 路由对接
+### Gap 1：spec-graph-bootstrap 无 Stage-0 路由对接
 
-**现状**：spec-bootstrap 产出的 `docs/contexts/<slug>/` 目录无 `injection-index.yaml`，下游 spec-plan/spec-work/spec-review 无法通过统一路由接口消费。
+**现状**：spec-graph-bootstrap 产出的 `docs/contexts/<slug>/` 目录无 `injection-index.yaml`，下游 spec-plan/spec-work/spec-review 无法通过统一路由接口消费。
 
-**代码证据**：`skills/spec-bootstrap/SKILL.md` 中明确写道：
+**代码证据**：`skills/spec-graph-bootstrap/SKILL.md` 中明确写道：
 > "Current version scope: generate context assets only. Automatic injection into the five-stage workflow is a future capability."
 
-**影响**：使用 spec-bootstrap 的项目享受不到 Stage-0 的自动上下文注入能力。
+**影响**：使用 spec-graph-bootstrap 的项目享受不到 Stage-0 的自动上下文注入能力。
 
-**优化方案**：在 spec-bootstrap Phase 3 完成后增加一个可选 Phase 3.5，仅生成 `injection-index.yaml` 基础版（always + stages 结构），selection_rules 留空（因为无 code-facts 产物），advice 用通用模板填充。既不破坏现有设计，又打通下游消费链路。
+**优化方案**：在 spec-graph-bootstrap Phase 3 完成后增加一个可选 Phase 3.5，仅生成 `injection-index.yaml` 基础版（always + stages 结构），selection_rules 留空（因为无 code-facts 产物），advice 用通用模板填充。既不破坏现有设计，又打通下游消费链路。
 
 ---
 
@@ -516,29 +516,29 @@ CRG 不可用的环境（仅有 Serena）:
 
 ### Gap 3：spec-graph-bootstrap Phase 2 PRD 质量门缺失
 
-**现状**：Phase 2 仅检查"fact-inventory.json 存在且非空"，没有对应 spec-bootstrap Phase 2.5 的 4 项具体质量检查（Goal 具体性 / Context 有真实证据 / Files to Fill 精确路径 / Technical Notes 项目专属约束）。
+**现状**：Phase 2 仅检查"fact-inventory.json 存在且非空"，没有对应 spec-graph-bootstrap Phase 2.5 的 4 项具体质量检查（Goal 具体性 / Context 有真实证据 / Files to Fill 精确路径 / Technical Notes 项目专属约束）。
 
 **代码证据**：spec-graph-bootstrap Phase 2：
 > "前置检查：fact-inventory.json 存在且非空，否则停止。"
 
-spec-bootstrap Phase 2.5：
+spec-graph-bootstrap Phase 2.5：
 > "Goal is specific and clearly tied to the current task, not generic bootstrap prose"
 > "Context includes concrete evidence from Phase 1, such as real paths, class names, function names, or config keys"
 > （4 项检查 + 自动 enrich 循环）
 
 **影响**：graph-bootstrap 的 PRD 质量依赖执行者的自发努力，Worker 质量无底线保障。
 
-**优化方案**：在 Phase 2 末尾增加与 spec-bootstrap Phase 2.5 等价的质量门，复用相同 4 项检查，调整"Context 真实证据"标准为"来自 fact-inventory.json 的具体字段值（如 fact.entrypoints[0].path）"。
+**优化方案**：在 Phase 2 末尾增加与 spec-graph-bootstrap Phase 2.5 等价的质量门，复用相同 4 项检查，调整"Context 真实证据"标准为"来自 fact-inventory.json 的具体字段值（如 fact.entrypoints[0].path）"。
 
 ---
 
 ### Gap 4：两个 Bootstrap 的 DB 能力不对称
 
-**现状**：spec-bootstrap Phase 1.5 实现了完整的 MySQL 多级降级（MCP Level 1 + DATABASE() 一致性校验 + CLI Level 2 + ORM inference Level 3），以及 R23 backup table filter 和 5 类连接状态标记。spec-graph-bootstrap Phase 1.1 中仅写"4.10 Database Detection 沿用 spec-bootstrap Phase 1.5"，Phase 3 的并行 Worker 列表中不含 database-context worker。
+**现状**：spec-graph-bootstrap Phase 1.5 实现了完整的 MySQL 多级降级（MCP Level 1 + DATABASE() 一致性校验 + CLI Level 2 + ORM inference Level 3），以及 R23 backup table filter 和 5 类连接状态标记。spec-graph-bootstrap Phase 1.1 中仅写"4.10 Database Detection 沿用 spec-graph-bootstrap Phase 1.5"，Phase 3 的并行 Worker 列表中不含 database-context worker。
 
 **影响**：graph-bootstrap 对于 MySQL 项目无法生成 `database/database-er.md`。
 
-**优化方案**：在 spec-graph-bootstrap 中明确：DB 事实写入 `fact-inventory.json` 的 `database[]` 字段后，在 Phase 2 增加"database-context PRD"条件生成，Phase 3 增加 database worker，产物路径与 spec-bootstrap 一致。
+**优化方案**：在 spec-graph-bootstrap 中明确：DB 事实写入 `fact-inventory.json` 的 `database[]` 字段后，在 Phase 2 增加"database-context PRD"条件生成，Phase 3 增加 database worker，产物路径与 spec-graph-bootstrap 一致。
 
 ---
 
@@ -554,17 +554,17 @@ spec-bootstrap Phase 2.5：
 
 ### Gap 6：升级路径文档缺失
 
-**现状**：两个 bootstrap 的 skill description 各自说明了功能定位，但没有任何文档明确回答"我应该用哪个"以及"什么时候从 spec-bootstrap 升级到 spec-graph-bootstrap"。
+**现状**：两个 bootstrap 的 skill description 各自说明了功能定位，但没有任何文档明确回答"我应该用哪个"以及"什么时候从 spec-graph-bootstrap 升级到 spec-graph-bootstrap"。
 
 **优化方案**：在两个 SKILL.md 的 `## Why This Exists` / `## 调用方式` 章节后各增加一小节 `## 选型指南`（或互相引用）：
-- spec-bootstrap：推荐起点，已有 CRG 图索引后建议切换 spec-graph-bootstrap
+- spec-graph-bootstrap：推荐起点，已有 CRG 图索引后建议切换 spec-graph-bootstrap
 - spec-graph-bootstrap：CRG 就绪后的升级路径，产出 injection-index.yaml 可对接下游工作流
 
 ---
 
 ## 六、总体评级
 
-| 维度 | spec-bootstrap | spec-graph-bootstrap |
+| 维度 | spec-graph-bootstrap | spec-graph-bootstrap |
 |---|---|---|
 | **执行链路完整性** | ✅ 高（4 个 Phase 路径清晰，降级有分支） | ⚠️ 中（Phase 1 Enhanced/Basic 路径缺定义） |
 | **质量保障机制** | ✅ 高（Phase 2.5 PRD Quality Gate） | ⚠️ 中（仅 JSON 存在性检查） |
@@ -574,4 +574,4 @@ spec-bootstrap Phase 2.5：
 | **设计复杂度** | 低（适合快速理解） | 高（5 Phase + 5 Stage 串并结合） |
 | **DB 能力** | ✅ 完整 | ⚠️ 仅"沿用"，无产物定义 |
 
-**结论**：两个 bootstrap 构成清晰的**能力演进层**，spec-bootstrap 是上手路径，spec-graph-bootstrap 是完整能力的最终形态。当前最大的体系性风险是：graph-bootstrap 的 Enhanced/Basic 降级路径在 Phase 1 中无操作定义，导致降级后 JSON 产物质量不可预期。修复这一 gap 是达到业界领先水平的关键前置动作。
+**结论**：两个 bootstrap 构成清晰的**能力演进层**，spec-graph-bootstrap 是上手路径，spec-graph-bootstrap 是完整能力的最终形态。当前最大的体系性风险是：graph-bootstrap 的 Enhanced/Basic 降级路径在 Phase 1 中无操作定义，导致降级后 JSON 产物质量不可预期。修复这一 gap 是达到业界领先水平的关键前置动作。

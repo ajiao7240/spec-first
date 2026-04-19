@@ -336,7 +336,7 @@ CRG 子系统是真实存在且有工程厚度的：
 | Work | command template + `skills/spec-work/SKILL.md` | execution contract + verification checklist | 代码改动 + tests | `stage0-context`、minimal-context/work、change surface、verification summary、dispatch posture | 应接 plan | 软约束为主，辅以 helper | 宿主 + `stage0-context` |
 | Review | command template + `skills/spec-review/SKILL.md` | review contract + persona route + gap checklist | findings / review 产物 | `stage0-context`、minimal-context/review、verification gaps、review context、风险信号 | 应接 work | 软约束为主，辅以 helper | 宿主 + `stage0-context` |
 | Compound | command template + `skills/spec-compound/SKILL.md` | solution 文档沉淀合同 | `docs/solutions/` | 主要消费 review / fix 结果与 docs/solutions 合同，输入结构化程度中等 | 应接 review/fix 结果 | 执行软约束，输出较硬 | 宿主 + docs/tests 合同 |
-| Bootstrap | `skills/spec-bootstrap/SKILL.md` | Stage-0 supporting workflow 合同 | `docs/contexts/<slug>/` | 仓库事实、bootstrap compiler 产物、control-plane samples，但当前真值性不足 | 主流程上游支撑 | 以软约束为主 | 宿主 + 可选工具 |
+| Bootstrap | `skills/spec-graph-bootstrap/SKILL.md` | Stage-0 supporting workflow 合同 | `docs/contexts/<slug>/` | 仓库事实、bootstrap compiler 产物、control-plane samples，但当前真值性不足 | 主流程上游支撑 | 以软约束为主 | 宿主 + 可选工具 |
 | MCP Setup | `skills/spec-mcp-setup/SKILL.md` + shell / PowerShell scripts | host install/config 合同 | host marker + host config | baseline tools presence、marker file、verify 输出 | richer workflow 前置条件 | 相对硬 | 真脚本 + marker file |
 | Graph Bootstrap | `skills/spec-graph-bootstrap/SKILL.md` + bootstrap compiler | graph-informed bootstrap 合同 | control-plane + docs assets | fact inventory、risk signals、test surface、verification profile；但 sample-friendly success path 仍会稀释真值 | Stage-0 machine context 上游 | 混合，但代码强度低于宣称 | prompt orchestration + compiler |
 

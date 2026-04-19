@@ -1,9 +1,9 @@
-# `cc-codex-spec-bootstrap` Skill 实现梳理
+# `cc-codex-spec-graph-bootstrap` Skill 实现梳理
 
-本文基于以下两个源文件，对 `cc-codex-spec-bootstrap` 的当前实现做完整拆解：
+本文基于以下两个源文件，对 `cc-codex-spec-graph-bootstrap` 的当前实现做完整拆解：
 
-- `/Users/kuang/Downloads/spec-first-1.3.11/marketplace/skills/cc-codex-spec-bootstrap/SKILL.md`
-- `/Users/kuang/Downloads/spec-first-1.3.11/marketplace/skills/cc-codex-spec-bootstrap/references/mcp-setup.md`
+- `/Users/kuang/Downloads/spec-first-1.3.11/marketplace/skills/cc-codex-spec-graph-bootstrap/SKILL.md`
+- `/Users/kuang/Downloads/spec-first-1.3.11/marketplace/skills/cc-codex-spec-graph-bootstrap/references/mcp-setup.md`
 
 目标不是复述文案，而是回答 6 个问题：
 
@@ -18,7 +18,7 @@
 
 ## 1. 一句话结论
 
-`cc-codex-spec-bootstrap` 不是“脚本型自动化 skill”，而是一个**文档驱动的多 Agent 编排协议**。
+`cc-codex-spec-graph-bootstrap` 不是“脚本型自动化 skill”，而是一个**文档驱动的多 Agent 编排协议**。
 
 它本身几乎不提供任何可执行代码，而是通过：
 
@@ -38,7 +38,7 @@
 当前 skill 目录非常小，只有 2 个核心文件：
 
 ```text
-cc-codex-spec-bootstrap/
+cc-codex-spec-graph-bootstrap/
 ├── SKILL.md
 └── references/
     └── mcp-setup.md
@@ -786,7 +786,7 @@ your-skill/
 
 ## 14. 最终结论
 
-`cc-codex-spec-bootstrap` 的实现价值，不在于它写了多少脚本，而在于它把下面这件事定义清楚了：
+`cc-codex-spec-graph-bootstrap` 的实现价值，不在于它写了多少脚本，而在于它把下面这件事定义清楚了：
 
 > 如何把“仓库架构分析 -> 任务拆分 -> PRD 上下文打包 -> 并行 worker 执行 -> 规范文档验收”串成一条稳定流程。
 

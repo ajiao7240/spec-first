@@ -55,7 +55,7 @@
 - `spec-review`
 - `spec-compound`
 - `spec-sessions`
-- `spec-bootstrap`
+- `spec-graph-bootstrap`
 - `spec-graph-bootstrap`
 - `spec-mcp-setup`
 - `spec-update`
@@ -241,7 +241,7 @@
   - `src/cli/index.js`
   - `README.md`
   - `skills/spec-mcp-setup/SKILL.md`
-  - `skills/spec-bootstrap/SKILL.md`
+  - `skills/spec-graph-bootstrap/SKILL.md`
   - `skills/setup/SKILL.md`
 - 问题：
   - 当前代码仍为 Codex 生成 `.codex/commands/spec/*`
@@ -250,7 +250,7 @@
   - `doctor` 仍把 Codex command 目录当成正式产品面检查
   - `printVersion()` 仍提示“使 `/spec:*` 命令生效”
   - README 仍在传播 Codex `/spec:*` 入口
-  - `spec-mcp-setup`、`spec-bootstrap`、`setup` 仍显式写 `**Codex entry point:** /spec:*`
+  - `spec-mcp-setup`、`spec-graph-bootstrap`、`setup` 仍显式写 `**Codex entry point:** /spec:*`
 - 影响：
   - 当前代码和公开文档都偏离已确认契约：`Codex = $spec-*`
 - 建议动作：
@@ -258,7 +258,7 @@
   - 停止把 `.codex/commands/spec/*` 作为 Codex 用户可见入口
   - `init.js` / `doctor.js` / `printVersion()` 的修法必须直接参照 compatibility layer 决策，不能让执行者自行猜测
   - `init` / `doctor` / `printVersion()` / README 全量改成 `$spec-*`
-  - 同批修 `spec-mcp-setup`、`spec-bootstrap`、`setup` 中显式写死的 Codex `/spec:* entry point`
+  - 同批修 `spec-mcp-setup`、`spec-graph-bootstrap`、`setup` 中显式写死的 Codex `/spec:* entry point`
   - 先收口产品面，再做后续文档批修
 
 ### 4.2 `spec-mcp-setup` 旧路径漂移
@@ -485,20 +485,20 @@
   - 若仍有真实脚本缺口，再在宿主治理 contract 落定后补实现
   - 无论结果如何，都要让文档口径与脚本现实完全一致
 
-### 4.15 `spec-bootstrap` 产品叙述过时
+### 4.15 `spec-graph-bootstrap` 产品叙述过时
 
 - 类型：`文档`
-- 文件：`skills/spec-bootstrap/SKILL.md`
+- 文件：`skills/spec-graph-bootstrap/SKILL.md`
 - 问题：
   - 仍写“Automatic injection into the five-stage workflow is a future capability”
   - 但 `spec-plan`、`spec-work`、`spec-review` 已经内建 Stage-0 预载逻辑
-  - 当前这些预载段落点名上游是 `spec-graph-bootstrap` 产物，而不是直接宣告 `spec-bootstrap` 自动注入
+  - 当前这些预载段落点名上游是 `spec-graph-bootstrap` 产物，而不是直接宣告 `spec-graph-bootstrap` 自动注入
 - 影响：
   - 主 workflow 叙事前后矛盾
-  - 如果直接把 `spec-bootstrap` 改写成“已自动注入主工作流”，会再次偏离代码事实
+  - 如果直接把 `spec-graph-bootstrap` 改写成“已自动注入主工作流”，会再次偏离代码事实
 - 建议动作：
   - 改为“主 workflow 当前已支持按降级策略预载已存在的 Stage-0 产物”
-  - 避免写成“`spec-bootstrap` 已被主工作流自动注入”
+  - 避免写成“`spec-graph-bootstrap` 已被主工作流自动注入”
 
 ### 4.16 打包与公开文档仍有 Claude-only / Codex 错位 copy
 
@@ -588,7 +588,7 @@
 ### 5.1 需要立即修改的 skill 文档
 
 - `skills/spec-mcp-setup/SKILL.md`
-- `skills/spec-bootstrap/SKILL.md`
+- `skills/spec-graph-bootstrap/SKILL.md`
 - `skills/setup/SKILL.md`
 - `skills/lfg/SKILL.md`
 - `skills/git-worktree/SKILL.md`
@@ -635,7 +635,7 @@
 1. 先完成 `T00`，锁定 Codex compatibility layer、治理枚举与 filtered asset set contract
 2. 再停止 Codex 对外产品面继续传播 `/spec:*`
 3. 把 Codex 的 `init` / `doctor` / `printVersion()` / README 统一改成 `$spec-*`
-4. 同批修 `spec-mcp-setup` / `spec-bootstrap` / `setup` 中显式写死的 Codex `/spec:* entry point`
+4. 同批修 `spec-mcp-setup` / `spec-graph-bootstrap` / `setup` 中显式写死的 Codex `/spec:* entry point`
 5. 同步修 `.claude-plugin/plugin.json` 与外层产品 copy
 
 ### 第二阶段：清硬断点
@@ -658,7 +658,7 @@
 
 ### 第四阶段：先收口独立叙事，再补双宿主治理
 
-1. 先修 `spec-bootstrap` 的过时叙述；这一步是独立前置项，不依赖双宿主治理设计/实现
+1. 先修 `spec-graph-bootstrap` 的过时叙述；这一步是独立前置项，不依赖双宿主治理设计/实现
 2. 再完成 `T11 + T13`：做完 `47` 个 skill 的宿主分类矩阵，并明确 `orchestrating-swarms` 与 `claude-permissions-optimizer`
 3. 让 `src/cli/contracts/dual-host-governance/` 下的 machine-readable 宿主治理真源文件落地
 4. 再执行 `T12`：把 filtered asset set 做成 `init` / `sync` / `doctor` / `clean` / `state` 共用真源

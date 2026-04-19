@@ -42,7 +42,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 
 - 可以继续作为 Stage-0 主线演进
 - 不应仅凭“产物已能生成”宣布目标达成
-- 不应在闭环证据不足时删除旧 `spec-bootstrap`
+- 不应在闭环证据不足时删除旧 Stage-0 bootstrap
 
 下一阶段优化重点不应继续扩充 narrative 资产，而应把 `spec-graph-bootstrap` 从：
 
@@ -531,7 +531,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 
 - 至少 1 份跨项目汇总报告
 - 可以客观回答“有没有变快、有没有变准”
-- 满足旧 `spec-bootstrap` 替换 gate 的证据要求
+- 满足旧 Stage-0 bootstrap 替换 gate 的证据要求
 
 ---
 
@@ -602,7 +602,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 如果这些问题还有任一项不能被证据回答，就不应宣布：
 
 - 目标已达成
-- 旧 `spec-bootstrap` 可以删除
+- 旧 Stage-0 bootstrap 可以删除
 - `spec-graph-bootstrap` 已完成终局收敛
 
 ---

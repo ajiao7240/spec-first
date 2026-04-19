@@ -1,20 +1,20 @@
 ---
 date: 2026-04-01
-topic: spec-bootstrap-mcp-usage-guide
+topic: spec-graph-bootstrap-mcp-usage-guide
 ---
 
-# spec-bootstrap MCP 工具使用指引补充
+# spec-graph-bootstrap MCP 工具使用指引补充
 
 ## Problem Frame
 
-spec-bootstrap 从 Trellis 移植时简化了 MCP 工具使用指引。当前 SKILL.md 的 Prerequisites 节只列出工具名称，没有告诉外部开发者：
+spec-graph-bootstrap 从 Trellis 移植时简化了 MCP 工具使用指引。当前 SKILL.md 的 Prerequisites 节只列出工具名称，没有告诉外部开发者：
 - 如何安装这些工具
 - 如何使用这些工具
 - 工具调用的具体示例
 
-这导致外部开发者无法启用 Full/Enhanced 模式，spec-bootstrap 只能在 Basic 模式运行，分析深度和产物质量大打折扣。
+这导致外部开发者无法启用 Full/Enhanced 模式，spec-graph-bootstrap 只能在 Basic 模式运行，分析深度和产物质量大打折扣。
 
-现有 mcp-setup skill 已解决"安装"问题，但 spec-bootstrap 需要补充"使用"指引，形成完整的"安装 → 使用"路径。
+现有 mcp-setup skill 已解决"安装"问题，但 spec-graph-bootstrap 需要补充"使用"指引，形成完整的"安装 → 使用"路径。
 
 ---
 
@@ -38,14 +38,14 @@ spec-bootstrap 从 Trellis 移植时简化了 MCP 工具使用指引。当前 SK
 
 - 外部开发者阅读 Prerequisites 节后，知道如何安装 MCP 工具（通过 `/spec:mcp-setup`）
 - 外部开发者阅读 Tool Usage Guide 后，知道如何手动调用这些工具进行代码分析
-- spec-bootstrap 的工具使用指引与 prd-template 中的工具说明保持一致
+- spec-graph-bootstrap 的工具使用指引与 prd-template 中的工具说明保持一致
 
 ---
 
 ## Scope Boundaries
 
 - 不修改 mcp-setup skill 的内容（安装逻辑已完善）
-- 不修改 spec-bootstrap 的执行逻辑（Phase 1/2/3 流程不变）
+- 不修改 spec-graph-bootstrap 的执行逻辑（Phase 1/2/3 流程不变）
 - 不创建独立的 `references/mcp-usage-guide.md`（直接在 SKILL.md 中补充）
 - 工具使用指引仅作为参考，不强制 worker 必须使用这些工具
 
@@ -54,7 +54,7 @@ spec-bootstrap 从 Trellis 移植时简化了 MCP 工具使用指引。当前 SK
 ## Key Decisions
 
 - **方案选择**：采用方案A（在 SKILL.md 中补充 + 引用 mcp-setup），而非方案B（创建独立 references 文件）
-  - 理由：维护成本低，用户路径清晰（`/spec:mcp-setup` → 重启 → `/spec:bootstrap`）
+  - 理由：维护成本低，用户路径清晰（`/spec:mcp-setup` → 重启 → `/spec:graph-bootstrap`）
 - **内容深度**：提供调用示例和典型场景，不展开完整教程
   - 理由：SKILL.md 是执行指引，不是工具手册；详细文档由各工具官方提供
 

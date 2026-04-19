@@ -10,11 +10,11 @@
 
 ## 1. 目标
 
-阶段 1 的目标是让 `spec-graph-bootstrap` 成为一个可被 `spec-first init` 安装、可被宿主发现、可被用户显式调用的新 Stage-0 skill，同时不破坏当前 `spec-bootstrap` 的使用路径。
+阶段 1 的目标是让 `spec-graph-bootstrap` 成为一个可被 `spec-first init` 安装、可被宿主发现、可被用户显式调用的新 Stage-0 skill，同时不破坏当前 `spec-graph-bootstrap` 的使用路径。
 
 阶段 1 完成后，系统应具备以下状态：
 
-* `spec-bootstrap` 继续可用，行为不变
+* `spec-graph-bootstrap` 继续可用，行为不变
 * `spec-graph-bootstrap` 作为新 skill 并行存在
 * Claude Code 与 Codex 都能安装到对应 runtime 目录
 * 用户可以显式调用新入口进行测试与验证
@@ -45,13 +45,13 @@
 
 产品层统一保留两条 workflow 语义：
 
-* 旧 workflow：`spec-bootstrap`
+* 旧 workflow：`spec-graph-bootstrap`
 * 新 workflow：`spec-graph-bootstrap`
 
 Claude 宿主上的显式入口：
 
 * Claude：`/spec:graph-bootstrap`
-* Claude：`/spec:bootstrap`
+* Claude：`/spec:graph-bootstrap`
 
 Codex 宿主上的实现边界：
 
@@ -63,7 +63,7 @@ Codex 宿主上的实现边界：
 
 原则：
 
-* 旧入口继续指向 `spec-bootstrap`
+* 旧入口继续指向 `spec-graph-bootstrap`
 * 新入口指向 `spec-graph-bootstrap`
 * 第一阶段不做入口替换，不让新入口覆盖旧入口
 
@@ -102,7 +102,7 @@ Codex 宿主上的实现边界：
 * `.claude-plugin/plugin.json`
 * `templates/claude/commands/spec/*.md`
 * 同一份 command 源模板经 Claude / Codex adapter 映射到不同 runtime 的生成规则
-* `skills/spec-bootstrap/`
+* `skills/spec-graph-bootstrap/`
 * `src/cli/plugin.js`
 * `src/cli/commands/init.js`
 * Claude / Codex adapter 的 runtime 路径规则
@@ -126,9 +126,9 @@ Codex 宿主上的实现边界：
 
 阶段 1 的所有变更都不得改变以下事实：
 
-* 旧 `spec-bootstrap` workflow 仍是当前默认 Stage-0 能力入口
+* 旧 Stage-0 bootstrap workflow 仍是当前默认 Stage-0 能力入口
 * 现有 smoke / integration 流程仍应能通过
-* 旧 `spec-bootstrap` skill 的安装与调用不受新 skill 影响
+* 旧 Stage-0 bootstrap skill 的安装与调用不受新 skill 影响
 
 ### 6.2 `init` 必须保持幂等
 
@@ -145,7 +145,7 @@ Codex 宿主上的实现边界：
 * skill 名称：`spec-graph-bootstrap`
 * command 名称：`graph-bootstrap`
 * workflow 语义名称：
-  * 旧：`spec-bootstrap`
+  * 旧：`spec-graph-bootstrap`
   * 新：`spec-graph-bootstrap`
 * Claude 对外显式入口：
   * `/spec:graph-bootstrap`
@@ -188,7 +188,7 @@ Codex 侧约束：
 
 README / 用户手册的最小文案 contract：
 
-* 必须明确：旧入口 `/spec:bootstrap` 仍是默认稳定入口
+* 必须明确：旧入口 `/spec:graph-bootstrap` 仍是默认稳定入口
 * 必须明确：新入口 `/spec:graph-bootstrap` 仅用于并行验证
 * 必须明确：阶段 1 不发生默认入口切换
 * 不得写成“已完成迁移到 `/spec:graph-bootstrap`”
@@ -201,14 +201,14 @@ README / 用户手册的最小文案 contract：
 
 * `.claude/skills/spec-graph-bootstrap/SKILL.md` 存在
 * `.claude/commands/spec/graph-bootstrap.md` 存在
-* 旧的 `.claude/skills/spec-bootstrap/SKILL.md` 和 `.claude/commands/spec/bootstrap.md` 仍存在
+* 旧的 `.claude/skills/spec-graph-bootstrap/SKILL.md` 和 `.claude/commands/spec/graph-bootstrap.md` 仍存在
 
 执行 `spec-first init --codex` 后：
 
 * `.agents/skills/spec-graph-bootstrap/SKILL.md` 存在
 * `.codex/commands/spec/graph-bootstrap.md` 存在
-* 旧的 `.agents/skills/spec-bootstrap/SKILL.md` 仍存在
-* `.codex/commands/spec/bootstrap.md` 仍存在
+* 旧的 `.agents/skills/spec-graph-bootstrap/SKILL.md` 仍存在
+* `.codex/commands/spec/graph-bootstrap.md` 仍存在
 
 ### 8.2 行为验收
 
@@ -228,7 +228,7 @@ README / 用户手册的最小文案 contract：
 * README 中明确说明双入口并行期
 * 阶段边界说明清晰，不把新入口误写成默认正式入口
 * README / 用户手册同时满足以下最小文案 contract：
-  * 旧入口 `/spec:bootstrap` 仍是默认稳定入口
+  * 旧入口 `/spec:graph-bootstrap` 仍是默认稳定入口
   * 新入口 `/spec:graph-bootstrap` 仅用于并行验证
   * 阶段 1 不发生默认入口切换
 

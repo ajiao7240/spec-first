@@ -1,8 +1,8 @@
-# cc-codex-spec-bootstrap Skill 完整分析（最新 v1）
+# cc-codex-spec-graph-bootstrap Skill 完整分析（最新 v1）
 
-> 来源: 当前仓库 `skills/spec-bootstrap/SKILL.md` 与 `references/*.md`
+> 来源: 当前仓库 `skills/spec-graph-bootstrap/SKILL.md` 与 `references/*.md`
 > 基准版本: spec-first v1.4.x（截至 2026-04-03）
-> 入口: Claude Code `/spec:bootstrap [target-repo-path-or-slug]` | Codex `$spec-bootstrap [target-repo-path-or-slug]`
+> 入口: Claude Code `/spec:graph-bootstrap [target-repo-path-or-slug]` | Codex `$spec-graph-bootstrap [target-repo-path-or-slug]`
 
 ---
 
@@ -11,7 +11,7 @@
 ### 核心功能
 **为目标项目生成可复用、可长期维护的项目上下文库**。
 
-当前 `spec-bootstrap` 是一个 **Stage-0 supporting workflow**：
+当前 `spec-graph-bootstrap` 是一个 **Stage-0 supporting workflow**：
 
 - 面向目标仓库做架构分析
 - 生成 `docs/contexts/<slug>/` 下的长期上下文资产
@@ -56,7 +56,7 @@ Host Readiness Gate
 
 ```mermaid
 flowchart TD
-  A["入口触发<br/>/spec:bootstrap 或 $spec-bootstrap"] --> B["Step 1<br/>识别 target repo / slug"]
+  A["入口触发<br/>/spec:graph-bootstrap 或 $spec-graph-bootstrap"] --> B["Step 1<br/>识别 target repo / slug"]
   B --> C["Step 2<br/>Host Readiness Gate"]
   C -->|未通过| X["阻断并提示用户先完成宿主准备"]
   C -->|通过| D["Step 3<br/>建立控制面与 backup"]
@@ -80,7 +80,7 @@ flowchart TD
 
 ```text
 +---------------------------------------------------------------+
-| 入口触发: /spec:bootstrap [target] / $spec-bootstrap [target] |
+| 入口触发: /spec:graph-bootstrap [target] / $spec-graph-bootstrap [target] |
 +-------------------------------+-------------------------------+
                                 |
                                 v
@@ -200,8 +200,8 @@ flowchart TD
 入口形式：
 
 ```bash
-/spec:bootstrap [target-repo-path-or-slug]
-$spec-bootstrap [target-repo-path-or-slug]
+/spec:graph-bootstrap [target-repo-path-or-slug]
+$spec-graph-bootstrap [target-repo-path-or-slug]
 ```
 
 编排器首先要判定两件事：
@@ -522,7 +522,7 @@ worker 的执行重点是：
 按以下优先级确定 `<slug>`：
 
 1. 用户显式传入 slug
-2. 复用目标项目中已有的 `docs/contexts/*/README.md`（要求包含 `<!-- spec-bootstrap -->` 标记）
+2. 复用目标项目中已有的 `docs/contexts/*/README.md`（要求包含 `<!-- spec-graph-bootstrap -->` 标记）
 3. 退回到目标仓库目录名并转成 kebab-case
 
 #### 1.2 重跑备份策略
@@ -678,7 +678,7 @@ completion_report: produced files + any missing evidence or blocked assumptions
 ```bash
 /spec:mcp-setup quick
 # 重启 Claude Code
-/spec:bootstrap [target]
+/spec:graph-bootstrap [target]
 ```
 
 ### 分析能力依赖
@@ -798,7 +798,7 @@ docs/contexts/<slug>/
 
 - **`README.md`**
   - 内容定位：入口导航页
-  - 典型内容：生成时间、`<!-- spec-bootstrap -->` 标记、各文档链接、缺失域说明
+  - 典型内容：生成时间、`<!-- spec-graph-bootstrap -->` 标记、各文档链接、缺失域说明
 - **`00-summary.md`**
   - 内容定位：项目一页摘要
   - 典型内容：主语言、主框架、顶层结构、核心职责、已知限制
@@ -871,7 +871,7 @@ docs/contexts/<slug>/
 - `00-summary.md` 识别主语言、主框架、顶层结构
 - `architecture/module-map.md` 列出顶层目录及一句话职责
 - 所有产物都是项目特定内容，而不是模板占位符
-- `README.md` 含 `<!-- spec-bootstrap -->` 生成标记
+- `README.md` 含 `<!-- spec-graph-bootstrap -->` 生成标记
 
 ---
 
@@ -922,4 +922,4 @@ docs/contexts/<slug>/
 
 ## 6. 一句话结论
 
-`cc-codex-spec-bootstrap` 在当前 v1 中，本质上是一个 **“项目上下文 Bootstrap 编排器”**，负责先做宿主检查与项目分析，再为多个上下文域生成 PRD，并驱动并行 worker 产出 `docs/contexts/<slug>/` 这套长期上下文资产。
+`cc-codex-spec-graph-bootstrap` 在当前 v1 中，本质上是一个 **“项目上下文 Bootstrap 编排器”**，负责先做宿主检查与项目分析，再为多个上下文域生成 PRD，并驱动并行 worker 产出 `docs/contexts/<slug>/` 这套长期上下文资产。

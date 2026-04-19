@@ -2,7 +2,7 @@
 
 > 文档性质：分阶段实施文档
 > 撰写日期：2026-04-16
-> 适用范围：`init`、`spec-bootstrap`、`spec-graph-bootstrap`、`spec-compound`、`spec-plan`、`spec-work`、`spec-review`、`context-routing`
+> 适用范围：`init`、`spec-graph-bootstrap`、`spec-graph-bootstrap`、`spec-compound`、`spec-plan`、`spec-work`、`spec-review`、`context-routing`
 > 前置文档：
 > - [2026-04-16-spec-first-双模式知识承载需求分析与风险收益评估.md](./2026-04-16-spec-first-双模式知识承载需求分析与风险收益评估.md)
 > - [2026-04-16-spec-graph-bootstrap-双模式知识承载-gap-分析.md](./2026-04-16-spec-graph-bootstrap-双模式知识承载-gap-分析.md)
@@ -127,7 +127,7 @@ Phase 1 完成后，必须具备以下能力：
 
 1. `init` 能识别 `in_repo` / `external_knowledge`
 2. 传入 knowledge repo 后，系统能自动完成 knowledge repo 接入与当前 repo 注册
-3. `spec-bootstrap` / `spec-graph-bootstrap` 能把 durable docs 写到正确后端
+3. `spec-graph-bootstrap` / `spec-graph-bootstrap` 能把 durable docs 写到正确后端
 4. `spec-compound` 能把 `docs/solutions` 写到正确后端
 5. `context-routing` 能从正确后端读取 durable docs
 6. control plane 继续 repo-local 且不受 external mode 影响
@@ -261,7 +261,7 @@ Phase 1 纳入的 durable docs family 只有：
 
 需要改造：
 
-1. `skills/spec-bootstrap/SKILL.md`
+1. `skills/spec-graph-bootstrap/SKILL.md`
 2. `skills/spec-graph-bootstrap/SKILL.md`
 3. `spec-compound` 对应 docs 写入逻辑
 
@@ -381,7 +381,7 @@ knowledge-repo/
 
 完成项：
 
-1. `spec-bootstrap` 输出 `docs/contexts`
+1. `spec-graph-bootstrap` 输出 `docs/contexts`
 2. `spec-graph-bootstrap` 输出 `docs/contexts`
 3. `spec-compound` 输出 `docs/solutions`
 4. external durable docs backup / rollback
@@ -407,7 +407,7 @@ knowledge-repo/
 
 1. `spec-first init` 未传 knowledge repo 时，`in_repo` 在新实现下稳定工作
 2. `spec-first init --knowledge-repo <remote>` 能完成 clone / 校验 / 注册 / 绑定
-3. `spec-bootstrap` 在 external mode 下把 `docs/contexts` 写到 external durable docs root
+3. `spec-graph-bootstrap` 在 external mode 下把 `docs/contexts` 写到 external durable docs root
 4. `spec-graph-bootstrap` 在 external mode 下把 `docs/contexts` 写到 external durable docs root
 5. `spec-compound` 在 external mode 下把 `docs/solutions` 写到 external durable docs root
 6. `context-routing` 在 external mode 下能正确读取 durable docs
@@ -766,7 +766,7 @@ Phase 3
 3. `knowledge-backend/resolver.js`
 4. `init --knowledge-repo` 主链
 5. external mode repo 自动注册
-6. `spec-bootstrap` external durable docs 支持
+6. `spec-graph-bootstrap` external durable docs 支持
 7. `spec-graph-bootstrap` external durable docs 支持
 8. `spec-compound` external durable docs 支持
 9. `context-routing` external durable docs 读取支持
