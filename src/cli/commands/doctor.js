@@ -3,6 +3,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { inspectInstalledAssets, listBundledCommands, loadPluginManifest } = require('../plugin');
 const { readDeveloperFile, getProjectDeveloperPath } = require('../developer');
+const { inspectCodingGuidelinesBlock } = require('../coding-guidelines');
 const { isLegacyManagedState, readState, readStateFileRaw } = require('../state');
 const { getAdapter, getSupportedPlatforms } = require('../adapters');
 const { inspectInstructionBootstrap } = require('../instruction-bootstrap');
@@ -441,7 +442,8 @@ function buildDoctorReport({ projectRoot, platforms }) {
     checkGit(),
     checkPluginManifest(),
     checkCrgNativeModules(),
-  ];
+    checkProjectDeveloperProfileConsistency(projectRoot),
+  ].filter(Boolean);
   const platformChecksByPlatform = {};
   const runtimeChecksByPlatform = {};
   const hostChecksByPlatform = {};
@@ -455,6 +457,7 @@ function buildDoctorReport({ projectRoot, platforms }) {
     const coreRuntimeChecks = [
       checkProjectDeveloper(projectRoot, adapter),
       checkManagedState(projectRoot, adapter),
+      checkInstructionCodingGuidelines(projectRoot, adapter),
       checkInstructionBootstrap(projectRoot, adapter),
       ...runtimeFileChecks,
       ...commandChecks,
@@ -885,6 +888,45 @@ function checkProjectDeveloper(projectRoot, adapter) {
   };
 }
 
+function checkProjectDeveloperProfileConsistency(projectRoot) {
+  const profiles = getSupportedPlatforms()
+    .map((platform) => {
+      const adapter = getAdapter(platform);
+      const developerPath = getProjectDeveloperPath(projectRoot, adapter);
+      const developer = readDeveloperFile(developerPath);
+      if (!developer || !developer.name) {
+        return null;
+      }
+
+      return {
+        host: platform,
+        name: developer.name,
+        path: adapter.developerFile.replace(/\\/g, '/'),
+      };
+    })
+    .filter(Boolean);
+
+  if (profiles.length < 2) {
+    return null;
+  }
+
+  const uniqueNames = [...new Set(profiles.map((profile) => profile.name))];
+  if (uniqueNames.length <= 1) {
+    return null;
+  }
+
+  const summary = profiles
+    .map((profile) => `${profile.host}=${profile.name}`)
+    .join(', ');
+
+  return {
+    level: 'WARNING',
+    name: 'project developer identity',
+    message: `mismatched project developer names detected (${summary}); runtime project profiles have drifted across hosts`,
+    fix: 'Run `spec-first init --claude ...` or `spec-first init --codex ...` to align the project developer profiles.',
+  };
+}
+
 function checkManagedState(projectRoot, adapter) {
   const statePath = path.join(projectRoot, adapter.stateFile);
   if (!fs.existsSync(statePath)) {
@@ -960,6 +1002,24 @@ function checkInstructionBootstrap(projectRoot, adapter) {
   };
 }
 
+function checkInstructionCodingGuidelines(projectRoot, adapter) {
+  const status = inspectCodingGuidelinesBlock(projectRoot, adapter);
+  if (status.status === 'installed') {
+    return {
+      level: 'PASS',
+      name: `${adapter.instructionFile} coding guidelines`,
+      message: status.message,
+    };
+  }
+
+  return {
+    level: 'WARNING',
+    name: `${adapter.instructionFile} coding guidelines`,
+    message: status.message,
+    fix: `Run \`spec-first init --${adapter.id}\` in this project to restore the managed coding-guidelines block.`,
+  };
+}
+
 function buildHostSpecificChecks(projectRoot, adapter) {
   if (adapter.id !== 'claude') {
     return [];
@@ -983,7 +1043,15 @@ function buildHostSpecificChecks(projectRoot, adapter) {
 }
 
 function printHelp() {
-  console.log('Usage: spec-first doctor [--claude|--codex] [--json]');
+  console.log([
+    '🩺 spec-first doctor',
+    '',
+    '📘 Usage:',
+    '  spec-first doctor [--claude|--codex] [--json]',
+    '',
+    '🔗 Repository:',
+    '  https://github.com/sunrain520/spec-first',
+  ].join('\n'));
 }
 
 function detectPlatforms(projectRoot) {

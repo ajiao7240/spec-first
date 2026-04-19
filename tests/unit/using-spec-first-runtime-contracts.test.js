@@ -17,7 +17,9 @@ function expectStage0RuntimeContract(content, { stage, minimalContextPath }) {
   expect(content).toContain('context-routing.json');
   expect(content).toContain('artifact-manifest.json');
   expect(content).toContain(minimalContextPath);
+  expect(content).toContain('selection_subject / selected_contexts');
   expect(content).toContain('selected_assets / fallback_reason / level / skipped_rules');
+  expect(content).toContain('compatibility view');
   expect(content).toContain('injection-index.yaml');
   expect(content).toContain('仅作为人类视图');
   expect(content).toContain('stage0-context --stage');
@@ -44,7 +46,13 @@ describe('using-spec-first runtime contracts', () => {
 
       expect(fs.existsSync(runtimeSkillPath)).toBe(true);
       expect(fs.existsSync(hookPath)).toBe(true);
-      expect(fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8')).toContain('<!-- spec-first:bootstrap:start -->');
+      const instruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
+      expect(instruction).toContain('<!-- spec-first:bootstrap:start -->');
+      expect(instruction).toContain('<!-- spec-first:coding-guidelines:start -->');
+      expect(instruction.indexOf('<!-- spec-first:lang:start -->'))
+        .toBeLessThan(instruction.indexOf('<!-- spec-first:bootstrap:start -->'));
+      expect(instruction.indexOf('<!-- spec-first:bootstrap:start -->'))
+        .toBeLessThan(instruction.indexOf('<!-- spec-first:coding-guidelines:start -->'));
       expect(JSON.parse(fs.readFileSync(settingsPath, 'utf8'))).toEqual({
         hooks: {
           SessionStart: [
@@ -81,9 +89,15 @@ describe('using-spec-first runtime contracts', () => {
       const adapter = getAdapter('codex');
       const runtimeSkillPath = path.join(projectRoot, '.agents/skills/using-spec-first/SKILL.md');
       const state = readState(projectRoot, adapter);
+      const instruction = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
 
       expect(fs.existsSync(runtimeSkillPath)).toBe(true);
-      expect(fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8')).toContain('<!-- spec-first:bootstrap:start -->');
+      expect(instruction).toContain('<!-- spec-first:bootstrap:start -->');
+      expect(instruction).toContain('<!-- spec-first:coding-guidelines:start -->');
+      expect(instruction.indexOf('<!-- spec-first:lang:start -->'))
+        .toBeLessThan(instruction.indexOf('<!-- spec-first:bootstrap:start -->'));
+      expect(instruction.indexOf('<!-- spec-first:bootstrap:start -->'))
+        .toBeLessThan(instruction.indexOf('<!-- spec-first:coding-guidelines:start -->'));
       expect(fs.existsSync(path.join(projectRoot, '.codex/hooks'))).toBe(false);
       expect(state.skills).toContain('using-spec-first');
       expect(fs.readFileSync(runtimeSkillPath, 'utf8')).toContain('name: using-spec-first');
@@ -222,7 +236,10 @@ describe('using-spec-first runtime contracts', () => {
       expect(fs.existsSync(path.join(projectRoot, '.claude/hooks/session-start'))).toBe(false);
       expect(fs.existsSync(customSkillPath)).toBe(true);
       expect(fs.existsSync(customHookPath)).toBe(true);
-      expect(fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8')).not.toContain('<!-- spec-first:bootstrap:start -->');
+      const instruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
+      expect(instruction).not.toContain('<!-- spec-first:bootstrap:start -->');
+      expect(instruction).not.toContain('<!-- spec-first:coding-guidelines:start -->');
+      expect(instruction).toContain('<!-- spec-first:lang:start -->');
       expect(JSON.parse(fs.readFileSync(settingsPath, 'utf8'))).toEqual({
         hooks: {
           SessionStart: [
@@ -238,6 +255,37 @@ describe('using-spec-first runtime contracts', () => {
           ],
         },
       });
+    } finally {
+      logSpy.mockRestore();
+      process.chdir(previousCwd);
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Claude init appends managed instruction blocks to existing user content instead of overwriting it', () => {
+    const projectRoot = makeTempDir();
+    const previousCwd = process.cwd();
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      fs.writeFileSync(
+        path.join(projectRoot, 'CLAUDE.md'),
+        '# Existing Notes\n\nProject-specific guidance.\n',
+        'utf8',
+      );
+
+      process.chdir(projectRoot);
+      expect(runInit(['--claude', '-u', 'reviewer', '--lang', 'zh'])).toBe(0);
+
+      const instruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
+      expect(instruction).toContain('# Existing Notes');
+      expect(instruction).toContain('Project-specific guidance.');
+      expect(instruction.indexOf('# Existing Notes')).toBeLessThan(instruction.indexOf('<!-- spec-first:lang:start -->'));
+      expect(instruction.indexOf('<!-- spec-first:lang:start -->'))
+        .toBeLessThan(instruction.indexOf('<!-- spec-first:bootstrap:start -->'));
+      expect(instruction.indexOf('<!-- spec-first:bootstrap:start -->'))
+        .toBeLessThan(instruction.indexOf('<!-- spec-first:coding-guidelines:start -->'));
+      expect(instruction.trim().endsWith('<!-- spec-first:coding-guidelines:end -->')).toBe(true);
     } finally {
       logSpy.mockRestore();
       process.chdir(previousCwd);

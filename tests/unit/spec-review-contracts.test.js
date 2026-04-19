@@ -117,7 +117,10 @@ describe('spec-review contracts', () => {
     expect(skill).toContain('show only `Code Intrinsic Quality`');
     expect(skill).toContain('stage0-context --stage review --workflow spec-review --format json');
     expect(skill).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
+    expect(skill).toContain('selection_subject / selected_contexts');
     expect(skill).toContain('selected_assets / fallback_reason / level / skipped_rules');
+    expect(skill).toContain('compatibility view');
+    expect(skill).toContain('selection_subject.kind = workspace');
     expect(skill).toContain('Review failed. Reason: conflicting mode flags');
     expect(skill).toContain('apply `safe_auto` fixes automatically');
     expect(skill).toContain('17 reviewer personas');
@@ -292,6 +295,8 @@ describe('spec-review contracts', () => {
     expect(mirror).toContain('show only `Code Intrinsic Quality`');
     expect(mirror).toContain('stage0-context --stage review --workflow spec-review --format json');
     expect(mirror).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
+    expect(mirror).toContain('selection_subject / selected_contexts');
     expect(mirror).toContain('selected_assets / fallback_reason / level / skipped_rules');
+    expect(mirror).toContain('compatibility view');
   });
 });

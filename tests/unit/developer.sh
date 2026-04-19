@@ -1,6 +1,6 @@
 #!/bin/bash
 # developer identity unit tests
-# Tests resolveDeveloperIdentity fallback order for language selection
+# Tests resolveDeveloperIdentity and changelog author resolver contract
 
 set -euo pipefail
 
@@ -47,6 +47,23 @@ process.stdout.write(JSON.stringify(result));
 EOF
 }
 
+run_changelog_author() {
+  local home_dir="$1"
+  local project_root="$2"
+  local fallback_name="$3"
+  HOME="$home_dir" node - <<'EOF' "$REPO_ROOT" "$project_root" "$fallback_name"
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const projectRoot = process.argv[3];
+const fallbackName = process.argv[4];
+const { resolveChangelogAuthor } = require(path.join(repoRoot, 'src/cli/developer'));
+
+process.stdout.write(JSON.stringify(resolveChangelogAuthor(projectRoot, {
+  fallbackName: fallbackName || '',
+})));
+EOF
+}
+
 echo "=== developer identity tests ==="
 echo ""
 
@@ -87,6 +104,62 @@ rm -f "$HOME_DIR/.spec-first/.developer"
 result=$(run_resolve "$HOME_DIR" "$PROJECT_DIR" "git-user" "")
 lang=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.lang);" "$result")
 assert_output "default lang fallback" "zh" "$lang"
+
+echo "5. changelog author keeps default identity fallback instead of reading project profiles"
+mkdir -p "$PROJECT_DIR/.codex/spec-first" "$PROJECT_DIR/.claude/spec-first" "$HOME_DIR/.spec-first"
+cat > "$HOME_DIR/.spec-first/.developer" <<'EOF'
+name=global-user
+lang=en
+EOF
+cat > "$PROJECT_DIR/.claude/spec-first/.developer" <<'EOF'
+name=claude-user
+lang=zh
+EOF
+cat > "$PROJECT_DIR/.codex/spec-first/.developer" <<'EOF'
+name=codex-user
+lang=en
+EOF
+author=$(run_changelog_author "$HOME_DIR" "$PROJECT_DIR" "fallback-user")
+name=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.name);" "$author")
+source=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.source);" "$author")
+host=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.host);" "$author")
+path_value=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.path);" "$author")
+assert_output "fallback name wins over project profiles" "fallback-user" "$name"
+assert_output "fallback source is reported" "fallback_name" "$source"
+assert_output "fallback host is empty" "" "$host"
+assert_output "fallback path is empty" "" "$path_value"
+
+echo "6. changelog author falls back to global developer after explicit fallback is absent"
+author=$(run_changelog_author "$HOME_DIR" "$PROJECT_DIR" "")
+name=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.name);" "$author")
+source=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.source);" "$author")
+host=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.host);" "$author")
+path_value=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.path);" "$author")
+assert_output "global developer fills author" "global-user" "$name"
+assert_output "global source is reported" "global_developer" "$source"
+assert_output "global host marker is reported" "global" "$host"
+assert_output "global path is reported" ".spec-first/.developer" "$path_value"
+
+echo "7. changelog author still ignores project profiles when explicit fallback is absent"
+rm -f "$HOME_DIR/.spec-first/.developer"
+author=$(run_changelog_author "$HOME_DIR" "$PROJECT_DIR" "git-user")
+name=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.name);" "$author")
+source=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.source);" "$author")
+assert_output "fallback still wins after removing global developer" "git-user" "$name"
+assert_output "fallback source remains explicit fallback" "fallback_name" "$source"
+
+echo "8. changelog author falls back to git config when explicit fallback and global developer are absent"
+git -C "$PROJECT_DIR" init -q
+git -C "$PROJECT_DIR" config user.name git-user
+author=$(run_changelog_author "$HOME_DIR" "$PROJECT_DIR" "")
+name=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.name);" "$author")
+source=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.source);" "$author")
+host=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.host);" "$author")
+path_value=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.path);" "$author")
+assert_output "git config fills author" "git-user" "$name"
+assert_output "git source is reported" "git_config" "$source"
+assert_output "git host marker is reported" "git" "$host"
+assert_output "git path marker is reported" "user.name" "$path_value"
 
 echo ""
 echo "=== Results ==="

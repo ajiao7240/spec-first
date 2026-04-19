@@ -2,13 +2,18 @@
 
 function renderSummary({ factInventory, riskSignals, testSurface, verificationProfile }) {
   const project = factInventory && factInventory.project_identity ? factInventory.project_identity : {};
+  const topology = factInventory && factInventory.topology ? factInventory.topology : {};
   const entrypoints = Array.isArray(factInventory && factInventory.entrypoints) ? factInventory.entrypoints : [];
   const modules = Array.isArray(factInventory && factInventory.modules) ? factInventory.modules : [];
+  const topologyUnits = Array.isArray(topology.units) ? topology.units : [];
   const signals = Array.isArray(riskSignals && riskSignals.signals) ? riskSignals.signals : [];
   const tests = Array.isArray(testSurface && testSurface.test_files) ? testSurface.test_files : [];
   const requiredGates = Array.isArray(verificationProfile && verificationProfile.required_gates)
     ? verificationProfile.required_gates.map((item) => item.id)
     : [];
+  const moduleCount = topology.kind === 'monorepo_multi_module'
+    ? topologyUnits.filter((item) => item && item.kind === 'module').length
+    : modules.length;
 
   return [
     `# ${project.name || 'bootstrap summary'}`,
@@ -16,8 +21,9 @@ function renderSummary({ factInventory, riskSignals, testSurface, verificationPr
     `- 主语言：${project.primary_language || 'Unknown'}`,
     `- 主要框架：${(project.primary_frameworks || []).join(', ') || '无'}`,
     `- 仓库形态：${project.repo_shape || '未知'}`,
+    `- topology：${topology.kind || 'unknown'}`,
     `- 入口数量：${entrypoints.length}`,
-    `- 模块数量：${modules.length}`,
+    `- 模块数量：${moduleCount}`,
     `- 风险信号：${signals.length}`,
     `- 测试文件：${tests.length}`,
     `- 默认必跑验证：${requiredGates.join(', ') || '无'}`,
@@ -27,23 +33,30 @@ function renderSummary({ factInventory, riskSignals, testSurface, verificationPr
 
 function renderReadme({ factInventory }) {
   const project = factInventory && factInventory.project_identity ? factInventory.project_identity : {};
+  const topology = factInventory && factInventory.topology ? factInventory.topology : {};
   return [
     '# Stage-0 Context',
     '',
     `- project: ${project.name || 'unknown'}`,
     `- primary_language: ${project.primary_language || 'Unknown'}`,
     `- repo_shape: ${project.repo_shape || 'unknown'}`,
+    `- topology: ${topology.kind || 'unknown'}`,
     '- source_of_truth: control-plane artifacts under .spec-first/workflows/bootstrap/<slug>/',
     '',
   ].join('\n');
 }
 
 function renderModuleMap({ factInventory }) {
-  const modules = Array.isArray(factInventory && factInventory.modules) ? factInventory.modules : [];
+  const topologyUnits = Array.isArray(factInventory && factInventory.topology && factInventory.topology.units)
+    ? factInventory.topology.units
+    : [];
+  const moduleLines = topologyUnits.length > 0
+    ? topologyUnits.map((item) => `- [${item.kind}] ${item.path}`)
+    : (Array.isArray(factInventory && factInventory.modules) ? factInventory.modules.map((item) => `- ${item.path}`) : []);
   return [
     '# Module Map',
     '',
-    ...modules.map((item) => `- ${item.path}`),
+    ...moduleLines,
     '',
   ].join('\n');
 }

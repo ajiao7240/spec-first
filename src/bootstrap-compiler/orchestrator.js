@@ -59,6 +59,7 @@ function compileBootstrapArtifacts({
       factInventory: machineArtifacts.fact_inventory,
       riskSignals: machineArtifacts.risk_signals,
       testSurface: machineArtifacts.test_surface,
+      actualAssets,
       generatedAssets: humanAssets.generated_assets,
     });
     stageResults.push(buildStageResult('routing', 'success'));

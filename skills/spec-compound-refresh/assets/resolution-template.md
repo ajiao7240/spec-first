@@ -58,6 +58,7 @@ tags: [keyword-one, keyword-two]
 - [Known gap, follow-up, or "None currently identified"]
 
 ## LLM Reuse Context
+[Prefer repo-factual details. If a subsection is unknown, say so explicitly rather than guessing.]
 ### Constraints
 - [Boundary, invariant, or assumption future agents must respect]
 
@@ -128,6 +129,7 @@ tags: [keyword-one, keyword-two]
 - [Known gap, follow-up, or "None currently identified"]
 
 ## LLM Reuse Context
+[Prefer repo-factual details. If a subsection is unknown, say so explicitly rather than guessing.]
 ### Constraints
 - [Boundary, invariant, or assumption future agents must respect]
 

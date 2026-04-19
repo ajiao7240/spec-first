@@ -183,7 +183,7 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 | **17-persona Review stage** (+ 2 CE agents) | Produces structured findings routed by `safe_auto / gated_auto / manual / advisory`, not a single-pass scan |
 | **Compound / knowledge capture** | Solved problems are written to `docs/solutions/` for future workflow retrieval |
 | **Dual platform support** | One methodology across Claude Code (`/spec:*`) and Codex (`$spec-*`). Claude uses a `SessionStart` hook + bare-agent rewrite; Codex uses `.agents/skills/` discovery + explicit `.codex/agents/...` path rewrite |
-| Capability layer | Ships with `47` skills, `57` agents, and `4` agent support files |
+| **Capability layer** | Bundled source assets ship with `47` skills, `57` agents, and `4` agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `12` commands + `35` skills on Claude, and `34` skills on Codex, with `57` agents + `4` support files on both hosts |
 | **Runtime governance** | Managed assets are tracked in `state.json` — sync, refresh, recover, and clean safely |
 
 ## Core Workflow
@@ -196,7 +196,7 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 
 | Stage | Claude Code | Codex | Output Artifact | Enforcement |
 |-------|-------------|-------|-----------------|-------------|
-| Host Setup | `/spec:mcp-setup` → restart | `$spec-mcp-setup` → restart | `~/.claude/spec-first/host-setup.json` | **Code-hard** (bootstrap gate checks this) |
+| Host Setup | `/spec:mcp-setup` → restart | `$spec-mcp-setup` → restart | Host-specific marker: `~/.claude/spec-first/host-setup.json` or `~/.codex/spec-first/host-setup.json` | **Code-hard** (bootstrap gate checks this) |
 | Stage-0 graph bootstrap | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | **Code-hard gate** + **SKILL.md** content |
 | Ideate | `/spec:ideate` | `$spec-ideate` | `docs/ideation/*.md` | **SKILL.md** contract |
 | Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/*.md` | **SKILL.md** contract |
@@ -213,6 +213,8 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 | Update | `/spec:update` | `$spec-update` | Refresh runtime assets after `spec-first` upgrades |
 | Sessions | `/spec:sessions` | `$spec-sessions` | Search and summarize prior coding agent sessions |
 | Setup | `/spec:setup` | `$spec-setup` | Unified host / environment setup entrypoint |
+
+These `/spec:*` and `$spec-*` surfaces are generated runtime workflow entrypoints, not root `spec-first` subcommands. The root CLI surface is documented below under [CLI Commands](#cli-commands).
 
 ## Quick Start
 
@@ -278,10 +280,13 @@ spec-first init --codex -u <name> --lang <zh|en>
 |--------|-------------------|-----------------------|
 | `CLAUDE.md` / `AGENTS.md` | `<!-- spec-first:lang:* -->` language policy block (idempotent marker block) | ❌ Manual removal — `clean` does not strip the language policy block |
 | `CLAUDE.md` / `AGENTS.md` | `using-spec-first` instruction bootstrap block | ✅ Removed by `clean` |
-| `.claude/settings.json` | Managed `SessionStart` matcher hook (Claude only) | ✅ Removed by `clean` |
+| `CLAUDE.md` / `AGENTS.md` | `<!-- spec-first:coding-guidelines:* -->` coding execution guidelines block | ✅ Removed by `clean` |
+| `.claude/settings.json` | Managed `SessionStart` matcher entry (Claude only) | ✅ Removed by `clean` |
+| `.claude/hooks/session-start` | Managed `SessionStart` hook script (Claude only) | ✅ Removed by `clean` |
 | `.claude/commands/spec/**` · `.claude/skills/**` · `.claude/agents/**` (or Codex equivalents) | Managed runtime assets | ✅ Removed by `clean` |
-| `.claude/spec-first/.developer` | Project developer profile | ✅ Removed by `clean` |
-| `.claude/spec-first/state.json` | Managed asset tracking state | ✅ Removed by `clean` |
+| `.claude/spec-first/.developer` / `.codex/spec-first/.developer` | Host-specific project developer profile | ✅ Removed by `clean` |
+| `.claude/spec-first/state.json` / `.codex/spec-first/state.json` | Host-specific managed asset tracking state | ✅ Removed by `clean` |
+| `CHANGELOG.md` | Bootstrapped only when missing, with the managed format header and an initial init entry | ❌ User-owned after creation |
 
 #### How to roll back
 
@@ -289,21 +294,22 @@ spec-first init --codex -u <name> --lang <zh|en>
 spec-first clean --claude   # or --codex
 ```
 
+`init` does not overwrite an existing `CLAUDE.md` / `AGENTS.md`. On first install, spec-first appends its managed instruction blocks as a footer after any existing user content; on re-init, it only replaces the marker-delimited managed blocks it owns.
+
 `clean` removes everything marked removable in the table above, then prints which platform's managed assets were removed. Custom assets outside the managed set are left untouched. The language policy block must still be removed manually — search for `<!-- spec-first:lang:` in `CLAUDE.md` / `AGENTS.md`.
 Both `init --dry-run` and `clean --dry-run` preview file-level operations derived from the same managed operation plans used by real apply paths, which keeps preview/apply drift narrow and testable.
+Current runtime delivery is host-specific by governance: Claude writes `12` command files, `35` skill directories, `57` agent files, and `4` agent support files; Codex writes `34` skill directories plus the same `57` agent files and `4` support files, with no command directory.
 
 #### Example output
 
 ```bash
 $ spec-first init --claude
 
-📋 Wrote language policy to CLAUDE.md
-🧭 Wrote using-spec-first bootstrap to CLAUDE.md
 🪝 Installed Claude SessionStart matcher in .claude/settings.json
 📦 Generated 12 command file(s) in .claude/commands/spec
 🧩 Generated 35 skill directory(ies) in .claude/skills
 🤖 Generated 57 agent file(s) in .claude/agents
-🧰 Generated <N> agent support file(s) in .claude/agents
+🧰 Generated 4 agent support file(s) in .claude/agents
 🪪 Wrote project developer profile:
   📍 path: .claude/spec-first/.developer
   👤 name: yourname
@@ -314,7 +320,7 @@ $ spec-first init --claude
 🔁 Restart Claude Code after generation so it can pick up the new /spec:* commands.
 ```
 
-> Counts and version reflect the version actually installed at run time. The install log is emitted in English regardless of `--lang`; the `--lang` setting governs future Claude / Codex response language, not the installer's own output.
+> Counts and version reflect the version actually installed at run time. If `CHANGELOG.md` did not exist yet, `init` also prints `📝 Bootstrapped CHANGELOG.md`. The install log is emitted in English regardless of `--lang`; the `--lang` setting governs future Claude / Codex response language, not the installer's own output. Codex output differs by design: it does not generate `.claude/commands/spec`, and it restarts into `$spec-*` skill entrypoints instead.
 
 ### 4. First run
 
@@ -399,6 +405,7 @@ spec-first crg review-context --repo . --changed <ref>
 | `god-nodes` | High-fan-in hub detection |
 | `detect-changes` | SHA-256 incremental change detection |
 | `review-context` | Compose a review context bundle from a diff |
+| `postprocess` | Recompute communities, flows, graph analysis, and FTS after a build or incremental refresh |
 
 All subcommands accept `--repo=<path>`. The full list is whatever `spec-first crg --help` prints for the installed version.
 

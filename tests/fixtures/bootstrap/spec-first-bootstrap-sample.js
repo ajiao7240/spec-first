@@ -12,6 +12,23 @@ const FACT_INVENTORY_SAMPLE = {
     ],
     repo_shape: 'single-package CLI repository with bundled workflow assets and embedded CRG runtime',
   },
+  topology: {
+    schema_version: 'v1',
+    kind: 'single_repo',
+    container_kind: 'git_repo',
+    selection_granularity: 'project',
+    root_path: '.',
+    units: [
+      {
+        id: 'spec-first',
+        kind: 'project',
+        path: '.',
+        git_root: '.',
+        build_system: 'npm',
+        signals: ['git-root'],
+      },
+    ],
+  },
   entrypoints: [
     { path: 'src/cli/index.js' },
     { path: 'src/crg/cli/router.js' },
@@ -28,6 +45,24 @@ const FACT_INVENTORY_SAMPLE = {
     { symbol: 'better-sqlite3' },
     { symbol: 'tree-sitter' },
     { symbol: 'simple-git' },
+  ],
+  database: [
+    {
+      present: true,
+      connection_name: 'primary',
+      config_source: '.env.example',
+      db_type: 'mysql',
+      database_name_guess: null,
+      credential_keys: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
+      static_access_hints: ['cli'],
+      confidence: 'high',
+      inference_reason: 'database-config-pattern',
+      evidence: [
+        '.env.example:DB_HOST',
+        '.env.example:DB_USER',
+        'config/database.yml:adapter=mysql2',
+      ],
+    },
   ],
   testing_surface: [
     {

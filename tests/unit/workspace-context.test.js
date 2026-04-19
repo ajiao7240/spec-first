@@ -139,6 +139,18 @@ describe('workspace context', () => {
       expect(loaded.some((item) => item.status === 'degraded')).toBe(true);
       expect(compiled.workspace_slug).toBe(path.basename(tmpDir));
       expect(compiled.matched_child_slugs).toEqual(['repo-a', 'repo-b']);
+      expect(compiled.selection_subject).toMatchObject({
+        kind: 'repo',
+        owner_slug: path.basename(tmpDir),
+        subject_slug: 'repo-a',
+      });
+      expect(compiled.selected_contexts).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'repo',
+          slug: 'repo-a',
+          asset_path: 'minimal-context/plan.json',
+        }),
+      ]));
       expect(compiled.level).toBe('L0');
       expect(compiled.fallback_reason).toBe(null);
       expect(compiled.selected_assets).toContain('repo-a:minimal-context/plan.json');
@@ -157,8 +169,52 @@ describe('workspace context', () => {
       const workspace = compileWorkspaceContext({ repoRoots: [repoA], stage: 'plan' });
 
       expect(workspace.mode).toBe('single-repo');
+      expect(workspace.selection_subject).toMatchObject({
+        kind: 'project',
+        subject_slug: 'repo-a',
+      });
+      expect(workspace.selected_contexts).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'project',
+          slug: 'repo-a',
+          asset_path: 'minimal-context/plan.json',
+        }),
+      ]));
       expect(workspace.selected_assets).toEqual(direct.selected_assets);
       expect(workspace.repo_count).toBe(1);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('非 git 聚合目录即使只有一个 child repo，也保持 workspace 语义而不是静默塌缩为 single-repo', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-context-single-child-'));
+    const workspaceRoot = path.join(tmpDir, 'workspace-root');
+
+    try {
+      fs.mkdirSync(workspaceRoot, { recursive: true });
+      const repoA = createRepoFixture(path.join(workspaceRoot, 'packages'), 'repo-a');
+      const workspace = compileWorkspaceContext({
+        repoRoots: [repoA],
+        stage: 'plan',
+        cwd: workspaceRoot,
+        target: workspaceRoot,
+      });
+
+      expect(workspace.mode).toBe('workspace');
+      expect(workspace.workspace_slug).toBe('workspace-root');
+      expect(workspace.selection_subject).toMatchObject({
+        kind: 'repo',
+        owner_slug: 'workspace-root',
+        subject_slug: 'repo-a',
+      });
+      expect(workspace.selected_contexts).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'repo',
+          slug: 'repo-a',
+          asset_path: 'minimal-context/plan.json',
+        }),
+      ]));
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

@@ -6,6 +6,8 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-20 | feat | `stage0-topology-unified-bootstrap` | 为 `spec-graph-bootstrap` / `stage0-context` 收口统一 topology contract，正式支持 workspace 多独立 git 工程、单 git 多 module、单 git 单项目三类场景；同时把 `selection_subject / selected_contexts` 提升为解释型真源，保留 `selected_assets` 等兼容视图，继续遵循“轻 contract + 明确边界 + 让 LLM 决策” |
+| 2026-04-20 | feat | `init-coding-guidelines` | `spec-first init` 现在会向用户项目的 `CLAUDE.md` / `AGENTS.md` 追加独立的 `coding-guidelines` managed block，并保持已有用户内容只追加不覆盖；`clean` 会移除该 block，`doctor` 会检查缺失或漂移状态，让 instruction file execution posture 也进入受管边界 |
 | 2026-04-20 | feat | `spec-compound-dual-view` | 为 `spec-compound` / `spec-compound-refresh` 增加 `Human Summary + LLM Reuse Context` 单文件双视角 contract，保持 `docs/solutions/` 仍是唯一持久化目录；同时让 `learnings-researcher` 和 prompt mirror 直接消费这层结构，把“人类汇报视图”和“LLM 检索复用视图”统一收敛到同一份事实文档里 |
 | 2026-04-20 | feat | `spec-review-three-axis-verdict` | 为 `spec-review` 增加 `Requirement Completion / Plan-Diff Fidelity / Code Intrinsic Quality` 三轴聚合视图，并明确 explicit/inferred/missing plan 的条件式输出，让 review 更快回答“需求做完没、实现偏计划没、代码本身质量如何” |
 | 2026-04-19 | feat | `spec-work-run-artifact-contract` | 为 `spec-work` 增加 machine-truth `run.json` schema、可选 `closure-summary.md` 投影，以及 `spec-review` 消费上游 work artifact 的显式 handoff contract；先固定结构化闭环语义，不急着引入更重的 runtime 编排 |
@@ -69,6 +71,120 @@
 | 2026-03-31 | feat | `spec-graph-bootstrap` | 新增 Stage-0 上下文引导工作流，为后续 brainstorm / plan / work / review / compound 提供稳定上下文资产 |
 
 ---
+
+## 2026-04-20 `feat(stage0-topology-unified-bootstrap)`
+
+### 更新内容
+
+这一步把 008 主计划里的拓扑统一方案真正落到 bootstrap/runtime 主链，解决三类项目形态的 Stage-0 命中与消费边界：
+
+- 三类正式支持
+  - 父目录下多个独立 git 工程
+  - 单个 git 工程下多个 module
+  - 单个 git 工程单项目
+- 统一 machine-readable topology 真源
+  - `fact-inventory.json` 新增 `topology`
+  - `topology.units` 成为 monorepo / workspace 结构的稳定输入
+- 统一运行时解释层
+  - `stage0-context` 现在显式输出 `selection_subject` 与 `selected_contexts`
+  - `selected_assets / fallback_reason / level / skipped_rules` 继续保留为兼容视图
+- workspace / nested topology 收口
+  - 非 git 聚合目录在未显式传入 `repoRoots` 时，可自动发现 child git repo 并进入 workspace bootstrap
+  - workspace child repo 若自身是 monorepo，运行时可命中 module 级 subject，并同时携带 workspace overview + module scoped contexts
+- 成功语义收紧
+  - `context-routing.json` 与 `minimal-context/{plan,work,review}.json` 被提升为关键 control-plane outputs
+  - compile-only 场景不再因为缺少调用方未提供的 `actualAssets` 被误判 incomplete；但真实运行场景若缺关键资产，会明确落到 `manifest.status=incomplete`
+- 下游 workflow 同步消费
+  - `spec-plan` / `spec-work` / `spec-work-beta` / `spec-review` / `spec-graph-bootstrap` 与对应 prompt mirror 已统一按新的 Stage-0 口径描述
+
+### 为什么重要
+
+这次改动不是引入新的 orchestrator，也不是把质量门变成多状态流转状态机，而是把“当前上下文到底命中了谁、为什么命中、可执行主体边界是什么”说清楚。LLM 拿到的是更诚实、更统一的决策输入，而不是更重的执行树。
+
+### 关键文件
+
+- 核心实现
+  - `src/bootstrap-compiler/workspace-compiler.js`
+  - `src/bootstrap-compiler/compile-minimal-context.js`
+  - `src/bootstrap-compiler/compile-human-assets.js`
+  - `src/bootstrap-compiler/compile-routing.js`
+  - `src/bootstrap-compiler/compile-machine-artifacts.js`
+  - `src/bootstrap-compiler/orchestrator.js`
+  - `src/bootstrap-compiler/run-bootstrap.js`
+  - `src/cli/commands/stage0-context.js`
+- workflow / 文档契约
+  - `skills/spec-plan/SKILL.md`
+  - `skills/spec-work/SKILL.md`
+  - `skills/spec-work-beta/SKILL.md`
+  - `skills/spec-review/SKILL.md`
+  - `skills/spec-graph-bootstrap/SKILL.md`
+  - `docs/10-prompt/skills/*`
+
+### 验证
+
+- 新增 / 更新 topology 与 contract 回归：
+  - `tests/unit/spec-graph-bootstrap-monorepo.test.js`
+  - `tests/unit/workspace-nested-topology.test.js`
+  - `tests/unit/verification-summary-topology.test.js`
+  - `tests/unit/monorepo-topology.test.js`
+  - `tests/unit/stage0-context-monorepo.test.js`
+  - `tests/unit/workspace-context.test.js`
+  - `tests/unit/stage0-context-command.test.js`
+  - `tests/unit/spec-graph-bootstrap-compiler.test.js`
+  - `tests/unit/spec-graph-bootstrap-contracts.test.js`
+  - `tests/unit/workflow-stage0-consumption.test.js`
+  - `tests/unit/spec-plan-contracts.test.js`
+  - `tests/unit/spec-work-contracts.test.js`
+  - `tests/unit/spec-review-contracts.test.js`
+  - `tests/unit/spec-work-beta-contracts.test.js`
+  - `tests/unit/asset-consistency.test.js`
+  - `tests/unit/using-spec-first-runtime-contracts.test.js`
+
+### 边界说明
+
+- `selection_subject.kind=workspace` 只用于 overview/unresolved fallback，不作为常规 L0 执行主体
+- 这次没有引入 docs 下新的 runtime 真源索引文件；workspace registry/routing 仍以 `.spec-first/workflows/bootstrap/<slug>/` 为 control-plane 真源
+- 没有把 module 做成独立 repo 级产物目录，也没有引入任意深度递归拓扑推导
+
+
+## 2026-04-20 `feat(init-coding-guidelines)`
+
+### 更新内容
+
+这一步把 instruction file 里的“执行姿势”也纳入了 spec-first 的 managed boundary：
+
+- `spec-first init` 会向用户项目的 `CLAUDE.md` / `AGENTS.md` 注入独立的 `coding-guidelines` managed block
+- 初次接入时，如果用户已经有自己的 instruction 内容，spec-first 只会把 managed blocks 追加为连续 footer，不会覆盖整份文件
+- 后续 re-init 只会原位替换 spec-first 自己的 marker-delimited blocks
+- `spec-first clean` 会移除 `coding-guidelines` 和 `using-spec-first bootstrap`，但保留 `lang-policy`
+- `spec-first doctor` 会把 `coding-guidelines` 作为受管 instruction contract 检查项，能够报告 missing / drifted 状态
+
+### 主要变化
+
+- instruction file managed block
+  - `src/cli/coding-guidelines.js`
+- init / clean / doctor 接线
+  - `src/cli/commands/init.js`
+  - `src/cli/commands/clean.js`
+  - `src/cli/commands/doctor.js`
+- 回归测试
+  - `tests/unit/coding-guidelines.test.js`
+  - `tests/unit/using-spec-first-runtime-contracts.test.js`
+  - `tests/unit/doctor-json-contract.test.js`
+  - `tests/smoke/cli.sh`
+
+### 验证
+
+- `npx jest tests/unit/coding-guidelines.test.js tests/unit/using-spec-first-runtime-contracts.test.js tests/unit/doctor-json-contract.test.js --runInBand`
+- `npm run test:smoke`
+
+### 版本意义
+
+这一步的价值不是再加一层 workflow，而是把 instruction file 从“只有语言治理和入口治理”推进到“语言治理 + 入口治理 + 执行姿势治理”三层结构，同时仍保持：
+
+- 轻 contract
+- 只管理 marker 包围的内容
+- 不接管用户整份 `CLAUDE.md` / `AGENTS.md`
 
 ## 2026-04-20 `feat(spec-review-three-axis-verdict)`
 

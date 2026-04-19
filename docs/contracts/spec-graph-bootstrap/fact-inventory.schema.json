@@ -4,6 +4,7 @@
   "type": "object",
   "required": [
     "project_identity",
+    "topology",
     "entrypoints",
     "modules",
     "integrations",
@@ -21,6 +22,54 @@
           "items": { "type": "string" }
         },
         "repo_shape": { "type": "string" }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "kind",
+        "container_kind",
+        "selection_granularity",
+        "root_path",
+        "units"
+      ],
+      "properties": {
+        "schema_version": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": ["workspace_multi_repo", "monorepo_multi_module", "single_repo"]
+        },
+        "container_kind": {
+          "type": "string",
+          "enum": ["workspace", "git_repo"]
+        },
+        "selection_granularity": {
+          "type": "string",
+          "enum": ["repo", "module", "project"]
+        },
+        "root_path": { "type": "string" },
+        "units": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "path", "git_root", "build_system", "signals"],
+            "properties": {
+              "id": { "type": "string" },
+              "kind": {
+                "type": "string",
+                "enum": ["repo", "module", "project"]
+              },
+              "path": { "type": "string" },
+              "git_root": { "type": "string" },
+              "build_system": { "type": "string" },
+              "signals": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
       }
     },
     "entrypoints": {
@@ -50,6 +99,43 @@
         "required": ["symbol"],
         "properties": {
           "symbol": { "type": "string" }
+        }
+      }
+    },
+    "database": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "present",
+          "connection_name",
+          "config_source",
+          "db_type",
+          "credential_keys",
+          "confidence",
+          "inference_reason",
+          "evidence"
+        ],
+        "properties": {
+          "present": { "type": "boolean" },
+          "connection_name": { "type": "string" },
+          "config_source": { "type": "string" },
+          "db_type": { "type": "string" },
+          "database_name_guess": { "type": ["string", "null"] },
+          "credential_keys": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "static_access_hints": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "confidence": { "type": "string" },
+          "inference_reason": { "type": "string" },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
         }
       }
     },

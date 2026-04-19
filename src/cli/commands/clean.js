@@ -13,6 +13,7 @@ const {
   summarizeOperationPlan,
 } = require('../state');
 const { getAdapter } = require('../adapters');
+const { removeManagedCodingGuidelinesBlock } = require('../coding-guidelines');
 const { removeManagedBootstrapBlock } = require('../instruction-bootstrap');
 const {
   renderManagedSessionStartHookRemoval,
@@ -135,7 +136,15 @@ function parseCleanArgs(argv) {
 }
 
 function printHelp() {
-  console.log('Usage: spec-first clean (--claude|--codex) [--dry-run]');
+  console.log([
+    '🧹 spec-first clean',
+    '',
+    '📘 Usage:',
+    '  spec-first clean (--claude|--codex) [--dry-run]',
+    '',
+    '🔗 Repository:',
+    '  https://github.com/sunrain520/spec-first',
+  ].join('\n'));
 }
 
 function buildCleanPlan(projectRoot, state, adapter) {
@@ -151,14 +160,16 @@ function buildRuntimeCleanupPreview(projectRoot, adapter) {
     buildRelativeOperation(
       fs.existsSync(path.join(projectRoot, adapter.instructionFile)) ? 'update_file' : 'remove_file',
       adapter.instructionFile,
-      'instruction_bootstrap_cleanup',
+      'managed_instruction_cleanup',
     ),
     buildRelativeOperation('remove_file', adapter.stateFile, 'managed_state_file'),
   ];
 
   const instructionPath = path.join(projectRoot, adapter.instructionFile);
   if (fs.existsSync(instructionPath)) {
-    operations[0].contents = removeManagedBootstrapBlock(fs.readFileSync(instructionPath, 'utf8'));
+    operations[0].contents = removeManagedCodingGuidelinesBlock(
+      removeManagedBootstrapBlock(fs.readFileSync(instructionPath, 'utf8')),
+    );
   }
 
   if (adapter.id === 'claude') {

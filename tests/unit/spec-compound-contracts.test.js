@@ -28,6 +28,7 @@ describe('spec-compound contracts', () => {
     expect(skill).toContain('single durable file');
     expect(skill).toContain('Human Summary');
     expect(skill).toContain('LLM Reuse Context');
+    expect(skill).toContain('primary reuse surface');
     expect(skill).toContain('Do not create a second durable artifact');
     expect(skill).toContain('`spec-sessions` workflow');
     expect(skill).not.toContain('# /compound');
@@ -54,6 +55,8 @@ describe('spec-compound contracts', () => {
       expect(template).toContain('## Guidance');
       expect(template).toContain('## Human Summary');
       expect(template).toContain('## LLM Reuse Context');
+      expect(template).toContain('Prefer repo-factual details');
+      expect(template).toContain('say so explicitly rather than guessing');
       expect(template).toContain('### Code Touchpoints');
       expect(template).toContain('### Provenance');
     }
@@ -69,6 +72,9 @@ describe('spec-compound contracts', () => {
     expect(skill).toContain('Human Summary');
     expect(skill).toContain('LLM Reuse Context');
     expect(skill).toContain('same durable file');
+    expect(skill).toContain('section-aware');
+    expect(skill).toContain('Code Touchpoints');
+    expect(skill).toContain('Provenance');
   });
 
   test('learnings-researcher treats critical-patterns and dual-view sections as optional input', () => {
@@ -79,6 +85,7 @@ describe('spec-compound contracts', () => {
     expect(agent).toContain('applies_when');
     expect(agent).toContain('## Human Summary');
     expect(agent).toContain('## LLM Reuse Context');
+    expect(agent).toContain('primary reuse surface');
     expect(agent).toContain('Missing these sections is not an error');
   });
 });

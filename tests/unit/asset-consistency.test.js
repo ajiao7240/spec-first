@@ -52,6 +52,7 @@ const HIGH_RISK_SKILL_ANCHORS = [
     sourcePath: 'skills/spec-plan/SKILL.md',
     mirrorPath: 'docs/10-prompt/skills/spec-plan/SKILL.md',
     anchors: [
+      'selection_subject / selected_contexts',
       'selected_assets / fallback_reason / level / skipped_rules',
       'verifier_dispatch',
       'verification_gate_state',
@@ -66,6 +67,7 @@ const HIGH_RISK_SKILL_ANCHORS = [
     sourcePath: 'skills/spec-work/SKILL.md',
     mirrorPath: 'docs/10-prompt/skills/spec-work/SKILL.md',
     anchors: [
+      'selection_subject / selected_contexts',
       'required_verifications',
       'verifier_dispatch',
       'verification_gate_state',
@@ -83,6 +85,7 @@ const HIGH_RISK_SKILL_ANCHORS = [
     sourcePath: 'skills/spec-work-beta/SKILL.md',
     mirrorPath: 'docs/10-prompt/skills/spec-work-beta/SKILL.md',
     anchors: [
+      'selection_subject / selected_contexts',
       'required_verifications',
       'verifier_dispatch',
       'verification_gate_state',
@@ -97,6 +100,7 @@ const HIGH_RISK_SKILL_ANCHORS = [
     sourcePath: 'skills/spec-review/SKILL.md',
     mirrorPath: 'docs/10-prompt/skills/spec-review/SKILL.md',
     anchors: [
+      'selection_subject / selected_contexts',
       'verification summary',
       'verifier_dispatch',
       'verification_gate_state',
@@ -119,7 +123,20 @@ const HIGH_RISK_SKILL_ANCHORS = [
       'single durable file',
       'Human Summary',
       'LLM Reuse Context',
+      'primary reuse surface',
       'Do not create a second durable artifact',
+    ],
+  },
+  {
+    skillName: 'spec-compound-refresh',
+    sourcePath: 'skills/spec-compound-refresh/SKILL.md',
+    mirrorPath: 'docs/10-prompt/skills/spec-compound-refresh/SKILL.md',
+    anchors: [
+      'same durable file',
+      'section-aware',
+      'Code Touchpoints',
+      'Provenance',
+      'upgrade opportunity',
     ],
   },
   {
@@ -140,9 +157,25 @@ const HIGH_RISK_SKILL_ANCHORS = [
     anchors: [
       'Runs Phase 0–4',
       'fact-inventory.json',
+      'database-routing.json',
       'risk-signals.json',
       'test-surface.json',
       '/spec:graph-bootstrap',
+    ],
+  },
+];
+
+const HIGH_RISK_AGENT_ANCHORS = [
+  {
+    agentName: 'learnings-researcher',
+    sourcePath: 'agents/research/learnings-researcher.md',
+    mirrorPath: 'docs/10-prompt/agents/research/learnings-researcher.md',
+    anchors: [
+      '## LLM Reuse Context',
+      'primary reuse surface',
+      'Missing these sections is not an error',
+      "the current project's compound documentation schema references",
+      "The project's planning workflow",
     ],
   },
 ];
@@ -179,6 +212,26 @@ describe('asset consistency governance', () => {
         }
         if (!mirror.includes(anchor)) {
           drift.push(`${record.skillName} mirror missing anchor: ${anchor}`);
+        }
+      }
+    }
+
+    expect(drift).toEqual([]);
+  });
+
+  test('high-risk agents keep critical contract anchors aligned between source and prompt mirror', () => {
+    const drift = [];
+
+    for (const record of HIGH_RISK_AGENT_ANCHORS) {
+      const source = read(record.sourcePath);
+      const mirror = read(record.mirrorPath);
+
+      for (const anchor of record.anchors) {
+        if (!source.includes(anchor)) {
+          drift.push(`${record.agentName} source missing anchor: ${anchor}`);
+        }
+        if (!mirror.includes(anchor)) {
+          drift.push(`${record.agentName} mirror missing anchor: ${anchor}`);
         }
       }
     }

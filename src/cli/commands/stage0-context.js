@@ -60,7 +60,11 @@ function buildStage0TelemetryEvaluation(
     matched_child_slugs: Array.isArray(context.matched_child_slugs)
       ? context.matched_child_slugs
       : matchedChildSlugs,
-    selected_context_count: Array.isArray(context.selected_assets) ? context.selected_assets.length : 0,
+    selection_subject: context.selection_subject || null,
+    selected_contexts: Array.isArray(context.selected_contexts) ? context.selected_contexts : [],
+    selected_context_count: Array.isArray(context.selected_contexts)
+      ? context.selected_contexts.length
+      : Array.isArray(context.selected_assets) ? context.selected_assets.length : 0,
     selected_assets: Array.isArray(context.selected_assets) ? context.selected_assets : [],
     skipped_rules: unique(repoEvaluations.flatMap((item) => item.skipped_rules || [])),
     fallback_reason: context.fallback_reason
@@ -299,6 +303,8 @@ function summarizeContextForOutput(context) {
     repo_count: context.repo_count,
     workspace_slug: context.workspace_slug || null,
     matched_child_slugs: Array.isArray(context.matched_child_slugs) ? context.matched_child_slugs : [],
+    selection_subject: context.selection_subject || (primaryEvaluation ? primaryEvaluation.selection_subject || null : null),
+    selected_contexts: Array.isArray(context.selected_contexts) ? context.selected_contexts : [],
     selected_assets: Array.isArray(context.selected_assets) ? context.selected_assets : [],
     fallback_reason: context.fallback_reason || (primaryEvaluation ? primaryEvaluation.fallback_reason || null : null),
     level: context.level || (primaryEvaluation ? primaryEvaluation.level || null : null),

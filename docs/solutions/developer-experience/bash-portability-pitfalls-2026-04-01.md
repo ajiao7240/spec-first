@@ -1,8 +1,9 @@
 ---
 title: Bash 3.2 Portability Pitfalls on macOS for CI-Grade Shell Scripts
 date: 2026-04-01
-category: docs/solutions/developer-experience
-module: mcp-setup
+last_updated: 2026-04-19
+category: developer-experience
+module: spec-mcp-setup
 problem_type: developer_experience
 component: tooling
 severity: medium
@@ -147,4 +148,4 @@ HOME="$fake_home" bash script.sh --skip-all  # should not crash
 
 ## Related
 
-- `docs/solutions/logic-errors/mcp-mysql-hostname-validation-logic-flaw-2026-04-01.md` — different module, same tooling category
+- `docs/solutions/documentation-gaps/spec-graph-bootstrap-mysql-consistency-precheck-contract-2026-04-19.md` — different module, same tooling category

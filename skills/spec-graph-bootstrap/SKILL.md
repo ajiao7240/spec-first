@@ -7,6 +7,12 @@ description: "Graph-informed project bootstrap. Runs Phase 0–4: CRG readiness 
 
 `spec-graph-bootstrap` 是 graph-informed 的项目上下文生成工作流，以 CRG CLI（`spec-first crg`）为 Tier 1 工具，输出 Observed 事实优先的控制面产物。
 
+当前正式支持三类拓扑：
+
+1. `workspace_multi_repo`
+2. `monorepo_multi_module`
+3. `single_repo`
+
 ## 调用方式
 
 ```
@@ -14,6 +20,8 @@ description: "Graph-informed project bootstrap. Runs Phase 0–4: CRG readiness 
 ```
 
 `target-repo-path` 省略时取当前工作目录。
+
+当目标目录不是 git repo 但能稳定发现 child repo，或调用方显式提供 `repoRoots` 时，默认按 workspace 模式继续，而不是因为“不是单一 git 仓库”中断主链。
 
 ## Contract 真源
 
@@ -29,7 +37,13 @@ docs/contracts/spec-graph-bootstrap/
 - 默认主链入口为 `orchestrator.js`
 - `compile-machine-artifacts.js` 先生成 machine artifacts
 - `compile-human-assets.js` 再组织 docs assets
-- `compile-routing.js` 最后生成 routing / manifest / injection-index
+- `compile-routing.js` 最后生成 routing / manifest / injection-index / `database-routing.json`
+
+其中：
+
+- `.spec-first/workflows/bootstrap/<slug>/workspace-registry.json` 与 `workspace-routing.json` 是 workspace machine-first 真源
+- `workspace-readiness-summary.json` 只暴露 advisory-only readiness snapshot，不参与 routing / gate 真源判定
+- `docs/contexts/<workspaceSlug>/workspace/repo-registry.yaml` 若存在，也只能是 human-facing 镜像，不得反向成为 runtime 真源
 
 ## 缺失运行时时的处理
 
@@ -266,7 +280,7 @@ generation_errors:
   - `code-facts/high-risk-modules.md` ← `risk_signals`
   - `context-packs/review-change.md` ← 静态组装（risk_signals high + test-surface coverage_gaps + entrypoints http/worker + integrations high-risk）
 - 为条件产物（如 API 文档）判定是否创建 task
-- **database-context task**（条件）：`fact-inventory.json` 中 `database[].present=true` 且 `db_type=mysql` 且 `db_access_level` 不为 `Level3` 时创建，产物规范见 `references/database-worker.md`
+- **database-context task**（条件）：`fact-inventory.json` 中存在 `db_type=mysql` 的静态候选连接，且 `database-routing.json.selected_connections[]` 中至少有一条可用 route 时创建，产物规范见 `references/database-worker.md`
 
 ### Phase 2 PRD Quality Gate
 
@@ -300,7 +314,7 @@ generation_errors:
 - `code-facts/high-risk-modules.md` ← `risk_signals`
 - `context-packs/review-change.md` ← 静态组装（不调用 `crg review-context`，后者是 diff-based 按需工具）
 
-**database worker**（条件）：`fact-inventory.database[].present=true` 且 `db_type=mysql` 且 `db_access_level≠Level3` 时，读取 `references/database-worker.md` 执行数据库四层索引。
+**database worker**（条件）：`fact-inventory.database[]` 提供 MySQL 静态候选连接，且 `database-routing.json.selected_connections[]` 中至少存在一条显式选定 route 时，读取 `references/database-worker.md` 执行数据库四层索引；若 routing artifact 只有 blocker、没有 selected route，则跳过 `database/` 产物并保留 blocker provenance。
 
 **串行（最后）**：`README.md`（上下文控制台，汇总所有产物状态）
 
@@ -412,6 +426,7 @@ severity: 无上限       confidence: medium ──→  Basic (Built-in)
   fact-inventory.json      ← 控制面（所有 Worker 输入源）
   risk-signals.json
   test-surface.json
+  database-routing.json    ← runtime-only route / fallback / provenance 真源
   artifact-manifest.json   ← 两段写入（in_progress → complete）
 
 docs/contexts/<slug>/
@@ -423,7 +438,7 @@ docs/contexts/<slug>/
   code-facts/test-map.md
   code-facts/high-risk-modules.md
   context-packs/review-change.md
-  database/                       ← 条件（MySQL Level1/Level2 已验证，四层索引）
+  database/                       ← 条件（MySQL candidate + selected route 已显式收口，四层索引）
     database-index.md             ← 所有规模（Tier 0：总索引）
     data-flow.md                  ← 所有规模（Tier 2：核心业务场景数据流叙事）
     database-er.md                ← 仅小型（≤30 表，Tier 1A）

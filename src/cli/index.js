@@ -51,16 +51,22 @@ async function runCli(argv) {
 
 function printHelp(withErrorPrefix = false) {
   const lines = [
-    'Usage: spec-first <command> [options]',
+    '🚀 spec-first — Manage spec-first workflow assets for Claude and Codex',
     '',
-    'Commands:',
-    '  doctor         Check the local environment plus bundled plugin manifest and managed runtime assets',
-    '  init (--claude|--codex)  Generate platform-specific workflow assets, skills, agents, and developer profile',
-    '  clean (--claude|--codex) Remove spec-first managed assets from the current project',
+    '📘 Usage:',
+    '  spec-first <command> [options]',
     '',
-    'Global options:',
-    '  -h, --help     Show help',
-    '  -v, --version  Show version',
+    '🧩 Commands:',
+    '  doctor                 Check environment, plugin manifest, and managed runtime assets',
+    '  init --claude|--codex  Install platform-specific workflows, skills, agents, and developer profile',
+    '  clean --claude|--codex Remove spec-first managed assets from the current project',
+    '',
+    '⚙️  Global options:',
+    '  -h, --help             Show help',
+    '  -v, --version          Show version',
+    '',
+    '🔗 Repository:',
+    '  https://github.com/sunrain520/spec-first',
   ];
 
   if (withErrorPrefix) {

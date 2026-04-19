@@ -176,14 +176,15 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 
 | 能力 | 解决的问题 |
 |------|------------|
-| **CLI control plane**（`doctor` / `init` / `clean` / `stage0-context`） | 提供可重复安装、健康检查、清理和 Stage-0 context 输出；所有受管资产都有可追踪来源 |
-| **CRG graph engine**（`spec-first crg *`） | **Code Review Graph**：一个嵌入式 Node.js runtime，基于 SQLite + FTS5，支持 AST → symbols → resolved edges → PageRank flows → community detection → surprising-connections → god-nodes → review-context |
-| **graph-bootstrap context engine** | 让 LLM 获得 fact-extracted、带 confidence 标注的项目上下文，而不是直接面对裸代码库 |
-| **完整 workflow layer** | Ideate → Brainstorm → Plan → Work → Review → Compound，全阶段都有显式 artifact contract |
+| **CLI 控制面**（`doctor` / `init` / `clean` / `stage0-context`） | 提供可重复安装、健康检查、清理和 Stage-0 context 输出；所有受管资产都有可追踪来源 |
+| **CRG 图引擎**（`spec-first crg *`） | **Code Review Graph**：一个嵌入式 Node.js runtime，基于 SQLite + FTS5，支持 AST → symbols → resolved edges → PageRank flows → community detection → surprising-connections → god-nodes → review-context |
+| **graph-bootstrap 上下文引擎** | 让 LLM 获得 fact-extracted、带 confidence 标注的项目上下文，而不是直接面对裸代码库 |
+| **完整工作流层** | Ideate → Brainstorm → Plan → Work → Review → Compound，全阶段都有显式 artifact contract |
 | **17-persona Review stage**（+ 2 个 CE agent） | 产出结构化 findings，并按 `safe_auto / gated_auto / manual / advisory` 路由，而不是一次性 review 扫描 |
 | **Compound / knowledge capture** | 把已解决问题写入 `docs/solutions/`，供后续 workflow 检索复用 |
 | **双平台支持** | 一套方法论同时覆盖 Claude Code（`/spec:*`）与 Codex（`$spec-*`）。Claude 使用 `SessionStart` hook + bare-agent rewrite；Codex 使用 `.agents/skills/` discovery + 显式 `.codex/agents/...` path rewrite |
-| **Runtime governance** | 受管资产记录在 `state.json` 中，可安全同步、刷新、恢复与清理 |
+| **能力层资产** | 仓库内置源码资产共 `47` 个 skills、`57` 个 agents、`4` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `12` 个 commands + `35` 个 skills，在 Codex 侧安装 `34` 个 skills；两侧都会安装 `57` 个 agents + `4` 个 support files |
+| **运行时治理** | 受管资产记录在 `state.json` 中，可安全同步、刷新、恢复与清理 |
 
 ## 核心工作流
 
@@ -195,8 +196,8 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 
 | 阶段 | Claude Code | Codex | 输出产物 | 约束方式 |
 |------|-------------|-------|----------|----------|
-| Host Setup | `/spec:mcp-setup` → restart | `$spec-mcp-setup` → restart | `~/.claude/spec-first/host-setup.json` | **Code-hard**（bootstrap gate 会检查它） |
-| Stage-0 graph bootstrap | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | **Code-hard gate** + **SKILL.md** 内容 |
+| 宿主准备 | `/spec:mcp-setup` → restart | `$spec-mcp-setup` → restart | 宿主专属 marker：`~/.claude/spec-first/host-setup.json` 或 `~/.codex/spec-first/host-setup.json` | **Code-hard**（bootstrap gate 会检查它） |
+| Stage-0 图引导 | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | **Code-hard gate** + **SKILL.md** 内容 |
 | Ideate | `/spec:ideate` | `$spec-ideate` | `docs/ideation/*.md` | **SKILL.md** contract |
 | Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/*.md` | **SKILL.md** contract |
 | Plan | `/spec:plan` | `$spec-plan` | `docs/plans/*.md` | **SKILL.md** contract |
@@ -212,6 +213,8 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | Update | `/spec:update` | `$spec-update` | 在 `spec-first` 升级后刷新运行时资产 |
 | Sessions | `/spec:sessions` | `$spec-sessions` | 搜索并总结过往 coding agent session |
 | Setup | `/spec:setup` | `$spec-setup` | 统一的 host / environment setup 入口 |
+
+这些 `/spec:*` 与 `$spec-*` 是生成出来的运行时 workflow 入口，不是根级 `spec-first` CLI 子命令。根 CLI 命令面见下方 [CLI 命令](#cli-命令)。
 
 ## 快速开始
 
@@ -277,10 +280,13 @@ spec-first init --codex -u <name> --lang <zh|en>
 |----------|----------|------------------|
 | `CLAUDE.md` / `AGENTS.md` | `<!-- spec-first:lang:* -->` 语言策略块（幂等 marker block） | ❌ 需要手动删除，`clean` 不会移除这个语言策略块 |
 | `CLAUDE.md` / `AGENTS.md` | `using-spec-first` 指令 bootstrap block | ✅ `clean` 会移除 |
-| `.claude/settings.json` | 受管 `SessionStart` matcher hook（仅 Claude） | ✅ `clean` 会移除 |
+| `CLAUDE.md` / `AGENTS.md` | `<!-- spec-first:coding-guidelines:* -->` 编码执行准则块 | ✅ `clean` 会移除 |
+| `.claude/settings.json` | 受管 `SessionStart` matcher 条目（仅 Claude） | ✅ `clean` 会移除 |
+| `.claude/hooks/session-start` | 受管 `SessionStart` hook 脚本（仅 Claude） | ✅ `clean` 会移除 |
 | `.claude/commands/spec/**` · `.claude/skills/**` · `.claude/agents/**`（或 Codex 对应目录） | 受管运行时资产 | ✅ `clean` 会移除 |
-| `.claude/spec-first/.developer` | 项目级开发者 profile | ✅ `clean` 会移除 |
-| `.claude/spec-first/state.json` | 受管资产追踪状态 | ✅ `clean` 会移除 |
+| `.claude/spec-first/.developer` / `.codex/spec-first/.developer` | 宿主专属项目开发者 profile | ✅ `clean` 会移除 |
+| `.claude/spec-first/state.json` / `.codex/spec-first/state.json` | 宿主专属受管资产追踪状态 | ✅ `clean` 会移除 |
+| `CHANGELOG.md` | 仅在缺失时自动 bootstrap，写入受管格式头与初始 init 记录 | ❌ 创建后归用户所有 |
 
 #### 如何回滚
 
@@ -288,21 +294,22 @@ spec-first init --codex -u <name> --lang <zh|en>
 spec-first clean --claude   # 或 --codex
 ```
 
+`init` 不会覆盖已有的 `CLAUDE.md` / `AGENTS.md`。首次安装时，spec-first 会把自己受管的 instruction blocks 追加到现有用户内容后面；重新 `init` 时，只会替换它自己通过 marker 包裹的受管 block。
+
 `clean` 会移除上表中“`clean` 可移除”列标记为可删的所有内容，然后打印本次删除了哪个平台的受管资产。受管范围之外的自定义资产不会受影响。语言策略块仍需手动删除；你可以在 `CLAUDE.md` / `AGENTS.md` 中搜索 `<!-- spec-first:lang:`。
 `init --dry-run` 与 `clean --dry-run` 现在都会预览来自同一份 operation plan 的 file-level 变更面，因此 preview/apply 漂移被压缩到可测试、可回归的边界内。
+当前运行时交付会按宿主治理分流：Claude 会写入 `12` 个 command、`35` 个 skill、`57` 个 agent 和 `4` 个 agent support file；Codex 不生成 command 目录，而是写入 `34` 个 skill，并安装同样的 `57` 个 agent 与 `4` 个 support file。
 
 #### 示例输出
 
 ```bash
 $ spec-first init --claude
 
-📋 Wrote language policy to CLAUDE.md
-🧭 Wrote using-spec-first bootstrap to CLAUDE.md
 🪝 Installed Claude SessionStart matcher in .claude/settings.json
-📦 Generated <N> command file(s) in .claude/commands/spec
-🧩 Generated <N> skill directory(ies) in .claude/skills
-🤖 Generated <N> agent file(s) in .claude/agents
-🧰 Generated <N> agent support file(s) in .claude/agents
+📦 Generated 12 command file(s) in .claude/commands/spec
+🧩 Generated 35 skill directory(ies) in .claude/skills
+🤖 Generated 57 agent file(s) in .claude/agents
+🧰 Generated 4 agent support file(s) in .claude/agents
 🪪 Wrote project developer profile:
   📍 path: .claude/spec-first/.developer
   👤 name: yourname
@@ -313,7 +320,7 @@ $ spec-first init --claude
 🔁 Restart Claude Code after generation so it can pick up the new /spec:* commands.
 ```
 
-> 数量和版本号会以你运行时实际安装的版本为准。无论 `--lang` 设置为何，安装日志本身都会以英文输出；`--lang` 影响的是后续 Claude / Codex 回应所遵循的语言策略，而不是安装器自己的输出语言。
+> 数量和版本号会以你运行时实际安装的版本为准。如果仓库里还没有 `CHANGELOG.md`，`init` 还会额外打印 `📝 Bootstrapped CHANGELOG.md`。无论 `--lang` 设置为何，安装日志本身都会以英文输出；`--lang` 影响的是后续 Claude / Codex 回应所遵循的语言策略，而不是安装器自己的输出语言。Codex 的输出按设计不同：它不会生成 `.claude/commands/spec`，而是重启后通过 `$spec-*` skill 入口工作。
 
 ### 4. 首次运行
 
@@ -398,6 +405,7 @@ spec-first crg review-context --repo . --changed <ref>
 | `god-nodes` | 检测高 fan-in 的 hub |
 | `detect-changes` | 做基于 SHA-256 的增量变更检测 |
 | `review-context` | 从 diff 组合生成 review context bundle |
+| `postprocess` | 在 build 或增量刷新后重算 communities、flows、graph analysis 与 FTS |
 
 所有子命令都支持 `--repo=<path>`。完整列表以当前安装版本 `spec-first crg --help` 的输出为准。
 
@@ -407,17 +415,19 @@ spec-first crg review-context --repo . --changed <ref>
 
 | 文档 | 语言 | 说明 |
 |------|------|------|
-| [Chinese README](./README.zh-CN.md) | zh | 完整中文版 README |
-| [User Manual](./docs/05-用户手册/README.md) | zh | 用户手册总目录 |
-| [Quick Start](./docs/05-用户手册/01-快速开始.md) | zh | 首次配置与启动指南 |
-| [Core Concepts](./docs/05-用户手册/02-核心概念.md) | zh | 架构与术语解释 |
-| [Full Example](./docs/05-用户手册/03-完整示例.md) | zh | 端到端交付 walkthrough |
-| [FAQ](./docs/05-用户手册/04-常见问题.md) | zh | 排障与常见问题 |
-| [Best Practices](./docs/05-用户手册/05-最佳实践.md) | zh | 团队使用模式 |
-| [Architecture Overview](./docs/02-架构设计/01-整体架构.md) | zh | 面向贡献者的系统设计 |
-| [Development Guide](./docs/03-实施方案/06-开发规范.md) | zh | 贡献者开发规范 |
+| [英文 README](./README.md) | en | 英文入口文档 |
+| [中文 README](./README.zh-CN.md) | zh | 完整中文版 README |
+| [用户手册](./docs/05-用户手册/README.md) | zh | 用户手册总目录 |
+| [快速开始](./docs/05-用户手册/01-快速开始.md) | zh | 首次配置与启动指南 |
+| [核心概念](./docs/05-用户手册/02-核心概念.md) | zh | 架构与术语解释 |
+| [完整示例](./docs/05-用户手册/03-完整示例.md) | zh | 端到端交付 walkthrough |
+| [常见问题](./docs/05-用户手册/04-常见问题.md) | zh | 排障与常见问题 |
+| [最佳实践](./docs/05-用户手册/05-最佳实践.md) | zh | 团队使用模式 |
+| [架构概览](./docs/02-架构设计/01-整体架构.md) | zh | 面向贡献者的系统设计 |
+| [开发规范](./docs/03-实施方案/06-开发规范.md) | zh | 贡献者开发规范 |
+| [测试方案](./docs/03-实施方案/04-测试方案.md) | zh | 验证策略与测试设计 |
 | [CHANGELOG](./CHANGELOG.md) | en / zh mixed | 规范化版本历史（machine-readable） |
-| [Release Notes Index](./docs/08-版本更新/README.md) | zh | 叙述性版本说明 |
+| [版本更新索引](./docs/08-版本更新/README.md) | zh | 叙述性版本说明 |
 
 ## 本地开发
 

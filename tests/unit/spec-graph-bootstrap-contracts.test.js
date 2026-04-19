@@ -10,6 +10,7 @@ const {
 const {
   buildArtifactManifestSample,
   buildContextRoutingSample,
+  buildDatabaseRoutingSample,
   buildOwnershipRegistrySample,
   buildReviewQueueSample,
   buildVerificationProfileSample,
@@ -56,9 +57,10 @@ describe('spec-graph-bootstrap contracts', () => {
 
     expect(skill).toContain('docs/contracts/spec-graph-bootstrap/');
     expect(skill).toContain('orchestrator.js');
+    expect(skill).toContain('database-routing.json');
   });
 
-  test('source skill schema requires updated_at for layer facts and risk signal facts', () => {
+  test('source skill schema doc keeps database candidates static and routes runtime decisions into database-routing.json', () => {
     // 字段定义已移至 references/artifact-schemas.md（SKILL.md 重构为流程骨架 + references 按需加载）
     const schemas = fs.readFileSync(GRAPH_BOOTSTRAP_SCHEMAS_PATH, 'utf8');
 
@@ -71,6 +73,9 @@ describe('spec-graph-bootstrap contracts', () => {
     expect(schemas).toContain(
       'top_hubs: [{ id, name, file_path, kind, in_degree, confidence, inference_reason, evidence, updated_at }]'
     );
+    expect(schemas).toContain('database: [{ present, connection_name, config_source, db_type, database_name_guess, credential_keys, static_access_hints, confidence, inference_reason, evidence }]');
+    expect(schemas).toContain('## database-routing.json');
+    expect(schemas).toContain('route_decisions');
   });
 
   test('checked-in sample injection index avoids duplicate public-entrypoints injection in plan/work', () => {
@@ -87,6 +92,7 @@ describe('spec-graph-bootstrap contracts', () => {
     const schemas = loadBootstrapSchemas();
     const artifactManifest = buildArtifactManifestSample();
     const contextRouting = buildContextRoutingSample();
+    const databaseRouting = buildDatabaseRoutingSample();
     const verificationProfile = buildVerificationProfileSample();
     const factInventory = FACT_INVENTORY_SAMPLE;
     const riskSignals = RISK_SIGNALS_SAMPLE;
@@ -94,6 +100,7 @@ describe('spec-graph-bootstrap contracts', () => {
 
     expect(validateAgainstSchema(schemas.artifactManifest, artifactManifest).errors).toEqual([]);
     expect(validateAgainstSchema(schemas.contextRouting, contextRouting).errors).toEqual([]);
+    expect(validateAgainstSchema(schemas.databaseRouting, databaseRouting).errors).toEqual([]);
     expect(validateAgainstSchema(schemas.factInventory, factInventory).errors).toEqual([]);
     expect(validateAgainstSchema(schemas.riskSignals, riskSignals).errors).toEqual([]);
     expect(validateAgainstSchema(schemas.testSurface, testSurface).errors).toEqual([]);
@@ -164,6 +171,26 @@ describe('spec-graph-bootstrap contracts', () => {
       plane: 'control',
       status: 'required',
     });
+    expect(manifest.outputs['database-routing.json']).toMatchObject({
+      plane: 'control',
+      status: 'required',
+    });
+    expect(manifest.outputs['context-routing.json']).toMatchObject({
+      plane: 'control',
+      status: 'required',
+    });
+    expect(manifest.outputs['minimal-context/plan.json']).toMatchObject({
+      plane: 'control',
+      status: 'required',
+    });
+    expect(manifest.outputs['minimal-context/work.json']).toMatchObject({
+      plane: 'control',
+      status: 'required',
+    });
+    expect(manifest.outputs['minimal-context/review.json']).toMatchObject({
+      plane: 'control',
+      status: 'required',
+    });
     expect(manifest.outputs['ownership.json']).toMatchObject({
       plane: 'control',
       status: 'optional',
@@ -181,6 +208,22 @@ describe('spec-graph-bootstrap contracts', () => {
     expect(manifest.data_quality).toBe('fact-backed');
   });
 
+  test('fact-inventory sample 包含 topology contract', () => {
+    expect(FACT_INVENTORY_SAMPLE.topology).toMatchObject({
+      schema_version: 'v1',
+      kind: 'single_repo',
+      container_kind: 'git_repo',
+      selection_granularity: 'project',
+    });
+    expect(FACT_INVENTORY_SAMPLE.topology.units).toEqual([
+      expect.objectContaining({
+        kind: 'project',
+        path: '.',
+        git_root: '.',
+      }),
+    ]);
+  });
+
   test('buildArtifactManifest：空 factInventory -> data_quality empty', () => {
     const { buildArtifactManifest } = require('../../src/bootstrap-compiler/compile-routing');
     const manifest = buildArtifactManifest({});
@@ -190,9 +233,36 @@ describe('spec-graph-bootstrap contracts', () => {
   test('buildArtifactManifest：有 modules 无 entrypoints -> data_quality partial', () => {
     const { buildArtifactManifest } = require('../../src/bootstrap-compiler/compile-routing');
     const manifest = buildArtifactManifest({
+      actualAssets: [
+        'fact-inventory.json',
+        'risk-signals.json',
+        'test-surface.json',
+        'database-routing.json',
+        'context-routing.json',
+        'artifact-manifest.json',
+        'freshness.json',
+        'verification-profile.json',
+        'minimal-context/plan.json',
+        'minimal-context/work.json',
+        'minimal-context/review.json',
+      ],
       factInventory: { modules: [{ path: 'src/' }], entrypoints: [] },
     });
     expect(manifest.data_quality).toBe('partial');
+  });
+
+  test('buildArtifactManifest：缺关键 control-plane 资产时 status=incomplete', () => {
+    const { buildArtifactManifest } = require('../../src/bootstrap-compiler/compile-routing');
+    const manifest = buildArtifactManifest({
+      actualAssets: [
+        'fact-inventory.json',
+        'risk-signals.json',
+        'test-surface.json',
+      ],
+      factInventory: { modules: [{ path: 'src/' }], entrypoints: [{ path: 'src/index.js' }] },
+    });
+
+    expect(manifest.status).toBe('incomplete');
   });
 
   test('buildArtifactManifest：有 modules 和 entrypoints -> data_quality fact-backed', () => {

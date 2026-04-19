@@ -77,6 +77,8 @@ Every new or replacement learning should carry two stable views in that same dur
 - **Human Summary** — concise handoff/reporting view covering outcome, key decisions, validation/result, and remaining risks
 - **LLM Reuse Context** — retrieval/reuse view covering constraints, touched interfaces or code touchpoints, reusable patterns, anti-patterns, and provenance
 
+When both views exist, downstream retrieval should treat `LLM Reuse Context` as the primary reuse surface. `Human Summary` remains the fastest human handoff view.
+
 Older learnings may not yet contain these sections. Treat missing dual-view sections as an upgrade opportunity when editing, not as a schema error.
 
 ### Phase 0.5: Auto Memory Scan

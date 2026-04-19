@@ -173,6 +173,89 @@ describe('doctor --json contract', () => {
         execution_evidence_present: false,
       });
       expectMissingEvidenceAgeSummary(payload.workflow_runnability_basis.evidence_age_summary);
+      expect(payload.platform_checks.claude).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'CLAUDE.md coding guidelines',
+            level: 'PASS',
+          }),
+        ])
+      );
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('reports warning when the managed coding-guidelines block is missing', () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'doctor-json-guidelines-missing-'));
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const initExitCode = withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']));
+      expect(initExitCode).toBe(0);
+
+      const instructionPath = path.join(projectRoot, 'CLAUDE.md');
+      const stripped = fs.readFileSync(instructionPath, 'utf8')
+        .replace(/<!-- spec-first:coding-guidelines:start -->[\s\S]*?<!-- spec-first:coding-guidelines:end -->\n?/g, '');
+      fs.writeFileSync(instructionPath, stripped, 'utf8');
+
+      const result = withCwd(projectRoot, () => captureDoctor(['--claude', '--json']));
+      const payload = JSON.parse(result.stdout);
+
+      expect(result.exitCode).toBe(0);
+      expect(payload.platform_checks.claude).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'CLAUDE.md coding guidelines',
+            level: 'WARNING',
+            fix: expect.stringContaining('spec-first init --claude'),
+          }),
+        ])
+      );
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('reports warning when Claude and Codex project developer names drift apart', () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'doctor-json-developer-drift-'));
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const initExitCode = withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']));
+      expect(initExitCode).toBe(0);
+
+      fs.mkdirSync(path.join(projectRoot, '.codex', 'spec-first'), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, '.codex', 'spec-first', '.developer'),
+        'name=codex-user\nlang=zh\ninitialized_at=2026-04-20T00:00:00.000Z\nversion=1.5.4\n',
+        'utf8',
+      );
+
+      const result = withCwd(projectRoot, () => captureDoctor(['--claude', '--json']));
+      const payload = JSON.parse(result.stdout);
+
+      expect(result.exitCode).toBe(0);
+      expect(payload.common_checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'project developer identity',
+            level: 'WARNING',
+            message: expect.stringContaining('claude=reviewer'),
+            fix: expect.stringContaining('spec-first init --claude'),
+          }),
+        ]),
+      );
+      expect(payload.common_checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'project developer identity',
+            message: expect.stringContaining('codex=codex-user'),
+          }),
+        ]),
+      );
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

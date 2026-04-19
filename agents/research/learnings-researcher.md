@@ -118,8 +118,8 @@ Only for files that pass the filter (strong or moderate matches), read the compl
 
 If a doc contains `## Human Summary` or `## LLM Reuse Context`, use them as retrieval accelerators after reading the core learning:
 
-- `## Human Summary` helps extract the fastest accurate view of outcome, key decisions, validation/result, and remaining risks
-- `## LLM Reuse Context` helps extract reusable constraints, code touchpoints, patterns, anti-patterns, and provenance
+- Prioritize `## LLM Reuse Context` as the primary reuse surface for reusable constraints, code touchpoints, patterns, anti-patterns, and provenance
+- Use `## Human Summary` as the fastest human overview of outcome, key decisions, validation/result, and remaining risks
 
 Missing these sections is not an error for older docs. Fall back to the track-specific sections when they are absent.
 

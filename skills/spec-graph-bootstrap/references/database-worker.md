@@ -1,6 +1,6 @@
 # Database Worker（四层索引）
 
-> 本文件仅在 Phase 3 中 `fact-inventory.database[].present=true` 且 `db_type=mysql` 且 `db_access_level≠Level3` 时执行。
+> 本文件仅在 Phase 3 中 `fact-inventory.database[]` 提供了 `db_type=mysql` 的静态候选连接，且 `database-routing.json.selected_connections[]` 中至少存在一条显式选定 route 时执行。
 
 ## 产物按库规模自适应
 
@@ -14,7 +14,7 @@
 
 ## Step 1 — 连接前校验 + 连接与 schema 读取
 
-### Level 1（MCP）预校验
+### selected_route = mcp 预校验
 
 `mcp__mysql-mcp-server__execute_query("SELECT 1")` probe：
 - 成功 → `execute_query("SELECT DATABASE()")` 一致性校验：
@@ -26,7 +26,7 @@
     - 其余 → 通过校验，继续 `list_tables`
 - 失败（工具不可用/超时）→ 写 `generation_errors[{ extractor: "database_worker", error: "mcp-connection-failed", ... }]`，**跳过整个 database worker，继续 Phase 3 其他产物**
 
-### Level 2（CLI）预校验
+### selected_route = cli 预校验
 
 先检查必要环境变量是否已设置：
 ```
@@ -140,11 +140,11 @@ graph LR
 ## Live Query
 > 生成时间: <ISO date> | 以下命令基于 bootstrap 时的连接配置，数据可能已过期
 
-快速验证命令（db_access_level=Level1 时）：
+快速验证命令（selected_route=mcp 时）：
 - 查表结构: `mcp__mysql-mcp-server__execute_query("SHOW CREATE TABLE <table_name>")`
 - 查数据样本: `mcp__mysql-mcp-server__execute_query("SELECT * FROM <table_name> LIMIT 5")`
 
-快速验证命令（db_access_level=Level2 时）：
+快速验证命令（selected_route=cli 时）：
 - 查表结构: `mysql -h $DB_HOST -u $DB_USER -p$DB_PASS -e "SHOW CREATE TABLE <table_name>"`
 - 查数据样本: `mysql -h $DB_HOST -u $DB_USER -p$DB_PASS -e "SELECT * FROM <table_name> LIMIT 5"`
 <!-- spec-graph-bootstrap:auto:end -->
@@ -183,7 +183,7 @@ all-tables-combined-hash = SHA256(hash_input)
 - 域数=1 或小型单域系统不生成此段
 
 **Live Query 段写入规则**：
-- 根据 `fact-inventory.database[].db_access_level` 选择命令模板（Level1→MCP 格式，Level2→CLI 格式）
+- 根据 `database-routing.json.route_decisions[]` 中的显式 `selected_route` 选择命令模板（mcp → MCP 格式，cli → CLI 格式）
 - 时间戳使用当前 ISO date，每次重跑 auto 段时自动更新
 - CLI 模板只写变量名（$DB_HOST 等），不写值，符合凭据保护规则
 
@@ -311,6 +311,7 @@ domain_assignments[t] = domain   （所有表，包括本次新聚类的）
 
 ## 失败边界
 
+- **routing artifact 无 selected route**：`database/` 目录完全不写入，读取 `generation_blockers[]` 解释阻断原因，其余产物不受影响，不触发 backup 恢复
 - **Step 1 连接失败**（预校验阶段已 abort）：`database/` 目录完全未写入，其余产物不受影响，不触发 backup 恢复
 - **Step 2–4 中途失败**（schema 读取/hash 计算/域分配失败）：`database/` 目录尚未写入，视同 Step 1 失败处理，写 generation_errors，跳过 database worker
 - **Step 5 写入中途失败**（文件部分写入）：`database/` 目录处于半写状态 → 删除整个 `database/` 目录，写 generation_errors，**不触发全量 backup 恢复**（固定 v1 产物未受影响），继续完成 README.md 和 Phase 4

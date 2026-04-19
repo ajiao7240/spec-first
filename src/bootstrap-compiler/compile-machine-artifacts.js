@@ -34,6 +34,7 @@ function compileMachineArtifacts({
     factInventory: effectiveFactInventory,
     riskSignals: effectiveRiskSignals,
     testSurface: effectiveTestSurface,
+    actualAssets,
   });
 
   const verificationProfile = buildVerificationProfile({
@@ -72,8 +73,12 @@ function compileMachineArtifacts({
         'fact-inventory.json',
         'risk-signals.json',
         'test-surface.json',
+        'database-routing.json',
         'context-routing.json',
         'artifact-manifest.json',
+        'freshness.json',
+        'minimal-context/plan.json',
+        'minimal-context/work.json',
         'minimal-context/review.json',
         'verification-profile.json',
       ],

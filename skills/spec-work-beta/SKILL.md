@@ -45,12 +45,14 @@ If the task is experiment-driven optimization against a stable measurement harne
    - 任一关键 contract 缺失或解析失败 → 进入 Level 2 降级
 
 3. **按 evaluator 输出 contract 组织上下文**
-   - 统一以 `selected_assets / fallback_reason / level / skipped_rules` 为 Stage-0 真源
+   - 优先以 `selection_subject / selected_contexts` 作为 Stage-0 的解释型真源，回答“命中了谁、为什么命中、当前上下文边界是什么”
+   - `selected_assets / fallback_reason / level / skipped_rules` 保留为 compatibility view；它们必须由解释层单向派生，不再反向决定命中主体
    - `work` 场景优先读取：
      - `minimal-context/work.json`
      - `code-facts/test-map.md`
      - `context-packs/review-change.md`
    - `injection-index.yaml` 仅作为人类视图，不再是运行时唯一判定逻辑
+   - 若 runtime 输出 `selection_subject.kind = workspace`，仅把它视为 overview / unresolved fallback，不要把 workspace 当成常规 `L0` 执行主体
    - 若 `minimal-context/work.json` 提供 `platform_focus`、`required_verifications` 或 `optional_verifications`，将其视为 repo 级 verification summary baseline
    - 若当前 runtime `verification_summary` 还提供 `source / required_verifications / optional_verifications / recommended_required_verifications / recommended_optional_verifications / repo_required_verifications / repo_optional_verifications`，则以 `required_verifications / optional_verifications` 作为本次运行的 effective checklist；若同时提供顶层 `verifier_dispatch`，则把 `verifier_dispatch.handoff_posture / dispatch_candidates / manual_required_verifications / dispatch_blockers` 视为“候选 verifier + blocker”输入，而不是固定执行树
    - 若 `verification_summary.source === 'change-surface'`，即使 `required_verifications` 为空，也不要把 `repo_required_verifications / repo_optional_verifications` 回填成当前改动的必跑项；这些字段只用于了解仓库级 baseline
@@ -61,7 +63,7 @@ If the task is experiment-driven optimization against a stable measurement harne
 !`repo=$(git rev-parse --show-toplevel 2>/dev/null || pwd); if command -v spec-first >/dev/null 2>&1 && spec-first stage0-context --stage work --workflow spec-work-beta --format json 2>/dev/null; then true; elif [ -f "$repo/bin/spec-first.js" ] && node "$repo/bin/spec-first.js" stage0-context --stage work --workflow spec-work-beta --format json 2>/dev/null; then true; elif [ -f "$repo/node_modules/spec-first/bin/spec-first.js" ] && node "$repo/node_modules/spec-first/bin/spec-first.js" stage0-context --stage work --workflow spec-work-beta --format json 2>/dev/null; then true; else echo '__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__'; fi`
    - 若输出为 `__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__`，说明 runtime helper 当前不可用；继续按上面的 control plane contract 手工预载，不阻断主任务
    - 每个文件：存在则读取，缺失则跳过（Level 1）
-   - 默认写一条 Stage-0 telemetry，至少记录 `stage / profile / selected_assets / fallback_reason / skipped_rules`
+   - 默认写一条 Stage-0 telemetry，至少记录 `stage / profile / selection_subject / selected_contexts / selected_assets / fallback_reason / skipped_rules`
 
 4. **Level 2 固定最小集合**（control plane contract 不可用时）
    - `docs/contexts/<slug>/00-summary.md`
@@ -75,6 +77,7 @@ If the task is experiment-driven optimization against a stable measurement harne
 
 6. **workspace v1 边界**
    - 默认仍按单仓 Stage-0 消费，不改变现有 selected assets 顺序
+   - 若 runtime 已解析出 workspace / module / nested topology，以 `selection_subject / selected_contexts` 为准，不再把 repo-only 路径假设当成唯一语义
    - 只有显式提供 `repoRoots` 时，才进入 workspace 聚合路径
 
 ### Reload Before Act

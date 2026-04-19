@@ -10,6 +10,7 @@ const {
 } = require('../plugin');
 const {
   formatDeveloperContents,
+  resolveChangelogAuthor,
   resolveDeveloperIdentity,
 } = require('../developer');
 const {
@@ -28,6 +29,10 @@ const {
 } = require('../state');
 const { getAdapter } = require('../adapters');
 const { applyManagedBlock, buildManagedBlock } = require('../lang-policy');
+const {
+  applyManagedCodingGuidelinesBlock,
+  buildCodingGuidelinesBlock,
+} = require('../coding-guidelines');
 const { buildInitialChangelog, formatChangelogTimestamp } = require('../changelog');
 const { applyManagedBootstrapBlock, buildBootstrapBlock } = require('../instruction-bootstrap');
 const {
@@ -235,7 +240,15 @@ function runInit(argv) {
 }
 
 function printHelp() {
-  console.log('Usage: spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run]');
+  console.log([
+    '🚀 spec-first init',
+    '',
+    '📘 Usage:',
+    '  spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run]',
+    '',
+    '🔗 Repository:',
+    '  https://github.com/sunrain520/spec-first',
+  ].join('\n'));
 }
 
 function parseInitArgs(argv) {
@@ -405,9 +418,13 @@ function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, pla
     ? fs.readFileSync(instructionPath, 'utf8')
     : '';
   const instructionWithLang = applyManagedBlock(existingInstruction, buildManagedBlock(developer.lang));
-  const finalInstruction = applyManagedBootstrapBlock(
+  const instructionWithBootstrap = applyManagedBootstrapBlock(
     instructionWithLang,
     buildBootstrapBlock(adapter, developer.lang),
+  );
+  const finalInstruction = applyManagedCodingGuidelinesBlock(
+    instructionWithBootstrap,
+    buildCodingGuidelinesBlock(developer.lang),
   );
   operations.push(buildPlanFileOperation(
     projectRoot,
@@ -432,10 +449,13 @@ function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, pla
 
   const changelogPath = path.join(projectRoot, 'CHANGELOG.md');
   if (!fs.existsSync(changelogPath)) {
+    const changelogAuthor = resolveChangelogAuthor(projectRoot, {
+      fallbackName: developer.name,
+    });
     operations.push(buildPlanFileOperation(
       projectRoot,
       'CHANGELOG.md',
-      buildInitialChangelog(formatChangelogTimestamp(new Date()), developer.name, developer.version),
+      buildInitialChangelog(formatChangelogTimestamp(new Date()), changelogAuthor.name, developer.version),
       'bootstrap_changelog',
     ));
   }

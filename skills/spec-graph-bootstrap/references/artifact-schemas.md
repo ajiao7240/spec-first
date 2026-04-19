@@ -1,6 +1,6 @@
 # Stage-0 产物 JSON 字段定义
 
-本文件定义 Phase 1 写入控制面时的三个主 JSON 文件 + artifact-manifest.json 的完整字段 contract。
+本文件定义 bootstrap 控制面主 JSON 文件与 `artifact-manifest.json` 的完整字段 contract。
 
 ## fact-inventory.json
 
@@ -20,8 +20,54 @@ integrations: [{ path, symbol, kind, summary, confidence: inferred, inference_re
 testing_surface: [{ test_path, test_symbol, target_path, target_symbol, test_kind, confidence, inference_reason, evidence, updated_at }]
 data_shapes: [{ path, symbol, kind, summary, confidence: inferred, inference_reason, evidence, updated_at }]
 layers: { frontend: { present, confidence, inference_reason, evidence, updated_at }, ... }
-database: [{ db_type, present, db_access_level, confidence, inference_reason, evidence, updated_at }]
-# db_access_level: "Level1"（MCP 直连）/ "Level2"（CLI 直连）/ "Level3"（ORM 推断，不触发 database worker）
+database: [{ present, connection_name, config_source, db_type, database_name_guess, credential_keys, static_access_hints, confidence, inference_reason, evidence }]
+# 只表达静态候选发现，不写 secret 值、probe 历史、fallback 历史
+# static_access_hints: ["cli"] 等静态提示；真正的 route / fallback / provenance 收口在 database-routing.json
+```
+
+## database-routing.json
+
+```yaml
+schema_version: "v1"
+generated_at: <ISO>
+candidate_connections:
+  - connection_name: string
+    db_type: string
+    config_source: string
+    database_name_guess: string | null
+    credential_keys: [string]
+    static_access_hints: [string]
+    confidence: string
+    inference_reason: string
+    evidence: [string]
+secret_resolution:
+  - connection_name: string
+    status: resolved | partial | missing | not-required
+    required_credential_keys: [string]
+    resolved_credential_keys: [string]
+    missing_credential_keys: [string]
+    provenance: process.env | other-runtime
+probe_attempts:
+  - connection_name: string
+    route: mcp | cli
+    status: ready | blocked | unavailable | skipped
+    reason: string
+route_decisions:
+  - connection_name: string
+    selected_route: mcp | cli | null
+    decision: selected | blocked
+    fallback_reason: string | null
+    provenance: [string]
+selected_connections:
+  - connection_name: string
+    route: mcp | cli
+    db_type: string
+    config_source: string
+generation_blockers:
+  - connection_name: string
+    stage: route-selection | generation
+    reason: string
+# secret 解析只写 key 名与状态，不落密码、连接串或用户名明文
 ```
 
 ## risk-signals.json
@@ -93,10 +139,11 @@ inputs:
     module_structure: "v1"
     test_surface: "v1"
     risk_signals: "v1"
-  schema_versions:
-    fact_inventory: "v1"
-    risk_signals: "v1"
-    test_surface: "v1"
+      schema_versions:
+        fact_inventory: "v1"
+        database_routing: "v1"
+        risk_signals: "v1"
+        test_surface: "v1"
 # 首次写入时均为空，Phase 3 database worker 完成后回填
 table_hashes: {}          # { "<table_name>": "sha256:<hex>" } — SHOW CREATE TABLE 内容的 SHA256
 domain_assignments: {}    # { "<table_name>": "<domain_name>" } — 稳定域分配，写入后不再重聚类

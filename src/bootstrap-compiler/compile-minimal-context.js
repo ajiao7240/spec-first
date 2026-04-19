@@ -1,8 +1,24 @@
 'use strict';
 
+function topologyModulePaths(factInventory) {
+  const topology = factInventory && factInventory.topology ? factInventory.topology : null;
+  if (!topology || topology.kind !== 'monorepo_multi_module') return [];
+  const units = Array.isArray(topology.units) ? topology.units : [];
+  return units
+    .filter((item) => item && item.kind === 'module' && item.path)
+    .map((item) => item.path);
+}
+
+function focusModulePaths(factInventory) {
+  const topologyPaths = topologyModulePaths(factInventory);
+  if (topologyPaths.length > 0) return topologyPaths;
+
+  const modules = Array.isArray(factInventory && factInventory.modules) ? factInventory.modules : [];
+  return modules.map((item) => item.path).filter(Boolean);
+}
+
 function deriveContextMeta(factInventory, testSurface) {
-  const moduleCount = Array.isArray(factInventory && factInventory.modules)
-    ? factInventory.modules.length : 0;
+  const moduleCount = focusModulePaths(factInventory).length;
   const testCount = Array.isArray(testSurface && testSurface.test_files)
     ? testSurface.test_files.length : 0;
   const entrypointCount = Array.isArray(factInventory && factInventory.entrypoints)
@@ -82,8 +98,7 @@ function collectEntrypoints(factInventory, limit = 4) {
 }
 
 function collectModules(factInventory, limit = 4) {
-  const modules = Array.isArray(factInventory && factInventory.modules) ? factInventory.modules : [];
-  return unique(modules.slice(0, limit).map((item) => item.path));
+  return unique(focusModulePaths(factInventory).slice(0, limit));
 }
 
 function collectIntegrations(factInventory, limit = 4) {

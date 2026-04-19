@@ -71,7 +71,10 @@ describe('spec-work-beta contracts', () => {
     expect(skill).toContain('Do not present `freshness_stale` as `L0`');
     expect(skill).toContain('stage0-context --stage work --workflow spec-work-beta --format json');
     expect(skill).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
+    expect(skill).toContain('selection_subject / selected_contexts');
     expect(skill).toContain('selected_assets / fallback_reason / level / skipped_rules');
+    expect(skill).toContain('compatibility view');
+    expect(skill).toContain('selection_subject.kind = workspace');
     expect(skill).toContain('`spec:work-beta` 当前有意复用 stable `work` Stage-0 产物与 telemetry 口径');
     expect(skill).toContain('default verification checklist');
     expect(skill).toContain('pending-vs-blocked-or-satisfied verification ledger');
@@ -203,6 +206,7 @@ describe('spec-work-beta contracts', () => {
     expect(mirror).toContain('Do not present `freshness_stale` as `L0`');
     expect(mirror).toContain('stage0-context --stage work --workflow spec-work-beta --format json');
     expect(mirror).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
+    expect(mirror).toContain('selection_subject / selected_contexts');
     expect(mirror).toContain('default verification checklist');
     expect(mirror).toContain('pending-vs-blocked-or-satisfied verification ledger');
   });

@@ -17,7 +17,9 @@ describe('workflow Stage-0 consumption contract', () => {
     test(`${relativePath} uses evaluator output contract as the Stage-0 source of truth`, () => {
       const content = read(relativePath);
 
+      expect(content).toContain('selection_subject / selected_contexts');
       expect(content).toContain('selected_assets / fallback_reason / level / skipped_rules');
+      expect(content).toContain('compatibility view');
       expect(content).toContain('telemetry');
       expect(content).toContain('context-routing.json');
       expect(content).toContain('verification summary');
@@ -44,6 +46,7 @@ describe('workflow Stage-0 consumption contract', () => {
 
       expect(content).toContain('### Reload Before Act');
       expect(content).toContain('freshness_stale');
+      expect(content).toContain('selection_subject.kind = workspace');
       expect(content).toContain('selected_assets');
       expect(content).toContain('Do not present `freshness_stale` as `L0`');
     });

@@ -62,7 +62,10 @@ describe('spec-work contracts', () => {
     expect(skill).toContain('Do not present `freshness_stale` as `L0`');
     expect(skill).toContain('stage0-context --stage work --workflow spec-work --format json');
     expect(skill).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
+    expect(skill).toContain('selection_subject / selected_contexts');
     expect(skill).toContain('selected_assets / fallback_reason / level / skipped_rules');
+    expect(skill).toContain('compatibility view');
+    expect(skill).toContain('selection_subject.kind = workspace');
 
     // Local execution governance enhancements
     expect(skill).toContain('Swarm Mode with Agent Teams');
@@ -169,6 +172,7 @@ describe('spec-work contracts', () => {
     expect(mirror).toContain('Do not present `freshness_stale` as `L0`');
     expect(mirror).toContain('stage0-context --stage work --workflow spec-work --format json');
     expect(mirror).toContain('__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__');
+    expect(mirror).toContain('selection_subject / selected_contexts');
     expect(mirror).toContain('default verification checklist');
     expect(mirror).toContain('pending-vs-blocked-or-satisfied verification ledger');
   });

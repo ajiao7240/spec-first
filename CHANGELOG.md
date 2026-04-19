@@ -8,6 +8,12 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.4 2026-04-20 02:45:00 矿工: feat(cli-help): 统一 `spec-first` / `init` / `doctor` / `clean` 四个 help 面板样式，增加分区图标与仓库地址入口，提升可读性 (user-visible)
+- v1.5.4 2026-04-20 02:29:50 Codex: feat(stage0-topology): 为 `spec-graph-bootstrap` / `stage0-context` 收口统一 topology contract，正式支持 workspace 多 git 工程、单 git 多 module 与单 git 单项目三类场景；新增 `selection_subject` / `selected_contexts` 解释型真源、workspace child repo 自动发现、nested topology 命中与关键 control-plane 产物必需校验，并同步更新下游 workflow skill/mirror、README 与回归测试 (user-visible)
+- v1.5.4 2026-04-20 02:17:24 leokuang: fix(changelog-author): 恢复 changelog 作者默认沿用原有 developer identity 逻辑（显式用户 -> 全局 `.developer` -> git `user.name`），不再默认读取项目级 `.developer.name`；保留 `doctor --json` 的跨 host developer 名称漂移提示，并同步回归测试 (user-visible)
+- v1.5.4 2026-04-20 02:02:00 Codex: docs(readme): 基于当前 CLI 与双宿主治理实现刷新中英文 README，补齐 host-specific 写入面、运行时资产统计、CRG `postprocess` 与 Host Setup 路径说明 (user-visible)
+- v1.5.4 2026-04-20 01:57:33 Codex: feat(database-routing+compound-refresh): 为 `spec-graph-bootstrap` 增加 `database-routing.json` 运行时路由 contract 与 MySQL 候选发现，并收口 `spec-compound` / `spec-compound-refresh` 的双视角检索优先级、section-aware refresh、prompt mirror 与一致性守卫 (user-visible)
+- v1.5.4 2026-04-20 01:26:35 Codex: feat(init-guidelines): 为 `init` / `clean` / `doctor` 增加独立的 instruction-file `coding-guidelines` managed block，保持已有 `CLAUDE.md` / `AGENTS.md` 内容只追加不覆盖，并同步补充文档与回归测试 (user-visible)
 - v1.5.4 2026-04-20 00:09:09 Codex: feat(spec-review-verdict): 为 `spec-review` 增加 `Requirement Completion / Plan-Diff Fidelity / Code Intrinsic Quality` 三轴 verdict 视图，区分 explicit/inferred/missing plan 语义，并同步更新输出模板与回归测试 (user-visible)
 - v1.5.4 2026-04-20 00:45:00 Codex: feat(spec-compound-dual-view): 为 `spec-compound` / `spec-compound-refresh` 引入 `Human Summary + LLM Reuse Context` 单文件双视角 contract，保持 `docs/solutions/` 为唯一持久化目录，并让 `learnings-researcher` / prompt mirror / 资产一致性测试同步消费该结构 (user-visible)
 - v1.5.4 2026-04-19 23:50:32 Codex: feat(spec-work-artifact): 为 `spec-work` 增加 run artifact schema、`run.json` / `closure-summary.md` prompt contract、显式 `work_run` / `work_artifact_dir` handoff 语义，并让 `spec-review` 支持消费上游 work artifact 上下文 (user-visible)
