@@ -6,6 +6,7 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-04-19 | fix | `runtime-truth-hardening` | 收紧 `doctor` 的 verification evidence 真源到 workflow artifacts contract，并把 schema/freshness 纳入 `verified` 判定；同时为 runtime command/skill/agent 增加内容级 drift 检查，并把 `init/clean --dry-run` 升级为 file-level operation preview，让诊断和预览更接近真实执行面 |
 | 2026-04-18 | feat | `crg-benchmark-evidence` | 为 `CRG Quality Gate` 增加 `benchmark-evidence` PR job 和轻量聚合 artifact，形成 `regression-gate + benchmark-evidence` 的双轨组合；evidence 只收集事实，不发明新的 gate 状态 |
 | 2026-04-18 | feat | `external-benchmark-fixture` | 为 review/repo-qa/context-efficiency benchmark 增加受控 `demo-store + wallet-suite` external fixture repo 样本，并让 runner 只在显式 `fixture_repo_root` 存在时切换输入根目录；继续保持证据层定位，不引入自动下载、自动同步或新 gate 状态 |
 | 2026-04-18 | feat | `branch-protection-policy-baseline` | 新增 machine-readable `advisory` branch protection policy，明确 `AI Dev Quality Gate` 与 `CRG Quality Gate` 是建议保护 `main` 的 required checks；只提供治理真源与一致性守卫，不自动改 GitHub 设置，也不引入 gate 状态机 |

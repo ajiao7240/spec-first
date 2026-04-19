@@ -482,6 +482,16 @@ function applyOperationPlan(projectRoot, plan) {
   for (const operation of plan.operations) {
     const targetPath = path.join(projectRoot, operation.path);
 
+    if (operation.kind === 'ensure_dir') {
+      ensureDirectory(targetPath);
+      continue;
+    }
+
+    if (operation.kind === 'write_file' || operation.kind === 'update_file') {
+      writeManagedFile(targetPath, operation.contents, operation.mode, operation.encoding);
+      continue;
+    }
+
     if (operation.kind === 'remove_file' || operation.kind === 'prune_command') {
       removeFile(targetPath, projectRoot);
       continue;
@@ -495,6 +505,22 @@ function applyOperationPlan(projectRoot, plan) {
     if (operation.kind === 'remove_empty_root') {
       removeEmptyRoot(targetPath, projectRoot);
     }
+  }
+}
+
+function ensureDirectory(directoryPath) {
+  fs.mkdirSync(directoryPath, { recursive: true });
+}
+
+function writeManagedFile(filePath, contents, mode, encoding) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  if (encoding === 'buffer' && Buffer.isBuffer(contents)) {
+    fs.writeFileSync(filePath, contents);
+  } else {
+    fs.writeFileSync(filePath, contents || '', 'utf8');
+  }
+  if (typeof mode === 'number') {
+    fs.chmodSync(filePath, mode);
   }
 }
 

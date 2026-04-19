@@ -37,6 +37,42 @@ function captureDoctor(args) {
   }
 }
 
+function writeWorkVerificationContext(projectRoot, requiredVerifications = ['browser-smoke']) {
+  const slug = path.basename(projectRoot);
+  const bootstrapDir = path.join(projectRoot, '.spec-first', 'workflows', 'bootstrap', slug, 'minimal-context');
+  fs.mkdirSync(bootstrapDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(bootstrapDir, 'work.json'),
+    `${JSON.stringify({
+      schema_version: 'v1',
+      generated_at: '2026-04-19T00:00:00.000Z',
+      stage: 'work',
+      profile: 'work-default',
+      platform_focus: ['web'],
+      required_verifications: requiredVerifications,
+      optional_verifications: [],
+      fallback_reason: null,
+      advice: 'work',
+    }, null, 2)}\n`,
+    'utf8',
+  );
+  return slug;
+}
+
+function writeVerificationEvidence(projectRoot, slug, evidenceItems) {
+  const verificationDir = path.join(projectRoot, '.spec-first', 'workflows', 'verification', slug);
+  fs.mkdirSync(verificationDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(verificationDir, 'verification-evidence.json'),
+    `${JSON.stringify({
+      schema_version: 'v1',
+      evidence_source: 'workflow-artifacts',
+      evidence_items: evidenceItems,
+    }, null, 2)}\n`,
+    'utf8',
+  );
+}
+
 describe('doctor --json contract', () => {
   test('reports no-platform projects as install-only facts without claiming workflow runnability', () => {
     const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'doctor-json-empty-'));
@@ -132,22 +168,19 @@ describe('doctor --json contract', () => {
     try {
       const initExitCode = withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']));
       expect(initExitCode).toBe(0);
-
-      fs.mkdirSync(path.join(projectRoot, '.spec-first', 'runtime'), { recursive: true });
-      fs.writeFileSync(
-        path.join(projectRoot, '.spec-first', 'runtime', 'verification-evidence.json'),
-        `${JSON.stringify({
-          schema_version: 'v1',
-          evidence_items: [
-            {
-              verifier: 'doctor-fixture',
-              recorded_at: '2026-04-19T00:00:00.000Z',
-              artifact_path: '.spec-first/runtime/verification-evidence.json',
-            },
-          ],
-        }, null, 2)}\n`,
-        'utf8',
-      );
+      const slug = writeWorkVerificationContext(projectRoot);
+      writeVerificationEvidence(projectRoot, slug, [
+        {
+          evidence_ref: 'evidence://browser-smoke/1',
+          verifier: 'test-browser',
+          gate_ids: ['browser-smoke'],
+          evidence_type: 'browser-snapshot',
+          status: 'captured',
+          artifact_path: `.spec-first/workflows/verification/${slug}/browser-smoke.png`,
+          captured_at: '2026-04-19T00:00:00.000Z',
+          stage: 'work',
+        },
+      ]);
 
       const result = withCwd(projectRoot, () => captureDoctor(['--claude', '--json']));
       const payload = JSON.parse(result.stdout);
@@ -159,6 +192,92 @@ describe('doctor --json contract', () => {
         managed_state_present: true,
         workflow_surface_resolved: true,
         execution_evidence_present: true,
+      });
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('does not report verified when workflow evidence is stale', () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'doctor-json-stale-'));
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const initExitCode = withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']));
+      expect(initExitCode).toBe(0);
+
+      const slug = writeWorkVerificationContext(projectRoot);
+      writeVerificationEvidence(projectRoot, slug, [
+        {
+          evidence_ref: 'evidence://browser-smoke/1',
+          verifier: 'test-browser',
+          gate_ids: ['browser-smoke'],
+          evidence_type: 'browser-snapshot',
+          status: 'captured',
+          artifact_path: `.spec-first/workflows/verification/${slug}/browser-smoke.png`,
+          captured_at: '2025-04-19T00:00:00.000Z',
+          stage: 'work',
+        },
+      ]);
+
+      const result = withCwd(projectRoot, () => captureDoctor(['--claude', '--json']));
+      const payload = JSON.parse(result.stdout);
+
+      expect(result.exitCode).toBe(0);
+      expect(payload.workflow_runnability).toBe('simulated');
+      expect(payload.workflow_runnability_basis).toMatchObject({
+        execution_evidence_present: true,
+        evidence_schema_valid: true,
+        evidence_freshness: 'stale',
+        fallback_reason: 'verification_evidence_stale',
+      });
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('does not report verified when workflow evidence schema is invalid', () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'doctor-json-invalid-evidence-'));
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const initExitCode = withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']));
+      expect(initExitCode).toBe(0);
+
+      const slug = writeWorkVerificationContext(projectRoot);
+      const verificationDir = path.join(projectRoot, '.spec-first', 'workflows', 'verification', slug);
+      fs.mkdirSync(verificationDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(verificationDir, 'verification-evidence.json'),
+        `${JSON.stringify({
+          schema_version: 'v1',
+          evidence_source: 'workflow-artifacts',
+          evidence_items: [
+            {
+              evidence_ref: 'evidence://browser-smoke/1',
+              verifier: 'test-browser',
+              gate_ids: ['browser-smoke'],
+              status: 'captured',
+              artifact_path: `.spec-first/workflows/verification/${slug}/browser-smoke.png`,
+              captured_at: '2026-04-19T00:00:00.000Z',
+              stage: 'work',
+            },
+          ],
+        }, null, 2)}\n`,
+        'utf8',
+      );
+
+      const result = withCwd(projectRoot, () => captureDoctor(['--claude', '--json']));
+      const payload = JSON.parse(result.stdout);
+
+      expect(result.exitCode).toBe(0);
+      expect(payload.workflow_runnability).toBe('simulated');
+      expect(payload.workflow_runnability_basis).toMatchObject({
+        execution_evidence_present: false,
+        evidence_schema_valid: false,
+        fallback_reason: 'verification_evidence_schema_invalid',
       });
     } finally {
       initLogSpy.mockRestore();

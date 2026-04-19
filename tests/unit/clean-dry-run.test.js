@@ -87,6 +87,9 @@ describe('clean --dry-run', () => {
       expect(result.stdout).toContain('Dry run: spec-first clean (claude)');
       expect(result.stdout).toContain('Would remove');
       expect(result.stdout).toContain('.claude/spec-first/state.json');
+      expect(result.stdout).toContain('.claude/hooks/session-start');
+      expect(result.stdout).toContain('.claude/settings.json');
+      expect(result.stdout).toContain('CLAUDE.md');
       expect(result.stdout).toContain('Custom assets outside the spec-first managed set would remain untouched.');
       expect(result.stdout).toContain('No files were changed.');
       expect(fs.existsSync(customSkillPath)).toBe(true);

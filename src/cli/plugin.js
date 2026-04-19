@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { mergeOperationPlans } = require('./state');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const MANIFEST_PATH = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
@@ -27,6 +28,46 @@ const TEXT_FILE_EXTENSIONS = new Set([
   '.mjs',
   '.txt',
 ]);
+const CANONICAL_AGENT_NAME_PATTERN = /\bspec-first:[a-z-]+:[a-z-]+\b/;
+const CODEX_UNREWRITTEN_PATH_PATTERNS = [
+  /\.claude\/commands\/spec\/[a-z-]+\.md/,
+  /\.claude\/spec-first\/workflows\//,
+  /\.claude\/skills\//,
+  /\.claude\/agents\//,
+  CANONICAL_AGENT_NAME_PATTERN,
+];
+const HIGH_VALUE_SKILL_ANCHORS = {
+  'spec-plan': [
+    'selected_assets / fallback_reason / level / skipped_rules',
+    'verifier_dispatch',
+    'verification_gate_state',
+    'stage0-context --stage plan --workflow spec-plan --format json',
+  ],
+  'spec-work': [
+    'required_verifications',
+    'verifier_dispatch',
+    'verification_gate_state',
+    'stage0-context --stage work --workflow spec-work --format json',
+  ],
+  'spec-work-beta': [
+    'required_verifications',
+    'verifier_dispatch',
+    'verification_gate_state',
+    'stage0-context --stage work --workflow spec-work-beta --format json',
+  ],
+  'spec-review': [
+    'verification summary',
+    'verifier_dispatch',
+    'verification_gate_state',
+    'stage0-context --stage review --workflow spec-review --format json',
+  ],
+  'spec-graph-bootstrap': [
+    'Runs Phase 0–4',
+    'fact-inventory.json',
+    'risk-signals.json',
+    'test-surface.json',
+  ],
+};
 
 function loadPluginManifest() {
   if (!fs.existsSync(MANIFEST_PATH)) {
@@ -433,6 +474,26 @@ function syncBundledAssets(projectRoot, adapter) {
   return { commands, skills, workflowSkills, agents, agentSupportFiles, skipped: filteredAssetSet.skipped };
 }
 
+function planBundledAssetSync(projectRoot, adapter, filteredAssetSet = buildFilteredAssetSet(adapter.id)) {
+  const commandPlan = adapter.hasCommands
+    ? planCommandsSync(projectRoot, adapter, filteredAssetSet.commands)
+    : { plan: emptyPlan(), runtimeCommands: [] };
+  const skillsPlan = planSkillsSync(projectRoot, adapter, filteredAssetSet);
+  const agentsPlan = planAgentsSync(projectRoot, adapter);
+
+  return {
+    plan: mergeOperationPlans(commandPlan.plan, skillsPlan.plan, agentsPlan.plan),
+    syncedAssets: {
+      commands: commandPlan.runtimeCommands,
+      skills: skillsPlan.skills,
+      workflowSkills: skillsPlan.workflowSkills,
+      agents: agentsPlan.agents,
+      agentSupportFiles: agentsPlan.agentSupportFiles,
+      skipped: filteredAssetSet.skipped,
+    },
+  };
+}
+
 function syncCommands(projectRoot, adapter, commands = listBundledCommands()) {
   const targetRoot = path.join(projectRoot, adapter.commandRoot);
   fs.mkdirSync(targetRoot, { recursive: true });
@@ -453,6 +514,34 @@ function syncCommands(projectRoot, adapter, commands = listBundledCommands()) {
   }
 
   return runtimeCommands;
+}
+
+function planCommandsSync(projectRoot, adapter, commands = listBundledCommands()) {
+  const targetRoot = path.join(projectRoot, adapter.commandRoot);
+  const runtimeCommands = commands.map((command) => ({
+    ...command,
+    filename: adapter.commandFilename(command),
+  }));
+  const operations = [buildPlanOperation('ensure_dir', adapter.commandRoot, 'managed_command_root')];
+
+  for (const command of runtimeCommands) {
+    const content = readBundledCommandTemplate(command.name);
+    const transformed = adapter.transformSkillContent(content, { skillName: command.skill });
+    operations.push(buildFileWriteOperation(
+      projectRoot,
+      path.join(targetRoot, command.filename),
+      transformed,
+      'managed_command',
+    ));
+  }
+
+  return {
+    plan: {
+      operations,
+      summary: summarizePlanOperations(operations),
+    },
+    runtimeCommands,
+  };
 }
 
 function syncSkills(projectRoot, adapter, filteredAssetSet = buildFilteredAssetSet(adapter.id)) {
@@ -489,6 +578,63 @@ function syncSkills(projectRoot, adapter, filteredAssetSet = buildFilteredAssetS
   return { skills: standaloneNames, workflowSkills: workflowNames };
 }
 
+function planSkillsSync(projectRoot, adapter, filteredAssetSet = buildFilteredAssetSet(adapter.id)) {
+  const standaloneRoot = path.join(projectRoot, adapter.skillsRoot);
+  const workflowRoot = path.join(projectRoot, adapter.workflowsRoot);
+  const sourceRoot = getBundledPath('skills');
+  const standaloneNames = [...filteredAssetSet.skills];
+  const workflowNames = [...filteredAssetSet.workflowSkills];
+  const workflowNameSet = new Set(workflowNames);
+  const skillNames = [...new Set([...standaloneNames, ...workflowNames])].sort((a, b) =>
+    a.localeCompare(b),
+  );
+  const operations = [
+    buildPlanOperation('ensure_dir', adapter.skillsRoot, 'managed_skills_root'),
+  ];
+
+  if (adapter.workflowsRoot !== adapter.skillsRoot) {
+    operations.push(buildPlanOperation('ensure_dir', adapter.workflowsRoot, 'managed_workflows_root'));
+  }
+
+  for (const skillName of skillNames) {
+    const isWorkflowSkill = workflowNameSet.has(skillName);
+    const targetDir = isWorkflowSkill
+      ? path.join(workflowRoot, skillName)
+      : path.join(standaloneRoot, skillName);
+
+    operations.push(buildPlanOperation(
+      'remove_dir',
+      toRelativeProjectPath(targetDir, projectRoot),
+      isWorkflowSkill ? 'managed_workflow_skill_reset' : 'managed_skill_reset',
+    ));
+
+    if (isWorkflowSkill && workflowRoot !== standaloneRoot) {
+      operations.push(buildPlanOperation(
+        'remove_dir',
+        normalizePathForContent(path.join(adapter.skillsRoot, skillName)),
+        'managed_workflow_skill_standalone_cleanup',
+      ));
+    }
+
+    operations.push(...planDirectoryWithTransform({
+      projectRoot,
+      sourceDir: path.join(sourceRoot, skillName),
+      targetDir,
+      reason: isWorkflowSkill ? 'managed_workflow_skill' : 'managed_skill',
+      transformText: (content) => adapter.transformSkillContent(content, { skillName }),
+    }));
+  }
+
+  return {
+    plan: {
+      operations,
+      summary: summarizePlanOperations(operations),
+    },
+    skills: standaloneNames,
+    workflowSkills: workflowNames,
+  };
+}
+
 function syncAgents(projectRoot, adapter) {
   const targetRoot = path.join(projectRoot, adapter.agentsRoot);
   fs.mkdirSync(targetRoot, { recursive: true });
@@ -516,6 +662,45 @@ function syncAgents(projectRoot, adapter) {
   return { agents: agentPaths, agentSupportFiles };
 }
 
+function planAgentsSync(projectRoot, adapter) {
+  const targetRoot = path.join(projectRoot, adapter.agentsRoot);
+  const sourceRoot = getBundledPath('agents');
+  const agentPaths = listBundledAgents();
+  const agentSupportFiles = listBundledAgentSupportFiles();
+  const operations = [
+    buildPlanOperation('ensure_dir', adapter.agentsRoot, 'managed_agents_root'),
+  ];
+
+  for (const agentPath of agentPaths) {
+    operations.push(...planFileCopyWithTransform({
+      projectRoot,
+      sourcePath: path.join(sourceRoot, agentPath),
+      targetPath: path.join(targetRoot, agentPath),
+      reason: 'managed_agent',
+      transformText: (content) => adapter.transformAgentContent(content),
+    }));
+  }
+
+  for (const supportPath of agentSupportFiles) {
+    operations.push(...planFileCopyWithTransform({
+      projectRoot,
+      sourcePath: path.join(sourceRoot, supportPath),
+      targetPath: path.join(targetRoot, supportPath),
+      reason: 'managed_agent_support_file',
+      transformText: (content) => content,
+    }));
+  }
+
+  return {
+    plan: {
+      operations,
+      summary: summarizePlanOperations(operations),
+    },
+    agents: agentPaths,
+    agentSupportFiles,
+  };
+}
+
 function inspectInstalledAssets(projectRoot, adapter) {
   const filteredAssetSet = buildFilteredAssetSet(adapter.id);
   const agents = listBundledAgents();
@@ -538,7 +723,11 @@ function inspectCommands(projectRoot, commands = listBundledCommands(), adapter)
     filename: adapter.commandFilename(command),
   }));
   const missing = runtimeCommands.filter((command) => !fs.existsSync(path.join(targetRoot, command.filename)));
-  return { targetRoot, entries: runtimeCommands, missing };
+  const drifted = runtimeCommands
+    .filter((command) => fs.existsSync(path.join(targetRoot, command.filename)))
+    .map((command) => inspectCommandIntegrity(projectRoot, command, adapter))
+    .filter(Boolean);
+  return { targetRoot, entries: runtimeCommands, missing, drifted };
 }
 
 function inspectSkills(projectRoot, filteredAssetSet, adapter) {
@@ -555,19 +744,38 @@ function inspectSkills(projectRoot, filteredAssetSet, adapter) {
     const targetRoot = workflowNameSet.has(skillName) ? workflowRoot : standaloneRoot;
     return !fs.existsSync(path.join(targetRoot, skillName, 'SKILL.md'));
   });
-  return { targetRoot: standaloneRoot, entries: skillNames, missing };
+  const drifted = skillNames
+    .filter((skillName) => !missing.includes(skillName))
+    .map((skillName) => inspectSkillIntegrity({
+      projectRoot,
+      adapter,
+      skillName,
+      isWorkflowSkill: workflowNameSet.has(skillName),
+      standaloneRoot,
+      workflowRoot,
+    }))
+    .filter(Boolean);
+  return { targetRoot: standaloneRoot, entries: skillNames, missing, drifted };
 }
 
 function inspectAgents(projectRoot, agentPaths = listBundledAgents(), adapter) {
   const targetRoot = path.join(projectRoot, adapter.agentsRoot);
   const missing = agentPaths.filter((agentPath) => !fs.existsSync(path.join(targetRoot, agentPath)));
-  return { targetRoot, entries: agentPaths, missing };
+  const drifted = agentPaths
+    .filter((agentPath) => !missing.includes(agentPath))
+    .map((agentPath) => inspectAgentIntegrity(projectRoot, agentPath, adapter))
+    .filter(Boolean);
+  return { targetRoot, entries: agentPaths, missing, drifted };
 }
 
 function inspectAgentSupportFiles(projectRoot, supportPaths = listBundledAgentSupportFiles(), adapter) {
   const targetRoot = path.join(projectRoot, adapter.agentsRoot);
   const missing = supportPaths.filter((supportPath) => !fs.existsSync(path.join(targetRoot, supportPath)));
-  return { targetRoot, entries: supportPaths, missing };
+  const drifted = supportPaths
+    .filter((supportPath) => !missing.includes(supportPath))
+    .map((supportPath) => inspectAgentSupportFileIntegrity(projectRoot, supportPath, adapter))
+    .filter(Boolean);
+  return { targetRoot, entries: supportPaths, missing, drifted };
 }
 
 module.exports = {
@@ -582,6 +790,7 @@ module.exports = {
   listBundledSkills,
   loadPluginManifest,
   loadSkillsGovernance,
+  planBundledAssetSync,
   readBundledCommandTemplate,
   syncAgents,
   syncBundledAssets,
@@ -624,4 +833,253 @@ function copyFileWithTransform(sourcePath, targetPath, transformText) {
 
 function isTextFile(filePath) {
   return TEXT_FILE_EXTENSIONS.has(path.extname(filePath));
+}
+
+function emptyPlan() {
+  return {
+    operations: [],
+    summary: {},
+  };
+}
+
+function summarizePlanOperations(operations) {
+  return operations.reduce((summary, operation) => {
+    summary[operation.kind] = (summary[operation.kind] || 0) + 1;
+    return summary;
+  }, {});
+}
+
+function buildPlanOperation(kind, relativePath, reason, extra = {}) {
+  return {
+    kind,
+    path: normalizePathForContent(relativePath),
+    reason,
+    ...extra,
+  };
+}
+
+function toRelativeProjectPath(absolutePath, projectRoot) {
+  return normalizePathForContent(path.relative(projectRoot, absolutePath));
+}
+
+function buildFileWriteOperation(projectRoot, absolutePath, contents, reason, mode) {
+  return buildPlanOperation(
+    fs.existsSync(absolutePath) ? 'update_file' : 'write_file',
+    toRelativeProjectPath(absolutePath, projectRoot),
+    reason,
+    {
+      contents,
+      mode,
+    },
+  );
+}
+
+function planDirectoryWithTransform({
+  projectRoot,
+  sourceDir,
+  targetDir,
+  reason,
+  transformText,
+}) {
+  const operations = [
+    buildPlanOperation('ensure_dir', toRelativeProjectPath(targetDir, projectRoot), `${reason}_dir`),
+  ];
+
+  for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    const sourcePath = path.join(sourceDir, entry.name);
+    const nextTargetPath = path.join(targetDir, entry.name);
+
+    if (entry.isDirectory()) {
+      operations.push(...planDirectoryWithTransform({
+        projectRoot,
+        sourceDir: sourcePath,
+        targetDir: nextTargetPath,
+        reason,
+        transformText,
+      }));
+      continue;
+    }
+
+    if (entry.isFile()) {
+      operations.push(...planFileCopyWithTransform({
+        projectRoot,
+        sourcePath,
+        targetPath: nextTargetPath,
+        reason,
+        transformText,
+      }));
+    }
+  }
+
+  return operations;
+}
+
+function planFileCopyWithTransform({
+  projectRoot,
+  sourcePath,
+  targetPath,
+  reason,
+  transformText,
+}) {
+  const operations = [
+    buildPlanOperation(
+      'ensure_dir',
+      toRelativeProjectPath(path.dirname(targetPath), projectRoot),
+      `${reason}_parent_dir`,
+    ),
+  ];
+  const stat = fs.statSync(sourcePath);
+
+  if (!isTextFile(sourcePath)) {
+    operations.push(buildPlanOperation(
+      fs.existsSync(targetPath) ? 'update_file' : 'write_file',
+      toRelativeProjectPath(targetPath, projectRoot),
+      reason,
+      {
+        contents: fs.readFileSync(sourcePath),
+        encoding: 'buffer',
+        mode: stat.mode,
+      },
+    ));
+    return operations;
+  }
+
+  const original = fs.readFileSync(sourcePath, 'utf8');
+  const transformed = transformText(original);
+  operations.push(buildFileWriteOperation(projectRoot, targetPath, transformed, reason, stat.mode));
+  return operations;
+}
+
+function unique(values) {
+  return [...new Set((values || []).filter(Boolean))];
+}
+
+function normalizePathForContent(filePath) {
+  return String(filePath || '').replace(/\\/g, '/');
+}
+
+function normalizedWorkflowSkillRuntimePath(adapter, skillName) {
+  return normalizePathForContent(path.posix.join(normalizePathForContent(adapter.workflowsRoot), skillName, 'SKILL.md'));
+}
+
+function inspectCommandIntegrity(projectRoot, command, adapter) {
+  const targetPath = path.join(projectRoot, adapter.commandRoot, command.filename);
+  const expectedContent = adapter.transformSkillContent(readBundledCommandTemplate(command.name), { skillName: command.skill });
+  const actualContent = fs.readFileSync(targetPath, 'utf8');
+  const issues = unique([
+    ...commandIntegrityIssues(actualContent, command, adapter),
+    ...(actualContent === expectedContent ? [] : ['content_mismatch']),
+  ]);
+
+  if (issues.length === 0) return null;
+  return {
+    filename: command.filename,
+    commandName: command.name,
+    issues,
+  };
+}
+
+function inspectSkillIntegrity({
+  projectRoot,
+  adapter,
+  skillName,
+  isWorkflowSkill,
+  standaloneRoot,
+  workflowRoot,
+}) {
+  const runtimeRoot = isWorkflowSkill ? workflowRoot : standaloneRoot;
+  const targetPath = path.join(runtimeRoot, skillName, 'SKILL.md');
+  const sourcePath = path.join(getBundledPath('skills'), skillName, 'SKILL.md');
+  const expectedContent = adapter.transformSkillContent(fs.readFileSync(sourcePath, 'utf8'), { skillName });
+  const actualContent = fs.readFileSync(targetPath, 'utf8');
+  const issues = unique([
+    ...skillIntegrityIssues(actualContent, skillName, adapter),
+    ...(actualContent === expectedContent ? [] : ['content_mismatch']),
+  ]);
+
+  if (issues.length === 0) return null;
+  return {
+    skillName,
+    issues,
+  };
+}
+
+function inspectAgentIntegrity(projectRoot, agentPath, adapter) {
+  const targetPath = path.join(projectRoot, adapter.agentsRoot, agentPath);
+  const sourcePath = path.join(getBundledPath('agents'), agentPath);
+  const expectedContent = adapter.transformAgentContent(fs.readFileSync(sourcePath, 'utf8'));
+  const actualContent = fs.readFileSync(targetPath, 'utf8');
+  const issues = unique([
+    ...transformedContentIntegrityIssues(actualContent, adapter, { kind: 'agent' }),
+    ...(actualContent === expectedContent ? [] : ['content_mismatch']),
+  ]);
+
+  if (issues.length === 0) return null;
+  return {
+    agentPath,
+    issues,
+  };
+}
+
+function inspectAgentSupportFileIntegrity(projectRoot, supportPath, adapter) {
+  const targetPath = path.join(projectRoot, adapter.agentsRoot, supportPath);
+  const sourcePath = path.join(getBundledPath('agents'), supportPath);
+  if (!isTextFile(sourcePath)) {
+    return null;
+  }
+
+  const expectedContent = fs.readFileSync(sourcePath, 'utf8');
+  const actualContent = fs.readFileSync(targetPath, 'utf8');
+  if (actualContent === expectedContent) {
+    return null;
+  }
+
+  return {
+    supportPath,
+    issues: ['content_mismatch'],
+  };
+}
+
+function commandIntegrityIssues(actualContent, command, adapter) {
+  const issues = [];
+  const workflowPath = normalizedWorkflowSkillRuntimePath(adapter, command.skill);
+
+  if (!actualContent.includes(workflowPath)) {
+    issues.push('workflow_skill_path_mismatch');
+  }
+
+  if (adapter.id === 'claude' && !actualContent.includes(`You are running the \`spec:${command.name}\` workflow.`)) {
+    issues.push('workflow_title_anchor_missing');
+  }
+
+  return issues;
+}
+
+function skillIntegrityIssues(actualContent, skillName, adapter) {
+  const anchorIssues = (HIGH_VALUE_SKILL_ANCHORS[skillName] || [])
+    .filter((anchor) => !actualContent.includes(anchor))
+    .map((anchor) => `missing_anchor:${anchor}`);
+
+  return unique([
+    ...anchorIssues,
+    ...transformedContentIntegrityIssues(actualContent, adapter, { kind: 'skill', skillName }),
+  ]);
+}
+
+function transformedContentIntegrityIssues(actualContent, adapter, { kind, skillName } = {}) {
+  const issues = [];
+
+  if (adapter.id === 'claude' && CANONICAL_AGENT_NAME_PATTERN.test(actualContent)) {
+    issues.push('canonical_agent_reference_drift');
+  }
+
+  if (adapter.id === 'codex' && CODEX_UNREWRITTEN_PATH_PATTERNS.some((pattern) => pattern.test(actualContent))) {
+    issues.push('codex_path_rewrite_drift');
+  }
+
+  if (adapter.id === 'codex' && kind === 'skill' && skillName && !actualContent.includes(`name: ${skillName}`)) {
+    issues.push('skill_name_rewrite_drift');
+  }
+
+  return issues;
 }

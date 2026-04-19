@@ -462,6 +462,7 @@
 - v1.4.0 2026-04-01 16:20:00 kuang: 更新 init 初始化生成的 CHANGELOG 模板为中文格式说明，并补充对应测试 (user-visible)
 - v1.4.0 2026-04-01 16:12:00 kuang: 约定 CHANGELOG 使用中文记录变更摘要 (user-visible)
 - v1.4.0 2026-04-01 16:08:00 kuang: 将 CHANGELOG 记录格式说明改为中文，并支持时分秒时间戳 (user-visible)
+- v1.5.4 2026-04-19 19:45:00 kuang: 收紧 doctor verification evidence 真源，新增 runtime 内容级漂移诊断，并将 init/clean dry-run 升级为 file-level operation preview (user-visible)
 - v1.4.0 2026-04-01 kuang: refresh README visual assets and add npm version reminder planning artifacts (user-visible)
 - v1.4.0 2026-04-01 kuang: replace three-layer architecture SVG with a static GitHub-compatible version to fix broken README rendering (user-visible)
 - v1.4.0 2026-04-01 kuang: strengthen spec-graph-bootstrap contracts, PRD templates, and workflow pattern docs (user-visible)

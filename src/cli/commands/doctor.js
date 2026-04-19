@@ -7,7 +7,23 @@ const { isLegacyManagedState, readState, readStateFileRaw } = require('../state'
 const { getAdapter, getSupportedPlatforms } = require('../adapters');
 const { inspectInstructionBootstrap } = require('../instruction-bootstrap');
 const { inspectManagedSessionStartHook } = require('../claude-settings');
-const VERIFICATION_EVIDENCE_PATH = path.join('.spec-first', 'runtime', 'verification-evidence.json');
+const { detectSlug } = require('../../context-routing/loader');
+const { loadVerificationEvidence } = require('../../context-routing/verification-evidence');
+const { buildRuntimeVerificationSummaryForRepo } = require('../../context-routing/verification-summary');
+const { resolveWorkflowArtifactDir } = require('../../crg/artifact-paths');
+const { validateAgainstSchema } = require('../../bootstrap-compiler/schema-loader');
+
+const VERIFICATION_EVIDENCE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const VERIFICATION_EVIDENCE_SCHEMA_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  'docs',
+  'contracts',
+  'verifiers',
+  'verification-evidence.schema.json'
+);
 
 function runDoctor(argv) {
   const args = [...argv];
@@ -169,7 +185,7 @@ function checkGeneratedCommands(projectRoot, adapter) {
     };
   }
 
-  if (commandStatus.missing.length === 0) {
+  if (commandStatus.missing.length === 0 && (commandStatus.drifted || []).length === 0) {
     return {
       level: 'PASS',
       name: `${adapter.commandRoot}`,
@@ -177,11 +193,24 @@ function checkGeneratedCommands(projectRoot, adapter) {
     };
   }
 
+  const driftMessage = formatDriftSummary(commandStatus.drifted || [], 'filename');
+  if (commandStatus.missing.length === 0) {
+    return {
+      level: 'WARNING',
+      name: `${adapter.commandRoot}`,
+      message: `drifted ${driftMessage}`,
+      fix: `Run \`spec-first init --${adapter.id}\` to regenerate the drifted command files.`,
+    };
+  }
+
   return {
     level: 'WARNING',
     name: `${adapter.commandRoot}`,
-    message: `missing ${commandStatus.missing.map((entry) => entry.filename).join(', ')}`,
-    fix: `Run \`spec-first init --${adapter.id}\` to regenerate the missing files.`,
+    message: [
+      `missing ${commandStatus.missing.map((entry) => entry.filename).join(', ')}`,
+      driftMessage ? `drifted ${driftMessage}` : null,
+    ].filter(Boolean).join('; '),
+    fix: `Run \`spec-first init --${adapter.id}\` to regenerate the missing or drifted command files.`,
   };
 }
 
@@ -207,7 +236,7 @@ function checkInstalledSkills(projectRoot, adapter) {
     };
   }
 
-  if (skillStatus.missing.length === 0) {
+  if (skillStatus.missing.length === 0 && (skillStatus.drifted || []).length === 0) {
     return {
       level: 'PASS',
       name: `${adapter.skillsRoot}`,
@@ -215,10 +244,23 @@ function checkInstalledSkills(projectRoot, adapter) {
     };
   }
 
+  const driftMessage = formatDriftSummary(skillStatus.drifted || [], 'skillName');
+  if (skillStatus.missing.length === 0) {
+    return {
+      level: 'WARNING',
+      name: `${adapter.skillsRoot}`,
+      message: `drifted ${driftMessage}`,
+      fix: `Run \`spec-first init --${adapter.id}\` in this project to resync drifted bundled skills.`,
+    };
+  }
+
   return {
     level: 'WARNING',
     name: `${adapter.skillsRoot}`,
-    message: `out of sync (${skillStatus.entries.length - skillStatus.missing.length}/${skillStatus.entries.length} installed)`,
+    message: [
+      `out of sync (${skillStatus.entries.length - skillStatus.missing.length}/${skillStatus.entries.length} installed)`,
+      driftMessage ? `drifted ${driftMessage}` : null,
+    ].filter(Boolean).join('; '),
     fix: `Run \`spec-first init --${adapter.id}\` in this project to resync bundled skills.`,
   };
 }
@@ -245,7 +287,7 @@ function checkInstalledAgents(projectRoot, adapter) {
     };
   }
 
-  if (agentStatus.missing.length === 0) {
+  if (agentStatus.missing.length === 0 && (agentStatus.drifted || []).length === 0) {
     return {
       level: 'PASS',
       name: `${adapter.agentsRoot}`,
@@ -253,10 +295,23 @@ function checkInstalledAgents(projectRoot, adapter) {
     };
   }
 
+  const driftMessage = formatDriftSummary(agentStatus.drifted || [], 'agentPath');
+  if (agentStatus.missing.length === 0) {
+    return {
+      level: 'WARNING',
+      name: `${adapter.agentsRoot}`,
+      message: `drifted ${driftMessage}`,
+      fix: `Run \`spec-first init --${adapter.id}\` in this project to resync drifted bundled agents.`,
+    };
+  }
+
   return {
     level: 'WARNING',
     name: `${adapter.agentsRoot}`,
-    message: `out of sync (${agentStatus.entries.length - agentStatus.missing.length}/${agentStatus.entries.length} installed)`,
+    message: [
+      `out of sync (${agentStatus.entries.length - agentStatus.missing.length}/${agentStatus.entries.length} installed)`,
+      driftMessage ? `drifted ${driftMessage}` : null,
+    ].filter(Boolean).join('; '),
     fix: `Run \`spec-first init --${adapter.id}\` in this project to resync bundled agents.`,
   };
 }
@@ -291,7 +346,7 @@ function checkInstalledAgentSupportFiles(projectRoot, adapter) {
     };
   }
 
-  if (supportStatus.missing.length === 0) {
+  if (supportStatus.missing.length === 0 && (supportStatus.drifted || []).length === 0) {
     return {
       level: 'PASS',
       name: `${adapter.agentsRoot} support assets`,
@@ -299,10 +354,23 @@ function checkInstalledAgentSupportFiles(projectRoot, adapter) {
     };
   }
 
+  const driftMessage = formatDriftSummary(supportStatus.drifted || [], 'supportPath');
+  if (supportStatus.missing.length === 0) {
+    return {
+      level: 'WARNING',
+      name: `${adapter.agentsRoot} support assets`,
+      message: `drifted ${driftMessage}`,
+      fix: `Run \`spec-first init --${adapter.id}\` in this project to resync drifted agent support assets.`,
+    };
+  }
+
   return {
     level: 'WARNING',
     name: `${adapter.agentsRoot} support assets`,
-    message: `out of sync (${supportStatus.entries.length - supportStatus.missing.length}/${supportStatus.entries.length} installed)`,
+    message: [
+      `out of sync (${supportStatus.entries.length - supportStatus.missing.length}/${supportStatus.entries.length} installed)`,
+      driftMessage ? `drifted ${driftMessage}` : null,
+    ].filter(Boolean).join('; '),
     fix: `Run \`spec-first init --${adapter.id}\` in this project to resync bundled agent support assets.`,
   };
 }
@@ -489,7 +557,12 @@ function computeWorkflowRunnability({
     managed_state_present: false,
     workflow_surface_resolved: false,
     execution_evidence_present: evidence.present,
+    evidence_present: evidence.present,
     evidence_path: evidence.path,
+    evidence_source: evidence.source,
+    evidence_schema_valid: evidence.schemaValid,
+    evidence_freshness: evidence.freshness,
+    fallback_reason: evidence.fallbackReason,
     reason: '',
   };
 
@@ -528,7 +601,11 @@ function computeWorkflowRunnability({
     basis.managed_state_present &&
     basis.workflow_surface_resolved
   ) {
-    if (basis.execution_evidence_present) {
+    if (
+      basis.execution_evidence_present &&
+      basis.evidence_schema_valid &&
+      basis.evidence_freshness === 'fresh'
+    ) {
       basis.reason = hostReadiness === 'warn'
         ? 'Runtime assets and workflow surfaces are ready, host readiness only has non-blocking warnings, and execution evidence is recorded.'
         : 'Runtime assets, host readiness, and workflow surfaces are ready, and execution evidence is recorded.';
@@ -538,9 +615,10 @@ function computeWorkflowRunnability({
       };
     }
 
+    const evidenceReason = describeEvidenceFallback(basis.fallback_reason);
     basis.reason = hostReadiness === 'warn'
-      ? 'Runtime assets and workflow surfaces are ready, host readiness only has non-blocking warnings, but no execution evidence is recorded.'
-      : 'Runtime assets and workflow surfaces are ready, but no execution evidence is recorded.';
+      ? `Runtime assets and workflow surfaces are ready, host readiness only has non-blocking warnings, but execution evidence is not verification-grade (${evidenceReason}).`
+      : `Runtime assets and workflow surfaces are ready, but execution evidence is not verification-grade (${evidenceReason}).`;
     return {
       status: 'simulated',
       basis,
@@ -558,40 +636,148 @@ function hasPassingCheck(checks, name) {
   return Array.isArray(checks) && checks.some((check) => check.name === name && check.level === 'PASS');
 }
 
+function formatDriftSummary(entries, key) {
+  if (!Array.isArray(entries) || entries.length === 0) return '';
+  return entries
+    .slice(0, 3)
+    .map((entry) => {
+      const id = entry && entry[key] ? entry[key] : 'unknown';
+      const issue = Array.isArray(entry && entry.issues) && entry.issues.length > 0
+        ? entry.issues[0]
+        : 'content_mismatch';
+      return `${id} (${issue})`;
+    })
+    .join(', ');
+}
+
 function readWorkflowVerificationEvidence(projectRoot) {
-  const evidencePath = path.join(projectRoot, VERIFICATION_EVIDENCE_PATH);
-  if (!fs.existsSync(evidencePath)) {
+  const slug = detectSlug(projectRoot);
+  const verificationSummary = buildRuntimeVerificationSummaryForRepo({
+    repoRoot: projectRoot,
+    slug,
+    stage: 'work',
+  });
+  const artifactDir = resolveWorkflowArtifactDir(projectRoot, 'verification', slug);
+  const evidenceFilePath = path.join(artifactDir, 'verification-evidence.json');
+  const relativePath = path.relative(projectRoot, evidenceFilePath).replace(/\\/g, '/');
+  const rawDocument = readJsonDocument(evidenceFilePath);
+  const rawSchemaValidation = rawDocument.parsed
+    ? validateAgainstSchema(loadVerificationEvidenceSchema(), rawDocument.parsed)
+    : { valid: false, errors: rawDocument.exists ? ['verification evidence parse failure'] : ['verification evidence missing'] };
+
+  const filteredEvidence = loadVerificationEvidence({
+    repoRoot: projectRoot,
+    slug,
+    stage: 'work',
+    verificationSummary: verificationSummary || {},
+  });
+  const effectiveGateIds = unique([
+    ...(verificationSummary && Array.isArray(verificationSummary.required_verifications)
+      ? verificationSummary.required_verifications
+      : []),
+    ...(verificationSummary && Array.isArray(verificationSummary.optional_verifications)
+      ? verificationSummary.optional_verifications
+      : []),
+  ]);
+  const present = rawSchemaValidation.valid && filteredEvidence.evidence_items.length > 0;
+  const freshness = determineEvidenceFreshness(filteredEvidence.evidence_items);
+
+  return {
+    present,
+    path: relativePath,
+    source: rawDocument.parsed && typeof rawDocument.parsed.evidence_source === 'string'
+      ? rawDocument.parsed.evidence_source
+      : filteredEvidence.evidence_source || null,
+    schemaValid: rawSchemaValidation.valid,
+    freshness,
+    fallbackReason: determineEvidenceFallbackReason({
+      rawDocument,
+      schemaValid: rawSchemaValidation.valid,
+      effectiveGateIds,
+      present,
+      freshness,
+    }),
+  };
+}
+
+function unique(values) {
+  return [...new Set((values || []).filter(Boolean))];
+}
+
+let verificationEvidenceSchemaCache = null;
+
+function loadVerificationEvidenceSchema() {
+  if (!verificationEvidenceSchemaCache) {
+    verificationEvidenceSchemaCache = JSON.parse(fs.readFileSync(VERIFICATION_EVIDENCE_SCHEMA_PATH, 'utf8'));
+  }
+  return verificationEvidenceSchemaCache;
+}
+
+function readJsonDocument(filePath) {
+  if (!fs.existsSync(filePath)) {
     return {
-      present: false,
-      path: VERIFICATION_EVIDENCE_PATH,
+      exists: false,
+      parsed: null,
     };
   }
 
   try {
-    const parsed = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
-    if (
-      parsed &&
-      typeof parsed === 'object' &&
-      parsed.schema_version === 'v1' &&
-      Array.isArray(parsed.evidence_items) &&
-      parsed.evidence_items.length > 0
-    ) {
-      return {
-        present: true,
-        path: VERIFICATION_EVIDENCE_PATH,
-      };
-    }
+    return {
+      exists: true,
+      parsed: JSON.parse(fs.readFileSync(filePath, 'utf8')),
+    };
   } catch (_error) {
     return {
-      present: false,
-      path: VERIFICATION_EVIDENCE_PATH,
+      exists: true,
+      parsed: null,
     };
   }
+}
 
-  return {
-    present: false,
-    path: VERIFICATION_EVIDENCE_PATH,
-  };
+function determineEvidenceFreshness(evidenceItems = []) {
+  if (!Array.isArray(evidenceItems) || evidenceItems.length === 0) {
+    return 'missing';
+  }
+
+  const now = Date.now();
+  for (const item of evidenceItems) {
+    const capturedAt = item && item.captured_at;
+    const capturedMs = Date.parse(capturedAt);
+    if (!capturedAt || !Number.isFinite(capturedMs)) {
+      return 'unknown';
+    }
+    if ((now - capturedMs) > VERIFICATION_EVIDENCE_MAX_AGE_MS) {
+      return 'stale';
+    }
+  }
+
+  return 'fresh';
+}
+
+function determineEvidenceFallbackReason({
+  rawDocument,
+  schemaValid,
+  effectiveGateIds,
+  present,
+  freshness,
+}) {
+  if (!rawDocument.exists) return 'verification_evidence_missing';
+  if (!schemaValid) return 'verification_evidence_schema_invalid';
+  if (!Array.isArray(effectiveGateIds) || effectiveGateIds.length === 0) return 'verification_gates_unresolved';
+  if (!present) return 'verification_evidence_not_relevant';
+  if (freshness === 'stale') return 'verification_evidence_stale';
+  if (freshness === 'unknown') return 'verification_evidence_freshness_unknown';
+  return null;
+}
+
+function describeEvidenceFallback(fallbackReason) {
+  if (fallbackReason === 'verification_evidence_missing') return 'no workflow verification evidence recorded';
+  if (fallbackReason === 'verification_evidence_schema_invalid') return 'workflow verification evidence is schema-invalid';
+  if (fallbackReason === 'verification_gates_unresolved') return 'effective verification gates are unresolved';
+  if (fallbackReason === 'verification_evidence_not_relevant') return 'workflow verification evidence does not satisfy current effective gates';
+  if (fallbackReason === 'verification_evidence_stale') return 'workflow verification evidence is stale';
+  if (fallbackReason === 'verification_evidence_freshness_unknown') return 'workflow verification evidence freshness is unknown';
+  return 'workflow verification evidence is incomplete';
 }
 
 function checkProjectDeveloper(projectRoot, adapter) {

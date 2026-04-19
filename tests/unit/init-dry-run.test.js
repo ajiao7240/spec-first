@@ -84,7 +84,13 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('Dry run: spec-first init (claude)');
       expect(result.stdout).toContain('Would prune 1 unmanaged command file(s)');
       expect(result.stdout).toContain('.claude/commands/spec/custom.md');
-      expect(result.stdout).toContain('Would write');
+      expect(result.stdout).toContain('Would ensure');
+      expect(result.stdout).toContain('Would write/update');
+      expect(result.stdout).toContain('.claude/commands/spec/work.md');
+      expect(result.stdout).toContain('.claude/spec-first/workflows/spec-work/SKILL.md');
+      expect(result.stdout).toContain('.claude/agents/review/security-reviewer.md');
+      expect(result.stdout).toContain('CLAUDE.md');
+      expect(result.stdout).toContain('.claude/hooks/session-start');
       expect(result.stdout).toContain('.claude/spec-first/state.json');
       expect(result.stdout).toContain('No files were changed.');
     } finally {

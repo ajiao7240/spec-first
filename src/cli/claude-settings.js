@@ -27,6 +27,12 @@ function isSpecFirstManagedHook(hook) {
 }
 
 function upsertManagedSessionStartHook(projectRoot) {
+  const rendered = renderManagedSessionStartHookUpsert(projectRoot);
+  writeRenderedSettings(projectRoot, rendered);
+  return true;
+}
+
+function renderManagedSessionStartHookUpsert(projectRoot) {
   const filePath = getClaudeSettingsPath(projectRoot);
   const settings = readSettingsFile(filePath);
   const next = removeManagedHookEntries(settings);
@@ -39,8 +45,11 @@ function upsertManagedSessionStartHook(projectRoot) {
   sessionStart.push(buildManagedSessionStartMatcher());
   next.hooks.SessionStart = sessionStart;
 
-  writeSettingsFile(filePath, next);
-  return true;
+  return {
+    filePath,
+    existsAfter: true,
+    contents: `${JSON.stringify(next, null, 2)}\n`,
+  };
 }
 
 function validateClaudeSettingsFile(projectRoot) {
@@ -48,22 +57,37 @@ function validateClaudeSettingsFile(projectRoot) {
 }
 
 function removeManagedSessionStartHook(projectRoot) {
+  const rendered = renderManagedSessionStartHookRemoval(projectRoot);
+  if (!rendered) {
+    return false;
+  }
+
+  writeRenderedSettings(projectRoot, rendered);
+  return true;
+}
+
+function renderManagedSessionStartHookRemoval(projectRoot) {
   const filePath = getClaudeSettingsPath(projectRoot);
   if (!fs.existsSync(filePath)) {
-    return false;
+    return null;
   }
 
   const settings = readSettingsFile(filePath);
   const next = removeManagedHookEntries(settings);
 
   if (Object.keys(next).length === 0) {
-    fs.rmSync(filePath, { force: true });
-    removeEmptyParents(path.dirname(filePath), projectRoot);
-    return true;
+    return {
+      filePath,
+      existsAfter: false,
+      contents: null,
+    };
   }
 
-  writeSettingsFile(filePath, next);
-  return true;
+  return {
+    filePath,
+    existsAfter: true,
+    contents: `${JSON.stringify(next, null, 2)}\n`,
+  };
 }
 
 function inspectManagedSessionStartHook(projectRoot) {
@@ -149,6 +173,23 @@ function writeSettingsFile(filePath, settings) {
   const tmpPath = `${filePath}.tmp`;
   fs.writeFileSync(tmpPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
   fs.renameSync(tmpPath, filePath);
+}
+
+function writeRenderedSettings(projectRoot, rendered) {
+  if (!rendered) {
+    return;
+  }
+
+  if (!rendered.existsAfter) {
+    fs.rmSync(rendered.filePath, { force: true });
+    removeEmptyParents(path.dirname(rendered.filePath), projectRoot);
+    return;
+  }
+
+  fs.mkdirSync(path.dirname(rendered.filePath), { recursive: true });
+  const tmpPath = `${rendered.filePath}.tmp`;
+  fs.writeFileSync(tmpPath, rendered.contents || '', 'utf8');
+  fs.renameSync(tmpPath, rendered.filePath);
 }
 
 function removeManagedHookEntries(settings) {
@@ -252,6 +293,8 @@ module.exports = {
   inspectManagedSessionStartHook,
   isSpecFirstManagedHook,
   removeManagedSessionStartHook,
+  renderManagedSessionStartHookRemoval,
+  renderManagedSessionStartHookUpsert,
   upsertManagedSessionStartHook,
   validateClaudeSettingsFile,
 };

@@ -6,11 +6,11 @@ const {
   listBundledAgents,
   listBundledSkills,
   loadPluginManifest,
-  syncBundledAssets,
+  planBundledAssetSync,
 } = require('../plugin');
 const {
+  formatDeveloperContents,
   resolveDeveloperIdentity,
-  writeDeveloperFile,
 } = require('../developer');
 const {
   applyOperationPlan,
@@ -23,13 +23,16 @@ const {
   planObsoleteManagedAssetRemoval,
   readStateFileRaw,
   readState,
-  writeState,
 } = require('../state');
 const { getAdapter } = require('../adapters');
-const { writeLangPolicy } = require('../lang-policy');
-const { bootstrapChangelog } = require('../changelog');
-const { writeInstructionBootstrap } = require('../instruction-bootstrap');
-const { upsertManagedSessionStartHook, validateClaudeSettingsFile } = require('../claude-settings');
+const { applyManagedBlock, buildManagedBlock } = require('../lang-policy');
+const { buildInitialChangelog, formatChangelogTimestamp } = require('../changelog');
+const { applyManagedBootstrapBlock, buildBootstrapBlock } = require('../instruction-bootstrap');
+const {
+  getClaudeSettingsPath,
+  renderManagedSessionStartHookUpsert,
+  validateClaudeSettingsFile,
+} = require('../claude-settings');
 
 function runInit(argv) {
   const args = [...argv];
@@ -103,13 +106,17 @@ function runInit(argv) {
   }
 
   const commandSkillNames = new Set(manifest.commands.map((cmd) => cmd.skill));
+  const assetSync = planBundledAssetSync(projectRoot, adapter, filteredAssetSet);
   const previewState = buildState(manifest.version, {
-    commands: runtimeCommands,
-    skills: filteredAssetSet.skills,
-    workflowSkills: filteredAssetSet.workflowSkills,
-    agents: bundledAgentPaths,
-    agentSupportFiles: bundledAgentSupportFiles,
-    developer,
+    ...assetSync.syncedAssets,
+    platform,
+    developer: {
+      path: adapter.developerFile,
+      name: developer.name,
+      lang: developer.lang,
+      initializedAt: developer.initializedAt,
+      version: developer.version,
+    },
   });
 
   if (platform === 'claude') {
@@ -140,16 +147,18 @@ function runInit(argv) {
     });
 
     if (parsed.dryRun) {
+      const hardResetPlan = planHardResetManagedAssets(projectRoot, legacyResetState, adapter);
+      const initWritePlan = buildInitWritePlan({
+        projectRoot,
+        adapter,
+        developer,
+        nextState: previewState,
+        platform,
+        assetPlan: assetSync.plan,
+      });
       printInitDryRun({
         platform,
-        plan: planHardResetManagedAssets(projectRoot, legacyResetState, adapter),
-        writeSummary: buildInitWriteSummary({
-          adapter,
-          runtimeCommands,
-          filteredAssetSet,
-          bundledAgentPaths,
-          bundledAgentSupportFiles,
-        }),
+        plan: mergeOperationPlans(hardResetPlan, initWritePlan),
         legacyStateDetected,
       });
       return 0;
@@ -163,47 +172,39 @@ function runInit(argv) {
     planObsoleteManagedAssetRemoval(projectRoot, previousState, previewState, adapter),
     planCommandNamespacePrune(projectRoot, previewState.commands, adapter),
   );
+  const initWritePlan = buildInitWritePlan({
+    projectRoot,
+    adapter,
+    developer,
+    nextState: previewState,
+    platform,
+    assetPlan: assetSync.plan,
+  });
 
   if (parsed.dryRun) {
     printInitDryRun({
       platform,
-      plan: preSyncPlan,
-      writeSummary: buildInitWriteSummary({
-        adapter,
-        runtimeCommands,
-        filteredAssetSet,
-        bundledAgentPaths,
-        bundledAgentSupportFiles,
-      }),
+      plan: mergeOperationPlans(preSyncPlan, initWritePlan),
       legacyStateDetected,
     });
     return 0;
   }
 
+  const changelogCreated = !fs.existsSync(path.join(projectRoot, 'CHANGELOG.md'));
   applyOperationPlan(projectRoot, preSyncPlan);
-
-  const synced = syncBundledAssets(projectRoot, adapter);
-  const nextState = buildState(manifest.version, {
-    ...synced,
+  applyOperationPlan(projectRoot, assetSync.plan);
+  adapter.syncRuntimeFiles(projectRoot, { manifest, synced: assetSync.syncedAssets });
+  applyOperationPlan(projectRoot, buildInitMetadataPlan({
+    projectRoot,
+    adapter,
+    developer,
+    nextState: previewState,
     platform,
-    developer: {
-      path: adapter.developerFile,
-      name: developer.name,
-      lang: developer.lang,
-      initializedAt: developer.initializedAt,
-      version: developer.version,
-    },
-  });
-  adapter.syncRuntimeFiles(projectRoot, { manifest, synced });
-  writeLangPolicy(projectRoot, developer, adapter);
-  writeInstructionBootstrap(projectRoot, adapter, developer.lang);
+  }));
   if (platform === 'claude') {
-    upsertManagedSessionStartHook(projectRoot);
     console.log('🪝 Installed Claude SessionStart matcher in .claude/settings.json');
   }
-  const changelogCreated = bootstrapChangelog(projectRoot, developer);
-  writeDeveloperFile(projectRoot, developer, adapter);
-  writeState(projectRoot, nextState, adapter);
+  const synced = assetSync.syncedAssets;
   const written = synced.commands.map((command) => command.filename);
   const skillNames = synced.skills;
   const agentPaths = synced.agents;
@@ -380,64 +381,136 @@ function findDuplicateClaudeAgentNames(agentPaths) {
   return [...duplicates].sort();
 }
 
-function buildInitWriteSummary({
+function buildInitWritePlan({
+  projectRoot,
   adapter,
-  runtimeCommands,
-  filteredAssetSet,
-  bundledAgentPaths,
-  bundledAgentSupportFiles,
+  developer,
+  nextState,
+  platform,
+  assetPlan,
 }) {
-  const writes = [];
-
-  if (adapter.hasCommands) {
-    writes.push({
-      label: 'command file(s)',
-      count: runtimeCommands.length,
-      target: adapter.commandRoot,
-    });
-  }
-
-  writes.push({
-    label: 'standalone skill directorie(s)',
-    count: filteredAssetSet.skills.length,
-    target: adapter.skillsRoot,
-  });
-
-  writes.push({
-    label: 'workflow skill directorie(s)',
-    count: filteredAssetSet.workflowSkills.length,
-    target: adapter.workflowsRoot,
-  });
-
-  writes.push({
-    label: 'agent file(s)',
-    count: bundledAgentPaths.length,
-    target: adapter.agentsRoot,
-  });
-
-  if (bundledAgentSupportFiles.length > 0) {
-    writes.push({
-      label: 'agent support file(s)',
-      count: bundledAgentSupportFiles.length,
-      target: adapter.agentsRoot,
-    });
-  }
-
-  writes.push(
-    { label: 'developer profile', count: 1, target: adapter.developerFile },
-    { label: 'instruction bootstrap', count: 1, target: adapter.instructionFile },
-    { label: 'managed state file', count: 1, target: adapter.stateFile },
+  return mergeOperationPlans(
+    assetPlan,
+    buildInitRuntimePreviewPlan(projectRoot, adapter),
+    buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, platform }),
   );
-
-  if (adapter.id === 'claude') {
-    writes.push({ label: 'runtime hook file', count: 1, target: '.claude/hooks/session-start' });
-    writes.push({ label: 'Claude settings matcher update', count: 1, target: '.claude/settings.json' });
-  }
-
-  return writes;
 }
 
-function printInitDryRun({ platform, plan, writeSummary, legacyStateDetected }) {
+function buildInitRuntimePreviewPlan(projectRoot, adapter) {
+  const operations = [];
+
+  if (adapter.id === 'claude') {
+    operations.push(buildPlanFileOperation(
+      projectRoot,
+      '.claude/hooks/session-start',
+      '',
+      'managed_runtime_hook',
+    ));
+  }
+
+  if (adapter.id === 'codex') {
+    for (const relativePath of [
+      adapter.commandRoot,
+      adapter.legacyCommandRoot,
+      adapter.legacyCodexSkillsRoot,
+      adapter.legacyMarketplaceRoot,
+      adapter.legacyPluginRoot,
+      adapter.legacyPluginRootAlt,
+    ]) {
+      operations.push({
+        kind: 'remove_dir',
+        path: relativePath,
+        reason: 'managed_runtime_cleanup',
+      });
+    }
+  }
+
+  return {
+    operations,
+    summary: summarizePlanOperations(operations),
+  };
+}
+
+function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, platform }) {
+  const operations = [];
+  const instructionPath = path.join(projectRoot, adapter.instructionFile);
+  const existingInstruction = fs.existsSync(instructionPath)
+    ? fs.readFileSync(instructionPath, 'utf8')
+    : '';
+  const instructionWithLang = applyManagedBlock(existingInstruction, buildManagedBlock(developer.lang));
+  const finalInstruction = applyManagedBootstrapBlock(
+    instructionWithLang,
+    buildBootstrapBlock(adapter, developer.lang),
+  );
+  operations.push(buildPlanFileOperation(
+    projectRoot,
+    adapter.instructionFile,
+    finalInstruction,
+    'managed_instruction_file',
+  ));
+
+  operations.push(buildPlanFileOperation(
+    projectRoot,
+    adapter.developerFile,
+    formatDeveloperContents(developer),
+    'managed_developer_profile',
+  ));
+
+  operations.push(buildPlanFileOperation(
+    projectRoot,
+    adapter.stateFile,
+    `${JSON.stringify(nextState, null, 2)}\n`,
+    'managed_state_file',
+  ));
+
+  const changelogPath = path.join(projectRoot, 'CHANGELOG.md');
+  if (!fs.existsSync(changelogPath)) {
+    operations.push(buildPlanFileOperation(
+      projectRoot,
+      'CHANGELOG.md',
+      buildInitialChangelog(formatChangelogTimestamp(new Date()), developer.name, developer.version),
+      'bootstrap_changelog',
+    ));
+  }
+
+  if (platform === 'claude') {
+    const rendered = renderManagedSessionStartHookUpsert(projectRoot);
+    operations.push(buildPlanFileOperation(
+      projectRoot,
+      path.relative(projectRoot, getClaudeSettingsPath(projectRoot)),
+      rendered.contents,
+      'managed_session_start_matcher',
+    ));
+  }
+
+  return {
+    operations,
+    summary: summarizePlanOperations(operations),
+  };
+}
+
+function buildPlanFileOperation(projectRoot, relativePath, contents, reason) {
+  const absolutePath = path.join(projectRoot, relativePath);
+  return {
+    kind: fs.existsSync(absolutePath) ? 'update_file' : 'write_file',
+    path: normalizePlanPath(relativePath),
+    reason,
+    contents,
+  };
+}
+
+function summarizePlanOperations(operations) {
+  return operations.reduce((summary, operation) => {
+    summary[operation.kind] = (summary[operation.kind] || 0) + 1;
+    return summary;
+  }, {});
+}
+
+function normalizePlanPath(filePath) {
+  return String(filePath || '').replace(/\\/g, '/');
+}
+
+function printInitDryRun({ platform, plan, legacyStateDetected }) {
   console.log(`Dry run: spec-first init (${platform})`);
   if (legacyStateDetected) {
     console.log('Would perform a managed hard reset before regenerating runtime assets.');
@@ -445,6 +518,8 @@ function printInitDryRun({ platform, plan, writeSummary, legacyStateDetected }) 
 
   const pruneCount = plan.summary.prune_command || 0;
   const removeCount = (plan.summary.remove_file || 0) + (plan.summary.remove_dir || 0);
+  const ensureCount = plan.summary.ensure_dir || 0;
+  const writeCount = (plan.summary.write_file || 0) + (plan.summary.update_file || 0);
 
   console.log(`Would remove ${removeCount} managed obsolete path(s).`);
   if (pruneCount > 0) {
@@ -454,9 +529,20 @@ function printInitDryRun({ platform, plan, writeSummary, legacyStateDetected }) 
     }
   }
 
-  console.log('Would write:');
-  for (const entry of writeSummary) {
-    console.log(`  - ${entry.count} ${entry.label} -> ${entry.target}`);
+  if (ensureCount > 0) {
+    console.log(`Would ensure ${ensureCount} managed directorie(s):`);
+    for (const operation of plan.operations.filter((entry) => entry.kind === 'ensure_dir')) {
+      console.log(`  - ${operation.path}`);
+    }
+  }
+
+  if (writeCount > 0) {
+    console.log(`Would write/update ${writeCount} managed file(s):`);
+    for (const operation of plan.operations.filter((entry) =>
+      entry.kind === 'write_file' || entry.kind === 'update_file'
+    )) {
+      console.log(`  - ${operation.path}`);
+    }
   }
   console.log('No files were changed.');
 }

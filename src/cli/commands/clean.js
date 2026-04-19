@@ -1,3 +1,6 @@
+const fs = require('node:fs');
+const path = require('node:path');
+
 const {
   applyOperationPlan,
   clearState,
@@ -8,8 +11,12 @@ const {
   readStateFileRaw,
 } = require('../state');
 const { getAdapter } = require('../adapters');
-const { removeInstructionBootstrap } = require('../instruction-bootstrap');
-const { removeManagedSessionStartHook, validateClaudeSettingsFile } = require('../claude-settings');
+const { removeInstructionBootstrap, removeManagedBootstrapBlock } = require('../instruction-bootstrap');
+const {
+  removeManagedSessionStartHook,
+  renderManagedSessionStartHookRemoval,
+  validateClaudeSettingsFile,
+} = require('../claude-settings');
 
 function runClean(argv) {
   const args = [...argv];
@@ -139,12 +146,12 @@ function printHelp() {
 function buildCleanPlan(projectRoot, state, adapter) {
   return {
     managedPlan: planManagedAssetRemoval(projectRoot, state, adapter),
-    runtimeCleanup: buildRuntimeCleanupPreview(adapter),
+    runtimeCleanup: buildRuntimeCleanupPreview(projectRoot, adapter),
     emptyRootPlan: planEmptyManagedRootCleanup(projectRoot, adapter),
   };
 }
 
-function buildRuntimeCleanupPreview(adapter) {
+function buildRuntimeCleanupPreview(projectRoot, adapter) {
   const operations = [
     {
       kind: 'update_file',
@@ -158,17 +165,32 @@ function buildRuntimeCleanupPreview(adapter) {
     },
   ];
 
+  const instructionPath = path.join(projectRoot, adapter.instructionFile);
+  if (fs.existsSync(instructionPath)) {
+    operations[0].contents = removeManagedBootstrapBlock(fs.readFileSync(instructionPath, 'utf8'));
+  }
+
   if (adapter.id === 'claude') {
     operations.push({
       kind: 'remove_file',
       path: '.claude/hooks/session-start',
       reason: 'managed_runtime_hook',
     });
-    operations.push({
-      kind: 'update_file',
-      path: '.claude/settings.json',
-      reason: 'managed_session_start_matcher_cleanup',
-    });
+    const rendered = renderManagedSessionStartHookRemoval(projectRoot);
+    operations.push(
+      rendered && rendered.existsAfter
+        ? {
+          kind: 'update_file',
+          path: '.claude/settings.json',
+          reason: 'managed_session_start_matcher_cleanup',
+          contents: rendered.contents,
+        }
+        : {
+          kind: 'remove_file',
+          path: '.claude/settings.json',
+          reason: 'managed_session_start_matcher_cleanup',
+        },
+    );
   }
 
   return {

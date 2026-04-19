@@ -22,6 +22,7 @@ pnpm run release:publish -- auto --dry-run   # 按 git-npm 契约执行发布预
 pnpm run release:publish -- auto             # 真实发布时会先提升 package.json version，再跑发布校验与 npm publish
 # 若 `git-npm auto` 中途重试导致版本前滚，应先提交最终 version/changelog 收口，再避免重复 auto bump
 # npm publish 若提示自动纠正 `bin` 或 `repository.url`，应先把这些修正落回 package.json 再重试发布
+# `doctor --json` 现会把 workflow verification evidence 的真源固定到 `.spec-first/workflows/verification/<slug>/verification-evidence.json`，并显式报告 schema/freshness；`init/clean --dry-run` 也已升级为 file-level operation preview
 ```
 
 ## 架构
