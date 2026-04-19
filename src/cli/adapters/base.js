@@ -120,13 +120,16 @@ class PlatformAdapter {
   }
 
   /**
-   * Create any additional platform-specific runtime files.
+   * Plan any additional platform-specific runtime file sync operations.
    * @param {string} projectRoot
    * @param {object} _options
-   * @returns {string[]}
+   * @returns {{ operations: object[], summary: object }}
    */
-  syncRuntimeFiles(projectRoot, _options = {}) {
-    return [];
+  planRuntimeFilesSync(_projectRoot, _options = {}) {
+    return {
+      operations: [],
+      summary: {},
+    };
   }
 
   /**

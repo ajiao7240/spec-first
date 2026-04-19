@@ -107,14 +107,26 @@ class CodexAdapter extends PlatformAdapter {
     };
   }
 
-  syncRuntimeFiles(projectRoot) {
-    removeManagedDirectory(path.join(projectRoot, this.commandRoot), projectRoot);
-    removeManagedDirectory(path.join(projectRoot, this.legacyCommandRoot), projectRoot);
-    removeManagedDirectory(path.join(projectRoot, this.legacyCodexSkillsRoot), projectRoot);
-    removeManagedDirectory(path.join(projectRoot, this.legacyMarketplaceRoot), projectRoot);
-    removeManagedDirectory(path.join(projectRoot, this.legacyPluginRoot), projectRoot);
-    removeManagedDirectory(path.join(projectRoot, this.legacyPluginRootAlt), projectRoot);
-    return [];
+  planRuntimeFilesSync() {
+    const operations = [
+      this.commandRoot,
+      this.legacyCommandRoot,
+      this.legacyCodexSkillsRoot,
+      this.legacyMarketplaceRoot,
+      this.legacyPluginRoot,
+      this.legacyPluginRootAlt,
+    ].map((relativePath) => ({
+      kind: 'remove_dir',
+      path: relativePath,
+      reason: 'managed_runtime_cleanup',
+    }));
+
+    return {
+      operations,
+      summary: {
+        remove_dir: operations.length,
+      },
+    };
   }
 
   inspectRuntimeFiles() {

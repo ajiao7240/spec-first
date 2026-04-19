@@ -107,6 +107,7 @@ function runInit(argv) {
 
   const commandSkillNames = new Set(manifest.commands.map((cmd) => cmd.skill));
   const assetSync = planBundledAssetSync(projectRoot, adapter, filteredAssetSet);
+  const runtimeSyncPlan = adapter.planRuntimeFilesSync(projectRoot, { manifest, filteredAssetSet });
   const previewState = buildState(manifest.version, {
     ...assetSync.syncedAssets,
     platform,
@@ -155,6 +156,7 @@ function runInit(argv) {
         nextState: previewState,
         platform,
         assetPlan: assetSync.plan,
+        runtimePlan: runtimeSyncPlan,
       });
       printInitDryRun({
         platform,
@@ -179,6 +181,7 @@ function runInit(argv) {
     nextState: previewState,
     platform,
     assetPlan: assetSync.plan,
+    runtimePlan: runtimeSyncPlan,
   });
 
   if (parsed.dryRun) {
@@ -192,15 +195,7 @@ function runInit(argv) {
 
   const changelogCreated = !fs.existsSync(path.join(projectRoot, 'CHANGELOG.md'));
   applyOperationPlan(projectRoot, preSyncPlan);
-  applyOperationPlan(projectRoot, assetSync.plan);
-  adapter.syncRuntimeFiles(projectRoot, { manifest, synced: assetSync.syncedAssets });
-  applyOperationPlan(projectRoot, buildInitMetadataPlan({
-    projectRoot,
-    adapter,
-    developer,
-    nextState: previewState,
-    platform,
-  }));
+  applyOperationPlan(projectRoot, initWritePlan);
   if (platform === 'claude') {
     console.log('🪝 Installed Claude SessionStart matcher in .claude/settings.json');
   }
@@ -388,47 +383,17 @@ function buildInitWritePlan({
   nextState,
   platform,
   assetPlan,
+  runtimePlan,
 }) {
   return mergeOperationPlans(
     assetPlan,
-    buildInitRuntimePreviewPlan(projectRoot, adapter),
+    runtimePlan || buildInitRuntimePreviewPlan(projectRoot, adapter),
     buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, platform }),
   );
 }
 
 function buildInitRuntimePreviewPlan(projectRoot, adapter) {
-  const operations = [];
-
-  if (adapter.id === 'claude') {
-    operations.push(buildPlanFileOperation(
-      projectRoot,
-      '.claude/hooks/session-start',
-      '',
-      'managed_runtime_hook',
-    ));
-  }
-
-  if (adapter.id === 'codex') {
-    for (const relativePath of [
-      adapter.commandRoot,
-      adapter.legacyCommandRoot,
-      adapter.legacyCodexSkillsRoot,
-      adapter.legacyMarketplaceRoot,
-      adapter.legacyPluginRoot,
-      adapter.legacyPluginRootAlt,
-    ]) {
-      operations.push({
-        kind: 'remove_dir',
-        path: relativePath,
-        reason: 'managed_runtime_cleanup',
-      });
-    }
-  }
-
-  return {
-    operations,
-    summary: summarizePlanOperations(operations),
-  };
+  return adapter.planRuntimeFilesSync(projectRoot);
 }
 
 function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, platform }) {

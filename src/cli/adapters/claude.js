@@ -129,12 +129,22 @@ class ClaudeAdapter extends PlatformAdapter {
     return checks;
   }
 
-  syncRuntimeFiles(projectRoot) {
+  planRuntimeFilesSync(projectRoot) {
     const targetPath = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
-    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    fs.copyFileSync(SESSION_START_TEMPLATE_PATH, targetPath);
-    fs.chmodSync(targetPath, 0o755);
-    return [SESSION_START_RELATIVE_PATH];
+    return {
+      operations: [
+        {
+          kind: fs.existsSync(targetPath) ? 'update_file' : 'write_file',
+          path: SESSION_START_RELATIVE_PATH.replace(/\\/g, '/'),
+          reason: 'managed_runtime_hook',
+          contents: fs.readFileSync(SESSION_START_TEMPLATE_PATH, 'utf8'),
+          mode: 0o755,
+        },
+      ],
+      summary: {
+        [fs.existsSync(targetPath) ? 'update_file' : 'write_file']: 1,
+      },
+    };
   }
 
   removeRuntimeFiles(projectRoot) {
