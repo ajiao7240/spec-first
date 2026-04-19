@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.3 2026-04-19 18:00:00 矿工: chore(release): 收口多次 `git-npm` 真实发布尝试后的版本状态，并以 `1.5.3` 作为最终待发布版本
 - v1.5.2 2026-04-19 17:45:00 矿工: chore(release): 进入 `git-npm` 真实发布路径并将包版本提升到 `1.5.2`
 - v1.5.1 2026-04-19 17:30:00 矿工: fix(release): 对齐 `git-npm` skill 的版本类型契约，`release:publish` 现支持 `auto|patch|minor|major` 解析并在真实发布时写入 `package.json` 版本 (user-visible)
 - v1.5.1 2026-04-19 17:20:00 矿工: feat(release): 为当前 CommonJS npm CLI 结构恢复 `release:publish` 发布入口，复用 `test:release` + `npm pack` 完成 dry-run/真实发布前置链路 (user-visible)
