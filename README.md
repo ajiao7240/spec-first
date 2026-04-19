@@ -241,6 +241,7 @@ spec-first doctor --codex    # Codex-only scope
 ```
 
 If `doctor` reports `legacy managed state`, run `init` again. This is the only supported upgrade path — it performs a managed hard reset before rebuilding the runtime.
+`doctor --json` also exposes workflow verification evidence as structured facts: schema validity, freshness, `fallback_reason`, and `evidence_age_summary` (`oldest_*` / `newest_*` + `max_age_ms`) so downstream workflows do not need to infer evidence staleness heuristically.
 
 ### 3. Initialize a project
 
@@ -289,6 +290,7 @@ spec-first clean --claude   # or --codex
 ```
 
 `clean` removes everything marked removable in the table above, then prints which platform's managed assets were removed. Custom assets outside the managed set are left untouched. The language policy block must still be removed manually — search for `<!-- spec-first:lang:` in `CLAUDE.md` / `AGENTS.md`.
+Both `init --dry-run` and `clean --dry-run` preview file-level operations derived from the same managed operation plans used by real apply paths, which keeps preview/apply drift narrow and testable.
 
 #### Example output
 
@@ -365,9 +367,9 @@ Runtime assets under `.claude/`, `.codex/`, or `.agents/` are **generated output
 
 | Command | Purpose | Notes |
 |---------|---------|-------|
-| `spec-first doctor` | Environment check | Verifies platform state, plugin manifest, and managed assets. `--claude` / `--codex` scopes to one platform. Reports `legacy managed state` when `init` is needed. |
-| `spec-first init` | Initialize the runtime | Syncs commands, skills, agents, and developer metadata. Also the only supported legacy upgrade entrypoint — performs a managed hard reset. See [What `init` writes](#what-init-writes) above. |
-| `spec-first clean` | Remove managed assets | Removes the given platform's spec-first managed assets; does not migrate legacy state and does not strip the language policy marker block. |
+| `spec-first doctor` | Environment check | Verifies platform state, plugin manifest, and managed assets. `--claude` / `--codex` scopes to one platform. Reports `legacy managed state` when `init` is needed, and `--json` includes evidence schema/freshness plus `evidence_age_summary`. |
+| `spec-first init` | Initialize the runtime | Syncs commands, skills, agents, runtime hooks, and developer metadata through managed operation plans. Also the only supported legacy upgrade entrypoint — performs a managed hard reset. See [What `init` writes](#what-init-writes) above. |
+| `spec-first clean` | Remove managed assets | Removes the given platform's spec-first managed assets through the same operation-plan boundary used by `--dry-run`; does not migrate legacy state and does not strip the language policy marker block. |
 | `spec-first stage0-context` | Emit Stage-0 runtime context | Called by SKILLs such as `spec-plan` / `spec-work` / `spec-review` at stage start. Accepts `--stage <plan\|work\|review>`, `--workflow <skill-name>`, `--format json`. |
 
 ### CRG graph commands (`spec-first crg <subcommand>`)

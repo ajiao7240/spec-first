@@ -15,6 +15,7 @@ const {
 const {
   applyOperationPlan,
   buildState,
+  buildFileWriteOperation,
   hardResetManagedAssets,
   isLegacyManagedState,
   mergeOperationPlans,
@@ -23,6 +24,7 @@ const {
   planObsoleteManagedAssetRemoval,
   readStateFileRaw,
   readState,
+  summarizeOperationPlan,
 } = require('../state');
 const { getAdapter } = require('../adapters');
 const { applyManagedBlock, buildManagedBlock } = require('../lang-policy');
@@ -450,29 +452,13 @@ function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, pla
 
   return {
     operations,
-    summary: summarizePlanOperations(operations),
+    summary: summarizeOperationPlan(operations),
   };
 }
 
 function buildPlanFileOperation(projectRoot, relativePath, contents, reason) {
   const absolutePath = path.join(projectRoot, relativePath);
-  return {
-    kind: fs.existsSync(absolutePath) ? 'update_file' : 'write_file',
-    path: normalizePlanPath(relativePath),
-    reason,
-    contents,
-  };
-}
-
-function summarizePlanOperations(operations) {
-  return operations.reduce((summary, operation) => {
-    summary[operation.kind] = (summary[operation.kind] || 0) + 1;
-    return summary;
-  }, {});
-}
-
-function normalizePlanPath(filePath) {
-  return String(filePath || '').replace(/\\/g, '/');
+  return buildFileWriteOperation(projectRoot, absolutePath, contents, reason);
 }
 
 function printInitDryRun({ platform, plan, legacyStateDetected }) {

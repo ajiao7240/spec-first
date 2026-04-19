@@ -8,6 +8,7 @@
   - `变更摘要` 使用中文，简明说明本次改动
   - 用户可感知的变更在末尾追加 `(user-visible)`
 
+- v1.5.4 2026-04-19 23:24:36 Codex: feat(workflow-contracts): 为 spec-brainstorm/spec-plan/spec-work/spec-debug/spec-review 收口 sdd-riper 轻量锚点与 Stage-0 stale/partial 补读 contract，同步更新 prompt mirror 与回归测试 (user-visible)
 - v1.5.4 2026-04-19 22:10:00 Codex: feat(cli-safety): 为 `init` / `clean` 增加 `--dry-run` 预览与 managed boundary 输出，资产一致性升级为高风险 contract anchor 守卫，并将 `doctor --json` 的 workflow runnability 扩展为 `not_verified/simulated/verified` + basis 依据，同时补充 unit/smoke 覆盖 (user-visible)
 - v1.5.4 2026-04-19 21:20:00 Codex: fix(stage0): 收紧 Stage-0 evaluator 质量等级，`fact-backed` 才允许 L0，新增 minimal-context coverage gaps 与 `doctor --json` 分层健康输出，并补充资产一致性、retired 入口回归和 doctor JSON 测试 (user-visible)
 - v1.5.4 2026-04-19 20:35:00 Codex: docs(stage0): 全仓清理旧 bootstrap workflow 命名、文件名与历史文档残留，同步 README 中英文口径为仅保留 `spec-graph-bootstrap` 与 `spec-compound` Stage-0 入口，并修正 graph-bootstrap E2E fixture 为最小 Git 源码仓库 (user-visible)
@@ -466,6 +467,7 @@
 - v1.5.4 2026-04-19 20:20:00 kuang: 修复 doctor JSON contract 单测使用绝对 verification 时间戳导致一周后自然失效的问题，改为基于当前时间生成 fresh/stale 证据 (user-visible)
 - v1.5.4 2026-04-19 20:35:00 kuang: 将 init 的 platform runtime sync 收敛为 adapter plan contract，统一 dry-run preview 与真实 apply 的执行链，消除 Claude hook/Codex cleanup 的 preview-apply 漂移 (user-visible)
 - v1.5.4 2026-04-19 21:05:00 kuang: 前置 init/clean preview-apply parity 护栏，新增 adapter runtime plan contract 单测，并将 clean 真实执行切换到共享 runtime cleanup plan，补齐 Codex legacy cleanup 的 dry-run 预览面 (user-visible)
+- v1.5.4 2026-04-19 23:40:00 kuang: 收紧 doctor evidence 年龄聚合输出，补 Claude SessionStart hook 权限回归测试，下沉共享 operation plan helper，并同步更新 README/CLAUDE runtime contract 说明 (user-visible)
 - v1.4.0 2026-04-01 kuang: refresh README visual assets and add npm version reminder planning artifacts (user-visible)
 - v1.4.0 2026-04-01 kuang: replace three-layer architecture SVG with a static GitHub-compatible version to fix broken README rendering (user-visible)
 - v1.4.0 2026-04-01 kuang: strengthen spec-graph-bootstrap contracts, PRD templates, and workflow pattern docs (user-visible)

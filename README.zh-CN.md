@@ -240,6 +240,7 @@ spec-first doctor --codex    # 只检查 Codex
 ```
 
 如果 `doctor` 报告 `legacy managed state`，请重新运行 `init`。这是唯一受支持的升级路径，它会先执行一次受管 hard reset，再重建运行时。
+`doctor --json` 还会把 workflow verification evidence 作为结构化事实暴露出来：schema 有效性、freshness、`fallback_reason`，以及 `evidence_age_summary`（`oldest_*` / `newest_*` + `max_age_ms`），避免下游 workflow 自己猜证据是否过期。
 
 ### 3. 初始化项目
 
@@ -288,6 +289,7 @@ spec-first clean --claude   # 或 --codex
 ```
 
 `clean` 会移除上表中“`clean` 可移除”列标记为可删的所有内容，然后打印本次删除了哪个平台的受管资产。受管范围之外的自定义资产不会受影响。语言策略块仍需手动删除；你可以在 `CLAUDE.md` / `AGENTS.md` 中搜索 `<!-- spec-first:lang:`。
+`init --dry-run` 与 `clean --dry-run` 现在都会预览来自同一份 operation plan 的 file-level 变更面，因此 preview/apply 漂移被压缩到可测试、可回归的边界内。
 
 #### 示例输出
 
@@ -364,9 +366,9 @@ $ spec-first init --claude
 
 | 命令 | 用途 | 说明 |
 |------|------|------|
-| `spec-first doctor` | 环境检查 | 校验平台状态、plugin manifest 与受管资产。`--claude` / `--codex` 可限定单平台。需要重新 `init` 时会报告 `legacy managed state`。 |
-| `spec-first init` | 初始化运行时 | 同步 commands、skills、agents 与开发者元数据。它也是唯一受支持的 legacy 升级入口，会执行一次受管 hard reset。见上方 [init 会写入什么](#init-会写入什么)。 |
-| `spec-first clean` | 删除受管资产 | 移除指定平台当前的 spec-first 受管资产；不会迁移 legacy state，也不会删除语言策略 marker block。 |
+| `spec-first doctor` | 环境检查 | 校验平台状态、plugin manifest 与受管资产。`--claude` / `--codex` 可限定单平台。需要重新 `init` 时会报告 `legacy managed state`；`--json` 还会输出 evidence schema/freshness 与 `evidence_age_summary`。 |
+| `spec-first init` | 初始化运行时 | 通过受管 operation plan 同步 commands、skills、agents、runtime hooks 与开发者元数据。它也是唯一受支持的 legacy 升级入口，会执行一次受管 hard reset。见上方 [init 会写入什么](#init-会写入什么)。 |
+| `spec-first clean` | 删除受管资产 | 通过与 `--dry-run` 共用的 operation-plan 边界移除指定平台当前的 spec-first 受管资产；不会迁移 legacy state，也不会删除语言策略 marker block。 |
 | `spec-first stage0-context` | 输出 Stage-0 运行时上下文 | 由 `spec-plan` / `spec-work` / `spec-review` 等 SKILL 在阶段启动时调用。支持 `--stage <plan\|work\|review>`、`--workflow <skill-name>`、`--format json`。 |
 
 ### CRG 图命令（`spec-first crg <subcommand>`）

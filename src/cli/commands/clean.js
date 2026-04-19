@@ -3,12 +3,14 @@ const path = require('node:path');
 
 const {
   applyOperationPlan,
+  buildRelativeOperation,
   isLegacyManagedState,
   mergeOperationPlans,
   planEmptyManagedRootCleanup,
   planManagedAssetRemoval,
   readState,
   readStateFileRaw,
+  summarizeOperationPlan,
 } = require('../state');
 const { getAdapter } = require('../adapters');
 const { removeManagedBootstrapBlock } = require('../instruction-bootstrap');
@@ -146,16 +148,12 @@ function buildCleanPlan(projectRoot, state, adapter) {
 
 function buildRuntimeCleanupPreview(projectRoot, adapter) {
   const operations = [
-    {
-      kind: fs.existsSync(path.join(projectRoot, adapter.instructionFile)) ? 'update_file' : 'remove_file',
-      path: adapter.instructionFile,
-      reason: 'instruction_bootstrap_cleanup',
-    },
-    {
-      kind: 'remove_file',
-      path: adapter.stateFile,
-      reason: 'managed_state_file',
-    },
+    buildRelativeOperation(
+      fs.existsSync(path.join(projectRoot, adapter.instructionFile)) ? 'update_file' : 'remove_file',
+      adapter.instructionFile,
+      'instruction_bootstrap_cleanup',
+    ),
+    buildRelativeOperation('remove_file', adapter.stateFile, 'managed_state_file'),
   ];
 
   const instructionPath = path.join(projectRoot, adapter.instructionFile);
@@ -167,27 +165,24 @@ function buildRuntimeCleanupPreview(projectRoot, adapter) {
     const rendered = renderManagedSessionStartHookRemoval(projectRoot);
     operations.push(
       rendered && rendered.existsAfter
-        ? {
-          kind: 'update_file',
-          path: '.claude/settings.json',
-          reason: 'managed_session_start_matcher_cleanup',
-          contents: rendered.contents,
-        }
-        : {
-          kind: 'remove_file',
-          path: '.claude/settings.json',
-          reason: 'managed_session_start_matcher_cleanup',
-        },
+        ? buildRelativeOperation(
+          'update_file',
+          '.claude/settings.json',
+          'managed_session_start_matcher_cleanup',
+          { contents: rendered.contents },
+        )
+        : buildRelativeOperation(
+          'remove_file',
+          '.claude/settings.json',
+          'managed_session_start_matcher_cleanup',
+        ),
     );
   }
   operations.push(...adapter.planRuntimeFilesRemoval(projectRoot).operations);
 
   return {
     operations,
-    summary: operations.reduce((summary, operation) => {
-      summary[operation.kind] = (summary[operation.kind] || 0) + 1;
-      return summary;
-    }, {}),
+    summary: summarizeOperationPlan(operations),
   };
 }
 

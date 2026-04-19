@@ -562,6 +562,7 @@ function computeWorkflowRunnability({
     evidence_source: evidence.source,
     evidence_schema_valid: evidence.schemaValid,
     evidence_freshness: evidence.freshness,
+    evidence_age_summary: evidence.ageSummary,
     fallback_reason: evidence.fallbackReason,
     reason: '',
   };
@@ -690,6 +691,7 @@ function readWorkflowVerificationEvidence(projectRoot) {
       : filteredEvidence.evidence_source || null,
     schemaValid: rawSchemaValidation.valid,
     freshness,
+    ageSummary: buildEvidenceAgeSummary(filteredEvidence.evidence_items),
     fallbackReason: determineEvidenceFallbackReason({
       rawDocument,
       schemaValid: rawSchemaValidation.valid,
@@ -752,6 +754,53 @@ function determineEvidenceFreshness(evidenceItems = []) {
   }
 
   return 'fresh';
+}
+
+function buildEvidenceAgeSummary(evidenceItems = []) {
+  const parsedEvidence = Array.isArray(evidenceItems)
+    ? evidenceItems
+      .map((item) => {
+        const capturedAt = item && typeof item.captured_at === 'string' ? item.captured_at : null;
+        const capturedMs = capturedAt ? Date.parse(capturedAt) : Number.NaN;
+        if (!capturedAt || !Number.isFinite(capturedMs)) {
+          return null;
+        }
+
+        return { capturedAt, capturedMs };
+      })
+      .filter(Boolean)
+    : [];
+
+  if (parsedEvidence.length === 0) {
+    return {
+      oldest_captured_at: null,
+      oldest_age_ms: null,
+      newest_captured_at: null,
+      newest_age_ms: null,
+      max_age_ms: VERIFICATION_EVIDENCE_MAX_AGE_MS,
+    };
+  }
+
+  const now = Date.now();
+  let oldest = parsedEvidence[0];
+  let newest = parsedEvidence[0];
+
+  for (const evidence of parsedEvidence.slice(1)) {
+    if (evidence.capturedMs < oldest.capturedMs) {
+      oldest = evidence;
+    }
+    if (evidence.capturedMs > newest.capturedMs) {
+      newest = evidence;
+    }
+  }
+
+  return {
+    oldest_captured_at: oldest.capturedAt,
+    oldest_age_ms: now - oldest.capturedMs,
+    newest_captured_at: newest.capturedAt,
+    newest_age_ms: now - newest.capturedMs,
+    max_age_ms: VERIFICATION_EVIDENCE_MAX_AGE_MS,
+  };
 }
 
 function determineEvidenceFallbackReason({
