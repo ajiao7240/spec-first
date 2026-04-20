@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('node:fs');
 const path = require('node:path');
 const { buildFallbackResult, fallbackAssetsForStage } = require('./fallback');
 const { findExistingAsset, safeReadJson } = require('./loader');
@@ -100,6 +101,51 @@ function readMinimalContextMeta(minimalContextInfo) {
   };
 }
 
+function manifestOutputPaths(manifest) {
+  if (!manifest || !manifest.outputs || typeof manifest.outputs !== 'object') {
+    return [];
+  }
+  return Object.keys(manifest.outputs);
+}
+
+function detectBootstrapContractKind({ manifest, controlPlaneDir } = {}) {
+  const outputPaths = manifestOutputPaths(manifest);
+  const hasWorkspaceOutput = outputPaths.some((assetPath) => (
+    assetPath === 'workspace-registry.json' || assetPath === 'workspace-routing.json'
+  ));
+  const hasWorkspaceFiles = Boolean(controlPlaneDir) && (
+    fs.existsSync(path.join(controlPlaneDir, 'workspace-registry.json')) ||
+    fs.existsSync(path.join(controlPlaneDir, 'workspace-routing.json'))
+  );
+
+  return hasWorkspaceOutput || hasWorkspaceFiles ? 'workspace-root' : 'repo';
+}
+
+function inspectBootstrapContract({ manifest, controlPlaneDir } = {}) {
+  const kind = detectBootstrapContractKind({ manifest, controlPlaneDir });
+  const requiredOutputs = kind === 'workspace-root'
+    ? ['workspace-registry.json', 'workspace-routing.json']
+    : [
+      'context-routing.json',
+      'minimal-context/review.json',
+      'minimal-context/plan.json',
+      'minimal-context/work.json',
+    ];
+  const outputPaths = new Set(manifestOutputPaths(manifest));
+  const missingRequiredOutputs = requiredOutputs.filter((assetPath) => !outputPaths.has(assetPath));
+  const missingRequiredFiles = requiredOutputs.filter((assetPath) => (
+    !controlPlaneDir || !fs.existsSync(path.join(controlPlaneDir, assetPath))
+  ));
+
+  return {
+    kind,
+    drift: missingRequiredOutputs.length > 0,
+    required_outputs: requiredOutputs,
+    missing_required_outputs: missingRequiredOutputs,
+    missing_required_files: missingRequiredFiles,
+  };
+}
+
 function evaluateContext({
   stage,
   contextDir,
@@ -135,11 +181,13 @@ function evaluateContext({
     });
   }
 
+  const bootstrapContract = inspectBootstrapContract({ manifest, controlPlaneDir });
+
   if (!routing) {
     return buildFallbackResult({
       stage: normalizedStage,
       level: 'L2',
-      fallbackReason: 'routing_missing',
+      fallbackReason: bootstrapContract.drift ? 'bootstrap_contract_outdated' : 'routing_missing',
       selectedAssets: fallbackAssetsForStage(normalizedStage),
       advice,
       maxTokens,
@@ -186,7 +234,11 @@ function evaluateContext({
   const quality = qualityFallbackFor(dataQuality);
   const minimalContextMeta = readMinimalContextMeta(minimalContextInfo);
   let level = quality.sufficient ? 'L0' : quality.level;
-  let fallbackReason = quality.reason || (minimalContextMissing ? 'minimal_context_missing' : null);
+  let fallbackReason = quality.reason || (
+    minimalContextMissing
+      ? (bootstrapContract.drift ? 'bootstrap_contract_outdated' : 'minimal_context_missing')
+      : null
+  );
   if (minimalContextMissing && quality.sufficient) {
     level = 'L1';
   }
@@ -234,8 +286,10 @@ function evaluateContextForRepo({
 
 module.exports = {
   buildOutputExistsMap,
+  detectBootstrapContractKind,
   evaluateContext,
   evaluateContextForRepo,
   evaluateSelectionRule,
+  inspectBootstrapContract,
   toOutputExistsKey,
 };

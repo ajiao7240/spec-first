@@ -160,3 +160,31 @@ Skill/Agent 源文件统一使用 `spec-first:category:name` 作为 canonical ag
 - Claude workflow 入口使用 `/spec:*`
 - 不要把 `using-spec-first` 本身当作 command-backed workflow
 <!-- spec-first:bootstrap:end -->
+
+<!-- spec-first:coding-guidelines:start -->
+## 编码执行准则（由 spec-first 管理）
+
+这些准则只约束进入工作后的执行姿势，不替代 `using-spec-first` 的 workflow 入口治理。
+
+### 先想清楚再动手
+- 当假设会影响实现或验证时，必须先显式说明假设。
+- 如果存在 2 条及以上会实质影响行为、接口、数据结构或错误语义的路径，先说明 tradeoff，再继续执行。
+- 如果更简单的做法能解决当前任务，优先采用更简单的做法。
+- 如果不明确之处会实质影响实现或验证，先澄清，再编码。
+
+### 先做最小可行改动
+- 只实现当前任务真正需要的最小代码。
+- 不新增未被请求的功能、配置项或单次使用的抽象。
+- 不为当前任务没有证据支持的失败模式添加 speculative guard 或 fallback。
+
+### 改动要保持手术式边界
+- 只修改完成当前任务所必需的文件和行为切片。
+- 遵循当前文件和局部模块的既有风格与模式。
+- 清理本次改动自己引入且随即失效的 unused imports / variables / functions。
+- 不要在未被请求时重构、删除或顺手清理无关的既有代码。
+
+### 用可验证目标收口
+- 在 substantial work 前先明确 done signals。
+- 修 bug 或改行为时，优先使用测试或其他可重复验证方式证明变更。
+- 先验证目标改动，再验证相邻受影响行为。
+<!-- spec-first:coding-guidelines:end -->

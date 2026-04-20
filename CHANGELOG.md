@@ -1,6 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.5 2026-04-20 11:35:00 Codex: test(asset-consistency): 移除 `.claude-plugin/plugin.json` 与 `package.json` 版本强绑定校验，避免自动打包升版导致单测不稳定
+- v1.5.5 2026-04-20 11:10:00 矿工: docs(solutions): compound 归档 standalone skill name 规范（spec:* 格式 + rewriteSkillName 机制）
+- v1.5.5 2026-04-20 11:20:00 Codex: fix(bootstrap-contract): 为 bootstrap evaluator/doctor 增加旧 contract 漂移与关键 control-plane 缺失诊断，并将 slug 级 rerun 收口为 delete-and-regenerate 语义 (user-visible)
 - v1.5.5 2026-04-20 04:00:00 矿工: chore(release): 发布 `spec-first@1.5.5` 到 npm registry，并收口 package.json 版本到最新发布版本
 - v1.5.4 2026-04-20 03:30:00 矿工: docs(branch-governance): 统一 `master` 为唯一直接更新分支、`main` 为自动镜像分支的 README / workflow 治理口径，并为镜像同步增加偏离提示 (user-visible)
 - 说明：

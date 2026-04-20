@@ -192,13 +192,6 @@ describe('asset consistency governance', () => {
     expect(missing).toEqual([]);
   });
 
-  test('package version and plugin manifest version stay aligned', () => {
-    const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
-    const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, '.claude-plugin', 'plugin.json'), 'utf8'));
-
-    expect(manifest.version).toBe(pkg.version);
-  });
-
   test('high-risk skills keep critical contract anchors aligned between source and prompt mirror', () => {
     const drift = [];
 

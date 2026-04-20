@@ -125,4 +125,32 @@ describe('init --dry-run', () => {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
   });
+
+  test('current runtime drift switches dry-run into managed hard reset preview', () => {
+    const projectRoot = makeTempDir();
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+
+      const commandPath = path.join(projectRoot, '.claude', 'commands', 'spec', 'work.md');
+      const drifted = fs.readFileSync(commandPath, 'utf8')
+        .replace('.claude/spec-first/workflows/spec-work/SKILL.md', '.claude/spec-first/workflows/spec-plan/SKILL.md');
+      fs.writeFileSync(commandPath, drifted, 'utf8');
+
+      const result = captureInit(projectRoot, ['--claude', '--dry-run', '-u', 'reviewer', '--lang', 'zh']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toContain('Would perform a managed hard reset before regenerating runtime assets');
+      expect(result.stdout).toContain('current runtime drift detected');
+      expect(result.stdout).toContain('.claude/commands/spec/work.md');
+      expect(result.stdout).toContain('.claude/spec-first/workflows/spec-work/SKILL.md');
+    } finally {
+      warnSpy.mockRestore();
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
 });

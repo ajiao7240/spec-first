@@ -295,6 +295,32 @@ describe('spec-graph-bootstrap compiler modules', () => {
     }
   });
 
+  test('runBootstrap rerun 会删除旧 control-plane 与 docs 中的 stale 文件后再重建', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-rerun-clean-regenerate-'));
+
+    try {
+      const initial = runBootstrap({
+        repoRoot,
+        generatedAt: '2026-04-15T00:00:00.000Z',
+      });
+
+      fs.writeFileSync(path.join(initial.controlPlaneDir, 'stale.json'), '{}\n');
+      fs.writeFileSync(path.join(initial.contextDir, 'stale.md'), '# stale\n');
+
+      const rerun = runBootstrap({
+        repoRoot,
+        generatedAt: '2026-04-15T00:00:01.000Z',
+      });
+
+      expect(fs.existsSync(path.join(rerun.controlPlaneDir, 'stale.json'))).toBe(false);
+      expect(fs.existsSync(path.join(rerun.contextDir, 'stale.md'))).toBe(false);
+      expect(fs.existsSync(path.join(rerun.controlPlaneDir, 'context-routing.json'))).toBe(true);
+      expect(fs.existsSync(path.join(rerun.contextDir, 'README.md'))).toBe(true);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   test('runBootstrap 在写入中途失败时回滚 docs context', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-rollback-'));
     const slug = path.basename(repoRoot);
@@ -538,6 +564,37 @@ describe('spec-graph-bootstrap compiler modules', () => {
     }
   });
 
+  test('workspace bootstrap rerun 会删除 workspace root 级 stale 文件后再重建', () => {
+    const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-bootstrap-rerun-clean-regenerate-'));
+    const childRepoRoot = path.join(workspaceRoot, 'packages', 'repo-a');
+
+    try {
+      fs.mkdirSync(path.join(childRepoRoot, '.git'), { recursive: true });
+
+      const initial = runBootstrap({
+        repoRoot: workspaceRoot,
+        generatedAt: '2026-04-15T00:00:00.000Z',
+        repoRoots: [childRepoRoot],
+      });
+
+      fs.writeFileSync(path.join(initial.controlPlaneDir, 'workspace-stale.json'), '{}\n');
+      fs.writeFileSync(path.join(initial.contextDir, 'workspace-stale.md'), '# stale\n');
+
+      const rerun = runBootstrap({
+        repoRoot: workspaceRoot,
+        generatedAt: '2026-04-15T00:00:01.000Z',
+        repoRoots: [childRepoRoot],
+      });
+
+      expect(fs.existsSync(path.join(rerun.controlPlaneDir, 'workspace-stale.json'))).toBe(false);
+      expect(fs.existsSync(path.join(rerun.contextDir, 'workspace-stale.md'))).toBe(false);
+      expect(fs.existsSync(path.join(rerun.controlPlaneDir, 'workspace-registry.json'))).toBe(true);
+      expect(fs.existsSync(path.join(rerun.contextDir, 'workspace', 'routing-overview.md'))).toBe(true);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
   test('workspace bootstrap 失败时回滚 workspace 与 child 发布内容', () => {
     const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-bootstrap-rollback-'));
     const childRepoRoot = path.join(workspaceRoot, 'packages', 'repo-a');
@@ -613,17 +670,32 @@ describe('spec-graph-bootstrap compiler modules', () => {
     }
   });
 
-  test('restoreBootstrapBackup: contextDir 不存在时 restore 仍成功（ENOENT 容忍）', () => {
+  test('restoreBootstrapBackup: control-plane 与 context 都能恢复，且 backup 不落在 control-plane 内部', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'rollback-enoent-'));
-    const { restoreBootstrapBackup } = require('../../src/bootstrap-compiler/rollback');
-    const backupDir = path.join(repoRoot, 'backup');
-    const contextDir = path.join(repoRoot, 'context');
-    fs.mkdirSync(backupDir, { recursive: true });
-    fs.writeFileSync(path.join(backupDir, 'README.md'), '# backup\n');
+    const {
+      createBootstrapBackup,
+      restoreBootstrapBackup,
+    } = require('../../src/bootstrap-compiler/rollback');
+    const controlPlaneDir = path.join(repoRoot, '.spec-first', 'workflows', 'bootstrap', 'demo');
+    const contextDir = path.join(repoRoot, 'docs', 'contexts', 'demo');
+    fs.mkdirSync(controlPlaneDir, { recursive: true });
+    fs.mkdirSync(contextDir, { recursive: true });
+    fs.writeFileSync(path.join(controlPlaneDir, 'fact-inventory.json'), '{}\n');
+    fs.writeFileSync(path.join(contextDir, 'README.md'), '# backup\n');
 
     try {
-      const result = restoreBootstrapBackup({ backupDir, contextDir });
+      const backup = createBootstrapBackup({
+        controlPlaneDir,
+        contextDir,
+        generatedAt: '2026-04-20T00:00:00.000Z',
+      });
+      fs.rmSync(controlPlaneDir, { recursive: true, force: true });
+      fs.rmSync(contextDir, { recursive: true, force: true });
+
+      const result = restoreBootstrapBackup(backup);
       expect(result).toBe(true);
+      expect(backup.backupRoot.startsWith(controlPlaneDir)).toBe(false);
+      expect(fs.existsSync(path.join(controlPlaneDir, 'fact-inventory.json'))).toBe(true);
       expect(fs.existsSync(path.join(contextDir, 'README.md'))).toBe(true);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });

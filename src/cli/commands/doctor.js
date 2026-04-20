@@ -8,7 +8,8 @@ const { isLegacyManagedState, readState, readStateFileRaw } = require('../state'
 const { getAdapter, getSupportedPlatforms } = require('../adapters');
 const { inspectInstructionBootstrap } = require('../instruction-bootstrap');
 const { inspectManagedSessionStartHook } = require('../claude-settings');
-const { detectSlug } = require('../../context-routing/loader');
+const { detectSlug, resolveBootstrapRuntimePaths, safeReadJson } = require('../../context-routing/loader');
+const { inspectBootstrapContract } = require('../../context-routing/evaluator');
 const { loadVerificationEvidence } = require('../../context-routing/verification-evidence');
 const { buildRuntimeVerificationSummaryForRepo } = require('../../context-routing/verification-summary');
 const { resolveWorkflowArtifactDir } = require('../../crg/artifact-paths');
@@ -436,12 +437,57 @@ function checkCrgNativeModules() {
   };
 }
 
+function checkBootstrapContract(projectRoot) {
+  const slug = detectSlug(projectRoot);
+  const { contextDir, controlPlaneDir } = resolveBootstrapRuntimePaths({ repoRoot: projectRoot, slug });
+  const bootstrapExists = fs.existsSync(contextDir) || fs.existsSync(controlPlaneDir);
+  if (!bootstrapExists) {
+    return null;
+  }
+
+  const manifestPath = path.join(controlPlaneDir, 'artifact-manifest.json');
+  const manifest = safeReadJson(manifestPath);
+  if (!manifest) {
+    return {
+      level: 'WARNING',
+      name: `bootstrap contract (${slug})`,
+      message: 'bootstrap directories exist, but artifact-manifest.json is missing or invalid',
+      fix: '重新运行 spec-graph-bootstrap 以删除旧产物并重建当前 contract。',
+    };
+  }
+
+  const contract = inspectBootstrapContract({ manifest, controlPlaneDir });
+  const issues = [];
+  if (contract.drift) {
+    issues.push(`contract outdated: ${contract.missing_required_outputs.join(', ')}`);
+  }
+  if (contract.missing_required_files.length > 0) {
+    issues.push(`missing files: ${contract.missing_required_files.join(', ')}`);
+  }
+
+  if (issues.length > 0) {
+    return {
+      level: 'WARNING',
+      name: `bootstrap contract (${slug})`,
+      message: `${contract.kind} bootstrap ${issues.join('; ')}`,
+      fix: '重新运行 spec-graph-bootstrap 以删除旧产物并重建当前 contract。',
+    };
+  }
+
+  return {
+    level: 'PASS',
+    name: `bootstrap contract (${slug})`,
+    message: `${contract.kind} bootstrap contract is current`,
+  };
+}
+
 function buildDoctorReport({ projectRoot, platforms }) {
   const commonChecks = [
     checkNodeVersion(),
     checkGit(),
     checkPluginManifest(),
     checkCrgNativeModules(),
+    checkBootstrapContract(projectRoot),
     checkProjectDeveloperProfileConsistency(projectRoot),
   ].filter(Boolean);
   const platformChecksByPlatform = {};

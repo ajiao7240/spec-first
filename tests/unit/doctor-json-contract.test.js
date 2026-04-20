@@ -73,6 +73,26 @@ function writeVerificationEvidence(projectRoot, slug, evidenceItems) {
   );
 }
 
+function writeLegacyBootstrapContract(projectRoot) {
+  const slug = path.basename(projectRoot);
+  const controlPlaneDir = path.join(projectRoot, '.spec-first', 'workflows', 'bootstrap', slug);
+  const contextDir = path.join(projectRoot, 'docs', 'contexts', slug);
+  fs.mkdirSync(controlPlaneDir, { recursive: true });
+  fs.mkdirSync(contextDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(controlPlaneDir, 'artifact-manifest.json'),
+    `${JSON.stringify({
+      schema_version: 'v1',
+      status: 'complete',
+      outputs: {
+        '00-summary.md': { depends_on: [] },
+        'README.md': { depends_on: [] },
+      },
+    }, null, 2)}\n`,
+    'utf8',
+  );
+}
+
 function relativeCapturedAt({ daysAgo = 0, minutesAgo = 0 } = {}) {
   const capturedMs = Date.now() - (daysAgo * 24 * 60 * 60 * 1000) - (minutesAgo * 60 * 1000);
   return new Date(capturedMs).toISOString();
@@ -116,6 +136,31 @@ describe('doctor --json contract', () => {
       expectMissingEvidenceAgeSummary(payload.workflow_runnability_basis.evidence_age_summary);
       expect(Array.isArray(payload.checks)).toBe(true);
       expect(Array.isArray(payload.warnings)).toBe(true);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('reports bootstrap contract outdated when legacy bootstrap outputs remain on disk', () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'doctor-json-bootstrap-outdated-'));
+
+    try {
+      writeLegacyBootstrapContract(projectRoot);
+
+      const result = withCwd(projectRoot, () => captureDoctor(['--json']));
+      const payload = JSON.parse(result.stdout);
+
+      expect(result.exitCode).toBe(0);
+      expect(payload.common_checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: `bootstrap contract (${path.basename(projectRoot)})`,
+            level: 'WARNING',
+            message: expect.stringContaining('contract outdated'),
+            fix: expect.stringContaining('spec-graph-bootstrap'),
+          }),
+        ]),
+      );
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

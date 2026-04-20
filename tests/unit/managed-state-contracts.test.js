@@ -223,4 +223,129 @@ describe('managed state contracts', () => {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
   });
+
+  test('Claude current-state drift rerun performs hard reset but preserves custom skills', () => {
+    const projectRoot = makeTempDir();
+    const previousCwd = process.cwd();
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      process.chdir(projectRoot);
+      expect(runInit(['--claude', '-u', 'reviewer', '--lang', 'zh'])).toBe(0);
+
+      const customSkill = path.join(projectRoot, '.claude', 'skills', 'custom-skill', 'SKILL.md');
+      const commandPath = path.join(projectRoot, '.claude', 'commands', 'spec', 'work.md');
+      fs.mkdirSync(path.dirname(customSkill), { recursive: true });
+      fs.writeFileSync(customSkill, 'name: custom-skill\n', 'utf8');
+      fs.writeFileSync(
+        commandPath,
+        fs.readFileSync(commandPath, 'utf8').replace(
+          '.claude/spec-first/workflows/spec-work/SKILL.md',
+          '.claude/spec-first/workflows/spec-plan/SKILL.md',
+        ),
+        'utf8',
+      );
+
+      expect(runInit(['--claude', '-u', 'reviewer', '--lang', 'zh'])).toBe(0);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Detected current spec-first runtime drift; performing managed hard reset before re-init.'),
+      );
+      expect(fs.existsSync(customSkill)).toBe(true);
+      expect(fs.readFileSync(commandPath, 'utf8')).toContain('.claude/spec-first/workflows/spec-work/SKILL.md');
+    } finally {
+      warnSpy.mockRestore();
+      logSpy.mockRestore();
+      process.chdir(previousCwd);
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Claude current-state drift rerun 写入失败时恢复 destructive reset 前的 runtime', () => {
+    const projectRoot = makeTempDir();
+    const previousCwd = process.cwd();
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const originalWriteFileSync = fs.writeFileSync;
+
+    try {
+      process.chdir(projectRoot);
+      expect(runInit(['--claude', '-u', 'reviewer', '--lang', 'zh'])).toBe(0);
+
+      const customSkill = path.join(projectRoot, '.claude', 'skills', 'custom-skill', 'SKILL.md');
+      const commandPath = path.join(projectRoot, '.claude', 'commands', 'spec', 'work.md');
+      const statePath = path.join(projectRoot, '.claude', 'spec-first', 'state.json');
+      fs.mkdirSync(path.dirname(customSkill), { recursive: true });
+      fs.writeFileSync(customSkill, 'name: custom-skill\n', 'utf8');
+      fs.writeFileSync(
+        commandPath,
+        fs.readFileSync(commandPath, 'utf8').replace(
+          '.claude/spec-first/workflows/spec-work/SKILL.md',
+          '.claude/spec-first/workflows/spec-plan/SKILL.md',
+        ),
+        'utf8',
+      );
+
+      const writeSpy = jest.spyOn(fs, 'writeFileSync').mockImplementation((filePath, ...args) => {
+        if (String(filePath).endsWith('.claude/spec-first/state.json')) {
+          throw new Error('simulated state write failure');
+        }
+        return originalWriteFileSync.call(fs, filePath, ...args);
+      });
+
+      expect(() => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))
+        .toThrow('simulated state write failure');
+
+      writeSpy.mockRestore();
+
+      expect(fs.existsSync(customSkill)).toBe(true);
+      expect(fs.existsSync(commandPath)).toBe(true);
+      expect(fs.existsSync(statePath)).toBe(true);
+      expect(fs.readFileSync(commandPath, 'utf8')).toContain('.claude/spec-first/workflows/spec-plan/SKILL.md');
+    } finally {
+      if (fs.writeFileSync.mockRestore) {
+        fs.writeFileSync.mockRestore();
+      }
+      warnSpy.mockRestore();
+      logSpy.mockRestore();
+      process.chdir(previousCwd);
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Codex rerun init removes legacy compatibility roots while preserving custom skills', () => {
+    const projectRoot = makeTempDir();
+    const previousCwd = process.cwd();
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      process.chdir(projectRoot);
+      expect(runInit(['--codex', '-u', 'reviewer', '--lang', 'zh'])).toBe(0);
+
+      const customSkill = path.join(projectRoot, '.agents', 'skills', 'custom-skill', 'SKILL.md');
+      const legacyCommand = path.join(projectRoot, '.codex', 'commands', 'spec', 'legacy.md');
+      const legacySkill = path.join(projectRoot, '.codex', 'skills', 'legacy', 'SKILL.md');
+      const legacyMarketplace = path.join(projectRoot, '.agents', 'plugins', 'marketplace.json');
+      fs.mkdirSync(path.dirname(customSkill), { recursive: true });
+      fs.mkdirSync(path.dirname(legacyCommand), { recursive: true });
+      fs.mkdirSync(path.dirname(legacySkill), { recursive: true });
+      fs.mkdirSync(path.dirname(legacyMarketplace), { recursive: true });
+      fs.writeFileSync(customSkill, 'name: custom-skill\n', 'utf8');
+      fs.writeFileSync(legacyCommand, 'legacy command\n', 'utf8');
+      fs.writeFileSync(legacySkill, 'name: legacy\n', 'utf8');
+      fs.writeFileSync(legacyMarketplace, '{}\n', 'utf8');
+
+      expect(runInit(['--codex', '-u', 'reviewer', '--lang', 'zh'])).toBe(0);
+
+      expect(fs.existsSync(path.join(projectRoot, '.codex', 'commands', 'spec'))).toBe(false);
+      expect(fs.existsSync(path.join(projectRoot, '.codex', 'skills'))).toBe(false);
+      expect(fs.existsSync(path.join(projectRoot, '.agents', 'plugins'))).toBe(false);
+      expect(fs.existsSync(customSkill)).toBe(true);
+    } finally {
+      logSpy.mockRestore();
+      process.chdir(previousCwd);
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
 });

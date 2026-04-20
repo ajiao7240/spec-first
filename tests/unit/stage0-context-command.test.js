@@ -268,6 +268,46 @@ describe('stage0-context command', () => {
     }
   });
 
+  test('legacy bootstrap mixed state 会在 stage0-context 中显式标记为 bootstrap_contract_outdated', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stage0-context-legacy-bootstrap-'));
+
+    try {
+      const repoRoot = createRepoFixture(tmpDir, 'repo-a');
+      const slug = 'repo-a';
+      const controlPlaneDir = path.join(repoRoot, '.spec-first', 'workflows', 'bootstrap', slug);
+      fs.writeFileSync(path.join(controlPlaneDir, 'artifact-manifest.json'), JSON.stringify({
+        schema_version: 'v1',
+        generated_at: '2026-04-15T00:00:00.000Z',
+        updated_at: '2026-04-15T00:00:00.000Z',
+        status: 'complete',
+        data_quality: 'fact-backed',
+        outputs: {
+          '00-summary.md': { depends_on: [] },
+          'README.md': { depends_on: [] },
+        },
+      }, null, 2));
+      fs.rmSync(path.join(controlPlaneDir, 'context-routing.json'), { force: true });
+      fs.rmSync(path.join(controlPlaneDir, 'minimal-context'), { recursive: true, force: true });
+
+      const result = runStage0Context(['--stage', 'work', '--repo-root', repoRoot], { cwd: repoRoot });
+
+      expect(result.selection_subject).toMatchObject({
+        kind: 'project',
+        subject_slug: 'repo-a',
+      });
+      expect(result.level).toBe('L2');
+      expect(result.fallback_reason).toBe('bootstrap_contract_outdated');
+      expect(result.selected_assets).toEqual(expect.arrayContaining([
+        '00-summary.md',
+        'pitfalls/index.md',
+        'code-facts/public-entrypoints.md',
+        'code-facts/test-map.md',
+      ]));
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   test('存在 verification evidence 时，stage0-context 会输出独立 evidence contract 并把 gate state 标成 satisfied', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stage0-context-evidence-'));
 

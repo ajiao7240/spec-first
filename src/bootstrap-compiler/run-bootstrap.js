@@ -410,6 +410,9 @@ function runWorkspaceBootstrap({
       hooks.beforeWorkspacePublish({ workspaceRoot: normalizedWorkspaceRoot, registry, routing, generatedAt });
     }
 
+    fs.rmSync(controlPlaneDir, { recursive: true, force: true });
+    fs.rmSync(contextDir, { recursive: true, force: true });
+
     writeWorkspaceControlPlaneArtifacts(controlPlaneDir, { registry, routing, generatedAt });
     writeJson(path.join(controlPlaneDir, 'workspace-readiness-summary.json'), readinessSummary);
     writeWorkspaceOverviewArtifacts(contextDir, { workspaceSlug, registry });
@@ -499,7 +502,7 @@ function runBootstrap({
 } = {}) {
   const controlPlaneDir = resolveWorkflowArtifactDir(repoRoot, 'bootstrap', slug, { artifactAnchorRoot });
   const contextDir = resolveContextDocsDir(repoRoot, slug, { artifactAnchorRoot });
-  let backupDir = null;
+  let bootstrapBackup = null;
 
   const workspaceRepoRoots = resolveWorkspaceRepoRoots({ repoRoot, repoRoots });
   if (!detectGitRoot(repoRoot) && repoRoot === artifactAnchorRoot && workspaceRepoRoots.length > 0) {
@@ -512,7 +515,7 @@ function runBootstrap({
   }
 
   try {
-    backupDir = createBootstrapBackup({ contextDir, controlPlaneDir, generatedAt });
+    bootstrapBackup = createBootstrapBackup({ contextDir, controlPlaneDir, generatedAt });
 
     const artifacts = compileBootstrapArtifacts({
       generatedAt,
@@ -529,6 +532,9 @@ function runBootstrap({
     if (artifacts.status !== 'complete') {
       throw new Error(artifacts.error ? artifacts.error.message : 'bootstrap compile failed');
     }
+
+    fs.rmSync(controlPlaneDir, { recursive: true, force: true });
+    fs.rmSync(contextDir, { recursive: true, force: true });
 
     writeControlPlaneArtifacts(controlPlaneDir, artifacts);
     if (hooks.afterControlPlaneWrite) {
@@ -557,7 +563,7 @@ function runBootstrap({
       generatedAt,
     });
 
-    removeBootstrapBackup(backupDir);
+    removeBootstrapBackup(bootstrapBackup);
 
     return {
       status: 'complete',
@@ -567,7 +573,7 @@ function runBootstrap({
       artifacts,
     };
   } catch (error) {
-    restoreBootstrapBackup({ backupDir, contextDir });
+    restoreBootstrapBackup(bootstrapBackup);
     throw error;
   }
 }

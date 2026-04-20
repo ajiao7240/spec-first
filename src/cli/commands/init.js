@@ -1,7 +1,9 @@
+const os = require('node:os');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
   buildFilteredAssetSet,
+  inspectInstalledAssets,
   listBundledAgentSupportFiles,
   listBundledAgents,
   listBundledSkills,
@@ -17,7 +19,6 @@ const {
   applyOperationPlan,
   buildState,
   buildFileWriteOperation,
-  hardResetManagedAssets,
   isLegacyManagedState,
   mergeOperationPlans,
   planCommandNamespacePrune,
@@ -32,11 +33,17 @@ const { applyManagedBlock, buildManagedBlock } = require('../lang-policy');
 const {
   applyManagedCodingGuidelinesBlock,
   buildCodingGuidelinesBlock,
+  inspectCodingGuidelinesBlock,
 } = require('../coding-guidelines');
 const { buildInitialChangelog, formatChangelogTimestamp } = require('../changelog');
-const { applyManagedBootstrapBlock, buildBootstrapBlock } = require('../instruction-bootstrap');
+const {
+  applyManagedBootstrapBlock,
+  buildBootstrapBlock,
+  inspectInstructionBootstrap,
+} = require('../instruction-bootstrap');
 const {
   getClaudeSettingsPath,
+  inspectManagedSessionStartHook,
   renderManagedSessionStartHookUpsert,
   validateClaudeSettingsFile,
 } = require('../claude-settings');
@@ -81,6 +88,7 @@ function runInit(argv) {
   let previousState = null;
   let legacyStateDetected = false;
   let rawManagedState = null;
+  let destructiveResetPlan = null;
   try {
     previousState = readState(projectRoot, adapter);
   } catch (error) {
@@ -173,8 +181,37 @@ function runInit(argv) {
       return 0;
     }
 
-    hardResetManagedAssets(projectRoot, legacyResetState, adapter);
+    destructiveResetPlan = planHardResetManagedAssets(projectRoot, legacyResetState, adapter);
     previousState = null;
+  } else if (previousState) {
+    const currentRuntimeDrift = inspectCurrentRuntimeDrift(projectRoot, adapter);
+    if (currentRuntimeDrift.detected) {
+      console.warn(
+        `Detected current spec-first runtime drift; performing managed hard reset before re-init. (${currentRuntimeDrift.reasons.join(', ')})`,
+      );
+
+      if (parsed.dryRun) {
+        const hardResetPlan = planHardResetManagedAssets(projectRoot, previousState, adapter);
+        const initWritePlan = buildInitWritePlan({
+          projectRoot,
+          adapter,
+          developer,
+          nextState: previewState,
+          platform,
+          assetPlan: assetSync.plan,
+          runtimePlan: runtimeSyncPlan,
+        });
+        printInitDryRun({
+          platform,
+          plan: mergeOperationPlans(hardResetPlan, initWritePlan),
+          destructiveResetReason: 'current_runtime_drift',
+        });
+        return 0;
+      }
+
+      destructiveResetPlan = planHardResetManagedAssets(projectRoot, previousState, adapter);
+      previousState = null;
+    }
   }
 
   const preSyncPlan = mergeOperationPlans(
@@ -201,8 +238,25 @@ function runInit(argv) {
   }
 
   const changelogCreated = !fs.existsSync(path.join(projectRoot, 'CHANGELOG.md'));
-  applyOperationPlan(projectRoot, preSyncPlan);
-  applyOperationPlan(projectRoot, initWritePlan);
+  if (destructiveResetPlan) {
+    const destructiveBackup = createRuntimeRollbackBackup({
+      projectRoot,
+      plans: [destructiveResetPlan, preSyncPlan, initWritePlan],
+    });
+    try {
+      applyOperationPlan(projectRoot, destructiveResetPlan);
+      applyOperationPlan(projectRoot, preSyncPlan);
+      applyOperationPlan(projectRoot, initWritePlan);
+      removeRuntimeRollbackBackup(destructiveBackup);
+    } catch (error) {
+      restoreRuntimeRollbackBackup(projectRoot, destructiveBackup);
+      removeRuntimeRollbackBackup(destructiveBackup);
+      throw error;
+    }
+  } else {
+    applyOperationPlan(projectRoot, preSyncPlan);
+    applyOperationPlan(projectRoot, initWritePlan);
+  }
   if (platform === 'claude') {
     console.log('🪝 Installed Claude SessionStart matcher in .claude/settings.json');
   }
@@ -335,6 +389,148 @@ function tryReadRawManagedState(projectRoot, adapter) {
   } catch (_error) {
     return null;
   }
+}
+
+function inspectCurrentRuntimeDrift(projectRoot, adapter) {
+  const reasons = [];
+  const installedAssets = inspectInstalledAssets(projectRoot, adapter);
+  for (const key of ['commands', 'skills', 'agents', 'agentSupportFiles']) {
+    const status = installedAssets[key] || {};
+    if (Array.isArray(status.missing) && status.missing.length > 0) {
+      reasons.push(`${key}_missing`);
+    }
+    if (Array.isArray(status.drifted) && status.drifted.length > 0) {
+      reasons.push(`${key}_drifted`);
+    }
+  }
+
+  const bootstrapStatus = inspectInstructionBootstrap(projectRoot, adapter);
+  if (bootstrapStatus.status !== 'installed') {
+    reasons.push(`bootstrap_${bootstrapStatus.status}`);
+  }
+
+  const codingGuidelinesStatus = inspectCodingGuidelinesBlock(projectRoot, adapter);
+  if (codingGuidelinesStatus.status !== 'installed') {
+    reasons.push(`coding_guidelines_${codingGuidelinesStatus.status}`);
+  }
+
+  for (const check of adapter.inspectRuntimeFiles(projectRoot)) {
+    if (check.level !== 'PASS') {
+      reasons.push(`runtime_file_${String(check.name || 'unknown').replace(/[^a-z0-9]+/gi, '_').toLowerCase()}`);
+    }
+  }
+
+  if (adapter.id === 'claude') {
+    const sessionStartStatus = inspectManagedSessionStartHook(projectRoot);
+    if (sessionStartStatus.status !== 'installed') {
+      reasons.push(`session_start_${sessionStartStatus.status}`);
+    }
+  }
+
+  return {
+    detected: reasons.length > 0,
+    reasons: [...new Set(reasons)],
+  };
+}
+
+function createRuntimeRollbackBackup({ projectRoot, plans = [] } = {}) {
+  const pathKinds = new Map();
+
+  for (const plan of plans) {
+    if (!plan || !Array.isArray(plan.operations)) continue;
+    for (const operation of plan.operations) {
+      if (!operation || !operation.path) continue;
+      if (!['remove_file', 'remove_dir', 'prune_command', 'write_file', 'update_file'].includes(operation.kind)) {
+        continue;
+      }
+
+      const kinds = pathKinds.get(operation.path) || new Set();
+      kinds.add(operation.kind);
+      pathKinds.set(operation.path, kinds);
+    }
+  }
+
+  const orderedPaths = [...pathKinds.keys()]
+    .sort((left, right) => left.length - right.length || left.localeCompare(right));
+  const selectedEntries = [];
+
+  for (const relativePath of orderedPaths) {
+    const kinds = pathKinds.get(relativePath);
+    const absolutePath = path.join(projectRoot, relativePath);
+    const stats = fs.existsSync(absolutePath) ? fs.lstatSync(absolutePath) : null;
+    const isDirectory = kinds.has('remove_dir') || Boolean(stats && stats.isDirectory());
+
+    if (selectedEntries.some((entry) => entry.isDirectory && isNestedPath(relativePath, entry.relativePath))) {
+      continue;
+    }
+
+    selectedEntries.push({
+      relativePath,
+      absolutePath,
+      isDirectory,
+      existed: Boolean(stats),
+      mode: stats ? (stats.mode & 0o777) : null,
+    });
+  }
+
+  if (selectedEntries.length === 0) {
+    return null;
+  }
+
+  const backupRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-init-backup-'));
+  for (const entry of selectedEntries) {
+    if (!entry.existed) continue;
+    const backupPath = path.join(backupRoot, entry.relativePath);
+    fs.mkdirSync(path.dirname(backupPath), { recursive: true });
+    fs.cpSync(entry.absolutePath, backupPath, { recursive: entry.isDirectory });
+  }
+
+  return {
+    backupRoot,
+    entries: selectedEntries.map((entry) => ({
+      relativePath: entry.relativePath,
+      isDirectory: entry.isDirectory,
+      existed: entry.existed,
+      mode: entry.mode,
+    })),
+  };
+}
+
+function restoreRuntimeRollbackBackup(projectRoot, backup) {
+  if (!backup || !backup.backupRoot || !Array.isArray(backup.entries)) {
+    return false;
+  }
+
+  const restoreEntries = [...backup.entries]
+    .sort((left, right) => right.relativePath.length - left.relativePath.length || right.relativePath.localeCompare(left.relativePath));
+
+  for (const entry of restoreEntries) {
+    const targetPath = path.join(projectRoot, entry.relativePath);
+    fs.rmSync(targetPath, { recursive: true, force: true });
+    if (!entry.existed) continue;
+
+    const backupPath = path.join(backup.backupRoot, entry.relativePath);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.cpSync(backupPath, targetPath, { recursive: entry.isDirectory });
+    if (typeof entry.mode === 'number' && !entry.isDirectory) {
+      fs.chmodSync(targetPath, entry.mode);
+    }
+  }
+
+  return true;
+}
+
+function removeRuntimeRollbackBackup(backup) {
+  if (!backup || !backup.backupRoot || !fs.existsSync(backup.backupRoot)) {
+    return false;
+  }
+
+  fs.rmSync(backup.backupRoot, { recursive: true, force: true });
+  return true;
+}
+
+function isNestedPath(childPath, parentPath) {
+  return childPath === parentPath || childPath.startsWith(`${parentPath}/`);
 }
 
 function buildLegacyHardResetState({
@@ -481,10 +677,12 @@ function buildPlanFileOperation(projectRoot, relativePath, contents, reason) {
   return buildFileWriteOperation(projectRoot, absolutePath, contents, reason);
 }
 
-function printInitDryRun({ platform, plan, legacyStateDetected }) {
+function printInitDryRun({ platform, plan, legacyStateDetected, destructiveResetReason = '' }) {
   console.log(`Dry run: spec-first init (${platform})`);
   if (legacyStateDetected) {
     console.log('Would perform a managed hard reset before regenerating runtime assets.');
+  } else if (destructiveResetReason === 'current_runtime_drift') {
+    console.log('Would perform a managed hard reset before regenerating runtime assets (current runtime drift detected).');
   }
 
   const pruneCount = plan.summary.prune_command || 0;

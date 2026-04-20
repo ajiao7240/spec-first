@@ -5,8 +5,10 @@ const os = require('node:os');
 const path = require('node:path');
 
 const {
+  detectBootstrapContractKind,
   evaluateContext,
   evaluateContextForRepo,
+  inspectBootstrapContract,
   toOutputExistsKey,
 } = require('../../src/context-routing/evaluator');
 const {
@@ -91,6 +93,35 @@ describe('context-routing evaluator', () => {
     }
   });
 
+  test('旧 repo contract 缺少当前必需 control-plane 输出时，标记为 bootstrap_contract_outdated', () => {
+    const fixture = makeRuntimeFixture();
+
+    try {
+      const legacyManifest = {
+        schema_version: 'v1',
+        status: 'complete',
+        outputs: {
+          '00-summary.md': { depends_on: [] },
+          'README.md': { depends_on: [] },
+        },
+      };
+
+      const result = evaluateContext({
+        stage: 'work',
+        contextDir: fixture.contextDir,
+        controlPlaneDir: fixture.controlPlaneDir,
+        routing: null,
+        manifest: legacyManifest,
+      });
+
+      expect(result.level).toBe('L2');
+      expect(result.fallback_reason).toBe('bootstrap_contract_outdated');
+      expect(result.selected_assets).toContain('code-facts/test-map.md');
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
   test('损坏的 bootstrap JSON 按缺失处理并走 fallback，而不是整体抛错', () => {
     const fixture = makeRuntimeFixture();
 
@@ -134,6 +165,43 @@ describe('context-routing evaluator', () => {
       expect(result.fallback_reason).toBe('minimal_context_missing');
       expect(result.selected_assets).toContain('code-facts/high-risk-modules.md');
       expect(result.selected_assets).not.toContain('minimal-context/review.json');
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace-root contract 缺关键输出时按 workspace-root 规则报 drift，不误套 repo minimal-context', () => {
+    const fixture = makeRuntimeFixture();
+
+    try {
+      fs.writeFileSync(
+        path.join(fixture.controlPlaneDir, 'workspace-registry.json'),
+        JSON.stringify({ schema_version: 'v1', children: [] }, null, 2)
+      );
+
+      const workspaceManifest = {
+        schema_version: 'v1',
+        status: 'complete',
+        outputs: {
+          'workspace-registry.json': { depends_on: [] },
+        },
+      };
+
+      expect(detectBootstrapContractKind({
+        manifest: workspaceManifest,
+        controlPlaneDir: fixture.controlPlaneDir,
+      })).toBe('workspace-root');
+
+      expect(inspectBootstrapContract({
+        manifest: workspaceManifest,
+        controlPlaneDir: fixture.controlPlaneDir,
+      })).toEqual({
+        kind: 'workspace-root',
+        drift: true,
+        required_outputs: ['workspace-registry.json', 'workspace-routing.json'],
+        missing_required_outputs: ['workspace-routing.json'],
+        missing_required_files: ['workspace-routing.json'],
+      });
     } finally {
       fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
     }

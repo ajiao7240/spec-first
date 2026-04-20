@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 function countFiles(dirPath) {
@@ -36,46 +37,84 @@ function copyDirectory(sourceDir, targetDir) {
   }
 }
 
+function removeDirectoryIfExists(directoryPath) {
+  try {
+    fs.rmSync(directoryPath, { recursive: true, force: true });
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+}
+
+function buildBackupEntry(key, sourceDir, backupRoot) {
+  const backupDir = path.join(backupRoot, key);
+  const sourceExisted = fs.existsSync(sourceDir);
+  if (sourceExisted) {
+    copyDirectory(sourceDir, backupDir);
+  }
+
+  return { key, sourceDir, backupDir, sourceExisted };
+}
+
 function createBootstrapBackup({
   contextDir,
   controlPlaneDir,
   generatedAt = new Date().toISOString(),
+  backupRoot,
 } = {}) {
-  if (!contextDir || !controlPlaneDir || !fs.existsSync(contextDir)) {
+  if (!contextDir || !controlPlaneDir) {
     return null;
   }
 
-  fs.mkdirSync(controlPlaneDir, { recursive: true });
-  const backupDir = path.join(
-    controlPlaneDir,
-    `backup_${generatedAt.replace(/[:.]/g, '-')}`
-  );
-  copyDirectory(contextDir, backupDir);
-
-  if (countFiles(contextDir) !== countFiles(backupDir)) {
-    throw new Error('bootstrap backup validation failed');
+  const contextExists = fs.existsSync(contextDir);
+  const controlPlaneExists = fs.existsSync(controlPlaneDir);
+  if (!contextExists && !controlPlaneExists) {
+    return null;
   }
 
-  return backupDir;
+  const effectiveBackupRoot = backupRoot || fs.mkdtempSync(
+    path.join(os.tmpdir(), `spec-first-bootstrap-backup-${generatedAt.replace(/[:.]/g, '-')}-`)
+  );
+  fs.mkdirSync(effectiveBackupRoot, { recursive: true });
+
+  const manifest = [
+    buildBackupEntry('context', contextDir, effectiveBackupRoot),
+    buildBackupEntry('control-plane', controlPlaneDir, effectiveBackupRoot),
+  ];
+
+  for (const entry of manifest) {
+    if (!entry.sourceExisted) continue;
+    if (countFiles(entry.sourceDir) !== countFiles(entry.backupDir)) {
+      throw new Error('bootstrap backup validation failed');
+    }
+  }
+
+  return {
+    backupRoot: effectiveBackupRoot,
+    manifest,
+  };
 }
 
-function restoreBootstrapBackup({ backupDir, contextDir } = {}) {
-  if (!backupDir || !contextDir || !fs.existsSync(backupDir)) {
+function restoreBootstrapBackup(bootstrapBackup) {
+  if (!bootstrapBackup || !Array.isArray(bootstrapBackup.manifest)) {
     return false;
   }
 
-  try {
-    fs.rmSync(contextDir, { recursive: true });
-  } catch (err) {
-    if (err.code !== 'ENOENT') throw err;
+  for (const entry of bootstrapBackup.manifest) {
+    removeDirectoryIfExists(entry.sourceDir);
+    if (entry.sourceExisted && fs.existsSync(entry.backupDir)) {
+      copyDirectory(entry.backupDir, entry.sourceDir);
+    }
   }
-  copyDirectory(backupDir, contextDir);
+
   return true;
 }
 
-function removeBootstrapBackup(backupDir) {
-  if (!backupDir || !fs.existsSync(backupDir)) return false;
-  fs.rmSync(backupDir, { recursive: true, force: true });
+function removeBootstrapBackup(bootstrapBackup) {
+  if (!bootstrapBackup || !bootstrapBackup.backupRoot || !fs.existsSync(bootstrapBackup.backupRoot)) {
+    return false;
+  }
+
+  fs.rmSync(bootstrapBackup.backupRoot, { recursive: true, force: true });
   return true;
 }
 
@@ -100,11 +139,7 @@ function createBatchBackup({ entries = [], backupRoot }) {
 function restoreBatchBackup(batchBackup) {
   if (!batchBackup || !Array.isArray(batchBackup.manifest)) return false;
   for (const entry of batchBackup.manifest) {
-    try {
-      fs.rmSync(entry.sourceDir, { recursive: true });
-    } catch (err) {
-      if (err.code !== 'ENOENT') throw err;
-    }
+    removeDirectoryIfExists(entry.sourceDir);
     if (entry.sourceExisted && fs.existsSync(entry.backupDir)) {
       copyDirectory(entry.backupDir, entry.sourceDir);
     }
