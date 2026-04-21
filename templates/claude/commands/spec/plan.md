@@ -5,12 +5,8 @@ argument-hint: "[requirements doc path or topic]"
 
 # Spec-First Plan
 
-You are running the `spec:plan` workflow.
+This source template defines Claude command metadata only.
 
-Before doing anything else, read `.claude/spec-first/workflows/spec-plan/SKILL.md` and execute that workflow as the primary contract for this command.
+During `spec-first init --claude`, spec-first renders the runtime command by combining this frontmatter with the body of `skills/spec-plan/SKILL.md`.
 
-Rules:
-- Treat `.claude/spec-first/workflows/spec-plan/SKILL.md` as the source of truth for planning depth, research, file naming, and handoff behavior.
-- Write or update the implementation plan at the path format required by the skill, typically `docs/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.md`.
-- Do not write code in this step.
-- If `.claude/spec-first/workflows/spec-plan/SKILL.md` is missing, stop and tell the user to run `spec-first init --claude`.
+Edit the paired skill to change workflow behavior.

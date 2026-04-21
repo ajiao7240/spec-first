@@ -5,14 +5,8 @@ argument-hint: "[feature idea or problem]"
 
 # Spec-First Brainstorm
 
-You are running the `spec:brainstorm` workflow.
+This source template defines Claude command metadata only.
 
-Before doing anything else, read `.claude/spec-first/workflows/spec-brainstorm/SKILL.md` and execute that workflow as the primary contract for this command.
+During `spec-first init --claude`, spec-first renders the runtime command by combining this frontmatter with the body of `skills/spec-brainstorm/SKILL.md`.
 
-Rules:
-- Treat `.claude/spec-first/workflows/spec-brainstorm/SKILL.md` as the source of truth for phases, artifact paths, and handoff behavior.
-- If repository guidance such as `CLAUDE.md` conflicts with the workflow artifact path, follow the skill contract for this command.
-- The durable artifact for non-trivial work is the requirements document described by the skill, typically under `docs/brainstorms/YYYY-MM-DD-<topic>-requirements.md`.
-- Ask one focused question at a time when clarification is needed.
-- Keep implementation details out unless the request is inherently technical.
-- If `.claude/spec-first/workflows/spec-brainstorm/SKILL.md` is missing, stop and tell the user to run `spec-first init --claude`.
+Edit the paired skill to change workflow behavior.

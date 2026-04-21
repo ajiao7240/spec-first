@@ -447,6 +447,7 @@ describe('spec-graph-bootstrap compiler modules', () => {
       expect(fs.existsSync(workspacePaths.routingPath)).toBe(true);
       expect(fs.existsSync(path.join(workspacePaths.controlPlaneDir, 'workspace-readiness-summary.json'))).toBe(true);
       expect(fs.existsSync(path.join(workspacePaths.contextDir, 'workspace', 'routing-overview.md'))).toBe(true);
+      expect(fs.existsSync(path.join(workspacePaths.contextDir, 'injection-index.yaml'))).toBe(true);
       expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'workflows', 'bootstrap', 'workspace-bootstrap-', '2026-04-15T00-00-00-000Z.json'))).toBe(false);
 
       const registry = JSON.parse(fs.readFileSync(workspacePaths.registryPath, 'utf8'));

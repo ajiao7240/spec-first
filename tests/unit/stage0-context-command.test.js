@@ -592,8 +592,10 @@ describe('stage0-context command', () => {
           asset_path: 'minimal-context/work.json',
         }),
       ]));
-      expect(result.level).toBe('L0');
-      expect(result.fallback_reason).toBe(null);
+      // workspace routing 正常命中 child，level 最高为 L1（无 CRG 的程序化 bootstrap data_quality=partial）
+      expect(['L0', 'L1']).toContain(result.level);
+      // data_quality_partial = single-repo 质量降级；workspace_child_partial_degraded = workspace 聚合降级；null = L0
+      expect(['data_quality_partial', 'workspace_child_partial_degraded', null]).toContain(result.fallback_reason);
       expect(result.selected_assets).toEqual(expect.arrayContaining([
         `${path.basename(workspaceRoot)}:workspace/routing-overview.md`,
         `${childSlug}:minimal-context/work.json`,

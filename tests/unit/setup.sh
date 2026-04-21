@@ -87,7 +87,8 @@ assert_contains "source skill references health script" "scripts/check-health" "
 assert_contains "prompt skill references local config" ".spec-first/config.local.yaml" "$prompt_skill_md"
 assert_contains "prompt skill references command entrypoint" "/spec:setup" "$prompt_skill_md"
 
-assert_contains "command template references setup workflow" ".claude/spec-first/workflows/setup/SKILL.md" "$cmd_template_md"
+assert_contains "command template references setup source skill" "skills/setup/SKILL.md" "$cmd_template_md"
+assert_not_contains "command template no longer references runtime workflow path" ".claude/spec-first/workflows/setup/SKILL.md" "$cmd_template_md"
 assert_not_contains "command template does not point to mcp-setup" "spec-mcp-setup" "$cmd_template_md"
 
 assert_contains "config template includes work_delegate" "work_delegate:" "$config_template_md"

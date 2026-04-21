@@ -445,6 +445,23 @@ function buildOutputMap() {
   };
 }
 
+function computeDataQuality({ modules, entrypoints, analyzerMode }) {
+  const hasData = modules.length > 0 || entrypoints.length > 0;
+  // fact-backed 仅允许 full（CRG 图索引）模式；enhanced/basic 数据来自静态分析，最高 partial
+  if (analyzerMode === 'full') {
+    return modules.length > 0 && entrypoints.length > 0 ? 'fact-backed' :
+           hasData ? 'partial' : 'empty';
+  }
+  if (analyzerMode === 'enhanced') {
+    return hasData ? 'partial' : 'skeletal';
+  }
+  if (analyzerMode === 'basic') {
+    return hasData ? 'skeletal' : 'empty';
+  }
+  // analyzerMode 未知时保守计算，不产生 fact-backed
+  return hasData ? 'partial' : 'empty';
+}
+
 function buildArtifactManifest({
   generatedAt = '2026-04-15T00:00:00.000Z',
   repoRoot,
@@ -459,10 +476,11 @@ function buildArtifactManifest({
   const entrypoints = Array.isArray(factInventory && factInventory.entrypoints) ? factInventory.entrypoints : [];
   const signals = Array.isArray(riskSignals && riskSignals.signals) ? riskSignals.signals : [];
   const testFiles = Array.isArray(testSurface && testSurface.test_files) ? testSurface.test_files : [];
+  const analyzerMode = typeof (factInventory && factInventory.analyzer_mode) === 'string'
+    ? factInventory.analyzer_mode
+    : null;
 
-  const dataQuality =
-    modules.length > 0 && entrypoints.length > 0 ? 'fact-backed' :
-    modules.length > 0 || entrypoints.length > 0 ? 'partial'     : 'empty';
+  const dataQuality = computeDataQuality({ modules, entrypoints, analyzerMode });
 
   const outputs = buildOutputMap();
   const requiredAssets = Object.entries(outputs)

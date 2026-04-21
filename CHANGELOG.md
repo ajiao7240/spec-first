@@ -1,6 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.8 2026-04-21 矿工: publish spec-first 1.5.8
+- v1.5.8 2026-04-21 矿工: fix(bootstrap-quality): 三根因修复+review收口——① `references/artifact-schemas.md` 补 `data_quality` 字段定义（按 full/enhanced/basic/placeholder 模式映射 fact-backed/partial/skeletal/empty）；② `artifact-manifest.schema.json` enum 扩展补 `skeletal/sample-backed/mixed`；③ `compile-routing.js` 引入 `computeDataQuality`（full 模式才允许 fact-backed）；④ `run-bootstrap.js` 补写 workspace `injection-index.yaml`（同时清理冗余重复条目与无效 `_children` 字段）；⑤ SKILL.md W.2/W.3 契约同步；⑥ fixture 补 `analyzer_mode: full`；⑦ 测试补 injection-index 文件存在性断言、强化 fallback_reason 分类断言
+- v1.5.7 2026-04-21 12:37:20 Codex: fix(claude-workflow-entry): Claude `/spec:*` 命令改为在 `init --claude` 时内联配对 workflow skill 正文，彻底去掉对 `.claude/spec-first/workflows/*/SKILL.md` 的第二跳读取依赖；同步收口 command template 文案与 drift/smoke/unit 守护，修复已执行 `spec-first init --claude` 仍误报“SKILL.md 不存在”的伪根因 (user-visible)
 - v1.5.7 2026-04-21 矿工: fix(compat/win32): 全面平台兼容性修复——postinstall repairCrgNativeModule 补 try/catch 防 spawnSync 异常崩溃安装流程(ADV-004)；SESSION_START_RELATIVE_PATH 改用硬编码正斜杠消除 check.name 平台差异(ADV-003)；doctor checkCrgNativeModules 的 spec-first probe 加 shell:true、node probe 改用 process.execPath 修复 Windows cmd wrapper 和版本管理器场景(ADV-006)；removeEmptyParents 从 startsWith 改为 path.relative 包含性判断修复大小写不一致路径(ADV-001) (user-visible)
 - v1.5.7 2026-04-21 矿工: chore(release): 发布 `spec-first@1.5.7` 到 npm registry，收口 compat/bootstrap/doctor/init 修复与文档归档 (user-visible)
 - v1.5.7 2026-04-21 矿工: fix(compat): postinstall 多平台修复链——修复 findPrebuildInstallBin(null) 潜在 TypeError；showCrgHint 按 win32/darwin/linux 分发编译器指引（VS BuildTools/xcode-select/build-essential）；Windows hint 同时输出 CMD 和 PowerShell 两种 SSL bypass 语法；better-sqlite3 移至 optionalDependencies；补 migrations.js MODULE_NOT_FOUND 降级 (user-visible)

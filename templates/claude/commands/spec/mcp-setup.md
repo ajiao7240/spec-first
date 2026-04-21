@@ -5,11 +5,8 @@ argument-hint: "[quick|custom]"
 
 # MCP Setup
 
-You are running the `spec:mcp-setup` workflow.
+This source template defines Claude command metadata only.
 
-Before doing anything else, read `.claude/spec-first/workflows/spec-mcp-setup/SKILL.md` and execute that workflow as the primary contract for this command.
+During `spec-first init --claude`, spec-first renders the runtime command by combining this frontmatter with the body of `skills/spec-mcp-setup/SKILL.md`.
 
-Rules:
-- Treat `.claude/spec-first/workflows/spec-mcp-setup/SKILL.md` as the source of truth for phase execution, tool configuration, and verification behavior.
-- This workflow installs and configures MCP tools needed for spec-first Full mode, using the active host's MCP config and marker paths.
-- If `.claude/spec-first/workflows/spec-mcp-setup/SKILL.md` is missing, stop and tell the user to run `spec-first init --claude`.
+Edit the paired skill to change workflow behavior.

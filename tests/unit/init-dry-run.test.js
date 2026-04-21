@@ -143,7 +143,10 @@ describe('init --dry-run', () => {
 
       const commandPath = path.join(projectRoot, '.claude', 'commands', 'spec', 'work.md');
       const drifted = fs.readFileSync(commandPath, 'utf8')
-        .replace('.claude/spec-first/workflows/spec-work/SKILL.md', '.claude/spec-first/workflows/spec-plan/SKILL.md');
+        .replace(
+          'stage0-context --stage work --workflow spec-work --format json',
+          'stage0-context --stage work --workflow spec-plan --format json',
+        );
       fs.writeFileSync(commandPath, drifted, 'utf8');
 
       const result = captureInit(projectRoot, ['--claude', '--dry-run', '-u', 'reviewer', '--lang', 'zh']);

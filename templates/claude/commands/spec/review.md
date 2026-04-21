@@ -5,13 +5,8 @@ argument-hint: "[branch, PR, or change summary]"
 
 # Spec-First Review
 
-You are running the `spec:review` workflow.
+This source template defines Claude command metadata only.
 
-Before doing anything else, read `.claude/spec-first/workflows/spec-review/SKILL.md` and execute that workflow as the primary contract for this command.
+During `spec-first init --claude`, spec-first renders the runtime command by combining this frontmatter with the body of `skills/spec-review/SKILL.md`.
 
-Rules:
-- Treat `.claude/spec-first/workflows/spec-review/SKILL.md` as the source of truth for reviewer selection, severity rules, and output structure.
-- Inspect the change for correctness, regressions, coverage gaps, and maintainability.
-- Prioritize blocking issues and concrete file references.
-- If no issues are found, say so explicitly and note any residual risk.
-- If `.claude/spec-first/workflows/spec-review/SKILL.md` is missing, stop and tell the user to run `spec-first init --claude`.
+Edit the paired skill to change workflow behavior.

@@ -1,6 +1,8 @@
 'use strict';
 
 const FACT_INVENTORY_SAMPLE = {
+  analyzer_mode: 'full',
+  graph_support_state: 'local-available',
   project_identity: {
     name: 'spec-first',
     primary_language: 'JavaScript',

@@ -279,6 +279,8 @@ Serena:   ready=yes/no
 
 **artifact-manifest.json**（workspace slug 级，`status: complete`）：
 
+> workspace manifest 是协调层产物，不表达内容质量，**不写 `data_quality` 字段**。
+
 ```json
 {
   "schema_version": "v1",
@@ -318,6 +320,7 @@ Serena:   ready=yes/no
 - `README.md`：标注 `source_of_truth: control-plane artifacts under .spec-first/workflows/bootstrap/<workspaceSlug>/`
 - `workspace/routing-overview.md`：每行 `- <childSlug>: <relativePath>`
 - `workspace/repo-registry.md`（**必须是 `.md`，不得写成 `.yaml`**）：每行 `- <childSlug>: <repoRoot 绝对路径>`
+- `injection-index.yaml`：workspace 级路由索引（`always: [00-summary.md, workspace/routing-overview.md]`，`selection_rules: []`，`advice` 均标注"按 child slug 路由"）
 
 ---
 

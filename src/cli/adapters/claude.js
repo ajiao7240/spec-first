@@ -49,6 +49,20 @@ class ClaudeAdapter extends PlatformAdapter {
     return 'CLAUDE.md';
   }
 
+  renderCommandContent(_command, templateContent, context = {}) {
+    if (typeof context.skillContent !== 'string') {
+      return this.transformSkillContent(templateContent, context);
+    }
+
+    const { frontmatter } = splitMarkdownFrontmatter(templateContent);
+    const { body } = splitMarkdownFrontmatter(context.skillContent);
+    const merged = frontmatter
+      ? `${frontmatter}\n\n${body}`
+      : body;
+
+    return this.transformSkillContent(merged, context);
+  }
+
   transformSkillContent(content) {
     return rewriteCanonicalAgentNamesForSkills(content);
   }
@@ -282,4 +296,26 @@ function removeEmptyParents(startPath, stopRoot) {
     fs.rmdirSync(current);
     current = path.dirname(current);
   }
+}
+
+function splitMarkdownFrontmatter(content) {
+  if (!content.startsWith('---\n')) {
+    return {
+      frontmatter: '',
+      body: content.trimStart(),
+    };
+  }
+
+  const closingIndex = content.indexOf('\n---\n', 4);
+  if (closingIndex === -1) {
+    return {
+      frontmatter: '',
+      body: content.trimStart(),
+    };
+  }
+
+  return {
+    frontmatter: content.slice(0, closingIndex + 5).trimEnd(),
+    body: content.slice(closingIndex + 5).trimStart(),
+  };
 }

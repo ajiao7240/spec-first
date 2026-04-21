@@ -51,7 +51,8 @@ describe('spec-debug contracts', () => {
     const investigationTechniques = read(INVESTIGATION_TECHNIQUES_PATH);
 
     expect(command).toContain('Spec-First Debug');
-    expect(command).toContain('.claude/spec-first/workflows/spec-debug/SKILL.md');
+    expect(command).toContain('skills/spec-debug/SKILL.md');
+    expect(command).not.toContain('.claude/spec-first/workflows/spec-debug/SKILL.md');
     expect(antiPatterns).toContain('Shotgun Debugging');
     expect(investigationTechniques).toContain('Intermittent Bug Techniques');
   });

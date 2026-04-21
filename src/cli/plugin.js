@@ -75,6 +75,33 @@ const HIGH_VALUE_SKILL_ANCHORS = {
     'test-surface.json',
   ],
 };
+const HIGH_VALUE_COMMAND_ANCHORS = {
+  'spec-plan': [
+    'selection_subject / selected_contexts',
+    'selected_assets / fallback_reason / level / skipped_rules',
+    'verifier_dispatch',
+    'verification_gate_state',
+    'stage0-context --stage plan --workflow spec-plan --format json',
+  ],
+  'spec-work': [
+    'required_verifications',
+    'verifier_dispatch',
+    'verification_gate_state',
+    'stage0-context --stage work --workflow spec-work --format json',
+  ],
+  'spec-review': [
+    'verification summary',
+    'verifier_dispatch',
+    'verification_gate_state',
+    'stage0-context --stage review --workflow spec-review --format json',
+  ],
+  'spec-graph-bootstrap': [
+    'fact-inventory.json',
+    'risk-signals.json',
+    'test-surface.json',
+    'database-routing.json',
+  ],
+};
 
 function loadPluginManifest() {
   if (!fs.existsSync(MANIFEST_PATH)) {
@@ -397,6 +424,10 @@ function readBundledCommandTemplate(commandName) {
   return fs.readFileSync(path.join(getBundledPath('commands'), command.filename), 'utf8');
 }
 
+function readBundledSkillSource(skillName) {
+  return fs.readFileSync(path.join(getBundledPath('skills'), skillName, 'SKILL.md'), 'utf8');
+}
+
 function buildFilteredAssetSet(platformOrAdapter) {
   const platform = resolvePlatformId(platformOrAdapter);
   const governance = loadSkillsGovernance();
@@ -511,8 +542,7 @@ function syncCommands(projectRoot, adapter, commands = listBundledCommands()) {
   }));
 
   for (const command of runtimeCommands) {
-    const content = readBundledCommandTemplate(command.name);
-    const transformed = adapter.transformSkillContent(content);
+    const transformed = renderRuntimeCommandContent(command, adapter);
     fs.writeFileSync(
       path.join(targetRoot, command.filename),
       transformed,
@@ -532,8 +562,7 @@ function planCommandsSync(projectRoot, adapter, commands = listBundledCommands()
   const operations = [buildPlanOperation('ensure_dir', adapter.commandRoot, 'managed_command_root')];
 
   for (const command of runtimeCommands) {
-    const content = readBundledCommandTemplate(command.name);
-    const transformed = adapter.transformSkillContent(content, { skillName: command.skill });
+    const transformed = renderRuntimeCommandContent(command, adapter);
     operations.push(buildFileWriteOperation(
       projectRoot,
       path.join(targetRoot, command.filename),
@@ -948,7 +977,7 @@ function normalizedWorkflowSkillRuntimePath(adapter, skillName) {
 
 function inspectCommandIntegrity(projectRoot, command, adapter) {
   const targetPath = path.join(projectRoot, adapter.commandRoot, command.filename);
-  const expectedContent = adapter.transformSkillContent(readBundledCommandTemplate(command.name), { skillName: command.skill });
+  const expectedContent = renderRuntimeCommandContent(command, adapter);
   const actualContent = fs.readFileSync(targetPath, 'utf8');
   const issues = unique([
     ...commandIntegrityIssues(actualContent, command, adapter),
@@ -961,6 +990,16 @@ function inspectCommandIntegrity(projectRoot, command, adapter) {
     commandName: command.name,
     issues,
   };
+}
+
+function renderRuntimeCommandContent(command, adapter) {
+  const templateContent = readBundledCommandTemplate(command.name);
+  const skillContent = readBundledSkillSource(command.skill);
+  return adapter.renderCommandContent(command, templateContent, {
+    commandName: command.name,
+    skillName: command.skill,
+    skillContent,
+  });
 }
 
 function inspectSkillIntegrity({
@@ -1028,12 +1067,15 @@ function commandIntegrityIssues(actualContent, command, adapter) {
   const issues = [];
   const workflowPath = normalizedWorkflowSkillRuntimePath(adapter, command.skill);
 
-  if (!actualContent.includes(workflowPath)) {
-    issues.push('workflow_skill_path_mismatch');
+  if (actualContent.includes(workflowPath)) {
+    issues.push('legacy_workflow_runtime_reference');
   }
 
-  if (adapter.id === 'claude' && !actualContent.includes(`You are running the \`spec:${command.name}\` workflow.`)) {
-    issues.push('workflow_title_anchor_missing');
+  if (adapter.id === 'claude') {
+    const missingAnchors = (HIGH_VALUE_COMMAND_ANCHORS[command.skill] || [])
+      .filter((anchor) => !actualContent.includes(anchor))
+      .map((anchor) => `missing_command_anchor:${anchor}`);
+    issues.push(...missingAnchors);
   }
 
   return issues;

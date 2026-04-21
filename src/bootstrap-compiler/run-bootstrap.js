@@ -172,6 +172,24 @@ function buildWorkspaceReadinessSummary({
   };
 }
 
+function buildWorkspaceInjectionIndex() {
+  return {
+    always: ['00-summary.md', 'workspace/routing-overview.md'],
+    stages: {
+      plan: [],
+      work: [],
+      review: [],
+      unknown: ['00-summary.md'],
+    },
+    selection_rules: [],
+    advice: {
+      plan: 'workspace 级 context 为协调视图，按 child slug 路由到具体 repo',
+      work: 'workspace 级 context 为协调视图，按 child slug 路由到具体 repo',
+      review: 'workspace 级 context 为协调视图，按 child slug 路由到具体 repo',
+    },
+  };
+}
+
 function writeWorkspaceOverviewArtifacts(contextDir, { workspaceSlug, registry }) {
   writeText(path.join(contextDir, '00-summary.md'), `# ${workspaceSlug}\n`);
   writeText(path.join(contextDir, 'README.md'), `# ${workspaceSlug} workspace overview\n`);
@@ -182,6 +200,10 @@ function writeWorkspaceOverviewArtifacts(contextDir, { workspaceSlug, registry }
   writeText(
     path.join(contextDir, 'workspace', 'repo-registry.md'),
     ['# repo registry', '', ...registry.children.map((child) => `- ${child.childSlug}: ${child.repoRoot}`), ''].join('\n')
+  );
+  writeText(
+    path.join(contextDir, 'injection-index.yaml'),
+    serializeInjectionIndex(buildWorkspaceInjectionIndex())
   );
 }
 

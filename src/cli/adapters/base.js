@@ -92,6 +92,17 @@ class PlatformAdapter {
   }
 
   /**
+   * Render command content for platform-specific runtime
+   * @param {object} _command - Bundled command definition
+   * @param {string} templateContent - Bundled command template content
+   * @param {{ skillName?: string, skillContent?: string, commandName?: string }} [context]
+   * @returns {string}
+   */
+  renderCommandContent(_command, templateContent, context = {}) {
+    return this.transformSkillContent(templateContent, context);
+  }
+
+  /**
    * Transform skill content for platform-specific runtime
    * @param {string} content - Original skill content
    * @param {{ skillName?: string }} [_context] - Optional asset context

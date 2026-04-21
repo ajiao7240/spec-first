@@ -241,8 +241,8 @@ describe('managed state contracts', () => {
       fs.writeFileSync(
         commandPath,
         fs.readFileSync(commandPath, 'utf8').replace(
-          '.claude/spec-first/workflows/spec-work/SKILL.md',
-          '.claude/spec-first/workflows/spec-plan/SKILL.md',
+          'stage0-context --stage work --workflow spec-work --format json',
+          'stage0-context --stage work --workflow spec-plan --format json',
         ),
         'utf8',
       );
@@ -253,7 +253,7 @@ describe('managed state contracts', () => {
         expect.stringContaining('Detected current spec-first runtime drift; performing managed hard reset before re-init.'),
       );
       expect(fs.existsSync(customSkill)).toBe(true);
-      expect(fs.readFileSync(commandPath, 'utf8')).toContain('.claude/spec-first/workflows/spec-work/SKILL.md');
+      expect(fs.readFileSync(commandPath, 'utf8')).toContain('stage0-context --stage work --workflow spec-work --format json');
     } finally {
       warnSpy.mockRestore();
       logSpy.mockRestore();
@@ -281,8 +281,8 @@ describe('managed state contracts', () => {
       fs.writeFileSync(
         commandPath,
         fs.readFileSync(commandPath, 'utf8').replace(
-          '.claude/spec-first/workflows/spec-work/SKILL.md',
-          '.claude/spec-first/workflows/spec-plan/SKILL.md',
+          'stage0-context --stage work --workflow spec-work --format json',
+          'stage0-context --stage work --workflow spec-plan --format json',
         ),
         'utf8',
       );
@@ -302,7 +302,7 @@ describe('managed state contracts', () => {
       expect(fs.existsSync(customSkill)).toBe(true);
       expect(fs.existsSync(commandPath)).toBe(true);
       expect(fs.existsSync(statePath)).toBe(true);
-      expect(fs.readFileSync(commandPath, 'utf8')).toContain('.claude/spec-first/workflows/spec-plan/SKILL.md');
+      expect(fs.readFileSync(commandPath, 'utf8')).toContain('stage0-context --stage work --workflow spec-plan --format json');
     } finally {
       if (fs.writeFileSync.mockRestore) {
         fs.writeFileSync.mockRestore();

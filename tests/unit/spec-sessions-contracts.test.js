@@ -24,10 +24,11 @@ describe('spec-sessions contracts', () => {
     expect(skill).not.toContain('/ce:sessions');
   });
 
-  test('command template still points at spec-sessions workflow', () => {
+  test('command template points at the paired source skill', () => {
     const command = read(COMMAND_PATH);
 
     expect(command).toContain('# Spec-First Sessions');
-    expect(command).toContain('.claude/spec-first/workflows/spec-sessions/SKILL.md');
+    expect(command).toContain('skills/spec-sessions/SKILL.md');
+    expect(command).not.toContain('.claude/spec-first/workflows/spec-sessions/SKILL.md');
   });
 });

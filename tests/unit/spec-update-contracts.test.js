@@ -42,11 +42,12 @@ describe('spec-update contracts', () => {
     expect(skill).toContain('both PATH-based CLI inspection and repo-local source checkout inspection failed');
   });
 
-  test('command template points at the workflow runtime', () => {
+  test('command template points at the paired source skill', () => {
     const command = read(COMMAND_PATH);
 
     expect(command).toContain('Spec-First Update');
-    expect(command).toContain('.claude/spec-first/workflows/spec-update/SKILL.md');
+    expect(command).toContain('skills/spec-update/SKILL.md');
+    expect(command).not.toContain('.claude/spec-first/workflows/spec-update/SKILL.md');
   });
 
   test('runtime transforms preserve host-specific skill naming', () => {

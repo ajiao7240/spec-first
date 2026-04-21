@@ -53,8 +53,8 @@ describe('runtime asset integrity inspection', () => {
 
       const commandPath = path.join(projectRoot, '.claude', 'commands', 'spec', 'work.md');
       const drifted = fs.readFileSync(commandPath, 'utf8')
-        .split('.claude/spec-first/workflows/spec-work/SKILL.md')
-        .join('.claude/spec-first/workflows/spec-plan/SKILL.md');
+        .split('stage0-context --stage work --workflow spec-work --format json')
+        .join('stage0-context --stage work --workflow spec-plan --format json');
       fs.writeFileSync(commandPath, drifted, 'utf8');
 
       const adapter = getAdapter('claude');
@@ -64,7 +64,9 @@ describe('runtime asset integrity inspection', () => {
         expect.arrayContaining([
           expect.objectContaining({
             filename: 'work.md',
-            issues: expect.arrayContaining(['workflow_skill_path_mismatch']),
+            issues: expect.arrayContaining([
+              'missing_command_anchor:stage0-context --stage work --workflow spec-work --format json',
+            ]),
           }),
         ]),
       );
@@ -79,7 +81,7 @@ describe('runtime asset integrity inspection', () => {
           expect.objectContaining({
             name: '.claude/commands/spec',
             level: 'WARNING',
-            message: expect.stringContaining('workflow_skill_path_mismatch'),
+            message: expect.stringContaining('missing_command_anchor:stage0-context --stage work --workflow spec-work --format json'),
           }),
         ]),
       );

@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const ClaudeAdapter = require('../../src/cli/adapters/claude');
 const { getAdapter } = require('../../src/cli/adapters');
 const {
   buildFilteredAssetSet,
@@ -153,6 +154,34 @@ describe('skills governance contracts', () => {
       expect(installed.skills.missing).toEqual([]);
       expect(installed.commands.entries).toEqual([]);
       expect(installed.commands.missing).toEqual([]);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('claude workflow commands inline the workflow contract instead of reading runtime workflow paths', () => {
+    const projectRoot = makeTempDir();
+    const adapter = new ClaudeAdapter();
+
+    try {
+      syncBundledAssets(projectRoot, adapter);
+
+      const graphBootstrapCommand = fs.readFileSync(
+        path.join(projectRoot, '.claude/commands/spec/graph-bootstrap.md'),
+        'utf8',
+      );
+      const planCommand = fs.readFileSync(
+        path.join(projectRoot, '.claude/commands/spec/plan.md'),
+        'utf8',
+      );
+
+      expect(graphBootstrapCommand).toContain('# Spec-First Graph Bootstrap');
+      expect(graphBootstrapCommand).toContain('fact-inventory.json');
+      expect(graphBootstrapCommand).not.toContain('.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md');
+
+      expect(planCommand).toContain('# Create Technical Plan');
+      expect(planCommand).toContain('stage0-context --stage plan --workflow spec-plan --format json');
+      expect(planCommand).not.toContain('.claude/spec-first/workflows/spec-plan/SKILL.md');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

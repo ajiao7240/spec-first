@@ -124,6 +124,12 @@ schema_version: "v1"
 generated_at: <now>
 updated_at: <now>
 status: in_progress   # complete 在 Phase 3 结束时写入；中断重跑从 Phase 0 重新开始（设计决策：幂等优于断点续传）
+# data_quality 按 Phase 0.4 分析模式决定，Phase 3 完成后保持不变（不得覆盖）
+# full (crg.indexed=true)        → "fact-backed"
+# enhanced (serena.ready=true)   → "partial"
+# basic                          → "skeletal"
+# placeholder-repo               → "empty"
+data_quality: <按上述规则填写>
 inputs:
   crg:
     graph_last_built: <data.last_built>   # crg stats 返回

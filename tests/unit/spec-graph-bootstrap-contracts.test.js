@@ -107,6 +107,35 @@ describe('spec-graph-bootstrap contracts', () => {
     expect(schemas).toContain('route_decisions');
   });
 
+  test('artifact-schemas.md 定义了 data_quality 字段及分析模式映射规则', () => {
+    const schemas = fs.readFileSync(GRAPH_BOOTSTRAP_SCHEMAS_PATH, 'utf8');
+
+    expect(schemas).toContain('data_quality');
+    expect(schemas).toContain('fact-backed');
+    expect(schemas).toContain('"partial"');
+    expect(schemas).toContain('"skeletal"');
+    // 包含按 analyzer_mode 决定 data_quality 的规则说明
+    expect(schemas).toContain('analyzer_mode');
+  });
+
+  test('SKILL.md W.3 workspace docs 写入清单包含 injection-index.yaml', () => {
+    const skill = fs.readFileSync(GRAPH_BOOTSTRAP_SKILL_PATH, 'utf8');
+    const w3Section = skill.slice(skill.indexOf('#### W.3 Workspace Docs 写入'));
+
+    expect(w3Section).toContain('injection-index.yaml');
+  });
+
+  test('SKILL.md W.2 workspace manifest 声明不写 data_quality', () => {
+    const skill = fs.readFileSync(GRAPH_BOOTSTRAP_SKILL_PATH, 'utf8');
+    const w2Section = skill.slice(
+      skill.indexOf('**artifact-manifest.json**（workspace slug 级'),
+      skill.indexOf('**workspace-readiness-summary.json**')
+    );
+
+    expect(w2Section).toContain('data_quality');
+    expect(w2Section).toContain('不写');
+  });
+
   test('checked-in sample injection index avoids duplicate public-entrypoints injection in plan/work', () => {
     const yaml = fs.readFileSync(SAMPLE_INJECTION_INDEX_PATH, 'utf8');
     const planBlock = yaml.match(/plan:\n([\s\S]*?)\n  work:/);
@@ -294,7 +323,43 @@ describe('spec-graph-bootstrap contracts', () => {
     expect(manifest.status).toBe('incomplete');
   });
 
-  test('buildArtifactManifest：有 modules 和 entrypoints -> data_quality fact-backed', () => {
+  test('buildArtifactManifest：full 模式有 modules 和 entrypoints -> data_quality fact-backed', () => {
+    const { buildArtifactManifest } = require('../../src/bootstrap-compiler/compile-routing');
+    const manifest = buildArtifactManifest({
+      factInventory: {
+        analyzer_mode: 'full',
+        modules: [{ path: 'src/' }],
+        entrypoints: [{ path: 'src/index.js' }],
+      },
+    });
+    expect(manifest.data_quality).toBe('fact-backed');
+  });
+
+  test('buildArtifactManifest：enhanced 模式有 modules 和 entrypoints -> data_quality partial（非 fact-backed）', () => {
+    const { buildArtifactManifest } = require('../../src/bootstrap-compiler/compile-routing');
+    const manifest = buildArtifactManifest({
+      factInventory: {
+        analyzer_mode: 'enhanced',
+        modules: [{ path: 'src/' }],
+        entrypoints: [{ path: 'src/index.js' }],
+      },
+    });
+    expect(manifest.data_quality).toBe('partial');
+  });
+
+  test('buildArtifactManifest：basic 模式有数据 -> data_quality skeletal', () => {
+    const { buildArtifactManifest } = require('../../src/bootstrap-compiler/compile-routing');
+    const manifest = buildArtifactManifest({
+      factInventory: {
+        analyzer_mode: 'basic',
+        modules: [{ path: 'src/' }],
+        entrypoints: [],
+      },
+    });
+    expect(manifest.data_quality).toBe('skeletal');
+  });
+
+  test('buildArtifactManifest：analyzer_mode 缺失时有数据 -> data_quality partial（保守，非 fact-backed）', () => {
     const { buildArtifactManifest } = require('../../src/bootstrap-compiler/compile-routing');
     const manifest = buildArtifactManifest({
       factInventory: {
@@ -302,7 +367,8 @@ describe('spec-graph-bootstrap contracts', () => {
         entrypoints: [{ path: 'src/index.js' }],
       },
     });
-    expect(manifest.data_quality).toBe('fact-backed');
+    expect(manifest.data_quality).toBe('partial');
+    expect(manifest.data_quality).not.toBe('fact-backed');
   });
 
   test('minimal-context 三份 context 都包含 provenance 和 confidence 字段', () => {

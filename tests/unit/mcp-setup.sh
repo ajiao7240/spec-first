@@ -601,10 +601,11 @@ echo "7.2 Command template has YAML frontmatter"
 first_line=$(head -1 "$CMD_TEMPLATE")
 assert "Template starts with ---" test "$first_line" = "---"
 
-echo "7.3 Command template references correct skill path"
-assert "References workflows/spec-mcp-setup/SKILL.md" grep -q 'workflows/spec-mcp-setup/SKILL.md' "$CMD_TEMPLATE"
+echo "7.3 Command template references correct source skill path"
+assert "References skills/spec-mcp-setup/SKILL.md" grep -q 'skills/spec-mcp-setup/SKILL.md' "$CMD_TEMPLATE"
 
-echo "7.4 Command template does NOT reference .claude/skills/ (old path)"
+echo "7.4 Command template no longer references runtime workflow path"
+assert_not_contains "No workflow runtime path" ".claude/spec-first/workflows/spec-mcp-setup/SKILL.md" "$(cat "$CMD_TEMPLATE")"
 assert_not_contains "No .claude/skills/ path" ".claude/skills/spec-mcp-setup" "$(cat "$CMD_TEMPLATE")"
 
 echo "7.5 Windows PowerShell entrypoints exist"

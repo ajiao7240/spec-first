@@ -20,7 +20,7 @@
     },
     "data_quality": {
       "type": "string",
-      "enum": ["fact-backed", "partial", "empty"]
+      "enum": ["fact-backed", "partial", "mixed", "skeletal", "sample-backed", "empty"]
     },
     "inputs": {
       "type": "object",
