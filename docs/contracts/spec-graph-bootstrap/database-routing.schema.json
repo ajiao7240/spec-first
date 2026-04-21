@@ -8,8 +8,7 @@
     "discovery_strategy",
     "hint_summary",
     "runtime_capabilities",
-    "recommended_action",
-    "blockers"
+    "candidate_readiness"
   ],
   "properties": {
     "schema_version": { "type": "string" },
@@ -52,9 +51,7 @@
     "runtime_capabilities": {
       "type": "object",
       "required": [
-        "available_readonly_routes",
-        "resolved_env_keys",
-        "missing_env_keys"
+        "available_readonly_routes"
       ],
       "properties": {
         "available_readonly_routes": {
@@ -71,6 +68,102 @@
               "reason": {
                 "type": "string",
                 "enum": ["tool-present", "tool-missing"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "candidate_readiness": {
+      "type": "object",
+      "required": [
+        "candidates",
+        "resolved_env_keys",
+        "missing_env_keys"
+      ],
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "connection_name",
+              "db_type",
+              "credential_keys",
+              "resolved_credential_keys",
+              "missing_credential_keys",
+              "supported_readonly_routes",
+              "available_readonly_routes",
+              "route_availability",
+              "has_available_readonly_route",
+              "has_complete_env_hints",
+              "can_readonly_introspect",
+              "blockers"
+            ],
+            "properties": {
+              "connection_name": { "type": "string" },
+              "config_source": { "type": ["string", "null"] },
+              "db_type": { "type": "string" },
+              "credential_keys": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "resolved_credential_keys": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "missing_credential_keys": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "supported_readonly_routes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["mysql-cli"]
+                }
+              },
+              "available_readonly_routes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["mysql-cli"]
+                }
+              },
+              "route_availability": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["route", "available", "reason"],
+                  "properties": {
+                    "route": {
+                      "type": "string",
+                      "enum": ["mysql-cli"]
+                    },
+                    "available": { "type": "boolean" },
+                    "reason": {
+                      "type": "string",
+                      "enum": ["tool-present", "tool-missing"]
+                    }
+                  }
+                }
+              },
+              "has_available_readonly_route": { "type": "boolean" },
+              "has_complete_env_hints": { "type": "boolean" },
+              "can_readonly_introspect": { "type": "boolean" },
+              "blockers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["kind", "reason"],
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": ["runtime-capability", "env-availability"]
+                    },
+                    "reason": { "type": "string" }
+                  }
+                }
               }
             }
           }

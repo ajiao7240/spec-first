@@ -432,14 +432,26 @@ describe('spec-graph-bootstrap compiler modules', () => {
           env_key_hints: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
         }),
         runtime_capabilities: expect.objectContaining({
-          resolved_env_keys: expect.arrayContaining(['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER']),
-          missing_env_keys: [],
           available_readonly_routes: expect.arrayContaining([
             expect.objectContaining({
               route: 'mysql-cli',
               available: true,
             }),
           ]),
+        }),
+        candidate_readiness: expect.objectContaining({
+          candidates: expect.arrayContaining([
+            expect.objectContaining({
+              connection_name: 'default',
+              can_readonly_introspect: true,
+              resolved_credential_keys: expect.arrayContaining(['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER']),
+              missing_credential_keys: [],
+              available_readonly_routes: ['mysql-cli'],
+              blockers: [],
+            }),
+          ]),
+          resolved_env_keys: expect.arrayContaining(['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER']),
+          missing_env_keys: [],
         }),
         recommended_action: 'llm-readonly-introspect',
         blockers: [],
@@ -478,8 +490,20 @@ describe('spec-graph-bootstrap compiler modules', () => {
     });
 
     expect(routing.database_routing).toEqual(expect.objectContaining({
-      runtime_capabilities: expect.objectContaining({
-        available_readonly_routes: [],
+      candidate_readiness: expect.objectContaining({
+        candidates: [
+          expect.objectContaining({
+            connection_name: 'primary',
+            supported_readonly_routes: [],
+            can_readonly_introspect: false,
+            blockers: expect.arrayContaining([
+              expect.objectContaining({
+                kind: 'runtime-capability',
+                reason: 'no-supported-readonly-route-hints',
+              }),
+            ]),
+          }),
+        ],
       }),
       recommended_action: 'llm-inspect-repo',
       blockers: expect.arrayContaining([
@@ -517,6 +541,26 @@ describe('spec-graph-bootstrap compiler modules', () => {
     });
 
     expect(routing.database_routing).toEqual(expect.objectContaining({
+      candidate_readiness: expect.objectContaining({
+        candidates: [
+          expect.objectContaining({
+            connection_name: 'primary',
+            credential_keys: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
+            resolved_credential_keys: ['DB_HOST'],
+            missing_credential_keys: ['DB_NAME', 'DB_PASSWORD', 'DB_USER'],
+            available_readonly_routes: ['mysql-cli'],
+            can_readonly_introspect: false,
+            blockers: expect.arrayContaining([
+              expect.objectContaining({
+                kind: 'env-availability',
+                reason: 'env-key-hints-incomplete',
+              }),
+            ]),
+          }),
+        ],
+        resolved_env_keys: ['DB_HOST'],
+        missing_env_keys: ['DB_NAME', 'DB_PASSWORD', 'DB_USER'],
+      }),
       runtime_capabilities: expect.objectContaining({
         available_readonly_routes: [
           expect.objectContaining({
@@ -524,16 +568,81 @@ describe('spec-graph-bootstrap compiler modules', () => {
             available: true,
           }),
         ],
-        resolved_env_keys: ['DB_HOST'],
-        missing_env_keys: ['DB_NAME', 'DB_PASSWORD', 'DB_USER'],
       }),
       recommended_action: 'llm-inspect-repo',
-      blockers: expect.arrayContaining([
-        expect.objectContaining({
-          kind: 'env-availability',
-          reason: 'env-key-hints-incomplete',
-        }),
-      ]),
+      blockers: [],
+    }));
+  });
+
+  test('routing compiler 在多连接场景下只要存在一个可 introspect 候选就不应被并集 env 缺失误降级', () => {
+    const routing = compileRouting({
+      generatedAt: '2026-04-21T00:00:00.000Z',
+      factInventory: {
+        database: [
+          {
+            present: true,
+            connection_name: 'primary',
+            config_source: 'config/database.yml',
+            db_type: 'mysql',
+            credential_keys: ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'],
+            static_access_hints: ['mysql-cli'],
+          },
+          {
+            present: true,
+            connection_name: 'analytics',
+            config_source: 'config/analytics.yml',
+            db_type: 'mysql',
+            credential_keys: [
+              'ANALYTICS_DB_HOST',
+              'ANALYTICS_DB_USER',
+              'ANALYTICS_DB_PASSWORD',
+              'ANALYTICS_DB_NAME',
+            ],
+            static_access_hints: ['mysql-cli'],
+          },
+        ],
+        database_schema: [],
+      },
+      env: {
+        PATH: process.env.PATH || '',
+        DB_HOST: 'localhost',
+        DB_USER: 'app',
+        DB_PASSWORD: 'secret',
+        DB_NAME: 'app_development',
+      },
+      tooling: {
+        hasMysqlCli: true,
+      },
+    });
+
+    expect(routing.database_routing).toEqual(expect.objectContaining({
+      candidate_readiness: expect.objectContaining({
+        candidates: expect.arrayContaining([
+          expect.objectContaining({
+            connection_name: 'primary',
+            can_readonly_introspect: true,
+            blockers: [],
+          }),
+          expect.objectContaining({
+            connection_name: 'analytics',
+            can_readonly_introspect: false,
+            missing_credential_keys: expect.arrayContaining([
+              'ANALYTICS_DB_HOST',
+              'ANALYTICS_DB_NAME',
+              'ANALYTICS_DB_PASSWORD',
+              'ANALYTICS_DB_USER',
+            ]),
+            blockers: expect.arrayContaining([
+              expect.objectContaining({
+                kind: 'env-availability',
+                reason: 'all-env-key-hints-missing',
+              }),
+            ]),
+          }),
+        ]),
+      }),
+      recommended_action: 'llm-readonly-introspect',
+      blockers: [],
     }));
   });
 
@@ -611,6 +720,38 @@ describe('spec-graph-bootstrap compiler modules', () => {
           }),
         ])
       );
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('compiler 在 schema-only 仓库里仍会保留 migration schema 证据', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-database-schema-only-'));
+
+    try {
+      fs.mkdirSync(path.join(repoRoot, 'db', 'migrations'), { recursive: true });
+      fs.writeFileSync(path.join(repoRoot, 'package.json'), JSON.stringify({ name: 'db-schema-only-fixture' }, null, 2));
+      fs.writeFileSync(path.join(repoRoot, 'db', 'migrations', '20260421_create_users.sql'), [
+        'CREATE TABLE users (',
+        '  id BIGINT PRIMARY KEY,',
+        '  email VARCHAR(255) NOT NULL',
+        ');',
+        '',
+      ].join('\n'));
+
+      const machineArtifacts = compileMachineArtifacts({
+        generatedAt: '2026-04-21T00:00:00.000Z',
+        repoRoot,
+      });
+
+      expect(machineArtifacts.fact_inventory.database).toEqual([]);
+      expect(machineArtifacts.fact_inventory.database_schema).toEqual([
+        expect.objectContaining({
+          source_kind: 'migration',
+          path: 'db/migrations/20260421_create_users.sql',
+          db_type: 'unknown',
+        }),
+      ]);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }
@@ -926,12 +1067,20 @@ describe('spec-graph-bootstrap compiler modules', () => {
           schema_sources: ['db/migrations/20260421_create_users.sql'],
         }),
         recommended_action: 'llm-inspect-repo',
-        blockers: expect.arrayContaining([
-          expect.objectContaining({
-            kind: 'env-availability',
-            reason: 'all-env-key-hints-missing',
-          }),
-        ]),
+        blockers: [],
+        candidate_readiness: expect.objectContaining({
+          candidates: [
+            expect.objectContaining({
+              connection_name: 'default',
+              blockers: expect.arrayContaining([
+                expect.objectContaining({
+                  kind: 'env-availability',
+                  reason: 'all-env-key-hints-missing',
+                }),
+              ]),
+            }),
+          ],
+        }),
       });
       expect(readme).toContain('source_of_truth');
       expect(readme).not.toContain('| database/ |');

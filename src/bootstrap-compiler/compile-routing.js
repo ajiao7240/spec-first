@@ -41,6 +41,118 @@ function getReadonlyRouteAvailability(route, { env = process.env, tooling = {} }
   return null;
 }
 
+function buildCandidateReadonlyState(candidate, { env = process.env, tooling = {} } = {}) {
+  const connectionName = candidate && candidate.connection_name ? candidate.connection_name : 'default';
+  const configSource = candidate && candidate.config_source ? candidate.config_source : null;
+  const dbType = candidate && candidate.db_type ? candidate.db_type : 'unknown';
+  const credentialKeys = unique(
+    Array.isArray(candidate && candidate.credential_keys) ? candidate.credential_keys : []
+  ).sort();
+  const resolvedCredentialKeys = credentialKeys.filter((key) => Boolean(env[key]));
+  const missingCredentialKeys = credentialKeys.filter((key) => !env[key]);
+  const routeAvailability = unique(
+    (Array.isArray(candidate && candidate.static_access_hints) ? candidate.static_access_hints : [])
+  )
+    .map((route) => getReadonlyRouteAvailability(route, { env, tooling }))
+    .filter(Boolean)
+    .sort((a, b) => a.route.localeCompare(b.route));
+  const supportedReadonlyRoutes = routeAvailability.map((route) => route.route);
+  const availableReadonlyRoutes = routeAvailability.filter((route) => route.available).map((route) => route.route);
+  const hasAvailableReadonlyRoute = availableReadonlyRoutes.length > 0;
+  const hasCompleteEnvHints = credentialKeys.length > 0 && missingCredentialKeys.length === 0;
+  const blockers = [];
+
+  if (supportedReadonlyRoutes.length === 0) {
+    blockers.push({
+      kind: 'runtime-capability',
+      reason: 'no-supported-readonly-route-hints',
+    });
+  }
+  if (supportedReadonlyRoutes.length > 0 && !hasAvailableReadonlyRoute) {
+    blockers.push({
+      kind: 'runtime-capability',
+      reason: 'no-supported-readonly-database-tool-available',
+    });
+  }
+  if (credentialKeys.length === 0) {
+    blockers.push({
+      kind: 'env-availability',
+      reason: 'no-env-key-hints',
+    });
+  }
+  if (hasAvailableReadonlyRoute && credentialKeys.length > 0 && !hasCompleteEnvHints) {
+    blockers.push({
+      kind: 'env-availability',
+      reason: resolvedCredentialKeys.length === 0 ? 'all-env-key-hints-missing' : 'env-key-hints-incomplete',
+    });
+  }
+
+  return {
+    connection_name: connectionName,
+    config_source: configSource,
+    db_type: dbType,
+    credential_keys: credentialKeys,
+    resolved_credential_keys: resolvedCredentialKeys,
+    missing_credential_keys: missingCredentialKeys,
+    supported_readonly_routes: supportedReadonlyRoutes,
+    available_readonly_routes: availableReadonlyRoutes,
+    route_availability: routeAvailability,
+    has_available_readonly_route: hasAvailableReadonlyRoute,
+    has_complete_env_hints: hasCompleteEnvHints,
+    can_readonly_introspect: hasAvailableReadonlyRoute && hasCompleteEnvHints,
+    blockers,
+  };
+}
+
+function hasCandidateBlocker(state, reason) {
+  return Array.isArray(state && state.blockers)
+    && state.blockers.some((blocker) => blocker && blocker.reason === reason);
+}
+
+function deriveCompatibilitySummary({ hasHints, candidateReadonlyStates }) {
+  if (!hasHints) {
+    return {
+      recommended_action: 'not-needed',
+      blockers: [],
+    };
+  }
+
+  const states = Array.isArray(candidateReadonlyStates) ? candidateReadonlyStates : [];
+  if (states.some((state) => state.can_readonly_introspect)) {
+    return {
+      recommended_action: 'llm-readonly-introspect',
+      blockers: [],
+    };
+  }
+
+  const blockers = [];
+  if (
+    states.length > 0
+    && states.every((state) => hasCandidateBlocker(state, 'no-supported-readonly-route-hints'))
+  ) {
+    blockers.push({
+      kind: 'runtime-capability',
+      reason: 'no-supported-readonly-route-hints',
+    });
+  } else if (
+    states.length > 0
+    && states.every((state) => (
+      hasCandidateBlocker(state, 'no-supported-readonly-database-tool-available')
+      || hasCandidateBlocker(state, 'no-supported-readonly-route-hints')
+    ))
+  ) {
+    blockers.push({
+      kind: 'runtime-capability',
+      reason: 'no-supported-readonly-database-tool-available',
+    });
+  }
+
+  return {
+    recommended_action: 'llm-inspect-repo',
+    blockers,
+  };
+}
+
 function buildDatabaseRouting({
   generatedAt = '2026-04-15T00:00:00.000Z',
   factInventory,
@@ -58,6 +170,9 @@ function buildDatabaseRouting({
   ))).sort();
   const resolvedEnvKeys = envKeyHints.filter((key) => Boolean(env[key]));
   const missingEnvKeys = envKeyHints.filter((key) => !env[key]);
+  const candidateReadonlyStates = databaseCandidates.map((candidate) => (
+    buildCandidateReadonlyState(candidate, { env, tooling })
+  ));
   const hintedReadonlyRoutes = unique(databaseCandidates.flatMap((candidate) => (
     Array.isArray(candidate && candidate.static_access_hints) ? candidate.static_access_hints : []
   ))).sort();
@@ -72,40 +187,10 @@ function buildDatabaseRouting({
   const configSources = unique(databaseCandidates.map((candidate) => candidate && candidate.config_source).filter(Boolean)).sort();
   const schemaSources = unique(databaseSchemaSources.map((source) => source && source.path).filter(Boolean)).sort();
   const hasHints = databaseCandidates.length > 0 || databaseSchemaSources.length > 0;
-  const hasReadonlyRouteHints = availableReadonlyRoutes.length > 0;
-  const hasReadonlyTool = availableReadonlyRoutes.some((route) => route.available);
-  const hasCompleteEnvHints = envKeyHints.length > 0 && missingEnvKeys.length === 0;
-  const recommendedAction = !hasHints
-    ? 'not-needed'
-    : hasReadonlyTool && hasCompleteEnvHints
-      ? 'llm-readonly-introspect'
-      : 'llm-inspect-repo';
-  const blockers = [];
-
-  if (hasHints && !hasReadonlyRouteHints) {
-    blockers.push({
-      kind: 'runtime-capability',
-      reason: 'no-supported-readonly-route-hints',
-    });
-  }
-  if (hasHints && hasReadonlyRouteHints && !hasReadonlyTool) {
-    blockers.push({
-      kind: 'runtime-capability',
-      reason: 'no-supported-readonly-database-tool-available',
-    });
-  }
-  if (hasHints && envKeyHints.length === 0) {
-    blockers.push({
-      kind: 'env-availability',
-      reason: 'no-env-key-hints',
-    });
-  }
-  if (hasHints && envKeyHints.length > 0 && missingEnvKeys.length > 0) {
-    blockers.push({
-      kind: 'env-availability',
-      reason: resolvedEnvKeys.length === 0 ? 'all-env-key-hints-missing' : 'env-key-hints-incomplete',
-    });
-  }
+  const compatibilitySummary = deriveCompatibilitySummary({
+    hasHints,
+    candidateReadonlyStates,
+  });
 
   return {
     schema_version: 'v1',
@@ -121,11 +206,14 @@ function buildDatabaseRouting({
     },
     runtime_capabilities: {
       available_readonly_routes: availableReadonlyRoutes,
+    },
+    candidate_readiness: {
+      candidates: candidateReadonlyStates,
       resolved_env_keys: resolvedEnvKeys,
       missing_env_keys: missingEnvKeys,
     },
-    recommended_action: recommendedAction,
-    blockers,
+    recommended_action: compatibilitySummary.recommended_action,
+    blockers: compatibilitySummary.blockers,
   };
 }
 

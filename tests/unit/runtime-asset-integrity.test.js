@@ -123,6 +123,56 @@ describe('runtime asset integrity inspection', () => {
     }
   });
 
+  test('Claude graph-bootstrap command drift reports missing boundary semantics and warns in doctor', () => {
+    const projectRoot = makeTempDir();
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+
+      const commandPath = path.join(projectRoot, '.claude', 'commands', 'spec', 'graph-bootstrap.md');
+      const drifted = fs.readFileSync(commandPath, 'utf8')
+        .split('package CLI surfaces')
+        .join('package runtime summary')
+        .split('不要在 target repo 中查找 source repo 内部路径来判断 workflow 是否可用')
+        .join('可根据需要检查源码仓库路径');
+      fs.writeFileSync(commandPath, drifted, 'utf8');
+
+      const adapter = getAdapter('claude');
+      const installed = inspectInstalledAssets(projectRoot, adapter);
+
+      expect(installed.commands.drifted).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            filename: 'graph-bootstrap.md',
+            issues: expect.arrayContaining([
+              'missing_command_anchor:package CLI surfaces',
+              'missing_command_anchor:不要在 target repo 中查找 source repo 内部路径来判断 workflow 是否可用',
+            ]),
+          }),
+        ]),
+      );
+
+      const result = withCwd(projectRoot, () => captureDoctor(['--claude', '--json']));
+      const payload = JSON.parse(result.stdout);
+
+      expect(result.exitCode).toBe(0);
+      expect(payload.runtime_asset_health).toBe('warn');
+      expect(payload.platform_checks.claude).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: '.claude/commands/spec',
+            level: 'WARNING',
+            message: expect.stringContaining('missing_command_anchor:package CLI surfaces'),
+          }),
+        ]),
+      );
+    } finally {
+      logSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   test('Codex runtime skill drift reports unre-written host paths', () => {
     const projectRoot = makeTempDir();
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -142,6 +192,41 @@ describe('runtime asset integrity inspection', () => {
           expect.objectContaining({
             skillName: 'spec-work',
             issues: expect.arrayContaining(['codex_path_rewrite_drift']),
+          }),
+        ]),
+      );
+    } finally {
+      logSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Codex graph-bootstrap runtime skill drift reports missing boundary semantics', () => {
+    const projectRoot = makeTempDir();
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+
+      const skillPath = path.join(projectRoot, '.agents', 'skills', 'spec-graph-bootstrap', 'SKILL.md');
+      const drifted = fs.readFileSync(skillPath, 'utf8')
+        .split('package CLI surfaces')
+        .join('package runtime summary')
+        .split('不要在 target repo 中查找 source repo 内部路径来判断 workflow 是否可用')
+        .join('可根据需要检查源码仓库路径');
+      fs.writeFileSync(skillPath, drifted, 'utf8');
+
+      const adapter = getAdapter('codex');
+      const installed = inspectInstalledAssets(projectRoot, adapter);
+
+      expect(installed.skills.drifted).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            skillName: 'spec-graph-bootstrap',
+            issues: expect.arrayContaining([
+              'missing_anchor:package CLI surfaces',
+              'missing_anchor:不要在 target repo 中查找 source repo 内部路径来判断 workflow 是否可用',
+            ]),
           }),
         ]),
       );

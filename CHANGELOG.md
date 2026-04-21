@@ -1,6 +1,21 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.8 2026-04-22 02:51:44 Codex: fix(spec-graph-bootstrap): 收紧 graph-bootstrap 四层边界合同，明确 source repo internals / installed runtime / target repo artifacts / package CLI surface 的职责边界；同步修正 README/CLI help 口径，新增 runtime semantic drift 守卫与独立 installed-runtime 双宿主回归，拦截“把源码仓库内部路径误读成目标仓库前提”的在线误判 (user-visible)
+- v1.5.8 2026-04-22 12:20:00 矿工: docs(governance): 直接在当前项目 `CLAUDE.md` 与 `AGENTS.md` 开头加入 `docs/10-prompt/项目角色.md` 的强制前置阅读引导，作为 spec-first 演化与架构判断的最高优先级校准入口
+- v1.5.8 2026-04-22 12:35:00 矿工: docs(plan): 收紧 `fix-graph-bootstrap-boundary-contract` 方案的 4 个执行边界，明确 CLI surface 不扩张、doctor 只做最小 drift 守卫、真实回归以安装后 runtime 资产为准、source skill 为边界语义唯一真源
+- v1.5.8 2026-04-22 12:15:00 Codex: docs(plan): 将 `init 阶段共享 spec seed 初始化计划` 状态收口为 completed，并补充第一版已完成范围说明
+- v1.5.8 2026-04-22 12:05:00 Codex: docs(plan): 将 `repo-profile standalone refresh skill` 计划状态收口为 completed，并补充第一版已完成范围说明
+- v1.5.8 2026-04-22 11:40:00 矿工: docs(workflows): 继续增强 `.spec-first/workflows/` 产物目录映射文档，补充“阶段→读取方速查”和“如何判断产物是否有后续用途”两张总览表，并修正文档结构重复标题，方便快速判断 artifacts 的消费链与职责边界 (user-visible)
+- v1.5.8 2026-04-22 11:32:00 矿工: docs(workflows): 补充 `.spec-first/workflows/` 产物目录映射文档的“主要作用 / 后续消费位置”说明，明确各类 artifacts 不是只做落盘留痕，而会作为 Stage-0、verification、quality gate 与 workflow handoff 的后续输入 (user-visible)
+- v1.5.8 2026-04-22 11:20:00 矿工: docs(workflows): 新增 `.spec-first/workflows/` 产物目录映射文档，按表格梳理各子目录的写入阶段、触发方式、源码入口与主要产物，便于定位 bootstrap / quality-gates / spec-work / spec-review / verification 的落盘边界 (user-visible)
+- v1.5.8 2026-04-22 10:30:00 Codex: feat(spec-repo-profile-refresh): 新增 `spec-repo-profile-refresh` standalone skill，显式基于仓库事实与 `.spec-first/specs/repo-profile.yaml` 生成 repo-level 规范补全建议，并以 preview-first / confirm-then-apply 边界交付；同步补齐双宿主治理、prompt mirror 与合同测试 (user-visible)
+- v1.5.8 2026-04-21 23:50:00 Codex: fix(init): 收缩 `.spec-first/specs/repo-profile.yaml` seed 默认语义，去掉 `unknown` / 固定 summary fallback / 高误判 `project_type` 规则，并让 `spec-plan` 将空值按 absent 处理，降低 add-only 初稿的长期误导成本 (user-visible)
+- v1.5.8 2026-04-21 23:23:05 Codex: refactor(spec-graph-bootstrap): 将 `database-routing.json` 顶层 `recommended_action` / `blockers[]` 明确降格为 compatibility projection，并改为由候选级 facts 派生；主真源继续收敛到 `candidate_readiness`，降低顶层摘要被误当执行裁决面的风险 (user-visible)
+- v1.5.8 2026-04-21 22:50:06 Codex: feat(init): 在 `spec-first init --claude` / `--codex` 阶段新增 `.spec-first/specs/` shared spec seeds，写入 `repo-profile.yaml` 最小确定性初稿与 `README.md`，并让 `spec-plan` 将其作为可选 planning input 消费；继续保持 add-only、非 managed-state、非 hard-gate 边界 (user-visible)
+- v1.5.8 2026-04-21 22:51:48 Codex: refactor(spec-graph-bootstrap): 将数据库 handoff 的阻断语义进一步下放到候选级事实，`candidate_readiness.candidates[].blockers[]` 成为主阻断面板；顶层 `blockers[]` 仅保留 repo 级 runtime 摘要，继续削弱脚本式全局裁决 (user-visible)
+- v1.5.8 2026-04-21 22:46:42 Codex: refactor(spec-graph-bootstrap): 将 `database-routing.json` 进一步收口为“聚合摘要 + 候选级事实列表”合同，新增每个连接候选的 env/route readiness 事实面板；`recommended_action` 退回保守摘要位，减少脚本替 LLM 做全局归纳 (user-visible)
+- v1.5.8 2026-04-21 22:39:22 Codex: fix(spec-graph-bootstrap): 修复数据库 handoff 两个高优误判：schema-only 仓库现在会保留 `database_schema` 证据（`db_type` 不明时保守落为 `unknown`），多连接项目的 readonly introspection readiness 改为“只要存在一个可 introspect 候选即放行”，不再被无关连接的 env 缺失误降级 (user-visible)
 - v1.5.8 2026-04-21 18:35:00 矿工: docs(governance): 在 `CLAUDE.md` 与 `AGENTS.md` 的托管编码准则块增加 `docs/10-prompt/项目角色.md` 引用，统一 spec-first 演化与架构判断的角色参照
 - v1.5.8 2026-04-21 18:11:04 Codex: refactor(spec-graph-bootstrap): 将 `database-routing.json` 进一步收缩为 CLI-only handoff，移除 `mysql-mcp` route，并收紧 readonly introspection readiness 判定；只有 route hint 与 env hints 同时满足时才推荐 `llm-readonly-introspect`，否则保守回退为 `llm-inspect-repo` 并显式记录 blocker (user-visible)
 - v1.5.8 2026-04-21 17:28:44 Codex: refactor(spec-graph-bootstrap): 将数据库模块从 rule-first / database worker 收缩为 LLM-first handoff；bootstrap 只保留 `fact-inventory.database[]`、`fact-inventory.database_schema[]` 与轻量 `database-routing.json`，不再预生成 `database/` 文档族；同时补齐 Spring Boot / Django / SQLAlchemy / Alembic 等 framework hints 与 schema 来源识别 (user-visible)
@@ -518,3 +533,4 @@
 - v1.4.0 2026-04-18 20:34:03 kuang: fix(stage0-verification-contract-boundaries): 将 verifier dispatch 从 `verification_summary` 中抽离为顶层 `verifier_dispatch`，并让 `verification_gate_state` 只保留 gate ledger、不再携带 `handoff_posture`；同步收敛 `stage0-context` / workspace compile / telemetry / workflow 文档消费边界，降低 runtime 代替 LLM 预判的厚度 (user-visible)
 - v1.4.0 2026-04-17 12:10:00 kuang: 补充 Stage0 升级计划文档、brainstorm 分析报告与 spec debug/setup/update 命令模板 (user-visible)
 - v1.4.0 2026-04-18 20:04:39 kuang: fix(stage0-workspace-runtime-boundaries): 收紧 Stage-0 workspace runtime contract，修复 child git cwd 误退 single-repo、补齐 explicit multi-repo 的 workspace 语义字段、workspace overview-only 不再回填 idle child verification baseline，并让 review-context 自动解析 workspace child 的 verification-profile 锚点 (user-visible)
+- v1.5.4 2026-04-21 23:55:00 kuang: 同步收紧 spec-graph-bootstrap 的数据库 handoff 文档与 contract 守卫，明确 `candidate_readiness` 才是主真源、顶层 `recommended_action` / `blockers[]` 仅为 compatibility projection，并刷新对应 solution learning 的旧叙事 (user-visible)

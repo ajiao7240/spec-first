@@ -60,6 +60,12 @@ function printHelp(withErrorPrefix = false) {
     '  doctor                 Check environment, plugin manifest, and managed runtime assets',
     '  init (--claude|--codex)  Install platform-specific workflows, skills, agents, and developer profile',
     '  clean (--claude|--codex) Remove spec-first managed assets from the current project',
+    '  stage0-context         Emit resolved Stage-0 context JSON for a workflow/stage pair',
+    '',
+    '🪝 Installed workflow entrypoints (after `spec-first init`):',
+    '  Claude Code: /spec:graph-bootstrap',
+    '  Codex:      $spec-graph-bootstrap',
+    '  These are host runtime entrypoints, not root `spec-first` subcommands.',
     '',
     '⚙️  Global options:',
     '  -h, --help             Show help',
@@ -97,12 +103,17 @@ function printVersion() {
     2. 初始化项目
        $ spec-first init --claude    # 或 --codex
 
-    3. 重启宿主 CLI，使 Claude 的 /spec:* 或 Codex 的 $spec-* 入口生效
+    3. 如需查看 package CLI 命令面
+       $ spec-first --help
 
-    4. 在对话中使用当前宿主对应入口开始工作流
+    4. 重启宿主 CLI，使 Claude 的 /spec:* 或 Codex 的 $spec-* 入口生效
+
+    5. 在对话中使用当前宿主对应入口开始工作流
+
+       例如: /spec:graph-bootstrap 或 $spec-graph-bootstrap
+       注意: 这些是宿主 workflow 入口，不是 \`spec-first graph-bootstrap\` 包级子命令
 
   了解更多:
-    $ spec-first --help
     https://github.com/sunrain520/spec-first
 `);
 }

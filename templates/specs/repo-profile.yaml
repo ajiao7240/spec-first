@@ -1,0 +1,11 @@
+schema_version: 1
+repo_id: "__REPO_ID__"
+languages: __LANGUAGES__
+project_type: "__PROJECT_TYPE__"
+
+project_intent:
+  summary: "__PROJECT_INTENT_SUMMARY__"
+
+principles: []
+non_negotiables: []
+review_defaults: []

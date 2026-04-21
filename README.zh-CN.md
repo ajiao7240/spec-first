@@ -49,7 +49,7 @@
 
 | 问题 | spec-first 怎么处理 | 约束方式 |
 |------|---------------------|----------|
-| LLM 从空白代码库上下文开始推断 | `graph-bootstrap` 提取 AST facts，并编译带 `provenance` 与 `confidence` 信号的 `minimal-context` | bootstrap / `stage0-context` 运行时的 **code-hard gate** |
+| LLM 从空白代码库上下文开始推断 | `graph-bootstrap` 提取 AST facts，并编译带 `provenance` 与 `confidence` 信号的 `minimal-context` | 宿主就绪 gate + runtime workflow contract |
 | 需求从未被显式化 | Brainstorm 阶段产出 requirements artifact，供 Plan 阶段消费 | `SKILL.md` contract |
 | 计划与实现逐渐漂移 | Plan artifact 是 Work 阶段的一等输入；Review Stage 2b 会把 **Requirements Trace** 与 diff 对照检查 | `SKILL.md` contract |
 | 评审缺少结构 | 使用 **17 个 reviewer persona**（always-on + cross-cutting + stack-specific）外加 2 个 CE 专用 agent，并按 `safe_auto / gated_auto / manual / advisory` 路由 | `SKILL.md` contract |
@@ -114,6 +114,8 @@ Ideate → Brainstorm → Plan → Work → Review → Compound
 |------|----------|------|--------|
 | `/spec:graph-bootstrap` · `$spec-graph-bootstrap` | 你需要 fact-extracted、graph-informed 的上下文（Phase 0–4） | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | **当前主要 Stage-0 入口** |
 | `/spec:compound` · `$spec-compound` | 你需要更偏知识捕获与复合上下文整理 | 上下文综合文档与可复用知识资产 | **补充型 Stage-0 路径** |
+
+这些入口是 `spec-first init` 安装出来的宿主 workflow entrypoint，不是根级 `spec-first` CLI 子命令。
 
 Stage-0 入口启动时都会执行 **Host Readiness Gate**。如果跳过了 MCP setup 或宿主没有重启，它们会直接停止并给出明确提示，而不是静默降级。
 如果你仍看到旧版 bootstrap 入口，请迁移到 `/spec:graph-bootstrap` 或 `/spec:compound`。
@@ -183,7 +185,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | **17-persona Review stage**（+ 2 个 CE agent） | 产出结构化 findings，并按 `safe_auto / gated_auto / manual / advisory` 路由，而不是一次性 review 扫描 |
 | **Compound / knowledge capture** | 把已解决问题写入 `docs/solutions/`，供后续 workflow 检索复用 |
 | **双平台支持** | 一套方法论同时覆盖 Claude Code（`/spec:*`）与 Codex（`$spec-*`）。Claude 使用 `SessionStart` hook + bare-agent rewrite；Codex 使用 `.agents/skills/` discovery + 显式 `.codex/agents/...` path rewrite |
-| **能力层资产** | 仓库内置源码资产共 `47` 个 skills、`57` 个 agents、`4` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `12` 个 commands + `35` 个 skills，在 Codex 侧安装 `34` 个 skills；两侧都会安装 `57` 个 agents + `4` 个 support files |
+| **能力层资产** | 仓库内置源码资产共 `48` 个 skills、`57` 个 agents、`4` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `12` 个 commands + `36` 个 skills，在 Codex 侧安装 `35` 个 skills；两侧都会安装 `57` 个 agents + `4` 个 support files |
 | **运行时治理** | 受管资产记录在 `state.json` 中，可安全同步、刷新、恢复与清理 |
 
 ## 核心工作流
@@ -197,7 +199,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | 阶段 | Claude Code | Codex | 输出产物 | 约束方式 |
 |------|-------------|-------|----------|----------|
 | 宿主准备 | `/spec:mcp-setup` → restart | `$spec-mcp-setup` → restart | 宿主专属 marker：`~/.claude/spec-first/host-setup.json` 或 `~/.codex/spec-first/host-setup.json` | **Code-hard**（bootstrap gate 会检查它） |
-| Stage-0 图引导 | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | **Code-hard gate** + **SKILL.md** 内容 |
+| Stage-0 图引导 | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | 宿主就绪 gate + runtime workflow contract |
 | Ideate | `/spec:ideate` | `$spec-ideate` | `docs/ideation/*.md` | **SKILL.md** contract |
 | Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/*.md` | **SKILL.md** contract |
 | Plan | `/spec:plan` | `$spec-plan` | `docs/plans/*.md` | **SKILL.md** contract |
@@ -298,7 +300,7 @@ spec-first clean --claude   # 或 --codex
 
 `clean` 会移除上表中“`clean` 可移除”列标记为可删的所有内容，然后打印本次删除了哪个平台的受管资产。受管范围之外的自定义资产不会受影响。语言策略块仍需手动删除；你可以在 `CLAUDE.md` / `AGENTS.md` 中搜索 `<!-- spec-first:lang:`。
 `init --dry-run` 与 `clean --dry-run` 现在都会预览来自同一份 operation plan 的 file-level 变更面，因此 preview/apply 漂移被压缩到可测试、可回归的边界内。
-当前运行时交付会按宿主治理分流：Claude 会写入 `12` 个 command、`35` 个 skill、`57` 个 agent 和 `4` 个 agent support file；Codex 不生成 command 目录，而是写入 `34` 个 skill，并安装同样的 `57` 个 agent 与 `4` 个 support file。
+当前运行时交付会按宿主治理分流：Claude 会写入 `12` 个 command、`36` 个 skill、`57` 个 agent 和 `4` 个 agent support file；Codex 不生成 command 目录，而是写入 `35` 个 skill，并安装同样的 `57` 个 agent 与 `4` 个 support file。
 
 #### 示例输出
 
@@ -307,7 +309,7 @@ $ spec-first init --claude
 
 🪝 Installed Claude SessionStart matcher in .claude/settings.json
 📦 Generated 12 command file(s) in .claude/commands/spec
-🧩 Generated 35 skill directory(ies) in .claude/skills
+🧩 Generated 36 skill directory(ies) in .claude/skills
 🤖 Generated 57 agent file(s) in .claude/agents
 🧰 Generated 4 agent support file(s) in .claude/agents
 🪪 Wrote project developer profile:

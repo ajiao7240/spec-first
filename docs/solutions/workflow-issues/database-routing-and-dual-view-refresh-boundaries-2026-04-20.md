@@ -1,5 +1,5 @@
 ---
-title: "在同一轮 contract 收口里，把静态候选、运行时路由和 dual-view refresh 分开表达"
+title: "在同一轮 contract 收口里，把静态候选、候选级 readiness 和 dual-view refresh 分开表达"
 date: "2026-04-20"
 category: "workflow-issues"
 module: "spec-first"
@@ -7,13 +7,13 @@ problem_type: "workflow_issue"
 component: "tooling"
 severity: "high"
 applies_when:
-  - "需要为 spec-graph-bootstrap 设计或调整静态发现事实与运行时路由事实的边界"
-  - "需要决定 database worker 应消费哪个 artifact 作为 route / fallback / provenance 真源"
+  - "需要为 spec-graph-bootstrap 设计或调整静态发现事实与候选级 runtime readiness 事实的边界"
+  - "需要决定下游 LLM 应消费哪个 artifact 作为数据库 handoff 主真源"
   - "需要让 docs/solutions 的双视角内容同时服务人类交接与 LLM 检索复用"
   - "需要刷新已有 compound learning，且只更新受影响 section 而非整篇重写"
 symptoms:
-  - "fact-inventory.database[] 同时承载静态候选发现与运行时路由语义，导致 contract 边界混合"
-  - "database worker 与下游消费者需要从多个位置猜测 route、fallback 和 provenance"
+  - "fact-inventory.database[] 同时承载静态候选发现与 runtime readiness 语义，导致 contract 边界混合"
+  - "下游消费者需要从多个位置猜测哪个候选连接可用、为什么被挡住、顶层摘要是否可信"
   - "learnings-researcher 对双视角文档的复用优先级不稳定，refresh 缺少 section-aware 规则"
 root_cause: "logic_error"
 resolution_type: "workflow_improvement"
@@ -22,24 +22,24 @@ related_components:
   - "spec-compound"
   - "spec-compound-refresh"
   - "learnings-researcher"
-tags: ["spec-graph-bootstrap", "database-routing", "fact-inventory", "llm-reuse-context", "spec-compound-refresh", "section-aware", "provenance", "contract-boundary"]
+tags: ["spec-graph-bootstrap", "database-routing", "fact-inventory", "candidate-readiness", "llm-reuse-context", "spec-compound-refresh", "section-aware", "contract-boundary"]
 ---
 
-# 在同一轮 contract 收口里，把静态候选、运行时路由和 dual-view refresh 分开表达
+# 在同一轮 contract 收口里，把静态候选、候选级 readiness 和 dual-view refresh 分开表达
 
 ## Context
 
-这次改造要解决的不是一个孤立报错，而是一轮 contract 收口里两处边界都开始变得含混：数据库侧的静态候选发现和运行时选路混在了一起，compound 侧的 dual-view 检索顺序和 refresh 粒度也没有写实。
+这次改造要解决的不是一个孤立报错，而是一轮 contract 收口里两处边界都开始变得含混：数据库侧的静态候选发现、候选级 readiness 和顶层兼容摘要混在了一起，compound 侧的 dual-view 检索顺序和 refresh 粒度也没有写实。
 
-第一条线发生在 `spec-graph-bootstrap`。原先数据库链路容易把“仓库里有哪些数据库候选连接”和“当前运行时到底能走哪条 route、为什么 fallback、失败卡在哪一层”混在同一个事实层里。`fact-inventory.database[]` 适合承载静态候选发现，不适合继续背 secret 解析、probe 历史、route 决策和 blocker provenance。当前 runtime routing 的直接支持也仍以 MySQL 为主；其他数据库类型多数还停留在 discovery-only 或 `unsupported-db-type` 边界。
+第一条线发生在 `spec-graph-bootstrap`。原先数据库链路容易把“仓库里有哪些数据库候选连接”和“当前运行时哪个候选连接具备只读 introspection 条件、哪个候选被什么 runtime 条件挡住”混在同一个事实层里。`fact-inventory.database[]` 适合承载静态候选发现，不适合继续背 env 解析结果、route availability、候选级 blockers 和 compatibility summary。当前 runtime 直接支持也仍以 MySQL CLI 为主；其他数据库类型多数还停留在 discovery-only 或 `unsupported-db-type` 边界。
 
 第二条线发生在 `spec-compound` / `spec-compound-refresh`。仓库已经有 `Human Summary` 和 `LLM Reuse Context` 的双视角结构，但它们之前更像模板章节，不是真正的消费 contract。`learnings-researcher` 在命中并完整读取相关 learning 后，还没有把 `LLM Reuse Context` 稳定地作为优先复用面；refresh 也缺少“哪类 drift 应该改哪个 section”的明确规则。
 
-这篇 learning 记录的主问题不是“bootstrap 和 compound 是同一个模块”，而是它们在同一轮改造里暴露出同一种边界问题：下游消费者需要从多个位置猜测真实语义。数据库侧需要猜 route 和 fallback；compound 侧需要猜哪个 section 更适合复用、哪些 drift 该局部更新。
+这篇 learning 记录的主问题不是“bootstrap 和 compound 是同一个模块”，而是它们在同一轮改造里暴露出同一种边界问题：下游消费者需要从多个位置猜测真实语义。数据库侧需要猜哪个候选连接更可信、顶层摘要是不是主真源；compound 侧需要猜哪个 section 更适合复用、哪些 drift 该局部更新。
 
 ## Guidance
 
-### 1. 静态发现事实、候选快照和运行时路由事实要分清主次
+### 1. 静态发现事实、候选级 readiness 和兼容摘要要分清主次
 
 对数据库链路，扫描阶段只回答这些问题：
 
@@ -50,16 +50,15 @@ tags: ["spec-graph-bootstrap", "database-routing", "fact-inventory", "llm-reuse-
 运行时阶段再回答这些问题：
 
 - 当前环境里哪些 credential key 真正解析到了
-- MCP / CLI 各自的 probe 状态是什么
-- 最终选中了哪条 route
-- 为什么 fallback
-- 没有 route 时卡在哪一层
+- 每个候选连接各自有哪些只读 route 可用
+- 哪个候选连接可以直接做 readonly introspection
+- 具体卡在 env hints 还是 runtime capability
 
 这次收口后的边界是：
 
 - `fact-inventory.database[]`：静态候选连接事实
-- `database-routing.json`：route / fallback / provenance 的运行时真源，同时携带一份按连接展开的候选快照，避免消费者回读 `fact-inventory` 才能解释 route 决策
-- `database-worker.md`：worker 如何消费 routing artifact 的执行规范
+- `database-routing.json`：`candidate_readiness.candidates[]` 才是数据库 handoff 的主真源；顶层 `recommended_action` / `blockers[]` 只保留 compatibility projection
+- `database-worker.md`：LLM 如何把 handoff、repo 原文件和只读 CLI 边界组合起来使用的执行规范
 
 这样做以后，静态事实层保持轻量、稳定、可复用；runtime 失败也能被解释，而不是继续污染静态事实。
 
@@ -98,7 +97,7 @@ tags: ["spec-graph-bootstrap", "database-routing", "fact-inventory", "llm-reuse-
 
 ## Why This Matters
 
-如果把静态候选、runtime 选路、下游生成混在一起，失败时只能看到笼统结论，看不到到底是 secret 没解析到、MCP 不可用、CLI 缺失，还是根本不支持该数据库类型。把这些事实拆开后，下游消费者能直接读到 route、fallback 和 blocker，而不用自己拼装。
+如果把静态候选、候选级 readiness、顶层兼容摘要和下游生成混在一起，失败时只能看到笼统结论，看不到到底是 secret 没解析到、CLI 缺失、候选连接 env hints 不完整，还是根本不支持该数据库类型。把这些事实拆开后，下游消费者能直接读到每个候选连接自己的 readiness 和 blocker，而不用被一个过早聚合的全局结论牵着走。
 
 知识库这边也是同一个道理。没有明确的优先复用 section，`Human Summary` 和 `LLM Reuse Context` 只是形式上的双视角；没有 section-aware refresh，任何小漂移都可能被放大成整篇重写，既增加噪音，也更容易把 repo-factual details 写散。
 
@@ -106,8 +105,8 @@ tags: ["spec-graph-bootstrap", "database-routing", "fact-inventory", "llm-reuse-
 
 ## When to Apply
 
-- 当一个 artifact 同时想表达“静态发现事实”和“运行时决策事实”时
-- 当 workflow 需要解释 fallback、blocker 或 provenance，而不是只给一个成功/失败结论时
+- 当一个 artifact 同时想表达“静态发现事实”和“候选级 runtime readiness 事实”时
+- 当 workflow 需要解释某个数据库候选为什么不可用，而不是只给一个全局成功/失败结论时
 - 当文档既要服务人类交接，又要服务 agent 检索复用时
 - 当旧 learning 的 drift 只落在路径、证据或模式层，而不是整篇结论失效时
 - 当 source skill、prompt mirror、schema / sample、contract tests 之间已经出现或可能出现语义漂移时
@@ -115,12 +114,12 @@ tags: ["spec-graph-bootstrap", "database-routing", "fact-inventory", "llm-reuse-
 
 ## Examples
 
-### 例 1：数据库路由分层
+### 例 1：数据库 handoff 分层
 
-以前容易把数据库发现、secret 解析和 route 选择揉进同一个事实层。现在：
+以前容易把数据库发现、env 解析和 route 判断揉进同一个事实层。现在：
 
 - [fact-inventory.schema.json](../../contracts/spec-graph-bootstrap/fact-inventory.schema.json) 里的 `database[]` 只保留静态候选字段
-- [database-routing.schema.json](../../contracts/spec-graph-bootstrap/database-routing.schema.json) 承载 `candidate_connections`、`secret_resolution`、`probe_attempts`、`route_decisions`、`selected_connections`、`generation_blockers`
+- [database-routing.schema.json](../../contracts/spec-graph-bootstrap/database-routing.schema.json) 承载 `runtime_capabilities`、`candidate_readiness`，并把顶层 `recommended_action` / `blockers[]` 明确降格为 compatibility projection
 
 对应实现入口分别在：
 
@@ -158,12 +157,12 @@ tags: ["spec-graph-bootstrap", "database-routing", "fact-inventory", "llm-reuse-
 
 ### Outcome
 
-本次改造把 bootstrap 的数据库链路和 compound 的双视角知识链路都写实成更清晰的 contract。数据库侧新增了 `database-routing.json`，把候选快照与 route / fallback / provenance 放到同一个可解释的 routing artifact 里；compound 侧明确了 `LLM Reuse Context` 的优先复用顺序，并把 refresh 收口为 section-aware 更新。
+本次改造把 bootstrap 的数据库链路和 compound 的双视角知识链路都写实成更清晰的 contract。数据库侧新增了 `database-routing.json`，但不再把它写成一个厚重的 route 状态机，而是把主信息面板收口到 `candidate_readiness.candidates[]`，并把顶层 `recommended_action` / `blockers[]` 明确为 compatibility projection；compound 侧明确了 `LLM Reuse Context` 的优先复用顺序，并把 refresh 收口为 section-aware 更新。
 
 ### Key Decisions
 
-- `fact-inventory.database[]` 只表达静态候选发现，不承载 secret 值、probe 历史或 fallback 历史
-- `database-routing.json` 以 route / fallback / provenance 为主，同时携带按连接展开的候选快照，并允许逐连接记录成功、失败和 blocker
+- `fact-inventory.database[]` 只表达静态候选发现，不承载 resolved env、route availability 或候选级 blocker
+- `database-routing.json` 以 `candidate_readiness.candidates[]` 为主，顶层 `recommended_action` / `blockers[]` 只保留 compatibility projection
 - `Human Summary` 与 `LLM Reuse Context` 必须共存于同一个 durable file，不能拆 sidecar
 - `learnings-researcher` 在双视角存在时优先消费 `LLM Reuse Context`
 - refresh 优先做局部 section 更新，而不是默认整篇重写
@@ -175,13 +174,13 @@ tags: ["spec-graph-bootstrap", "database-routing", "fact-inventory", "llm-reuse-
 
 - `spec-compound` contract test 主要提供文档合同守卫，确保双视角、template 和 agent 文案包含必要锚点
 - `asset consistency` test 主要提供 source / mirror / agent 的关键锚点一致性守卫
-- `spec-graph-bootstrap` contract 与 compiler tests 覆盖 `database-routing.json` 的 schema、sample、compiler 输出和 CLI fallback 语义
+- `spec-graph-bootstrap` contract 与 compiler tests 覆盖 `database-routing.json` 的 schema、sample、compiler 输出，以及 `candidate_readiness` / compatibility projection 语义
 - `tests/e2e/spec-graph-bootstrap-mainline.sh` 覆盖 `database-routing.json` 在主链里的产物存在性，并由 `tests/integration/e2e.sh` 间接执行
 - 本次改造已通过 `npm run test:unit`、`npm run test:smoke`、`npm run test:integration`
 
 ### Remaining Risks
 
-- 当前 direct route 的硬化明显以 MySQL 为主，非 MySQL 仍主要停留在 discovery-only / unsupported-db-type 边界
+- 当前 readonly route 的硬化明显以 MySQL CLI 为主，非 MySQL 仍主要停留在 discovery-only / unsupported-db-type 边界
 - refresh 已经有 section-aware contract，但旧文档升级仍是“命中即升级、无证据不脑补”的渐进式策略，不是全库一次性补齐
 - `LLM Reuse Context` 已经成为 primary reuse surface，但它的长期质量仍取决于后续新 learning 是否持续写入 repo-factual details，而不是退回泛化总结
 
@@ -190,7 +189,7 @@ tags: ["spec-graph-bootstrap", "database-routing", "fact-inventory", "llm-reuse-
 ### Constraints
 
 - 继续遵守 `轻 contract + 明确边界 + 让 LLM 决策`，不要把 route、reuse、refresh 合并成一个强编排对象
-- `fact-inventory.database[]` 只保留静态候选连接事实；runtime secret、probe、fallback、selected route 不回流到静态事实层
+- `fact-inventory.database[]` 只保留静态候选连接事实；runtime readiness / blockers 不回流到静态事实层
 - secret 解析只能记录 key 名与状态，不能把密码、用户名、连接串明文落盘
 - `Human Summary` 和 `LLM Reuse Context` 必须留在同一个 durable file；不要新增第二持久化副本
 - 缺失 dual-view section 的旧文档是 upgrade opportunity，不是 schema error
@@ -199,10 +198,10 @@ tags: ["spec-graph-bootstrap", "database-routing", "fact-inventory", "llm-reuse-
 ### Code Touchpoints
 
 - [src/bootstrap-compiler/derive-bootstrap-facts.js](../../../src/bootstrap-compiler/derive-bootstrap-facts.js) — 从仓库文件系统推导数据库候选，按 connection name 聚合 credential keys，推断 `db_type`、`confidence`、`static_access_hints`
-- [src/bootstrap-compiler/compile-routing.js](../../../src/bootstrap-compiler/compile-routing.js) — 基于 `factInventory.database` 和 runtime `env/tooling` 生成 `secret_resolution`、`probe_attempts`、`route_decisions`、`selected_connections`、`generation_blockers`
+- [src/bootstrap-compiler/compile-routing.js](../../../src/bootstrap-compiler/compile-routing.js) — 基于 `factInventory.database` 和 runtime `env/tooling` 生成 `runtime_capabilities`、`candidate_readiness`，并保守派生顶层 compatibility projection
 - [src/bootstrap-compiler/run-bootstrap.js](../../../src/bootstrap-compiler/run-bootstrap.js) — 把 `database-routing.json` 纳入默认 bootstrap 产物集合并写入 control plane
 - [docs/contracts/spec-graph-bootstrap/fact-inventory.schema.json](../../contracts/spec-graph-bootstrap/fact-inventory.schema.json) — 约束 `database[]` 只包含静态候选字段
-- [docs/contracts/spec-graph-bootstrap/database-routing.schema.json](../../contracts/spec-graph-bootstrap/database-routing.schema.json) — 约束候选快照与 runtime route / fallback / provenance 的结构
+- [docs/contracts/spec-graph-bootstrap/database-routing.schema.json](../../contracts/spec-graph-bootstrap/database-routing.schema.json) — 约束 `runtime_capabilities`、`candidate_readiness` 与顶层 compatibility projection 的结构
 - [skills/spec-compound/SKILL.md](../../../skills/spec-compound/SKILL.md) — 固定 single durable file 和 dual-view durable contract
 - [agents/research/learnings-researcher.md](../../../agents/research/learnings-researcher.md) — 在命中并完整读取相关 learning 后，把 `LLM Reuse Context` 作为优先复用 section
 - [skills/spec-compound-refresh/SKILL.md](../../../skills/spec-compound-refresh/SKILL.md) — 固定 section-aware refresh 规则
@@ -210,7 +209,7 @@ tags: ["spec-graph-bootstrap", "database-routing", "fact-inventory", "llm-reuse-
 
 ### Patterns to Reuse
 
-- 先把“静态候选发现”和“runtime 决策事实”拆成两个 artifact，再让下游 worker 消费 runtime artifact
+- 先把“静态候选发现”和“候选级 runtime readiness”拆开，再让下游 LLM 优先消费候选级 handoff facts
 - 用 schema + manifest + sample generator + compiler test 一起收口新 artifact，而不是只补 README 或 skill prose
 - 给同一份 durable doc 提供双视角，但明确一个是 handoff view，一个是 primary reuse surface
 - refresh 时按 section drift 做最小必要更新，把事实维护和文案重写分开
@@ -218,8 +217,8 @@ tags: ["spec-graph-bootstrap", "database-routing", "fact-inventory", "llm-reuse-
 
 ### Anti-patterns to Avoid
 
-- 把 secret 解析、probe 历史、fallback 历史塞回 `fact-inventory.database[]`
-- 发生 `MCP -> CLI` 切换却不记录 `fallback_reason` 和 provenance，只给最终 route
+- 把 resolved env、route availability、candidate blockers 塞回 `fact-inventory.database[]`
+- 已经有候选级 blockers，却仍让下游只看顶层 `recommended_action` / `blockers[]`
 - 为 `LLM Reuse Context` 再发明一个 sidecar machine file 或第二 durable 目录
 - 把缺少 dual-view section 的旧文档当成 schema error，强制全量改写
 - 把路径漂移、证据漂移这类局部 drift 处理成整篇重写
@@ -229,7 +228,7 @@ tags: ["spec-graph-bootstrap", "database-routing", "fact-inventory", "llm-reuse-
 
 - 设计意图与边界约束来自 [docs/plans/2026-04-20-011-feat-database-doc-and-compound-dual-view-hardening-plan.md](../../plans/2026-04-20-011-feat-database-doc-and-compound-dual-view-hardening-plan.md)
 - 数据库静态候选发现实现来自 [src/bootstrap-compiler/derive-bootstrap-facts.js](../../../src/bootstrap-compiler/derive-bootstrap-facts.js)
-- runtime routing / fallback / blocker 实现来自 [src/bootstrap-compiler/compile-routing.js](../../../src/bootstrap-compiler/compile-routing.js)
+- runtime candidate readiness / compatibility projection 实现来自 [src/bootstrap-compiler/compile-routing.js](../../../src/bootstrap-compiler/compile-routing.js)
 - control-plane 落盘与 manifest 纳管来自 [src/bootstrap-compiler/run-bootstrap.js](../../../src/bootstrap-compiler/run-bootstrap.js)
 - dual-view durable contract 来自 [skills/spec-compound/SKILL.md](../../../skills/spec-compound/SKILL.md)
 - retrieval primary reuse surface 来自 [agents/research/learnings-researcher.md](../../../agents/research/learnings-researcher.md)

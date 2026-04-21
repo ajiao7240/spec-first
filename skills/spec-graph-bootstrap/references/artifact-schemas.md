@@ -1,5 +1,8 @@
 # Stage-0 产物 JSON 字段定义
 
+> 边界说明：本文件只定义 bootstrap 输出的 control-plane / docs artifact schema。
+> 它不定义 package CLI surface，也不把 `docs/contracts/spec-graph-bootstrap/` 或 `src/bootstrap-compiler/` 变成 target repo 运行时前提。
+
 本文件定义 bootstrap 控制面主 JSON 文件与 `artifact-manifest.json` 的完整字段 contract。
 
 ## fact-inventory.json
@@ -26,6 +29,7 @@ database: [{ present, connection_name, config_source, evidence_sources, db_type,
 # static_access_hints 只表达脚本能确认的只读执行提示；真正的数据库识别与连接判断交给 LLM
 database_schema: [{ source_kind, path, db_type, connection_name, confidence, inference_reason, evidence }]
 # 表达数据库结构知识来源（migration / orm-schema / doc-er 等），供 LLM 后续决定是否走 schema-only
+# 当仓库只有 schema 证据、没有足够连接线索时，db_type 允许保守落为 unknown
 # bootstrap 不再尝试用脚本完成项目类型感知数据库识别；只提供可复用 hints 与 schema sources
 ```
 
@@ -47,12 +51,35 @@ runtime_capabilities:
     - route: mysql-cli | <future readonly cli>
       available: boolean
       reason: string
+candidate_readiness:
+  candidates:
+    - connection_name: string
+      config_source: string | null
+      db_type: string
+      credential_keys: [string]
+      resolved_credential_keys: [string]
+      missing_credential_keys: [string]
+      supported_readonly_routes: [string]
+      available_readonly_routes: [string]
+      route_availability:
+        - route: mysql-cli | <future readonly cli>
+          available: boolean
+          reason: string
+      has_available_readonly_route: boolean
+      has_complete_env_hints: boolean
+      can_readonly_introspect: boolean
+      blockers:
+        - kind: runtime-capability | env-availability
+          reason: string
   resolved_env_keys: [string]
   missing_env_keys: [string]
 recommended_action: llm-readonly-introspect | llm-inspect-repo | not-needed
 blockers:
   - kind: runtime-capability | env-availability
     reason: string
+# 候选级 facts + candidate blockers 才是主信息面板；顶层 blockers 只保留 repo 级 runtime 摘要
+# recommended_action / blockers 是 compatibility projection：继续输出以兼容旧消费方，但不再是主真源
+# recommended_action 只是保守摘要，不替代 LLM 自己判断候选连接
 # `llm-readonly-introspect` 只在 readonly CLI route 可用且 env hints 完整时出现
 # 这是 LLM-first handoff contract，不再维护 selected_route / probe_attempts / route_decisions 状态机
 ```

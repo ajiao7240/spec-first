@@ -58,12 +58,22 @@ describe('spec-graph-bootstrap contracts', () => {
     expect(gitignore).not.toContain('\ndocs/contexts/\n');
   });
 
-  test('source skill points contract truth to docs/contracts/spec-graph-bootstrap', () => {
+  test('source skill and prompt mirror define the four-surface boundary map explicitly', () => {
     const skill = fs.readFileSync(GRAPH_BOOTSTRAP_SKILL_PATH, 'utf8');
+    const promptMirror = fs.readFileSync(PROMPT_MIRROR_SKILL_PATH, 'utf8');
 
-    expect(skill).toContain('docs/contracts/spec-graph-bootstrap/');
-    expect(skill).toContain('orchestrator.js');
-    expect(skill).toContain('database-routing.json');
+    for (const content of [skill, promptMirror]) {
+      expect(content).toContain('## Surface Map');
+      expect(content).toContain('spec-first source repo internals');
+      expect(content).toContain('installed runtime assets');
+      expect(content).toContain('target repo generated artifacts');
+      expect(content).toContain('package CLI surfaces');
+      expect(content).toContain('docs/contracts/spec-graph-bootstrap/');
+      expect(content).toContain('src/bootstrap-compiler/');
+      expect(content).toContain('spec-first stage0-context');
+      expect(content).toContain('不是 `spec-first graph-bootstrap` 包级子命令');
+      expect(content).toContain('不要在 target repo 中查找 source repo 内部路径来判断 workflow 是否可用');
+    }
   });
 
   test('source skill and prompt mirror use repo-registry.md consistently in workspace docs contract', () => {
@@ -87,6 +97,12 @@ describe('spec-graph-bootstrap contracts', () => {
     expect(codexRuntime).toContain('spec-first init --codex   # Codex 运行时');
     expect(codexRuntime).not.toContain('spec-first init --codex   # Claude 运行时');
     expect((codexRuntime.match(/spec-first init --codex\s+#\s*Codex 运行时/g) || [])).toHaveLength(1);
+    expect(claudeRuntime).toContain('installed runtime assets');
+    expect(codexRuntime).toContain('installed runtime assets');
+    expect(claudeRuntime).toContain('package CLI surfaces');
+    expect(codexRuntime).toContain('package CLI surfaces');
+    expect(claudeRuntime).toContain('不是 `spec-first graph-bootstrap` 包级子命令');
+    expect(codexRuntime).toContain('不是 `spec-first graph-bootstrap` 包级子命令');
   });
 
   test('source skill schema doc keeps database candidates static and routes runtime decisions into database-routing.json', () => {
@@ -106,6 +122,10 @@ describe('spec-graph-bootstrap contracts', () => {
     expect(schemas).toContain('database_schema: [{ source_kind, path, db_type, connection_name, confidence, inference_reason, evidence }]');
     expect(schemas).toContain('## database-routing.json');
     expect(schemas).toContain('discovery_strategy: llm-led');
+    expect(schemas).toContain('candidate_readiness:');
+    expect(schemas).toContain('can_readonly_introspect: boolean');
+    expect(schemas).toContain('候选级 facts + candidate blockers 才是主信息面板');
+    expect(schemas).toContain('recommended_action / blockers 是 compatibility projection');
     expect(schemas).toContain('route: mysql-cli | <future readonly cli>');
     expect(schemas).toContain('recommended_action: llm-readonly-introspect | llm-inspect-repo | not-needed');
     expect(schemas).not.toContain('mysql-mcp');
@@ -170,6 +190,18 @@ describe('spec-graph-bootstrap contracts', () => {
     expect(promptMirror).toContain('bootstrap 只写 `database-routing.json`');
     expect(sourceSkill).not.toContain('database/database-index.md');
     expect(promptMirror).not.toContain('database/database-index.md');
+  });
+
+  test('source skill and prompt mirror describe database-routing top-level summary as compatibility projection', () => {
+    const sourceSkill = fs.readFileSync(GRAPH_BOOTSTRAP_SKILL_PATH, 'utf8');
+    const promptMirror = fs.readFileSync(PROMPT_MIRROR_SKILL_PATH, 'utf8');
+
+    expect(sourceSkill).toContain('candidate_readiness.candidates[]');
+    expect(promptMirror).toContain('candidate_readiness.candidates[]');
+    expect(sourceSkill).toContain('`recommended_action` / `blockers[]` 只保留 compatibility projection');
+    expect(promptMirror).toContain('`recommended_action` / `blockers[]` 只保留 compatibility projection');
+    expect(sourceSkill).not.toContain('runtime-only route / fallback / provenance 真源');
+    expect(promptMirror).not.toContain('runtime-only route / fallback / provenance 真源');
   });
 
   test('checked-in sample injection index avoids duplicate public-entrypoints injection in plan/work', () => {

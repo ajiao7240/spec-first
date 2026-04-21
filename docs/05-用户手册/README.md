@@ -4,6 +4,25 @@
 
 `spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init (--claude|--codex) / clean (--claude|--codex)` 把 Claude Code 的 `/spec:*` 命令、Codex 的 `$spec-*` skills、workflow skills、agents、agent support files、项目级 `.developer` 和受管状态安装到当前项目中。
 
+从当前版本开始，`spec-first init --claude` 与 `spec-first init --codex` 还会在项目内创建 repo-level shared spec seeds：
+
+- `.spec-first/specs/repo-profile.yaml`
+- `.spec-first/specs/README.md`
+
+这两个文件是项目级共享输入，不属于 host runtime assets：
+
+- `init` 对它们采用 add-only 语义
+- 自动写入只覆盖高置信度、低误导输入
+- 空值表示当前没有高置信度输入
+- 当前不纳入 managed state
+- `clean --claude` / `clean --codex` 不删除它们
+
+shared seed 创建完成后，如需补全 repo-level 长期语义，可以显式运行 standalone skill `spec-repo-profile-refresh`：
+
+- 默认先 `preview`
+- 用户确认后才 `apply`
+- 只回写 `.spec-first/specs/repo-profile.yaml` 中允许的规范字段
+
 当前 Stage-0 推荐两个入口：
 
 - `spec-graph-bootstrap`：CRG CLI Tier 1 驱动，Phase 0-4 事实抽取与文档生成主入口
@@ -37,6 +56,8 @@
 - 项目级 `.agents/skills` 与 `.codex/agents`
 - 项目级 `.claude/spec-first/.developer` / `.codex/spec-first/.developer`
 - 严格 schema 的 `.claude/spec-first/state.json` / `.codex/spec-first/state.json`
+- 项目级 `.spec-first/specs/repo-profile.yaml` shared spec seed
+- 用于补全 shared seed 的 standalone skill `spec-repo-profile-refresh`
 - 可更新、可恢复、可清理的受管资产模型
 
 ![Spec-First 五阶段工作流](../assets/svg/spec-first-workflow.svg)

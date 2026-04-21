@@ -288,6 +288,31 @@ function buildDatabaseRoutingSample({ generatedAt = DEFAULT_GENERATED_AT } = {})
           reason: 'tool-present',
         },
       ],
+    },
+    candidate_readiness: {
+      candidates: [
+        {
+          connection_name: 'primary',
+          config_source: 'config/database.yml',
+          db_type: 'mysql',
+          credential_keys: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
+          resolved_credential_keys: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
+          missing_credential_keys: [],
+          supported_readonly_routes: ['mysql-cli'],
+          available_readonly_routes: ['mysql-cli'],
+          route_availability: [
+            {
+              route: 'mysql-cli',
+              available: true,
+              reason: 'tool-present',
+            },
+          ],
+          has_available_readonly_route: true,
+          has_complete_env_hints: true,
+          can_readonly_introspect: true,
+          blockers: [],
+        },
+      ],
       resolved_env_keys: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
       missing_env_keys: [],
     },

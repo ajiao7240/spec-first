@@ -11,7 +11,7 @@
 - `database-routing.json` 只回答：
   - 当前策略是 `llm-led`
   - 本机有哪些只读数据库工具可用
-  - 哪些 env key 已存在 / 缺失
+  - 每个候选连接的 env key / route readiness 事实
   - 建议下一步是 `llm-inspect-repo` 还是 `llm-readonly-introspect`
 - bootstrap **不再**负责：
   - 选主连接
@@ -31,6 +31,7 @@
    - 当前仓库是否真的有数据库
    - 是否应走 live introspection
    - 如果 live 不可行，是否可以走 schema-only
+   - 哪个候选连接最值得优先尝试
 3. 当 `database-routing.json.recommended_action = llm-readonly-introspect` 时，
    LLM 可以选择只读 CLI 继续分析，例如 `mysql`。
 
@@ -39,7 +40,9 @@
 - 仅允许只读探测
 - 不落盘 secret 值
 - 不自动执行写操作
-- 工具不可用时，只在 `database-routing.json.blockers[]` 中记录事实
+- 具体候选连接的 route/env 阻断事实优先写在 `candidate_readiness.candidates[].blockers[]`
+- `database-routing.json.blockers[]` 只保留仓库级 runtime 摘要
+- `recommended_action` / 顶层 `blockers[]` 只视为 compatibility projection，不是主真源
 
 ## 输出姿势
 

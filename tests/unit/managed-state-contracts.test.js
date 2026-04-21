@@ -348,4 +348,28 @@ describe('managed state contracts', () => {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
   });
+
+  test('shared spec seed paths never enter managed state after init', () => {
+    const projectRoot = makeTempDir();
+    const previousCwd = process.cwd();
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      process.chdir(projectRoot);
+      expect(runInit(['--claude', '-u', 'reviewer', '--lang', 'zh'])).toBe(0);
+
+      const adapter = getAdapter('claude');
+      const state = readState(projectRoot, adapter);
+      const serialized = JSON.stringify(state);
+
+      expect(serialized).not.toContain('.spec-first/specs/repo-profile.yaml');
+      expect(serialized).not.toContain('.spec-first/specs/README.md');
+      expect(fs.existsSync(path.join(projectRoot, '.spec-first/specs/repo-profile.yaml'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.spec-first/specs/README.md'))).toBe(true);
+    } finally {
+      logSpy.mockRestore();
+      process.chdir(previousCwd);
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
 });

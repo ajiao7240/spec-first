@@ -77,6 +77,17 @@ describe('skills governance contracts', () => {
             codex: 'skill',
           },
         }),
+        expect.objectContaining({
+          skill_name: 'spec-repo-profile-refresh',
+          entry_surface: 'standalone_skill',
+          host_scope: 'dual_host',
+          command_name: null,
+          owner_host: null,
+          host_delivery: {
+            claude: 'skill',
+            codex: 'skill',
+          },
+        }),
       ]),
     );
   });
@@ -97,6 +108,8 @@ describe('skills governance contracts', () => {
     expect(codexAssets.skills).not.toContain('orchestrating-swarms');
     expect(claudeAssets.skills).toContain('claude-permissions-optimizer');
     expect(codexAssets.skills).toContain('claude-permissions-optimizer');
+    expect(claudeAssets.skills).toContain('spec-repo-profile-refresh');
+    expect(codexAssets.skills).toContain('spec-repo-profile-refresh');
     expect(codexAssets.skills).toContain('spec-work-beta');
 
     expect(codexAssets.skipped).toEqual(
@@ -145,12 +158,15 @@ describe('skills governance contracts', () => {
       expect(synced.workflowSkills).toEqual(workflowCommands.sort((a, b) => a.localeCompare(b)));
       expect(synced.skills).not.toContain('orchestrating-swarms');
       expect(synced.skills).toContain('claude-permissions-optimizer');
+      expect(synced.skills).toContain('spec-repo-profile-refresh');
 
       expect(fs.existsSync(path.join(projectRoot, '.agents/skills/spec-work/SKILL.md'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.agents/skills/claude-permissions-optimizer/SKILL.md'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.agents/skills/spec-repo-profile-refresh/SKILL.md'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.agents/skills/orchestrating-swarms/SKILL.md'))).toBe(false);
 
       expect(installed.skills.entries).not.toContain('orchestrating-swarms');
+      expect(installed.skills.entries).toContain('spec-repo-profile-refresh');
       expect(installed.skills.missing).toEqual([]);
       expect(installed.commands.entries).toEqual([]);
       expect(installed.commands.missing).toEqual([]);

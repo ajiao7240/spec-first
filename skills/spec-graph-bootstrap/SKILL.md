@@ -23,6 +23,37 @@ description: "Graph-informed project bootstrap. Runs Phase 0–4: CRG readiness 
 
 当目标目录不是 git repo 但能稳定发现 child repo，或调用方显式提供 `repoRoots` 时，默认按 workspace 模式继续，而不是因为“不是单一 git 仓库”中断主链。
 
+## Surface Map
+
+`spec-graph-bootstrap` 涉及四类不同 surface；它们只回答各自的问题，不得混成一个判定层：
+
+1. **spec-first source repo internals**
+   - 维护者真源，例如：
+     - `docs/contracts/spec-graph-bootstrap/`
+     - `src/bootstrap-compiler/`
+   - 这些路径用于说明 spec-first 源码仓库如何实现和维护 bootstrap contract。
+
+2. **installed runtime assets**
+   - `spec-first init` 安装到宿主项目中的运行时资产，例如当前宿主可调用的 graph-bootstrap workflow / skill runtime。
+   - 它们是宿主实际执行 `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` 时读取的 runtime surface。
+
+3. **target repo generated artifacts**
+   - 在目标项目中由 bootstrap 生成的产物，例如：
+     - `.spec-first/workflows/bootstrap/<slug>/`
+     - `docs/contexts/<slug>/`
+   - 它们是 graph bootstrap 的输出，而不是 workflow 是否存在的前提。
+
+4. **package CLI surfaces**
+   - root CLI 只暴露 package commands，例如：
+     - `spec-first init`
+     - `spec-first doctor`
+     - `spec-first clean`
+     - `spec-first stage0-context`
+   - `/spec:graph-bootstrap` 与 `$spec-graph-bootstrap` 是安装后的宿主 workflow entrypoints，不是 `spec-first graph-bootstrap` 包级子命令。
+
+**硬规则：不要在 target repo 中查找 source repo 内部路径来判断 workflow 是否可用。**
+是否存在 `docs/contracts/spec-graph-bootstrap/` 或 `src/bootstrap-compiler/`，只能回答“spec-first 源码仓库如何维护 contract”，不能回答“当前目标仓库是否安装并可运行 graph-bootstrap”。
+
 ## Contract 真源
 
 Stage-0 的字段 contract 不再只存在于本文件文本中，以下目录为 machine-first 真源：
@@ -394,7 +425,7 @@ generation_errors:
 - 数据库相关 contract 在 bootstrap 主链内只写 control-plane：
   - `fact-inventory.database[]`：repo 内数据库 hints
   - `fact-inventory.database_schema[]`：schema / migration / doc-er 线索
-  - `database-routing.json`：LLM-first handoff，描述只读 runtime capability 与建议下一步
+  - `database-routing.json`：LLM-first handoff；主信息面板是 `candidate_readiness.candidates[]`，顶层 `recommended_action` / `blockers[]` 只保留 compatibility projection
   - bootstrap 主链**不再创建** `database-context task`，也不再预生成 `database/` 文档目录
 
 ### Phase 2 PRD Quality Gate
@@ -433,7 +464,7 @@ generation_errors:
 - bootstrap 只写 `fact-inventory.database[]`
 - bootstrap 只写 `fact-inventory.database_schema[]`
 - bootstrap 只写 `database-routing.json`
-- 后续阶段如需数据库分析，由 LLM 读取上述 handoff + repo 原文件，并在存在只读能力时自行决定是否执行只读 introspection
+- 后续阶段如需数据库分析，由 LLM 读取上述 handoff + repo 原文件，并优先参考候选级 readiness / blockers facts，在存在只读能力时自行决定是否执行只读 introspection
 
 **串行（最后）**：`README.md`（上下文控制台，汇总所有产物状态）
 
@@ -529,7 +560,7 @@ severity: 无上限       confidence: medium ──→  Basic (Built-in)
   fact-inventory.json      ← 控制面（所有 Worker 输入源）
   risk-signals.json
   test-surface.json
-  database-routing.json    ← runtime-only route / fallback / provenance 真源
+  database-routing.json    ← `candidate_readiness` 主真源；顶层 `recommended_action` / `blockers[]` 仅 compatibility projection
   context-routing.json     ← evaluateContextForRepo 消费真源
   artifact-manifest.json   ← 两段写入（in_progress → complete）
   freshness.json
@@ -564,7 +595,7 @@ docs/contexts/<slug>/
   fact-inventory.json
   risk-signals.json
   test-surface.json
-  database-routing.json
+  database-routing.json    ← `candidate_readiness` 主真源；顶层 `recommended_action` / `blockers[]` 仅 compatibility projection
   context-routing.json
   artifact-manifest.json
   freshness.json

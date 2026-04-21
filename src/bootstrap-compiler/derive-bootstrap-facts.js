@@ -364,7 +364,6 @@ function collectDatabaseSchemaSources({ repoRoot, files, databaseCandidates }) {
 
     let dbType = inferDatabaseType({ filePath, content, credentialKeys: [] });
     if (dbType === 'unknown') dbType = fallbackDbType;
-    if (dbType === 'unknown') continue;
 
     sources.push({
       source_kind: sourceKind,

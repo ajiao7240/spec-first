@@ -1,5 +1,13 @@
 # CLAUDE.md
 
+## 强制前置阅读
+
+在处理本仓库中任何涉及 spec-first 演化、架构判断、prompt / workflow / contract 设计、治理规则取舍的工作前，必须先阅读 `docs/10-prompt/项目角色.md`。
+
+`docs/10-prompt/项目角色.md` 是当前项目的角色定义与判断基线，优先用于校准系统目标、边界划分、脚本与 LLM 的职责分工，以及对“轻 contract + 明确边界 + 让 LLM 决策”的理解。
+
+如果本文件后续内容与该文档的理解发生冲突，优先按 `docs/10-prompt/项目角色.md` 对齐后再继续执行。
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 项目概览
@@ -167,8 +175,6 @@ Skill/Agent 源文件统一使用 `spec-first:category:name` 作为 canonical ag
 ## 编码执行准则（由 spec-first 管理）
 
 这些准则只约束进入工作后的执行姿势，不替代 `using-spec-first` 的 workflow 入口治理。
-
-**项目角色参考：** `docs/10-prompt/项目角色.md`（在 spec-first 演化、架构判断、prompt / workflow / contract 设计时优先对齐该角色定义）
 
 ### 先想清楚再动手
 - 当假设会影响实现或验证时，必须先显式说明假设。

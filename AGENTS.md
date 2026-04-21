@@ -1,5 +1,13 @@
 # Repository Guidelines
 
+## 强制前置阅读
+
+在处理本仓库中任何涉及 spec-first 演化、架构判断、prompt / workflow / contract 设计、治理规则取舍的工作前，必须先阅读 `docs/10-prompt/项目角色.md`。
+
+`docs/10-prompt/项目角色.md` 是当前项目的角色定义与判断基线，优先用于校准系统目标、边界划分、脚本与 LLM 的职责分工，以及对“轻 contract + 明确边界 + 让 LLM 决策”的理解。
+
+如果本文件后续内容与该文档的理解发生冲突，优先按 `docs/10-prompt/项目角色.md` 对齐后再继续执行。
+
 ## Project Structure & Module Organization
 
 `spec-first` is a Node.js CLI that installs and manages workflow assets for Claude Code and Codex. Source code lives in `src/cli/`, with the executable entrypoint at `bin/spec-first.js`. Repository-owned workflow content lives in `skills/` and `agents/`; generated runtime copies under `.claude/` or `.codex/` are outputs, not the source of truth. Keep docs in `docs/`, reusable templates in `templates/`, and repo utilities in `scripts/`. `docs/solutions/` contains documented solutions to past problems and workflow patterns, organized by category with YAML frontmatter (`module`, `tags`, `problem_type`); it is relevant when implementing or debugging in documented areas.
@@ -106,8 +114,6 @@ The implementation standard behind it is:
 ## 编码执行准则（由 spec-first 管理）
 
 这些准则只约束进入工作后的执行姿势，不替代 `using-spec-first` 的 workflow 入口治理。
-
-**项目角色参考：** `docs/10-prompt/项目角色.md`（在 spec-first 演化、架构判断、prompt / workflow / contract 设计时优先对齐该角色定义）
 
 ### 先想清楚再动手
 - 当假设会影响实现或验证时，必须先显式说明假设。
