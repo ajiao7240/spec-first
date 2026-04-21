@@ -32,7 +32,11 @@ try {
 }
 
 // 修复 CRG 原生模块（better-sqlite3 是 optionalDependency，安装失败时主动修复）
-repairCrgNativeModule();
+try {
+  repairCrgNativeModule();
+} catch (_) {
+  // 修复异常不影响主安装流程（postinstall 失败会导致整体安装报错）
+}
 
 function probeBetterSqlite() {
   try { require('better-sqlite3'); return true; } catch (_) { return false; }

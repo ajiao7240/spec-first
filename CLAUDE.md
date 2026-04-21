@@ -24,6 +24,7 @@ pnpm run release:publish -- auto             # 真实发布时会先提升 packa
 # npm publish 若提示自动纠正 `bin` 或 `repository.url`，应先把这些修正落回 package.json 再重试发布
 # `doctor --json` 现会把 workflow verification evidence 的真源固定到 `.spec-first/workflows/verification/<slug>/verification-evidence.json`，并显式报告 schema/freshness/fallback_reason 以及 `evidence_age_summary`；`init/clean --dry-run` 也已升级为 file-level operation preview；其中 `init` 通过 `planRuntimeFilesSync` 统一 preview/apply，`clean` 也已切换到共享 runtime cleanup plan，并补齐 Codex legacy cleanup 的 dry-run 预览面
 # 2026-04-21 已按仓库发布契约发布 `spec-first@1.5.7` 至 npm registry；收口 compat/bootstrap/doctor/init 修复、postinstall 多平台修复链与文档归档
+# Windows 兼容性约束（2026-04-21）：`better-sqlite3` 已移至 `optionalDependencies`；`postinstall` 执行三阶段修复链（probe→prebuild+SSL-bypass→node-gyp→hint），spawnSync 调用加 try/catch；`SESSION_START_RELATIVE_PATH` 使用硬编码正斜杠；`removeEmptyParents` 改用 `path.relative` 包含性判断；`doctor` 的 node 探针改用 `process.execPath`，spec-first 探针加 `shell:true`
 ```
 
 ## 架构

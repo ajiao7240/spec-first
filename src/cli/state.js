@@ -578,17 +578,21 @@ function removeDirectory(directoryPath, projectRoot) {
 }
 
 function removeEmptyParents(startPath, stopRoot) {
-  let current = startPath;
-  while (current.startsWith(stopRoot) && current !== stopRoot) {
+  // path.resolve 统一分隔符，path.relative 做包含性判断（比 startsWith 更健壮，
+  // 避免 Windows 下大小写不一致或混用分隔符导致的误判）
+  const stopResolved = path.resolve(stopRoot);
+  let current = path.resolve(startPath);
+  while (current !== stopResolved) {
+    const rel = path.relative(stopResolved, current);
+    if (!rel || rel.startsWith('..')) break;
+
     if (!fs.existsSync(current)) {
       current = path.dirname(current);
       continue;
     }
 
     const entries = fs.readdirSync(current);
-    if (entries.length > 0) {
-      break;
-    }
+    if (entries.length > 0) break;
 
     fs.rmdirSync(current);
     current = path.dirname(current);

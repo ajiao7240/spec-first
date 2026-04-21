@@ -3,7 +3,7 @@ const path = require('node:path');
 
 const PlatformAdapter = require('./base');
 const SESSION_START_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'claude', 'hooks', 'session-start');
-const SESSION_START_RELATIVE_PATH = path.join('.claude', 'hooks', 'session-start');
+const SESSION_START_RELATIVE_PATH = '.claude/hooks/session-start';
 
 /**
  * Claude platform adapter

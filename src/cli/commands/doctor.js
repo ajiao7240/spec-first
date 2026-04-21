@@ -398,7 +398,8 @@ function checkPluginManifest() {
 
 function checkCrgNativeModules() {
   // 检查 CRG CLI 路由器是否可执行
-  const cli = spawnSync('spec-first', ['crg', '--help'], { encoding: 'utf8', timeout: 5000 });
+  // shell:true 确保 Windows 上能找到 spec-first.cmd wrapper
+  const cli = spawnSync('spec-first', ['crg', '--help'], { encoding: 'utf8', timeout: 5000, shell: true });
   if (cli.status !== 0) {
     return {
       level: 'WARNING',
@@ -409,7 +410,8 @@ function checkCrgNativeModules() {
   }
 
   // 检查 better-sqlite3 原生模块
-  const sqlite = spawnSync('node', ['-e', "try{require('better-sqlite3')}catch{process.exit(1)}"], { timeout: 5000 });
+  // 用 process.execPath 而非裸 'node'，在版本管理器（nvm/fnm）环境下更可靠
+  const sqlite = spawnSync(process.execPath, ['-e', "try{require('better-sqlite3')}catch{process.exit(1)}"], { timeout: 5000 });
   if (sqlite.status !== 0) {
     return {
       level: 'WARNING',
@@ -420,7 +422,7 @@ function checkCrgNativeModules() {
   }
 
   // 检查 tree-sitter 原生模块
-  const ts = spawnSync('node', ['-e', "try{require('tree-sitter')}catch{process.exit(1)}"], { timeout: 5000 });
+  const ts = spawnSync(process.execPath, ['-e', "try{require('tree-sitter')}catch{process.exit(1)}"], { timeout: 5000 });
   if (ts.status !== 0) {
     return {
       level: 'WARNING',

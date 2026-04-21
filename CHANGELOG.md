@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.7 2026-04-21 矿工: fix(compat/win32): 全面平台兼容性修复——postinstall repairCrgNativeModule 补 try/catch 防 spawnSync 异常崩溃安装流程(ADV-004)；SESSION_START_RELATIVE_PATH 改用硬编码正斜杠消除 check.name 平台差异(ADV-003)；doctor checkCrgNativeModules 的 spec-first probe 加 shell:true、node probe 改用 process.execPath 修复 Windows cmd wrapper 和版本管理器场景(ADV-006)；removeEmptyParents 从 startsWith 改为 path.relative 包含性判断修复大小写不一致路径(ADV-001) (user-visible)
 - v1.5.7 2026-04-21 矿工: chore(release): 发布 `spec-first@1.5.7` 到 npm registry，收口 compat/bootstrap/doctor/init 修复与文档归档 (user-visible)
 - v1.5.7 2026-04-21 矿工: fix(compat): postinstall 多平台修复链——修复 findPrebuildInstallBin(null) 潜在 TypeError；showCrgHint 按 win32/darwin/linux 分发编译器指引（VS BuildTools/xcode-select/build-essential）；Windows hint 同时输出 CMD 和 PowerShell 两种 SSL bypass 语法；better-sqlite3 移至 optionalDependencies；补 migrations.js MODULE_NOT_FOUND 降级 (user-visible)
 - v1.5.7 2026-04-21 09:47:57 Codex: fix(spec-graph-bootstrap-runtime): 修复 `spec-graph-bootstrap` skill 顶部 `repo-registry.yaml` 残留，并收紧 Codex runtime skill transform，避免 `pack + init` 后重新生成 `--codex # Claude 运行时` 的错误文案 (user-visible)
