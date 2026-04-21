@@ -47,7 +47,7 @@ function findBetterSqliteDir() {
 function findPrebuildInstallBin(sqliteDir) {
   const searchPaths = [
     sqliteDir,
-    path.join(sqliteDir, 'node_modules'),
+    sqliteDir ? path.join(sqliteDir, 'node_modules') : null,
     path.join(__dirname, '..', 'node_modules'),
     __dirname,
   ].filter(Boolean);
@@ -98,20 +98,43 @@ function repairCrgNativeModule() {
 }
 
 function showCrgHint(sqliteDir) {
-  const isWin = process.platform === 'win32';
-  const rebuildBase = sqliteDir
-    ? `cd "${sqliteDir}" && node "${findPrebuildInstallBin(sqliteDir) || 'node_modules/prebuild-install/bin.js'}" --tag-prefix v`
+  const plat = process.platform;
+  const prebuildBin = sqliteDir ? (findPrebuildInstallBin(sqliteDir) || path.join(sqliteDir, 'node_modules', 'prebuild-install', 'bin.js')) : null;
+  const rebuildCmd = prebuildBin
+    ? `node "${prebuildBin}" --tag-prefix v`
     : `npm rebuild better-sqlite3`;
-  const sslPrefix = isWin ? 'set NODE_TLS_REJECT_UNAUTHORIZED=0 &&' : 'NODE_TLS_REJECT_UNAUTHORIZED=0';
-  const vsUrl = 'https://aka.ms/vs/17/release/vs_BuildTools.exe';
+
+  let sslFixLines;
+  if (plat === 'win32') {
+    sslFixLines = [
+      `  CMD:         set NODE_TLS_REJECT_UNAUTHORIZED=0 && ${rebuildCmd}`,
+      `  PowerShell:  $env:NODE_TLS_REJECT_UNAUTHORIZED='0'; ${rebuildCmd}`,
+    ];
+  } else {
+    sslFixLines = [`               NODE_TLS_REJECT_UNAUTHORIZED=0 ${rebuildCmd}`];
+  }
+
+  let compilerHint;
+  if (plat === 'win32') {
+    compilerHint = `  2. 安装 VS Build Tools 2022（勾选"Desktop development with C++"）后:\n` +
+                   `     https://aka.ms/vs/17/release/vs_BuildTools.exe\n` +
+                   `     npm rebuild better-sqlite3`;
+  } else if (plat === 'darwin') {
+    compilerHint = `  2. 安装 Xcode 命令行工具后:\n` +
+                   `     xcode-select --install\n` +
+                   `     npm rebuild better-sqlite3`;
+  } else {
+    compilerHint = `  2. 安装 C++ 编译环境后:\n` +
+                   `     apt-get install -y build-essential python3  # Debian/Ubuntu\n` +
+                   `     npm rebuild better-sqlite3`;
+  }
 
   process.stdout.write(
     `  注意: CRG 原生模块 (better-sqlite3) 不可用\n` +
     `  spec-first init / doctor / clean 正常，spec-first crg 暂不可用\n\n` +
     `  修复方法（任选一）:\n` +
     `  1. 绕过 SSL 重新下载预编译包:\n` +
-    `     ${sslPrefix} ${rebuildBase}\n` +
-    `  2. 安装 VS Build Tools 2022 后执行 npm rebuild better-sqlite3\n` +
-    `     ${isWin ? vsUrl : '（当前平台不适用）'}\n\n`
+    sslFixLines.join('\n') + '\n' +
+    compilerHint + '\n\n'
   );
 }

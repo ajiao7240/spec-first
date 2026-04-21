@@ -23,7 +23,7 @@ pnpm run release:publish -- auto             # 真实发布时会先提升 packa
 # 若 `git-npm auto` 中途重试导致版本前滚，应先提交最终 version/changelog 收口，再避免重复 auto bump
 # npm publish 若提示自动纠正 `bin` 或 `repository.url`，应先把这些修正落回 package.json 再重试发布
 # `doctor --json` 现会把 workflow verification evidence 的真源固定到 `.spec-first/workflows/verification/<slug>/verification-evidence.json`，并显式报告 schema/freshness/fallback_reason 以及 `evidence_age_summary`；`init/clean --dry-run` 也已升级为 file-level operation preview；其中 `init` 通过 `planRuntimeFilesSync` 统一 preview/apply，`clean` 也已切换到共享 runtime cleanup plan，并补齐 Codex legacy cleanup 的 dry-run 预览面
-# 2026-04-21 正在发布 `spec-first@1.5.7`；收口 compat/bootstrap/doctor/init 修复与文档归档，release snapshot 待 publish 完成后更新
+# 2026-04-21 已按仓库发布契约发布 `spec-first@1.5.7` 至 npm registry；收口 compat/bootstrap/doctor/init 修复、postinstall 多平台修复链与文档归档
 ```
 
 ## 架构

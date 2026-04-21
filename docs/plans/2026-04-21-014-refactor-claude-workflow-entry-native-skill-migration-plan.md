@@ -71,7 +71,7 @@ scope: 把 Claude 侧 12 个 workflow 入口从 .claude/commands/spec/*.md + .cl
 | 类别 | 数量 |
 |---|---|
 | SKILL.md `name` 字段更新 | 11 个 |
-| skills/ 内 `/spec:*` 引用替换 | 135 处 |
+| skills/ 内 `/spec:*` 引用替换 | 75 处 |
 | 源码文件修改 | 7 个 |
 | 命令模板文件删除 | 12 个 |
 | 测试断言更新 | 35+ 处，16 个文件 |
@@ -125,7 +125,8 @@ scope: 把 Claude 侧 12 个 workflow 入口从 .claude/commands/spec/*.md + .cl
 /spec:update          →  /spec-update
 /spec:setup           →  /spec-setup
 /spec:mcp-setup       →  /spec-mcp-setup
-/spec:graph-bootstrap →  /spec-graph-bootstrap
+/spec:graph-bootstrap    →  /spec-graph-bootstrap
+/spec:compound-refresh  →  /spec-compound-refresh
 ```
 
 **重点文件**（引用最集中）：
