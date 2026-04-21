@@ -1,0 +1,410 @@
+---
+title: Claude Workflow Entry Native Skill Migration Plan
+created: 2026-04-21
+updated: 2026-04-21
+status: ready
+owner: engineering
+origin: 用户观察到 /spec:graph-bootstrap 在文件存在的情况下仍报"SKILL.md 不存在"，根因定位为 command shim 两跳架构的 path resolution 不稳定
+scope: 把 Claude 侧 12 个 workflow 入口从 .claude/commands/spec/*.md + .claude/spec-first/workflows/ 二跳架构，迁移为 .claude/skills/spec-*/SKILL.md native project skill 直调
+---
+
+# Claude Workflow Entry Native Skill Migration Plan
+
+## 1. 问题框定
+
+### 1.1 表现症状
+
+用户在正确执行 `spec-first init --claude` 之后，`.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md` 确实存在，但执行 `/spec:graph-bootstrap` 仍然被提示：
+
+> `.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md 文件不存在，请先执行 spec-first init --claude`
+
+这是伪根因报错——文件存在，但 Claude 报告不存在。
+
+### 1.2 根因
+
+当前 Claude 侧 workflow 入口是两跳架构：
+
+```
+用户执行 /spec:graph-bootstrap
+  → Claude 读 .claude/commands/spec/graph-bootstrap.md   ← 命令存在 ✓
+  → 命令内容是 prose instruction：
+    "read .claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md"
+  → Claude 尝试用相对路径执行 Read 工具
+  → path resolution 失败，报"文件不存在"                 ← 伪根因
+```
+
+命令文件是一个 shim，它对 Claude 发出 prose instruction，要求 Claude 再去读另一个文件。这条链路依赖 Claude 可靠地将 prose 中的相对路径解析为正确的绝对路径，而这一步在实践中不稳定。
+
+对比 native project skill 的加载方式：Claude Code runtime 在用户调用 `/spec-plan` 时，直接从 `.claude/skills/spec-plan/SKILL.md` 加载内容注入 context，不经过 prose instruction，路径解析由 runtime 保证。
+
+### 1.3 两类问题的区分
+
+| 问题类型 | 描述 | 优先级 |
+|---|---|---|
+| **入口执行不可靠**（本计划）| Claude 根本进不去 workflow，slash command 提示找不到 SKILL.md | P0 |
+| bootstrap 产物错误 | 跑进去以后 child fan-out、workspace-registry schema 等产物不对 | P1 |
+
+入口不稳定时，后续所有 bootstrap 修复都无法稳定验证。本计划优先解决入口问题。
+
+---
+
+## 2. 目标
+
+1. **消除两跳**：workflow skills 直接以 native project skill 形式安装，由 Claude Code runtime 确定性加载。
+2. **统一命名**：Claude 侧入口从 `/spec:*`（colon namespace）统一为 `/spec-*`（hyphen，native skill 调用形式）。
+3. **清理遗留**：`clean --claude` 自动清理旧 `.claude/commands/spec/` 和 `.claude/spec-first/workflows/` 目录。
+4. **不破坏 Codex 侧**：Codex adapter 已是 `workflowsRoot === skillsRoot`，本次改动对 Codex 零影响。
+
+---
+
+## 3. 非目标
+
+- 不修改 workflow skill 的内容和行为逻辑
+- 不修改 bootstrap 产物的生成逻辑
+- 不追改 `docs/plans/`、`docs/brainstorms/` 等历史文档中的 `/spec:*` 引用
+- 不改变 Codex 侧任何入口
+
+---
+
+## 4. 改动面
+
+| 类别 | 数量 |
+|---|---|
+| SKILL.md `name` 字段更新 | 11 个 |
+| skills/ 内 `/spec:*` 引用替换 | 135 处 |
+| 源码文件修改 | 7 个 |
+| 命令模板文件删除 | 12 个 |
+| 测试断言更新 | 35+ 处，16 个文件 |
+
+---
+
+## 5. 详细实施步骤
+
+### Step 1：更新 11 个 SKILL.md `name` 字段
+
+最低风险改动，纯 frontmatter 元数据。
+
+| 文件 | 旧 `name` | 新 `name` |
+|---|---|---|
+| `skills/spec-brainstorm/SKILL.md` | `brainstorm-workflow` | `spec-brainstorm` |
+| `skills/spec-ideate/SKILL.md` | `ideate-workflow` | `spec-ideate` |
+| `skills/spec-plan/SKILL.md` | `plan-workflow` | `spec-plan` |
+| `skills/spec-work/SKILL.md` | `work-workflow` | `spec-work` |
+| `skills/spec-debug/SKILL.md` | `debug-workflow` | `spec-debug` |
+| `skills/spec-review/SKILL.md` | `review-workflow` | `spec-review` |
+| `skills/spec-compound/SKILL.md` | `compound-workflow` | `spec-compound` |
+| `skills/spec-sessions/SKILL.md` | `sessions-workflow` | `spec-sessions` |
+| `skills/spec-update/SKILL.md` | `update-workflow` | `spec-update` |
+| `skills/spec-compound-refresh/SKILL.md` | `compound-refresh-workflow` | `spec-compound-refresh` |
+| `skills/spec-work-beta/SKILL.md` | `work-beta-workflow` | `spec-work-beta` |
+
+已正确的（不动）：`spec-graph-bootstrap`、`spec-mcp-setup`、`spec-optimize`、`spec-slack-research`。
+
+另需确认 `skills/setup/SKILL.md` 的 `name` 字段，决定是保留 `/setup` 还是改为 `/spec-setup`。
+
+**验证**：逐个检查 `name:` 字段已更新，无拼写错误。
+
+---
+
+### Step 2：skills/ 内 `/spec:*` 引用全局替换
+
+范围限定为 `skills/` 目录，不改 `docs/` 历史文档。
+
+**替换映射**：
+
+```
+/spec:brainstorm      →  /spec-brainstorm
+/spec:ideate          →  /spec-ideate
+/spec:plan            →  /spec-plan
+/spec:work\b          →  /spec-work
+/spec:work-beta       →  /spec-work-beta
+/spec:debug           →  /spec-debug
+/spec:review          →  /spec-review
+/spec:compound\b      →  /spec-compound
+/spec:sessions        →  /spec-sessions
+/spec:update          →  /spec-update
+/spec:setup           →  /spec-setup
+/spec:mcp-setup       →  /spec-mcp-setup
+/spec:graph-bootstrap →  /spec-graph-bootstrap
+```
+
+**重点文件**（引用最集中）：
+
+- `skills/using-spec-first/SKILL.md`（13 处，治理合同，必须改正确）
+- `skills/lfg/SKILL.md`（pipeline 串联 `/spec:plan` → `/spec:work` → `/spec:review`）
+- `skills/spec-brainstorm/references/`（多处 handoff 引用）
+- `skills/git-worktree/SKILL.md`（引用 `/spec:review`、`/spec:work`）
+- `skills/spec-debug/SKILL.md`（引用 `/spec:brainstorm`、`/spec:compound`）
+
+`using-spec-first` 还有两条治理语义需同步更新：
+
+```markdown
+# 旧
+- Claude workflow entrypoints use `/spec:*`
+- Do **not** write Claude workflow entrypoints as `$spec-*`.
+
+# 新
+- Claude workflow entrypoints use `/spec-*`（native project skill）
+- Do **not** write Claude workflow entrypoints as `$spec-*`.
+```
+
+**验证**：`grep -r "/spec:" skills/` 输出为空。
+
+---
+
+### Step 3：`plugin.json` 移除 `commands` 数组
+
+```json
+// 修改前
+{
+  "directories": {
+    "commands": "templates/claude/commands/spec",
+    "skills": "skills",
+    "agents": "agents"
+  },
+  "commands": [ ...12 条... ]
+}
+
+// 修改后
+{
+  "directories": {
+    "skills": "skills",
+    "agents": "agents"
+  }
+}
+```
+
+**验证**：`node -e "require('./.claude-plugin/plugin.json')"` 无报错；`commands` 字段不再存在。
+
+---
+
+### Step 4：`src/cli/plugin.js` 移除 command 基础设施
+
+**删除函数**（约 80 行）：
+- `syncCommands()`
+- `planCommandsSync()`
+- `listBundledCommands()`
+- `inspectCommands()`
+
+**修改 `buildFilteredAssetSet()`**：
+- 移除 `commands` 字段
+- `workflowSkills` 路由目标从 `workflowsRoot` 改为 `skillsRoot`
+
+**修改 `planBundledAssetSync()` / `syncBundledAssets()`**：
+- 移除 `adapter.hasCommands ? planCommandsSync() : []` 分支
+- 返回结构中移除 `commands` 字段
+- 返回结构中移除 `workflowSkills` 字段（合并进 `skills`）
+
+**修改 `planSkillsSync()` / `syncSkills()`**：
+- `workflowSkills` 不再写入 `workflowsRoot`，直接并入 `skillsRoot` 的 skill 安装列表
+
+**验证**：`grep -n "commandRoot\|syncCommands\|planCommandsSync\|listBundledCommands" src/cli/plugin.js` 无输出。
+
+---
+
+### Step 5：`src/cli/adapters/claude.js`
+
+```js
+// 删除
+get commandRoot() { return '.claude/commands/spec'; }
+get workflowsRoot() { return '.claude/spec-first/workflows'; }
+```
+
+`inspectRuntimeFiles()` 中：
+- 删除 `workflowFiles` 读取逻辑
+- 删除 `workflowFiles` 并入 `skillFiles` 的合并
+- canonical name 检查和 Task agent 引用检查只扫 `skillsRoot`
+
+**验证**：`grep -n "commandRoot\|workflowsRoot\|workflowFiles" src/cli/adapters/claude.js` 无输出。
+
+---
+
+### Step 6：`src/cli/adapters/base.js`
+
+```js
+// 删除
+get commandRoot() { throw new Error('Not implemented: commandRoot'); }
+get hasCommands() { ... }
+get workflowsRoot() { throw new Error('Not implemented: workflowsRoot'); }
+```
+
+**验证**：`grep -n "commandRoot\|hasCommands\|workflowsRoot" src/cli/adapters/base.js` 无输出。
+
+---
+
+### Step 7：`src/cli/adapters/codex.js`
+
+Codex adapter 已有 `workflowsRoot === skillsRoot`，改动量极小：
+- 删除 `commandRoot` 实现（Codex 无 command 层）
+- 删除 `hasCommands`（Codex 本来就返回 false）
+- 确认 `workflowsRoot` 引用已清理
+
+**验证**：smoke test Codex 侧资产安装路径不变。
+
+---
+
+### Step 8：`src/cli/commands/init.js`
+
+- 删除 `commandDir` 变量及所有使用点
+- 删除 `filteredAssetSet.commands` 相关逻辑
+- 删除 `planCommandNamespacePrune()` 调用
+- 删除 dry-run preview 中 commands 部分的输出
+- 删除 managed state 写入中的 `commands` 字段
+- 更新 restart 提示中的命令名：`/spec:*` → `/spec-*`
+
+**验证**：`node bin/spec-first.js init --claude --dry-run` 输出无 commands 相关行；state.json 无 `commands` 字段。
+
+---
+
+### Step 9：`src/cli/commands/doctor.js`
+
+- 删除 `inspectCommands()` 调用及其报告输出
+- 删除 `commands` missing/extra 的检查逻辑
+- canonical name 检查（`workflowFiles`）改为只扫 `skillsRoot`
+
+**验证**：`node bin/spec-first.js doctor --json` 无 commands 相关字段输出。
+
+---
+
+### Step 10：`src/cli/state.js`
+
+**managed state schema 变更**：
+
+```js
+// validateManagedStateShape() 中移除 commands 字段断言
+
+// readManagedState() 中：
+// 读取旧 state 时如果存在 commands 字段，静默忽略（向后兼容，不报错）
+
+// writeManagedState() 中：不再写入 commands 字段
+```
+
+**验证**：旧 state.json（含 `commands` 字段）被读取时无报错；新写入的 state.json 无 `commands` 字段。
+
+---
+
+### Step 11：`src/cli/commands/clean.js` 新增遗留清理
+
+clean 执行时追加对旧安装的清理：
+
+1. 删除 `.claude/commands/spec/`（旧 command 模板目录）
+2. 删除 `.claude/spec-first/workflows/`（旧 workflow 副本目录）
+3. state.json 中移除 `commands` 字段（如存在）
+
+dry-run 模式下应在 preview 中显示这三个操作。
+
+**验证**：`node bin/spec-first.js clean --claude --dry-run` 输出包含上述三项删除预览。
+
+---
+
+### Step 12：删除 12 个命令模板文件
+
+```
+templates/claude/commands/spec/brainstorm.md
+templates/claude/commands/spec/compound.md
+templates/claude/commands/spec/debug.md
+templates/claude/commands/spec/graph-bootstrap.md
+templates/claude/commands/spec/ideate.md
+templates/claude/commands/spec/mcp-setup.md
+templates/claude/commands/spec/plan.md
+templates/claude/commands/spec/review.md
+templates/claude/commands/spec/sessions.md
+templates/claude/commands/spec/setup.md
+templates/claude/commands/spec/update.md
+templates/claude/commands/spec/work.md
+```
+
+随之删除整个 `templates/claude/commands/` 目录。
+
+**验证**：`ls templates/claude/commands/` 报错（目录不存在）。
+
+---
+
+### Step 13：更新测试
+
+| 测试文件 | 改动性质 |
+|---|---|
+| `tests/unit/init-dry-run.test.js` | 移除 commands 在 dry-run preview 中的断言 |
+| `tests/unit/managed-state-contracts.test.js` | 移除 `commands` 字段 schema 断言 |
+| `tests/unit/runtime-asset-integrity.test.js` | 移除 commands 目录存在性断言 |
+| `tests/unit/runtime-plan-contracts.test.js` | 移除 commandPlan 相关断言 |
+| `tests/unit/clean-dry-run.test.js` | 新增对遗留 commands/workflows dir 清理的断言 |
+| `tests/unit/skills-governance-contracts.test.js` | 更新命令名 `/spec:*` → `/spec-*` |
+| `tests/unit/using-spec-first-runtime-contracts.test.js` | 更新所有命令名引用 |
+| `tests/unit/dual-host-governance-contracts.test.js` | 同上 |
+| `tests/unit/spec-sessions-contracts.test.js` | 更新命令名引用 |
+| `tests/unit/spec-debug-contracts.test.js` | 更新命令名引用 |
+| `tests/unit/spec-update-contracts.test.js` | 更新命令名引用 |
+| `tests/unit/agent-support-contracts.test.js` | 按需更新 |
+| `tests/unit/setup.sh` | 移除 commands 目录验证 |
+| `tests/unit/mcp-setup.sh` | 更新命令名引用 |
+| `tests/smoke/cli.sh` | 移除 commands 目录生成验证，改为 skills 目录验证 |
+| `tests/smoke/release-dual-host-governance.sh` | 更新命令名引用 |
+
+**新增测试**：
+- `tests/unit/native-skill-entry-contracts.test.js`：验证 11 个 SKILL.md `name` 字段符合 `spec-*` 格式；验证 `skills/` 内无残留 `/spec:*` 引用；验证 plugin.json 无 `commands` 字段。
+
+---
+
+### Step 14：更新 CLAUDE.md
+
+```markdown
+# 旧
+- Claude workflow 入口使用 `/spec:*`
+
+# 新
+- Claude workflow 入口使用 `/spec-*`（native project skill 直调）
+- `.claude/commands/spec/` 已废弃，`spec-first clean --claude` 可清理旧残留
+```
+
+---
+
+## 6. 执行顺序
+
+```
+Step 1  SKILL.md name 字段     ← 可单独验证，最安全
+Step 2  skills/ 引用替换        ← 依赖 Step 1 完成
+Step 3  plugin.json            ← 独立
+Step 4  plugin.js              ← 依赖 Step 3
+Step 5  claude.js adapter
+Step 6  base.js adapter
+Step 7  codex.js adapter
+Step 8  init.js                ← 依赖 Step 4-6
+Step 9  doctor.js              ← 依赖 Step 5
+Step 10 state.js               ← 独立
+Step 11 clean.js               ← 依赖 Step 8-10
+Step 12 删除模板文件             ← 依赖 Step 3-4
+Step 13 测试更新               ← 依赖 Step 1-12 全部
+Step 14 CLAUDE.md              ← 最后
+```
+
+Step 1-2 可先合入验证行为，其余建议单 PR 一次性完成。
+
+---
+
+## 7. 破坏性变更
+
+| 变更 | 影响 | 缓解 |
+|---|---|---|
+| 调用名 `/spec:plan` → `/spec-plan` | 所有已使用命令的用户 | release notes 明确列出，CLAUDE.md 同步更新 |
+| state.json 移除 `commands` 字段 | 旧安装静默兼容 | readManagedState 忽略旧字段，不报错 |
+| `.claude/commands/spec/` 消失 | 旧安装在 clean 后清理 | clean 的 dry-run 预览会提前告知用户 |
+| `.claude/spec-first/workflows/` 消失 | 同上 | 同上 |
+
+---
+
+## 8. 验收标准
+
+1. 在全新项目执行 `spec-first init --claude`，然后执行 `/spec-graph-bootstrap`，workflow 成功进入，不报"SKILL.md 不存在"。
+2. `ls .claude/commands/` 目录不存在（或不含 `spec/` 子目录）。
+3. `ls .claude/spec-first/workflows/` 目录不存在。
+4. `ls .claude/skills/` 包含全部 15 个 `spec-*` skill 目录。
+5. `grep -r "/spec:" .claude/skills/` 无输出。
+6. `npm test` 全部通过。
+7. 旧安装（含 `commands` 字段的 state.json）执行 `spec-first doctor` 不报错，执行 `spec-first clean --claude` 正常清理遗留目录。
+
+---
+
+## 9. 版本影响
+
+建议 minor bump：`1.5.x → 1.6.0`，在 changelog 中明确标注调用名变更为 breaking change。

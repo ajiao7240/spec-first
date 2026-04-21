@@ -167,8 +167,18 @@ const DDL_STATEMENTS = [
  * @returns {import('better-sqlite3').Database} better-sqlite3 db 实例
  */
 function initDatabase(dbPath) {
-  // 延迟 require，运行时才加载原生模块
-  const Database = require('better-sqlite3');
+  let Database;
+  try {
+    Database = require('better-sqlite3');
+  } catch (err) {
+    if (err.code === 'MODULE_NOT_FOUND') {
+      process.stderr.write(
+        'error: CRG native module (better-sqlite3) not installed. Run: npm install\n'
+      );
+      process.exit(2);
+    }
+    throw err;
+  }
 
   const db = new Database(dbPath);
 

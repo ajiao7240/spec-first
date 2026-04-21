@@ -1,6 +1,12 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.7 2026-04-21 矿工: chore(release): 发布 `spec-first@1.5.7` 到 npm registry，收口 compat/bootstrap/doctor/init 修复与文档归档 (user-visible)
+- v1.5.7 2026-04-21 矿工: fix(compat): postinstall 补三阶段修复链（probe→prebuild+SSL-bypass→node-gyp→hint），Windows 企业代理场景自动修复 better-sqlite3；better-sqlite3 移至 optionalDependencies 避免全局安装整体失败；补 migrations.js initDatabase MODULE_NOT_FOUND 优雅降级 (user-visible)
+- v1.5.7 2026-04-21 09:47:57 Codex: fix(spec-graph-bootstrap-runtime): 修复 `spec-graph-bootstrap` skill 顶部 `repo-registry.yaml` 残留，并收紧 Codex runtime skill transform，避免 `pack + init` 后重新生成 `--codex # Claude 运行时` 的错误文案 (user-visible)
+- v1.5.7 2026-04-21 10:30:00 Codex: fix(bootstrap-contract): 修复 `doctor --json` 未诊断 workspace child slug bootstrap drift，以及 `init --dry-run` 在 destructive path 下漏报 `prune_command` 的问题，收口预览与实际执行一致性 (user-visible)
+- v1.5.7 2026-04-20 矿工: fix(spec-graph-bootstrap): 补入 workspace_multi_repo fan-out 执行节（0.8/W.1/W.2/W.3），修复 workspace 场景下 child repo 独立产物缺失、workspace-registry.json schema 漂移（repos[]→children[]、workspace_slug→workspaceSlug）及 workspace-routing.json 缺少 childMatchSignalPriority 导致路由失效的三个 bug；同步更新最终产物树；source + 两个 runtime 副本同步 (user-visible)
+- v1.5.7 2026-04-20 矿工: docs(solutions): compound 归档 npm 镜像源导致 release 失败的环境变量覆盖方案
 - v1.5.6 2026-04-20 矿工: chore(release): 发布 `spec-first@1.5.6` 到 npm registry，收口 bootstrap-contract 修复与知识归档 (user-visible)
 - v1.5.5 2026-04-20 11:35:00 Codex: test(asset-consistency): 移除 `.claude-plugin/plugin.json` 与 `package.json` 版本强绑定校验，避免自动打包升版导致单测不稳定
 - v1.5.5 2026-04-20 11:10:00 矿工: docs(solutions): compound 归档 standalone skill name 规范（spec:* 格式 + rewriteSkillName 机制）

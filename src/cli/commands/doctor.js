@@ -437,12 +437,17 @@ function checkCrgNativeModules() {
   };
 }
 
-function checkBootstrapContract(projectRoot) {
-  const slug = detectSlug(projectRoot);
-  const { contextDir, controlPlaneDir } = resolveBootstrapRuntimePaths({ repoRoot: projectRoot, slug });
+function buildBootstrapContractCheck({ slug, contextDir, controlPlaneDir, expected = false } = {}) {
   const bootstrapExists = fs.existsSync(contextDir) || fs.existsSync(controlPlaneDir);
   if (!bootstrapExists) {
-    return null;
+    return expected
+      ? {
+        level: 'WARNING',
+        name: `bootstrap contract (${slug})`,
+        message: 'registered workspace child bootstrap directories are missing',
+        fix: '重新运行 spec-graph-bootstrap 以删除旧产物并重建当前 contract。',
+      }
+      : null;
   }
 
   const manifestPath = path.join(controlPlaneDir, 'artifact-manifest.json');
@@ -475,21 +480,79 @@ function checkBootstrapContract(projectRoot) {
   }
 
   return {
-    level: 'PASS',
-    name: `bootstrap contract (${slug})`,
-    message: `${contract.kind} bootstrap contract is current`,
-  };
+      level: 'PASS',
+      name: `bootstrap contract (${slug})`,
+      message: `${contract.kind} bootstrap contract is current`,
+    };
 }
 
-function buildDoctorReport({ projectRoot, platforms }) {
-  const commonChecks = [
+function checkBootstrapContracts(projectRoot) {
+  const slug = detectSlug(projectRoot);
+  const { contextDir, controlPlaneDir } = resolveBootstrapRuntimePaths({ repoRoot: projectRoot, slug });
+  const rootCheck = buildBootstrapContractCheck({ slug, contextDir, controlPlaneDir });
+  if (!rootCheck) {
+    return [];
+  }
+
+  const checks = [rootCheck];
+  const manifest = safeReadJson(path.join(controlPlaneDir, 'artifact-manifest.json'));
+  const contract = inspectBootstrapContract({ manifest, controlPlaneDir });
+  if (contract.kind !== 'workspace-root') {
+    return checks;
+  }
+
+  const registry = safeReadJson(path.join(controlPlaneDir, 'workspace-registry.json'));
+  if (!registry || !Array.isArray(registry.children)) {
+    return checks;
+  }
+
+  for (const child of registry.children) {
+    if (!child || typeof child.childSlug !== 'string' || child.childSlug.length === 0) continue;
+    const childPaths = resolveBootstrapRuntimePaths({
+      repoRoot: projectRoot,
+      slug: child.childSlug,
+    });
+    const childCheck = buildBootstrapContractCheck({
+      slug: child.childSlug,
+      contextDir: childPaths.contextDir,
+      controlPlaneDir: childPaths.controlPlaneDir,
+      expected: true,
+    });
+    if (childCheck) {
+      checks.push(childCheck);
+    }
+  }
+
+  return checks;
+}
+
+function checkBootstrapContract(projectRoot) {
+  const checks = checkBootstrapContracts(projectRoot);
+  return checks.length > 0 ? checks[0] : null;
+}
+
+function checkWorkspaceBootstrapChildContracts(projectRoot) {
+  const checks = checkBootstrapContracts(projectRoot);
+  if (checks.length <= 1) {
+    return [];
+  }
+  return checks.slice(1);
+}
+
+function buildDoctorCommonChecks(projectRoot) {
+  return [
     checkNodeVersion(),
     checkGit(),
     checkPluginManifest(),
     checkCrgNativeModules(),
     checkBootstrapContract(projectRoot),
+    ...checkWorkspaceBootstrapChildContracts(projectRoot),
     checkProjectDeveloperProfileConsistency(projectRoot),
   ].filter(Boolean);
+}
+
+function buildDoctorReport({ projectRoot, platforms }) {
+  const commonChecks = buildDoctorCommonChecks(projectRoot);
   const platformChecksByPlatform = {};
   const runtimeChecksByPlatform = {};
   const hostChecksByPlatform = {};

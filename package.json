@@ -66,8 +66,10 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "optionalDependencies": {
+    "better-sqlite3": "~12.6.0"
+  },
   "dependencies": {
-    "better-sqlite3": "~12.6.0",
     "ignore": "^5.0.0",
     "simple-git": "~3.0.0",
     "tree-sitter": "~0.21.0",

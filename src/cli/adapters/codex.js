@@ -157,7 +157,23 @@ function rewriteSharedPaths(content) {
     .replace(/\.codex\/skills\//g, '.agents/skills/')
     .replace(/\.claude\/agents\//g, '.codex/agents/')
     .replace(/\.codex\/agents\//g, '.codex/agents/')
-    .replace(/--claude\b/g, '--codex');
+    .replace(/--claude\b/g, '--codex')
+    .replace(
+      /(spec-first\s+(?:init|clean)\s+--codex\s+#\s*)Claude 运行时/g,
+      '$1Codex 运行时',
+    )
+    .replace(
+      /(spec-first\s+(?:init|clean)\s+--codex\s+#\s*)Claude runtime/gi,
+      '$1Codex runtime',
+    )
+    .replace(
+      /^(spec-first\s+(?:init|clean)\s+--codex\s+#\s*Codex 运行时)\n(?:spec-first\s+(?:init|clean)\s+--codex\s+#\s*Codex 运行时)$/gm,
+      '$1',
+    )
+    .replace(
+      /^(spec-first\s+(?:init|clean)\s+--codex\s+#\s*Codex runtime)\n(?:spec-first\s+(?:init|clean)\s+--codex\s+#\s*Codex runtime)$/gm,
+      '$1',
+    );
 }
 
 function transformCodexContent(content) {

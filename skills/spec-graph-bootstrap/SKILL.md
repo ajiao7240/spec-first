@@ -43,7 +43,7 @@ docs/contracts/spec-graph-bootstrap/
 
 - `.spec-first/workflows/bootstrap/<slug>/workspace-registry.json` 与 `workspace-routing.json` 是 workspace machine-first 真源
 - `workspace-readiness-summary.json` 只暴露 advisory-only readiness snapshot，不参与 routing / gate 真源判定
-- `docs/contexts/<workspaceSlug>/workspace/repo-registry.yaml` 若存在，也只能是 human-facing 镜像，不得反向成为 runtime 真源
+- `docs/contexts/<workspaceSlug>/workspace/repo-registry.md` 若存在，也只能是 human-facing 镜像，不得反向成为 runtime 真源
 
 ## 缺失运行时时的处理
 
@@ -210,6 +210,114 @@ Serena:   ready=yes/no
 - 不允许静默覆盖旧上下文
 - 不允许在 backup 校验失败后继续渲染文档
 - backup 只保护 `docs/contexts/<slug>/`；控制面 `.spec-first/workflows/bootstrap/<slug>/` 按本次运行结果覆盖
+
+---
+
+### 0.8 Workspace 拓扑分支（workspace_multi_repo 时必须执行）
+
+当 Phase 0 探测到 `topology = workspace_multi_repo` 时，**不进入 Phase 1 主链**。按以下流程执行 workspace fan-out，完成后终止本次运行（Phase 1–4 的说明适用于 W.1 内每个 child repo 的独立执行）。
+
+#### W.1 Child Repo Fan-out
+
+对 Phase 0 发现的每个 child repo，**依次执行完整的 Phase 1–4**，参数如下：
+
+- `slug` = child repo 目录名（`basename(childRepoPath)`）；与已用 slug 碰撞或与 workspaceSlug 同名时，追加路径的 4 字符 hex 后缀
+- `repoRoot` = child repo 的绝对路径
+- `artifactAnchorRoot` = workspaceRoot（产物锚定到 workspace 根目录，不写回 child repo 自身目录）
+- control-plane 写入路径：`<workspaceRoot>/.spec-first/workflows/bootstrap/<childSlug>/`
+- docs 写入路径：`<workspaceRoot>/docs/contexts/<childSlug>/`
+
+每个 child 各自完成 Phase 1–4（含独立的 `fact-inventory.json` / `risk-signals.json` / `test-surface.json` / `context-routing.json` / `freshness.json` / `verification-profile.json` / `minimal-context/*.json` 以及完整的 docs 文档集合）。单个 child 失败时，记录 `generation_errors` 并继续处理其余 child。
+
+#### W.2 Workspace Control-plane 写入
+
+所有 child 完成后，写入 workspace 根级 control-plane：`<workspaceRoot>/.spec-first/workflows/bootstrap/<workspaceSlug>/`
+
+**workspace-registry.json**（`entry-resolver.js` 的 `validateWorkspaceRegistry` 消费此文件，字段名必须与 JS runtime schema 一致）：
+
+```json
+{
+  "schema_version": "v1",
+  "generated_at": "<ISO 时间戳>",
+  "workspaceSlug": "<workspaceSlug>",
+  "workspaceRoot": "<workspaceRoot 绝对路径>",
+  "mode": "workspace",
+  "children": [
+    {
+      "childSlug": "<childSlug>",
+      "repoRoot": "<child repo 绝对路径>",
+      "relativePath": "<相对 workspaceRoot 的路径>",
+      "headCommit": "<git HEAD commit hash 或 null>",
+      "topology_kind": "single_repo",
+      "build_system": "<maven|gradle|npm|unknown>",
+      "module_count": 0,
+      "languageHints": [],
+      "status": "ready"
+    }
+  ]
+}
+```
+
+**字段约束**（违反任一则 workspace 路由失效）：
+- `workspaceSlug`：camelCase，不得写 `workspace_slug`
+- 顶层数组字段名：`children`，不得写 `repos`
+- 每个 child 必须有 `childSlug` 和 `repoRoot`，`entry-resolver.js` 依赖这两个字段进行 child 路由
+
+**workspace-routing.json**（`validateWorkspaceRouting` 检查 `workspaceOverviewAssets` 与 `childMatchSignalPriority` 字段均为数组，缺失则路由失效）：
+
+```json
+{
+  "schema_version": "v1",
+  "generated_at": "<ISO 时间戳>",
+  "workspaceSlug": "<workspaceSlug>",
+  "defaultSelectionMode": "child-first",
+  "childMatchSignalPriority": ["repoRoots", "targetPath", "cwd", "changedFiles", "default"],
+  "fallback": { "whenNoChildMatched": "workspace-overview-only" },
+  "workspaceOverviewAssets": ["workspace/routing-overview.md", "00-summary.md"]
+}
+```
+
+**artifact-manifest.json**（workspace slug 级，`status: complete`）：
+
+```json
+{
+  "schema_version": "v1",
+  "generated_at": "<ISO 时间戳>",
+  "updated_at": "<ISO 时间戳>",
+  "status": "complete",
+  "outputs": {
+    "workspace-registry.json": { "depends_on": ["workspace:child-repo-scan"] },
+    "workspace-routing.json": { "depends_on": ["workspace:child-repo-scan"] },
+    "workspace-readiness-summary.json": { "depends_on": [] }
+  }
+}
+```
+
+**workspace-readiness-summary.json**（advisory-only，不参与 routing/gate 判定）：
+
+```json
+{
+  "schema_version": "v1",
+  "generated_at": "<ISO 时间戳>",
+  "host": "<claude|codex>",
+  "topology": "workspace_multi_repo",
+  "serena_ready": true,
+  "crg_cli_available": true,
+  "crg_native_modules": "<present|missing>",
+  "graph_db_present": false,
+  "analyzer_mode": "<full|enhanced|basic>",
+  "advisory_notes": []
+}
+```
+
+#### W.3 Workspace Docs 写入
+
+写入 `<workspaceRoot>/docs/contexts/<workspaceSlug>/`：
+
+- `00-summary.md`：workspace 概览，列出所有 child repo 名称与角色
+- `README.md`：标注 `source_of_truth: control-plane artifacts under .spec-first/workflows/bootstrap/<workspaceSlug>/`
+- `workspace/routing-overview.md`：每行 `- <childSlug>: <relativePath>`
+- `workspace/repo-registry.md`（**必须是 `.md`，不得写成 `.yaml`**）：每行 `- <childSlug>: <repoRoot 绝对路径>`
 
 ---
 
@@ -421,13 +529,22 @@ severity: 无上限       confidence: medium ──→  Basic (Built-in)
 
 ## 最终产物树
 
+### 单仓 / monorepo_multi_module
+
 ```
 .spec-first/workflows/bootstrap/<slug>/
   fact-inventory.json      ← 控制面（所有 Worker 输入源）
   risk-signals.json
   test-surface.json
   database-routing.json    ← runtime-only route / fallback / provenance 真源
+  context-routing.json     ← evaluateContextForRepo 消费真源
   artifact-manifest.json   ← 两段写入（in_progress → complete）
+  freshness.json
+  verification-profile.json
+  minimal-context/
+    plan.json
+    work.json
+    review.json
 
 docs/contexts/<slug>/
   README.md
@@ -444,5 +561,47 @@ docs/contexts/<slug>/
     database-er.md                ← 仅小型（≤30 表，Tier 1A）
     domains/<name>-domain.md × N  ← 中大型（>30 表，Tier 1B）
     semantic-catalog.md           ← 仅大型（>100 表，Tier 3）
+  injection-index.yaml
+```
+
+### workspace_multi_repo
+
+```
+.spec-first/workflows/bootstrap/<workspaceSlug>/   ← workspace 根级（W.2）
+  workspace-registry.json    ← children[] / workspaceSlug（camelCase）
+  workspace-routing.json     ← childMatchSignalPriority + workspaceOverviewAssets
+  artifact-manifest.json
+  workspace-readiness-summary.json
+
+.spec-first/workflows/bootstrap/<childSlug>/       ← 每个 child repo 一套（W.1）
+  fact-inventory.json
+  risk-signals.json
+  test-surface.json
+  database-routing.json
+  context-routing.json
+  artifact-manifest.json
+  freshness.json
+  verification-profile.json
+  minimal-context/
+    plan.json
+    work.json
+    review.json
+
+docs/contexts/<workspaceSlug>/                     ← workspace overview（W.3）
+  README.md
+  00-summary.md
+  workspace/
+    routing-overview.md
+    repo-registry.md                               ← 必须 .md，不得 .yaml
+
+docs/contexts/<childSlug>/                         ← 每个 child repo 一套（W.1）
+  README.md
+  00-summary.md
+  architecture/module-map.md
+  pitfalls/index.md
+  code-facts/public-entrypoints.md
+  code-facts/test-map.md
+  code-facts/high-risk-modules.md
+  context-packs/review-change.md
   injection-index.yaml
 ```

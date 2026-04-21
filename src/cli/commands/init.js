@@ -164,6 +164,10 @@ function runInit(argv) {
 
     if (parsed.dryRun) {
       const hardResetPlan = planHardResetManagedAssets(projectRoot, legacyResetState, adapter);
+      const postResetPreSyncPlan = mergeOperationPlans(
+        planObsoleteManagedAssetRemoval(projectRoot, null, previewState, adapter),
+        planCommandNamespacePrune(projectRoot, previewState.commands, adapter),
+      );
       const initWritePlan = buildInitWritePlan({
         projectRoot,
         adapter,
@@ -175,7 +179,7 @@ function runInit(argv) {
       });
       printInitDryRun({
         platform,
-        plan: mergeOperationPlans(hardResetPlan, initWritePlan),
+        plan: mergeOperationPlans(hardResetPlan, postResetPreSyncPlan, initWritePlan),
         legacyStateDetected,
       });
       return 0;
@@ -192,6 +196,10 @@ function runInit(argv) {
 
       if (parsed.dryRun) {
         const hardResetPlan = planHardResetManagedAssets(projectRoot, previousState, adapter);
+        const postResetPreSyncPlan = mergeOperationPlans(
+          planObsoleteManagedAssetRemoval(projectRoot, null, previewState, adapter),
+          planCommandNamespacePrune(projectRoot, previewState.commands, adapter),
+        );
         const initWritePlan = buildInitWritePlan({
           projectRoot,
           adapter,
@@ -203,7 +211,7 @@ function runInit(argv) {
         });
         printInitDryRun({
           platform,
-          plan: mergeOperationPlans(hardResetPlan, initWritePlan),
+          plan: mergeOperationPlans(hardResetPlan, postResetPreSyncPlan, initWritePlan),
           destructiveResetReason: 'current_runtime_drift',
         });
         return 0;

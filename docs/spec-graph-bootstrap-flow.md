@@ -1,516 +1,547 @@
-# spec-graph-bootstrap 执行逻辑流程图
+# spec-graph-bootstrap 当前执行主链
 
-> 生成时间: 2026-04-12
-> 源文件: `.claude/skills/spec-graph-bootstrap/SKILL.md`
-
----
-
-## 总体流程
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    /spec:graph-bootstrap [target]                    │
-└──────────────────────────┬──────────────────────────────────────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │   Phase 0: 就绪探测   │
-                │   与模式判定          │
-                └──────────┬──────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │   Phase 1: 事实抽取   │
-                │   (CRG CLI 路径)     │
-                └──────────┬──────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │   Phase 2: 任务规划   │
-                │   (PRD task contracts)│
-                └──────────┬──────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │   Phase 3: 文档生成   │
-                │   (事实 → 摘要)      │
-                └──────────┬──────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │   Phase 4: 路由生成   │
-                │   (injection-index)  │
-                └─────────────────────┘
-```
+> 校准时间: 2026-04-20
+> 当前代码依据:
+> - `skills/spec-graph-bootstrap/SKILL.md`
+> - `src/bootstrap-compiler/run-bootstrap.js`
+> - `src/bootstrap-compiler/orchestrator.js`
+> - `src/bootstrap-compiler/compile-machine-artifacts.js`
+> - `src/bootstrap-compiler/compile-human-assets.js`
+> - `src/bootstrap-compiler/compile-routing.js`
+> - `src/bootstrap-compiler/workspace-registry.js`
+> - `src/context-routing/evaluator.js`
+> - `src/context-routing/loader.js`
+> - `src/context-routing/telemetry.js`
+> - `tests/e2e/spec-graph-bootstrap-mainline.sh`
+> - `tests/unit/spec-graph-bootstrap-contracts.test.js`
 
 ---
 
-## Phase 0 详细流程
+## 校准说明
 
+这份文档描述的是**当前仓库头状态下已经落地的 JS 编译器主链**，不是早期 prompt 契约里的理想化流程图。
+
+几个重要口径先明确：
+
+- 当前单仓主入口是 `runBootstrap()`，workspace 主入口是 `runWorkspaceBootstrap()`
+- 当前编译主链是 `compileBootstrapArtifacts()`，内部固定顺序为：
+  `machine-artifacts -> human-assets -> routing`
+- 当前事实提取主来源是 `deriveBootstrapInputs()` 的**文件系统 / package.json / topology 推断**
+- 当前消费侧降级逻辑发生在 `evaluateContextForRepo()`，等级为 `L0-L3`
+- 旧文档里的 `Full / Enhanced / Basic`、MCP 就绪探测、CRG stats / build 交互、stale 对比 `fingerprints vs stats`，**不是当前 JS runtime 主链的真实执行路径**
+
+---
+
+## 入口与输出路径
+
+宿主入口：
+
+- Claude: `/spec:graph-bootstrap [target-repo-path]`
+- Codex: `$spec-graph-bootstrap [target-repo-path]`
+
+当前单仓 slug 规则：
+
+- `detectSlug(repoRoot)` 直接返回 `path.basename(repoRoot)`
+- 也就是说，**当前 JS runtime 没有在这里做额外 sanitize**
+
+当前默认产物路径：
+
+```text
+<repoRoot>/.spec-first/workflows/bootstrap/<slug>/
+<repoRoot>/docs/contexts/<slug>/
 ```
-┌──────────────────────────────────────────────────────────────┐
-│ 0.1 Slug 生成（最先执行）                                      │
-│     slug = basename(resolve(target))                          │
-│     产物路径: .spec-first/workflows/bootstrap/<slug>/          │
-│               docs/contexts/<slug>/                           │
-└────────────┬─────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 0.2 MCP 就绪探测                                              │
-│     Step 0: 宿主选择 (Claude / Codex)                         │
-│     Step 1: mcp-setup marker 检测                             │
-│     Step 2: Serena MCP probe → serena.ready = true/false      │
-└────────────┬─────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 0.3 CRG 图状态检测                                            │
-│                                                               │
-│  ┌─ DB 不存在 (<target>/.spec-first/graph/graph.db)           │
-│  │   → crg.indexed = false ──────────────────┐               │
-│  │                                            │               │
-│  ├─ DB 存在 → spec-first crg stats            │               │
-│  │   ├─ 非零退出 / degraded=true              │               │
-│  │   │   → crg.indexed = false ──────────────┤               │
-│  │   ├─ node_count=0 且 edge_count=0          │               │
-│  │   │   → crg.indexed = false ──────────────┤               │
-│  │   └─ node_count > 0                        │               │
-│  │       → crg.indexed = true ──── 3c stale ─┤               │
-│  │                                            │               │
-│  └────────────────────────────────────────────┘               │
-│                     │                                         │
-│                     ▼  [crg.indexed=false]                    │
-│             ┌───────────────┐                                  │
-│             │ 提示用户构建？  │                                  │
-│             └───┬───────┬───┘                                  │
-│              是 │       │ 否                                   │
-│                 ▼       ▼                                      │
-│         crg build   crg.indexed=false                          │
-│         ┌──┴──┐      降级到 Enhanced/Basic                     │
-│        成功  失败/超时                                          │
-│         │     │                                                │
-│         │     └→ crg.indexed=false, 降级, 写 generation_errors │
-│         ▼                                                      │
-│   crg.indexed=true                                             │
-│         │                                                      │
-│         ▼                                                      │
-│   3c. Stale 检测 (fingerprints vs stats data.last_built)       │
-│       → 不一致: ⚠️ stale 警告（不阻断）                         │
-└────────────┬───────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 0.4 分析模式判定                                               │
-│                                                               │
-│   crg.indexed=true  → mode=Full,     confidence=high          │
-│   serena.ready=true → mode=Enhanced, confidence=medium         │
-│   else               → mode=Basic,    confidence=low           │
-│                                                               │
-│   ┌──────────┐    失败     ┌───────────┐   失败   ┌─────────┐ │
-│   │  Full    │───────────→│ Enhanced  │─────────→│  Basic  │  │
-│   │ confidence: high      │ confidence: medium   │confidence│ │
-│   │ severity: 无上限       │ severity: medium上限  │  : low  │  │
-│   └──────────┘            └───────────┘          │sev: med  │  │
-│                                                   └─────────┘  │
-└────────────┬───────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 0.5 探测输出                                                  │
-│     CRG: indexed=yes/no, nodes=N, edges=M                     │
-│     Serena: ready=yes/no                                      │
-│     分析模式: Full/Enhanced/Basic                              │
-└────────────┬─────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 0.6 写入 artifact-manifest.json（第一次写入, status=in_progress）│
-│     路径: .spec-first/workflows/bootstrap/<slug>/             │
-└────────────┬─────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 0.7 Rerun Backup 准备                                         │
-│     docs/contexts/<slug>/ 已存在？                             │
-│     ├─ 是 → 备份到 backup_<ISO-timestamp>/                    │
-│     │        校验备份（文件数一致）                              │
-│     │        失败 → 停止，报告错误                              │
-│     └─ 否 → 跳过 backup                                       │
-└──────────────────────────────────────────────────────────────┘
+
+workspace 模式下，所有 child repo 的产物都锚定在 `workspaceRoot` 下，而不是各 child repo 自己目录里：
+
+```text
+<workspaceRoot>/.spec-first/workflows/bootstrap/<childSlug>/
+<workspaceRoot>/docs/contexts/<childSlug>/
+<workspaceRoot>/.spec-first/workflows/bootstrap/<workspaceSlug>/
+<workspaceRoot>/docs/contexts/<workspaceSlug>/
 ```
 
 ---
 
-## Phase 1 详细流程（Full 模式 CRG CLI 路径）
+## 总体执行流
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│ 1.0 前置触发                                                  │
-│     spec-first crg context --repo=<target>                    │
-│     → data.top_flows, top_communities, top_hubs               │
-│     → 确定后续 Stage 优先级                                    │
-└────────────┬─────────────────────────────────────────────────┘
-             │
-             ▼
-╔══════════════════════════════════════════════════════════════╗
-║  1.1 Stage A（全部并行）                                      ║
-║                                                              ║
-║  ┌──────────────────┐  ┌──────────────────┐                  ║
-║  │ 4.2 Project       │  │ 4.9 Layer        │                  ║
-║  │ Identity          │  │ Detection        │                  ║
-║  │ crg stats         │  │ crg search ×N    │                  ║
-║  │ + Read(pkg.json)  │  │ (框架特征 API)    │                  ║
-║  └────────┬─────────┘  └────────┬─────────┘                  ║
-║           │                     │                             ║
-║  ┌────────┴─────────┐  ┌───────┴──────────┐                  ║
-║  │ 4.8 Data Shapes   │  │ 4.10 Database    │                  ║
-║  │ crg search ×6     │  │ Detection        │                  ║
-║  │ (schema/entity/   │  │ Glob + Read      │                  ║
-║  │  model/dto/       │  │ (沿用 spec-      │                  ║
-║  │  migration/       │  │  bootstrap)      │                  ║
-║  │  validation)      │  └──────────────────┘                  ║
-║  │ + Read(node.file) │                                        ║
-║  └───────────────────┘                                        ║
-╚════════════════╤═════════════════════════════════════════════╝
-                 │ (数据依赖: Stage A 输出供 Stage B 使用)
-                 ▼
-╔══════════════════════════════════════════════════════════════╗
-║  1.2 Stage B-Round1（全部并行）                                ║
-║                                                              ║
-║  ┌──────────────────┐  ┌──────────────────┐                  ║
-║  │ 4.3 Entrypoints   │  │ 4.4 Module       │                  ║
-║  │ Round1            │  │ Structure R1     │                  ║
-║  │ crg flows         │  │ crg communities  │                  ║
-║  │ → flow_id 列表    │  │ + crg architecture│                  ║
-║  └────────┬─────────┘  └────────┬─────────┘                  ║
-║           │                     │                             ║
-║  ┌────────┴─────────┐                                          ║
-║  │ 4.5 Integration   │                                          ║
-║  │ 预处理             │                                          ║
-║  │ Read(package.json) │                                          ║
-║  │ → 候选库名清单      │                                          ║
-║  └───────────────────┘                                          ║
-╚════════════════╤═════════════════════════════════════════════╝
-                 │ (数据依赖: flow_id, community_id, 库名清单)
-                 ▼
-╔══════════════════════════════════════════════════════════════╗
-║  1.3 Stage B-Round2（全部并行）                                ║
-║                                                              ║
-║  ┌──────────────────┐  ┌──────────────────┐                  ║
-║  │ 4.3 Entrypoints   │  │ 4.4 Module       │                  ║
-║  │ Round2            │  │ Structure R2     │                  ║
-║  │ crg flow --id     │  │ crg community    │                  ║
-║  │ × top-5           │  │ --id=<comm_id>   │                  ║
-║  │                   │  │ × N communities  │                  ║
-║  └────────┬─────────┘  └────────┬─────────┘                  ║
-║           │                     │                             ║
-║  ┌────────┴─────────┐                                          ║
-║  │ 4.5 Integration   │                                          ║
-║  │ Round2            │                                          ║
-║  │ crg search <lib>  │                                          ║
-║  │ × N 候选库名      │                                          ║
-║  │ → lib_node_id     │                                          ║
-║  └───────────────────┘                                          ║
-╚════════════════╤═════════════════════════════════════════════╝
-                 │ (数据依赖: lib_node_id)
-                 ▼
-╔══════════════════════════════════════════════════════════════╗
-║  1.4 Stage B-Round3                                          ║
-║                                                              ║
-║  ┌──────────────────────────────────┐                        ║
-║  │ 4.5 Integration Round3            │                        ║
-║  │ crg query --pattern=importers_of  │                        ║
-║  │   --module=<lib_node_id>          │                        ║
-║  │ × N (每个库节点)                   │                        ║
-║  └──────────────────────────────────┘                        ║
-╚════════════════╤═════════════════════════════════════════════╝
-                 │ (数据依赖: members[].id, entry_node, core_shared_node_id)
-                 ▼
-╔══════════════════════════════════════════════════════════════╗
-║  1.5 Stage C（全部并行）                                      ║
-║                                                              ║
-║  ┌──────────────────┐  ┌────────────────────────────────┐    ║
-║  │ 4.6 Test Surface  │  │ 4.7 Risk Signals               │    ║
-║  │ crg query         │  │ crg impact ×≤5                 │    ║
-║  │ --pattern=        │  │ crg large-functions             │    ║
-║  │   tests_for       │  │ crg god-nodes                   │    ║
-║  │ --subject=<id>    │  │ crg query dependents_of ×≤5    │    ║
-║  │ × ≤10 members     │  │                                 │    ║
-║  └──────────────────┘  └─────────────────────────────────┘    ║
-╚════════════════╤═════════════════════════════════════════════╝
-                 │
-                 ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 1.6 写入控制面（所有 Stage 完成后）                             │
-│                                                               │
-│   写入路径: .spec-first/workflows/bootstrap/<slug>/            │
-│                                                               │
-│   ┌────────────────────┐  ┌────────────────────┐              │
-│   │ fact-inventory.json │  │ risk-signals.json   │              │
-│   └────────────────────┘  └────────────────────┘              │
-│   ┌────────────────────┐  ┌───────────────────────┐           │
-│   │ test-surface.json   │  │ artifact-manifest.json │           │
-│   │                     │  │ (更新, 保持            │           │
-│   │                     │  │  in_progress)          │           │
-│   └────────────────────┘  └───────────────────────┘           │
-│                                                               │
-│   写入后校验:                                                  │
-│   ✓ JSON 合法性                                               │
-│   ✓ schema_version 存在                                       │
-│   ✓ analyzer_mode ∈ {full, enhanced, basic}                   │
-│   ✗ 失败 → 报告错误，不继续后续 Phase                           │
-└──────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Phase 1 依赖关系图
-
-```
-Stage A ──────┐
-(并行)         │
-               ▼
-Stage B-R1 ───┐
-(并行)         │
-               ▼
-Stage B-R2 ───┐
-(并行)         │
-               ▼
-Stage B-R3    │
-               │
-               ▼
-Stage C ──────┘
-(并行)
-
-依赖链路（串行）:
-  A → B-R1 → B-R2 → B-R3 → C
-
-每 Stage 内部:
-  所有 Bash/Read 调用在同一 response 内并行发出
-```
-
----
-
-## Phase 2: 任务规划
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│ 前置检查: fact-inventory.json 存在且非空                        │
-│   ├─ 不存在 → 停止                                            │
-│   └─ 存在   → 继续                                            │
-└────────────┬─────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 为每个固定产物生成 PRD（带事实证据）                             │
-│                                                               │
-│   产物                        ← 数据源                        │
-│   ─────────────────────────────────────────                   │
-│   00-summary.md              ← project_identity               │
-│   architecture/module-map.md ← modules + data_shapes          │
-│   pitfalls/index.md          ← risk_signals + integrations    │
-│   code-facts/public-entrypoints.md ← entrypoints              │
-│   code-facts/test-map.md     ← testing_surface + test-surface │
-│   code-facts/high-risk-modules.md ← risk_signals              │
-│   context-packs/review-change.md ← 静态组装                    │
-│       (risk_signals.high + coverage_gaps +                     │
-│        entrypoints.http/worker + integrations.high-risk)       │
-│                                                               │
-│   条件产物（如 API 文档）→ 判定是否创建 task                     │
-└──────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Phase 3: 文档生成
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│ 前置: 若 docs/contexts/<slug>/ 已存在                          │
-│       → 执行 0.7 Rerun Backup, 校验通过后继续                  │
-└────────────┬─────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 并行 Worker（各消费 fact-inventory.json）                       │
-│                                                               │
-│  ┌───────────────┐ ┌──────────────────┐ ┌─────────────────┐  │
-│  │ 00-summary.md │ │ architecture/    │ │ pitfalls/       │  │
-│  │               │ │ module-map.md    │ │ index.md        │  │
-│  │ ← project_    │ │                  │ │                 │  │
-│  │   identity    │ │ ← modules +      │ │ ← risk_signals  │  │
-│  │               │ │   data_shapes    │ │   + integrations│  │
-│  └───────────────┘ └──────────────────┘ └─────────────────┘  │
-│                                                               │
-│  ┌───────────────────────┐ ┌────────────────┐                │
-│  │ code-facts/           │ │ code-facts/    │                │
-│  │ public-entrypoints.md │ │ test-map.md    │                │
-│  │                       │ │                │                │
-│  │ ← entrypoints         │ │ ← testing_     │                │
-│  │                       │ │   surface +    │                │
-│  │                       │ │   test-surface │                │
-│  └───────────────────────┘ └────────────────┘                │
-│                                                               │
-│  ┌───────────────────────┐ ┌────────────────────────────┐    │
-│  │ code-facts/           │ │ context-packs/             │    │
-│  │ high-risk-modules.md  │ │ review-change.md           │    │
-│  │                       │ │                            │    │
-│  │ ← risk_signals        │ │ ← 静态组装（不调 crg        │    │
-│  │                       │ │   review-context）          │    │
-│  └───────────────────────┘ └────────────────────────────┘    │
-└────────────┬─────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 串行（最后）:                                                  │
-│   README.md（上下文控制台，汇总所有产物状态）                    │
-└────────────┬─────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────┐
-│ artifact-manifest.json 第二次写入                              │
-│   status: complete                                            │
-│   updated_at: <now>                                           │
-│   outputs: { 各产物 depends_on 清单 }                          │
-└────────────┬─────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 收尾                                                          │
-│   ├─ 成功 → 删除 backup 目录                                  │
-│   └─ 失败 → 恢复 backup + 报告失败原因                         │
-└──────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Phase 4: 路由生成
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│ 生成 injection-index.yaml                                     │
-│                                                               │
-│   docs/contexts/<slug>/injection-index.yaml                   │
-│                                                               │
-│   结构:                                                       │
-│   ┌─────────────────────────────────┐                         │
-│   │ always: [...]                   │  ← 所有 task 注入       │
-│   ├─────────────────────────────────┤                         │
-│   │ stages:                        │                         │
-│   │   plan: [...]                   │                         │
-│   │   work: [...]                   │                         │
-│   │   review: [...]                 │                         │
-│   ├─────────────────────────────────┤                         │
-│   │ task_types:                     │                         │
-│   │   always / plan / work /        │                         │
-│   │   review / unknown              │                         │
-│   ├─────────────────────────────────┤                         │
-│   │ selection_rules:                │                         │
-│   │   - condition: "output_exists.*"│                         │
-│   │     inject: [...]               │                         │
-│   └─────────────────────────────────┘                         │
-└──────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 最终产物树
-
-```
-.spec-first/workflows/bootstrap/<slug>/
-├── fact-inventory.json        ← 控制面（所有 Worker 输入源）
-├── risk-signals.json
-├── test-surface.json
-└── artifact-manifest.json     ← 两段写入（in_progress → complete）
-
-docs/contexts/<slug>/
-├── README.md                  ← 上下文控制台
-├── 00-summary.md              ← 项目摘要
-├── architecture/
-│   └── module-map.md          ← 模块地图
-├── pitfalls/
-│   └── index.md               ← 风险陷阱
-├── code-facts/
-│   ├── public-entrypoints.md  ← 公共入口点
-│   ├── test-map.md            ← 测试地图
-│   └── high-risk-modules.md   ← 高风险模块
-├── context-packs/
-│   └── review-change.md       ← 变更审查上下文
-└── injection-index.yaml       ← 路由索引
-```
-
----
-
-## 降级链路
-
-```
-┌──────────┐  crg.indexed=false   ┌───────────┐  serena.ready=false  ┌─────────┐
-│   Full   │────────────────────→ │ Enhanced  │────────────────────→ │  Basic  │
-│          │                      │           │                      │         │
-│ CRG CLI  │                      │ Serena    │                      │Built-in │
-│          │                      │           │                      │         │
-│ conf:    │                      │ conf:     │                      │ conf:   │
-│  high    │                      │  medium   │                      │  low    │
-│          │                      │           │                      │         │
-│ sev:     │                      │ sev:      │                      │ sev:    │
-│  无上限  │                      │  medium   │                      │  medium │
-│          │                      │   上限    │                      │   上限   │
-└──────────┘                      └───────────┘                      └─────────┘
-
-降级规则:
-  - 降级事件 → generation_errors[]
-  - analyzer_mode 字段记录最终模式
-  - README.md Freshness 章节体现降级原因
-  - Enhanced/Basic 单一信号 → severity=medium
-  - Enhanced/Basic ≥2 独立信号 → severity=high 可用
-```
-
----
-
-## 置信度体系
-
-```
-Observed（确定性）              Inferred（推断性）
-──────────────────             ──────────────────
-crg flows/communities 直接返回  crg query（固定 Inferred）
-crg large-functions/impact     crg search kind 分类
-Read(package.json/go.mod)      路径/目录命名模式
-                               Serena 模式搜索
-                               Grep import 推断
-
-约束:
-  - crg query 全系列固定输出 Inferred
-  - 单条 inferred 事实不得触发 high severity
-    （除非 ≥2 个独立信号支持）
-  - crg query 的 --symbol/--module/--subject
-    须为节点 ID 字符串（symbol_key 格式）
-  - crg search 多词须各自独立调用（FTS5 限制）
-```
-
----
-
-## Rerun Backup 安全机制
-
-```
-Phase 3 写入前检查:
-  docs/contexts/<slug>/ 已存在？
+```text
+入口（/spec:graph-bootstrap 或 $spec-graph-bootstrap）
+  ↓
+runBootstrap(repoRoot)
+  ↓
+判断是否进入 workspace 分支
+  ├─ 是：runWorkspaceBootstrap(...)
+  │    ├─ buildWorkspaceRegistry / buildWorkspaceRouting
+  │    ├─ batch backup
+  │    ├─ 对每个 child repo 调用 runBootstrap(...)
+  │    ├─ 写 workspace control-plane + overview docs
+  │    ├─ 记录 bootstrap telemetry
+  │    └─ prune 已移除 child 的旧产物
   │
-  ├─ 否 → 跳过 backup，直接写入
-  │
-  └─ 是 → 备份到 backup_<ISO-timestamp>/
-           │
-           ├─ 校验通过（文件数一致）
-           │   → 继续写入
-           │   │
-           │   ├─ Phase 3+4 全部成功 → 删除 backup
-           │   │
-           │   └─ 任一产物写入失败
-           │       → 立即用 backup 全量恢复
-           │       → 写入 generation_errors
-           │       → 停止，不保留半覆盖状态
-           │
-           └─ 校验失败
-               → 停止，报告错误
-               → 不进入 Phase 3
+  └─ 否：单仓主链
+       ├─ createBootstrapBackup(...)
+       ├─ compileBootstrapArtifacts(...)
+       │    ├─ compileMachineArtifacts(...)
+       │    ├─ compileHumanAssets(...)
+       │    └─ compileRouting(...)
+       ├─ 清空旧 control-plane / context docs
+       ├─ 写 control-plane artifacts
+       ├─ 写 docs/contexts + injection-index
+       ├─ 记录 bootstrap telemetry
+       └─ 删除 backup
+
+任一 fatal error
+  ↓
+restoreBootstrapBackup / restoreBatchBackup
+  ↓
+抛错退出，不保留半覆盖状态
 ```
+
+---
+
+## 单仓主链
+
+### 1. 入口判定
+
+`runBootstrap()` 先做两件事：
+
+1. 解析 `controlPlaneDir` 和 `contextDir`
+2. 判断当前目标是否应该走 workspace 分支
+
+workspace 分支触发条件是：
+
+- `repoRoot` 自己不是 git root
+- `artifactAnchorRoot === repoRoot`
+- 显式传入 `repoRoots`，或者自动发现到了 child git repo
+
+满足这三个条件时，当前调用不会继续走单仓链，而是直接转入 `runWorkspaceBootstrap()`。
+
+### 2. 发布前备份
+
+单仓主链在真正生成前会执行：
+
+```text
+createBootstrapBackup({ contextDir, controlPlaneDir, generatedAt })
+```
+
+这个 backup 保护的是两类内容：
+
+- `.spec-first/workflows/bootstrap/<slug>/`
+- `docs/contexts/<slug>/`
+
+这和旧文档只强调 `docs/contexts/<slug>/` 备份不同。当前代码的回滚面更大，是**控制面 + 上下文文档一起回滚**。
+
+### 3. 编译主链：`compileBootstrapArtifacts()`
+
+当前编译器固定分成三个阶段：
+
+```text
+machine-artifacts
+  ↓
+human-assets
+  ↓
+routing
+```
+
+如果某一阶段抛错，返回值会带：
+
+- `status: failed`
+- `error.stage`: `machine-artifacts` / `human-assets` / `routing`
+
+随后外层 `runBootstrap()` 会触发 restore。
+
+### 4. Machine Artifacts 阶段
+
+`compileMachineArtifacts()` 的真实职责是：
+
+1. `deriveBootstrapInputs()` 先派生事实输入
+2. 生成 `verification-profile.json`
+3. 生成三份 `minimal-context/*.json`
+4. 生成 `freshness.json`
+5. 生成 `lint-report.json`
+6. 生成 `contradictions.json`
+
+其中，`deriveBootstrapInputs()` 当前主要靠静态仓库扫描：
+
+- `package.json`
+- 仓库文件列表
+- repo topology
+- 入口文件推断
+- 模块路径推断
+- integration 依赖推断
+- test surface 推断
+- database candidate 推断
+- 基于文件行数的风险信号推断
+
+也就是说，**当前 JS 主链不是先跑 `spec-first crg stats/build` 再决定是否继续**。
+
+### 5. Human Assets 阶段
+
+`compileHumanAssets()` 当前会生成这些文档：
+
+```text
+00-summary.md
+README.md
+architecture/module-map.md
+code-facts/public-entrypoints.md
+code-facts/test-map.md
+code-facts/high-risk-modules.md
+pitfalls/index.md
+context-packs/review-change.md
+```
+
+这些文档来自 machine artifacts，不再是独立 worker 并行执行后的人工汇编产物。
+
+### 6. Routing 阶段
+
+`compileRouting()` 当前固定生成四个 routing / contract 产物：
+
+```text
+database-routing.json
+context-routing.json
+artifact-manifest.json
+injection-index.yaml
+```
+
+这里有几个需要特别校准的点：
+
+- `artifact-manifest.json` 当前由 `buildArtifactManifest()` 直接构造
+- `data_quality` 当前规则是：
+  - `modules.length > 0 && entrypoints.length > 0` -> `fact-backed`
+  - 只有一边存在 -> `partial`
+  - 两边都空 -> `empty`
+- `artifact-manifest.inputs.crg.graph_last_built` 当前直接写 `generatedAt`
+- `artifact-manifest.inputs.crg.node_count` 当前是 `modules + entrypoints + signals + testFiles` 的汇总计数
+- `artifact-manifest.inputs.crg.edge_count` 当前固定为 `0`
+
+所以，旧文档里那种“读取 graph.db -> 跑 `crg stats` -> stale 对比真实图状态”的说法，不适用于当前这条 JS 编译主链。
+
+### 7. 发布阶段
+
+编译成功后，`runBootstrap()` 的发布顺序是：
+
+```text
+fs.rmSync(controlPlaneDir)
+fs.rmSync(contextDir)
+writeControlPlaneArtifacts(...)
+writeContextArtifacts(...)
+recordWorkflowTelemetry(...)
+removeBootstrapBackup(...)
+```
+
+也就是说：
+
+- 先整体清空旧目录
+- 再一次性写入新 control-plane
+- 再写 human-facing context docs
+- 最后记录 telemetry
+
+如果中途失败，则走：
+
+```text
+restoreBootstrapBackup(...)
+throw error
+```
+
+---
+
+## Workspace 分支
+
+### 1. 触发方式
+
+`runBootstrap()` 会在目标目录不是单一 git repo、但能发现 child repo 时进入 workspace 模式。
+
+发现 child repo 的方式有两种：
+
+- 调用方显式传入 `repoRoots`
+- `discoverChildGitRepos()` 自动扫描子目录
+
+### 2. Workspace 预处理
+
+`runWorkspaceBootstrap()` 先生成三份 workspace 级结构：
+
+- `workspace-registry.json`
+- `workspace-routing.json`
+- `workspace-readiness-summary.json`
+
+其中：
+
+- `workspace-registry.json` 是 child repo 真源清单
+- `workspace-routing.json` 定义 workspace overview 的选择策略
+- `workspace-readiness-summary.json` 是 advisory-only 的 readiness snapshot
+
+### 3. Child Repo 执行
+
+对每个 child repo，workspace 主链会调用：
+
+```text
+runBootstrap({
+  repoRoot: child.repoRoot,
+  slug: child.childSlug,
+  artifactAnchorRoot: workspaceRoot
+})
+```
+
+这意味着 child repo 的 control-plane 和 docs 都会发布到 workspace 根目录下。
+
+### 4. Workspace 根产物发布
+
+在所有 child 成功后，workspace 根会重新写入：
+
+控制面：
+
+```text
+workspace-registry.json
+workspace-routing.json
+artifact-manifest.json
+workspace-readiness-summary.json
+```
+
+文档面：
+
+```text
+00-summary.md
+README.md
+workspace/routing-overview.md
+workspace/repo-registry.md
+```
+
+### 5. Telemetry 与 prune
+
+workspace 根发布成功后还会做两件事：
+
+1. 记录 `workflow=bootstrap` 的 telemetry
+2. prune 上一次 registry 中存在、但本次已不存在的 child 产物
+
+返回值会暴露：
+
+- `prunedChildSlugs`
+- `failedPrunes`
+
+`failedPrunes` 不会触发整个 workspace bootstrap 回滚；它是**附带返回的清理异常**，不是主流程 fatal error。
+
+---
+
+## 当前控制面产物
+
+单仓主链当前会写入以下 control-plane artifacts：
+
+```text
+fact-inventory.json
+risk-signals.json
+test-surface.json
+database-routing.json
+context-routing.json
+artifact-manifest.json
+freshness.json
+lint-report.json
+contradictions.json
+verification-profile.json
+ownership.json
+review-queue.json
+minimal-context/review.json
+minimal-context/plan.json
+minimal-context/work.json
+```
+
+其中：
+
+- `ownership.json`、`review-queue.json` 当前是 sample/governance 产物
+- 三份 `minimal-context/*.json` 是当前主工作流消费链的重要 control-plane 输入
+- `context-routing.json` 是**运行时选择资产的真源**
+- `injection-index.yaml` 是 human-facing mirror，不等同于全部 runtime 选择逻辑
+
+---
+
+## 当前上下文文档产物
+
+单仓 `docs/contexts/<slug>/` 当前默认会有：
+
+```text
+00-summary.md
+README.md
+architecture/module-map.md
+code-facts/public-entrypoints.md
+code-facts/test-map.md
+code-facts/high-risk-modules.md
+pitfalls/index.md
+context-packs/review-change.md
+injection-index.yaml
+```
+
+`README.md` 当前会明确写出：
+
+```text
+source_of_truth: control-plane artifacts under .spec-first/workflows/bootstrap/<slug>/
+```
+
+这也与测试 `tests/e2e/spec-graph-bootstrap-mainline.sh` 一致。
+
+---
+
+## 当前消费侧选择逻辑
+
+真正决定主 workflow 注入哪些资产的，不是这份文档，也不只是 `injection-index.yaml`，而是：
+
+```text
+loadBootstrapRuntimeState(...)
+  ↓
+evaluateContext(...)
+```
+
+### 1. 运行时加载
+
+`loadBootstrapRuntimeState()` 当前会读取：
+
+- `fact-inventory.json`
+- `context-routing.json`
+- `artifact-manifest.json`
+- `freshness.json`
+- `verification-profile.json`
+
+### 2. 选择顺序
+
+`evaluateContext()` 当前会按下面顺序构造候选资产：
+
+1. `routing.always`
+2. `routing.stages[stage]`
+3. 满足 `selection_rules` 的 `inject[]`
+4. 若存在 `minimal-context/<stage>.json`，会**优先 prepend 到最前面**
+
+然后再：
+
+- 去重
+- 过滤不存在的文件
+- 按 token budget 裁剪
+
+### 3. 当前 `context-routing.json` 的阶段选择
+
+当前默认阶段资产是：
+
+```text
+always:
+  - 00-summary.md
+  - README.md
+  - freshness.json
+
+plan:
+  - architecture/module-map.md
+
+work:
+  - code-facts/test-map.md
+  - context-packs/review-change.md
+  - lint-report.json
+
+review:
+  - minimal-context/review.json
+  - code-facts/high-risk-modules.md
+  - pitfalls/index.md
+  - context-packs/review-change.md
+  - code-facts/test-map.md
+  - lint-report.json
+  - contradictions.json
+```
+
+注意两点：
+
+- `context-routing.json` 比 `injection-index.yaml` 多了 control-plane 资产，例如 `freshness.json`、`lint-report.json`、`contradictions.json`
+- `minimal-context/review.json` 在 routing 内和 evaluator prepend 两层都被考虑，但最终会去重
+
+### 4. 选择规则
+
+当前只支持这三条 `output_exists.*` 规则：
+
+```text
+output_exists.code_facts_public_entrypoints
+output_exists.code_facts_high_risk_modules
+output_exists.context_packs_review_change
+```
+
+它们的判断依据来自 `artifact-manifest.outputs`，不是直接扫描 markdown。
+
+---
+
+## 当前降级逻辑：L0-L3
+
+当前 runtime 降级的真实入口是 `evaluateContext()`，不是旧文档里的 `Full / Enhanced / Basic`。
+
+### L3
+
+这些情况会直接进入 `L3`：
+
+- `contextDir` 或 `controlPlaneDir` 缺失
+- `artifact-manifest.json` 缺失
+- manifest `status !== complete`
+
+典型 `fallback_reason`：
+
+- `context_dir_missing`
+- `manifest_incomplete`
+
+### L2
+
+这些情况会进入 `L2`：
+
+- `context-routing.json` 缺失
+- bootstrap contract 已漂移
+- `data_quality = empty`
+- `data_quality = sample-backed / skeletal`
+
+典型 `fallback_reason`：
+
+- `bootstrap_contract_outdated`
+- `routing_missing`
+- `empty_fact_inventory`
+
+### L1
+
+这些情况会进入 `L1`：
+
+- `data_quality = partial / mixed`
+- manifest 缺少质量字段
+- `minimal-context/<stage>.json` 缺失但 data quality 还算够用
+- freshness 为 `stale`
+
+典型 `fallback_reason`：
+
+- `data_quality_partial`
+- `legacy_manifest_missing_quality_fields`
+- `minimal_context_missing`
+- `freshness_stale`
+
+### L0
+
+满足下面条件时进入 `L0`：
+
+- manifest `status = complete`
+- routing 存在
+- data quality 充足（通常是 `fact-backed`）
+- freshness 没有把结果打成 stale
+- 当前 stage 的 minimal-context 可用
+
+---
+
+## 与旧版流程图相比，当前应删除的口径
+
+以下说法不应再作为“当前代码事实”保留在流程图正文里：
+
+- `Phase 0 MCP 就绪探测 -> Full / Enhanced / Basic 模式判定`
+- `graph.db` 检查后提示用户是否执行 `spec-first crg build`
+- `crg stats` 结果直接驱动当前主链的 compile 分支
+- `artifact-manifest.inputs.crg.graph_last_built` 来自真实 CRG stats
+- `stale 检测 = fingerprint vs stats.last_built`
+- “Phase 1 由多轮 CRG worker 并行抽取，再进入 Phase 2/3/4 汇编”是当前 JS compiler 主链
+
+这些内容可以保留为**历史设计意图**，但不能继续写成“当前仓库执行逻辑”。
+
+---
+
+## 一句话结论
+
+当前 `spec-graph-bootstrap` 的真实执行形态，已经收敛为：
+
+- **生成侧**：`runBootstrap -> compileBootstrapArtifacts -> 发布 control-plane + docs`
+- **workspace 侧**：`runWorkspaceBootstrap -> child fan-out -> workspace 汇总 + prune`
+- **消费侧**：`loadBootstrapRuntimeState -> evaluateContextForRepo -> L0-L3 选择与降级`
+
+如果后续还要继续更新这份文档，应优先对齐上述三条代码真链，而不是继续追随旧版 prompt 里的阶段叙事。

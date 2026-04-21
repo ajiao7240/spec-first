@@ -2,6 +2,8 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const ClaudeAdapter = require('../../src/cli/adapters/claude');
+const CodexAdapter = require('../../src/cli/adapters/codex');
 
 const {
   loadBootstrapSchemas,
@@ -36,6 +38,10 @@ const GRAPH_BOOTSTRAP_SKILL_PATH = path.join(
   REPO_ROOT,
   'skills/spec-graph-bootstrap/SKILL.md'
 );
+const PROMPT_MIRROR_SKILL_PATH = path.join(
+  REPO_ROOT,
+  'docs/10-prompt/skills/spec-graph-bootstrap/SKILL.md'
+);
 const GRAPH_BOOTSTRAP_SCHEMAS_PATH = path.join(
   REPO_ROOT,
   'skills/spec-graph-bootstrap/references/artifact-schemas.md'
@@ -58,6 +64,29 @@ describe('spec-graph-bootstrap contracts', () => {
     expect(skill).toContain('docs/contracts/spec-graph-bootstrap/');
     expect(skill).toContain('orchestrator.js');
     expect(skill).toContain('database-routing.json');
+  });
+
+  test('source skill and prompt mirror use repo-registry.md consistently in workspace docs contract', () => {
+    const sourceSkill = fs.readFileSync(GRAPH_BOOTSTRAP_SKILL_PATH, 'utf8');
+    const promptMirror = fs.readFileSync(PROMPT_MIRROR_SKILL_PATH, 'utf8');
+
+    expect(sourceSkill).toContain('workspace/repo-registry.md');
+    expect(promptMirror).toContain('workspace/repo-registry.md');
+    expect(sourceSkill).not.toContain('workspace/repo-registry.yaml');
+    expect(promptMirror).not.toContain('workspace/repo-registry.yaml');
+  });
+
+  test('runtime transforms preserve host-specific bootstrap init guidance without contradictory inline labels', () => {
+    const sourceSkill = fs.readFileSync(GRAPH_BOOTSTRAP_SKILL_PATH, 'utf8');
+    const claude = new ClaudeAdapter();
+    const codex = new CodexAdapter();
+    const claudeRuntime = claude.transformSkillContent(sourceSkill);
+    const codexRuntime = codex.transformSkillContent(sourceSkill, { skillName: 'spec-graph-bootstrap' });
+
+    expect(claudeRuntime).toContain('spec-first init --claude   # Claude 运行时');
+    expect(codexRuntime).toContain('spec-first init --codex   # Codex 运行时');
+    expect(codexRuntime).not.toContain('spec-first init --codex   # Claude 运行时');
+    expect((codexRuntime.match(/spec-first init --codex\s+#\s*Codex 运行时/g) || [])).toHaveLength(1);
   });
 
   test('source skill schema doc keeps database candidates static and routes runtime decisions into database-routing.json', () => {

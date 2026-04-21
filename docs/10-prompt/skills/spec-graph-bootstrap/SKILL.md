@@ -43,7 +43,7 @@ docs/contracts/spec-graph-bootstrap/
 
 - `.spec-first/workflows/bootstrap/<slug>/workspace-registry.json` 与 `workspace-routing.json` 是 workspace machine-first 真源
 - `workspace-readiness-summary.json` 只暴露 advisory-only readiness snapshot，不参与 routing / gate 真源判定
-- `docs/contexts/<workspaceSlug>/workspace/repo-registry.yaml` 若存在，也只能是 human-facing 镜像，不得反向成为 runtime 真源
+- `docs/contexts/<workspaceSlug>/workspace/repo-registry.md` 若存在，也只能是 human-facing 镜像，不得反向成为 runtime 真源
 
 ## 缺失运行时时的处理
 

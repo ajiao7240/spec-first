@@ -134,6 +134,13 @@ describe('init --dry-run', () => {
     try {
       expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
 
+      fs.mkdirSync(path.join(projectRoot, '.claude', 'commands', 'spec'), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, '.claude', 'commands', 'spec', 'custom.md'),
+        'custom command\n',
+        'utf8',
+      );
+
       const commandPath = path.join(projectRoot, '.claude', 'commands', 'spec', 'work.md');
       const drifted = fs.readFileSync(commandPath, 'utf8')
         .replace('.claude/spec-first/workflows/spec-work/SKILL.md', '.claude/spec-first/workflows/spec-plan/SKILL.md');
@@ -146,6 +153,8 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('Would perform a managed hard reset before regenerating runtime assets');
       expect(result.stdout).toContain('current runtime drift detected');
       expect(result.stdout).toContain('.claude/commands/spec/work.md');
+      expect(result.stdout).toContain('Would prune 1 unmanaged command file(s)');
+      expect(result.stdout).toContain('.claude/commands/spec/custom.md');
       expect(result.stdout).toContain('.claude/spec-first/workflows/spec-work/SKILL.md');
     } finally {
       warnSpy.mockRestore();

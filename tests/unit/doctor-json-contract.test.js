@@ -93,6 +93,58 @@ function writeLegacyBootstrapContract(projectRoot) {
   );
 }
 
+function writeWorkspaceRootWithLegacyChildBootstrap(projectRoot) {
+  const workspaceSlug = path.basename(projectRoot);
+  const childSlug = 'packages-repo-a';
+  const workspaceControlPlaneDir = path.join(projectRoot, '.spec-first', 'workflows', 'bootstrap', workspaceSlug);
+  const workspaceContextDir = path.join(projectRoot, 'docs', 'contexts', workspaceSlug);
+  const childControlPlaneDir = path.join(projectRoot, '.spec-first', 'workflows', 'bootstrap', childSlug);
+  const childContextDir = path.join(projectRoot, 'docs', 'contexts', childSlug);
+  fs.mkdirSync(workspaceControlPlaneDir, { recursive: true });
+  fs.mkdirSync(workspaceContextDir, { recursive: true });
+  fs.mkdirSync(childControlPlaneDir, { recursive: true });
+  fs.mkdirSync(childContextDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(workspaceControlPlaneDir, 'artifact-manifest.json'),
+    `${JSON.stringify({
+      schema_version: 'v1',
+      status: 'complete',
+      outputs: {
+        'workspace-registry.json': { depends_on: [] },
+        'workspace-routing.json': { depends_on: [] },
+      },
+    }, null, 2)}\n`,
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(workspaceControlPlaneDir, 'workspace-registry.json'),
+    `${JSON.stringify({
+      schema_version: 'v1',
+      workspaceSlug,
+      children: [{ childSlug, repoRoot: path.join(projectRoot, 'packages', 'repo-a') }],
+    }, null, 2)}\n`,
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(workspaceControlPlaneDir, 'workspace-routing.json'),
+    `${JSON.stringify({ schema_version: 'v1' }, null, 2)}\n`,
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(childControlPlaneDir, 'artifact-manifest.json'),
+    `${JSON.stringify({
+      schema_version: 'v1',
+      status: 'complete',
+      outputs: {
+        '00-summary.md': { depends_on: [] },
+        'README.md': { depends_on: [] },
+      },
+    }, null, 2)}\n`,
+    'utf8',
+  );
+  return { workspaceSlug, childSlug };
+}
+
 function relativeCapturedAt({ daysAgo = 0, minutesAgo = 0 } = {}) {
   const capturedMs = Date.now() - (daysAgo * 24 * 60 * 60 * 1000) - (minutesAgo * 60 * 1000);
   return new Date(capturedMs).toISOString();
@@ -155,6 +207,36 @@ describe('doctor --json contract', () => {
         expect.arrayContaining([
           expect.objectContaining({
             name: `bootstrap contract (${path.basename(projectRoot)})`,
+            level: 'WARNING',
+            message: expect.stringContaining('contract outdated'),
+            fix: expect.stringContaining('spec-graph-bootstrap'),
+          }),
+        ]),
+      );
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('reports workspace child bootstrap drift even when workspace root contract is current', () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'doctor-json-workspace-child-outdated-'));
+
+    try {
+      const { workspaceSlug, childSlug } = writeWorkspaceRootWithLegacyChildBootstrap(projectRoot);
+
+      const result = withCwd(projectRoot, () => captureDoctor(['--json']));
+      const payload = JSON.parse(result.stdout);
+
+      expect(result.exitCode).toBe(0);
+      expect(payload.common_checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: `bootstrap contract (${workspaceSlug})`,
+            level: 'PASS',
+            message: expect.stringContaining('workspace-root bootstrap contract is current'),
+          }),
+          expect.objectContaining({
+            name: `bootstrap contract (${childSlug})`,
             level: 'WARNING',
             message: expect.stringContaining('contract outdated'),
             fix: expect.stringContaining('spec-graph-bootstrap'),
