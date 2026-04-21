@@ -15,6 +15,9 @@
 
 ## Batch 1（基础探测，同一 response 并行，≤8 calls）
 
+> 数据库发现语义：bootstrap 只输出 repo 内数据库 hints、schema sources 与项目级 framework hints。
+> 脚本层不再维护 database extractor profile registry，也不负责选主连接；后续数据库识别与连接判断交给 LLM。
+
 ### project_identity
 
 **Enhanced（Serena）:**
@@ -154,22 +157,21 @@ Glob({pattern: "**/integration/**/*.{ts,js}"})
 
 **Enhanced / Basic（共用）:**
 ```
-Read(<target>/package.json | go.mod | pom.xml | requirements.txt)
-  → 检测 DB 依赖（mysql2/pg/mongoose/sequelize/typeorm/prisma/gorm/django 等）
-Glob({pattern: "**/{.env,.env.example,config/database.yml,config/settings.py}"})
-  → 检测 DB_HOST / DATABASE_URL 等连接参数变量名
-Glob({pattern: "**/migrations/**/*.{js,ts,py,go,rb,sql}", path: <target>})
-  → 检测迁移文件存在性
+Read(<target>/package.json | go.mod | pom.xml | requirements.txt | pyproject.toml | Gemfile)
+  → repo 级 framework / dependency hints（Node.js / Spring Boot / Django / SQLAlchemy / Rails / Go）
+Read(<high-signal code/config/env/migration/schema/doc-er files>)
+  → 产出 raw database hints 与 schema sources
 ```
+
+高信号来源示例：
+- Spring Boot: `application.yml` / `application.properties` / `src/main/resources/db/migration/*`
+- Python: `settings.py` / `database.py` / `alembic/versions/*`
+- Node.js: `db.ts` / `prisma/schema.prisma` / `migrations/*`
+- Rails / Go: `config/database.yml` / `db/migrate/*` / `*.go`
 
 `db_type` 推断（依赖名映射）：`mysql2`/`mysql` → `mysql`；`pg` → `postgresql`；`mongoose` → `mongodb`；`redis` → `redis`；无命中 → 空
 
-`db_access_level` 推断：
-- 依赖含 ORM（`sequelize`/`typeorm`/`prisma`/`gorm`/`django.db`/`ActiveRecord`）且无迁移文件 → `"Level3"`（ORM inference，**不触发 database worker**）
-- 有迁移文件 + 有 DB 依赖 → `"Level2"`（CLI 直连可行，database worker 可触发）
-- 其余 → `"Level3"`（保守默认，避免误触发）
-
-`confidence: Inferred`，`inference_reason: "package-json-analysis"` / `"glob-pattern-match"`
+`confidence: Inferred`，`inference_reason: "repo-database-hint"` / `"glob-pattern-match"`
 
 ---
 

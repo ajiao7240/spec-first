@@ -5,154 +5,100 @@
   "required": [
     "schema_version",
     "generated_at",
-    "candidate_connections",
-    "secret_resolution",
-    "probe_attempts",
-    "route_decisions",
-    "selected_connections",
-    "generation_blockers"
+    "discovery_strategy",
+    "hint_summary",
+    "runtime_capabilities",
+    "recommended_action",
+    "blockers"
   ],
   "properties": {
     "schema_version": { "type": "string" },
     "generated_at": { "type": "string" },
-    "candidate_connections": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "connection_name",
-          "db_type",
-          "config_source",
-          "credential_keys",
-          "static_access_hints",
-          "confidence",
-          "inference_reason",
-          "evidence"
-        ],
-        "properties": {
-          "connection_name": { "type": "string" },
-          "db_type": { "type": "string" },
-          "config_source": { "type": "string" },
-          "database_name_guess": { "type": ["string", "null"] },
-          "credential_keys": {
-            "type": "array",
-            "items": { "type": "string" }
-          },
-          "static_access_hints": {
-            "type": "array",
-            "items": { "type": "string" }
-          },
-          "confidence": { "type": "string" },
-          "inference_reason": { "type": "string" },
-          "evidence": {
-            "type": "array",
-            "items": { "type": "string" }
+    "discovery_strategy": {
+      "type": "string",
+      "enum": ["llm-led"]
+    },
+    "hint_summary": {
+      "type": "object",
+      "required": [
+        "database_hint_count",
+        "schema_hint_count",
+        "db_type_hints",
+        "config_sources",
+        "schema_sources",
+        "env_key_hints"
+      ],
+      "properties": {
+        "database_hint_count": { "type": "integer" },
+        "schema_hint_count": { "type": "integer" },
+        "db_type_hints": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "config_sources": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "schema_sources": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "env_key_hints": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "runtime_capabilities": {
+      "type": "object",
+      "required": [
+        "available_readonly_routes",
+        "resolved_env_keys",
+        "missing_env_keys"
+      ],
+      "properties": {
+        "available_readonly_routes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["route", "available", "reason"],
+            "properties": {
+              "route": {
+                "type": "string",
+                "enum": ["mysql-cli"]
+              },
+              "available": { "type": "boolean" },
+              "reason": {
+                "type": "string",
+                "enum": ["tool-present", "tool-missing"]
+              }
+            }
           }
+        },
+        "resolved_env_keys": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "missing_env_keys": {
+          "type": "array",
+          "items": { "type": "string" }
         }
       }
     },
-    "secret_resolution": {
+    "recommended_action": {
+      "type": "string",
+      "enum": ["llm-readonly-introspect", "llm-inspect-repo", "not-needed"]
+    },
+    "blockers": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "connection_name",
-          "status",
-          "required_credential_keys",
-          "resolved_credential_keys",
-          "missing_credential_keys",
-          "provenance"
-        ],
+        "required": ["kind", "reason"],
         "properties": {
-          "connection_name": { "type": "string" },
-          "status": { "type": "string" },
-          "required_credential_keys": {
-            "type": "array",
-            "items": { "type": "string" }
+          "kind": {
+            "type": "string",
+            "enum": ["runtime-capability", "env-availability"]
           },
-          "resolved_credential_keys": {
-            "type": "array",
-            "items": { "type": "string" }
-          },
-          "missing_credential_keys": {
-            "type": "array",
-            "items": { "type": "string" }
-          },
-          "provenance": { "type": "string" }
-        }
-      }
-    },
-    "probe_attempts": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "connection_name",
-          "route",
-          "status",
-          "reason"
-        ],
-        "properties": {
-          "connection_name": { "type": "string" },
-          "route": { "type": "string" },
-          "status": { "type": "string" },
-          "reason": { "type": "string" }
-        }
-      }
-    },
-    "route_decisions": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "connection_name",
-          "selected_route",
-          "decision",
-          "fallback_reason",
-          "provenance"
-        ],
-        "properties": {
-          "connection_name": { "type": "string" },
-          "selected_route": { "type": ["string", "null"] },
-          "decision": { "type": "string" },
-          "fallback_reason": { "type": ["string", "null"] },
-          "provenance": {
-            "type": "array",
-            "items": { "type": "string" }
-          }
-        }
-      }
-    },
-    "selected_connections": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "connection_name",
-          "route",
-          "db_type",
-          "config_source"
-        ],
-        "properties": {
-          "connection_name": { "type": "string" },
-          "route": { "type": "string" },
-          "db_type": { "type": "string" },
-          "config_source": { "type": "string" }
-        }
-      }
-    },
-    "generation_blockers": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "connection_name",
-          "stage",
-          "reason"
-        ],
-        "properties": {
-          "connection_name": { "type": "string" },
-          "stage": { "type": "string" },
           "reason": { "type": "string" }
         }
       }

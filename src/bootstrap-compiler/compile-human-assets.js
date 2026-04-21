@@ -31,11 +31,20 @@ function renderSummary({ factInventory, riskSignals, testSurface, verificationPr
   ].join('\n');
 }
 
-function renderReadme({ factInventory }) {
+function renderReadme({
+  factInventory,
+  generatedAt = '2026-04-15T00:00:00.000Z',
+}) {
   const project = factInventory && factInventory.project_identity ? factInventory.project_identity : {};
   const topology = factInventory && factInventory.topology ? factInventory.topology : {};
+  const analyzerMode = factInventory && factInventory.analyzer_mode ? factInventory.analyzer_mode : 'basic';
+  const graphSupportState = factInventory && factInventory.graph_support_state
+    ? factInventory.graph_support_state
+    : 'unavailable';
   return [
-    '# Stage-0 Context',
+    `# ${project.name || 'bootstrap summary'} · Context Pack`,
+    '',
+    `Generated: ${generatedAt} | Mode: ${analyzerMode} | Graph: ${graphSupportState}`,
     '',
     `- project: ${project.name || 'unknown'}`,
     `- primary_language: ${project.primary_language || 'Unknown'}`,
@@ -129,6 +138,7 @@ function renderReviewChange({ riskSignals, testSurface, verificationProfile }) {
 }
 
 function compileHumanAssets({
+  generatedAt = '2026-04-15T00:00:00.000Z',
   factInventory,
   riskSignals,
   testSurface,
@@ -141,7 +151,7 @@ function compileHumanAssets({
       testSurface,
       verificationProfile,
     }),
-    'README.md': renderReadme({ factInventory }),
+    'README.md': renderReadme({ factInventory, generatedAt }),
     'architecture/module-map.md': renderModuleMap({ factInventory }),
     'code-facts/public-entrypoints.md': renderEntrypoints({ factInventory }),
     'code-facts/test-map.md': renderTestMap({ testSurface }),
@@ -167,4 +177,5 @@ function compileHumanAssets({
 
 module.exports = {
   compileHumanAssets,
+  renderReadme,
 };

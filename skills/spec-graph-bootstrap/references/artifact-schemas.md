@@ -20,9 +20,13 @@ integrations: [{ path, symbol, kind, summary, confidence: inferred, inference_re
 testing_surface: [{ test_path, test_symbol, target_path, target_symbol, test_kind, confidence, inference_reason, evidence, updated_at }]
 data_shapes: [{ path, symbol, kind, summary, confidence: inferred, inference_reason, evidence, updated_at }]
 layers: { frontend: { present, confidence, inference_reason, evidence, updated_at }, ... }
-database: [{ present, connection_name, config_source, db_type, database_name_guess, credential_keys, static_access_hints, confidence, inference_reason, evidence }]
-# 只表达静态候选发现，不写 secret 值、probe 历史、fallback 历史
-# static_access_hints: ["cli"] 等静态提示；真正的 route / fallback / provenance 收口在 database-routing.json
+database: [{ present, connection_name, config_source, evidence_sources, db_type, database_name_guess, credential_keys, static_access_hints, confidence, inference_reason, evidence }]
+# config_source 仅表达“当前命中的数据库 hint 来源路径”，不再宣称 strongest/selected 语义
+# 只表达 repo 内可供 LLM 后续判断的原始数据库 hints，不写 secret 值、probe 历史、selected route
+# static_access_hints 只表达脚本能确认的只读执行提示；真正的数据库识别与连接判断交给 LLM
+database_schema: [{ source_kind, path, db_type, connection_name, confidence, inference_reason, evidence }]
+# 表达数据库结构知识来源（migration / orm-schema / doc-er 等），供 LLM 后续决定是否走 schema-only
+# bootstrap 不再尝试用脚本完成项目类型感知数据库识别；只提供可复用 hints 与 schema sources
 ```
 
 ## database-routing.json
@@ -30,44 +34,27 @@ database: [{ present, connection_name, config_source, db_type, database_name_gue
 ```yaml
 schema_version: "v1"
 generated_at: <ISO>
-candidate_connections:
-  - connection_name: string
-    db_type: string
-    config_source: string
-    database_name_guess: string | null
-    credential_keys: [string]
-    static_access_hints: [string]
-    confidence: string
-    inference_reason: string
-    evidence: [string]
-secret_resolution:
-  - connection_name: string
-    status: resolved | partial | missing | not-required
-    required_credential_keys: [string]
-    resolved_credential_keys: [string]
-    missing_credential_keys: [string]
-    provenance: process.env | other-runtime
-probe_attempts:
-  - connection_name: string
-    route: mcp | cli
-    status: ready | blocked | unavailable | skipped
+discovery_strategy: llm-led
+hint_summary:
+  database_hint_count: integer
+  schema_hint_count: integer
+  db_type_hints: [string]
+  config_sources: [string]
+  schema_sources: [string]
+  env_key_hints: [string]
+runtime_capabilities:
+  available_readonly_routes:
+    - route: mysql-cli | <future readonly cli>
+      available: boolean
+      reason: string
+  resolved_env_keys: [string]
+  missing_env_keys: [string]
+recommended_action: llm-readonly-introspect | llm-inspect-repo | not-needed
+blockers:
+  - kind: runtime-capability | env-availability
     reason: string
-route_decisions:
-  - connection_name: string
-    selected_route: mcp | cli | null
-    decision: selected | blocked
-    fallback_reason: string | null
-    provenance: [string]
-selected_connections:
-  - connection_name: string
-    route: mcp | cli
-    db_type: string
-    config_source: string
-generation_blockers:
-  - connection_name: string
-    stage: route-selection | generation
-    reason: string
-# secret 解析只写 key 名与状态，不落密码、连接串或用户名明文
+# `llm-readonly-introspect` 只在 readonly CLI route 可用且 env hints 完整时出现
+# 这是 LLM-first handoff contract，不再维护 selected_route / probe_attempts / route_decisions 状态机
 ```
 
 ## risk-signals.json

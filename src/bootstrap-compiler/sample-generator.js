@@ -122,7 +122,7 @@ function buildArtifactManifestSample({
         status: 'required',
         depends_on: [
           'schema:fact_inventory@v1',
-          'runtime:secret-resolution',
+          'runtime:capability-check',
         ],
       },
       'context-routing.json': {
@@ -271,69 +271,28 @@ function buildDatabaseRoutingSample({ generatedAt = DEFAULT_GENERATED_AT } = {})
   return {
     schema_version: 'v1',
     generated_at: generatedAt,
-    candidate_connections: [
-      {
-        connection_name: 'primary',
-        db_type: 'mysql',
-        config_source: '.env.example',
-        database_name_guess: null,
-        credential_keys: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
-        static_access_hints: ['cli'],
-        confidence: 'high',
-        inference_reason: 'database-config-pattern',
-        evidence: [
-          '.env.example:DB_HOST',
-          '.env.example:DB_USER',
-          'config/database.yml:adapter=mysql2',
-        ],
-      },
-    ],
-    secret_resolution: [
-      {
-        connection_name: 'primary',
-        status: 'resolved',
-        required_credential_keys: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
-        resolved_credential_keys: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
-        missing_credential_keys: [],
-        provenance: 'process.env',
-      },
-    ],
-    probe_attempts: [
-      {
-        connection_name: 'primary',
-        route: 'mcp',
-        status: 'unavailable',
-        reason: 'bootstrap-runtime-mcp-probe-unavailable',
-      },
-      {
-        connection_name: 'primary',
-        route: 'cli',
-        status: 'ready',
-        reason: 'ready',
-      },
-    ],
-    route_decisions: [
-      {
-        connection_name: 'primary',
-        selected_route: 'cli',
-        decision: 'selected',
-        fallback_reason: 'mcp-probe-unavailable-in-bootstrap-runtime',
-        provenance: [
-          'candidate:primary',
-          'secret_resolution:primary',
-          'probe_attempt:primary:cli',
-        ],
-      },
-    ],
-    selected_connections: [
-      {
-        connection_name: 'primary',
-        route: 'cli',
-        db_type: 'mysql',
-        config_source: '.env.example',
-      },
-    ],
-    generation_blockers: [],
+    discovery_strategy: 'llm-led',
+    hint_summary: {
+      database_hint_count: 1,
+      schema_hint_count: 1,
+      db_type_hints: ['mysql'],
+      config_sources: ['config/database.yml'],
+      schema_sources: ['db/migrations/20260401_create_users.sql'],
+      env_key_hints: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
+    },
+    runtime_capabilities: {
+      available_readonly_routes: [
+        {
+          route: 'mysql-cli',
+          available: true,
+          reason: 'tool-present',
+        },
+      ],
+      resolved_env_keys: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
+      missing_env_keys: [],
+    },
+    recommended_action: 'llm-readonly-introspect',
+    blockers: [],
   };
 }
 

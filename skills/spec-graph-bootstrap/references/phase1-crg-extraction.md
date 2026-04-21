@@ -14,6 +14,9 @@ spec-first crg context --repo=<target>
 
 ## 1.1 Stage A（同一 response 内并行）
 
+> 数据库发现语义：bootstrap 只产出 repo 内数据库 hints、schema sources 与项目级 framework hints，
+> 不再在脚本层维护 database extractor profile registry 或 selected route 语义。
+
 ### Project Identity
 ```bash
 spec-first crg stats --repo=<target>
@@ -58,17 +61,15 @@ spec-first crg search "validation" --repo=<target>
 
 输出 → `fact-inventory.layers`
 
-### Database Detection（Full 模式，与 Enhanced/Basic 共用相同探测方式）
+### Database Detection（Full 模式，与 Enhanced/Basic 共用相同“repo hints -> raw database handoff”探测方式）
 ```bash
-Read(<target>/package.json | go.mod | pom.xml | requirements.txt)
-  → 检测 DB 依赖（mysql2/pg/mongoose/sequelize/typeorm/prisma/gorm/django 等）
-Glob({pattern: "**/{.env,.env.example,config/database.yml,config/settings.py}", path: <target>})
-  → 检测 DB_HOST / DATABASE_URL 等连接参数变量名
-Glob({pattern: "**/migrations/**/*.{js,ts,py,go,rb,sql}", path: <target>})
-  → 检测迁移文件存在性
+Read(<target>/package.json | go.mod | pom.xml | requirements.txt | pyproject.toml | Gemfile)
+  → 收集 framework / dependency hints
+Read(<high-signal code/config/env/migration/schema/doc-er files>)
+  → 提取 raw database hints、schema 来源、framework hints
 ```
 
-`db_type` / `db_access_level` 推断规则与 Enhanced/Basic § database 节完全相同。
+`db_type` 推断规则与 Enhanced/Basic § database 节完全相同。
 
 > 注：Full 模式 CRG 图不包含数据库 schema 信息，因此 database 探测与降级模式共用 Glob/Read 方式，
 > 不调用任何 CRG 命令。

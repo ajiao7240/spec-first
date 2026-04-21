@@ -391,7 +391,11 @@ generation_errors:
   - `code-facts/high-risk-modules.md` ← `risk_signals`
   - `context-packs/review-change.md` ← 静态组装（risk_signals high + test-surface coverage_gaps + entrypoints http/worker + integrations high-risk）
 - 为条件产物（如 API 文档）判定是否创建 task
-- **database-context task**（条件）：`fact-inventory.json` 中存在 `db_type=mysql` 的静态候选连接，且 `database-routing.json.selected_connections[]` 中至少有一条可用 route 时创建，产物规范见 `references/database-worker.md`
+- 数据库相关 contract 在 bootstrap 主链内只写 control-plane：
+  - `fact-inventory.database[]`：repo 内数据库 hints
+  - `fact-inventory.database_schema[]`：schema / migration / doc-er 线索
+  - `database-routing.json`：LLM-first handoff，描述只读 runtime capability 与建议下一步
+  - bootstrap 主链**不再创建** `database-context task`，也不再预生成 `database/` 文档目录
 
 ### Phase 2 PRD Quality Gate
 
@@ -425,7 +429,11 @@ generation_errors:
 - `code-facts/high-risk-modules.md` ← `risk_signals`
 - `context-packs/review-change.md` ← 静态组装（不调用 `crg review-context`，后者是 diff-based 按需工具）
 
-**database worker**（条件）：`fact-inventory.database[]` 提供 MySQL 静态候选连接，且 `database-routing.json.selected_connections[]` 中至少存在一条显式选定 route 时，读取 `references/database-worker.md` 执行数据库四层索引；若 routing artifact 只有 blocker、没有 selected route，则跳过 `database/` 产物并保留 blocker provenance。
+数据库相关内容不再由 bootstrap 预生成文档：
+- bootstrap 只写 `fact-inventory.database[]`
+- bootstrap 只写 `fact-inventory.database_schema[]`
+- bootstrap 只写 `database-routing.json`
+- 后续阶段如需数据库分析，由 LLM 读取上述 handoff + repo 原文件，并在存在只读能力时自行决定是否执行只读 introspection
 
 **串行（最后）**：`README.md`（上下文控制台，汇总所有产物状态）
 
@@ -435,35 +443,22 @@ generation_errors:
 
 Generated: <ISO date> | Mode: <analyzer_mode> | Graph: <graph_support_state>
 
-## 产物状态
-
-| 产物 | 状态 | 备注 |
-|------|------|------|
-| 00-summary.md | generated | |
-| architecture/module-map.md | generated | |
-| pitfalls/index.md | generated | |
-| code-facts/public-entrypoints.md | generated / skipped[entrypoints-fallback] | |
-| code-facts/test-map.md | generated | |
-| code-facts/high-risk-modules.md | generated | |
-| context-packs/review-change.md | generated | |
-| database/ | generated / skipped | 跳过原因：<error> |
-
-## 异常摘要
-
-<!-- 若 generation_errors[] 非空，列出每条 extractor + error；否则写 "无" -->
+- project: <project_identity.name>
+- primary_language: <project_identity.primary_language>
+- repo_shape: <project_identity.repo_shape>
+- topology: <fact.topology.kind>
+- source_of_truth: control-plane artifacts under .spec-first/workflows/bootstrap/<slug>/
 ```
-- `状态` 只取值：`generated` / `skipped` / `failed`
-- 若 generation_errors 非空，在"异常摘要"节列出每条 `{ extractor, error }`
-- 不写原始 fact-inventory 内容，只写产物状态（README 是元信息，不是事实层）
+- README 退回为轻量 summary + `source_of_truth`
+- 不再维护数据库产物状态表，避免 README 与真实文件落盘状态漂移
 
 **artifact-manifest.json 第二次写入**（Phase 3 全部完成时）：
 
-字段详见 `references/artifact-schemas.md` § 第二次写入。写入 `status: complete` 及 `outputs` 产物 depends_on 清单。若 database worker 执行了 Step 6 局部回填，此步骤不得覆盖 `table_hashes` / `domain_assignments`。
+字段详见 `references/artifact-schemas.md` § 第二次写入。写入 `status: complete` 及 `outputs` 产物 depends_on 清单。
 
 **收尾**：
 - 若本次创建了 backup，且 Phase 3 / Phase 4 全部完成：删除 backup 目录
 - 若**固定 v1 产物**任一写入失败：恢复 backup，停止流程
-- database worker 失败属于条件产物失败，**不触发 backup 全量恢复**，仅记录 generation_errors
 
 ---
 
@@ -479,17 +474,14 @@ always:
 stages:
   plan:
     - architecture/module-map.md
-    - database/database-index.md      # 轻量域概览，plan 阶段做方案决策用（文件不存在时静默跳过）
   work:
     - code-facts/test-map.md
-    # database 文档不预注入——work 阶段 agent 按需 Read，节省 context window
+    - context-packs/review-change.md
   review:
     - code-facts/high-risk-modules.md
     - pitfalls/index.md
     - context-packs/review-change.md
     - code-facts/test-map.md
-    - database/database-index.md      # review 需要域概览 + 跨域影响（文件不存在时静默跳过）
-    - database/data-flow.md           # review 需要数据流路径和风险提示（文件不存在时静默跳过）
   unknown:
     - README.md
 
@@ -503,13 +495,11 @@ selection_rules:
     inject:
       - architecture/module-map.md
       - code-facts/high-risk-modules.md
-  # database 文档已迁移至 stages 段，此处不再按 output_exists 注入
-  # domains/*.md 和 semantic-catalog.md 由调用方按需引用，不在 injection-index 中全量注入
 
 advice:
-  review: "优先 code-facts 和 risk signals；review 阶段已注入 database-index + data-flow"
-  work: "优先 code-facts 和 test-map；database 文档按需 Read（未预注入）"
-  plan: "优先 architecture/module-map 和 database-index（域概览）"
+  review: "优先 code-facts 和 risk signals，再回读 narrative summary"
+  work: "优先 test-map 与 review-change，定位改动风险和验证面"
+  plan: "优先 module-map 与 public-entrypoints，先建立模块边界与入口心智"
 ```
 
 ---
@@ -558,12 +548,6 @@ docs/contexts/<slug>/
   code-facts/test-map.md
   code-facts/high-risk-modules.md
   context-packs/review-change.md
-  database/                       ← 条件（MySQL candidate + selected route 已显式收口，四层索引）
-    database-index.md             ← 所有规模（Tier 0：总索引）
-    data-flow.md                  ← 所有规模（Tier 2：核心业务场景数据流叙事）
-    database-er.md                ← 仅小型（≤30 表，Tier 1A）
-    domains/<name>-domain.md × N  ← 中大型（>30 表，Tier 1B）
-    semantic-catalog.md           ← 仅大型（>100 表，Tier 3）
   injection-index.yaml
 ```
 

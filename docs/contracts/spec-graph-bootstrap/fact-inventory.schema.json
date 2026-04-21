@@ -110,6 +110,7 @@
           "present",
           "connection_name",
           "config_source",
+          "evidence_sources",
           "db_type",
           "credential_keys",
           "confidence",
@@ -120,6 +121,21 @@
           "present": { "type": "boolean" },
           "connection_name": { "type": "string" },
           "config_source": { "type": "string" },
+          "evidence_sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind", "path"],
+              "properties": {
+                "kind": { "type": "string" },
+                "path": { "type": "string" },
+                "details": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          },
           "db_type": { "type": "string" },
           "database_name_guess": { "type": ["string", "null"] },
           "credential_keys": {
@@ -130,6 +146,32 @@
             "type": "array",
             "items": { "type": "string" }
           },
+          "confidence": { "type": "string" },
+          "inference_reason": { "type": "string" },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "database_schema": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "source_kind",
+          "path",
+          "db_type",
+          "confidence",
+          "inference_reason",
+          "evidence"
+        ],
+        "properties": {
+          "source_kind": { "type": "string" },
+          "path": { "type": "string" },
+          "db_type": { "type": "string" },
+          "connection_name": { "type": ["string", "null"] },
           "confidence": { "type": "string" },
           "inference_reason": { "type": "string" },
           "evidence": {

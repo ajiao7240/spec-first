@@ -52,17 +52,42 @@ const FACT_INVENTORY_SAMPLE = {
     {
       present: true,
       connection_name: 'primary',
-      config_source: '.env.example',
+      config_source: 'config/database.yml',
+      evidence_sources: [
+        {
+          kind: 'env-template',
+          path: '.env.example',
+          details: ['DB_HOST', 'DB_USER'],
+        },
+        {
+          kind: 'config-file',
+          path: 'config/database.yml',
+          details: ['adapter=mysql2'],
+        },
+      ],
       db_type: 'mysql',
       database_name_guess: null,
       credential_keys: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
-      static_access_hints: ['cli'],
+      static_access_hints: ['mysql-cli'],
       confidence: 'high',
       inference_reason: 'database-config-pattern',
       evidence: [
         '.env.example:DB_HOST',
         '.env.example:DB_USER',
         'config/database.yml:adapter=mysql2',
+      ],
+    },
+  ],
+  database_schema: [
+      {
+        source_kind: 'migration',
+        path: 'db/migrations/20260401_create_users.sql',
+        db_type: 'mysql',
+        connection_name: 'primary',
+      confidence: 'medium',
+      inference_reason: 'sql-ddl-detected',
+      evidence: [
+        'db/migrations/20260401_create_users.sql:CREATE TABLE users',
       ],
     },
   ],

@@ -393,37 +393,548 @@ describe('spec-graph-bootstrap compiler modules', () => {
         },
       });
 
+      expect(machineArtifacts.fact_inventory.database).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            present: true,
+            connection_name: 'default',
+            config_source: '.env.example',
+            evidence_sources: expect.arrayContaining([
+              expect.objectContaining({
+                kind: 'env-template',
+                path: '.env.example',
+              }),
+            ]),
+            credential_keys: expect.arrayContaining(['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']),
+          }),
+          expect.objectContaining({
+            present: true,
+            connection_name: 'default',
+            config_source: 'config/database.yml',
+            evidence_sources: expect.arrayContaining([
+              expect.objectContaining({
+                kind: 'config-file',
+                path: 'config/database.yml',
+              }),
+            ]),
+            db_type: 'mysql',
+            credential_keys: expect.arrayContaining(['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']),
+            static_access_hints: ['mysql-cli'],
+          }),
+        ])
+      );
+      expect(routing.database_routing).toEqual(expect.objectContaining({
+        discovery_strategy: 'llm-led',
+        hint_summary: expect.objectContaining({
+          database_hint_count: 2,
+          db_type_hints: ['mysql'],
+          config_sources: expect.arrayContaining(['.env.example', 'config/database.yml']),
+          env_key_hints: ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER'],
+        }),
+        runtime_capabilities: expect.objectContaining({
+          resolved_env_keys: expect.arrayContaining(['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_USER']),
+          missing_env_keys: [],
+          available_readonly_routes: expect.arrayContaining([
+            expect.objectContaining({
+              route: 'mysql-cli',
+              available: true,
+            }),
+          ]),
+        }),
+        recommended_action: 'llm-readonly-introspect',
+        blockers: [],
+      }));
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('routing compiler 不会把非 mysql hints 误报为可直接 readonly introspect', () => {
+    const routing = compileRouting({
+      generatedAt: '2026-04-21T00:00:00.000Z',
+      factInventory: {
+        database: [
+          {
+            present: true,
+            connection_name: 'primary',
+            config_source: 'config/database.yml',
+            db_type: 'postgres',
+            credential_keys: ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'],
+            static_access_hints: ['psql-cli'],
+          },
+        ],
+        database_schema: [],
+      },
+      env: {
+        PATH: process.env.PATH || '',
+        DB_HOST: 'localhost',
+        DB_USER: 'app',
+        DB_PASSWORD: 'secret',
+        DB_NAME: 'app_development',
+      },
+      tooling: {
+        hasMysqlCli: true,
+      },
+    });
+
+    expect(routing.database_routing).toEqual(expect.objectContaining({
+      runtime_capabilities: expect.objectContaining({
+        available_readonly_routes: [],
+      }),
+      recommended_action: 'llm-inspect-repo',
+      blockers: expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'runtime-capability',
+          reason: 'no-supported-readonly-route-hints',
+        }),
+      ]),
+    }));
+  });
+
+  test('routing compiler 在 env hints 不完整时回退到 inspect-repo 并显式记录 blocker', () => {
+    const routing = compileRouting({
+      generatedAt: '2026-04-21T00:00:00.000Z',
+      factInventory: {
+        database: [
+          {
+            present: true,
+            connection_name: 'primary',
+            config_source: 'config/database.yml',
+            db_type: 'mysql',
+            credential_keys: ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'],
+            static_access_hints: ['mysql-cli'],
+          },
+        ],
+        database_schema: [],
+      },
+      env: {
+        PATH: process.env.PATH || '',
+        DB_HOST: 'localhost',
+      },
+      tooling: {
+        hasMysqlCli: true,
+      },
+    });
+
+    expect(routing.database_routing).toEqual(expect.objectContaining({
+      runtime_capabilities: expect.objectContaining({
+        available_readonly_routes: [
+          expect.objectContaining({
+            route: 'mysql-cli',
+            available: true,
+          }),
+        ],
+        resolved_env_keys: ['DB_HOST'],
+        missing_env_keys: ['DB_NAME', 'DB_PASSWORD', 'DB_USER'],
+      }),
+      recommended_action: 'llm-inspect-repo',
+      blockers: expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'env-availability',
+          reason: 'env-key-hints-incomplete',
+        }),
+      ]),
+    }));
+  });
+
+  test('compiler 从代码配置、migration 与文档中聚合数据库证据，而不是只依赖固定配置文件', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-database-evidence-'));
+
+    try {
+      fs.mkdirSync(path.join(repoRoot, 'src', 'lib'), { recursive: true });
+      fs.mkdirSync(path.join(repoRoot, 'db', 'migrations'), { recursive: true });
+      fs.mkdirSync(path.join(repoRoot, 'docs'), { recursive: true });
+      fs.writeFileSync(path.join(repoRoot, 'package.json'), JSON.stringify({ name: 'db-evidence-fixture' }, null, 2));
+      fs.writeFileSync(path.join(repoRoot, 'src', 'lib', 'db.ts'), [
+        "const mysql = require('mysql2/promise');",
+        'module.exports = mysql.createPool({',
+        '  host: process.env.DB_HOST,',
+        '  user: process.env.DB_USER,',
+        '  password: process.env.DB_PASSWORD,',
+        '  database: process.env.DB_NAME,',
+        '});',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(path.join(repoRoot, 'db', 'migrations', '20260401_create_users.sql'), [
+        'CREATE TABLE users (',
+        '  id BIGINT PRIMARY KEY,',
+        '  email VARCHAR(255) NOT NULL',
+        ');',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(path.join(repoRoot, 'docs', 'database-er.md'), [
+        '# Database ER',
+        '',
+        '- users',
+        '- orders',
+        '',
+      ].join('\n'));
+
+      const machineArtifacts = compileMachineArtifacts({
+        generatedAt: '2026-04-21T00:00:00.000Z',
+        repoRoot,
+      });
+
       expect(machineArtifacts.fact_inventory.database).toEqual([
         expect.objectContaining({
           present: true,
           connection_name: 'default',
-          config_source: '.env.example',
+          config_source: 'src/lib/db.ts',
+          evidence_sources: expect.arrayContaining([
+            expect.objectContaining({
+              kind: 'code-config',
+              path: 'src/lib/db.ts',
+            }),
+          ]),
           db_type: 'mysql',
           credential_keys: expect.arrayContaining(['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']),
-          static_access_hints: ['cli'],
         }),
       ]);
-      expect(routing.database_routing.secret_resolution).toEqual([
+      expect(machineArtifacts.fact_inventory.database[0].evidence_sources).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'doc-reference',
+          }),
+        ])
+      );
+      expect(machineArtifacts.fact_inventory.database_schema).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            source_kind: 'migration',
+            path: 'db/migrations/20260401_create_users.sql',
+            db_type: 'mysql',
+          }),
+          expect.objectContaining({
+            source_kind: 'doc-er',
+            path: 'docs/database-er.md',
+            db_type: 'mysql',
+          }),
+        ])
+      );
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('compiler 不会因为 narrative docs 提到 mysql 就伪造数据库连接或 schema 证据', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-database-doc-false-positive-'));
+
+    try {
+      fs.mkdirSync(path.join(repoRoot, 'docs'), { recursive: true });
+      fs.mkdirSync(path.join(repoRoot, 'docs', 'plans'), { recursive: true });
+      fs.writeFileSync(path.join(repoRoot, 'package.json'), JSON.stringify({ name: 'db-doc-false-positive-fixture' }, null, 2));
+      fs.writeFileSync(path.join(repoRoot, 'docs', 'database-notes.md'), [
+        '# Database Notes',
+        '',
+        'We may support mysql later, but this repository does not configure a live database yet.',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(path.join(repoRoot, 'docs', 'plans', 'database-migration-plan.md'), [
+        '# Database Migration Plan',
+        '',
+        'Example SQL snippet for discussion only:',
+        'CREATE TABLE users (id BIGINT PRIMARY KEY);',
+        '',
+      ].join('\n'));
+
+      const machineArtifacts = compileMachineArtifacts({
+        generatedAt: '2026-04-21T00:00:00.000Z',
+        repoRoot,
+      });
+
+      expect(machineArtifacts.fact_inventory.database).toEqual([]);
+      expect(machineArtifacts.fact_inventory.database_schema).toEqual([]);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('compiler 在文档与代码并存时仍把 config_source 锚定到更强的代码证据', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-database-config-precedence-'));
+
+    try {
+      fs.mkdirSync(path.join(repoRoot, 'src', 'lib'), { recursive: true });
+      fs.mkdirSync(path.join(repoRoot, 'docs'), { recursive: true });
+      fs.writeFileSync(path.join(repoRoot, 'package.json'), JSON.stringify({ name: 'db-config-precedence-fixture' }, null, 2));
+      fs.writeFileSync(path.join(repoRoot, 'src', 'lib', 'db.ts'), [
+        "const mysql = require('mysql2/promise');",
+        'module.exports = mysql.createPool({',
+        '  host: process.env.DB_HOST,',
+        '  user: process.env.DB_USER,',
+        '  password: process.env.DB_PASSWORD,',
+        '});',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(path.join(repoRoot, 'docs', 'database-reference.md'), [
+        '# Database Reference',
+        '',
+        'Example env var: DATABASE_URL=mysql://demo:demo@localhost/app',
+        '',
+      ].join('\n'));
+
+      const machineArtifacts = compileMachineArtifacts({
+        generatedAt: '2026-04-21T00:00:00.000Z',
+        repoRoot,
+      });
+
+      expect(machineArtifacts.fact_inventory.database).toEqual([
         expect.objectContaining({
-          connection_name: 'default',
-          status: 'resolved',
-          resolved_credential_keys: expect.arrayContaining(['DB_HOST', 'DB_USER']),
+          config_source: 'src/lib/db.ts',
+          evidence_sources: expect.arrayContaining([
+            expect.objectContaining({
+              kind: 'code-config',
+              path: 'src/lib/db.ts',
+            }),
+          ]),
         }),
       ]);
-      expect(routing.database_routing.route_decisions).toEqual([
+      expect(machineArtifacts.fact_inventory.database[0].evidence_sources).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: 'docs/database-reference.md',
+          }),
+        ])
+      );
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('compiler 按 Spring Boot 项目特征提取数据库连接与 schema 证据', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-spring-db-profile-'));
+
+    try {
+      fs.mkdirSync(path.join(repoRoot, 'src', 'main', 'resources', 'db', 'migration'), { recursive: true });
+      fs.mkdirSync(path.join(repoRoot, 'src', 'main', 'java', 'com', 'example'), { recursive: true });
+      fs.writeFileSync(path.join(repoRoot, 'pom.xml'), [
+        '<project>',
+        '  <modelVersion>4.0.0</modelVersion>',
+        '  <groupId>com.example</groupId>',
+        '  <artifactId>spring-db-profile</artifactId>',
+        '  <dependencies>',
+        '    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-jdbc</artifactId></dependency>',
+        '    <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-core</artifactId></dependency>',
+        '    <dependency><groupId>mysql</groupId><artifactId>mysql-connector-j</artifactId></dependency>',
+        '  </dependencies>',
+        '</project>',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(path.join(repoRoot, 'src', 'main', 'resources', 'application.yml'), [
+        'spring:',
+        '  datasource:',
+        '    url: jdbc:mysql://${DB_HOST:localhost}:3306/app',
+        '    username: ${DB_USER}',
+        '    password: ${DB_PASSWORD}',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(path.join(repoRoot, 'src', 'main', 'resources', 'db', 'migration', 'V1__create_users.sql'), [
+        'CREATE TABLE users (',
+        '  id BIGINT PRIMARY KEY,',
+        '  email VARCHAR(255) NOT NULL',
+        ');',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(path.join(repoRoot, 'src', 'main', 'java', 'com', 'example', 'Application.java'), [
+        'package com.example;',
+        'public class Application {}',
+        '',
+      ].join('\n'));
+
+      const machineArtifacts = compileMachineArtifacts({
+        generatedAt: '2026-04-21T00:00:00.000Z',
+        repoRoot,
+      });
+
+      expect(machineArtifacts.fact_inventory.project_identity.primary_frameworks).toEqual(
+        expect.arrayContaining(['Spring Boot', 'Flyway'])
+      );
+      expect(machineArtifacts.fact_inventory.database).toEqual([
         expect.objectContaining({
-          connection_name: 'default',
-          selected_route: 'cli',
-          decision: 'selected',
-          fallback_reason: 'mcp-probe-unavailable-in-bootstrap-runtime',
+          present: true,
+          config_source: 'src/main/resources/application.yml',
+          db_type: 'mysql',
+          evidence_sources: expect.arrayContaining([
+            expect.objectContaining({
+              kind: 'config-file',
+              path: 'src/main/resources/application.yml',
+            }),
+          ]),
+          credential_keys: expect.arrayContaining(['DB_HOST', 'DB_USER', 'DB_PASSWORD']),
         }),
       ]);
-      expect(routing.database_routing.selected_connections).toEqual([
-        expect.objectContaining({
-          connection_name: 'default',
-          route: 'cli',
+      expect(machineArtifacts.fact_inventory.database_schema).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            source_kind: 'migration',
+            path: 'src/main/resources/db/migration/V1__create_users.sql',
+            db_type: 'mysql',
+          }),
+        ])
+      );
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('compiler 按 Python Django / SQLAlchemy 项目特征提取数据库证据', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-python-db-profile-'));
+
+    try {
+      fs.mkdirSync(path.join(repoRoot, 'project'), { recursive: true });
+      fs.mkdirSync(path.join(repoRoot, 'alembic', 'versions'), { recursive: true });
+      fs.writeFileSync(path.join(repoRoot, 'requirements.txt'), [
+        'Django==5.0.0',
+        'SQLAlchemy==2.0.0',
+        'alembic==1.13.0',
+        'mysqlclient==2.2.0',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(path.join(repoRoot, 'project', 'settings.py'), [
+        'DATABASES = {',
+        "  'default': {",
+        "    'ENGINE': 'django.db.backends.mysql',",
+        "    'HOST': os.getenv('DB_HOST'),",
+        "    'USER': os.getenv('DB_USER'),",
+        "    'PASSWORD': os.getenv('DB_PASSWORD'),",
+        "    'NAME': os.getenv('DB_NAME'),",
+        '  }',
+        '}',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(path.join(repoRoot, 'project', 'database.py'), [
+        'from sqlalchemy import create_engine',
+        'import os',
+        '',
+        "engine = create_engine(os.getenv('DATABASE_URL'))",
+        '',
+      ].join('\n'));
+      fs.writeFileSync(path.join(repoRoot, 'alembic', 'versions', '20260421_create_orders.py'), [
+        'def upgrade():',
+        "    op.execute('CREATE TABLE orders (id BIGINT PRIMARY KEY)')",
+        '',
+      ].join('\n'));
+
+      const machineArtifacts = compileMachineArtifacts({
+        generatedAt: '2026-04-21T00:00:00.000Z',
+        repoRoot,
+      });
+
+      expect(machineArtifacts.fact_inventory.project_identity.primary_frameworks).toEqual(
+        expect.arrayContaining(['Django', 'SQLAlchemy', 'Alembic'])
+      );
+      expect(machineArtifacts.fact_inventory.database).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            present: true,
+            config_source: 'project/settings.py',
+            db_type: 'mysql',
+            evidence_sources: expect.arrayContaining([
+              expect.objectContaining({
+                kind: 'code-config',
+                path: 'project/settings.py',
+              }),
+            ]),
+          }),
+          expect.objectContaining({
+            present: true,
+            config_source: 'project/database.py',
+            evidence_sources: expect.arrayContaining([
+              expect.objectContaining({
+                kind: 'code-config',
+                path: 'project/database.py',
+              }),
+            ]),
+          }),
+        ])
+      );
+      expect(machineArtifacts.fact_inventory.database_schema).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            source_kind: 'migration',
+            path: 'alembic/versions/20260421_create_orders.py',
+          }),
+        ])
+      );
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('runBootstrap 在 schema-only 场景下保留 database handoff，但不预生成 database 文档', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-schema-only-database-assets-'));
+
+    try {
+      fs.mkdirSync(path.join(repoRoot, 'src', 'lib'), { recursive: true });
+      fs.mkdirSync(path.join(repoRoot, 'db', 'migrations'), { recursive: true });
+      fs.writeFileSync(path.join(repoRoot, 'package.json'), JSON.stringify({
+        name: 'schema-only-db-assets',
+        dependencies: {
+          mysql2: '^3.0.0',
+        },
+      }, null, 2));
+      fs.writeFileSync(path.join(repoRoot, 'src', 'lib', 'db.ts'), [
+        "const mysql = require('mysql2/promise');",
+        'module.exports = mysql.createPool({',
+        '  host: process.env.DB_HOST,',
+        '  user: process.env.DB_USER,',
+        '  password: process.env.DB_PASSWORD,',
+        '});',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(path.join(repoRoot, 'db', 'migrations', '20260421_create_users.sql'), [
+        'CREATE TABLE users (',
+        '  id BIGINT PRIMARY KEY,',
+        '  email VARCHAR(255) NOT NULL',
+        ');',
+        '',
+      ].join('\n'));
+
+      const result = runBootstrap({
+        repoRoot,
+        generatedAt: '2026-04-21T00:00:00.000Z',
+        compilers: {
+          routing(args) {
+            return compileRouting({
+              ...args,
+              env: {
+                PATH: process.env.PATH || '',
+              },
+              tooling: {
+                hasMysqlCli: true,
+              },
+            });
+          },
+        },
+      });
+
+      const databaseIndexPath = path.join(result.contextDir, 'database', 'database-index.md');
+      const dataFlowPath = path.join(result.contextDir, 'database', 'data-flow.md');
+      const databaseErPath = path.join(result.contextDir, 'database', 'database-er.md');
+      const readme = fs.readFileSync(path.join(result.contextDir, 'README.md'), 'utf8');
+      const databaseRouting = JSON.parse(
+        fs.readFileSync(path.join(result.controlPlaneDir, 'database-routing.json'), 'utf8')
+      );
+
+      expect(fs.existsSync(databaseIndexPath)).toBe(false);
+      expect(fs.existsSync(dataFlowPath)).toBe(false);
+      expect(fs.existsSync(databaseErPath)).toBe(false);
+      expect(databaseRouting).toMatchObject({
+        discovery_strategy: 'llm-led',
+        hint_summary: expect.objectContaining({
+          database_hint_count: 1,
+          schema_hint_count: 1,
+          schema_sources: ['db/migrations/20260421_create_users.sql'],
         }),
-      ]);
+        recommended_action: 'llm-inspect-repo',
+        blockers: expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'env-availability',
+            reason: 'all-env-key-hints-missing',
+          }),
+        ]),
+      });
+      expect(readme).toContain('source_of_truth');
+      expect(readme).not.toContain('| database/ |');
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }

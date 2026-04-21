@@ -22,6 +22,25 @@ function hasResolvedKey(resolvedKeys, pattern) {
   return resolvedKeys.some((key) => pattern.test(key));
 }
 
+function unique(values) {
+  return [...new Set((values || []).filter(Boolean))];
+}
+
+function getReadonlyRouteAvailability(route, { env = process.env, tooling = {} } = {}) {
+  if (route === 'mysql-cli') {
+    const available = Object.prototype.hasOwnProperty.call(tooling, 'hasMysqlCli')
+      ? Boolean(tooling.hasMysqlCli)
+      : commandExists('mysql', env);
+    return {
+      route,
+      available,
+      reason: available ? 'tool-present' : 'tool-missing',
+    };
+  }
+
+  return null;
+}
+
 function buildDatabaseRouting({
   generatedAt = '2026-04-15T00:00:00.000Z',
   factInventory,
@@ -31,157 +50,83 @@ function buildDatabaseRouting({
   const databaseCandidates = Array.isArray(factInventory && factInventory.database)
     ? factInventory.database
     : [];
-  const hasMysqlCli = Object.prototype.hasOwnProperty.call(tooling, 'hasMysqlCli')
-    ? Boolean(tooling.hasMysqlCli)
-    : commandExists('mysql', env);
-  const hasMysqlMcp = Boolean(tooling.hasMysqlMcp);
+  const databaseSchemaSources = Array.isArray(factInventory && factInventory.database_schema)
+    ? factInventory.database_schema
+    : [];
+  const envKeyHints = unique(databaseCandidates.flatMap((candidate) => (
+    Array.isArray(candidate && candidate.credential_keys) ? candidate.credential_keys : []
+  ))).sort();
+  const resolvedEnvKeys = envKeyHints.filter((key) => Boolean(env[key]));
+  const missingEnvKeys = envKeyHints.filter((key) => !env[key]);
+  const hintedReadonlyRoutes = unique(databaseCandidates.flatMap((candidate) => (
+    Array.isArray(candidate && candidate.static_access_hints) ? candidate.static_access_hints : []
+  ))).sort();
+  const availableReadonlyRoutes = hintedReadonlyRoutes
+    .map((route) => getReadonlyRouteAvailability(route, { env, tooling }))
+    .filter(Boolean);
+  const dbTypeHints = unique(
+    databaseCandidates
+      .map((candidate) => candidate && candidate.db_type)
+      .filter((dbType) => dbType && dbType !== 'unknown')
+  ).sort();
+  const configSources = unique(databaseCandidates.map((candidate) => candidate && candidate.config_source).filter(Boolean)).sort();
+  const schemaSources = unique(databaseSchemaSources.map((source) => source && source.path).filter(Boolean)).sort();
+  const hasHints = databaseCandidates.length > 0 || databaseSchemaSources.length > 0;
+  const hasReadonlyRouteHints = availableReadonlyRoutes.length > 0;
+  const hasReadonlyTool = availableReadonlyRoutes.some((route) => route.available);
+  const hasCompleteEnvHints = envKeyHints.length > 0 && missingEnvKeys.length === 0;
+  const recommendedAction = !hasHints
+    ? 'not-needed'
+    : hasReadonlyTool && hasCompleteEnvHints
+      ? 'llm-readonly-introspect'
+      : 'llm-inspect-repo';
+  const blockers = [];
 
-  const routing = {
-    schema_version: 'v1',
-    generated_at: generatedAt,
-    candidate_connections: [],
-    secret_resolution: [],
-    probe_attempts: [],
-    route_decisions: [],
-    selected_connections: [],
-    generation_blockers: [],
-  };
-
-  for (const candidate of databaseCandidates) {
-    const connectionName = candidate.connection_name || 'default';
-    const credentialKeys = Array.isArray(candidate.credential_keys) ? candidate.credential_keys : [];
-    const resolvedCredentialKeys = credentialKeys.filter((key) => Boolean(env[key]));
-    const missingCredentialKeys = credentialKeys.filter((key) => !env[key]);
-    const secretStatus = credentialKeys.length === 0
-      ? 'not-required'
-      : missingCredentialKeys.length === 0
-        ? 'resolved'
-        : resolvedCredentialKeys.length > 0
-          ? 'partial'
-          : 'missing';
-
-    routing.candidate_connections.push({
-      connection_name: connectionName,
-      db_type: candidate.db_type || 'unknown',
-      config_source: candidate.config_source || 'unknown',
-      database_name_guess: Object.prototype.hasOwnProperty.call(candidate, 'database_name_guess')
-        ? candidate.database_name_guess
-        : null,
-      credential_keys: credentialKeys,
-      static_access_hints: Array.isArray(candidate.static_access_hints) ? candidate.static_access_hints : [],
-      confidence: candidate.confidence || 'low',
-      inference_reason: candidate.inference_reason || 'database-config-pattern',
-      evidence: Array.isArray(candidate.evidence) ? candidate.evidence : [],
+  if (hasHints && !hasReadonlyRouteHints) {
+    blockers.push({
+      kind: 'runtime-capability',
+      reason: 'no-supported-readonly-route-hints',
     });
-
-    routing.secret_resolution.push({
-      connection_name: connectionName,
-      status: secretStatus,
-      required_credential_keys: credentialKeys,
-      resolved_credential_keys: resolvedCredentialKeys,
-      missing_credential_keys: missingCredentialKeys,
-      provenance: 'process.env',
+  }
+  if (hasHints && hasReadonlyRouteHints && !hasReadonlyTool) {
+    blockers.push({
+      kind: 'runtime-capability',
+      reason: 'no-supported-readonly-database-tool-available',
     });
-
-    const resolvedHasHost = hasResolvedKey(
-      resolvedCredentialKeys,
-      /(?:^|_)(DB_HOST|MYSQL_HOST)$/
-    );
-    const resolvedHasUser = hasResolvedKey(
-      resolvedCredentialKeys,
-      /(?:^|_)(DB_USER|DB_USERNAME|MYSQL_USER|MYSQL_USERNAME)$/
-    );
-    const cliReady = candidate.db_type === 'mysql' && hasMysqlCli && resolvedHasHost && resolvedHasUser;
-    const mcpReady = candidate.db_type === 'mysql' && hasMysqlMcp;
-
-    routing.probe_attempts.push({
-      connection_name: connectionName,
-      route: 'mcp',
-      status: candidate.db_type !== 'mysql'
-        ? 'skipped'
-        : mcpReady
-          ? 'ready'
-          : 'unavailable',
-      reason: candidate.db_type !== 'mysql'
-        ? 'unsupported-db-type'
-        : mcpReady
-          ? 'ready'
-          : 'bootstrap-runtime-mcp-probe-unavailable',
+  }
+  if (hasHints && envKeyHints.length === 0) {
+    blockers.push({
+      kind: 'env-availability',
+      reason: 'no-env-key-hints',
     });
-
-    const cliReason = candidate.db_type !== 'mysql'
-      ? 'unsupported-db-type'
-      : !resolvedHasHost || !resolvedHasUser
-        ? 'discrete-credential-keys-missing'
-        : hasMysqlCli
-          ? 'ready'
-          : 'mysql-cli-not-found';
-
-    routing.probe_attempts.push({
-      connection_name: connectionName,
-      route: 'cli',
-      status: candidate.db_type !== 'mysql'
-        ? 'skipped'
-        : cliReady
-          ? 'ready'
-          : !resolvedHasHost || !resolvedHasUser
-            ? 'blocked'
-            : 'unavailable',
-      reason: cliReason,
+  }
+  if (hasHints && envKeyHints.length > 0 && missingEnvKeys.length > 0) {
+    blockers.push({
+      kind: 'env-availability',
+      reason: resolvedEnvKeys.length === 0 ? 'all-env-key-hints-missing' : 'env-key-hints-incomplete',
     });
-
-    let selectedRoute = null;
-    let decision = 'blocked';
-    let fallbackReason = null;
-
-    if (candidate.db_type !== 'mysql') {
-      fallbackReason = 'unsupported-db-type';
-    } else if (mcpReady) {
-      selectedRoute = 'mcp';
-      decision = 'selected';
-    } else if (cliReady) {
-      selectedRoute = 'cli';
-      decision = 'selected';
-      fallbackReason = 'mcp-probe-unavailable-in-bootstrap-runtime';
-    } else if (secretStatus !== 'resolved') {
-      fallbackReason = 'credential-keys-missing';
-    } else if (!resolvedHasHost || !resolvedHasUser) {
-      fallbackReason = 'cli-discrete-credentials-unavailable';
-    } else if (!hasMysqlCli) {
-      fallbackReason = 'mysql-cli-not-found';
-    } else {
-      fallbackReason = 'no-supported-route';
-    }
-
-    routing.route_decisions.push({
-      connection_name: connectionName,
-      selected_route: selectedRoute,
-      decision,
-      fallback_reason: fallbackReason,
-      provenance: [
-        `candidate:${connectionName}`,
-        `secret_resolution:${connectionName}`,
-        ...(selectedRoute ? [`probe_attempt:${connectionName}:${selectedRoute}`] : []),
-      ],
-    });
-
-    if (selectedRoute) {
-      routing.selected_connections.push({
-        connection_name: connectionName,
-        route: selectedRoute,
-        db_type: candidate.db_type || 'unknown',
-        config_source: candidate.config_source || 'unknown',
-      });
-    } else {
-      routing.generation_blockers.push({
-        connection_name: connectionName,
-        stage: 'route-selection',
-        reason: fallbackReason || 'no-supported-route',
-      });
-    }
   }
 
-  return routing;
+  return {
+    schema_version: 'v1',
+    generated_at: generatedAt,
+    discovery_strategy: 'llm-led',
+    hint_summary: {
+      database_hint_count: databaseCandidates.length,
+      schema_hint_count: databaseSchemaSources.length,
+      db_type_hints: dbTypeHints,
+      config_sources: configSources,
+      schema_sources: schemaSources,
+      env_key_hints: envKeyHints,
+    },
+    runtime_capabilities: {
+      available_readonly_routes: availableReadonlyRoutes,
+      resolved_env_keys: resolvedEnvKeys,
+      missing_env_keys: missingEnvKeys,
+    },
+    recommended_action: recommendedAction,
+    blockers,
+  };
 }
 
 function buildContextRouting({ generatedAt = '2026-04-15T00:00:00.000Z' } = {}) {
@@ -307,7 +252,7 @@ function buildOutputMap() {
       status: 'required',
       depends_on: [
         'schema:fact_inventory@v1',
-        'runtime:secret-resolution',
+        'runtime:capability-check',
       ],
     },
     'context-routing.json': {

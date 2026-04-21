@@ -74,7 +74,7 @@ scope: 把 Claude 侧 12 个 workflow 入口从 .claude/commands/spec/*.md + .cl
 | skills/ 内 `/spec:*` 引用替换 | 75 处 |
 | 源码文件修改 | 7 个 |
 | 命令模板文件删除 | 12 个 |
-| 测试断言更新 | 35+ 处，16 个文件 |
+| 测试断言更新 | 35+ 处，23+ 个文件 |
 
 ---
 
@@ -102,6 +102,8 @@ scope: 把 Claude 侧 12 个 workflow 入口从 .claude/commands/spec/*.md + .cl
 
 另需确认 `skills/setup/SKILL.md` 的 `name` 字段，决定是保留 `/setup` 还是改为 `/spec-setup`。
 
+> **执行前验证**：`spec-work-beta` 不在 `skills-governance.json` 的 `workflow_command` 列表中，说明它已是 `standalone_skill`；Step 12 的模板删除列表也没有 `work-beta.md`。执行 Step 1 前先确认 `spec-work-beta` 的 `entry_surface`——若已是 `standalone_skill`，则其 `name` 字段改动仅影响调用名，不涉及 governance 迁移，可安全执行。
+
 **验证**：逐个检查 `name:` 字段已更新，无拼写错误。
 
 ---
@@ -123,7 +125,7 @@ scope: 把 Claude 侧 12 个 workflow 入口从 .claude/commands/spec/*.md + .cl
 /spec:compound\b      →  /spec-compound
 /spec:sessions        →  /spec-sessions
 /spec:update          →  /spec-update
-/spec:setup           →  /spec-setup
+/spec:setup           →  /spec-setup  ← 仅在 Step 1 决定将 setup 改名为 spec-setup 时执行；若保留 /setup 则跳过此行
 /spec:mcp-setup       →  /spec-mcp-setup
 /spec:graph-bootstrap    →  /spec-graph-bootstrap
 /spec:compound-refresh  →  /spec-compound-refresh
@@ -176,6 +178,50 @@ scope: 把 Claude 侧 12 个 workflow 入口从 .claude/commands/spec/*.md + .cl
 ```
 
 **验证**：`node -e "require('./.claude-plugin/plugin.json')"` 无报错；`commands` 字段不再存在。
+
+---
+
+### Step 3b：`src/cli/contracts/dual-host-governance/skills-governance.json` 迁移
+
+> **必须与 Step 3 同批执行**：`plugin.js` 中 `validateSkillsGovernance()` 在加载时校验每条 `entry_surface: 'workflow_command'` 的记录必须在 `manifest.commands` 中有对应项。Step 3 删除 `commands` 数组后，若此步骤未同步执行，任何 `init`/`doctor`/`clean` 调用都将硬崩溃。
+
+将以下 12 条 governance 记录从 `workflow_command` 改为 `standalone_skill`：
+
+```
+setup, spec-brainstorm, spec-compound, spec-debug, spec-graph-bootstrap,
+spec-ideate, spec-mcp-setup, spec-plan, spec-review, spec-sessions,
+spec-update, spec-work
+```
+
+每条记录改动：
+```json
+// 修改前
+{
+  "entry_surface": "workflow_command",
+  "command_name": "plan",
+  "host_delivery": { "claude": "command", "codex": "skill" }
+}
+
+// 修改后
+{
+  "entry_surface": "standalone_skill",
+  "command_name": null,
+  "host_delivery": { "claude": "skill", "codex": "skill" }
+}
+```
+
+同步更新 `plugin.js`：
+
+1. **`validateManifest()`**：删除 `Array.isArray(manifest.commands)` 断言（line 94）；从 `['commands', 'skills', 'agents']` 循环中移除 `'commands'`（line 102）。**必须与 Step 3 plugin.json 改动同批执行**，否则 CLI 在 validateManifest 层即崩溃，不会到达 validateSkillsGovernance。
+2. **`validateSkillsGovernance()`**：删除 `workflow_command` 校验分支（lines 205–218）及其逆向校验（standalone_skill 记录不得有 manifest command 对应项的检查）。
+3. **`buildFilteredAssetSet()`**：删除 `entry_surface === 'workflow_command'` 分支（不保留，不做 no-op）；同时从 `ENTRY_SURFACES` 集合删除 `'workflow_command'`，从 `HOST_DELIVERIES` 集合删除 `'command'`。
+
+同步更新 `skills-governance-contracts.test.js`：
+- 删除 `manifest.commands.map(c => c.skill)` 的 `workflowSkills` 推导逻辑
+- 删除 `claudeAssets.commands.toHaveLength(manifest.commands.length)` 断言
+- 改为断言所有 12 个前 workflow_command 技能的 `host_delivery.claude === 'skill'`
+
+**验证**：`node -e "const p = require('./src/cli/plugin.js'); p.buildFilteredAssetSet('claude')"` 无报错。
 
 ---
 
@@ -280,7 +326,32 @@ Codex adapter 已有 `workflowsRoot === skillsRoot`，改动量极小：
 // writeManagedState() 中：不再写入 commands 字段
 ```
 
-**验证**：旧 state.json（含 `commands` 字段）被读取时无报错；新写入的 state.json 无 `commands` 字段。
+**同步处理 `workflowSkills` 字段**：
+
+`state.js` 中以下位置依赖 `adapter.workflowsRoot`（Step 4-5 已删除），需全部处理：
+
+- `planManagedAssetRemoval()`（line 259–268）：`state.workflowSkills` 清理循环调用 `adapter.workflowsRoot`
+- `planHardResetManagedAssets()`（line 322–351）：独立访问 `adapter.workflowsRoot`（在 `adapter.workflowsRoot !== adapter.skillsRoot` 条件下），init 重新初始化和 `clean --reset` 均会触发此路径
+
+**处理方式（选定方案）**：
+
+```js
+// 1. readManagedState()：仍读取旧 workflowSkills 字段（不报错，向后兼容）
+// 2. writeManagedState()：不再写入 workflowSkills
+// 3. planManagedAssetRemoval() 的 workflowSkills 循环：
+//    改为检查 adapter.workflowsRoot !== undefined 而非目录是否存在
+//    （adapter 属性已删除 → 条件为 false → 循环跳过，不崩溃）
+// 4. planHardResetManagedAssets()：
+//    删除 'if (adapter.workflowsRoot !== adapter.skillsRoot)' 分支整体
+//    （workflowsRoot 不再存在，分支恒为 false，直接删除）
+// 5. REQUIRED_MANAGED_STATE_ARRAY_FIELDS：移除 workflowSkills
+```
+
+**验证**：
+- 旧 state.json（含 `commands`/`workflowSkills` 字段）被读取时无报错
+- 新写入的 state.json 无 `commands`/`workflowSkills` 字段
+- `planManagedAssetRemoval()` 在 `adapter.workflowsRoot` 属性不存在时不崩溃
+- `planHardResetManagedAssets()` 不引用已删除的 `adapter.workflowsRoot`
 
 ---
 
@@ -291,6 +362,22 @@ clean 执行时追加对旧安装的清理：
 1. 删除 `.claude/commands/spec/`（旧 command 模板目录）
 2. 删除 `.claude/spec-first/workflows/`（旧 workflow 副本目录）
 3. state.json 中移除 `commands` 字段（如存在）
+
+**实现位置**：在 `ClaudeAdapter.planRuntimeFilesRemoval()` 中追加两条 `remove_dir` 操作（此方法已由 `clean.js` 调用，干跑预览也会自动覆盖）：
+
+```js
+// claude.js planRuntimeFilesRemoval()
+{
+  kind: 'remove_dir',
+  path: '.claude/commands/spec',
+  reason: 'legacy_command_shim_cleanup',
+},
+{
+  kind: 'remove_dir',
+  path: '.claude/spec-first/workflows',
+  reason: 'legacy_workflow_copy_cleanup',
+},
+```
 
 dry-run 模式下应在 preview 中显示这三个操作。
 
@@ -342,15 +429,25 @@ templates/claude/commands/spec/work.md
 | `tests/smoke/cli.sh` | 移除 commands 目录生成验证，改为 skills 目录验证 |
 | `tests/smoke/release-dual-host-governance.sh` | 更新命令名引用 |
 
-**新增测试**：
-- `tests/unit/native-skill-entry-contracts.test.js`：验证 11 个 SKILL.md `name` 字段符合 `spec-*` 格式；验证 `skills/` 内无残留 `/spec:*` 引用；验证 plugin.json 无 `commands` 字段。
+> **执行前先获取完整列表**：`grep -rln '/spec:[a-z]' tests/` 获取实际受影响文件（至少 23 个，比原列表多 7+）。同时检查 `docs/10-prompt/` 目录——该目录存放 skills/ 的 prompt mirror 文件，与 skills/ 源文件要求 byte-equal 同步；Step 2 改动 skills/ 后，`docs/10-prompt/` 中对应的 mirror 文件也需同步替换 `/spec:*` 引用（`grep -rln '/spec:[a-z]' docs/10-prompt/` 可获取列表）。已知遗漏的文件包括：`feature-video-contracts.test.js`、`test-browser-contracts.test.js`、`lfg-contracts.test.js`、`lint-skill-entrypoints.test.js`、`spec-brainstorm-contracts.test.js`、`spec-compound-contracts.test.js`、`git-worktree-contracts.test.js`。
+
+> **skills-governance-contracts.test.js 需完整重写**（不只是改名）：现有测试从 `manifest.commands.map(c => c.skill)` 推导 `workflowSkills`，Step 3b 后 `manifest.commands` 消失，测试需要改为验证 governance 记录的 `host_delivery.claude === 'skill'`。
+
+| `tests/unit/native-skill-entry-contracts.test.js` | **新增**：验证 11 个 SKILL.md `name` 字段符合 `spec-*` 格式；验证 `skills/` 内无残留 `/spec:*` 引用；验证 plugin.json 无 `commands` 字段 |
 
 ---
 
 ### Step 14：更新 CLAUDE.md
 
+更新范围：**不只是一行治理规则**，需审查全文所有 `/spec:*` 引用和命令模板路径引用。
+
+已知需更新的位置：
+1. 治理规则行：`Claude workflow 入口使用 /spec:*` → `/spec-*`
+2. 第 62 行资产结构说明：`入口命令 /spec:sessions` → `/spec-sessions`；`templates/claude/commands/spec/sessions.md` → 删除（文件已不存在）
+3. 全文搜索 `/spec:` 并逐一确认替换
+
 ```markdown
-# 旧
+# 旧（治理规则）
 - Claude workflow 入口使用 `/spec:*`
 
 # 新
@@ -358,28 +455,33 @@ templates/claude/commands/spec/work.md
 - `.claude/commands/spec/` 已废弃，`spec-first clean --claude` 可清理旧残留
 ```
 
+**验证**：`grep "/spec:" CLAUDE.md` 无输出。
+
 ---
 
 ## 6. 执行顺序
 
 ```
-Step 1  SKILL.md name 字段     ← 可单独验证，最安全
-Step 2  skills/ 引用替换        ← 依赖 Step 1 完成
-Step 3  plugin.json            ← 独立
-Step 4  plugin.js              ← 依赖 Step 3
-Step 5  claude.js adapter
-Step 6  base.js adapter
-Step 7  codex.js adapter
-Step 8  init.js                ← 依赖 Step 4-6
-Step 9  doctor.js              ← 依赖 Step 5
-Step 10 state.js               ← 独立
-Step 11 clean.js               ← 依赖 Step 8-10
-Step 12 删除模板文件             ← 依赖 Step 3-4
-Step 13 测试更新               ← 依赖 Step 1-12 全部
-Step 14 CLAUDE.md              ← 最后
+Step 1   SKILL.md name 字段      ← 可单独验证，最安全（先确认 spec-work-beta 状态）
+Step 2   skills/ 引用替换         ← 依赖 Step 1 完成
+Step 3   plugin.json             ← 必须与 Step 3b 同批
+Step 3b  skills-governance.json  ← 必须与 Step 3 同批，否则启动即崩溃
+Step 4   plugin.js               ← 依赖 Step 3/3b
+Step 5   claude.js adapter
+Step 6   base.js adapter
+Step 7   codex.js adapter
+Step 8   init.js                 ← 依赖 Step 4-6
+Step 9   doctor.js               ← 依赖 Step 5
+Step 10  state.js                ← 独立
+Step 11  clean.js                ← 依赖 Step 5（ClaudeAdapter）、Step 8-10
+Step 12  删除模板文件              ← 依赖 Step 3/3b
+Step 13  测试更新                 ← 依赖 Step 1-12 全部（先跑 grep 获取完整文件列表）
+Step 14  CLAUDE.md               ← 最后
 ```
 
-Step 1-2 可先合入验证行为，其余建议单 PR 一次性完成。
+**重要约束**：Step 3 和 Step 3b 必须在同一 commit 中执行，中间状态会导致 CLI 完全不可用。
+
+Step 1-2 可先合入验证命名行为，Step 3-14 建议单 PR 一次性完成。
 
 ---
 

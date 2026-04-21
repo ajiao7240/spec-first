@@ -102,9 +102,31 @@ describe('spec-graph-bootstrap contracts', () => {
     expect(schemas).toContain(
       'top_hubs: [{ id, name, file_path, kind, in_degree, confidence, inference_reason, evidence, updated_at }]'
     );
-    expect(schemas).toContain('database: [{ present, connection_name, config_source, db_type, database_name_guess, credential_keys, static_access_hints, confidence, inference_reason, evidence }]');
+    expect(schemas).toContain('database: [{ present, connection_name, config_source, evidence_sources, db_type, database_name_guess, credential_keys, static_access_hints, confidence, inference_reason, evidence }]');
+    expect(schemas).toContain('database_schema: [{ source_kind, path, db_type, connection_name, confidence, inference_reason, evidence }]');
     expect(schemas).toContain('## database-routing.json');
-    expect(schemas).toContain('route_decisions');
+    expect(schemas).toContain('discovery_strategy: llm-led');
+    expect(schemas).toContain('route: mysql-cli | <future readonly cli>');
+    expect(schemas).toContain('recommended_action: llm-readonly-introspect | llm-inspect-repo | not-needed');
+    expect(schemas).not.toContain('mysql-mcp');
+  });
+
+  test('source skill references 把数据库发现表述为 LLM-first handoff，而不是 extractor profile 注册表', () => {
+    const degraded = fs.readFileSync(
+      path.join(REPO_ROOT, 'skills/spec-graph-bootstrap/references/phase1-degraded-extraction.md'),
+      'utf8'
+    );
+    const full = fs.readFileSync(
+      path.join(REPO_ROOT, 'skills/spec-graph-bootstrap/references/phase1-crg-extraction.md'),
+      'utf8'
+    );
+    const schemas = fs.readFileSync(GRAPH_BOOTSTRAP_SCHEMAS_PATH, 'utf8');
+
+    expect(degraded).toContain('framework hints');
+    expect(degraded).toContain('不再维护 database extractor profile registry');
+    expect(full).toContain('raw database handoff');
+    expect(full).toContain('不再在脚本层维护 database extractor profile registry 或 selected route 语义');
+    expect(schemas).toContain('LLM-first handoff contract');
   });
 
   test('artifact-schemas.md 定义了 data_quality 字段及分析模式映射规则', () => {
@@ -136,6 +158,20 @@ describe('spec-graph-bootstrap contracts', () => {
     expect(w2Section).toContain('不写');
   });
 
+  test('source skill and prompt mirror describe database surfaces as handoff only, without bootstrap database docs', () => {
+    const sourceSkill = fs.readFileSync(GRAPH_BOOTSTRAP_SKILL_PATH, 'utf8');
+    const promptMirror = fs.readFileSync(PROMPT_MIRROR_SKILL_PATH, 'utf8');
+
+    expect(sourceSkill).toContain('fact-inventory.database_schema[]');
+    expect(promptMirror).toContain('fact-inventory.database_schema[]');
+    expect(sourceSkill).toContain('bootstrap 主链**不再创建** `database-context task`');
+    expect(promptMirror).toContain('bootstrap 主链**不再创建** `database-context task`');
+    expect(sourceSkill).toContain('bootstrap 只写 `database-routing.json`');
+    expect(promptMirror).toContain('bootstrap 只写 `database-routing.json`');
+    expect(sourceSkill).not.toContain('database/database-index.md');
+    expect(promptMirror).not.toContain('database/database-index.md');
+  });
+
   test('checked-in sample injection index avoids duplicate public-entrypoints injection in plan/work', () => {
     const yaml = fs.readFileSync(SAMPLE_INJECTION_INDEX_PATH, 'utf8');
     const planBlock = yaml.match(/plan:\n([\s\S]*?)\n  work:/);
@@ -163,6 +199,34 @@ describe('spec-graph-bootstrap contracts', () => {
     expect(validateAgainstSchema(schemas.riskSignals, riskSignals).errors).toEqual([]);
     expect(validateAgainstSchema(schemas.testSurface, testSurface).errors).toEqual([]);
     expect(validateAgainstSchema(schemas.verificationProfile, verificationProfile).errors).toEqual([]);
+  });
+
+  test('fact-inventory schema and checked-in sample expose evidence-first database contracts', () => {
+    const schemas = loadBootstrapSchemas();
+    const databaseSchema = schemas.factInventory.properties.database.items.properties;
+
+    expect(databaseSchema.evidence_sources).toBeDefined();
+    expect(databaseSchema.evidence_sources.items.required).toEqual(
+      expect.arrayContaining(['kind', 'path'])
+    );
+    expect(schemas.factInventory.properties.database_schema).toBeDefined();
+    expect(FACT_INVENTORY_SAMPLE.database[0].evidence_sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: expect.any(String),
+          path: expect.any(String),
+        }),
+      ])
+    );
+    expect(FACT_INVENTORY_SAMPLE.database_schema).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source_kind: expect.any(String),
+          path: expect.any(String),
+          db_type: expect.any(String),
+        }),
+      ])
+    );
   });
 
   test('sample generator keeps manifest and verification-profile outputs deterministic', () => {

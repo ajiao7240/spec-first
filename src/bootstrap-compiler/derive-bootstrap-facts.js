@@ -36,12 +36,25 @@ const SKIP_ROOTS = new Set([
 
 const RUNTIME_EXTENSION_RE = /\.(cjs|go|java|js|jsx|kt|kts|mjs|py|rb|rs|swift|ts|tsx)$/i;
 const TEST_FILE_RE = /(^|\/)(tests?|__tests__)\/|(\.test\.|\.(spec)\.)/i;
-const TEXT_SCAN_EXTENSION_RE = /\.(cjs|conf|env|go|ini|java|js|json|kt|kts|mjs|properties|py|rb|sh|sql|toml|ts|tsx|txt|ya?ml)$/i;
-const DATABASE_SCAN_PATH_HINT_RE = /(^|\/)(\.env[^/]*|config\/|docker-compose|compose\.(ya?ml)|.*(database|mysql|postgres|sqlite|mongo|prisma|knex|typeorm|sequelize|datasource|connection).*)$/i;
+const TEXT_SCAN_EXTENSION_RE = /\.(cjs|conf|env|go|ini|java|js|json|kt|kts|md|mjs|properties|py|rb|sh|sql|toml|ts|tsx|txt|ya?ml)$/i;
+const DATABASE_SCAN_PATH_HINT_RE = /(^|\/)(\.env[^/]*|config\/|docker-compose|compose\.(ya?ml)|.*(database|mysql|postgres|sqlite|mongo|prisma|knex|typeorm|sequelize|datasource|connection|application).*)$/i;
+const DATABASE_CODE_PATH_RE = /(^|\/)(db|database|datasource|connection|env|settings)\.(cjs|go|java|js|jsx|kt|kts|mjs|py|rb|rs|swift|ts|tsx)$/i;
+const DATABASE_MIGRATION_PATH_RE = /(^|\/)((db\/)?migrations?|db\/migrate|alembic\/versions)\//i;
+const DATABASE_DOC_TOKEN_RE = /(^|[-_.])(database|schema|er|db)([-_.]|$)/i;
+const DATABASE_CONNECTION_HINT_RE = /(adapter|datasource|spring\.datasource|database_url|jdbc:(mysql|postgresql|sqlite)|mysql2?|mariadb|postgres|postgresql|mongodb|mongo:\/\/|redis|createPool|createConnection|create_engine|new PrismaClient|knex\(|sequelize|typeorm|DATABASES\s*=|establish_connection|gorm\.Open|sql\.Open)/i;
+const DATABASE_SCHEMA_HINT_RE = /(create\s+table|alter\s+table|references\s+[a-z_][a-z0-9_]*|schema\.prisma|datasource\s+[a-z_][a-z0-9_]*|erdiagram|mermaid|table\s+[a-z_][a-z0-9_]*|CreateModel|op\.create_table|create_table|ActiveRecord::Schema|type\s+\w+\s+struct|Column\()/i;
+const NON_PROJECT_DOC_PREFIXES = [
+  'docs/10-prompt/',
+  'docs/brainstorms/',
+  'docs/contracts/',
+  'docs/ideation/',
+  'docs/plans/',
+  'docs/solutions/',
+];
 const DATABASE_TYPE_PATTERNS = [
-  { type: 'mysql', pattern: /(mysql2?|mariadb|mysql:\/\/)/i },
-  { type: 'postgres', pattern: /(postgres|postgresql|pg_|postgres:\/\/)/i },
-  { type: 'sqlite', pattern: /(sqlite|\.sqlite3?)/i },
+  { type: 'mysql', pattern: /(mysql2?|mariadb|mysql:\/\/|jdbc:mysql|mysql-connector-j|django\.db\.backends\.mysql|mysqlclient)/i },
+  { type: 'postgres', pattern: /(postgres|postgresql|pg_|postgres:\/\/|jdbc:postgresql|django\.db\.backends\.postgresql)/i },
+  { type: 'sqlite', pattern: /(sqlite|\.sqlite3?|jdbc:sqlite|django\.db\.backends\.sqlite3)/i },
   { type: 'mongodb', pattern: /(mongodb|mongo:\/\/)/i },
 ];
 const DATABASE_KEY_SUFFIXES = [
@@ -114,9 +127,19 @@ function isTextScanCandidate(filePath) {
   return basename.startsWith('.env') || TEXT_SCAN_EXTENSION_RE.test(filePath);
 }
 
+function isDatabaseDocCandidate(filePath) {
+  if (!filePath.startsWith('docs/')) return false;
+  const normalized = normalizePath(filePath);
+  if (NON_PROJECT_DOC_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return false;
+  const parts = normalized.split('/');
+  if (parts.length > 3) return false;
+  const basename = path.basename(normalized, path.extname(normalized)).toLowerCase();
+  return DATABASE_DOC_TOKEN_RE.test(basename);
+}
+
 function shouldInspectForDatabase(filePath) {
   if (
-    filePath.startsWith('docs/')
+    filePath.startsWith('docs/contexts/')
     || filePath.startsWith('tests/')
     || filePath.startsWith('skills/')
     || filePath.startsWith('agents/')
@@ -124,7 +147,13 @@ function shouldInspectForDatabase(filePath) {
     return false;
   }
 
-  return DATABASE_SCAN_PATH_HINT_RE.test(filePath);
+  if (filePath.startsWith('docs/')) {
+    return isDatabaseDocCandidate(filePath);
+  }
+
+  return DATABASE_SCAN_PATH_HINT_RE.test(filePath)
+    || DATABASE_CODE_PATH_RE.test(filePath)
+    || DATABASE_MIGRATION_PATH_RE.test(filePath);
 }
 
 function safeReadTextFile(filePath, maxBytes = 65536) {
@@ -186,14 +215,90 @@ function inferDatabaseConfidence({ content, credentialKeys, dbType }) {
   return 'low';
 }
 
+function inferDatabaseEvidenceKind(filePath) {
+  const normalized = normalizePath(filePath);
+  const basename = path.basename(normalized).toLowerCase();
+
+  if (basename.startsWith('.env')) return 'env-template';
+  if (DATABASE_MIGRATION_PATH_RE.test(normalized)) return 'migration';
+  if (/schema\.prisma$/i.test(normalized) || /schema\.rb$/i.test(normalized)) return 'orm-schema';
+  if (/(^|\/)(application\.(ya?ml|properties)|config\/.*\.(ya?ml|yaml|ini|toml|properties)|alembic\.ini|database\.yml)$/i.test(normalized)) {
+    return 'config-file';
+  }
+  if (normalized.startsWith('docs/')) return 'doc-reference';
+  if (normalized.startsWith('config/')) return 'config-file';
+  return 'code-config';
+}
+
+function shouldUseAsConnectionCandidate(kind) {
+  return kind === 'code-config' || kind === 'config-file' || kind === 'env-template';
+}
+
+function mergeEvidenceSource(existingSources, nextSource) {
+  const sources = Array.isArray(existingSources) ? existingSources.map((source) => ({
+    ...source,
+    details: Array.isArray(source.details) ? [...source.details] : [],
+  })) : [];
+  const index = sources.findIndex((source) => source.kind === nextSource.kind && source.path === nextSource.path);
+  if (index === -1) {
+    sources.push({
+      kind: nextSource.kind,
+      path: nextSource.path,
+      details: unique(nextSource.details || []).sort(),
+    });
+    return sources;
+  }
+
+  sources[index].details = unique([...(sources[index].details || []), ...(nextSource.details || [])]).sort();
+  return sources;
+}
+
+function inferDatabaseSchemaSourceKind({ filePath, content }) {
+  if (DATABASE_MIGRATION_PATH_RE.test(filePath)) return 'migration';
+  if (/schema\.prisma$/i.test(filePath) || /schema\.rb$/i.test(filePath)) return 'orm-schema';
+  if (isDatabaseDocCandidate(filePath) && /(database\s+er|erdiagram|```mermaid|table\s+[a-z_][a-z0-9_]*|create\s+table|alter\s+table|references\s+[a-z_][a-z0-9_]*)/i.test(content)) {
+    return 'doc-er';
+  }
+  if (DATABASE_SCHEMA_HINT_RE.test(content)) return 'migration';
+  return null;
+}
+
+function inferPrimaryDatabaseType(databaseCandidates) {
+  const candidate = (databaseCandidates || []).find((item) => item && item.db_type && item.db_type !== 'unknown');
+  return candidate ? candidate.db_type : 'unknown';
+}
+
+function buildSchemaEvidence({ filePath, content, sourceKind }) {
+  if (sourceKind === 'migration') {
+    const tableNames = collectMatches(/(?:create|alter)\s+table\s+([a-z_][a-z0-9_]*)/gi, content);
+    return unique([
+      ...tableNames.map((tableName) => `${filePath}:${tableName}`),
+      ...(tableNames.length === 0 ? [`${filePath}:ddl-detected`] : []),
+    ]).sort();
+  }
+
+  if (sourceKind === 'doc-er') {
+    return [`${filePath}:doc-er`];
+  }
+
+  if (sourceKind === 'orm-schema') {
+    return [`${filePath}:schema-file`];
+  }
+
+  return [`${filePath}:schema-hint`];
+}
+
 function collectDatabaseCandidates({ repoRoot, files }) {
-  const candidates = new Map();
+  const candidates = [];
 
   for (const filePath of files) {
-    if (!isTextScanCandidate(filePath) || !shouldInspectForDatabase(filePath)) continue;
+    if (!isTextScanCandidate(filePath)) continue;
     const absolutePath = path.join(repoRoot, filePath);
     const content = safeReadTextFile(absolutePath);
     if (!content) continue;
+    if (!shouldInspectForDatabase(filePath)) continue;
+    const evidenceKind = inferDatabaseEvidenceKind(filePath);
+    if (!shouldUseAsConnectionCandidate(evidenceKind)) continue;
 
     const rawKeys = unique([
       ...collectMatches(/\b([A-Z][A-Z0-9_]{2,})\b(?=\s*=)/g, content),
@@ -201,67 +306,78 @@ function collectDatabaseCandidates({ repoRoot, files }) {
       ...collectMatches(/ENV\[['"]([A-Z][A-Z0-9_]{2,})['"]\]/g, content),
       ...collectMatches(/System\.getenv\(['"]([A-Z][A-Z0-9_]{2,})['"]\)/g, content),
       ...collectMatches(/os\.getenv\(['"]([A-Z][A-Z0-9_]{2,})['"]\)/g, content),
+      ...collectMatches(/os\.environ\[['"]([A-Z][A-Z0-9_]{2,})['"]\]/g, content),
+      ...collectMatches(/\$\{([A-Z][A-Z0-9_]{2,})(?::[^}]*)?\}/g, content),
     ].filter(isDatabaseCredentialKey));
 
-    if (rawKeys.length === 0 && !/(database|mysql|postgres|sqlite|mongo)/i.test(content)) continue;
+    if (rawKeys.length === 0 && !DATABASE_CONNECTION_HINT_RE.test(content)) continue;
 
-    const keysByConnection = new Map();
-    for (const key of rawKeys) {
-      const connectionName = inferConnectionNameFromKey(key);
-      const next = keysByConnection.get(connectionName) || [];
-      next.push(key);
-      keysByConnection.set(connectionName, next);
+    const credentialKeys = rawKeys.sort();
+    const dbType = inferDatabaseType({ filePath, content, credentialKeys });
+    const connectionName = credentialKeys[0] ? inferConnectionNameFromKey(credentialKeys[0]) : 'default';
+    const staticAccessHints = [];
+    if (dbType === 'mysql') {
+      const hasHostKey = credentialKeys.some((key) => /(?:^|_)(DB_HOST|MYSQL_HOST)$/.test(key));
+      const hasUserKey = credentialKeys.some((key) => /(?:^|_)(DB_USER|DB_USERNAME|MYSQL_USER|MYSQL_USERNAME)$/.test(key));
+      if (hasHostKey && hasUserKey) staticAccessHints.push('mysql-cli');
     }
 
-    if (keysByConnection.size === 0) {
-      keysByConnection.set('default', []);
-    }
-
-    for (const [connectionName, credentialKeys] of keysByConnection.entries()) {
-      const dbType = inferDatabaseType({ filePath, content, credentialKeys });
-      const record = candidates.get(connectionName) || {
-        present: true,
-        connection_name: connectionName,
-        config_source: filePath,
-        db_type: 'unknown',
-        database_name_guess: null,
-        credential_keys: [],
-        static_access_hints: [],
-        confidence: 'low',
-        inference_reason: 'database-config-pattern',
-        evidence: [],
-      };
-
-      record.credential_keys = unique([...record.credential_keys, ...credentialKeys]).sort();
-      record.evidence = unique([
-        ...record.evidence,
+    candidates.push({
+      present: true,
+      connection_name: connectionName,
+      config_source: filePath,
+      evidence_sources: mergeEvidenceSource([], {
+        kind: evidenceKind,
+        path: filePath,
+        details: credentialKeys.length > 0 ? credentialKeys : [dbType === 'unknown' ? 'database-hint' : dbType],
+      }),
+      db_type: dbType,
+      database_name_guess: null,
+      credential_keys: credentialKeys,
+      static_access_hints: unique(staticAccessHints),
+      confidence: inferDatabaseConfidence({ content, credentialKeys, dbType }),
+      inference_reason: 'database-hint-detected',
+      evidence: unique([
         ...credentialKeys.map((key) => `${filePath}:${key}`),
         ...(credentialKeys.length === 0 ? [`${filePath}:database-hint`] : []),
-      ]).sort();
-
-      if (record.db_type === 'unknown' || (record.db_type !== 'mysql' && dbType === 'mysql')) {
-        record.db_type = dbType;
-      }
-
-      if (record.db_type === 'mysql') {
-        const hasHostKey = record.credential_keys.some((key) => /(?:^|_)(DB_HOST|MYSQL_HOST)$/.test(key));
-        const hasUserKey = record.credential_keys.some((key) => /(?:^|_)(DB_USER|DB_USERNAME|MYSQL_USER|MYSQL_USERNAME)$/.test(key));
-        if (hasHostKey && hasUserKey) {
-          record.static_access_hints = unique([...record.static_access_hints, 'cli']).sort();
-        }
-      }
-
-      const confidence = inferDatabaseConfidence({ content, credentialKeys: record.credential_keys, dbType: record.db_type });
-      if (record.confidence === 'low' || confidence === 'high' || (record.confidence !== 'high' && confidence === 'medium')) {
-        record.confidence = confidence;
-      }
-
-      candidates.set(connectionName, record);
-    }
+      ]).sort(),
+    });
   }
 
-  return [...candidates.values()]
-    .sort((a, b) => a.connection_name.localeCompare(b.connection_name));
+  return candidates.sort((a, b) => a.config_source.localeCompare(b.config_source));
+}
+
+function collectDatabaseSchemaSources({ repoRoot, files, databaseCandidates }) {
+  const sources = [];
+  const fallbackDbType = inferPrimaryDatabaseType(databaseCandidates);
+
+  for (const filePath of files) {
+    if (!isTextScanCandidate(filePath)) continue;
+    const absolutePath = path.join(repoRoot, filePath);
+    const content = safeReadTextFile(absolutePath);
+    if (!content) continue;
+    const shouldInspectSchema = shouldInspectForDatabase(filePath) || isDatabaseDocCandidate(filePath);
+    if (!shouldInspectSchema) continue;
+
+    const sourceKind = inferDatabaseSchemaSourceKind({ filePath, content });
+    if (!sourceKind) continue;
+
+    let dbType = inferDatabaseType({ filePath, content, credentialKeys: [] });
+    if (dbType === 'unknown') dbType = fallbackDbType;
+    if (dbType === 'unknown') continue;
+
+    sources.push({
+      source_kind: sourceKind,
+      path: filePath,
+      db_type: dbType,
+      connection_name: null,
+      confidence: sourceKind === 'doc-er' ? 'medium' : 'high',
+      inference_reason: sourceKind === 'doc-er' ? 'documented-schema-evidence' : 'schema-file-detected',
+      evidence: buildSchemaEvidence({ filePath, content, sourceKind }),
+    });
+  }
+
+  return sources.sort((a, b) => a.path.localeCompare(b.path));
 }
 
 function detectPrimaryLanguage(files) {
@@ -278,29 +394,46 @@ function detectPrimaryLanguage(files) {
   return ranked.length > 0 ? ranked[0][0] : 'Unknown';
 }
 
-function detectPrimaryFrameworks({ pkg, files }) {
+function detectPrimaryFrameworks({ repoRoot, pkg, files }) {
   const frameworks = [];
   const deps = {
     ...(pkg && pkg.dependencies ? pkg.dependencies : {}),
     ...(pkg && pkg.devDependencies ? pkg.devDependencies : {}),
   };
-  const scripts = pkg && pkg.scripts ? pkg.scripts : {};
+  const depNames = new Set(Object.keys(deps).map((name) => name.toLowerCase()));
+  const fileSet = new Set(files);
+  const manifestContents = [
+    'pom.xml',
+    'build.gradle',
+    'build.gradle.kts',
+    'requirements.txt',
+    'pyproject.toml',
+    'Gemfile',
+    'go.mod',
+  ]
+    .filter((filePath) => fileSet.has(filePath))
+    .map((filePath) => safeReadTextFile(path.join(repoRoot, filePath), 131072) || '')
+    .join('\n')
+    .toLowerCase();
 
-  if ((pkg && pkg.bin) || files.some((filePath) => filePath.startsWith('bin/'))) {
-    frameworks.push('Node.js CLI');
-  }
-  if (Object.prototype.hasOwnProperty.call(deps, 'jest') || Object.keys(scripts).some((key) => key.includes('test'))) {
-    frameworks.push('Jest');
-  }
-  if (Object.prototype.hasOwnProperty.call(deps, 'tree-sitter')) {
-    frameworks.push('tree-sitter');
-  }
-  if (Object.prototype.hasOwnProperty.call(deps, 'better-sqlite3')) {
-    frameworks.push('better-sqlite3');
-  }
-  if (Object.prototype.hasOwnProperty.call(deps, 'simple-git')) {
-    frameworks.push('simple-git');
-  }
+  if ((pkg && pkg.bin) || files.some((filePath) => filePath.startsWith('bin/'))) frameworks.push('Node.js CLI');
+  if (depNames.has('jest') || Object.keys(pkg && pkg.scripts ? pkg.scripts : {}).some((key) => key.includes('test'))) frameworks.push('Jest');
+  if (depNames.has('tree-sitter')) frameworks.push('tree-sitter');
+  if (depNames.has('better-sqlite3')) frameworks.push('better-sqlite3');
+  if (depNames.has('simple-git')) frameworks.push('simple-git');
+  if (fileSet.has('pom.xml') || fileSet.has('build.gradle') || fileSet.has('build.gradle.kts')) frameworks.push('JVM Build');
+  if (fileSet.has('requirements.txt') || fileSet.has('pyproject.toml')) frameworks.push('Python Project');
+  if (fileSet.has('Gemfile')) frameworks.push('Ruby Project');
+  if (fileSet.has('go.mod')) frameworks.push('Go Module');
+  if (/spring-boot|org\.springframework\.boot/.test(manifestContents)) frameworks.push('Spring Boot');
+  if (/flyway/.test(manifestContents)) frameworks.push('Flyway');
+  if (/liquibase/.test(manifestContents)) frameworks.push('Liquibase');
+  if (/\bdjango\b/.test(manifestContents) || fileSet.has('manage.py')) frameworks.push('Django');
+  if (/\bsqlalchemy\b/.test(manifestContents)) frameworks.push('SQLAlchemy');
+  if (/\balembic\b/.test(manifestContents)) frameworks.push('Alembic');
+  if (/\brails\b/.test(manifestContents)) frameworks.push('Rails');
+  if (/\bactiverecord\b/.test(manifestContents) || fileSet.has('config/database.yml')) frameworks.push('ActiveRecord');
+  if (/\bgorm\b/.test(manifestContents)) frameworks.push('GORM');
 
   return unique(frameworks);
 }
@@ -501,13 +634,23 @@ function deriveBootstrapInputs({ repoRoot, factInventory, riskSignals, testSurfa
   const repoFiles = listRepoFiles(repoRoot).sort();
   const packageJson = readJsonIfExists(path.join(repoRoot, 'package.json'));
   const topology = buildRepoTopology({ repoRoot, files: repoFiles });
+  const primaryLanguage = detectPrimaryLanguage(repoFiles);
+  const primaryFrameworks = detectPrimaryFrameworks({
+    repoRoot,
+    pkg: packageJson,
+    files: repoFiles,
+  });
 
   const effectiveTestSurface = testSurface || collectTestSurface(repoFiles);
+  const databaseCandidates = collectDatabaseCandidates({
+    repoRoot,
+    files: repoFiles,
+  });
   const effectiveFactInventory = factInventory || {
     project_identity: {
       name: packageJson && packageJson.name ? packageJson.name : path.basename(repoRoot),
-      primary_language: detectPrimaryLanguage(repoFiles),
-      primary_frameworks: detectPrimaryFrameworks({ pkg: packageJson, files: repoFiles }),
+      primary_language: primaryLanguage,
+      primary_frameworks: primaryFrameworks,
       repo_shape: detectRepoShape({ repoRoot, pkg: packageJson, files: repoFiles, topology }),
     },
     topology,
@@ -515,7 +658,12 @@ function deriveBootstrapInputs({ repoRoot, factInventory, riskSignals, testSurfa
     modules: collectModules(repoFiles),
     integrations: collectIntegrations(packageJson),
     testing_surface: collectTestingSurface(effectiveTestSurface),
-    database: collectDatabaseCandidates({ repoRoot, files: repoFiles }),
+    database: databaseCandidates,
+    database_schema: collectDatabaseSchemaSources({
+      repoRoot,
+      files: repoFiles,
+      databaseCandidates,
+    }),
   };
   const effectiveRiskSignals = riskSignals || collectRiskSignals({ repoRoot, files: repoFiles });
 

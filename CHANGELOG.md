@@ -1,6 +1,11 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.8 2026-04-21 18:35:00 矿工: docs(governance): 在 `CLAUDE.md` 与 `AGENTS.md` 的托管编码准则块增加 `docs/10-prompt/项目角色.md` 引用，统一 spec-first 演化与架构判断的角色参照
+- v1.5.8 2026-04-21 18:11:04 Codex: refactor(spec-graph-bootstrap): 将 `database-routing.json` 进一步收缩为 CLI-only handoff，移除 `mysql-mcp` route，并收紧 readonly introspection readiness 判定；只有 route hint 与 env hints 同时满足时才推荐 `llm-readonly-introspect`，否则保守回退为 `llm-inspect-repo` 并显式记录 blocker (user-visible)
+- v1.5.8 2026-04-21 17:28:44 Codex: refactor(spec-graph-bootstrap): 将数据库模块从 rule-first / database worker 收缩为 LLM-first handoff；bootstrap 只保留 `fact-inventory.database[]`、`fact-inventory.database_schema[]` 与轻量 `database-routing.json`，不再预生成 `database/` 文档族；同时补齐 Spring Boot / Django / SQLAlchemy / Alembic 等 framework hints 与 schema 来源识别 (user-visible)
+- v1.5.8 2026-04-21 16:20:00 Codex: fix(spec-graph-bootstrap): 收紧 evidence-first 数据库采证启发式，`doc-reference` 不再直接产出连接候选，`config_source` 改为按证据强度稳定选择，避免 narrative docs 误报为数据库配置来源 (user-visible)
+- v1.5.8 2026-04-21 15:25:00 Codex: refactor(spec-graph-bootstrap): 为 bootstrap 数据库识别引入 evidence-first contract，`fact-inventory` 新增 `evidence_sources` / `database_schema` 静态证据层，`derive-bootstrap-facts` 开始从代码配置、migration 与文档聚合数据库证据，并把 source skill / prompt mirror 的 database-context 触发语义扩展为支持无 live route 的 schema-derived 路径 (user-visible)
 - v1.5.8 2026-04-21 矿工: publish spec-first 1.5.8
 - v1.5.8 2026-04-21 矿工: fix(bootstrap-quality): 三根因修复+review收口——① `references/artifact-schemas.md` 补 `data_quality` 字段定义（按 full/enhanced/basic/placeholder 模式映射 fact-backed/partial/skeletal/empty）；② `artifact-manifest.schema.json` enum 扩展补 `skeletal/sample-backed/mixed`；③ `compile-routing.js` 引入 `computeDataQuality`（full 模式才允许 fact-backed）；④ `run-bootstrap.js` 补写 workspace `injection-index.yaml`（同时清理冗余重复条目与无效 `_children` 字段）；⑤ SKILL.md W.2/W.3 契约同步；⑥ fixture 补 `analyzer_mode: full`；⑦ 测试补 injection-index 文件存在性断言、强化 fallback_reason 分类断言
 - v1.5.7 2026-04-21 12:37:20 Codex: fix(claude-workflow-entry): Claude `/spec:*` 命令改为在 `init --claude` 时内联配对 workflow skill 正文，彻底去掉对 `.claude/spec-first/workflows/*/SKILL.md` 的第二跳读取依赖；同步收口 command template 文案与 drift/smoke/unit 守护，修复已执行 `spec-first init --claude` 仍误报“SKILL.md 不存在”的伪根因 (user-visible)

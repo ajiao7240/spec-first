@@ -168,6 +168,8 @@ Skill/Agent 源文件统一使用 `spec-first:category:name` 作为 canonical ag
 
 这些准则只约束进入工作后的执行姿势，不替代 `using-spec-first` 的 workflow 入口治理。
 
+**项目角色参考：** `docs/10-prompt/项目角色.md`（在 spec-first 演化、架构判断、prompt / workflow / contract 设计时优先对齐该角色定义）
+
 ### 先想清楚再动手
 - 当假设会影响实现或验证时，必须先显式说明假设。
 - 如果存在 2 条及以上会实质影响行为、接口、数据结构或错误语义的路径，先说明 tradeoff，再继续执行。

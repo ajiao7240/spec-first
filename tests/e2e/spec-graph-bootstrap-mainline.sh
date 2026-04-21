@@ -27,6 +27,7 @@ const repoRoot = process.env.BOOTSTRAP_TEST_REPO;
 const generatedAt = '2026-04-15T00:00:00.000Z';
 
 fs.mkdirSync(path.join(repoRoot, 'src'), { recursive: true });
+fs.mkdirSync(path.join(repoRoot, 'tests'), { recursive: true });
 fs.writeFileSync(path.join(repoRoot, 'package.json'), JSON.stringify({
   name: 'bootstrap-e2e-fixture',
   version: '1.0.0',
@@ -47,8 +48,18 @@ fs.writeFileSync(path.join(repoRoot, 'src', 'index.js'), [
   'module.exports = { greet };',
   '',
 ].join('\n'));
+fs.writeFileSync(path.join(repoRoot, 'tests', 'index.test.js'), [
+  '\'use strict\';',
+  '',
+  'const { greet } = require(\'../src/index\');',
+  '',
+  'if (greet(\'spec-first\') !== \'hello spec-first\') {',
+  '  throw new Error(\'unexpected greet result\');',
+  '}',
+  '',
+].join('\n'));
 execFileSync('git', ['init'], { cwd: repoRoot, stdio: 'ignore' });
-execFileSync('git', ['add', 'package.json', 'bin/bootstrap-e2e-fixture.js', 'src/index.js'], { cwd: repoRoot, stdio: 'ignore' });
+execFileSync('git', ['add', 'package.json', 'bin/bootstrap-e2e-fixture.js', 'src/index.js', 'tests/index.test.js'], { cwd: repoRoot, stdio: 'ignore' });
 
 const result = runBootstrap({ repoRoot, generatedAt });
 if (result.status !== 'complete') {
@@ -61,8 +72,12 @@ const evaluation = evaluateContextForRepo({
   stage: 'review',
 });
 
-if (evaluation.level !== 'L0') {
-  throw new Error(`expected L0 evaluation, received ${evaluation.level}`);
+if (evaluation.level !== 'L1') {
+  throw new Error(`expected L1 evaluation, received ${evaluation.level}`);
+}
+
+if (evaluation.fallback_reason !== 'data_quality_partial') {
+  throw new Error(`expected data_quality_partial fallback, received ${evaluation.fallback_reason}`);
 }
 
 if (evaluation.selected_assets[0] !== 'minimal-context/review.json') {
