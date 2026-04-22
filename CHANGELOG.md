@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.8 2026-04-22 17:20:00 矿工: docs(spec-graph-bootstrap): 按当前 `run-bootstrap` / `compile-*` / workspace runtime 实现刷新产物清单审查文档，修正单仓与 workspace 产物数量、补入 `database-routing.json` 与 `workspace-readiness-summary.json`、收口旧行号和已失准消费口径 (user-visible)
 - v1.5.8 2026-04-22 17:01:39 矿工: refactor(skills): 删除 `spec-repo-profile-refresh` standalone skill 及其双宿主治理、测试、镜像与当前文档引用，收口 shared seed 语义为仅保留 `.spec-first/specs/repo-profile.yaml` 输入面 (user-visible)
 - v1.5.8 2026-04-22 13:20:00 矿工: docs(audit): 收口 `docs/2026-04-22-full-audit/` 全量审计文档矩阵与 README 索引，并同步 package.json 元数据，统一审计结论表达与交付口径 (user-visible)
 - v1.5.8 2026-04-22 13:05:00 矿工: fix(release): `release:publish` 的真实 npm 发布显式锁定 `--registry=https://registry.npmjs.org`，避免本机默认镜像源导致 publish 误投到 npmmirror 或直接鉴权失败 (user-visible)
