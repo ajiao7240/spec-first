@@ -140,22 +140,6 @@ Reload priority should be:
 
 Do not ask the user to re-run bootstrap before continuing. Do not present `freshness_stale` as `L0`.
 
-## Optional Repo Profile Input
-
-When present, treat `.spec-first/specs/repo-profile.yaml` as an optional repo-level planning input.
-
-- Read it only if the file exists.
-- If the file is missing, unreadable, or malformed, continue planning without blocking.
-- Treat non-empty fields as repo-level normative hints, not as code-facts truth and not as a workflow gate.
-- Treat empty strings, empty arrays, and missing fields as absent input.
-- Prefer these fields when they exist:
-  - `project_type`
-  - `project_intent.summary`
-  - `principles`
-  - `non_negotiables`
-- Use it to sharpen planning judgment about project identity, long-term principles, and hard boundaries.
-- Do not expand it into a rules engine, scoring system, or mandatory checklist.
-
 ## Workflow
 
 ### Phase 0: Resume, Source, and Scope

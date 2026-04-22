@@ -119,11 +119,8 @@ dry_init_output="$(
 grep -q "Dry run: spec-first init (claude)" <<<"$dry_init_output"
 grep -q "Would prune 1 unmanaged command file(s)" <<<"$dry_init_output"
 grep -q ".claude/commands/spec/custom.md" <<<"$dry_init_output"
-grep -q ".spec-first/specs/repo-profile.yaml" <<<"$dry_init_output"
-grep -q ".spec-first/specs/README.md" <<<"$dry_init_output"
 grep -q "No files were changed." <<<"$dry_init_output"
 test ! -e "$dry_init_dir/.claude/spec-first/state.json"
-test ! -e "$dry_init_dir/.spec-first/specs/repo-profile.yaml"
 test -e "$dry_init_dir/.claude/commands/spec/custom.md"
 echo "✓ init --dry-run previews changes without writing files"
 
@@ -336,8 +333,6 @@ if grep -q 'Use bare agent names inside Task calls.' "$TMP_DIR/.claude/spec-firs
 fi
 grep -q 'Task local-doc-reader' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
 grep -q 'Task github-context-reader' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
-grep -q 'Task feishu-chat-researcher' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
-grep -q 'Task feishu-doc-reader' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
 grep -q 'Task docs-context-reader' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
 grep -q 'Task web-context-reader' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
 grep -q 'Task learnings-researcher' "$TMP_DIR/.claude/spec-first/workflows/spec-brainstorm/SKILL.md"
@@ -391,8 +386,6 @@ test "$installed_agent_count" = "$expected_agent_count"
 for agent in \
   review/correctness-reviewer.md \
   research/docs-context-reader.md \
-  research/feishu-chat-researcher.md \
-  research/feishu-doc-reader.md \
   research/github-context-reader.md \
   research/local-doc-reader.md \
   research/repo-research-analyst.md \
@@ -674,18 +667,6 @@ grep -q '日期时间必须使用 `YYYY-MM-DD HH:MM:SS`' "$TMP_DIR/CHANGELOG.md"
 grep -Eq -- "- v${expected_version_regex} [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} " "$TMP_DIR/CHANGELOG.md"
 grep -q 'kuang' "$TMP_DIR/CHANGELOG.md"
 grep -q '使用 spec-first 初始化项目' "$TMP_DIR/CHANGELOG.md"
-test -f "$TMP_DIR/.spec-first/specs/repo-profile.yaml"
-test -f "$TMP_DIR/.spec-first/specs/README.md"
-grep -q 'schema_version: 1' "$TMP_DIR/.spec-first/specs/repo-profile.yaml"
-grep -q 'repo_id: "' "$TMP_DIR/.spec-first/specs/repo-profile.yaml"
-grep -q 'project_type: "' "$TMP_DIR/.spec-first/specs/repo-profile.yaml"
-grep -q 'project_intent:' "$TMP_DIR/.spec-first/specs/repo-profile.yaml"
-grep -q 'principles: \[\]' "$TMP_DIR/.spec-first/specs/repo-profile.yaml"
-grep -q 'non_negotiables: \[\]' "$TMP_DIR/.spec-first/specs/repo-profile.yaml"
-grep -q 'review_defaults: \[\]' "$TMP_DIR/.spec-first/specs/repo-profile.yaml"
-! grep -q 'unknown' "$TMP_DIR/.spec-first/specs/repo-profile.yaml"
-grep -q 'add-only' "$TMP_DIR/.spec-first/specs/README.md"
-grep -q 'repo truth engine' "$TMP_DIR/.spec-first/specs/README.md"
 echo "✓ CLAUDE.md lang policy block written; CHANGELOG.md bootstrapped"
 
 echo "3a-2a. Verify init appends managed instruction blocks instead of overwriting existing CLAUDE.md..."
@@ -753,8 +734,6 @@ grep -q 'Preflight Self-Check' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md
 grep -q 'User Review Gate' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 grep -q '`.codex/agents/research/local-doc-reader.md`' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 grep -q '`.codex/agents/research/learnings-researcher.md`' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
-grep -q '`.codex/agents/research/feishu-chat-researcher.md`' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
-grep -q '`.codex/agents/research/feishu-doc-reader.md`' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 grep -q '`.codex/agents/research/github-context-reader.md`' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 grep -q '`.codex/agents/research/docs-context-reader.md`' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
 grep -q '`.codex/agents/research/web-context-reader.md`' "$TMP_DIR/.agents/skills/spec-brainstorm/SKILL.md"
@@ -796,8 +775,6 @@ grep -q 'backup_<ISO-timestamp>' "$TMP_DIR/.agents/skills/spec-graph-bootstrap/S
 grep -q '成功后删除 backup 目录' "$TMP_DIR/.agents/skills/spec-graph-bootstrap/SKILL.md"
 test -f "$TMP_DIR/.codex/agents/review/correctness-reviewer.md"
 test -f "$TMP_DIR/.codex/agents/research/docs-context-reader.md"
-test -f "$TMP_DIR/.codex/agents/research/feishu-chat-researcher.md"
-test -f "$TMP_DIR/.codex/agents/research/feishu-doc-reader.md"
 test -f "$TMP_DIR/.codex/agents/research/github-context-reader.md"
 test -f "$TMP_DIR/.codex/agents/research/local-doc-reader.md"
 test -f "$TMP_DIR/.codex/agents/research/repo-research-analyst.md"
@@ -942,9 +919,8 @@ grep -q "Custom assets outside the spec-first managed set would remain untouched
 grep -q "No files were changed." <<<"$clean_dry_run_output"
 test -e "$TMP_DIR/.claude/spec-first/state.json"
 test -e "$TMP_DIR/.claude/skills/custom-skill/SKILL.md"
-test -e "$TMP_DIR/.spec-first/specs/repo-profile.yaml"
-test -e "$TMP_DIR/.spec-first/specs/README.md"
 ! grep -q ".spec-first/specs/repo-profile.yaml" <<<"$clean_dry_run_output"
+! grep -q ".spec-first/specs/README.md" <<<"$clean_dry_run_output"
 echo "✓ clean --dry-run previews managed removals without deleting files"
 
 (
@@ -960,8 +936,6 @@ test ! -e "$TMP_DIR/.claude/agents/review/correctness-reviewer.md"
 test ! -e "$TMP_DIR/.claude/agents/research/session-history-scripts/discover-sessions.sh"
 test ! -e "$TMP_DIR/.claude/spec-first/.developer"
 test -e "$TMP_DIR/.claude/skills/custom-skill/SKILL.md"
-test -e "$TMP_DIR/.spec-first/specs/repo-profile.yaml"
-test -e "$TMP_DIR/.spec-first/specs/README.md"
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md"
 ! grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/CLAUDE.md"
 ! grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/CLAUDE.md"

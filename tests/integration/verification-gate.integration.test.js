@@ -33,13 +33,11 @@ describe('AI dev quality gate integration', () => {
     expect(workflow).toContain("docs/contracts/spec-graph-bootstrap/**");
     expect(workflow).toContain("docs/contracts/verifiers/**");
     expect(workflow).toContain("docs/contracts/quality-gates/**");
-    expect(workflow).toContain("tests/fixtures/benchmarks/**");
     expect(workflow).toContain("skills/spec-plan/**");
     expect(workflow).toContain("skills/spec-work/**");
     expect(workflow).toContain("skills/spec-work-beta/**");
     expect(workflow).toContain("skills/spec-review/**");
     expect(workflow).toContain(".github/workflows/ai-dev-quality-gate.yml");
-    expect(workflow).toContain(".github/workflows/crg-quality-gate.yml");
     expect(workflow).toContain("tests/unit/branch-protection-policy.test.js");
     expect(workflow).toContain("tests/unit/quality-feedback.test.js");
     expect(workflow).toContain("docs/10-prompt/skills/spec-plan/**");
@@ -52,39 +50,17 @@ describe('AI dev quality gate integration', () => {
     expect(workflow).toContain('.spec-first/workflows/quality-gates/ai-dev-quality-gate/');
   });
 
-  test('CRG quality gate still exists and expands triggers to shared verification contracts', () => {
-    const workflow = read(CRG_GATE_WORKFLOW_PATH);
-
-    expect(workflow).toContain('name: CRG Quality Gate');
-    expect(workflow).toContain("src/cli/contracts/quality-gates/**");
-    expect(workflow).toContain("src/cli/commands/stage0-context.js");
-    expect(workflow).toContain("docs/contracts/spec-graph-bootstrap/**");
-    expect(workflow).toContain("docs/contracts/verifiers/**");
-    expect(workflow).toContain("docs/contracts/quality-gates/**");
-    expect(workflow).toContain("tests/fixtures/benchmarks/**");
-    expect(workflow).toContain(".github/workflows/crg-quality-gate.yml");
-    expect(workflow).toContain('npm run test:crg:gate');
-    expect(workflow).toContain('benchmark-evidence:');
-    expect(workflow).toContain('npm run test:crg:benchmark-evidence');
-  });
-
-  test('branch protection policy keeps required checks aligned with the two quality-gate workflows', () => {
+  test('branch protection policy keeps required checks aligned with the remaining AI dev quality gate workflow', () => {
     const policy = JSON.parse(read(BRANCH_POLICY_PATH));
     const requiredChecks = policy.protected_branches[0].required_checks;
 
-    expect(requiredChecks).toEqual(expect.arrayContaining([
+    expect(requiredChecks).toEqual([
       expect.objectContaining({
         workflow_name: 'AI Dev Quality Gate',
         workflow_path: '.github/workflows/ai-dev-quality-gate.yml',
         job_name: 'ai-dev-gate',
         command: 'npm run test:ai-dev:gate',
       }),
-      expect.objectContaining({
-        workflow_name: 'CRG Quality Gate',
-        workflow_path: '.github/workflows/crg-quality-gate.yml',
-        job_name: 'regression-gate',
-        command: 'npm run test:crg:gate',
-      }),
-    ]));
+    ]);
   });
 });

@@ -459,10 +459,12 @@ review queue 用于标记：
 4. review-context
 5. benchmark 行为
 
-则必须额外关注：
+则在当时的历史方案里必须额外关注：
 
 1. `npm run test:crg:gate`
 2. `npm run test:crg:benchmarks`
+
+> 说明：以上 benchmark 入口已在当前实现中退役，此处保留为历史协作规范记录。
 
 ### 11.3 目标项目最低要求
 

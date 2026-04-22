@@ -4,11 +4,13 @@
 
 ## 最近更新速览
 
+> 说明：本文保留 benchmark / CRG Quality Gate 的历史演进记录，便于追溯版本背景；但这些条目中的 benchmark、`test:crg:gate`、`test:crg:benchmark-evidence` 与 `quality-gates/crg-benchmark-evidence` 已在当前实现中退役，不再构成现行操作面或质量门入口。
+
+
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
 | 2026-04-21 | docs | `bootstrap-database-handoff-doc-sync` | 同步刷新 `spec-graph-bootstrap` source/mirror skill、solution learning 与 contract test 的数据库 handoff 口径：明确 `database-routing.json` 中 `candidate_readiness` 才是主信息面板，顶层 `recommended_action` / `blockers[]` 只是 compatibility projection，避免 prompt / 文档继续沿用旧的 route/fallback/provenance 真源叙事 |
 | 2026-04-21 | refactor | `bootstrap-database-compatibility-projection` | 将 `database-routing.json` 顶层 `recommended_action` / `blockers[]` 明确降格为 compatibility projection：这两个字段继续保留以兼容旧消费方，但已经不再是主真源，而是从候选级 readiness / blockers facts 派生出来；真正的数据库 handoff 判断面继续收敛到 `candidate_readiness` |
-| 2026-04-21 | feat | `init-shared-spec-seeds` | `spec-first init --claude` / `--codex` 现在会同步创建 `.spec-first/specs/repo-profile.yaml` 与 `README.md`，为后续 workflow 提供统一的 repo-level shared spec seed；第一版只补最小低误导初稿，并让 `spec-plan` 将其作为 optional planning input 消费，继续保持 add-only、非 managed-state、非 hard-gate 的轻边界 |
 | 2026-04-21 | refactor | `bootstrap-database-candidate-blockers` | 将数据库 handoff 的阻断语义进一步下放到候选级：现在具体哪个连接因为 route 不支持、工具缺失、env hints 不完整而被挡住，会直接写进 `candidate_readiness.candidates[].blockers[]`；顶层 `blockers[]` 只保留 repo 级 runtime 摘要，进一步减少脚本替 LLM 做全局阻断裁决 |
 | 2026-04-21 | refactor | `bootstrap-database-candidate-readiness` | 将 `database-routing.json` 从全局聚合式 readiness 再收一层为“候选级事实面板”：现在每个连接候选都会显式暴露自己的 env keys、route availability 和 `can_readonly_introspect` 状态，`recommended_action` 只保留为保守摘要，不再承担隐藏选择器角色，更符合“轻 contract + 明确边界 + 让 LLM 决策” |
 | 2026-04-21 | fix | `bootstrap-database-handoff-edge-cases` | 修复 `spec-graph-bootstrap` 数据库 handoff 的两个边界误判：schema-only 仓库不再因为缺少 live config 而丢失 `database_schema` 证据，多连接项目也不再因为次要连接 env 缺失而把整个仓库误降级成 `llm-inspect-repo`；新的语义更符合“给 LLM 提供真实 decision input，而不是全局并集式阻断” |
@@ -338,6 +340,8 @@
 
 仍然遵守 `轻 contract + 明确边界 + 让 LLM 决策`。
 
+> 历史说明补充：以下 2026-04-18 的 benchmark / CRG Quality Gate 小节保留为版本演进记录，但其引用的脚本、测试、workflow 与 benchmark 目录已在当前实现中删除；阅读时请将其视为历史事实，而不是当前仓库仍可执行的操作说明。
+
 ## 2026-04-18 `feat(crg-benchmark-contract)`
 
 ### 更新内容
@@ -446,8 +450,8 @@
 
 这一步不是新增 blocker，而是把 PR 上的 benchmark 证据链补完整：
 
-- `CRG Quality Gate` workflow 现在除了 `regression-gate`，还会跑 `benchmark-evidence`
-- 新增 `test:crg:benchmark-evidence`，把 review / repo-qa / context-efficiency 三类 benchmark 收成一份轻量聚合 artifact
+- 当时的 `CRG Quality Gate` workflow 除了 `regression-gate`，还会跑 `benchmark-evidence`
+- 当时新增 `test:crg:benchmark-evidence`，把 review / repo-qa / context-efficiency 三类 benchmark 收成一份轻量聚合 artifact
 - evidence artifact 只表达 benchmark contract、input digest、summary 与 artifact path，不扩成新的 gate 状态机
 
 ### 主要变化
@@ -566,10 +570,10 @@
 - 新增 advisory policy 真源
   - [branch-protection-policy.json](../../src/cli/contracts/quality-gates/branch-protection-policy.json)
   - [branch-protection-policy.schema.json](../../src/cli/contracts/quality-gates/branch-protection-policy.schema.json)
-  - 当前仅表达 GitHub 下 `main` 分支的建议 required checks：
+  - 当时表达的 GitHub `main` 分支建议 required checks：
     - `AI Dev Quality Gate`
     - `CRG Quality Gate`
-- workflow 触发面补盲
+- workflow 触发面补盲（历史）
   - [ai-dev-quality-gate.yml](../../.github/workflows/ai-dev-quality-gate.yml)
   - [crg-quality-gate.yml](../../.github/workflows/crg-quality-gate.yml)
   - 现在会覆盖：
@@ -1873,8 +1877,6 @@
   - requirements visual communication guidance
 - 新增 supplemental context adapters
   - `local-doc-reader`
-  - `feishu-chat-researcher`
-  - `feishu-doc-reader`
   - `github-context-reader`
   - `docs-context-reader`
   - `web-context-reader`

@@ -133,13 +133,13 @@ Phase 1 结束前，必须新增一份稳定 handoff artifact，建议位置：
 
 为了让这份清单可以直接执行，测试矩阵统一收敛为 5 层：
 
-| 层级 | 目标 | 当前已有入口 |
+| 层级 | 目标 | 当时入口（历史） |
 | --- | --- | --- |
 | Unit | 守住模块级行为与 contract | `tests/unit/*.test.js` |
 | Contract | 守住 machine-readable 输出约束 | `tests/contracts/*.test.js`、`tests/unit/spec-graph-bootstrap-contracts.test.js` |
 | Smoke | 守住 CLI/runtime 主入口可用性 | `npm run test:smoke` |
 | E2E | 守住主链编排与真实运行 | `tests/e2e/*.sh`、`npm run test:e2e:crg` |
-| Benchmark / Regression | 守住 AI 效能不退化 | `npm run test:crg:gate`、`npm run test:crg:benchmarks` |
+| Benchmark / Regression | 守住 AI 效能不退化（历史方案，当前已退役） | `npm run test:crg:gate`、`npm run test:crg:benchmarks` |
 
 ### 2.4 全局量化 Quality Gates
 

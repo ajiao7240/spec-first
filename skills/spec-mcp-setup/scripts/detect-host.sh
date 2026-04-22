@@ -38,7 +38,29 @@ detect_host() {
   return 1
 }
 
+detect_platform() {
+  case "$(uname -s 2>/dev/null || echo unknown)" in
+    Darwin)
+      echo "macos"
+      ;;
+    Linux)
+      if grep -qi microsoft /proc/version 2>/dev/null; then
+        echo "wsl"
+      else
+        echo "linux"
+      fi
+      ;;
+    MINGW*|MSYS*|CYGWIN*)
+      echo "windows"
+      ;;
+    *)
+      echo "unknown"
+      ;;
+  esac
+}
+
 host="$(detect_host)"
+platform="$(detect_platform)"
 
 case "$host" in
   claude)
@@ -68,11 +90,13 @@ jq -n \
   --arg config_path "$config_path" \
   --arg marker_path "$marker_path" \
   --arg config_format "$config_format" \
+  --arg platform "$platform" \
   '{
     "host": $host,
     "display_name": $display_name,
     "cli_command": $cli_command,
     "config_path": $config_path,
     "marker_path": $marker_path,
-    "config_format": $config_format
+    "config_format": $config_format,
+    "platform": $platform
   }'

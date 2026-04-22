@@ -1,5 +1,7 @@
 # 多工程 / 微服务联动需求集成实施计划
 
+> 历史说明：本文中的 benchmark、`test:crg:gate` 等引用属于 2026-04-15 当时的实施背景。相关 benchmark/gate 已在当前实现中退役，因此这些条目只应按历史计划阅读。
+
 **Goal:** 面向“一个需求需要联动多个工程代码”的团队现实，完成 `spec-first` 在 cross-repo / multi-service 场景下的最小可运行主链，使系统能在**已知 workspace 范围**内、在存在 `workspace registry` 或显式 workspace 输入时，稳定回答“涉及哪些工程、为什么涉及、每个工程要做什么、怎么验证没有漏改”。本计划同时区分 `Level 1 可开发主链` 与 `Level 2 工程硬化`，避免把 MVP 一次性扩成平台工程。
 
 **Architecture:** 本计划严格以 [2026-04-15-007-cross-repo-multi-service-demand-integration-capabilities-plan.md](/Users/kuang/xiaobu/spec-first/docs/plans/2026-04-15-007-cross-repo-multi-service-demand-integration-capabilities-plan.md) 为唯一能力范围基线，以 [2026-04-15-006-crg-spec-graph-bootstrap-endgame-research-backlog.md](/Users/kuang/xiaobu/spec-first/docs/plans/2026-04-15-006-crg-spec-graph-bootstrap-endgame-research-backlog.md) 的 `R0 / R7a / R6` 约束为技术边界。执行顺序固定为：`A 调用契约 -> B 多工程真源 -> C 联动识别 -> D workflow 主链接入 -> E 验证与硬化`。本轮不做终局级 cross-repo symbol graph，不做 cross-repo semantic retrieval，不做 production-grade observability 平台。

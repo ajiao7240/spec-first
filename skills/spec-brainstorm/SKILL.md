@@ -199,12 +199,6 @@ Use bare agent names inside Task calls.
 - **Institutional knowledge intent** (`docs/solutions/`, prior learnings, "have we solved this before?")
 - Task spec-first:research:learnings-researcher({brainstorm topic summary})
 
-- **Explicit Feishu chat request**
-- Task spec-first:research:feishu-chat-researcher(Search the requested Feishu chat context for this brainstorm topic and return a research digest. {brainstorm topic summary})
-
-- **Explicit Feishu document link**
-- Task spec-first:research:feishu-doc-reader(Read the provided Feishu document link and return a research digest. {brainstorm topic summary})
-
 - **Explicit GitHub URL**
 - Task spec-first:research:github-context-reader(Read the provided GitHub URL and return a research digest. {brainstorm topic summary})
 
@@ -219,13 +213,13 @@ Use bare agent names inside Task calls.
 Additional routing rules:
 - `local-doc-reader` handles explicit file reads. It does **not** replace `learnings-researcher` for `docs/solutions/` topic search.
 - If the user gives an explicit `docs/solutions/...` file path, `local-doc-reader` may read that file directly, but do not also trigger `learnings-researcher` unless the user asks for broader prior-art search.
-- When no explicit supplemental source was provided, do not automatically search GitHub, the web, docs sites, or Feishu. You may note that those source types can be incorporated if the user provides them.
+- When no explicit supplemental source was provided, do not automatically search GitHub, the web, or docs sites. You may note that those source types can be incorporated if the user provides them.
 
 All supplemental readers must return a **research digest** with this contract:
 
 ```markdown
 ## Research Digest
-- **Source Type:** `<local-doc|feishu-chat|feishu-doc|github-url|docs-url|web-url|learnings>`
+- **Source Type:** `<local-doc|github-url|docs-url|web-url|learnings>`
 - **Source Ref:** `<path, URL, or search scope>`
 - **Status:** `success | no-result | tool-unavailable | permission-denied | source-unparseable | executor-unavailable`
 - **Research Value:** `<high|moderate|low|none>`
@@ -254,7 +248,7 @@ When a supplemental reader returns any non-`success` status:
 - Surface the status to the user visibly
 - Do not silently ignore the failure
 - Continue the brainstorm unless the user explicitly says the external context is mandatory
-- If the status is `executor-unavailable`, tell the user that the current environment does not support page reading for this source type; do not retry repeatedly unless the user changes the source or environment; for document-type sources (Feishu docs, web pages, docs URLs), suggest using a local file path or pasting the content manually instead
+- If the status is `executor-unavailable`, tell the user that the current environment does not support page reading for this source type; do not retry repeatedly unless the user changes the source or environment; for document-type sources (web pages, docs URLs), suggest using a local file path or pasting the content manually instead
 
 If Phase 0.1a produced a Current Work Pulse, incorporate it here as lightweight context only. Recent commits or dirty changes can inform what to confirm, but they do not automatically settle product behavior.
 

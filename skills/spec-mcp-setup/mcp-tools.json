@@ -1,90 +1,176 @@
 {
-  "version": "1.0",
+  "schema_version": "2",
+  "summary_columns": [
+    "tool",
+    "required",
+    "dependency",
+    "host_config",
+    "project_bootstrap",
+    "result",
+    "next_action"
+  ],
   "tools": [
     {
       "id": "serena",
       "name": "Serena",
-      "category": "required",
-      "description": "符号级精确编辑引擎，spec-graph-bootstrap Full/Enhanced mode 必需",
+      "summary_label": "Serena",
+      "required": true,
+      "description": "符号级精确编辑引擎，spec-first 全工作流与 graph bootstrap 增强模式依赖",
       "dependencies": ["uv"],
-      "mcp_config": {
-        "command": "uvx",
-        "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "__HOST_CONTEXT__", "--open-web-dashboard", "false"],
-        "startup_timeout_sec": 90
+      "installation": {
+        "kind": "warmup",
+        "unix": {
+          "command": "uvx",
+          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "--help"]
+        },
+        "windows": {
+          "command": "uvx",
+          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "--help"]
+        }
       },
-      "detect": {
-        "method": "mcp_config",
+      "host_config": {
+        "claude": {
+          "command": "uvx",
+          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"],
+          "scope": "user"
+        },
+        "codex": {
+          "command": "uvx",
+          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "codex", "--open-web-dashboard", "false"],
+          "startup_timeout_sec": 90,
+          "scope": "user"
+        }
+      },
+      "detection": {
+        "kind": "host_config_exact",
         "key": "serena"
+      },
+      "project_bootstrap": {
+        "kind": "serena",
+        "required": true,
+        "project_file": ".serena/project.yml",
+        "ready_marker_file": ".serena/index-ready.json",
+        "index_command": {
+          "command": "uvx",
+          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "project", "index"]
+        }
       }
     },
     {
       "id": "sequential-thinking",
       "name": "Sequential Thinking",
-      "category": "required",
+      "summary_label": "Sequential Thinking",
+      "required": true,
       "description": "动态反思性问题解决，spec-first 全工作流通用依赖",
       "dependencies": ["node"],
-      "mcp_config": {
-        "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+      "installation": {
+        "kind": "warmup",
+        "unix": {
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking", "--help"]
+        },
+        "windows": {
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking", "--help"]
+        }
       },
-      "detect": {
-        "method": "mcp_config",
+      "host_config": {
+        "claude": {
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+          "scope": "user"
+        },
+        "codex": {
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+          "scope": "user"
+        }
+      },
+      "detection": {
+        "kind": "host_config_exact",
         "key": "sequential-thinking"
+      },
+      "project_bootstrap": {
+        "kind": "none",
+        "required": false
       }
     },
     {
       "id": "context7",
       "name": "Context7",
-      "category": "required",
+      "summary_label": "Context7",
+      "required": true,
       "description": "最新框架文档查询，spec-first 全工作流通用依赖",
       "dependencies": ["node"],
-      "mcp_config": {
-        "command": "npx",
-        "args": ["-y", "@upstash/context7-mcp"]
+      "installation": {
+        "kind": "warmup",
+        "unix": {
+          "command": "npx",
+          "args": ["-y", "@upstash/context7-mcp", "--help"]
+        },
+        "windows": {
+          "command": "npx",
+          "args": ["-y", "@upstash/context7-mcp", "--help"]
+        }
       },
-      "detect": {
-        "method": "mcp_config",
+      "host_config": {
+        "claude": {
+          "command": "npx",
+          "args": ["-y", "@upstash/context7-mcp"],
+          "scope": "user"
+        },
+        "codex": {
+          "command": "npx",
+          "args": ["-y", "@upstash/context7-mcp"],
+          "scope": "user"
+        }
+      },
+      "detection": {
+        "kind": "host_config_exact",
         "key": "context7"
+      },
+      "project_bootstrap": {
+        "kind": "none",
+        "required": false
       }
     },
     {
       "id": "playwright",
       "name": "Playwright MCP",
-      "category": "optional",
+      "summary_label": "Playwright MCP",
+      "required": false,
       "description": "前端自动化测试，可选工具",
       "dependencies": ["node"],
-      "mcp_config": {
-        "command": "npx",
-        "args": ["@playwright/mcp@latest"]
+      "installation": {
+        "kind": "warmup",
+        "unix": {
+          "command": "npx",
+          "args": ["-y", "@playwright/mcp@latest", "--help"]
+        },
+        "windows": {
+          "command": "npx",
+          "args": ["-y", "@playwright/mcp@latest", "--help"]
+        }
       },
-      "detect": {
-        "method": "mcp_config",
+      "host_config": {
+        "claude": {
+          "command": "npx",
+          "args": ["-y", "@playwright/mcp@latest"],
+          "scope": "user"
+        },
+        "codex": {
+          "command": "npx",
+          "args": ["-y", "@playwright/mcp@latest"],
+          "scope": "user"
+        }
+      },
+      "detection": {
+        "kind": "host_config_exact",
         "key": "playwright"
-      }
-    },
-    {
-      "id": "feishu",
-      "name": "飞书 MCP",
-      "category": "optional",
-      "description": "飞书聊天与文档 API 接入，feishu-chat-researcher / feishu-doc-reader agent 依赖",
-      "dependencies": ["node"],
-      "mcp_config": {
-        "command": "npx",
-        "args": [
-          "-y",
-          "@larksuiteoapi/lark-mcp",
-          "mcp",
-          "--app-id",
-          "__FEISHU_APP_ID__",
-          "--app-secret",
-          "__FEISHU_APP_SECRET__",
-          "--language",
-          "zh"
-        ]
       },
-      "detect": {
-        "method": "mcp_key_only",
-        "key": "feishu"
+      "project_bootstrap": {
+        "kind": "none",
+        "required": false
       }
     }
   ]

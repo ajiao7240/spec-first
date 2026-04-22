@@ -87,17 +87,4 @@ describe('runtime plan contracts', () => {
     }
   });
 
-  test('runtime plans never target shared spec seed paths', () => {
-    for (const platform of ['claude', 'codex']) {
-      const adapter = getAdapter(platform);
-      for (const plan of [
-        adapter.planRuntimeFilesSync('/tmp/unused'),
-        adapter.planRuntimeFilesRemoval('/tmp/unused'),
-      ]) {
-        for (const operation of plan.operations) {
-          expect(operation.path).not.toContain('.spec-first/specs');
-        }
-      }
-    }
-  });
 });

@@ -52,11 +52,6 @@ describe('spec-plan contracts', () => {
     expect(skill).toContain('Verification-as-Done');
     expect(skill).toContain('### Lightweight Planning Anchor');
     expect(skill).toContain('### Reload Before Act');
-    expect(skill).toContain('## Optional Repo Profile Input');
-    expect(skill).toContain('.spec-first/specs/repo-profile.yaml');
-    expect(skill).toContain('repo-level normative hints');
-    expect(skill).toContain('empty strings, empty arrays, and missing fields as absent input');
-    expect(skill).toContain('Do not expand it into a rules engine');
     expect(skill).toContain('freshness_stale');
     expect(skill).toContain('Do not present `freshness_stale` as `L0`');
     expect(skill).toContain('stage0-context --stage plan --workflow spec-plan --format json');
@@ -144,10 +139,6 @@ describe('spec-plan contracts', () => {
     expect(mirror).toContain('Verification-as-Done');
     expect(mirror).toContain('### Lightweight Planning Anchor');
     expect(mirror).toContain('### Reload Before Act');
-    expect(mirror).toContain('## Optional Repo Profile Input');
-    expect(mirror).toContain('.spec-first/specs/repo-profile.yaml');
-    expect(mirror).toContain('repo-level normative hints');
-    expect(mirror).toContain('empty strings, empty arrays, and missing fields as absent input');
     expect(mirror).toContain('freshness_stale');
     expect(mirror).toContain('Do not present `freshness_stale` as `L0`');
     expect(mirror).toContain('stage0-context --stage plan --workflow spec-plan --format json');

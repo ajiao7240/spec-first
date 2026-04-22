@@ -39,6 +39,8 @@ function Get-DetectedHost {
 
 $detectedHost = Get-DetectedHost
 
+$platform = if ($IsWindows) { 'windows' } elseif ($IsMacOS) { 'macos' } elseif ($IsLinux) { 'linux' } else { 'unknown' }
+
 switch ($detectedHost) {
   'claude' {
     $cliCommand = 'claude'
@@ -66,4 +68,5 @@ switch ($detectedHost) {
   config_path = $configPath
   marker_path = $markerPath
   config_format = $configFormat
+  platform = $platform
 } | ConvertTo-Json -Compress

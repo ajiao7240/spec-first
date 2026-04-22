@@ -185,7 +185,7 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 | **17-persona Review stage** (+ 2 CE agents) | Produces structured findings routed by `safe_auto / gated_auto / manual / advisory`, not a single-pass scan |
 | **Compound / knowledge capture** | Solved problems are written to `docs/solutions/` for future workflow retrieval |
 | **Dual platform support** | One methodology across Claude Code (`/spec:*`) and Codex (`$spec-*`). Claude uses a `SessionStart` hook + bare-agent rewrite; Codex uses `.agents/skills/` discovery + explicit `.codex/agents/...` path rewrite |
-| **Capability layer** | Bundled source assets ship with `48` skills, `57` agents, and `4` agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `12` commands + `36` skills on Claude, and `35` skills on Codex, with `57` agents + `4` support files on both hosts |
+| **Capability layer** | Bundled source assets ship with `47` skills, `55` agents, and `4` agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `12` commands + `35` skills on Claude, and `34` skills on Codex, with `55` agents + `4` support files on both hosts |
 | **Runtime governance** | Managed assets are tracked in `state.json` — sync, refresh, recover, and clean safely |
 
 ## Core Workflow
@@ -198,7 +198,7 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 
 | Stage | Claude Code | Codex | Output Artifact | Enforcement |
 |-------|-------------|-------|-----------------|-------------|
-| Host Setup | `/spec:mcp-setup` → restart | `$spec-mcp-setup` → restart | Host-specific marker: `~/.claude/spec-first/host-setup.json` or `~/.codex/spec-first/host-setup.json` | **Code-hard** (bootstrap gate checks this) |
+| Host Setup | `/spec:mcp-setup` → restart | `$spec-mcp-setup` → restart | Host-specific readiness ledger: `~/.claude/spec-first/host-setup.json` or `~/.codex/spec-first/host-setup.json` | **Code-hard** (bootstrap gate checks this) |
 | Stage-0 graph bootstrap | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | Host readiness gate + runtime workflow contract |
 | Ideate | `/spec:ideate` | `$spec-ideate` | `docs/ideation/*.md` | **SKILL.md** contract |
 | Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/*.md` | **SKILL.md** contract |
@@ -309,8 +309,8 @@ $ spec-first init --claude
 
 🪝 Installed Claude SessionStart matcher in .claude/settings.json
 📦 Generated 12 command file(s) in .claude/commands/spec
-🧩 Generated 36 skill directory(ies) in .claude/skills
-🤖 Generated 57 agent file(s) in .claude/agents
+🧩 Generated 35 skill directory(ies) in .claude/skills
+🤖 Generated 55 agent file(s) in .claude/agents
 🧰 Generated 4 agent support file(s) in .claude/agents
 🪪 Wrote project developer profile:
   📍 path: .claude/spec-first/.developer
@@ -450,7 +450,6 @@ npm run test:smoke          # install-local + CLI smoke
 npm run test:integration    # verification-gate jest + e2e shell
 npm run test:e2e:crg        # CRG full-command + SQLite audit
 npm run test:jest           # jest only
-npm run test:crg:gate       # CRG regression gate (benchmarks/regression/*)
 npm run test:ai-dev:gate    # AI Dev Quality Gate (light contract check)
 npm pack                    # release tarball dry run
 ```

@@ -1,4 +1,0 @@
-{
-  "id": "spec-first-review-smoke",
-  "description": "最小 smoke case：验证 review stage 至少优先命中 review card、高风险模块和测试映射。"
-}

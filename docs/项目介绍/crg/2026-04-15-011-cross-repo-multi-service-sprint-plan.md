@@ -1,5 +1,7 @@
 # 多工程 / 微服务联动需求 Sprint 排期计划
 
+> 历史说明：本文是 2026-04-15 的 Sprint 排期记录，文中的 benchmark / `test:crg:gate` 等表述对应当时方案背景；相关 benchmark/gate 已在当前实现中退役，现仅保留为历史排期资料。
+
 **Goal:** 将 [2026-04-15-010-cross-repo-multi-service-implementation-backlog.md](/Users/kuang/xiaobu/spec-first/docs/plans/2026-04-15-010-cross-repo-multi-service-implementation-backlog.md) 转换为可执行的按周排期计划，供团队按 Sprint 推进 `Level 1` 与 `Level 2` 开发。
 
 **Source of Truth:**

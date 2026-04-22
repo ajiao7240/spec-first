@@ -1,137 +1,79 @@
 # mcp-setup 执行流程
 
-> 更新于 2026-04-08
+> 更新于 2026-04-23
 
 ## 总览
 
-```
-╔══════════════════════════════════════════════════════════════════════════╗
-║                    /spec:mcp-setup [quick|custom]                        ║
-╚══════════════════════════════════════════════════════════════════════════╝
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ Phase 1: 依赖检测                                                         │
-│                                                                          │
-│  bash scripts/check-deps.sh   /  pwsh -File scripts/check-deps.ps1       │
-│  ┌─────────────────────────────────────────────┐                        │
-│  │ 检测: node / uv / jq                        │                        │
-│  │ 输出: { node, uv, jq }                      │                        │
-│  └──────────────┬──────────────────────────────┘                        │
-│                 │                                                        │
-│         ┌───────┴────────┐                                               │
-│         │ 有缺失依赖?     │                                               │
-│      yes│                │no                                             │
-│         ▼                ▼                                               │
-│  AskUserQuestion    继续 Phase 2                                          │
-│  ┌──────────────┐                                                        │
-│  │ safe_auto    │→ 直接执行 (uv, jq)                                     │
-│  │ gated_auto   │→ 提示风险后执行 (node)                                 │
-│  │ 用户拒绝     │→ 显示手动安装说明，退出                                  │
-│  └──────┬───────┘                                                        │
-│         │ 安装后 re-run 匹配平台的依赖脚本验证                           │
-└─────────┼───────────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ Phase 2: 检测 + 配置合并                                                 │
-│                                                                          │
-│  bash scripts/detect-tools.sh /  pwsh -File scripts/detect-tools.ps1     │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │ detect-host.sh → current host config / marker                     │    │
-│  │ host ambiguous? → require MCP_SETUP_HOST                         │    │
-│  │ 读取当前宿主配置文件 mcpServers                                  │    │
-│  │ 遍历 mcp-tools.json 中 4 个工具                                  │    │
-│  │  mcp_config → 检查 mcpServers[key] 存在否                        │    │
-│  │ 输出: { installed: [...], missing: [...] }                        │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                           │                                              │
-│                           ▼                                              │
-│  bash scripts/install-coordinator.sh --install <missing_required>        │
-│  pwsh -File scripts/install-coordinator.ps1 -Install <missing_required>  │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │  acquire_lock (flock / mkdir fallback)                           │    │
-│  │  backup current host config → .backup.<timestamp>                │    │
-│  │  add missing mcpServers / mcp_servers entries via host CLI       │    │
-│  │  verify entry exists after CLI returns                           │    │
-│  │  all success → rm backup                                         │    │
-│  │  any failure → preserve backup, exit 1                           │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ Phase 3: 可选工具（quick 模式跳过）                                      │
-│                                                                          │
-│  AskUserQuestion: 安装 Playwright MCP?                                   │
-│       yes → install-coordinator.sh --install playwright                  │
-│       no  → 跳过                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ Phase 4: Host Verification                                               │
-│                                                                          │
-│  bash scripts/verify-tools.sh / pwsh -File scripts/verify-tools.ps1      │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │ detect current host marker path                                  │    │
-│  │ 检测 mcp config / setup_success                                 │    │
-│  │ atomic write → current host spec-first/host-setup.json (v4)     │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│           │ exit!=0 or setup_success=false                               │
-│           └──────────────────────────── 报错，终止                        │
-└─────────────────────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ Verification Summary                                                     │
-│                                                                          │
-│  re-run detect-tools.sh                                                  │
-│  read current host host-setup.json → confirm setup_success=true         │
-│                                                                          │
-│  ✅ MCP Tools Setup Complete                                              │
-│  下一步: 1) 重启当前宿主  2) /spec:graph-bootstrap                       │
-└─────────────────────────────────────────────────────────────────────────┘
+```text
+/spec:mcp-setup [quick|custom]
+  ↓
+Phase 1: check-deps.*
+  - 检测 node / uv / jq
+  - 缺依赖则先补依赖，否则停止后续安装
+  ↓
+Phase 2: detect-tools.*
+  - 识别当前宿主
+  - 读取当前宿主配置
+  - 产出 readiness facts：host config / project bootstrap / CRG / next_actions[]
+  ↓
+Phase 3: install-mcp.*
+  - 对 installation.kind = warmup 的工具先执行 metadata 中声明的 warmup command
+  - configure-host.* 原子写入宿主配置（backup + lock + verify + rollback）
+  - Serena 额外执行 activate-serena.*
+  ↓
+Phase 4: verify-tools.*
+  - 重新读取 readiness facts
+  - 原子写入当前宿主的 readiness ledger v1
 ```
 
 ## 关键数据流
 
-```
-mcp-tools.json ──► detect-tools.sh ──► install-coordinator.sh ──► current host config
-      │                                                                   │
-      └──────────────────────────────────── verify-tools.sh ◄────────────┘
-                                                    │
-                                                    ▼
-                                     host-setup.json (v4 schema)
-                                     ├── setup_success (baseline gate)
-                                     ├── host (marker selection)
-                                     └── tools.*.configured
+```text
+mcp-tools.json
+  ├─► detect-tools.*
+  ├─► install-mcp.*
+  │    ├─► configure-host.*
+  │    └─► activate-serena.*
+  └─► verify-tools.*
+         └─► host-setup.json (v1)
 ```
 
-## `setup_success` 判定规则
+## Serena bootstrap 判定
 
-| 工具 | 是否阻断 |
-|------|---------|
-| serena | **阻断** |
-| context7 | **阻断** |
-| sequential-thinking | **阻断** |
+- `.serena/project.yml` 只表示 project metadata 已存在
+- `.serena/index-ready.json` 表示最近一次 Serena index 成功完成
+- `tools.serena.project_status` 的语义：
+  - `pending`：缺少 `.serena/project.yml`
+  - `failed`：有 `.serena/project.yml`，但缺少 `.serena/index-ready.json`
+  - `ready`：`.serena/project.yml` 与 `.serena/index-ready.json` 都存在
 
-## 依赖安全等级
+不要把 `.serena/project.yml` 单独视为 bootstrap 完成。
 
-| 依赖 | 等级 | 行为 |
-|------|------|------|
-| uv | `safe_auto` | 直接执行，安装到 `~/.cargo/bin/` |
-| jq | `safe_auto` | `brew install jq` / `apt install jq` |
-| Node.js | `gated_auto` | 提示冲突风险后执行（via fnm） |
+## readiness ledger v1 关键字段
+
+- `overall_status`
+- `baseline_ready`
+- `tools.<tool>.dependency_status`
+- `tools.<tool>.host_config_status`
+- `tools.<tool>.project_status`
+- `tools.<tool>.next_action`
+- `crg.cli_status`
+- `crg.native_modules_status`
+- `next_actions[]`
+
+其中 `next_actions[]` 必须聚合：
+- repo 级 blocker（例如 CRG CLI / native modules）
+- 每个 tool 的非空 `next_action`
+- 去重后的 deterministic next steps
 
 ## 相关文件
 
 | 文件 | 职责 |
 |------|------|
-| `skills/mcp-setup/mcp-tools.json` | 工具元数据 |
-| `scripts/check-deps.sh` / `check-deps.ps1` | 检测 node/uv/jq，输出 install_suggestion |
-| `scripts/detect-tools.sh` / `detect-tools.ps1` | 读当前宿主配置文件判断工具安装状态 |
-| `scripts/install-coordinator.sh` / `install-coordinator.ps1` | 按宿主 CLI 配置合并与原子写入 |
-| `scripts/verify-tools.sh` / `verify-tools.ps1` | 写当前宿主的 `host-setup.json`，供 spec-graph-bootstrap 读取 |
-| 当前宿主配置文件 | MCP server 配置目标文件 |
-| 当前宿主的 `spec-first/host-setup.json` | Host 就绪状态标记（v4 schema） |
+| `skills/spec-mcp-setup/mcp-tools.json` | MCP tool metadata 单一 machine truth |
+| `skills/spec-mcp-setup/scripts/check-deps.*` | 检测 node / uv / jq 依赖 |
+| `skills/spec-mcp-setup/scripts/detect-tools.*` | 生成 host + repo readiness facts |
+| `skills/spec-mcp-setup/scripts/install-mcp.*` | 执行 warmup / host config / Serena bootstrap |
+| `skills/spec-mcp-setup/scripts/configure-host.*` | 原子写入宿主配置并在失败时回滚 |
+| `skills/spec-mcp-setup/scripts/activate-serena.*` | 写入 Serena project metadata 并在 index 成功后落 ready marker |
+| `skills/spec-mcp-setup/scripts/verify-tools.*` | 写入当前宿主的 readiness ledger v1 |

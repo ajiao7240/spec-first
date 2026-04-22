@@ -1,53 +1,58 @@
 ---
 name: spec-mcp-setup
-description: "Use when installing MCP tools for a Claude Code, Codex, or Windows PowerShell session and the host-specific MCP config needs to be detected, configured, or verified."
+description: "Use when installing MCP tools for Claude Code or Codex, rebuilding host MCP config, bootstrapping Serena for the current repo, or verifying the host readiness ledger."
 argument-hint: "[quick|custom]"
 ---
 
 # MCP Tools Setup
 
-Install and configure the MCP tools needed by spec-first workflows.
+Install, repair, and verify the MCP tools used by spec-first workflows.
 
 **Claude entry point:** `/spec:mcp-setup [quick|custom]`
 **Codex entry point:** `$spec-mcp-setup [quick|custom]`
 
 ## Overview
 
-This skill automates the installation and configuration of the MCP tools used by spec-first:
+This workflow rebuilds the host MCP setup around a deterministic installer pipeline instead of the retired `install-coordinator.*` flow.
 
-| Tool | Category | Purpose |
+| Tool | Required | Purpose |
 |------|----------|---------|
-| Serena | Required | Symbol-level precision editing for spec-graph-bootstrap Enhanced mode |
-| Sequential Thinking | Required | Dynamic reflective problem solving |
-| Context7 | Required | Latest framework documentation lookup |
-| Playwright MCP | Optional | Frontend automation testing |
-| 飞书 MCP | Optional | 飞书聊天与文档 API（feishu-chat-researcher / feishu-doc-reader 依赖） |
+| Serena | Yes | Symbol-level editing and current-repo bootstrap |
+| Sequential Thinking | Yes | Dynamic reflective problem solving |
+| Context7 | Yes | Latest framework documentation lookup |
+| Playwright MCP | No | Frontend automation testing |
 
-The active host is detected automatically. Claude Code writes to `~/.claude.json` and `~/.claude/spec-first/host-setup.json`; Codex writes to `~/.codex/config.toml` and `~/.codex/spec-first/host-setup.json`.
-If both CLIs are present and no host hint is available, set `MCP_SETUP_HOST=claude|codex` explicitly; the skill will not guess.
+The active host is detected automatically. Claude Code writes user-scoped MCP config to `~/.claude.json`; Codex writes user-scoped MCP config to `~/.codex/config.toml`. The host readiness ledger is written to the current host's `spec-first/host-setup.json` marker path.
+
+If both CLIs are present and no host hint is available, set `MCP_SETUP_HOST=claude|codex` explicitly; the workflow will not guess.
 
 Platform entrypoints:
-- macOS/Linux: use the `*.sh` scripts with `bash`
-- Windows: use the matching `*.ps1` scripts with `pwsh` 7+
+- macOS / Linux / WSL: `*.sh`
+- Windows: matching `*.ps1`
 
-**Actual flow:** run the current host's `mcp-setup` entrypoint → restart the active host → run the current host's graph bootstrap entrypoint → done.
+## Installer Metadata
 
-## Configuration
+Tool metadata is defined in `skills/spec-mcp-setup/mcp-tools.json`.
 
-Tool metadata is defined in `skills/spec-mcp-setup/mcp-tools.json`. Each tool entry includes:
-- `id`, `name`, `category`
-- `dependencies` (node / uv)
-- `mcp_config` (command + args for MCP server registration; host placeholders such as `__HOST_CONTEXT__` are resolved at install time; Codex tools can also declare `startup_timeout_sec`)
-- `detect` (detection method and parameters)
+The current schema provides one machine truth for:
+- required vs optional tools
+- dependency requirements
+- host-specific MCP config shape
+- detection strategy
+- project bootstrap requirements
+- summary column order
+
+Do not create a second machine-readable registry for the same tool catalog in this workflow.
 
 ---
 
 ## Phase 1: Dependency Detection
 
-**Goal:** Detect prerequisites (`node`, `uv`, `jq`) and auto-install with user consent.
+**Goal:** Detect prerequisite dependencies and establish whether the host can proceed to installation.
 
 ### 1.1 Run Dependency Check
 
+macOS/Linux:
 ```bash
 bash skills/spec-mcp-setup/scripts/check-deps.sh
 ```
@@ -57,50 +62,42 @@ Windows:
 pwsh -File skills/spec-mcp-setup/scripts/check-deps.ps1
 ```
 
-This script outputs JSON with the status of each dependency:
+Expected output shape:
 
 ```json
 {
-  "node": { "installed": true, "version": "v20.11.0" },
-  "uv": { "installed": true, "version": "uv 0.4.0" },
-  "jq": { "installed": true, "version": "jq-1.7" }
+  "os": "macos",
+  "node": { "installed": true, "version": "v20.11.0", "install_suggestion": null },
+  "uv": { "installed": true, "version": "uv 0.4.0", "install_suggestion": null },
+  "jq": { "installed": true, "version": "jq-1.7", "install_suggestion": null }
 }
 ```
 
 ### 1.2 Handle Missing Dependencies
 
-For each missing dependency, ask the user whether to auto-install:
+For each missing dependency, ask whether to install it.
 
-| Dependency | Safety | Behavior |
-|------------|--------|----------|
-| uv | safe_auto | Direct install: `curl -LsSf https://astral.sh/uv/install.sh | sh` |
-| jq | safe_auto | Package manager install: `brew install jq` / `apt install jq` |
-| Node.js | gated_auto | Install via fnm with a PATH-risk warning |
+Typical outcomes:
+- `uv` → safe auto-install path
+- `jq` → package-manager install path
+- `node` → gated auto-install path with PATH-risk warning
 
-If the user declines auto-install, display manual installation instructions and exit.
+If the user declines installation, display manual instructions and stop.
 
-### 1.3 Verify Dependencies
+### 1.3 Re-run Detection
 
-After auto-install or when all dependencies are present, rerun the matching platform dependency script. If any dependency is still missing, display instructions and exit.
+After dependency installation, re-run the same platform dependency check.
+If any required dependency is still missing, do not continue into host configuration.
 
 ---
 
-## Phase 2: Quick Install + Configuration Merge
+## Phase 2: Readiness Facts
 
-**Goal:** Install all required tools and write their MCP configurations to the current host's MCP config.
+**Goal:** Build a machine-readable view of host + project readiness before installation.
+
+### 2.1 Detect Host and Tool State
 
 macOS/Linux:
-```bash
-bash skills/spec-mcp-setup/scripts/install-coordinator.sh
-```
-
-Windows:
-```powershell
-pwsh -File skills/spec-mcp-setup/scripts/install-coordinator.ps1
-```
-
-### 2.1 Detect Existing Tools
-
 ```bash
 bash skills/spec-mcp-setup/scripts/detect-tools.sh
 ```
@@ -114,100 +111,200 @@ Expected output shape:
 
 ```json
 {
-  "installed": ["serena", "context7", "sequential-thinking"],
-  "missing": []
+  "host": "claude",
+  "platform": "macos",
+  "repo_root": "/path/to/repo",
+  "overall_status": "partial",
+  "baseline_ready": false,
+  "tools": {
+    "serena": {
+      "required": true,
+      "dependency_status": "ready",
+      "host_config_status": "action-required",
+      "project_status": "pending",
+      "next_action": "configure host"
+    }
+  },
+  "crg": {
+    "cli_status": "ready",
+    "native_modules_status": "ready"
+  },
+  "next_actions": ["bootstrap project"]
 }
 ```
 
-### 2.2 Install Required Tools
+### 2.2 Interpret the Facts
 
-For each missing required tool, write its `mcp_config` into the current host config:
-- Claude Code: `~/.claude.json`
-- Codex: `~/.codex/config.toml`
+`overall_status` is one of:
+- `ready`
+- `partial`
+- `action-required`
+- `failed`
 
-For Codex, if a tool declares `mcp_config.startup_timeout_sec`, write that value into the corresponding `[mcp_servers.<tool>]` section.
-If the field already exists but is lower than the declared value, raise it to the declared value; never downgrade higher user-defined values.
+`baseline_ready=true` means the required MCP baseline is ready across:
+- dependency layer
+- host config layer
+- required project bootstrap layer
 
-Display progress in real time:
+Per-tool fields explain where readiness stops:
+- `dependency_status`
+- `host_config_status`
+- `project_status`
+- `next_action`
+
+`crg.cli_status` and `crg.native_modules_status` remain downstream machine facts for graph bootstrap decisions.
+
+---
+
+## Phase 3: Installer Pipeline
+
+**Goal:** Run deterministic install/configure/repair/bootstrap steps based on the readiness facts.
+
+### 3.1 Run the Installer
+
+macOS/Linux:
+```bash
+bash skills/spec-mcp-setup/scripts/install-mcp.sh
 ```
-🧭 我会先检查当前宿主的配置，再逐个补齐缺失工具。
-⏳ Configuring Serena...
-✅ Serena configured
-⏳ Configuring Context7...
-✅ Context7 configured
+
+Windows:
+```powershell
+pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1
 ```
 
-Tools with `mcp_config` only do not need a binary install step.
-Skip already configured tools.
+The pipeline layers are:
+- `install-mcp.*` — orchestration
+- `configure-host.*` — host MCP config writes
+- `repair-install.*` — deterministic repair path
+- `activate-serena.*` — current-repo Serena bootstrap
 
-### 2.3 Configuration Merge
+The retired `install-coordinator.*` flow is not part of this workflow anymore.
 
-Use an atomic host-aware update:
+### 3.2 Optional Tools
 
-1. Backup the current host config
+In `quick` mode, install the required baseline only.
+
+In `custom` mode, ask which optional tools to include, then rerun the same installer pipeline with the selected tool ids passed explicitly.
+
+For example, if the user selects Playwright MCP:
+
+macOS/Linux:
+```bash
+bash skills/spec-mcp-setup/scripts/install-mcp.sh --install playwright
+```
+
+Windows:
+```powershell
+pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1 -Install playwright
+```
+
+Do not treat optional-tool selection as implied by `custom` mode alone; pass the chosen optional tool ids into `install-mcp.*` explicitly.
+
+### 3.3 Host Config Writing
+
+`configure-host.*` writes the selected tool into the host config:
+- Claude Code → `~/.claude.json`
+- Codex → `~/.codex/config.toml`
+
+Keep host-specific wrapping logic there, not in the prose.
+
+### 3.4 Repair Path
+
+If deterministic install or configure fails:
+1. Call `repair-install.*` for the same tool
+2. If repair succeeds, continue and mark the tool as repaired
+3. If repair fails, return structured facts and stop claiming completion
+
+Unknown failures should surface bounded facts and next actions; do not hard-code open-ended shell heuristics.
+
+### 3.5 Serena Current-Repo Bootstrap
+
+After Serena host config is ready, run `activate-serena.*`.
+
+Success means the current repo now has Serena project metadata (for example `.serena/project.yml`) and an explicit ready marker for the latest successful index refresh (currently `.serena/index-ready.json`).
+
+If Serena host config is ready but repo bootstrap is still pending or the latest index refresh failed, the host remains only partially ready.
+
+`tools.serena.project_status` uses these states:
+- `pending` — project metadata is missing
+- `failed` — project metadata exists but the latest index-ready marker is missing
+- `ready` — project metadata and the latest index-ready marker both exist
+
+Do not treat `.serena/project.yml` alone as proof that Serena bootstrap is complete.
+
+### 3.5a Warmup Command
+
+For tools whose metadata declares `installation.kind = warmup`, `install-mcp.*` runs the metadata-defined warmup command before host config writes. If warmup fails, stop claiming success and surface bounded failure facts.
+
+### 3.5b Serena Current-Repo Bootstrap Failure Boundary
+
+`activate-serena.*` must fail when the Serena index command fails. It may create project metadata before attempting the index, but it must not report bootstrap success unless the index-ready marker is written.
+
+If Serena bootstrap fails after host config is already ready, mark the run as partial rather than silently downgrading the repo to "ready".
+
+If Serena host config is ready but repo bootstrap is still pending, the host remains only partially ready.
+
+### 3.6 Atomic Host Update
+
+When `configure-host.*` writes host config:
+1. Back up the current host config
 2. Acquire a lock
-3. Add only missing host-specific MCP entries with the host CLI
-4. Verify the entry is present after the command returns
-5. Restore the backup if configuration fails
-6. Release the lock
+3. Write the selected MCP entry
+4. Re-read the host config and verify the entry
+5. Release the lock
+6. Restore from backup on failure
 
-Existing entries must never be overwritten.
-
----
-
-## Phase 3: Optional Tools
-
-Offer optional tools only after required tools are installed.
-
-### 3.1 Prompt for Optional Tools
-
-Ask whether to install optional tools.
-
-Available optional tools:
-- Playwright MCP
-- 飞书 MCP（需要交互式输入 App ID / App Secret）
-
-If the user selects any of them, run the same install + configure flow from Phase 2 for the selected tools.
-
-### 3.2 Skip in Non-Interactive Mode
-
-If the argument is `quick`, skip optional prompts entirely.
+Do not reintroduce the old `install-coordinator.*` abstraction to preserve this behavior.
 
 ---
 
-## Phase 4: Host Verification
+## Phase 4: Final Readiness Ledger
 
-Run after Phase 3 to record host-level install state.
+**Goal:** Write the single machine-truth ledger for the current host after installation.
 
-### 4.1 Write Host Readiness Marker
+### 4.1 Write the Ledger
 
-Run `skills/spec-mcp-setup/scripts/verify-tools.sh` to validate host-level install state and write the current host's `spec-first/host-setup.json` marker.
+macOS/Linux:
+```bash
+bash skills/spec-mcp-setup/scripts/verify-tools.sh
+```
 
 Windows:
 ```powershell
 pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1
 ```
 
-The verification step will print the current host's baseline status and the final marker path so users can immediately tell whether they need to restart.
+The final ledger answers:
+- Is the required baseline ready?
+- Which tool is pending and why?
+- Has Serena bootstrapped the current repo?
+- Is CRG usable on this machine?
 
-`setup_success` means the baseline host-level prerequisites are actually ready:
-- `serena`, `context7`, `sequential-thinking` are configured in the current host config
+### 4.2 Ledger Semantics
 
-`crg` block reports CRG subsystem readiness:
-- `cli_available`: whether `spec-first crg --help` exits successfully
-- `native_modules`: `"ok"` (better-sqlite3 + tree-sitter loadable), `"missing"` (one or both failed), `"unchecked"` (CLI unavailable)
+`baseline_ready=true` means the required host baseline is ready.
 
-If `verify-tools.sh` exits non-zero:
-- Report the failure with the script's error output
-- Do not claim setup is complete
+`overall_status` is one of:
+- `ready`
+- `partial`
+- `action-required`
+- `failed`
 
-If `setup_success == false` after verification:
-- Report which baseline tools are still missing or misconfigured
-- Do not claim setup is complete
+`next_actions[]` is the machine-truth next-step list that the human summary should project. It must aggregate repo-level blockers (for example CRG CLI/native-module issues) and each tool's non-empty `next_action` without duplicates.
 
-If optional tools are missing after verification:
-- Report that optional tools were skipped or unavailable
-- Continue and treat setup as complete when baseline tools are ready
+### 4.3 Completion Rule
+
+If `verify-tools.*` exits non-zero:
+- report the failure facts
+- do not claim setup is complete
+
+If `baseline_ready=false` after verification:
+- report which required tools or repo bootstrap steps are still pending
+- do not claim setup is complete
+
+If only optional tools remain absent:
+- report them as skipped or pending
+- continue when the baseline is ready
 
 ---
 
@@ -215,28 +312,18 @@ If optional tools are missing after verification:
 
 After all installations:
 
-1. Re-run the matching platform detection script — baseline tools should appear as installed
-2. Verify the current host config contains baseline MCP entries (`serena`, `context7`, `sequential-thinking`)
-3. Read the current host's `spec-first/host-setup.json` and confirm `setup_success == true`
-4. Display summary:
+1. Re-run the platform readiness facts script — the host should reflect the new state
+2. Verify the current host config contains the expected entries for required tools
+3. Read the readiness ledger and confirm `baseline_ready == true` when setup is complete
+4. Display a table derived from the ledger with these columns:
 
 ```text
-✅ MCP Tools Setup Complete
-
-Installed: Serena, Sequential Thinking, Context7
-Skipped (already present): [list]
-Optional: Playwright MCP / 飞书 MCP [installed / skipped / not installed]
-
-Host readiness:
-- dependencies: ready
-- mcp config: ready
-- CRG: CLI available / CLI unavailable
-- host marker: written (current host's `spec-first/host-setup.json`)
-
-Next steps:
-1. Restart the current host (required to load new MCP configuration)
-2. Run the current host's graph bootstrap entrypoint (`/spec:graph-bootstrap` or `$spec-graph-bootstrap`)
+Tool | Required | Dependency | Host Config | Project Bootstrap | Result | Next Action
 ```
+
+Recommended next steps after success:
+1. Restart the current host when needed to load the new MCP configuration
+2. Run the current host's graph bootstrap entrypoint (`/spec:graph-bootstrap` or `$spec-graph-bootstrap`)
 
 ---
 
@@ -245,9 +332,10 @@ Next steps:
 | Scenario | Action |
 |----------|--------|
 | Dependency missing and user declines install | Show manual instructions, exit |
-| Single tool install fails | Restore backup, stop all further installs (atomic rollback) |
-| Configuration merge fails | Restore from backup, report error |
-| Current host config doesn't exist | Create the host-specific config file via the host CLI |
+| Deterministic install/configure fails but repair can resolve it | Run `repair-install.*`, continue, mark tool as repaired |
+| Deterministic install/configure fails and repair cannot resolve it | Return structured failure facts, stop claiming completion |
+| Current host config doesn't exist | Create the host-specific config file through the installer path |
+| Serena repo bootstrap is still pending | Mark host as partial, surface `next_action` |
 | `jq` not available | Require jq, show install instructions |
 
 ---
@@ -255,47 +343,60 @@ Next steps:
 ## Scope Boundaries
 
 **Includes:**
-- MCP tool installation and configuration (3 required tools + 2 optional tools)
-- Installation status detection and verification
-- CRG CLI availability and native module health detection
+- MCP tool dependency detection, installation, host configuration, repair, and verification
+- Serena current-repo bootstrap
+- CRG CLI availability and native module health facts
 - User interaction and progress feedback
-- macOS/Linux/Windows support
+- macOS/Linux/WSL/Windows support
 
 **Excludes:**
 - MCP tool uninstallation
 - MCP tool update/upgrade
-- Custom MCP tool configuration parameters
-- Tools not in `mcp-tools.json`
-- Runtime MCP server availability verification (handled by spec-graph-bootstrap at project level)
+- Custom MCP tool configuration parameters outside the tool registry
+- Tools not in the active installer metadata source
+- Open-ended auto-debug loops inside shell / PowerShell scripts
 
 ---
 
-## Appendix: host-setup.json Schema
+## Appendix: readiness ledger schema
 
-The coordination file between mcp-setup and spec-graph-bootstrap is host-specific:
+The readiness ledger is host-specific:
 
 - Claude Code: `~/.claude/spec-first/host-setup.json`
 - Codex: `~/.codex/spec-first/host-setup.json`
 
-### Schema v5
+### Schema v1
 
 ```json
 {
-  "version": "5",
+  "schema_version": "v1",
   "host": "claude",
-  "completed_at": "2026-04-13T12:00:00Z",
-  "setup_success": true,
+  "platform": "macos",
+  "repo_root": "/path/to/repo",
+  "overall_status": "partial",
+  "baseline_ready": false,
+  "completed_at": "2026-04-22T12:00:00Z",
   "tools": {
-    "serena": { "configured": true },
-    "context7": { "configured": true },
-    "sequential-thinking": { "configured": true },
-    "playwright": { "configured": false }
+    "serena": {
+      "required": true,
+      "dependency_status": "ready",
+      "host_config_status": "ready",
+      "project_status": "failed",
+      "next_action": "bootstrap project"
+    },
+    "context7": {
+      "required": true,
+      "dependency_status": "ready",
+      "host_config_status": "ready",
+      "project_status": "not-applicable",
+      "next_action": ""
+    }
   },
   "crg": {
-    "cli_available": true,
-    "native_modules": "ok",
-    "checked_at": "2026-04-13T12:00:00Z"
-  }
+    "cli_status": "ready",
+    "native_modules_status": "ready"
+  },
+  "next_actions": ["bootstrap project"]
 }
 ```
 
@@ -303,9 +404,27 @@ The coordination file between mcp-setup and spec-graph-bootstrap is host-specifi
 
 | Field | Consumer | Purpose |
 |------|--------|---------|
-| `host` | spec-graph-bootstrap Host Readiness Gate Step 0 | Select the matching runtime marker and probe path |
-| `setup_success` | spec-graph-bootstrap Host Readiness Gate Step 1 | Determine whether baseline host prerequisites are ready |
-| `tools.*.configured` | spec-graph-bootstrap runtime checks | Skip known-missing tools |
-| `crg.cli_available` | spec-graph-bootstrap Phase 0.2b | Skip CRG operations when CLI unavailable |
-| `crg.native_modules` | spec-graph-bootstrap Phase 0.2b | Warn before attempting crg build |
-| `crg.checked_at` | spec-graph-bootstrap Phase 0.2b | Stale detection (re-check if >30 days old) |
+| `host` / `platform` | runtime host selector | pick the matching marker and host path |
+| `overall_status` | spec-mcp-setup summary / graph-bootstrap gate | decide whether the host is ready, partial, or blocked |
+| `baseline_ready` | graph-bootstrap host readiness | determine whether required MCP baseline is ready |
+| `tools.<tool>.host_config_status` | graph-bootstrap / future skills | know whether the MCP entry is configured |
+| `tools.<tool>.project_status` | Serena-aware workflows | know whether the current repo bootstrap is pending / failed / ready |
+| `crg.cli_status` | graph-bootstrap Phase 0.2b | skip CRG operations when CLI is unavailable |
+| `crg.native_modules_status` | graph-bootstrap Phase 0.2b | warn before attempting `crg build` |
+| `next_actions[]` | spec-mcp-setup human summary | present the next deterministic steps |
+| `completed_at` | stale detection | know when the ledger was last refreshed |
+
+For full tool descriptions and host-specific notes, use `references/supported-mcp-tools.md`.
+
+---
+
+## References
+
+- Supported tool catalog: `skills/spec-mcp-setup/references/supported-mcp-tools.md`
+- Tool metadata source: `skills/spec-mcp-setup/mcp-tools.json`
+- Unix entrypoints: `install-mcp.sh`, `configure-host.sh`, `repair-install.sh`, `activate-serena.sh`, `verify-tools.sh`
+- Windows entrypoints: `install-mcp.ps1`, `configure-host.ps1`, `repair-install.ps1`, `activate-serena.ps1`, `verify-tools.ps1`
+- Downstream consumer: `skills/spec-graph-bootstrap/SKILL.md`
+- Runtime command metadata: `templates/claude/commands/spec/mcp-setup.md`
+
+Do not refer users to `install-coordinator.*`; it is a retired implementation.

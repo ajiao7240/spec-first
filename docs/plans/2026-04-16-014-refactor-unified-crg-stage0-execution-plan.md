@@ -8,6 +8,8 @@ origin: docs/02-架构设计/全局分析/2026-04-16-spec-first-CRG-统一开发
 
 # refactor: Execute unified CRG and Stage-0 runtime roadmap
 
+> 历史说明：本文保留了当时 CRG benchmark / regression gate 的执行与验收设计。相关 benchmark 目录、baseline、`test:crg:gate` 等入口已在当前实现中退役；这些内容现在仅用于回看当时的设计决策。
+
 **Target repo:** `spec-first`
 
 ## 状态校准（2026-04-18）

@@ -8,22 +8,24 @@
 - gate 失败后直接调阈值，没有记录原因
 - retrieval / routing / telemetry 改动没有可解释的回归判断
 
-## 2. 当前 gate 范围
+## 2. 历史背景（已退役）
 
-当前 `test:crg:gate` 聚合以下三类 benchmark：
+> 说明：本文件记录的是 benchmark / regression baseline 曾经存在时的治理思路。`test:crg:gate`、`benchmarks/**`、`scripts/update-crg-baselines.js` 与相关 baseline 机制已在当前实现中退役，以下内容仅用于历史追溯，不再是当前仓库可执行的操作说明。
+
+当时的 `test:crg:gate` 曾聚合以下三类 benchmark：
 
 - `benchmarks/review/run-review-benchmark.js`
 - `benchmarks/repo-qa/run-repo-qa.js`
 - `benchmarks/context-efficiency/run-context-efficiency.js`
 
-由 `benchmarks/regression/run-regression.js` 统一输出以下核心指标：
+并由 `benchmarks/regression/run-regression.js` 输出以下核心指标：
 
 - `review_average_hit_rate`
 - `repo_qa_average_hit_rate`
 - `context_efficiency_irrelevant_ratio`
 - `fallback_rate`
 
-说明：
+当时的说明：
 
 - `fallback_rate` 统计的是硬 fallback 比例，即 `evaluation.level != L0`
 - `freshness_stale` 这类 `L0` 软降级不会计入 `fallback_rate`

@@ -1,0 +1,217 @@
+#!/bin/bash
+# configure-host.sh - Unix host config writer for spec-mcp-setup
+# Usage: configure-host.sh --tool <tool-id>
+
+set -euo pipefail
+
+command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILL_DIR="$(dirname "$SCRIPT_DIR")"
+TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
+HOST_INFO_JSON="$($SCRIPT_DIR/detect-host.sh)"
+HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
+CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
+LOCK_FILE="${CONFIG_PATH}.lock"
+CONFIG_DIR="$(dirname "$CONFIG_PATH")"
+
+TOOL_ID=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --tool)
+      TOOL_ID="${2:-}"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+[ -n "$TOOL_ID" ] || { echo '错误：缺少 --tool' >&2; exit 1; }
+mkdir -p "$CONFIG_DIR"
+
+HOST_CONFIG_JSON=$(jq -c --arg id "$TOOL_ID" --arg host "$HOST" '.tools[] | select(.id == $id) | .host_config[$host]' "$TOOLS_JSON")
+[ -n "$HOST_CONFIG_JSON" ] && [ "$HOST_CONFIG_JSON" != "null" ] || { echo "错误：未找到 $TOOL_ID 的 host_config" >&2; exit 1; }
+
+extract_toml_section() {
+  local section_name="$1"
+  awk -v section="[mcp_servers.$section_name]" '
+    $0 == section { in_section = 1; next }
+    /^\[mcp_servers\./ && in_section { exit }
+    in_section { print }
+  ' "$CONFIG_PATH"
+}
+
+tool_is_configured() {
+  local detect_kind detect_key expected_command expected_args block expected_args_count i expected_arg
+  detect_kind="$(jq -r --arg id "$TOOL_ID" '.tools[] | select(.id == $id) | .detection.kind' "$TOOLS_JSON")"
+  detect_key="$(jq -r --arg id "$TOOL_ID" '.tools[] | select(.id == $id) | .detection.key' "$TOOLS_JSON")"
+
+  [ -f "$CONFIG_PATH" ] || return 1
+
+  case "$detect_kind" in
+    host_config_exact)
+      expected_command="$(jq -r '.command' <<<"$HOST_CONFIG_JSON")"
+      expected_args="$(jq -c '.args' <<<"$HOST_CONFIG_JSON")"
+      if [ "$HOST" = "claude" ]; then
+        jq -e --arg key "$detect_key" --arg command "$expected_command" --argjson expected_args "$expected_args" '.mcpServers[$key].command == $command and (.mcpServers[$key].args // []) == $expected_args' "$CONFIG_PATH" >/dev/null 2>&1
+        return
+      fi
+      block="$(extract_toml_section "$detect_key")"
+      if [ -n "$block" ] && printf '%s\n' "$block" | grep -qF "command = \"$expected_command\""; then
+        expected_args_count="$(jq 'length' <<<"$expected_args")"
+        for i in $(seq 0 $((expected_args_count - 1))); do
+          expected_arg="$(jq -r ".[$i]" <<<"$expected_args")"
+          if ! printf '%s\n' "$block" | grep -qF -- "$expected_arg"; then
+            return 1
+          fi
+        done
+        return 0
+      fi
+      return 1
+      ;;
+    host_config_key_only)
+      if [ "$HOST" = "claude" ]; then
+        jq -e --arg key "$detect_key" '.mcpServers[$key] != null' "$CONFIG_PATH" >/dev/null 2>&1
+      else
+        grep -qF "[mcp_servers.${detect_key}]" "$CONFIG_PATH" >/dev/null 2>&1
+      fi
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+acquire_lock() {
+  if command -v flock >/dev/null 2>&1; then
+    exec 200>"$LOCK_FILE" 2>/dev/null || return 1
+    flock -w 10 200 || return 1
+    return 0
+  fi
+
+  LOCK_DIR="${CONFIG_PATH}.lock.d"
+  local attempts=0
+  while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+    attempts=$((attempts + 1))
+    if [ $attempts -ge 100 ]; then
+      return 1
+    fi
+    sleep 0.1
+  done
+  echo $$ > "$LOCK_DIR/pid"
+}
+
+release_lock() {
+  if command -v flock >/dev/null 2>&1; then
+    flock -u 200 2>/dev/null || true
+    exec 200>&- 2>/dev/null || true
+    rm -f "$LOCK_FILE"
+  elif [ -n "${LOCK_DIR:-}" ]; then
+    rm -rf "$LOCK_DIR"
+  fi
+}
+
+write_claude_config() {
+  local config_json="$1"
+  local tmp
+  tmp="$(mktemp "${CONFIG_PATH}.XXXXXX")"
+  chmod 600 "$tmp"
+  if [ -f "$CONFIG_PATH" ]; then
+    jq --arg id "$TOOL_ID" --argjson cfg "$config_json" '(.mcpServers //= {}) | .mcpServers[$id] = $cfg' "$CONFIG_PATH" > "$tmp"
+  else
+    jq -n --arg id "$TOOL_ID" --argjson cfg "$config_json" '{mcpServers: {($id): $cfg}}' > "$tmp"
+  fi
+  mv "$tmp" "$CONFIG_PATH"
+}
+
+replace_toml_section() {
+  local section_name="$1"
+  local section_body="$2"
+  local tmp
+  tmp="$(mktemp "${CONFIG_PATH}.XXXXXX")"
+  chmod 600 "$tmp"
+  python3 - "$CONFIG_PATH" "$section_name" "$section_body" "$tmp" <<'PY'
+import re, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+section_name = sys.argv[2]
+section_body = sys.argv[3]
+out = Path(sys.argv[4])
+text = path.read_text(encoding='utf-8') if path.exists() else ''
+section = f"[mcp_servers.{section_name}]\n{section_body.strip()}\n"
+pattern = rf'(?ms)^\[mcp_servers\.{re.escape(section_name)}\]\n.*?(?=^\[mcp_servers\.|\Z)'
+if re.search(pattern, text):
+    text = re.sub(pattern, section + '\n', text)
+else:
+    if text and not text.endswith('\n'):
+        text += '\n'
+    text += ('\n' if text else '') + section + '\n'
+out.write_text(text, encoding='utf-8')
+PY
+  mv "$tmp" "$CONFIG_PATH"
+}
+
+write_codex_config() {
+  local command args_json timeout section_body
+  command="$(jq -r '.command' <<<"$HOST_CONFIG_JSON")"
+  args_json="$(jq -c '.args' <<<"$HOST_CONFIG_JSON")"
+  timeout="$(jq -r '.startup_timeout_sec // empty' <<<"$HOST_CONFIG_JSON")"
+  section_body="command = \"$command\"\nargs = $args_json"
+  if [ -n "$timeout" ]; then
+    section_body="$section_body\nstartup_timeout_sec = $timeout"
+  fi
+  replace_toml_section "$TOOL_ID" "$section_body"
+}
+
+restore_backup() {
+  [ -n "${BACKUP_PATH:-}" ] || return 0
+  if [ -f "$BACKUP_PATH" ]; then
+    mv "$BACKUP_PATH" "$CONFIG_PATH"
+  else
+    rm -f "$CONFIG_PATH"
+  fi
+}
+
+trap release_lock EXIT
+acquire_lock || { echo '错误：无法获取配置锁' >&2; exit 1; }
+
+if tool_is_configured; then
+  exit 0
+fi
+
+BACKUP_PATH=""
+if [ -f "$CONFIG_PATH" ]; then
+  BACKUP_PATH="$(mktemp "${CONFIG_PATH}.backup.XXXXXX")"
+  cp "$CONFIG_PATH" "$BACKUP_PATH"
+  chmod 600 "$BACKUP_PATH"
+else
+  BACKUP_PATH="${CONFIG_PATH}.missing"
+fi
+
+resolved_config="$HOST_CONFIG_JSON"
+HOST_CONFIG_JSON="$resolved_config"
+
+if [ "$HOST" = "claude" ]; then
+  if ! write_claude_config "$HOST_CONFIG_JSON"; then
+    restore_backup
+    echo "错误：$TOOL_ID 写入宿主配置失败，已回滚" >&2
+    exit 1
+  fi
+else
+  if ! write_codex_config; then
+    restore_backup
+    echo "错误：$TOOL_ID 写入宿主配置失败，已回滚" >&2
+    exit 1
+  fi
+fi
+
+if tool_is_configured; then
+  [ -f "$BACKUP_PATH" ] && rm -f "$BACKUP_PATH"
+  exit 0
+fi
+
+restore_backup
+echo "错误：$TOOL_ID 配置后仍未检测到有效宿主配置，已回滚" >&2
+exit 1

@@ -67,8 +67,6 @@ describe('spec-brainstorm contracts', () => {
     expect(skill).toContain('external readers never auto-dispatch from topic alone');
     expect(skill).toContain('Task spec-first:research:local-doc-reader(');
     expect(skill).toContain('Task spec-first:research:learnings-researcher(');
-    expect(skill).toContain('Task spec-first:research:feishu-chat-researcher(');
-    expect(skill).toContain('Task spec-first:research:feishu-doc-reader(');
     expect(skill).toContain('Task spec-first:research:github-context-reader(');
     expect(skill).toContain('Task spec-first:research:docs-context-reader(');
     expect(skill).toContain('Task spec-first:research:web-context-reader(');
@@ -113,29 +111,23 @@ describe('spec-brainstorm contracts', () => {
     const codexRuntime = codex.transformSkillContent(sourceSkill, { skillName: 'spec-brainstorm' });
 
     expect(claudeRuntime).toContain('name: brainstorm-workflow');
-    // All 7 canonical Task names must be rewritten to bare names
+    // All 5 canonical Task names must be rewritten to bare names
     expect(claudeRuntime).toContain('Task local-doc-reader(');
     expect(claudeRuntime).toContain('Task learnings-researcher(');
-    expect(claudeRuntime).toContain('Task feishu-chat-researcher(');
-    expect(claudeRuntime).toContain('Task feishu-doc-reader(');
     expect(claudeRuntime).toContain('Task github-context-reader(');
     expect(claudeRuntime).toContain('Task docs-context-reader(');
     expect(claudeRuntime).toContain('Task web-context-reader(');
     // No canonical namespace must survive in Claude runtime
     expect(claudeRuntime).not.toContain('Task spec-first:research:local-doc-reader(');
     expect(claudeRuntime).not.toContain('Task spec-first:research:learnings-researcher(');
-    expect(claudeRuntime).not.toContain('Task spec-first:research:feishu-chat-researcher(');
-    expect(claudeRuntime).not.toContain('Task spec-first:research:feishu-doc-reader(');
     expect(claudeRuntime).not.toContain('Task spec-first:research:github-context-reader(');
     expect(claudeRuntime).not.toContain('Task spec-first:research:docs-context-reader(');
     expect(claudeRuntime).not.toContain('Task spec-first:research:web-context-reader(');
 
     expect(codexRuntime).toContain('name: spec-brainstorm');
-    // All 7 canonical Task names must be rewritten to Codex path format
+    // All 5 canonical Task names must be rewritten to Codex path format
     expect(codexRuntime).toContain('`.codex/agents/research/local-doc-reader.md`');
     expect(codexRuntime).toContain('`.codex/agents/research/learnings-researcher.md`');
-    expect(codexRuntime).toContain('`.codex/agents/research/feishu-chat-researcher.md`');
-    expect(codexRuntime).toContain('`.codex/agents/research/feishu-doc-reader.md`');
     expect(codexRuntime).toContain('`.codex/agents/research/github-context-reader.md`');
     expect(codexRuntime).toContain('`.codex/agents/research/docs-context-reader.md`');
     expect(codexRuntime).toContain('`.codex/agents/research/web-context-reader.md`');
@@ -143,8 +135,6 @@ describe('spec-brainstorm contracts', () => {
     // No canonical namespace must survive in Codex runtime
     expect(codexRuntime).not.toContain('Task spec-first:research:local-doc-reader(');
     expect(codexRuntime).not.toContain('Task spec-first:research:learnings-researcher(');
-    expect(codexRuntime).not.toContain('Task spec-first:research:feishu-chat-researcher(');
-    expect(codexRuntime).not.toContain('Task spec-first:research:feishu-doc-reader(');
     expect(codexRuntime).not.toContain('Task spec-first:research:github-context-reader(');
     expect(codexRuntime).not.toContain('Task spec-first:research:docs-context-reader(');
     expect(codexRuntime).not.toContain('Task spec-first:research:web-context-reader(');

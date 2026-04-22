@@ -301,7 +301,7 @@ spec-first/
   agents/             ← 57 个 agent 定义 (review/research/design/workflow/docs)
   templates/          ← 命令模板 (claude/commands/spec/)
   tests/              ← 102 个测试文件
-  benchmarks/         ← review/repo-qa/context-efficiency/regression
+  .spec-first/        ← workflow artifacts / graph / spec-work run artifacts
   vendor/             ← tree-sitter-objc + tree-sitter-swift fork
   docs/               ← 文档体系
     contracts/        ← JSON Schema 契约

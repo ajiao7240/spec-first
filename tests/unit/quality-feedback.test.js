@@ -32,12 +32,6 @@ describe('quality feedback topics contract', () => {
             passed: false,
             artifact_path: '.spec-first/workflows/quality-gates/ai-dev-quality-gate/stage0-contracts.junit.json',
           },
-          {
-            check_id: 'crg-regression',
-            kind: 'benchmark',
-            passed: true,
-            artifact_path: '.spec-first/workflows/quality-gates/ai-dev-quality-gate/crg-regression.json',
-          },
         ],
       },
       verificationEvidence: {

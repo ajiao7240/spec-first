@@ -5,146 +5,186 @@ Set-StrictMode -Version Latest
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
+$ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
 $ConfigPath = $HostInfo.config_path
-$ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json
-$HostContext = if ($DetectedHost -eq 'codex') { 'codex' } else { 'ide-assistant' }
+$Platform = $HostInfo.platform
+$RepoRoot = try { git rev-parse --show-toplevel } catch { (Get-Location).Path }
 
 function Get-TomlSection {
-  param(
-    [string]$Path,
-    [string]$SectionName
-  )
-
-  if (-not (Test-Path $Path)) {
-    return @()
-  }
-
-  $sectionHeader = "[mcp_servers.$SectionName]"
+  param([string]$Path, [string]$SectionName)
+  if (-not (Test-Path $Path)) { return '' }
+  $header = "[mcp_servers.$SectionName]"
   $lines = Get-Content $Path
   $capturing = $false
-  $sectionLines = New-Object System.Collections.Generic.List[string]
-
+  $buffer = New-Object System.Collections.Generic.List[string]
   foreach ($line in $lines) {
-    if ($line -eq $sectionHeader) {
-      $capturing = $true
-      continue
-    }
-
-    if ($capturing -and $line -match '^\[mcp_servers\..+\]$') {
-      break
-    }
-
-    if ($capturing) {
-      $sectionLines.Add($line)
-    }
+    if ($line -eq $header) { $capturing = $true; continue }
+    if ($capturing -and $line -match '^\[mcp_servers\..+\]$') { break }
+    if ($capturing) { $buffer.Add($line) }
   }
-
-  return @($sectionLines)
+  $buffer -join "`n"
 }
 
-function Get-ExpectedToolConfig {
+function Get-DependencyStatus {
+  param([string]$Name)
+  if (Get-Command $Name -ErrorAction SilentlyContinue) { 'ready' } else { 'missing' }
+}
+
+function Get-HostConfigStatus {
   param([object]$Tool)
-
-  $args = @()
-  foreach ($arg in @($Tool.mcp_config.args)) {
-    if ($arg -eq '__HOST_CONTEXT__') {
-      $args += $HostContext
-    } else {
-      $args += $arg
+  if (-not (Test-Path $ConfigPath)) { return 'action-required' }
+  $hostConfig = $Tool.host_config.$DetectedHost
+  switch ($Tool.detection.kind) {
+    'host_config_exact' {
+      if ($DetectedHost -eq 'claude') {
+        $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
+        $server = $config.mcpServers.PSObject.Properties[$Tool.detection.key].Value
+        if ($null -eq $server) { return 'action-required' }
+        if ($server.command -ne $hostConfig.command) { return 'action-required' }
+        $serverArgs = @($server.args)
+        $expectedArgs = @($hostConfig.args)
+        if ($serverArgs.Count -ne $expectedArgs.Count) { return 'action-required' }
+        for ($i = 0; $i -lt $expectedArgs.Count; $i++) {
+          if ($serverArgs[$i] -ne $expectedArgs[$i]) { return 'action-required' }
+        }
+        return 'ready'
+      }
+      $section = Get-TomlSection -Path $ConfigPath -SectionName $Tool.detection.key
+      if ([string]::IsNullOrWhiteSpace($section)) { return 'action-required' }
+      if (-not $section.Contains("command = `"$($hostConfig.command)`"")) { return 'action-required' }
+      foreach ($arg in @($hostConfig.args)) {
+        if (-not $section.Contains($arg)) { return 'action-required' }
+      }
+      return 'ready'
     }
-  }
-
-  return @{
-    command = $Tool.mcp_config.command
-    args = $args
+    'host_config_key_only' {
+      if ($DetectedHost -eq 'claude') {
+        $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
+        if ($null -ne $config.mcpServers.PSObject.Properties[$Tool.detection.key]) { return 'ready' }
+        return 'action-required'
+      }
+      if (Select-String -Path $ConfigPath -SimpleMatch "[mcp_servers.$($Tool.detection.key)]" -Quiet) { 'ready' } else { 'action-required' }
+    }
+    default { 'action-required' }
   }
 }
 
-$installed = New-Object System.Collections.Generic.List[string]
-$missing = New-Object System.Collections.Generic.List[string]
+function Get-ProjectStatus {
+  param([object]$Tool)
+  if ($Tool.project_bootstrap.kind -eq 'none' -or -not $Tool.project_bootstrap.required) {
+    return 'not-applicable'
+  }
+  $projectFile = Join-Path $RepoRoot $Tool.project_bootstrap.project_file
+  $readyMarkerFile = if ($null -ne $Tool.project_bootstrap.ready_marker_file) { $Tool.project_bootstrap.ready_marker_file } else { '' }
+  $readyMarkerPath = if ([string]::IsNullOrWhiteSpace($readyMarkerFile)) { '' } else { Join-Path $RepoRoot $readyMarkerFile }
+  if (-not (Test-Path $projectFile)) {
+    return 'pending'
+  }
+  if ($Tool.project_bootstrap.kind -eq 'serena') {
+    if (-not [string]::IsNullOrWhiteSpace($readyMarkerPath) -and (Test-Path $readyMarkerPath)) { return 'ready' }
+    return 'failed'
+  }
+  return 'ready'
+}
 
-foreach ($tool in $ToolsJson.tools) {
-  $found = $false
+function Get-CrgCliStatus {
+  if (-not (Get-Command spec-first -ErrorAction SilentlyContinue)) { return 'unavailable' }
+  try {
+    & spec-first crg --help | Out-Null
+    return 'ready'
+  } catch {
+    return 'unavailable'
+  }
+}
 
-  switch ($tool.detect.method) {
-    'mcp_config' {
-      $detectKey = $tool.detect.key
-      $expected = Get-ExpectedToolConfig -Tool $tool
-      if ((Test-Path $ConfigPath)) {
-        if ($DetectedHost -eq 'claude') {
-          try {
-            $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
-            $server = $config.mcpServers.PSObject.Properties[$detectKey].Value
-            if ($null -ne $server -and
-                $server.command -eq $expected.command -and
-                (@($server.args) -join "`n") -eq (@($expected.args) -join "`n")) {
-              $found = $true
-            }
-          } catch {
-            $found = $false
-          }
-        } elseif ($DetectedHost -eq 'codex') {
-          $block = Get-TomlSection -Path $ConfigPath -SectionName $detectKey
-          $blockText = ($block -join "`n")
-          if ($blockText.Contains("command = `"$($expected.command)`"")) {
-            $allArgsFound = $true
-            foreach ($expectedArg in $expected.args) {
-              if (-not $blockText.Contains($expectedArg)) {
-                $allArgsFound = $false
-                break
-              }
-            }
+function Get-CrgNativeModulesStatus {
+  if ((Get-CrgCliStatus) -ne 'ready') { return 'unchecked' }
+  try {
+    & node -e "try{require('better-sqlite3')}catch{process.exit(1)}" | Out-Null
+  } catch {
+    return 'missing'
+  }
+  try {
+    & node -e "try{require('tree-sitter')}catch{process.exit(1)}" | Out-Null
+  } catch {
+    return 'missing'
+  }
+  return 'ready'
+}
 
-            if ($allArgsFound) {
-            $found = $true
-            }
-          }
-        }
-      }
-    }
-    'mcp_key_only' {
-      $detectKey = $tool.detect.key
-      if (Test-Path $ConfigPath) {
-        if ($DetectedHost -eq 'claude') {
-          try {
-            $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
-            if ($null -ne $config.mcpServers.PSObject.Properties[$detectKey]) {
-              $found = $true
-            }
-          } catch {
-            $found = $false
-          }
-        } elseif ($DetectedHost -eq 'codex') {
-          if (Select-String -Path $ConfigPath -SimpleMatch "[mcp_servers.$detectKey]" -Quiet) {
-            $found = $true
-          }
-        }
-      }
-    }
-    'command' {
-      try {
-        $detectProc = Start-Process -FilePath 'pwsh' -ArgumentList '-c',$tool.detect.command -NoNewWindow -PassThru -RedirectStandardOutput NUL -RedirectStandardError NUL
-        if ($detectProc.WaitForExit(10000)) {
-          if ($detectProc.ExitCode -eq 0) { $found = $true }
-        } else {
-          $detectProc.Kill()
-        }
-      } catch {
-        $found = $false
-      }
-    }
+$overallStatus = 'ready'
+$baselineReady = $true
+$results = [ordered]@{}
+$crgCliStatus = Get-CrgCliStatus
+$crgNativeModulesStatus = Get-CrgNativeModulesStatus
+$nextActions = New-Object System.Collections.Generic.List[string]
+function Add-NextAction {
+  param([string]$Action)
+  if ([string]::IsNullOrWhiteSpace($Action)) { return }
+  if (-not $nextActions.Contains($Action)) {
+    $nextActions.Add($Action)
+  }
+}
+if ($crgCliStatus -eq 'unavailable') {
+  $overallStatus = 'partial'
+  Add-NextAction 'install or repair spec-first crg CLI'
+} elseif ($crgNativeModulesStatus -eq 'missing') {
+  $overallStatus = 'partial'
+  Add-NextAction 'repair better-sqlite3/tree-sitter native modules'
+}
+
+foreach ($tool in @($ToolsJson.tools)) {
+  $dependencyStatus = 'ready'
+  foreach ($dep in @($tool.dependencies)) {
+    $current = Get-DependencyStatus -Name $dep
+    if ($current -ne 'ready') { $dependencyStatus = $current; break }
   }
 
-  if ($found) {
-    $installed.Add($tool.id)
-  } else {
-    $missing.Add($tool.id)
+  $hostConfigStatus = Get-HostConfigStatus -Tool $tool
+  $projectStatus = Get-ProjectStatus -Tool $tool
+  $nextAction = ''
+  if ($dependencyStatus -ne 'ready') {
+    $nextAction = 'install dependency'
+  } elseif ($hostConfigStatus -ne 'ready') {
+    $nextAction = 'configure host'
+  } elseif ($projectStatus -eq 'pending') {
+    $nextAction = 'bootstrap project'
+  }
+
+  if ($tool.required -and ($dependencyStatus -ne 'ready' -or $hostConfigStatus -ne 'ready' -or ($projectStatus -ne 'ready' -and $projectStatus -ne 'not-applicable'))) {
+    $baselineReady = $false
+    if ($overallStatus -eq 'ready') { $overallStatus = 'partial' }
+  }
+
+  if ($dependencyStatus -eq 'missing' -or $hostConfigStatus -eq 'action-required') {
+    $overallStatus = 'action-required'
+  } elseif ($projectStatus -eq 'failed' -and $overallStatus -eq 'ready') {
+    $overallStatus = 'partial'
+  }
+
+  Add-NextAction $nextAction
+
+  $results[$tool.id] = [ordered]@{
+    required = [bool]$tool.required
+    dependency_status = $dependencyStatus
+    host_config_status = $hostConfigStatus
+    project_status = $projectStatus
+    next_action = $nextAction
   }
 }
 
 [pscustomobject]@{
-  installed = @($installed)
-  missing = @($missing)
-} | ConvertTo-Json -Compress -Depth 4
+  host = $DetectedHost
+  platform = $Platform
+  repo_root = $RepoRoot
+  overall_status = $overallStatus
+  baseline_ready = [bool]$baselineReady
+  tools = $results
+  crg = [ordered]@{
+    cli_status = $crgCliStatus
+    native_modules_status = $crgNativeModulesStatus
+  }
+  next_actions = @($nextActions)
+} | ConvertTo-Json -Depth 8 -Compress

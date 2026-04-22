@@ -1,7 +1,20 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.8 2026-04-23 01:20:00 矿工: fix(spec-mcp-setup): 为 host config 写入补齐 backup/rollback 原子语义，收紧 Serena bootstrap 到 `.serena/index-ready.json` 成功标记，并让 readiness ledger 聚合 tool 级 `next_actions[]`；同步更新 source/mirror 文档、执行流程与 mcp-setup 单测，修正 README 运行时资产计数漂移 (user-visible)
+- v1.5.8 2026-04-23 01:00:00 矿工: docs(benchmark-retirement): 继续为高频历史计划与整改文档补统一退役提示，明确 benchmark / CRG Quality Gate 相关入口仅属于历史背景，避免历史计划脱离语境继续造成误读 (user-visible)
+- v1.5.8 2026-04-23 00:50:00 矿工: docs(benchmark-retirement): 继续收口全仓噪音，把仍以当前口吻描述 benchmark / CRG Quality Gate 的治理文档、路线文档与执行清单统一改成历史语境，避免历史资料继续误导当前读者 (user-visible)
+- v1.5.8 2026-04-23 00:40:00 矿工: docs(benchmark-retirement): 继续收口 benchmark 退役残留，移除 quality-feedback 测试中的 `crg-regression` 示例、修正项目概览里的 `benchmarks/` 现役目录描述，并给版本更新历史段补“仅作历史记录”提示，进一步收紧现行操作面与历史记录边界 (user-visible)
+- v1.5.8 2026-04-23 00:35:00 矿工: refactor(init): 彻底删除 shared spec seeds 链路，移除 `src/cli/spec-seeds.js`、`templates/specs/*`、专项测试与当前用户文档中的 `.spec-first/specs/*` 现行描述，收口为仅保留历史记录语义 (user-visible)
+- v1.5.8 2026-04-23 00:30:00 矿工: docs(benchmark-retirement): 收口中英文 README、workflow artifacts map 与版本更新文档中的 benchmark/CRG Quality Gate 现役表述，明确 `test:crg:gate`、`test:crg:benchmark-evidence` 与 `quality-gates/crg-benchmark-evidence` 已退役，仅保留历史记录语义 (user-visible)
+- v1.5.8 2026-04-22 22:40:00 矿工: fix(spec-mcp-setup): 收紧 custom 模式 optional tool 传参合同，显式要求所选 Playwright 通过 `install-mcp.*` 的 `--install`/`-Install` 参数下传，并同步 source skill / prompt mirror 与 shell 回归测试口径 (user-visible)
+- v1.5.8 2026-04-22 22:10:00 矿工: docs(spec-graph-bootstrap): 在产物清单审查文档中新增 CRG 图产物/存储层消费表，补齐 `nodes`/`edges`/`chunks`/`fts_nodes`/`communities`/`flows` 的 runtime 消费关系，并明确与 Stage-0 workflow skill 消费边界 (user-visible)
 - v1.5.8 2026-04-22 17:20:00 矿工: docs(spec-graph-bootstrap): 按当前 `run-bootstrap` / `compile-*` / workspace runtime 实现刷新产物清单审查文档，修正单仓与 workspace 产物数量、补入 `database-routing.json` 与 `workspace-readiness-summary.json`、收口旧行号和已失准消费口径 (user-visible)
+- v1.5.8 2026-04-22 19:10:00 矿工: refactor(spec-mcp-setup): 重做 MCP installer 真相源与脚本主链，新增 install/configure/repair/activate/verify 分层入口、readiness ledger v1 与 supported MCP reference，并同步更新 graph-bootstrap 消费口径、README/CLAUDE/AGENTS 与 `tests/unit/mcp-setup.sh` (user-visible)
+- v1.5.8 2026-04-22 20:40:00 矿工: refactor(spec-mcp-setup): 删除飞书 MCP optional tool 支持，移除相关 tool registry、脚本分支与 reference 口径，收口为仅保留 Serena / Sequential Thinking / Context7 / Playwright 四类 MCP 能力 (user-visible)
+- v1.5.8 2026-04-22 21:00:00 矿工: refactor(spec-brainstorm): 继续删除飞书 supplemental context 活跃入口，移除 brainstorm/runtime 安装断言与版本说明中的 `feishu-chat-researcher` / `feishu-doc-reader` 残留，收口当前源码真相源与 smoke/contract 测试口径 (user-visible)
+- v1.5.8 2026-04-22 21:20:00 矿工: docs(cleanup): 直接删除飞书 MCP 专项历史需求/计划/方案文档，并清理本地生成 runtime 与旧 work artifact 中的飞书残留，收口工作区可见痕迹 (user-visible)
+- v1.5.8 2026-04-22 21:05:00 矿工: docs(spec-graph-bootstrap): 将 graph-bootstrap Phase 0 的 Serena/CRG 探测语义切换到 readiness ledger v1，明确废弃 `setup_success`、`tools.*.configured` 与旧 CRG 字段口径，并补齐 source/mirror/test 对齐 (user-visible)
 - v1.5.8 2026-04-22 17:01:39 矿工: refactor(skills): 删除 `spec-repo-profile-refresh` standalone skill 及其双宿主治理、测试、镜像与当前文档引用，收口 shared seed 语义为仅保留 `.spec-first/specs/repo-profile.yaml` 输入面 (user-visible)
 - v1.5.8 2026-04-22 13:20:00 矿工: docs(audit): 收口 `docs/2026-04-22-full-audit/` 全量审计文档矩阵与 README 索引，并同步 package.json 元数据，统一审计结论表达与交付口径 (user-visible)
 - v1.5.8 2026-04-22 13:05:00 矿工: fix(release): `release:publish` 的真实 npm 发布显式锁定 `--registry=https://registry.npmjs.org`，避免本机默认镜像源导致 publish 误投到 npmmirror 或直接鉴权失败 (user-visible)

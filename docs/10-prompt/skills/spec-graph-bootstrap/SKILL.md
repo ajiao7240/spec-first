@@ -133,28 +133,83 @@ if docs/contexts/<slug>/README.md 存在:
 - Step 1: mcp-setup marker 检测
 - Step 2: Serena MCP probe → `serena.ready = true/false`
 
-### 0.2b CRG CLI 就绪检查
+### 0.2b CRG / Serena readiness ledger 检查
 
 读取当前宿主的 `host-setup.json`（路径来自 0.2 Step 1 的 marker 路径）。
 
 ```
 Read host-setup.json
 # ↑ 如果 Read 失败（文件不存在 / marker 路径未知）:
-#   → 视同 version < "5"，按无 CRG block 逻辑继续
-#   → 打印: "host-setup.json 不可读，跳过 CRG 就绪检查"
+#   → 打印: "host-setup.json 不可读，跳过 readiness ledger 检查"
+#   → 按无 ledger 逻辑继续
+```
 
-If version >= "5" and crg block exists:
-  If crg.cli_available == false:
-    → crg.indexed = false（直接跳过所有 CRG 操作）
-    → graph_support_state = "crg-cli-unavailable"
-    → 跳到 0.4 模式判定（降级到 Enhanced/Basic）
+读取成功后，统一按 readiness ledger v1 判定：
 
-  If crg.cli_available == true and crg.native_modules == "missing":
-    → 打印: "⚠️ CRG CLI 可用但原生模块缺失, 图构建可能失败"
-    → 继续到 0.3 执行 DB 检测，但预期 crg stats 可能 exit 2
+- `overall_status`
+- `baseline_ready`
+- `tools.<tool>.host_config_status`
+- `tools.<tool>.project_status`
+- `crg.cli_status`
+- `crg.native_modules_status`
+- `next_actions[]`
 
-If version < "5" or crg block 不存在:
-    → 按现有逻辑继续
+不要继续读取或兼容旧字段：
+- `setup_success`
+- `tools.*.configured`
+- `crg.cli_available`
+- `crg.native_modules`
+
+Serena readiness 判定：
+
+```
+If baseline_ready == false and tools.serena.project_status != "ready":
+  → serena.ready = false
+Else if tools.serena.host_config_status == "ready" and tools.serena.project_status == "ready":
+  → serena.ready = true
+Else
+  → serena.ready = false
+```
+
+只有当 Serena 的 host config 与 current-repo bootstrap 都满足时，才把 `serena.ready` 视为 true。
+
+CRG readiness 判定：
+
+```
+If crg.cli_status == "unavailable":
+  → crg.indexed = false
+  → graph_support_state = "crg-cli-unavailable"
+  → 跳到 0.4 模式判定
+
+If crg.cli_status == "ready" and crg.native_modules_status == "missing":
+  → 打印: "⚠️ CRG CLI 可用但原生模块缺失，图构建可能失败"
+  → 继续 0.3，但预期 crg stats / build 可能失败
+```
+
+Readiness ledger v1 示例：
+
+```json
+{
+  "schema_version": "v1",
+  "overall_status": "partial",
+  "baseline_ready": false,
+  "tools": {
+    "serena": {
+      "host_config_status": "ready",
+      "project_status": "pending"
+    }
+  },
+  "crg": {
+    "cli_status": "ready",
+    "native_modules_status": "ready"
+  },
+  "next_actions": []
+}
+```
+
+解释：宿主 baseline 已存在，但 Serena 当前仓库 bootstrap 尚未完成，因此 `serena.ready = false`。
+
+字段语义与宿主差异说明统一收口到 `skills/spec-mcp-setup/references/supported-mcp-tools.md`。
 ```
 
 ### 0.3 CRG 图状态检测

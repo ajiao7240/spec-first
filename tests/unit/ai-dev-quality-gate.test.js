@@ -37,26 +37,6 @@ describe('ai dev quality gate contract', () => {
         },
         artifact_path: '.spec-first/workflows/quality-gates/ai-dev-quality-gate/stage0-contracts.junit.json',
       },
-      regression: {
-        check_id: 'crg-regression',
-        kind: 'benchmark',
-        passed: true,
-        summary: {
-          failure_count: 0,
-          failures: [],
-          benchmark_contract_version: 'v1',
-          analyzer_revision: 'context-routing-evaluator:demo',
-          compatibility: {
-            comparable: true,
-            mismatches: [],
-          },
-          review_average_hit_rate: 1,
-          repo_qa_average_hit_rate: 1,
-          context_efficiency_irrelevant_ratio: 0.74,
-          fallback_rate: 0,
-        },
-        artifact_path: '.spec-first/workflows/quality-gates/ai-dev-quality-gate/crg-regression.json',
-      },
     });
 
     expect(validateAgainstSchema(schema, result).errors).toEqual([]);
@@ -71,11 +51,6 @@ describe('ai dev quality gate contract', () => {
           kind: 'unit-suite',
           passed: true,
         }),
-        expect.objectContaining({
-          check_id: 'crg-regression',
-          kind: 'benchmark',
-          passed: true,
-        }),
       ],
       failures: [],
     });
@@ -84,7 +59,6 @@ describe('ai dev quality gate contract', () => {
   test('runner keeps a bounded explicit test list instead of inferring checks from workflow state', () => {
     expect(STAGE0_CONTRACT_TESTS).toEqual([
       'tests/unit/branch-protection-policy.test.js',
-      'tests/unit/crg-benchmark-evidence.test.js',
       'tests/unit/spec-graph-bootstrap-contracts.test.js',
       'tests/unit/spec-graph-bootstrap-compiler.test.js',
       'tests/unit/quality-feedback.test.js',
@@ -105,23 +79,11 @@ describe('ai dev quality gate contract', () => {
 
   test('workflow path filters cover governance contracts and workflow self-updates', () => {
     const aiWorkflow = fs.readFileSync(path.join(REPO_ROOT, '.github', 'workflows', 'ai-dev-quality-gate.yml'), 'utf8');
-    const crgWorkflow = fs.readFileSync(path.join(REPO_ROOT, '.github', 'workflows', 'crg-quality-gate.yml'), 'utf8');
 
     expect(aiWorkflow).toContain("src/cli/contracts/quality-gates/**");
     expect(aiWorkflow).toContain("docs/contracts/quality-gates/**");
-    expect(aiWorkflow).toContain("tests/fixtures/benchmarks/**");
     expect(aiWorkflow).toContain(".github/workflows/ai-dev-quality-gate.yml");
-    expect(aiWorkflow).toContain(".github/workflows/crg-quality-gate.yml");
     expect(aiWorkflow).toContain("tests/unit/branch-protection-policy.test.js");
-    expect(aiWorkflow).toContain("tests/unit/crg-benchmark-evidence.test.js");
     expect(aiWorkflow).toContain("tests/unit/quality-feedback.test.js");
-
-    expect(crgWorkflow).toContain("src/cli/contracts/quality-gates/**");
-    expect(crgWorkflow).toContain("docs/contracts/quality-gates/**");
-    expect(crgWorkflow).toContain("tests/fixtures/benchmarks/**");
-    expect(crgWorkflow).toContain(".github/workflows/crg-quality-gate.yml");
-    expect(crgWorkflow).toContain("scripts/run-crg-benchmark-evidence.js");
-    expect(crgWorkflow).toContain('benchmark-evidence:');
-    expect(crgWorkflow).toContain('npm run test:crg:benchmark-evidence');
   });
 });

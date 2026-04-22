@@ -185,7 +185,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | **17-persona Review stage**（+ 2 个 CE agent） | 产出结构化 findings，并按 `safe_auto / gated_auto / manual / advisory` 路由，而不是一次性 review 扫描 |
 | **Compound / knowledge capture** | 把已解决问题写入 `docs/solutions/`，供后续 workflow 检索复用 |
 | **双平台支持** | 一套方法论同时覆盖 Claude Code（`/spec:*`）与 Codex（`$spec-*`）。Claude 使用 `SessionStart` hook + bare-agent rewrite；Codex 使用 `.agents/skills/` discovery + 显式 `.codex/agents/...` path rewrite |
-| **能力层资产** | 仓库内置源码资产共 `48` 个 skills、`57` 个 agents、`4` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `12` 个 commands + `36` 个 skills，在 Codex 侧安装 `35` 个 skills；两侧都会安装 `57` 个 agents + `4` 个 support files |
+| **能力层资产** | 仓库内置源码资产共 `47` 个 skills、`55` 个 agents、`4` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `12` 个 commands + `35` 个 skills，在 Codex 侧安装 `34` 个 skills；两侧都会安装 `55` 个 agents + `4` 个 support files |
 | **运行时治理** | 受管资产记录在 `state.json` 中，可安全同步、刷新、恢复与清理 |
 
 ## 核心工作流
@@ -198,7 +198,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 
 | 阶段 | Claude Code | Codex | 输出产物 | 约束方式 |
 |------|-------------|-------|----------|----------|
-| 宿主准备 | `/spec:mcp-setup` → restart | `$spec-mcp-setup` → restart | 宿主专属 marker：`~/.claude/spec-first/host-setup.json` 或 `~/.codex/spec-first/host-setup.json` | **Code-hard**（bootstrap gate 会检查它） |
+| 宿主准备 | `/spec:mcp-setup` → restart | `$spec-mcp-setup` → restart | 宿主专属 readiness ledger：`~/.claude/spec-first/host-setup.json` 或 `~/.codex/spec-first/host-setup.json` | **Code-hard**（bootstrap gate 会检查它） |
 | Stage-0 图引导 | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | 宿主就绪 gate + runtime workflow contract |
 | Ideate | `/spec:ideate` | `$spec-ideate` | `docs/ideation/*.md` | **SKILL.md** contract |
 | Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/*.md` | **SKILL.md** contract |
@@ -309,8 +309,8 @@ $ spec-first init --claude
 
 🪝 Installed Claude SessionStart matcher in .claude/settings.json
 📦 Generated 12 command file(s) in .claude/commands/spec
-🧩 Generated 36 skill directory(ies) in .claude/skills
-🤖 Generated 57 agent file(s) in .claude/agents
+🧩 Generated 35 skill directory(ies) in .claude/skills
+🤖 Generated 55 agent file(s) in .claude/agents
 🧰 Generated 4 agent support file(s) in .claude/agents
 🪪 Wrote project developer profile:
   📍 path: .claude/spec-first/.developer
@@ -450,7 +450,6 @@ npm run test:smoke          # install-local + CLI smoke
 npm run test:integration    # verification-gate jest + e2e shell
 npm run test:e2e:crg        # CRG 全命令 + SQLite 审计
 npm run test:jest           # 只跑 jest
-npm run test:crg:gate       # CRG regression gate（benchmarks/regression/*）
 npm run test:ai-dev:gate    # AI Dev Quality Gate（light contract check）
 npm pack                    # release tarball dry run
 ```

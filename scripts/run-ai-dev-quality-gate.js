@@ -4,7 +4,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { runRegression } = require('../benchmarks/regression/run-regression');
 const { resolveWorkflowArtifactDir } = require('../src/crg/artifact-paths');
 const { buildQualityFeedbackTopics } = require('../src/context-routing/quality-feedback');
 
@@ -12,7 +11,6 @@ const GATE_ID = 'ai-dev-quality-gate';
 const QUALITY_FEEDBACK_FILE = 'quality-feedback-topics.json';
 const STAGE0_CONTRACT_TESTS = [
   'tests/unit/branch-protection-policy.test.js',
-  'tests/unit/crg-benchmark-evidence.test.js',
   'tests/unit/spec-graph-bootstrap-contracts.test.js',
   'tests/unit/spec-graph-bootstrap-compiler.test.js',
   'tests/unit/quality-feedback.test.js',
@@ -42,8 +40,8 @@ function relativeArtifactPath(repoRoot, filePath) {
   return path.relative(repoRoot, filePath).replace(/\\/g, '/');
 }
 
-function buildGateResult({ generatedAt, stage0Contracts, regression }) {
-  const checks = [stage0Contracts, regression];
+function buildGateResult({ generatedAt, stage0Contracts }) {
+  const checks = [stage0Contracts];
   return {
     schema_version: 'v1',
     generated_at: generatedAt,
@@ -87,39 +85,13 @@ function runStage0ContractsSuite({ repoRoot, artifactDir }) {
   };
 }
 
-function runCrgRegressionBenchmark({ repoRoot, artifactDir }) {
-  const baselinePath = path.join(repoRoot, 'benchmarks', 'regression', 'baselines.json');
-  const outputPath = path.join(artifactDir, 'crg-regression.json');
-  const result = runRegression({ repoRoot, baselinePath });
-  writeJson(outputPath, result);
-
-  return {
-    check_id: 'crg-regression',
-    kind: 'benchmark',
-    passed: result.passed === true,
-    summary: {
-      failure_count: Array.isArray(result.failures) ? result.failures.length : 0,
-      failures: result.failures || [],
-      benchmark_contract_version: result.benchmark_contract_version,
-      analyzer_revision: result.analyzer_revision,
-      compatibility: result.compatibility,
-      review_average_hit_rate: result.metrics.review_average_hit_rate,
-      repo_qa_average_hit_rate: result.metrics.repo_qa_average_hit_rate,
-      context_efficiency_irrelevant_ratio: result.metrics.context_efficiency_irrelevant_ratio,
-      fallback_rate: result.metrics.fallback_rate,
-    },
-    artifact_path: relativeArtifactPath(repoRoot, outputPath),
-  };
-}
-
 function runAiDevQualityGate({ repoRoot = process.cwd() } = {}) {
   const generatedAt = new Date().toISOString();
   const artifactDir = resolveWorkflowArtifactDir(repoRoot, 'quality-gates', GATE_ID);
   ensureDir(artifactDir);
 
   const stage0Contracts = runStage0ContractsSuite({ repoRoot, artifactDir });
-  const regression = runCrgRegressionBenchmark({ repoRoot, artifactDir });
-  const gateResult = buildGateResult({ generatedAt, stage0Contracts, regression });
+  const gateResult = buildGateResult({ generatedAt, stage0Contracts });
   const resultPath = path.join(artifactDir, 'ai-dev-quality-gate-result.json');
   writeJson(resultPath, gateResult);
   const feedbackTopics = buildQualityFeedbackTopics({

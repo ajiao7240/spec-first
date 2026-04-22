@@ -102,7 +102,7 @@
 - 执行回写：
   - `T02`：已修正 `skills/spec-mcp-setup/SKILL.md` 中全部 `skills/mcp-setup/...` 旧路径，补齐 macOS/Linux 的 `install-coordinator.sh` 实际脚本路径
   - `T14`：经复核，`verify-tools.sh` / `verify-tools.ps1` 均已有 Codex 分支与现成 unit 覆盖；当前不存在额外脚本 gap，定性为“文档收口”
-  - 口径补齐：可选工具说明已与脚本现实对齐，明确为 `Playwright MCP + 飞书 MCP`
+  - 口径补齐：可选工具说明已与脚本现实对齐；该历史 backlog 中关于飞书 MCP 的旧口径已废弃，当前活跃支持范围以现行 `spec-mcp-setup` 文档为准
   - 验证：`bash tests/unit/mcp-setup.sh` 通过（`pass: 136 / fail: 0`）
 
 ### 包 C：硬断点修复

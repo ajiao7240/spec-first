@@ -92,8 +92,6 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('CLAUDE.md');
       expect(result.stdout).toContain('.claude/hooks/session-start');
       expect(result.stdout).toContain('.claude/spec-first/state.json');
-      expect(result.stdout).toContain('.spec-first/specs/repo-profile.yaml');
-      expect(result.stdout).toContain('.spec-first/specs/README.md');
       expect(result.stdout).toContain('No files were changed.');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -117,24 +115,12 @@ describe('init --dry-run', () => {
         '.claude/hooks/session-start',
         '.claude/settings.json',
         '.claude/spec-first/state.json',
-        '.spec-first/specs/repo-profile.yaml',
-        '.spec-first/specs/README.md',
         'CLAUDE.md',
       ]) {
         expect(dryRun.stdout).toContain(relativePath);
         expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(true);
       }
 
-      const profileContents = fs.readFileSync(path.join(projectRoot, '.spec-first/specs/repo-profile.yaml'), 'utf8');
-      expect(profileContents).toContain('schema_version: 1');
-      expect(profileContents).toContain('repo_id: "');
-      expect(profileContents).toContain('languages: ');
-      expect(profileContents).toContain('project_type: "');
-      expect(profileContents).toContain('project_intent:');
-      expect(profileContents).toContain('principles: []');
-      expect(profileContents).toContain('non_negotiables: []');
-      expect(profileContents).toContain('review_defaults: []');
-      expect(profileContents).not.toContain('unknown');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

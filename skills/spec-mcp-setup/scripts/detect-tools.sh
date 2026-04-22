@@ -1,22 +1,19 @@
 #!/bin/bash
-# detect-tools.sh - Detect already installed MCP tools from the current host config
-# Output: JSON with installed and missing tool lists
+# detect-tools.sh - Detect host config and project bootstrap readiness for spec-mcp-setup
+# Output: JSON facts ledger
 
 set -euo pipefail
 
-# jq 是硬依赖
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HOST_INFO_JSON="$("$SCRIPT_DIR/detect-host.sh")"
+SKILL_DIR="$(dirname "$SCRIPT_DIR")"
+TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
+HOST_INFO_JSON="$($SCRIPT_DIR/detect-host.sh)"
 HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
 CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
-TOOLS_JSON="$(cd "$(dirname "$0")/.." && pwd)/mcp-tools.json"
-HOST_CONTEXT="ide-assistant"
-
-if [ "$HOST" = "codex" ]; then
-  HOST_CONTEXT="codex"
-fi
+PLATFORM="$(jq -r '.platform' <<<"$HOST_INFO_JSON")"
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 extract_toml_section() {
   local section_name="$1"
@@ -27,121 +24,225 @@ extract_toml_section() {
   ' "$CONFIG_PATH"
 }
 
-installed=()
-missing=()
+dependency_status() {
+  local dep="$1"
+  if command -v "$dep" >/dev/null 2>&1; then
+    echo ready
+  else
+    echo missing
+  fi
+}
 
-# Parse tool list from mcp-tools.json
-tool_ids=$(jq -r '.tools[].id' "$TOOLS_JSON")
+host_config_status() {
+  local tool_id="$1"
+  local detect_kind detect_key host_cfg expected_command expected_args block expected_args_count i expected_arg
+  detect_kind="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detection.kind' "$TOOLS_JSON")"
+  detect_key="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detection.key' "$TOOLS_JSON")"
+  host_cfg="$(jq -c --arg id "$tool_id" --arg host "$HOST" '.tools[] | select(.id == $id) | .host_config[$host]' "$TOOLS_JSON")"
 
-for tool_id in $tool_ids; do
-  # Get detection method
-  detect_method=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detect.method' "$TOOLS_JSON")
+  [ -f "$CONFIG_PATH" ] || {
+    echo action-required
+    return
+  }
 
-  found=false
-
-  case "$detect_method" in
-    "mcp_config")
-      detect_key=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detect.key' "$TOOLS_JSON")
-      expected_command=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .mcp_config.command' "$TOOLS_JSON")
-      expected_args=$(jq -c --arg id "$tool_id" --arg context "$HOST_CONTEXT" '
-        .tools[] | select(.id == $id) | .mcp_config.args | map(if . == "__HOST_CONTEXT__" then $context else . end)
-      ' "$TOOLS_JSON")
-
+  case "$detect_kind" in
+    host_config_exact)
+      expected_command="$(jq -r '.command' <<<"$host_cfg")"
+      expected_args="$(jq -c '.args' <<<"$host_cfg")"
       if [ "$HOST" = "claude" ]; then
-        if [ -f "$CONFIG_PATH" ] && jq -e \
-          --arg key "$detect_key" \
-          --arg command "$expected_command" \
-          --argjson expected_args "$expected_args" \
-          '
-            .mcpServers[$key].command == $command and
-            (.mcpServers[$key].args // []) == $expected_args
-          ' "$CONFIG_PATH" >/dev/null 2>&1; then
-          found=true
+        if jq -e --arg key "$detect_key" --arg command "$expected_command" --argjson expected_args "$expected_args" '.mcpServers[$key].command == $command and (.mcpServers[$key].args // []) == $expected_args' "$CONFIG_PATH" >/dev/null 2>&1; then
+          echo ready
+        else
+          echo action-required
         fi
-      elif [ "$HOST" = "codex" ]; then
-        if [ -f "$CONFIG_PATH" ]; then
-          block="$(extract_toml_section "$detect_key")"
-            if [ -n "$block" ] && printf '%s\n' "$block" | grep -qF "command = \"$expected_command\""; then
-              found=true
-              expected_args_count=$(jq 'length' <<<"$expected_args")
-              for i in $(seq 0 $((expected_args_count - 1))); do
-                expected_arg=$(jq -r ".[$i]" <<<"$expected_args")
-              if ! printf '%s\n' "$block" | grep -qF -- "$expected_arg"; then
-                  found=false
-                  break
-                fi
-              done
-            fi
-        fi
+        return
+      fi
+      block="$(extract_toml_section "$detect_key")"
+      if [ -n "$block" ] && printf '%s\n' "$block" | grep -qF "command = \"$expected_command\""; then
+        expected_args_count="$(jq 'length' <<<"$expected_args")"
+        for i in $(seq 0 $((expected_args_count - 1))); do
+          expected_arg="$(jq -r ".[$i]" <<<"$expected_args")"
+          if ! printf '%s\n' "$block" | grep -qF -- "$expected_arg"; then
+            echo action-required
+            return
+          fi
+        done
+        echo ready
+      else
+        echo action-required
       fi
       ;;
-
-    "mcp_key_only")
-      detect_key=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detect.key' "$TOOLS_JSON")
+    host_config_key_only)
       if [ "$HOST" = "claude" ]; then
-        if [ -f "$CONFIG_PATH" ] && jq -e \
-          --arg key "$detect_key" \
-          '.mcpServers[$key] != null' \
-          "$CONFIG_PATH" >/dev/null 2>&1; then
-          found=true
-        fi
-      elif [ "$HOST" = "codex" ]; then
-        if [ -f "$CONFIG_PATH" ] && grep -qF "[mcp_servers.${detect_key}]" "$CONFIG_PATH" 2>/dev/null; then
-          found=true
-        fi
-      fi
-      ;;
-
-    "command")
-      # Run the full detection command so "command exists but is broken" is not misclassified as installed.
-      # 超时保护：10秒内未完成则视为失败
-      detect_cmd=$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detect.command' "$TOOLS_JSON")
-      if command -v timeout >/dev/null 2>&1; then
-        if timeout 10 bash -c "$detect_cmd" >/dev/null 2>&1; then
-          found=true
-        fi
-      elif command -v perl >/dev/null 2>&1; then
-        if perl -e 'alarm shift; exec @ARGV' 10 bash -c "$detect_cmd" >/dev/null 2>&1; then
-          found=true
+        if jq -e --arg key "$detect_key" '.mcpServers[$key] != null' "$CONFIG_PATH" >/dev/null 2>&1; then
+          echo ready
+        else
+          echo action-required
         fi
       else
-        # 无超时工具可用，记录警告但仍然执行（不挂死比超时保护更重要）
-        echo "⚠️  No timeout command available for detect-tools, running without timeout protection" >&2
-        if eval "$detect_cmd" >/dev/null 2>&1; then
-          found=true
+        if grep -qF "[mcp_servers.${detect_key}]" "$CONFIG_PATH" >/dev/null 2>&1; then
+          echo ready
+        else
+          echo action-required
         fi
       fi
       ;;
-
     *)
-      # Unknown detection method, treat as missing
+      echo action-required
       ;;
   esac
+}
 
-  if $found; then
-    installed+=("$tool_id")
-  else
-    missing+=("$tool_id")
+project_status() {
+  local tool_id="$1"
+  local bootstrap_kind required project_file ready_marker_file
+  bootstrap_kind="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .project_bootstrap.kind' "$TOOLS_JSON")"
+  required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .project_bootstrap.required' "$TOOLS_JSON")"
+  if [ "$bootstrap_kind" = "none" ] || [ "$required" != "true" ]; then
+    echo not-applicable
+    return
   fi
-done
 
-# Build JSON output (guarded expansion for empty arrays on bash 3.2)
-if [ ${#installed[@]} -eq 0 ]; then
-  installed_json='[]'
-else
-  installed_json=$(printf '%s\n' "${installed[@]}" | jq -R . | jq -s .)
+  project_file="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .project_bootstrap.project_file // empty' "$TOOLS_JSON")"
+  ready_marker_file="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .project_bootstrap.ready_marker_file // empty' "$TOOLS_JSON")"
+
+  if [ -n "$project_file" ] && [ ! -f "$REPO_ROOT/$project_file" ]; then
+    echo pending
+    return
+  fi
+
+  if [ "$bootstrap_kind" = "serena" ]; then
+    if [ -n "$ready_marker_file" ] && [ -f "$REPO_ROOT/$ready_marker_file" ]; then
+      echo ready
+    else
+      echo failed
+    fi
+    return
+  fi
+
+  if [ -n "$project_file" ] && [ -f "$REPO_ROOT/$project_file" ]; then
+    echo ready
+  else
+    echo pending
+  fi
+}
+
+crg_cli_status() {
+  if ! command -v spec-first >/dev/null 2>&1; then
+    echo unavailable
+    return
+  fi
+  if spec-first crg --help >/dev/null 2>&1; then
+    echo ready
+  else
+    echo unavailable
+  fi
+}
+
+crg_native_modules_status() {
+  if [ "$(crg_cli_status)" != "ready" ]; then
+    echo unchecked
+    return
+  fi
+  if ! node -e "try{require('better-sqlite3')}catch{process.exit(1)}" >/dev/null 2>&1; then
+    echo missing
+    return
+  fi
+  if ! node -e "try{require('tree-sitter')}catch{process.exit(1)}" >/dev/null 2>&1; then
+    echo missing
+    return
+  fi
+  echo ready
+}
+
+overall_status=ready
+baseline_ready=true
+results_json='{}'
+crg_cli="$(crg_cli_status)"
+crg_native_modules="$(crg_native_modules_status)"
+next_actions_json='[]'
+
+append_next_action() {
+  local action="$1"
+  [ -n "$action" ] || return 0
+  next_actions_json="$(jq --arg action "$action" 'if index($action) then . else . + [$action] end' <<<"$next_actions_json")"
+}
+
+if [ "$crg_cli" = "unavailable" ]; then
+  overall_status=partial
+  append_next_action "install or repair spec-first crg CLI"
+elif [ "$crg_native_modules" = "missing" ]; then
+  overall_status=partial
+  append_next_action "repair better-sqlite3/tree-sitter native modules"
 fi
 
-if [ ${#missing[@]} -eq 0 ]; then
-  missing_json='[]'
-else
-  missing_json=$(printf '%s\n' "${missing[@]}" | jq -R . | jq -s .)
-fi
+while IFS= read -r tool_id; do
+  required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .required' "$TOOLS_JSON")"
+  dep_status=ready
+  while IFS= read -r dep; do
+    current_dep_status="$(dependency_status "$dep")"
+    if [ "$current_dep_status" != "ready" ]; then
+      dep_status="$current_dep_status"
+      break
+    fi
+  done < <(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .dependencies[]' "$TOOLS_JSON")
+
+  cfg_status="$(host_config_status "$tool_id")"
+  proj_status="$(project_status "$tool_id")"
+  next_action=""
+  if [ "$dep_status" != "ready" ]; then
+    next_action="install dependency"
+  elif [ "$cfg_status" != "ready" ]; then
+    next_action="configure host"
+  elif [ "$proj_status" = "pending" ]; then
+    next_action="bootstrap project"
+  fi
+
+  if [ "$required" = "true" ]; then
+    if [ "$dep_status" != "ready" ] || [ "$cfg_status" != "ready" ] || { [ "$proj_status" != "ready" ] && [ "$proj_status" != "not-applicable" ]; }; then
+      baseline_ready=false
+      if [ "$overall_status" = "ready" ]; then
+        overall_status=partial
+      fi
+    fi
+  fi
+
+  if [ "$dep_status" = "missing" ] || [ "$cfg_status" = "action-required" ]; then
+    overall_status=action-required
+  elif [ "$proj_status" = "failed" ] && [ "$overall_status" = "ready" ]; then
+    overall_status=partial
+  fi
+
+  append_next_action "$next_action"
+
+  results_json="$(jq \
+    --arg id "$tool_id" \
+    --argjson required_json "$required" \
+    --arg dep "$dep_status" \
+    --arg cfg "$cfg_status" \
+    --arg proj "$proj_status" \
+    --arg next "$next_action" \
+    '. + {($id): {required: $required_json, dependency_status: $dep, host_config_status: $cfg, project_status: $proj, next_action: $next}}' <<<"$results_json")"
+done < <(jq -r '.tools[].id' "$TOOLS_JSON")
+
+crg_json="$(jq -n --arg cli "$crg_cli" --arg native "$crg_native_modules" '{cli_status:$cli,native_modules_status:$native}')"
 
 jq -n \
-  --argjson installed "$installed_json" \
-  --argjson missing "$missing_json" \
+  --arg host "$HOST" \
+  --arg platform "$PLATFORM" \
+  --arg repo_root "$REPO_ROOT" \
+  --arg overall_status "$overall_status" \
+  --argjson baseline_ready "$baseline_ready" \
+  --argjson tools "$results_json" \
+  --argjson crg "$crg_json" \
+  --argjson next_actions "$next_actions_json" \
   '{
-    "installed": $installed,
-    "missing": $missing
+    host: $host,
+    platform: $platform,
+    repo_root: $repo_root,
+    overall_status: $overall_status,
+    baseline_ready: $baseline_ready,
+    tools: $tools,
+    crg: $crg,
+    next_actions: $next_actions
   }'

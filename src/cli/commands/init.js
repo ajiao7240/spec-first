@@ -47,7 +47,6 @@ const {
   renderManagedSessionStartHookUpsert,
   validateClaudeSettingsFile,
 } = require('../claude-settings');
-const { buildSharedSpecSeedPlan } = require('../spec-seeds');
 
 function runInit(argv) {
   const args = [...argv];
@@ -608,7 +607,6 @@ function buildInitWritePlan({
   return mergeOperationPlans(
     assetPlan,
     runtimePlan || buildInitRuntimePreviewPlan(projectRoot, adapter),
-    buildSharedSpecSeedPlan(projectRoot),
     buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, platform }),
   );
 }

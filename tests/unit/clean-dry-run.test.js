@@ -94,10 +94,6 @@ describe('clean --dry-run', () => {
       expect(result.stdout).toContain('No files were changed.');
       expect(fs.existsSync(customSkillPath)).toBe(true);
       expect(fs.existsSync(customHookPath)).toBe(true);
-      expect(fs.existsSync(path.join(projectRoot, '.spec-first/specs/repo-profile.yaml'))).toBe(true);
-      expect(fs.existsSync(path.join(projectRoot, '.spec-first/specs/README.md'))).toBe(true);
-      expect(result.stdout).not.toContain('.spec-first/specs/repo-profile.yaml');
-      expect(result.stdout).not.toContain('.spec-first/specs/README.md');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -130,8 +126,6 @@ describe('clean --dry-run', () => {
       expect(dryRun.stdout).toContain('CLAUDE.md');
       expect(fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))).toBe(true);
       expect(fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8')).not.toContain('spec-first:bootstrap:start');
-      expect(fs.existsSync(path.join(projectRoot, '.spec-first/specs/repo-profile.yaml'))).toBe(true);
-      expect(fs.existsSync(path.join(projectRoot, '.spec-first/specs/README.md'))).toBe(true);
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -167,8 +161,6 @@ describe('clean --dry-run', () => {
         expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(false);
       }
 
-      expect(fs.existsSync(path.join(projectRoot, '.spec-first/specs/repo-profile.yaml'))).toBe(true);
-      expect(fs.existsSync(path.join(projectRoot, '.spec-first/specs/README.md'))).toBe(true);
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
