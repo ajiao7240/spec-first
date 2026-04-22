@@ -119,6 +119,6 @@ if (dryRun) {
 }
 
 console.log('\n▸ 发布到 npm...');
-run('npm', ['publish']);
+run('npm', ['publish', '--registry=https://registry.npmjs.org']);
 
 console.log(`\n✓ 已发布 ${effectivePkg.name}@${effectivePkg.version}`);

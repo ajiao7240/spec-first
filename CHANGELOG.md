@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.8 2026-04-22 13:05:00 矿工: fix(release): `release:publish` 的真实 npm 发布显式锁定 `--registry=https://registry.npmjs.org`，避免本机默认镜像源导致 publish 误投到 npmmirror 或直接鉴权失败 (user-visible)
 - v1.5.8 2026-04-22 02:51:44 Codex: fix(spec-graph-bootstrap): 收紧 graph-bootstrap 四层边界合同，明确 source repo internals / installed runtime / target repo artifacts / package CLI surface 的职责边界；同步修正 README/CLI help 口径，新增 runtime semantic drift 守卫与独立 installed-runtime 双宿主回归，拦截“把源码仓库内部路径误读成目标仓库前提”的在线误判 (user-visible)
 - v1.5.8 2026-04-22 12:20:00 矿工: docs(governance): 直接在当前项目 `CLAUDE.md` 与 `AGENTS.md` 开头加入 `docs/10-prompt/项目角色.md` 的强制前置阅读引导，作为 spec-first 演化与架构判断的最高优先级校准入口
 - v1.5.8 2026-04-22 12:35:00 矿工: docs(plan): 收紧 `fix-graph-bootstrap-boundary-contract` 方案的 4 个执行边界，明确 CLI surface 不扩张、doctor 只做最小 drift 守卫、真实回归以安装后 runtime 资产为准、source skill 为边界语义唯一真源
