@@ -1,151 +1,108 @@
-# 关键链路全流程审查
+# 03 Critical Flow Review
 
-## 1. 包级入口到宿主入口
+## 1. 安装链路
 
-### 事实层
+### 代码事实
+- `package.json:27` 指向 `postinstall`
+- `bin/postinstall.js` 负责 native probe -> prebuild -> node-gyp -> hint
+- `package.json:69-71` 把 `better-sqlite3` 放入 `optionalDependencies`
+- `package.json:14-27` 说明安装后至少还有 `doctor`、`init`、`clean`、`test:release` 等工程闭环配套脚本
 
-- `bin/spec-first.js` 将 `crg` 单独路由，其余走 `src/cli/index.js`。
-- `src/cli/index.js` 只暴露 `doctor/init/clean/stage0-context`。
-- 帮助文案明确 `/spec:*` 与 `$spec-*` 是宿主入口，不是 package 子命令。
+### 判断
+- 安装链路接近最佳实践：核心 CLI 与可选 native 能力解耦，失败时能降级。
+- 风险在于 repair 分支的故障注入验证仍不够强。
 
-### 判断层
+## 2. 初始化链路
 
-- 这条链路边界清楚，符合“包级 CLI 管运行时资产，宿主负责 workflow surface”的设计。
+### 代码事实
+- `src/cli/index.js:35-37` 路由到 `runInit`
+- `src/cli/commands/init.js:72-151,153-246,249-303` 依次处理 adapter/manifest/governance/state/drift/plan/apply/rollback
+- `init` 支持 dry-run 与 destructive reset rollback：`src/cli/commands/init.js:166-186,198-218,249-264`
 
-### 建议动作
+### 判断
+- `init` 是确定性控制面的主链核心，设计成熟度高。
+- 但它也是共享枢纽最重的文件之一，未来应避免继续吸纳更多跨层职责。
 
-- `应保留`
+## 3. 清理链路
 
-## 2. `init` -> runtime 资产 -> managed state
+### 代码事实
+- `src/cli/index.js:39-41` 路由到 `runClean`
+- `src/cli/commands/clean.js` 读 managed state，legacy state 拒绝直接清理，保留 custom assets
+- dry-run 会预览 remove/update 边界
 
-### 事实层
+### 判断
+- `clean` 的边界比 `init` 更健康，是较成熟的 plan/apply 模式。
 
-- `init` 会：
-  - 解析 host
-  - 读取旧 state
-  - 识别 legacy state / runtime drift
-  - 生成 filtered asset set
-  - 生成 operation plan
-  - 在必要时做 hard reset + rollback 保护
-- 还会顺带写 repo profile / README seeds。
+## 4. doctor / diagnostics 链路
 
-### 判断层
+### 代码事实
+- `src/cli/index.js:31-33` 路由到 `runDoctor`
+- `doctor.js` 汇总 runtime assets、plugin/developer/state、bootstrap contract、verification evidence/summary、CRG readiness
 
-- `init` 的 runtime 资产同步链路成熟度较高。
-- 但它开始兼任 repo seed bootstrap，边界表达不够显式。
+### 判断
+- `doctor` 已从“安装检查器”演化为“全栈 diagnostics 汇总器”。
+- 这是优势，但必须守住只读观察边界。
 
-### 建议动作
+## 5. bootstrap / graph-bootstrap 链路
 
-- `应保留`：hard reset、rollback、dry-run、保守 state 驱动
-- `应强化`：init 与 repo seed bootstrap 的职责说明
-- `应删除`：ghost `--force`
+### 代码事实
+- `src/bootstrap-compiler/run-bootstrap.js` 负责 control plane/context docs/workspace overview 写盘与 rollback
+- 产物包含 `artifact-manifest.json`、`freshness.json`、`verification-profile.json`、`minimal-context/*`、`injection-index.yaml`
+- `docs/contexts/spec-first/` 作为自举样本纳入版本控制
 
-## 3. `doctor` -> 诊断报告 -> workflow runnability
+### 判断
+- 这是仓库最重要的 deterministic compiler pipeline 之一。
+- 产物面很完整，且与下游 Stage-0 消费衔接紧密。
+- 风险是 workspace 模式、sample 基线、runtime 产物三者的同步成本持续上升。
 
-### 事实层
+## 6. Stage-0 / context-routing 链路
 
-- `doctor` 会诊断：
-  - install/runtime/host readiness
-  - managed state
-  - verification evidence
-  - workflow surface
-  - workflow runnability
-- 但 `workflow_runnability=verified` 的成立条件仍然是 runtime 资产 + evidence 文件，不是真实宿主 probe。
+### 代码事实
+- `entry-resolver.js`：workspace/single-repo/fallback 入口决议
+- `loader.js`：runtime state 装载
+- `evaluator.js`：上下文质量评估
+- `workspace-loader.js`：workspace child 聚合
+- `verification-summary.js`：verification bundle 组装
 
-### 判断层
+### 判断
+- 这是仓库中最符合“提高 LLM 输入质量而非增加流程控制”的链路。
+- 当前主要风险不是方向，而是聚合器膨胀。
 
-- `doctor` 已是强诊断工具。
-- 但“verified”语义过强，容易被误解为真实可运行验证。
+## 7. CRG build 链路
 
-### 建议动作
+### 代码事实
+- `crg router -> cli/build.js -> collectInputFiles -> parseFile -> upsert/resolve -> postprocess`
+- `graph.js#resolveEdges` 承担多阶段 target resolution
 
-- `应强化`：增加可选 runnable probe
-- `应轻量化`：调整文档与输出术语，区分推断与真实探测
+### 判断
+- 这是标准的事实生产 ETL。
+- 当前风险在于 `build.js` 与 `resolveEdges` 都已成为大而关键的共享热点。
 
-## 4. `stage0-context` -> bootstrap/control-plane -> context-routing
+## 8. review-context 链路
 
-### 事实层
+### 代码事实
+- `review-context.js` 串联 detectChanges、risk scoring、graph expansion、retrieveContext、changeSurface summary
 
-- `stage0-context` 输出 `selection_subject / selected_contexts / fallback_reason / verification_summary / verifier_dispatch / verification_gate_state`。
-- `context-routing` 负责 read-model 投影，不直接执行 verifier。
-- 但 `artifact-manifest.json` 存在 repo-root 与 workspace-root 双语义。
-- `workspace-readiness-summary` 发布时效可能失真。
+### 判断
+- 这是连接 CRG 事实层与 review 工作流的关键桥梁。
+- 它价值高，但最容易逐步演化为“review orchestration brain”。
 
-### 判断层
+## 9. 发布链路
 
-- 这条链路方向正确，但存在“同名 contract 双语义”和 freshness 失真。
+### 代码事实
+- `scripts/release-publish.cjs` 在非 dry-run 下先写 version，再跑 `test:release -> npm pack -> npm publish`
 
-### 建议动作
+### 判断
+- 发布链路具备真实工件验证意识，但原子性不足，失败恢复不完整，是当前最明显的工程短板之一。
 
-- `应重构`：manifest 语义
-- `应强化`：workspace readiness freshness
+## 10. 关键链路结论
 
-## 5. `using-spec-first` -> workflow 路由
+### 强项
+- CLI install/clean/doctor 的 deterministic control plane
+- bootstrap/context-routing 的事实编译 + 消费设计
+- CRG 作为事实层而非流程层
 
-### 事实层
-
-- `using-spec-first` 把 review/audit 正确路由到 `$spec-review` 语义。
-- 但它把 MCP setup 也混入 `setup` 路由，而 contract 明确存在 `spec-mcp-setup`。
-- `setup` 自身的 Codex 入口文案也与 contract 不一致。
-
-### 判断层
-
-- 当前 workflow 入口治理最明显的问题不在设计，而在文案和 route drift。
-
-### 建议动作
-
-- `应强化`：dual-host / route checklist
-- `应重构`：setup / spec-mcp-setup 的入口与路由文案
-
-## 6. `spec-review` / `document-review` -> agent 触达
-
-### 事实层
-
-- `document-review` 的 skill/agent 集合对齐较好。
-- `spec-review` 的 agent 集合本身引用完整，但自身命名与 frontmatter 漂移。
-- agent 层整体 reachability evidence 不完整。
-
-### 判断层
-
-- “workflow 是否能稳定触达对应 agent” 需要从隐式事实提升为显式治理项。
-
-### 建议动作
-
-- `应强化`：agent reachability contract
-
-## 7. `crg build/query/review-context`
-
-### 事实层
-
-- 核心 build -> parser -> graph -> postprocess -> generations 链路清楚。
-- retrieval 管线可解释。
-- `review-context` 已跨层输出 `review_guidance` 与 verification recommendation。
-- `query.inheritors_of` 无事实生产链支撑。
-
-### 判断层
-
-- CRG 核心链路健康。
-- review-context 是当前最需要及时收边界的关键链路。
-
-### 建议动作
-
-- `应重构`：review-context
-- `应删除` 或 `应修正`：无事实支撑的 query surface
-
-## 8. 发布链：`test:release` -> `npm pack` -> `npm publish`
-
-### 事实层
-
-- 发布脚本要求先执行 release 测试，再打包，再发布。
-- tarball 安装 smoke 已验证 shim、postinstall、Swift parser 加载。
-- 但未知 `tree-sitter-*` 依赖目前只 warning。
-
-### 判断层
-
-- 发布链是可信的。
-- 但白名单策略还不够硬。
-
-### 建议动作
-
-- `应保留`：当前发布链主结构
-- `应强化`：未知依赖 fail-fast
+### 薄弱点
+- `release-publish.cjs` 的失败恢复
+- workspace bootstrap / rollback / prune failure 的故障路径验证
+- 多个共享枢纽继续增厚的趋势

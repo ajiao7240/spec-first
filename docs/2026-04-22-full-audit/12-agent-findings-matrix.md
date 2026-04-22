@@ -1,50 +1,27 @@
-# Agent 发现矩阵
+# 12 Agent Findings Matrix
 
-| 来源 | 事实依据 | 关键发现 | 分类 | 是否采纳 |
-| --- | --- | --- | --- | --- |
-| 主线程 | `git status` / `git ls-files` | `项目治理-agent.md` 是未跟踪草案 | `应重构` | 已采纳 |
-| 主线程 | `npm test` | 仓库具备真实多层验证，不是文档自证 | `应保留` | 已采纳 |
-| Agent A | `src/cli` / `plugin.js` / `state.js` | CLI 边界总体清楚，但 `skills.js/agents.js` 脱节、`--force` ghost、prompt prose anchor 偏重 | `应重构` `应删除` `应轻量化` | 已采纳 |
-| Agent B | `run-bootstrap.js` / `evaluator.js` / schema | `artifact-manifest.json` 双语义、多真相源 | `应重构` | 已采纳 |
-| Agent B | `sample-generator.js` | ownership/review-queue 由 sample 伪造发布 | `应重构` | 已采纳 |
-| Agent B | `run-bootstrap.js` | workspace readiness 发布即可能陈旧 | `应强化` `应重构` | 已采纳 |
-| Agent B | `schema-loader.js` | schema 校验能力弱于 schema 实际使用面 | `应轻量化` `应强化` | 已采纳 |
-| Agent C | `review-context.js` | review-context 越界到 review/workflow 决策拼装 | `应重构` | 已采纳 |
-| Agent C | `query.js` | `inheritors_of` 无事实生产链 | `应删除` 或 `应修正` | 已采纳 |
-| Agent C | `impact.js` / `changes.js` / `affected-flows.js` | deterministic helper 重复，命令层开始长逻辑化 | `应轻量化` | 已采纳 |
-| Agent D | `skills/setup/SKILL.md` / governance contract | setup Codex 入口写错 | `应强化` | 已采纳 |
-| Agent D | `using-spec-first/SKILL.md` / `spec-mcp-setup` | MCP setup 路由错误 | `应强化` | 已采纳 |
-| Agent D | 全量扫描 48 skills | 11 个 skill 命名漂移 | `应强化` | 已采纳 |
-| Agent D | source vs mirror | docs mirror drift | `应强化` | 已采纳 |
-| Agent D | 全量扫描 57 agents | 23 个 agents 缺直接 reachability evidence | `应强化` | 已采纳 |
-| Agent E | `doctor.js` / tests | `doctor verified` 仍属推断 | `应强化` `应轻量化` | 已采纳 |
-| Agent E | `package.json` / tests tree | `tests/contracts` 未接线 | `应强化` | 已采纳 |
-| Agent E | `install-tarball.sh` | 未知 `tree-sitter-*` 只 warning | `应强化` | 已采纳 |
-| Agent E | package scripts | integration/e2e 命名边界漂移 | `应轻量化` | 已采纳 |
+| Agent | 主要覆盖 | 关键事实发现 | 主要风险判断 | 与其他 Agent 的一致点 | 冲突点 | 最终采纳 |
+|---|---|---|---|---|---|---|
+| 代码事实审查 | `src/cli` `src/bootstrap-compiler` `src/context-routing` `src/crg` | 四层架构成立；`loader/evaluator` 分层清晰；若干共享枢纽过重 | `init` `doctor` `workspace-compiler` `build` `review-context` `resolveEdges` 是热点 | 与哲学辩论 Agent 一致认为方向正确但热点膨胀 | 无原则性冲突 | 全部采纳 |
+| 工程质量审查 | `package.json` `bin/` `scripts/` `tests/` | 测试塔完整；dry-run/apply 同构；doctor diagnostics 成熟 | release 原子性不足；repair/rollback/prune failure 验证不足 | 与主协调器一致认为失败路径验证是 P0/P1 重点 | 对“是否已接近最佳实践”略更积极 | 事实采纳，评级略调为中高 |
+| 资产治理审查 | `skills/` `agents/` `templates/` `docs/contracts` `docs/solutions` `docs/contexts` `.claude-plugin` | source/mirror/runtime/sample 分层明确 | 多层投影维护税高；`docs/contexts/spec-first` 双重身份 | 与哲学辩论 Agent 一致认为多真相源风险在增长 | 无原则性冲突 | 全部采纳 |
+| 外部研究对标 | 外部实践 | 高质量实践更强调输入质量、边界、evidence、handoff，而不是更重 orchestrator | 反对 workflow engine / 超级 gate / 黑箱 memory | 与项目哲学高度一致 | 无冲突 | 全部采纳 |
+| 哲学辩论审查 | 多角色辩论 | 项目最强项是哲学落地；最主要风险是“为了保持轻而变重” | 平台身份扩张、多层投影、共享枢纽膨胀 | 与代码事实/资产治理/外部研究形成高度一致 | 无冲突 | 全部采纳 |
+| 主协调器 | 汇总裁决 | 代码与工程事实足以支持完整审计 | 必须优先做复杂度收口，而不是继续扩展治理面 | 综合所有 agent 达成共识 | 仅在最佳实践评级上做保守收口 | 最终裁决 |
 
-## 共识点
+## 争议点与处理
 
-- 文档哲学方向应保留。
-- 文档定位必须重构。
-- dual-host governance 需要进入显式审计清单。
-- verification 术语必须降强度或补探测。
-- sample/live 与 manifest/freshness 风险是真问题，不是抽象担忧。
+### 争议 1：项目是否已经属于最佳实践
+- 工程质量 Agent：较接近最佳实践
+- 哲学辩论 Agent：方向接近，但复杂度尚未收口
+- 最终裁决：**中高接近度，不给“已达最佳实践终态”结论**
 
-## 争议点
+### 争议 2：多层投影是否已经越线
+- 资产治理 Agent：风险明显
+- 主协调器：尚未越线，但必须主动收口
+- 最终裁决：**定义为高风险张力，不定义为已失败**
 
-### 是否应立即制度化 full-audit / 多 Agent
-
-- 支持：文档骨架质量高，结构完整
-- 反对：当前无配套 workflow/contract/checker，直接制度化会走向强编排
-- 裁决：`应实验化`
-
-### 是否应扩大 prompt 正文锚点守卫
-
-- 支持：可保护高价值 workflow 语义
-- 反对：会把 CLI 拉向持有语义正文
-- 裁决：只做少数 workflow 试点，`应实验化`
-
-## 未采纳项
-
-- 未采纳“直接把被审文档作为现行治理真源”
-- 未采纳“把 full audit 设为默认前置流程”
+### 争议 3：是否应继续扩展平台能力
+- 外部研究 Agent：可以实验吸收 invalidation/trace/handoff policy
+- 哲学辩论 Agent：必须避免中央 orchestrator
+- 最终裁决：**只允许轻量实验，不允许重平台化默认推进**

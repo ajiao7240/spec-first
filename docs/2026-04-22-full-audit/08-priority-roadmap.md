@@ -1,87 +1,66 @@
-# 优先级路线图
+# 08 Priority Roadmap
 
-## P0：先修文档定位与治理清单
+## P0
 
-### 目标
+### 1. 收口共享枢纽复杂度
+- 重构 `src/cli/commands/init.js`
+- 重构 `src/bootstrap-compiler/workspace-compiler.js`
+- 重构 `src/crg/cli/build.js`
+- 重构 `src/crg/commands/review-context.js`
+- 为 `src/crg/graph.js#resolveEdges` 增加更明确阶段边界
 
-- 防止未跟踪草案被误当成治理真源
-- 把当前最关键的治理 drift 纳入审计清单
+**为什么是 P0**：这是当前最主要的结构性风险源，直接影响后续一切演化成本。代码依据包括：`src/cli/commands/init.js:72-303`、`src/crg/cli/build.js:180-340`、`src/crg/commands/review-context.js:41-305`、`src/crg/graph.js:142-360`。
 
-### 任务
+### 2. 发布失败恢复收口
+- 重构 `scripts/release-publish.cjs`
+- 增加 release failure tests
 
-1. `应重构`
-   - 重写 `项目治理-agent.md` 的前言与定位声明
-2. `应强化`
-   - 加入“治理真源前提”与“文档状态声明”
-3. `应强化`
-   - 加入 dual-host governance checklist
-4. `应强化`
-   - 加入 `推断性验证 / 真实 probe 验证` 语义区分
+**为什么是 P0**：这是当前工程闭环最明显的缺口。依据来自已读发布链路与工程审计：脚本当前先修改 version，再执行 `test:release -> npm pack -> npm publish`，失败后可能停在半收口状态。
 
-### Done signals
+### 3. 明确默认主路径
+- 收口对外叙事：默认主路径是什么，哪些是高级/实验能力
 
-- 文档明确声明自己是草案/手册
-- 文档不再以现行真源口吻叙述
-- dual-host / verification 关键检查项已经显式写入
+**为什么是 P0**：防止平台身份继续膨胀，影响 adoption。
 
-## P1：修真实治理缺口
+## P1
 
-### 目标
+### 1. 强化故障路径验证
+- postinstall repair branch tests
+- bootstrap rollback failure tests
+- workspace prune failure tests
 
-- 收口单一真相源、freshness、入口治理、测试接线
+依据：`bin/postinstall.js` 存在多阶段修复链；`src/bootstrap-compiler/run-bootstrap.js` 设计了 rollback 与 `prunedChildSlugs/failedPrunes`；但当前测试证据更强地覆盖了主路径而非故障注入路径。
 
-### 任务
+### 2. 收口 source / mirror / runtime / sample 的同步面
+- 识别可移除的重复投影
+- 识别必须保留的真源与镜像
 
-1. `应重构`
-   - 解决 `artifact-manifest.json` 双语义
-2. `应重构`
-   - 停止 sample 发布 `ownership/review-queue`，或接入真实 derivation
-3. `应强化`
-   - 修复 `setup` / `spec-mcp-setup` route drift
-4. `应强化`
-   - 修复 11 个 skill 命名漂移和 docs mirror drift
-5. `应重构`
-   - 收回 `review-context` 的决策拼装职责
-6. `应强化`
-   - 接线 `tests/contracts`
-7. `应强化`
-   - 补 destructive rollback 故障注入测试
-8. `应强化`
-   - 收紧 release tarball 白名单
+依据：`src/cli/plugin.js:111-335`、`src/cli/adapters/claude.js:52-177`、`src/cli/adapters/codex.js:80-236` 与 `docs/contexts/spec-first/` 的样本化角色共同表明，当前 source / mirror / runtime / sample 已形成显著同步面。
 
-### Done signals
+### 3. 强化 evidence-to-verdict 可回指
+- diagnostics / run artifact / review artifact 补最小索引
 
-- 无同名双语义 manifest
-- setup/MCP setup 入口与 route 对齐
-- mirror 与 source 同步
-- review-context 只输出事实层结果
-- tests/contracts 进入默认测试入口
+## P2
 
-## P2：有限试点高级治理能力
+### 1. 实验 handoff payload policy
+- 定义最小必要上下文传递规则
 
-### 目标
+### 2. 实验 invalidation exposure
+- 暴露哪些 context/plan/evidence 已失效，而非自动重算
 
-- 在不引入强编排的前提下，试点高价值能力
+### 3. 实验 run trace 轻量索引
+- 仅做索引与回指，不做 tracing platform
 
-### 任务
+## 长期观察项
 
-1. `应实验化`
-   - 可选 runnable probe
-2. `应实验化`
-   - 少数 workflow 的结构化 prompt metadata 守卫
-3. `应实验化`
-   - full-audit workflow 的半自动化入口
-4. `应轻量化`
-   - integration/e2e 命名与 package script 整理
+- verification summary / dispatch / gate state 是否重新耦合为超级 gate
+- workspace/topology/gate 功能是否超过真实 adoption 需求
+- `CLAUDE.md` 是否继续膨胀为认知黑洞
+- 文档/镜像/样本同步成本是否持续上升
 
-### Done signals
+## 路线图总原则
 
-- probe 是可选能力，不强制
-- metadata 守卫未扩大到全部 workflow
-- full-audit workflow 不影响普通开发流
-
-## 不建议的路线
-
-- 不建议把 full audit 设为所有架构判断的默认前置。
-- 不建议把 prompt 正文锚点检查扩展为大范围 CLI 规则系统。
-- 不建议在 P0 完成前直接把 `项目治理-agent.md` 升级为正式治理真源。
+1. 优先提升输入质量，而不是增加流程控制
+2. 优先降低共享枢纽复杂度，而不是增加新层次
+3. 优先显式化失败原因与失效信号，而不是增加自动编排
+4. 优先保留 LLM 决策空间，而不是强化中心 orchestration

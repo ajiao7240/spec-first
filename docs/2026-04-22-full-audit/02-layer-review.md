@@ -1,161 +1,107 @@
-# 分层审查结果
+# 02 Layer Review
 
-## 第一层：哲学与治理基线
+## A. CLI 控制面
 
-### 事实层
+### 代码事实
+- `src/cli/index.js:10-49` 只路由 `doctor/init/clean/stage0-context`
+- `src/cli/plugin.js:111-335` 加载并校验 plugin manifest 与 skills governance
+- `src/cli/state.js:16-315` 统一 managed state 的读写、plan merge、operation summary、asset removal
+- `src/cli/adapters/claude.js:12-177`、`src/cli/adapters/codex.js:15-236` 负责宿主差异、路径布局与内容重写
 
-- `docs/10-prompt/项目角色.md` 已明确设定：
-  - `Light contract`
-  - `Explicit boundaries`
-  - `Let the LLM decide`
-  - `Scripts prepare, LLM decides`
-- `AGENTS.md` 也把这套原则写成仓库级工程准则。
-- `项目治理-agent.md` 与这套哲学同向，但当前是未跟踪草案。
+### 判断
+- CLI 根入口边界清晰，符合 light control plane。
+- 真正复杂度集中在 `init.js` 与 `doctor.js`：前者是安装/重建协调器，后者是跨层 diagnostics 汇总器。
 
-### 判断层
+### 风险
+- `init.js` 继续增长会形成“运行时资产全生命周期大脑”
+- `doctor.js` 若再引入自动修复或策略裁决，会越过观察边界
 
-- 哲学方向正确且一致。
-- 当前缺的不是新哲学，而是“如何把哲学落实成可检查的治理清单”。
+## B. Bootstrap Compiler
 
-### 建议动作
+### 代码事实
+- `src/bootstrap-compiler/run-bootstrap.js:31-119,140-173,317-340` 负责编排 control plane/context docs 写盘、workspace overview 与 rollback
+- `src/bootstrap-compiler/workspace-compiler.js` 汇总 stage output、workspace child 选择、verification bundle 等
 
-- `应保留`：哲学基线
-- `应强化`：治理真源前提与检查清单
-- `应重构`：文档定位
+### 判断
+- 这层整体职责仍是 deterministic compiler pipeline，方向正确。
+- `workspace-compiler.js` 已是最重的 Stage-0 聚合器之一，长期需要进一步显式化中间 contract。
 
-## 第二层：CLI / control-plane
+### 风险
+- 模式解析、summary merge、dispatch posture、workspace child 选择、最终输出组装集中于少数大文件
 
-### 事实层
+## C. Context Routing
 
-- 包级 CLI 很薄，只暴露 `doctor/init/clean/stage0-context`。
-- 双宿主差异主要由 adapter 层和 `plugin.js` 驱动。
-- marker-based 注入与保守 clean 策略边界清晰。
-- 已发现：
-  - `skills.js` / `agents.js` 与实际 adapter-aware 接口脱节
-  - `init` 解析 `--force` 但不消费
-  - `plugin.js` 对 prompt prose anchor 的依赖偏重
+### 代码事实
+- `entry-resolver.js:73-346`：负责 workspace/single-repo 入口解析
+- `loader.js:14-62`：负责 runtime 路径与 JSON 安全读取
+- `evaluator.js:149-284`：负责 level/fallback_reason/confidence/provenance/coverage_gaps 评估
+- `workspace-loader.js:54-276`：负责 workspace child runtime 聚合
+- `verification-summary.js:196-360`：负责 verification summary 与 dispatch posture 组装
 
-### 判断层
+### 判断
+- 这是本仓库边界最清楚的一层之一。
+- `evaluator.js` 是项目哲学落地最好的模块之一：它输出事实信号，而不是强编排结果。
 
-- CLI 总体符合“脚本做确定性流程”的预期。
-- 主要风险不是流程太重，而是少数 helper 与语义检查出现边界漂移。
+### 风险
+- `verification-summary.js` 若继续吸纳更多 stage policy，容易从事实层滑向流程层
 
-### 建议动作
+## D. CRG 事实层
 
-- `应保留`：薄 CLI、state operation plan、dry-run、rollback、保守 clean
-- `应重构`：失配 helper
-- `应删除`：ghost `--force`
-- `应轻量化`：prompt prose anchor 检查
+### 代码事实
+- `src/crg/cli/router.js:6-171`：薄路由
+- `src/crg/parser.js`：AST/符号/边抽取
+- `src/crg/input-convergence.js`：文件收敛、ignore、iOS 适配
+- `src/crg/graph.js:142-360`：edge resolution 与 SQLite CRUD
+- `src/crg/cli/build.js:180-340`：build orchestration
+- `src/crg/commands/review-context.js:41-305`：review context 聚合
 
-## 第三层：bootstrap-compiler / context-routing
+### 判断
+- CRG 整体仍是事实生产层，而不是编排层，这点非常重要。
+- 但 `cli/build.js`、`graph.js#resolveEdges`、`review-context.js` 都是明显的大热点模块。
 
-### 事实层
+### 风险
+- 新语言、新导入规则、新 review packaging 继续堆入这些热点，会迅速推高维护成本
 
-- verification 已拆成 `summary / dispatch / evidence / gate-state`，方向清楚。
-- `selection_subject / selected_contexts` 能显式回答“命中了谁”。
-- 已发现：
-  - `artifact-manifest.json` 同名双语义
-  - `ownership.json` / `review-queue.json` 由 sample 伪造发布
-  - `workspace-readiness-summary` 发布即可能陈旧
-  - `schema-loader` 只支持 JSON Schema 子集
-  - sample/live drift
-  - `cross-module` 命中条件过宽
+## E. Workflow / Prompt / 资产治理层
 
-### 判断层
+### 代码事实
+- `skills/` 是 source-of-truth，这一点由 `src/cli/plugin.js:111-177,337-360` 对 bundled path / governance 的读取方式侧面证明
+- `docs/10-prompt/` 是 mirror，这一点由 contract tests 与资产治理审计结果共同证明
+- `.claude-plugin/plugin.json` + `skills-governance.json` 共同定义交付治理：`src/cli/plugin.js:111-335`
+- `src/cli/adapters/claude.js:52-177`、`src/cli/adapters/codex.js:80-236` 把 source 资产投影到 Claude/Codex runtime
+- `docs/contexts/spec-first/` 既是自举样本，也是生成产物基线，这一点由 `docs/contexts/README.md` 与仓库治理说明共同证明
 
-- 这是当前“哲学没错，但 contract 落地不够干净”的最典型区域。
-- 最大问题不是 gate 太强，而是多真相源与 freshness 失真。
+### 判断
+- 源资产与 runtime 副本的原则边界清楚。
+- 真正的风险在于：source / mirror / runtime / sample 的表达层越来越多，维护税上升。
 
-### 建议动作
+### 风险
+- mirror 与 sample 若不持续收口，会与“单一真相源”哲学形成张力
 
-- `应保留`：verification 四拆分、fallback、selection subject
-- `应重构`：manifest 双语义、ownership/review-queue 发布路径
-- `应强化`：freshness 与 derivation 边界
-- `应轻量化`：cross-module scope 命中
+## F. 文档 / 契约 / 知识层
 
-## 第四层：CRG
+### 代码事实
+- `docs/contracts/` 是 machine-readable contract 真源
+- `docs/solutions/` 是知识资产真源
+- `docs/contexts/` 承载 bootstrap 产物与自举样本
 
-### 事实层
+### 判断
+- 文档层不是弱附属，而是系统的一部分。
+- 这很强，但也意味着文档治理本身已经成为系统复杂度来源。
 
-- `input-convergence / parser / graph / incremental / generations / retrieval` 的基本边界清楚。
-- 结果显式标注 `Observed/Inferred/evidence/inference_reason`。
-- 已发现：
-  - `review-context` 跨层拼装 `review_guidance` 与 verification recommendation
-  - `query.inheritors_of` 无事实生产链
-  - deterministic helper 在多个命令中重复
-  - `build.js` 职责偏重
+## G. 分层结论
 
-### 判断层
+### 已符合哲学的部分
+- CLI 根入口薄
+- loader/evaluator 分层清楚
+- CRG 主要生产事实
+- bootstrap/compiler 整体仍属于 deterministic execution
 
-- CRG 内核是“对齐哲学”的。
-- 命令层开始局部向“小编排器”方向滑动，需要及时收口。
-
-### 建议动作
-
-- `应保留`：CRG 核心内核
-- `应重构`：`review-context`
-- `应删除` 或 `应修正`：`query.inheritors_of` 的无事实 surface
-- `应轻量化`：命令层重复 helper
-
-## 第五层：workflow assets / dual-host governance
-
-### 事实层
-
-- `setup` 的 Codex 入口写成 `$setup`，与 contract 不符。
-- `using-spec-first` 错把 MCP setup 路由到 `setup`，而不是 `spec-mcp-setup`。
-- 48 个 skill 中有 11 个目录名 / contract 名 / frontmatter name 不一致。
-- `docs/10-prompt/skills` 与 source 已出现内容级 drift。
-- 57 个 agent 中仅 34 个能从 skill 侧找到直接 reachability evidence。
-
-### 判断层
-
-- 这是最直接、最用户可见的治理 drift。
-- 该区域必须进入 `项目治理-agent.md` 的显式检查清单，否则文档会错过当前最真实的治理风险。
-
-### 建议动作
-
-- `应强化`：dual-host governance checklist
-- `应重构`：命名一致性与镜像同步策略
-- `应强化`：agent reachability contract
-
-## 第六层：测试、发布与工程成熟度
-
-### 事实层
-
-- `npm test` 全链通过。
-- 测试层真实存在：unit、smoke、integration、e2e、release。
-- 已发现：
-  - `doctor.workflow_runnability=verified` 仍属推断
-  - `tests/contracts` 未接线
-  - tarball smoke 对未知 `tree-sitter-*` 只 warning
-  - `integration/e2e` 命名边界漂移
-  - destructive rollback 缺故障注入测试
-
-### 判断层
-
-- 工程成熟度整体偏高。
-- 但文档如果要宣称“关键链路可验证”，就必须把这些空白明确写进去。
-
-### 建议动作
-
-- `应保留`：现有多层测试组合
-- `应强化`：真实 runnable probe、rollback 测试、tests/contracts 接线、release 白名单
-- `应轻量化`：integration/e2e 命名整理
-
-## 第七层：被审文档自身
-
-### 事实层
-
-- 文档为未跟踪草案。
-- 仓库没有与其一一对应的 workflow command / schema / checker。
-- 它目前没有把 dual-host governance、mirror drift、agent reachability、sample/live drift、review-context 越界写成显式检查项。
-
-### 判断层
-
-- 该文档当前最大问题是“身份错位”，不是“方向错误”。
-
-### 建议动作
-
-- `应重构`：定位为草案 / 操作手册
-- `应强化`：治理清单
-- `应删除`：任何把自己写成现行真源的既成事实语气
+### 需要重点防膨胀的部分
+- `init.js`
+- `doctor.js`
+- `workspace-compiler.js`
+- `verification-summary.js`
+- `cli/build.js`
+- `review-context.js`
+- `graph.js#resolveEdges`

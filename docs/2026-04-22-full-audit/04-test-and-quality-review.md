@@ -1,145 +1,91 @@
-# 测试、质量与工程成熟度审查
+# 04 Test and Quality Review
 
-## 实际执行结果
+## A. 测试结构
 
-本次主线程实际运行并通过：
+### 代码事实
+- `package.json:14-27` 定义：`test:unit`、`test:smoke`、`test:integration`、`test:e2e:crg`、`test:release`、`test:ai-dev:gate`
+- smoke 覆盖 CLI/install/runtime wiring：`tests/smoke/cli.sh`、`tests/smoke/install-local.sh`、`tests/smoke/install-tarball.sh`
+- integration 覆盖 verification gate 与 e2e：`tests/integration/verification-gate.integration.test.js`、`tests/integration/e2e.sh`
+- e2e 覆盖 CRG 与 graph-bootstrap：`tests/e2e/spec-graph-bootstrap-mainline.sh`、`tests/e2e/spec-graph-bootstrap-installed-runtime.sh`
+- unit 包含 contract test、runtime drift、docs/solutions frontmatter、Stage-0 contracts 等，典型证据有 `tests/unit/doctor-json-contract.test.js`、`tests/unit/clean-dry-run.test.js`
 
-```bash
-npm test
-```
+### 判断
+- 测试分层明显优于普通 CLI 项目，已经具备产品级测试塔。
 
-覆盖结果包含：
+## B. 工程成熟度
 
-- `tests/unit`：120 个 test suites 全通过，645 个 tests 全通过
-- `tests/smoke`：CLI 与 install-local smoke 通过
-- `tests/integration`：verification gate 与五步闭环 E2E 通过
-- `tests/e2e`：CRG all-commands 与 SQLite audit 通过
+### 代码事实
+- `init/clean` 的 dry-run 与 apply 共享 operation plan 体系
+- `doctor` 已具备 evidence schema/freshness/fallback_reason 等事实层诊断字段
+- bootstrap 有 backup/restore
+- tarball install smoke 与 dual-host governance smoke 表明发布工件验证较强
 
-## 测试结构现状
+### 判断
+- 工程成熟度总体高。
+- 项目不是“写完脚本就发布”，而是对 runtime drift、contract drift、tarball 真机安装有明确治理。
 
-### 事实层
+## C. 风险断层
 
-| 层 | 当前作用 | 现状 |
-| --- | --- | --- |
-| `tests/unit` | contract、state、dry-run、doctor JSON、Stage-0、CRG、governance | 覆盖最广 |
-| `tests/smoke` | 安装、本地 CLI、双宿主发布治理、tarball 安装 | 实用性高 |
-| `tests/integration` | verification gate 接线、五步闭环组合 | 已接线 |
-| `tests/e2e` | CRG 命令全量/SQLite 审计、spec-graph-bootstrap 主链 | 已接线 |
-| `tests/contracts` | 合同层测试 | 当前未接线 |
+### 1. 发布失败恢复
+#### 代码事实
+- `scripts/release-publish.cjs` 先改 version，再测试/打包/发布
 
-### 判断层
+#### 判断
+- 一旦中途失败，工作树会停在半收口状态，是当前最高风险工程断层之一。
 
-- 测试不是摆设，整体工程成熟度偏高。
-- 但“目录存在”不等于“会在 CI 或本地默认脚本中执行”，`tests/contracts` 是明确反例。
+### 2. postinstall repair 分支验证不足
+#### 代码事实
+- `bin/postinstall.js` 有三阶段修复链，但 smoke 更偏结果验证，不是逐分支故障注入
 
-## 工程质量强项
+#### 判断
+- 主路径可用，但 repair 策略的行为回归保护还不够硬。
 
-### 事实层
+### 3. rollback 真触发路径验证不足
+#### 代码事实
+- bootstrap 与 init 都有 rollback/restore 逻辑
 
-- `init`/`clean` 有真实 `--dry-run`，并被 unit/smoke 双重验证。
-- `init` 对 legacy state、runtime drift、invalid Claude settings 有失败前保护。
-- `doctor --json` 输出是分层诊断，不是单一 PASS/FAIL。
-- `release:publish` 先强制 `test:release`，再 `npm pack`，最后 `npm publish`。
-- tarball 安装 smoke 真实检查了 postinstall 与环境行为。
+#### 判断
+- 设计成熟，但失败注入测试不足，导致“设计上安全”强于“验证上安全”。
 
-### 判断层
+### 4. workspace prune failure 验证不足
+#### 代码事实
+- `run-bootstrap.js` 设计了 `prunedChildSlugs` / `failedPrunes`
 
-- 这是“真实可运行的工程体系”，不是只靠 prompt 和文档维持秩序。
+#### 判断
+- 这是典型故障边界，但未见足够强的 contract-level failure test 证据。
 
-### 建议动作
+## D. 工程质量结论
 
-- `应保留`
+### 已接近最佳实践
+- 分层测试结构
+- dry-run/apply 同构
+- diagnostics 事实层输出
+- tarball / dual-host install 验证
+- rollback 设计意识
 
-## 关键缺口
+### 仍只是当前可用
+- release 原子性
+- postinstall repair 分支验证
+- rollback 故障注入验证
+- workspace prune failure 验证
 
-### 1. `doctor verified` 语义过强
+## E. 建议
 
-#### 事实层
+### 应保留
+- 现有测试塔结构
+- contract drift / runtime integrity tests
 
-- `doctor` 的 `workflow_runnability=verified` 由 runtime 资产和 evidence 文件推断，不是对宿主入口的真实探测。
+### 应强化
+- release failure tests
+- rollback failure injection
+- postinstall repair branch tests
+- workspace prune failure contract tests
 
-#### 判断层
+### 应轻量化
+- 若某些 contract tests 只是重复验证同一语义，可收口重复面
 
-- 诊断方向没错，但术语需要降强度，或者补真实 probe。
+### 应重构
+- `scripts/release-publish.cjs`
 
-#### 建议动作
-
-- `应强化`：增加可选 runnable probe
-- `应轻量化`：调整术语
-
-### 2. `tests/contracts` 未接线
-
-#### 事实层
-
-- `package.json` 的 `test:unit` 和 `test` 都未包含 `tests/contracts`。
-
-#### 判断层
-
-- 这是测试治理完整性的明确缺口。
-
-#### 建议动作
-
-- `应强化`
-
-### 3. 发布 tarball 的未知依赖只 warning
-
-#### 事实层
-
-- `install-tarball.sh` 对未知 `tree-sitter-*` 只 warning。
-
-#### 判断层
-
-- 这会弱化发布前验证的约束力度。
-
-#### 建议动作
-
-- `应强化`
-
-### 4. destructive rollback 缺故障注入测试
-
-#### 事实层
-
-- 代码中已有 rollback 备份与恢复实现。
-- 现有测试偏重 dry-run、preview、失败前保护，尚未直接证明“写到一半失败时能恢复”。
-
-#### 判断层
-
-- 这是典型的“机制存在，但未被最关键方式证明”。
-
-#### 建议动作
-
-- `应强化`
-
-### 5. integration/e2e 命名边界漂移
-
-#### 事实层
-
-- `test:integration` 会调用 `tests/integration/e2e.sh`，而该脚本又跨调用 `tests/e2e` 内脚本。
-
-#### 判断层
-
-- 不影响功能，但会增加维护心智负担。
-
-#### 建议动作
-
-- `应轻量化`
-
-## 对被审文档的反馈
-
-### 事实层
-
-- `项目治理-agent.md` 强调“测试与可验证性审查”的方向是正确的。
-- 但它没有显式区分：
-  - 推断性验证
-  - 真实运行探测
-  - 已接线测试目录
-  - 未接线测试目录
-
-### 判断层
-
-- 文档应强化测试审计口径，而不是默认“有测试目录即被执行”。
-
-## 结论
-
-- 当前工程质量可以打高分。
-- 但若要把 `项目治理-agent.md` 升级为正式审计基线，必须先把上面的四个强缺口写进审计清单。
+### 应实验化
+- 更细粒度 evidence-to-verdict 追踪，帮助 diagnostics 与 review 共享事实基础

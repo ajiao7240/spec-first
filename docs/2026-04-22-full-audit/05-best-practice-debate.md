@@ -1,112 +1,85 @@
-# 最佳实践辩论纪要
-
-## 辩题
-
-`docs/10-prompt/项目治理-agent.md` 是否已经足够成熟，可以直接作为 spec-first 的现行治理真源？
+# 05 Best Practice Debate
 
 ## 角色 A：系统哲学守护者
 
-### 事实层
+### 支持意见
+- `docs/10-prompt/项目角色.md:7-22,42-63` 把 `Light contract / Explicit boundaries / Let the LLM decide` 作为强制哲学基线。
+- `src/context-routing/evaluator.js:233-264` 输出的是 `level/fallback_reason/confidence/provenance` 等事实，而不是硬状态机。
+- `skills/spec-graph-bootstrap/SKILL.md` 明确区分 source repo internals / runtime assets / generated artifacts / package CLI surfaces，边界意识很强。
 
-- 文档哲学与 `项目角色.md` 一致。
-- CLI 很薄，verification 读模型拆分明确，fallback 是 trust-shaping，不是 blocker。
-- CRG 内核多数位置在提供事实与可解释信号，而不是代替 LLM 决策。
+### 反对意见
+- 项目为了捍卫“轻 contract”，实际上正在维护越来越多 contract / mirror / sample / runtime 投影层。
+- 这与“单一真相源、减少编排层”的长期方向存在张力。
 
-### 立场
-
-- 文档的哲学是对的，不能因为落地缺口就否定它。
-- 如果直接丢掉这份文档，会损失一套高质量审计骨架。
-
-### 结论
-
-- `应保留` 文档的哲学骨架。
+### 裁决
+- 哲学方向正确，但必须主动削减表达层数量，否则会在形式上坚持轻量，实质上变重。
 
 ## 角色 B：代码实现审查官
 
-### 事实层
+### 支持意见
+- CLI 根入口薄：`src/cli/index.js:10-49`
+- `state.js` 把 operation plan、managed state、asset removal 收口为共享工具：`src/cli/state.js:16-315`
+- context-routing 的 resolver / loader / evaluator 拆分非常清晰。
+- CRG 主要生产代码事实，而不是直接做流程编排。
 
-- `artifact-manifest.json` 双语义
-- `ownership/review-queue` sample 发布
-- `review-context` 越界
-- `setup` / `spec-mcp-setup` 路由 drift
-- 11 个 skill 命名漂移
-- mirror drift
-- `skills.js/agents.js` 假接口
+### 反对意见
+- `src/cli/commands/init.js`
+- `src/bootstrap-compiler/workspace-compiler.js`
+- `src/crg/cli/build.js`
+- `src/crg/commands/review-context.js`
+- `src/crg/graph.js#resolveEdges`
 
-### 立场
+这些都已是明显的大热点协调器，继续膨胀会降低可维护性。
 
-- 文档不能把“希望达到的治理状态”写成“仓库已经实现的治理状态”。
-- 当前最重要的是把真实风险写进检查清单，而不是继续扩写抽象原则。
-
-### 结论
-
-- 文档整体 `应重构` 定位与检查清单。
+### 裁决
+- 当前实现大体稳健，但已来到“必须主动拆热点”的阶段。
 
 ## 角色 C：可维护性与质量保证审查官
 
-### 事实层
+### 支持意见
+- `package.json` 显示完整的测试塔与质量门。
+- tarball install、release governance、Stage-0 contracts、runtime integrity tests 都说明项目有较强质量自觉。
+- diagnostics 已输出 evidence schema/freshness/fallback_reason，而不是单一状态值。
 
-- `npm test` 全通过
-- 发布链、dry-run、legacy state 保护、doctor JSON 分层都存在
-- 但 `doctor verified` 仍属推断，`tests/contracts` 未接线，rollback 缺故障注入测试
+### 反对意见
+- 质量守护面也在变成维护税：source / mirror / sample / runtime 的同步测试越来越多。
+- 发布失败恢复、postinstall repair 分支、rollback 真触发路径的验证仍不够强。
 
-### 立场
-
-- 仓库工程成熟度不错，不应被描述成“治理一团糟”。
-- 但文档在“可验证”这个词上说得过满，需要降强度或补实证。
-
-### 结论
-
-- 文档在验证语义上 `应轻量化` 措辞，同时 `应强化` 验证清单。
+### 裁决
+- 工程质量高，但还未达到“失败路径与主路径同等有证据”的水平。
 
 ## 角色 D：演化与集成裁判
 
-### 事实层
+### 支持意见
+- 项目正在形成“CLI installer + bootstrap compiler + context routing + CRG”这套完整能力链，长期复利很高。
+- 对 dual-host delivery、Stage-0、verification signal 的收口，说明它在认真构建可组合平台能力。
 
-- 当前文档是未跟踪草案。
-- 仓内没有与之直接对应的 workflow command / schema / checker。
+### 反对意见
+- 产品身份越来越宽：安装器、workflow platform、context compiler、code intelligence substrate 都在同一仓里持续前进。
+- 如果默认主路径不及时收口，外部采用叙事会越来越复杂。
 
-### 立场
+### 裁决
+- 应继续保留平台演化方向，但必须明确“默认主路径”和“实验能力”的边界。
 
-- 直接升格为现行真源风险过高。
-- 但它完全值得保留为审计作战手册，再逐步吸收成正式治理 contract。
+## 辩论综合结论
 
-### 结论
+### 当前已接近最佳实践的部分
+- 哲学被代码与 contract tests 明确落实
+- deterministic execution 与 semantic decision 的边界总体清晰
+- context-routing/evaluator 的退化显式化做得很好
+- runtime install/clean/doctor 的工程成熟度较高
 
-- 文档 `应重构` 为“草案/手册”，`应实验化` 其中的高成本流程。
+### 只是当前可用、尚不能称为最佳实践的部分
+- 多层投影同步维持整体一致
+- 复杂度主要由核心维护者吸收
+- 发布与失败恢复闭环不够完整
 
-## 辩论焦点与裁决
+### 与最佳实践相悖或明显存在背离风险的部分
+- 共享枢纽持续膨胀
+- source / mirror / runtime / sample 表达面过多
+- 产品身份扩张快于默认路径收口
 
-### 焦点 1：哲学对不对
-
-- 裁决：对
-- 处理：`应保留`
-
-### 焦点 2：文档能否直接成为治理真源
-
-- 裁决：不能
-- 处理：`应重构`
-
-### 焦点 3：是否需要更强审计清单
-
-- 裁决：需要
-- 处理：`应强化`
-
-### 焦点 4：是否要默认强制 full audit / 多 Agent
-
-- 裁决：不应默认强制
-- 处理：`应实验化`
-
-### 焦点 5：是否要扩大 prompt 正文锚点检查
-
-- 裁决：不应全面扩大
-- 处理：`应轻量化`
-
-## 辩论后的统一结论
-
-- 这份文档不是“该不该保留”的问题，而是“应该以什么身份保留”的问题。
-- 最优解不是删除，而是：
-  - 保留哲学与输出骨架
-  - 重构定位与治理清单
-  - 轻量化理想化表达
-  - 实验化高成本流程
+### 必须分阶段看待的部分
+- workspace/topology/verification/gate 完备度
+- 高密度 contract tests 与 mirror 同步
+- 平台化能力的默认暴露程度

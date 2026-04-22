@@ -1,156 +1,82 @@
-# 演化机会清单
+# 06 Evolution Opportunities
 
-## 机会 1：把文档定位从“现行真源”收回到“治理草案/审计手册”
+## 1. 收口共享枢纽复杂度
 
-### 事实层
+### 代码事实
+高热点文件包括：
+- `src/cli/commands/init.js:72-303`
+- `src/cli/commands/doctor.js:30-103,105-217,219-360`
+- `src/bootstrap-compiler/workspace-compiler.js`
+- `src/crg/cli/build.js:180-340`
+- `src/crg/commands/review-context.js:41-305`
+- `src/crg/graph.js:142-360`
 
-- 被审文档未提交、无 git 历史。
-- 仓内没有配套 checker / schema / workflow command。
+### 判断
+这些文件不是“写得差”，而是产品复杂度真实汇聚的结果。下一阶段演化收益最高的不是新增功能，而是降低这些热点的理解负担与耦合密度。
 
-### 判断层
+### 建议分类
+- 应强化：中间 contract、阶段 helper、热点边界注释
+- 应重构：上述热点模块
 
-- 这是最大前提问题。
+## 2. 收口多层投影的维护税
 
-### 分类
+### 代码事实
+- source assets：`skills/`、`agents/`、`templates/`
+- mirror：`docs/10-prompt/`
+- runtime copy：`.claude/`、`.codex/`、`.agents/skills/`
+- sample/generated baseline：`docs/contexts/spec-first/`
 
-- `应重构`
+### 判断
+这不是简单的“多几份文档”，而是多层语义载体共存。它们目前被测试守住，但维护税已经很明显。
 
-## 机会 2：补齐 dual-host governance 审计清单
+### 建议分类
+- 应轻量化：历史兼容说明与重复投影
+- 应强化：drift evidence 与收口路径
+- 应删除：确认无用的 legacy 兼容层
 
-### 事实层
+## 3. 强化故障路径验证
 
-- `setup` Codex 入口 drift
-- `using-spec-first` 错路由 `spec-mcp-setup`
-- 11 个 skill 命名漂移
-- mirror drift
-- agent reachability evidence 不完整
+### 代码事实
+- release 链路先写 version 再执行测试/打包/发布
+- postinstall repair 有多分支
+- bootstrap/workspace 有 rollback 与 prune failure contract
 
-### 判断层
+### 判断
+当前主路径质量较高，下一阶段最值钱的是失败路径验证，不是继续堆 happy-path contract。
 
-- 这是最贴近用户面的治理风险。
+### 建议分类
+- 应强化：release failure / rollback failure / postinstall repair / prune failure tests
+- 应重构：`scripts/release-publish.cjs`
 
-### 分类
+## 4. 强化 evidence-to-verdict 追踪
 
-- `应强化`
+### 外部输入观察
+外部高质量实践普遍支持：verification、tracing、guardrails、review 需要解耦，但 verdict 仍应能回指 evidence。
 
-## 机会 3：收口 single source of truth 与 freshness
+### 判断
+spec-first 现在已经有 verification summary / dispatch / gate state / evidence；下一步更适合做轻量可回指，而不是造中央 gate 引擎。
 
-### 事实层
+### 建议分类
+- 应实验化：evidence-to-verdict trace、run trace 索引
+- 应保留：verification signals 解耦原则
 
-- `artifact-manifest.json` 双语义
-- `ownership/review-queue` sample 发布
-- `workspace-readiness-summary` 陈旧
-- sample/live drift
+## 5. 失效暴露能力
 
-### 判断层
+### 外部输入观察
+高质量 workflow/agent 系统的真正价值不是自动编排，而是能暴露“哪里失效了、为什么要 reload”。
 
-- 这是 control-plane 可信度的关键缺口。
+### 判断
+spec-first 很适合补“spec/plan/context 变更后哪些下游 artifact 失效”的轻量机制。
 
-### 分类
+### 建议分类
+- 应实验化：invalidation exposure、reload hints
+- 不应做：自动重规划 / 超级 orchestrator
 
-- `应重构`
+## 6. 默认主路径收口
 
-## 机会 4：把 `review-context` 从决策拼装层拉回事实层
+### 判断
+项目能力越来越宽，但默认主路径仍需更鲜明，否则 adoption 叙事会变重。
 
-### 事实层
-
-- 已输出 `review_guidance`、verification recommendation，并依赖 `context-routing/change-surface`。
-
-### 判断层
-
-- 这与“scripts prepare, LLM decides”存在真实张力。
-
-### 分类
-
-- `应重构`
-
-## 机会 5：把“推断性验证”和“真实 probe 验证”拆开
-
-### 事实层
-
-- `doctor verified` 仍是推断。
-
-### 判断层
-
-- 术语不清会误导治理判断。
-
-### 分类
-
-- `应强化`
-
-## 机会 6：清理 ghost surface 与假接口
-
-### 事实层
-
-- `init --force` 未实际消费
-- `skills.js` / `agents.js` 与当前控制面脱节
-
-### 判断层
-
-- 这是最小方案被历史兼容侵蚀的信号。
-
-### 分类
-
-- `应删除`
-- `应重构`
-
-## 机会 7：减少对 prompt 正文锚点的 CLI 级硬编码
-
-### 事实层
-
-- `plugin.js` 当前已经持有较多关键 workflow 的正文锚点检查。
-
-### 判断层
-
-- 价值存在，但容易演化成脚本持有语义判断。
-
-### 分类
-
-- `应轻量化`
-- `应实验化`
-
-## 机会 8：完善测试治理闭环
-
-### 事实层
-
-- `tests/contracts` 未接线
-- rollback 缺故障注入测试
-- release tarball 白名单偏松
-- integration/e2e 命名漂移
-
-### 判断层
-
-- 这是工程成熟度继续上台阶的明显抓手。
-
-### 分类
-
-- `应强化`
-- `应轻量化`
-
-## 机会 9：为 agent 补 reachability contract
-
-### 事实层
-
-- 57 个 agent 中 23 个缺少 skill 侧直接 reachability evidence。
-
-### 判断层
-
-- 这会让 agent 资产逐步变成“存在但不可验证是否可触达”的灰区。
-
-### 分类
-
-- `应强化`
-
-## 机会 10：将高成本 full-audit workflow 只用于高价值场景
-
-### 事实层
-
-- 多 Agent full audit 成本高，且当前无配套 workflow 强制执行。
-
-### 判断层
-
-- 适合用于架构治理、prompt/workflow/contract 重大演进，不适合成为所有审计的默认前置。
-
-### 分类
-
-- `应实验化`
+### 建议分类
+- 应轻量化：默认对外暴露面
+- 应强化：面向用户的默认主路径叙事

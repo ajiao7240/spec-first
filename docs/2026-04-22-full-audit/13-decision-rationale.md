@@ -1,188 +1,103 @@
-# 主裁决理由
+# 13 Decision Rationale
 
-## 最终裁决摘要
+## 一、最终裁决
 
-### 事实层
+### 结论
 
-- `docs/10-prompt/项目角色.md` 已明确仓库哲学基线。
-- `docs/10-prompt/项目治理-agent.md` 与这套哲学同向。
-- 该文档当前是 `git` 未跟踪草案，不是已提交治理真源。
-- 仓内没有与其一一对应的 workflow command、contract schema 或自动检查器来强制执行其 full-audit 流程。
-- 当前代码现实中还存在 dual-host governance、single source of truth、verification 语义、sample/live 漂移、review-context 越界等明确缺口。
+本次完整审计的最终裁决是：
 
-### 判断层
+> `spec-first` 当前处于 **方向正确、实现成熟度较高、明显高于平均水平，但复杂度已来到必须主动收口的拐点**。
 
-- 该文档**不能以“现行治理真源”身份直接纳入基线**。
-- 它的正确定位应是：
-  - `应保留` 哲学与审计骨架
-  - `应重构` 为“审计作战手册 / 候选治理草案”
-  - `应强化` 前提与检查清单
-  - `应轻量化` 理想化表述
-  - `应删除` 与仓库现实不符的既成事实语气
-  - `应实验化` 高成本全量审计流程
+它不是一个需要推倒重来的系统；相反，它已经拥有一套相当强的哲学基线、事实层、运行时治理与测试守护。真正需要警惕的是：
 
-## 争议点与裁决理由
+- 共享枢纽继续膨胀
+- source / mirror / runtime / sample 的同步面继续增加
+- 产品身份持续扩张而默认主路径不收口
 
-### 争议点 1：哲学是否有效
+## 二、为什么这样裁决
 
-#### 事实层
+### 代码依据总览
+- CLI 根入口薄：`src/cli/index.js:10-49`
+- `init`/`clean` 的 plan 化执行：`src/cli/commands/init.js:166-246`、`src/cli/commands/clean.js:90-226`
+- Stage-0 质量评估显式化：`src/context-routing/evaluator.js:233-264`
+- workspace 级聚合复杂度上升：`src/context-routing/workspace-loader.js:181-276` 与 `src/context-routing/verification-summary.js:196-253`
+- CRG build/review-context/resolveEdges 为明显热点：`src/crg/cli/build.js:180-340`、`src/crg/commands/review-context.js:167-305`、`src/crg/graph.js:142-360`
+- 工程闭环短板集中在发布与故障路径：`scripts/release-publish.cjs`、`bin/postinstall.js`
 
-- CLI、verification read model、fallback、CRG 内核等多处实现都与 `项目角色.md` 一致。
-
-#### 裁决
-
-- `应保留`
+### 1. 没有判成“最佳实践终态”
 
 #### 理由
+- 少数核心文件承担了过多聚合职责：`init.js`、`doctor.js`、`workspace-compiler.js`、`build.js`、`review-context.js`、`resolveEdges`
+- 多层投影同步已经形成显著维护税
+- 发布与失败恢复闭环仍不完整
 
-- 哲学没有被代码推翻。
-- 问题出在治理落地与文档定位，而不是方向。
+#### 为什么不更乐观
+- 因为“方向正确”不等于“复杂度已稳定收口”
+- 最佳实践不仅要求功能、理念、测试正确，还要求系统可持续演化
 
-### 争议点 2：文档能否直接成为治理真源
-
-#### 事实层
-
-- 文档未被跟踪。
-- 无配套 checker / schema / workflow entry。
-
-#### 裁决
-
-- `应重构`
+### 2. 也没有判成“架构跑偏”
 
 #### 理由
+- CLI 根入口、context-routing evaluator、CRG 事实层都仍然尊重明确边界
+- 项目没有把 verification / review / routing / evidence 压成一个中心化超级 gate
+- deterministic execution 与 semantic decision 的边界仍大体成立
 
-- 真源必须可追踪、可版本化、可被仓库机制消费。
-- 当前前提不成立。
+#### 为什么不更悲观
+- 目前看到的是“高张力”，不是“已越线”
+- 项目仍保有主动收口的空间
 
-### 争议点 3：文档是否缺少最关键的现实治理项
+## 三、未采纳的更激进结论及原因
 
-#### 事实层
+### 未采纳结论 A：应立即大规模删减平台能力
 
-- dual-host governance drift、mirror drift、agent reachability、sample/live 漂移、review-context 越界均已被代码审计证实。
+#### 原因
+- 当前代码事实不能证明这些能力都是无效复杂度
+- bootstrap/context-routing/CRG/dual-host 治理有真实产品价值
+- 问题在于复杂度收口，而不是简单砍功能
 
-#### 裁决
+### 未采纳结论 B：应立即构建统一 workflow runtime 平台
 
-- `应强化`
+#### 原因
+- 这会与仓库哲学冲突，强化中心 orchestration
+- 当前更值得做的是输入质量增强与热点解耦，而非平台一体化
 
-#### 理由
+### 未采纳结论 C：应把所有 mirror/sample 都删掉，只保留源码
 
-- 这些都是当前仓库真实存在的治理风险，但文档未把它们显式写成必查项。
+#### 原因
+- 现有 mirror/sample 同时承担 prompt mirror、测试基线、自举样本职责
+- 问题不是“全部删除”，而是“哪些保留、哪些轻量化、哪些去冗余”
 
-### 争议点 4：是否应默认强制 full audit / 多 Agent
+## 四、优先级理由
 
-#### 事实层
+### P0 为什么是“共享枢纽复杂度收口 + 发布失败恢复”
+- 这是最能降低未来所有维护成本的动作
+- 也是最能防止系统滑向隐式 orchestrator 的动作
+- 与继续扩展治理面相比，收益更大、风险更低
 
-- 当前无配套 workflow/contract/checker。
-- 执行成本高。
+### P1 为什么是“失败路径测试 + 同步面收口”
+- 这些问题当前不是致命阻塞，但会显著影响工程可信度与维护税
+- 它们需要建立在 P0 之后推进
 
-#### 裁决
+### P2 为什么只做实验能力
+- invalidation、handoff policy、trace index 都有价值
+- 但如果过早核心化，会再次增加系统层次与默认复杂度
 
-- `应实验化`
+## 五、与仓库哲学的一致性解释
 
-#### 理由
+本次裁决优先选择“收口复杂度、强化输入质量、限制编排增长”，而不是“增加更多治理面”，原因在于这更符合：
 
-- 直接制度化会把 aspirational playbook 变成强编排。
-- 与 `Light contract / Let the LLM decide` 有冲突风险。
+- Light contract
+- Explicit boundaries
+- Let the LLM decide
+- Scripts prepare, LLM decides
 
-### 争议点 5：是否应接受当前 `doctor verified` 作为真实可运行证明
+也就是说，本次裁决不是保守，而是**主动维护 spec-first 的长期方向一致性**。
 
-#### 事实层
+## 六、后续建议
 
-- 当前只基于 runtime 资产与 evidence 文件推断。
-
-#### 裁决
-
-- `应轻量化` 当前表述
-- `应强化` 语义分层
-
-#### 理由
-
-- 不应把推断性状态写成宿主级真实 probe 事实。
-
-## 全局分类
-
-### `应保留`
-
-- `Light contract / Explicit boundaries / Let the LLM decide`
-- `先 evidence 后 judgment`
-- 多 Agent 审计骨架
-- 输出分类、矩阵、路线图的结构化产出方式
-
-### `应强化`
-
-- 文档前提：真源必须已提交、可追踪、可版本化
-- dual-host governance checklist
-- single-source-of-truth / freshness checklist
-- verification 语义分层
-- 文档的“草案 / 真源”身份声明
-
-### `应轻量化`
-
-- 对 full audit、最佳实践辩论、多 Agent 的默认强制语气
-- 对“关键链路已可验证”的理想化表述
-- 对 prompt prose / 正文锚点做大范围 CLI 检查的倾向
-
-### `应重构`
-
-- 文档整体定位
-- 文档结构中的治理清单与适用范围
-- 对 review-context 越界、manifest 双语义、sample/live 漂移这类问题的审计条目
-
-### `应删除`
-
-- 任何暗示“仓库已全面按本文落地执行”的表述
-- 任何暗示“未跟踪草案可直接充当治理真源”的隐含前提
-- 任何把 `doctor verified` 等同于真实 probe 的表述
-
-### `应实验化`
-
-- full-audit workflow 的制度化入口
-- 高成本 prompt 语义守卫
-- 宿主级 runnable probe
-
-## 优先级路线图
-
-### P0
-
-- 重写文档定位
-- 加入治理真源前提
-- 加入 dual-host governance checklist
-- 拆分验证语义
-
-### P1
-
-- 加入 single-source-of-truth / freshness / review-context 越界检查项
-- 修 setup/MCP setup route drift、命名漂移、mirror drift
-- 处理 manifest 双语义、sample 发布、tests/contracts 接线、rollback 测试、release 白名单
-
-### P2
-
-- 试点 runnable probe
-- 试点少量 workflow 的 metadata 守卫
-- 试点 full-audit workflow
-
-## 未采纳意见与原因
-
-### 未采纳 1：直接升级为现行治理真源
-
-- 原因：事实前提不成立
-
-### 未采纳 2：把 full audit / 多 Agent 设为默认前置流程
-
-- 原因：成本高，且易走向强编排
-
-### 未采纳 3：扩大 CLI 侧 prompt 正文锚点检查
-
-- 原因：会增强语义耦合，削弱显式边界
-
-### 未采纳 4：继续把 `doctor verified` 当成真实可运行证明
-
-- 原因：当前仅属推断，不是真实 probe
-
-### 未采纳 5：一次性大重写全部问题
-
-- 原因：问题分层明显，按 P0/P1/P2 分阶段收口更符合最小可维护方案
-
-## 最终裁决
-
-本次不建议立即将 `docs/10-prompt/项目治理-agent.md` 纳入正式治理基线。建议先按本审计文档完成 `P0` 与关键 `P1` 校正，把它从“高强度理想化草案”收口为“可追踪、可解释、能对准当前仓库现实的治理手册”，再决定是否升级为正式真源。
+1. 先做 P0，再决定是否扩大实验能力面
+2. 审计文档建议先内部评审，不建议直接视为已完成路线图
+3. 后续更适合拆成 2-3 轮演化任务推进：
+   - 第一轮：热点收口 + release failure
+   - 第二轮：失败路径测试与同步面收口
+   - 第三轮：轻量实验能力
