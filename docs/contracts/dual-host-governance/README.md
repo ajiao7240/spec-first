@@ -246,6 +246,5 @@ machine-readable 真源文件固定落位：
 4. 不得把 Codex 用户入口写成 `**Codex entry point:** /spec:*`
 5. `Skill(...)`、`skill:`、以及其他内部调用 DSL 明确不属于“用户可见入口治理”范围
 6. `docs/10-prompt/skills/` 必须与 `skills/` 源文档同步刷新，避免镜像漂移
-   - 例如新增 `spec-repo-profile-refresh` 这类 standalone skill 时，source skill、prompt mirror 与治理真源必须同轮更新
 7. 新增 lint / doctor / smoke 规则时，应优先引用 `skills-governance.json`，而不是重复手写 skill 名单
 8. 运行时 machine-readable contract 必须继续落在 `src/cli/contracts/dual-host-governance/`，不得重新回放到 `docs/`

@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.8 2026-04-22 17:01:39 矿工: refactor(skills): 删除 `spec-repo-profile-refresh` standalone skill 及其双宿主治理、测试、镜像与当前文档引用，收口 shared seed 语义为仅保留 `.spec-first/specs/repo-profile.yaml` 输入面 (user-visible)
 - v1.5.8 2026-04-22 13:20:00 矿工: docs(audit): 收口 `docs/2026-04-22-full-audit/` 全量审计文档矩阵与 README 索引，并同步 package.json 元数据，统一审计结论表达与交付口径 (user-visible)
 - v1.5.8 2026-04-22 13:05:00 矿工: fix(release): `release:publish` 的真实 npm 发布显式锁定 `--registry=https://registry.npmjs.org`，避免本机默认镜像源导致 publish 误投到 npmmirror 或直接鉴权失败 (user-visible)
 - v1.5.8 2026-04-22 02:51:44 Codex: fix(spec-graph-bootstrap): 收紧 graph-bootstrap 四层边界合同，明确 source repo internals / installed runtime / target repo artifacts / package CLI surface 的职责边界；同步修正 README/CLI help 口径，新增 runtime semantic drift 守卫与独立 installed-runtime 双宿主回归，拦截“把源码仓库内部路径误读成目标仓库前提”的在线误判 (user-visible)
@@ -11,7 +12,6 @@
 - v1.5.8 2026-04-22 11:40:00 矿工: docs(workflows): 继续增强 `.spec-first/workflows/` 产物目录映射文档，补充“阶段→读取方速查”和“如何判断产物是否有后续用途”两张总览表，并修正文档结构重复标题，方便快速判断 artifacts 的消费链与职责边界 (user-visible)
 - v1.5.8 2026-04-22 11:32:00 矿工: docs(workflows): 补充 `.spec-first/workflows/` 产物目录映射文档的“主要作用 / 后续消费位置”说明，明确各类 artifacts 不是只做落盘留痕，而会作为 Stage-0、verification、quality gate 与 workflow handoff 的后续输入 (user-visible)
 - v1.5.8 2026-04-22 11:20:00 矿工: docs(workflows): 新增 `.spec-first/workflows/` 产物目录映射文档，按表格梳理各子目录的写入阶段、触发方式、源码入口与主要产物，便于定位 bootstrap / quality-gates / spec-work / spec-review / verification 的落盘边界 (user-visible)
-- v1.5.8 2026-04-22 10:30:00 Codex: feat(spec-repo-profile-refresh): 新增 `spec-repo-profile-refresh` standalone skill，显式基于仓库事实与 `.spec-first/specs/repo-profile.yaml` 生成 repo-level 规范补全建议，并以 preview-first / confirm-then-apply 边界交付；同步补齐双宿主治理、prompt mirror 与合同测试 (user-visible)
 - v1.5.8 2026-04-21 23:50:00 Codex: fix(init): 收缩 `.spec-first/specs/repo-profile.yaml` seed 默认语义，去掉 `unknown` / 固定 summary fallback / 高误判 `project_type` 规则，并让 `spec-plan` 将空值按 absent 处理，降低 add-only 初稿的长期误导成本 (user-visible)
 - v1.5.8 2026-04-21 23:23:05 Codex: refactor(spec-graph-bootstrap): 将 `database-routing.json` 顶层 `recommended_action` / `blockers[]` 明确降格为 compatibility projection，并改为由候选级 facts 派生；主真源继续收敛到 `candidate_readiness`，降低顶层摘要被误当执行裁决面的风险 (user-visible)
 - v1.5.8 2026-04-21 22:50:06 Codex: feat(init): 在 `spec-first init --claude` / `--codex` 阶段新增 `.spec-first/specs/` shared spec seeds，写入 `repo-profile.yaml` 最小确定性初稿与 `README.md`，并让 `spec-plan` 将其作为可选 planning input 消费；继续保持 add-only、非 managed-state、非 hard-gate 边界 (user-visible)

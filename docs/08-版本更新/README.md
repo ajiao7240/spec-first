@@ -6,7 +6,6 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
-| 2026-04-22 | feat | `repo-profile-refresh-skill` | 新增 standalone skill `spec-repo-profile-refresh`，把 `.spec-first/specs/repo-profile.yaml` 的后续语义补全从 `init` 主链中拆出：默认 preview-first，显式确认后才 apply，只维护 `project_intent.summary / principles / non_negotiables / review_defaults` 等 repo-level normative scaffold，不写 runtime / workflow / gate state |
 | 2026-04-21 | docs | `bootstrap-database-handoff-doc-sync` | 同步刷新 `spec-graph-bootstrap` source/mirror skill、solution learning 与 contract test 的数据库 handoff 口径：明确 `database-routing.json` 中 `candidate_readiness` 才是主信息面板，顶层 `recommended_action` / `blockers[]` 只是 compatibility projection，避免 prompt / 文档继续沿用旧的 route/fallback/provenance 真源叙事 |
 | 2026-04-21 | refactor | `bootstrap-database-compatibility-projection` | 将 `database-routing.json` 顶层 `recommended_action` / `blockers[]` 明确降格为 compatibility projection：这两个字段继续保留以兼容旧消费方，但已经不再是主真源，而是从候选级 readiness / blockers facts 派生出来；真正的数据库 handoff 判断面继续收敛到 `candidate_readiness` |
 | 2026-04-21 | feat | `init-shared-spec-seeds` | `spec-first init --claude` / `--codex` 现在会同步创建 `.spec-first/specs/repo-profile.yaml` 与 `README.md`，为后续 workflow 提供统一的 repo-level shared spec seed；第一版只补最小低误导初稿，并让 `spec-plan` 将其作为 optional planning input 消费，继续保持 add-only、非 managed-state、非 hard-gate 的轻边界 |

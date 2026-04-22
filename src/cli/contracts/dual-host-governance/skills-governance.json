@@ -399,17 +399,6 @@
       }
     },
     {
-      "skill_name": "spec-repo-profile-refresh",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
-      }
-    },
-    {
       "skill_name": "spec-sessions",
       "entry_surface": "workflow_command",
       "command_name": "sessions",
