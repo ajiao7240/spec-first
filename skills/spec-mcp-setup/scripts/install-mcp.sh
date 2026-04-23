@@ -91,6 +91,9 @@ while IFS= read -r tool_id; do
   reason_code=""
   status="ready"
   next_action=""
+  configured_path=""
+  selected_scope=""
+  fallback_applied=false
 
   if [ "$install_kind" = "warmup" ]; then
     install_command="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .installation.unix.command' "$TOOLS_JSON")"
@@ -108,14 +111,24 @@ EOF
     fi
   fi
 
-  if [ "$status" = "ready" ] && ! "$SCRIPT_DIR/configure-host.sh" --tool "$tool_id"; then
-    if "$SCRIPT_DIR/repair-install.sh" --tool "$tool_id"; then
-      last_action="repaired"
+  if [ "$status" = "ready" ]; then
+    configure_output=""
+    if configure_output="$($SCRIPT_DIR/configure-host.sh --tool "$tool_id" 2>/dev/null)"; then
+      configured_path="$(jq -r '.configured_path // empty' <<<"$configure_output")"
+      selected_scope="$(jq -r '.selected_scope // empty' <<<"$configure_output")"
+      fallback_applied="$(jq -r '.fallback_applied // false' <<<"$configure_output")"
     else
-      status="action-required"
-      last_action="failed"
-      reason_code="configure_failed"
-      next_action="检查宿主 CLI 与配置写入权限"
+      if repair_output="$($SCRIPT_DIR/repair-install.sh --tool "$tool_id" 2>/dev/null)"; then
+        last_action="repaired"
+        configured_path="$(jq -r '.configured_path // empty' <<<"$repair_output")"
+        selected_scope="$(jq -r '.selected_scope // empty' <<<"$repair_output")"
+        fallback_applied="$(jq -r '.fallback_applied // false' <<<"$repair_output")"
+      else
+        status="action-required"
+        last_action="failed"
+        reason_code="configure_failed"
+        next_action="检查宿主 CLI 与配置写入权限"
+      fi
     fi
   fi
 
@@ -144,7 +157,10 @@ EOF
      --arg install_kind "$install_kind" \
      --arg reason_code "$reason_code" \
      --arg next_action "$next_action" \
-     '.results += [{tool_id:$id,status:$status,last_action:$last_action,install_kind:$install_kind,reason_code:$reason_code,next_action:$next_action}]' \
+     --arg configured_path "$configured_path" \
+     --arg selected_scope "$selected_scope" \
+     --argjson fallback_applied "$fallback_applied" \
+     '.results += [{tool_id:$id,status:$status,last_action:$last_action,install_kind:$install_kind,reason_code:$reason_code,next_action:$next_action,configured_path:$configured_path,selected_scope:$selected_scope,fallback_applied:$fallback_applied}]' \
      "$ledger_tmp" > "$ledger_tmp.next"
   mv "$ledger_tmp.next" "$ledger_tmp"
 done < <(jq -r '.tools[].id' "$TOOLS_JSON")

@@ -13,19 +13,14 @@ $projectFile = Join-Path $projectDir 'project.yml'
 $readyMarkerFile = if ($null -ne $serenaTool.project_bootstrap.ready_marker_file) { $serenaTool.project_bootstrap.ready_marker_file } else { '.serena/index-ready.json' }
 $readyMarkerPath = Join-Path $repoRoot $readyMarkerFile
 New-Item -ItemType Directory -Force -Path $projectDir | Out-Null
-if (-not (Test-Path $projectFile)) {
-  @(
-    "project_root: `"$repoRoot`"",
-    'created_by: spec-mcp-setup'
-  ) | Set-Content -Encoding utf8 $projectFile
-}
 if (Test-Path $readyMarkerPath) {
   Remove-Item -Force $readyMarkerPath
 }
+if (Test-Path $projectFile) {
+  Remove-Item -Force $projectFile
+}
 
-$indexCommand = $serenaTool.project_bootstrap.index_command.command
-$indexArgs = @($serenaTool.project_bootstrap.index_command.args)
-& $indexCommand @indexArgs | Out-Null
+& uvx --from git+https://github.com/oraios/serena serena project create $repoRoot --language typescript --language vue --language markdown --language yaml --language bash --index | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $readyMarkerPath) | Out-Null
 [ordered]@{
   project_root = $repoRoot

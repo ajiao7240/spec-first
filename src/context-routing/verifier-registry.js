@@ -23,7 +23,7 @@ const STATIC_VERIFIERS = [
     invocation_hints: {
       kind: 'standalone-skill',
       skill_name: 'test-browser',
-      setup_hint: 'spec:setup',
+      setup_hint: 'spec:mcp-setup',
       notes: 'Use for browser evidence on web surfaces; do not infer repo-specific commands here.',
     },
   },
@@ -44,7 +44,7 @@ const STATIC_VERIFIERS = [
     invocation_hints: {
       kind: 'standalone-skill',
       skill_name: 'test-xcode',
-      setup_hint: 'spec:setup',
+      setup_hint: 'spec:mcp-setup',
       notes: 'Use for simulator-backed iOS verification; keep scheme/build specifics outside the registry.',
     },
   },

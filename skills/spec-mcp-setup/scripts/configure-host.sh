@@ -11,6 +11,7 @@ SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
 HOST_INFO_JSON="$($SCRIPT_DIR/detect-host.sh)"
 HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
+SELECTED_SCOPE="$(jq -r '.selected_scope // empty' <<<"$HOST_INFO_JSON")"
 CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
 LOCK_FILE="${CONFIG_PATH}.lock"
 CONFIG_DIR="$(dirname "$CONFIG_PATH")"
@@ -29,10 +30,21 @@ while [[ $# -gt 0 ]]; do
 done
 
 [ -n "$TOOL_ID" ] || { echo '错误：缺少 --tool' >&2; exit 1; }
+[ -n "$SELECTED_SCOPE" ] || { echo '错误：未找到可用宿主配置目标' >&2; exit 1; }
 mkdir -p "$CONFIG_DIR"
 
 HOST_CONFIG_JSON=$(jq -c --arg id "$TOOL_ID" --arg host "$HOST" '.tools[] | select(.id == $id) | .host_config[$host]' "$TOOLS_JSON")
 [ -n "$HOST_CONFIG_JSON" ] && [ "$HOST_CONFIG_JSON" != "null" ] || { echo "错误：未找到 $TOOL_ID 的 host_config" >&2; exit 1; }
+
+RESOLVED_TOOL_CONFIG_JSON="$(jq -c --arg scope "$SELECTED_SCOPE" '{command, args} + (if has("startup_timeout_sec") then {startup_timeout_sec} else {} end) + {scope: $scope}' <<<"$HOST_CONFIG_JSON")"
+EXPECTED_COMMAND="$(jq -r '.command' <<<"$RESOLVED_TOOL_CONFIG_JSON")"
+EXPECTED_ARGS="$(jq -c '.args' <<<"$RESOLVED_TOOL_CONFIG_JSON")"
+DETECT_KIND="$(jq -r --arg id "$TOOL_ID" '.tools[] | select(.id == $id) | .detection.kind' "$TOOLS_JSON")"
+DETECT_KEY="$(jq -r --arg id "$TOOL_ID" '.tools[] | select(.id == $id) | .detection.key' "$TOOLS_JSON")"
+FALLBACK_APPLIED=false
+if [ "$HOST" = "claude" ] && [ "$SELECTED_SCOPE" != "managed" ]; then
+  FALLBACK_APPLIED=true
+fi
 
 extract_toml_section() {
   local section_name="$1"
@@ -44,38 +56,35 @@ extract_toml_section() {
 }
 
 tool_is_configured() {
-  local detect_kind detect_key expected_command expected_args block expected_args_count i expected_arg
-  detect_kind="$(jq -r --arg id "$TOOL_ID" '.tools[] | select(.id == $id) | .detection.kind' "$TOOLS_JSON")"
-  detect_key="$(jq -r --arg id "$TOOL_ID" '.tools[] | select(.id == $id) | .detection.key' "$TOOLS_JSON")"
-
+  local block expected_args_count i expected_arg
   [ -f "$CONFIG_PATH" ] || return 1
 
-  case "$detect_kind" in
+  case "$DETECT_KIND" in
     host_config_exact)
-      expected_command="$(jq -r '.command' <<<"$HOST_CONFIG_JSON")"
-      expected_args="$(jq -c '.args' <<<"$HOST_CONFIG_JSON")"
       if [ "$HOST" = "claude" ]; then
-        jq -e --arg key "$detect_key" --arg command "$expected_command" --argjson expected_args "$expected_args" '.mcpServers[$key].command == $command and (.mcpServers[$key].args // []) == $expected_args' "$CONFIG_PATH" >/dev/null 2>&1
+        jq -e --arg key "$DETECT_KEY" --arg command "$EXPECTED_COMMAND" --argjson expected_args "$EXPECTED_ARGS" '.mcpServers[$key].command == $command and (.mcpServers[$key].args // []) == $expected_args' "$CONFIG_PATH" >/dev/null 2>&1
         return
       fi
-      block="$(extract_toml_section "$detect_key")"
-      if [ -n "$block" ] && printf '%s\n' "$block" | grep -qF "command = \"$expected_command\""; then
-        expected_args_count="$(jq 'length' <<<"$expected_args")"
-        for i in $(seq 0 $((expected_args_count - 1))); do
-          expected_arg="$(jq -r ".[$i]" <<<"$expected_args")"
-          if ! printf '%s\n' "$block" | grep -qF -- "$expected_arg"; then
-            return 1
-          fi
-        done
+      block="$(extract_toml_section "$DETECT_KEY")"
+      if [ -n "$block" ] && printf '%s\n' "$block" | grep -qF "command = \"$EXPECTED_COMMAND\""; then
+        expected_args_count="$(jq 'length' <<<"$EXPECTED_ARGS")"
+        if [ "$expected_args_count" -gt 0 ]; then
+          for i in $(seq 0 $((expected_args_count - 1))); do
+            expected_arg="$(jq -r ".[$i]" <<<"$EXPECTED_ARGS")"
+            if ! printf '%s\n' "$block" | grep -qF -- "$expected_arg"; then
+              return 1
+            fi
+          done
+        fi
         return 0
       fi
       return 1
       ;;
     host_config_key_only)
       if [ "$HOST" = "claude" ]; then
-        jq -e --arg key "$detect_key" '.mcpServers[$key] != null' "$CONFIG_PATH" >/dev/null 2>&1
+        jq -e --arg key "$DETECT_KEY" '.mcpServers[$key] != null' "$CONFIG_PATH" >/dev/null 2>&1
       else
-        grep -qF "[mcp_servers.${detect_key}]" "$CONFIG_PATH" >/dev/null 2>&1
+        grep -qF "[mcp_servers.${DETECT_KEY}]" "$CONFIG_PATH" >/dev/null 2>&1
       fi
       ;;
     *)
@@ -155,9 +164,9 @@ PY
 
 write_codex_config() {
   local command args_json timeout section_body
-  command="$(jq -r '.command' <<<"$HOST_CONFIG_JSON")"
-  args_json="$(jq -c '.args' <<<"$HOST_CONFIG_JSON")"
-  timeout="$(jq -r '.startup_timeout_sec // empty' <<<"$HOST_CONFIG_JSON")"
+  command="$(jq -r '.command' <<<"$RESOLVED_TOOL_CONFIG_JSON")"
+  args_json="$(jq -c '.args' <<<"$RESOLVED_TOOL_CONFIG_JSON")"
+  timeout="$(jq -r '.startup_timeout_sec // empty' <<<"$RESOLVED_TOOL_CONFIG_JSON")"
   section_body="command = \"$command\"\nargs = $args_json"
   if [ -n "$timeout" ]; then
     section_body="$section_body\nstartup_timeout_sec = $timeout"
@@ -178,6 +187,7 @@ trap release_lock EXIT
 acquire_lock || { echo '错误：无法获取配置锁' >&2; exit 1; }
 
 if tool_is_configured; then
+  jq -n --arg tool_id "$TOOL_ID" --arg configured_path "$CONFIG_PATH" --arg selected_scope "$SELECTED_SCOPE" --argjson fallback_applied "$FALLBACK_APPLIED" '{tool_id:$tool_id,configured_path:$configured_path,selected_scope:$selected_scope,fallback_applied:$fallback_applied}'
   exit 0
 fi
 
@@ -190,11 +200,8 @@ else
   BACKUP_PATH="${CONFIG_PATH}.missing"
 fi
 
-resolved_config="$HOST_CONFIG_JSON"
-HOST_CONFIG_JSON="$resolved_config"
-
 if [ "$HOST" = "claude" ]; then
-  if ! write_claude_config "$HOST_CONFIG_JSON"; then
+  if ! write_claude_config "$RESOLVED_TOOL_CONFIG_JSON"; then
     restore_backup
     echo "错误：$TOOL_ID 写入宿主配置失败，已回滚" >&2
     exit 1
@@ -209,6 +216,7 @@ fi
 
 if tool_is_configured; then
   [ -f "$BACKUP_PATH" ] && rm -f "$BACKUP_PATH"
+  jq -n --arg tool_id "$TOOL_ID" --arg configured_path "$CONFIG_PATH" --arg selected_scope "$SELECTED_SCOPE" --argjson fallback_applied "$FALLBACK_APPLIED" '{tool_id:$tool_id,configured_path:$configured_path,selected_scope:$selected_scope,fallback_applied:$fallback_applied}'
   exit 0
 fi
 

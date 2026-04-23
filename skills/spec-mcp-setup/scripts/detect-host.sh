@@ -1,10 +1,43 @@
 #!/bin/bash
 # detect-host.sh - Detect the current host for MCP setup (Claude Code or Codex)
-# Output: JSON with host-specific paths and CLI metadata
+# Output: JSON with host-specific paths and Route B host facts
 
 set -euo pipefail
 
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILL_DIR="$(dirname "$SCRIPT_DIR")"
+TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
+
+resolve_path_template() {
+  local template="$1"
+  case "$template" in
+    '$HOME'*)
+      printf '%s%s' "$HOME" "${template#'$HOME'}"
+      ;;
+    *)
+      printf '%s' "$template"
+      ;;
+  esac
+}
+
+apply_target_override() {
+  local host="$1"
+  local target_key="$2"
+  local resolved_path="$3"
+  case "$host:$target_key" in
+    claude:managed)
+      printf '%s' "${MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE:-$resolved_path}"
+      ;;
+    codex:system)
+      printf '%s' "${MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE:-$resolved_path}"
+      ;;
+    *)
+      printf '%s' "$resolved_path"
+      ;;
+  esac
+}
 
 detect_host() {
   case "${MCP_SETUP_HOST:-}" in
@@ -59,21 +92,107 @@ detect_platform() {
   esac
 }
 
+find_existing_parent() {
+  local current="$1"
+  while [ "$current" != "/" ] && [ ! -e "$current" ]; do
+    current="$(dirname "$current")"
+  done
+  printf '%s' "$current"
+}
+
+can_write_target() {
+  local path="$1"
+  local check_mode="$2"
+  local parent existing_parent
+  parent="$(dirname "$path")"
+
+  if [ -e "$path" ]; then
+    [ -w "$path" ] && return 0
+    [ "$check_mode" = "parent-or-file" ] && [ -w "$parent" ] && return 0
+    return 1
+  fi
+
+  if [ "$check_mode" = "file-only" ]; then
+    return 1
+  fi
+
+  existing_parent="$(find_existing_parent "$parent")"
+  [ -d "$existing_parent" ] || return 1
+  [ -w "$existing_parent" ]
+}
+
+load_host_contract() {
+  local host="$1"
+  local contracts_json unique_count
+  contracts_json="$(jq -c --arg host "$host" '[.tools[] | .host_config[$host] | {scope, targets, fallback_order, uninstall_targets}]' "$TOOLS_JSON")"
+  unique_count="$(jq 'unique | length' <<<"$contracts_json")"
+  [ "$unique_count" = "1" ] || {
+    echo "错误：$host 宿主配置元数据在不同工具之间不一致，请先统一 mcp-tools.json" >&2
+    exit 1
+  }
+  jq -c '.[0]' <<<"$contracts_json"
+}
+
+build_target_json() {
+  local host_contract_json="$1"
+  local host="$2"
+  local platform="$3"
+  local target_key="$4"
+
+  local target_json raw_path resolved_path config_format precedence writable_check exists writable
+  target_json="$(jq -c --arg key "$target_key" '.targets[$key]' <<<"$host_contract_json")"
+  raw_path="$(jq -r '.config_path | if type == "object" then .[$platform] // empty else . end' --arg platform "$platform" <<<"$target_json")"
+  resolved_path="$(resolve_path_template "$raw_path")"
+  resolved_path="$(apply_target_override "$host" "$target_key" "$resolved_path")"
+  config_format="$(jq -r '.config_format' <<<"$target_json")"
+  precedence="$(jq -r '.precedence' <<<"$target_json")"
+  writable_check="$(jq -r '.writable_check // "parent-or-file"' <<<"$target_json")"
+
+  if [ -e "$resolved_path" ]; then
+    exists=true
+  else
+    exists=false
+  fi
+
+  if can_write_target "$resolved_path" "$writable_check"; then
+    writable=true
+  else
+    writable=false
+  fi
+
+  jq -n \
+    --arg key "$target_key" \
+    --arg config_path "$resolved_path" \
+    --arg config_format "$config_format" \
+    --argjson precedence "$precedence" \
+    --arg writable_check "$writable_check" \
+    --argjson exists "$exists" \
+    --argjson writable "$writable" \
+    '{
+      key: $key,
+      config_path: $config_path,
+      config_format: $config_format,
+      precedence: $precedence,
+      writable_check: $writable_check,
+      exists: $exists,
+      writable: $writable
+    }'
+}
+
 host="$(detect_host)"
 platform="$(detect_platform)"
+host_contract_json="$(load_host_contract "$host")"
 
 case "$host" in
   claude)
     cli_command="claude"
     display_name="Claude Code"
-    config_path="$HOME/.claude.json"
     marker_path="$HOME/.claude/spec-first/host-setup.json"
     config_format="json"
     ;;
   codex)
     cli_command="codex"
     display_name="Codex"
-    config_path="$HOME/.codex/config.toml"
     marker_path="$HOME/.codex/spec-first/host-setup.json"
     config_format="toml"
     ;;
@@ -83,6 +202,56 @@ case "$host" in
     ;;
 esac
 
+primary_scope="$(jq -r '.scope' <<<"$host_contract_json")"
+fallback_order_json="$(jq -c '.fallback_order // []' <<<"$host_contract_json")"
+uninstall_targets_json="$(jq -c '.uninstall_targets // []' <<<"$host_contract_json")"
+
+targets_json='{}'
+while IFS= read -r target_key; do
+  target_fact="$(build_target_json "$host_contract_json" "$host" "$platform" "$target_key")"
+  targets_json="$(jq --arg key "$target_key" --argjson value "$target_fact" '. + {($key): $value}' <<<"$targets_json")"
+done < <(jq -r '.targets | keys[]' <<<"$host_contract_json")
+
+selected_scope=""
+selected_target_json='null'
+while IFS= read -r scope_key; do
+  candidate="$(jq -c --arg key "$scope_key" '.[$key]' <<<"$targets_json")"
+  if [ "$candidate" != "null" ] && [ "$(jq -r '.writable' <<<"$candidate")" = "true" ]; then
+    selected_scope="$scope_key"
+    selected_target_json="$candidate"
+    break
+  fi
+done < <(jq -r '.[]' <<<"$fallback_order_json")
+
+if [ -z "$selected_scope" ]; then
+  selected_scope="$(jq -r '.[0] // empty' <<<"$fallback_order_json")"
+  if [ -n "$selected_scope" ]; then
+    selected_target_json="$(jq -c --arg key "$selected_scope" '.[$key]' <<<"$targets_json")"
+  fi
+fi
+
+config_path="$(jq -r '.config_path // empty' <<<"$selected_target_json")"
+selected_precedence="$(jq -r '.precedence // 0' <<<"$selected_target_json")"
+selected_writable="$(jq -r '.writable // false' <<<"$selected_target_json")"
+selected_exists="$(jq -r '.exists // false' <<<"$selected_target_json")"
+
+precedence_blocked=false
+precedence_blocking_scope=""
+precedence_blocking_path=""
+if [ "$host" = "codex" ]; then
+  while IFS= read -r target_key; do
+    [ "$target_key" = "$selected_scope" ] && continue
+    candidate="$(jq -c --arg key "$target_key" '.[$key]' <<<"$targets_json")"
+    [ "$candidate" = "null" ] && continue
+    if [ "$(jq -r '.exists' <<<"$candidate")" = "true" ] && [ "$(jq -r '.precedence' <<<"$candidate")" -gt "$selected_precedence" ]; then
+      precedence_blocked=true
+      precedence_blocking_scope="$target_key"
+      precedence_blocking_path="$(jq -r '.config_path' <<<"$candidate")"
+      break
+    fi
+  done < <(jq -r 'keys[]' <<<"$targets_json")
+fi
+
 jq -n \
   --arg host "$host" \
   --arg display_name "$display_name" \
@@ -91,12 +260,32 @@ jq -n \
   --arg marker_path "$marker_path" \
   --arg config_format "$config_format" \
   --arg platform "$platform" \
+  --arg primary_scope "$primary_scope" \
+  --arg selected_scope "$selected_scope" \
+  --argjson selected_writable "$selected_writable" \
+  --argjson selected_exists "$selected_exists" \
+  --argjson targets "$targets_json" \
+  --argjson fallback_order "$fallback_order_json" \
+  --argjson uninstall_targets "$uninstall_targets_json" \
+  --argjson precedence_blocked "$precedence_blocked" \
+  --arg precedence_blocking_scope "$precedence_blocking_scope" \
+  --arg precedence_blocking_path "$precedence_blocking_path" \
   '{
-    "host": $host,
-    "display_name": $display_name,
-    "cli_command": $cli_command,
-    "config_path": $config_path,
-    "marker_path": $marker_path,
-    "config_format": $config_format,
-    "platform": $platform
+    host: $host,
+    display_name: $display_name,
+    cli_command: $cli_command,
+    config_path: $config_path,
+    marker_path: $marker_path,
+    config_format: $config_format,
+    platform: $platform,
+    primary_scope: $primary_scope,
+    selected_scope: $selected_scope,
+    selected_writable: $selected_writable,
+    selected_exists: $selected_exists,
+    fallback_order: $fallback_order,
+    uninstall_targets: $uninstall_targets,
+    targets: $targets,
+    precedence_blocked: $precedence_blocked,
+    precedence_blocking_scope: $precedence_blocking_scope,
+    precedence_blocking_path: $precedence_blocking_path
   }'

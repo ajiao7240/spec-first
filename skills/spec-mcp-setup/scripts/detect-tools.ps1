@@ -10,6 +10,8 @@ $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
 $ConfigPath = $HostInfo.config_path
 $Platform = $HostInfo.platform
+$SelectedScope = $HostInfo.selected_scope
+$PrecedenceBlocked = [bool]$HostInfo.precedence_blocked
 $RepoRoot = try { git rev-parse --show-toplevel } catch { (Get-Location).Path }
 
 function Get-TomlSection {
@@ -34,7 +36,10 @@ function Get-DependencyStatus {
 
 function Get-HostConfigStatus {
   param([object]$Tool)
+  if ([string]::IsNullOrWhiteSpace($SelectedScope)) { return 'action-required' }
+  if ($PrecedenceBlocked) { return 'precedence-blocked' }
   if (-not (Test-Path $ConfigPath)) { return 'action-required' }
+
   $hostConfig = $Tool.host_config.$DetectedHost
   switch ($Tool.detection.kind) {
     'host_config_exact' {
@@ -49,7 +54,8 @@ function Get-HostConfigStatus {
         for ($i = 0; $i -lt $expectedArgs.Count; $i++) {
           if ($serverArgs[$i] -ne $expectedArgs[$i]) { return 'action-required' }
         }
-        return 'ready'
+        if ($SelectedScope -eq 'managed') { return 'ready' }
+        return 'fallback-active'
       }
       $section = Get-TomlSection -Path $ConfigPath -SectionName $Tool.detection.key
       if ([string]::IsNullOrWhiteSpace($section)) { return 'action-required' }
@@ -62,12 +68,14 @@ function Get-HostConfigStatus {
     'host_config_key_only' {
       if ($DetectedHost -eq 'claude') {
         $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
-        if ($null -ne $config.mcpServers.PSObject.Properties[$Tool.detection.key]) { return 'ready' }
-        return 'action-required'
+        if ($null -eq $config.mcpServers.PSObject.Properties[$Tool.detection.key]) { return 'action-required' }
+        if ($SelectedScope -eq 'managed') { return 'ready' }
+        return 'fallback-active'
       }
-      if (Select-String -Path $ConfigPath -SimpleMatch "[mcp_servers.$($Tool.detection.key)]" -Quiet) { 'ready' } else { 'action-required' }
+      if (Select-String -Path $ConfigPath -SimpleMatch "[mcp_servers.$($Tool.detection.key)]" -Quiet) { return 'ready' }
+      return 'action-required'
     }
-    default { 'action-required' }
+    default { return 'action-required' }
   }
 }
 
@@ -147,20 +155,24 @@ foreach ($tool in @($ToolsJson.tools)) {
   $nextAction = ''
   if ($dependencyStatus -ne 'ready') {
     $nextAction = 'install dependency'
-  } elseif ($hostConfigStatus -ne 'ready') {
+  } elseif ($hostConfigStatus -eq 'action-required') {
     $nextAction = 'configure host'
+  } elseif ($hostConfigStatus -eq 'precedence-blocked') {
+    $nextAction = 'review higher-precedence host config'
   } elseif ($projectStatus -eq 'pending') {
     $nextAction = 'bootstrap project'
   }
 
-  if ($tool.required -and ($dependencyStatus -ne 'ready' -or $hostConfigStatus -ne 'ready' -or ($projectStatus -ne 'ready' -and $projectStatus -ne 'not-applicable'))) {
+  if ($tool.required -and ($dependencyStatus -ne 'ready' -or (($hostConfigStatus -ne 'ready') -and ($hostConfigStatus -ne 'fallback-active')) -or (($projectStatus -ne 'ready') -and ($projectStatus -ne 'not-applicable')))) {
     $baselineReady = $false
     if ($overallStatus -eq 'ready') { $overallStatus = 'partial' }
   }
 
-  if ($dependencyStatus -eq 'missing' -or $hostConfigStatus -eq 'action-required') {
+  if ($tool.required -and ($dependencyStatus -eq 'missing' -or $hostConfigStatus -eq 'action-required' -or $hostConfigStatus -eq 'precedence-blocked')) {
     $overallStatus = 'action-required'
-  } elseif ($projectStatus -eq 'failed' -and $overallStatus -eq 'ready') {
+  } elseif ($tool.required -and $hostConfigStatus -eq 'fallback-active' -and $overallStatus -eq 'ready') {
+    $overallStatus = 'partial'
+  } elseif ($tool.required -and $projectStatus -eq 'failed' -and $overallStatus -eq 'ready') {
     $overallStatus = 'partial'
   }
 
@@ -171,6 +183,7 @@ foreach ($tool in @($ToolsJson.tools)) {
     dependency_status = $dependencyStatus
     host_config_status = $hostConfigStatus
     project_status = $projectStatus
+    selected_scope = $SelectedScope
     next_action = $nextAction
   }
 }

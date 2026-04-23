@@ -82,11 +82,10 @@ spec-first init --claude / --codex
 | `/spec:compound` | 将解决过的问题沉淀为可复用知识文档 |
 | `/spec:graph-bootstrap` | 稳定版项目上下文生成 |
 | `/spec:graph-bootstrap` | 图增强版项目上下文生成（CRG 驱动） |
-| `/spec:mcp-setup` | 一键安装 MCP 工具（context7/fetch/exa/memory/feishu） |
+| `/spec:mcp-setup` | 统一 setup 入口：repo-local preflight + MCP 工具安装与配置 |
 | `/spec:sessions` | 搜索和总结历史 coding agent 会话 |
 | `/spec:debug` | 结构化 debug 工作流 |
 | `/spec:update` | 更新 spec-first 版本 |
-| `/spec:setup` | 引导式初始化 |
 
 ---
 

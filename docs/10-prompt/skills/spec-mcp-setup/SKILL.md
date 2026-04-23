@@ -22,7 +22,16 @@ This workflow rebuilds the host MCP setup around a deterministic installer pipel
 | Context7 | Yes | Latest framework documentation lookup |
 | Playwright MCP | No | Frontend automation testing |
 
-The active host is detected automatically. Claude Code writes user-scoped MCP config to `~/.claude.json`; Codex writes user-scoped MCP config to `~/.codex/config.toml`. The host readiness ledger is written to the current host's `spec-first/host-setup.json` marker path.
+The active host is detected automatically. Claude Code now prefers the official managed MCP target (`managed-mcp.json`) and falls back to `~/.claude.json` when the managed target is not writable; Codex writes user-scoped MCP config to `~/.codex/config.toml` while also surfacing `/etc/codex/config.toml` precedence facts on Unix. The host readiness ledger is written to the current host's `spec-first/host-setup.json` marker path.
+
+Route B host facts intentionally expose:
+- selected scope (`managed` / `user`)
+- fallback order
+- uninstall targets
+- precedence-blocked facts for Codex
+- the exact config path chosen for this run
+
+This keeps one machine truth in `mcp-tools.json` and lets scripts stay deterministic.
 
 If both CLIs are present and no host hint is available, set `MCP_SETUP_HOST=claude|codex` explicitly; the workflow will not guess.
 
@@ -43,6 +52,53 @@ The current schema provides one machine truth for:
 - summary column order
 
 Do not create a second machine-readable registry for the same tool catalog in this workflow.
+
+---
+
+## Phase 0: Project / Repo Setup Preflight
+
+**Goal:** Reuse the migrated deterministic preflight to diagnose helper tools, legacy Compound Engineering residue, and repo-local `.spec-first` config before entering MCP baseline setup.
+
+### 0.1 Run Preflight Health Check
+
+Before running the script, tell the user:
+
+`Spec-First -- checking your environment...`
+
+macOS/Linux:
+```bash
+bash skills/spec-mcp-setup/scripts/check-health
+```
+
+Display the script output to the user verbatim.
+
+### 0.2 Use Preflight Output As The Only Phase-A Machine Input
+
+The migrated `check-health` script is the single deterministic input for this phase.
+
+Use it for:
+- helper tool detection and install suggestions (`agent-browser`, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`)
+- legacy Compound Engineering detection
+- `.spec-first/config.local.yaml` presence
+- `.spec-first/config.local.example.yaml` freshness
+- `.gitignore` coverage hints
+
+Do not:
+- add these helper tools to `mcp-tools.json`
+- merge these checks into `detect-tools.*`
+- invent a second preflight registry or metadata file
+- write any of these Phase-A states into the readiness ledger
+
+### 0.3 Handle Project / Repo Preflight Issues
+
+Continue to use the preflight output to drive user-confirmed actions for:
+- legacy CE cleanup guidance
+- `.spec-first/config.local.example.yaml` refresh from `skills/spec-mcp-setup/references/config-template.yaml`
+- `.spec-first/config.local.yaml` bootstrap from `skills/spec-mcp-setup/references/config-template.yaml`
+- `.gitignore` coverage prompt
+- helper tool installation guidance
+
+These remain Phase-A facts only. They do not change `baseline_ready`.
 
 ---
 
@@ -149,10 +205,26 @@ Expected output shape:
 Per-tool fields explain where readiness stops:
 - `dependency_status`
 - `host_config_status`
+- `selected_scope`
 - `project_status`
 - `next_action`
 
+`host_config_status` meanings:
+- `ready` — preferred target configured and effective
+- `fallback-active` — Claude fell back from `managed-mcp.json` to `~/.claude.json`, but the baseline is still usable
+- `precedence-blocked` — Codex user config exists, but a higher-precedence config file may override it
+- `action-required` — no usable host config detected
+
 `crg.cli_status` and `crg.native_modules_status` remain downstream machine facts for graph bootstrap decisions.
+
+For Route B host selection, `detect-host.*` also exposes:
+- target map and writable facts
+- fallback order
+- uninstall targets
+- configured path for this run
+- Codex precedence-blocked facts
+
+These stay machine-readable only; the workflow still keeps a single registry in `mcp-tools.json`.
 
 ---
 
@@ -202,9 +274,120 @@ Do not treat optional-tool selection as implied by `custom` mode alone; pass the
 
 ### 3.3 Host Config Writing
 
-`configure-host.*` writes the selected tool into the host config:
-- Claude Code → `~/.claude.json`
-- Codex → `~/.codex/config.toml`
+`configure-host.*` writes the selected tool into the host config selected by `detect-host.*`:
+- Claude Code → prefer official `managed-mcp.json`, fall back to `~/.claude.json` when the managed target is not writable
+- Codex → write `~/.codex/config.toml`, but also surface Unix `/etc/codex/config.toml` precedence facts
+
+The write result must expose:
+- `configured_path`
+- `selected_scope`
+- `fallback_applied`
+
+Keep host-specific path resolution, fallback logic, uninstall target handling, and same-name replacement logic in scripts, not in the prose.
+
+### 3.3a Uninstall Path
+
+Route B adds a deterministic uninstall path:
+- macOS/Linux: `bash skills/spec-mcp-setup/scripts/uninstall-mcp.sh [--tool <tool-id>]`
+- Windows: `pwsh -File skills/spec-mcp-setup/scripts/uninstall-mcp.ps1 [-Tool <tool-id>]`
+
+Uninstall removes the named MCP entry from every declared uninstall target for the current host. It does not introduce a second registry.
+
+If no tool id is passed, uninstall removes all tools declared in `mcp-tools.json` for the current host.
+
+Keep uninstall bounded to host config cleanup only; it must not delete repo bootstrap files or invent extra cleanup heuristics.
+
+### 3.3b Preferred Target Semantics
+
+For Claude Code:
+- preferred target = managed MCP config
+- fallback target = user config
+- `fallback-active` still counts as usable baseline when required tools and project bootstrap are ready
+
+For Codex:
+- write target = user config
+- higher-precedence Unix config is advisory-only machine fact
+- `precedence-blocked` means the user config entry exists but may not be effective
+
+Do not collapse these distinctions into a single boolean.
+
+### 3.3c Managed Path Notes
+
+Claude managed MCP target paths:
+- macOS: `/Library/Application Support/ClaudeCode/managed-mcp.json`
+- Linux / WSL: `/etc/claude-code/managed-mcp.json`
+- Windows: `C:\Program Files\ClaudeCode\managed-mcp.json`
+
+Codex precedence note:
+- Unix may also have `/etc/codex/config.toml`
+- Route B surfaces this as precedence fact instead of guessing whether user config is authoritative
+
+Keep `managed-mcp.json` and `/etc/codex/config.toml` wording aligned across source docs, mirrors, tests, and reference.
+
+Keep host-specific wrapping logic there, not in the prose.
+
+### 3.3d Context7 Note
+
+Context7 remains part of the same unified installer metadata source and continues to use `@upstash/context7-mcp` in the deterministic pipeline. Do not split it into a second setup flow.
+
+### 3.3e Verify the Write Surface
+
+After `configure-host.*`, the workflow should be able to explain:
+- where it wrote
+- whether fallback happened
+- whether a higher-precedence file exists
+- whether uninstall will need to clean one target or multiple targets
+
+These are Route B machine facts, not human-only summary text.
+
+### 3.3f Do Not Add A Second Registry
+
+Do not add:
+- a second uninstall registry
+- a separate managed-path catalog
+- a parallel host-target metadata file
+- a Context7-only installer definition
+
+All of these facts stay inside `skills/spec-mcp-setup/mcp-tools.json`.
+
+### 3.3g Host Config Status Projection
+
+When summarizing readiness:
+- `ready` and `fallback-active` both mean the write path succeeded
+- `precedence-blocked` means human attention is required before claiming the config is effective
+- `action-required` means the host config layer is still missing or invalid
+
+This projection belongs in `detect-tools.*` / `verify-tools.*`, not in a second rule engine.
+
+### 3.3h Bounded Repair
+
+`repair-install.*` may reuse the same host facts and rerun `configure-host.*`, but should not start open-ended filesystem surgery or guess undocumented host paths.
+
+### 3.3i Table Output Contract
+
+When showing final machine-derived summary, keep the existing columns:
+
+```text
+Tool | Required | Dependency | Host Config | Project Bootstrap | Result | Next Action
+```
+
+The `Host Config` column may now contain `ready`, `fallback-active`, or `precedence-blocked`.
+
+### 3.3j Downstream Compatibility
+
+Downstream consumers such as graph bootstrap should keep reading the readiness ledger v1 shape, but now interpret the richer `host_config_status` values rather than assuming only `ready` / `action-required`.
+
+### 3.3k Verify Current Host Marker Stability
+
+Even with Route B changes, keep the readiness ledger marker paths stable:
+- Claude Code: `~/.claude/spec-first/host-setup.json`
+- Codex: `~/.codex/spec-first/host-setup.json`
+
+Do not move marker paths just because host config targets changed.
+
+### 3.3l Summary Rule
+
+The workflow may prefer the managed target, fall back to user target, and expose precedence facts, but it still reports one deterministic selected write target per run.
 
 Keep host-specific wrapping logic there, not in the prose.
 
@@ -282,7 +465,7 @@ The final ledger answers:
 
 ### 4.2 Ledger Semantics
 
-`baseline_ready=true` means the required host baseline is ready.
+`baseline_ready=true` means the required MCP baseline is ready.
 
 `overall_status` is one of:
 - `ready`
@@ -348,9 +531,9 @@ Recommended next steps after success:
 - CRG CLI availability and native module health facts
 - User interaction and progress feedback
 - macOS/Linux/WSL/Windows support
+- bounded MCP tool uninstallation via `uninstall-mcp.*`
 
 **Excludes:**
-- MCP tool uninstallation
 - MCP tool update/upgrade
 - Custom MCP tool configuration parameters outside the tool registry
 - Tools not in the active installer metadata source
@@ -380,14 +563,16 @@ The readiness ledger is host-specific:
     "serena": {
       "required": true,
       "dependency_status": "ready",
-      "host_config_status": "ready",
+      "host_config_status": "fallback-active",
+      "selected_scope": "user",
       "project_status": "failed",
       "next_action": "bootstrap project"
     },
     "context7": {
       "required": true,
       "dependency_status": "ready",
-      "host_config_status": "ready",
+      "host_config_status": "fallback-active",
+      "selected_scope": "user",
       "project_status": "not-applicable",
       "next_action": ""
     }
@@ -422,8 +607,8 @@ For full tool descriptions and host-specific notes, use `references/supported-mc
 
 - Supported tool catalog: `skills/spec-mcp-setup/references/supported-mcp-tools.md`
 - Tool metadata source: `skills/spec-mcp-setup/mcp-tools.json`
-- Unix entrypoints: `install-mcp.sh`, `configure-host.sh`, `repair-install.sh`, `activate-serena.sh`, `verify-tools.sh`
-- Windows entrypoints: `install-mcp.ps1`, `configure-host.ps1`, `repair-install.ps1`, `activate-serena.ps1`, `verify-tools.ps1`
+- Unix entrypoints: `install-mcp.sh`, `configure-host.sh`, `repair-install.sh`, `activate-serena.sh`, `verify-tools.sh`, `uninstall-mcp.sh`
+- Windows entrypoints: `install-mcp.ps1`, `configure-host.ps1`, `repair-install.ps1`, `activate-serena.ps1`, `verify-tools.ps1`, `uninstall-mcp.ps1`
 - Downstream consumer: `skills/spec-graph-bootstrap/SKILL.md`
 - Runtime command metadata: `templates/claude/commands/spec/mcp-setup.md`
 

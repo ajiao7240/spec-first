@@ -35,8 +35,8 @@ These are **not** substantial work:
 Use a decision tree, not a blanket “brainstorm first” rule.
 
 1. If the request is about environment setup, host setup, or MCP setup, route to:
-   - Claude: `/spec:setup`
-   - Codex: `$spec-setup`
+   - Claude: `/spec:mcp-setup`
+   - Codex: `$spec-mcp-setup`
    - Or the relevant setup standalone skill when the request is skill-scoped rather than workflow-scoped.
 2. If the request is about updating or refreshing runtime assets, route to:
    - Claude: `/spec:update`
@@ -51,19 +51,22 @@ Use a decision tree, not a blanket “brainstorm first” rule.
    - Claude: `/spec:review`
    - Codex: `$spec-review`
    - Or `document-review` when the work is explicitly document-review scoped.
-6. If the goal is graph bootstrap or context-building, route to:
+6. If the goal is graph bootstrap, context-building, or creating new durable docs/learnings/pattern docs, route to:
    - Claude: `/spec:graph-bootstrap` or `/spec:compound`
    - Codex: `$spec-graph-bootstrap` or `$spec-compound`
-7. If the user is still defining WHAT to build, or scope/requirements are genuinely unclear, route to:
+7. If the request is to refresh, correct, merge, replace, or retire existing durable docs/learnings/pattern docs, route to:
+   - Claude: `/spec:compound-refresh`
+   - Codex: `$spec-compound-refresh`
+8. If the user is still defining WHAT to build, or scope/requirements are genuinely unclear, route to:
    - Claude: `/spec:brainstorm` or `/spec:ideate`
    - Codex: `$spec-brainstorm` or `$spec-ideate`
-8. If the desired outcome is already clear and the user needs an execution plan, route to:
+9. If the desired outcome is already clear and the user needs an execution plan, route to:
    - Claude: `/spec:plan`
    - Codex: `$spec-plan`
-9. If there is already a plan or the implementation task is clear enough to execute, route to:
+10. If there is already a plan or the implementation task is clear enough to execute, route to:
    - Claude: `/spec:work`
    - Codex: `$spec-work`
-10. If none of the above applies, do not force the request into `spec-first`.
+11. If none of the above applies, do not force the request into `spec-first`.
 
 ## Hard Rules
 

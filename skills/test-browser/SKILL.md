@@ -36,7 +36,7 @@ npm install -g agent-browser
 agent-browser install
 ```
 
-If installation is blocked by environment permissions, ask the user to run `/spec:setup` to provision dependencies, then re-run this skill.
+If installation is blocked by environment permissions, ask the user to run `/spec:mcp-setup` to provision dependencies, then re-run this skill.
 
 See the `agent-browser` skill for detailed usage.
 

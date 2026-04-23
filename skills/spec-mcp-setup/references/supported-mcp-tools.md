@@ -20,6 +20,14 @@ The machine-truth tool registry remains `skills/spec-mcp-setup/mcp-tools.json`.
 | Context7 | Yes | Standard MCP entry | No | framework docs lookup |
 | Playwright MCP | No | Host MCP config only | No | browser / frontend automation |
 
+## Host Target Notes
+
+Route B keeps one machine-readable registry in `mcp-tools.json` and projects these host facts:
+- Claude Code prefers official `managed-mcp.json` and may fall back to `~/.claude.json`
+- Codex writes user config at `~/.codex/config.toml`
+- Unix Codex also surfaces `/etc/codex/config.toml` as precedence fact
+- uninstall removes entries from every declared uninstall target for the current host
+
 ## Readiness Signals
 
 The host readiness ledger at the current host's `spec-first/host-setup.json` answers four questions:
@@ -34,11 +42,18 @@ The most important fields are:
 - `baseline_ready`
 - `tools.<tool>.dependency_status`
 - `tools.<tool>.host_config_status`
+- `tools.<tool>.selected_scope`
 - `tools.<tool>.project_status`
 - `tools.<tool>.next_action`
 - `crg.cli_status`
 - `crg.native_modules_status`
 - `next_actions[]`
+
+`host_config_status` now means:
+- `ready`
+- `fallback-active`
+- `precedence-blocked`
+- `action-required`
 
 ## Serena Notes
 

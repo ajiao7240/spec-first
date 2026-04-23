@@ -42,7 +42,7 @@ describe('verification gate state contract', () => {
           {
             verifier: 'test-browser',
             target_verifications: ['browser-smoke', 'browser-evidence'],
-            setup_hint: 'spec:setup',
+            setup_hint: 'spec:mcp-setup',
             prerequisite: 'agent-browser',
             kind: 'missing-command',
             reason: 'command-not-found-in-path',

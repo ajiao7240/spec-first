@@ -1,5 +1,5 @@
 ---
-description: "One-click MCP tools installation and configuration for spec-first workflows"
+description: "Unified setup entrypoint for repo preflight and MCP tools installation for spec-first workflows"
 argument-hint: "[quick|custom]"
 ---
 

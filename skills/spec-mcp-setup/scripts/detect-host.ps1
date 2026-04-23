@@ -3,6 +3,10 @@ param()
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$SkillDir = Split-Path -Parent $ScriptDir
+$ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json -AsHashtable
+
 function Test-CommandExists {
   param([string]$Name)
   return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
@@ -37,22 +41,120 @@ function Get-DetectedHost {
   throw '错误：无法自动识别宿主。请显式设置 MCP_SETUP_HOST=claude 或 MCP_SETUP_HOST=codex 后再运行。'
 }
 
-$detectedHost = Get-DetectedHost
+function Resolve-PathTemplate {
+  param([string]$Template)
+  if ($Template.StartsWith('$HOME')) {
+    return $HOME + $Template.Substring(5)
+  }
+  return $Template
+}
 
+function Get-ExistingParent {
+  param([string]$Path)
+  $current = $Path
+  while (-not [string]::IsNullOrWhiteSpace($current) -and -not (Test-Path $current)) {
+    $next = Split-Path -Parent $current
+    if ($next -eq $current) { break }
+    $current = $next
+  }
+  return $current
+}
+
+function Test-TargetWritable {
+  param(
+    [string]$Path,
+    [string]$CheckMode
+  )
+
+  if (Test-Path $Path) {
+    try {
+      $item = Get-Item $Path -ErrorAction Stop
+      if (-not $item.PSIsContainer) {
+        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
+        $stream.Dispose()
+        return $true
+      }
+    } catch {
+      if ($CheckMode -ne 'parent-or-file') { return $false }
+    }
+  }
+
+  if ($CheckMode -eq 'file-only' -and -not (Test-Path $Path)) {
+    return $false
+  }
+
+  $parent = Split-Path -Parent $Path
+  $existingParent = Get-ExistingParent $parent
+  if ([string]::IsNullOrWhiteSpace($existingParent) -or -not (Test-Path $existingParent)) {
+    return $false
+  }
+
+  $probe = Join-Path $existingParent ('.write-test-' + [guid]::NewGuid().ToString('N'))
+  try {
+    [System.IO.File]::WriteAllText($probe, '')
+    Remove-Item -Force $probe -ErrorAction SilentlyContinue
+    return $true
+  } catch {
+    return $false
+  }
+}
+
+function Get-HostContract {
+  param([string]$Host)
+  $contracts = @($ToolsJson.tools | ForEach-Object {
+    $cfg = $_.host_config[$Host]
+    [ordered]@{
+      scope = $cfg.scope
+      targets = $cfg.targets
+      fallback_order = $cfg.fallback_order
+      uninstall_targets = $cfg.uninstall_targets
+    } | ConvertTo-Json -Depth 20 -Compress
+  })
+  $uniqueContracts = @($contracts | Select-Object -Unique)
+  if ($uniqueContracts.Count -ne 1) {
+    throw "错误：$Host 宿主配置元数据在不同工具之间不一致，请先统一 mcp-tools.json"
+  }
+  return ($uniqueContracts[0] | ConvertFrom-Json -AsHashtable)
+}
+
+function Get-TargetFact {
+  param(
+    [hashtable]$HostContract,
+    [string]$Platform,
+    [string]$TargetKey
+  )
+
+  $target = $HostContract.targets[$TargetKey]
+  $rawPath = if ($target.config_path -is [hashtable]) { $target.config_path[$Platform] } else { $target.config_path }
+  $resolvedPath = Resolve-PathTemplate $rawPath
+  $exists = Test-Path $resolvedPath
+  $writableCheck = if ($target.ContainsKey('writable_check')) { $target.writable_check } else { 'parent-or-file' }
+  $writable = Test-TargetWritable -Path $resolvedPath -CheckMode $writableCheck
+
+  return [ordered]@{
+    key = $TargetKey
+    config_path = $resolvedPath
+    config_format = $target.config_format
+    precedence = [int]$target.precedence
+    writable_check = $writableCheck
+    exists = [bool]$exists
+    writable = [bool]$writable
+  }
+}
+
+$detectedHost = Get-DetectedHost
 $platform = if ($IsWindows) { 'windows' } elseif ($IsMacOS) { 'macos' } elseif ($IsLinux) { 'linux' } else { 'unknown' }
 
 switch ($detectedHost) {
   'claude' {
     $cliCommand = 'claude'
     $displayName = 'Claude Code'
-    $configPath = [System.IO.Path]::Combine($HOME, '.claude.json')
     $markerPath = [System.IO.Path]::Combine($HOME, '.claude', 'spec-first', 'host-setup.json')
     $configFormat = 'json'
   }
   'codex' {
     $cliCommand = 'codex'
     $displayName = 'Codex'
-    $configPath = [System.IO.Path]::Combine($HOME, '.codex', 'config.toml')
     $markerPath = [System.IO.Path]::Combine($HOME, '.codex', 'spec-first', 'host-setup.json')
     $configFormat = 'toml'
   }
@@ -61,12 +163,61 @@ switch ($detectedHost) {
   }
 }
 
+$hostContract = Get-HostContract $detectedHost
+$primaryScope = $hostContract.scope
+$fallbackOrder = @($hostContract.fallback_order)
+$uninstallTargets = @($hostContract.uninstall_targets)
+$targets = [ordered]@{}
+foreach ($targetKey in $hostContract.targets.Keys) {
+  $targets[$targetKey] = Get-TargetFact -HostContract $hostContract -Platform $platform -TargetKey $targetKey
+}
+
+$selectedScope = ''
+$selectedTarget = $null
+foreach ($scopeKey in $fallbackOrder) {
+  $candidate = $targets[$scopeKey]
+  if ($null -ne $candidate -and $candidate.writable) {
+    $selectedScope = $scopeKey
+    $selectedTarget = $candidate
+    break
+  }
+}
+if ([string]::IsNullOrWhiteSpace($selectedScope) -and $fallbackOrder.Count -gt 0) {
+  $selectedScope = $fallbackOrder[0]
+  $selectedTarget = $targets[$selectedScope]
+}
+
+$precedenceBlocked = $false
+$precedenceBlockingScope = ''
+$precedenceBlockingPath = ''
+if ($detectedHost -eq 'codex' -and $null -ne $selectedTarget) {
+  foreach ($entry in $targets.GetEnumerator()) {
+    if ($entry.Key -eq $selectedScope) { continue }
+    if ($entry.Value.exists -and [int]$entry.Value.precedence -gt [int]$selectedTarget.precedence) {
+      $precedenceBlocked = $true
+      $precedenceBlockingScope = $entry.Key
+      $precedenceBlockingPath = $entry.Value.config_path
+      break
+    }
+  }
+}
+
 [pscustomobject]@{
   host = $detectedHost
   display_name = $displayName
   cli_command = $cliCommand
-  config_path = $configPath
+  config_path = if ($null -ne $selectedTarget) { $selectedTarget.config_path } else { '' }
   marker_path = $markerPath
   config_format = $configFormat
   platform = $platform
-} | ConvertTo-Json -Compress
+  primary_scope = $primaryScope
+  selected_scope = $selectedScope
+  selected_writable = if ($null -ne $selectedTarget) { [bool]$selectedTarget.writable } else { $false }
+  selected_exists = if ($null -ne $selectedTarget) { [bool]$selectedTarget.exists } else { $false }
+  fallback_order = @($fallbackOrder)
+  uninstall_targets = @($uninstallTargets)
+  targets = $targets
+  precedence_blocked = [bool]$precedenceBlocked
+  precedence_blocking_scope = $precedenceBlockingScope
+  precedence_blocking_path = $precedenceBlockingPath
+} | ConvertTo-Json -Depth 8 -Compress

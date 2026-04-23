@@ -53,6 +53,9 @@ foreach ($tool in @($ToolsJson.tools)) {
   $lastAction = 'installed'
   $reasonCode = ''
   $nextAction = ''
+  $configuredPath = ''
+  $selectedScope = ''
+  $fallbackApplied = $false
 
   if ($tool.installation.kind -eq 'warmup') {
     try {
@@ -67,11 +70,17 @@ foreach ($tool in @($ToolsJson.tools)) {
 
   if ($status -eq 'ready') {
     try {
-      & (Join-Path $ScriptDir 'configure-host.ps1') -Tool $tool.id | Out-Null
+      $configureResult = & (Join-Path $ScriptDir 'configure-host.ps1') -Tool $tool.id | ConvertFrom-Json
+      $configuredPath = $configureResult.configured_path
+      $selectedScope = $configureResult.selected_scope
+      $fallbackApplied = [bool]$configureResult.fallback_applied
     } catch {
       try {
-        & (Join-Path $ScriptDir 'repair-install.ps1') -Tool $tool.id | Out-Null
+        $repairResult = & (Join-Path $ScriptDir 'repair-install.ps1') -Tool $tool.id | ConvertFrom-Json
         $lastAction = 'repaired'
+        $configuredPath = $repairResult.configured_path
+        $selectedScope = $repairResult.selected_scope
+        $fallbackApplied = [bool]$repairResult.fallback_applied
       } catch {
         $status = 'action-required'
         $lastAction = 'failed'
@@ -104,6 +113,9 @@ foreach ($tool in @($ToolsJson.tools)) {
     install_kind = $tool.installation.kind
     reason_code = $reasonCode
     next_action = $nextAction
+    configured_path = $configuredPath
+    selected_scope = $selectedScope
+    fallback_applied = [bool]$fallbackApplied
   })
 }
 

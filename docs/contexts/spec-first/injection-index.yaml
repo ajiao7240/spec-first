@@ -5,11 +5,9 @@ always:
 stages:
   plan:
     - architecture/module-map.md
-    - 00-summary.md
   work:
     - code-facts/test-map.md
     - context-packs/review-change.md
-    - code-facts/high-risk-modules.md
   review:
     - code-facts/high-risk-modules.md
     - pitfalls/index.md
@@ -22,14 +20,12 @@ selection_rules:
   - condition: "output_exists.code_facts_public_entrypoints"
     inject:
       - code-facts/public-entrypoints.md
-  - condition: "output_exists.code_facts_high_risk_modules"
+  - condition: "fact.graph_support_state == 'local-available'"
     inject:
+      - architecture/module-map.md
       - code-facts/high-risk-modules.md
-  - condition: "output_exists.context_packs_review_change"
-    inject:
-      - context-packs/review-change.md
 
 advice:
-  review: "优先 code-facts 与 risk signals，再回读 narrative summary。"
-  work: "优先 test-map 与 review-change，定位改动风险和验证面。"
-  plan: "优先 module-map 与 public-entrypoints，先建立模块边界与入口心智。"
+  review: "优先 code-facts 和 risk signals，再回读 narrative summary"
+  work: "优先 test-map 与 review-change，定位改动风险和验证面"
+  plan: "优先 module-map 与 public-entrypoints，先建立模块边界与入口心智"

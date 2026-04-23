@@ -18,6 +18,8 @@ If the task is experiment-driven optimization against a stable measurement harne
 
 **Beta rollout note:** Invoke `spec:work-beta` manually when you want to trial Codex delegation. During the beta period, planning and workflow handoffs remain pointed at stable `spec:work` to avoid dual-path orchestration complexity.
 
+**Graduation guidance:** Backport beta-only workflow behavior to stable `spec:work` only when the added contract has proven stable, downstream entrypoints and handoffs are ready to move with it, and the stable backport can be revalidated through the existing verification chain in one pass.
+
 ## Input Document
 
 <input_document> #$ARGUMENTS </input_document>

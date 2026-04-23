@@ -32,7 +32,7 @@ describe('test-browser contracts', () => {
 
     expect(skill).toContain('npm install -g agent-browser');
     expect(skill).toContain('agent-browser install');
-    expect(skill).toContain('run `/spec:setup` to provision dependencies');
+    expect(skill).toContain('run `/spec:mcp-setup` to provision dependencies');
     expect(skill).toContain('If installation fails, inform the user and stop.');
 
     expect(skill).not.toContain('/ce-setup');

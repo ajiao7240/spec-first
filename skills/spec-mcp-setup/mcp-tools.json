@@ -1,5 +1,5 @@
 {
-  "schema_version": "2",
+  "schema_version": "3",
   "summary_columns": [
     "tool",
     "required",
@@ -32,13 +32,50 @@
         "claude": {
           "command": "uvx",
           "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"],
-          "scope": "user"
+          "scope": "managed",
+          "targets": {
+            "managed": {
+              "config_path": {
+                "macos": "/Library/Application Support/ClaudeCode/managed-mcp.json",
+                "linux": "/etc/claude-code/managed-mcp.json",
+                "wsl": "/etc/claude-code/managed-mcp.json",
+                "windows": "C:\\Program Files\\ClaudeCode\\managed-mcp.json"
+              },
+              "config_format": "json",
+              "precedence": 100,
+              "writable_check": "parent-or-file"
+            },
+            "user": {
+              "config_path": "$HOME/.claude.json",
+              "config_format": "json",
+              "precedence": 10,
+              "writable_check": "parent-or-file"
+            }
+          },
+          "fallback_order": ["managed", "user"],
+          "uninstall_targets": ["managed", "user"]
         },
         "codex": {
           "command": "uvx",
           "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "codex", "--open-web-dashboard", "false"],
           "startup_timeout_sec": 90,
-          "scope": "user"
+          "scope": "user",
+          "targets": {
+            "user": {
+              "config_path": "$HOME/.codex/config.toml",
+              "config_format": "toml",
+              "precedence": 50,
+              "writable_check": "parent-or-file"
+            },
+            "system": {
+              "config_path": "/etc/codex/config.toml",
+              "config_format": "toml",
+              "precedence": 100,
+              "writable_check": "file-only"
+            }
+          },
+          "fallback_order": ["user"],
+          "uninstall_targets": ["user", "system"]
         }
       },
       "detection": {
@@ -52,7 +89,7 @@
         "ready_marker_file": ".serena/index-ready.json",
         "index_command": {
           "command": "uvx",
-          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "project", "index"]
+          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "project", "create", ".", "--language", "typescript", "--language", "vue", "--language", "markdown", "--language", "yaml", "--language", "bash", "--index"]
         }
       }
     },
@@ -78,12 +115,49 @@
         "claude": {
           "command": "npx",
           "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
-          "scope": "user"
+          "scope": "managed",
+          "targets": {
+            "managed": {
+              "config_path": {
+                "macos": "/Library/Application Support/ClaudeCode/managed-mcp.json",
+                "linux": "/etc/claude-code/managed-mcp.json",
+                "wsl": "/etc/claude-code/managed-mcp.json",
+                "windows": "C:\\Program Files\\ClaudeCode\\managed-mcp.json"
+              },
+              "config_format": "json",
+              "precedence": 100,
+              "writable_check": "parent-or-file"
+            },
+            "user": {
+              "config_path": "$HOME/.claude.json",
+              "config_format": "json",
+              "precedence": 10,
+              "writable_check": "parent-or-file"
+            }
+          },
+          "fallback_order": ["managed", "user"],
+          "uninstall_targets": ["managed", "user"]
         },
         "codex": {
           "command": "npx",
           "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
-          "scope": "user"
+          "scope": "user",
+          "targets": {
+            "user": {
+              "config_path": "$HOME/.codex/config.toml",
+              "config_format": "toml",
+              "precedence": 50,
+              "writable_check": "parent-or-file"
+            },
+            "system": {
+              "config_path": "/etc/codex/config.toml",
+              "config_format": "toml",
+              "precedence": 100,
+              "writable_check": "file-only"
+            }
+          },
+          "fallback_order": ["user"],
+          "uninstall_targets": ["user", "system"]
         }
       },
       "detection": {
@@ -117,12 +191,49 @@
         "claude": {
           "command": "npx",
           "args": ["-y", "@upstash/context7-mcp"],
-          "scope": "user"
+          "scope": "managed",
+          "targets": {
+            "managed": {
+              "config_path": {
+                "macos": "/Library/Application Support/ClaudeCode/managed-mcp.json",
+                "linux": "/etc/claude-code/managed-mcp.json",
+                "wsl": "/etc/claude-code/managed-mcp.json",
+                "windows": "C:\\Program Files\\ClaudeCode\\managed-mcp.json"
+              },
+              "config_format": "json",
+              "precedence": 100,
+              "writable_check": "parent-or-file"
+            },
+            "user": {
+              "config_path": "$HOME/.claude.json",
+              "config_format": "json",
+              "precedence": 10,
+              "writable_check": "parent-or-file"
+            }
+          },
+          "fallback_order": ["managed", "user"],
+          "uninstall_targets": ["managed", "user"]
         },
         "codex": {
           "command": "npx",
           "args": ["-y", "@upstash/context7-mcp"],
-          "scope": "user"
+          "scope": "user",
+          "targets": {
+            "user": {
+              "config_path": "$HOME/.codex/config.toml",
+              "config_format": "toml",
+              "precedence": 50,
+              "writable_check": "parent-or-file"
+            },
+            "system": {
+              "config_path": "/etc/codex/config.toml",
+              "config_format": "toml",
+              "precedence": 100,
+              "writable_check": "file-only"
+            }
+          },
+          "fallback_order": ["user"],
+          "uninstall_targets": ["user", "system"]
         }
       },
       "detection": {
@@ -156,12 +267,49 @@
         "claude": {
           "command": "npx",
           "args": ["-y", "@playwright/mcp@latest"],
-          "scope": "user"
+          "scope": "managed",
+          "targets": {
+            "managed": {
+              "config_path": {
+                "macos": "/Library/Application Support/ClaudeCode/managed-mcp.json",
+                "linux": "/etc/claude-code/managed-mcp.json",
+                "wsl": "/etc/claude-code/managed-mcp.json",
+                "windows": "C:\\Program Files\\ClaudeCode\\managed-mcp.json"
+              },
+              "config_format": "json",
+              "precedence": 100,
+              "writable_check": "parent-or-file"
+            },
+            "user": {
+              "config_path": "$HOME/.claude.json",
+              "config_format": "json",
+              "precedence": 10,
+              "writable_check": "parent-or-file"
+            }
+          },
+          "fallback_order": ["managed", "user"],
+          "uninstall_targets": ["managed", "user"]
         },
         "codex": {
           "command": "npx",
           "args": ["-y", "@playwright/mcp@latest"],
-          "scope": "user"
+          "scope": "user",
+          "targets": {
+            "user": {
+              "config_path": "$HOME/.codex/config.toml",
+              "config_format": "toml",
+              "precedence": 50,
+              "writable_check": "parent-or-file"
+            },
+            "system": {
+              "config_path": "/etc/codex/config.toml",
+              "config_format": "toml",
+              "precedence": 100,
+              "writable_check": "file-only"
+            }
+          },
+          "fallback_order": ["user"],
+          "uninstall_targets": ["user", "system"]
         }
       },
       "detection": {

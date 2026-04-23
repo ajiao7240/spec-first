@@ -165,7 +165,7 @@ Serena readiness 判定：
 ```
 If baseline_ready == false and tools.serena.project_status != "ready":
   → serena.ready = false
-Else if tools.serena.host_config_status == "ready" and tools.serena.project_status == "ready":
+Else if (tools.serena.host_config_status == "ready" or tools.serena.host_config_status == "fallback-active") and tools.serena.project_status == "ready":
   → serena.ready = true
 Else
   → serena.ready = false
@@ -210,40 +210,30 @@ Readiness ledger v1 示例：
 解释：宿主 baseline 已存在，但 Serena 当前仓库 bootstrap 尚未完成，因此 `serena.ready = false`。
 
 字段语义与宿主差异说明统一收口到 `skills/spec-mcp-setup/references/supported-mcp-tools.md`。
-```
 
 ### 0.3 CRG 图状态检测
 
-```
-[1] DB 不存在（<target>/.spec-first/graph/graph.db）
-    → crg.indexed = false → 跳到 3b
+DB 默认位置：`<target>/.spec-first/graph/graph.db`
 
-[2] DB 存在 → Bash: spec-first crg stats --repo=<target>
+- DB 不存在：`crg.indexed = false`，进入“是否现在构建图索引”的提示分支。
+- DB 存在：执行 `spec-first crg stats --repo=<target>`。
+  - stats 非零退出，或返回 `envelope.degraded=true`：视为未索引，记录 warning，进入提示分支。
+  - `node_count=0` 且 `edge_count=0`：视为未索引，进入提示分支。
+  - `node_count > 0`：`crg.indexed = true`，记录 `data.last_built`、`data.node_count`、`data.edge_count`。
 
-    [2a] 非零退出 或 envelope.degraded=true
-         → crg.indexed = false → 打印 warnings → 跳到 3b
+提示分支文案：
 
-    [2b] node_count=0 且 edge_count=0
-         → crg.indexed = false → 跳到 3b
+> 检测到 spec-first crg CLI 可用，但当前项目尚未构建图索引。
+> 是否现在构建？（普通项目 2–5 分钟，大型 monorepo 可达 10 分钟）
 
-    [2c] node_count > 0
-         → crg.indexed = true
-         → 记录 data.last_built, data.node_count, data.edge_count
-         → 跳到 3c（stale 检测）
+- 用户选“是”：执行 `spec-first crg build --repo=<target>`；成功后进入 stale 检测，失败则降级并写 `generation_errors`。
+- 用户选“否”：保持 `crg.indexed = false`，按 Enhanced / Basic 降级。
 
-3b. 提示用户构建：
-    "检测到 spec-first crg CLI 可用，但当前项目尚未构建图索引。
-     是否现在构建？（普通项目 2-5 分钟，大型 monorepo 可达 10 分钟）"
+Stale 检测：若已有 `artifact-manifest.json`，比较 `inputs.crg.graph_last_built` 与当前 `crg stats.data.last_built`，并比较 `inputs.files` 中关键文件 SHA；不一致只打印 stale warning，不阻断流程。
 
-    用户选「是」→ Bash: spec-first crg build --repo=<target>
-                   成功 → crg.indexed=true，进入 3c
-                   失败/超时>10min → crg.indexed=false，降级，写 generation_errors
-    用户选「否」→ crg.indexed=false → 降级到 Enhanced/Basic
-
-3c. Stale 检测（artifact-manifest.json 存在时执行）：
-    对比 artifact-manifest.json.inputs.crg.graph_last_built vs 当前 crg stats data.last_built
-    对比 inputs.files 中关键文件 SHA
-    → 不一致：打印 ⚠️ stale 警告（不阻断流程）
+```text
+crg.indexed=false → 提示是否构建索引
+crg.indexed=true  → 继续 0.4 模式判定
 ```
 
 ### 0.4 分析模式判定

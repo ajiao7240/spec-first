@@ -44,7 +44,7 @@ describe('feature-video contracts', () => {
     expect(captureScript).toContain('recommend --project-type');
     expect(captureScript).toContain('terminal-recording');
     expect(captureScript).not.toContain('demo-reel skill');
-    expect(browserReel).toContain('/spec:setup');
+    expect(browserReel).toContain('/spec:mcp-setup');
     expect(browserReel).not.toContain('/ce-setup');
     expect(uploadApproval).not.toContain('ce-demo-reel');
   });

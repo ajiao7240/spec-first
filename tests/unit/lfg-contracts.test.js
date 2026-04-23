@@ -26,8 +26,8 @@ describe('lfg contracts', () => {
 
     // Core ordered pipeline remains intact after ce -> spec migration.
     expect(skill).toContain('/spec:plan $ARGUMENTS');
-    expect(skill).toContain('/spec:work <plan-path-from-step-2>');
-    expect(skill).toContain('/spec:review mode:autofix plan:<plan-path-from-step-2>');
+    expect(skill).toContain('/spec:work <plan-path-from-step-1>');
+    expect(skill).toContain('/spec:review mode:autofix plan:<plan-path-from-step-1>');
     expect(skill).toContain('Load the `todo-resolve` skill');
     expect(skill).toContain('Load the `test-browser` skill');
 
@@ -36,6 +36,7 @@ describe('lfg contracts', () => {
     expect(skill).toContain('Output `<promise>DONE</promise>` when video is in PR');
 
     // No stale upstream command names.
+    expect(skill).not.toContain('ralph-loop');
     expect(skill).not.toContain('/ce:plan');
     expect(skill).not.toContain('/ce:work');
     expect(skill).not.toContain('/ce:review');

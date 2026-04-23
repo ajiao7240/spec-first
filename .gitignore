@@ -40,7 +40,12 @@ yarn-error.log*
 
 # CRG runtime directories (old and new paths)
 .spec-first-graph/
-.spec-first/
+.spec-first/config.local.yaml
 
 # Published/package artifacts
 *.tgz
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo

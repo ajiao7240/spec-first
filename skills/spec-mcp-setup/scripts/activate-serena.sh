@@ -16,22 +16,21 @@ READY_MARKER_PATH="$REPO_ROOT/$READY_MARKER_FILE"
 INDEX_COMMAND_JSON="$(jq -c '.tools[] | select(.id == "serena") | .project_bootstrap.index_command' "$TOOLS_JSON")"
 
 mkdir -p "$PROJECT_DIR"
-[ -f "$PROJECT_FILE" ] || cat > "$PROJECT_FILE" <<EOF
-project_root: "$REPO_ROOT"
-created_by: spec-mcp-setup
-EOF
-
 rm -f "$READY_MARKER_PATH"
+rm -f "$PROJECT_FILE"
 
 if command -v uvx >/dev/null 2>&1; then
-  index_command="$(jq -r '.command' <<<"$INDEX_COMMAND_JSON")"
-  index_args=()
-  while IFS= read -r arg; do
-    index_args+=("$arg")
-  done <<EOF
-$(jq -r '.args[]' <<<"$INDEX_COMMAND_JSON")
-EOF
-  if "$index_command" "${index_args[@]}" >/dev/null 2>&1; then
+  create_args=(
+    --from git+https://github.com/oraios/serena
+    serena project create "$REPO_ROOT"
+    --language typescript
+    --language vue
+    --language markdown
+    --language yaml
+    --language bash
+    --index
+  )
+  if uvx "${create_args[@]}" >/dev/null 2>&1; then
     mkdir -p "$(dirname "$READY_MARKER_PATH")"
     jq -n --arg project_root "$REPO_ROOT" --arg indexed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" '{project_root:$project_root,index_status:"ready",indexed_at:$indexed_at}' > "$READY_MARKER_PATH"
     exit 0

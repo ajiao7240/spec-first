@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.9 2026-04-23 22:34:24 矿工: refactor(skills): 清理已追踪 Python 缓存与 retired setup prompt mirror，移除 lfg 对外部 `ralph-loop` 残留，补齐 `spec-compound-refresh` 路由、`spec-work-beta` 毕业说明与 brainstorm 年份无关表述，并同步最小 contract 守护 (user-visible)
+- v1.5.9 2026-04-23 02:38:00 矿工: feat(graph-bootstrap): 首次运行 spec-graph-bootstrap 工作流，生成 spec-first 项目 Full 模式 Stage-0 上下文产物（fact-inventory、risk-signals、test-surface、database-routing、docs/contexts/spec-first/ 完整文档树） (user-visible)
 - v1.5.8 2026-04-23 01:20:00 矿工: fix(spec-mcp-setup): 为 host config 写入补齐 backup/rollback 原子语义，收紧 Serena bootstrap 到 `.serena/index-ready.json` 成功标记，并让 readiness ledger 聚合 tool 级 `next_actions[]`；同步更新 source/mirror 文档、执行流程与 mcp-setup 单测，修正 README 运行时资产计数漂移 (user-visible)
 - v1.5.8 2026-04-23 01:00:00 矿工: docs(benchmark-retirement): 继续为高频历史计划与整改文档补统一退役提示，明确 benchmark / CRG Quality Gate 相关入口仅属于历史背景，避免历史计划脱离语境继续造成误读 (user-visible)
 - v1.5.8 2026-04-23 00:50:00 矿工: docs(benchmark-retirement): 继续收口全仓噪音，把仍以当前口吻描述 benchmark / CRG Quality Gate 的治理文档、路线文档与执行清单统一改成历史语境，避免历史资料继续误导当前读者 (user-visible)
@@ -550,3 +552,8 @@
 - v1.4.0 2026-04-17 12:10:00 kuang: 补充 Stage0 升级计划文档、brainstorm 分析报告与 spec debug/setup/update 命令模板 (user-visible)
 - v1.4.0 2026-04-18 20:04:39 kuang: fix(stage0-workspace-runtime-boundaries): 收紧 Stage-0 workspace runtime contract，修复 child git cwd 误退 single-repo、补齐 explicit multi-repo 的 workspace 语义字段、workspace overview-only 不再回填 idle child verification baseline，并让 review-context 自动解析 workspace child 的 verification-profile 锚点 (user-visible)
 - v1.5.4 2026-04-21 23:55:00 kuang: 同步收紧 spec-graph-bootstrap 的数据库 handoff 文档与 contract 守卫，明确 `candidate_readiness` 才是主真源、顶层 `recommended_action` / `blockers[]` 仅为 compatibility projection，并刷新对应 solution learning 的旧叙事 (user-visible)
+
+- v1.5.9 2026-04-23 14:30:00 Codex: 新增全量 skill 审查报告，基于当前代码工作树梳理 skill/agent/runtime/governance 现状、关键风险与演化建议
+- v1.5.9 2026-04-23 14:45:00 Codex: 补充审查报告中的明确问题列表，按严重度与代码证据显式指出 mirror drift、agent mirror 失衡、pyc 污染、超大控制文件与 proof 合同缺口
+- v1.5.9 2026-04-23 15:20:00 Codex: 补充逐 skill 内部资产全覆盖附录，仅基于 `skills/` 与直接测试命中列出每个 skill 的内部文件、脚本面与新增坐实问题
+- v1.5.9 2026-04-23 15:35:00 Codex: 在 `docs/10-prompt/项目分析` 下新增 Spec-First Evolution Architect 审查任务提示词完整版与精简版，供后续项目级审查复用

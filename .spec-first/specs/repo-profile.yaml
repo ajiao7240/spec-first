@@ -1,0 +1,11 @@
+schema_version: 1
+repo_id: "spec-first"
+languages: ["typescript"]
+project_type: "ai-workflow-cli"
+
+project_intent:
+  summary: "AI coding workflow CLI for spec-driven engineering, spec-driven development, and harness engineering on Claude Code and Codex"
+
+principles: []
+non_negotiables: []
+review_defaults: []

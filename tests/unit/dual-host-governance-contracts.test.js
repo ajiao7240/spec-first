@@ -28,11 +28,9 @@ const MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/SKILL.m
 const MCP_SETUP_TOOLS_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/mcp-tools.json');
 const MCP_SETUP_VERIFY_SH_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/scripts/verify-tools.sh');
 const MCP_SETUP_VERIFY_PS1_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
-const SETUP_SKILL_PATH = path.join(REPO_ROOT, 'skills/setup/SKILL.md');
 const GRAPH_BOOTSTRAP_COMMAND_PATH = path.join(REPO_ROOT, 'templates/claude/commands/spec/graph-bootstrap.md');
 const DOCS_MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-mcp-setup/SKILL.md');
 const DOCS_MCP_SETUP_FLOW_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-mcp-setup/execution-flow.md');
-const DOCS_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/setup/SKILL.md');
 const RETIRED_BOOTSTRAP_NAME = ['spec', 'bootstrap'].join('-');
 const RETIRED_CLAUDE_ENTRYPOINT = '/spec:' + 'bootstrap';
 const RETIRED_CODEX_ENTRYPOINT = ['$spec', 'bootstrap'].join('-');
@@ -99,20 +97,17 @@ describe('dual-host governance contracts', () => {
     expect(releaseSmoke).toContain('if tar -tf "$TARBALL_PATH" | grep -q');
   });
 
-  test('Codex-facing docs use $spec-* or $setup instead of /spec:*', () => {
+  test('Codex-facing docs use $spec-* instead of /spec:*', () => {
     const readme = read(README_PATH);
     const mcpSetup = read(MCP_SETUP_SKILL_PATH);
-    const setup = read(SETUP_SKILL_PATH);
 
     expect(readme).toContain('$spec-mcp-setup');
     expect(readme).not.toContain(RETIRED_CODEX_ENTRYPOINT);
+    expect(readme).not.toContain('$setup');
     expect(readme).not.toContain('Codex now also receives shared `/spec:*` command files under `.codex/commands/spec/`');
 
     expect(mcpSetup).toContain('**Codex entry point:** `$spec-mcp-setup [quick|custom]`');
     expect(mcpSetup).not.toContain('**Codex entry point:** `/spec:mcp-setup [quick|custom]`');
-
-    expect(setup).toContain('**Codex entry point:** `$setup`');
-    expect(setup).not.toContain('**Codex entry point:** `/spec:setup`');
   });
 
   test('active source-of-truth surfaces no longer advertise retired bootstrap workflow', () => {
@@ -123,11 +118,9 @@ describe('dual-host governance contracts', () => {
       MCP_SETUP_TOOLS_PATH,
       MCP_SETUP_VERIFY_SH_PATH,
       MCP_SETUP_VERIFY_PS1_PATH,
-      SETUP_SKILL_PATH,
       GRAPH_BOOTSTRAP_COMMAND_PATH,
       DOCS_MCP_SETUP_SKILL_PATH,
       DOCS_MCP_SETUP_FLOW_PATH,
-      DOCS_SETUP_SKILL_PATH,
     ];
 
     for (const surface of activeSurfaces) {

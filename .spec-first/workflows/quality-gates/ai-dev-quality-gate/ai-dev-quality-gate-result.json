@@ -1,0 +1,21 @@
+{
+  "schema_version": "v1",
+  "generated_at": "2026-04-22T17:38:51.743Z",
+  "gate_id": "ai-dev-quality-gate",
+  "passed": true,
+  "checks": [
+    {
+      "check_id": "stage0-contracts",
+      "kind": "unit-suite",
+      "passed": true,
+      "summary": {
+        "test_suites_total": 15,
+        "test_suites_failed": 0,
+        "tests_total": 133,
+        "tests_failed": 0
+      },
+      "artifact_path": ".spec-first/workflows/quality-gates/ai-dev-quality-gate/stage0-contracts.junit.json"
+    }
+  ],
+  "failures": []
+}

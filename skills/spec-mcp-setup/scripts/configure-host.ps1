@@ -14,10 +14,14 @@ $SkillDir = Split-Path -Parent $ScriptDir
 $ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
+$SelectedScope = $HostInfo.selected_scope
 $ConfigPath = $HostInfo.config_path
 $ToolDef = @($ToolsJson.tools | Where-Object { $_.id -eq $Tool })[0]
 if ($null -eq $ToolDef) {
   throw "未知工具: $Tool"
+}
+if ([string]::IsNullOrWhiteSpace($SelectedScope)) {
+  throw '未找到可用宿主配置目标'
 }
 $HostConfig = $ToolDef.host_config.$DetectedHost
 if ($null -eq $HostConfig) {
@@ -39,6 +43,13 @@ function Get-TomlSectionText {
   $buffer -join "`n"
 }
 
+$resolvedArgs = @($HostConfig.args)
+$ResolvedConfig = [ordered]@{ command = $HostConfig.command; args = $resolvedArgs; scope = $SelectedScope }
+if ($null -ne $HostConfig.PSObject.Properties['startup_timeout_sec']) {
+  $ResolvedConfig['startup_timeout_sec'] = [int]$HostConfig.startup_timeout_sec
+}
+$FallbackApplied = ($DetectedHost -eq 'claude' -and $SelectedScope -ne 'managed')
+
 function Test-ToolConfigured {
   if (-not (Test-Path $ConfigPath)) { return $false }
   switch ($ToolDef.detection.kind) {
@@ -47,9 +58,9 @@ function Test-ToolConfigured {
         $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
         $server = $config.mcpServers.PSObject.Properties[$ToolDef.detection.key].Value
         if ($null -eq $server) { return $false }
-        if ($server.command -ne $HostConfig.command) { return $false }
+        if ($server.command -ne $ResolvedConfig.command) { return $false }
         $serverArgs = @($server.args)
-        $expectedArgs = @($HostConfig.args)
+        $expectedArgs = @($ResolvedConfig.args)
         if ($serverArgs.Count -ne $expectedArgs.Count) { return $false }
         for ($i = 0; $i -lt $expectedArgs.Count; $i++) {
           if ($serverArgs[$i] -ne $expectedArgs[$i]) { return $false }
@@ -58,8 +69,8 @@ function Test-ToolConfigured {
       }
       $section = Get-TomlSectionText -Path $ConfigPath -SectionName $ToolDef.detection.key
       if ([string]::IsNullOrWhiteSpace($section)) { return $false }
-      if (-not $section.Contains("command = `"$($HostConfig.command)`"")) { return $false }
-      foreach ($arg in @($HostConfig.args)) {
+      if (-not $section.Contains("command = `"$($ResolvedConfig.command)`"")) { return $false }
+      foreach ($arg in @($ResolvedConfig.args)) {
         if (-not $section.Contains($arg)) { return $false }
       }
       return $true
@@ -76,22 +87,22 @@ function Test-ToolConfigured {
 }
 
 function Write-ClaudeConfig {
-  param([hashtable]$ResolvedConfig)
+  param([hashtable]$FinalConfig)
   $config = if (Test-Path $ConfigPath) {
     try { Get-Content -Raw $ConfigPath | ConvertFrom-Json -AsHashtable } catch { @{} }
   } else {
     @{}
   }
   if (-not $config.ContainsKey('mcpServers')) { $config['mcpServers'] = @{} }
-  $config['mcpServers'][$Tool] = $ResolvedConfig
+  $config['mcpServers'][$Tool] = $FinalConfig
   $config | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 $ConfigPath
 }
 
 function Write-CodexConfig {
-  param([hashtable]$ResolvedConfig)
-  $command = $ResolvedConfig.command
-  $argsJson = @($ResolvedConfig.args) | ConvertTo-Json -Compress
-  $timeoutLine = if ($ResolvedConfig.ContainsKey('startup_timeout_sec')) { "`nstartup_timeout_sec = $($ResolvedConfig.startup_timeout_sec)" } else { '' }
+  param([hashtable]$FinalConfig)
+  $command = $FinalConfig.command
+  $argsJson = @($FinalConfig.args) | ConvertTo-Json -Compress
+  $timeoutLine = if ($FinalConfig.ContainsKey('startup_timeout_sec')) { "`nstartup_timeout_sec = $($FinalConfig.startup_timeout_sec)" } else { '' }
   $section = "[mcp_servers.$Tool]`ncommand = `"$command`"`nargs = $argsJson$timeoutLine`n"
   $text = if (Test-Path $ConfigPath) { Get-Content -Raw $ConfigPath } else { '' }
   $pattern = "(?ms)^\[mcp_servers\.$([regex]::Escape($Tool))\]`r?`n.*?(?=^\[mcp_servers\.|\z)"
@@ -116,14 +127,19 @@ function Restore-Backup {
   }
 }
 
-if (Test-ToolConfigured) {
-  return
+$ConfigDir = Split-Path -Parent $ConfigPath
+if (-not (Test-Path $ConfigDir)) {
+  New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
 }
 
-$resolvedArgs = @($HostConfig.args)
-$ResolvedConfig = [ordered]@{ command = $HostConfig.command; args = $resolvedArgs }
-if ($null -ne $HostConfig.PSObject.Properties['startup_timeout_sec']) {
-  $ResolvedConfig['startup_timeout_sec'] = [int]$HostConfig.startup_timeout_sec
+if (Test-ToolConfigured) {
+  [pscustomobject]@{
+    tool_id = $Tool
+    configured_path = $ConfigPath
+    selected_scope = $SelectedScope
+    fallback_applied = [bool]$FallbackApplied
+  } | ConvertTo-Json -Compress
+  return
 }
 
 $backupPath = if (Test-Path $ConfigPath) {
@@ -136,9 +152,9 @@ $backupPath = if (Test-Path $ConfigPath) {
 
 try {
   if ($DetectedHost -eq 'claude') {
-    Write-ClaudeConfig -ResolvedConfig $ResolvedConfig
+    Write-ClaudeConfig -FinalConfig $ResolvedConfig
   } else {
-    Write-CodexConfig -ResolvedConfig $ResolvedConfig
+    Write-CodexConfig -FinalConfig $ResolvedConfig
   }
 
   if (-not (Test-ToolConfigured)) {
@@ -148,6 +164,13 @@ try {
   if ($backupPath -ne '__missing__' -and (Test-Path $backupPath)) {
     Remove-Item -Force $backupPath
   }
+
+  [pscustomobject]@{
+    tool_id = $Tool
+    configured_path = $ConfigPath
+    selected_scope = $SelectedScope
+    fallback_applied = [bool]$FallbackApplied
+  } | ConvertTo-Json -Compress
 } catch {
   Restore-Backup -BackupPath $backupPath
   throw

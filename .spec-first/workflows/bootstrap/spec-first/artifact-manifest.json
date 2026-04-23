@@ -1,0 +1,60 @@
+{
+  "schema_version": "v1",
+  "generated_at": "2026-04-23T02:31:37Z",
+  "updated_at": "2026-04-23T02:38:00Z",
+  "status": "complete",
+  "slug": "spec-first",
+  "analyzer_mode": "full",
+  "graph_support_state": "local-available",
+  "code_facts_confidence": "high",
+  "data_quality": "fact-backed",
+  "inputs": {
+    "crg": {
+      "graph_last_built": "2026-04-23T02:31:22.230Z",
+      "node_count": 1356,
+      "edge_count": 3469,
+      "last_build_commit": "6adaa98cb7734fcb70a5af0eb2653b2fbc35ecdc"
+    },
+    "files": {
+      "package.json": "e52b53711846bd24dfabd73802b7b2b46f8de4c25c7bbbff27cb6f4277a666ce"
+    },
+    "analyzer_versions": {
+      "crg": "v1",
+      "entrypoints": "v1",
+      "module_structure": "v1",
+      "test_surface": "v1",
+      "risk_signals": "v1"
+    }
+  },
+  "outputs": {
+    "00-summary.md": {
+      "depends_on": ["schema:fact_inventory@v1", "analyzer:project_identity@v1"]
+    },
+    "architecture/module-map.md": {
+      "depends_on": ["schema:fact_inventory@v1", "analyzer:module_structure@v1", "analyzer:data_shapes@v1"]
+    },
+    "pitfalls/index.md": {
+      "depends_on": ["schema:risk_signals@v1", "schema:fact_inventory@v1"]
+    },
+    "code-facts/public-entrypoints.md": {
+      "depends_on": ["schema:fact_inventory@v1", "analyzer:entrypoints@v1"]
+    },
+    "code-facts/test-map.md": {
+      "depends_on": ["schema:fact_inventory@v1", "schema:test_surface@v1"]
+    },
+    "code-facts/high-risk-modules.md": {
+      "depends_on": ["schema:risk_signals@v1"]
+    },
+    "context-packs/review-change.md": {
+      "depends_on": ["schema:risk_signals@v1", "schema:test_surface@v1", "schema:fact_inventory@v1"]
+    },
+    "README.md": {
+      "depends_on": []
+    },
+    "injection-index.yaml": {
+      "depends_on": ["schema:fact_inventory@v1"]
+    }
+  },
+  "table_hashes": {},
+  "domain_assignments": {}
+}

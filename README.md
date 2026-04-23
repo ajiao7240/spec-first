@@ -185,7 +185,7 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 | **17-persona Review stage** (+ 2 CE agents) | Produces structured findings routed by `safe_auto / gated_auto / manual / advisory`, not a single-pass scan |
 | **Compound / knowledge capture** | Solved problems are written to `docs/solutions/` for future workflow retrieval |
 | **Dual platform support** | One methodology across Claude Code (`/spec:*`) and Codex (`$spec-*`). Claude uses a `SessionStart` hook + bare-agent rewrite; Codex uses `.agents/skills/` discovery + explicit `.codex/agents/...` path rewrite |
-| **Capability layer** | Bundled source assets ship with `47` skills, `55` agents, and `4` agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `12` commands + `35` skills on Claude, and `34` skills on Codex, with `55` agents + `4` support files on both hosts |
+| **Capability layer** | Bundled source assets ship with `46` skills, `55` agents, and `4` agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `11` commands + `35` skills on Claude, and `34` skills on Codex, with `55` agents + `4` support files on both hosts |
 | **Runtime governance** | Managed assets are tracked in `state.json` — sync, refresh, recover, and clean safely |
 
 ## Core Workflow
@@ -214,7 +214,6 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 | Debug | `/spec:debug` | `$spec-debug` | Reproduce and diagnose an existing bug or failure |
 | Update | `/spec:update` | `$spec-update` | Refresh runtime assets after `spec-first` upgrades |
 | Sessions | `/spec:sessions` | `$spec-sessions` | Search and summarize prior coding agent sessions |
-| Setup | `/spec:setup` | `$spec-setup` | Unified host / environment setup entrypoint |
 
 These `/spec:*` and `$spec-*` surfaces are generated runtime workflow entrypoints, not root `spec-first` subcommands. The root CLI surface is documented below under [CLI Commands](#cli-commands).
 
@@ -300,7 +299,7 @@ spec-first clean --claude   # or --codex
 
 `clean` removes everything marked removable in the table above, then prints which platform's managed assets were removed. Custom assets outside the managed set are left untouched. The language policy block must still be removed manually — search for `<!-- spec-first:lang:` in `CLAUDE.md` / `AGENTS.md`.
 Both `init --dry-run` and `clean --dry-run` preview file-level operations derived from the same managed operation plans used by real apply paths, which keeps preview/apply drift narrow and testable.
-Current runtime delivery is host-specific by governance: Claude writes `12` command files, `36` skill directories, `57` agent files, and `4` agent support files; Codex writes `35` skill directories plus the same `57` agent files and `4` support files, with no command directory.
+Current runtime delivery is host-specific by governance: Claude writes `11` command files, `35` skill directories, `55` agent files, and `4` agent support files; Codex writes `34` skill directories plus the same `55` agent files and `4` support files, with no command directory.
 
 #### Example output
 
@@ -308,7 +307,7 @@ Current runtime delivery is host-specific by governance: Claude writes `12` comm
 $ spec-first init --claude
 
 🪝 Installed Claude SessionStart matcher in .claude/settings.json
-📦 Generated 12 command file(s) in .claude/commands/spec
+📦 Generated 11 command file(s) in .claude/commands/spec
 🧩 Generated 35 skill directory(ies) in .claude/skills
 🤖 Generated 55 agent file(s) in .claude/agents
 🧰 Generated 4 agent support file(s) in .claude/agents
@@ -352,7 +351,7 @@ $ spec-first init --claude
 ├──────────────────────────────────────────────────────────────┤
 │  Workflow Layer — skills                                     │
 │  Ideate / Brainstorm / Plan / Work / Review / Compound       │
-│  + Debug / Update / Sessions / Setup auxiliaries             │
+│  + Debug / Update / Sessions auxiliaries                     │
 │  Stage contracts, artifact conventions, review classes       │
 │  Enforcement: SKILL.md contracts (LLM-followed)              │
 ├──────────────────────────────────────────────────────────────┤

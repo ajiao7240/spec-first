@@ -1,0 +1,136 @@
+{
+  "schema_version": "v1",
+  "generated_at": "2026-04-22T20:08:15.538Z",
+  "workflow": "spec-review",
+  "slug": "spec-first",
+  "mode": "single-repo",
+  "workspace_slug": "spec-first",
+  "matched_child_slugs": [
+    "spec-first"
+  ],
+  "selected_context_count": 2,
+  "stage": "review",
+  "profile": "review-default",
+  "level": "L3",
+  "selected_assets": [
+    "00-summary.md",
+    "README.md"
+  ],
+  "skipped_rules": [],
+  "fallback_reason": "manifest_incomplete",
+  "freshness_status": "unknown",
+  "verification_summary": {
+    "stage": "review",
+    "source": "change-surface",
+    "platform_focus": [
+      "shared-contract",
+      "cli"
+    ],
+    "impacted_modules": [
+      ".claude-plugin/",
+      ".github/",
+      ".gitignore",
+      ".spec-first/",
+      "\"docs/",
+      "AGENTS.md",
+      "agents/",
+      "benchmarks/",
+      "bin/",
+      "CHANGELOG.md",
+      "CLAUDE.md",
+      "CLI",
+      "docs/",
+      "docs/10-prompt/",
+      "docs/2026-04-22-full-audit/",
+      "docs/archive/",
+      "docs/brainstorms/",
+      "docs/contexts/",
+      "docs/contracts/",
+      "docs/ideation/",
+      "docs/plans/",
+      "docs/solutions/",
+      "docs/validation/",
+      "package.json",
+      "README.md",
+      "README.zh-CN.md",
+      "scripts/",
+      "skills/",
+      "src/bootstrap-compiler/",
+      "src/cli/",
+      "src/context-routing/",
+      "src/crg/",
+      "templates/",
+      "tests/e2e/",
+      "tests/fixtures/",
+      "tests/integration/",
+      "tests/smoke/",
+      "tests/unit/"
+    ],
+    "impacted_languages": [
+      "javascript",
+      "json",
+      "markdown",
+      "yaml"
+    ],
+    "impacted_platforms": [
+      "shared-contract",
+      "cli"
+    ],
+    "recommended_required_verifications": [],
+    "recommended_optional_verifications": [],
+    "verification_gaps_to_check": [],
+    "repo_verification_gaps_to_check": [],
+    "confidence": "medium",
+    "fallback_reason": null
+  },
+  "verifier_dispatch": {
+    "stage": "review",
+    "handoff_posture": "not-needed",
+    "dispatch_candidates": [],
+    "manual_required_verifications": [],
+    "manual_optional_verifications": [],
+    "dispatch_blockers": []
+  },
+  "ai_dev_quality_gate_result": {
+    "schema_version": "v1",
+    "generated_at": "2026-04-22T17:38:51.743Z",
+    "gate_id": "ai-dev-quality-gate",
+    "passed": true,
+    "checks": [
+      {
+        "check_id": "stage0-contracts",
+        "kind": "unit-suite",
+        "passed": true,
+        "summary": {
+          "test_suites_total": 15,
+          "test_suites_failed": 0,
+          "tests_total": 133,
+          "tests_failed": 0
+        },
+        "artifact_path": ".spec-first/workflows/quality-gates/ai-dev-quality-gate/stage0-contracts.junit.json"
+      }
+    ],
+    "failures": []
+  },
+  "verification_evidence": {
+    "schema_version": "v1",
+    "evidence_source": "workflow-artifacts",
+    "evidence_items": []
+  },
+  "verification_gate_state": {
+    "schema_version": "v1",
+    "stage": "review",
+    "state_source": "runtime-inferred",
+    "overall_status": "not-needed",
+    "required_gates": [],
+    "optional_evidence": [],
+    "blockers": [],
+    "evidence_locations": [],
+    "ci_gate": {
+      "status": "not-needed",
+      "required_gate_count": 0,
+      "blocked_required_gate_count": 0,
+      "satisfied_required_gate_count": 0
+    }
+  }
+}

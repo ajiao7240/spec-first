@@ -44,7 +44,7 @@
     {
       "name": "mcp-setup",
       "filename": "mcp-setup.md",
-      "description": "One-click MCP tools installation and configuration for spec-first workflows",
+      "description": "Unified setup entrypoint for repo preflight and MCP tools installation for spec-first workflows",
       "argumentHint": "[quick|custom]",
       "skill": "spec-mcp-setup"
     },
@@ -68,13 +68,6 @@
       "description": "Search and summarize prior coding agent sessions",
       "argumentHint": "[question or topic]",
       "skill": "spec-sessions"
-    },
-    {
-      "name": "setup",
-      "filename": "setup.md",
-      "description": "Run the unified spec-first setup workflow",
-      "argumentHint": "[optional issue or tool]",
-      "skill": "setup"
     },
     {
       "name": "update",
@@ -117,7 +110,6 @@
     "report-bug",
     "reproduce-bug",
     "resolve-pr-feedback",
-    "setup",
     "spec-brainstorm",
     "spec-compound",
     "spec-compound-refresh",

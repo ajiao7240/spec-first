@@ -6,7 +6,7 @@ argument-hint: "[feature idea or problem to explore]"
 
 # Brainstorm a Feature or Improvement
 
-**Note: The current year is 2026.** Use this when dating requirements documents.
+**Note:** Use the actual current date from the working context when dating requirements documents.
 
 Brainstorming helps answer **WHAT** to build through collaborative dialogue. It precedes `/spec:plan`, which answers **HOW** to build it.
 

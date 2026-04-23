@@ -158,7 +158,7 @@ if grep -q "graph-bootstrap.md" <<<"$init_output"; then
   exit 1
 fi
 
-for file in ideate.md brainstorm.md plan.md work.md debug.md review.md compound.md sessions.md graph-bootstrap.md mcp-setup.md update.md setup.md; do
+for file in ideate.md brainstorm.md plan.md work.md debug.md review.md compound.md sessions.md graph-bootstrap.md mcp-setup.md update.md; do
   test -f "$TMP_DIR/.claude/commands/spec/$file"
 done
 grep -q "Generate Improvement Ideas" "$TMP_DIR/.claude/commands/spec/ideate.md"
@@ -172,7 +172,7 @@ grep -q "Spec-First Sessions" "$TMP_DIR/.claude/commands/spec/sessions.md"
 test ! -e "$TMP_DIR/.claude/commands/spec/$retired_bootstrap_command_file"
 grep -q "Spec-First Graph Bootstrap" "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
 grep -q "Check & Repair Spec-First Runtime" "$TMP_DIR/.claude/commands/spec/update.md"
-grep -q "Spec-First Setup" "$TMP_DIR/.claude/commands/spec/setup.md"
+grep -q "Unified setup entrypoint" "$TMP_DIR/.claude/commands/spec/mcp-setup.md"
 grep -q "Phase 0–4 fact extraction" "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
 grep -q 'fact-inventory.json' "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
 grep -q 'spec-first source repo internals' "$TMP_DIR/.claude/commands/spec/graph-bootstrap.md"
@@ -180,9 +180,9 @@ grep -q '不是 `spec-first graph-bootstrap` 包级子命令' "$TMP_DIR/.claude/
 grep -q 'stage0-context --stage plan --workflow spec-plan --format json' "$TMP_DIR/.claude/commands/spec/plan.md"
 grep -q 'Causal chain gate' "$TMP_DIR/.claude/commands/spec/debug.md"
 grep -q 'Current CLI version' "$TMP_DIR/.claude/commands/spec/update.md"
-grep -q '.spec-first/config.local.yaml' "$TMP_DIR/.claude/commands/spec/setup.md"
+grep -q '.spec-first/config.local.yaml' "$TMP_DIR/.claude/commands/spec/mcp-setup.md"
 grep -q 'MCP Tools Setup' "$TMP_DIR/.claude/commands/spec/mcp-setup.md"
-for file in ideate.md brainstorm.md plan.md work.md debug.md review.md compound.md sessions.md graph-bootstrap.md mcp-setup.md update.md setup.md; do
+for file in ideate.md brainstorm.md plan.md work.md debug.md review.md compound.md sessions.md graph-bootstrap.md mcp-setup.md update.md; do
   if grep -q '.claude/spec-first/workflows/' "$TMP_DIR/.claude/commands/spec/$file"; then
     echo "✗ command file still depends on runtime workflow path: $file"
     exit 1
@@ -294,14 +294,14 @@ test "$installed_skill_count" = "$expected_skill_count"
 installed_workflow_skill_count="$(find "$TMP_DIR/.claude/spec-first/workflows" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 test "$installed_workflow_skill_count" = "$expected_workflow_skill_count"
 # Command-backing skills are in .claude/spec-first/workflows/
-for skill in spec-plan spec-review spec-work spec-sessions spec-mcp-setup setup; do
+for skill in spec-plan spec-review spec-work spec-sessions spec-mcp-setup; do
   test -f "$TMP_DIR/.claude/spec-first/workflows/$skill/SKILL.md"
 done
 # Non-command skills remain in .claude/skills/
 for skill in document-review git-worktree; do
   test -f "$TMP_DIR/.claude/skills/$skill/SKILL.md"
 done
-for skill in spec-brainstorm spec-plan spec-work spec-review spec-compound spec-sessions spec-mcp-setup setup; do
+for skill in spec-brainstorm spec-plan spec-work spec-review spec-compound spec-sessions spec-mcp-setup; do
   if grep -q "^user-invocable: true$" "$TMP_DIR/.claude/spec-first/workflows/$skill/SKILL.md"; then
     echo "✗ $skill should not be exposed as a standalone slash command"
     exit 1
@@ -720,7 +720,6 @@ test -f "$TMP_DIR/.agents/skills/spec-mcp-setup/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-update/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-optimize/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-slack-research/SKILL.md"
-test -f "$TMP_DIR/.agents/skills/setup/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/claude-permissions-optimizer/SKILL.md"
 test ! -e "$TMP_DIR/.agents/skills/orchestrating-swarms/SKILL.md"
 installed_codex_skill_count="$(find "$TMP_DIR/.agents/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
@@ -762,7 +761,7 @@ grep -q 'stage0-context --stage review --workflow spec-review --format json' "$T
 grep -q '^name: spec-compound$' "$TMP_DIR/.agents/skills/spec-compound/SKILL.md"
 grep -q '^name: spec-sessions$' "$TMP_DIR/.agents/skills/spec-sessions/SKILL.md"
 grep -q '^name: spec-mcp-setup$' "$TMP_DIR/.agents/skills/spec-mcp-setup/SKILL.md"
-grep -q '^name: setup$' "$TMP_DIR/.agents/skills/setup/SKILL.md"
+test ! -e "$TMP_DIR/.agents/skills/setup/SKILL.md"
 test ! -e "$TMP_DIR/.agents/skills/$retired_bootstrap_name/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/spec-graph-bootstrap/SKILL.md"
 grep -q '^name: spec-graph-bootstrap$' "$TMP_DIR/.agents/skills/spec-graph-bootstrap/SKILL.md"
@@ -976,7 +975,6 @@ grep -q "templates/claude/commands/spec/sessions.md" <<<"$pack_output"
 ! grep -q "$retired_bootstrap_template_path" <<<"$pack_output"
 grep -q "templates/claude/commands/spec/graph-bootstrap.md" <<<"$pack_output"
 grep -q "templates/claude/commands/spec/update.md" <<<"$pack_output"
-grep -q "templates/claude/commands/spec/setup.md" <<<"$pack_output"
 grep -q "skills/spec-debug/SKILL.md" <<<"$pack_output"
 grep -q "skills/spec-plan/SKILL.md" <<<"$pack_output"
 grep -q "skills/spec-plan/references/universal-planning.md" <<<"$pack_output"
@@ -988,9 +986,11 @@ grep -q "skills/spec-optimize/scripts/measure.sh" <<<"$pack_output"
 grep -q "skills/spec-slack-research/SKILL.md" <<<"$pack_output"
 grep -q "skills/feature-video/scripts/capture-demo.py" <<<"$pack_output"
 grep -q "skills/feature-video/references/tier-browser-reel.md" <<<"$pack_output"
-grep -q "skills/setup/SKILL.md" <<<"$pack_output"
-grep -q "skills/setup/references/config-template.yaml" <<<"$pack_output"
-grep -q "skills/setup/scripts/check-health" <<<"$pack_output"
+grep -q "skills/spec-mcp-setup/references/config-template.yaml" <<<"$pack_output"
+grep -q "skills/spec-mcp-setup/scripts/check-health" <<<"$pack_output"
+! grep -q "skills/setup/SKILL.md" <<<"$pack_output"
+! grep -q "skills/setup/references/config-template.yaml" <<<"$pack_output"
+! grep -q "skills/setup/scripts/check-health" <<<"$pack_output"
 ! grep -q "$retired_bootstrap_skill_path" <<<"$pack_output"
 grep -q "skills/spec-graph-bootstrap/SKILL.md" <<<"$pack_output"
 grep -q "skills/document-review/SKILL.md" <<<"$pack_output"

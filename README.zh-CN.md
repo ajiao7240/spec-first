@@ -185,7 +185,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | **17-persona Review stage**（+ 2 个 CE agent） | 产出结构化 findings，并按 `safe_auto / gated_auto / manual / advisory` 路由，而不是一次性 review 扫描 |
 | **Compound / knowledge capture** | 把已解决问题写入 `docs/solutions/`，供后续 workflow 检索复用 |
 | **双平台支持** | 一套方法论同时覆盖 Claude Code（`/spec:*`）与 Codex（`$spec-*`）。Claude 使用 `SessionStart` hook + bare-agent rewrite；Codex 使用 `.agents/skills/` discovery + 显式 `.codex/agents/...` path rewrite |
-| **能力层资产** | 仓库内置源码资产共 `47` 个 skills、`55` 个 agents、`4` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `12` 个 commands + `35` 个 skills，在 Codex 侧安装 `34` 个 skills；两侧都会安装 `55` 个 agents + `4` 个 support files |
+| **能力层资产** | 仓库内置源码资产共 `46` 个 skills、`55` 个 agents、`4` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `11` 个 commands + `35` 个 skills，在 Codex 侧安装 `34` 个 skills；两侧都会安装 `55` 个 agents + `4` 个 support files |
 | **运行时治理** | 受管资产记录在 `state.json` 中，可安全同步、刷新、恢复与清理 |
 
 ## 核心工作流
@@ -214,7 +214,6 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | Debug | `/spec:debug` | `$spec-debug` | 复现并诊断已有 bug 或 failure |
 | Update | `/spec:update` | `$spec-update` | 在 `spec-first` 升级后刷新运行时资产 |
 | Sessions | `/spec:sessions` | `$spec-sessions` | 搜索并总结过往 coding agent session |
-| Setup | `/spec:setup` | `$spec-setup` | 统一的 host / environment setup 入口 |
 
 这些 `/spec:*` 与 `$spec-*` 是生成出来的运行时 workflow 入口，不是根级 `spec-first` CLI 子命令。根 CLI 命令面见下方 [CLI 命令](#cli-命令)。
 
@@ -300,7 +299,7 @@ spec-first clean --claude   # 或 --codex
 
 `clean` 会移除上表中“`clean` 可移除”列标记为可删的所有内容，然后打印本次删除了哪个平台的受管资产。受管范围之外的自定义资产不会受影响。语言策略块仍需手动删除；你可以在 `CLAUDE.md` / `AGENTS.md` 中搜索 `<!-- spec-first:lang:`。
 `init --dry-run` 与 `clean --dry-run` 现在都会预览来自同一份 operation plan 的 file-level 变更面，因此 preview/apply 漂移被压缩到可测试、可回归的边界内。
-当前运行时交付会按宿主治理分流：Claude 会写入 `12` 个 command、`36` 个 skill、`57` 个 agent 和 `4` 个 agent support file；Codex 不生成 command 目录，而是写入 `35` 个 skill，并安装同样的 `57` 个 agent 与 `4` 个 support file。
+当前运行时交付会按宿主治理分流：Claude 会写入 `11` 个 command、`35` 个 skill、`55` 个 agent 和 `4` 个 agent support file；Codex 不生成 command 目录，而是写入 `34` 个 skill，并安装同样的 `55` 个 agent 与 `4` 个 support file。
 
 #### 示例输出
 
@@ -308,7 +307,7 @@ spec-first clean --claude   # 或 --codex
 $ spec-first init --claude
 
 🪝 Installed Claude SessionStart matcher in .claude/settings.json
-📦 Generated 12 command file(s) in .claude/commands/spec
+📦 Generated 11 command file(s) in .claude/commands/spec
 🧩 Generated 35 skill directory(ies) in .claude/skills
 🤖 Generated 55 agent file(s) in .claude/agents
 🧰 Generated 4 agent support file(s) in .claude/agents
@@ -352,7 +351,7 @@ $ spec-first init --claude
 ├──────────────────────────────────────────────────────────────┤
 │  工作流层 — skills                                            │
 │  Ideate / Brainstorm / Plan / Work / Review / Compound       │
-│  + Debug / Update / Sessions / Setup 辅助阶段                 │
+│  + Debug / Update / Sessions 辅助阶段                         │
 │  阶段 contract、artifact 约定、review 分类                    │
 │  约束：SKILL.md contract（由 LLM 遵循）                        │
 ├──────────────────────────────────────────────────────────────┤
