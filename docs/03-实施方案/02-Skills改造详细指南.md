@@ -288,23 +288,23 @@ description: 执行落地、代码实现
 - 核心执行流程
 - 代码实现逻辑
 
-## 6. spec-review 改造
+## 6. spec-code-review 改造
 
 ### 6.1 复制文件
 
 ```bash
 cp -r /Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/skills/ce-review \
-      skills/spec-review
+      skills/spec-code-review
 ```
 
 ### 6.2 修改 skill 名称
 
-**文件**：`skills/spec-review/skill.md`
+**文件**：`skills/spec-code-review/skill.md`
 
 **修改**：
 ```markdown
 ---
-name: spec-review  # 原：ce-review
+name: spec-code-review  # 原：ce-review
 description: 质量评审、问题识别
 ---
 ```
@@ -419,7 +419,7 @@ reviewed_at: <timestamp>
 
 **完全保留**：
 - 原有的 prompt 正文
-- agents 调用逻辑（review/, document-review/）
+- agents 调用逻辑（review/, spec-doc-review/）
 - 核心评审流程
 - 评审维度定义
 

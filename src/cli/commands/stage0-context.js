@@ -27,7 +27,7 @@ function unique(values) {
 function defaultWorkflowForStage(stage) {
   if (stage === 'plan') return 'spec-plan';
   if (stage === 'work') return 'spec-work';
-  if (stage === 'review') return 'spec-review';
+  if (stage === 'review') return 'spec-code-review';
   return '';
 }
 

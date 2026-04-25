@@ -36,14 +36,14 @@ describe('AI dev quality gate integration', () => {
     expect(workflow).toContain("skills/spec-plan/**");
     expect(workflow).toContain("skills/spec-work/**");
     expect(workflow).toContain("skills/spec-work-beta/**");
-    expect(workflow).toContain("skills/spec-review/**");
+    expect(workflow).toContain("skills/spec-code-review/**");
     expect(workflow).toContain(".github/workflows/ai-dev-quality-gate.yml");
     expect(workflow).toContain("tests/unit/branch-protection-policy.test.js");
     expect(workflow).toContain("tests/unit/quality-feedback.test.js");
     expect(workflow).toContain("docs/10-prompt/skills/spec-plan/**");
     expect(workflow).toContain("docs/10-prompt/skills/spec-work/**");
     expect(workflow).toContain("docs/10-prompt/skills/spec-work-beta/**");
-    expect(workflow).toContain("docs/10-prompt/skills/spec-review/**");
+    expect(workflow).toContain("docs/10-prompt/skills/spec-code-review/**");
     expect(workflow).toContain("tests/integration/verification-gate.integration.test.js");
     expect(workflow).toContain('npm run test:ai-dev:gate');
     expect(workflow).toContain('actions/upload-artifact@v4');

@@ -97,7 +97,7 @@ Your final output should be formatted as follows:
 
 ## Style Guide Review
 
-Now review the changelog using the EVERY_WRITE_STYLE.md file and go one by one to make sure you are following the style guide. Use multiple agents, run in parallel to make it faster.
+Review the changelog directly for clarity, brevity, consistent mechanics, and audience fit. Do not depend on an external style-editor skill or style-guide file.
 
 Remember, your final output should only include the content within the <change_log> tags. Do not include any of your thought process or the original data in the output.
 

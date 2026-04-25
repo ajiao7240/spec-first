@@ -72,8 +72,8 @@ docs/contracts/spec-graph-bootstrap/
 
 其中：
 
-- `.spec-first/workflows/bootstrap/<slug>/workspace-registry.json` 与 `workspace-routing.json` 是 workspace machine-first 真源
-- `workspace-readiness-summary.json` 只暴露 advisory-only readiness snapshot，不参与 routing / gate 真源判定
+- `.spec-first/workflows/bootstrap/<slug>/workspaspec-registry.json` 与 `workspaspec-routing.json` 是 workspace machine-first 真源
+- `workspaspec-readiness-summary.json` 只暴露 advisory-only readiness snapshot，不参与 routing / gate 真源判定
 - `docs/contexts/<workspaceSlug>/workspace/repo-registry.md` 若存在，也只能是 human-facing 镜像，不得反向成为 runtime 真源
 
 ## 缺失运行时时的处理
@@ -307,7 +307,7 @@ Serena:   ready=yes/no
 
 所有 child 完成后，写入 workspace 根级 control-plane：`<workspaceRoot>/.spec-first/workflows/bootstrap/<workspaceSlug>/`
 
-**workspace-registry.json**（`entry-resolver.js` 的 `validateWorkspaceRegistry` 消费此文件，字段名必须与 JS runtime schema 一致）：
+**workspaspec-registry.json**（`entry-resolver.js` 的 `validateWorkspaceRegistry` 消费此文件，字段名必须与 JS runtime schema 一致）：
 
 ```json
 {
@@ -337,7 +337,7 @@ Serena:   ready=yes/no
 - 顶层数组字段名：`children`，不得写 `repos`
 - 每个 child 必须有 `childSlug` 和 `repoRoot`，`entry-resolver.js` 依赖这两个字段进行 child 路由
 
-**workspace-routing.json**（`validateWorkspaceRouting` 检查 `workspaceOverviewAssets` 与 `childMatchSignalPriority` 字段均为数组，缺失则路由失效）：
+**workspaspec-routing.json**（`validateWorkspaceRouting` 检查 `workspaceOverviewAssets` 与 `childMatchSignalPriority` 字段均为数组，缺失则路由失效）：
 
 ```json
 {
@@ -346,7 +346,7 @@ Serena:   ready=yes/no
   "workspaceSlug": "<workspaceSlug>",
   "defaultSelectionMode": "child-first",
   "childMatchSignalPriority": ["repoRoots", "targetPath", "cwd", "changedFiles", "default"],
-  "fallback": { "whenNoChildMatched": "workspace-overview-only" },
+  "fallback": { "whenNoChildMatched": "workspaspec-overview-only" },
   "workspaceOverviewAssets": ["workspace/routing-overview.md", "00-summary.md"]
 }
 ```
@@ -362,14 +362,14 @@ Serena:   ready=yes/no
   "updated_at": "<ISO 时间戳>",
   "status": "complete",
   "outputs": {
-    "workspace-registry.json": { "depends_on": ["workspace:child-repo-scan"] },
-    "workspace-routing.json": { "depends_on": ["workspace:child-repo-scan"] },
-    "workspace-readiness-summary.json": { "depends_on": [] }
+    "workspaspec-registry.json": { "depends_on": ["workspace:child-repo-scan"] },
+    "workspaspec-routing.json": { "depends_on": ["workspace:child-repo-scan"] },
+    "workspaspec-readiness-summary.json": { "depends_on": [] }
   }
 }
 ```
 
-**workspace-readiness-summary.json**（advisory-only，不参与 routing/gate 判定）：
+**workspaspec-readiness-summary.json**（advisory-only，不参与 routing/gate 判定）：
 
 ```json
 {

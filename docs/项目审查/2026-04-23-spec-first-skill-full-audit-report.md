@@ -131,7 +131,7 @@
 
 代码路径：
 
-- `skills/spec-review/SKILL.md`
+- `skills/spec-code-review/SKILL.md`
 - `skills/test-browser/SKILL.md`
 - `skills/test-xcode/SKILL.md`
 - `src/context-routing/verification-summary.js`
@@ -166,7 +166,7 @@
 
 1. `using-spec-first` 降低入口选择成本
 2. `spec-graph-bootstrap` / `stage0-context` 降低上下文构建成本
-3. `spec-plan` / `spec-work` / `spec-review` 形成需求、执行、审查三段式主链
+3. `spec-plan` / `spec-work` / `spec-code-review` 形成需求、执行、审查三段式主链
 4. `spec-mcp-setup` / verifier registry 提供最小验证闭环
 
 但用户增益面目前也有上限：
@@ -629,7 +629,7 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 
 - source skill 与 shipping-workflow 形成执行节点主合同
 - 显式消费 Stage-0 verification summary / verifier_dispatch / gate state
-- `spec-work` 与 `spec-review` 之间已有 run artifact handoff contract
+- `spec-work` 与 `spec-code-review` 之间已有 run artifact handoff contract
 
 判断：
 
@@ -647,7 +647,7 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 - 继续保留为主干
 - 但要避免吞并更多控制职责
 
-### 节点 6：`spec-review`
+### 节点 6：`spec-code-review`
 
 代码事实：
 
@@ -728,7 +728,7 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 4. `spec-brainstorm` / `spec-ideate`（问题不清晰时）
 5. `spec-plan`
 6. `spec-work`
-7. `spec-review`
+7. `spec-code-review`
 8. `spec-compound` / `spec-compound-refresh`
 
 这条链的优点：
@@ -1034,7 +1034,7 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 | changelog | standalone_skill | skill/skill | changelog-format.test.js<br>changelog-skill-contracts.test.js | 1 | no direct anomaly observed |
 | claude-permissions-optimizer | standalone_skill | skill/skill | claude-permissions-optimizer-contracts.test.js | 3 | no direct anomaly observed |
 | deploy-docs | standalone_skill | skill/skill | deploy-docs-contracts.test.js | 1 | no direct anomaly observed |
-| document-review | standalone_skill | skill/skill | document-review-contracts.test.js | 5 | no direct anomaly observed |
+| spec-doc-review | standalone_skill | skill/skill | document-review-contracts.test.js | 5 | no direct anomaly observed |
 | dspy-ruby | standalone_skill | skill/skill | dspy-ruby-contracts.test.js | 9 | no direct anomaly observed |
 | every-style-editor | standalone_skill | skill/skill | every-style-editor-contracts.test.js | 2 | no direct anomaly observed |
 | feature-video | standalone_skill | skill/skill | feature-video-contracts.test.js | 8 | ships pyc |
@@ -1061,7 +1061,7 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 | spec-mcp-setup | workflow_command | command/skill | - | 23 | mirror drift; shell tests only for core contract |
 | spec-optimize | standalone_skill | skill/skill | spec-optimize-contracts.test.js | 12 | no direct anomaly observed |
 | spec-plan | workflow_command | command/skill | spec-plan-contracts.test.js | 5 | no direct anomaly observed |
-| spec-review | workflow_command | command/skill | spec-review-contracts.test.js | 7 | no direct anomaly observed |
+| spec-code-review | workflow_command | command/skill | spec-review-contracts.test.js | 7 | no direct anomaly observed |
 | spec-sessions | workflow_command | command/skill | spec-sessions-contracts.test.js | 1 | no direct anomaly observed |
 | spec-slack-research | standalone_skill | skill/skill | spec-slack-research-contracts.test.js | 1 | no direct anomaly observed |
 | spec-update | workflow_command | command/skill | spec-update-contracts.test.js | 1 | no direct anomaly observed |

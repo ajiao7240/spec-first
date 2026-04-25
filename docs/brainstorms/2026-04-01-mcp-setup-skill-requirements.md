@@ -1,635 +1,154 @@
 ---
-date: 2026-04-01
+date: 2026-04-26
 topic: mcp-setup-skill
 ---
 
-# MCP 工具一键安装 Skill
+# MCP Setup Skill 安装健壮性
 
 ## Problem Frame
 
-spec-graph-bootstrap 依赖 GitNexus、ABCoder、Serena 三个 MCP 工具才能运行 Full mode。用户需要手动安装和配置这些工具，流程繁琐且容易出错。需要一个 skill 简化这个过程，让用户可以快速配置完整的 MCP 工具链。
+`spec-mcp-setup` 已从早期的 GitNexus / ABCoder / install-coordinator 方案演进为当前的分层安装链路：以 `mcp-tools.json` 为唯一机器真相源，围绕 Claude Code 与 Codex 两类宿主写入 MCP 配置，并通过 readiness ledger 交付后续 workflow 可消费的事实。当前问题不再是“新增一键安装器”，而是确保现有安装链路在依赖缺失、宿主配置不可写、fallback 生效、Serena 项目 bootstrap 失败、CRG 不可用等情况下不会误报 ready，也不会留下难以诊断的半安装状态。
+
+这项改进的核心价值是让用户和后续 workflow 都能信任 `spec-mcp-setup` 的输出：脚本负责确定性检测、写入、回滚和事实记录；LLM 负责解释这些事实并给出下一步建议。健壮性应通过更清晰的事实、边界和可恢复执行增强，而不是重新引入中心化 coordinator、状态机或第二份工具目录。
+
+---
+
+## Actors
+
+- A1. 使用者：运行 `/spec:mcp-setup` 或 `$spec-mcp-setup` 配置当前宿主的 MCP 工具链。
+- A2. `spec-mcp-setup` workflow：读取脚本输出，向使用者解释安装状态、失败原因和下一步。
+- A3. 安装脚本链路：执行确定性检测、host config 写入、Serena bootstrap、验证与 ledger 写入。
+- A4. 下游 workflow：例如 `spec-graph-bootstrap`，消费 readiness ledger 判断 Serena / CRG 等能力是否可用。
+
+---
+
+## Key Flows
+
+- F1. Quick baseline setup
+  - **Trigger:** 使用者运行默认 setup 模式。
+  - **Actors:** A1, A2, A3
+  - **Steps:** 检测 repo 与宿主；检测依赖和现有 readiness；安装或修复必装工具；执行 Serena 当前仓库 bootstrap；写入最终 readiness ledger；由 workflow 汇总 ready / partial / action-required 状态。
+  - **Outcome:** 必装 MCP baseline 成功时明确报告 ready；失败或降级时保留可执行 next action。
+  - **Covered by:** R1, R2, R4, R5, R8, R9
+
+- F2. Custom optional setup
+  - **Trigger:** 使用者选择 custom 模式并包含或跳过可选工具。
+  - **Actors:** A1, A2, A3
+  - **Steps:** 展示当前支持工具与 required/optional 属性；将用户选择转换为脚本支持的 install/skip 参数；只安装被选中的工具；最终仍写入完整 readiness ledger。
+  - **Outcome:** 可选 Playwright 的安装与失败不阻断 required baseline，且结果在 tool 级事实中可见。
+  - **Covered by:** R1, R3, R7, R8
+
+- F3. Host config write and repair
+  - **Trigger:** required tool 的 host config 缺失、漂移或不可写。
+  - **Actors:** A2, A3
+  - **Steps:** 基于 `mcp-tools.json` 选择当前宿主目标；检测 precedence / fallback；加锁后备份现有配置；写入单个工具配置；验证写入结果；失败时恢复备份并返回结构化失败事实。
+  - **Outcome:** 不留下损坏配置；用户能区分 managed ready、fallback-active、precedence-blocked 与 action-required。
+  - **Covered by:** R2, R4, R5, R6, R8, R10
+
+- F4. Downstream readiness consumption
+  - **Trigger:** `spec-graph-bootstrap` 或其他 workflow 需要判断 MCP / CRG 能力。
+  - **Actors:** A2, A4
+  - **Steps:** 读取 host readiness ledger；优先使用 tool 级 dependency / host_config / project_status；区分 MCP baseline 与 CRG availability；把失败事实解释为建议，而不是脚本级全局裁决。
+  - **Outcome:** 下游 workflow 不再从旧字段或宿主配置本身推断 readiness，避免 false-ready 和 false-block。
+  - **Covered by:** R8, R9, R11, R12
+
+---
 
 ## Requirements
 
-**安装模式**
-- R1. 提供两种安装模式：快速模式（默认）和自定义模式
-- R2. 快速模式：自动安装所有必装工具，最小化用户决策
-- R3. 自定义模式：用户可选择要安装哪些工具
+**Supported tool baseline**
+- R1. 当前支持工具集必须以 `skills/spec-mcp-setup/mcp-tools.json` 为唯一机器真相源：required 为 Serena、Sequential Thinking、Context7；optional 为 Playwright MCP。
+- R2. Serena 必须同时完成 host MCP config 与当前仓库 bootstrap 才能视为 ready；当前仓库 bootstrap ready 以 `.serena/project.yml` 和 `.serena/index-ready.json` 同时存在为准。
+- R3. Custom 模式只能改变本次安装选择，不能改变 supported tool registry；可选工具失败不得使 required baseline 误报失败。
 
-**自动化能力**
-- R4. 智能检测前置依赖（Node.js, Go, uv）
-- R5. 缺失依赖时提供一键安装命令或详细指引
-- R6. 自动安装所有必装工具（快速模式）
-- R7. 自动写入配置到 ~/.claude.json
-- R8. 自动验证配置是否正确
+**Host configuration robustness**
+- R4. Host config 写入必须保持 lock / backup / verify / rollback 语义：并发写入受控，写入失败不破坏用户原有配置。
+- R5. Claude 与 Codex 的宿主差异必须来自 registry 中的 host config 元数据；workflow 文案和 reference 只能解释这些事实，不能复制生成第二份机器目录。
+- R6. Host readiness 必须区分 `ready`、`fallback-active`、`precedence-blocked`、`action-required`，并在用户输出中解释每种状态的实际含义和下一步。
 
-**交互式引导**
-- R9. 实时显示安装进度（⏳ 安装中 → ✅ 完成 / ❌ 失败）
-- R10. 缺失依赖时询问是否自动安装
-- R11. 安装完成后询问是否安装可选工具
-- R12. 单个工具失败时提供重试选项
-- R13. 显示具体错误和解决建议
+**Install and recovery behavior**
+- R7. 安装链路必须支持 quick 与 custom 两种入口：quick 默认处理 required tools，custom 显式传递 install/skip 选择。
+- R8. 每个工具的安装结果必须以结构化事实返回，至少包含 tool id、status、last action、reason code、configured path、selected scope、fallback applied 与 next action。
+- R9. 失败路径必须保留足够诊断信息；warmup、configure、repair、Serena bootstrap 等关键步骤不能只吞掉 stderr 后返回笼统失败。
+- R10. 依赖缺失必须被报告为可行动事实；如果 `jq` 是脚本自身运行前提，就不能同时把它伪装成可由同一 JSON 检测脚本完整报告的普通依赖。
 
-**增量安装**
-- R14. 检测已安装的工具，仅安装缺失的
-- R15. 跳过已存在的配置
-- R16. 支持断点续装
+**Readiness ledger and downstream contract**
+- R11. `verify-tools` 写入 readiness ledger 只表示事实已刷新，不等同于 setup 成功；用户输出必须明确展示 `overall_status` 与 `baseline_ready`。
+- R12. Readiness ledger v1 必须稳定提供 host、platform、repo_root、overall_status、baseline_ready、tools、crg 与 next_actions，供下游 workflow 消费。
+- R13. CRG CLI / native module 状态可以影响 overall health，但不得与 required MCP baseline 混淆；输出应让用户看出是 MCP baseline 问题还是 CRG 可用性问题。
 
-**ABCoder 特殊处理**
-- R17. 安装阶段只安装 ABCoder 二进制
-- R18. spec-graph-bootstrap 启动时检测 ABCoder 配置
-- R19. 未配置时自动为当前项目生成 AST
-- R20. 自动写入 AST 路径到配置文件
+**Architecture boundaries**
+- R14. 健壮性改进应强化现有分层脚本：detect-host、check-deps、detect-tools、install-mcp、configure-host、repair-install、activate-serena、verify-tools；不得恢复已退役的 `install-coordinator.*` 中心编排方案。
+- R15. 脚本只输出确定性事实、写入结果和恢复状态；LLM workflow 负责解释 tradeoff、选择建议和是否继续下一步。
+- R16. 文档必须删除或标注过时的 GitNexus / ABCoder / Feishu / install-coordinator 口径，避免历史需求被误读为当前支持面。
 
-## 工作流程
+---
 
-### 用户视角流程（自定义模式）
+## Acceptance Examples
 
-```
-用户运行: /mcp:setup
-    ↓
-1. 选择安装模式
-   [1] 快速安装（推荐）
-   [2] 自定义安装 - 手动选择工具
-    ↓ [用户选 2]
-2. 检测已安装工具
-    ↓
-3. 展示工具列表
-   ✅ Serena [已安装]
-   ⬜ GitNexus [未安装]
-   ⬜ ABCoder [未安装]
-   ⬜ Sequential Thinking [未安装]
-   ⬜ Context7 [未安装]
-   ⬜ Playwright MCP [未安装]
-    ↓
-4. 用户勾选要安装的工具
-    ↓
-5. 确认并安装
-   ⏳ 安装中...
-    ↓
-6. 显示结果 + 提示重启
-```
+- AE1. **Covers R2, R11.** Given Serena host config 已存在但 `.serena/index-ready.json` 缺失，when 用户运行 verify，then ledger 中 Serena `project_status` 不能是 ready，用户输出不能宣称 setup 完全成功。
+- AE2. **Covers R4, R8.** Given host config 写入过程中验证失败，when `configure-host` 返回失败，then 原配置被恢复，安装结果包含失败 reason 与 next action，而不是留下部分写入后的配置。
+- AE3. **Covers R6, R13.** Given Claude managed config 不可用但 fallback 用户配置生效，when detect-tools 输出 `fallback-active`，then required baseline 可被视为可用但 overall 输出应提示 fallback 状态，而不是简单显示全绿。
+- AE4. **Covers R9, R10.** Given warmup 命令因网络或包解析失败退出，when install-mcp 汇总结果，then 用户能看到足够定位问题的诊断摘要，而不是只有 `warmup_failed`。
+- AE5. **Covers R12, R13.** Given MCP required tools ready 但 `better-sqlite3` 或 `tree-sitter` native module 缺失，when ledger 写入，then `baseline_ready` 仍能表达 MCP baseline 事实，CRG 缺失通过 `crg.native_modules_status` 与 next action 单独呈现。
 
-### ABCoder 自动配置流程（集成到 spec-graph-bootstrap）
-
-```
-用户运行: /spec:graph-bootstrap
-    ↓
-1. 检测 ABCoder 配置
-   读取 ~/.claude.json → mcpServers.abcoder
-    ↓ (未配置)
-2. 提示自动配置
-   > ABCoder 未配置，是否为当前项目生成 AST？[Y/n]
-    ↓ [用户选 Y]
-3. 检测项目语言
-   扫描项目文件 → 识别主要语言
-    ↓
-4. 执行 abcoder parse
-   > 正在解析项目... (可能需要 1-3 分钟)
-   abcoder parse <language> . -o ~/.claude/abcoder-ast/<project-name>
-    ↓
-5. 写入配置到 ~/.claude.json
-   mcpServers.abcoder.args = ["mcp", "<ast-path>"]
-    ↓
-6. 提示重启
-   > ABCoder 已配置，请重启 Claude Code
-   > 重启后将启用 Full 分析模式
-```
-
-### 技术实现流程
-
-```
-SKILL.md (编排层)
-    ↓
-1. 检测 OS → 选择脚本 (.sh / .ps1)
-    ↓
-2. 调用 install-coordinator 脚本
-    ↓
-install-coordinator (执行层)
-    ↓
-3. 读取 mcp-tools.json
-    ↓
-4. 检查依赖 (node -v, go version, uv --version)
-    ↓
-5. 检测已安装工具 (读取 ~/.claude.json)
-    ↓
-6. 返回工具状态 JSON → SKILL
-    ↓
-SKILL 展示列表 → 用户选择
-    ↓
-7. SKILL 调用 install-coordinator --install <tool-ids>
-    ↓
-8. 备份 ~/.claude.json
-    ↓
-9. 逐个安装:
-   - 有 install_command → 执行命令
-   - 有 mcp_config → 写入配置
-    ↓
-10. 返回安装结果 JSON → SKILL
-    ↓
-11. SKILL 展示结果 + 后续步骤
-```
-
-**错误处理**
-- R14. 安装失败时显示具体错误信息
-- R15. 部分工具安装失败时，继续安装其他工具
-- R16. 提供重试选项
-
-## MCP 工具列表
-
-| 工具 | 定位 | 必装/可选 |
-|------|------|-----------|
-| Serena | 符号级精确编辑引擎 | ✅ 必装 |
-| GitNexus | 代码知识图谱/架构引擎 | ✅ 必装 |
-| ABCoder | 跨语言语义增强 | ✅ 必装 |
-| Sequential Thinking | 动态反思性问题解决 | ✅ 必装 |
-| Context7 | 最新框架文档查询 | ✅ 必装 |
-| Playwright MCP | 前端自动化测试 | 📌 可选 |
+---
 
 ## Success Criteria
 
-- 用户可以通过一个命令 `/mcp:setup` 完成所有 MCP 工具的安装
-- 安装过程有清晰的进度反馈
-- 安装失败时有明确的错误提示和解决建议
-- 安装完成后可以立即运行 spec-graph-bootstrap Full mode
+- 用户重复运行 `/spec:mcp-setup` 或 `$spec-mcp-setup` 时，要么得到明确 ready，要么得到可以执行的下一步，而不是模糊的失败或误导性成功。
+- 下游 workflow 能只依赖 readiness ledger 判断 Serena / MCP baseline / CRG 状态，不需要重新猜测宿主配置文件语义。
+- 安装失败不会破坏已有 host config；修复路径可以从结构化结果看出发生了 install、repair、fallback 还是 rollback。
+- 当前需求文档、skill 文案与 reference 不再把 GitNexus、ABCoder、Feishu 或 `install-coordinator.*` 描述为现行 MCP setup 能力。
+- 健壮性增强保持 light contract：脚本输出事实，LLM 做解释，不引入中心化状态机或第二份 registry。
 
-## Scope
+---
 
-**包含：**
-- MCP 工具安装和配置
-- 安装状态检测和验证
-- 用户交互和进度反馈
-- 安装后可选运行 spec-graph-bootstrap
+## Scope Boundaries
 
-**不包含：**
-- MCP 工具的卸载功能
-- MCP 工具的更新/升级功能
-- 自定义 MCP 工具配置参数
-- 非列表中的其他 MCP 工具
+- 不新增新的 MCP 工具支持；本轮只围绕现有 Serena / Sequential Thinking / Context7 / Playwright 能力收口。
+- 不恢复 GitNexus、ABCoder 或 Feishu MCP 相关安装路径。
+- 不恢复 `install-coordinator.*` 或跨工具中心状态机。
+- 不把 readiness ledger 扩展成强 gate；它是事实输入，不是替 LLM 做最终裁决的规则引擎。
+- 不在 brainstorm 阶段规定具体 shell 实现细节；具体 stderr 捕获方式、字段命名和测试拆分留给 planning。
+- 不处理 MCP 工具版本升级策略、卸载体验或自定义第三方 MCP catalog。
 
-## Technical Direction
+---
 
-**架构设计：配置驱动 + 分层脚本**
+## Key Decisions
 
-### 文件结构
+- 当前方向是“加固现有分层安装链路”，不是重做一套安装器；这样符合项目“脚本执行固定清晰流程，LLM 执行分析决策”的边界。
+- `mcp-tools.json` 继续作为唯一机器真相源；`supported-mcp-tools.md` 和本需求文档只做人类解释。
+- Serena 的 readiness 必须包含当前 repo bootstrap，因为仅有 host config 不能保证依赖 Serena 的代码导航 / graph-bootstrap 路径可用。
+- `verify-tools` 可以在非 ready 状态下写 ledger；这是正确行为，但文案必须避免把“ledger 已写入”表达成“安装成功”。
+- CRG 状态应保留在 setup health 中，但要与 required MCP baseline 分开解释，避免用户误判 MCP 工具安装失败。
 
-```
-.claude/skills/mcp-setup/
-├── SKILL.md                    # Skill 定义（编排层）
-├── mcp-tools.json              # 工具配置（配置层）
-└── scripts/
-    ├── install-coordinator.sh  # 安装协调器（执行层）
-    └── install-coordinator.ps1 # Windows 协调器
-```
+---
 
-### 架构分层
+## Dependencies / Assumptions
 
-**1. 配置层 (mcp-tools.json)**
-- 定义所有工具的元数据
-- 包含安装方式、检测方法、依赖关系
-- 新增工具只需修改此文件
+- 当前仓库只面向 Claude Code 与 Codex 两类 host surface。
+- 当前 Unix 脚本链路已经具备 host config lock / backup / rollback 的基础，需要在计划阶段核实 PowerShell 对应实现是否保持同等语义。
+- 当前 `mcp-tools.json` 已包含 tool registry、host config、bootstrap metadata 与 uninstall target 等机器事实。
+- 当前下游 readiness 消费口径应以 ledger v1 字段为准，而不是历史的 `setup_success`、`tools.*.configured` 或直接读取宿主配置。
 
-**2. 编排层 (SKILL.md)**
-- 用户交互：展示工具列表、收集选择
-- 流程控制：前置检查 → 安装 → 验证 → 配置
-- 错误处理：友好提示、恢复建议
-- 调用执行层脚本
-
-**3. 执行层 (install-coordinator)**
-- 读取 mcp-tools.json 配置
-- 依赖检查（Node.js/Go/uv 版本）
-- 逐个安装工具
-- 配置文件合并（增量更新 ~/.claude.json）
-- 返回结构化 JSON 结果
-
-### 健壮性保障
-
-**1. 依赖检查**
-- 安装前检查 Node.js/Go/uv 版本
-- 不满足则给出明确安装指引，停止安装
-- 避免半成品安装
-
-**2. 原子性**
-- 每个工具独立安装，失败不影响其他
-- 记录安装状态到临时文件 `.mcp-setup-state.json`
-- 支持断点续装
-
-**3. 回滚机制**
-- 安装前备份 `~/.claude.json` 到 `.claude.json.backup`
-- 失败时自动恢复备份
-- 记录失败原因供用户排查
-
-**4. 幂等性**
-- 重复运行不会重复安装
-- 检测已安装工具并跳过
-- 支持 `--repair` 模式修复损坏的安装
-
-**5. 错误处理**
-- 每个命令捕获 stderr
-- 超时机制（默认 60s）
-- 友好的错误提示（翻译技术错误为用户语言）
-
-**新增简单工具（如 Sequential Thinking）：**
-1. 在 `mcp-tools.json` 添加一个条目
-2. 无需修改任何代码
-
-**新增复杂工具（如 ABCoder）：**
-1. 在 `mcp-tools.json` 添加条目，`install_type: "complex"`
-2. 创建 `scripts/tools/install-<tool>.sh` 脚本
-3. 无需修改编排层和执行层
-
-**修改安装逻辑：**
-- 只改对应的工具脚本
-- 不影响其他工具
-- 不需要修改 Skill
-
-**版本管理：**
-- `mcp-tools.json` 包含 `version` 字段
-- 支持配置文件升级迁移
-- 向后兼容旧版本配置
-
-### 平台适配
-
-**跨平台处理：**
-- 协调器脚本分为 `.sh` 和 `.ps1` 两个版本
-- Skill 根据 OS 自动选择对应脚本
-- 配置文件路径自动适配
-
-**平台差异表：**
-| 差异项 | macOS/Linux | Windows |
-|--------|-------------|---------|
-| 配置文件路径 | `~/.claude.json` | `C:\Users\<username>\.claude.json` |
-| ABCoder 命令 | `abcoder` | `abcoder.exe` |
-| 路径分隔符 | `/` | `\\` |
-| 脚本扩展名 | `.sh` | `.ps1` |
-| Git 要求 | 可选 | 必须（Git for Windows）|
-
-**平台特定配置：**
-- `mcp-tools.json` 支持 `platform_overrides` 字段
-- 例如：Windows 下 ABCoder 命令改为 `abcoder.exe`
-
-### 配置文件结构 (mcp-tools.json)
-
-```json
-{
-  "version": "1.0",
-  "tools": [
-    {
-      "id": "serena",
-      "name": "Serena",
-      "category": "required",
-      "mcp_config": {
-        "command": "uvx",
-        "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server"]
-      },
-      "detect": {
-        "method": "mcp_config",
-        "key": "serena"
-      },
-      "dependencies": ["uv"]
-    },
-    {
-      "id": "gitnexus",
-      "name": "GitNexus",
-      "category": "required",
-      "mcp_config": {
-        "command": "npx",
-        "args": ["-y", "gitnexus", "mcp"]
-      },
-      "detect": {
-        "method": "mcp_config",
-        "key": "gitnexus"
-      },
-      "dependencies": ["node"]
-    },
-    {
-      "id": "abcoder",
-      "name": "ABCoder",
-      "category": "required",
-      "install_command": "go install github.com/cloudwego/abcoder@latest",
-      "mcp_config": null,
-      "note": "ABCoder 安装后需要用户手动配置 AST 目录",
-      "detect": {
-        "method": "command",
-        "command": "abcoder version"
-      },
-      "dependencies": ["go"]
-    },
-    {
-      "id": "sequential-thinking",
-      "name": "Sequential Thinking",
-      "category": "required",
-      "mcp_config": {
-        "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-      },
-      "detect": {
-        "method": "mcp_config",
-        "key": "sequential-thinking"
-      },
-      "dependencies": ["node"]
-    },
-    {
-      "id": "context7",
-      "name": "Context7",
-      "category": "required",
-      "mcp_config": {
-        "command": "npx",
-        "args": ["-y", "@upstash/context7-mcp"]
-      },
-      "detect": {
-        "method": "mcp_config",
-        "key": "context7"
-      },
-      "dependencies": ["node"]
-    },
-    {
-      "id": "playwright",
-      "name": "Playwright MCP",
-      "category": "optional",
-      "mcp_config": {
-        "command": "npx",
-        "args": ["@playwright/mcp@latest"]
-      },
-      "detect": {
-        "method": "mcp_config",
-        "key": "playwright"
-      },
-      "dependencies": ["node"]
-    }
-  ]
-}
-```
-
-**配置说明：**
-- `mcp_config`: 直接写入 `~/.claude.json` 的配置
-- `install_command`: 需要预先执行的安装命令（如 ABCoder）
-- `mcp_config: null`: 表示不自动写入配置（需要用户手动配置）
-- `detect.method`: `mcp_config` 检查配置文件，`command` 检查命令是否存在
-
-## MCP 工具安装详情
-
-### 必装工具（5个）
-
-**1. Serena**
-- Git 地址：`https://github.com/oraios/serena`
-- 必须依赖：`uv / uvx`
-- 推荐依赖：对应语言的 LSP server
-- 安装命令：`uvx --from git+https://github.com/oraios/serena serena start-mcp-server`
-- 配置路径：`~/.claude.json` (用户级) 或 `.mcp.json` (项目级)
-- 检测方法：检查 `~/.claude.json` 中是否存在 `mcpServers.serena` 配置
-
-**2. GitNexus**
-- Git 地址：`https://github.com/nxpatterns/gitnexus`
-- 必须依赖：`Node.js + npm/npx`
-- 安装命令：`npx -y gitnexus` (首次运行会自动安装)
-- 检测方法：检查 `~/.claude.json` 中是否存在 `mcpServers.gitnexus` 配置
-
-**3. ABCoder**
-- Git 地址：`https://github.com/cloudwego/abcoder`
-- 必须依赖：`Go`
-- 安装命令：`go install github.com/cloudwego/abcoder@latest`
-- 检测方法：检查 `~/.claude.json` 中是否存在 `mcpServers.abcoder` 配置
-- **注意：** ABCoder 需要 AST 目录，但这是使用时的配置，不是安装时的要求
-
-**4. Sequential Thinking**
-- Git 地址：`https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking`
-- 必须依赖：`Node.js + npm/npx`
-- 包名：`@modelcontextprotocol/server-sequential-thinking`
-- 安装命令：`npx -y @modelcontextprotocol/server-sequential-thinking` (首次运行会自动安装)
-- 检测方法：检查 `~/.claude.json` 中是否存在 `mcpServers.sequential-thinking` 配置
-
-**5. Context7**
-- Git 地址：`https://github.com/upstash/context7`
-- 必须依赖：`Node.js + npm/npx`
-- 推荐依赖：Context7 API Key（可选，用于更高 rate limits）
-- 安装命令：`npx -y @upstash/context7-mcp` (首次运行会自动安装)
-- 检测方法：检查 `~/.claude.json` 中是否存在 `mcpServers.context7` 配置
-
-### 可选工具（1个）
-
-**6. Playwright MCP**
-- Git 地址：`https://github.com/microsoft/playwright-mcp`
-- 必须依赖：`Node.js + npm/npx`
-- 推荐依赖：Playwright MCP Chrome Extension（用于复用浏览器登录态）
-- 安装命令：`npx @playwright/mcp@latest` (首次运行会自动安装)
-- 检测方法：检查 `~/.claude.json` 中是否存在 `mcpServers.playwright` 配置
-
-## 安装脚本输出格式
-
-```json
-{
-  "tools": [
-    {
-      "name": "serena",
-      "status": "installed" | "not_installed" | "failed",
-      "message": "详细信息或错误消息"
-    }
-  ],
-  "summary": {
-    "total": 6,
-    "installed": 5,
-    "failed": 0,
-    "skipped": 1
-  }
-}
-```
-
-## 前置条件
-
-**必须依赖：**
-- `uv / uvx` - 用于 Serena
-- `Node.js + npm/npx` - 用于 GitNexus, Sequential Thinking, Context7, Playwright MCP
-- `Go` - 用于 ABCoder
-
-**推荐依赖：**
-- 各语言的 LSP server（Serena 依赖）
-- Context7 API Key（可选，用于更高 rate limits）
-
-**检测命令：**
-```bash
-node -v && npm -v && npx -v
-go version
-uv --version && uvx --version
-```
+---
 
 ## Outstanding Questions
 
-**已解决：**
-- ✅ 配置文件路径：统一使用 `~/.claude.json`
-- ✅ 前置依赖安装策略：检测 + 给出安装指引，不自动安装
-- ✅ MCP 配置文件合并策略：增量合并，保留已有配置
-- ✅ 工具检测方法：统一检查 `~/.claude.json` 中的 `mcpServers` 配置
-- ✅ ABCoder 简化：只安装二进制，AST 配置留给用户使用时处理
+### Resolve Before Planning
 
-**设计决策：**
-- npx 工具（GitNexus, Sequential Thinking, Context7, Playwright）首次运行时自动安装，无需预安装
-- ABCoder 只安装 `go install`，不在安装阶段处理 AST 生成
-- 配置写入 `~/.claude.json`，用户需重启 Claude Code 生效
+- 无。
 
-## MCP 配置示例
+### Deferred to Planning
 
-### macOS/Linux 配置
+- [Affects R9][Technical] 关键失败路径应如何在不泄露过长日志的前提下保留 stderr 摘要、退出码与排障指引？
+- [Affects R10][Technical] `jq` 应定位为 bootstrap hard prerequisite，还是需要为 `check-deps` 提供无 jq 的最小输出路径？
+- [Affects R2, R5][Technical] `activate-serena` 中 bootstrap 命令参数是否应完全由 registry 派生，还是保留脚本内固定语言列表并在 registry 中只记录 readiness marker？
+- [Affects R12, R13][Technical] ledger v1 是否需要新增更明确的 MCP baseline summary 字段，还是继续由 `baseline_ready` + tool facts 派生？
 
-**配置文件位置：** `~/.claude.json` 或项目级 `.mcp.json`
+---
 
-```json
-{
-  "mcpServers": {
-    "serena": {
-      "command": "uvx",
-      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server"]
-    },
-    "gitnexus": {
-      "command": "npx",
-      "args": ["-y", "gitnexus", "mcp"]
-    },
-    "sequential-thinking": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-    },
-    "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"]
-    },
-    "abcoder": {
-      "command": "abcoder",
-      "args": ["mcp", "/ABS/PATH/TO/AST_DIR"]
-    },
-    "playwright": {
-      "command": "npx",
-      "args": ["@playwright/mcp@latest"]
-    }
-  }
-}
-```
+## Next Steps
 
-**注意：** `/ABS/PATH/TO/AST_DIR` 需要替换为实际的 ABCoder AST 目录路径。
-
-### Windows 配置
-
-**配置文件位置：** `C:\Users\你的用户名\.claude.json`
-
-**前置要求：** 必须先安装 Git for Windows（Claude Code 官方要求）
-
-```json
-{
-  "mcpServers": {
-    "serena": {
-      "command": "uvx",
-      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server"]
-    },
-    "gitnexus": {
-      "command": "npx",
-      "args": ["-y", "gitnexus", "mcp"]
-    },
-    "sequential-thinking": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-    },
-    "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"]
-    },
-    "abcoder": {
-      "command": "abcoder.exe",
-      "args": ["mcp", "D:\\mcp-data\\abcoder-ast"]
-    },
-    "playwright": {
-      "command": "npx",
-      "args": ["@playwright/mcp@latest"]
-    }
-  }
-}
-```
-
-**Windows 路径注意事项：**
-- ABCoder 命令使用 `abcoder.exe`（或 `abcoder` 如果已在 PATH 中）
-- 路径使用双反斜杠 `\\` 或正斜杠 `/`
-- 示例：`D:\\mcp-data\\abcoder-ast` 或 `D:/mcp-data/abcoder-ast`
-
-## 安装脚本示例
-
-### macOS/Linux 安装脚本
-
-```bash
-#!/usr/bin/env bash
-set -e
-
-echo "== 检查 Node.js =="
-node -v && npm -v && npx -v
-
-echo "== 检查 Go =="
-go version
-
-echo "== 检查 uv =="
-uv --version || echo "⚠️  uv 未安装，请访问: https://docs.astral.sh/uv/getting-started/installation/"
-
-echo "== 安装 ABCoder =="
-go install github.com/cloudwego/abcoder@latest
-
-echo "== 预热 npm-based MCP 包 =="
-npx -y @modelcontextprotocol/server-sequential-thinking --help || true
-npx -y @upstash/context7-mcp --help || true
-npx -y gitnexus --help || true
-
-echo "== 测试 Serena =="
-uvx --from git+https://github.com/oraios/serena serena --help || true
-
-echo "✅ 安装完成"
-```
-
-### Windows 安装脚本 (PowerShell)
-
-```powershell
-# Windows MCP 工具安装脚本
-
-Write-Host "== 检查 Git for Windows ==" -ForegroundColor Cyan
-git --version
-
-Write-Host "`n== 检查 Node.js ==" -ForegroundColor Cyan
-node -v
-npm -v
-npx -v
-
-Write-Host "`n== 检查 Go ==" -ForegroundColor Cyan
-go version
-
-Write-Host "`n== 检查 uv ==" -ForegroundColor Cyan
-try {
-    uv --version
-} catch {
-    Write-Host "⚠️  uv 未安装，请访问: https://docs.astral.sh/uv/getting-started/installation/" -ForegroundColor Yellow
-}
-
-Write-Host "`n== 安装 ABCoder ==" -ForegroundColor Cyan
-go install github.com/cloudwego/abcoder@latest
-
-Write-Host "`n== 验证 npm-based MCP 包 ==" -ForegroundColor Cyan
-npx -y @modelcontextprotocol/server-sequential-thinking --help
-npx -y @upstash/context7-mcp --help
-npx -y gitnexus --help
-npx @playwright/mcp@latest --help
-
-Write-Host "`n== 测试 Serena ==" -ForegroundColor Cyan
-uvx --from git+https://github.com/oraios/serena serena --help
-
-Write-Host "`n✅ 安装完成" -ForegroundColor Green
-Write-Host "请按照以下步骤完成配置：" -ForegroundColor Yellow
-Write-Host "1. 在项目根目录运行: npx gitnexus analyze"
-Write-Host "2. 生成 ABCoder AST 目录"
-Write-Host "3. 编辑 C:\Users\$env:USERNAME\.claude.json"
-Write-Host "4. 重启 Claude Code"
-```
-
-**Windows 安装顺序建议：**
-1. 安装 Git for Windows（必须）
-2. 安装 Node.js
-3. 安装 Go
-4. 安装 uv
-5. 安装 Claude Code
-6. 运行上述 PowerShell 脚本
-7. 在项目根目录运行 `npx gitnexus analyze`
-8. 准备 ABCoder AST 目录
-9. 配置 `~/.claude.json`
-10. 重启 Claude Code
+-> /spec:plan for structured implementation planning

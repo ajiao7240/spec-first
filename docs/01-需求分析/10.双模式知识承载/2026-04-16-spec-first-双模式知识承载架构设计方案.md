@@ -629,7 +629,7 @@ backup 语义必须拆成两层：
 
 1. `spec-plan`
 2. `spec-work`
-3. `spec-review`
+3. `spec-code-review`
 
 原因：
 

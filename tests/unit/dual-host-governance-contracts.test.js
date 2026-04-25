@@ -144,19 +144,19 @@ describe('dual-host governance contracts', () => {
     const bundledSupportCount = listBundledAgentSupportFiles().length;
 
     expect(readme).toContain(
-      `| **Capability layer** | Bundled source assets ship with \`${bundledSkillCount}\` skills, \`${bundledAgentCount}\` agents, and \`${bundledSupportCount}\` agent support files. Runtime delivery is host-filtered by governance: the current bundle installs \`${claudeAssets.commands.length}\` commands + \`${claudeAssets.skills.length}\` skills on Claude, and \`${codexAssets.skills.length}\` skills on Codex, with \`${bundledAgentCount}\` agents + \`${bundledSupportCount}\` support files on both hosts |`,
+      `| **Capability layer** | Bundled source assets ship with \`${bundledSkillCount}\` skills, \`${bundledAgentCount}\` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs \`${claudeAssets.commands.length}\` commands + \`${claudeAssets.skills.length}\` skills on Claude, and \`${codexAssets.skills.length}\` skills on Codex, with \`${bundledAgentCount}\` agents on both hosts |`,
     );
     expect(readmeZh).toContain(
-      `| **能力层资产** | 仓库内置源码资产共 \`${bundledSkillCount}\` 个 skills、\`${bundledAgentCount}\` 个 agents、\`${bundledSupportCount}\` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 \`${claudeAssets.commands.length}\` 个 commands + \`${claudeAssets.skills.length}\` 个 skills，在 Codex 侧安装 \`${codexAssets.skills.length}\` 个 skills；两侧都会安装 \`${bundledAgentCount}\` 个 agents + \`${bundledSupportCount}\` 个 support files |`,
+      `| **能力层资产** | 仓库内置源码资产共 \`${bundledSkillCount}\` 个 skills、\`${bundledAgentCount}\` 个 agents、\`${bundledSupportCount}\` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 \`${claudeAssets.commands.length}\` 个 commands + \`${claudeAssets.skills.length}\` 个 skills，在 Codex 侧安装 \`${codexAssets.skills.length}\` 个 skills；两侧都会安装 \`${bundledAgentCount}\` 个 agents |`,
     );
     expect(readme).toContain(`📦 Generated ${claudeAssets.commands.length} command file(s) in .claude/commands/spec`);
     expect(readme).toContain(`🧩 Generated ${claudeAssets.skills.length} skill directory(ies) in .claude/skills`);
     expect(readme).toContain(`🤖 Generated ${claudeAssets.agents.length} agent file(s) in .claude/agents`);
-    expect(readme).toContain(`🧰 Generated ${claudeAssets.agentSupportFiles.length} agent support file(s) in .claude/agents`);
+    expect(readme).not.toContain('agent support file(s) in .claude/agents');
     expect(readmeZh).toContain(`📦 Generated ${claudeAssets.commands.length} command file(s) in .claude/commands/spec`);
     expect(readmeZh).toContain(`🧩 Generated ${claudeAssets.skills.length} skill directory(ies) in .claude/skills`);
     expect(readmeZh).toContain(`🤖 Generated ${claudeAssets.agents.length} agent file(s) in .claude/agents`);
-    expect(readmeZh).toContain(`🧰 Generated ${claudeAssets.agentSupportFiles.length} agent support file(s) in .claude/agents`);
+    expect(readmeZh).not.toContain('agent support file(s) in .claude/agents');
     expect(readme).toContain('| `postprocess` | Recompute communities, flows, graph analysis, and FTS after a build or incremental refresh |');
     expect(readmeZh).toContain('| `postprocess` | 在 build 或增量刷新后重算 communities、flows、graph analysis 与 FTS |');
   });

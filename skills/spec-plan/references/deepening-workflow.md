@@ -2,7 +2,7 @@
 
 This file contains the confidence-check execution path (5.3.3-5.3.7). Load it only when the deepening gate at 5.3.2 determines that deepening is warranted.
 
-## 5.3.3 Score Confidence Gaps
+## 5.3.3 Score Confidence-first Gaps
 
 Use a checklist-first, risk-weighted scoring pass.
 
@@ -28,6 +28,7 @@ If the plan already has a `deepened:` date:
 - Success criteria are missing or not reflected downstream
 - Units do not clearly advance the traced requirements
 - Origin requirements are not clearly carried forward
+- Origin A/F/AE IDs (when supplied by the upstream brainstorm) are not preserved where planning decisions touch them, or are referenced inconsistently across Requirements Trace, units, and test scenarios
 
 **Context & Research / Sources & References**
 - Relevant repo patterns are named but never used in decisions or implementation units
@@ -63,12 +64,11 @@ If the plan already has a `deepened:` date:
 - File paths or test file paths are missing where they should be explicit
 - Units are too large, too vague, or broken into micro-steps
 - Approach notes are thin or do not name the pattern to follow
-- Starting ambiguity is high — an implementer would not know where to begin
-- The unit relies on an existing pattern but does not name the actual anchor file or module
-- Test scenarios are vague (don't name inputs and expected outcomes), require the implementer to invent coverage shape, skip applicable categories (e.g., no error paths for a unit with failure modes, no integration scenarios for a unit crossing layers), or are disproportionate to the unit's complexity
+- Test scenarios are vague (don't name inputs and expected outcomes), skip applicable categories (e.g., no error paths for a unit with failure modes, no integration scenarios for a unit crossing layers), or are disproportionate to the unit's complexity
 - Feature-bearing units have blank or missing test scenarios (feature-bearing units require actual test scenarios; the `Test expectation: none` annotation is only valid for non-feature-bearing units)
-- Verification outcomes are vague, not expressed as observable results, or cannot distinguish partial completion from done
-- Execution posture is implied by the work but not signaled
+- Verification outcomes are vague or not expressed as observable results
+- Existing U-IDs were renumbered after a unit was reordered, split, or deleted (U-IDs are stable: never renumber existing IDs; gaps from deletions are preserved; new units take the next unused number)
+- A unit realizing an origin Key Flow does not cite the F-ID, or a unit enforcing an origin Acceptance Example does not cite the AE-ID, when origin supplies them
 
 **System-Wide Impact**
 - Affected interfaces, callbacks, middleware, entry points, or parity surfaces are missing
@@ -82,7 +82,7 @@ If the plan already has a `deepened:` date:
 - External dependency assumptions are weak or unstated
 - Security, privacy, performance, or data risks are absent where they obviously apply
 
-Use the plan's own `Context & Research` and `Sources & References` as evidence. If those sections cite a pattern, learning, or risk that never affects decisions, implementation units, or verification, treat that as a confidence gap.
+Use the plan's own `Context & Research` and `Sources & References` as evidence. If those sections cite a pattern, learning, or risk that never affects decisions, implementation units, or verification, treat that as a confidence-first gap.
 
 ## 5.3.4 Report and Dispatch Targeted Research
 
@@ -99,43 +99,43 @@ Use fully-qualified agent names inside Task calls.
 **Deterministic Section-to-Agent Mapping:**
 
 **Requirements Trace / Open Questions classification**
-- `spec-first:workflow:spec-flow-analyzer` for missing user flows, edge cases, and handoff gaps
-- `spec-first:research:repo-research-analyst` (Scope: `architecture, patterns`) for repo-grounded patterns, conventions, and implementation reality checks
+- `spec-spec-flow-analyzer` for missing user flows, edge cases, and handoff gaps
+- `spec-repo-research-analyst` (Scope: `architecture, patterns`) for repo-grounded patterns, conventions, and implementation reality checks
 
 **Context & Research / Sources & References gaps**
-- `spec-first:research:learnings-researcher` for institutional knowledge and past solved problems
-- `spec-first:research:framework-docs-researcher` for official framework or library behavior
-- `spec-first:research:best-practices-researcher` for current external patterns and industry guidance
-- Add `spec-first:research:git-history-analyzer` only when historical rationale or prior art is materially missing
+- `spec-learnings-researcher` for institutional knowledge and past solved problems
+- `spec-framework-docs-researcher` for official framework or library behavior
+- `spec-best-practices-researcher` for current external patterns and industry guidance
+- Add `spec-git-history-analyzer` only when historical rationale or prior art is materially missing
 
 **Key Technical Decisions**
-- `spec-first:review:architecture-strategist` for design integrity, boundaries, and architectural tradeoffs
-- Add `spec-first:research:framework-docs-researcher` or `spec-first:research:best-practices-researcher` when the decision needs external grounding beyond repo evidence
+- `spec-architecture-strategist` for design integrity, boundaries, and architectural tradeoffs
+- Add `spec-framework-docs-researcher` or `spec-best-practices-researcher` when the decision needs external grounding beyond repo evidence
 
 **High-Level Technical Design**
-- `spec-first:review:architecture-strategist` for validating that the technical design accurately represents the intended approach and identifying gaps
-- `spec-first:research:repo-research-analyst` (Scope: `architecture, patterns`) for grounding the technical design in existing repo patterns and conventions
-- Add `spec-first:research:best-practices-researcher` when the technical design involves a DSL, API surface, or pattern that benefits from external validation
+- `spec-architecture-strategist` for validating that the technical design accurately represents the intended approach and identifying gaps
+- `spec-repo-research-analyst` (Scope: `architecture, patterns`) for grounding the technical design in existing repo patterns and conventions
+- Add `spec-best-practices-researcher` when the technical design involves a DSL, API surface, or pattern that benefits from external validation
 
 **Implementation Units / Verification**
-- `spec-first:research:repo-research-analyst` (Scope: `patterns`) for concrete file targets, patterns to follow, and repo-specific sequencing clues
-- `spec-first:review:pattern-recognition-specialist` for consistency, duplication risks, and alignment with existing patterns
-- Add `spec-first:workflow:spec-flow-analyzer` when sequencing depends on user flow or handoff completeness
+- `spec-repo-research-analyst` (Scope: `patterns`) for concrete file targets, patterns to follow, and repo-specific sequencing clues
+- `spec-pattern-recognition-specialist` for consistency, duplication risks, and alignment with existing patterns
+- Add `spec-spec-flow-analyzer` when sequencing depends on user flow or handoff completeness
 
 **System-Wide Impact**
-- `spec-first:review:architecture-strategist` for cross-boundary effects, interface surfaces, and architectural knock-on impact
+- `spec-architecture-strategist` for cross-boundary effects, interface surfaces, and architectural knock-on impact
 - Add the specific specialist that matches the risk:
-  - `spec-first:review:performance-oracle` for scalability, latency, throughput, and resource-risk analysis
-  - `spec-first:review:security-sentinel` for auth, validation, exploit surfaces, and security boundary review
-  - `spec-first:review:data-integrity-guardian` for migrations, persistent state safety, consistency, and data lifecycle risks
+  - `spec-performance-oracle` for scalability, latency, throughput, and resource-risk analysis
+  - `spec-security-sentinel` for auth, validation, exploit surfaces, and security boundary review
+  - `spec-data-integrity-guardian` for migrations, persistent state safety, consistency, and data lifecycle risks
 
 **Risks & Dependencies / Operational Notes**
 - Use the specialist that matches the actual risk:
-  - `spec-first:review:security-sentinel` for security, auth, privacy, and exploit risk
-  - `spec-first:review:data-integrity-guardian` for persistent data safety, constraints, and transaction boundaries
-  - `spec-first:review:data-migration-expert` for migration realism, backfills, and production data transformation risk
-  - `spec-first:review:deployment-verification-agent` for rollout checklists, rollback planning, and launch verification
-  - `spec-first:review:performance-oracle` for capacity, latency, and scaling concerns
+  - `spec-security-sentinel` for security, auth, privacy, and exploit risk
+  - `spec-data-integrity-guardian` for persistent data safety, constraints, and transaction boundaries
+  - `spec-data-migration-expert` for migration realism, backfills, and production data transformation risk
+  - `spec-deployment-verification-agent` for rollout checklists, rollback planning, and launch verification
+  - `spec-performance-oracle` for capacity, latency, and scaling concerns
 
 **Agent Prompt Shape:**
 
@@ -167,7 +167,14 @@ Signals that justify artifact-backed mode:
 
 If artifact-backed mode is not clearly warranted, stay in direct mode.
 
-Artifact-backed mode uses a per-run scratch directory under `.spec-first/workflows/spec-plan/deepen/`.
+Artifact-backed mode uses a per-run OS-temp scratch directory. Create it once before dispatching sub-agents and capture its **absolute path** — pass that absolute path to each sub-agent so they write to it directly. Do not use `.context/`; the artifacts are per-run throwaway that are cleaned up when deepening ends (see 5.3.6b), matching the repo Scratch Space convention for one-shot artifacts. Do not pass unresolved shell-variable strings to sub-agents; they need the resolved absolute path.
+
+```bash
+SCRATCH_DIR="$(mktemp -d -t spec-plan-deepen-XXXXXX)"
+echo "$SCRATCH_DIR"
+```
+
+Refer to the echoed absolute path as `<scratch-dir>` throughout the rest of this workflow.
 
 ## 5.3.6 Run Targeted Research
 
@@ -179,7 +186,7 @@ If a selected section can be improved by reading the origin document more carefu
 
 **Direct mode:** Have each selected agent return its findings directly to the parent. Keep the return payload focused: strongest findings only, the evidence or sources that matter, the concrete planning improvement implied by the finding.
 
-**Artifact-backed mode:** For each selected agent, instruct it to write one compact artifact file in the scratch directory and return only a short completion summary. Each artifact should contain: target section, why selected, 3-7 findings, source-backed rationale, the specific plan change implied by each finding. No implementation code, no shell commands.
+**Artifact-backed mode:** For each selected agent, pass the absolute `<scratch-dir>` path captured earlier and instruct the agent to write one compact artifact file inside that directory, then return only a short completion summary. Each artifact should contain: target section, why selected, 3-7 findings, source-backed rationale, the specific plan change implied by each finding. No implementation code, no shell commands.
 
 If an artifact is missing or clearly malformed, re-run that agent or fall back to direct-mode reasoning for that section.
 
@@ -194,7 +201,7 @@ Skip this step in auto mode — proceed directly to 5.3.7.
 
 In interactive mode, present each agent's findings to the user before integration. For each agent that returned findings:
 
-1. **Summarize the agent and its target section** — e.g., "The architecture-strategist reviewed Key Technical Decisions and found:"
+1. **Summarize the agent and its target section** — e.g., "The spec-architecture-strategist reviewed Key Technical Decisions and found:"
 2. **Present the findings concisely** — bullet the key points, not the raw agent output. Include enough context for the user to evaluate: what the agent found, what evidence supports it, and what plan change it implies.
 3. **Ask the user** using the platform's blocking question tool when available (see Interaction Method):
    - **Accept** — integrate these findings into the plan
@@ -207,9 +214,9 @@ When presenting findings from multiple agents targeting the same section, presen
 
 After all agents have been reviewed, carry only the accepted findings forward to 5.3.7.
 
-If the user accepted no findings, report "No findings accepted — plan unchanged." If artifact-backed mode was used, clean up the scratch directory before continuing. Then proceed directly to Phase 5.4 (skip document-review and synthesis — the plan was not modified). This interactive-mode-only skip does not apply in auto mode; auto mode always proceeds through 5.3.7 and 5.3.8.
+If the user accepted no findings, report "No findings accepted — plan unchanged." Then proceed directly to Phase 5.4 (skip spec-doc-review and synthesis — the plan was not modified). This interactive-mode-only skip does not apply in auto mode; auto mode always proceeds through 5.3.7 and 5.3.8. No explicit scratch cleanup needed — `$SCRATCH_DIR` is OS temp and will be cleaned up by the OS; leaving it in place preserves the rejected agent artifacts for debugging.
 
-If findings were accepted and the plan was modified, proceed through 5.3.7 and 5.3.8 as normal — document-review acts as a quality gate on the changes.
+If findings were accepted and the plan was modified, proceed through 5.3.7 and 5.3.8 as normal — spec-doc-review acts as a quality gate on the changes.
 
 ## 5.3.7 Synthesize and Update the Plan
 
@@ -220,12 +227,8 @@ Strengthen only the selected sections. Keep the plan coherent and preserve its o
 Allowed changes:
 - Clarify or strengthen decision rationale
 - Tighten requirements trace or origin fidelity
-- Reorder or split implementation units when sequencing is weak
+- Reorder or split implementation units when sequencing is weak — but **never renumber existing U-IDs**. Reordering preserves U-IDs in their new order (e.g., U1, U3, U5 reordered is correct; renumbering to U1, U2, U3 is not). Splitting keeps the original U-ID on the original concept and assigns the next unused number to the new unit. Renumbering breaks spec-work blocker and verification references that were written against the original IDs
 - Add missing pattern references, file/test paths, or verification outcomes
-- Add or tighten `Starting point` when a unit is easy to mis-start
-- Convert vague `Execution note` prose into a controlled posture label
-- Rewrite verification into observable done signals
-- Strengthen test scenarios to reduce coverage invention
 - Expand system-wide impact, risks, or rollout treatment where justified
 - Reclassify open questions between `Resolved During Planning` and `Deferred to Implementation` when evidence supports the change
 - Strengthen, replace, or add a High-Level Technical Design section when the work warrants it and the current representation is weak
@@ -235,12 +238,12 @@ Allowed changes:
 Do **not**:
 - Add implementation code — no imports, exact method signatures, or framework-specific syntax. Pseudo-code sketches and DSL grammars are allowed
 - Add git commands, commit choreography, or exact test command recipes
-- Turn execution-readiness improvements into shell choreography or literal `RED/GREEN/REFACTOR` micro-steps
 - Add generic `Research Insights` subsections everywhere
 - Rewrite the entire plan from scratch
 - Invent new product requirements, scope changes, or success criteria without surfacing them explicitly
+- Renumber existing U-IDs as part of reordering, splitting, deletion, or "tidying" the unit list. Deepening is the most likely accidental-renumber vector — preserve U-IDs even when the new order would look cleaner with sequential numbering
 
 If research reveals a product-level ambiguity that should change behavior or scope:
 - Do not silently decide it here
 - Record it under `Open Questions`
-- Recommend `spec:brainstorm` if the gap is truly product-defining
+- Recommend `spec-brainstorm` if the gap is truly product-defining

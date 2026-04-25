@@ -346,7 +346,7 @@ const envelope = makeEnvelope(repoRoot, {
 
 #### 影响评估
 
-- 上层工作流（`spec-review` 消费 `review-context`）如果读 `build` 返回判断"最近构建是否 clean"，会在增量构建时误判为零 unresolved；
+- 上层工作流（`spec-code-review` 消费 `review-context`）如果读 `build` 返回判断"最近构建是否 clean"，会在增量构建时误判为零 unresolved；
 - 修复后 `build` 与 `stats` 口径强一致，CRG 的"工程事实底座"可信度恢复。
 
 #### 验证方式
@@ -1031,7 +1031,7 @@ return makeEnvelope(repoRoot, {
 });
 ```
 
-**修复 3：消费方（`spec-review`）选层使用**
+**修复 3：消费方（`spec-code-review`）选层使用**
 
 - 默认降噪模式：用 `hunk_hit ∪ module_scope_hit` 作为真正受影响节点；
 - 兜底严格模式：回退到 `affected_nodes`；
@@ -1045,7 +1045,7 @@ return makeEnvelope(repoRoot, {
   - `hunk_hit` 在"改 1 行"场景下只返回 1 个节点；
   - `module_scope_hit` 在"改 import 列表"场景下准确报告"文件头部变了"；
   - `affected_nodes` 保持不变，老消费方不 break；
-  - spec-review 默认降噪但不丢严格模式兜底能力。
+  - spec-code-review 默认降噪但不丢严格模式兜底能力。
 
 #### 验证方式
 
@@ -2839,7 +2839,7 @@ function openDb(argv) {
 
 **缺口 2：长进程场景无连接复用**
 
-CLI 场景下单次命令打开 → 查询 → 关闭是合理的。但 CRG 被其他场景消费时（MCP server、IDE 插件、`spec-review` 批量调用多个 `crg query`），每次都 `new Database` 有性能浪费：
+CLI 场景下单次命令打开 → 查询 → 关闭是合理的。但 CRG 被其他场景消费时（MCP server、IDE 插件、`spec-code-review` 批量调用多个 `crg query`），每次都 `new Database` 有性能浪费：
 - 每次 open 要重新解析 schema；
 - WAL reader slot 占用频繁回收；
 - `pragma` 设置每次重新执行。
@@ -3169,11 +3169,11 @@ F1 ┬─ 关联：P5（FTS 增量重建）、S2（unresolved 唯一约束）
    ├─ 交叉验证：F1 的"0 变更回读持久化真相"策略依赖 C2/C3 修复后的 unresolved 语义稳定
    │    C2/C3 修复 → 第一次全量 build 写入新 unresolved → 后续增量 build 回读应保持一致
    │    验证方式：同一套 fixture 覆盖 F1 + C2 + C3，而非三个独立测试
-   └─ 影响：spec-review 对 crg build 返回的 unresolved 判断
+   └─ 影响：spec-code-review 对 crg build 返回的 unresolved 判断
 
 C1 ┬─ 关联：analyze.surprisingConnections 权重 + D3 weights 配置化
    │    方案 A 的 `score += 30` 与 `min_score = 30` 必须严格相等（M2）
-   └─ 影响：spec-review 消费 surprising 信号
+   └─ 影响：spec-code-review 消费 surprising 信号
 
 C2 ┬─ 关联：同文件优先消歧策略、C3 相对路径解析、F1 unresolved 口径（见上）
    └─ 影响：resolveEdges 速度与重名 symbol 解析稳定性

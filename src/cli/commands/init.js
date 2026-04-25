@@ -270,7 +270,9 @@ function runInit(argv) {
   }
   const synced = assetSync.syncedAssets;
   const written = synced.commands.map((command) => command.filename);
-  const skillNames = synced.skills;
+  const skillNames = adapter.workflowsRoot === adapter.skillsRoot
+    ? mergeStringArrays(synced.skills, synced.workflowSkills)
+    : synced.skills;
   const agentPaths = synced.agents;
   const agentSupportFiles = synced.agentSupportFiles || [];
 

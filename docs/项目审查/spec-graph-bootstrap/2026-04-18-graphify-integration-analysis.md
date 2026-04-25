@@ -245,7 +245,7 @@
    `graph.json` 混合了确定性事实、推断关系、模糊关系，不再适合作为 Stage-0 主真源。
 
 2. 下游消费语义不稳定  
-   `spec-plan`、`spec-work`、`spec-review` 需要的是最小充分决策输入，而不是一个需要再次解释的大图。
+   `spec-plan`、`spec-work`、`spec-code-review` 需要的是最小充分决策输入，而不是一个需要再次解释的大图。
 
 3. 质量门容易被做重  
    一旦把 graphify 结果接入 freshness / completeness / quality gate，就会形成新的门控源，增加流程中断概率。
@@ -441,7 +441,7 @@
 
 ### 方案 B：优先服务 `spec-brainstorm` / `spec-ideate` / `spec-plan`
 
-`graphify` 的最佳首批落点不是 `spec-work` 或 `spec-review`，而是：
+`graphify` 的最佳首批落点不是 `spec-work` 或 `spec-code-review`，而是：
 
 - `spec-brainstorm`
 - `spec-ideate`
@@ -549,7 +549,7 @@
 ### 2. 应避免借鉴 `graphify` 的“全量导出倾向”
 
 `graphify` 自身做全量导出没有问题，因为它是一个图谱产品。  
-但 `spec-graph-bootstrap` 的目标不是做另一个图谱产品，而是为 `spec-plan`、`spec-work`、`spec-review` 提供高质量 Stage-0 输入。
+但 `spec-graph-bootstrap` 的目标不是做另一个图谱产品，而是为 `spec-plan`、`spec-work`、`spec-code-review` 提供高质量 Stage-0 输入。
 
 所以这里要明确克制：
 
@@ -579,7 +579,7 @@
 - 把 `graph.json` 作为默认 Stage-0 truth
 - 把 `GRAPH_REPORT.md` 作为默认主上下文资产
 - 把 graphify 可用性纳入主质量门
-- 让 `spec-work` / `spec-review` 默认依赖图查询 contract
+- 让 `spec-work` / `spec-code-review` 默认依赖图查询 contract
 
 ## 与现有文档的关系
 

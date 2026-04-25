@@ -80,10 +80,10 @@ spec-first init --codex
 当前仓库里要区分两个概念：
 
 - **宿主 workflow**
-  - 例如 `spec-ideate`、`spec-brainstorm`、`spec-plan`、`spec-work`、`spec-review`、`spec-compound`
+  - 例如 `spec-ideate`、`spec-brainstorm`、`spec-plan`、`spec-work`、`spec-code-review`、`spec-compound`
   - 它们负责定义某一阶段的主流程
 - **能力 skill**
-  - 例如 `git-worktree`、`document-review`、`frontend-design`
+  - 例如 `git-worktree`、`spec-doc-review`、`frontend-design`
   - 它们负责给宿主 workflow 提供专项能力
 
 很多新增 skill 并不是新的主流程，而是给某个宿主 workflow 增加一段条件逻辑。当前仓库已经存在这种模式，尤其在 `spec-work` 里最明显，但它并不只属于 `work` 阶段。
@@ -129,7 +129,7 @@ spec-first init --codex
 - `spec-graph-bootstrap`
 - `spec-brainstorm`
 - `spec-plan`
-- `spec-review`
+- `spec-code-review`
 
 接入方式：
 
@@ -173,7 +173,7 @@ description: ...
 适用对象：
 
 - `git-worktree`
-- `document-review`
+- `spec-doc-review`
 - `resolve-pr-feedback`
 - 未来新增的 `db-migration-guard`、`scope-pressure-test` 这类能力型 skill
 
@@ -186,7 +186,7 @@ description: ...
 - `skills/spec-brainstorm/SKILL.md` → `name: brainstorm-workflow`
 - `skills/spec-plan/SKILL.md` → `name: plan-workflow`
 - `skills/spec-work/SKILL.md` → `name: work-workflow`
-- `skills/spec-review/SKILL.md` → `name: review-workflow`
+- `skills/spec-code-review/SKILL.md` → `name: review-workflow`
 
 这说明当前仓库真实策略是：
 

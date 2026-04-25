@@ -41,7 +41,7 @@
 
 ### 原则 1：先锁住已修复问题，再追求可维护性
 
-像 `plan-handoff` 里误写 `document-review mode:headless` 这种问题，已经说明仅靠人工审查不够。凡是已经踩过的真实坑，优先转成测试或 contract guard。
+像 `plan-handoff` 里误写 `spec-doc-review mode:headless` 这种问题，已经说明仅靠人工审查不够。凡是已经踩过的真实坑，优先转成测试或 contract guard。
 
 ### 原则 2：共享 commit 规则必须下沉到模板，而不是停留在报告
 
@@ -80,7 +80,7 @@
 
 **问题现状**
 
-- [plan-handoff.md](/Users/kuang/xiaobu/spec-first/skills/spec-plan/references/plan-handoff.md) 已修复 `document-review mode:headless`
+- [plan-handoff.md](/Users/kuang/xiaobu/spec-first/skills/spec-plan/references/plan-handoff.md) 已修复 `spec-doc-review mode:headless`
 - 但当前防回归主要靠人工审查和 `rg`
 - 未来继续同步上游时，仍可能再次把不存在的 mode 写回
 
@@ -95,8 +95,8 @@
 
 **第一批应覆盖的 contract**
 
-1. `skills/spec-plan/references/plan-handoff.md` 不得要求 `document-review mode:headless`
-2. `skills/document-review/SKILL.md` 的允许模式与 handoff 文档描述必须一致
+1. `skills/spec-plan/references/plan-handoff.md` 不得要求 `spec-doc-review mode:headless`
+2. `skills/spec-doc-review/SKILL.md` 的允许模式与 handoff 文档描述必须一致
 3. `skills/spec-work/SKILL.md` 主文档不得重新写回调用层硬编码 `mode:autofix`
 4. `skills/spec-work-beta/SKILL.md` 主文档不得重新写回调用层硬编码 `mode:autofix`
 
@@ -113,7 +113,7 @@
 
 **完成标准**
 
-- 如果有人重新写入 `document-review mode:headless`
+- 如果有人重新写入 `spec-doc-review mode:headless`
 - 或重新把调用层硬编码 `mode:autofix` 写回主 `SKILL.md`
 
 测试必须直接失败

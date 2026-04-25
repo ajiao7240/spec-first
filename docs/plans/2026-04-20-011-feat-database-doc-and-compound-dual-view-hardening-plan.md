@@ -191,7 +191,7 @@ origin: docs/plans/2026-04-19-005-feat-sdd-riper-light-contract-integration-plan
   先收口 refresh contract 与测试；只有当新的 refresh 规则确实需要稳定模板提示时，才补改 `spec-compound-refresh` 自己的模板，而不是默认改 `spec-compound` 主模板。
 
 - 决策 12：**所有变更都遵守 source + docs mirror + contract tests 三件套，但“三件套”的对象必须服从当前治理边界。**  
-  对 `spec-compound` / `spec-review` 等已有 mirror 体系的 skill，source 与 docs mirror 同步；对 graph-bootstrap 的 `references/*.md`，则以 source + `docs/contracts/` + tests 为真源链路。
+  对 `spec-compound` / `spec-code-review` 等已有 mirror 体系的 skill，source 与 docs mirror 同步；对 graph-bootstrap 的 `references/*.md`，则以 source + `docs/contracts/` + tests 为真源链路。
 
 ## Why This Is The Best Current Plan
 

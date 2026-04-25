@@ -12,7 +12,7 @@
 验证阶段 3B 方案在当前仓库中的可自动证明部分是否成立，覆盖：
 
 - 方案文档状态与验收项是否闭环
-- `spec-plan` / `spec-work` / `spec-review` source skill 是否已接入 Stage-0 预载块
+- `spec-plan` / `spec-work` / `spec-code-review` source skill 是否已接入 Stage-0 预载块
 - `spec-first init --claude` / `spec-first init --codex` 后运行时副本是否同步到位
 - `injection-index.yaml` 正常路由、Level 2、Level 3 三类降级行为是否符合方案
 
@@ -41,7 +41,7 @@
 - `docs/contexts/spec-first/injection-index.yaml`
 - `skills/spec-plan/SKILL.md`
 - `skills/spec-work/SKILL.md`
-- `skills/spec-review/SKILL.md`
+- `skills/spec-code-review/SKILL.md`
 - `skills/spec-graph-bootstrap/SKILL.md`
 - `docs/validation/graph-bootstrap-3a-logs/*.md`
 
@@ -74,10 +74,10 @@
 
 - `.claude/spec-first/workflows/spec-plan/SKILL.md`
 - `.claude/spec-first/workflows/spec-work/SKILL.md`
-- `.claude/spec-first/workflows/spec-review/SKILL.md`
+- `.claude/spec-first/workflows/spec-code-review/SKILL.md`
 - `.agents/skills/spec-plan/SKILL.md`
 - `.agents/skills/spec-work/SKILL.md`
-- `.agents/skills/spec-review/SKILL.md`
+- `.agents/skills/spec-code-review/SKILL.md`
 
 校验点：
 
@@ -169,7 +169,7 @@ review:
 ### 5.3 未覆盖项
 
 - 未在真实 Claude / Codex 交互会话中验证 LLM 是否严格按预载块逐文件读取
-- 未验证用户在宿主中实际调用 `spec-plan` / `spec-work` / `spec-review` 时的自然语言降级提示文案
+- 未验证用户在宿主中实际调用 `spec-plan` / `spec-work` / `spec-code-review` 时的自然语言降级提示文案
 
 ## 6. 最终结论
 
@@ -179,4 +179,4 @@ review:
 - 运行时同步链路已打通
 - 降级行为与方案一致
 
-若要把验证提升到“宿主行为级验收”，下一步应在真实 Claude / Codex 会话中各执行一次 `spec-plan`、`spec-work`、`spec-review` 的人工验证。
+若要把验证提升到“宿主行为级验收”，下一步应在真实 Claude / Codex 会话中各执行一次 `spec-plan`、`spec-work`、`spec-code-review` 的人工验证。

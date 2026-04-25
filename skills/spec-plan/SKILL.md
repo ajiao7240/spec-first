@@ -1,20 +1,22 @@
 ---
-name: plan-workflow
-description: "Create structured implementation plans grounded in repo patterns and research for software features, and structured plans for non-software multi-step tasks. Use when the user says 'plan this', 'create a plan', 'write a tech plan', 'plan the implementation', 'how should we build', 'what's the approach for', 'break this down', or asks for a plan for a trip, study plan, event, research workflow, or similar multi-step task. Best when requirements are at least roughly defined; for exploratory or ambiguous software requests, prefer spec:brainstorm first."
-argument-hint: "[feature description, requirements doc path, plan path to deepen, or task to plan]"
+name: spec-plan
+description: "Create structured plans for any multi-step task -- software features, research workflows, events, study plans, or any goal that benefits from structured breakdown. Also deepen existing plans with interactive review of sub-agent findings. Use for plan creation when the user says 'plan this', 'create a plan', 'write a tech plan', 'plan the implementation', 'how should we build', 'what's the approach for', 'break this down', 'plan a trip', 'create a study plan', or when a brainstorm/requirements document is ready for planning. Use for plan deepening when the user says 'deepen the plan', 'deepen my plan', 'deepening pass', or uses 'deepen' in reference to a plan. For exploratory or ambiguous requests where the user is unsure what to do, prefer spec-brainstorm first."
+argument-hint: "[optional: feature description, requirements doc path, plan path to deepen, or any task to plan]"
 ---
 
 # Create Technical Plan
 
 **Note: The current year is 2026.** Use this when dating plans and searching for recent documentation.
 
-`spec:brainstorm` defines **WHAT** to build. `spec:plan` defines **HOW** to build it. `spec:work` executes the plan.
+`spec-brainstorm` defines **WHAT** to build. `spec-plan` defines **HOW** to build it. `spec-work` executes the plan. A prior brainstorm is useful context but never required — `spec-plan` works from any input: a requirements doc, a bug report, a feature idea, or a rough description.
 
-This workflow produces a durable implementation plan. It does **not** implement code, run tests, or learn from execution-time results. If the answer depends on changing code and seeing what happens, that belongs in `spec:work`, not here.
+**When directly invoked, always plan.** Never classify a direct invocation as "not a planning task" and abandon the workflow. If the input is unclear, ask clarifying questions or use the planning bootstrap (Phase 0.4) to establish enough context — but always stay in the planning workflow.
+
+This workflow produces a durable implementation plan. It does **not** implement code, run tests, or learn from execution-time results. If the answer depends on changing code and seeing what happens, that belongs in `spec-work`, not here.
 
 ## Interaction Method
 
-Use the platform's question tool when available. When asking the user a question, prefer the platform's blocking question tool if one exists (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present numbered options in chat and wait for the user's reply before proceeding.
+When asking the user a question, use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
 Ask one question at a time. Prefer a concise single-select choice when natural options exist.
 
@@ -22,22 +24,22 @@ Ask one question at a time. Prefer a concise single-select choice when natural o
 
 <feature_description> #$ARGUMENTS </feature_description>
 
-**If the feature description above is empty, ask the user:** "What would you like to plan? Please describe the feature, bug fix, or multi-step task you have in mind."
+**If the feature description above is empty, ask the user:** "What would you like to plan? Describe the task, goal, or project you have in mind." Then wait for their response before continuing.
 
-Do not proceed until you have a clear planning input.
+If the input is present but unclear or underspecified, do not abandon — ask one or two clarifying questions, or proceed to Phase 0.4's planning bootstrap to establish enough context. The goal is always to help the user plan, never to exit the workflow.
 
 **IMPORTANT: All file references in the plan document must use repo-relative paths (e.g., `src/models/user.rb`), never absolute paths (e.g., `/Users/name/Code/project/src/models/user.rb`). This applies everywhere — implementation unit file lists, pattern references, origin document links, and prose mentions. Absolute paths break portability across machines, worktrees, and teammates.**
 
 ## Core Principles
 
-1. **Use requirements as the source of truth** - If `spec:brainstorm` produced a requirements document, planning should build from it rather than re-inventing behavior.
+1. **Use requirements as the source of truth** - If `spec-brainstorm` produced a requirements document, planning should build from it rather than re-inventing behavior.
 2. **Decisions, not code** - Capture approach, boundaries, files, dependencies, risks, and test scenarios. Do not pre-write implementation code or shell command choreography. Pseudo-code sketches or DSL grammars that communicate high-level technical design are welcome when they help a reviewer validate direction — but they must be explicitly framed as directional guidance, not implementation specification.
 3. **Research before structuring** - Explore the codebase, institutional learnings, and external guidance when warranted before finalizing the plan.
 4. **Right-size the artifact** - Small work gets a compact plan. Large work gets more structure. The philosophy stays the same at every depth.
 5. **Separate planning from execution discovery** - Resolve planning-time questions here. Explicitly defer execution-time unknowns to implementation.
 6. **Keep the plan portable** - The plan should work as a living document, review artifact, or issue body without embedding tool-specific executor instructions.
 7. **Carry execution posture lightly when it matters** - If the request, origin document, or repo context clearly implies test-first, characterization-first, or another non-default execution posture, reflect that in the plan as a lightweight signal. Do not turn the plan into step-by-step execution choreography.
-8. **Assume code fluency, not assumption fluency** - Write plans as if the implementer understands code, but not your unstated assumptions. Name concrete pattern anchors, done signals, and sequencing constraints instead of leaving them implicit.
+8. **Honor user-named resources** - When the user names a specific resource — a CLI, MCP server, URL, file, doc link, or prior artifact — treat it as authoritative input, not a suggestion. Discover it if unknown (`command -v`, fetch, read) before assuming it's unavailable. Use it in place of generic alternatives. If it fails or doesn't exist, say so explicitly rather than silently substituting.
 
 ## Plan Quality Bar
 
@@ -50,95 +52,8 @@ Every plan should contain:
 - Existing patterns or code references to follow
 - Enumerated test scenarios for each feature-bearing unit, specific enough that an implementer knows exactly what to test without inventing coverage themselves
 - Clear dependencies and sequencing
-- A `Verification` section that acts as the plan's `Verification-as-Done` surface, naming what evidence proves done and what still counts as not done
-
-### Execution Readiness
-- Each implementation unit minimizes unstated implementer decisions
-- Concrete pattern anchors are named when the plan relies on an existing pattern
-- Test scenarios are specific enough to become tests without inventing coverage shape
-- Verification distinguishes partial completion from done
-- Dependency order is explicit enough to avoid incorrect execution reordering
 
 A plan is ready when an implementer can start confidently without needing the plan to write the code for them.
-
-### Lightweight Planning Anchor
-
-At workflow entry, when resuming after drift, and before finalizing the plan, briefly restate:
-- `Restated Understanding`
-- `Current Core Goal`
-- `Scope / Non-goals`
-- `Verification-as-Done`
-
-For lightweight work, 1-2 sentences can cover the same ground. This is an alignment anchor, not a new required document section. Keep `Verification` as the only durable done contract surface.
-
-## Stage-0 上下文预载（可选增强，不阻断主工作流）
-
-> 此步骤读取 `spec-graph-bootstrap` 生成的 Stage-0 产物作为增强上下文。
-> 优先以 evaluator 输出 contract 为真源；任何文件缺失、JSON 解析失败、目录不存在均只触发降级，不中止主工作流。
-
-**本 workflow stage 标识**：`plan`
-
-### 预载步骤
-
-1. **解析 slug**
-   - 取当前仓库根目录名：`slug = basename(git rev-parse --show-toplevel)`
-   - context 路径：`docs/contexts/<slug>/`
-   - 若命令失败或路径不存在 → 跳过整个预载步骤（Level 3）
-
-2. **读取 control plane contract**
-   - 控制面路径：`.spec-first/workflows/bootstrap/<slug>/`
-   - 优先读取 `context-routing.json` 与 `artifact-manifest.json`
-   - 若存在 `minimal-context/plan.json`，视为最高优先级 machine context
-   - 任一关键 contract 缺失或解析失败 → 进入 Level 2 降级
-
-3. **按 evaluator 输出 contract 组织上下文**
-   - 优先以 `selection_subject / selected_contexts` 作为 Stage-0 的解释型真源，回答“命中了谁、为什么命中、当前上下文边界是什么”
-   - `selected_assets / fallback_reason / level / skipped_rules` 保留为 compatibility view；它们必须由解释层单向派生，不再反向决定命中主体
-   - `plan` 场景优先读取：
-     - `minimal-context/plan.json`
-     - `architecture/module-map.md`
-     - `code-facts/public-entrypoints.md`
-   - `injection-index.yaml` 仅作为人类视图，不再是运行时唯一判定逻辑
-   - 若 runtime 输出 `selection_subject.kind = workspace`，仅把它视为 overview / unresolved fallback，不要把 workspace 当成常规 `L0` 规划主体
-   - 若 `minimal-context/plan.json` 提供 `platform_focus` 或 `required_verifications`，将其视为 verification summary；在计划里把这些信号收敛成验证矩阵，而不是退化成泛化“自行补测试”
-   - 若 runtime 还提供顶层 `verifier_dispatch`、`ai_dev_quality_gate_result`、`verification_evidence` 与 `verification_gate_state`，前者只表示 verifier 候选与 blocker，第二层只表示最近 gate 事实快照，第三层只表示已有证据引用，后者只表示 `planned / blocked / not-needed` 账本；不要把它们写成强制执行树
-   - **Runtime Stage-0 context（best-effort, pre-resolved JSON）**
-!`repo=$(git rev-parse --show-toplevel 2>/dev/null || pwd); if command -v spec-first >/dev/null 2>&1 && spec-first stage0-context --stage plan --workflow spec-plan --format json 2>/dev/null; then true; elif [ -f "$repo/bin/spec-first.js" ] && node "$repo/bin/spec-first.js" stage0-context --stage plan --workflow spec-plan --format json 2>/dev/null; then true; elif [ -f "$repo/node_modules/spec-first/bin/spec-first.js" ] && node "$repo/node_modules/spec-first/bin/spec-first.js" stage0-context --stage plan --workflow spec-plan --format json 2>/dev/null; then true; else echo '__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__'; fi`
-   - 若输出为 `__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__`，说明 runtime helper 当前不可用；继续按上面的 control plane contract 手工预载，不阻断主任务
-   - 每个文件：存在则读取，缺失则跳过（Level 1）
-   - 默认写一条 Stage-0 telemetry，至少记录 `stage / profile / selection_subject / selected_contexts / selected_assets / fallback_reason / skipped_rules`
-
-4. **Level 2 固定最小集合**（control plane contract 不可用时）
-   - `docs/contexts/<slug>/00-summary.md`
-   - `docs/contexts/<slug>/pitfalls/index.md`
-   - `docs/contexts/<slug>/code-facts/public-entrypoints.md`
-   - `docs/contexts/<slug>/code-facts/test-map.md`
-
-5. **降级说明**
-   - 触发降级时，在响应中一句话说明原因
-   - 不要求用户先补 bootstrap 产物，主任务继续执行
-
-6. **workspace v1 边界**
-   - 默认仍按单仓 Stage-0 消费，不改变现有 selected assets 顺序
-   - 若 runtime 已解析出 workspace / module / nested topology，以 `selection_subject / selected_contexts` 为准，不再把 repo-only 路径假设当成唯一语义
-   - 只有显式提供 `repoRoots` 时，才进入 workspace 聚合路径
-
-### Reload Before Act
-
-Treat freshness and fallback as trust-shaping inputs, not as blockers:
-
-- `L0` and non-stale context: consume Stage-0 directly; no forced reload
-- `L1` with `freshness_stale`: before making planning decisions, re-read the current plan or origin document plus the most relevant `selected_assets`
-- `L2`: treat Stage-0 as degraded context; re-read the local source document, the most relevant code facts, and any current user-provided paths before planning further
-- `L3` or runtime helper unavailable: continue, but say bootstrap context is unavailable and rely on direct repo reads
-
-Reload priority should be:
-1. The current user-provided or explicitly referenced plan / requirements document
-2. Stage-0 `selected_assets`
-3. The currently relevant implementation files or diff surface
-4. Broader repo context only if still needed
-
-Do not ask the user to re-run bootstrap before continuing. Do not present `freshness_stale` as `L0`.
 
 ## Workflow
 
@@ -149,15 +64,15 @@ Do not ask the user to re-run bootstrap before continuing. Do not present `fresh
 If the user references an existing plan file or there is an obvious recent matching plan in `docs/plans/`:
 - Read it
 - Confirm whether to update it in place or create a new plan
-- If updating, preserve completed checkboxes and revise only the still-relevant sections
+- If updating, revise only the still-relevant sections. Plans do not carry per-unit progress state — progress is derived from git by `spec-work`, so there is no progress to preserve across edits
 
 **Deepen intent:** The word "deepen" (or "deepening") in reference to a plan is the primary trigger for the deepening fast path. When the user says "deepen the plan", "deepen my plan", "run a deepening pass", or similar, the target document is a **plan** in `docs/plans/`, not a requirements document. Use any path, keyword, or context the user provides to identify the right plan. If a path is provided, verify it is actually a plan document. If the match is not obvious, confirm with the user before proceeding.
 
 Words like "strengthen", "confidence", "gaps", and "rigor" are NOT sufficient on their own to trigger deepening. These words appear in normal editing requests ("strengthen that section about the diagram", "there are gaps in the test scenarios") and should not cause a holistic deepening pass. Only treat them as deepening intent when the request clearly targets the plan as a whole and does not name a specific section or content area to change — and even then, prefer to confirm with the user before entering the deepening flow.
 
 Once the plan is identified and appears complete (all major sections present, implementation units defined, `status: active`):
-- If the plan lacks YAML frontmatter (non-software plans use a simple `# Title` heading with `Created:` date instead of frontmatter), route to `references/universal-planning.md` for editing or deepening instead of Phase 5.3. Non-software plans do not use the software confidence check.
-- Otherwise, short-circuit to Phase 5.3 (Confidence Check and Deepening) in **interactive mode**. This avoids re-running the full planning workflow and gives the user control over which findings are integrated.
+- If the plan lacks YAML frontmatter (non-software plans use a simple `# Title` heading with `Created:` date instead of frontmatter), route to `references/universal-planning.md` for editing or deepening instead of Phase 5.3. Non-software plans do not use the software confidence-first check.
+- Otherwise, short-circuit to Phase 5.3 (Confidence-first Check and Deepening) in **interactive mode**. This avoids re-running the full planning workflow and gives the user control over which findings are integrated.
 
 Normal editing requests (e.g., "update the test scenarios", "add a new implementation unit", "strengthen the risk section") should NOT trigger the fast path — they follow the standard resume flow.
 
@@ -167,11 +82,9 @@ If the plan already has a `deepened: YYYY-MM-DD` frontmatter field and there is 
 
 If the task involves building, modifying, or architecting software (references code, repos, APIs, databases, or asks to build/modify/deploy), continue to Phase 0.2.
 
-If the task is about a non-software domain and describes a multi-step goal worth planning, read `references/universal-planning.md` and follow that workflow instead. Skip all subsequent phases.
+If the domain is genuinely ambiguous (e.g., "plan a migration" with no other context), ask the user before routing.
 
-If genuinely ambiguous (e.g., "plan a migration" with no other context), ask the user before routing.
-
-For everything else (quick questions, error messages, factual lookups), respond directly without any planning workflow.
+Otherwise, read `references/universal-planning.md` and follow that workflow instead. Skip all subsequent phases. Named tools or source links don't change this routing — they're inputs, handled per Core Principle 8.
 
 #### 0.2 Find Upstream Requirements Document
 
@@ -191,8 +104,9 @@ If a relevant requirements document exists:
 2. Announce that it will serve as the origin document for planning
 3. Carry forward all of the following:
    - Problem frame
+   - Actors (A-IDs), Key Flows (F-IDs), and Acceptance Examples (AE-IDs) when present — preserve these as constraints that implementation units must honor
    - Requirements and success criteria
-   - Scope boundaries
+   - Scope boundaries (including "Deferred for later" and "Outside this product's identity" subsections when present)
    - Key decisions and rationale
    - Dependencies or assumptions
    - Outstanding questions, preserving whether they are blocking or deferred
@@ -202,25 +116,12 @@ If a relevant requirements document exists:
 
 If no relevant requirements document exists, planning may proceed from the user's request directly.
 
-#### 0.3a Load Epic Decomposition Context When Declared
+#### 0.4 Planning Bootstrap (No Requirements Doc or Unclear Input)
 
-If the selected requirements document includes frontmatter `epic: <epic-slug>`:
-- Treat that frontmatter value as the only structured epic metadata source
-- Look for `docs/brainstorms/*-<epic-slug>-decomposition.md`
-- If exactly one file matches, read it as supplementary origin context
-- If multiple files match, pick the file with the latest date prefix (equivalently, the lexicographically greatest filename)
-- If no file matches, warn and continue planning without epic context
-
-Do **not** infer structured epic metadata from Key Decisions or other freeform prose.
-
-This is a prompt contract for the planning workflow, not a requirement to create a dedicated runtime helper, parser helper, or glob resolver in this iteration.
-
-#### 0.4 No-Requirements-Doc Fallback
-
-If no relevant requirements document exists:
-- Assess whether the request is already clear enough for direct technical planning
-- If the ambiguity is mainly product framing, user behavior, or scope definition, recommend `spec:brainstorm` first
-- If the user wants to continue here anyway, run a short planning bootstrap instead of refusing
+If no relevant requirements document exists, or the input needs more structure:
+- Assess whether the request is already clear enough for direct technical planning — if so, continue to Phase 0.5
+- If the ambiguity is mainly product framing, user behavior, or scope definition, recommend `spec-brainstorm` as a suggestion — but always offer to continue planning here as well
+- If the user wants to continue here (or was already explicit about wanting a plan), run the planning bootstrap below
 
 The planning bootstrap should establish:
 - Problem frame
@@ -232,8 +133,13 @@ The planning bootstrap should establish:
 Keep this bootstrap brief. It exists to preserve direct-entry convenience, not to replace a full brainstorm.
 
 If the bootstrap uncovers major unresolved product questions:
-- Recommend `spec:brainstorm` again
+- Recommend `spec-brainstorm` again
 - If the user still wants to continue, require explicit assumptions before proceeding
+
+If the bootstrap reveals that a different workflow would serve the user better:
+
+- **Symptom without a root cause** (user describes broken behavior but hasn't identified why) — announce that investigation is needed before planning and load the `spec-debug` skill. A plan requires a known problem to solve; debugging identifies what that problem is. Announce the routing clearly: "This needs investigation before planning — switching to spec-debug to find the root cause."
+- **Clear task ready to execute** (known root cause, obvious fix, no architectural decisions) — suggest `spec-work` as a faster alternative alongside continuing with planning. The user decides.
 
 #### 0.5 Classify Outstanding Questions Before Planning
 
@@ -245,7 +151,7 @@ If the origin document contains `Resolve Before Planning` or similar blocking qu
 If true product blockers remain:
 - Surface them clearly
 - Ask the user, using the platform's blocking question tool when available (see Interaction Method), whether to:
-  1. Resume `spec:brainstorm` to resolve them
+  1. Resume `spec-brainstorm` to resolve them
   2. Convert them into explicit assumptions or decisions and continue
 - Do not continue planning while true blockers remain unresolved
 
@@ -269,15 +175,20 @@ Prepare a concise planning context summary (a paragraph or two) to pass as input
 
 Run these agents in parallel:
 
-- Task spec-first:research:repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
-- Task spec-first:research:learnings-researcher(planning context summary)
-
+- Task spec-repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
+- Task spec-learnings-researcher(planning context summary)
 Collect:
 - Technology stack and versions (used in section 1.2 to make sharper external research decisions)
 - Architectural patterns and conventions to follow
 - Implementation patterns, relevant files, modules, and tests
 - AGENTS.md guidance that materially affects the plan, with CLAUDE.md used only as compatibility fallback when present
 - Institutional learnings from `docs/solutions/`
+
+**Slack context** (opt-in) — never auto-dispatch. Route by condition:
+
+- **Tools available + user asked**: Dispatch `spec-slack-researcher` with the planning context summary in parallel with other Phase 1.1 agents. If the origin document has a Slack context section, pass it verbatim so the researcher focuses on gaps. Include findings in consolidation.
+- **Tools available + user didn't ask**: Note in output: "Slack tools detected. Ask me to search Slack for organizational context at any point, or include it in your next prompt."
+- **No tools + user asked**: Note in output: "Slack context was requested but no Slack tools are available. Install and authenticate the Slack plugin to enable organizational context search."
 
 #### 1.1b Detect Execution Posture Signals
 
@@ -287,7 +198,6 @@ Look for signals such as:
 - The user explicitly asks for TDD, test-first, or characterization-first work
 - The origin document calls for test-first implementation or exploratory hardening of legacy code
 - Local research shows the target area is legacy, weakly tested, or historically fragile, suggesting characterization coverage before changing behavior
-- The user asks for external delegation, says "use codex", "delegate mode", or mentions token conservation -- add `Execution target: external-delegate` to implementation units that are pure code writing
 
 When the signal is clear, carry it forward silently in the relevant implementation units.
 
@@ -303,11 +213,11 @@ Based on the origin document, user signals, and local findings, decide whether e
 - **Topic risk** — Security, payments, external APIs warrant more caution regardless of user signals.
 - **Uncertainty level** — Is the approach clear or still open-ended?
 
-**Leverage repo-research-analyst's technology context:**
+**Leverage spec-repo-research-analyst's technology context:**
 
-The repo-research-analyst output includes a structured Technology & Infrastructure summary. Use it to make sharper external research decisions:
+The spec-repo-research-analyst output includes a structured Technology & Infrastructure summary. Use it to make sharper external research decisions:
 
-- If specific frameworks and versions were detected (e.g., Rails 7.2, Next.js 14, Go 1.22), pass those exact identifiers to framework-docs-researcher so it fetches version-specific documentation
+- If specific frameworks and versions were detected (e.g., Rails 7.2, Next.js 14, Go 1.22), pass those exact identifiers to spec-framework-docs-researcher so it fetches version-specific documentation
 - If the feature touches a technology layer the scan found well-established in the repo (e.g., existing Sidekiq jobs when planning a new background job), lean toward skipping external research -- local patterns are likely sufficient
 - If the feature touches a technology layer the scan found absent or thin (e.g., no existing proto files when planning a new gRPC service), lean toward external research -- there are no local patterns to follow
 - If the scan detected deployment infrastructure (Docker, K8s, serverless), note it in the planning context passed to downstream agents so they can account for deployment constraints
@@ -334,14 +244,15 @@ Announce the decision briefly before continuing. Examples:
 
 If Step 1.2 indicates external research is useful, run these agents in parallel:
 
-- Task spec-first:research:best-practices-researcher(planning context summary)
-- Task spec-first:research:framework-docs-researcher(planning context summary)
+- Task spec-best-practices-researcher(planning context summary)
+- Task spec-framework-docs-researcher(planning context summary)
 
 #### 1.4 Consolidate Research
 
 Summarize:
 - Relevant codebase patterns and file paths
 - Relevant institutional learnings
+- Organizational context from Slack conversations, if gathered (prior discussions, decisions, or domain knowledge relevant to the feature)
 - External references and best practices, if gathered
 - Related issues, PRs, or prior art
 - Any constraints that should materially shape the plan
@@ -356,13 +267,13 @@ If the current classification is **Lightweight** and Phase 1 research found that
 - Shared types or interfaces imported by downstream consumers
 - Documentation referenced by external URLs or linked from other systems
 
-This ensures flow analysis (Phase 1.5) runs and the confidence check (Phase 5.3) applies critical-section bonuses. Announce the reclassification briefly: "Reclassifying to Standard — this change touches [environment variables / exported APIs / CI config] with external consumers."
+This ensures flow analysis (Phase 1.5) runs and the confidence-first check (Phase 5.3) applies critical-section bonuses. Announce the reclassification briefly: "Reclassifying to Standard — this change touches [environment variables / exported APIs / CI config] with external consumers."
 
 #### 1.5 Flow and Edge-Case Analysis (Conditional)
 
 For **Standard** or **Deep** plans, or when user flow completeness is still unclear, run:
 
-- Task spec-first:workflow:spec-flow-analyzer(planning context summary, research findings)
+- Task spec-spec-flow-analyzer(planning context summary, research findings)
 
 Use the output to:
 - Identify missing edge cases, state transitions, or handoff gaps
@@ -410,12 +321,13 @@ Good units are:
 - Usually touching a small cluster of related files
 - Ordered by dependency
 - Concrete enough for execution without pre-writing code
-- Marked with checkbox syntax for progress tracking
 
 Avoid:
 - 2-5 minute micro-steps
 - Units that span multiple unrelated concerns
 - Units that are so vague an implementer still has to invent the plan
+
+Each unit carries a stable plan-local **U-ID** assigned in Phase 3.5 (`U1`, `U2`, …). U-IDs survive reordering, splitting, and deletion: new units take the next unused number, gaps are fine, and existing IDs are never renumbered. This lets `spec-work` reference units unambiguously across plan edits.
 
 #### 3.4 High-Level Technical Design (Optional)
 
@@ -460,34 +372,32 @@ The tree is a scope declaration showing the expected output shape. It is not a c
 
 #### 3.5 Define Each Implementation Unit
 
+Each unit's heading carries a stable U-ID prefix matching the format used for R/A/F/AE in requirements docs: `- U1. **[Name]**`. The prefix is plain text, not bolded — the bold is reserved for the unit name. Number sequentially within the plan starting at U1. Do not prefix units with `- [ ]` / `- [x]` checkbox markers; the plan is a decision artifact, and execution progress is derived from git by `spec-work` rather than stored in the plan body.
+
+**Stability rule.** Once assigned, a U-ID is never renumbered. Reordering units leaves their IDs in place (e.g., U1, U3, U5 in their new order is correct; renumbering to U1, U2, U3 is not). Splitting a unit keeps the original U-ID on the original concept and assigns the next unused number to the new unit. Deletion leaves a gap; gaps are fine. This rule matters most during deepening (Phase 5.3), which is the most likely accidental-renumber vector.
+
 For each unit, include:
 - **Goal** - what this unit accomplishes
-- **Requirements** - which requirements or success criteria it advances
-- **Dependencies** - what must exist first
+- **Requirements** - which requirements or success criteria it advances (cite R-IDs, and A/F/AE IDs when origin supplies them)
+- **Dependencies** - what must exist first (cite by U-ID, e.g., "U1, U3")
 - **Files** - repo-relative file paths to create, modify, or test (never absolute paths)
 - **Approach** - key decisions, data flow, component boundaries, or integration notes
-- **Execution note** - optional, only when the unit benefits from a non-default execution posture. Prefer controlled posture labels such as `test-first`, `characterization-first`, `integration-first`, `contract-first`, `migration-safety-first`, or `external-delegate`. A short clarifying phrase is allowed after the label when needed
-- **Starting point** - optional, used when a unit spans multiple files, is easy to mis-start, or touches a legacy or integration-heavy area. Name the first file, boundary, or failing test the implementer should inspect rather than listing micro-steps
+- **Execution note** - optional, only when the unit benefits from a non-default execution posture such as test-first or characterization-first
 - **Technical design** - optional pseudo-code or diagram when the unit's approach is non-obvious and prose alone would leave it ambiguous. Frame explicitly as directional guidance, not implementation specification
-- **Patterns to follow** - existing code or conventions to mirror. Do not write generic phrases like `follow existing patterns` without naming the actual file, component, or test anchor
-- **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage. For units with no behavioral change (pure config, scaffolding, styling), use `Test expectation: none -- [reason]` instead of leaving the field blank.
+- **Patterns to follow** - existing code or conventions to mirror
+- **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage. For units with no behavioral change (pure config, scaffolding, styling), use `Test expectation: none -- [reason]` instead of leaving the field blank. **AE-link convention:** when a test scenario directly enforces an origin Acceptance Example, prefix it with `Covers AE<N>.` (or `Covers F<N> / AE<N>.`). This is sparse-by-design — most test scenarios are finer-grained than AEs and do not link. Do not force AE links onto tests that only cover lower-level implementation details.
   - **Happy path behaviors** - core functionality with expected inputs and outputs
   - **Edge cases** (when the unit has meaningful boundaries) - boundary values, empty inputs, nil/null states, concurrent access
   - **Error and failure paths** (when the unit has failure modes) - invalid input, downstream service failures, timeout behavior, permission denials
   - **Integration scenarios** (when the unit crosses layers) - behaviors that mocks alone will not prove, e.g., "creating X triggers callback Y which persists Z". Include these for any unit touching callbacks, middleware, or multi-layer interactions
 - **Verification** - how an implementer should know the unit is complete, expressed as outcomes rather than shell command scripts
-- In `Verification`, name the observable evidence that proves done and the states that still count as not done. Do not create a parallel done field.
 
 Every feature-bearing unit should include the test file path in `**Files:**`.
 
-Use `Execution note` sparingly. Prefer controlled posture labels. Good uses include:
-- `Execution note: integration-first — start with a failing request/response contract test`
-- `Execution note: characterization-first — capture current legacy parser behavior before modifying it`
-- `Execution note: test-first`
-- `Execution note: contract-first`
-- `Execution note: external-delegate`
-
-When a unit is easy to mis-start, add a `Starting point` field that names the first file, boundary, or failing test to inspect.
+Use `Execution note` sparingly. Good uses include:
+- `Execution note: Start with a failing integration test for the request/response contract.`
+- `Execution note: Add characterization coverage before modifying this legacy parser.`
+- `Execution note: Implement new domain behavior test-first.`
 
 Do not expand units into literal `RED/GREEN/REFACTOR` substeps.
 
@@ -502,6 +412,8 @@ Examples:
 - Refactors that may become unnecessary once implementation starts
 
 ### Phase 4: Write the Plan
+
+**NEVER CODE during this skill.** Research, decide, and write the plan — do not start implementation.
 
 Use one planning philosophy across all depths. Change the amount of detail, not the boundary between planning and execution.
 
@@ -537,6 +449,8 @@ For sufficiently large, risky, or cross-cutting work, add the sections that genu
 
 Do not add these as boilerplate. Include them only when they improve execution quality or stakeholder alignment.
 
+**Alternatives Considered — what to vary.** When this section is included, alternatives must differ on *how* the work is built: architecture, sequencing, boundaries, integration pattern, rollout strategy. Tiny implementation variants (which hash function, which serialization format) belong in Key Technical Decisions, not Alternatives. Product-shape alternatives (different actors, different core outcome, different positioning) belong in `spec-brainstorm`, not here — surface them back upstream rather than re-litigating product questions during planning.
+
 #### 4.2 Core Plan Template
 
 Omit clearly inapplicable optional sections, especially for Lightweight plans.
@@ -548,7 +462,7 @@ type: [feat|fix|refactor]
 status: active
 date: YYYY-MM-DD
 origin: docs/brainstorms/YYYY-MM-DD-<topic>-requirements.md  # include when planning from a requirements doc
-deepened: YYYY-MM-DD  # optional, set when the confidence check substantively strengthens the plan
+deepened: YYYY-MM-DD  # optional, set when the confidence-first check substantively strengthens the plan
 ---
 
 # [Plan Title]
@@ -557,24 +471,72 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 [What is changing and why]
 
+---
+
 ## Problem Frame
 
 [Summarize the user/business problem and context. Reference the origin doc when present.]
+
+---
 
 ## Requirements Trace
 
 - R1. [Requirement or success criterion this plan must satisfy]
 - R2. [Requirement or success criterion this plan must satisfy]
 
+<!-- Origin trace sub-blocks: include only when the upstream requirements doc supplies the
+     corresponding section. Each sub-block is independent — include only the ones that apply.
+     Omit cleanly (no header, no empty line) when no origin doc exists or the origin had no
+     Actors / Key Flows / Acceptance Examples sections. -->
+
+**Origin actors:** [A1 (role/name), A2 (role/name), …]
+**Origin flows:** [F1 (flow name), F2 (flow name), …]
+**Origin acceptance examples:** [AE1 (covers R1, R4), AE2 (covers R3), …]
+
+---
+
 ## Scope Boundaries
+
+<!-- Default structure (no origin doc, or origin was Lightweight / Standard / Deep-feature):
+     a single bulleted list of explicit non-goals. The optional `### Deferred to Follow-Up Work`
+     subsection below may still be included when this plan's implementation is intentionally
+     split across other PRs/issues/repos. -->
 
 - [Explicit non-goal or exclusion]
 
-<!-- Optional: When some items are planned work that will happen in a separate PR, issue,
-     or repo, use this sub-heading to distinguish them from true non-goals. -->
-### Deferred to Separate Tasks
+<!-- Optional plan-local subsection — include when this plan's implementation is intentionally
+     split across other PRs, issues, or repos. Distinct from origin-carried "Deferred for later"
+     (product sequencing) and "Outside this product's identity" (positioning). -->
+### Deferred to Follow-Up Work
 
 - [Work that will be done separately]: [Where or when -- e.g., "separate PR in repo-x", "future iteration"]
+
+<!-- Triggered structure: replace the single list above with the three subsections below ONLY
+     when the origin doc is Deep-product (detectable by presence of an "Outside this product's
+     identity" subsection in the origin's Scope Boundaries). At all other tiers and when no
+     origin exists, use the single-list structure above. -->
+
+<!--
+### Deferred for later
+
+[Carried from origin — product/version sequencing. Work that will be done eventually but not in v1.]
+
+- [Item]
+
+### Outside this product's identity
+
+[Carried from origin — positioning rejection. Adjacent product the plan must not accidentally build.]
+
+- [Item]
+
+### Deferred to Follow-Up Work
+
+[Plan-local — implementation work intentionally split across other PRs/issues/repos. Distinct from origin's "Deferred for later" (product) and "Outside this product's identity" (positioning).]
+
+- [Item]
+-->
+
+---
 
 ## Context & Research
 
@@ -590,9 +552,13 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 - [Relevant external docs or best-practice source, if used]
 
+---
+
 ## Key Technical Decisions
 
 - [Decision]: [Rationale]
+
+---
 
 ## Open Questions
 
@@ -604,6 +570,8 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 - [Question or unknown]: [Why it is intentionally deferred]
 
+---
+
 <!-- Optional: Include when the plan creates a new directory structure (greenfield plugin,
      new service, new package). Shows the expected output shape at a glance. Omit for plans
      that only modify existing files. This is a scope declaration, not a constraint --
@@ -611,6 +579,8 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 ## Output Structure
 
     [directory tree showing new directories and files]
+
+---
 
 <!-- Optional: Include this section only when the work involves DSL design, multi-component
      integration, complex data flow, state-heavy lifecycle, or other cases where prose alone
@@ -622,15 +592,23 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 [Pseudo-code grammar, mermaid diagram, data flow sketch, or state diagram — choose the medium that best communicates the solution shape for this work.]
 
+---
+
 ## Implementation Units
 
-- [ ] **Unit 1: [Name]**
+<!-- Each unit carries a stable plan-local U-ID (U1, U2, …) assigned sequentially.
+     U-IDs are never renumbered: reordering preserves them in place, splitting keeps the
+     original U-ID and assigns the next unused number to the new unit, deletion leaves
+     a gap. This anchor is what spec-work references in blockers and verification, so
+     stability across plan edits is load-bearing. -->
+
+- U1. **[Name]**
 
 **Goal:** [What this unit accomplishes]
 
 **Requirements:** [R1, R2]
 
-**Dependencies:** [None / Unit 1 / external prerequisite]
+**Dependencies:** [None / U1 / external prerequisite]
 
 **Files:**
 - Create: `path/to/new_file`
@@ -640,21 +618,21 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 **Approach:**
 - [Key design or sequencing decision]
 
-**Execution note:** [Optional controlled posture label such as test-first, characterization-first, integration-first, contract-first, migration-safety-first, or external-delegate. A short clarifying phrase may follow the label when needed]
-
-**Starting point:** [Optional first file, boundary, or failing test to inspect when the unit is easy to mis-start]
+**Execution note:** [Optional test-first, characterization-first, or other execution posture signal]
 
 **Technical design:** *(optional -- pseudo-code or diagram when the unit's approach is non-obvious. Directional guidance, not implementation specification.)*
 
 **Patterns to follow:**
-- [Existing file, class, or pattern anchor]
+- [Existing file, class, or pattern]
 
 **Test scenarios:**
-<!-- Include only categories that apply to this unit. Omit categories that don't. -->
+<!-- Include only categories that apply to this unit. Omit categories that don't. For units with no behavioral change, use "Test expectation: none -- [reason]" instead of leaving this section blank. -->
 - [Scenario: specific input/action -> expected outcome. Prefix with category — Happy path, Edge case, Error path, or Integration — to signal intent]
 
 **Verification:**
-- [Outcome that should hold when this unit is complete, including what evidence proves done and what still counts as not done]
+- [Outcome that should hold when this unit is complete]
+
+---
 
 ## System-Wide Impact
 
@@ -665,15 +643,21 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 - **Integration coverage:** [Cross-layer scenarios unit tests alone will not prove]
 - **Unchanged invariants:** [Existing APIs, interfaces, or behaviors that this plan explicitly does not change — and how the new work relates to them. Include when the change touches shared surfaces and reviewers need blast-radius assurance]
 
+---
+
 ## Risks & Dependencies
 
 | Risk | Mitigation |
 |------|------------|
 | [Meaningful risk] | [How it is addressed or accepted] |
 
+---
+
 ## Documentation / Operational Notes
 
 - [Docs, rollout, monitoring, or support impacts when relevant]
+
+---
 
 ## Sources & References
 
@@ -690,19 +674,27 @@ For larger `Deep` plans, extend the core template only when useful with sections
 
 - [Approach]: [Why rejected or not chosen]
 
+---
+
 ## Success Metrics
 
 - [How we will know this solved the intended problem]
 
+---
+
 ## Dependencies / Prerequisites
 
 - [Technical, organizational, or rollout dependency]
+
+---
 
 ## Risk Analysis & Mitigation
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
 | [Risk] | [Low/Med/High] | [Low/Med/High] | [How addressed] |
+
+---
 
 ## Phased Delivery
 
@@ -712,9 +704,13 @@ For larger `Deep` plans, extend the core template only when useful with sections
 ### Phase 2
 - [What follows and why]
 
+---
+
 ## Documentation Plan
 
 - [Docs or runbooks to update]
+
+---
 
 ## Operational / Rollout Notes
 
@@ -723,9 +719,9 @@ For larger `Deep` plans, extend the core template only when useful with sections
 
 #### 4.3 Planning Rules
 
+- **Horizontal rules (`---`) between top-level sections** in Standard and Deep plans, mirroring the `spec-brainstorm` requirements doc convention. Improves scannability of dense plans where many H2 sections sit close together. Omit for Lightweight plans where the whole doc fits on a single screen.
 - **All file paths must be repo-relative** — never use absolute paths like `/Users/name/Code/project/src/file.ts`. Use `src/file.ts` instead. Absolute paths make plans non-portable across machines, worktrees, and teammates. When a plan targets a different repo than the document's home, state the target repo once at the top of the plan (e.g., `**Target repo:** my-other-project`) and use repo-relative paths throughout
 - Prefer path plus class/component/pattern references over brittle line numbers
-- Keep implementation units checkable with `- [ ]` syntax for progress tracking
 - Do not include implementation code — no imports, exact method signatures, or framework-specific syntax
 - Pseudo-code sketches and DSL grammars are allowed in the High-Level Technical Design section and per-unit technical design fields when they communicate design direction. Frame them explicitly as directional guidance, not implementation specification
 - Mermaid diagrams are encouraged when they clarify relationships or flows that prose alone would make hard to follow — ERDs for data model changes, sequence diagrams for multi-service interactions, state diagrams for lifecycle transitions, flowcharts for complex branching logic
@@ -742,29 +738,29 @@ When the plan contains 4+ implementation units with non-linear dependencies, 3+ 
 #### 5.1 Review Before Writing
 
 Before finalizing, check:
-- The plan does not invent product behavior that should have been defined in `spec:brainstorm`
+- The plan does not invent product behavior that should have been defined in `spec-brainstorm`
 - If there was no origin document, the bounded planning bootstrap established enough product clarity to plan responsibly
 - Every major decision is grounded in the origin document or research
 - Each implementation unit is concrete, dependency-ordered, and implementation-ready
 - If test-first or characterization-first posture was explicit or strongly implied, the relevant units carry it forward with a lightweight `Execution note`
 - Each feature-bearing unit has test scenarios from every applicable category (happy path, edge cases, error paths, integration) — right-sized to the unit's complexity, not padded or skimped
 - Test scenarios name specific inputs, actions, and expected outcomes without becoming test code
+- Feature-bearing units with blank or missing test scenarios are flagged as incomplete — feature-bearing units must have actual test scenarios, not just an annotation. The `Test expectation: none -- [reason]` annotation is only valid for non-feature-bearing units (pure config, scaffolding, styling)
 - Deferred items are explicit and not hidden as fake certainty
 - If a High-Level Technical Design section is included, it uses the right medium for the work, carries the non-prescriptive framing, and does not contain implementation code (no imports, exact signatures, or framework-specific syntax)
 - Per-unit technical design fields, if present, are concise and directional rather than copy-paste-ready
 - If the plan creates a new directory structure, would an Output Structure tree help reviewers see the overall shape?
-- If Scope Boundaries lists items that are planned work for a separate PR or task, are they under `### Deferred to Separate Tasks` rather than mixed with true non-goals?
+- If Scope Boundaries lists items that are planned work for a separate PR, issue, or repo, are they under `### Deferred to Follow-Up Work` rather than mixed with true non-goals?
+- U-IDs are unique within the plan and follow the stability rule — no two units share an ID; reordering or splitting did not renumber existing units; gaps from deletions are preserved
 - Would a visual aid (dependency graph, interaction diagram, comparison table) help a reader grasp the plan structure faster than scanning prose alone?
-- Run an execution placeholder scan: reject phrases like `follow existing patterns`, `update tests accordingly`, `validate integration`, or `handle edge cases appropriately` when they do not name the concrete anchor, boundary, or cases
-- Check first-move clarity: for each implementation unit, the plan should make it obvious what file, boundary, or failing test the implementer starts from
-- Check done/not-done clarity: each unit's `Verification` should distinguish partial completion from complete behavior
-- Check execution posture consistency: if a unit clearly benefits from test-first, characterization-first, integration-first, contract-first, or migration-safety-first posture, signal it explicitly rather than leaving it implicit
 
 If the plan originated from a requirements document, re-read that document and verify:
 - The chosen approach still matches the product intent
 - Scope boundaries and success criteria are preserved
-- Blocking questions were either resolved, explicitly assumed, or sent back to `spec:brainstorm`
+- Blocking questions were either resolved, explicitly assumed, or sent back to `spec-brainstorm`
 - Every section of the origin document is addressed in the plan — scan each section to confirm nothing was silently dropped
+- If origin supplies A/F/AE IDs: every origin R/F/AE that *affects implementation* is referenced in Requirements Trace, a U-ID unit, test scenarios, verification, scope boundaries, or explicitly deferred. Actors are carried forward when they affect behavior, permissions, UX, orchestration, handoff, or verification. The standard is preservation of product intent, not mandatory ID spam — irrelevant origin IDs may be omitted
+- If origin was Deep-product (origin contains an `Outside this product's identity` subsection): the plan's Scope Boundaries preserves the three-way split — `Deferred for later` and `Outside this product's identity` carried verbatim from origin, `Deferred to Follow-Up Work` reserved for plan-local implementation sequencing
 
 #### 5.2 Write Plan File
 
@@ -784,7 +780,7 @@ Plan written to docs/plans/[filename]
 
 **Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context, skip interactive questions. Make the needed choices automatically and proceed to writing the plan.
 
-#### 5.3 Confidence Check and Deepening
+#### 5.3 Confidence-first Check and Deepening
 
 After writing the plan file, automatically evaluate whether the plan needs strengthening.
 
@@ -795,9 +791,9 @@ After writing the plan file, automatically evaluate whether the plan needs stren
 
 Interactive mode exists because on-demand deepening is a different user posture — the user already has a plan they are invested in and wants to be surgical about what changes. This applies whether the plan was generated by this skill, written by hand, or produced by another tool.
 
-`document-review` and this confidence check are different:
-- Use the `document-review` skill when the document needs clarity, simplification, completeness, or scope control
-- This confidence check strengthens rationale, sequencing, risk treatment, and system-wide thinking when the plan is structurally sound but still needs stronger grounding
+`spec-doc-review` and this confidence-first check are different:
+- Use the `spec-doc-review` skill when the document needs clarity, simplification, completeness, or scope control
+- This confidence-first check strengthens rationale, sequencing, risk treatment, and system-wide thinking when the plan is structurally sound but still needs stronger grounding
 
 **Pipeline mode:** This phase always runs in auto mode in pipeline/disable-model-invocation contexts. No user interaction needed.
 
@@ -824,14 +820,28 @@ Build a risk profile. Treat these as high-risk signals:
 - **Deep** or high-risk plans often benefit from a targeted second pass
 - **Thin local grounding override:** If Phase 1.2 triggered external research because local patterns were thin (fewer than 3 direct examples or adjacent-domain match), always proceed to scoring regardless of how grounded the plan appears. When the plan was built on unfamiliar territory, claims about system behavior are more likely to be assumptions than verified facts. The scoring pass is cheap — if the plan is genuinely solid, scoring finds nothing and exits quickly
 
-If the plan already appears sufficiently grounded and the thin-grounding override does not apply, report "Confidence check passed — no sections need strengthening" and skip to Phase 5.3.8 (Document Review). Document-review always runs regardless of whether deepening was needed — the two tools catch different classes of issues.
+If the plan already appears sufficiently grounded and the thin-grounding override does not apply, report "Confidence-first check passed — no sections need strengthening", then **load `references/plan-handoff.md` now and execute 5.3.8 → 5.3.9 → 5.4 in sequence**. Document review is mandatory — do not skip it because the confidence-first check passed. The two tools catch different classes of issues.
 
 ##### 5.3.3–5.3.7 Deepening Execution
 
-When deepening is warranted, read `references/deepening-workflow.md` for confidence scoring checklists, section-to-agent dispatch mapping, execution mode selection, research execution, interactive finding review, and plan synthesis instructions. Execute steps 5.3.3 through 5.3.7 from that file, then return here for 5.3.8.
+When deepening is warranted, read `references/deepening-workflow.md` for confidence-first scoring checklists, section-to-agent dispatch mapping, execution mode selection, research execution, interactive finding review, and plan synthesis instructions. Execute steps 5.3.3 through 5.3.7 from that file, then return here for 5.3.8.
 
 ##### 5.3.8–5.4 Document Review, Final Checks, and Post-Generation Options
 
-When reaching this phase, read `references/plan-handoff.md` for document review instructions (5.3.8), final checks and cleanup (5.3.9), post-generation options menu (5.4), and issue creation. Do not load this file earlier. Document review is mandatory — do not skip it even if the confidence check already ran.
+**Load `references/plan-handoff.md` now.** It contains the full instructions for 5.3.8 (document review), 5.3.9 (final checks and cleanup), and 5.4 (post-generation handoff, including the Proof HITL flow, post-HITL re-review, and Issue Creation branching). Document review is mandatory — do not skip it even if the confidence-first check already ran.
 
-NEVER CODE! Research, decide, and write the plan.
+After document review and final checks, present this menu using the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
+
+**Question:** "Plan ready at `docs/plans/YYYY-MM-DD-NNN-<type>-<name>-plan.md`. What would you like to do next?"
+
+**Options:**
+1. **Start `/spec:work`** (recommended) - Begin implementing this plan in the current session
+2. **Create Issue** - Create a tracked issue from this plan in your configured issue tracker (GitHub or Linear)
+3. **Open in Proof (web app) — review and comment to iterate with the agent** - Open the doc in Every's Proof editor, iterate with the agent via comments, or copy a link to share with others
+4. **Done for now** - Pause; the plan file is saved and can be resumed later
+
+Routing each selection, contextual surfacing of residual spec-doc-review findings, and the post-HITL resync logic all live in `references/plan-handoff.md` — follow it for every branch.
+
+**Completion check:** This skill is not complete until the post-generation menu above has been presented and the user has selected an action. If you have written the plan file and have not yet presented the menu, you are not done — go to the load instruction above and continue.
+
+**Pipeline mode exception:** In LFG, SLFG, or any `disable-model-invocation` context, skip the interactive menu and return control to the caller after the plan file is written, confidence-first check has run, and `spec-doc-review` has run in headless mode (per `references/plan-handoff.md`).

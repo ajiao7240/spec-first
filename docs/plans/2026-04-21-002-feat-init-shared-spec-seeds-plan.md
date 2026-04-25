@@ -62,7 +62,7 @@ scope: 在 init 阶段初始化共享 repo-level spec seeds，并补最小确定
 
 ### 1.2 什么情况下不值得继续做大
 
-如果出现以下任一情况，应停止扩张，而不是继续往 `spec-review`、`spec-work`、`doctor`、`sync` 等方向铺开：
+如果出现以下任一情况，应停止扩张，而不是继续往 `spec-code-review`、`spec-work`、`doctor`、`sync` 等方向铺开：
 
 1. shared seed 只是被创建，但没有进入真实消费闭环。
 2. `repo-profile.yaml` 长期保持空壳或默认值，团队几乎不维护。
@@ -100,7 +100,7 @@ scope: 在 init 阶段初始化共享 repo-level spec seeds，并补最小确定
 11. 第一版首批消费节点为 `spec-plan`。
 12. 第一版不引入 `frontend/`、`backend/`、`common/` 等多域模板体系。
 13. 第一版不新增 `validation`、`routing`、`quality-gates`、`state-machine` 类文件。
-14. 本次实现定位为验证性迭代，不默认承诺后续扩展到 `spec-review`、`spec-work`、`doctor` 或 managed-state 闭环。
+14. 本次实现定位为验证性迭代，不默认承诺后续扩展到 `spec-code-review`、`spec-work`、`doctor` 或 managed-state 闭环。
 15. 本次优化优先级是“减少误导”而不是“提高覆盖率”；空值优于伪信息。
 
 ## 3. 目标与非目标
@@ -459,7 +459,7 @@ review_defaults: []
 
 ### Decisions
 
-1. 第一版只接入 `spec-plan`，不同时铺开 `spec-review` 与 `spec-work`。
+1. 第一版只接入 `spec-plan`，不同时铺开 `spec-code-review` 与 `spec-work`。
 2. `spec-plan` 只把 `repo-profile.yaml` 作为 planning input，不做规则引擎展开。
 3. 读取字段优先级：
    - `project_type`
@@ -616,7 +616,7 @@ review_defaults: []
 | 节点 | 是否推荐首批接入 | 推荐消费字段 | 预期增强点 | 风险与边界 |
 |------|------------------|-------------|-----------|-----------|
 | `spec-plan` | 高 | `project_type`、`project_intent.summary`、`principles`、`non_negotiables` | 让规划阶段在有高置信度输入时更快建立 repo-level 心智，减少冷启动偏差 | 只作为 planning input；空值按 absent 处理；不把 plan 变成 repo-profile 规则展开器 |
-| `spec-review` | 低 | `review_defaults`、`non_negotiables`、`principles` | 理论上可让 review 默认关注点更贴项目长期约束 | 第一版不接入；避免在 seed 价值未验证前扩张消费面 |
+| `spec-code-review` | 低 | `review_defaults`、`non_negotiables`、`principles` | 理论上可让 review 默认关注点更贴项目长期约束 | 第一版不接入；避免在 seed 价值未验证前扩张消费面 |
 | `spec-work` | 低 | `non_negotiables`、`principles` | 理论上可在执行阶段提醒长期硬边界 | 第一版不接入；避免把 work 变成强控制流程 |
 | `spec-brainstorm` | 低 | `project_intent.summary`、`principles` | 理论上可在技术型 brainstorm 中补充项目方向 | 第一版不接入；只在将来有明确价值证据时再评估 |
 | `doctor` | 低 | 最多只读存在性或“明显空模板”信号 | 可作为轻提示，提醒 seed 是否存在或长期未补全 | 不应把 repo-profile 变成 doctor 的 hard-check 或健康 gate |
@@ -627,7 +627,7 @@ review_defaults: []
 
 1. 先做 seed 初始化本身。
 2. 同一迭代接入 `spec-plan` 作为首批消费者。
-3. 观察真实使用价值后，再决定是否接入 `spec-review`。
+3. 观察真实使用价值后，再决定是否接入 `spec-code-review`。
 4. 观察真实使用价值后，再决定是否接入 `spec-work`。
 
 ### 11.2 最小闭环
@@ -690,5 +690,5 @@ review_defaults: []
 本计划完成后，可在后续独立迭代中考虑：
 
 1. 通过某个 workflow 对 `principles`、`non_negotiables`、`review_defaults` 提供“建议补全”，而不是 silent overwrite。
-2. 第二阶段接入 `spec-review`，让 `review_defaults` 真正进入 review 决策输入。
+2. 第二阶段接入 `spec-code-review`，让 `review_defaults` 真正进入 review 决策输入。
 3. 视需要增加 doctor warning，但保持它是事实提示，不变成硬 gate。

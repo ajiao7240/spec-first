@@ -189,9 +189,4 @@ bash tests/e2e/spec-graph-bootstrap-installed-runtime.sh
 echo "✓ spec-graph-bootstrap installed runtime 通过"
 
 echo ""
-echo "11. 测试 spec-brainstorm 确定性 contract 接线..."
-bash tests/integration/spec-brainstorm-flow.sh
-echo "✓ spec-brainstorm 确定性 contract 接线通过"
-
-echo ""
 echo "=== E2E 测试全部通过 ✓ ==="

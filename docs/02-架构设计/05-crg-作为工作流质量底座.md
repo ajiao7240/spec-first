@@ -27,7 +27,7 @@ AST、代码图、调用图、社区检测、影响分析，都只是 CRG 的实
 CRG 应该被定义为：
 
 - spec-first 在工程侧的长期事实层
-- 为 `spec:plan` / `spec:work` / `spec:review` 提供上下文注入的引擎
+- 为 `spec:plan` / `spec:work` / `spec:code-review` 提供上下文注入的引擎
 - 为风险识别、影响评估、质量把关提供统一事实来源的底座
 
 ```
@@ -36,7 +36,7 @@ CRG（工程事实内核）
 事实采集 / 事实归一 / 事实评分 / 事实查询
         ↓
 ┌────────────┬────────────┬────────────┐
-│ spec:plan  │ spec:work  │ spec:review│
+│ spec:plan  │ spec:work  │ spec:code-review│
 └────────────┴────────────┴────────────┘
         ↓
 上下文更准、决策更稳、质量可控
@@ -61,7 +61,7 @@ CRG 终局上应该承担四类能力：
 
 - 对 `spec:plan`，提供真实结构边界与改动代价
 - 对 `spec:work`，提供受影响范围、上下游关系、测试候选
-- 对 `spec:review`，提供架构级风险、隐性依赖、证据化审查支撑
+- 对 `spec:code-review`，提供架构级风险、隐性依赖、证据化审查支撑
 
 ---
 
@@ -138,7 +138,7 @@ spec-first crg query --repo . --pattern callers_of --symbol <symbol>
 
 ---
 
-### 4.3 spec:review
+### 4.3 spec:code-review
 
 **问题**：Review 只看 diff 行，容易漏掉架构层面的隐性影响。
 
@@ -175,7 +175,7 @@ spec-first crg surprising-connections --repo .
 |--------|---------|------|
 | spec:plan | crg context / architecture / god-nodes | 未集成 |
 | spec:work | crg affected-flows / impact / query | 未集成 |
-| spec:review | crg review-context / detect-changes / surprising-connections | 未集成 |
+| spec:code-review | crg review-context / detect-changes / surprising-connections | 未集成 |
 
 **根本原因**：
 
@@ -261,7 +261,7 @@ work 阶段遗漏 iOS 端影响        work 阶段主动处理 iOS 端
 
 - `skills/spec-plan/SKILL.md`：Phase 0 添加 `crg context`
 - `skills/spec-work/SKILL.md`：实现前添加 `crg affected-flows`
-- `skills/spec-review/SKILL.md`：Review 前添加 `crg review-context`
+- `skills/spec-code-review/SKILL.md`：Review 前添加 `crg review-context`
 
 ### 优先级 P1：先把阶段0事实底座做扎实
 

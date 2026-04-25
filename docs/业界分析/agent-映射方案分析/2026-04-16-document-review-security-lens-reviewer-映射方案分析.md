@@ -1,4 +1,4 @@
-# document-review/security-lens-reviewer 映射方案分析
+# spec-doc-review/security-lens-reviewer 映射方案分析
 
 ## 1. 结论摘要
 
@@ -8,8 +8,8 @@
 
 ## 2. 代码事实
 
-- 源文件：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/document-review/security-lens-reviewer.md:1-36`
-- 当前文件：`/Users/kuang/xiaobu/spec-first/agents/document-review/security-lens-reviewer.md:1-36`
+- 源文件：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/spec-doc-review/security-lens-reviewer.md:1-36`
+- 当前文件：`/Users/kuang/xiaobu/spec-first/agents/spec-doc-review/security-lens-reviewer.md:1-36`
 - 上游第 4 行：`model: sonnet`
 - 当前第 4 行：`model: inherit`
 - 其余正文一致，包括：
@@ -36,7 +36,7 @@
 
 ## 4. 当前实现解读
 
-当前 spec-first 版本完整保留了这套计划级安全审查框架，只在 frontmatter 中使用 `inherit` 替代 `sonnet`。宿主 `document-review` skill 对安全 lens 的激活条件也与这个 agent 的职责匹配：认证授权、外部 API、敏感数据、第三方集成等信号会触发它，见 `/Users/kuang/xiaobu/spec-first/.agents/skills/document-review/SKILL.md:38-42`。
+当前 spec-first 版本完整保留了这套计划级安全审查框架，只在 frontmatter 中使用 `inherit` 替代 `sonnet`。宿主 `spec-doc-review` skill 对安全 lens 的激活条件也与这个 agent 的职责匹配：认证授权、外部 API、敏感数据、第三方集成等信号会触发它，见 `/Users/kuang/xiaobu/spec-first/.agents/skills/spec-doc-review/SKILL.md:38-42`。
 
 因此，当前实现并没有丢失安全分析维度。
 
@@ -44,8 +44,8 @@
 
 唯一差异：
 
-- 上游：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/document-review/security-lens-reviewer.md:4` 为 `model: sonnet`
-- 当前：`/Users/kuang/xiaobu/spec-first/agents/document-review/security-lens-reviewer.md:4` 为 `model: inherit`
+- 上游：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/spec-doc-review/security-lens-reviewer.md:4` 为 `model: sonnet`
+- 当前：`/Users/kuang/xiaobu/spec-first/agents/spec-doc-review/security-lens-reviewer.md:4` 为 `model: inherit`
 
 影响分析：
 

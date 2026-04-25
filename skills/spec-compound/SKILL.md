@@ -1,10 +1,9 @@
 ---
-name: compound-workflow
+name: spec-compound
 description: Document a recently solved problem to compound your team's knowledge
-argument-hint: "[optional: brief context about the fix]"
 ---
 
-# Spec-First Compound
+# /spec:compound
 
 Coordinate multiple subagents working in parallel to document a recently solved problem.
 
@@ -17,8 +16,8 @@ Captures problem solutions while context is fresh, creating structured documenta
 ## Usage
 
 ```bash
-Claude: /spec:compound [brief context]
-Codex:  $spec-compound [brief context]
+/spec:compound                    # Document the most recent fix
+/spec:compound [brief context]    # Provide additional context hint
 ```
 
 ## Support Files
@@ -33,7 +32,7 @@ When spawning subagents, pass the relevant file contents into the task prompt so
 
 ## Execution Strategy
 
-Present the user with two options before proceeding, using the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). If no question tool is available, present the options and wait for the user's reply.
+Present the user with two options before proceeding, using the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to presenting options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
 ```
 1. Full (recommended) — the complete compound workflow. Researches,
@@ -48,7 +47,7 @@ Present the user with two options before proceeding, using the platform's blocki
 
 Do NOT pre-select a mode. Do NOT skip this prompt. Wait for the user's choice before proceeding.
 
-**If the user chooses Full**, ask one follow-up question before proceeding. Detect which harness is running (Claude Code, Codex, or Cursor) and ask:
+**If the user chooses Full**, ask one follow-up question before proceeding. Detect which supported harness is running (Claude Code or Codex) and ask:
 
 ```
 Would you also like to search your [harness name] session history
@@ -65,28 +64,15 @@ If the user says yes, dispatch the Session Historian in Phase 1. If no, skip it.
 <critical_requirement>
 **The primary output is ONE file - the final documentation.**
 
-Phase 1 subagents return TEXT DATA to the orchestrator. They must NOT use Write, Edit, or create any files. Only the orchestrator writes files: the solution doc in Phase 2, and — if the Discoverability Check finds a gap — a small edit to a project instruction file (`AGENTS.md` or `CLAUDE.md`). The instruction-file edit is maintenance, not a second deliverable; it ensures future agents can discover the knowledge store.
+Phase 1 subagents return TEXT DATA to the orchestrator. They must NOT use Write, Edit, or create any files. Only the orchestrator writes files: the solution doc in Phase 2, and — if the Discoverability Check finds a gap — a small edit to a project instruction file (AGENTS.md or CLAUDE.md). The instruction-file edit is maintenance, not a second deliverable; it ensures future agents can discover the knowledge store.
 </critical_requirement>
-
-### Durable Output Contract
-
-The solution doc is a **single durable file** under `docs/solutions/`. Do not create a second durable artifact, sidecar machine file, or parallel archive root.
-
-Every new or replacement learning should carry two stable views in that same durable file:
-
-- **Human Summary** — concise handoff/reporting view covering outcome, key decisions, validation/result, and remaining risks
-- **LLM Reuse Context** — retrieval/reuse view covering constraints, touched interfaces or code touchpoints, reusable patterns, anti-patterns, and provenance
-
-When both views exist, downstream retrieval should treat `LLM Reuse Context` as the primary reuse surface. `Human Summary` remains the fastest human handoff view.
-
-Older learnings may not yet contain these sections. Treat missing dual-view sections as an upgrade opportunity when editing, not as a schema error.
 
 ### Phase 0.5: Auto Memory Scan
 
-Before launching Phase 1 subagents, check the auto memory directory for notes relevant to the problem being documented.
+Before launching Phase 1 subagents, check the auto-memory block injected into your system prompt for notes relevant to the problem being documented.
 
-1. Read `MEMORY.md` from the auto memory directory (the path is known from the system prompt context)
-2. If the directory or `MEMORY.md` does not exist, is empty, or is unreadable, skip this step and proceed to Phase 1 unchanged
+1. Look for a block labeled "user's auto-memory" (Claude Code only) already present in your system prompt context — MEMORY.md's entries are inlined there
+2. If the block is absent, empty, or this is a non-Claude-Code platform, skip this step and proceed to Phase 1 unchanged
 3. Scan the entries for anything related to the problem being documented -- use semantic judgment, not keyword matching
 4. If relevant entries are found, prepare a labeled excerpt block:
 
@@ -98,31 +84,9 @@ and codebase findings take priority over these notes.
 [relevant entries here]
 ```
 
-5. Pass this block as additional context to the Context Analyzer and Solution Extractor task prompts in Phase 1. If any memory notes end up in the final documentation (for example, as part of the investigation steps or root cause analysis), tag them with `(auto memory [claude])` so their origin is clear to future readers.
+5. Pass this block as additional context to the Context Analyzer and Solution Extractor task prompts in Phase 1. If any memory notes end up in the final documentation (e.g., as part of the investigation steps or root cause analysis), tag them with "(auto memory [claude])" so their origin is clear to future readers.
 
 If no relevant entries are found, proceed to Phase 1 without passing memory context.
-
-### Phase 0.6: Passive Quality Feedback Scan
-
-Before launching Phase 1 subagents, check whether recent quality-gate feedback artifacts can provide reusable failure context.
-
-1. Read `.spec-first/workflows/quality-gates/ai-dev-quality-gate/quality-feedback-topics.json` if it exists
-2. If the file does not exist, is unreadable, or has no relevant `candidate_topics`, skip this step
-3. Treat `candidate_topics` as supplementary hints, not primary evidence and not a task queue
-4. Only pass through items that clearly relate to the problem being documented
-5. If used, prepare a labeled excerpt block:
-
-```
-## Supplementary quality feedback
-Treat these as supplementary hints, not primary evidence.
-Conversation history, codebase findings, and verified fixes take priority.
-
-[relevant candidate_topics here]
-```
-
-6. Pass this block as additional context to the Context Analyzer, Solution Extractor, and Related Docs Finder
-7. Never auto-run `spec:compound-refresh` or invent workflow state from this artifact; it only narrows likely learning topics and follow-up scope hints
-8. When any final learning cites this source, label it `(quality feedback artifact)` so future readers know it came from passive gate feedback rather than direct code investigation
 
 ### Phase 1: Research
 
@@ -130,7 +94,7 @@ Launch research subagents. Each returns text data to the orchestrator.
 
 **Dispatch order:**
 - Launch `Context Analyzer`, `Solution Extractor`, and `Related Docs Finder` in parallel (background)
-- Then dispatch `session-historian` in foreground — it reads session files outside the working directory that background agents may not have access to
+- Then dispatch `spec-session-historian` in foreground — it reads session files outside the working directory that background agents may not have access to
 - The foreground dispatch runs while the background agents work, adding no wall-clock time
 
 <parallel_tasks>
@@ -138,20 +102,20 @@ Launch research subagents. Each returns text data to the orchestrator.
 #### 1. **Context Analyzer**
    - Extracts conversation history
    - Reads `references/schema.yaml` for enum validation and **track classification**
-   - Determines the track (bug or knowledge) from the `problem_type`
+   - Determines the track (bug or knowledge) from the problem_type
    - Identifies problem type, component, and track-appropriate fields:
-     - **Bug track**: `symptoms`, `root_cause`, `resolution_type`
-     - **Knowledge track**: `applies_when` (`symptoms` / `root_cause` / `resolution_type` optional)
+     - **Bug track**: symptoms, root_cause, resolution_type
+     - **Knowledge track**: applies_when (symptoms/root_cause/resolution_type optional)
    - Incorporates auto memory excerpts (if provided by the orchestrator) as supplementary evidence
    - Reads `references/yaml-schema.md` for category mapping into `docs/solutions/`
    - Suggests a filename using the pattern `[sanitized-problem-slug]-[date].md`
-   - Returns: YAML frontmatter skeleton (must include `category:` field mapped from `problem_type`), category directory path, suggested filename, and which track applies
+   - Returns: YAML frontmatter skeleton (must include `category:` field mapped from problem_type), category directory path, suggested filename, and which track applies
    - Does not invent enum values, categories, or frontmatter fields from memory; reads the schema and mapping files above
    - Does not force bug-track fields onto knowledge-track learnings or vice versa
 
 #### 2. **Solution Extractor**
    - Reads `references/schema.yaml` for track classification (bug vs knowledge)
-   - Adapts output structure based on the `problem_type` track
+   - Adapts output structure based on the problem_type track
    - Incorporates auto memory excerpts (if provided by the orchestrator) as supplementary evidence -- conversation history and the verified fix take priority; if memory notes contradict the conversation, note the contradiction as cautionary context
 
    **Bug track output sections:**
@@ -161,7 +125,7 @@ Launch research subagents. Each returns text data to the orchestrator.
    - **What Didn't Work**: Failed investigation attempts and why they failed
    - **Solution**: The actual fix with code examples (before/after when applicable)
    - **Why This Works**: Root cause explanation and why the solution addresses it
-   - **Prevention**: Strategies to avoid recurrence, best practices, and test cases. Include concrete code examples where applicable (for example, gem configurations, test assertions, linting rules)
+   - **Prevention**: Strategies to avoid recurrence, best practices, and test cases. Include concrete code examples where applicable (e.g., gem configurations, test assertions, linting rules)
 
    **Knowledge track output sections:**
 
@@ -170,12 +134,6 @@ Launch research subagents. Each returns text data to the orchestrator.
    - **Why This Matters**: Rationale and impact of following or not following this guidance
    - **When to Apply**: Conditions or situations where this applies
    - **Examples**: Concrete before/after or usage examples showing the practice in action
-
-   **Dual-view sections for every track:**
-
-   - **Human Summary**: outcome, key decisions, validation/result, and remaining risks
-   - **LLM Reuse Context**: constraints, code touchpoints, reusable patterns, anti-patterns, and provenance
-   - When evidence for part of the LLM-facing view is unavailable, say so explicitly instead of inventing detail
 
 #### 3. **Related Docs Finder**
    - Searches `docs/solutions/` for related documentation
@@ -192,7 +150,7 @@ Launch research subagents. Each returns text data to the orchestrator.
 
    1. Extract keywords from the problem context: module names, technical terms, error messages, component types
    2. If the problem category is clear, narrow search to the matching `docs/solutions/<category>/` directory
-   3. Use the native content-search tool (for example, Grep in Claude Code) to pre-filter candidate files BEFORE reading any content. Run multiple searches in parallel, case-insensitive, targeting frontmatter fields. These are template patterns -- substitute actual keywords:
+   3. Use the native content-search tool (e.g., Grep in Claude Code) to pre-filter candidate files BEFORE reading any content. Run multiple searches in parallel, case-insensitive, targeting frontmatter fields. These are template patterns -- substitute actual keywords:
       - `title:.*<keyword>`
       - `tags:.*(<keyword1>|<keyword2>)`
       - `module:.*<module name>`
@@ -204,18 +162,18 @@ Launch research subagents. Each returns text data to the orchestrator.
 
    **GitHub issue search:**
 
-   Prefer the `gh` CLI for searching related issues: `gh issue list --search "<keywords>" --state all --limit 5`. If `gh` is not installed, fall back to the GitHub MCP tools if available. If neither is available, skip GitHub issue search and note it was skipped in the output.
+   Prefer the `gh` CLI for searching related issues: `gh issue list --search "<keywords>" --state all --limit 5`. If `gh` is not installed, fall back to the GitHub MCP tools (e.g., `unblocked` data_retrieval) if available. If neither is available, skip GitHub issue search and note it was skipped in the output.
 
 </parallel_tasks>
 
 #### 4. **Session Historian** (foreground, after launching the above — only if the user opted in)
    - **Skip entirely** if the user declined session history in the follow-up question
-   - Dispatched as `spec-first:research:session-historian`
-   - Dispatch in **foreground** — this agent reads session files outside the working directory (`~/.claude/projects/`, `~/.codex/sessions/`, `~/.cursor/projects/`) which background agents may not have access to
-   - Searches prior Claude Code, Codex, and Cursor sessions for the same project to find related investigation context
-   - Correlates sessions by repo name across all platforms
+   - Dispatched as `spec-session-historian`
+   - Dispatch in **foreground** — this agent reads session files outside the working directory (`~/.claude/projects/`, `~/.codex/sessions/`, `~/.agents/sessions/`) which background agents may not have access to
+   - Searches prior Claude Code and Codex sessions for the same project to find related investigation context
+   - Correlates sessions by repo name across supported platforms (matches sessions from main checkouts, worktrees, and Conductor workspaces)
    - In the dispatch prompt, pass:
-     - A specific description of the problem being documented — not a generic topic, but the concrete issue (error messages, module names, what broke and how it was fixed)
+     - A specific description of the problem being documented — not a generic topic, but the concrete issue (error messages, module names, what broke and how it was fixed). This is what the agent filters its findings against.
      - The current git branch and working directory
      - The instruction: "Only surface findings from prior sessions that are directly relevant to this specific problem. Ignore unrelated work from the same sessions or branches."
      - The output format:
@@ -228,6 +186,7 @@ Launch research subagents. Each returns text data to the orchestrator.
        - Related context: anything else from prior sessions that directly informs this problem's documentation
        ```
    - Omit the `mode` parameter so the user's configured permission settings apply
+   - Dispatch on the mid-tier model (e.g., `model: "sonnet"` in Claude Code) — the synthesis feeds into compound assembly and doesn't need frontier reasoning
    - Returns: structured digest of findings from prior sessions, or "no relevant prior sessions" if none found
 
 ### Phase 2: Assembly & Write
@@ -249,20 +208,17 @@ The orchestrating agent (main conversation) performs these steps:
 
    The reason to update rather than create: two docs describing the same problem and solution will inevitably drift apart. The newer context is fresher and more trustworthy, so fold it into the existing doc rather than creating a second one that immediately needs consolidation.
 
-   When updating an existing doc, preserve its file path and frontmatter structure. Update the solution, code examples, prevention tips, and any stale references. Add a `last_updated: YYYY-MM-DD` field to the frontmatter. Do not change the title unless the problem framing has materially shifted. Keep `Human Summary` and `LLM Reuse Context` in the same durable file rather than splitting them into separate artifacts.
+   When updating an existing doc, preserve its file path and frontmatter structure. Update the solution, code examples, prevention tips, and any stale references. Add a `last_updated: YYYY-MM-DD` field to the frontmatter. Do not change the title unless the problem framing has materially shifted.
 
 3. **Incorporate session history findings** (if available). When the Session History Researcher returned relevant prior-session context:
    - Fold investigation dead ends and failed approaches into the **What Didn't Work** section (bug track) or **Context** section (knowledge track)
    - Use cross-session patterns to enrich the **Prevention** or **Why This Matters** sections
-   - Tag session-sourced content with `(session history)` so its origin is clear to future readers
+   - Tag session-sourced content with "(session history)" so its origin is clear to future readers
    - If findings are thin or "no relevant prior sessions," proceed without session context
 4. Assemble complete markdown file from the collected pieces, reading `assets/resolution-template.md` for the section structure of new docs
-5. Ensure the final doc contains both `Human Summary` and `LLM Reuse Context` sections in the same durable file. Do not create a second durable artifact for the LLM-facing view
-6. In `LLM Reuse Context`, prefer repo-factual details: constraints, code touchpoints, reusable patterns, anti-patterns, and provenance references to plans, diffs, verifiers, issues, or session history when available
-7. If any part of the LLM-facing view is unknown from current evidence, say that directly instead of guessing
-8. Validate YAML frontmatter against `references/schema.yaml`
-9. Create directory if needed: `mkdir -p docs/solutions/[category]/`
-10. Write the file: either the updated existing doc or the new `docs/solutions/[category]/[filename].md`
+5. Validate YAML frontmatter against `references/schema.yaml`, including the YAML-safety quoting rule for array items (see `references/yaml-schema.md` > YAML Safety Rules)
+6. Create directory if needed: `mkdir -p docs/solutions/[category]/`
+7. Write the file: either the updated existing doc or the new `docs/solutions/[category]/[filename].md`
 
 When creating a new doc, preserve the section order from `assets/resolution-template.md` unless the user explicitly asks for a different structure.
 
@@ -272,18 +228,18 @@ When creating a new doc, preserve the section order from `assets/resolution-temp
 
 After writing the new learning, decide whether this new solution is evidence that older docs should be refreshed.
 
-`spec:compound-refresh` is **not** a default follow-up. Use it selectively when the new learning suggests an older learning or pattern doc may now be inaccurate.
+`spec-compound-refresh` is **not** a default follow-up. Use it selectively when the new learning suggests an older learning or pattern doc may now be inaccurate.
 
-It makes sense to invoke `spec:compound-refresh` when one or more of these are true:
+It makes sense to invoke `spec-compound-refresh` when one or more of these are true:
 
 1. A related learning or pattern doc recommends an approach that the new fix now contradicts
 2. The new fix clearly supersedes an older documented solution
 3. The current work involved a refactor, migration, rename, or dependency upgrade that likely invalidated references in older docs
 4. A pattern doc now looks overly broad, outdated, or no longer supported by the refreshed reality
-5. The Related Docs Finder surfaced high-confidence refresh candidates in the same problem space
+5. The Related Docs Finder surfaced high-confidence-first refresh candidates in the same problem space
 6. The Related Docs Finder reported **moderate overlap** with an existing doc — there may be consolidation opportunities that benefit from a focused review
 
-It does **not** make sense to invoke `spec:compound-refresh` when:
+It does **not** make sense to invoke `spec-compound-refresh` when:
 
 1. No related docs were found
 2. Related docs still appear consistent with the new learning
@@ -292,11 +248,11 @@ It does **not** make sense to invoke `spec:compound-refresh` when:
 
 Use these rules:
 
-- If there is **one obvious stale candidate**, invoke `spec:compound-refresh` with a narrow scope hint after the new learning is written
+- If there is **one obvious stale candidate**, invoke `spec-compound-refresh` with a narrow scope hint after the new learning is written
 - If there are **multiple candidates in the same area**, ask the user whether to run a targeted refresh for that module, category, or pattern set
-- If context is already tight or you are in lightweight mode, do not expand into a broad refresh automatically; instead recommend `spec:compound-refresh` as the next step with a scope hint
+- If context is already tight or you are in lightweight mode, do not expand into a broad refresh automatically; instead recommend `spec-compound-refresh` as the next step with a scope hint
 
-When invoking or recommending `spec:compound-refresh`, be explicit about the argument to pass. Prefer the narrowest useful scope:
+When invoking or recommending `spec-compound-refresh`, be explicit about the argument to pass. Prefer the narrowest useful scope:
 
 - **Specific file** when one learning or pattern doc is the likely stale artifact
 - **Module or component name** when several related docs may need review
@@ -305,14 +261,14 @@ When invoking or recommending `spec:compound-refresh`, be explicit about the arg
 
 Examples:
 
-- `/spec:compound-refresh plugin-versioning-requirements`
-- `/spec:compound-refresh payments`
-- `/spec:compound-refresh performance-issues`
-- `/spec:compound-refresh critical-patterns`
+- `spec-compound-refresh plugin-versioning-requirements`
+- `spec-compound-refresh payments`
+- `spec-compound-refresh performance-issues`
+- `spec-compound-refresh critical-patterns`
 
 A single scope hint may still expand to multiple related docs when the change is cross-cutting within one domain, category, or pattern area.
 
-Do not invoke `spec:compound-refresh` without an argument unless the user explicitly wants a broad sweep.
+Do not invoke `spec-compound-refresh` without an argument unless the user explicitly wants a broad sweep.
 
 Always capture the new learning first. Refresh is a targeted maintenance follow-up, not a prerequisite for documentation.
 
@@ -320,7 +276,7 @@ Always capture the new learning first. Refresh is a targeted maintenance follow-
 
 After the learning is written and the refresh decision is made, check whether the project's instruction files would lead an agent to discover and search `docs/solutions/` before starting work in a documented area. This runs every time — the knowledge store only compounds value when agents can find it.
 
-1. Identify which root-level instruction files exist (`AGENTS.md`, `CLAUDE.md`, or both). Read the file(s) and determine which holds the substantive content — one file may just be a shim that `@`-includes the other (for example, `CLAUDE.md` containing only `@AGENTS.md`, or vice versa). The substantive file is the assessment and edit target; ignore shims. If neither file exists, skip this check entirely.
+1. Identify which root-level instruction files exist (AGENTS.md, CLAUDE.md, or both). Read the file(s) and determine which holds the substantive content — one file may just be a shim that `@`-includes the other (e.g., `CLAUDE.md` containing only `@AGENTS.md`, or vice versa). The substantive file is the assessment and edit target; ignore shims. If neither file exists, skip this check entirely.
 2. Assess whether an agent reading the instruction files would learn three things:
    - That a searchable knowledge store of documented solutions exists
    - Enough about its structure to search effectively (category organization, YAML frontmatter fields like `module`, `tags`, `problem_type`)
@@ -348,7 +304,7 @@ After the learning is written and the refresh decision is made, check whether th
 
       `docs/solutions/` — documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`). Relevant when implementing or debugging in documented areas.
       ```
-   c. In full mode, explain to the user why this matters — agents working in this repo (including fresh sessions, other tools, or collaborators without the plugin) will not know to check `docs/solutions/` unless the instruction file surfaces it. Show the proposed change and where it would go, then use the platform's blocking question tool to get consent before making the edit. If no question tool is available, present the proposal and wait for the user's reply. In lightweight mode, output a one-line note and move on.
+   c. In full mode, explain to the user why this matters — agents working in this repo (including fresh sessions, other tools, or collaborators without the plugin) won't know to check `docs/solutions/` unless the instruction file surfaces it. Show the proposed change and where it would go, then use the platform's blocking question tool to get consent before making the edit: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to presenting the proposal in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question. In lightweight mode, output a one-liner note and move on
 
 ### Phase 3: Optional Enhancement
 
@@ -358,13 +314,13 @@ After the learning is written and the refresh decision is made, check whether th
 
 Based on problem type, optionally invoke specialized agents to review the documentation:
 
-- **performance_issue** → `performance-oracle`
-- **security_issue** → `security-sentinel`
-- **database_issue** → `data-integrity-guardian`
-- Any code-heavy issue → always run `code-simplicity-reviewer`, and additionally run the kieran reviewer that matches the repo's primary stack:
-  - Ruby/Rails → also run `kieran-rails-reviewer`
-  - Python → also run `kieran-python-reviewer`
-  - TypeScript/JavaScript → also run `kieran-typescript-reviewer`
+- **performance_issue** → `spec-performance-oracle`
+- **security_issue** → `spec-security-sentinel`
+- **database_issue** → `spec-data-integrity-guardian`
+- Any code-heavy issue → always run `spec-code-simplicity-reviewer`, and additionally run the kieran reviewer that matches the repo's primary stack:
+  - Ruby/Rails → also run `spec-kieran-rails-reviewer`
+  - Python → also run `spec-kieran-python-reviewer`
+  - TypeScript/JavaScript → also run `spec-kieran-typescript-reviewer`
   - Other stacks → no kieran reviewer needed
 
 </parallel_tasks>
@@ -381,10 +337,10 @@ This mode skips parallel subagents entirely. The orchestrator performs all work 
 
 The orchestrator (main conversation) performs ALL of the following in one sequential pass:
 
-1. **Extract from conversation**: Identify the problem and solution from conversation history. Also read `MEMORY.md` from the auto memory directory if it exists -- use any relevant notes as supplementary context alongside conversation history. Tag any memory-sourced content incorporated into the final doc with `(auto memory [claude])`
+1. **Extract from conversation**: Identify the problem and solution from conversation history. Also scan the "user's auto-memory" block injected into your system prompt, if present (Claude Code only) -- use any relevant notes as supplementary context alongside conversation history. Tag any memory-sourced content incorporated into the final doc with "(auto memory [claude])"
 2. **Classify**: Read `references/schema.yaml` and `references/yaml-schema.md`, then determine track (bug vs knowledge), category, and filename
 3. **Write minimal doc**: Create `docs/solutions/[category]/[filename].md` using the appropriate track template from `assets/resolution-template.md`, with:
-   - YAML frontmatter with track-appropriate fields
+   - YAML frontmatter with track-appropriate fields, applying the YAML-safety quoting rule for array items (see `references/yaml-schema.md` > YAML Safety Rules)
    - Bug track: Problem, root cause, solution with key code snippets, one prevention tip
    - Knowledge track: Context, guidance with key examples, one applicability note
 4. **Skip specialized agent reviews** (Phase 3) to conserve context
@@ -402,12 +358,12 @@ a brief mention helps all agents discover these learnings.
 
 Note: This was created in lightweight mode. For richer documentation
 (cross-references, detailed prevention strategies, specialized reviews),
-re-run /compound in a fresh session.
+re-run /spec:compound in a fresh session.
 ```
 
 **No subagents are launched. No parallel tasks. One file written.**
 
-In lightweight mode, the overlap check is skipped (no Related Docs Finder subagent). This means lightweight mode may create a doc that overlaps with an existing one. That is acceptable — `spec:compound-refresh` will catch it later. Only suggest `spec:compound-refresh` if there is an obvious narrow refresh target. Do not broaden into a large refresh sweep from a lightweight session.
+In lightweight mode, the overlap check is skipped (no Related Docs Finder subagent). This means lightweight mode may create a doc that overlaps with an existing one. That is acceptable — `spec-compound-refresh` will catch it later. Only suggest `spec-compound-refresh` if there is an obvious narrow refresh target. Do not broaden into a large refresh sweep from a lightweight session.
 
 ---
 
@@ -442,6 +398,7 @@ In lightweight mode, the overlap check is skipped (no Related Docs Finder subage
 
 **Categories auto-detected from problem:**
 
+Bug track:
 - build-errors/
 - test-failures/
 - runtime-errors/
@@ -452,13 +409,23 @@ In lightweight mode, the overlap check is skipped (no Related Docs Finder subage
 - integration-issues/
 - logic-errors/
 
+Knowledge track:
+- architecture-patterns/ — architectural or structural patterns (agent/skill/pipeline/workflow shape decisions)
+- design-patterns/ — reusable non-architectural design approaches (content generation, interaction patterns, prompt shapes)
+- tooling-decisions/ — language, library, or tool choices with durable rationale
+- conventions/ — team-agreed way of doing something, captured so it survives turnover
+- workflow-issues/
+- developer-experience/
+- documentation-gaps/
+- best-practices/ — fallback only, use when no narrower knowledge-track value applies
+
 ## Common Mistakes to Avoid
 
 | ❌ Wrong | ✅ Correct |
 |----------|-----------|
 | Subagents write files like `context-analysis.md`, `solution-draft.md` | Subagents return text data; orchestrator writes one final file |
 | Research and assembly run in parallel | Research completes → then assembly runs |
-| Multiple files created during workflow | One file written or updated: `docs/solutions/[category]/[filename].md` |
+| Multiple files created during workflow | One solution doc written or updated: `docs/solutions/[category]/[filename].md` (plus an optional small edit to a project instruction file for discoverability) |
 | Creating a new doc when an existing doc covers the same problem | Check overlap assessment; update the existing doc when overlap is high |
 
 ## Success Output
@@ -472,11 +439,12 @@ Subagent Results:
   ✓ Context Analyzer: Identified performance_issue in brief_system, category: performance-issues/
   ✓ Solution Extractor: 3 code fixes, prevention strategies
   ✓ Related Docs Finder: 2 related issues
+  ✓ Session History: 3 prior sessions on same branch, 2 failed approaches surfaced
 
 Specialized Agent Reviews (Auto-Triggered):
-  ✓ performance-oracle: Validated query optimization approach
-  ✓ kieran-typescript-reviewer: Code examples meet TypeScript standards
-  ✓ code-simplicity-reviewer: Solution is appropriately minimal
+  ✓ spec-performance-oracle: Validated query optimization approach
+  ✓ spec-kieran-rails-reviewer: Code examples meet Rails conventions
+  ✓ spec-code-simplicity-reviewer: Solution is appropriately minimal
 
 File created:
 - docs/solutions/performance-issues/n-plus-one-brief-generation.md
@@ -492,7 +460,7 @@ What's next?
 5. Other
 ```
 
-**After displaying the success output, present the "What's next?" options using the platform's blocking question tool when available.** If no question tool is available, present the numbered options and wait for the user's reply before proceeding. Do not continue the workflow or end the turn without the user's selection.
+**After displaying the success output, present the "What's next?" options using the platform's blocking question tool:** `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question. Do not continue the workflow or end the turn without the user's selection.
 
 **Alternate output (when updating an existing doc due to high overlap):**
 
@@ -541,20 +509,20 @@ Writes the final learning directly into `docs/solutions/`.
 Based on problem type, these agents can enhance documentation:
 
 ### Code Quality & Review
-- **kieran-rails-reviewer**: Reviews code examples for Rails best practices
-- **kieran-python-reviewer**: Reviews code examples for Python best practices
-- **kieran-typescript-reviewer**: Reviews code examples for TypeScript best practices
-- **code-simplicity-reviewer**: Ensures solution code is minimal and clear
-- **pattern-recognition-specialist**: Identifies anti-patterns or repeating issues
+- **spec-kieran-rails-reviewer**: Reviews code examples for Rails best practices
+- **spec-kieran-python-reviewer**: Reviews code examples for Python best practices
+- **spec-kieran-typescript-reviewer**: Reviews code examples for TypeScript best practices
+- **spec-code-simplicity-reviewer**: Ensures solution code is minimal and clear
+- **spec-pattern-recognition-specialist**: Identifies anti-patterns or repeating issues
 
 ### Specific Domain Experts
-- **performance-oracle**: Analyzes performance_issue category solutions
-- **security-sentinel**: Reviews security_issue solutions for vulnerabilities
-- **data-integrity-guardian**: Reviews database_issue migrations and queries
+- **spec-performance-oracle**: Analyzes performance_issue category solutions
+- **spec-security-sentinel**: Reviews security_issue solutions for vulnerabilities
+- **spec-data-integrity-guardian**: Reviews database_issue migrations and queries
 
-### Enhancement & Documentation
-- **best-practices-researcher**: Enriches solution with industry best practices
-- **framework-docs-researcher**: Links to Rails/gem documentation references
+### Enhancement & Research
+- **spec-best-practices-researcher**: Enriches solution with industry best practices
+- **spec-framework-docs-researcher**: Links to framework/library documentation references
 
 ### When to Invoke
 - **Auto-triggered** (optional): Agents can run post-documentation for enhancement
@@ -562,5 +530,5 @@ Based on problem type, these agents can enhance documentation:
 
 ## Related Commands
 
-- `spec-sessions` workflow - Search prior agent sessions for related historical context
-- `spec:plan` workflow - Planning workflow that can reuse documented solutions
+- `/research [topic]` - Deep investigation (searches docs/solutions/ for patterns)
+- `/spec:plan` - Planning workflow (references documented solutions)

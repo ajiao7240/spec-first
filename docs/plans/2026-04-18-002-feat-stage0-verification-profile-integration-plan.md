@@ -19,7 +19,7 @@ related:
 
 1. 为 Stage-0 新增 `verification-profile.json` machine contract
 2. 把该 contract 编译进现有 `bootstrap-compiler` 主链
-3. 让 `spec-plan`、`spec-work`、`spec-review` 能稳定消费这份 profile，而不是继续只给泛化测试建议
+3. 让 `spec-plan`、`spec-work`、`spec-code-review` 能稳定消费这份 profile，而不是继续只给泛化测试建议
 
 本计划刻意**不**同时展开 Android verifier、Desktop verifier、CI 总 gate、compound 回灌等后续扩展。原因很简单：如果先没有 `verification-profile` 这份 control-plane 真源，后续所有 verifier 编排都会继续停留在 prompt prose 和人工猜测层。
 
@@ -34,7 +34,7 @@ related:
 但系统仍缺一个关键中间层：
 
 - 当前 Stage-0 不会稳定输出“这个仓库属于哪些平台、有哪些测试框架、哪些验证是 required gate、哪些 verifier 可用”的统一 machine-readable profile。
-- `spec-plan`、`spec-work`、`spec-review` 因此只能停留在“建议跑 `npm test` / `pytest` / `go test`”的泛化层，无法把 Stage-0 事实真正转成平台感知验证建议。
+- `spec-plan`、`spec-work`、`spec-code-review` 因此只能停留在“建议跑 `npm test` / `pytest` / `go test`”的泛化层，无法把 Stage-0 事实真正转成平台感知验证建议。
 - 后续即使继续增加 verifier 数量，也仍然不知道“这次任务最少该验证什么”。
 
 换句话说，当前系统的问题不是缺更多 verifier，而是缺：
@@ -49,7 +49,7 @@ related:
 - R2. `verification-profile.json` 必须由当前仓库真实信号推导，而不是写死 sample-only 常量。
 - R3. profile 的主分类必须是平台面，而不是语言面；语言只作为辅助维度。
 - R4. `artifact-manifest.json` 必须把 `verification-profile.json` 视为正式 output，而不是临时旁路文件。
-- R5. `spec-plan`、`spec-work`、`spec-review` 必须通过现有 Stage-0 evaluator / loader 主链消费该 profile，禁止走第二套直接文件读取约定。
+- R5. `spec-plan`、`spec-work`、`spec-code-review` 必须通过现有 Stage-0 evaluator / loader 主链消费该 profile，禁止走第二套直接文件读取约定。
 - R6. profile 缺失或解析失败时必须触发降级，不得伪造验证要求。
 - R7. 本轮只要求“读 profile 并输出 required/optional verification guidance”，不要求直接自动调用 verifier skill。
 
@@ -103,7 +103,7 @@ related:
   - 已锁定 `selected_assets / fallback_reason / level / skipped_rules`
 - `skills/spec-plan/SKILL.md`
 - `skills/spec-work/SKILL.md`
-- `skills/spec-review/SKILL.md`
+- `skills/spec-code-review/SKILL.md`
 
 这意味着新增 verification profile 时，不应发明第二套 workflow preload 语义，而应继续走现有 evaluator contract。
 
@@ -345,7 +345,7 @@ related:
 
 - Modify: `skills/spec-plan/SKILL.md`
 - Modify: `skills/spec-work/SKILL.md`
-- Modify: `skills/spec-review/SKILL.md`
+- Modify: `skills/spec-code-review/SKILL.md`
 - Modify: `tests/unit/workflow-stage0-consumption.test.js`
 - Modify: `tests/unit/spec-plan-contracts.test.js`
 - Modify: `tests/unit/spec-work-contracts.test.js`
@@ -355,7 +355,7 @@ related:
 - workflow 文本只承认 evaluator / loader 输出摘要，不直接自己打开 `verification-profile.json`
 - `spec-plan` 增加 verification matrix planning 要求
 - `spec-work` 增加 required gate checklist 要求
-- `spec-review` 增加 verification completeness 检查要求
+- `spec-code-review` 增加 verification completeness 检查要求
 
 ### Test scenarios
 
@@ -424,7 +424,7 @@ Mitigation:
 1. `runBootstrap()` 会稳定写出 `verification-profile.json`
 2. checked-in `spec-first` sample 与 compiler 输出、schema 校验三方一致
 3. `plan/work/review` minimal-context 含最小 verification 摘要
-4. `spec-plan` / `spec-work` / `spec-review` 合同测试明确包含 verification guidance
+4. `spec-plan` / `spec-work` / `spec-code-review` 合同测试明确包含 verification guidance
 5. profile 缺失时主链降级，不报假阳性 required gate
 
 ## Verification Commands

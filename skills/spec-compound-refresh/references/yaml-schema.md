@@ -1,49 +1,62 @@
 # YAML Frontmatter Schema
 
-`schema.yaml` in this directory is the canonical contract for `docs/solutions/` frontmatter written by `spec:compound`.
+`schema.yaml` in this directory is the canonical contract for `docs/solutions/` frontmatter written by `spec-compound`.
 
 Use this file as the quick reference for:
-- track classification
-- shared required fields
-- track-specific fields
+- required fields
+- enum values
 - validation expectations
 - category mapping
+- track classification (bug vs knowledge)
 
-## Track Classification
+## Tracks
 
-- **Bug track**: `build_error`, `test_failure`, `runtime_error`, `performance_issue`, `database_issue`, `security_issue`, `ui_bug`, `integration_issue`, `logic_error`
-- **Knowledge track**: `best_practice`, `documentation_gap`, `workflow_issue`, `developer_experience`
+The `problem_type` determines which **track** applies. Each track has different required and optional fields.
 
-## Shared Required Fields
+| Track | problem_types | Description |
+|-------|--------------|-------------|
+| **Bug** | `build_error`, `test_failure`, `runtime_error`, `performance_issue`, `database_issue`, `security_issue`, `ui_bug`, `integration_issue`, `logic_error` | Defects and failures that were diagnosed and fixed |
+| **Knowledge** | `best_practice`, `documentation_gap`, `workflow_issue`, `developer_experience`, `architecture_pattern`, `design_pattern`, `tooling_decision`, `convention` | Practices, patterns, conventions, decisions, workflow improvements, and documentation. Prefer the narrowest applicable value; `best_practice` is the fallback. |
 
-- **module**
-- **date**
-- **problem_type**
-- **component**
-- **severity**
+## Required Fields (both tracks)
+
+- **module**: Module or area affected
+- **date**: ISO date in `YYYY-MM-DD`
+- **problem_type**: One of the values listed in the Tracks table above
+- **component**: One of `rails_model`, `rails_controller`, `rails_view`, `service_object`, `background_job`, `database`, `frontend_stimulus`, `hotwire_turbo`, `email_processing`, `brief_system`, `assistant`, `authentication`, `payments`, `development_workflow`, `testing_framework`, `documentation`, `tooling`
+- **severity**: One of `critical`, `high`, `medium`, `low`
 
 ## Bug Track Fields
 
-- **Required**:
-  - `symptoms`
-  - `root_cause`
-  - `resolution_type`
-- **Optional**:
-  - `rails_version`
+Required:
+- **symptoms**: YAML array with 1-5 observable symptoms (errors, broken behavior)
+- **root_cause**: One of `missing_association`, `missing_include`, `missing_index`, `wrong_api`, `scope_issue`, `thread_violation`, `async_timing`, `memory_leak`, `config_error`, `logic_error`, `test_isolation`, `missing_validation`, `missing_permission`, `missing_workflow_step`, `inadequate_documentation`, `missing_tooling`, `incomplete_setup`
+- **resolution_type**: One of `code_fix`, `migration`, `config_change`, `test_fix`, `dependency_update`, `environment_setup`, `workflow_improvement`, `documentation_update`, `tooling_addition`, `seed_data_update`
 
 ## Knowledge Track Fields
 
-- **Required**:
-  - `applies_when`
-- **Optional**:
-  - `symptoms`
-  - `root_cause`
-  - `resolution_type`
+No additional required fields beyond the shared ones. All fields below are optional:
 
-## Optional Fields for Both Tracks
+- **applies_when**: Conditions or situations where this guidance applies
+- **symptoms**: Observable gaps or friction that prompted this guidance
+- **root_cause**: Underlying cause, if there is a specific one
+- **resolution_type**: Type of change, if applicable
 
-- **related_components**
-- **tags**
+## Optional Fields (both tracks)
+
+- **related_components**: Other components involved
+- **tags**: Search keywords, lowercase and hyphen-separated
+
+## Optional Fields (bug track only)
+
+- **rails_version**: Rails version in `X.Y.Z` format
+
+## Backward Compatibility
+
+Docs created before the track system may have `symptoms`/`root_cause`/`resolution_type` on knowledge-type problem_types. These are valid legacy docs:
+
+- Bug-track fields present on a knowledge-track doc are harmless. Do not strip them during refresh unless the doc is being rewritten for other reasons.
+- When creating **new** docs, follow the track rules above.
 
 ## Category Mapping
 
@@ -60,15 +73,46 @@ Use this file as the quick reference for:
 - `workflow_issue` -> `docs/solutions/workflow-issues/`
 - `best_practice` -> `docs/solutions/best-practices/`
 - `documentation_gap` -> `docs/solutions/documentation-gaps/`
+- `architecture_pattern` -> `docs/solutions/architecture-patterns/`
+- `design_pattern` -> `docs/solutions/design-patterns/`
+- `tooling_decision` -> `docs/solutions/tooling-decisions/`
+- `convention` -> `docs/solutions/conventions/`
 
 ## Validation Rules
 
-1. Determine track from `problem_type`.
+1. Determine the track from `problem_type` using the Tracks table.
 2. All shared required fields must be present.
-3. Bug-track docs must include `symptoms`, `root_cause`, and `resolution_type`.
-4. Knowledge-track docs must include `applies_when`.
-5. Enum fields must match the allowed values exactly.
-6. Array fields must respect `min_items` / `max_items` when specified.
-7. `date` must match `YYYY-MM-DD`.
-8. `rails_version`, if present, must match `X.Y.Z` and only applies to bug-track docs.
-9. `tags` should be lowercase and hyphen-separated.
+3. Bug-track required fields (`symptoms`, `root_cause`, `resolution_type`) must be present on bug-track docs.
+4. Knowledge-track docs have no additional required fields beyond the shared ones.
+5. Bug-track fields on existing knowledge-track docs are harmless (see Backward Compatibility).
+6. Enum fields must match the allowed values exactly.
+7. Array fields must respect min/max item counts.
+8. `date` must match `YYYY-MM-DD`.
+9. `rails_version`, if present, must match `X.Y.Z` and only applies to bug-track docs.
+
+## YAML Safety Rules
+
+Strict YAML 1.2 parsers (`yq`, `js-yaml` strict, PyYAML) reject array items
+that start with a reserved indicator character as unquoted scalars. When
+writing items for any array-of-strings field (`symptoms`, `applies_when`,
+`tags`, `related_components`, or any future array field), wrap the value in
+double quotes if it starts with any of:
+
+`` ` ``, `[`, `*`, `&`, `!`, `|`, `>`, `%`, `@`, `?`
+
+Also quote if the value contains the substring `": "` — that punctuation
+confuses flow-style parsers.
+
+Example — before (breaks strict YAML):
+
+    symptoms:
+      - `sudo dscacheutil -flushcache` does not restore in-container mDNS
+
+Example — after (parses cleanly):
+
+    symptoms:
+      - "`sudo dscacheutil -flushcache` does not restore in-container mDNS"
+
+This rule applies to all array-of-strings frontmatter fields. Scalar string
+fields like `description:` have their own quoting rules (see plugin
+`AGENTS.md` under "YAML Frontmatter").

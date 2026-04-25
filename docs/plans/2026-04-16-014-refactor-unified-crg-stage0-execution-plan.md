@@ -37,7 +37,7 @@ origin: docs/02-架构设计/全局分析/2026-04-16-spec-first-CRG-统一开发
 
 1. `CRG` 虽然可用，但 generation 健康门禁、语义边和 `code_role` 分层还不足以稳定支撑上层 Stage-0。
 2. `bootstrap-compiler` 当前仍大量依赖 `sample-generator.js`、`DEFAULT_CONTEXT_DOCS` 和占位式 control-plane 输出，导致 `docs/contexts/<slug>/` 与 `.spec-first/workflows/bootstrap/<slug>/` 的内容不是真实编译结果。
-3. `spec-plan`、`spec-work`、`spec-review` 虽然已约定消费 evaluator 输出 contract，但运行时仍未形成统一、可解释、可追踪的 Stage-0 装配主链。
+3. `spec-plan`、`spec-work`、`spec-code-review` 虽然已约定消费 evaluator 输出 contract，但运行时仍未形成统一、可解释、可追踪的 Stage-0 装配主链。
 
 在最新一轮重构后，还新增了一个必须显式承接的结构性问题：
 
@@ -64,7 +64,7 @@ origin: docs/02-架构设计/全局分析/2026-04-16-spec-first-CRG-统一开发
 
 ### Workflow Runtime Unification
 
-- R5. `spec-plan`、`spec-work`、`spec-review` 必须通过统一 preload helper 消费同一套 Stage-0 evaluator / telemetry 语义。
+- R5. `spec-plan`、`spec-work`、`spec-code-review` 必须通过统一 preload helper 消费同一套 Stage-0 evaluator / telemetry 语义。
 - R6. 单仓与 workspace 语义必须在 slug 解析、degrade level、fallback reason 与 telemetry 记录上保持一致。
 
 ### Platform And Governance Boundaries
@@ -80,7 +80,7 @@ origin: docs/02-架构设计/全局分析/2026-04-16-spec-first-CRG-统一开发
 
 - 不提前进入跨 repo / polyrepo / 终局研究项；相关内容仍留在后续 roadmap 或 research backlog。
 - 不引入重型 vector DB、复杂 orchestration runtime、UI dashboard 或平台化壳层。
-- 不把所有 workflow 统一改写为 JS 执行器；Wave 3 只收敛 `spec-plan`、`spec-work`、`spec-review` 主链。
+- 不把所有 workflow 统一改写为 JS 执行器；Wave 3 只收敛 `spec-plan`、`spec-work`、`spec-code-review` 主链。
 - 不把运行时副本目录（`.claude/`、`.codex/`、`.agents/`、`.spec-first/`）升级为长期真源。
 - 不以向下兼容历史 sample 输出为首要目标；当前仍处于开发阶段，优先真实 contract 与正确边界。
 
@@ -225,7 +225,7 @@ origin: docs/02-架构设计/全局分析/2026-04-16-spec-first-CRG-统一开发
 - `sample-generator.js` 是否继续承担生产编译输出？
   - 结论：不承担。它只能作为测试 fixture / 合同样本生成器存在。
 - Wave 3 是否一次性统一所有 workflow？
-  - 结论：否。只统一 `spec-plan`、`spec-work`、`spec-review` 主链。
+  - 结论：否。只统一 `spec-plan`、`spec-work`、`spec-code-review` 主链。
 - Wave 4 是否可以提前到 Wave 2 之前？
   - 结论：不可以。必须等 Wave 1-3 的 contract 稳定后再补平台治理面。
 - `spec-first status` 本轮是否要求 `--json`？
@@ -261,7 +261,7 @@ flowchart TB
   E --> F[bootstrap-compiler human/control artifacts<br/>docs + ownership + review-queue + rollback]
   F --> G[Stage-0 runtime outputs<br/>docs/contexts/<slug> + .spec-first/workflows/bootstrap/<slug>]
   G --> H[context-routing preload helper<br/>evaluate + load + telemetry]
-  H --> I[spec-plan / spec-work / spec-review]
+  H --> I[spec-plan / spec-work / spec-code-review]
   H --> J[spec-first status / doctor / clean]
 ```
 
@@ -646,7 +646,7 @@ flowchart TB
 
 - [ ] **Unit 5: Unified Stage-0 preload and workflow telemetry**
 
-**Goal:** 让 `spec-plan`、`spec-work`、`spec-review` 通过同一 preload helper 消费 Stage-0，并统一 telemetry、fallback 与 workspace 语义。
+**Goal:** 让 `spec-plan`、`spec-work`、`spec-code-review` 通过同一 preload helper 消费 Stage-0，并统一 telemetry、fallback 与 workspace 语义。
 
 **Requirements:** R5, R6, R8, R9
 
@@ -666,10 +666,10 @@ flowchart TB
 - Modify: `src/context-routing/workspace-loader.js`
 - Modify: `templates/claude/commands/spec/plan.md`
 - Modify: `templates/claude/commands/spec/work.md`
-- Modify: `templates/claude/commands/spec/review.md`
+- Modify: `templates/claude/commands/spec/code-review.md`
 - Modify: `skills/spec-plan/SKILL.md`
 - Modify: `skills/spec-work/SKILL.md`
-- Modify: `skills/spec-review/SKILL.md`
+- Modify: `skills/spec-code-review/SKILL.md`
 - Modify: `skills/spec-graph-bootstrap/SKILL.md`
 - Modify: `skills/spec-graph-bootstrap/SKILL.md`
 - Modify: `src/cli/adapters/codex.js`
@@ -690,7 +690,7 @@ flowchart TB
   - 未列出的其他 fact 规则仍保持 skip-and-record 语义，不在本单元激活。
 - evaluator 不再把 skill Phase 4 中已明确存在的 `fact.*` 条件一律视为“未来扩展项”；至少要打通 `fact-inventory / risk-signals / test-surface / manifest inputs` 到 rule-evaluation 的读取桥接，避免 skill 文本已经声明、runtime 却永远 skip。
 - `loader.js` / preload helper 的读取边界要同步收紧：三主文件从 `.spec-first/workflows/bootstrap/<slug>/` 真实读取并校验；不允许继续把它们当成“由调用方传进来的隐式内存对象”。
-- 抽出统一 preload helper，由 `spec-plan / spec-work / spec-review` 共享 `evaluateContextForRepo()`、asset load、telemetry 记录和 fallback 结果解释。
+- 抽出统一 preload helper，由 `spec-plan / spec-work / spec-code-review` 共享 `evaluateContextForRepo()`、asset load、telemetry 记录和 fallback 结果解释。
 - 对 Claude wrapper、Codex adapter、workflow SKILL 三层入口做同一 contract 收敛，避免只更新 `skills/` 造成 host 级漂移。
 - `skills/spec-graph-bootstrap/SKILL.md` 与 `skills/spec-graph-bootstrap/SKILL.md` 在本单元只做 Stage-0 contract、产物命名和说明文案对齐，不把 bootstrap workflow 本身纳入 Wave 3 主链统一范围。
 - 统一 workspace loader 与单仓 loader 的 slug 解析、fallback reason、level 语义与状态表达。
@@ -714,7 +714,7 @@ flowchart TB
 - Integration: Claude wrapper、Codex adapter、SKILL.md 的 Stage-0 说明与实际 evaluator 行为保持一致；telemetry 记录可以解释“为什么选了这些上下文”。
 
 **Verification:**
-- `spec-plan / spec-work / spec-review` 的 Stage-0 预载行为可追踪、可复现、可解释。
+- `spec-plan / spec-work / spec-code-review` 的 Stage-0 预载行为可追踪、可复现、可解释。
 - smoke 与 unit 测试证明单仓 / workspace / 双宿主入口对同一 contract 保持一致。
 
 - [ ] **Unit 6: Minimal platform status and lifecycle governance**
@@ -811,7 +811,7 @@ flowchart TB
 
 ## System-Wide Impact
 
-- **Interaction graph:** `src/crg/cli/build.js` -> `src/crg/generations/*` -> `src/bootstrap-compiler/*` -> `src/context-routing/*` -> `skills/spec-plan|spec-work|spec-review` -> `src/cli/*`。这是一条从底层事实到 workflow runtime 再到平台治理的纵向主链。
+- **Interaction graph:** `src/crg/cli/build.js` -> `src/crg/generations/*` -> `src/bootstrap-compiler/*` -> `src/context-routing/*` -> `skills/spec-plan|spec-work|spec-code-review` -> `src/cli/*`。这是一条从底层事实到 workflow runtime 再到平台治理的纵向主链。
 - **Error propagation:** CRG 质量退化必须优先在 handoff / health gate 显式暴露，再由 Stage-0 compiler 进入 degrade 语义；不允许拖到 workflow preload 才以隐式 fallback 表现。
 - **State lifecycle risks:** generation promote/rollback、bootstrap backup/restore、durable docs 与 control-plane 的分层、workspace 多 repo 语义一致性，都是本计划的高风险状态面。
 - **API surface parity:** 受影响的外部接口包括 `spec-first crg build|stats|review-context`、`spec-first status`、`spec-plan/work/review` 的 Stage-0 预载 contract、Claude/Codex 双宿主路径改写。
@@ -842,7 +842,7 @@ flowchart TB
 
 - `CRG` 能稳定产出 handoff contract，且健康失败不会 promote 失败 generation。
 - `artifact-manifest.json`、`context-routing.json`、`minimal-context/*.json`、`freshness.json`、`ownership.json`、`review-queue.json`、`docs/contexts/<slug>/` 都能追溯到真实输入。
-- `spec-plan / spec-work / spec-review` 能解释 selected assets、fallback reason、freshness status 和 skipped rules。
+- `spec-plan / spec-work / spec-code-review` 能解释 selected assets、fallback reason、freshness status 和 skipped rules。
 - `spec-first status` 能以 human-readable 方式在单仓健康 / degraded 场景下回答系统状态。
 
 ### 数值指标

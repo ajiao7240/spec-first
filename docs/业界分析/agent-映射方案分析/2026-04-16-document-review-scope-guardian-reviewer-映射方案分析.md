@@ -1,4 +1,4 @@
-# document-review/scope-guardian-reviewer 映射方案分析
+# spec-doc-review/scope-guardian-reviewer 映射方案分析
 
 ## 1. 结论摘要
 
@@ -8,8 +8,8 @@
 
 ## 2. 代码事实
 
-- 源文件：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/document-review/scope-guardian-reviewer.md:1-52`
-- 当前文件：`/Users/kuang/xiaobu/spec-first/agents/document-review/scope-guardian-reviewer.md:1-52`
+- 源文件：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/spec-doc-review/scope-guardian-reviewer.md:1-52`
+- 当前文件：`/Users/kuang/xiaobu/spec-first/agents/spec-doc-review/scope-guardian-reviewer.md:1-52`
 - 上游第 4 行：`model: sonnet`
 - 当前第 4 行：`model: inherit`
 - 从第 7 行开始到文末，正文一致，包括：
@@ -36,7 +36,7 @@
 
 ## 4. 当前实现解读
 
-当前 spec-first 实现与上游正文一致，说明当前仓库已经完整吸收了该 reviewer 的范围治理方法。它和当前宿主 `document-review` skill 的启用条件也保持一致性：当文档出现多优先级、大量需求、stretch goals、范围边界模糊等信号时启用，见 `/Users/kuang/xiaobu/spec-first/.agents/skills/document-review/SKILL.md:44-49`。
+当前 spec-first 实现与上游正文一致，说明当前仓库已经完整吸收了该 reviewer 的范围治理方法。它和当前宿主 `spec-doc-review` skill 的启用条件也保持一致性：当文档出现多优先级、大量需求、stretch goals、范围边界模糊等信号时启用，见 `/Users/kuang/xiaobu/spec-first/.agents/skills/spec-doc-review/SKILL.md:44-49`。
 
 因此，当前实现不是能力缺失，而是模型调度策略不同。
 
@@ -44,8 +44,8 @@
 
 唯一差异：
 
-- 上游：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/document-review/scope-guardian-reviewer.md:4` 为 `model: sonnet`
-- 当前：`/Users/kuang/xiaobu/spec-first/agents/document-review/scope-guardian-reviewer.md:4` 为 `model: inherit`
+- 上游：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/spec-doc-review/scope-guardian-reviewer.md:4` 为 `model: sonnet`
+- 当前：`/Users/kuang/xiaobu/spec-first/agents/spec-doc-review/scope-guardian-reviewer.md:4` 为 `model: inherit`
 
 影响分析：
 
@@ -69,6 +69,6 @@
 
 - 保留当前 `model: inherit`
 - 不需要同步正文，因为正文已完全对齐
-- 若未来 document-review 全组 reviewer 要统一模型策略，应整组评估，而不是单改此文件
+- 若未来 spec-doc-review 全组 reviewer 要统一模型策略，应整组评估，而不是单改此文件
 
 本分析仅基于静态代码对比，未运行任何测试，也未实测不同模型配置下的 reviewer 输出差异。

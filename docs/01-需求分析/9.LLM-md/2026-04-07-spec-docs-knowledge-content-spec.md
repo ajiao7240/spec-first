@@ -217,7 +217,7 @@ last_bootstrap_commit: <git-sha>
 - 文件间用相对路径互相引用
 
 ## 知识修正铁律（Reverse Sync）
-spec-work / spec-review / spec-compound 执行中若发现 contexts/ 知识与当前代码不符：
+spec-work / spec-code-review / spec-compound 执行中若发现 contexts/ 知识与当前代码不符：
 1. 必须先更新对应 contexts/ 页面或新增 pitfalls/solutions 条目
 2. 再继续消费知识库
 3. **禁止"已知失真但继续使用"**——知识库是真相层，不是旁路说明书
@@ -582,7 +582,7 @@ updated_at: <ISO 8601>
 | spec-compound | 生产方（增量追加） | 逐条确认知识发现价值后写 solutions/ 新条目；自动推断的条目标记 `confidence: medium`，人工确认后升为 `high`；更新 index.md；追加 log.md |
 | spec-plan | 消费方 | rules-layer + L1；按需 L2：overview + solutions |
 | spec-work | 消费方 | rules-layer + L2（全量） |
-| spec-review | 消费方 | rules-layer + L1；按需 L2：overview + pitfalls + solutions |
+| spec-code-review | 消费方 | rules-layer + L1；按需 L2：overview + pitfalls + solutions |
 | doctor | 巡检方 | **Phase 1 结构巡检**：schema 合规、链接有效、log 新鲜度（source_commit vs last_verified_at）、index 孤立页面、conventions 存在性；**Phase 2 一致性巡检**（Phase 1 PASS 后启动）：对比 source_refs 检查 internal-apis / module-map / pitfalls 是否被代码演进打穿 |
 
 ---

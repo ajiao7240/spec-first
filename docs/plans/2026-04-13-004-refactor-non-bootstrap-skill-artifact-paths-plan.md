@@ -38,7 +38,7 @@
 ├── graph/                          # CRG 引擎产物（gitignored）
 └── workflows/
     ├── bootstrap/<slug>/           # bootstrap 控制面（已完成）
-    ├── spec-review/<run-id>/       # review per-run 输出（gitignored）
+    ├── spec-code-review/<run-id>/       # review per-run 输出（gitignored）
     ├── spec-plan/deepen/           # plan deepen 暂存（gitignored）
     ├── feature-video/<run-id>/     # 截图/视频暂存（gitignored）
     └── todo-resolve/<run-id>/      # resolve 并发暂存（gitignored）
@@ -66,7 +66,7 @@ todos 有两层历史遗留：
 
 本次迁移：**写入切到 `docs/todos/`，读取保留 v1/v2 legacy 兼容层**（read-only），下个版本再彻底清除。
 
-其他 4 个 workflow 暂存目录（spec-review/spec-plan/feature-video/todo-resolve）采用**硬切换，无 fallback**，与 bootstrap 迁移策略一致。
+其他 4 个 workflow 暂存目录（spec-code-review/spec-plan/feature-video/todo-resolve）采用**硬切换，无 fallback**，与 bootstrap 迁移策略一致。
 
 ---
 
@@ -74,7 +74,7 @@ todos 有两层历史遗留：
 
 | Skill | 产物类型 | 旧路径 | 新路径 |
 |-------|---------|--------|--------|
-| `spec-review` | per-run 产物 | `.context/spec-first/spec-review/<run-id>/` | `.spec-first/workflows/spec-review/<run-id>/` |
+| `spec-code-review` | per-run 产物 | `.context/spec-first/spec-code-review/<run-id>/` | `.spec-first/workflows/spec-code-review/<run-id>/` |
 | `spec-plan` | deepen 暂存 | `.context/spec-first/spec-plan/deepen/` | `.spec-first/workflows/spec-plan/deepen/` |
 | `todo-create` | 持久工作项（写） | `.context/spec-first/todos/` | `docs/todos/` |
 | `todo-triage` | 持久工作项（读） | `.context/spec-first/todos/` | `docs/todos/` |
@@ -85,13 +85,13 @@ todos 有两层历史遗留：
 
 ## 实施单元
 
-### Unit 1：`skills/spec-review/SKILL.md`
+### Unit 1：`skills/spec-code-review/SKILL.md`
 
 **3 处替换**（硬切换，无 fallback）：
 
 | 行号 | 变更 |
 |------|------|
-| 44 | `.context/spec-first/spec-review/<run-id>/` → `.spec-first/workflows/spec-review/<run-id>/` |
+| 44 | `.context/spec-first/spec-code-review/<run-id>/` → `.spec-first/workflows/spec-code-review/<run-id>/` |
 | 51 | 同上（report-only mode 的 "do not write" 说明） |
 | 496 | 同上（Step 4 emit artifacts） |
 
@@ -209,7 +209,7 @@ your-project/
 └── .spec-first/
     └── workflows/
         ├── bootstrap/<slug>/        ← 已有
-        ├── spec-review/<run-id>/    ← 新增：per-run 产物
+        ├── spec-code-review/<run-id>/    ← 新增：per-run 产物
         ├── spec-plan/deepen/        ← 新增：deepen 暂存
         ├── feature-video/<run-id>/  ← 新增：截图/视频暂存
         └── todo-resolve/<run-id>/   ← 新增：resolve 并发暂存
@@ -232,7 +232,7 @@ your-project/
 ```bash
 # 检测 workflow 暂存路径未残留旧 .context/ 位置
 for skill_file in ...; do
-  if grep -Eq "\.context/spec-first/(spec-review|spec-plan|feature-video|todo-resolve)" "$skill_file"; then
+  if grep -Eq "\.context/spec-first/(spec-code-review|spec-plan|feature-video|todo-resolve)" "$skill_file"; then
     echo "✗ $skill_file still contains old workflow scratch path"
     FAILURES=$((FAILURES + 1))
   fi
@@ -259,7 +259,7 @@ fi
 
 ```
 - v1.6.0 2026-04-13 kuang: feat(skills): 非 bootstrap skill 控制面路径迁移——
-  spec-review/spec-plan/feature-video/todo-resolve 暂存迁移至 .spec-first/workflows/<workflow>/；
+  spec-code-review/spec-plan/feature-video/todo-resolve 暂存迁移至 .spec-first/workflows/<workflow>/；
   todos 持久工作项升级为 docs/todos/ VCS 资产，保留 .context/spec-first/todos/ 和 todos/ 两层
   read-only 遗留兼容；彻底清除 .context/ 作为运行时正式写入目录 (user-visible)
 ```

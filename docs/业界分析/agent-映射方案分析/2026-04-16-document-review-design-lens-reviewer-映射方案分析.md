@@ -1,4 +1,4 @@
-# document-review/design-lens-reviewer 映射方案分析
+# spec-doc-review/design-lens-reviewer 映射方案分析
 
 ## 1. 结论摘要
 
@@ -8,8 +8,8 @@
 
 ## 2. 代码事实
 
-- 源文件：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/document-review/design-lens-reviewer.md:1-44`
-- 当前文件：`/Users/kuang/xiaobu/spec-first/agents/document-review/design-lens-reviewer.md:1-44`
+- 源文件：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/spec-doc-review/design-lens-reviewer.md:1-44`
+- 当前文件：`/Users/kuang/xiaobu/spec-first/agents/spec-doc-review/design-lens-reviewer.md:1-44`
 - 上游第 4 行为 `model: sonnet`
 - 当前第 4 行为 `model: inherit`
 - 除第 4 行外，两端正文一致，包括：
@@ -34,14 +34,14 @@
 
 当前 spec-first 版本保留了上游的完整审查协议，只把 frontmatter 的模型从 `sonnet` 改为 `inherit`。也就是说，当前仓库没有削弱该 agent 的提示词能力边界，也没有调整设计维度定义。
 
-结合宿主 skill 看，当前 `document-review` 会在检测到 UI/UX、页面、交互、无障碍等信号时启用该 agent，见 `/Users/kuang/xiaobu/spec-first/.agents/skills/document-review/SKILL.md:32-36`。因此，spec-first 当前的差异不是“少做了什么设计审查”，而是“由谁来执行同一套审查提示词”。
+结合宿主 skill 看，当前 `spec-doc-review` 会在检测到 UI/UX、页面、交互、无障碍等信号时启用该 agent，见 `/Users/kuang/xiaobu/spec-first/.agents/skills/spec-doc-review/SKILL.md:32-36`。因此，spec-first 当前的差异不是“少做了什么设计审查”，而是“由谁来执行同一套审查提示词”。
 
 ## 5. 差异细节与影响
 
 唯一差异：
 
-- 上游：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/document-review/design-lens-reviewer.md:4` 为 `model: sonnet`
-- 当前：`/Users/kuang/xiaobu/spec-first/agents/document-review/design-lens-reviewer.md:4` 为 `model: inherit`
+- 上游：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/spec-doc-review/design-lens-reviewer.md:4` 为 `model: sonnet`
+- 当前：`/Users/kuang/xiaobu/spec-first/agents/spec-doc-review/design-lens-reviewer.md:4` 为 `model: inherit`
 
 影响分析：
 
@@ -65,6 +65,6 @@
 
 - 保留当前 `model: inherit`
 - 不需要从上游回抄正文，因为正文已一致
-- 后续若要统一策略，应在 `document-review` 这组 reviewer 层面整体决策“哪些 reviewer 必须固定模型”，而不是单独回退这个文件
+- 后续若要统一策略，应在 `spec-doc-review` 这组 reviewer 层面整体决策“哪些 reviewer 必须固定模型”，而不是单独回退这个文件
 
 本分析仅基于静态代码对比，未运行任何测试，也未对实际 reviewer 输出质量做实测验证。

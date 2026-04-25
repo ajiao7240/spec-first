@@ -427,4 +427,4 @@ database worker Step 1（现有的 schema 探测）可优先消费这些 `doc_sc
 - **不做外部文档摄入**（飞书、Confluence、GitHub Issues）：Phase 0.5 只扫描本地项目文件
 - **不重构 CRG**：文档摄入层是对 CRG 的正交补充，不替代 CRG 的代码分析能力
 - **不做文档自动同步**：文档事实只在 bootstrap rerun 时更新，不做 watch/incremental
-- **不做文档 → 代码一致性自动对比**：文章场景 3 的验收一致性检查属于 `spec-review` 领域，不是 `spec-graph-bootstrap` 的职责
+- **不做文档 → 代码一致性自动对比**：文章场景 3 的验收一致性检查属于 `spec-code-review` 领域，不是 `spec-graph-bootstrap` 的职责

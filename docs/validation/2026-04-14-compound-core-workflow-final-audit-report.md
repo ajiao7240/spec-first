@@ -16,8 +16,8 @@
 这个结论不是基于抽样或 commit subject 猜测，而是基于以下事实：
 
 1. 核心 skill 全部逐文件对照过上游当前基线：
-   - `spec-review`
-   - `document-review`
+   - `spec-code-review`
+   - `spec-doc-review`
    - `resolve-pr-feedback`
    - `spec-ideate`
    - `spec-plan`
@@ -48,7 +48,7 @@
 ### Planning 层
 
 - `spec-plan` / `spec-brainstorm` 现在都明确要求 repo-relative paths
-- plan/requirements 文档的 handoff 不再是模糊建议，而是显式的 `document-review` 门禁
+- plan/requirements 文档的 handoff 不再是模糊建议，而是显式的 `spec-doc-review` 门禁
 - late-sequence 长文被拆到 references，主 skill 只保留路由和主合同
 
 这意味着 planning 链路从“能写文档”提升到“能稳定生成可实施、可审查、可移交的文档”。
@@ -77,8 +77,8 @@
 
 以下分叉被明确保留，并且是合理的：
 
-1. `spec-review` 不接入上游 `headless`
-2. `document-review` 保留：
+1. `spec-code-review` 不接入上游 `headless`
+2. `spec-doc-review` 保留：
    - `batch_confirm`
    - `Promote Residual Concerns`
    - `Resolve Contradictions`

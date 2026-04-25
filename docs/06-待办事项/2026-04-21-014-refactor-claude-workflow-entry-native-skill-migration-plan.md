@@ -91,7 +91,7 @@ scope: 把 Claude 侧 12 个 workflow 入口从 .claude/commands/spec/*.md + .cl
 | `skills/spec-plan/SKILL.md` | `plan-workflow` | `spec-plan` |
 | `skills/spec-work/SKILL.md` | `work-workflow` | `spec-work` |
 | `skills/spec-debug/SKILL.md` | `debug-workflow` | `spec-debug` |
-| `skills/spec-review/SKILL.md` | `review-workflow` | `spec-review` |
+| `skills/spec-code-review/SKILL.md` | `review-workflow` | `spec-code-review` |
 | `skills/spec-compound/SKILL.md` | `compound-workflow` | `spec-compound` |
 | `skills/spec-sessions/SKILL.md` | `sessions-workflow` | `spec-sessions` |
 | `skills/spec-update/SKILL.md` | `update-workflow` | `spec-update` |
@@ -121,7 +121,7 @@ scope: 把 Claude 侧 12 个 workflow 入口从 .claude/commands/spec/*.md + .cl
 /spec:work\b          →  /spec-work
 /spec:work-beta       →  /spec-work-beta
 /spec:debug           →  /spec-debug
-/spec:review          →  /spec-review
+/spec:code-review          →  /spec-code-review
 /spec:compound\b      →  /spec-compound
 /spec:sessions        →  /spec-sessions
 /spec:update          →  /spec-update
@@ -134,9 +134,9 @@ scope: 把 Claude 侧 12 个 workflow 入口从 .claude/commands/spec/*.md + .cl
 **重点文件**（引用最集中）：
 
 - `skills/using-spec-first/SKILL.md`（13 处，治理合同，必须改正确）
-- `skills/lfg/SKILL.md`（pipeline 串联 `/spec:plan` → `/spec:work` → `/spec:review`）
+- `skills/lfg/SKILL.md`（pipeline 串联 `/spec:plan` → `/spec:work` → `/spec:code-review`）
 - `skills/spec-brainstorm/references/`（多处 handoff 引用）
-- `skills/git-worktree/SKILL.md`（引用 `/spec:review`、`/spec:work`）
+- `skills/git-worktree/SKILL.md`（引用 `/spec:code-review`、`/spec:work`）
 - `skills/spec-debug/SKILL.md`（引用 `/spec:brainstorm`、`/spec:compound`）
 
 `using-spec-first` 还有两条治理语义需同步更新：
@@ -189,7 +189,7 @@ scope: 把 Claude 侧 12 个 workflow 入口从 .claude/commands/spec/*.md + .cl
 
 ```
 setup, spec-brainstorm, spec-compound, spec-debug, spec-graph-bootstrap,
-spec-ideate, spec-mcp-setup, spec-plan, spec-review, spec-sessions,
+spec-ideate, spec-mcp-setup, spec-plan, spec-code-review, spec-sessions,
 spec-update, spec-work
 ```
 
@@ -395,7 +395,7 @@ templates/claude/commands/spec/graph-bootstrap.md
 templates/claude/commands/spec/ideate.md
 templates/claude/commands/spec/mcp-setup.md
 templates/claude/commands/spec/plan.md
-templates/claude/commands/spec/review.md
+templates/claude/commands/spec/code-review.md
 templates/claude/commands/spec/sessions.md
 templates/claude/commands/spec/setup.md
 templates/claude/commands/spec/update.md

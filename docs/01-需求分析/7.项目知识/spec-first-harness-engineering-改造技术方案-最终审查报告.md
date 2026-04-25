@@ -68,7 +68,7 @@
 
 `reference-index.json` 由 LLM 分析仓库生成，没有人工或程序验证其推荐的代码是否真的"值得复用"。对于有技术债的仓库，reference-first 会系统性地把坏模式传播到新实现里。Phase 2 的 review 可以反向修正 reference 候选，但这意味着 Phase 1 已经把问题写进去了才能被发现。
 
-**修复方向**：增加最小质量门——每条 reference 增加 `trusted` 字段，默认 `false`。经过一次 spec-review 验证后方可标记为 `trusted: true`。spec-work 在 Harness-enabled 模式下，只将 `trusted: true` 的 reference 作为主要蓝本，未标记的仅作参考。
+**修复方向**：增加最小质量门——每条 reference 增加 `trusted` 字段，默认 `false`。经过一次 spec-code-review 验证后方可标记为 `trusted: true`。spec-work 在 Harness-enabled 模式下，只将 `trusted: true` 的 reference 作为主要蓝本，未标记的仅作参考。
 
 ---
 
@@ -96,9 +96,9 @@
 
 ### P2-D　反馈回路太慢，缺少紧急知识更新路径
 
-系统的增值路径是 `work → signals → compound → memory → improve → 更好的下次 work`，在 Phase 3 前不闭环。但现实中最有价值的反馈回路是最短的那条。当 spec-review 发现了高频、高危的结构性问题，等待 Phase 3 代价极高。目前方案没有定义快速通道。
+系统的增值路径是 `work → signals → compound → memory → improve → 更好的下次 work`，在 Phase 3 前不闭环。但现实中最有价值的反馈回路是最短的那条。当 spec-code-review 发现了高频、高危的结构性问题，等待 Phase 3 代价极高。目前方案没有定义快速通道。
 
-**修复方向**：定义"紧急知识更新路径"——spec-review 发现的高优 finding（高信心 rule-candidate）可以直接触发 SKILL.md 或 `verify-hints.json` 的更新提案，不需要经过完整的 compound → improve 链路。这条路径在 Phase 1 就应存在，初期人工执行。
+**修复方向**：定义"紧急知识更新路径"——spec-code-review 发现的高优 finding（高信心 rule-candidate）可以直接触发 SKILL.md 或 `verify-hints.json` 的更新提案，不需要经过完整的 compound → improve 链路。这条路径在 Phase 1 就应存在，初期人工执行。
 
 ---
 
@@ -108,7 +108,7 @@
 
 **修复方向**：补充两类 outcome 指标：
 
-- **首次实现通过率**：从 spec-work 完成到 spec-review 首次通过，中间无重大返工
+- **首次实现通过率**：从 spec-work 完成到 spec-code-review 首次通过，中间无重大返工
 - **交付 lead time**：从 brainstorm 启动到 review 通过的总耗时
 
 两者均可从 `meta.json` 的时间戳推算，成本低。

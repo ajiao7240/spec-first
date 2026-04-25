@@ -1,17 +1,17 @@
 ---
 name: report-bug
-description: Report a bug in the spec-first CLI or packaged workflow assets
+description: Report a bug in the spec-first plugin
 argument-hint: "[optional: brief description of the bug]"
 disable-model-invocation: true
 ---
 
-# Report a Spec-First Bug
+# Report a Spec-First Plugin Bug
 
-Report bugs encountered while using spec-first. This skill gathers structured information and creates a GitHub issue for the maintainer.
+Report bugs encountered while using the spec-first plugin. This skill gathers structured information and creates a GitHub issue for the maintainer.
 
 ## Step 1: Gather Bug Information
 
-Ask the user the following questions (using the platform's blocking question tool — e.g., `AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini — or present numbered options and wait for a reply):
+Ask the user the following questions using the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question:
 
 **Question 1: Bug Category**
 - What type of issue are you experiencing?
@@ -46,7 +46,10 @@ Automatically gather environment details. Detect the coding agent platform and c
 uname -a
 ```
 
-**Spec-First version:** Read from the current project's `package.json`, the bundled `.claude-plugin/plugin.json`, or installed package metadata if available.
+**Plugin version:** Read the plugin manifest or installed plugin metadata. Common locations:
+- Claude Code: `~/.claude/plugins/installed_plugins.json`
+- Codex: `.codex/plugins/` or project config
+- Other platforms: check the platform's plugin registry
 
 **Agent CLI version:** Run the platform's version command:
 - Claude Code: `claude --version`
@@ -67,8 +70,8 @@ Create a well-structured bug report with:
 
 ## Environment
 
-- **Spec-First Version:** [from package or manifest metadata]
-- **Agent Platform:** [e.g., Claude Code, Codex, Copilot, Pi, Kilo]
+- **Plugin Version:** [from plugin manifest/registry]
+- **Agent Platform:** [Claude Code or Codex]
 - **Agent Version:** [from CLI version command]
 - **OS:** [from uname]
 
@@ -95,7 +98,7 @@ Create a well-structured bug report with:
 [Any other relevant information]
 
 ---
-*Reported via `report-bug` skill*
+*Reported via `/report-bug` skill*
 ```
 
 ## Step 4: Create GitHub Issue
@@ -123,7 +126,7 @@ gh issue create \
 After the issue is created:
 1. Display the issue URL to the user
 2. Thank them for reporting the bug
-3. Let them know the maintainer will be notified
+3. Let them know the maintainer (Kieran Klaassen) will be notified
 
 ## Output Format
 
@@ -133,7 +136,7 @@ Bug report submitted successfully!
 Issue: https://github.com/sunrain520/spec-first/issues/[NUMBER]
 Title: [spec-first] Bug: [description]
 
-Thank you for helping improve spec-first!
+Thank you for helping improve the spec-first plugin!
 The maintainer will review your report and respond as soon as possible.
 ```
 

@@ -313,7 +313,7 @@
 
 - 默认接入 `spec-plan`
 - 默认接入 `spec-work`
-- 默认接入 `spec-review`
+- 默认接入 `spec-code-review`
 - 聚合分析与趋势统计
 
 结论：
@@ -458,7 +458,7 @@
 |---|---|---|---|
 | bootstrap 主链编排覆盖率 | compiler 模块存在，但未统一接主链 | `100%` 由统一 bootstrap pipeline 产出 machine artifacts / human assets / routing | integration / e2e |
 | workflow telemetry 覆盖率 | 有模块，无默认接入 | `plan/work/review` 三条默认路径 `100%` 产 telemetry artifact | integration |
-| benchmark gate 覆盖率 | 有脚本，无 gate | 对触达 `src/crg/`、`src/context-routing/`、`src/bootstrap-compiler/`、`skills/spec-graph-bootstrap/`、`skills/spec-plan/`、`skills/spec-work/`、`skills/spec-review/` 的 PR，`100%` 触发 repo QA + context efficiency + regression | CI |
+| benchmark gate 覆盖率 | 有脚本，无 gate | 对触达 `src/crg/`、`src/context-routing/`、`src/bootstrap-compiler/`、`skills/spec-graph-bootstrap/`、`skills/spec-plan/`、`skills/spec-work/`、`skills/spec-code-review/` 的 PR，`100%` 触发 repo QA + context efficiency + regression | CI |
 | review benchmark average hit rate | smoke 级，仍偏低基线 | `>= 0.75` | benchmark runner |
 | repo QA average hit rate | smoke 级，样本太少 | `>= 0.70` | benchmark runner |
 | context efficiency average irrelevant ratio | 仍未形成 gate | `<= 0.35` | benchmark runner |
@@ -525,7 +525,7 @@ Retrieval v2 是高不确定度项，必须在已有 gate 保护下推进。
 - `skills/spec-graph-bootstrap/`
 - `.spec-first/workflows/bootstrap/<slug>/`
 - `docs/contexts/<slug>/`
-- `spec-plan / spec-work / spec-review` 默认预载链
+- `spec-plan / spec-work / spec-code-review` 默认预载链
 
 **必须新增的测试**
 

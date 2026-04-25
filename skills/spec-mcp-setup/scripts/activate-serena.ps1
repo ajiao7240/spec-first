@@ -12,6 +12,9 @@ $projectDir = Join-Path $repoRoot '.serena'
 $projectFile = Join-Path $projectDir 'project.yml'
 $readyMarkerFile = if ($null -ne $serenaTool.project_bootstrap.ready_marker_file) { $serenaTool.project_bootstrap.ready_marker_file } else { '.serena/index-ready.json' }
 $readyMarkerPath = Join-Path $repoRoot $readyMarkerFile
+$indexCommand = $serenaTool.project_bootstrap.index_command
+$command = $indexCommand.command
+$args = @($indexCommand.args)
 New-Item -ItemType Directory -Force -Path $projectDir | Out-Null
 if (Test-Path $readyMarkerPath) {
   Remove-Item -Force $readyMarkerPath
@@ -20,7 +23,16 @@ if (Test-Path $projectFile) {
   Remove-Item -Force $projectFile
 }
 
-& uvx --from git+https://github.com/oraios/serena serena project create $repoRoot --language typescript --language vue --language markdown --language yaml --language bash --index | Out-Null
+Push-Location $repoRoot
+try {
+  $global:LASTEXITCODE = 0
+  & $command @args | Out-Null
+  if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) {
+    throw "Serena bootstrap command failed with exit code $LASTEXITCODE"
+  }
+} finally {
+  Pop-Location
+}
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $readyMarkerPath) | Out-Null
 [ordered]@{
   project_root = $repoRoot

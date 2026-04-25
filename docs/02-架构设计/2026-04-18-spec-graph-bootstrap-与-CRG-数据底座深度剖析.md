@@ -814,11 +814,11 @@ Capability Layer: agents/ (review/research/design/workflow)
 
 | 产物 | 消费方 |
 |---|---|
-| `.spec-first/workflows/bootstrap/<slug>/fact-inventory.json` | Phase 2/3 内部 Worker；`spec-plan` / `spec-work` / `spec-review` 的 Stage-0 预载块 |
-| `.spec-first/workflows/bootstrap/<slug>/risk-signals.json` | `spec-review`（高风险模块注入）、`spec-work`（风险感知） |
-| `.spec-first/workflows/bootstrap/<slug>/test-surface.json` | `spec-work`（测试策略）、`spec-review`（测试覆盖） |
+| `.spec-first/workflows/bootstrap/<slug>/fact-inventory.json` | Phase 2/3 内部 Worker；`spec-plan` / `spec-work` / `spec-code-review` 的 Stage-0 预载块 |
+| `.spec-first/workflows/bootstrap/<slug>/risk-signals.json` | `spec-code-review`（高风险模块注入）、`spec-work`（风险感知） |
+| `.spec-first/workflows/bootstrap/<slug>/test-surface.json` | `spec-work`（测试策略）、`spec-code-review`（测试覆盖） |
 | `.spec-first/workflows/bootstrap/<slug>/artifact-manifest.json` | `src/context-routing/evaluator.js` 的 `output_exists.*` 解析 |
-| `docs/contexts/<slug>/*.md` (7+ 固定产物) | `spec-plan` / `spec-work` / `spec-review` 按阶段注入 |
+| `docs/contexts/<slug>/*.md` (7+ 固定产物) | `spec-plan` / `spec-work` / `spec-code-review` 按阶段注入 |
 | `docs/contexts/<slug>/injection-index.yaml` | `src/context-routing/` 全套消费链的路由真源 |
 
 **它是 CRG 数据底座的唯一"业务调用点"**：`src/crg/` 的所有 CLI 子命令（`stats / context / query / impact / search / flows / ...`）都只在 spec-graph-bootstrap 的 Phase 1 被编排调用。其他 skill 没有 CRG 入口。
@@ -831,12 +831,12 @@ Capability Layer: agents/ (review/research/design/workflow)
 always:           # 所有阶段预载
 stages.plan:      # spec-plan 预载
 stages.work:      # spec-work 预载
-stages.review:    # spec-review 预载
+stages.review:    # spec-code-review 预载
 selection_rules:  # output_exists.* 动态路由
 advice.<stage>:   # 阶段提示
 ```
 
-下游 skill（`spec-plan/SKILL.md`、`spec-work/SKILL.md`、`spec-review/SKILL.md`）在入口处都有 Stage-0 上下文预载块，固定消费顺序：
+下游 skill（`spec-plan/SKILL.md`、`spec-work/SKILL.md`、`spec-code-review/SKILL.md`）在入口处都有 Stage-0 上下文预载块，固定消费顺序：
 
 ```
 always[] → stages.<stage>[] → selection_rules(output_exists.*) → advice.<stage>
@@ -850,7 +850,7 @@ always[] → stages.<stage>[] → selection_rules(output_exists.*) → advice.<s
 |---|---|
 | `spec-graph-bootstrap` | **同级并列替代**，产出同构；共享 `docs/contexts/<slug>/` 命名空间 |
 | `spec-mcp-setup` | **上游依赖**，Phase 0 需要 host marker + Serena/CRG 就绪状态 |
-| `spec-plan` / `spec-work` / `spec-review` | **下游消费者**，通过 injection-index 读取事实 |
+| `spec-plan` / `spec-work` / `spec-code-review` | **下游消费者**，通过 injection-index 读取事实 |
 | `spec-compound` | **间接下游**，沉淀 `docs/solutions/` 时可回引上下文事实 |
 | `spec-ideate` / `spec-brainstorm` | 轻度消费（通常只读 `00-summary.md`） |
 | `spec-debug` / `spec-optimize` | 按需读 `pitfalls/index.md` 和 `risk-signals.json` |

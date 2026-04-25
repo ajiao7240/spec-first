@@ -61,7 +61,7 @@ codex_init_output="$(
 grep -q 'new \$spec-\* skills' <<<"$codex_init_output"
 test ! -e "$CODEX_PROJECT/.codex/commands/spec"
 test -f "$CODEX_PROJECT/.agents/skills/spec-work/SKILL.md"
-test -f "$CODEX_PROJECT/.agents/skills/claude-permissions-optimizer/SKILL.md"
+test ! -e "$CODEX_PROJECT/.agents/skills/claude-permissions-optimizer/SKILL.md"
 test ! -e "$CODEX_PROJECT/.agents/skills/orchestrating-swarms/SKILL.md"
 
 codex_doctor_output="$(
@@ -85,7 +85,7 @@ claude_init_output="$(
 )"
 grep -q '.claude/commands/spec' <<<"$claude_init_output"
 test -f "$CLAUDE_PROJECT/.claude/commands/spec/brainstorm.md"
-test -f "$CLAUDE_PROJECT/.claude/spec-first/workflows/spec-work/SKILL.md"
+test ! -e "$CLAUDE_PROJECT/.claude/spec-first/workflows/spec-work/SKILL.md"
 
 claude_doctor_output="$(
   cd "$CLAUDE_PROJECT"
@@ -93,7 +93,7 @@ claude_doctor_output="$(
 )"
 grep -q '.claude/commands/spec' <<<"$claude_doctor_output"
 grep -q '.claude/skills' <<<"$claude_doctor_output"
-grep -q 'workflow skills' <<<"$claude_doctor_output"
+grep -q '0 workflow skills' <<<"$claude_doctor_output"
 echo "   ✓ Claude 安装态闭环通过"
 
 echo

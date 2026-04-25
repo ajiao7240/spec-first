@@ -28,7 +28,7 @@
 | 阶段 | 核心目标 | 主要触达节点 | 不做什么 |
 | --- | --- | --- | --- |
 | 阶段 1 | 建立最小可用交付闭环 | `spec-graph-bootstrap` `spec-brainstorm` `spec-ideate` `spec-plan` `spec-work` | 不引入自动治理闭环，不做重型知识平台 |
-| 阶段 2 | 建立反馈回流与记忆复利 | `spec-review` `spec-compound` `history` `knowledge retrieval` | 不自动写回主资产，不做万能规则引擎 |
+| 阶段 2 | 建立反馈回流与记忆复利 | `spec-code-review` `spec-compound` `history` `knowledge retrieval` | 不自动写回主资产，不做万能规则引擎 |
 | 阶段 3 | 建立系统自进化能力 | `spec-improve` | 不把 improve 变成自动修复器 |
 
 ## 运行时路径约定
@@ -48,7 +48,7 @@
 .context/spec-first/
 ├── bootstrap/<slug>/analysis/   # bootstrap 控制面资产
 ├── work/<run-id>/               # work 单次执行持久化
-├── spec-review/<run-id>/        # review 单次执行输出
+├── spec-code-review/<run-id>/        # review 单次执行输出
 ├── history/<spec-id>/           # history 决策记录
 └── knowledge/                   # repo-local knowledge 入口
 ```
@@ -63,11 +63,11 @@
 
 **direct-to-work 例外：** 若用户绕过 plan 直接进入 `spec-work`，生成 `adhoc-YYYYMMDD-HHMMSS-<slug>`，并在 `meta.json` 标记 `spec_origin: "adhoc"`。
 
-**一致性要求：** `work/meta.json` 和 `spec-review/findings.json` 中的 `spec_id` 必须使用相同推导逻辑。两个 skill 各自独立推导时，应从同一个 `plan_path` 字段派生，而非从运行时环境中读取。
+**一致性要求：** `work/meta.json` 和 `spec-code-review/findings.json` 中的 `spec_id` 必须使用相同推导逻辑。两个 skill 各自独立推导时，应从同一个 `plan_path` 字段派生，而非从运行时环境中读取。
 
 ### run_id
 
-`run_id` 是单次 work 或 review 执行的唯一标识符，用作 `.context/spec-first/work/<run-id>/` 和 `.context/spec-first/spec-review/<run-id>/` 的目录名。
+`run_id` 是单次 work 或 review 执行的唯一标识符，用作 `.context/spec-first/work/<run-id>/` 和 `.context/spec-first/spec-code-review/<run-id>/` 的目录名。
 
 **生成规则：** ISO 时间戳前缀 + 4 位随机后缀，格式 `YYYYMMDDTHHmmss-XXXX`（例：`20260404T153020-a1b2`）。由 skill 在首次写入任何文件前生成，写入第一个文件的同时写入对应目录下的 `meta.json`。
 

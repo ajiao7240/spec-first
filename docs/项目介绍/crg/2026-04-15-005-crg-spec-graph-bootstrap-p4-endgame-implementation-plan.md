@@ -18,7 +18,7 @@
 
 1. 统一 `spec-graph-bootstrap` 主链编排，把 compiler 子模块收口成默认执行路径。
 2. 把 `freshness / lint / contradictions` 接入默认产物链，并进入 workflow 消费视野。
-3. 把 `workflow telemetry` 接入 `spec-plan / spec-work / spec-review` 默认运行链。
+3. 把 `workflow telemetry` 接入 `spec-plan / spec-work / spec-code-review` 默认运行链。
 4. 把 `review / repo-qa / context-efficiency / regression` 从脚本升级为标准 gate。
 5. 在 gate 保护下，对 `src/crg` 做最小但有效的 `Retrieval v2` 增强。
 6. 交付治理最小闭环，包括 ownership registry、review queue lifecycle、workspace integration v1。
@@ -199,13 +199,13 @@ P4-D Governance & Workspace
 
 ### Task 24：把 workflow telemetry 接入默认运行链
 
-**Goal:** 让 `spec-plan / spec-work / spec-review` 默认记录结构化 telemetry，形成真实消费闭环，而不是仅存在 helper。
+**Goal:** 让 `spec-plan / spec-work / spec-code-review` 默认记录结构化 telemetry，形成真实消费闭环，而不是仅存在 helper。
 
 **Files:**
 - Modify: `src/context-routing/telemetry.js`
 - Modify: `skills/spec-plan/SKILL.md`
 - Modify: `skills/spec-work/SKILL.md`
-- Modify: `skills/spec-review/SKILL.md`
+- Modify: `skills/spec-code-review/SKILL.md`
 - Test: `tests/unit/workflow-telemetry.test.js`
 - Test: `tests/unit/workflow-stage0-consumption.test.js`
 
@@ -349,7 +349,7 @@ P4-D Governance & Workspace
 - Modify: `tests/unit/regression-gate.test.js`
 
 **Patterns to follow:**
-- gate 触发范围至少覆盖 `src/crg/`、`src/context-routing/`、`src/bootstrap-compiler/`、`skills/spec-graph-bootstrap/`、`skills/spec-plan/`、`skills/spec-work/`、`skills/spec-review/`。
+- gate 触发范围至少覆盖 `src/crg/`、`src/context-routing/`、`src/bootstrap-compiler/`、`skills/spec-graph-bootstrap/`、`skills/spec-plan/`、`skills/spec-work/`、`skills/spec-code-review/`。
 - CI 先保持最小稳定，不做复杂矩阵拆分。
 - regression 输出必须与 baseline 对比结果直连。
 
@@ -625,7 +625,7 @@ P4-D Governance & Workspace
 - Modify: `src/bootstrap-compiler/workspace-compiler.js`
 - Modify: `skills/spec-plan/SKILL.md`
 - Modify: `skills/spec-work/SKILL.md`
-- Modify: `skills/spec-review/SKILL.md`
+- Modify: `skills/spec-code-review/SKILL.md`
 - Modify: `tests/unit/workspace-context.test.js`
 
 **Patterns to follow:**
@@ -729,7 +729,7 @@ P4-D Governance & Workspace
 
 1. `spec-graph-bootstrap` 已通过统一 orchestrator 执行默认主链。
 2. `freshness / lint / contradictions` 已成为默认产物链的一部分，并能被 evaluator / workflow 消费。
-3. `spec-plan / spec-work / spec-review` 已默认写 telemetry，且 fallback / skipped reason 可追踪。
+3. `spec-plan / spec-work / spec-code-review` 已默认写 telemetry，且 fallback / skipped reason 可追踪。
 4. `review / repo QA / context-efficiency / regression` 已接入标准 gate，不再只是手工脚本。
 5. Retrieval v2 的增强已在 benchmark 上取得正向或至少无退化结果。
 6. ownership registry、review queue lifecycle、workspace v1 已形成最小运行闭环。

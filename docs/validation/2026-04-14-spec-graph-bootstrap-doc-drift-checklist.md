@@ -82,7 +82,7 @@
 - `tests/unit/spec-graph-bootstrap-contracts.test.js:39-47`
 - `skills/spec-plan/SKILL.md`
 - `skills/spec-work/SKILL.md`
-- `skills/spec-review/SKILL.md`
+- `skills/spec-code-review/SKILL.md`
 
 ### 建议修订
 将该段改成两层表述：

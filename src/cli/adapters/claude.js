@@ -63,8 +63,11 @@ class ClaudeAdapter extends PlatformAdapter {
     return this.transformSkillContent(merged, context);
   }
 
-  transformSkillContent(content) {
-    return rewriteCanonicalAgentNamesForSkills(content);
+  transformSkillContent(content, context = {}) {
+    return rewriteClaudeStandaloneSkillName(
+      rewriteCanonicalAgentNamesForSkills(content),
+      context.skillName,
+    );
   }
 
   transformAgentContent(content) {
@@ -110,7 +113,7 @@ class ClaudeAdapter extends PlatformAdapter {
     const canonicalMatches = [];
     for (const filePath of skillFiles) {
       const content = fs.readFileSync(filePath, 'utf8');
-      if (/\bspec-first:[a-z-]+:[a-z-]+\b/.test(content)) {
+      if (/\bce:[a-z-]+:[a-z-]+\b/.test(content)) {
         canonicalMatches.push(path.relative(projectRoot, filePath));
       }
     }
@@ -184,18 +187,22 @@ class ClaudeAdapter extends PlatformAdapter {
 module.exports = ClaudeAdapter;
 
 function rewriteCanonicalAgentNamesForSkills(content) {
-  return rewriteCanonicalAgentNamesForExecution(
-    content.replace(/\bspec-first:([a-z-]+):([a-z-]+)\b/g, '$2'),
-  ).replace(
+  return rewriteCanonicalAgentNamesForExecution(content).replace(
     /Use fully-qualified agent names inside Task calls\./g,
     'Use bare agent names inside Task calls.',
   );
 }
 
 function rewriteCanonicalAgentNamesForExecution(content) {
-  return content
-    .replace(/Task\s+spec-first:([a-z-]+):([a-z-]+)\(/g, 'Task $2(')
-    .replace(/subagent_type:\s*"spec-first:([a-z-]+):([a-z-]+)"/g, 'subagent_type: "$2"');
+  return content;
+}
+
+function rewriteClaudeStandaloneSkillName(content, skillName) {
+  if (typeof skillName !== 'string' || !skillName.startsWith('spec-')) {
+    return content;
+  }
+
+  return content.replace(/^name:\s*spec-(.+)$/m, 'name: $1');
 }
 
 function listMarkdownFiles(rootPath) {

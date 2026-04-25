@@ -127,51 +127,83 @@ function Restore-Backup {
   }
 }
 
+function Acquire-ConfigLock {
+  $LockPath = "$ConfigPath.lock"
+  $lockDir = Split-Path -Parent $LockPath
+  if (-not (Test-Path $lockDir)) {
+    New-Item -ItemType Directory -Force -Path $lockDir | Out-Null
+  }
+
+  $deadline = (Get-Date).AddSeconds(10)
+  while ((Get-Date) -lt $deadline) {
+    try {
+      return [System.IO.File]::Open($LockPath, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+    } catch {
+      Start-Sleep -Milliseconds 100
+    }
+  }
+  throw "无法获取配置锁: $LockPath"
+}
+
+function Release-ConfigLock {
+  param($LockHandle)
+  if ($null -ne $LockHandle) {
+    $LockHandle.Dispose()
+  }
+}
+
 $ConfigDir = Split-Path -Parent $ConfigPath
 if (-not (Test-Path $ConfigDir)) {
   New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
 }
 
-if (Test-ToolConfigured) {
-  [pscustomobject]@{
-    tool_id = $Tool
-    configured_path = $ConfigPath
-    selected_scope = $SelectedScope
-    fallback_applied = [bool]$FallbackApplied
-  } | ConvertTo-Json -Compress
-  return
-}
-
-$backupPath = if (Test-Path $ConfigPath) {
-  $path = '{0}.backup.{1}' -f $ConfigPath, ([guid]::NewGuid().ToString('N'))
-  Copy-Item $ConfigPath $path
-  $path
-} else {
-  '__missing__'
-}
-
+$ConfigLock = $null
 try {
-  if ($DetectedHost -eq 'claude') {
-    Write-ClaudeConfig -FinalConfig $ResolvedConfig
+  $ConfigLock = Acquire-ConfigLock
+
+  if (Test-ToolConfigured) {
+    [pscustomobject]@{
+      tool_id = $Tool
+      configured_path = $ConfigPath
+      selected_scope = $SelectedScope
+      fallback_applied = [bool]$FallbackApplied
+    } | ConvertTo-Json -Compress
+    return
+  }
+
+  $backupPath = if (Test-Path $ConfigPath) {
+    $path = '{0}.backup.{1}' -f $ConfigPath, ([guid]::NewGuid().ToString('N'))
+    Copy-Item $ConfigPath $path
+    $path
   } else {
-    Write-CodexConfig -FinalConfig $ResolvedConfig
+    '__missing__'
   }
 
-  if (-not (Test-ToolConfigured)) {
-    throw "$Tool 配置后仍未检测到有效宿主配置"
-  }
+  try {
+    if ($DetectedHost -eq 'claude') {
+      Write-ClaudeConfig -FinalConfig $ResolvedConfig
+    } else {
+      Write-CodexConfig -FinalConfig $ResolvedConfig
+    }
 
-  if ($backupPath -ne '__missing__' -and (Test-Path $backupPath)) {
-    Remove-Item -Force $backupPath
-  }
+    if (-not (Test-ToolConfigured)) {
+      throw "$Tool 配置后仍未检测到有效宿主配置"
+    }
 
-  [pscustomobject]@{
-    tool_id = $Tool
-    configured_path = $ConfigPath
-    selected_scope = $SelectedScope
-    fallback_applied = [bool]$FallbackApplied
-  } | ConvertTo-Json -Compress
-} catch {
-  Restore-Backup -BackupPath $backupPath
-  throw
+    if ($backupPath -ne '__missing__' -and (Test-Path $backupPath)) {
+      Remove-Item -Force $backupPath
+    }
+
+    [pscustomobject]@{
+      tool_id = $Tool
+      configured_path = $ConfigPath
+      selected_scope = $SelectedScope
+      fallback_applied = [bool]$FallbackApplied
+    } | ConvertTo-Json -Compress
+  } catch {
+    Restore-Backup -BackupPath $backupPath
+    throw
+  }
+} finally {
+  Release-ConfigLock -LockHandle $ConfigLock
 }

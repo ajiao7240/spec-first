@@ -1,18 +1,17 @@
 ---
-name: sessions-workflow
+name: spec-sessions
 description: "Search and ask questions about your coding agent session history. Use when asking what you worked on, what was tried before, how a problem was investigated across sessions, what happened recently, or any question about past agent sessions. Also use when the user references prior sessions, previous attempts, or past investigations — even without saying 'sessions' explicitly."
-argument-hint: "[question or topic]"
 ---
 
-# Spec-First Sessions
+# /spec:sessions
 
 Search your session history.
 
 ## Usage
 
-```bash
-Claude: /spec:sessions [question or topic]
-Codex:  $spec-sessions [question or topic]
+```
+/spec:sessions [question or topic]
+/spec:sessions
 ```
 
 ## Pre-resolved context
@@ -25,11 +24,10 @@ If the lines above resolved to plain values (a folder name like `my-repo` and a 
 
 ## Execution
 
-If no argument is provided, ask what the user wants to know about their session history. Use the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). If no question tool is available, ask in plain text and wait for a reply.
+If no argument is provided, ask what the user wants to know about their session history. Use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to asking in plain text only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
-Dispatch `spec-first:research:session-historian` with the user's question as the task prompt. Omit the `mode` parameter so the user's configured permission settings apply. Include in the dispatch prompt:
+Dispatch `spec-session-historian` with the user's question as the task prompt. Omit the `mode` parameter so the user's configured permission settings apply. Include in the dispatch prompt:
 
 - The user's question
 - The current working directory
-- The repo name and git branch from pre-resolved context
-  only if they resolved to plain values — do not pass literal command strings
+- The repo name and git branch from pre-resolved context (only if they resolved to plain values — do not pass literal command strings)

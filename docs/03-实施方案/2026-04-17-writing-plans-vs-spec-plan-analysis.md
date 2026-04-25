@@ -95,7 +95,7 @@
 - repo-relative paths
 - implementation units
 - confidence check
-- document-review
+- spec-doc-review
 
 因此 `spec-plan` 的计划本质更接近：
 
@@ -229,7 +229,7 @@
 10. 结构化 plan
 11. 写 plan file
 12. confidence check / deepening
-13. mandatory `document-review`
+13. mandatory `spec-doc-review`
 14. post-generation handoff options
 
 它的特点是：
@@ -275,7 +275,7 @@
 
 下游：
 - `spec:work`
-- `document-review`
+- `spec-doc-review`
 - issue creation / plan share / editor open 等后续协作动作
 
 说明：
@@ -325,7 +325,7 @@
 - review before writing
 - confidence check
 - deepening workflow
-- mandatory document-review
+- mandatory spec-doc-review
 - post-generation options
 
 `writing-plans` 只有一个轻量 self-review，虽然高效，但质量守门的层次更浅。
@@ -401,7 +401,7 @@
 
 流程非常短。
 
-`spec-plan` 写完之后还要 confidence check、document-review、post-options，节奏更重。
+`spec-plan` 写完之后还要 confidence check、spec-doc-review、post-options，节奏更重。
 
 ---
 
@@ -422,7 +422,7 @@
 | 是否适合 issue / review artifact | 一般 | 强 |
 | 是否适合 agent 直接执行 | 很强 | 中等 |
 | TDD 执行约束 | 强 | 中等（轻量 signal） |
-| 质量门禁 | 自检为主 | confidence check + document-review |
+| 质量门禁 | 自检为主 | confidence check + spec-doc-review |
 | 可移植性 | 较弱 | 强 |
 | 上手速度 | 快 | 较慢 |
 | token / orchestration 成本 | 低 | 高 |
@@ -453,7 +453,7 @@
 - repo-relative path portability
 - origin traceability
 - confidence check
-- document-review gate
+- spec-doc-review gate
 - deepening 和 contract consistency
 
 这类仓库不适合把 plan 写成含大量命令和实现代码的 harness-specific 脚本。
@@ -486,7 +486,7 @@
 - 可分层
 - 可研究
 - 可 deepening
-- 可 document-review
+- 可 spec-doc-review
 - 可 handoff
 
 的完整工作流。这个成熟度显著高于 `writing-plans`。
@@ -530,7 +530,7 @@
 - `spec-plan` 更贴合本仓库的 contract-first / artifact-first / review-first 风格
 - `spec-plan` 的 planning 边界更健康
 - `spec-plan` 更适合长期维护和多种输入来源
-- `spec-plan` 已经形成与 `spec:brainstorm` / `spec:work` / `document-review` 的完整协同链路
+- `spec-plan` 已经形成与 `spec:brainstorm` / `spec:work` / `spec-doc-review` 的完整协同链路
 
 但也可以明确吸收 `writing-plans` 的部分优点，而不是整套回退：
 

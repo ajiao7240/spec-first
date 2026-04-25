@@ -24,7 +24,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 1. workflow 锚点：`Restated Understanding / Core Goal / Verification-as-Done / Checkpoint`
 2. freshness / partial context 降级时的补读行为
 3. `spec-work` 执行闭环 artifact
-4. `spec-review` 三轴 verdict
+4. `spec-code-review` 三轴 verdict
 
 `spec-compound` 的双视角沉淀扩展只作为 follow-up 方向记录，不纳入本轮实施与验收。
 
@@ -36,7 +36,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 2. `spec-plan` 的 `Verification` 会更接近可执行的完成定义，`spec-work` 执行时不需要再次发明“什么算 done”。
 3. Stage-0 出现 stale / partial / fallback 时，workflow 会先补读事实再动作，减少把旧上下文当真相继续推演。
 4. `spec-work` 结束后会留下可复用的 closure artifact，review、后续 compound 扩展和接手者能直接消费，而不是靠会话记忆回想。
-5. `spec-review` 会在保留 findings 主结构的前提下，额外给出三轴聚合视图，让“是否完成需求、是否忠于计划、代码本身质量如何”更快可见。
+5. `spec-code-review` 会在保留 findings 主结构的前提下，额外给出三轴聚合视图，让“是否完成需求、是否忠于计划、代码本身质量如何”更快可见。
 
 ## Problem Frame
 
@@ -45,7 +45,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 - Stage-0 决策输入
 - `spec-plan` 的 requirements trace 和 implementation units
 - `spec-work` 的执行边界与验证要求
-- `spec-review` 的多 persona 审查与 requirements completeness
+- `spec-code-review` 的多 persona 审查与 requirements completeness
 - `spec-compound` 的结构化知识沉淀
 
 但从长链路协作体验看，仍然存在几个可提升点：
@@ -57,7 +57,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
    `spec-work` 会完成任务、跑验证、进入 shipping workflow，但执行偏差、剩余风险、恢复锚点缺少统一 closure artifact。
 
 3. **review 的最终决策视图还可以更凝练。**
-   当前 `spec-review` 已能输出 findings、requirements completeness、verdict，但缺少一个可快速判断“需求完成 / 计划忠实 / 代码质量”的三轴视角。
+   当前 `spec-code-review` 已能输出 findings、requirements completeness、verdict，但缺少一个可快速判断“需求完成 / 计划忠实 / 代码质量”的三轴视角。
 
 4. **compound 可进一步区分人类汇报视角与 LLM 复用视角。**
    当前 `docs/solutions/` 偏统一知识文档；对“汇报”与“后续 agent 检索”尚未显式分层。该方向本轮只保留为 follow-up，不纳入实施单元。
@@ -73,7 +73,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 - R4. 必须与已批准的 Top 3 决策输入硬化计划兼容，尤其是 Stage-0 `L0/L1/L2/L3` 语义。
 - R5. 增强项应优先落在 `skills/` contract 与相关 contract tests，减少 CLI 控制面改动。
 - R6. `spec-work` 的执行闭环必须先定义 artifact contract，再新增持久化文件。
-- R7. `spec-review` 的三轴 verdict 需要支持 `explicit plan / inferred plan / missing plan` 三种输入等级。
+- R7. `spec-code-review` 的三轴 verdict 需要支持 `explicit plan / inferred plan / missing plan` 三种输入等级。
 - R8. `spec-plan` 不能平行新增与 `Verification` 重复的字段体系；Done 语义应增强现有 `Verification`。
 - R9. `spec-work` 的模式语义必须稳定收口为 `interactive / non-interactive`；`pipeline` / `headless` 只作为 `non-interactive` 示例，不单独形成 mode contract，且不得把交互式 checkpoint 误做成所有模式的硬阻塞。
 - R10. `spec-compound` 的扩展不能破坏 `docs/solutions/` frontmatter、目录分类和 `learnings-researcher` 的检索假设。
@@ -102,7 +102,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 
 - `skills/spec-plan/SKILL.md`：已有 `Verification`、`Requirements Trace`、deepening、execution readiness 语义
 - `skills/spec-work/SKILL.md`：已有 approval、allowed change surface、verification checklist、shipping workflow
-- `skills/spec-review/SKILL.md`：已有 `plan:<path>`、requirements completeness、persona merge、run artifact
+- `skills/spec-code-review/SKILL.md`：已有 `plan:<path>`、requirements completeness、persona merge、run artifact
 - `skills/spec-compound/SKILL.md`：已有 `docs/solutions/` 写入流程、track 分类、overlap/update 逻辑
 - `skills/spec-debug/SKILL.md`：已有 investigate-first、root cause gate、structured summary
 - `docs/plans/2026-04-19-003-top3-decision-input-hardening-plan.md`：已批准的 Stage-0 质量等级与 doctor contract 计划
@@ -132,9 +132,9 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
   理由：避免字段平行和重复维护。
 
 - 决策 4：**`spec-work` 的 closure summary 必须建立在新的 run artifact contract 之上。**  
-  理由：当前 `spec-work` 没有像 `spec-review` 那样稳定的 per-run artifact 约束，不能先写文件后补 contract。
+  理由：当前 `spec-work` 没有像 `spec-code-review` 那样稳定的 per-run artifact 约束，不能先写文件后补 contract。
 
-- 决策 5：**`spec-review` 的三轴 verdict 是聚合视图，不是新的 gating engine。**  
+- 决策 5：**`spec-code-review` 的三轴 verdict 是聚合视图，不是新的 gating engine。**  
   理由：维持 findings/severity/routing 的现有主导地位。
 
 - 决策 6：**Stage-0 `freshness_stale` 绝不与 `L0` 并存。**  
@@ -144,16 +144,16 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
   理由：避免把交互式 pause 点误植为自动化硬阻塞，同时避免为 `spec-work` 额外发明 `pipeline` / `headless` 两套并列 mode 语义。
 
 - 决策 8：**`spec-work` 的 run artifact 采用“机器真源优先、人类摘要投影”的方向收口。**  
-  理由：`spec-review`、`spec-compound`、后续自动化消费更适合稳定 machine contract；人类可读 summary 应由同一份结构化事实投影出来，而不是反过来。
+  理由：`spec-code-review`、`spec-compound`、后续自动化消费更适合稳定 machine contract；人类可读 summary 应由同一份结构化事实投影出来，而不是反过来。
 
 - 决策 9：**凡是本轮触达的 workflow skill，都按 source + docs mirror + contract test 三件套一起规划。**  
   理由：这个仓库的真实维护边界不是只改 `skills/`，而是同时守住 runtime/source prompt、docs mirror 与测试锚点的一致性。
 
 - 决策 10：**`spec-work` run artifact 的发现机制采用“显式 handoff 为主，推断发现为辅，不新增全局索引”的收口方式。**  
-  理由：这与 `spec-review` 现有 `explicit / inferred / missing` 语义一致，且避免为了解决 artifact 发现问题而引入新的控制面 registry。
+  理由：这与 `spec-code-review` 现有 `explicit / inferred / missing` 语义一致，且避免为了解决 artifact 发现问题而引入新的控制面 registry。
 
-- 决策 11：**`spec-review` 的三轴 verdict 是条件式输出，不要求在 `missing plan` 时也强行凑满三轴。**  
-  理由：当前 `spec-review` 已明确规定无 plan 时省略 `Requirements Completeness`；继续沿用条件式输出，比额外引入 `N/A` 状态更轻、更一致。
+- 决策 11：**`spec-code-review` 的三轴 verdict 是条件式输出，不要求在 `missing plan` 时也强行凑满三轴。**  
+  理由：当前 `spec-code-review` 已明确规定无 plan 时省略 `Requirements Completeness`；继续沿用条件式输出，比额外引入 `N/A` 状态更轻、更一致。
 
 - 决策 12：**interactive 模式下，`spec-work` 的 checkpoint 与 approval 合并成一个 pre-execution block。**  
   理由：这样既保留执行前自校准价值，又避免出现两个连续停顿点，把轻量约束做成交互噪音。
@@ -226,7 +226,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
    - 约束：作为 closure summary 的一部分，而不是新增独立工作流
 
 7. **`Reload Before Act`**
-   - 映射到 `spec-plan`、`spec-work`、`spec-review`
+   - 映射到 `spec-plan`、`spec-work`、`spec-code-review`
    - 目标：当 `fallback_reason`、`level`、`data_quality` 表明 context stale / partial 时，关键动作前补读事实
    - 约束：不改变 evaluator 语义，不把 stale 当成硬阻塞
 
@@ -235,7 +235,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 以下约束有价值，但不在本计划的最小实施范围内；若后续进入，应在现有 `spec-first` contract 上改写，而不是原样搬运：
 
 1. **`review_execute` 三轴评审**
-   - 将来可转译为 `spec-review` 的三轴 verdict
+   - 将来可转译为 `spec-code-review` 的三轴 verdict
    - 约束：保持 findings / severity / route / overall verdict 的现有主结构
 
 2. **`archive` 的 human / llm 双视角输出**
@@ -283,7 +283,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 - 是否新增平行 `Done Contract` 字段：否，增强 `Verification`。
 - `freshness_stale` 是否允许 L0：否，必须按 Top 3 计划进入 L1。
 - `spec-work` artifact 是否新增全局索引 / registry：否，采用显式 handoff 为主、推断发现为辅。
-- `spec-review` 三轴 verdict 在 `missing plan` 下是否仍强制输出三轴：否，仅输出可成立的轴。
+- `spec-code-review` 三轴 verdict 在 `missing plan` 下是否仍强制输出三轴：否，仅输出可成立的轴。
 - `spec-work` interactive 模式是否分成 checkpoint 与 approval 两次停顿：否，合并为一个 pre-execution block。
 - `spec-compound` 双视角是否纳入本轮实施：否，保留为 follow-up。
 - 数据库文档生成 fallback / connection discovery 是否纳入本轮实施：否，保留为 follow-up，并记录方向约束。
@@ -291,7 +291,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 ### Deferred to Implementation
 
 - `spec-work` run artifact 的 v1 字段命名是 `changes_made / deviations / verification / residual_risks / resume_anchor` 还是等价更短命名；但 contract 方向已收口为 **JSON 真源 + 可选 Markdown closure summary 投影**。
-- `spec-review` 三轴 verdict 在输出模板中的精确位置，是紧跟 `Requirements Completeness` 还是置于 `Verdict` 前；但不应抢占 findings 区，也不应独立成第二个总 verdict。
+- `spec-code-review` 三轴 verdict 在输出模板中的精确位置，是紧跟 `Requirements Completeness` 还是置于 `Verdict` 前；但不应抢占 findings 区，也不应独立成第二个总 verdict。
 - `spec-compound` 双视角最终是单文件双 section 还是同一 workflow 产出两份不同文档。
 
 ## Implementation Strategy
@@ -311,7 +311,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 3. **Unit 3: `spec-work` Run Artifact Contract + Closure Summary**  
    等前两项稳定后，再做执行闭环持久化；这样 closure artifact 才能直接复用前面已经确定的 goal / done / reload 语义。
 
-4. **Unit 4: `spec-review` Three-Axis Verdict**  
+4. **Unit 4: `spec-code-review` Three-Axis Verdict**  
    最后再做 review 聚合视图，避免 review 先定义了一套未来又会被 work closure artifact 改写的字段。
 
 每个 unit 都按同一交付边界收口：
@@ -325,7 +325,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 
 凡是改变**用户可见 workflow 行为**的 unit，除了 unit-level contract tests 之外，还必须补至少 1 条行为级回归，防止“文案对了、实际交互漂了”：
 
-- 适用场景：checkpoint/approval 停顿行为、Stage-0 stale reload 提示与补读行为、`spec-review` 输出结构变化
+- 适用场景：checkpoint/approval 停顿行为、Stage-0 stale reload 提示与补读行为、`spec-code-review` 输出结构变化
 - 优先选择现有 harness：
   - 能用 shell / integration flow 覆盖的，优先放 `tests/integration/`
   - 更适合结构断言的，补 template / output snapshot 类测试
@@ -420,7 +420,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 - Happy path：`spec-plan` 明确要求用 `Verification` 表达 done/not-done，而不是新增平行字段
 - Edge case：小任务或低复杂度任务允许短句式锚点，不被强制扩写成长模板
 - Error path：当 plan、requirements 或当前理解不清晰时，skill 要求先澄清而非直接执行
-- Integration：`spec-plan` 的 done 语义可被 `spec-work` / `spec-review` 消费，不形成第二套字段名
+- Integration：`spec-plan` 的 done 语义可被 `spec-work` / `spec-code-review` 消费，不形成第二套字段名
 - Mirror：source 与 `docs/10-prompt/skills/` 中的关键 contract anchor 同步存在
 
 **Verification**
@@ -432,18 +432,18 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 ### Unit 2: Freshness-Driven Reload Behavior
 
 **Goal**  
-让 `spec-plan`、`spec-work`、`spec-review` 在 Stage-0 降级时明确降低对旧 context 的信任，并补读事实，而不是继续把 stale/partial context 当高可信输入。
+让 `spec-plan`、`spec-work`、`spec-code-review` 在 Stage-0 降级时明确降低对旧 context 的信任，并补读事实，而不是继续把 stale/partial context 当高可信输入。
 
 **Files**
 
 - `skills/spec-plan/SKILL.md`
 - `skills/spec-work/SKILL.md`
 - `skills/spec-work-beta/SKILL.md`
-- `skills/spec-review/SKILL.md`
+- `skills/spec-code-review/SKILL.md`
 - `docs/10-prompt/skills/spec-plan/SKILL.md`
 - `docs/10-prompt/skills/spec-work/SKILL.md`
 - `docs/10-prompt/skills/spec-work-beta/SKILL.md`
-- `docs/10-prompt/skills/spec-review/SKILL.md`
+- `docs/10-prompt/skills/spec-code-review/SKILL.md`
 - `tests/unit/spec-plan-contracts.test.js`
 - `tests/unit/spec-work-contracts.test.js`
 - `tests/unit/spec-work-beta-contracts.test.js`
@@ -517,7 +517,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 
 **Starting point**
 
-- 先对齐 `spec-review` 现有 `.spec-first/workflows/spec-review/<run-id>/` artifact 思路
+- 先对齐 `spec-code-review` 现有 `.spec-first/workflows/spec-code-review/<run-id>/` artifact 思路
 - 复用仓库中现有 JSON schema contract 的命名方式，挂到 `docs/contracts/`，而不是把 contract 藏在 prose 里
 - 延续 `.spec-first/workflows/` 作为 runtime artifact 根目录，不另起平行目录
 
@@ -547,19 +547,19 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
   - non-interactive：至少写 `run.json`，不等待额外交互
 - artifact 写入失败必须显式暴露，不能让 workflow 冒充“已完成闭环”。
 - artifact 发现机制按以下优先级收口：
-  - **显式 handoff**：`spec-work` 调 `spec-review` / `spec-compound` 时直接传 `run_id` 或 `artifact_dir`；不把叶子文件路径当作跨 workflow 的稳定标识
+  - **显式 handoff**：`spec-work` 调 `spec-code-review` / `spec-compound` 时直接传 `run_id` 或 `artifact_dir`；不把叶子文件路径当作跨 workflow 的稳定标识
   - **推断发现**：没有显式 handoff 时，可按 `plan_path + slug`，必要时再加 `git_branch/head_sha`，寻找最近一次匹配的 run 目录
   - **missing artifact**：找不到就按“无 artifact 输入”继续，不阻塞 workflow
 - 推断发现只作为 advisory fallback，不新增全局 `latest` 索引、registry 或第二套 artifact 发现控制面。
 - consumer 明确限定为：
-  - `spec-review`：读取执行偏差、验证证据、剩余风险
+  - `spec-code-review`：读取执行偏差、验证证据、剩余风险
   - `spec-compound`：读取解决过程与恢复锚点
   - human：读取 `closure-summary.md` / `run.json`
 
 **Patterns to follow**
 
-- `skills/spec-review/SKILL.md` 的 run artifact 体系
-- `.spec-first/workflows/spec-review/<run-id>/` 输出模式
+- `skills/spec-code-review/SKILL.md` 的 run artifact 体系
+- `.spec-first/workflows/spec-code-review/<run-id>/` 输出模式
 
 **Execution note**
 
@@ -569,7 +569,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 
 - Happy path：interactive 正常执行后生成 machine artifact，且字段包含 goal / deviations / verification / residual_risks / resume_anchor
 - Happy path：若启用人类投影，`closure-summary.md` 与 machine artifact 语义一致，不出现双真源
-- Happy path：有显式 handoff 时，`spec-review` / `spec-compound` 可直接消费对应 `run_id` / `artifact_dir`，而不需要二次扫描目录
+- Happy path：有显式 handoff 时，`spec-code-review` / `spec-compound` 可直接消费对应 `run_id` / `artifact_dir`，而不需要二次扫描目录
 - Edge case：没有显式 handoff 时，系统可按 `plan_path + slug (+ branch/head)` 推断最近匹配的 run 目录
 - Edge case：non-interactive 模式不要求用户再次确认，但仍能保留 run artifact
 - Edge case：找不到匹配 artifact 时，workflow 明确降级继续，而不是报错或伪造关联成功
@@ -583,26 +583,26 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 - Evidence：`tests/unit/spec-work-contracts.test.js`、`tests/unit/runtime-contract-boundary.test.js` 及新增 schema contract coverage
 - Not done：只在 skill 文案里提到 closure summary，但没有 artifact contract 或测试保护
 
-### Unit 4: `spec-review` Three-Axis Verdict
+### Unit 4: `spec-code-review` Three-Axis Verdict
 
 **Goal**  
 在现有 persona findings、requirements completeness 和 verdict 之上，增加一个更便于决策的三轴聚合视图。
 
 **Files**
 
-- `skills/spec-review/SKILL.md`
-- `skills/spec-review/references/review-output-template.md`
-- `skills/spec-review/references/subagent-template.md`（仅在需要时）
-- `docs/10-prompt/skills/spec-review/SKILL.md`
-- `docs/10-prompt/skills/spec-review/references/review-output-template.md`
-- `docs/10-prompt/skills/spec-review/references/subagent-template.md`（仅在需要时）
+- `skills/spec-code-review/SKILL.md`
+- `skills/spec-code-review/references/review-output-template.md`
+- `skills/spec-code-review/references/subagent-template.md`（仅在需要时）
+- `docs/10-prompt/skills/spec-code-review/SKILL.md`
+- `docs/10-prompt/skills/spec-code-review/references/review-output-template.md`
+- `docs/10-prompt/skills/spec-code-review/references/subagent-template.md`（仅在需要时）
 - `tests/unit/spec-review-contracts.test.js`
 - `tests/unit/asset-consistency.test.js`
 - `tests/integration/` 或模板级结构断言，用于覆盖三轴 verdict 的最终输出形态
 
 **Starting point**
 
-- 以 `spec-review` 已有 `Requirements Completeness` 与 `Verdict` 区域为锚点扩展
+- 以 `spec-code-review` 已有 `Requirements Completeness` 与 `Verdict` 区域为锚点扩展
 - 不改 findings schema 的主轴，不让三轴 verdict 侵入 persona finding 合并逻辑
 
 **Approach**
@@ -630,8 +630,8 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 
 **Patterns to follow**
 
-- `skills/spec-review/SKILL.md` 现有 `Requirements Completeness`
-- `skills/spec-review/references/review-output-template.md` 的 verdict 区域
+- `skills/spec-code-review/SKILL.md` 现有 `Requirements Completeness`
+- `skills/spec-code-review/references/review-output-template.md` 的 verdict 区域
 
 **Execution note**
 
@@ -662,7 +662,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 缺点：
 
 - 容易复制新的平行结构
-- 与现有 `spec-review` / `spec-compound` contract 冲突
+- 与现有 `spec-code-review` / `spec-compound` contract 冲突
 - 风险是看起来完整，实际破坏边界
 
 ### 方案 B：只做 skill contract 轻量增强，再逐步补 artifact 和 review 聚合
@@ -727,13 +727,13 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 ### 风险 4：`spec-work` artifact 写入无 contract
 
 **影响**  
-后续 `spec-review`、`spec-compound` 无法稳定消费，run path 容易漂移。
+后续 `spec-code-review`、`spec-compound` 无法稳定消费，run path 容易漂移。
 
 **缓解**
 
 - Unit 3 必须先定义 contract 再实现输出
 
-### 风险 5：`spec-review` 三轴 verdict 与 findings 重复或冲突
+### 风险 5：`spec-code-review` 三轴 verdict 与 findings 重复或冲突
 
 **影响**  
 用户会看到两个不同的“结论中心”。
@@ -810,7 +810,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 ### Phase 3
 
 - 完成 Unit 4
-- 输出 `spec-review` 三轴 verdict
+- 输出 `spec-code-review` 三轴 verdict
 
 ### Phase 4
 
@@ -822,7 +822,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 - [x] Unit 1: Lightweight Workflow Anchors
 - [x] Unit 2: Freshness-Driven Reload Behavior
 - [x] Unit 3: `spec-work` Run Artifact Contract + Closure Summary
-- [x] Unit 4: `spec-review` Three-Axis Verdict
+- [x] Unit 4: `spec-code-review` Three-Axis Verdict
 
 ## Final Review Checklist
 
@@ -834,7 +834,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 - [x] `Verification` 增强未演变成平行字段体系
 - [x] `spec-work` 先定义 artifact contract 再写 closure summary
 - [x] `spec-work` artifact 发现机制保持“显式 handoff 为主，推断发现为辅”，且显式 handoff 已收口为 `run_id` / `artifact_dir`，未新增全局索引
-- [x] `spec-review` 三轴 verdict 支持 explicit / inferred / missing plan
+- [x] `spec-code-review` 三轴 verdict 支持 explicit / inferred / missing plan
 - [x] `missing plan` 时三轴 verdict 采用条件式输出，不用 `N/A` 占位凑结构
 - [x] interactive 模式下 `spec-work` 的 checkpoint 与 approval 已合并为单一 pre-execution block
 - [x] 用户可见 workflow 行为变化除 unit contract tests 外，还具备至少 1 条行为级回归锚点

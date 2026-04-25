@@ -52,7 +52,7 @@ Based on detected signals, choose a mode:
 
 ### Asking the User
 
-When context is ambiguous, use the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). If no question tool is available, assume "partial" mode and proceed conservatively.
+When context is ambiguous, use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to presenting options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip. If the user declines to pick, assume "partial" mode and proceed conservatively.
 
 Example question: "I found [detected signals]. Should I follow your existing design patterns or create something distinctive?"
 
@@ -230,7 +230,7 @@ Use the first available option:
 
 1. **Existing project browser tooling** -- if Playwright, Puppeteer, Cypress, or similar is already in the project's dependencies, use it. Do not introduce new dependencies just for verification.
 2. **Browser MCP tools** -- if browser automation tools (e.g., claude-in-chrome) are available in the agent's environment, use them.
-3. **agent-browser CLI** -- if nothing else is available, this is the default. Load the `agent-browser` skill for installation and usage instructions.
+3. **agent-browser CLI** -- if nothing else is available and `agent-browser` is installed, use it. If not installed, inform the user: "`agent-browser` is not installed. Run `/spec:mcp-setup` to install required dependencies." Then skip to the next option.
 4. **Mental review** -- if no browser access is possible (headless CI, no permissions to install), apply the litmus checks as a self-review and note that visual verification was skipped.
 
 ### What to Assess
@@ -243,7 +243,7 @@ Use the first available option:
 
 One iteration. Take a screenshot, assess against the litmus checks, fix any glaring issues, and move on. Include the screenshot in the deliverable (PR description, conversation output, etc.).
 
-For iterative refinement beyond a single pass (multiple rounds of screenshot-assess-fix), see the `spec-first:design:design-iterator` agent.
+For iterative refinement beyond a single pass (multiple rounds of screenshot-assess-fix), see the `spec-design-iterator` agent.
 
 ---
 

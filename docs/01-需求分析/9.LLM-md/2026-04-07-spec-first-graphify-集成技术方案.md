@@ -42,7 +42,7 @@ spec-graph-bootstrap / spec-docs
 当前 `spec-first` 已经具备两类能力：
 
 1. 通过 repo-owned `skills/` 与 `agents/` 向运行时安装工作流资产
-2. 通过 `spec-graph-bootstrap`、`spec-compound`、`spec-plan`、`spec-work`、`spec-review` 形成长期知识与执行闭环
+2. 通过 `spec-graph-bootstrap`、`spec-compound`、`spec-plan`、`spec-work`、`spec-code-review` 形成长期知识与执行闭环
 
 但 `spec-graph-bootstrap` 的一个天然难点是：
 

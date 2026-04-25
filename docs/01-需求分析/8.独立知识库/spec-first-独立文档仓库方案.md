@@ -52,7 +52,7 @@ org/
     │   ├── contexts/           ← spec-graph-bootstrap 产物
     │   ├── plans/              ← spec-plan 产物
     │   ├── work/               ← spec-work meta/signals/verification
-    │   ├── reviews/            ← spec-review 产物
+    │   ├── reviews/            ← spec-code-review 产物
     │   └── knowledge/          ← spec-compound 沉淀
     └── project-B/
         └── ...
@@ -171,7 +171,7 @@ spec-first init --claude --docs-repo ~/org/spec-docs
 | `spec-graph-bootstrap` | `docs/contexts/<slug>/` | `<docs-local>/<project-slug>/contexts/<slug>/` |
 | `spec-plan` | `docs/plans/` | `<docs-local>/<project-slug>/plans/` |
 | `spec-work` | `docs/work/` | `<docs-local>/<project-slug>/work/` |
-| `spec-review` | `docs/reviews/` | `<docs-local>/<project-slug>/reviews/` |
+| `spec-code-review` | `docs/reviews/` | `<docs-local>/<project-slug>/reviews/` |
 | `spec-compound` | `docs/solutions/` | `<docs-local>/<project-slug>/knowledge/` |
 | shared knowledge | `.context/spec-first/knowledge/` | `<docs-local>/_shared/` |
 

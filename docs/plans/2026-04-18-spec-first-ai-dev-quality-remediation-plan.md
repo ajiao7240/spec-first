@@ -48,7 +48,7 @@ owner: spec-platform
 
 - `src/context-routing/loader.js` 明确优先读取 control plane 下的 `context-routing.json`、`artifact-manifest.json`、`freshness.json`。
 - `src/context-routing/evaluator.js` 的运行时判定依赖 `output_exists.*`、`stage_is.*`，并显式跳过 `fact.*`。
-- `tests/unit/workflow-stage0-consumption.test.js` 已锁定 `spec-plan`、`spec-work`、`spec-review` 以 evaluator 输出 contract 为真源。
+- `tests/unit/workflow-stage0-consumption.test.js` 已锁定 `spec-plan`、`spec-work`、`spec-code-review` 以 evaluator 输出 contract 为真源。
 - 但 `skills/spec-graph-bootstrap/SKILL.md`、`docs/02-架构设计/*`、checked-in sample 之间仍可能继续出现“文本先行、代码滞后”的问题。
 
 对应文件：
@@ -166,7 +166,7 @@ owner: spec-platform
 
 目标：
 - 把 `spec-graph-bootstrap` 的主价值链从 sample 驱动改成 fact 驱动
-- 让 AI 在 `spec-plan` / `spec-work` / `spec-review` 中拿到更真实的上下文
+- 让 AI 在 `spec-plan` / `spec-work` / `spec-code-review` 中拿到更真实的上下文
 
 ### Phase 2：CRG 在线信号修正
 
@@ -296,7 +296,7 @@ owner: spec-platform
 测试场景：
 - `runBootstrap()` 在提供真实 fact 输入时，输出真实 machine artifacts 而不是 sample
 - `artifact-manifest.json` 与 `context-routing.json` 满足 schema，且字段来自真实输入
-- `spec-plan` / `spec-work` / `spec-review` 的 selected assets 由真实 control plane 决定
+- `spec-plan` / `spec-work` / `spec-code-review` 的 selected assets 由真实 control plane 决定
 - docs backup / rollback 语义不被新的编译链破坏
 
 ### 6.8 完成信号
@@ -328,7 +328,7 @@ owner: spec-platform
 - 修改：`templates/`
 - 修改：`skills/spec-plan/SKILL.md`
 - 修改：`skills/spec-work/SKILL.md`
-- 修改：`skills/spec-review/SKILL.md`
+- 修改：`skills/spec-code-review/SKILL.md`
 - 修改：`docs/contracts/spec-graph-bootstrap/*.schema.json`
 
 ### 6.4 方案决策
@@ -635,7 +635,7 @@ owner: spec-platform
 
 整改完成的验收标准不是“写了更多文档”，而是：
 
-1. `spec-plan`、`spec-work`、`spec-review` 读取的 Stage-0 资产来自真实事实链，而非 sample 占位。
+1. `spec-plan`、`spec-work`、`spec-code-review` 读取的 Stage-0 资产来自真实事实链，而非 sample 占位。
 2. CRG 的关键输出不再包含当前已知的明显伪语义因子。
 3. contracts、skills、compiler、runtime evaluator 的真源关系明确且被测试锁住。
 4. benchmark 能对“AI 开发辅助质量”形成可重复、可比较、可阻断退化的回归门。

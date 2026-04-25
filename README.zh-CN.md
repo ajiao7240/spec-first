@@ -182,10 +182,10 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | **CRG 图引擎**（`spec-first crg *`） | **Code Review Graph**：一个嵌入式 Node.js runtime，基于 SQLite + FTS5，支持 AST → symbols → resolved edges → PageRank flows → community detection → surprising-connections → god-nodes → review-context |
 | **graph-bootstrap 上下文引擎** | 让 LLM 获得 fact-extracted、带 confidence 标注的项目上下文，而不是直接面对裸代码库 |
 | **完整工作流层** | Ideate → Brainstorm → Plan → Work → Review → Compound，全阶段都有显式 artifact contract |
-| **17-persona Review stage**（+ 2 个 CE agent） | 产出结构化 findings，并按 `safe_auto / gated_auto / manual / advisory` 路由，而不是一次性 review 扫描 |
+| **17-persona Review stage**（+ 2 个专项 agent） | 产出结构化 findings，并按 `safe_auto / gated_auto / manual / advisory` 路由，而不是一次性 review 扫描 |
 | **Compound / knowledge capture** | 把已解决问题写入 `docs/solutions/`，供后续 workflow 检索复用 |
 | **双平台支持** | 一套方法论同时覆盖 Claude Code（`/spec:*`）与 Codex（`$spec-*`）。Claude 使用 `SessionStart` hook + bare-agent rewrite；Codex 使用 `.agents/skills/` discovery + 显式 `.codex/agents/...` path rewrite |
-| **能力层资产** | 仓库内置源码资产共 `46` 个 skills、`55` 个 agents、`4` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `11` 个 commands + `35` 个 skills，在 Codex 侧安装 `34` 个 skills；两侧都会安装 `55` 个 agents + `4` 个 support files |
+| **能力层资产** | 仓库内置源码资产共 `41` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `19` 个 commands + `0` 个 standalone skills，在 Codex 侧安装 `19` 个 workflow skills；两侧都会安装 `51` 个 agents |
 | **运行时治理** | 受管资产记录在 `state.json` 中，可安全同步、刷新、恢复与清理 |
 
 ## 核心工作流
@@ -204,7 +204,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/*.md` | **SKILL.md** contract |
 | Plan | `/spec:plan` | `$spec-plan` | `docs/plans/*.md` | **SKILL.md** contract |
 | Work | `/spec:work` | `$spec-work` | code + tests | **SKILL.md** contract |
-| Review | `/spec:review` | `$spec-review` | 结构化 review report | **SKILL.md** contract（17 个 reviewer persona + 2 个 CE agent） |
+| Review | `/spec:code-review` | `$spec-code-review` | 结构化 review report | **SKILL.md** contract（17 个 reviewer persona + 2 个辅助 agent） |
 | Compound | `/spec:compound` | `$spec-compound` | `docs/solutions/**/*.md` | **SKILL.md** contract |
 
 ### 辅助阶段
@@ -299,7 +299,7 @@ spec-first clean --claude   # 或 --codex
 
 `clean` 会移除上表中“`clean` 可移除”列标记为可删的所有内容，然后打印本次删除了哪个平台的受管资产。受管范围之外的自定义资产不会受影响。语言策略块仍需手动删除；你可以在 `CLAUDE.md` / `AGENTS.md` 中搜索 `<!-- spec-first:lang:`。
 `init --dry-run` 与 `clean --dry-run` 现在都会预览来自同一份 operation plan 的 file-level 变更面，因此 preview/apply 漂移被压缩到可测试、可回归的边界内。
-当前运行时交付会按宿主治理分流：Claude 会写入 `11` 个 command、`35` 个 skill、`55` 个 agent 和 `4` 个 agent support file；Codex 不生成 command 目录，而是写入 `34` 个 skill，并安装同样的 `55` 个 agent 与 `4` 个 support file。
+当前运行时交付会按宿主治理分流：Claude 会写入 `19` 个 command、`0` 个 skill、`51` 个 agent；Codex 不生成 command 目录，而是写入 `19` 个 workflow skill，并安装同样的 `51` 个 agent。
 
 #### 示例输出
 
@@ -307,10 +307,9 @@ spec-first clean --claude   # 或 --codex
 $ spec-first init --claude
 
 🪝 Installed Claude SessionStart matcher in .claude/settings.json
-📦 Generated 11 command file(s) in .claude/commands/spec
-🧩 Generated 35 skill directory(ies) in .claude/skills
-🤖 Generated 55 agent file(s) in .claude/agents
-🧰 Generated 4 agent support file(s) in .claude/agents
+📦 Generated 19 command file(s) in .claude/commands/spec
+🧩 Generated 0 skill directory(ies) in .claude/skills
+🤖 Generated 51 agent file(s) in .claude/agents
 🪪 Wrote project developer profile:
   📍 path: .claude/spec-first/.developer
   👤 name: yourname
@@ -330,7 +329,7 @@ $ spec-first init --claude
 | 安装 MCP 工具 | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | 重启宿主 | 重启 Claude Code | 重启 Codex |
 | 构建上下文 | `/spec:graph-bootstrap` 或 `/spec:compound` | `$spec-graph-bootstrap` 或 `$spec-compound` |
-| 启动工作流 | `/spec:ideate` → `/spec:brainstorm` → `/spec:plan` → `/spec:work` → `/spec:review` → `/spec:compound` | `$spec-ideate` → … → `$spec-compound` |
+| 启动工作流 | `/spec:ideate` → `/spec:brainstorm` → `/spec:plan` → `/spec:work` → `/spec:code-review` → `/spec:compound` | `$spec-ideate` → … → `$spec-compound` |
 
 `graph-bootstrap` 在启动时会执行 **Host Readiness Gate**。如果你跳过了 MCP setup，或者宿主没有重启，它会直接停止并给出明确提示，而不是静默降级。
 
@@ -356,8 +355,8 @@ $ spec-first init --claude
 │  约束：SKILL.md contract（由 LLM 遵循）                        │
 ├──────────────────────────────────────────────────────────────┤
 │  能力层 — agents（6 类）                                      │
-│  review/（17 reviewer personas + CE agents）                 │
-│  document-review/（requirements / plan persona review）      │
+│  review/（17 reviewer personas + auxiliary agents）                 │
+│  spec-doc-review/（requirements / plan persona review）      │
 │  research/（session / doc / Feishu / web context readers）   │
 │  design/（UI / design-lens agents）                          │
 │  workflow/（bug-reproduction / lint / pr-comment-resolver）  │
@@ -377,7 +376,7 @@ $ spec-first init --claude
 | `spec-first doctor` | 环境检查 | 校验平台状态、plugin manifest 与受管资产。`--claude` / `--codex` 可限定单平台。需要重新 `init` 时会报告 `legacy managed state`；`--json` 还会输出 evidence schema/freshness 与 `evidence_age_summary`。 |
 | `spec-first init` | 初始化运行时 | 通过受管 operation plan 同步 commands、skills、agents、runtime hooks 与开发者元数据。它也是唯一受支持的 legacy 升级入口，会执行一次受管 hard reset。见上方 [init 会写入什么](#init-会写入什么)。 |
 | `spec-first clean` | 删除受管资产 | 通过与 `--dry-run` 共用的 operation-plan 边界移除指定平台当前的 spec-first 受管资产；不会迁移 legacy state，也不会删除语言策略 marker block。 |
-| `spec-first stage0-context` | 输出 Stage-0 运行时上下文 | 由 `spec-plan` / `spec-work` / `spec-review` 等 SKILL 在阶段启动时调用。支持 `--stage <plan\|work\|review>`、`--workflow <skill-name>`、`--format json`。 |
+| `spec-first stage0-context` | 输出 Stage-0 运行时上下文 | 由 `spec-plan` / `spec-work` / `spec-code-review` 等 SKILL 在阶段启动时调用。支持 `--stage <plan\|work\|review>`、`--workflow <skill-name>`、`--format json`。 |
 
 ### CRG 图命令（`spec-first crg <subcommand>`）
 

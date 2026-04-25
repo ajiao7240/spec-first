@@ -13,7 +13,7 @@
 
 本文不覆盖：
 
-- `spec-review` 的候选回流体系
+- `spec-code-review` 的候选回流体系
 - `spec-compound` 的信号驱动沉淀
 - `spec-improve`
 
@@ -71,7 +71,7 @@ bootstrap
 
 ### 3.2 Out of Scope
 
-- `rule-candidates.json`（阶段 2 `spec-review` 首次产出，非阶段 1 继承）
+- `rule-candidates.json`（阶段 2 `spec-code-review` 首次产出，非阶段 1 继承）
 - `pattern-candidates.json`（同上）
 - `fast-track-proposals.json`（同上）
 - `decision-notes.md` 的长期沉淀闭环（阶段 1 只写入，阶段 2 建立召回链）

@@ -57,7 +57,7 @@ Do not create a second machine-readable registry for the same tool catalog in th
 
 ## Phase 0: Project / Repo Setup Preflight
 
-**Goal:** Reuse the migrated deterministic preflight to diagnose helper tools, legacy Compound Engineering residue, and repo-local `.spec-first` config before entering MCP baseline setup.
+**Goal:** Reuse the migrated deterministic preflight to diagnose helper tools, legacy Spec-First residue, and repo-local `.spec-first` config before entering MCP baseline setup.
 
 ### 0.1 Run Preflight Health Check
 
@@ -78,7 +78,7 @@ The migrated `check-health` script is the single deterministic input for this ph
 
 Use it for:
 - helper tool detection and install suggestions (`agent-browser`, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`)
-- legacy Compound Engineering detection
+- legacy Spec-First detection
 - `.spec-first/config.local.yaml` presence
 - `.spec-first/config.local.example.yaml` freshness
 - `.gitignore` coverage hints
@@ -92,7 +92,7 @@ Do not:
 ### 0.3 Handle Project / Repo Preflight Issues
 
 Continue to use the preflight output to drive user-confirmed actions for:
-- legacy CE cleanup guidance
+- legacy Spec-First cleanup guidance
 - `.spec-first/config.local.example.yaml` refresh from `skills/spec-mcp-setup/references/config-template.yaml`
 - `.spec-first/config.local.yaml` bootstrap from `skills/spec-mcp-setup/references/config-template.yaml`
 - `.gitignore` coverage prompt

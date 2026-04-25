@@ -79,13 +79,13 @@
 
 > **不要把 implementation units 重新降级成任务脚本。**
 
-## 2.3 不要削弱 deepening / document-review / planning boundary
+## 2.3 不要削弱 deepening / spec-doc-review / planning boundary
 
 `writing-plans` 的质量控制偏轻，适合快速 handoff；而 `spec-plan` 的真正优势恰恰来自：
 
 - confidence check
 - targeted deepening
-- mandatory document-review
+- mandatory spec-doc-review
 - planning-time vs execution-time unknowns separation
 
 这些不能因为要“更好执行”而被弱化。

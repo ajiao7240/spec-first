@@ -30,8 +30,8 @@
 
 当前仓库至少有以下位置直接消费这一 agent 或其 namespace：
 
-- `skills/spec-review/SKILL.md`
-- `skills/spec-review/references/persona-catalog.md`
+- `skills/spec-code-review/SKILL.md`
+- `skills/spec-code-review/references/persona-catalog.md`
 - `tests/smoke/cli.sh`
 
 这些消费点都已经以 `spec-first:review:project-standards-reviewer` 为准。

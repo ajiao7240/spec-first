@@ -17,7 +17,7 @@
 但从“顶尖 AI 研发效能产品”的要求看，当前清单仍有三个需要进一步校正的地方：
 
 1. `13` 个 workflow source set 的结论成立，但它必须被精确定义为“由 `.claude-plugin/plugin.json` 的 `commands` 驱动的 command-backed workflow skill 集合”，而不是泛化成“仓库天然有 13 个 workflow”
-2. “Stage-0 已被主工作流消费”只能写成“`spec-plan/spec-work/spec-review` 已内建 Stage-0 预载逻辑”，不能直接写成“`spec-graph-bootstrap` 已被自动注入主工作流”，因为 `spec-graph-bootstrap` 自身仍声明“自动注入是未来能力”
+2. “Stage-0 已被主工作流消费”只能写成“`spec-plan/spec-work/spec-code-review` 已内建 Stage-0 预载逻辑”，不能直接写成“`spec-graph-bootstrap` 已被自动注入主工作流”，因为 `spec-graph-bootstrap` 自身仍声明“自动注入是未来能力”
 3. 当前清单对 P0/P1 的大方向判断基本正确，但仍漏掉少量会继续传播错误产品面的文件，例如 `skills/setup/SKILL.md` 和 `src/cli/index.js`
 
 一句话判断：
@@ -276,7 +276,7 @@ README 也仍然在传播这个错误产品面：
 
 1. `spec-plan` 有 Stage-0 预载
 2. `spec-work` 有 Stage-0 预载
-3. `spec-review` 有 Stage-0 预载
+3. `spec-code-review` 有 Stage-0 预载
 4. 三者都读取：
    - `docs/contexts/<slug>/...`
    - `.spec-first/workflows/bootstrap/<slug>/...`
@@ -286,7 +286,7 @@ README 也仍然在传播这个错误产品面：
 
 - `skills/spec-plan/SKILL.md:55-96`
 - `skills/spec-work/SKILL.md:22-64`
-- `skills/spec-review/SKILL.md:11-55`
+- `skills/spec-code-review/SKILL.md:11-55`
 
 同时，`spec-graph-bootstrap` 自己又写了：
 

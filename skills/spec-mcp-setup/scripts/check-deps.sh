@@ -4,8 +4,31 @@
 
 set -euo pipefail
 
-# jq 是硬依赖
-command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
+detect_os_without_jq() {
+  local os
+  os="$(uname -s 2>/dev/null || echo "unknown")"
+  case "$os" in
+    Darwin) echo "macos" ;;
+    Linux) echo "linux" ;;
+    MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
+    *) echo "unknown" ;;
+  esac
+}
+
+jq_install_suggestion() {
+  case "$(detect_os_without_jq)" in
+    macos) echo "brew install jq" ;;
+    linux) echo "sudo apt-get install -y jq" ;;
+    windows) echo "winget install jqlang.jq" ;;
+    *) echo "请参考 https://jqlang.github.io/jq/ 安装 jq" ;;
+  esac
+}
+
+# jq 是硬依赖；缺失时无法安全构造完整 JSON facts。
+command -v jq >/dev/null 2>&1 || {
+  echo "错误：jq 是必需依赖，请先安装 jq。建议：$(jq_install_suggestion)" >&2
+  exit 1
+}
 
 # Helper: check if a command exists and get version
 check_command() {

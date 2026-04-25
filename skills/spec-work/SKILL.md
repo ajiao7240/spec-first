@@ -1,148 +1,50 @@
 ---
-name: work-workflow
-description: Execute work plans efficiently while maintaining quality and finishing features
-argument-hint: "[plan file, specification, or todo file path]"
+name: spec-work
+description: Execute work efficiently while maintaining quality and finishing features
+argument-hint: "[Plan doc path or description of work. Blank to auto use latest plan doc]"
 ---
 
-# Work Plan Execution Command
+# Work Execution Command
 
-Execute a work plan efficiently while maintaining quality and finishing features.
+Execute work efficiently while maintaining quality and finishing features.
 
 ## Introduction
 
-This command takes a work document (plan, specification, or todo file) and executes it systematically. The focus is on **shipping complete features** by understanding requirements quickly, following existing patterns, and maintaining quality throughout.
-
-If you have a feature idea or rough description rather than a document, run `/spec:plan` first to produce one — then come back here to execute it.
-If the task is experiment-driven optimization against a stable measurement harness rather than feature delivery, route to `spec-optimize` instead of forcing it through `spec-work`.
+This command takes a work document (plan or specification) or a bare prompt describing the work, and executes it systematically. The focus is on **shipping complete features** by understanding requirements quickly, following existing patterns, and maintaining quality throughout.
 
 ## Input Document
 
 <input_document> #$ARGUMENTS </input_document>
 
-## Stage-0 上下文预载（可选增强，不阻断主工作流）
-
-> 此步骤读取 `spec-graph-bootstrap` 生成的 Stage-0 产物作为增强上下文。
-> 优先以 evaluator 输出 contract 为真源；任何文件缺失、JSON 解析失败、目录不存在均只触发降级，不中止主工作流。
-
-**本 workflow stage 标识**：`work`
-
-### 预载步骤
-
-1. **解析 slug**
-   - 取当前仓库根目录名：`slug = basename(git rev-parse --show-toplevel)`
-   - context 路径：`docs/contexts/<slug>/`
-   - 若命令失败或路径不存在 → 跳过整个预载步骤（Level 3）
-
-2. **读取 control plane contract**
-   - 控制面路径：`.spec-first/workflows/bootstrap/<slug>/`
-   - 优先读取 `context-routing.json` 与 `artifact-manifest.json`
-   - 若存在 `minimal-context/work.json`，视为最高优先级 machine context
-   - 任一关键 contract 缺失或解析失败 → 进入 Level 2 降级
-
-3. **按 evaluator 输出 contract 组织上下文**
-   - 优先以 `selection_subject / selected_contexts` 作为 Stage-0 的解释型真源，回答“命中了谁、为什么命中、当前上下文边界是什么”
-   - `selected_assets / fallback_reason / level / skipped_rules` 保留为 compatibility view；它们必须由解释层单向派生，不再反向决定命中主体
-   - `work` 场景优先读取：
-     - `minimal-context/work.json`
-     - `code-facts/test-map.md`
-     - `context-packs/review-change.md`
-   - `injection-index.yaml` 仅作为人类视图，不再是运行时唯一判定逻辑
-   - 若 runtime 输出 `selection_subject.kind = workspace`，仅把它视为 overview / unresolved fallback，不要把 workspace 当成常规 `L0` 执行主体
-   - 若 `minimal-context/work.json` 提供 `platform_focus`、`required_verifications` 或 `optional_verifications`，将其视为 repo 级 verification summary baseline
-   - 若当前 runtime `verification_summary` 还提供 `source / required_verifications / optional_verifications / recommended_required_verifications / recommended_optional_verifications / repo_required_verifications / repo_optional_verifications`，则以 `required_verifications / optional_verifications` 作为本次运行的 effective checklist；若同时提供顶层 `verifier_dispatch`，则把 `verifier_dispatch.handoff_posture / dispatch_candidates / manual_required_verifications / dispatch_blockers` 视为“候选 verifier + blocker”输入，而不是固定执行树
-   - 若 `verification_summary.source === 'change-surface'`，即使 `required_verifications` 为空，也不要把 `repo_required_verifications / repo_optional_verifications` 回填成当前改动的必跑项；这些字段只用于了解仓库级 baseline
-   - 若当前 runtime 还提供 `ai_dev_quality_gate_result.passed / checks / failures / artifact_path`，则把它视为最近一次 CI/gate 的事实快照；它只回答“最近 gate 发生了什么”，不回答“这次任务必须怎么流转”
-   - 若当前 runtime 还提供 `verification_evidence.evidence_items`，则把它当成独立证据引用清单；它只回答“已有何种证据、来自哪个 verifier、落在哪”，不回答执行编排
-   - 若当前 runtime 还提供 `verification_gate_state.overall_status / required_gates / optional_evidence / blockers / ci_gate`，则用它区分 `pending / blocked / satisfied / not-needed`，不要把它解释成“已经自动完成验证”；只有挂上真实 evidence reference 时，`satisfied` 才成立
-   - **Runtime Stage-0 context（best-effort, pre-resolved JSON）**
-!`repo=$(git rev-parse --show-toplevel 2>/dev/null || pwd); if command -v spec-first >/dev/null 2>&1 && spec-first stage0-context --stage work --workflow spec-work --format json 2>/dev/null; then true; elif [ -f "$repo/bin/spec-first.js" ] && node "$repo/bin/spec-first.js" stage0-context --stage work --workflow spec-work --format json 2>/dev/null; then true; elif [ -f "$repo/node_modules/spec-first/bin/spec-first.js" ] && node "$repo/node_modules/spec-first/bin/spec-first.js" stage0-context --stage work --workflow spec-work --format json 2>/dev/null; then true; else echo '__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__'; fi`
-   - 若输出为 `__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__`，说明 runtime helper 当前不可用；继续按上面的 control plane contract 手工预载，不阻断主任务
-   - 每个文件：存在则读取，缺失则跳过（Level 1）
-   - 默认写一条 Stage-0 telemetry，至少记录 `stage / profile / selection_subject / selected_contexts / selected_assets / fallback_reason / skipped_rules`
-
-4. **Level 2 固定最小集合**（control plane contract 不可用时）
-   - `docs/contexts/<slug>/00-summary.md`
-   - `docs/contexts/<slug>/pitfalls/index.md`
-   - `docs/contexts/<slug>/code-facts/public-entrypoints.md`
-   - `docs/contexts/<slug>/code-facts/test-map.md`
-
-5. **降级说明**
-   - 触发降级时，在响应中一句话说明原因
-   - 不要求用户先补 bootstrap 产物，主任务继续执行
-
-6. **workspace v1 边界**
-   - 默认仍按单仓 Stage-0 消费，不改变现有 selected assets 顺序
-   - 若 runtime 已解析出 workspace / module / nested topology，以 `selection_subject / selected_contexts` 为准，不再把 repo-only 路径假设当成唯一语义
-   - 只有显式提供 `repoRoots` 时，才进入 workspace 聚合路径
-
-### Reload Before Act
-
-Treat freshness and fallback as trust-shaping inputs, not as blockers:
-
-- `L0` and non-stale context: consume Stage-0 directly; no forced reload before editing
-- `L1` with `freshness_stale`: before editing and again before claiming done, re-read the current plan or requirements source plus the most relevant `selected_assets`
-- `L2`: treat Stage-0 as degraded context; re-read the local plan, the touched behavior slice, and the most relevant code facts before continuing
-- `L3` or runtime helper unavailable: continue, but state that bootstrap context is unavailable and rely on direct repo reads
-
-Reload priority should be:
-1. The current user-provided or explicitly referenced plan / requirements document
-2. Stage-0 `selected_assets`
-3. The current diff surface or implementation files
-4. Broader repo context only if still needed
-
-Do not block execution solely because context is stale or partial. Do not present `freshness_stale` as `L0`.
-
-### Run Artifact Contract
-
-Before transitioning into shipping, generate a unique `run_id` for this execution and reserve:
-
-- `artifact_dir = .spec-first/workflows/spec-work/<slug>/<run-id>/`
-- `artifact_dir/run.json` as the single machine-truth artifact
-- `artifact_dir/closure-summary.md` only as an optional human-readable projection of the same facts
-
-The machine artifact contract lives at:
-
-- `docs/contracts/workflows/spec-work-run-artifact.schema.json`
-
-The `run.json` payload should capture at least:
-
-- `schema_version`
-- `generated_at`
-- `workflow`
-- `run_id`
-- `mode`
-- `plan_path`
-- `plan_source`
-- `workspace_slug`
-- optional `git_branch` / `head_sha`
-- `current_core_goal`
-- `changes_made`
-- `plan_deviations`
-- `verification`
-- `residual_risks`
-- `resume_anchor`
-- `next_recommended_action`
-
-Behavior rules:
-
-- `run.json` is the only machine truth. Do not create a second machine-readable summary with overlapping authority.
-- `closure-summary.md`, if written, must be derived from the same structured facts as `run.json`. It is not a second hand-written truth source.
-- `interactive` runs should write `run.json` before shipping and may additionally emit `closure-summary.md`.
-- `non-interactive` runs must still write `run.json`; lack of interaction does not waive closure state capture.
-- If artifact writing fails, surface that failure explicitly. Do not pretend the execution loop closed cleanly.
-
-Downstream handoff rules:
-
-- Prefer explicit handoff when invoking downstream workflows: pass `work_run:<run-id>` or `work_artifact_dir:<artifact_dir>`.
-- Do not treat a leaf file path such as `run.json` as the stable cross-workflow identifier.
-- If explicit handoff is unavailable, downstream workflows may infer the latest matching run from `plan_path + workspace_slug`, optionally narrowed by `git_branch` or `head_sha`.
-- If no matching artifact can be found, downstream workflows should continue in degraded mode rather than block.
-
 ## Execution Workflow
+
+### Phase 0: Input Triage
+
+Determine how to proceed based on what was provided in `<input_document>`.
+
+**Plan document** (input is a file path to an existing plan or specification) → skip to Phase 1.
+
+**Bare prompt** (input is a description of work, not a file path):
+
+1. **Scan the work area**
+
+   - Identify files likely to change based on the prompt
+   - Find existing test files for those areas (search for test/spec files that import, reference, or share names with the implementation files)
+   - Note local patterns and conventions in the affected areas
+
+2. **Assess complexity and route**
+
+   | Complexity | Signals | Action |
+   |-----------|---------|--------|
+   | **Trivial** | 1-2 files, no behavioral change (typo, config, rename) | Proceed to Phase 1 step 2 (environment setup), then implement directly — no task list, no execution loop. Apply Test Discovery if the change touches behavior-bearing code |
+   | **Small / Medium** | Clear scope, under ~10 files | Build a task list from discovery. Proceed to Phase 1 step 2 |
+   | **Large** | Cross-cutting, architectural decisions, 10+ files, touches auth/payments/migrations | Inform the user this would benefit from `/spec:brainstorm` or `/spec:plan` to surface edge cases and scope boundaries. Honor their choice. If proceeding, build a task list and continue to Phase 1 step 2 |
+
+---
 
 ### Phase 1: Quick Start
 
-1. **Read Plan and Clarify**
+1. **Read Plan and Clarify** _(skip if arriving from Phase 0 with a bare prompt)_
 
    - Read the work document completely
    - Treat the plan as a decision artifact, not an execution script
@@ -150,29 +52,12 @@ Downstream handoff rules:
    - Check for `Execution note` on each implementation unit — these carry the plan's execution posture signal for that unit (for example, test-first or characterization-first). Note them when creating tasks.
    - Check for a `Deferred to Implementation` or `Implementation-Time Unknowns` section — these are questions the planner intentionally left for you to resolve during execution. Note them before starting so they inform your approach rather than surprising you mid-task
    - Check for a `Scope Boundaries` section — these are explicit non-goals. Refer back to them if implementation starts pulling you toward adjacent work
-   - Identify the allowed change surface before editing — the files, call sites, and behavior slices that belong to the current task. Derive it from the plan's `Files` / `Scope Boundaries` / `Implementation Units` first; fill in gaps explicitly.
-   - Every changed line must trace to a plan implementation unit, task, or the current user request. If a change has no such trace, stop and reclassify it as a separate follow-up.
-   - If multiple materially different approaches exist, state the tradeoffs before proceeding. (Materially different = different behavior contract, API shape, data structure, or error semantics; naming or ordering variations do not trigger this.)
    - Review any references or links provided in the plan
-   - If Stage-0 runtime `verification_summary` provides `required_verifications`, record `required_verifications / optional_verifications` as the default verification checklist for this run before editing files
-   - If `verification_summary.source === 'change-surface'`, treat empty effective verification lists as a valid outcome for this diff and keep `repo_required_verifications / repo_optional_verifications` as background baseline only
-   - If top-level `verifier_dispatch` exists, treat `dispatch_candidates` as verifier options, `manual_required_verifications` as non-registry gates that still need handling, and `dispatch_blockers` as real blockers to surface before claiming coverage
-   - If `ai_dev_quality_gate_result` exists, treat it as the latest passive CI/gate snapshot only; it can inform judgment, but it must not be treated as a workflow state machine or an auto-blocking orchestration rule
-   - If `verification_evidence` exists, treat `evidence_items` as factual proof references only; they record verifier/output/artifact links, not dispatch instructions
-   - If `verification_gate_state` exists, use `overall_status / required_gates / blockers` to keep an explicit pending-vs-blocked-or-satisfied verification ledger during execution; it is status input, not an auto-dispatch contract
-   - Translate the plan's `Verification` into the run's `Verification-as-Done`. Do not invent a second done contract.
    - If the user explicitly asks for TDD, test-first, or characterization-first execution in this session, honor that request even if the plan has no `Execution note`
-   - Determine mode from caller posture only: `interactive` is the default. Only an explicit caller contract that forbids user interaction makes the run `non-interactive`. `pipeline` and `headless` are examples of `non-interactive` posture, not separate mode enums.
-   - Never infer `non-interactive` from CI environment variables, branch names, or user silence.
-   - Before execution, prepare a short pre-execution checkpoint covering:
-     - `Restated Understanding`
-     - `Current Core Goal`
-     - `Scope / Non-goals`
-     - `Verification-as-Done`
-   - If anything is unclear or ambiguous in a way that blocks safe execution, ask clarifying questions before editing.
-   - In `interactive` mode, present the checkpoint and ask for approval in the same pre-execution block. Do not split checkpoint and approval into separate pauses.
-   - In `non-interactive` mode, do not wait for approval. Carry the same checkpoint facts into task setup and final reporting, then proceed.
-   - **Do not skip this calibration** - better to align once up front than drift through the implementation.
+   - If anything is unclear or ambiguous, ask clarifying questions now
+   - If clarifying questions were needed above, get user approval on the resolved answers. If no clarifications were needed, proceed without a separate approval step — plan scope is the plan's authority, not something to renegotiate
+   - **Do not skip this** - better to ask questions now than build the wrong thing
+   - **Do not edit the plan body during execution.** The plan is a decision artifact; progress lives in git commits and the task tracker. The only plan mutation during spec-work is the final `status: active → completed` flip at shipping (see `references/shipping-workflow.md` Phase 4 Step 2). Legacy plans may contain `- [ ]` / `- [x]` marks on unit headings — ignore them as state; per-unit completion is determined during execution by reading the current file state.
 
 2. **Setup Environment**
 
@@ -189,8 +74,17 @@ Downstream handoff rules:
    ```
 
    **If already on a feature branch** (not the default branch):
-   - Ask: "Continue working on `[current_branch]`, or create a new branch?"
-   - If continuing, proceed to step 3
+
+   First, check whether the branch name is **meaningful** — a name like `feat/crowd-sniff` or `fix/email-validation` tells future readers what the work is about. Auto-generated worktree names (e.g., `worktree-jolly-beaming-raven`) or other opaque names do not.
+
+   If the branch name is meaningless or auto-generated, suggest renaming it before continuing:
+   ```bash
+   git branch -m <meaningful-name>
+   ```
+   Derive the new name from the plan title or work description (e.g., `feat/crowd-sniff`). Present the rename as a recommended option alongside continuing as-is.
+
+   Then ask: "Continue working on `[current_branch]`, or create a new branch?"
+   - If continuing (with or without rename), proceed to step 3
    - If creating new, follow Option A or B below
 
    **If on the default branch**, choose how to proceed:
@@ -218,9 +112,10 @@ Downstream handoff rules:
    - You want to keep the default branch clean while experimenting
    - You plan to switch between branches frequently
 
-3. **Create Todo List**
-   - Use your available task tracking tool (e.g., TodoWrite, task lists) to break the plan into actionable tasks
+3. **Create Task List** _(skip if Phase 0 already built one, or if Phase 0 routed as Trivial)_
+   - Use the platform's task tracking tool (`TaskCreate`/`TaskUpdate`/`TaskList` in Claude Code, `update_plan` in Codex, or the equivalent on other harnesses) to break the plan into actionable tasks
    - Derive tasks from the plan's implementation units, dependencies, files, test targets, and verification criteria
+   - When the plan defines U-IDs for Implementation Units, preserve the unit's U-ID as a prefix in the task subject (e.g., "U3: Add parser coverage"). This keeps blocker references, deferred-work notes, and final summaries anchored to the same identifier the plan uses, so progress and traceability remain unambiguous across plan edits
    - Carry each unit's `Execution note` into the task when present
    - For each unit, read the `Patterns to follow` field before implementing — these point to specific files or conventions to mirror
    - Use each unit's `Verification` field as the primary "done" signal for that task
@@ -236,9 +131,17 @@ Downstream handoff rules:
 
    | Strategy | When to use |
    |----------|-------------|
-   | **Inline** | 1-2 small tasks, or tasks needing user interaction mid-flight |
-   | **Serial subagents** | 3+ tasks with dependencies between them. Each subagent gets a fresh context window focused on one unit — prevents context degradation across many tasks |
-   | **Parallel subagents** | 3+ tasks where some units have no shared dependencies and touch non-overlapping files. Dispatch independent units simultaneously, run dependent units after their prerequisites complete |
+   | **Inline** | 1-2 small tasks, or tasks needing user interaction mid-flight. **Default for bare-prompt work** — bare prompts rarely produce enough structured context to justify subagent dispatch |
+   | **Serial subagents** | 3+ tasks with dependencies between them. Each subagent gets a fresh context window focused on one unit — prevents context degradation across many tasks. Requires plan-unit metadata (Goal, Files, Approach, Test scenarios) |
+   | **Parallel subagents** | 3+ tasks that pass the Parallel Safety Check (below). Dispatch independent units simultaneously, run dependent units after their prerequisites complete. Requires plan-unit metadata |
+
+   **Parallel Safety Check** — required before choosing parallel dispatch:
+
+   1. Build a file-to-unit mapping from every candidate unit's `Files:` section (Create, Modify, and Test paths)
+   2. Check for intersection — any file path appearing in 2+ units means overlap
+   3. If any overlap is found, downgrade to serial subagents. Log the reason (e.g., "Units 2 and 4 share `config/routes.rb` — using serial dispatch"). Serial subagents still provide context-window isolation without shared-directory risks
+
+   Even with no file overlap, parallel subagents sharing a working directory face git index contention (concurrent staging/committing corrupts the index) and test interference (concurrent test runs pick up each other's in-progress changes). The parallel subagent constraints below mitigate these.
 
    **Subagent dispatch** uses your available subagent or task spawning mechanism. For each unit, give the subagent:
    - The full plan file path (for overall context)
@@ -246,11 +149,26 @@ Downstream handoff rules:
    - Any resolved deferred questions relevant to that unit
    - Instruction to check whether the unit's test scenarios cover all applicable categories (happy paths, edge cases, error paths, integration) and supplement gaps before writing tests
 
+   **Parallel subagent constraints** — when dispatching units in parallel (not serial or inline):
+   - Instruct each subagent: "Do not stage files (`git add`), create commits, or run the project test suite. The orchestrator handles testing, staging, and committing after all parallel units complete."
+   - These constraints prevent git index contention and test interference between concurrent subagents
+
    **Permission mode:** Omit the `mode` parameter when dispatching subagents so the user's configured permission settings apply. Do not pass `mode: "auto"` — it overrides user-level settings like `bypassPermissions`.
 
-   After each subagent completes, update the plan checkboxes and task list before dispatching the next dependent unit.
+   **After each subagent completes (serial mode):**
+   1. Review the subagent's diff — verify changes match the unit's scope and `Files:` list
+   2. Run the relevant test suite to confirm the tree is healthy
+   3. If tests fail, diagnose and fix before proceeding — do not dispatch dependent units on a broken tree
+   4. Update the task list (do not edit the plan body — progress is carried by the commit)
+   5. Dispatch the next unit
 
-   For genuinely large plans needing persistent inter-agent communication (agents challenging each other's approaches, shared coordination across 10+ tasks), see Swarm Mode below which uses Agent Teams.
+   **After all parallel subagents in a batch complete:**
+   1. Wait for every subagent in the current parallel batch to finish before acting on any of their results
+   2. Cross-check for discovered file collisions: compare the actual files modified by all subagents in the batch (not just their declared `Files:` lists). Subagents may create or modify files not anticipated during planning — this is expected, since plans describe *what* not *how*. A collision only matters when 2+ subagents in the same batch modified the same file. In a shared working directory, only the last writer's version survives — the other unit's changes to that file are lost. If a collision is detected: commit all non-colliding files from all units first, then re-run the affected units serially for the shared file so each builds on the other's committed work
+   3. For each completed unit, in dependency order: review the diff, run the relevant test suite, stage only that unit's files, and commit with a conventional message derived from the unit's Goal
+   4. If tests fail after committing a unit's changes, diagnose and fix before committing the next unit
+   5. Update the task list (do not edit the plan body — progress is carried by the commits just made)
+   6. Dispatch the next batch of independent units, or the next dependent unit
 
 ### Phase 2: Execute
 
@@ -261,7 +179,8 @@ Downstream handoff rules:
    ```
    while (tasks remain):
      - Mark task as in-progress
-     - Read any referenced files from the plan
+     - Read any referenced files from the plan or discovered during Phase 0
+     - **If the unit's work is already present and matches the plan's intent** (files exist with the expected capability, or the unit's `Verification` criteria are already satisfied by the current code), the work has likely shipped on a prior branch or session. Verify it matches, mark the task complete, and move on. Do not silently reimplement.
      - Look for similar patterns in codebase
      - Find existing test files for implementation files being changed (Test Discovery — see below)
      - Implement following existing conventions
@@ -280,11 +199,6 @@ Downstream handoff rules:
    - Do not skip verifying that a new test fails before implementing the fix or feature
    - Do not over-implement beyond the current behavior slice when working test-first
    - Skip test-first discipline for trivial renames, pure configuration, and pure styling work
-
-   Change discipline guardrails:
-   - Implement the minimum code the current task requires. Do not add single-use abstractions, unrequested configurability, or speculative guards for failure modes the current task does not justify.
-   - Do not bundle opportunistic cleanup into the current change unless it is a direct dependency of the task; explain the reason when you do bundle.
-   - Remove imports, variables, or functions your change made orphan (unused as a result of this change). Do not touch pre-existing dead code unless asked.
 
    **Test Discovery** — Before implementing changes to a file, find its existing test files (search for test/spec files that import, reference, or share naming patterns with the implementation file). When a plan specifies test scenarios or test files, start there, then check for additional test coverage the plan may not have enumerated. Changes to implementation files should be accompanied by corresponding test updates — new tests for new behavior, modified tests for changed behavior, removed or updated tests for deleted behavior.
 
@@ -343,6 +257,8 @@ Downstream handoff rules:
 
    **Note:** Incremental commits use clean conventional messages without attribution footers. The final Phase 4 commit/PR includes the full attribution.
 
+   **Parallel subagent mode:** When units run as parallel subagents, the subagents do not commit — the orchestrator handles staging and committing after the entire parallel batch completes (see Parallel subagent constraints in Phase 1 Step 4). The commit guidance in this section applies to inline and serial execution, and to the orchestrator's commit decisions after parallel batch completion.
+
 3. **Follow Existing Patterns**
 
    - The plan should reference similar code - read those files first
@@ -365,59 +281,27 @@ Downstream handoff rules:
 
    Don't simplify after every single unit — early patterns may look duplicated but diverge intentionally in later units. Wait for a natural phase boundary or when you notice accumulated complexity.
 
-   If a simplify skill or equivalent capability is available, use it. Otherwise, review the changed files yourself for reuse and consolidation opportunities.
-
-   If the current implementation could be noticeably simpler without expanding the task boundary, converge to the simpler version before moving on.
+   If a `/simplify` skill or equivalent is available, use it. Otherwise, review the changed files yourself for reuse and consolidation opportunities.
 
 6. **Figma Design Sync** (if applicable)
 
    For UI work with Figma designs:
 
    - Implement components following design specs
-   - Use figma-design-sync agent iteratively to compare
+   - Use spec-figma-design-sync agent iteratively to compare
    - Fix visual differences identified
    - Repeat until implementation matches design
 
 6. **Track Progress**
    - Keep the task list updated as you complete tasks
    - Note any blockers or unexpected discoveries
-   - Create new tasks if scope expands. When scope expands, classify each new task explicitly as either a `required dependency` (blocks the current task) or a `separate follow-up` (runs in parallel or later). Do not silently expand the current task's boundary.
+   - Create new tasks if scope expands
    - Keep user informed of major milestones
+   - When the plan defines U-IDs for Implementation Units, or the plan or origin document carries stable R-IDs (and optionally A/F/AE IDs), reference them in blockers, deferred-work notes, task summaries, and final verification — not routine status updates. U-IDs anchor units across plan edits; R/A/F/AE anchor product intent across the brainstorm-plan handoff. Use the IDs the plan supplies and do not invent ones it does not. This preserves traceability without burying signal under noise.
 
 ### Phase 3-4: Quality Check and Ship It
 
 When all Phase 2 tasks are complete and execution transitions to quality check, read `references/shipping-workflow.md` for the full shipping workflow: quality checks, code review, final validation, PR creation, and notification.
-
----
-
-## Swarm Mode with Agent Teams (Optional)
-
-For genuinely large plans where agents need to communicate with each other, challenge approaches, or coordinate across 10+ tasks with persistent specialized roles, use agent team capabilities if available (e.g., Agent Teams in Claude Code, multi-agent workflows in Codex).
-
-**Agent teams are typically experimental and require opt-in.** Do not attempt to use agent teams unless the user explicitly requests swarm mode or agent teams, and the platform supports it.
-
-### When to Use Agent Teams vs Subagents
-
-| Agent Teams | Subagents (standard mode) |
-|-------------|---------------------------|
-| Agents need to discuss and challenge each other's approaches | Each task is independent — only the result matters |
-| Persistent specialized roles (e.g., dedicated tester running continuously) | Workers report back and finish |
-| 10+ tasks with complex cross-cutting coordination | 3-8 tasks with clear dependency chains |
-| User explicitly requests "swarm mode" or "agent teams" | Default for most plans |
-
-Most plans should use subagent dispatch from standard mode. Agent teams add significant token cost and coordination overhead — use them when the inter-agent communication genuinely improves the outcome.
-
-If the user explicitly wants Claude Code team primitives such as shared inboxes, `Teammate(...)`, or persistent teammates, route to `orchestrating-swarms` rather than inventing that contract inline here. Otherwise stay in standard subagent mode.
-
-### Agent Teams Workflow
-
-1. **Create team** — use your available team creation mechanism
-2. **Create task list** — parse Implementation Units into tasks with dependency relationships
-3. **Spawn teammates** — assign specialized roles (implementer, tester, reviewer) based on the plan's needs. Give each teammate the plan file path and their specific task assignments
-4. **Coordinate** — the lead monitors task completion, reassigns work if someone gets stuck, and spawns additional workers as phases unblock
-5. **Cleanup** — shut down all teammates, then clean up the team resources
-
----
 
 ## Key Principles
 
@@ -452,18 +336,6 @@ If the user explicitly wants Claude Code team primitives such as shared inboxes,
 - Don't leave features 80% done
 - A finished feature that ships beats a perfect feature that doesn't
 
-## When to Use Reviewer Agents
-
-**Don't use by default.** Use reviewer agents only when:
-
-- Large refactor affecting many files (10+)
-- Security-sensitive changes (authentication, permissions, data access)
-- Performance-critical code paths
-- Complex algorithms or business logic
-- User explicitly requests thorough review
-
-For most features: Tier 1 inline self-review is sufficient — reserve full `spec-review` (Tier 2) for the high-risk cases above.
-
 ## Common Pitfalls to Avoid
 
 - **Analysis paralysis** - Don't overthink, read the plan and execute
@@ -473,3 +345,4 @@ For most features: Tier 1 inline self-review is sufficient — reserve full `spe
 - **Forgetting to track progress** - Update task status as you go or lose track of what's done
 - **80% done syndrome** - Finish the feature, don't move on early
 - **Skipping review** - Every change gets reviewed; only the depth varies
+- **Re-scoping the plan into human-time phases** - The plan's Implementation Units define the scope of execution. Do not estimate human-hours per unit, propose multi-day breakdowns, or ask the user to pick a subset of units for "this session". Agents execute at agent speed, and context-window pressure is addressed by subagent dispatch (Phase 1 Step 4), not by phased sessions. If a plan-file input is genuinely too large for a single execution, say so plainly and suggest the user return to `/spec:plan` to reduce scope — don't invent session phases as a workaround. For bare-prompt input, Phase 0's Large routing already handles oversized work

@@ -1,483 +1,184 @@
 ---
 name: feature-video
-description: Capture reviewer evidence as a GitHub-native video, GIF demo reel, terminal recording, or screenshots, and optionally add it to the PR description. Use when a PR needs visual proof, when the user asks to demo a feature, record a walkthrough, capture screenshots, show CLI output visually, or show what changed in a way reviewers can inspect quickly.
-argument-hint: "[PR number or 'current' or path/to/video.mp4] [optional: base URL, default localhost:3000]"
+description: "Capture a visual demo reel (GIF, terminal recording, screenshots) for PR descriptions. Use when shipping UI changes, CLI features, or any work with observable behavior that benefits from visual proof. Also use when asked to add a demo, record a GIF, screenshot a feature, show what changed visually, create a demo reel, capture evidence, add proof to a PR, or create a before/after comparison."
+argument-hint: "[what to capture, e.g. 'the new settings page' or 'CLI output of the migrate command']"
 ---
 
-# Feature Evidence Capture
+# Demo Reel
 
-Capture reviewer evidence for a change and attach it to the PR when useful.
+Detect project type, recommend a capture tier, record visual evidence, upload to a public URL, and return markdown for PR inclusion.
 
-This skill supports two evidence paths:
+**Evidence means USING THE PRODUCT, not running tests.** "I ran npm test" is test evidence. Evidence capture is running the actual CLI command, opening the web app, making the API call, or triggering the feature. The distinction is absolute -- test output is never labeled "Demo" or "Screenshots."
 
-1. **Tiered evidence capture** -- GIF demo reel, terminal recording, screenshot reel, or static screenshots. Use this when the user asks for screenshots, a GIF, CLI proof, or generic visual evidence, or when a full inline video is unnecessary.
-2. **Native GitHub video upload** -- MP4 walkthrough uploaded to the PR as a GitHub-hosted inline video player. Use this when the user explicitly wants a PR video, provides a PR number/current PR, or already has an `.mp4` artifact to upload.
+If real product usage is impractical (requires API keys, cloud deploy, paid services, bot tokens), say so explicitly: "Real evidence would require [X]. Recommending [fallback approach] instead." Do not silently skip to "no evidence needed" or substitute test output.
 
-If the request is ambiguous, prefer the lightest evidence that proves the change clearly. Do not force an MP4 when screenshots or a GIF communicate the change better.
+Never generate fake or placeholder image/GIF URLs. If upload fails, report the failure.
 
-## Prerequisites
+## Never Record Secrets
 
-- Local development server running (e.g., `bin/dev`, `npm run dev`, `rails server`)
-- `agent-browser` CLI installed (load the `agent-browser` skill for details)
-- `ffmpeg` installed (for video conversion)
-- `gh` CLI authenticated with push access to the repo
-- Git repository on a feature branch (PR optional -- skill can create a draft or record-only)
-- One-time GitHub browser auth (see Step 6 auth check)
+Recordings must never contain credentials — not in commands, output, URL bars, or on-screen UI. If the demo needs a credential, set it before the recording starts, outside the recorded region.
 
-## Native GitHub Video Mode
+**Core principle:** secrets should affect the environment, not the visible transcript. Hidden *real* setup beats visible *fake* setup — fake setup breaks the demo and still leaks the secret's shape.
 
-### 1. Parse Arguments & Resolve PR
+- **Plan it out of frame.** Route every surface where a secret could appear (env exports, CLI flag values, command output, auth headers, URL params, DevTools, config pages) out of the recorded region. Use VHS `Hide`/`Show`; invoke CLIs via env vars, not secret flag values; stay on user-facing pages. Show the authenticated result, not the auth step.
+- **Do not substitute placeholders inside the recording.** Typing a fake `sk-xxxxx` produces a misleading artifact; recapture with the real credential set out of frame instead. Two specific failures:
+  - Re-exporting a fake value visibly (`export API_KEY=REDACTED`) overwrites the real env var, so the demo breaks (401, `Unauthorized`, `0 credits remaining`, empty output). You leak the variable name *and* ship a broken product.
+  - Planning to blur or crop later. Assume anything shown is leaked; recapture is the only remediation.
+- **Scan before upload.** Look for `sk-`, `ghp_`, `ghs_`, `xoxb-`, `Bearer `, `Authorization:`, `?token=`, `api_key=`, long hex/base64 near credential-sounding labels, or visible `.env` contents. If any appear, discard and recapture. Never blur or crop.
 
-**Arguments:** $ARGUMENTS
+## Arguments
 
-Parse the input:
-- First argument: PR number, "current" (defaults to current branch's PR), or path to an existing `.mp4` file (upload-only resume mode)
-- Second argument: Base URL (defaults to `http://localhost:3000`)
+Parse `$ARGUMENTS`:
+- **What to capture**: A description of the feature or behavior to demonstrate. If provided, use it to guide which pages to visit, commands to run, or states to capture.
+- If blank, infer what to capture from recoverable branch or PR context. If the target remains ambiguous after that, ask the user what they want to demonstrate before proceeding.
 
-**Upload-only resume:** If the first argument ends in `.mp4` and the file exists, skip Steps 2-5 and proceed directly to Step 6 using that file. Resolve the PR number from the current branch (`gh pr view --json number -q '.number'`).
+## Step 0: Discover Capture Target
 
-If an explicit PR number was provided, verify it exists and use it directly:
+Treat target discovery as stateless and branch-aware. The agent may be invoked in a fresh session after the work was already done, so do not rely on conversation history or assume the caller knows the right artifact.
 
-```bash
-gh pr view [number] --json number -q '.number'
-```
+If invoked by another skill, treat the caller-provided target as a hint, not proof. Rerun target discovery and validation before capturing anything.
 
-If no explicit PR number was provided (or "current" was specified), check if a PR exists for the current branch:
+Use the lightest available context to identify the best evidence target:
 
-```bash
-gh pr view --json number -q '.number'
-```
+- Current branch name
+- Open PR title and description, if one exists
+- Changed files and diff against the base branch
+- Recent commits
+- A plan file only when it is obviously referenced by the branch, PR, arguments, or caller context
 
-If no PR exists for the current branch, ask the user how to proceed. **Use the platform's blocking question tool** (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini):
+Form a capture hypothesis: "The best evidence appears to be [behavior]."
 
-```
-No PR found for the current branch.
+Proceed without asking only when there is exactly one high-confidence-first observable behavior and a plausible way to exercise it from the workspace. Ask the user what to demonstrate when multiple behaviors are plausible, the diff does not reveal how to exercise the behavior, or the requested target cannot be mapped to a product surface.
 
-1. Create a draft PR now and continue (recommended)
-2. Record video only -- save locally and upload later when a PR exists
-3. Cancel
-```
+Skip evidence with a clear reason when the diff is docs-only, markdown-only, config-only, CI-only, test-only, or a pure internal refactor with no observable output change.
 
-If option 1: create a draft PR with a placeholder title derived from the branch name, then continue with the new PR number:
+## Step 1: Exercise the Feature
 
-```bash
-gh pr create --draft --title "[branch-name-humanized]" --body "Draft PR for video walkthrough"
-```
+Before capturing anything, verify the feature works by actually using it:
 
-If option 2: set `RECORD_ONLY=true`. Proceed through Steps 2-5 (record and encode), skip Steps 6-7 (upload and PR update), and report the local video path and `[RUN_ID]` at the end.
+- **CLI tool**: Run the new/changed command and confirm the output is correct
+- **Web app**: Navigate to the new/changed page and confirm it renders correctly
+- **Library**: Run example code using the new/changed API
+- **Bug fix**: Reproduce the original bug scenario and confirm it's fixed
 
-**Upload-only resume:** To upload a previously recorded video, pass an existing video file path as the first argument (e.g., `.spec-first/workflows/feature-video/1711234567/videos/feature-demo.mp4`). When the first argument is a path to an `.mp4` file, skip Steps 2-5 and proceed directly to Step 6 using that file for upload.
+Use the workspace where the feature was built. Do not reinstall from scratch. If setup requires credentials or services, use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to asking in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
-### 1b. Verify Required Tools
+## Step 2: Detect Project Type
 
-Before proceeding, check that required CLI tools are installed. Fail early with a clear message rather than failing mid-workflow after screenshots have been recorded:
-
-```bash
-command -v ffmpeg
-```
-
-```bash
-command -v agent-browser
-```
-
-```bash
-command -v gh
-```
-
-If any tool is missing, stop and report which tools need to be installed:
-- `ffmpeg`: `brew install ffmpeg` (macOS) or equivalent
-- `agent-browser`: load the `agent-browser` skill for installation instructions
-- `gh`: `brew install gh` (macOS) or see https://cli.github.com
-
-Do not proceed to Step 2 until all tools are available.
-
-### 2. Gather Feature Context
-
-**If a PR is available**, get PR details and changed files:
-
-```bash
-gh pr view [number] --json title,body,files,headRefName -q '.'
-```
-
-```bash
-gh pr view [number] --json files -q '.files[].path'
-```
-
-**If in record-only mode (no PR)**, detect the default branch and derive context from the branch diff. Run both commands in a single block so the variable persists:
-
-```bash
-DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q '.defaultBranchRef.name') && git diff --name-only "$DEFAULT_BRANCH"...HEAD && git log --oneline "$DEFAULT_BRANCH"...HEAD
-```
-
-Map changed files to routes/pages that should be demonstrated. Examine the project's routing configuration (e.g., `routes.rb`, `next.config.js`, `app/` directory structure) to determine which URLs correspond to the changed files.
-
-### 3. Plan the Video Flow
-
-Before recording, create a shot list:
-
-1. **Opening shot**: Homepage or starting point (2-3 seconds)
-2. **Navigation**: How user gets to the feature
-3. **Feature demonstration**: Core functionality (main focus)
-4. **Edge cases**: Error states, validation, etc. (if applicable)
-5. **Success state**: Completed action/result
-
-Present the proposed flow to the user for confirmation before recording.
-
-**Use the platform's blocking question tool when available** (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present numbered options and wait for the user's reply before proceeding:
-
-```
-Proposed Video Flow for PR #[number]: [title]
-
-1. Start at: /[starting-route]
-2. Navigate to: /[feature-route]
-3. Demonstrate:
-   - [Action 1]
-   - [Action 2]
-   - [Action 3]
-4. Show result: [success state]
-
-Estimated duration: ~[X] seconds
-
-1. Start recording
-2. Modify the flow (describe changes)
-3. Add specific interactions to demonstrate
-```
-
-### 4. Record the Walkthrough
-
-Generate a unique run ID (e.g., timestamp) and create per-run output directories. This prevents stale screenshots from prior runs being spliced into the new video.
-
-**Important:** Shell variables do not persist across separate code blocks. After generating the run ID, substitute the concrete value into all subsequent commands in this workflow. For example, if the timestamp is `1711234567`, use that literal value in all paths below -- do not rely on `[RUN_ID]` expanding in later blocks.
-
-```bash
-date +%s
-```
-
-Use the output as RUN_ID. Create the directories with the concrete value:
-
-```bash
-mkdir -p .spec-first/workflows/feature-video/[RUN_ID]/screenshots
-mkdir -p .spec-first/workflows/feature-video/[RUN_ID]/videos
-```
-
-Execute the planned flow, capturing each step with agent-browser. Number screenshots sequentially for correct frame ordering:
-
-```bash
-agent-browser open "[base-url]/[start-route]"
-agent-browser wait 2000
-agent-browser screenshot .spec-first/workflows/feature-video/[RUN_ID]/screenshots/01-start.png
-```
-
-```bash
-agent-browser snapshot -i
-agent-browser click @e1
-agent-browser wait 1000
-agent-browser screenshot .spec-first/workflows/feature-video/[RUN_ID]/screenshots/02-navigate.png
-```
-
-```bash
-agent-browser snapshot -i
-agent-browser click @e2
-agent-browser wait 1000
-agent-browser screenshot .spec-first/workflows/feature-video/[RUN_ID]/screenshots/03-feature.png
-```
-
-```bash
-agent-browser wait 2000
-agent-browser screenshot .spec-first/workflows/feature-video/[RUN_ID]/screenshots/04-result.png
-```
-
-### 5. Create Video
-
-Stitch screenshots into an MP4 using the same `[RUN_ID]` from Step 4:
-
-```bash
-ffmpeg -y -framerate 0.5 -pattern_type glob -i ".spec-first/workflows/feature-video/[RUN_ID]/screenshots/*.png" \
-  -c:v libx264 -pix_fmt yuv420p -vf "scale=1280:-2" \
-  ".spec-first/workflows/feature-video/[RUN_ID]/videos/feature-demo.mp4"
-```
-
-Notes:
-- `-framerate 0.5` = 2 seconds per frame. Adjust for faster/slower playback.
-- `-2` in scale ensures height is divisible by 2 (required for H.264).
-
-### 6. Authenticate & Upload to GitHub
-
-Upload produces a `user-attachments/assets/` URL that GitHub renders as a native inline video player -- the same result as pasting a video into the PR editor manually.
-
-The approach: close any existing agent-browser session, start a Chrome-engine session with saved GitHub auth, navigate to the PR page, set the video file on the comment form's hidden file input, wait for GitHub to process the upload, extract the resulting URL, then clear the textarea without submitting.
-
-#### Check for existing session
-
-First, check if a saved GitHub session already exists:
-
-```bash
-agent-browser close
-agent-browser --engine chrome --session-name github open https://github.com/settings/profile
-agent-browser get title
-```
-
-If the page title contains the user's GitHub username or "Profile", the session is still valid -- skip to "Upload the video" below. If it redirects to the login page, the session has expired or was never created -- proceed to "Auth setup".
-
-#### Auth setup (one-time)
-
-Establish an authenticated GitHub session. This only needs to happen once -- session cookies persist across runs via the `--session-name` flag.
-
-Close the current session and open the GitHub login page in a headed Chrome window:
-
-```bash
-agent-browser close
-agent-browser --engine chrome --headed --session-name github open https://github.com/login
-```
-
-The user must log in manually in the browser window (handles 2FA, SSO, OAuth -- any login method). **Use the platform's blocking question tool** (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present the message and wait for the user's reply before proceeding:
-
-```
-GitHub login required for video upload.
-
-A Chrome window has opened to github.com/login. Please log in manually
-(this handles 2FA/SSO/OAuth automatically). Reply when done.
-```
-
-After login, verify the session works:
-
-```bash
-agent-browser open https://github.com/settings/profile
-```
-
-If the profile page loads, auth is confirmed. The `github` session is now saved and reusable.
-
-#### Upload the video
-
-Navigate to the PR page and scroll to the comment form:
-
-```bash
-agent-browser open "https://github.com/[owner]/[repo]/pull/[number]"
-agent-browser scroll down 5000
-```
-
-Save any existing textarea content before uploading (the comment box may contain an unsent draft):
-
-```bash
-agent-browser eval "document.getElementById('new_comment_field').value"
-```
-
-Store this value as `SAVED_TEXTAREA`. If non-empty, it will be restored after extracting the upload URL.
-
-Upload the video via the hidden file input. Use the caller-provided `.mp4` path if in upload-only resume mode, otherwise use the current run's encoded video:
-
-```bash
-agent-browser upload '#fc-new_comment_field' [VIDEO_FILE_PATH]
-```
-
-Where `[VIDEO_FILE_PATH]` is either:
-- The `.mp4` path passed as the first argument (upload-only resume mode)
-- `.spec-first/workflows/feature-video/[RUN_ID]/videos/feature-demo.mp4` (normal recording flow)
-
-Wait for GitHub to process the upload (typically 3-5 seconds), then read the textarea value:
-
-```bash
-agent-browser wait 5000
-agent-browser eval "document.getElementById('new_comment_field').value"
-```
-
-**Validate the extracted URL.** The value must contain `user-attachments/assets/` to confirm a successful native upload. If the textarea is empty, contains only placeholder text, or the URL does not match, do not proceed to Step 7. Instead:
-
-1. Check `agent-browser get url` -- if it shows `github.com/login`, the session expired. Re-run auth setup.
-2. If still on the PR page, wait an additional 5 seconds and re-read the textarea (GitHub processing can be slow).
-3. If validation still fails after retry, report the failure and the local video path so the user can upload manually.
-
-Restore the original textarea content (or clear if it was empty). A JSON-encoded string is also a valid JavaScript string literal, so assign it directly without `JSON.parse`:
-
-```bash
-agent-browser eval "const ta = document.getElementById('new_comment_field'); ta.value = [SAVED_TEXTAREA_AS_JS_STRING]; ta.dispatchEvent(new Event('input', { bubbles: true }))"
-```
-
-To prepare the value: take the SAVED_TEXTAREA string and produce a JS string literal from it -- escape backslashes, double quotes, and newlines (e.g., `"text with \"quotes\" and\nnewlines"`). If SAVED_TEXTAREA was empty, use `""`. The result is embedded directly as the right-hand side of the assignment -- no `JSON.parse` call needed.
-
-### 7. Update PR Description
-
-Get the current PR body:
-
-```bash
-gh pr view [number] --json body -q '.body'
-```
-
-Append a Demo section (or replace an existing one). The video URL renders as an inline player when placed on its own line:
-
-```markdown
-## Demo
-
-https://github.com/user-attachments/assets/[uuid]
-
-*Automated video walkthrough*
-```
-
-Update the PR:
-
-```bash
-gh pr edit [number] --body "[updated body with demo section]"
-```
-
-### 8. Cleanup
-
-Ask the user before removing temporary files. If confirmed, clean up only the current run's scratch directory (other runs may still be in progress or awaiting upload).
-
-**If the video was successfully uploaded**, remove the entire run directory:
-
-```bash
-rm -r .spec-first/workflows/feature-video/[RUN_ID]
-```
-
-**If in record-only mode or upload failed**, remove only the screenshots but preserve the video so the user can upload later:
-
-```bash
-rm -r .spec-first/workflows/feature-video/[RUN_ID]/screenshots
-```
-
-Present a completion summary:
-
-```
-Feature Video Complete
-
-PR: #[number] - [title]
-Video: [VIDEO_URL]
-
-Shots captured:
-1. [description]
-2. [description]
-3. [description]
-4. [description]
-
-PR description updated with demo section.
-```
-
-## Tiered Evidence Mode
-
-Use this path when the change is better demonstrated as a GIF, terminal reel, or screenshots, or when the user asked for general visual evidence rather than a GitHub-native inline video.
-
-### A. Discover the capture target
-
-Treat target discovery as branch-aware and evidence-first. Use the lightest available context:
-
-- current branch name
-- open PR title/body when a PR exists
-- changed files and diff against the base branch
-- recent commits
-- a referenced plan file only when it is clearly tied to the branch or request
-
-Form a hypothesis such as: "The clearest evidence is [behavior]."
-
-If there are multiple plausible observable behaviors and none is clearly primary, ask the user what to demonstrate before capturing anything.
-
-### B. Exercise the actual product
-
-Evidence means using the product, not running tests. Before capture:
-
-- **CLI tool** -- run the changed command and confirm the output is correct
-- **Web app** -- open the changed route and confirm it renders/behaves correctly
-- **Library** -- run an example that exercises the new API
-- **Bug fix** -- reproduce the original scenario and confirm the fixed state
-
-If real product usage requires credentials, paid services, or environment the agent cannot create, say so explicitly and fall back to the lightest honest evidence mode.
-
-### C. Detect project type
-
-Choose the directory that best represents the changed surface, then run:
+Use the capture target from Step 0 to decide which directory to classify. If the diff touches a specific subdirectory with its own package manifest (e.g., `packages/cli/`, `apps/web/`), pass that as the root. Otherwise use the repo root.
 
 ```bash
 python3 scripts/capture-demo.py detect --repo-root [TARGET_DIR]
 ```
 
-This returns a JSON classification such as `web-app`, `cli-tool`, `desktop-app`, `library`, or `text-only`.
+This outputs JSON with `type` and `reason`. The result is a signal, not a gate. If the agent's understanding from Step 0 contradicts the script's classification (e.g., the diff clearly changes CLI behavior but the repo root classifies as `web-app` because of a sibling Next.js app), the agent's judgment wins.
 
-### D. Classify the change
+## Step 3: Assess Change Type
 
-Classify the observable behavior:
+Step 0 already handled the "no observable behavior" early exit. This step classifies changes that DO have observable behavior into `motion` or `states` to guide tier selection.
 
-- `motion` -- animations, typing, drag-and-drop, streaming output, interactive terminal flows
-- `states` -- before/after UI, a page render, a command result, screenshots of distinct states
+If arguments describe what to capture, classify based on the description. Otherwise, use the diff context from Step 0.
 
-### E. Preflight required tools
+**Change classification:**
+
+1. **Involves motion or interaction?** (animations, typing flows, drag-and-drop, real-time updates, continuous CLI output) -> classify as `motion`.
+2. **Involves discrete states?** (before/after UI, new page, command with output, API response) -> classify as `states`.
+
+| Change characteristic | Classification |
+|---|---|
+| Animations, typing, drag-and-drop, streaming output | `motion` |
+| New UI, before/after, command output, API responses | `states` |
+
+**Feature vs bug fix -- what to demonstrate:**
+
+- **New feature (`feat`)**: Demonstrate the feature working. Show the hero moment -- the feature doing its thing.
+- **Bug fix (`fix`)**: Show before AND after. Reproduce the original broken state (if possible) then show the fix. If the broken state can't be reproduced (already fixed in the workspace), capture the fixed state and describe what was broken.
+
+Infer feat vs fix from commit messages, branch name, or plan file frontmatter (`type: feat` or `type: fix`). If unclear, ask.
+
+## Step 4: Tool Preflight
+
+Run the preflight check:
 
 ```bash
 python3 scripts/capture-demo.py preflight
 ```
 
-Summarize the available tools (`agent-browser`, `vhs`, `silicon`, `ffmpeg`, `ffprobe`) for the user before recommending a tier.
+This outputs JSON with boolean availability for each tool: `agent_browser`, `vhs`, `silicon`, `ffmpeg`, `ffprobe`. Print a human-readable summary for the user based on the result, noting install commands for missing tools (e.g., `brew install charmbracelet/tap/vhs` for vhs, `brew install silicon` for silicon, `brew install ffmpeg` for ffmpeg).
 
-### F. Create a run directory
+## Step 5: Create Run Directory
+
+Create a per-run scratch directory in the OS temp location:
 
 ```bash
-mktemp -d -t feature-evidence-XXXXXX
+mktemp -d -t demo-reel-XXXXXX
 ```
 
-Use the resulting path as `RUN_DIR` for all tier-specific steps below.
+Use the output as `RUN_DIR`. Pass this concrete run directory to every tier reference. Evidence artifacts are ephemeral — they get uploaded to a public URL and then discarded. The OS temp directory is the right place for them, not the repo tree.
 
-### G. Recommend a tier and confirm
+## Step 6: Recommend Tier and Ask User
 
-Use the detection result, change type, and preflight JSON:
+Run the recommendation script with the project type from Step 2, change classification from Step 3, and preflight JSON from Step 4:
 
 ```bash
 python3 scripts/capture-demo.py recommend --project-type [TYPE] --change-type [motion|states] --tools '[PREFLIGHT_JSON]'
 ```
 
-Present the available tiers and mark the recommended option:
+This outputs JSON with `recommended` (the best tier), `available` (list of tiers whose tools are present), and `reasoning`.
 
-1. **Browser reel** -- best for web or desktop UI changes
-2. **Terminal recording** -- best for CLI interaction or motion
-3. **Screenshot reel** -- best for discrete CLI states
-4. **Static screenshots** -- best fallback or simple state capture
-5. **No evidence needed** -- only when the diff is clearly non-observable
+Present the available tiers to the user via the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question. Mark the recommended tier. Always include "No evidence needed" as a final option.
 
-### H. Execute the selected tier
+**Question:** "How should evidence be captured for this change?"
 
-Load the matching reference and follow it using the concrete `RUN_DIR`:
+**Options** (show only tiers from the `available` list, order by recommendation):
+1. **Browser reel** -- Agent-browser screenshots stitched into animated GIF. Best for web apps.
+2. **Terminal recording** -- VHS terminal recording to GIF. Best for CLI tools with interaction/motion.
+3. **Screenshot reel** -- Styled terminal frames stitched into animated GIF. Best for discrete CLI steps.
+4. **Static screenshots** -- Individual PNGs. Fallback when other tools are unavailable.
+5. **No evidence needed** -- The diff speaks for itself. Best for text-only or config changes.
 
-- `references/tier-browser-reel.md`
-- `references/tier-terminal-recording.md`
-- `references/tier-screenshot-reel.md`
-- `references/tier-static-screenshots.md`
+If the question tool is unavailable (background agent, batch mode), present the numbered options and wait for the user's reply before proceeding.
 
-Use `scripts/capture-demo.py` as the shared pipeline for preflight, detection, recommendation, stitching, preview upload, and permanent upload.
+## Step 7: Execute Selected Tier
 
-### I. Upload, approval, and PR update
+Carry the capture hypothesis from Step 0 and the feature exercise results from Step 1 into tier execution — these determine which specific pages to visit, commands to run, or states to screenshot. Substitute `[RUN_DIR]` in the tier reference with the concrete path from Step 5.
 
-Read `references/upload-and-approval.md` after the tier produces an artifact.
+Load the appropriate reference file for the selected tier:
 
-If a PR exists and the user wants the evidence attached:
+- **Browser reel** -> Read `references/tier-browser-reel.md`
+- **Terminal recording** -> Read `references/tier-terminal-recording.md`
+- **Screenshot reel** -> Read `references/tier-screenshot-reel.md`
+- **Static screenshots** -> Read `references/tier-static-screenshots.md`
+- **No evidence needed** -> Skip to output. Set `evidence_url` to null, `evidence_label` to null.
 
-- For GIF/video-like evidence, append or replace a `## Demo` section
-- For PNG screenshots, append or replace a `## Screenshots` section
+**Runtime failure fallback:** If the selected tier fails during execution (tool crashes, server not accessible, recording produces empty output), fall back to the next available tier rather than failing entirely. The fallback order is: browser reel -> static screenshots, terminal recording -> screenshot reel -> static screenshots, screenshot reel -> static screenshots. Static screenshots is the terminal fallback -- if even that fails, report the failure and let the user decide.
 
-If no PR exists, return the permanent evidence URL(s) and a one-line summary of what they show.
+## Step 8: Upload and Approval
 
-## Example Inputs
+After the selected tier produces an artifact, read `references/upload-and-approval.md` for upload to a public host, user approval gate, and markdown embed generation.
 
-Load the `feature-video` skill with one of these argument shapes:
+## Output
 
-- `current` — record evidence for the current branch's PR
-- `847` — record evidence for PR `#847`
-- `847 http://localhost:5000` — record against a custom local base URL
-- `current https://staging.example.com` — record against a staging environment
-- `.spec-first/workflows/feature-video/1711234567/videos/feature-demo.mp4` — resume in upload-only mode with an existing MP4
+Return these values to the caller (e.g., git-commit-push-pr):
 
-## Tips
+```
+=== Evidence Capture Complete ===
+Tier: [browser-reel / terminal-recording / screenshot-reel / static / skipped]
+Description: [1 sentence describing what the evidence shows]
+URL: [public URL or "none" (multiple URLs comma-separated for static screenshots)]
+Path: [local file path or "none" (multiple paths comma-separated for static screenshots)]
+=== End Evidence ===
+```
 
-- Keep it short: 10-30 seconds is ideal for PR demos
-- Focus on the change: don't include unrelated UI
-- Show before/after: if fixing a bug, show the broken state first (if possible)
-- The `--session-name github` session expires when GitHub invalidates the cookies (typically weeks). If upload fails with a login redirect, re-run the auth setup.
-- GitHub DOM selectors (`#fc-new_comment_field`, `#new_comment_field`) may change if GitHub updates its UI. If the upload silently fails, inspect the PR page for updated selectors.
+The `Description` is a 1-line summary derived from the capture hypothesis in Step 0 (e.g., "CLI detect command classifying 3 project types and recommending capture tiers"). The caller decides how to format the URL(s) into the PR description.
 
-## Troubleshooting
+- `Tier: skipped` means no evidence was captured; both `URL` and `Path` are `"none"`.
+- When uploaded to catbox: `URL` has the public URL, `Path` is `"none"`.
+- When saved locally: `Path` has the local file path, `URL` is `"none"`.
+- For all non-skipped tiers, exactly one of `URL` or `Path` contains a real value; the other is `"none"`.
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| `ffmpeg: command not found` | ffmpeg not installed | Install via `brew install ffmpeg` (macOS) or equivalent |
-| `agent-browser: command not found` | agent-browser not installed | Load the `agent-browser` skill for installation instructions |
-| Textarea empty after upload wait | Session expired, or GitHub processing slow | Check session validity (Step 6 auth check). If valid, increase wait time and retry. |
-| Textarea empty, URL is `github.com/login` | Session expired | Re-run auth setup (Step 6) |
-| `gh pr view` fails | No PR for current branch | Step 1 handles this -- choose to create a draft PR or record-only mode |
-| Video file too large for upload | Exceeds GitHub's 10MB (free) or 100MB (paid) limit | Re-encode: lower framerate (`-framerate 0.33`), reduce resolution (`scale=960:-2`), or increase CRF (`-crf 28`) |
-| Upload URL does not contain `user-attachments/assets/` | Wrong upload method or GitHub change | Verify the file input selector is still correct by inspecting the PR page |
+**Label convention:**
+- Browser reel, terminal recording, screenshot reel: label as "Demo"
+- Static screenshots: label as "Screenshots"
+- The caller applies the label when formatting. feature-video does not generate markdown.
+- Test output is never labeled "Demo" or "Screenshots"

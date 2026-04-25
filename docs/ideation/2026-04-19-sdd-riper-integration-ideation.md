@@ -58,11 +58,11 @@ status: initial
 
 **Status:** Unexplored
 
-### 3. 在 `spec-review` 顶层增加三轴 Review Verdict
+### 3. 在 `spec-code-review` 顶层增加三轴 Review Verdict
 
 **Description:** 在 persona findings 合并后，增加一个顶层三轴 verdict：`Requirement Completion`、`Plan/Diff Fidelity`、`Intrinsic Code Quality`。这不是替代 17 persona，而是把多角色 findings 聚合成更容易决策的审查矩阵。
 
-**Rationale:** sdd-riper 的三轴 review 很适合补齐 `spec-first` 的“最后决策视图”。当前 `spec-review` persona 很强，但输出可能偏 finding 列表；三轴 verdict 可以帮助用户判断：需求是否完成、实现是否忠实于计划、代码本身是否值得合并。
+**Rationale:** sdd-riper 的三轴 review 很适合补齐 `spec-first` 的“最后决策视图”。当前 `spec-code-review` persona 很强，但输出可能偏 finding 列表；三轴 verdict 可以帮助用户判断：需求是否完成、实现是否忠实于计划、代码本身是否值得合并。
 
 **Downsides:** 需要避免把三轴 verdict 写成硬 gate。它应该是审查摘要和决策输入，具体是否阻断仍由 severity、routing、用户判断和分支保护决定。
 
@@ -88,7 +88,7 @@ status: initial
 
 ### 5. 把 `Restate First / Core Goal as Loop Anchor` 融入高风险 workflow
 
-**Description:** 对 `spec-plan`、`spec-work`、`spec-debug`、`spec-review` 加入轻量规则：任务开始、执行前、发现偏差、验证收尾时，必须重新对齐“当前核心目标是否变化、还差什么、下一步唯一动作是什么”。
+**Description:** 对 `spec-plan`、`spec-work`、`spec-debug`、`spec-code-review` 加入轻量规则：任务开始、执行前、发现偏差、验证收尾时，必须重新对齐“当前核心目标是否变化、还差什么、下一步唯一动作是什么”。
 
 **Rationale:** 这能直接降低上下文腐烂和范围蔓延。它比完整 RIPER 更轻，也不需要新增 CLI 机制。对 `spec-debug` 尤其有帮助，因为 debug 很容易从“定位根因”漂移成“顺手改很多相关问题”。
 
@@ -184,7 +184,7 @@ status: initial
 
 覆盖 Idea 3。
 
-目标是让 `spec-review` 在 persona findings 之外输出三轴 verdict，提升最终决策可读性。
+目标是让 `spec-code-review` 在 persona findings 之外输出三轴 verdict，提升最终决策可读性。
 
 Archive 双视角和多项目边界建议作为后续主题，不与前三个混做。
 

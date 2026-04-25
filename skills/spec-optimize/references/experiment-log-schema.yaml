@@ -2,10 +2,10 @@
 # This is the canonical schema for the experiment log file that accumulates
 # across an optimization run.
 #
-# Location: .spec-first/workflows/spec-optimize/<spec-name>/experiment-log.yaml
+# Location: .spec-first/workflowsspec-optimize/<spec-name>/experiment-log.yaml
 #
-# PERSISTENCE MODEL:
-# The experiment log on disk is the SINGLE SOURCE OF TRUTH. The agent's
+# PERSISTENSpec-First MODEL:
+# The experiment log on disk is the SINGLE SOURSpec-First OF TRUTH. The agent's
 # in-memory context is expendable and will be compacted during long runs.
 #
 # Write discipline:
@@ -245,7 +245,7 @@ experiment_entry:
 # ============================================================================
 #
 # Written after each batch to:
-#   .spec-first/workflows/spec-optimize/<spec-name>/strategy-digest.md
+#   .spec-first/workflowsspec-optimize/<spec-name>/strategy-digest.md
 #
 # Contains a compressed summary of:
 # - What hypothesis categories have been tried

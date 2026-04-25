@@ -37,7 +37,7 @@ deepened: 2026-04-22
 - 不重写 `src/bootstrap-compiler/` 的事实抽取、routing 或 workspace fan-out 主链。
 - 不新增中心化 gate 系统，不把 workflow 改造成自动执行树。
 - 不在本次范围内引入新的 `spec-first graph-bootstrap` 包级执行子命令，除非实现过程中发现不新增该 surface 无法消除核心误导。
-- 不顺手扩张到 `spec-plan`、`spec-work`、`spec-review` 之外的 workflow contract 重写。
+- 不顺手扩张到 `spec-plan`、`spec-work`、`spec-code-review` 之外的 workflow contract 重写。
 
 ### Deferred to Separate Tasks
 

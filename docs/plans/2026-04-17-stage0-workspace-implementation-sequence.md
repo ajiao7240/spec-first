@@ -271,7 +271,7 @@
 
 - `skills/spec-plan/SKILL.md`
 - `skills/spec-work/SKILL.md`
-- `skills/spec-review/SKILL.md`
+- `skills/spec-code-review/SKILL.md`
 - `docs/10-prompt/skills/` 对应镜像
 - 相关 contract tests
 - 如涉及治理边界，补相关 governance 文档与 lint/tests

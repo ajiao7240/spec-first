@@ -52,7 +52,7 @@
 - `spec-plan`
 - `spec-work`
 - `spec-debug`
-- `spec-review`
+- `spec-code-review`
 - `spec-compound`
 - `spec-sessions`
 - `spec-graph-bootstrap`
@@ -491,7 +491,7 @@
 - 文件：`skills/spec-graph-bootstrap/SKILL.md`
 - 问题：
   - 仍写“Automatic injection into the five-stage workflow is a future capability”
-  - 但 `spec-plan`、`spec-work`、`spec-review` 已经内建 Stage-0 预载逻辑
+  - 但 `spec-plan`、`spec-work`、`spec-code-review` 已经内建 Stage-0 预载逻辑
   - 当前这些预载段落点名上游是 `spec-graph-bootstrap` 产物，而不是直接宣告 `spec-graph-bootstrap` 自动注入
 - 影响：
   - 主 workflow 叙事前后矛盾

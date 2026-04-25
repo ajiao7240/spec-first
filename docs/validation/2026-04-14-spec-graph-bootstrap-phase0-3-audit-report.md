@@ -7,7 +7,7 @@
 - 源 skill / command / plugin 接线
 - 控制面产物与目录契约
 - `docs/contexts/spec-first/` 样本目录
-- Stage-0 消费接入（`spec-plan` / `spec-work` / `spec-review`）
+- Stage-0 消费接入（`spec-plan` / `spec-work` / `spec-code-review`）
 - 单元测试与验证记录闭环
 
 本次审查**以当前仓库已收敛的实现契约为准**，不以历史需求草案中的旧路径作为验收标准。当前有效基线为：
@@ -40,7 +40,7 @@
 1. `graph-bootstrap` 命令入口已注册，并绑定 `spec-graph-bootstrap`。
 2. `spec-graph-bootstrap` 源 skill 已统一收敛到 `.spec-first/workflows/bootstrap/<slug>/` 与 `artifact-manifest.json`。
 3. `docs/contexts/spec-first/` 已作为受控样本与测试基线纳入仓库。
-4. `spec-plan`、`spec-work`、`spec-review` 已接入 Stage-0 上下文预载规则。
+4. `spec-plan`、`spec-work`、`spec-code-review` 已接入 Stage-0 上下文预载规则。
 5. 单测已覆盖 `.gitignore`、schema `updated_at` 契约、`public-entrypoints.md` 去重注入三项关键收敛点。
 
 当前残留问题主要是：
@@ -190,7 +190,7 @@ Phase 2 已具备稳定 task contract，不是临时拼接，**符合预期**。
 
 - `docs/contexts/spec-first/injection-index.yaml:1-30`
 
-#### B. `spec-plan` / `spec-work` / `spec-review` 已完成 Stage-0 消费接入
+#### B. `spec-plan` / `spec-work` / `spec-code-review` 已完成 Stage-0 消费接入
 三份源 skill 已接入统一的 Stage-0 预载语义：
 
 - 先加载 `always[]`
@@ -203,7 +203,7 @@ Phase 2 已具备稳定 task contract，不是临时拼接，**符合预期**。
 
 - `skills/spec-plan/SKILL.md`
 - `skills/spec-work/SKILL.md`
-- `skills/spec-review/SKILL.md`
+- `skills/spec-code-review/SKILL.md`
 
 #### C. 当前样本已避免 `public-entrypoints.md` 在 plan/work 重复注入
 单测要求 `plan` / `work` block 内不得直接包含 `code-facts/public-entrypoints.md`，只允许通过 `selection_rules` 的 `output_exists.code_facts_public_entrypoints` 条件注入。当前样本 YAML 满足此约束。

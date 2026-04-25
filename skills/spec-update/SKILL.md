@@ -1,160 +1,97 @@
 ---
-name: update-workflow
+name: spec-update
 description: |
-  Check whether the installed spec-first CLI and the current project's managed runtime are up to date,
-  then repair managed runtime drift when needed. Use when the user says "update spec-first",
-  "check spec-first version", "spec update", "is spec-first up to date", or reports problems
-  that might stem from an outdated CLI or stale managed runtime under .claude/ or .codex/.
+  Check if the spec-first plugin is up to date and recommend the
+  update command if not. Use when the user says "update spec-first",
+  "check spec-first version", "spec-first update", "is spec-first
+  up to date", "update spec-first plugin", or reports issues that might stem from a
+  stale spec-first plugin version. This skill only works in Claude
+  Code — it relies on the plugin harness cache layout.
 disable-model-invocation: true
-argument-hint: "[check|repair]"
+ce_platforms: [claude]
 ---
 
-# Check & Repair Spec-First Runtime
+# Check Plugin Version
 
-Verify the installed `spec-first` CLI version, compare it with the latest npm release,
-and check whether the current project's managed runtime state is in sync for Claude and Codex.
-
-This workflow is intentionally broader than upstream `ce-update`:
-
-- `spec-first` is distributed as an npm CLI, not a Claude marketplace plugin
-- runtime drift happens per project under `.claude/spec-first/` and `.codex/spec-first/`
-- the right repair action is usually `spec-first init --claude|--codex`, not cache deletion
+Verify the installed spec-first plugin version matches the upstream
+`plugin.json` on `main`, and recommend the update command if it doesn't.
+Claude Code only.
 
 ## Pre-resolved context
 
-**Current CLI version:**
-!`current=""; if command -v spec-first >/dev/null 2>&1; then current=$(spec-first --version 2>/dev/null | sed -n 's/.*Spec-First v\([0-9][0-9A-Za-z.+-]*\).*/\1/p' | head -1); fi; if [ -z "$current" ]; then repo=$(git rev-parse --show-toplevel 2>/dev/null || true); if [ -n "$repo" ] && [ -f "$repo/bin/spec-first.js" ] && [ -f "$repo/package.json" ] && node -e 'const fs=require("fs");const p=process.argv[1];try{const pkg=JSON.parse(fs.readFileSync(p,"utf8"));process.exit(pkg&&pkg.name==="spec-first"?0:1);}catch(_error){process.exit(1);}' "$repo/package.json"; then current=$(node "$repo/bin/spec-first.js" --version 2>/dev/null | sed -n 's/.*Spec-First v\([0-9][0-9A-Za-z.+-]*\).*/\1/p' | head -1); fi; fi; if [ -n "$current" ]; then echo "$current"; else echo '__SPEC_UPDATE_CURRENT_FAILED__'; fi`
+Only the **Skill directory** determines whether this session is Claude Code —
+if empty or unresolved, the skill requires Claude Code. The other sections may
+contain error sentinels even in valid Claude Code sessions; the decision logic
+below handles those cases.
 
-**Latest released version:**
-!`npm view spec-first version 2>/dev/null || echo '__SPEC_UPDATE_LATEST_FAILED__'`
+`${CLAUDE_SKILL_DIR}` is a Claude Code-documented substitution that resolves
+at skill-load time. For a marketplace-cached install it looks like
+`~/.claude/plugins/cache/<marketplace>/spec-first/<version>/skills/spec-update`,
+so the currently-loaded version is the basename two `dirname` levels up.
 
-**Repo root:**
-!`git rev-parse --show-toplevel 2>/dev/null || echo '__SPEC_UPDATE_NO_REPO__'`
+The upstream version comes from `plugins/spec-first/.claude-plugin/plugin.json`
+on `main` rather than the latest GitHub release tag, because the marketplace
+installs plugin contents from `main` HEAD. Comparing against release tags
+false-positives whenever `main` is ahead of the last tag (the normal state
+between releases).
 
-**Claude runtime state:**
-!`repo=$(git rev-parse --show-toplevel 2>/dev/null || true); if [ -z "$repo" ]; then echo '__SPEC_UPDATE_NO_REPO__'; else if [ ! -d "$repo/.claude/spec-first" ]; then echo '{"status":"not-installed"}'; elif [ ! -f "$repo/.claude/spec-first/state.json" ]; then echo '{"status":"partial"}'; else node -e 'const fs=require("fs");const p=process.argv[1];try{const raw=JSON.parse(fs.readFileSync(p,"utf8"));const req=["commands","skills","workflowSkills","agents","agentSupportFiles"];const legacy=req.some((key)=>!Array.isArray(raw[key]));if(typeof raw.manifestVersion!=="string"||raw.manifestVersion.length===0){console.log(JSON.stringify({status:legacy?"legacy":"invalid"}));}else if(legacy){console.log(JSON.stringify({status:"legacy",recorded:raw.manifestVersion}));}else{console.log(JSON.stringify({status:"ok",recorded:raw.manifestVersion}));}}catch(_error){console.log(JSON.stringify({status:"invalid"}));}' "$repo/.claude/spec-first/state.json"; fi; fi`
+**Skill directory:**
+!`echo "${CLAUDE_SKILL_DIR}"`
 
-**Codex runtime state:**
-!`repo=$(git rev-parse --show-toplevel 2>/dev/null || true); if [ -z "$repo" ]; then echo '__SPEC_UPDATE_NO_REPO__'; else if [ ! -d "$repo/.codex/spec-first" ]; then echo '{"status":"not-installed"}'; elif [ ! -f "$repo/.codex/spec-first/state.json" ]; then echo '{"status":"partial"}'; else node -e 'const fs=require("fs");const p=process.argv[1];try{const raw=JSON.parse(fs.readFileSync(p,"utf8"));const req=["commands","skills","workflowSkills","agents","agentSupportFiles"];const legacy=req.some((key)=>!Array.isArray(raw[key]));if(typeof raw.manifestVersion!=="string"||raw.manifestVersion.length===0){console.log(JSON.stringify({status:legacy?"legacy":"invalid"}));}else if(legacy){console.log(JSON.stringify({status:"legacy",recorded:raw.manifestVersion}));}else{console.log(JSON.stringify({status:"ok",recorded:raw.manifestVersion}));}}catch(_error){console.log(JSON.stringify({status:"invalid"}));}' "$repo/.codex/spec-first/state.json"; fi; fi`
+**Latest upstream version:**
+!`version=$(gh api repos/sunrain520/spec-first/contents/plugins/spec-first/.claude-plugin/plugin.json --jq '.content | @base64d | fromjson | .version' 2>/dev/null) && [ -n "$version" ] && echo "$version" || echo '__SPEC_UPDATE_VERSION_FAILED__'`
+
+**Currently loaded version:**
+!`case "${CLAUDE_SKILL_DIR}" in */plugins/cache/*/spec-first/*/skills/spec-update) basename "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")" ;; *) echo '__SPEC_UPDATE_NOT_MARKETPLASPEC__' ;; esac`
+
+**Marketplace name:**
+!`case "${CLAUDE_SKILL_DIR}" in */plugins/cache/*/spec-first/*/skills/spec-update) basename "$(dirname "$(dirname "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")")")" ;; *) echo '__SPEC_UPDATE_NOT_MARKETPLASPEC__' ;; esac`
 
 ## Decision logic
 
-### 1. CLI availability gate
+### 1. Platform gate
 
-If **Current CLI version** contains `__SPEC_UPDATE_CURRENT_FAILED__` or is empty:
+If **Skill directory** is empty or unresolved: tell the user this skill
+requires Claude Code and stop. No further action.
 
-- Tell the user that both PATH-based CLI inspection and repo-local source checkout inspection failed, so the current `spec-first` CLI could not be inspected.
-- If they expected this repo to be a repo-local source checkout of `spec-first`, tell them to verify `node bin/spec-first.js --version` still works from the repo root.
-- Otherwise, recommend reinstalling the CLI first:
+### 2. Handle failure cases
 
-```bash
-npm install -g spec-first@latest
-```
+If **Latest upstream version** contains `__SPEC_UPDATE_VERSION_FAILED__`: tell
+the user the upstream version could not be fetched (gh may be unavailable or
+rate-limited) and stop.
 
-Stop here.
+If **Currently loaded version** contains `__SPEC_UPDATE_NOT_MARKETPLASPEC__`: this
+session loaded the skill from outside the standard marketplace cache (typical
+when using `claude --plugin-dir` for local development, or for a non-standard
+install). Tell the user (substituting the actual path):
 
-If the repo-local source checkout fallback succeeded:
+> "Skill is loaded from `{skill-directory}` — not the standard marketplace
+> cache at `~/.claude/plugins/cache/`. This is normal when using
+> `claude --plugin-dir` for local development. No action for this session.
+> Your marketplace install (if any) is unaffected — run `/spec:update` in a
+> regular Claude Code session (no `--plugin-dir`) to check that cache."
 
-- Treat that version as authoritative for the current repo-local source checkout.
-- Continue with the latest release comparison and runtime drift checks below.
+Then stop.
 
-### 2. Latest release check
+### 3. Compare versions
 
-If **Latest released version** contains `__SPEC_UPDATE_LATEST_FAILED__`:
+**Up to date** — `{currently loaded} == {latest upstream}`:
 
-- Tell the user the latest npm release could not be fetched.
-- Continue with project runtime inspection below; the runtime drift check still provides value.
+> "spec-first **v{version}** is installed and up to date."
 
-If both versions are available:
+**Out of date** — `{currently loaded} != {latest upstream}`:
 
-- If `current == latest`, tell the user the installed CLI is current.
-- If `current != latest`, tell the user the CLI is outdated and recommend:
+> "spec-first is on **v{currently loaded}** but **v{latest upstream}** is available.
+>
+> Update with:
+> ```
+> claude plugin update spec-first@{marketplace-name}
+> ```
+> Then restart Claude Code to apply."
 
-```bash
-npm install -g spec-first@latest
-```
-
-### 3. Project scope gate
-
-If **Repo root** contains `__SPEC_UPDATE_NO_REPO__`:
-
-- Tell the user there is no git repo context, so only the CLI version check was possible.
-- Do not attempt project runtime repair.
-- Stop here.
-
-### 4. Runtime repair matrix
-
-Inspect **Claude runtime state** and **Codex runtime state** independently.
-
-#### Status: `not-installed`
-
-- No managed runtime is installed for that host in this repo.
-- Tell the user nothing is broken for that host; initialize it only if they want that host:
-
-```bash
-spec-first init --claude
-```
-
-or
-
-```bash
-spec-first init --codex
-```
-
-#### Status: `ok`
-
-- Compare the recorded version with **Current CLI version**.
-- If they match, tell the user that host runtime is in sync.
-- If they differ, the runtime is stale. Recommend:
-
-```bash
-spec-first init --claude
-```
-
-or
-
-```bash
-spec-first init --codex
-```
-
-#### Status: `legacy`
-
-- The repo still has a legacy managed state shape.
-- Recommend re-running init for that host. This performs the supported managed reset path:
-
-```bash
-spec-first init --claude
-```
-
-or
-
-```bash
-spec-first init --codex
-```
-
-#### Status: `partial` or `invalid`
-
-- The runtime is present but incomplete or unreadable.
-- Recommend a clean rebuild for that host:
-
-```bash
-spec-first clean --claude
-spec-first init --claude
-```
-
-or
-
-```bash
-spec-first clean --codex
-spec-first init --codex
-```
-
-### 5. Verification
-
-After any repair action, recommend:
-
-```bash
-spec-first doctor
-```
-
-Use the `doctor` output as the final confirmation that CLI version, managed state, and runtime assets are back in sync.
+The `claude plugin update` command ships with Claude Code itself and updates
+installed plugins to their latest version; it replaces earlier manual cache
+sweep / marketplace-refresh workarounds. The marketplace name is derived from
+the skill path rather than hardcoded because this plugin is distributed under
+multiple marketplace names (for example, `spec-first` for
+public installs per the README, or other names for internal/team marketplaces).

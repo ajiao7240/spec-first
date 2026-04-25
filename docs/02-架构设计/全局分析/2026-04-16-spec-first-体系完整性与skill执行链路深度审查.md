@@ -96,7 +96,7 @@
 
 3. **Workflow control plane**  
    负责把 `brainstorm -> plan -> work -> review -> compound` 这些流程固化成 command wrapper + workflow skill contract。  
-   代码核心：`.claude-plugin/plugin.json:12-103`、`templates/claude/commands/spec/plan.md:8-16`、`templates/claude/commands/spec/work.md:8-17`、`templates/claude/commands/spec/review.md:8-17`
+   代码核心：`.claude-plugin/plugin.json:12-103`、`templates/claude/commands/spec/plan.md:8-16`、`templates/claude/commands/spec/work.md:8-17`、`templates/claude/commands/spec/code-review.md:8-17`
 
 ### 3.2 直接判断
 
@@ -230,7 +230,7 @@ Claude/Codex runtime assets      .spec-first/graph/*
 - `plan -> spec-plan`
 - `work -> spec-work`
 - `debug -> spec-debug`
-- `review -> spec-review`
+- `review -> spec-code-review`
 - `compound -> spec-compound`
 - `sessions -> spec-sessions`
 - `bootstrap -> spec-graph-bootstrap`（当前代码里仍存在，但按产品演进定位应视为历史兼容入口，不纳入后续优化主轴）
@@ -296,7 +296,7 @@ Codex 的额外特征：
 
 - `spec:plan`：`templates/claude/commands/spec/plan.md:8-16`
 - `spec:work`：`templates/claude/commands/spec/work.md:8-17`
-- `spec:review`：`templates/claude/commands/spec/review.md:8-17`
+- `spec:code-review`：`templates/claude/commands/spec/code-review.md:8-17`
 - `spec:graph-bootstrap`：`templates/claude/commands/spec/graph-bootstrap.md:8-18`
 - `spec:compound`：`templates/claude/commands/spec/compound.md:8-17`
 - `spec:debug`：`templates/claude/commands/spec/debug.md:8-16`
@@ -349,8 +349,8 @@ Codex 的额外特征：
 - `spec:work`  
   从 plan 出发执行，带 branch/worktree、测试、shipping 流程，见 `skills/spec-work/SKILL.md:66-120`、`skills/spec-work/SKILL.md:287-310`
 
-- `spec:review`  
-  不是单 reviewer，而是分层 persona review pipeline，见 `skills/spec-review/SKILL.md:80-99`、`skills/spec-review/SKILL.md:133-176`
+- `spec:code-review`  
+  不是单 reviewer，而是分层 persona review pipeline，见 `skills/spec-code-review/SKILL.md:80-99`、`skills/spec-code-review/SKILL.md:133-176`
 
 - `spec:compound`  
   形成知识沉淀到 `docs/solutions/`，见 `templates/claude/commands/spec/compound.md:12-17`、`skills/spec-compound/SKILL.md:9-13`
@@ -565,7 +565,7 @@ spec:graph-bootstrap
 
 - `package.json:9-19` 已经声明 `test:unit`、`test:smoke`、`test:integration`、`test:e2e:crg`
 - `tests/e2e/spec-graph-bootstrap-mainline.sh:21-78` 实测 `runBootstrap -> evaluator -> telemetry` 的 Stage-0 compiler mainline
-- `spec-review` 还能写 run artifact，见 `skills/spec-review/SKILL.md:92-99`、`skills/spec-review/SKILL.md:615-623`
+- `spec-code-review` 还能写 run artifact，见 `skills/spec-code-review/SKILL.md:92-99`、`skills/spec-code-review/SKILL.md:615-623`
 
 判断：
 
@@ -611,7 +611,7 @@ spec-first init
 ```
 
 ```text
-/spec:review
+/spec:code-review
    -> optional Stage-0 preload
    -> spawn persona reviewers
    -> merge/dedup findings
@@ -685,7 +685,7 @@ spec-first init
 - runtime state：`.claude/spec-first/state.json` / `.codex/spec-first/state.json`
 - Stage-0 control plane：`.spec-first/workflows/bootstrap/<slug>/`
 - workflow telemetry：`.spec-first/workflows/<workflow>/<slug>/`
-- review artifact：`.spec-first/workflows/spec-review/<run-id>/`
+- review artifact：`.spec-first/workflows/spec-code-review/<run-id>/`
 - durable docs：`docs/contexts/`、`docs/plans/`、`docs/solutions/`
 
 判断：
@@ -753,11 +753,11 @@ spec-first init
 
 ### 11.4 把 Stage-0 evaluator 真正接进 workflow runtime
 
-当前 `spec-plan/spec-work/spec-review` 都在 `SKILL.md` 里写了 Stage-0 预载流程，但这仍主要是 contract 级定义，见：
+当前 `spec-plan/spec-work/spec-code-review` 都在 `SKILL.md` 里写了 Stage-0 预载流程，但这仍主要是 contract 级定义，见：
 
 - `skills/spec-plan/SKILL.md:55-99`
 - `skills/spec-work/SKILL.md:22-64`
-- `skills/spec-review/SKILL.md:11-55`
+- `skills/spec-code-review/SKILL.md:11-55`
 
 建议：
 

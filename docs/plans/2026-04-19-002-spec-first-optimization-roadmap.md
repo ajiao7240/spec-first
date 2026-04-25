@@ -701,7 +701,7 @@ Would keep user-owned files:
 
 - `skills/spec-plan/SKILL.md`
 - `skills/spec-work/SKILL.md`
-- `skills/spec-review/SKILL.md`
+- `skills/spec-code-review/SKILL.md`
 - `docs/10-prompt/skills/*`
 - `tests/unit/spec-plan-contracts.test.js`
 - `tests/unit/spec-work-contracts.test.js`

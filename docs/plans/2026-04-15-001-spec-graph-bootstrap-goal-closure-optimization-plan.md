@@ -14,7 +14,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 
 - `spec-first crg` 已成为可运行的本地事实引擎
 - `spec-graph-bootstrap` 已形成 Phase 0-4 的源 skill 契约
-- `spec-plan` / `spec-work` / `spec-review` 已写入 Stage-0 预载入口
+- `spec-plan` / `spec-work` / `spec-code-review` 已写入 Stage-0 预载入口
 - 安装、命令接线、运行时适配、CRG e2e 已基本打通
 
 但如果以终为始，真正要达成的目标不是“生成更多文档”，而是：
@@ -73,7 +73,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 
 - CRG 本地事实引擎已可运行，且 `build / stats / context / query / review-context` 等链路已有自动化验证。
 - `spec-first init --claude/--codex` 已能把 `graph-bootstrap` 命令、skill、agent 正确同步到运行时。
-- `spec-plan / spec-work / spec-review` 已具备“先读 `injection-index.yaml`，失败时降级”的入口约束。
+- `spec-plan / spec-work / spec-code-review` 已具备“先读 `injection-index.yaml`，失败时降级”的入口约束。
 - Host readiness、graph readiness、native module readiness 已有明确的检测与降级路径。
 
 ## 4.2 仍未闭环的问题
@@ -91,7 +91,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 
 ### B. 消费入口已经接上，但消费执行仍偏软约束
 
-当前 `spec-plan / spec-work / spec-review` 里写的是“应读取哪些文件”。这对 agent 是重要提示，但不等于有一个确定性 evaluator 在执行：
+当前 `spec-plan / spec-work / spec-code-review` 里写的是“应读取哪些文件”。这对 agent 是重要提示，但不等于有一个确定性 evaluator 在执行：
 
 - 解析 slug
 - 读取 yaml
@@ -106,7 +106,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 当前最缺的不是再多一个 `context-pack`，而是回答这些问题：
 
 - 加入 Stage-0 后，`spec-plan` 是否少扫了无关文件
-- `spec-review` 是否更稳定命中高风险模块与相关测试
+- `spec-code-review` 是否更稳定命中高风险模块与相关测试
 - fallback 命中率是多少
 - 被注入文件中，真正被引用的比例是多少
 - 同一任务在有无 Stage-0 时，输出质量是否有显著差异
@@ -210,7 +210,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 
 ### 当前问题
 
-`spec-plan / spec-work / spec-review` 虽然写了预载步骤，但并没有一个仓库内共享的、确定性的求值器来完成：
+`spec-plan / spec-work / spec-code-review` 虽然写了预载步骤，但并没有一个仓库内共享的、确定性的求值器来完成：
 
 - slug 解析
 - context 目录发现
@@ -283,7 +283,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 但没有强证明：
 
 - `spec-plan` 实际少读了哪些无关文件
-- `spec-review` 实际多命中了哪些高价值上下文
+- `spec-code-review` 实际多命中了哪些高价值上下文
 - Stage-0 是否影响了输出质量
 
 ### 优化方案
@@ -592,7 +592,7 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 只有当以下问题都能以证据回答时，才可以认为目标达成：
 
 1. `spec-plan` 是否稳定命中正确的模块地图与入口文件
-2. `spec-review` 是否稳定命中高风险模块、review-change 和相关测试
+2. `spec-code-review` 是否稳定命中高风险模块、review-change 和相关测试
 3. agent 是否减少了无关文件扫描
 4. fallback 是否可解释且不会误导主任务
 5. 关键路由规则是否由统一 evaluator 求值

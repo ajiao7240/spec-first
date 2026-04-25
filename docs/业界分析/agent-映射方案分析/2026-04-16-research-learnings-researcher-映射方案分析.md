@@ -54,7 +54,7 @@
 `learnings-researcher` 在当前仓库是核心 research agent，而不是边缘补充：
 
 - `skills/spec-plan/SKILL.md`
-- `skills/spec-review/SKILL.md`
+- `skills/spec-code-review/SKILL.md`
 - `skills/spec-brainstorm/SKILL.md`
 - `skills/spec-ideate/SKILL.md`
 - `skills/spec-optimize/SKILL.md`

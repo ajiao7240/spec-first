@@ -1,7 +1,7 @@
 # spec-first 在 0-1 新项目与 1-10-100 存量项目中的需求开发能力与价值说明
 
 > 文档性质：场景化能力说明
-> 适用范围：`spec-graph-bootstrap`、`spec-ideate`、`spec-brainstorm`、`spec-plan`、`spec-work`、`spec-review`、`spec-compound`
+> 适用范围：`spec-graph-bootstrap`、`spec-ideate`、`spec-brainstorm`、`spec-plan`、`spec-work`、`spec-code-review`、`spec-compound`
 > 关联文档：
 > - `docs/01-需求分析/7.项目知识/spec-first-harness-engineering-改造技术方案.md`
 > - `docs/05-用户手册/02-核心概念.md`
@@ -114,7 +114,7 @@
    用来产出 `proposal / design / tasks / doubt points`，把模糊需求编译成可执行 spec。
 4. `spec-work`
    用来按照 `build -> lint-arch -> test -> verify` 的节奏实现，而不是边写边猜。
-5. `spec-review`
+5. `spec-code-review`
    用来在第一批实现里尽早发现架构错误、验证缺口、边界问题。
 6. `spec-compound`
    用来把第一批踩坑尽快沉淀成 pattern、procedure、failure memory。
@@ -168,7 +168,7 @@
    不再从零分析仓库，而是优先走 `reference-first + history-first`
 3. `spec-work`
    先找参照、再 preflight、再写 glue code
-4. `spec-review`
+4. `spec-code-review`
    在已有 pitfall / high-risk area 基础上做更精准的专项检查
 5. `spec-compound`
    把每次需求交付进一步回流成更强的知识和样板
@@ -387,7 +387,7 @@
 | `spec-plan` | 把模糊需求编译成可执行 spec | 把 reference/history 纳入差异说明 |
 | `spec-graph-bootstrap` | 初始化最小上下文与规则骨架 | 抽取仓库结构、pitfalls、patterns、索引 |
 | `spec-work` | 按 spec 落地，避免乱写第一版 | 先找参照、再写 glue code |
-| `spec-review` | 尽早拦截错误骨架和验证缺口 | 基于已有高风险区域做精准审查 |
+| `spec-code-review` | 尽早拦截错误骨架和验证缺口 | 基于已有高风险区域做精准审查 |
 | `spec-compound` | 把最早的踩坑沉淀下来 | 持续把实战经验回流成团队资产 |
 
 ---

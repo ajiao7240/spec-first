@@ -1,4 +1,4 @@
-# document-review/product-lens-reviewer 映射方案分析
+# spec-doc-review/product-lens-reviewer 映射方案分析
 
 ## 1. 结论摘要
 
@@ -15,8 +15,8 @@
 
 ### 2.1 对比文件
 
-- 上游文件：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/document-review/product-lens-reviewer.md`
-- 当前文件：`/Users/kuang/xiaobu/spec-first/agents/document-review/product-lens-reviewer.md`
+- 上游文件：`/Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineering/agents/spec-doc-review/product-lens-reviewer.md`
+- 当前文件：`/Users/kuang/xiaobu/spec-first/agents/spec-doc-review/product-lens-reviewer.md`
 
 ### 2.2 当前差异状态
 
@@ -34,7 +34,7 @@
 
 ### 2.3 宿主 skill 核对
 
-当前仓库的 [document-review/SKILL.md](/Users/kuang/xiaobu/spec-first/skills/document-review/SKILL.md) 仍保留更强的 product-lens 激活规则，包括：
+当前仓库的 [spec-doc-review/SKILL.md](/Users/kuang/xiaobu/spec-first/skills/spec-doc-review/SKILL.md) 仍保留更强的 product-lens 激活规则，包括：
 
 - `premise claims`
 - `strategic weight`
@@ -67,7 +67,7 @@
 
 它的直接影响是：
 
-- `document-review` 在产品维度的审查能力恢复到上游完整水平
+- `spec-doc-review` 在产品维度的审查能力恢复到上游完整水平
 - 对 internal / external / hybrid 产品语境的判断不再缺失
 - 战略后果审查从单点 trajectory 恢复为多维度分析
 

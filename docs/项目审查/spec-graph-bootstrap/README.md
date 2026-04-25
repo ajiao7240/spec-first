@@ -3,7 +3,7 @@
 本目录用于集中存放 `spec-graph-bootstrap` 的专项审查与整改规划文档。  
 主题聚焦于一个核心问题：
 
-`spec-graph-bootstrap` 当前是否正在为 `spec-plan`、`spec-work`、`spec-review` 提供足够真实、可追溯、可降级的 Stage-0 决策输入。
+`spec-graph-bootstrap` 当前是否正在为 `spec-plan`、`spec-work`、`spec-code-review` 提供足够真实、可追溯、可降级的 Stage-0 决策输入。
 
 ## 阅读顺序
 

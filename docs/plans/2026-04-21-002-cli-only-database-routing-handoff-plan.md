@@ -34,7 +34,7 @@ date: 2026-04-21
 - 不恢复 `database/` 文档生成。
 - 不新增 `postgres-cli`、`sqlite-cli` 等新 route。
 - 不扩展 `fact-inventory.database[]` 的字段。
-- 不改 `spec-plan` / `spec-work` / `spec-review` 的主流程，只更新它们消费的 database handoff 真源。
+- 不改 `spec-plan` / `spec-work` / `spec-code-review` 的主流程，只更新它们消费的 database handoff 真源。
 
 ## Relevant Files
 

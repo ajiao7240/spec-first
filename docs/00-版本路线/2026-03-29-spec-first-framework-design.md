@@ -123,7 +123,7 @@ updated_at: 2026-03-29T11:10:00+08:00
 | `/spec:brainstorm` | 思路发散、方案探索 | 问题定义、背景、目标 | 候选方案、取舍分析 |
 | `/spec:plan` | 任务拆解、路径设计 | brainstorm 结论、约束 | 任务清单、验收标准 |
 | `/spec:work` | 执行落地、产出生成 | plan 结果、模板 | 文档草稿、分析结论、执行记录或阶段性交付物 |
-| `/spec:review` | 质量校验、问题识别 | work 产物、评审维度 | 评分、问题清单、修订建议 |
+| `/spec:code-review` | 质量校验、问题识别 | work 产物、评审维度 | 评分、问题清单、修订建议 |
 | `/spec:compound` | 资产沉淀、知识提炼 | 已通过产物 | 模板、SOP、案例 |
 
 ### 3.2 参数设计
@@ -578,7 +578,7 @@ review 是否通过采用双重判定机制，而非单纯依赖总分：
 - `/spec:brainstorm`
 - `/spec:plan`
 - `/spec:work`
-- `/spec:review`
+- `/spec:code-review`
 - `/spec:compound`
 
 **参数支持**：

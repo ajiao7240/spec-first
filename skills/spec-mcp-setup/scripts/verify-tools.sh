@@ -23,4 +23,5 @@ mv "$tmp" "$MARKER_PATH"
 
 echo "📝 宿主就绪标记已更新: $MARKER_PATH"
 echo "🔎 当前宿主基线状态: $(jq -r '.overall_status' <<<"$FACTS_JSON")"
+echo "🧭 MCP baseline_ready: $(jq -r '.baseline_ready' <<<"$FACTS_JSON")"
 echo "✅ readiness ledger 已写入"

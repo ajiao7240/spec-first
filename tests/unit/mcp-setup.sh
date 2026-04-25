@@ -125,6 +125,19 @@ assert_output "Sequential Thinking package remains current" "@modelcontextprotoc
 assert_output "Playwright remains optional" "false" "$(jq -r '.tools[] | select(.id == "playwright") | .required' "$TOOLS_JSON")"
 assert "uninstall-mcp.sh exists" test -f "$SCRIPTS_DIR/uninstall-mcp.sh"
 assert "uninstall-mcp.ps1 exists" test -f "$SCRIPTS_DIR/uninstall-mcp.ps1"
+missing_jq_dir="$TMP_DIR/no-jq-bin"
+mkdir -p "$missing_jq_dir"
+ln -s /bin/bash "$missing_jq_dir/bash"
+ln -s /bin/uname "$missing_jq_dir/uname" 2>/dev/null || ln -s /usr/bin/uname "$missing_jq_dir/uname"
+missing_jq_stderr="$TMP_DIR/missing-jq.stderr"
+if PATH="$missing_jq_dir" bash "$SCRIPTS_DIR/check-deps.sh" >"$TMP_DIR/missing-jq.stdout" 2>"$missing_jq_stderr"; then
+  missing_jq_status=0
+else
+  missing_jq_status=$?
+fi
+assert_output "check-deps.sh exits non-zero when jq is missing" "1" "$missing_jq_status"
+assert_contains "missing jq reports hard prerequisite" "jq 是必需依赖" "$(cat "$missing_jq_stderr")"
+assert_contains "missing jq reports install suggestion" "建议：" "$(cat "$missing_jq_stderr")"
 
 
 echo ""
@@ -262,6 +275,27 @@ assert "install-mcp.sh with explicit playwright returns valid JSON" jq -e . <<<"
 assert_output "installer includes explicit playwright result" "true" "$(jq -r '.results | any(.tool_id == "playwright")' <<<"$install_playwright_output")"
 assert_output "installer writes playwright host config" "npx" "$(jq -r '.mcpServers.playwright.command' "$FAKE_HOME2/.claude.json")"
 assert_output "installer writes playwright host args" "true" "$(jq -r '.mcpServers.playwright.args == ["-y","@playwright/mcp@latest"]' "$FAKE_HOME2/.claude.json")"
+install_skip_optional_output="$(cd "$FAKE_REPO2" && PATH="$TEST_PATH" HOME="$FAKE_HOME2" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --skip playwright 2>/dev/null || true)"
+assert "install-mcp.sh with optional skip returns valid JSON" jq -e . <<<"$install_skip_optional_output"
+assert_output "optional skip still includes serena" "true" "$(jq -r '.results | any(.tool_id == "serena")' <<<"$install_skip_optional_output")"
+assert_output "optional skip excludes playwright" "false" "$(jq -r '.results | any(.tool_id == "playwright")' <<<"$install_skip_optional_output")"
+install_skip_required_output="$(cd "$FAKE_REPO2" && PATH="$TEST_PATH" HOME="$FAKE_HOME2" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --skip serena 2>/dev/null || true)"
+assert "install-mcp.sh with required skip returns valid JSON" jq -e . <<<"$install_skip_required_output"
+assert_output "required skip reports action-required" "action-required" "$(jq -r '.results | map(select(.tool_id == "serena"))[0].status' <<<"$install_skip_required_output")"
+assert_output "required skip reports invalid_required_skip" "invalid_required_skip" "$(jq -r '.results | map(select(.tool_id == "serena"))[0].reason_code' <<<"$install_skip_required_output")"
+FAIL_BIN="$TMP_DIR/fail-bin"
+mkdir -p "$FAIL_BIN"
+cat > "$FAIL_BIN/npx" <<'EOF'
+#!/bin/bash
+echo 'simulated "warmup" failure' >&2
+exit 42
+EOF
+chmod +x "$FAIL_BIN/npx"
+install_warmup_fail_output="$(cd "$FAKE_REPO2" && PATH="$FAIL_BIN:$TEST_PATH" HOME="$FAKE_HOME2" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --install context7 2>/dev/null || true)"
+assert "install-mcp.sh warmup failure returns valid JSON" jq -e . <<<"$install_warmup_fail_output"
+assert_output "warmup failure reports reason code" "warmup_failed" "$(jq -r '.results | map(select(.tool_id == "context7"))[0].reason_code' <<<"$install_warmup_fail_output")"
+assert_output "warmup failure records exit code" "42" "$(jq -r '.results | map(select(.tool_id == "context7"))[0].exit_code' <<<"$install_warmup_fail_output")"
+assert_output "warmup failure records bounded diagnostic" "true" "$(jq -r '.results | map(select(.tool_id == "context7"))[0].diagnostic_summary | contains("warmup")' <<<"$install_warmup_fail_output")"
 uninstall_output="$(HOME="$FAKE_HOME2" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/uninstall-mcp.sh" --tool playwright 2>/dev/null || true)"
 assert "uninstall-mcp.sh returns valid JSON" jq -e . <<<"$uninstall_output"
 assert_output "uninstall reports removed playwright" "playwright" "$(jq -r '.removed_tools[0]' <<<"$uninstall_output")"
@@ -298,6 +332,7 @@ cat > "$VERIFY_HOME/.serena/index-ready.json" <<'EOF'
 EOF
 verify_output=$(cd "$VERIFY_HOME" && PATH="$TEST_PATH" HOME="$VERIFY_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh" 2>&1)
 assert_contains "verify output updates marker" "宿主就绪标记已更新" "$verify_output"
+assert_contains "verify output shows baseline_ready" "MCP baseline_ready:" "$verify_output"
 ledger_path="$VERIFY_HOME/.claude/spec-first/host-setup.json"
 assert "ledger file exists" test -f "$ledger_path"
 assert_output "schema_version v1" "v1" "$(jq -r '.schema_version' "$ledger_path")"
@@ -311,16 +346,12 @@ assert_output "next_actions is array" "array" "$(jq -r '.next_actions | type' "$
 echo ""
 echo "6. Skill and reference validation"
 SKILL_MD="$REPO_ROOT/skills/spec-mcp-setup/SKILL.md"
-PROMPT_SKILL_MD="$REPO_ROOT/docs/10-prompt/skills/spec-mcp-setup/SKILL.md"
 REF_MD="$REPO_ROOT/skills/spec-mcp-setup/references/supported-mcp-tools.md"
 GRAPH_BOOTSTRAP_SKILL_MD="$REPO_ROOT/skills/spec-graph-bootstrap/SKILL.md"
-GRAPH_BOOTSTRAP_PROMPT_SKILL_MD="$REPO_ROOT/docs/10-prompt/skills/spec-graph-bootstrap/SKILL.md"
 CHECK_HEALTH="$REPO_ROOT/skills/spec-mcp-setup/scripts/check-health"
 CONFIG_TEMPLATE="$REPO_ROOT/skills/spec-mcp-setup/references/config-template.yaml"
 skill_body="$(cat "$SKILL_MD")"
-prompt_skill_body="$(cat "$PROMPT_SKILL_MD")"
 graph_bootstrap_skill_body="$(cat "$GRAPH_BOOTSTRAP_SKILL_MD")"
-graph_bootstrap_prompt_skill_body="$(cat "$GRAPH_BOOTSTRAP_PROMPT_SKILL_MD")"
 assert "migrated check-health exists" test -f "$CHECK_HEALTH"
 assert "migrated config template exists" test -f "$CONFIG_TEMPLATE"
 assert_contains "SKILL references install-mcp.sh" "skills/spec-mcp-setup/scripts/install-mcp.sh" "$skill_body"
@@ -328,16 +359,12 @@ assert_contains "SKILL references uninstall-mcp.sh" "uninstall-mcp.sh" "$skill_b
 assert_contains "SKILL mentions managed-mcp.json" "managed-mcp.json" "$skill_body"
 assert_contains "SKILL mentions /etc/codex/config.toml" "/etc/codex/config.toml" "$skill_body"
 assert_contains "SKILL mentions fallback-active" "fallback-active" "$skill_body"
-assert_contains "prompt mirror mentions managed-mcp.json" "managed-mcp.json" "$prompt_skill_body"
-assert_contains "prompt mirror mentions uninstall-mcp.sh" "uninstall-mcp.sh" "$prompt_skill_body"
 assert_contains "reference mentions fallback-active" "fallback-active" "$(cat "$REF_MD")"
 assert_contains "reference mentions precedence-blocked" "precedence-blocked" "$(cat "$REF_MD")"
 assert_contains "reference mentions baseline_ready" "baseline_ready" "$(cat "$REF_MD")"
 assert_contains "graph-bootstrap skill uses readiness ledger wording" "readiness ledger v1" "$graph_bootstrap_skill_body"
 assert_contains "graph-bootstrap skill mentions fallback-active" "fallback-active" "$graph_bootstrap_skill_body"
-assert_contains "graph-bootstrap prompt mirror mentions fallback-active" "fallback-active" "$graph_bootstrap_prompt_skill_body"
 assert_not_contains "SKILL does not mention retired coordinator" "install-coordinator.sh" "$skill_body"
-assert_not_contains "prompt mirror does not mention retired coordinator" "install-coordinator.sh" "$prompt_skill_body"
 
 
 echo ""

@@ -125,7 +125,7 @@
     <rect x="600" y="68" width="120" height="74" rx="14" fill="#F4EEFF" stroke="#D9CCF1"/>
   </g>
   <text x="660" y="88" class="stageTitle center">🔎 Review</text>
-  <text x="660" y="106" class="stageCmd center">/spec:review</text>
+  <text x="660" y="106" class="stageCmd center">/spec:code-review</text>
   <text x="660" y="124" class="stageOutput center">审查报告</text>
 
   <!-- Arrow: Review → Compound -->

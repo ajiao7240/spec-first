@@ -21,7 +21,7 @@
 
 一句话目标：
 
-让 `spec-plan`、`spec-work`、`spec-review` 看到的是“真实、带 provenance、带 confidence、带 fallback 的决策输入”，而不是“看起来完整的控制面样板”。
+让 `spec-plan`、`spec-work`、`spec-code-review` 看到的是“真实、带 provenance、带 confidence、带 fallback 的决策输入”，而不是“看起来完整的控制面样板”。
 
 ---
 
@@ -150,7 +150,7 @@
 
 验收标准：
 
-- `spec-plan` / `spec-work` / `spec-review` 可以直接引用这些字段组织 prompt
+- `spec-plan` / `spec-work` / `spec-code-review` 可以直接引用这些字段组织 prompt
 - 低置信输入在 downstream prompt 中自动降级为“待确认信号”
 
 ## P1. 让 human assets 真正成为“事实投影层”
@@ -337,7 +337,7 @@
 ### 任务组 C：Minimal context 增强
 
 - 追加 provenance / confidence / freshness_status / coverage_gaps
-- 对齐 `spec-plan` / `spec-work` / `spec-review` 的消费口径
+- 对齐 `spec-plan` / `spec-work` / `spec-code-review` 的消费口径
 
 ### 任务组 D：Human docs 真编译
 

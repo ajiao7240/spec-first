@@ -11,7 +11,7 @@ function read(filePath) {
 }
 
 describe('changelog skill contracts', () => {
-  test('skill preserves identity, headless mode, and EVERY_WRITE_STYLE runtime dependency', () => {
+  test('skill preserves identity, headless mode, and inline style review', () => {
     const skill = read(SKILL_PATH);
 
     // Skill identity
@@ -20,9 +20,9 @@ describe('changelog skill contracts', () => {
     // Headless mode prevents token burn on skill load
     expect(skill).toContain('disable-model-invocation: true');
 
-    // Runtime dependency on every-style-editor — must remain for style review step
-    // File lives at .claude/skills/every-style-editor/references/EVERY_WRITE_STYLE.md
-    expect(skill).toContain('EVERY_WRITE_STYLE.md');
+    // Style review is now inline because every-style-editor was retired.
+    expect(skill).toContain('Review the changelog directly for clarity, brevity, consistent mechanics, and audience fit.');
+    expect(skill).not.toContain('EVERY_WRITE_STYLE.md');
 
     // Core behavioral contract — changelog generation purpose
     expect(skill).toContain('merges to main branch');

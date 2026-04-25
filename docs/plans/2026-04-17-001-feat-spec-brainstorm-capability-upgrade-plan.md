@@ -68,7 +68,7 @@ origin: docs/01-需求分析/brainstorm优化/spec-brainstorm-能力升级方案
 - 不新增 public command，不改变 Claude/Codex 双宿主 entrypoint 规则
 - 不修改 `src/cli/contracts/dual-host-governance/skills-governance.json`，因为本轮没有新增 skill 或改变 host delivery
 - 不把 epic metadata 消费下放到 `spec-work`
-- 不重写 `document-review`；`Preflight Self-Check` 只是 brainstorm 本地预检
+- 不重写 `spec-doc-review`；`Preflight Self-Check` 只是 brainstorm 本地预检
 
 ### Deferred to Separate Tasks
 
@@ -79,7 +79,7 @@ origin: docs/01-需求分析/brainstorm优化/spec-brainstorm-能力升级方案
 ### Relevant Code and Patterns
 
 - `skills/spec-brainstorm/SKILL.md`
-  当前 `spec-brainstorm` 主 workflow contract，现有能力已包含 task-domain classify、supplemental context scan、document-review handoff，是本轮新增 phase / guardrail 的主落点。
+  当前 `spec-brainstorm` 主 workflow contract，现有能力已包含 task-domain classify、supplemental context scan、spec-doc-review handoff，是本轮新增 phase / guardrail 的主落点。
 
 - `skills/spec-brainstorm/references/requirements-capture.md`
   当前 requirements doc contract 已定义基础模板，但尚未包含分节确认、design-for-isolation、targeted improvements、preflight self-check 相关规则。
@@ -143,8 +143,8 @@ origin: docs/01-需求分析/brainstorm优化/spec-brainstorm-能力升级方案
 - **`Context Pulse` 仅做轻量工作脉冲，不做完整 code review。**
   - 理由：吸收 source 的 recent-commits 优势，但不把 brainstorm 扩张成 repo 审查流程。
 
-- **`Preflight Self-Check` 只作为 `document-review` 前的低成本预检。**
-  - 理由：它的职责是去掉显而易见的占位符、矛盾和歧义，不替代 multi-persona document-review。
+- **`Preflight Self-Check` 只作为 `spec-doc-review` 前的低成本预检。**
+  - 理由：它的职责是去掉显而易见的占位符、矛盾和歧义，不替代 multi-persona spec-doc-review。
 
 - **本轮不修改 governance JSON/README。**
   - 理由：没有新增 skill、没有改变 host delivery，也没有新的 public entrypoint；治理文件会被当前实现间接消费，但不需要改 contract 本身。
@@ -255,7 +255,7 @@ flowchart TB
 **Test scenarios:**
 - Happy path: source skill 出现新的 phase 标题、hard gate、terminal state lock、context pulse、preflight self-check 关键 contract 语义
 - Edge case: Claude/Codex runtime transform 后，source naming 与 runtime naming 仍保持现有约定，不因新增文案漂移
-- Error path: 不得误删现有 supplemental context routing、document-review handoff、Lightweight fast path 等既有合同
+- Error path: 不得误删现有 supplemental context routing、spec-doc-review handoff、Lightweight fast path 等既有合同
 - Integration: mirror 与 source 的关键段落保持一致，避免用户阅读的 `docs/10-prompt` 版本和真实 source 漂移
 
 **Verification:**
@@ -483,7 +483,7 @@ flowchart TB
 
 - 本轮不需要修改 `docs/contracts/dual-host-governance/README.md`，除非实现中意外引入新的 host delivery 或 public entrypoint 行为
 - 本轮需要显式补 `tests/smoke/cli.sh`，因为新增 `decomposition-capture.md` 属于 runtime-generated brainstorm reference，现有 unit/integration 不足以证明其已安装到 Claude/Codex runtime
-- 当前运行环境下若无法执行交互式 `document-review`，计划写入后应返回“仍需 interactive document-review before execution handoff”的明确提示
+- 当前运行环境下若无法执行交互式 `spec-doc-review`，计划写入后应返回“仍需 interactive spec-doc-review before execution handoff”的明确提示
 
 ## Execution Readiness Checklist
 
@@ -492,7 +492,7 @@ flowchart TB
 - `skills/spec-brainstorm/SKILL.md` 必须新增这些稳定入口：`0.1a Current Work Pulse`、`0.3a Scope Decomposition`、`3.4 Preflight Self-Check`、`3.6 User Review Gate`
 - `skills/spec-brainstorm/SKILL.md` 必须把 `P0.4 Terminal State Lock` 与 `Deliberate Divergence` 写进主流程，而不是只留在 reference
 - `docs/10-prompt/skills/spec-brainstorm/SKILL.md` 必须与 source 同步，不允许 source 已升级而 mirror 仍停留旧流程
-- 不得回退现有 supplemental context routing、non-software route、approaches phase、document-review handoff
+- 不得回退现有 supplemental context routing、non-software route、approaches phase、spec-doc-review handoff
 
 ### Unit 2
 

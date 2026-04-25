@@ -45,7 +45,7 @@
 - source-of-truth 技能定义已经收敛到 [skills/spec-graph-bootstrap/SKILL.md](../../skills/spec-graph-bootstrap/SKILL.md)
 - 控制面产物已经落到 [.spec-first/workflows/bootstrap/spec-first/artifact-manifest.json](../../.spec-first/workflows/bootstrap/spec-first/artifact-manifest.json)
 - checked-in 样本上下文已经落到 [docs/contexts/spec-first/README.md](../contexts/spec-first/README.md)
-- `spec-plan`、`spec-work`、`spec-review` 都已经接入 `injection-index.yaml` 作为 Stage-0 预载入口
+- `spec-plan`、`spec-work`、`spec-code-review` 都已经接入 `injection-index.yaml` 作为 Stage-0 预载入口
 
 从样本看，当前最小闭环已经包含：
 
@@ -71,7 +71,7 @@
 
 - [skills/spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
 - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
-- [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+- [skills/spec-code-review/SKILL.md](../../skills/spec-code-review/SKILL.md)
 
 它们都描述了：
 

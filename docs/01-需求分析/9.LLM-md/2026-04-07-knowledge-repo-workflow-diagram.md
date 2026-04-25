@@ -103,7 +103,7 @@
  │  三、知识消费（Agent 读取层）                                              │
  └─────────────────────────────────────────────────────────────────────────┘
 
-  spec-plan / spec-work / spec-review 启动
+  spec-plan / spec-work / spec-code-review 启动
           │
           ▼
   读 docs-local.json ──存在──► 得到 localPath + slug
@@ -142,7 +142,7 @@
   ├───────────────┼───────────────────────────────────────────────┤
   │ spec-plan     │ contexts/(项目理解) + solutions/(相似问题经验)  │
   │ spec-work     │ contexts/pitfalls/ + solutions/(相关经验)      │
-  │ spec-review   │ contexts/architecture/ + solutions/(已知模式)  │
+  │ spec-code-review   │ contexts/architecture/ + solutions/(已知模式)  │
   │ spec-graph-bootstrap│ 写入 contexts/ (生产方，不读)                  │
   │ spec-compound │ 写入 solutions/ (生产方，不读)                 │
   └───────────────┴───────────────────────────────────────────────┘
@@ -241,7 +241,7 @@
   ├─────────────┤        ├─────────────┤      ├─────────────┤  ├─────────────┤
   │docs-config.js│       │spec-graph-bootstrap│      │spec-plan    │  │ stale标记   │
   │workspace.js  │       │  写contexts/ │      │spec-work    │  │ compound-   │
-  │state.js扩展  │       │spec-compound │      │spec-review  │  │  refresh    │
+  │state.js扩展  │       │spec-compound │      │spec-code-review  │  │  refresh    │
   │init.js扩展   │       │  写solutions/│      │  读知识库   │  │ _shared/    │
   │doctor.js扩展 │       │migrate-sol.  │      └─────────────┘  │ 跨项目共享  │
   │             │        │--docs-branch │                        └─────────────┘

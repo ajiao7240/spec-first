@@ -238,7 +238,7 @@
 - 覆盖任务：`T15`
 - 状态：`已完成（2026-04-16，分支 feat/sync-compound-core-workflow-updates）`
 - 目标：
-  - 把 `spec-graph-bootstrap` 改成与 `spec-plan/spec-work/spec-review` 一致的 Stage-0 叙事
+  - 把 `spec-graph-bootstrap` 改成与 `spec-plan/spec-work/spec-code-review` 一致的 Stage-0 叙事
 - 主要文件：
   - `skills/spec-graph-bootstrap/SKILL.md`
 - 依赖：包 A

@@ -28,7 +28,7 @@
 
 - `skills/spec-compound/SKILL.md`
 - `skills/orchestrating-swarms/SKILL.md`
-- `skills/spec-review/references/persona-catalog.md`
+- `skills/spec-code-review/references/persona-catalog.md`
 
 这些消费点都已经使用 `spec-first:review:code-simplicity-reviewer` 或 `spec-*` 命名，而不是 `compound-engineering:*`。
 

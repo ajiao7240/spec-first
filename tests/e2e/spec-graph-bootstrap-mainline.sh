@@ -86,7 +86,7 @@ if (evaluation.selected_assets[0] !== 'minimal-context/review.json') {
 
 const telemetry = recordWorkflowTelemetry({
   repoRoot,
-  workflow: 'spec-review',
+  workflow: 'spec-code-review',
   slug: result.slug,
   evaluation,
   generatedAt,

@@ -22,7 +22,7 @@ topic: spec-graph-bootstrap
 
 **产物模型**
 - R4. 长期上下文资产存放在目标项目的 `docs/contexts/<context-slug>/`，作为 durable artifact family
-- R5. 短期控制面产物（PRD 任务合同）存放在 `.context/spec-first/bootstrap/<context-slug>/tasks/<task-id>/prd.md`，仅服务当前执行。路径嵌套层级遵循 `.context/spec-first/<workflow>/<run-id>/` 的既定约定，与 spec-review 等工作流保持一致，预留未来其他控制面场景的命名空间复用能力
+- R5. 短期控制面产物（PRD 任务合同）存放在 `.context/spec-first/bootstrap/<context-slug>/tasks/<task-id>/prd.md`，仅服务当前执行。路径嵌套层级遵循 `.context/spec-first/<workflow>/<run-id>/` 的既定约定，与 spec-code-review 等工作流保持一致，预留未来其他控制面场景的命名空间复用能力
 - R6. 两层产物分离：长期资产不包含执行期控制面文件
 
 **固定产物**

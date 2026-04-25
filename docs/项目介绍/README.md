@@ -61,7 +61,7 @@ spec-first init --claude / --codex
 |  /spec:ideate ──> /spec:brainstorm ──> /spec:plan ──> /spec:work   |
 |  (创意发散)       (方案论证)            (规格计划)     (执行实现)   |
 |       |                                                    |        |
-|       |               /spec:review  <─────────────────────+        |
+|       |               /spec:code-review  <─────────────────────+        |
 |       |               (结构化代码评审)                              |
 |       |                    |                                        |
 |       |               /spec:compound                                |
@@ -78,7 +78,7 @@ spec-first init --claude / --codex
 | `/spec:brainstorm` | 多角度论证，对候选方案做深度研判 |
 | `/spec:plan` | 生成结构化实施计划（含置信度评分 + deepening） |
 | `/spec:work` | 按计划执行编码（含测试、review、shipping） |
-| `/spec:review` | 17 个 reviewer persona 并行评审 PR |
+| `/spec:code-review` | 17 个 reviewer persona 并行评审 PR |
 | `/spec:compound` | 将解决过的问题沉淀为可复用知识文档 |
 | `/spec:graph-bootstrap` | 稳定版项目上下文生成 |
 | `/spec:graph-bootstrap` | 图增强版项目上下文生成（CRG 驱动） |
@@ -143,7 +143,7 @@ spec-first init --claude / --codex
 |                                                                     |
 |  /spec:plan   读 module-map + database-index                       |
 |  /spec:work   读 test-map                                          |
-|  /spec:review 读 high-risk-modules + pitfalls + review-change      |
+|  /spec:code-review 读 high-risk-modules + pitfalls + review-change      |
 |               + test-map + database-index + data-flow              |
 +===================================================================+
 ```
@@ -201,22 +201,21 @@ spec-first init --claude / --codex
 
 ---
 
-## 47 个 Skills 分类
+## 41 个 Skills 分类
 
 | 类别 | Skills | 说明 |
 |------|--------|------|
-| **核心工作流** | spec-plan, spec-work, spec-work-beta, spec-review, spec-ideate, spec-brainstorm, spec-compound, spec-compound-refresh | 日常开发闭环 |
-| **项目上下文** | spec-graph-bootstrap, spec-graph-bootstrap, spec-sessions | 项目理解与上下文生成 |
-| **基础设施** | spec-mcp-setup, spec-update, spec-debug, spec-optimize, setup, changelog | 环境配置与维护 |
+| **核心工作流** | spec-plan, spec-work, spec-work-beta, spec-code-review, spec-ideate, spec-brainstorm, spec-compound, spec-compound-refresh | 日常开发闭环 |
+| **项目上下文** | spec-graph-bootstrap, spec-sessions, spec-session-inventory, spec-session-extract | 项目理解、上下文生成与 session primitive |
+| **基础设施** | spec-mcp-setup, spec-setup, spec-update, spec-debug, spec-optimize, changelog | 环境配置与维护 |
 | **Git 工作流** | git-commit, git-commit-push-pr, git-worktree, git-clean-gone-branches | 版本控制 |
-| **代码质量** | document-review, resolve-pr-feedback, claude-permissions-optimizer | 评审与优化 |
+| **代码质量** | spec-doc-review, resolve-pr-feedback, spec-pr-description | 评审、反馈处理与 PR 描述 |
 | **前端设计** | frontend-design, feature-video, gemini-imagegen | UI/UX 与视觉 |
-| **测试** | test-browser, test-xcode, reproduce-bug | 测试与 debug |
-| **待办管理** | todo-create, todo-resolve, todo-triage | 任务跟踪 |
-| **知识管理** | onboarding, proof | 文档与团队协作 |
-| **外部工具** | agent-browser, agent-native-architecture, rclone | 外部集成 |
-| **Ruby/Rails** | andrew-kane-gem-writer, dspy-ruby, every-style-editor | Ruby 生态 |
-| **其他** | lfg, orchestrating-swarms, deploy-docs, report-bug, spec-slack-research | 特殊用途 |
+| **测试** | test-browser, test-xcode | 测试与验证 |
+| **知识管理** | proof, spec-release-notes | 文档协作与版本摘要 |
+| **外部工具** | agent-browser, agent-native-architecture, agent-native-audit | 外部集成与 agent-native 评估 |
+| **Ruby/Rails** | spec-dhh-rails-style | Rails 风格与约定 |
+| **其他** | lfg, report-bug, spec-slack-research, spec-polish-beta | 特殊用途 |
 
 ---
 

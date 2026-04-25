@@ -13,11 +13,12 @@ cd "$TMP_REPO"
 node "$REPO_ROOT/bin/spec-first.js" init --claude -u reviewer --lang zh >/dev/null
 node "$REPO_ROOT/bin/spec-first.js" init --codex -u reviewer --lang zh >/dev/null
 
-CLAUDE_RUNTIME_SKILL="$TMP_REPO/.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md"
 CLAUDE_RUNTIME_COMMAND="$TMP_REPO/.claude/commands/spec/graph-bootstrap.md"
 CODEX_RUNTIME_SKILL="$TMP_REPO/.agents/skills/spec-graph-bootstrap/SKILL.md"
 
-for file in "$CLAUDE_RUNTIME_SKILL" "$CLAUDE_RUNTIME_COMMAND" "$CODEX_RUNTIME_SKILL"; do
+test ! -e "$TMP_REPO/.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md"
+
+for file in "$CLAUDE_RUNTIME_COMMAND" "$CODEX_RUNTIME_SKILL"; do
   test -f "$file"
   grep -q 'spec-first source repo internals' "$file"
   grep -q 'installed runtime assets' "$file"

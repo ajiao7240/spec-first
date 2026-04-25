@@ -180,7 +180,7 @@ spec-graph-bootstrap 是 **双层架构**：
 - **事实与展示分离**：Worker 不回扫源码，只读 fact-inventory.json
 - **schema contract 外置**：`docs/contracts/spec-graph-bootstrap/` 是机器真源，SKILL.md 只保留阶段流程
 - **编译职责分离**：`src/bootstrap-compiler/` 承接最终编译链（`compile-machine-artifacts.js` → `compile-human-assets.js` → `compile-routing.js`）
-- **injection-index.yaml**：Phase 4 生成路由索引，下游 spec-plan/spec-work/spec-review 通过此文件自动选取注入上下文
+- **injection-index.yaml**：Phase 4 生成路由索引，下游 spec-plan/spec-work/spec-code-review 通过此文件自动选取注入上下文
 
 ### 3.2 ASCII 全链路流程图
 
@@ -488,7 +488,7 @@ CRG 不可用的环境（仅有 Serena）:
 
 ### Gap 1：spec-graph-bootstrap 无 Stage-0 路由对接
 
-**现状**：spec-graph-bootstrap 产出的 `docs/contexts/<slug>/` 目录无 `injection-index.yaml`，下游 spec-plan/spec-work/spec-review 无法通过统一路由接口消费。
+**现状**：spec-graph-bootstrap 产出的 `docs/contexts/<slug>/` 目录无 `injection-index.yaml`，下游 spec-plan/spec-work/spec-code-review 无法通过统一路由接口消费。
 
 **代码证据**：`skills/spec-graph-bootstrap/SKILL.md` 中明确写道：
 > "Current version scope: generate context assets only. Automatic injection into the five-stage workflow is a future capability."

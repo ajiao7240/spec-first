@@ -334,7 +334,7 @@ CRG 子系统是真实存在且有工程厚度的：
 | Brainstorm | command template + `skills/spec-brainstorm/SKILL.md` | requirements 对齐合同 | `docs/brainstorms/` | 以前序文档、仓库上下文和 prompt 追问为主，代码侧缺少更强的 machine-readable requirements input | 应先于 plan | 以软约束为主 | 宿主遵守 skill 文本 |
 | Plan | command template + `skills/spec-plan/SKILL.md` | plan contract + Stage-0 preload 说明 | `docs/plans/` | `stage0-context`、selected assets、minimal-context/plan、verification summary | 应接 brainstorm | 软约束为主，辅以 helper | 宿主 + `stage0-context` |
 | Work | command template + `skills/spec-work/SKILL.md` | execution contract + verification checklist | 代码改动 + tests | `stage0-context`、minimal-context/work、change surface、verification summary、dispatch posture | 应接 plan | 软约束为主，辅以 helper | 宿主 + `stage0-context` |
-| Review | command template + `skills/spec-review/SKILL.md` | review contract + persona route + gap checklist | findings / review 产物 | `stage0-context`、minimal-context/review、verification gaps、review context、风险信号 | 应接 work | 软约束为主，辅以 helper | 宿主 + `stage0-context` |
+| Review | command template + `skills/spec-code-review/SKILL.md` | review contract + persona route + gap checklist | findings / review 产物 | `stage0-context`、minimal-context/review、verification gaps、review context、风险信号 | 应接 work | 软约束为主，辅以 helper | 宿主 + `stage0-context` |
 | Compound | command template + `skills/spec-compound/SKILL.md` | solution 文档沉淀合同 | `docs/solutions/` | 主要消费 review / fix 结果与 docs/solutions 合同，输入结构化程度中等 | 应接 review/fix 结果 | 执行软约束，输出较硬 | 宿主 + docs/tests 合同 |
 | Bootstrap | `skills/spec-graph-bootstrap/SKILL.md` | Stage-0 supporting workflow 合同 | `docs/contexts/<slug>/` | 仓库事实、bootstrap compiler 产物、control-plane samples，但当前真值性不足 | 主流程上游支撑 | 以软约束为主 | 宿主 + 可选工具 |
 | MCP Setup | `skills/spec-mcp-setup/SKILL.md` + shell / PowerShell scripts | host install/config 合同 | host marker + host config | baseline tools presence、marker file、verify 输出 | richer workflow 前置条件 | 相对硬 | 真脚本 + marker file |
@@ -395,7 +395,7 @@ CRG 子系统是真实存在且有工程厚度的：
 
 - `skills/spec-brainstorm/SKILL.md` 里“不允许跳过 alignment 直接 work”
 - `skills/spec-plan/SKILL.md` 里“brainstorm 定 WHAT，plan 定 HOW”
-- `skills/spec-review/SKILL.md` 里 persona 路由、action class、autofix policy
+- `skills/spec-code-review/SKILL.md` 里 persona 路由、action class、autofix policy
 
 这些是结构化、价值高的合同，但本质上仍是宿主执行 prompt 的结果。只要系统清楚承认这一点，并为宿主补足高质量输入，它们并不天然比“代码状态机”低级。`[高可信推断]`
 

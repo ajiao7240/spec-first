@@ -80,7 +80,7 @@ class CodexAdapter extends PlatformAdapter {
   transformSkillContent(content, context = {}) {
     return rewriteSkillName(
       transformCodexContent(rewriteSharedPaths(content)),
-      context.skillName,
+      codexRuntimeSkillName(context),
     );
   }
 
@@ -180,10 +180,10 @@ function transformCodexContent(content) {
   let transformed = content;
 
   transformed = transformed.replace(
-    /^(\s*-?\s*)Task\s+spec-first:([a-z-]+):([a-z-]+)\((.*)\)\s*$/gm,
-    (_match, prefix, category, agentName, args) => {
+    /^(\s*-?\s*)Task\s+(spec-[a-z0-9-]+)\((.*)\)\s*$/gm,
+    (_match, prefix, agentName, args) => {
       const summary = args.trim();
-      const agentPath = codexAgentPath(category, agentName);
+      const agentPath = `.codex/agents/${agentName}.agent.md`;
       return summary
         ? `${prefix}Read \`${agentPath}\` and apply that agent profile to: ${summary}`
         : `${prefix}Read \`${agentPath}\` and apply that agent profile`;
@@ -191,18 +191,8 @@ function transformCodexContent(content) {
   );
 
   transformed = transformed.replace(
-    /`spec-first:([a-z-]+):([a-z-]+)`/g,
-    (_match, category, agentName) => `\`${codexAgentPath(category, agentName)}\``,
-  );
-
-  transformed = transformed.replace(
-    /\bspec-first:([a-z-]+):([a-z-]+)\b/g,
-    (_match, category, agentName) => `\`${codexAgentPath(category, agentName)}\``,
-  );
-
-  transformed = transformed.replace(
-    /@([a-z][a-z0-9-]*-(?:agent|reviewer|researcher|analyst|specialist|oracle|sentinel|guardian|strategist))/gi,
-    (_match, agentName) => `\`${codexAgentPath('review', agentName)}\``,
+    /`(spec-[a-z0-9-]+(?:agent|reviewer|researcher|analyst|specialist|oracle|sentinel|guardian|strategist|expert|detector|sync|resolver|historian|writer))`/g,
+    (_match, agentName) => `\`.codex/agents/${agentName}.agent.md\``,
   );
 
   return transformed;
@@ -216,8 +206,13 @@ function rewriteSkillName(content, skillName) {
   return content.replace(/^name:\s*.+$/m, `name: ${skillName}`);
 }
 
-function codexAgentPath(category, agentName) {
-  return `.codex/agents/${category}/${agentName}.md`;
+function codexRuntimeSkillName(context = {}) {
+  const skillName = context.skillName;
+  if (context.isWorkflowSkill || typeof skillName !== 'string' || !skillName.startsWith('spec-')) {
+    return skillName;
+  }
+
+  return skillName.replace(/^spec-/, '');
 }
 
 function buildRuntimeCleanupOperations(adapter) {

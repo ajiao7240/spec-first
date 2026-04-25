@@ -2,7 +2,7 @@
 
 > 文档性质：分阶段实施文档
 > 撰写日期：2026-04-16
-> 适用范围：`init`、`spec-graph-bootstrap`、`spec-graph-bootstrap`、`spec-compound`、`spec-plan`、`spec-work`、`spec-review`、`context-routing`
+> 适用范围：`init`、`spec-graph-bootstrap`、`spec-graph-bootstrap`、`spec-compound`、`spec-plan`、`spec-work`、`spec-code-review`、`context-routing`
 > 前置文档：
 > - [2026-04-16-spec-first-双模式知识承载需求分析与风险收益评估.md](./2026-04-16-spec-first-双模式知识承载需求分析与风险收益评估.md)
 > - [2026-04-16-spec-graph-bootstrap-双模式知识承载-gap-分析.md](./2026-04-16-spec-graph-bootstrap-双模式知识承载-gap-分析.md)
@@ -472,7 +472,7 @@ Phase 2 完成后，应该回答：
 
 1. `spec-plan`
 2. `spec-work`
-3. `spec-review`
+3. `spec-code-review`
 
 目标：
 
@@ -509,7 +509,7 @@ Phase 2 完成后，应该回答：
 
 1. `skills/spec-plan/*`
 2. `skills/spec-work/*`
-3. `skills/spec-review/*`
+3. `skills/spec-code-review/*`
 
 目标：
 

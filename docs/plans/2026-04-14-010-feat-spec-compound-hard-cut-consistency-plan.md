@@ -555,7 +555,7 @@ spec:sessions
 **验收标准**
 
 1. `learnings-researcher` 能正确返回 knowledge doc 的高相关结果
-2. `spec-plan` / `spec-review` 使用 `learnings-researcher` 时不会因为双 track 而退化
+2. `spec-plan` / `spec-code-review` 使用 `learnings-researcher` 时不会因为双 track 而退化
 3. 缺失 `critical-patterns.md` 时 consumer 不报伪错误
 4. tests 能阻止 `spec-sessions` 与双 track 合同回归
 
@@ -805,7 +805,7 @@ Phase A 保持上游同构文件边界；共享合同只在 Phase B 作为优化
 3. `spec-sessions` 与 `session-historian` 已进入仓库、manifest、安装产物与 smoke 流程
 4. `session-history-scripts/*` 已进入 managed runtime/state/doctor/clean 闭环，而不是仅停留在 source tree
 5. `docs/solutions/` 中只剩合法 solution docs，且 knowledge docs 使用正确章节结构
-6. `learnings-researcher`、`spec-plan`、`spec-review` 对 `docs/solutions/` 的消费不再基于旧平铺 schema
+6. `learnings-researcher`、`spec-plan`、`spec-code-review` 对 `docs/solutions/` 的消费不再基于旧平铺 schema
 7. source / runtime 命名策略没有被错误回滚，public identity 正确但不破坏既有 adapter 机制
 8. 缺失 optional patterns 文件不会阻断 `docs/solutions/` 消费
 9. tests 能阻止以下回归：

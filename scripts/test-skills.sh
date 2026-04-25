@@ -23,14 +23,14 @@ check_skill_format() {
 check_skill_format "spec-brainstorm"
 check_skill_format "spec-plan"
 check_skill_format "spec-work"
-check_skill_format "spec-review"
+check_skill_format "spec-code-review"
 check_skill_format "spec-compound"
 check_skill_format "spec-compound-refresh"
 check_skill_format "spec-sessions"
 
 echo ""
 echo "2. 检查 skill 名称..."
-for skill in spec-brainstorm spec-plan spec-work spec-review spec-compound spec-compound-refresh spec-sessions; do
+for skill in spec-brainstorm spec-plan spec-work spec-code-review spec-compound spec-compound-refresh spec-sessions; do
     name=$(grep "^name:" "skills/$skill/SKILL.md" | head -1)
     echo "  $skill: $name"
 done

@@ -124,7 +124,7 @@ related:
 
 - `skills/spec-plan/SKILL.md`
 - `skills/spec-work/SKILL.md`
-- `skills/spec-review/SKILL.md`
+- `skills/spec-code-review/SKILL.md`
 - `tests/unit/workflow-stage0-consumption.test.js`
 
 这些文件表明：
@@ -142,7 +142,7 @@ related:
 - `skills/spec-mcp-setup/mcp-tools.json`
   - 当前已管理 `playwright` 等工具接入。
 
-说明当前仓库并不是完全没有“多端验证”能力，而是**这些能力还没有被 Stage-0 / spec-work / spec-review 主链统一调度**。
+说明当前仓库并不是完全没有“多端验证”能力，而是**这些能力还没有被 Stage-0 / spec-work / spec-code-review 主链统一调度**。
 
 #### D. 已有部分质量门基础
 
@@ -163,7 +163,7 @@ related:
   - 当前工作区已把 `verification-profile.json` 与 minimal-context verification summary 接进 bootstrap 主链。
 - `skills/spec-plan/SKILL.md`
 - `skills/spec-work/SKILL.md`
-- `skills/spec-review/SKILL.md`
+- `skills/spec-code-review/SKILL.md`
   - 当前工作区已开始在 workflow 中消费 `platform_focus` / `required_verifications` / `verification_gaps_to_check`。
 
 这说明 `verification-profile` 对本项目已经不是纯理论方向，而是正在落地中的 P1 基线能力。
@@ -510,7 +510,7 @@ Apple/Xcode 官方文档强调：
 - `spec-brainstorm`
 - `spec-plan`
 - `spec-work`
-- `spec-review`
+- `spec-code-review`
 - `spec-compound`
 
 不应统一成单一命令模板的部分：
@@ -789,7 +789,7 @@ Apple/Xcode 官方文档强调：
 - shared contract 改动同时提示上下游验证
 - 低置信度场景必须显式标注 `confidence: low`
 
-## Unit 3：把 `spec-plan` / `spec-work` / `spec-review` 接到 verification summary
+## Unit 3：把 `spec-plan` / `spec-work` / `spec-code-review` 接到 verification summary
 
 ### 8.9 目标
 
@@ -800,7 +800,7 @@ Apple/Xcode 官方文档强调：
 - Modify: `skills/spec-plan/SKILL.md`
 - Modify: `skills/spec-work/SKILL.md`
 - Modify: `skills/spec-work-beta/SKILL.md`
-- Modify: `skills/spec-review/SKILL.md`
+- Modify: `skills/spec-code-review/SKILL.md`
 - Modify: `tests/unit/workflow-stage0-consumption.test.js`
 - Modify: `tests/unit/spec-work-contracts.test.js`
 - Modify: `tests/unit/spec-plan-contracts.test.js`
@@ -811,7 +811,7 @@ Apple/Xcode 官方文档强调：
   - 输出 verification matrix 草案
 - `spec-work`
   - 输出 required gate checklist
-- `spec-review`
+- `spec-code-review`
   - 检查实现是否漏掉 required verifications
 - 三个 workflow 都只消费 evaluator / minimal-context 暴露出的 summary，不直接自己打开 `verification-profile.json` 或未来 change artifact
 - 本单元仍以“形成 checklist 与缺口检查”为主，不要求自动执行 verifier

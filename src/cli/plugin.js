@@ -35,7 +35,7 @@ const TEXT_FILE_EXTENSIONS = new Set([
   '.mjs',
   '.txt',
 ]);
-const CANONICAL_AGENT_NAME_PATTERN = /\bspec-first:[a-z-]+:[a-z-]+\b/;
+const CANONICAL_AGENT_NAME_PATTERN = /\bce:[a-z-]+:[a-z-]+\b/;
 const CODEX_UNREWRITTEN_PATH_PATTERNS = [
   /\.claude\/commands\/spec\/[a-z-]+\.md/,
   /\.claude\/spec-first\/workflows\//,
@@ -45,28 +45,28 @@ const CODEX_UNREWRITTEN_PATH_PATTERNS = [
 ];
 const HIGH_VALUE_SKILL_ANCHORS = {
   'spec-plan': [
-    'selected_assets / fallback_reason / level / skipped_rules',
-    'verifier_dispatch',
-    'verification_gate_state',
-    'stage0-context --stage plan --workflow spec-plan --format json',
+    'Implementation Units',
+    'Requirements Trace',
+    'Test scenarios',
+    'universal-planning.md',
   ],
   'spec-work': [
-    'required_verifications',
-    'verifier_dispatch',
-    'verification_gate_state',
-    'stage0-context --stage work --workflow spec-work --format json',
+    "Derive tasks from the plan's implementation units",
+    'references/shipping-workflow.md',
+    'Phase 4',
+    'final verification',
   ],
   'spec-work-beta': [
-    'required_verifications',
-    'verifier_dispatch',
-    'verification_gate_state',
-    'stage0-context --stage work --workflow spec-work-beta --format json',
+    "Derive tasks from the plan's implementation units",
+    'codex-delegation-workflow.md',
+    'Phase 4',
+    'final verification',
   ],
-  'spec-review': [
-    'verification summary',
-    'verifier_dispatch',
-    'verification_gate_state',
-    'stage0-context --stage review --workflow spec-review --format json',
+  'spec-code-review': [
+    'Plan discovery (requirements verification)',
+    'requires_verification',
+    'validator-template.md',
+    'pipe-delimited tables',
   ],
   'spec-graph-bootstrap': [
     '## Surface Map',
@@ -80,23 +80,22 @@ const HIGH_VALUE_SKILL_ANCHORS = {
 };
 const HIGH_VALUE_COMMAND_ANCHORS = {
   'spec-plan': [
-    'selection_subject / selected_contexts',
-    'selected_assets / fallback_reason / level / skipped_rules',
-    'verifier_dispatch',
-    'verification_gate_state',
-    'stage0-context --stage plan --workflow spec-plan --format json',
+    'Implementation Units',
+    'Requirements Trace',
+    'Test scenarios',
+    'universal-planning.md',
   ],
   'spec-work': [
-    'required_verifications',
-    'verifier_dispatch',
-    'verification_gate_state',
-    'stage0-context --stage work --workflow spec-work --format json',
+    "Derive tasks from the plan's implementation units",
+    'references/shipping-workflow.md',
+    'Phase 4',
+    'final verification',
   ],
-  'spec-review': [
-    'verification summary',
-    'verifier_dispatch',
-    'verification_gate_state',
-    'stage0-context --stage review --workflow spec-review --format json',
+  'spec-code-review': [
+    'Plan discovery (requirements verification)',
+    'requires_verification',
+    'validator-template.md',
+    'pipe-delimited tables',
   ],
   'spec-graph-bootstrap': [
     'spec-first source repo internals',
@@ -264,6 +263,16 @@ function validateSkillsGovernance(governance) {
       }
     }
 
+    if (record.entry_surface === 'internal_only') {
+      for (const platform of SUPPORTED_PLATFORM_IDS) {
+        if (record.host_delivery[platform] === 'command' || record.host_delivery[platform] === 'skill') {
+          throw new Error(`${prefix} cannot expose internal_only skill "${record.skill_name}" as a user-visible delivery.`);
+        }
+      }
+
+      continue;
+    }
+
     if (record.host_scope === 'dual_host') {
       if (record.owner_host !== null) {
         throw new Error(`${prefix} must set owner_host=null for dual_host skills.`);
@@ -319,13 +328,6 @@ function validateSkillsGovernance(governance) {
       }
     }
 
-    if (record.entry_surface === 'internal_only') {
-      for (const platform of SUPPORTED_PLATFORM_IDS) {
-        if (record.host_delivery[platform] === 'command' || record.host_delivery[platform] === 'skill') {
-          throw new Error(`${prefix} cannot expose internal_only skill "${record.skill_name}" as a user-visible delivery.`);
-        }
-      }
-    }
   }
 
   const missingSkills = bundledSkills.filter((skillName) => !seen.has(skillName));
@@ -453,7 +455,6 @@ function buildFilteredAssetSet(platformOrAdapter) {
           throw new Error(`Missing bundled command definition for governed workflow skill: ${record.skill_name}`);
         }
 
-        workflowSkills.push(record.skill_name);
         commands.push(command);
         continue;
       }
@@ -589,11 +590,13 @@ function syncSkills(projectRoot, adapter, filteredAssetSet = buildFilteredAssetS
   const standaloneRoot = path.join(projectRoot, adapter.skillsRoot);
   const workflowRoot = path.join(projectRoot, adapter.workflowsRoot);
   fs.mkdirSync(standaloneRoot, { recursive: true });
-  fs.mkdirSync(workflowRoot, { recursive: true });
 
   const sourceRoot = getBundledPath('skills');
   const standaloneNames = [...filteredAssetSet.skills];
   const workflowNames = [...filteredAssetSet.workflowSkills];
+  if (workflowNames.length > 0) {
+    fs.mkdirSync(workflowRoot, { recursive: true });
+  }
   const workflowNameSet = new Set(workflowNames);
   const skillNames = [...new Set([...standaloneNames, ...workflowNames])].sort((a, b) =>
     a.localeCompare(b),
@@ -612,7 +615,7 @@ function syncSkills(projectRoot, adapter, filteredAssetSet = buildFilteredAssetS
     }
 
     copyDirectoryWithTransform(path.join(sourceRoot, skillName), targetDir, (content) =>
-      adapter.transformSkillContent(content, { skillName }),
+      adapter.transformSkillContent(content, { skillName, isWorkflowSkill }),
     );
   }
 
@@ -633,7 +636,7 @@ function planSkillsSync(projectRoot, adapter, filteredAssetSet = buildFilteredAs
     buildPlanOperation('ensure_dir', adapter.skillsRoot, 'managed_skills_root'),
   ];
 
-  if (adapter.workflowsRoot !== adapter.skillsRoot) {
+  if (adapter.workflowsRoot !== adapter.skillsRoot && workflowNames.length > 0) {
     operations.push(buildPlanOperation('ensure_dir', adapter.workflowsRoot, 'managed_workflows_root'));
   }
 
@@ -662,7 +665,7 @@ function planSkillsSync(projectRoot, adapter, filteredAssetSet = buildFilteredAs
       sourceDir: path.join(sourceRoot, skillName),
       targetDir,
       reason: isWorkflowSkill ? 'managed_workflow_skill' : 'managed_skill',
-      transformText: (content) => adapter.transformSkillContent(content, { skillName }),
+      transformText: (content) => adapter.transformSkillContent(content, { skillName, isWorkflowSkill }),
     }));
   }
 
@@ -1018,10 +1021,10 @@ function inspectSkillIntegrity({
   const runtimeRoot = isWorkflowSkill ? workflowRoot : standaloneRoot;
   const targetPath = path.join(runtimeRoot, skillName, 'SKILL.md');
   const sourcePath = path.join(getBundledPath('skills'), skillName, 'SKILL.md');
-  const expectedContent = adapter.transformSkillContent(fs.readFileSync(sourcePath, 'utf8'), { skillName });
+  const expectedContent = adapter.transformSkillContent(fs.readFileSync(sourcePath, 'utf8'), { skillName, isWorkflowSkill });
   const actualContent = fs.readFileSync(targetPath, 'utf8');
   const issues = unique([
-    ...skillIntegrityIssues(actualContent, skillName, adapter),
+    ...skillIntegrityIssues(actualContent, skillName, adapter, { isWorkflowSkill }),
     ...(actualContent === expectedContent ? [] : ['content_mismatch']),
   ]);
 
@@ -1086,18 +1089,18 @@ function commandIntegrityIssues(actualContent, command, adapter) {
   return issues;
 }
 
-function skillIntegrityIssues(actualContent, skillName, adapter) {
+function skillIntegrityIssues(actualContent, skillName, adapter, { isWorkflowSkill = false } = {}) {
   const anchorIssues = (HIGH_VALUE_SKILL_ANCHORS[skillName] || [])
     .filter((anchor) => !actualContent.includes(anchor))
     .map((anchor) => `missing_anchor:${anchor}`);
 
   return unique([
     ...anchorIssues,
-    ...transformedContentIntegrityIssues(actualContent, adapter, { kind: 'skill', skillName }),
+    ...transformedContentIntegrityIssues(actualContent, adapter, { kind: 'skill', skillName, isWorkflowSkill }),
   ]);
 }
 
-function transformedContentIntegrityIssues(actualContent, adapter, { kind, skillName } = {}) {
+function transformedContentIntegrityIssues(actualContent, adapter, { kind, skillName, isWorkflowSkill = false } = {}) {
   const issues = [];
 
   if (adapter.id === 'claude' && CANONICAL_AGENT_NAME_PATTERN.test(actualContent)) {
@@ -1108,7 +1111,11 @@ function transformedContentIntegrityIssues(actualContent, adapter, { kind, skill
     issues.push('codex_path_rewrite_drift');
   }
 
-  if (adapter.id === 'codex' && kind === 'skill' && skillName && !actualContent.includes(`name: ${skillName}`)) {
+  const expectedSkillName = adapter.id === 'codex' && !isWorkflowSkill && typeof skillName === 'string' && skillName.startsWith('spec-')
+    ? skillName.replace(/^spec-/, '')
+    : skillName;
+
+  if (adapter.id === 'codex' && kind === 'skill' && expectedSkillName && !actualContent.includes(`name: ${expectedSkillName}`)) {
     issues.push('skill_name_rewrite_drift');
   }
 

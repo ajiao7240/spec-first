@@ -62,7 +62,7 @@ topic: repo-code-baseline-review
 
 ### Deferred to Planning
 - [Affects R8][Technical] 具体采用何种审查执行方式来覆盖四类主题，例如一次综合流程还是多轮分主题审查。
-- [Affects R9][Technical] P0/P1/P2 的判定标准是否需要结合现有 `spec-review` 严重级别体系做映射。
+- [Affects R9][Technical] P0/P1/P2 的判定标准是否需要结合现有 `spec-code-review` 严重级别体系做映射。
 - [Affects R10][Needs research] 是否需要为全仓基线体检增加专门的输出模板或复用现有 review report 结构。
 
 ## Next Steps

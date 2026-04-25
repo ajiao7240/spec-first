@@ -36,7 +36,7 @@ spec-first 的整体架构是清晰的、符合项目哲学的。治理结构（
 | # | 问题 | 证据文件 | 类型 |
 |---|------|----------|------|
 | P2-1 | `spec-work-beta` 无毕业标准，长期处于 beta 漂移状态 | `spec-work-beta/SKILL.md` 无毕业条件定义；features 堆积在 beta 而不回传 stable | 演化缺乏闭环 |
-| P2-2 | Stage-0 preload 块在多个 workflow 中完全复制 | `spec-work`、`spec-work-beta`、`spec-review` 均有 ~60–80 行几乎一致的 Stage-0 预载块 | 多真相源风险 |
+| P2-2 | Stage-0 preload 块在多个 workflow 中完全复制 | `spec-work`、`spec-work-beta`、`spec-code-review` 均有 ~60–80 行几乎一致的 Stage-0 预载块 | 多真相源风险 |
 | P2-3 | `using-spec-first` 路由表未收录 `spec-compound-refresh` | `using-spec-first/SKILL.md` 路由树第 6 条只提 `compound`，不提 `compound-refresh`；用户只能从 `compound` Phase 2.5 发现它 | 可发现性缺陷 |
 | P2-4 | `deploy-docs-contracts.test.js` 不测试 marketplace.json 引用有效性 | 测试文件未覆盖 Step 1 脚本内容 | 测试覆盖缺口 |
 | P2-5 | `lfg-contracts.test.js` 不测试 ralph-loop 引用不存在 | 测试未对外部 skill 引用做存在性守护 | 测试覆盖缺口 |
@@ -79,7 +79,7 @@ spec-first 的整体架构是清晰的、符合项目哲学的。治理结构（
 | 资产 | 状态 | 问题 |
 |------|------|------|
 | `SKILL.md`（475 行） | ⚠️ 缺失 Frontend Design Guidance 步骤 | P1-1 |
-| `references/shipping-workflow.md` | ✅ spec-review 引用、badge 对齐、无 ce-demo-reel | 无 |
+| `references/shipping-workflow.md` | ✅ spec-code-review 引用、badge 对齐、无 ce-demo-reel | 无 |
 
 #### `skills/spec-work-beta/`
 
@@ -181,7 +181,7 @@ spec-first 的整体架构是清晰的、符合项目哲学的。治理结构（
 |------|------|------|
 | `SKILL.md` | ✅ pre-resolved context 模式正确，确定性信息由脚本提供 | 无 |
 
-#### `skills/spec-review/`
+#### `skills/spec-code-review/`
 
 | 资产 | 状态 | 问题 |
 |------|------|------|
@@ -209,7 +209,7 @@ spec-first 的整体架构是清晰的、符合项目哲学的。治理结构（
 
 #### 其余 standalone utility skills
 
-`agent-browser`、`andrew-kane-gem-writer`、`claude-permissions-optimizer`、`document-review`、`dspy-ruby`、`every-style-editor`、`frontend-design`、`git-*` × 4、`onboarding`、`proof`、`rclone`、`report-bug`、`reproduce-bug`、`resolve-pr-feedback`、`test-browser`、`test-xcode`、`todo-create/resolve/triage` 均：
+`agent-browser`、`andrew-kane-gem-writer`、`claude-permissions-optimizer`、`spec-doc-review`、`dspy-ruby`、`every-style-editor`、`frontend-design`、`git-*` × 4、`onboarding`、`proof`、`rclone`、`report-bug`、`reproduce-bug`、`resolve-pr-feedback`、`test-browser`、`test-xcode`、`todo-create/resolve/triage` 均：
 - `SKILL.md` 完整
 - `references/` 资产（如有）内容对齐
 - `scripts/` 承担确定性工作
@@ -220,11 +220,11 @@ spec-first 的整体架构是清晰的、符合项目哲学的。治理结构（
 
 ### 线（跨 skill 流程推演）
 
-#### 流程：`lfg` → `spec-plan` → `spec-work` → `spec-review`
+#### 流程：`lfg` → `spec-plan` → `spec-work` → `spec-code-review`
 
 - `lfg` 第 2 步：`/spec:plan $ARGUMENTS` — 正确
 - `lfg` 第 3 步：`/spec:work <plan-path>` — **问题**：`spec-work` 稳定版无 frontend-design 引导，但 `lfg` 链路指向 `spec-work` 而非 `spec-work-beta`；如果用户做 UI 任务走 lfg 链路，将不会获得 frontend-design 提示
-- `lfg` 第 4 步：`/spec:review mode:autofix plan:<path>` — 正确
+- `lfg` 第 4 步：`/spec:code-review mode:autofix plan:<path>` — 正确
 - `lfg` 第 1 步：ralph-loop 悬挂引用，不存在本 repo，静默降级
 
 #### 流程：`spec-compound` → `spec-compound-refresh`
@@ -236,7 +236,7 @@ spec-first 的整体架构是清晰的、符合项目哲学的。治理结构（
 
 #### 流程：Stage-0 预载 → workflow 执行
 
-- `spec-work`、`spec-work-beta`、`spec-review` 的 Stage-0 preload 块结构相同，内容几乎逐字相同
+- `spec-work`、`spec-work-beta`、`spec-code-review` 的 Stage-0 preload 块结构相同，内容几乎逐字相同
 - 每块约 60-80 行，包含复杂的 `verification_summary` 字段解释
 - 当 Stage-0 contract 变更时，必须同步修改 3+ 个文件的相同段落
 - **演化风险**：已经出现一次 spec-work-beta 的 `# Run Artifact Contract` 没有被 spec-work-beta contracts 单独测试的情况
@@ -344,7 +344,7 @@ spec-first 的整体架构是清晰的、符合项目哲学的。治理结构（
 | changelog | ✅ `disable-model-invocation` | - | - | - | ✅ | 正常 |
 | claude-permissions-optimizer | ✅ | - | - | ✅ × 2 | ✅ | 正常 |
 | deploy-docs | ✅ `disable-model-invocation` | - | - | - | ✅ | **P0-4: marketplace.json 死引用** |
-| document-review | ✅ | ✅ × 4 | - | - | ✅ | 正常 |
+| spec-doc-review | ✅ | ✅ × 4 | - | - | ✅ | 正常 |
 | dspy-ruby | ✅ | ✅ × 5 | ✅ × 3 | - | ✅ | 正常 |
 | every-style-editor | ✅ | ✅ × 1 | - | - | ✅ | 正常 |
 | feature-video | ✅ | ✅ × 5 | - | ✅ + ❌__pycache__ | ✅ | **P0-1: .pyc 追踪** |
@@ -371,7 +371,7 @@ spec-first 的整体架构是清晰的、符合项目哲学的。治理结构（
 | spec-mcp-setup | ✅ | ✅ × 2 | - | ✅ × 22 | ✅ | 正常 |
 | spec-optimize | ✅ | ✅ × 6 | - | ✅ × 3 | ✅ | **P3-3: 额外 README.md 不规范** |
 | spec-plan | ✅ | ✅ × 4 | - | - | ✅ | 正常 |
-| spec-review | ✅ | ✅ × 6 | - | - | ✅ | Stage-0 复制（P2-2） |
+| spec-code-review | ✅ | ✅ × 6 | - | - | ✅ | Stage-0 复制（P2-2） |
 | spec-sessions | ✅ | - | - | - | ✅ | 正常 |
 | spec-slack-research | ✅ | - | - | - | ✅ | 正常 |
 | spec-update | ✅ `disable-model-invocation` | - | - | - | ✅ | 正常 |
@@ -398,6 +398,6 @@ spec-first 的整体架构是清晰的、符合项目哲学的。治理结构（
 | P1-2 contracts 未覆盖 | `spec-work-contracts.test.js` 全文无 `frontend-design` 或 `frontend_design` |
 | P1-3 ralph-loop | `lfg/SKILL.md:10,32` |
 | P2-1 无毕业标准 | `spec-work-beta/SKILL.md` 全文无毕业条件 |
-| P2-2 Stage-0 复制 | `spec-work/SKILL.md:26-62`、`spec-work-beta/SKILL.md:26-66`、`spec-review/SKILL.md:48` |
+| P2-2 Stage-0 复制 | `spec-work/SKILL.md:26-62`、`spec-work-beta/SKILL.md:26-66`、`spec-code-review/SKILL.md:48` |
 | P2-3 compound-refresh 不可路由 | `using-spec-first/SKILL.md` 第 6 条路由只有 `compound`，无 `compound-refresh` |
 | P3-2 年份 hardcoded | `spec-brainstorm/SKILL.md:9` |

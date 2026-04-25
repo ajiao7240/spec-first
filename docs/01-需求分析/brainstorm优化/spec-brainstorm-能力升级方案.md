@@ -27,14 +27,14 @@ source_refs:
 
 ## 一、背景与目标
 
-`skills/spec-brainstorm` 目前是 spec-first 的前端入口，已具备**研究路由（7 源）+ 非软件分流 + 三档 scope + blocking/deferred 问题分类 + multi-persona document-review**等差异化能力。经对**当前正式同步基线** `ce-brainstorm` 与**外部方法参考** `superpowers/brainstorming` 做对比，结论不是“当前仓库明显落后于正式基线”，而是：
+`skills/spec-brainstorm` 目前是 spec-first 的前端入口，已具备**研究路由（7 源）+ 非软件分流 + 三档 scope + blocking/deferred 问题分类 + multi-persona spec-doc-review**等差异化能力。经对**当前正式同步基线** `ce-brainstorm` 与**外部方法参考** `superpowers/brainstorming` 做对比，结论不是“当前仓库明显落后于正式基线”，而是：
 
 - 相对 `ce-brainstorm`：当前 `spec-brainstorm` 已基本追平正式同步基线，并在 supplemental context、research digest、dual-host 适配上有所增强；
 - 真正尚未系统吸收的，是 `superpowers/brainstorming` 中关于**流程纪律、上下文脉冲、自检闭环、单出口安全意图**的部分做法。
 
 基于此，识别出 4 项 P0、6 项 P1、1 项 P2 的增强项。本方案目标：
 
-1. 在**不破坏现有优势**（research digest 契约 / 非软件路由 / document-review 多 persona）前提下吸收外部最佳实践；
+1. 在**不破坏现有优势**（research digest 契约 / 非软件路由 / spec-doc-review 多 persona）前提下吸收外部最佳实践；
 2. 以**最小改动面**覆盖 4 个真实痛点：大型需求识别缺失 / 一次性交付偏差纠正成本高 / 用户层 review 缺 gate / 出口路径无硬约束；
 3. 提供可量化的验证策略与 CHANGELOG 合规落地路径。
 
@@ -50,7 +50,7 @@ source_refs:
 |---|---|---|---|
 | 大型需求无分解 | 三档 scope 只覆盖单 feature | 用户抛"建一个含 chat/存储/计费的平台" | 问题细化到错层级，后续 plan 被迫发明产品 |
 | 需求文档一次性产出 | Phase 3 一次写完 → Phase 3.5 评审 | Standard/Deep 大需求 | 方向偏差要等全文回放才发现，返工成本高 |
-| 无用户本人 review gate | document-review agent 完即进 handoff | 任何有文档的 brainstorm | 用户未真正过目就进入 planning |
+| 无用户本人 review gate | spec-doc-review agent 完即进 handoff | 任何有文档的 brainstorm | 用户未真正过目就进入 planning |
 | 出口缺少显式 Terminal State Lock | handoff 选项已有允许列表，但对未列出 skill 缺少明文 hard deny | agent 误触发其他 skill | brainstorm 能被实现类 skill 劫持 |
 
 ---
@@ -68,8 +68,8 @@ source_refs:
 | 提出 2-3 approaches 供用户比较 | `superpowers` 与当前/正式基线共有 | 已具备，且当前方案更克制 | 保持现状 | 已具备 | 当前 `spec-brainstorm` 已有 approaches phase；仅在“推荐先后顺序”上与 source 保持刻意差异 |
 | design-for-isolation 边界自检 | `superpowers/brainstorming/SKILL.md` | 未显式写入 requirements capture | `P1.2` | 本期吸收 | 能提升 requirements 对职责边界的表达质量 |
 | working in existing codebase 时允许 targeted improvements | 同上 | 精神上接近，边界规则不清 | `P1.3` | 本期吸收 | 吸收“顺手做必要改进”，但禁止实现层重构写进 requirements |
-| 写完 spec 后做 deterministic self-review | `spec-document-reviewer-prompt.md` / `SKILL.md` | 依赖 `document-review`，缺本地 preflight | `P1.6` | 本期吸收 | 以轻量 preflight 吸收该优势，减少后续 review 噪音 |
-| 用户亲自 review spec 后再进入下一阶段 | `superpowers/brainstorming/SKILL.md` | 缺显式 gate | `P0.3` | 本期吸收 | `document-review` 不能替代用户本人意图确认 |
+| 写完 spec 后做 deterministic self-review | `spec-document-reviewer-prompt.md` / `SKILL.md` | 依赖 `spec-doc-review`，缺本地 preflight | `P1.6` | 本期吸收 | 以轻量 preflight 吸收该优势，减少后续 review 噪音 |
+| 用户亲自 review spec 后再进入下一阶段 | `superpowers/brainstorming/SKILL.md` | 缺显式 gate | `P0.3` | 本期吸收 | `spec-doc-review` 不能替代用户本人意图确认 |
 | terminal state 只允许进入 writing-plans | `superpowers/brainstorming/SKILL.md` | 当前产品面更宽 | `P0.4` + Deliberate Divergence | 刻意不原样吸收 | 吸收安全意图，但不复制单出口模型 |
 | Visual Companion | `visual-companion.md` | 当前无此能力 | `P2.1` 独立立项占位 | 延后吸收 | 依赖本地 server、host matrix、state 契约，复杂度高 |
 | spec 写入 `docs/superpowers/specs/` 并立即 commit | `superpowers/brainstorming/SKILL.md` | 当前不采用 | §4.5 明确不吸收 | 刻意不吸收 | spec-first 路径、治理和工作流不同，brainstorm 阶段不强制 commit |
@@ -209,7 +209,7 @@ SP1 → SP2 → ...（理由）
 
 ### P0.3 用户本人 Review Gate
 
-**目的**：区分 agent 级评审（document-review）与人眼级产品意图验证。
+**目的**：区分 agent 级评审（spec-doc-review）与人眼级产品意图验证。
 
 **落地位置**：Phase 3.5 末尾，Phase 4 开始之前新增 Phase 3.6
 
@@ -229,7 +229,7 @@ SP1 → SP2 → ...（理由）
 - **作用域**：仅覆盖 Phase 3.6 User Review Gate 与 Phase 0.3a Decomposition 决策点；**不**覆盖 Phase 4.2 Terminal State Lock 的逃生口（安全关键，必须每次显式二次确认）
 - **拒绝理由**：不进入 memory / state.json，因为 review gate 的价值在于"用户当下是否真的过目了 spec"，跨会话保留该 skip 意图反而会导致用户长期绕过 gate，违背设计初衷
 
-**与 document-review 的协作边界**：document-review 查完整性/一致性/风险，User Review Gate 查产品意图是否对齐。
+**与 spec-doc-review 的协作边界**：spec-doc-review 查完整性/一致性/风险，User Review Gate 查产品意图是否对齐。
 
 ---
 
@@ -249,8 +249,8 @@ SP1 → SP2 → ...（理由）
 **② Allowlist-Workflow（默认允许的下游工作流）**：
 - `/spec:plan`（默认推荐）
 - `/spec:work`（仅 direct-to-work gate 通过时）
-- `/spec:review`（PR 已存在时）
-- `document-review`（重跑评审）
+- `/spec:code-review`（PR 已存在时）
+- `spec-doc-review`（重跑评审）
 - `/spec:brainstorm`（自身继续）
 
 **③ Allowlist-SideEffect（允许的非实现类副作用出口）**：
@@ -270,7 +270,7 @@ SP1 → SP2 → ...（理由）
 
 **Deliberate Divergence（显式偏离声明）**：
 - `superpowers/brainstorming` 的 terminal state 是**单出口**：spec 通过后只能进入 `writing-plans`
-- `spec-first` 的产品面不同，必须保留现有合法出口：`/spec:plan`、通过 gate 的 `/spec:work` direct-to-work、重跑 `document-review`、以及 `Share to Proof`
+- `spec-first` 的产品面不同，必须保留现有合法出口：`/spec:plan`、通过 gate 的 `/spec:work` direct-to-work、重跑 `spec-doc-review`、以及 `Share to Proof`
 - 因此本方案**吸收的是 terminal safety intent**：brainstorm 不得被实现类 skill 劫持；**不吸收的是 single-exit form**：不把所有后续动作都折叠成一个写计划技能
 - 该偏离属于刻意设计，不是漏抄 source
 
@@ -326,7 +326,7 @@ SP1 → SP2 → ...（理由）
 
 **落地位置**：`SKILL.md` 位于 "Execution Flow" 标题之下、Phase 0 之前
 
-**内容**（Mermaid `flowchart TD`）：Resume Check → Task Domain Classify（软件/非软件/直接回答）→ Scope Decomposition Needed（P0.1）→ Epic Doc 分支 OR 标准 Phase 0.3 → Supplemental Research Dispatch → Pressure Test → Dialogue → Approaches → Section-by-section Capture（P0.2）→ document-review → User Review Gate（P0.3）→ Handoff Options with Terminal State Lock（P0.4）
+**内容**（Mermaid `flowchart TD`）：Resume Check → Task Domain Classify（软件/非软件/直接回答）→ Scope Decomposition Needed（P0.1）→ Epic Doc 分支 OR 标准 Phase 0.3 → Supplemental Research Dispatch → Pressure Test → Dialogue → Approaches → Section-by-section Capture（P0.2）→ spec-doc-review → User Review Gate（P0.3）→ Handoff Options with Terminal State Lock（P0.4）
 
 **作用**：agent 快速对齐全景决策树，降低路由错误。
 
@@ -362,7 +362,7 @@ SP1 → SP2 → ...（理由）
 
 ### P1.6 Preflight Self-Check
 
-**目的**：吸收 `superpowers` 的 deterministic spec self-review 优势，在进入 `document-review` 之前先做一次本地低成本预检。
+**目的**：吸收 `superpowers` 的 deterministic spec self-review 优势，在进入 `spec-doc-review` 之前先做一次本地低成本预检。
 
 **落地位置**：`SKILL.md` 在 Phase 3 与 Phase 3.5 之间新增 `Phase 3.4 Preflight Self-Check`；`references/requirements-capture.md` 的完成性检查中同步补入。
 
@@ -373,13 +373,13 @@ SP1 → SP2 → ...（理由）
 4. **Ambiguity scan**：是否存在足以让 `spec-plan` 或执行阶段做出两种相反实现的模糊描述
 
 **执行规则**：
-- 能在本地直接修正的，先 inline 修正，再进入 `document-review`
+- 能在本地直接修正的，先 inline 修正，再进入 `spec-doc-review`
 - 若发现需要用户补决策的问题，回到对应节确认，不把模糊点带进 Phase 3.5
 - Lightweight 且未产出 requirements doc 时，此步骤为 no-op
 
-**与 `document-review` 的边界**：
+**与 `spec-doc-review` 的边界**：
 - `Preflight Self-Check` 是作者自检，不替代 multi-persona review
-- `document-review` 仍是正式质量门；preflight 的作用是减少显而易见的低级缺陷，把 reviewer 注意力留给真正的产品/范围/风险问题
+- `spec-doc-review` 仍是正式质量门；preflight 的作用是减少显而易见的低级缺陷，把 reviewer 注意力留给真正的产品/范围/风险问题
 
 ---
 
@@ -422,7 +422,7 @@ SP1 → SP2 → ...（理由）
 | `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` 作为固定产物路径 | 刻意不吸收 | spec-first 已有 `docs/brainstorms/` 契约，且与现有下游消费者一致 |
 | brainstorm 阶段写完 spec 后必须立即 commit | 刻意不吸收 | 当前仓库没有“brainstorm 必须提交 git”治理要求；过早 commit 会放大文档试错成本 |
 | 以 architecture / components / data flow / testing 作为 brainstorm 主体结构 | 刻意不吸收 | 这些内容更接近 implementation planning；spec-first 保留 WHAT/HOW 边界 |
-| terminal state 只允许进入 writing-plans | 刻意不吸收 | 当前产品面需要保留 `/spec:plan`、受 gate 约束的 `/spec:work`、`document-review`、Proof |
+| terminal state 只允许进入 writing-plans | 刻意不吸收 | 当前产品面需要保留 `/spec:plan`、受 gate 约束的 `/spec:work`、`spec-doc-review`、Proof |
 | 每个流程环节都强制创建 checklist task | 刻意不吸收 | spec-first 当前没有把 brainstorm 与 task 系统强绑定的必要性 |
 | Visual Companion | 延后吸收 | 能力有价值，但依赖本地 server 与多宿主协议，独立立项更合理 |
 
@@ -490,7 +490,7 @@ SP1 → SP2 → ...（理由）
 ### 上下游同步
 - `spec-plan` 入口 description / argument-hint：保持现有交互式 review 主线契约不变；补充 Epic 元数据消费规则——**从 requirements doc frontmatter 的 `epic` 字段读取**，按 §4.P0.1 路径推导规则 glob 匹配 epic decomposition doc，命中零个时退化为仅告警继续（**不**从 Key Decisions 正文读取）
 - `spec-work` direct-to-work gate：本期仅在 Terminal State Lock 说明里继续明确"gate 未通过不得直接跳入"；**不**新增 Epic 上下文加载义务
-- `document-review`：无契约变更，User Review Gate 是**其后**的追加步骤
+- `spec-doc-review`：无契约变更，User Review Gate 是**其后**的追加步骤
 - `references/handoff.md`：§4.P0.4 Denylist + 双 Allowlist 三层模型须在此文件 Phase 4.2 落地，保留 `Share to Proof` 行为
 - `docs/10-prompt/skills/spec-brainstorm/`：作为 `skills/spec-brainstorm/` 的镜像，必须同步刷新，避免 prompt mirror 漂移
 - `docs/08-版本更新/README.md`：若 P0/P1 落地形成用户可见 workflow 变化，必须同步追加版本说明
@@ -555,7 +555,7 @@ SP1 → SP2 → ...（理由）
 **v1.3 修订已闭环 5 个结构性缺口**：
 1. ✅ 用“源项目优势覆盖矩阵”把 source 优势分成已具备 / 本期吸收 / 延后吸收 / 刻意不吸收，文档可自证完整性
 2. ✅ 补入 `P1.5 Context Pulse`，显式吸收 `recent commits / current work pulse`
-3. ✅ 补入 `P1.6 Preflight Self-Check`，补上 `document-review` 之前的 deterministic preflight
+3. ✅ 补入 `P1.6 Preflight Self-Check`，补上 `spec-doc-review` 之前的 deterministic preflight
 4. ✅ 在 `P0.4` 下加入 `Deliberate Divergence`，明确吸收的是 terminal safety intent，而不是单出口形式
 5. ✅ 将 `P2.1 Visual Companion` 收口为 deferred-not-absorbed，并写清后续立项必须覆盖的协议边界
 

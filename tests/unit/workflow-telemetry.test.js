@@ -13,7 +13,7 @@ describe('workflow telemetry', () => {
     try {
       const result = recordWorkflowTelemetry({
         repoRoot: tmpDir,
-        workflow: 'spec-review',
+        workflow: 'spec-code-review',
         slug: 'demo',
         evaluation: {
           level: 'L1',
@@ -63,7 +63,7 @@ describe('workflow telemetry', () => {
       });
 
       expect(fs.existsSync(result.filePath)).toBe(true);
-      expect(result.record.workflow).toBe('spec-review');
+      expect(result.record.workflow).toBe('spec-code-review');
       expect(result.record.stage).toBe('review');
       expect(result.record.profile).toBe('review-default');
       expect(result.record.level).toBe('L1');

@@ -27,4 +27,5 @@ $payload | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 $tempFile
 Move-Item -Force $tempFile $MarkerPath
 Write-Host "📝 宿主就绪标记已更新: $MarkerPath"
 Write-Host "🔎 当前宿主基线状态: $($Facts.overall_status)"
+Write-Host "🧭 MCP baseline_ready: $($Facts.baseline_ready)"
 Write-Host '✅ readiness ledger 已写入'

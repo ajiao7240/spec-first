@@ -1,7 +1,7 @@
 # spec-req：Stage -1 需求录入 Workflow 设计方案
 
 > 方案性质：需求设计稿
-> 适用范围：新增 `spec-req` skill，联动 `spec-plan`、`spec-ideate`、`spec-brainstorm`、`spec-review`
+> 适用范围：新增 `spec-req` skill，联动 `spec-plan`、`spec-ideate`、`spec-brainstorm`、`spec-code-review`
 > 撰写日期：2026-04-04
 > 参考方法论：Shape Up (Basecamp)、Amazon PRFAQ、RFC Process、BDD/Gherkin、ADR
 
@@ -48,7 +48,7 @@ AC 不写"系统应该……"，写 **Given / When / Then**：
   Then 跳转到工作台，显示欢迎提示
 ```
 
-这让 spec-review 能直接对照 AC 评审，而不是靠主观判断。
+这让 spec-code-review 能直接对照 AC 评审，而不是靠主观判断。
 
 ### 2.4 Rabbit Holes 预先声明（Shape Up）
 在需求阶段就标出可能让 Agent 陷入复杂度的区域，spec-plan 看到后列入 doubt points，spec-work 列入 preflight 检查。
@@ -167,7 +167,7 @@ plan 若找不到关联需求，不静默跳过，显式提示：
 
 可选消费需求文档：读取"成功画面"和"核心需求"作为探索锚点，避免脱离问题边界的自由发挥。
 
-### 5.3 spec-review
+### 5.3 spec-code-review
 
 评审时对照 AC scenarios 逐条检查，而不是主观评判"功能是否完整"：
 - AC 中每个 Scenario → 检查是否有对应测试
@@ -188,7 +188,7 @@ spec-req 完成录入    → status: draft
 人工确认（或自动）   → status: ready
 spec-plan 引用       → status: in-progress
 spec-work 完成       → （保持 in-progress）
-spec-review 通过 AC  → status: done
+spec-code-review 通过 AC  → status: done
 ```
 
 done 之后需求文档作为只读的历史记录，不再修改。
@@ -204,7 +204,7 @@ plans/2026-04-04-001-feat-xxx-plan.md     ← spec-plan，doubt_points 来自 ra
     ↓ refs_plan
 work/2026-04-04-001/meta.json             ← spec-work，execution artifact
     ↓
-reviews/2026-04-04-001-review.md          ← spec-review，对照 AC scenarios
+reviews/2026-04-04-001-review.md          ← spec-code-review，对照 AC scenarios
     ↓
 knowledge/patterns/xxx.md                 ← spec-compound，带 source_req: req-001
 ```
@@ -224,7 +224,7 @@ knowledge/patterns/xxx.md                 ← spec-compound，带 source_req: re
 | 合规要求 | 安全、隐私、数据保留策略 |
 | 平台约定 | 通用权限模型、审计日志要求 |
 
-项目级 spec-plan 可以 `refs_shared_req` 引用，`spec-review` 可检查实现是否符合 org 级要求。
+项目级 spec-plan 可以 `refs_shared_req` 引用，`spec-code-review` 可检查实现是否符合 org 级要求。
 
 ---
 
@@ -250,8 +250,8 @@ knowledge/patterns/xxx.md                 ← spec-compound，带 source_req: re
 - Rabbit Holes → doubt points 自动流转
 - **收益**：plan 有了可追溯的需求来源，doubt points 不再靠 Agent 自行推断
 
-### 第三阶段：spec-review AC 对照 + 生命周期闭环
-- spec-review 对照 BDD scenarios 评审
+### 第三阶段：spec-code-review AC 对照 + 生命周期闭环
+- spec-code-review 对照 BDD scenarios 评审
 - 状态自动流转（in-progress → done）
 - **收益**：需求验收有了客观标准，不再依赖主观评审
 
@@ -262,7 +262,7 @@ knowledge/patterns/xxx.md                 ← spec-compound，带 source_req: re
 | 决策 | 选择 | 理由 |
 |---|---|---|
 | 格式：MD 还是 JSON | MD + YAML frontmatter | 人类可读优先，机器通过 frontmatter 解析 |
-| AC 格式：自由文本还是 BDD | BDD Given/When/Then | 可执行，spec-review 可直接对照 |
+| AC 格式：自由文本还是 BDD | BDD Given/When/Then | 可执行，spec-code-review 可直接对照 |
 | 首问：问题还是成功画面 | 成功画面（Working Backwards） | 问题容易发散，成功画面锚定目标 |
 | Appetite：估算还是决策 | 决策（Shape Up） | 估算是预测，决策是承诺，后者驱动范围收敛 |
 | 开放问题：需求层处理还是 plan 层 | 需求层标记，plan 层处理 | 需求层只识别，不假设答案；plan 层决策并记录 |

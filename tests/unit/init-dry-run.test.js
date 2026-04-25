@@ -87,8 +87,8 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('Would ensure');
       expect(result.stdout).toContain('Would write/update');
       expect(result.stdout).toContain('.claude/commands/spec/work.md');
-      expect(result.stdout).toContain('.claude/spec-first/workflows/spec-work/SKILL.md');
-      expect(result.stdout).toContain('.claude/agents/review/security-reviewer.md');
+      expect(result.stdout).not.toContain('.claude/spec-first/workflows/spec-work/SKILL.md');
+      expect(result.stdout).toContain('.claude/agents/spec-security-reviewer.agent.md');
       expect(result.stdout).toContain('CLAUDE.md');
       expect(result.stdout).toContain('.claude/hooks/session-start');
       expect(result.stdout).toContain('.claude/spec-first/state.json');
@@ -110,8 +110,7 @@ describe('init --dry-run', () => {
 
       for (const relativePath of [
         '.claude/commands/spec/work.md',
-        '.claude/spec-first/workflows/spec-work/SKILL.md',
-        '.claude/agents/review/security-reviewer.md',
+        '.claude/agents/spec-security-reviewer.agent.md',
         '.claude/hooks/session-start',
         '.claude/settings.json',
         '.claude/spec-first/state.json',
@@ -145,8 +144,8 @@ describe('init --dry-run', () => {
       const commandPath = path.join(projectRoot, '.claude', 'commands', 'spec', 'work.md');
       const drifted = fs.readFileSync(commandPath, 'utf8')
         .replace(
-          'stage0-context --stage work --workflow spec-work --format json',
-          'stage0-context --stage work --workflow spec-plan --format json',
+          "Derive tasks from the plan's implementation units",
+          'Derive tasks from an unrelated source',
         );
       fs.writeFileSync(commandPath, drifted, 'utf8');
 
@@ -159,7 +158,7 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('.claude/commands/spec/work.md');
       expect(result.stdout).toContain('Would prune 1 unmanaged command file(s)');
       expect(result.stdout).toContain('.claude/commands/spec/custom.md');
-      expect(result.stdout).toContain('.claude/spec-first/workflows/spec-work/SKILL.md');
+      expect(result.stdout).not.toContain('.claude/spec-first/workflows/spec-work/SKILL.md');
     } finally {
       warnSpy.mockRestore();
       initLogSpy.mockRestore();

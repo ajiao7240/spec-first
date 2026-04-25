@@ -67,7 +67,7 @@ describe('spec-work run artifact contract', () => {
         next_focus: '决定是否进入 CLI/runtime implementation',
         open_questions: ['spec-work-beta 是否在 Unit 3 单独纳入 artifact path'],
       },
-      next_recommended_action: '进入 spec-review 收口并决定是否继续实现 runtime 写入',
+      next_recommended_action: '进入 spec-code-review 收口并决定是否继续实现 runtime 写入',
     };
 
     expect(validateAgainstSchema(schema, artifact).errors).toEqual([]);

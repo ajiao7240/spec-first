@@ -8,6 +8,8 @@ Choose the template matching the problem_type track (see `references/schema.yaml
 
 Use for: `build_error`, `test_failure`, `runtime_error`, `performance_issue`, `database_issue`, `security_issue`, `ui_bug`, `integration_issue`, `logic_error`
 
+<!-- YAML safety: array items (symptoms, applies_when, tags, related_components) starting with ` [ * & ! | > % @ ? or containing ": " must be wrapped in double quotes. See references/yaml-schema.md > "YAML Safety Rules". -->
+
 ```markdown
 ---
 title: [Clear problem title]
@@ -44,36 +46,6 @@ tags: [keyword-one, keyword-two]
 ## Prevention
 - [Concrete practice, test, or guardrail]
 
-## Human Summary
-### Outcome
-[What changed, what was fixed, or what guidance now applies]
-
-### Key Decisions
-- [Decision and why it mattered]
-
-### Validation / Result
-- [Verifier, test, review, or observable result]
-
-### Remaining Risks
-- [Known gap, follow-up, or "None currently identified"]
-
-## LLM Reuse Context
-[Prefer repo-factual details. If a subsection is unknown, say so explicitly rather than guessing.]
-### Constraints
-- [Boundary, invariant, or assumption future agents must respect]
-
-### Code Touchpoints
-- `[path/to/file]` — [why it matters]
-
-### Patterns to Reuse
-- [Reusable pattern or workflow move]
-
-### Anti-patterns to Avoid
-- [Common trap, false lead, or invalid shortcut]
-
-### Provenance
-- [Plan, diff, verifier, issue, session history, or other source]
-
 ## Related Issues
 - [Related docs or issues, if any]
 ```
@@ -83,6 +55,8 @@ tags: [keyword-one, keyword-two]
 ## Knowledge Track Template
 
 Use for: `best_practice`, `documentation_gap`, `workflow_issue`, `developer_experience`
+
+<!-- YAML safety: array items (symptoms, applies_when, tags, related_components) starting with ` [ * & ! | > % @ ? or containing ": " must be wrapped in double quotes. See references/yaml-schema.md > "YAML Safety Rules". -->
 
 ```markdown
 ---
@@ -114,36 +88,6 @@ tags: [keyword-one, keyword-two]
 
 ## Examples
 [Concrete before/after or usage examples showing the practice in action]
-
-## Human Summary
-### Outcome
-[What changed, what guidance was added, or what behavior was clarified]
-
-### Key Decisions
-- [Decision and why it mattered]
-
-### Validation / Result
-- [Verifier, review, or observable result]
-
-### Remaining Risks
-- [Known gap, follow-up, or "None currently identified"]
-
-## LLM Reuse Context
-[Prefer repo-factual details. If a subsection is unknown, say so explicitly rather than guessing.]
-### Constraints
-- [Boundary, invariant, or assumption future agents must respect]
-
-### Code Touchpoints
-- `[path/to/file]` — [why it matters]
-
-### Patterns to Reuse
-- [Reusable pattern or workflow move]
-
-### Anti-patterns to Avoid
-- [Common trap, false lead, or invalid shortcut]
-
-### Provenance
-- [Plan, diff, verifier, issue, session history, or other source]
 
 ## Related
 - [Related docs or issues, if any]

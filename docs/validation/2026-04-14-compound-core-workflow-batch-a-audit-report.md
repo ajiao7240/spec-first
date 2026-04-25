@@ -10,18 +10,18 @@
 
 本轮已完成批次 A 的实现与全量审查，结论如下：
 
-1. `spec-review`、`document-review`、`resolve-pr-feedback`、`spec-ideate` 以及 A4 覆盖的 agent 文件，均已按“逐文件核实、非抽样”方式与上游当前基线对照。
+1. `spec-code-review`、`spec-doc-review`、`resolve-pr-feedback`、`spec-ideate` 以及 A4 覆盖的 agent 文件，均已按“逐文件核实、非抽样”方式与上游当前基线对照。
 2. A4 范围内 22 个 agent 文件现已与“上游文本 + spec-first 命名空间映射”完全一致；`agents/workflow/bug-reproduction-validator.md` 因上游缺失而明确保留当前实现。
 3. 本地演化中有价值的分叉已保留，没有发生机械回退：
-   - `spec-review` 不引入上游 `headless`
-   - `document-review` 保留本地 `batch_confirm`、`Promote Residual Concerns`、`Resolve Contradictions`、`Route by Autofix Class`
-4. 共享约束 `949bdef` 已在批次 A 范围内闭环：agent hygiene 已收口，`spec-review` / `spec-work` / `spec-work-beta` 的 subagent permission-mode 约束已补齐；A 批次负责 shared 语义裁决与 A 范围内真实文件落点，C/D 后续按 file-affinity 消费 handoff。`spec-work` / `spec-work-beta` 主 `SKILL.md` 中原有的调用层硬编码 `mode:autofix` 指导已移除，但 shipping reference 仍保留显式 `mode:autofix` 的 review 指导，且这与上游当前文本一致。
+   - `spec-code-review` 不引入上游 `headless`
+   - `spec-doc-review` 保留本地 `batch_confirm`、`Promote Residual Concerns`、`Resolve Contradictions`、`Route by Autofix Class`
+4. 共享约束 `949bdef` 已在批次 A 范围内闭环：agent hygiene 已收口，`spec-code-review` / `spec-work` / `spec-work-beta` 的 subagent permission-mode 约束已补齐；A 批次负责 shared 语义裁决与 A 范围内真实文件落点，C/D 后续按 file-affinity 消费 handoff。`spec-work` / `spec-work-beta` 主 `SKILL.md` 中原有的调用层硬编码 `mode:autofix` 指导已移除，但 shipping reference 仍保留显式 `mode:autofix` 的 review 指导，且这与上游当前文本一致。
 
 ## 2. 对上游项目意图的理解
 
 结合 `compound-engineering-plugin` 当前更新，本轮确认其核心意图不是“增加更多能力入口”，而是对核心工作流做三类收敛：
 
-1. 协议与输出收敛：让 `review` / `document-review` / `pr-feedback` 的输出契约更稳定，减少格式漂移、减少 token 浪费、降低多 agent 合并成本。
+1. 协议与输出收敛：让 `review` / `spec-doc-review` / `pr-feedback` 的输出契约更稳定，减少格式漂移、减少 token 浪费、降低多 agent 合并成本。
 2. 安全与 orchestration 收敛：把不可信输入边界、cluster gate、cross-invocation 模式、permission-mode 等 orchestration 约束写清楚，避免 prompt 注入、并行冲突和权限模式被调用方写死。
 3. agent hygiene 收敛：删除 self-referencing examples，改成直接面向真实任务的 agent 指令，减少无效上下文和递归误导。
 
@@ -48,12 +48,12 @@
 
 | 本地文件 | 上游对应 | 处理方式 | 结果 |
 |---|---|---|---|
-| `skills/spec-review/SKILL.md` | `skills/ce-review/SKILL.md` | 吸收 compact returns、run-id artifact、base resolution 稳态说明；保留本地非 headless 路线 | 已完成 |
-| `skills/spec-review/references/findings-schema.json` | `skills/ce-review/references/findings-schema.json` | 同步 findings schema | 已完成 |
-| `skills/spec-review/references/persona-catalog.md` | `skills/ce-review/references/persona-catalog.md` | 同步 persona catalog 调整 | 已完成 |
-| `skills/spec-review/references/subagent-template.md` | `skills/ce-review/references/subagent-template.md` | 同步 compact reviewer returns 模板 | 已完成 |
-| `skills/spec-review/references/review-output-template.md` | `skills/ce-review/references/review-output-template.md` | 同步最终输出模板 | 已完成 |
-| `skills/spec-review/references/resolve-base.sh` | `skills/ce-review/references/resolve-base.sh` | 同步 merge-base / review-base 解析稳态修复 | 已完成 |
+| `skills/spec-code-review/SKILL.md` | `skills/ce-review/SKILL.md` | 吸收 compact returns、run-id artifact、base resolution 稳态说明；保留本地非 headless 路线 | 已完成 |
+| `skills/spec-code-review/references/findings-schema.json` | `skills/ce-review/references/findings-schema.json` | 同步 findings schema | 已完成 |
+| `skills/spec-code-review/references/persona-catalog.md` | `skills/ce-review/references/persona-catalog.md` | 同步 persona catalog 调整 | 已完成 |
+| `skills/spec-code-review/references/subagent-template.md` | `skills/ce-review/references/subagent-template.md` | 同步 compact reviewer returns 模板 | 已完成 |
+| `skills/spec-code-review/references/review-output-template.md` | `skills/ce-review/references/review-output-template.md` | 同步最终输出模板 | 已完成 |
+| `skills/spec-code-review/references/resolve-base.sh` | `skills/ce-review/references/resolve-base.sh` | 同步 merge-base / review-base 解析稳态修复 | 已完成 |
 | `skills/spec-ideate/SKILL.md` | `skills/ce-ideate/SKILL.md` | 吸收 token/latency 优化意图，不回退本地 ideate 结构 | 已完成 |
 | `skills/spec-ideate/references/post-ideation-workflow.md` | `skills/ce-ideate/references/post-ideation-workflow.md` | 新增后置流程 reference，用于 token 收敛 | 已完成 |
 
@@ -61,14 +61,14 @@
 
 | 本地文件 | 上游对应 | 处理方式 | 结果 |
 |---|---|---|---|
-| `skills/document-review/SKILL.md` | `skills/document-review/SKILL.md` | 吸收 auto route、pattern-resolved、token 收敛；保留本地 synthesis / batch_confirm 分支 | 已完成 |
-| `skills/document-review/references/findings-schema.json` | `skills/document-review/references/findings-schema.json` | 同步 findings schema | 已完成 |
-| `skills/document-review/references/subagent-template.md` | `skills/document-review/references/subagent-template.md` | 吸收 recursion guard | 已完成 |
-| `skills/document-review/references/synthesis-and-presentation.md` | 同名上游 reference | 新增拆分 reference，承接 Phase 3-5 token 收敛 | 已完成 |
-| `agents/document-review/adversarial-document-reviewer.md` | 同名上游 agent | 同步 persona 精简和 token 优化 | 已完成 |
-| `agents/document-review/design-lens-reviewer.md` | 同名上游 agent | 逐文件审查后确认无需改动 | 已审查，无需修改 |
-| `agents/document-review/scope-guardian-reviewer.md` | 同名上游 agent | 逐文件审查后确认无需改动 | 已审查，无需修改 |
-| `agents/document-review/security-lens-reviewer.md` | 同名上游 agent | 逐文件审查后确认无需改动 | 已审查，无需修改 |
+| `skills/spec-doc-review/SKILL.md` | `skills/spec-doc-review/SKILL.md` | 吸收 auto route、pattern-resolved、token 收敛；保留本地 synthesis / batch_confirm 分支 | 已完成 |
+| `skills/spec-doc-review/references/findings-schema.json` | `skills/spec-doc-review/references/findings-schema.json` | 同步 findings schema | 已完成 |
+| `skills/spec-doc-review/references/subagent-template.md` | `skills/spec-doc-review/references/subagent-template.md` | 吸收 recursion guard | 已完成 |
+| `skills/spec-doc-review/references/synthesis-and-presentation.md` | 同名上游 reference | 新增拆分 reference，承接 Phase 3-5 token 收敛 | 已完成 |
+| `agents/spec-doc-review/adversarial-document-reviewer.md` | 同名上游 agent | 同步 persona 精简和 token 优化 | 已完成 |
+| `agents/spec-doc-review/design-lens-reviewer.md` | 同名上游 agent | 逐文件审查后确认无需改动 | 已审查，无需修改 |
+| `agents/spec-doc-review/scope-guardian-reviewer.md` | 同名上游 agent | 逐文件审查后确认无需改动 | 已审查，无需修改 |
+| `agents/spec-doc-review/security-lens-reviewer.md` | 同名上游 agent | 逐文件审查后确认无需改动 | 已审查，无需修改 |
 
 ### Unit A3
 
@@ -105,8 +105,8 @@
 | `agents/workflow/bug-reproduction-validator.md` | 上游缺失 | 明确保留当前文件，不做覆盖 | 已确认保留 |
 | `agents/workflow/pr-comment-resolver.md` | 同名上游 agent | 已在 A3 完成真实语义同步；A4 再审查时确认无额外 hygiene 差异需补 | 已审查，无需额外修改 |
 | `agents/workflow/spec-flow-analyzer.md` | 同名上游 agent | 删除 self-referencing examples | 已完成 |
-| `skills/spec-review/SKILL.md` | `skills/ce-review/SKILL.md` | 补充 subagent permission-mode 约束，不回退本地 review 模式设计 | 已完成 |
-| `skills/document-review/SKILL.md` | `skills/document-review/SKILL.md` | 复核显式 mode 传参，确认当前无额外收口项 | 已审查，无需修改 |
+| `skills/spec-code-review/SKILL.md` | `skills/ce-review/SKILL.md` | 补充 subagent permission-mode 约束，不回退本地 review 模式设计 | 已完成 |
+| `skills/spec-doc-review/SKILL.md` | `skills/spec-doc-review/SKILL.md` | 复核显式 mode 传参，确认当前无额外收口项 | 已审查，无需修改 |
 | `skills/spec-work/SKILL.md` | `skills/ce-work/SKILL.md` | 补 permission-mode 约束，并完成 `949bdef` 的 A 侧 shared 语义裁决；主 `SKILL.md` 中移除调用层硬编码 `mode:autofix` 指导，shipping reference 保留显式 review 模式说明 | 已完成 |
 | `skills/spec-work-beta/SKILL.md` | `skills/ce-work-beta/SKILL.md` | 补 permission-mode 约束，并完成 `949bdef` 的 A 侧 shared 语义裁决；主 `SKILL.md` 中移除调用层硬编码 `mode:autofix` 指导，shipping reference 保留显式 review 模式说明 | 已完成 |
 | `skills/spec-ideate/SKILL.md` | `skills/ce-ideate/SKILL.md` | 复核显式 mode 传参，确认当前无额外收口项 | 已审查，无需修改 |
@@ -116,15 +116,15 @@
 
 以下分叉是经过复核后保留的，不是遗漏：
 
-1. `skills/spec-review/SKILL.md`
+1. `skills/spec-code-review/SKILL.md`
    - 不引入上游 `mode:headless`
    - 原因：当前 `spec-first` 的 review 主链路仍以交互 / autofix / report-only 为主，强行接入 headless 会扩大调用面和验证面
-2. `skills/document-review/SKILL.md`
+2. `skills/spec-doc-review/SKILL.md`
    - 保留本地 `batch_confirm`
    - 保留 `Promote Residual Concerns`
    - 保留 `Resolve Contradictions`
    - 保留 `Route by Autofix Class`
-   - 原因：这些是本地对 document-review 的实际增强，若机械回退会丢失当前产品化价值
+   - 原因：这些是本地对 spec-doc-review 的实际增强，若机械回退会丢失当前产品化价值
 3. `agents/workflow/bug-reproduction-validator.md`
    - 上游已不存在对应文件
    - 原因：当前仓库仍有该入口，不应在没有替代方案的前提下删除
@@ -137,9 +137,9 @@
 
 ```bash
 git diff --check
-jq . skills/spec-review/references/findings-schema.json
-jq . skills/document-review/references/findings-schema.json
-bash -n skills/spec-review/references/resolve-base.sh
+jq . skills/spec-code-review/references/findings-schema.json
+jq . skills/spec-doc-review/references/findings-schema.json
+bash -n skills/spec-code-review/references/resolve-base.sh
 ```
 
 ### 规则验证

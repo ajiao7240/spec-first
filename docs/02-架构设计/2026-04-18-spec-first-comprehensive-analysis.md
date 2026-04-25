@@ -142,7 +142,7 @@ fs.rmSync(targetPath, { recursive: true, force: true });
 
 `skills/spec-work/SKILL.md` 明确说明 `change-surface` source 处理规则，避免执行阶段把计划阶段的产物误当作已验证事实。
 
-**3. `spec-review` Mode 检测明确**
+**3. `spec-code-review` Mode 检测明确**
 
 模式（interactive / headless）检测规则和参数令牌系统在 SKILL.md 中有清晰定义，减少运行时歧义。
 
@@ -158,7 +158,7 @@ fs.rmSync(targetPath, { recursive: true, force: true });
 
 **P10. Workflow 间交接契约缺失**
 
-`spec-plan` 产出 `plan.md`，`spec-work` 消费 `plan.md`，`spec-review` 消费 work 产物——但这三个 skill 间没有形式化的交接接口定义。缺少 `docs/contracts/skill-interfaces/` 层，交接规则全靠 SKILL.md prose，脆弱且难以机器验证。
+`spec-plan` 产出 `plan.md`，`spec-work` 消费 `plan.md`，`spec-code-review` 消费 work 产物——但这三个 skill 间没有形式化的交接接口定义。缺少 `docs/contracts/skill-interfaces/` 层，交接规则全靠 SKILL.md prose，脆弱且难以机器验证。
 
 **P11. `spec-plan` 验证摘要消费规则语义复杂**
 

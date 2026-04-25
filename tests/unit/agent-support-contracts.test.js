@@ -5,12 +5,7 @@ const { buildState } = require('../../src/cli/state');
 
 describe('agent support file contracts', () => {
   test('bundled agent support files are tracked separately from markdown agents', () => {
-    expect(listBundledAgentSupportFiles()).toEqual([
-      'research/session-history-scripts/discover-sessions.sh',
-      'research/session-history-scripts/extract-errors.py',
-      'research/session-history-scripts/extract-metadata.py',
-      'research/session-history-scripts/extract-skeleton.py',
-    ]);
+    expect(listBundledAgentSupportFiles()).toEqual([]);
   });
 
   test('buildState preserves agentSupportFiles in managed state', () => {
@@ -24,23 +19,16 @@ describe('agent support file contracts', () => {
         version: '1.5.1',
       },
       commands: [{ filename: 'sessions.md' }, { filename: 'work.md' }, { filename: 'sessions.md' }],
-      skills: ['document-review', 'document-review'],
-      workflowSkills: ['spec-review', 'spec-plan', 'spec-review'],
-      agents: ['research/session-historian.md', 'research/session-historian.md'],
-      agentSupportFiles: [
-        'research/session-history-scripts/extract-skeleton.py',
-        'research/session-history-scripts/extract-skeleton.py',
-        'research/session-history-scripts/discover-sessions.sh',
-      ],
+      skills: ['spec-doc-review', 'spec-doc-review'],
+      workflowSkills: ['spec-code-review', 'spec-plan', 'spec-code-review'],
+      agents: ['spec-session-historian.agent.md', 'spec-session-historian.agent.md'],
+      agentSupportFiles: [],
     });
 
     expect(state.commands).toEqual(['sessions.md', 'work.md']);
-    expect(state.skills).toEqual(['document-review']);
-    expect(state.workflowSkills).toEqual(['spec-plan', 'spec-review']);
-    expect(state.agents).toEqual(['research/session-historian.md']);
-    expect(state.agentSupportFiles).toEqual([
-      'research/session-history-scripts/discover-sessions.sh',
-      'research/session-history-scripts/extract-skeleton.py',
-    ]);
+    expect(state.skills).toEqual(['spec-doc-review']);
+    expect(state.workflowSkills).toEqual(['spec-code-review', 'spec-plan']);
+    expect(state.agents).toEqual(['spec-session-historian.agent.md']);
+    expect(state.agentSupportFiles).toEqual([]);
   });
 });

@@ -70,7 +70,7 @@ describe('ai dev quality gate contract', () => {
       'tests/unit/spec-plan-contracts.test.js',
       'tests/unit/spec-work-contracts.test.js',
       'tests/unit/spec-work-beta-contracts.test.js',
-      'tests/unit/spec-review-contracts.test.js',
+      'tests/unit/spec-code-review-contracts.test.js',
       'tests/unit/workflow-telemetry.test.js',
       'tests/unit/workspace-context.test.js',
     ]);

@@ -6,6 +6,7 @@ const { normalizeStage, resolveProfile } = require('./profiles');
 
 function stageFromWorkflow(workflow) {
   if (typeof workflow !== 'string') return 'unknown';
+  if (workflow === 'spec-code-review') return 'review';
   return normalizeStage(workflow.replace(/^spec-/, ''));
 }
 

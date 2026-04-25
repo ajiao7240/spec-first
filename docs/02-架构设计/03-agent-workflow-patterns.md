@@ -118,7 +118,7 @@
 
 这些模式可被其他 workflow 直接引用，例如：
 
-- `spec-review` 可以引用 `Failure Recovery` 和 `File Ownership Boundary` 来定义复审边界
+- `spec-code-review` 可以引用 `Failure Recovery` 和 `File Ownership Boundary` 来定义复审边界
 - `spec-work` 可以引用 `PRD Task Contract` 来约束 worker 的输入输出
 - `spec-graph-bootstrap` 之外的文档化流程也可以复用 `Conditional Generation` 和 `Multi-Level Degradation`
 

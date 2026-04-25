@@ -120,7 +120,7 @@ spec-docs/                         ← 独立文档仓库
 │   ├── contexts/                  ← spec-graph-bootstrap 产物
 │   ├── plans/                     ← spec-plan 产物
 │   ├── work/                      ← spec-work meta/signals/verification
-│   ├── reviews/                   ← spec-review 产物
+│   ├── reviews/                   ← spec-code-review 产物
 │   └── knowledge/                 ← spec-compound 沉淀
 ├── project-B/
 │   └── ...

@@ -53,7 +53,7 @@
 - `raw -> draft -> knowledge`
 - `docs-local.json`
 - publish validator
-- `spec-plan` / `spec-work` / `spec-review` 的知识优先读取
+- `spec-plan` / `spec-work` / `spec-code-review` 的知识优先读取
 
 ### Scale 模式（10 -> 100）
 

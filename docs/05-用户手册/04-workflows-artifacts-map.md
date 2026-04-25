@@ -6,31 +6,31 @@
 
 | 目录 | 写入阶段 | 触发方式 | 主要作用 | 后续消费位置 | 写入/消费源码 | 主要产物 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `.spec-first/workflows/bootstrap/<slug>/` | `spec-graph-bootstrap` / Stage-0 编译阶段 | 运行 graph-bootstrap 主链时写入 | 作为 Stage-0 控制面，沉淀 repo 事实、风险、测试面、路由与 minimal context，供后续 workflow 作为结构化输入使用 | `spec-plan` / `spec-work` / `spec-review` 的 Stage-0 上下文消费链；`src/context-routing/*` 路由层 | 写入：`src/bootstrap-compiler/run-bootstrap.js` | `fact-inventory.json`、`risk-signals.json`、`test-surface.json`、`database-routing.json`、`context-routing.json`、`artifact-manifest.json`、`freshness.json`、`lint-report.json`、`contradictions.json`、`verification-profile.json`、`ownership.json`、`review-queue.json`、`minimal-context/{plan,work,review}.json` |
+| `.spec-first/workflows/bootstrap/<slug>/` | `spec-graph-bootstrap` / Stage-0 编译阶段 | 运行 graph-bootstrap 主链时写入 | 作为 Stage-0 控制面，沉淀 repo 事实、风险、测试面、路由与 minimal context，供后续 workflow 作为结构化输入使用 | `spec-plan` / `spec-work` / `spec-code-review` 的 Stage-0 上下文消费链；`src/context-routing/*` 路由层 | 写入：`src/bootstrap-compiler/run-bootstrap.js` | `fact-inventory.json`、`risk-signals.json`、`test-surface.json`、`database-routing.json`、`context-routing.json`、`artifact-manifest.json`、`freshness.json`、`lint-report.json`、`contradictions.json`、`verification-profile.json`、`ownership.json`、`review-queue.json`、`minimal-context/{plan,work,review}.json` |
 | `.spec-first/workflows/verification/<slug>/` | verification evidence 产物阶段 | 上游 verification 流程先写入，后续 runtime / doctor 消费 | 作为 verification 证据真源，沉淀验证结论与证据项 | runtime 的 `verification_evidence.evidence_items`；`doctor` 校验/汇总链路 | 消费：`src/context-routing/verification-evidence.js`、`src/cli/commands/doctor.js` | `verification-evidence.json` |
 | `.spec-first/workflows/quality-gates/ai-dev-quality-gate/` | AI Dev Quality Gate 阶段 | `npm run test:ai-dev:gate` | 记录 AI Dev Quality Gate 的机器结果与反馈主题，作为质量门信号输入 | `src/context-routing/quality-gate-result.js` 读取主结果；后续 workflow/runtime 可据此感知 gate 状态与反馈主题 | 写入：`scripts/run-ai-dev-quality-gate.js`；消费：`src/context-routing/quality-gate-result.js` | `stage0-contracts.junit.json`、`ai-dev-quality-gate-result.json`、`quality-feedback-topics.json` |
-| `.spec-first/workflows/spec-work/<slug>/<run-id>/` | `spec-work` 执行阶段 | 运行 `/spec:work` 时按 workflow contract 写入 | 记录一次 work 执行的 machine-truth run artifact，供回看、交接与后续 review 使用 | 上游 work 执行留痕；后续 `spec-review` 等流程可消费该 run artifact 上下文 | contract：`skills/spec-work/SKILL.md` | `run.json`、可选 `closure-summary.md` |
-| `.spec-first/workflows/spec-review/<run-id>/` | `spec-review` 执行阶段 | 运行 `/spec:review mode:autofix` 等允许写入产物的模式时写入 | 记录一次 review 的 findings、applied fixes 与 residual work，形成结构化 review 留档 | review 复盘、审计与后续 handoff；尤其用于说明“发现了什么、自动修了什么、还剩什么” | contract：`skills/spec-review/SKILL.md` | review run artifact（总结 findings、applied fixes、residual work 等） |
+| `.spec-first/workflows/spec-work/<slug>/<run-id>/` | `spec-work` 执行阶段 | 运行 `/spec:work` 时按 workflow contract 写入 | 记录一次 work 执行的 machine-truth run artifact，供回看、交接与后续 review 使用 | 上游 work 执行留痕；后续 `spec-code-review` 等流程可消费该 run artifact 上下文 | contract：`skills/spec-work/SKILL.md` | `run.json`、可选 `closure-summary.md` |
+| `.spec-first/workflows/spec-code-review/<run-id>/` | `spec-code-review` 执行阶段 | 运行 `/spec:code-review mode:autofix` 等允许写入产物的模式时写入 | 记录一次 review 的 findings、applied fixes 与 residual work，形成结构化 review 留档 | review 复盘、审计与后续 handoff；尤其用于说明“发现了什么、自动修了什么、还剩什么” | contract：`skills/spec-code-review/SKILL.md` | review run artifact（总结 findings、applied fixes、residual work 等） |
 
 ## 用途总览
 
 | 目录类型 | 主要作用 | 典型后续用途 |
 | --- | --- | --- |
-| `bootstrap/*` | 给后续 workflow 提供事实化上下文输入 | `spec-plan` / `spec-work` / `spec-review` 的 Stage-0 context 注入 |
+| `bootstrap/*` | 给后续 workflow 提供事实化上下文输入 | `spec-plan` / `spec-work` / `spec-code-review` 的 Stage-0 context 注入 |
 | `verification/*` | 给 runtime / doctor 提供验证证据真源 | verification evidence 消费、doctor 校验与汇总 |
 | `quality-gates/*` | 给质量门留下结构化质量信号 | gate 状态读取与反馈主题消费 |
 | `spec-work/*` | 给执行阶段留下 machine-truth run artifact | 交接、回看、后续 review 消费 |
-| `spec-review/*` | 给评审阶段留下结构化 review 留档 | 复盘、审计、残余工作 handoff |
+| `spec-code-review/*` | 给评审阶段留下结构化 review 留档 | 复盘、审计、残余工作 handoff |
 
 ## 阶段 → 读取方速查
 
 | 产物目录 | 主要读取方 | 读取发生阶段 | 读取目的 |
 | --- | --- | --- | --- |
-| `bootstrap/<slug>` | `spec-plan` / `spec-work` / `spec-review`，以及 `src/context-routing/*` | Stage-0 下游 planning / work / review 阶段 | 注入 repo 事实、风险、测试面与 minimal context |
+| `bootstrap/<slug>` | `spec-plan` / `spec-work` / `spec-code-review`，以及 `src/context-routing/*` | Stage-0 下游 planning / work / review 阶段 | 注入 repo 事实、风险、测试面与 minimal context |
 | `verification/<slug>` | `src/context-routing/verification-evidence.js`、`src/cli/commands/doctor.js` | runtime verification 汇总与 `doctor` 检查阶段 | 读取 verification evidence，组装 evidence items 并做校验/汇总 |
 | `quality-gates/ai-dev-quality-gate` | `src/context-routing/quality-gate-result.js` | runtime / workflow 读取质量门状态时 | 读取 quality gate 主结果与反馈主题 |
-| `spec-work/<slug>/<run-id>` | 后续 `spec-review` / handoff 场景 | work 完成后、review 开始前后 | 复用上游 work run artifact，避免只靠口头总结 |
-| `spec-review/<run-id>` | review 复盘 / handoff 场景 | review 完成后 | 查看 findings、applied fixes 与 residual work |
+| `spec-work/<slug>/<run-id>` | 后续 `spec-code-review` / handoff 场景 | work 完成后、review 开始前后 | 复用上游 work run artifact，避免只靠口头总结 |
+| `spec-code-review/<run-id>` | review 复盘 / handoff 场景 | review 完成后 | 查看 findings、applied fixes 与 residual work |
 
 ## 判断这些目录有没有“后续用途”的方法
 
@@ -75,7 +75,7 @@
 | 维度 | 内容 |
 | --- | --- |
 | 主要作用 | 作为 Stage-0 控制面，把 repo 事实、风险、测试面、路由与 minimal context 结构化落盘 |
-| 后续用途 | 为 `spec-plan`、`spec-work`、`spec-review` 等 workflow 提供更稳定的事实输入，而不是每次都重新从 narrative docs 推断 |
+| 后续用途 | 为 `spec-plan`、`spec-work`、`spec-code-review` 等 workflow 提供更稳定的事实输入，而不是每次都重新从 narrative docs 推断 |
 | 典型消费面 | `src/context-routing/*` 路由层，以及消费 Stage-0 context 的 workflow skill |
 
 ### 说明
@@ -191,7 +191,7 @@
 | 维度 | 内容 |
 | --- | --- |
 | 主要作用 | 记录一次 `spec-work` 执行的 machine-truth run artifact |
-| 后续用途 | 供执行回看、交接与后续 `spec-review` 等流程消费上游 work artifact 上下文 |
+| 后续用途 | 供执行回看、交接与后续 `spec-code-review` 等流程消费上游 work artifact 上下文 |
 | 典型消费面 | `skills/spec-work/SKILL.md` 约定的 handoff 语义，以及后续 review/handoff 场景 |
 
 ### 说明
@@ -200,19 +200,19 @@
 - 因此它属于“**由 workflow 执行期按 contract 落盘**”的目录，而不是像 quality gate 那样由一个独立 Node.js 脚本集中写入。
 - 它的重点是把一次执行过程沉淀成**单一 machine truth**，避免后续只能依赖口头总结或零散上下文回忆。
 
-## 6. spec-review/<run-id>
+## 6. spec-code-review/<run-id>
 
 | 项目 | 内容 |
 | --- | --- |
-| 阶段 | `spec-review` 执行阶段 |
-| 触发 | 运行 `/spec:review` 的可写模式（尤其 `mode:autofix`） |
-| 目录形状 | `.spec-first/workflows/spec-review/<run-id>/` |
-| 关键源码 | `skills/spec-review/SKILL.md` |
+| 阶段 | `spec-code-review` 执行阶段 |
+| 触发 | 运行 `/spec:code-review` 的可写模式（尤其 `mode:autofix`） |
+| 目录形状 | `.spec-first/workflows/spec-code-review/<run-id>/` |
+| 关键源码 | `skills/spec-code-review/SKILL.md` |
 | 主要内容 | review run artifact |
 
 ### 模式差异
 
-| 模式 | 是否写 `.spec-first/workflows/spec-review/<run-id>/` |
+| 模式 | 是否写 `.spec-first/workflows/spec-code-review/<run-id>/` |
 | --- | --- |
 | Interactive / Autofix 可写模式 | 会写 |
 | `mode:report-only` | 不写 |
@@ -221,14 +221,14 @@
 
 | 维度 | 内容 |
 | --- | --- |
-| 主要作用 | 记录一次 `spec-review` 的 findings、applied fixes、residual work 等结构化结果 |
+| 主要作用 | 记录一次 `spec-code-review` 的 findings、applied fixes、residual work 等结构化结果 |
 | 后续用途 | 供 review 复盘、审计与后续 handoff，尤其用于说明“发现了什么、自动修了什么、还剩什么” |
-| 典型消费面 | `skills/spec-review/SKILL.md` 约定的 review run artifact 语义 |
+| 典型消费面 | `skills/spec-code-review/SKILL.md` 约定的 review run artifact 语义 |
 
 ### 说明
 
-- `spec-review` 对该目录的写入是**模式敏感**的。
-- `mode:report-only` 明确禁止写 review artifact，因此不是所有 `/spec:review` 调用都会落盘。
+- `spec-code-review` 对该目录的写入是**模式敏感**的。
+- `mode:report-only` 明确禁止写 review artifact，因此不是所有 `/spec:code-review` 调用都会落盘。
 - 它的价值主要在于把 review 阶段的结果收敛成可回放、可审计、可交接的结构化留档。
 
 ## 结论
@@ -236,6 +236,6 @@
 | 结论 | 说明 |
 | --- | --- |
 | 最确定的集中写入链 | `bootstrap/*`、`quality-gates/ai-dev-quality-gate/*` |
-| contract 驱动的运行产物 | `spec-work/*`、`spec-review/*` |
+| contract 驱动的运行产物 | `spec-work/*`、`spec-code-review/*` |
 | 证据投递再消费目录 | `verification/*` |
 | 核心判断原则 | 先区分“脚本直接写入”与“workflow contract 约定写入”，再区分“谁写”和“谁读” |

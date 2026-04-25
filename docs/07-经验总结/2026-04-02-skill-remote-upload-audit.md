@@ -68,7 +68,7 @@
 这些 skill 有 `git push`、`gh pr create`、`gh pr comment` 之类的远程写入动作，但没有独立的“文件上传脚本”：
 
 - `git-commit-push-pr`：`skills/git-commit-push-pr/SKILL.md:152`
-- `spec-review`：`skills/spec-review/SKILL.md:521`-`522`
+- `spec-code-review`：`skills/spec-code-review/SKILL.md:521`-`522`
 - `todo-resolve`：`skills/todo-resolve/SKILL.md:41`
 
 ## 灰区项
@@ -79,4 +79,4 @@
 ## 简短结论
 
 如果只看“真正会把内容送到远端”的 skill，命中最多的是 `proof` 系列、`rclone`、`feature-video`、`spec-work` / `spec-work-beta`、`resolve-pr-feedback` 和 `deploy-docs`。  
-如果把 `git push` 也算上传，那 `git-commit-push-pr`、`spec-review`、`todo-resolve` 也应纳入远程写入类清单。
+如果把 `git push` 也算上传，那 `git-commit-push-pr`、`spec-code-review`、`todo-resolve` 也应纳入远程写入类清单。

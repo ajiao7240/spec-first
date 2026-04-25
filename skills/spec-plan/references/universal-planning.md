@@ -1,6 +1,6 @@
 # Universal Planning Workflow
 
-This file is loaded when `spec:plan` detects a non-software task (Phase 0.1b). It replaces the software-specific phases (0.2 through 5.1) with a domain-agnostic planning workflow.
+This file is loaded when spec-plan detects a non-software task (Phase 0.1b). It replaces the software-specific phases (0.2 through 5.1) with a domain-agnostic planning workflow.
 
 ## Before starting: verify classification
 
@@ -8,8 +8,9 @@ The detection stub in SKILL.md routes here for anything that isn't clearly softw
 
 - **Is this actually a software task?** The key distinction is task-type, not topic-domain. A study guide about Rust is non-software (producing educational content). A Rust library refactor is software (modifying code). If this is actually software, return to Phase 0.2 in the main SKILL.md.
 - **Is this a quick-help request, not a planning task?** Error messages, factual questions, and single-step tasks don't need a plan. Respond directly and exit. Examples: "zsh: command not found: brew", "what's the capital of France."
-- **Pipeline mode?** If invoked from LFG, SLFG, or any `disable-model-invocation` context: output "This is a non-software task. The LFG/SLFG pipeline requires `spec:work`, which only supports software tasks. Use `/spec:plan` directly for non-software planning." and stop.
-- **Still in ideation mode?** If the goal isn't clearly defined yet — you're exploring what to do rather than planning toward a known outcome — `/spec:brainstorm` is a better starting point. Return here once you have a concrete goal to plan toward.
+- **Pipeline mode?** If invoked from LFG, SLFG, or any `disable-model-invocation` context: output "This is a non-software task. The LFG/SLFG pipeline requires spec-work, which only supports software tasks. Use `/spec:plan` directly for non-software planning." and stop.
+
+Once past these checks, commit to producing a plan. Do not exit because the task looks like a "lookup" or "research question" — the user invoked `spec-plan` because they want a structured output.
 
 ---
 
@@ -33,7 +34,7 @@ When research is recommended, do it — don't just offer. Stale recommendations 
 
 **Research decomposition pattern:**
 1. Identify 2-5 independent research questions based on the task. Good questions target facts the model is least confident about: current prices, hours, availability, recent changes, seasonal specifics.
-2. Dispatch parallel web searches (one per question). Keep queries broad at first, then narrow based on findings.
+2. Dispatch parallel research. Prefer user-named surfaces first per Core Principle 8 in SKILL.md; fall back to web search for questions those surfaces don't cover.
 3. Collate findings into a brief research summary before proceeding to planning.
 
 Example for "plan a date night in Seattle this Saturday":
@@ -43,7 +44,7 @@ Example for "plan a date night in Seattle this Saturday":
 
 ## Step 1b: Focused Q&A
 
-Ask up to 3 questions targeting the unknowns that would most change the plan. Use the platform's question tool when available (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present numbered options in chat and wait for the user's reply.
+Ask up to 3 questions targeting the unknowns that would most change the plan. Use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
 **How to ask well:**
 - Offer informed options, not open-ended blanks. Instead of "When are you going?", try "Mid-week visits have 30-40% shorter lines — are you flexible on timing?" The question should give the user a frame of reference, not just extract information.
@@ -92,7 +93,9 @@ Example: A date night plan should present 2-3 restaurant options, 2-3 activity o
 
 ## Step 3: Save or Share
 
-After structuring the plan, ask the user how they want to receive it using the platform's question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present numbered options in chat.
+After structuring the plan, ask the user how they want to receive it using the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
+
+**Question:** "Plan ready. How would you like to receive it?"
 
 **Options:**
 
@@ -104,8 +107,8 @@ After structuring the plan, ask the user how they want to receive it using the p
    - Use filename convention: `YYYY-MM-DD-<descriptive-name>-plan.md`
    - Start the document with a `# Title` heading, followed by `Created: YYYY-MM-DD` on the next line. No YAML frontmatter.
 
-2. **Share to Proof** — View the plan on the web and get a shareable link. Load the `proof` skill to create and share the document. Useful for sharing with others who aren't in the terminal.
+2. **Open in Proof (web app) — review and comment to iterate with the agent** — Open the doc in Every's Proof editor, iterate with the agent via comments, or copy a link to share with others. Load the `proof` skill to create and open the document.
 
-3. **Both** — Save to disk and share to Proof.
+3. **Save to disk AND open in Proof** — Do both: write the markdown file to disk and open the doc in Proof for review.
 
 Do not offer `/spec:work` (software-only) or issue creation (not applicable to non-software plans).

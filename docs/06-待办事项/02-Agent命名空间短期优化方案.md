@@ -43,7 +43,7 @@ spec-first:research:learnings-researcher (查找相关经验) · 0 tool uses
 
 **影响范围统计**：
 - 当前已确认受影响的高风险 skill 文件：7+ 个
-- 当前已确认存在 fully-qualified 运行态引用的命名空间：research / review / workflow / design / document-review
+- 当前已确认存在 fully-qualified 运行态引用的命名空间：research / review / workflow / design / spec-doc-review
 - 仍需对 `agents/` 全目录做全量扫描，避免遗漏其他分类
 
 ### 1. 打包发布层没有问题
@@ -141,7 +141,7 @@ spec-first:research:repo-research-analyst  -> research:repo-research-analyst
 spec-first:review:correctness-reviewer     -> review:correctness-reviewer
 spec-first:workflow:pr-comment-resolver    -> workflow:pr-comment-resolver
 spec-first:design:design-iterator          -> design:design-iterator
-spec-first:document-review:coherence-reviewer -> document-review:coherence-reviewer
+spec-first:spec-doc-review:coherence-reviewer -> spec-doc-review:coherence-reviewer
 ```
 
 注意：
@@ -160,7 +160,7 @@ spec-first:document-review:coherence-reviewer -> document-review:coherence-revie
 
 当前优先处理：
 
-- 已确认受影响命名空间：`research`、`review`、`workflow`、`design`、`document-review`
+- 已确认受影响命名空间：`research`、`review`、`workflow`、`design`、`spec-doc-review`
 
 全量扫描要求：
 
@@ -200,14 +200,14 @@ spec-first:document-review:coherence-reviewer -> document-review:coherence-revie
    - `/spec:brainstorm`
    - `/spec:plan`
    - `/spec:work`
-   - `/spec:review`
+   - `/spec:code-review`
    - `/spec:compound`
 3. 重新执行 `init --claude` 时，转换结果稳定、幂等
 
 建议重点覆盖：
 
 - `spec-plan`
-- `spec-review`
+- `spec-code-review`
 - `resolve-pr-feedback`
 - `todo-resolve`
 
@@ -268,7 +268,7 @@ spec-first:document-review:coherence-reviewer -> document-review:coherence-revie
 
 1. `npm pack` 产物不变，仍包含 `skills/`、`agents/`、`templates/`、`.claude-plugin/plugin.json`
 2. `spec-first init --claude` 后，目标项目的 `.claude/skills/` 中关键运行态引用已被转换到 Claude adapter 的目标格式
-3. `/spec:plan`、`/spec:review`、`/resolve-pr-feedback` 不再因 agent 名称失配出现 `0 tool uses`
+3. `/spec:plan`、`/spec:code-review`、`/resolve-pr-feedback` 不再因 agent 名称失配出现 `0 tool uses`
 4. `spec-first doctor` 能识别运行态命名空间残留问题
 5. 文档不再建议用户手工删除源码中的 `spec-first:` 前缀
 
@@ -291,7 +291,7 @@ grep -r "spec-first:research:" .claude/skills/
 **测试 3：关键 skill 可用**
 - `/spec:brainstorm` - 正常执行
 - `/spec:plan` - 调用 research/review agents 成功
-- `/spec:review` - 调用 review agents 成功
+- `/spec:code-review` - 调用 review agents 成功
 - `/resolve-pr-feedback` - 调用 workflow agents 成功
 
 ## 风险与控制

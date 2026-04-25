@@ -135,9 +135,9 @@
 当前已被治理并允许固定模型的例外：
 
 1. `coherence-reviewer`
-   - 是 `document-review` 的 `always-on reviewer`
+   - 是 `spec-doc-review` 的 `always-on reviewer`
    - 当前固定 `model: haiku`，用于低成本执行内部一致性审校
-   - 证据来自 `skills/document-review/SKILL.md` 的 always-on 调度合同与当前 agent frontmatter
+   - 证据来自 `skills/spec-doc-review/SKILL.md` 的 always-on 调度合同与当前 agent frontmatter
 2. `workflow/lint`
    - 当前固定 `model: haiku`，用于低成本执行 Ruby / ERB lint orchestration
    - agent 正文明确围绕 `bundle exec standardrb`、`bundle exec erblint --lint-all`、`bin/brakeman` 这类工具编排与结果归纳

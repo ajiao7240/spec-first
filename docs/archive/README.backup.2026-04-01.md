@@ -101,7 +101,7 @@ Spec-First 采用三层工程边界设计：
 | 🧠 | `/spec:brainstorm` | `$spec-brainstorm` | 澄清问题、控制范围、明确验收标准 | `docs/brainstorms/*.md` |
 | 📋 | `/spec:plan` | `$spec-plan` | 收集上下文、拆解任务、识别风险 | `docs/plans/*.md` |
 | ⚡ | `/spec:work` | `$spec-work` | 按计划实施、补齐测试和文档 | Code + Tests |
-| 🔎 | `/spec:review` | `$spec-review` | 结构化审查、阻断项、结论 | Review Report |
+| 🔎 | `/spec:code-review` | `$spec-code-review` | 结构化审查、阻断项、结论 | Review Report |
 | 📚 | `/spec:compound` | `$spec-compound` | 经验提炼、知识沉淀 | `docs/solutions/**/*.md` |
 
 > **Tooling Command:** `/spec:mcp-setup`（Claude）用于一键安装和配置 MCP 工具链（Context7、Sequential Thinking 等），支持 `quick` 和 `custom` 两种模式。
@@ -124,7 +124,7 @@ Spec-First 采用三层工程边界设计：
 |------|--------|
 | **Git** | `git-commit`, `git-commit-push-pr`, `git-worktree`, `git-clean-gone-branches` |
 | **开发** | `agent-browser`, `reproduce-bug`, `report-bug`, `resolve-pr-feedback`, `test-browser`, `test-xcode`, `feature-video` |
-| **文档** | `document-review`, `changelog`, `onboarding`, `proof`, `andrew-kane-gem-writer` |
+| **文档** | `spec-doc-review`, `changelog`, `onboarding`, `proof`, `andrew-kane-gem-writer` |
 | **任务** | `todo-create`, `todo-resolve`, `todo-triage` |
 | **设计** | `frontend-design` |
 | **AI/LLM** | `dspy-ruby`, `orchestrating-swarms`, `claude-permissions-optimizer`, `agent-native-architecture` |
@@ -220,7 +220,7 @@ codex    # Codex
 /spec:brainstorm   # 🧠 澄清需求
 /spec:plan         # 📋 生成计划
 /spec:work         # ⚡ 执行实现
-/spec:review       # 🔎 结构化评审
+/spec:code-review       # 🔎 结构化评审
 /spec:compound     # 📚 知识沉淀
 
 # Codex
@@ -229,7 +229,7 @@ $spec-ideate       # 💡 发散候选
 $spec-brainstorm   # 🧠 澄清需求
 $spec-plan         # 📋 生成计划
 $spec-work         # ⚡ 执行实现
-$spec-review       # 🔎 结构化评审
+$spec-code-review       # 🔎 结构化评审
 $spec-compound     # 📚 知识沉淀
 ```
 
@@ -277,7 +277,7 @@ spec-first/                        .claude/ or .codex/
 
 ### 🔍 多角色代码审查
 
-`/spec:review` 调用 47 个代理从不同维度审查：
+`/spec:code-review` 调用 47 个代理从不同维度审查：
 - 安全性（SQL 注入、XSS）
 - 性能（查询效率）
 - 可维护性（复杂度）

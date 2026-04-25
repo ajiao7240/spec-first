@@ -20,9 +20,9 @@
 | 2026-04-20 | feat | `stage0-topology-unified-bootstrap` | 为 `spec-graph-bootstrap` / `stage0-context` 收口统一 topology contract，正式支持 workspace 多独立 git 工程、单 git 多 module、单 git 单项目三类场景；同时把 `selection_subject / selected_contexts` 提升为解释型真源，保留 `selected_assets` 等兼容视图，继续遵循“轻 contract + 明确边界 + 让 LLM 决策” |
 | 2026-04-20 | feat | `init-coding-guidelines` | `spec-first init` 现在会向用户项目的 `CLAUDE.md` / `AGENTS.md` 追加独立的 `coding-guidelines` managed block，并保持已有用户内容只追加不覆盖；`clean` 会移除该 block，`doctor` 会检查缺失或漂移状态，让 instruction file execution posture 也进入受管边界 |
 | 2026-04-20 | feat | `spec-compound-dual-view` | 为 `spec-compound` / `spec-compound-refresh` 增加 `Human Summary + LLM Reuse Context` 单文件双视角 contract，保持 `docs/solutions/` 仍是唯一持久化目录；同时让 `learnings-researcher` 和 prompt mirror 直接消费这层结构，把“人类汇报视图”和“LLM 检索复用视图”统一收敛到同一份事实文档里 |
-| 2026-04-20 | feat | `spec-review-three-axis-verdict` | 为 `spec-review` 增加 `Requirement Completion / Plan-Diff Fidelity / Code Intrinsic Quality` 三轴聚合视图，并明确 explicit/inferred/missing plan 的条件式输出，让 review 更快回答“需求做完没、实现偏计划没、代码本身质量如何” |
-| 2026-04-19 | feat | `spec-work-run-artifact-contract` | 为 `spec-work` 增加 machine-truth `run.json` schema、可选 `closure-summary.md` 投影，以及 `spec-review` 消费上游 work artifact 的显式 handoff contract；先固定结构化闭环语义，不急着引入更重的 runtime 编排 |
-| 2026-04-19 | feat | `sdd-riper-light-contracts-u1-u2` | 为 `spec-brainstorm/spec-plan/spec-work/spec-work-beta/spec-debug/spec-review` 引入轻量 loop anchors 与 freshness-driven reload contract：在关键节点复述当前理解 / 核心目标 / done evidence，并在 Stage-0 stale/partial/fallback 时先补读事实再动作，减少长会话偏航和旧上下文误判 |
+| 2026-04-20 | feat | `spec-review-three-axis-verdict` | 为 `spec-code-review` 增加 `Requirement Completion / Plan-Diff Fidelity / Code Intrinsic Quality` 三轴聚合视图，并明确 explicit/inferred/missing plan 的条件式输出，让 review 更快回答“需求做完没、实现偏计划没、代码本身质量如何” |
+| 2026-04-19 | feat | `spec-work-run-artifact-contract` | 为 `spec-work` 增加 machine-truth `run.json` schema、可选 `closure-summary.md` 投影，以及 `spec-code-review` 消费上游 work artifact 的显式 handoff contract；先固定结构化闭环语义，不急着引入更重的 runtime 编排 |
+| 2026-04-19 | feat | `sdd-riper-light-contracts-u1-u2` | 为 `spec-brainstorm/spec-plan/spec-work/spec-work-beta/spec-debug/spec-code-review` 引入轻量 loop anchors 与 freshness-driven reload contract：在关键节点复述当前理解 / 核心目标 / done evidence，并在 Stage-0 stale/partial/fallback 时先补读事实再动作，减少长会话偏航和旧上下文误判 |
 | 2026-04-19 | fix | `runtime-truth-hardening` | 收紧 `doctor` 的 verification evidence 真源到 workflow artifacts contract，并把 schema/freshness 纳入 `verified` 判定；同时为 runtime command/skill/agent 增加内容级 drift 检查，并把 `init/clean --dry-run` 升级为 file-level operation preview，让诊断和预览更接近真实执行面 |
 | 2026-04-18 | feat | `crg-benchmark-evidence` | 为 `CRG Quality Gate` 增加 `benchmark-evidence` PR job 和轻量聚合 artifact，形成 `regression-gate + benchmark-evidence` 的双轨组合；evidence 只收集事实，不发明新的 gate 状态 |
 | 2026-04-18 | feat | `external-benchmark-fixture` | 为 review/repo-qa/context-efficiency benchmark 增加受控 `demo-store + wallet-suite` external fixture repo 样本，并让 runner 只在显式 `fixture_repo_root` 存在时切换输入根目录；继续保持证据层定位，不引入自动下载、自动同步或新 gate 状态 |
@@ -39,11 +39,11 @@
 | 2026-04-18 | feat | `stage0-verifier-dispatch-and-gate-state` | 为 runtime verification summary 增加 stage-aware verifier candidates / blockers / manual gates，并拆出独立 `verification_gate_state`，让 workflow/LLM 拿到更完整但仍轻量的验证决策输入，而不是被固定执行树绑死 |
 | 2026-04-18 | fix | `stage0-workspace-runtime-boundaries` | 收紧 Stage-0 workspace runtime contract：child git cwd 不再误退 `single-repo`，explicit / overview-only 路径只暴露稳定 boundary 字段，不再把 idle child baseline 伪装成当前改动 checklist，给 workflow/LLM 更干净的决策输入 |
 | 2026-04-18 | feat | `verifier-registry-baseline` | 新增 verifier registry 真源，并把 `test-browser` / `test-xcode` 从 `verification-profile` 编译器的硬编码分支抽成 registry-backed capability metadata，为后续 stage-aware dispatch 留出稳定扩展位 |
-| 2026-04-18 | feat | `stage0-runtime-telemetry-default` | `stage0-context` 现在会默认把 workflow telemetry 写入真实 workflow 目录，并保留 `verification_summary`，使 `spec-plan/spec-work/spec-work-beta/spec-review` 的 Stage-0 消费从“只读 runtime JSON”升级为“可追溯的默认运行闭环” |
-| 2026-04-18 | feat | `workflow-stage0-runtime-preload` | 新增内部 CLI `stage0-context` 并把它接到 `spec-plan/spec-work/spec-work-beta/spec-review` 的默认运行链，让 Stage-0 / verification summary 不再停留在“workflow 文案要求手工读取”，而是每次运行自动注入 best-effort runtime JSON |
-| 2026-04-18 | feat | `runtime-verification-summary-consumption` | 将 diff-aware verification recommendation 接到 `compileWorkspaceContext` 与 `spec-work/spec-work-beta/spec-review` 的运行时消费口径，workflow 直接按当前改动的 effective checklist 工作，docs-only 改动不再被 repo baseline 伪造必跑项污染 |
+| 2026-04-18 | feat | `stage0-runtime-telemetry-default` | `stage0-context` 现在会默认把 workflow telemetry 写入真实 workflow 目录，并保留 `verification_summary`，使 `spec-plan/spec-work/spec-work-beta/spec-code-review` 的 Stage-0 消费从“只读 runtime JSON”升级为“可追溯的默认运行闭环” |
+| 2026-04-18 | feat | `workflow-stage0-runtime-preload` | 新增内部 CLI `stage0-context` 并把它接到 `spec-plan/spec-work/spec-work-beta/spec-code-review` 的默认运行链，让 Stage-0 / verification summary 不再停留在“workflow 文案要求手工读取”，而是每次运行自动注入 best-effort runtime JSON |
+| 2026-04-18 | feat | `runtime-verification-summary-consumption` | 将 diff-aware verification recommendation 接到 `compileWorkspaceContext` 与 `spec-work/spec-work-beta/spec-code-review` 的运行时消费口径，workflow 直接按当前改动的 effective checklist 工作，docs-only 改动不再被 repo baseline 伪造必跑项污染 |
 | 2026-04-18 | feat | `change-surface-verification-recommendation` | 为 `crg review-context` 新增 `change surface -> verification recommendation` 链路，输出 `impacted_*`、`recommended_*_verifications` 与 `confidence`，让系统从“仓库级能测什么”进一步收敛到“本次改动最少该验证什么” |
-| 2026-04-18 | feat | `stage0-verification-profile` | 为 Stage-0 新增 `verification-profile` machine contract，并把 platform-aware verification summary 接进 `minimal-context` 与 `spec-plan/spec-work/spec-review/spec-work-beta`，让 workflow 从“泛化测试建议”升级为“默认验证矩阵 + required gate checklist” |
+| 2026-04-18 | feat | `stage0-verification-profile` | 为 Stage-0 新增 `verification-profile` machine contract，并把 platform-aware verification summary 接进 `minimal-context` 与 `spec-plan/spec-work/spec-code-review/spec-work-beta`，让 workflow 从“泛化测试建议”升级为“默认验证矩阵 + required gate checklist” |
 | 2026-04-18 | feat | `using-spec-first-sessionstart-bootstrap` | 为 `using-spec-first` 补齐双宿主 instruction bootstrap，并给 Claude 增加受管 `SessionStart` hook / `.claude/settings.json` matcher；`init / doctor / clean` 形成可安装、可诊断、可清理的最小闭环 |
 | 2026-04-17 | feat | `spec-brainstorm-capability-upgrade` | `spec-brainstorm` 补齐 Current Work Pulse、Scope Decomposition、Preflight Self-Check、User Review Gate、Terminal State Lock 与 epic decomposition template，并让 `spec-plan` 消费 requirements frontmatter `epic`；同步补 smoke/integration 接线与 release-facing 文档 |
 | 2026-04-17 | fix | `release-gate-hardening` | 默认 `test:release` 从“仅双宿主治理专项 smoke”恢复为“治理专项 smoke + 完整 tarball 安装回归”的总门禁，并给治理专项 smoke 增加 docs-side JSON/schema 不得进入 tarball 的负向断言，防止发布链路只守住新真源、不守旧真源回流 |
@@ -61,8 +61,8 @@
 | 2026-04-15 | feat | `spec-graph-bootstrap+crg` | 完成 Stage-0 后续 P1-P3 最小闭环：补齐 `plan/work minimal-context`、hybrid retrieval、AST-aware chunking、freshness/lint/contradictions、compiler 模块化、repo QA/context efficiency/regression benchmark、workflow telemetry、optional semantic rerank、workspace context 与知识治理能力 |
 | 2026-04-15 | fix | `managed-state-upgrade` | 统一 legacy managed state 升级语义：`doctor` 会明确标记 legacy state 并指向 `init`，`init` 成为唯一支持的 hard-cut 升级入口，执行 managed hard reset 后全量重建运行时，`clean` 仅清理当前受管集合并保留用户自定义资产 |
 | 2026-04-15 | feat | `spec-brainstorm` | `spec-brainstorm` 同步 `ce-brainstorm` 非 Slack 核心能力，并新增 source-driven supplemental context 路由：支持 Local Docs、Feishu Chat、Feishu Doc、GitHub URL、Docs URL、Web URL；同时补齐 `universal-brainstorming` / `visual-communication` references 与 contract/smoke 守卫 |
-| 2026-04-14 | fix | `compound-core-workflows` | 修正 `spec-plan/references/plan-handoff.md` 中遗留的 `document-review mode:headless` 指令，使 planning handoff 与本地 `document-review` 非 headless contract 一致，避免自动化调用引用不存在模式 |
-| 2026-04-14 | feat | `compound-core-workflows` | 完成 `compound-engineering-plugin` 核心链路批次 B-D 同步：`spec-plan` / `spec-brainstorm` 收口 repo-relative、mandatory document-review 与 reference 抽取；`spec-work` / `spec-work-beta` 收口 review/testing/delegation 约束并拆出 shipping/codex references；`spec-compound` / `spec-compound-refresh` 补 discoverability 检查、stack-aware reviewer 路由，并将 `docs/solutions/` 可发现性写回 `AGENTS.md` / `CLAUDE.md` |
+| 2026-04-14 | fix | `compound-core-workflows` | 修正 `spec-plan/references/plan-handoff.md` 中遗留的 `spec-doc-review mode:headless` 指令，使 planning handoff 与本地 `spec-doc-review` 非 headless contract 一致，避免自动化调用引用不存在模式 |
+| 2026-04-14 | feat | `compound-core-workflows` | 完成 `compound-engineering-plugin` 核心链路批次 B-D 同步：`spec-plan` / `spec-brainstorm` 收口 repo-relative、mandatory spec-doc-review 与 reference 抽取；`spec-work` / `spec-work-beta` 收口 review/testing/delegation 约束并拆出 shipping/codex references；`spec-compound` / `spec-compound-refresh` 补 discoverability 检查、stack-aware reviewer 路由，并将 `docs/solutions/` 可发现性写回 `AGENTS.md` / `CLAUDE.md` |
 | 2026-04-13 | refactor | `artifact-path` | CRG 图数据库从 `.spec-first-graph/` 迁移到 `.spec-first/graph/`；bootstrap 控制面从 `.context/spec-first/bootstrap/` 迁移到 `.spec-first/workflows/bootstrap/`；fingerprints.json 拆分为 `input-fingerprints.json`（graph 层）和 `artifact-manifest.json`（bootstrap 层）；ignore 文件从 `.spec-first-graphignore` 改名为 `.spec-firstignore` [breaking internal] |
 | 2026-04-13 | docs | `install-experience` | 统一所有面向用户安装文档的 onboarding 顺序（安装 -> doctor -> init -> 重启 -> workflow）；修正 tree-sitter peer dep 版本方向描述错误（主包 0.21.0，grammar 要求更高版本）；将 peer warning 叙事从"预期行为"改为"已知兼容性噪音，本版本目标是消除"；FAQ 明确区分"安装成功确认"与"宿主内 workflow 可见"两个阶段 |
 | 2026-04-12 | feat | `spec-graph-bootstrap` | `graph-bootstrap` 的 manifest、安装提示、README、用户手册与 smoke 断言统一升级为 graph-informed Phase 0-4 / 阶段2最小闭环语义，对外描述与 `SKILL.md`、阶段2文档收敛一致 |
@@ -106,7 +106,7 @@
   - `context-routing.json` 与 `minimal-context/{plan,work,review}.json` 被提升为关键 control-plane outputs
   - compile-only 场景不再因为缺少调用方未提供的 `actualAssets` 被误判 incomplete；但真实运行场景若缺关键资产，会明确落到 `manifest.status=incomplete`
 - 下游 workflow 同步消费
-  - `spec-plan` / `spec-work` / `spec-work-beta` / `spec-review` / `spec-graph-bootstrap` 与对应 prompt mirror 已统一按新的 Stage-0 口径描述
+  - `spec-plan` / `spec-work` / `spec-work-beta` / `spec-code-review` / `spec-graph-bootstrap` 与对应 prompt mirror 已统一按新的 Stage-0 口径描述
 
 ### 为什么重要
 
@@ -127,7 +127,7 @@
   - `skills/spec-plan/SKILL.md`
   - `skills/spec-work/SKILL.md`
   - `skills/spec-work-beta/SKILL.md`
-  - `skills/spec-review/SKILL.md`
+  - `skills/spec-code-review/SKILL.md`
   - `skills/spec-graph-bootstrap/SKILL.md`
   - `docs/10-prompt/skills/*`
 
@@ -201,7 +201,7 @@
 
 ### 更新内容
 
-这一步不是把 `spec-review` 变成第二个 gating engine，而是在现有 findings / overall verdict 主结构之外，增加一个更便于决策的聚合视图：
+这一步不是把 `spec-code-review` 变成第二个 gating engine，而是在现有 findings / overall verdict 主结构之外，增加一个更便于决策的聚合视图：
 
 - `Requirement Completion`
 - `Plan-Diff Fidelity`
@@ -215,13 +215,13 @@
 
 ### 主要变化
 
-- `spec-review` synthesis contract
-  - `skills/spec-review/SKILL.md`
+- `spec-code-review` synthesis contract
+  - `skills/spec-code-review/SKILL.md`
 - review output template
-  - `skills/spec-review/references/review-output-template.md`
+  - `skills/spec-code-review/references/review-output-template.md`
 - prompt docs mirror 同步
-  - `docs/10-prompt/skills/spec-review/SKILL.md`
-  - `docs/10-prompt/skills/spec-review/references/review-output-template.md`
+  - `docs/10-prompt/skills/spec-code-review/SKILL.md`
+  - `docs/10-prompt/skills/spec-code-review/references/review-output-template.md`
 
 ### 验证
 
@@ -248,7 +248,7 @@
 - 明确 `artifact_dir = .spec-first/workflows/spec-work/<slug>/<run-id>/`
 - 固定 `run.json` 为唯一 machine truth
 - 允许 `closure-summary.md` 作为同一份结构化事实的可读投影
-- `spec-review` 新增显式 `work_run:<run-id>` / `work_artifact_dir:<path>` handoff 读取规则
+- `spec-code-review` 新增显式 `work_run:<run-id>` / `work_artifact_dir:<path>` handoff 读取规则
 
 这里刻意没有把仓库往更重的 runtime orchestrator 推。当前阶段先把：
 
@@ -267,12 +267,12 @@
 - `spec-work` run artifact contract
   - `skills/spec-work/SKILL.md`
   - `skills/spec-work/references/shipping-workflow.md`
-- `spec-review` upstream handoff contract
-  - `skills/spec-review/SKILL.md`
+- `spec-code-review` upstream handoff contract
+  - `skills/spec-code-review/SKILL.md`
 - prompt docs mirror 同步
   - `docs/10-prompt/skills/spec-work/SKILL.md`
   - `docs/10-prompt/skills/spec-work/references/shipping-workflow.md`
-  - `docs/10-prompt/skills/spec-review/SKILL.md`
+  - `docs/10-prompt/skills/spec-code-review/SKILL.md`
 
 ### 验证
 
@@ -284,7 +284,7 @@
 这一步的价值是把“执行结束后留下什么真相、下游怎么接”讲清楚：
 
 - `spec-work` 不再只靠会话记忆描述收口状态
-- `spec-review` 可以显式接上游执行闭环上下文，而不是重新猜测
+- `spec-code-review` 可以显式接上游执行闭环上下文，而不是重新猜测
 - 仍然遵守 `轻 contract + 明确边界 + 让 LLM 决策`
 
 ## 2026-04-19 `feat(sdd-riper-light-contracts-u1-u2)`
@@ -294,7 +294,7 @@
 这一步没有把 `sdd-riper` 的 RIPER 状态机搬进来，而是只吸收对当前主链最有价值的两类轻量约束：
 
 - `spec-brainstorm`、`spec-plan`、`spec-work`、`spec-work-beta`、`spec-debug` 在关键节点增加轻量锚点，要求明确当前理解、核心目标、边界和完成证据
-- `spec-plan`、`spec-work`、`spec-work-beta`、`spec-review` 在 Stage-0 出现 `freshness_stale`、`partial` 或更深降级时，先补读 plan / source / selected assets / 关键代码事实，再继续动作
+- `spec-plan`、`spec-work`、`spec-work-beta`、`spec-code-review` 在 Stage-0 出现 `freshness_stale`、`partial` 或更深降级时，先补读 plan / source / selected assets / 关键代码事实，再继续动作
 
 收口原则保持不变：
 
@@ -315,14 +315,14 @@
   - `skills/spec-plan/SKILL.md`
   - `skills/spec-work/SKILL.md`
   - `skills/spec-work-beta/SKILL.md`
-  - `skills/spec-review/SKILL.md`
+  - `skills/spec-code-review/SKILL.md`
 - prompt docs mirror 同步
   - `docs/10-prompt/skills/spec-brainstorm/SKILL.md`
   - `docs/10-prompt/skills/spec-plan/SKILL.md`
   - `docs/10-prompt/skills/spec-work/SKILL.md`
   - `docs/10-prompt/skills/spec-work-beta/SKILL.md`
   - `docs/10-prompt/skills/spec-debug/SKILL.md`
-  - `docs/10-prompt/skills/spec-review/SKILL.md`
+  - `docs/10-prompt/skills/spec-code-review/SKILL.md`
 
 ### 验证
 
@@ -681,11 +681,11 @@
   - [spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
   - [spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
   - [spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
-  - [spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [spec-code-review/SKILL.md](../../skills/spec-code-review/SKILL.md)
   - [docs/10-prompt/skills/spec-plan/SKILL.md](../../docs/10-prompt/skills/spec-plan/SKILL.md)
   - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
   - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
-  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-code-review/SKILL.md](../../docs/10-prompt/skills/spec-code-review/SKILL.md)
   - 统一强调：
     - 这是最近 gate 的事实快照
     - 不是 workflow 状态机
@@ -855,11 +855,11 @@
   - [skills/spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
   - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
   - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
-  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [skills/spec-code-review/SKILL.md](../../skills/spec-code-review/SKILL.md)
   - [docs/10-prompt/skills/spec-plan/SKILL.md](../../docs/10-prompt/skills/spec-plan/SKILL.md)
   - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
   - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
-  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-code-review/SKILL.md](../../docs/10-prompt/skills/spec-code-review/SKILL.md)
   - workflow 文案现在明确把 `verification_evidence` 当成独立事实层，而不是 dispatch 指令
 - 回归测试补齐
   - [tests/unit/verification-evidence.test.js](../../tests/unit/verification-evidence.test.js)
@@ -920,11 +920,11 @@
   - [skills/spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
   - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
   - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
-  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [skills/spec-code-review/SKILL.md](../../skills/spec-code-review/SKILL.md)
   - [docs/10-prompt/skills/spec-plan/SKILL.md](../../docs/10-prompt/skills/spec-plan/SKILL.md)
   - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
   - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
-  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-code-review/SKILL.md](../../docs/10-prompt/skills/spec-code-review/SKILL.md)
   - workflow 统一按：
     - `verification_summary` 读事实与 baseline
     - `verifier_dispatch` 读候选 verifier / blockers
@@ -998,10 +998,10 @@
 - workflow 文档消费口径同步
   - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
   - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
-  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [skills/spec-code-review/SKILL.md](../../skills/spec-code-review/SKILL.md)
   - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
   - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
-  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-code-review/SKILL.md](../../docs/10-prompt/skills/spec-code-review/SKILL.md)
   - workflow 约定改成：
     - 把 `dispatch_candidates` 当成 verifier 候选，不当成强制 dispatch 树
     - 把 `manual_required_verifications` 当成仍需人工处理的 gate
@@ -1029,7 +1029,7 @@
 这次更新把 Stage-0 verification handoff 从“推荐哪些验证”推进到“把验证决策输入组织得更适合 LLM 使用”：
 
 - `spec-work` 能区分“有 verifier 可接”与“只能人工兜底”的 gate
-- `spec-review` 能明确看到哪些 verification gap 被 blocker 卡住，而不是只看到一串建议项
+- `spec-code-review` 能明确看到哪些 verification gap 被 blocker 卡住，而不是只看到一串建议项
 - telemetry 和 runtime JSON 对验证状态的描述终于统一，不再分裂成“文档里有、产物里没有”
 - 整体依然保持轻 contract，避免过度设计和强耦合，给后续多语言、多端 verifier 扩展留下空间
 
@@ -1074,7 +1074,7 @@
 - repo profile 负责“仓库默认怎么验证”
 - verifier registry 负责“有哪些 verifier 能验证这些平台面”
 
-后续要接 Android / Desktop verifier，或者给 `spec-work/spec-review` 做 stage-aware dispatch，就不需要继续往 profile 编译器里堆条件分支。
+后续要接 Android / Desktop verifier，或者给 `spec-work/spec-code-review` 做 stage-aware dispatch，就不需要继续往 profile 编译器里堆条件分支。
 
 ## 2026-04-18 `feat(stage0-runtime-telemetry-default)`
 
@@ -1096,7 +1096,7 @@
   - 默认仍按 `stage` 映射：
     - `plan -> spec-plan`
     - `work -> spec-work`
-    - `review -> spec-review`
+    - `review -> spec-code-review`
   - `spec-work-beta` 显式传 `--workflow spec-work-beta`，避免 telemetry 被误记到 stable `spec-work`
 - telemetry record 扩展 runtime 可观测字段
   - [src/context-routing/telemetry.js](../../src/context-routing/telemetry.js)
@@ -1108,11 +1108,11 @@
   - [skills/spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
   - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
   - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
-  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [skills/spec-code-review/SKILL.md](../../skills/spec-code-review/SKILL.md)
   - [docs/10-prompt/skills/spec-plan/SKILL.md](../../docs/10-prompt/skills/spec-plan/SKILL.md)
   - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
   - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
-  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-code-review/SKILL.md](../../docs/10-prompt/skills/spec-code-review/SKILL.md)
 - 守卫测试补齐
   - [tests/unit/stage0-context-command.test.js](../../tests/unit/stage0-context-command.test.js)
   - [tests/unit/workflow-telemetry.test.js](../../tests/unit/workflow-telemetry.test.js)
@@ -1133,7 +1133,7 @@
 
 这次更新把 Stage-0 运行时增强从“文档约定 + helper 能力”推进到“默认执行行为 + 可追溯产物”。结果上，`spec-first` 在以下方面更稳了一步：
 
-- `spec-plan/spec-work/spec-work-beta/spec-review` 的 Stage-0 预载现在都有真实运行记录
+- `spec-plan/spec-work/spec-work-beta/spec-code-review` 的 Stage-0 预载现在都有真实运行记录
 - telemetry 可以直接解释当前运行为什么拿到这组上下文、处于哪个 degrade level、以及本次 verification summary 是什么
 - 后续做 status / benchmark / verifier completeness 审查时，不需要再补第二套运行时采样逻辑
 
@@ -1141,7 +1141,7 @@
 
 ### 更新内容
 
-为 `spec-graph-bootstrap` 的 Stage-0 control plane 增加一份新的 machine-readable contract：`verification-profile.json`，并把其中最小必要的验证摘要接到 `minimal-context` 与 `spec-plan` / `spec-work` / `spec-review` / `spec-work-beta` 的统一消费口径上。
+为 `spec-graph-bootstrap` 的 Stage-0 control plane 增加一份新的 machine-readable contract：`verification-profile.json`，并把其中最小必要的验证摘要接到 `minimal-context` 与 `spec-plan` / `spec-work` / `spec-code-review` / `spec-work-beta` 的统一消费口径上。
 
 这次更新解决的不是“多加几个测试命令提示”，而是把：
 
@@ -1187,11 +1187,11 @@
   - [skills/spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
   - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
   - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
-  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [skills/spec-code-review/SKILL.md](../../skills/spec-code-review/SKILL.md)
   - [docs/10-prompt/skills/spec-plan/SKILL.md](../../docs/10-prompt/skills/spec-plan/SKILL.md)
   - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
   - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
-  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-code-review/SKILL.md](../../docs/10-prompt/skills/spec-code-review/SKILL.md)
   - workflow 继续以 `selected_assets / fallback_reason / level / skipped_rules` 为 Stage-0 真源
   - 不允许每个 workflow 自己绕过 evaluator 去直接读取 `verification-profile.json`
 - sample / fixture / 合同测试补齐
@@ -1258,14 +1258,14 @@
 
 - 目前 recommendation 仍建立在 repo 级 `verification-profile` 之上，不是更细粒度的 AST / symbol 级验证图
 - docs-only / prompt-only 改动会显式降级，不伪造 required verification
-- 这一步还没有把 recommendation 自动下发给 `spec-work` / `spec-review` 去执行 verifier，只先把 machine-readable bridge 建起来
+- 这一步还没有把 recommendation 自动下发给 `spec-work` / `spec-code-review` 去执行 verifier，只先把 machine-readable bridge 建起来
 
 ### 版本意义
 
 这次更新把系统从“知道仓库理论上有哪些验证方式”推进到“能对当前改动给出最小验证建议”。它对后续两件事直接铺路：
 
 - `spec-work` 基于改动面生成 required gate checklist
-- `spec-review` 基于改动面检查 verification completeness
+- `spec-code-review` 基于改动面检查 verification completeness
 
 ## 2026-04-18 `fix(stage0-workspace-runtime-boundaries)`
 
@@ -1350,12 +1350,12 @@
 - workflow contract 改为优先消费 effective runtime summary
   - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
   - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
-  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [skills/spec-code-review/SKILL.md](../../skills/spec-code-review/SKILL.md)
   - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
   - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
-  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-code-review/SKILL.md](../../docs/10-prompt/skills/spec-code-review/SKILL.md)
   - `spec-work` / `spec-work-beta` 以 runtime `verification_summary.required_verifications / optional_verifications` 作为本次运行的 effective checklist
-  - `spec-review` 以 runtime `verification_summary.verification_gaps_to_check` 作为本次 review 的 effective gap checklist
+  - `spec-code-review` 以 runtime `verification_summary.verification_gaps_to_check` 作为本次 review 的 effective gap checklist
   - 当 `source === 'change-surface'` 且 effective list 为空时，不得把 `repo_*` baseline 回填成当前改动的必跑项
 - 守卫测试补齐
   - [tests/unit/workspace-context.test.js](../../tests/unit/workspace-context.test.js)
@@ -1375,14 +1375,14 @@
 现在系统从“能算出 verification recommendation”进一步变成“workflow 真正按 recommendation 工作”：
 
 - `spec-work` 能对本次改动形成有效的 required/optional checklist
-- `spec-review` 能对本次 diff 形成有效的 verification gap checklist
+- `spec-code-review` 能对本次 diff 形成有效的 verification gap checklist
 - docs-only / prompt-only 改动不会再被 repo 级 baseline 污染，减少过度验证与错误 gate
 
 ## 2026-04-18 `feat(workflow-stage0-runtime-preload)`
 
 ### 更新内容
 
-把 Stage-0 / verification summary 从“workflow 文案要求手工读取 control plane 文件”推进成默认 runtime 注入。现在 `spec-plan`、`spec-work`、`spec-work-beta`、`spec-review` 在运行时都会 best-effort 调用内部 CLI `stage0-context`，拿到一份基于 `compileWorkspaceContext()` 的预解析 JSON。
+把 Stage-0 / verification summary 从“workflow 文案要求手工读取 control plane 文件”推进成默认 runtime 注入。现在 `spec-plan`、`spec-work`、`spec-work-beta`、`spec-code-review` 在运行时都会 best-effort 调用内部 CLI `stage0-context`，拿到一份基于 `compileWorkspaceContext()` 的预解析 JSON。
 
 这一步的意义是把“helper 已经存在”推进到“workflow 真正会默认消费”：
 
@@ -1402,11 +1402,11 @@
   - [skills/spec-plan/SKILL.md](../../skills/spec-plan/SKILL.md)
   - [skills/spec-work/SKILL.md](../../skills/spec-work/SKILL.md)
   - [skills/spec-work-beta/SKILL.md](../../skills/spec-work-beta/SKILL.md)
-  - [skills/spec-review/SKILL.md](../../skills/spec-review/SKILL.md)
+  - [skills/spec-code-review/SKILL.md](../../skills/spec-code-review/SKILL.md)
   - [docs/10-prompt/skills/spec-plan/SKILL.md](../../docs/10-prompt/skills/spec-plan/SKILL.md)
   - [docs/10-prompt/skills/spec-work/SKILL.md](../../docs/10-prompt/skills/spec-work/SKILL.md)
   - [docs/10-prompt/skills/spec-work-beta/SKILL.md](../../docs/10-prompt/skills/spec-work-beta/SKILL.md)
-  - [docs/10-prompt/skills/spec-review/SKILL.md](../../docs/10-prompt/skills/spec-review/SKILL.md)
+  - [docs/10-prompt/skills/spec-code-review/SKILL.md](../../docs/10-prompt/skills/spec-code-review/SKILL.md)
   - 四条 workflow 都新增了 `!` command 预载块，默认读取 runtime Stage-0 JSON
   - 若命令不可用，则返回 `__SPEC_FIRST_STAGE0_CONTEXT_UNAVAILABLE__` 并继续按原 contract 降级，不阻断执行
 - 守卫测试补齐
@@ -1703,10 +1703,10 @@
   - 当前与上游同路径 agent 正文重新对齐
 - `dual-host-governance`
   - 在 `Agent 模型选择 Contract` 中补充“固定模型例外”闭环
-  - 先纳入 `coherence-reviewer`，依据 `document-review` 的 always-on 调度关系与 `model: haiku` frontmatter 固化
+  - 先纳入 `coherence-reviewer`，依据 `spec-doc-review` 的 always-on 调度关系与 `model: haiku` frontmatter 固化
 - 审计 / 回归
   - 更新 `Agent 全量映射表`、不一致 agent 统计与 3 份专项分析文档
-  - 新增 / 扩展 4 组 contract tests，并与 `spec-compound`、`document-review` 回归一起验证
+  - 新增 / 扩展 4 组 contract tests，并与 `spec-compound`、`spec-doc-review` 回归一起验证
 
 ### 版本意义
 
@@ -1828,7 +1828,7 @@
 
 ### 版本意义
 
-这次更新的核心不是“再多产一些文档”，而是把 Stage-0 从一次性 bootstrap 输出，推进成一个可验证、可回归、可治理、可跨仓库扩展的上下文分发底座。后续无论是 `spec-plan`、`spec-work`、`spec-review`，还是更高层的 benchmark/regression 演进，都有了统一的 machine-first contract 和最小实现骨架。
+这次更新的核心不是“再多产一些文档”，而是把 Stage-0 从一次性 bootstrap 输出，推进成一个可验证、可回归、可治理、可跨仓库扩展的上下文分发底座。后续无论是 `spec-plan`、`spec-work`、`spec-code-review`，还是更高层的 benchmark/regression 演进，都有了统一的 machine-first contract 和最小实现骨架。
 
 ---
 
@@ -1909,7 +1909,7 @@
 - `spec-plan` / `spec-brainstorm`
   - 强制 repo-relative 路径
   - 把 late-sequence 内容拆到 reference 文件
-  - 收口 `document-review` 的 mandatory handoff 规则
+  - 收口 `spec-doc-review` 的 mandatory handoff 规则
 - `spec-work` / `spec-work-beta`
   - 默认强制 code review
   - 增加 `Test Discovery` 与 testing-gap 收口
@@ -1931,12 +1931,12 @@
 
 ### 审查期补充修复
 
-- 修正 `skills/spec-plan/references/plan-handoff.md` 中遗留的 `document-review mode:headless` 指令
+- 修正 `skills/spec-plan/references/plan-handoff.md` 中遗留的 `spec-doc-review mode:headless` 指令
 - 明确自动化 / `disable-model-invocation` 场景下：
-  - 若调用方能承接交互式 `document-review`，则继续以普通 `document-review` 路径运行
-  - 若调用方不能承接交互，则返回 `Interactive document-review still required before execution handoff.`，不再伪称 review 已完成
+  - 若调用方能承接交互式 `spec-doc-review`，则继续以普通 `spec-doc-review` 路径运行
+  - 若调用方不能承接交互，则返回 `Interactive spec-doc-review still required before execution handoff.`，不再伪称 review 已完成
 
-这条修复把 planning handoff 与当前 `document-review` 的本地非 headless 路线重新收口，避免后续自动化调用引用不存在的模式。
+这条修复把 planning handoff 与当前 `spec-doc-review` 的本地非 headless 路线重新收口，避免后续自动化调用引用不存在的模式。
 
 ---
 

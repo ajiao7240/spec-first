@@ -23,7 +23,7 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 >
 > - 批次 A-D 已完成
 > - 已执行验证：`git diff --check`、`bash tests/unit/lang-policy.sh`、`npm run test:smoke`
-> - 计划审查期额外发现并修复 `plan-handoff` 中遗留的 `document-review mode:headless` contract 冲突
+> - 计划审查期额外发现并修复 `plan-handoff` 中遗留的 `spec-doc-review mode:headless` contract 冲突
 > - shared commit 最终口径已收敛为“`owner 定语义，file-affinity 落地`”，以矩阵与审查报告中的回写为准
 
 ## Overview
@@ -32,7 +32,7 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 
 本次不是整包搬运上游，而是按既有分析结论做四个批次的受控迁移：
 
-- 批次 A：`review / document-review / resolve-pr-feedback`
+- 批次 A：`review / spec-doc-review / resolve-pr-feedback`
 - 批次 B：`plan / brainstorm / ideate`
 - 批次 C：`work / work-beta`
 - 批次 D：`compound / compound-refresh`
@@ -48,8 +48,8 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 
 当前 `spec-first` 与上游仍保持较强同构，特别是在：
 
-- `spec-review`
-- `document-review`
+- `spec-code-review`
+- `spec-doc-review`
 - `spec-plan`
 - `spec-brainstorm`
 - `spec-ideate`
@@ -61,8 +61,8 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 
 但上游近一轮更新已经在以下方面形成明显增量：
 
-- review / document-review 的稳定性、递归 guard、token 成本、自动修复路由
-- plan / brainstorm / ideate 的结构质量、repo-relative paths、document-review 连接
+- review / spec-doc-review 的稳定性、递归 guard、token 成本、自动修复路由
+- plan / brainstorm / ideate 的结构质量、repo-relative paths、spec-doc-review 连接
 - work / work-beta 的默认 review/testing 门禁、delegation 路线和 dispatch 权限约束
 - compound / compound-refresh 的 discoverability、question tool、reviewer routing
 
@@ -77,14 +77,14 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 
 ### In Scope
 
-- `skills/spec-review/SKILL.md`
-- `skills/spec-review/references/*`
-- `skills/document-review/SKILL.md`
-- `skills/document-review/references/*`
+- `skills/spec-code-review/SKILL.md`
+- `skills/spec-code-review/references/*`
+- `skills/spec-doc-review/SKILL.md`
+- `skills/spec-doc-review/references/*`
 - `skills/resolve-pr-feedback/SKILL.md`
 - `agents/workflow/pr-comment-resolver.md`
 - `agents/review/cli-agent-readiness-reviewer.md`
-- 批次 A 所涉及的 review / document-review / research / workflow agents
+- 批次 A 所涉及的 review / spec-doc-review / research / workflow agents
 - `skills/spec-plan/SKILL.md`
 - `skills/spec-brainstorm/SKILL.md`
 - `skills/spec-ideate/SKILL.md`
@@ -122,9 +122,9 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 - 本文中的“上游近期稳态”或“已验证的稳定性修复”，仅表示这些变更已进入上游主干，并在部分能力上形成了连续后续修正链，不等同于我们已经持有其独立测试报告。
 - 当前计划直接依赖的连续修正链至少包括：
   - `638b38a -> 4e0ed2c`：review base resolution 加固后又补 stale merge-base 修正
-  - `1962f54 -> 42fa8c3`：`spec-plan -> document-review` 路由先收紧，再补 mandatory deepening 后置约束
+  - `1962f54 -> 42fa8c3`：`spec-plan -> spec-doc-review` 路由先收紧，再补 mandatory deepening 后置约束
   - `a301a08 -> 2619ad9`：先引入 gated feedback clustering，再补 actionability filter 与 cluster gate 阈值修正
-  - `0f5715d -> 9a82222 -> b223e39 -> 9da73a6`：document-review 先收敛 tier，再放宽 auto 分类、提升 pattern-resolved findings，最后做 token / latency 优化
+  - `0f5715d -> 9a82222 -> b223e39 -> 9da73a6`：spec-doc-review 先收敛 tier，再放宽 auto 分类、提升 pattern-resolved findings，最后做 token / latency 优化
 
 ## Key Decisions
 
@@ -134,7 +134,7 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 - 决定 2：共享 commit 采用“owner 负责全部真实文件落点”的 owner-batch 模式。
   理由：避免同一个上游 commit 被多批次重复迁移、重复验收，或因为只迁主 skill 而漏掉次要真实落点。
 
-- 决定 3：对 `document-review` 中没有同名 reference 文件的上游更新，采用意图迁移。
+- 决定 3：对 `spec-doc-review` 中没有同名 reference 文件的上游更新，采用意图迁移。
   理由：当前仓库部分规则已内嵌进 `SKILL.md`，不能按文件名机械对照。
 
 - 决定 4：当前阶段不额外扩张产品边界。
@@ -199,7 +199,7 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 
 ### Batch A
 
-- 目标：以 `review / document-review / resolve-pr-feedback` 为主轴，先把批次 A owner commits 拉到上游近期稳态，并闭环承接其跨链路真实文件落点。
+- 目标：以 `review / spec-doc-review / resolve-pr-feedback` 为主轴，先把批次 A owner commits 拉到上游近期稳态，并闭环承接其跨链路真实文件落点。
 - owner commits：
   - `03f5aa6`
   - `847ce3f`
@@ -277,19 +277,19 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 
 | commit | owner-batch | shared-with | 执行要求 |
 |---|---|---|---|
-| `f4e0904` | `A` | `B` | 由 A 一次性覆盖 `spec-review` 与 `spec-ideate` 的真实文件落点；B 只核查 ideate 落点是否已覆盖 |
+| `f4e0904` | `A` | `B` | 由 A 一次性覆盖 `spec-code-review` 与 `spec-ideate` 的真实文件落点；B 只核查 ideate 落点是否已覆盖 |
 | `9caaf07` | `B` | `C` | 由 B 一次性覆盖 pipeline skills 的真实文件落点；C 只核查 work 侧是否已被 owner 覆盖 |
 | `35678b8` | `B` | `C` | 由 B 一次性覆盖 `plan/work/work-beta/testing-reviewer` 的真实文件落点；C 只核查执行层是否一致 |
 | `31b0686` | `B` | `C` | 由 B 一次性覆盖 `spec-plan/spec-work/spec-work-beta` 的真实文件落点；C 只核查 beta 落点是否已覆盖 |
-| `949bdef` | `A` | `C,D` | 由 A 一次性覆盖 review、document-review、work、work-beta、ideate、compound-refresh 的真实文件落点；C/D 只做联动核查 |
+| `949bdef` | `A` | `C,D` | 由 A 一次性覆盖 review、spec-doc-review、work、work-beta、ideate、compound-refresh 的真实文件落点；C/D 只做联动核查 |
 
 ## Detailed Execution Plan
 
-### Unit A1: `spec-review` 契约与输出稳定性收敛
+### Unit A1: `spec-code-review` 契约与输出稳定性收敛
 
 **Goal**
 
-把 `spec-review` 的基础协议收敛到上游近期稳态，并同时完成共享 commit `f4e0904` 在 `spec-ideate` 的真实文件落点。
+把 `spec-code-review` 的基础协议收敛到上游近期稳态，并同时完成共享 commit `f4e0904` 在 `spec-ideate` 的真实文件落点。
 
 **Commits**
 
@@ -297,24 +297,24 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 - `847ce3f`
 - `638b38a`
 - `4e0ed2c`
-- `a5ce094`（跨 Unit：本 Unit 只处理 spec-review 侧文件；resolve-pr-feedback 侧由 Unit A3 处理）
+- `a5ce094`（跨 Unit：本 Unit 只处理 spec-code-review 侧文件；resolve-pr-feedback 侧由 Unit A3 处理）
 - `bafe9f0`
 - `f4e0904`
 
 **Files**
 
-- `skills/spec-review/SKILL.md`
-- `skills/spec-review/references/findings-schema.json`
-- `skills/spec-review/references/persona-catalog.md`
-- `skills/spec-review/references/subagent-template.md`
-- `skills/spec-review/references/review-output-template.md`
-- `skills/spec-review/references/resolve-base.sh`
+- `skills/spec-code-review/SKILL.md`
+- `skills/spec-code-review/references/findings-schema.json`
+- `skills/spec-code-review/references/persona-catalog.md`
+- `skills/spec-code-review/references/subagent-template.md`
+- `skills/spec-code-review/references/review-output-template.md`
+- `skills/spec-code-review/references/resolve-base.sh`
 - `skills/spec-ideate/SKILL.md`
 
 **Implementation Order**
 
 1. 先比对 `findings-schema.json`、`review-output-template.md`、`subagent-template.md` 的协议差异。
-2. 再处理 `skills/spec-review/SKILL.md` 中的 orchestrator 流程、question tool 要求和 compact returns。
+2. 再处理 `skills/spec-code-review/SKILL.md` 中的 orchestrator 流程、question tool 要求和 compact returns。
 3. 接着补 `skills/spec-ideate/SKILL.md` 对应的 token / latency 优化落点，完成 `f4e0904` 闭环。
 4. 最后改 `resolve-base.sh` 与 `persona-catalog.md`，确保 base resolution 与 persona 选择链条一致。
 
@@ -335,16 +335,16 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 
 **Minimum Verification**
 
-- 人工核对 `spec-review` 中 findings schema、output template、subagent template 三者字段一致。
+- 人工核对 `spec-code-review` 中 findings schema、output template、subagent template 三者字段一致。
 - 检查 `spec-ideate` 是否已吸收 `f4e0904` 对应的 token / latency 优化意图。
 - 检查 `resolve-base.sh` 是否仍与当前宿主约束兼容，不引入额外交互依赖。
-- 搜索 `spec-review` 相关文案，确认没有残留显式强制 `mode` 传参。
+- 搜索 `spec-code-review` 相关文案，确认没有残留显式强制 `mode` 传参。
 
-### Unit A2: `document-review` 自动修复路由与递归防护收敛
+### Unit A2: `spec-doc-review` 自动修复路由与递归防护收敛
 
 **Goal**
 
-把 `document-review` 的 auto 路由、pattern-resolved findings、token 优化和 recursion guard 拉齐到上游近期稳态。
+把 `spec-doc-review` 的 auto 路由、pattern-resolved findings、token 优化和 recursion guard 拉齐到上游近期稳态。
 
 **Commits**
 
@@ -356,14 +356,14 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 
 **Files**
 
-- `skills/document-review/SKILL.md`
-- `skills/document-review/references/findings-schema.json`
-- `skills/document-review/references/review-output-template.md`
-- `skills/document-review/references/subagent-template.md`
-- `agents/document-review/adversarial-document-reviewer.md`
-- `agents/document-review/design-lens-reviewer.md`
-- `agents/document-review/scope-guardian-reviewer.md`
-- `agents/document-review/security-lens-reviewer.md`
+- `skills/spec-doc-review/SKILL.md`
+- `skills/spec-doc-review/references/findings-schema.json`
+- `skills/spec-doc-review/references/review-output-template.md`
+- `skills/spec-doc-review/references/subagent-template.md`
+- `agents/spec-doc-review/adversarial-document-reviewer.md`
+- `agents/spec-doc-review/design-lens-reviewer.md`
+- `agents/spec-doc-review/scope-guardian-reviewer.md`
+- `agents/spec-doc-review/security-lens-reviewer.md`
 
 **Implementation Order**
 
@@ -381,7 +381,7 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 
 **Risks**
 
-- 当前 `document-review` 已内嵌部分 synthesis 规则，不能按上游文件结构机械迁移。
+- 当前 `spec-doc-review` 已内嵌部分 synthesis 规则，不能按上游文件结构机械迁移。
 - persona 文案改动若过量，可能影响当前条件激活边界。
 - 当前需要特别避免被静默覆盖的本地内嵌规则包括：
   - `Promote Residual Concerns`
@@ -405,7 +405,7 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 - `1847242`
 - `a301a08`
 - `2619ad9`
-- `a5ce094`（跨 Unit：本 Unit 只处理 resolve-pr-feedback 侧文件；spec-review 侧由 Unit A1 处理）
+- `a5ce094`（跨 Unit：本 Unit 只处理 resolve-pr-feedback 侧文件；spec-code-review 侧由 Unit A1 处理）
 
 **Files**
 
@@ -509,8 +509,8 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 - `agents/workflow/bug-reproduction-validator.md`
 - `agents/workflow/pr-comment-resolver.md`
 - `agents/workflow/spec-flow-analyzer.md`
-- `skills/spec-review/SKILL.md`
-- `skills/document-review/SKILL.md`
+- `skills/spec-code-review/SKILL.md`
+- `skills/spec-doc-review/SKILL.md`
 - `skills/spec-work/SKILL.md`
 - `skills/spec-work-beta/SKILL.md`
 - `skills/spec-ideate/SKILL.md`
@@ -520,12 +520,12 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 
 1. 先更新 `cli-agent-readiness-reviewer.md`。
 2. 再按文件清掉 `2c90aeb` 涉及 agent 的 self-referencing example blocks。
-3. 最后在 `spec-review`、`document-review`、`spec-work`、`spec-work-beta`、`spec-ideate`、`spec-compound-refresh` 中统一检查并收口显式 `mode` 传参，完成 `949bdef` 闭环。
+3. 最后在 `spec-code-review`、`spec-doc-review`、`spec-work`、`spec-work-beta`、`spec-ideate`、`spec-compound-refresh` 中统一检查并收口显式 `mode` 传参，完成 `949bdef` 闭环。
 
 **Minimum Verification**
 
 - `rg` 检查 A 批次相关 agent 中是否仍存在自引用示例块。
-- 检查 `spec-review`、`document-review`、`spec-work`、`spec-work-beta`、`spec-ideate`、`spec-compound-refresh` 是否还显式传递 `mode` 参数。
+- 检查 `spec-code-review`、`spec-doc-review`、`spec-work`、`spec-work-beta`、`spec-ideate`、`spec-compound-refresh` 是否还显式传递 `mode` 参数。
 
 ## Batch B-D Execution Outline
 
@@ -533,7 +533,7 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 
 - 先做 `33a8d9d` 的 repo-relative paths。
 - 先做 `8ec31d7`，明确 brainstorm 中 verification 与 technical design 的边界。
-- 再做 `1962f54` 和 `42fa8c3`，把 `spec-plan -> document-review` 路由收紧。
+- 再做 `1962f54` 和 `42fa8c3`，把 `spec-plan -> spec-doc-review` 路由收紧。
 - 然后做 `f3cc754`、`fd562a0`、`bdeb793` 的结构和 token 优化。
 - 最后处理共享项 `f4e0904`、`9caaf07`、`35678b8`、`31b0686` 的 B 侧联动核查，确认 owner 已覆盖所有真实文件落点。
   - selective commits：`ca78057`、`4c7f51f`、`bd02ca7` 在批次 B 启动前由 owner-batch 做一次“纳入 / 延后 / 放弃”裁决，并回写矩阵 `notes`

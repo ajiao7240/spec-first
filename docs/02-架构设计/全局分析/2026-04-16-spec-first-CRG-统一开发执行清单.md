@@ -460,10 +460,10 @@ Phase 1 结束前，必须新增一份稳定 handoff artifact，建议位置：
 - `src/context-routing/workspace-loader.js`
 - `templates/claude/commands/spec/plan.md`
 - `templates/claude/commands/spec/work.md`
-- `templates/claude/commands/spec/review.md`
+- `templates/claude/commands/spec/code-review.md`
 - `skills/spec-plan/SKILL.md`
 - `skills/spec-work/SKILL.md`
-- `skills/spec-review/SKILL.md`
+- `skills/spec-code-review/SKILL.md`
 - `skills/spec-graph-bootstrap/SKILL.md`
 - `skills/spec-graph-bootstrap/SKILL.md`
 - `src/cli/adapters/codex.js`
@@ -487,7 +487,7 @@ Phase 1 结束前，必须新增一份稳定 handoff artifact，建议位置：
 
 目标：
 
-让 `spec-plan / spec-work / spec-review` 调用同一条 Stage-0 装配路径。
+让 `spec-plan / spec-work / spec-code-review` 调用同一条 Stage-0 装配路径。
 
 要求：
 
@@ -541,7 +541,7 @@ Phase 1 结束前，必须新增一份稳定 handoff artifact，建议位置：
 
 通过标准：
 
-1. `spec-plan / spec-work / spec-review` 的 Stage-0 预载行为可追踪、可复现
+1. `spec-plan / spec-work / spec-code-review` 的 Stage-0 预载行为可追踪、可复现
 2. `fact.*` 规则至少有一批真实实现，而不是继续进入 `skipped_rules`
 3. Claude wrapper、Codex 路径改写、workflow skill 三层入口对同一 Stage-0 语义保持一致
 4. workflow telemetry 能统一说明“为什么选了这些上下文”

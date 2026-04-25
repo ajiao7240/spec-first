@@ -826,6 +826,6 @@ commands/ (其余 10 个)                        ~1000   子命令处理器
 +--------------------------------------------------+
 |        ranked_context (FactItem[])                 |
 |  → spec-graph-bootstrap 消费                       |
-|  → spec-plan / spec-work / spec-review 消费        |
+|  → spec-plan / spec-work / spec-code-review 消费        |
 +--------------------------------------------------+
 ```

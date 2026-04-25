@@ -1,23 +1,11 @@
 ---
-name: compound-refresh-workflow
-description: Refresh stale or drifting learnings and pattern docs in docs/solutions/ by reviewing, updating, consolidating, replacing, or deleting them against the current codebase. Use after refactors, migrations, dependency upgrades, or when a retrieved learning feels outdated or wrong. Also use when reviewing docs/solutions/ for accuracy, when a recently solved problem contradicts an existing learning, when pattern docs no longer reflect current code, or when multiple docs seem to cover the same topic and might benefit from consolidation.
-argument-hint: "[mode:autofix] [optional: scope hint]"
-disable-model-invocation: true
+name: spec-compound-refresh
+description: Refresh stale learning docs and pattern docs under docs/solutions/ by reviewing them against the current codebase, then updating, consolidating, replacing, or deleting the drifted ones. Trigger this skill when the user asks to refresh, audit, sweep, clean up, or consolidate stale docs in docs/solutions/ (phrases like "refresh my learnings", "audit docs/solutions/", "clean up stale learnings", "consolidate overlapping docs", "compound refresh", "spec-compound-refresh"), or when spec-compound has just captured a new learning and flagged a specific older doc in docs/solutions/ as now inaccurate or superseded — invoke with the narrow scope hint spec-compound provides. Also trigger when the user points at a specific learning or pattern doc under docs/solutions/ and calls it stale, outdated, overlapping, or drifted. Do not trigger for general refactor, migration, debugging, or code-review work unless the user has explicitly directed attention to docs/solutions/ itself.
 ---
 
 # Compound Refresh
 
 Maintain the quality of `docs/solutions/` over time. This workflow reviews existing learnings against the current codebase, then refreshes any derived pattern docs that depend on them.
-
-`docs/solutions/*.md` remains the same durable file for both human-facing and machine-facing reuse. When a learning contains `Human Summary` and `LLM Reuse Context`, keep both views in that same durable file. Do not create a second durable artifact just to hold the LLM-facing view.
-
-When dual-view sections already exist, refresh them in a section-aware way:
-- update `Code Touchpoints` first for path/module drift
-- update `Provenance` first for evidence drift
-- update `Patterns to Reuse` / `Anti-patterns to Avoid` first for reusable-guidance drift
-- update `Human Summary` only when the outcome or conclusion changed
-
-Missing dual-view sections in older docs is an upgrade opportunity, not a schema error.
 
 ## Mode Detection
 
@@ -41,9 +29,9 @@ Check if `$ARGUMENTS` contains `mode:autofix`. If present, strip it from argumen
 
 **These principles apply to interactive mode only. In autofix mode, skip all user questions and apply the autofix mode rules above.**
 
-Follow the same interaction style as `spec:brainstorm`:
+Follow the same interaction style as `spec-brainstorm`:
 
-- Ask questions **one at a time** — use the platform's blocking question tool when available (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present numbered options in plain text and wait for the user's reply before continuing
+- Ask questions **one at a time** — use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in plain text only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question
 - Prefer **multiple choice** when natural options exist
 - Start with **scope and intent**, then narrow only when needed
 - Do **not** ask the user to make decisions before you have evidence
@@ -120,7 +108,7 @@ If no candidate docs are found, report:
 
 ```text
 No candidate docs found in docs/solutions/.
-Run `spec:compound` after solving problems to start building your knowledge base.
+Run `spec-compound` after solving problems to start building your knowledge base.
 ```
 
 ## Phase 0: Assess and Route
@@ -173,10 +161,8 @@ A learning has several dimensions that can independently go stale. Surface-level
 - **References** — do the file paths, class names, and modules it mentions still exist or have they moved?
 - **Recommended solution** — does the fix still match how the code actually works today? A renamed file with a completely different implementation pattern is not just a path update.
 - **Code examples** — if the learning includes code snippets, do they still reflect the current implementation?
-- **Human Summary / LLM Reuse Context** — if those sections exist, do they still match the underlying learning, current code touchpoints, reusable patterns, and provenance? Missing these sections in older docs is not an error; add or refresh them when you already have enough evidence to do so honestly, and prefer section-aware refresh over whole-doc rewrites.
 - **Related docs** — are cross-referenced learnings and patterns still present and consistent?
-- **Auto memory** — does the auto memory directory contain notes in the same problem domain? Read MEMORY.md from the auto memory directory (the path is known from the system prompt context). If it does not exist or is empty, skip this dimension. A memory note describing a different approach than what the learning recommends is a supplementary drift signal.
-- **Passive quality feedback** — if `.spec-first/workflows/quality-gates/ai-dev-quality-gate/quality-feedback-topics.json` exists, read `candidate_topics` as a supplementary drift signal only. Use matching `summary / scope_hint / artifact_paths / evidence_refs` to narrow investigation, but do not treat it as primary truth, an automatic refresh queue, or workflow state.
+- **Auto memory** (Claude Code only) — does the injected auto-memory block in your system prompt contain entries in the same problem domain? Scan that block directly. If the block is absent, skip this dimension. A memory note describing a different approach than what the learning recommends is a supplementary drift signal.
 - **Overlap** — while investigating, note when another doc in scope covers the same problem domain, references the same files, or recommends a similar solution. For each overlap, record: the two file paths, which dimensions overlap (problem, solution, root cause, files, prevention), and which doc appears broader or more current. These signals feed Phase 1.75 (Document-Set Analysis).
 
 Match investigation depth to the learning's specificity — a learning referencing exact file paths and code snippets needs more verification than one describing a general principle.
@@ -185,8 +171,8 @@ Match investigation depth to the learning's specificity — a learning referenci
 
 The critical distinction is whether the drift is **cosmetic** (references moved but the solution is the same) or **substantive** (the solution itself changed):
 
-- **Update territory** — file paths moved, classes renamed, links broke, metadata drifted, but the core recommended approach is still how the code works. `spec:compound-refresh` fixes these directly.
-- **Replace territory** — the recommended solution conflicts with current code, the architectural approach changed, or the pattern is no longer the preferred way. This means a new learning needs to be written. A replacement subagent writes the successor following `spec:compound`'s document format (frontmatter, problem, root cause, solution, prevention), using the investigation evidence already gathered. The orchestrator does not rewrite learnings inline — it delegates to a subagent for context isolation.
+- **Update territory** — file paths moved, classes renamed, links broke, metadata drifted, but the core recommended approach is still how the code works. `spec-compound-refresh` fixes these directly.
+- **Replace territory** — the recommended solution conflicts with current code, the architectural approach changed, or the pattern is no longer the preferred way. This means a new learning needs to be written. A replacement subagent writes the successor following `spec-compound`'s document format (frontmatter, problem, root cause, solution, prevention), using the investigation evidence already gathered. The orchestrator does not rewrite learnings inline — it delegates to a subagent for context isolation.
 
 **The boundary:** if you find yourself rewriting the solution section or changing what the learning recommends, stop — that is Replace, not Update.
 
@@ -196,8 +182,6 @@ The critical distinction is whether the drift is **cosmetic** (references moved 
 - Add context to the evidence report ("(auto memory [claude]) notes suggest approach X may have changed since this learning was written")
 
 In autofix mode, memory-only drift (no codebase corroboration) should result in stale-marking, not action.
-
-The same boundary applies to passive quality feedback artifacts: they can narrow where to look, but they must not be treated as an automatic refresh queue or as stronger evidence than the current codebase.
 
 ### Judgment Guidelines
 
@@ -285,11 +269,11 @@ Use subagents for context isolation when investigating multiple artifacts — no
 | **Parallel subagents** | 3+ truly independent artifacts with low overlap |
 | **Batched subagents** | Broad sweeps — narrow scope first, then investigate in batches |
 
-**When spawning any subagent, include this instruction in its task prompt:**
+**When spawning any subagent**, omit the `mode` parameter so the user's configured permission settings apply. Include this instruction in its task prompt:
 
 > Use dedicated file search and read tools (Glob, Grep, Read) for all investigation. Do NOT use shell commands (ls, find, cat, grep, test, bash) for file operations. This avoids permission prompts and is more reliable.
 >
-> Also read MEMORY.md from the auto memory directory if it exists. Check for notes related to the learning's problem domain. Report any memory-sourced drift signals separately from codebase-sourced evidence, tagged with "(auto memory [claude])" in the evidence section. If MEMORY.md does not exist or is empty, skip this check.
+> Also scan the "user's auto-memory" block injected into your system prompt (Claude Code only). Check for notes related to the learning's problem domain. Report any memory-sourced drift signals separately from codebase-sourced evidence, tagged with "(auto memory [claude])" in the evidence section. If the block is not present in your context, skip this check.
 
 There are two subagent roles:
 
@@ -308,7 +292,7 @@ The learning is still accurate and useful. Do not edit the file — report that 
 
 ### Update
 
-The core solution is still valid but references have drifted (paths, class names, links, code snippets, metadata). Apply the fixes directly. Prefer section-aware refresh over whole-doc rewrites.
+The core solution is still valid but references have drifted (paths, class names, links, code snippets, metadata). Apply the fixes directly.
 
 ### Consolidate
 
@@ -344,7 +328,7 @@ By the time you identify a Replace candidate, Phase 1 investigation has already 
 - **Insufficient evidence** — the drift is so fundamental that you cannot confidently document the current approach. The entire subsystem was replaced, or the new architecture is too complex to understand from a file scan alone. → Mark as stale in place:
    - Add `status: stale`, `stale_reason: [what you found]`, `stale_date: YYYY-MM-DD` to the frontmatter
    - Report what evidence you found and what is missing
-   - Recommend the user run `spec:compound` after their next encounter with that area, when they have fresh problem-solving context
+   - Recommend the user run `spec-compound` after their next encounter with that area, when they have fresh problem-solving context
 
 ### Delete
 
@@ -409,7 +393,7 @@ Do **not** ask questions about whether code changes were intentional, whether th
 
 #### Question Style
 
-Always present choices using the platform's blocking question tool when available (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present numbered options in plain text and wait for the user's reply before proceeding.
+Always present choices using the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in plain text only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
 Question rules:
 
@@ -481,15 +465,6 @@ No file edit by default. Summarize why the learning remains trustworthy.
 
 Apply in-place edits only when the solution is still substantively correct.
 
-When the doc already has dual-view sections, update the narrowest section that matches the drift:
-
-- Path/module drift → `Code Touchpoints`
-- Evidence/reference drift → `Provenance`
-- Reuse-guidance drift → `Patterns to Reuse` / `Anti-patterns to Avoid`
-- Outcome/conclusion drift → `Human Summary`
-
-Do not escalate to Replace just because one dual-view subsection drifted. Replace is for substantively misleading guidance, not section-level maintenance.
-
 Examples of valid in-place updates:
 
 - Rename `app/models/auth_token.rb` reference to `app/models/session_token.rb`
@@ -541,7 +516,7 @@ Do not let replacement subagents invent frontmatter fields, enum values, or sect
    - A summary of the investigation evidence (what changed, what the current code does, why the old guidance is misleading)
    - The target path and category (same category as the old learning unless the category itself changed)
    - The relevant contents of the three support files listed above
-2. The subagent writes the new learning using the support files as the source of truth: `references/schema.yaml` for frontmatter fields and enum values, `references/yaml-schema.md` for category mapping, and `assets/resolution-template.md` for section order. It should use dedicated file search and read tools if it needs additional context beyond what was passed.
+2. The subagent writes the new learning using the support files as the source of truth: `references/schema.yaml` for frontmatter fields and enum values, `references/yaml-schema.md` for category mapping and YAML-safety rules for array items, and `assets/resolution-template.md` for section order. It should use dedicated file search and read tools if it needs additional context beyond what was passed.
 3. After the subagent completes, the orchestrator deletes the old learning file. The new learning's frontmatter may include `supersedes: [old learning filename]` for traceability, but this is optional — the git history and commit message provide the same information.
 
 **When evidence is insufficient:**
@@ -549,7 +524,7 @@ Do not let replacement subagents invent frontmatter fields, enum values, or sect
 1. Mark the learning as stale in place:
    - Add to frontmatter: `status: stale`, `stale_reason: [what you found]`, `stale_date: YYYY-MM-DD`
 2. Report what evidence was found and what is missing
-3. Recommend the user run `spec:compound` after their next encounter with that area
+3. Recommend the user run `spec-compound` after their next encounter with that area
 
 ### Delete Flow
 
@@ -657,33 +632,33 @@ Write a descriptive commit message that:
 - Follows the repo's existing commit conventions (check recent git log for style)
 - Is succinct — the details are in the changed files themselves
 
-## Relationship to spec:compound
+## Relationship to spec-compound
 
-- `spec:compound` captures a newly solved, verified problem
-- `spec:compound-refresh` maintains older learnings as the codebase evolves — both their individual accuracy and their collective design as a document set
+- `spec-compound` captures a newly solved, verified problem
+- `spec-compound-refresh` maintains older learnings as the codebase evolves — both their individual accuracy and their collective design as a document set
 
-Use **Replace** only when the refresh process has enough real evidence to write a trustworthy successor. When evidence is insufficient, mark as stale and recommend `spec:compound` for when the user next encounters that problem area.
+Use **Replace** only when the refresh process has enough real evidence to write a trustworthy successor. When evidence is insufficient, mark as stale and recommend `spec-compound` for when the user next encounters that problem area.
 
-Use **Consolidate** proactively when the document set has grown organically and redundancy has crept in. Every `spec:compound` invocation adds a new doc — over time, multiple docs may cover the same problem from slightly different angles. Periodic consolidation keeps the document set lean and authoritative.
+Use **Consolidate** proactively when the document set has grown organically and redundancy has crept in. Every `spec-compound` invocation adds a new doc — over time, multiple docs may cover the same problem from slightly different angles. Periodic consolidation keeps the document set lean and authoritative.
 
 ## Discoverability Check
 
-After the refresh report is generated, check whether the project's instruction files would lead an agent to discover and search `docs/solutions/` before starting work in a documented area. This runs every time — the knowledge store only compounds value when agents can find it. If this check produces edits, they are committed as part of, or immediately after, the Phase 5 commit flow.
+After the refresh report is generated, check whether the project's instruction files would lead an agent to discover and search `docs/solutions/` before starting work in a documented area. This runs every time — the knowledge store only compounds value when agents can find it. If this check produces edits, they are committed as part of (or immediately after) the Phase 5 commit flow — see step 5 below.
 
-1. Identify which root-level instruction files exist (`AGENTS.md`, `CLAUDE.md`, or both). Read the file(s) and determine which holds the substantive content — one file may just be a shim that `@`-includes the other. The substantive file is the assessment and edit target; ignore shims. If neither file exists, skip this check entirely.
+1. Identify which root-level instruction files exist (AGENTS.md, CLAUDE.md, or both). Read the file(s) and determine which holds the substantive content — one file may just be a shim that `@`-includes the other (e.g., `CLAUDE.md` containing only `@AGENTS.md`, or vice versa). The substantive file is the assessment and edit target; ignore shims. If neither file exists, skip this check entirely.
 2. Assess whether an agent reading the instruction files would learn three things:
    - That a searchable knowledge store of documented solutions exists
    - Enough about its structure to search effectively (category organization, YAML frontmatter fields like `module`, `tags`, `problem_type`)
-   - When to search it (before implementing features, debugging issues, or making decisions in documented areas)
+   - When to search it (before implementing features, debugging issues, or making decisions in documented areas — learnings may cover bugs, best practices, workflow patterns, or other institutional knowledge)
 
    This is a semantic assessment, not a string match. The information could be a line in an architecture section, a bullet in a gotchas section, spread across multiple places, or expressed without ever using the exact path `docs/solutions/`. Use judgment — if an agent would reasonably discover and use the knowledge store after reading the file, the check passes.
 
 3. If the spirit is already met, no action needed.
 4. If not:
    a. Based on the file's existing structure, tone, and density, identify where a mention fits naturally. Before creating a new section, check whether the information could be a single line in the closest related section — an architecture tree, a directory listing, a documentation section, or a conventions block. A line added to an existing section is almost always better than a new headed section. Only add a new section as a last resort when the file has clear sectioned structure and nothing is even remotely related.
-   b. Draft the smallest addition that communicates the three things. Match the file's existing style and density. The addition should describe the knowledge store itself, not the workflow.
+   b. Draft the smallest addition that communicates the three things. Match the file's existing style and density. The addition should describe the knowledge store itself, not the plugin.
 
-      Keep the tone informational, not imperative. Express timing as description, not instruction — "relevant when implementing or debugging in documented areas" rather than "check before implementing or debugging." The goal is awareness: agents learn the folder exists and what's in it, then use their own judgment about when to consult it.
+      Keep the tone informational, not imperative. Express timing as description, not instruction — "relevant when implementing or debugging in documented areas" rather than "check before implementing or debugging." Imperative directives like "always search before implementing" cause redundant reads when a workflow already includes a dedicated search step. The goal is awareness: agents learn the folder exists and what's in it, then use their own judgment about when to consult it.
 
       Examples of calibration (not templates — adapt to the file):
 
@@ -698,6 +673,6 @@ After the refresh report is generated, check whether the project's instruction f
 
       `docs/solutions/` — documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`). Relevant when implementing or debugging in documented areas.
       ```
-   c. In interactive mode, explain why this matters, show the proposed change, and get consent before editing the instruction file. In autofix mode, include it as a "Discoverability recommendation" line in the report — do not attempt to edit instruction files.
+   c. In interactive mode, explain to the user why this matters — agents working in this repo (including fresh sessions, other tools, or collaborators without the plugin) won't know to check `docs/solutions/` unless the instruction file surfaces it. Show the proposed change and where it would go, then use the platform's blocking question tool to get consent before making the edit: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to presenting the proposal in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question. In autofix mode, include it as a "Discoverability recommendation" line in the report — do not attempt to edit instruction files (autofix scope is doc maintenance, not project config).
 
-5. **Amend or create a follow-up commit when the check produces edits.** If step 4 resulted in an edit to an instruction file and Phase 5 already committed the refresh changes, stage the newly edited file and either amend the existing commit (if still on the same branch and no push has occurred) or create a small follow-up commit (for example, `docs: add docs/solutions discoverability to AGENTS.md`). If Phase 5 already pushed the branch to a remote, push the follow-up commit as well so the remote stays in sync. If the user chose "Don't commit" in Phase 5, leave the instruction-file edit unstaged alongside the other uncommitted refresh changes.
+5. **Amend or create a follow-up commit when the check produces edits.** If step 4 resulted in an edit to an instruction file and Phase 5 already committed the refresh changes, stage the newly edited file and either amend the existing commit (if still on the same branch and no push has occurred) or create a small follow-up commit (e.g., `docs: add docs/solutions/ discoverability to AGENTS.md`). If Phase 5 already pushed the branch to a remote (e.g., the branch+PR path), push the follow-up commit as well so the open PR includes the discoverability change. This keeps the working tree clean and the remote in sync at the end of the run. If the user chose "Don't commit" in Phase 5, leave the instruction-file edit unstaged alongside the other uncommitted refresh changes — no separate commit logic needed.

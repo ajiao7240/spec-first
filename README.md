@@ -52,7 +52,7 @@ Most AI coding failures come from degraded LLM decision inputs, not weak models:
 | LLM starts from a blank-slate codebase context | `graph-bootstrap` extracts AST facts and compiles `minimal-context` with `provenance` and `confidence` signals | Host readiness gate + runtime workflow contract |
 | Requirements are never made explicit | Brainstorm stage produces a requirements artifact consumed by Plan | `SKILL.md` contract |
 | Plans drift from implementation | Plan artifact is a first-class Work input, and Review Stage 2b cross-checks the **Requirements Trace** against the diff | `SKILL.md` contract |
-| Reviews are unstructured | **17 reviewer personas** (always-on + cross-cutting + stack-specific) plus 2 CE-specific agents, routed by `safe_auto / gated_auto / manual / advisory` | `SKILL.md` contract |
+| Reviews are unstructured | **17 reviewer personas** (always-on + cross-cutting + stack-specific) plus 2 spec-first auxiliary agents, routed by `safe_auto / gated_auto / manual / advisory` | `SKILL.md` contract |
 | Solved problems are not reused | Compound writes structured learnings to `docs/solutions/` with YAML frontmatter for future retrieval | `SKILL.md` contract |
 
 **Suited for:**
@@ -182,10 +182,10 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 | **CRG graph engine** (`spec-first crg *`) | **Code Review Graph** — an embedded Node.js runtime over SQLite + FTS5, covering AST → symbols → resolved edges → PageRank flows → community detection → surprising-connections → god-nodes → review-context |
 | **graph-bootstrap context engine** | LLM gets fact-extracted, confidence-annotated project context instead of a raw codebase |
 | **Full workflow layer** | Ideate → Brainstorm → Plan → Work → Review → Compound, every stage with an explicit artifact contract |
-| **17-persona Review stage** (+ 2 CE agents) | Produces structured findings routed by `safe_auto / gated_auto / manual / advisory`, not a single-pass scan |
+| **17-persona Review stage** (+ 2 specialist agents) | Produces structured findings routed by `safe_auto / gated_auto / manual / advisory`, not a single-pass scan |
 | **Compound / knowledge capture** | Solved problems are written to `docs/solutions/` for future workflow retrieval |
 | **Dual platform support** | One methodology across Claude Code (`/spec:*`) and Codex (`$spec-*`). Claude uses a `SessionStart` hook + bare-agent rewrite; Codex uses `.agents/skills/` discovery + explicit `.codex/agents/...` path rewrite |
-| **Capability layer** | Bundled source assets ship with `46` skills, `55` agents, and `4` agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `11` commands + `35` skills on Claude, and `34` skills on Codex, with `55` agents + `4` support files on both hosts |
+| **Capability layer** | Bundled source assets ship with `41` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `19` commands + `0` standalone skills on Claude, and `19` workflow skills on Codex, with `51` agents on both hosts |
 | **Runtime governance** | Managed assets are tracked in `state.json` — sync, refresh, recover, and clean safely |
 
 ## Core Workflow
@@ -204,7 +204,7 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 | Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/*.md` | **SKILL.md** contract |
 | Plan | `/spec:plan` | `$spec-plan` | `docs/plans/*.md` | **SKILL.md** contract |
 | Work | `/spec:work` | `$spec-work` | code + tests | **SKILL.md** contract |
-| Review | `/spec:review` | `$spec-review` | structured review report | **SKILL.md** contract (17 reviewer personas + 2 CE agents) |
+| Review | `/spec:code-review` | `$spec-code-review` | structured review report | **SKILL.md** contract (17 reviewer personas + 2 auxiliary agents) |
 | Compound | `/spec:compound` | `$spec-compound` | `docs/solutions/**/*.md` | **SKILL.md** contract |
 
 ### Auxiliary stages
@@ -299,7 +299,7 @@ spec-first clean --claude   # or --codex
 
 `clean` removes everything marked removable in the table above, then prints which platform's managed assets were removed. Custom assets outside the managed set are left untouched. The language policy block must still be removed manually — search for `<!-- spec-first:lang:` in `CLAUDE.md` / `AGENTS.md`.
 Both `init --dry-run` and `clean --dry-run` preview file-level operations derived from the same managed operation plans used by real apply paths, which keeps preview/apply drift narrow and testable.
-Current runtime delivery is host-specific by governance: Claude writes `11` command files, `35` skill directories, `55` agent files, and `4` agent support files; Codex writes `34` skill directories plus the same `55` agent files and `4` support files, with no command directory.
+Current runtime delivery is host-specific by governance: Claude writes `19` command files, `0` skill directories, `51` agent files; Codex writes `19` workflow skill directories plus the same `51` agent files, with no command directory.
 
 #### Example output
 
@@ -307,10 +307,9 @@ Current runtime delivery is host-specific by governance: Claude writes `11` comm
 $ spec-first init --claude
 
 🪝 Installed Claude SessionStart matcher in .claude/settings.json
-📦 Generated 11 command file(s) in .claude/commands/spec
-🧩 Generated 35 skill directory(ies) in .claude/skills
-🤖 Generated 55 agent file(s) in .claude/agents
-🧰 Generated 4 agent support file(s) in .claude/agents
+📦 Generated 19 command file(s) in .claude/commands/spec
+🧩 Generated 0 skill directory(ies) in .claude/skills
+🤖 Generated 51 agent file(s) in .claude/agents
 🪪 Wrote project developer profile:
   📍 path: .claude/spec-first/.developer
   👤 name: yourname
@@ -330,7 +329,7 @@ $ spec-first init --claude
 | Install MCP tools | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | Restart host | restart Claude Code | restart Codex |
 | Build context | `/spec:graph-bootstrap` or `/spec:compound` | `$spec-graph-bootstrap` or `$spec-compound` |
-| Start the workflow | `/spec:ideate` → `/spec:brainstorm` → `/spec:plan` → `/spec:work` → `/spec:review` → `/spec:compound` | `$spec-ideate` → … → `$spec-compound` |
+| Start the workflow | `/spec:ideate` → `/spec:brainstorm` → `/spec:plan` → `/spec:work` → `/spec:code-review` → `/spec:compound` | `$spec-ideate` → … → `$spec-compound` |
 
 `graph-bootstrap` runs a **Host Readiness Gate** at startup. If MCP setup was skipped or the host was not restarted, it stops with explicit guidance rather than degrade silently.
 
@@ -356,8 +355,8 @@ $ spec-first init --claude
 │  Enforcement: SKILL.md contracts (LLM-followed)              │
 ├──────────────────────────────────────────────────────────────┤
 │  Capability Layer — agents (6 categories)                    │
-│  review/ (17 reviewer personas + CE agents)                  │
-│  document-review/ (requirements / plan persona review)       │
+│  review/ (17 reviewer personas + auxiliary agents)                  │
+│  spec-doc-review/ (requirements / plan persona review)       │
 │  research/ (session / doc / Feishu / web context readers)    │
 │  design/ (UI / design-lens agents)                           │
 │  workflow/ (bug-reproduction / lint / pr-comment-resolver)   │
@@ -377,7 +376,7 @@ Runtime assets under `.claude/`, `.codex/`, or `.agents/` are **generated output
 | `spec-first doctor` | Environment check | Verifies platform state, plugin manifest, and managed assets. `--claude` / `--codex` scopes to one platform. Reports `legacy managed state` when `init` is needed, and `--json` includes evidence schema/freshness plus `evidence_age_summary`. |
 | `spec-first init` | Initialize the runtime | Syncs commands, skills, agents, runtime hooks, and developer metadata through managed operation plans. Also the only supported legacy upgrade entrypoint — performs a managed hard reset. See [What `init` writes](#what-init-writes) above. |
 | `spec-first clean` | Remove managed assets | Removes the given platform's spec-first managed assets through the same operation-plan boundary used by `--dry-run`; does not migrate legacy state and does not strip the language policy marker block. |
-| `spec-first stage0-context` | Emit Stage-0 runtime context | Called by SKILLs such as `spec-plan` / `spec-work` / `spec-review` at stage start. Accepts `--stage <plan\|work\|review>`, `--workflow <skill-name>`, `--format json`. |
+| `spec-first stage0-context` | Emit Stage-0 runtime context | Called by SKILLs such as `spec-plan` / `spec-work` / `spec-code-review` at stage start. Accepts `--stage <plan\|work\|review>`, `--workflow <skill-name>`, `--format json`. |
 
 ### CRG graph commands (`spec-first crg <subcommand>`)
 

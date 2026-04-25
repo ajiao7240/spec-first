@@ -447,7 +447,7 @@ function buildOwnershipRegistrySample() {
     entries: {
       'README.md': {
         owner: 'spec-platform',
-        reviewer: 'spec-review',
+        reviewer: 'spec-code-review',
         last_verified: '2026-04-15',
       },
       'architecture/module-map.md': {

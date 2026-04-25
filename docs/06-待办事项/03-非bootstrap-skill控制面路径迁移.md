@@ -6,7 +6,7 @@
 
 ## 完成结果
 
-- `spec-review`、`spec-plan`、`feature-video`、`todo-resolve` 的运行时暂存路径已迁移到 `.spec-first/workflows/`
+- `spec-code-review`、`spec-plan`、`feature-video`、`todo-resolve` 的运行时暂存路径已迁移到 `.spec-first/workflows/`
 - `todo-create`、`todo-triage`、`todo-resolve` 的持久工作项目录已切换到 `docs/todos/`
 - `tests/smoke/cli.sh` 已新增对应 negative guard，防止旧 `.context/spec-first/` 路径回归
 - `docs/02-架构设计/02-目录结构.md`、`CLAUDE.md`、`CHANGELOG.md` 已同步更新
@@ -15,7 +15,7 @@
 
 | Skill | 当前写入路径（旧） | 目标路径（新） |
 |-------|-------------------|----------------|
-| `spec-review` | `.context/spec-first/spec-review/<slug>/` | `.spec-first/workflows/spec-review/<slug>/` |
+| `spec-code-review` | `.context/spec-first/spec-code-review/<slug>/` | `.spec-first/workflows/spec-code-review/<slug>/` |
 | `spec-plan` | `.context/spec-first/spec-plan/<slug>/` | `.spec-first/workflows/spec-plan/<slug>/` |
 | `todo-create` | `.context/spec-first/todos/` | `docs/todos/` |
 | `todo-triage` | `.context/spec-first/todos/` | `docs/todos/` |
@@ -46,7 +46,7 @@
 对每个 skill 的 `SKILL.md` 执行 grep，确认当前控制面路径模式，记录实际写入的目录格式与文件名列表：
 
 ```bash
-grep -n "\.context/" skills/spec-review/SKILL.md
+grep -n "\.context/" skills/spec-code-review/SKILL.md
 grep -n "\.context/" skills/spec-plan/SKILL.md
 grep -n "\.context/" skills/todo-create/SKILL.md
 grep -n "\.context/" skills/todo-triage/SKILL.md

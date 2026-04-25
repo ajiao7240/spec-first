@@ -38,7 +38,7 @@ topic: spec-graph-bootstrap-improvements
 - Phase 3 dispatch 的所有 PRD 均通过 Quality Gate，不存在仅含泛化描述的上下文
 - database worker 在 CLI/MCP 两种路径下对备份表过滤采用一致策略
 - 新 contributor 通过阅读 PRD 模板示例即可理解"具体"的填写标准
-- `03-agent-workflow-patterns.md` 作为可发现的规范文档存在；spec-review 等 workflow 可选择引用其中的模式
+- `03-agent-workflow-patterns.md` 作为可发现的规范文档存在；spec-code-review 等 workflow 可选择引用其中的模式
 
 ---
 

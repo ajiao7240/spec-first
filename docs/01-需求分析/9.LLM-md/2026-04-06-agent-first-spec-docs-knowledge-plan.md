@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** 在 `1 -> 10` 团队阶段落地 Agent-first `spec-docs` 的第一阶段能力：完成 docs repo 绑定、运行时路径发现、项目知识骨架、基础 publish guard，以及 `spec-plan/spec-work/spec-review` 的知识优先读取。
+**Goal:** 在 `1 -> 10` 团队阶段落地 Agent-first `spec-docs` 的第一阶段能力：完成 docs repo 绑定、运行时路径发现、项目知识骨架、基础 publish guard，以及 `spec-plan/spec-work/spec-code-review` 的知识优先读取。
 
-**Architecture:** `spec-first init/doctor` 负责 docs repo 绑定、workspace 发现、slug 解析、项目骨架初始化与健康检查；`spec-graph-bootstrap` 把代码分析结果写入 `raw/snapshots/<timestamp>/`；`spec-compound` / `spec-compound-refresh` 负责 `raw -> draft -> knowledge` 编译链；`spec-plan` / `spec-work` / `spec-review` 在进入本地代码扫描前，优先读取 `knowledge/`、必要时回退到 `draft/`、`raw/` 与代码仓库。第一阶段坚持 repo-native、git-native、markdown-native，不引入向量库、数据库或 Web UI。
+**Architecture:** `spec-first init/doctor` 负责 docs repo 绑定、workspace 发现、slug 解析、项目骨架初始化与健康检查；`spec-graph-bootstrap` 把代码分析结果写入 `raw/snapshots/<timestamp>/`；`spec-compound` / `spec-compound-refresh` 负责 `raw -> draft -> knowledge` 编译链；`spec-plan` / `spec-work` / `spec-code-review` 在进入本地代码扫描前，优先读取 `knowledge/`、必要时回退到 `draft/`、`raw/` 与代码仓库。第一阶段坚持 repo-native、git-native、markdown-native，不引入向量库、数据库或 Web UI。
 
 **Tech Stack:** Node.js 20+, CommonJS, shell-first tests, Git, Markdown/YAML frontmatter, Claude/Codex runtime assets
 
@@ -39,7 +39,7 @@
 - 运行中的 Claude / Codex 资产都能通过**本地运行时文件**发现解析后的 `docsLocalPath`，而不是依赖 agent 重新推断 `~/.spec-first/config.json`
 - `spec-graph-bootstrap` 明确将代码分析结果写入 `raw/snapshots/<timestamp>/`
 - `spec-compound` / `spec-compound-refresh` 有明确的 `draft` / `knowledge` 写入职责
-- `spec-plan` / `spec-work` / `spec-review` 有一致的知识读取顺序：
+- `spec-plan` / `spec-work` / `spec-code-review` 有一致的知识读取顺序：
   - `knowledge/`
   - `contexts/`
   - `draft/`
@@ -69,7 +69,7 @@
 5. 知识层 schema、publish guard 与模板固化
 6. `spec-graph-bootstrap` 原始快照写入
 7. `spec-compound` / `spec-compound-refresh` 的 draft/publish 流程
-8. `spec-plan` / `spec-work` / `spec-review` 的知识路由接入
+8. `spec-plan` / `spec-work` / `spec-code-review` 的知识路由接入
 9. 发布说明、changelog 与回归测试
 
 ### Task 1: docs repo 配置、CLI 入口与运行时状态模型
@@ -665,12 +665,12 @@ git add tests/unit/knowledge-validator.sh tests/smoke/cli.sh skills/spec-compoun
 git commit -m "feat(compound): add draft and publish knowledge workflow"
 ```
 
-### Task 8: `spec-plan` / `spec-work` / `spec-review` 接入知识路由
+### Task 8: `spec-plan` / `spec-work` / `spec-code-review` 接入知识路由
 
 **Files:**
 - Modify: `skills/spec-plan/SKILL.md`
 - Modify: `skills/spec-work/SKILL.md`
-- Modify: `skills/spec-review/SKILL.md`
+- Modify: `skills/spec-code-review/SKILL.md`
 - Test: `tests/smoke/cli.sh`
 - Test: `tests/unit/workflow-routing.sh`
 
@@ -681,7 +681,7 @@ git commit -m "feat(compound): add draft and publish knowledge workflow"
 ```bash
 grep -q 'knowledge/' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
 grep -q 'draft/' "$TMP_DIR/.claude/skills/spec-work/SKILL.md"
-grep -q 'raw/' "$TMP_DIR/.claude/skills/spec-review/SKILL.md"
+grep -q 'raw/' "$TMP_DIR/.claude/skills/spec-code-review/SKILL.md"
 grep -q '读取顺序' "$REPO_ROOT/skills/spec-plan/SKILL.md"
 grep -q 'docs-local.json' "$TMP_DIR/.claude/skills/spec-plan/SKILL.md"
 ```
@@ -729,12 +729,12 @@ Run:
 - `bash tests/unit/workflow-routing.sh`
 - `bash tests/smoke/cli.sh`
 
-Expected: 生成后的 `spec-plan` / `spec-work` / `spec-review` 均包含一致的知识读取顺序、运行时路径发现链路与回写触发条件
+Expected: 生成后的 `spec-plan` / `spec-work` / `spec-code-review` 均包含一致的知识读取顺序、运行时路径发现链路与回写触发条件
 
 **Step 5: Commit**
 
 ```bash
-git add tests/unit/workflow-routing.sh tests/smoke/cli.sh skills/spec-plan/SKILL.md skills/spec-work/SKILL.md skills/spec-review/SKILL.md
+git add tests/unit/workflow-routing.sh tests/smoke/cli.sh skills/spec-plan/SKILL.md skills/spec-work/SKILL.md skills/spec-code-review/SKILL.md
 git commit -m "feat(workflows): route plan work review through knowledge layers"
 ```
 
@@ -872,7 +872,7 @@ Agent 默认消费：
   - `spec-graph-bootstrap` 写 `raw/`
   - `spec-compound` 写 `draft/`
   - `spec-compound-refresh` 负责 publish
-  - `spec-plan` / `spec-work` / `spec-review` 有统一知识读取顺序
+  - `spec-plan` / `spec-work` / `spec-code-review` 有统一知识读取顺序
   - publish validator 能拦截 `draft` 中的 `published` 页面
 - 失败路径：
   - docs repo localPath 缺失
@@ -909,7 +909,7 @@ Agent 默认消费：
   缓解：frontmatter 状态机、统一模板、`knowledge/` 只允许 `published`、validator 强制执行路径规则
 
 - 风险：Agent 仍然习惯直接扫代码，知识库被边缘化  
-  缓解：在 `spec-plan` / `spec-work` / `spec-review` 中强制先读知识层，再执行 repo research，并通过运行时 docs context 文件避免路径发现失败
+  缓解：在 `spec-plan` / `spec-work` / `spec-code-review` 中强制先读知识层，再执行 repo research，并通过运行时 docs context 文件避免路径发现失败
 
 - 风险：把 `Team` 模式的治理强度错误下放到 `0 -> 1` 项目，导致 adoption 成本过高  
   缓解：明确 `Lite / Team / Scale` 三档模式，Phase 1 默认只做 `Team`，并允许 `Lite` 模式降级运行

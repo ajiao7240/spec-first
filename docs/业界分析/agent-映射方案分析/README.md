@@ -28,7 +28,7 @@
 
 本轮 P1 优化完成后，这批条目的状态已经发生收敛：
 
-- `document-review/product-lens-reviewer` 已完成与上游对齐
+- `spec-doc-review/product-lens-reviewer` 已完成与上游对齐
 - `research/best-practices-researcher` 已消除 Ruby/Rails 能力收窄，并把 Documentation 映射收口到真实 skill 标识
 - `workflow/pr-comment-resolver` 已恢复宽口径 untrusted input 表述并收掉最后一处排版差异，当前已与上游对齐
 - `git-history-analyzer`、`issue-intelligence-analyst`、`session-historian`、`code-simplicity-reviewer`、`project-standards-reviewer` 已进一步把高频命名硬编码收口为中性模板
@@ -37,7 +37,7 @@
 
 ### 1. 已完成本轮 P1 修复
 
-- `document-review/product-lens-reviewer`
+- `spec-doc-review/product-lens-reviewer`
   - 已恢复 `Product context` 与 `Strategic consequences`
   - 当前已与上游对齐
 
@@ -53,7 +53,7 @@
 
 这类差异主要是当前仓库的必要适配，或者当前实现已明显优于上游：
 
-- `document-review/design-lens-reviewer`
+- `spec-doc-review/design-lens-reviewer`
 - `research/git-history-analyzer`
 - `research/issue-intelligence-analyst`
 - `research/learnings-researcher`
@@ -64,8 +64,8 @@
 
 此外：
 
-- `document-review/scope-guardian-reviewer`
-- `document-review/security-lens-reviewer`
+- `spec-doc-review/scope-guardian-reviewer`
+- `spec-doc-review/security-lens-reviewer`
 
 也仍属于 model 策略层的 intentional divergence，不构成能力缺口。
 
@@ -78,7 +78,7 @@
 
 建议先读本轮刚完成修复的 3 个条目，再读保留分叉型条目。
 
-1. `document-review/product-lens-reviewer`
+1. `spec-doc-review/product-lens-reviewer`
 2. `research/best-practices-researcher`
 3. `research/learnings-researcher`
 4. `workflow/pr-comment-resolver`
@@ -86,7 +86,7 @@
 
 ## 文档索引
 
-### document-review
+### spec-doc-review
 
 - [2026-04-16-document-review-design-lens-reviewer-映射方案分析.md](./2026-04-16-document-review-design-lens-reviewer-映射方案分析.md)
 - [2026-04-16-document-review-product-lens-reviewer-映射方案分析.md](./2026-04-16-document-review-product-lens-reviewer-映射方案分析.md)

@@ -130,7 +130,7 @@
 - 有 artifact manifest、fact inventory、risk signals、test surface 等 machine artifacts
 - 有 `docs/contexts/<slug>/` 作为 durable context assets
 - 有 `injection-index.yaml` 作为 workflow 注入入口
-- `spec-plan / spec-work / spec-review` 已经接入预载约定
+- `spec-plan / spec-work / spec-code-review` 已经接入预载约定
 
 这意味着 Stage-0 已经不是概念设计，而是可运行的 supporting workflow。
 
@@ -560,7 +560,7 @@ CRG / Serena / Built-in facts
 | Consumer Workflows            |
 | - spec-plan                   |
 | - spec-work                   |
-| - spec-review                 |
+| - spec-code-review                 |
 +-------------------------------+
 ```
 
@@ -2113,7 +2113,7 @@ P0 最小建议字段：
 
 - [skills/spec-plan/SKILL.md](/Users/kuang/xiaobu/spec-first/skills/spec-plan/SKILL.md)
 - [skills/spec-work/SKILL.md](/Users/kuang/xiaobu/spec-first/skills/spec-work/SKILL.md)
-- [skills/spec-review/SKILL.md](/Users/kuang/xiaobu/spec-first/skills/spec-review/SKILL.md)
+- [skills/spec-code-review/SKILL.md](/Users/kuang/xiaobu/spec-first/skills/spec-code-review/SKILL.md)
 
 目标是让它们统一依赖：
 
@@ -2220,7 +2220,7 @@ P0 最小建议字段：
 
 - `spec-plan` 注入结果测试
 - `spec-work` 注入结果测试
-- `spec-review` 注入结果测试
+- `spec-code-review` 注入结果测试
 - evaluator fallback 行为 e2e
 
 ## 17.4 Benchmark 层测试

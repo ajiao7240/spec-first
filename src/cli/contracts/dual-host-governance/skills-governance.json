@@ -4,277 +4,178 @@
   "skills": [
     {
       "skill_name": "agent-browser",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "agent-native-architecture",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "agent-native-audit",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
-      }
-    },
-    {
-      "skill_name": "andrew-kane-gem-writer",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "changelog",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
-      "skill_name": "claude-permissions-optimizer",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
-      "host_scope": "target_host_maintenance",
-      "owner_host": "claude",
-      "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
-      }
-    },
-    {
-      "skill_name": "deploy-docs",
-      "entry_surface": "standalone_skill",
+      "skill_name": "spec-doc-review",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
-      }
-    },
-    {
-      "skill_name": "document-review",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
-      }
-    },
-    {
-      "skill_name": "dspy-ruby",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
-      }
-    },
-    {
-      "skill_name": "every-style-editor",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "feature-video",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "frontend-design",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "gemini-imagegen",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "git-clean-gone-branches",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "git-commit",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "git-commit-push-pr",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "git-worktree",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "lfg",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
-      }
-    },
-    {
-      "skill_name": "onboarding",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
-      }
-    },
-    {
-      "skill_name": "orchestrating-swarms",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
-      "host_scope": "host_exclusive",
-      "owner_host": "claude",
-      "host_delivery": {
-        "claude": "skill",
-        "codex": "none"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "proof",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
-      }
-    },
-    {
-      "skill_name": "rclone",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "report-bug",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
-      }
-    },
-    {
-      "skill_name": "reproduce-bug",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "resolve-pr-feedback",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
@@ -301,12 +202,12 @@
     },
     {
       "skill_name": "spec-compound-refresh",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
+      "entry_surface": "workflow_command",
+      "command_name": "compound-refresh",
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
+        "claude": "command",
         "codex": "skill"
       }
     },
@@ -319,6 +220,17 @@
       "host_delivery": {
         "claude": "command",
         "codex": "skill"
+      }
+    },
+    {
+      "skill_name": "spec-dhh-rails-style",
+      "entry_surface": "internal_only",
+      "command_name": null,
+      "host_scope": "dual_host",
+      "owner_host": null,
+      "host_delivery": {
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
@@ -356,12 +268,12 @@
     },
     {
       "skill_name": "spec-optimize",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
+      "entry_surface": "workflow_command",
+      "command_name": "optimize",
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
+        "claude": "command",
         "codex": "skill"
       }
     },
@@ -377,14 +289,69 @@
       }
     },
     {
-      "skill_name": "spec-review",
+      "skill_name": "spec-polish-beta",
       "entry_surface": "workflow_command",
-      "command_name": "review",
+      "command_name": "polish-beta",
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
         "claude": "command",
         "codex": "skill"
+      }
+    },
+    {
+      "skill_name": "spec-pr-description",
+      "entry_surface": "workflow_command",
+      "command_name": "pr-description",
+      "host_scope": "dual_host",
+      "owner_host": null,
+      "host_delivery": {
+        "claude": "command",
+        "codex": "skill"
+      }
+    },
+    {
+      "skill_name": "spec-release-notes",
+      "entry_surface": "workflow_command",
+      "command_name": "release-notes",
+      "host_scope": "dual_host",
+      "owner_host": null,
+      "host_delivery": {
+        "claude": "command",
+        "codex": "skill"
+      }
+    },
+    {
+      "skill_name": "spec-code-review",
+      "entry_surface": "workflow_command",
+      "command_name": "code-review",
+      "host_scope": "dual_host",
+      "owner_host": null,
+      "host_delivery": {
+        "claude": "command",
+        "codex": "skill"
+      }
+    },
+    {
+      "skill_name": "spec-session-extract",
+      "entry_surface": "internal_only",
+      "command_name": null,
+      "host_scope": "dual_host",
+      "owner_host": null,
+      "host_delivery": {
+        "claude": "internal",
+        "codex": "internal"
+      }
+    },
+    {
+      "skill_name": "spec-session-inventory",
+      "entry_surface": "internal_only",
+      "command_name": null,
+      "host_scope": "dual_host",
+      "owner_host": null,
+      "host_delivery": {
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
@@ -399,13 +366,24 @@
       }
     },
     {
-      "skill_name": "spec-slack-research",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
+      "skill_name": "spec-setup",
+      "entry_surface": "workflow_command",
+      "command_name": "setup",
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
+        "claude": "command",
+        "codex": "skill"
+      }
+    },
+    {
+      "skill_name": "spec-slack-research",
+      "entry_surface": "workflow_command",
+      "command_name": "slack-research",
+      "host_scope": "dual_host",
+      "owner_host": null,
+      "host_delivery": {
+        "claude": "command",
         "codex": "skill"
       }
     },
@@ -417,17 +395,6 @@
       "owner_host": null,
       "host_delivery": {
         "claude": "command",
-        "codex": "skill"
-      }
-    },
-    {
-      "skill_name": "using-spec-first",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "skill",
         "codex": "skill"
       }
     },
@@ -444,68 +411,46 @@
     },
     {
       "skill_name": "spec-work-beta",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
+      "entry_surface": "workflow_command",
+      "command_name": "work-beta",
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
+        "claude": "command",
         "codex": "skill"
       }
     },
     {
       "skill_name": "test-browser",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
       "skill_name": "test-xcode",
-      "entry_surface": "standalone_skill",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     },
     {
-      "skill_name": "todo-create",
-      "entry_surface": "standalone_skill",
+      "skill_name": "using-spec-first",
+      "entry_surface": "internal_only",
       "command_name": null,
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
-      }
-    },
-    {
-      "skill_name": "todo-resolve",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
-      }
-    },
-    {
-      "skill_name": "todo-triage",
-      "entry_surface": "standalone_skill",
-      "command_name": null,
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "skill",
-        "codex": "skill"
+        "claude": "internal",
+        "codex": "internal"
       }
     }
   ]

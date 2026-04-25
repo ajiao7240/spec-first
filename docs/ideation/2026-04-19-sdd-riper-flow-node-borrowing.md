@@ -43,7 +43,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 | `No Spec, No Code` | 强化 `brainstorm -> plan -> work` 的 artifact gate | 避免从口头需求直接裸改 |
 | `No Approval, No Execute` | 在 `spec-work` 中保留“执行前 checkpoint + 明确继续信号” | 防止计划还没确认就开始改代码 |
 | `Plan -> Execute` 分离 | 继续坚持 `spec-plan` 只做 HOW，`spec-work` 才执行 | 保持计划和执行职责边界 |
-| `Review` 阶段 | 在 `spec-review` 中增加三轴 verdict | 让 review 不只是 findings 列表，还能判断是否真正完成 |
+| `Review` 阶段 | 在 `spec-code-review` 中增加三轴 verdict | 让 review 不只是 findings 列表，还能判断是否真正完成 |
 | `Archive` 阶段 | 并入 `spec-compound` | 把任务结果沉淀成可复用知识，而不是停在 PR 结束 |
 | `DEBUG` 旁路 | 强化 `spec-debug` 的“只定位，不直接修”边界 | 避免 debug 过程失控变成无计划修改 |
 | `Multi-project` 边界 | 映射到 spec-first workspace / cross-repo 机制 | 提升跨仓任务的作用域可控性 |
@@ -97,7 +97,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 
 `spec-first` 已有 `spec-compound` 和 `docs/solutions/`，因此不需要新增 `archive` workflow。更好的方向是：
 
-- `spec-review` 输出是否值得沉淀的建议。
+- `spec-code-review` 输出是否值得沉淀的建议。
 - `spec-compound` 支持 human-facing 与 LLM-facing 两类总结。
 - 结论必须保留 trace 到来源计划、diff、验证命令或 review finding。
 
@@ -122,7 +122,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 | `spec-brainstorm` | `Restate First`、`Done Contract` | 在需求文档中更稳定地产出“我理解的问题”“完成定义”“由什么证明完成” |
 | `spec-plan` | `Plan as Contract` | 已有 implementation units 可增强为：文件、签名、测试场景、风险、验证证据一一可追踪 |
 | `spec-work` | `Checkpoint Before Execute`、`Reverse Sync`、`Resume Ready` | 执行前短 checkpoint；执行后写 closure summary；暂停时写下一步唯一动作 |
-| `spec-review` | 三轴 review | 顶层增加 `Requirement Completion / Plan-Diff Fidelity / Code Intrinsic Quality` verdict |
+| `spec-code-review` | 三轴 review | 顶层增加 `Requirement Completion / Plan-Diff Fidelity / Code Intrinsic Quality` verdict |
 | `spec-debug` | 日志 + spec + 代码三角定位 | 明确 debug 本身不改代码；修复必须转入 plan/work 或小范围 fast path |
 | `spec-compound` | human / LLM 双视角 archive | human 版用于汇报，LLM 版用于后续检索和复用，并保留 Trace to Sources |
 | `spec-graph-bootstrap` | `create_codemap` / `context_bundle` 的思想 | 不手写 codemap，而是用 CRG/Stage-0 产物表达代码地图、上下文包、质量等级 |
@@ -151,9 +151,9 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 
 这样可以避免直接改 plan 时和用户手写内容产生冲突，同时保留可追溯闭环。
 
-### 4.2 `spec-review` 增加三轴总评
+### 4.2 `spec-code-review` 增加三轴总评
 
-当前 `spec-review` 的 persona review 很强，但最终输出可以增加一个顶层 verdict：
+当前 `spec-code-review` 的 persona review 很强，但最终输出可以增加一个顶层 verdict：
 
 | Axis | 问题 | Verdict |
 |---|---|---|
@@ -171,7 +171,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 - 哪个测试、日志、review 或人工验收能证明完成
 - 哪些情况仍算未完成
 
-这能减少 `spec-work` 阶段的实现者自由发挥，也能让 `spec-review` 更容易做 requirements trace。
+这能减少 `spec-work` 阶段的实现者自由发挥，也能让 `spec-code-review` 更容易做 requirements trace。
 
 ### 4.4 Stage-0 freshness 与 workflow 行为打通
 
@@ -184,7 +184,7 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 }
 ```
 
-下一步应让 `spec-plan`、`spec-work`、`spec-review` 明确消费它：
+下一步应让 `spec-plan`、`spec-work`、`spec-code-review` 明确消费它：
 
 - 不把 stale 当成硬阻塞。
 - 降低对旧 context 的信任。
@@ -239,13 +239,13 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 
 - 执行后产出 closure summary。
 - 记录实际改动、偏差、验证、风险和恢复锚点。
-- 为 `spec-review` 和 `spec-compound` 提供更好的输入。
+- 为 `spec-code-review` 和 `spec-compound` 提供更好的输入。
 
 ### 第三阶段：Review 三轴总评
 
 范围：
 
-- `spec-review`
+- `spec-code-review`
 - review synthesis / output contract
 - 相关 contract tests
 

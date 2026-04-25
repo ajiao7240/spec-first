@@ -17,7 +17,7 @@ topic: spec-first-sync-compound-engineering-updates
 源项目在 2026-04-13 之前累积了大量更新，其中既包含：
 
 - 对核心 workflow 的质量修复
-- 对 review / document-review / resolve-pr-feedback 的稳定性增强
+- 对 review / spec-doc-review / resolve-pr-feedback 的稳定性增强
 - 对 plan / brainstorm / work 的结构优化和 token 优化
 - 也包含不适合直接引入当前项目的平台化能力和外围能力
 
@@ -45,7 +45,7 @@ topic: spec-first-sync-compound-engineering-updates
   - `=== 同步建议 ===`
 - R9. 初步分析至少要能按主题区分：
   - 核心链路相关提交
-  - review / document-review 相关提交
+  - review / spec-doc-review 相关提交
   - plan / brainstorm 相关提交
   - work / work-beta 相关提交
   - compound / compound-refresh 相关提交
@@ -59,7 +59,7 @@ topic: spec-first-sync-compound-engineering-updates
 
 **核心链路同步策略**
 - R11. 必须将源项目更新拆分为“核心链路逐 commit 同步”和“外围能力按主题评估”两条轨道。
-- R12. 核心链路同步范围至少包括：`spec-review`、`document-review`、`resolve-pr-feedback`、`spec-plan`、`spec-brainstorm`、`spec-ideate`、`spec-work`、`spec-work-beta`、`spec-compound`、`spec-compound-refresh`。
+- R12. 核心链路同步范围至少包括：`spec-code-review`、`spec-doc-review`、`resolve-pr-feedback`、`spec-plan`、`spec-brainstorm`、`spec-ideate`、`spec-work`、`spec-work-beta`、`spec-compound`、`spec-compound-refresh`。
 - R13. 核心链路同步必须逐 commit 形成矩阵，矩阵中必须记录：上游 commit、上游关键文件、当前项目落点、处理决策、说明。
 - R14. 核心链路同步矩阵必须使用统一决策字段：`MUST`、`SELECTIVE`、`SKIP`、`NEW-TRACK`。
 

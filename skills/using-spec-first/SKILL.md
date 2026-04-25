@@ -48,9 +48,9 @@ Use a decision tree, not a blanket “brainstorm first” rule.
    - Claude: `/spec:debug`
    - Codex: `$spec-debug`
 5. If the request is a review, audit, or PR/document evaluation, route to:
-   - Claude: `/spec:review`
-   - Codex: `$spec-review`
-   - Or `document-review` when the work is explicitly document-review scoped.
+   - Claude: `/spec:code-review`
+   - Codex: `$spec-code-review`
+   - Or `spec-doc-review` when the work is explicitly spec-doc-review scoped.
 6. If the goal is graph bootstrap, context-building, or creating new durable docs/learnings/pattern docs, route to:
    - Claude: `/spec:graph-bootstrap` or `/spec:compound`
    - Codex: `$spec-graph-bootstrap` or `$spec-compound`

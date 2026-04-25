@@ -265,7 +265,7 @@ workspace rerun 时：
 **测试场景**
 
 1. workspace 根目录旧 bootstrap 产物存在时，rerun 后生成完整新 contract
-2. `spec-plan` / `spec-work` / `spec-review` 读取 Stage-0 时，不再消费旧 injection-only 语义
+2. `spec-plan` / `spec-work` / `spec-code-review` 读取 Stage-0 时，不再消费旧 injection-only 语义
 3. 不会因为残留旧 docs/context 文件而误判当前命中主体
 
 ## 6. 顺序与依赖
@@ -307,7 +307,7 @@ workspace rerun 时：
 2. rerun `spec-graph-bootstrap` 后，目标 `slug` 目录不再残留旧 contract 文件
 3. workspace rerun 后，旧 child slug 的 stale control-plane/docs 被正确 prune
 4. `doctor` 与 evaluator 能按 workspace-root / repo-child 两类 contract 明确识别 bootstrap outdated / partial contract
-5. `spec-plan` / `spec-work` / `spec-review` 在旧产物混合态被修复后，只消费当前 Stage-0 contract
+5. `spec-plan` / `spec-work` / `spec-code-review` 在旧产物混合态被修复后，只消费当前 Stage-0 contract
 6. `.spec-first/graph/` 未被误删，CRG 高成本产物边界保持不变
 
 ## 9. Verification Surface

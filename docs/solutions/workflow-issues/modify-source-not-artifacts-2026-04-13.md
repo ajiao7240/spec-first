@@ -12,7 +12,7 @@ applies_when:
   - "发现 .agents/skills/、.claude/skills/、.codex/commands/ 等运行时副本与源码不一致"
   - "slash command 或 $skill 运行时读到旧内容，怀疑源码没有改完"
   - "需要修复 spec-first 工作流的生成逻辑或模板输出"
-tags: ["injection-index", "spec-graph-bootstrap", "source-of-truth", "artifact", "generated-file", "phase-4", "spec-review", "runtime-artifact", "codex-runtime"]
+tags: ["injection-index", "spec-graph-bootstrap", "source-of-truth", "artifact", "generated-file", "phase-4", "spec-code-review", "runtime-artifact", "codex-runtime"]
 ---
 
 # 修改生成产物而非源头模板
@@ -24,10 +24,10 @@ tags: ["injection-index", "spec-graph-bootstrap", "source-of-truth", "artifact",
 `spec-graph-bootstrap` 运行时生成，真正的 source-of-truth 在
 `skills/spec-graph-bootstrap/SKILL.md` 的 Phase 4 模板里。
 
-2026-04-15 的 `spec-review` 同步审查里，同样出现了另一种高频误判：
+2026-04-15 的 `spec-code-review` 同步审查里，同样出现了另一种高频误判：
 
-- 用户实际通过 `$spec-review` 读到了 `.agents/skills/spec-review/SKILL.md`
-- 该文件仍是 repo-local runtime artifact，内容落后于 `skills/spec-review/SKILL.md`
+- 用户实际通过 `$spec-code-review` 读到了 `.agents/skills/spec-code-review/SKILL.md`
+- 该文件仍是 repo-local runtime artifact，内容落后于 `skills/spec-code-review/SKILL.md`
 - 如果只盯着 `.agents/skills/...`，很容易误判为“源码没改完”
 
 但从源码看，这类结论必须拆成两个独立判断：
@@ -48,14 +48,14 @@ tags: ["injection-index", "spec-graph-bootstrap", "source-of-truth", "artifact",
 3. 只在源目录做持久修改
 4. 通过安装/同步链路刷新运行时副本，再验证实际消费到的新内容
 
-`spec-review` 这个案例里，正确动作不是编辑 `.agents/skills/spec-review/SKILL.md`，而是：
+`spec-code-review` 这个案例里，正确动作不是编辑 `.agents/skills/spec-code-review/SKILL.md`，而是：
 
 ```bash
 # 先检查源头
-sed -n '1,80p' skills/spec-review/SKILL.md
+sed -n '1,80p' skills/spec-code-review/SKILL.md
 
 # 再确认 runtime 副本是否滞后
-sed -n '1,80p' .agents/skills/spec-review/SKILL.md
+sed -n '1,80p' .agents/skills/spec-code-review/SKILL.md
 
 # 若两者不一致，修改 source-of-truth 后走同步链路刷新 runtime
 spec-first init
@@ -104,11 +104,11 @@ docs/contexts/<slug>/injection-index.yaml  ← 产物（可重新生成）
 对 Codex / Claude runtime 安装链也是同一个原则：
 
 ```
-skills/spec-review/SKILL.md            ← 源头
+skills/spec-code-review/SKILL.md            ← 源头
 agents/review/*.md                     ← 源头
 templates/...                          ← 源头
          ↓ spec-first init / syncBundledAssets
-.agents/skills/spec-review/SKILL.md    ← Codex runtime 副本
+.agents/skills/spec-code-review/SKILL.md    ← Codex runtime 副本
 .codex/agents/review/*.md              ← Codex runtime 副本
 .claude/skills/...                     ← Claude runtime 副本
 ```
@@ -118,7 +118,7 @@ templates/...                          ← 源头
 - `src/cli/plugin.js` 的 `syncBundledAssets()` / `syncSkills()` / `syncAgents()` 会把 repo 内 `skills/` 与 `agents/` 复制并转换到运行时目录
 - `src/cli/adapters/codex.js` 明确把 Codex 的 `skillsRoot` 和 `workflowsRoot` 都指向 `.agents/skills`
 
-所以，`.agents/skills/spec-review/SKILL.md` 的旧状态首先说明的是“runtime 副本未刷新”，而不是“`skills/spec-review/SKILL.md` 必然错误”。
+所以，`.agents/skills/spec-code-review/SKILL.md` 的旧状态首先说明的是“runtime 副本未刷新”，而不是“`skills/spec-code-review/SKILL.md` 必然错误”。
 
 ## When to Apply
 
@@ -138,18 +138,18 @@ templates/...                          ← 源头
 | `.spec-first/workflows/bootstrap/<slug>/` JSON 文件 | `skills/spec-graph-bootstrap/SKILL.md` 各 Phase | `/spec:graph-bootstrap` |
 | `.claude/skills/`、`.agents/skills/` | `skills/` 目录各 SKILL.md | `spec-first init` |
 
-**`spec-review` 具体案例**：
+**`spec-code-review` 具体案例**：
 
 **Before（错误判断）**：
 
-- 看到 `.agents/skills/spec-review/SKILL.md` 还是旧 contract
-- 直接下结论：“`spec-review` 源码还没开发完”
+- 看到 `.agents/skills/spec-code-review/SKILL.md` 还是旧 contract
+- 直接下结论：“`spec-code-review` 源码还没开发完”
 
 **After（正确判断）**：
 
-- 先审 `skills/spec-review/SKILL.md`、`agents/review/*`、相关 tests，确认 source-of-truth 是否已完成
-- 若 source-of-truth 正确，而 `.agents/skills/spec-review/SKILL.md` 落后，则把问题归类为 runtime artifact 刷新/验证项
-- 通过同步链路刷新 runtime，再验证 `$spec-review` 实际消费到的新 contract
+- 先审 `skills/spec-code-review/SKILL.md`、`agents/review/*`、相关 tests，确认 source-of-truth 是否已完成
+- 若 source-of-truth 正确，而 `.agents/skills/spec-code-review/SKILL.md` 落后，则把问题归类为 runtime artifact 刷新/验证项
+- 通过同步链路刷新 runtime，再验证 `$spec-code-review` 实际消费到的新 contract
 
 **通用原则**：
 1. 遇到文件内容错误，先追溯其生成来源，再决定修改位置

@@ -1,6 +1,6 @@
 # Codex Delegation Workflow
 
-When `delegation_active` is true, code implementation is delegated to the Codex CLI (`codex exec`) instead of being implemented directly. The orchestrating agent retains control of planning, review, git operations, and orchestration.
+When `delegation_active` is true, code implementation is delegated to the Codex CLI (`codex exec`) instead of being implemented directly. The orchestrating Claude Code agent retains control of planning, review, git operations, and orchestration.
 
 ## Delegation Decision
 
@@ -10,23 +10,23 @@ If `work_delegate_decision` is `ask`, present the recommendation and wait for th
 
 > "Codex delegation active. [N] implementation units -- delegating in one batch."
 > 1. Delegate to Codex *(recommended)*
-> 2. Execute locally instead
+> 2. Execute with Claude Code instead
 
 **When recommending Codex delegation, multiple batches:**
 
 > "Codex delegation active. [N] implementation units -- delegating in [X] batches."
 > 1. Delegate to Codex *(recommended)*
-> 2. Execute locally instead
+> 2. Execute with Claude Code instead
 
-**When recommending local execution (all units are trivial):**
+**When recommending Claude Code (all units are trivial):**
 
-> "Codex delegation active, but these are small changes where the cost of delegating outweighs local execution."
-> 1. Execute locally *(recommended)*
+> "Codex delegation active, but these are small changes where the cost of delegating outweighs having Claude Code do them."
+> 1. Execute with Claude Code *(recommended)*
 > 2. Delegate to Codex anyway
 
-If the user chooses the delegation option, proceed to Pre-Delegation Checks below. If the user chooses the local option, set `delegation_active` to false and return to standard execution in the parent skill.
+If the user chooses the delegation option, proceed to Pre-Delegation Checks below. If the user chooses the Claude Code option, set `delegation_active` to false and return to standard execution in the parent skill.
 
-If `work_delegate_decision` is `auto` (the default), state the execution plan in one line and proceed without waiting: "Codex delegation active. Delegating [N] units in [X] batch(es)." If all units are trivial, set `delegation_active` to false and proceed: "Codex delegation active. All units are trivial -- executing locally."
+If `work_delegate_decision` is `auto` (the default), state the execution plan in one line and proceed without waiting: "Codex delegation active. Delegating [N] units in [X] batch(es)." If all units are trivial, set `delegation_active` to false and proceed: "Codex delegation active. All units are trivial -- executing with Claude Code."
 
 ## Pre-Delegation Checks
 
@@ -34,7 +34,7 @@ Run these checks **once before the first batch**. If any check fails, fall back 
 
 **0. Platform Gate**
 
-Codex delegation is only supported when the orchestrating agent is not already a Codex CLI session. If the current session is Codex, Gemini CLI, OpenCode, or any other platform where invoking Codex would recurse or violate the host's model, set `delegation_active` to false and proceed in standard mode.
+Codex delegation is only supported when the orchestrating agent is running in Claude Code. If the current session is Codex or any unsupported platform, set `delegation_active` to false and proceed in standard mode.
 
 **1. Environment Guard**
 
@@ -66,10 +66,10 @@ If it shows an unresolved command string, run `command -v codex` using a shell t
 
 If `consent_granted` is not true (from config `work_delegate_consent`):
 
-Present a one-time consent warning using the platform's blocking question tool when available. The consent warning explains:
+Present a one-time consent warning using the platform's blocking question tool (`AskUserQuestion` in Claude Code or `request_user_input` in Codex). The consent warning explains:
 - Delegation sends implementation units to `codex exec` as a structured prompt
-- **yolo mode** (`--dangerously-bypass-approvals-and-sandbox`): Full system access including network. Required for verification steps that run tests or install dependencies. **Recommended.**
-- **full-auto mode** (`--full-auto`): Workspace-write sandbox, no network access
+- **yolo mode** (`--yolo`): Full system access including network. Required for verification steps that run tests or install dependencies. **Recommended.**
+- **full-auto mode** (`--full-auto`): Workspace-write sandbox, no network access.
 
 Present the sandbox mode choice: (1) yolo (recommended), (2) full-auto.
 
@@ -80,7 +80,7 @@ On acceptance:
 
 On decline:
 - Ask whether to disable delegation entirely for this project
-- If yes: write `work_delegate: false` to `<repo-root>/.spec-first/config.local.yaml` (create the directory/file if needed), set `delegation_active` to false, and proceed in standard mode
+- If yes: write `work_delegate: false` to `<repo-root>/.spec-first/config.local.yaml` (using the same repo root resolved above). To write: (1) if file or directory does not exist, create `<repo-root>/.spec-first/` and write the YAML file; (2) if file exists, merge new keys preserving existing keys. Set `delegation_active` to false, proceed in standard mode
 - If no: set `delegation_active` to false for this invocation only, proceed in standard mode
 
 **Headless consent:** If running in a headless or non-interactive context, delegation proceeds only if `work_delegate_consent` is already `true` in the config file. If consent is not recorded, set `delegation_active` to false silently.
@@ -91,9 +91,16 @@ Delegate all units in one batch. If the plan exceeds 5 units, split into batches
 
 ## Prompt Template
 
-At the start of delegated execution, generate a short unique run ID (e.g., 8 hex chars from a timestamp or random source). All scratch files for this invocation go under `.spec-first/workflows/work-beta/codex-delegation/<run-id>/`. Create the directory if it does not exist.
+At the start of delegated execution, create a per-run OS-temp scratch directory via `mktemp -d` and capture its **absolute path** for all downstream use. All scratch files for this invocation live under that directory. Do not use `.context/` — these scratch files are per-run throwaway that get cleaned up when delegated execution ends (see Cleanup below), matching the repo Scratch Space convention for one-shot artifacts. Do not pass unresolved shell-variable strings to non-shell tools (Write, Read); use the absolute path returned by `mktemp -d`.
 
-Before each batch, write a prompt file to `.spec-first/workflows/work-beta/codex-delegation/<run-id>/prompt-batch-<batch-num>.md`.
+```bash
+SCRATCH_DIR="$(mktemp -d -t spec-work-codex-XXXXXX)"
+echo "$SCRATCH_DIR"
+```
+
+Refer to the echoed absolute path as `<scratch-dir>` throughout the rest of this workflow.
+
+Before each batch, write a prompt file to `<scratch-dir>/prompt-batch-<batch-num>.md`.
 
 Build the prompt from the batch's implementation units using these XML-tagged sections:
 
@@ -143,9 +150,11 @@ interaction chain works end-to-end.
 
 <verify>
 After implementing, run ALL test files together in a single command (not
-per-file). Cross-file contamination only surfaces when tests run in the
-same process. If tests fail, fix the issues and re-run until they pass.
-Do not report status "completed" unless verification passes.
+per-file). Cross-file contamination (e.g., mocked globals leaking between
+test files) only surfaces when tests run in the same process. If tests
+fail, fix the issues and re-run until they pass. Do not report status
+"completed" unless verification passes. This is your responsibility --
+the orchestrator will not re-run verification independently.
 
 [Test and lint commands from the project. Use the union of all units'
 verification commands as a single combined invocation.]
@@ -167,7 +176,7 @@ Report your result via the --output-schema mechanism. Fill in every field:
 
 ## Result Schema
 
-Write the result schema to `.spec-first/workflows/work-beta/codex-delegation/<run-id>/result-schema.json` once at the start of delegated execution:
+Write the result schema to `<scratch-dir>/result-schema.json` (using the absolute path captured at the start) once at the start of delegated execution:
 
 ```json
 {
@@ -184,7 +193,7 @@ Write the result schema to `.spec-first/workflows/work-beta/codex-delegation/<ru
 }
 ```
 
-Each batch's result is written to `.spec-first/workflows/work-beta/codex-delegation/<run-id>/result-batch-<batch-num>.json` via the `-o` flag. On plan failure, files are left in place for debugging.
+Each batch's result is written to `<scratch-dir>/result-batch-<batch-num>.json` via the `-o` flag. On plan failure, files are left in place for debugging.
 
 If the result JSON is absent or malformed after a successful exit code, classify as task failure.
 
@@ -208,9 +217,13 @@ If tracked files are dirty, stop and present options: (1) commit current changes
 
 Write the prompt file, then make a single Bash tool call with `run_in_background: true` set on the tool parameter. This call returns immediately and has no timeout ceiling.
 
+Substitute the literal absolute path captured at setup for every `<scratch-dir>` below. Each Bash tool call starts a fresh shell, so the `$SCRATCH_DIR` variable from the setup snippet is not preserved — an unresolved `$SCRATCH_DIR` would expand empty and break result detection.
+
 ```bash
+# Substitute the resolved sandbox_mode value (yolo or full-auto) from the skill state
 SANDBOX_MODE="<sandbox_mode>"
 
+# Resolve sandbox flag
 if [ "$SANDBOX_MODE" = "full-auto" ]; then
   SANDBOX_FLAG="--full-auto"
 else
@@ -221,9 +234,9 @@ codex exec \
   -m "<delegate_model>" \
   -c 'model_reasoning_effort="<delegate_effort>"' \
   $SANDBOX_FLAG \
-  --output-schema .spec-first/workflows/work-beta/codex-delegation/<run-id>/result-schema.json \
-  -o .spec-first/workflows/work-beta/codex-delegation/<run-id>/result-batch-<batch-num>.json \
-  - < .spec-first/workflows/work-beta/codex-delegation/<run-id>/prompt-batch-<batch-num>.md
+  --output-schema "<scratch-dir>/result-schema.json" \
+  -o "<scratch-dir>/result-batch-<batch-num>.json" \
+  - < "<scratch-dir>/prompt-batch-<batch-num>.md"
 ```
 
 Critical: `run_in_background: true` must be set as a **Bash tool parameter**, not as a shell `&` suffix. The tool parameter is what removes the timeout ceiling. A shell `&` inside a foreground Bash call still hits the 2-minute default timeout.
@@ -236,8 +249,10 @@ Do not improvise CLI flags or modify this invocation template.
 
 After the launch call returns, make a **new, separate** foreground Bash tool call that polls for the result file. This keeps the agent's turn active so the user cannot interfere with the working tree.
 
+Substitute the literal absolute path captured at setup for `<scratch-dir>`. The shell variable from Step A does not survive across separate Bash tool calls.
+
 ```bash
-RESULT_FILE=".spec-first/workflows/work-beta/codex-delegation/<run-id>/result-batch-<batch-num>.json"
+RESULT_FILE="<scratch-dir>/result-batch-<batch-num>.json"
 for i in $(seq 1 6); do
   test -s "$RESULT_FILE" && echo "DONE" && exit 0
   sleep 10
@@ -249,22 +264,22 @@ If the output is "Waiting for Codex...", issue the same polling command again as
 
 **Polling termination conditions:** Stop polling when any of these conditions is met:
 
-- **Result file appears** -- proceed to result classification normally
-- **Background process exits with non-zero code** -- classify as CLI failure, roll back, and fall back to standard mode
-- **Background process exits with zero code but result file is absent** -- classify as task failure, roll back, increment `consecutive_failures`
-- **5 polling rounds** elapse without the result file appearing and without a background-process notification -- treat as a hung process, roll back, and fall back to standard mode
+- **Result file appears** (output is "DONE") -- proceed to result classification normally.
+- **Background process exits with non-zero code** -- classify as CLI failure (row 1). Rollback and fall back to standard mode.
+- **Background process exits with zero code but result file is absent** -- classify as task failure (row 2: exit 0, result JSON missing). Rollback and increment `consecutive_failures`.
+- **5 polling rounds** elapse (~5 minutes) without the result file appearing and without a background process notification -- treat as a hung process. Classify as CLI failure (row 1). Rollback and fall back to standard mode.
 
 **Result classification:** Codex is responsible for running verification internally and fixing failures before reporting -- the orchestrator does not re-run verification independently.
 
 | # | Signal | Classification | Action |
 |---|--------|---------------|--------|
-| 1 | Exit code != 0 | CLI failure | Roll back to HEAD. Fall back to standard mode for all remaining work. |
-| 2 | Exit code 0, result JSON missing or malformed | Task failure | Roll back to HEAD. Increment `consecutive_failures`. |
-| 3 | Exit code 0, `status: "failed"` | Task failure | Roll back to HEAD. Increment `consecutive_failures`. |
+| 1 | Exit code != 0 | CLI failure | Rollback to HEAD. Fall back to standard mode for ALL remaining work. |
+| 2 | Exit code 0, result JSON missing or malformed | Task failure | Rollback to HEAD. Increment `consecutive_failures`. |
+| 3 | Exit code 0, `status: "failed"` | Task failure | Rollback to HEAD. Increment `consecutive_failures`. |
 | 4 | Exit code 0, `status: "partial"` | Partial success | Keep the diff. Complete remaining work locally, verify, and commit. Increment `consecutive_failures`. |
 | 5 | Exit code 0, `status: "completed"` | Success | Commit changes. Reset `consecutive_failures` to 0. |
 
-**Result handoff — surface to user:** After reading the result JSON and before committing or rolling back, display a short summary:
+**Result handoff — surface to user:** After reading the result JSON and before committing or rolling back, display a summary so the user sees what happened. Format:
 
 > **Codex batch <batch-num> — <classification>**
 > <summary from result JSON>
@@ -273,7 +288,9 @@ If the output is "Waiting for Codex...", issue the same polling command again as
 > **Verification:** <verification_summary from result JSON>
 > **Issues:** <issues list, or "None">
 
-On failure or partial results, include the classification reason so the user understands why the orchestrator is rolling back or completing locally.
+On failure or partial results, include the classification reason (e.g., "status: failed", "result JSON missing") so the user understands why the orchestrator is rolling back or completing locally.
+
+Keep this brief — the goal is transparency, not a wall of text. One short block per batch.
 
 **Rollback procedure:**
 
@@ -291,15 +308,11 @@ git add $(git diff --name-only HEAD; git ls-files --others --exclude-standard)
 git commit -m "feat(<scope>): <batch summary>"
 ```
 
-**Between batches** (plans split into multiple batches): report what completed, test results, and what's next. Continue immediately unless the user intervenes.
+**Between batches** (plans split into multiple batches): Report what completed, test results, and what's next. Continue immediately unless the user intervenes -- the checkpoint exists so the user *can* steer, not so they *must*.
 
 **Circuit breaker:** After 3 consecutive failures, set `delegation_active` to false and emit: "Codex delegation disabled after 3 consecutive failures -- completing remaining units in standard mode."
 
-**Scratch cleanup:** After the last batch completes:
-
-```bash
-rm -rf .spec-first/workflows/work-beta/codex-delegation/<run-id>/
-```
+**Scratch cleanup:** No explicit cleanup needed — OS temp handles eventual cleanup (macOS `$TMPDIR` periodic purge; Linux/WSL `/tmp` reboot or periodic cleanup). Leaving `<scratch-dir>` in place after the run also preserves intermediate artifacts for debugging if anything went wrong.
 
 ## Mixed-Model Attribution
 

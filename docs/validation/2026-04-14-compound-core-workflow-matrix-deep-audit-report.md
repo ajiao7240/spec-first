@@ -23,13 +23,13 @@
    - `5` 个在命名空间/品牌/路径映射后语义一致
    - `30` 个存在可解释的本地分叉，且已逐项核对为“有意保留”或“宿主/产品适配”
 4. 审查过程中发现 `1` 个真实 blocker，并已在审查期修复：
-   - `skills/spec-plan/references/plan-handoff.md` 残留 `document-review mode:headless`
-   - 该指令与当前本地 `document-review` 非 headless contract 冲突
-   - 已修正为“若调用方能承接交互 review，则以普通 `document-review` 继续；否则返回 `Interactive document-review still required before execution handoff.`”
+   - `skills/spec-plan/references/plan-handoff.md` 残留 `spec-doc-review mode:headless`
+   - 该指令与当前本地 `spec-doc-review` 非 headless contract 冲突
+   - 已修正为“若调用方能承接交互 review，则以普通 `spec-doc-review` 继续；否则返回 `Interactive spec-doc-review still required before execution handoff.`”
 5. 当前仍有 `1` 个非阻断治理说明项：
    - `skills/spec-work/references/shipping-workflow.md`
    - `skills/spec-work-beta/references/shipping-workflow.md`
-   - 仍保留显式 `spec-review mode:autofix` 指导
+   - 仍保留显式 `spec-code-review mode:autofix` 指导
    - 这不影响功能正确性，而且该写法与上游当前 shipping reference 一致
    - 真正需要记录的是：`949bdef` 的“dispatch 省略显式 mode”语义不能被外推成“所有 execution reference 文本都移除显式 mode”
 
@@ -59,7 +59,7 @@
    - `git diff --check`
    - `bash tests/unit/lang-policy.sh`
    - `npm run test:smoke`
-   - 针对 review / document-review / resolve-pr-feedback / plan / work / compound 的 `rg` 合同检查
+   - 针对 review / spec-doc-review / resolve-pr-feedback / plan / work / compound 的 `rg` 合同检查
 
 ## 3. 审查中修复的 blocker
 
@@ -71,23 +71,23 @@
 
 **问题描述**
 
-- 文件原先要求在 pipeline mode 中以 `document-review mode:headless` 运行计划审查。
-- 当前本地 `skills/document-review/SKILL.md` 已明确不支持 `mode:headless`。
+- 文件原先要求在 pipeline mode 中以 `spec-doc-review mode:headless` 运行计划审查。
+- 当前本地 `skills/spec-doc-review/SKILL.md` 已明确不支持 `mode:headless`。
 - 这会让 planning handoff 在自动化/`disable-model-invocation` 场景下引用不存在的模式，属于真实 contract 冲突。
 
 **修复结果**
 
 - 删除 `mode:headless` 指令
 - 明确两种合法路径：
-  - 调用方能承接交互式 `document-review` 时，按普通 `document-review` 继续
-  - 调用方不能承接交互时，返回 `Interactive document-review still required before execution handoff.`
+  - 调用方能承接交互式 `spec-doc-review` 时，按普通 `spec-doc-review` 继续
+  - 调用方不能承接交互时，返回 `Interactive spec-doc-review still required before execution handoff.`
 - 同步补充：
   - `CHANGELOG.md`
   - `docs/08-版本更新/README.md`
 
 **修复后验证**
 
-- `rg -n "document-review.*mode:headless|mode:headless.*document-review" skills/spec-plan skills/spec-brainstorm skills/document-review -S`
+- `rg -n "spec-doc-review.*mode:headless|mode:headless.*spec-doc-review" skills/spec-plan skills/spec-brainstorm skills/spec-doc-review -S`
   - 无剩余错误调用
 - `npm run test:smoke`
   - 通过
@@ -96,10 +96,10 @@
 
 以下差异经逐文件核对后确认是**有意保留**，不是漏迁：
 
-1. `spec-review`
+1. `spec-code-review`
    - 不接入上游 `headless`
    - 保留本地 Stage-0 预载块
-2. `document-review`
+2. `spec-doc-review`
    - 保留本地 `batch_confirm`
    - 保留 `Promote Residual Concerns`
    - 保留 `Resolve Contradictions`
@@ -133,13 +133,13 @@
 **现状**
 
 - 两个 shipping reference 仍显式写出：
-  - `Invoke the spec-review skill with mode:autofix`
-  - `Invoke spec-review mode:autofix`
+  - `Invoke the spec-code-review skill with mode:autofix`
+  - `Invoke spec-code-review mode:autofix`
 - 上游当前对应文件也保留同样的显式 `mode:autofix` 文本。
 
 **审查判断**
 
-- 这不是运行时 blocker，因为 `spec-review` 确实支持 `mode:autofix`
+- 这不是运行时 blocker，因为 `spec-code-review` 确实支持 `mode:autofix`
 - 这也不是本地升级遗漏，因为上游 shipping reference 当前就是这样写的
 - 真正的治理结论是：
   - `949bdef` 约束的是 dispatch / 调用姿态，不应被泛化成“所有后续 reference 文本都必须删除显式 mode”
@@ -179,11 +179,11 @@ npm run test:smoke
 已执行并确认：
 
 ```bash
-rg -n "mode:headless|report-only|\\.spec-first/workflows/spec-review|docs/solutions|run artifact|autofix_class|resolve-base" skills/spec-review/SKILL.md skills/spec-review/references/* -S
-rg -n "batch_confirm|Promote Residual Concerns|Resolve Contradictions|Route by Autofix Class|pattern-resolved|synthesis-and-presentation" skills/document-review/SKILL.md skills/document-review/references/* -S
+rg -n "mode:headless|report-only|\\.spec-first/workflows/spec-code-review|docs/solutions|run artifact|autofix_class|resolve-base" skills/spec-code-review/SKILL.md skills/spec-code-review/references/* -S
+rg -n "batch_confirm|Promote Residual Concerns|Resolve Contradictions|Route by Autofix Class|pattern-resolved|synthesis-and-presentation" skills/spec-doc-review/SKILL.md skills/spec-doc-review/references/* -S
 rg -n "untrusted input|PR comment text|cross_invocation|cluster-brief|prior-resolutions|spec-first:workflow:pr-comment-resolver" skills/resolve-pr-feedback/SKILL.md agents/workflow/pr-comment-resolver.md -S
-rg -n "repo-relative|Output Structure|Deferred to Separate Tasks|document-review|deepening-workflow|plan-handoff|Execution target: external-delegate" skills/spec-plan/SKILL.md skills/spec-plan/references/* skills/spec-brainstorm/SKILL.md skills/spec-brainstorm/references/* -S
-rg -n "Test Discovery|shipping-workflow|Code Review \\(REQUIRED\\)|spec-review|delegate:codex|codex-delegation-workflow|Behavioral changes with no test additions|mode:autofix" skills/spec-work/SKILL.md skills/spec-work/references/shipping-workflow.md skills/spec-work-beta/SKILL.md skills/spec-work-beta/references/shipping-workflow.md skills/spec-work-beta/references/codex-delegation-workflow.md agents/review/testing-reviewer.md -S
+rg -n "repo-relative|Output Structure|Deferred to Separate Tasks|spec-doc-review|deepening-workflow|plan-handoff|Execution target: external-delegate" skills/spec-plan/SKILL.md skills/spec-plan/references/* skills/spec-brainstorm/SKILL.md skills/spec-brainstorm/references/* -S
+rg -n "Test Discovery|shipping-workflow|Code Review \\(REQUIRED\\)|spec-code-review|delegate:codex|codex-delegation-workflow|Behavioral changes with no test additions|mode:autofix" skills/spec-work/SKILL.md skills/spec-work/references/shipping-workflow.md skills/spec-work-beta/SKILL.md skills/spec-work-beta/references/shipping-workflow.md skills/spec-work-beta/references/codex-delegation-workflow.md agents/review/testing-reviewer.md -S
 rg -n "Discoverability Check|docs/solutions/|What's next\\?|blocking question tool|kieran-python-reviewer|kieran-typescript-reviewer|code-simplicity-reviewer|compact-safe|full mode" skills/spec-compound/SKILL.md skills/spec-compound-refresh/SKILL.md AGENTS.md CLAUDE.md -S
 ```
 
@@ -226,22 +226,22 @@ rg -n "Discoverability Check|docs/solutions/|What's next\\?|blocking question to
 
 | 本地文件 | 上游对应 | 状态 | 审查结论 |
 |---|---|---|---|
-| `skills/spec-review/SKILL.md` | `skills/ce-review/SKILL.md` | `Intentional divergence` | 对齐 compact returns / artifact / base 解析；保留本地 Stage-0 与非 headless 路线 |
-| `skills/spec-review/references/findings-schema.json` | `skills/ce-review/references/findings-schema.json` | `Intentional divergence` | 已同步 schema 主体；仍含本地 `spec-first` 命名空间与 contract 口径 |
-| `skills/spec-review/references/persona-catalog.md` | `skills/ce-review/references/persona-catalog.md` | `Intentional divergence` | 已同步 persona 结构；保留本地命名空间与 reviewer catalog 口径 |
-| `skills/spec-review/references/resolve-base.sh` | `skills/ce-review/references/resolve-base.sh` | `Intentional divergence` | 已吸收上游 base 解析稳态修复；保留本地仓库/remote 口径 |
-| `skills/spec-review/references/review-output-template.md` | `skills/ce-review/references/review-output-template.md` | `Intentional divergence` | 已同步 review 输出模板；保留 `spec-first` learnings / docs/solutions 引用 |
-| `skills/spec-review/references/subagent-template.md` | `skills/ce-review/references/subagent-template.md` | `Intentional divergence` | 已同步 compact return / recursion guard；artifact 路径改写为 `.spec-first/workflows/spec-review/` |
+| `skills/spec-code-review/SKILL.md` | `skills/ce-review/SKILL.md` | `Intentional divergence` | 对齐 compact returns / artifact / base 解析；保留本地 Stage-0 与非 headless 路线 |
+| `skills/spec-code-review/references/findings-schema.json` | `skills/ce-review/references/findings-schema.json` | `Intentional divergence` | 已同步 schema 主体；仍含本地 `spec-first` 命名空间与 contract 口径 |
+| `skills/spec-code-review/references/persona-catalog.md` | `skills/ce-review/references/persona-catalog.md` | `Intentional divergence` | 已同步 persona 结构；保留本地命名空间与 reviewer catalog 口径 |
+| `skills/spec-code-review/references/resolve-base.sh` | `skills/ce-review/references/resolve-base.sh` | `Intentional divergence` | 已吸收上游 base 解析稳态修复；保留本地仓库/remote 口径 |
+| `skills/spec-code-review/references/review-output-template.md` | `skills/ce-review/references/review-output-template.md` | `Intentional divergence` | 已同步 review 输出模板；保留 `spec-first` learnings / docs/solutions 引用 |
+| `skills/spec-code-review/references/subagent-template.md` | `skills/ce-review/references/subagent-template.md` | `Intentional divergence` | 已同步 compact return / recursion guard；artifact 路径改写为 `.spec-first/workflows/spec-code-review/` |
 | `skills/spec-ideate/SKILL.md` | `skills/ce-ideate/SKILL.md` | `Intentional divergence` | 已同步 token/latency 思路；保留本地 ideate 产品结构 |
 | `skills/spec-ideate/references/post-ideation-workflow.md` | `skills/ce-ideate/references/post-ideation-workflow.md` | `Intentional divergence` | 语义已吸收，主要是命名空间/品牌映射 |
-| `skills/document-review/SKILL.md` | `skills/document-review/SKILL.md` | `Intentional divergence` | 已同步 auto route / pattern-resolved；明确保留本地非 headless 与四项增强 |
-| `skills/document-review/references/findings-schema.json` | `skills/document-review/references/findings-schema.json` | `Intentional divergence` | 与本地 `batch_confirm` / `auto` 路由口径一致 |
-| `skills/document-review/references/subagent-template.md` | `skills/document-review/references/subagent-template.md` | `Intentional divergence` | 已同步 recursion guard，并保留本地 `batch_confirm` contract |
-| `skills/document-review/references/synthesis-and-presentation.md` | `skills/document-review/references/synthesis-and-presentation.md` | `Intentional divergence` | 已吸收上游拆分 reference，并保留本地 synthesis 增强 |
-| `agents/document-review/adversarial-document-reviewer.md` | `agents/document-review/adversarial-document-reviewer.md` | `Exact` | 与上游一致 |
-| `agents/document-review/design-lens-reviewer.md` | `agents/document-review/design-lens-reviewer.md` | `Intentional divergence` | 唯一差异为 `model: inherit`，属本地宿主设置 |
-| `agents/document-review/scope-guardian-reviewer.md` | `agents/document-review/scope-guardian-reviewer.md` | `Intentional divergence` | 唯一差异为 `model: inherit`，属本地宿主设置 |
-| `agents/document-review/security-lens-reviewer.md` | `agents/document-review/security-lens-reviewer.md` | `Intentional divergence` | 唯一差异为 `model: inherit`，属本地宿主设置 |
+| `skills/spec-doc-review/SKILL.md` | `skills/spec-doc-review/SKILL.md` | `Intentional divergence` | 已同步 auto route / pattern-resolved；明确保留本地非 headless 与四项增强 |
+| `skills/spec-doc-review/references/findings-schema.json` | `skills/spec-doc-review/references/findings-schema.json` | `Intentional divergence` | 与本地 `batch_confirm` / `auto` 路由口径一致 |
+| `skills/spec-doc-review/references/subagent-template.md` | `skills/spec-doc-review/references/subagent-template.md` | `Intentional divergence` | 已同步 recursion guard，并保留本地 `batch_confirm` contract |
+| `skills/spec-doc-review/references/synthesis-and-presentation.md` | `skills/spec-doc-review/references/synthesis-and-presentation.md` | `Intentional divergence` | 已吸收上游拆分 reference，并保留本地 synthesis 增强 |
+| `agents/spec-doc-review/adversarial-document-reviewer.md` | `agents/spec-doc-review/adversarial-document-reviewer.md` | `Exact` | 与上游一致 |
+| `agents/spec-doc-review/design-lens-reviewer.md` | `agents/spec-doc-review/design-lens-reviewer.md` | `Intentional divergence` | 唯一差异为 `model: inherit`，属本地宿主设置 |
+| `agents/spec-doc-review/scope-guardian-reviewer.md` | `agents/spec-doc-review/scope-guardian-reviewer.md` | `Intentional divergence` | 唯一差异为 `model: inherit`，属本地宿主设置 |
+| `agents/spec-doc-review/security-lens-reviewer.md` | `agents/spec-doc-review/security-lens-reviewer.md` | `Intentional divergence` | 唯一差异为 `model: inherit`，属本地宿主设置 |
 | `skills/resolve-pr-feedback/SKILL.md` | `skills/resolve-pr-feedback/SKILL.md` | `Intentional divergence` | 已同步 untrusted input / cluster gate / cross-invocation；差异仅为本地命名空间和少量措辞 |
 | `agents/workflow/pr-comment-resolver.md` | `agents/workflow/pr-comment-resolver.md` | `Intentional divergence` | 已同步 untrusted input 与 cluster workflow；差异仅为本地措辞与标点 |
 
@@ -277,10 +277,10 @@ rg -n "Discoverability Check|docs/solutions/|What's next\\?|blocking question to
 
 | 本地文件 | 上游对应 | 状态 | 审查结论 |
 |---|---|---|---|
-| `skills/spec-plan/SKILL.md` | `skills/ce-plan/SKILL.md` | `Intentional divergence` | 已同步 repo-relative / output structure / mandatory document-review / external-delegate 姿态；保留 repo-grounded planning 与 Stage-0 |
+| `skills/spec-plan/SKILL.md` | `skills/ce-plan/SKILL.md` | `Intentional divergence` | 已同步 repo-relative / output structure / mandatory spec-doc-review / external-delegate 姿态；保留 repo-grounded planning 与 Stage-0 |
 | `skills/spec-plan/references/deepening-workflow.md` | `skills/ce-plan/references/deepening-workflow.md` | `Intentional divergence` | 已同步深度化流程；保留本地 product boundary 与 pipeline 口径 |
-| `skills/spec-plan/references/plan-handoff.md` | `skills/ce-plan/references/plan-handoff.md` | `Intentional divergence` | 已同步 handoff 结构；审查期修复 `document-review mode:headless` 残留 blocker |
-| `skills/spec-brainstorm/SKILL.md` | `skills/ce-brainstorm/SKILL.md` | `Intentional divergence` | 已同步 repo-relative / mandatory document-review / reference 抽取；保留本地 WHAT/HOW 边界与产品定位 |
+| `skills/spec-plan/references/plan-handoff.md` | `skills/ce-plan/references/plan-handoff.md` | `Intentional divergence` | 已同步 handoff 结构；审查期修复 `spec-doc-review mode:headless` 残留 blocker |
+| `skills/spec-brainstorm/SKILL.md` | `skills/ce-brainstorm/SKILL.md` | `Intentional divergence` | 已同步 repo-relative / mandatory spec-doc-review / reference 抽取；保留本地 WHAT/HOW 边界与产品定位 |
 | `skills/spec-brainstorm/references/handoff.md` | `skills/ce-brainstorm/references/handoff.md` | `Intentional divergence` | 已同步 handoff；保留 `spec-first` 命名空间与本地 calling 口径 |
 | `skills/spec-brainstorm/references/requirements-capture.md` | `skills/ce-brainstorm/references/requirements-capture.md` | `Intentional divergence` | 已同步 requirements capture；差异主要为命名空间与本地 product 口径 |
 
@@ -289,9 +289,9 @@ rg -n "Discoverability Check|docs/solutions/|What's next\\?|blocking question to
 | 本地文件 | 上游对应 | 状态 | 审查结论 |
 |---|---|---|---|
 | `skills/spec-work/SKILL.md` | `skills/ce-work/SKILL.md` | `Intentional divergence` | 已同步 Test Discovery / review mandatory / reference 路由；保留无 bare prompt 与 Stage-0 / swarm 补充说明 |
-| `skills/spec-work/references/shipping-workflow.md` | `skills/ce-work/references/shipping-workflow.md` | `Intentional divergence` | 已同步 shipping reference；当前仍保留显式 `spec-review mode:autofix`，属非阻断治理残余 |
+| `skills/spec-work/references/shipping-workflow.md` | `skills/ce-work/references/shipping-workflow.md` | `Intentional divergence` | 已同步 shipping reference；当前仍保留显式 `spec-code-review mode:autofix`，属非阻断治理残余 |
 | `skills/spec-work-beta/SKILL.md` | `skills/ce-work-beta/SKILL.md` | `Intentional divergence` | 已同步 delegation 解析/路由；保留无 bare prompt、本地 config 路径、宿主无关描述与 swarm 补充说明 |
-| `skills/spec-work-beta/references/shipping-workflow.md` | `skills/ce-work-beta/references/shipping-workflow.md` | `Intentional divergence` | 已同步 shipping reference；当前仍保留显式 `spec-review mode:autofix`，属非阻断治理残余 |
+| `skills/spec-work-beta/references/shipping-workflow.md` | `skills/ce-work-beta/references/shipping-workflow.md` | `Intentional divergence` | 已同步 shipping reference；当前仍保留显式 `spec-code-review mode:autofix`，属非阻断治理残余 |
 | `skills/spec-work-beta/references/codex-delegation-workflow.md` | `skills/ce-work-beta/references/codex-delegation-workflow.md` | `Intentional divergence` | 已同步 delegation contract；路径、宿主表述、config 位置已按 `spec-first` 本地化 |
 | `agents/review/testing-reviewer.md` | `agents/review/testing-reviewer.md` | `Exact` | 与上游一致 |
 

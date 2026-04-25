@@ -26,7 +26,7 @@
 - manifest 已统一为 `artifact-manifest.json`
 - Stage-0 样本目录 `docs/contexts/spec-first/` 已入库
 - 最小闭环文档已生成：`README.md`、`00-summary.md`、`architecture/module-map.md`、`pitfalls/index.md`、`code-facts/*`、`context-packs/review-change.md`、`injection-index.yaml`
-- `spec-plan` / `spec-work` / `spec-review` 已接入 v1 Stage-0 预载
+- `spec-plan` / `spec-work` / `spec-code-review` 已接入 v1 Stage-0 预载
 - 当前消费顺序固定为：`always[] -> stages.<stage>[] -> selection_rules(output_exists.*) -> advice.<stage>`
 - v1 显式跳过 `fact.*`
 - 缺失产物时支持降级，不阻断主任务
@@ -69,7 +69,7 @@
 当前 v1：
 
 - 不再生成 `task_types`
-- `spec-plan` / `spec-work` / `spec-review` 也没有按 `task_type` 做正式消费
+- `spec-plan` / `spec-work` / `spec-code-review` 也没有按 `task_type` 做正式消费
 
 ### 为什么算新增功能
 这意味着“根据任务类型精细路由上下文”的能力，仍然没有进入当前 `spec-first` 的正式能力集。

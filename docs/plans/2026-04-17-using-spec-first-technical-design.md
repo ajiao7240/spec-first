@@ -255,7 +255,7 @@
 3. `spec-plan`
 4. `spec-work`
 5. `spec-debug`
-6. `spec-review`
+6. `spec-code-review`
 7. `spec-compound`
 8. `spec-graph-bootstrap`
 9. `spec-graph-bootstrap`
@@ -284,7 +284,7 @@
 1. **先检查是否应该进入 `spec-first` 工作流**
 2. **优先判断任务属于哪一类 workflow，而不是一律先 brainstorming**
 3. **只有产品/范围不清、需要定义 WHAT 时，才进入 `spec-brainstorm`**
-4. **如果用户已经给出明确计划输入，应优先去 `spec-plan` / `spec-work` / `spec-debug` / `spec-review`**
+4. **如果用户已经给出明确计划输入，应优先去 `spec-plan` / `spec-work` / `spec-debug` / `spec-code-review`**
 5. **简单直接问答、不涉及 workflow 收益的请求，不强行路由**
 
 换句话说，它是 `workflow-first`，不是 `brainstorming-first`。
@@ -425,7 +425,7 @@ decide(request):
   if hasExistingFailureOrBug(request):
     return spec_debug
   if isEvaluationOrReview(request):
-    return spec_review            # 文档评审可进一步细化为 document-review
+    return spec_review            # 文档评审可进一步细化为 spec-doc-review
 
   # 分叉 4:知识建库 vs 代码生产
   if isContextBuildingGoal(request):
@@ -818,7 +818,7 @@ Codex 侧当前不做 hook 自动注入，推荐策略是：
    - `$spec-plan`
    - `$spec-work`
    - `$spec-debug`
-   - `$spec-review`
+   - `$spec-code-review`
    - 其他 `$spec-*`
 
 这样做的好处是：
