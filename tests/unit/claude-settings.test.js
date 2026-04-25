@@ -195,8 +195,8 @@ describe('claude settings', () => {
         '<!-- spec-first:bootstrap:start -->',
         '## Workflow 入口治理（由 spec-first 管理）',
         '',
-        '- 当前项目已安装 `using-spec-first`',
-        '- 开始 substantial work 前，先按 `using-spec-first` 做 workflow 判定',
+        '- 本 block 是 spec-first workflow 入口提醒；`using-spec-first` 是内部治理规则，不是用户入口',
+        '- 修改文件、运行会改变状态的命令、或做架构/prompt/workflow 决策前，先判断是否应进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答',
         '- Claude workflow 入口使用 `/spec:*`',
         '- 不要把 `using-spec-first` 本身当作 command-backed workflow',
         '<!-- spec-first:bootstrap:end -->',
@@ -216,8 +216,8 @@ describe('claude settings', () => {
       const payload = JSON.parse(result.stdout);
       expect(payload.hookSpecificOutput.hookEventName).toBe('SessionStart');
       expect(payload.hookSpecificOutput.additionalContext).toContain('[spec-first] using-spec-first SessionStart injection');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('Use the following managed CLAUDE.md bootstrap block');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('开始 substantial work 前，先按 `using-spec-first` 做 workflow 判定');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('workflow-entry trigger');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('先判断是否应进入公开 spec-first workflow');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

@@ -37,8 +37,11 @@ describe('instruction bootstrap', () => {
     expect(twice.indexOf('<!-- spec-first:lang:start -->')).toBeLessThan(twice.indexOf(BOOTSTRAP_START));
     expect(twice.match(/<!-- spec-first:bootstrap:start -->/g)).toHaveLength(1);
     expect(twice).toContain('Claude workflow 入口使用 `/spec:*`');
-    expect(twice).toContain('常用路由：setup/MCP');
+    expect(twice).toContain('本 block 是 spec-first workflow 入口提醒');
+    expect(twice).toContain('常见入口锚点：环境/MCP');
+    expect(twice).toContain('完整选择策略、优先级和 red flags 由 spec-first 随包的 `using-spec-first` 维护');
     expect(twice).toContain('不要直接暴露 internal-only skills');
+    expect(twice).not.toContain('高级路由');
   });
 
   test('repairs corrupted markers by removing stray lines and appending one clean block', () => {
@@ -54,7 +57,8 @@ describe('instruction bootstrap', () => {
     expect(updated.match(/<!-- spec-first:bootstrap:end -->/g)).toHaveLength(1);
     expect(updated).toContain('## Existing Notes');
     expect(updated).toContain('Codex workflow entrypoints use `$spec-*`');
-    expect(updated).toContain('Common routes: setup/MCP');
+    expect(updated).toContain('Common entry anchors: environment/MCP');
+    expect(updated).toContain('priority rules, and red flags');
     expect(updated).not.toContain('Claude workflow 入口使用 `/spec:*`');
   });
 
@@ -62,7 +66,7 @@ describe('instruction bootstrap', () => {
     const editedBody = buildBootstrapBlock('claude', 'en')
       .replace(`${BOOTSTRAP_START}\n`, '')
       .replace(`\n${BOOTSTRAP_END}`, '')
-      .replace('route the request with', 'route requests with');
+      .replace('decide whether to enter a public spec-first workflow', 'perform route checks');
     const corrupted = [
       '## Existing Notes',
       editedBody,
@@ -73,7 +77,8 @@ describe('instruction bootstrap', () => {
 
     expect(updated).toContain('## Existing Notes');
     expect(updated).toContain('Codex workflow entrypoints use `$spec-*`');
-    expect(updated).not.toContain('route requests with `using-spec-first`');
+    expect(updated).not.toContain('perform route checks');
+    expect(updated).not.toContain('Claude workflow entrypoints use `/spec:*`');
     expect(updated.match(/<!-- spec-first:bootstrap:start -->/g)).toHaveLength(1);
   });
 
@@ -109,7 +114,7 @@ describe('instruction bootstrap', () => {
     expect(updated).toContain('# Header');
     expect(updated).toContain('custom tail');
     expect(updated).not.toContain('Workflow Entry Governance (managed by spec-first)');
-    expect(updated).not.toContain('This project installs `using-spec-first`');
+    expect(updated).not.toContain('This block is the spec-first workflow entry reminder');
   });
 
   test('removeManagedBootstrapBlock clears corrupted stale body after light edits', () => {
@@ -121,7 +126,7 @@ describe('instruction bootstrap', () => {
       buildBootstrapBlock('claude', 'en')
         .replace(`${BOOTSTRAP_START}\n`, '')
         .replace(`\n${BOOTSTRAP_END}`, '')
-        .replace('This project installs', 'This repository installs'),
+        .replace('This block is the spec-first workflow entry reminder', 'This repository enables spec-first workflow entry governance'),
       '',
       'custom tail',
     ].join('\n');
@@ -131,7 +136,7 @@ describe('instruction bootstrap', () => {
     expect(updated).toContain('# Header');
     expect(updated).toContain('custom tail');
     expect(updated).not.toContain('Workflow Entry Governance (managed by spec-first)');
-    expect(updated).not.toContain('This repository installs `using-spec-first`');
+    expect(updated).not.toContain('This repository enables spec-first workflow entry governance');
   });
 
   test('inspects installed and drifted bootstrap blocks', () => {
@@ -146,7 +151,7 @@ describe('instruction bootstrap', () => {
       });
 
       const filePath = path.join(projectRoot, adapter.instructionFile);
-      const drifted = fs.readFileSync(filePath, 'utf8').replace('workflow 判定', 'workflow routing');
+      const drifted = fs.readFileSync(filePath, 'utf8').replace('公开 spec-first workflow', 'workflow 判定');
       fs.writeFileSync(filePath, drifted, 'utf8');
 
       expect(inspectInstructionBootstrap(projectRoot, adapter)).toEqual({

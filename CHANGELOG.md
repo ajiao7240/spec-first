@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.9 2026-04-26 05:20:02 Codex: docs(spec-graph-bootstrap): 修复 CRG query-first atomic cutover 计划评审发现的问题，补齐产品决策依据、breaking 迁移策略、C1 安全过滤、planned surface handoff、work run 持久交接、最小 shrink guard 与 query quality 验收边界 (user-visible)
+- v1.5.9 2026-04-26 04:50:52 Codex: fix(using-spec-first): 将 AGENTS/CLAUDE bootstrap block 与 Claude SessionStart 注入文案从完整路由表收缩为短触发器、host 入口提示和高频 routing 锚点，避免与 `using-spec-first` 完整策略形成第二真相源 (user-visible)
 - v1.5.9 2026-04-26 06:00:00 Codex: docs(using-spec-first): 借鉴 `using-superpowers` 的入口纪律、优先级与 red flags 方法论，补强 `using-spec-first` 的 subagent 跳过、路由优先级和反绕过提示，同时保留 light contract 路由边界 (user-visible)
 - v1.5.9 2026-04-26 05:56:00 Codex: fix(release): 修正 npm install matrix 在 Windows runner 中通过 Node 调用 npm 的 `.cmd` 兼容性
 - v1.5.9 2026-04-26 05:50:00 Codex: feat(spec-doc-review): 将 `spec-doc-review` 从 internal-only 改为公开双端 workflow，新增 Claude `/spec:doc-review` 与 Codex `$spec-doc-review` 入口并同步 routing/bootstrap 文档 (user-visible)

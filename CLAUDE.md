@@ -112,12 +112,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 <!-- spec-first:bootstrap:start -->
 ## Workflow 入口治理（由 spec-first 管理）
 
-- 当前项目已安装 `using-spec-first`
-- 开始 substantial work 前，先按 `using-spec-first` 做 workflow 判定；轻量问答可直接回答
+- 本 block 是 spec-first workflow 入口提醒；`using-spec-first` 是内部治理规则，不是用户入口
+- 修改文件、运行会改变状态的命令、或做架构/prompt/workflow 决策前，先判断是否应进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答
 - Claude workflow 入口使用 `/spec:*`
 - 不要把 `using-spec-first` 本身当作 command-backed workflow
-- 常用路由：setup/MCP→`/spec:mcp-setup`；更新/修复 runtime→`/spec:update`；历史会话→`/spec:sessions`；bug/失败→`/spec:debug`；代码评审→`/spec:code-review`；文档评审→`/spec:doc-review`；上下文构建→`/spec:graph-bootstrap`；需求不清→`/spec:brainstorm`；想法生成→`/spec:ideate`；计划→`/spec:plan`；执行→`/spec:work`；知识沉淀→`/spec:compound`；知识刷新→`/spec:compound-refresh`
-- 高级路由：优化实验→`/spec:optimize`；Slack 组织上下文→`/spec:slack-research`；PR 描述→`/spec:pr-description`；发布说明→`/spec:release-notes`；UI polish→`/spec:polish-beta`；delegation beta→`/spec:work-beta`
+- 常见入口锚点：环境/MCP→`/spec:mcp-setup`；更新/runtime 修复→`/spec:update`；bug/失败→`/spec:debug`；代码/文档评审→`/spec:code-review`/`/spec:doc-review`；需求/计划/执行→`/spec:brainstorm`/`/spec:plan`/`/spec:work`
+- 完整选择策略、优先级和 red flags 由 spec-first 随包的 `using-spec-first` 维护；本 block 只保留启动提醒、host 入口边界和少量锚点
 - 不要直接暴露 internal-only skills：`using-spec-first`、`spec-session-inventory`、`spec-session-extract`
 <!-- spec-first:bootstrap:end -->
 

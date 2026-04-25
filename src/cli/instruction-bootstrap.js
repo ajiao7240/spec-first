@@ -139,12 +139,12 @@ function buildZhBootstrapBody(hostId) {
 
   return `## Workflow 入口治理（由 spec-first 管理）
 
-- 当前项目已安装 \`using-spec-first\`
-- 开始 substantial work 前，先按 \`using-spec-first\` 做 workflow 判定；轻量问答可直接回答
+- 本 block 是 spec-first workflow 入口提醒；\`using-spec-first\` 是内部治理规则，不是用户入口
+- 修改文件、运行会改变状态的命令、或做架构/prompt/workflow 决策前，先判断是否应进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答
 ${hostLine}
 ${surfaceLine}
-- 常用路由：setup/MCP→\`${entry('mcp-setup')}\`；更新/修复 runtime→\`${entry('update')}\`；历史会话→\`${entry('sessions')}\`；bug/失败→\`${entry('debug')}\`；代码评审→\`${entry('code-review')}\`；文档评审→\`${entry('doc-review')}\`；上下文构建→\`${entry('graph-bootstrap')}\`；需求不清→\`${entry('brainstorm')}\`；想法生成→\`${entry('ideate')}\`；计划→\`${entry('plan')}\`；执行→\`${entry('work')}\`；知识沉淀→\`${entry('compound')}\`；知识刷新→\`${entry('compound-refresh')}\`
-- 高级路由：优化实验→\`${entry('optimize')}\`；Slack 组织上下文→\`${entry('slack-research')}\`；PR 描述→\`${entry('pr-description')}\`；发布说明→\`${entry('release-notes')}\`；UI polish→\`${entry('polish-beta')}\`；delegation beta→\`${entry('work-beta')}\`
+- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`${entry('work')}\`
+- 完整选择策略、优先级和 red flags 由 spec-first 随包的 \`using-spec-first\` 维护；本 block 只保留启动提醒、host 入口边界和少量锚点
 - 不要直接暴露 internal-only skills：\`using-spec-first\`、\`spec-session-inventory\`、\`spec-session-extract\``;
 }
 
@@ -160,12 +160,12 @@ function buildEnBootstrapBody(hostId) {
 
   return `## Workflow Entry Governance (managed by spec-first)
 
-- This project installs \`using-spec-first\`
-- Before substantial work, route the request with \`using-spec-first\`; lightweight Q&A may be answered directly
+- This block is the spec-first workflow entry reminder; \`using-spec-first\` is internal governance, not a user entrypoint
+- Before editing files, running state-changing commands, or making architecture/prompt/workflow decisions, decide whether to enter a public spec-first workflow; lightweight Q&A and narrow factual lookups may be answered directly
 ${hostLine}
 ${surfaceLine}
-- Common routes: setup/MCP→\`${entry('mcp-setup')}\`; update/runtime repair→\`${entry('update')}\`; session history→\`${entry('sessions')}\`; bug/failure→\`${entry('debug')}\`; code review→\`${entry('code-review')}\`; document review→\`${entry('doc-review')}\`; context build→\`${entry('graph-bootstrap')}\`; unclear requirements→\`${entry('brainstorm')}\`; idea generation→\`${entry('ideate')}\`; planning→\`${entry('plan')}\`; execution→\`${entry('work')}\`; knowledge capture→\`${entry('compound')}\`; knowledge refresh→\`${entry('compound-refresh')}\`
-- Advanced routes: optimization experiments→\`${entry('optimize')}\`; Slack organizational context→\`${entry('slack-research')}\`; PR description→\`${entry('pr-description')}\`; release notes→\`${entry('release-notes')}\`; UI polish→\`${entry('polish-beta')}\`; delegation beta→\`${entry('work-beta')}\`
+- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`${entry('work')}\`
+- The full selection policy, priority rules, and red flags are maintained by the bundled spec-first \`using-spec-first\`; this block only keeps the startup reminder, host entrypoint boundaries, and a few anchors
 - Do not expose internal-only skills directly: \`using-spec-first\`, \`spec-session-inventory\`, \`spec-session-extract\``;
 }
 

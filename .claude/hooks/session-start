@@ -26,7 +26,7 @@ if (fs.existsSync(instructionPath)) {
     const bootstrapBlock = instructionBody.slice(startIdx, endIdx + BOOTSTRAP_END.length);
     additionalContext = [
       '[spec-first] using-spec-first SessionStart injection',
-      'Use the following managed CLAUDE.md bootstrap block as the workflow-entry source of truth for this repository.',
+      'Use the following managed CLAUDE.md bootstrap block as the workflow-entry trigger for this repository.',
       '',
       bootstrapBlock,
     ].join('\n');
