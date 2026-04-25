@@ -16,6 +16,10 @@ It is not a user-facing command, slash command, or `$spec-*` skill. It is delive
 
 It does **not** exist to force every task through brainstorming.
 
+## If You Are A Subagent
+
+If you were dispatched as a subagent or worker for a specific bounded task, do not restart workflow routing unless the parent explicitly asked you to choose a workflow. Complete the assigned task within its scope and report back.
+
 ## Core Contract
 
 1. Before any **substantial work**, decide whether one of the public `spec-first` workflows should handle the request.
@@ -23,6 +27,7 @@ It does **not** exist to force every task through brainstorming.
 3. If no public workflow fits, answer directly or execute normally; do not invent a workflow handoff.
 4. `using-spec-first` governs **entry routing only**. Once a workflow starts, follow that workflow's own `SKILL.md`.
 5. Keep deterministic checks in CLI/scripts and leave semantic routing decisions to the agent.
+6. If the user explicitly invokes a workflow (`/spec:*`, `$spec-*`, or a skill name), honor that route unless it is clearly impossible or unsafe.
 
 ## What Counts as Substantial Work
 
@@ -42,6 +47,20 @@ These are **not** substantial work:
 ## Routing Rules
 
 Use a decision tree, not a blanket "brainstorm first" rule. Pick the first strongly matching route. If multiple routes apply, choose the workflow that best matches the user's immediate intent.
+
+## Routing Priority
+
+When multiple routes could apply, use this priority:
+
+1. **Explicit user route** — if the user names a workflow, use it.
+2. **Safety/repair routes** — setup, update, missing runtime assets, broken host readiness.
+3. **Diagnostic routes** — debug before work when the request is about a failure.
+4. **Evaluation routes** — code/doc review before implementation when the user asks for review.
+5. **Definition routes** — ideate/brainstorm before plan/work when the outcome is still unclear.
+6. **Execution routes** — plan before work when the desired outcome is clear but the implementation path is not.
+7. **Knowledge routes** — compound/compound-refresh after or around completed work.
+
+Do not chain multiple workflows automatically unless the active workflow explicitly hands off. Route to the next best workflow and let that workflow govern its own handoff.
 
 ### Maintenance And Host Readiness
 
@@ -128,6 +147,20 @@ Use a decision tree, not a blanket "brainstorm first" rule. Pick the first stron
 8. Do **not** expose internal-only skills as user entrypoints. This includes `using-spec-first`, `spec-session-inventory`, and `spec-session-extract`.
 9. Do **not** route to hidden helper skills such as git, browser, image, proof, xcode, or bug-report helpers unless a public workflow explicitly delegates to them.
 10. Do **not** run `spec-first init`, `clean`, update, or other state-changing commands just because this governor matched; first route to the appropriate workflow or ask a narrow confirmation when required.
+
+## Routing Red Flags
+
+These thoughts mean pause and apply the routing rules before acting:
+
+| Thought | Better move |
+|---------|-------------|
+| "I'll just edit the file first." | Check whether this is `work`, `debug`, `update`, or `compound-refresh`. |
+| "This is just a quick architecture/prompt change." | Treat architecture, prompt, workflow, and contract changes as substantial work. |
+| "I need to inspect a bunch of files before deciding." | Do a minimal fact check only; route if the request is already clearly review/debug/plan/work. |
+| "The user asked for a review, but I can answer informally." | Use `code-review` or `doc-review` when the review target is concrete. |
+| "The task is vague, but I can probably implement something." | Use `brainstorm` or `plan` before work. |
+| "A helper skill exists, so I should expose it." | Only public workflows are user entrypoints; internal helpers stay hidden. |
+| "I should run init/update now." | Route to `update` or `setup` first unless the user explicitly requested the command. |
 
 ## Host Surface
 

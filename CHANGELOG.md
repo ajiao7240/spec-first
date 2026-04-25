@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.9 2026-04-26 06:00:00 Codex: docs(using-spec-first): 借鉴 `using-superpowers` 的入口纪律、优先级与 red flags 方法论，补强 `using-spec-first` 的 subagent 跳过、路由优先级和反绕过提示，同时保留 light contract 路由边界 (user-visible)
 - v1.5.9 2026-04-26 05:56:00 Codex: fix(release): 修正 npm install matrix 在 Windows runner 中通过 Node 调用 npm 的 `.cmd` 兼容性
 - v1.5.9 2026-04-26 05:50:00 Codex: feat(spec-doc-review): 将 `spec-doc-review` 从 internal-only 改为公开双端 workflow，新增 Claude `/spec:doc-review` 与 Codex `$spec-doc-review` 入口并同步 routing/bootstrap 文档 (user-visible)
 - v1.5.9 2026-04-26 05:48:00 Codex: test(governance): 对齐 dual-host README 断言、docs/solutions architecture-patterns 分类与当前单一真相源边界

@@ -28,8 +28,13 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('name: using-spec-first');
     expect(skill).toContain('instruction-level entry governor');
     expect(skill).toContain('not a user-facing command');
+    expect(skill).toContain('If You Are A Subagent');
     expect(skill).toContain('substantial work');
     expect(skill).toContain('workflow-first');
+    expect(skill).toContain('Routing Priority');
+    expect(skill).toContain('Explicit user route');
+    expect(skill).toContain('Routing Red Flags');
+    expect(skill).toContain('Do not chain multiple workflows automatically');
     expect(skill).toContain('It does **not** exist to force every task through brainstorming.');
     expect(skill).toContain('Do **not** make `spec-brainstorm` the universal default front door.');
     expect(skill).toContain('Do **not** adopt the `using-superpowers` rule');
