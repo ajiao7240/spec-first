@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.9 2026-04-26 05:56:00 Codex: fix(release): 修正 npm install matrix 在 Windows runner 中通过 Node 调用 npm 的 `.cmd` 兼容性
 - v1.5.9 2026-04-26 05:50:00 Codex: feat(spec-doc-review): 将 `spec-doc-review` 从 internal-only 改为公开双端 workflow，新增 Claude `/spec:doc-review` 与 Codex `$spec-doc-review` 入口并同步 routing/bootstrap 文档 (user-visible)
 - v1.5.9 2026-04-26 05:48:00 Codex: test(governance): 对齐 dual-host README 断言、docs/solutions architecture-patterns 分类与当前单一真相源边界
 - v1.5.9 2026-04-26 05:40:00 Codex: test(release): 新增 npm tarball 安装矩阵，在 Ubuntu/macOS/Windows 的 Node 20/22 上验证全局安装与 optional native 缺失后的核心 CLI 可用性，并覆盖分支 push 触发与 Windows `npm.cmd` 调用

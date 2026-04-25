@@ -116,9 +116,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 开始 substantial work 前，先按 `using-spec-first` 做 workflow 判定；轻量问答可直接回答
 - Claude workflow 入口使用 `/spec:*`
 - 不要把 `using-spec-first` 本身当作 command-backed workflow
-- 常用路由：setup/MCP→`/spec:mcp-setup`；更新/修复 runtime→`/spec:update`；历史会话→`/spec:sessions`；bug/失败→`/spec:debug`；代码评审→`/spec:code-review`；上下文构建→`/spec:graph-bootstrap`；需求不清→`/spec:brainstorm`；想法生成→`/spec:ideate`；计划→`/spec:plan`；执行→`/spec:work`；知识沉淀→`/spec:compound`；知识刷新→`/spec:compound-refresh`
+- 常用路由：setup/MCP→`/spec:mcp-setup`；更新/修复 runtime→`/spec:update`；历史会话→`/spec:sessions`；bug/失败→`/spec:debug`；代码评审→`/spec:code-review`；文档评审→`/spec:doc-review`；上下文构建→`/spec:graph-bootstrap`；需求不清→`/spec:brainstorm`；想法生成→`/spec:ideate`；计划→`/spec:plan`；执行→`/spec:work`；知识沉淀→`/spec:compound`；知识刷新→`/spec:compound-refresh`
 - 高级路由：优化实验→`/spec:optimize`；Slack 组织上下文→`/spec:slack-research`；PR 描述→`/spec:pr-description`；发布说明→`/spec:release-notes`；UI polish→`/spec:polish-beta`；delegation beta→`/spec:work-beta`
-- 不要直接暴露 internal-only skills：`using-spec-first`、`spec-doc-review`、`spec-session-inventory`、`spec-session-extract`
+- 不要直接暴露 internal-only skills：`using-spec-first`、`spec-session-inventory`、`spec-session-extract`
 <!-- spec-first:bootstrap:end -->
 
 <!-- spec-first:coding-guidelines:start -->

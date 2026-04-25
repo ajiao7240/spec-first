@@ -47,9 +47,25 @@ jobs:
           const fs = require('node:fs');
           const os = require('node:os');
           const path = require('node:path');
-          const { execFileSync, spawnSync } = require('node:child_process');
+          const { spawnSync } = require('node:child_process');
 
-          const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+          function runNpm(args, options = {}) {
+            const result = spawnSync('npm', args, {
+              encoding: 'utf8',
+              shell: process.platform === 'win32',
+              stdio: options.stdio || 'pipe',
+            });
+            if (result.error) {
+              throw result.error;
+            }
+            if (result.status !== 0) {
+              process.stdout.write(result.stdout || '');
+              process.stderr.write(result.stderr || '');
+              process.exit(result.status || 1);
+            }
+            return result.stdout || '';
+          }
+
           const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-install-'));
           const tarballDir = path.join(tmp, 'tarball');
           const prefix = path.join(tmp, 'prefix');
@@ -58,15 +74,15 @@ jobs:
           fs.mkdirSync(prefix);
           fs.mkdirSync(cache);
 
-          const tarballName = execFileSync(npm, [
+          const tarballName = runNpm([
             'pack',
             '--pack-destination',
             tarballDir,
             '--silent',
-          ], { encoding: 'utf8' }).trim().split(/\r?\n/).pop();
+          ]).trim().split(/\r?\n/).pop();
           const tarballPath = path.join(tarballDir, tarballName);
 
-          execFileSync(npm, [
+          runNpm([
             'install',
             '-g',
             tarballPath,
