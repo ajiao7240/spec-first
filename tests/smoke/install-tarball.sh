@@ -65,27 +65,24 @@ fi
 echo "   ✓ 无安装期联网下载链"
 
 # 3b. tree-sitter peer warning 冲突包集合断言
-# 只从 ERESOLVE/warning 行中提取 tree-sitter-<lang> 冲突包名（去重），断言集合 ⊆ {tree-sitter-objc}
+# 所有 tree-sitter 原生包均为 optionalDependencies；peer warning 允许但必须落在声明集合内。
 conflict_packages=$(grep -i "ERESOLVE\|peer.*tree-sitter" "$INSTALL_LOG" | grep -oE 'tree-sitter-[a-z][-a-z0-9]*' | sort -u || true)
 echo "   检测到的 tree-sitter 冲突包: ${conflict_packages:-无}"
 
+allowed_tree_sitter_packages=$(node -e "
+const pkg = require('./package.json');
+const names = Object.keys(pkg.optionalDependencies || {})
+  .filter((name) => name === 'tree-sitter' || name.startsWith('tree-sitter-'))
+  .sort();
+console.log(names.join(' '));
+")
+
 for pkg in $conflict_packages; do
-  case "$pkg" in
-    tree-sitter-objc)
-      # objc 是允许的残留冲突
-      echo "   ℹ $pkg: 允许的残留冲突"
-      ;;
-    tree-sitter-c|tree-sitter-python|tree-sitter-rust|tree-sitter-swift)
-      echo "✗ 禁止出现的冲突包: $pkg"
-      exit 1
-      ;;
-    tree-sitter)
-      # tree-sitter 主包名不是冲突
-      ;;
-    *)
-      echo "   ⚠ 未知 tree-sitter 包: ${pkg}（忽略）"
-      ;;
-  esac
+  if [[ " $allowed_tree_sitter_packages " != *" $pkg "* ]]; then
+    echo "✗ 未声明为 optionalDependency 的 tree-sitter 冲突包: $pkg"
+    exit 1
+  fi
+  echo "   ℹ $pkg: optional native peer warning"
 done
 echo "   ✓ 冲突包集合验证通过"
 
@@ -171,6 +168,31 @@ if (!hasClass) {
 }
 console.log('   ✓ Swift parser 加载并解析成功');
 " 2>&1
+
+# -------------------------------------------------------------------------
+# 6. 验证 optional 原生依赖缺失时核心 CLI 仍可运行
+# -------------------------------------------------------------------------
+echo "6. 验证 optional native 缺失路径..."
+node -e "
+const fs = require('fs');
+const path = require('path');
+const root = '$GLOBAL_PKG';
+const pkg = require(path.join(root, 'package.json'));
+for (const name of Object.keys(pkg.optionalDependencies || {})) {
+  if (name !== 'better-sqlite3' && name !== 'tree-sitter' && !name.startsWith('tree-sitter-')) continue;
+  fs.rmSync(path.join(root, 'node_modules', name), { recursive: true, force: true });
+}
+"
+
+test ! -d "$GLOBAL_PKG/node_modules/tree-sitter"
+test ! -d "$GLOBAL_PKG/node_modules/better-sqlite3"
+
+MISSING_NATIVE_HELP_OUTPUT=$("$SHIM" --help 2>&1)
+grep -q "spec-first <command>" <<<"$MISSING_NATIVE_HELP_OUTPUT"
+
+MISSING_NATIVE_VERSION_OUTPUT=$("$SHIM" -v 2>&1)
+grep -q "Spec-First" <<<"$MISSING_NATIVE_VERSION_OUTPUT"
+echo "   ✓ optional native 缺失后核心 CLI 可运行"
 
 # -------------------------------------------------------------------------
 # 完成

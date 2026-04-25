@@ -37,6 +37,8 @@ describe('instruction bootstrap', () => {
     expect(twice.indexOf('<!-- spec-first:lang:start -->')).toBeLessThan(twice.indexOf(BOOTSTRAP_START));
     expect(twice.match(/<!-- spec-first:bootstrap:start -->/g)).toHaveLength(1);
     expect(twice).toContain('Claude workflow 入口使用 `/spec:*`');
+    expect(twice).toContain('常用路由：setup/MCP');
+    expect(twice).toContain('不要直接暴露 internal-only skills');
   });
 
   test('repairs corrupted markers by removing stray lines and appending one clean block', () => {
@@ -52,6 +54,7 @@ describe('instruction bootstrap', () => {
     expect(updated.match(/<!-- spec-first:bootstrap:end -->/g)).toHaveLength(1);
     expect(updated).toContain('## Existing Notes');
     expect(updated).toContain('Codex workflow entrypoints use `$spec-*`');
+    expect(updated).toContain('Common routes: setup/MCP');
     expect(updated).not.toContain('Claude workflow 入口使用 `/spec:*`');
   });
 

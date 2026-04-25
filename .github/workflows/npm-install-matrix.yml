@@ -1,0 +1,112 @@
+name: npm Install Matrix
+
+on:
+  push:
+    paths:
+      - 'bin/**'
+      - 'src/**'
+      - 'vendor/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tests/smoke/install-tarball.sh'
+      - '.github/workflows/npm-install-matrix.yml'
+  pull_request:
+    paths:
+      - 'bin/**'
+      - 'src/**'
+      - 'vendor/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tests/smoke/install-tarball.sh'
+      - '.github/workflows/npm-install-matrix.yml'
+  workflow_dispatch:
+
+jobs:
+  install-tarball:
+    name: ${{ matrix.os }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [20, 22]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Pack and install tarball
+        shell: node {0}
+        run: |
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const { execFileSync, spawnSync } = require('node:child_process');
+
+          const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+          const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-install-'));
+          const tarballDir = path.join(tmp, 'tarball');
+          const prefix = path.join(tmp, 'prefix');
+          const cache = path.join(tmp, 'cache');
+          fs.mkdirSync(tarballDir);
+          fs.mkdirSync(prefix);
+          fs.mkdirSync(cache);
+
+          const tarballName = execFileSync(npm, [
+            'pack',
+            '--pack-destination',
+            tarballDir,
+            '--silent',
+          ], { encoding: 'utf8' }).trim().split(/\r?\n/).pop();
+          const tarballPath = path.join(tarballDir, tarballName);
+
+          execFileSync(npm, [
+            'install',
+            '-g',
+            tarballPath,
+            '--prefix',
+            prefix,
+            '--cache',
+            cache,
+            '--loglevel=error',
+          ], { stdio: 'inherit' });
+
+          const shim = process.platform === 'win32'
+            ? path.join(prefix, 'spec-first.cmd')
+            : path.join(prefix, 'bin', 'spec-first');
+          const packageRoot = process.platform === 'win32'
+            ? path.join(prefix, 'node_modules', 'spec-first')
+            : path.join(prefix, 'lib', 'node_modules', 'spec-first');
+
+          function runCli(args) {
+            const result = spawnSync(shim, args, {
+              stdio: 'inherit',
+              shell: process.platform === 'win32',
+            });
+            if (result.status !== 0) {
+              process.exit(result.status || 1);
+            }
+          }
+
+          runCli(['--help']);
+          runCli(['-v']);
+
+          const installedPackage = require(path.join(packageRoot, 'package.json'));
+          for (const name of Object.keys(installedPackage.optionalDependencies || {})) {
+            if (name !== 'better-sqlite3' && name !== 'tree-sitter' && !name.startsWith('tree-sitter-')) {
+              continue;
+            }
+            fs.rmSync(path.join(packageRoot, 'node_modules', name), {
+              recursive: true,
+              force: true,
+            });
+          }
+
+          runCli(['--help']);
+          runCli(['-v']);

@@ -20,12 +20,14 @@ const VALID_CATEGORIES = new Set([
   'best-practices',
   'documentation-gaps',
   'patterns',
+  'architecture-patterns',
 ]);
 const KNOWLEDGE_TYPES = new Set([
   'best_practice',
   'documentation_gap',
   'workflow_issue',
   'developer_experience',
+  'architecture_pattern',
 ]);
 const BUG_TYPES = new Set([
   'build_error',

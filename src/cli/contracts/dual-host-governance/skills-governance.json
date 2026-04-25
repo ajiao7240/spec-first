@@ -48,13 +48,13 @@
     },
     {
       "skill_name": "spec-doc-review",
-      "entry_surface": "internal_only",
-      "command_name": null,
+      "entry_surface": "workflow_command",
+      "command_name": "doc-review",
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {
-        "claude": "internal",
-        "codex": "internal"
+        "claude": "command",
+        "codex": "skill"
       }
     },
     {

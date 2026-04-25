@@ -104,7 +104,7 @@ Codex 插件 manifest 中声明了：
 
 | Skill | 当前项目 skill | 平台 | 原因 |
 |---|---|---|---|
-| `ce-update` | `spec-update` | Claude Code only | frontmatter 标记了 `ce_platforms: [claude]`，用于 Claude Code marketplace 插件缓存/版本检查 |
+| `ce-update` | `spec-update` | CE 为 Claude Code only；当前项目已扩展为 Claude Code + Codex | CE frontmatter 标记了 `ce_platforms: [claude]`；当前项目保留 Claude marketplace 插件缓存版本检查，并为 Codex 增加 npm CLI 版本检查与 runtime asset refresh 指引 |
 
 注意：仓库自己的 converter 会按 `ce_platforms` 过滤该 skill；如果某个宿主 native plugin 直接读取整个 `skills/` 目录且不理解 `ce_platforms`，理论上可能仍显示该目录。因此二开时如果要严格控制 Codex 暴露面，应该在生成/安装阶段显式过滤。
 
@@ -131,7 +131,7 @@ Codex 插件 manifest 中声明了：
 | `ce-test-xcode` | `test-xcode` | 平台专用验证入口 |
 | `ce-release-notes` | `spec-release-notes` | 手动查询入口 |
 | `ce-work-beta` | `spec-work-beta` | 实验入口 |
-| `ce-update` | `spec-update` | Claude-only 手动维护入口 |
+| `ce-update` | `spec-update` | CE 为 Claude-only 手动维护入口；当前项目已扩展为双端更新入口 |
 
 ## 用户认知复杂度评估
 
@@ -167,7 +167,7 @@ ce-setup
 | `ce-plan` | `ce-plan` | `spec-plan` | 制定技术方案 |
 | `ce-tasks` | 新增或从 `ce-plan` 拆分 | 当前项目暂无独立入口，可从 `spec-plan` 拆分 | 将方案编译为可执行任务单元 |
 | `ce-work` | `ce-work`、必要时 `ce-worktree` | `spec-work`、必要时 `git-worktree` | 执行任务 |
-| `ce-review` | `ce-code-review`、必要时 `ce-doc-review` | `spec-code-review`、必要时 `spec-doc-review` | 检查质量 |
+| `ce-review` | `ce-code-review`、`ce-doc-review` | `spec-code-review`、`spec-doc-review` | 检查质量 |
 | `ce-debug` | `ce-debug` | `spec-debug` | 旁路 bug 修复入口 |
 | `ce-ship` | `ce-commit`、`ce-commit-push-pr`、`ce-pr-description`、`ce-demo-reel` | `git-commit`、`git-commit-push-pr`、`spec-pr-description`、`feature-video` | 交付 PR |
 | `ce-learn` | `ce-compound`、`ce-compound-refresh` | `spec-compound`、`spec-compound-refresh` | 沉淀经验 |

@@ -184,13 +184,24 @@ describe('claude settings', () => {
     }
   });
 
-  test('session-start hook emits managed wrapper plus runtime skill content', () => {
+  test('session-start hook emits managed wrapper plus CLAUDE.md bootstrap block', () => {
     const projectRoot = makeTempDir();
-    const skillPath = path.join(projectRoot, '.claude', 'skills', 'using-spec-first', 'SKILL.md');
+    const instructionPath = path.join(projectRoot, 'CLAUDE.md');
 
     try {
-      fs.mkdirSync(path.dirname(skillPath), { recursive: true });
-      fs.writeFileSync(skillPath, 'name: using-spec-first\nbody\n', 'utf8');
+      fs.writeFileSync(instructionPath, [
+        '# CLAUDE.md',
+        '',
+        '<!-- spec-first:bootstrap:start -->',
+        '## Workflow 入口治理（由 spec-first 管理）',
+        '',
+        '- 当前项目已安装 `using-spec-first`',
+        '- 开始 substantial work 前，先按 `using-spec-first` 做 workflow 判定',
+        '- Claude workflow 入口使用 `/spec:*`',
+        '- 不要把 `using-spec-first` 本身当作 command-backed workflow',
+        '<!-- spec-first:bootstrap:end -->',
+        '',
+      ].join('\n'), 'utf8');
 
       const result = spawnSync('bash', [SESSION_START_TEMPLATE_PATH], {
         cwd: projectRoot,
@@ -205,13 +216,14 @@ describe('claude settings', () => {
       const payload = JSON.parse(result.stdout);
       expect(payload.hookSpecificOutput.hookEventName).toBe('SessionStart');
       expect(payload.hookSpecificOutput.additionalContext).toContain('[spec-first] using-spec-first SessionStart injection');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('name: using-spec-first');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('Use the following managed CLAUDE.md bootstrap block');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('开始 substantial work 前，先按 `using-spec-first` 做 workflow 判定');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
   });
 
-  test('session-start hook degrades non-blockingly when the runtime skill is missing', () => {
+  test('session-start hook degrades non-blockingly when the bootstrap block is missing', () => {
     const projectRoot = makeTempDir();
 
     try {
@@ -227,7 +239,7 @@ describe('claude settings', () => {
       expect(result.status).toBe(0);
       const payload = JSON.parse(result.stdout);
       expect(payload.hookSpecificOutput.hookEventName).toBe('SessionStart');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('Managed runtime skill is missing');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('Managed using-spec-first bootstrap is missing');
       expect(payload.hookSpecificOutput.additionalContext).toContain('spec-first init --claude');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });

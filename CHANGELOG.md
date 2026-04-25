@@ -1,6 +1,15 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.9 2026-04-26 05:50:00 Codex: feat(spec-doc-review): 将 `spec-doc-review` 从 internal-only 改为公开双端 workflow，新增 Claude `/spec:doc-review` 与 Codex `$spec-doc-review` 入口并同步 routing/bootstrap 文档 (user-visible)
+- v1.5.9 2026-04-26 05:48:00 Codex: test(governance): 对齐 dual-host README 断言、docs/solutions architecture-patterns 分类与当前单一真相源边界
+- v1.5.9 2026-04-26 05:40:00 Codex: test(release): 新增 npm tarball 安装矩阵，在 Ubuntu/macOS/Windows 的 Node 20/22 上验证全局安装与 optional native 缺失后的核心 CLI 可用性，并覆盖分支 push 触发与 Windows `npm.cmd` 调用
+- v1.5.9 2026-04-26 05:35:00 Codex: fix(using-spec-first): 按最新 19 个公开 workflow 与 internal-only skill 边界重写 `using-spec-first` 路由策略，并将 AGENTS/CLAUDE bootstrap block 升级为精简可执行路由表 (user-visible)
+- v1.5.9 2026-04-26 05:26:00 Codex: docs(spec-graph-bootstrap): 将 CRG query-first 重构方案收口为无向下兼容的 atomic cutover，统一 workflow 集成到显式 lifecycle hook，明确 `workflow-context` 仅作 hook 底层 envelope，并补齐 Stage-0 runtime 删除、diff-base resolver 与 `.spec-first/graph` control-plane 落地边界 (user-visible)
+- v1.5.9 2026-04-26 05:25:00 Codex: fix(using-spec-first): 将 Claude SessionStart 注入从 `.claude/skills/using-spec-first` 改为读取 `CLAUDE.md` managed bootstrap block，保持 `using-spec-first` internal-only 且不再提示 runtime skill 缺失 (user-visible)
+- v1.5.9 2026-04-26 05:20:00 Codex: fix(release): 将 CRG 的 tree-sitter 原生解析栈整体降为 optionalDependencies，避免 Linux ARM64 / Windows ARM64 等平台因缺少预构建包或 C++ 编译环境阻断全局安装 (user-visible)
+- v1.5.9 2026-04-26 05:05:00 Codex: feat(spec-update): 将 `spec-update` 从 Claude-only 插件缓存检查扩展为 Claude/Codex 双端更新工作流，Codex 侧补 npm CLI 版本检查与 runtime asset refresh 指引 (user-visible)
+- v1.5.9 2026-04-26 04:45:00 Codex: fix(skills): 从插件公开 skill 清单移除 `spec-session-inventory` 与 `spec-session-extract` 内部 primitive，并补齐 Codex runtime 不安装断言 (user-visible)
 - v1.5.9 2026-04-26 04:35:00 Codex: fix(release): 将无 Windows 预构建的 `tree-sitter-kotlin` 降为 optionalDependency，避免全局安装因本机缺少 C++ 编译环境失败 (user-visible)
 - v1.5.9 2026-04-26 03:26:15 Codex: docs(consistency): 在 CE 暴露 skill 命令分析文档的相关表格中补充“当前项目 skill”映射列，覆盖核心工作流、Git/PR、研究、验证、专项、维护、内部 primitive 与产品化建议表 (user-visible)
 - v1.5.9 2026-04-26 04:20:00 Codex: fix(spec-mcp-setup): 加固 MCP setup 安装链路的 jq hard prerequisite 提示、installer bounded diagnostics、required skip 校验、PowerShell host config 锁、registry-derived Serena bootstrap 与 baseline_ready 输出，并同步专项回归测试 (user-visible)

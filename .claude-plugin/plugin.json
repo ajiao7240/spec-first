@@ -98,6 +98,13 @@
       "skill": "spec-code-review"
     },
     {
+      "name": "doc-review",
+      "filename": "doc-review.md",
+      "description": "Run the Spec-First document review workflow",
+      "argumentHint": "[mode:headless] [path/to/document.md]",
+      "skill": "spec-doc-review"
+    },
+    {
       "name": "sessions",
       "filename": "sessions.md",
       "description": "Search and summarize prior coding agent sessions",
@@ -171,8 +178,6 @@
     "spec-pr-description",
     "spec-release-notes",
     "spec-code-review",
-    "spec-session-extract",
-    "spec-session-inventory",
     "spec-sessions",
     "spec-setup",
     "spec-slack-research",

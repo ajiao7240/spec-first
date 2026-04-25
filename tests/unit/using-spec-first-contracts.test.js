@@ -8,7 +8,6 @@ const CodexAdapter = require('../../src/cli/adapters/codex');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'using-spec-first', 'SKILL.md');
-const DOC_MIRROR_PATH = path.join(REPO_ROOT, 'docs', '10-prompt', 'skills', 'using-spec-first', 'SKILL.md');
 const GOVERNANCE_PATH = path.join(
   REPO_ROOT,
   'src',
@@ -27,7 +26,8 @@ describe('using-spec-first contracts', () => {
     const skill = read(SKILL_PATH);
 
     expect(skill).toContain('name: using-spec-first');
-    expect(skill).toContain('session-level entry governor');
+    expect(skill).toContain('instruction-level entry governor');
+    expect(skill).toContain('not a user-facing command');
     expect(skill).toContain('substantial work');
     expect(skill).toContain('workflow-first');
     expect(skill).toContain('It does **not** exist to force every task through brainstorming.');
@@ -37,39 +37,43 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('Do **not** write Claude workflow entrypoints as `$spec-*`.');
     expect(skill).toContain('Claude workflow entrypoints use `/spec:*`');
     expect(skill).toContain('Codex workflow entrypoints use `$spec-*`');
-    expect(skill).toContain('do not reload this same skill file again');
-    expect(skill).toContain('`using-spec-first` governs **workflow entry and routing**');
+    expect(skill).toContain('do not reload or invoke `using-spec-first` just to bootstrap yourself');
+    expect(skill).toContain('`using-spec-first` governs **entry routing only**');
+    expect(skill).toContain('Do **not** expose internal-only skills as user entrypoints.');
+    expect(skill).toContain('spec-session-inventory');
+    expect(skill).toContain('/spec:update');
+    expect(skill).toContain('$spec-update');
+    expect(skill).toContain('/spec:doc-review');
+    expect(skill).toContain('$spec-doc-review');
+    expect(skill).toContain('/spec:optimize');
+    expect(skill).toContain('$spec-optimize');
     expect(skill).toContain('/spec:plan');
     expect(skill).toContain('$spec-plan');
     expect(skill).toContain('/spec:work');
     expect(skill).toContain('$spec-work');
   });
 
-  test('docs mirror matches the source skill exactly', () => {
-    expect(read(DOC_MIRROR_PATH)).toBe(read(SKILL_PATH));
-  });
-
-  test('skills governance registers using-spec-first as a dual-host standalone skill', () => {
+  test('skills governance keeps using-spec-first internal-only on both hosts', () => {
     const governance = JSON.parse(read(GOVERNANCE_PATH));
 
     expect(governance.skills).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           skill_name: 'using-spec-first',
-          entry_surface: 'standalone_skill',
+          entry_surface: 'internal_only',
           command_name: null,
           host_scope: 'dual_host',
           owner_host: null,
           host_delivery: {
-            claude: 'skill',
-            codex: 'skill',
+            claude: 'internal',
+            codex: 'internal',
           },
         }),
       ]),
     );
   });
 
-  test('runtime transforms preserve standalone naming across hosts', () => {
+  test('runtime transforms preserve internal guidance text when transformed directly', () => {
     const sourceSkill = read(SKILL_PATH);
     const claude = new ClaudeAdapter();
     const codex = new CodexAdapter();
@@ -80,5 +84,6 @@ describe('using-spec-first contracts', () => {
     expect(codexRuntime).toContain('name: using-spec-first');
     expect(claudeRuntime).toContain('Claude workflow entrypoints use `/spec:*`');
     expect(codexRuntime).toContain('Codex workflow entrypoints use `$spec-*`');
+    expect(codexRuntime).toContain('using-spec-first` itself has no user entrypoint');
   });
 });

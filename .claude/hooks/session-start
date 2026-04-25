@@ -2,26 +2,42 @@
 set -euo pipefail
 
 project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-skill_path="$project_dir/.claude/skills/using-spec-first/SKILL.md"
+instruction_path="$project_dir/CLAUDE.md"
 
-node - "$skill_path" <<'EOF'
+node - "$instruction_path" <<'EOF'
 const fs = require('node:fs');
 
-const skillPath = process.argv[2];
+const instructionPath = process.argv[2];
+const BOOTSTRAP_START = '<!-- spec-first:bootstrap:start -->';
+const BOOTSTRAP_END = '<!-- spec-first:bootstrap:end -->';
 const missingMessage = [
   '[spec-first] using-spec-first SessionStart injection',
-  'Managed runtime skill is missing at `.claude/skills/using-spec-first/SKILL.md`.',
-  'Run `spec-first init --claude` in this project to restore the managed skill.',
+  'Managed using-spec-first bootstrap is missing from `CLAUDE.md`.',
+  'Run `spec-first init --claude` in this project to restore the managed bootstrap block.',
 ].join('\n');
 
 let additionalContext = missingMessage;
-if (fs.existsSync(skillPath)) {
-  const skillBody = fs.readFileSync(skillPath, 'utf8');
+if (fs.existsSync(instructionPath)) {
+  const instructionBody = fs.readFileSync(instructionPath, 'utf8');
+  const startIdx = instructionBody.indexOf(BOOTSTRAP_START);
+  const endIdx = instructionBody.indexOf(BOOTSTRAP_END);
+
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    const bootstrapBlock = instructionBody.slice(startIdx, endIdx + BOOTSTRAP_END.length);
+    additionalContext = [
+      '[spec-first] using-spec-first SessionStart injection',
+      'Use the following managed CLAUDE.md bootstrap block as the workflow-entry source of truth for this repository.',
+      '',
+      bootstrapBlock,
+    ].join('\n');
+  }
+}
+
+if (additionalContext === missingMessage && fs.existsSync(instructionPath)) {
   additionalContext = [
     '[spec-first] using-spec-first SessionStart injection',
-    'Use the following managed runtime skill as the workflow-entry source of truth for this repository.',
-    '',
-    skillBody,
+    'Managed using-spec-first bootstrap markers are missing or incomplete in `CLAUDE.md`.',
+    'Run `spec-first init --claude` in this project to restore the managed bootstrap block.',
   ].join('\n');
 }
 

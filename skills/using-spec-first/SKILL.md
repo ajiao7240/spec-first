@@ -1,72 +1,120 @@
 ---
 name: using-spec-first
-description: "Use at session entry for substantial work in this repo. Route requests into the right spec-first workflow before implementation, debugging, review, or planning. This skill governs workflow entry; it does not force brainstorming for every task."
+description: "Instruction-level entry governance for substantial work in this repo. Decide whether a request should route into a spec-first workflow before implementation, debugging, review, planning, setup, update, or knowledge work. This is internal guidance, not a user-invoked workflow."
 ---
 
 # Using Spec-First
 
-`using-spec-first` is the session-level entry governor for `spec-first` in this repository.
+`using-spec-first` is the instruction-level entry governor for `spec-first` in this repository.
 
-Its job is to decide whether the current request should enter `spec-first`, and if so, route it to the right workflow early.
+Its job is to decide whether the current request should enter a `spec-first` workflow, and if so, route it to the right workflow before the agent starts changing state.
+
+It is not a user-facing command, slash command, or `$spec-*` skill. It is delivered through project instructions:
+
+- Claude Code reads the managed block in `CLAUDE.md`; its SessionStart hook may re-inject that same bootstrap block.
+- Codex reads the managed block in `AGENTS.md`.
 
 It does **not** exist to force every task through brainstorming.
 
 ## Core Contract
 
-1. Before any **substantial work**, first decide whether a `spec-first` workflow or standalone skill should handle the request.
-2. If the request clearly benefits from `spec-first`, route into the correct workflow before implementation or environment-changing work.
-3. If no `spec-first` workflow is a good fit, direct response or normal execution is allowed.
-4. `using-spec-first` governs **workflow entry and routing**, not all downstream execution.
+1. Before any **substantial work**, decide whether one of the public `spec-first` workflows should handle the request.
+2. If a public workflow fits, route to that workflow before implementation, debugging, review, planning, setup, update, or environment-changing work.
+3. If no public workflow fits, answer directly or execute normally; do not invent a workflow handoff.
+4. `using-spec-first` governs **entry routing only**. Once a workflow starts, follow that workflow's own `SKILL.md`.
+5. Keep deterministic checks in CLI/scripts and leave semantic routing decisions to the agent.
 
 ## What Counts as Substantial Work
 
 Treat these as substantial work:
 - modifying code, docs, config, or generated runtime assets
-- starting implementation, debugging, review, planning, bootstrap, or context-capture workflows
+- starting implementation, debugging, review, planning, setup, update, bootstrap, optimization, or context-capture workflows
 - running commands that change project state or depend on workflow context
+- making architectural, prompt, workflow, governance, or contract decisions
+- creating, refreshing, or retiring durable project knowledge
 
 These are **not** substantial work:
 - lightweight factual answers
 - brief explanations with no workflow leverage
 - quick questions where `spec-first` provides no meaningful routing benefit
+- showing a command output or answering a narrow "where is X used?" question without edits
 
 ## Routing Rules
 
-Use a decision tree, not a blanket “brainstorm first” rule.
+Use a decision tree, not a blanket "brainstorm first" rule. Pick the first strongly matching route. If multiple routes apply, choose the workflow that best matches the user's immediate intent.
 
-1. If the request is about environment setup, host setup, or MCP setup, route to:
+### Maintenance And Host Readiness
+
+1. If the request is about environment setup, host setup, MCP setup, missing tools, or host readiness, route to:
    - Claude: `/spec:mcp-setup`
    - Codex: `$spec-mcp-setup`
-   - Or the relevant setup standalone skill when the request is skill-scoped rather than workflow-scoped.
-2. If the request is about updating or refreshing runtime assets, route to:
+2. If the request is about checking/updating spec-first, refreshing generated runtime assets, or repairing stale `/spec:*` / `$spec-*` entries, route to:
    - Claude: `/spec:update`
    - Codex: `$spec-update`
-3. If the request is about retrieving session history or related external context, route to:
+3. If the request is about diagnosing the installed spec-first environment itself, and not specifically MCP/update, route to:
+   - Claude: `/spec:setup`
+   - Codex: `$spec-setup`
+
+### Research And Context
+
+4. If the request is about retrieving past coding-agent sessions or asking what happened in prior work, route to:
    - Claude: `/spec:sessions`
    - Codex: `$spec-sessions`
-4. If there is an existing bug, failure, or abnormal behavior to reproduce or diagnose, route to:
+5. If the request explicitly asks for Slack or organizational discussion context, route to:
+   - Claude: `/spec:slack-research`
+   - Codex: `$spec-slack-research`
+6. If the goal is graph bootstrap, repository context generation, CRG readiness, or Stage-0 context quality, route to:
+   - Claude: `/spec:graph-bootstrap`
+   - Codex: `$spec-graph-bootstrap`
+
+### Delivery Workflows
+
+7. If there is an existing bug, failure, test failure, stack trace, or abnormal behavior to reproduce or diagnose, route to:
    - Claude: `/spec:debug`
    - Codex: `$spec-debug`
-5. If the request is a review, audit, or PR/document evaluation, route to:
+8. If the request is a code review, PR review, diff audit, or implementation-quality evaluation, route to:
    - Claude: `/spec:code-review`
    - Codex: `$spec-code-review`
-   - Or `spec-doc-review` when the work is explicitly spec-doc-review scoped.
-6. If the goal is graph bootstrap, context-building, or creating new durable docs/learnings/pattern docs, route to:
-   - Claude: `/spec:graph-bootstrap` or `/spec:compound`
-   - Codex: `$spec-graph-bootstrap` or `$spec-compound`
-7. If the request is to refresh, correct, merge, replace, or retire existing durable docs/learnings/pattern docs, route to:
-   - Claude: `/spec:compound-refresh`
-   - Codex: `$spec-compound-refresh`
-8. If the user is still defining WHAT to build, or scope/requirements are genuinely unclear, route to:
+9. If the request is a requirements, plan, spec, or markdown document review, route to:
+   - Claude: `/spec:doc-review`
+   - Codex: `$spec-doc-review`
+10. If the user is asking what to build, wants ideas, or asks for options/surprising improvements without presenting their own concrete feature, route to:
+   - Claude: `/spec:ideate`
+   - Codex: `$spec-ideate`
+11. If the user is still defining WHAT to build, the problem frame is unclear, or product decisions need to be resolved before planning, route to:
    - Claude: `/spec:brainstorm` or `/spec:ideate`
    - Codex: `$spec-brainstorm` or `$spec-ideate`
-9. If the desired outcome is already clear and the user needs an execution plan, route to:
+12. If the desired outcome is clear and the user needs an execution plan, route to:
    - Claude: `/spec:plan`
    - Codex: `$spec-plan`
-10. If there is already a plan or the implementation task is clear enough to execute, route to:
+13. If there is already a plan or the implementation task is clear enough to execute, route to:
    - Claude: `/spec:work`
    - Codex: `$spec-work`
-11. If none of the above applies, do not force the request into `spec-first`.
+14. If the user explicitly asks to trial beta execution with Codex delegation, route to:
+   - Claude: `/spec:work-beta`
+   - Codex: `$spec-work-beta`
+15. If the user asks to polish a browser-visible UI and iterate with a running app, route to:
+   - Claude: `/spec:polish-beta`
+   - Codex: `$spec-polish-beta`
+
+### Knowledge And Release Support
+
+16. If the user wants to capture a recently solved problem, create a durable learning, or compound knowledge after work, route to:
+   - Claude: `/spec:compound`
+   - Codex: `$spec-compound`
+17. If the request is to refresh, correct, merge, replace, or retire existing durable docs/learnings/pattern docs, route to:
+   - Claude: `/spec:compound-refresh`
+   - Codex: `$spec-compound-refresh`
+18. If the user asks for PR description writing or regeneration, route to:
+   - Claude: `/spec:pr-description`
+   - Codex: `$spec-pr-description`
+19. If the user asks what changed in recent spec-first releases, route to:
+   - Claude: `/spec:release-notes`
+   - Codex: `$spec-release-notes`
+20. If the user asks to optimize a measurable outcome through experiments, route to:
+   - Claude: `/spec:optimize`
+   - Codex: `$spec-optimize`
+21. If none of the above applies, do not force the request into `spec-first`.
 
 ## Hard Rules
 
@@ -77,19 +125,24 @@ Use a decision tree, not a blanket “brainstorm first” rule.
 5. Do **not** describe `using-spec-first` itself as a command-backed workflow.
 6. Do **not** write Codex entrypoints as `/spec:*`.
 7. Do **not** write Claude workflow entrypoints as `$spec-*`.
+8. Do **not** expose internal-only skills as user entrypoints. This includes `using-spec-first`, `spec-session-inventory`, and `spec-session-extract`.
+9. Do **not** route to hidden helper skills such as git, browser, image, proof, xcode, or bug-report helpers unless a public workflow explicitly delegates to them.
+10. Do **not** run `spec-first init`, `clean`, update, or other state-changing commands just because this governor matched; first route to the appropriate workflow or ask a narrow confirmation when required.
 
 ## Host Surface
 
-- Claude workflow entrypoints use `/spec:*`
-- Codex workflow entrypoints use `$spec-*`
-- Standalone skills remain skill references, not slash commands
+- Claude workflow entrypoints use `/spec:*`.
+- Codex workflow entrypoints use `$spec-*`.
+- `using-spec-first` itself has no user entrypoint.
+- Internal-only skills remain source/runtime support assets, not menu items.
 
 ## Injection Behavior
 
-If this skill has already been injected into the session via SessionStart or instruction bootstrap:
-- do not reload this same skill file again just to bootstrap yourself
-- use the Skill tool for other workflows or standalone skills as needed
-- keep `skills/using-spec-first/SKILL.md` as the routing source of truth
+If this guidance has already been injected through `CLAUDE.md`, `AGENTS.md`, or Claude SessionStart:
+- do not reload or invoke `using-spec-first` just to bootstrap yourself
+- use the appropriate public `/spec:*` or `$spec-*` workflow entrypoint when routing is needed
+- treat `skills/using-spec-first/SKILL.md` as the source-of-truth text for this routing policy
+- if the installed instruction block is missing or stale, the repair path is `spec-first init --claude` or `spec-first init --codex`, not a direct `using-spec-first` invocation
 
 ## Exit Condition
 

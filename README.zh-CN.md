@@ -185,7 +185,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | **17-persona Review stage**（+ 2 个专项 agent） | 产出结构化 findings，并按 `safe_auto / gated_auto / manual / advisory` 路由，而不是一次性 review 扫描 |
 | **Compound / knowledge capture** | 把已解决问题写入 `docs/solutions/`，供后续 workflow 检索复用 |
 | **双平台支持** | 一套方法论同时覆盖 Claude Code（`/spec:*`）与 Codex（`$spec-*`）。Claude 使用 `SessionStart` hook + bare-agent rewrite；Codex 使用 `.agents/skills/` discovery + 显式 `.codex/agents/...` path rewrite |
-| **能力层资产** | 仓库内置源码资产共 `41` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `19` 个 commands + `0` 个 standalone skills，在 Codex 侧安装 `19` 个 workflow skills；两侧都会安装 `51` 个 agents |
+| **能力层资产** | 仓库内置源码资产共 `41` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `20` 个 commands + `0` 个 standalone skills，在 Codex 侧安装 `20` 个 workflow skills；两侧都会安装 `51` 个 agents |
 | **运行时治理** | 受管资产记录在 `state.json` 中，可安全同步、刷新、恢复与清理 |
 
 ## 核心工作流
@@ -205,6 +205,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | Plan | `/spec:plan` | `$spec-plan` | `docs/plans/*.md` | **SKILL.md** contract |
 | Work | `/spec:work` | `$spec-work` | code + tests | **SKILL.md** contract |
 | Review | `/spec:code-review` | `$spec-code-review` | 结构化 review report | **SKILL.md** contract（17 个 reviewer persona + 2 个辅助 agent） |
+| Doc Review | `/spec:doc-review` | `$spec-doc-review` | requirements / plan review report | **SKILL.md** contract |
 | Compound | `/spec:compound` | `$spec-compound` | `docs/solutions/**/*.md` | **SKILL.md** contract |
 
 ### 辅助阶段
@@ -212,7 +213,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | 阶段 | Claude Code | Codex | 用途 |
 |------|-------------|-------|------|
 | Debug | `/spec:debug` | `$spec-debug` | 复现并诊断已有 bug 或 failure |
-| Update | `/spec:update` | `$spec-update` | 在 `spec-first` 升级后刷新运行时资产 |
+| Update | `/spec:update` | `$spec-update` | 检查 spec-first 版本并刷新宿主运行时资产 |
 | Sessions | `/spec:sessions` | `$spec-sessions` | 搜索并总结过往 coding agent session |
 
 这些 `/spec:*` 与 `$spec-*` 是生成出来的运行时 workflow 入口，不是根级 `spec-first` CLI 子命令。根 CLI 命令面见下方 [CLI 命令](#cli-命令)。
@@ -224,7 +225,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 - Node.js `>=20`
 - **Git 仓库**：`spec-first init` 会读取 `git config user.name`，`graph-bootstrap` 依赖 `git ls-files`，因此不支持非 Git 目录
 - 至少安装 **Claude Code** 或 **Codex** 之一
-- 磁盘空间：大约需要 60–120 MB 的 `node_modules`（15 个 tree-sitter parser 加上 `better-sqlite3` 的原生构建）
+- 磁盘空间：可选 CRG 原生模块安装成功时，大约需要 60–120 MB 的 `node_modules`
 
 ### 1. 安装
 
@@ -233,7 +234,7 @@ npm install -g spec-first
 spec-first -v
 ```
 
-> **`postinstall` 说明：** 安装器会执行 `bin/postinstall.js`，打印安装确认卡片，然后裁剪掉除当前平台之外的原生 `tree-sitter` 预编译产物。这个步骤只会删除安装目录中 `node_modules/` 里的文件，不会碰你的项目文件。
+> **`postinstall` 说明：** 安装器会执行 `bin/postinstall.js`，打印安装确认卡片，并在可选 CRG 原生模块存在时裁剪掉除当前平台之外的 `tree-sitter` 预编译产物。如果当前平台缺少预构建包或本机没有编译工具链，npm 仍可完成安装；CRG 缺失的原生模块会通过 `spec-first doctor` 报告，核心 `init` / `doctor` / `clean` 流程保持可用。
 
 ### 2. 检查环境
 
@@ -299,7 +300,7 @@ spec-first clean --claude   # 或 --codex
 
 `clean` 会移除上表中“`clean` 可移除”列标记为可删的所有内容，然后打印本次删除了哪个平台的受管资产。受管范围之外的自定义资产不会受影响。语言策略块仍需手动删除；你可以在 `CLAUDE.md` / `AGENTS.md` 中搜索 `<!-- spec-first:lang:`。
 `init --dry-run` 与 `clean --dry-run` 现在都会预览来自同一份 operation plan 的 file-level 变更面，因此 preview/apply 漂移被压缩到可测试、可回归的边界内。
-当前运行时交付会按宿主治理分流：Claude 会写入 `19` 个 command、`0` 个 skill、`51` 个 agent；Codex 不生成 command 目录，而是写入 `19` 个 workflow skill，并安装同样的 `51` 个 agent。
+当前运行时交付会按宿主治理分流：Claude 会写入 `20` 个 command、`0` 个 skill、`51` 个 agent；Codex 不生成 command 目录，而是写入 `20` 个 workflow skill，并安装同样的 `51` 个 agent。
 
 #### 示例输出
 
@@ -307,7 +308,7 @@ spec-first clean --claude   # 或 --codex
 $ spec-first init --claude
 
 🪝 Installed Claude SessionStart matcher in .claude/settings.json
-📦 Generated 19 command file(s) in .claude/commands/spec
+📦 Generated 20 command file(s) in .claude/commands/spec
 🧩 Generated 0 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 🪪 Wrote project developer profile:

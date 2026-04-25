@@ -25,7 +25,7 @@ CRG 图索引初始化
 
 - **Restated Understanding：** 用户希望 `skills/spec-graph-bootstrap` 能通过源码 AST 索引快速理解项目、定位潜在修改点，并在修改后估算影响范围和爆炸半径。
 - **Current Core Goal：** 把 `spec-graph-bootstrap` 从“文档生成主链”重构为“CRG 图索引控制台 + 查询入口契约”，让后续 workflow 直接使用图事实作为 LLM 决策输入。
-- **Scope / Non-goals：** 本方案只规划架构、contract、CLI/query、workflow 消费方式与迁移路径；不在本文档中实现代码，不新增强状态机，不把 docs 产物作为事实真源。
+- **Scope / Non-goals：** 本方案只规划架构、contract、CLI/query、workflow 消费方式与 cutover 路径；不在本文档中实现代码，不新增强状态机，不把 docs 产物作为事实真源。
 - **Verification-as-Done：** 完成后应能证明：默认 bootstrap 路径更轻；`graph.db` 是代码事实真源；新任务能通过查询获得候选修改面；已有 diff 能通过 `review-context` 得到 blast radius、affected flows、候选测试与验证建议；静态 docs 退为可选投影。
 
 ## Problem Frame
@@ -141,10 +141,10 @@ spec-first crg build
 Terminology:
 
 - `crg context`：现有图 overview/map 查询，提供 top hubs、flows、communities 等低 token 概览。
-- `crg workflow-context`：workflow runtime envelope，按 `plan|work|review` stage 裁剪 `graph-index-status`、`code-navigation` 与推荐 query。
+- `crg workflow-context`：CRG hook 内部使用的 stage envelope，按 `plan|work|review` stage 裁剪 `graph-index-status`、`code-navigation` 与推荐 query；skill 默认 anchor 指向 `crg hook ...`，不直接锚定裸 `workflow-context`。
 - `locate/path/explain`：任务级按需查询，分别解决候选定位、关系路径、局部解释。
 - `code-navigation.json`：持久化 dashboard，不是 workflow 上下文包。
-- `module-context` 不作为 MVP 命令；若未来需要，只能作为 `explain/community` 的薄别名或 P4+ 扩展。
+- `module-context` 不作为 MVP 命令；若未来需要，只能作为 `explain/community` 的薄别名或后续扩展。
 
 核心原则：
 
@@ -253,18 +253,21 @@ LLM
 - R4. `crg review-context` 必须成为已有 diff 的主影响面入口，输出 changed nodes、graph expansion、affected flows、candidate tests、risk summary 与 recommended verifications。
 - R5. `crg impact` 必须从单点 blast radius 扩展为 LLM 可消费的压缩影响面，至少聚合 impacted modules、affected flows 与 candidate tests。
 - R6. 新任务规划必须有任务定位查询路径，脚本只返回候选 symbol/file/module/flow 与证据，不做最终语义判断。
-- R7. 最终态下，`spec-plan`、`spec-work`、`spec-code-review` 必须改为通过显式 lifecycle hooks 消费 CRG workflow context 与按需查询结果；不再以 `stage0-context` / `context-routing` 作为默认 runtime 入口。阶段上先切 `spec-work` / `spec-code-review`，再在 `locate/path/explain` 可用后切 `spec-plan`。
+- R7. Cutover 完成态下，`spec-plan`、`spec-work`、`spec-work-beta`、`spec-code-review` 必须全部通过显式 lifecycle hooks 消费 CRG workflow context 与按需查询结果；不得再以 `stage0-context` / `context-routing` 作为任何默认 runtime 入口。
 - R8. docs 生成、workspace fan-out、backup/restore、injection-index 文档路由必须从默认主链删除；可选人类文档只允许通过显式 report mode 生成，不作为 fallback 事实层。
 - R9. 所有新增 contract 必须保持 light contract，不引入中心化 gate、强状态机或规则引擎。
-- R10. 迁移必须先替换真实消费入口，再删除旧 Stage-0 runtime；删除对象包括 `stage0-context` 默认入口、`context-routing` 运行时选择链、`minimal-context`、`docs/contexts` 默认生成和 `injection-index.yaml` 默认生成。
+- R10. 本方案不做向下兼容。实现可以在同一分支内按依赖顺序施工，但对外合并必须是原子 cutover：新增 CRG hook / query 入口、切换真实消费者、删除旧 Stage-0 runtime 同时完成；删除对象包括 `stage0-context` CLI、`context-routing` 运行时选择链、`minimal-context`、`docs/contexts` 默认生成和 `injection-index.yaml` 默认生成。
 - R11. CRG query 输出必须统一暴露 `observed / inferred / ambiguous` 语义，并附带 `evidence[]` 与 `limitations[]`。
 - R12. 方案必须补齐 `path` 与 `explain` 两类查询：前者解释两个 symbol/module 的连接路径，后者解释单个 symbol/module 的局部上下文。
-- R13. P1 图索引主链必须具备 status honesty 与最小 freshness；P3 再补完整输入检测，至少区分 code/test/generated/config/docs/sensitive，并避免索引自身输出。
-- R14. P3 graph rebuild 必须具备 shrink guard / last-known-good 保护，防止异常 partial rebuild 静默覆盖健康图；P1 不以完整 shrink guard 作为前置条件。
-- R15. P4 前，`code-navigation.json` 必须不止 top hubs，还应输出 surprise/gap/question 类导航信号，帮助 LLM 主动提出高价值后续查询；P1 只要求最小 dashboard。
+- R13. Cutover MVP 必须具备 status honesty、最小 freshness 与最小安全过滤；完整输入检测可后续增强，但 fallback suggested reads 不能泄露 sensitive / generated / self-output 路径。
+- R14. Reliability hardening 必须补齐 shrink guard / last-known-good 保护，防止异常 partial rebuild 静默覆盖健康图；cutover MVP 至少必须复用现有 generation pointer 并诚实报告 degraded。
+- R15. `code-navigation.json` 的 cutover MVP 可以先输出最小 dashboard；后续必须补 surprise/gap/question 类导航信号，帮助 LLM 主动提出高价值后续查询。
 - R16. CRG 主链必须提供轻量 append-only 图操作历史，用于解释 build/promote/degrade/fallback 发生了什么；该历史只是审计日志，不作为代码事实真源。
-- R17. `spec-first doctor` 的 graph section 必须作为 graph lint/report 输出结构健康 findings，不得演化为中心化 hard gate，也不得在 P1 扩张成新的多级 graph 子命令。
+- R17. `spec-first doctor` 的 graph section 必须作为 graph lint/report 输出结构健康 findings，不得演化为中心化 hard gate，也不得扩张成新的多级 graph 子命令。
 - R18. workflow 集成必须采用显式 lifecycle hooks：skill 拥有 hook point，CRG 提供 hook handler 与统一 envelope，LLM 拥有最终决策；禁止全局隐式 AOP、自动 prompt 改写、hook rules engine 或 hook 失败阻塞 workflow。
+- R19. CRG control-plane artifact 必须锚定在 `.spec-first/graph/`，与 active graph pointer 同域管理；bootstrap slug 目录只能保存可选投影或运行记录，不能成为 plan/work/review hook 查找图状态的必需条件。
+- R20. CRG query CLI 必须沿用现有 `crg-cli/v1` envelope；`locate/path/explain/impact/review-context` 的具体 payload 放入 `data`，避免为新查询创建第二套 CLI 输出协议。
+- R21. diff base 必须由共享 deterministic resolver 处理：优先显式 `--since`，其次 workflow 传入的 `work_start_ref`，最后按当前 `spec-code-review` base 解析策略推导 merge-base；无法解析时返回 direct-read fallback，不直接失败。
 
 ## Feasibility and Expected Impact
 
@@ -277,7 +280,7 @@ LLM
 工程落地可行性：中高
 短期收益确定性：中高
 长期系统收益：高
-过度设计风险：中，需要阶段化控制
+过度设计风险：中，需要通过原子 cutover 和延后增强项控制
 ```
 
 判断依据：
@@ -285,7 +288,7 @@ LLM
 - `src/crg/` 已经存在 AST 图、SQLite 存储、`impact`、`review-context`、`flows`、`communities`、`affected-flows` 等底座。
 - 当前方案不是重建 GraphRAG 平台，而是把已有 CRG 能力从“bootstrap 文档生成附属品”提升为 workflow 默认决策输入。
 - Graphify、GraphRAG、Neo4j GraphRAG、LlamaIndex KG-RAG 的共同模式都是 `index -> query -> answer/decision`，当前方案与这个架构方向一致。
-- 最大工程风险不在算法从零实现，而在 Stage-0 runtime 直接替换、workflow anchor 迁移和 query 输出质量控制。
+- 最大工程风险不在算法从零实现，而在 Stage-0 runtime 原子删除、workflow anchor 一次性切换、query 输出质量控制和 fallback 诚实性。
 
 ### 预期效果
 
@@ -337,12 +340,12 @@ After:
 | Skill / surface | 当前行为 | 新行为 | 提升 |
 | --- | --- | --- | --- |
 | `spec-graph-bootstrap` | 默认生成 Stage-0 docs/runtime 包 | 默认构建 CRG 图索引、写 `graph-index-status.json` / `code-navigation.json` / `graph-operations.jsonl`，report 只显式生成 | bootstrap 从“产文档”转为“提供低噪音代码事实入口” |
-| `spec-plan` | 读取 `stage0-context` / `minimal-context` / markdown 摘要后规划 | P2 声明极薄 `before_plan` hook anchor；hook 内部读取 `workflow-context --stage=plan` 并按需建议 `locate/path/explain`，由 LLM 选择 candidate change surface | 计划输出更具体，候选文件、symbol、证据和假设更可审查 |
-| `spec-work` | 按计划和局部源码实现，影响面多靠经验判断 | P1 声明 `before_work` / `after_work` hook anchor；hook 内部用 `workflow-context --stage=work`、`impact`、`review-context` 校准计划面与实际 blast radius | 更早发现改动扩散、漏测和计划偏移 |
+| `spec-plan` | 读取 `stage0-context` / `minimal-context` / markdown 摘要后规划 | cutover 声明极薄 `before_plan` hook anchor；hook 内部读取 `workflow-context --stage=plan` 并按需建议 `locate/path/explain`，由 LLM 选择 candidate change surface | 计划输出更具体，候选文件、symbol、证据和假设更可审查 |
+| `spec-work` | 按计划和局部源码实现，影响面多靠经验判断 | cutover 声明 `before_work` / `after_work` hook anchor；hook 内部用 `workflow-context --stage=work`、`impact`、`review-context` 校准计划面与实际 blast radius | 更早发现改动扩散、漏测和计划偏移 |
 | `spec-work-beta` | 与 `spec-work` 类似，但含委派执行路径 | 复用同一 `before_work` / `after_work` hook envelope，并传给委派 agent 作为共同事实输入 | 多 agent/委派实现更容易对齐同一影响面 |
-| `spec-code-review` | 主要按 diff 文件和静态上下文审查 | P1 声明 `before_review` hook anchor；hook 内部读取 `workflow-context --stage=review` / `review-context`，按 affected flows、graph expansion、candidate tests 输出排序建议 | review 从逐文件扫描升级为风险优先审查 |
+| `spec-code-review` | 主要按 diff 文件和静态上下文审查 | cutover 声明 `before_review` hook anchor；hook 内部读取 `workflow-context --stage=review` / `review-context`，按 affected flows、graph expansion、candidate tests 输出排序建议 | review 从逐文件扫描升级为风险优先审查 |
 | `using-spec-first` | 只负责 workflow 入口治理 | 不新增复杂入口；graph bootstrap 只在需要代码事实索引时进入，普通 planning/work/review 通过对应 skill 消费 CRG context | 保持入口轻量，避免把 bootstrap 变成所有请求的前置流程 |
-| `spec-mcp-setup` | 提供 MCP readiness 与 host setup | CRG MCP 只能作为 P4 optional 查询面，不成为 bootstrap / plan / work / review 前置依赖 | 保持 CLI-first，本地可用性不被 MCP 安装状态绑架 |
+| `spec-mcp-setup` | 提供 MCP readiness 与 host setup | CRG MCP 只能作为 optional 查询面，不成为 bootstrap / plan / work / review 前置依赖 | 保持 CLI-first，本地可用性不被 MCP 安装状态绑架 |
 | `spec-compound` / `spec-compound-refresh` | 管理可复用经验、pattern、方案沉淀 | 继续承接“值得长期保存的知识”；CRG query 发现不自动写成长期文档 | 避免 graph bootstrap 重新膨胀成知识库或文档生成器 |
 | `spec-update` / installed runtime | 刷新运行时 skill / agent 资产 | runtime mirror 带 source hash / generated marker；doctor 只报告 drift，不把 mirror 当真源 | 降低 source skill 与安装后资产漂移风险 |
 
@@ -352,24 +355,19 @@ After:
 
 ### 最小成功闭环
 
-第一版不追求完整 Phase A-I。最小成功闭环只需要证明：
-
-```text
-graph ready
-  -> review-context / impact 输出可用影响面
-  -> spec-work 能比较计划改动面与实际 blast radius
-  -> spec-code-review 能按影响面排序审查
-```
-
-第二步再证明：
+第一版不追求完整 Workstream A-I，但必须是无兼容层的 query-first 原子闭环。最小成功闭环需要同时证明：
 
 ```text
 graph ready
   -> locate / explain / path 输出候选修改面与解释证据
   -> spec-plan 能写出 candidate change surface
+  -> review-context / impact 输出可用影响面
+  -> spec-work 能比较计划改动面与实际 blast radius
+  -> spec-code-review 能按影响面排序审查
+  -> stage0-context / context-routing 不再是任何默认入口
 ```
 
-这两个闭环跑通前，不推进 optional MCP、复杂 graph-report、跨 repo graph merge 或多模态 semantic layer。
+这个闭环跑通前，不推进 optional MCP、复杂 graph-report、跨 repo graph merge 或多模态 semantic layer。
 
 ## Scope Boundaries
 
@@ -378,10 +376,10 @@ graph ready
 - 重塑 `skills/spec-graph-bootstrap/SKILL.md` 的默认目标与 Phase 结构。
 - 新增或调整 CRG 图索引状态产物 contract。
 - 强化 `crg review-context`、`crg impact`，并新增轻量 `crg locate/path/explain` 的设计。
-- 新增 CRG lifecycle hooks 与 workflow context 入口，分阶段替换 `stage0-context` 默认消费：P1 通过 `before_work` / `after_work` / `before_review` 替换 `spec-work` / `spec-code-review`，P2 通过 `before_plan` 替换 `spec-plan`。
+- 新增 CRG lifecycle hooks 与 workflow context 入口，并在同一 cutover 中替换 `spec-plan`、`spec-work`、`spec-work-beta`、`spec-code-review` 对 `stage0-context` 的默认消费。
 - 删除 Stage-0 human docs 的默认生成链路；显式 report mode 只作为人类审计投影。
 - 删除旧 `context-routing` runtime 默认链路，包括 `minimal-context` 选择、`selected_assets` 注入和 `injection-index.yaml` 路由。
-- 分阶段增加 freshness、输入检测、shrink guard 和 suggested query 导航信号：P1 只做最小状态诚实，P3/P4 再补完整可靠性与导航增强。
+- 增加 freshness、最小安全过滤、diff base resolver 和 suggested query 导航信号；完整输入检测、shrink guard、last-known-good 与 surprise/gap/question 可作为 cutover 后增强项，但不得影响 Stage-0 原子删除。
 - 为关键 contract 和 CLI 输出补 unit / contract / smoke / e2e 验证面。
 
 ### Out of Scope
@@ -389,9 +387,9 @@ graph ready
 - 不在本轮引入向量数据库、RAG 平台或远端索引服务。
 - 不把 CRG 查询结果上升为强制 gate 结果。
 - 不让 `locate` 直接决定最终修改文件。
-- 不做全局隐式 AOP、不自动改写所有 skill prompt、不引入 P1 hook rules engine / hooks.yaml / condition DSL。
+- 不做全局隐式 AOP、不自动改写所有 skill prompt、不引入 hook rules engine / hooks.yaml / condition DSL。
 - 不在本轮解决所有语言 AST 解析完备性问题。
-- 不保留旧 Stage-0 docs/runtime 作为长期兼容层；旧产物只可作为迁移前历史输入，不作为新架构 fallback。
+- 不保留旧 Stage-0 docs/runtime 作为兼容层；旧产物在 cutover 后只能被删除或作为历史文件忽略，不作为新架构 fallback 或输入。
 
 ### Deferred to Separate Tasks
 
@@ -405,75 +403,51 @@ graph ready
 
 ## MVP Scope
 
-### MVP-1: Diff Impact Loop
+### MVP-1: Atomic Query-First Cutover
 
-目标：先服务“修改后影响范围 / 爆炸半径”，这是当前已有实现最接近的价值点。
+目标：一次性完成 plan / work / review 的 query-first 默认入口切换，不保留 Stage-0 兼容层。实现分支内部可以按依赖顺序施工，但合并后的用户可见状态必须是单一默认入口。
 
 Included:
 
 - `graph-index-status.json`
 - `code-navigation.json` 最小版：`top_flows`、`top_communities`、`top_hubs`、`query_starters`
-- 最小状态指示：`status` 能区分 `ready` / `missing` / `degraded` / `unavailable`，`freshness.state` 能区分 `fresh` / `stale` / `unknown`，但不要求完整 shrink guard
+- `graph-operations.jsonl`
+- 最小状态指示：`status` 能区分 `ready` / `missing` / `degraded` / `unavailable`，`freshness.state` 能区分 `fresh` / `stale` / `unknown`
+- 最小安全过滤：fallback suggested reads 不指向 sensitive / generated / self-output / Stage-0 docs 路径
+- 共享 diff base resolver：显式 `--since`、`work_start_ref`、merge-base 推导
 - 最小 `change_surface` contract：允许 work/review 对照计划范围与实际影响面
-- `crg review-context` 增强：`affected_flows`、`impacted_modules`、`risk_summary`
-- `crg impact` 增强：`impacted_modules`、`affected_flows`、`candidate_tests`
-- `spec-work` 实现后消费 `review-context`
-- `spec-code-review` 以 `review-context` 排序审查重点
-- 新增 `spec-first crg workflow-context --stage=work|review` 最小入口，替换 `stage0-context` 在 work/review 的默认 runtime anchor
-
-Excluded:
-
 - `crg locate`
 - `crg path`
 - `crg explain`
+- `crg review-context` 增强：`affected_flows`、`impacted_modules`、`risk_summary`
+- `crg impact` 增强：`impacted_modules`、`affected_flows`、`candidate_tests`
+- `spec-first crg workflow-context --stage=plan|work|review`
+- `spec-first crg hook before-plan|before-work|after-work|before-review`
+- `spec-plan` 通过 `before-plan` 生成 candidate change surface
+- `spec-work` / `spec-work-beta` 通过 `before-work` 与 `after-work` 对照计划面和实际 blast radius
+- `spec-code-review` 通过 `before-review` 以 `review-context` 排序审查重点
+- 删除 `stage0-context` CLI、`context-routing` 默认 runtime、`minimal-context` 默认输入、`docs/contexts` 默认生成和 `injection-index.yaml` 默认生成
+
+Excluded:
+
 - `surprising_connections`
-- 完整 input detection / shrink guard / last-known-good
+- 完整 input detection / shrink guard / last-known-good 自动保护
 - `graph-report.md`
 - CRG MCP
 
 Done signal:
 
 ```text
-给定一个真实 diff，系统能回答：
-- 改了哪些 AST nodes
-- 2-hop 内影响哪些 callers
-- 影响哪些 flows/modules
-- 候选测试有哪些
-- 实际 blast radius 是否能与 `change_surface` 计划范围对照，并标出扩大项
+给定一个新需求，spec-plan 能用 locate/explain/path 形成候选修改面；
+给定一个真实 diff，review-context 能输出 changed nodes、2-hop callers、affected flows、candidate tests；
+给定一次 spec-work，after-work 能比较 actual_change_surface 与 planned_change_surface；
+graph unavailable 时，所有 hooks 都返回 direct-read fallback，且不读旧 Stage-0 docs；
+CLI/help/plugin anchors/runtime skills 不再推荐或调用 stage0-context。
 ```
 
-### MVP-2: Planning Navigation Loop
+### MVP-2: Reliability Layer
 
-目标：服务“新需求来了，该从哪里改”。
-
-Included:
-
-- `crg locate`
-- `crg explain`
-- `crg path`
-- `observed / inferred / ambiguous`
-- `spec-plan` 消费 query 输出生成 candidate change surface
-- `spec-first crg workflow-context --stage=plan` 输出 planning navigation context
-
-Excluded:
-
-- MCP
-- graph-report 长文档
-- deep semantic extraction
-
-Done signal:
-
-```text
-给定一个新需求，系统能回答：
-- 候选文件 / symbol / module 是哪些
-- 为什么这些候选相关
-- 哪些候选是 ambiguous
-- LLM 最终选择和排除的证据是什么
-```
-
-### MVP-3: Reliability Layer
-
-目标：把 MVP-1 的最小 freshness 扩展为可长期默认开启的可靠性层，保证 query-first 不被 stale / partial graph 破坏。
+目标：把 cutover MVP 的最小 freshness 扩展为可长期默认开启的可靠性层，保证 query-first 不被 stale / partial graph 破坏。
 
 Included:
 
@@ -491,6 +465,27 @@ graph rebuild 不会因 partial output 静默覆盖健康图；
 graph stale / degraded 时 workflow 明确降级，不伪造 CRG 事实。
 ```
 
+### MVP-3: Navigation and Optional Surface
+
+目标：在不扩大默认主链的前提下补强 map 层和可选查询接口。
+
+Included:
+
+- `surprising_connections`
+- `thin_communities`
+- `ambiguous_edges`
+- `suggested_queries`
+- optional `graph-report.md`
+- optional CRG MCP
+
+Done signal:
+
+```text
+code-navigation.json 能给出高价值 suggested queries；
+graph-report.md 只是 audit projection；
+MCP 只是 CLI query 的可选只读外壳，不成为默认依赖。
+```
+
 ## Key Technical Decisions
 
 ### 决策 1：默认 bootstrap 只保证 graph ready
@@ -502,8 +497,8 @@ CRG 可用
 graph.db 存在且健康
 graph-index-status.json 写入
 code-navigation.json 写入
-基础按需查询可用：context / impact / review-context
-规划查询能力按 capability 暴露：locate / path / explain 在 MVP-2 前可为 false
+基础按需查询可用：context / impact / review-context / locate / path / explain
+workflow hooks 可用：before-plan / before-work / after-work / before-review
 ```
 
 原因：用户核心目标是代码索引和影响面判断，不是每次都生成项目说明书。
@@ -525,16 +520,16 @@ code-navigation.json 写入
   module-map/public-entrypoints 作为 workflow 默认上下文
 ```
 
-替代路径是：
+替代路径是一次性切换到：
 
 ```text
 graph.db
   -> graph-index-status.json
   -> code-navigation.json
-  -> P1: spec-first crg workflow-context --stage=work|review
-  -> P1: impact / review-context
-  -> P2: spec-first crg workflow-context --stage=plan
-  -> P2: locate / explain / path
+  -> spec-first crg hook before-plan
+  -> spec-first crg hook before-work / after-work
+  -> spec-first crg hook before-review
+  -> locate / explain / path / impact / review-context
   -> LLM 决策
 ```
 
@@ -581,18 +576,20 @@ required_implementation_steps
 
 `review-context` 比单独的 `impact` 更适合修改后评估，因为它天然知道 diff、hunks、changed files、changed nodes、候选测试和验证建议。它应成为 `spec-work` 后验验证与 `spec-code-review` 输入的核心。
 
-### 决策 6：以 CRG workflow-context 替换旧 Stage-0 runtime
+### 决策 6：以 CRG lifecycle hooks 原子替换旧 Stage-0 runtime
 
-不再把旧 Stage-0 产物保留为长期兼容层。
+不再把旧 Stage-0 产物保留为兼容层。
 
 新的切换策略是：
 
 ```text
-先新增 CRG workflow-context 并迁移真实消费入口；
-再删除 stage0-context / context-routing / minimal-context / docs 默认链路。
+同一 cutover:
+  新增 CRG workflow-context + 固定 lifecycle hooks
+  切换 plan/work/work-beta/review 的真实消费入口
+  删除 stage0-context / context-routing / minimal-context / docs 默认链路
 ```
 
-`fact-inventory.json`、`risk-signals.json`、`test-surface.json` 中仍有价值的信息必须被迁移到 CRG query 或 `code-navigation.json` 的投影字段；不能因为删除旧文件而丢失测试面、风险面和拓扑面信息。
+`fact-inventory.json`、`risk-signals.json`、`test-surface.json` 中仍有价值的信息必须由 CRG query 或 `code-navigation.json` 的投影字段承接；不能因为删除旧文件而丢失测试面、风险面和拓扑面信息。
 
 ### 决策 7：引入 Graphify 风格的 map/query split
 
@@ -636,7 +633,7 @@ $spec-graph-bootstrap [target]
   |
   v
 +-------------------------------+
-| 1. Resolve target / slug       |
+| 1. Resolve target / optional slug |
 +-------------------------------+
   |
   v
@@ -665,9 +662,9 @@ $spec-graph-bootstrap [target]
   v
 +-------------------------------+
 | 5. Write machine control plane |
-| - graph-index-status.json      |
-| - code-navigation.json         |
-| - artifact-manifest.json       |
+| - .spec-first/graph/graph-index-status.json |
+| - .spec-first/graph/code-navigation.json    |
+| - .spec-first/graph/artifact-manifest.json  |
 +-------------------------------+
   |
   v
@@ -706,7 +703,7 @@ Discover child repos
 Run graph-ready flow per child
   |
   v
-Write workspace-registry.json
+Write workspace graph status registry
   |
   v
 Write workspace graph status summary
@@ -719,8 +716,10 @@ Write workspace graph status summary
 Path:
 
 ```text
-.spec-first/workflows/bootstrap/<slug>/graph-index-status.json
+.spec-first/graph/graph-index-status.json
 ```
+
+旧 bootstrap slug 目录不再是 graph status 的查找入口；可选 report/projection 可以另行写入人类审计目录，但不得作为 hook runtime 的读取来源。
 
 Purpose: 回答“当前图索引是否可用、是否可信、能支持哪些查询”。
 
@@ -751,9 +750,9 @@ Shape:
     "impact": true,
     "review_context": true,
     "affected_flows": true,
-    "locate": false,
-    "path": false,
-    "explain": false
+    "locate": true,
+    "path": true,
+    "explain": true
   },
   "limitations": []
 }
@@ -793,15 +792,17 @@ Comparison rules:
 - `actual_change_surface` 来自 `review-context` / `impact` 的 deterministic query 输出。
 - 脚本只做集合差异：`expanded_files`、`expanded_symbols`、`expanded_modules`、`expanded_flows`。
 - 是否接受扩大、回补实现或扩大验证范围，由 LLM 决策。
-- P1 只要求支持 `files[]`、`modules[]`、`flows[]` 的最小比较；`symbols[]` 可以随图查询能力逐步补齐。
+- Cutover MVP 必须支持 `files[]`、`modules[]`、`flows[]` 的最小比较；`symbols[]` 在 CRG 能解析到 symbol id 时必须填充，无法解析时用 `limitations[]` 说明。
 
 ### code-navigation.json
 
 Path:
 
 ```text
-.spec-first/workflows/bootstrap/<slug>/code-navigation.json
+.spec-first/graph/code-navigation.json
 ```
+
+`code-navigation.json` 与 active graph pointer 同域管理，避免 plan/work/review hook 依赖 bootstrap slug。
 
 Purpose: 给 LLM 一个低 token 的图索引 index / dashboard。workflow 应先读 `graph-index-status.json`，再读 `code-navigation.json`，最后按 `query_starters` 或 `recommended_queries` 调 CRG CLI；不得从这里推断完整代码事实。
 
@@ -860,16 +861,18 @@ Notes:
 - 默认每类导航数组最多 10 项；每项只允许 node id、repo-relative path、kind、score、short reason、query hint，不允许长段 prose、完整源码片段或 README 式架构说明。
 - 消费方如需细节必须回查 CRG CLI。
 - `surprising_connections`、`thin_communities`、`ambiguous_edges` 与 `suggested_queries` 都是导航建议，不是风险裁决。
-- MVP-1 可以先写入这些字段的空数组，保持 schema 稳定；Unit 9 / P4 再补真实分析信号。
-- `query_starters` 必须按 `graph-index-status.json.capabilities` 过滤；MVP-1 不展示 `locate/path/explain` starter，除非对应 capability 已经为 true。
+- Cutover MVP 可以先写入 surprise/gap 类字段的空数组，保持 schema 稳定；Unit 9 / navigation polish 再补真实分析信号。
+- `query_starters` 必须按 `graph-index-status.json.capabilities` 过滤；cutover MVP 中 `locate/path/explain` 已是默认能力，若某语言或 graph 状态不支持，必须在 capabilities 和 limitations 中诚实降级。
 
 ### graph-operations.jsonl
 
 Path:
 
 ```text
-.spec-first/workflows/bootstrap/<slug>/graph-operations.jsonl
+.spec-first/graph/graph-operations.jsonl
 ```
+
+operation log 跟随 graph control-plane，不跟随 bootstrap slug；它解释 graph 状态变化，不记录 workflow 文档包历史。
 
 Purpose: 轻量记录 CRG 图操作历史，帮助 doctor、debug 和 workflow 解释“为什么当前 graph 是这个状态”。它借鉴 LLM Wiki 的 append-only `log.md`，但保持结构化 JSONL。
 
@@ -895,9 +898,9 @@ Rules:
 - append-only；不要把它作为可编辑状态机。
 - 不记录源码正文、绝对路径、secret-like literal。
 - 不作为代码事实真源；真实代码事实仍来自 `graph.db`。
-- P1 只记录 `build`、`promote`、`degrade`、`workflow-context` fallback；hook fallback 统一记为 `operation: "workflow-context"`，并写入 `hook_id: "before_work|after_work|before_review|before_plan"` 与 `reason: "hook:<hook_id>:fallback"`，避免引入第二套 operation 类型。
-- P1 不要求 `doctor` append，避免把 P1 拖成完整审计系统。
-- P3 可把 `operation` 扩展为包含 `doctor`、shrink guard、last-known-good、input detection 事件。
+- Cutover MVP 只记录 `build`、`promote`、`degrade`、`workflow-context` fallback；hook fallback 统一记为 `operation: "workflow-context"`，并写入 `hook_id: "before_work|after_work|before_review|before_plan"` 与 `reason: "hook:<hook_id>:fallback"`，避免引入第二套 operation 类型。
+- Cutover MVP 不要求 `doctor` append，避免把第一版拖成完整审计系统。
+- Reliability hardening 可把 `operation` 扩展为包含 `doctor`、shrink guard、last-known-good、input detection 事件。
 
 ### graph-report.md
 
@@ -930,6 +933,12 @@ Rules:
 
 继续保留，但语义调整：
 
+Path:
+
+```text
+.spec-first/graph/artifact-manifest.json
+```
+
 ```text
 status: complete
 outputs:
@@ -946,7 +955,7 @@ optional_outputs:
     reason: "report-mode-not-requested"
 ```
 
-P1 只要求 `workflow-context` / hook fallback 写入 operation log；hook fallback 仍由 `workflow-context` appender 记录，并用 `hook_id` 区分来源。`doctor` 只读 log 并报告 drift。P3 若需要增强审计，再把 `doctor` 作为可选 appender 加入。
+Cutover MVP 只要求 `workflow-context` / hook fallback 写入 operation log；hook fallback 仍由 `workflow-context` appender 记录，并用 `hook_id` 区分来源。`doctor` 只读 log 并报告 drift。Reliability hardening 若需要增强审计，再把 `doctor` 作为可选 appender 加入。
 
 ### crg workflow-context output
 
@@ -956,7 +965,7 @@ Command:
 spec-first crg workflow-context --stage=<plan|work|review> --repo=<target>
 ```
 
-Purpose: 替代旧 `stage0-context` runtime anchor，为 workflow 提供低 token、可审计、按阶段裁剪的 CRG 决策输入。它不是新的 `selected_assets` 系统，不返回 markdown 文件列表，也不把 fallback 包装成 CRG 事实。
+Purpose: 作为 CRG lifecycle hook 的底层 stage envelope，为 workflow 提供低 token、可审计、按阶段裁剪的 CRG 决策输入。它承接旧 `stage0-context` 曾承担的 context 职责，但不作为 skill 默认 anchor；skill 只锚定 `crg hook ...`。它不是新的 `selected_assets` 系统，不返回 markdown 文件列表，也不把 fallback 包装成 CRG 事实。
 
 Base shape:
 
@@ -1020,19 +1029,19 @@ Rules:
 - `recommended_queries[]` 与 `stage_context.suggested_followups[]` 必须按 `graph_status.capabilities` 过滤；能力不可用时写入 `limitations[]`，例如 `locate-unavailable`，不能推荐不可执行命令。
 - `recommended_queries[]` 是下一步 deterministic CLI 查询建议，不是 workflow gate。
 - `fallback.mode = "direct-read"` 时，`stage_context` 不能包含 CRG-derived fields，例如 `blast_radius`、`affected_flows`、`candidate_tests`。
-- `fallback.suggested_reads[]` 最多 5 条 repo-relative path 或 query hint，避免 fallback 变成无目标 grep。
+- `fallback.suggested_reads[]` 最多 5 条 repo-relative path 或 query hint，避免 fallback 变成无目标 grep；suggested reads 必须经过 cutover MVP 的最小安全过滤。
 - 输出必须始终带 `limitations[]`，即使 graph ready 也要说明覆盖缺口，例如 `flows-empty`、`tests-not-linked`、`locate-unavailable`。
 
 ### crg lifecycle hook output
 
-Lifecycle hook 是 CRG 低侵入接入 workflow 的首选外壳。它封装 `workflow-context` 与底层 query，但不替代 `workflow-context` contract；hook 的职责是把“何时需要哪类事实”表达清楚，让 skill 只声明极薄 anchor。
+Lifecycle hook 是 CRG 低侵入接入 workflow 的唯一默认外壳。它封装 `workflow-context` 与底层 query，但不替代 `workflow-context` contract；hook 的职责是把“何时需要哪类事实”表达清楚，让 skill 只声明极薄 anchor。`workflow-context` 可以作为 CLI primitive 和测试面存在，但不成为 plan/work/review skill 的裸入口。
 
 Commands:
 
 ```bash
-spec-first crg hook before-work --plan=<plan.md> --repo=<target>
-spec-first crg hook after-work --since=<base> --repo=<target>
-spec-first crg hook before-review --since=<base> --repo=<target>
+spec-first crg hook before-work [--plan=<plan.md>|--task="<task description>"] --repo=<target>
+spec-first crg hook after-work [--since=<base>|--work-start-ref=<sha>|--auto-base] --repo=<target>
+spec-first crg hook before-review [--since=<base>|--auto-base] --repo=<target>
 spec-first crg hook before-plan --task="<task description>" --repo=<target>
 ```
 
@@ -1044,12 +1053,19 @@ Naming:
 
 Stage mapping:
 
-| CLI hook | JSON `hook_id` | Stage | P level | Primary consumers | Internal facts |
+| CLI hook | JSON `hook_id` | Stage | Release | Primary consumers | Internal facts |
 | --- | --- | --- | --- | --- | --- |
-| `before-work` | `before_work` | `work` | P1 | `spec-work`, `spec-work-beta` | `workflow-context --stage=work`, planned surface, `impact` suggestions |
-| `after-work` | `after_work` | `work` | P1 | `spec-work`, `spec-work-beta` | `review-context --since=<base>`, actual surface, candidate tests |
-| `before-review` | `before_review` | `review` | P1 | `spec-code-review` | `workflow-context --stage=review`, `review-context`, risk ordering |
-| `before-plan` | `before_plan` | `plan` | P2 | `spec-plan` | `workflow-context --stage=plan`, `locate/path/explain` query plan |
+| `before-plan` | `before_plan` | `plan` | cutover | `spec-plan` | `workflow-context --stage=plan`, `locate/path/explain` query plan |
+| `before-work` | `before_work` | `work` | cutover | `spec-work`, `spec-work-beta` | `workflow-context --stage=work`, planned surface, `impact` suggestions, `work_start_ref` |
+| `after-work` | `after_work` | `work` | cutover | `spec-work`, `spec-work-beta` | shared diff base resolver, `review-context`, actual surface, candidate tests |
+| `before-review` | `before_review` | `review` | cutover | `spec-code-review` | shared diff base resolver, `workflow-context --stage=review`, `review-context`, risk ordering |
+
+Diff base resolution:
+
+- `before-work` 不写隐藏状态；它只在 envelope 中返回 `work_start_ref`，默认是当前 `HEAD`。`spec-work` / `spec-work-beta` 在当前会话中把该值传给 `after-work --work-start-ref=<sha>`。
+- `after-work` / `before-review` 的 diff base 解析顺序是：显式 `--since` > `--work-start-ref` > `--auto-base` 推导的 merge-base。
+- `--auto-base` 必须复用 `spec-code-review` 的 base 解析语义，优先使用显式参数或当前分支相对默认分支的 merge-base，不得退化为 `git diff HEAD`。
+- 无法解析 base 时，hook 返回 direct-read fallback envelope，并在 `limitations[]` 写入 `diff-base-unresolved`；不得让 `review-context` 因缺少 `--since` 直接终止整个 workflow。
 
 Envelope shape:
 
@@ -1063,6 +1079,8 @@ Envelope shape:
   "decision_inputs": [],
   "recommended_queries": [],
   "recommended_verifications": [],
+  "work_start_ref": null,
+  "diff_base": null,
   "evidence": [],
   "limitations": [],
   "fallback": null
@@ -1076,9 +1094,9 @@ Rules:
 - hook 输出是 LLM decision input，不是修改文件、测试范围或 review 结论。
 - hook 不允许自动改写 prompt 主体、自动选择最终修改文件、自动跳过源码阅读、自动要求重新 bootstrap。
 - hook fallback 时，顶层 `fallback` 必须复用 direct-read fallback shape；`workflow_context` 可以为空对象，或包含同一 fallback envelope，但不得包含 CRG-derived fields。消费者以顶层 `fallback` 为准。
-- hook fallback 写 `graph-operations.jsonl` 时使用 `operation: "workflow-context"` + `hook_id`，不新增 P1 `operation: "hook"`。
-- P1 不引入通用 hook engine、hook priority、hooks.yaml、condition expression 或 plugin registry；固定 3 个 hook 足够跑通 Diff Impact Loop。
-- P2 增加 `before_plan` 后，仍然由 LLM 在 plan 中说明采纳/排除哪些候选及证据。
+- hook fallback 写 `graph-operations.jsonl` 时使用 `operation: "workflow-context"` + `hook_id`，不新增 `operation: "hook"`。
+- 不引入通用 hook engine、hook priority、hooks.yaml、condition expression 或 plugin registry；固定 4 个 hook 足够覆盖 plan/work/review。
+- `before_plan` 仍然只给候选和证据；LLM 必须在 plan 中说明采纳/排除哪些候选及证据。
 
 ### direct-read fallback envelope
 
@@ -1112,7 +1130,7 @@ Fallback rules:
 
 ### Stage-0 field destination map
 
-删除旧 Stage-0 文件前，必须把仍有价值的信息迁移到 CRG query 或新 control plane：
+同一 cutover 删除旧 Stage-0 文件时，必须把仍有价值的信息由 CRG query 或新 control plane 承接：
 
 | Old Stage-0 field | New destination | Notes |
 | --- | --- | --- |
@@ -1124,44 +1142,56 @@ Fallback rules:
 | `risk-signals.signals` | `code-navigation.json.high_risk_nodes` + `review-context.risk_summary` | 风险只作为 decision input |
 | `test-surface.coverage_gaps` | `workflow-context.review.verification_focus` | 不生成 `test-map.md` |
 | `database-routing.json` | future `crg database-context` or direct-read fallback | 不进入 MVP 默认主链 |
-| `context-routing.json` | deleted | 不迁移 selected asset 语义 |
+| `context-routing.json` | deleted | 不承接 selected asset 语义 |
 | `minimal-context/*.json` | deleted | 由 `crg workflow-context` stage payload 替代 |
 
 ### Stage-0 deletion dependency map
 
-删除旧 runtime 前必须按依赖顺序迁移：
+本方案不做向下兼容，但实现分支内部仍必须按依赖顺序施工，避免半途断 import。合并时必须是单一 cutover：消费者已切到 CRG，旧 runtime 已删除。
 
 ```text
-1. plugin anchors
+1. graph control-plane
+   .spec-first/workflows/bootstrap/<slug>/graph-* -> .spec-first/graph/*
+
+2. plugin anchors
    src/cli/plugin.js
    stage0-context -> crg hook before-work|after-work|before-review|before-plan
 
-2. workflow skills
+3. workflow skills
    spec-plan / spec-work / spec-work-beta / spec-code-review
    selected_assets -> hook envelope decision_inputs + recommended_queries + fallback
 
-3. review-context dependency
+4. review-context dependency
    src/crg/commands/review-context.js
    context-routing/change-surface -> src/crg/changes.js or src/crg/workflow-context
 
-4. doctor
+5. diff base resolver
+   duplicated review base logic -> src/crg/diff-base.js or src/cli/shared-diff-base.js
+
+6. doctor
    bootstrap contract check -> graph contract check
 
-5. workspace
+7. workspace
    workspace docs registry -> child graph status registry
 
-6. CLI surface
+8. CLI surface
    remove stage0-context help and command registration
 
-7. delete old runtime
-   src/context-routing/evaluator.js
-   src/context-routing/fallback.js
-   src/context-routing/priority.js
-   src/context-routing/profiles.js
-   src/context-routing/workspace-loader.js
+9. delete or move old runtime modules
+   no module remains under src/context-routing/**
 ```
 
-Do not delete a module before its consumer has moved to CRG. The end state is still deletion, but the cutover order prevents broken imports.
+Context-routing module disposition:
+
+| Current module | Cutover action |
+| --- | --- |
+| `change-surface.js` | Move deterministic change-surface and verification recommendation helpers into `src/crg/changes.js` or `src/crg/workflow-context/change-surface.js`; remove Stage-0 names |
+| `entry-resolver.js` | Move generic repo/root/slug helpers into `src/bootstrap-compiler/repo-target.js` or `src/crg/repo-target.js`; delete Stage-0 entry vocabulary |
+| `telemetry.js` | Delete if only Stage-0; otherwise move generic telemetry into `src/cli/telemetry.js` |
+| `verification-summary.js` / `verification-evidence.js` / `verification-gate-state.js` / `verifier-registry.js` / `quality-gate-result.js` / `quality-feedback.js` | Move still-useful deterministic verification helpers into `src/verification/*` or `src/crg/verification/*`; remove `selected_assets`, L0-L3 fallback, and Stage-0 context assumptions |
+| `evaluator.js` / `fallback.js` / `priority.js` / `profiles.js` / `loader.js` / `workspace-loader.js` / `selection-context.js` | Delete; their runtime selection semantics are replaced by fixed lifecycle hooks and direct-read fallback |
+
+Do not merge an intermediate release where `src/context-routing/**` still exists as a default runtime dependency. If a utility is still useful, move it under a new non-Stage-0 module before deletion.
 
 Runtime consumer checklist:
 
@@ -1177,7 +1207,7 @@ Runtime consumer checklist:
 | `src/bootstrap-compiler/compile-verification-profile.js` | verifier hints from context-routing registry | CRG change surface / query-derived verification hints |
 | `README.md` / `README.zh-CN.md` | Stage-0 docs package as primary entry | query-first bootstrap and direct-read fallback |
 
-Only after this checklist has no default runtime consumer may `src/context-routing/**` be deleted. If a utility is still useful, move it to `src/crg/**` with Stage-0 vocabulary removed.
+The checklist is a cutover precondition, not a compatibility plan. The final merged state must have no default runtime consumer for `stage0-context`, `context-routing`, `minimal-context`, `docs/contexts`, or `injection-index.yaml`.
 
 ### Code reality landing notes
 
@@ -1185,18 +1215,18 @@ Only after this checklist has no default runtime consumer may `src/context-routi
 
 - `bin/spec-first.js` 已经把 `spec-first crg ...` 直接路由到 `src/crg/cli/router.js`；不要在 `src/cli/index.js` 再新增第二条 `crg` 路由。`src/cli/index.js` 的任务是移除 `stage0-context` command registration 和 help 文案。
 - `src/crg/cli/open-db.js` 在 graph missing 或 `better-sqlite3` missing 时会直接 `process.exit(2)`。`crg workflow-context` 需要先用 `resolveActiveGraphDb` / graph pointer / fs check 生成 graph status；只有 graph 可用时才打开 DB。否则必须返回 direct-read fallback envelope，不能提前 exit。
-- `src/crg/cli/router.js` 当前没有 `hook`、`workflow-context`、`locate`、`path`、`explain` 子命令。P1 添加 `hook` 与 `workflow-context`，并让 `hook` 只委托固定 handler；P2 再添加 `locate/path/explain`，避免 router capability 与实际 handler 不一致。
-- `src/crg/cli/build.js` 已经有 generation、`current.json`、`last-known-good.json`、`assessGenerationHealth` 与 `promoteGeneration`。P1 应复用这些指针生成 `graph-index-status.json`；P3 再增强 shrink guard，不要重写一套 graph generation 系统。
-- `src/bootstrap-compiler/run-bootstrap.js` 当前 `DEFAULT_BOOTSTRAP_ASSETS` 和 `writeControlPlaneArtifacts` 写死 `fact-inventory`、`risk-signals`、`test-surface`、`context-routing`、`minimal-context` 与 docs。Phase C 需要新增 graph-ready writer 并改变默认写入清单，而不是只改 schema。
+- `src/crg/cli/router.js` 当前没有 `hook`、`workflow-context`、`locate`、`path`、`explain` 子命令。cutover 必须一次性添加这些 handler，并让 `graph-index-status.json.capabilities` 只声明真实存在的 handler，避免 capability 与 router 不一致。
+- `src/crg/cli/build.js` 已经有 generation、`current.json`、`last-known-good.json`、`assessGenerationHealth` 与 `promoteGeneration`。cutover 应复用这些指针生成 `.spec-first/graph/graph-index-status.json`；Reliability hardening 再增强 shrink guard，不要重写一套 graph generation 系统。
+- `src/bootstrap-compiler/run-bootstrap.js` 当前 `DEFAULT_BOOTSTRAP_ASSETS` 和 `writeControlPlaneArtifacts` 写死 `fact-inventory`、`risk-signals`、`test-surface`、`context-routing`、`minimal-context` 与 docs。Workstream C 需要新增 graph-ready writer 并改变默认写入清单，而不是只改 schema。
 - `src/bootstrap-compiler/compile-machine-artifacts.js` 当前总是编译 `minimal_context` 和 Stage-0 lint required assets。切换默认主链时要么新增 `compileGraphReadyArtifacts`，要么给 compiler 明确 mode；不要在同一个函数里同时维护两套默认 truth。
 - `src/bootstrap-compiler/schema-loader.js` 当前 `loadBootstrapSchemas()` 默认加载 Stage-0 schemas。新增 graph schemas 后，要避免 schema loader 继续把 `context-routing` / `minimal-context` 当默认必需 schema。
 - `src/context-routing/change-surface.js` 的 `summarizeChangeSurface` 仍被 `review-context` 使用，并且包含 verification recommendation 价值。先迁移或复制到 `src/crg/changes.js`，再删除 `context-routing`。
-- `src/bootstrap-compiler/workspace-compiler.js` 不只是 docs registry，还合并 `verification_summary`、`verifier_dispatch`、`verification_evidence`、`verification_gate_state`。迁移 workspace 时要明确哪些 verifier 信号进入 CRG change surface，哪些从 graph bootstrap 默认路径删除。
+- `src/bootstrap-compiler/workspace-compiler.js` 不只是 docs registry，还合并 `verification_summary`、`verifier_dispatch`、`verification_evidence`、`verification_gate_state`。cutover workspace 时要明确哪些 verifier 信号进入 CRG change surface，哪些从 graph bootstrap 默认路径删除，并确保不再从 `src/context-routing/**` 读取。
 - runtime mirrors / installed anchors 当前容易和 source skill 漂移。借鉴 LLM Wiki thin pointer 思想，新增或刷新 runtime asset 时应带 source hash / generated marker；doctor 只报告 drift，不把 runtime mirror 当作可编辑真源。
 
 ### Doctor Graph Section Lint Contract
 
-`spec-first doctor` 的检查对象从 Stage-0 bootstrap contract 改为 CRG graph lint/report。为贴合当前 CLI 结构，P1 不新增多级 graph 子命令；而是在 `spec-first doctor` 输出中增加 graph section。若后续需要显式入口，只增加 `spec-first doctor --graph` 过滤视图。它输出 graph readiness 与结构健康 findings，不做 hard gate：
+`spec-first doctor` 的检查对象从 Stage-0 bootstrap contract 改为 CRG graph lint/report。为贴合当前 CLI 结构，不新增多级 graph 子命令；而是在 `spec-first doctor` 输出中增加 graph section。若后续需要显式入口，只增加 `spec-first doctor --graph` 过滤视图。它输出 graph readiness 与结构健康 findings，不做 hard gate：
 
 ```text
 PASS:
@@ -1238,6 +1268,21 @@ LOW:
 Doctor must not reintroduce a hard gate. It reports graph readiness, index drift, capability drift, fallback honesty, and limitations; LLM/user decide whether to continue with fallback, rebuild, or fix artifacts.
 
 ## Query Contracts
+
+All CRG query commands below keep the existing `crg-cli/v1` envelope:
+
+```json
+{
+  "schema_version": "crg-cli/v1",
+  "generated_at": "<ISO>",
+  "repo_root": "<abs-or-display-root>",
+  "degraded": false,
+  "warnings": [],
+  "data": {}
+}
+```
+
+The command-specific examples in this section show the `data` payload only. This preserves the current CLI contract while letting workflow hooks consume typed query payloads.
 
 ### crg locate
 
@@ -1499,15 +1544,18 @@ Read plan candidate surface
   |
   v
 spec-first crg hook before-work --plan=<plan>
+  # or: spec-first crg hook before-work --task="<task>"
   -> planned surface check
   -> impact suggestions
+  -> work_start_ref
   |
   v
 Implement
   |
   v
 After implementation:
-  spec-first crg hook after-work --since=<base>
+  spec-first crg hook after-work --work-start-ref=<sha>
+  # or: spec-first crg hook after-work --since=<base>
     -> review-context summary
     -> compare actual blast radius with planned surface
     -> if expanded, LLM explains whether expansion is valid
@@ -1525,6 +1573,7 @@ After:
 
 ```text
 spec-first crg hook before-review --since=<base>
+  # or: spec-first crg hook before-review --auto-base
   |
   v
 Prioritize:
@@ -1538,23 +1587,34 @@ Prioritize:
 Reviewer findings
 ```
 
-## Migration Plan
+## Cutover Plan
 
-### Priority Gates
+### Cutover Gates
 
-迁移顺序不按“功能完整度”排序，而按“最短价值闭环”排序：
+cutover 顺序不按“保留双默认入口窗口”排序，而按“能否一次性形成 query-first 默认闭环”排序：
 
 ```text
-P0: Contract repositioning
-P1: Diff impact loop
-P2: Planning navigation loop
-P3: Reliability layer
-P4: Optional map/report/MCP polish
+C0: Contract repositioning
+C1: Atomic query-first cutover
+C2: Reliability hardening
+C3: Navigation polish
+C4: Optional report/MCP surface
 ```
 
-必须先完成 P1 的真实 diff 验证，再推进 P2 的新任务定位。原因是 diff impact 有真实 ground truth，更容易验证 query-first 是否真的提升决策输入；`locate` 属于候选检索，过早做容易被误当成语义裁决器。
+`C1` 是唯一用户可见切换点，必须同时覆盖：
 
-下面的 Phase A-I 是工程 workstream，不代表必须按字母顺序上线。实际合并顺序以 `Rollout Strategy` 为准：MVP-1 只需要最小 freshness 与 status honesty；完整 input detection、shrink guard、last-known-good 属于 P3 reliability hardening，在 Diff Impact Loop 和 Planning Navigation Loop 已经跑通后再默认化。
+```text
+graph control-plane in .spec-first/graph
+locate / path / explain
+impact / review-context
+workflow-context --stage=plan|work|review
+hook before-plan|before-work|after-work|before-review
+spec-plan / spec-work / spec-work-beta / spec-code-review anchors
+stage0-context / context-routing / minimal-context default deletion
+direct-read fallback
+```
+
+下面的 Workstream A-I 是工程施工切片，不代表可以分多次发布兼容层。实际合并策略以 `Rollout Strategy` 为准：C1 必须作为同一 cutover 合并；完整 input detection、shrink guard、last-known-good、surprise/gap signals 和 MCP 属于后续增强。
 
 ### Consistency Cut Lines
 
@@ -1563,16 +1623,16 @@ P4: Optional map/report/MCP polish
 - **Truth source cut line:** `graph.db` 是代码事实真源；`code-navigation.json` 是低 token dashboard；`graph-report.md` 只能是显式生成的人类审计投影；`docs/contexts` 不再是默认产物或 fallback。
 - **Capability cut line:** `graph-index-status.json.capabilities` 表示命令是否可调用，不表示结论可信；可信度必须由 `status`、`freshness`、`decision_input_kind`、`evidence`、`limitations` 共同表达。
 - **Index/log cut line:** `code-navigation.json` 是导航 index，`graph-operations.jsonl` 是操作日志；两者帮助 LLM 定位和解释状态，但都不能覆盖 `graph.db` 或变成项目知识库。
-- **MVP schema cut line:** schema 可以先稳定，字段可以先为空数组；不为填满 schema 提前实现 P4 分析能力。
+- **MVP schema cut line:** schema 可以先稳定，字段可以先为空数组；不为填满 schema 提前实现后续分析能力。
 - **LLM boundary cut line:** CLI query 只返回候选、路径、邻居、影响面和证据；是否修改、如何修改、验证是否充分由 LLM 决策。
 - **Hook integration cut line:** hooks 是显式 lifecycle context enrichment，不是全局 AOP；skill 拥有 hook point，CRG 拥有 hook handler，LLM 拥有决策权。
 - **Reliability cut line:** stale / degraded 时必须诚实降级；不能为了让 workflow 继续显得顺滑而伪造健康 graph。
 - **Doctor lint cut line:** `spec-first doctor` 的 graph section 只能输出 lint/report findings，不得阻塞 workflow 或替代 LLM/user 的继续/重建/降级决策。
-- **Cutover cut line:** 旧 Stage-0 runtime 只能在迁移 PR 内作为被替换对象存在；新架构不允许长期同时维护 `stage0-context` 与 CRG workflow-context 两套默认入口。
+- **Cutover cut line:** 旧 Stage-0 runtime 只能在 cutover 分支内部作为被替换对象存在；合并后的新架构不允许同时维护 `stage0-context` 与 CRG lifecycle hooks 两套默认入口。
 
 ### Direct Cutover Strategy
 
-本方案采用直接替换，而不是长期兼容：
+本方案采用直接替换，不做向下兼容：
 
 ```text
 Old default:
@@ -1582,26 +1642,21 @@ Old default:
     -> selected_assets
     -> docs/contexts markdown
 
-P1 new default:
-  spec-first crg hook before-work / after-work / before-review
-    -> spec-first crg workflow-context --stage=work|review
-    -> graph-index-status.json
-    -> code-navigation.json
-    -> review-context / impact query results
-    -> evidence / limitations / suggested next queries
-
-P2 new default:
+New default:
   spec-first crg hook before-plan
-    -> spec-first crg workflow-context --stage=plan
-    -> graph-index-status.json
-    -> code-navigation.json
-    -> locate / path / explain query suggestions
-    -> LLM-selected candidate change surface
+  spec-first crg hook before-work / after-work
+  spec-first crg hook before-review
+    -> spec-first crg workflow-context --stage=plan|work|review
+    -> .spec-first/graph/graph-index-status.json
+    -> .spec-first/graph/code-navigation.json
+    -> locate / path / explain / impact / review-context query results
+    -> evidence / limitations / suggested next queries
+    -> LLM-selected candidate change surface / verification scope
 ```
 
 删除边界：
 
-- P1 删除 `stage0-context` 作为 `spec-work` / `spec-code-review` 默认入口；P2 在 `locate/path/explain` 可用后删除它作为 `spec-plan` 默认入口。
+- 同一 cutover 删除 `stage0-context` 作为 `spec-plan` / `spec-work` / `spec-work-beta` / `spec-code-review` 默认入口。
 - 删除 `src/context-routing/**` 作为默认运行时选择链。
 - 删除 `minimal-context/*.json` 作为默认 workflow 输入。
 - 删除 `docs/contexts/<slug>/` 和 `injection-index.yaml` 的默认生成。
@@ -1613,9 +1668,17 @@ P2 new default:
 - 保留显式 report mode：只为人类审计生成 `graph-report.md` 等摘要，不参与默认 workflow。
 - 保留 workspace routing 的必要能力，但输出应迁移为 child graph status registry，而不是 child docs registry。
 
-### Phase A: Contract Repositioning
+Non-retained surfaces:
 
-Goal: 先改文档和 contract，声明直接切换方向；允许 runtime 行为稍后集中替换，但不再承诺长期兼容 Stage-0。
+- 不保留 `stage0-context` hidden alias。
+- 不保留 `context-routing` wrapper。
+- 不保留 `minimal-context` reader。
+- 不保留 `docs/contexts` fallback reader。
+- 不保留 `injection-index.yaml` generator。
+
+### Workstream A: Contract Repositioning
+
+Goal: 先改文档和 contract，声明无兼容层的直接切换方向；runtime 行为必须在 cutover 分支内集中替换，不能发布长期 Stage-0 双默认入口窗口。
 
 Files:
 
@@ -1632,10 +1695,10 @@ Files:
 Work:
 
 - 在 `SKILL.md` 顶部明确新定位：`Index once, query on demand, let LLM decide`。
-- 首批改造必须先删除或标注 retired：`docs/contexts` 默认写入、`stage0-context` 默认入口、`injection-index.yaml` 默认路由、Phase 2-4 docs 主链。不要等 CLI 全部实现后再改 source skill，否则用户仍会被旧主链误导。
+- 首批改造必须先删除或标注 retired：`docs/contexts` 默认写入、`stage0-context` 默认入口、`injection-index.yaml` 默认路由、旧 Phase 2-4 docs 主链。不要等 CLI 全部实现后再改 source skill，否则用户仍会被旧主链误导。
 - 增加 Graphify-style `Map first, query precisely` 作为消费心智。
 - 增加 LLM Wiki-style `build / query / lint` 操作心智，但明确这不是状态机。
-- 标注当前 Phase 2-4 为 retired Stage-0 docs/runtime path。
+- 标注旧 Phase 2-4 为 retired Stage-0 docs/runtime path。
 - 定义 `graph-index-status.json` 和 `code-navigation.json` contract。
 - 定义 `graph-operations.jsonl` contract。
 - 定义 optional `graph-report.md` 的审计摘要定位。
@@ -1646,11 +1709,11 @@ Verification:
 - contract tests 证明 source skill / prompt mirror 都包含 query-first 定位和 graph truth boundary。
 - schema tests 证明新增 artifact 字段合法，并能拦住重新把 docs/context-routing 当默认事实层的回归。
 
-### Phase B: Input Detection and Freshness Layer
+### Workstream B: Input Detection and Freshness Layer
 
 Goal: 借鉴 Graphify `detect.py`，在建图前先明确输入面和索引可信度。
 
-Stage: P3 reliability hardening。P1 只实现最小 `status` / `freshness.state` honesty；本 Phase 不作为 Diff Impact Loop 上线前置。
+Stage: C2 reliability hardening。C1 cutover 只实现最小 `status` / `freshness.state` honesty 与 fallback suggested reads 安全过滤；本 workstream 不作为 Atomic Query-First Cutover 前置。
 
 Files:
 
@@ -1675,7 +1738,7 @@ Verification:
 - 生成输出不会被再次索引。
 - 无显式 prune intent 时，异常缩小的 graph 不覆盖 last-known-good。
 
-### Phase C: Graph-Ready Default Path
+### Workstream C: Graph-Ready Default Path
 
 Goal: 让默认 bootstrap 只跑图索引 ready 主链，并停止生成 Stage-0 docs/runtime artifacts。
 
@@ -1698,24 +1761,24 @@ Work:
 
 - 新增或复用 CRG stats/context 输出生成 `graph-index-status.json`。
 - 生成轻量 `code-navigation.json`。
-- 写入轻量 `graph-operations.jsonl`，P1 只记录 build/promote/degrade/workflow-context fallback，不记录源码正文或绝对路径。
-- 从现有 `current.json` / `last-known-good.json` / `resolveActiveGraphDb` 派生 active graph 状态；P1 不新增并行 graph pointer。
+- 写入轻量 `graph-operations.jsonl`，cutover 只记录 build/promote/degrade/workflow-context fallback，不记录源码正文或绝对路径。
+- 从现有 `current.json` / `last-known-good.json` / `resolveActiveGraphDb` 派生 active graph 状态；cutover 不新增并行 graph pointer。
 - 若 graph missing 或 native module missing，graph-ready writer 写 `status: missing|unavailable`，不调用会直接 exit 的 query handler。
 - 默认不生成 `fact-inventory.json` / `risk-signals.json` / `test-surface.json` / `context-routing.json` / `minimal-context/*.json`。
 - 默认不生成 `docs/contexts` 和 `injection-index.yaml`。
-- schema loader 默认路径切到 graph schemas；Stage-0 schemas 可保留给历史 artifact 或 migration test，但不作为默认 compiler 必需项。
+- schema loader 默认路径切到 graph schemas；Stage-0 schemas 若仍短暂存在，只能服务历史 fixture 读取或 deletion contract test，不作为默认 compiler 必需项。
 - `doctor` 的 bootstrap contract 检查改为 graph contract 检查：graph status、capabilities、freshness、limitations。
 - report mode 另行显式执行，不影响默认 mainline。
 
 Verification:
 
 - 首次运行能构建 graph 并写入 graph status。
-- build/promote/degrade/workflow-context fallback 会追加 `graph-operations.jsonl`；P1 不要求 `doctor` 写日志。
+- build/promote/degrade/workflow-context fallback 会追加 `graph-operations.jsonl`；cutover 不要求 `doctor` 写日志。
 - graph stale 时能提示 rebuild。
 - 不请求 report mode 时不要求任何 Stage-0 fixed assets 存在。
 - `doctor` 不再要求 `artifact-manifest.outputs` 包含 `context-routing` 或 `minimal-context`。
 
-### Phase D: Strengthen review-context and impact
+### Workstream D: Strengthen review-context and impact
 
 Goal: 让已有 diff 和单点 symbol 都能产生足够决策输入。
 
@@ -1744,7 +1807,7 @@ Verification:
 - 修改核心 flow 节点时，`affected_flows` 非空。
 - 对无 flow 的库项目，输出 `limitations[]`，不伪造 flow。
 
-### Phase E: Add locate/path/explain Query
+### Workstream E: Add locate/path/explain Query
 
 Goal: 支持没有 diff 的新任务定位候选修改面，并支持 explain/path 两类解释型图导航。
 
@@ -1777,7 +1840,7 @@ Verification:
 - `explain` 能返回单节点邻居、source location 与社区。
 - 查询无匹配时返回空候选和 limitation，不退出为失败。
 
-### Phase F: Analysis Signals and Suggested Queries
+### Workstream F: Analysis Signals and Suggested Queries
 
 Goal: 将 Graphify 的 god nodes / surprising connections / suggested questions 思路转化为 CRG 导航信号。
 
@@ -1803,9 +1866,9 @@ Verification:
 - 跨社区、高 fan-in 或低置信度关系能进入导航信号。
 - suggested queries 是建议，不阻断任何 workflow。
 
-### Phase G: Replace Stage-0 Workflow Consumption
+### Workstream G: Atomic Workflow Cutover
 
-Goal: 分阶段让 workflow 默认通过显式 lifecycle hooks 使用 CRG context，删除对 `stage0-context` 的默认依赖。P1 只切 `spec-work` / `spec-code-review`；P2 在 `locate/path/explain` 可用后再切 `spec-plan`。
+Goal: 在同一 cutover 中让 `spec-plan`、`spec-work`、`spec-work-beta`、`spec-code-review` 默认通过显式 lifecycle hooks 使用 CRG context，并删除对 `stage0-context` 的默认依赖。不发布 plan 仍走 Stage-0、work/review 走 CRG 的混合状态。
 
 Files:
 
@@ -1814,7 +1877,8 @@ Files:
 - Add: `src/crg/hooks/before-work.js`
 - Add: `src/crg/hooks/after-work.js`
 - Add: `src/crg/hooks/before-review.js`
-- Add: `src/crg/hooks/before-plan.js` (P2)
+- Add: `src/crg/hooks/before-plan.js`
+- Add: `src/crg/diff-base.js` or `src/cli/shared-diff-base.js`
 - Add: `docs/contracts/crg/context-hooks.md`
 - Add: `src/crg/workflow-context/status.js`
 - Add: `src/crg/workflow-context/navigation.js`
@@ -1830,32 +1894,33 @@ Files:
 - Test: `tests/unit/spec-plan-contracts.test.js`
 - Test: `tests/unit/spec-work-contracts.test.js`
 - Test: `tests/unit/spec-work-beta-contracts.test.js`
-- Test: `tests/unit/spec-review-contracts.test.js`
+- Test: `tests/unit/spec-code-review-contracts.test.js`
 
 Work:
 
-- P1 新增固定 lifecycle hooks：`before-work`、`after-work`、`before-review`；P2 补 `before-plan`。
+- cutover 新增固定 lifecycle hooks：`before-plan`、`before-work`、`after-work`、`before-review`。
 - hook handler 内部复用 `workflow-context` 和 query commands；不要让每个 skill 自己拼 graph status、fallback、query 输出。
-- P1 新增 `spec-first crg workflow-context --stage=work|review` 作为 hook handler 的底层 envelope；P2 补 `--stage=plan`。
+- cutover 新增 `spec-first crg workflow-context --stage=plan|work|review` 作为 hook handler 的底层 envelope。
 - 输出 shape 必须符合本方案的 `crg workflow-context output` contract，不能重新引入 `selected_assets`。
 - `workflow-context/status.js` 先检查 graph pointer、DB 文件、native module availability 和 artifact freshness；不要复用 `openDb()` 作为第一步，避免 graph missing 时无法返回 fallback envelope。
-- `spec-plan`：P2 增加极薄 `before_plan` hook anchor，hook 通过 workflow-context 获取 graph status、code navigation、locate/explain/path suggested queries，再由 LLM 写 candidate change surface。
-- `spec-work`：增加极薄 `before_work` / `after_work` hook anchor，hook 获取 planned surface check、impact 建议和 post-change `review-context`。
+- `spec-plan`：增加极薄 `before_plan` hook anchor，hook 通过 workflow-context 获取 graph status、code navigation、locate/explain/path suggested queries，再由 LLM 写 candidate change surface。
+- `spec-work` / `spec-work-beta`：增加极薄 `before_work` / `after_work` hook anchor，hook 获取 planned surface check、`work_start_ref`、impact 建议和 post-change `review-context`。
 - `spec-code-review`：增加极薄 `before_review` hook anchor，hook 获取 `review-context` 摘要，以 graph expansion 和 affected flows 排序审查重点。
-- `src/cli/plugin.js` 高价值 anchors 分阶段从 `stage0-context ...` 改为 `crg hook ...`；需要底层事实时再由 hook 调 `workflow-context`。
-- `src/cli/index.js` 在 P1 可保留 `stage0-context` 供 `spec-plan` 迁移窗口使用，但 help 不再推荐；P2 后删除或隐藏，避免新用户继续依赖旧入口。
+- `after-work` / `before-review` 复用共享 diff base resolver；无法解析 base 时返回 fallback envelope，不让 `review-context` 直接退出。
+- `src/cli/plugin.js` 高价值 anchors 一次性从 `stage0-context ...` 改为 `crg hook ...`；需要底层事实时再由 hook 调 `workflow-context`。
+- `src/cli/index.js` 同一 cutover 删除 `stage0-context` command registration 和 help 文案；不保留 `spec-plan` 过渡窗口。
 - graph unavailable fallback 改为 direct repo reads，不再 fallback 到 Stage-0 docs。
-- 不引入全局隐式 hook、自动 prompt 注入、hook rules engine 或 hooks.yaml；P1 只实现固定 hook CLI。
+- 不引入全局隐式 hook、自动 prompt 注入、hook rules engine 或 hooks.yaml；只实现固定 hook CLI。
 
 Verification:
 
 - workflow skill contract 明确“查询结果是决策输入，不是强制结论”。
 - workflow skill contract 只增加薄 hook anchor，完整 hook envelope 语义集中在 `docs/contracts/crg/context-hooks.md`。
 - graph unavailable 时能走 direct-read fallback，且输出明确说明未使用 CRG 事实。
-- P1 plugin work/review anchors 不再包含 `stage0-context`；P2 后 plan/work/review anchors 全部不再包含 `stage0-context`。
+- plan/work/work-beta/review anchors 全部不再包含 `stage0-context`。
 - source skill 和 prompt mirror 同步。
 
-### Phase H: Remove Stage-0 Runtime and Human Docs Default
+### Workstream H: Remove Stage-0 Runtime and Human Docs Default
 
 Goal: 删除旧 Stage-0 runtime 选择链和 human docs 默认链路。
 
@@ -1870,8 +1935,7 @@ Files:
 - Delete: `src/context-routing/fallback.js`
 - Delete: `src/context-routing/priority.js`
 - Delete: `src/context-routing/profiles.js`
-- Delete or migrate: `src/context-routing/loader.js`
-- Delete or migrate: `src/context-routing/workspace-loader.js`
+- Delete or migrate all remaining `src/context-routing/*.js`
 - Modify: `README.md`
 - Modify: `README.zh-CN.md`
 - Test: `tests/smoke/cli.sh`
@@ -1892,7 +1956,7 @@ Verification:
 - installed runtime skill 明确 query-first、direct reads fallback 与 optional report mode。
 - 删除旧 `docs/contexts` 后默认 workflow 仍能 plan/work/review。
 
-### Phase I: Optional CRG MCP Query Server
+### Workstream I: Optional CRG MCP Query Server
 
 Goal: 为长会话和支持 MCP 的 host 提供结构化图查询面，避免反复把大 JSON 粘进 prompt。
 
@@ -1937,7 +2001,7 @@ Verification:
   - `CRG graph index first`
   - `On-demand query over static docs`
   - `LLM decides semantic change meaning`
-- 将当前 Phase 2-4 标注为 retired Stage-0 docs/runtime path。
+- 将旧 Phase 2-4 标注为 retired Stage-0 docs/runtime path。
 - 明确删除旧默认流程，而不是只调整优先级。
 
 **Test scenarios:**
@@ -2068,7 +2132,7 @@ Verification:
 
 **Approach:**
 
-- 当前 router 已有 `query` / `search` / `context`，但没有 `locate` / `path` / `explain`。P2 新命令应优先复用现有 FTS、context、nodes/edges 查询能力，不重写第二套 retrieval。
+- 当前 router 已有 `query` / `search` / `context`，但没有 `locate` / `path` / `explain`。cutover 新命令应优先复用现有 FTS、context、nodes/edges 查询能力，不重写第二套 retrieval。
 - 初版只做 deterministic 查询聚合。
 - 关键词来源由 LLM 在 workflow 中提取，命令只接收 query 字符串。
 - 结果按 score 排序，保留 evidence。
@@ -2089,7 +2153,7 @@ Verification:
 
 ### Unit 7: Replace workflow consumption with CRG lifecycle hooks
 
-**Goal:** 后续 workflow 通过显式 lifecycle hooks 使用 CRG workflow-context 和查询结果做默认输入，分阶段移除 `stage0-context` 默认入口。P1 覆盖 work/review；P2 覆盖 plan。
+**Goal:** 后续 workflow 通过显式 lifecycle hooks 使用 CRG workflow-context 和查询结果做默认输入，并在同一 cutover 移除 `stage0-context` 默认入口。
 
 **Requirements:** R7, R9, R10, R18
 
@@ -2100,7 +2164,8 @@ Verification:
 - Add: `src/crg/hooks/before-work.js`
 - Add: `src/crg/hooks/after-work.js`
 - Add: `src/crg/hooks/before-review.js`
-- Add: `src/crg/hooks/before-plan.js` (P2)
+- Add: `src/crg/hooks/before-plan.js`
+- Add: `src/crg/diff-base.js` or `src/cli/shared-diff-base.js`
 - Add: `docs/contracts/crg/context-hooks.md`
 - Add: `src/crg/workflow-context/status.js`
 - Add: `src/crg/workflow-context/navigation.js`
@@ -2114,20 +2179,21 @@ Verification:
 - Modify prompt mirrors if present in the current runtime mirror structure
 - Modify: `tests/unit/spec-plan-contracts.test.js`
 - Modify: `tests/unit/spec-work-contracts.test.js`
-- Modify: `tests/unit/spec-review-contracts.test.js`
+- Modify: `tests/unit/spec-work-beta-contracts.test.js`
+- Modify: `tests/unit/spec-code-review-contracts.test.js`
 
 **Approach:**
 
 - `status.js` 负责 non-throwing graph readiness：检查 active graph path、native module、`graph-index-status.json`、capabilities、freshness，返回结构化状态。
 - graph unavailable 时不调用 `openDb()`、`review-context` 或 `impact` handler；直接输出 direct-read fallback envelope。
-- P1 为 `spec-work` 增加 `before_work` / `after_work` hook anchor；hook 内部调用 `crg workflow-context --stage=work` 与 post-change `review-context`。
-- P1 为 `spec-code-review` 增加 `before_review` hook anchor；hook 内部调用 `crg workflow-context --stage=review` 与 review-context priority rule。
-- P2 为 `spec-plan` 增加 `before_plan` hook anchor；hook 内部调用 `crg workflow-context --stage=plan` 与 locate/path/explain query plan。
+- 为 `spec-plan` 增加 `before_plan` hook anchor；hook 内部调用 `crg workflow-context --stage=plan` 与 locate/path/explain query plan。
+- 为 `spec-work` / `spec-work-beta` 增加 `before_work` / `after_work` hook anchor；hook 内部调用 `crg workflow-context --stage=work`、返回 `work_start_ref`，并在 after-work 通过 shared diff base resolver 调用 `review-context`。
+- 为 `spec-code-review` 增加 `before_review` hook anchor；hook 内部调用 `crg workflow-context --stage=review`、shared diff base resolver 与 review-context priority rule。
 - `workflow-context` 输出统一 base envelope，并按 stage 填充最小 `stage_context`。
 - `hook` 输出统一 hook envelope，并嵌入或引用 workflow-context；hook failure 不阻塞 workflow，只返回 fallback。
 - fallback 改为 direct repo reads，不再支持旧 Stage-0 docs 作为事实 fallback。
-- plugin anchors 分阶段替换 `stage0-context`：P1 先替换 work/review 到 `crg hook before-work|after-work|before-review`，P2 替换 plan 到 `crg hook before-plan`。
-- P1 不实现通用 hook engine、hooks.yaml、优先级、条件表达式或插件注册表。
+- plugin anchors 一次性替换 `stage0-context` 到 `crg hook before-plan|before-work|after-work|before-review`。
+- 不实现通用 hook engine、hooks.yaml、优先级、条件表达式或插件注册表。
 
 **Test scenarios:**
 
@@ -2135,7 +2201,7 @@ Verification:
 - skill 文本要求 graph-ready 时优先通过 hook 获取 CRG query 输入。
 - skill 文本明确查询结果不是强制结论。
 - graph unavailable fallback 不要求用户先重新 bootstrap，也不读取旧 `docs/contexts`。
-- P1 runtime anchors 中 work/review 不再出现 `stage0-context`；P2 后所有 plan/work/review anchors 都不再出现 `stage0-context`。
+- plan/work/work-beta/review runtime anchors 都不再出现 `stage0-context`。
 - hook handler 单测覆盖 ready、stale、unavailable、fallback 四类 envelope。
 
 ### Unit 7.5: Delete Stage-0 runtime routing
@@ -2151,16 +2217,15 @@ Verification:
 - Delete: `src/context-routing/fallback.js`
 - Delete: `src/context-routing/priority.js`
 - Delete: `src/context-routing/profiles.js`
-- Delete or migrate: `src/context-routing/loader.js`
-- Delete or migrate: `src/context-routing/workspace-loader.js`
+- Delete or migrate all remaining `src/context-routing/*.js`
 - Modify: `src/cli/index.js`
 - Modify: `src/cli/commands/doctor.js`
 - Modify: `src/crg/commands/review-context.js`
-- Modify: `src/context-routing/change-surface.js` or move useful logic to `src/crg/changes.js`
+- Move useful logic from `src/context-routing/change-surface.js` to `src/crg/changes.js` or `src/crg/workflow-context/change-surface.js`
 
 **Approach:**
 
-- 先确认 `crg hook` 按生命周期覆盖入口：P1 覆盖 work/review，P2 覆盖 plan/work/review；`workflow-context` 作为 hook 底层 envelope 保留。
+- 先确认 `crg hook` 按生命周期覆盖入口：cutover 覆盖 plan/work/work-beta/review；`workflow-context` 作为 hook 底层 envelope 保留。
 - 将 change surface、verification recommendation 中仍有价值的 deterministic 逻辑迁移到 CRG 模块。
 - 删除 selected_assets、fallback L0/L1/L2/L3、minimal-context provenance 等 Stage-0 runtime 语义。
 - `doctor` 改查 CRG graph contract，不查 bootstrap Stage-0 contract。
@@ -2168,7 +2233,7 @@ Verification:
 **Test scenarios:**
 
 - CLI help 不再列出 `stage0-context`。
-- P2 后 `spec-plan` / `spec-work` / `spec-code-review` runtime anchors 只指向 CRG lifecycle hooks，不再指向 `stage0-context`。
+- cutover 后 `spec-plan` / `spec-work` / `spec-work-beta` / `spec-code-review` runtime anchors 只指向 CRG lifecycle hooks，不再指向 `stage0-context`。
 - `review-context` 不再依赖 `context-routing` 模块。
 - graph unavailable 时输出 direct-read fallback envelope。
 
@@ -2261,13 +2326,13 @@ Verification:
 
 - CLI smoke:
   - `spec-first --help` 不再推荐 `stage0-context`。
-  - P1: `spec-first crg workflow-context --stage=work|review` 能返回结构化 envelope。
-  - P2: `spec-first crg workflow-context --stage=plan` 能返回结构化 envelope。
+  - `spec-first crg workflow-context --stage=plan|work|review` 能返回结构化 envelope。
+  - `spec-first crg hook before-plan|before-work|after-work|before-review` 能返回结构化 envelope。
   - graph unavailable 时返回 direct-read fallback envelope。
 
 - Contract text checks:
   - source skill / runtime mirror 不再把 `docs/contexts`、`minimal-context`、`stage0-context` 描述为默认入口。
-  - plugin anchors 指向 `crg workflow-context`。
+  - plugin anchors 指向 `crg hook ...`，而不是 `stage0-context` 或裸 `crg workflow-context`。
   - `locate` / `path` / `explain` 不输出最终修改决定。
 
 - One real repo manual acceptance:
@@ -2308,9 +2373,10 @@ Verification:
 
 - `tests/unit/spec-plan-contracts.test.js`
 - `tests/unit/spec-work-contracts.test.js`
-- `tests/unit/spec-review-contracts.test.js`
+- `tests/unit/spec-work-beta-contracts.test.js`
+- `tests/unit/spec-code-review-contracts.test.js`
   - 锁定 workflow 消费口径。
-  - P1 锁定 work/review 的 `crg workflow-context` 默认入口；P2 锁定 plan 默认入口。
+  - 锁定 plan/work/work-beta/review 的默认入口都是 `crg hook ...`。
 
 ### E2E / Smoke
 
@@ -2321,7 +2387,7 @@ Verification:
   - 改为 graph-ready 默认主链。
 
 - `tests/e2e/spec-graph-bootstrap-installed-runtime.sh`
-  - 验证安装后的 runtime skill 描述 query-first、CRG workflow-context 与 direct reads fallback。
+  - 验证安装后的 runtime skill 描述 query-first、CRG lifecycle hooks 与 direct reads fallback。
 
 - `tests/smoke/cli.sh`
   - 验证 help 文案不再把 docs 包描述成默认事实真源。
@@ -2335,7 +2401,7 @@ Verification:
 
 2. **修改后影响面：**
    - 修改一个核心函数。
-   - `crg hook after-work --since=<base>` 返回 changed nodes、caller expansion、affected flows、candidate tests。
+   - `crg hook after-work --work-start-ref=<sha>` 或 `--since=<base>` 返回 changed nodes、caller expansion、affected flows、candidate tests。
    - `spec-work` 能判断实际 blast radius 是否超出 plan。
 
 3. **单点影响分析：**
@@ -2361,7 +2427,7 @@ Verification:
 ## Risks and Mitigations
 
 - **风险：直接删除 Stage-0 runtime 可能破坏旧消费者。**
-  - 缓解：先新增 `crg workflow-context` 并按 consumer checklist 替换 plugin anchors / workflow skills / doctor 检查；P1 只切 work/review，P2 切 plan，最后删除 `stage0-context` 和 `context-routing`。不保留长期双默认入口。
+  - 缓解：不做向下兼容，但采用原子 cutover checklist：同一合并中新增 CRG hooks/query、替换 plugin anchors / workflow skills / doctor 检查，并删除 `stage0-context` 和 `context-routing`。不发布双默认入口状态。
 
 - **风险：`locate` 被误解为自动决定修改点。**
   - 缓解：contract 明确只输出 candidates/evidence/limitations，workflow 文本要求 LLM 决策。
@@ -2381,11 +2447,11 @@ Verification:
 - **风险：graph operation log 被误当成状态机或第二事实源。**
   - 缓解：`graph-operations.jsonl` append-only，只服务审计和解释；当前状态仍由 active graph pointer、`graph-index-status.json` 和 graph health 检查表达。
 
-- **风险：P1 被 operation log / doctor lint 拖大。**
-  - 缓解：P1 的 operation log 只记录 build/promote/degrade/workflow-context fallback；doctor 只在现有 `spec-first doctor` 中新增 graph section，不新增多级 CLI，也不要求完整 lint 自动修复。
+- **风险：cutover 被 operation log / doctor lint 拖大。**
+  - 缓解：cutover 的 operation log 只记录 build/promote/degrade/workflow-context fallback；doctor 只在现有 `spec-first doctor` 中新增 graph section，不新增多级 CLI，也不要求完整 lint 自动修复。
 
 - **风险：hook 注入演化成隐式 AOP 或强编排。**
-  - 缓解：hook point 必须由 skill 显式声明；P1 不做全局自动注入、不自动改写 prompt、不做 hook rules engine。hook 只返回 envelope 和 limitations，不阻塞 workflow、不决定修改文件。
+  - 缓解：hook point 必须由 skill 显式声明；不做全局自动注入、不自动改写 prompt、不做 hook rules engine。hook 只返回 envelope 和 limitations，不阻塞 workflow、不决定修改文件。
 
 - **风险：每个 skill 都复制 CRG hook 细节，导致 prompt 膨胀和漂移。**
   - 缓解：相关 skill 只增加 3-8 行极薄 hook anchor；完整 hook contract 放在 `docs/contracts/crg/context-hooks.md`，contract tests 检查 skill 只引用 hook 语义，不内嵌 schema 大段内容。
@@ -2403,50 +2469,45 @@ Verification:
 
 ```text
 Step 1: 先改文档和 contract，声明目标架构
-Step 2: 新增 graph-index-status / code-navigation 最小控制面，包含 status honesty 和最小 freshness
-Step 3: 新增 crg workflow-context --stage=work|review 与固定 work/review hooks，增强 review-context / impact，跑通 Diff Impact Loop
-Step 4: 将 spec-work / spec-code-review 和 plugin anchors 从 stage0-context 切到 crg hook before-work / after-work / before-review
-Step 5: 新增 locate / explain / path，并补 crg workflow-context --stage=plan 与 before-plan hook，跑通 Planning Navigation Loop
-Step 6: 将 spec-plan 从 stage0-context 切到 crg hook before-plan
-Step 7: 删除 stage0-context CLI、context-routing runtime、minimal-context 和 docs/contexts 默认生成
-Step 8: 补完整 input detection / freshness / shrink guard / last-known-good
-Step 9: 增加 surprise/gap/suggested query 导航信号
-Step 10: 评估 optional CRG MCP、graph-report 与可选 hook 开关
+Step 2: 在 cutover 分支内新增 .spec-first/graph control-plane，包含 status honesty、最小 freshness 和 operation log
+Step 3: 在 cutover 分支内新增 locate / explain / path，并增强 review-context / impact
+Step 4: 在 cutover 分支内新增 workflow-context --stage=plan|work|review、固定 4 个 lifecycle hooks 和 shared diff base resolver
+Step 5: 在 cutover 分支内将 spec-plan / spec-work / spec-work-beta / spec-code-review 与 plugin anchors 一次性切到 crg hook
+Step 6: 在同一 cutover 删除 stage0-context CLI、context-routing runtime、minimal-context 和 docs/contexts 默认生成
+Step 7: 合并 cutover 前运行 smoke / contract / e2e / manual acceptance，确认没有双默认入口
+Step 8: cutover 后补完整 input detection / freshness / shrink guard / last-known-good
+Step 9: cutover 后增加 surprise/gap/suggested query 导航信号
+Step 10: cutover 后评估 optional CRG MCP 与 graph-report；不扩展 hook 配置面
 ```
 
-每一步都应能独立合并，但 Step 3-7 是同一条切换链，不能长期停在双默认入口状态。
+Step 2-7 是同一个用户可见 cutover，不应拆成多次发布。允许在同一分支内按 commit 分层施工，但不能合并一个仍保留 Stage-0 默认入口的中间态。
 
 ## Exit Criteria by Stage
 
-### P0 Exit
+### C0 Contract Exit
 
 - source skill / prompt mirror 明确 query-first、map/query split、Stage-0 runtime deletion。
 - contract test 能拦住“docs/context-routing 是默认事实层”这类回归。
 
-### P1 Exit
+### C1 Atomic Cutover Exit
 
-- `review-context` 对真实 diff 输出 changed nodes、graph expansion、affected flows、candidate tests。
-- `impact` 对真实 symbol 输出 blast radius、impacted modules、affected flows。
-- `crg workflow-context --stage=work|review` 与 `crg hook before-work|after-work|before-review` 可用。
-- `spec-work` / `spec-code-review` 通过显式 hook anchor 获取 CRG 输入，不再依赖 `stage0-context`。
-- `stage0-context` 可在切换 PR 中暂存，但不得再作为 work/review 默认 anchor。
-
-### P2 Exit
-
+- `.spec-first/graph/graph-index-status.json`、`.spec-first/graph/code-navigation.json`、`.spec-first/graph/graph-operations.jsonl` 可用。
 - `locate` 只输出候选与证据，不输出最终修改决定。
 - `path` 能解释两个候选之间的 graph 关系。
 - `explain` 能解释单个候选的局部 graph 上下文。
-- `crg workflow-context --stage=plan` 与 `crg hook before-plan` 可用。
-- `spec-plan` 通过显式 `before_plan` hook 获取候选 query evidence，且不再读取 `minimal-context` / `docs/contexts`。
+- `review-context` 对真实 diff 输出 changed nodes、graph expansion、affected flows、candidate tests。
+- `impact` 对真实 symbol 输出 blast radius、impacted modules、affected flows。
+- `crg workflow-context --stage=plan|work|review` 与 `crg hook before-plan|before-work|after-work|before-review` 可用。
+- `spec-plan` / `spec-work` / `spec-work-beta` / `spec-code-review` 通过显式 hook anchor 获取 CRG 输入，不再依赖 `stage0-context`。
+- `stage0-context` CLI、`context-routing` 默认 runtime、`minimal-context` 默认输入、`docs/contexts` 默认生成链路已删除。
 
-### P3 Exit
+### C2 Reliability Exit
 
 - stale / degraded graph 不会被当作 healthy。
 - 异常 shrink 不会静默覆盖 last-known-good。
 - workflow 在 graph unavailable 时能降级到 direct repo reads fallback。
-- `stage0-context`、`context-routing`、`minimal-context`、`docs/contexts` 默认生成链路已删除；如仍保留历史文件，只能是未被 runtime 引用的归档输入。
 
-### P4 Exit
+### C3 Optional Surface Exit
 
 - `graph-report.md` 只是 audit summary，不重新膨胀为项目知识库。
 - optional MCP 不成为 CLI-first 路径的前置依赖。
