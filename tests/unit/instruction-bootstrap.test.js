@@ -38,9 +38,11 @@ describe('instruction bootstrap', () => {
     expect(twice.match(/<!-- spec-first:bootstrap:start -->/g)).toHaveLength(1);
     expect(twice).toContain('Claude workflow 入口使用 `/spec:*`');
     expect(twice).toContain('本 block 是 spec-first workflow 入口提醒');
+    expect(twice).toContain('`using-spec-first` 是 standalone meta skill，不是 workflow command');
     expect(twice).toContain('常见入口锚点：环境/MCP');
     expect(twice).toContain('完整选择策略、优先级和 red flags 由 spec-first 随包的 `using-spec-first` 维护');
     expect(twice).toContain('不要直接暴露 internal-only skills');
+    expect(twice).not.toContain('internal-only skills：`using-spec-first`');
     expect(twice).not.toContain('高级路由');
   });
 

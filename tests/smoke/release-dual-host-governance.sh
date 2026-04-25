@@ -21,7 +21,8 @@ echo "=== release-dual-host-governance.sh — tarball 治理闭环验证 ==="
 
 echo "1. 打包 tarball..."
 cd "$REPO_ROOT"
-mkdir -p "$TARBALL_DIR"
+mkdir -p "$TARBALL_DIR" "$TMP_CACHE"
+export npm_config_cache="$TMP_CACHE"
 TARBALL="$(npm pack --pack-destination "$TARBALL_DIR" 2>&1 | tail -1)"
 TARBALL_PATH="$TARBALL_DIR/$TARBALL"
 test -f "$TARBALL_PATH"
@@ -42,7 +43,6 @@ echo "   ✓ tarball 已包含 runtime governance JSON/schema"
 
 echo "3. 隔离安装 tarball..."
 export npm_config_prefix="$TMP_PREFIX"
-export npm_config_cache="$TMP_CACHE"
 export npm_config_foreground_scripts=true
 mkdir -p "$TMP_PREFIX" "$TMP_CACHE"
 
@@ -61,6 +61,7 @@ codex_init_output="$(
 grep -q 'new \$spec-\* skills' <<<"$codex_init_output"
 test ! -e "$CODEX_PROJECT/.codex/commands/spec"
 test -f "$CODEX_PROJECT/.agents/skills/spec-work/SKILL.md"
+test -f "$CODEX_PROJECT/.agents/skills/using-spec-first/SKILL.md"
 test ! -e "$CODEX_PROJECT/.agents/skills/claude-permissions-optimizer/SKILL.md"
 test ! -e "$CODEX_PROJECT/.agents/skills/orchestrating-swarms/SKILL.md"
 
@@ -85,6 +86,7 @@ claude_init_output="$(
 )"
 grep -q '.claude/commands/spec' <<<"$claude_init_output"
 test -f "$CLAUDE_PROJECT/.claude/commands/spec/brainstorm.md"
+test -f "$CLAUDE_PROJECT/.claude/skills/using-spec-first/SKILL.md"
 test ! -e "$CLAUDE_PROJECT/.claude/spec-first/workflows/spec-work/SKILL.md"
 
 claude_doctor_output="$(

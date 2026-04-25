@@ -112,13 +112,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 <!-- spec-first:bootstrap:start -->
 ## Workflow 入口治理（由 spec-first 管理）
 
-- 本 block 是 spec-first workflow 入口提醒；`using-spec-first` 是内部治理规则，不是用户入口
+- 本 block 是 spec-first workflow 入口提醒；`using-spec-first` 是 standalone meta skill，不是 workflow command
 - 修改文件、运行会改变状态的命令、或做架构/prompt/workflow 决策前，先判断是否应进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答
 - Claude workflow 入口使用 `/spec:*`
 - 不要把 `using-spec-first` 本身当作 command-backed workflow
 - 常见入口锚点：环境/MCP→`/spec:mcp-setup`；更新/runtime 修复→`/spec:update`；bug/失败→`/spec:debug`；代码/文档评审→`/spec:code-review`/`/spec:doc-review`；需求/计划/执行→`/spec:brainstorm`/`/spec:plan`/`/spec:work`
 - 完整选择策略、优先级和 red flags 由 spec-first 随包的 `using-spec-first` 维护；本 block 只保留启动提醒、host 入口边界和少量锚点
-- 不要直接暴露 internal-only skills：`using-spec-first`、`spec-session-inventory`、`spec-session-extract`
+- 不要直接暴露 internal-only skills：`spec-session-inventory`、`spec-session-extract`
 <!-- spec-first:bootstrap:end -->
 
 <!-- spec-first:coding-guidelines:start -->

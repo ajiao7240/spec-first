@@ -26,8 +26,8 @@ describe('using-spec-first contracts', () => {
     const skill = read(SKILL_PATH);
 
     expect(skill).toContain('name: using-spec-first');
-    expect(skill).toContain('instruction-level entry governor');
-    expect(skill).toContain('not a user-facing command');
+    expect(skill).toContain('standalone meta skill and entry governor');
+    expect(skill).toContain('not a command-backed workflow');
     expect(skill).toContain('If You Are A Subagent');
     expect(skill).toContain('substantial work');
     expect(skill).toContain('workflow-first');
@@ -46,6 +46,7 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('`using-spec-first` governs **entry routing only**');
     expect(skill).toContain('Do **not** expose internal-only skills as user entrypoints.');
     expect(skill).toContain('spec-session-inventory');
+    expect(skill).toContain('using-spec-first` itself is a standalone meta skill');
     expect(skill).toContain('/spec:update');
     expect(skill).toContain('$spec-update');
     expect(skill).toContain('/spec:doc-review');
@@ -58,20 +59,20 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('$spec-work');
   });
 
-  test('skills governance keeps using-spec-first internal-only on both hosts', () => {
+  test('skills governance exposes using-spec-first as a standalone meta skill on both hosts', () => {
     const governance = JSON.parse(read(GOVERNANCE_PATH));
 
     expect(governance.skills).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           skill_name: 'using-spec-first',
-          entry_surface: 'internal_only',
+          entry_surface: 'standalone_skill',
           command_name: null,
           host_scope: 'dual_host',
           owner_host: null,
           host_delivery: {
-            claude: 'internal',
-            codex: 'internal',
+            claude: 'skill',
+            codex: 'skill',
           },
         }),
       ]),
@@ -89,6 +90,6 @@ describe('using-spec-first contracts', () => {
     expect(codexRuntime).toContain('name: using-spec-first');
     expect(claudeRuntime).toContain('Claude workflow entrypoints use `/spec:*`');
     expect(codexRuntime).toContain('Codex workflow entrypoints use `$spec-*`');
-    expect(codexRuntime).toContain('using-spec-first` itself has no user entrypoint');
+    expect(codexRuntime).toContain('using-spec-first` itself is a standalone meta skill');
   });
 });

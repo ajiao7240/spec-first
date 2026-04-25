@@ -32,6 +32,14 @@ CRG 图索引初始化
 - **非默认但保留的对象：** 首次 onboarding、项目介绍、人类审计阅读；这些需求由显式 `--report` projection 承接，不再占用默认事实链路。
 - **不选择轻量 docs 默认入口的原因：** 即使 docs 变轻，只要它仍是默认 workflow 输入，就会继续形成第二事实层；query-first 直接把代码事实和 LLM 语义判断重新分边界。
 
+Concrete signals:
+
+- 最近几轮方案修订反复把 `docs/contexts`、`minimal-context`、`context-routing` 和 `injection-index.yaml` 从默认事实路径中移除，说明 Stage-0 docs 主链已经在架构判断中成为第二真相源风险，而不是稳定输入。
+- 评审和修复焦点持续集中在 `review-context`、blast radius、affected flows、candidate tests、direct-read fallback、`decision_input_kind` 与 `evidence[]`，而不是“生成更多 markdown 摘要”。
+- 当前旧主链需要 slug、workspace fan-out、PRD task contracts、docs generation、backup/restore、routing、selected assets 和 minimal-context 才能进入默认 workflow；这与用户“定位修改点 / 影响面”的高频任务路径不成比例。
+- `src/crg/` 已经具备 AST 图、SQLite 存储、`impact`、`review-context`、flows、communities、affected-flows 等底座；默认入口切到 query-first 是把已有代码事实能力放到用户实际决策点，而不是新增一个平行文档产品。
+- onboarding 和人类审计仍有价值，但它们的使用频率和时机更接近显式报告需求；用 `--report` 承接可以保留价值，同时避免默认 workflow 读取 stale projection。
+
 ## Planning Anchor
 
 - **Restated Understanding：** 用户希望 `skills/spec-graph-bootstrap` 能通过源码 AST 索引快速理解项目、定位潜在修改点，并在修改后估算影响范围和爆炸半径。
@@ -1073,7 +1081,7 @@ Commands:
 ```bash
 spec-first crg hook before-work [--plan=<plan.md>|--planned-surface=<surface.json>|--task="<task description>"] --repo=<target>
 spec-first crg hook after-work [--work-run=<id>|--since=<base>|--work-start-ref=<sha>|--auto-base] --repo=<target>
-spec-first crg hook before-review [--since=<base>|--auto-base] --repo=<target>
+spec-first crg hook before-review [--work-run=<id>|--since=<base>|--work-start-ref=<sha>|--auto-base] --repo=<target>
 spec-first crg hook before-plan --task="<task description>" --repo=<target>
 ```
 
@@ -1662,6 +1670,8 @@ After:
 
 ```text
 spec-first crg hook before-review --since=<base>
+  # or: spec-first crg hook before-review --work-run=<id>
+  # or: spec-first crg hook before-review --work-start-ref=<sha>
   # or: spec-first crg hook before-review --auto-base
   |
   v
@@ -2186,7 +2196,7 @@ Verification:
 
 **Goal:** 修改后可以稳定回答影响范围和验证面。
 
-**Requirements:** R4, R7
+**Requirements:** R4, R7, R11
 
 **Files:**
 
@@ -2206,13 +2216,14 @@ Verification:
 - diff 命中函数 hunk 时，`hunk_hit_nodes` 包含该函数。
 - caller 2-hop 扩展按 risk score 排序。
 - changed node 参与 flow 时，`affected_flows` 包含对应 flow。
+- `changed_nodes`、`hunk_hit_nodes`、`graph_expansion`、`affected_flows`、`candidate_tests` 每项都携带 `decision_input_kind` 与 `evidence[]`。
 - 无测试候选时输出 coverage gap / limitation。
 
 ### Unit 5: Strengthen impact as symbol blast-radius entry
 
 **Goal:** 单 symbol 影响分析输出 LLM 可直接消费的压缩面。
 
-**Requirements:** R5
+**Requirements:** R5, R11
 
 **Files:**
 
@@ -2233,6 +2244,7 @@ Verification:
 - 输入合法 symbol 返回 blast radius。
 - 输入高 fan-in symbol 返回 impacted modules。
 - 输入不在 flow 中的 symbol 返回 empty affected flows + limitation。
+- `impacted_nodes`、`impacted_modules`、`affected_flows`、`candidate_tests` 每项都携带 `decision_input_kind` 与 `evidence[]`。
 
 ### Unit 6: Add locate/path/explain queries
 
@@ -2680,6 +2692,10 @@ Step 2-7 是同一个用户可见 cutover，不应拆成多次发布。允许在
 
 - `graph-report.md` 只是 audit summary，不重新膨胀为项目知识库。
 - optional MCP 不成为 CLI-first 路径的前置依赖。
+- `graph-report.md` 和 MCP query results 必须复用 fallback suggested reads 的 sensitive / generated / self-output / runtime mirror 过滤。
+- MCP 只允许 local stdio / local transport，只读打开 graph db，不开启 remote listener，不写 `graph.db`。
+- MCP 不返回 source bodies、secret-like literals 或被过滤路径。
+- contract tests 覆盖 report/MCP 的过滤、local-only、read-only、no-source-body 和 no-secret-literal 约束。
 
 ## Success Metrics
 

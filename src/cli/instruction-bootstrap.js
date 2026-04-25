@@ -139,13 +139,13 @@ function buildZhBootstrapBody(hostId) {
 
   return `## Workflow 入口治理（由 spec-first 管理）
 
-- 本 block 是 spec-first workflow 入口提醒；\`using-spec-first\` 是内部治理规则，不是用户入口
+- 本 block 是 spec-first workflow 入口提醒；\`using-spec-first\` 是 standalone meta skill，不是 workflow command
 - 修改文件、运行会改变状态的命令、或做架构/prompt/workflow 决策前，先判断是否应进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答
 ${hostLine}
 ${surfaceLine}
 - 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`${entry('work')}\`
 - 完整选择策略、优先级和 red flags 由 spec-first 随包的 \`using-spec-first\` 维护；本 block 只保留启动提醒、host 入口边界和少量锚点
-- 不要直接暴露 internal-only skills：\`using-spec-first\`、\`spec-session-inventory\`、\`spec-session-extract\``;
+- 不要直接暴露 internal-only skills：\`spec-session-inventory\`、\`spec-session-extract\``;
 }
 
 function buildEnBootstrapBody(hostId) {
@@ -160,13 +160,13 @@ function buildEnBootstrapBody(hostId) {
 
   return `## Workflow Entry Governance (managed by spec-first)
 
-- This block is the spec-first workflow entry reminder; \`using-spec-first\` is internal governance, not a user entrypoint
+- This block is the spec-first workflow entry reminder; \`using-spec-first\` is a standalone meta skill, not a workflow command
 - Before editing files, running state-changing commands, or making architecture/prompt/workflow decisions, decide whether to enter a public spec-first workflow; lightweight Q&A and narrow factual lookups may be answered directly
 ${hostLine}
 ${surfaceLine}
 - Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`${entry('work')}\`
 - The full selection policy, priority rules, and red flags are maintained by the bundled spec-first \`using-spec-first\`; this block only keeps the startup reminder, host entrypoint boundaries, and a few anchors
-- Do not expose internal-only skills directly: \`using-spec-first\`, \`spec-session-inventory\`, \`spec-session-extract\``;
+- Do not expose internal-only skills directly: \`spec-session-inventory\`, \`spec-session-extract\``;
 }
 
 function stripStandaloneMarkerLines(content) {

@@ -78,7 +78,9 @@ for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.m
 done
 test ! -e "$TMP_DIR/.claude/spec-first/workflows"
 installed_claude_skill_count="$(find "$TMP_DIR/.claude/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
-test "$installed_claude_skill_count" = "0"
+test "$installed_claude_skill_count" = "$expected_claude_skill_count"
+test -f "$TMP_DIR/.claude/skills/using-spec-first/SKILL.md"
+grep -q '^name: using-spec-first$' "$TMP_DIR/.claude/skills/using-spec-first/SKILL.md"
 for agent in spec-repo-research-analyst.agent.md spec-session-historian.agent.md spec-slack-researcher.agent.md spec-spec-flow-analyzer.agent.md; do
   test -f "$TMP_DIR/.claude/agents/$agent"
 done
@@ -127,6 +129,8 @@ test "$installed_codex_skill_count" = "$expected_codex_total_skill_count"
 for skill in spec-plan spec-work spec-code-review spec-doc-review spec-brainstorm spec-mcp-setup spec-compound-refresh spec-work-beta; do
   test -f "$TMP_DIR/.agents/skills/$skill/SKILL.md"
 done
+test -f "$TMP_DIR/.agents/skills/using-spec-first/SKILL.md"
+grep -q '^name: using-spec-first$' "$TMP_DIR/.agents/skills/using-spec-first/SKILL.md"
 grep -q '^name: spec-work-beta$' "$TMP_DIR/.agents/skills/spec-work-beta/SKILL.md"
 grep -q '^name: spec-polish-beta$' "$TMP_DIR/.agents/skills/spec-polish-beta/SKILL.md"
 test ! -e "$TMP_DIR/.agents/skills/spec-session-inventory/SKILL.md"

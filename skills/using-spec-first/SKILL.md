@@ -1,18 +1,18 @@
 ---
 name: using-spec-first
-description: "Instruction-level entry governance for substantial work in this repo. Decide whether a request should route into a spec-first workflow before implementation, debugging, review, planning, setup, update, or knowledge work. This is internal guidance, not a user-invoked workflow."
+description: "Use before substantial work in a spec-first project. Decide whether to route into a public spec-first workflow before editing files, running state-changing commands, debugging, reviewing, planning, setup, update, or architecture/prompt/workflow decisions."
 ---
 
 # Using Spec-First
 
-`using-spec-first` is the instruction-level entry governor for `spec-first` in this repository.
+`using-spec-first` is the standalone meta skill and entry governor for `spec-first` in this repository.
 
 Its job is to decide whether the current request should enter a `spec-first` workflow, and if so, route it to the right workflow before the agent starts changing state.
 
-It is not a user-facing command, slash command, or `$spec-*` skill. It is delivered through project instructions:
+It is not a command-backed workflow, slash command, or `$spec-*` workflow. It is exposed as a standalone meta skill so host skill discovery can load the full entry policy:
 
-- Claude Code reads the managed block in `CLAUDE.md`; its SessionStart hook may re-inject that same bootstrap block.
-- Codex reads the managed block in `AGENTS.md`.
+- Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md` and also reads the managed block in `CLAUDE.md`; its SessionStart hook may re-inject that same bootstrap block.
+- Codex installs it as `.agents/skills/using-spec-first/SKILL.md` and also reads the managed block in `AGENTS.md`.
 
 It does **not** exist to force every task through brainstorming.
 
@@ -144,7 +144,7 @@ Do not chain multiple workflows automatically unless the active workflow explici
 5. Do **not** describe `using-spec-first` itself as a command-backed workflow.
 6. Do **not** write Codex entrypoints as `/spec:*`.
 7. Do **not** write Claude workflow entrypoints as `$spec-*`.
-8. Do **not** expose internal-only skills as user entrypoints. This includes `using-spec-first`, `spec-session-inventory`, and `spec-session-extract`.
+8. Do **not** expose internal-only skills as user entrypoints. This includes `spec-session-inventory` and `spec-session-extract`.
 9. Do **not** route to hidden helper skills such as git, browser, image, proof, xcode, or bug-report helpers unless a public workflow explicitly delegates to them.
 10. Do **not** run `spec-first init`, `clean`, update, or other state-changing commands just because this governor matched; first route to the appropriate workflow or ask a narrow confirmation when required.
 
@@ -166,7 +166,7 @@ These thoughts mean pause and apply the routing rules before acting:
 
 - Claude workflow entrypoints use `/spec:*`.
 - Codex workflow entrypoints use `$spec-*`.
-- `using-spec-first` itself has no user entrypoint.
+- `using-spec-first` itself is a standalone meta skill, not a `/spec:*` or `$spec-*` workflow entrypoint.
 - Internal-only skills remain source/runtime support assets, not menu items.
 
 ## Injection Behavior
@@ -175,7 +175,7 @@ If this guidance has already been injected through `CLAUDE.md`, `AGENTS.md`, or 
 - do not reload or invoke `using-spec-first` just to bootstrap yourself
 - use the appropriate public `/spec:*` or `$spec-*` workflow entrypoint when routing is needed
 - treat `skills/using-spec-first/SKILL.md` as the source-of-truth text for this routing policy
-- if the installed instruction block is missing or stale, the repair path is `spec-first init --claude` or `spec-first init --codex`, not a direct `using-spec-first` invocation
+- if the installed instruction block or standalone meta skill is missing or stale, the repair path is `spec-first init --claude` or `spec-first init --codex`
 
 ## Exit Condition
 

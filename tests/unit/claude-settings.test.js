@@ -195,7 +195,7 @@ describe('claude settings', () => {
         '<!-- spec-first:bootstrap:start -->',
         '## Workflow 入口治理（由 spec-first 管理）',
         '',
-        '- 本 block 是 spec-first workflow 入口提醒；`using-spec-first` 是内部治理规则，不是用户入口',
+        '- 本 block 是 spec-first workflow 入口提醒；`using-spec-first` 是 standalone meta skill，不是 workflow command',
         '- 修改文件、运行会改变状态的命令、或做架构/prompt/workflow 决策前，先判断是否应进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答',
         '- Claude workflow 入口使用 `/spec:*`',
         '- 不要把 `using-spec-first` 本身当作 command-backed workflow',

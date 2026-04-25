@@ -144,10 +144,10 @@ describe('dual-host governance contracts', () => {
     const bundledSupportCount = listBundledAgentSupportFiles().length;
 
     expect(readme).toContain(
-      `| **Capability layer** | Bundled source assets ship with \`${bundledSkillCount}\` skills, \`${bundledAgentCount}\` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs \`${claudeAssets.commands.length}\` commands + \`${claudeAssets.skills.length}\` standalone skills on Claude, and \`${codexAssets.workflowSkills.length}\` workflow skills on Codex, with \`${bundledAgentCount}\` agents on both hosts |`,
+      `| **Capability layer** | Bundled source assets ship with \`${bundledSkillCount}\` skills, \`${bundledAgentCount}\` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs \`${claudeAssets.commands.length}\` commands + \`${claudeAssets.skills.length}\` standalone skills on Claude, and \`${codexAssets.workflowSkills.length}\` workflow skills + \`${codexAssets.skills.length}\` standalone skills on Codex, with \`${bundledAgentCount}\` agents on both hosts |`,
     );
     expect(readmeZh).toContain(
-      `| **能力层资产** | 仓库内置源码资产共 \`${bundledSkillCount}\` 个 skills、\`${bundledAgentCount}\` 个 agents、\`${bundledSupportCount}\` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 \`${claudeAssets.commands.length}\` 个 commands + \`${claudeAssets.skills.length}\` 个 standalone skills，在 Codex 侧安装 \`${codexAssets.workflowSkills.length}\` 个 workflow skills；两侧都会安装 \`${bundledAgentCount}\` 个 agents |`,
+      `| **能力层资产** | 仓库内置源码资产共 \`${bundledSkillCount}\` 个 skills、\`${bundledAgentCount}\` 个 agents、\`${bundledSupportCount}\` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 \`${claudeAssets.commands.length}\` 个 commands + \`${claudeAssets.skills.length}\` 个 standalone skills，在 Codex 侧安装 \`${codexAssets.workflowSkills.length}\` 个 workflow skills + \`${codexAssets.skills.length}\` 个 standalone skills；两侧都会安装 \`${bundledAgentCount}\` 个 agents |`,
     );
     expect(readme).toContain(`📦 Generated ${claudeAssets.commands.length} command file(s) in .claude/commands/spec`);
     expect(readme).toContain(`🧩 Generated ${claudeAssets.skills.length} skill directory(ies) in .claude/skills`);
