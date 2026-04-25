@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.9 2026-04-26 06:15:53 Codex: docs(skills): 新增 skill 研发体系与产物映射文档，梳理 ideate/brainstorm/plan/work/review/compound/graph-bootstrap 的职责边界、需求文档/技术方案/开发任务对应关系和主要落盘产物 (user-visible)
 - v1.5.9 2026-04-26 05:46:39 Codex: feat(using-spec-first): 将 `using-spec-first` 从 internal-only 改为 Claude/Codex 双端 standalone meta skill，保持其不生成 `/spec:*` 或 `$spec-*` workflow command，同步 runtime 计数与治理契约，保留 Codex runtime 中的双端安装路径说明，并让 release governance smoke 使用隔离 npm cache、稳定 tarball 查找与无 optional native 依赖的安装路径 (user-visible)
 - v1.5.9 2026-04-26 05:20:02 Codex: docs(spec-graph-bootstrap): 修复 CRG query-first atomic cutover 计划评审发现的问题，补齐产品决策依据与 concrete signals、breaking 迁移策略、runtime mirror source-of-truth 边界、C1 安全过滤与 Stage-0 字段最小承接、`decision_input_kind` 旧字段迁移规则、planned surface sentinel handoff、C1 merge gate、work run 持久交接、最小 shrink guard、query quality 验收边界、before-review diff-base 参数一致性、R11 单元追踪和 C4 report/MCP 安全退出标准 (user-visible)
 - v1.5.9 2026-04-26 04:50:52 Codex: fix(using-spec-first): 将 AGENTS/CLAUDE bootstrap block 与 Claude SessionStart 注入文案从完整路由表收缩为短触发器、host 入口提示和高频 routing 锚点，避免与 `using-spec-first` 完整策略形成第二真相源 (user-visible)
