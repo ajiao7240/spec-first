@@ -78,10 +78,13 @@ class CodexAdapter extends PlatformAdapter {
   }
 
   transformSkillContent(content, context = {}) {
-    return rewriteSkillName(
+    const transformed = rewriteSkillName(
       transformCodexContent(rewriteSharedPaths(content)),
       codexRuntimeSkillName(context),
     );
+    return context.skillName === 'using-spec-first'
+      ? preserveUsingSpecFirstHostInstallNotes(transformed)
+      : transformed;
   }
 
   transformAgentContent(content) {
@@ -174,6 +177,13 @@ function rewriteSharedPaths(content) {
       /^(spec-first\s+(?:init|clean)\s+--codex\s+#\s*Codex runtime)\n(?:spec-first\s+(?:init|clean)\s+--codex\s+#\s*Codex runtime)$/gm,
       '$1',
     );
+}
+
+function preserveUsingSpecFirstHostInstallNotes(content) {
+  return content.replace(
+    'Claude Code installs it as `.agents/skills/using-spec-first/SKILL.md`',
+    'Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md`',
+  );
 }
 
 function transformCodexContent(content) {

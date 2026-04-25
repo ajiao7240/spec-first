@@ -91,5 +91,9 @@ describe('using-spec-first contracts', () => {
     expect(claudeRuntime).toContain('Claude workflow entrypoints use `/spec:*`');
     expect(codexRuntime).toContain('Codex workflow entrypoints use `$spec-*`');
     expect(codexRuntime).toContain('using-spec-first` itself is a standalone meta skill');
+    expect(claudeRuntime).toContain('Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md`');
+    expect(claudeRuntime).toContain('Codex installs it as `.agents/skills/using-spec-first/SKILL.md`');
+    expect(codexRuntime).toContain('Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md`');
+    expect(codexRuntime).toContain('Codex installs it as `.agents/skills/using-spec-first/SKILL.md`');
   });
 });

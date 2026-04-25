@@ -287,7 +287,7 @@ LLM
 - R19. CRG control-plane artifact 必须锚定在 `.spec-first/graph/`，与 active graph pointer 同域管理；bootstrap slug 目录只能保存可选投影或运行记录，不能成为 plan/work/review hook 查找图状态的必需条件。
 - R20. CRG query CLI 必须沿用现有 `crg-cli/v1` envelope；`locate/path/explain/impact/review-context` 的具体 payload 放入 `data`，避免为新查询创建第二套 CLI 输出协议。
 - R21. diff base 必须由共享 deterministic resolver 处理：优先显式 `--since`，其次 `--work-run` 持久 handoff 中的 `work_start_ref`，再次 workflow 显式传入的 `work_start_ref`，最后按当前 `spec-code-review` base 解析策略推导 merge-base；无法解析时返回 direct-read fallback，不直接失败。
-- R22. planned change surface 必须以机器可读 handoff 交给 `before-work`：`spec-plan` 输出 fenced JSON block 或 sidecar JSON，hook 只解析结构化 surface，不从 markdown prose 推断语义。
+- R22. planned change surface 必须以机器可读 handoff 交给 `before-work`：`spec-plan` 输出唯一 sentinel JSON block，或调用方显式传入 `--planned-surface` sidecar JSON；hook 只解析结构化 surface，不从 markdown prose 推断语义。
 
 ## Feasibility and Expected Impact
 
@@ -430,20 +430,21 @@ graph ready
 Included:
 
 - `graph-index-status.json`
-- `code-navigation.json` 最小版：`top_flows`、`top_communities`、`top_hubs`、`query_starters`
+- `code-navigation.json` 最小版：`entrypoints`、`test_roots`、`high_risk_nodes`、`top_flows`、`top_communities`、`top_hubs`、`query_starters`
 - `graph-operations.jsonl`
 - 最小状态指示：`status` 能区分 `ready` / `missing` / `degraded` / `unavailable`，`freshness.state` 能区分 `fresh` / `stale` / `unknown`
 - 最小安全过滤：fallback suggested reads 不指向 sensitive / generated / self-output / runtime mirror / Stage-0 docs 路径
 - 最小 shrink guard：异常 node/edge 收缩不静默 promote，保留 last-known-good 并写 degraded status
 - 共享 diff base resolver：显式 `--since`、`--work-run` / `work_start_ref`、merge-base 推导
 - 最小 `change_surface` contract：允许 work/review 对照计划范围与实际影响面
-- 机器可读 `planned_change_surface` handoff：`spec-plan` fenced JSON block 或 sidecar JSON，`before-work` 不解析 prose
+- 机器可读 `planned_change_surface` handoff：`spec-plan` 使用唯一 sentinel JSON block 或 `--planned-surface` sidecar，`before-work` 不解析 prose
 - `crg locate`
 - `crg path`
 - `crg explain`
-- `crg review-context` 增强：`affected_flows`、`impacted_modules`、`risk_summary`
+- `crg review-context` 增强：`affected_flows`、`impacted_modules`、`risk_summary`、`candidate_tests`
 - `crg impact` 增强：`impacted_modules`、`affected_flows`、`candidate_tests`
 - `spec-first crg workflow-context --stage=plan|work|review`
+- `workflow-context.review.verification_focus` 最小承接 `test-surface.coverage_gaps`
 - `spec-first crg hook before-plan|before-work|after-work|before-review`
 - `spec-plan` 通过 `before-plan` 生成 candidate change surface
 - `spec-work` / `spec-work-beta` 通过 `before-work` 与 `after-work` 对照计划面和实际 blast radius
@@ -642,7 +643,13 @@ inferred   图遍历、社区、命名、测试映射推断
 ambiguous  多候选、冲突证据、低分或不确定
 ```
 
-这不要求保留旧式大写 `confidence` 文本字段；实现上可以继续保留 `score` / `inference_reason` 等调试字段，但顶层消费语义统一收敛到 `decision_input_kind`。
+迁移规则：
+
+- 旧 `confidence: "Observed"` 或来自 AST / git / diff / SQLite 精确事实的条目映射为 `decision_input_kind: "observed"`。
+- 旧 `confidence: "Inferred"`、`source_tier` 指向 graph traversal / community / naming / test mapping 的条目映射为 `decision_input_kind: "inferred"`。
+- 多候选、证据冲突、低分、无法稳定映射或既有字段缺失的条目映射为 `decision_input_kind: "ambiguous"`。
+
+`confidence`、`source_tier`、`score`、`inference_reason` 只能作为 deprecated/debug 字段短期保留，不得作为 workflow consumer 的分支依据。凡是会影响 LLM 决策的 query item 都必须有 item-level `decision_input_kind` 与 `evidence[]`；`change_surface.decision_input_kind` 是对该对象的保守聚合摘要，不能替代 item-level 标签。聚合规则采用最保守口径：任一 item 为 `ambiguous` 则对象为 `ambiguous`；否则任一 item 为 `inferred` 则对象为 `inferred`；全部 observed 才能标记为 `observed`。
 
 ### 决策 10：图构建必须有异常收缩保护
 
@@ -825,8 +832,31 @@ Shape:
 Comparison rules:
 
 - `planned_change_surface` 来自 plan 或 work 前的 LLM 显式声明。
-- `spec-plan` 必须把 `planned_change_surface` 写成 fenced JSON block 或 sidecar JSON；`before-work --plan=<plan.md>` 只读取该结构化 handoff，不从 markdown prose 做语义推断。
-- `before-work` 可另接 `--planned-surface=<path>`；若 plan 中没有结构化 surface，hook 返回 `planned-surface-missing` limitation 并继续提供 direct task evidence。
+- `before-work --planned-surface=<path>` 的 sidecar JSON 优先级最高；存在该参数时不扫描 plan inline block。
+- `spec-plan` inline handoff 必须使用唯一 sentinel 包裹 JSON fenced block：
+
+~~~md
+<!-- spec-first:planned_change_surface:start -->
+```json
+{
+  "schema_version": "v1",
+  "source": "plan",
+  "files": [],
+  "symbols": [],
+  "modules": [],
+  "flows": [],
+  "evidence": [],
+  "decision_input_kind": "observed|inferred|ambiguous",
+  "limitations": []
+}
+```
+<!-- spec-first:planned_change_surface:end -->
+~~~
+
+- `before-work --plan=<plan.md>` 只读取上述 sentinel block，不从 markdown prose 做语义推断。
+- inline sentinel 必须恰好出现一组；多组返回 `planned-surface-ambiguous` limitation，缺失返回 `planned-surface-missing` limitation。
+- JSON parse 失败返回 `planned-surface-invalid-json` limitation；schema 校验失败返回 `planned-surface-invalid` limitation。
+- `planned_change_surface_hash` 基于 parse 后的 canonical JSON 计算，不包含 markdown sentinel、fenced marker 或 surrounding prose；hash 写入 `.spec-first/graph/work-runs/<run_id>.json`。
 - `actual_change_surface` 来自 `review-context` / `impact` 的 deterministic query 输出。
 - `files[]` 必须是 repo-relative canonical path；`symbols[]` 优先使用 CRG node id；`modules[]` / `flows[]` 使用稳定 module/community/flow id。
 - `normalized_*` 是脚本完成 canonicalization 后的比较输入；`unmatched_items[]` 记录无法映射的人工条目或 ambiguous entries。
@@ -1186,6 +1216,16 @@ Fallback rules:
 | `database-routing.json` | future `crg database-context` or direct-read fallback | 不进入 MVP 默认主链 |
 | `context-routing.json` | deleted | 不承接 selected asset 语义 |
 | `minimal-context/*.json` | deleted | 由 `crg workflow-context` stage payload 替代 |
+
+C1 最小承接清单：
+
+- `entrypoints`：由 CRG entrypoint detection / `crg explain` 支撑，写入 `code-navigation.json.entrypoints`；测试断言缺失时必须写 limitation，而不是静默留空。
+- `testing_surface`：写入 `code-navigation.json.test_roots`，并在 `review-context.candidate_tests` / `impact.candidate_tests` 中按 diff 或 symbol 输出候选测试。
+- `risk-signals.signals`：写入 `code-navigation.json.high_risk_nodes`，并在 `review-context.risk_summary` 中按 changed nodes 和 graph expansion 汇总。
+- `test-surface.coverage_gaps`：进入 `workflow-context.review.verification_focus`，作为 review 验证关注点，不再生成 `test-map.md`。
+- `modules` / `topology`：进入 `code-navigation.json.top_communities`、`crg impact`、`workflow-context` 的 impacted modules / affected flows。
+- `database-routing.json` 明确 deferred 到 future `crg database-context` 或 direct-read fallback；C1 不声称承接数据库语义路由。
+- 旧 prose-only module docs、public-entrypoints markdown 和 test-map markdown 明确 deferred/report-only；C1 不以 markdown 摘要作为 runtime 输入。
 
 ### Stage-0 deletion dependency map
 
@@ -1715,6 +1755,20 @@ direct-read fallback
 
 下面的 Workstream A-I 是工程施工切片，不代表可以分多次发布兼容层。实际合并策略以 `Rollout Strategy` 为准：C1 必须作为同一 cutover 合并；完整 input detection、高级 shrink health、surprise/gap signals 和 MCP 属于后续增强。
 
+### C1 Merge Gate
+
+Workstream / Unit 可以在同一实现分支内按 commit 或子 PR 施工，但任何 PR / release 不得单独合入 C1 的中间切片。C1 只有在以下硬检查同时满足时才可合并：
+
+- `src/crg/cli/router.js` 暴露 `locate`、`path`、`explain`、`workflow-context`、`hook before-plan`、`hook before-work`、`hook after-work`、`hook before-review`。
+- `spec-first --help`、plugin anchors 和 command manifest 不再列出 `stage0-context` 默认入口。
+- `spec-plan`、`spec-work`、`spec-work-beta`、`spec-code-review` 的 source skill anchors 全部指向 `crg hook ...`，不再指向 `stage0-context`、`context-routing` 或裸 `workflow-context`。
+- `rg 'stage0-context|context-routing|minimal-context|docs/contexts|injection-index.yaml'` 在默认 runtime path、source workflow anchors 和 CLI help 中不命中；允许命中迁移说明、release notes、历史文档和专门防回归测试。
+- 默认 graph bootstrap 不生成 Stage-0 docs/runtime artifacts；`--report` 只能生成人类审计投影，不作为 hook runtime 输入。
+- direct-read fallback denylist 覆盖 sensitive / generated / self-output / runtime mirror / Stage-0 docs 路径，且 fallback 不读取旧 Stage-0 docs。
+- graph unavailable 时返回 fallback envelope 和 limitations，不因 `openDb()` 或 query handler 抛错导致 workflow 退出。
+- C1 pre-merge query quality acceptance 通过 3 个历史代表任务，证明 query-first 能命中预期候选或诚实报告 limitations。
+- runtime mirror 只由 source skill / source agent / source CLI 经 `spec-first init --claude|--codex` 或对应 runtime sync 重建；合并前测试只校验 generated marker、source hash 与 drift reporting，不接受手改 mirror 作为真源。
+
 ### Consistency Cut Lines
 
 为避免方案在实现时重新膨胀，所有阶段必须遵守这些切线：
@@ -1801,7 +1855,6 @@ Goal: 先改文档和 contract，声明无兼容层的直接切换方向；runti
 Files:
 
 - Modify: `skills/spec-graph-bootstrap/SKILL.md`
-- Modify prompt mirror if present in the current runtime mirror structure
 - Modify: `skills/spec-graph-bootstrap/references/artifact-schemas.md`
 - Modify: `skills/spec-graph-bootstrap/references/phase1-crg-extraction.md`
 - Modify: `skills/spec-graph-bootstrap/references/phase1-degraded-extraction.md`
@@ -1809,9 +1862,11 @@ Files:
 - Add: `docs/contracts/spec-graph-bootstrap/graph-index-status.schema.json`
 - Add: `docs/contracts/spec-graph-bootstrap/code-navigation.schema.json`
 - Test: `tests/unit/spec-graph-bootstrap-contracts.test.js`
+- Add: `tests/unit/runtime-mirror-source-hash.test.js`
 
 Work:
 
+- 不手改 `.claude/`、`.codex/`、`.agents/` runtime mirror；source skill、source agent、source CLI 更新后，通过 `spec-first init --claude|--codex` 或对应 runtime sync 重建 mirror。
 - 在 `SKILL.md` 顶部明确新定位：`Index once, query on demand, let LLM decide`。
 - 首批改造必须先删除或标注 retired：`docs/contexts` 默认写入、`stage0-context` 默认入口、`injection-index.yaml` 默认路由、旧 Phase 2-4 docs 主链。不要等 CLI 全部实现后再改 source skill，否则用户仍会被旧主链误导。
 - 增加 Graphify-style `Map first, query precisely` 作为消费心智。
@@ -1824,7 +1879,8 @@ Work:
 
 Verification:
 
-- contract tests 证明 source skill / prompt mirror 都包含 query-first 定位和 graph truth boundary。
+- contract tests 证明 source skill 包含 query-first 定位和 graph truth boundary。
+- runtime mirror tests 只验证 generated marker、source hash 与 drift reporting；mirror 不是可编辑真源。
 - schema tests 证明新增 artifact 字段合法，并能拦住重新把 docs/context-routing 当默认事实层的回归。
 
 ### Workstream B: Input Detection and Freshness Layer
@@ -2014,12 +2070,12 @@ Files:
 - Modify: `skills/spec-work/SKILL.md`
 - Modify: `skills/spec-work-beta/SKILL.md`
 - Modify: `skills/spec-code-review/SKILL.md`
-- Modify prompt mirrors if present in the current runtime mirror structure
 - Test: `tests/unit/spec-plan-contracts.test.js`
 - Test: `tests/unit/spec-work-contracts.test.js`
 - Test: `tests/unit/spec-work-beta-contracts.test.js`
 - Test: `tests/unit/spec-code-review-contracts.test.js`
 - Test: `tests/unit/crg-work-runs.test.js`
+- Add/Modify: `tests/unit/runtime-mirror-source-hash.test.js`
 
 Work:
 
@@ -2031,13 +2087,14 @@ Work:
 - `spec-plan`：增加极薄 `before_plan` hook anchor，hook 通过 workflow-context 获取 graph status、code navigation、locate/explain/path suggested queries，再由 LLM 写 candidate change surface。
 - `spec-work` / `spec-work-beta`：增加极薄 `before_work` / `after_work` hook anchor，hook 获取 structured planned surface check、`work_run_id`、`work_start_ref`、impact 建议和 post-change `review-context`。
 - `before-work` 写 `.spec-first/graph/work-runs/<run_id>.json`，`after-work` 优先接收 `--work-run=<id>`，避免 session interruption / delegation / resume 丢失 diff base。
-- `before-work --plan=<plan.md>` 只读取 `planned_change_surface` fenced JSON block；缺失时写 `planned-surface-missing` limitation。需要外部 handoff 时使用 `--planned-surface=<path>`。
+- `before-work --plan=<plan.md>` 只读取唯一 sentinel 包裹的 `planned_change_surface` JSON block；缺失时写 `planned-surface-missing` limitation，多块写 `planned-surface-ambiguous` limitation，JSON/schema 失败写 invalid limitation。需要外部 handoff 时使用 `--planned-surface=<path>`。
 - `spec-code-review`：增加极薄 `before_review` hook anchor，hook 获取 `review-context` 摘要，以 graph expansion 和 affected flows 排序审查重点。
 - `after-work` / `before-review` 复用共享 diff base resolver；无法解析 base 时返回 fallback envelope，不让 `review-context` 直接退出。
 - `src/cli/plugin.js` 高价值 anchors 一次性从 `stage0-context ...` 改为 `crg hook ...`；需要底层事实时再由 hook 调 `workflow-context`。
 - `src/cli/index.js` 同一 cutover 删除 `stage0-context` command registration 和 help 文案；不保留 `spec-plan` 过渡窗口。
 - graph unavailable fallback 改为 direct repo reads，不再 fallback 到 Stage-0 docs。
 - 不引入全局隐式 hook、自动 prompt 注入、hook rules engine 或 hooks.yaml；只实现固定 hook CLI。
+- 不手改 `.claude/`、`.codex/`、`.agents/` runtime mirror；source skill 和 CLI anchor 更新后，通过 `spec-first init --claude|--codex` 或对应 runtime sync 重建 mirror。
 
 Verification:
 
@@ -2047,7 +2104,7 @@ Verification:
 - `before-work` 生成 work run artifact，`after-work --work-run=<id>` 能稳定解析同一 start ref。
 - planned surface 缺失时返回 limitation，不解析 markdown prose。
 - plan/work/work-beta/review anchors 全部不再包含 `stage0-context`。
-- source skill 和 prompt mirror 同步。
+- runtime mirror 测试只验证 generated marker、source hash 和 drift reporting，不把 mirror 当手改目标。
 
 ### Workstream H: Remove Stage-0 Runtime and Human Docs Default
 
@@ -2122,11 +2179,12 @@ Verification:
 **Files:**
 
 - Modify: `skills/spec-graph-bootstrap/SKILL.md`
-- Modify prompt mirror if present in the current runtime mirror structure
 - Modify: `tests/unit/spec-graph-bootstrap-contracts.test.js`
+- Add/Modify: `tests/unit/runtime-mirror-source-hash.test.js`
 
 **Approach:**
 
+- 不手改 `.claude/`、`.codex/`、`.agents/` runtime mirror；本 unit 只改 source skill 与测试，runtime 由 `spec-first init --claude|--codex` 或对应 runtime sync 重建。
 - 增加 `Core Positioning`：
   - `CRG graph index first`
   - `On-demand query over static docs`
@@ -2137,7 +2195,7 @@ Verification:
 **Test scenarios:**
 
 - source skill 包含 `graph.db is code-facts source of truth` 语义。
-- prompt mirror 与 source skill 同步。
+- runtime mirror rebuild 后带 generated marker / source hash，并能报告 source 与 mirror drift。
 - 若 source skill 仍把 `docs/contexts` 或 `stage0-context` 描述为默认入口，contract test 失败。
 
 ### Unit 2: Add graph index control-plane artifacts
@@ -2160,12 +2218,15 @@ Verification:
 - 先从已有 `crg stats` / `crg context` 结果派生。
 - 不在 artifact 内嵌全量 symbol。
 - 支持 graph unavailable 状态。
+- C1 最小承接 `entrypoints`、`test_roots`、`high_risk_nodes`、`top_communities`、`top_flows`、`query_starters`；无法派生时必须写入 limitations。
 
 **Test scenarios:**
 
 - graph ready 输出 `status=ready` 和 stats。
 - graph missing 输出 `status=missing`，capabilities false 或 degraded。
 - context 无 flows 时通过 `limitations[]` 表达，不失败。
+- compiler test 断言 `code-navigation.entrypoints`、`test_roots`、`high_risk_nodes` 存在，或有明确 limitations 解释缺失。
+- workflow/review contract test 断言 `review-context.risk_summary`、`review-context.candidate_tests` 与 `workflow-context.review.verification_focus` 能从 C1 最小字段承接。
 
 ### Unit 3: Make bootstrap default graph-ready
 
@@ -2336,21 +2397,22 @@ Verification:
 - Modify: `skills/spec-work/SKILL.md`
 - Modify: `skills/spec-work-beta/SKILL.md`
 - Modify: `skills/spec-code-review/SKILL.md`
-- Modify prompt mirrors if present in the current runtime mirror structure
 - Modify: `tests/unit/spec-plan-contracts.test.js`
 - Modify: `tests/unit/spec-work-contracts.test.js`
 - Modify: `tests/unit/spec-work-beta-contracts.test.js`
 - Modify: `tests/unit/spec-code-review-contracts.test.js`
 - Add: `tests/unit/crg-work-runs.test.js`
+- Add/Modify: `tests/unit/runtime-mirror-source-hash.test.js`
 
 **Approach:**
 
+- 不手改 `.claude/`、`.codex/`、`.agents/` runtime mirror；workflow source skill 与 CLI anchor 更新后，由 `spec-first init --claude|--codex` 或对应 runtime sync 重建。
 - `status.js` 负责 non-throwing graph readiness：检查 active graph path、native module、`graph-index-status.json`、capabilities、freshness，返回结构化状态。
 - graph unavailable 时不调用 `openDb()`、`review-context` 或 `impact` handler；直接输出 direct-read fallback envelope。
 - 为 `spec-plan` 增加 `before_plan` hook anchor；hook 内部调用 `crg workflow-context --stage=plan` 与 locate/path/explain query plan。
 - 为 `spec-work` / `spec-work-beta` 增加 `before_work` / `after_work` hook anchor；hook 内部调用 `crg workflow-context --stage=work`、返回 `work_run_id` / `work_start_ref`，并在 after-work 通过 shared diff base resolver 调用 `review-context`。
 - `before-work` 写 `.spec-first/graph/work-runs/<run_id>.json`；`after-work --work-run=<id>` 优先从该 artifact 读取 `work_start_ref`，避免中断、委派或恢复后丢失比较基准。
-- `before-work --plan=<plan.md>` 只读取 plan 中的 `planned_change_surface` fenced JSON block；也可用 `--planned-surface=<path>` 显式传入 sidecar。缺失时写 `planned-surface-missing` limitation，不从 prose 推断语义。
+- `before-work --plan=<plan.md>` 只读取 plan 中唯一 sentinel 包裹的 `planned_change_surface` JSON block；也可用 `--planned-surface=<path>` 显式传入 sidecar 且 sidecar 优先。缺失时写 `planned-surface-missing` limitation，多块写 `planned-surface-ambiguous` limitation，JSON/schema 失败写 invalid limitation，不从 prose 推断语义。
 - 为 `spec-code-review` 增加 `before_review` hook anchor；hook 内部调用 `crg workflow-context --stage=review`、shared diff base resolver 与 review-context priority rule。
 - `workflow-context` 输出统一 base envelope，并按 stage 填充最小 `stage_context`。
 - `hook` 输出统一 hook envelope，并嵌入或引用 workflow-context；hook failure 不阻塞 workflow，只返回 fallback。
@@ -2658,7 +2720,8 @@ Step 2-7 是同一个用户可见 cutover，不应拆成多次发布。允许在
 
 ### C0 Contract Exit
 
-- source skill / prompt mirror 明确 query-first、map/query split、Stage-0 runtime deletion。
+- source skill 明确 query-first、map/query split、Stage-0 runtime deletion。
+- runtime mirror 由 source 重建后带 generated marker / source hash；测试验证 drift reporting，不把 mirror 当手改目标。
 - contract test 能拦住“docs/context-routing 是默认事实层”这类回归。
 
 ### C1 Atomic Cutover Exit

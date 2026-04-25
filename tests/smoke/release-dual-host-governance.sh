@@ -23,8 +23,8 @@ echo "1. 打包 tarball..."
 cd "$REPO_ROOT"
 mkdir -p "$TARBALL_DIR" "$TMP_CACHE"
 export npm_config_cache="$TMP_CACHE"
-TARBALL="$(npm pack --pack-destination "$TARBALL_DIR" 2>&1 | tail -1)"
-TARBALL_PATH="$TARBALL_DIR/$TARBALL"
+npm pack --pack-destination "$TARBALL_DIR" >"$TMP_ROOT/pack.log" 2>&1
+TARBALL_PATH="$(find "$TARBALL_DIR" -maxdepth 1 -type f -name '*.tgz' -print -quit)"
 test -f "$TARBALL_PATH"
 echo "   tarball: $TARBALL_PATH"
 
@@ -46,7 +46,7 @@ export npm_config_prefix="$TMP_PREFIX"
 export npm_config_foreground_scripts=true
 mkdir -p "$TMP_PREFIX" "$TMP_CACHE"
 
-npm install -g "$TARBALL_PATH" >"$TMP_ROOT/install.log" 2>&1
+npm install -g --omit=optional "$TARBALL_PATH" >"$TMP_ROOT/install.log" 2>&1
 SHIM="$TMP_PREFIX/bin/spec-first"
 test -x "$SHIM"
 test -f "$TMP_PREFIX/lib/node_modules/spec-first/src/cli/contracts/dual-host-governance/skills-governance.json"
