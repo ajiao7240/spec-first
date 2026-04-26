@@ -6,9 +6,9 @@
 
 <h1>Spec-First</h1>
 
-<p><strong>A workflow CLI that feeds LLM structured, provenance-backed context at every stage of the AI coding delivery loop — and governs the full path from ideation to compound learning.</strong></p>
+<p><strong>A spec-first workflow CLI for Claude Code and Codex that turns requirements, code graph evidence, reviews, and learnings into explicit LLM decision inputs.</strong></p>
 
-<p>Open-source for <strong>Claude Code</strong> and <strong>Codex</strong>. Install once, govern the full delivery loop.</p>
+<p>Install once, then run the same governed delivery loop across <strong>Claude Code</strong> and <strong>Codex</strong>.</p>
 
 <p>
   <a href="#quick-start"><strong>Quick Start</strong></a>
@@ -45,14 +45,14 @@
 
 ## Why Spec-First
 
-Most AI coding failures come from degraded LLM decision inputs, not weak models:
+Most AI coding failures come from degraded LLM decision inputs, not weak models. Spec-First keeps the deterministic work in scripts and the semantic decisions with the LLM:
 
 | Problem | How spec-first addresses it | Enforcement |
 |---------|----------------------------|-------------|
-| LLM starts from a blank-slate codebase context | `graph-bootstrap` builds the CRG graph index and exposes query-first evidence (`locate`, `impact`, `review-context`, lifecycle hooks) | CRG readiness + runtime workflow contract |
+| LLM starts from a blank-slate codebase context | `graph-bootstrap` builds the CRG graph index and exposes query-first evidence (`locate`, `path`, `explain`, `impact`, `review-context`, lifecycle hooks) | CRG readiness + runtime workflow contract |
 | Requirements are never made explicit | Brainstorm stage produces a requirements artifact consumed by Plan | `SKILL.md` contract |
 | Plans drift from implementation | Plan artifact is a first-class Work input, and Review Stage 2b cross-checks the **Requirements Trace** against the diff | `SKILL.md` contract |
-| Reviews are unstructured | **17 reviewer personas** (always-on + cross-cutting + stack-specific) plus 2 spec-first auxiliary agents, routed by `safe_auto / gated_auto / manual / advisory` | `SKILL.md` contract |
+| Reviews are unstructured | `spec-code-review` uses 17 reviewer personas plus 2 auxiliary agents, routed by `safe_auto / gated_auto / manual / advisory` | `SKILL.md` contract |
 | Solved problems are not reused | Compound writes structured learnings to `docs/solutions/` with YAML frontmatter for future retrieval | `SKILL.md` contract |
 
 **Suited for:**
@@ -94,12 +94,14 @@ Spec-First upgrades **what the LLM receives as decision input** — it does not 
 **graph-bootstrap — the CRG evidence foundation**
 
 ```text
-Codebase → CRG graph index → graph-index-status + code-navigation
+Codebase → CRG graph index → graph-index-status + code-navigation + repo-topology
         → locate / path / explain / impact / review-context
         → workflow hooks provide advisory evidence
 ```
 
 `graph-bootstrap` prepares deterministic graph facts before planning, work, or review. It does not decide what to change; it gives the LLM low-noise evidence and explicit limitations.
+
+Workspace roots are handled as a preflight layer. If Claude or Codex is opened in a parent directory that contains multiple independent git repos, `crg workspace scan/status/context` writes `.spec-first/workspace/workspace-index.json`, `workspace-status.json`, and advisory context. The LLM/user chooses the child repo boundary, then runs repo-local `crg build` or hooks. The parent workspace never gets a merged `graph.db`, and `workspace build` only builds one explicit child repo at a time.
 
 **Main workflow — the delivery loop**
 
@@ -109,16 +111,36 @@ Ideate → Brainstorm → Plan → Work → Review → Compound
 
 This solves "how does a requirement get AI-engineered end-to-end?" Every stage has explicit input artifacts, output artifacts, and a stage-gate contract.
 
-### Which bootstrap should I run?
+### Evidence and knowledge entrypoints
 
 | Entrypoint | When to use | Produces | Stability |
 |------------|-------------|----------|-----------|
-| `/spec:graph-bootstrap` · `$spec-graph-bootstrap` | You want CRG graph-backed query evidence for planning, work, and review | `.spec-first/graph/graph.db`, `graph-index-status.json`, `code-navigation.json`, `graph-operations.jsonl` | **Primary CRG entry** |
-| `/spec:compound` · `$spec-compound` | You want broader knowledge capture and reusable context synthesis | Context synthesis docs and reusable knowledge artifacts | **Complementary knowledge path** |
+| `/spec:graph-bootstrap` · `$spec-graph-bootstrap` | You want CRG graph-backed query evidence for planning, work, and review | `.spec-first/graph/graph.db`, `graph-index-status.json`, `code-navigation.json`, `repo-topology.json`, `graph-operations.jsonl`; workspace roots use `.spec-first/workspace/*` | **Primary CRG entry** |
+| `/spec:compound` · `$spec-compound` | You finished or rediscovered a reusable solution and want it available to future workflows | `docs/solutions/**/*.md` structured learning docs | **Complementary knowledge path** |
 
 These are installed host workflow entrypoints generated by `spec-first init`, not root `spec-first` subcommands.
 
 Graph bootstrap reads the host readiness ledger when available. If MCP setup was skipped or the host was not restarted, it reports explicit guidance; when CRG is unavailable, workflows fall back to targeted direct repo reads instead of stale generated summaries.
+
+### Repository Shapes
+
+| Shape | Support model |
+|-------|---------------|
+| Parent workspace with multiple independent git repos | Parent-level `workspace-index.json` / `workspace-status.json` / advisory context, independent child CRG graphs under each child repo. Multi-child tasks are decomposed into explicit repo-local runs. |
+| Single git repo with multiple modules | One repo-local CRG graph plus advisory `repo-topology.json` module units. Maven reactor modules are detected by the current topology pass. |
+| Single git repo single project | Existing repo-local CRG build/hook flow. |
+
+### Current Upgrade Highlights
+
+This release line replaces the older Stage-0 / generated-summary path with a smaller CRG-first control plane:
+
+| Upgrade | What changed |
+|---------|--------------|
+| CRG query-first runtime | `locate`, `path`, `explain`, `workflow-context`, and lifecycle `hook` commands now give workflows graph evidence directly instead of asking them to consume stale generated summaries. |
+| Workspace topology | Parent workspaces get discovery/status/context artifacts only; repo-local `graph.db` files stay under explicit child repos. |
+| Task-pack handoff | `spec-write-tasks` is a standalone skill that can derive `docs/tasks/*-tasks.md` from a settled plan; `spec-work` validates task-pack identity, source hash, and `stop_if` before execution. |
+| Entry governance | `using-spec-first` is a standalone meta skill on both hosts. It routes substantial work to public `$spec-*` / `/spec:*` workflows without becoming a workflow command itself. |
+| Runtime delivery | Claude and Codex expose the same 20 workflow entrypoints plus 2 standalone skills, with host-specific installation surfaces and shared agent assets. |
 
 ### CRG Decision Signals
 
@@ -176,7 +198,7 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 | **CRG graph engine** (`spec-first crg *`) | **Code Review Graph** — an embedded Node.js runtime over SQLite + FTS5, covering AST → symbols → resolved edges → PageRank flows → community detection → surprising-connections → god-nodes → review-context |
 | **graph-bootstrap query engine** | LLM gets graph-backed candidate change surface and blast-radius evidence instead of a raw codebase |
 | **Full workflow layer** | Ideate → Brainstorm → Plan → Work → Review → Compound, every stage with an explicit artifact contract |
-| **17-persona Review stage** (+ 2 specialist agents) | Produces structured findings routed by `safe_auto / gated_auto / manual / advisory`, not a single-pass scan |
+| **Structured Review stage** | 17 reviewer personas plus 2 auxiliary agents produce routed findings (`safe_auto / gated_auto / manual / advisory`), not a single-pass scan |
 | **Compound / knowledge capture** | Solved problems are written to `docs/solutions/` for future workflow retrieval |
 | **Dual platform support** | One methodology across Claude Code (`/spec:*`) and Codex (`$spec-*`). Claude uses a `SessionStart` hook + bare-agent rewrite; Codex uses `.agents/skills/` discovery + explicit `.codex/agents/...` path rewrite |
 | **Capability layer** | Bundled source assets ship with `42` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `20` commands + `2` standalone skills on Claude, and `20` workflow skills + `2` standalone skills on Codex, with `51` agents on both hosts |
@@ -324,7 +346,8 @@ $ spec-first init --claude
 |------|-------------|-------|
 | Install MCP tools | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | Restart host | restart Claude Code | restart Codex |
-| Build graph evidence | `/spec:graph-bootstrap` or `/spec:compound` | `$spec-graph-bootstrap` or `$spec-compound` |
+| Build graph evidence | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
+| Capture reusable learnings when useful | `/spec:compound` | `$spec-compound` |
 | Start the workflow | `/spec:ideate` → `/spec:brainstorm` → `/spec:plan` → `/spec:work` → `/spec:code-review` → `/spec:compound` | `$spec-ideate` → … → `$spec-compound` |
 
 `graph-bootstrap` checks host readiness and CRG availability at startup. If graph evidence is unavailable, later workflows continue with explicit direct-read fallback.
@@ -351,7 +374,7 @@ $ spec-first init --claude
 │  Enforcement: SKILL.md contracts (LLM-followed)              │
 ├──────────────────────────────────────────────────────────────┤
 │  Capability Layer — agents (6 categories)                    │
-│  review/ (17 reviewer personas + auxiliary agents)                  │
+│  review/ (17 reviewer personas + auxiliary agents)           │
 │  spec-doc-review/ (requirements / plan persona review)       │
 │  research/ (session / doc / Feishu / web context readers)    │
 │  design/ (UI / design-lens agents)                           │
@@ -380,6 +403,8 @@ An embedded Code Review Graph runtime over SQLite + FTS5.
 ```bash
 spec-first crg --help
 spec-first crg build --repo .
+spec-first crg workspace context --root . --task "change api"
+spec-first crg workspace build --root . --repo <child-slug-or-path>
 spec-first crg hook before-work --repo . --plan <plan.md>
 spec-first crg review-context --repo . --since <ref>
 ```
@@ -396,6 +421,7 @@ spec-first crg review-context --repo . --since <ref>
 | `explain` | Explain a node or file with neighbors and evidence |
 | `workflow-context` | Emit stage-specific graph status and recommended queries |
 | `hook` | Emit lifecycle envelopes for plan, work, after-work, and review |
+| `workspace` | `scan`, `status`, `context`, or selected-child `build` for parent workspaces; never auto-selects a semantic target repo and does not support `--all` build |
 | `large-functions` | Find functions above a size threshold |
 | `search` | FTS5 full-text search across symbols / files |
 | `flows` | PageRank + BFS flow detection |
@@ -408,7 +434,7 @@ spec-first crg review-context --repo . --since <ref>
 | `review-context` | Compose a review context bundle from a diff |
 | `postprocess` | Recompute communities, flows, graph analysis, and FTS after a build or incremental refresh |
 
-All subcommands accept `--repo=<path>`. The full list is whatever `spec-first crg --help` prints for the installed version.
+Most repo-local subcommands accept `--repo=<path>`. `workspace` uses `--root=<workspace>`, optional `--task=<text>` / `--changed-file=<path>` signals for context scoring, and `--repo=<child-slug-or-path>` only for selected-child build. The full list is whatever `spec-first crg --help` prints for the installed version.
 
 ## Documentation
 

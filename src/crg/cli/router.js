@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-// CRG 支持的子命令（17 个对外命令 + postprocess 管理命令）
+// CRG 支持的 repo-local 查询命令、workspace preflight 命令与 postprocess 管理命令
 const SUBCOMMANDS = [
   'build',
   'stats',
@@ -27,6 +27,7 @@ const SUBCOMMANDS = [
   'explain',
   'workflow-context',
   'hook',
+  'workspace',
   'postprocess',
 ];
 
@@ -55,6 +56,7 @@ const HANDLER_MAP = {
   'explain':               '../commands/explain',
   'workflow-context':      '../commands/workflow-context',
   'hook':                  '../commands/hook',
+  'workspace':             '../commands/workspace',
   'postprocess':           './postprocess',
 };
 
@@ -130,8 +132,8 @@ function run(args) {
     process.exit(1);
   }
 
-  // --repo 路径验证（若有）
-  const resolvedRepo = resolveRepoArg(args.slice(1));
+  // workspace build 的 --repo 允许 child slug，由 workspace handler 自行解析。
+  const resolvedRepo = subCmd === 'workspace' ? null : resolveRepoArg(args.slice(1));
 
   // 重新组装传给 handler 的 argv（将 --repo 替换为绝对路径）
   let handlerArgs = args.slice(1);

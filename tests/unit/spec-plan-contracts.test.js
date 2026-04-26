@@ -27,6 +27,9 @@ describe('spec-plan CRG hook contract', () => {
   test('uses a thin before-plan CRG anchor and preserves LLM decision boundary', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     expect(text).toContain('spec-first crg hook before-plan');
+    expect(text).toContain('spec-first crg workspace context');
+    expect(text).toContain('LLM/user choose the child repo boundary');
+    expect(text).toContain('decompose it into explicit sequential repo-local plans/runs');
     expect(text).toContain('LLM still selects the candidate change surface');
     expect(text).toContain('direct repo reads');
     expect(text).not.toContain('stage0-context');

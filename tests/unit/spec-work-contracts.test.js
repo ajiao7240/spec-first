@@ -10,6 +10,9 @@ describe('spec-work CRG hook contract', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     expect(text).toContain('spec-first crg hook before-work --plan=<plan.md>');
     expect(text).toContain('spec-first crg hook before-work --task-pack=<tasks.md>');
+    expect(text).toContain('spec-first crg workspace context');
+    expect(text).toContain('require an explicit child repo choice');
+    expect(text).toContain('decompose into explicit sequential repo-local work runs');
     expect(text).toContain('spec-first crg hook after-work --work-run=<id>');
     expect(text).toContain('Hook output is advisory context');
     expect(text).not.toContain('stage0-context');

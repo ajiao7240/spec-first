@@ -1,7 +1,7 @@
 {
   "schema_version": "code-navigation/v1",
-  "generated_at": "2026-04-26T12:12:18.377Z",
-  "generation_id": "20260426121218255",
+  "generated_at": "2026-04-26T15:23:28.892Z",
+  "generation_id": "20260426152328750",
   "entrypoints": [
     {
       "id": "src/crg/communities.js#function#writeCommunities#L78",
@@ -10,7 +10,7 @@
       "kind": "function"
     },
     {
-      "id": "src/crg/cli/build.js#function#runBuildAsync#L301",
+      "id": "src/crg/cli/build.js#function#runBuildAsync#L302",
       "name": "runBuildAsync",
       "file_path": "src/crg/cli/build.js",
       "kind": "function"
@@ -64,7 +64,7 @@
       "kind": "function"
     },
     {
-      "id": "src/crg/cli/build.js#function#runBuildAsync#L301",
+      "id": "src/crg/cli/build.js#function#runBuildAsync#L302",
       "name": "runBuildAsync",
       "file_path": "src/crg/cli/build.js",
       "kind": "function"
@@ -122,12 +122,12 @@
     {
       "community_id": "tests",
       "label": "tests",
-      "file_count": 72
+      "file_count": 78
     },
     {
       "community_id": "crg/0",
       "label": "crg/0",
-      "file_count": 44
+      "file_count": 60
     },
     {
       "community_id": "cli",
@@ -147,38 +147,38 @@
   ],
   "top_flows": [
     {
-      "flow_id": "flow:src/crg/commands/review-context.js#function#run#L116:54",
+      "flow_id": "flow:src/crg/commands/workflow-context.js#function#run#L6:65",
+      "entry_node": "src/crg/commands/workflow-context.js#function#run#L6",
+      "name": "run",
+      "criticality": 0.75,
+      "node_count": 20
+    },
+    {
+      "flow_id": "flow:src/crg/commands/review-context.js#function#run#L116:62",
       "entry_node": "src/crg/commands/review-context.js#function#run#L116",
       "name": "run",
       "criticality": 0.7424999999999999,
       "node_count": 20
     },
     {
-      "flow_id": "flow:src/crg/commands/detect-changes.js#function#run#L23:48",
+      "flow_id": "flow:src/crg/commands/detect-changes.js#function#run#L23:52",
       "entry_node": "src/crg/commands/detect-changes.js#function#run#L23",
       "name": "run",
       "criticality": 0.7374999999999999,
       "node_count": 19
     },
     {
-      "flow_id": "flow:src/crg/cli/postprocess.js#function#run#L87:41",
+      "flow_id": "flow:src/crg/cli/postprocess.js#function#run#L87:45",
       "entry_node": "src/crg/cli/postprocess.js#function#run#L87",
       "name": "run",
       "criticality": 0.735,
       "node_count": 20
     },
     {
-      "flow_id": "flow:src/crg/cli/context.js#function#run#L41:40",
-      "entry_node": "src/crg/cli/context.js#function#run#L41",
-      "name": "run",
-      "criticality": 0.7275,
-      "node_count": 20
-    },
-    {
-      "flow_id": "flow:src/cli/index.js#function#runCli#L9:23",
-      "entry_node": "src/cli/index.js#function#runCli#L9",
-      "name": "runCli",
-      "criticality": 0.7124999999999999,
+      "flow_id": "flow:src/crg/hooks/after-work.js#function#runHook#L7:68",
+      "entry_node": "src/crg/hooks/after-work.js#function#runHook#L7",
+      "name": "runHook",
+      "criticality": 0.735,
       "node_count": 20
     }
   ],

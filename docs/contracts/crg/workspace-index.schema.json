@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CRG Workspace Index",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "workspace_root",
+    "generated_at",
+    "scope",
+    "root_fingerprint",
+    "children",
+    "ignored_candidates",
+    "stale_entries",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "workspace-index/v1"
+    },
+    "workspace_root": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "object",
+      "required": ["source", "include_roots", "exclude_globs", "max_depth"],
+      "properties": {
+        "source": {
+          "enum": ["workspace_config", "fallback_bounded_scan"]
+        },
+        "include_roots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exclude_globs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "max_depth": {
+          "type": "integer"
+        }
+      }
+    },
+    "root_fingerprint": {
+      "type": "object",
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": {
+          "const": "workspace-discovery/v1"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "children": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "slug",
+          "repo_root",
+          "git_root",
+          "relative_path",
+          "relationship",
+          "candidate",
+          "signals",
+          "limitations"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "repo_root": {
+            "type": "string"
+          },
+          "git_root": {
+            "type": "string"
+          },
+          "relative_path": {
+            "type": "string"
+          },
+          "relationship": {
+            "enum": ["root_repo", "nested_independent_repo", "submodule", "worktree"]
+          },
+          "candidate": {
+            "type": "boolean"
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "message"],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ignored_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "stale_entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slug", "repo_root", "signals", "limitations"],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "repo_root": {
+            "type": "string"
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "message"],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

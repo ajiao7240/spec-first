@@ -9,6 +9,9 @@ describe('spec-work-beta CRG hook contract', () => {
   test('reuses stable spec-work CRG work anchors for delegate context', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     expect(text).toContain('spec-first crg hook before-work --plan=<plan.md>');
+    expect(text).toContain('spec-first crg workspace context');
+    expect(text).toContain('explicitly chosen child repo boundary');
+    expect(text).toContain('Multi-child work must be decomposed into sequential repo-local runs');
     expect(text).toContain('spec-first crg hook after-work --work-run=<id>');
     expect(text).toContain('Pass the returned work-run id');
     expect(text).not.toContain('stage0-context');

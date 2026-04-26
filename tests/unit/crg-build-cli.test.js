@@ -3,6 +3,7 @@
 describe('crg build/stats cli', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+    jest.resetModules();
   });
 
   test('build 会删除已被输入收敛排除的历史节点路径', async () => {

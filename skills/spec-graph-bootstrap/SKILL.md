@@ -10,7 +10,7 @@ description: "Build and verify the local CRG graph index, then hand workflows qu
 ```text
 source files
   -> spec-first crg build
-  -> graph-index-status.json + code-navigation.json + graph-operations.jsonl
+  -> graph-index-status.json + code-navigation.json + repo-topology.json + graph-operations.jsonl
   -> locate / path / explain / impact / review-context / lifecycle hooks
   -> LLM reads evidence and decides
 ```
@@ -29,6 +29,25 @@ $spec-graph-bootstrap [target-repo-path]
 ```
 
 `target-repo-path` 省略时使用当前工作目录。宿主 workflow 入口是 `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap`；package CLI 入口是 `spec-first crg <subcommand>`，不是 `spec-first graph-bootstrap`。
+
+## Workspace Root Handling
+
+如果 target 是父目录 workspace（父目录下有多个独立 git repo），先运行 workspace preflight，而不是对父目录执行 repo-local build：
+
+```bash
+spec-first crg workspace scan --root=<workspace>
+spec-first crg workspace status --root=<workspace>
+spec-first crg workspace context --root=<workspace> --task="<task>"
+```
+
+workspace 层只生成 `.spec-first/workspace/workspace-index.json` 和 `workspace-status.json` 这类轻量事实；不得创建父目录 `.spec-first/graph/graph.db`。`workspace context` 的 candidates 是 advisory input，LLM/user 选择 child repo 后，才运行 repo-local 命令：
+
+```bash
+spec-first crg workspace build --root=<workspace> --repo=<child-slug-or-path>
+spec-first crg hook before-plan --repo=<child-repo> --task="<task>"
+```
+
+如果任务跨多个 child repos，先拆成显式的顺序 repo-local runs；Phase 1 不执行一个隐藏的 combined workspace work-run。
 
 ## Phase 0: Target And Readiness
 
@@ -69,6 +88,7 @@ spec-first crg build --repo=<target>
 ```text
 .spec-first/graph/graph-index-status.json
 .spec-first/graph/code-navigation.json
+.spec-first/graph/repo-topology.json
 .spec-first/graph/graph-operations.jsonl
 ```
 

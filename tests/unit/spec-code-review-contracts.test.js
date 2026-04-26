@@ -10,6 +10,9 @@ describe('spec-code-review CRG hook contract', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     expect(text).toContain('spec-first crg hook before-review --since=<base>');
     expect(text).toContain('spec-first crg hook before-review --work-run=<id>');
+    expect(text).toContain('spec-first crg workspace context');
+    expect(text).toContain('choose the child repo review boundary');
+    expect(text).toContain('Multi-child reviews must be decomposed');
     expect(text).toContain('prioritize review, not to replace reviewer judgment');
     expect(text).not.toContain('stage0-context');
     expect(text).not.toContain('selected_assets');

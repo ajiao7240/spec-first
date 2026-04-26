@@ -1,0 +1,9 @@
+{
+  "schema_version": "crg-work-run/v1",
+  "run_id": "work-20260426151536793",
+  "generated_at": "2026-04-26T15:15:36.793Z",
+  "work_start_ref": "1d4131a06348ff9c6568c74b329edb31f2bfa111",
+  "plan": null,
+  "task_pack": null,
+  "planned_surface_source": "none"
+}

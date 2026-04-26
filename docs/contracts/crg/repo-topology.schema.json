@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CRG Repo Topology",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "repo_root",
+    "generated_at",
+    "kind",
+    "detectors",
+    "units",
+    "signals",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "repo-topology/v1"
+    },
+    "repo_root": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "kind": {
+      "enum": ["single_repo", "monorepo_multi_module"]
+    },
+    "detectors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "path", "detector", "exists", "signals", "limitations"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "detector": {
+            "type": "string"
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "message"],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "signals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

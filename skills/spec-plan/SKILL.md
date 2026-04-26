@@ -16,7 +16,7 @@ This workflow produces a durable implementation plan. It does **not** implement 
 
 ## CRG Planning Anchor
 
-When a CRG graph is available, start planning with `spec-first crg hook before-plan --task="<task>" --repo=<repo>`. Treat the hook envelope, `locate` / `path` / `explain` recommendations, evidence, and limitations as decision inputs only; the LLM still selects the candidate change surface. If the hook reports unavailable or degraded graph state, continue with direct repo reads instead of falling back to Stage-0 docs.
+When a CRG graph is available, start planning with `spec-first crg hook before-plan --task="<task>" --repo=<repo>`. If opened at a parent workspace root, run `spec-first crg workspace context --root=<workspace> --task="<task>"` first, treat its candidates as advisory, let the LLM/user choose the child repo boundary, then run the repo-local `before-plan` hook for that child. Treat the hook envelope, `locate` / `path` / `explain` recommendations, repo topology, evidence, and limitations as decision inputs only; the LLM still selects the candidate change surface. If a workspace task spans multiple child repos, decompose it into explicit sequential repo-local plans/runs instead of one combined workspace run. If the hook reports unavailable or degraded graph state, continue with direct repo reads instead of falling back to Stage-0 docs.
 
 ## Interaction Method
 

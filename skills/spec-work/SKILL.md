@@ -14,7 +14,7 @@ This command takes a work document (plan, task pack, or specification) or a bare
 
 ## CRG Work Anchors
 
-When a CRG graph is available, use `spec-first crg hook before-work --plan=<plan.md> --repo=<repo>` before implementation, or `spec-first crg hook before-work --task-pack=<tasks.md> --repo=<repo>` when executing a derived task pack. After implementation, use `spec-first crg hook after-work --work-run=<id> --repo=<repo>` or pass an explicit base with `--since=<base>`. Hook output is advisory context for comparing planned surface and actual blast radius; it must not override the plan or replace LLM judgment. If graph state is unavailable, continue with targeted direct repo reads and do not read old Stage-0 docs as fallback.
+When a CRG graph is available, use `spec-first crg hook before-work --plan=<plan.md> --repo=<repo>` before implementation, or `spec-first crg hook before-work --task-pack=<tasks.md> --repo=<repo>` when executing a derived task pack. If opened at a parent workspace root, first run `spec-first crg workspace context --root=<workspace> --task="<task>"`; require an explicit child repo choice from the advisory candidates before editing files or running repo-local hooks. For multi-child tasks, decompose into explicit sequential repo-local work runs; do not create one hidden combined workspace work-run. After implementation, use `spec-first crg hook after-work --work-run=<id> --repo=<repo>` or pass an explicit base with `--since=<base>`. Hook output is advisory context for comparing planned surface and actual blast radius; it must not override the plan or replace LLM judgment. If graph state is unavailable, continue with targeted direct repo reads and do not read old Stage-0 docs as fallback.
 
 ## Input Document
 

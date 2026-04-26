@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CRG Workspace Context",
+  "type": "object",
+  "required": [
+    "workspace_root",
+    "task",
+    "generated_from_status",
+    "scope",
+    "candidates",
+    "advisory_policy",
+    "multi_child_policy",
+    "stale_entries",
+    "limitations"
+  ],
+  "properties": {
+    "workspace_root": {
+      "type": "string"
+    },
+    "task": {
+      "type": ["string", "null"]
+    },
+    "generated_from_status": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "object"
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "slug",
+          "repo_root",
+          "relative_path",
+          "relationship",
+          "readiness",
+          "score",
+          "signals",
+          "limitations",
+          "recommended_commands"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "repo_root": {
+            "type": "string"
+          },
+          "relative_path": {
+            "type": "string"
+          },
+          "relationship": {
+            "enum": ["root_repo", "nested_independent_repo", "submodule", "worktree"]
+          },
+          "readiness": {
+            "enum": ["ready", "missing", "degraded", "unavailable"]
+          },
+          "score": {
+            "type": "number"
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "message"],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "recommended_commands": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "advisory_policy": {
+      "type": "string"
+    },
+    "multi_child_policy": {
+      "type": "string"
+    },
+    "stale_entries": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

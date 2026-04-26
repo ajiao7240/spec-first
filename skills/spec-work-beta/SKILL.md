@@ -17,7 +17,7 @@ This command takes a work document (plan, task pack, or specification) or a bare
 
 ## CRG Work Anchors
 
-When a CRG graph is available, reuse the same `spec-first crg hook before-work --plan=<plan.md> --repo=<repo>` / `--task-pack=<tasks.md>` and `spec-first crg hook after-work --work-run=<id> --repo=<repo>` envelope as stable `spec-work`. Pass the returned work-run id, planned surface summary, impact hints, evidence, and limitations to delegates as shared decision input. Hook output is advisory; delegates still inspect source and the orchestrator decides whether blast-radius expansion is acceptable.
+When a CRG graph is available, reuse the same `spec-first crg hook before-work --plan=<plan.md> --repo=<repo>` / `--task-pack=<tasks.md>` and `spec-first crg hook after-work --work-run=<id> --repo=<repo>` envelope as stable `spec-work`. If opened at a parent workspace root, run `spec-first crg workspace context --root=<workspace> --task="<task>"` first and pass only the explicitly chosen child repo boundary into repo-local hooks and delegate prompts. Multi-child work must be decomposed into sequential repo-local runs; do not ask delegates to act on one combined workspace graph. Pass the returned work-run id, planned surface summary, impact hints, evidence, repo topology, and limitations to delegates as shared decision input. Hook output is advisory; delegates still inspect source and the orchestrator decides whether blast-radius expansion is acceptable.
 
 ## Input Document
 

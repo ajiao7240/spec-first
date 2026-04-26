@@ -15,7 +15,7 @@
     "test:smoke": "bash tests/smoke/install-local.sh && bash tests/smoke/cli.sh",
     "test:integration": "npx jest tests/integration/verification-gate.integration.test.js --runInBand && bash tests/integration/e2e.sh",
     "test:ai-dev:gate": "node scripts/run-ai-dev-quality-gate.js",
-    "test:e2e:crg": "bash tests/e2e/crg-all-commands.sh && bash tests/e2e/crg-sqlite-audit.sh",
+    "test:e2e:crg": "bash tests/e2e/crg-all-commands.sh && bash tests/e2e/crg-sqlite-audit.sh && bash tests/e2e/crg-workspace-mainline.sh",
     "test": "npm run test:unit && npm run test:smoke && npm run test:integration && npm run test:e2e:crg",
     "test:jest": "jest",
     "test:release": "npm run test:release:governance && npm run test:release:install",

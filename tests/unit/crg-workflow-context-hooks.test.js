@@ -49,4 +49,42 @@ describe('crg workflow-context and hooks', () => {
     expect(payload.data.hook_id).toBe('before_plan');
     expect(payload.data.candidate_surface_policy).toContain('LLM selects');
   });
+
+  test('workflow-context includes repo-local topology as advisory decision input when available', () => {
+    jest.dontMock('../../src/crg/workflow-context/stage');
+    jest.isolateModules(() => {
+      jest.doMock('../../src/crg/workflow-context/status', () => ({
+        buildGraphStatus: () => ({
+          state: 'ready',
+          limitations: [],
+        }),
+      }));
+      jest.doMock('../../src/crg/workflow-context/navigation', () => ({
+        readCodeNavigation: () => ({
+          source: 'artifact',
+          limitations: [],
+        }),
+        buildRecommendedQueries: () => [],
+      }));
+      jest.doMock('../../src/crg/topology/modules', () => ({
+        readRepoTopology: () => ({
+          source: 'artifact',
+          kind: 'monorepo_multi_module',
+          units: [{ id: 'maven:service-a', path: 'service-a' }],
+          limitations: [],
+        }),
+      }));
+
+      const { buildWorkflowContext } = require('../../src/crg/workflow-context/stage');
+      const context = buildWorkflowContext({ repoRoot: '/repo', stage: 'plan' });
+
+      expect(context.repo_topology.kind).toBe('monorepo_multi_module');
+      expect(context.decision_inputs).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'repo_topology',
+          decision_input_kind: 'observed',
+        }),
+      ]));
+    });
+  });
 });

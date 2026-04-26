@@ -1,8 +1,8 @@
 {
-  "generation_id": "20260426121218255",
-  "db_path": ".spec-first/graph/generations/20260426121218255/graph.db",
-  "promoted_at": "2026-04-26T12:12:18.370Z",
+  "generation_id": "20260426152328750",
+  "db_path": ".spec-first/graph/generations/20260426152328750/graph.db",
+  "promoted_at": "2026-04-26T15:23:28.885Z",
   "status": "healthy",
-  "node_count": 765,
-  "edge_count": 1923
+  "node_count": 843,
+  "edge_count": 2137
 }

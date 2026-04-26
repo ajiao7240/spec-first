@@ -19,6 +19,7 @@ const {
   resolveGraphDir,
   resolveGraphDb,
   resolveGraphInputFingerprints,
+  resolveRepoTopology,
 } = require('../artifact-paths');
 const {
   buildGenerationId,
@@ -542,6 +543,7 @@ async function runBuildAsync(argv) {
       };
     const { assessGenerationHealth } = require('../generations/health');
     const { promoteGeneration } = require('../generations/promote');
+    const { detectRepoTopology, writeRepoTopology } = require('../topology/modules');
     const health = assessGenerationHealth({
       dbPath,
       nodeCount,
@@ -553,6 +555,7 @@ async function runBuildAsync(argv) {
         reason: health.reason,
       });
     }
+    const repoTopology = writeRepoTopology(repoRoot, detectRepoTopology(repoRoot));
 
     const envelope = makeEnvelope(repoRoot, {
       generation_id: generationId,
@@ -570,6 +573,11 @@ async function runBuildAsync(argv) {
       },
       last_build_unresolved_samples: lastBuildUnresolvedSnapshot.samples,
       build_quality: quality,
+      topology: {
+        kind: repoTopology.kind,
+        unit_count: repoTopology.units.length,
+        artifact_path: resolveRepoTopology(repoRoot),
+      },
     }, { warnings, degraded: hasParserDegradation || !health.healthy });
 
     if (health.healthy) {

@@ -4,6 +4,7 @@ const path = require('node:path');
 const { buildGraphStatus } = require('./status');
 const { buildRecommendedQueries, readCodeNavigation } = require('./navigation');
 const { filterSuggestedReads } = require('./suggested-reads-filter');
+const { readRepoTopology } = require('../topology/modules');
 
 const VALID_STAGES = new Set(['plan', 'work', 'review']);
 
@@ -64,6 +65,7 @@ function buildWorkflowContext(options = {}) {
   const detailProfile = options.detailProfile || 'minimal';
   const graphStatus = buildGraphStatus(repoRoot);
   const navigation = readCodeNavigation(repoRoot);
+  const repoTopology = readRepoTopology(repoRoot);
   const ready = graphStatus.state === 'ready';
   const recommendedQueries = buildRecommendedQueries(stage, {
     task: options.task,
@@ -76,6 +78,7 @@ function buildWorkflowContext(options = {}) {
     detail_profile: detailProfile,
     graph_status: graphStatus,
     code_navigation: navigation,
+    repo_topology: repoTopology,
     decision_inputs: ready
       ? [
           {
@@ -87,6 +90,11 @@ function buildWorkflowContext(options = {}) {
             kind: 'code_navigation',
             decision_input_kind: navigation.source === 'artifact' ? 'observed' : 'ambiguous',
             evidence: [navigation.source === 'artifact' ? 'code-navigation.json available' : 'code-navigation.json unavailable'],
+          },
+          {
+            kind: 'repo_topology',
+            decision_input_kind: repoTopology.source === 'artifact' ? 'observed' : 'ambiguous',
+            evidence: [repoTopology.source === 'artifact' ? `repo topology: ${repoTopology.kind}` : 'repo-topology.json unavailable'],
           },
         ]
       : [],

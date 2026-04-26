@@ -6,9 +6,9 @@
 
 <h1>Spec-First</h1>
 
-<p><strong>一个在 AI 编码交付循环的每个阶段，为 LLM 提供结构化、带来源依据的上下文输入，并治理从 ideation 到 compound learning 全链路的 workflow CLI。</strong></p>
+<p><strong>面向 Claude Code 与 Codex 的 spec-first workflow CLI，把需求、代码图证据、评审和经验沉淀转化为明确的 LLM 决策输入。</strong></p>
 
-<p>面向 <strong>Claude Code</strong> 与 <strong>Codex</strong> 的开源方案。安装一次，治理整条交付闭环。</p>
+<p>安装一次，就能在 <strong>Claude Code</strong> 与 <strong>Codex</strong> 中运行同一套受治理交付闭环。</p>
 
 <p>
   <a href="#快速开始"><strong>快速开始</strong></a>
@@ -45,14 +45,14 @@
 
 ## 为什么是 Spec-First
 
-多数 AI 编码失败，并不是因为模型太弱，而是因为 LLM 拿到的决策输入已经退化：
+多数 AI 编码失败，并不是因为模型太弱，而是因为 LLM 拿到的决策输入已经退化。Spec-First 让脚本负责确定性流程，让 LLM 负责语义决策：
 
 | 问题 | spec-first 怎么处理 | 约束方式 |
 |------|---------------------|----------|
-| LLM 从空白代码库上下文开始推断 | `graph-bootstrap` 构建 CRG 图索引，并暴露 query-first 证据（`locate`、`impact`、`review-context`、lifecycle hooks） | CRG readiness + runtime workflow contract |
+| LLM 从空白代码库上下文开始推断 | `graph-bootstrap` 构建 CRG 图索引，并暴露 query-first 证据（`locate`、`path`、`explain`、`impact`、`review-context`、lifecycle hooks） | CRG readiness + runtime workflow contract |
 | 需求从未被显式化 | Brainstorm 阶段产出 requirements artifact，供 Plan 阶段消费 | `SKILL.md` contract |
 | 计划与实现逐渐漂移 | Plan artifact 是 Work 阶段的一等输入；Review Stage 2b 会把 **Requirements Trace** 与 diff 对照检查 | `SKILL.md` contract |
-| 评审缺少结构 | 使用 **17 个 reviewer persona**（always-on + cross-cutting + stack-specific）外加 2 个 CE 专用 agent，并按 `safe_auto / gated_auto / manual / advisory` 路由 | `SKILL.md` contract |
+| 评审缺少结构 | `spec-code-review` 使用 17 个 reviewer persona 外加 2 个辅助 agent，并按 `safe_auto / gated_auto / manual / advisory` 路由 | `SKILL.md` contract |
 | 已解决问题无法复用 | Compound 把结构化 learnings 写入 `docs/solutions/`，并带 YAML frontmatter 供后续检索 | `SKILL.md` contract |
 
 **适合：**
@@ -94,12 +94,14 @@ Spec-First 改善的是 **LLM 拿到的决策输入**，而不是用状态机替
 **graph-bootstrap：CRG 证据地基**
 
 ```text
-代码库 → CRG 图索引 → graph-index-status + code-navigation
+代码库 → CRG 图索引 → graph-index-status + code-navigation + repo-topology
       → locate / path / explain / impact / review-context
       → workflow hooks 提供 advisory evidence
 ```
 
 `graph-bootstrap` 在 planning、work、review 前准备确定性的图事实。它不替 LLM 判断该改哪里；它只提供低噪音证据和明确 limitations。
+
+workspace root 会先走 preflight 层。如果 Claude 或 Codex 打开在包含多个独立 git repo 的父目录，`crg workspace scan/status/context` 会在父目录写入 `.spec-first/workspace/workspace-index.json`、`workspace-status.json` 与 advisory context。LLM/user 选择 child repo 边界后，再进入 repo-local `crg build` 或 hooks。父目录不会生成混合 `graph.db`，`workspace build` 也只会构建一个显式指定的 child repo。
 
 **主工作流：交付闭环**
 
@@ -109,16 +111,36 @@ Ideate → Brainstorm → Plan → Work → Review → Compound
 
 它解决的是“一个需求如何被 AI 工程化地端到端交付”。每个阶段都有显式的输入产物、输出产物和 stage-gate contract。
 
-### 我应该运行哪个 bootstrap？
+### 证据与知识入口
 
 | 入口 | 适用场景 | 产物 | 稳定性 |
 |------|----------|------|--------|
-| `/spec:graph-bootstrap` · `$spec-graph-bootstrap` | 你需要为 plan / work / review 准备 CRG graph-backed query evidence | `.spec-first/graph/graph.db`、`graph-index-status.json`、`code-navigation.json`、`graph-operations.jsonl` | **主要 CRG 入口** |
-| `/spec:compound` · `$spec-compound` | 你需要更偏知识捕获与复合上下文整理 | 上下文综合文档与可复用知识资产 | **补充型知识路径** |
+| `/spec:graph-bootstrap` · `$spec-graph-bootstrap` | 你需要为 plan / work / review 准备 CRG graph-backed query evidence | `.spec-first/graph/graph.db`、`graph-index-status.json`、`code-navigation.json`、`repo-topology.json`、`graph-operations.jsonl`；workspace root 使用 `.spec-first/workspace/*` | **主要 CRG 入口** |
+| `/spec:compound` · `$spec-compound` | 你完成或重新发现了可复用解决方案，希望后续 workflow 能检索到 | `docs/solutions/**/*.md` 结构化 learning 文档 | **补充型知识路径** |
 
 这些入口是 `spec-first init` 安装出来的宿主 workflow entrypoint，不是根级 `spec-first` CLI 子命令。
 
 graph-bootstrap 会在可用时读取 host readiness ledger。如果你跳过了 MCP setup，或者宿主没有重启，它会给出明确提示；当 CRG 不可用时，后续 workflow 会显式退回 targeted direct repo reads，而不是读取过期摘要。
+
+### 仓库形态
+
+| 形态 | 支持方式 |
+|------|----------|
+| 父目录 workspace 下多个独立 git repo | 父目录只保存 `workspace-index.json` / `workspace-status.json` / advisory context；每个 child repo 保持自己的 CRG graph。跨 child 任务拆成显式 repo-local runs。 |
+| 单个 git repo 下多个 module | 一个 repo-local CRG graph，加 advisory `repo-topology.json` module units；当前 topology pass 支持 Maven reactor modules 检测。 |
+| 单个 git repo 单项目 | 沿用现有 repo-local CRG build/hook 流程。 |
+
+### 当前升级重点
+
+当前版本线把旧 Stage-0 / generated-summary 路径替换为更小的 CRG-first control plane：
+
+| 升级点 | 变化 |
+|--------|------|
+| CRG query-first runtime | `locate`、`path`、`explain`、`workflow-context` 与 lifecycle `hook` 命令直接向 workflow 提供图证据，不再要求 workflow 消费可能过期的生成摘要。 |
+| Workspace topology | 父目录 workspace 只产出 discovery/status/context artifacts；repo-local `graph.db` 保持落在显式 child repo 下。 |
+| Task-pack handoff | `spec-write-tasks` 作为 standalone skill，可从已收口 plan 派生 `docs/tasks/*-tasks.md`；`spec-work` 执行前会校验 task-pack identity、source hash 与 `stop_if`。 |
+| 入口治理 | `using-spec-first` 在双宿主都是 standalone meta skill。它把 substantial work 路由到公开 `$spec-*` / `/spec:*` workflow，但自身不是 workflow command。 |
+| Runtime delivery | Claude 与 Codex 暴露同一批 20 个 workflow entrypoints + 2 个 standalone skills，安装目录按宿主分流，agent 资产共享。 |
 
 ### CRG 决策信号
 
@@ -176,7 +198,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | **CRG 图引擎**（`spec-first crg *`） | **Code Review Graph**：一个嵌入式 Node.js runtime，基于 SQLite + FTS5，支持 AST → symbols → resolved edges → PageRank flows → community detection → surprising-connections → god-nodes → review-context |
 | **graph-bootstrap 查询引擎** | 让 LLM 获得 graph-backed 候选修改面和 blast-radius 证据，而不是直接面对裸代码库 |
 | **完整工作流层** | Ideate → Brainstorm → Plan → Work → Review → Compound，全阶段都有显式 artifact contract |
-| **17-persona Review stage**（+ 2 个专项 agent） | 产出结构化 findings，并按 `safe_auto / gated_auto / manual / advisory` 路由，而不是一次性 review 扫描 |
+| **结构化 Review stage** | 17 个 reviewer persona 外加 2 个辅助 agent 产出按 `safe_auto / gated_auto / manual / advisory` 路由的 findings，而不是一次性 review 扫描 |
 | **Compound / knowledge capture** | 把已解决问题写入 `docs/solutions/`，供后续 workflow 检索复用 |
 | **双平台支持** | 一套方法论同时覆盖 Claude Code（`/spec:*`）与 Codex（`$spec-*`）。Claude 使用 `SessionStart` hook + bare-agent rewrite；Codex 使用 `.agents/skills/` discovery + 显式 `.codex/agents/...` path rewrite |
 | **能力层资产** | 仓库内置源码资产共 `42` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `20` 个 commands + `2` 个 standalone skills，在 Codex 侧安装 `20` 个 workflow skills + `2` 个 standalone skills；两侧都会安装 `51` 个 agents |
@@ -324,7 +346,8 @@ $ spec-first init --claude
 |------|-------------|-------|
 | 安装 MCP 工具 | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | 重启宿主 | 重启 Claude Code | 重启 Codex |
-| 构建图证据 | `/spec:graph-bootstrap` 或 `/spec:compound` | `$spec-graph-bootstrap` 或 `$spec-compound` |
+| 构建图证据 | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
+| 需要时沉淀可复用经验 | `/spec:compound` | `$spec-compound` |
 | 启动工作流 | `/spec:ideate` → `/spec:brainstorm` → `/spec:plan` → `/spec:work` → `/spec:code-review` → `/spec:compound` | `$spec-ideate` → … → `$spec-compound` |
 
 `graph-bootstrap` 在启动时会检查 host readiness 与 CRG 可用性。graph evidence 不可用时，后续 workflow 会显式退回 direct-read fallback。
@@ -351,7 +374,7 @@ $ spec-first init --claude
 │  约束：SKILL.md contract（由 LLM 遵循）                        │
 ├──────────────────────────────────────────────────────────────┤
 │  能力层 — agents（6 类）                                      │
-│  review/（17 reviewer personas + auxiliary agents）                 │
+│  review/（17 reviewer personas + auxiliary agents）          │
 │  spec-doc-review/（requirements / plan persona review）      │
 │  research/（session / doc / Feishu / web context readers）   │
 │  design/（UI / design-lens agents）                          │
@@ -380,6 +403,8 @@ $ spec-first init --claude
 ```bash
 spec-first crg --help
 spec-first crg build --repo .
+spec-first crg workspace context --root . --task "change api"
+spec-first crg workspace build --root . --repo <child-slug-or-path>
 spec-first crg hook before-work --repo . --plan <plan.md>
 spec-first crg review-context --repo . --since <ref>
 ```
@@ -396,6 +421,7 @@ spec-first crg review-context --repo . --since <ref>
 | `explain` | 用邻居与证据解释单个 node 或 file |
 | `workflow-context` | 输出按阶段裁剪的 graph status 与 recommended queries |
 | `hook` | 输出 plan、work、after-work、review lifecycle envelope |
+| `workspace` | 对 parent workspace 执行 `scan`、`status`、`context` 或 selected-child `build`；不会自动选择语义目标 repo，也不支持 `--all` 批量 build |
 | `large-functions` | 查找超过阈值的函数 |
 | `search` | 对 symbols / files 做 FTS5 全文搜索 |
 | `flows` | 执行 PageRank + BFS flow 检测 |
@@ -408,7 +434,7 @@ spec-first crg review-context --repo . --since <ref>
 | `review-context` | 从 diff 组合生成 review context bundle |
 | `postprocess` | 在 build 或增量刷新后重算 communities、flows、graph analysis 与 FTS |
 
-所有子命令都支持 `--repo=<path>`。完整列表以当前安装版本 `spec-first crg --help` 的输出为准。
+大多数 repo-local 子命令支持 `--repo=<path>`。`workspace` 使用 `--root=<workspace>`，可通过 `--task=<text>` / `--changed-file=<path>` 给 context scoring 提供信号，只有 selected-child build 使用 `--repo=<child-slug-or-path>`。完整列表以当前安装版本 `spec-first crg --help` 的输出为准。
 
 ## 文档
 

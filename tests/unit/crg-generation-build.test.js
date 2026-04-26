@@ -114,8 +114,12 @@ describe('crg generation-aware build', () => {
     const navigationWrite = writeFileSync.mock.calls.find(([filePath]) => (
       String(filePath).endsWith('/.spec-first/graph/code-navigation.json')
     ));
+    const topologyWrite = writeFileSync.mock.calls.find(([filePath]) => (
+      String(filePath).endsWith('/.spec-first/graph/repo-topology.json')
+    ));
     expect(statusWrite).toBeTruthy();
     expect(navigationWrite).toBeTruthy();
+    expect(topologyWrite).toBeTruthy();
 
     const status = JSON.parse(statusWrite[1]);
     expect(status.stats.community_count).toBe(7);
@@ -127,6 +131,10 @@ describe('crg generation-aware build', () => {
         command: expect.stringContaining('--repo=<repo>'),
       }),
     ]));
+    const topology = JSON.parse(topologyWrite[1]);
+    expect(topology.kind).toBe('single_repo');
+    const envelope = JSON.parse(outputSpy.mock.calls[0][0]);
+    expect(envelope.data.topology.kind).toBe('single_repo');
     outputSpy.mockRestore();
   });
 

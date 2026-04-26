@@ -3,6 +3,7 @@
 describe('crg build unresolved consistency', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+    jest.resetModules();
   });
 
   test('0 变更增量 build 会回读持久化 unresolved 摘要而不是写出内存中的 0', async () => {
@@ -26,6 +27,7 @@ describe('crg build unresolved consistency', () => {
         resolveGraphDir: () => '/repo/.spec-first/graph',
         resolveGraphDb: () => '/repo/.spec-first/graph/graph.db',
         resolveGraphInputFingerprints: () => '/repo/.spec-first/graph/input-fingerprints.json',
+        resolveRepoTopology: () => '/repo/.spec-first/graph/repo-topology.json',
       }));
       jest.doMock('../../src/crg/generations/paths', () => ({
         buildGenerationId: () => 'gen-1',
