@@ -38,7 +38,11 @@ version_output="$(node "$REPO_ROOT/bin/spec-first.js" --version)"
 grep -q "doctor" <<<"$help_output"
 grep -q "init (--claude|--codex)" <<<"$help_output"
 grep -q "clean (--claude|--codex)" <<<"$help_output"
-grep -q "stage0-context" <<<"$help_output"
+grep -q "crg <subcommand>" <<<"$help_output"
+if grep -q "stage0-context" <<<"$help_output"; then
+  echo "help output should not advertise stage0-context" >&2
+  exit 1
+fi
 grep -q "Spec-First v${expected_version}" <<<"$version_output"
 grep -q "Claude Code & Codex" <<<"$version_output"
 echo "✓ help/version output is present"

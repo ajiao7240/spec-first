@@ -3,7 +3,7 @@
 const path = require('node:path');
 
 // ---------------------------------------------------------------------------
-// Filename constants (R4: unambiguous names for graph vs bootstrap artifacts)
+// Filename constants for CRG graph artifacts
 // ---------------------------------------------------------------------------
 
 /** SHA/content fingerprint file for CRG graph incremental build */
@@ -12,9 +12,10 @@ const GRAPH_DB_FILE = 'graph.db';
 const GRAPH_CURRENT_FILE = 'current.json';
 const GRAPH_LAST_KNOWN_GOOD_FILE = 'last-known-good.json';
 const GRAPH_GENERATIONS_SUBDIR = 'generations';
-
-/** Artifact manifest written by the bootstrap workflow control-plane */
-const BOOTSTRAP_ARTIFACT_MANIFEST_FILE = 'artifact-manifest.json';
+const GRAPH_INDEX_STATUS_FILE = 'graph-index-status.json';
+const GRAPH_CODE_NAVIGATION_FILE = 'code-navigation.json';
+const GRAPH_OPERATIONS_LOG_FILE = 'graph-operations.jsonl';
+const GRAPH_WORK_RUNS_SUBDIR = 'work-runs';
 
 /** Per-repo ignore rules for CRG input collection */
 const GRAPH_IGNORE_FILE = '.spec-firstignore';
@@ -26,7 +27,6 @@ const GRAPH_IGNORE_FILE = '.spec-firstignore';
 const SPEC_FIRST_DIR = '.spec-first';
 const GRAPH_SUBDIR   = 'graph';
 const WORKFLOWS_SUBDIR = 'workflows';
-const DOCS_CONTEXTS_SUBDIR = path.join('docs', 'contexts');
 
 // ---------------------------------------------------------------------------
 // Pure path resolver functions — no I/O, no side effects
@@ -65,7 +65,7 @@ function resolveGraphInputFingerprints(repoRoot) {
  * Layout: <repoRoot>/.spec-first/workflows/<workflow>/<slug>/
  *
  * @param {string} repoRoot  Absolute path to the repository root.
- * @param {string} workflow  Workflow name (e.g. 'bootstrap'). Must be non-empty.
+ * @param {string} workflow  Workflow name. Must be non-empty.
  * @param {string} slug      Project/context slug. Must be non-empty.
  * @returns {string}
  * @throws {Error} If workflow or slug is empty.
@@ -81,20 +81,6 @@ function resolveWorkflowArtifactDir(repoRoot, workflow, slug, options = {}) {
   return path.join(artifactAnchorRoot, SPEC_FIRST_DIR, WORKFLOWS_SUBDIR, workflow, slug);
 }
 
-/**
- * Returns the absolute path to the long-term human-readable context docs directory.
- *
- * Layout: <repoRoot>/docs/contexts/<slug>/
- *
- * @param {string} repoRoot  Absolute path to the repository root.
- * @param {string} slug      Project/context slug.
- * @returns {string}
- */
-function resolveContextDocsDir(repoRoot, slug, options = {}) {
-  const artifactAnchorRoot = options.artifactAnchorRoot || repoRoot;
-  return path.join(artifactAnchorRoot, DOCS_CONTEXTS_SUBDIR, slug);
-}
-
 // ---------------------------------------------------------------------------
 
 module.exports = {
@@ -104,12 +90,14 @@ module.exports = {
   GRAPH_CURRENT_FILE,
   GRAPH_LAST_KNOWN_GOOD_FILE,
   GRAPH_GENERATIONS_SUBDIR,
-  BOOTSTRAP_ARTIFACT_MANIFEST_FILE,
+  GRAPH_INDEX_STATUS_FILE,
+  GRAPH_CODE_NAVIGATION_FILE,
+  GRAPH_OPERATIONS_LOG_FILE,
+  GRAPH_WORK_RUNS_SUBDIR,
   GRAPH_IGNORE_FILE,
   // Path resolvers
   resolveGraphDir,
   resolveGraphDb,
   resolveGraphInputFingerprints,
   resolveWorkflowArtifactDir,
-  resolveContextDocsDir,
 };

@@ -1,0 +1,196 @@
+{
+  "schema_version": "code-navigation/v1",
+  "generated_at": "2026-04-26T12:12:18.377Z",
+  "generation_id": "20260426121218255",
+  "entrypoints": [
+    {
+      "id": "src/crg/communities.js#function#writeCommunities#L78",
+      "name": "writeCommunities",
+      "file_path": "src/crg/communities.js",
+      "kind": "function"
+    },
+    {
+      "id": "src/crg/cli/build.js#function#runBuildAsync#L301",
+      "name": "runBuildAsync",
+      "file_path": "src/crg/cli/build.js",
+      "kind": "function"
+    },
+    {
+      "id": "src/crg/commands/review-context.js#function#run#L116",
+      "name": "run",
+      "file_path": "src/crg/commands/review-context.js",
+      "kind": "function"
+    },
+    {
+      "id": "src/cli/commands/init.js#function#runInit#L51",
+      "name": "runInit",
+      "file_path": "src/cli/commands/init.js",
+      "kind": "function"
+    },
+    {
+      "id": "src/crg/input-convergence.js#function#collectInputFiles#L471",
+      "name": "collectInputFiles",
+      "file_path": "src/crg/input-convergence.js",
+      "kind": "function"
+    }
+  ],
+  "test_roots": [
+    "tests/integration/verification-gate.integration.test.js",
+    "tests/unit/agent-audit-contracts.test.js",
+    "tests/unit/agent-browser-contracts.test.js",
+    "tests/unit/agent-native-architecture-contracts.test.js",
+    "tests/unit/agent-support-contracts.test.js",
+    "tests/unit/ai-dev-quality-gate.test.js",
+    "tests/unit/best-practices-researcher-contracts.test.js",
+    "tests/unit/branch-protection-policy.test.js",
+    "tests/unit/change-surface.test.js",
+    "tests/unit/changelog-format.test.js",
+    "tests/unit/changelog-skill-contracts.test.js",
+    "tests/unit/claude-settings.test.js",
+    "tests/unit/clean-dry-run.test.js",
+    "tests/unit/coding-guidelines.test.js",
+    "tests/unit/crg-analyze.test.js",
+    "tests/unit/crg-artifact-paths.test.js",
+    "tests/unit/crg-bfs-queue-source.test.js",
+    "tests/unit/crg-build-cli.test.js",
+    "tests/unit/crg-build-unresolved-consistency.test.js",
+    "tests/unit/crg-changes.test.js"
+  ],
+  "high_risk_nodes": [
+    {
+      "id": "src/crg/communities.js#function#writeCommunities#L78",
+      "name": "writeCommunities",
+      "file_path": "src/crg/communities.js",
+      "kind": "function"
+    },
+    {
+      "id": "src/crg/cli/build.js#function#runBuildAsync#L301",
+      "name": "runBuildAsync",
+      "file_path": "src/crg/cli/build.js",
+      "kind": "function"
+    },
+    {
+      "id": "src/crg/commands/review-context.js#function#run#L116",
+      "name": "run",
+      "file_path": "src/crg/commands/review-context.js",
+      "kind": "function"
+    },
+    {
+      "id": "src/cli/commands/init.js#function#runInit#L51",
+      "name": "runInit",
+      "file_path": "src/cli/commands/init.js",
+      "kind": "function"
+    },
+    {
+      "id": "src/crg/input-convergence.js#function#collectInputFiles#L471",
+      "name": "collectInputFiles",
+      "file_path": "src/crg/input-convergence.js",
+      "kind": "function"
+    },
+    {
+      "id": "src/crg/graph.js#function#resolveEdges#L157",
+      "name": "resolveEdges",
+      "file_path": "src/crg/graph.js",
+      "kind": "function"
+    },
+    {
+      "id": "skills/gemini-imagegen/scripts/gemini_images.py#class#GeminiImageGenerator#L31",
+      "name": "GeminiImageGenerator",
+      "file_path": "skills/gemini-imagegen/scripts/gemini_images.py",
+      "kind": "class"
+    },
+    {
+      "id": "src/cli/adapters/claude.js#class#ClaudeAdapter#L11",
+      "name": "ClaudeAdapter",
+      "file_path": "src/cli/adapters/claude.js",
+      "kind": "class"
+    },
+    {
+      "id": "src/cli/adapters/base.js#class#PlatformAdapter#L5",
+      "name": "PlatformAdapter",
+      "file_path": "src/cli/adapters/base.js",
+      "kind": "class"
+    },
+    {
+      "id": "src/crg/cli/query.js#function#executeQuery#L121",
+      "name": "executeQuery",
+      "file_path": "src/crg/cli/query.js",
+      "kind": "function"
+    }
+  ],
+  "top_communities": [
+    {
+      "community_id": "tests",
+      "label": "tests",
+      "file_count": 72
+    },
+    {
+      "community_id": "crg/0",
+      "label": "crg/0",
+      "file_count": 44
+    },
+    {
+      "community_id": "cli",
+      "label": "cli",
+      "file_count": 19
+    },
+    {
+      "community_id": "skills",
+      "label": "skills",
+      "file_count": 10
+    },
+    {
+      "community_id": "bin",
+      "label": "bin",
+      "file_count": 3
+    }
+  ],
+  "top_flows": [
+    {
+      "flow_id": "flow:src/crg/commands/review-context.js#function#run#L116:54",
+      "entry_node": "src/crg/commands/review-context.js#function#run#L116",
+      "name": "run",
+      "criticality": 0.7424999999999999,
+      "node_count": 20
+    },
+    {
+      "flow_id": "flow:src/crg/commands/detect-changes.js#function#run#L23:48",
+      "entry_node": "src/crg/commands/detect-changes.js#function#run#L23",
+      "name": "run",
+      "criticality": 0.7374999999999999,
+      "node_count": 19
+    },
+    {
+      "flow_id": "flow:src/crg/cli/postprocess.js#function#run#L87:41",
+      "entry_node": "src/crg/cli/postprocess.js#function#run#L87",
+      "name": "run",
+      "criticality": 0.735,
+      "node_count": 20
+    },
+    {
+      "flow_id": "flow:src/crg/cli/context.js#function#run#L41:40",
+      "entry_node": "src/crg/cli/context.js#function#run#L41",
+      "name": "run",
+      "criticality": 0.7275,
+      "node_count": 20
+    },
+    {
+      "flow_id": "flow:src/cli/index.js#function#runCli#L9:23",
+      "entry_node": "src/cli/index.js#function#runCli#L9",
+      "name": "runCli",
+      "criticality": 0.7124999999999999,
+      "node_count": 20
+    }
+  ],
+  "query_starters": [
+    {
+      "query": "repository architecture modules entrypoints",
+      "command": "spec-first crg locate --repo=<repo> --query=\"repository architecture modules entrypoints\""
+    },
+    {
+      "query": "review risks candidate tests",
+      "command": "spec-first crg review-context --repo=<repo> --since=<base>"
+    }
+  ],
+  "limitations": []
+}

@@ -15,6 +15,10 @@ This command takes a work document (plan, task pack, or specification) or a bare
 
 **Beta rollout note:** Invoke `spec-work-beta` manually when you want to trial Codex delegation. During the beta period, planning and workflow handoffs remain pointed at stable `spec-work` to avoid dual-path orchestration complexity.
 
+## CRG Work Anchors
+
+When a CRG graph is available, reuse the same `spec-first crg hook before-work --plan=<plan.md> --repo=<repo>` / `--task-pack=<tasks.md>` and `spec-first crg hook after-work --work-run=<id> --repo=<repo>` envelope as stable `spec-work`. Pass the returned work-run id, planned surface summary, impact hints, evidence, and limitations to delegates as shared decision input. Hook output is advisory; delegates still inspect source and the orchestrator decides whether blast-radius expansion is acceptable.
+
 ## Input Document
 
 <input_document> #$ARGUMENTS </input_document>
@@ -106,9 +110,11 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - If the work document is a task pack, validate it before creating execution tasks:
      - read its frontmatter and confirm `type: task-pack`, `generated_by: spec-write-tasks`, `status: derived`, and `mode: derived`
      - read `source_plan` and treat that plan as the single source of truth for scope, requirements, and non-goals
+     - read `spec_id` from the task pack and source plan. If the task pack lacks `spec_id`, stop as missing identity; if both are present, they must match; if they mismatch, reject the task pack as wrong-chain handoff before implementation
+     - if the source plan lacks `spec_id`, treat task-pack identity as unverifiable weak trace and stop for executable task-pack handoff; ask to return to `spec-plan` to add plan frontmatter or rerun `spec-write-tasks`
      - confirm `source_plan_hash` is a concrete task-relevant `sha256:<64-hex>` hash, not `pending-tooling`, `unknown`, empty, or a draft marker
      - compare the task pack hash against the current source plan using deterministic hash tooling; if that tooling is unavailable, treat the task pack as unverifiable and stop
-     - reject draft, transient, missing-source, missing-hash, unavailable-hash-tooling, unverifiable-hash, or hash-mismatch task packs before implementation
+     - reject draft, transient, missing-source, missing-spec-id, spec-id-mismatch, missing-hash, unavailable-hash-tooling, unverifiable-hash, or hash-mismatch task packs before implementation
      - when rejecting, stop and ask to rerun `spec-write-tasks` from the source plan or return to `spec-plan`; do not silently fall back to executing stale task cards
      - during execution, honor each task's `stop_if`; if triggered, stop and return to `spec-plan` or regenerate the task pack instead of expanding scope in place
    - Check for `Execution note` on each implementation unit — these carry the plan's execution posture signal for that unit (for example, test-first or characterization-first). Note them when creating tasks.
@@ -180,6 +186,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - If the input is a task pack, do not create execution tasks until the task-pack validation checks above have passed
    - Derive tasks from the plan's implementation units, dependencies, files, test targets, and verification criteria
    - When the plan defines U-IDs for Implementation Units, preserve the unit's U-ID as a prefix in the task subject (e.g., "U3: Add parser coverage"). This keeps blocker references, deferred-work notes, and final summaries anchored to the same identifier the plan uses, so progress and traceability remain unambiguous across plan edits
+   - When the work document has `spec_id`, keep it as trace context for blockers, deferred-work notes, task summaries, and final verification when it helps distinguish related requirements/plan/task-pack artifacts. Do not treat it as execution state or completion status
    - Carry each unit's `Execution note` into the task when present
    - For each unit, read the `Patterns to follow` field before implementing — these point to specific files or conventions to mirror
    - Use each unit's `Verification` field as the primary "done" signal for that task
@@ -349,7 +356,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    Don't simplify after every single unit — early patterns may look duplicated but diverge intentionally in later units. Wait for a natural phase boundary or when you notice accumulated complexity.
 
-   If a `/simplify` skill or equivalent is available, use it. Otherwise, review the changed files yourself for reuse and consolidation opportunities.
+   If a simplify skill or equivalent capability is available, use it. Otherwise, review the changed files yourself for reuse and consolidation opportunities.
 
 6. **Figma Design Sync** (if applicable)
 
@@ -373,7 +380,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - Note any blockers or unexpected discoveries
    - Create new tasks if scope expands
    - Keep user informed of major milestones
-   - When the plan defines U-IDs for Implementation Units, or the plan or origin document carries stable R-IDs (and optionally A/F/AE IDs), reference them in blockers, deferred-work notes, task summaries, and final verification — not routine status updates. U-IDs anchor units across plan edits; R/A/F/AE anchor product intent across the brainstorm-plan handoff. Use the IDs the plan supplies and do not invent ones it does not. This preserves traceability without burying signal under noise.
+   - When the plan defines U-IDs for Implementation Units, or the plan or origin document carries stable R-IDs (and optionally A/F/AE IDs), reference them in blockers, deferred-work notes, task summaries, and final verification — not routine status updates. U-IDs anchor units across plan edits; R/A/F/AE anchor product intent across the brainstorm-plan handoff. When available, include `spec_id` only as artifact-chain trace context, not as execution progress. Use the IDs the plan supplies and do not invent ones it does not. This preserves traceability without burying signal under noise.
 
 ### Phase 3-4: Quality Check and Ship It
 

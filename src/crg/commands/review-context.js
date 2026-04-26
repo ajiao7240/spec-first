@@ -19,10 +19,85 @@ const path = require('path');
 const fs = require('fs');
 const { openDb } = require('../cli/open-db');
 const { makeEnvelope } = require('../cli/envelope');
-const { detectChanges, assessNodeRiskBatch } = require('../changes');
+const changes = require('../changes');
+const { detectChanges, assessNodeRiskBatch } = changes;
+
+function fallbackSummarizeChangeSurface({ repoRoot, changedFiles = [] } = {}) {
+  const normalizedFiles = [...new Set((changedFiles || []).filter(Boolean).map((filePath) => {
+    return String(filePath).replace(/\\/g, '/').replace(/^\.\//, '');
+  }))];
+  const runtimeFiles = normalizedFiles.filter((filePath) => {
+    return !filePath.startsWith('docs/')
+      && !filePath.startsWith('.github/')
+      && !filePath.endsWith('.md')
+      && !['README.md', 'CHANGELOG.md', 'AGENTS.md', 'CLAUDE.md'].includes(filePath)
+      && !/(^|\/)(tests?|__tests__)\//.test(filePath)
+      && !/\.(test|spec)\.[^/]+$/i.test(filePath);
+  });
+  const impactedPlatforms = [];
+  for (const filePath of runtimeFiles) {
+    const ext = path.extname(filePath).toLowerCase();
+    if (filePath.startsWith('src/app/') || filePath.startsWith('app/') || filePath.startsWith('pages/') || filePath.startsWith('components/') || ['.tsx', '.jsx'].includes(ext)) {
+      impactedPlatforms.push('web');
+    }
+    if (filePath.startsWith('src/cli/') || filePath.startsWith('skills/') || filePath.startsWith('bin/')) {
+      impactedPlatforms.push('cli');
+    }
+    if (filePath.startsWith('src/') && impactedPlatforms.length === 0) {
+      impactedPlatforms.push('cli');
+    }
+  }
+  const packageScripts = (() => {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+      return pkg && pkg.scripts && typeof pkg.scripts === 'object' ? Object.keys(pkg.scripts) : [];
+    } catch (_) {
+      return [];
+    }
+  })();
+  const impactedModules = normalizedFiles.map((filePath) => {
+    const parts = filePath.split('/').filter(Boolean);
+    if (parts.length === 0) return null;
+    if (parts.length === 1) return parts[0];
+    if (['src', 'tests', 'docs'].includes(parts[0]) && parts[1] && !parts[1].includes('.')) return `${parts[0]}/${parts[1]}/`;
+    return `${parts[0]}/`;
+  }).filter(Boolean);
+  const impactedLanguages = normalizedFiles.map((filePath) => {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext === '.tsx' || ext === '.ts') return 'typescript';
+    if (ext === '.jsx' || ext === '.js' || ext === '.cjs' || ext === '.mjs') return 'javascript';
+    if (ext === '.md') return 'markdown';
+    return null;
+  }).filter(Boolean);
+  const required = [];
+  const optional = [];
+  if (runtimeFiles.length > 0) {
+    if (packageScripts.length === 0 || packageScripts.some((name) => name === 'test' || /^test(:|$)/.test(name))) {
+      required.push('unit-tests');
+    }
+    if (packageScripts.some((name) => /integration/.test(name))) {
+      required.push('integration-tests');
+    }
+    if (impactedPlatforms.includes('web') && packageScripts.length === 0) {
+      required.push('browser-smoke');
+      optional.push('browser-evidence');
+    }
+  }
+  return {
+    impacted_modules: [...new Set(impactedModules)].sort(),
+    impacted_languages: [...new Set(impactedLanguages)].sort(),
+    impacted_platforms: [...new Set(impactedPlatforms)],
+    recommended_required_verifications: [...new Set(required)],
+    recommended_optional_verifications: [...new Set(optional)],
+    confidence: runtimeFiles.length > 0 ? 'high' : 'low',
+  };
+}
+
+const summarizeChangeSurface = typeof changes.summarizeChangeSurface === 'function'
+  ? changes.summarizeChangeSurface
+  : fallbackSummarizeChangeSurface;
 const { isSensitiveFile } = require('../input-convergence');
 const { retrieveContext } = require('../retrieval/api');
-const { summarizeChangeSurface } = require('../../context-routing/change-surface');
 
 function intersectsHunks(node, hunks) {
   if (!Array.isArray(hunks) || hunks.length === 0) return false;
@@ -50,6 +125,7 @@ function run(argv) {
   // openDb 内部：graph.db 不存在或 better-sqlite3 未安装时 exit 2
   const { db, repoRoot } = openDb(argv);
 
+  try {
   // 获取变更文件列表（含风险评分）
   let changeSummary;
   try {
@@ -302,6 +378,9 @@ function run(argv) {
   };
 
   process.stdout.write(JSON.stringify(makeEnvelope(repoRoot, data)) + '\n');
+  } finally {
+    try { db.close(); } catch (_) {}
+  }
 }
 
 module.exports = { run };

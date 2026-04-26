@@ -4,6 +4,10 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const GLOBAL_DEVELOPER_RELATIVE_PATH = path.join('.spec-first', '.developer');
+const PROJECT_DEVELOPER_RELATIVE_PATHS = [
+  { host: 'claude', path: path.join('.claude', 'spec-first', '.developer') },
+  { host: 'codex', path: path.join('.codex', 'spec-first', '.developer') },
+];
 const PROJECT_VERSION = require('../../package.json').version;
 const SUPPORTED_LANGS = new Set(['zh', 'en']);
 
@@ -59,9 +63,11 @@ function resolveDeveloperIdentity(projectRoot, options = {}, adapter = null) {
   const globalDeveloper = readDeveloperFile(getGlobalDeveloperPath());
   const gitUserName = readGitUserName(projectRoot);
 
-  // 注意：name 不从项目 .developer 读取——name 是全局身份标识，lang 是项目级偏好。
-  // 项目 .developer.lang 优先于全局，但 name 始终来自 global profile 或 git config。
-  const name = explicitName || (globalDeveloper && globalDeveloper.name) || gitUserName;
+  const name =
+    explicitName ||
+    (projectDeveloper && projectDeveloper.name) ||
+    (globalDeveloper && globalDeveloper.name) ||
+    gitUserName;
   const lang =
     explicitLang ||
     (projectDeveloper && projectDeveloper.lang) ||
@@ -88,6 +94,7 @@ function resolveDeveloperIdentity(projectRoot, options = {}, adapter = null) {
 
 function resolveChangelogAuthor(projectRoot, options = {}) {
   const fallbackName = normalizeName(options.fallbackName);
+  const platform = normalizeName(options.platform);
 
   if (fallbackName) {
     return {
@@ -96,6 +103,11 @@ function resolveChangelogAuthor(projectRoot, options = {}) {
       host: '',
       path: '',
     };
+  }
+
+  const projectDeveloper = resolveProjectChangelogAuthor(projectRoot, platform);
+  if (projectDeveloper) {
+    return projectDeveloper;
   }
 
   const globalDeveloper = readDeveloperFile(getGlobalDeveloperPath());
@@ -126,10 +138,66 @@ function resolveChangelogAuthor(projectRoot, options = {}) {
   };
 }
 
-function resolveChangelogAuthorName(projectRoot, fallbackName = '') {
+function resolveChangelogAuthorName(projectRoot, fallbackName = '', platform = '') {
   return resolveChangelogAuthor(projectRoot, {
     fallbackName,
+    platform,
   }).name;
+}
+
+function resolveProjectChangelogAuthor(projectRoot, platform = '') {
+  const profiles = PROJECT_DEVELOPER_RELATIVE_PATHS
+    .map((entry) => {
+      const developer = readDeveloperFile(path.join(projectRoot, entry.path));
+      return developer && developer.name
+        ? {
+          host: entry.host,
+          path: normalizePathForContract(entry.path),
+          name: developer.name,
+        }
+        : null;
+    })
+    .filter(Boolean);
+
+  if (platform) {
+    const matched = profiles.find((profile) => profile.host === platform);
+    if (matched) {
+      return {
+        name: matched.name,
+        source: 'project_developer',
+        host: matched.host,
+        path: matched.path,
+      };
+    }
+    const expectedProfile = PROJECT_DEVELOPER_RELATIVE_PATHS.find((entry) => entry.host === platform);
+    return {
+      name: '',
+      source: 'project_developer_missing',
+      host: platform,
+      path: expectedProfile ? normalizePathForContract(expectedProfile.path) : '',
+    };
+  }
+
+  if (profiles.length === 0) {
+    return null;
+  }
+
+  const uniqueNames = [...new Set(profiles.map((profile) => profile.name))];
+  if (uniqueNames.length === 1) {
+    return {
+      name: uniqueNames[0],
+      source: 'project_developer',
+      host: profiles.map((profile) => profile.host).join(','),
+      path: profiles.map((profile) => profile.path).join(','),
+    };
+  }
+
+  return {
+    name: '',
+    source: 'project_developer_conflict',
+    host: profiles.map((profile) => `${profile.host}:${profile.name}`).join(','),
+    path: profiles.map((profile) => profile.path).join(','),
+  };
 }
 
 function writeDeveloperFile(projectRoot, developer, adapter) {

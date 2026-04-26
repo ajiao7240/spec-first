@@ -20,18 +20,24 @@ test ! -e "$TMP_REPO/.claude/spec-first/workflows/spec-graph-bootstrap/SKILL.md"
 
 for file in "$CLAUDE_RUNTIME_COMMAND" "$CODEX_RUNTIME_SKILL"; do
   test -f "$file"
-  grep -q 'spec-first source repo internals' "$file"
-  grep -q 'installed runtime assets' "$file"
-  grep -q 'target repo generated artifacts' "$file"
-  grep -q 'package CLI surfaces' "$file"
-  grep -q '不要在 target repo 中查找 source repo 内部路径来判断 workflow 是否可用' "$file"
+  grep -q 'CRG query-first' "$file"
+  grep -q 'spec-first crg build --repo=<target>' "$file"
+  grep -q 'graph-index-status.json' "$file"
+  grep -q 'code-navigation.json' "$file"
+  grep -q 'graph-operations.jsonl' "$file"
+  grep -q 'spec-first crg hook before-plan' "$file"
+  grep -q 'direct_repo_reads' "$file"
 done
 
-grep -q 'spec-first init --claude   # Claude 运行时' "$CLAUDE_RUNTIME_COMMAND"
-grep -q '不是 `spec-first graph-bootstrap` 包级子命令' "$CLAUDE_RUNTIME_COMMAND"
+if grep -q 'stage0-context\|minimal-context\|injection-index.yaml\|docs/contexts' "$CLAUDE_RUNTIME_COMMAND"; then
+  echo "✗ Claude runtime command should not retain retired bootstrap context wording"
+  exit 1
+fi
 
-grep -q 'spec-first init --codex   # Codex 运行时' "$CODEX_RUNTIME_SKILL"
-grep -q '不是 `spec-first graph-bootstrap` 包级子命令' "$CODEX_RUNTIME_SKILL"
+if grep -q 'stage0-context\|minimal-context\|injection-index.yaml\|docs/contexts' "$CODEX_RUNTIME_SKILL"; then
+  echo "✗ Codex runtime skill should not retain retired bootstrap context wording"
+  exit 1
+fi
 
 if grep -q '\.claude/spec-first/workflows/' "$CLAUDE_RUNTIME_COMMAND"; then
   echo "✗ Claude runtime command should not embed managed runtime workflow paths"

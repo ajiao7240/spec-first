@@ -179,9 +179,9 @@ else
 fi
 
 echo ""
-echo "9. 测试 spec-graph-bootstrap 主链..."
+echo "9. 测试 spec-graph-bootstrap CRG query-first 主链..."
 bash tests/e2e/spec-graph-bootstrap-mainline.sh
-echo "✓ spec-graph-bootstrap 主链通过"
+echo "✓ spec-graph-bootstrap CRG query-first 主链通过"
 
 echo ""
 echo "10. 测试 spec-graph-bootstrap installed runtime..."

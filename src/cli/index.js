@@ -4,7 +4,6 @@ const pkg = require('../../package.json');
 const { runClean } = require('./commands/clean');
 const { runDoctor } = require('./commands/doctor');
 const { runInit } = require('./commands/init');
-const { runStage0Context } = require('./commands/stage0-context');
 const { maybeShowVersionReminder } = require('./version-reminder');
 
 async function runCli(argv) {
@@ -40,10 +39,6 @@ async function runCli(argv) {
     return Promise.resolve(runClean(args.slice(1)));
   }
 
-  if (cmd === 'stage0-context') {
-    return Promise.resolve(runStage0Context(args.slice(1)));
-  }
-
   console.error(`Unknown command: ${cmd}`);
   printHelp(true);
   return Promise.resolve(1);
@@ -60,7 +55,7 @@ function printHelp(withErrorPrefix = false) {
     '  doctor                 Check environment, plugin manifest, and managed runtime assets',
     '  init (--claude|--codex)  Install platform-specific workflows, skills, agents, and developer profile',
     '  clean (--claude|--codex) Remove spec-first managed assets from the current project',
-    '  stage0-context         Emit resolved Stage-0 context JSON for a workflow/stage pair',
+    '  crg <subcommand>       Query the local code graph (run `spec-first crg --help`)',
     '',
     '🪝 Installed workflow entrypoints (after `spec-first init`):',
     '  Claude Code: /spec:graph-bootstrap',

@@ -8,12 +8,9 @@ const { isLegacyManagedState, readState, readStateFileRaw } = require('../state'
 const { getAdapter, getSupportedPlatforms } = require('../adapters');
 const { inspectInstructionBootstrap } = require('../instruction-bootstrap');
 const { inspectManagedSessionStartHook } = require('../claude-settings');
-const { detectSlug, resolveBootstrapRuntimePaths, safeReadJson } = require('../../context-routing/loader');
-const { inspectBootstrapContract } = require('../../context-routing/evaluator');
-const { loadVerificationEvidence } = require('../../context-routing/verification-evidence');
-const { buildRuntimeVerificationSummaryForRepo } = require('../../context-routing/verification-summary');
 const { resolveWorkflowArtifactDir } = require('../../crg/artifact-paths');
-const { validateAgainstSchema } = require('../../bootstrap-compiler/schema-loader');
+const { buildGraphStatus } = require('../../crg/workflow-context/status');
+const { validateAgainstSchema } = require('../../contracts/schema-validator');
 
 const VERIFICATION_EVIDENCE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const VERIFICATION_EVIDENCE_SCHEMA_PATH = path.join(
@@ -439,106 +436,22 @@ function checkCrgNativeModules() {
   };
 }
 
-function buildBootstrapContractCheck({ slug, contextDir, controlPlaneDir, expected = false } = {}) {
-  const bootstrapExists = fs.existsSync(contextDir) || fs.existsSync(controlPlaneDir);
-  if (!bootstrapExists) {
-    return expected
-      ? {
-        level: 'WARNING',
-        name: `bootstrap contract (${slug})`,
-        message: 'registered workspace child bootstrap directories are missing',
-        fix: '重新运行 spec-graph-bootstrap 以删除旧产物并重建当前 contract。',
-      }
-      : null;
-  }
-
-  const manifestPath = path.join(controlPlaneDir, 'artifact-manifest.json');
-  const manifest = safeReadJson(manifestPath);
-  if (!manifest) {
+function checkCrgGraphContract(projectRoot) {
+  const status = buildGraphStatus(projectRoot);
+  if (status.state === 'ready') {
     return {
-      level: 'WARNING',
-      name: `bootstrap contract (${slug})`,
-      message: 'bootstrap directories exist, but artifact-manifest.json is missing or invalid',
-      fix: '重新运行 spec-graph-bootstrap 以删除旧产物并重建当前 contract。',
-    };
-  }
-
-  const contract = inspectBootstrapContract({ manifest, controlPlaneDir });
-  const issues = [];
-  if (contract.drift) {
-    issues.push(`contract outdated: ${contract.missing_required_outputs.join(', ')}`);
-  }
-  if (contract.missing_required_files.length > 0) {
-    issues.push(`missing files: ${contract.missing_required_files.join(', ')}`);
-  }
-
-  if (issues.length > 0) {
-    return {
-      level: 'WARNING',
-      name: `bootstrap contract (${slug})`,
-      message: `${contract.kind} bootstrap ${issues.join('; ')}`,
-      fix: '重新运行 spec-graph-bootstrap 以删除旧产物并重建当前 contract。',
+      level: 'PASS',
+      name: 'CRG graph',
+      message: `ready (${status.stats.node_count} nodes, ${status.stats.edge_count} edges)`,
     };
   }
 
   return {
-      level: 'PASS',
-      name: `bootstrap contract (${slug})`,
-      message: `${contract.kind} bootstrap contract is current`,
-    };
-}
-
-function checkBootstrapContracts(projectRoot) {
-  const slug = detectSlug(projectRoot);
-  const { contextDir, controlPlaneDir } = resolveBootstrapRuntimePaths({ repoRoot: projectRoot, slug });
-  const rootCheck = buildBootstrapContractCheck({ slug, contextDir, controlPlaneDir });
-  if (!rootCheck) {
-    return [];
-  }
-
-  const checks = [rootCheck];
-  const manifest = safeReadJson(path.join(controlPlaneDir, 'artifact-manifest.json'));
-  const contract = inspectBootstrapContract({ manifest, controlPlaneDir });
-  if (contract.kind !== 'workspace-root') {
-    return checks;
-  }
-
-  const registry = safeReadJson(path.join(controlPlaneDir, 'workspace-registry.json'));
-  if (!registry || !Array.isArray(registry.children)) {
-    return checks;
-  }
-
-  for (const child of registry.children) {
-    if (!child || typeof child.childSlug !== 'string' || child.childSlug.length === 0) continue;
-    const childPaths = resolveBootstrapRuntimePaths({
-      repoRoot: projectRoot,
-      slug: child.childSlug,
-    });
-    const childCheck = buildBootstrapContractCheck({
-      slug: child.childSlug,
-      contextDir: childPaths.contextDir,
-      controlPlaneDir: childPaths.controlPlaneDir,
-      expected: true,
-    });
-    if (childCheck) {
-      checks.push(childCheck);
-    }
-  }
-
-  return checks;
-}
-
-function checkBootstrapContract(projectRoot) {
-  const checks = checkBootstrapContracts(projectRoot);
-  return checks.length > 0 ? checks[0] : null;
-}
-
-function checkWorkspaceBootstrapChildContracts(projectRoot) {
-  const checks = checkBootstrapContracts(projectRoot);
-  if (checks.length <= 1) {
-    return [];
-  }
-  return checks.slice(1);
+    level: 'WARNING',
+    name: 'CRG graph',
+    message: `${status.state}; workflow hooks will use direct repo reads`,
+    fix: `Run \`spec-first crg build --repo=${projectRoot}\` when graph-backed query evidence is needed.`,
+  };
 }
 
 function buildDoctorCommonChecks(projectRoot) {
@@ -547,8 +460,7 @@ function buildDoctorCommonChecks(projectRoot) {
     checkGit(),
     checkPluginManifest(),
     checkCrgNativeModules(),
-    checkBootstrapContract(projectRoot),
-    ...checkWorkspaceBootstrapChildContracts(projectRoot),
+    checkCrgGraphContract(projectRoot),
     checkProjectDeveloperProfileConsistency(projectRoot),
   ].filter(Boolean);
 }
@@ -766,12 +678,7 @@ function formatDriftSummary(entries, key) {
 }
 
 function readWorkflowVerificationEvidence(projectRoot) {
-  const slug = detectSlug(projectRoot);
-  const verificationSummary = buildRuntimeVerificationSummaryForRepo({
-    repoRoot: projectRoot,
-    slug,
-    stage: 'work',
-  });
+  const slug = path.basename(path.resolve(projectRoot)) || 'default';
   const artifactDir = resolveWorkflowArtifactDir(projectRoot, 'verification', slug);
   const evidenceFilePath = path.join(artifactDir, 'verification-evidence.json');
   const relativePath = path.relative(projectRoot, evidenceFilePath).replace(/\\/g, '/');
@@ -780,32 +687,22 @@ function readWorkflowVerificationEvidence(projectRoot) {
     ? validateAgainstSchema(loadVerificationEvidenceSchema(), rawDocument.parsed)
     : { valid: false, errors: rawDocument.exists ? ['verification evidence parse failure'] : ['verification evidence missing'] };
 
-  const filteredEvidence = loadVerificationEvidence({
-    repoRoot: projectRoot,
-    slug,
-    stage: 'work',
-    verificationSummary: verificationSummary || {},
-  });
-  const effectiveGateIds = unique([
-    ...(verificationSummary && Array.isArray(verificationSummary.required_verifications)
-      ? verificationSummary.required_verifications
-      : []),
-    ...(verificationSummary && Array.isArray(verificationSummary.optional_verifications)
-      ? verificationSummary.optional_verifications
-      : []),
-  ]);
-  const present = rawSchemaValidation.valid && filteredEvidence.evidence_items.length > 0;
-  const freshness = determineEvidenceFreshness(filteredEvidence.evidence_items);
+  const evidenceItems = rawSchemaValidation.valid && rawDocument.parsed && Array.isArray(rawDocument.parsed.evidence_items)
+    ? rawDocument.parsed.evidence_items
+    : [];
+  const effectiveGateIds = unique(evidenceItems.flatMap((item) => Array.isArray(item.gate_ids) ? item.gate_ids : []));
+  const present = rawSchemaValidation.valid && evidenceItems.length > 0;
+  const freshness = determineEvidenceFreshness(evidenceItems);
 
   return {
     present,
     path: relativePath,
     source: rawDocument.parsed && typeof rawDocument.parsed.evidence_source === 'string'
       ? rawDocument.parsed.evidence_source
-      : filteredEvidence.evidence_source || null,
+      : null,
     schemaValid: rawSchemaValidation.valid,
     freshness,
-    ageSummary: buildEvidenceAgeSummary(filteredEvidence.evidence_items),
+    ageSummary: buildEvidenceAgeSummary(evidenceItems),
     fallbackReason: determineEvidenceFallbackReason({
       rawDocument,
       schemaValid: rawSchemaValidation.valid,

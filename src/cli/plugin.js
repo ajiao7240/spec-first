@@ -48,34 +48,40 @@ const HIGH_VALUE_SKILL_ANCHORS = {
     'Implementation Units',
     'Requirements Trace',
     'Test scenarios',
+    'spec-first crg hook before-plan',
     'universal-planning.md',
   ],
   'spec-work': [
     "Derive tasks from the plan's implementation units",
+    'spec-first crg hook before-work',
+    'spec-first crg hook after-work',
     'references/shipping-workflow.md',
     'Phase 4',
     'final verification',
   ],
   'spec-work-beta': [
     "Derive tasks from the plan's implementation units",
+    'spec-first crg hook before-work',
+    'spec-first crg hook after-work',
     'codex-delegation-workflow.md',
     'Phase 4',
     'final verification',
   ],
   'spec-code-review': [
     'Plan discovery (requirements verification)',
+    'spec-first crg hook before-review',
     'requires_verification',
     'validator-template.md',
     'pipe-delimited tables',
   ],
   'spec-graph-bootstrap': [
-    '## Surface Map',
-    'spec-first source repo internals',
-    'installed runtime assets',
-    'target repo generated artifacts',
-    'package CLI surfaces',
-    '不是 `spec-first graph-bootstrap` 包级子命令',
-    '不要在 target repo 中查找 source repo 内部路径来判断 workflow 是否可用',
+    'CRG query-first',
+    'spec-first crg build --repo=<target>',
+    'graph-index-status.json',
+    'code-navigation.json',
+    'graph-operations.jsonl',
+    'spec-first crg hook before-plan',
+    'direct_repo_reads',
   ],
 };
 const HIGH_VALUE_COMMAND_ANCHORS = {
@@ -83,27 +89,32 @@ const HIGH_VALUE_COMMAND_ANCHORS = {
     'Implementation Units',
     'Requirements Trace',
     'Test scenarios',
+    'spec-first crg hook before-plan',
     'universal-planning.md',
   ],
   'spec-work': [
     "Derive tasks from the plan's implementation units",
+    'spec-first crg hook before-work',
+    'spec-first crg hook after-work',
     'references/shipping-workflow.md',
     'Phase 4',
     'final verification',
   ],
   'spec-code-review': [
     'Plan discovery (requirements verification)',
+    'spec-first crg hook before-review',
     'requires_verification',
     'validator-template.md',
     'pipe-delimited tables',
   ],
   'spec-graph-bootstrap': [
-    'spec-first source repo internals',
-    'installed runtime assets',
-    'target repo generated artifacts',
-    'package CLI surfaces',
-    '不是 `spec-first graph-bootstrap` 包级子命令',
-    '不要在 target repo 中查找 source repo 内部路径来判断 workflow 是否可用',
+    'CRG query-first',
+    'spec-first crg build --repo=<target>',
+    'graph-index-status.json',
+    'code-navigation.json',
+    'graph-operations.jsonl',
+    'spec-first crg hook before-plan',
+    'direct_repo_reads',
   ],
 };
 
@@ -1107,7 +1118,8 @@ function transformedContentIntegrityIssues(actualContent, adapter, { kind, skill
     issues.push('canonical_agent_reference_drift');
   }
 
-  if (adapter.id === 'codex' && CODEX_UNREWRITTEN_PATH_PATTERNS.some((pattern) => pattern.test(actualContent))) {
+  const contentForPathRewriteCheck = codexPathRewriteCheckContent(actualContent, { skillName });
+  if (adapter.id === 'codex' && CODEX_UNREWRITTEN_PATH_PATTERNS.some((pattern) => pattern.test(contentForPathRewriteCheck))) {
     issues.push('codex_path_rewrite_drift');
   }
 
@@ -1120,4 +1132,13 @@ function transformedContentIntegrityIssues(actualContent, adapter, { kind, skill
   }
 
   return issues;
+}
+
+function codexPathRewriteCheckContent(content, { skillName } = {}) {
+  if (skillName !== 'using-spec-first') return content;
+
+  return content.replace(
+    'Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md`',
+    'Claude Code installs it as `[claude using-spec-first skill path]`',
+  );
 }

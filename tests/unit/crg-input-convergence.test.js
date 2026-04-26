@@ -573,12 +573,12 @@ describe('collectInputFiles', () => {
     const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-spec-first-exclude-'));
     fs.mkdirSync(path.join(tmpRepo, 'src'), { recursive: true });
     fs.mkdirSync(path.join(tmpRepo, '.spec-first/graph'), { recursive: true });
-    fs.mkdirSync(path.join(tmpRepo, '.spec-first/workflows/bootstrap/my-app'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRepo, '.spec-first/workflows/quality-gates/ai-dev-quality-gate'), { recursive: true });
 
     fs.writeFileSync(path.join(tmpRepo, 'src/index.js'), 'console.log("ok");\n');
     // Simulate runtime artifacts that should NOT enter the graph
     fs.writeFileSync(path.join(tmpRepo, '.spec-first/graph/input-fingerprints.json'), '{}');
-    fs.writeFileSync(path.join(tmpRepo, '.spec-first/workflows/bootstrap/my-app/artifact-manifest.json'), '{}');
+    fs.writeFileSync(path.join(tmpRepo, '.spec-first/workflows/quality-gates/ai-dev-quality-gate/ai-dev-quality-gate-result.json'), '{}');
 
     try {
       const { finalInputs } = await collectInputFiles(tmpRepo, { mode: 'all-files' });

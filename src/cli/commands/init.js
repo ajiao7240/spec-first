@@ -656,12 +656,12 @@ function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, pla
   const changelogPath = path.join(projectRoot, 'CHANGELOG.md');
   if (!fs.existsSync(changelogPath)) {
     const changelogAuthor = resolveChangelogAuthor(projectRoot, {
-      fallbackName: developer.name,
+      platform,
     });
     operations.push(buildPlanFileOperation(
       projectRoot,
       'CHANGELOG.md',
-      buildInitialChangelog(formatChangelogTimestamp(new Date()), changelogAuthor.name, developer.version),
+      buildInitialChangelog(formatChangelogTimestamp(new Date()), changelogAuthor.name || developer.name, developer.version),
       'bootstrap_changelog',
     ));
   }

@@ -31,9 +31,10 @@ When skipping, say explicitly that this is not an omission; this case does not n
 1. `spec-plan` is always the single source of truth for the technical approach.
 2. A task pack is a derived artifact; it must not become a second plan.
 3. A task pack may only rearrange execution slices. It must not change scope, acceptance criteria, or non-goals.
-4. A task pack that can be handed to `spec-work` must include verifiable `source_plan` and `source_plan_hash` metadata so stale tasks are not executed silently.
-5. Each task should solve one clear subproblem and should usually have one primary verification target.
-6. Task splitting should reflect file boundaries, dependencies, verification surfaces, and parallelization opportunities instead of restating the plan.
+4. A task pack that can be handed to `spec-work` must include `spec_id`, verifiable `source_plan`, and `source_plan_hash` metadata so wrong-chain or stale tasks are not executed silently.
+5. `spec-write-tasks` does not introduce its own CRG lifecycle hook. CRG query references may appear only as `context_refs`, `entry_hint`, or `test_focus` inputs; `spec-work` later calls `spec-first crg hook before-work --task-pack=<tasks.md>` to return to the source plan handoff.
+6. Each task should solve one clear subproblem and should usually have one primary verification target.
+7. Task splitting should reflect file boundaries, dependencies, verification surfaces, and parallelization opportunities instead of restating the plan.
 
 ## Input Paths
 
@@ -44,20 +45,24 @@ First classify the input, then follow the matching path.
 When the input is `docs/plans/*-plan.md` or another explicit plan file:
 
 1. Read the plan, focusing on `Requirements Trace`, `Scope Boundaries`, `Technical Approach`, `Implementation Units`, `Files`, `Test Scenarios`, `Verification`, and `Deferred to Implementation`.
-2. Decide whether a task pack will actually reduce execution risk or context load.
-3. If task compilation is not worthwhile, explain why and recommend sending the plan directly to `spec-work`.
-4. If task compilation is worthwhile, run the compilation flow below and write the task pack.
+2. Read the plan frontmatter. Executable task packs require a source plan `spec_id`. If the source plan is a legacy plan without `spec_id`, do not write an executable task pack; return to `spec-plan` to add plan frontmatter, or produce only a draft/transient task pack that is explicitly not valid `spec-work` input.
+3. Decide whether a task pack will actually reduce execution risk or context load.
+4. If task compilation is not worthwhile, explain why and recommend sending the plan directly to `spec-work`.
+5. If task compilation is worthwhile, run the compilation flow below and write the task pack, copying `spec_id` from the source plan.
 
 ### 2. Existing Task-Pack Path
 
 When the input is `docs/tasks/*-tasks.md` or a file whose frontmatter has `type: task-pack`:
 
 1. Read the task pack frontmatter, `source_plan`, and source plan.
-2. Validate `generated_by: spec-write-tasks`, `mode/status`, `source_plan`, `source_plan_hash`, required task-card fields, dependency references, and repo-relative `files`.
+2. Validate `generated_by: spec-write-tasks`, `mode/status`, `spec_id`, `source_plan`, `source_plan_hash`, required task-card fields, dependency references, and repo-relative `files`.
 3. If deterministic hash tooling is unavailable, report the task pack as unverifiable handoff. Do not normalize and continue.
 4. If `source_plan_hash` does not match the current source plan, stop. Do not normalize and continue; require rebuilding from the source plan.
-5. If the task pack lacks a verifiable hash or is marked draft/non-executable, report it as not executable handoff. Do not recommend sending it directly to `spec-work`.
-6. Only normalize formatting or missing field shape when doing so does not change scope, acceptance criteria, or task semantics.
+5. If the task pack lacks `spec_id`, report it as missing identity and not executable handoff. Do not normalize and continue.
+6. If source plan and task pack both have `spec_id`, they must match. A mismatch is a wrong-chain handoff; stop and require rebuilding from the source plan.
+7. If the source plan lacks `spec_id`, report identity as unverifiable weak trace. Stop for executable handoff; return to `spec-plan` to add plan frontmatter or rebuild a draft/transient task pack.
+8. If the task pack lacks a verifiable hash or is marked draft/non-executable, report it as not executable handoff. Do not recommend sending it directly to `spec-work`.
+9. Only normalize formatting or missing field shape when doing so does not change scope, acceptance criteria, or task semantics.
 
 ### 3. Bare Task-Splitting Request
 
@@ -79,6 +84,7 @@ It must have:
 - traceable requirements, acceptance refs, or equivalent source anchors,
 - implementation units, story slices, or file boundaries clear enough to compile,
 - actionable verification / test scenarios,
+- a source plan `spec_id` when generating an executable task pack,
 - no unresolved product, architecture, or contract decision that would change scope.
 
 Choose exactly one branch:
@@ -178,6 +184,10 @@ Every task card must express:
 
 `source_plan_hash` should be a task-relevant hash, not a whole-file hash.
 
+`spec_id` is copied from the source plan and is not part of freshness. It links the task pack to the same spec chain; `source_plan_hash` proves the task pack is still derived from the current execution-relevant plan content.
+
+If the source plan has no `spec_id`, do not generate an executable task pack. Return to `spec-plan` to add the plan-local identity, or produce only a `draft` / `transient` output that is not valid `spec-work` input.
+
 Include these plan sections in the hash input:
 
 - `Requirements Trace`
@@ -204,7 +214,7 @@ If the current environment has no deterministic hash capability, do not pretend 
 
 - If the task pack matches the current plan hash, `spec-work` should prefer the task pack.
 - If the plan is small or the task pack has low value, `spec-work` can consume the plan directly.
-- If the task pack lacks a verifiable hash, has a hash mismatch, or conflicts with the plan, reject handoff and rebuild from the plan.
+- If the task pack lacks a verifiable hash, has a hash mismatch, has a `spec_id` mismatch, or conflicts with the plan, reject handoff and rebuild from the plan.
 
 When consuming a task pack, `spec-work` must still read relevant code, discover tests, and identify execution-time facts. A task pack is a better input, not a replacement for execution judgment.
 

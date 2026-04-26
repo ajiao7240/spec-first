@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { validateAgainstSchema } = require('../../src/bootstrap-compiler/schema-loader');
+const { validateAgainstSchema } = require('../../src/contracts/schema-validator');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SCHEMA_PATH = path.join(

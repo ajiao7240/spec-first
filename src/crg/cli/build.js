@@ -13,6 +13,9 @@ const path = require('path');
 const fs = require('fs');
 const { makeEnvelope } = require('./envelope');
 const {
+  GRAPH_CODE_NAVIGATION_FILE,
+  GRAPH_INDEX_STATUS_FILE,
+  GRAPH_OPERATIONS_LOG_FILE,
   resolveGraphDir,
   resolveGraphDb,
   resolveGraphInputFingerprints,
@@ -23,6 +26,10 @@ const {
   resolveGenerationDb,
   resolveGenerationDir,
 } = require('../generations/paths');
+
+const GRAPH_CODE_NAVIGATION_FILENAME = GRAPH_CODE_NAVIGATION_FILE || 'code-navigation.json';
+const GRAPH_INDEX_STATUS_FILENAME = GRAPH_INDEX_STATUS_FILE || 'graph-index-status.json';
+const GRAPH_OPERATIONS_LOG_FILENAME = GRAPH_OPERATIONS_LOG_FILE || 'graph-operations.jsonl';
 
 // ---------------------------------------------------------------------------
 // 共用：尝试加载 better-sqlite3
@@ -175,6 +182,115 @@ function loadPersistedUnresolvedSnapshot(db) {
     samples,
     sample_count: sampleCountRow ? (sampleCountRow.c || 0) : 0,
   };
+}
+
+function safeAll(db, sql, params = []) {
+  try {
+    return db.prepare(sql).all(...params);
+  } catch (_) {
+    return [];
+  }
+}
+
+function safeCount(db, tableName) {
+  try {
+    const row = db.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get();
+    return row ? row.count || 0 : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+function writeJson(filePath, payload) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(payload, null, 2));
+}
+
+function appendOperation(repoRoot, payload) {
+  const logPath = path.join(resolveGraphDir(repoRoot), GRAPH_OPERATIONS_LOG_FILENAME);
+  try {
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    fs.appendFileSync(logPath, `${JSON.stringify({
+      schema_version: 'graph-operations/v1',
+      generated_at: new Date().toISOString(),
+      ...payload,
+    })}\n`);
+  } catch (_) {
+    // 操作日志是审计线索，不能阻断 graph build 主产出。
+  }
+}
+
+function writeGraphControlPlane({ repoRoot, db, nodeCount, edgeCount, generationId, warnings = [], degraded = false }) {
+  const graphDir = resolveGraphDir(repoRoot);
+  const topCommunities = safeAll(db, `
+    SELECT id AS community_id, label, file_count
+    FROM communities
+    ORDER BY file_count DESC
+    LIMIT 5
+  `);
+  const topFlows = safeAll(db, `
+    SELECT id AS flow_id, entry_node_id AS entry_node, name, criticality, node_count
+    FROM flows
+    ORDER BY criticality DESC
+    LIMIT 5
+  `);
+  const highRiskNodes = safeAll(db, `
+    SELECT id, name, file_path, kind
+    FROM nodes
+    WHERE kind != 'module'
+    ORDER BY is_test ASC, line_end - line_start DESC
+    LIMIT 10
+  `);
+  const testRoots = safeAll(db, `
+    SELECT DISTINCT file_path
+    FROM nodes
+    WHERE is_test = 1
+    LIMIT 20
+  `).map((row) => row.file_path);
+
+  const status = {
+    schema_version: 'graph-index-status/v1',
+    generated_at: new Date().toISOString(),
+    generation_id: generationId,
+    state: degraded ? 'degraded' : 'ready',
+    stats: {
+      node_count: nodeCount,
+      edge_count: edgeCount,
+      community_count: safeCount(db, 'communities'),
+      flow_count: safeCount(db, 'flows'),
+    },
+    capabilities: {
+      locate: nodeCount > 0,
+      path: edgeCount > 0,
+      explain: nodeCount > 0,
+      impact: nodeCount > 0,
+      review_context: nodeCount > 0,
+      workflow_context: true,
+      hook: true,
+    },
+    limitations: warnings.map((warning) => ({
+      code: warning.type || 'build-warning',
+      message: JSON.stringify(warning),
+    })),
+  };
+  const navigation = {
+    schema_version: 'code-navigation/v1',
+    generated_at: status.generated_at,
+    generation_id: generationId,
+    entrypoints: highRiskNodes.slice(0, 5),
+    test_roots: testRoots,
+    high_risk_nodes: highRiskNodes,
+    top_communities: topCommunities,
+    top_flows: topFlows,
+    query_starters: [
+      { query: 'repository architecture modules entrypoints', command: 'spec-first crg locate --repo=<repo> --query="repository architecture modules entrypoints"' },
+      { query: 'review risks candidate tests', command: 'spec-first crg review-context --repo=<repo> --since=<base>' },
+    ],
+    limitations: [],
+  };
+
+  writeJson(path.join(graphDir, GRAPH_INDEX_STATUS_FILENAME), status);
+  writeJson(path.join(graphDir, GRAPH_CODE_NAVIGATION_FILENAME), navigation);
 }
 
 /**
@@ -463,6 +579,22 @@ async function runBuildAsync(argv) {
         health,
       });
     }
+    writeGraphControlPlane({
+      repoRoot,
+      db,
+      nodeCount,
+      edgeCount,
+      generationId,
+      warnings,
+      degraded: hasParserDegradation || !health.healthy,
+    });
+    appendOperation(repoRoot, {
+      operation: health.healthy ? 'promote' : 'degrade',
+      generation_id: generationId,
+      node_count: nodeCount,
+      edge_count: edgeCount,
+      status: health.healthy ? 'ready' : 'degraded',
+    });
 
     process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
   } finally {

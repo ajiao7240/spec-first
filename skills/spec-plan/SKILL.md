@@ -14,6 +14,10 @@ argument-hint: "[optional: feature description, requirements doc path, plan path
 
 This workflow produces a durable implementation plan. It does **not** implement code, run tests, or learn from execution-time results. If the answer depends on changing code and seeing what happens, that belongs in `spec-work`, not here.
 
+## CRG Planning Anchor
+
+When a CRG graph is available, start planning with `spec-first crg hook before-plan --task="<task>" --repo=<repo>`. Treat the hook envelope, `locate` / `path` / `explain` recommendations, evidence, and limitations as decision inputs only; the LLM still selects the candidate change surface. If the hook reports unavailable or degraded graph state, continue with direct repo reads instead of falling back to Stage-0 docs.
+
 ## Interaction Method
 
 When asking the user a question, use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
@@ -103,6 +107,7 @@ If a relevant requirements document exists:
 1. Read it thoroughly
 2. Announce that it will serve as the origin document for planning
 3. Carry forward all of the following:
+   - `spec_id` when the origin frontmatter contains one. Preserve it exactly in the plan frontmatter; it is the cross-artifact identity for this spec chain.
    - Problem frame
    - Actors (A-IDs), Key Flows (F-IDs), and Acceptance Examples (AE-IDs) when present — preserve these as constraints that implementation units must honor
    - Requirements and success criteria
@@ -113,6 +118,8 @@ If a relevant requirements document exists:
 4. Use the source document as the primary input to planning and research
 5. Reference important carried-forward decisions in the plan with `(see origin: <source-path>)`
 6. Do not silently omit source content — if the origin document discussed it, the plan must address it even if briefly. Before finalizing, scan each section of the origin document to verify nothing was dropped.
+
+If the origin requirements document is a legacy document without `spec_id`, do not edit the origin by default. Generate a new plan-local `spec_id`, note in the plan that origin identity was not inherited, and treat the requirements-to-plan link as weak trace. If the user explicitly asks to backfill the origin requirements document, handle that as a separate scoped edit.
 
 If no relevant requirements document exists, planning may proceed from the user's request directly.
 
@@ -307,6 +314,12 @@ Ask the user only when the answer materially affects architecture, scope, sequen
   - Keep the descriptive name concise (3-5 words) and kebab-cased
   - Examples: `2026-01-15-001-feat-user-authentication-flow-plan.md`, `2026-02-03-002-fix-checkout-race-condition-plan.md`
   - Avoid: missing sequence numbers, vague names like "new-feature", invalid characters (colons, spaces)
+- Set the plan frontmatter `spec_id`:
+  - If the plan has an origin requirements document with `spec_id`, inherit that value exactly, even though the plan filename also contains `<type>`.
+  - If the origin requirements document is legacy and lacks `spec_id`, generate a plan-local `spec_id` from the plan filename sequence and slug, and state in the Problem Frame or Context & Research that origin identity was not inherited.
+  - If there is no origin document, generate a new `spec_id` from the plan filename sequence and slug.
+  - Before minting a new `spec_id`, scan `docs/brainstorms/`, `docs/plans/`, and `docs/tasks/` frontmatter. If the same `spec_id` already exists and `origin` / `source_plan` links do not prove it belongs to the same spec chain, increment the local sequence or ask the user to confirm.
+  - Preserve `spec_id` across ordinary edits, plan deepening, task-pack rebuilds, and work/review handoffs. For alternative implementation plans, independent delivery chains, or abandon-and-replace work from the same origin, decide whether to inherit or create a new spec chain and record the reason in the plan.
 
 #### 3.2 Stakeholder and Impact Awareness
 
@@ -461,7 +474,8 @@ title: [Plan Title]
 type: [feat|fix|refactor]
 status: active
 date: YYYY-MM-DD
-origin: docs/brainstorms/YYYY-MM-DD-<topic>-requirements.md  # include when planning from a requirements doc
+spec_id: YYYY-MM-DD-NNN-<slug>
+origin: docs/brainstorms/YYYY-MM-DD-NNN-<slug>-requirements.md  # include when planning from a requirements doc
 deepened: YYYY-MM-DD  # optional, set when the confidence-first check substantively strengthens the plan
 ---
 
@@ -747,6 +761,9 @@ Before finalizing, check:
 - Test scenarios name specific inputs, actions, and expected outcomes without becoming test code
 - Feature-bearing units with blank or missing test scenarios are flagged as incomplete — feature-bearing units must have actual test scenarios, not just an annotation. The `Test expectation: none -- [reason]` annotation is only valid for non-feature-bearing units (pure config, scaffolding, styling)
 - Deferred items are explicit and not hidden as fake certainty
+- `spec_id` is present for software plans, is inherited from origin requirements when available, and is not changed during deepening or ordinary plan edits
+- If the origin requirements document lacks `spec_id`, the plan explicitly says it uses a plan-local `spec_id` and that origin identity was not inherited
+- If this plan is an alternative, independent delivery chain, or replacement for another plan from the same origin, the plan states why it inherits the existing `spec_id` or starts a new spec chain
 - If a High-Level Technical Design section is included, it uses the right medium for the work, carries the non-prescriptive framing, and does not contain implementation code (no imports, exact signatures, or framework-specific syntax)
 - Per-unit technical design fields, if present, are concise and directional rather than copy-paste-ready
 - If the plan creates a new directory structure, would an Output Structure tree help reviewers see the overall shape?

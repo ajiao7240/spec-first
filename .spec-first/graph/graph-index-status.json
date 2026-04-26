@@ -1,0 +1,31 @@
+{
+  "schema_version": "graph-index-status/v1",
+  "generated_at": "2026-04-26T12:12:18.377Z",
+  "generation_id": "20260426121218255",
+  "state": "degraded",
+  "stats": {
+    "node_count": 765,
+    "edge_count": 1923,
+    "community_count": 7,
+    "flow_count": 68
+  },
+  "capabilities": {
+    "locate": true,
+    "path": true,
+    "explain": true,
+    "impact": true,
+    "review_context": true,
+    "workflow_context": true,
+    "hook": true
+  },
+  "limitations": [
+    {
+      "code": "skipped_sensitive",
+      "message": "{\"type\":\"skipped_sensitive\",\"count\":3}"
+    },
+    {
+      "code": "parse_error_files",
+      "message": "{\"type\":\"parse_error_files\",\"count\":4}"
+    }
+  ]
+}

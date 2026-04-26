@@ -1,10 +1,12 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const ClaudeAdapter = require('../../src/cli/adapters/claude');
 const CodexAdapter = require('../../src/cli/adapters/codex');
+const { inspectInstalledAssets, syncSkills } = require('../../src/cli/plugin');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'using-spec-first', 'SKILL.md');
@@ -97,5 +99,23 @@ describe('using-spec-first contracts', () => {
     expect(claudeRuntime).toContain('Codex installs it as `.agents/skills/using-spec-first/SKILL.md`');
     expect(codexRuntime).toContain('Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md`');
     expect(codexRuntime).toContain('Codex installs it as `.agents/skills/using-spec-first/SKILL.md`');
+  });
+
+  test('codex runtime install notes do not trigger path rewrite drift', () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'using-spec-first-codex-runtime-'));
+    const codex = new CodexAdapter();
+
+    try {
+      syncSkills(projectRoot, codex);
+      const status = inspectInstalledAssets(projectRoot, codex).skills;
+      const usingSpecFirstDrift = status.drifted.find((entry) => entry.skillName === 'using-spec-first');
+
+      expect(usingSpecFirstDrift).toBeUndefined();
+      expect(read(path.join(projectRoot, '.agents', 'skills', 'using-spec-first', 'SKILL.md'))).toContain(
+        'Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md`',
+      );
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
   });
 });

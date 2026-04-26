@@ -1,7 +1,7 @@
 ---
 title: "refactor: 将 spec-graph-bootstrap 收缩为 CRG 图索引 + 按需查询 + LLM 决策"
 type: refactor
-status: active
+status: completed
 date: 2026-04-25
 ---
 

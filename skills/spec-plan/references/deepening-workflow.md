@@ -68,6 +68,7 @@ If the plan already has a `deepened:` date:
 - Feature-bearing units have blank or missing test scenarios (feature-bearing units require actual test scenarios; the `Test expectation: none` annotation is only valid for non-feature-bearing units)
 - Verification outcomes are vague or not expressed as observable results
 - Existing U-IDs were renumbered after a unit was reordered, split, or deleted (U-IDs are stable: never renumber existing IDs; gaps from deletions are preserved; new units take the next unused number)
+- Existing `spec_id` was regenerated or changed during deepening. `spec_id` identifies the spec chain; deepening strengthens the same plan and must preserve it.
 - A unit realizing an origin Key Flow does not cite the F-ID, or a unit enforcing an origin Acceptance Example does not cite the AE-ID, when origin supplies them
 
 **System-Wide Impact**
@@ -234,6 +235,7 @@ Allowed changes:
 - Strengthen, replace, or add a High-Level Technical Design section when the work warrants it and the current representation is weak
 - Strengthen or add per-unit technical design fields where the unit's approach is non-obvious
 - Add or update `deepened: YYYY-MM-DD` in frontmatter when the plan was substantively improved
+- Preserve the existing `spec_id` frontmatter value. Do not regenerate it, even if the plan filename, title, or implementation-unit order changed during deepening.
 
 Do **not**:
 - Add implementation code — no imports, exact method signatures, or framework-specific syntax. Pseudo-code sketches and DSL grammars are allowed
@@ -242,6 +244,7 @@ Do **not**:
 - Rewrite the entire plan from scratch
 - Invent new product requirements, scope changes, or success criteria without surfacing them explicitly
 - Renumber existing U-IDs as part of reordering, splitting, deletion, or "tidying" the unit list. Deepening is the most likely accidental-renumber vector — preserve U-IDs even when the new order would look cleaner with sequential numbering
+- Regenerate or replace an existing `spec_id` as part of deepening. Use a new `spec_id` only when deliberately creating a new spec chain outside the deepening path.
 
 If research reveals a product-level ambiguity that should change behavior or scope:
 - Do not silently decide it here

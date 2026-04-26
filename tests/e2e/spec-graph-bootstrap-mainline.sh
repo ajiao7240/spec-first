@@ -3,128 +3,69 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-cd "$REPO_ROOT"
+TMP_DIR="$(mktemp -d)"
+TARGET_REPO="$TMP_DIR/crg-mainline"
 
-TMP_REPO="$(mktemp -d)"
-trap 'rm -rf "$TMP_REPO"' EXIT
-
-echo "=== E2E 测试：spec-graph-bootstrap 主链 ==="
-
-export BOOTSTRAP_TEST_REPO="$TMP_REPO"
-
-node <<'NODE'
-'use strict';
-
-const fs = require('node:fs');
-const path = require('node:path');
-const { execFileSync } = require('node:child_process');
-
-const { runBootstrap } = require('./src/bootstrap-compiler/run-bootstrap');
-const { evaluateContextForRepo } = require('./src/context-routing/evaluator');
-const { recordWorkflowTelemetry } = require('./src/context-routing/telemetry');
-
-const repoRoot = process.env.BOOTSTRAP_TEST_REPO;
-const generatedAt = '2026-04-15T00:00:00.000Z';
-
-fs.mkdirSync(path.join(repoRoot, 'src'), { recursive: true });
-fs.mkdirSync(path.join(repoRoot, 'tests'), { recursive: true });
-fs.writeFileSync(path.join(repoRoot, 'package.json'), JSON.stringify({
-  name: 'bootstrap-e2e-fixture',
-  version: '1.0.0',
-  type: 'commonjs',
-  bin: {
-    'bootstrap-e2e-fixture': './bin/bootstrap-e2e-fixture.js',
-  },
-}, null, 2));
-fs.mkdirSync(path.join(repoRoot, 'bin'), { recursive: true });
-fs.writeFileSync(path.join(repoRoot, 'bin', 'bootstrap-e2e-fixture.js'), '#!/usr/bin/env node\n');
-fs.writeFileSync(path.join(repoRoot, 'src', 'index.js'), [
-  '\'use strict\';',
-  '',
-  'function greet(name) {',
-  '  return `hello ${name}`;',
-  '}',
-  '',
-  'module.exports = { greet };',
-  '',
-].join('\n'));
-fs.writeFileSync(path.join(repoRoot, 'tests', 'index.test.js'), [
-  '\'use strict\';',
-  '',
-  'const { greet } = require(\'../src/index\');',
-  '',
-  'if (greet(\'spec-first\') !== \'hello spec-first\') {',
-  '  throw new Error(\'unexpected greet result\');',
-  '}',
-  '',
-].join('\n'));
-execFileSync('git', ['init'], { cwd: repoRoot, stdio: 'ignore' });
-execFileSync('git', ['add', 'package.json', 'bin/bootstrap-e2e-fixture.js', 'src/index.js', 'tests/index.test.js'], { cwd: repoRoot, stdio: 'ignore' });
-
-const result = runBootstrap({ repoRoot, generatedAt });
-if (result.status !== 'complete') {
-  throw new Error('bootstrap mainline did not complete');
+cleanup() {
+  rm -rf "$TMP_DIR"
 }
+trap cleanup EXIT
 
-const evaluation = evaluateContextForRepo({
-  repoRoot,
-  slug: result.slug,
-  stage: 'review',
-});
-
-if (evaluation.level !== 'L1') {
-  throw new Error(`expected L1 evaluation, received ${evaluation.level}`);
-}
-
-if (evaluation.fallback_reason !== 'data_quality_partial') {
-  throw new Error(`expected data_quality_partial fallback, received ${evaluation.fallback_reason}`);
-}
-
-if (evaluation.selected_assets[0] !== 'minimal-context/review.json') {
-  throw new Error(`unexpected selected asset order: ${evaluation.selected_assets.join(',')}`);
-}
-
-const telemetry = recordWorkflowTelemetry({
-  repoRoot,
-  workflow: 'spec-code-review',
-  slug: result.slug,
-  evaluation,
-  generatedAt,
-});
-
-if (!fs.existsSync(telemetry.filePath)) {
-  throw new Error('telemetry file was not written');
-}
-
-const telemetryRecord = JSON.parse(fs.readFileSync(telemetry.filePath, 'utf8'));
-if (telemetryRecord.stage !== 'review') {
-  throw new Error(`unexpected telemetry stage: ${telemetryRecord.stage}`);
-}
-
-const requiredArtifacts = [
-  path.join(result.controlPlaneDir, 'fact-inventory.json'),
-  path.join(result.controlPlaneDir, 'risk-signals.json'),
-  path.join(result.controlPlaneDir, 'test-surface.json'),
-  path.join(result.controlPlaneDir, 'database-routing.json'),
-  path.join(result.controlPlaneDir, 'context-routing.json'),
-  path.join(result.controlPlaneDir, 'artifact-manifest.json'),
-  path.join(result.controlPlaneDir, 'freshness.json'),
-  path.join(result.controlPlaneDir, 'minimal-context', 'review.json'),
-  path.join(result.contextDir, 'architecture', 'module-map.md'),
-];
-
-for (const artifactPath of requiredArtifacts) {
-  if (!fs.existsSync(artifactPath)) {
-    throw new Error(`missing artifact: ${artifactPath}`);
+mkdir -p "$TARGET_REPO/src"
+cat > "$TARGET_REPO/package.json" <<'JSON'
+{
+  "name": "crg-mainline-fixture",
+  "scripts": {
+    "test": "node --test"
   }
 }
-
-const readme = fs.readFileSync(path.join(result.contextDir, 'README.md'), 'utf8');
-if (!readme.includes('source_of_truth')) {
-  throw new Error('generated README did not include control-plane source_of_truth hint');
+JSON
+cat > "$TARGET_REPO/src/index.js" <<'JS'
+function greet(name) {
+  return `hello ${name}`;
 }
 
-console.log('bootstrap mainline verified');
-NODE
+module.exports = { greet };
+JS
 
-echo "=== spec-graph-bootstrap 主链通过 ✓ ==="
+node "$REPO_ROOT/bin/spec-first.js" crg build --repo="$TARGET_REPO" >/tmp/spec-first-crg-build.out
+
+test -f "$TARGET_REPO/.spec-first/graph/graph-index-status.json"
+test -f "$TARGET_REPO/.spec-first/graph/code-navigation.json"
+test -f "$TARGET_REPO/.spec-first/graph/graph-operations.jsonl"
+
+if [ -e "$TARGET_REPO/.spec-first/workflows/bootstrap" ]; then
+  echo "legacy bootstrap control-plane should not be generated" >&2
+  exit 1
+fi
+
+node "$REPO_ROOT/bin/spec-first.js" crg workflow-context --repo="$TARGET_REPO" --stage=plan --task="change greeting" >/tmp/spec-first-crg-workflow-context.out
+node -e '
+const fs = require("node:fs");
+const payload = JSON.parse(fs.readFileSync("/tmp/spec-first-crg-workflow-context.out", "utf8"));
+if (payload.data.stage !== "plan") throw new Error("expected plan stage");
+if (!payload.data.recommended_queries.some((item) => item.command.includes("crg locate"))) {
+  throw new Error("expected locate query recommendation");
+}
+const text = JSON.stringify(payload);
+if (/stage0-context|minimal-context|context-routing|selected_assets/.test(text)) {
+  throw new Error("workflow-context exposed legacy Stage-0 fields");
+}
+'
+
+node "$REPO_ROOT/bin/spec-first.js" crg hook before-plan --repo="$TARGET_REPO" --task="change greeting" >/tmp/spec-first-crg-before-plan.out
+node -e '
+const fs = require("node:fs");
+const payload = JSON.parse(fs.readFileSync("/tmp/spec-first-crg-before-plan.out", "utf8"));
+if (payload.data.hook_id !== "before_plan") throw new Error("expected before_plan hook");
+if (!String(payload.data.candidate_surface_policy || "").includes("LLM selects")) {
+  throw new Error("expected LLM decision boundary");
+}
+'
+
+node "$REPO_ROOT/bin/spec-first.js" crg locate --repo="$TARGET_REPO" --query="greet" --detail=minimal >/tmp/spec-first-crg-locate.out
+node -e '
+const fs = require("node:fs");
+const payload = JSON.parse(fs.readFileSync("/tmp/spec-first-crg-locate.out", "utf8"));
+if (!Array.isArray(payload.data.candidates)) throw new Error("expected locate candidates array");
+'

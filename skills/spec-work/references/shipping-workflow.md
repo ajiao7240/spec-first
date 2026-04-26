@@ -52,6 +52,7 @@ This file contains the shipping workflow (Phase 3-4). Load it only when all Phas
    - Figma designs match (if applicable)
    - No console errors or warnings
    - If the plan has a `Requirements Trace`, verify each requirement is satisfied by the completed work
+   - If the work document has `spec_id`, verify final summaries and handoff notes use it only as artifact-chain trace context, not as progress or approval state
    - If any `Deferred to Implementation` questions were noted, confirm they were resolved during execution
 
 5. **Prepare Operational Validation Plan** (REQUIRED)

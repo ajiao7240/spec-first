@@ -3,11 +3,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { validateAgainstSchema } = require('../../src/bootstrap-compiler/schema-loader');
+const { validateAgainstSchema } = require('../../src/contracts/schema-validator');
 const {
   GATE_ID,
   QUALITY_FEEDBACK_FILE,
-  STAGE0_CONTRACT_TESTS,
+  CRG_RUNTIME_CONTRACT_TESTS,
   buildGateResult,
 } = require('../../scripts/run-ai-dev-quality-gate');
 
@@ -25,8 +25,8 @@ describe('ai dev quality gate contract', () => {
     const schema = JSON.parse(fs.readFileSync(SCHEMA_PATH, 'utf8'));
     const result = buildGateResult({
       generatedAt: '2026-04-18T13:20:00.000Z',
-      stage0Contracts: {
-        check_id: 'stage0-contracts',
+      crgRuntimeContracts: {
+        check_id: 'crg-runtime-contracts',
         kind: 'unit-suite',
         passed: true,
         summary: {
@@ -35,7 +35,7 @@ describe('ai dev quality gate contract', () => {
           tests_total: 76,
           tests_failed: 0,
         },
-        artifact_path: '.spec-first/workflows/quality-gates/ai-dev-quality-gate/stage0-contracts.junit.json',
+        artifact_path: '.spec-first/workflows/quality-gates/ai-dev-quality-gate/crg-runtime-contracts.junit.json',
       },
     });
 
@@ -47,7 +47,7 @@ describe('ai dev quality gate contract', () => {
       passed: true,
       checks: [
         expect.objectContaining({
-          check_id: 'stage0-contracts',
+          check_id: 'crg-runtime-contracts',
           kind: 'unit-suite',
           passed: true,
         }),
@@ -57,22 +57,17 @@ describe('ai dev quality gate contract', () => {
   });
 
   test('runner keeps a bounded explicit test list instead of inferring checks from workflow state', () => {
-    expect(STAGE0_CONTRACT_TESTS).toEqual([
+    expect(CRG_RUNTIME_CONTRACT_TESTS).toEqual([
       'tests/unit/branch-protection-policy.test.js',
-      'tests/unit/spec-graph-bootstrap-contracts.test.js',
-      'tests/unit/spec-graph-bootstrap-compiler.test.js',
-      'tests/unit/quality-feedback.test.js',
-      'tests/unit/verifier-registry.test.js',
-      'tests/unit/stage0-context-command.test.js',
-      'tests/unit/verification-evidence.test.js',
-      'tests/unit/verification-gate-state.test.js',
-      'tests/unit/workflow-stage0-consumption.test.js',
+      'tests/unit/crg-control-plane-contracts.test.js',
+      'tests/unit/crg-router.test.js',
+      'tests/unit/crg-workflow-context-hooks.test.js',
+      'tests/unit/crg-review-context-hunks.test.js',
       'tests/unit/spec-plan-contracts.test.js',
+      'tests/unit/spec-write-tasks-contracts.test.js',
       'tests/unit/spec-work-contracts.test.js',
       'tests/unit/spec-work-beta-contracts.test.js',
       'tests/unit/spec-code-review-contracts.test.js',
-      'tests/unit/workflow-telemetry.test.js',
-      'tests/unit/workspace-context.test.js',
     ]);
     expect(QUALITY_FEEDBACK_FILE).toBe('quality-feedback-topics.json');
   });
@@ -81,9 +76,16 @@ describe('ai dev quality gate contract', () => {
     const aiWorkflow = fs.readFileSync(path.join(REPO_ROOT, '.github', 'workflows', 'ai-dev-quality-gate.yml'), 'utf8');
 
     expect(aiWorkflow).toContain("src/cli/contracts/quality-gates/**");
+    expect(aiWorkflow).toContain("src/crg/**");
+    expect(aiWorkflow).toContain("src/contracts/**");
     expect(aiWorkflow).toContain("docs/contracts/quality-gates/**");
     expect(aiWorkflow).toContain(".github/workflows/ai-dev-quality-gate.yml");
     expect(aiWorkflow).toContain("tests/unit/branch-protection-policy.test.js");
-    expect(aiWorkflow).toContain("tests/unit/quality-feedback.test.js");
+    expect(aiWorkflow).toContain("tests/unit/crg-control-plane-contracts.test.js");
+    expect(aiWorkflow).toContain("tests/unit/crg-workflow-context-hooks.test.js");
+    expect(aiWorkflow).not.toContain("src/bootstrap-compiler/**");
+    expect(aiWorkflow).not.toContain("docs/contracts/spec-graph-bootstrap/**");
+    expect(aiWorkflow).not.toContain("src/context-routing/**");
+    expect(aiWorkflow).not.toContain("src/cli/commands/stage0-context.js");
   });
 });

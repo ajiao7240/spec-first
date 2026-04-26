@@ -16,6 +16,7 @@ title: "<Task Pack Title>"
 type: "task-pack"
 status: "derived"
 date: "2026-04-26"
+spec_id: "YYYY-MM-DD-NNN-<slug>"
 source_plan: "docs/plans/YYYY-MM-DD-NNN-<type>-<slug>-plan.md"
 source_plan_hash: "sha256:<64-hex>"
 generated_by: "spec-write-tasks"
@@ -35,13 +36,18 @@ source_sections:
 | `type` | Must be `task-pack` |
 | `status` | Executable handoff must be `derived`; unverified drafts must use `draft` |
 | `date` | Generation date |
+| `spec_id` | Spec-chain identity copied from the source plan; executable handoff requires it |
 | `source_plan` | Repo-relative path to the single source plan |
 | `source_plan_hash` | Task-relevant plan hash; executable handoff must use `sha256:<64-hex>` |
 | `generated_by` | Must be `spec-write-tasks` |
 | `mode` | Executable handoff must be `derived`; transient slices are not stable `spec-work` input |
 | `source_sections` | Plan sections actually consumed by this task pack |
 
+`spec_id` and `source_plan_hash` have separate jobs. `spec_id` identifies the requirements/plan/task-pack chain; `source_plan_hash` proves the task pack is still derived from the current execution-relevant plan content. A task pack whose `spec_id` does not match the source plan is a wrong-chain handoff. A task pack whose hash does not match is stale.
+
 `source_plan_hash` must be a task-relevant hash over plan sections that affect execution semantics. Exclude plan `status`, pure formatting changes, review menus, and completed-state timestamps.
+
+If the source plan lacks `spec_id`, do not write an executable task pack. Return to `spec-plan` to add plan frontmatter, or write only a draft/transient task pack that is explicitly not valid `spec-work` input.
 
 If the current environment cannot produce a verifiable hash, do not write an executable handoff. A draft/non-executable task pack is allowed only when:
 
@@ -210,6 +216,7 @@ For detailed quality guidance, bad smells, and examples, see [Task Quality Guide
 Scripts may check:
 
 - frontmatter fields are complete,
+- `spec_id` is present and matches the current source plan when the source plan has one,
 - `source_plan` exists,
 - `source_plan_hash` format is valid and executable handoff uses `sha256:<64-hex>`,
 - `task_id` values are unique,
@@ -240,5 +247,7 @@ Rebuild the task pack when any of these changes:
 - task pack semantics after manual editing.
 
 If `source_plan_hash` does not match, execution must be rejected and the task pack must be rebuilt.
+
+If `spec_id` does not match the current source plan, execution must be rejected as wrong-chain handoff and the task pack must be rebuilt from the source plan.
 
 If execution triggers a task's `stop_if`, return to `spec-plan` or rerun `spec-write-tasks`.

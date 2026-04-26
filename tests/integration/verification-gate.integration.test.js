@@ -22,29 +22,35 @@ describe('AI dev quality gate integration', () => {
     expect(pkg.scripts['test:integration']).toContain('tests/integration/verification-gate.integration.test.js');
   });
 
-  test('AI dev quality gate workflow triggers on Stage-0 verification contract surfaces, calls dedicated script, and uploads result artifact', () => {
+  test('AI dev quality gate workflow triggers on CRG runtime contract surfaces, calls dedicated script, and uploads result artifact', () => {
     const workflow = read(AI_GATE_WORKFLOW_PATH);
 
     expect(workflow).toContain('name: AI Dev Quality Gate');
     expect(workflow).toContain("src/cli/contracts/quality-gates/**");
-    expect(workflow).toContain("src/bootstrap-compiler/**");
-    expect(workflow).toContain("src/context-routing/**");
-    expect(workflow).toContain("src/cli/commands/stage0-context.js");
-    expect(workflow).toContain("docs/contracts/spec-graph-bootstrap/**");
+    expect(workflow).toContain("src/crg/**");
+    expect(workflow).toContain("src/contracts/**");
+    expect(workflow).toContain("src/verification/**");
+    expect(workflow).toContain("docs/contracts/crg/**");
     expect(workflow).toContain("docs/contracts/verifiers/**");
     expect(workflow).toContain("docs/contracts/quality-gates/**");
     expect(workflow).toContain("skills/spec-plan/**");
+    expect(workflow).toContain("skills/spec-write-tasks/**");
     expect(workflow).toContain("skills/spec-work/**");
     expect(workflow).toContain("skills/spec-work-beta/**");
     expect(workflow).toContain("skills/spec-code-review/**");
     expect(workflow).toContain(".github/workflows/ai-dev-quality-gate.yml");
     expect(workflow).toContain("tests/unit/branch-protection-policy.test.js");
-    expect(workflow).toContain("tests/unit/quality-feedback.test.js");
+    expect(workflow).toContain("tests/unit/crg-control-plane-contracts.test.js");
+    expect(workflow).toContain("tests/unit/crg-workflow-context-hooks.test.js");
     expect(workflow).toContain("docs/10-prompt/skills/spec-plan/**");
     expect(workflow).toContain("docs/10-prompt/skills/spec-work/**");
     expect(workflow).toContain("docs/10-prompt/skills/spec-work-beta/**");
     expect(workflow).toContain("docs/10-prompt/skills/spec-code-review/**");
     expect(workflow).toContain("tests/integration/verification-gate.integration.test.js");
+    expect(workflow).not.toContain("src/bootstrap-compiler/**");
+    expect(workflow).not.toContain("docs/contracts/spec-graph-bootstrap/**");
+    expect(workflow).not.toContain("src/context-routing/**");
+    expect(workflow).not.toContain("src/cli/commands/stage0-context.js");
     expect(workflow).toContain('npm run test:ai-dev:gate');
     expect(workflow).toContain('actions/upload-artifact@v4');
     expect(workflow).toContain('.spec-first/workflows/quality-gates/ai-dev-quality-gate/');

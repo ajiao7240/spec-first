@@ -4,8 +4,6 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { runBootstrap } = require('../../src/bootstrap-compiler/run-bootstrap');
-
 describe('crg review-context verification recommendation', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -14,12 +12,14 @@ describe('crg review-context verification recommendation', () => {
 
   test('输出 impacted_* 与 recommended_* verification 字段', () => {
     const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const close = jest.fn();
 
     jest.isolateModules(() => {
       jest.doMock('../../src/crg/cli/open-db', () => ({
         openDb: () => ({
           repoRoot: '/repo',
           db: {
+            close,
             prepare: jest.fn((sql) => {
               if (sql.includes("WHERE file_path = ? AND kind != 'module'")) {
                 return { all: jest.fn(() => []) };
@@ -57,21 +57,6 @@ describe('crg review-context verification recommendation', () => {
       jest.doMock('../../src/crg/retrieval/api', () => ({
         retrieveContext: () => ({ ranked_context: [] }),
       }));
-      jest.doMock('../../src/context-routing/loader', () => ({
-        loadBootstrapRuntimeState: () => ({
-          verificationProfile: {
-            platforms: ['web'],
-            required_gates: [
-              { id: 'unit-tests', scope: 'repository' },
-              { id: 'browser-smoke', scope: 'web-surface' },
-            ],
-            optional_gates: [
-              { id: 'browser-evidence', scope: 'web-surface' },
-            ],
-          },
-        }),
-      }));
-
       const { run } = require('../../src/crg/commands/review-context');
       run(['--repo=/repo', '--since=HEAD~1']);
     });
@@ -91,19 +76,15 @@ describe('crg review-context verification recommendation', () => {
         expect.stringContaining('RECOMMENDED_REQUIRED: unit-tests, browser-smoke'),
       ])
     );
+    expect(close).toHaveBeenCalledTimes(1);
     outputSpy.mockRestore();
   });
 
-  test('workspace child repo 会读取 workspace 锚定的 verification-profile', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'review-context-workspace-child-'));
-    const workspaceRoot = path.join(tmpDir, 'workspace');
-    const repoA = path.join(workspaceRoot, 'packages', 'repo-a');
-    const repoB = path.join(workspaceRoot, 'packages', 'repo-b');
+  test('review-context 从当前 repo package scripts 推断验证建议', () => {
+    const repoA = fs.mkdtempSync(path.join(os.tmpdir(), 'review-context-package-'));
     const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     try {
-      fs.mkdirSync(path.join(repoA, '.git'), { recursive: true });
-      fs.mkdirSync(path.join(repoB, '.git'), { recursive: true });
       fs.writeFileSync(path.join(repoA, 'package.json'), JSON.stringify({
         name: 'repo-a',
         scripts: {
@@ -116,15 +97,7 @@ describe('crg review-context verification recommendation', () => {
       }, null, 2));
       fs.mkdirSync(path.join(repoA, 'src', 'app', 'home'), { recursive: true });
       fs.writeFileSync(path.join(repoA, 'src', 'app', 'home', 'page.tsx'), 'export default function Page() { return null; }\n');
-      fs.writeFileSync(path.join(repoB, 'package.json'), JSON.stringify({ name: 'repo-b' }, null, 2));
 
-      runBootstrap({
-        repoRoot: workspaceRoot,
-        generatedAt: '2026-04-17T00:00:00.000Z',
-        repoRoots: [repoA, repoB],
-      });
-
-      jest.unmock('../../src/context-routing/loader');
       jest.isolateModules(() => {
         jest.doMock('../../src/crg/cli/open-db', () => ({
           openDb: () => ({
@@ -184,7 +157,7 @@ describe('crg review-context verification recommendation', () => {
       expect(payload.data.confidence).toBe('high');
     } finally {
       outputSpy.mockRestore();
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      fs.rmSync(repoA, { recursive: true, force: true });
     }
   });
 });

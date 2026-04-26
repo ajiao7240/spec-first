@@ -27,8 +27,8 @@ if grep -q "$retired_default_entry" "$OUTPUT_FILE"; then
   echo "✗ 输出仍宣传已删除的旧 bootstrap 入口"
   exit 1
 fi
-grep -q "/spec:graph-bootstrap  图引导 Phase 0-4 主入口" "$OUTPUT_FILE"
-grep -q "/spec:compound         知识捕获与复合上下文补充入口" "$OUTPUT_FILE"
+grep -q "/spec:graph-bootstrap  CRG 图索引与 query-first 决策输入入口" "$OUTPUT_FILE"
+grep -q "/spec:compound         工作完成后的稳定知识捕获入口" "$OUTPUT_FILE"
 echo "✓ 输出已指向 npm CLI 初始化流程"
 
 echo "2. 检查脚本未再承诺 Claude 插件缓存安装..."

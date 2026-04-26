@@ -1,6 +1,6 @@
 'use strict';
 
-const { summarizeChangeSurface } = require('../../src/context-routing/change-surface');
+const { summarizeChangeSurface } = require('../../src/crg/changes');
 
 describe('change surface verification recommendation', () => {
   test('web runtime 改动会收敛出 web 平台与对应验证建议', () => {
@@ -59,7 +59,7 @@ describe('change surface verification recommendation', () => {
   test('混合 web 与 cli 改动会合并两个平台，并补全对应验证建议', () => {
     const summary = summarizeChangeSurface({
       repoRoot: '/repo',
-      changedFiles: ['src/app/home/page.tsx', 'src/context-routing/loader.js'],
+      changedFiles: ['src/app/home/page.tsx', 'src/crg/changes.js'],
       verificationProfile: {
         platforms: ['web', 'cli'],
         required_gates: [
@@ -71,7 +71,7 @@ describe('change surface verification recommendation', () => {
       },
     });
 
-    expect(summary.impacted_modules).toEqual(['src/app/', 'src/context-routing/']);
+    expect(summary.impacted_modules).toEqual(['src/app/', 'src/crg/']);
     expect(summary.impacted_languages).toEqual(['javascript', 'typescript']);
     expect(summary.impacted_platforms).toEqual(['web', 'cli']);
     expect(summary.recommended_required_verifications).toEqual([
@@ -94,12 +94,12 @@ describe('change surface verification recommendation', () => {
     };
     const left = summarizeChangeSurface({
       repoRoot: '/repo',
-      changedFiles: ['src/app/home/page.tsx', 'src/context-routing/loader.js'],
+      changedFiles: ['src/app/home/page.tsx', 'src/crg/changes.js'],
       verificationProfile,
     });
     const right = summarizeChangeSurface({
       repoRoot: '/repo',
-      changedFiles: ['src/context-routing/loader.js', 'src/app/home/page.tsx'],
+      changedFiles: ['src/crg/changes.js', 'src/app/home/page.tsx'],
       verificationProfile,
     });
 

@@ -1932,21 +1932,6 @@ describe('crg-cli-v1 contract', () => {
         jest.doMock('../../src/crg/input-convergence', () => ({
           isSensitiveFile: () => false,
         }));
-        jest.doMock('../../src/context-routing/loader', () => ({
-          loadBootstrapRuntimeState: () => ({
-            verificationProfile: {
-              platforms: ['web'],
-              required_gates: [
-                { id: 'unit-tests', scope: 'repository' },
-                { id: 'browser-smoke', scope: 'web-surface' },
-              ],
-              optional_gates: [
-                { id: 'browser-evidence', scope: 'web-surface' },
-              ],
-            },
-          }),
-        }));
-
         const { run: isolatedRun } = require('../../src/crg/commands/review-context');
         isolatedRun(['--repo=/repo', '--since=HEAD~1']);
       });

@@ -49,7 +49,7 @@
 
 | 问题 | spec-first 怎么处理 | 约束方式 |
 |------|---------------------|----------|
-| LLM 从空白代码库上下文开始推断 | `graph-bootstrap` 提取 AST facts，并编译带 `provenance` 与 `confidence` 信号的 `minimal-context` | 宿主就绪 gate + runtime workflow contract |
+| LLM 从空白代码库上下文开始推断 | `graph-bootstrap` 构建 CRG 图索引，并暴露 query-first 证据（`locate`、`impact`、`review-context`、lifecycle hooks） | CRG readiness + runtime workflow contract |
 | 需求从未被显式化 | Brainstorm 阶段产出 requirements artifact，供 Plan 阶段消费 | `SKILL.md` contract |
 | 计划与实现逐渐漂移 | Plan artifact 是 Work 阶段的一等输入；Review Stage 2b 会把 **Requirements Trace** 与 diff 对照检查 | `SKILL.md` contract |
 | 评审缺少结构 | 使用 **17 个 reviewer persona**（always-on + cross-cutting + stack-specific）外加 2 个 CE 专用 agent，并按 `safe_auto / gated_auto / manual / advisory` 路由 | `SKILL.md` contract |
@@ -91,14 +91,15 @@ Spec-First 改善的是 **LLM 拿到的决策输入**，而不是用状态机替
 
 ### 两个互补部分
 
-**graph-bootstrap：系统地基**
+**graph-bootstrap：CRG 证据地基**
 
 ```text
-代码库 → AST 图谱 → facts 提取 → minimal-context（provenance + confidence）
-      → injection-index（按阶段路由）→ workflow 输入
+代码库 → CRG 图索引 → graph-index-status + code-navigation
+      → locate / path / explain / impact / review-context
+      → workflow hooks 提供 advisory evidence
 ```
 
-`graph-bootstrap` 会在 AI 开始编码之前，把代码库转换成结构化上下文。它通常每个项目运行一次，或者在代码变化后增量刷新，然后被后续所有 workflow 阶段复用。
+`graph-bootstrap` 在 planning、work、review 前准备确定性的图事实。它不替 LLM 判断该改哪里；它只提供低噪音证据和明确 limitations。
 
 **主工作流：交付闭环**
 
@@ -112,41 +113,34 @@ Ideate → Brainstorm → Plan → Work → Review → Compound
 
 | 入口 | 适用场景 | 产物 | 稳定性 |
 |------|----------|------|--------|
-| `/spec:graph-bootstrap` · `$spec-graph-bootstrap` | 你需要 fact-extracted、graph-informed 的上下文（Phase 0–4） | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | **当前主要 Stage-0 入口** |
-| `/spec:compound` · `$spec-compound` | 你需要更偏知识捕获与复合上下文整理 | 上下文综合文档与可复用知识资产 | **补充型 Stage-0 路径** |
+| `/spec:graph-bootstrap` · `$spec-graph-bootstrap` | 你需要为 plan / work / review 准备 CRG graph-backed query evidence | `.spec-first/graph/graph.db`、`graph-index-status.json`、`code-navigation.json`、`graph-operations.jsonl` | **主要 CRG 入口** |
+| `/spec:compound` · `$spec-compound` | 你需要更偏知识捕获与复合上下文整理 | 上下文综合文档与可复用知识资产 | **补充型知识路径** |
 
 这些入口是 `spec-first init` 安装出来的宿主 workflow entrypoint，不是根级 `spec-first` CLI 子命令。
 
-Stage-0 入口启动时都会执行 **Host Readiness Gate**。如果跳过了 MCP setup 或宿主没有重启，它们会直接停止并给出明确提示，而不是静默降级。
-如果你仍看到旧版 bootstrap 入口，请迁移到 `/spec:graph-bootstrap` 或 `/spec:compound`。
+graph-bootstrap 会在可用时读取 host readiness ledger。如果你跳过了 MCP setup，或者宿主没有重启，它会给出明确提示；当 CRG 不可用时，后续 workflow 会显式退回 targeted direct repo reads，而不是读取过期摘要。
 
-### Stage-0 上下文质量信号
+### CRG 决策信号
 
-每个 context artifact 都带有机器可读的质量元数据。下游 `SKILL.md` contract 会读取这些信号并自适应：
+Graph 与 hook 输出包含机器可读信号，下游 `SKILL.md` contract 把它们当作 advisory evidence：
 
-| 字段 | 取值 | 含义 |
-|------|------|------|
-| `data_quality` | `fact-backed` · `partial` · `empty` · （缺失 = legacy manifest，按向后兼容处理） | 这份上下文有多少来自真实代码分析 |
-| `provenance` | `fact-inventory` · `empty-fallback` | 内容是从提取出的事实编译而来，还是来自骨架兜底 |
-| `confidence` | `high` · `medium` · `low` | 供 LLM 消费的可信度信号 |
-| `fallback_reason` | `empty_fact_inventory`（根因）· `minimal_context_missing`（次因）· `workspace_child_partial_degraded` · （其他运行时特定取值） | 当上下文不是 fact-backed 时，显式说明退化原因 |
+| 字段 | 含义 |
+|------|------|
+| `graph_status.state` | `ready`、`degraded`、`unavailable` 或 `missing` |
+| `capabilities` | 当前 graph 支持哪些 CRG query |
+| `freshness` | graph freshness 是否检查，以及观察结果 |
+| `limitations[]` | 证据不完整或退化的原因 |
+| `decision_input_kind` | `observed`、`inferred` 或 `ambiguous` 证据标签 |
+| `fallback.mode` | graph evidence 不可用时为 `direct_repo_reads` |
 
-当 `data_quality: empty` 时，evaluator 会降到 **L1** 并设置 `fallback_reason`。这意味着 LLM 会收到明确提示：当前上下文只是骨架，不是真实分析结果。
-
-#### Evaluator 分级
-
-> **L0**：fact-backed 上下文，包含真实 AST 导出的信号，是完整强度的 Stage-0 输入。  
-> **L1**：骨架化或退化上下文，evaluator 已设置 `fallback_reason`，下游 SKILL 应把这些信号视为 advisory。  
-> **L2**：固定 minimal fallback，仅在 `injection-index.yaml` 无法解析时使用环境默认值（例如 `00-summary.md`、`pitfalls/index.md`）。
-
-下游 skill 在 **任何 level 都允许继续执行**。evaluator 暴露 level 的目的是让 LLM 自行调整信心，而不是阻断执行。
+下游 skill 无论是否有 graph evidence 都可以继续执行。信号的作用是帮助 LLM 调整置信度，并选择下一次读取或查询。
 
 ### 约束模型
 
 | 层级 | 覆盖内容 | 类型 |
 |------|----------|------|
-| CLI（`doctor` / `init` / `clean` / `stage0-context`） | 资产同步、状态追踪、manifest 校验、Stage-0 context 输出 | **Code-hard**，由 shell exit code 强制 |
-| Host Readiness Gate + Stage-0 evaluator L0/L1/L2 | 在 `graph-bootstrap` / `stage0-context` 运行时生效，并输出 `fallback_reason` 与降级 level | **Runtime signal**，由代码发出，供 LLM 消费 |
+| CLI（`doctor` / `init` / `clean` / `crg <subcommand>`） | 资产同步、状态追踪、graph readiness、CRG query surface | **Code-hard**，由 shell exit code 强制 |
+| CRG lifecycle hooks | 输出 graph status、recommended queries、diff blast radius 与 direct-read fallback | **Runtime signal**，由代码发出，供 LLM 消费 |
 | Workflow stages（`SKILL.md`） | 阶段 contract、artifact 命名、review 类别、requirements trace | **SKILL contract**，由 LLM 遵循 |
 | Context signals（`provenance` / `confidence` / `fallback_reason`） | 嵌在 artifact 中的元数据 | **SKILL contract**，由 LLM 消费 |
 
@@ -178,9 +172,9 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 
 | 能力 | 解决的问题 |
 |------|------------|
-| **CLI 控制面**（`doctor` / `init` / `clean` / `stage0-context`） | 提供可重复安装、健康检查、清理和 Stage-0 context 输出；所有受管资产都有可追踪来源 |
+| **CLI 控制面**（`doctor` / `init` / `clean` / `crg <subcommand>`） | 提供可重复安装、健康检查、清理、graph readiness 和 query evidence；所有受管资产都有可追踪来源 |
 | **CRG 图引擎**（`spec-first crg *`） | **Code Review Graph**：一个嵌入式 Node.js runtime，基于 SQLite + FTS5，支持 AST → symbols → resolved edges → PageRank flows → community detection → surprising-connections → god-nodes → review-context |
-| **graph-bootstrap 上下文引擎** | 让 LLM 获得 fact-extracted、带 confidence 标注的项目上下文，而不是直接面对裸代码库 |
+| **graph-bootstrap 查询引擎** | 让 LLM 获得 graph-backed 候选修改面和 blast-radius 证据，而不是直接面对裸代码库 |
 | **完整工作流层** | Ideate → Brainstorm → Plan → Work → Review → Compound，全阶段都有显式 artifact contract |
 | **17-persona Review stage**（+ 2 个专项 agent） | 产出结构化 findings，并按 `safe_auto / gated_auto / manual / advisory` 路由，而不是一次性 review 扫描 |
 | **Compound / knowledge capture** | 把已解决问题写入 `docs/solutions/`，供后续 workflow 检索复用 |
@@ -199,7 +193,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | 阶段 | Claude Code | Codex | 输出产物 | 约束方式 |
 |------|-------------|-------|----------|----------|
 | 宿主准备 | `/spec:mcp-setup` → restart | `$spec-mcp-setup` → restart | 宿主专属 readiness ledger：`~/.claude/spec-first/host-setup.json` 或 `~/.codex/spec-first/host-setup.json` | **Code-hard**（bootstrap gate 会检查它） |
-| Stage-0 图引导 | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Phase 0–4 facts + `injection-index.yaml` + `minimal-context/*.json` | 宿主就绪 gate + runtime workflow contract |
+| CRG 图引导 | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | `graph.db` + graph status/navigation/operations artifacts | 宿主就绪 + CRG runtime workflow contract |
 | Ideate | `/spec:ideate` | `$spec-ideate` | `docs/ideation/*.md` | **SKILL.md** contract |
 | Brainstorm | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/*.md` | **SKILL.md** contract |
 | Plan | `/spec:plan` | `$spec-plan` | `docs/plans/*.md` | **SKILL.md** contract |
@@ -330,25 +324,25 @@ $ spec-first init --claude
 |------|-------------|-------|
 | 安装 MCP 工具 | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | 重启宿主 | 重启 Claude Code | 重启 Codex |
-| 构建上下文 | `/spec:graph-bootstrap` 或 `/spec:compound` | `$spec-graph-bootstrap` 或 `$spec-compound` |
+| 构建图证据 | `/spec:graph-bootstrap` 或 `/spec:compound` | `$spec-graph-bootstrap` 或 `$spec-compound` |
 | 启动工作流 | `/spec:ideate` → `/spec:brainstorm` → `/spec:plan` → `/spec:work` → `/spec:code-review` → `/spec:compound` | `$spec-ideate` → … → `$spec-compound` |
 
-`graph-bootstrap` 在启动时会执行 **Host Readiness Gate**。如果你跳过了 MCP setup，或者宿主没有重启，它会直接停止并给出明确提示，而不是静默降级。
+`graph-bootstrap` 在启动时会检查 host readiness 与 CRG 可用性。graph evidence 不可用时，后续 workflow 会显式退回 direct-read fallback。
 
 ## 架构
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
 │  入口层 — spec-first CLI                                     │
-│  doctor / init / clean / stage0-context / crg <subcommand>   │
-│  约束：code-hard（资产同步、状态、manifest、Stage-0 输出、     │
+│  doctor / init / clean / crg <subcommand>                    │
+│  约束：code-hard（资产同步、状态、graph readiness、            │
 │       CRG SQLite pipeline）                                  │
 ├──────────────────────────────────────────────────────────────┤
 │  上下文层 — graph-bootstrap / CRG 模块                        │
-│  AST facts 提取 → artifact-manifest（data_quality）           │
-│  → minimal-context（provenance + confidence + fallback）     │
-│  → injection-index（按阶段路由）                              │
-│  约束：code-hard gate（L0/L1/L2）+ SKILL.md 内容              │
+│  AST 图索引 → status/navigation/operations artifacts          │
+│  → locate / path / explain / impact / review-context         │
+│  → lifecycle hooks with direct-read fallback                 │
+│  约束：code-hard facts + SKILL.md decision boundary          │
 ├──────────────────────────────────────────────────────────────┤
 │  工作流层 — skills                                            │
 │  Ideate / Brainstorm / Plan / Work / Review / Compound       │
@@ -378,7 +372,6 @@ $ spec-first init --claude
 | `spec-first doctor` | 环境检查 | 校验平台状态、plugin manifest 与受管资产。`--claude` / `--codex` 可限定单平台。需要重新 `init` 时会报告 `legacy managed state`；`--json` 还会输出 evidence schema/freshness 与 `evidence_age_summary`。 |
 | `spec-first init` | 初始化运行时 | 通过受管 operation plan 同步 commands、skills、agents、runtime hooks 与开发者元数据。它也是唯一受支持的 legacy 升级入口，会执行一次受管 hard reset。见上方 [init 会写入什么](#init-会写入什么)。 |
 | `spec-first clean` | 删除受管资产 | 通过与 `--dry-run` 共用的 operation-plan 边界移除指定平台当前的 spec-first 受管资产；不会迁移 legacy state，也不会删除语言策略 marker block。 |
-| `spec-first stage0-context` | 输出 Stage-0 运行时上下文 | 由 `spec-plan` / `spec-work` / `spec-code-review` 等 SKILL 在阶段启动时调用。支持 `--stage <plan\|work\|review>`、`--workflow <skill-name>`、`--format json`。 |
 
 ### CRG 图命令（`spec-first crg <subcommand>`）
 
@@ -387,7 +380,8 @@ $ spec-first init --claude
 ```bash
 spec-first crg --help
 spec-first crg build --repo .
-spec-first crg review-context --repo . --changed <ref>
+spec-first crg hook before-work --repo . --plan <plan.md>
+spec-first crg review-context --repo . --since <ref>
 ```
 
 | 子命令 | 用途 |
@@ -397,6 +391,11 @@ spec-first crg review-context --repo . --changed <ref>
 | `context` | 导出某个 symbol 或文件的 context bundle |
 | `query` | 提供 8 类结构化查询：`callers_of / callees_of / importers_of / importees_of / dependents_of / dependencies_of / tests_for / similar_to` |
 | `impact` | 对文件或 symbol 做 impact-of-change 分析 |
+| `locate` | 按任务 query 定位候选文件 / symbol |
+| `path` | 解释两个节点之间的图路径 |
+| `explain` | 用邻居与证据解释单个 node 或 file |
+| `workflow-context` | 输出按阶段裁剪的 graph status 与 recommended queries |
+| `hook` | 输出 plan、work、after-work、review lifecycle envelope |
 | `large-functions` | 查找超过阈值的函数 |
 | `search` | 对 symbols / files 做 FTS5 全文搜索 |
 | `flows` | 执行 PageRank + BFS flow 检测 |

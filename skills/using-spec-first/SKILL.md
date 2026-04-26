@@ -82,7 +82,7 @@ Do not chain multiple workflows automatically unless the active workflow explici
 5. If the request explicitly asks for Slack or organizational discussion context, route to:
    - Claude: `/spec:slack-research`
    - Codex: `$spec-slack-research`
-6. If the goal is graph bootstrap, repository context generation, CRG readiness, or Stage-0 context quality, route to:
+6. If the goal is graph bootstrap, CRG graph readiness, repository fact preparation, or query-first context quality, route to:
    - Claude: `/spec:graph-bootstrap`
    - Codex: `$spec-graph-bootstrap`
 

@@ -13,8 +13,338 @@
  * F5 caller_count    (0.10): 入边总数（归一化，上限 20）
  */
 
+const fs = require('fs');
+const path = require('path');
 const { execFileSync } = require('child_process');
 const { scoreSecuritySignal } = require('./constants');
+
+const LANGUAGE_BY_EXTENSION = {
+  '.js': 'javascript',
+  '.cjs': 'javascript',
+  '.mjs': 'javascript',
+  '.jsx': 'javascript',
+  '.ts': 'typescript',
+  '.tsx': 'typescript',
+  '.py': 'python',
+  '.java': 'java',
+  '.kt': 'kotlin',
+  '.kts': 'kotlin',
+  '.swift': 'swift',
+  '.rb': 'ruby',
+  '.go': 'go',
+  '.rs': 'rust',
+  '.php': 'php',
+  '.proto': 'proto',
+  '.json': 'json',
+  '.yaml': 'yaml',
+  '.yml': 'yaml',
+  '.md': 'markdown',
+};
+const DOC_LIKE_ROOT_FILES = new Set(['README.md', 'CHANGELOG.md', 'AGENTS.md', 'CLAUDE.md']);
+const PLATFORM_PRIORITY = [
+  'mobile-ios',
+  'mobile-android',
+  'web',
+  'backend',
+  'desktop',
+  'shared-contract',
+  'cli',
+];
+
+function unique(values) {
+  return [...new Set((values || []).filter(Boolean))];
+}
+
+function normalizePath(filePath) {
+  return String(filePath || '').replace(/\\/g, '/').replace(/^\.\//, '');
+}
+
+function splitPath(filePath) {
+  return normalizePath(filePath).split('/').filter(Boolean);
+}
+
+function sortStrings(values) {
+  return unique(values).sort((left, right) => left.localeCompare(right));
+}
+
+function sortPlatforms(platforms) {
+  return unique(platforms).sort((left, right) => {
+    const leftPriority = PLATFORM_PRIORITY.indexOf(left);
+    const rightPriority = PLATFORM_PRIORITY.indexOf(right);
+    const safeLeft = leftPriority === -1 ? Number.MAX_SAFE_INTEGER : leftPriority;
+    const safeRight = rightPriority === -1 ? Number.MAX_SAFE_INTEGER : rightPriority;
+    return safeLeft - safeRight || left.localeCompare(right);
+  });
+}
+
+function inferLanguage(filePath) {
+  const normalized = normalizePath(filePath);
+  if (!normalized) return null;
+  const extension = normalized.includes('.')
+    ? normalized.slice(normalized.lastIndexOf('.')).toLowerCase()
+    : '';
+  return LANGUAGE_BY_EXTENSION[extension] || null;
+}
+
+function isDocsLikeFile(filePath) {
+  const normalized = normalizePath(filePath);
+  if (!normalized) return false;
+  return normalized.startsWith('docs/')
+    || normalized.startsWith('.github/')
+    || DOC_LIKE_ROOT_FILES.has(normalized)
+    || normalized.endsWith('.md');
+}
+
+function isTestLikeFile(filePath) {
+  const normalized = normalizePath(filePath);
+  return /(^|\/)(tests?|__tests__)\//.test(normalized)
+    || /\.(test|spec)\.[^/]+$/i.test(normalized);
+}
+
+function isPackagingFile(filePath) {
+  const normalized = normalizePath(filePath);
+  return normalized === 'package.json'
+    || normalized.startsWith('bin/')
+    || normalized.startsWith('scripts/release')
+    || normalized.startsWith('.github/workflows/');
+}
+
+function isRuntimeRelevantFile(filePath) {
+  if (!filePath) return false;
+  if (isDocsLikeFile(filePath)) return false;
+  if (isTestLikeFile(filePath)) return false;
+  return true;
+}
+
+function inferModuleBucket(filePath) {
+  const parts = splitPath(filePath);
+  if (parts.length === 0) return null;
+  if (parts.length === 1) return parts[0];
+  if (['src', 'tests', 'docs'].includes(parts[0]) && parts[1] && !parts[1].includes('.')) {
+    return `${parts[0]}/${parts[1]}/`;
+  }
+  return `${parts[0]}/`;
+}
+
+function inferPlatformsForFile(filePath) {
+  const platforms = [];
+  const normalized = normalizePath(filePath);
+  const parts = splitPath(normalized);
+  const extension = normalized.includes('.')
+    ? normalized.slice(normalized.lastIndexOf('.')).toLowerCase()
+    : '';
+
+  if (normalized.startsWith('ios/') || extension === '.swift') platforms.push('mobile-ios');
+  if (normalized.startsWith('android/') || extension === '.kt' || extension === '.kts') platforms.push('mobile-android');
+  if (
+    normalized.startsWith('src/app/')
+    || normalized.startsWith('app/')
+    || normalized.startsWith('pages/')
+    || normalized.startsWith('components/')
+    || ['.tsx', '.jsx', '.css', '.scss', '.sass', '.less', '.html'].includes(extension)
+  ) platforms.push('web');
+  if (
+    normalized.startsWith('server/')
+    || normalized.startsWith('api/')
+    || normalized.includes('/routes/')
+    || normalized.includes('/controllers/')
+    || normalized.startsWith('src/main/java/')
+    || normalized.startsWith('src/main/kotlin/')
+  ) platforms.push('backend');
+  if (normalized.startsWith('desktop/') || normalized.includes('/electron/') || normalized.includes('/tauri/')) {
+    platforms.push('desktop');
+  }
+  if (
+    normalized.includes('/contracts/')
+    || normalized.includes('/schemas/')
+    || normalized.includes('/schema/')
+    || normalized.includes('/openapi/')
+    || extension === '.proto'
+  ) platforms.push('shared-contract');
+  if (
+    normalized.startsWith('src/cli/')
+    || normalized.startsWith('skills/')
+    || normalized.startsWith('agents/')
+    || normalized.startsWith('templates/')
+    || normalized.startsWith('bin/')
+    || normalized === 'package.json'
+  ) platforms.push('cli');
+  if (parts[0] === 'src' && platforms.length === 0) platforms.push('cli');
+  return unique(platforms);
+}
+
+function inferPlatformsFromFiles(changedFiles) {
+  const platforms = [];
+  for (const filePath of changedFiles || []) platforms.push(...inferPlatformsForFile(filePath));
+  return sortPlatforms(platforms);
+}
+
+function gateMatchesScope(scope, context) {
+  switch (scope) {
+    case 'repository':
+      return context.runtimeChange;
+    case 'cross-module':
+      return context.runtimeChange && (
+        context.impactedModules.length > 1
+        || context.impactedPlatforms.length > 1
+        || context.impactedPlatforms.includes('shared-contract')
+        || context.impactedPlatforms.length === 1
+      );
+    case 'cli-surface':
+      return context.impactedPlatforms.includes('cli');
+    case 'web-surface':
+      return context.impactedPlatforms.includes('web');
+    case 'backend':
+      return context.impactedPlatforms.includes('backend');
+    case 'desktop':
+      return context.impactedPlatforms.includes('desktop');
+    case 'mobile-ios':
+      return context.impactedPlatforms.includes('mobile-ios');
+    case 'mobile-android':
+      return context.impactedPlatforms.includes('mobile-android');
+    case 'shared-contract':
+      return context.impactedPlatforms.includes('shared-contract');
+    case 'packaging':
+      return context.changedFiles.some(isPackagingFile);
+    case 'crg-surface':
+      return context.impactedModules.some((item) => item === 'src/crg/' || item.startsWith('src/crg/'));
+    default:
+      return false;
+  }
+}
+
+function selectRecommendedGates(gates, context) {
+  if (!Array.isArray(gates) || gates.length === 0) return [];
+  if (!context.runtimeChange) return [];
+
+  const matched = gates.filter((gate) => gateMatchesScope(gate.scope, context));
+  if (matched.length > 0) {
+    return unique(matched.map((gate) => gate.id));
+  }
+
+  const fallback = gates.filter((gate) => gate.scope === 'repository' || gate.scope === 'cross-module');
+  if (fallback.length > 0) {
+    return unique(fallback.map((gate) => gate.id));
+  }
+
+  return unique(gates.map((gate) => gate.id));
+}
+
+function readPackageScripts(repoRoot) {
+  if (!repoRoot) return null;
+  try {
+    const packagePath = path.join(repoRoot, 'package.json');
+    if (!fs.existsSync(packagePath)) return null;
+    const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+    return pkg && pkg.scripts && typeof pkg.scripts === 'object' ? pkg.scripts : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function inferVerificationProfileFromRepo(repoRoot, impactedPlatforms) {
+  const scripts = readPackageScripts(repoRoot);
+  if (!scripts) return null;
+
+  const scriptNames = Object.keys(scripts);
+  const required = [];
+  const optional = [];
+
+  if (scriptNames.some((name) => name === 'test' || /^test(:|$)/.test(name))) {
+    required.push({ id: 'unit-tests', scope: 'repository' });
+  }
+  if (scriptNames.some((name) => /integration/.test(name))) {
+    required.push({ id: 'integration-tests', scope: 'cross-module' });
+  }
+  if (impactedPlatforms.includes('web') && scriptNames.some((name) => /browser|e2e|playwright|smoke/.test(name))) {
+    required.push({ id: 'browser-smoke', scope: 'web-surface' });
+  }
+  if (impactedPlatforms.includes('cli') && scriptNames.some((name) => /smoke|cli/.test(name))) {
+    required.push({ id: 'cli-smoke', scope: 'cli-surface' });
+  }
+  if (scriptNames.some((name) => /contract/.test(name))) {
+    optional.push({ id: 'contract-tests', scope: 'shared-contract' });
+  }
+
+  if (required.length === 0 && optional.length === 0) return null;
+  return {
+    platforms: impactedPlatforms,
+    required_gates: required,
+    optional_gates: optional,
+  };
+}
+
+function inferFallbackVerificationProfile(impactedPlatforms) {
+  const required = [{ id: 'unit-tests', scope: 'repository' }];
+  const optional = [];
+
+  if (impactedPlatforms.includes('web')) {
+    required.push({ id: 'browser-smoke', scope: 'web-surface' });
+    optional.push({ id: 'browser-evidence', scope: 'web-surface' });
+  }
+  if (impactedPlatforms.includes('cli')) {
+    required.push({ id: 'cli-smoke', scope: 'cli-surface' });
+  }
+  if (impactedPlatforms.includes('shared-contract')) {
+    optional.push({ id: 'contract-tests', scope: 'shared-contract' });
+  }
+
+  return {
+    platforms: impactedPlatforms,
+    required_gates: required,
+    optional_gates: optional,
+  };
+}
+
+function determineConfidence({ runtimeChange, impactedPlatforms, verificationProfile, inferredProfile }) {
+  if (!runtimeChange) return 'low';
+  if (verificationProfile) return impactedPlatforms.length > 0 ? 'high' : 'medium';
+  if (inferredProfile) return impactedPlatforms.length > 0 ? 'high' : 'medium';
+  return impactedPlatforms.length > 0 ? 'medium' : 'low';
+}
+
+function summarizeChangeSurface({
+  repoRoot,
+  changedFiles = [],
+  verificationProfile = null,
+} = {}) {
+  const normalizedFiles = unique((changedFiles || []).map(normalizePath));
+  const runtimeFiles = normalizedFiles.filter(isRuntimeRelevantFile);
+  const runtimeChange = runtimeFiles.length > 0;
+  const impactedModules = sortStrings(normalizedFiles.map(inferModuleBucket));
+  const impactedLanguages = sortStrings(normalizedFiles.map(inferLanguage));
+  const impactedPlatforms = runtimeChange ? inferPlatformsFromFiles(runtimeFiles) : [];
+  const inferredProfile = runtimeChange
+    ? (inferVerificationProfileFromRepo(repoRoot, impactedPlatforms) || inferFallbackVerificationProfile(impactedPlatforms))
+    : null;
+  const profile = verificationProfile || inferredProfile;
+  const recommendationContext = {
+    changedFiles: normalizedFiles,
+    impactedModules,
+    impactedPlatforms,
+    runtimeChange,
+  };
+
+  return {
+    impacted_modules: impactedModules,
+    impacted_languages: impactedLanguages,
+    impacted_platforms: impactedPlatforms,
+    recommended_required_verifications: selectRecommendedGates(
+      profile && profile.required_gates,
+      recommendationContext
+    ),
+    recommended_optional_verifications: selectRecommendedGates(
+      profile && profile.optional_gates,
+      recommendationContext
+    ),
+    confidence: determineConfidence({
+      runtimeChange,
+      impactedPlatforms,
+      verificationProfile,
+      inferredProfile,
+    }),
+  };
+}
 
 /**
  * 获取自 since 以来的变更文件列表（相对于 repoRoot 的路径）
@@ -482,4 +812,6 @@ module.exports = {
   assessFileRiskBatch,
   assessNodeRisk,
   assessNodeRiskBatch,
+  inferPlatformsFromFiles,
+  summarizeChangeSurface,
 };

@@ -5,9 +5,7 @@ const {
   resolveGraphDb,
   resolveGraphInputFingerprints,
   resolveWorkflowArtifactDir,
-  resolveContextDocsDir,
   GRAPH_INPUT_FINGERPRINTS_FILE,
-  BOOTSTRAP_ARTIFACT_MANIFEST_FILE,
   GRAPH_IGNORE_FILE,
 } = require('../../src/crg/artifact-paths');
 
@@ -26,31 +24,27 @@ describe('artifact-paths — happy paths', () => {
     );
   });
 
-  test('resolveWorkflowArtifactDir returns correct path for bootstrap/my-app', () => {
-    expect(resolveWorkflowArtifactDir('/repo', 'bootstrap', 'my-app')).toBe(
-      '/repo/.spec-first/workflows/bootstrap/my-app'
+  test('resolveWorkflowArtifactDir returns correct path for quality gate artifacts', () => {
+    expect(resolveWorkflowArtifactDir('/repo', 'quality-gates', 'ai-dev-quality-gate')).toBe(
+      '/repo/.spec-first/workflows/quality-gates/ai-dev-quality-gate'
     );
-  });
-
-  test('resolveContextDocsDir returns docs/contexts/<slug> under repoRoot', () => {
-    expect(resolveContextDocsDir('/repo', 'my-app')).toBe('/repo/docs/contexts/my-app');
   });
 });
 
 describe('artifact-paths — edge cases', () => {
   test('resolveWorkflowArtifactDir handles slug with multiple hyphens', () => {
-    expect(resolveWorkflowArtifactDir('/repo', 'bootstrap', 'my-complex-app')).toBe(
-      '/repo/.spec-first/workflows/bootstrap/my-complex-app'
+    expect(resolveWorkflowArtifactDir('/repo', 'spec-work', 'my-complex-app')).toBe(
+      '/repo/.spec-first/workflows/spec-work/my-complex-app'
     );
   });
 
   test('resolveWorkflowArtifactDir result contains no double slashes', () => {
-    const result = resolveWorkflowArtifactDir('/repo', 'bootstrap', 'my-app');
+    const result = resolveWorkflowArtifactDir('/repo', 'spec-work', 'my-app');
     expect(result).not.toMatch(/\/\//);
   });
 
   test('resolveWorkflowArtifactDir result has no extra path components beyond slug', () => {
-    const result = resolveWorkflowArtifactDir('/repo', 'bootstrap', 'my-app');
+    const result = resolveWorkflowArtifactDir('/repo', 'spec-work', 'my-app');
     // Must end exactly with the slug segment
     expect(result).toMatch(/\/my-app$/);
     expect(result.split('/').slice(-1)[0]).toBe('my-app');
@@ -61,26 +55,13 @@ describe('artifact-paths — edge cases', () => {
   });
 
   test('resolveWorkflowArtifactDir throws on empty slug', () => {
-    expect(() => resolveWorkflowArtifactDir('/repo', 'bootstrap', '')).toThrow();
-  });
-
-  test('resolveContextDocsDir result has no double slashes', () => {
-    const result = resolveContextDocsDir('/repo', 'my-app');
-    expect(result).not.toMatch(/\/\//);
+    expect(() => resolveWorkflowArtifactDir('/repo', 'spec-work', '')).toThrow();
   });
 });
 
 describe('artifact-paths — R4 filename constants', () => {
   test('GRAPH_INPUT_FINGERPRINTS_FILE is input-fingerprints.json', () => {
     expect(GRAPH_INPUT_FINGERPRINTS_FILE).toBe('input-fingerprints.json');
-  });
-
-  test('BOOTSTRAP_ARTIFACT_MANIFEST_FILE is artifact-manifest.json', () => {
-    expect(BOOTSTRAP_ARTIFACT_MANIFEST_FILE).toBe('artifact-manifest.json');
-  });
-
-  test('GRAPH_INPUT_FINGERPRINTS_FILE and BOOTSTRAP_ARTIFACT_MANIFEST_FILE are unambiguously different', () => {
-    expect(GRAPH_INPUT_FINGERPRINTS_FILE).not.toBe(BOOTSTRAP_ARTIFACT_MANIFEST_FILE);
   });
 
   test('GRAPH_IGNORE_FILE is .spec-firstignore (not .spec-first-graphignore)', () => {

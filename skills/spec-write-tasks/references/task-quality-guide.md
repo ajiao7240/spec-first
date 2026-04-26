@@ -151,7 +151,7 @@ Bad stop signals:
 ```md
 - T002
   source_unit: U2
-  goal: Make `spec-work` reject stale task packs before creating execution tasks
+  goal: Make `spec-work` reject stale or wrong-chain task packs before creating execution tasks
   dependencies: [T001]
   files:
     - skills/spec-work/SKILL.md
@@ -163,7 +163,7 @@ Bad stop signals:
     - skills/spec-write-tasks/references/task-pack-schema.md#Regeneration-Rules
   entry_hint: Compare Phase 1 input handling with task pack regeneration rules
   test_focus: Task pack path is validated before execution task creation
-  done_signal: `spec-work` documents source_plan/source_plan_hash checks and stale-pack rejection
+  done_signal: `spec-work` documents spec_id/source_plan/source_plan_hash checks plus stale-pack and wrong-chain rejection
   parallelizable: false
   risk_note: Treating task pack as authoritative would break plan SoT
   stop_if: Need to add a new workflow entrypoint or remove direct plan-to-work execution

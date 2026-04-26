@@ -3,7 +3,7 @@ name: spec-compound
 description: Document a recently solved problem to compound your team's knowledge
 ---
 
-# /spec:compound
+# Compound Knowledge
 
 Coordinate multiple subagents working in parallel to document a recently solved problem.
 
@@ -526,9 +526,9 @@ Based on problem type, these agents can enhance documentation:
 
 ### When to Invoke
 - **Auto-triggered** (optional): Agents can run post-documentation for enhancement
-- **Manual trigger**: User can invoke agents after /spec:compound completes for deeper review
+- **Manual trigger**: User can invoke agents after `spec-compound` completes for deeper review
 
 ## Related Commands
 
-- `/research [topic]` - Deep investigation (searches docs/solutions/ for patterns)
+- Research skills - Deep investigation (searches docs/solutions/ for patterns)
 - `/spec:plan` - Planning workflow (references documented solutions)

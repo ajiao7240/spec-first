@@ -5,26 +5,21 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const { resolveWorkflowArtifactDir } = require('../src/crg/artifact-paths');
-const { buildQualityFeedbackTopics } = require('../src/context-routing/quality-feedback');
+const { buildQualityFeedbackTopics } = require('../src/verification/quality-feedback');
 
 const GATE_ID = 'ai-dev-quality-gate';
 const QUALITY_FEEDBACK_FILE = 'quality-feedback-topics.json';
-const STAGE0_CONTRACT_TESTS = [
+const CRG_RUNTIME_CONTRACT_TESTS = [
   'tests/unit/branch-protection-policy.test.js',
-  'tests/unit/spec-graph-bootstrap-contracts.test.js',
-  'tests/unit/spec-graph-bootstrap-compiler.test.js',
-  'tests/unit/quality-feedback.test.js',
-  'tests/unit/verifier-registry.test.js',
-  'tests/unit/stage0-context-command.test.js',
-  'tests/unit/verification-evidence.test.js',
-  'tests/unit/verification-gate-state.test.js',
-  'tests/unit/workflow-stage0-consumption.test.js',
+  'tests/unit/crg-control-plane-contracts.test.js',
+  'tests/unit/crg-router.test.js',
+  'tests/unit/crg-workflow-context-hooks.test.js',
+  'tests/unit/crg-review-context-hunks.test.js',
   'tests/unit/spec-plan-contracts.test.js',
+  'tests/unit/spec-write-tasks-contracts.test.js',
   'tests/unit/spec-work-contracts.test.js',
   'tests/unit/spec-work-beta-contracts.test.js',
   'tests/unit/spec-code-review-contracts.test.js',
-  'tests/unit/workflow-telemetry.test.js',
-  'tests/unit/workspace-context.test.js',
 ];
 
 function ensureDir(dirPath) {
@@ -40,8 +35,8 @@ function relativeArtifactPath(repoRoot, filePath) {
   return path.relative(repoRoot, filePath).replace(/\\/g, '/');
 }
 
-function buildGateResult({ generatedAt, stage0Contracts }) {
-  const checks = [stage0Contracts];
+function buildGateResult({ generatedAt, crgRuntimeContracts }) {
+  const checks = [crgRuntimeContracts];
   return {
     schema_version: 'v1',
     generated_at: generatedAt,
@@ -52,12 +47,12 @@ function buildGateResult({ generatedAt, stage0Contracts }) {
   };
 }
 
-function runStage0ContractsSuite({ repoRoot, artifactDir }) {
+function runCrgRuntimeContractsSuite({ repoRoot, artifactDir }) {
   const jestBin = require.resolve('jest/bin/jest');
-  const outputPath = path.join(artifactDir, 'stage0-contracts.junit.json');
+  const outputPath = path.join(artifactDir, 'crg-runtime-contracts.junit.json');
   const result = spawnSync(process.execPath, [
     jestBin,
-    ...STAGE0_CONTRACT_TESTS,
+    ...CRG_RUNTIME_CONTRACT_TESTS,
     '--runInBand',
     '--json',
     `--outputFile=${outputPath}`,
@@ -72,7 +67,7 @@ function runStage0ContractsSuite({ repoRoot, artifactDir }) {
     : null;
 
   return {
-    check_id: 'stage0-contracts',
+    check_id: 'crg-runtime-contracts',
     kind: 'unit-suite',
     passed: result.status === 0 && output && output.success === true,
     summary: {
@@ -90,8 +85,8 @@ function runAiDevQualityGate({ repoRoot = process.cwd() } = {}) {
   const artifactDir = resolveWorkflowArtifactDir(repoRoot, 'quality-gates', GATE_ID);
   ensureDir(artifactDir);
 
-  const stage0Contracts = runStage0ContractsSuite({ repoRoot, artifactDir });
-  const gateResult = buildGateResult({ generatedAt, stage0Contracts });
+  const crgRuntimeContracts = runCrgRuntimeContractsSuite({ repoRoot, artifactDir });
+  const gateResult = buildGateResult({ generatedAt, crgRuntimeContracts });
   const resultPath = path.join(artifactDir, 'ai-dev-quality-gate-result.json');
   writeJson(resultPath, gateResult);
   const feedbackTopics = buildQualityFeedbackTopics({
@@ -120,7 +115,7 @@ if (require.main === module) {
 module.exports = {
   GATE_ID,
   QUALITY_FEEDBACK_FILE,
-  STAGE0_CONTRACT_TESTS,
+  CRG_RUNTIME_CONTRACT_TESTS,
   buildGateResult,
   runAiDevQualityGate,
 };

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec-first.dev/contracts/crg/graph-index-status.schema.json",
+  "title": "CRG graph index status",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "state",
+    "stats",
+    "capabilities",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "graph-index-status/v1"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "generation_id": {
+      "type": "string"
+    },
+    "repo_root": {
+      "type": "string"
+    },
+    "graph_dir": {
+      "type": "string"
+    },
+    "active_db_path": {
+      "type": "string"
+    },
+    "status_path": {
+      "type": "string"
+    },
+    "navigation_path": {
+      "type": "string"
+    },
+    "state": {
+      "enum": ["ready", "degraded", "unavailable", "missing"]
+    },
+    "freshness": {
+      "type": "object"
+    },
+    "stats": {
+      "type": "object",
+      "required": ["node_count", "edge_count", "community_count", "flow_count"],
+      "properties": {
+        "node_count": { "type": "integer" },
+        "edge_count": { "type": "integer" },
+        "community_count": { "type": "integer" },
+        "flow_count": { "type": "integer" }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "required": [
+        "locate",
+        "path",
+        "explain",
+        "impact",
+        "review_context",
+        "workflow_context",
+        "hook"
+      ],
+      "properties": {
+        "locate": { "type": "boolean" },
+        "path": { "type": "boolean" },
+        "explain": { "type": "boolean" },
+        "impact": { "type": "boolean" },
+        "review_context": { "type": "boolean" },
+        "workflow_context": { "type": "boolean" },
+        "hook": { "type": "boolean" }
+      }
+    },
+    "persisted_status": {
+      "type": ["object", "null"]
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "detail": { "type": "string" }
+        }
+      }
+    }
+  }
+}

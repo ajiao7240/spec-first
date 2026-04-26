@@ -1,6 +1,14 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.9 2026-04-26 20:11:11 Codex: feat(spec-id): 为 requirements/plan/task-pack/work handoff 增加统一 `spec_id` 轻量追踪契约，区分 artifact identity 与 `source_plan_hash` freshness，并补齐 legacy、碰撞、错链和缺失身份 guardrails (user-visible)
+- v1.5.9 2026-04-26 20:06:47 kuang: docs(specs): 将规范方案收口为 CRG-first 的规范生成与按需加载链路，明确 `$spec-graph-bootstrap` 作为推荐上游、preview-first 写回、direct repo reads 降级和 CRG-only 停止边界，避免自动抽取/刷新/gate 化误导 (user-visible)
+- v1.5.9 2026-04-26 19:01:19 Codex: fix(crg-control-plane): 修正 `graph-index-status.json` 的 community/flow 统计为全量计数，让 `code-navigation.json` 查询建议携带 `--repo=<repo>`，并确保 `review-context` 查询后关闭 SQLite 连接 (user-visible)
+- v1.5.9 2026-04-26 18:58:20 Codex: fix(changelog): 让 developer identity 与 changelog author resolver 优先读取当前 host 项目级 developer profile，更新 init bootstrap 与治理文案，并删除“不读取项目 profile”的错误测试契约，确保后续变更记录使用真实项目用户名 (user-visible)
+- v1.5.9 2026-04-26 18:41:22 Codex: test(spec-write-tasks): 锁定 Codex runtime 同步后的 task-ready、quality pass、hash tooling 和 host-neutral prompt 口径，并收口旧 slash entrypoint 文案以恢复 skill 入口 lint 通过，避免运行时继续保留 `$spec-work` / `pending-tooling` 旧文案 (user-visible)
+- v1.5.9 2026-04-26 18:34:00 Codex: fix(doctor): 允许 Codex runtime 的 `using-spec-first` 保留 Claude 安装路径说明，避免刚初始化后的 `doctor --codex` 误报 path rewrite drift (user-visible)
+- v1.5.9 2026-04-26 15:50:57 Codex: refactor(spec-graph-bootstrap): 彻底删除旧 Stage-0/context-routing/minimal-context/bootstrap compiler 兼容链、旧 schema/sample/docs contexts 与对应测试，补齐 CRG control-plane schemas、query-first e2e、`using-spec-first` CRG 路由口径、install-local 输出和用户手册现行口径 (user-visible)
+- v1.5.9 2026-04-26 15:19:11 Codex: feat(spec-graph-bootstrap): 完成 CRG query-first cutover 开发，新增 locate/path/explain/workflow-context/lifecycle hook 入口与 graph control-plane 产物，迁移 plan/work/review skill anchors、doctor graph readiness、AI Dev Quality Gate 和 README 现行口径，并退役 `stage0-context` CLI 默认运行时 (user-visible)
 - v1.5.9 2026-04-26 14:19:31 Codex: fix(spec-write-tasks): 将 task 编译 skill 内容统一为英文，补齐 task-ready check、编译算法、质量自检、task quality guide 与 task pack 可执行 handoff 约束，并让 `spec-work` / `spec-work-beta` 在执行前校验 task pack source/hash/status/stop_if (user-visible)
 - v1.5.9 2026-04-26 13:09:46 Codex: docs(spec-graph-bootstrap): 修正 CRG query-first cutover 计划的现状口径、C0/C1 原子发布边界、C1a-C1e 内部门禁、AI Dev Quality Gate / release governance 迁移和仓库强制验证要求，避免将当前 plan/work/review source skills 误描述为已显式消费 Stage-0 runtime (user-visible)
 - v1.5.9 2026-04-26 13:09:21 Codex: docs(spec-write-tasks): 新增 `spec-write-tasks` skill 任务质量优化技术方案，明确 task-ready check、编译算法、质量自检、traceability matrix 与 task quality guide 落地路径，提升 task pack 生成质量 (user-visible)

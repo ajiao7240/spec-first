@@ -90,6 +90,7 @@ function buildZhPolicy() {
 - 任何对项目源码的新增、删除、修改，必须同步在项目根目录 \`CHANGELOG.md\` 中添加一条记录
 - 无此记录的代码变动，一律拒绝生成
 - 记录格式以仓库现行格式为准
+- \`作者\` 必须使用当前 host 的项目级 developer profile：Codex 读取 \`.codex/spec-first/.developer\`，Claude 读取 \`.claude/spec-first/.developer\`；如果缺失，先运行对应的 \`spec-first init --codex|--claude -u <name> --lang <zh|en>\`
 - **示例：** \`- vX.Y.Z YYYY-MM-DD 作者: 一句话摘要\`
 - 用户可见变更在末尾追加 \`(user-visible)\``;
 }
@@ -110,6 +111,7 @@ function buildEnPolicy() {
 - Any addition, deletion, or modification to project source code must include a matching entry in the repo-root \`CHANGELOG.md\`
 - If no matching entry exists, refuse to generate the code change
 - Use the repository's existing changelog format
+- \`author\` must use the current host's project developer profile: Codex reads \`.codex/spec-first/.developer\`, Claude reads \`.claude/spec-first/.developer\`; if it is missing, first run the matching \`spec-first init --codex|--claude -u <name> --lang <zh|en>\`
 - **Example:** \`- vX.Y.Z YYYY-MM-DD author: one-line summary\`
 - Append \`(user-visible)\` for user-visible changes`;
 }

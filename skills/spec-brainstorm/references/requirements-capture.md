@@ -40,6 +40,7 @@ Use this template and omit sections per the matrix above. At Deep-product tier, 
 ---
 date: YYYY-MM-DD
 topic: <kebab-case-topic>
+spec_id: YYYY-MM-DD-NNN-<kebab-case-topic>
 ---
 
 # <Topic Title>
@@ -201,6 +202,22 @@ Before finalizing:
 If planning would need to invent product behavior, scope boundaries, or success criteria, the brainstorm is not complete yet.
 
 Ensure `docs/brainstorms/` directory exists before writing.
+
+## Spec ID rules
+
+Every new requirements document must carry a `spec_id` in YAML frontmatter. `spec_id` is an identity field that links requirements, plans, and derived task packs for the same spec chain. It is not a status, approval marker, progress field, freshness check, or replacement for R/A/F/AE IDs.
+
+Use this format:
+
+`YYYY-MM-DD-NNN-<slug>`
+
+For new requirements documents, use the filename:
+
+`docs/brainstorms/YYYY-MM-DD-NNN-<slug>-requirements.md`
+
+Choose `NNN` by scanning same-day brainstorm requirements files that already use the sequenced pattern above. Ignore legacy non-sequenced files when choosing the next number. If a same `spec_id` appears in existing requirements, plan, or task-pack frontmatter and the files are not part of the same origin/source chain, choose the next local sequence value or ask the user to confirm the intended chain. This is a local deterministic check, not a central registry.
+
+The frontmatter is the machine-readable contract. The filename should match when the document is generated, but a later rename or move does not change the document's identity.
 
 ## Outstanding questions guidance
 

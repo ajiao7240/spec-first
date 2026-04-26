@@ -22,6 +22,11 @@ const SUBCOMMANDS = [
   'god-nodes',
   'detect-changes',
   'review-context',
+  'locate',
+  'path',
+  'explain',
+  'workflow-context',
+  'hook',
   'postprocess',
 ];
 
@@ -45,6 +50,11 @@ const HANDLER_MAP = {
   'god-nodes':             '../commands/god-nodes',
   'detect-changes':        '../commands/detect-changes',
   'review-context':        '../commands/review-context',
+  'locate':                '../commands/locate',
+  'path':                  '../commands/path',
+  'explain':               '../commands/explain',
+  'workflow-context':      '../commands/workflow-context',
+  'hook':                  '../commands/hook',
   'postprocess':           './postprocess',
 };
 

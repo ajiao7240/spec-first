@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec-first.dev/contracts/crg/code-navigation.schema.json",
+  "title": "CRG code navigation",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "entrypoints",
+    "test_roots",
+    "high_risk_nodes",
+    "top_communities",
+    "top_flows",
+    "query_starters",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "code-navigation/v1"
+    },
+    "source": {
+      "enum": ["artifact", "missing", "invalid"]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "generation_id": {
+      "type": "string"
+    },
+    "entrypoints": {
+      "type": "array"
+    },
+    "test_roots": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "high_risk_nodes": {
+      "type": "array"
+    },
+    "top_communities": {
+      "type": "array"
+    },
+    "top_flows": {
+      "type": "array"
+    },
+    "query_starters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["query", "command"],
+        "properties": {
+          "query": { "type": "string" },
+          "command": { "type": "string" }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    }
+  }
+}

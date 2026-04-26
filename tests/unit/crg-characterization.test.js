@@ -224,29 +224,19 @@ describe('crg command characterization baselines', () => {
   test('review-context 走真实 change-surface 主链并稳定输出 review 基线', () => {
     const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-review-char-'));
-    const slug = path.basename(repoRoot);
-    const controlPlaneDir = path.join(repoRoot, '.spec-first', 'workflows', 'bootstrap', slug);
 
     try {
       fs.mkdirSync(path.join(repoRoot, 'src'), { recursive: true });
-      fs.mkdirSync(controlPlaneDir, { recursive: true });
+      fs.writeFileSync(path.join(repoRoot, 'package.json'), JSON.stringify({
+        name: 'crg-review-char',
+        scripts: {
+          test: 'jest',
+          'test:smoke': 'bash tests/smoke/cli.sh',
+        },
+      }, null, 2));
       fs.writeFileSync(path.join(repoRoot, 'src', 'foo.js'), 'module.exports = function foo() { return true; };\n');
       fs.writeFileSync(path.join(repoRoot, 'src', 'foo.test.js'), 'test(\"foo\", () => expect(true).toBe(true));\n');
       fs.writeFileSync(path.join(repoRoot, 'src', 'foo.spec.js'), 'test(\"foo spec\", () => expect(true).toBe(true));\n');
-      fs.writeFileSync(path.join(controlPlaneDir, 'verification-profile.json'), JSON.stringify({
-        schema_version: 'v1',
-        generated_at: '2026-04-18T21:40:00.000Z',
-        profile_id: 'char-cli',
-        platforms: ['cli'],
-        required_gates: [
-          { id: 'unit-tests', scope: 'repository' },
-          { id: 'smoke-tests', scope: 'cli-surface' },
-          { id: 'integration-tests', scope: 'cross-module' },
-        ],
-        optional_gates: [
-          { id: 'manual-cli-check', scope: 'cli-surface' },
-        ],
-      }, null, 2));
 
       jest.isolateModules(() => {
         jest.doMock('../../src/crg/cli/open-db', () => ({
@@ -307,18 +297,22 @@ describe('crg command characterization baselines', () => {
             },
           }),
         }));
-        jest.doMock('../../src/crg/changes', () => ({
-          detectChanges: () => [{
-            file: 'src/foo.js',
-            risk_level: 'High',
-            hunks: [{ start: 2, end: 4 }],
-            review_priorities: [{ name: 'foo', score: 0.92 }],
-            test_gaps: [{ name: 'foo' }],
-          }],
-          assessNodeRiskBatch: () => new Map([
-            ['src/bar.js#function#bar#L10', 0.73],
-          ]),
-        }));
+        jest.doMock('../../src/crg/changes', () => {
+          const actual = jest.requireActual('../../src/crg/changes');
+          return {
+            summarizeChangeSurface: actual.summarizeChangeSurface,
+            detectChanges: () => [{
+              file: 'src/foo.js',
+              risk_level: 'High',
+              hunks: [{ start: 2, end: 4 }],
+              review_priorities: [{ name: 'foo', score: 0.92 }],
+              test_gaps: [{ name: 'foo' }],
+            }],
+            assessNodeRiskBatch: () => new Map([
+              ['src/bar.js#function#bar#L10', 0.73],
+            ]),
+          };
+        });
         jest.doMock('../../src/crg/input-convergence', () => ({
           isSensitiveFile: () => false,
         }));
@@ -422,16 +416,14 @@ describe('crg command characterization baselines', () => {
         impacted_platforms: ['cli'],
         recommended_required_verifications: [
           'unit-tests',
-          'smoke-tests',
-          'integration-tests',
+          'cli-smoke',
         ],
-        recommended_optional_verifications: ['manual-cli-check'],
+        recommended_optional_verifications: [],
         confidence: 'high',
         review_guidance: [
           'HIGH_RISK: foo — score 0.92',
           'TEST_GAP: 1 node(s) lack test coverage — foo',
-          'RECOMMENDED_REQUIRED: unit-tests, smoke-tests, integration-tests',
-          'RECOMMENDED_OPTIONAL: manual-cli-check',
+          'RECOMMENDED_REQUIRED: unit-tests, cli-smoke',
           'VERIFICATION_CONFIDENCE: high',
           'BLAST_RADIUS: 1 caller(s) within 2 hops of changed code',
         ],

@@ -37,6 +37,28 @@ describe('crg generation-aware build', () => {
             if (sql.includes('SELECT file_path FROM nodes')) return { all: () => [] };
             if (sql.includes('SELECT COUNT(*) as c FROM nodes')) return { get: () => ({ c: 1 }) };
             if (sql.includes('SELECT COUNT(*) as c FROM edges')) return { get: () => ({ c: 0 }) };
+            if (sql.includes('SELECT COUNT(*) AS count FROM communities')) return { get: () => ({ count: 7 }) };
+            if (sql.includes('SELECT COUNT(*) AS count FROM flows')) return { get: () => ({ count: 9 }) };
+            if (sql.includes('FROM communities')) {
+              return {
+                all: () => [1, 2, 3, 4, 5].map((index) => ({
+                  community_id: `c${index}`,
+                  label: `community ${index}`,
+                  file_count: index,
+                })),
+              };
+            }
+            if (sql.includes('FROM flows')) {
+              return {
+                all: () => [1, 2, 3, 4, 5].map((index) => ({
+                  flow_id: `f${index}`,
+                  entry_node: `n${index}`,
+                  name: `flow ${index}`,
+                  criticality: index,
+                  node_count: index,
+                })),
+              };
+            }
             if (sql.includes('UPDATE graph_meta SET last_built')) return { run: jest.fn() };
             return { get: () => ({}), all: () => [], run: jest.fn() };
           }),
@@ -86,7 +108,25 @@ describe('crg generation-aware build', () => {
       '/repo/.spec-first/graph/graph.db',
       '/repo/.spec-first/graph/generations/20260415160000/graph.db'
     );
-    expect(writeFileSync).toHaveBeenCalled();
+    const statusWrite = writeFileSync.mock.calls.find(([filePath]) => (
+      String(filePath).endsWith('/.spec-first/graph/graph-index-status.json')
+    ));
+    const navigationWrite = writeFileSync.mock.calls.find(([filePath]) => (
+      String(filePath).endsWith('/.spec-first/graph/code-navigation.json')
+    ));
+    expect(statusWrite).toBeTruthy();
+    expect(navigationWrite).toBeTruthy();
+
+    const status = JSON.parse(statusWrite[1]);
+    expect(status.stats.community_count).toBe(7);
+    expect(status.stats.flow_count).toBe(9);
+
+    const navigation = JSON.parse(navigationWrite[1]);
+    expect(navigation.query_starters).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        command: expect.stringContaining('--repo=<repo>'),
+      }),
+    ]));
     outputSpy.mockRestore();
   });
 

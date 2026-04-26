@@ -16,6 +16,10 @@ Reviews code changes using dynamically selected reviewer personas. Spawns parall
 - Can be invoked standalone
 - Can run as a read-only or autofix review step inside larger workflows
 
+## CRG Review Anchor
+
+When a CRG graph is available, start scope discovery with `spec-first crg hook before-review --since=<base> --repo=<repo>` or `spec-first crg hook before-review --work-run=<id> --repo=<repo>`. Use the returned `review-context` recommendation, hunk-hit nodes, graph expansion, affected flows, candidate tests, evidence, and limitations to prioritize review, not to replace reviewer judgment. If graph state is unavailable or base resolution fails, continue with direct diff and repo reads; do not fall back to old Stage-0 docs.
+
 ## Argument Parsing
 
 Parse `$ARGUMENTS` for the following optional tokens. Strip each recognized token before interpreting the remainder as the PR number, GitHub URL, or branch name.
