@@ -201,7 +201,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | **结构化 Review stage** | 17 个 reviewer persona 外加 2 个辅助 agent 产出按 `safe_auto / gated_auto / manual / advisory` 路由的 findings，而不是一次性 review 扫描 |
 | **Compound / knowledge capture** | 把已解决问题写入 `docs/solutions/`，供后续 workflow 检索复用 |
 | **双平台支持** | 一套方法论同时覆盖 Claude Code（`/spec:*`）与 Codex（`$spec-*`）。Claude 使用 `SessionStart` hook + bare-agent rewrite；Codex 使用 `.agents/skills/` discovery + 显式 `.codex/agents/...` path rewrite |
-| **能力层资产** | 仓库内置源码资产共 `42` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `20` 个 commands + `2` 个 standalone skills，在 Codex 侧安装 `20` 个 workflow skills + `2` 个 standalone skills；两侧都会安装 `51` 个 agents |
+| **能力层资产** | 仓库内置源码资产共 `42` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `20` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `20` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
 | **运行时治理** | 受管资产记录在 `state.json` 中，可安全同步、刷新、恢复与清理 |
 
 ## 核心工作流
@@ -326,7 +326,7 @@ $ spec-first init --claude
 
 🪝 Installed Claude SessionStart matcher in .claude/settings.json
 📦 Generated 20 command file(s) in .claude/commands/spec
-🧩 Generated 2 skill directory(ies) in .claude/skills
+🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 🪪 Wrote project developer profile:
   📍 path: .claude/spec-first/.developer

@@ -1,13 +1,16 @@
 {
   "schema_version": "graph-index-status/v1",
-  "generated_at": "2026-04-26T15:23:28.892Z",
-  "generation_id": "20260426152328750",
+  "generated_at": "2026-04-26T17:53:41.263Z",
+  "generation_id": "20260426175341061",
   "state": "degraded",
   "stats": {
-    "node_count": 843,
-    "edge_count": 2137,
+    "node_count": 927,
+    "edge_count": 2416,
     "community_count": 8,
-    "flow_count": 81
+    "flow_count": 80
+  },
+  "artifacts": {
+    "quality": ".spec-first/graph/graph-quality.json"
   },
   "capabilities": {
     "locate": true,

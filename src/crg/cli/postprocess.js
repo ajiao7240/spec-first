@@ -48,7 +48,7 @@ function requireSqlite() {
  * @param {import('better-sqlite3').Database} db - better-sqlite3 db 实例
  * @returns {{ community_count: number, flow_count: number, hub_count: number, fts_indexed: number }}
  */
-function runPostprocess(db) {
+function runPostprocess(db, options = {}) {
   const { writeCommunities } = require('../communities');
   const { detectFlows } = require('../flows');
   const { analyzeGraph } = require('../analyze');
@@ -66,7 +66,7 @@ function runPostprocess(db) {
   // 步骤 4: 重建 FTS5 索引（依赖最终 nodes 状态）
   const ftsResult = rebuildFTS(db);
 
-  return {
+  const stats = {
     community_count: communityResult.community_count,
     flow_count: flowResult.flow_count,
     hub_count: analyzeResult.hubs.length,
@@ -74,6 +74,21 @@ function runPostprocess(db) {
     fts_indexed: ftsResult.indexed_count,
     fts_skipped: ftsResult.skipped_count,
   };
+
+  if (options.generationDir && options.repoRoot) {
+    const { writeGraphQualityReport } = require('../quality/report');
+    writeGraphQualityReport(db, {
+      repoRoot: options.repoRoot,
+      generationId: options.generationId || null,
+      generationDir: options.generationDir,
+      buildSnapshot: options.buildSnapshot || {},
+      postprocessStats: stats,
+      warnings: options.warnings || [],
+      writeControlPlane: options.writeControlPlane !== false,
+    });
+  }
+
+  return stats;
 }
 
 /**

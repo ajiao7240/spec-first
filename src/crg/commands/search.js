@@ -14,6 +14,7 @@ function run(argv) {
   const { openDb } = require('../cli/open-db');
   const { makeEnvelope } = require('../cli/envelope');
   const { searchNodes } = require('../search');
+  const { scoreRetrievalResult } = require('../eval/scorer');
 
   // keyword：argv 中第一个非 flag 参数
   const keyword = argv.find(a => !a.startsWith('--'));
@@ -37,6 +38,10 @@ function run(argv) {
   }
 
   const { db, repoRoot } = openDb(argv);
+  const relevantArg = argv.find(a => a.startsWith('--relevant='));
+  const relevantIds = relevantArg
+    ? relevantArg.slice('--relevant='.length).split(',').map((item) => item.trim()).filter(Boolean)
+    : [];
 
   // 检查 fts_nodes 表是否存在
   const ftsExists = db.prepare(
@@ -73,6 +78,11 @@ function run(argv) {
       keyword,
       kind: kind || null,
       results,
+      eval: relevantIds.length > 0
+        ? scoreRetrievalResult({
+          ranked_context: results.map((item) => ({ ...item, id: item.node_id })),
+        }, { id: 'adhoc-search', relevant_ids: relevantIds }, { k: limit })
+        : null,
     })) + '\n'
   );
 }

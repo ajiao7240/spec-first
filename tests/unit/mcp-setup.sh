@@ -41,7 +41,35 @@ cat > "$FAKE_BIN/uv" <<'EOF'
 #!/bin/bash
 exit 0
 EOF
-chmod +x "$FAKE_BIN/uvx" "$FAKE_BIN/npx" "$FAKE_BIN/uv"
+FAKE_SPEC_FIRST_PKG="$TMP_DIR/fake-spec-first"
+mkdir -p "$FAKE_SPEC_FIRST_PKG/bin" \
+  "$FAKE_SPEC_FIRST_PKG/node_modules/better-sqlite3" \
+  "$FAKE_SPEC_FIRST_PKG/node_modules/tree-sitter"
+cat > "$FAKE_SPEC_FIRST_PKG/package.json" <<'EOF'
+{"name":"spec-first","version":"0.0.0-test"}
+EOF
+cat > "$FAKE_SPEC_FIRST_PKG/bin/spec-first" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+if [ "${1:-}" = "crg" ] && [ "${2:-}" = "--help" ]; then
+  exit 0
+fi
+exit 1
+EOF
+cat > "$FAKE_SPEC_FIRST_PKG/node_modules/better-sqlite3/package.json" <<'EOF'
+{"name":"better-sqlite3","version":"0.0.0-test"}
+EOF
+cat > "$FAKE_SPEC_FIRST_PKG/node_modules/better-sqlite3/index.js" <<'EOF'
+module.exports = {};
+EOF
+cat > "$FAKE_SPEC_FIRST_PKG/node_modules/tree-sitter/package.json" <<'EOF'
+{"name":"tree-sitter","version":"0.0.0-test"}
+EOF
+cat > "$FAKE_SPEC_FIRST_PKG/node_modules/tree-sitter/index.js" <<'EOF'
+module.exports = {};
+EOF
+ln -s "$FAKE_SPEC_FIRST_PKG/bin/spec-first" "$FAKE_BIN/spec-first"
+chmod +x "$FAKE_BIN/uvx" "$FAKE_BIN/npx" "$FAKE_BIN/uv" "$FAKE_SPEC_FIRST_PKG/bin/spec-first"
 TEST_PATH="$FAKE_BIN:$PATH"
 
 pass=0
@@ -201,6 +229,8 @@ assert_output "serena selected scope user" "user" "$(jq -r '.tools.serena.select
 assert_output "serena project pending" "pending" "$(jq -r '.tools.serena.project_status' <<<"$facts_output")"
 assert_output "facts expose bootstrap project next action" "true" "$(jq -r '.next_actions | index("bootstrap project") != null' <<<"$facts_output")"
 assert_output "context7 not-applicable project" "not-applicable" "$(jq -r '.tools.context7.project_status' <<<"$facts_output")"
+assert_output "crg cli ready with fake installed CLI" "ready" "$(jq -r '.crg.cli_status' <<<"$facts_output")"
+assert_output "crg native modules resolve from CLI install context" "ready" "$(jq -r '.crg.native_modules_status' <<<"$facts_output")"
 
 mkdir -p "$FAKE_REPO/.serena"
 cat > "$FAKE_REPO/.serena/project.yml" <<'EOF'

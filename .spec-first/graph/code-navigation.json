@@ -1,8 +1,14 @@
 {
   "schema_version": "code-navigation/v1",
-  "generated_at": "2026-04-26T15:23:28.892Z",
-  "generation_id": "20260426152328750",
+  "generated_at": "2026-04-26T17:53:41.263Z",
+  "generation_id": "20260426175341061",
   "entrypoints": [
+    {
+      "id": "src/crg/cli/build.js#function#runBuildAsync#L308",
+      "name": "runBuildAsync",
+      "file_path": "src/crg/cli/build.js",
+      "kind": "function"
+    },
     {
       "id": "src/crg/communities.js#function#writeCommunities#L78",
       "name": "writeCommunities",
@@ -10,13 +16,13 @@
       "kind": "function"
     },
     {
-      "id": "src/crg/cli/build.js#function#runBuildAsync#L302",
-      "name": "runBuildAsync",
-      "file_path": "src/crg/cli/build.js",
+      "id": "src/crg/graph.js#function#resolveEdges#L157",
+      "name": "resolveEdges",
+      "file_path": "src/crg/graph.js",
       "kind": "function"
     },
     {
-      "id": "src/crg/commands/review-context.js#function#run#L116",
+      "id": "src/crg/commands/review-context.js#function#run#L117",
       "name": "run",
       "file_path": "src/crg/commands/review-context.js",
       "kind": "function"
@@ -25,12 +31,6 @@
       "id": "src/cli/commands/init.js#function#runInit#L51",
       "name": "runInit",
       "file_path": "src/cli/commands/init.js",
-      "kind": "function"
-    },
-    {
-      "id": "src/crg/input-convergence.js#function#collectInputFiles#L471",
-      "name": "collectInputFiles",
-      "file_path": "src/crg/input-convergence.js",
       "kind": "function"
     }
   ],
@@ -58,19 +58,25 @@
   ],
   "high_risk_nodes": [
     {
+      "id": "src/crg/cli/build.js#function#runBuildAsync#L308",
+      "name": "runBuildAsync",
+      "file_path": "src/crg/cli/build.js",
+      "kind": "function"
+    },
+    {
       "id": "src/crg/communities.js#function#writeCommunities#L78",
       "name": "writeCommunities",
       "file_path": "src/crg/communities.js",
       "kind": "function"
     },
     {
-      "id": "src/crg/cli/build.js#function#runBuildAsync#L302",
-      "name": "runBuildAsync",
-      "file_path": "src/crg/cli/build.js",
+      "id": "src/crg/graph.js#function#resolveEdges#L157",
+      "name": "resolveEdges",
+      "file_path": "src/crg/graph.js",
       "kind": "function"
     },
     {
-      "id": "src/crg/commands/review-context.js#function#run#L116",
+      "id": "src/crg/commands/review-context.js#function#run#L117",
       "name": "run",
       "file_path": "src/crg/commands/review-context.js",
       "kind": "function"
@@ -85,12 +91,6 @@
       "id": "src/crg/input-convergence.js#function#collectInputFiles#L471",
       "name": "collectInputFiles",
       "file_path": "src/crg/input-convergence.js",
-      "kind": "function"
-    },
-    {
-      "id": "src/crg/graph.js#function#resolveEdges#L157",
-      "name": "resolveEdges",
-      "file_path": "src/crg/graph.js",
       "kind": "function"
     },
     {
@@ -122,12 +122,12 @@
     {
       "community_id": "tests",
       "label": "tests",
-      "file_count": 78
+      "file_count": 83
     },
     {
       "community_id": "crg/0",
       "label": "crg/0",
-      "file_count": 60
+      "file_count": 66
     },
     {
       "community_id": "cli",
@@ -147,38 +147,38 @@
   ],
   "top_flows": [
     {
-      "flow_id": "flow:src/crg/commands/workflow-context.js#function#run#L6:65",
+      "flow_id": "flow:src/crg/commands/review-context.js#function#run#L117:59",
+      "entry_node": "src/crg/commands/review-context.js#function#run#L117",
+      "name": "run",
+      "criticality": 0.75,
+      "node_count": 20
+    },
+    {
+      "flow_id": "flow:src/crg/commands/workflow-context.js#function#run#L6:62",
       "entry_node": "src/crg/commands/workflow-context.js#function#run#L6",
       "name": "run",
       "criticality": 0.75,
       "node_count": 20
     },
     {
-      "flow_id": "flow:src/crg/commands/review-context.js#function#run#L116:62",
-      "entry_node": "src/crg/commands/review-context.js#function#run#L116",
+      "flow_id": "flow:src/crg/cli/context.js#function#run#L41:41",
+      "entry_node": "src/crg/cli/context.js#function#run#L41",
       "name": "run",
       "criticality": 0.7424999999999999,
       "node_count": 20
     },
     {
-      "flow_id": "flow:src/crg/commands/detect-changes.js#function#run#L23:52",
-      "entry_node": "src/crg/commands/detect-changes.js#function#run#L23",
+      "flow_id": "flow:src/crg/cli/postprocess.js#function#run#L102:42",
+      "entry_node": "src/crg/cli/postprocess.js#function#run#L102",
       "name": "run",
-      "criticality": 0.7374999999999999,
-      "node_count": 19
-    },
-    {
-      "flow_id": "flow:src/crg/cli/postprocess.js#function#run#L87:45",
-      "entry_node": "src/crg/cli/postprocess.js#function#run#L87",
-      "name": "run",
-      "criticality": 0.735,
+      "criticality": 0.7424999999999999,
       "node_count": 20
     },
     {
-      "flow_id": "flow:src/crg/hooks/after-work.js#function#runHook#L7:68",
-      "entry_node": "src/crg/hooks/after-work.js#function#runHook#L7",
+      "flow_id": "flow:src/crg/hooks/before-plan.js#function#runHook#L5:67",
+      "entry_node": "src/crg/hooks/before-plan.js#function#runHook#L5",
       "name": "runHook",
-      "criticality": 0.735,
+      "criticality": 0.7424999999999999,
       "node_count": 20
     }
   ],
@@ -192,5 +192,6 @@
       "command": "spec-first crg review-context --repo=<repo> --since=<base>"
     }
   ],
+  "quality_path": ".spec-first/graph/graph-quality.json",
   "limitations": []
 }

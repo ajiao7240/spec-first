@@ -24,6 +24,10 @@ const SUPPORTED_PLATFORMS = new Set(SUPPORTED_PLATFORM_IDS);
 const ENTRY_SURFACES = new Set(['workflow_command', 'standalone_skill', 'internal_only']);
 const HOST_SCOPES = new Set(['dual_host', 'host_exclusive', 'target_host_maintenance']);
 const HOST_DELIVERIES = new Set(['command', 'skill', 'internal', 'none']);
+const AGENT_FACING_INTERNAL_SKILLS = new Set([
+  'spec-session-extract',
+  'spec-session-inventory',
+]);
 const TEXT_FILE_EXTENSIONS = new Set([
   '.md',
   '.json',
@@ -452,6 +456,7 @@ function buildFilteredAssetSet(platformOrAdapter) {
   const commandBySkill = new Map(listBundledCommands().map((command) => [command.skill, { ...command }]));
   const workflowSkills = [];
   const skills = [];
+  const internalSkills = [];
   const commands = [];
   const skipped = [];
 
@@ -488,6 +493,15 @@ function buildFilteredAssetSet(platformOrAdapter) {
       continue;
     }
 
+    if (
+      record.entry_surface === 'internal_only'
+      && delivery === 'internal'
+      && AGENT_FACING_INTERNAL_SKILLS.has(record.skill_name)
+    ) {
+      internalSkills.push(record.skill_name);
+      continue;
+    }
+
     skipped.push({
       skillName: record.skill_name,
       platform,
@@ -500,6 +514,7 @@ function buildFilteredAssetSet(platformOrAdapter) {
     commands: commands.sort((a, b) => a.name.localeCompare(b.name)),
     workflowSkills: workflowSkills.sort((a, b) => a.localeCompare(b)),
     skills: skills.sort((a, b) => a.localeCompare(b)),
+    internalSkills: internalSkills.sort((a, b) => a.localeCompare(b)),
     agents: listBundledAgents(),
     agentSupportFiles: listBundledAgentSupportFiles(),
     skipped: skipped.sort((a, b) => a.skillName.localeCompare(b.skillName)),
@@ -523,10 +538,10 @@ function resolvePlatformId(platformOrAdapter) {
 function syncBundledAssets(projectRoot, adapter) {
   const filteredAssetSet = buildFilteredAssetSet(adapter.id);
   const commands = adapter.hasCommands ? syncCommands(projectRoot, adapter, filteredAssetSet.commands) : [];
-  const { skills, workflowSkills } = syncSkills(projectRoot, adapter, filteredAssetSet);
+  const { skills, workflowSkills, internalSkills } = syncSkills(projectRoot, adapter, filteredAssetSet);
   const { agents, agentSupportFiles } = syncAgents(projectRoot, adapter);
 
-  return { commands, skills, workflowSkills, agents, agentSupportFiles, skipped: filteredAssetSet.skipped };
+  return { commands, skills, workflowSkills, internalSkills, agents, agentSupportFiles, skipped: filteredAssetSet.skipped };
 }
 
 function planBundledAssetSync(projectRoot, adapter, filteredAssetSet = buildFilteredAssetSet(adapter.id)) {
@@ -542,6 +557,7 @@ function planBundledAssetSync(projectRoot, adapter, filteredAssetSet = buildFilt
       commands: commandPlan.runtimeCommands,
       skills: skillsPlan.skills,
       workflowSkills: skillsPlan.workflowSkills,
+      internalSkills: skillsPlan.internalSkills,
       agents: agentsPlan.agents,
       agentSupportFiles: agentsPlan.agentSupportFiles,
       skipped: filteredAssetSet.skipped,
@@ -604,12 +620,13 @@ function syncSkills(projectRoot, adapter, filteredAssetSet = buildFilteredAssetS
 
   const sourceRoot = getBundledPath('skills');
   const standaloneNames = [...filteredAssetSet.skills];
+  const internalNames = [...(filteredAssetSet.internalSkills || [])];
   const workflowNames = [...filteredAssetSet.workflowSkills];
   if (workflowNames.length > 0) {
     fs.mkdirSync(workflowRoot, { recursive: true });
   }
   const workflowNameSet = new Set(workflowNames);
-  const skillNames = [...new Set([...standaloneNames, ...workflowNames])].sort((a, b) =>
+  const skillNames = [...new Set([...standaloneNames, ...internalNames, ...workflowNames])].sort((a, b) =>
     a.localeCompare(b),
   );
 
@@ -630,7 +647,7 @@ function syncSkills(projectRoot, adapter, filteredAssetSet = buildFilteredAssetS
     );
   }
 
-  return { skills: standaloneNames, workflowSkills: workflowNames };
+  return { skills: standaloneNames, workflowSkills: workflowNames, internalSkills: internalNames };
 }
 
 function planSkillsSync(projectRoot, adapter, filteredAssetSet = buildFilteredAssetSet(adapter.id)) {
@@ -638,9 +655,10 @@ function planSkillsSync(projectRoot, adapter, filteredAssetSet = buildFilteredAs
   const workflowRoot = path.join(projectRoot, adapter.workflowsRoot);
   const sourceRoot = getBundledPath('skills');
   const standaloneNames = [...filteredAssetSet.skills];
+  const internalNames = [...(filteredAssetSet.internalSkills || [])];
   const workflowNames = [...filteredAssetSet.workflowSkills];
   const workflowNameSet = new Set(workflowNames);
-  const skillNames = [...new Set([...standaloneNames, ...workflowNames])].sort((a, b) =>
+  const skillNames = [...new Set([...standaloneNames, ...internalNames, ...workflowNames])].sort((a, b) =>
     a.localeCompare(b),
   );
   const operations = [
@@ -687,6 +705,7 @@ function planSkillsSync(projectRoot, adapter, filteredAssetSet = buildFilteredAs
     },
     skills: standaloneNames,
     workflowSkills: workflowNames,
+    internalSkills: internalNames,
   };
 }
 
@@ -790,8 +809,9 @@ function inspectSkills(projectRoot, filteredAssetSet, adapter) {
   const workflowRoot = path.join(projectRoot, adapter.workflowsRoot);
   const workflowNames = [...(filteredAssetSet && filteredAssetSet.workflowSkills ? filteredAssetSet.workflowSkills : [])];
   const standaloneNames = [...(filteredAssetSet && filteredAssetSet.skills ? filteredAssetSet.skills : [])];
+  const internalNames = [...(filteredAssetSet && filteredAssetSet.internalSkills ? filteredAssetSet.internalSkills : [])];
   const workflowNameSet = new Set(workflowNames);
-  const skillNames = [...new Set([...standaloneNames, ...workflowNames])].sort((a, b) =>
+  const skillNames = [...new Set([...standaloneNames, ...internalNames, ...workflowNames])].sort((a, b) =>
     a.localeCompare(b),
   );
 

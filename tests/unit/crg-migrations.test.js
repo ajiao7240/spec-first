@@ -43,4 +43,51 @@ describe('crg migrations', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test('legacy DB additive migration 会补齐质量算法元数据列', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-migrations-legacy-'));
+    const dbPath = path.join(tmpDir, 'graph.db');
+    let db = initDatabase(dbPath);
+    db.close();
+
+    db = initDatabase(dbPath);
+    try {
+      const edgeColumns = db.prepare('PRAGMA table_info(edges)').all().map((row) => row.name);
+      expect(edgeColumns).toEqual(expect.arrayContaining([
+        'confidence',
+        'resolution_method',
+        'evidence',
+        'inference_reason',
+      ]));
+
+      const unresolvedColumns = db.prepare('PRAGMA table_info(unresolved_edges)').all().map((row) => row.name);
+      expect(unresolvedColumns).toEqual(expect.arrayContaining([
+        'reason',
+        'confidence',
+        'resolution_method',
+        'evidence',
+      ]));
+
+      const communityColumns = db.prepare('PRAGMA table_info(communities)').all().map((row) => row.name);
+      expect(communityColumns).toEqual(expect.arrayContaining([
+        'algorithm',
+        'community_source',
+        'cohesion',
+        'health_note',
+      ]));
+
+      const flowColumns = db.prepare('PRAGMA table_info(flows)').all().map((row) => row.name);
+      expect(flowColumns).toEqual(expect.arrayContaining([
+        'entry_source',
+        'entry_confidence',
+        'entry_evidence',
+        'entry_inference_reason',
+        'truncated',
+        'truncation_reason',
+      ]));
+    } finally {
+      db.close();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

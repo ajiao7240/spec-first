@@ -49,6 +49,8 @@ The most important fields are:
 - `crg.native_modules_status`
 - `next_actions[]`
 
+`crg.native_modules_status` is evaluated from the real `spec-first` CLI installation context. It must not depend on whether the target repository itself can resolve `better-sqlite3` or `tree-sitter` with a bare current-directory `require()`.
+
 `host_config_status` now means:
 - `ready`
 - `fallback-active`

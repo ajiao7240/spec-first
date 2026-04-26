@@ -107,16 +107,77 @@ function Get-CrgCliStatus {
   }
 }
 
+function Test-CrgModuleResolution {
+  param([string]$ModuleName)
+  $specFirstCommand = Get-Command spec-first -ErrorAction SilentlyContinue
+  if ($null -eq $specFirstCommand) { return $false }
+
+  $script = @'
+const fs = require('fs');
+const path = require('path');
+const { createRequire } = require('module');
+
+const [binPath, moduleName] = process.argv.slice(1);
+const candidates = [];
+
+function add(candidate) {
+  if (candidate && path.isAbsolute(candidate) && !candidates.includes(candidate)) {
+    candidates.push(candidate);
+  }
+}
+
+function addWithParents(candidate) {
+  add(candidate);
+  let dir = path.dirname(candidate);
+  while (dir && path.dirname(dir) !== dir) {
+    add(path.join(dir, 'package.json'));
+    dir = path.dirname(dir);
+  }
+}
+
+try {
+  const realBin = fs.realpathSync(binPath);
+  addWithParents(realBin);
+  const binDir = path.dirname(realBin);
+  add(path.join(binDir, 'node_modules', 'spec-first', 'package.json'));
+  add(path.join(path.dirname(binDir), 'node_modules', 'spec-first', 'package.json'));
+  add(path.join(path.dirname(binDir), 'lib', 'node_modules', 'spec-first', 'package.json'));
+} catch {
+  // Fall through to the normal module resolver candidates below.
+}
+
+try {
+  add(require.resolve('spec-first/package.json'));
+} catch {
+  // Global CLIs are often outside the current process module paths.
+}
+
+for (const candidate of candidates) {
+  try {
+    createRequire(candidate).resolve(moduleName);
+    process.exit(0);
+  } catch {
+    // Try the next plausible spec-first installation context.
+  }
+}
+
+process.exit(1);
+'@
+
+  try {
+    & node -e $script $specFirstCommand.Source $ModuleName | Out-Null
+    return ($LASTEXITCODE -eq 0)
+  } catch {
+    return $false
+  }
+}
+
 function Get-CrgNativeModulesStatus {
   if ((Get-CrgCliStatus) -ne 'ready') { return 'unchecked' }
-  try {
-    & node -e "try{require('better-sqlite3')}catch{process.exit(1)}" | Out-Null
-  } catch {
+  if (-not (Test-CrgModuleResolution -ModuleName 'better-sqlite3')) {
     return 'missing'
   }
-  try {
-    & node -e "try{require('tree-sitter')}catch{process.exit(1)}" | Out-Null
-  } catch {
+  if (-not (Test-CrgModuleResolution -ModuleName 'tree-sitter')) {
     return 'missing'
   }
   return 'ready'

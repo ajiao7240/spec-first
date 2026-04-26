@@ -82,6 +82,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 改 CRG 图构建、检索或 SQLite 逻辑：跑相关 `tests/unit/crg-*.test.js`，并视影响面执行 `npm run test:e2e:crg`。
 - 改发布物、打包内容、安装路径：至少跑 `npm run build`、相关 smoke/release 测试。
 
+## Agent 与 Skill 变更验证
+
+对 `agents/` 或 `skills/` 下 agent / skill prose 的行为性修改，验证方式不同于普通代码。宿主通常会在会话启动时加载 agent / skill 定义；同一会话内直接调用已加载的 runtime agent 或 skill，可能仍在测试旧内容。
+
+- 优先验证源码真相源：直接读取并检查 `agents/`、`skills/`、`templates/`、`src/cli/` 中的源码文件，补对应 contract/unit 测试。
+- 行为性 prose 需要语义验证时，使用 fresh-source eval：把当前磁盘上的目标 agent / skill 源文件内容注入到一个全新通用 subagent 的 prompt 中评估，或用等价的只读 fresh subagent 读取源码后执行评审；不要依赖当前会话已缓存的 typed-agent / skill 调用。
+- 不要手改 `.claude/`、`.codex/`、`.agents/skills/` 下的生成资产来“强制刷新”。这些目录由 `spec-first init --claude|--codex` 管理，手改会制造 source/runtime drift。
+- 若必须验证宿主加载后的行为，先通过 `spec-first init --claude|--codex` 重建 runtime，再在新会话中测试；不要把同一会话内的 typed-agent / skill 调用当作刚修改 prose 的充分验证。
+- 脚本类资产不受会话缓存限制。`skills/*/scripts/*`、CLI、parser、adapter、contract 测试都会读取当前磁盘源码，可用常规测试验证。
+
 ## 提交前注意
 
 - 先确认自己修改的是源码真相源，不是宿主生成目录。

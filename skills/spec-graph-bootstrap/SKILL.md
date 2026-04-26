@@ -10,7 +10,7 @@ description: "Build and verify the local CRG graph index, then hand workflows qu
 ```text
 source files
   -> spec-first crg build
-  -> graph-index-status.json + code-navigation.json + repo-topology.json + graph-operations.jsonl
+  -> graph.db + graph-quality.json + graph-index-status.json + code-navigation.json + repo-topology.json + graph-operations.jsonl
   -> locate / path / explain / impact / review-context / lifecycle hooks
   -> LLM reads evidence and decides
 ```
@@ -70,6 +70,8 @@ spec-first crg --help
 spec-first crg stats --repo=<target>
 ```
 
+Ledger 中的 `crg.*` 字段是上一轮 setup 写入的 host fact，只能作为提示。当前轮是否能继续，应以本地 CRG probe 和后续 `build` / `stats` / query 命令的实际结果为准。若 ledger 报 `crg.native_modules_status=missing`，但本地 `spec-first crg ...` 命令可正常执行，只报告 ledger 可能 stale，不要要求用户先修 native modules，也不要停留在 MCP setup 环节反复确认。
+
 判定：
 
 - `stats` ready 且 node count > 0：进入 Phase 2。
@@ -77,22 +79,25 @@ spec-first crg stats --repo=<target>
 
 ## Phase 1: Build Graph Index
 
-询问或直接执行图构建：
+直接执行图构建：
 
 ```bash
 spec-first crg build --repo=<target>
 ```
+
+用户显式进入 `$spec-graph-bootstrap` / `/spec:graph-bootstrap` 后，repo-local graph build 是该 workflow 的核心动作，不需要再二次确认。仅在 target 是父级 workspace 且 child repo 选择不明确、或命令将写入非目标 repo 时，才停下来让 LLM/user 选择明确的 child repo。
 
 构建成功后必须确认 control-plane 产物：
 
 ```text
 .spec-first/graph/graph-index-status.json
 .spec-first/graph/code-navigation.json
+.spec-first/graph/graph-quality.json
 .spec-first/graph/repo-topology.json
 .spec-first/graph/graph-operations.jsonl
 ```
 
-`graph.db` 是代码事实真源；JSON 文件只提供状态、导航和审计线索。若 operation log 写入失败，不得阻断 graph build 主产出。
+`graph.db` 是代码事实真源；`graph-quality.json` 是当前 active generation 的质量投影，用于暴露 parser coverage、unresolved edge rate、confidence distribution、community/flow 限制等 advisory facts；其他 JSON 文件提供状态、导航、topology 和审计线索。若 operation log 写入失败，不得阻断 graph build 主产出。
 
 ## Phase 2: Query Smoke
 
@@ -101,7 +106,7 @@ spec-first crg build --repo=<target>
 ```bash
 spec-first crg workflow-context --stage=plan --repo=<target>
 spec-first crg locate --repo=<target> --query="<task or area>" --limit=5
-spec-first crg explain --repo=<target> --id="<node-or-file-id>"
+spec-first crg explain --repo=<target> --node="<node-or-file-id>"
 ```
 
 如果没有具体任务，`locate` query 可使用仓库入口、主要模块、测试入口等中性问题。查询结果只作为候选事实，不要把第一个候选当最终答案。
@@ -140,6 +145,7 @@ Hook 内部会读取 stage-specific workflow context，并建议后续 `locate` 
 
 - graph state：ready / degraded / unavailable / missing。
 - control-plane 产物是否存在。
+- graph quality：`graph-quality.json` 是否存在；若存在，报告 parser coverage、unresolved edge count/rate、top limitations；若缺失，说明 workflow 仍可继续但质量摘要不可用。
 - 至少一条可用的后续 query 或 hook 命令。
 - 如果 fallback，被建议读取的 direct repo paths。
 - 如果 build 失败，错误原因和下一步修复命令。

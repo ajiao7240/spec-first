@@ -7,6 +7,7 @@ const { packContext } = require('./pack');
 const { semanticRerank } = require('./semantic-rerank');
 const { resolveRetrievalProfile } = require('./profiles');
 const { buildQueryPlan } = require('./query-plan');
+const { reciprocalRankFusion } = require('./fusion');
 
 function retrieveContext(db, {
   profile,
@@ -16,6 +17,7 @@ function retrieveContext(db, {
   riskPaths = [],
   budget,
   semantic = false,
+  fusion = true,
 } = {}) {
   const queryPlan = buildQueryPlan({
     profile,
@@ -37,7 +39,14 @@ function retrieveContext(db, {
     candidateTests,
     riskPaths,
   });
-  const semanticRanked = semanticRerank(reranked, { query, enabled: semantic });
+  const fused = fusion
+    ? reciprocalRankFusion([
+        { name: 'seed', items: seed.seeds, weight: 1.2 },
+        { name: 'expanded', items: expanded, weight: 0.9 },
+        { name: 'rerank', items: reranked, weight: 1.5 },
+      ])
+    : reranked;
+  const semanticRanked = semanticRerank(fused, { query, enabled: semantic });
   const packed = packContext(semanticRanked, { budget: budget || config.budget });
 
   return {
@@ -45,6 +54,7 @@ function retrieveContext(db, {
     query,
     query_plan: queryPlan,
     seed_terms: seed.terms,
+    retrieval_algorithm: fusion ? 'rrf_fusion_v1' : 'legacy_weighted_rerank',
     ranked_context: packed.ranked_context,
     estimated_tokens: packed.estimated_tokens,
   };

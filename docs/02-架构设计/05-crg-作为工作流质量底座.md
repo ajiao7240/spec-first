@@ -168,20 +168,35 @@ spec-first crg surprising-connections --repo .
 ## 5. 当前状态与缺口
 
 ```
-现状：阶段0 build pipeline ✅  |  事实层闭环部分完成 ⚠️  |  工作流深度集成 ❌
+现状：CRG query-first control plane ✅  |  质量/证据事实层增强中 ✅  |  工作流消费面 advisory 集成中 ⚠️
 ```
 
 | 工作流 | CRG 调用 | 状态 |
 |--------|---------|------|
-| spec:plan | crg context / architecture / god-nodes | 未集成 |
-| spec:work | crg affected-flows / impact / query | 未集成 |
-| spec:code-review | crg review-context / detect-changes / surprising-connections | 未集成 |
+| spec:plan | `crg hook before-plan` / `workflow-context` / `architecture` | 已有 advisory 入口，继续增强质量摘要 |
+| spec:work | `crg hook before-work` / `impact` / `review-context` | 已有 work-run 与 graph context，继续增强证据质量 |
+| spec:code-review | `crg hook before-review` / `review-context` / `surprising-connections` | 已有 review context，继续增强 confidence/reason 输出 |
 
 **根本原因**：
 
-- 当前实现更多还是“代码图构建器”
-- 还没有升级为“工作流原生的事实服务层”
-- 3 个 `SKILL.md` 还没有把 CRG 当作默认上下文来源来消费
+- 当前 CRG 已经从旧 Stage-0 context pack 转向 query-first 图事实层。
+- 关键缺口不再是“有没有图”，而是“图事实是否可度量、可解释、可置信消费”。
+- 因此当前优化重点是 `graph-quality.json`、edge provenance、retrieval eval/fusion、community/flow metadata 与 hook compact summary。
+
+### 5.1 质量与证据模型
+
+CRG 产物必须把“事实强度”显式暴露给 LLM，而不是让脚本替 LLM 做语义裁决。
+
+| 产物/字段 | 作用 | 边界 |
+|---|---|---|
+| `graph-quality.json` | generation-scoped 质量报告，暴露 parser coverage、unresolved edge rate、confidence distribution、community/flow/retrieval 概况 | advisory，不作为 hard gate |
+| `edges.confidence` / `edges.resolution_method` / `edges.evidence` | 说明边是 direct target、相对路径、tsconfig alias、符号名还是启发式解析 | 不改变 node/edge identity |
+| `unresolved_edges.reason` / `evidence` | 说明 unresolved 是 no_match、ambiguous、invalid_target_id 等 | unresolved 优先于猜测，避免假阳性 |
+| `communities.algorithm` / `community_source` / `cohesion` | 说明社区来自 directory、graph 或 hybrid | directory-first fallback 保留 |
+| `flows.entry_source` / `entry_confidence` / `truncated` | 说明 flow entry 是 CLI-like、route-like、test-like 或 zero-in-degree 候选，并暴露截断 | entry 是候选信号，不是运行时真相 |
+| retrieval `score_breakdown` / `reasons` | 说明结果来自 FTS、changed file、candidate test、graph expansion、RRF fusion 等 | LLM 根据证据判断是否采用 |
+
+这些字段的目标是提升输入质量：脚本提供可审计事实，LLM 继续决定计划范围、实现路径和 review 重点。
 
 ---
 
@@ -255,15 +270,17 @@ work 阶段遗漏 iOS 端影响        work 阶段主动处理 iOS 端
 
 ## 9. 下一步行动
 
-### 优先级 P0：将 CRG 接入 3 个 SKILL.md
+### 优先级 P0：把 CRG 质量事实稳定接入 workflow hooks
 
-在以下文件的合适 Phase 插入 CRG 调用：
+当前工作流应优先消费已有 hook/context 输出，而不是重新引入旧 context pack：
 
-- `skills/spec-plan/SKILL.md`：Phase 0 添加 `crg context`
-- `skills/spec-work/SKILL.md`：实现前添加 `crg affected-flows`
-- `skills/spec-code-review/SKILL.md`：Review 前添加 `crg review-context`
+- `spec-first crg hook before-plan --repo . --task "<task>"`
+- `spec-first crg hook before-work --repo . --plan <plan.md>` 或 `--task-pack <tasks.md>`
+- `spec-first crg hook before-review --repo . --since <base>`
 
-### 优先级 P1：先把阶段0事实底座做扎实
+这些 hook 输出里的 `graph_quality`、`decision_inputs`、`recommended_queries` 都是 LLM 的 advisory 输入，不应被实现成脚本级语义路由。
+
+### 优先级 P1：继续把 repo-local 事实底座做扎实
 
 优先保证：
 
@@ -272,6 +289,8 @@ work 阶段遗漏 iOS 端影响        work 阶段主动处理 iOS 端
 - AST/结构事实可靠
 - edge canonical 化可靠
 - postprocess 与查询契约可靠
+- retrieval eval fixture 能衡量 MRR、Recall@K、F1 与 token efficiency
+- edge/community/flow metadata 能解释算法来源和限制
 
 ### 优先级 P2：跨角色上下文桥接
 

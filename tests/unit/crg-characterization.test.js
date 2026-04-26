@@ -46,9 +46,7 @@ describe('crg command characterization baselines', () => {
     });
 
     const payload = JSON.parse(outputSpy.mock.calls[0][0]);
-    expect(prepareSpy).toHaveBeenCalledWith(
-      'SELECT id AS flow_id, entry_node_id AS entry_node, criticality, node_count FROM flows ORDER BY criticality DESC'
-    );
+    expect(prepareSpy.mock.calls[0][0]).toContain('entry_source');
     expect(closeSpy).toHaveBeenCalledTimes(1);
     expect(payload.data).toEqual({
       items: [
@@ -57,16 +55,22 @@ describe('crg command characterization baselines', () => {
           entry_node: 'src/checkout.js#function#checkout#L12',
           criticality: 0.92,
           node_count: 8,
+          entry_source: 'zero_in_degree_calls',
           entry_confidence: 'Inferred',
           entry_inference_reason: 'zero_in_degree_calls',
+          truncated: false,
+          truncation_reason: null,
         },
         {
           flow_id: 'flow:sync',
           entry_node: 'src/sync.js#function#sync#L4',
           criticality: 0.61,
           node_count: 3,
+          entry_source: 'zero_in_degree_calls',
           entry_confidence: 'Inferred',
           entry_inference_reason: 'zero_in_degree_calls',
+          truncated: false,
+          truncation_reason: null,
         },
       ],
     });
@@ -205,8 +209,11 @@ describe('crg command characterization baselines', () => {
           entry_node: 'src/core.js#function#main#L10',
           criticality: 0.88,
           node_count: 7,
+          entry_source: 'zero_in_degree_calls',
           entry_confidence: 'Inferred',
           entry_inference_reason: 'zero_in_degree_calls',
+          truncated: false,
+          truncation_reason: null,
         },
       ],
       summary: '42 nodes, 81 edges, 5 communities, 3 flows',
@@ -420,6 +427,15 @@ describe('crg command characterization baselines', () => {
         ],
         recommended_optional_verifications: [],
         confidence: 'high',
+        graph_quality: {
+          state: 'missing',
+          limitations: [
+            {
+              code: 'graph-quality-missing',
+              message: 'graph-quality.json is not available.',
+            },
+          ],
+        },
         review_guidance: [
           'HIGH_RISK: foo — score 0.92',
           'TEST_GAP: 1 node(s) lack test coverage — foo',

@@ -125,9 +125,7 @@ Do not chain multiple workflows automatically unless the active workflow explici
 18. If the request is to refresh, correct, merge, replace, or retire existing durable docs/learnings/pattern docs, route to:
    - Claude: `/spec:compound-refresh`
    - Codex: `$spec-compound-refresh`
-19. If the user asks for PR description writing or regeneration, route to:
-   - Claude: `/spec:pr-description`
-   - Codex: `$spec-pr-description`
+19. If the user asks for PR description writing or regeneration, route to the `git-commit-push-pr` skill in description-only mode; do not expose a separate spec-first PR-description workflow entrypoint.
 20. If the user asks what changed in recent spec-first releases, route to:
    - Claude: `/spec:release-notes`
    - Codex: `$spec-release-notes`

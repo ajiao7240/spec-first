@@ -14,6 +14,7 @@ function run(argv) {
   const { openDb } = require('../cli/open-db');
   const { makeEnvelope } = require('../cli/envelope');
   const { godNodes } = require('../analyze');
+  const { readGraphQuality, summarizeGraphQuality } = require('../quality/report');
 
   const { db, repoRoot } = openDb(argv);
 
@@ -68,6 +69,7 @@ function run(argv) {
 
   process.stdout.write(
     JSON.stringify(makeEnvelope(repoRoot, {
+      graph_quality: summarizeGraphQuality(readGraphQuality(repoRoot)),
       hub_nodes: hubNodes,
       cross_community_edges: crossEdgeMapped,
       coupling_warnings: couplingWarnings,

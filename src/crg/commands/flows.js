@@ -21,7 +21,11 @@ function run(argv) {
   const sort = sortArg ? sortArg.slice('--sort='.length) : 'criticality';
 
   // 查询 flows 表（id AS flow_id 与 FlowBrief schema 对齐）
-  let sql = 'SELECT id AS flow_id, entry_node_id AS entry_node, criticality, node_count FROM flows';
+  let sql = `
+    SELECT id AS flow_id, entry_node_id AS entry_node, criticality, node_count,
+           entry_source, entry_confidence, entry_inference_reason, truncated, truncation_reason
+    FROM flows
+  `;
   if (sort === 'criticality') {
     sql += ' ORDER BY criticality DESC';
   } else if (sort === 'node_count') {

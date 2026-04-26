@@ -111,7 +111,7 @@ This outputs JSON with boolean availability for each tool: `agent_browser`, `vhs
 Create a per-run scratch directory in the OS temp location:
 
 ```bash
-mktemp -d -t demo-reel-XXXXXX
+mktemp -d -t feature-video-XXXXXX
 ```
 
 Use the output as `RUN_DIR`. Pass this concrete run directory to every tier reference. Evidence artifacts are ephemeral — they get uploaded to a public URL and then discarded. The OS temp directory is the right place for them, not the repo tree.

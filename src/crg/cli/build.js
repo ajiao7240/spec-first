@@ -14,6 +14,7 @@ const fs = require('fs');
 const { makeEnvelope } = require('./envelope');
 const {
   GRAPH_CODE_NAVIGATION_FILE,
+  GRAPH_QUALITY_FILE,
   GRAPH_INDEX_STATUS_FILE,
   GRAPH_OPERATIONS_LOG_FILE,
   resolveGraphDir,
@@ -29,6 +30,7 @@ const {
 } = require('../generations/paths');
 
 const GRAPH_CODE_NAVIGATION_FILENAME = GRAPH_CODE_NAVIGATION_FILE || 'code-navigation.json';
+const GRAPH_QUALITY_FILENAME = GRAPH_QUALITY_FILE || 'graph-quality.json';
 const GRAPH_INDEX_STATUS_FILENAME = GRAPH_INDEX_STATUS_FILE || 'graph-index-status.json';
 const GRAPH_OPERATIONS_LOG_FILENAME = GRAPH_OPERATIONS_LOG_FILE || 'graph-operations.jsonl';
 
@@ -65,7 +67,7 @@ function requireSqlite() {
  *
  * @param {object} db - better-sqlite3 db 实例
  */
-function tryPostprocess(db) {
+function tryPostprocess(db, options = {}) {
   // 先用 require.resolve 检查 postprocess 模块是否存在（不执行）
   // 若模块自身缺失（MODULE_NOT_FOUND），静默跳过
   try {
@@ -76,7 +78,7 @@ function tryPostprocess(db) {
   }
   // 模块存在，正常加载并执行（传递依赖缺失等错误允许上抛）
   const { runPostprocess } = require('./postprocess');
-  runPostprocess(db);
+  return runPostprocess(db, options);
 }
 
 // ---------------------------------------------------------------------------
@@ -221,7 +223,7 @@ function appendOperation(repoRoot, payload) {
   }
 }
 
-function writeGraphControlPlane({ repoRoot, db, nodeCount, edgeCount, generationId, warnings = [], degraded = false }) {
+function writeGraphControlPlane({ repoRoot, db, nodeCount, edgeCount, generationId, warnings = [], degraded = false, qualityPath = null }) {
   const graphDir = resolveGraphDir(repoRoot);
   const topCommunities = safeAll(db, `
     SELECT id AS community_id, label, file_count
@@ -260,6 +262,9 @@ function writeGraphControlPlane({ repoRoot, db, nodeCount, edgeCount, generation
       community_count: safeCount(db, 'communities'),
       flow_count: safeCount(db, 'flows'),
     },
+    artifacts: {
+      quality: qualityPath || null,
+    },
     capabilities: {
       locate: nodeCount > 0,
       path: edgeCount > 0,
@@ -287,6 +292,7 @@ function writeGraphControlPlane({ repoRoot, db, nodeCount, edgeCount, generation
       { query: 'repository architecture modules entrypoints', command: 'spec-first crg locate --repo=<repo> --query="repository architecture modules entrypoints"' },
       { query: 'review risks candidate tests', command: 'spec-first crg review-context --repo=<repo> --since=<base>' },
     ],
+    quality_path: qualityPath || null,
     limitations: [],
   };
 
@@ -418,11 +424,19 @@ async function runBuildAsync(argv) {
       no_parser_count: 0,
       parse_error_count: 0,
       module_only_count: 0,
+      skipped_count: 0,
+      parsed_samples: [],
+      skipped_samples: [],
+      no_parser_samples: [],
+      parse_error_samples: [],
+      module_only_samples: [],
     };
     for (const file of changed) {
       const result = parseFile(file, repoRoot);
       if (result.skipped) {
         skippedChanged.push(file);
+        quality.skipped_count++;
+        if (quality.skipped_samples.length < 10) quality.skipped_samples.push(file);
         continue;
       }
       const qualityStatus = classifyParseQuality(result);
@@ -430,6 +444,10 @@ async function runBuildAsync(argv) {
       if (qualityStatus === 'no_parser') quality.no_parser_count++;
       if (qualityStatus === 'parse_error') quality.parse_error_count++;
       if (qualityStatus === 'module_only') quality.module_only_count++;
+      const sampleKey = `${qualityStatus}_samples`;
+      if (Array.isArray(quality[sampleKey]) && quality[sampleKey].length < 10) {
+        quality[sampleKey].push(file);
+      }
 
       // no_parser / parse_error 属于退化结果：
       // 当前阶段不覆盖旧事实，只显式输出质量告警，等待用户/工作流修复依赖或重试 build。
@@ -439,6 +457,7 @@ async function runBuildAsync(argv) {
       }
 
       parsedChanged.push(file);
+      if (quality.parsed_samples.length < 10) quality.parsed_samples.push(file);
       rebuildableFiles.push(file);
       for (const node of result.nodes) {
         node.parser_quality = qualityStatus;
@@ -475,8 +494,34 @@ async function runBuildAsync(argv) {
     // 更新 graph_meta.last_built
     db.prepare(`UPDATE graph_meta SET last_built = ? WHERE id = 1`).run(new Date().toISOString());
 
+    const buildSnapshot = {
+      generation_id: generationId,
+      generation_dir: generationDir,
+      final_input_count: finalInputs.length,
+      changed_count: changed.length,
+      parsed_count: parsedChanged.length,
+      parsed_files: parsedChanged,
+      parsed_samples: quality.parsed_samples,
+      skipped_count: quality.skipped_count,
+      skipped_samples: quality.skipped_samples,
+      no_parser_count: quality.no_parser_count,
+      no_parser_samples: quality.no_parser_samples,
+      parse_error_count: quality.parse_error_count,
+      parse_error_samples: quality.parse_error_samples,
+      module_only_count: quality.module_only_count,
+      module_only_samples: quality.module_only_samples,
+      skipped_sensitive_count: inputStats.ignored_files_by_rule.sensitive_pattern || 0,
+      warnings: [],
+    };
+
     // 后处理占位（Unit 7）
-    tryPostprocess(db);
+    const postprocessStats = tryPostprocess(db, {
+      repoRoot,
+      generationId,
+      generationDir,
+      buildSnapshot,
+      writeControlPlane: false,
+    }) || {};
 
     // 写入 fingerprints.json（Unit 9）
     writeFingerprintsJson(db, repoRoot);
@@ -543,6 +588,7 @@ async function runBuildAsync(argv) {
       };
     const { assessGenerationHealth } = require('../generations/health');
     const { promoteGeneration } = require('../generations/promote');
+    const { writeGraphQualityReport } = require('../quality/report');
     const { detectRepoTopology, writeRepoTopology } = require('../topology/modules');
     const health = assessGenerationHealth({
       dbPath,
@@ -556,6 +602,7 @@ async function runBuildAsync(argv) {
       });
     }
     const repoTopology = writeRepoTopology(repoRoot, detectRepoTopology(repoRoot));
+    buildSnapshot.warnings = warnings;
 
     const envelope = makeEnvelope(repoRoot, {
       generation_id: generationId,
@@ -572,7 +619,20 @@ async function runBuildAsync(argv) {
         sample_count: lastBuildUnresolvedSnapshot.sample_count,
       },
       last_build_unresolved_samples: lastBuildUnresolvedSnapshot.samples,
-      build_quality: quality,
+      build_quality: {
+        ok_count: quality.ok_count,
+        no_parser_count: quality.no_parser_count,
+        parse_error_count: quality.parse_error_count,
+        module_only_count: quality.module_only_count,
+      },
+      build_quality_detail: {
+        skipped_count: quality.skipped_count,
+        parsed_samples: quality.parsed_samples,
+        skipped_samples: quality.skipped_samples,
+        no_parser_samples: quality.no_parser_samples,
+        parse_error_samples: quality.parse_error_samples,
+        module_only_samples: quality.module_only_samples,
+      },
       topology: {
         kind: repoTopology.kind,
         unit_count: repoTopology.units.length,
@@ -580,11 +640,23 @@ async function runBuildAsync(argv) {
       },
     }, { warnings, degraded: hasParserDegradation || !health.healthy });
 
+    const qualityResult = writeGraphQualityReport(db, {
+      repoRoot,
+      generationId,
+      generationDir,
+      buildSnapshot,
+      postprocessStats,
+      warnings,
+      writeControlPlane: health.healthy,
+    });
+    const relativeQualityPath = path.relative(repoRoot, qualityResult.path);
+
     if (health.healthy) {
       promoteGeneration(repoRoot, {
         generationId,
         dbPath,
         health,
+        qualityPath: relativeQualityPath,
       });
     }
     writeGraphControlPlane({
@@ -595,6 +667,7 @@ async function runBuildAsync(argv) {
       generationId,
       warnings,
       degraded: hasParserDegradation || !health.healthy,
+      qualityPath: health.healthy ? path.join('.spec-first', 'graph', GRAPH_QUALITY_FILENAME) : null,
     });
     appendOperation(repoRoot, {
       operation: health.healthy ? 'promote' : 'degrade',

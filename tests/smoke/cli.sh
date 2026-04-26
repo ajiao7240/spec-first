@@ -19,14 +19,15 @@ NODE
 expected_claude_skill_count="$(node - "$REPO_ROOT" <<'NODE'
 const repoRoot = process.argv[2];
 const { buildFilteredAssetSet } = require(`${repoRoot}/src/cli/plugin`);
-process.stdout.write(String(buildFilteredAssetSet('claude').skills.length));
+const claude = buildFilteredAssetSet('claude');
+process.stdout.write(String(claude.skills.length + claude.internalSkills.length));
 NODE
 )"
 expected_codex_total_skill_count="$(node - "$REPO_ROOT" <<'NODE'
 const repoRoot = process.argv[2];
 const { buildFilteredAssetSet } = require(`${repoRoot}/src/cli/plugin`);
 const codex = buildFilteredAssetSet('codex');
-process.stdout.write(String(codex.skills.length + codex.workflowSkills.length));
+process.stdout.write(String(codex.skills.length + codex.workflowSkills.length + codex.internalSkills.length));
 NODE
 )"
 
@@ -77,7 +78,7 @@ claude_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" init --cla
 grep -q "Generated ${expected_command_count} command file(s)" <<<"$claude_output"
 grep -q "Generated ${expected_claude_skill_count} skill directory(ies)" <<<"$claude_output"
 grep -q "Generated ${expected_agent_count} agent file(s)" <<<"$claude_output"
-for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.md doc-review.md graph-bootstrap.md ideate.md mcp-setup.md optimize.md plan.md polish-beta.md pr-description.md release-notes.md sessions.md setup.md slack-research.md update.md work.md work-beta.md; do
+for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.md doc-review.md graph-bootstrap.md ideate.md mcp-setup.md optimize.md plan.md polish-beta.md release-notes.md sessions.md setup.md slack-research.md update.md work.md work-beta.md; do
   test -f "$TMP_DIR/.claude/commands/spec/$file"
 done
 test ! -e "$TMP_DIR/.claude/spec-first/workflows"
@@ -85,6 +86,12 @@ installed_claude_skill_count="$(find "$TMP_DIR/.claude/skills" -mindepth 1 -maxd
 test "$installed_claude_skill_count" = "$expected_claude_skill_count"
 test -f "$TMP_DIR/.claude/skills/using-spec-first/SKILL.md"
 grep -q '^name: using-spec-first$' "$TMP_DIR/.claude/skills/using-spec-first/SKILL.md"
+test -f "$TMP_DIR/.claude/skills/spec-session-inventory/SKILL.md"
+test -f "$TMP_DIR/.claude/skills/spec-session-extract/SKILL.md"
+grep -q '^name: session-inventory$' "$TMP_DIR/.claude/skills/spec-session-inventory/SKILL.md"
+grep -q '^name: session-extract$' "$TMP_DIR/.claude/skills/spec-session-extract/SKILL.md"
+grep -q '^user-invocable: false$' "$TMP_DIR/.claude/skills/spec-session-inventory/SKILL.md"
+grep -q '^user-invocable: false$' "$TMP_DIR/.claude/skills/spec-session-extract/SKILL.md"
 for agent in spec-repo-research-analyst.agent.md spec-session-historian.agent.md spec-slack-researcher.agent.md spec-spec-flow-analyzer.agent.md; do
   test -f "$TMP_DIR/.claude/agents/$agent"
 done
@@ -137,8 +144,12 @@ test -f "$TMP_DIR/.agents/skills/using-spec-first/SKILL.md"
 grep -q '^name: using-spec-first$' "$TMP_DIR/.agents/skills/using-spec-first/SKILL.md"
 grep -q '^name: spec-work-beta$' "$TMP_DIR/.agents/skills/spec-work-beta/SKILL.md"
 grep -q '^name: spec-polish-beta$' "$TMP_DIR/.agents/skills/spec-polish-beta/SKILL.md"
-test ! -e "$TMP_DIR/.agents/skills/spec-session-inventory/SKILL.md"
-test ! -e "$TMP_DIR/.agents/skills/spec-session-extract/SKILL.md"
+test -f "$TMP_DIR/.agents/skills/spec-session-inventory/SKILL.md"
+test -f "$TMP_DIR/.agents/skills/spec-session-extract/SKILL.md"
+grep -q '^name: session-inventory$' "$TMP_DIR/.agents/skills/spec-session-inventory/SKILL.md"
+grep -q '^name: session-extract$' "$TMP_DIR/.agents/skills/spec-session-extract/SKILL.md"
+grep -q '^user-invocable: false$' "$TMP_DIR/.agents/skills/spec-session-inventory/SKILL.md"
+grep -q '^user-invocable: false$' "$TMP_DIR/.agents/skills/spec-session-extract/SKILL.md"
 for agent in spec-repo-research-analyst.agent.md spec-session-historian.agent.md spec-slack-researcher.agent.md; do
   test -f "$TMP_DIR/.codex/agents/$agent"
 done

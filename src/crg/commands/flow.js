@@ -26,7 +26,9 @@ function run(argv) {
 
   // 查询 flow 基本信息
   const flow = db.prepare(
-    'SELECT id, entry_node_id, criticality, node_count FROM flows WHERE id = ?'
+    `SELECT id, entry_node_id, criticality, node_count,
+            entry_source, entry_confidence, entry_inference_reason, truncated, truncation_reason
+     FROM flows WHERE id = ?`
   ).get(flowId);
 
   if (!flow) {
@@ -64,6 +66,11 @@ function run(argv) {
     entry_node: flow.entry_node_id,
     criticality: flow.criticality,
     node_count: flow.node_count,
+    entry_source: flow.entry_source,
+    entry_confidence: flow.entry_confidence,
+    entry_inference_reason: flow.entry_inference_reason,
+    truncated: flow.truncated,
+    truncation_reason: flow.truncation_reason,
   });
 
   process.stdout.write(

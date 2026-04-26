@@ -154,13 +154,15 @@ describe('resolveEdges', () => {
 
       expect(result.unresolvedCount).toBe(0);
       expect(result.resolved).toEqual([
-        {
+        expect.objectContaining({
           id: 'src/caller.js#function#caller#L1:src/a.js#function#foo#L1:calls',
           source_id: 'src/caller.js#function#caller#L1',
           target_id: 'src/a.js#function#foo#L1',
           kind: 'calls',
           weight: 1,
-        },
+          confidence: 'Observed',
+          resolution_method: 'direct_target_id',
+        }),
       ]);
     } finally {
       db.close();

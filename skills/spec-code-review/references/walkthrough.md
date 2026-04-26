@@ -1,6 +1,6 @@
 # Per-finding Walk-through
 
-This reference defines Interactive mode's per-finding walk-through — the path the user enters by picking option A (`Review each finding one by one — accept the recommendation or choose another action`) from the routing question. It also covers the unified completion report that every terminal path (walk-through, LFG, File tickets, zero findings) emits.
+This reference defines Interactive mode's per-finding walk-through — the path the user enters by picking option A (`Review each finding one by one — accept the recommendation or choose another action`) from the routing question. It also covers the unified completion report that every terminal path (walk-through, Auto-resolve with best judgment, File tickets, zero findings) emits.
 
 Interactive mode only.
 
@@ -51,7 +51,7 @@ Render as markdown. Labels on their own line, blank lines between sections:
 Substitutions:
 
 - **`{plain-English title}`:** a 3-8 word summary suitable as a heading. Derived from the merged finding's `title` field but rephrased so it reads as observable behavior (e.g., "Path traversal in loadUserFromCache" rather than "Missing userId validation on line 36").
-- **`why_it_matters`:** read the contributing reviewer's artifact file at `.spec-first/workflows/spec:code-review/{run_id}/{reviewer_name}.json` using the same `file + line_bucket(line, +/-3) + normalize(title)` matching that headless mode uses (see `SKILL.md` Stage 6 detail enrichment). When multiple reviewers flagged the merged finding, try them in the order they appear in the merged finding's reviewer list. Use the first match.
+- **`why_it_matters`:** read the contributing reviewer's artifact file at `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json` using the same `file + line_bucket(line, +/-3) + normalize(title)` matching that headless mode uses (see `SKILL.md` Stage 6 detail enrichment). When multiple reviewers flagged the merged finding, try them in the order they appear in the merged finding's reviewer list. Use the first match.
 - **`suggested_fix`:** from the merged finding's `suggested_fix` field. Render as prose describing **intent**, not as syntax. The fixer subagent owns the exact code — the walk-through just needs enough for the user to trust or reject the action. Rules:
   - **Default — one sentence describing the effect.** What does the fix achieve, and where does it live? Prefer intent language over quoted code.
     - ✅ `Throw on non-2xx response before parsing JSON.`
@@ -62,7 +62,7 @@ Substitutions:
   - **Code-span budget: at most 2 inline backtick spans per sentence, each a single identifier, operator, or short phrase** (e.g., `` `response.ok` ``, `` `===` ``, `` `fetchUserById` ``). Never embed full statements, template literals, or code requiring nested backticks. If the intent can't be stated within that budget, the prose is too close to syntax — restate at a higher level, or switch to summary + artifact pointer.
   - **Always leave a space before and after every backtick span.** Without it, the terminal's markdown renderer eats the delimiters and runs the words together.
   - **Raw code block — only for short (≤5 line) genuinely additive new code** where no before-state exists (new file, new function, new guard at the top of an empty body). Above 5 lines, switch to summary + pointer.
-  - **Summary + artifact pointer** — when prose can't capture the fix: one-sentence transformation + key symbol/location + `Full fix: .spec-first/workflows/spec:code-review/{run_id}/{reviewer_name}.json → findings[].suggested_fix`.
+  - **Summary + artifact pointer** — when prose can't capture the fix: one-sentence transformation + key symbol/location + `Full fix: /tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json → findings[].suggested_fix`.
   - **No diff blocks.** Modifications to existing code render as prose.
 - **`Why it works`:** grounded reasoning that, where possible, references a similar pattern already used elsewhere in the codebase (e.g., "matches the format-validation pattern already used at src/cli/io.ts:41"). One to three sentences.
 - **R15 conflict context line (when applicable):** when contributing reviewers implied different actions for this finding and Stage 5 step 7b broke the tie, surface that briefly. Example: `Correctness recommends Apply; Testing recommends Skip (low confidence). Agent's recommendation: Skip.` The orchestrator's recommendation — the post-tie-break value — is what the menu labels "recommended."
@@ -114,10 +114,10 @@ Fixed order. Never reorder:
 1. Apply the proposed fix
 2. Defer — file a [TRACKER] ticket
 3. Skip — don't apply, don't track
-4. LFG the rest — apply the agent's best judgment to this and remaining findings
+4. Auto-resolve with best judgment on the rest — apply the agent's best judgment to this and remaining findings
 ```
 
-Render the `[TRACKER]` label per `tracker-defer.md`: when `confidence-first = high` AND `named_sink_available = true`, replace `[TRACKER]` with the concrete tracker name (e.g., `Defer — file a Linear ticket`). When `any_sink_available = true` but either `confidence-first = low` or `named_sink_available = false`, use the generic whole label `Defer — file a ticket` — whole-label substitution, not a `[TRACKER]` token swap.
+Render the `[TRACKER]` label per `tracker-defer.md`: when `confidence = high` AND `named_sink_available = true`, replace `[TRACKER]` with the concrete tracker name (e.g., `Defer — file a Linear ticket`). When `any_sink_available = true` but either `confidence = low` or `named_sink_available = false`, use the generic whole label `Defer — file a ticket` — whole-label substitution, not a `[TRACKER]` token swap.
 
 **Mark the post-tie-break recommendation with `(recommended)` on its option label.** Required, not optional. Any of the four options can carry it:
 
@@ -125,14 +125,14 @@ Render the `[TRACKER]` label per `tracker-defer.md`: when `confidence-first = hi
 1. Apply the proposed fix  (recommended)
 2. Defer — file a ticket
 3. Skip — don't apply, don't track
-4. LFG the rest
+4. Auto-resolve with best judgment on the rest
 ```
 
 ```
 1. Apply the proposed fix
 2. Defer — file a ticket
 3. Skip — don't apply, don't track  (recommended)
-4. LFG the rest
+4. Auto-resolve with best judgment on the rest
 ```
 
 When reviewers disagreed or content context cuts against the default, still mark one option — whichever Stage 5 step 7b produced — and surface the disagreement in the R15 conflict context line.
@@ -140,8 +140,9 @@ When reviewers disagreed or content context cuts against the default, still mark
 ### Adaptations
 
 - **Advisory-only finding:** when the finding's `autofix_class` is `advisory` (no actionable fix), option A is replaced with `Acknowledge — mark as reviewed`. The other three options remain. The advisory variant is the only case where `Acknowledge` appears in the menu.
-- **N=1 (exactly one pending finding):** the terminal block's heading omits `Finding N of M` and renders as `## {severity} {plain-English title}`. The stem's first line drops the position counter, becoming `{severity} {short handle}.` Option D (`LFG the rest`) is suppressed because no subsequent findings exist — the menu shows three options: Apply / Defer / Skip (or Acknowledge, for advisory).
-- **No sink (Defer option unavailable):** when the tracker-detection tuple reports `any_sink_available: false` (every tier in the fallback chain — named tracker and GitHub Issues via `gh` — is unreachable), option B (`Defer`) is omitted. The stem appends one line explaining why (e.g., `Defer unavailable on this platform — no durable tracker sink detected.`). The menu shows three options: Apply / Skip / LFG the rest (and Acknowledge in place of Apply for advisory-only findings). **Before rendering the options, remap any per-finding `Defer` recommendation produced by Stage 5 step 7b to `Skip`** so the `(recommended)` marker always lands on an option that is actually in the menu. When the remap fires, surface it on the R15 conflict context line (e.g., `Stage 5 recommended Defer; downgraded to Skip — no tracker sink available.`). This is a render-time runtime step mirroring the Defer→Skip downgrade that `bulk-preview.md` performs for LFG previews; Stage 5 step 7b has no knowledge of sink availability and only orders conflicting reviewer recommendations.
+- **No `suggested_fix`:** hide option A (`Apply the proposed fix`) because Apply is not executable without a concrete fix. The menu starts at Defer / Skip / Auto-resolve with best judgment on the rest. If the recommendation was Apply before rendering, remap it to Defer and surface the remap on the R15 conflict context line.
+- **N=1 (exactly one pending finding):** the terminal block's heading omits `Finding N of M` and renders as `## {severity} {plain-English title}`. The stem's first line drops the position counter, becoming `{severity} {short handle}.` Option D (`Auto-resolve with best judgment on the rest`) is suppressed because no subsequent findings exist — the menu shows Apply / Defer / Skip (or Acknowledge, for advisory). If there is no `suggested_fix`, Apply is also suppressed.
+- **No sink (Defer option unavailable):** when the tracker-detection tuple reports `any_sink_available: false` (every tier in the fallback chain — named tracker and GitHub Issues via `gh` — is unreachable), option B (`Defer`) is omitted. The stem appends one line explaining why (e.g., `Defer unavailable — no issue tracker is configured for this checkout.`). The menu shows Apply / Skip / Auto-resolve with best judgment on the rest (and Acknowledge in place of Apply for advisory-only findings). **Before rendering the options, remap any per-finding `Defer` recommendation produced by Stage 5 step 6b to `Skip`** so the `(recommended)` marker always lands on an option that is actually in the menu. When the remap fires, surface it on the R15 conflict context line (e.g., `Stage 5 recommended Defer; downgraded to Skip — no issue tracker is configured for this checkout.`).
 - **Combined N=1 + no sink:** the menu shows two options: Apply / Skip (or Acknowledge / Skip).
 
 Only when `ToolSearch` explicitly returns no match or the tool call errors — or on a platform with no blocking question tool — fall back to presenting the options as a numbered list and waiting for the user's next reply.
@@ -152,11 +153,11 @@ Only when `ToolSearch` explicitly returns no match or the tool call errors — o
 
 For each finding's answer:
 
-- **Apply the proposed fix** — add the finding's id to an in-memory Apply set. Advance to the next finding. Do not dispatch the fixer inline — Apply accumulates for end-of-walk-through batch dispatch.
+- **Apply the proposed fix** — only shown when the finding has `suggested_fix`. Add the finding's id to an in-memory Apply set. Advance to the next finding. Do not dispatch the fixer inline — Apply accumulates for end-of-walk-through batch dispatch.
 - **Acknowledge — mark as reviewed** (advisory variant) — record Acknowledge in the in-memory decision list. Advance to the next finding. No side effects.
 - **Defer — file a [TRACKER] ticket** — invoke the tracker-defer flow from `tracker-defer.md`. The walk-through's position indicator stays on the current finding during any failure-path sub-question (Retry / Fall back / Convert to Skip). On success, record the tracker URL / reference in the in-memory decision list and advance. On conversion-to-Skip from the failure path, advance with the failure noted in the completion report.
 - **Skip — don't apply, don't track** — record Skip in the in-memory decision list. Advance. No side effects.
-- **LFG the rest — apply the agent's best judgment to this and remaining findings** — exit the walk-through loop. Before dispatching the bulk preview, run Stage 5b on the remaining action set (the current finding plus any not yet decided) using the same gate as LFG routing (option B): validator template at `references/validator-template.md`, 15-finding cap, parallel per-finding dispatch. Findings Stage 5b rejects are dropped from the remaining set. Then dispatch the bulk preview from `bulk-preview.md` scoped to the Stage 5b-validated survivors. The preview header reports the count of already-decided findings ("K already decided"). If the user picks `Cancel` from the preview, return to the current finding's per-finding question (not to the routing question). If the user picks `Proceed`, execute the plan per `bulk-preview.md` — Apply findings join the in-memory Apply set with the ones the user already picked, Defer findings route through `tracker-defer.md`, Skip / Acknowledge no-op — then proceed to end-of-walk-through dispatch.
+- **Auto-resolve with best judgment on the rest — apply the agent's best judgment to this and remaining findings** — exit the walk-through loop and dispatch one fixer pass on the union of the current finding, all remaining undecided findings, and any already-accumulated Apply decisions. Do not run Stage 5b and do not call `bulk-preview.md` for this path. The fixer applies items with `suggested_fix`, no-ops advisory items, and returns non-applyable items in the `failed` bucket for the post-run failure-handling question described in `SKILL.md`.
 
 ---
 
@@ -182,13 +183,15 @@ Formal cross-session resumption is out of scope for v1.
 
 ## End-of-walk-through dispatch
 
-After the loop terminates — either every finding has been answered, or the user took `LFG the rest → Proceed` — the walk-through hands off to the dispatch phase:
+This section covers the run-to-completion path only — every finding has been answered Apply / Defer / Skip / Acknowledge and the loop ended naturally. The `Auto-resolve with best judgment on the rest` path exits the walk-through earlier and dispatches its own fixer pass on the union of the accumulated Apply set, the current finding, and all remaining undecided findings; see that bullet under "Per-finding routing" above. There is no second dispatch in that branch.
+
+When the loop runs to completion, the walk-through hands off to the dispatch phase:
 
 1. **Apply set:** spawn one fixer subagent for the full accumulated Apply set. The fixer receives the set as its input queue and applies all changes in one pass against the current working tree. This preserves the existing "one fixer, consistent tree" mechanic and gives the fixer the full set at once to handle inter-fix dependencies (two Applies touching overlapping regions). The existing Step 3 fixer prompt needs a small update to acknowledge this queue may be heterogeneous (`gated_auto` and `manual` mix, not just `safe_auto`) — authored alongside this reference.
 2. **Defer set:** already executed inline during the walk-through. Nothing to dispatch here.
 3. **Skip / Acknowledge:** no-op.
 
-After dispatch completes (or after `LFG the rest → Cancel` followed by the user working through remaining findings one at a time, or after the loop runs to completion), emit the unified completion report described below.
+After dispatch completes, emit the unified completion report described below.
 
 ---
 
@@ -197,14 +200,14 @@ After dispatch completes (or after `LFG the rest → Cancel` followed by the use
 Every terminal path of Interactive mode emits the same completion report structure. This covers:
 
 - Walk-through completed (all findings answered)
-- Walk-through bailed via `LFG the rest → Proceed`
-- Top-level LFG (routing option B) completed
+- Walk-through bailed via `Auto-resolve with best judgment on the rest`
+- Top-level Auto-resolve with best judgment (routing option B) completed
 - Top-level File tickets (routing option C) completed
 - Zero findings after `safe_auto` (routing question was skipped — the completion summary is a one-line degenerate case of this structure)
 
 ### Minimum required fields (per R12)
 
-- **Per-finding entries:** for every finding the flow touched, a line with — at minimum — title, severity, the action taken (Applied / Deferred / Skipped / Acknowledged), the tracker URL or in-session task reference for Deferred entries, and a one-line reason for Skipped entries (grounded in the finding's confidence-first or the one-line `why_it_matters` snippet).
+- **Per-finding entries:** for every finding the flow touched, a line with — at minimum — title, severity, the action taken (Applied / Deferred / Skipped / Acknowledged), the tracker URL or in-session task reference for Deferred entries, and a one-line reason for Skipped entries (grounded in the finding's confidence score or the one-line `why_it_matters` snippet).
 - **Summary counts by action:** totals per bucket (e.g., `4 applied, 2 deferred, 2 skipped`).
 - **Failures called out explicitly:** any fix application that failed, any ticket creation that failed (with the reason returned by the tracker). Failures are surfaced above the per-finding list so they are not missed.
 - **End-of-review verdict:** the existing Stage 6 verdict (Ready to merge / Ready with fixes / Not ready), computed from the residual state after all actions complete.

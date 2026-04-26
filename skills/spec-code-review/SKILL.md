@@ -49,14 +49,14 @@ All tokens are optional. Each one present means one less thing to infer. When ab
 
 - **Skip all user questions.** Never pause for approval or clarification once scope has been established.
 - **Apply only `safe_auto -> review-fixer` findings.** Leave `gated_auto`, `manual`, `human`, and `release` work unresolved.
-- **Write a run artifact** under `.spec-first/workflows/spec:code-review/<run-id>/` summarizing findings, applied fixes, residual actionable work, and advisory outputs. Orchestrators read this artifact to route residual `downstream-resolver` findings; the skill itself does not file tickets or prompt the user in autofix.
+- **Write a run artifact** under `/tmp/spec-first/spec-code-review/<run-id>/` summarizing findings, applied fixes, residual actionable work, and advisory outputs. Orchestrators read this artifact to route residual `downstream-resolver` findings; the skill itself does not file tickets or prompt the user in autofix.
 - **Emit a compact Residual Actionable Work summary in the autofix return** listing each residual `downstream-resolver` finding with severity, file:line, title, and autofix_class. Include the run-artifact path. Callers read this summary directly without parsing the artifact. When no residuals exist, state `Residual actionable work: none.` explicitly.
 - **Never commit, push, or create a PR** from autofix mode. Parent workflows own those decisions.
 
 ### Report-only mode rules
 
 - **Skip all user questions.** Infer intent conservatively if the diff metadata is thin.
-- **Never edit files or externalize work.** Do not write `.spec-first/workflows/spec:code-review/<run-id>/`, do not file tickets, and do not commit, push, or create a PR.
+- **Never edit files or externalize work.** Do not write `/tmp/spec-first/spec-code-review/<run-id>/`, do not file tickets, and do not commit, push, or create a PR.
 - **Safe for parallel read-only verification.** `mode:report-only` is the only mode that is safe to run concurrently with browser testing on the same checkout.
 - **Do not switch the shared checkout.** If the caller passes an explicit PR or branch target, `mode:report-only` must run in an isolated checkout/worktree or stop instead of running `gh pr checkout` / `git checkout`.
 - **Do not overlap mutating review with browser testing on the same checkout.** If a future orchestrator wants fixes, run the mutating review phase after browser testing or in an isolated checkout/worktree.
@@ -67,7 +67,7 @@ All tokens are optional. Each one present means one less thing to infer. When ab
 - **Require a determinable diff scope.** If headless mode cannot determine a diff scope (no branch, PR, or `base:` ref determinable without user interaction), emit `Review failed (headless mode). Reason: no diff scope detected. Re-invoke with a branch name, PR number, or base:<ref>.` and stop without dispatching agents.
 - **Apply only `safe_auto -> review-fixer` findings in a single pass.** No bounded re-review rounds. Leave `gated_auto`, `manual`, `human`, and `release` work unresolved and return them in the structured output.
 - **Return all non-auto findings as structured text output.** Use the headless output envelope format (see Stage 6 below) preserving severity, autofix_class, owner, requires_verification, confidence, pre_existing, and suggested_fix per finding. Enrich with detail-tier fields (why_it_matters, evidence[]) from the per-agent artifact files on disk (see Detail enrichment in Stage 6).
-- **Write a run artifact** under `.spec-first/workflows/spec:code-review/<run-id>/` summarizing findings, applied fixes, and advisory outputs. Include the artifact path in the structured output.
+- **Write a run artifact** under `/tmp/spec-first/spec-code-review/<run-id>/` summarizing findings, applied fixes, and advisory outputs. Include the artifact path in the structured output.
 - **Do not file tickets or externalize work.** The caller receives structured findings and routes downstream work itself.
 - **Do not switch the shared checkout.** If the caller passes an explicit PR or branch target, `mode:headless` must run in an isolated checkout/worktree or stop instead of running `gh pr checkout` / `git checkout`. When stopping, emit `Review failed (headless mode). Reason: cannot switch shared checkout. Re-invoke with base:<ref> to review the current checkout, or run from an isolated worktree.`
 - **Not safe for concurrent use on a shared checkout.** Unlike `mode:report-only`, headless mutates files (applies `safe_auto` fixes). Callers must not run headless concurrently with other mutating operations on the same checkout.
@@ -189,7 +189,7 @@ Then produce the same output as the other paths:
 echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:" && git diff -U10 $BASE && echo "UNTRACKED:" && git ls-files --others --exclude-standard
 ```
 
-This path works with any ref — a SHA, `origin/main`, a branch name. Automated callers (spec-work, lfg, slfg) should prefer this to avoid the detection overhead. **Do not combine `base:` with a PR number or branch target.** If both are present, stop with an error: "Cannot use `base:` with a PR number or branch target — `base:` implies the current checkout is already the correct branch. Pass `base:` alone, or pass the target alone and let scope detection resolve the base." This avoids scope/intent mismatches where the diff base comes from one source but the code and metadata come from another.
+This path works with any ref — a SHA, `origin/main`, a branch name. Automated callers (spec-work, best-judgment, sbest-judgment) should prefer this to avoid the detection overhead. **Do not combine `base:` with a PR number or branch target.** If both are present, stop with an error: "Cannot use `base:` with a PR number or branch target — `base:` implies the current checkout is already the correct branch. Pass `base:` alone, or pass the target alone and let scope detection resolve the base." This avoids scope/intent mismatches where the diff base comes from one source but the code and metadata come from another.
 
 **If a PR number or GitHub URL is provided as an argument:**
 
@@ -416,10 +416,10 @@ Generate a unique run identifier before dispatching any agents. This ID scopes a
 
 ```bash
 RUN_ID=$(date +%Y%m%d-%H%M%S)-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' ')
-mkdir -p ".spec-first/workflows/spec:code-review/$RUN_ID"
+mkdir -p "/tmp/spec-first/spec-code-review/$RUN_ID"
 ```
 
-Pass `{run_id}` to every persona sub-agent so they can write their full analysis to `.spec-first/workflows/spec:code-review/{run_id}/{reviewer_name}.json`.
+Pass `{run_id}` to every persona sub-agent so they can write their full analysis to `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json`.
 
 **Report-only mode:** Skip run-id generation and directory creation. Do not pass `{run_id}` to agents. Agents return compact JSON only with no file write, consistent with report-only's no-write contract.
 
@@ -437,11 +437,11 @@ Spawn each selected persona reviewer as a parallel sub-agent using the subagent 
 6. Run ID and reviewer name for the artifact file path
 7. **For `project-standards` only:** the standards file path list from Stage 3b, wrapped in a `<standards-paths>` block appended to the review context
 
-Persona sub-agents are **read-only** with respect to the project: they review and return structured JSON. They do not edit project files or propose refactors. The one permitted write is saving their full analysis to the `.context/` artifact path specified in the output contract.
+Persona sub-agents are **read-only** with respect to the project: they review and return structured JSON. They do not edit project files or propose refactors. The one permitted write is saving their full analysis to the run-artifact path specified in the output contract under `/tmp/spec-first/spec-code-review/<run-id>/`.
 
 Read-only here means **non-mutating**, not "no shell access." Reviewer sub-agents may use non-mutating inspection commands when needed to gather evidence or verify scope, including read-oriented `git` / `gh` usage such as `git diff`, `git show`, `git blame`, `git log`, and `gh pr view`. They must not edit project files, change branches, commit, push, create PRs, or otherwise mutate the checkout or repository state.
 
-Each persona sub-agent writes full JSON (all schema fields) to `.spec-first/workflows/spec:code-review/{run_id}/{reviewer_name}.json` and returns compact JSON with merge-tier fields only:
+Each persona sub-agent writes full JSON (all schema fields) to `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json` and returns compact JSON with merge-tier fields only:
 
 ```json
 {
@@ -493,7 +493,20 @@ Convert multiple reviewer compact JSON returns into one deduplicated, confidence
 4. **Separate pre-existing.** Pull out findings with `pre_existing: true` into a separate list.
 5. **Resolve disagreements.** When reviewers flag the same code region but disagree on severity, autofix_class, or owner, annotate the Reviewer column with the disagreement (e.g., "security (P0), correctness (P1) -- kept P0"). This transparency helps the user understand why a finding was routed the way it was.
 6. **Normalize routing.** For each merged finding, set the final `autofix_class`, `owner`, and `requires_verification`. If reviewers disagree, keep the most conservative route. Synthesis may narrow a finding from `safe_auto` to `gated_auto` or `manual`, but must not widen it without new evidence.
-6b. **Tie-break the recommended action.** Interactive mode's walk-through and LFG paths present a per-finding recommended action (Apply / Defer / Skip / Acknowledge) derived from the normalized `autofix_class` and `suggested_fix`. When contributing reviewers implied different actions for the same merged finding, synthesis picks the most conservative using the order `Skip > Defer > Apply > Acknowledge`. This guarantees that identical review artifacts produce the same recommendation deterministically, so LFG results are auditable after the fact and the walk-through's recommendation is stable across re-runs. The user may still override per finding via the walk-through's options; this rule only determines what gets labeled "recommended."
+6b. **Derive the recommended action.** Interactive mode's walk-through and best-judgment paths present a per-finding recommended action (Apply / Defer / Skip / Acknowledge). The recommendation is derived from the normalized `autofix_class` and the presence of `suggested_fix` using this mapping:
+
+| `autofix_class` | `suggested_fix` present? | Recommended action |
+|-----------------|--------------------------|--------------------|
+| `safe_auto`     | auto-applied before the routing question | Apply |
+| `gated_auto`    | yes                      | Apply |
+| `gated_auto`    | no                       | Defer |
+| `manual`        | yes                      | Apply |
+| `manual`        | no                       | Defer |
+| `advisory`      | n/a                      | Acknowledge |
+
+The presence of `suggested_fix` is the authoritative signal that the agent can act on the finding. A `manual` finding with a concrete `suggested_fix` recommends Apply because the persona committed to a defensible fix shape grounded in review context. A `manual` finding without `suggested_fix` recommends Defer because the persona signaled that the fix needs context the reviewer cannot provide. `autofix_class` itself is not collapsed by this mapping; the report still records `manual` vs `gated_auto`.
+
+**Cross-reviewer tie-break.** When contributing reviewers implied different actions for the same merged finding, synthesis picks the most conservative using the order `Skip > Defer > Apply > Acknowledge`. This rule fires only on multi-reviewer disagreement; the mapping above is the single-reviewer default. Tie-break guarantees that identical review artifacts produce the same recommendation deterministically, so best-judgment results are auditable and the walk-through's recommendation is stable across re-runs.
 6c. **Mode-aware demotion of weak general-quality findings.** Some persona output is real signal but does not warrant primary-findings attention. Reroute it to the existing soft buckets so the primary findings table stays focused on actionable issues.
 
 A finding qualifies for demotion when **all** of these hold:
@@ -527,24 +540,25 @@ Independent verification gate. Spawn one validator sub-agent per surviving findi
 | `headless` | Yes, eagerly | Between Stage 5 and Stage 6 |
 | `autofix` | Yes, eagerly | Between Stage 5 and Stage 6 |
 | `interactive`, walk-through routing (option A) — per-finding phase | No -- the user is the per-finding validator | n/a |
-| `interactive`, walk-through routing (option A) — LFG-the-rest handoff | Yes, on the remaining action set | Before bulk-preview dispatch (same gate as option B) |
-| `interactive`, LFG routing (option B) | Yes, on the action set | Before bulk-preview dispatch |
+| `interactive`, walk-through routing (option A) — Auto-resolve with best judgment on the rest handoff | No -- the best-judgment path dispatches the fixer immediately; the fixer's apply/fail outcome is the validation | n/a |
+| `interactive`, best-judgment routing (option B) | No -- the best-judgment path dispatches the fixer immediately; the fixer's apply/fail outcome is the validation | n/a |
 | `interactive`, File-tickets routing (option C) | Yes, on all pending findings | Before tracker dispatch |
 | `interactive`, Report-only routing (option D) | No -- nothing is being externalized | n/a |
 | `report-only` | No -- read-only mode externalizes nothing | n/a |
 
 When Stage 5b does not run, the merged finding set from Stage 5 flows through to Stage 6 unchanged. When it runs, the steps below execute on the relevant set.
 
+The best-judgment path skips Stage 5b deliberately. Running validators before fixer dispatch is duplicate research: the fixer re-checks each finding while applying or proposing the fix, and items where the cited evidence no longer matches the code are routed to the `failed` bucket during the fix attempt. The user reviews via diff and the post-run failure-handling question, not via a pre-dispatch validator gate.
+
 **Steps:**
 
 1. **Select findings to validate.**
    - **headless/autofix:** All survivors of Stage 5.
-   - **interactive LFG (option B) and walk-through LFG-the-rest handoff:** The action set — findings with a recommended action of Apply or Defer. Skip and Acknowledge findings are not being externalized on this path.
    - **interactive File-tickets (option C):** All pending findings regardless of recommended action. Option C externalizes every finding as a ticket, so every finding needs validation.
 2. **Apply dispatch budget cap.** If the selected set exceeds 15 findings, validate the highest-severity 15 (P0 first, then P1, then P2, then P3, breaking ties by anchor descending). Drop the remainder and record the over-budget count for the Coverage section. The blunt drop is intentional; a review producing 15+ surviving findings is already in territory where a second wave would not change the user's triage approach.
 3. **Spawn validators in parallel.** One sub-agent per finding, dispatched concurrently using the validator template. Each validator receives:
    - The finding's title, severity, file, line, suggested_fix, original reviewer name, and confidence-first anchor
-   - `why_it_matters` when available — loaded from the per-agent artifact file at `.spec-first/workflows/spec:code-review/{run_id}/{reviewer_name}.json`; omit when the file is absent or the artifact write failed. The validator proceeds without it, using the diff and cited code directly.
+   - `why_it_matters` when available — loaded from the per-agent artifact file at `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json`; omit when the file is absent or the artifact write failed. The validator proceeds without it, using the diff and cited code directly.
    - The full diff
    - Read-tool access to inspect the cited code, callers, guards, framework defaults, and git blame
 4. **Collect verdicts.** Each validator returns `{ "validated": true | false, "reason": "<one sentence>" }`.
@@ -591,7 +605,7 @@ Scope: <scope-line>
 Intent: <intent-summary>
 Reviewers: <reviewer-list with conditional justifications>
 Verdict: <Ready to merge | Ready with fixes | Not ready>
-Artifact: .spec-first/workflows/spec:code-review/<run-id>/
+Artifact: /tmp/spec-first/spec-code-review/<run-id>/
 
 Applied N safe_auto fixes.
 
@@ -648,7 +662,7 @@ Coverage:
 Review complete
 ```
 
-**Detail enrichment (headless only):** The headless envelope includes `Why:`, `Evidence:`, and `Suggested fix:` lines. After merge (Stage 5), read the per-agent artifact files from `.spec-first/workflows/spec:code-review/{run_id}/` for only the findings that survived dedup and confidence-first gating.
+**Detail enrichment (headless only):** The headless envelope includes `Why:`, `Evidence:`, and `Suggested fix:` lines. After merge (Stage 5), read the per-agent artifact files from `/tmp/spec-first/spec-code-review/{run_id}/` for only the findings that survived dedup and confidence-first gating.
    - **Field tiers:** `Why:` and `Evidence:` are detail-tier -- load from per-agent artifact files. `Suggested fix:` is merge-tier -- use it directly from the compact return without artifact lookup.
    - **Artifact matching:** For each surviving finding, look up its detail-tier fields in the artifact files of the contributing reviewers. Match on `file + line_bucket(line, +/-3)` (the same tolerance used in Stage 5 dedup) within each contributing reviewer's artifact. When multiple artifact entries fall within the line bucket, apply `normalize(title)` to both the merged finding's title and each candidate entry's title as a tie-breaker.
    - **Reviewer order:** Try contributing reviewers in the order they appear in the merged finding's reviewer list; use the first match.
@@ -707,22 +721,31 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 
   ```
   (A) Review each finding one by one — accept the recommendation or choose another action
-  (B) LFG. Apply the agent's best-judgment action per finding
+  (B) Auto-resolve with best judgment — apply per-finding fixes the agent can defend, surface the rest
   (C) File a [TRACKER] ticket per finding without applying fixes
   (D) Report only — take no further action
   ```
 
-  Render option C per `references/tracker-defer.md`: when `confidence-first = high` AND `named_sink_available = true`, replace `[TRACKER]` with the concrete name and keep the full label (e.g., `File a Linear ticket per finding without applying fixes`). When `any_sink_available = true` but either `confidence-first = low` or `named_sink_available = false` (GitHub Issues via `gh` is working as the fallback), use the generic label `File an issue per finding without applying fixes` — this is a whole-label substitution, not a `[TRACKER]` token swap. When `any_sink_available = false`, **omit option C entirely** and add one line to the stem explaining why (e.g., `Defer unavailable — no durable tracker sink detected on this platform.`). The three remaining options (A, B, D) survive.
+  Render option C per `references/tracker-defer.md`: when `confidence = high` AND `named_sink_available = true`, replace `[TRACKER]` with the concrete name and keep the full label (e.g., `File a Linear ticket per finding without applying fixes`). When `any_sink_available = true` but either `confidence = low` or `named_sink_available = false` (GitHub Issues via `gh` is working as the fallback), use the generic label `File an issue per finding without applying fixes` — this is a whole-label substitution, not a `[TRACKER]` token swap. When `any_sink_available = false`, **omit option C entirely** and add one line to the stem explaining that no issue tracker is configured for this checkout (Linear, GitHub Issues, etc., were probed and unavailable). The three remaining options (A, B, D) survive.
 
   The numbered-list text fallback applies when `ToolSearch` explicitly returns no match for the platform's question tool or the tool call errors (including Codex runtime modes where `request_user_input` is unavailable). It does not apply when the agent simply hasn't loaded the tool yet — in that case, load it now (see the verification checklist above). When the fallback applies, present the options as a numbered list and wait for the user's reply — never silently skip the question.
 
-- **Dispatch on selection.** Route by the option letter (A / B / C / D), not by the rendered label string. The option-C label varies by tracker-detection confidence-first (`File a [TRACKER] ticket per finding without applying fixes` for a named tracker, `File an issue per finding without applying fixes` as the generic fallback, or omitted entirely when no sink is available — see `references/tracker-defer.md`), and options A / B / D have a single canonical label each. The letter is the stable dispatch signal; the canonical labels below are shown for documentation only. A low-confidence-first run that rendered option C as the generic label routes to the same branch as a high-confidence-first run that rendered it with the named tracker.
-  - (A) `Review each finding one by one` — load `references/walkthrough.md` and enter the per-finding walk-through loop. The walk-through accumulates Apply decisions in memory; Defer decisions execute inline via `references/tracker-defer.md`; Skip / Acknowledge decisions are recorded as no-action; `LFG the rest` routes through `references/bulk-preview.md`. At end of the loop, dispatch one fixer subagent for the accumulated Apply set (Step 3). Emit the unified completion report.
-  - (B) `LFG. Apply the agent's best-judgment action per finding` — first run Stage 5b validation on the action set (Apply / Defer findings). Drop validator-rejected findings with their reasons recorded in Coverage. Then load `references/bulk-preview.md` scoped to every surviving pending `gated_auto` / `manual` finding. On `Proceed`, execute the plan: Apply set → Step 3 fixer dispatch; Defer set → `references/tracker-defer.md`; Skip / Acknowledge → no-op. On `Cancel`, return to this routing question. Emit the unified completion report after execution.
+- **Dispatch on selection.** Route by the option letter (A / B / C / D), not by the rendered label string. The option-C label varies by tracker-detection confidence (`File a [TRACKER] ticket per finding without applying fixes` for a named tracker, `File an issue per finding without applying fixes` as the generic fallback, or omitted entirely when no sink is available — see `references/tracker-defer.md`), and options A / B / D have a single canonical label each. The letter is the stable dispatch signal; the canonical labels below are shown for documentation only. A low-confidence run that rendered option C as the generic label routes to the same branch as a high-confidence run that rendered it with the named tracker.
+  - (A) `Review each finding one by one` — load `references/walkthrough.md` and enter the per-finding walk-through loop. The walk-through accumulates Apply decisions in memory; Defer decisions execute inline via `references/tracker-defer.md`; Skip / Acknowledge decisions are recorded as no-action. `Auto-resolve with best judgment on the rest` exits the loop and dispatches one fixer pass on the union of already-accumulated Apply decisions plus remaining undecided findings. When the user works through every finding without invoking that shortcut, dispatch one fixer subagent for the accumulated Apply set at end of loop (Step 3). Emit the unified completion report after dispatch.
+  - (B) `Auto-resolve with best judgment — apply per-finding fixes the agent can defend, surface the rest` — dispatch the fixer subagent (Step 3) immediately on the full pending action set (`gated_auto` + `manual` + `advisory`). No Stage 5b validator pre-pass. No bulk-preview approval gate. The fixer applies items with concrete `suggested_fix`, no-ops on advisory items, and routes items where the fix cannot be applied cleanly, or where cited evidence no longer matches the code, to a `failed` bucket with a one-line reason.
+
+    **After the fixer returns, the order is:**
+    1. If `failed` is empty, emit the unified completion report and proceed to Step 5 per its gating rule.
+    2. If `failed` is non-empty, fire the post-run failure-handling question before emitting the report. Stem: `N findings could not be auto-resolved. What should the agent do with them?` Options:
+       - `File tickets for these` — route the failed set through `references/tracker-defer.md` Interactive mode. Omit this option when `any_sink_available = false`, and say no issue tracker is configured for this checkout.
+       - `Walk through these one at a time` — re-enter the walk-through loop scoped to the failed set. Items with `suggested_fix` recommend Apply; items without `suggested_fix` recommend Defer and do not offer Apply.
+       - `Ignore — leave them in the report` — record the failed list as residual actionable work.
+
+    After the user's choice executes, emit the unified completion report reflecting any tickets filed or additional fixes applied during walk-through re-entry.
   - (C) `File a [TRACKER] ticket per finding without applying fixes` (or the generic `File an issue per finding without applying fixes` when the named-tracker label is not used) — first run Stage 5b validation on every pending finding. Drop validator-rejected findings with their reasons recorded in Coverage. Then load `references/bulk-preview.md` with every surviving finding in the file-tickets bucket. On `Proceed`, route every finding through `references/tracker-defer.md`; no fixes are applied. On `Cancel`, return to this routing question. Emit the unified completion report.
   - (D) `Report only — take no further action` — do not enter any dispatch phase. Emit the completion report, then proceed to Step 5 per its gating rule (`fixes_applied_count > 0` from earlier `safe_auto` passes). If no fixes were applied this run, stop after the report.
 
-- The walk-through's completion report, the LFG / File-tickets completion report, and the zero-remaining completion summary all follow the unified completion-report structure documented in `references/walkthrough.md`. Use the same structure across every terminal path.
+- The walk-through's completion report, the best-judgment / File-tickets completion report, and the zero-remaining completion summary all follow the unified completion-report structure documented in `references/walkthrough.md`. Use the same structure across every terminal path.
 
 **Autofix mode**
 
@@ -735,7 +758,7 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 
 - Ask no questions.
 - Do not build a fixer queue.
-- Do not write `.context` artifacts.
+- Do not write run artifacts.
 - Stop after Stage 6. Everything remains in the report.
 
 **Headless mode**
@@ -747,18 +770,18 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 - Write a run artifact (Step 4). Do not file tickets or externalize work — the caller owns that.
 - Stop after the structured text output and "Review complete" signal. No commit/push/PR.
 
-#### Step 3: Apply fixes with one fixer and bounded rounds
+#### Step 3: Apply fixes with one fixer
 
 - Spawn exactly one fixer subagent for the current fixer queue in the current checkout. That fixer applies all approved changes and runs the relevant targeted tests in one pass against a consistent tree.
 - Do not fan out multiple fixers against the same checkout. Parallel fixers require isolated worktrees/branches and deliberate mergeback.
-- Re-review only the changed scope after fixes land.
-- Bound the loop with `max_rounds: 2`. If issues remain after the second round, stop and hand them off as residual work or report them as unresolved.
-- If any applied finding has `requires_verification: true`, the round is incomplete until the targeted verification runs.
+- **Homogeneous queue** (autofix, headless, walk-through Apply set): every item is `safe_auto -> review-fixer` or every item carries a concrete `suggested_fix`. Apply each item. If a walk-through Apply item lacks `suggested_fix`, route it to `failed` with reason `no fix proposed by reviewer`.
+- **Heterogeneous queue** (best-judgment path): the queue may mix `gated_auto`, `manual`, and `advisory`. Apply items with `suggested_fix`, no-op advisory items, and route anything that cannot be applied cleanly to `failed` with a one-line reason.
+- If any applied finding has `requires_verification: true`, run the relevant targeted verification before reporting it as applied.
 - Do not start a mutating review round concurrently with browser testing on the same checkout. Future orchestrators that want both must either run `mode:report-only` during the parallel phase or isolate the mutating review in its own checkout/worktree.
 
 #### Step 4: Emit artifacts and downstream handoff
 
-- In interactive, autofix, and headless modes, write a per-run artifact under `.spec-first/workflows/spec:code-review/<run-id>/` containing:
+- In interactive, autofix, and headless modes, write a per-run artifact under `/tmp/spec-first/spec-code-review/<run-id>/` containing:
   - synthesized findings (merged output from Stage 5)
   - applied fixes
   - residual actionable work
@@ -782,7 +805,7 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 
 **Interactive mode only.** After the fix-review cycle completes (clean verdict or the user chose to stop), offer next steps based on the entry mode. Reuse the resolved review base/default branch from Stage 1 when known; do not hard-code only `main`/`master`.
 
-**The gate is total fixes applied this run, not routing option.** Track `fixes_applied_count` across the whole Interactive invocation. This counter includes both the `safe_auto` fixes applied automatically before the routing question (see Step 2 Interactive mode) AND any Apply decisions executed by routing option A (walk-through) or option B (LFG). Routing options C (File tickets) and D (Report only) add zero to this counter; neither does a walk-through that ends with only Skip / Defer / Acknowledge, and neither does an LFG whose recommendations were all Defer / Skip / Acknowledge.
+**The gate is total fixes applied this run, not routing option.** Track `fixes_applied_count` across the whole Interactive invocation. This counter includes both the `safe_auto` fixes applied automatically before the routing question (see Step 2 Interactive mode) AND any Apply decisions executed by routing option A (walk-through) or option B (Auto-resolve with best judgment). Routing options C (File tickets) and D (Report only) add zero to this counter; neither does a walk-through that ends with only Skip / Defer / Acknowledge, and neither does an Auto-resolve with best judgment run that applies no fixes.
 
 Step 5 runs only when `fixes_applied_count > 0`. If the counter is zero — no `safe_auto` fixes were applied AND the routing path produced no additional Apply — skip Step 5 entirely and exit after the completion report. Asking "push fixes?" when nothing changed in the working tree is incoherent.
 
@@ -790,7 +813,7 @@ Common outcomes:
 
 - `safe_auto` produced fixes AND the user picked any routing option → Step 5 runs (counter > 0 from the safe_auto pass alone).
 - No `safe_auto` fixes AND the user picked option C or D → Step 5 skipped.
-- No `safe_auto` fixes AND walk-through / LFG finished with zero Applies → Step 5 skipped.
+- No `safe_auto` fixes AND walk-through / Auto-resolve with best judgment finished with zero Applies → Step 5 skipped.
 - Zero-remaining case (no `gated_auto` / `manual` after `safe_auto`) with at least one `safe_auto` fix → Step 5 runs; the routing question was never asked but the counter is > 0.
 
 - **PR mode (entered via PR number/URL):**

@@ -77,13 +77,6 @@
       "skill": "spec-polish-beta"
     },
     {
-      "name": "pr-description",
-      "filename": "pr-description.md",
-      "description": "Write or regenerate a value-first pull-request description",
-      "argumentHint": "[PR ref or free-text steering]",
-      "skill": "spec-pr-description"
-    },
-    {
       "name": "release-notes",
       "filename": "release-notes.md",
       "description": "Summarize recent spec-first releases or answer release questions",
@@ -175,7 +168,6 @@
     "spec-optimize",
     "spec-plan",
     "spec-polish-beta",
-    "spec-pr-description",
     "spec-release-notes",
     "spec-code-review",
     "spec-sessions",

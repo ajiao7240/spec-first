@@ -9,7 +9,7 @@ const {
 } = require('../artifact-paths');
 const { writeGraphPointer } = require('./paths');
 
-function promoteGeneration(repoRoot, { generationId, dbPath, health }) {
+function promoteGeneration(repoRoot, { generationId, dbPath, health, qualityPath = null }) {
   const relativeDbPath = path.relative(repoRoot, dbPath);
   const payload = {
     generation_id: generationId,
@@ -18,6 +18,7 @@ function promoteGeneration(repoRoot, { generationId, dbPath, health }) {
     status: 'healthy',
     node_count: health.node_count,
     edge_count: health.edge_count,
+    quality_path: qualityPath,
   };
 
   writeGraphPointer(repoRoot, GRAPH_CURRENT_FILE, payload);

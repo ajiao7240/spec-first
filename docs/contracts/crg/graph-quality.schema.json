@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec-first.local/contracts/crg/graph-quality.schema.json",
+  "title": "CRG Graph Quality Report",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "generation_id", "advisory", "coverage", "graph", "unresolved_edges", "limitations"],
+  "properties": {
+    "schema_version": { "const": "graph-quality/v1" },
+    "generated_at": { "type": "string" },
+    "generation_id": { "type": ["string", "null"] },
+    "repo_root": { "type": ["string", "null"] },
+    "advisory": { "type": "boolean" },
+    "coverage": { "type": "object" },
+    "graph": { "type": "object" },
+    "unresolved_edges": { "type": "object" },
+    "retrieval_index": { "type": "object" },
+    "communities": { "type": "object" },
+    "flows": { "type": "object" },
+    "warnings": { "type": "array" },
+    "limitations": { "type": "array" }
+  },
+  "additionalProperties": true
+}

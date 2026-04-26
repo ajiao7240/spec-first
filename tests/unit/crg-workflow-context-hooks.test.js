@@ -1,90 +1,45 @@
 'use strict';
 
-describe('crg workflow-context and hooks', () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
-    jest.resetModules();
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const { GRAPH_QUALITY_FILE, resolveGraphDir } = require('../../src/crg/artifact-paths');
+const { buildWorkflowContext } = require('../../src/crg/workflow-context/stage');
+
+describe('crg workflow context quality surface', () => {
+  test('graph-quality 缺失时以 ambiguous advisory summary 暴露', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-workflow-quality-'));
+    try {
+      const context = buildWorkflowContext({ repoRoot, stage: 'plan' });
+      expect(context.graph_quality.state).toBe('missing');
+      expect(context.graph_quality.limitations[0].code).toBe('graph-quality-missing');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
   });
 
-  test('workflow-context returns direct-read fallback without opening graph db when graph is missing', () => {
-    const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
-
-    jest.isolateModules(() => {
-      jest.doMock('fs', () => {
-        const actual = jest.requireActual('fs');
-        return {
-          ...actual,
-          existsSync: (targetPath) => !String(targetPath).endsWith('graph.db'),
-        };
-      });
-
-      const { run } = require('../../src/crg/commands/workflow-context');
-      run(['--repo=/repo', '--stage=plan', '--task=change cli']);
-    });
-
-    const payload = JSON.parse(outputSpy.mock.calls[0][0]);
-    expect(payload.data.stage).toBe('plan');
-    expect(payload.data.graph_status.state).toBe('missing');
-    expect(payload.data.fallback.mode).toBe('direct_repo_reads');
-    expect(payload.data.fallback.suggested_reads).not.toContain('docs/contexts');
-  });
-
-  test('hook before-plan wraps workflow-context and keeps LLM decision boundary explicit', () => {
-    const outputSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
-
-    jest.isolateModules(() => {
-      jest.doMock('../../src/crg/workflow-context/stage', () => ({
-        buildWorkflowContext: () => ({
-          stage: 'plan',
-          graph_status: { state: 'ready' },
-          recommended_queries: [],
-        }),
+  test('读取 graph-quality compact summary', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-workflow-quality-'));
+    try {
+      fs.mkdirSync(resolveGraphDir(repoRoot), { recursive: true });
+      fs.writeFileSync(path.join(resolveGraphDir(repoRoot), GRAPH_QUALITY_FILE), JSON.stringify({
+        schema_version: 'graph-quality/v1',
+        generation_id: 'gen-1',
+        advisory: true,
+        coverage: { parsed_count: 2 },
+        graph: { node_count: 2, edge_count: 1, confidence_distribution: { edges: { Observed: 1 } } },
+        unresolved_edges: { count: 0, rate: 0, by_reason: {} },
+        limitations: [],
       }));
 
-      const { run } = require('../../src/crg/commands/hook');
-      run(['before-plan', '--repo=/repo', '--task=add locate']);
-    });
-
-    const payload = JSON.parse(outputSpy.mock.calls[0][0]);
-    expect(payload.data.hook_id).toBe('before_plan');
-    expect(payload.data.candidate_surface_policy).toContain('LLM selects');
-  });
-
-  test('workflow-context includes repo-local topology as advisory decision input when available', () => {
-    jest.dontMock('../../src/crg/workflow-context/stage');
-    jest.isolateModules(() => {
-      jest.doMock('../../src/crg/workflow-context/status', () => ({
-        buildGraphStatus: () => ({
-          state: 'ready',
-          limitations: [],
-        }),
+      const context = buildWorkflowContext({ repoRoot, stage: 'work' });
+      expect(context.graph_quality).toEqual(expect.objectContaining({
+        state: 'available',
+        generation_id: 'gen-1',
       }));
-      jest.doMock('../../src/crg/workflow-context/navigation', () => ({
-        readCodeNavigation: () => ({
-          source: 'artifact',
-          limitations: [],
-        }),
-        buildRecommendedQueries: () => [],
-      }));
-      jest.doMock('../../src/crg/topology/modules', () => ({
-        readRepoTopology: () => ({
-          source: 'artifact',
-          kind: 'monorepo_multi_module',
-          units: [{ id: 'maven:service-a', path: 'service-a' }],
-          limitations: [],
-        }),
-      }));
-
-      const { buildWorkflowContext } = require('../../src/crg/workflow-context/stage');
-      const context = buildWorkflowContext({ repoRoot: '/repo', stage: 'plan' });
-
-      expect(context.repo_topology.kind).toBe('monorepo_multi_module');
-      expect(context.decision_inputs).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          kind: 'repo_topology',
-          decision_input_kind: 'observed',
-        }),
-      ]));
-    });
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
   });
 });

@@ -1,6 +1,15 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.9 2026-04-27 01:58:15 leokuang: fix(ce-sync): 根据逐文件复审修正 CE e8c118e2 同步缺口，补齐 code-review best-judgment 终止语义、safe_auto/suggested_fix rubric、tracker tuple 文案、session internal primitive runtime 交付、PR/feature-video 命名与 fresh-source eval 治理，并重建 Codex runtime (user-visible)
+- v1.5.9 2026-04-27 01:57:29 leokuang: feat(crg): 增强 CRG 产物质量算法，新增 generation-scoped graph-quality 报告、retrieval eval/RRF fusion、edge provenance、tsconfig alias resolver、community/flow 元数据与 workflow quality summary 消费面，并同步 graph-bootstrap/README 产物口径 (user-visible)
+- v1.5.9 2026-04-27 00:54:38 leokuang: feat(ce-sync): 按 CE e8c118e2 上游 diff 局部同步 workflow 资产，补齐会话历史 keyword 过滤、frontmatter 校验、PR 反馈 declined、code/doc review best-judgment、PR 描述生成、work host 能力矩阵、feature-video 截图保护与 agent/skill 验证治理，并新增对应 contract/unit 覆盖 (user-visible)
+- v1.5.9 2026-04-27 00:36:49 leokuang: docs(specs): 重写 CRG-first 规范方案为规范资产系统路线，恢复 docs/specs 正式规范源、proposal 草案区、索引与 resolve/promote 分阶段闭环 (user-visible)
+- v1.5.9 2026-04-27 00:21:00 leokuang: fix(skills): 根据会话日志修正 MCP setup 的 CRG native module 安装上下文检测，更新 graph-bootstrap explain 参数与确认边界，减少 readiness 误报和不必要确认 (user-visible)
+- v1.5.9 2026-04-27 00:10:29 leokuang: docs(ce-sync): 将 CE 上游同步升级方法论沉淀为常态化协议，补齐 diff 文案级依据、禁止整文件覆盖、PR description gap audit、删除文件保留判断与全量验证覆盖规则 (user-visible)
+- v1.5.9 2026-04-26 23:58:16 leokuang: docs(ce-sync): 根据文档审查继续收紧 CE 同步计划，补充 PR description gap audit、修正 doc-review LFG 测试口径，并将全量同步最低验证扩展到所有受影响实施单元 (user-visible)
+- v1.5.9 2026-04-26 23:53:15 leokuang: docs(specs): 根据审查报告优化 CRG-first 规范输入方案，扩展 repo-profile、前移 manual standards index、收紧 direct-only apply 与 workflow 消费协议 (user-visible)
+- v1.5.9 2026-04-26 23:51:33 leokuang: docs(crg-workspace): 新增 CRG workspace topology 后续扩展说明文档，梳理待开发项、挑战、价值、优先级和防跑偏边界 (user-visible)
 - v1.5.9 2026-04-26 23:37:21 leokuang: docs(ce-sync): 在 CE e8c118e2 同步计划的明确改动点清单中逐节补齐 git diff 文案级依据，覆盖修改前后文案、新增文件路径索引、删除文件不机械同步原因与 legacy cleanup 差异 (user-visible)
 - v1.5.9 2026-04-26 23:32:24 leokuang: docs(spec-write-tasks): 补充 task pack 生成前的 bounded source orientation 自动降级链，明确 CRG 优先、Serena/LSP 快速索引降级、direct repo reads 兜底及 orientation evidence 边界 (user-visible)
 - v1.5.9 2026-04-26 23:21:52 leokuang: fix(crg-workspace): 收紧 repo topology 与 workspace handoff 边界，拒绝越界 Maven modules，保留 child build envelope，并补齐 workspace context/status contract 覆盖 (user-visible)

@@ -29,3 +29,19 @@ describe('spec-work-beta task-pack identity contract', () => {
     expect(text).toContain('Do not treat it as execution state or completion status');
   });
 });
+
+describe('spec-work-beta subagent and delegation isolation contract', () => {
+  test('keeps Codex delegation serial and does not borrow Claude worktree parameters', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Host capability matrix');
+    expect(text).toContain('Codex delegation (`codex exec`)');
+    expect(text).toContain('Follow `references/codex-delegation-workflow.md`');
+    expect(text).toContain('this path forces serial execution from the delegation routing gate');
+    expect(text).toContain('Codex `spawn_agent` / forked workspace');
+    expect(text).toContain('Do not pass or claim Claude\'s `isolation: "worktree"` parameter');
+    expect(text).toContain('Codex delegation:');
+    expect(text).toContain('the orchestrator still owns git operations and PR creation');
+    expect(text).toContain('Shared-directory fallback or Codex fork-workspace handoff');
+  });
+});

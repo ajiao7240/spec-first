@@ -48,6 +48,6 @@ describe('crg semantic rerank', () => {
     });
 
     expect(reranked[0].name).toBe('fooBarHandler');
-    expect(reranked[0].reasons).toContain('semantic_overlap');
+    expect(reranked[0].reasons).toContain('lexical_overlap');
   });
 });

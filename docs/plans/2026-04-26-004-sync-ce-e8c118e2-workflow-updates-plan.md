@@ -23,7 +23,7 @@ origin: CE 1284290a..e8c118e2 filtered to non-docs-tests files
 
 ## 审查后质量修正
 
-本计划已经过独立 agent 文档质量审查。审查指出的关键修正已经纳入本文：
+本计划已经过本轮会话中的独立 agent 文档质量审查，并在后续人工复核中继续收紧。已接受并纳入本文的修正包括：
 
 - 增加逐文件同步判定附录，避免目录级描述掩盖单文件 diff。
 - 明确 PR description 的单一真相源：`spec-pr-description` 继续负责生成 PR title/body，`git-commit-push-pr` 只做薄委托和应用。
@@ -31,6 +31,9 @@ origin: CE 1284290a..e8c118e2 filtered to non-docs-tests files
 - 增加 `CHANGELOG.md` 治理实施单元。
 - 把验证计划从“新增或更新测试”改成具体测试文件和断言清单。
 - 收紧开放措辞，改成可执行条件。
+- 补充 CE diff 文案级 before/after 依据，新增文件只索引路径，删除文件说明不机械同步原因。
+- 收紧 U7：要求先做 PR description 写作能力 gap audit，再决定局部合并点。
+- 收紧验证口径：一次性执行全量同步时，最低验证必须覆盖所有受影响实施单元，而不是只跑高风险子集。
 
 ---
 
@@ -1402,7 +1405,7 @@ git -C /Users/kuang/xiaobu/compound-engineering-plugin diff 1284290a..e8c118e2 -
 **验证**
 
 - 更新或新增 `tests/unit/spec-doc-review-contracts.test.js`：
-  - `skills/spec-doc-review/**` 不再暴露 `LFG` 用户文案。
+  - routing question、walkthrough option、bulk-preview header、completion wording 等用户可见路径不再暴露 `LFG` 文案。
   - option B/D 文案分别为 `Auto-resolve with best judgment` 和 `Auto-resolve with best judgment on the rest`。
   - `bulk-preview.md` 的执行模型仍保留，不被 code-review 的 option C-only 规则误改。
 
@@ -1421,6 +1424,17 @@ git -C /Users/kuang/xiaobu/compound-engineering-plugin diff 1284290a..e8c118e2 -
 
 **具体改动**
 
+- 执行前先做 CE `pr-description-writing.md` 与当前 `skills/spec-pr-description/SKILL.md` 的逐段 gap audit：
+  - `Pre-A` / base detection / PR ref parsing / fork PR / API fallback。
+  - commit classification。
+  - evidence preservation / capture handoff。
+  - before/after narrative frame。
+  - sizing table。
+  - writing voice / visual communication / GitHub issue numbering。
+  - focus hint。
+  - title/body assembly。
+  - badge / compression / return contract。
+- gap audit 结果按 `already covered` / `missing` / `conflicting` 分类；只对 `missing` 和确有冲突的段落做局部 patch。
 - 增加 mode detection：
   - description-only generation。
   - description update。
@@ -1434,7 +1448,7 @@ git -C /Users/kuang/xiaobu/compound-engineering-plugin diff 1284290a..e8c118e2 -
 **替换边界**
 
 - `skills/git-commit-push-pr/SKILL.md`：只新增 intent detection、stop gate 跳过、调用 `spec-pr-description` 的薄委托和 quoted heredoc apply。
-- `skills/spec-pr-description/SKILL.md`：只把 CE `pr-description-writing.md` 中缺失的 Pre-A/base/fork/body 能力合并进现有写作流程。
+- `skills/spec-pr-description/SKILL.md`：只把 gap audit 判定为 `missing` 或 `conflicting` 的 Pre-A/base/fork/body 等能力合并进现有写作流程；已覆盖内容不得重复迁入。
 - 不把 CE `pr-description-writing.md` 作为新 reference 落盘。
 
 **明确不做**
@@ -1451,6 +1465,7 @@ git -C /Users/kuang/xiaobu/compound-engineering-plugin diff 1284290a..e8c118e2 -
   - `git-commit-push-pr` 文案委托 `spec-pr-description`，不包含完整 PR body 写作模板。
   - 不存在 `skills/git-commit-push-pr/references/pr-description-writing.md`。
 - 更新 `tests/unit/using-spec-first-contracts.test.js`，断言 `$spec-pr-description` 仍是公开可路由 workflow。
+- 人工检查或实现记录必须包含 U7 gap audit 表，说明 CE 新 reference 的每个主要步骤在 spec-first 中是 `already covered`、`missing` 还是 `conflicting`。
 
 ---
 
@@ -1671,22 +1686,32 @@ git -C /Users/kuang/xiaobu/compound-engineering-plugin diff 1284290a..e8c118e2 -
 | U3 | `tests/unit/session-history-scripts.test.js`、`tests/unit/spec-sessions-contracts.test.js` | keyword 只扫 user/assistant 文本，CWD filter 先于 keyword，`files_matched` 稳定输出，repo name 相对 `.git` 修复存在 |
 | U4 | `tests/unit/frontmatter-validator.test.js` | delimiter、unquoted ` #`、unquoted `: `、quoted scalar、非 schema 校验边界 |
 | U5 | `tests/unit/spec-code-review-contracts.test.js` | `/tmp/spec-first/spec-code-review` 路径、best-judgment 不走 bulk preview、option C-only bulk preview、`suggested_fix` action mapping、no tracker 文案、failed bucket 顺序 |
-| U6 | `tests/unit/spec-doc-review-contracts.test.js` | doc-review 用户文案不出现 LFG，bulk-preview 模型不变 |
-| U7 | `tests/unit/git-commit-push-pr-contracts.test.js`、`tests/unit/using-spec-first-contracts.test.js` | description-only intent 不触发 commit/push gate，`spec-pr-description` 仍是公开路由，未新增第二写作 reference |
+| U6 | `tests/unit/spec-doc-review-contracts.test.js` | routing question、walkthrough option、bulk-preview header、completion wording 等用户可见路径不出现 LFG，bulk-preview 模型不变 |
+| U7 | `tests/unit/git-commit-push-pr-contracts.test.js`、`tests/unit/using-spec-first-contracts.test.js` | description-only intent 不触发 commit/push gate，`spec-pr-description` 仍是公开路由，未新增第二写作 reference，执行记录包含 PR description gap audit |
 | U8 | `tests/unit/spec-debug-contracts.test.js` | skill-owned branch、pre-existing branch、mechanical fix、自动 PR 禁止规则 |
 | U9 | `tests/unit/feature-video-contracts.test.js` | networkidle wait、websocket fallback、tiny frame guard、`--min-frame-bytes 0`、screenshot-reel bypass |
 | U10 | `tests/unit/spec-work-contracts.test.js`、`tests/unit/spec-work-beta-contracts.test.js`、`tests/unit/crg-workflow-context-hooks.test.js` | host matrix、stage/commit/test 权限分离、Codex 不声明 CE worktree isolation、CRG hook 不回退 |
 | U12 | `tests/unit/changelog-format.test.js` | changelog 格式、作者来源、user-visible 标记 |
 
-最低验证命令：
+按实施单元分批执行时，至少运行本表中对应实施单元的测试。若一次性执行 U2-U10 / U12 全量同步，最低验证命令应覆盖全部受影响单元：
 
 ```bash
 npm run typecheck
+npx jest tests/unit/resolve-pr-feedback-contracts.test.js tests/unit/spec-pr-comment-resolver-contracts.test.js --runInBand
+npx jest tests/unit/session-history-scripts.test.js tests/unit/spec-sessions-contracts.test.js --runInBand
+npx jest tests/unit/frontmatter-validator.test.js --runInBand
 npx jest tests/unit/spec-code-review-contracts.test.js --runInBand
+npx jest tests/unit/spec-doc-review-contracts.test.js --runInBand
+npx jest tests/unit/git-commit-push-pr-contracts.test.js tests/unit/using-spec-first-contracts.test.js --runInBand
+npx jest tests/unit/spec-debug-contracts.test.js --runInBand
+npx jest tests/unit/feature-video-contracts.test.js --runInBand
 npx jest tests/unit/spec-work-contracts.test.js tests/unit/spec-work-beta-contracts.test.js --runInBand
+npx jest tests/unit/changelog-format.test.js --runInBand
 ```
 
-新增脚本能力后运行：
+如果本地尚未创建其中某个 contract test 文件，执行者必须先补对应最窄测试，或在实现记录中明确说明该断言合并进了哪个现有测试文件。
+
+新增脚本能力后也可用 pattern 聚合运行：
 
 ```bash
 npx jest tests/unit --runInBand --testPathPattern='frontmatter|session|feature-video|resolve-pr|doc-review|git-commit|debug|changelog'

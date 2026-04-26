@@ -31,3 +31,20 @@ describe('spec-work task-pack identity contract', () => {
     expect(text).toContain('Do not treat it as execution state or completion status');
   });
 });
+
+describe('spec-work subagent isolation contract', () => {
+  test('uses a host capability matrix instead of assuming shared-directory or worktree behavior', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Host capability matrix');
+    expect(text).toContain('Claude Code `Agent` with worktree isolation');
+    expect(text).toContain('Pass `isolation: "worktree"` and `run_in_background: true`');
+    expect(text).toContain('Codex `spawn_agent` / forked workspace');
+    expect(text).toContain('Do not pass or claim Claude\'s `isolation: "worktree"` parameter');
+    expect(text).toContain('If files overlap, dispatch serially');
+    expect(text).toContain('Shared-directory fallback constraints');
+    expect(text).toContain('worktree-isolated mode');
+    expect(text).toContain('git worktree remove <absolute-path>');
+    expect(text).toContain('Shared-directory fallback or Codex fork-workspace handoff');
+  });
+});

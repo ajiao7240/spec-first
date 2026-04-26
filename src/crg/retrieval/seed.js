@@ -2,15 +2,10 @@
 
 const { searchNodes } = require('../search');
 const { resolveRetrievalProfile } = require('./profiles');
+const { tokenizeQuery } = require('./tokenize');
 
 function extractTerms(query) {
-  if (!query) return [];
-  return [...new Set(
-    String(query)
-      .split(/[^A-Za-z0-9_./-]+/)
-      .map((item) => item.trim())
-      .filter((item) => item.length >= 3)
-  )];
+  return tokenizeQuery(query).filter((item) => item.length >= 3);
 }
 
 function loadNodesByFiles(db, filePaths) {

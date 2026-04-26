@@ -146,6 +146,19 @@ function writeCommunities(db) {
     moduleEdges.push({ src: srcModId, tgt: tgtModId });
   }
 
+  const { partitionModuleGraph } = require('./communities/graph-partition');
+  const graphPartitions = partitionModuleGraph(
+    moduleNodes,
+    moduleEdges.map((edge) => ({ source_id: edge.src, target_id: edge.tgt })),
+    { minComponentSize: 3 }
+  );
+  const graphCommunityByNode = new Map();
+  for (const partition of graphPartitions) {
+    for (const nodeId of partition.node_ids) {
+      graphCommunityByNode.set(nodeId, partition);
+    }
+  }
+
   // 构建 nodeId → communityId 映射（Pass 1 结果，仅含 module 节点）
   const nodeToCommunity = new Map();
   for (const [communityId, nodes] of Object.entries(communityMap)) {
@@ -233,8 +246,24 @@ function writeCommunities(db) {
       health_status: healthStatus,
       health_density: density,
       health_independence: independence,
+      algorithm: 'directory_with_graph_hints',
+      community_source: 'directory',
+      cohesion: density,
       nodes: nodes,
     };
+
+    const graphHints = nodes
+      .map((node) => graphCommunityByNode.get(node.id))
+      .filter(Boolean);
+    const uniqueGraphHints = [...new Map(graphHints.map((item) => [item.id, item])).values()];
+    if (uniqueGraphHints.length === 1 && uniqueGraphHints[0].node_ids.length === nodes.length) {
+      baseCommunity.community_source = 'graph';
+      baseCommunity.algorithm = uniqueGraphHints[0].algorithm;
+      baseCommunity.cohesion = uniqueGraphHints[0].cohesion;
+    } else if (uniqueGraphHints.length > 0) {
+      baseCommunity.community_source = 'hybrid';
+      baseCommunity.health_note = `${uniqueGraphHints.length} graph component hint(s)`;
+    }
 
     // -------------------------------------------------------------------------
     // Pass 3: 超大社区精化（file_count > total_nodes*25% 且绝对数量 >= 4）
@@ -313,6 +342,9 @@ function writeCommunities(db) {
             health_status: subHealthStatus,
             health_density: subDensity,
             health_independence: subIndependence,
+            algorithm: 'directory_bfs_refinement',
+            community_source: 'hybrid',
+            cohesion: subDensity,
             nodes: subNodes,
           });
         }
@@ -330,8 +362,11 @@ function writeCommunities(db) {
   // 4. 更新 nodes 的 community_id
   // -------------------------------------------------------------------------
   const insertCommunity = db.prepare(`
-    INSERT INTO communities (id, label, file_count, health_status, health_density, health_independence)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO communities (
+      id, label, file_count, health_status, health_density, health_independence,
+      algorithm, community_source, cohesion, health_note
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const updateNodeCommunity = db.prepare(
@@ -353,7 +388,11 @@ function writeCommunities(db) {
         community.file_count,
         community.health_status,
         community.health_density,
-        community.health_independence
+        community.health_independence,
+        community.algorithm || 'directory',
+        community.community_source || 'directory',
+        community.cohesion ?? community.health_density ?? null,
+        community.health_note || null
       );
     }
 
@@ -384,6 +423,8 @@ function writeCommunities(db) {
       id: c.id,
       file_count: c.file_count,
       health_status: c.health_status,
+      community_source: c.community_source || 'directory',
+      algorithm: c.algorithm || 'directory',
     })),
   };
 }

@@ -1,6 +1,7 @@
 ---
 title: 上游 CE 更新同步到 spec-first 的常态化升级方法
 date: 2026-04-26
+last_updated: 2026-04-27
 category: docs/solutions/architecture-patterns
 module: workflow-asset-sync
 problem_type: architecture_pattern
@@ -30,6 +31,18 @@ tags: [ce-sync, workflow-assets, migration, governance, spec-first]
 
 后续收到 CE 更新范围时，按下面协议执行。除非用户明确只要调研，否则默认产出可执行计划；如果用户明确要求“直接同步升级”，则在计划通过自检后继续实施。
 
+### 0. 固定执行原则
+
+CE 同步升级是常态化治理动作，不是一次性迁移。每轮都必须遵守这几个原则：
+
+- **先计划，后实施**：除非用户明确要求跳过计划，否则先生成或更新 `docs/plans/` 下的同步计划。
+- **逐文件，不抽查**：过滤后的 CE 文件必须全部进入判定，不允许只看代表文件。
+- **diff 驱动，不凭印象**：每个修改文件都要从 `git diff` 中提取具体改动文案，明确“修改前 / 修改后”的行为变化。
+- **新增可建，修改只 patch，删除不机械跟随**：CE 新增文件可以按 spec-first 目标路径新建；CE 修改文件只能做局部替换；CE 删除文件必须先判断 spec-first 是否仍有公共入口或本地独有价值。
+- **source 优先，runtime 不手改**：只改 `skills/`、`agents/`、`src/`、docs、tests 等 source asset；`.claude/`、`.codex/` 是生成资产。
+- **单一真相源优先**：如果 CE 把能力内联到另一个 skill，而 spec-first 已经有独立公共 workflow，不能为了追齐 CE 而制造第二套写作逻辑或第二套 contract。
+- **脚本做确定性检查，LLM 做语义判断**：脚本列 diff、跑测试、验证格式；是否同步、如何适配、是否保留公共入口由 LLM 按项目边界判断。
+
 ### 1. 先固定输入范围
 
 从用户给出的 CE range 或 git 输出中提取：
@@ -43,10 +56,16 @@ tags: [ce-sync, workflow-assets, migration, governance, spec-first]
 
 ```bash
 git -C /path/to/compound-engineering-plugin diff --name-status <base>..<head>
-git -C /path/to/compound-engineering-plugin diff -- <file>
+git -C /path/to/compound-engineering-plugin diff --unified=0 <base>..<head> -- <file>
 ```
 
 不能抽样。过滤后的每个 CE 文件都必须进入同步判定表。
+
+如果用户要求过滤 `docs/`、`tests/`，命令层也要显式过滤，避免后续人工清单漂移：
+
+```bash
+git -C /path/to/compound-engineering-plugin diff --name-status <base>..<head> -- . ':(exclude)docs/**' ':(exclude)tests/**'
+```
 
 ### 2. 建立 CE 到 spec-first 的路径映射
 
@@ -85,6 +104,34 @@ git -C /path/to/compound-engineering-plugin diff -- <file>
 | 验证点 | 对应测试文件或人工检查点 |
 
 这张表是同步升级的主控清单。主题章节可以解释设计，但不能替代表格。
+
+### 3.1 补充 diff 文案级依据
+
+当用户要求“明确改动点”或本轮同步会进入实施阶段时，计划还必须在每个主题小节中补 `CE diff 文案级依据`。这不是新增一张宽表，而是把证据放进对应改动点下，方便执行者直接定位 patch。
+
+写法约束：
+
+- **M 修改文件**：写出关键修改前文案和修改后文案，至少覆盖会影响 spec-first patch 的 hunk。
+- **A 新增文件**：不展开全文，直接索引 CE 新增路径，并说明目标是否新建、合并或不落盘。
+- **D 删除文件**：写清被删文件原职责、CE 删除后的新归宿，以及 spec-first 是否同步删除。
+- **大型 prompt / skill diff**：不需要复制全段，但必须记录足够精确的 before/after 句子、enum、路径、选项名、步骤名或行为。
+- **路径类变更**：写清旧路径、新路径和 spec-first 目标路径，避免 CE 路径残留。
+
+示例：
+
+```markdown
+**CE diff 文案级依据**
+
+- 修改前：`verdict: [fixed | fixed-differently | replied | not-addressing | needs-human]`。
+- 修改后：`verdict: [fixed | fixed-differently | replied | not-addressing | declined | needs-human]`。
+- 修改后新增回复模板：`Declined: [specific harm cited ...]`。
+```
+
+新增文件示例：
+
+```markdown
+- 新增文件索引：`plugins/compound-engineering/skills/ce-compound/scripts/validate-frontmatter.py`。
+```
 
 ### 4. 用四类决策处理每个变更
 
@@ -133,6 +180,13 @@ docs/plans/YYYY-MM-DD-NNN-sync-ce-<head-sha>-workflow-updates-plan.md
 
 审查意见必须回写计划文档，而不是只在聊天里总结。
 
+审查后必须特别检查四类常见问题：
+
+- **验证命令是否漏测**：最低验证不能只覆盖高风险单元；一次性执行全量同步时，要覆盖所有受影响实施单元。
+- **公共 workflow 是否被机械删除**：CE 删除不等于 spec-first 删除，必须查 `using-spec-first`、README、governance manifest、runtime smoke 和调用方。
+- **新增 reference 是否制造第二真相源**：如果能力已有独立 spec-first workflow，CE 新 reference 应作为 gap audit 输入，而不是直接落盘成并行写作源。
+- **测试断言是否过宽**：例如“用户可见 LFG 文案消失”应限定 routing question、walkthrough option、preview header、completion wording 等用户可见路径，不要误伤历史说明或内部注释。
+
 ### 6. 直接同步升级时按实施单元执行
 
 用户明确要求直接同步时，在计划自检通过后继续实施。实施顺序按风险从低到高：
@@ -152,6 +206,51 @@ docs/plans/YYYY-MM-DD-NNN-sync-ce-<head-sha>-workflow-updates-plan.md
 - 已被其他任务改过的目标文件，先读当前内容再合并。
 - 不手改 `.claude/`、`.codex/` 生成资产。
 
+对 CE 状态为 `M` 的文件，实施记录要能说明：
+
+```text
+CE diff hunk -> spec-first 目标文件 -> 局部替换点 -> 验证断言
+```
+
+对 CE 状态为 `A` 的文件，实施记录要能说明：
+
+```text
+CE 新增路径 -> spec-first 新建/合并/不落盘决策 -> 命名和路径适配 -> 测试
+```
+
+对 CE 状态为 `D` 的文件，实施记录要能说明：
+
+```text
+CE 删除原因 -> spec-first 当前引用面 -> 删除/保留决策 -> 如保留，吸收哪些能力
+```
+
+### 6.1 特殊场景：PR description 能力迁移
+
+CE 经常会调整 git/PR 工作流。遇到 `ce-pr-description`、`ce-commit-push-pr` 或 PR writing reference 变动时，必须先做 gap audit，而不是直接复制新 reference。
+
+gap audit 固定覆盖：
+
+- PR ref parsing / current-branch mode / PR mode。
+- base detection / non-default base / fork PR / API-only fallback。
+- commit classification。
+- evidence preservation / capture handoff。
+- before/after narrative frame。
+- sizing table。
+- writing voice、visual communication、GitHub issue numbering。
+- focus hint。
+- title/body assembly。
+- badge、compression、return contract。
+
+每项标记为：
+
+| 标记 | 含义 | 处理 |
+|---|---|---|
+| `already covered` | spec-first 已有等价能力 | 不重复迁入 |
+| `missing` | spec-first 缺失且适用 | 局部合并到现有单一真相源 |
+| `conflicting` | spec-first 有能力但语义与 CE 新逻辑冲突 | 先判断项目边界，再局部修正 |
+
+如果 `spec-pr-description` 仍是公开 workflow，则默认保持它为唯一 PR title/body 写作源；`git-commit-push-pr` 只做 intent detection、薄委托和 `gh pr create/edit` 应用。
+
 ### 7. 验证要按变更类型收口
 
 每个实施单元必须有对应验证，不用一个全量 `npm test` 代替所有判断：
@@ -166,6 +265,15 @@ docs/plans/YYYY-MM-DD-NNN-sync-ce-<head-sha>-workflow-updates-plan.md
 | 用户可见 workflow 改动 | `CHANGELOG.md` 标记 `(user-visible)` |
 
 最低验证从窄测试开始。影响 runtime install、init、clean 或发布包时再扩大到 smoke、build、`npm test`。
+
+一次性执行多单元同步时，最低验证必须覆盖每个受影响单元。不要只运行 code-review / work 这类高风险测试而漏掉 session、frontmatter、debug、feature-video、PR feedback、PR description 或 changelog。
+
+如果计划列出的某个 contract test 文件尚不存在，执行者有两个选择：
+
+- 新增最窄 contract test。
+- 把断言合并进现有同域测试，并在实现记录里说明归属。
+
+不能因为测试文件不存在就跳过该实施单元的验证。
 
 ### 8. 收尾标准
 
@@ -208,6 +316,7 @@ CE 删除 `ce-pr-description` 并把写作逻辑搬进 `ce-commit-push-pr`，但
 - `spec-pr-description` 保持唯一 PR title/body 生成源。
 - `git-commit-push-pr` 只做 intent detection、薄委托和 `gh pr create/edit` 应用。
 - CE reference 中缺失的写作能力合并进 `spec-pr-description`，不新增第二写作 reference。
+- 合并前先做 `pr-description-writing.md` 对当前 `spec-pr-description` 的 gap audit，只迁入 `missing` / `conflicting` 项。
 
 **worktree isolation 迁移判断**
 

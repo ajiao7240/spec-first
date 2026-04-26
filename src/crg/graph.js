@@ -245,13 +245,14 @@ function resolveEdges(db, rawEdges, repoRoot) {
   //   若全局重名，再尝试同文件精确匹配（同文件优先消歧）
   // ------------------------------------------------------------------
   const symbolCache = Object.create(null);
+  const { resolveTsconfigImport } = require('./resolvers/tsconfig');
 
   // 全局查询：返回所有同名节点（非 module）
   const getAllSymbolRows = db.prepare(
     `SELECT id, file_path FROM nodes WHERE name = ? AND kind != 'module'`
   );
 
-  const getSymbolId = (name, srcFile) => {
+  const getSymbolResolution = (name, srcFile) => {
     let cached = symbolCache[name];
     if (cached === undefined) {
       const rows = getAllSymbolRows.all(name);
@@ -263,12 +264,14 @@ function resolveEdges(db, rawEdges, repoRoot) {
       symbolCache[name] = cached;
     }
 
-    if (cached.status === 'none') return null;
-    if (cached.status === 'unique') return cached.id;
+    if (cached.status === 'none') return { id: null, status: 'none' };
+    if (cached.status === 'unique') return { id: cached.id, status: 'unique' };
 
     // 全局重名：同文件优先消歧
     const sameFile = cached.rows.filter((r) => r.file_path === srcFile);
-    return sameFile.length === 1 ? sameFile[0].id : null;
+    return sameFile.length === 1
+      ? { id: sameFile[0].id, status: 'same_file' }
+      : { id: null, status: 'ambiguous', candidates: cached.rows.length };
   };
 
   // ------------------------------------------------------------------
@@ -276,16 +279,29 @@ function resolveEdges(db, rawEdges, repoRoot) {
   // ------------------------------------------------------------------
   for (const raw of rawEdges) {
     let targetId = null;
+    let resolutionMethod = null;
+    let confidence = 'Inferred';
+    let inferenceReason = null;
+    const evidence = [];
 
     // 阶段0：raw edge 已自带 target_id
     if (raw.target_id && hasNode(raw.target_id)) {
       targetId = raw.target_id;
+      resolutionMethod = 'direct_target_id';
+      confidence = 'Observed';
+      evidence.push(`raw target_id exists: ${raw.target_id}`);
+    } else if (raw.target_id) {
+      evidence.push(`raw target_id missing: ${raw.target_id}`);
     }
 
     // 阶段1：target_path_raw → module 节点
     if (!targetId && raw.target_path_raw) {
       const normalized = raw.target_path_raw.replace(/\\/g, '/');
       targetId = getModuleId(normalized);
+      if (targetId) {
+        resolutionMethod = 'module_path_exact';
+        evidence.push(`target_path_raw matched module: ${normalized}`);
+      }
 
       // 相对路径解析：require('./envelope') → src/crg/cli/envelope.js
       if (!targetId && normalized.startsWith('.') && raw.source_id) {
@@ -314,7 +330,12 @@ function resolveEdges(db, rawEdges, repoRoot) {
           '/index.js', '/index.ts', '/index.tsx',
         ]) {
           targetId = getModuleId(resolvedBase + suffix);
-          if (targetId) break;
+          if (targetId) {
+            resolutionMethod = suffix ? 'relative_path_extension_probe' : 'relative_path';
+            inferenceReason = 'relative_import_path';
+            evidence.push(`relative import ${normalized} resolved to ${resolvedBase + suffix}`);
+            break;
+          }
         }
       }
     }
@@ -328,23 +349,62 @@ function resolveEdges(db, rawEdges, repoRoot) {
       if (isFilenameOnly && isHeaderExt) {
         const srcFile = raw.source_id ? raw.source_id.split('#', 1)[0] : '';
         targetId = getModuleByBasename(rawPath, srcFile);
+        if (targetId) {
+          resolutionMethod = 'basename_proximity';
+          inferenceReason = 'header_basename_proximity';
+          evidence.push(`basename ${rawPath} matched nearest indexed module`);
+        }
+      }
+    }
+
+    if (!targetId && raw.target_path_raw && raw.source_id) {
+      const sourceFile = raw.source_id.split('#', 1)[0] || '';
+      const resolvedAlias = resolveTsconfigImport(db, {
+        repoRoot,
+        sourceFile,
+        specifier: raw.target_path_raw,
+      });
+      if (resolvedAlias && resolvedAlias.target_id) {
+        targetId = resolvedAlias.target_id;
+        resolutionMethod = resolvedAlias.resolution_method;
+        inferenceReason = resolvedAlias.inference_reason;
+        evidence.push(...(resolvedAlias.evidence || []));
+      } else if (resolvedAlias && resolvedAlias.evidence) {
+        evidence.push(...resolvedAlias.evidence);
       }
     }
 
     // 阶段2：target_name → 符号节点（优先同文件消歧）
     if (!targetId && raw.target_name) {
       const srcFile = raw.source_id ? raw.source_id.split('#', 1)[0] : '';
-      targetId = getSymbolId(raw.target_name, srcFile);
+      const symbolResolution = getSymbolResolution(raw.target_name, srcFile);
+      targetId = symbolResolution.id;
+      if (targetId) {
+        resolutionMethod = symbolResolution.status === 'same_file' ? 'symbol_same_file' : 'symbol_unique';
+        inferenceReason = symbolResolution.status === 'same_file' ? 'same_file_symbol_name' : 'unique_symbol_name';
+        evidence.push(`symbol name resolved: ${raw.target_name}`);
+      } else if (symbolResolution.status === 'ambiguous') {
+        evidence.push(`ambiguous symbol name ${raw.target_name}: ${symbolResolution.candidates} candidates`);
+      }
     }
 
     if (!targetId) {
       unresolvedCount++;
+      const unresolvedReason = raw.target_id && !hasNode(raw.target_id)
+        ? 'invalid_target_id'
+        : evidence.some((item) => String(item).includes('ambiguous'))
+          ? 'ambiguous'
+          : 'no_match';
       unresolved.push({
         source_id: raw.source_id,
         source_file: raw.source_id ? raw.source_id.split('#', 1)[0] : '',
         edge_kind: raw.kind,
         target_name: raw.target_name || null,
         target_path_raw: raw.target_path_raw || null,
+        reason: unresolvedReason,
+        confidence: 'Unknown',
+        resolution_method: 'unresolved',
+        evidence,
       });
       continue;
     }
@@ -357,6 +417,10 @@ function resolveEdges(db, rawEdges, repoRoot) {
       target_id: targetId,
       kind: raw.kind,
       weight: 1.0,
+      confidence,
+      resolution_method: resolutionMethod || 'unknown',
+      evidence,
+      inference_reason: inferenceReason,
     });
   }
 
@@ -373,13 +437,20 @@ function upsertEdges(db, edges) {
   if (edges.length === 0) return;
 
   const stmt = db.prepare(`
-    INSERT INTO edges (id, source_id, target_id, kind, weight)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO edges (
+      id, source_id, target_id, kind, weight,
+      confidence, resolution_method, evidence, inference_reason
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       source_id = excluded.source_id,
       target_id = excluded.target_id,
       kind      = excluded.kind,
-      weight    = excluded.weight
+      weight    = excluded.weight,
+      confidence = excluded.confidence,
+      resolution_method = excluded.resolution_method,
+      evidence = excluded.evidence,
+      inference_reason = excluded.inference_reason
   `);
 
   const insertAll = db.transaction((edgeList) => {
@@ -389,7 +460,11 @@ function upsertEdges(db, edges) {
         edge.source_id,
         edge.target_id,
         edge.kind,
-        edge.weight ?? 1.0
+        edge.weight ?? 1.0,
+        edge.confidence ?? 'Inferred',
+        edge.resolution_method ?? null,
+        JSON.stringify(edge.evidence ?? []),
+        edge.inference_reason ?? null
       );
     }
   });
@@ -413,14 +488,15 @@ function setUnresolvedEdgeCount(db, count) {
  * 用最近一次 build 的 unresolved 明细替换 unresolved_edges 表。
  *
  * @param {import('better-sqlite3').Database} db
- * @param {Array<{source_id:string, source_file:string, edge_kind:string, target_name:string|null, target_path_raw:string|null}>} rows
+ * @param {Array<{source_id:string, source_file:string, edge_kind:string, target_name:string|null, target_path_raw:string|null, reason?:string, confidence?:string, resolution_method?:string, evidence?:string[]}>} rows
  */
 function replaceUnresolvedEdges(db, rows) {
   const truncate = db.prepare('DELETE FROM unresolved_edges');
   const insert = db.prepare(`
     INSERT INTO unresolved_edges (
-      source_id, source_file, edge_kind, target_name, target_path_raw
-    ) VALUES (?, ?, ?, ?, ?)
+      source_id, source_file, edge_kind, target_name, target_path_raw,
+      reason, confidence, resolution_method, evidence
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const runAll = db.transaction((items) => {
@@ -431,7 +507,11 @@ function replaceUnresolvedEdges(db, rows) {
         row.source_file || '',
         row.edge_kind,
         row.target_name || null,
-        row.target_path_raw || null
+        row.target_path_raw || null,
+        row.reason || 'no_match',
+        row.confidence || 'Unknown',
+        row.resolution_method || 'unresolved',
+        JSON.stringify(row.evidence || [])
       );
     }
   });

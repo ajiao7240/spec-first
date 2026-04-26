@@ -98,6 +98,7 @@ const summarizeChangeSurface = typeof changes.summarizeChangeSurface === 'functi
   : fallbackSummarizeChangeSurface;
 const { isSensitiveFile } = require('../input-convergence');
 const { retrieveContext } = require('../retrieval/api');
+const { readGraphQuality, summarizeGraphQuality } = require('../quality/report');
 
 function intersectsHunks(node, hunks) {
   if (!Array.isArray(hunks) || hunks.length === 0) return false;
@@ -365,6 +366,7 @@ function run(argv) {
     recommended_required_verifications: changeSurface.recommended_required_verifications,
     recommended_optional_verifications: changeSurface.recommended_optional_verifications,
     confidence: changeSurface.confidence,
+    graph_quality: summarizeGraphQuality(readGraphQuality(repoRoot)),
     review_guidance,
     ranked_context: retrieveContext(db, {
       profile: 'review',

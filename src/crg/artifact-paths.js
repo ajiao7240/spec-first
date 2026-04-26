@@ -14,6 +14,7 @@ const GRAPH_LAST_KNOWN_GOOD_FILE = 'last-known-good.json';
 const GRAPH_GENERATIONS_SUBDIR = 'generations';
 const GRAPH_INDEX_STATUS_FILE = 'graph-index-status.json';
 const GRAPH_CODE_NAVIGATION_FILE = 'code-navigation.json';
+const GRAPH_QUALITY_FILE = 'graph-quality.json';
 const GRAPH_OPERATIONS_LOG_FILE = 'graph-operations.jsonl';
 const GRAPH_WORK_RUNS_SUBDIR = 'work-runs';
 const REPO_TOPOLOGY_FILE = 'repo-topology.json';
@@ -73,6 +74,21 @@ function resolveGraphInputFingerprints(repoRoot) {
  */
 function resolveRepoTopology(repoRoot) {
   return path.join(resolveGraphDir(repoRoot), REPO_TOPOLOGY_FILE);
+}
+
+/**
+ * Returns the graph quality artifact path under the graph control plane.
+ * When generationDir is provided, returns the generation-scoped artifact.
+ *
+ * @param {string} repoRoot Absolute path to the repository root.
+ * @param {{ generationDir?: string }} [options]
+ * @returns {string}
+ */
+function resolveGraphQuality(repoRoot, options = {}) {
+  if (options.generationDir) {
+    return path.join(options.generationDir, GRAPH_QUALITY_FILE);
+  }
+  return path.join(resolveGraphDir(repoRoot), GRAPH_QUALITY_FILE);
 }
 
 /**
@@ -153,6 +169,7 @@ module.exports = {
   GRAPH_GENERATIONS_SUBDIR,
   GRAPH_INDEX_STATUS_FILE,
   GRAPH_CODE_NAVIGATION_FILE,
+  GRAPH_QUALITY_FILE,
   GRAPH_OPERATIONS_LOG_FILE,
   GRAPH_WORK_RUNS_SUBDIR,
   REPO_TOPOLOGY_FILE,
@@ -166,6 +183,7 @@ module.exports = {
   resolveGraphDb,
   resolveGraphInputFingerprints,
   resolveRepoTopology,
+  resolveGraphQuality,
   resolveWorkspaceDir,
   resolveWorkspaceConfig,
   resolveWorkspaceIndex,

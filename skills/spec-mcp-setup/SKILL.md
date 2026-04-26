@@ -91,7 +91,7 @@ Do not:
 
 ### 0.3 Handle Project / Repo Preflight Issues
 
-Continue to use the preflight output to drive user-confirmed actions for:
+Continue to use the preflight output to drive user-confirmed actions only when the action would write user-owned project config or install optional helper tooling:
 - legacy Spec-First cleanup guidance
 - `.spec-first/config.local.example.yaml` refresh from `skills/spec-mcp-setup/references/config-template.yaml`
 - `.spec-first/config.local.yaml` bootstrap from `skills/spec-mcp-setup/references/config-template.yaml`
@@ -131,12 +131,12 @@ Expected output shape:
 
 ### 1.2 Handle Missing Dependencies
 
-For each missing dependency, ask whether to install it.
+For each missing dependency, decide whether the workflow already has enough user intent to proceed:
 
 Typical outcomes:
-- `uv` → safe auto-install path
-- `jq` → package-manager install path
-- `node` → gated auto-install path with PATH-risk warning
+- `uv` → safe auto-install path; after explicit `$spec-mcp-setup` / `/spec:mcp-setup`, install or repair directly unless the script reports a destructive or privileged step
+- `jq` → package-manager install path; ask before privileged package-manager writes
+- `node` → gated auto-install path with PATH-risk warning; ask before changing Node/PATH
 
 If the user declines installation, display manual instructions and stop.
 
@@ -215,7 +215,7 @@ Per-tool fields explain where readiness stops:
 - `precedence-blocked` — Codex user config exists, but a higher-precedence config file may override it
 - `action-required` — no usable host config detected
 
-`crg.cli_status` and `crg.native_modules_status` remain downstream machine facts for graph bootstrap decisions.
+`crg.cli_status` and `crg.native_modules_status` remain downstream machine facts for graph bootstrap decisions. Native module detection must resolve `better-sqlite3` and `tree-sitter` from the real `spec-first` CLI installation context, not from the caller's current working directory. A current-directory bare `require()` can misreport global installs as missing.
 
 For Route B host selection, `detect-host.*` also exposes:
 - target map and writable facts
@@ -462,6 +462,8 @@ The final ledger answers:
 - Which tool is pending and why?
 - Has Serena bootstrapped the current repo?
 - Is CRG usable on this machine?
+
+Do not ask for confirmation before re-running `detect-tools.*` or `verify-tools.*`; they are deterministic fact collection / ledger write steps for the active setup workflow. Ask before privileged installs, optional-tool selection, destructive cleanup, or ambiguous project config writes.
 
 ### 4.2 Ledger Semantics
 

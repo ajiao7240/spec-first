@@ -18,7 +18,8 @@ function run(argv) {
   // 查询所有社区，包含健康字段（R6: health.status, health.density, health.independence）
   const rows = db.prepare(`
     SELECT id, label, file_count,
-           health_status, health_density, health_independence
+           health_status, health_density, health_independence,
+           algorithm, community_source, cohesion, health_note
     FROM communities
     ORDER BY file_count DESC
   `).all();
@@ -39,6 +40,10 @@ function run(argv) {
       density: row.health_density,
       independence: row.health_independence,
     },
+    algorithm: row.algorithm || 'directory',
+    community_source: row.community_source || 'directory',
+    cohesion: row.cohesion,
+    health_note: row.health_note || null,
   }));
 
   db.close();

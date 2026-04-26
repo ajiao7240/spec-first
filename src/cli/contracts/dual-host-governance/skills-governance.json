@@ -300,17 +300,6 @@
       }
     },
     {
-      "skill_name": "spec-pr-description",
-      "entry_surface": "workflow_command",
-      "command_name": "pr-description",
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "command",
-        "codex": "skill"
-      }
-    },
-    {
       "skill_name": "spec-release-notes",
       "entry_surface": "workflow_command",
       "command_name": "release-notes",

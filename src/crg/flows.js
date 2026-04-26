@@ -15,6 +15,7 @@
  */
 
 const { scoreSecuritySignal } = require('./constants');
+const { annotateEntryCandidates } = require('./flows/entrypoints');
 
 const FLOW_ENTRY_CONFIDENCE = 'Inferred';
 const FLOW_ENTRY_INFERENCE_REASON = 'zero_in_degree_calls';
@@ -91,8 +92,11 @@ function bfsFlow(entryId, adjacency, maxDepth = 5, maxNodes = 20) {
 function annotateFlowOutput(row) {
   return {
     ...row,
-    entry_confidence: FLOW_ENTRY_CONFIDENCE,
-    entry_inference_reason: FLOW_ENTRY_INFERENCE_REASON,
+    entry_source: row.entry_source || FLOW_ENTRY_INFERENCE_REASON,
+    entry_confidence: row.entry_confidence || FLOW_ENTRY_CONFIDENCE,
+    entry_inference_reason: row.entry_inference_reason || FLOW_ENTRY_INFERENCE_REASON,
+    truncated: Boolean(row.truncated),
+    truncation_reason: row.truncation_reason || null,
   };
 }
 
@@ -182,21 +186,25 @@ function detectFlows(db) {
   // ORDER BY id ASC 保证 100 条 flow 截断时的确定性——
   // 否则 SQLite 默认顺序实现定义，不同 build 选出的 top-100 会抖动，
   // 污染下游 SKILL B-Round2 的 top-5 criticality 选取稳定性。
-  const entryNodes = db.prepare(`
-    SELECT id, name FROM nodes
+  const entryNodes = annotateEntryCandidates(db.prepare(`
+    SELECT id, name, file_path, is_test FROM nodes
     WHERE kind != 'module'
       AND id NOT IN (
         SELECT target_id FROM edges WHERE kind = 'calls'
       )
     ORDER BY id ASC
-  `).all();
+  `).all());
 
   // 清空旧 flows 数据（先 flow_nodes，再 flows，CASCADE 会自动处理）
   db.prepare('DELETE FROM flows').run();
 
   const insertFlow = db.prepare(`
-    INSERT INTO flows (id, entry_node_id, name, criticality, node_count, depth)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO flows (
+      id, entry_node_id, name, criticality, node_count, depth,
+      entry_source, entry_confidence, entry_evidence, entry_inference_reason,
+      truncated, truncation_reason, max_depth, max_nodes
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertFlowNode = db.prepare(`
@@ -212,6 +220,7 @@ function detectFlows(db) {
       if (flowIndex >= 100) break; // 最多 100 个 flows
 
       const { nodeIds: flowNodeIds, depth } = bfsFlow(entry.id, adjacency, 5, 20);
+      const hasMoreDepth = depth >= 5 && flowNodeIds.length >= 20;
 
       // 过滤掉只有入口节点自身且无出边的 flow（无实际意义）
       if (flowNodeIds.length <= 1) {
@@ -222,7 +231,22 @@ function detectFlows(db) {
       const flowId = `flow:${entry.id}:${flowIndex}`;
       const criticality = computeFlowCriticality(flowNodeIds, db);
 
-      insertFlow.run(flowId, entry.id, entry.name || null, criticality, flowNodeIds.length, depth);
+      insertFlow.run(
+        flowId,
+        entry.id,
+        entry.name || null,
+        criticality,
+        flowNodeIds.length,
+        depth,
+        entry.entry_source,
+        entry.entry_confidence,
+        JSON.stringify(entry.entry_evidence || []),
+        entry.entry_inference_reason,
+        hasMoreDepth ? 1 : 0,
+        hasMoreDepth ? 'max_nodes_or_depth_reached' : null,
+        5,
+        20
+      );
 
       for (let pos = 0; pos < flowNodeIds.length; pos++) {
         insertFlowNode.run(flowId, flowNodeIds[pos], pos);

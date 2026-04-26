@@ -54,7 +54,10 @@ function buildState(manifestVersion, syncedAssets) {
     platform: syncedAssets.platform || '',
     developer,
     commands: syncedAssets.commands.map((entry) => entry.filename),
-    skills: syncedAssets.skills,
+    skills: normalizeStringArray([
+      ...(Array.isArray(syncedAssets.skills) ? syncedAssets.skills : []),
+      ...(Array.isArray(syncedAssets.internalSkills) ? syncedAssets.internalSkills : []),
+    ]),
     workflowSkills: syncedAssets.workflowSkills,
     agents: syncedAssets.agents,
     agentSupportFiles: syncedAssets.agentSupportFiles,

@@ -517,7 +517,8 @@ Do not let replacement subagents invent frontmatter fields, enum values, or sect
    - The target path and category (same category as the old learning unless the category itself changed)
    - The relevant contents of the three support files listed above
 2. The subagent writes the new learning using the support files as the source of truth: `references/schema.yaml` for frontmatter fields and enum values, `references/yaml-schema.md` for category mapping and YAML-safety rules for array items, and `assets/resolution-template.md` for section order. It should use dedicated file search and read tools if it needs additional context beyond what was passed.
-3. After the subagent completes, the orchestrator deletes the old learning file. The new learning's frontmatter may include `supersedes: [old learning filename]` for traceability, but this is optional — the git history and commit message provide the same information.
+3. **Run `python3 scripts/validate-frontmatter.py <new-learning-path>`** from the `skills/spec-compound-refresh/` directory to catch parser-safety issues the prose rules can miss: malformed `---` delimiter lines, unquoted ` #` in scalar values, and unquoted `: ` in scalar values. Exit 0 means the doc is parser-safe; exit 1 means stderr names the field(s) to quote or fix. Re-write the doc and re-run until exit 0. Do not declare success while validation fails, and do not delete the old learning before validation passes. The script is pure Python 3 stdlib and does not enforce schema required fields or enum values.
+4. After the subagent completes and the new learning passes parser-safety validation, the orchestrator deletes the old learning file. The new learning's frontmatter may include `supersedes: [old learning filename]` for traceability, but this is optional — the git history and commit message provide the same information.
 
 **When evidence is insufficient:**
 

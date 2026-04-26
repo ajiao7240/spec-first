@@ -33,7 +33,11 @@ const DDL_STATEMENTS = [
     file_count INTEGER DEFAULT 0,
     health_status TEXT CHECK (health_status IN ('healthy', 'isolated', 'fragmented', 'scattered') OR health_status IS NULL),
     health_density REAL,
-    health_independence REAL
+    health_independence REAL,
+    algorithm TEXT DEFAULT 'directory',
+    community_source TEXT DEFAULT 'directory',
+    cohesion REAL,
+    health_note TEXT
   )`,
 
   // nodes 表
@@ -64,6 +68,10 @@ const DDL_STATEMENTS = [
     target_id TEXT NOT NULL,
     kind TEXT NOT NULL,
     weight REAL DEFAULT 1.0,
+    confidence TEXT DEFAULT 'Inferred',
+    resolution_method TEXT,
+    evidence TEXT DEFAULT '[]',
+    inference_reason TEXT,
     FOREIGN KEY (source_id) REFERENCES nodes(id) ON DELETE CASCADE,
     FOREIGN KEY (target_id) REFERENCES nodes(id) ON DELETE CASCADE
   )`,
@@ -76,6 +84,14 @@ const DDL_STATEMENTS = [
     criticality REAL DEFAULT 0.0,
     node_count INTEGER DEFAULT 0,
     depth INTEGER DEFAULT 0,
+    entry_source TEXT,
+    entry_confidence TEXT DEFAULT 'Inferred',
+    entry_evidence TEXT DEFAULT '[]',
+    entry_inference_reason TEXT,
+    truncated INTEGER DEFAULT 0,
+    truncation_reason TEXT,
+    max_depth INTEGER DEFAULT 5,
+    max_nodes INTEGER DEFAULT 20,
     FOREIGN KEY (entry_node_id) REFERENCES nodes(id) ON DELETE SET NULL
   )`,
 
@@ -112,7 +128,11 @@ const DDL_STATEMENTS = [
     source_file TEXT NOT NULL,
     edge_kind TEXT NOT NULL,
     target_name TEXT,
-    target_path_raw TEXT
+    target_path_raw TEXT,
+    reason TEXT,
+    confidence TEXT DEFAULT 'Unknown',
+    resolution_method TEXT DEFAULT 'unresolved',
+    evidence TEXT DEFAULT '[]'
   )`,
 
   `CREATE TABLE IF NOT EXISTS chunks (
@@ -187,6 +207,15 @@ function initDatabase(dbPath) {
     db.exec(sql);
   }
 
+  function addMissingColumns(tableName, columns) {
+    const existing = db.prepare(`PRAGMA table_info(${tableName})`).all().map((column) => column.name);
+    for (const column of columns) {
+      if (!existing.includes(column.name)) {
+        db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${column.ddl}`);
+      }
+    }
+  }
+
   // 迁移：检测旧版 content=nodes 的 fts_nodes（列名 node_id 与 nodes.id 不匹配）
   // 若 SQL 定义含 content=nodes，则 DROP 重建为独立 FTS5 表
   const ftsMeta = db
@@ -218,6 +247,30 @@ function initDatabase(dbPath) {
       db.exec('ALTER TABLE flows ADD COLUMN depth INTEGER DEFAULT 0');
     }
   }
+  addMissingColumns('flows', [
+    { name: 'entry_source', ddl: 'entry_source TEXT' },
+    { name: 'entry_confidence', ddl: "entry_confidence TEXT DEFAULT 'Inferred'" },
+    { name: 'entry_evidence', ddl: "entry_evidence TEXT DEFAULT '[]'" },
+    { name: 'entry_inference_reason', ddl: 'entry_inference_reason TEXT' },
+    { name: 'truncated', ddl: 'truncated INTEGER DEFAULT 0' },
+    { name: 'truncation_reason', ddl: 'truncation_reason TEXT' },
+    { name: 'max_depth', ddl: 'max_depth INTEGER DEFAULT 5' },
+    { name: 'max_nodes', ddl: 'max_nodes INTEGER DEFAULT 20' },
+  ]);
+
+  addMissingColumns('edges', [
+    { name: 'confidence', ddl: "confidence TEXT DEFAULT 'Inferred'" },
+    { name: 'resolution_method', ddl: 'resolution_method TEXT' },
+    { name: 'evidence', ddl: "evidence TEXT DEFAULT '[]'" },
+    { name: 'inference_reason', ddl: 'inference_reason TEXT' },
+  ]);
+
+  addMissingColumns('unresolved_edges', [
+    { name: 'reason', ddl: 'reason TEXT' },
+    { name: 'confidence', ddl: "confidence TEXT DEFAULT 'Unknown'" },
+    { name: 'resolution_method', ddl: "resolution_method TEXT DEFAULT 'unresolved'" },
+    { name: 'evidence', ddl: "evidence TEXT DEFAULT '[]'" },
+  ]);
 
   const nodeColumns = db.prepare(`PRAGMA table_info(nodes)`).all().map((column) => column.name);
   if (!nodeColumns.includes('generation_id')) {
@@ -266,13 +319,26 @@ function initDatabase(dbPath) {
         file_count INTEGER DEFAULT 0,
         health_status TEXT CHECK (health_status IN ('healthy', 'isolated', 'fragmented', 'scattered') OR health_status IS NULL),
         health_density REAL,
-        health_independence REAL
+        health_independence REAL,
+        algorithm TEXT DEFAULT 'directory',
+        community_source TEXT DEFAULT 'directory',
+        cohesion REAL,
+        health_note TEXT
       )
     `);
-    db.exec(`INSERT OR IGNORE INTO communities_new SELECT * FROM communities`);
+    db.exec(`
+      INSERT OR IGNORE INTO communities_new (id, label, file_count, health_status, health_density, health_independence)
+      SELECT id, label, file_count, health_status, health_density, health_independence FROM communities
+    `);
     db.exec(`DROP TABLE communities`);
     db.exec(`ALTER TABLE communities_new RENAME TO communities`);
   }
+  addMissingColumns('communities', [
+    { name: 'algorithm', ddl: "algorithm TEXT DEFAULT 'directory'" },
+    { name: 'community_source', ddl: "community_source TEXT DEFAULT 'directory'" },
+    { name: 'cohesion', ddl: 'cohesion REAL' },
+    { name: 'health_note', ddl: 'health_note TEXT' },
+  ]);
 
   // 确保 graph_meta 单行存在（schema 版本写入）
   db.prepare(

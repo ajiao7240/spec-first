@@ -167,15 +167,74 @@ crg_native_modules_status() {
     echo unchecked
     return
   fi
-  if ! node -e "try{require('better-sqlite3')}catch{process.exit(1)}" >/dev/null 2>&1; then
+  if ! crg_can_resolve_module "better-sqlite3"; then
     echo missing
     return
   fi
-  if ! node -e "try{require('tree-sitter')}catch{process.exit(1)}" >/dev/null 2>&1; then
+  if ! crg_can_resolve_module "tree-sitter"; then
     echo missing
     return
   fi
   echo ready
+}
+
+crg_can_resolve_module() {
+  local module_name="$1"
+  local spec_first_bin
+  spec_first_bin="$(command -v spec-first 2>/dev/null || true)"
+  [ -n "$spec_first_bin" ] || return 1
+
+  node - "$spec_first_bin" "$module_name" <<'NODE'
+const fs = require('fs');
+const path = require('path');
+const { createRequire } = require('module');
+
+const [binPath, moduleName] = process.argv.slice(2);
+const candidates = [];
+
+function add(candidate) {
+  if (candidate && path.isAbsolute(candidate) && !candidates.includes(candidate)) {
+    candidates.push(candidate);
+  }
+}
+
+function addWithParents(candidate) {
+  add(candidate);
+  let dir = path.dirname(candidate);
+  while (dir && path.dirname(dir) !== dir) {
+    add(path.join(dir, 'package.json'));
+    dir = path.dirname(dir);
+  }
+}
+
+try {
+  const realBin = fs.realpathSync(binPath);
+  addWithParents(realBin);
+  const binDir = path.dirname(realBin);
+  add(path.join(binDir, 'node_modules', 'spec-first', 'package.json'));
+  add(path.join(path.dirname(binDir), 'node_modules', 'spec-first', 'package.json'));
+  add(path.join(path.dirname(binDir), 'lib', 'node_modules', 'spec-first', 'package.json'));
+} catch {
+  // Fall through to the normal module resolver candidates below.
+}
+
+try {
+  add(require.resolve('spec-first/package.json'));
+} catch {
+  // Global CLIs are often outside the current process module paths.
+}
+
+for (const candidate of candidates) {
+  try {
+    createRequire(candidate).resolve(moduleName);
+    process.exit(0);
+  } catch {
+    // Try the next plausible spec-first installation context.
+  }
+}
+
+process.exit(1);
+NODE
 }
 
 overall_status=ready

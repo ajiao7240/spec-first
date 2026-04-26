@@ -1,0 +1,9 @@
+{
+  "schema_version": "crg-work-run/v1",
+  "run_id": "work-20260426170011425",
+  "generated_at": "2026-04-26T17:00:11.425Z",
+  "work_start_ref": "a436e397b3b433c02946d21bcb487152f445292e",
+  "plan": null,
+  "task_pack": "/Users/kuang/xiaobu/spec-first/docs/tasks/2026-04-27-001-feat-crg-artifact-quality-algorithms-tasks.md",
+  "planned_surface_source": "plan"
+}

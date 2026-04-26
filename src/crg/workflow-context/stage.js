@@ -5,6 +5,7 @@ const { buildGraphStatus } = require('./status');
 const { buildRecommendedQueries, readCodeNavigation } = require('./navigation');
 const { filterSuggestedReads } = require('./suggested-reads-filter');
 const { readRepoTopology } = require('../topology/modules');
+const { readGraphQuality, summarizeGraphQuality } = require('../quality/report');
 
 const VALID_STAGES = new Set(['plan', 'work', 'review']);
 
@@ -66,6 +67,7 @@ function buildWorkflowContext(options = {}) {
   const graphStatus = buildGraphStatus(repoRoot);
   const navigation = readCodeNavigation(repoRoot);
   const repoTopology = readRepoTopology(repoRoot);
+  const graphQuality = summarizeGraphQuality(readGraphQuality(repoRoot));
   const ready = graphStatus.state === 'ready';
   const recommendedQueries = buildRecommendedQueries(stage, {
     task: options.task,
@@ -77,6 +79,7 @@ function buildWorkflowContext(options = {}) {
     stage,
     detail_profile: detailProfile,
     graph_status: graphStatus,
+    graph_quality: graphQuality,
     code_navigation: navigation,
     repo_topology: repoTopology,
     decision_inputs: ready
@@ -90,6 +93,11 @@ function buildWorkflowContext(options = {}) {
             kind: 'code_navigation',
             decision_input_kind: navigation.source === 'artifact' ? 'observed' : 'ambiguous',
             evidence: [navigation.source === 'artifact' ? 'code-navigation.json available' : 'code-navigation.json unavailable'],
+          },
+          {
+            kind: 'graph_quality',
+            decision_input_kind: graphQuality.state === 'available' ? 'observed' : 'ambiguous',
+            evidence: [graphQuality.state === 'available' ? 'graph-quality.json available' : 'graph-quality.json unavailable'],
           },
           {
             kind: 'repo_topology',

@@ -54,6 +54,10 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('$spec-update');
     expect(skill).toContain('/spec:doc-review');
     expect(skill).toContain('$spec-doc-review');
+    expect(skill).toContain('git-commit-push-pr');
+    expect(skill).toContain('description-only mode');
+    expect(skill).not.toContain('/spec:pr-description');
+    expect(skill).not.toContain('$spec-pr-description');
     expect(skill).toContain('/spec:optimize');
     expect(skill).toContain('$spec-optimize');
     expect(skill).toContain('/spec:plan');

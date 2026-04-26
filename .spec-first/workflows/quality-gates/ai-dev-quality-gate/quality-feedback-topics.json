@@ -1,11 +1,11 @@
 {
   "schema_version": "v1",
-  "generated_at": "2026-04-26T07:56:49.849Z",
+  "generated_at": "2026-04-26T16:39:16.385Z",
   "source": "passive-quality-feedback",
   "latest_gate": {
     "gate_id": "ai-dev-quality-gate",
     "passed": true,
-    "generated_at": "2026-04-26T07:56:49.849Z",
+    "generated_at": "2026-04-26T16:39:16.385Z",
     "artifact_path": ".spec-first/workflows/quality-gates/ai-dev-quality-gate/ai-dev-quality-gate-result.json"
   },
   "candidate_topics": []

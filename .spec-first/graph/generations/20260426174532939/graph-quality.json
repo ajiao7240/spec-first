@@ -1,0 +1,247 @@
+{
+  "schema_version": "graph-quality/v1",
+  "generated_at": "2026-04-26T17:45:33.906Z",
+  "generation_id": "20260426174532939",
+  "repo_root": "/Users/kuang/xiaobu/spec-first",
+  "advisory": true,
+  "coverage": {
+    "final_input_count": 191,
+    "parsed_count": 187,
+    "skipped_count": 0,
+    "no_parser_count": 0,
+    "parse_error_count": 4,
+    "module_only_count": 40,
+    "skipped_sensitive_count": 3,
+    "parser_success_rate": 0.9791,
+    "samples": {
+      "skipped": [],
+      "no_parser": [],
+      "parse_error": [
+        "src/cli/commands/doctor.js",
+        "src/cli/plugin.js",
+        "src/crg/parser.js",
+        "tests/contracts/crg-cli-v1.test.js"
+      ]
+    }
+  },
+  "graph": {
+    "node_count": 927,
+    "edge_count": 2415,
+    "nodes_by_kind": {
+      "module": 187,
+      "function": 645,
+      "class": 19,
+      "method": 69,
+      "struct": 2,
+      "interface": 5
+    },
+    "edges_by_kind": {
+      "contains": 730,
+      "calls": 700,
+      "defined_in": 740,
+      "imports_from": 245
+    },
+    "confidence_distribution": {
+      "nodes": {
+        "Observed": 927
+      },
+      "edges": {
+        "Observed": 1206,
+        "Inferred": 1209
+      }
+    },
+    "edge_resolution_methods": {
+      "direct_target_id": 1206,
+      "module_path_exact": 740,
+      "relative_path_extension_probe": 245,
+      "symbol_unique": 224
+    }
+  },
+  "unresolved_edges": {
+    "count": 3386,
+    "rate": 0.5837,
+    "by_kind": {
+      "imports_from": 397,
+      "calls": 2979,
+      "contains": 10
+    },
+    "by_reason": {
+      "no_match": 3311,
+      "ambiguous": 75
+    },
+    "by_resolution_method": {
+      "unresolved": 3386
+    },
+    "samples": [
+      {
+        "source_id": "bin/postinstall.js#module#postinstall.js#L0",
+        "source_file": "bin/postinstall.js",
+        "edge_kind": "imports_from",
+        "target_name": "node:path",
+        "target_path_raw": "node:path",
+        "reason": "no_match",
+        "evidence": "[]"
+      },
+      {
+        "source_id": "bin/postinstall.js#module#postinstall.js#L0",
+        "source_file": "bin/postinstall.js",
+        "edge_kind": "imports_from",
+        "target_name": "../package.json",
+        "target_path_raw": "../package.json",
+        "reason": "no_match",
+        "evidence": "[]"
+      },
+      {
+        "source_id": "bin/postinstall.js#module#postinstall.js#L0",
+        "source_file": "bin/postinstall.js",
+        "edge_kind": "imports_from",
+        "target_name": "node:child_process",
+        "target_path_raw": "node:child_process",
+        "reason": "no_match",
+        "evidence": "[]"
+      },
+      {
+        "source_id": "bin/postinstall.js#function#probeBetterSqlite#L41",
+        "source_file": "bin/postinstall.js",
+        "edge_kind": "imports_from",
+        "target_name": "better-sqlite3",
+        "target_path_raw": "better-sqlite3",
+        "reason": "no_match",
+        "evidence": "[]"
+      },
+      {
+        "source_id": "bin/postinstall.js#function#findBetterSqliteDir#L45",
+        "source_file": "bin/postinstall.js",
+        "edge_kind": "calls",
+        "target_name": "dirname",
+        "target_path_raw": null,
+        "reason": "no_match",
+        "evidence": "[]"
+      },
+      {
+        "source_id": "bin/postinstall.js#function#findBetterSqliteDir#L45",
+        "source_file": "bin/postinstall.js",
+        "edge_kind": "calls",
+        "target_name": "resolve",
+        "target_path_raw": null,
+        "reason": "no_match",
+        "evidence": "[]"
+      },
+      {
+        "source_id": "bin/postinstall.js#function#findPrebuildInstallBin#L51",
+        "source_file": "bin/postinstall.js",
+        "edge_kind": "calls",
+        "target_name": "filter",
+        "target_path_raw": null,
+        "reason": "no_match",
+        "evidence": "[]"
+      },
+      {
+        "source_id": "bin/postinstall.js#function#findPrebuildInstallBin#L51",
+        "source_file": "bin/postinstall.js",
+        "edge_kind": "calls",
+        "target_name": "join",
+        "target_path_raw": null,
+        "reason": "no_match",
+        "evidence": "[]"
+      },
+      {
+        "source_id": "bin/postinstall.js#function#findPrebuildInstallBin#L51",
+        "source_file": "bin/postinstall.js",
+        "edge_kind": "calls",
+        "target_name": "join",
+        "target_path_raw": null,
+        "reason": "no_match",
+        "evidence": "[]"
+      },
+      {
+        "source_id": "bin/postinstall.js#function#findPrebuildInstallBin#L51",
+        "source_file": "bin/postinstall.js",
+        "edge_kind": "calls",
+        "target_name": "resolve",
+        "target_path_raw": null,
+        "reason": "no_match",
+        "evidence": "[]"
+      }
+    ]
+  },
+  "retrieval_index": {
+    "fts_indexed": 927,
+    "fts_skipped": 0,
+    "coverage_status": "available"
+  },
+  "communities": {
+    "count": 8,
+    "status": "available",
+    "by_health": {
+      "scattered": 7,
+      "isolated": 1
+    },
+    "by_source": {
+      "hybrid": 7,
+      "directory": 1
+    },
+    "by_algorithm": {
+      "directory_with_graph_hints": 6,
+      "directory_bfs_refinement": 2
+    }
+  },
+  "flows": {
+    "count": 80,
+    "status": "available",
+    "by_entry_source": {
+      "cli_like": 56,
+      "zero_in_degree_calls": 18,
+      "test_like": 6
+    },
+    "by_entry_confidence": {
+      "Inferred": 80
+    },
+    "truncated_count": 1
+  },
+  "warnings": [
+    {
+      "type": "skipped_sensitive",
+      "count": 3
+    },
+    {
+      "type": "high_unresolved_edge_rate",
+      "scope": "last_build",
+      "rate": 0.5658422459893048,
+      "unresolved_count": 3386
+    },
+    {
+      "type": "parse_error_files",
+      "count": 4
+    },
+    {
+      "type": "module_only_files",
+      "count": 40
+    },
+    {
+      "type": "force_rebuild_partial",
+      "no_parser_count": 0,
+      "parse_error_count": 4
+    }
+  ],
+  "limitations": [
+    {
+      "code": "parse-error-files",
+      "count": 4,
+      "samples": [
+        "src/cli/commands/doctor.js",
+        "src/cli/plugin.js",
+        "src/crg/parser.js",
+        "tests/contracts/crg-cli-v1.test.js"
+      ]
+    },
+    {
+      "code": "skipped-sensitive-files",
+      "count": 3
+    },
+    {
+      "code": "unresolved-edges",
+      "count": 3386
+    }
+  ]
+}

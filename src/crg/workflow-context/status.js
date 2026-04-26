@@ -5,6 +5,7 @@ const path = require('node:path');
 const {
   GRAPH_CODE_NAVIGATION_FILE,
   GRAPH_INDEX_STATUS_FILE,
+  GRAPH_QUALITY_FILE,
   resolveGraphDir,
 } = require('../artifact-paths');
 const { resolveActiveGraphDb } = require('../generations/paths');
@@ -41,6 +42,7 @@ function buildGraphStatus(repoRoot) {
   const dbPath = resolveActiveGraphDb(normalizedRepoRoot);
   const statusPath = path.join(graphDir, GRAPH_INDEX_STATUS_FILE);
   const navigationPath = path.join(graphDir, GRAPH_CODE_NAVIGATION_FILE);
+  const qualityPath = path.join(graphDir, GRAPH_QUALITY_FILE);
   const persistedStatus = readJsonIfExists(statusPath);
   const limitations = [];
 
@@ -51,6 +53,7 @@ function buildGraphStatus(repoRoot) {
     active_db_path: dbPath,
     status_path: statusPath,
     navigation_path: navigationPath,
+    quality_path: qualityPath,
     state: 'missing',
     capabilities: {
       locate: false,
@@ -147,5 +150,6 @@ function buildGraphStatus(repoRoot) {
 }
 
 module.exports = {
+  readJsonIfExists,
   buildGraphStatus,
 };

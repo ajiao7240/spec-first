@@ -1,19 +1,21 @@
 ---
 name: git-commit-push-pr
-description: Commit, push, and open a PR with an adaptive, value-first description. Use when the user says "commit and PR", "push and open a PR", "ship this", "create a PR", "open a pull request", "commit push PR", or wants to go from working changes to an open pull request in one step. Also use when the user says "update the PR description", "refresh the PR description", "freshen the PR", or wants to rewrite an existing PR description. Produces PR descriptions that scale in depth with the complexity of the change, avoiding cookie-cutter templates.
+description: Commit, push, and open a PR with an adaptive, value-first description. Use when the user says "commit and PR", "push and open a PR", "ship this", "create a PR", "open a pull request", "commit push PR", or wants to go from working changes to an open pull request in one step. Also use when the user says "update the PR description", "refresh the PR description", "freshen the PR", "rewrite the PR body", "write a PR description", "draft a PR description", or "describe this PR" — the skill will produce a description without committing or pushing if that is all the user wants. Produces PR descriptions that scale in depth with the complexity of the change, avoiding cookie-cutter templates.
 ---
 
 # Git Commit, Push, and PR
 
-Go from working changes to an open pull request, or rewrite an existing PR description.
+Go from working changes to an open pull request, rewrite an existing PR description, or generate a description without touching git state.
 
 **Asking the user:** When this skill says "ask the user", use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to presenting the question in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
 ## Mode detection
 
-If the user is asking to update, refresh, or rewrite an existing PR description (with no mention of committing or pushing), this is a **description-only update**. The user may also provide a focus (e.g., "update the PR description and add the benchmarking results"). Note any focus for DU-3.
+Three flavors of intent. Pick one and follow the matching path; otherwise default to the full workflow.
 
-For description-only updates, follow the Description Update workflow below. Otherwise, follow the full workflow.
+- **Description-only generation.** If the user asked for *just* a PR description with no commit or push intent (e.g., "write a PR description", "draft a PR description for this branch", "describe this PR", or pasted a PR URL/number alone), skip Steps 4-5 and Step 1's decision tree. Those stop gates are full-workflow only and would terminate common valid cases like "feature branch, all pushed, open PR". Use the data from the Context section instead. Then go to Step 6 and compose using `references/pr-description-writing.md`. If the user pasted a PR URL/number, pass it into the reference's PR mode so it resolves the right commit range. Print the title/body path result back to the user; apply via `gh pr edit` or `gh pr create` only if the user asks.
+- **Description update on existing PR.** If the user is asking to update, refresh, or rewrite an existing PR description (with no mention of committing or pushing), follow the Description Update workflow below. The user may also provide a focus (e.g., "update the PR description and add the benchmarking results"). Note any focus for DU-3.
+- **Full workflow.** Otherwise, follow the Full workflow below.
 
 ## Context
 
@@ -69,11 +71,11 @@ Read the current PR description to drive the compare-and-confirm step later:
 gh pr view --json body --jq '.body'
 ```
 
-**Generate the updated title and body** — load the `spec-pr-description` skill with the PR URL from DU-2 (e.g., `https://github.com/owner/repo/pull/123`). The URL preserves repo/PR identity even when invoked from a worktree or subdirectory where the current repo is ambiguous. If the user provided a focus (e.g., "include the benchmarking results"), append it as free-text steering after the URL. The skill returns a `{title, body_file}` block (body in an OS temp file) without applying or prompting.
+**Generate the updated title and body** — read `references/pr-description-writing.md` and run it in PR mode with the PR URL from DU-2 (e.g., `https://github.com/owner/repo/pull/123`). The URL preserves repo/PR identity even when invoked from a worktree or subdirectory where the current repo is ambiguous. If the user provided a focus (e.g., "include the benchmarking results"), pass it as free-text steering to the writing reference. Write the body to an OS temp file and keep `{title, body_file}` in memory for the apply step.
 
-If `spec-pr-description` returns a "not open" or other graceful-exit message instead of a `{title, body_file}` pair, report that message and stop.
+If the writing reference reaches a graceful-exit condition instead of producing a `{title, body_file}` pair, report that message and stop.
 
-**Evidence decision:** `spec-pr-description` preserves any existing `## Demo` or `## Screenshots` block from the current body by default. If the user's focus asks to refresh or remove evidence, pass that intent as steering text — the skill will honor it. If no evidence block exists and one would benefit the reader, invoke `feature-video` separately to capture, then re-invoke `spec-pr-description` with updated steering that references the captured evidence.
+**Evidence decision:** `references/pr-description-writing.md` preserves any existing `## Demo` or `## Screenshots` block from the current body by default. If the user's focus asks to refresh or remove evidence, pass that intent as steering text. If no evidence block exists and one would benefit the reader, invoke `feature-video` separately to capture, then rerun the writing reference with updated steering that references the captured evidence.
 
 **Compare and confirm** — briefly explain what the new description covers differently from the old one. This helps the user decide whether to apply; the description itself does not narrate these differences. Summarize from the body already in context (from the bash call that wrote `body_file`); do not `cat` the temp file, which would re-emit the body.
 
@@ -82,8 +84,8 @@ If `spec-pr-description` returns a "not open" or other graceful-exit message ins
 
 **If confirmed, perform these two actions in order.** They are separate steps with a hand-off boundary between them — do not stop after action 1.
 
-1. `spec-pr-description` has already returned its `=== TITLE ===` / `=== BODY_FILE ===` block and stopped; it does not apply on its own.
-2. Apply the returned title and body file yourself. This is this skill's responsibility, not the delegated skill's. Substitute `<TITLE>` and `<BODY_FILE>` verbatim from the return block; if `<TITLE>` contains `"`, `` ` ``, `$`, or `\`, escape them or switch to single quotes:
+1. Step DU-3 has already produced the title and body file; the writing reference does not apply on its own.
+2. Apply the generated title and body file. Substitute `<TITLE>` and `<BODY_FILE>` verbatim; if `<TITLE>` contains `"`, `` ` ``, `$`, or `\`, escape them or switch to single quotes:
 
    ```bash
    gh pr edit --title "<TITLE>" --body "$(cat "<BODY_FILE>")"
@@ -139,7 +141,7 @@ When using conventional commits, choose the type that most precisely describes t
 
 Use the current branch and existing PR check from context. If the branch is empty, report detached HEAD and stop.
 
-If the PR check returned `state: OPEN`, note the URL -- this is the existing-PR flow. Continue to Step 4 and 5 (commit any pending work and push), then go to Step 7 to ask whether to rewrite the description. Only run Step 6 (which generates a new description via `spec-pr-description`) if the user confirms the rewrite; Step 7's existing-PR sub-path consumes the `{title, body_file}` that Step 6 produces. Otherwise (no open PR), continue through Steps 6, 7, and 8 in order.
+If the PR check returned `state: OPEN`, note the URL -- this is the existing-PR flow. Continue to Step 4 and 5 (commit any pending work and push), then go to Step 7 to ask whether to rewrite the description. Only run Step 6 if the user confirms the rewrite; Step 7's existing-PR sub-path consumes the `{title, body_file}` that Step 6 produces. Otherwise (no open PR), continue through Steps 6, 7, and 8 in order.
 
 ### Step 4: Branch, stage, and commit
 
@@ -202,34 +204,34 @@ Use this branch diff (not the working-tree diff) for the evidence decision. If t
 
 Otherwise, run the full decision: if the branch diff changes observable behavior (UI, CLI output, API behavior with runnable code, generated artifacts, workflow output) and evidence is not otherwise blocked (unavailable credentials, paid services, deploy-only infrastructure, hardware), ask: "This PR has observable behavior. Capture evidence for the PR description?"
 
-- **Capture now** -- load the `feature-video` skill with a target description inferred from the branch diff. feature-video returns `Tier`, `Description`, `URL`, and `Path`. Exactly one of `URL` or `Path` contains a real value; the other is `"none"`. If capture returns a public URL, pass it as steering to `spec-pr-description` (e.g., "include the captured demo: <URL> as a `## Demo` section") or splice into the returned body before apply. If capture returns a local `Path` instead (user chose local save), pass steering that notes evidence was captured but is local-only (e.g., "evidence was captured locally — note in the PR that a demo was recorded but is not embedded because the user chose local save"). If capture returns `Tier: skipped` or both `URL` and `Path` are `"none"`, proceed with no evidence.
-- **Use existing evidence** -- ask for the URL or markdown embed, then pass it as free-text steering to `spec-pr-description` or splice in before apply.
+- **Capture now** -- load the `feature-video` skill with a target description inferred from the branch diff. feature-video returns `Tier`, `Description`, `URL`, and `Path`. Exactly one of `URL` or `Path` contains a real value; the other is `"none"`. If capture returns a public URL, pass it as steering to the writing reference (e.g., "include the captured demo: <URL> as a `## Demo` section") or splice into the generated body before apply. If capture returns a local `Path` instead (user chose local save), pass steering that notes evidence was captured but is local-only (e.g., "evidence was captured locally — note in the PR that a demo was recorded but is not embedded because the user chose local save"). If capture returns `Tier: skipped` or both `URL` and `Path` are `"none"`, proceed with no evidence.
+- **Use existing evidence** -- ask for the URL or markdown embed, then pass it as free-text steering to the writing reference or splice in before apply.
 - **Skip** -- proceed with no evidence section.
 
 When evidence is not possible (docs-only, markdown-only, changelog-only, release metadata, CI/config-only, test-only, or pure internal refactors), skip without asking.
 
-**Delegate title and body generation to `spec-pr-description`.** Load the `spec-pr-description` skill:
+**Generate title and body using the PR description writing reference.** Read `references/pr-description-writing.md` now and follow its Step Pre-A through Step H. Do not load this reference earlier than Step 6.
 
-- **For a new PR** (no existing PR found in Step 3): invoke with `base:<base-remote>/<base-branch>` using the already-resolved base from earlier in this step, so `spec-pr-description` describes the correct commit range even when the branch targets a non-default base (e.g., `develop`, `release/*`). Append any captured-evidence context or user focus as free-text steering (e.g., "include the captured demo: <URL> as a `## Demo` section", or "evidence captured locally — not embedded" for local saves).
-- **For an existing PR** (found in Step 3): invoke with the full PR URL from the Step 3 context (e.g., `https://github.com/owner/repo/pull/123`). The URL preserves repo/PR identity even when invoked from a worktree or subdirectory; the skill reads the PR's own `baseRefName` so no `base:` override is needed. Append any focus steering as free text after the URL.
+- **For a new PR** (no existing PR found in Step 3): use current-branch mode with the already-resolved `base:<base-remote>/<base-branch>` so the description covers the correct commit range even when the branch targets a non-default base (e.g., `develop`, `release/*`). Include any captured-evidence context or user focus as free-text steering (e.g., "include the captured demo: <URL> as a `## Demo` section", or "evidence captured locally — not embedded" for local saves).
+- **For an existing PR** (found in Step 3): use PR mode with the full PR URL from the Step 3 context (e.g., `https://github.com/owner/repo/pull/123`). The URL preserves repo/PR identity even when invoked from a worktree or subdirectory; the reference reads the PR's own `baseRefName` so no `base:` override is needed. Include any focus steering as free text.
 
-**Steering discipline.** Pass only what the diff cannot reveal: a user focus ("emphasize the performance win"), a specific framing concern ("this needs to read as a migration not a feature"), or a pointer to institutional knowledge. Do NOT dump an exhaustive scope summary or a numbered list of every change — `spec-pr-description` reads the diff itself. Over-specified steering encourages the downstream skill to cover everything passed in, producing verbose output. Cap steering at roughly 100 words; if a longer framing feels necessary, trust the diff and cut.
+**Steering discipline.** Pass only what the diff cannot reveal: a user focus ("emphasize the performance win"), a specific framing concern ("this needs to read as a migration not a feature"), or a pointer to institutional knowledge. Do NOT dump an exhaustive scope summary or a numbered list of every change — the writing reference reads the diff itself. Over-specified steering encourages it to cover everything passed in, producing verbose output. Cap steering at roughly 100 words; if a longer framing feels necessary, trust the diff and cut.
 
-`spec-pr-description` returns a `{title, body_file}` block (body in an OS temp file). It applies the value-first writing principles, commit classification, sizing, narrative framing, writing voice, visual communication, numbering rules, and the Spec-First badge footer internally. Use the returned values verbatim in Step 7; do not layer manual edits onto them unless a focused adjustment is required (e.g., splicing an evidence block captured in this step that was not passed as steering text — in that case, edit the body file directly before applying).
+Write the result as a `{title, body_file}` pair, with the body in an OS temp file. Apply the value-first writing principles, commit classification, sizing, narrative framing, writing voice, visual communication, numbering rules, and the Spec-First badge footer from the reference. Use the generated values verbatim in Step 7; do not layer manual edits onto them unless a focused adjustment is required (e.g., splicing an evidence block captured in this step that was not passed as steering text — in that case, edit the body file directly before applying).
 
-If `spec-pr-description` returns a graceful-exit message instead of `{title, body_file}` (e.g., closed PR, no commits to describe, base ref unresolved), report the message and stop — do not create or edit the PR.
+If the writing reference reaches a graceful-exit condition instead of `{title, body_file}` (e.g., closed PR, no commits to describe, base ref unresolved), report the message and stop — do not create or edit the PR.
 
 ### Step 7: Create or update the PR
 
 #### New PR (no existing PR from Step 3)
 
-Using the `=== TITLE ===` / `=== BODY_FILE ===` block returned by `spec-pr-description`, substitute `<TITLE>` and `<BODY_FILE>` verbatim. If `<TITLE>` contains `"`, `` ` ``, `$`, or `\`, escape them or switch to single quotes:
+Using the `{title, body_file}` pair from Step 6, substitute `<TITLE>` and `<BODY_FILE>` verbatim. If `<TITLE>` contains `"`, `` ` ``, `$`, or `\`, escape them or switch to single quotes:
 
 ```bash
 gh pr create --title "<TITLE>" --body "$(cat "<BODY_FILE>")"
 ```
 
-Keep the title under 72 characters; `spec-pr-description` already emits a conventional-commit title in that range.
+Keep the title under 72 characters; Step 6 emits a conventional-commit title in that range.
 
 #### Existing PR (found in Step 3)
 
@@ -237,7 +239,7 @@ The new commits are already on the PR from Step 5. Report the PR URL, then ask w
 
 - If **no** -- skip Step 6 entirely and finish. Do not run delegation or evidence capture when the user declined the rewrite.
 - If **yes**, perform these three actions in order. They are separate steps with a hand-off boundary between them -- do not stop between actions.
-  1. Run Step 6 to generate via `spec-pr-description` (passing the existing PR URL as `pr:`). `spec-pr-description` explicitly does not apply on its own; it returns its `=== TITLE ===` / `=== BODY_FILE ===` block and stops.
+  1. Run Step 6 to generate with PR mode using the existing PR URL. Step 6 does not apply on its own; it produces the `{title, body_file}` pair and stops.
   2. **Preview and confirm.** Read the first two sentences of the Summary from the body file, plus the total line count. Ask the user (per the "Asking the user" convention at the top of this skill): "New title: `<title>` (`<N>` chars). Summary leads with: `<first two sentences>`. Total body: `<L>` lines. Apply?" The first two sentences of the Summary carry most of the reviewer's attention; they are the single highest-leverage text in the description, so they are what the preview spotlights. If the user declines, they may pass steering text back for a regenerate; do not apply.
   3. If confirmed, apply the returned title and body file yourself. This is this skill's responsibility, not the delegated skill's. Substitute `<TITLE>` and `<BODY_FILE>` verbatim from the return block; if `<TITLE>` contains `"`, `` ` ``, `$`, or `\`, escape them or switch to single quotes:
 

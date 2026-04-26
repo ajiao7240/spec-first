@@ -186,7 +186,7 @@ If the user chose "Diagnosis only" at the end of Phase 2, skip this phase and go
 **Conditional defense-in-depth** (trigger: grep for the root-cause pattern found it in 3+ other files, OR the bug would have been catastrophic if it reached production): Read `references/defense-in-depth.md` for the four-layer model (entry validation, invariant check, environment guard, diagnostic breadcrumb) and choose which layers apply. Skip when the root cause is a one-off error with no realistic recurrence path.
 
 **Conditional post-mortem** (trigger: the bug was in production, OR the pattern appears in 3+ locations):
-How was this introduced? What allowed it to survive? If a systemic gap was found: "This pattern appears in N other files. Want to capture it with `/spec:compound`?"
+Analyze how this was introduced and what allowed it to survive. Note any systemic gap or repeated pattern found; it informs Phase 4's decision on whether to offer learning capture.
 
 ---
 
@@ -206,13 +206,32 @@ How was this introduced? What allowed it to survive? If a systemic gap was found
 
 **If Phase 3 was skipped** (user chose "Diagnosis only" in Phase 2), stop after the summary — the user already told you they were taking it from here. Do not prompt.
 
-**If Phase 3 ran**, immediately after the summary prompt the user for the next action via the platform's blocking question tool (`AskUserQuestion` in Claude Code or `request_user_input` in Codex). In Claude Code, call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded — a pending schema load is not a reason to fall back. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes). Never end the phase without collecting a response — do not stop at "ready when you are" or any other passive phrasing that leaves the user hanging.
+**If Phase 3 ran**, the next move depends on whether this skill created the branch in Phase 3.
 
-Options (include only those that apply):
+#### Skill-owned branch: default to commit-and-PR without prompting
 
-1. **Commit the fix (`/git-commit`)** — stage and commit the change locally (always applies here, since Phase 3 ran)
-2. **Commit and open a PR (`/git-commit-push-pr`)** — commit, push, and open a pull request
-3. **Document as a learning first (`/spec:compound`)** — capture the bug and fix as a reusable pattern
-4. **Post findings to the issue first** — reply on the tracker with confirmed root cause, verified reproduction, relevant code references, and suggested fix direction (include only when entry came from an issue tracker)
+When Phase 3 created the branch, default to finishing the bugfix by committing and opening a PR.
 
-Options 1 and 2 are terminal — running either ends the skill. Options 3 and 4 are additive: after the chosen action completes, re-prompt with the remaining options (excluding the one just completed and any that no longer apply).
+1. **Check contextual overrides first.** Look at the user's original prompt, loaded memories, and repo instructions such as `AGENTS.md` or `CLAUDE.md` for explicit preferences that conflict with automatic commit-and-PR, such as "always review before pushing", "open PRs as drafts", or "do not open PRs from skills". If any apply, honor them by switching to the pre-existing-branch menu below or skipping the PR step, whichever matches the instruction.
+2. **Briefly preview what will happen**: what will be committed, on which branch, and that a PR will be opened. This preview lets the user interrupt; it is not a blocking question.
+3. **Run `git-commit-push-pr`.** When the entry came from an issue tracker, include the appropriate close syntax in the place that tracker parses, such as `Fixes #N` in GitHub PR descriptions or the relevant Jira/Linear close syntax. Surface the resulting PR URL.
+
+#### Pre-existing branch: ask the user
+
+If this skill did not create the branch, prompt the user for the next action via the platform's blocking question tool (`AskUserQuestion` in Claude Code or `request_user_input` in Codex). In Claude Code, call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded — a pending schema load is not a reason to fall back. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes). Never end the phase without collecting a response.
+
+Options:
+
+1. **Commit and open a PR (`git-commit-push-pr`)** — default for most cases
+2. **Commit the fix** — local commit only
+3. **Stop here** — user takes it from there
+
+#### After a PR is open: consider offering learning capture
+
+Most bugs are localized mechanical fixes where the only lesson is the bug itself. Compounding those clutters `docs/solutions/` without adding value. Decide which path applies:
+
+- **Skip silently** when the fix is mechanical and there is no generalizable insight. Default to this when in doubt.
+- **Offer neutrally** when the lesson can be stated in one sentence, such as a surprising framework return type or a non-obvious diagnostic path worth recording. If you cannot articulate the lesson, skip rather than offer.
+- **Lean into the offer** when the pattern appears in 3+ locations or the root cause reveals a wrong assumption about a shared dependency, framework, or convention that other code is likely to repeat.
+
+When offering, use the same blocking question tool described above. If the user accepts, run `spec-compound`, then commit the resulting learning doc to the same branch and push so the open PR picks up the new commit.
