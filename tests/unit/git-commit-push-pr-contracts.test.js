@@ -29,24 +29,33 @@ describe('git-commit-push-pr PR description contracts', () => {
     expect(text).toContain('"describe this PR"');
     expect(text).toContain('generate a description without touching git state');
     expect(text).toContain('Description-only generation');
-    expect(text).toContain('skip Steps 4-5 and Step 1\'s decision tree');
-    expect(text).toContain('Print the title/body path result back to the user');
+    expect(text).toContain('skip Steps 4-5 AND Step 1\'s decision tree');
+    expect(text).toContain('pass it to Step 6 as the PR ref so Pre-A resolves the right commit range');
+    expect(text).toContain('Print the result back to the user');
   });
 
   test('keeps PR description writing inside git-commit-push-pr after CE deletion', () => {
     const text = read(SKILL_PATH);
     const reference = read(WRITING_REFERENCE_PATH);
 
-    expect(text).toContain('compose using `references/pr-description-writing.md`');
-    expect(text).toContain('Generate title and body using the PR description writing reference');
-    expect(text).toContain('Spec-First badge footer');
+    expect(text).toContain('**Read `references/pr-description-writing.md` once now**');
+    expect(text).toContain('Run Step Pre-A from the reference');
+    expect(text).toContain('Step 6 walks through it in order (Pre-A through H)');
+    expect(text).toContain('the Spec-First badge');
+    expect(text).toContain('BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/spec-pr-body.XXXXXX")');
+    expect(text).toContain("__SPEC_PR_BODY_END__");
+    expect(text).toContain('feature-video');
     expect(reference).toContain('## Step Pre-A: Resolve the PR commit range and diff');
     expect(reference).toContain('Spec-First badge');
     expect(reference).toContain('Built_with-Spec_First');
     expect(text).not.toContain('ce-pr-description');
     expect(text).not.toContain('spec-pr-description');
+    expect(text).not.toContain('__CE_PR_BODY_END__');
+    expect(text).not.toContain('ce-pr-body');
+    expect(text).not.toContain('ce-demo-reel');
     expect(reference).not.toContain('ce-commit-push-pr');
     expect(reference).not.toContain('Compound Engineering');
+    expect(reference).not.toContain('ce-demo-reel');
     expect(text).not.toContain('ask_user` in Gemini');
     expect(text).not.toContain('ask_user` in Pi');
     expect(text).not.toContain('Compound Engineering badge');

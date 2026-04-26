@@ -264,9 +264,8 @@ Assemble the body in this order:
 |---------|--------|---------|
 | Claude Code | `claude` | `D97757` |
 | Codex | (omit logo param) | `000000` |
-| Gemini CLI | `googlegemini` | `4285F4` |
 
-**Model slug:** Replace spaces with underscores. Append context window and thinking level in parentheses if known. Examples: `Opus_4.6_(1M,_Extended_Thinking)`, `Sonnet_4.6_(200K)`, `Gemini_3.1_Pro`.
+**Model slug:** Replace spaces with underscores. Append context window and thinking level in parentheses if known. Examples: `Opus_4.6_(1M,_Extended_Thinking)`, `Sonnet_4.6_(200K)`, `GPT-5.3`.
 
 ---
 

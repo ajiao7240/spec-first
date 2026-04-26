@@ -1,7 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
-- v1.5.9 2026-04-27 01:58:15 leokuang: fix(ce-sync): 根据逐文件复审修正 CE e8c118e2 同步缺口，补齐 code-review best-judgment 终止语义、safe_auto/suggested_fix rubric、tracker tuple 文案、session internal primitive runtime 交付、PR/feature-video 命名与 fresh-source eval 治理，并重建 Codex runtime (user-visible)
+- v1.5.9 2026-04-27 02:33:01 leokuang: docs(spec-write-tasks): 收口 bounded source orientation 分阶段边界，MVP 改为 CRG 优先、targeted direct repo reads 兜底，Serena/LSP 延后为 Phase 2 provider (user-visible)
+- v1.5.9 2026-04-27 02:20:51 leokuang: docs(specs): 按最新 spec-graph-bootstrap 产物优化规范方案，改以 workflow-context/graph-quality 为 CRG evidence 入口，补齐 workspace target handling、evidence-map generation 追踪、MVP-A 输出收敛与 sync/check 信任边界 (user-visible)
+- v1.5.9 2026-04-27 01:58:15 leokuang: fix(ce-sync): 根据逐文件复审修正 CE e8c118e2 同步缺口，删除独立 `spec-pr-description` workflow 并把 PR 写作收回 `git-commit-push-pr` reference，补齐 code-review best-judgment、safe_auto/suggested_fix rubric、tracker tuple、session internal primitive runtime 交付、feature-video 命名与 fresh-source eval 治理，并重建 runtime (user-visible)
 - v1.5.9 2026-04-27 01:57:29 leokuang: feat(crg): 增强 CRG 产物质量算法，新增 generation-scoped graph-quality 报告、retrieval eval/RRF fusion、edge provenance、tsconfig alias resolver、community/flow 元数据与 workflow quality summary 消费面，并同步 graph-bootstrap/README 产物口径 (user-visible)
 - v1.5.9 2026-04-27 00:54:38 leokuang: feat(ce-sync): 按 CE e8c118e2 上游 diff 局部同步 workflow 资产，补齐会话历史 keyword 过滤、frontmatter 校验、PR 反馈 declined、code/doc review best-judgment、PR 描述生成、work host 能力矩阵、feature-video 截图保护与 agent/skill 验证治理，并新增对应 contract/unit 覆盖 (user-visible)
 - v1.5.9 2026-04-27 00:36:49 leokuang: docs(specs): 重写 CRG-first 规范方案为规范资产系统路线，恢复 docs/specs 正式规范源、proposal 草案区、索引与 resolve/promote 分阶段闭环 (user-visible)

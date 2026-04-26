@@ -140,7 +140,7 @@ This release line replaces the older Stage-0 / generated-summary path with a sma
 | Workspace topology | Parent workspaces get discovery/status/context artifacts only; repo-local `graph.db` files stay under explicit child repos. |
 | Task-pack handoff | `spec-write-tasks` is a standalone skill that can derive `docs/tasks/*-tasks.md` from a settled plan; `spec-work` validates task-pack identity, source hash, and `stop_if` before execution. |
 | Entry governance | `using-spec-first` is a standalone meta skill on both hosts. It routes substantial work to public `$spec-*` / `/spec:*` workflows without becoming a workflow command itself. |
-| Runtime delivery | Claude and Codex expose the same 20 workflow entrypoints plus 2 standalone skills, with host-specific installation surfaces and shared agent assets. |
+| Runtime delivery | Claude and Codex expose the same 19 workflow entrypoints plus 2 standalone skills, with host-specific installation surfaces and shared agent assets. |
 
 ### CRG Decision Signals
 
@@ -201,7 +201,7 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 | **Structured Review stage** | 17 reviewer personas plus 2 auxiliary agents produce routed findings (`safe_auto / gated_auto / manual / advisory`), not a single-pass scan |
 | **Compound / knowledge capture** | Solved problems are written to `docs/solutions/` for future workflow retrieval |
 | **Dual platform support** | One methodology across Claude Code (`/spec:*`) and Codex (`$spec-*`). Claude uses a `SessionStart` hook + bare-agent rewrite; Codex uses `.agents/skills/` discovery + explicit `.codex/agents/...` path rewrite |
-| **Capability layer** | Bundled source assets ship with `42` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `20` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `20` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
+| **Capability layer** | Bundled source assets ship with `41` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `19` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `19` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
 | **Runtime governance** | Managed assets are tracked in `state.json` — sync, refresh, recover, and clean safely |
 
 ## Core Workflow
@@ -317,7 +317,7 @@ spec-first clean --claude   # or --codex
 
 `clean` removes everything marked removable in the table above, then prints which platform's managed assets were removed. Custom assets outside the managed set are left untouched. The language policy block must still be removed manually — search for `<!-- spec-first:lang:` in `CLAUDE.md` / `AGENTS.md`.
 Both `init --dry-run` and `clean --dry-run` preview file-level operations derived from the same managed operation plans used by real apply paths, which keeps preview/apply drift narrow and testable.
-Current runtime delivery is host-specific by governance: Claude writes `20` command files, `2` skill directories, `51` agent files; Codex writes `20` workflow skill directories, `2` standalone skill directories, and the same `51` agent files, with no command directory.
+Current runtime delivery is host-specific by governance: Claude writes `19` command files, `2` skill directories, `51` agent files; Codex writes `19` workflow skill directories, `2` standalone skill directories, and the same `51` agent files, with no command directory.
 
 #### Example output
 
@@ -325,7 +325,7 @@ Current runtime delivery is host-specific by governance: Claude writes `20` comm
 $ spec-first init --claude
 
 🪝 Installed Claude SessionStart matcher in .claude/settings.json
-📦 Generated 20 command file(s) in .claude/commands/spec
+📦 Generated 19 command file(s) in .claude/commands/spec
 🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 🪪 Wrote project developer profile:
