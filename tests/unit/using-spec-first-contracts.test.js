@@ -55,6 +55,8 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('$spec-optimize');
     expect(skill).toContain('/spec:plan');
     expect(skill).toContain('$spec-plan');
+    expect(skill).toContain('spec-write-tasks');
+    expect(skill).toContain('not a `/spec:*` or `$spec-*` workflow entrypoint');
     expect(skill).toContain('/spec:work');
     expect(skill).toContain('$spec-work');
   });

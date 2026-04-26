@@ -13,6 +13,7 @@
 想法/机会
   -> 需求定义
   -> 技术方案
+  -> 任务编译（可选）
   -> 开发执行
   -> 代码/文档评审
   -> 知识沉淀
@@ -22,6 +23,7 @@
 
 - `spec-brainstorm` 产出需求文档，回答 **WHAT**。
 - `spec-plan` 产出技术方案，回答 **HOW**。
+- `spec-write-tasks` 在 plan 足够大时把技术方案压缩成派生 task pack，回答 **HOW TO EXECUTE THIS PLAN**。
 - `spec-work` / `spec-work-beta` 执行开发任务，产出代码、测试、提交和验证结果。
 - `spec-doc-review` / `spec-code-review` 分别审查文档和实现。
 - `spec-compound` / `spec-compound-refresh` 把已解决问题沉淀为长期知识。
@@ -36,6 +38,7 @@
 | 想法生成 | 有哪些值得做的方向？ | `spec-ideate` | `docs/ideation/*.md` | `spec-brainstorm` |
 | 需求定义 | 要做什么、为什么做、边界是什么？ | `spec-brainstorm` | `docs/brainstorms/*-requirements.md` | `spec-plan`、`spec-doc-review` |
 | 技术方案 | 怎么做、改哪些模块、怎么验证？ | `spec-plan` | `docs/plans/*-plan.md` | `spec-work`、`spec-code-review`、`spec-doc-review` |
+| 任务编译 | plan 是否需要压缩成可执行 task pack？ | `spec-write-tasks` | `docs/tasks/*-tasks.md` | `spec-work`、`spec-code-review` |
 | 开发执行 | 按方案实现、补测试、验证、交付 | `spec-work` / `spec-work-beta` | 代码变更、测试、提交、`CHANGELOG.md`、plan 状态更新 | `spec-code-review`、PR 流程、`spec-compound` |
 | 文档评审 | 需求/方案是否清晰、完整、可执行？ | `spec-doc-review` | findings、safe_auto 修复、Open Questions、report-only 结论 | `spec-brainstorm`、`spec-plan` |
 | 代码评审 | 实现是否正确、缺测试、偏离方案？ | `spec-code-review` | review report、safe_auto 修复、`.spec-first/workflows/spec:code-review/<run-id>/` | `spec-work`、PR 流程 |
@@ -342,6 +345,7 @@ CRG 图索引
 | --- | --- | --- | --- |
 | 需求文档 | `spec-brainstorm` | `docs/brainstorms/*-requirements.md` | `spec-plan`、`spec-doc-review` |
 | 技术方案 | `spec-plan` | `docs/plans/*-plan.md` | `spec-work`、`spec-code-review`、`spec-doc-review` |
+| 任务编译 | `spec-write-tasks` | `docs/tasks/*-tasks.md` | `spec-work`、`spec-code-review` |
 | 开发任务 | `spec-work` / `spec-work-beta` | 代码 diff、测试、commits、`CHANGELOG.md`、plan completed 状态 | `spec-code-review`、PR 流程、`spec-compound` |
 
 ## 推荐使用顺序
@@ -352,6 +356,7 @@ CRG 图索引
 spec-ideate
   -> spec-brainstorm
   -> spec-plan
+  -> spec-write-tasks (optional)
   -> spec-work
   -> spec-code-review
   -> spec-compound
@@ -363,6 +368,7 @@ spec-ideate
 spec-brainstorm
   -> spec-doc-review
   -> spec-plan
+  -> spec-write-tasks (optional)
   -> spec-work
 ```
 
@@ -371,6 +377,7 @@ spec-brainstorm
 ```text
 spec-plan
   -> spec-doc-review
+  -> spec-write-tasks (optional)
   -> spec-work
   -> spec-code-review
 ```
@@ -426,6 +433,7 @@ spec-compound-refresh
 ```text
 spec-brainstorm 产需求
 spec-plan 产方案
+spec-write-tasks 产执行切片
 spec-work 产实现
 spec-code-review 审实现
 spec-compound 沉淀经验

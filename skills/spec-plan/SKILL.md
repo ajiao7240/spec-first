@@ -836,9 +836,10 @@ After document review and final checks, present this menu using the platform's b
 
 **Options:**
 1. **Start `/spec:work`** (recommended) - Begin implementing this plan in the current session
-2. **Create Issue** - Create a tracked issue from this plan in your configured issue tracker (GitHub or Linear)
-3. **Open in Proof (web app) — review and comment to iterate with the agent** - Open the doc in Every's Proof editor, iterate with the agent via comments, or copy a link to share with others
-4. **Done for now** - Pause; the plan file is saved and can be resumed later
+2. **Compile task pack with `spec-write-tasks`** - Use the standalone skill when the plan is large, dependency-heavy, or would benefit from a derived `docs/tasks/*-tasks.md` execution input
+3. **Create Issue** - Create a tracked issue from this plan in your configured issue tracker (GitHub or Linear)
+4. **Open in Proof (web app) — review and comment to iterate with the agent** - Open the doc in Every's Proof editor, iterate with the agent via comments, or copy a link to share with others
+5. **Done for now** - Pause; the plan file is saved and can be resumed later
 
 Routing each selection, contextual surfacing of residual spec-doc-review findings, and the post-HITL resync logic all live in `references/plan-handoff.md` — follow it for every branch.
 

@@ -185,7 +185,7 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 | **17-persona Review stage** (+ 2 specialist agents) | Produces structured findings routed by `safe_auto / gated_auto / manual / advisory`, not a single-pass scan |
 | **Compound / knowledge capture** | Solved problems are written to `docs/solutions/` for future workflow retrieval |
 | **Dual platform support** | One methodology across Claude Code (`/spec:*`) and Codex (`$spec-*`). Claude uses a `SessionStart` hook + bare-agent rewrite; Codex uses `.agents/skills/` discovery + explicit `.codex/agents/...` path rewrite |
-| **Capability layer** | Bundled source assets ship with `41` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `20` commands + `1` standalone skills on Claude, and `20` workflow skills + `1` standalone skills on Codex, with `51` agents on both hosts |
+| **Capability layer** | Bundled source assets ship with `42` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `20` commands + `2` standalone skills on Claude, and `20` workflow skills + `2` standalone skills on Codex, with `51` agents on both hosts |
 | **Runtime governance** | Managed assets are tracked in `state.json` — sync, refresh, recover, and clean safely |
 
 ## Core Workflow
@@ -212,6 +212,7 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 
 | Stage | Claude Code | Codex | Purpose |
 |-------|-------------|-------|---------|
+| Task compilation | `spec-write-tasks` standalone skill | `spec-write-tasks` standalone skill | Optionally compile a large plan into a derived `docs/tasks/*-tasks.md` task pack before Work |
 | Debug | `/spec:debug` | `$spec-debug` | Reproduce and diagnose an existing bug or failure |
 | Update | `/spec:update` | `$spec-update` | Check spec-first version and refresh host runtime assets |
 | Sessions | `/spec:sessions` | `$spec-sessions` | Search and summarize prior coding agent sessions |
@@ -300,7 +301,7 @@ spec-first clean --claude   # or --codex
 
 `clean` removes everything marked removable in the table above, then prints which platform's managed assets were removed. Custom assets outside the managed set are left untouched. The language policy block must still be removed manually — search for `<!-- spec-first:lang:` in `CLAUDE.md` / `AGENTS.md`.
 Both `init --dry-run` and `clean --dry-run` preview file-level operations derived from the same managed operation plans used by real apply paths, which keeps preview/apply drift narrow and testable.
-Current runtime delivery is host-specific by governance: Claude writes `20` command files, `1` skill directory, `51` agent files; Codex writes `20` workflow skill directories, `1` standalone skill directory, and the same `51` agent files, with no command directory.
+Current runtime delivery is host-specific by governance: Claude writes `20` command files, `2` skill directories, `51` agent files; Codex writes `20` workflow skill directories, `2` standalone skill directories, and the same `51` agent files, with no command directory.
 
 #### Example output
 
@@ -309,7 +310,7 @@ $ spec-first init --claude
 
 🪝 Installed Claude SessionStart matcher in .claude/settings.json
 📦 Generated 20 command file(s) in .claude/commands/spec
-🧩 Generated 1 skill directory(ies) in .claude/skills
+🧩 Generated 2 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 🪪 Wrote project developer profile:
   📍 path: .claude/spec-first/.developer

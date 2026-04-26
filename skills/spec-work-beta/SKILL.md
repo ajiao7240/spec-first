@@ -11,7 +11,7 @@ Execute work efficiently while maintaining quality and finishing features.
 
 ## Introduction
 
-This command takes a work document (plan or specification) or a bare prompt describing the work, and executes it systematically. The focus is on **shipping complete features** by understanding requirements quickly, following existing patterns, and maintaining quality throughout.
+This command takes a work document (plan, task pack, or specification) or a bare prompt describing the work, and executes it systematically. The focus is on **shipping complete features** by understanding requirements quickly, following existing patterns, and maintaining quality throughout.
 
 **Beta rollout note:** Invoke `spec-work-beta` manually when you want to trial Codex delegation. During the beta period, planning and workflow handoffs remain pointed at stable `spec-work` to avoid dual-path orchestration complexity.
 
@@ -75,7 +75,7 @@ Store the resolved state for downstream consumption:
 
 Determine how to proceed based on what was provided in `<input_document>`.
 
-**Plan document** (input is a file path to an existing plan or specification) → skip to Phase 1.
+**Plan or task-pack document** (input is a file path to an existing plan, task pack, or specification) → skip to Phase 1.
 
 **Bare prompt** (input is a description of work, not a file path):
 
@@ -101,7 +101,16 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    - Read the work document completely
    - Treat the plan as a decision artifact, not an execution script
-   - If the plan includes sections such as `Implementation Units`, `Work Breakdown`, `Requirements Trace`, `Files`, `Test Scenarios`, or `Verification`, use those as the primary source material for execution
+   - If the work document includes sections such as `Implementation Units`, `Work Breakdown`, `Requirements Trace`, `Files`, `Test Scenarios`, or `Verification`, use those as the primary source material for execution
+   - If the work document is a task pack, also use `Task Graph`, `Execution Waves`, `Task Cards`, `Validation Notes`, and `Regeneration Rules` as the primary source material for execution
+   - If the work document is a task pack, validate it before creating execution tasks:
+     - read its frontmatter and confirm `type: task-pack`, `generated_by: spec-write-tasks`, `status: derived`, and `mode: derived`
+     - read `source_plan` and treat that plan as the single source of truth for scope, requirements, and non-goals
+     - confirm `source_plan_hash` is a concrete task-relevant `sha256:<64-hex>` hash, not `pending-tooling`, `unknown`, empty, or a draft marker
+     - compare the task pack hash against the current source plan using deterministic hash tooling; if that tooling is unavailable, treat the task pack as unverifiable and stop
+     - reject draft, transient, missing-source, missing-hash, unavailable-hash-tooling, unverifiable-hash, or hash-mismatch task packs before implementation
+     - when rejecting, stop and ask to rerun `spec-write-tasks` from the source plan or return to `spec-plan`; do not silently fall back to executing stale task cards
+     - during execution, honor each task's `stop_if`; if triggered, stop and return to `spec-plan` or regenerate the task pack instead of expanding scope in place
    - Check for `Execution note` on each implementation unit — these carry the plan's execution posture signal for that unit (for example, test-first or characterization-first). Note them when creating tasks.
    - Check for a `Deferred to Implementation` or `Implementation-Time Unknowns` section — these are questions the planner intentionally left for you to resolve during execution. Note them before starting so they inform your approach rather than surprising you mid-task
    - Check for a `Scope Boundaries` section — these are explicit non-goals. Refer back to them if implementation starts pulling you toward adjacent work
@@ -167,6 +176,8 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
 3. **Create Task List** _(skip if Phase 0 already built one, or if Phase 0 routed as Trivial)_
    - Use the platform's task tracking tool (`TaskCreate`/`TaskUpdate`/`TaskList` in Claude Code, `update_plan` in Codex, or the equivalent on other harnesses) to break the plan into actionable tasks
+   - If the input is a validated task pack, derive the task list from `Task Cards` and preserve `task_id`, `dependencies`, `wave`, `files`, `test_focus`, `done_signal`, and `stop_if`
+   - If the input is a task pack, do not create execution tasks until the task-pack validation checks above have passed
    - Derive tasks from the plan's implementation units, dependencies, files, test targets, and verification criteria
    - When the plan defines U-IDs for Implementation Units, preserve the unit's U-ID as a prefix in the task subject (e.g., "U3: Add parser coverage"). This keeps blocker references, deferred-work notes, and final summaries anchored to the same identifier the plan uses, so progress and traceability remain unambiguous across plan edits
    - Carry each unit's `Execution note` into the task when present
