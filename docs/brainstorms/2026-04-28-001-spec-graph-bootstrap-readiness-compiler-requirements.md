@@ -72,7 +72,7 @@ spec_id: 2026-04-28-001-spec-graph-bootstrap-readiness-compiler
 **Responsibility Boundary**
 
 - R1. `spec-graph-bootstrap` 只负责项目级 graph bootstrap readiness 编译：读取 `mcp-setup` 产物，运行 configured graph providers，沉淀 provider status、canonical graph facts、impact capabilities 和 bootstrap report。
-- R2. `spec-graph-bootstrap` 必须读取并校验 `.spec-first`、host readiness ledger v2、`.spec-first/config/graph-providers.json`、`.spec-first/config/runtime-capabilities.json` 和 `.spec-first/config/provider-artifacts.json`；缺失或 schema 不受支持时输出 action-required / blocked facts。
+- R2. `spec-graph-bootstrap` 必须读取并校验 `.spec-first`、host readiness ledger v2、`.spec-first/config/graph-providers.json`、`.spec-first/config/runtime-capabilities.json` 和 `.spec-first/config/provider-artifacts.json`；`provider-artifacts.json` 由 `spec-mcp-setup` 生成，`spec-graph-bootstrap` 不负责创建该文件，缺失或 schema 不受支持时必须 fail closed，并提示重新运行 `spec-mcp-setup`。
 - R3. `baseline_ready=false`、repo 不可读、`.spec-first` 缺失或 required config 缺失时必须 fail closed：不执行 provider bootstrap，不伪造任何 provider `query_ready`，并写 blocked / setup-not-ready facts。
 - R4. `spec-graph-bootstrap` 不得安装工具、修改 MCP host config、生成 glue-contract、生成 context-pack、生成 task 级 impact-facts、生成 review-evidence、直接修改业务代码，或恢复内置 CRG runtime；`code-review-graph` 只表示 external provider command / MCP provider，不表示 `src/crg/`、旧 `spec-first crg` 或旧 graph.db 生命周期。
 
@@ -80,13 +80,13 @@ spec_id: 2026-04-28-001-spec-graph-bootstrap-readiness-compiler
 
 - R5. 当 GitNexus configured / enabled / setup ready 时，脚本必须在 repo root 执行 `npx -y gitnexus@latest analyze`，写 `.spec-first/providers/gitnexus/raw/analyze.log`，并捕获 status probe / command output 到 `.spec-first/providers/gitnexus/raw/status.log`。
 - R6. 当 external `code-review-graph` configured / enabled / setup ready 时，脚本必须在 repo root 执行 `uvx code-review-graph build`，写 `.spec-first/providers/code-review-graph/raw/build.log`，并捕获 status probe / command output 到 `.spec-first/providers/code-review-graph/raw/status.log`。
-- R7. `query_ready` 只能来自真实 provider command/probe 成功结果；失败、跳过、前置缺失或不确定状态必须保持 `query_ready=false`，并写明确 diagnostic、confidence 和 limitation。
+- R7. `query_ready` 必须由 bootstrap command 与 provider status/query probe 共同决定，只能来自真实 provider command/probe 成功结果；若 command 成功但无法验证 query readiness，状态必须为 `query-unverified` 或 `query_ready=false`，并写明确 diagnostic、confidence 和 limitation。失败、跳过、前置缺失或不确定状态必须保持 `query_ready=false`。
 - R8. 每个 provider 必须写独立 `status.json`，至少包含 provider name、configured/enabled/setup readiness、command、exit code、status、query_ready、confidence、limitations、generated_at、raw log paths 和 normalized artifact paths。
 
 **Provider Projection Paths**
 
 - R9. provider-specific artifacts 必须统一落在 `.spec-first/providers/<provider>/` 下，按 `raw/`、`normalized/` 和 provider-level `status.json` 分层；不得继续新增 `.spec-first/graph/raw/<provider>/` 这种旧路径。
-- R10. normalized provider artifacts 必须至少包含 GitNexus 的 `.spec-first/providers/gitnexus/normalized/architecture-facts.json` / `.spec-first/providers/gitnexus/normalized/reuse-candidates.json`，以及 `code-review-graph` 的 `.spec-first/providers/code-review-graph/normalized/impact-capabilities.json`；第一版可以保守抽取 status、capability、artifact pointer、available query surfaces、confidence 和 limitations，但不得凭空生成未由 provider 输出或项目事实支持的语义结论。
+- R10. normalized provider artifacts 必须至少包含 GitNexus 的 `.spec-first/providers/gitnexus/normalized/architecture-facts.json` / `.spec-first/providers/gitnexus/normalized/reuse-candidates.json`，以及 `code-review-graph` 的 `.spec-first/providers/code-review-graph/normalized/impact-capabilities.json`；第一版允许这些文件是 conservative capability envelope，只抽取 status、capability、artifact pointer、available query surfaces、confidence 和 limitations，不得编造 architecture facts、reuse candidates 或 impact facts，也不得凭空生成未由 provider 输出或项目事实支持的语义结论。
 
 **Canonical Project Artifacts**
 
@@ -102,23 +102,24 @@ spec_id: 2026-04-28-001-spec-graph-bootstrap-readiness-compiler
 
 **Workflow Mode**
 
-- R17. `workflow_mode` 判定必须遵循：GitNexus 和 `code-review-graph` 均 `query_ready=true` 时为 `primary`；任一 primary provider 失败但 Serena + `ast-grep` fallback facts ready 时为 `degraded-fallback`；`baseline_ready=false` 时为 `setup-not-ready` 或 `blocked`；repo / `.spec-first` / required config 不可用时为 `blocked`。`degraded-fallback` 不代表失败，默认允许后续 workflow 继续，但 canonical artifacts 和 report 必须写 confidence / limitations。
+- R17. `workflow_mode` 判定必须遵循：GitNexus 和 `code-review-graph` 均 `query_ready=true` 时为 `primary`；任一 primary provider 失败但 Serena + `ast-grep` fallback facts ready 时为 `degraded-fallback`；`baseline_ready=false` 时为 `setup-not-ready`；repo / `.spec-first` / required config / schema 缺失或不可读时为 `blocked`。fallback readiness 必须从 `runtime-capabilities.json` 中 machine-readable Serena / `ast-grep` readiness 字段读取，不得通过自然语言推断。`degraded-fallback` 不代表失败，默认允许后续 workflow 继续，但 canonical artifacts 和 report 必须写 confidence / limitations。
 
 **Skill, Tests, And Documentation**
 
 - R18. `skills/spec-graph-bootstrap/SKILL.md`、`bootstrap-providers.sh` 和 `bootstrap-providers.ps1` 必须对齐项目级 Graph Readiness Compiler 职责边界，并保持 shell / PowerShell 行为等价，覆盖 repo root resolve、baseline gate、provider execution、raw log 写入、status 写入、canonical artifact 聚合、config update 和 workflow_mode 判定。
-- R19. 必须补充 `tests/unit/spec-graph-bootstrap.sh` 或等价单测，并更新 README / 当前用户文档 / `CHANGELOG.md`；测试至少覆盖 baseline blocked、primary success、provider failure + fallback ready、路径统一、no fake query_ready、config update 和 report 生成。
+- R19. 必须补充 `tests/unit/spec-graph-bootstrap.sh` 或等价单测，并更新 README / 当前用户文档 / `CHANGELOG.md`；测试至少覆盖 baseline blocked、primary success、provider failure + fallback ready、路径统一、no fake query_ready、config update 和 report 生成；测试入口必须接入 `package.json` / CI test script，确保 `spec-graph-bootstrap` 单测实际运行。
 
 ---
 
 ## Acceptance Examples
 
-- AE1. **Covers R2, R3, R17.** Given host ledger v2 exists but `baseline_ready=false`, when `bootstrap-providers.sh` runs, then neither provider command is executed, provider `query_ready` remains false, report says setup is not ready, and `workflow_mode` is `setup-not-ready` or `blocked`.
-- AE2. **Covers R5, R6, R8, R10, R11, R12, R13, R14, R15, R16, R17.** Given both providers are configured and their build commands exit 0, when bootstrap completes, then raw logs exist under `.spec-first/providers/**/raw/`, provider `status.json` files exist, canonical artifacts exist, graph-providers/runtime-capabilities are updated, and `workflow_mode=primary`.
-- AE3. **Covers R7, R17.** Given GitNexus succeeds, `code-review-graph build` fails, and Serena + `ast-grep` fallback facts are ready, when bootstrap completes, then `code-review-graph.query_ready=false`, `workflow_mode=degraded-fallback`, and all canonical artifacts include confidence / limitations rather than claiming full impact readiness.
+- AE1. **Covers R2, R3, R17.** Given host ledger v2 exists but `baseline_ready=false`, when `bootstrap-providers.sh` runs, then neither provider command is executed, provider `query_ready` remains false, report says setup is not ready, and `workflow_mode=setup-not-ready`; given repo/config/schema is missing or unreadable, then `workflow_mode=blocked`.
+- AE2. **Covers R5, R6, R7, R8, R10, R11, R12, R13, R14, R15, R16, R17.** Given both providers are configured and their build commands exit 0 and query probes verify readiness, when bootstrap completes, then raw logs exist under `.spec-first/providers/**/raw/`, provider `status.json` files exist, canonical artifacts exist, graph-providers/runtime-capabilities are updated, and `workflow_mode=primary`.
+- AE3. **Covers R7, R17.** Given GitNexus succeeds, `code-review-graph build` fails, and machine-readable Serena + `ast-grep` fallback facts in `runtime-capabilities.json` are ready, when bootstrap completes, then `code-review-graph.query_ready=false`, `workflow_mode=degraded-fallback`, and all canonical artifacts include confidence / limitations rather than claiming full impact readiness.
 - AE4. **Covers R9, R10.** Given bootstrap writes provider evidence, when the output tree is inspected, then provider raw and normalized files are under `.spec-first/providers/<provider>/...` and no new provider raw evidence is written under `.spec-first/graph/raw/<provider>/`.
 - AE5. **Covers R15, R16.** Given repeated bootstrap after previous success, when provider setup remains ready, then `graph-providers.json` preserves accurate query readiness and refreshes bootstrap timestamps/status without changing setup-only ownership facts into host setup facts.
 - AE6. **Covers R1, R4.** Given bootstrap runs in a repo with external providers ready, when file changes are inspected, then no MCP host config is modified, no `src/crg/` or old CRG runtime path is recreated, and no task-level glue/context/review artifacts are generated.
+- AE7. **Covers R19.** Given the new graph-bootstrap unit test exists, when the repository test scripts are inspected, then the test is reachable from `package.json` and CI so it cannot be bypassed by normal validation.
 
 ---
 
@@ -157,9 +158,9 @@ spec_id: 2026-04-28-001-spec-graph-bootstrap-readiness-compiler
 ## Dependencies / Assumptions
 
 - `spec-mcp-setup` remains the source of host ledger v2 and `.spec-first/config/graph-providers.json`.
-- `.spec-first/config/runtime-capabilities.json` and `.spec-first/config/provider-artifacts.json` are expected by this design, but the current repo scan only confirmed `graph-providers.json`; planning must verify or define their source of truth before implementation.
+- `.spec-first/config/runtime-capabilities.json` and `.spec-first/config/provider-artifacts.json` are expected by this design. `provider-artifacts.json` is owned by `spec-mcp-setup`; planning must verify or define its schema before implementation, not move ownership to `spec-graph-bootstrap`.
 - Provider command availability is established by `mcp-setup`; `spec-graph-bootstrap` can report missing commands as action-required but should not install them.
-- Fallback readiness depends on machine-readable Serena and `ast-grep` facts being available from existing setup/runtime capability artifacts.
+- Fallback readiness depends on machine-readable Serena and `ast-grep` facts being available from `runtime-capabilities.json`; natural-language setup output is not a valid fallback readiness source.
 - PowerShell parity is required because current bootstrap already has `.sh` and `.ps1` implementations.
 
 ---
@@ -168,8 +169,8 @@ spec_id: 2026-04-28-001-spec-graph-bootstrap-readiness-compiler
 
 ### Deferred to Planning
 
-- [Affects R2][Technical] Confirm the intended schema and writer for `.spec-first/config/provider-artifacts.json`; if absent today, decide whether this change adds it to `spec-mcp-setup` or makes `spec-graph-bootstrap` fail closed until it exists.
-- [Affects R16, R17][Technical] Confirm where Serena and `ast-grep` fallback readiness facts live in `runtime-capabilities.json`, and whether `spec-mcp-setup` must add any missing fields.
+- [Affects R2][Technical] Confirm the intended schema for `.spec-first/config/provider-artifacts.json` and the exact `spec-mcp-setup` writer change if the file is absent today.
+- [Affects R16, R17][Technical] Confirm the exact machine-readable Serena and `ast-grep` readiness field names in `runtime-capabilities.json`, and the `spec-mcp-setup` writer change if those fields are absent today.
 - [Affects R7, R8][Technical] Define provider status probe commands and minimal success conditions after `gitnexus analyze` / `code-review-graph build`, so `query_ready` is not based solely on process exit when that would be insufficient.
 - [Affects R10][Technical] Define the conservative normalized artifact schema for architecture facts, reuse candidates, and impact capabilities without requiring semantic extraction that belongs to LLM workflows.
 - [Affects R19][Technical] Decide test strategy for shell/PowerShell parity: fixture fake commands, temp repo config, and expected output tree assertions.
