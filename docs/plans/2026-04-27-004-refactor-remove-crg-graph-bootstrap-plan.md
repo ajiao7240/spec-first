@@ -1,7 +1,7 @@
 ---
 title: refactor: Remove internal CRG and graph-bootstrap workflow
 type: refactor
-status: active
+status: completed
 date: 2026-04-27
 spec_id: 2026-04-27-004-remove-crg-graph-bootstrap
 ---

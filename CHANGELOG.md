@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-27 22:53:09 leokuang: docs(plans): 标记 CRG 删除与 graph-bootstrap 退役实施计划完成，并完成真实测试、打包和安装验证收口 (user-visible)
 - v1.6.0 2026-04-27 22:44:43 leokuang: refactor(graph): breaking change，移除内置 CRG runtime、graph-bootstrap workflow、`spec-first crg`、`graph.db` 主路径、CRG native dependencies 和旧 CRG 正向测试，当前 workflow 改用 direct repo reads、task packs、diffs 与 tests 获取上下文 (user-visible)
 - v1.6.0 2026-04-27 21:54:41 leokuang: docs(plans): 按最终审查意见补强 CRG 删除方案，新增 CHANGELOG breaking-change 验收、README 当前替代路径，并将 summarizeChangeSurface 默认决策为随 CRG 删除 (user-visible)
 - v1.6.0 2026-04-27 21:42:02 leokuang: docs(plans): 按审查意见收紧 CRG 删除方案，禁止本 PR 新增 graph provider readiness，固定 artifact helper 迁移路径，并补强 init/clean、postinstall、AI Dev Gate rename、负向扫描与文档 superseded 约束 (user-visible)
