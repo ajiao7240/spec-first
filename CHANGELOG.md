@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.9 2026-04-27 09:00:15 leokuang: docs(specs): 为 spec-standards MVP-A 补齐 Proposal Payload Contract，明确 LLM 到 write-proposal helper 的机器可校验交接格式、写入映射和确定性校验边界 (user-visible)
 - v1.5.9 2026-04-27 08:49:46 leokuang: fix(spec-write-tasks): 根据 code review 补强 task pack fail-closed 校验、JSON 错误输出、final decision envelope 与 orientation evidence 契约覆盖 (user-visible)
 - v1.5.9 2026-04-27 07:17:42 leokuang: docs(ce-sync): 将本轮 CE 同步复盘沉淀为常态化升级协议 v2，补齐起始节点输入、逐文件 diff 取证、删除审计、PR description gap audit、runtime 重建与审查报告模板 (user-visible)
 - v1.5.9 2026-04-27 03:03:00 leokuang: fix(spec-write-tasks): 审查后补强 task pack validator 的 execution wave 一致性与依赖波次校验，支持 `--repo <path>` 参数形式，并补齐 missing-identity 覆盖与 schema 字段遗漏 (user-visible)
