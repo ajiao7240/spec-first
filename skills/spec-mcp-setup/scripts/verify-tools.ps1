@@ -85,6 +85,42 @@ $combined | ConvertTo-Json -Depth 10 | Set-Content -Encoding utf8 $combinedTmp
 $providerResult = & (Join-Path $ScriptDir 'write-provider-config.ps1') -FactsFile $combinedTmp | ConvertFrom-Json
 $combined.repo_config_status = $providerResult.repo_config_status
 $combined.repo_config_path = $providerResult.repo_config_path
+$combined.graph_bootstrap_required = if ($providerResult.PSObject.Properties.Name -contains 'graph_bootstrap_required') { [bool]$providerResult.graph_bootstrap_required } else { $true }
+
+if ($providerResult.PSObject.Properties.Name -contains 'providers' -and $null -ne $providerResult.providers) {
+  foreach ($property in $providerResult.providers.PSObject.Properties) {
+    $provider = $property.Value
+    if ($combined.tools.PSObject.Properties.Name -contains $property.Name) {
+      $tool = $combined.tools.PSObject.Properties[$property.Name].Value
+      $tool.query_ready = [bool]$provider.query_ready
+      $tool.bootstrap_required = [bool]$provider.bootstrap_required
+      $tool.next_action = if ($provider.PSObject.Properties.Name -contains 'next_action') { $provider.next_action } else { '' }
+    }
+    if ($combined.graph_providers.PSObject.Properties.Name -contains $property.Name) {
+      $graphProvider = $combined.graph_providers.PSObject.Properties[$property.Name].Value
+      $graphProvider.query_ready = [bool]$provider.query_ready
+      $graphProvider.bootstrap_required = [bool]$provider.bootstrap_required
+      $graphProvider.next_action = if ($provider.PSObject.Properties.Name -contains 'next_action') { $provider.next_action } else { '' }
+    }
+  }
+}
+$filteredNextActions = New-Object System.Collections.Generic.List[string]
+foreach ($action in @($combined.next_actions)) {
+  if (
+    -not [string]::IsNullOrWhiteSpace($action) -and
+    $action -ne 'run spec-graph-bootstrap' -and
+    $action -ne 'enter a git repo and run spec-graph-bootstrap' -and
+    -not $filteredNextActions.Contains($action)
+  ) {
+    $filteredNextActions.Add($action)
+  }
+}
+if ($combined.repo_status -eq 'not-git-repo' -and -not $filteredNextActions.Contains('enter a git repo and run spec-graph-bootstrap')) {
+  $filteredNextActions.Add('enter a git repo and run spec-graph-bootstrap')
+} elseif ($combined.baseline_ready -and $combined.graph_bootstrap_required -and -not $filteredNextActions.Contains('run spec-graph-bootstrap')) {
+  $filteredNextActions.Add('run spec-graph-bootstrap')
+}
+$combined.next_actions = @($filteredNextActions)
 
 $combined | ConvertTo-Json -Depth 10 | Set-Content -Encoding utf8 $finalTmp
 Move-Item -Force $finalTmp $MarkerPath
@@ -95,6 +131,8 @@ function Format-Cell {
   if ($null -eq $Value) { return 'n/a' }
   $text = [string]$Value
   if ([string]::IsNullOrWhiteSpace($text)) { return 'n/a' }
+  if ($text -eq 'not-applicable') { return 'n/a' }
+  if ($text -eq 'fallback-active') { return 'fallback' }
   return $text
 }
 
@@ -123,7 +161,7 @@ function Write-StatusRow {
     [string]$Query,
     [string]$Next
   )
-  Write-Host ("  {0,-24} {1,-16} {2,-8} {3,-16} {4,-16} {5,-16} {6,-10} {7}" -f $Name, $Type, $Required, $Dependency, $HostConfig, $Project, $Query, $Next)
+  Write-Host ("| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} |" -f $Name, $Type, $Required, $Dependency, $HostConfig, $Project, $Query, $Next)
 }
 
 Write-Host "📝 宿主就绪标记已更新: $MarkerPath"
@@ -133,8 +171,8 @@ Write-Host '🧩 Graph providers are configured but not query-ready yet.'
 Write-Host '✅ readiness ledger v2 已写入'
 Write-Host ''
 Write-Host 'Required Harness Runtime status:'
-Write-StatusRow 'Name' 'Type' 'Required' 'Dependency' 'Host' 'Project' 'Query' 'Next'
-Write-StatusRow '----' '----' '--------' '----------' '----' '-------' '-----' '----'
+Write-Host '| Name | Type | Required | Dependency | Host | Project | Query | Next |'
+Write-Host '| --- | --- | --- | --- | --- | --- | --- | --- |'
 foreach ($property in $combined.tools.PSObject.Properties) {
   $tool = $property.Value
   Write-StatusRow `
@@ -159,7 +197,7 @@ foreach ($property in $combined.helper_tools.PSObject.Properties) {
     'n/a' `
     (Format-Cell $helper.next_action)
 }
-$projectionNext = if ($combined.repo_config_status -eq 'ready') { '' } else { 'write provider projection' }
+$projectionNext = if ($combined.repo_config_status -eq 'ready' -or $combined.repo_config_status -eq 'written') { '' } else { 'write provider projection' }
 Write-StatusRow `
   'graph-providers.json' `
   'project' `
@@ -189,15 +227,15 @@ switch ($combined.host) {
 }
 
 Write-Host ''
-Write-Host 'Next steps:'
+Write-Host '下一步:'
 if ($combined.baseline_ready) {
   if ($combined.graph_bootstrap_required) {
-    Write-Host "  1. Continue graph bootstrap: run $graphCommand, or reply `"继续完成`" and the agent should run it."
-    Write-Host "  2. Restart $hostDisplay or start a new session before relying on the newly written MCP config in downstream workflows."
+    Write-Host "  1. 建议先重启 $hostDisplay 或新开会话，让新写入的 MCP 配置被宿主加载。"
+    Write-Host "  2. 然后运行 $graphCommand；如果当前 agent 判断只需调用确定性 bootstrap 脚本，也可以在本会话直接回复“继续完成”，但下游 workflow 前仍要重启或新开会话。"
   } else {
-    Write-Host "  1. Restart $hostDisplay or start a new session before relying on the newly written MCP config in downstream workflows."
+    Write-Host "  1. 重启 $hostDisplay 或新开会话后，再依赖新的 MCP 配置运行下游 workflow。"
   }
 } else {
-  Write-Host "  1. Resolve the action-required rows above, then rerun $setupCommand."
-  Write-Host "  2. Restart $hostDisplay after all rows are ready so the newly written MCP config is loaded."
+  Write-Host "  1. 先处理表格中的 action-required 行，然后重新运行 $setupCommand。"
+  Write-Host "  2. 全部 ready 后重启 $hostDisplay 或新开会话，让新写入的 MCP 配置被宿主加载。"
 }

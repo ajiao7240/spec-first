@@ -1,9 +1,0 @@
-{
-  "schema_version": "crg-work-run/v1",
-  "run_id": "work-20260426135815854",
-  "generated_at": "2026-04-26T13:58:15.854Z",
-  "work_start_ref": "1d4131a06348ff9c6568c74b329edb31f2bfa111",
-  "plan": "/Users/kuang/xiaobu/spec-first/docs/plans/2026-04-26-003-feat-crg-workspace-topology-plan.md",
-  "task_pack": null,
-  "planned_surface_source": "plan"
-}

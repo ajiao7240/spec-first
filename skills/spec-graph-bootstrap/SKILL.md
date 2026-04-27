@@ -8,7 +8,7 @@ argument-hint: ""
 
 Use this workflow after `/spec:mcp-setup` or `$spec-mcp-setup` reports `baseline_ready=true`.
 
-This workflow owns project graph construction. `spec-mcp-setup` only installs/configures the harness runtime and writes `.spec-first/config/graph-providers.json` with `query_ready=false`; it must not run graph builds.
+This workflow owns project graph construction. `spec-mcp-setup` only installs/configures the harness runtime and writes `.spec-first/config/graph-providers.json`; it must not run graph builds. First-time setup writes providers with `query_ready=false`. Repeated setup may preserve `query_ready=true` when a previous bootstrap is still valid and the provider setup remains ready.
 
 ## Contract
 

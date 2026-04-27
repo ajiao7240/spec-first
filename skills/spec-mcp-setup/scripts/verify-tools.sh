@@ -64,11 +64,54 @@ PROVIDER_RESULT="$(bash "$SCRIPT_DIR/write-provider-config.sh" --facts-file "$co
 jq --argjson provider "$PROVIDER_RESULT" \
   '.repo_config_status = ($provider.repo_config_status // "unknown")
    | .repo_config_path = ($provider.repo_config_path // null)
-   | if .repo_status == "not-git-repo" then
-       .next_actions = ((.next_actions + ["enter a git repo and run spec-graph-bootstrap"]) | unique)
-     else
-       .
-     end' "$combined_tmp" > "$final_tmp"
+   | .graph_bootstrap_required = (
+       if ($provider | has("graph_bootstrap_required")) then
+         ($provider.graph_bootstrap_required == true)
+       else
+         (.graph_bootstrap_required // true)
+       end
+     )
+   | ($provider.providers // {}) as $providers
+   | reduce ($providers | to_entries[]) as $provider_entry (.;
+       if (.tools[$provider_entry.key]? != null) then
+         .tools[$provider_entry.key].query_ready = ($provider_entry.value.query_ready // false)
+         | .tools[$provider_entry.key].bootstrap_required = (
+             if ($provider_entry.value | has("bootstrap_required")) then
+               ($provider_entry.value.bootstrap_required == true)
+             else
+               true
+             end
+           )
+         | .tools[$provider_entry.key].next_action = ($provider_entry.value.next_action // "")
+       else
+         .
+       end
+       | if (.graph_providers[$provider_entry.key]? != null) then
+         .graph_providers[$provider_entry.key].query_ready = ($provider_entry.value.query_ready // false)
+         | .graph_providers[$provider_entry.key].bootstrap_required = (
+             if ($provider_entry.value | has("bootstrap_required")) then
+               ($provider_entry.value.bootstrap_required == true)
+             else
+               true
+             end
+           )
+         | .graph_providers[$provider_entry.key].next_action = ($provider_entry.value.next_action // "")
+       else
+         .
+       end
+     )
+   | .next_actions = (
+       ((.next_actions // []) | map(select(. != "run spec-graph-bootstrap" and . != "enter a git repo and run spec-graph-bootstrap")))
+       + (if .repo_status == "not-git-repo" then
+            ["enter a git repo and run spec-graph-bootstrap"]
+          elif (.baseline_ready == true and .graph_bootstrap_required == true) then
+            ["run spec-graph-bootstrap"]
+          else
+            []
+          end)
+       | map(select(. != ""))
+       | unique
+     )' "$combined_tmp" > "$final_tmp"
 
 mv "$final_tmp" "$MARKER_PATH"
 
@@ -79,15 +122,19 @@ echo "🧩 Graph providers are configured but not query-ready yet."
 echo "✅ readiness ledger v2 已写入"
 echo ""
 echo "Required Harness Runtime status:"
-printf "  %-24s %-16s %-8s %-16s %-16s %-16s %-10s %s\n" "Name" "Type" "Required" "Dependency" "Host" "Project" "Query" "Next"
-printf "  %-24s %-16s %-8s %-16s %-16s %-16s %-10s %s\n" "----" "----" "--------" "----------" "----" "-------" "-----" "----"
+echo "| Name | Type | Required | Dependency | Host | Project | Query | Next |"
+echo "| --- | --- | --- | --- | --- | --- | --- | --- |"
 jq -r '
   def display($value):
-    if ($value == null or $value == "") then "n/a" else ($value | tostring) end;
+    if ($value == null or $value == "" or $value == "not-applicable") then "n/a"
+    elif $value == "fallback-active" then "fallback"
+    else ($value | tostring) end;
   def required($value):
     if $value == true then "yes" elif $value == false then "no" else "n/a" end;
   def query($value):
     if $value == true then "ready" elif $value == false then "pending" else "n/a" end;
+  def markdown_row:
+    "| \(.name) | \(.type) | \(.required) | \(.dependency) | \(.host) | \(.project) | \(.query) | \(.next) |";
   [
     (.tools // {} | to_entries[] | {
       name: .key,
@@ -117,7 +164,7 @@ jq -r '
       host: null,
       project: .repo_config_status,
       query: null,
-      next: (if .repo_config_status == "ready" then "" else "write provider projection" end)
+      next: (if (.repo_config_status == "ready" or .repo_config_status == "written") then "" else "write provider projection" end)
     }
   ][]
   | [
@@ -130,10 +177,18 @@ jq -r '
       query(.query),
       display(.next)
     ]
-  | @tsv
-' "$MARKER_PATH" | while IFS=$'\t' read -r name type required dependency host project query next; do
-  printf "  %-24s %-16s %-8s %-16s %-16s %-16s %-10s %s\n" "$name" "$type" "$required" "$dependency" "$host" "$project" "$query" "$next"
-done
+    | {
+      name: .[0],
+      type: .[1],
+      required: .[2],
+      dependency: .[3],
+      host: .[4],
+      project: .[5],
+      query: .[6],
+      next: .[7]
+    }
+    | markdown_row
+' "$MARKER_PATH"
 
 host_name="$(jq -r '.host // "unknown"' "$MARKER_PATH")"
 baseline_ready="$(jq -r '.baseline_ready // false' "$MARKER_PATH")"
@@ -157,15 +212,15 @@ case "$host_name" in
 esac
 
 echo ""
-echo "Next steps:"
+echo "下一步:"
 if [ "$baseline_ready" = "true" ]; then
   if [ "$graph_bootstrap_required" = "true" ]; then
-    echo "  1. Continue graph bootstrap: run ${graph_command}, or reply \"继续完成\" and the agent should run it."
-    echo "  2. Restart ${host_display} or start a new session before relying on the newly written MCP config in downstream workflows."
+    echo "  1. 建议先重启 ${host_display} 或新开会话，让新写入的 MCP 配置被宿主加载。"
+    echo "  2. 然后运行 ${graph_command}；如果当前 agent 判断只需调用确定性 bootstrap 脚本，也可以在本会话直接回复“继续完成”，但下游 workflow 前仍要重启或新开会话。"
   else
-    echo "  1. Restart ${host_display} or start a new session before relying on the newly written MCP config in downstream workflows."
+    echo "  1. 重启 ${host_display} 或新开会话后，再依赖新的 MCP 配置运行下游 workflow。"
   fi
 else
-  echo "  1. Resolve the action-required rows above, then rerun ${setup_command}."
-  echo "  2. Restart ${host_display} after all rows are ready so the newly written MCP config is loaded."
+  echo "  1. 先处理表格中的 action-required 行，然后重新运行 ${setup_command}。"
+  echo "  2. 全部 ready 后重启 ${host_display} 或新开会话，让新写入的 MCP 配置被宿主加载。"
 fi

@@ -63,7 +63,7 @@ It must not run:
 - `uvx code-review-graph build`
 - the retired internal graph CLI
 
-Graph construction is owned by `spec-graph-bootstrap`.
+Graph construction is owned by `spec-graph-bootstrap`. Re-running setup must not force graph bootstrap again when the existing provider projection is already query-ready and the current provider setup is still ready.
 
 ## Project Preflight
 
@@ -226,7 +226,7 @@ Then it computes one final readiness ledger:
 
 `baseline_ready` includes required MCP tools, graph providers, and every required helper in `helper_tools`. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph bootstrap is still required.
 
-After setup, graph-provider facts must only show:
+On a first setup, graph-provider facts show:
 
 ```json
 {
@@ -236,6 +236,14 @@ After setup, graph-provider facts must only show:
   "bootstrap_required": true
 }
 ```
+
+On repeated setup, reinstall, or post-upgrade verification, `write-provider-config.*` preserves an existing provider's `query_ready=true` / `bootstrap_required=false` when:
+
+- `.spec-first/config/graph-providers.json` is schema `graph-providers.v1` for the same repo;
+- the same provider is still present;
+- the current dependency and host config are ready.
+
+If a provider is missing, uninstalled, or no longer configured, setup must not preserve query readiness; it should mark the provider as requiring action or bootstrap again. This keeps repeated runs idempotent without hiding real uninstall or broken-config cases.
 
 ## Provider Projection
 
@@ -277,32 +285,22 @@ Uninstall does not delete `agent-browser`, external caches, or the project proje
 
 ## Success Summary
 
-When setup finishes, display a final status table sourced from readiness ledger v2, followed by a short friendly next-step prompt. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending.
+When setup finishes, display a Markdown status table sourced from readiness ledger v2, followed by a short friendly next-step prompt. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending.
 
 ```text
 Required Harness Runtime is ready; graph bootstrap is still pending.
 
 Required Harness Runtime status:
-  Name                     Type             Required Dependency       Host             Project          Query      Next
-  ----                     ----             -------- ----------       ----             -------          -----      ----
-  serena                   mcp              yes      ready            ready            ready            n/a        n/a
-  sequential-thinking      mcp              yes      ready            ready            n/a              n/a        n/a
-  context7                 mcp              yes      ready            ready            n/a              n/a        n/a
-  gitnexus                 graph-provider   yes      ready            ready            n/a              pending    run spec-graph-bootstrap
-  code-review-graph        graph-provider   yes      ready            ready            n/a              pending    run spec-graph-bootstrap
-  agent-browser            helper           yes      ready            n/a              n/a              n/a        n/a
-  gh                       helper           yes      ready            n/a              n/a              n/a        n/a
-  jq                       helper           yes      ready            n/a              n/a              n/a        n/a
-  vhs                      helper           yes      ready            n/a              n/a              n/a        n/a
-  silicon                  helper           yes      ready            n/a              n/a              n/a        n/a
-  ffmpeg                   helper           yes      ready            n/a              n/a              n/a        n/a
-  ast-grep                 helper           yes      ready            n/a              n/a              n/a        n/a
-  ast-grep-skill           global-skill     yes      ready            n/a              n/a              n/a        n/a
-  graph-providers.json     project          yes      n/a              n/a              ready            n/a        n/a
+| Name | Type | Required | Dependency | Host | Project | Query | Next |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| serena | mcp | yes | ready | ready | ready | n/a | n/a |
+| gitnexus | graph-provider | yes | ready | ready | n/a | pending | run spec-graph-bootstrap |
+| code-review-graph | graph-provider | yes | ready | ready | n/a | pending | run spec-graph-bootstrap |
+| graph-providers.json | project | yes | n/a | n/a | written | n/a | n/a |
 
-Next steps:
-  1. Continue graph bootstrap: run /spec:graph-bootstrap or $spec-graph-bootstrap, or reply "继续完成" and the agent should run it.
-  2. Restart Claude Code/Codex or start a new session before relying on the newly written MCP config in downstream workflows.
+下一步:
+  1. 建议先重启 Claude Code/Codex 或新开会话，让新写入的 MCP 配置被宿主加载。
+  2. 然后运行 /spec:graph-bootstrap 或 $spec-graph-bootstrap；如果当前 agent 判断只需调用确定性 bootstrap 脚本，也可以在本会话直接回复“继续完成”，但下游 workflow 前仍要重启或新开会话。
 ```
 
 ## Reference

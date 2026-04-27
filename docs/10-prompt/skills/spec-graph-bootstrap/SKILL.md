@@ -2,7 +2,7 @@
 
 > 镜像用途：记录 external graph provider bootstrap 的当前架构语义。源码真相源仍是 `skills/spec-graph-bootstrap/SKILL.md`。
 
-`spec-graph-bootstrap` 在 `spec-mcp-setup` 之后运行，负责真正构建项目图谱。
+`spec-graph-bootstrap` 在 `spec-mcp-setup` 之后运行，负责真正构建项目图谱。首次 setup 会把 provider projection 写成 `query_ready=false`；重复 setup 在 provider 仍 ready 时可以保留既有 `query_ready=true`。
 
 它读取：
 

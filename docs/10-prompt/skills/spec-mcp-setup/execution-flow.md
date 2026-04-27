@@ -41,16 +41,19 @@ verify-tools.*
   |-- merge install-helpers --verify-only facts
   |-- compute baseline_ready once
   |-- write readiness ledger schema_version=v2
-  |-- print final status table
+  |-- preserve query_ready=true when repeated setup sees ready providers
+  |-- print final Markdown status table
   |-- print friendly next steps:
-  |     continue graph bootstrap or reply "继续完成"
-  |     restart Claude Code/Codex or start a new session before downstream MCP use
+  |     restart Claude Code/Codex or start a new session by default
+  |     then run graph bootstrap
+  |     or let the agent continue if it only needs deterministic bootstrap scripts
   v
 write-provider-config.*
   |
   |-- git repo only
   |-- write .spec-first/config/graph-providers.json
-  |-- query_ready=false
+  |-- first setup writes query_ready=false
+  |-- repeated setup preserves query_ready=true when provider setup is still ready
   v
-Next: /spec:graph-bootstrap or $spec-graph-bootstrap, or reply "继续完成"
+Next: restart/new session, then /spec:graph-bootstrap or $spec-graph-bootstrap; agent may accept "继续完成" for deterministic-script continuation
 ```

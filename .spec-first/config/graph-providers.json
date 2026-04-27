@@ -1,14 +1,14 @@
 {
   "schema_version": "graph-providers.v1",
   "generated_by": "spec-mcp-setup",
-  "generated_at": "2026-04-27T17:28:11Z",
+  "generated_at": "2026-04-27T17:49:01Z",
   "repo_root": "/Users/kuang/xiaobu/spec-first",
   "providers": {
     "gitnexus": {
       "configured": true,
       "enabled_for_bootstrap": true,
-      "query_ready": true,
-      "bootstrap_required": false,
+      "query_ready": false,
+      "bootstrap_required": true,
       "required": true,
       "role": "global_knowledge",
       "mcp_server": "gitnexus",
@@ -22,15 +22,13 @@
         "repo_wiki",
         "query_global_graph"
       ],
-      "next_action": "run spec-graph-bootstrap",
-      "last_bootstrap_status": "ready",
-      "last_bootstrapped_at": "2026-04-27T17:30:19Z"
+      "next_action": "run spec-graph-bootstrap"
     },
     "code-review-graph": {
       "configured": true,
       "enabled_for_bootstrap": true,
-      "query_ready": true,
-      "bootstrap_required": false,
+      "query_ready": false,
+      "bootstrap_required": true,
       "required": true,
       "role": "impact_context",
       "mcp_server": "code-review-graph",
@@ -44,9 +42,7 @@
         "related_tests",
         "graph_stats"
       ],
-      "next_action": "run spec-graph-bootstrap",
-      "last_bootstrap_status": "ready",
-      "last_bootstrapped_at": "2026-04-27T17:30:19Z"
+      "next_action": "run spec-graph-bootstrap"
     }
   },
   "selection": {
@@ -58,8 +54,6 @@
     "setup_only": true,
     "does_not_run_gitnexus_analyze": true,
     "does_not_run_code_review_graph_build": true,
-    "graph_bootstrap_required": false
-  },
-  "last_updated_by": "spec-graph-bootstrap",
-  "last_bootstrapped_at": "2026-04-27T17:30:19Z"
+    "graph_bootstrap_required": true
+  }
 }

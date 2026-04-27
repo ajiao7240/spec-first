@@ -73,7 +73,7 @@ Readiness ledger v2 is written by `verify-tools.*` after merging MCP/graph-provi
 - required graph-provider MCP servers are configured;
 - every required helper fact is ready.
 
-It does not mean graph indexes are query-ready. After `spec-mcp-setup`, graph providers remain:
+It does not mean graph indexes are query-ready. On first setup, graph providers remain:
 
 ```json
 {
@@ -86,4 +86,6 @@ It does not mean graph indexes are query-ready. After `spec-mcp-setup`, graph pr
 
 Run `/spec:graph-bootstrap` or `$spec-graph-bootstrap` to build provider indexes and flip `query_ready=true`.
 
-The final setup output should make this handoff explicit below the readiness table: the user can run the graph-bootstrap command or reply "继续完成", then restart Claude Code/Codex or start a new session before relying on the newly written MCP config in downstream workflows.
+Repeated setup, reinstall, or post-upgrade verification preserves `query_ready=true` / `bootstrap_required=false` when the existing provider projection is for the same repo and the provider is still configured and dependency-ready. Uninstall or broken provider config must not preserve query readiness.
+
+The final setup output should make this handoff explicit below the Markdown readiness table: the safe default is to restart Claude Code/Codex or start a new session first, then run the graph-bootstrap command. If the current agent determines it only needs the deterministic bootstrap script and does not need newly loaded MCP servers, it may accept "继续完成" in the current session; downstream workflows should still wait for a restarted/new session.

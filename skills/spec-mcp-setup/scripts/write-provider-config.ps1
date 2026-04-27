@@ -25,6 +25,18 @@ $outDir = Join-Path $facts.repo_root '.spec-first/config'
 $outFile = Join-Path $outDir 'graph-providers.json'
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
+$existing = $null
+if (Test-Path $outFile) {
+  try {
+    $candidate = Get-Content -Raw $outFile | ConvertFrom-Json
+    if ($candidate.schema_version -eq 'graph-providers.v1' -and $candidate.repo_root -eq $facts.repo_root) {
+      $existing = $candidate
+    }
+  } catch {
+    $existing = $null
+  }
+}
+
 $providers = [ordered]@{}
 foreach ($property in $facts.graph_providers.PSObject.Properties) {
   $provider = $property.Value
@@ -33,20 +45,36 @@ foreach ($property in $facts.graph_providers.PSObject.Properties) {
     $provider.dependency_status -eq 'ready' -and
     ($provider.host_config_status -eq 'ready' -or $provider.host_config_status -eq 'fallback-active')
   )
+  $previous = $null
+  if ($null -ne $existing -and $null -ne $existing.providers -and ($existing.providers.PSObject.Properties.Name -contains $property.Name)) {
+    $previous = $existing.providers.PSObject.Properties[$property.Name].Value
+  }
+  $preserveQueryReady = (
+    $ready -and
+    $null -ne $previous -and
+    [bool]$previous.query_ready -and
+    -not [bool]$previous.bootstrap_required
+  )
   $providers[$property.Name] = [ordered]@{
     configured = [bool]$provider.configured
     enabled_for_bootstrap = [bool]$provider.enabled_for_bootstrap
-    query_ready = $false
-    bootstrap_required = $true
+    query_ready = [bool]$preserveQueryReady
+    bootstrap_required = if ($ready) { -not [bool]$preserveQueryReady } else { $true }
     required = [bool]$provider.required
     role = $provider.role
     mcp_server = $property.Name
     dependency_status = $provider.dependency_status
     host_config_status = $provider.host_config_status
     capabilities = @($provider.capabilities)
-    next_action = if ($ready) { 'run spec-graph-bootstrap' } else { 'Fix provider setup and rerun spec-mcp-setup.' }
+    next_action = if ($ready -and $preserveQueryReady) { '' } elseif ($ready) { 'run spec-graph-bootstrap' } else { 'Fix provider setup and rerun spec-mcp-setup.' }
+  }
+  if ($preserveQueryReady) {
+    $providers[$property.Name]['last_bootstrap_status'] = if ($previous.PSObject.Properties.Name -contains 'last_bootstrap_status') { $previous.last_bootstrap_status } else { 'ready' }
+    $providers[$property.Name]['last_bootstrapped_at'] = if ($previous.PSObject.Properties.Name -contains 'last_bootstrapped_at') { $previous.last_bootstrapped_at } else { $null }
   }
 }
+
+$graphBootstrapRequired = [bool](@($providers.Values | Where-Object { $_.bootstrap_required }).Count)
 
 $payload = [ordered]@{
   schema_version = 'graph-providers.v1'
@@ -63,7 +91,7 @@ $payload = [ordered]@{
     setup_only = $true
     does_not_run_gitnexus_analyze = $true
     does_not_run_code_review_graph_build = $true
-    graph_bootstrap_required = $true
+    graph_bootstrap_required = $graphBootstrapRequired
   }
 }
 
@@ -71,4 +99,6 @@ $payload | ConvertTo-Json -Depth 10 | Set-Content -Encoding utf8 $outFile
 [pscustomobject]@{
   repo_config_status = 'written'
   repo_config_path = $outFile
+  graph_bootstrap_required = $graphBootstrapRequired
+  providers = $providers
 } | ConvertTo-Json -Compress
