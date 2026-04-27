@@ -98,13 +98,6 @@
       "skill": "spec-sessions"
     },
     {
-      "name": "setup",
-      "filename": "setup.md",
-      "description": "Diagnose and configure the spec-first environment",
-      "argumentHint": "[optional setup goal]",
-      "skill": "spec-setup"
-    },
-    {
       "name": "slack-research",
       "filename": "slack-research.md",
       "description": "Search Slack for interpreted organizational context",
@@ -162,7 +155,6 @@
     "spec-release-notes",
     "spec-code-review",
     "spec-sessions",
-    "spec-setup",
     "spec-slack-research",
     "spec-update",
     "spec-write-tasks",

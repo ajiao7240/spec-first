@@ -73,9 +73,9 @@ Do not chain multiple workflows automatically unless the active workflow explici
 3. If the request is about checking/updating spec-first, refreshing generated runtime assets, or repairing stale `/spec:*` / `$spec-*` entries, route to:
    - Claude: `/spec:update`
    - Codex: `$spec-update`
-4. If the request is about diagnosing the installed spec-first environment itself, and not specifically MCP/update/graph bootstrap, route to:
-   - Claude: `/spec:setup`
-   - Codex: `$spec-setup`
+4. If the request is about diagnosing the installed spec-first environment itself, project-local setup, missing recommended tools, or local config bootstrap, route to:
+   - Claude: `/spec:mcp-setup`
+   - Codex: `$spec-mcp-setup`
 
 ### Research And Context
 

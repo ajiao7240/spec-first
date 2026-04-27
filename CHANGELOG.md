@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 00:35:21 leokuang: refactor(spec-mcp-setup): 将 spec-setup 全量合入 spec-mcp-setup，删除旧 setup skill/command/governance 入口，新增 project config bootstrap、ast-grep 推荐检查，并在安装验证完成后输出 Required Harness Runtime 状态表 (user-visible)
 - v1.6.0 2026-04-28 00:17:58 leokuang: docs(plans): 新增 spec-setup 全量合入 spec-mcp-setup 的审查后实施计划，明确 project preflight 与 required harness runtime 分层、旧 setup 入口删除、ast-grep 推荐能力迁移和验证矩阵 (user-visible)
 - v1.6.0 2026-04-27 23:46:48 leokuang: docs(ce-sync): 根据 spec-doc-review 与 CE git 提交复核补强 4b5f28da 同步计划，新增上游 diff 复验、target-overlap audit、本地 config 扫描边界和 delegation 用户可见 changelog 要求 (user-visible)
 - v1.6.0 2026-04-27 23:45:37 leokuang: refactor(spec-mcp-setup): 将 MCP setup 升级为 Required Harness Runtime Setup，固定必装 MCP/graph-provider/helper 基线，新增 ledger v2、graph provider projection 与 spec-graph-bootstrap 外部构建入口，并改为从源码生成 runtime manifest、不再发布 `.claude-plugin` 产物 (user-visible)

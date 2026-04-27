@@ -33,8 +33,11 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('If You Are A Subagent');
     expect(skill).toContain('substantial work');
     expect(skill).toContain('environment setup, host setup, MCP setup, missing tools, or host readiness');
+    expect(skill).toContain('project-local setup');
     expect(skill).toContain('/spec:' + 'graph' + '-bootstrap');
     expect(skill).toContain('$spec-' + 'graph' + '-bootstrap');
+    expect(skill).not.toContain('/spec:setup');
+    expect(skill).not.toContain('$spec-setup');
     expect(skill).not.toContain('spec-first ' + 'crg');
     expect(skill).toContain('workflow-first');
     expect(skill).toContain('Routing Priority');

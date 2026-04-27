@@ -55,7 +55,7 @@ spec-first tasks validate <task-pack.md> --json
 
 | Layer | Current Contract |
 |---|---|
-| **Capability layer** | Bundled source assets ship with `40` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `19` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `19` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
+| **Capability layer** | Bundled source assets ship with `39` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `18` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `18` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
 | **Claude runtime** | Commands are generated under `.claude/commands/spec`, skills under `.claude/skills`, agents under `.claude/agents`, and managed state under `.claude/spec-first/state.json`. |
 | **Codex runtime** | Workflow skills are generated under `.agents/skills`, agents under `.codex/agents`, and managed state under `.codex/spec-first/state.json`. |
 | **Readiness** | `$spec-mcp-setup` writes readiness ledger v2 and graph provider projection with `query_ready=false`; `$spec-graph-bootstrap` builds provider indexes and flips `query_ready=true`. |
@@ -63,7 +63,7 @@ spec-first tasks validate <task-pack.md> --json
 Expected Claude init output includes:
 
 ```text
-📦 Generated 19 command file(s) in .claude/commands/spec
+📦 Generated 18 command file(s) in .claude/commands/spec
 🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 ```

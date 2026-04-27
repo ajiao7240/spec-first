@@ -75,5 +75,63 @@ mv "$final_tmp" "$MARKER_PATH"
 echo "📝 宿主就绪标记已更新: $MARKER_PATH"
 echo "🔎 当前宿主基线状态: $(jq -r '.overall_status' "$MARKER_PATH")"
 echo "🧭 baseline_ready: $(jq -r '.baseline_ready' "$MARKER_PATH")"
+echo ""
+echo "Required Harness Runtime status:"
+printf "  %-24s %-16s %-8s %-16s %-16s %-16s %-10s %s\n" "Name" "Type" "Required" "Dependency" "Host" "Project" "Query" "Next"
+printf "  %-24s %-16s %-8s %-16s %-16s %-16s %-10s %s\n" "----" "----" "--------" "----------" "----" "-------" "-----" "----"
+jq -r '
+  def display($value):
+    if ($value == null or $value == "") then "n/a" else ($value | tostring) end;
+  def required($value):
+    if $value == true then "yes" elif $value == false then "no" else "n/a" end;
+  def query($value):
+    if $value == true then "ready" elif $value == false then "pending" else "n/a" end;
+  [
+    (.tools // {} | to_entries[] | {
+      name: .key,
+      type: .value.type,
+      required: .value.required,
+      dependency: .value.dependency_status,
+      host: .value.host_config_status,
+      project: .value.project_status,
+      query: .value.query_ready,
+      next: .value.next_action
+    }),
+    (.helper_tools // {} | to_entries[] | {
+      name: .key,
+      type: (.value.type // "helper"),
+      required: .value.required,
+      dependency: .value.dependency_status,
+      host: .value.host_config_status,
+      project: .value.project_status,
+      query: null,
+      next: .value.next_action
+    }),
+    {
+      name: "graph-providers.json",
+      type: "project",
+      required: true,
+      dependency: null,
+      host: null,
+      project: .repo_config_status,
+      query: null,
+      next: (if .repo_config_status == "ready" then "" else "write provider projection" end)
+    }
+  ][]
+  | [
+      display(.name),
+      display(.type),
+      required(.required),
+      display(.dependency),
+      display(.host),
+      display(.project),
+      query(.query),
+      display(.next)
+    ]
+  | @tsv
+' "$MARKER_PATH" | while IFS=$'\t' read -r name type required dependency host project query next; do
+  printf "  %-24s %-16s %-8s %-16s %-16s %-16s %-10s %s\n" "$name" "$type" "$required" "$dependency" "$host" "$project" "$query" "$next"
+done
+echo ""
 echo "🧩 Graph providers are configured but not query-ready yet."
 echo "✅ readiness ledger v2 已写入"

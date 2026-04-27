@@ -36,8 +36,7 @@ const MCP_SETUP_REFERENCE_PATH = path.join(
   'references',
   'supported-mcp-tools.md',
 );
-const SPEC_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-setup', 'SKILL.md');
-const SPEC_SETUP_CHECK_HEALTH_PATH = path.join(REPO_ROOT, 'skills', 'spec-setup', 'scripts', 'check-health');
+const SPEC_SETUP_DIR = path.join(REPO_ROOT, 'skills', 'spec-setup');
 
 const DOWNSTREAM_PROMPTS = [
   path.join(REPO_ROOT, 'skills', 'test-browser', 'SKILL.md'),
@@ -133,6 +132,7 @@ describe('browser helper tool contracts', () => {
     expect(manifest.skills).not.toContain('agent-browser');
     expect(governance.skills.map((entry) => entry.skill_name)).not.toContain('agent-browser');
     expect(mcpTools.tools.map((tool) => tool.id)).not.toContain('agent-browser');
+    expect(mcpTools.tools.map((tool) => tool.id)).not.toContain('ast-grep');
   });
 
   test('spec-mcp-setup owns agent-browser helper detection and install handoff', () => {
@@ -150,18 +150,21 @@ describe('browser helper tool contracts', () => {
     expect(installHelpers).toContain('agent-browser install');
     expect(installHelpers).toContain('npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y');
     expect(checkHealth).toContain('"agent-browser|required"');
+    expect(checkHealth).toContain('"ast-grep|recommended"');
     expect(checkHealth).toContain('--json');
     expect(checkHealth).toContain('Tool install status');
+    expect(checkHealth).toContain('Skill install status');
     expect(checkHealth).toContain('Required');
     expect(checkHealth).toContain('Status');
     expect(checkHealth).toContain('npm install -g agent-browser');
     expect(checkHealth).toContain('agent-browser install');
     expect(checkHealth).toContain('npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y');
+    expect(checkHealth).toContain('npx skills add ast-grep/agent-skill -g -y');
     expect(reference).toContain('not an MCP server');
     expect(reference).toContain('"helper_tools"');
   });
 
-  test('check-health JSON exposes agent-browser as required helper table input', () => {
+  test('check-health JSON exposes required helper and recommended project helpers', () => {
     const result = spawnSync('bash', [MCP_SETUP_CHECK_HEALTH_PATH, '--json'], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
@@ -169,6 +172,7 @@ describe('browser helper tool contracts', () => {
     expect(result.status).toBe(0);
 
     const payload = JSON.parse(result.stdout);
+    expect(payload.schema_version).toBe('spec-mcp-setup-preflight.v2');
     const agentBrowser = payload.tools.find((tool) => tool.id === 'agent-browser');
     expect(agentBrowser).toMatchObject({
       required: true,
@@ -176,17 +180,37 @@ describe('browser helper tool contracts', () => {
       project_status: 'not-applicable',
     });
     expect(['ready', 'missing']).toContain(agentBrowser.dependency_status);
+
+    const astGrepTool = payload.tools.find((tool) => tool.id === 'ast-grep');
+    expect(astGrepTool).toMatchObject({
+      required: false,
+      host_config_status: 'not-applicable',
+      project_status: 'not-applicable',
+    });
+
+    const astGrepSkill = payload.skills.find((skill) => skill.id === 'ast-grep');
+    expect(astGrepSkill).toMatchObject({
+      required: false,
+      host_config_status: 'not-applicable',
+      project_status: 'not-applicable',
+    });
+
+    expect(payload.project).toHaveProperty('local_config_status');
+    expect(payload.legacy).toHaveProperty('compound_engineering_config_status');
   });
 
-  test('spec-setup delegates instead of keeping a second agent-browser installer', () => {
-    const setupSkill = read(SPEC_SETUP_SKILL_PATH);
-    const setupHealth = read(SPEC_SETUP_CHECK_HEALTH_PATH);
+  test('spec-setup is retired and spec-mcp-setup is the single setup owner', () => {
+    const manifest = loadPluginManifest();
+    const governance = readJson(GOVERNANCE_PATH);
+    const setupSkill = read(MCP_SETUP_SKILL_PATH);
 
-    expect(setupSkill).toContain('Browser automation setup is owned by `spec-mcp-setup`');
-    expect(setupSkill).toContain('/spec:mcp-setup');
-    expect(setupSkill).toContain('$spec-mcp-setup');
-    expect(setupHealth).not.toContain('npm install -g agent-browser');
-    expect(setupHealth).not.toContain('npx skills add https://github.com/vercel-labs/agent-browser');
+    expect(fs.existsSync(SPEC_SETUP_DIR)).toBe(false);
+    expect(manifest.commands.map((command) => command.name)).not.toContain('setup');
+    expect(manifest.skills).not.toContain('spec-setup');
+    expect(governance.skills.map((entry) => entry.skill_name)).not.toContain('spec-setup');
+    expect(setupSkill).toContain('Project Preflight / Local Setup');
+    expect(setupSkill).toContain('Required Harness Runtime');
+    expect(setupSkill).toContain('Recommended project helpers must not be added to `mcp-tools.json`');
   });
 
   test('downstream browser prompts keep CLI usage and dual-host missing-tool guidance', () => {

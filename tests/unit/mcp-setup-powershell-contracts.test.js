@@ -5,6 +5,7 @@ const repoRoot = path.resolve(__dirname, '../..');
 const configureHostPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/configure-host.ps1');
 const detectToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-tools.ps1');
 const verifyToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
+const bootstrapProjectConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1');
 
 describe('spec-mcp-setup PowerShell host config contract', () => {
   const source = fs.readFileSync(configureHostPs1, 'utf8');
@@ -43,6 +44,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(combined).not.toContain(parserDep);
     expect(combined).toContain(providerKey);
     expect(verifySource).toContain("schema_version = 'v2'");
+    expect(verifySource).toContain('Required Harness Runtime status:');
+    expect(verifySource).toContain('graph-providers.json');
   });
 
   test('uses shared TOML helpers for quoted Codex MCP keys', () => {
@@ -53,5 +56,19 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(configureSource).toContain('Write-TomlMcpSection -Path $ConfigPath -Key $ToolDef.detection.key');
     expect(detectSource).toContain("Join-Path $ScriptDir 'lib-toml.ps1'");
     expect(detectSource).toContain('Get-TomlMcpSection -Path $ConfigPath -Key $Tool.detection.key');
+  });
+
+  test('project config bootstrap keeps local setup outside readiness ledger', () => {
+    const bootstrapSource = fs.readFileSync(bootstrapProjectConfigPs1, 'utf8');
+
+    expect(bootstrapSource).toContain('[switch]$RefreshExample');
+    expect(bootstrapSource).toContain('[switch]$CreateLocal');
+    expect(bootstrapSource).toContain('[switch]$EnsureGitignore');
+    expect(bootstrapSource).toContain('[switch]$DeleteLegacyMarkdown');
+    expect(bootstrapSource).toContain('project-config-bootstrap.v1');
+    expect(bootstrapSource).toContain('.spec-first');
+    expect(bootstrapSource).toContain('.spec-first/*.local.yaml');
+    expect(bootstrapSource).toContain('compound-engineering.local.md');
+    expect(bootstrapSource).not.toContain('baseline_ready');
   });
 });

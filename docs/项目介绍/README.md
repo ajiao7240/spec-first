@@ -15,7 +15,7 @@
 | 源码行数 | ~13,700 行 |
 | 测试文件 | 102 个（JS + Shell） |
 | 测试行数 | ~3,900 行 |
-| Skills | 47 个 |
+| Skills | 39 个 |
 | Agents | 57 个 |
 | 命令模板 | 13 个（/spec:* 系列） |
 | 支持宿主 | Claude Code + Codex |
@@ -117,7 +117,7 @@ spec-first init --claude / --codex
 +===================================================================+
 |                     运行时产物层                                    |
 |                                                                     |
-|  .claude/skills/        ← 47 个 skill (SKILL.md + references/)    |
+|  .claude/skills/        ← 39 个 skill (SKILL.md + references/)    |
 |  .claude/agents/        ← 57 个 agent (.md persona 文件)           |
 |  .claude/commands/spec/ ← 13 个命令模板                             |
 |  .spec-first/graph/     ← CRG SQLite DB + generations             |
@@ -201,13 +201,13 @@ spec-first init --claude / --codex
 
 ---
 
-## 41 个 Skills 分类
+## 39 个 Skills 分类
 
 | 类别 | Skills | 说明 |
 |------|--------|------|
 | **核心工作流** | spec-plan, spec-work, spec-work-beta, spec-code-review, spec-ideate, spec-brainstorm, spec-compound, spec-compound-refresh | 日常开发闭环 |
 | **项目上下文** | spec-graph-bootstrap, spec-sessions, spec-session-inventory, spec-session-extract | 项目理解、上下文生成与 session primitive |
-| **基础设施** | spec-mcp-setup, spec-setup, spec-update, spec-debug, spec-optimize, changelog | 环境配置与维护 |
+| **基础设施** | spec-mcp-setup, spec-update, spec-debug, spec-optimize, changelog | 环境配置与维护 |
 | **Git 工作流** | git-commit, git-commit-push-pr, git-worktree, git-clean-gone-branches | 版本控制 |
 | **代码质量** | spec-doc-review, resolve-pr-feedback, spec-pr-description | 评审、反馈处理与 PR 描述 |
 | **前端设计** | frontend-design, feature-video, gemini-imagegen | UI/UX 与视觉 |
@@ -295,7 +295,7 @@ spec-first/
       generations/    ← 代际管理 (paths/promote/health/rollback)
     context-routing/  ← 上下文路由 (evaluator/loader/profiles/telemetry)
     bootstrap-compiler/ ← bootstrap 编译器 (orchestrator/machine/human/routing)
-  skills/             ← 47 个 skill 源目录
+  skills/             ← 39 个 skill 源目录
   agents/             ← 57 个 agent 定义 (review/research/design/workflow/docs)
   templates/          ← 命令模板 (claude/commands/spec/)
   tests/              ← 102 个测试文件

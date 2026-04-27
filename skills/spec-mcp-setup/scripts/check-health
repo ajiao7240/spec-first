@@ -79,6 +79,16 @@ build_install_command() {
         echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ffmpeg"
       fi
       ;;
+    ast-grep)
+      if [ "$os" = "linux" ]; then
+        echo "cargo install ast-grep --locked"
+      else
+        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ast-grep"
+      fi
+      ;;
+    ast-grep-skill)
+      echo "npx skills add ast-grep/agent-skill -g -y"
+      ;;
     *)
       echo ""
       ;;
@@ -94,6 +104,7 @@ build_project_url() {
     vhs) echo "https://github.com/charmbracelet/vhs" ;;
     silicon) echo "https://github.com/Aloxaf/silicon" ;;
     ffmpeg) echo "https://ffmpeg.org/download.html" ;;
+    ast-grep|ast-grep-skill) echo "https://ast-grep.github.io" ;;
     *) echo "" ;;
   esac
 }
@@ -133,6 +144,11 @@ deps=(
   "vhs|recommended"
   "silicon|recommended"
   "ffmpeg|recommended"
+  "ast-grep|recommended"
+)
+
+skills=(
+  "ast-grep|recommended"
 )
 
 cli_ok=0
@@ -151,6 +167,42 @@ for entry in "${deps[@]}"; do
     results+=("$name|$tier|ok|$install_cmd|$url")
   else
     results+=("$name|$tier|missing|$install_cmd|$url")
+  fi
+done
+
+has_npx="no"
+has_jq="no"
+command -v npx >/dev/null 2>&1 && has_npx="yes"
+command -v jq >/dev/null 2>&1 && has_jq="yes"
+
+installed_skill_names=""
+if [ "$has_npx" = "yes" ] && [ "$has_jq" = "yes" ]; then
+  installed_skill_names="$(npx --yes skills list --global --json 2>/dev/null | jq -r '.[].name' 2>/dev/null || true)"
+fi
+
+skill_ok=0
+skill_total=0
+skill_results=()
+for entry in "${skills[@]}"; do
+  IFS='|' read -r name tier <<<"$entry"
+  skill_total=$((skill_total + 1))
+  install_cmd="$(build_install_command "${name}-skill" "$os")"
+  url="$(build_project_url "${name}-skill")"
+
+  is_installed="no"
+  if [ -n "$installed_skill_names" ]; then
+    if printf '%s\n' "$installed_skill_names" | grep -qx "$name"; then
+      is_installed="yes"
+    fi
+  elif [ -e "$HOME/.claude/skills/$name" ] || [ -e "$HOME/.agents/skills/$name" ]; then
+    is_installed="yes"
+  fi
+
+  if [ "$is_installed" = "yes" ]; then
+    skill_ok=$((skill_ok + 1))
+    skill_results+=("$name|$tier|ok|$install_cmd|$url")
+  else
+    skill_results+=("$name|$tier|missing|$install_cmd|$url")
   fi
 done
 
@@ -199,7 +251,7 @@ fi
 
 if [ "$json_output" = "yes" ]; then
   printf '{\n'
-  printf '  "schema_version": "spec-mcp-setup-helper-tools/v1",\n'
+  printf '  "schema_version": "spec-mcp-setup-preflight.v2",\n'
   printf '  "tools": [\n'
   for index in "${!results[@]}"; do
     IFS='|' read -r name tier status install_cmd url <<<"${results[$index]}"
@@ -230,7 +282,44 @@ if [ "$json_output" = "yes" ]; then
     fi
     printf '\n'
   done
-  printf '  ]\n'
+  printf '  ],\n'
+  printf '  "skills": [\n'
+  for index in "${!skill_results[@]}"; do
+    IFS='|' read -r name tier status install_cmd url <<<"${skill_results[$index]}"
+    required="false"
+    if [ "$tier" = "required" ]; then
+      required="true"
+    fi
+    dependency_status="missing"
+    result_status="pending"
+    next_action="$install_cmd"
+    if [ "$status" = "ok" ]; then
+      dependency_status="ready"
+      result_status="ready"
+      next_action=""
+    fi
+    printf '    {"id":"%s","required":%s,"dependency_status":"%s","host_config_status":"not-applicable","project_status":"not-applicable","result":"%s","next_action":"%s","install_command":"%s","url":"%s"}' \
+      "$(json_escape "$name")" \
+      "$required" \
+      "$(json_escape "$dependency_status")" \
+      "$(json_escape "$result_status")" \
+      "$(json_escape "$next_action")" \
+      "$(json_escape "$install_cmd")" \
+      "$(json_escape "$url")"
+    if [ "$index" -lt $((${#skill_results[@]} - 1)) ]; then
+      printf ','
+    fi
+    printf '\n'
+  done
+  printf '  ],\n'
+  printf '  "project": {"inside_git_repo":%s,"local_config_status":"%s","local_config_gitignore_status":"%s","example_config_status":"%s"},\n' \
+    "$([ "$in_repo" = "yes" ] && echo true || echo false)" \
+    "$(json_escape "$repo_cfg")" \
+    "$(json_escape "$repo_cfg_gitignore")" \
+    "$(json_escape "$example_cfg")"
+  printf '  "legacy": {"compound_engineering_markdown_status":"%s","compound_engineering_config_status":"%s"}\n' \
+    "$(json_escape "$legacy_markdown")" \
+    "$(json_escape "$legacy_ce_config")"
   printf '}\n'
   exit 0
 fi
@@ -263,6 +352,23 @@ for result in "${results[@]}"; do
     fi
   fi
 done
+
+if [ "${#skills[@]}" -gt 0 ]; then
+  section "Skill install status  ${skill_ok}/${skill_total}"
+  printf "  %-15s %-9s %-10s\n" "Skill" "Required" "Status"
+  printf "  %-15s %-9s %-10s\n" "-----" "--------" "------"
+
+  for result in "${skill_results[@]}"; do
+    IFS='|' read -r name tier status install_cmd url <<<"$result"
+    printf "  %-15s %-9s %-10s\n" "$name" "$(required_label "$tier")" "$(status_label "$status")"
+    if [ "$status" = "ok" ]; then
+      continue
+    fi
+    issues=$((issues + 1))
+    detail "$install_cmd"
+    detail "$url"
+  done
+fi
 
 if [ "$in_repo" = "yes" ]; then
   has_project_issues="no"
@@ -309,9 +415,9 @@ fi
 
 echo ""
 if [ "$issues" -eq 0 ]; then
-  echo " ✅  All clear  ${cli_ok}/${cli_total} tools"
+  echo " ✅  All clear  ${cli_ok}/${cli_total} tools  ${skill_ok}/${skill_total} skills"
 else
-  echo " ⚠️   ${issues} issue(s) found  ${cli_ok}/${cli_total} tools"
+  echo " ⚠️   ${issues} issue(s) found  ${cli_ok}/${cli_total} tools  ${skill_ok}/${skill_total} skills"
 fi
 
 echo ""

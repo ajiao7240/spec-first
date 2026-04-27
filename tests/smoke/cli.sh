@@ -106,7 +106,7 @@ claude_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" init --cla
 grep -q "Generated ${expected_command_count} command file(s)" <<<"$claude_output"
 grep -q "Generated ${expected_claude_skill_count} skill directory(ies)" <<<"$claude_output"
 grep -q "Generated ${expected_agent_count} agent file(s)" <<<"$claude_output"
-for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.md doc-review.md graph-bootstrap.md ideate.md mcp-setup.md optimize.md plan.md polish-beta.md release-notes.md sessions.md setup.md slack-research.md update.md work.md work-beta.md; do
+for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.md doc-review.md graph-bootstrap.md ideate.md mcp-setup.md optimize.md plan.md polish-beta.md release-notes.md sessions.md slack-research.md update.md work.md work-beta.md; do
   test -f "$TMP_DIR/.claude/commands/spec/$file"
 done
 test ! -e "$TMP_DIR/.claude/spec-first/workflows"

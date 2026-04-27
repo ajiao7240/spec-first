@@ -50,10 +50,10 @@ between releases).
 !`version=$(gh api repos/sunrain520/spec-first/contents/plugins/spec-first/.claude-plugin/plugin.json --jq '.content | @base64d | fromjson | .version' 2>/dev/null) && [ -n "$version" ] && echo "$version" || echo '__SPEC_UPDATE_VERSION_FAILED__'`
 
 **Currently loaded version:**
-!`case "${CLAUDE_SKILL_DIR}" in */plugins/cache/*/spec-first/*/skills/spec-update) basename "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")" ;; *) echo '__SPEC_UPDATE_NOT_MARKETPLASPEC__' ;; esac`
+!`echo "${CLAUDE_SKILL_DIR}" | grep -q "/plugins/cache/.*/spec-first/.*/skills/spec-update$" && basename "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")" || echo '__SPEC_UPDATE_NOT_MARKETPLACE__'`
 
 **Marketplace name:**
-!`case "${CLAUDE_SKILL_DIR}" in */plugins/cache/*/spec-first/*/skills/spec-update) basename "$(dirname "$(dirname "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")")")" ;; *) echo '__SPEC_UPDATE_NOT_MARKETPLASPEC__' ;; esac`
+!`echo "${CLAUDE_SKILL_DIR}" | grep -q "/plugins/cache/.*/spec-first/.*/skills/spec-update$" && basename "$(dirname "$(dirname "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")")")" || echo '__SPEC_UPDATE_NOT_MARKETPLACE__'`
 
 ## Decision Logic
 
@@ -79,7 +79,7 @@ If **Latest upstream version** contains `__SPEC_UPDATE_VERSION_FAILED__`: tell
 the user the upstream version could not be fetched (gh may be unavailable or
 rate-limited) and stop.
 
-If **Currently loaded version** contains `__SPEC_UPDATE_NOT_MARKETPLASPEC__`: this
+If **Currently loaded version** contains `__SPEC_UPDATE_NOT_MARKETPLACE__`: this
 session loaded the skill from outside the standard marketplace cache (typical
 when using `claude --plugin-dir` for local development, or for a non-standard
 install). Tell the user (substituting the actual path):
