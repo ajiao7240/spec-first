@@ -76,10 +76,12 @@ function buildManagedBlock(lang) {
 function buildZhPolicy() {
   return `## 语言与治理策略（由 spec-first 管理）
 
-**语言设置：** \`中文\`
+**语言设置：** \`Chinese / 中文\`
 
 ### 语言规则
-- 回复、状态更新、生成文档、评审意见、计划说明等所有自然语言输出使用**中文**
+- 默认输出语言是 **中文（Chinese）**。除非用户明确要求翻译、双语或指定其他语言，所有新生成的自然语言内容必须使用中文
+- 严格适用范围包括：回复、状态更新、问题澄清、生成文档、需求/计划/任务、评审意见、总结、变更说明、commit/PR 文案等
+- 如果输入、工具输出或被引用材料是其他语言，除非需要保留原文引用，新生成的说明、归纳和结论仍必须使用中文
 - 允许混用英文技术术语，不要求强行翻译常见技术词
 - 代码标识符（变量、函数、类、模块、文件名中的技术标识）保持英文
 - 新增代码注释使用中文，简洁清晰，不写空洞注释
@@ -98,12 +100,14 @@ function buildZhPolicy() {
 function buildEnPolicy() {
   return `## Language and Governance Policy (managed by spec-first)
 
-**Language setting:** \`English\`
+**Language setting:** \`English / 英文\`
 
 ### Language Rules
-- All natural language output including responses, status updates, generated documentation, review comments, and plan notes must use **English**
+- The default output language is **English (英文)**. Unless the user explicitly asks for translation, bilingual output, or another language, all newly generated natural language content must use English
+- This strictly applies to responses, status updates, clarifying questions, generated documentation, requirements, plans, tasks, review findings, summaries, change descriptions, and commit/PR text
+- If input, tool output, or quoted material is in another language, preserve original quotes only when needed; newly generated explanations, summaries, and conclusions must still use English
 - Code identifiers (variables, functions, classes, modules, technical identifiers in filenames) remain in English
-- New code comments use English — concise and clear
+- New code comments use English, concise and clear
 - Technical identifiers such as code, commands, paths, config keys, env var names, API names, and protocol names are never translated
 
 ### Changelog Governance

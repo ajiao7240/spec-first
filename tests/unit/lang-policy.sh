@@ -86,7 +86,7 @@ echo "1.3 zh block contains Chinese language directive"
 assert_contains "zh block has Chinese directive" "中文" "$zh_block"
 
 echo "1.4 zh block uses localized language setting label"
-assert_contains "zh block uses 中文 label" '**语言设置：** `中文`' "$zh_block"
+assert_contains "zh block uses Chinese / 中文 label" '**语言设置：** `Chinese / 中文`' "$zh_block"
 
 echo "1.5 zh block does not expose raw zh code in language setting"
 assert_not_contains "zh block omits raw zh code" '**语言设置：** `zh`' "$zh_block"
@@ -96,7 +96,7 @@ en_block=$(node_run "process.stdout.write(buildManagedBlock('en'))")
 assert_contains "en block has English directive" "English" "$en_block"
 
 echo "1.7 en block uses localized language setting label"
-assert_contains "en block uses English label" '**Language setting:** `English`' "$en_block"
+assert_contains "en block uses English / 英文 label" '**Language setting:** `English / 英文`' "$en_block"
 
 echo "1.8 en block does not expose raw en code in language setting"
 assert_not_contains "en block omits raw en code" '**Language setting:** `en`' "$en_block"
@@ -105,8 +105,9 @@ echo "1.9 en block contains START and END markers"
 assert_contains "en block has start marker" "<!-- spec-first:lang:start -->" "$en_block"
 assert_contains "en block has end marker" "<!-- spec-first:lang:end -->" "$en_block"
 
-echo "1.10 zh block does not contain 'English'"
-assert_not_contains "zh block has no 'English'" "English" "$zh_block"
+echo "1.10 zh block has strict generated-content language scope"
+assert_contains "zh block applies to generated docs and task prose" "生成文档、需求/计划/任务" "$zh_block"
+assert_contains "zh block applies to commit and PR text" "commit/PR 文案" "$zh_block"
 
 echo "1.11 en block contains changelog governance rule"
 assert_contains "en block has changelog rule" "CHANGELOG" "$en_block"
@@ -125,6 +126,10 @@ assert_not_contains "zh block omits governance file commit rule" "规范文件�
 
 echo "1.16 en block does not contain governance file commit rule"
 assert_not_contains "en block omits governance file commit rule" "Governance File Commit Rule" "$en_block"
+
+echo "1.17 en block has strict generated-content language scope"
+assert_contains "en block applies to generated docs and task prose" "generated documentation, requirements, plans, tasks" "$en_block"
+assert_contains "en block applies to commit and PR text" "commit/PR text" "$en_block"
 
 echo ""
 
