@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-27 12:49:30 leokuang: docs(git-npm): 更新发布后收尾规则，要求真实发版成功后立即补提 release snapshot；master 为直提分支时再次提交 master 对齐已发布 tarball (user-visible)
 - v1.6.0 2026-04-27 12:40:36 leokuang: release: 发布 spec-first 1.6.0，并基于当前 master 快照完成 npm 发版 (user-visible)
 - v1.5.9 2026-04-27 11:33:52 leokuang: docs(spec-mcp-setup): 优化最终 readiness 表格展示契约，新增 Type 列区分 MCP 与 helper，统一 n/a 显示并避免 optional MCP 被误读为 baseline 失败 (user-visible)
 - v1.5.9 2026-04-27 11:14:00 leokuang: fix(spec-mcp-setup): 将 helper tool 安装状态写入 readiness ledger 的 helper_tools，并要求最终完成表合并展示必装 agent-browser 状态 (user-visible)
