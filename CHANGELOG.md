@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 02:02:48 leokuang: fix(init): 在 `spec-first init` 成功输出和 `init --help` 中增加重启宿主、运行 mcp setup 与按需 graph bootstrap 的下一步引导 (user-visible)
 - v1.6.0 2026-04-28 01:51:27 leokuang: fix(spec-mcp-setup): 将最终状态输出改为 Markdown 表格，重复 setup/重装/升级后验证时保留已完成的 graph provider query_ready 状态，并把重启与继续 bootstrap 的顺序交给 agent 基于当前会话事实判断 (user-visible)
 - v1.6.0 2026-04-28 01:36:15 leokuang: fix(spec-mcp-setup): 在 readiness 表格下追加明确下一步提示，引导用户回复“继续完成”运行 graph bootstrap，并说明需重启 Claude Code/Codex 或新开会话加载新 MCP 配置 (user-visible)
 - v1.6.0 2026-04-28 01:14:29 leokuang: fix(spec-mcp-setup): 将安装完成后的可见收尾调整为 readiness ledger v2 派生状态表，确保最终输出 block 用表格展示 MCP、helper 与 provider projection 结果 (user-visible)

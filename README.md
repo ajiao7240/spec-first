@@ -66,6 +66,10 @@ Expected Claude init output includes:
 📦 Generated 18 command file(s) in .claude/commands/spec
 🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
+下一步:
+  1. 重启 Claude Code 或新开会话，让宿主加载刚生成的 /spec:* commands。
+  2. 在新会话运行 /spec:mcp-setup，安装并验证必装 MCP/helper runtime。
+  3. 如果 /spec:mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap。
 ```
 
 ## Workflow Entry Points

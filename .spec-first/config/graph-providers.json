@@ -1,7 +1,7 @@
 {
   "schema_version": "graph-providers.v1",
   "generated_by": "spec-mcp-setup",
-  "generated_at": "2026-04-27T17:49:01Z",
+  "generated_at": "2026-04-27T18:04:29Z",
   "repo_root": "/Users/kuang/xiaobu/spec-first",
   "providers": {
     "gitnexus": {

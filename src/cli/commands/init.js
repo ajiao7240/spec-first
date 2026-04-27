@@ -295,12 +295,20 @@ function runInit(argv) {
   }
 
   console.log('');
-  if (adapter.hasCommands) {
-    console.log(`🔁 Restart ${platform === 'claude' ? 'Claude Code' : 'Codex'} after generation so it can pick up the new /spec:* commands.`);
-  } else {
-    console.log(`🔁 Restart Codex after generation so it can pick up the new $spec-* skills.`);
-  }
+  printInitNextSteps(platform);
   return 0;
+}
+
+function printInitNextSteps(platform) {
+  const hostDisplay = platform === 'claude' ? 'Claude Code' : 'Codex';
+  const entryKind = platform === 'claude' ? '/spec:* commands' : '$spec-* skills';
+  const mcpSetupCommand = platform === 'claude' ? '/spec:mcp-setup' : '$spec-mcp-setup';
+  const graphBootstrapCommand = platform === 'claude' ? '/spec:graph-bootstrap' : '$spec-graph-bootstrap';
+
+  console.log('下一步:');
+  console.log(`  1. 重启 ${hostDisplay} 或新开会话，让宿主加载刚生成的 ${entryKind}。`);
+  console.log(`  2. 在新会话运行 ${mcpSetupCommand}，安装并验证必装 MCP/helper runtime。`);
+  console.log(`  3. 如果 ${mcpSetupCommand} 显示 graph bootstrap 仍 pending，再按提示运行 ${graphBootstrapCommand}。`);
 }
 
 function printHelp() {
@@ -309,6 +317,10 @@ function printHelp() {
     '',
     '📘 Usage:',
     '  spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run]',
+    '',
+    '➡️ After successful init:',
+    '  Claude: restart Claude Code, run /spec:mcp-setup, then /spec:graph-bootstrap if prompted.',
+    '  Codex: restart Codex, run $spec-mcp-setup, then $spec-graph-bootstrap if prompted.',
     '',
     '🔗 Repository:',
     '  https://github.com/sunrain520/spec-first',

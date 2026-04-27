@@ -63,6 +63,24 @@ function snapshotTree(rootDir) {
 }
 
 describe('init --dry-run', () => {
+  test('init help includes concise post-init setup guidance', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      const result = captureInit(projectRoot, ['--help']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toContain('After successful init');
+      expect(result.stdout).toContain('/spec:mcp-setup');
+      expect(result.stdout).toContain('/spec:graph-bootstrap');
+      expect(result.stdout).toContain('$spec-mcp-setup');
+      expect(result.stdout).toContain('$spec-graph-bootstrap');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   test('Claude init --dry-run previews prune/write actions without mutating the project', () => {
     const projectRoot = makeTempDir();
 
@@ -123,6 +141,32 @@ describe('init --dry-run', () => {
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init apply prints host-aware setup guidance after installing runtime assets', () => {
+    const claudeProjectRoot = makeTempDir();
+    const codexProjectRoot = makeTempDir();
+
+    try {
+      const claude = captureInit(claudeProjectRoot, ['--claude', '-u', 'reviewer', '--lang', 'zh']);
+      expect(claude.exitCode).toBe(0);
+      expect(claude.stderr).toBe('');
+      expect(claude.stdout).toContain('下一步:');
+      expect(claude.stdout).toContain('重启 Claude Code 或新开会话');
+      expect(claude.stdout).toContain('/spec:mcp-setup');
+      expect(claude.stdout).toContain('/spec:graph-bootstrap');
+
+      const codex = captureInit(codexProjectRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']);
+      expect(codex.exitCode).toBe(0);
+      expect(codex.stderr).toBe('');
+      expect(codex.stdout).toContain('下一步:');
+      expect(codex.stdout).toContain('重启 Codex 或新开会话');
+      expect(codex.stdout).toContain('$spec-mcp-setup');
+      expect(codex.stdout).toContain('$spec-graph-bootstrap');
+    } finally {
+      fs.rmSync(claudeProjectRoot, { recursive: true, force: true });
+      fs.rmSync(codexProjectRoot, { recursive: true, force: true });
     }
   });
 
