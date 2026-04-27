@@ -1,425 +1,219 @@
 #!/bin/bash
-# mcp-setup skill unit tests
-# Tests Route B host facts, installer metadata, installer pipeline, uninstall path, and readiness ledger
+# spec-mcp-setup required runtime unit tests
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPTS_DIR="$REPO_ROOT/skills/spec-mcp-setup/scripts"
+GRAPH_BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
-FAKE_BIN="$TMP_DIR/fake-bin"
-mkdir -p "$FAKE_BIN"
-cat > "$FAKE_BIN/uvx" <<'EOF'
-#!/bin/bash
-set -euo pipefail
-if [ "$#" -ge 5 ] && [ "$1" = "--from" ] && [ "$3" = "serena" ] && [ "$4" = "project" ] && [ "$5" = "create" ]; then
-  repo_root="$6"
-  mkdir -p "$repo_root/.serena"
-  cat > "$repo_root/.serena/project.yml" <<YAML
-project_root: "$repo_root"
-languages:
-  - typescript
-  - vue
-  - markdown
-  - yaml
-  - bash
-created_by: spec-mcp-setup
-YAML
-  cat > "$repo_root/.serena/index-ready.json" <<JSON
-{"project_root":"$repo_root","index_status":"ready","indexed_at":"2026-04-23T02:40:00Z"}
-JSON
-fi
-exit 0
-EOF
-cat > "$FAKE_BIN/npx" <<'EOF'
-#!/bin/bash
-exit 0
-EOF
-cat > "$FAKE_BIN/uv" <<'EOF'
-#!/bin/bash
-exit 0
-EOF
-chmod +x "$FAKE_BIN/uvx" "$FAKE_BIN/npx" "$FAKE_BIN/uv"
-TEST_PATH="$FAKE_BIN:$PATH"
-
-pass=0
-fail=0
 
 assert() {
-  local desc="$1"
+  local message="$1"
   shift
-  if "$@" >/dev/null 2>&1; then
-    pass=$((pass + 1))
-  else
-    echo "  ✗ $desc"
-    fail=$((fail + 1))
+  if ! "$@"; then
+    echo "FAIL: $message" >&2
+    exit 1
   fi
 }
 
-assert_output() {
-  local desc="$1"
+assert_eq() {
+  local message="$1"
   local expected="$2"
   local actual="$3"
-  if [ "$expected" = "$actual" ]; then
-    pass=$((pass + 1))
-  else
-    echo "  ✗ $desc: expected '$expected', got '$actual'"
-    fail=$((fail + 1))
+  if [ "$expected" != "$actual" ]; then
+    echo "FAIL: $message" >&2
+    echo "expected: $expected" >&2
+    echo "actual:   $actual" >&2
+    exit 1
   fi
 }
 
 assert_contains() {
-  local desc="$1"
+  local message="$1"
   local needle="$2"
   local haystack="$3"
-  if grep -qF -- "$needle" <<<"$haystack"; then
-    pass=$((pass + 1))
-  else
-    echo "  ✗ $desc: '$needle' not found in output"
-    fail=$((fail + 1))
+  if [[ "$haystack" != *"$needle"* ]]; then
+    echo "FAIL: $message" >&2
+    echo "missing: $needle" >&2
+    exit 1
   fi
 }
 
-assert_not_contains() {
-  local desc="$1"
-  local needle="$2"
-  local haystack="$3"
-  if ! grep -qF -- "$needle" <<<"$haystack"; then
-    pass=$((pass + 1))
-  else
-    echo "  ✗ $desc: '$needle' should not be in output"
-    fail=$((fail + 1))
-  fi
-}
+make_fake_bin() {
+  local bin_dir="$1"
+  local log_file="$2"
+  mkdir -p "$bin_dir"
 
-echo "=== mcp-setup skill tests ==="
-echo ""
+  ln -s "$(command -v jq)" "$bin_dir/jq"
+  ln -s "$(command -v python3)" "$bin_dir/python3"
 
-echo "1. Installer metadata validation"
-assert "mcp-tools.json is valid JSON" jq -e . "$TOOLS_JSON"
-assert_output "schema_version is 3" "3" "$(jq -r '.schema_version' "$TOOLS_JSON")"
-assert_output "4 tools defined" "4" "$(jq '.tools | length' "$TOOLS_JSON")"
-assert_output "3 required tools" "3" "$(jq '[.tools[] | select(.required == true)] | length' "$TOOLS_JSON")"
-assert_output "1 optional tool" "1" "$(jq '[.tools[] | select(.required == false)] | length' "$TOOLS_JSON")"
-assert_output "summary column count 7" "7" "$(jq -r '.summary_columns | length' "$TOOLS_JSON")"
-assert_output "tool ids stable" "serena,sequential-thinking,context7,playwright" "$(jq -r '[.tools[].id] | join(",")' "$TOOLS_JSON")"
-assert_output "agent-browser is not an MCP registry tool" "false" "$(jq -r '[.tools[].id] | index("agent-browser") != null' "$TOOLS_JSON")"
-assert_output "Claude scope defaults managed" "true" "$(jq -r '[.tools[] | .host_config.claude.scope == "managed"] | all' "$TOOLS_JSON")"
-assert_output "Codex scope defaults user" "true" "$(jq -r '[.tools[] | .host_config.codex.scope == "user"] | all' "$TOOLS_JSON")"
-assert_output "Claude managed macOS path" "/Library/Application Support/ClaudeCode/managed-mcp.json" "$(jq -r '.tools[] | select(.id == "serena") | .host_config.claude.targets.managed.config_path.macos' "$TOOLS_JSON")"
-assert_output "Claude managed Linux path" "/etc/claude-code/managed-mcp.json" "$(jq -r '.tools[] | select(.id == "context7") | .host_config.claude.targets.managed.config_path.linux' "$TOOLS_JSON")"
-assert_output "Codex user path template" '$HOME/.codex/config.toml' "$(jq -r '.tools[] | select(.id == "serena") | .host_config.codex.targets.user.config_path' "$TOOLS_JSON")"
-assert_output "Codex system path" "/etc/codex/config.toml" "$(jq -r '.tools[] | select(.id == "serena") | .host_config.codex.targets.system.config_path' "$TOOLS_JSON")"
-assert_output "Codex system precedence 100" "100" "$(jq -r '.tools[] | select(.id == "serena") | .host_config.codex.targets.system.precedence' "$TOOLS_JSON")"
-assert_output "Codex system writable check file-only" "file-only" "$(jq -r '.tools[] | select(.id == "serena") | .host_config.codex.targets.system.writable_check' "$TOOLS_JSON")"
-assert_output "Claude fallback order managed,user" "managed,user" "$(jq -r '.tools[] | select(.id == "serena") | .host_config.claude.fallback_order | join(",")' "$TOOLS_JSON")"
-assert_output "Codex fallback order user" "user" "$(jq -r '.tools[] | select(.id == "serena") | .host_config.codex.fallback_order | join(",")' "$TOOLS_JSON")"
-assert_output "Claude uninstall targets managed,user" "managed,user" "$(jq -r '.tools[] | select(.id == "serena") | .host_config.claude.uninstall_targets | join(",")' "$TOOLS_JSON")"
-assert_output "Codex uninstall targets user,system" "user,system" "$(jq -r '.tools[] | select(.id == "serena") | .host_config.codex.uninstall_targets | join(",")' "$TOOLS_JSON")"
-assert_output "Serena codex timeout is 90" "90" "$(jq -r '.tools[] | select(.id == "serena") | .host_config.codex.startup_timeout_sec' "$TOOLS_JSON")"
-assert_output "Serena project bootstrap file" ".serena/project.yml" "$(jq -r '.tools[] | select(.id == "serena") | .project_bootstrap.project_file' "$TOOLS_JSON")"
-assert_output "Serena ready marker file" ".serena/index-ready.json" "$(jq -r '.tools[] | select(.id == "serena") | .project_bootstrap.ready_marker_file' "$TOOLS_JSON")"
-assert_output "Context7 package remains current" "@upstash/context7-mcp" "$(jq -r '.tools[] | select(.id == "context7") | .host_config.claude.args[1]' "$TOOLS_JSON")"
-assert_output "Sequential Thinking package remains current" "@modelcontextprotocol/server-sequential-thinking" "$(jq -r '.tools[] | select(.id == "sequential-thinking") | .host_config.codex.args[1]' "$TOOLS_JSON")"
-assert_output "Playwright remains optional" "false" "$(jq -r '.tools[] | select(.id == "playwright") | .required' "$TOOLS_JSON")"
-assert "uninstall-mcp.sh exists" test -f "$SCRIPTS_DIR/uninstall-mcp.sh"
-assert "uninstall-mcp.ps1 exists" test -f "$SCRIPTS_DIR/uninstall-mcp.ps1"
-missing_jq_dir="$TMP_DIR/no-jq-bin"
-mkdir -p "$missing_jq_dir"
-ln -s /bin/bash "$missing_jq_dir/bash"
-ln -s /bin/uname "$missing_jq_dir/uname" 2>/dev/null || ln -s /usr/bin/uname "$missing_jq_dir/uname"
-missing_jq_stderr="$TMP_DIR/missing-jq.stderr"
-if PATH="$missing_jq_dir" bash "$SCRIPTS_DIR/check-deps.sh" >"$TMP_DIR/missing-jq.stdout" 2>"$missing_jq_stderr"; then
-  missing_jq_status=0
-else
-  missing_jq_status=$?
-fi
-assert_output "check-deps.sh exits non-zero when jq is missing" "1" "$missing_jq_status"
-assert_contains "missing jq reports hard prerequisite" "jq 是必需依赖" "$(cat "$missing_jq_stderr")"
-assert_contains "missing jq reports install suggestion" "建议：" "$(cat "$missing_jq_stderr")"
-
-
-echo ""
-echo "2. detect-host.sh contract"
-host_claude=$(HOME="$TMP_DIR/h1" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-host.sh" 2>/dev/null)
-assert_output "Claude host detected" "claude" "$(jq -r '.host' <<<"$host_claude")"
-assert_output "Claude primary scope managed" "managed" "$(jq -r '.primary_scope' <<<"$host_claude")"
-assert_output "Claude selected scope falls back to user" "user" "$(jq -r '.selected_scope' <<<"$host_claude")"
-assert_output "Claude config path falls back to user file" "$TMP_DIR/h1/.claude.json" "$(jq -r '.config_path' <<<"$host_claude")"
-assert_output "Claude marker path" "$TMP_DIR/h1/.claude/spec-first/host-setup.json" "$(jq -r '.marker_path' <<<"$host_claude")"
-assert_output "Claude managed target path exposed" "/Library/Application Support/ClaudeCode/managed-mcp.json" "$(jq -r '.targets.managed.config_path' <<<"$host_claude")"
-assert_output "Claude user target path exposed" "$TMP_DIR/h1/.claude.json" "$(jq -r '.targets.user.config_path' <<<"$host_claude")"
-assert_output "Claude fallback order exposed" "managed,user" "$(jq -r '.fallback_order | join(",")' <<<"$host_claude")"
-assert_output "Claude uninstall targets exposed" "managed,user" "$(jq -r '.uninstall_targets | join(",")' <<<"$host_claude")"
-managed_override_path="$TMP_DIR/managed-target/managed-mcp.json"
-mkdir -p "$(dirname "$managed_override_path")"
-echo '{"mcpServers":{}}' > "$managed_override_path"
-host_claude_managed=$(HOME="$TMP_DIR/h1" MCP_SETUP_HOST=claude MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE="$managed_override_path" bash "$SCRIPTS_DIR/detect-host.sh" 2>/dev/null)
-assert_output "Claude selected scope managed when override target writable" "managed" "$(jq -r '.selected_scope' <<<"$host_claude_managed")"
-assert_output "Claude managed override path selected" "$managed_override_path" "$(jq -r '.config_path' <<<"$host_claude_managed")"
-host_codex=$(HOME="$TMP_DIR/h2" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detect-host.sh" 2>/dev/null)
-assert_output "Codex host detected" "codex" "$(jq -r '.host' <<<"$host_codex")"
-assert_output "Codex primary scope user" "user" "$(jq -r '.primary_scope' <<<"$host_codex")"
-assert_output "Codex selected scope user" "user" "$(jq -r '.selected_scope' <<<"$host_codex")"
-assert_output "Codex config path" "$TMP_DIR/h2/.codex/config.toml" "$(jq -r '.config_path' <<<"$host_codex")"
-assert_output "Codex marker path" "$TMP_DIR/h2/.codex/spec-first/host-setup.json" "$(jq -r '.marker_path' <<<"$host_codex")"
-assert_output "Codex system target path exposed" "/etc/codex/config.toml" "$(jq -r '.targets.system.config_path' <<<"$host_codex")"
-assert_output "Codex precedence blocked false by default" "false" "$(jq -r '.precedence_blocked' <<<"$host_codex")"
-
-
-echo ""
-echo "3. detect-tools.sh readiness facts"
-FAKE_HOME="$TMP_DIR/facts"
-FAKE_REPO="$TMP_DIR/facts_repo"
-mkdir -p "$FAKE_HOME/.claude" "$FAKE_REPO"
-git -C "$FAKE_REPO" init >/dev/null 2>&1
-cat > "$FAKE_HOME/.claude.json" <<'JSONEOF'
-{
-  "mcpServers": {
-    "serena": {
-      "command": "uvx",
-      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"]
-    },
-    "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"]
-    },
-    "sequential-thinking": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-    }
-  }
-}
-JSONEOF
-facts_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)"
-assert "detect-tools.sh produces valid JSON" jq -e . <<<"$facts_output"
-assert_output "facts host claude" "claude" "$(jq -r '.host' <<<"$facts_output")"
-assert_output "facts baseline_ready false because serena project pending" "false" "$(jq -r '.baseline_ready' <<<"$facts_output")"
-assert_output "serena host config fallback-active on Claude user fallback" "fallback-active" "$(jq -r '.tools.serena.host_config_status' <<<"$facts_output")"
-assert_output "serena selected scope user" "user" "$(jq -r '.tools.serena.selected_scope' <<<"$facts_output")"
-assert_output "serena project pending" "pending" "$(jq -r '.tools.serena.project_status' <<<"$facts_output")"
-assert_output "facts expose bootstrap project next action" "true" "$(jq -r '.next_actions | index("bootstrap project") != null' <<<"$facts_output")"
-assert_output "context7 not-applicable project" "not-applicable" "$(jq -r '.tools.context7.project_status' <<<"$facts_output")"
-retired_graph_key="cr""g"
-native_modules_key="native_modules_status"
-legacy_sqlite_dep="better""-sqlite3"
-legacy_parser_dep="tree""-sitter"
-provider_key="graph""_providers"
-provider_status_key="provider""-status"
-external_graph_name="code""-review""-graph"
-assert_output "facts omit retired graph ledger" "false" "$(jq -r --arg key "$retired_graph_key" 'has($key)' <<<"$facts_output")"
-assert_output "facts omit retired native module field" "false" "$(jq -r --arg key "$native_modules_key" '.. | objects | has($key)' <<<"$facts_output" | grep -q true && printf true || printf false)"
-assert_not_contains "facts omit retired sqlite dependency" "$legacy_sqlite_dep" "$facts_output"
-assert_not_contains "facts omit retired parser dependency" "$legacy_parser_dep" "$facts_output"
-assert_not_contains "facts omit provider readiness key" "$provider_key" "$facts_output"
-assert_not_contains "facts omit provider status key" "$provider_status_key" "$facts_output"
-assert_not_contains "facts omit external graph provider name" "$external_graph_name" "$facts_output"
-
-mkdir -p "$FAKE_REPO/.serena"
-cat > "$FAKE_REPO/.serena/project.yml" <<'EOF'
-project_root: fake
-EOF
-facts_failed="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)"
-assert_output "baseline_ready false when serena metadata exists without ready marker" "false" "$(jq -r '.baseline_ready' <<<"$facts_failed")"
-assert_output "serena project failed without ready marker" "failed" "$(jq -r '.tools.serena.project_status' <<<"$facts_failed")"
-cat > "$FAKE_REPO/.serena/index-ready.json" <<'EOF'
-{"project_root":"fake","index_status":"ready","indexed_at":"2026-04-23T01:00:00Z"}
-EOF
-facts_ready="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)"
-assert_output "baseline_ready true when serena ready marker exists" "true" "$(jq -r '.baseline_ready' <<<"$facts_ready")"
-assert_output "serena project ready when ready marker exists" "ready" "$(jq -r '.tools.serena.project_status' <<<"$facts_ready")"
-assert_output "overall status partial under fallback-active" "partial" "$(jq -r '.overall_status' <<<"$facts_ready")"
-cat > "$TMP_DIR/managed-target/managed-mcp.json" <<'JSONEOF'
-{
-  "mcpServers": {
-    "serena": {
-      "command": "uvx",
-      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"]
-    },
-    "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"]
-    },
-    "sequential-thinking": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-    }
-  }
-}
-JSONEOF
-managed_facts_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE="$TMP_DIR/managed-target/managed-mcp.json" bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)"
-assert_output "managed override yields ready host config" "ready" "$(jq -r '.tools.serena.host_config_status' <<<"$managed_facts_output")"
-assert_output "managed override yields managed selected scope" "managed" "$(jq -r '.tools.serena.selected_scope' <<<"$managed_facts_output")"
-mkdir -p "$TMP_DIR/codex-system"
-echo '[mcp_servers.external]' > "$TMP_DIR/codex-system/config.toml"
-mkdir -p "$TMP_DIR/codex-home/.codex" "$TMP_DIR/codex-repo"
-git -C "$TMP_DIR/codex-repo" init >/dev/null 2>&1
-echo '[mcp_servers.serena]
-command = "uvx"
-args = ["--from","git+https://github.com/oraios/serena","serena","start-mcp-server","--project-from-cwd","--context","codex","--open-web-dashboard","false"]' > "$TMP_DIR/codex-home/.codex/config.toml"
-facts_codex_precedence="$(cd "$TMP_DIR/codex-repo" && PATH="$TEST_PATH" HOME="$TMP_DIR/codex-home" MCP_SETUP_HOST=codex MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE="$TMP_DIR/codex-system/config.toml" bash "$SCRIPTS_DIR/detect-tools.sh" 2>/dev/null)"
-assert_output "Codex precedence-blocked when higher-precedence config exists" "precedence-blocked" "$(jq -r '.tools.serena.host_config_status' <<<"$facts_codex_precedence")"
-assert_output "Codex selected scope remains user under precedence block" "user" "$(jq -r '.tools.serena.selected_scope' <<<"$facts_codex_precedence")"
-assert_output "Codex overall status action-required under precedence block" "action-required" "$(jq -r '.overall_status' <<<"$facts_codex_precedence")"
-
-
-echo ""
-echo "4. install-mcp.sh integration"
-FAKE_HOME2="$TMP_DIR/install"
-FAKE_REPO2="$TMP_DIR/install_repo"
-mkdir -p "$FAKE_HOME2" "$FAKE_REPO2"
-git -C "$FAKE_REPO2" init >/dev/null 2>&1
-echo '{"mcpServers":{}}' > "$FAKE_HOME2/.claude.json"
-chmod 600 "$FAKE_HOME2/.claude.json"
-install_output="$(cd "$FAKE_REPO2" && PATH="$TEST_PATH" HOME="$FAKE_HOME2" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" 2>/dev/null || true)"
-assert "install-mcp.sh returns valid JSON" jq -e . <<<"$install_output"
-assert_output "installer host claude" "claude" "$(jq -r '.host' <<<"$install_output")"
-assert_output "installer includes serena result" "true" "$(jq -r '.results | map(select(.tool_id == "serena")) | length == 1' <<<"$install_output")"
-assert_output "installer excludes optional playwright by default" "false" "$(jq -r '.results | any(.tool_id == "playwright")' <<<"$install_output")"
-assert_output "installer records configured path" "$FAKE_HOME2/.claude.json" "$(jq -r '.results | map(select(.tool_id == "serena"))[0].configured_path' <<<"$install_output")"
-assert_output "installer records selected scope user" "user" "$(jq -r '.results | map(select(.tool_id == "serena"))[0].selected_scope' <<<"$install_output")"
-assert_output "installer records fallback applied true" "true" "$(jq -r '.results | map(select(.tool_id == "serena"))[0].fallback_applied' <<<"$install_output")"
-assert "installer creates serena bootstrap file" test -f "$FAKE_REPO2/.serena/project.yml"
-assert_output "installer bootstrap file includes languages" "true" "$(grep -q '^languages:' "$FAKE_REPO2/.serena/project.yml" && printf true || printf false)"
-assert "installer creates serena ready marker" test -f "$FAKE_REPO2/.serena/index-ready.json"
-assert_output "installer reports serena ready after bootstrap" "ready" "$(jq -r '.results | map(select(.tool_id == "serena"))[0].status' <<<"$install_output")"
-install_playwright_output="$(cd "$FAKE_REPO2" && PATH="$TEST_PATH" HOME="$FAKE_HOME2" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --install playwright 2>/dev/null || true)"
-assert "install-mcp.sh with explicit playwright returns valid JSON" jq -e . <<<"$install_playwright_output"
-assert_output "installer includes explicit playwright result" "true" "$(jq -r '.results | any(.tool_id == "playwright")' <<<"$install_playwright_output")"
-assert_output "installer writes playwright host config" "npx" "$(jq -r '.mcpServers.playwright.command' "$FAKE_HOME2/.claude.json")"
-assert_output "installer writes playwright host args" "true" "$(jq -r '.mcpServers.playwright.args == ["-y","@playwright/mcp@latest"]' "$FAKE_HOME2/.claude.json")"
-install_skip_optional_output="$(cd "$FAKE_REPO2" && PATH="$TEST_PATH" HOME="$FAKE_HOME2" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --skip playwright 2>/dev/null || true)"
-assert "install-mcp.sh with optional skip returns valid JSON" jq -e . <<<"$install_skip_optional_output"
-assert_output "optional skip still includes serena" "true" "$(jq -r '.results | any(.tool_id == "serena")' <<<"$install_skip_optional_output")"
-assert_output "optional skip excludes playwright" "false" "$(jq -r '.results | any(.tool_id == "playwright")' <<<"$install_skip_optional_output")"
-install_skip_required_output="$(cd "$FAKE_REPO2" && PATH="$TEST_PATH" HOME="$FAKE_HOME2" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --skip serena 2>/dev/null || true)"
-assert "install-mcp.sh with required skip returns valid JSON" jq -e . <<<"$install_skip_required_output"
-assert_output "required skip reports action-required" "action-required" "$(jq -r '.results | map(select(.tool_id == "serena"))[0].status' <<<"$install_skip_required_output")"
-assert_output "required skip reports invalid_required_skip" "invalid_required_skip" "$(jq -r '.results | map(select(.tool_id == "serena"))[0].reason_code' <<<"$install_skip_required_output")"
-FAIL_BIN="$TMP_DIR/fail-bin"
-mkdir -p "$FAIL_BIN"
-cat > "$FAIL_BIN/npx" <<'EOF'
+  cat > "$bin_dir/node" <<'SH'
 #!/bin/bash
-echo 'simulated "warmup" failure' >&2
-exit 42
-EOF
-chmod +x "$FAIL_BIN/npx"
-install_warmup_fail_output="$(cd "$FAKE_REPO2" && PATH="$FAIL_BIN:$TEST_PATH" HOME="$FAKE_HOME2" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --install context7 2>/dev/null || true)"
-assert "install-mcp.sh warmup failure returns valid JSON" jq -e . <<<"$install_warmup_fail_output"
-assert_output "warmup failure reports reason code" "warmup_failed" "$(jq -r '.results | map(select(.tool_id == "context7"))[0].reason_code' <<<"$install_warmup_fail_output")"
-assert_output "warmup failure records exit code" "42" "$(jq -r '.results | map(select(.tool_id == "context7"))[0].exit_code' <<<"$install_warmup_fail_output")"
-assert_output "warmup failure records bounded diagnostic" "true" "$(jq -r '.results | map(select(.tool_id == "context7"))[0].diagnostic_summary | contains("warmup")' <<<"$install_warmup_fail_output")"
-uninstall_output="$(HOME="$FAKE_HOME2" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/uninstall-mcp.sh" --tool playwright 2>/dev/null || true)"
-assert "uninstall-mcp.sh returns valid JSON" jq -e . <<<"$uninstall_output"
-assert_output "uninstall reports removed playwright" "playwright" "$(jq -r '.removed_tools[0]' <<<"$uninstall_output")"
-assert_output "uninstall removes playwright from config" "false" "$(jq -r '.mcpServers | has("playwright")' "$FAKE_HOME2/.claude.json")"
-
-
-echo ""
-echo "5. verify-tools.sh readiness ledger"
-VERIFY_HOME="$TMP_DIR/verify"
-mkdir -p "$VERIFY_HOME/.claude" "$VERIFY_HOME/.serena"
-cat > "$VERIFY_HOME/.claude.json" <<'JSONEOF'
-{
-  "mcpServers": {
-    "serena": {
-      "command": "uvx",
-      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"]
-    },
-    "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"]
-    },
-    "sequential-thinking": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-    }
-  }
+echo "v20.0.0"
+SH
+  cat > "$bin_dir/npm" <<SH
+#!/bin/bash
+echo "npm \$*" >> "$log_file"
+if [ "\${1:-}" = "--version" ]; then echo "10.0.0"; fi
+exit 0
+SH
+  cat > "$bin_dir/npx" <<SH
+#!/bin/bash
+echo "npx \$*" >> "$log_file"
+if [ "\${1:-}" = "--version" ]; then echo "10.0.0"; fi
+exit 0
+SH
+  cat > "$bin_dir/uv" <<'SH'
+#!/bin/bash
+echo "uv 0.1.0"
+SH
+  cat > "$bin_dir/uvx" <<SH
+#!/bin/bash
+echo "uvx \$*" >> "$log_file"
+if [ "\${1:-}" = "--version" ]; then echo "uvx 0.1.0"; fi
+if [[ " \$* " == *" serena project create "* ]]; then
+  mkdir -p .serena
+  printf 'created_by: fake-serena\n' > .serena/project.yml
+fi
+exit 0
+SH
+  cat > "$bin_dir/agent-browser" <<SH
+#!/bin/bash
+echo "agent-browser \$*" >> "$log_file"
+if [ "\${1:-}" = "--version" ]; then echo "agent-browser 0.0.0"; fi
+exit 0
+SH
+  chmod +x "$bin_dir/node" "$bin_dir/npm" "$bin_dir/npx" "$bin_dir/uv" "$bin_dir/uvx" "$bin_dir/agent-browser"
 }
-JSONEOF
-cat > "$VERIFY_HOME/.serena/project.yml" <<'EOF'
-project_root: fake
-EOF
-cat > "$VERIFY_HOME/.serena/index-ready.json" <<'EOF'
-{"project_root":"fake","index_status":"ready","indexed_at":"2026-04-23T01:00:00Z"}
-EOF
-verify_output=$(cd "$VERIFY_HOME" && PATH="$TEST_PATH" HOME="$VERIFY_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh" 2>&1)
-assert_contains "verify output updates marker" "宿主就绪标记已更新" "$verify_output"
-assert_contains "verify output shows baseline_ready" "MCP baseline_ready:" "$verify_output"
-ledger_path="$VERIFY_HOME/.claude/spec-first/host-setup.json"
-assert "ledger file exists" test -f "$ledger_path"
-assert_output "schema_version v1" "v1" "$(jq -r '.schema_version' "$ledger_path")"
-assert_output "overall_status field exists" "true" "$(jq -r 'has("overall_status")' "$ledger_path")"
-assert_output "baseline_ready true in ledger" "true" "$(jq -r '.baseline_ready' "$ledger_path")"
-assert_output "serena host config fallback-active in ledger" "fallback-active" "$(jq -r '.tools.serena.host_config_status' "$ledger_path")"
-assert_output "serena selected scope user in ledger" "user" "$(jq -r '.tools.serena.selected_scope' "$ledger_path")"
-assert_output "ledger includes helper tools" "true" "$(jq -r 'has("helper_tools")' "$ledger_path")"
-assert_output "agent-browser helper is required in ledger" "true" "$(jq -r '.helper_tools."agent-browser".required' "$ledger_path")"
-assert_output "agent-browser helper has non-MCP host config" "not-applicable" "$(jq -r '.helper_tools."agent-browser".host_config_status' "$ledger_path")"
-assert_output "next_actions is array" "array" "$(jq -r '.next_actions | type' "$ledger_path")"
 
+make_repo() {
+  local repo_dir="$1"
+  mkdir -p "$repo_dir"
+  git -C "$repo_dir" init -q
+}
 
-echo ""
-echo "6. Skill and reference validation"
-SKILL_MD="$REPO_ROOT/skills/spec-mcp-setup/SKILL.md"
-REF_MD="$REPO_ROOT/skills/spec-mcp-setup/references/supported-mcp-tools.md"
-CHECK_HEALTH="$REPO_ROOT/skills/spec-mcp-setup/scripts/check-health"
-SETUP_SKILL_MD="$REPO_ROOT/skills/spec-setup/SKILL.md"
-SETUP_CHECK_HEALTH="$REPO_ROOT/skills/spec-setup/scripts/check-health"
-CONFIG_TEMPLATE="$REPO_ROOT/skills/spec-mcp-setup/references/config-template.yaml"
-skill_body="$(cat "$SKILL_MD")"
-setup_skill_body="$(cat "$SETUP_SKILL_MD")"
-assert "migrated check-health exists" test -f "$CHECK_HEALTH"
-assert "migrated config template exists" test -f "$CONFIG_TEMPLATE"
-assert_contains "check-health lists agent-browser helper" "agent-browser" "$(cat "$CHECK_HEALTH")"
-assert_contains "check-health marks agent-browser required" '"agent-browser|required"' "$(cat "$CHECK_HEALTH")"
-assert_contains "check-health prints install status table" 'Tool install status' "$(cat "$CHECK_HEALTH")"
-assert_contains "check-health prints required column" 'Required' "$(cat "$CHECK_HEALTH")"
-assert_contains "check-health prints status column" 'Status' "$(cat "$CHECK_HEALTH")"
-assert_contains "check-health supports JSON helper facts" '--json' "$(cat "$CHECK_HEALTH")"
-assert_contains "check-health installs agent-browser CLI" "npm install -g agent-browser" "$(cat "$CHECK_HEALTH")"
-assert_contains "check-health initializes agent-browser runtime" "agent-browser install" "$(cat "$CHECK_HEALTH")"
-assert_contains "check-health installs upstream agent-browser skill" "npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y" "$(cat "$CHECK_HEALTH")"
-assert_contains "SKILL references install-mcp.sh" "skills/spec-mcp-setup/scripts/install-mcp.sh" "$skill_body"
-assert_contains "SKILL references uninstall-mcp.sh" "uninstall-mcp.sh" "$skill_body"
-assert_contains "SKILL mentions managed-mcp.json" "managed-mcp.json" "$skill_body"
-assert_contains "SKILL mentions /etc/codex/config.toml" "/etc/codex/config.toml" "$skill_body"
-assert_contains "SKILL mentions fallback-active" "fallback-active" "$skill_body"
-assert_contains "SKILL separates agent-browser helper boundary" "browser automation helper substrate" "$skill_body"
-assert_contains "SKILL says agent-browser required" '`agent-browser` is required' "$skill_body"
-assert_contains "SKILL merges helper tools into final table" "helper_tools" "$skill_body"
-assert_contains "SKILL table includes Type column" "Tool | Type | Required | Dependency | Host Config | Project Bootstrap | Result | Next Action" "$skill_body"
-assert_contains "SKILL sorts required MCP before helpers" "required MCP tools" "$skill_body"
-assert_contains "SKILL maps not-applicable to n/a" 'not-applicable` -> `n/a' "$skill_body"
-assert_contains "SKILL clarifies optional MCP pending display" "optional-pending" "$skill_body"
-assert_contains "reference mentions fallback-active" "fallback-active" "$(cat "$REF_MD")"
-assert_contains "reference mentions precedence-blocked" "precedence-blocked" "$(cat "$REF_MD")"
-assert_contains "reference mentions baseline_ready" "baseline_ready" "$(cat "$REF_MD")"
-assert_contains "reference keeps agent-browser outside MCP index" "not listed in the MCP Tool Index" "$(cat "$REF_MD")"
-assert_contains "reference records agent-browser floating upstream policy" "intentionally floats the current upstream package and skill source" "$(cat "$REF_MD")"
-assert_contains "reference points agent-browser docs to CLI-served upstream docs" "agent-browser skills get core" "$(cat "$REF_MD")"
-assert_contains "spec-setup delegates agent-browser setup to spec-mcp-setup" 'Browser automation setup is owned by `spec-mcp-setup`' "$setup_skill_body"
-assert_not_contains "spec-setup script has no independent agent-browser install command" "npm install -g agent-browser" "$(cat "$SETUP_CHECK_HEALTH")"
-assert_not_contains "SKILL does not mention retired coordinator" "install-coordinator.sh" "$skill_body"
+echo "=== spec-mcp-setup required runtime tests ==="
 
+assert_eq "mcp-tools schema is v4" "4" "$(jq -r '.schema_version' "$TOOLS_JSON")"
+assert_eq "tool ids are fixed" "serena,sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.tools[].id] | join(",")' "$TOOLS_JSON")"
+assert_eq "every registry tool is required" "true" "$(jq -r 'all(.tools[]; .required == true)' "$TOOLS_JSON")"
+assert_eq "categories are constrained" "true" "$(jq -r 'all(.tools[]; (.category == "mcp" or .category == "graph-provider"))' "$TOOLS_JSON")"
+assert_eq "agent-browser is outside MCP registry" "false" "$(jq -r '[.tools[].id] | index("agent-browser") != null' "$TOOLS_JSON")"
+assert_eq "browser MCP is not registered" "false" "$(jq -r '[.tools[].id] | any(. == "playwright")' "$TOOLS_JSON")"
+assert_eq "graph provider roles are configured" "global_knowledge,impact_context" "$(jq -r '[.tools[] | select(.category == "graph-provider") | .provider_role] | join(",")' "$TOOLS_JSON")"
+assert_eq "serena depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "serena") | .dependencies | join(",")' "$TOOLS_JSON")"
+assert_eq "code-review-graph depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "code-review-graph") | .dependencies | join(",")' "$TOOLS_JSON")"
+assert_eq "gitnexus warmup command" "npx -y gitnexus@latest --help" "$(jq -r '.tools[] | select(.id == "gitnexus") | [.installation.unix.command] + .installation.unix.args | join(" ")' "$TOOLS_JSON")"
+assert_eq "code-review-graph mcp command" "uvx code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool" "$(jq -r '.tools[] | select(.id == "code-review-graph") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
 
-echo ""
-echo "7. Windows and uninstall entrypoint files exist"
-for script in check-deps.sh detect-host.sh detect-tools.sh install-mcp.sh configure-host.sh repair-install.sh activate-serena.sh verify-tools.sh uninstall-mcp.sh; do
-  assert "Has $script" test -f "$SCRIPTS_DIR/$script"
-done
-for ps1 in check-deps.ps1 detect-host.ps1 detect-tools.ps1 install-mcp.ps1 configure-host.ps1 repair-install.ps1 activate-serena.ps1 verify-tools.ps1 uninstall-mcp.ps1; do
-  assert "Has $ps1" test -f "$SCRIPTS_DIR/$ps1"
-done
+FAKE_BIN="$TMP_DIR/bin"
+COMMAND_LOG="$TMP_DIR/commands.log"
+touch "$COMMAND_LOG"
+make_fake_bin "$FAKE_BIN" "$COMMAND_LOG"
+TEST_PATH="$FAKE_BIN:$PATH"
 
+deps_output="$(PATH="$TEST_PATH" bash "$SCRIPTS_DIR/check-deps.sh")"
+assert "check-deps emits JSON" jq -e . <<<"$deps_output"
+assert_eq "check-deps schema v2" "deps.v2" "$(jq -r '.schema_version' <<<"$deps_output")"
+assert_eq "required Unix deps are ready" "true" "$(jq -r '[.dependencies | to_entries[] | select(.value.required == true) | .key] | sort | join(",") == "jq,node,npm,npx,python3,uv,uvx"' <<<"$deps_output")"
+assert_eq "check-deps required_ready true with fake deps" "true" "$(jq -r '.required_ready' <<<"$deps_output")"
 
-echo ""
-echo "=== summary ==="
-echo "pass: $pass"
-echo "fail: $fail"
+FAKE_HOME="$TMP_DIR/home"
+mkdir -p "$FAKE_HOME/.agents/skills/agent-browser"
+printf 'name: agent-browser\n' > "$FAKE_HOME/.agents/skills/agent-browser/SKILL.md"
 
-if [ "$fail" -ne 0 ]; then
+helper_verify_log_before="$(cat "$COMMAND_LOG")"
+helper_verify="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh" --verify-only)"
+helper_verify_log_after="$(cat "$COMMAND_LOG")"
+assert "install-helpers verify-only emits JSON" jq -e . <<<"$helper_verify"
+assert_eq "helper shape contains agent-browser" "true" "$(jq -r '.helper_tools | has("agent-browser")' <<<"$helper_verify")"
+assert_eq "helper verify-only does not run install commands" "$helper_verify_log_before" "$helper_verify_log_after"
+assert_eq "helper verify-only ready with CLI and global skill" "ready" "$(jq -r '.helper_tools."agent-browser".result' <<<"$helper_verify")"
+
+helper_install="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh")"
+assert "install-helpers install emits JSON" jq -e . <<<"$helper_install"
+assert_contains "helper install runs agent-browser install" "agent-browser install" "$(cat "$COMMAND_LOG")"
+assert_contains "helper install installs global skill" "npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y" "$(cat "$COMMAND_LOG")"
+
+FAKE_REPO="$TMP_DIR/repo"
+make_repo "$FAKE_REPO"
+install_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh")"
+assert "install-mcp emits JSON" jq -e . <<<"$install_output"
+assert_eq "installer configures all required tools" "serena,sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$install_output")"
+assert_eq "installer has no skipped optional results" "true" "$(jq -r 'all(.results[]; .status == "ready")' <<<"$install_output")"
+assert_eq "installer writes GitNexus config" "npx" "$(jq -r '.mcpServers.gitnexus.command' "$FAKE_HOME/.claude.json")"
+assert_eq "installer writes code-review-graph config" "uvx" "$(jq -r '.mcpServers["code-review-graph"].command' "$FAKE_HOME/.claude.json")"
+assert "Serena ready marker exists" test -f "$FAKE_REPO/.serena/index-ready.json"
+assert_contains "setup does not run GitNexus analyze" "gitnexus@latest --help" "$(cat "$COMMAND_LOG")"
+if grep -q 'gitnexus@latest analyze' "$COMMAND_LOG"; then
+  echo "FAIL: spec-mcp-setup must not run gitnexus analyze" >&2
   exit 1
 fi
+if grep -q 'code-review-graph build' "$COMMAND_LOG"; then
+  echo "FAIL: spec-mcp-setup must not run code-review-graph build" >&2
+  exit 1
+fi
+
+detect_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh")"
+assert "detect-tools emits JSON" jq -e . <<<"$detect_output"
+assert_eq "detect-tools schema v2 facts" "tool-facts.v2" "$(jq -r '.schema_version' <<<"$detect_output")"
+assert_eq "detect-tools has no baseline_ready" "false" "$(jq -r 'has("baseline_ready")' <<<"$detect_output")"
+assert_eq "detect-tools has no top-level crg" "false" "$(jq -r 'has("crg")' <<<"$detect_output")"
+assert_eq "graph providers are not query-ready after setup detection" "false,false" "$(jq -r '[.graph_providers[] | .query_ready] | join(",")' <<<"$detect_output")"
+
+verify_text="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
+assert_contains "verify reports ledger v2" "readiness ledger v2" "$verify_text"
+LEDGER_PATH="$FAKE_HOME/.claude/spec-first/host-setup.json"
+PROVIDER_CONFIG="$FAKE_REPO/.spec-first/config/graph-providers.json"
+assert "ledger exists" test -f "$LEDGER_PATH"
+assert "provider config exists" test -f "$PROVIDER_CONFIG"
+assert_eq "ledger schema v2" "v2" "$(jq -r '.schema_version' "$LEDGER_PATH")"
+assert_eq "ledger baseline includes helper and tools" "true" "$(jq -r '.baseline_ready and (.helper_tools."agent-browser".result == "ready") and (.tools.gitnexus.host_config_status == "fallback-active") and (.tools["code-review-graph"].host_config_status == "fallback-active")' "$LEDGER_PATH")"
+assert_eq "provider projection schema" "graph-providers.v1" "$(jq -r '.schema_version' "$PROVIDER_CONFIG")"
+assert_eq "provider projection is setup-only" "true" "$(jq -r '.boundaries.setup_only and .boundaries.does_not_run_gitnexus_analyze and .boundaries.does_not_run_code_review_graph_build' "$PROVIDER_CONFIG")"
+assert_eq "providers are configured but not query-ready" "true" "$(jq -r '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.query_ready == false) and .providers["code-review-graph"].configured and .providers["code-review-graph"].enabled_for_bootstrap and (.providers["code-review-graph"].query_ready == false)' "$PROVIDER_CONFIG")"
+
+FAKE_CODEX_HOME="$TMP_DIR/codex-home"
+FAKE_CODEX_REPO="$TMP_DIR/codex-repo"
+mkdir -p "$FAKE_CODEX_HOME"
+mkdir -p "$FAKE_CODEX_HOME/.agents/skills/agent-browser"
+printf 'name: agent-browser\n' > "$FAKE_CODEX_HOME/.agents/skills/agent-browser/SKILL.md"
+make_repo "$FAKE_CODEX_REPO"
+codex_config="$FAKE_CODEX_HOME/.codex/config.toml"
+mkdir -p "$(dirname "$codex_config")"
+(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/configure-host.sh" --tool code-review-graph >/dev/null)
+assert_contains "Codex config uses quoted table key" '[mcp_servers."code-review-graph"]' "$(cat "$codex_config")"
+codex_detect="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detect-tools.sh")"
+assert_eq "detect-tools reads quoted Codex key" "ready" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect")"
+cat > "$codex_config" <<'TOML'
+[mcp_servers.code-review-graph]
+command = "old"
+args = []
+
+[mcp_servers."code-review-graph"]
+command = "uvx"
+args = ["code-review-graph","serve"]
+TOML
+(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/uninstall-mcp.sh" --tool code-review-graph >/dev/null)
+if grep -q 'mcp_servers.*code-review-graph' "$codex_config"; then
+  echo "FAIL: uninstall should remove quoted and unquoted code-review-graph sections" >&2
+  exit 1
+fi
+
+graph_log_before="$(cat "$COMMAND_LOG")"
+bootstrap_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$GRAPH_BOOTSTRAP_SCRIPT")"
+graph_log_after="$(cat "$COMMAND_LOG")"
+assert "graph-bootstrap emits JSON" jq -e . <<<"$bootstrap_output"
+assert_eq "graph-bootstrap result ready" "ready" "$(jq -r '.overall_status' <<<"$bootstrap_output")"
+assert_contains "graph-bootstrap runs GitNexus analyze" "npx -y gitnexus@latest analyze" "$graph_log_after"
+assert_contains "graph-bootstrap runs code-review-graph build" "uvx code-review-graph build" "$graph_log_after"
+if [ "$graph_log_before" = "$graph_log_after" ]; then
+  echo "FAIL: graph-bootstrap should run provider build commands" >&2
+  exit 1
+fi
+assert_eq "graph-bootstrap flips query_ready" "true" "$(jq -r '.providers.gitnexus.query_ready and .providers["code-review-graph"].query_ready and (.providers.gitnexus.bootstrap_required == false) and (.providers["code-review-graph"].bootstrap_required == false)' "$PROVIDER_CONFIG")"
+
+echo "=== spec-mcp-setup required runtime tests passed ==="

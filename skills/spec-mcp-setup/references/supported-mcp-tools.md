@@ -1,87 +1,65 @@
-# Supported MCP Tools
+# Supported Required Harness Runtime Tools
 
-This reference is the human-readable index for the MCP tools currently managed by `spec-mcp-setup`.
+This reference is the human-readable index for the runtime managed by `spec-mcp-setup`. The machine truth for MCP servers and graph-provider MCP servers remains `skills/spec-mcp-setup/mcp-tools.json`.
 
-Use this file when a workflow needs to know:
-- which MCP tools are supported
-- whether a tool is required or optional
-- what host-specific notes matter
-- whether a tool requires current-repo bootstrap
-- which downstream skills or workflows depend on it
+## Required MCP Tools
 
-The machine-truth tool registry remains `skills/spec-mcp-setup/mcp-tools.json`.
+| Tool | Required | Category | Host Config | Project Bootstrap | Purpose |
+|---|---:|---|---|---|---|
+| Serena | Yes | `mcp` | Claude/Codex MCP server | Yes | Symbol-aware repo editing and project indexing |
+| Sequential Thinking | Yes | `mcp` | Claude/Codex MCP server | No | Reflective reasoning support |
+| Context7 | Yes | `mcp` | Claude/Codex MCP server | No | Current framework/library documentation |
 
-## Tool Index
+## Required Graph Providers
 
-| Tool | Required | Host notes | Current-repo bootstrap | Used by |
-|------|----------|-----------|------------------------|---------|
-| Serena | Yes | Claude/Codex use host-specific MCP args and Codex timeout | Yes — current repo bootstrap required | code navigation / symbol-aware workflows |
-| Sequential Thinking | Yes | Standard MCP entry | No | planning / reasoning-heavy workflows |
-| Context7 | Yes | Standard MCP entry | No | framework docs lookup |
-| Playwright MCP | No | Host MCP config only | No | browser / frontend automation |
+| Tool | Required | Category | Role | Setup Command | Bootstrap Owner |
+|---|---:|---|---|---|---|
+| GitNexus | Yes | `graph-provider` | `global_knowledge` | `npx -y gitnexus@latest mcp` | `spec-graph-bootstrap` runs `npx -y gitnexus@latest analyze` |
+| code-review-graph | Yes | `graph-provider` | `impact_context` | `uvx code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool` | `spec-graph-bootstrap` runs `uvx code-review-graph build` |
 
-## Helper Tool Boundary
+`spec-mcp-setup` only warms and configures graph-provider MCP servers. It must not run `gitnexus analyze` or `code-review-graph build`.
 
-`agent-browser` is intentionally not listed in the MCP Tool Index and must not be added to `mcp-tools.json`. It is a required external browser automation CLI plus upstream/global skill installed through the `spec-mcp-setup` Phase 0 helper-tool preflight, not an MCP server and not part of `baseline_ready`.
+## Required Helper Tool
 
-The helper install path intentionally floats the current upstream package and skill source:
+`agent-browser` is required helper tooling, not an MCP server. It is intentionally not listed in `mcp-tools.json`.
+
+Default helper install mode runs:
 
 ```bash
-CI=true npm install -g agent-browser --no-audit --no-fund --loglevel=error && agent-browser install && npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
+CI=true npm install -g agent-browser --no-audit --no-fund --loglevel=error
+agent-browser install
+npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
 ```
 
-The trusted upstreams are the `agent-browser` npm package, `agent-browser install` for the browser/runtime bootstrap, and `https://github.com/vercel-labs/agent-browser` for the global skill stub. If that upstream path becomes unavailable or unsuitable for a host, do not add a local replacement skill in this repository; instead, rerun `spec-mcp-setup`, inspect `agent-browser --version`, and use the upstream/global skill docs from `agent-browser skills get core` for rollback or repair guidance.
+`install-helpers.* --verify-only` only detects the helper facts and returns:
 
-## Host Target Notes
+```json
+{
+  "helper_tools": {
+    "agent-browser": {}
+  }
+}
+```
 
-Route B keeps one machine-readable registry in `mcp-tools.json` and projects these host facts:
-- Claude Code prefers official `managed-mcp.json` and may fall back to `~/.claude.json`
-- Codex writes user config at `~/.codex/config.toml`
-- Unix Codex also surfaces `/etc/codex/config.toml` as precedence fact
-- uninstall removes entries from every declared uninstall target for the current host
+## Readiness Boundary
 
-## Readiness Signals
+Readiness ledger v2 is written by `verify-tools.*` after merging MCP/graph-provider facts with helper facts.
 
-The host readiness ledger at the current host's `spec-first/host-setup.json` answers four questions:
+`baseline_ready=true` means:
 
-1. Is the required MCP baseline ready?
-2. Which tool is still pending and why?
-3. Has Serena bootstrapped the current repo?
-4. Which deterministic next action remains before MCP/helper workflows can proceed?
+- required MCP tools are configured;
+- required graph-provider MCP servers are configured;
+- `agent-browser` helper facts are ready.
 
-The most important fields are:
-- `overall_status`
-- `baseline_ready`
-- `tools.<tool>.dependency_status`
-- `tools.<tool>.host_config_status`
-- `tools.<tool>.selected_scope`
-- `tools.<tool>.project_status`
-- `tools.<tool>.next_action`
-- `next_actions[]`
+It does not mean graph indexes are query-ready. After `spec-mcp-setup`, graph providers remain:
 
-`host_config_status` now means:
-- `ready`
-- `fallback-active`
-- `precedence-blocked`
-- `action-required`
+```json
+{
+  "configured": true,
+  "enabled_for_bootstrap": true,
+  "query_ready": false,
+  "bootstrap_required": true
+}
+```
 
-## Serena Notes
-
-Serena is the only tool in this list that currently requires host config **and** current-repo bootstrap.
-
-A host can therefore be in one of these states:
-- host config missing
-- host config ready, repo bootstrap pending
-- host config ready, repo bootstrap failed (project metadata exists but the latest index-ready marker is missing)
-- host config ready, repo bootstrap ready
-
-The current repo bootstrap is considered ready only when both `.serena/project.yml` and the latest index-ready marker (`.serena/index-ready.json`) exist.
-
-Workflows that depend on Serena should prefer `tools.serena.project_status` over inferring readiness only from host config.
-
-## Documentation Boundaries
-
-- Keep this file human-readable.
-- Do not duplicate the full tool catalog in `CLAUDE.md` or `AGENTS.md`.
-- Do not introduce a second machine-readable registry here.
-- Update this file when the supported tool set or readiness semantics change.
+Run `/spec:graph-bootstrap` or `$spec-graph-bootstrap` to build provider indexes and flip `query_ready=true`.

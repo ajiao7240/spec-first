@@ -46,7 +46,7 @@
 定义：
 
 1. `workflow_command`
-   - 该 skill 被 manifest `commands` 集合声明为 command-backed workflow source
+   - 该 skill 被 `skills-governance.json` 与 `templates/claude/commands/spec/*.md` 共同生成的 command manifest 声明为 command-backed workflow source
    - 这是**源层分类**，不等于每个宿主都必须暴露 command 文件
 2. `standalone_skill`
    - 该 skill 不在 manifest `commands` 中，按普通 skill 交付
@@ -97,7 +97,7 @@
 
 ### 2.4 当前决策下的 delivery 约束
 
-在本 contract 生效后，`13` 个 command-backed workflow skill 的宿主交付规则如下：
+在本 contract 生效后，所有 command-backed workflow skill 的宿主交付规则如下：
 
 1. Claude
    - `host_delivery.claude = command`
@@ -153,7 +153,7 @@
 
 filtered asset set 的最小输入固定为：
 
-1. manifest command set
+1. 由 `skills-governance.json` 的 workflow records 与 command template frontmatter 生成的 manifest command set
 2. 宿主治理真源文件
 3. 目标平台：`claude | codex`
 
@@ -210,6 +210,7 @@ machine-readable 真源文件固定落位：
 
 - `src/cli/contracts/dual-host-governance/skills-governance.json`
 - `src/cli/contracts/dual-host-governance/skills-governance.schema.json`
+- `templates/claude/commands/spec/*.md` frontmatter（workflow command metadata）
 
 其中：
 
@@ -241,7 +242,7 @@ machine-readable 真源文件固定落位：
 新增或修改 skill 时，必须同步满足以下规则：
 
 1. 不得只改 `SKILL.md` 文案而不更新 `skills-governance.json`
-2. 不得只改 manifest command set 而不更新 `entry_surface=workflow_command` 记录
+2. 不得只改 command template frontmatter 或生成后的 manifest command set，而不更新 `entry_surface=workflow_command` 记录
 3. 不得把 standalone skill 写成已声明 slash command
 4. 不得把 Codex 用户入口写成 `**Codex entry point:** /spec:*`
 5. `Skill(...)`、`skill:`、以及其他内部调用 DSL 明确不属于“用户可见入口治理”范围

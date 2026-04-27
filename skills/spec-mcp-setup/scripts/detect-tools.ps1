@@ -5,6 +5,7 @@ Set-StrictMode -Version Latest
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
+. (Join-Path $ScriptDir 'lib-toml.ps1')
 $ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
@@ -12,21 +13,14 @@ $ConfigPath = $HostInfo.config_path
 $Platform = $HostInfo.platform
 $SelectedScope = $HostInfo.selected_scope
 $PrecedenceBlocked = [bool]$HostInfo.precedence_blocked
-$RepoRoot = try { git rev-parse --show-toplevel } catch { (Get-Location).Path }
 
-function Get-TomlSection {
-  param([string]$Path, [string]$SectionName)
-  if (-not (Test-Path $Path)) { return '' }
-  $header = "[mcp_servers.$SectionName]"
-  $lines = Get-Content $Path
-  $capturing = $false
-  $buffer = New-Object System.Collections.Generic.List[string]
-  foreach ($line in $lines) {
-    if ($line -eq $header) { $capturing = $true; continue }
-    if ($capturing -and $line -match '^\[mcp_servers\..+\]$') { break }
-    if ($capturing) { $buffer.Add($line) }
-  }
-  $buffer -join "`n"
+try {
+  $RepoRoot = (git rev-parse --show-toplevel 2>$null)
+  if ([string]::IsNullOrWhiteSpace($RepoRoot)) { throw 'not git' }
+  $RepoStatus = 'git-repo'
+} catch {
+  $RepoRoot = (Get-Location).Path
+  $RepoStatus = 'not-git-repo'
 }
 
 function Get-DependencyStatus {
@@ -57,7 +51,8 @@ function Get-HostConfigStatus {
         if ($SelectedScope -eq 'managed') { return 'ready' }
         return 'fallback-active'
       }
-      $section = Get-TomlSection -Path $ConfigPath -SectionName $Tool.detection.key
+
+      $section = Get-TomlMcpSection -Path $ConfigPath -Key $Tool.detection.key
       if ([string]::IsNullOrWhiteSpace($section)) { return 'action-required' }
       if (-not $section.Contains("command = `"$($hostConfig.command)`"")) { return 'action-required' }
       foreach ($arg in @($hostConfig.args)) {
@@ -72,7 +67,7 @@ function Get-HostConfigStatus {
         if ($SelectedScope -eq 'managed') { return 'ready' }
         return 'fallback-active'
       }
-      if (Select-String -Path $ConfigPath -SimpleMatch "[mcp_servers.$($Tool.detection.key)]" -Quiet) { return 'ready' }
+      if (-not [string]::IsNullOrWhiteSpace((Get-TomlMcpSection -Path $ConfigPath -Key $Tool.detection.key))) { return 'ready' }
       return 'action-required'
     }
     default { return 'action-required' }
@@ -84,12 +79,12 @@ function Get-ProjectStatus {
   if ($Tool.project_bootstrap.kind -eq 'none' -or -not $Tool.project_bootstrap.required) {
     return 'not-applicable'
   }
+
   $projectFile = Join-Path $RepoRoot $Tool.project_bootstrap.project_file
   $readyMarkerFile = if ($null -ne $Tool.project_bootstrap.ready_marker_file) { $Tool.project_bootstrap.ready_marker_file } else { '' }
   $readyMarkerPath = if ([string]::IsNullOrWhiteSpace($readyMarkerFile)) { '' } else { Join-Path $RepoRoot $readyMarkerFile }
-  if (-not (Test-Path $projectFile)) {
-    return 'pending'
-  }
+
+  if (-not (Test-Path $projectFile)) { return 'pending' }
   if ($Tool.project_bootstrap.kind -eq 'serena') {
     if (-not [string]::IsNullOrWhiteSpace($readyMarkerPath) -and (Test-Path $readyMarkerPath)) { return 'ready' }
     return 'failed'
@@ -97,17 +92,16 @@ function Get-ProjectStatus {
   return 'ready'
 }
 
-$overallStatus = 'ready'
-$baselineReady = $true
-$results = [ordered]@{}
+$tools = [ordered]@{}
+$graphProviders = [ordered]@{}
 $nextActions = New-Object System.Collections.Generic.List[string]
+
 function Add-NextAction {
   param([string]$Action)
   if ([string]::IsNullOrWhiteSpace($Action)) { return }
-  if (-not $nextActions.Contains($Action)) {
-    $nextActions.Add($Action)
-  }
+  if (-not $nextActions.Contains($Action)) { $nextActions.Add($Action) }
 }
+
 foreach ($tool in @($ToolsJson.tools)) {
   $dependencyStatus = 'ready'
   foreach ($dep in @($tool.dependencies)) {
@@ -117,7 +111,10 @@ foreach ($tool in @($ToolsJson.tools)) {
 
   $hostConfigStatus = Get-HostConfigStatus -Tool $tool
   $projectStatus = Get-ProjectStatus -Tool $tool
+  $configured = ($hostConfigStatus -eq 'ready' -or $hostConfigStatus -eq 'fallback-active')
+  $type = if ($null -ne $tool.category) { $tool.category } else { 'mcp' }
   $nextAction = ''
+
   if ($dependencyStatus -ne 'ready') {
     $nextAction = 'install dependency'
   } elseif ($hostConfigStatus -eq 'action-required') {
@@ -126,39 +123,52 @@ foreach ($tool in @($ToolsJson.tools)) {
     $nextAction = 'review higher-precedence host config'
   } elseif ($projectStatus -eq 'pending') {
     $nextAction = 'bootstrap project'
-  }
-
-  if ($tool.required -and ($dependencyStatus -ne 'ready' -or (($hostConfigStatus -ne 'ready') -and ($hostConfigStatus -ne 'fallback-active')) -or (($projectStatus -ne 'ready') -and ($projectStatus -ne 'not-applicable')))) {
-    $baselineReady = $false
-    if ($overallStatus -eq 'ready') { $overallStatus = 'partial' }
-  }
-
-  if ($tool.required -and ($dependencyStatus -eq 'missing' -or $hostConfigStatus -eq 'action-required' -or $hostConfigStatus -eq 'precedence-blocked')) {
-    $overallStatus = 'action-required'
-  } elseif ($tool.required -and $hostConfigStatus -eq 'fallback-active' -and $overallStatus -eq 'ready') {
-    $overallStatus = 'partial'
-  } elseif ($tool.required -and $projectStatus -eq 'failed' -and $overallStatus -eq 'ready') {
-    $overallStatus = 'partial'
+  } elseif ($type -eq 'graph-provider' -and $configured) {
+    $nextAction = 'run spec-graph-bootstrap'
   }
 
   Add-NextAction $nextAction
 
-  $results[$tool.id] = [ordered]@{
+  $toolFact = [ordered]@{
     required = [bool]$tool.required
+    type = $type
     dependency_status = $dependencyStatus
     host_config_status = $hostConfigStatus
     project_status = $projectStatus
     selected_scope = $SelectedScope
     next_action = $nextAction
   }
+
+  if ($type -eq 'graph-provider') {
+    $toolFact.configured = [bool]$configured
+    $toolFact.enabled_for_bootstrap = [bool]$configured
+    $toolFact.query_ready = $false
+    $toolFact.bootstrap_required = $true
+
+    $graphProviders[$tool.id] = [ordered]@{
+      required = [bool]$tool.required
+      role = $tool.provider_role
+      dependency_status = $dependencyStatus
+      host_config_status = $hostConfigStatus
+      configured = [bool]$configured
+      enabled_for_bootstrap = [bool]$configured
+      query_ready = $false
+      bootstrap_required = $true
+      capabilities = @($tool.provider_config.capabilities)
+      next_action = $nextAction
+    }
+  }
+
+  $tools[$tool.id] = $toolFact
 }
 
 [pscustomobject]@{
+  schema_version = 'tool-facts.v2'
   host = $DetectedHost
   platform = $Platform
   repo_root = $RepoRoot
-  overall_status = $overallStatus
-  baseline_ready = [bool]$baselineReady
-  tools = $results
+  repo_status = $RepoStatus
+  tools = $tools
+  graph_providers = $graphProviders
   next_actions = @($nextActions)
-} | ConvertTo-Json -Depth 8 -Compress
+} | ConvertTo-Json -Depth 10 -Compress

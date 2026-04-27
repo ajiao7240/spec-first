@@ -57,7 +57,7 @@ function printHelp(withErrorPrefix = false) {
     '  spec-first <command> [options]',
     '',
     '🧩 Commands:',
-    '  doctor                 Check environment, plugin manifest, and managed runtime assets',
+    '  doctor                 Check environment, runtime asset manifest, and managed runtime assets',
     '  init (--claude|--codex)  Install platform-specific workflows, skills, agents, and developer profile',
     '  clean (--claude|--codex) Remove spec-first managed assets from the current project',
     '  tasks <subcommand>      Hash and validate derived task packs',

@@ -11,10 +11,11 @@
 - CLI helpers：`doctor`、`init`、`clean`、`tasks`、版本/help 输出和确定性 setup 检查。
 - `skills/`、`agents/`、`templates/` 下的 workflow source assets。
 - 面向 Claude Code 与 Codex 的 host-filtered runtime 生成。
-- 通过 `$spec-mcp-setup` 管理 MCP/helper readiness。
+- 通过 `$spec-mcp-setup` 管理 required MCP/helper/graph-provider runtime setup。
+- 通过 `$spec-graph-bootstrap` 构建 external graph provider indexes。
 - plan、task-pack、work、review、setup、sessions、release-notes、compound 等 workflow。
 
-内置 CRG runtime 与 graph-bootstrap workflow 已移除。当前 workflow 依赖显式 repo context、task packs、diffs、tests、直接文件读取，以及用户或宿主提供的可选工具。
+内置 CRG runtime 已移除。图谱上下文改由 `$spec-mcp-setup` 配置 external graph providers，再由 `$spec-graph-bootstrap` 构建项目图谱。
 
 ## 安装
 
@@ -35,7 +36,8 @@ spec-first init --codex -u <name> --lang zh
 - 用 `$spec-write-tasks` 编译可执行 task packs。
 - 用 `$spec-work` 基于 direct repo reads、nearby files、task packs、diffs 和 tests 执行工作。
 - 用 `$spec-code-review` 基于 diff、plan/task evidence、targeted file reads 和 test results 做评审。
-- 用 `$spec-mcp-setup` 只检查 MCP/helper readiness，不检查 graph readiness。
+- 用 `$spec-mcp-setup` 安装 required harness runtime：Serena、Sequential Thinking、Context7、GitNexus、code-review-graph 和 agent-browser。
+- 用 `$spec-graph-bootstrap` 运行 GitNexus/code-review-graph 项目构建，并把 graph providers 标记为 query-ready。
 
 ## 主要命令
 
@@ -53,15 +55,15 @@ spec-first tasks validate <task-pack.md> --json
 
 | 层级 | 当前 contract |
 |---|---|
-| **能力层资产** | 仓库内置源码资产共 `39` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `18` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `18` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
+| **能力层资产** | 仓库内置源码资产共 `40` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `19` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `19` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
 | **Claude runtime** | commands 生成到 `.claude/commands/spec`，skills 生成到 `.claude/skills`，agents 生成到 `.claude/agents`，managed state 位于 `.claude/spec-first/state.json`。 |
 | **Codex runtime** | workflow skills 生成到 `.agents/skills`，agents 生成到 `.codex/agents`，managed state 位于 `.codex/spec-first/state.json`。 |
-| **Readiness** | `$spec-mcp-setup` 管理 MCP/helper readiness，不报告 graph readiness。 |
+| **Readiness** | `$spec-mcp-setup` 写 readiness ledger v2 和 `query_ready=false` 的 graph provider projection；`$spec-graph-bootstrap` 构建 provider indexes 并把 `query_ready` 更新为 `true`。 |
 
 Claude init 的预期输出包含：
 
 ```text
-📦 Generated 18 command file(s) in .claude/commands/spec
+📦 Generated 19 command file(s) in .claude/commands/spec
 🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 ```
@@ -76,7 +78,8 @@ Claude init 的预期输出包含：
 | 执行工作 | `/spec:work` | `$spec-work` |
 | 代码评审 | `/spec:code-review` | `$spec-code-review` |
 | 文档/计划评审 | `/spec:doc-review` | `$spec-doc-review` |
-| MCP/helper setup | `/spec:mcp-setup` | `$spec-mcp-setup` |
+| required harness runtime setup | `/spec:mcp-setup` | `$spec-mcp-setup` |
+| 构建 graph provider indexes | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
 | 知识沉淀 | `/spec:compound` | `$spec-compound` |
 
 ## 开发与验证

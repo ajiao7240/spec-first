@@ -143,7 +143,7 @@ function buildZhBootstrapBody(hostId) {
 - 修改文件、运行会改变状态的命令、或做架构/prompt/workflow 决策前，先判断是否应进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答
 ${hostLine}
 ${surfaceLine}
-- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务编译/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`（standalone skill）/\`${entry('work')}\`
+- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；graph provider bootstrap→\`${entry('graph-bootstrap')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务编译/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`（standalone skill）/\`${entry('work')}\`
 - 完整选择策略、优先级和 red flags 由 spec-first 随包的 \`using-spec-first\` 维护；本 block 只保留启动提醒、host 入口边界和少量锚点
 - 不要直接暴露 internal-only skills：\`spec-session-inventory\`、\`spec-session-extract\``;
 }
@@ -164,7 +164,7 @@ function buildEnBootstrapBody(hostId) {
 - Before editing files, running state-changing commands, or making architecture/prompt/workflow decisions, decide whether to enter a public spec-first workflow; lightweight Q&A and narrow factual lookups may be answered directly
 ${hostLine}
 ${surfaceLine}
-- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/task compilation/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\` (standalone skill)/\`${entry('work')}\`
+- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; graph provider bootstrap→\`${entry('graph-bootstrap')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/task compilation/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\` (standalone skill)/\`${entry('work')}\`
 - The full selection policy, priority rules, and red flags are maintained by the bundled spec-first \`using-spec-first\`; this block only keeps the startup reminder, host entrypoint boundaries, and a few anchors
 - Do not expose internal-only skills directly: \`spec-session-inventory\`, \`spec-session-extract\``;
 }

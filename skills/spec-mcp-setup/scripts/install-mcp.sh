@@ -1,6 +1,6 @@
 #!/bin/bash
-# install-mcp.sh - Unix installer pipeline for spec-mcp-setup
-# Usage: install-mcp.sh [--install <tool-ids>] [--skip <tool-ids>]
+# install-mcp.sh - Unix installer pipeline for Required Harness Runtime MCP servers
+# Usage: install-mcp.sh [--only <tool-ids>]
 
 set -euo pipefail
 
@@ -9,7 +9,7 @@ command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
-HOST_INFO_JSON="$($SCRIPT_DIR/detect-host.sh)"
+HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
 HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
 HOST_DISPLAY_NAME="$(jq -r '.display_name' <<<"$HOST_INFO_JSON")"
 CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
@@ -17,65 +17,51 @@ PLATFORM="$(jq -r '.platform' <<<"$HOST_INFO_JSON")"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CONFIG_DIR="$(dirname "$CONFIG_PATH")"
 
-INSTALL_FILTER=""
-SKIP_FILTER=""
+ONLY_FILTER=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --install)
-      INSTALL_FILTER="${2:-}"
-      shift 2
-      ;;
-    --skip)
-      SKIP_FILTER="${2:-}"
+    --only)
+      ONLY_FILTER="${2:-}"
       shift 2
       ;;
     *)
-      shift
+      echo "未知参数: $1" >&2
+      exit 1
       ;;
   esac
 done
 
-if [ -n "$INSTALL_FILTER" ]; then
-  IFS=',' read -ra INSTALL_ARRAY <<< "$INSTALL_FILTER"
+if [ -n "$ONLY_FILTER" ]; then
+  IFS=',' read -ra ONLY_ARRAY <<< "$ONLY_FILTER"
 else
-  INSTALL_ARRAY=()
-fi
-if [ -n "$SKIP_FILTER" ]; then
-  IFS=',' read -ra SKIP_ARRAY <<< "$SKIP_FILTER"
-else
-  SKIP_ARRAY=()
+  ONLY_ARRAY=()
 fi
 
 should_install() {
   local tool_id="$1"
-  local required="$2"
 
-  for skip in ${SKIP_ARRAY[@]+"${SKIP_ARRAY[@]}"}; do
-    if [ "$skip" = "$tool_id" ]; then
-      return 1
-    fi
-  done
-
-  if [ -n "$INSTALL_FILTER" ]; then
-    for install in ${INSTALL_ARRAY[@]+"${INSTALL_ARRAY[@]}"}; do
-      if [ "$install" = "$tool_id" ]; then
+  if [ -n "$ONLY_FILTER" ]; then
+    for only in ${ONLY_ARRAY[@]+"${ONLY_ARRAY[@]}"}; do
+      if [ "$only" = "$tool_id" ]; then
         return 0
       fi
     done
     return 1
   fi
 
-  [ "$required" = "true" ]
+  return 0
 }
 
-is_skipped() {
+check_tool_dependencies() {
   local tool_id="$1"
-  for skip in ${SKIP_ARRAY[@]+"${SKIP_ARRAY[@]}"}; do
-    if [ "$skip" = "$tool_id" ]; then
-      return 0
+  local dep
+  while IFS= read -r dep; do
+    if ! command -v "$dep" >/dev/null 2>&1; then
+      printf '%s' "$dep"
+      return 1
     fi
-  done
-  return 1
+  done < <(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .dependencies[]' "$TOOLS_JSON")
+  return 0
 }
 
 append_result() {
@@ -145,10 +131,6 @@ run_and_capture() {
 export PATH="$HOME/.cargo/bin:$HOME/.fnm/aliases/default/bin:$HOME/.local/bin:$PATH"
 mkdir -p "$CONFIG_DIR"
 
-command -v "$SCRIPT_DIR/configure-host.sh" >/dev/null 2>&1 || chmod +x "$SCRIPT_DIR/configure-host.sh"
-command -v "$SCRIPT_DIR/repair-install.sh" >/dev/null 2>&1 || chmod +x "$SCRIPT_DIR/repair-install.sh"
-command -v "$SCRIPT_DIR/activate-serena.sh" >/dev/null 2>&1 || chmod +x "$SCRIPT_DIR/activate-serena.sh"
-
 ledger_tmp="$(mktemp "${TMPDIR:-/tmp}/spec-mcp-install-ledger.XXXXXX")"
 trap 'rm -f "$ledger_tmp"' EXIT
 
@@ -156,13 +138,14 @@ jq -n --arg host "$HOST" --arg display "$HOST_DISPLAY_NAME" --arg platform "$PLA
 
 while IFS= read -r tool_id; do
   required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .required' "$TOOLS_JSON")"
-  install_kind="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .installation.kind' "$TOOLS_JSON")"
-  if [ "$required" = "true" ] && is_skipped "$tool_id"; then
-    append_result "$tool_id" "action-required" "failed" "$install_kind" "invalid_required_skip" "required MCP baseline 工具不能通过 --skip 跳过" "" "" false "" "" ""
+  if [ "$required" != "true" ]; then
+    append_result "$tool_id" "action-required" "failed" "warmup" "registry_not_required" "mcp-tools.json schema v4 只允许 required tools" "" "" false "" "" ""
     continue
   fi
 
-  if ! should_install "$tool_id" "$required"; then
+  install_kind="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .installation.kind' "$TOOLS_JSON")"
+
+  if ! should_install "$tool_id"; then
     continue
   fi
 
@@ -177,7 +160,16 @@ while IFS= read -r tool_id; do
   diagnostic_summary=""
   repair_diagnostic_summary=""
 
-  if [ "$install_kind" = "warmup" ]; then
+  missing_dep="$(check_tool_dependencies "$tool_id" || true)"
+  if [ -n "$missing_dep" ]; then
+    status="action-required"
+    last_action="failed"
+    reason_code="missing_dependency"
+    next_action="安装依赖: $missing_dep"
+    diagnostic_summary="missing dependency: $missing_dep"
+  fi
+
+  if [ "$status" = "ready" ] && [ "$install_kind" = "warmup" ]; then
     install_command="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .installation.unix.command' "$TOOLS_JSON")"
     install_args=()
     while IFS= read -r arg; do
@@ -197,7 +189,7 @@ EOF
 
   if [ "$status" = "ready" ]; then
     configure_output=""
-    if run_and_capture "$SCRIPT_DIR/configure-host.sh" --tool "$tool_id"; then
+    if run_and_capture bash "$SCRIPT_DIR/configure-host.sh" --tool "$tool_id"; then
       configure_output="$RUN_STDOUT"
       configured_path="$(jq -r '.configured_path // empty' <<<"$configure_output")"
       selected_scope="$(jq -r '.selected_scope // empty' <<<"$configure_output")"
@@ -205,7 +197,7 @@ EOF
     else
       exit_code="$RUN_EXIT_CODE"
       diagnostic_summary="$RUN_DIAGNOSTIC"
-      if run_and_capture "$SCRIPT_DIR/repair-install.sh" --tool "$tool_id"; then
+      if run_and_capture bash "$SCRIPT_DIR/repair-install.sh" --tool "$tool_id"; then
         repair_output="$RUN_STDOUT"
         last_action="repaired"
         configured_path="$(jq -r '.configured_path // empty' <<<"$repair_output")"
@@ -222,7 +214,7 @@ EOF
   fi
 
   if [ "$tool_id" = "serena" ] && [ "$status" = "ready" ]; then
-    if ! run_and_capture "$SCRIPT_DIR/activate-serena.sh"; then
+    if ! run_and_capture bash "$SCRIPT_DIR/activate-serena.sh"; then
       status="partial"
       last_action="failed"
       reason_code="serena_bootstrap_failed"

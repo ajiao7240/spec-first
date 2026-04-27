@@ -166,33 +166,24 @@ describe('init --dry-run', () => {
     }
   });
 
-  test('init removes obsolete managed graph command but preserves unmanaged same-name file', () => {
+  test('init keeps external graph-bootstrap command as an active managed command', () => {
     const projectRoot = makeTempDir();
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    const retiredCommandFile = ['graph', 'bootstrap'].join('-') + '.md';
-    const retiredCommandPath = path.join(projectRoot, '.claude', 'commands', 'spec', retiredCommandFile);
+    const graphBootstrapFile = ['graph', 'bootstrap'].join('-') + '.md';
+    const graphBootstrapPath = path.join(projectRoot, '.claude', 'commands', 'spec', graphBootstrapFile);
 
     try {
       expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
       const statePath = path.join(projectRoot, '.claude', 'spec-first', 'state.json');
       const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-      state.commands.push(retiredCommandFile);
-      state.commands.sort();
-      fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
-      fs.writeFileSync(retiredCommandPath, 'old managed command\n', 'utf8');
 
-      const managedDryRun = captureInit(projectRoot, ['--claude', '--dry-run', '-u', 'reviewer', '--lang', 'zh']);
-      expect(managedDryRun.exitCode).toBe(0);
-      expect(managedDryRun.stdout).toContain('Would perform a managed hard reset before regenerating runtime assets');
+      expect(state.commands).toContain(graphBootstrapFile);
+      expect(fs.existsSync(graphBootstrapPath)).toBe(true);
+      expect(fs.readFileSync(graphBootstrapPath, 'utf8')).toContain('spec-graph-bootstrap');
 
-      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
-      expect(fs.existsSync(retiredCommandPath)).toBe(false);
-
-      fs.writeFileSync(retiredCommandPath, 'user-owned command\n', 'utf8');
-      const unmanagedDryRun = captureInit(projectRoot, ['--claude', '--dry-run', '-u', 'reviewer', '--lang', 'zh']);
-      expect(unmanagedDryRun.exitCode).toBe(0);
-      expect(unmanagedDryRun.stdout).not.toContain(path.posix.join('.claude/commands/spec', retiredCommandFile));
-      expect(fs.existsSync(retiredCommandPath)).toBe(true);
+      const dryRun = captureInit(projectRoot, ['--claude', '--dry-run', '-u', 'reviewer', '--lang', 'zh']);
+      expect(dryRun.exitCode).toBe(0);
+      expect(dryRun.stdout).toContain(path.posix.join('.claude/commands/spec', graphBootstrapFile));
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

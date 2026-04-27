@@ -37,4 +37,4 @@ if [ -n "$missing_dep" ]; then
   exit 1
 fi
 
-"$SCRIPT_DIR/configure-host.sh" --tool "$TOOL_ID"
+bash "$SCRIPT_DIR/configure-host.sh" --tool "$TOOL_ID"

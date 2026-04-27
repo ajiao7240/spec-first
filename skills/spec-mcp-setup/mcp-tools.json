@@ -1,7 +1,8 @@
 {
-  "schema_version": "3",
+  "schema_version": "4",
   "summary_columns": [
     "tool",
+    "type",
     "required",
     "dependency",
     "host_config",
@@ -15,8 +16,10 @@
       "name": "Serena",
       "summary_label": "Serena",
       "required": true,
-      "description": "符号级精确编辑引擎，spec-first 全工作流与 graph bootstrap 增强模式依赖",
-      "dependencies": ["uv"],
+      "category": "mcp",
+      "provider_role": null,
+      "description": "符号级精确编辑引擎，spec-first 全工作流依赖",
+      "dependencies": ["uv", "uvx"],
       "installation": {
         "kind": "warmup",
         "unix": {
@@ -91,15 +94,18 @@
           "command": "uvx",
           "args": ["--from", "git+https://github.com/oraios/serena", "serena", "project", "create", ".", "--language", "typescript", "--language", "vue", "--language", "markdown", "--language", "yaml", "--language", "bash", "--index"]
         }
-      }
+      },
+      "provider_config": null
     },
     {
       "id": "sequential-thinking",
       "name": "Sequential Thinking",
       "summary_label": "Sequential Thinking",
       "required": true,
+      "category": "mcp",
+      "provider_role": null,
       "description": "动态反思性问题解决，spec-first 全工作流通用依赖",
-      "dependencies": ["node"],
+      "dependencies": ["node", "npx"],
       "installation": {
         "kind": "warmup",
         "unix": {
@@ -167,15 +173,18 @@
       "project_bootstrap": {
         "kind": "none",
         "required": false
-      }
+      },
+      "provider_config": null
     },
     {
       "id": "context7",
       "name": "Context7",
       "summary_label": "Context7",
       "required": true,
+      "category": "mcp",
+      "provider_role": null,
       "description": "最新框架文档查询，spec-first 全工作流通用依赖",
-      "dependencies": ["node"],
+      "dependencies": ["node", "npx"],
       "installation": {
         "kind": "warmup",
         "unix": {
@@ -243,30 +252,33 @@
       "project_bootstrap": {
         "kind": "none",
         "required": false
-      }
+      },
+      "provider_config": null
     },
     {
-      "id": "playwright",
-      "name": "Playwright MCP",
-      "summary_label": "Playwright MCP",
-      "required": false,
-      "description": "前端自动化测试，可选工具",
-      "dependencies": ["node"],
+      "id": "gitnexus",
+      "name": "GitNexus",
+      "summary_label": "GitNexus",
+      "required": true,
+      "category": "graph-provider",
+      "provider_role": "global_knowledge",
+      "description": "全局代码库知识图谱与架构认知 provider，用于项目级代码事实输入",
+      "dependencies": ["node", "npm", "npx"],
       "installation": {
         "kind": "warmup",
         "unix": {
           "command": "npx",
-          "args": ["-y", "@playwright/mcp@latest", "--help"]
+          "args": ["-y", "gitnexus@latest", "--help"]
         },
         "windows": {
           "command": "npx",
-          "args": ["-y", "@playwright/mcp@latest", "--help"]
+          "args": ["-y", "gitnexus@latest", "--help"]
         }
       },
       "host_config": {
         "claude": {
           "command": "npx",
-          "args": ["-y", "@playwright/mcp@latest"],
+          "args": ["-y", "gitnexus@latest", "mcp"],
           "scope": "managed",
           "targets": {
             "managed": {
@@ -292,7 +304,8 @@
         },
         "codex": {
           "command": "npx",
-          "args": ["-y", "@playwright/mcp@latest"],
+          "args": ["-y", "gitnexus@latest", "mcp"],
+          "startup_timeout_sec": 90,
           "scope": "user",
           "targets": {
             "user": {
@@ -314,11 +327,120 @@
       },
       "detection": {
         "kind": "host_config_exact",
-        "key": "playwright"
+        "key": "gitnexus"
       },
       "project_bootstrap": {
         "kind": "none",
         "required": false
+      },
+      "provider_config": {
+        "enabled_for_bootstrap": true,
+        "query_ready_after_setup": false,
+        "role": "global_knowledge",
+        "capabilities": [
+          "build_global_graph",
+          "architecture_map",
+          "dependency_map",
+          "execution_flow",
+          "repo_wiki",
+          "query_global_graph"
+        ]
+      },
+      "license_notice": {
+        "required": true,
+        "message": "Review GitNexus licensing terms before commercial use."
+      }
+    },
+    {
+      "id": "code-review-graph",
+      "name": "code-review-graph",
+      "summary_label": "code-review-graph",
+      "required": true,
+      "category": "graph-provider",
+      "provider_role": "impact_context",
+      "description": "上游 code-review-graph MCP server，用于影响半径、最小上下文与 review context",
+      "dependencies": ["uv", "uvx"],
+      "installation": {
+        "kind": "warmup",
+        "unix": {
+          "command": "uvx",
+          "args": ["code-review-graph", "--help"]
+        },
+        "windows": {
+          "command": "uvx",
+          "args": ["code-review-graph", "--help"]
+        }
+      },
+      "host_config": {
+        "claude": {
+          "command": "uvx",
+          "args": ["code-review-graph", "serve", "--tools", "get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool"],
+          "scope": "managed",
+          "targets": {
+            "managed": {
+              "config_path": {
+                "macos": "/Library/Application Support/ClaudeCode/managed-mcp.json",
+                "linux": "/etc/claude-code/managed-mcp.json",
+                "wsl": "/etc/claude-code/managed-mcp.json",
+                "windows": "C:\\Program Files\\ClaudeCode\\managed-mcp.json"
+              },
+              "config_format": "json",
+              "precedence": 100,
+              "writable_check": "parent-or-file"
+            },
+            "user": {
+              "config_path": "$HOME/.claude.json",
+              "config_format": "json",
+              "precedence": 10,
+              "writable_check": "parent-or-file"
+            }
+          },
+          "fallback_order": ["managed", "user"],
+          "uninstall_targets": ["managed", "user"]
+        },
+        "codex": {
+          "command": "uvx",
+          "args": ["code-review-graph", "serve", "--tools", "get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool"],
+          "startup_timeout_sec": 120,
+          "scope": "user",
+          "targets": {
+            "user": {
+              "config_path": "$HOME/.codex/config.toml",
+              "config_format": "toml",
+              "precedence": 50,
+              "writable_check": "parent-or-file"
+            },
+            "system": {
+              "config_path": "/etc/codex/config.toml",
+              "config_format": "toml",
+              "precedence": 100,
+              "writable_check": "file-only"
+            }
+          },
+          "fallback_order": ["user"],
+          "uninstall_targets": ["user", "system"]
+        }
+      },
+      "detection": {
+        "kind": "host_config_exact",
+        "key": "code-review-graph"
+      },
+      "project_bootstrap": {
+        "kind": "none",
+        "required": false
+      },
+      "provider_config": {
+        "enabled_for_bootstrap": true,
+        "query_ready_after_setup": false,
+        "role": "impact_context",
+        "capabilities": [
+          "detect_changes",
+          "blast_radius",
+          "minimal_context",
+          "review_context",
+          "related_tests",
+          "graph_stats"
+        ]
       }
     }
   ]

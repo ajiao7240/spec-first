@@ -1,6 +1,5 @@
 #!/bin/bash
-# check-deps.sh - Detect prerequisite dependencies for MCP tools
-# Output: JSON with install status and suggestions for missing deps
+# check-deps.sh - Detect prerequisite dependencies for Required Harness Runtime setup.
 
 set -euo pipefail
 
@@ -24,120 +23,98 @@ jq_install_suggestion() {
   esac
 }
 
-# jq 是硬依赖；缺失时无法安全构造完整 JSON facts。
 command -v jq >/dev/null 2>&1 || {
   echo "错误：jq 是必需依赖，请先安装 jq。建议：$(jq_install_suggestion)" >&2
   exit 1
 }
 
-# Helper: check if a command exists and get version
-check_command() {
-  local cmd="$1"
-  local version_flag="${2:-"--version"}"
-
-  if command -v "$cmd" >/dev/null 2>&1; then
-    local version
-    version=$("$cmd" "$version_flag" 2>&1 | head -1)
-    jq -n --arg ver "$version" '{"installed":true,"version":$ver}'
-  else
-    echo '{"installed":false}'
-  fi
-}
-
-# Detect OS
 detect_os() {
   local os
   os="$(uname -s 2>/dev/null || echo "unknown")"
   case "$os" in
     Darwin) echo "macos" ;;
-    Linux) echo "linux" ;;
+    Linux)
+      if grep -qi microsoft /proc/version 2>/dev/null; then
+        echo "wsl"
+      else
+        echo "linux"
+      fi
+      ;;
     MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
     *) echo "unknown" ;;
   esac
 }
 
-OS=$(detect_os)
+install_suggestion_for() {
+  local cmd="$1"
+  local os="$2"
+  case "$cmd:$os" in
+    node:macos|npm:macos|npx:macos) echo "brew install node" ;;
+    node:linux|npm:linux|npx:linux|node:wsl|npm:wsl|npx:wsl) echo "curl -fsSL https://fnm.vercel.app/install | bash && fnm install --lts" ;;
+    node:windows|npm:windows|npx:windows) echo "winget install OpenJS.NodeJS.LTS" ;;
+    uv:*|uvx:*) echo "curl -LsSf https://astral.sh/uv/install.sh | sh" ;;
+    python3:macos) echo "brew install python" ;;
+    python3:linux|python3:wsl) echo "sudo apt-get install -y python3" ;;
+    git:macos) echo "xcode-select --install or brew install git" ;;
+    git:linux|git:wsl) echo "sudo apt-get install -y git" ;;
+    git:windows) echo "winget install Git.Git" ;;
+    *) echo "" ;;
+  esac
+}
 
-# Check Node.js
-NODE_JSON=$(check_command "node" "--version")
-if echo "$NODE_JSON" | jq -e '.installed' >/dev/null 2>&1; then
-  NODE_JSON=$(echo "$NODE_JSON" | jq '. + {"install_suggestion": null}')
-else
-  if [ "$OS" = "macos" ]; then
-    NODE_JSON=$(echo "$NODE_JSON" | jq '. + {"install_suggestion": {
-      "command": "curl -fsSL https://fnm.vercel.app/install | bash && export FNM_PATH=\"$HOME/.fnm\" && export PATH=\"$FNM_PATH:$PATH\" && eval \"$(fnm env)\" && fnm install --lts",
-      "safety": "gated_auto",
-      "risk_hint": "fnm installs Node.js to user directory, may conflict with system Node.js",
-      "manual": "Install from https://nodejs.org/ or use: brew install node"
-    }}')
-  elif [ "$OS" = "linux" ]; then
-    NODE_JSON=$(echo "$NODE_JSON" | jq '. + {"install_suggestion": {
-      "command": "curl -fsSL https://fnm.vercel.app/install | bash && export FNM_PATH=\"$HOME/.fnm\" && export PATH=\"$FNM_PATH:$PATH\" && eval \"$(fnm env)\" && fnm install --lts",
-      "safety": "gated_auto",
-      "risk_hint": "fnm installs Node.js to user directory, may conflict with system Node.js",
-      "manual": "Install from https://nodejs.org/ or use: sudo apt install nodejs"
-    }}')
+check_command_json() {
+  local cmd="$1"
+  local required="$2"
+  local os="$3"
+  local version_flag="${4:---version}"
+  if command -v "$cmd" >/dev/null 2>&1; then
+    local version
+    version="$("$cmd" "$version_flag" 2>&1 | head -1 || true)"
+    jq -n --argjson required "$required" --arg version "$version" '{required:$required,installed:true,version:$version,install_suggestion:null}'
   else
-    NODE_JSON=$(echo "$NODE_JSON" | jq '. + {"install_suggestion": {
-      "command": "winget install OpenJS.NodeJS.LTS",
-      "safety": "manual",
-      "risk_hint": "Use the Windows package manager, may require a terminal restart",
-      "manual": "Install from https://nodejs.org/ or use winget install OpenJS.NodeJS.LTS"
-    }}')
+    local suggestion
+    suggestion="$(install_suggestion_for "$cmd" "$os")"
+    jq -n --argjson required "$required" --arg suggestion "$suggestion" '{required:$required,installed:false,version:null,install_suggestion:(if $suggestion == "" then null else $suggestion end)}'
   fi
-fi
+}
 
-# Check uv
-UV_JSON=$(check_command "uv" "--version")
-if echo "$UV_JSON" | jq -e '.installed' >/dev/null 2>&1; then
-  UV_JSON=$(echo "$UV_JSON" | jq '. + {"install_suggestion": null}')
-else
-  UV_JSON=$(echo "$UV_JSON" | jq '. + {"install_suggestion": {
-    "command": "curl -LsSf https://astral.sh/uv/install.sh | sh",
-    "safety": "safe_auto",
-    "risk_hint": "Installs to ~/.cargo/bin/, no sudo required",
-    "manual": "Install from https://docs.astral.sh/uv/getting-started/installation/"
-  }}')
-fi
+OS="$(detect_os)"
 
-# Check jq (hard dependency)
-JQ_JSON=$(check_command "jq" "--version")
-if echo "$JQ_JSON" | jq -e '.installed' >/dev/null 2>&1; then
-  JQ_JSON=$(echo "$JQ_JSON" | jq '. + {"install_suggestion": null}')
-else
-  if [ "$OS" = "macos" ]; then
-    JQ_JSON=$(echo "$JQ_JSON" | jq '. + {"install_suggestion": {
-      "command": "brew install jq",
-      "safety": "safe_auto",
-      "risk_hint": "Standard Homebrew package, no conflicts",
-      "manual": "brew install jq or install from https://jqlang.github.io/jq/"
-    }}')
-  elif [ "$OS" = "linux" ]; then
-    JQ_JSON=$(echo "$JQ_JSON" | jq '. + {"install_suggestion": {
-      "command": "sudo apt-get install -y jq",
-      "safety": "safe_auto",
-      "risk_hint": "Standard system package",
-      "manual": "sudo apt install jq or install from https://jqlang.github.io/jq/"
-    }}')
-  else
-    JQ_JSON=$(echo "$JQ_JSON" | jq '. + {"install_suggestion": {
-      "command": "winget install jqlang.jq",
-      "safety": "manual",
-      "risk_hint": "Use the Windows package manager, may require a terminal restart",
-      "manual": "Install from https://jqlang.github.io/jq/ or use winget install jqlang.jq"
-    }}')
-  fi
-fi
+NODE_JSON="$(check_command_json node true "$OS")"
+NPM_JSON="$(check_command_json npm true "$OS")"
+NPX_JSON="$(check_command_json npx true "$OS")"
+UV_JSON="$(check_command_json uv true "$OS")"
+UVX_JSON="$(check_command_json uvx true "$OS")"
+JQ_JSON="$(check_command_json jq true "$OS")"
+PYTHON_JSON="$(check_command_json python3 true "$OS" --version)"
+GIT_JSON="$(check_command_json git false "$OS" --version)"
 
-# Output combined JSON
 jq -n \
+  --arg schema "deps.v2" \
+  --arg platform "$OS" \
   --argjson node "$NODE_JSON" \
+  --argjson npm "$NPM_JSON" \
+  --argjson npx "$NPX_JSON" \
   --argjson uv "$UV_JSON" \
+  --argjson uvx "$UVX_JSON" \
   --argjson jq_dep "$JQ_JSON" \
-  --arg os "$OS" \
+  --argjson python3 "$PYTHON_JSON" \
+  --argjson git "$GIT_JSON" \
   '{
-    "os": $os,
-    "node": $node,
-    "uv": $uv,
-    "jq": $jq_dep
-  }'
+    schema_version:$schema,
+    platform:$platform,
+    dependencies:{
+      node:$node,
+      npm:$npm,
+      npx:$npx,
+      uv:$uv,
+      uvx:$uvx,
+      jq:$jq_dep,
+      python3:$python3,
+      git:$git
+    }
+  }
+  | .required_ready = ([.dependencies[] | select(.required == true) | .installed] | all)
+  | .warnings = (
+      [.dependencies | to_entries[] | select(.value.required == false and .value.installed == false) | "\(.key) missing"]
+    )'

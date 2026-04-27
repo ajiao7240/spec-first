@@ -11,6 +11,7 @@ if ([string]::IsNullOrWhiteSpace($Tool)) {
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
+. (Join-Path $ScriptDir 'lib-toml.ps1')
 $ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
@@ -26,21 +27,6 @@ if ([string]::IsNullOrWhiteSpace($SelectedScope)) {
 $HostConfig = $ToolDef.host_config.$DetectedHost
 if ($null -eq $HostConfig) {
   throw "未找到 $Tool 的 host_config.$DetectedHost"
-}
-
-function Get-TomlSectionText {
-  param([string]$Path, [string]$SectionName)
-  if (-not (Test-Path $Path)) { return '' }
-  $header = "[mcp_servers.$SectionName]"
-  $lines = Get-Content $Path
-  $capturing = $false
-  $buffer = New-Object System.Collections.Generic.List[string]
-  foreach ($line in $lines) {
-    if ($line -eq $header) { $capturing = $true; continue }
-    if ($capturing -and $line -match '^\[mcp_servers\..+\]$') { break }
-    if ($capturing) { $buffer.Add($line) }
-  }
-  $buffer -join "`n"
 }
 
 $resolvedArgs = @($HostConfig.args)
@@ -67,7 +53,7 @@ function Test-ToolConfigured {
         }
         return $true
       }
-      $section = Get-TomlSectionText -Path $ConfigPath -SectionName $ToolDef.detection.key
+      $section = Get-TomlMcpSection -Path $ConfigPath -Key $ToolDef.detection.key
       if ([string]::IsNullOrWhiteSpace($section)) { return $false }
       if (-not $section.Contains("command = `"$($ResolvedConfig.command)`"")) { return $false }
       foreach ($arg in @($ResolvedConfig.args)) {
@@ -80,7 +66,7 @@ function Test-ToolConfigured {
         $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
         return $null -ne $config.mcpServers.PSObject.Properties[$ToolDef.detection.key]
       }
-      return [bool](Select-String -Path $ConfigPath -SimpleMatch "[mcp_servers.$($ToolDef.detection.key)]" -Quiet)
+      return -not [string]::IsNullOrWhiteSpace((Get-TomlMcpSection -Path $ConfigPath -Key $ToolDef.detection.key))
     }
     default { return $false }
   }
@@ -94,7 +80,7 @@ function Write-ClaudeConfig {
     @{}
   }
   if (-not $config.ContainsKey('mcpServers')) { $config['mcpServers'] = @{} }
-  $config['mcpServers'][$Tool] = $FinalConfig
+  $config['mcpServers'][$ToolDef.detection.key] = $FinalConfig
   $config | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 $ConfigPath
 }
 
@@ -103,16 +89,8 @@ function Write-CodexConfig {
   $command = $FinalConfig.command
   $argsJson = @($FinalConfig.args) | ConvertTo-Json -Compress
   $timeoutLine = if ($FinalConfig.ContainsKey('startup_timeout_sec')) { "`nstartup_timeout_sec = $($FinalConfig.startup_timeout_sec)" } else { '' }
-  $section = "[mcp_servers.$Tool]`ncommand = `"$command`"`nargs = $argsJson$timeoutLine`n"
-  $text = if (Test-Path $ConfigPath) { Get-Content -Raw $ConfigPath } else { '' }
-  $pattern = "(?ms)^\[mcp_servers\.$([regex]::Escape($Tool))\]`r?`n.*?(?=^\[mcp_servers\.|\z)"
-  if ([regex]::IsMatch($text, $pattern)) {
-    $text = [regex]::Replace($text, $pattern, $section + "`n")
-  } else {
-    if ($text -and -not $text.EndsWith("`n")) { $text += "`n" }
-    $text += ($text ? "`n" : '') + $section + "`n"
-  }
-  Set-Content -Encoding utf8 $ConfigPath $text
+  $sectionBody = "command = `"$command`"`nargs = $argsJson$timeoutLine"
+  Write-TomlMcpSection -Path $ConfigPath -Key $ToolDef.detection.key -Body $sectionBody
 }
 
 function Restore-Backup {

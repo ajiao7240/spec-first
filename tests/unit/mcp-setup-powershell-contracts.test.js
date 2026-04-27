@@ -33,18 +33,25 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     const sqliteDep = 'better' + '-sqlite3';
     const parserDep = 'tree' + '-sitter';
     const providerKey = 'graph' + '_providers';
-    const providerStatus = 'provider' + '-status';
-    const externalGraph = 'code' + '-review' + '-graph';
     const detectSource = fs.readFileSync(detectToolsPs1, 'utf8');
     const verifySource = fs.readFileSync(verifyToolsPs1, 'utf8');
     const combined = `${detectSource}\n${verifySource}`;
 
-    expect(combined).not.toContain(retiredGraph);
+    expect(combined).not.toContain(`${retiredGraph}.`);
     expect(combined).not.toContain(nativeModules);
     expect(combined).not.toContain(sqliteDep);
     expect(combined).not.toContain(parserDep);
-    expect(combined).not.toContain(providerKey);
-    expect(combined).not.toContain(providerStatus);
-    expect(combined).not.toContain(externalGraph);
+    expect(combined).toContain(providerKey);
+    expect(verifySource).toContain("schema_version = 'v2'");
+  });
+
+  test('uses shared TOML helpers for quoted Codex MCP keys', () => {
+    const configureSource = fs.readFileSync(configureHostPs1, 'utf8');
+    const detectSource = fs.readFileSync(detectToolsPs1, 'utf8');
+
+    expect(configureSource).toContain("Join-Path $ScriptDir 'lib-toml.ps1'");
+    expect(configureSource).toContain('Write-TomlMcpSection -Path $ConfigPath -Key $ToolDef.detection.key');
+    expect(detectSource).toContain("Join-Path $ScriptDir 'lib-toml.ps1'");
+    expect(detectSource).toContain('Get-TomlMcpSection -Path $ConfigPath -Key $Tool.detection.key');
   });
 });

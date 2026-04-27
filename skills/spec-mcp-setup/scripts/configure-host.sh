@@ -9,7 +9,8 @@ command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
-HOST_INFO_JSON="$($SCRIPT_DIR/detect-host.sh)"
+source "$SCRIPT_DIR/lib-toml.sh"
+HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
 HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
 SELECTED_SCOPE="$(jq -r '.selected_scope // empty' <<<"$HOST_INFO_JSON")"
 CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
@@ -46,15 +47,6 @@ if [ "$HOST" = "claude" ] && [ "$SELECTED_SCOPE" != "managed" ]; then
   FALLBACK_APPLIED=true
 fi
 
-extract_toml_section() {
-  local section_name="$1"
-  awk -v section="[mcp_servers.$section_name]" '
-    $0 == section { in_section = 1; next }
-    /^\[mcp_servers\./ && in_section { exit }
-    in_section { print }
-  ' "$CONFIG_PATH"
-}
-
 tool_is_configured() {
   local block expected_args_count i expected_arg
   [ -f "$CONFIG_PATH" ] || return 1
@@ -65,7 +57,7 @@ tool_is_configured() {
         jq -e --arg key "$DETECT_KEY" --arg command "$EXPECTED_COMMAND" --argjson expected_args "$EXPECTED_ARGS" '.mcpServers[$key].command == $command and (.mcpServers[$key].args // []) == $expected_args' "$CONFIG_PATH" >/dev/null 2>&1
         return
       fi
-      block="$(extract_toml_section "$DETECT_KEY")"
+      block="$(extract_toml_mcp_section "$CONFIG_PATH" "$DETECT_KEY")"
       if [ -n "$block" ] && printf '%s\n' "$block" | grep -qF "command = \"$EXPECTED_COMMAND\""; then
         expected_args_count="$(jq 'length' <<<"$EXPECTED_ARGS")"
         if [ "$expected_args_count" -gt 0 ]; then
@@ -84,7 +76,7 @@ tool_is_configured() {
       if [ "$HOST" = "claude" ]; then
         jq -e --arg key "$DETECT_KEY" '.mcpServers[$key] != null' "$CONFIG_PATH" >/dev/null 2>&1
       else
-        grep -qF "[mcp_servers.${DETECT_KEY}]" "$CONFIG_PATH" >/dev/null 2>&1
+        [ -n "$(extract_toml_mcp_section "$CONFIG_PATH" "$DETECT_KEY")" ]
       fi
       ;;
     *)
@@ -135,33 +127,6 @@ write_claude_config() {
   mv "$tmp" "$CONFIG_PATH"
 }
 
-replace_toml_section() {
-  local section_name="$1"
-  local section_body="$2"
-  local tmp
-  tmp="$(mktemp "${CONFIG_PATH}.XXXXXX")"
-  chmod 600 "$tmp"
-  python3 - "$CONFIG_PATH" "$section_name" "$section_body" "$tmp" <<'PY'
-import re, sys
-from pathlib import Path
-path = Path(sys.argv[1])
-section_name = sys.argv[2]
-section_body = sys.argv[3]
-out = Path(sys.argv[4])
-text = path.read_text(encoding='utf-8') if path.exists() else ''
-section = f"[mcp_servers.{section_name}]\n{section_body.strip()}\n"
-pattern = rf'(?ms)^\[mcp_servers\.{re.escape(section_name)}\]\n.*?(?=^\[mcp_servers\.|\Z)'
-if re.search(pattern, text):
-    text = re.sub(pattern, section + '\n', text)
-else:
-    if text and not text.endswith('\n'):
-        text += '\n'
-    text += ('\n' if text else '') + section + '\n'
-out.write_text(text, encoding='utf-8')
-PY
-  mv "$tmp" "$CONFIG_PATH"
-}
-
 write_codex_config() {
   local command args_json timeout section_body
   command="$(jq -r '.command' <<<"$RESOLVED_TOOL_CONFIG_JSON")"
@@ -171,7 +136,11 @@ write_codex_config() {
   if [ -n "$timeout" ]; then
     section_body="$section_body\nstartup_timeout_sec = $timeout"
   fi
-  replace_toml_section "$TOOL_ID" "$section_body"
+  local tmp
+  tmp="$(mktemp "${CONFIG_PATH}.XXXXXX")"
+  chmod 600 "$tmp"
+  write_toml_mcp_section "$CONFIG_PATH" "$DETECT_KEY" "$section_body" "$tmp"
+  mv "$tmp" "$CONFIG_PATH"
 }
 
 restore_backup() {

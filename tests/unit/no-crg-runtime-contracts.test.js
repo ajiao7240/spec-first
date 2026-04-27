@@ -52,14 +52,11 @@ function findMatches(targets, patterns) {
   return [...new Set(matches)].sort();
 }
 
-describe('retired graph runtime removal contract', () => {
-  test('runtime and source surfaces do not reference retired internal graph entrypoints', () => {
+describe('retired internal graph runtime removal contract', () => {
+  test('runtime code does not reference retired internal graph entrypoints', () => {
     const targets = [
       'bin',
       'src',
-      'skills',
-      'templates',
-      'tests',
       'scripts',
       '.github',
       'package.json',
@@ -69,14 +66,20 @@ describe('retired graph runtime removal contract', () => {
     const patterns = [
       ['src/', 'crg'].join(''),
       ['spec-first ', 'crg'].join(''),
-      ['spec-', 'graph', '-bootstrap'].join(''),
-      ['graph', '-bootstrap'].join(''),
       ['graph', '\\.db'].join(''),
       ['crg', '\\.native_modules_status'].join(''),
       ['crg', '\\.cli_status'].join(''),
     ];
 
     expect(findMatches(targets, patterns)).toEqual([]);
+  });
+
+  test('external graph bootstrap is allowed without restoring internal CRG source', () => {
+    expect(fs.existsSync(path.join(REPO_ROOT, 'src', 'crg'))).toBe(false);
+    expect(fs.existsSync(path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'SKILL.md'))).toBe(true);
+    expect(fs.readFileSync(path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'SKILL.md'), 'utf8')).toContain(
+      'external graph-provider',
+    );
   });
 
   test('package and install surfaces do not reference retired native graph dependencies', () => {

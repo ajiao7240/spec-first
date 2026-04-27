@@ -11,6 +11,7 @@ const {
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const MANIFEST_PATH = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
+const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const GOVERNANCE_PATH = path.join(
   REPO_ROOT,
   'src',
@@ -19,6 +20,11 @@ const GOVERNANCE_PATH = path.join(
   'dual-host-governance',
   'skills-governance.json',
 );
+const SOURCE_DIRECTORIES = {
+  commands: 'templates/claude/commands/spec',
+  skills: 'skills',
+  agents: 'agents',
+};
 const SUPPORTED_PLATFORM_IDS = ['claude', 'codex'];
 const SUPPORTED_PLATFORMS = new Set(SUPPORTED_PLATFORM_IDS);
 const ENTRY_SURFACES = new Set(['workflow_command', 'standalone_skill', 'internal_only']);
@@ -105,13 +111,113 @@ const HIGH_VALUE_COMMAND_ANCHORS = {
 };
 
 function loadPluginManifest() {
-  if (!fs.existsSync(MANIFEST_PATH)) {
-    throw new Error(`Bundled plugin manifest not found: ${MANIFEST_PATH}`);
-  }
-
-  const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
+  const manifest = buildPluginManifestFromSources();
   validateManifest(manifest);
   return manifest;
+}
+
+function buildPluginManifestFromSources() {
+  const pkg = readJsonFile(PACKAGE_JSON_PATH, 'package metadata');
+  const governance = readJsonFile(GOVERNANCE_PATH, 'skills governance truth source');
+  const commands = [...(governance.skills || [])]
+    .filter((record) => record && record.entry_surface === 'workflow_command')
+    .map((record) => {
+      if (typeof record.command_name !== 'string' || record.command_name.length === 0) {
+        throw new Error(`Governed workflow skill "${record.skill_name || '<unknown>'}" is missing command_name.`);
+      }
+      if (typeof record.skill_name !== 'string' || record.skill_name.length === 0) {
+        throw new Error(`Governed workflow command "${record.command_name}" is missing skill_name.`);
+      }
+
+      const filename = `${record.command_name}.md`;
+      const templatePath = path.join(REPO_ROOT, SOURCE_DIRECTORIES.commands, filename);
+      const metadata = readCommandTemplateMetadata(templatePath, record.command_name);
+
+      return {
+        name: record.command_name,
+        filename,
+        description: metadata.description,
+        argumentHint: metadata['argument-hint'] || '',
+        skill: record.skill_name,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return {
+    schemaVersion: 1,
+    directories: { ...SOURCE_DIRECTORIES },
+    commands,
+    skills: listSkillDirectoryNames(path.join(REPO_ROOT, SOURCE_DIRECTORIES.skills)),
+    agents: listAgentMarkdownEntries(path.join(REPO_ROOT, SOURCE_DIRECTORIES.agents)),
+    name: typeof pkg.name === 'string' ? pkg.name : 'spec-first',
+    version: typeof pkg.version === 'string' ? pkg.version : '0.0.0',
+  };
+}
+
+function readJsonFile(filePath, label) {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Bundled ${label} not found: ${filePath}`);
+  }
+
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function readCommandTemplateMetadata(templatePath, commandName) {
+  if (!fs.existsSync(templatePath)) {
+    throw new Error(`Bundled workflow command template not found for "${commandName}": ${templatePath}`);
+  }
+
+  const { frontmatter } = splitMarkdownFrontmatter(fs.readFileSync(templatePath, 'utf8'));
+  const fields = parseSimpleFrontmatterFields(frontmatter);
+
+  if (typeof fields.description !== 'string' || fields.description.length === 0) {
+    throw new Error(`Bundled workflow command template "${commandName}" is missing description frontmatter.`);
+  }
+  if (typeof fields['argument-hint'] !== 'string') {
+    throw new Error(`Bundled workflow command template "${commandName}" is missing argument-hint frontmatter.`);
+  }
+
+  return fields;
+}
+
+function splitMarkdownFrontmatter(content) {
+  if (!content.startsWith('---\n')) {
+    return { frontmatter: '', body: content };
+  }
+
+  const closingIndex = content.indexOf('\n---', 4);
+  if (closingIndex === -1) {
+    return { frontmatter: '', body: content };
+  }
+
+  return {
+    frontmatter: content.slice(4, closingIndex),
+    body: content.slice(closingIndex + 5),
+  };
+}
+
+function parseSimpleFrontmatterFields(frontmatter) {
+  const fields = {};
+
+  for (const line of String(frontmatter || '').split('\n')) {
+    const match = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (!match) continue;
+
+    fields[match[1]] = unquoteFrontmatterScalar(match[2].trim());
+  }
+
+  return fields;
+}
+
+function unquoteFrontmatterScalar(value) {
+  if (
+    (value.startsWith('"') && value.endsWith('"'))
+    || (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+
+  return value;
 }
 
 function validateManifest(manifest) {
@@ -340,10 +446,13 @@ function listBundledCommands() {
       throw new Error('Bundled plugin manifest contains an invalid command entry.');
     }
 
-    for (const field of ['name', 'filename', 'description', 'argumentHint', 'skill']) {
+    for (const field of ['name', 'filename', 'description', 'skill']) {
       if (typeof command[field] !== 'string' || command[field].length === 0) {
         throw new Error(`Bundled plugin manifest command is missing ${field}.`);
       }
+    }
+    if (typeof command.argumentHint !== 'string') {
+      throw new Error('Bundled plugin manifest command is missing argumentHint.');
     }
 
     return { ...command };
@@ -356,11 +465,7 @@ function listBundledSkills() {
     throw new Error(`Bundled skills directory not found: ${sourceDir}`);
   }
 
-  return fs
-    .readdirSync(sourceDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort((a, b) => a.localeCompare(b));
+  return listSkillDirectoryNames(sourceDir);
 }
 
 function listBundledAgents() {
@@ -369,10 +474,7 @@ function listBundledAgents() {
     throw new Error(`Bundled agents directory not found: ${sourceDir}`);
   }
 
-  return fs
-    .readdirSync(sourceDir, { withFileTypes: true })
-    .flatMap((entry) => walkAgentEntries(path.join(sourceDir, entry.name), entry.name))
-    .sort((a, b) => a.localeCompare(b));
+  return listAgentMarkdownEntries(sourceDir);
 }
 
 function listBundledAgentSupportFiles() {
@@ -384,6 +486,29 @@ function listBundledAgentSupportFiles() {
   return fs
     .readdirSync(sourceDir, { withFileTypes: true })
     .flatMap((entry) => walkAgentSupportEntries(path.join(sourceDir, entry.name), entry.name))
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function listSkillDirectoryNames(sourceDir) {
+  if (!fs.existsSync(sourceDir)) {
+    return [];
+  }
+
+  return fs
+    .readdirSync(sourceDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function listAgentMarkdownEntries(sourceDir) {
+  if (!fs.existsSync(sourceDir)) {
+    return [];
+  }
+
+  return fs
+    .readdirSync(sourceDir, { withFileTypes: true })
+    .flatMap((entry) => walkAgentEntries(path.join(sourceDir, entry.name), entry.name))
     .sort((a, b) => a.localeCompare(b));
 }
 

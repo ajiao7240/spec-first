@@ -11,10 +11,11 @@
 - CLI helpers: `doctor`, `init`, `clean`, `tasks`, version/help output, and deterministic setup checks.
 - Workflow source assets under `skills/`, `agents/`, and `templates/`.
 - Host-filtered runtime generation for Claude Code and Codex.
-- MCP/helper readiness through `$spec-mcp-setup`.
+- Required MCP/helper/graph-provider runtime setup through `$spec-mcp-setup`.
+- External graph provider bootstrap through `$spec-graph-bootstrap`.
 - Plan, task-pack, work, review, setup, session, release-note, and compound workflows.
 
-The internal CRG runtime and graph-bootstrap workflow have been removed. Current workflows rely on explicit repo context, task packs, diffs, tests, direct file reads, and optional tools supplied by the user or host.
+The internal CRG runtime has been removed. Graph context is now provided by external graph providers configured by `$spec-mcp-setup` and built by `$spec-graph-bootstrap`.
 
 ## Install
 
@@ -35,7 +36,8 @@ The internal CRG runtime has been removed. For current workflows:
 - Use `$spec-write-tasks` to compile executable task packs.
 - Use `$spec-work` with direct repo reads, nearby files, task packs, diffs, and tests.
 - Use `$spec-code-review` for review from diff, plan/task evidence, targeted file reads, and test results.
-- Use `$spec-mcp-setup` only for MCP/helper readiness, not graph readiness.
+- Use `$spec-mcp-setup` to install the required harness runtime: Serena, Sequential Thinking, Context7, GitNexus, code-review-graph, and agent-browser.
+- Use `$spec-graph-bootstrap` to run GitNexus/code-review-graph project builds and mark graph providers query-ready.
 
 ## Main Commands
 
@@ -53,15 +55,15 @@ spec-first tasks validate <task-pack.md> --json
 
 | Layer | Current Contract |
 |---|---|
-| **Capability layer** | Bundled source assets ship with `39` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `18` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `18` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
+| **Capability layer** | Bundled source assets ship with `40` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `19` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `19` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
 | **Claude runtime** | Commands are generated under `.claude/commands/spec`, skills under `.claude/skills`, agents under `.claude/agents`, and managed state under `.claude/spec-first/state.json`. |
 | **Codex runtime** | Workflow skills are generated under `.agents/skills`, agents under `.codex/agents`, and managed state under `.codex/spec-first/state.json`. |
-| **Readiness** | `$spec-mcp-setup` manages MCP/helper readiness. It does not report graph readiness. |
+| **Readiness** | `$spec-mcp-setup` writes readiness ledger v2 and graph provider projection with `query_ready=false`; `$spec-graph-bootstrap` builds provider indexes and flips `query_ready=true`. |
 
 Expected Claude init output includes:
 
 ```text
-📦 Generated 18 command file(s) in .claude/commands/spec
+📦 Generated 19 command file(s) in .claude/commands/spec
 🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 ```
@@ -76,7 +78,8 @@ Expected Claude init output includes:
 | Execute work | `/spec:work` | `$spec-work` |
 | Review code | `/spec:code-review` | `$spec-code-review` |
 | Review docs/plans | `/spec:doc-review` | `$spec-doc-review` |
-| Setup MCP/helper tools | `/spec:mcp-setup` | `$spec-mcp-setup` |
+| Setup required harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` |
+| Build graph provider indexes | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
 | Capture learning | `/spec:compound` | `$spec-compound` |
 
 ## Development

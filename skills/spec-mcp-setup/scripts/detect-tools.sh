@@ -1,6 +1,5 @@
 #!/bin/bash
-# detect-tools.sh - Detect host config and project bootstrap readiness for spec-mcp-setup
-# Output: JSON facts ledger
+# detect-tools.sh - Detect MCP tool and graph-provider host readiness facts.
 
 set -euo pipefail
 
@@ -9,22 +8,22 @@ command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
-HOST_INFO_JSON="$($SCRIPT_DIR/detect-host.sh)"
+source "$SCRIPT_DIR/lib-toml.sh"
+
+HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
 HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
 CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
 PLATFORM="$(jq -r '.platform' <<<"$HOST_INFO_JSON")"
 SELECTED_SCOPE="$(jq -r '.selected_scope // empty' <<<"$HOST_INFO_JSON")"
 PRECEDENCE_BLOCKED="$(jq -r '.precedence_blocked' <<<"$HOST_INFO_JSON")"
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
-extract_toml_section() {
-  local section_name="$1"
-  awk -v section="[mcp_servers.$section_name]" '
-    $0 == section { in_section = 1; next }
-    /^\[mcp_servers\./ && in_section { exit }
-    in_section { print }
-  ' "$CONFIG_PATH"
-}
+if git rev-parse --show-toplevel >/dev/null 2>&1; then
+  REPO_ROOT="$(git rev-parse --show-toplevel)"
+  REPO_STATUS="git-repo"
+else
+  REPO_ROOT="$(pwd)"
+  REPO_STATUS="not-git-repo"
+fi
 
 dependency_status() {
   local dep="$1"
@@ -74,7 +73,8 @@ host_config_status() {
         fi
         return
       fi
-      block="$(extract_toml_section "$detect_key")"
+
+      block="$(extract_toml_mcp_section "$CONFIG_PATH" "$detect_key")"
       if [ -n "$block" ] && printf '%s\n' "$block" | grep -qF "command = \"$expected_command\""; then
         expected_args_count="$(jq 'length' <<<"$expected_args")"
         if [ "$expected_args_count" -gt 0 ]; then
@@ -103,7 +103,7 @@ host_config_status() {
           echo action-required
         fi
       else
-        if grep -qF "[mcp_servers.${detect_key}]" "$CONFIG_PATH" >/dev/null 2>&1; then
+        if [ -n "$(extract_toml_mcp_section "$CONFIG_PATH" "$detect_key")" ]; then
           echo ready
         else
           echo action-required
@@ -143,16 +143,11 @@ project_status() {
     return
   fi
 
-  if [ -n "$project_file" ] && [ -f "$REPO_ROOT/$project_file" ]; then
-    echo ready
-  else
-    echo pending
-  fi
+  echo ready
 }
 
-overall_status=ready
-baseline_ready=true
-results_json='{}'
+tools_json='{}'
+graph_providers_json='{}'
 next_actions_json='[]'
 
 append_next_action() {
@@ -163,7 +158,10 @@ append_next_action() {
 
 while IFS= read -r tool_id; do
   required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .required' "$TOOLS_JSON")"
+  category="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .category // "mcp"' "$TOOLS_JSON")"
+  provider_role="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .provider_role // empty' "$TOOLS_JSON")"
   dep_status=ready
+
   while IFS= read -r dep; do
     current_dep_status="$(dependency_status "$dep")"
     if [ "$current_dep_status" != "ready" ]; then
@@ -174,6 +172,11 @@ while IFS= read -r tool_id; do
 
   cfg_status="$(host_config_status "$tool_id")"
   proj_status="$(project_status "$tool_id")"
+  configured=false
+  if [ "$cfg_status" = "ready" ] || [ "$cfg_status" = "fallback-active" ]; then
+    configured=true
+  fi
+
   next_action=""
   if [ "$dep_status" != "ready" ]; then
     next_action="install dependency"
@@ -183,52 +186,82 @@ while IFS= read -r tool_id; do
     next_action="review higher-precedence host config"
   elif [ "$proj_status" = "pending" ]; then
     next_action="bootstrap project"
-  fi
-
-  if [ "$required" = "true" ]; then
-    if [ "$dep_status" != "ready" ] || { [ "$cfg_status" != "ready" ] && [ "$cfg_status" != "fallback-active" ]; } || { [ "$proj_status" != "ready" ] && [ "$proj_status" != "not-applicable" ]; }; then
-      baseline_ready=false
-      if [ "$overall_status" = "ready" ]; then
-        overall_status=partial
-      fi
-    fi
-  fi
-
-  if [ "$required" = "true" ] && { [ "$dep_status" = "missing" ] || [ "$cfg_status" = "action-required" ] || [ "$cfg_status" = "precedence-blocked" ]; }; then
-    overall_status=action-required
-  elif [ "$required" = "true" ] && [ "$cfg_status" = "fallback-active" ] && [ "$overall_status" = "ready" ]; then
-    overall_status=partial
-  elif [ "$required" = "true" ] && [ "$proj_status" = "failed" ] && [ "$overall_status" = "ready" ]; then
-    overall_status=partial
+  elif [ "$category" = "graph-provider" ] && [ "$configured" = "true" ]; then
+    next_action="run spec-graph-bootstrap"
   fi
 
   append_next_action "$next_action"
 
-  results_json="$(jq \
+  tools_json="$(jq \
     --arg id "$tool_id" \
     --argjson required_json "$required" \
+    --arg type "$category" \
     --arg dep "$dep_status" \
     --arg cfg "$cfg_status" \
     --arg proj "$proj_status" \
-    --arg next "$next_action" \
     --arg scope "$SELECTED_SCOPE" \
-    '. + {($id): {required: $required_json, dependency_status: $dep, host_config_status: $cfg, project_status: $proj, selected_scope: $scope, next_action: $next}}' <<<"$results_json")"
+    --arg next "$next_action" \
+    --argjson configured "$configured" \
+    '.
+      + {($id): {
+        required: $required_json,
+        type: $type,
+        dependency_status: $dep,
+        host_config_status: $cfg,
+        project_status: $proj,
+        selected_scope: $scope,
+        next_action: $next
+      }}
+      | if $type == "graph-provider" then
+        .[$id] += {
+          configured: $configured,
+          enabled_for_bootstrap: $configured,
+          query_ready: false,
+          bootstrap_required: true
+        }
+      else . end' <<<"$tools_json")"
+
+  if [ "$category" = "graph-provider" ]; then
+    capabilities="$(jq -c --arg id "$tool_id" '.tools[] | select(.id == $id) | .provider_config.capabilities // []' "$TOOLS_JSON")"
+    graph_providers_json="$(jq \
+      --arg id "$tool_id" \
+      --arg role "$provider_role" \
+      --argjson required_json "$required" \
+      --arg dep "$dep_status" \
+      --arg cfg "$cfg_status" \
+      --arg next "$next_action" \
+      --argjson configured "$configured" \
+      --argjson capabilities "$capabilities" \
+      '. + {($id): {
+        required: $required_json,
+        role: $role,
+        dependency_status: $dep,
+        host_config_status: $cfg,
+        configured: $configured,
+        enabled_for_bootstrap: $configured,
+        query_ready: false,
+        bootstrap_required: true,
+        capabilities: $capabilities,
+        next_action: $next
+      }}' <<<"$graph_providers_json")"
+  fi
 done < <(jq -r '.tools[].id' "$TOOLS_JSON")
 
 jq -n \
   --arg host "$HOST" \
   --arg platform "$PLATFORM" \
   --arg repo_root "$REPO_ROOT" \
-  --arg overall_status "$overall_status" \
-  --argjson baseline_ready "$baseline_ready" \
-  --argjson tools "$results_json" \
+  --arg repo_status "$REPO_STATUS" \
+  --argjson tools "$tools_json" \
+  --argjson graph_providers "$graph_providers_json" \
   --argjson next_actions "$next_actions_json" \
   '{
+    schema_version: "tool-facts.v2",
     host: $host,
     platform: $platform,
     repo_root: $repo_root,
-    overall_status: $overall_status,
-    baseline_ready: $baseline_ready,
+    repo_status: $repo_status,
     tools: $tools,
+    graph_providers: $graph_providers,
     next_actions: $next_actions
   }'

@@ -379,15 +379,15 @@ function checkPluginManifest() {
     const commandCount = listBundledCommands().length;
     return {
       level: 'PASS',
-      name: '.claude-plugin/plugin.json',
+      name: 'runtime asset manifest',
       message: `${manifest.name}@${manifest.version} with ${commandCount} command definition(s)`,
     };
   } catch (error) {
     return {
       level: 'ERROR',
-      name: '.claude-plugin/plugin.json',
+      name: 'runtime asset manifest',
       message: error instanceof Error ? error.message : String(error),
-      fix: 'Restore the bundled plugin manifest and reinstall the package.',
+      fix: 'Restore bundled governance, command templates, skills, and agents, then reinstall the package.',
     };
   }
 }

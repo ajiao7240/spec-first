@@ -9,7 +9,8 @@ command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
-HOST_INFO_JSON="$($SCRIPT_DIR/detect-host.sh)"
+source "$SCRIPT_DIR/lib-toml.sh"
+HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
 HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
 PLATFORM="$(jq -r '.platform' <<<"$HOST_INFO_JSON")"
 TOOL_ID=""
@@ -51,22 +52,12 @@ remove_claude_entry() {
 
 remove_codex_entry() {
   local config_path="$1"
-  local tool_id="$2"
+  local detect_key="$2"
   [ -f "$config_path" ] || return 0
   local tmp
   tmp="$(mktemp "${config_path}.XXXXXX")"
   chmod 600 "$tmp"
-  python3 - "$config_path" "$tool_id" "$tmp" <<'PY'
-import re, sys
-from pathlib import Path
-path = Path(sys.argv[1])
-tool_id = sys.argv[2]
-out = Path(sys.argv[3])
-text = path.read_text(encoding='utf-8') if path.exists() else ''
-pattern = rf'(?ms)^\[mcp_servers\.{re.escape(tool_id)}\]\n.*?(?=^\[mcp_servers\.|\Z)'
-text = re.sub(pattern, '', text).strip()
-out.write_text((text + '\n') if text else '', encoding='utf-8')
-PY
+  remove_toml_mcp_section "$config_path" "$detect_key" "$tmp"
   mv "$tmp" "$config_path"
 }
 
@@ -77,6 +68,7 @@ else
 fi
 
 for tool_id in "${TOOL_IDS[@]}"; do
+  detect_key="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detection.key' "$TOOLS_JSON")"
   while IFS= read -r target_key; do
     target_json="$(jq -c --arg id "$tool_id" --arg host "$HOST" --arg key "$target_key" '.tools[] | select(.id == $id) | .host_config[$host].targets[$key]' "$TOOLS_JSON")"
     [ "$target_json" != "null" ] || continue
@@ -84,12 +76,17 @@ for tool_id in "${TOOL_IDS[@]}"; do
     [ -n "$raw_path" ] || continue
     config_path="$(resolve_path_template "$raw_path")"
     if [ "$HOST" = "claude" ]; then
-      remove_claude_entry "$config_path" "$tool_id"
+      remove_claude_entry "$config_path" "$detect_key"
     else
-      remove_codex_entry "$config_path" "$tool_id"
+      remove_codex_entry "$config_path" "$detect_key"
     fi
   done < <(jq -r --arg id "$tool_id" --arg host "$HOST" '.tools[] | select(.id == $id) | .host_config[$host].uninstall_targets[]' "$TOOLS_JSON")
 done
 
-jq -n --arg host "$HOST" --arg platform "$PLATFORM" --argjson tools "$(printf '%s
-' "${TOOL_IDS[@]}" | jq -R . | jq -s .)" '{host:$host,platform:$platform,removed_tools:$tools}'
+refresh_status="ready"
+if ! bash "$SCRIPT_DIR/verify-tools.sh" >/dev/null 2>&1; then
+  refresh_status="failed"
+fi
+
+jq -n --arg host "$HOST" --arg platform "$PLATFORM" --arg refresh_status "$refresh_status" --argjson tools "$(printf '%s
+' "${TOOL_IDS[@]}" | jq -R . | jq -s .)" '{host:$host,platform:$platform,removed_tools:$tools,readiness_refresh:$refresh_status}'

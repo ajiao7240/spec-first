@@ -1,6 +1,10 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 00:17:58 leokuang: docs(plans): 新增 spec-setup 全量合入 spec-mcp-setup 的审查后实施计划，明确 project preflight 与 required harness runtime 分层、旧 setup 入口删除、ast-grep 推荐能力迁移和验证矩阵 (user-visible)
+- v1.6.0 2026-04-27 23:46:48 leokuang: docs(ce-sync): 根据 spec-doc-review 与 CE git 提交复核补强 4b5f28da 同步计划，新增上游 diff 复验、target-overlap audit、本地 config 扫描边界和 delegation 用户可见 changelog 要求 (user-visible)
+- v1.6.0 2026-04-27 23:45:37 leokuang: refactor(spec-mcp-setup): 将 MCP setup 升级为 Required Harness Runtime Setup，固定必装 MCP/graph-provider/helper 基线，新增 ledger v2、graph provider projection 与 spec-graph-bootstrap 外部构建入口，并改为从源码生成 runtime manifest、不再发布 `.claude-plugin` 产物 (user-visible)
+- v1.6.0 2026-04-27 23:32:28 leokuang: docs(ce-sync): 新增 CE e8c118e2..4b5f28da workflow 更新同步技术方案，逐文件判定 shell 预解析安全、doc-review autofix 规则、work-beta delegation 默认值与 release metadata 不同步边界 (user-visible)
 - v1.6.0 2026-04-27 22:53:09 leokuang: docs(plans): 标记 CRG 删除与 graph-bootstrap 退役实施计划完成，并完成真实测试、打包和安装验证收口 (user-visible)
 - v1.6.0 2026-04-27 22:44:43 leokuang: refactor(graph): breaking change，移除内置 CRG runtime、graph-bootstrap workflow、`spec-first crg`、`graph.db` 主路径、CRG native dependencies 和旧 CRG 正向测试，当前 workflow 改用 direct repo reads、task packs、diffs 与 tests 获取上下文 (user-visible)
 - v1.6.0 2026-04-27 21:54:41 leokuang: docs(plans): 按最终审查意见补强 CRG 删除方案，新增 CHANGELOG breaking-change 验收、README 当前替代路径，并将 summarizeChangeSurface 默认决策为随 CRG 删除 (user-visible)

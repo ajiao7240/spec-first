@@ -34,12 +34,17 @@ tar -tf "$TARBALL_PATH" > "$PACK_LIST"
 obsolete_src="src/""crg"
 parser_dep="tree""-sitter"
 sqlite_dep="better""-sqlite3"
-bootstrap_name="graph""-bootstrap"
-if grep -E "$obsolete_src|$parser_dep|$sqlite_dep|$bootstrap_name" "$PACK_LIST"; then
+if grep -E "$obsolete_src|$parser_dep|$sqlite_dep" "$PACK_LIST"; then
   echo "✗ tarball 文件列表包含已删除的图谱运行时内容"
   exit 1
 fi
-echo "   ✓ tarball 未包含已删除的图谱运行时内容"
+if grep -q '^package/\.claude-plugin/' "$PACK_LIST"; then
+  echo "✗ tarball 文件列表不应包含安装生成的 .claude-plugin 产物"
+  exit 1
+fi
+grep -q "skills/spec-graph-bootstrap/SKILL.md" "$PACK_LIST"
+grep -q "templates/claude/commands/spec/graph-bootstrap.md" "$PACK_LIST"
+echo "   ✓ tarball 未包含内置 CRG runtime / .claude-plugin，且包含 external graph bootstrap"
 
 # -------------------------------------------------------------------------
 # 2. 隔离安装
@@ -60,7 +65,7 @@ test "$install_rc" -eq 0
 # -------------------------------------------------------------------------
 echo "3. 验证安装日志..."
 
-if grep -E "$parser_dep|$sqlite_dep|$bootstrap_name|$obsolete_src" "$INSTALL_LOG"; then
+if grep -E "$parser_dep|$sqlite_dep|$obsolete_src" "$INSTALL_LOG"; then
   echo "✗ 安装日志包含已删除的图谱运行时内容"
   exit 1
 fi
@@ -123,10 +128,9 @@ const path = require('path');
 const root = '$GLOBAL_PKG';
 const forbidden = [
   'src/' + 'crg',
-  'skills/spec-' + 'graph' + '-bootstrap',
-  'templates/claude/commands/spec/' + 'graph' + '-bootstrap.md',
   'vendor/' + 'tree' + '-sitter-objc',
   'vendor/' + 'tree' + '-sitter-swift',
+  '.claude-plugin',
 ];
 for (const rel of forbidden) {
   if (fs.existsSync(path.join(root, rel))) {
@@ -134,8 +138,16 @@ for (const rel of forbidden) {
     process.exit(1);
   }
 }
+if (!fs.existsSync(path.join(root, 'skills/spec-' + 'graph' + '-bootstrap/SKILL.md'))) {
+  console.error('external graph bootstrap skill missing from package');
+  process.exit(1);
+}
+if (!fs.existsSync(path.join(root, 'templates/claude/commands/spec/' + 'graph' + '-bootstrap.md'))) {
+  console.error('external graph bootstrap command missing from package');
+  process.exit(1);
+}
 "
-echo "   ✓ 全局包未包含已删除的图谱运行时路径"
+echo "   ✓ 全局包未包含内置 CRG runtime，且包含 external graph bootstrap"
 
 # -------------------------------------------------------------------------
 # 完成

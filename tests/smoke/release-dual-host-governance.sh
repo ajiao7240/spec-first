@@ -39,6 +39,10 @@ if tar -tf "$TARBALL_PATH" | grep -q '^package/docs/contracts/dual-host-governan
   echo "✗ tarball 不应再包含 docs-side skills-governance.schema.json"
   exit 1
 fi
+if tar -tf "$TARBALL_PATH" | grep -q '^package/\.claude-plugin/'; then
+  echo "✗ tarball 不应包含安装生成的 .claude-plugin 产物"
+  exit 1
+fi
 echo "   ✓ tarball 已包含 runtime governance JSON/schema"
 
 echo "3. 隔离安装 tarball..."

@@ -1,6 +1,6 @@
 ---
-description: "Unified setup entrypoint for repo preflight and MCP tools installation for spec-first workflows"
-argument-hint: "[quick|custom]"
+description: "Install and verify the required harness runtime for spec-first workflows"
+argument-hint: ""
 ---
 
 # MCP Setup

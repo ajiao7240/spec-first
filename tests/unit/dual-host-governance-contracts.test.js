@@ -9,6 +9,7 @@ const {
   listBundledAgents,
   listBundledAgentSupportFiles,
   listBundledSkills,
+  loadPluginManifest,
 } = require('../../src/cli/plugin');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
@@ -30,6 +31,7 @@ const MCP_SETUP_VERIFY_SH_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/scr
 const MCP_SETUP_VERIFY_PS1_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
 const DOCS_MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-mcp-setup/SKILL.md');
 const DOCS_MCP_SETUP_FLOW_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-mcp-setup/execution-flow.md');
+const GRAPH_BOOTSTRAP_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-graph-bootstrap/SKILL.md');
 const RETIRED_BOOTSTRAP_NAME = ['spec', 'bootstrap'].join('-');
 const RETIRED_CLAUDE_ENTRYPOINT = '/spec:' + 'bootstrap';
 const RETIRED_CODEX_ENTRYPOINT = ['$spec', 'bootstrap'].join('-');
@@ -75,10 +77,31 @@ describe('dual-host governance contracts', () => {
   test('default release gate covers both governance relocation and full tarball install regression', () => {
     const pkg = readJson(PACKAGE_JSON_PATH);
 
+    expect(pkg.files).not.toContain('.claude-plugin/');
     expect(pkg.scripts['test:release']).toContain('test:release:governance');
     expect(pkg.scripts['test:release']).toContain('test:release:install');
     expect(pkg.scripts['test:release:governance']).toContain('release-dual-host-governance.sh');
     expect(pkg.scripts['test:release:install']).toContain('install-tarball.sh');
+  });
+
+  test('workflow manifest is generated from governance and command template frontmatter', () => {
+    const manifest = loadPluginManifest();
+    const mcpSetup = manifest.commands.find((command) => command.name === 'mcp-setup');
+    const graphBootstrap = manifest.commands.find((command) => command.name === 'graph-bootstrap');
+
+    expect(manifest.version).toBe(readJson(PACKAGE_JSON_PATH).version);
+    expect(mcpSetup).toMatchObject({
+      filename: 'mcp-setup.md',
+      description: 'Install and verify the required harness runtime for spec-first workflows',
+      argumentHint: '',
+      skill: 'spec-mcp-setup',
+    });
+    expect(graphBootstrap).toMatchObject({
+      filename: 'graph-bootstrap.md',
+      description: 'Build required external graph-provider indexes for spec-first workflows',
+      argumentHint: '',
+      skill: 'spec-graph-bootstrap',
+    });
   });
 
   test('docs-side governance directory keeps only the human-readable contract', () => {
@@ -101,15 +124,16 @@ describe('dual-host governance contracts', () => {
     const mcpSetup = read(MCP_SETUP_SKILL_PATH);
 
     expect(readme).toContain('$spec-mcp-setup');
+    expect(readme).toContain('$spec-graph-bootstrap');
     expect(readme).not.toContain(RETIRED_CODEX_ENTRYPOINT);
     expect(readme).not.toContain('$setup');
     expect(readme).not.toContain('Codex now also receives shared `/spec:*` command files under `.codex/commands/spec/`');
 
-    expect(mcpSetup).toContain('**Codex entry point:** `$spec-mcp-setup [quick|custom]`');
-    expect(mcpSetup).not.toContain('**Codex entry point:** `/spec:mcp-setup [quick|custom]`');
+    expect(mcpSetup).toContain('**Codex entry point:** `$spec-mcp-setup`');
+    expect(mcpSetup).not.toContain('**Codex entry point:** `/spec:mcp-setup`');
   });
 
-  test('active source-of-truth surfaces no longer advertise retired bootstrap workflow', () => {
+  test('active source-of-truth surfaces use external graph bootstrap without retired CRG CLI', () => {
     const activeSurfaces = [
       README_PATH,
       README_ZH_PATH,
@@ -119,6 +143,7 @@ describe('dual-host governance contracts', () => {
       MCP_SETUP_VERIFY_PS1_PATH,
       DOCS_MCP_SETUP_SKILL_PATH,
       DOCS_MCP_SETUP_FLOW_PATH,
+      GRAPH_BOOTSTRAP_SKILL_PATH,
     ];
 
     for (const surface of activeSurfaces.filter((filePath) => fs.existsSync(filePath))) {
@@ -129,7 +154,11 @@ describe('dual-host governance contracts', () => {
       expect(content).not.toContain(RETIRED_CODEX_ENTRYPOINT);
       expect(content).not.toContain(RETIRED_WORKFLOW_PATH);
       expect(content).not.toContain(RETIRED_SKILL_PATH);
+      expect(content).not.toContain('spec-first ' + 'crg');
     }
+
+    expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain('npx -y gitnexus@latest analyze');
+    expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain('uvx code-review-graph build');
   });
 
   test('README runtime counts stay aligned with current bundled assets', () => {
@@ -156,10 +185,10 @@ describe('dual-host governance contracts', () => {
     expect(readmeZh).toContain(`🤖 Generated ${claudeAssets.agents.length} agent file(s) in .claude/agents`);
     expect(readmeZh).not.toContain('agent support file(s) in .claude/agents');
     expect(readme).not.toContain('spec-first ' + 'crg');
-    expect(readme).not.toContain('/spec:' + 'graph' + '-bootstrap');
-    expect(readme).not.toContain('$spec-' + 'graph' + '-bootstrap');
     expect(readmeZh).not.toContain('spec-first ' + 'crg');
-    expect(readmeZh).not.toContain('/spec:' + 'graph' + '-bootstrap');
-    expect(readmeZh).not.toContain('$spec-' + 'graph' + '-bootstrap');
+    expect(readme).toContain('/spec:' + 'graph' + '-bootstrap');
+    expect(readme).toContain('$spec-' + 'graph' + '-bootstrap');
+    expect(readmeZh).toContain('/spec:' + 'graph' + '-bootstrap');
+    expect(readmeZh).toContain('$spec-' + 'graph' + '-bootstrap');
   });
 });

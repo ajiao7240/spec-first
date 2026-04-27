@@ -1,6 +1,5 @@
 param(
-  [string]$Install,
-  [string]$Skip
+  [string]$Only
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,14 +20,12 @@ function Parse-List {
   @($Value -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 }
 
-$InstallArray = Parse-List $Install
-$SkipArray = Parse-List $Skip
+$OnlyArray = Parse-List $Only
 
 function Should-Install {
   param([object]$Tool)
-  if ($SkipArray -contains $Tool.id) { return $false }
-  if ($InstallArray.Count -gt 0) { return $InstallArray -contains $Tool.id }
-  return [bool]$Tool.required
+  if ($OnlyArray.Count -gt 0) { return $OnlyArray -contains $Tool.id }
+  return $true
 }
 
 function Invoke-Captured {
@@ -83,14 +80,14 @@ function Invoke-Warmup {
 
 $results = New-Object System.Collections.Generic.List[object]
 foreach ($tool in @($ToolsJson.tools)) {
-  if ([bool]$tool.required -and ($SkipArray -contains $tool.id)) {
+  if (-not [bool]$tool.required) {
     $results.Add([pscustomobject]@{
       tool_id = $tool.id
       status = 'action-required'
       last_action = 'failed'
       install_kind = $tool.installation.kind
-      reason_code = 'invalid_required_skip'
-      next_action = 'required MCP baseline 工具不能通过 -Skip 跳过'
+      reason_code = 'registry_not_required'
+      next_action = 'mcp-tools.json schema v4 只允许 required tools'
       configured_path = ''
       selected_scope = ''
       fallback_applied = $false
@@ -114,7 +111,18 @@ foreach ($tool in @($ToolsJson.tools)) {
   $diagnosticSummary = ''
   $repairDiagnosticSummary = ''
 
-  if ($tool.installation.kind -eq 'warmup') {
+  foreach ($dep in @($tool.dependencies)) {
+    if (-not (Get-Command $dep -ErrorAction SilentlyContinue)) {
+      $status = 'action-required'
+      $lastAction = 'failed'
+      $reasonCode = 'missing_dependency'
+      $nextAction = "安装依赖: $dep"
+      $diagnosticSummary = "missing dependency: $dep"
+      break
+    }
+  }
+
+  if ($status -eq 'ready' -and $tool.installation.kind -eq 'warmup') {
     $warmupResult = Invoke-Captured { Invoke-Warmup -Tool $tool }
     if (-not $warmupResult.ok) {
       $status = 'action-required'

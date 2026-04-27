@@ -6,11 +6,11 @@ const path = require('node:path');
 
 const { runInit } = require('../../src/cli/commands/init');
 const { spawnSync } = require('node:child_process');
+const { loadPluginManifest } = require('../../src/cli/plugin');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
 const LOCAL_AGENT_BROWSER_DIR = path.join(REPO_ROOT, 'skills', 'agent-browser');
-const PLUGIN_MANIFEST_PATH = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
 const GOVERNANCE_PATH = path.join(
   REPO_ROOT,
   'src',
@@ -22,6 +22,13 @@ const GOVERNANCE_PATH = path.join(
 const MCP_TOOLS_PATH = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'mcp-tools.json');
 const MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'SKILL.md');
 const MCP_SETUP_CHECK_HEALTH_PATH = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'scripts', 'check-health');
+const MCP_SETUP_INSTALL_HELPERS_PATH = path.join(
+  REPO_ROOT,
+  'skills',
+  'spec-mcp-setup',
+  'scripts',
+  'install-helpers.sh',
+);
 const MCP_SETUP_REFERENCE_PATH = path.join(
   REPO_ROOT,
   'skills',
@@ -118,7 +125,7 @@ function writeOldClaudeStateWithAgentBrowser(projectRoot) {
 
 describe('browser helper tool contracts', () => {
   test('agent-browser is external helper tooling, not a bundled source skill', () => {
-    const manifest = readJson(PLUGIN_MANIFEST_PATH);
+    const manifest = loadPluginManifest();
     const governance = readJson(GOVERNANCE_PATH);
     const mcpTools = readJson(MCP_TOOLS_PATH);
 
@@ -131,16 +138,17 @@ describe('browser helper tool contracts', () => {
   test('spec-mcp-setup owns agent-browser helper detection and install handoff', () => {
     const setupSkill = read(MCP_SETUP_SKILL_PATH);
     const checkHealth = read(MCP_SETUP_CHECK_HEALTH_PATH);
+    const installHelpers = read(MCP_SETUP_INSTALL_HELPERS_PATH);
     const reference = read(MCP_SETUP_REFERENCE_PATH);
 
-    expect(setupSkill).toContain('browser automation helper substrate');
-    expect(setupSkill).toContain('`agent-browser` is required');
+    expect(setupSkill).toContain('Required helper tool outside `mcp-tools.json`');
+    expect(setupSkill).toContain('`agent-browser`');
     expect(setupSkill).toContain('helper_tools');
-    expect(setupSkill).toContain('Tool | Type | Required | Dependency | Host Config | Project Bootstrap | Result | Next Action');
-    expect(setupSkill).toContain('required MCP tools');
-    expect(setupSkill).toContain('not-applicable` -> `n/a');
-    expect(setupSkill).toContain('optional-pending');
+    expect(setupSkill).toContain('install-helpers.* --verify-only');
     expect(setupSkill).toContain('npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y');
+    expect(installHelpers).toContain('install-helpers.sh - Install or verify required non-MCP helper tooling');
+    expect(installHelpers).toContain('agent-browser install');
+    expect(installHelpers).toContain('npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y');
     expect(checkHealth).toContain('"agent-browser|required"');
     expect(checkHealth).toContain('--json');
     expect(checkHealth).toContain('Tool install status');
@@ -149,8 +157,8 @@ describe('browser helper tool contracts', () => {
     expect(checkHealth).toContain('npm install -g agent-browser');
     expect(checkHealth).toContain('agent-browser install');
     expect(checkHealth).toContain('npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y');
-    expect(reference).toContain('not listed in the MCP Tool Index');
-    expect(reference).toContain('agent-browser skills get core');
+    expect(reference).toContain('not an MCP server');
+    expect(reference).toContain('"helper_tools"');
   });
 
   test('check-health JSON exposes agent-browser as required helper table input', () => {
