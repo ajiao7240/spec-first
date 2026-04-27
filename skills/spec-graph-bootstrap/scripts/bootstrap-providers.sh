@@ -124,11 +124,13 @@ jq --arg bootstrapped_at "$bootstrapped_at" --argjson successes "$(cat "$success
       | if ($successes | index($provider_key)) then
         .value.query_ready = true
         | .value.bootstrap_required = false
+        | .value.next_action = ""
         | .value.last_bootstrap_status = "ready"
         | .value.last_bootstrapped_at = $bootstrapped_at
       else
         .value.query_ready = false
         | .value.bootstrap_required = true
+        | .value.next_action = "run spec-graph-bootstrap"
         | .value.last_bootstrap_status = "not-ready"
       end
     )

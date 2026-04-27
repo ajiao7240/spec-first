@@ -61,13 +61,27 @@ function Get-CodexHigherPrecedenceStatus {
   [pscustomobject]@{ status = 'none'; scope = ''; path = '' }
 }
 
+function Get-ClaudeMcpServer {
+  param(
+    [object]$Config,
+    [string]$Key
+  )
+
+  if ($null -eq $Config) { return $null }
+  if ($null -eq $Config.PSObject.Properties['mcpServers']) { return $null }
+  $servers = $Config.PSObject.Properties['mcpServers'].Value
+  if ($null -eq $servers) { return $null }
+  if ($null -eq $servers.PSObject.Properties[$Key]) { return $null }
+  return $servers.PSObject.Properties[$Key].Value
+}
+
 function Test-ToolConfigured {
   if (-not (Test-Path $ConfigPath)) { return $false }
   switch ($ToolDef.detection.kind) {
     'host_config_exact' {
       if ($DetectedHost -eq 'claude') {
         $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
-        $server = $config.mcpServers.PSObject.Properties[$ToolDef.detection.key].Value
+        $server = Get-ClaudeMcpServer -Config $config -Key $ToolDef.detection.key
         if ($null -eq $server) { return $false }
         if ($server.command -ne $ResolvedConfig.command) { return $false }
         $serverArgs = @($server.args)
@@ -84,7 +98,7 @@ function Test-ToolConfigured {
     'host_config_key_only' {
       if ($DetectedHost -eq 'claude') {
         $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
-        return $null -ne $config.mcpServers.PSObject.Properties[$ToolDef.detection.key]
+        return $null -ne (Get-ClaudeMcpServer -Config $config -Key $ToolDef.detection.key)
       }
       return -not [string]::IsNullOrWhiteSpace((Get-TomlMcpSection -Path $ConfigPath -Key $ToolDef.detection.key))
     }

@@ -3,8 +3,10 @@ const path = require('path');
 
 const repoRoot = path.resolve(__dirname, '../..');
 const configureHostPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/configure-host.ps1');
+const detectHostPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-host.ps1');
 const detectToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-tools.ps1');
 const verifyToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
+const writeProviderConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/write-provider-config.ps1');
 const bootstrapProjectConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1');
 const installHelpersPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-helpers.ps1');
 const libTomlPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/lib-toml.ps1');
@@ -72,6 +74,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(configureSource).toContain('Test-TomlMcpSectionExact -Path $ConfigPath -Key $ToolDef.detection.key');
     expect(configureSource).toContain('function Get-CodexHigherPrecedenceStatus');
     expect(configureSource).toContain('被更高优先级 Codex MCP 配置覆盖');
+    expect(configureSource).toContain('function Get-ClaudeMcpServer');
+    expect(configureSource).toContain("if ($null -eq $Config.PSObject.Properties['mcpServers']) { return $null }");
     expect(configureSource).not.toContain('command = $HostConfig.command; args = $resolvedArgs; scope = $SelectedScope');
     expect(configureSource).not.toContain('.Contains($arg)');
     expect(detectSource).toContain("Join-Path $ScriptDir 'lib-toml.ps1'");
@@ -79,10 +83,32 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(detectSource).toContain('Test-TomlMcpSectionExact -Path $ConfigPath -Key $Tool.detection.key');
     expect(detectSource).toContain('precedence-blocked');
     expect(detectSource).toContain('$HostInfo.targets.PSObject.Properties');
+    expect(detectSource).toContain('function Get-ClaudeMcpServer');
     expect(detectSource).not.toContain('.Contains($arg)');
     expect(libTomlSource).toContain('(?=^[ `t]*\\[|\\z)');
     expect(libTomlSource).toContain('function Test-TomlMcpSectionExact');
     expect(libTomlSource).toContain('function Remove-TomlLineComment');
+  });
+
+  test('PowerShell host detection supports Unix parity test overrides', () => {
+    const detectHostSource = fs.readFileSync(detectHostPs1, 'utf8');
+
+    expect(detectHostSource).toContain('function Resolve-TargetPathOverride');
+    expect(detectHostSource).toContain('MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE');
+    expect(detectHostSource).toContain('MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE');
+    expect(detectHostSource).toContain('Resolve-TargetPathOverride -Host $detectedHost -TargetKey $TargetKey');
+  });
+
+  test('provider projection writer is semantically idempotent', () => {
+    const writeProviderSource = fs.readFileSync(writeProviderConfigPs1, 'utf8');
+
+    expect(writeProviderSource).toContain('function ConvertTo-ComparableProjectionJson');
+    expect(writeProviderSource).toContain("PSObject.Properties.Name -contains 'generated_at'");
+    expect(writeProviderSource).toContain("$payload['generated_at'] = $existingGeneratedAt");
+    expect(writeProviderSource).toContain("$payload['last_updated_by'] = $existing.last_updated_by");
+    expect(writeProviderSource).toContain("$payload['last_bootstrapped_at'] = $existing.last_bootstrapped_at");
+    expect(writeProviderSource).toContain("$repoConfigStatus = 'ready'");
+    expect(writeProviderSource).toContain('repo_config_status = $repoConfigStatus');
   });
 
   test('helper verify-only is marker-based and does not install browser runtime', () => {
@@ -98,6 +124,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installHelpersSource).toContain('winget install --id GitHub.cli -e --silent');
     expect(installHelpersSource).toContain('npm install -g @ast-grep/cli');
     expect(installHelpersSource).toContain('Test-Path $globalAgentBrowserSkill');
+    expect(installHelpersSource).toContain("$nextAction = 'agent-browser CLI not found after npm install'");
+    expect(installHelpersSource).toContain("$status = 'ready'\n        $nextAction = ''");
     expect(installHelpersSource).not.toContain('agent-browser doctor');
     expect(installHelpersSource).not.toContain('doctor --fix');
     expect(installHelpersSource).toContain("$mode -eq 'verify-only' -and -not (Test-Path $agentBrowserInstallMarker)");

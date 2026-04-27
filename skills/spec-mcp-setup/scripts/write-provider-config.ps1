@@ -37,6 +37,17 @@ if (Test-Path $outFile) {
   }
 }
 
+function ConvertTo-ComparableProjectionJson {
+  param([object]$Projection)
+  if ($null -eq $Projection) { return '' }
+
+  $clone = $Projection | ConvertTo-Json -Depth 20 | ConvertFrom-Json
+  if ($clone.PSObject.Properties.Name -contains 'generated_at') {
+    $clone.PSObject.Properties.Remove('generated_at')
+  }
+  return ($clone | ConvertTo-Json -Depth 20 -Compress)
+}
+
 $providers = [ordered]@{}
 foreach ($property in $facts.graph_providers.PSObject.Properties) {
   $provider = $property.Value
@@ -94,10 +105,32 @@ $payload = [ordered]@{
     graph_bootstrap_required = $graphBootstrapRequired
   }
 }
+$hasQueryReadyProvider = [bool](@($providers.Values | Where-Object { $_.query_ready }).Count)
+if ($hasQueryReadyProvider -and $null -ne $existing) {
+  if ($existing.PSObject.Properties.Name -contains 'last_updated_by') {
+    $payload['last_updated_by'] = $existing.last_updated_by
+  }
+  if ($existing.PSObject.Properties.Name -contains 'last_bootstrapped_at') {
+    $payload['last_bootstrapped_at'] = $existing.last_bootstrapped_at
+  }
+}
 
-$payload | ConvertTo-Json -Depth 10 | Set-Content -Encoding utf8 $outFile
+$repoConfigStatus = 'written'
+$existingGeneratedAt = if ($null -ne $existing -and $existing.PSObject.Properties.Name -contains 'generated_at') { $existing.generated_at } else { $null }
+if ($null -ne $existing -and -not [string]::IsNullOrWhiteSpace([string]$existingGeneratedAt)) {
+  $existingComparable = ConvertTo-ComparableProjectionJson -Projection $existing
+  $payloadComparable = ConvertTo-ComparableProjectionJson -Projection ([pscustomobject]$payload)
+  if ($existingComparable -eq $payloadComparable) {
+    $payload['generated_at'] = $existingGeneratedAt
+    $repoConfigStatus = 'ready'
+  }
+}
+
+if ($repoConfigStatus -eq 'written') {
+  $payload | ConvertTo-Json -Depth 10 | Set-Content -Encoding utf8 $outFile
+}
 [pscustomobject]@{
-  repo_config_status = 'written'
+  repo_config_status = $repoConfigStatus
   repo_config_path = $outFile
   graph_bootstrap_required = $graphBootstrapRequired
   providers = $providers

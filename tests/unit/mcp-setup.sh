@@ -372,6 +372,7 @@ if [ "$graph_log_before" = "$graph_log_after" ]; then
   exit 1
 fi
 assert_eq "graph-bootstrap flips query_ready" "true" "$(jq -r '.providers.gitnexus.query_ready and .providers["code-review-graph"].query_ready and (.providers.gitnexus.bootstrap_required == false) and (.providers["code-review-graph"].bootstrap_required == false)' "$PROVIDER_CONFIG")"
+provider_config_before_repeat_verify="$(cat "$PROVIDER_CONFIG")"
 verify_after_bootstrap="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "repeat verify shows graph provider query ready" "| gitnexus | graph-provider | yes | ready | fallback | n/a | ready | n/a |" "$verify_after_bootstrap"
 assert_contains "repeat verify reports graph provider query ready summary" "Graph providers are query-ready." "$verify_after_bootstrap"
@@ -379,6 +380,7 @@ if [[ "$verify_after_bootstrap" == *"Graph providers are configured but not quer
   echo "FAIL: repeat verify should not say query-ready providers are pending" >&2
   exit 1
 fi
+assert_eq "repeat verify does not rewrite unchanged provider projection" "$provider_config_before_repeat_verify" "$(cat "$PROVIDER_CONFIG")"
 assert_eq "repeat verify preserves provider query_ready" "true" "$(jq -r '.providers.gitnexus.query_ready and .providers["code-review-graph"].query_ready and (.providers.gitnexus.bootstrap_required == false) and (.providers["code-review-graph"].bootstrap_required == false)' "$PROVIDER_CONFIG")"
 assert_eq "repeat verify clears graph bootstrap next action" "false" "$(jq -r '.next_actions | index("run spec-graph-bootstrap") != null' "$LEDGER_PATH")"
 assert_eq "repeat verify ledger graph bootstrap no longer required" "false" "$(jq -r '.graph_bootstrap_required' "$LEDGER_PATH")"

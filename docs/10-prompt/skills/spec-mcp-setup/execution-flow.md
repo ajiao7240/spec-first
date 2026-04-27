@@ -56,6 +56,8 @@ write-provider-config.*
   |-- write .spec-first/config/graph-providers.json
   |-- first setup writes query_ready=false
   |-- repeated setup preserves query_ready=true when provider setup is still ready
+  |-- repeated setup preserves graph-bootstrap readiness metadata
+  |-- semantic projection unchanged 时不刷新 generated_at、不污染 git status
   v
 Next: restart/new session, then /spec:graph-bootstrap or $spec-graph-bootstrap; agent may accept "继续完成" for deterministic-script continuation
 ```

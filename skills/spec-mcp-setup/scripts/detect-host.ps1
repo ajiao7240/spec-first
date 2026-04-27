@@ -49,6 +49,22 @@ function Resolve-PathTemplate {
   return $Template
 }
 
+function Resolve-TargetPathOverride {
+  param(
+    [string]$Host,
+    [string]$TargetKey,
+    [string]$ResolvedPath
+  )
+
+  if ($Host -eq 'claude' -and $TargetKey -eq 'managed' -and -not [string]::IsNullOrWhiteSpace($env:MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE)) {
+    return $env:MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE
+  }
+  if ($Host -eq 'codex' -and $TargetKey -eq 'system' -and -not [string]::IsNullOrWhiteSpace($env:MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE)) {
+    return $env:MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE
+  }
+  return $ResolvedPath
+}
+
 function Get-ExistingParent {
   param([string]$Path)
   $current = $Path
@@ -127,6 +143,7 @@ function Get-TargetFact {
   $target = $HostContract.targets[$TargetKey]
   $rawPath = if ($target.config_path -is [hashtable]) { $target.config_path[$Platform] } else { $target.config_path }
   $resolvedPath = Resolve-PathTemplate $rawPath
+  $resolvedPath = Resolve-TargetPathOverride -Host $detectedHost -TargetKey $TargetKey -ResolvedPath $resolvedPath
   $exists = Test-Path $resolvedPath
   $writableCheck = if ($target.ContainsKey('writable_check')) { $target.writable_check } else { 'parent-or-file' }
   $writable = Test-TargetWritable -Path $resolvedPath -CheckMode $writableCheck

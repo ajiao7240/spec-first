@@ -27,6 +27,20 @@ function Get-DependencyStatus {
   if (Get-Command $Name -ErrorAction SilentlyContinue) { 'ready' } else { 'missing' }
 }
 
+function Get-ClaudeMcpServer {
+  param(
+    [object]$Config,
+    [string]$Key
+  )
+
+  if ($null -eq $Config) { return $null }
+  if ($null -eq $Config.PSObject.Properties['mcpServers']) { return $null }
+  $servers = $Config.PSObject.Properties['mcpServers'].Value
+  if ($null -eq $servers) { return $null }
+  if ($null -eq $servers.PSObject.Properties[$Key]) { return $null }
+  return $servers.PSObject.Properties[$Key].Value
+}
+
 function Get-HostConfigStatus {
   param([object]$Tool)
   if ([string]::IsNullOrWhiteSpace($SelectedScope)) { return 'action-required' }
@@ -57,7 +71,7 @@ function Get-HostConfigStatus {
     'host_config_exact' {
       if ($DetectedHost -eq 'claude') {
         $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
-        $server = $config.mcpServers.PSObject.Properties[$Tool.detection.key].Value
+        $server = Get-ClaudeMcpServer -Config $config -Key $Tool.detection.key
         if ($null -eq $server) { return 'action-required' }
         if ($server.command -ne $hostConfig.command) { return 'action-required' }
         $serverArgs = @($server.args)
@@ -79,7 +93,7 @@ function Get-HostConfigStatus {
     'host_config_key_only' {
       if ($DetectedHost -eq 'claude') {
         $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
-        if ($null -eq $config.mcpServers.PSObject.Properties[$Tool.detection.key]) { return 'action-required' }
+        if ($null -eq (Get-ClaudeMcpServer -Config $config -Key $Tool.detection.key)) { return 'action-required' }
         if ($SelectedScope -eq 'managed') { return 'ready' }
         return 'fallback-active'
       }

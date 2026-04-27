@@ -251,6 +251,10 @@ If a provider is missing, uninstalled, or no longer configured, setup must not p
 
 `write-provider-config.*` writes `.spec-first/config/graph-providers.json` only when running inside a git repo. This file is not a second registry. It is a project-local provider selection projection for downstream workflows.
 
+Repeated setup must not dirty the repo by rewriting this projection only to refresh `generated_at`. If the semantic projection is unchanged, `write-provider-config.*` keeps the existing `generated_at`, leaves the file unchanged, and reports `repo_config_status="ready"` instead of `written`.
+
+When preserving an existing query-ready provider, `write-provider-config.*` must also preserve graph-bootstrap metadata that belongs to the projection, such as top-level `last_updated_by` / `last_bootstrapped_at` and provider `last_bootstrap_status` / `last_bootstrapped_at`.
+
 Expected projection boundaries:
 
 ```json

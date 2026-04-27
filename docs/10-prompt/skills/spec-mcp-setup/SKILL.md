@@ -27,6 +27,8 @@
 - 重复执行 setup 必须幂等且非破坏：Serena 已 ready 时不强制重建；需要重建时先保留旧 `.serena/project.yml` 与 ready marker，失败要恢复旧状态。
 - host MCP server entry 只写宿主支持字段，例如 `command`、`args`、`startup_timeout_sec`；`selected_scope` 等内部元数据只进入脚本输出和 ledger。
 - Codex higher-precedence config 只在同名 MCP section 存在时影响该工具；profile-only 或无关 MCP section 不应阻断 selected-scope config。
+- `.spec-first/config/graph-providers.json` 语义未变化时不得只为刷新 `generated_at` 重写文件；重复 verify 应保持工作区干净，并把 projection 状态视为 `ready`。
+- 保留 query-ready provider 时，也必须保留 graph-bootstrap 写入的 readiness metadata，例如顶层 `last_updated_by` / `last_bootstrapped_at` 与 provider 级 `last_bootstrap_status` / `last_bootstrapped_at`。
 
 禁止事项：
 

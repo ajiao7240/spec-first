@@ -111,11 +111,13 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   if ($successes.Contains($property.Name)) {
     Set-JsonProperty -Object $provider -Name 'query_ready' -Value $true
     Set-JsonProperty -Object $provider -Name 'bootstrap_required' -Value $false
+    Set-JsonProperty -Object $provider -Name 'next_action' -Value ''
     Set-JsonProperty -Object $provider -Name 'last_bootstrap_status' -Value 'ready'
     Set-JsonProperty -Object $provider -Name 'last_bootstrapped_at' -Value $bootstrappedAt
   } else {
     Set-JsonProperty -Object $provider -Name 'query_ready' -Value $false
     Set-JsonProperty -Object $provider -Name 'bootstrap_required' -Value $true
+    Set-JsonProperty -Object $provider -Name 'next_action' -Value 'run spec-graph-bootstrap'
     Set-JsonProperty -Object $provider -Name 'last_bootstrap_status' -Value 'not-ready'
   }
 }

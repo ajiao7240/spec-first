@@ -60,9 +60,12 @@ After each provider succeeds, the script updates `.spec-first/config/graph-provi
 ```json
 {
   "query_ready": true,
-  "bootstrap_required": false
+  "bootstrap_required": false,
+  "next_action": ""
 }
 ```
+
+It also records bootstrap metadata such as `last_bootstrapped_at`. Re-running `spec-mcp-setup` must preserve these readiness facts while the provider setup remains ready.
 
 ## Boundaries
 

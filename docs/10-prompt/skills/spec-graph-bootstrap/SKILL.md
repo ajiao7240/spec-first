@@ -19,9 +19,12 @@
 ```json
 {
   "query_ready": true,
-  "bootstrap_required": false
+  "bootstrap_required": false,
+  "next_action": ""
 }
 ```
+
+同时写入 `last_bootstrapped_at` 等 bootstrap metadata；只要 provider setup 仍 ready，重复 `spec-mcp-setup` 不应删除这些 readiness facts。
 
 边界：
 

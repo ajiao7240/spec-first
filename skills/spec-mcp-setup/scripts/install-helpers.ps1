@@ -192,6 +192,9 @@ if (-not (Test-CommandExists 'agent-browser')) {
         $dependencyStatus = 'missing'
         $installStatus = 'action-required'
         $nextAction = 'agent-browser CLI not found after npm install'
+      } else {
+        $status = 'ready'
+        $nextAction = ''
       }
     } else {
       $status = 'action-required'

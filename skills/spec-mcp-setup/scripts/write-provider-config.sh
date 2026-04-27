@@ -32,6 +32,9 @@ fi
 OUT_DIR="$REPO_ROOT/.spec-first/config"
 OUT_FILE="$OUT_DIR/graph-providers.json"
 mkdir -p "$OUT_DIR"
+PROJECTION_TMP="$(mktemp "${OUT_FILE}.XXXXXX")"
+trap 'rm -f "${PROJECTION_TMP:-}"' EXIT
+chmod 600 "$PROJECTION_TMP"
 
 EXISTING_JSON='{}'
 if [ -f "$OUT_FILE" ] && jq -e --arg repo_root "$REPO_ROOT" '.schema_version == "graph-providers.v1" and .repo_root == $repo_root' "$OUT_FILE" >/dev/null 2>&1; then
@@ -83,8 +86,7 @@ jq --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
       })
     | from_entries
   ) as $providers
-  |
-  {
+  | {
     schema_version: "graph-providers.v1",
     generated_by: "spec-mcp-setup",
     generated_at: $generated_at,
@@ -101,10 +103,33 @@ jq --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
       does_not_run_code_review_graph_build: true,
       graph_bootstrap_required: ([($providers // {})[] | .bootstrap_required == true] | any)
     }
-  }' "$FACTS_FILE" > "$OUT_FILE"
+  }
+  + (if (([($providers // {})[] | .query_ready == true] | any) and ($existing | has("last_updated_by"))) then
+      {last_updated_by: $existing.last_updated_by}
+    else {} end)
+  + (if (([($providers // {})[] | .query_ready == true] | any) and ($existing | has("last_bootstrapped_at"))) then
+      {last_bootstrapped_at: $existing.last_bootstrapped_at}
+    else {} end)
+  as $projection
+  | $projection
+  | .generated_at = (
+      if (($existing | has("generated_at")) and (($existing | del(.generated_at)) == ($projection | del(.generated_at)))) then
+        $existing.generated_at
+      else
+        $generated_at
+      end
+    )' "$FACTS_FILE" > "$PROJECTION_TMP"
 
-jq -n --arg path "$OUT_FILE" --slurpfile projection "$OUT_FILE" '{
-  repo_config_status:"written",
+REPO_CONFIG_STATUS="written"
+if [ -f "$OUT_FILE" ] && jq -e --slurpfile projection "$PROJECTION_TMP" 'has("generated_at") and ((. | del(.generated_at)) == ($projection[0] | del(.generated_at)))' "$OUT_FILE" >/dev/null 2>&1; then
+  rm -f "$PROJECTION_TMP"
+  REPO_CONFIG_STATUS="ready"
+else
+  mv "$PROJECTION_TMP" "$OUT_FILE"
+fi
+
+jq -n --arg path "$OUT_FILE" --arg status "$REPO_CONFIG_STATUS" --slurpfile projection "$OUT_FILE" '{
+  repo_config_status:$status,
   repo_config_path:$path,
   graph_bootstrap_required: (
     if ($projection[0].boundaries | has("graph_bootstrap_required")) then
