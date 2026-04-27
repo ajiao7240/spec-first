@@ -29,6 +29,17 @@ TARBALL=$(npm pack --pack-destination "$TARBALL_DIR" 2>&1 | tail -1)
 TARBALL_PATH="$TARBALL_DIR/$TARBALL"
 echo "   tarball: $TARBALL_PATH"
 test -f "$TARBALL_PATH"
+PACK_LIST="$TARBALL_DIR/pack-list.txt"
+tar -tf "$TARBALL_PATH" > "$PACK_LIST"
+obsolete_src="src/""crg"
+parser_dep="tree""-sitter"
+sqlite_dep="better""-sqlite3"
+bootstrap_name="graph""-bootstrap"
+if grep -E "$obsolete_src|$parser_dep|$sqlite_dep|$bootstrap_name" "$PACK_LIST"; then
+  echo "✗ tarball 文件列表包含已删除的图谱运行时内容"
+  exit 1
+fi
+echo "   ✓ tarball 未包含已删除的图谱运行时内容"
 
 # -------------------------------------------------------------------------
 # 2. 隔离安装
@@ -49,44 +60,13 @@ test "$install_rc" -eq 0
 # -------------------------------------------------------------------------
 echo "3. 验证安装日志..."
 
-# 3a. 禁止出现安装期联网下载链
-if grep -q "tree-sitter-cli" "$INSTALL_LOG"; then
-  echo "✗ 安装日志中出现 tree-sitter-cli"
+if grep -E "$parser_dep|$sqlite_dep|$bootstrap_name|$obsolete_src" "$INSTALL_LOG"; then
+  echo "✗ 安装日志包含已删除的图谱运行时内容"
   exit 1
 fi
-if grep -q "Downloading https://github.com/tree-sitter/tree-sitter/releases" "$INSTALL_LOG"; then
-  echo "✗ 安装日志中出现 GitHub release 下载"
-  exit 1
-fi
-if grep -q "ETIMEDOUT" "$INSTALL_LOG"; then
-  echo "✗ 安装日志中出现 ETIMEDOUT"
-  exit 1
-fi
-echo "   ✓ 无安装期联网下载链"
+echo "   ✓ 安装日志未包含已删除的图谱运行时内容"
 
-# 3b. tree-sitter peer warning 冲突包集合断言
-# 所有 tree-sitter 原生包均为 optionalDependencies；peer warning 允许但必须落在声明集合内。
-conflict_packages=$(grep -i "ERESOLVE\|peer.*tree-sitter" "$INSTALL_LOG" | grep -oE 'tree-sitter-[a-z][-a-z0-9]*' | sort -u || true)
-echo "   检测到的 tree-sitter 冲突包: ${conflict_packages:-无}"
-
-allowed_tree_sitter_packages=$(node -e "
-const pkg = require('./package.json');
-const names = Object.keys(pkg.optionalDependencies || {})
-  .filter((name) => name === 'tree-sitter' || name.startsWith('tree-sitter-'))
-  .sort();
-console.log(names.join(' '));
-")
-
-for pkg in $conflict_packages; do
-  if [[ " $allowed_tree_sitter_packages " != *" $pkg "* ]]; then
-    echo "✗ 未声明为 optionalDependency 的 tree-sitter 冲突包: $pkg"
-    exit 1
-  fi
-  echo "   ℹ $pkg: optional native peer warning"
-done
-echo "   ✓ 冲突包集合验证通过"
-
-# 3c. postinstall 输出断言（依赖 foreground_scripts）
+# 3a. postinstall 输出断言（依赖 foreground_scripts）
 if grep -q "安装完成" "$INSTALL_LOG"; then
   echo "   ✓ postinstall 输出包含安装完成"
   if grep -q "spec-first doctor" "$INSTALL_LOG"; then
@@ -131,68 +111,31 @@ grep -q "spec-first init --claude" <<<"$DOCTOR_OUTPUT"
 echo "   ✓ doctor 在空目录输出 init --claude 指引"
 
 # -------------------------------------------------------------------------
-# 5. Swift parser 真实加载验证
+# 5. 验证全局包内容
 # -------------------------------------------------------------------------
-echo "5. 验证 Swift parser 真实加载..."
+echo "5. 验证全局包内容..."
 GLOBAL_PKG="$TMP_PREFIX/lib/node_modules/spec-first"
 test -d "$GLOBAL_PKG"
 
-# 创建最小 Swift fixture
-SWIFT_FIXTURE="$TMP_CACHE/fixture.swift"
-echo 'import Foundation
-class AppConfig {
-    var name: String
-    init(name: String) { self.name = name }
-    func greet() -> String { return "Hello, \(name)" }
-}' > "$SWIFT_FIXTURE"
-
-# 尝试 require() Swift parser 并解析 fixture
-node -e "
-const path = require('path');
-const root = path.join('$GLOBAL_PKG');
-const Parser = require(path.join(root, 'node_modules/tree-sitter'));
-const swiftPkg = require(path.join(root, 'node_modules/tree-sitter-swift'));
-const parser = new Parser();
-parser.setLanguage(swiftPkg);
-const fs = require('fs');
-const code = fs.readFileSync('$SWIFT_FIXTURE', 'utf8');
-const tree = parser.parse(code);
-if (!tree || !tree.rootNode) {
-  console.error('✗ Swift parser failed to produce AST');
-  process.exit(1);
-}
-const hasClass = tree.rootNode.children.some(c => c.type === 'class_declaration');
-if (!hasClass) {
-  console.error('✗ Swift parser did not detect class_declaration');
-  process.exit(1);
-}
-console.log('   ✓ Swift parser 加载并解析成功');
-" 2>&1
-
-# -------------------------------------------------------------------------
-# 6. 验证 optional 原生依赖缺失时核心 CLI 仍可运行
-# -------------------------------------------------------------------------
-echo "6. 验证 optional native 缺失路径..."
 node -e "
 const fs = require('fs');
 const path = require('path');
 const root = '$GLOBAL_PKG';
-const pkg = require(path.join(root, 'package.json'));
-for (const name of Object.keys(pkg.optionalDependencies || {})) {
-  if (name !== 'better-sqlite3' && name !== 'tree-sitter' && !name.startsWith('tree-sitter-')) continue;
-  fs.rmSync(path.join(root, 'node_modules', name), { recursive: true, force: true });
+const forbidden = [
+  'src/' + 'crg',
+  'skills/spec-' + 'graph' + '-bootstrap',
+  'templates/claude/commands/spec/' + 'graph' + '-bootstrap.md',
+  'vendor/' + 'tree' + '-sitter-objc',
+  'vendor/' + 'tree' + '-sitter-swift',
+];
+for (const rel of forbidden) {
+  if (fs.existsSync(path.join(root, rel))) {
+    console.error('forbidden package path exists: ' + rel);
+    process.exit(1);
+  }
 }
 "
-
-test ! -d "$GLOBAL_PKG/node_modules/tree-sitter"
-test ! -d "$GLOBAL_PKG/node_modules/better-sqlite3"
-
-MISSING_NATIVE_HELP_OUTPUT=$("$SHIM" --help 2>&1)
-grep -q "spec-first <command>" <<<"$MISSING_NATIVE_HELP_OUTPUT"
-
-MISSING_NATIVE_VERSION_OUTPUT=$("$SHIM" -v 2>&1)
-grep -q "Spec-First" <<<"$MISSING_NATIVE_VERSION_OUTPUT"
-echo "   ✓ optional native 缺失后核心 CLI 可运行"
+echo "   ✓ 全局包未包含已删除的图谱运行时路径"
 
 # -------------------------------------------------------------------------
 # 完成

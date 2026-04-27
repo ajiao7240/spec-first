@@ -52,9 +52,13 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('copying `spec_id` from the source plan');
     expect(skill).toContain('A mismatch is a wrong-chain handoff');
     expect(skill).toContain('bounded source orientation');
-    expect(skill).toContain('Prefer CRG evidence when graph state is ready');
-    expect(skill).toContain('Serena/LSP may be introduced as a Phase 2 orientation provider');
-    expect(skill).toContain('Phase 2 provider rule');
+    expect(skill).toContain('targeted direct repo reads first');
+    expect(skill).toContain('optionally use Serena/LSP when available');
+    expect(skill).toContain('Serena/LSP provider rule');
+    expect(skill).toContain('Do not let LSP references automatically expand task scope');
+    expect(skill).not.toContain('spec-first ' + 'crg hook');
+    expect(skill).not.toContain('$spec-' + 'graph' + '-bootstrap');
+    expect(skill).not.toContain('/spec:' + 'graph' + '-bootstrap');
   });
 
   test('task pack schema requires executable handoff metadata and quality structures', () => {
@@ -68,6 +72,7 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain('only machine-readable task-card source for validators');
     expect(schema).toContain('Orientation Evidence');
     expect(schema).toContain('provider');
+    expect(schema).toContain('`direct-repo-reads`, `serena-lsp`, `mixed`, or `skipped`');
     expect(schema).toContain('evidence_refs');
     expect(schema).toContain('limitations');
     expect(schema).toContain('A task pack whose `spec_id` does not match the source plan is a wrong-chain handoff');
@@ -84,6 +89,7 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain('Granularity Guide');
     expect(schema).toContain('Scripts must not judge task splitting quality');
     expect(schema).toContain('If `spec_id` does not match the current source plan, execution must be rejected');
+    expect(schema).not.toContain('`crg`');
   });
 
   test('quality guide owns quality examples without redefining schema fields', () => {
@@ -99,7 +105,8 @@ describe('spec-write-tasks contracts', () => {
     expect(guide).toContain('Task Pack Review Checklist');
     expect(guide).toContain('orientation_evidence');
     expect(guide).toContain('provider, posture, evidence_refs, and limitations');
-    expect(guide).toContain('without turning CRG/LSP/current code state into source-plan scope');
+    expect(guide).toContain('without turning LSP/current code state into source-plan scope');
+    expect(guide).not.toContain('CR' + 'G');
   });
 
   test('spec-work variants validate task packs before creating execution tasks', () => {

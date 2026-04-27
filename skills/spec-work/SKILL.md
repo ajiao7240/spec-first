@@ -12,9 +12,9 @@ Execute work efficiently while maintaining quality and finishing features.
 
 This command takes a work document (plan, task pack, or specification) or a bare prompt describing the work, and executes it systematically. The focus is on **shipping complete features** by understanding requirements quickly, following existing patterns, and maintaining quality throughout.
 
-## CRG Work Anchors
+## Context Orientation Anchor
 
-When a CRG graph is available, use `spec-first crg hook before-work --plan=<plan.md> --repo=<repo>` before implementation, or `spec-first crg hook before-work --task-pack=<tasks.md> --repo=<repo>` when executing a derived task pack. If opened at a parent workspace root, first run `spec-first crg workspace context --root=<workspace> --task="<task>"`; require an explicit child repo choice from the advisory candidates before editing files or running repo-local hooks. For multi-child tasks, decompose into explicit sequential repo-local work runs; do not create one hidden combined workspace work-run. After implementation, use `spec-first crg hook after-work --work-run=<id> --repo=<repo>` or pass an explicit base with `--since=<base>`. Hook output is advisory context for comparing planned surface and actual blast radius; it must not override the plan or replace LLM judgment. If graph state is unavailable, continue with targeted direct repo reads and do not read old Stage-0 docs as fallback.
+Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. External tools may prioritize inspection, but they do not define scope authority. Scope expansion is judged against the plan/task pack and concrete diff, not a graph work-run.
 
 ## Input Document
 

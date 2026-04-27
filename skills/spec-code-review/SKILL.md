@@ -16,9 +16,9 @@ Reviews code changes using dynamically selected reviewer personas. Spawns parall
 - Can be invoked standalone
 - Can run as a read-only or autofix review step inside larger workflows
 
-## CRG Review Anchor
+## Context Orientation Anchor
 
-When a CRG graph is available, start scope discovery with `spec-first crg hook before-review --since=<base> --repo=<repo>` or `spec-first crg hook before-review --work-run=<id> --repo=<repo>`. If opened at a parent workspace root, first run `spec-first crg workspace context --root=<workspace> --task="<review scope>"`, choose the child repo review boundary from advisory candidates, then collect repo-local diff/review evidence for that child. Multi-child reviews must be decomposed into explicit sequential repo-local review passes. Use the returned `review-context` recommendation, hunk-hit nodes, graph expansion, affected flows, candidate tests, evidence, and limitations to prioritize review, not to replace reviewer judgment. If graph state is unavailable or base resolution fails, continue with direct diff and repo reads; do not fall back to old Stage-0 docs.
+Orient review from the diff scope, current user request, plan/task/work artifacts when present, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and test results. External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment.
 
 ## Argument Parsing
 

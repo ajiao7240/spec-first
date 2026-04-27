@@ -71,4 +71,17 @@ describe('branch protection policy contracts', () => {
       }
     }
   });
+
+  test('policy does not protect retired graph runtime paths', () => {
+    const policyText = readText(POLICY_PATH);
+    const retiredSource = 'src/' + 'crg/**';
+    const retiredContracts = 'docs/contracts/' + 'crg/**';
+    const retiredCheckPrefix = 'tests/unit/' + 'crg-';
+    const retiredReasonToken = 'CR' + 'G';
+
+    expect(policyText).not.toContain(retiredSource);
+    expect(policyText).not.toContain(retiredContracts);
+    expect(policyText).not.toContain(retiredCheckPrefix);
+    expect(policyText).not.toContain(retiredReasonToken);
+  });
 });

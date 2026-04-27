@@ -35,13 +35,6 @@
       "skill": "spec-debug"
     },
     {
-      "name": "graph-bootstrap",
-      "filename": "graph-bootstrap.md",
-      "description": "Run the Spec-First graph bootstrap workflow (Phase 0–4 fact extraction)",
-      "argumentHint": "[target repo path or context slug]",
-      "skill": "spec-graph-bootstrap"
-    },
-    {
       "name": "ideate",
       "filename": "ideate.md",
       "description": "Run the Spec-First ideation workflow",
@@ -161,7 +154,6 @@
     "spec-compound-refresh",
     "spec-debug",
     "spec-dhh-rails-style",
-    "spec-graph-bootstrap",
     "spec-ideate",
     "spec-mcp-setup",
     "spec-optimize",

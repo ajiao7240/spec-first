@@ -32,7 +32,9 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('not a command-backed workflow');
     expect(skill).toContain('If You Are A Subagent');
     expect(skill).toContain('substantial work');
-    expect(skill).toContain('workspace child-repo topology');
+    expect(skill).toContain('environment setup, host setup, MCP setup, missing tools, or host readiness');
+    expect(skill).not.toContain('graph' + '-bootstrap');
+    expect(skill).not.toContain('spec-first ' + 'crg');
     expect(skill).toContain('workflow-first');
     expect(skill).toContain('Routing Priority');
     expect(skill).toContain('Explicit user route');

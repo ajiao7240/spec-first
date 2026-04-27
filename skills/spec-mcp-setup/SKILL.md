@@ -185,10 +185,6 @@ Expected output shape:
       "next_action": "configure host"
     }
   },
-  "crg": {
-    "cli_status": "ready",
-    "native_modules_status": "ready"
-  },
   "next_actions": ["bootstrap project"]
 }
 ```
@@ -218,8 +214,6 @@ Per-tool fields explain where readiness stops:
 - `fallback-active` — Claude fell back from `managed-mcp.json` to `~/.claude.json`, but the baseline is still usable
 - `precedence-blocked` — Codex user config exists, but a higher-precedence config file may override it
 - `action-required` — no usable host config detected
-
-`crg.cli_status` and `crg.native_modules_status` remain downstream machine facts for graph bootstrap decisions. Native module detection must resolve `better-sqlite3` and `tree-sitter` from the real `spec-first` CLI installation context, not from the caller's current working directory. A current-directory bare `require()` can misreport global installs as missing.
 
 For Route B host selection, `detect-host.*` also exposes:
 - target map and writable facts
@@ -392,11 +386,7 @@ For human display, map machine-only values without changing the ledger:
 
 The `Host Config` column may contain `ready`, `fallback-active`, `precedence-blocked`, `action-required`, or `n/a`.
 
-### 3.3j Downstream Compatibility
-
-Downstream consumers such as graph bootstrap should keep reading the readiness ledger v1 shape, but now interpret the richer `host_config_status` values rather than assuming only `ready` / `action-required`.
-
-### 3.3k Verify Current Host Marker Stability
+### 3.3j Verify Current Host Marker Stability
 
 Even with Route B changes, keep the readiness ledger marker paths stable:
 - Claude Code: `~/.claude/spec-first/host-setup.json`
@@ -404,7 +394,7 @@ Even with Route B changes, keep the readiness ledger marker paths stable:
 
 Do not move marker paths just because host config targets changed.
 
-### 3.3l Summary Rule
+### 3.3k Summary Rule
 
 The workflow may prefer the managed target, fall back to user target, and expose precedence facts, but it still reports one deterministic selected write target per run.
 
@@ -480,7 +470,6 @@ The final ledger answers:
 - Is the required baseline ready?
 - Which tool is pending and why?
 - Has Serena bootstrapped the current repo?
-- Is CRG usable on this machine?
 
 Do not ask for confirmation before re-running `detect-tools.*` or `verify-tools.*`; they are deterministic fact collection / ledger write steps for the active setup workflow. Ask before privileged installs, optional-tool selection, destructive cleanup, or ambiguous project config writes.
 
@@ -494,7 +483,7 @@ Do not ask for confirmation before re-running `detect-tools.*` or `verify-tools.
 - `action-required`
 - `failed`
 
-`next_actions[]` is the machine-truth next-step list that the human summary should project. It must aggregate repo-level blockers (for example CRG CLI/native-module issues) and each tool's non-empty `next_action` without duplicates.
+`next_actions[]` is the machine-truth next-step list that the human summary should project. It must aggregate each tool's non-empty `next_action` without duplicates.
 
 ### 4.3 Completion Rule
 
@@ -531,7 +520,7 @@ Use the display rules from **3.3i Table Output Contract** so the table distingui
 
 Recommended next steps after success:
 1. Restart the current host when needed to load the new MCP configuration
-2. Run the current host's graph bootstrap entrypoint (`/spec:graph-bootstrap` or `$spec-graph-bootstrap`)
+2. Continue with the workflow that needs MCP/helper support, using direct repo context and the ready tools
 
 ---
 
@@ -553,7 +542,6 @@ Recommended next steps after success:
 **Includes:**
 - MCP tool dependency detection, installation, host configuration, repair, and verification
 - Serena current-repo bootstrap
-- CRG CLI availability and native module health facts
 - User interaction and progress feedback
 - macOS/Linux/WSL/Windows support
 
@@ -601,10 +589,6 @@ The readiness ledger is host-specific:
       "next_action": ""
     }
   },
-  "crg": {
-    "cli_status": "ready",
-    "native_modules_status": "ready"
-  },
   "next_actions": ["bootstrap project"]
 }
 ```
@@ -614,12 +598,10 @@ The readiness ledger is host-specific:
 | Field | Consumer | Purpose |
 |------|--------|---------|
 | `host` / `platform` | runtime host selector | pick the matching marker and host path |
-| `overall_status` | spec-mcp-setup summary / graph-bootstrap gate | decide whether the host is ready, partial, or blocked |
-| `baseline_ready` | graph-bootstrap host readiness | determine whether required MCP baseline is ready |
-| `tools.<tool>.host_config_status` | graph-bootstrap / future skills | know whether the MCP entry is configured |
+| `overall_status` | spec-mcp-setup summary / downstream workflows | decide whether the host is ready, partial, or blocked |
+| `baseline_ready` | MCP/helper readiness | determine whether required MCP baseline is ready |
+| `tools.<tool>.host_config_status` | Serena-aware / tool-aware workflows | know whether the MCP entry is configured |
 | `tools.<tool>.project_status` | Serena-aware workflows | know whether the current repo bootstrap is pending / failed / ready |
-| `crg.cli_status` | graph-bootstrap Phase 0.2b | skip CRG operations when CLI is unavailable |
-| `crg.native_modules_status` | graph-bootstrap Phase 0.2b | warn before attempting `crg build` |
 | `next_actions[]` | spec-mcp-setup human summary | present the next deterministic steps |
 | `completed_at` | stale detection | know when the ledger was last refreshed |
 
@@ -633,7 +615,6 @@ For full tool descriptions and host-specific notes, use `references/supported-mc
 - Tool metadata source: `skills/spec-mcp-setup/mcp-tools.json`
 - Unix entrypoints: `install-mcp.sh`, `configure-host.sh`, `repair-install.sh`, `activate-serena.sh`, `verify-tools.sh`
 - Windows entrypoints: `install-mcp.ps1`, `configure-host.ps1`, `repair-install.ps1`, `activate-serena.ps1`, `verify-tools.ps1`
-- Downstream consumer: `skills/spec-graph-bootstrap/SKILL.md`
 - Runtime command metadata: `templates/claude/commands/spec/mcp-setup.md`
 
 Do not refer users to `install-coordinator.*`; it is a retired implementation.

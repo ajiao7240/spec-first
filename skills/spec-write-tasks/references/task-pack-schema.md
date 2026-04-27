@@ -208,19 +208,17 @@ Orientation Evidence records the bounded source orientation used to make task bo
 
 Include:
 
-- `provider`: `crg`, `direct-repo-reads`, `serena-lsp`, `mixed`, or `skipped`.
+- `provider`: `direct-repo-reads`, `serena-lsp`, `mixed`, or `skipped`.
 - `posture`: `bounded`, `degraded`, `skipped-small-plan`, or `unavailable`.
-- `evidence_refs`: short references to CRG queries, candidate files, tests, shared surfaces, or direct repo reads that shaped task boundaries.
+- `evidence_refs`: short references to candidate files, tests, shared surfaces, or direct repo reads that shaped task boundaries.
 - `limitations`: missing, stale, degraded, or intentionally skipped evidence.
 
 Rules:
 
-- Prefer CRG evidence when graph state is ready, because CRG is the project fact layer.
-- Use CRG to locate candidate files, tests, shared surfaces, impact, and parallel risk.
 - Do not turn current implementation state into new task scope.
-- Do not treat CRG as a substitute for source-plan authority or bounded source reading.
-- In MVP, fall back to targeted direct repo reads when CRG is unavailable, degraded, stale, or insufficient.
-- Serena/LSP is a Phase 2 orientation provider and must be recorded as advisory evidence when used.
+- Do not treat current code state as a substitute for source-plan authority or bounded source reading.
+- Use targeted direct repo reads as the default orientation provider.
+- Serena/LSP is an optional orientation provider and must be recorded as advisory evidence when used.
 
 ## Task Organization Views
 

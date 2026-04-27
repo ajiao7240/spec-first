@@ -5,15 +5,17 @@ const path = require('node:path');
 
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-work-beta', 'SKILL.md');
 
-describe('spec-work-beta CRG hook contract', () => {
-  test('reuses stable spec-work CRG work anchors for delegate context', () => {
+describe('spec-work-beta context orientation contract', () => {
+  test('passes bounded direct-read context to delegates without retired graph ids', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
-    expect(text).toContain('spec-first crg hook before-work --plan=<plan.md>');
-    expect(text).toContain('spec-first crg workspace context');
-    expect(text).toContain('explicitly chosen child repo boundary');
-    expect(text).toContain('Multi-child work must be decomposed into sequential repo-local runs');
-    expect(text).toContain('spec-first crg hook after-work --work-run=<id>');
-    expect(text).toContain('Pass the returned work-run id');
+    expect(text).toContain('Context Orientation Anchor');
+    expect(text).toContain('the plan or task pack');
+    expect(text).toContain('Delegate prompts should carry bounded direct-read context');
+    expect(text).toContain('explicit file boundaries');
+    expect(text).toContain('not graph work-run ids');
+    expect(text).not.toContain('spec-first ' + 'crg hook');
+    expect(text).not.toContain('$spec-' + 'graph' + '-bootstrap');
+    expect(text).not.toContain('/spec:' + 'graph' + '-bootstrap');
     expect(text).not.toContain('stage0-context');
   });
 });

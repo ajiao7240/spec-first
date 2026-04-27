@@ -16,7 +16,7 @@ const SCHEMA_PATH = path.join(
 );
 
 describe('quality feedback topics contract', () => {
-  test('failed CRG gate checks become passive compound inputs', () => {
+  test('failed workflow gate checks become passive compound inputs', () => {
     const schema = JSON.parse(fs.readFileSync(SCHEMA_PATH, 'utf8'));
     const contract = buildQualityFeedbackTopics({
       generatedAt: '2026-04-18T22:30:00.000Z',
@@ -27,10 +27,10 @@ describe('quality feedback topics contract', () => {
         passed: false,
         checks: [
           {
-            check_id: 'crg-runtime-contracts',
+            check_id: 'workflow-runtime-contracts',
             kind: 'unit-suite',
             passed: false,
-            artifact_path: '.spec-first/workflows/quality-gates/ai-dev-quality-gate/crg-runtime-contracts.junit.json',
+            artifact_path: '.spec-first/workflows/quality-gates/ai-dev-quality-gate/workflow-runtime-contracts.junit.json',
           },
         ],
       },
@@ -46,14 +46,14 @@ describe('quality feedback topics contract', () => {
     });
     expect(contract.candidate_topics).toEqual([
       {
-        topic_id: 'gate-check:crg-runtime-contracts',
+        topic_id: 'gate-check:workflow-runtime-contracts',
         kind: 'failed-check',
-        topic_key: 'crg-runtime-contracts',
-        summary: 'Latest AI Dev Quality Gate failed check "crg-runtime-contracts".',
-        scope_hint: 'crg-runtime-contracts',
-        artifact_paths: ['.spec-first/workflows/quality-gates/ai-dev-quality-gate/crg-runtime-contracts.junit.json'],
+        topic_key: 'workflow-runtime-contracts',
+        summary: 'Latest AI Dev Quality Gate failed check "workflow-runtime-contracts".',
+        scope_hint: 'workflow-runtime-contracts',
+        artifact_paths: ['.spec-first/workflows/quality-gates/ai-dev-quality-gate/workflow-runtime-contracts.junit.json'],
         evidence_refs: [],
-        tags: ['quality-gate', 'crg-runtime-contracts', 'unit-suite'],
+        tags: ['quality-gate', 'workflow-runtime-contracts', 'unit-suite'],
       },
     ]);
   });
@@ -68,10 +68,10 @@ describe('quality feedback topics contract', () => {
         passed: true,
         checks: [
           {
-            check_id: 'crg-runtime-contracts',
+            check_id: 'workflow-runtime-contracts',
             kind: 'unit-suite',
             passed: true,
-            artifact_path: '.spec-first/workflows/quality-gates/ai-dev-quality-gate/crg-runtime-contracts.junit.json',
+            artifact_path: '.spec-first/workflows/quality-gates/ai-dev-quality-gate/workflow-runtime-contracts.junit.json',
           },
         ],
       },

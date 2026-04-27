@@ -5,16 +5,18 @@ const path = require('node:path');
 
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-work', 'SKILL.md');
 
-describe('spec-work CRG hook contract', () => {
-  test('uses before-work and after-work anchors without Stage-0 fallback', () => {
+describe('spec-work context orientation contract', () => {
+  test('uses plan/task-pack guided direct reads without retired graph hooks', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
-    expect(text).toContain('spec-first crg hook before-work --plan=<plan.md>');
-    expect(text).toContain('spec-first crg hook before-work --task-pack=<tasks.md>');
-    expect(text).toContain('spec-first crg workspace context');
-    expect(text).toContain('require an explicit child repo choice');
-    expect(text).toContain('decompose into explicit sequential repo-local work runs');
-    expect(text).toContain('spec-first crg hook after-work --work-run=<id>');
-    expect(text).toContain('Hook output is advisory context');
+    expect(text).toContain('Context Orientation Anchor');
+    expect(text).toContain('the plan or task pack');
+    expect(text).toContain('nearby implementation files');
+    expect(text).toContain('nearby tests');
+    expect(text).toContain('git diff or changed files');
+    expect(text).toContain('Scope expansion is judged against the plan/task pack and concrete diff');
+    expect(text).not.toContain('spec-first ' + 'crg hook');
+    expect(text).not.toContain('$spec-' + 'graph' + '-bootstrap');
+    expect(text).not.toContain('/spec:' + 'graph' + '-bootstrap');
     expect(text).not.toContain('stage0-context');
     expect(text).not.toContain('selected_assets');
   });

@@ -1,5 +1,9 @@
 # `spec-mcp-setup` 终版重构技术方案
 
+> 状态说明：本文是 CRG 删除前后的探索性设计记录，不代表当前 runtime contract。
+> 当前实现已移除内置 CRG 与 graph-bootstrap workflow。
+> 如需恢复图谱能力，请另见后续 external graph provider 集成方案。
+
 > 版本：终版优化版
 > 目标：把 `spec-mcp-setup` 从可选 MCP 安装器，重构为 **Required Harness Runtime Setup**
 > 范围：`spec-mcp-setup`、`spec-graph-bootstrap`、命令模板、README、测试入口、ledger schema、provider config

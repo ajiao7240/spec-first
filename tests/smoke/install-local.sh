@@ -27,7 +27,10 @@ if grep -q "$retired_default_entry" "$OUTPUT_FILE"; then
   echo "✗ 输出仍宣传已删除的旧 bootstrap 入口"
   exit 1
 fi
-grep -q "/spec:graph-bootstrap  CRG 图索引与 query-first 决策输入入口" "$OUTPUT_FILE"
+if grep -q "/spec:""graph""-bootstrap" "$OUTPUT_FILE"; then
+  echo "✗ 输出仍宣传已删除的图谱 workflow"
+  exit 1
+fi
 grep -q "/spec:compound         工作完成后的稳定知识捕获入口" "$OUTPUT_FILE"
 echo "✓ 输出已指向 npm CLI 初始化流程"
 

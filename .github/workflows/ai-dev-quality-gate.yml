@@ -3,11 +3,9 @@ name: AI Dev Quality Gate
 on:
   pull_request:
     paths:
-      - 'src/crg/**'
       - 'src/contracts/**'
       - 'src/verification/**'
       - 'src/cli/contracts/quality-gates/**'
-      - 'docs/contracts/crg/**'
       - 'docs/contracts/verifiers/**'
       - 'docs/contracts/quality-gates/**'
       - 'skills/spec-plan/**'
@@ -21,10 +19,8 @@ on:
       - 'docs/10-prompt/skills/spec-code-review/**'
       - '.github/workflows/ai-dev-quality-gate.yml'
       - 'tests/unit/branch-protection-policy.test.js'
-      - 'tests/unit/crg-control-plane-contracts.test.js'
-      - 'tests/unit/crg-router.test.js'
-      - 'tests/unit/crg-workflow-context-hooks.test.js'
-      - 'tests/unit/crg-review-context-hunks.test.js'
+      - 'tests/unit/no-crg-runtime-contracts.test.js'
+      - 'tests/unit/package-install-contracts.test.js'
       - 'tests/unit/spec-plan-contracts.test.js'
       - 'tests/unit/spec-write-tasks-contracts.test.js'
       - 'tests/unit/spec-work-contracts.test.js'

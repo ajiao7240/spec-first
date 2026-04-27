@@ -15,7 +15,7 @@ The machine-truth tool registry remains `skills/spec-mcp-setup/mcp-tools.json`.
 
 | Tool | Required | Host notes | Current-repo bootstrap | Used by |
 |------|----------|-----------|------------------------|---------|
-| Serena | Yes | Claude/Codex use host-specific MCP args and Codex timeout | Yes — current repo bootstrap required | `spec-graph-bootstrap`, code navigation / symbol workflows |
+| Serena | Yes | Claude/Codex use host-specific MCP args and Codex timeout | Yes — current repo bootstrap required | code navigation / symbol-aware workflows |
 | Sequential Thinking | Yes | Standard MCP entry | No | planning / reasoning-heavy workflows |
 | Context7 | Yes | Standard MCP entry | No | framework docs lookup |
 | Playwright MCP | No | Host MCP config only | No | browser / frontend automation |
@@ -47,7 +47,7 @@ The host readiness ledger at the current host's `spec-first/host-setup.json` ans
 1. Is the required MCP baseline ready?
 2. Which tool is still pending and why?
 3. Has Serena bootstrapped the current repo?
-4. Is CRG usable on this machine?
+4. Which deterministic next action remains before MCP/helper workflows can proceed?
 
 The most important fields are:
 - `overall_status`
@@ -57,11 +57,7 @@ The most important fields are:
 - `tools.<tool>.selected_scope`
 - `tools.<tool>.project_status`
 - `tools.<tool>.next_action`
-- `crg.cli_status`
-- `crg.native_modules_status`
 - `next_actions[]`
-
-`crg.native_modules_status` is evaluated from the real `spec-first` CLI installation context. It must not depend on whether the target repository itself can resolve `better-sqlite3` or `tree-sitter` with a bare current-directory `require()`.
 
 `host_config_status` now means:
 - `ready`

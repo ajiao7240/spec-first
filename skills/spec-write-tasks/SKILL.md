@@ -32,10 +32,10 @@ When skipping, say explicitly that this is not an omission; this case does not n
 2. A task pack is a derived artifact; it must not become a second plan.
 3. A task pack may only rearrange execution slices. It must not change scope, acceptance criteria, or non-goals.
 4. A task pack that can be handed to `spec-work` must include `spec_id`, verifiable `source_plan`, and `source_plan_hash` metadata so wrong-chain or stale tasks are not executed silently.
-5. `spec-write-tasks` does not introduce its own CRG lifecycle hook. CRG query references may appear only as `context_refs`, `entry_hint`, `test_focus`, or orientation evidence; `spec-work` later calls `spec-first crg hook before-work --task-pack=<tasks.md>` to return to the source plan handoff.
+5. `spec-write-tasks` does not introduce its own lifecycle hook. Context references may appear only as `context_refs`, `entry_hint`, `test_focus`, or orientation evidence; `spec-work` later executes from the source plan or task-pack handoff using direct repo reads.
 6. Each task should solve one clear subproblem and should usually have one primary verification target.
 7. Task splitting should reflect file boundaries, dependencies, verification surfaces, and parallelization opportunities instead of restating the plan.
-8. Source reads before task-pack generation must be bounded source orientation: use CRG evidence first when available, fall back to targeted direct repo reads in MVP, and stop once task boundaries are accurate enough. Serena/LSP is a later orientation provider, not an MVP requirement.
+8. Source reads before task-pack generation must be bounded source orientation: use targeted direct repo reads first, optionally use Serena/LSP when available, and stop once task boundaries are accurate enough.
 
 ## Input Paths
 
@@ -55,18 +55,15 @@ When the input is `docs/plans/*-plan.md` or another explicit plan file:
 
 Before writing task cards, you may inspect code only until task boundaries are accurate enough.
 
-MVP provider order:
+Provider order:
 
-1. Prefer CRG evidence when graph state is ready: workflow context, graph quality, search/query, locate, explain, impact, review-context, and god-nodes can identify candidate files, test entrypoints, shared surfaces, blast radius, and parallel risk.
-2. If CRG is unavailable, degraded, stale, or insufficient for this plan shape, fall back to targeted direct repo reads of the plan-indicated files, nearby tests, directory indexes, and local patterns.
+1. Start with targeted direct repo reads of the plan-indicated files, nearby tests, directory indexes, and local patterns.
+2. If direct reads are insufficient and Serena/LSP is available, use it only for bounded source orientation: symbol overview, symbol lookup, references, and local pattern search.
 
-CRG evidence is advisory. It must not turn the current implementation state into new tasks, replace source reading, or override the source plan. If source orientation reveals missing scope, contract, acceptance, or verification decisions, return `return-to-plan` or `draft-only` instead of inventing task scope.
+Orientation evidence is advisory. It must not turn the current implementation state into new tasks, replace source-plan authority, or override the source plan. If source orientation reveals missing scope, contract, acceptance, or verification decisions, return `return-to-plan` or `draft-only` instead of inventing task scope.
 
-Serena/LSP may be introduced as a Phase 2 orientation provider, but do not require it for MVP task-pack generation.
+Serena/LSP provider rule:
 
-Phase 2 provider rule:
-
-- Use Serena/LSP only after CRG is unavailable, degraded, stale, or insufficient for the plan shape.
 - Activate the target project and use LSP quick indexing only for bounded source orientation: symbol overview, symbol lookup, references, and local pattern search.
 - Record the provider and limitations in orientation evidence.
 - Do not let LSP references automatically expand task scope or replace source-plan authority.
@@ -204,7 +201,7 @@ validation:
   source_plan_path: resolved | missing | invalid
   task_pack_contract: valid | invalid | not_checked
 orientation:
-  provider: crg | direct-repo-reads | serena-lsp | mixed | skipped
+  provider: direct-repo-reads | serena-lsp | mixed | skipped
   posture: bounded | degraded | skipped-small-plan | unavailable
   evidence_refs: []
   limitations: []

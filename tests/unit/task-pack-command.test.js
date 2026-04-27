@@ -9,7 +9,6 @@ const {
   computeSourcePlanHash,
   validateTaskPack,
 } = require('../../src/cli/task-pack');
-const { runHook } = require('../../src/crg/hooks/before-work');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const VALID_PLAN = path.join(REPO_ROOT, 'tests/fixtures/spec-write-tasks/valid/source-plan.md');
@@ -454,47 +453,5 @@ describe('tasks CLI', () => {
 
     expect(code).toBe(1);
     expect(JSON.parse(stdout).error.code).toBe('tasks-subcommand-unknown');
-  });
-});
-
-describe('CRG before-work task-pack consumption', () => {
-  test('uses repo-root source_plan resolution and exposes execution_focus only for valid task packs', () => {
-    const tmp = copyFixtureProject();
-    try {
-      const payload = runHook({
-        repoRoot: tmp,
-        taskPack: path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md'),
-        detailProfile: 'minimal',
-      });
-
-      expect(payload.task_pack.validation.task_pack_validity).toBe('valid');
-      expect(payload.task_pack.execution_focus).toHaveLength(1);
-      expect(payload.planned_surface.source).toBe('plan');
-    } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
-    }
-  });
-
-  test('invalid task pack does not expose execution_focus, planned surface, or work run', () => {
-    const tmp = copyFixtureProject();
-    try {
-      fs.appendFileSync(path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/source-plan.md'), '\nChanged after task compilation.\n');
-
-      const payload = runHook({
-        repoRoot: tmp,
-        taskPack: path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md'),
-        detailProfile: 'minimal',
-      });
-
-      expect(payload.work_run_id).toBe(null);
-      expect(payload.work_start_ref).toBe(null);
-      expect(payload.task_pack.validation.task_pack_validity).toBe('stale');
-      expect(payload.task_pack.execution_focus).toEqual([]);
-      expect(payload.task_pack.limitations.map((limitation) => limitation.code)).toContain('task-pack-stale');
-      expect(payload.planned_surface.source).toBe('none');
-      expect(payload.planned_surface.limitations.map((limitation) => limitation.code)).toContain('task-pack-invalid');
-    } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
-    }
   });
 });

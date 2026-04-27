@@ -8,8 +8,7 @@ const { isLegacyManagedState, readState, readStateFileRaw } = require('../state'
 const { getAdapter, getSupportedPlatforms } = require('../adapters');
 const { inspectInstructionBootstrap } = require('../instruction-bootstrap');
 const { inspectManagedSessionStartHook } = require('../claude-settings');
-const { resolveWorkflowArtifactDir } = require('../../crg/artifact-paths');
-const { buildGraphStatus } = require('../../crg/workflow-context/status');
+const { resolveWorkflowArtifactDir } = require('../../verification/artifact-paths');
 const { validateAgainstSchema } = require('../../contracts/schema-validator');
 
 const VERIFICATION_EVIDENCE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -393,74 +392,11 @@ function checkPluginManifest() {
   }
 }
 
-function checkCrgNativeModules() {
-  // 检查 CRG CLI 路由器是否可执行
-  // shell:true 确保 Windows 上能找到 spec-first.cmd wrapper
-  const cli = spawnSync('spec-first', ['crg', '--help'], { encoding: 'utf8', timeout: 5000, shell: true });
-  if (cli.status !== 0) {
-    return {
-      level: 'WARNING',
-      name: 'CRG CLI',
-      message: 'spec-first crg unavailable',
-      fix: 'Reinstall spec-first to ensure CRG subsystem is available.',
-    };
-  }
-
-  // 检查 better-sqlite3 原生模块
-  // 用 process.execPath 而非裸 'node'，在版本管理器（nvm/fnm）环境下更可靠
-  const sqlite = spawnSync(process.execPath, ['-e', "try{require('better-sqlite3')}catch{process.exit(1)}"], { timeout: 5000 });
-  if (sqlite.status !== 0) {
-    return {
-      level: 'WARNING',
-      name: 'CRG (better-sqlite3)',
-      message: 'native module not loadable',
-      fix: 'Run: npm rebuild better-sqlite3 (requires C++ build tools)',
-    };
-  }
-
-  // 检查 tree-sitter 原生模块
-  const ts = spawnSync(process.execPath, ['-e', "try{require('tree-sitter')}catch{process.exit(1)}"], { timeout: 5000 });
-  if (ts.status !== 0) {
-    return {
-      level: 'WARNING',
-      name: 'CRG (tree-sitter)',
-      message: 'native module not loadable',
-      fix: 'Run: npm rebuild tree-sitter (requires C++ build tools)',
-    };
-  }
-
-  return {
-    level: 'PASS',
-    name: 'CRG',
-    message: 'CLI + native modules ready',
-  };
-}
-
-function checkCrgGraphContract(projectRoot) {
-  const status = buildGraphStatus(projectRoot);
-  if (status.state === 'ready') {
-    return {
-      level: 'PASS',
-      name: 'CRG graph',
-      message: `ready (${status.stats.node_count} nodes, ${status.stats.edge_count} edges)`,
-    };
-  }
-
-  return {
-    level: 'WARNING',
-    name: 'CRG graph',
-    message: `${status.state}; workflow hooks will use direct repo reads`,
-    fix: `Run \`spec-first crg build --repo=${projectRoot}\` when graph-backed query evidence is needed.`,
-  };
-}
-
 function buildDoctorCommonChecks(projectRoot) {
   return [
     checkNodeVersion(),
     checkGit(),
     checkPluginManifest(),
-    checkCrgNativeModules(),
-    checkCrgGraphContract(projectRoot),
     checkProjectDeveloperProfileConsistency(projectRoot),
   ].filter(Boolean);
 }

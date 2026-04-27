@@ -150,98 +150,9 @@ project_status() {
   fi
 }
 
-crg_cli_status() {
-  if ! command -v spec-first >/dev/null 2>&1; then
-    echo unavailable
-    return
-  fi
-  if spec-first crg --help >/dev/null 2>&1; then
-    echo ready
-  else
-    echo unavailable
-  fi
-}
-
-crg_native_modules_status() {
-  if [ "$(crg_cli_status)" != "ready" ]; then
-    echo unchecked
-    return
-  fi
-  if ! crg_can_resolve_module "better-sqlite3"; then
-    echo missing
-    return
-  fi
-  if ! crg_can_resolve_module "tree-sitter"; then
-    echo missing
-    return
-  fi
-  echo ready
-}
-
-crg_can_resolve_module() {
-  local module_name="$1"
-  local spec_first_bin
-  spec_first_bin="$(command -v spec-first 2>/dev/null || true)"
-  [ -n "$spec_first_bin" ] || return 1
-
-  node - "$spec_first_bin" "$module_name" <<'NODE'
-const fs = require('fs');
-const path = require('path');
-const { createRequire } = require('module');
-
-const [binPath, moduleName] = process.argv.slice(2);
-const candidates = [];
-
-function add(candidate) {
-  if (candidate && path.isAbsolute(candidate) && !candidates.includes(candidate)) {
-    candidates.push(candidate);
-  }
-}
-
-function addWithParents(candidate) {
-  add(candidate);
-  let dir = path.dirname(candidate);
-  while (dir && path.dirname(dir) !== dir) {
-    add(path.join(dir, 'package.json'));
-    dir = path.dirname(dir);
-  }
-}
-
-try {
-  const realBin = fs.realpathSync(binPath);
-  addWithParents(realBin);
-  const binDir = path.dirname(realBin);
-  add(path.join(binDir, 'node_modules', 'spec-first', 'package.json'));
-  add(path.join(path.dirname(binDir), 'node_modules', 'spec-first', 'package.json'));
-  add(path.join(path.dirname(binDir), 'lib', 'node_modules', 'spec-first', 'package.json'));
-} catch {
-  // Fall through to the normal module resolver candidates below.
-}
-
-try {
-  add(require.resolve('spec-first/package.json'));
-} catch {
-  // Global CLIs are often outside the current process module paths.
-}
-
-for (const candidate of candidates) {
-  try {
-    createRequire(candidate).resolve(moduleName);
-    process.exit(0);
-  } catch {
-    // Try the next plausible spec-first installation context.
-  }
-}
-
-process.exit(1);
-NODE
-}
-
 overall_status=ready
 baseline_ready=true
 results_json='{}'
-crg_cli="$(crg_cli_status)"
-crg_native_modules="$(crg_native_modules_status)"
 next_actions_json='[]'
 
 append_next_action() {
@@ -249,14 +160,6 @@ append_next_action() {
   [ -n "$action" ] || return 0
   next_actions_json="$(jq --arg action "$action" 'if index($action) then . else . + [$action] end' <<<"$next_actions_json")"
 }
-
-if [ "$crg_cli" = "unavailable" ]; then
-  overall_status=partial
-  append_next_action "install or repair spec-first crg CLI"
-elif [ "$crg_native_modules" = "missing" ]; then
-  overall_status=partial
-  append_next_action "repair better-sqlite3/tree-sitter native modules"
-fi
 
 while IFS= read -r tool_id; do
   required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .required' "$TOOLS_JSON")"
@@ -312,8 +215,6 @@ while IFS= read -r tool_id; do
     '. + {($id): {required: $required_json, dependency_status: $dep, host_config_status: $cfg, project_status: $proj, selected_scope: $scope, next_action: $next}}' <<<"$results_json")"
 done < <(jq -r '.tools[].id' "$TOOLS_JSON")
 
-crg_json="$(jq -n --arg cli "$crg_cli" --arg native "$crg_native_modules" '{cli_status:$cli,native_modules_status:$native}')"
-
 jq -n \
   --arg host "$HOST" \
   --arg platform "$PLATFORM" \
@@ -321,7 +222,6 @@ jq -n \
   --arg overall_status "$overall_status" \
   --argjson baseline_ready "$baseline_ready" \
   --argjson tools "$results_json" \
-  --argjson crg "$crg_json" \
   --argjson next_actions "$next_actions_json" \
   '{
     host: $host,
@@ -330,6 +230,5 @@ jq -n \
     overall_status: $overall_status,
     baseline_ready: $baseline_ready,
     tools: $tools,
-    crg: $crg,
     next_actions: $next_actions
   }'

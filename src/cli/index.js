@@ -61,12 +61,8 @@ function printHelp(withErrorPrefix = false) {
     '  init (--claude|--codex)  Install platform-specific workflows, skills, agents, and developer profile',
     '  clean (--claude|--codex) Remove spec-first managed assets from the current project',
     '  tasks <subcommand>      Hash and validate derived task packs',
-    '  crg <subcommand>       Query the local code graph (run `spec-first crg --help`)',
     '',
-    '🪝 Installed workflow entrypoints (after `spec-first init`):',
-    '  Claude Code: /spec:graph-bootstrap',
-    '  Codex:      $spec-graph-bootstrap',
-    '  These are host runtime entrypoints, not root `spec-first` subcommands.',
+    '🪝 Installed workflow entrypoints are provided by the host after `spec-first init`.',
     '',
     '⚙️  Global options:',
     '  -h, --help             Show help',
@@ -111,8 +107,8 @@ function printVersion() {
 
     5. 在对话中使用当前宿主对应入口开始工作流
 
-       例如: /spec:graph-bootstrap 或 $spec-graph-bootstrap
-       注意: 这些是宿主 workflow 入口，不是 \`spec-first graph-bootstrap\` 包级子命令
+       例如: /spec:plan 或 $spec-plan
+       注意: 这些是宿主 workflow 入口，不是 package CLI 子命令
 
   了解更多:
     https://github.com/sunrain520/spec-first

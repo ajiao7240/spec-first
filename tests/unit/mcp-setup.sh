@@ -41,35 +41,7 @@ cat > "$FAKE_BIN/uv" <<'EOF'
 #!/bin/bash
 exit 0
 EOF
-FAKE_SPEC_FIRST_PKG="$TMP_DIR/fake-spec-first"
-mkdir -p "$FAKE_SPEC_FIRST_PKG/bin" \
-  "$FAKE_SPEC_FIRST_PKG/node_modules/better-sqlite3" \
-  "$FAKE_SPEC_FIRST_PKG/node_modules/tree-sitter"
-cat > "$FAKE_SPEC_FIRST_PKG/package.json" <<'EOF'
-{"name":"spec-first","version":"0.0.0-test"}
-EOF
-cat > "$FAKE_SPEC_FIRST_PKG/bin/spec-first" <<'EOF'
-#!/bin/bash
-set -euo pipefail
-if [ "${1:-}" = "crg" ] && [ "${2:-}" = "--help" ]; then
-  exit 0
-fi
-exit 1
-EOF
-cat > "$FAKE_SPEC_FIRST_PKG/node_modules/better-sqlite3/package.json" <<'EOF'
-{"name":"better-sqlite3","version":"0.0.0-test"}
-EOF
-cat > "$FAKE_SPEC_FIRST_PKG/node_modules/better-sqlite3/index.js" <<'EOF'
-module.exports = {};
-EOF
-cat > "$FAKE_SPEC_FIRST_PKG/node_modules/tree-sitter/package.json" <<'EOF'
-{"name":"tree-sitter","version":"0.0.0-test"}
-EOF
-cat > "$FAKE_SPEC_FIRST_PKG/node_modules/tree-sitter/index.js" <<'EOF'
-module.exports = {};
-EOF
-ln -s "$FAKE_SPEC_FIRST_PKG/bin/spec-first" "$FAKE_BIN/spec-first"
-chmod +x "$FAKE_BIN/uvx" "$FAKE_BIN/npx" "$FAKE_BIN/uv" "$FAKE_SPEC_FIRST_PKG/bin/spec-first"
+chmod +x "$FAKE_BIN/uvx" "$FAKE_BIN/npx" "$FAKE_BIN/uv"
 TEST_PATH="$FAKE_BIN:$PATH"
 
 pass=0
@@ -230,8 +202,20 @@ assert_output "serena selected scope user" "user" "$(jq -r '.tools.serena.select
 assert_output "serena project pending" "pending" "$(jq -r '.tools.serena.project_status' <<<"$facts_output")"
 assert_output "facts expose bootstrap project next action" "true" "$(jq -r '.next_actions | index("bootstrap project") != null' <<<"$facts_output")"
 assert_output "context7 not-applicable project" "not-applicable" "$(jq -r '.tools.context7.project_status' <<<"$facts_output")"
-assert_output "crg cli ready with fake installed CLI" "ready" "$(jq -r '.crg.cli_status' <<<"$facts_output")"
-assert_output "crg native modules resolve from CLI install context" "ready" "$(jq -r '.crg.native_modules_status' <<<"$facts_output")"
+retired_graph_key="cr""g"
+native_modules_key="native_modules_status"
+legacy_sqlite_dep="better""-sqlite3"
+legacy_parser_dep="tree""-sitter"
+provider_key="graph""_providers"
+provider_status_key="provider""-status"
+external_graph_name="code""-review""-graph"
+assert_output "facts omit retired graph ledger" "false" "$(jq -r --arg key "$retired_graph_key" 'has($key)' <<<"$facts_output")"
+assert_output "facts omit retired native module field" "false" "$(jq -r --arg key "$native_modules_key" '.. | objects | has($key)' <<<"$facts_output" | grep -q true && printf true || printf false)"
+assert_not_contains "facts omit retired sqlite dependency" "$legacy_sqlite_dep" "$facts_output"
+assert_not_contains "facts omit retired parser dependency" "$legacy_parser_dep" "$facts_output"
+assert_not_contains "facts omit provider readiness key" "$provider_key" "$facts_output"
+assert_not_contains "facts omit provider status key" "$provider_status_key" "$facts_output"
+assert_not_contains "facts omit external graph provider name" "$external_graph_name" "$facts_output"
 
 mkdir -p "$FAKE_REPO/.serena"
 cat > "$FAKE_REPO/.serena/project.yml" <<'EOF'
@@ -381,14 +365,12 @@ echo ""
 echo "6. Skill and reference validation"
 SKILL_MD="$REPO_ROOT/skills/spec-mcp-setup/SKILL.md"
 REF_MD="$REPO_ROOT/skills/spec-mcp-setup/references/supported-mcp-tools.md"
-GRAPH_BOOTSTRAP_SKILL_MD="$REPO_ROOT/skills/spec-graph-bootstrap/SKILL.md"
 CHECK_HEALTH="$REPO_ROOT/skills/spec-mcp-setup/scripts/check-health"
 SETUP_SKILL_MD="$REPO_ROOT/skills/spec-setup/SKILL.md"
 SETUP_CHECK_HEALTH="$REPO_ROOT/skills/spec-setup/scripts/check-health"
 CONFIG_TEMPLATE="$REPO_ROOT/skills/spec-mcp-setup/references/config-template.yaml"
 skill_body="$(cat "$SKILL_MD")"
 setup_skill_body="$(cat "$SETUP_SKILL_MD")"
-graph_bootstrap_skill_body="$(cat "$GRAPH_BOOTSTRAP_SKILL_MD")"
 assert "migrated check-health exists" test -f "$CHECK_HEALTH"
 assert "migrated config template exists" test -f "$CONFIG_TEMPLATE"
 assert_contains "check-health lists agent-browser helper" "agent-browser" "$(cat "$CHECK_HEALTH")"
@@ -420,8 +402,6 @@ assert_contains "reference records agent-browser floating upstream policy" "inte
 assert_contains "reference points agent-browser docs to CLI-served upstream docs" "agent-browser skills get core" "$(cat "$REF_MD")"
 assert_contains "spec-setup delegates agent-browser setup to spec-mcp-setup" 'Browser automation setup is owned by `spec-mcp-setup`' "$setup_skill_body"
 assert_not_contains "spec-setup script has no independent agent-browser install command" "npm install -g agent-browser" "$(cat "$SETUP_CHECK_HEALTH")"
-assert_contains "graph-bootstrap skill uses readiness ledger wording" "readiness ledger v1" "$graph_bootstrap_skill_body"
-assert_contains "graph-bootstrap skill mentions fallback-active" "fallback-active" "$graph_bootstrap_skill_body"
 assert_not_contains "SKILL does not mention retired coordinator" "install-coordinator.sh" "$skill_body"
 
 

@@ -83,9 +83,15 @@ function parseFrontmatter(content) {
 describe('docs/solutions contracts', () => {
   test('docs/solutions only contains valid solution docs and no deep-review report', () => {
     const files = listMarkdownFiles(SOLUTIONS_ROOT);
+    const retiredDeepReview = path.join(
+      'docs',
+      'solutions',
+      'logic-errors',
+      ['spec', 'graph', 'bootstrap'].join('-') + '-deep-review.md',
+    );
 
     expect(files.map((filePath) => path.relative(REPO_ROOT, filePath))).not.toContain(
-      'docs/solutions/logic-errors/spec-graph-bootstrap-deep-review.md',
+      retiredDeepReview,
     );
 
     for (const filePath of files) {

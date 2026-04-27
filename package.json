@@ -15,8 +15,7 @@
     "test:smoke": "bash tests/smoke/install-local.sh && bash tests/smoke/cli.sh",
     "test:integration": "npx jest tests/integration/verification-gate.integration.test.js --runInBand && bash tests/integration/e2e.sh",
     "test:ai-dev:gate": "node scripts/run-ai-dev-quality-gate.js",
-    "test:e2e:crg": "bash tests/e2e/crg-all-commands.sh && bash tests/e2e/crg-sqlite-audit.sh && bash tests/e2e/crg-workspace-mainline.sh",
-    "test": "npm run test:unit && npm run test:smoke && npm run test:integration && npm run test:e2e:crg",
+    "test": "npm run test:unit && npm run test:smoke && npm run test:integration",
     "test:jest": "jest",
     "test:release": "npm run test:release:governance && npm run test:release:install",
     "test:release:governance": "bash tests/smoke/release-dual-host-governance.sh",
@@ -26,7 +25,6 @@
   "files": [
     "bin/",
     "src/",
-    "vendor/",
     ".claude-plugin/",
     "agents/",
     "skills/",
@@ -63,33 +61,11 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "optionalDependencies": {
-    "better-sqlite3": "~12.6.0",
-    "tree-sitter": "~0.21.0",
-    "tree-sitter-c": "~0.21.4",
-    "tree-sitter-c-sharp": "~0.23.1",
-    "tree-sitter-cpp": "~0.21.0",
-    "tree-sitter-go": "~0.23.0",
-    "tree-sitter-java": "~0.23.0",
-    "tree-sitter-javascript": "~0.23.0",
-    "tree-sitter-kotlin": "~0.3.0",
-    "tree-sitter-objc": "file:./vendor/tree-sitter-objc",
-    "tree-sitter-php": "~0.23.0",
-    "tree-sitter-python": "~0.21.0",
-    "tree-sitter-ruby": "~0.23.0",
-    "tree-sitter-rust": "~0.21.0",
-    "tree-sitter-scala": "~0.24.0",
-    "tree-sitter-swift": "file:./vendor/tree-sitter-swift",
-    "tree-sitter-typescript": "~0.23.0"
-  },
   "dependencies": {
     "ignore": "^5.0.0",
     "simple-git": "~3.0.0"
   },
   "devDependencies": {
     "jest": "^29.0.0"
-  },
-  "overrides": {
-    "tree-sitter": "$tree-sitter"
   }
 }

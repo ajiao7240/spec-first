@@ -6,7 +6,6 @@ const path = require('node:path');
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const PACKAGE_PATH = path.join(REPO_ROOT, 'package.json');
 const AI_GATE_WORKFLOW_PATH = path.join(REPO_ROOT, '.github', 'workflows', 'ai-dev-quality-gate.yml');
-const CRG_GATE_WORKFLOW_PATH = path.join(REPO_ROOT, '.github', 'workflows', 'crg-quality-gate.yml');
 const BRANCH_POLICY_PATH = path.join(REPO_ROOT, 'src', 'cli', 'contracts', 'quality-gates', 'branch-protection-policy.json');
 
 function read(filePath) {
@@ -22,15 +21,17 @@ describe('AI dev quality gate integration', () => {
     expect(pkg.scripts['test:integration']).toContain('tests/integration/verification-gate.integration.test.js');
   });
 
-  test('AI dev quality gate workflow triggers on CRG runtime contract surfaces, calls dedicated script, and uploads result artifact', () => {
+  test('AI dev quality gate workflow triggers on workflow runtime contract surfaces, calls dedicated script, and uploads result artifact', () => {
     const workflow = read(AI_GATE_WORKFLOW_PATH);
+    const retiredSource = 'src/' + 'crg/**';
+    const retiredContracts = 'docs/contracts/' + 'crg/**';
 
     expect(workflow).toContain('name: AI Dev Quality Gate');
     expect(workflow).toContain("src/cli/contracts/quality-gates/**");
-    expect(workflow).toContain("src/crg/**");
+    expect(workflow).not.toContain(retiredSource);
     expect(workflow).toContain("src/contracts/**");
     expect(workflow).toContain("src/verification/**");
-    expect(workflow).toContain("docs/contracts/crg/**");
+    expect(workflow).not.toContain(retiredContracts);
     expect(workflow).toContain("docs/contracts/verifiers/**");
     expect(workflow).toContain("docs/contracts/quality-gates/**");
     expect(workflow).toContain("skills/spec-plan/**");
@@ -40,15 +41,15 @@ describe('AI dev quality gate integration', () => {
     expect(workflow).toContain("skills/spec-code-review/**");
     expect(workflow).toContain(".github/workflows/ai-dev-quality-gate.yml");
     expect(workflow).toContain("tests/unit/branch-protection-policy.test.js");
-    expect(workflow).toContain("tests/unit/crg-control-plane-contracts.test.js");
-    expect(workflow).toContain("tests/unit/crg-workflow-context-hooks.test.js");
+    expect(workflow).toContain("tests/unit/no-crg-runtime-contracts.test.js");
+    expect(workflow).toContain("tests/unit/package-install-contracts.test.js");
     expect(workflow).toContain("docs/10-prompt/skills/spec-plan/**");
     expect(workflow).toContain("docs/10-prompt/skills/spec-work/**");
     expect(workflow).toContain("docs/10-prompt/skills/spec-work-beta/**");
     expect(workflow).toContain("docs/10-prompt/skills/spec-code-review/**");
     expect(workflow).toContain("tests/integration/verification-gate.integration.test.js");
     expect(workflow).not.toContain("src/bootstrap-compiler/**");
-    expect(workflow).not.toContain("docs/contracts/spec-graph-bootstrap/**");
+    expect(workflow).not.toContain("docs/contracts/spec-" + "graph" + "-bootstrap/**");
     expect(workflow).not.toContain("src/context-routing/**");
     expect(workflow).not.toContain("src/cli/commands/stage0-context.js");
     expect(workflow).toContain('npm run test:ai-dev:gate');

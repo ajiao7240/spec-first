@@ -28,7 +28,6 @@ const MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/SKILL.m
 const MCP_SETUP_TOOLS_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/mcp-tools.json');
 const MCP_SETUP_VERIFY_SH_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/scripts/verify-tools.sh');
 const MCP_SETUP_VERIFY_PS1_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
-const GRAPH_BOOTSTRAP_COMMAND_PATH = path.join(REPO_ROOT, 'templates/claude/commands/spec/graph-bootstrap.md');
 const DOCS_MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-mcp-setup/SKILL.md');
 const DOCS_MCP_SETUP_FLOW_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-mcp-setup/execution-flow.md');
 const RETIRED_BOOTSTRAP_NAME = ['spec', 'bootstrap'].join('-');
@@ -118,7 +117,6 @@ describe('dual-host governance contracts', () => {
       MCP_SETUP_TOOLS_PATH,
       MCP_SETUP_VERIFY_SH_PATH,
       MCP_SETUP_VERIFY_PS1_PATH,
-      GRAPH_BOOTSTRAP_COMMAND_PATH,
       DOCS_MCP_SETUP_SKILL_PATH,
       DOCS_MCP_SETUP_FLOW_PATH,
     ];
@@ -157,7 +155,11 @@ describe('dual-host governance contracts', () => {
     expect(readmeZh).toContain(`🧩 Generated ${claudeAssets.skills.length + claudeAssets.internalSkills.length} skill directory(ies) in .claude/skills`);
     expect(readmeZh).toContain(`🤖 Generated ${claudeAssets.agents.length} agent file(s) in .claude/agents`);
     expect(readmeZh).not.toContain('agent support file(s) in .claude/agents');
-    expect(readme).toContain('| `postprocess` | Recompute communities, flows, graph analysis, and FTS after a build or incremental refresh |');
-    expect(readmeZh).toContain('| `postprocess` | 在 build 或增量刷新后重算 communities、flows、graph analysis 与 FTS |');
+    expect(readme).not.toContain('spec-first ' + 'crg');
+    expect(readme).not.toContain('/spec:' + 'graph' + '-bootstrap');
+    expect(readme).not.toContain('$spec-' + 'graph' + '-bootstrap');
+    expect(readmeZh).not.toContain('spec-first ' + 'crg');
+    expect(readmeZh).not.toContain('/spec:' + 'graph' + '-bootstrap');
+    expect(readmeZh).not.toContain('$spec-' + 'graph' + '-bootstrap');
   });
 });

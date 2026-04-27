@@ -43,7 +43,6 @@ $payload = [ordered]@{
   completed_at = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
   tools = $Facts.tools
   helper_tools = $HelperTools
-  crg = $Facts.crg
   next_actions = @($Facts.next_actions)
 }
 $tempFile = Join-Path $MarkerDir ("readiness-ledger.{0}.tmp" -f ([guid]::NewGuid().ToString('N')))

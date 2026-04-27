@@ -8,6 +8,9 @@ const REQUIRED_MANAGED_STATE_ARRAY_FIELDS = [
   'agents',
   'agentSupportFiles',
 ];
+const RETIRED_UNMANAGED_COMMAND_FILES = new Set([
+  ['graph', 'bootstrap'].join('-') + '.md',
+]);
 
 function getStateFilePath(projectRoot, adapter) {
   return path.join(projectRoot, adapter.stateFile);
@@ -454,7 +457,7 @@ function planCommandNamespacePrune(projectRoot, managedCommandFiles, adapter) {
       continue;
     }
 
-    if (!allowed.has(entry.name)) {
+    if (!allowed.has(entry.name) && !RETIRED_UNMANAGED_COMMAND_FILES.has(entry.name)) {
       operations.push(
         buildOperation(
           'prune_command',

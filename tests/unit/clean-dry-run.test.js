@@ -166,4 +166,41 @@ describe('clean --dry-run', () => {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
   });
+
+  test('clean removes obsolete managed graph workflow assets recorded in state', () => {
+    const projectRoot = makeTempDir();
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const retiredCommandFile = ['graph', 'bootstrap'].join('-') + '.md';
+    const retiredSkillName = ['spec', 'graph', 'bootstrap'].join('-');
+
+    try {
+      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      const statePath = path.join(projectRoot, '.claude', 'spec-first', 'state.json');
+      const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+      state.commands.push(retiredCommandFile);
+      state.workflowSkills.push(retiredSkillName);
+      state.commands.sort();
+      state.workflowSkills.sort();
+      fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+
+      const retiredCommandPath = path.join(projectRoot, '.claude', 'commands', 'spec', retiredCommandFile);
+      const retiredWorkflowPath = path.join(projectRoot, '.claude', 'spec-first', 'workflows', retiredSkillName);
+      fs.writeFileSync(retiredCommandPath, 'old managed command\n', 'utf8');
+      fs.mkdirSync(retiredWorkflowPath, { recursive: true });
+      fs.writeFileSync(path.join(retiredWorkflowPath, 'SKILL.md'), 'old managed skill\n', 'utf8');
+
+      const dryRun = captureCommand(projectRoot, runClean, ['--claude', '--dry-run']);
+      expect(dryRun.exitCode).toBe(0);
+      expect(dryRun.stdout).toContain(path.posix.join('.claude/commands/spec', retiredCommandFile));
+      expect(dryRun.stdout).toContain(path.posix.join('.claude/spec-first/workflows', retiredSkillName));
+
+      const cleanResult = captureCommand(projectRoot, runClean, ['--claude']);
+      expect(cleanResult.exitCode).toBe(0);
+      expect(fs.existsSync(retiredCommandPath)).toBe(false);
+      expect(fs.existsSync(retiredWorkflowPath)).toBe(false);
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
 });

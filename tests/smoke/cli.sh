@@ -40,13 +40,40 @@ grep -q "doctor" <<<"$help_output"
 grep -q "init (--claude|--codex)" <<<"$help_output"
 grep -q "clean (--claude|--codex)" <<<"$help_output"
 grep -q "tasks <subcommand>" <<<"$help_output"
-grep -q "crg <subcommand>" <<<"$help_output"
+if grep -q "crg <subcommand>" <<<"$help_output"; then
+  echo "help output should not advertise retired graph command" >&2
+  exit 1
+fi
 if grep -q "stage0-context" <<<"$help_output"; then
   echo "help output should not advertise stage0-context" >&2
   exit 1
 fi
 grep -q "Spec-First v${expected_version}" <<<"$version_output"
 grep -q "Claude Code & Codex" <<<"$version_output"
+if grep -q "graph""-bootstrap" <<<"$version_output"; then
+  echo "version output should not advertise retired graph workflow" >&2
+  exit 1
+fi
+retired_stdout="$TMP_DIR/retired-command.stdout"
+retired_stderr="$TMP_DIR/retired-command.stderr"
+if node "$REPO_ROOT/bin/spec-first.js" crg --help >"$retired_stdout" 2>"$retired_stderr"; then
+  retired_status=0
+else
+  retired_status=$?
+fi
+retired_combined="$(cat "$retired_stdout" "$retired_stderr")"
+if [ "$retired_status" -eq 0 ]; then
+  echo "retired graph command should not exit successfully" >&2
+  exit 1
+fi
+if ! grep -Eiq "unknown command|unknown|unsupported|invalid" <<<"$retired_combined"; then
+  echo "retired graph command should use normal unknown-command path" >&2
+  exit 1
+fi
+if grep -q "src/""crg" <<<"$retired_combined" || grep -q "crg <subcommand>" <<<"$retired_combined"; then
+  echo "retired graph command output leaks old implementation details" >&2
+  exit 1
+fi
 echo "✓ help/version output is present"
 
 echo "2. Check doctor output in a fresh project..."
@@ -79,7 +106,7 @@ claude_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" init --cla
 grep -q "Generated ${expected_command_count} command file(s)" <<<"$claude_output"
 grep -q "Generated ${expected_claude_skill_count} skill directory(ies)" <<<"$claude_output"
 grep -q "Generated ${expected_agent_count} agent file(s)" <<<"$claude_output"
-for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.md doc-review.md graph-bootstrap.md ideate.md mcp-setup.md optimize.md plan.md polish-beta.md release-notes.md sessions.md setup.md slack-research.md update.md work.md work-beta.md; do
+for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.md doc-review.md ideate.md mcp-setup.md optimize.md plan.md polish-beta.md release-notes.md sessions.md setup.md slack-research.md update.md work.md work-beta.md; do
   test -f "$TMP_DIR/.claude/commands/spec/$file"
 done
 test ! -e "$TMP_DIR/.claude/spec-first/workflows"

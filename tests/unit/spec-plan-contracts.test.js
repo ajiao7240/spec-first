@@ -23,15 +23,20 @@ const DEEPENING_PATH = path.join(
   'deepening-workflow.md',
 );
 
-describe('spec-plan CRG hook contract', () => {
-  test('uses a thin before-plan CRG anchor and preserves LLM decision boundary', () => {
+describe('spec-plan context orientation contract', () => {
+  test('uses direct repo context and preserves LLM decision boundary', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
-    expect(text).toContain('spec-first crg hook before-plan');
-    expect(text).toContain('spec-first crg workspace context');
-    expect(text).toContain('LLM/user choose the child repo boundary');
-    expect(text).toContain('decompose it into explicit sequential repo-local plans/runs');
-    expect(text).toContain('LLM still selects the candidate change surface');
-    expect(text).toContain('direct repo reads');
+    expect(text).toContain('Context Orientation Anchor');
+    expect(text).toContain('current user request or requirement');
+    expect(text).toContain('package manifests and command registries');
+    expect(text).toContain('nearby implementation files');
+    expect(text).toContain('nearby tests');
+    expect(text).toContain('External tools may prioritize inspection, but they do not define scope authority');
+    expect(text).toContain('The LLM still chooses the candidate change surface');
+    expect(text).toContain('explicit repo context and source-plan constraints');
+    expect(text).not.toContain('spec-first ' + 'crg hook');
+    expect(text).not.toContain('$spec-' + 'graph' + '-bootstrap');
+    expect(text).not.toContain('/spec:' + 'graph' + '-bootstrap');
     expect(text).not.toContain('stage0-context');
     expect(text).not.toContain('selected_assets');
   });

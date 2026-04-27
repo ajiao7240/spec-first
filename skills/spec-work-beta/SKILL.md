@@ -15,9 +15,9 @@ This command takes a work document (plan, task pack, or specification) or a bare
 
 **Beta rollout note:** Invoke `spec-work-beta` manually when you want to trial Codex delegation. During the beta period, planning and workflow handoffs remain pointed at stable `spec-work` to avoid dual-path orchestration complexity.
 
-## CRG Work Anchors
+## Context Orientation Anchor
 
-When a CRG graph is available, reuse the same `spec-first crg hook before-work --plan=<plan.md> --repo=<repo>` / `--task-pack=<tasks.md>` and `spec-first crg hook after-work --work-run=<id> --repo=<repo>` envelope as stable `spec-work`. If opened at a parent workspace root, run `spec-first crg workspace context --root=<workspace> --task="<task>"` first and pass only the explicitly chosen child repo boundary into repo-local hooks and delegate prompts. Multi-child work must be decomposed into sequential repo-local runs; do not ask delegates to act on one combined workspace graph. Pass the returned work-run id, planned surface summary, impact hints, evidence, repo topology, and limitations to delegates as shared decision input. Hook output is advisory; delegates still inspect source and the orchestrator decides whether blast-radius expansion is acceptable.
+Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. External tools may prioritize inspection, but they do not define scope authority. Delegate prompts should carry bounded direct-read context and explicit file boundaries, not graph work-run ids.
 
 ## Input Document
 

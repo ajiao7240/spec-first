@@ -5,15 +5,18 @@ const path = require('node:path');
 
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'SKILL.md');
 
-describe('spec-code-review CRG hook contract', () => {
-  test('uses before-review CRG anchor and keeps findings reviewer-owned', () => {
+describe('spec-code-review context orientation contract', () => {
+  test('starts from diff evidence and keeps findings reviewer-owned', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
-    expect(text).toContain('spec-first crg hook before-review --since=<base>');
-    expect(text).toContain('spec-first crg hook before-review --work-run=<id>');
-    expect(text).toContain('spec-first crg workspace context');
-    expect(text).toContain('choose the child repo review boundary');
-    expect(text).toContain('Multi-child reviews must be decomposed');
-    expect(text).toContain('prioritize review, not to replace reviewer judgment');
+    expect(text).toContain('Context Orientation Anchor');
+    expect(text).toContain('diff scope');
+    expect(text).toContain('plan/task/work artifacts when present');
+    expect(text).toContain('nearby implementation files');
+    expect(text).toContain('nearby tests');
+    expect(text).toContain('External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment');
+    expect(text).not.toContain('spec-first ' + 'crg hook');
+    expect(text).not.toContain('$spec-' + 'graph' + '-bootstrap');
+    expect(text).not.toContain('/spec:' + 'graph' + '-bootstrap');
     expect(text).not.toContain('stage0-context');
     expect(text).not.toContain('selected_assets');
   });

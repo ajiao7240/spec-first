@@ -179,14 +179,4 @@ else
 fi
 
 echo ""
-echo "9. 测试 spec-graph-bootstrap CRG query-first 主链..."
-bash tests/e2e/spec-graph-bootstrap-mainline.sh
-echo "✓ spec-graph-bootstrap CRG query-first 主链通过"
-
-echo ""
-echo "10. 测试 spec-graph-bootstrap installed runtime..."
-bash tests/e2e/spec-graph-bootstrap-installed-runtime.sh
-echo "✓ spec-graph-bootstrap installed runtime 通过"
-
-echo ""
 echo "=== E2E 测试全部通过 ✓ ==="

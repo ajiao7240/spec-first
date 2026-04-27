@@ -38,7 +38,7 @@ describe('workspace nested topology Stage-0 retirement', () => {
     }
   });
 
-  test('review entrypoint is CRG before-review hook with explicit direct-read fallback', () => {
+  test('review no longer has a hidden graph compatibility entrypoint', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-before-review-'));
 
     try {
@@ -50,12 +50,10 @@ describe('workspace nested topology Stage-0 retirement', () => {
         '--since=HEAD~1',
       ]);
 
-      expect(result.status).toBe(0);
-      const payload = JSON.parse(result.stdout);
-      expect(payload.data.hook_id).toBe('before_review');
-      expect(payload.data.workflow_context.fallback.mode).toBe('direct_repo_reads');
-      expect(JSON.stringify(payload)).not.toContain('context-routing');
-      expect(JSON.stringify(payload)).not.toContain('minimal-context');
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(/unknown command|unknown|unsupported|invalid/i);
+      expect(result.stdout).not.toContain('context-routing');
+      expect(result.stdout).not.toContain('minimal-context');
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }

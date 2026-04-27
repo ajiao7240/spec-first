@@ -1,3 +1,7 @@
+> 状态说明：本文是 CRG 删除前后的探索性设计记录，不代表当前 runtime contract。
+> 当前实现已移除内置 CRG 与 graph-bootstrap workflow。
+> 如需恢复图谱能力，请另见后续 external graph provider 集成方案。
+
 你是 spec-first 项目的核心维护者。请基于当前 master 分支重构 skills/spec-mcp-setup，使它从可选 MCP 安装器升级为 Required Harness Runtime Setup。
 
 重要约束：
