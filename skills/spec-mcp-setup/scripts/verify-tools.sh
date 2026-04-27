@@ -118,7 +118,7 @@ mv "$final_tmp" "$MARKER_PATH"
 echo "📝 宿主就绪标记已更新: $MARKER_PATH"
 echo "🔎 当前宿主基线状态: $(jq -r '.overall_status' "$MARKER_PATH")"
 echo "🧭 baseline_ready: $(jq -r '.baseline_ready' "$MARKER_PATH")"
-if [ "$(jq -r '.graph_bootstrap_required // true' "$MARKER_PATH")" = "true" ]; then
+if [ "$(jq -r 'if has("graph_bootstrap_required") then (.graph_bootstrap_required | tostring) else "true" end' "$MARKER_PATH")" = "true" ]; then
   echo "🧩 Graph providers are configured but not query-ready yet."
 else
   echo "🧩 Graph providers are query-ready."

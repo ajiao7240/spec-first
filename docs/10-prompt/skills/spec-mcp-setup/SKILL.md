@@ -24,6 +24,9 @@
 - 卸载或 provider 不再 ready 时，不保留 query readiness；ledger/projection 应反映 action-required 或需要重新 bootstrap。
 - `.spec-first/config/graph-providers.json` 是 provider selection projection，不是第二个 registry。
 - 首次 setup 后 graph providers 是 `configured=true`、`enabled_for_bootstrap=true`、`query_ready=false`；重复 setup 可在 provider 仍 ready 时保留 `query_ready=true`。
+- 重复执行 setup 必须幂等且非破坏：Serena 已 ready 时不强制重建；需要重建时先保留旧 `.serena/project.yml` 与 ready marker，失败要恢复旧状态。
+- host MCP server entry 只写宿主支持字段，例如 `command`、`args`、`startup_timeout_sec`；`selected_scope` 等内部元数据只进入脚本输出和 ledger。
+- Codex higher-precedence config 只在同名 MCP section 存在时影响该工具；profile-only 或无关 MCP section 不应阻断 selected-scope config。
 
 禁止事项：
 

@@ -72,7 +72,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(configureSource).toContain('Test-TomlMcpSectionExact -Path $ConfigPath -Key $ToolDef.detection.key');
     expect(configureSource).toContain('function Get-CodexHigherPrecedenceStatus');
     expect(configureSource).toContain('被更高优先级 Codex MCP 配置覆盖');
-    expect(configureSource).not.toContain('scope = $SelectedScope');
+    expect(configureSource).not.toContain('command = $HostConfig.command; args = $resolvedArgs; scope = $SelectedScope');
     expect(configureSource).not.toContain('.Contains($arg)');
     expect(detectSource).toContain("Join-Path $ScriptDir 'lib-toml.ps1'");
     expect(detectSource).toContain('Get-TomlMcpSection -Path $ConfigPath -Key $Tool.detection.key');

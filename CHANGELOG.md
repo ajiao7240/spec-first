@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 02:25:54 leokuang: fix(spec-mcp-setup): 系统性加固 setup 幂等与多平台稳定性，保护 Serena 既有 ready 状态，精确处理 Codex higher-precedence MCP 覆盖，移除 host config 内部 scope，并修正 helper/preflight/readiness 输出一致性 (user-visible)
 - v1.6.0 2026-04-28 02:15:00 leokuang: fix(spec-mcp-setup): 明确 mcp setup 的 assistant 最终回复必须复述完整 readiness Markdown 表格和下一步提示，避免只依赖命令输出导致结论丢表 (user-visible)
 - v1.6.0 2026-04-28 02:02:48 leokuang: fix(init): 在 `spec-first init` 成功输出和 `init --help` 中增加重启宿主、运行 mcp setup 与按需 graph bootstrap 的下一步引导 (user-visible)
 - v1.6.0 2026-04-28 01:51:27 leokuang: fix(spec-mcp-setup): 将最终状态输出改为 Markdown 表格，重复 setup/重装/升级后验证时保留已完成的 graph provider query_ready 状态，并把重启与继续 bootstrap 的顺序交给 agent 基于当前会话事实判断 (user-visible)
