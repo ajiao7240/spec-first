@@ -1,7 +1,7 @@
 ---
 title: 同步 CE 4b5f28da workflow 更新到 spec-first 技术方案
 date: 2026-04-27
-status: active
+status: completed
 type: plan
 source: ce-sync
 ce_range: e8c118e2..4b5f28da

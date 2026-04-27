@@ -6,6 +6,8 @@ const configureHostPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/conf
 const detectToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-tools.ps1');
 const verifyToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
 const bootstrapProjectConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1');
+const installHelpersPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-helpers.ps1');
+const libTomlPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/lib-toml.ps1');
 
 describe('spec-mcp-setup PowerShell host config contract', () => {
   const source = fs.readFileSync(configureHostPs1, 'utf8');
@@ -51,11 +53,30 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
   test('uses shared TOML helpers for quoted Codex MCP keys', () => {
     const configureSource = fs.readFileSync(configureHostPs1, 'utf8');
     const detectSource = fs.readFileSync(detectToolsPs1, 'utf8');
+    const libTomlSource = fs.readFileSync(libTomlPs1, 'utf8');
 
     expect(configureSource).toContain("Join-Path $ScriptDir 'lib-toml.ps1'");
     expect(configureSource).toContain('Write-TomlMcpSection -Path $ConfigPath -Key $ToolDef.detection.key');
+    expect(configureSource).toContain('Test-TomlMcpSectionExact -Path $ConfigPath -Key $ToolDef.detection.key');
+    expect(configureSource).not.toContain('.Contains($arg)');
     expect(detectSource).toContain("Join-Path $ScriptDir 'lib-toml.ps1'");
     expect(detectSource).toContain('Get-TomlMcpSection -Path $ConfigPath -Key $Tool.detection.key');
+    expect(detectSource).toContain('Test-TomlMcpSectionExact -Path $ConfigPath -Key $Tool.detection.key');
+    expect(detectSource).not.toContain('.Contains($arg)');
+    expect(libTomlSource).toContain('(?=^[ `t]*\\[|\\z)');
+    expect(libTomlSource).toContain('function Test-TomlMcpSectionExact');
+    expect(libTomlSource).toContain('function Remove-TomlLineComment');
+  });
+
+  test('helper verify-only is marker-based and does not install browser runtime', () => {
+    const installHelpersSource = fs.readFileSync(installHelpersPs1, 'utf8');
+
+    expect(installHelpersSource).toContain('.agent-browser/spec-first-install.json');
+    expect(installHelpersSource).toContain('Write-AgentBrowserInstallMarker');
+    expect(installHelpersSource).toContain('agent-browser install');
+    expect(installHelpersSource).not.toContain('agent-browser doctor');
+    expect(installHelpersSource).not.toContain('doctor --fix');
+    expect(installHelpersSource).toContain("$mode -eq 'verify-only' -and -not (Test-Path $agentBrowserInstallMarker)");
   });
 
   test('project config bootstrap keeps local setup outside readiness ledger', () => {

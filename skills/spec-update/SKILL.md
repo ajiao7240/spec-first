@@ -37,17 +37,16 @@ at skill-load time. For a marketplace-cached install it looks like
 `~/.claude/plugins/cache/<marketplace>/spec-first/<version>/skills/spec-update`,
 so the currently-loaded version is the basename two `dirname` levels up.
 
-The upstream version comes from `plugins/spec-first/.claude-plugin/plugin.json`
-on `main` rather than the latest GitHub release tag, because the marketplace
-installs plugin contents from `main` HEAD. Comparing against release tags
-false-positives whenever `main` is ahead of the last tag (the normal state
-between releases).
+The upstream version comes from source `package.json` on `main` rather than
+the latest GitHub release tag, because the marketplace installs plugin contents
+from `main` HEAD. Comparing against release tags false-positives whenever
+`main` is ahead of the last tag (the normal state between releases).
 
 **Skill directory:**
 !`echo "${CLAUDE_SKILL_DIR}"`
 
 **Latest upstream version:**
-!`version=$(gh api repos/sunrain520/spec-first/contents/plugins/spec-first/.claude-plugin/plugin.json --jq '.content | @base64d | fromjson | .version' 2>/dev/null) && [ -n "$version" ] && echo "$version" || echo '__SPEC_UPDATE_VERSION_FAILED__'`
+!`version=$(gh api repos/sunrain520/spec-first/contents/package.json --jq '.content | @base64d | fromjson | .version' 2>/dev/null) && [ -n "$version" ] && echo "$version" || echo '__SPEC_UPDATE_VERSION_FAILED__'`
 
 **Currently loaded version:**
 !`echo "${CLAUDE_SKILL_DIR}" | grep -q "/plugins/cache/.*/spec-first/.*/skills/spec-update$" && basename "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")" || echo '__SPEC_UPDATE_NOT_MARKETPLACE__'`

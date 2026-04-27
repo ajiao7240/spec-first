@@ -1,7 +1,7 @@
 ---
 title: 将 spec-setup 全量合入 spec-mcp-setup 并删除旧 setup 入口
 date: 2026-04-28
-status: active
+status: completed
 type: plan
 spec_id: 2026-04-28-001-merge-spec-setup-into-spec-mcp-setup
 supersedes:

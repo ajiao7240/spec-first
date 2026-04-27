@@ -4,6 +4,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-work-beta', 'SKILL.md');
+const DELEGATION_REFERENCE_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-work-beta',
+  'references',
+  'codex-delegation-workflow.md',
+);
 
 describe('spec-work-beta context orientation contract', () => {
   test('passes bounded direct-read context to delegates without retired graph ids', () => {
@@ -45,5 +54,38 @@ describe('spec-work-beta subagent and delegation isolation contract', () => {
     expect(text).toContain('Codex delegation:');
     expect(text).toContain('the orchestrator still owns git operations and PR creation');
     expect(text).toContain('Shared-directory fallback or Codex fork-workspace handoff');
+  });
+});
+
+describe('spec-work-beta Codex delegation config contract', () => {
+  test('model and reasoning effort defer to Codex config when unset or invalid', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(skill).toContain('For optional settings without a hard default (`work_delegate_model`, `work_delegate_effort`)');
+    expect(skill).toContain('defers to the user\'s `~/.codex/config.toml` default');
+    expect(skill).toContain('resolves to unset and defers to the user\'s `~/.codex/config.toml` default');
+    expect(skill).toContain('`delegate_model` -- string from config, or unset');
+    expect(skill).toContain('`delegate_effort` -- string from config, or unset');
+    expect(skill).not.toContain('`delegate_model` -- string (from config or default `gpt-5.4`)');
+    expect(skill).not.toContain('`delegate_effort` -- string (from config or default `high`)');
+  });
+
+  test('config pre-resolution guards empty repo roots before reading local config', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(skill).toContain('(top=$(git rev-parse --show-toplevel 2>/dev/null); [ -n "$top" ]');
+    expect(skill).toContain('(common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); [ -n "$common" ]');
+    expect(skill).toContain('|| echo \'__NO_CONFIG__\'');
+    expect(skill).not.toContain('cat "$(git rev-parse --show-toplevel 2>/dev/null)/.spec-first/config.local.yaml"');
+  });
+
+  test('codex exec omits model and effort flags unless configured', () => {
+    const reference = fs.readFileSync(DELEGATION_REFERENCE_PATH, 'utf8');
+
+    expect(reference).toContain('Conditional flags');
+    expect(reference).toContain('If `delegate_model` is set');
+    expect(reference).toContain('If `delegate_effort` is set');
+    expect(reference).toContain('Do not substitute a placeholder string for unset values.');
+    expect(reference).not.toContain('  -m "<delegate_model>" \\\n  -c \'model_reasoning_effort="<delegate_effort>"\'');
   });
 });

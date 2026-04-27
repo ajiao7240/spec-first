@@ -36,7 +36,7 @@ dependency_status() {
 
 host_config_status() {
   local tool_id="$1"
-  local detect_kind detect_key host_cfg expected_command expected_args block expected_args_count i expected_arg
+  local detect_kind detect_key host_cfg expected_command expected_args
   detect_kind="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detection.kind' "$TOOLS_JSON")"
   detect_key="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detection.key' "$TOOLS_JSON")"
   host_cfg="$(jq -c --arg id "$tool_id" --arg host "$HOST" '.tools[] | select(.id == $id) | .host_config[$host]' "$TOOLS_JSON")"
@@ -74,18 +74,7 @@ host_config_status() {
         return
       fi
 
-      block="$(extract_toml_mcp_section "$CONFIG_PATH" "$detect_key")"
-      if [ -n "$block" ] && printf '%s\n' "$block" | grep -qF "command = \"$expected_command\""; then
-        expected_args_count="$(jq 'length' <<<"$expected_args")"
-        if [ "$expected_args_count" -gt 0 ]; then
-          for i in $(seq 0 $((expected_args_count - 1))); do
-            expected_arg="$(jq -r ".[$i]" <<<"$expected_args")"
-            if ! printf '%s\n' "$block" | grep -qF -- "$expected_arg"; then
-              echo action-required
-              return
-            fi
-          done
-        fi
+      if toml_mcp_section_matches_exact "$CONFIG_PATH" "$detect_key" "$expected_command" "$expected_args"; then
         echo ready
       else
         echo action-required

@@ -10,6 +10,15 @@ const DOC_REVIEW_FILES = [
   path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'synthesis-and-presentation.md'),
   path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'walkthrough.md'),
 ];
+const SUBAGENT_TEMPLATE_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-doc-review',
+  'references',
+  'subagent-template.md',
+);
 
 describe('spec-doc-review best-judgment wording contract', () => {
   test('user-visible doc review paths no longer expose LFG wording', () => {
@@ -42,5 +51,17 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('derived rather than a second plan');
     expect(skill).toContain('Task Pack Contract');
     expect(skill).toContain('spec-first tasks validate --json');
+  });
+
+  test('subagent template requires committed suggested fixes and consequence-first rationale', () => {
+    const template = fs.readFileSync(SUBAGENT_TEMPLATE_PATH, 'utf8');
+
+    expect(template).toContain('Classify your `suggested_fix` by what\'s written');
+    expect(template).toContain('`suggested_fix` commits to one recommendation');
+    expect(template).toContain('no menus of alternatives');
+    expect(template).toContain('quote sandwich');
+    expect(template).toContain('Cap embedded quotes at roughly 30 words combined');
+    expect(template).toContain('"suggested_fix": "Require Units 1-4 to land in a single atomic PR."');
+    expect(template).not.toContain('Require Units 1-4 to land in a single atomic PR, or define the sequence explicitly.');
   });
 });

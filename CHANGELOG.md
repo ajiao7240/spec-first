@@ -1,6 +1,10 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 00:55:00 leokuang: fix(spec-mcp-setup): 加固 Codex TOML section 删除边界和 exact args 检测，改为 marker 化验证 agent-browser install，并将 spec-update upstream version 来源切到源码 package.json (user-visible)
+- v1.6.0 2026-04-28 00:42:45 leokuang: fix(spec-mcp-setup): 修复 Codex TOML 配置段写入字面量换行导致精确检测失败的问题，确保 mcp setup 写入后能被立即验证 (user-visible)
+- v1.6.0 2026-04-28 00:42:03 leokuang: fix(ce-sync): 同步 CE 4b5f28da 的 shell pre-resolution、doc-review `suggested_fix` / `why_it_matters` 与 `spec-work-beta` delegation 规则，`work_delegate_model` / `work_delegate_effort` 省略时交给 `~/.codex/config.toml`，unset 时不向 `codex exec` 传 `-m` / `-c` placeholder flags，并补齐 contract 覆盖 (user-visible)
+- v1.6.0 2026-04-28 00:41:16 leokuang: test(spec-mcp-setup): 补齐 agent-browser install marker 的 mcp-setup 测试模拟，并修复 shell safety 契约测试的 Jest 断言写法
 - v1.6.0 2026-04-28 00:35:21 leokuang: refactor(spec-mcp-setup): 将 spec-setup 全量合入 spec-mcp-setup，删除旧 setup skill/command/governance 入口，新增 project config bootstrap、ast-grep 推荐检查，并在安装验证完成后输出 Required Harness Runtime 状态表 (user-visible)
 - v1.6.0 2026-04-28 00:17:58 leokuang: docs(plans): 新增 spec-setup 全量合入 spec-mcp-setup 的审查后实施计划，明确 project preflight 与 required harness runtime 分层、旧 setup 入口删除、ast-grep 推荐能力迁移和验证矩阵 (user-visible)
 - v1.6.0 2026-04-27 23:46:48 leokuang: docs(ce-sync): 根据 spec-doc-review 与 CE git 提交复核补强 4b5f28da 同步计划，新增上游 diff 复验、target-overlap audit、本地 config 扫描边界和 delegation 用户可见 changelog 要求 (user-visible)

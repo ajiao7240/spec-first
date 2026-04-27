@@ -34,6 +34,16 @@ describe('spec-update contracts', () => {
     expect(skill).not.toContain('Claude Code only.');
   });
 
+  test('Claude marketplace pre-resolution avoids case statements and uses stable sentinel', () => {
+    const skill = read(SKILL_PATH);
+
+    expect(skill).toContain('grep -q "/plugins/cache/.*/spec-first/.*/skills/spec-update$"');
+    expect(skill).toContain('__SPEC_UPDATE_NOT_MARKETPLACE__');
+    expect(skill).not.toContain('__SPEC_UPDATE_NOT_MARKETPLASPEC__');
+    expect(skill).not.toContain('case "${CLAUDE_SKILL_DIR}"');
+    expect(skill).not.toContain(';; esac');
+  });
+
   test('governance exposes spec-update on both hosts', () => {
     const governance = JSON.parse(read(GOVERNANCE_PATH));
 

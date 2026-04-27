@@ -148,6 +148,7 @@ describe('browser helper tool contracts', () => {
     expect(setupSkill).toContain('npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y');
     expect(installHelpers).toContain('install-helpers.sh - Install or verify required non-MCP helper tooling');
     expect(installHelpers).toContain('agent-browser install');
+    expect(installHelpers).toContain('.agent-browser/spec-first-install.json');
     expect(installHelpers).toContain('npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y');
     expect(checkHealth).toContain('"agent-browser|required"');
     expect(checkHealth).toContain('"ast-grep|recommended"');

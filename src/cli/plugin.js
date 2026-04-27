@@ -10,7 +10,6 @@ const {
 } = require('./state');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
-const MANIFEST_PATH = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const GOVERNANCE_PATH = path.join(
   REPO_ROOT,
@@ -238,10 +237,6 @@ function validateManifest(manifest) {
       throw new Error(`Bundled plugin manifest is missing directories.${field}.`);
     }
   }
-}
-
-function getManifestPath() {
-  return MANIFEST_PATH;
 }
 
 function getSkillsGovernancePath() {
@@ -963,7 +958,6 @@ function inspectAgentSupportFiles(projectRoot, supportPaths = listBundledAgentSu
 module.exports = {
   buildFilteredAssetSet,
   getBundledPath,
-  getManifestPath,
   getSkillsGovernancePath,
   inspectInstalledAssets,
   listBundledAgentSupportFiles,

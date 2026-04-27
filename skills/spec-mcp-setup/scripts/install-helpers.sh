@@ -29,6 +29,7 @@ skill_status="ready"
 project_status="not-applicable"
 next_action=""
 GLOBAL_AGENT_BROWSER_SKILL="$HOME/.agents/skills/agent-browser/SKILL.md"
+AGENT_BROWSER_INSTALL_MARKER="$HOME/.agent-browser/spec-first-install.json"
 
 run_or_mark() {
   local failure_status="$1"
@@ -46,6 +47,20 @@ run_or_mark() {
   return 0
 }
 
+write_agent_browser_install_marker() {
+  local marker_dir
+  marker_dir="$(dirname "$AGENT_BROWSER_INSTALL_MARKER")"
+  mkdir -p "$marker_dir"
+  local tmp
+  tmp="$(mktemp "${marker_dir}/spec-first-install.XXXXXX")"
+  chmod 600 "$tmp"
+  jq -n \
+    --arg installed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    --arg source "spec-mcp-setup" \
+    '{schema_version:"agent-browser-install.v1",installed_by:$source,installed_at:$installed_at,install_command:"agent-browser install"}' > "$tmp"
+  mv "$tmp" "$AGENT_BROWSER_INSTALL_MARKER"
+}
+
 if ! command -v agent-browser >/dev/null 2>&1; then
   dependency_status="missing"
   install_status="action-required"
@@ -56,11 +71,23 @@ if ! command -v agent-browser >/dev/null 2>&1; then
     if CI=true npm install -g agent-browser --no-audit --no-fund --loglevel=error >/dev/null 2>&1; then
       dependency_status="ready"
       install_status="ready"
+      if ! command -v agent-browser >/dev/null 2>&1; then
+        status="action-required"
+        dependency_status="missing"
+        install_status="action-required"
+        next_action="agent-browser CLI not found after npm install"
+      fi
     else
       status="action-required"
       next_action="npm install -g agent-browser failed"
     fi
   fi
+fi
+
+if [ "$status" = "ready" ] && [ "$MODE" = "verify-only" ] && [ ! -f "$AGENT_BROWSER_INSTALL_MARKER" ]; then
+  status="action-required"
+  install_status="action-required"
+  next_action="run agent-browser install"
 fi
 
 if [ "$status" = "ready" ] && [ "$MODE" = "verify-only" ] && [ ! -f "$GLOBAL_AGENT_BROWSER_SKILL" ]; then
@@ -70,7 +97,9 @@ if [ "$status" = "ready" ] && [ "$MODE" = "verify-only" ] && [ ! -f "$GLOBAL_AGE
 fi
 
 if [ "$status" = "ready" ] && [ "$MODE" = "install" ]; then
-  run_or_mark install "run agent-browser install manually" agent-browser install || true
+  if run_or_mark install "run agent-browser install manually" agent-browser install; then
+    write_agent_browser_install_marker
+  fi
 fi
 
 if [ "$status" = "ready" ] && [ "$MODE" = "install" ]; then

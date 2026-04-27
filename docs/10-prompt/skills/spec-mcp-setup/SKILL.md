@@ -14,6 +14,7 @@
 
 - `mcp-tools.json` 是 MCP 与 graph-provider MCP 的唯一 machine registry，schema version 为 `4`。
 - `agent-browser` 不进入 `mcp-tools.json`，由 `install-helpers.*` 管理。
+- `install-helpers.* --verify-only` 只读检查 helper facts；`agent-browser install` 的完成状态以 `$HOME/.agent-browser/spec-first-install.json` 为 marker。
 - `detect-tools.*` 只输出 tool facts，不输出 `baseline_ready`，不输出顶层 `crg`。
 - `verify-tools.*` 合并 tool facts 与 helper facts，统一写 readiness ledger v2。
 - `.spec-first/config/graph-providers.json` 是 provider selection projection，不是第二个 registry。

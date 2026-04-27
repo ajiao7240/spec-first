@@ -48,7 +48,6 @@ if [ "$HOST" = "claude" ] && [ "$SELECTED_SCOPE" != "managed" ]; then
 fi
 
 tool_is_configured() {
-  local block expected_args_count i expected_arg
   [ -f "$CONFIG_PATH" ] || return 1
 
   case "$DETECT_KIND" in
@@ -57,20 +56,8 @@ tool_is_configured() {
         jq -e --arg key "$DETECT_KEY" --arg command "$EXPECTED_COMMAND" --argjson expected_args "$EXPECTED_ARGS" '.mcpServers[$key].command == $command and (.mcpServers[$key].args // []) == $expected_args' "$CONFIG_PATH" >/dev/null 2>&1
         return
       fi
-      block="$(extract_toml_mcp_section "$CONFIG_PATH" "$DETECT_KEY")"
-      if [ -n "$block" ] && printf '%s\n' "$block" | grep -qF "command = \"$EXPECTED_COMMAND\""; then
-        expected_args_count="$(jq 'length' <<<"$EXPECTED_ARGS")"
-        if [ "$expected_args_count" -gt 0 ]; then
-          for i in $(seq 0 $((expected_args_count - 1))); do
-            expected_arg="$(jq -r ".[$i]" <<<"$EXPECTED_ARGS")"
-            if ! printf '%s\n' "$block" | grep -qF -- "$expected_arg"; then
-              return 1
-            fi
-          done
-        fi
-        return 0
-      fi
-      return 1
+      toml_mcp_section_matches_exact "$CONFIG_PATH" "$DETECT_KEY" "$EXPECTED_COMMAND" "$EXPECTED_ARGS"
+      return
       ;;
     host_config_key_only)
       if [ "$HOST" = "claude" ]; then
@@ -132,9 +119,9 @@ write_codex_config() {
   command="$(jq -r '.command' <<<"$RESOLVED_TOOL_CONFIG_JSON")"
   args_json="$(jq -c '.args' <<<"$RESOLVED_TOOL_CONFIG_JSON")"
   timeout="$(jq -r '.startup_timeout_sec // empty' <<<"$RESOLVED_TOOL_CONFIG_JSON")"
-  section_body="command = \"$command\"\nargs = $args_json"
+  section_body="$(printf 'command = "%s"\nargs = %s' "$command" "$args_json")"
   if [ -n "$timeout" ]; then
-    section_body="$section_body\nstartup_timeout_sec = $timeout"
+    section_body="$(printf '%s\nstartup_timeout_sec = %s' "$section_body" "$timeout")"
   fi
   local tmp
   tmp="$(mktemp "${CONFIG_PATH}.XXXXXX")"

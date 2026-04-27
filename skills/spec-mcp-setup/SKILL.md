@@ -162,7 +162,7 @@ Windows:
 pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1
 ```
 
-`install-helpers.* --verify-only` must only detect helper facts. It must not install the CLI, run `agent-browser install`, or install the global skill.
+`install-helpers.* --verify-only` must only detect helper facts. It must not install the CLI, run `agent-browser install`, or install the global skill. It checks `$HOME/.agent-browser/spec-first-install.json` as the marker that the default install path has completed `agent-browser install`; missing marker means `install_status=action-required`.
 
 ## Helper Output Shape
 
@@ -180,7 +180,8 @@ Default helper install mode must:
 
 1. Install `agent-browser` CLI if missing.
 2. Run `agent-browser install`.
-3. Install the upstream/global skill:
+3. Write `$HOME/.agent-browser/spec-first-install.json` after `agent-browser install` succeeds.
+4. Install the upstream/global skill:
 
 ```bash
 npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y

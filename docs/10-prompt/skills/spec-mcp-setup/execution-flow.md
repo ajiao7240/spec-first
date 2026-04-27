@@ -14,6 +14,7 @@ install-helpers.*
   |
   |-- install/verify agent-browser CLI
   |-- run agent-browser install
+  |-- write/read ~/.agent-browser/spec-first-install.json
   |-- install global agent-browser skill
   |-- output helper_tools.agent-browser facts
   v

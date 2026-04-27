@@ -24,6 +24,17 @@ function Invoke-HelperCommand {
   }
 }
 
+function Write-AgentBrowserInstallMarker {
+  $markerDir = Split-Path -Parent $agentBrowserInstallMarker
+  New-Item -ItemType Directory -Force -Path $markerDir | Out-Null
+  [pscustomobject]@{
+    schema_version = 'agent-browser-install.v1'
+    installed_by = 'spec-mcp-setup'
+    installed_at = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+    install_command = 'agent-browser install'
+  } | ConvertTo-Json -Compress | Set-Content -Encoding utf8 $agentBrowserInstallMarker
+}
+
 $status = 'ready'
 $dependencyStatus = 'ready'
 $installStatus = 'ready'
@@ -31,6 +42,7 @@ $skillStatus = 'ready'
 $projectStatus = 'not-applicable'
 $nextAction = ''
 $globalAgentBrowserSkill = Join-Path $HOME '.agents/skills/agent-browser/SKILL.md'
+$agentBrowserInstallMarker = Join-Path $HOME '.agent-browser/spec-first-install.json'
 
 if (-not (Test-CommandExists 'agent-browser')) {
   $dependencyStatus = 'missing'
@@ -46,11 +58,23 @@ if (-not (Test-CommandExists 'agent-browser')) {
     if ($installed) {
       $dependencyStatus = 'ready'
       $installStatus = 'ready'
+      if (-not (Test-CommandExists 'agent-browser')) {
+        $status = 'action-required'
+        $dependencyStatus = 'missing'
+        $installStatus = 'action-required'
+        $nextAction = 'agent-browser CLI not found after npm install'
+      }
     } else {
       $status = 'action-required'
       $nextAction = 'npm install -g agent-browser failed'
     }
   }
+}
+
+if ($status -eq 'ready' -and $mode -eq 'verify-only' -and -not (Test-Path $agentBrowserInstallMarker)) {
+  $status = 'action-required'
+  $installStatus = 'action-required'
+  $nextAction = 'run agent-browser install'
 }
 
 if ($status -eq 'ready' -and $mode -eq 'verify-only' -and -not (Test-Path $globalAgentBrowserSkill)) {
@@ -64,6 +88,8 @@ if ($status -eq 'ready' -and $mode -eq 'install') {
     $status = 'action-required'
     $installStatus = 'action-required'
     $nextAction = 'run agent-browser install manually'
+  } else {
+    Write-AgentBrowserInstallMarker
   }
 }
 

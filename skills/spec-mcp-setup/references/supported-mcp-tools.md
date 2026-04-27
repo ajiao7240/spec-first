@@ -31,6 +31,8 @@ agent-browser install
 npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
 ```
 
+After `agent-browser install` succeeds, `install-helpers.*` writes `$HOME/.agent-browser/spec-first-install.json`. `--verify-only` only reads that marker, the CLI presence, and the global skill file; it does not run install or diagnostic commands.
+
 `install-helpers.* --verify-only` only detects the helper facts and returns:
 
 ```json

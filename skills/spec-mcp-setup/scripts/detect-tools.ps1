@@ -52,11 +52,8 @@ function Get-HostConfigStatus {
         return 'fallback-active'
       }
 
-      $section = Get-TomlMcpSection -Path $ConfigPath -Key $Tool.detection.key
-      if ([string]::IsNullOrWhiteSpace($section)) { return 'action-required' }
-      if (-not $section.Contains("command = `"$($hostConfig.command)`"")) { return 'action-required' }
-      foreach ($arg in @($hostConfig.args)) {
-        if (-not $section.Contains($arg)) { return 'action-required' }
+      if (-not (Test-TomlMcpSectionExact -Path $ConfigPath -Key $Tool.detection.key -Command $hostConfig.command -Args @($hostConfig.args))) {
+        return 'action-required'
       }
       return 'ready'
     }

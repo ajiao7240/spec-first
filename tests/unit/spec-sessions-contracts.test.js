@@ -9,13 +9,19 @@ const HISTORIAN_AGENT = path.join(__dirname, '..', '..', 'agents', 'spec-session
 const { buildFilteredAssetSet } = require('../../src/cli/plugin');
 
 describe('spec session history contracts', () => {
-  test('pre-resolved repo name handles relative git-common-dir values', () => {
+  test('pre-resolved repo name avoids shell case statements blocked by skill-load permissions', () => {
     const text = fs.readFileSync(SESSIONS_SKILL, 'utf8');
+    const historian = fs.readFileSync(HISTORIAN_AGENT, 'utf8');
 
-    expect(text).toContain('case "$common" in /*)');
+    expect(text).toContain('git rev-parse --path-format=absolute --git-common-dir');
+    expect(text).toContain('[ -n "$common" ]');
     expect(text).toContain('basename "$(dirname "$common")"');
-    expect(text).toContain('basename "$(git rev-parse --show-toplevel 2>/dev/null)"');
+    expect(text).not.toContain('case "$common" in /*)');
     expect(text).not.toContain('if [ "$common" = ".git" ]');
+
+    expect(historian).toContain('git rev-parse --path-format=absolute --git-common-dir');
+    expect(historian).toContain('Guard against empty output');
+    expect(historian).not.toContain('case "$common" in /*)');
   });
 
   test('session inventory exposes keyword ranking output shape', () => {

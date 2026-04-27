@@ -131,12 +131,33 @@ helper_verify_log_after="$(cat "$COMMAND_LOG")"
 assert "install-helpers verify-only emits JSON" jq -e . <<<"$helper_verify"
 assert_eq "helper shape contains agent-browser" "true" "$(jq -r '.helper_tools | has("agent-browser")' <<<"$helper_verify")"
 assert_eq "helper verify-only does not run install commands" "$helper_verify_log_before" "$helper_verify_log_after"
-assert_eq "helper verify-only ready with CLI and global skill" "ready" "$(jq -r '.helper_tools."agent-browser".result' <<<"$helper_verify")"
+assert_eq "helper verify-only requires browser install marker" "action-required" "$(jq -r '.helper_tools."agent-browser".result' <<<"$helper_verify")"
+assert_eq "helper verify-only flags missing install marker" "action-required" "$(jq -r '.helper_tools."agent-browser".install_status' <<<"$helper_verify")"
+assert_eq "helper verify-only asks for agent-browser install" "run agent-browser install" "$(jq -r '.helper_tools."agent-browser".next_action' <<<"$helper_verify")"
 
 helper_install="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh")"
 assert "install-helpers install emits JSON" jq -e . <<<"$helper_install"
 assert_contains "helper install runs agent-browser install" "agent-browser install" "$(cat "$COMMAND_LOG")"
 assert_contains "helper install installs global skill" "npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y" "$(cat "$COMMAND_LOG")"
+assert "helper install writes browser install marker" test -f "$FAKE_HOME/.agent-browser/spec-first-install.json"
+
+helper_verify_after_install_log_before="$(cat "$COMMAND_LOG")"
+helper_verify_after_install="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh" --verify-only)"
+helper_verify_after_install_log_after="$(cat "$COMMAND_LOG")"
+assert_eq "helper verify-only stays read-only after install" "$helper_verify_after_install_log_before" "$helper_verify_after_install_log_after"
+assert_eq "helper verify-only ready after marker and skill" "ready" "$(jq -r '.helper_tools."agent-browser".result' <<<"$helper_verify_after_install")"
+
+NO_BROWSER_BIN="$TMP_DIR/bin-no-browser"
+NO_BROWSER_LOG="$TMP_DIR/no-browser-commands.log"
+NO_BROWSER_HOME="$TMP_DIR/no-browser-home"
+touch "$NO_BROWSER_LOG"
+make_fake_bin "$NO_BROWSER_BIN" "$NO_BROWSER_LOG"
+rm -f "$NO_BROWSER_BIN/agent-browser"
+mkdir -p "$NO_BROWSER_HOME"
+no_browser_install="$(PATH="$NO_BROWSER_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$NO_BROWSER_HOME" bash "$SCRIPTS_DIR/install-helpers.sh")"
+assert "helper missing CLI install path emits JSON" jq -e . <<<"$no_browser_install"
+assert_contains "helper default attempts CLI install when missing" "npm install -g agent-browser --no-audit --no-fund --loglevel=error" "$(cat "$NO_BROWSER_LOG")"
+assert_eq "helper reports missing CLI if npm did not expose binary" "missing" "$(jq -r '.helper_tools."agent-browser".dependency_status' <<<"$no_browser_install")"
 
 FAKE_REPO="$TMP_DIR/repo"
 make_repo "$FAKE_REPO"
@@ -214,10 +235,27 @@ printf 'name: agent-browser\n' > "$FAKE_CODEX_HOME/.agents/skills/agent-browser/
 make_repo "$FAKE_CODEX_REPO"
 codex_config="$FAKE_CODEX_HOME/.codex/config.toml"
 mkdir -p "$(dirname "$codex_config")"
+cat > "$codex_config" <<'TOML'
+[mcp_servers."code-review-graph"]
+command = "old"
+args = []
+
+[profiles.default]
+model = "gpt-5"
+TOML
 (cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/configure-host.sh" --tool code-review-graph >/dev/null)
 assert_contains "Codex config uses quoted table key" '[mcp_servers."code-review-graph"]' "$(cat "$codex_config")"
+assert_contains "Codex configure preserves following non-MCP table" '[profiles.default]' "$(cat "$codex_config")"
 codex_detect="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detect-tools.sh")"
 assert_eq "detect-tools reads quoted Codex key" "ready" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect")"
+cat > "$codex_config" <<'TOML'
+[mcp_servers."code-review-graph"]
+command = "uvx"
+args = []
+# code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool
+TOML
+codex_detect_bad_args="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detect-tools.sh")"
+assert_eq "detect-tools requires exact Codex args, not comment substrings" "action-required" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect_bad_args")"
 cat > "$codex_config" <<'TOML'
 [mcp_servers.code-review-graph]
 command = "old"
@@ -226,12 +264,16 @@ args = []
 [mcp_servers."code-review-graph"]
 command = "uvx"
 args = ["code-review-graph","serve"]
+
+[profiles.default]
+model = "gpt-5"
 TOML
 (cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/uninstall-mcp.sh" --tool code-review-graph >/dev/null)
 if grep -q 'mcp_servers.*code-review-graph' "$codex_config"; then
   echo "FAIL: uninstall should remove quoted and unquoted code-review-graph sections" >&2
   exit 1
 fi
+assert_contains "Codex uninstall preserves following non-MCP table" '[profiles.default]' "$(cat "$codex_config")"
 
 graph_log_before="$(cat "$COMMAND_LOG")"
 bootstrap_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$GRAPH_BOOTSTRAP_SCRIPT")"

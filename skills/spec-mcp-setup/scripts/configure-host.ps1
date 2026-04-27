@@ -53,13 +53,7 @@ function Test-ToolConfigured {
         }
         return $true
       }
-      $section = Get-TomlMcpSection -Path $ConfigPath -Key $ToolDef.detection.key
-      if ([string]::IsNullOrWhiteSpace($section)) { return $false }
-      if (-not $section.Contains("command = `"$($ResolvedConfig.command)`"")) { return $false }
-      foreach ($arg in @($ResolvedConfig.args)) {
-        if (-not $section.Contains($arg)) { return $false }
-      }
-      return $true
+      return (Test-TomlMcpSectionExact -Path $ConfigPath -Key $ToolDef.detection.key -Command $ResolvedConfig.command -Args @($ResolvedConfig.args))
     }
     'host_config_key_only' {
       if ($DetectedHost -eq 'claude') {
