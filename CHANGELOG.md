@@ -1,6 +1,10 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.9 2026-04-27 09:28:38 leokuang: docs(specs): 按终审 findings 逐项修复 spec-standards 方案，统一 priority/severity contract、resolve-cache 真相源、workflow artifact 路径、freshness 校验、run_id 幂等、export redaction 与 CLI 形态 (user-visible)
+- v1.5.9 2026-04-27 09:26:41 leokuang: docs(readme): 核实并同步用户手册的当前入口、目录和 Codex 命令面口径，修正 README 引用文件中的旧 `/spec:*` / `.codex/commands/spec` 说法 (user-visible)
+- v1.5.9 2026-04-27 09:19:40 Codex: docs(plans): 新增 agent-browser 外部 helper tool 迁移计划，明确由 spec-mcp-setup 管理安装、删除本地 source skill、清理 runtime governance 与替换 contract tests 的实施方案 (user-visible)
+- v1.5.9 2026-04-27 09:14:14 leokuang: docs(readme): 同步中英文 README 的 task-pack CLI、graph-quality 产物、PR / session helper 与 runtime delivery 事实口径 (user-visible)
 - v1.5.9 2026-04-27 09:02:47 leokuang: docs(specs): 将 standards proposal payload contract 进一步落到 schema 与 fixture 交付要求，确保 MVP-A helper 接口可测试可验证 (user-visible)
 - v1.5.9 2026-04-27 09:00:15 leokuang: docs(specs): 为 spec-standards MVP-A 补齐 Proposal Payload Contract，明确 LLM 到 write-proposal helper 的机器可校验交接格式、写入映射和确定性校验边界 (user-visible)
 - v1.5.9 2026-04-27 08:49:46 leokuang: fix(spec-write-tasks): 根据 code review 补强 task pack fail-closed 校验、JSON 错误输出、final decision envelope 与 orientation evidence 契约覆盖 (user-visible)

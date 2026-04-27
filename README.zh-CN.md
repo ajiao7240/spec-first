@@ -136,11 +136,11 @@ graph-bootstrap 会在可用时读取 host readiness ledger。如果你跳过了
 
 | 升级点 | 变化 |
 |--------|------|
-| CRG query-first runtime | `locate`、`path`、`explain`、`workflow-context` 与 lifecycle `hook` 命令直接向 workflow 提供图证据，不再要求 workflow 消费可能过期的生成摘要。 |
+| CRG query-first runtime | `locate`、`path`、`explain`、`workflow-context`、lifecycle `hook` 以及更新的 graph-quality / retrieval-eval 输出，直接向 workflow 提供图证据，不再要求 workflow 消费可能过期的生成摘要。 |
 | Workspace topology | 父目录 workspace 只产出 discovery/status/context artifacts；repo-local `graph.db` 保持落在显式 child repo 下。 |
-| Task-pack handoff | `spec-write-tasks` 作为 standalone skill，可从已收口 plan 派生 `docs/tasks/*-tasks.md`；`spec-work` 执行前会校验 task-pack identity、source hash 与 `stop_if`。 |
+| Task-pack handoff | `spec-write-tasks` 作为 standalone skill，可从已收口 plan 派生 `docs/tasks/*-tasks.md`；`spec-first tasks hash|validate` 与 `spec-work` 共用同一套 validator，在执行前校验 identity、source hash、freshness 与 structure。 |
 | 入口治理 | `using-spec-first` 在双宿主都是 standalone meta skill。它把 substantial work 路由到公开 `$spec-*` / `/spec:*` workflow，但自身不是 workflow command。 |
-| Runtime delivery | Claude 与 Codex 暴露同一批 19 个 workflow entrypoints + 2 个 standalone skills，安装目录按宿主分流，agent 资产共享。 |
+| Runtime delivery | 受管 bundle 现在把 session-history、PR 跟进、PR 描述与浏览器证据捕获这些 helper 都放进源码资产里，让最近的 CE 同步以受管 skill 的形式落地，而不是散落成临时 prompt。 |
 
 ### CRG 决策信号
 
@@ -197,11 +197,13 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | **CLI 控制面**（`doctor` / `init` / `clean` / `crg <subcommand>`） | 提供可重复安装、健康检查、清理、graph readiness 和 query evidence；所有受管资产都有可追踪来源 |
 | **CRG 图引擎**（`spec-first crg *`） | **Code Review Graph**：一个嵌入式 Node.js runtime，基于 SQLite + FTS5，支持 AST → symbols → resolved edges → PageRank flows → community detection → surprising-connections → god-nodes → review-context |
 | **graph-bootstrap 查询引擎** | 让 LLM 获得 graph-backed 候选修改面和 blast-radius 证据，而不是直接面对裸代码库 |
-| **完整工作流层** | Ideate → Brainstorm → Plan → Work → Review → Compound，全阶段都有显式 artifact contract |
+| **完整工作流层** | Ideate → Brainstorm → Plan → 可选 Task Pack → Work → Review → Compound，全阶段都有显式 artifact contract |
 | **结构化 Review stage** | 17 个 reviewer persona 外加 2 个辅助 agent 产出按 `safe_auto / gated_auto / manual / advisory` 路由的 findings，而不是一次性 review 扫描 |
 | **Compound / knowledge capture** | 把已解决问题写入 `docs/solutions/`，供后续 workflow 检索复用 |
+| **Task-pack 工具链** (`spec-first tasks`) | 对 source plan 做 canonical hash，并在 `spec-work` 消费派生 task pack 前完成校验 |
+| **Session / PR 辅助技能** | session 历史检索、PR 描述 / 反馈处理和浏览器证据都留在受管 skill 里，而不是临时 prompt |
 | **双平台支持** | 一套方法论同时覆盖 Claude Code（`/spec:*`）与 Codex（`$spec-*`）。Claude 使用 `SessionStart` hook + bare-agent rewrite；Codex 使用 `.agents/skills/` discovery + 显式 `.codex/agents/...` path rewrite |
-| **能力层资产** | 仓库内置源码资产共 `41` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `19` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `19` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
+| **能力层资产** | 仓库内置源码资产共 `39` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：Claude 侧安装 `19` 个 commands + `4` 个 skill 目录 + `51` 个 agents，Codex 侧安装 `23` 个 skill 目录 + `51` 个 agents，且没有 command directory |
 | **运行时治理** | 受管资产记录在 `state.json` 中，可安全同步、刷新、恢复与清理 |
 
 ## 核心工作流
@@ -317,7 +319,7 @@ spec-first clean --claude   # 或 --codex
 
 `clean` 会移除上表中“`clean` 可移除”列标记为可删的所有内容，然后打印本次删除了哪个平台的受管资产。受管范围之外的自定义资产不会受影响。语言策略块仍需手动删除；你可以在 `CLAUDE.md` / `AGENTS.md` 中搜索 `<!-- spec-first:lang:`。
 `init --dry-run` 与 `clean --dry-run` 现在都会预览来自同一份 operation plan 的 file-level 变更面，因此 preview/apply 漂移被压缩到可测试、可回归的边界内。
-当前运行时交付会按宿主治理分流：Claude 会写入 `19` 个 command、`2` 个 skill、`51` 个 agent；Codex 不生成 command 目录，而是写入 `19` 个 workflow skill、`2` 个 standalone skill，并安装同样的 `51` 个 agent。
+当前运行时交付会按宿主治理分流：Claude 会写入 `19` 个 command、`4` 个 skill directories 和 `51` 个 agent；Codex 不生成 command 目录，而是写入 `23` 个 skill directories，并安装同样的 `51` 个 agent。
 
 #### 示例输出
 
@@ -351,6 +353,23 @@ $ spec-first init --claude
 | 启动工作流 | `/spec:ideate` → `/spec:brainstorm` → `/spec:plan` → `/spec:work` → `/spec:code-review` → `/spec:compound` | `$spec-ideate` → … → `$spec-compound` |
 
 `graph-bootstrap` 在启动时会检查 host readiness 与 CRG 可用性。graph evidence 不可用时，后续 workflow 会显式退回 direct-read fallback。
+
+### Task Pack 命令（`spec-first tasks <subcommand>`）
+
+围绕 `spec-write-tasks` handoff 的确定性工具。
+
+```bash
+spec-first tasks --help
+spec-first tasks hash <plan-path>
+spec-first tasks validate <task-pack-path> --repo=<path>
+```
+
+| 子命令 | 用途 |
+|--------|------|
+| `hash` | 对 plan 文件计算 canonical source-plan hash，并在哈希前移除 frontmatter |
+| `validate` | 在 Work 消费派生 task pack 之前，校验其 source identity、freshness 与 structure |
+
+`validate` 只检查 identity、freshness 和 structure，不判断 task 切分质量或业务范围。
 
 ## 架构
 

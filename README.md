@@ -136,11 +136,11 @@ This release line replaces the older Stage-0 / generated-summary path with a sma
 
 | Upgrade | What changed |
 |---------|--------------|
-| CRG query-first runtime | `locate`, `path`, `explain`, `workflow-context`, and lifecycle `hook` commands now give workflows graph evidence directly instead of asking them to consume stale generated summaries. |
+| CRG query-first runtime | `locate`, `path`, `explain`, `workflow-context`, lifecycle `hook`, and the newer graph-quality / retrieval-eval outputs give workflows graph evidence directly instead of asking them to consume stale generated summaries. |
 | Workspace topology | Parent workspaces get discovery/status/context artifacts only; repo-local `graph.db` files stay under explicit child repos. |
-| Task-pack handoff | `spec-write-tasks` is a standalone skill that can derive `docs/tasks/*-tasks.md` from a settled plan; `spec-work` validates task-pack identity, source hash, and `stop_if` before execution. |
+| Task-pack handoff | `spec-write-tasks` is a standalone skill that derives `docs/tasks/*-tasks.md` from a settled plan; `spec-first tasks hash|validate` and `spec-work` share the same validator so identity, source hash, freshness, and structure are checked before execution. |
 | Entry governance | `using-spec-first` is a standalone meta skill on both hosts. It routes substantial work to public `$spec-*` / `/spec:*` workflows without becoming a workflow command itself. |
-| Runtime delivery | Claude and Codex expose the same 19 workflow entrypoints plus 2 standalone skills, with host-specific installation surfaces and shared agent assets. |
+| Runtime delivery | The governed bundle now keeps session-history, PR follow-up, PR description, and browser-capture helpers inside source-backed assets, so recent CE syncs land as governed skills instead of ad hoc prompts. |
 
 ### CRG Decision Signals
 
@@ -197,11 +197,13 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 | **CLI control plane** (`doctor` / `init` / `clean` / `crg <subcommand>`) | Repeatable install, health checks, cleanup, graph readiness, and query evidence — managed assets always stay traceable |
 | **CRG graph engine** (`spec-first crg *`) | **Code Review Graph** — an embedded Node.js runtime over SQLite + FTS5, covering AST → symbols → resolved edges → PageRank flows → community detection → surprising-connections → god-nodes → review-context |
 | **graph-bootstrap query engine** | LLM gets graph-backed candidate change surface and blast-radius evidence instead of a raw codebase |
-| **Full workflow layer** | Ideate → Brainstorm → Plan → Work → Review → Compound, every stage with an explicit artifact contract |
+| **Full workflow layer** | Ideate → Brainstorm → Plan → optional Task Pack → Work → Review → Compound, every stage with an explicit artifact contract |
 | **Structured Review stage** | 17 reviewer personas plus 2 auxiliary agents produce routed findings (`safe_auto / gated_auto / manual / advisory`), not a single-pass scan |
 | **Compound / knowledge capture** | Solved problems are written to `docs/solutions/` for future workflow retrieval |
+| **Task-pack toolchain** (`spec-first tasks`) | Canonical source-plan hashing and task-pack validation before `spec-work` consumes a derived pack |
+| **Session / PR helpers** | Session history lookup, PR description / feedback handling, and browser evidence stay inside governed skills instead of one-off prompts |
 | **Dual platform support** | One methodology across Claude Code (`/spec:*`) and Codex (`$spec-*`). Claude uses a `SessionStart` hook + bare-agent rewrite; Codex uses `.agents/skills/` discovery + explicit `.codex/agents/...` path rewrite |
-| **Capability layer** | Bundled source assets ship with `41` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `19` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `19` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
+| **Capability layer** | Bundled source assets ship with `39` skills, `51` agents, and no agent support files. Runtime delivery is host-filtered by governance: Claude installs `19` commands + `4` skill directories + `51` agents, while Codex installs `23` skill directories + `51` agents and no command directory |
 | **Runtime governance** | Managed assets are tracked in `state.json` — sync, refresh, recover, and clean safely |
 
 ## Core Workflow
@@ -317,7 +319,7 @@ spec-first clean --claude   # or --codex
 
 `clean` removes everything marked removable in the table above, then prints which platform's managed assets were removed. Custom assets outside the managed set are left untouched. The language policy block must still be removed manually — search for `<!-- spec-first:lang:` in `CLAUDE.md` / `AGENTS.md`.
 Both `init --dry-run` and `clean --dry-run` preview file-level operations derived from the same managed operation plans used by real apply paths, which keeps preview/apply drift narrow and testable.
-Current runtime delivery is host-specific by governance: Claude writes `19` command files, `2` skill directories, `51` agent files; Codex writes `19` workflow skill directories, `2` standalone skill directories, and the same `51` agent files, with no command directory.
+Current runtime delivery is host-specific by governance: Claude writes `19` command files, `4` skill directories, and `51` agent files; Codex writes `23` skill directories and the same `51` agent files, with no command directory.
 
 #### Example output
 
@@ -351,6 +353,23 @@ $ spec-first init --claude
 | Start the workflow | `/spec:ideate` → `/spec:brainstorm` → `/spec:plan` → `/spec:work` → `/spec:code-review` → `/spec:compound` | `$spec-ideate` → … → `$spec-compound` |
 
 `graph-bootstrap` checks host readiness and CRG availability at startup. If graph evidence is unavailable, later workflows continue with explicit direct-read fallback.
+
+### Task Pack Commands (`spec-first tasks <subcommand>`)
+
+Deterministic utilities around the `spec-write-tasks` handoff.
+
+```bash
+spec-first tasks --help
+spec-first tasks hash <plan-path>
+spec-first tasks validate <task-pack-path> --repo=<path>
+```
+
+| Subcommand | Purpose |
+|------------|---------|
+| `hash` | Compute a canonical source-plan hash from a plan file, stripping frontmatter before hashing |
+| `validate` | Validate a derived task pack against source identity, freshness, and structure before Work consumes it |
+
+`validate` checks identity, freshness, and structure only. It does not judge task-splitting quality or business scope.
 
 ## Architecture
 
