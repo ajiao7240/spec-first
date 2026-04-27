@@ -1,6 +1,10 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-27 21:54:41 leokuang: docs(plans): 按最终审查意见补强 CRG 删除方案，新增 CHANGELOG breaking-change 验收、README 当前替代路径，并将 summarizeChangeSurface 默认决策为随 CRG 删除 (user-visible)
+- v1.6.0 2026-04-27 21:42:02 leokuang: docs(plans): 按审查意见收紧 CRG 删除方案，禁止本 PR 新增 graph provider readiness，固定 artifact helper 迁移路径，并补强 init/clean、postinstall、AI Dev Gate rename、负向扫描与文档 superseded 约束 (user-visible)
+- v1.6.0 2026-04-27 21:27:38 leokuang: docs(plans): 新增彻底删除内置 CRG 与 graph-bootstrap workflow 的实施方案，覆盖上下文替代、配置治理、安装依赖清理、单测负向 contract 与完整删除验收信号 (user-visible)
+- v1.6.0 2026-04-27 20:52:25 leokuang: docs(plans): 新增 CRG 外部 code-review-graph 硬切换技术计划，明确删除内置 Node 图引擎、改用安装式外部 adapter、重写 hook/workspace/readiness/package/docs/tests 的实施边界 (user-visible)
 - v1.6.0 2026-04-27 12:49:30 leokuang: docs(git-npm): 更新发布后收尾规则，要求真实发版成功后立即补提 release snapshot；master 为直提分支时再次提交 master 对齐已发布 tarball (user-visible)
 - v1.6.0 2026-04-27 12:40:36 leokuang: release: 发布 spec-first 1.6.0，并基于当前 master 快照完成 npm 发版 (user-visible)
 - v1.5.9 2026-04-27 11:33:52 leokuang: docs(spec-mcp-setup): 优化最终 readiness 表格展示契约，新增 Type 列区分 MCP 与 helper，统一 n/a 显示并避免 optional MCP 被误读为 baseline 失败 (user-visible)
