@@ -139,16 +139,16 @@ in_repo="$(git rev-parse --is-inside-work-tree >/dev/null 2>&1 && echo "yes" || 
 
 deps=(
   "agent-browser|required"
-  "gh|recommended"
-  "jq|recommended"
-  "vhs|recommended"
-  "silicon|recommended"
-  "ffmpeg|recommended"
-  "ast-grep|recommended"
+  "gh|required"
+  "jq|required"
+  "vhs|required"
+  "silicon|required"
+  "ffmpeg|required"
+  "ast-grep|required"
 )
 
 skills=(
-  "ast-grep|recommended"
+  "ast-grep|required"
 )
 
 cli_ok=0
@@ -297,6 +297,8 @@ if [ "$json_output" = "yes" ]; then
       dependency_status="ready"
       result_status="ready"
       next_action=""
+    elif [ "$tier" = "required" ]; then
+      result_status="action-required"
     fi
     printf '    {"id":"%s","required":%s,"dependency_status":"%s","host_config_status":"not-applicable","project_status":"not-applicable","result":"%s","next_action":"%s","install_command":"%s","url":"%s"}' \
       "$(json_escape "$name")" \

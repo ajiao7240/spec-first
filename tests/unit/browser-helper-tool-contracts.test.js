@@ -141,7 +141,7 @@ describe('browser helper tool contracts', () => {
     const installHelpers = read(MCP_SETUP_INSTALL_HELPERS_PATH);
     const reference = read(MCP_SETUP_REFERENCE_PATH);
 
-    expect(setupSkill).toContain('Required helper tool outside `mcp-tools.json`');
+    expect(setupSkill).toContain('Required helper tooling outside `mcp-tools.json`');
     expect(setupSkill).toContain('`agent-browser`');
     expect(setupSkill).toContain('helper_tools');
     expect(setupSkill).toContain('install-helpers.* --verify-only');
@@ -151,7 +151,7 @@ describe('browser helper tool contracts', () => {
     expect(installHelpers).toContain('.agent-browser/spec-first-install.json');
     expect(installHelpers).toContain('npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y');
     expect(checkHealth).toContain('"agent-browser|required"');
-    expect(checkHealth).toContain('"ast-grep|recommended"');
+    expect(checkHealth).toContain('"ast-grep|required"');
     expect(checkHealth).toContain('--json');
     expect(checkHealth).toContain('Tool install status');
     expect(checkHealth).toContain('Skill install status');
@@ -165,7 +165,7 @@ describe('browser helper tool contracts', () => {
     expect(reference).toContain('"helper_tools"');
   });
 
-  test('check-health JSON exposes required helper and recommended project helpers', () => {
+  test('check-health JSON exposes required helper tooling', () => {
     const result = spawnSync('bash', [MCP_SETUP_CHECK_HEALTH_PATH, '--json'], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
@@ -184,17 +184,18 @@ describe('browser helper tool contracts', () => {
 
     const astGrepTool = payload.tools.find((tool) => tool.id === 'ast-grep');
     expect(astGrepTool).toMatchObject({
-      required: false,
+      required: true,
       host_config_status: 'not-applicable',
       project_status: 'not-applicable',
     });
 
     const astGrepSkill = payload.skills.find((skill) => skill.id === 'ast-grep');
     expect(astGrepSkill).toMatchObject({
-      required: false,
+      required: true,
       host_config_status: 'not-applicable',
       project_status: 'not-applicable',
     });
+    expect(payload.tools.every((tool) => tool.required === true)).toBe(true);
 
     expect(payload.project).toHaveProperty('local_config_status');
     expect(payload.legacy).toHaveProperty('compound_engineering_config_status');
@@ -211,7 +212,7 @@ describe('browser helper tool contracts', () => {
     expect(governance.skills.map((entry) => entry.skill_name)).not.toContain('spec-setup');
     expect(setupSkill).toContain('Project Preflight / Local Setup');
     expect(setupSkill).toContain('Required Harness Runtime');
-    expect(setupSkill).toContain('Recommended project helpers must not be added to `mcp-tools.json`');
+    expect(setupSkill).toContain('Required helper tooling must not be added to `mcp-tools.json`');
   });
 
   test('downstream browser prompts keep CLI usage and dual-host missing-tool guidance', () => {

@@ -64,6 +64,14 @@ SH
 #!/bin/bash
 echo "npx \$*" >> "$log_file"
 if [ "\${1:-}" = "--version" ]; then echo "10.0.0"; fi
+if [[ " \$* " == *" --skill agent-browser "* ]]; then
+  mkdir -p "\$HOME/.agents/skills/agent-browser"
+  printf 'name: agent-browser\n' > "\$HOME/.agents/skills/agent-browser/SKILL.md"
+fi
+if [[ " \$* " == *" skills add ast-grep/agent-skill "* ]]; then
+  mkdir -p "\$HOME/.agents/skills/ast-grep"
+  printf 'name: ast-grep\n' > "\$HOME/.agents/skills/ast-grep/SKILL.md"
+fi
 exit 0
 SH
   cat > "$bin_dir/uv" <<'SH'
@@ -86,7 +94,15 @@ echo "agent-browser \$*" >> "$log_file"
 if [ "\${1:-}" = "--version" ]; then echo "agent-browser 0.0.0"; fi
 exit 0
 SH
-  chmod +x "$bin_dir/node" "$bin_dir/npm" "$bin_dir/npx" "$bin_dir/uv" "$bin_dir/uvx" "$bin_dir/agent-browser"
+  for helper in gh vhs silicon ffmpeg ast-grep; do
+    cat > "$bin_dir/$helper" <<SH
+#!/bin/bash
+echo "$helper \$*" >> "$log_file"
+if [ "\${1:-}" = "--version" ]; then echo "$helper 0.0.0"; fi
+exit 0
+SH
+  done
+  chmod +x "$bin_dir/node" "$bin_dir/npm" "$bin_dir/npx" "$bin_dir/uv" "$bin_dir/uvx" "$bin_dir/agent-browser" "$bin_dir/gh" "$bin_dir/vhs" "$bin_dir/silicon" "$bin_dir/ffmpeg" "$bin_dir/ast-grep"
 }
 
 make_repo() {
@@ -122,24 +138,29 @@ assert_eq "required Unix deps are ready" "true" "$(jq -r '[.dependencies | to_en
 assert_eq "check-deps required_ready true with fake deps" "true" "$(jq -r '.required_ready' <<<"$deps_output")"
 
 FAKE_HOME="$TMP_DIR/home"
-mkdir -p "$FAKE_HOME/.agents/skills/agent-browser"
-printf 'name: agent-browser\n' > "$FAKE_HOME/.agents/skills/agent-browser/SKILL.md"
+mkdir -p "$FAKE_HOME"
 
 helper_verify_log_before="$(cat "$COMMAND_LOG")"
 helper_verify="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh" --verify-only)"
 helper_verify_log_after="$(cat "$COMMAND_LOG")"
 assert "install-helpers verify-only emits JSON" jq -e . <<<"$helper_verify"
 assert_eq "helper shape contains agent-browser" "true" "$(jq -r '.helper_tools | has("agent-browser")' <<<"$helper_verify")"
+assert_eq "helper shape contains required jq" "true" "$(jq -r '.helper_tools | has("jq")' <<<"$helper_verify")"
+assert_eq "helper shape contains required ast-grep CLI" "true" "$(jq -r '.helper_tools | has("ast-grep")' <<<"$helper_verify")"
+assert_eq "helper shape contains required ast-grep skill" "true" "$(jq -r '.helper_tools | has("ast-grep-skill")' <<<"$helper_verify")"
 assert_eq "helper verify-only does not run install commands" "$helper_verify_log_before" "$helper_verify_log_after"
 assert_eq "helper verify-only requires browser install marker" "action-required" "$(jq -r '.helper_tools."agent-browser".result' <<<"$helper_verify")"
 assert_eq "helper verify-only flags missing install marker" "action-required" "$(jq -r '.helper_tools."agent-browser".install_status' <<<"$helper_verify")"
 assert_eq "helper verify-only asks for agent-browser install" "run agent-browser install" "$(jq -r '.helper_tools."agent-browser".next_action' <<<"$helper_verify")"
+assert_eq "helper verify-only requires ast-grep global skill" "action-required" "$(jq -r '.helper_tools."ast-grep-skill".result' <<<"$helper_verify")"
 
 helper_install="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh")"
 assert "install-helpers install emits JSON" jq -e . <<<"$helper_install"
 assert_contains "helper install runs agent-browser install" "agent-browser install" "$(cat "$COMMAND_LOG")"
 assert_contains "helper install installs global skill" "npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y" "$(cat "$COMMAND_LOG")"
+assert_contains "helper install installs ast-grep global skill" "npx skills add ast-grep/agent-skill -g -y" "$(cat "$COMMAND_LOG")"
 assert "helper install writes browser install marker" test -f "$FAKE_HOME/.agent-browser/spec-first-install.json"
+assert_eq "helper install reports all helpers ready" "true" "$(jq -r '[.helper_tools[] | .result == "ready"] | all' <<<"$helper_install")"
 
 helper_verify_after_install_log_before="$(cat "$COMMAND_LOG")"
 helper_verify_after_install="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh" --verify-only)"
@@ -165,8 +186,8 @@ preflight_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" bash 
 assert "check-health --json emits JSON" jq -e . <<<"$preflight_output"
 assert_eq "check-health schema v2" "spec-mcp-setup-preflight.v2" "$(jq -r '.schema_version' <<<"$preflight_output")"
 assert_eq "agent-browser remains required helper in preflight" "true" "$(jq -r '.tools[] | select(.id == "agent-browser") | .required' <<<"$preflight_output")"
-assert_eq "ast-grep CLI is recommended only" "false" "$(jq -r '.tools[] | select(.id == "ast-grep") | .required' <<<"$preflight_output")"
-assert_eq "ast-grep skill is recommended only" "false" "$(jq -r '.skills[] | select(.id == "ast-grep") | .required' <<<"$preflight_output")"
+assert_eq "project helper CLIs are required" "true" "$(jq -r 'all(.tools[]; .required == true)' <<<"$preflight_output")"
+assert_eq "ast-grep skill is required" "true" "$(jq -r '.skills[] | select(.id == "ast-grep") | .required' <<<"$preflight_output")"
 assert_eq "project facts are included" "missing" "$(jq -r '.project.local_config_status' <<<"$preflight_output")"
 
 project_bootstrap="$(cd "$FAKE_REPO" && bash "$SCRIPTS_DIR/bootstrap-project-config.sh" --refresh-example --create-local --ensure-gitignore --json)"
@@ -216,13 +237,17 @@ verify_text="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_
 assert_contains "verify reports ledger v2" "readiness ledger v2" "$verify_text"
 assert_contains "verify prints final status table" "Required Harness Runtime status:" "$verify_text"
 assert_contains "verify table includes helper" "agent-browser" "$verify_text"
+assert_contains "verify table includes required ast-grep helper" "ast-grep" "$verify_text"
+assert_contains "verify table includes required ast-grep skill" "ast-grep-skill" "$verify_text"
 assert_contains "verify table includes provider projection" "graph-providers.json" "$verify_text"
+last_verify_line="$(printf '%s\n' "$verify_text" | sed '/^[[:space:]]*$/d' | tail -n 1)"
+assert_contains "verify output ends with final status table" "graph-providers.json" "$last_verify_line"
 LEDGER_PATH="$FAKE_HOME/.claude/spec-first/host-setup.json"
 PROVIDER_CONFIG="$FAKE_REPO/.spec-first/config/graph-providers.json"
 assert "ledger exists" test -f "$LEDGER_PATH"
 assert "provider config exists" test -f "$PROVIDER_CONFIG"
 assert_eq "ledger schema v2" "v2" "$(jq -r '.schema_version' "$LEDGER_PATH")"
-assert_eq "ledger baseline includes helper and tools" "true" "$(jq -r '.baseline_ready and (.helper_tools."agent-browser".result == "ready") and (.tools.gitnexus.host_config_status == "fallback-active") and (.tools["code-review-graph"].host_config_status == "fallback-active")' "$LEDGER_PATH")"
+assert_eq "ledger baseline includes all helpers and tools" "true" "$(jq -r '.baseline_ready and ([.helper_tools[] | .result == "ready"] | all) and (.tools.gitnexus.host_config_status == "fallback-active") and (.tools["code-review-graph"].host_config_status == "fallback-active")' "$LEDGER_PATH")"
 assert_eq "provider projection schema" "graph-providers.v1" "$(jq -r '.schema_version' "$PROVIDER_CONFIG")"
 assert_eq "provider projection is setup-only" "true" "$(jq -r '.boundaries.setup_only and .boundaries.does_not_run_gitnexus_analyze and .boundaries.does_not_run_code_review_graph_build' "$PROVIDER_CONFIG")"
 assert_eq "providers are configured but not query-ready" "true" "$(jq -r '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.query_ready == false) and .providers["code-review-graph"].configured and .providers["code-review-graph"].enabled_for_bootstrap and (.providers["code-review-graph"].query_ready == false)' "$PROVIDER_CONFIG")"

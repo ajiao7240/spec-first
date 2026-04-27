@@ -48,6 +48,10 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain("schema_version = 'v2'");
     expect(verifySource).toContain('Required Harness Runtime status:');
     expect(verifySource).toContain('graph-providers.json');
+    expect(verifySource.indexOf('Graph providers are configured but not query-ready yet.')).toBeLessThan(
+      verifySource.indexOf('Required Harness Runtime status:'),
+    );
+    expect(verifySource.trim().endsWith("(Format-Cell $projectionNext)")).toBe(true);
   });
 
   test('uses shared TOML helpers for quoted Codex MCP keys', () => {
@@ -74,6 +78,9 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installHelpersSource).toContain('.agent-browser/spec-first-install.json');
     expect(installHelpersSource).toContain('Write-AgentBrowserInstallMarker');
     expect(installHelpersSource).toContain('agent-browser install');
+    expect(installHelpersSource).toContain("'gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep'");
+    expect(installHelpersSource).toContain('npx skills add ast-grep/agent-skill -g -y');
+    expect(installHelpersSource).toContain("'ast-grep-skill'");
     expect(installHelpersSource).not.toContain('agent-browser doctor');
     expect(installHelpersSource).not.toContain('doctor --fix');
     expect(installHelpersSource).toContain("$mode -eq 'verify-only' -and -not (Test-Path $agentBrowserInstallMarker)");

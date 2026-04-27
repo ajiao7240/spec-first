@@ -19,9 +19,20 @@ This reference is the human-readable index for the runtime managed by `spec-mcp-
 
 `spec-mcp-setup` only warms and configures graph-provider MCP servers. It must not run `gitnexus analyze` or `code-review-graph build`.
 
-## Required Helper Tool
+## Required Helper Tooling
 
-`agent-browser` is required helper tooling, not an MCP server. It is intentionally not listed in `mcp-tools.json`.
+Required helper tooling is not an MCP server category and is intentionally not listed in `mcp-tools.json`.
+
+| Tool | Required | Type | Purpose |
+|---|---:|---|---|
+| `agent-browser` | Yes | helper CLI + global skill | Browser automation helper used by downstream workflows |
+| `gh` | Yes | helper CLI | GitHub issue/PR operations |
+| `jq` | Yes | helper CLI / script dependency | JSON parsing for deterministic setup scripts |
+| `vhs` | Yes | helper CLI | Terminal demo recording |
+| `silicon` | Yes | helper CLI | Code screenshot rendering |
+| `ffmpeg` | Yes | helper CLI | Media conversion and video assembly |
+| `ast-grep` | Yes | helper CLI | Structural code search and rewrite |
+| global `ast-grep` skill | Yes | global skill | Agent-facing ast-grep usage guidance |
 
 Default helper install mode runs:
 
@@ -29,6 +40,8 @@ Default helper install mode runs:
 CI=true npm install -g agent-browser --no-audit --no-fund --loglevel=error
 agent-browser install
 npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
+NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q gh jq vhs silicon ffmpeg ast-grep
+npx skills add ast-grep/agent-skill -g -y
 ```
 
 After `agent-browser install` succeeds, `install-helpers.*` writes `$HOME/.agent-browser/spec-first-install.json`. `--verify-only` only reads that marker, the CLI presence, and the global skill file; it does not run install or diagnostic commands.
@@ -38,7 +51,14 @@ After `agent-browser install` succeeds, `install-helpers.*` writes `$HOME/.agent
 ```json
 {
   "helper_tools": {
-    "agent-browser": {}
+    "agent-browser": {},
+    "gh": {},
+    "jq": {},
+    "vhs": {},
+    "silicon": {},
+    "ffmpeg": {},
+    "ast-grep": {},
+    "ast-grep-skill": {}
   }
 }
 ```
@@ -51,7 +71,7 @@ Readiness ledger v2 is written by `verify-tools.*` after merging MCP/graph-provi
 
 - required MCP tools are configured;
 - required graph-provider MCP servers are configured;
-- `agent-browser` helper facts are ready.
+- every required helper fact is ready.
 
 It does not mean graph indexes are query-ready. After `spec-mcp-setup`, graph providers remain:
 

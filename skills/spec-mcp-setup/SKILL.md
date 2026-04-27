@@ -11,10 +11,10 @@ argument-hint: ""
 
 This workflow is the single setup entrypoint for spec-first. It has two distinct layers:
 
-- Project Preflight / Local Setup: recommended developer helpers, project-local config bootstrap, and legacy Compound Engineering residue guidance.
+- Project Preflight / Local Setup: required developer helpers, project-local config bootstrap, and legacy Compound Engineering residue guidance.
 - Required Harness Runtime: required MCP servers, graph-provider MCP servers, `agent-browser`, readiness ledger v2, and graph provider projection.
 
-Project preflight facts do not affect `baseline_ready`. This workflow does not expose selectable MCP registry entries, legacy pending states, or a browser MCP server.
+Project-local config and legacy residue facts do not affect `baseline_ready`. Required helper facts do affect `baseline_ready`. This workflow does not expose selectable MCP registry entries, legacy pending states, or a browser MCP server.
 
 ## Runtime Baseline
 
@@ -31,22 +31,18 @@ Required graph-provider MCP tools:
 - `gitnexus` with role `global_knowledge`
 - `code-review-graph` with role `impact_context`
 
-Required helper tool outside `mcp-tools.json`:
+Required helper tooling outside `mcp-tools.json`:
 
 - `agent-browser`
-
-All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp` or `graph-provider`. `agent-browser` must not be added to `mcp-tools.json`; it is a helper CLI plus global skill managed by `install-helpers.*`.
-
-Recommended project helpers outside `mcp-tools.json`:
-
 - `gh`
+- `jq`
 - `vhs`
 - `silicon`
 - `ffmpeg`
 - `ast-grep`
 - global `ast-grep` skill
 
-Recommended project helpers must not be added to `mcp-tools.json` and must not affect `baseline_ready`.
+All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp` or `graph-provider`. Required helper tooling must not be added to `mcp-tools.json`; it is managed by `install-helpers.*` and appears under readiness ledger `helper_tools`.
 
 ## What This Workflow Does
 
@@ -54,7 +50,7 @@ Recommended project helpers must not be added to `mcp-tools.json` and must not a
 2. Offers explicit project-local config bootstrap actions when needed.
 3. Reports legacy Compound Engineering residue and asks before deleting `compound-engineering.local.md`.
 4. Checks required dependencies.
-5. Installs/verifies the required helper `agent-browser`.
+5. Installs/verifies required helper tooling.
 6. Warms and configures every required MCP server in the host MCP config.
 7. Bootstraps Serena for the current repo.
 8. Writes readiness ledger v2 to the host marker path.
@@ -88,8 +84,8 @@ On Windows, run `check-health` from Git Bash or WSL; project bootstrap has a nat
 `check-health` reports:
 
 - required helper `agent-browser`
-- recommended developer helper tools
-- recommended global `ast-grep` skill
+- required developer helper tools
+- required global `ast-grep` skill
 - `.spec-first/config.local.yaml`
 - `.spec-first/config.local.example.yaml`
 - `.spec-first/*.local.yaml` gitignore coverage
@@ -110,7 +106,7 @@ pwsh -File skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1 -RefreshEx
 
 Only pass `--delete-legacy-markdown` / `-DeleteLegacyMarkdown` after the user confirms deleting `compound-engineering.local.md`. Do not automatically delete `.compound-engineering/config.local.yaml`; report it as legacy residue and tell the user that spec-first now uses `.spec-first/config.local.yaml`.
 
-Project preflight is advisory setup input. Missing recommended tools, missing local config, outdated example config, and legacy CE residue must not mark Required Harness Runtime as failed.
+Project preflight prepares setup input. Missing required helper tooling must mark Required Harness Runtime as failed. Missing local config, outdated example config, and legacy CE residue must not mark Required Harness Runtime as failed.
 
 ## Deterministic Commands
 
@@ -171,7 +167,14 @@ pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1
 ```json
 {
   "helper_tools": {
-    "agent-browser": {}
+    "agent-browser": {},
+    "gh": {},
+    "jq": {},
+    "vhs": {},
+    "silicon": {},
+    "ffmpeg": {},
+    "ast-grep": {},
+    "ast-grep-skill": {}
   }
 }
 ```
@@ -181,10 +184,17 @@ Default helper install mode must:
 1. Install `agent-browser` CLI if missing.
 2. Run `agent-browser install`.
 3. Write `$HOME/.agent-browser/spec-first-install.json` after `agent-browser install` succeeds.
-4. Install the upstream/global skill:
+4. Install required helper CLIs: `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, and `ast-grep`.
+5. Install the upstream/global `agent-browser` skill:
 
 ```bash
 npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
+```
+
+6. Install the global `ast-grep` skill:
+
+```bash
+npx skills add ast-grep/agent-skill -g -y
 ```
 
 ## Readiness Ledger v2
@@ -214,7 +224,7 @@ Then it computes one final readiness ledger:
 }
 ```
 
-`baseline_ready` includes required MCP tools, graph providers, and `agent-browser`. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph bootstrap is still required.
+`baseline_ready` includes required MCP tools, graph providers, and every required helper in `helper_tools`. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph bootstrap is still required.
 
 After setup, graph-provider facts must only show:
 
@@ -267,7 +277,7 @@ Uninstall does not delete `agent-browser`, external caches, or the project proje
 
 ## Success Summary
 
-When setup finishes, display a final status table sourced from readiness ledger v2:
+When setup finishes, display a final status table sourced from readiness ledger v2. The final visible output block must be this table; print ledger/projection notes before the table and do not print a non-table footer after it:
 
 ```text
 Required Harness Runtime is ready.
@@ -281,13 +291,15 @@ Required Harness Runtime status:
   gitnexus                 graph-provider   yes      ready            ready            n/a              pending    run spec-graph-bootstrap
   code-review-graph        graph-provider   yes      ready            ready            n/a              pending    run spec-graph-bootstrap
   agent-browser            helper           yes      ready            n/a              n/a              n/a        n/a
+  gh                       helper           yes      ready            n/a              n/a              n/a        n/a
+  jq                       helper           yes      ready            n/a              n/a              n/a        n/a
+  vhs                      helper           yes      ready            n/a              n/a              n/a        n/a
+  silicon                  helper           yes      ready            n/a              n/a              n/a        n/a
+  ffmpeg                   helper           yes      ready            n/a              n/a              n/a        n/a
+  ast-grep                 helper           yes      ready            n/a              n/a              n/a        n/a
+  ast-grep-skill           global-skill     yes      ready            n/a              n/a              n/a        n/a
   graph-providers.json     project          yes      n/a              n/a              ready            n/a        n/a
 
-Graph providers are configured but not query-ready yet.
-
-Next:
-1. Restart Claude Code / Codex if needed.
-2. Run /spec:graph-bootstrap or $spec-graph-bootstrap.
 ```
 
 ## Reference

@@ -35,21 +35,119 @@ function Write-AgentBrowserInstallMarker {
   } | ConvertTo-Json -Compress | Set-Content -Encoding utf8 $agentBrowserInstallMarker
 }
 
+function Get-PlatformName {
+  if ($IsLinux) { return 'linux' }
+  if ($IsMacOS) { return 'macos' }
+  return 'unknown'
+}
+
+function Get-HelperInstallCommand {
+  param(
+    [string]$Name,
+    [string]$Platform
+  )
+
+  switch ($Name) {
+    'agent-browser' { return 'CI=true npm install -g agent-browser --no-audit --no-fund --loglevel=error && agent-browser install && npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y' }
+    'gh' { if ($Platform -eq 'linux') { return 'sudo apt-get install -y gh' }; return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q gh' }
+    'jq' { if ($Platform -eq 'linux') { return 'sudo apt-get install -y jq' }; return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q jq' }
+    'vhs' { if ($Platform -eq 'linux') { return 'go install github.com/charmbracelet/vhs@latest' }; return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q vhs' }
+    'silicon' { if ($Platform -eq 'linux') { return 'cargo install silicon' }; return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q silicon' }
+    'ffmpeg' { if ($Platform -eq 'linux') { return 'sudo apt-get install -y ffmpeg' }; return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ffmpeg' }
+    'ast-grep' { if ($Platform -eq 'linux') { return 'cargo install ast-grep --locked' }; return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ast-grep' }
+    'ast-grep-skill' { return 'npx skills add ast-grep/agent-skill -g -y' }
+    default { return '' }
+  }
+}
+
+function Invoke-HelperInstall {
+  param(
+    [string]$Name,
+    [string]$Platform
+  )
+
+  switch ($Name) {
+    'gh' {
+      if ($Platform -eq 'linux') { return (Invoke-HelperCommand { sudo apt-get install -y gh }) }
+      return (Invoke-HelperCommand { brew install -q gh })
+    }
+    'jq' {
+      if ($Platform -eq 'linux') { return (Invoke-HelperCommand { sudo apt-get install -y jq }) }
+      return (Invoke-HelperCommand { brew install -q jq })
+    }
+    'vhs' {
+      if ($Platform -eq 'linux') { return (Invoke-HelperCommand { go install github.com/charmbracelet/vhs@latest }) }
+      return (Invoke-HelperCommand { brew install -q vhs })
+    }
+    'silicon' {
+      if ($Platform -eq 'linux') { return (Invoke-HelperCommand { cargo install silicon }) }
+      return (Invoke-HelperCommand { brew install -q silicon })
+    }
+    'ffmpeg' {
+      if ($Platform -eq 'linux') { return (Invoke-HelperCommand { sudo apt-get install -y ffmpeg }) }
+      return (Invoke-HelperCommand { brew install -q ffmpeg })
+    }
+    'ast-grep' {
+      if ($Platform -eq 'linux') { return (Invoke-HelperCommand { cargo install ast-grep --locked }) }
+      return (Invoke-HelperCommand { brew install -q ast-grep })
+    }
+    'ast-grep-skill' {
+      return (Invoke-HelperCommand { npx skills add ast-grep/agent-skill -g -y })
+    }
+    default { return $false }
+  }
+}
+
+function Test-GlobalSkill {
+  param([string]$Name)
+  return (
+    (Test-Path (Join-Path $HOME ".agents/skills/$Name/SKILL.md")) -or
+    (Test-Path (Join-Path $HOME ".claude/skills/$Name/SKILL.md"))
+  )
+}
+
+function Add-HelperFact {
+  param(
+    [ordered]$HelperTools,
+    [string]$Id,
+    [string]$Type,
+    [string]$DependencyStatus,
+    [string]$InstallStatus,
+    [string]$SkillStatus,
+    [string]$Result,
+    [string]$NextAction
+  )
+
+  $HelperTools[$Id] = [ordered]@{
+    required = $true
+    type = $Type
+    dependency_status = $DependencyStatus
+    host_config_status = 'not-applicable'
+    install_status = $InstallStatus
+    skill_status = $SkillStatus
+    project_status = 'not-applicable'
+    result = $Result
+    next_action = $NextAction
+  }
+}
+
+$helperTools = [ordered]@{}
+$platform = Get-PlatformName
+$globalAgentBrowserSkill = Join-Path $HOME '.agents/skills/agent-browser/SKILL.md'
+$agentBrowserInstallMarker = Join-Path $HOME '.agent-browser/spec-first-install.json'
+
 $status = 'ready'
 $dependencyStatus = 'ready'
 $installStatus = 'ready'
 $skillStatus = 'ready'
-$projectStatus = 'not-applicable'
 $nextAction = ''
-$globalAgentBrowserSkill = Join-Path $HOME '.agents/skills/agent-browser/SKILL.md'
-$agentBrowserInstallMarker = Join-Path $HOME '.agent-browser/spec-first-install.json'
 
 if (-not (Test-CommandExists 'agent-browser')) {
   $dependencyStatus = 'missing'
   $installStatus = 'action-required'
+  $status = 'action-required'
+  $nextAction = 'install agent-browser CLI'
   if ($mode -eq 'verify-only') {
-    $status = 'action-required'
-    $nextAction = 'install agent-browser CLI'
   } else {
     $previousCi = $env:CI
     $env:CI = 'true'
@@ -101,18 +199,57 @@ if ($status -eq 'ready' -and $mode -eq 'install') {
   }
 }
 
-[pscustomobject]@{
-  helper_tools = [ordered]@{
-    'agent-browser' = [ordered]@{
-      required = $true
-      type = 'helper'
-      dependency_status = $dependencyStatus
-      host_config_status = 'not-applicable'
-      install_status = $installStatus
-      skill_status = $skillStatus
-      project_status = $projectStatus
-      result = $status
-      next_action = $nextAction
+Add-HelperFact -HelperTools $helperTools -Id 'agent-browser' -Type 'helper' -DependencyStatus $dependencyStatus -InstallStatus $installStatus -SkillStatus $skillStatus -Result $status -NextAction $nextAction
+
+foreach ($helper in @('gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep')) {
+  $status = 'ready'
+  $dependencyStatus = 'ready'
+  $installStatus = 'ready'
+  $nextAction = ''
+
+  if (-not (Test-CommandExists $helper)) {
+    $dependencyStatus = 'missing'
+    $installStatus = 'action-required'
+    $status = 'action-required'
+    $nextAction = Get-HelperInstallCommand -Name $helper -Platform $platform
+    if ($mode -eq 'install') {
+      if ((Invoke-HelperInstall -Name $helper -Platform $platform) -and (Test-CommandExists $helper)) {
+        $dependencyStatus = 'ready'
+        $installStatus = 'ready'
+        $status = 'ready'
+        $nextAction = ''
+      }
     }
   }
+
+  Add-HelperFact -HelperTools $helperTools -Id $helper -Type 'helper' -DependencyStatus $dependencyStatus -InstallStatus $installStatus -SkillStatus 'not-applicable' -Result $status -NextAction $nextAction
+}
+
+$status = 'ready'
+$dependencyStatus = 'ready'
+$installStatus = 'ready'
+$skillStatus = 'ready'
+$nextAction = ''
+
+if (-not (Test-GlobalSkill 'ast-grep')) {
+  $dependencyStatus = 'missing'
+  $installStatus = 'action-required'
+  $skillStatus = 'action-required'
+  $status = 'action-required'
+  $nextAction = Get-HelperInstallCommand -Name 'ast-grep-skill' -Platform $platform
+  if ($mode -eq 'install') {
+    if ((Invoke-HelperInstall -Name 'ast-grep-skill' -Platform $platform) -and (Test-GlobalSkill 'ast-grep')) {
+      $dependencyStatus = 'ready'
+      $installStatus = 'ready'
+      $skillStatus = 'ready'
+      $status = 'ready'
+      $nextAction = ''
+    }
+  }
+}
+
+Add-HelperFact -HelperTools $helperTools -Id 'ast-grep-skill' -Type 'global-skill' -DependencyStatus $dependencyStatus -InstallStatus $installStatus -SkillStatus $skillStatus -Result $status -NextAction $nextAction
+
+[pscustomobject]@{
+  helper_tools = $helperTools
 } | ConvertTo-Json -Compress -Depth 8

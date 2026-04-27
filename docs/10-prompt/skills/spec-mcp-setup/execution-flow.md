@@ -16,7 +16,9 @@ install-helpers.*
   |-- run agent-browser install
   |-- write/read ~/.agent-browser/spec-first-install.json
   |-- install global agent-browser skill
-  |-- output helper_tools.agent-browser facts
+  |-- install/verify gh, jq, vhs, silicon, ffmpeg, ast-grep
+  |-- install/verify global ast-grep skill
+  |-- output helper_tools facts for every required helper
   v
 install-mcp.*
   |
@@ -39,6 +41,7 @@ verify-tools.*
   |-- merge install-helpers --verify-only facts
   |-- compute baseline_ready once
   |-- write readiness ledger schema_version=v2
+  |-- print final status table as the last visible output block
   v
 write-provider-config.*
   |

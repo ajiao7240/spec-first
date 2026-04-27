@@ -31,7 +31,7 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
   . as $facts
   | ($helper.helper_tools // {}) as $helper_tools
   | ([($facts.tools // {})[] | tool_ready] | all) as $tools_ready
-  | (($helper_tools["agent-browser"].result // "action-required") == "ready") as $helper_ready
+  | ([($helper_tools // {})[] | (.result // "action-required") == "ready"] | all) as $helper_ready
   | ($tools_ready and $helper_ready) as $baseline_ready
   | {
       schema_version: "v2",
@@ -51,7 +51,7 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
       helper_tools: $helper_tools,
       next_actions: (
         (($facts.next_actions // []) + [
-          ($helper_tools["agent-browser"].next_action // "")
+          ($helper_tools // {})[] | .next_action // ""
         ] + (if $baseline_ready then ["run spec-graph-bootstrap"] else [] end))
         | map(select(. != ""))
         | unique
@@ -75,6 +75,8 @@ mv "$final_tmp" "$MARKER_PATH"
 echo "📝 宿主就绪标记已更新: $MARKER_PATH"
 echo "🔎 当前宿主基线状态: $(jq -r '.overall_status' "$MARKER_PATH")"
 echo "🧭 baseline_ready: $(jq -r '.baseline_ready' "$MARKER_PATH")"
+echo "🧩 Graph providers are configured but not query-ready yet."
+echo "✅ readiness ledger v2 已写入"
 echo ""
 echo "Required Harness Runtime status:"
 printf "  %-24s %-16s %-8s %-16s %-16s %-16s %-10s %s\n" "Name" "Type" "Required" "Dependency" "Host" "Project" "Query" "Next"
@@ -132,6 +134,3 @@ jq -r '
 ' "$MARKER_PATH" | while IFS=$'\t' read -r name type required dependency host project query next; do
   printf "  %-24s %-16s %-8s %-16s %-16s %-16s %-10s %s\n" "$name" "$type" "$required" "$dependency" "$host" "$project" "$query" "$next"
 done
-echo ""
-echo "🧩 Graph providers are configured but not query-ready yet."
-echo "✅ readiness ledger v2 已写入"

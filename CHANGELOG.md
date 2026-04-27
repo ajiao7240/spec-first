@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 01:14:29 leokuang: fix(spec-mcp-setup): 将安装完成后的可见收尾调整为 readiness ledger v2 派生状态表，确保最终输出 block 用表格展示 MCP、helper 与 provider projection 结果 (user-visible)
+- v1.6.0 2026-04-28 00:57:12 leokuang: fix(spec-mcp-setup): 将 `gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和全局 `ast-grep` skill 明确纳入 Required Harness Runtime 必装 helper，缺失时输出 action-required 并参与 baseline readiness (user-visible)
 - v1.6.0 2026-04-28 00:55:00 leokuang: fix(spec-mcp-setup): 加固 Codex TOML section 删除边界和 exact args 检测，改为 marker 化验证 agent-browser install，并将 spec-update upstream version 来源切到源码 package.json (user-visible)
 - v1.6.0 2026-04-28 00:42:45 leokuang: fix(spec-mcp-setup): 修复 Codex TOML 配置段写入字面量换行导致精确检测失败的问题，确保 mcp setup 写入后能被立即验证 (user-visible)
 - v1.6.0 2026-04-28 00:42:03 leokuang: fix(ce-sync): 同步 CE 4b5f28da 的 shell pre-resolution、doc-review `suggested_fix` / `why_it_matters` 与 `spec-work-beta` delegation 规则，`work_delegate_model` / `work_delegate_effort` 省略时交给 `~/.codex/config.toml`，unset 时不向 `codex exec` 传 `-m` / `-c` placeholder flags，并补齐 contract 覆盖 (user-visible)

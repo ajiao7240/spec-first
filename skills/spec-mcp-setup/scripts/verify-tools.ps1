@@ -30,7 +30,13 @@ foreach ($property in $Facts.tools.PSObject.Properties) {
 }
 
 $helperTools = $HelperFacts.helper_tools
-$helperReady = ($helperTools.'agent-browser'.result -eq 'ready')
+$helperReady = $true
+foreach ($property in $helperTools.PSObject.Properties) {
+  if ($property.Value.result -ne 'ready') {
+    $helperReady = $false
+    break
+  }
+}
 $baselineReady = ($toolsReady -and $helperReady)
 
 $nextActions = New-Object System.Collections.Generic.List[string]
@@ -39,9 +45,11 @@ foreach ($action in @($Facts.next_actions)) {
     $nextActions.Add($action)
   }
 }
-$helperAction = $helperTools.'agent-browser'.next_action
-if (-not [string]::IsNullOrWhiteSpace($helperAction) -and -not $nextActions.Contains($helperAction)) {
-  $nextActions.Add($helperAction)
+foreach ($property in $helperTools.PSObject.Properties) {
+  $helperAction = $property.Value.next_action
+  if (-not [string]::IsNullOrWhiteSpace($helperAction) -and -not $nextActions.Contains($helperAction)) {
+    $nextActions.Add($helperAction)
+  }
 }
 if ($baselineReady -and -not $nextActions.Contains('run spec-graph-bootstrap')) {
   $nextActions.Add('run spec-graph-bootstrap')
@@ -121,6 +129,8 @@ function Write-StatusRow {
 Write-Host "📝 宿主就绪标记已更新: $MarkerPath"
 Write-Host "🔎 当前宿主基线状态: $($combined.overall_status)"
 Write-Host "🧭 baseline_ready: $($combined.baseline_ready)"
+Write-Host '🧩 Graph providers are configured but not query-ready yet.'
+Write-Host '✅ readiness ledger v2 已写入'
 Write-Host ''
 Write-Host 'Required Harness Runtime status:'
 Write-StatusRow 'Name' 'Type' 'Required' 'Dependency' 'Host' 'Project' 'Query' 'Next'
@@ -159,6 +169,3 @@ Write-StatusRow `
   (Format-Cell $combined.repo_config_status) `
   'n/a' `
   (Format-Cell $projectionNext)
-Write-Host ''
-Write-Host '🧩 Graph providers are configured but not query-ready yet.'
-Write-Host '✅ readiness ledger v2 已写入'
