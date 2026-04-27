@@ -110,6 +110,19 @@ describe('clean --dry-run', () => {
       const dryRun = captureCommand(projectRoot, runClean, ['--claude', '--dry-run']);
       expect(dryRun.exitCode).toBe(0);
 
+      const claudeInstructionPath = path.join(projectRoot, 'CLAUDE.md');
+      fs.appendFileSync(
+        claudeInstructionPath,
+        [
+          '',
+          '<!-- gitnexus:start -->',
+          '# GitNexus — Code Intelligence',
+          '<!-- gitnexus:end -->',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
       const cleanResult = captureCommand(projectRoot, runClean, ['--claude']);
       expect(cleanResult.exitCode).toBe(0);
 
@@ -125,7 +138,12 @@ describe('clean --dry-run', () => {
 
       expect(dryRun.stdout).toContain('CLAUDE.md');
       expect(fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))).toBe(true);
-      expect(fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8')).not.toContain('spec-first:bootstrap:start');
+      const claudeInstruction = fs.readFileSync(claudeInstructionPath, 'utf8');
+      expect(claudeInstruction).not.toContain('spec-first:bootstrap:start');
+      expect(claudeInstruction).not.toContain('spec-first:coding-guidelines:start');
+      expect(claudeInstruction).not.toContain('spec-first:runtime-tools:start');
+      expect(claudeInstruction).toContain('<!-- gitnexus:start -->');
+      expect(claudeInstruction).toContain('# GitNexus — Code Intelligence');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

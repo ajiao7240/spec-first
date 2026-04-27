@@ -15,6 +15,7 @@ const {
 const { getAdapter } = require('../adapters');
 const { removeManagedCodingGuidelinesBlock } = require('../coding-guidelines');
 const { removeManagedBootstrapBlock } = require('../instruction-bootstrap');
+const { removeManagedRuntimeToolsBlock } = require('../runtime-tools-index');
 const {
   renderManagedSessionStartHookRemoval,
   validateClaudeSettingsFile,
@@ -168,7 +169,9 @@ function buildRuntimeCleanupPreview(projectRoot, adapter) {
   const instructionPath = path.join(projectRoot, adapter.instructionFile);
   if (fs.existsSync(instructionPath)) {
     operations[0].contents = removeManagedCodingGuidelinesBlock(
-      removeManagedBootstrapBlock(fs.readFileSync(instructionPath, 'utf8')),
+      removeManagedRuntimeToolsBlock(
+        removeManagedBootstrapBlock(fs.readFileSync(instructionPath, 'utf8')),
+      ),
     );
   }
 

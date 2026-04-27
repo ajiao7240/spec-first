@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 03:13:17 leokuang: docs(plans): 新增 runtime tool instruction index 方案，收敛 GitNexus、code-review-graph、Serena MCP 与 ast-grep 在 AGENTS.md/CLAUDE.md 中的轻量使用边界和 managed block 实施路径 (user-visible)
 - v1.6.0 2026-04-28 02:51:52 leokuang: fix(init): 强化 CLAUDE.md/AGENTS.md 语言治理块，使用 Chinese/中文 与 English/英文 双语锚点，并明确回复、状态、文档、计划、任务、评审和 commit/PR 文案必须遵循项目语言 (user-visible)
 - v1.6.0 2026-04-28 02:47:38 leokuang: docs(spec-graph-bootstrap): 补强 Graph Readiness Compiler 需求，明确 provider-artifacts 归属、machine-readable fallback、query probe、workflow_mode 区分、normalized envelope 和测试接入要求 (user-visible)
 - v1.6.0 2026-04-28 02:41:06 leokuang: docs(spec-graph-bootstrap): 新增 Graph Readiness Compiler brainstorm 需求，收敛 mcp-setup 后的 provider bootstrap、canonical facts、workflow_mode 与降级边界 (user-visible)

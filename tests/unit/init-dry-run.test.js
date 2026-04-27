@@ -138,6 +138,29 @@ describe('init --dry-run', () => {
         expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(true);
       }
 
+      const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
+      expect(claudeInstruction).toContain('<!-- spec-first:runtime-tools:start -->');
+      expect(claudeInstruction).toContain('.claude/skills/spec-mcp-setup/references/supported-mcp-tools.md');
+      expect(claudeInstruction).toContain('/spec:graph-bootstrap');
+      expect(claudeInstruction).not.toContain('$spec-graph-bootstrap');
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Codex init writes host-aware runtime tool guidance into AGENTS.md', () => {
+    const projectRoot = makeTempDir();
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+
+      const codexInstruction = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
+      expect(codexInstruction).toContain('<!-- spec-first:runtime-tools:start -->');
+      expect(codexInstruction).toContain('.agents/skills/spec-mcp-setup/references/supported-mcp-tools.md');
+      expect(codexInstruction).toContain('$spec-graph-bootstrap');
+      expect(codexInstruction).not.toContain('/spec:graph-bootstrap');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
