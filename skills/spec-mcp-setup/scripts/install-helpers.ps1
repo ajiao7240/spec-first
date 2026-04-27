@@ -36,6 +36,7 @@ function Write-AgentBrowserInstallMarker {
 }
 
 function Get-PlatformName {
+  if ($IsWindows) { return 'windows' }
   if ($IsLinux) { return 'linux' }
   if ($IsMacOS) { return 'macos' }
   return 'unknown'
@@ -49,12 +50,36 @@ function Get-HelperInstallCommand {
 
   switch ($Name) {
     'agent-browser' { return 'CI=true npm install -g agent-browser --no-audit --no-fund --loglevel=error && agent-browser install && npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y' }
-    'gh' { if ($Platform -eq 'linux') { return 'sudo apt-get install -y gh' }; return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q gh' }
-    'jq' { if ($Platform -eq 'linux') { return 'sudo apt-get install -y jq' }; return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q jq' }
-    'vhs' { if ($Platform -eq 'linux') { return 'go install github.com/charmbracelet/vhs@latest' }; return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q vhs' }
-    'silicon' { if ($Platform -eq 'linux') { return 'cargo install silicon' }; return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q silicon' }
-    'ffmpeg' { if ($Platform -eq 'linux') { return 'sudo apt-get install -y ffmpeg' }; return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ffmpeg' }
-    'ast-grep' { if ($Platform -eq 'linux') { return 'cargo install ast-grep --locked' }; return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ast-grep' }
+    'gh' {
+      if ($Platform -eq 'windows') { return 'winget install --id GitHub.cli -e --silent' }
+      if ($Platform -eq 'linux') { return 'sudo apt-get install -y gh' }
+      return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q gh'
+    }
+    'jq' {
+      if ($Platform -eq 'windows') { return 'winget install --id jqlang.jq -e --silent' }
+      if ($Platform -eq 'linux') { return 'sudo apt-get install -y jq' }
+      return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q jq'
+    }
+    'vhs' {
+      if ($Platform -eq 'windows') { return 'go install github.com/charmbracelet/vhs@latest' }
+      if ($Platform -eq 'linux') { return 'go install github.com/charmbracelet/vhs@latest' }
+      return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q vhs'
+    }
+    'silicon' {
+      if ($Platform -eq 'windows') { return 'cargo install silicon' }
+      if ($Platform -eq 'linux') { return 'cargo install silicon' }
+      return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q silicon'
+    }
+    'ffmpeg' {
+      if ($Platform -eq 'windows') { return 'winget install --id Gyan.FFmpeg -e --silent' }
+      if ($Platform -eq 'linux') { return 'sudo apt-get install -y ffmpeg' }
+      return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ffmpeg'
+    }
+    'ast-grep' {
+      if ($Platform -eq 'windows') { return 'npm install -g @ast-grep/cli' }
+      if ($Platform -eq 'linux') { return 'cargo install ast-grep --locked' }
+      return 'NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ast-grep'
+    }
     'ast-grep-skill' { return 'npx skills add ast-grep/agent-skill -g -y' }
     default { return '' }
   }
@@ -68,26 +93,32 @@ function Invoke-HelperInstall {
 
   switch ($Name) {
     'gh' {
+      if ($Platform -eq 'windows') { return (Invoke-HelperCommand { winget install --id GitHub.cli -e --silent }) }
       if ($Platform -eq 'linux') { return (Invoke-HelperCommand { sudo apt-get install -y gh }) }
       return (Invoke-HelperCommand { brew install -q gh })
     }
     'jq' {
+      if ($Platform -eq 'windows') { return (Invoke-HelperCommand { winget install --id jqlang.jq -e --silent }) }
       if ($Platform -eq 'linux') { return (Invoke-HelperCommand { sudo apt-get install -y jq }) }
       return (Invoke-HelperCommand { brew install -q jq })
     }
     'vhs' {
+      if ($Platform -eq 'windows') { return (Invoke-HelperCommand { go install github.com/charmbracelet/vhs@latest }) }
       if ($Platform -eq 'linux') { return (Invoke-HelperCommand { go install github.com/charmbracelet/vhs@latest }) }
       return (Invoke-HelperCommand { brew install -q vhs })
     }
     'silicon' {
+      if ($Platform -eq 'windows') { return (Invoke-HelperCommand { cargo install silicon }) }
       if ($Platform -eq 'linux') { return (Invoke-HelperCommand { cargo install silicon }) }
       return (Invoke-HelperCommand { brew install -q silicon })
     }
     'ffmpeg' {
+      if ($Platform -eq 'windows') { return (Invoke-HelperCommand { winget install --id Gyan.FFmpeg -e --silent }) }
       if ($Platform -eq 'linux') { return (Invoke-HelperCommand { sudo apt-get install -y ffmpeg }) }
       return (Invoke-HelperCommand { brew install -q ffmpeg })
     }
     'ast-grep' {
+      if ($Platform -eq 'windows') { return (Invoke-HelperCommand { npm install -g @ast-grep/cli }) }
       if ($Platform -eq 'linux') { return (Invoke-HelperCommand { cargo install ast-grep --locked }) }
       return (Invoke-HelperCommand { brew install -q ast-grep })
     }
@@ -192,7 +223,7 @@ if ($status -eq 'ready' -and $mode -eq 'install') {
 }
 
 if ($status -eq 'ready' -and $mode -eq 'install') {
-  if (-not (Invoke-HelperCommand { npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y })) {
+  if (-not ((Invoke-HelperCommand { npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y }) -and (Test-Path $globalAgentBrowserSkill))) {
     $status = 'action-required'
     $skillStatus = 'action-required'
     $nextAction = 'install global agent-browser skill manually'

@@ -180,6 +180,12 @@ assert "helper missing CLI install path emits JSON" jq -e . <<<"$no_browser_inst
 assert_contains "helper default attempts CLI install when missing" "npm install -g agent-browser --no-audit --no-fund --loglevel=error" "$(cat "$NO_BROWSER_LOG")"
 assert_eq "helper reports missing CLI if npm did not expose binary" "missing" "$(jq -r '.helper_tools."agent-browser".dependency_status' <<<"$no_browser_install")"
 
+PREFLIGHT_HOME="$TMP_DIR/preflight-home"
+mkdir -p "$PREFLIGHT_HOME/.agents/skills/agent-browser"
+printf 'name: agent-browser\n' > "$PREFLIGHT_HOME/.agents/skills/agent-browser/SKILL.md"
+preflight_missing_marker="$(cd "$TMP_DIR" && PATH="$TEST_PATH" HOME="$PREFLIGHT_HOME" bash "$SCRIPTS_DIR/check-health" --json)"
+assert_eq "check-health requires agent-browser install marker" "action-required" "$(jq -r '.tools[] | select(.id == "agent-browser") | .result' <<<"$preflight_missing_marker")"
+
 FAKE_REPO="$TMP_DIR/repo"
 make_repo "$FAKE_REPO"
 preflight_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/check-health" --json)"
@@ -215,6 +221,7 @@ assert_eq "installer configures all required tools" "serena,sequential-thinking,
 assert_eq "installer has no skipped optional results" "true" "$(jq -r 'all(.results[]; .status == "ready")' <<<"$install_output")"
 assert_eq "installer writes GitNexus config" "npx" "$(jq -r '.mcpServers.gitnexus.command' "$FAKE_HOME/.claude.json")"
 assert_eq "installer writes code-review-graph config" "uvx" "$(jq -r '.mcpServers["code-review-graph"].command' "$FAKE_HOME/.claude.json")"
+assert_eq "installer does not write internal scope into Claude config" "false" "$(jq -r '.mcpServers.serena | has("scope")' "$FAKE_HOME/.claude.json")"
 assert "Serena ready marker exists" test -f "$FAKE_REPO/.serena/index-ready.json"
 assert_contains "setup does not run GitNexus analyze" "gitnexus@latest --help" "$(cat "$COMMAND_LOG")"
 if grep -q 'gitnexus@latest analyze' "$COMMAND_LOG"; then
@@ -225,6 +232,32 @@ if grep -q 'code-review-graph build' "$COMMAND_LOG"; then
   echo "FAIL: spec-mcp-setup must not run code-review-graph build" >&2
   exit 1
 fi
+
+SERENA_SAFE_REPO="$TMP_DIR/serena-safe-repo"
+SERENA_FAIL_BIN="$TMP_DIR/serena-fail-bin"
+make_repo "$SERENA_SAFE_REPO"
+mkdir -p "$SERENA_SAFE_REPO/.serena" "$SERENA_FAIL_BIN"
+printf 'existing-project\n' > "$SERENA_SAFE_REPO/.serena/project.yml"
+printf '{"index_status":"ready"}\n' > "$SERENA_SAFE_REPO/.serena/index-ready.json"
+cat > "$SERENA_FAIL_BIN/uvx" <<'SH'
+#!/bin/bash
+exit 42
+SH
+chmod +x "$SERENA_FAIL_BIN/uvx"
+(cd "$SERENA_SAFE_REPO" && PATH="$SERENA_FAIL_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh")
+assert_eq "existing Serena project survives idempotent bootstrap" "existing-project" "$(cat "$SERENA_SAFE_REPO/.serena/project.yml")"
+assert "existing Serena ready marker survives idempotent bootstrap" test -f "$SERENA_SAFE_REPO/.serena/index-ready.json"
+
+SERENA_RESTORE_REPO="$TMP_DIR/serena-restore-repo"
+make_repo "$SERENA_RESTORE_REPO"
+mkdir -p "$SERENA_RESTORE_REPO/.serena"
+printf 'existing-project\n' > "$SERENA_RESTORE_REPO/.serena/project.yml"
+set +e
+(cd "$SERENA_RESTORE_REPO" && PATH="$SERENA_FAIL_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" >/dev/null 2>&1)
+serena_restore_status=$?
+set -e
+assert_eq "Serena failed rebuild exits nonzero" "1" "$serena_restore_status"
+assert_eq "Serena failed rebuild restores existing project" "existing-project" "$(cat "$SERENA_RESTORE_REPO/.serena/project.yml")"
 
 detect_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh")"
 assert "detect-tools emits JSON" jq -e . <<<"$detect_output"
@@ -259,11 +292,14 @@ assert_eq "providers are configured but not query-ready" "true" "$(jq -r '.provi
 
 FAKE_CODEX_HOME="$TMP_DIR/codex-home"
 FAKE_CODEX_REPO="$TMP_DIR/codex-repo"
+FAKE_CODEX_SYSTEM="$TMP_DIR/codex-system"
 mkdir -p "$FAKE_CODEX_HOME"
 mkdir -p "$FAKE_CODEX_HOME/.agents/skills/agent-browser"
+mkdir -p "$FAKE_CODEX_SYSTEM"
 printf 'name: agent-browser\n' > "$FAKE_CODEX_HOME/.agents/skills/agent-browser/SKILL.md"
 make_repo "$FAKE_CODEX_REPO"
 codex_config="$FAKE_CODEX_HOME/.codex/config.toml"
+codex_system_config="$FAKE_CODEX_SYSTEM/config.toml"
 mkdir -p "$(dirname "$codex_config")"
 cat > "$codex_config" <<'TOML'
 [mcp_servers."code-review-graph"]
@@ -276,8 +312,27 @@ TOML
 (cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/configure-host.sh" --tool code-review-graph >/dev/null)
 assert_contains "Codex config uses quoted table key" '[mcp_servers."code-review-graph"]' "$(cat "$codex_config")"
 assert_contains "Codex configure preserves following non-MCP table" '[profiles.default]' "$(cat "$codex_config")"
+assert_contains "Codex config does not write internal scope" 'startup_timeout_sec = 120' "$(cat "$codex_config")"
+if grep -q '^scope =' "$codex_config"; then
+  echo "FAIL: Codex config should not contain internal scope" >&2
+  exit 1
+fi
 codex_detect="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detect-tools.sh")"
 assert_eq "detect-tools reads quoted Codex key" "ready" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect")"
+cat > "$codex_system_config" <<'TOML'
+[profiles.default]
+model = "gpt-5"
+TOML
+codex_detect_system_profile="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE="$codex_system_config" bash "$SCRIPTS_DIR/detect-tools.sh")"
+assert_eq "Codex higher-precedence profile-only config does not block MCP" "ready" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect_system_profile")"
+cat > "$codex_system_config" <<'TOML'
+[mcp_servers."code-review-graph"]
+command = "old"
+args = []
+TOML
+codex_detect_system_conflict="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE="$codex_system_config" bash "$SCRIPTS_DIR/detect-tools.sh")"
+assert_eq "Codex higher-precedence same MCP mismatch blocks selected config" "precedence-blocked" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect_system_conflict")"
+rm -f "$codex_system_config"
 cat > "$codex_config" <<'TOML'
 [mcp_servers."code-review-graph"]
 command = "uvx"
@@ -319,6 +374,11 @@ fi
 assert_eq "graph-bootstrap flips query_ready" "true" "$(jq -r '.providers.gitnexus.query_ready and .providers["code-review-graph"].query_ready and (.providers.gitnexus.bootstrap_required == false) and (.providers["code-review-graph"].bootstrap_required == false)' "$PROVIDER_CONFIG")"
 verify_after_bootstrap="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "repeat verify shows graph provider query ready" "| gitnexus | graph-provider | yes | ready | fallback | n/a | ready | n/a |" "$verify_after_bootstrap"
+assert_contains "repeat verify reports graph provider query ready summary" "Graph providers are query-ready." "$verify_after_bootstrap"
+if [[ "$verify_after_bootstrap" == *"Graph providers are configured but not query-ready yet."* ]]; then
+  echo "FAIL: repeat verify should not say query-ready providers are pending" >&2
+  exit 1
+fi
 assert_eq "repeat verify preserves provider query_ready" "true" "$(jq -r '.providers.gitnexus.query_ready and .providers["code-review-graph"].query_ready and (.providers.gitnexus.bootstrap_required == false) and (.providers["code-review-graph"].bootstrap_required == false)' "$PROVIDER_CONFIG")"
 assert_eq "repeat verify clears graph bootstrap next action" "false" "$(jq -r '.next_actions | index("run spec-graph-bootstrap") != null' "$LEDGER_PATH")"
 assert_eq "repeat verify ledger graph bootstrap no longer required" "false" "$(jq -r '.graph_bootstrap_required' "$LEDGER_PATH")"

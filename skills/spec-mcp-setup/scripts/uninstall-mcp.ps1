@@ -24,19 +24,37 @@ function Resolve-PathTemplate {
 function Remove-ClaudeEntry {
   param([string]$ConfigPath, [string]$ToolId)
   if (-not (Test-Path $ConfigPath)) { return }
-  $config = try { Get-Content -Raw $ConfigPath | ConvertFrom-Json -AsHashtable } catch { @{} }
-  if ($config.ContainsKey('mcpServers')) {
-    $null = $config['mcpServers'].Remove($ToolId)
+  $backupPath = '{0}.backup.{1}' -f $ConfigPath, ([guid]::NewGuid().ToString('N'))
+  Copy-Item -LiteralPath $ConfigPath -Destination $backupPath -Force
+  try {
+    $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json -AsHashtable
+    if ($config.ContainsKey('mcpServers')) {
+      $null = $config['mcpServers'].Remove($ToolId)
+    }
+    $config | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 $ConfigPath
+    Remove-Item -Force $backupPath -ErrorAction SilentlyContinue
+  } catch {
+    Copy-Item -LiteralPath $backupPath -Destination $ConfigPath -Force
+    Remove-Item -Force $backupPath -ErrorAction SilentlyContinue
+    throw
   }
-  $config | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 $ConfigPath
 }
 
 function Remove-CodexEntry {
   param([string]$ConfigPath, [string]$DetectKey)
   if (-not (Test-Path $ConfigPath)) { return }
-  $text = Get-Content -Raw $ConfigPath
-  $text = Remove-TomlMcpSection -Text $text -Key $DetectKey
-  Set-Content -Encoding utf8 $ConfigPath ($(if ($text) { $text + "`n" } else { '' }))
+  $backupPath = '{0}.backup.{1}' -f $ConfigPath, ([guid]::NewGuid().ToString('N'))
+  Copy-Item -LiteralPath $ConfigPath -Destination $backupPath -Force
+  try {
+    $text = Get-Content -Raw $ConfigPath
+    $text = Remove-TomlMcpSection -Text $text -Key $DetectKey
+    Set-Content -Encoding utf8 $ConfigPath ($(if ($text) { $text + "`n" } else { '' }))
+    Remove-Item -Force $backupPath -ErrorAction SilentlyContinue
+  } catch {
+    Copy-Item -LiteralPath $backupPath -Destination $ConfigPath -Force
+    Remove-Item -Force $backupPath -ErrorAction SilentlyContinue
+    throw
+  }
 }
 
 $toolIds = if ([string]::IsNullOrWhiteSpace($Tool)) {

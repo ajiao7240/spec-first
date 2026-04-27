@@ -43,22 +43,38 @@ remove_claude_entry() {
   local config_path="$1"
   local tool_id="$2"
   [ -f "$config_path" ] || return 0
-  local tmp
+  local tmp backup
   tmp="$(mktemp "${config_path}.XXXXXX")"
+  backup="$(mktemp "${config_path}.backup.XXXXXX")"
   chmod 600 "$tmp"
-  jq --arg id "$tool_id" 'if .mcpServers then .mcpServers |= with_entries(select(.key != $id)) else . end' "$config_path" > "$tmp"
-  mv "$tmp" "$config_path"
+  cp "$config_path" "$backup"
+  chmod 600 "$backup"
+  if jq --arg id "$tool_id" 'if .mcpServers then .mcpServers |= with_entries(select(.key != $id)) else . end' "$config_path" > "$tmp" && mv "$tmp" "$config_path"; then
+    rm -f "$backup"
+  else
+    cp "$backup" "$config_path"
+    rm -f "$tmp" "$backup"
+    return 1
+  fi
 }
 
 remove_codex_entry() {
   local config_path="$1"
   local detect_key="$2"
   [ -f "$config_path" ] || return 0
-  local tmp
+  local tmp backup
   tmp="$(mktemp "${config_path}.XXXXXX")"
+  backup="$(mktemp "${config_path}.backup.XXXXXX")"
   chmod 600 "$tmp"
-  remove_toml_mcp_section "$config_path" "$detect_key" "$tmp"
-  mv "$tmp" "$config_path"
+  cp "$config_path" "$backup"
+  chmod 600 "$backup"
+  if remove_toml_mcp_section "$config_path" "$detect_key" "$tmp" && mv "$tmp" "$config_path"; then
+    rm -f "$backup"
+  else
+    cp "$backup" "$config_path"
+    rm -f "$tmp" "$backup"
+    return 1
+  fi
 }
 
 if [ -n "$TOOL_ID" ]; then

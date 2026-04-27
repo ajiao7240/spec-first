@@ -57,6 +57,8 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 9. Writes `.spec-first/config/graph-providers.json` inside a git repo.
 10. Prints a clear next-step prompt after the final table: continue graph bootstrap now, then restart Claude Code/Codex or start a new session before relying on the newly written MCP config in downstream workflows.
 
+Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure.
+
 It must not run:
 
 - `npx -y gitnexus@latest analyze`
@@ -274,6 +276,10 @@ Codex MCP sections with hyphenated names must use quoted TOML table keys:
 
 Before writing a Codex section, scripts must delete both legacy unquoted and current quoted sections for the same MCP server. `configure-host.*`, `detect-tools.*`, and `uninstall-mcp.*` must share the same TOML formatter/parser helpers.
 
+Host MCP config files must contain only host-supported MCP server fields such as `command`, `args`, and host-specific startup timeout fields. Internal setup metadata such as selected scope belongs in script output and readiness ledgers, not in Claude/Codex MCP server entries.
+
+Codex higher-precedence config handling is tool-specific. A higher-precedence config file that contains no section for the same MCP server must not block a valid selected-scope config. A higher-precedence section for the same MCP server is ready only when it exactly matches the expected command and args; otherwise it is `precedence-blocked`.
+
 ## Uninstall Contract
 
 `uninstall-mcp.*` must remove all registered MCP servers, including `gitnexus` and `code-review-graph`. After uninstall it must refresh:
@@ -285,7 +291,7 @@ Uninstall does not delete `agent-browser`, external caches, or the project proje
 
 ## Success Summary
 
-When setup finishes, display a Markdown status table sourced from readiness ledger v2, followed by a short friendly next-step prompt. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending.
+When setup finishes, the assistant's final response must restate the complete Markdown status table sourced from readiness ledger v2, followed by a short friendly next-step prompt. Do not rely on prior command output as the only place where the table appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending.
 
 ```text
 Required Harness Runtime is ready; graph bootstrap is still pending.

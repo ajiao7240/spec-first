@@ -118,7 +118,11 @@ mv "$final_tmp" "$MARKER_PATH"
 echo "📝 宿主就绪标记已更新: $MARKER_PATH"
 echo "🔎 当前宿主基线状态: $(jq -r '.overall_status' "$MARKER_PATH")"
 echo "🧭 baseline_ready: $(jq -r '.baseline_ready' "$MARKER_PATH")"
-echo "🧩 Graph providers are configured but not query-ready yet."
+if [ "$(jq -r '.graph_bootstrap_required // true' "$MARKER_PATH")" = "true" ]; then
+  echo "🧩 Graph providers are configured but not query-ready yet."
+else
+  echo "🧩 Graph providers are query-ready."
+fi
 echo "✅ readiness ledger v2 已写入"
 echo ""
 echo "Required Harness Runtime status:"

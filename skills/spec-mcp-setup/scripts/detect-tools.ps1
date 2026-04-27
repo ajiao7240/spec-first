@@ -12,7 +12,6 @@ $DetectedHost = $HostInfo.host
 $ConfigPath = $HostInfo.config_path
 $Platform = $HostInfo.platform
 $SelectedScope = $HostInfo.selected_scope
-$PrecedenceBlocked = [bool]$HostInfo.precedence_blocked
 
 try {
   $RepoRoot = (git rev-parse --show-toplevel 2>$null)
@@ -31,10 +30,29 @@ function Get-DependencyStatus {
 function Get-HostConfigStatus {
   param([object]$Tool)
   if ([string]::IsNullOrWhiteSpace($SelectedScope)) { return 'action-required' }
-  if ($PrecedenceBlocked) { return 'precedence-blocked' }
-  if (-not (Test-Path $ConfigPath)) { return 'action-required' }
 
   $hostConfig = $Tool.host_config.$DetectedHost
+  if ($DetectedHost -eq 'codex') {
+    $selectedProperty = $HostInfo.targets.PSObject.Properties[$SelectedScope]
+    $selectedPrecedence = if ($null -ne $selectedProperty) { [int]$selectedProperty.Value.precedence } else { 0 }
+    foreach ($entry in $HostInfo.targets.PSObject.Properties) {
+      if ($entry.Name -eq $SelectedScope) { continue }
+      $target = $entry.Value
+      if (-not [bool]$target.exists) { continue }
+      if ([int]$target.precedence -le $selectedPrecedence) { continue }
+      $path = [string]$target.config_path
+      if ([string]::IsNullOrWhiteSpace($path) -or -not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+      $section = Get-TomlMcpSection -Path $path -Key $Tool.detection.key
+      if ([string]::IsNullOrWhiteSpace($section)) { continue }
+      if (Test-TomlMcpSectionExact -Path $path -Key $Tool.detection.key -Command $hostConfig.command -Args @($hostConfig.args)) {
+        return 'ready'
+      }
+      return 'precedence-blocked'
+    }
+  }
+
+  if (-not (Test-Path $ConfigPath)) { return 'action-required' }
+
   switch ($Tool.detection.kind) {
     'host_config_exact' {
       if ($DetectedHost -eq 'claude') {
@@ -48,6 +66,7 @@ function Get-HostConfigStatus {
         for ($i = 0; $i -lt $expectedArgs.Count; $i++) {
           if ($serverArgs[$i] -ne $expectedArgs[$i]) { return 'action-required' }
         }
+        if ($null -ne $server.PSObject.Properties['scope']) { return 'action-required' }
         if ($SelectedScope -eq 'managed') { return 'ready' }
         return 'fallback-active'
       }

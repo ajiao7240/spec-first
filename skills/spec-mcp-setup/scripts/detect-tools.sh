@@ -15,7 +15,6 @@ HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
 CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
 PLATFORM="$(jq -r '.platform' <<<"$HOST_INFO_JSON")"
 SELECTED_SCOPE="$(jq -r '.selected_scope // empty' <<<"$HOST_INFO_JSON")"
-PRECEDENCE_BLOCKED="$(jq -r '.precedence_blocked' <<<"$HOST_INFO_JSON")"
 
 if git rev-parse --show-toplevel >/dev/null 2>&1; then
   REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -46,9 +45,24 @@ host_config_status() {
     return
   }
 
-  if [ "$PRECEDENCE_BLOCKED" = "true" ]; then
-    echo precedence-blocked
-    return
+  expected_command="$(jq -r '.command' <<<"$host_cfg")"
+  expected_args="$(jq -c '.args' <<<"$host_cfg")"
+
+  if [ "$HOST" = "codex" ]; then
+    local selected_precedence scope path section
+    selected_precedence="$(jq -r --arg scope "$SELECTED_SCOPE" '.targets[$scope].precedence // 0' <<<"$HOST_INFO_JSON")"
+    while IFS=$'\t' read -r scope path; do
+      [ -n "$path" ] || continue
+      [ -f "$path" ] || continue
+      section="$(extract_toml_mcp_section "$path" "$detect_key")"
+      [ -n "$section" ] || continue
+      if toml_mcp_section_matches_exact "$path" "$detect_key" "$expected_command" "$expected_args"; then
+        echo ready
+      else
+        echo precedence-blocked
+      fi
+      return
+    done < <(jq -r --arg scope "$SELECTED_SCOPE" --argjson selected_precedence "$selected_precedence" '.targets | to_entries[] | select(.key != $scope and (.value.exists == true) and ((.value.precedence // 0) > $selected_precedence)) | [.key, .value.config_path] | @tsv' <<<"$HOST_INFO_JSON")
   fi
 
   [ -f "$CONFIG_PATH" ] || {
@@ -56,13 +70,10 @@ host_config_status() {
     return
   }
 
-  expected_command="$(jq -r '.command' <<<"$host_cfg")"
-  expected_args="$(jq -c '.args' <<<"$host_cfg")"
-
   case "$detect_kind" in
     host_config_exact)
       if [ "$HOST" = "claude" ]; then
-        if jq -e --arg key "$detect_key" --arg command "$expected_command" --argjson expected_args "$expected_args" '.mcpServers[$key].command == $command and (.mcpServers[$key].args // []) == $expected_args' "$CONFIG_PATH" >/dev/null 2>&1; then
+        if jq -e --arg key "$detect_key" --arg command "$expected_command" --argjson expected_args "$expected_args" '.mcpServers[$key].command == $command and (.mcpServers[$key].args // []) == $expected_args and ((.mcpServers[$key] | has("scope")) | not)' "$CONFIG_PATH" >/dev/null 2>&1; then
           if [ "$SELECTED_SCOPE" = "managed" ]; then
             echo ready
           else

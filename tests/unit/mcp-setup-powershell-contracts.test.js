@@ -27,6 +27,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('function Restore-Backup');
     expect(source).toContain('Restore-Backup -BackupPath $backupPath');
     expect(source).toContain('if (-not (Test-ToolConfigured))');
+    expect(source).toContain('Get-Content -Raw $ConfigPath | ConvertFrom-Json -AsHashtable');
+    expect(source).not.toContain('catch { @{} }');
     expect(source.indexOf('if (-not (Test-ToolConfigured))')).toBeLessThan(source.indexOf('ConvertTo-Json -Compress', source.indexOf('if (-not (Test-ToolConfigured))')));
   });
 
@@ -48,9 +50,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain("schema_version = 'v2'");
     expect(verifySource).toContain('Required Harness Runtime status:');
     expect(verifySource).toContain('graph-providers.json');
-    expect(verifySource.indexOf('Graph providers are configured but not query-ready yet.')).toBeLessThan(
-      verifySource.indexOf('Required Harness Runtime status:'),
-    );
+    expect(verifySource).toContain('Graph providers are query-ready.');
+    expect(verifySource).toContain('if ($combined.graph_bootstrap_required)');
     expect(verifySource.indexOf('Required Harness Runtime status:')).toBeLessThan(
       verifySource.indexOf("Write-Host '下一步:'"),
     );
@@ -69,10 +70,15 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(configureSource).toContain("Join-Path $ScriptDir 'lib-toml.ps1'");
     expect(configureSource).toContain('Write-TomlMcpSection -Path $ConfigPath -Key $ToolDef.detection.key');
     expect(configureSource).toContain('Test-TomlMcpSectionExact -Path $ConfigPath -Key $ToolDef.detection.key');
+    expect(configureSource).toContain('function Get-CodexHigherPrecedenceStatus');
+    expect(configureSource).toContain('被更高优先级 Codex MCP 配置覆盖');
+    expect(configureSource).not.toContain('scope = $SelectedScope');
     expect(configureSource).not.toContain('.Contains($arg)');
     expect(detectSource).toContain("Join-Path $ScriptDir 'lib-toml.ps1'");
     expect(detectSource).toContain('Get-TomlMcpSection -Path $ConfigPath -Key $Tool.detection.key');
     expect(detectSource).toContain('Test-TomlMcpSectionExact -Path $ConfigPath -Key $Tool.detection.key');
+    expect(detectSource).toContain('precedence-blocked');
+    expect(detectSource).toContain('$HostInfo.targets.PSObject.Properties');
     expect(detectSource).not.toContain('.Contains($arg)');
     expect(libTomlSource).toContain('(?=^[ `t]*\\[|\\z)');
     expect(libTomlSource).toContain('function Test-TomlMcpSectionExact');
@@ -88,9 +94,22 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installHelpersSource).toContain("'gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep'");
     expect(installHelpersSource).toContain('npx skills add ast-grep/agent-skill -g -y');
     expect(installHelpersSource).toContain("'ast-grep-skill'");
+    expect(installHelpersSource).toContain("if ($IsWindows) { return 'windows' }");
+    expect(installHelpersSource).toContain('winget install --id GitHub.cli -e --silent');
+    expect(installHelpersSource).toContain('npm install -g @ast-grep/cli');
+    expect(installHelpersSource).toContain('Test-Path $globalAgentBrowserSkill');
     expect(installHelpersSource).not.toContain('agent-browser doctor');
     expect(installHelpersSource).not.toContain('doctor --fix');
     expect(installHelpersSource).toContain("$mode -eq 'verify-only' -and -not (Test-Path $agentBrowserInstallMarker)");
+  });
+
+  test('Serena bootstrap is idempotent and recoverable', () => {
+    const activateSerenaSource = fs.readFileSync(path.join(repoRoot, 'skills/spec-mcp-setup/scripts/activate-serena.ps1'), 'utf8');
+
+    expect(activateSerenaSource).toContain('Test-Path -LiteralPath $projectFile -PathType Leaf');
+    expect(activateSerenaSource).toContain('function Restore-ExistingState');
+    expect(activateSerenaSource).toContain('Restore-ExistingState');
+    expect(activateSerenaSource).toContain('Move-Item -Force $tmpMarker $readyMarkerPath');
   });
 
   test('project config bootstrap keeps local setup outside readiness ledger', () => {

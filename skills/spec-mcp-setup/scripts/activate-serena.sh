@@ -16,7 +16,37 @@ READY_MARKER_PATH="$REPO_ROOT/$READY_MARKER_FILE"
 INDEX_COMMAND_JSON="$(jq -c '.tools[] | select(.id == "serena") | .project_bootstrap.index_command' "$TOOLS_JSON")"
 INDEX_COMMAND="$(jq -r '.command' <<<"$INDEX_COMMAND_JSON")"
 
+if [ -f "$PROJECT_FILE" ] && [ -f "$READY_MARKER_PATH" ]; then
+  exit 0
+fi
+
 mkdir -p "$PROJECT_DIR"
+
+BACKUP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/spec-serena-bootstrap.XXXXXX")"
+PROJECT_BACKUP=""
+MARKER_BACKUP=""
+trap 'rm -rf "$BACKUP_DIR"' EXIT
+
+restore_existing_state() {
+  if [ -n "$PROJECT_BACKUP" ] && [ -f "$PROJECT_BACKUP" ]; then
+    mkdir -p "$(dirname "$PROJECT_FILE")"
+    cp "$PROJECT_BACKUP" "$PROJECT_FILE"
+  fi
+  if [ -n "$MARKER_BACKUP" ] && [ -f "$MARKER_BACKUP" ]; then
+    mkdir -p "$(dirname "$READY_MARKER_PATH")"
+    cp "$MARKER_BACKUP" "$READY_MARKER_PATH"
+  fi
+}
+
+if [ -f "$PROJECT_FILE" ]; then
+  PROJECT_BACKUP="$BACKUP_DIR/project.yml"
+  cp "$PROJECT_FILE" "$PROJECT_BACKUP"
+fi
+if [ -f "$READY_MARKER_PATH" ]; then
+  MARKER_BACKUP="$BACKUP_DIR/index-ready.json"
+  cp "$READY_MARKER_PATH" "$MARKER_BACKUP"
+fi
+
 rm -f "$READY_MARKER_PATH"
 rm -f "$PROJECT_FILE"
 
@@ -29,9 +59,15 @@ $(jq -r '.args[]' <<<"$INDEX_COMMAND_JSON")
 EOF
   if (cd "$REPO_ROOT" && "$INDEX_COMMAND" "${index_args[@]}") >/dev/null 2>&1; then
     mkdir -p "$(dirname "$READY_MARKER_PATH")"
-    jq -n --arg project_root "$REPO_ROOT" --arg indexed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" '{project_root:$project_root,index_status:"ready",indexed_at:$indexed_at}' > "$READY_MARKER_PATH"
-    exit 0
+    tmp_marker="$(mktemp "$(dirname "$READY_MARKER_PATH")/index-ready.XXXXXX")"
+    chmod 600 "$tmp_marker"
+    jq -n --arg project_root "$REPO_ROOT" --arg indexed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" '{project_root:$project_root,index_status:"ready",indexed_at:$indexed_at}' > "$tmp_marker"
+    mv "$tmp_marker" "$READY_MARKER_PATH"
+    if [ -f "$PROJECT_FILE" ] && [ -f "$READY_MARKER_PATH" ]; then
+      exit 0
+    fi
   fi
 fi
 
+restore_existing_state
 exit 1

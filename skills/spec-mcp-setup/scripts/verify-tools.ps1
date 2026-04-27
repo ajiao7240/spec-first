@@ -167,7 +167,11 @@ function Write-StatusRow {
 Write-Host "📝 宿主就绪标记已更新: $MarkerPath"
 Write-Host "🔎 当前宿主基线状态: $($combined.overall_status)"
 Write-Host "🧭 baseline_ready: $($combined.baseline_ready)"
-Write-Host '🧩 Graph providers are configured but not query-ready yet.'
+if ($combined.graph_bootstrap_required) {
+  Write-Host '🧩 Graph providers are configured but not query-ready yet.'
+} else {
+  Write-Host '🧩 Graph providers are query-ready.'
+}
 Write-Host '✅ readiness ledger v2 已写入'
 Write-Host ''
 Write-Host 'Required Harness Runtime status:'

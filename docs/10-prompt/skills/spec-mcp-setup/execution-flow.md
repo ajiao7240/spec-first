@@ -26,7 +26,9 @@ install-mcp.*
   |-- write Claude/Codex host MCP config
   |-- support Codex quoted TOML key:
   |     [mcp_servers."code-review-graph"]
-  |-- bootstrap Serena current repo
+  |-- bootstrap Serena current repo without destroying an existing ready project
+  |-- keep internal setup metadata out of host MCP server entries
+  |-- treat Codex higher-precedence config as blocking only for the same MCP section
   |-- do not run graph provider builds
   v
 detect-tools.*

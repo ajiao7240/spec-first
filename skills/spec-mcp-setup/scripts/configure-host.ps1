@@ -30,11 +30,36 @@ if ($null -eq $HostConfig) {
 }
 
 $resolvedArgs = @($HostConfig.args)
-$ResolvedConfig = [ordered]@{ command = $HostConfig.command; args = $resolvedArgs; scope = $SelectedScope }
+$ResolvedConfig = [ordered]@{ command = $HostConfig.command; args = $resolvedArgs }
 if ($null -ne $HostConfig.PSObject.Properties['startup_timeout_sec']) {
   $ResolvedConfig['startup_timeout_sec'] = [int]$HostConfig.startup_timeout_sec
 }
 $FallbackApplied = ($DetectedHost -eq 'claude' -and $SelectedScope -ne 'managed')
+
+function Get-CodexHigherPrecedenceStatus {
+  if ($DetectedHost -ne 'codex') {
+    return [pscustomobject]@{ status = 'none'; scope = ''; path = '' }
+  }
+
+  $selectedProperty = $HostInfo.targets.PSObject.Properties[$SelectedScope]
+  $selectedPrecedence = if ($null -ne $selectedProperty) { [int]$selectedProperty.Value.precedence } else { 0 }
+  foreach ($entry in $HostInfo.targets.PSObject.Properties) {
+    if ($entry.Name -eq $SelectedScope) { continue }
+    $target = $entry.Value
+    if (-not [bool]$target.exists) { continue }
+    if ([int]$target.precedence -le $selectedPrecedence) { continue }
+    $path = [string]$target.config_path
+    if ([string]::IsNullOrWhiteSpace($path) -or -not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+    $section = Get-TomlMcpSection -Path $path -Key $ToolDef.detection.key
+    if ([string]::IsNullOrWhiteSpace($section)) { continue }
+    if (Test-TomlMcpSectionExact -Path $path -Key $ToolDef.detection.key -Command $ResolvedConfig.command -Args @($ResolvedConfig.args)) {
+      return [pscustomobject]@{ status = 'ready'; scope = $entry.Name; path = $path }
+    }
+    return [pscustomobject]@{ status = 'blocked'; scope = $entry.Name; path = $path }
+  }
+
+  [pscustomobject]@{ status = 'none'; scope = ''; path = '' }
+}
 
 function Test-ToolConfigured {
   if (-not (Test-Path $ConfigPath)) { return $false }
@@ -51,6 +76,7 @@ function Test-ToolConfigured {
         for ($i = 0; $i -lt $expectedArgs.Count; $i++) {
           if ($serverArgs[$i] -ne $expectedArgs[$i]) { return $false }
         }
+        if ($null -ne $server.PSObject.Properties['scope']) { return $false }
         return $true
       }
       return (Test-TomlMcpSectionExact -Path $ConfigPath -Key $ToolDef.detection.key -Command $ResolvedConfig.command -Args @($ResolvedConfig.args))
@@ -69,7 +95,7 @@ function Test-ToolConfigured {
 function Write-ClaudeConfig {
   param([hashtable]$FinalConfig)
   $config = if (Test-Path $ConfigPath) {
-    try { Get-Content -Raw $ConfigPath | ConvertFrom-Json -AsHashtable } catch { @{} }
+    Get-Content -Raw $ConfigPath | ConvertFrom-Json -AsHashtable
   } else {
     @{}
   }
@@ -132,6 +158,20 @@ if (-not (Test-Path $ConfigDir)) {
 $ConfigLock = $null
 try {
   $ConfigLock = Acquire-ConfigLock
+
+  $higherPrecedenceStatus = Get-CodexHigherPrecedenceStatus
+  if ($higherPrecedenceStatus.status -eq 'ready') {
+    [pscustomobject]@{
+      tool_id = $Tool
+      configured_path = $higherPrecedenceStatus.path
+      selected_scope = $higherPrecedenceStatus.scope
+      fallback_applied = [bool]$false
+    } | ConvertTo-Json -Compress
+    return
+  }
+  if ($higherPrecedenceStatus.status -eq 'blocked') {
+    throw "$Tool 被更高优先级 Codex MCP 配置覆盖：$($higherPrecedenceStatus.scope) ($($higherPrecedenceStatus.path))"
+  }
 
   if (Test-ToolConfigured) {
     [pscustomobject]@{

@@ -104,6 +104,16 @@ describe('dual-host governance contracts', () => {
     });
   });
 
+  test('mcp setup final response preserves the full readiness table contract', () => {
+    const mcpSetup = read(MCP_SETUP_SKILL_PATH);
+
+    expect(mcpSetup).toContain("the assistant's final response must restate the complete Markdown status table");
+    expect(mcpSetup).toContain('Do not rely on prior command output as the only place where the table appears.');
+    expect(mcpSetup).toContain('Required Harness Runtime status:');
+    expect(mcpSetup).toContain('| Name | Type | Required | Dependency | Host | Project | Query | Next |');
+    expect(mcpSetup).toContain('下一步:');
+  });
+
   test('docs-side governance directory keeps only the human-readable contract', () => {
     expect(fs.readdirSync(DOCS_SIDE_GOVERNANCE_DIR).sort((a, b) => a.localeCompare(b))).toEqual([
       'README.md',

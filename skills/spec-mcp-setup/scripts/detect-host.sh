@@ -238,16 +238,14 @@ selected_exists="$(jq -r '.exists // false' <<<"$selected_target_json")"
 precedence_blocked=false
 precedence_blocking_scope=""
 precedence_blocking_path=""
+higher_precedence_targets_json='[]'
 if [ "$host" = "codex" ]; then
   while IFS= read -r target_key; do
     [ "$target_key" = "$selected_scope" ] && continue
     candidate="$(jq -c --arg key "$target_key" '.[$key]' <<<"$targets_json")"
     [ "$candidate" = "null" ] && continue
     if [ "$(jq -r '.exists' <<<"$candidate")" = "true" ] && [ "$(jq -r '.precedence' <<<"$candidate")" -gt "$selected_precedence" ]; then
-      precedence_blocked=true
-      precedence_blocking_scope="$target_key"
-      precedence_blocking_path="$(jq -r '.config_path' <<<"$candidate")"
-      break
+      higher_precedence_targets_json="$(jq --arg key "$target_key" --argjson target "$candidate" '. + [{key:$key, config_path:$target.config_path, precedence:$target.precedence}]' <<<"$higher_precedence_targets_json")"
     fi
   done < <(jq -r 'keys[]' <<<"$targets_json")
 fi
@@ -270,6 +268,7 @@ jq -n \
   --argjson precedence_blocked "$precedence_blocked" \
   --arg precedence_blocking_scope "$precedence_blocking_scope" \
   --arg precedence_blocking_path "$precedence_blocking_path" \
+  --argjson higher_precedence_targets "$higher_precedence_targets_json" \
   '{
     host: $host,
     display_name: $display_name,
@@ -287,5 +286,6 @@ jq -n \
     targets: $targets,
     precedence_blocked: $precedence_blocked,
     precedence_blocking_scope: $precedence_blocking_scope,
-    precedence_blocking_path: $precedence_blocking_path
+    precedence_blocking_path: $precedence_blocking_path,
+    higher_precedence_targets: $higher_precedence_targets
   }'

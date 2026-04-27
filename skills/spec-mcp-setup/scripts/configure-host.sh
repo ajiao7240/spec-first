@@ -37,7 +37,7 @@ mkdir -p "$CONFIG_DIR"
 HOST_CONFIG_JSON=$(jq -c --arg id "$TOOL_ID" --arg host "$HOST" '.tools[] | select(.id == $id) | .host_config[$host]' "$TOOLS_JSON")
 [ -n "$HOST_CONFIG_JSON" ] && [ "$HOST_CONFIG_JSON" != "null" ] || { echo "错误：未找到 $TOOL_ID 的 host_config" >&2; exit 1; }
 
-RESOLVED_TOOL_CONFIG_JSON="$(jq -c --arg scope "$SELECTED_SCOPE" '{command, args} + (if has("startup_timeout_sec") then {startup_timeout_sec} else {} end) + {scope: $scope}' <<<"$HOST_CONFIG_JSON")"
+RESOLVED_TOOL_CONFIG_JSON="$(jq -c '{command, args} + (if has("startup_timeout_sec") then {startup_timeout_sec} else {} end)' <<<"$HOST_CONFIG_JSON")"
 EXPECTED_COMMAND="$(jq -r '.command' <<<"$RESOLVED_TOOL_CONFIG_JSON")"
 EXPECTED_ARGS="$(jq -c '.args' <<<"$RESOLVED_TOOL_CONFIG_JSON")"
 DETECT_KIND="$(jq -r --arg id "$TOOL_ID" '.tools[] | select(.id == $id) | .detection.kind' "$TOOLS_JSON")"
@@ -47,13 +47,50 @@ if [ "$HOST" = "claude" ] && [ "$SELECTED_SCOPE" != "managed" ]; then
   FALLBACK_APPLIED=true
 fi
 
+codex_higher_precedence_status() {
+  [ "$HOST" = "codex" ] || {
+    echo "none||"
+    return 0
+  }
+
+  local selected_precedence path scope
+  selected_precedence="$(jq -r --arg scope "$SELECTED_SCOPE" '.targets[$scope].precedence // 0' <<<"$HOST_INFO_JSON")"
+  while IFS=$'\t' read -r scope path; do
+    [ -n "$path" ] || continue
+    [ -f "$path" ] || continue
+    section="$(extract_toml_mcp_section "$path" "$DETECT_KEY")"
+    [ -n "$section" ] || continue
+    if toml_mcp_section_matches_exact "$path" "$DETECT_KEY" "$EXPECTED_COMMAND" "$EXPECTED_ARGS"; then
+      printf 'ready|%s|%s\n' "$scope" "$path"
+    else
+      printf 'blocked|%s|%s\n' "$scope" "$path"
+    fi
+    return 0
+  done < <(jq -r --arg scope "$SELECTED_SCOPE" --argjson selected_precedence "$selected_precedence" '.targets | to_entries[] | select(.key != $scope and (.value.exists == true) and ((.value.precedence // 0) > $selected_precedence)) | [.key, .value.config_path] | @tsv' <<<"$HOST_INFO_JSON")
+
+  echo "none||"
+}
+
 tool_is_configured() {
+  local higher_status higher_scope higher_path
+  IFS='|' read -r higher_status higher_scope higher_path <<<"$(codex_higher_precedence_status)"
+  if [ "$higher_status" = "ready" ]; then
+    CONFIGURED_EFFECTIVE_PATH="$higher_path"
+    CONFIGURED_EFFECTIVE_SCOPE="$higher_scope"
+    return 0
+  fi
+  if [ "$higher_status" = "blocked" ]; then
+    BLOCKING_SCOPE="$higher_scope"
+    BLOCKING_PATH="$higher_path"
+    return 2
+  fi
+
   [ -f "$CONFIG_PATH" ] || return 1
 
   case "$DETECT_KIND" in
     host_config_exact)
       if [ "$HOST" = "claude" ]; then
-        jq -e --arg key "$DETECT_KEY" --arg command "$EXPECTED_COMMAND" --argjson expected_args "$EXPECTED_ARGS" '.mcpServers[$key].command == $command and (.mcpServers[$key].args // []) == $expected_args' "$CONFIG_PATH" >/dev/null 2>&1
+        jq -e --arg key "$DETECT_KEY" --arg command "$EXPECTED_COMMAND" --argjson expected_args "$EXPECTED_ARGS" '.mcpServers[$key].command == $command and (.mcpServers[$key].args // []) == $expected_args and ((.mcpServers[$key] | has("scope")) | not)' "$CONFIG_PATH" >/dev/null 2>&1
         return
       fi
       toml_mcp_section_matches_exact "$CONFIG_PATH" "$DETECT_KEY" "$EXPECTED_COMMAND" "$EXPECTED_ARGS"
@@ -142,9 +179,20 @@ restore_backup() {
 trap release_lock EXIT
 acquire_lock || { echo '错误：无法获取配置锁' >&2; exit 1; }
 
-if tool_is_configured; then
-  jq -n --arg tool_id "$TOOL_ID" --arg configured_path "$CONFIG_PATH" --arg selected_scope "$SELECTED_SCOPE" --argjson fallback_applied "$FALLBACK_APPLIED" '{tool_id:$tool_id,configured_path:$configured_path,selected_scope:$selected_scope,fallback_applied:$fallback_applied}'
+CONFIGURED_EFFECTIVE_PATH="$CONFIG_PATH"
+CONFIGURED_EFFECTIVE_SCOPE="$SELECTED_SCOPE"
+BLOCKING_SCOPE=""
+BLOCKING_PATH=""
+set +e
+tool_is_configured
+configured_status=$?
+set -e
+if [ "$configured_status" -eq 0 ]; then
+  jq -n --arg tool_id "$TOOL_ID" --arg configured_path "$CONFIGURED_EFFECTIVE_PATH" --arg selected_scope "$CONFIGURED_EFFECTIVE_SCOPE" --argjson fallback_applied "$FALLBACK_APPLIED" '{tool_id:$tool_id,configured_path:$configured_path,selected_scope:$selected_scope,fallback_applied:$fallback_applied}'
   exit 0
+elif [ "$configured_status" -eq 2 ]; then
+  echo "错误：$TOOL_ID 被更高优先级 Codex MCP 配置覆盖：$BLOCKING_SCOPE ($BLOCKING_PATH)" >&2
+  exit 1
 fi
 
 BACKUP_PATH=""
@@ -170,9 +218,11 @@ else
   fi
 fi
 
+CONFIGURED_EFFECTIVE_PATH="$CONFIG_PATH"
+CONFIGURED_EFFECTIVE_SCOPE="$SELECTED_SCOPE"
 if tool_is_configured; then
   [ -f "$BACKUP_PATH" ] && rm -f "$BACKUP_PATH"
-  jq -n --arg tool_id "$TOOL_ID" --arg configured_path "$CONFIG_PATH" --arg selected_scope "$SELECTED_SCOPE" --argjson fallback_applied "$FALLBACK_APPLIED" '{tool_id:$tool_id,configured_path:$configured_path,selected_scope:$selected_scope,fallback_applied:$fallback_applied}'
+  jq -n --arg tool_id "$TOOL_ID" --arg configured_path "$CONFIGURED_EFFECTIVE_PATH" --arg selected_scope "$CONFIGURED_EFFECTIVE_SCOPE" --argjson fallback_applied "$FALLBACK_APPLIED" '{tool_id:$tool_id,configured_path:$configured_path,selected_scope:$selected_scope,fallback_applied:$fallback_applied}'
   exit 0
 fi
 

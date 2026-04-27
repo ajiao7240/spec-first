@@ -190,14 +190,16 @@ if ([string]::IsNullOrWhiteSpace($selectedScope) -and $fallbackOrder.Count -gt 0
 $precedenceBlocked = $false
 $precedenceBlockingScope = ''
 $precedenceBlockingPath = ''
+$higherPrecedenceTargets = New-Object System.Collections.Generic.List[object]
 if ($detectedHost -eq 'codex' -and $null -ne $selectedTarget) {
   foreach ($entry in $targets.GetEnumerator()) {
     if ($entry.Key -eq $selectedScope) { continue }
     if ($entry.Value.exists -and [int]$entry.Value.precedence -gt [int]$selectedTarget.precedence) {
-      $precedenceBlocked = $true
-      $precedenceBlockingScope = $entry.Key
-      $precedenceBlockingPath = $entry.Value.config_path
-      break
+      $higherPrecedenceTargets.Add([ordered]@{
+        key = $entry.Key
+        config_path = $entry.Value.config_path
+        precedence = [int]$entry.Value.precedence
+      })
     }
   }
 }
@@ -220,4 +222,5 @@ if ($detectedHost -eq 'codex' -and $null -ne $selectedTarget) {
   precedence_blocked = [bool]$precedenceBlocked
   precedence_blocking_scope = $precedenceBlockingScope
   precedence_blocking_path = $precedenceBlockingPath
+  higher_precedence_targets = @($higherPrecedenceTargets)
 } | ConvertTo-Json -Depth 8 -Compress
