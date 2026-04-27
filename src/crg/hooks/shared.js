@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { validateTaskPack } = require('../../cli/task-pack');
 
 function parseHookArgs(argv) {
   const result = {
@@ -73,30 +74,35 @@ function parsePlannedSurfaceFromPlan(planPath) {
   }
 }
 
-function parseTaskPack(taskPackPath) {
+function parseTaskPack(taskPackPath, options = {}) {
   if (!taskPackPath || !fs.existsSync(taskPackPath)) {
     return {
       metadata: null,
       execution_focus: [],
       limitations: [{ code: 'task-pack-missing', message: 'Task pack file is missing.' }],
+      validation: null,
+      source_plan_path: null,
     };
   }
-  const text = fs.readFileSync(taskPackPath, 'utf8');
-  const metadata = {};
-  const frontmatter = text.match(/^---\n([\s\S]*?)\n---/);
-  if (frontmatter) {
-    for (const line of frontmatter[1].split('\n')) {
-      const match = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
-      if (match) metadata[match[1]] = match[2].replace(/^["']|["']$/g, '');
-    }
-  }
-  const executionFocus = [...text.matchAll(/^###\s+(.+)$/gm)]
-    .slice(0, 10)
-    .map((match) => match[1].trim());
+  const validation = validateTaskPack(taskPackPath, { repoRoot: options.repoRoot || process.cwd() });
+  const metadata = validation.task_pack.metadata || {};
+  const executionFocus = validation.deterministic_handoff
+    ? validation.task_pack.execution_focus
+    : [];
+  const limitations = validation.errors.map((error) => ({
+    code: error.code,
+    message: error.message,
+  })).concat(validation.limitations.map((limitation) => ({
+    code: limitation.code,
+    message: limitation.message,
+  })));
+
   return {
     metadata,
     execution_focus: executionFocus,
-    limitations: [],
+    limitations,
+    validation,
+    source_plan_path: validation.deterministic_handoff ? validation.source_plan.absolute_path : null,
   };
 }
 

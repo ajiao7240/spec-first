@@ -1,6 +1,12 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.9 2026-04-27 08:49:46 leokuang: fix(spec-write-tasks): 根据 code review 补强 task pack fail-closed 校验、JSON 错误输出、final decision envelope 与 orientation evidence 契约覆盖 (user-visible)
+- v1.5.9 2026-04-27 07:17:42 leokuang: docs(ce-sync): 将本轮 CE 同步复盘沉淀为常态化升级协议 v2，补齐起始节点输入、逐文件 diff 取证、删除审计、PR description gap audit、runtime 重建与审查报告模板 (user-visible)
+- v1.5.9 2026-04-27 03:03:00 leokuang: fix(spec-write-tasks): 审查后补强 task pack validator 的 execution wave 一致性与依赖波次校验，支持 `--repo <path>` 参数形式，并补齐 missing-identity 覆盖与 schema 字段遗漏 (user-visible)
+- v1.5.9 2026-04-27 02:57:12 leokuang: docs(spec-write-tasks): 补齐 M2/M3 task-pack 消费质量口径，加入 spec-work 一次性分流、Phase 2 Serena/LSP provider 边界、task quality checklist 与 doc-review task-pack 审查支持 (user-visible)
+- v1.5.9 2026-04-27 02:52:56 leokuang: feat(spec-write-tasks): 新增 task pack canonical hash/validate CLI 与共享 validator，CRG before-work 复用校验并按 repo root 解析 source_plan，补齐 fixtures 与契约测试 (user-visible)
+- v1.5.9 2026-04-27 02:45:54 leokuang: docs(specs): 继续加固 spec-standards 规范方案，补齐确认/生命周期状态模型、direct-only 写回边界、proposal run 共享策略、确定性 helper 写入安全和逐项健壮性修复清单 (user-visible)
 - v1.5.9 2026-04-27 02:33:01 leokuang: docs(spec-write-tasks): 收口 bounded source orientation 分阶段边界，MVP 改为 CRG 优先、targeted direct repo reads 兜底，Serena/LSP 延后为 Phase 2 provider (user-visible)
 - v1.5.9 2026-04-27 02:20:51 leokuang: docs(specs): 按最新 spec-graph-bootstrap 产物优化规范方案，改以 workflow-context/graph-quality 为 CRG evidence 入口，补齐 workspace target handling、evidence-map generation 追踪、MVP-A 输出收敛与 sync/check 信任边界 (user-visible)
 - v1.5.9 2026-04-27 01:58:15 leokuang: fix(ce-sync): 根据逐文件复审修正 CE e8c118e2 同步缺口，删除独立 `spec-pr-description` workflow 并把 PR 写作收回 `git-commit-push-pr` reference，补齐 code-review best-judgment、safe_auto/suggested_fix rubric、tracker tuple、session internal primitive runtime 交付、feature-video 命名与 fresh-source eval 治理，并重建 runtime (user-visible)

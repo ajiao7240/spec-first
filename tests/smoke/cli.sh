@@ -39,6 +39,7 @@ version_output="$(node "$REPO_ROOT/bin/spec-first.js" --version)"
 grep -q "doctor" <<<"$help_output"
 grep -q "init (--claude|--codex)" <<<"$help_output"
 grep -q "clean (--claude|--codex)" <<<"$help_output"
+grep -q "tasks <subcommand>" <<<"$help_output"
 grep -q "crg <subcommand>" <<<"$help_output"
 if grep -q "stage0-context" <<<"$help_output"; then
   echo "help output should not advertise stage0-context" >&2

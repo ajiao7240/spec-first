@@ -1,12 +1,12 @@
 ---
 name: spec-doc-review
-description: Review requirements or plan documents using parallel persona agents that surface role-specific issues. Use when a requirements document or plan document exists and the user wants to improve it.
+description: Review requirements, plan, or task-pack documents using parallel persona agents that surface role-specific issues. Use when a requirements document, plan document, or derived task pack exists and the user wants to improve it.
 argument-hint: "[mode:headless] [path/to/document.md]"
 ---
 
 # Document Review
 
-Review requirements or plan documents through multi-persona analysis. Dispatches specialized reviewer agents in parallel, auto-applies `safe_auto` fixes, and routes remaining findings through a four-option interaction (per-finding walk-through, Auto-resolve with best judgment, Append-to-Open-Questions, Report-only) for user decision.
+Review requirements, plan, or task-pack documents through multi-persona analysis. Dispatches specialized reviewer agents in parallel, auto-applies `safe_auto` fixes, and routes remaining findings through a four-option interaction (per-finding walk-through, Auto-resolve with best judgment, Append-to-Open-Questions, Report-only) for user decision.
 
 ## Interactive mode rules
 
@@ -48,6 +48,16 @@ If `mode:headless` is not present, the skill runs in its default interactive mod
 After reading, classify the document:
 - **requirements** -- from `docs/brainstorms/`, focuses on what to build and why
 - **plan** -- from `docs/plans/`, focuses on how to build it with implementation details
+- **task-pack** -- from `docs/tasks/` or frontmatter `type: task-pack`, focuses on whether a derived execution input remains faithful to its source plan and is safe for `spec-work`
+
+For task-pack review, verify that it is derived rather than a second plan:
+
+- it points to exactly one repo-relative `source_plan`,
+- it uses `Task Pack Contract` as the machine-readable source,
+- it does not add scope, acceptance criteria, non-goals, public contracts, or implementation decisions absent from the source plan,
+- `files`, `context_refs`, `test_focus`, `done_signal`, `risk_note`, and `stop_if` reduce execution context without turning into micro-implementation steps,
+- dependency and wave claims are plausible from file ownership and shared surfaces,
+- deterministic identity/freshness issues belong to `spec-first tasks validate --json`, while semantic task quality remains reviewer judgment.
 
 ### Select Conditional Personas
 
@@ -127,7 +137,7 @@ Dispatch all agents in **parallel** using the platform's subagent primitive (e.g
 |----------|-------|
 | `{persona_file}` | Full content of the agent's markdown file |
 | `{schema}` | Content of the findings schema included below |
-| `{document_type}` | "requirements" or "plan" from Phase 1 classification |
+| `{document_type}` | "requirements", "plan", or "task-pack" from Phase 1 classification |
 | `{document_path}` | Path to the document |
 | `{document_content}` | Full text of the document |
 | `{decision_primer}` | Cumulative prior-round decisions in the current session, or an empty `<prior-decisions>` block on round 1. See "Decision primer" below. |

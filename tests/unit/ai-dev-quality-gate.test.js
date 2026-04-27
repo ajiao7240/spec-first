@@ -64,9 +64,11 @@ describe('ai dev quality gate contract', () => {
       'tests/unit/crg-workflow-context-hooks.test.js',
       'tests/unit/crg-review-context-hunks.test.js',
       'tests/unit/spec-plan-contracts.test.js',
+      'tests/unit/task-pack-command.test.js',
       'tests/unit/spec-write-tasks-contracts.test.js',
       'tests/unit/spec-work-contracts.test.js',
       'tests/unit/spec-work-beta-contracts.test.js',
+      'tests/unit/spec-doc-review-contracts.test.js',
       'tests/unit/spec-code-review-contracts.test.js',
     ]);
     expect(QUALITY_FEEDBACK_FILE).toBe('quality-feedback-topics.json');

@@ -1,6 +1,5 @@
 'use strict';
 
-const path = require('node:path');
 const { resolveHead } = require('../diff-base');
 const { writeWorkRun } = require('../work-runs');
 const { buildWorkflowContext } = require('../workflow-context/stage');
@@ -13,12 +12,34 @@ function runHook(options) {
     task: options.task,
     detailProfile: options.detailProfile,
   });
-  const taskPack = options.taskPack ? parseTaskPack(options.taskPack) : null;
+  const taskPack = options.taskPack ? parseTaskPack(options.taskPack, { repoRoot: options.repoRoot }) : null;
+  if (taskPack && !(taskPack.validation && taskPack.validation.deterministic_handoff)) {
+    return {
+      hook_id: 'before_work',
+      stage: 'work',
+      workflow_context: workflowContext,
+      work_run_id: null,
+      work_start_ref: null,
+      planned_surface: {
+        source: 'none',
+        value: null,
+        limitations: [{
+          code: 'task-pack-invalid',
+          message: 'Task pack validation failed; before-work did not create a work-run or load source plan planned surface.',
+        }],
+      },
+      task_pack: {
+        metadata: taskPack.metadata,
+        execution_focus: taskPack.execution_focus,
+        limitations: taskPack.limitations,
+        validation: taskPack.validation,
+      },
+      policy: 'planned surface is structured input only; do not infer planned surface from markdown prose.',
+    };
+  }
   const plannedSurface = loadPlannedSurface({
     ...options,
-    plan: options.plan || (taskPack && taskPack.metadata && taskPack.metadata.source_plan
-      ? path.resolve(path.dirname(options.taskPack), taskPack.metadata.source_plan)
-      : null),
+    plan: options.plan || (taskPack && taskPack.source_plan_path ? taskPack.source_plan_path : null),
   });
   const workStartRef = resolveHead(options.repoRoot);
   const workRun = writeWorkRun(options.repoRoot, {
@@ -43,6 +64,7 @@ function runHook(options) {
       metadata: taskPack.metadata,
       execution_focus: taskPack.execution_focus,
       limitations: taskPack.limitations,
+      validation: taskPack.validation,
     } : null,
     policy: 'planned surface is structured input only; do not infer planned surface from markdown prose.',
   };

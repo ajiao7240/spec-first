@@ -32,9 +32,10 @@ When skipping, say explicitly that this is not an omission; this case does not n
 2. A task pack is a derived artifact; it must not become a second plan.
 3. A task pack may only rearrange execution slices. It must not change scope, acceptance criteria, or non-goals.
 4. A task pack that can be handed to `spec-work` must include `spec_id`, verifiable `source_plan`, and `source_plan_hash` metadata so wrong-chain or stale tasks are not executed silently.
-5. `spec-write-tasks` does not introduce its own CRG lifecycle hook. CRG query references may appear only as `context_refs`, `entry_hint`, or `test_focus` inputs; `spec-work` later calls `spec-first crg hook before-work --task-pack=<tasks.md>` to return to the source plan handoff.
+5. `spec-write-tasks` does not introduce its own CRG lifecycle hook. CRG query references may appear only as `context_refs`, `entry_hint`, `test_focus`, or orientation evidence; `spec-work` later calls `spec-first crg hook before-work --task-pack=<tasks.md>` to return to the source plan handoff.
 6. Each task should solve one clear subproblem and should usually have one primary verification target.
 7. Task splitting should reflect file boundaries, dependencies, verification surfaces, and parallelization opportunities instead of restating the plan.
+8. Source reads before task-pack generation must be bounded source orientation: use CRG evidence first when available, fall back to targeted direct repo reads in MVP, and stop once task boundaries are accurate enough. Serena/LSP is a later orientation provider, not an MVP requirement.
 
 ## Input Paths
 
@@ -49,6 +50,26 @@ When the input is `docs/plans/*-plan.md` or another explicit plan file:
 3. Decide whether a task pack will actually reduce execution risk or context load.
 4. If task compilation is not worthwhile, explain why and recommend sending the plan directly to `spec-work`.
 5. If task compilation is worthwhile, run the compilation flow below and write the task pack, copying `spec_id` from the source plan.
+
+### Bounded Source Orientation
+
+Before writing task cards, you may inspect code only until task boundaries are accurate enough.
+
+MVP provider order:
+
+1. Prefer CRG evidence when graph state is ready: workflow context, graph quality, search/query, locate, explain, impact, review-context, and god-nodes can identify candidate files, test entrypoints, shared surfaces, blast radius, and parallel risk.
+2. If CRG is unavailable, degraded, stale, or insufficient for this plan shape, fall back to targeted direct repo reads of the plan-indicated files, nearby tests, directory indexes, and local patterns.
+
+CRG evidence is advisory. It must not turn the current implementation state into new tasks, replace source reading, or override the source plan. If source orientation reveals missing scope, contract, acceptance, or verification decisions, return `return-to-plan` or `draft-only` instead of inventing task scope.
+
+Serena/LSP may be introduced as a Phase 2 orientation provider, but do not require it for MVP task-pack generation.
+
+Phase 2 provider rule:
+
+- Use Serena/LSP only after CRG is unavailable, degraded, stale, or insufficient for the plan shape.
+- Activate the target project and use LSP quick indexing only for bounded source orientation: symbol overview, symbol lookup, references, and local pattern search.
+- Record the provider and limitations in orientation evidence.
+- Do not let LSP references automatically expand task scope or replace source-plan authority.
 
 ### 2. Existing Task-Pack Path
 
@@ -155,11 +176,42 @@ The body must include:
 - Traceability Matrix
 - Task Graph
 - Execution Waves
+- Task Pack Contract
 - Task Cards
+- Orientation Evidence
 - Validation Notes
 - Regeneration Rules
 
 When writing a task pack, read [Task Pack Schema](references/task-pack-schema.md) and use its frontmatter, task-card fields, and regeneration rules.
+
+## Final Decision Envelope
+
+Every `spec-write-tasks` run must end with a compact decision envelope. The envelope is a handoff summary for this run, not persisted workflow state:
+
+```yaml
+decision: compile | skip | return-to-plan | draft-only | validate-only
+source_plan: docs/plans/... | null
+task_pack: docs/tasks/... | null
+task_pack_validity: valid | draft | stale | wrong-chain | invalid | unverifiable | not-applicable
+deterministic_handoff: true | false
+validity_scope: identity-freshness-structure-only
+semantic_posture: generated-this-run | reviewed-existing | unchecked-existing | not-applicable
+reason: <one sentence>
+validation:
+  spec_id: matched | missing | mismatch | not_checked
+  source_plan_hash: matched | missing | mismatch | unavailable | not_checked
+  hash_tool: available | unavailable
+  source_plan_path: resolved | missing | invalid
+  task_pack_contract: valid | invalid | not_checked
+orientation:
+  provider: crg | direct-repo-reads | serena-lsp | mixed | skipped
+  posture: bounded | degraded | skipped-small-plan | unavailable
+  evidence_refs: []
+  limitations: []
+next_action: spec-work-task-pack | review-task-pack | spec-work-plan | revise-plan | stop
+```
+
+`next_action: spec-work-task-pack` is allowed only when `deterministic_handoff: true` and `semantic_posture` is `generated-this-run` or `reviewed-existing`. `deterministic_handoff` proves identity, freshness, and structure only; it does not prove semantic task quality.
 
 ## Required Task Card Semantics
 
@@ -182,31 +234,21 @@ Every task card must express:
 
 ## Drift And Hash
 
-`source_plan_hash` should be a task-relevant hash, not a whole-file hash.
+`source_plan_hash` must be the canonical source plan body hash produced by `spec-first tasks hash <plan-path>`.
 
-`spec_id` is copied from the source plan and is not part of freshness. It links the task pack to the same spec chain; `source_plan_hash` proves the task pack is still derived from the current execution-relevant plan content.
+`spec_id` is copied from the source plan and is not part of freshness. It links the task pack to the same spec chain; `source_plan_hash` proves the task pack is still derived from the current source plan body.
 
 If the source plan has no `spec_id`, do not generate an executable task pack. Return to `spec-plan` to add the plan-local identity, or produce only a `draft` / `transient` output that is not valid `spec-work` input.
 
-Include these plan sections in the hash input:
+Hash rules:
 
-- `Requirements Trace`
-- `Scope Boundaries`
-- `Technical Approach`
-- `Implementation Units`
-- `Files`
-- `Test Scenarios`
-- `Verification`
-- `Deferred to Implementation`
+- Read the source plan as UTF-8 text.
+- Normalize `CRLF` / `CR` to `LF`.
+- If the first line is `---`, remove the complete frontmatter block; if closing frontmatter is missing, fail closed.
+- Hash the remaining Markdown body exactly as canonicalized; do not extract sections or collapse whitespace in MVP.
+- Frontmatter fields such as `status` and `spec_id` are not part of freshness; identity is checked separately.
 
-Exclude:
-
-- plan frontmatter `status`,
-- pure formatting changes,
-- review menus,
-- completed-state timestamps.
-
-A task pack that can be handed to `spec-work` must use a concrete task-relevant `sha256` hash, for example `sha256:<64-hex>`.
+A task pack that can be handed to `spec-work` must use a concrete canonical source plan body hash, for example `sha256:<64-hex>`.
 
 If the current environment has no deterministic hash capability, do not pretend validation happened. Only produce a draft/non-executable task pack or explain that hash tooling is required first. Do not use `pending-tooling`, `unknown`, empty values, or guessed whole-file hashes as executable handoff.
 
@@ -237,10 +279,11 @@ A script may run deterministic lint for:
 - complete frontmatter,
 - `source_plan` exists,
 - `source_plan_hash` format,
+- `Task Pack Contract` fenced JSON block exists and parses,
 - unique `task_id`,
 - dependencies refer to existing tasks,
-- files use repo-relative paths,
-- same-wave file overlap is marked or serialized.
+- files use concrete repo-relative paths,
+- same-wave file overlap is absent or serialized.
 
 Do not let scripts judge whether task splitting is semantically good. Splitting, merging, waves, and boundaries are LLM semantic decisions.
 

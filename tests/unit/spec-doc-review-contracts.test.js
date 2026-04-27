@@ -33,4 +33,14 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(bulkPreview).not.toContain('One call site');
     expect(bulkPreview).not.toContain('Best-judgment fix paths do **not** use this preview.');
   });
+
+  test('doc review can classify and review derived task packs without making them a second plan', () => {
+    const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
+
+    expect(skill).toContain('requirements, plan, or task-pack documents');
+    expect(skill).toContain('frontmatter `type: task-pack`');
+    expect(skill).toContain('derived rather than a second plan');
+    expect(skill).toContain('Task Pack Contract');
+    expect(skill).toContain('spec-first tasks validate --json');
+  });
 });

@@ -38,14 +38,14 @@ source_sections:
 | `date` | Generation date |
 | `spec_id` | Spec-chain identity copied from the source plan; executable handoff requires it |
 | `source_plan` | Repo-relative path to the single source plan |
-| `source_plan_hash` | Task-relevant plan hash; executable handoff must use `sha256:<64-hex>` |
+| `source_plan_hash` | Canonical source plan body hash; executable handoff must use `sha256:<64-hex>` |
 | `generated_by` | Must be `spec-write-tasks` |
 | `mode` | Executable handoff must be `derived`; transient slices are not stable `spec-work` input |
 | `source_sections` | Plan sections actually consumed by this task pack |
 
-`spec_id` and `source_plan_hash` have separate jobs. `spec_id` identifies the requirements/plan/task-pack chain; `source_plan_hash` proves the task pack is still derived from the current execution-relevant plan content. A task pack whose `spec_id` does not match the source plan is a wrong-chain handoff. A task pack whose hash does not match is stale.
+`spec_id` and `source_plan_hash` have separate jobs. `spec_id` identifies the requirements/plan/task-pack chain; `source_plan_hash` proves the task pack is still derived from the current source plan body. A task pack whose `spec_id` does not match the source plan is a wrong-chain handoff. A task pack whose hash does not match is stale.
 
-`source_plan_hash` must be a task-relevant hash over plan sections that affect execution semantics. Exclude plan `status`, pure formatting changes, review menus, and completed-state timestamps.
+`source_plan_hash` must be produced by `spec-first tasks hash <plan-path>` using canonical source plan body hashing: UTF-8 text, normalized newlines, complete frontmatter removed when present, and the remaining Markdown body hashed without section extraction or whitespace collapsing.
 
 If the source plan lacks `spec_id`, do not write an executable task pack. Return to `spec-plan` to add plan frontmatter, or write only a draft/transient task pack that is explicitly not valid `spec-work` input.
 
@@ -63,9 +63,11 @@ If the current environment cannot produce a verifiable hash, do not write an exe
 3. `Traceability Matrix`
 4. `Task Graph`
 5. `Execution Waves`
-6. `Task Cards`
-7. `Validation Notes`
-8. `Regeneration Rules`
+6. `Task Pack Contract`
+7. `Task Cards`
+8. `Orientation Evidence`
+9. `Validation Notes`
+10. `Regeneration Rules`
 
 ## Source Summary
 
@@ -113,6 +115,38 @@ A wave is an execution grouping, not a state machine.
 - If files overlap, serialize the tasks or mark the overlap explicitly.
 - Hidden dependencies must not be hidden behind wave labels.
 
+## Task Pack Contract
+
+Executable task packs must include exactly one fenced JSON block under `## Task Pack Contract`. This block is the only machine-readable task-card source for validators. Human-readable `Task Cards` may repeat the same information for review, but validators must not infer structure from free-form Markdown.
+
+```json
+{
+  "schema_version": "task-pack/v1",
+  "execution_waves": [
+    {
+      "wave": 1,
+      "tasks": ["T001"]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "T001",
+      "source_unit": "U1",
+      "requirement_refs": ["R1"],
+      "goal": "Validate task pack identity, freshness, and structure.",
+      "dependencies": [],
+      "files": ["src/cli/task-pack.js"],
+      "test_focus": "Valid and stale task pack validation.",
+      "done_signal": "Validator tests pass.",
+      "wave": 1,
+      "stop_if": "Validation requires judging task splitting quality or changing source-plan scope."
+    }
+  ]
+}
+```
+
+MVP required task fields are `task_id`, `dependencies`, `files`, `goal`, `test_focus`, `done_signal`, `wave`, and `stop_if`, plus at least one source anchor through `source_unit` or `requirement_refs`.
+
 ## Task Cards
 
 Every task card must include these fields:
@@ -144,7 +178,7 @@ These fields may be added when useful, but they do not replace required fields:
 | `review_focus` | Specific review concern |
 | `handoff_owner` | Suggested executor type when relevant |
 
-### Recommended Task Card Example
+### Recommended Human-Readable Task Card Example
 
 ```md
 - T001
@@ -167,6 +201,26 @@ These fields may be added when useful, but they do not replace required fields:
   stop_if: A new public entrypoint, config key, or durable state file is needed but absent from the plan
   wave: 1
 ```
+
+## Orientation Evidence
+
+Orientation Evidence records the bounded source orientation used to make task boundaries accurate enough. It is advisory execution context, not a source of scope, requirements, or acceptance criteria.
+
+Include:
+
+- `provider`: `crg`, `direct-repo-reads`, `serena-lsp`, `mixed`, or `skipped`.
+- `posture`: `bounded`, `degraded`, `skipped-small-plan`, or `unavailable`.
+- `evidence_refs`: short references to CRG queries, candidate files, tests, shared surfaces, or direct repo reads that shaped task boundaries.
+- `limitations`: missing, stale, degraded, or intentionally skipped evidence.
+
+Rules:
+
+- Prefer CRG evidence when graph state is ready, because CRG is the project fact layer.
+- Use CRG to locate candidate files, tests, shared surfaces, impact, and parallel risk.
+- Do not turn current implementation state into new task scope.
+- Do not treat CRG as a substitute for source-plan authority or bounded source reading.
+- In MVP, fall back to targeted direct repo reads when CRG is unavailable, degraded, stale, or insufficient.
+- Serena/LSP is a Phase 2 orientation provider and must be recorded as advisory evidence when used.
 
 ## Task Organization Views
 
@@ -219,10 +273,14 @@ Scripts may check:
 - `spec_id` is present and matches the current source plan when the source plan has one,
 - `source_plan` exists,
 - `source_plan_hash` format is valid and executable handoff uses `sha256:<64-hex>`,
+- if `spec_id` does not match the current source plan, execution must be rejected,
+- `Task Pack Contract` exists as a single fenced JSON block and parses,
 - `task_id` values are unique,
+- MVP required task fields, including `stop_if`, are present and structurally valid,
 - dependencies point to existing tasks,
-- files use repo-relative paths,
-- same-wave file overlap is marked or serialized.
+- files use concrete repo-relative paths,
+- each task is listed in exactly one matching execution wave,
+- same-wave file overlap is absent or serialized.
 
 Scripts must not judge task splitting quality, business boundaries, or whether parallelization is semantically appropriate. Those are LLM judgments.
 

@@ -36,14 +36,25 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('Compilation Algorithm');
     expect(skill).toContain('not a script state machine');
     expect(skill).toContain('Quality Pass Before Output');
+    expect(skill).toContain('Final Decision Envelope');
+    expect(skill).toContain('decision: compile | skip | return-to-plan | draft-only | validate-only');
+    expect(skill).toContain('semantic_posture');
+    expect(skill).toContain('next_action');
+    expect(skill).toContain('orientation:');
+    expect(skill).toContain('evidence_refs');
     expect(skill).toContain('Source Summary');
     expect(skill).toContain('Traceability Matrix');
+    expect(skill).toContain('Orientation Evidence');
     expect(skill).toContain('Task Quality Guide');
     expect(skill).toContain('If deterministic hash tooling is unavailable, report the task pack as unverifiable handoff');
     expect(skill).toContain('A task pack that can be handed to `spec-work` must include `spec_id`');
     expect(skill).toContain('If the source plan is a legacy plan without `spec_id`, do not write an executable task pack');
     expect(skill).toContain('copying `spec_id` from the source plan');
     expect(skill).toContain('A mismatch is a wrong-chain handoff');
+    expect(skill).toContain('bounded source orientation');
+    expect(skill).toContain('Prefer CRG evidence when graph state is ready');
+    expect(skill).toContain('Serena/LSP may be introduced as a Phase 2 orientation provider');
+    expect(skill).toContain('Phase 2 provider rule');
   });
 
   test('task pack schema requires executable handoff metadata and quality structures', () => {
@@ -52,6 +63,13 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain('spec_id: "YYYY-MM-DD-NNN-<slug>"');
     expect(schema).toContain('source_plan_hash: "sha256:<64-hex>"');
     expect(schema).toContain('`spec_id` and `source_plan_hash` have separate jobs');
+    expect(schema).toContain('canonical source plan body hashing');
+    expect(schema).toContain('Task Pack Contract');
+    expect(schema).toContain('only machine-readable task-card source for validators');
+    expect(schema).toContain('Orientation Evidence');
+    expect(schema).toContain('provider');
+    expect(schema).toContain('evidence_refs');
+    expect(schema).toContain('limitations');
     expect(schema).toContain('A task pack whose `spec_id` does not match the source plan is a wrong-chain handoff');
     expect(schema).toContain('If the source plan lacks `spec_id`, do not write an executable task pack');
     expect(schema).toContain('Executable handoff must be `derived`');
@@ -59,7 +77,10 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain('do not write an executable handoff');
     expect(schema).toContain('Traceability Matrix');
     expect(schema).toContain('Every task card must include these fields');
+    expect(schema).toContain('MVP required task fields');
+    expect(schema).toContain('`stop_if`');
     expect(schema).toContain('Optional Task Fields');
+    expect(schema).toContain('| `test_focus` | Primary verification focus |');
     expect(schema).toContain('Granularity Guide');
     expect(schema).toContain('Scripts must not judge task splitting quality');
     expect(schema).toContain('If `spec_id` does not match the current source plan, execution must be rejected');
@@ -74,6 +95,11 @@ describe('spec-write-tasks contracts', () => {
     expect(guide).toContain('Bad Smells');
     expect(guide).toContain('### Good');
     expect(guide).toContain('### Bad');
+    expect(guide).toContain('Field Writing Guide');
+    expect(guide).toContain('Task Pack Review Checklist');
+    expect(guide).toContain('orientation_evidence');
+    expect(guide).toContain('provider, posture, evidence_refs, and limitations');
+    expect(guide).toContain('without turning CRG/LSP/current code state into source-plan scope');
   });
 
   test('spec-work variants validate task packs before creating execution tasks', () => {
@@ -88,12 +114,16 @@ describe('spec-write-tasks contracts', () => {
       expect(skill).toContain('reject the task pack as wrong-chain handoff before implementation');
       expect(skill).toContain('missing-spec-id, spec-id-mismatch');
       expect(skill).toContain('`sha256:<64-hex>`');
-      expect(skill).toContain('compare the task pack hash against the current source plan using deterministic hash tooling');
+      expect(skill).toContain('spec-first tasks validate <task-pack-path> --json');
+      expect(skill).toContain('Task Pack Contract');
       expect(skill).toContain('if that tooling is unavailable, treat the task pack as unverifiable and stop');
       expect(skill).toContain('reject draft, transient, missing-source, missing-spec-id, spec-id-mismatch, missing-hash, unavailable-hash-tooling, unverifiable-hash, or hash-mismatch task packs before implementation');
       expect(skill).toContain('do not silently fall back to executing stale task cards');
       expect(skill).toContain("honor each task's `stop_if`");
       expect(skill).toContain('do not create execution tasks until the task-pack validation checks above have passed');
+      expect(skill).toContain('optional task-pack suitability check before `before-work --plan`');
+      expect(skill).toContain('offer the diversion once only when the plan has strong signals');
+      expect(skill).toContain('do not prompt again in this work run');
     }
   });
 

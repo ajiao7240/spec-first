@@ -12,7 +12,8 @@ A task is high quality when an executor can:
 2. know exactly which source plan anchors it derives from,
 3. identify the files it is allowed to touch,
 4. verify completion without inventing new acceptance criteria,
-5. know when to stop instead of expanding scope.
+5. know which bounded source orientation shaped the file boundaries,
+6. know when to stop instead of expanding scope.
 
 The quality bar is not whether every field is filled. The quality bar is whether an executor can safely begin with low context and finish a verifiable slice without expanding scope.
 
@@ -95,6 +96,33 @@ Avoid:
 - listing every reference in the plan,
 - adding background material that does not change execution.
 
+## Field Writing Guide
+
+Use these field-level checks before handing a task pack to `spec-work`:
+
+| Field | Good value | Reject or revise when |
+| --- | --- | --- |
+| `context_refs` | Names the smallest plan sections, code files, contracts, CRG evidence, or pattern docs needed for this task | It points only to the whole plan, lists every reference, or omits code/context needed to understand file boundaries |
+| `orientation_evidence` | Records provider, posture, evidence_refs, and limitations for bounded source orientation used to compile task boundaries | It claims CRG/LSP/direct reads as scope authority, omits limitations, or lists broad repo exploration with no task-boundary impact |
+| `entry_hint` | Names where to start reading, such as a source section, helper, schema, or existing test pattern | It becomes a step-by-step implementation script or shell-command choreography |
+| `test_focus` | States the primary verification surface and behavior category | It says only "tests" or requires acceptance criteria not present in the source plan |
+| `done_signal` | Can be observed through tests, CLI output, diff shape, document structure, or review | It is subjective, such as "works", "complete", or "looks good" |
+| `stop_if` | Names a concrete scope expansion or invalid assumption that should return to `spec-plan` | It is generic, such as "if unsure" or "if there is a problem" |
+
+## Task Pack Review Checklist
+
+When reviewing a task pack, check:
+
+- it is derived from exactly one source plan and does not add scope,
+- `Task Pack Contract` exists and is the machine-readable source,
+- identity and freshness can be validated with `spec-first tasks validate --json`,
+- every task has a source anchor through `source_unit` or `requirement_refs`,
+- every task has concrete repo-relative `files`,
+- same-wave tasks do not share files,
+- Orientation Evidence names provider, posture, evidence_refs, and limitations without turning CRG/LSP/current code state into source-plan scope,
+- `context_refs` reduce first-pass reading instead of duplicating the whole plan,
+- `stop_if` protects the source plan boundary.
+
 ## Done Signal Rules
 
 `done_signal` should be observable through tests, diff, CLI output, document structure, or review.
@@ -140,6 +168,7 @@ Bad stop signals:
 | Dependencies encode preference | Reduces parallelism | Keep only real output dependencies |
 | `files` uses broad globs | Execution boundary is weak | Use concrete repo-relative paths or narrow directories |
 | `context_refs` lists everything | Executor still has to read the whole plan | Keep only task-critical refs |
+| Orientation Evidence is missing or overclaims | Executor cannot tell why boundaries are accurate, or evidence becomes a second plan | Record bounded provider/evidence/limitations and keep the source plan authoritative |
 | `done_signal` is subjective | Cannot verify completion | Use test, diff, CLI, docs, or review signals |
 | `stop_if` is vague | Cannot stop scope creep | Name concrete out-of-scope triggers |
 | Task adds scope | Task pack becomes a second plan | Return to `spec-plan` |

@@ -1,6 +1,6 @@
 {
   "schema_version": "v1",
-  "generated_at": "2026-04-26T16:39:16.385Z",
+  "generated_at": "2026-04-27T00:48:44.357Z",
   "gate_id": "ai-dev-quality-gate",
   "passed": true,
   "checks": [
@@ -9,9 +9,9 @@
       "kind": "unit-suite",
       "passed": true,
       "summary": {
-        "test_suites_total": 10,
+        "test_suites_total": 12,
         "test_suites_failed": 0,
-        "tests_total": 25,
+        "tests_total": 59,
         "tests_failed": 0
       },
       "artifact_path": ".spec-first/workflows/quality-gates/ai-dev-quality-gate/crg-runtime-contracts.junit.json"

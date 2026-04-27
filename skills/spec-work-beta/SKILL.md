@@ -112,11 +112,17 @@ Determine how to proceed based on what was provided in `<input_document>`.
      - read `source_plan` and treat that plan as the single source of truth for scope, requirements, and non-goals
      - read `spec_id` from the task pack and source plan. If the task pack lacks `spec_id`, stop as missing identity; if both are present, they must match; if they mismatch, reject the task pack as wrong-chain handoff before implementation
      - if the source plan lacks `spec_id`, treat task-pack identity as unverifiable weak trace and stop for executable task-pack handoff; ask to return to `spec-plan` to add plan frontmatter or rerun `spec-write-tasks`
-     - confirm `source_plan_hash` is a concrete task-relevant `sha256:<64-hex>` hash, not `pending-tooling`, `unknown`, empty, or a draft marker
-     - compare the task pack hash against the current source plan using deterministic hash tooling; if that tooling is unavailable, treat the task pack as unverifiable and stop
+     - confirm `source_plan_hash` is a concrete canonical source plan body `sha256:<64-hex>` hash, not `pending-tooling`, `unknown`, empty, or a draft marker
+     - compare the task pack hash against the current source plan using `spec-first tasks validate <task-pack-path> --json`; if that tooling is unavailable, treat the task pack as unverifiable and stop
+     - confirm the validator accepted the `Task Pack Contract` JSON block; do not infer executable task structure from free-form Markdown task cards
      - reject draft, transient, missing-source, missing-spec-id, spec-id-mismatch, missing-hash, unavailable-hash-tooling, unverifiable-hash, or hash-mismatch task packs before implementation
      - when rejecting, stop and ask to rerun `spec-write-tasks` from the source plan or return to `spec-plan`; do not silently fall back to executing stale task cards
      - during execution, honor each task's `stop_if`; if triggered, stop and return to `spec-plan` or regenerate the task pack instead of expanding scope in place
+   - If the work document is a plan path, and validated task-pack consumption is available, run the optional task-pack suitability check before `before-work --plan`, before creating a work-run, and before creating the internal task tracker:
+     - offer the diversion once only when the plan has strong signals: 3+ implementation units, multiple phases, cross-module files, foundation tasks, dependency chains, parallel waves, 6+ likely core files, or verification across unit/smoke/integration layers
+     - do not offer it for 1-2 file changes, docs-only/config-only/narrow bugfix plans, plans whose units are already small enough for the internal tracker, or when the user explicitly says to execute the plan directly
+     - if the user chooses task compilation, pause plan execution, run `spec-write-tasks <plan-path>`, and re-enter only after it returns deterministic handoff with `semantic_posture: generated-this-run | reviewed-existing`
+     - if the user chooses direct execution, continue with `before-work --plan` and the internal tracker, and do not prompt again in this work run
    - Check for `Execution note` on each implementation unit — these carry the plan's execution posture signal for that unit (for example, test-first or characterization-first). Note them when creating tasks.
    - Check for a `Deferred to Implementation` or `Implementation-Time Unknowns` section — these are questions the planner intentionally left for you to resolve during execution. Note them before starting so they inform your approach rather than surprising you mid-task
    - Check for a `Scope Boundaries` section — these are explicit non-goals. Refer back to them if implementation starts pulling you toward adjacent work
