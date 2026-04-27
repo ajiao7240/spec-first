@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.5.9 2026-04-27 10:05:16 leokuang: docs(specs): 修正 spec-standards proposal run 路径为 workflow artifact 的 target-slug/run-id 两层结构，并修复 docs/specs 目录示例缩进 (user-visible)
 - v1.5.9 2026-04-27 09:28:38 leokuang: docs(specs): 按终审 findings 逐项修复 spec-standards 方案，统一 priority/severity contract、resolve-cache 真相源、workflow artifact 路径、freshness 校验、run_id 幂等、export redaction 与 CLI 形态 (user-visible)
 - v1.5.9 2026-04-27 09:26:41 leokuang: docs(readme): 核实并同步用户手册的当前入口、目录和 Codex 命令面口径，修正 README 引用文件中的旧 `/spec:*` / `.codex/commands/spec` 说法 (user-visible)
 - v1.5.9 2026-04-27 09:19:40 Codex: docs(plans): 新增 agent-browser 外部 helper tool 迁移计划，明确由 spec-mcp-setup 管理安装、删除本地 source skill、清理 runtime governance 与替换 contract tests 的实施方案 (user-visible)
@@ -662,3 +663,4 @@
 - v1.5.9 2026-04-23 15:35:00 Codex: 在 `docs/10-prompt/项目分析` 下新增 Spec-First Evolution Architect 审查任务提示词完整版与精简版，供后续项目级审查复用
 - v1.5.9 2026-04-25 23:44:10 Codex: 以 CE 最新内容覆盖同步 27 个对应 skill，完成 spec-first 命名与路径适配、同步 prompt mirror，并删除旧本地增强 contract tests (user-visible)
 - v1.5.9 2026-04-25 23:55:17 Codex: 补充 CE skill 覆盖迁移逐项审查报告，验证 27 个 skill 的脚本同步、mirror 一致性、命名残留清理与测试结果 (user-visible)
+- v1.5.9 2026-04-27 09:53:25 leokuang: docs(plans): 收紧 agent-browser 外部 helper 迁移计划，补充删除前门禁、setup 入口收敛、host 权限、runtime 清理和发布验证要求
