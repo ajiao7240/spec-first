@@ -169,3 +169,35 @@ Write-StatusRow `
   (Format-Cell $combined.repo_config_status) `
   'n/a' `
   (Format-Cell $projectionNext)
+
+switch ($combined.host) {
+  'claude' {
+    $hostDisplay = 'Claude Code'
+    $setupCommand = '/spec:mcp-setup'
+    $graphCommand = '/spec:graph-bootstrap'
+  }
+  'codex' {
+    $hostDisplay = 'Codex'
+    $setupCommand = '$spec-mcp-setup'
+    $graphCommand = '$spec-graph-bootstrap'
+  }
+  default {
+    $hostDisplay = 'Claude Code / Codex'
+    $setupCommand = '/spec:mcp-setup or $spec-mcp-setup'
+    $graphCommand = '/spec:graph-bootstrap or $spec-graph-bootstrap'
+  }
+}
+
+Write-Host ''
+Write-Host 'Next steps:'
+if ($combined.baseline_ready) {
+  if ($combined.graph_bootstrap_required) {
+    Write-Host "  1. Continue graph bootstrap: run $graphCommand, or reply `"继续完成`" and the agent should run it."
+    Write-Host "  2. Restart $hostDisplay or start a new session before relying on the newly written MCP config in downstream workflows."
+  } else {
+    Write-Host "  1. Restart $hostDisplay or start a new session before relying on the newly written MCP config in downstream workflows."
+  }
+} else {
+  Write-Host "  1. Resolve the action-required rows above, then rerun $setupCommand."
+  Write-Host "  2. Restart $hostDisplay after all rows are ready so the newly written MCP config is loaded."
+}

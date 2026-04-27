@@ -85,3 +85,5 @@ It does not mean graph indexes are query-ready. After `spec-mcp-setup`, graph pr
 ```
 
 Run `/spec:graph-bootstrap` or `$spec-graph-bootstrap` to build provider indexes and flip `query_ready=true`.
+
+The final setup output should make this handoff explicit below the readiness table: the user can run the graph-bootstrap command or reply "继续完成", then restart Claude Code/Codex or start a new session before relying on the newly written MCP config in downstream workflows.

@@ -1,0 +1,65 @@
+{
+  "schema_version": "graph-providers.v1",
+  "generated_by": "spec-mcp-setup",
+  "generated_at": "2026-04-27T17:28:11Z",
+  "repo_root": "/Users/kuang/xiaobu/spec-first",
+  "providers": {
+    "gitnexus": {
+      "configured": true,
+      "enabled_for_bootstrap": true,
+      "query_ready": true,
+      "bootstrap_required": false,
+      "required": true,
+      "role": "global_knowledge",
+      "mcp_server": "gitnexus",
+      "dependency_status": "ready",
+      "host_config_status": "fallback-active",
+      "capabilities": [
+        "build_global_graph",
+        "architecture_map",
+        "dependency_map",
+        "execution_flow",
+        "repo_wiki",
+        "query_global_graph"
+      ],
+      "next_action": "run spec-graph-bootstrap",
+      "last_bootstrap_status": "ready",
+      "last_bootstrapped_at": "2026-04-27T17:30:19Z"
+    },
+    "code-review-graph": {
+      "configured": true,
+      "enabled_for_bootstrap": true,
+      "query_ready": true,
+      "bootstrap_required": false,
+      "required": true,
+      "role": "impact_context",
+      "mcp_server": "code-review-graph",
+      "dependency_status": "ready",
+      "host_config_status": "fallback-active",
+      "capabilities": [
+        "detect_changes",
+        "blast_radius",
+        "minimal_context",
+        "review_context",
+        "related_tests",
+        "graph_stats"
+      ],
+      "next_action": "run spec-graph-bootstrap",
+      "last_bootstrap_status": "ready",
+      "last_bootstrapped_at": "2026-04-27T17:30:19Z"
+    }
+  },
+  "selection": {
+    "global_knowledge": "gitnexus",
+    "impact_context": "code-review-graph",
+    "context_selection": "code-review-graph"
+  },
+  "boundaries": {
+    "setup_only": true,
+    "does_not_run_gitnexus_analyze": true,
+    "does_not_run_code_review_graph_build": true,
+    "graph_bootstrap_required": false
+  },
+  "last_updated_by": "spec-graph-bootstrap",
+  "last_bootstrapped_at": "2026-04-27T17:30:19Z"
+}

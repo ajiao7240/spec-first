@@ -41,7 +41,10 @@ verify-tools.*
   |-- merge install-helpers --verify-only facts
   |-- compute baseline_ready once
   |-- write readiness ledger schema_version=v2
-  |-- print final status table as the last visible output block
+  |-- print final status table
+  |-- print friendly next steps:
+  |     continue graph bootstrap or reply "继续完成"
+  |     restart Claude Code/Codex or start a new session before downstream MCP use
   v
 write-provider-config.*
   |
@@ -49,5 +52,5 @@ write-provider-config.*
   |-- write .spec-first/config/graph-providers.json
   |-- query_ready=false
   v
-Next: /spec:graph-bootstrap or $spec-graph-bootstrap
+Next: /spec:graph-bootstrap or $spec-graph-bootstrap, or reply "继续完成"
 ```

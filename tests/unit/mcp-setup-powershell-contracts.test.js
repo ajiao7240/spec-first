@@ -51,7 +51,12 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource.indexOf('Graph providers are configured but not query-ready yet.')).toBeLessThan(
       verifySource.indexOf('Required Harness Runtime status:'),
     );
-    expect(verifySource.trim().endsWith("(Format-Cell $projectionNext)")).toBe(true);
+    expect(verifySource.indexOf('Required Harness Runtime status:')).toBeLessThan(
+      verifySource.indexOf("Write-Host 'Next steps:'"),
+    );
+    expect(verifySource).toContain('reply `"继续完成`"');
+    expect(verifySource).toContain('Restart $hostDisplay');
+    expect(verifySource).toContain('$spec-graph-bootstrap');
   });
 
   test('uses shared TOML helpers for quoted Codex MCP keys', () => {

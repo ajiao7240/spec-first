@@ -134,3 +134,38 @@ jq -r '
 ' "$MARKER_PATH" | while IFS=$'\t' read -r name type required dependency host project query next; do
   printf "  %-24s %-16s %-8s %-16s %-16s %-16s %-10s %s\n" "$name" "$type" "$required" "$dependency" "$host" "$project" "$query" "$next"
 done
+
+host_name="$(jq -r '.host // "unknown"' "$MARKER_PATH")"
+baseline_ready="$(jq -r '.baseline_ready // false' "$MARKER_PATH")"
+graph_bootstrap_required="$(jq -r '.graph_bootstrap_required // false' "$MARKER_PATH")"
+case "$host_name" in
+  claude)
+    host_display="Claude Code"
+    setup_command="/spec:mcp-setup"
+    graph_command="/spec:graph-bootstrap"
+    ;;
+  codex)
+    host_display="Codex"
+    setup_command='$spec-mcp-setup'
+    graph_command='$spec-graph-bootstrap'
+    ;;
+  *)
+    host_display="Claude Code / Codex"
+    setup_command='/spec:mcp-setup or $spec-mcp-setup'
+    graph_command='/spec:graph-bootstrap or $spec-graph-bootstrap'
+    ;;
+esac
+
+echo ""
+echo "Next steps:"
+if [ "$baseline_ready" = "true" ]; then
+  if [ "$graph_bootstrap_required" = "true" ]; then
+    echo "  1. Continue graph bootstrap: run ${graph_command}, or reply \"继续完成\" and the agent should run it."
+    echo "  2. Restart ${host_display} or start a new session before relying on the newly written MCP config in downstream workflows."
+  else
+    echo "  1. Restart ${host_display} or start a new session before relying on the newly written MCP config in downstream workflows."
+  fi
+else
+  echo "  1. Resolve the action-required rows above, then rerun ${setup_command}."
+  echo "  2. Restart ${host_display} after all rows are ready so the newly written MCP config is loaded."
+fi

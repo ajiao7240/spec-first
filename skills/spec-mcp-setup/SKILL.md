@@ -55,7 +55,7 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 7. Bootstraps Serena for the current repo.
 8. Writes readiness ledger v2 to the host marker path.
 9. Writes `.spec-first/config/graph-providers.json` inside a git repo.
-10. Tells the user to run `/spec:graph-bootstrap` or `$spec-graph-bootstrap` next.
+10. Prints a clear next-step prompt after the final table: continue graph bootstrap now, then restart Claude Code/Codex or start a new session before relying on the newly written MCP config in downstream workflows.
 
 It must not run:
 
@@ -277,10 +277,10 @@ Uninstall does not delete `agent-browser`, external caches, or the project proje
 
 ## Success Summary
 
-When setup finishes, display a final status table sourced from readiness ledger v2. The final visible output block must be this table; print ledger/projection notes before the table and do not print a non-table footer after it:
+When setup finishes, display a final status table sourced from readiness ledger v2, followed by a short friendly next-step prompt. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending.
 
 ```text
-Required Harness Runtime is ready.
+Required Harness Runtime is ready; graph bootstrap is still pending.
 
 Required Harness Runtime status:
   Name                     Type             Required Dependency       Host             Project          Query      Next
@@ -300,6 +300,9 @@ Required Harness Runtime status:
   ast-grep-skill           global-skill     yes      ready            n/a              n/a              n/a        n/a
   graph-providers.json     project          yes      n/a              n/a              ready            n/a        n/a
 
+Next steps:
+  1. Continue graph bootstrap: run /spec:graph-bootstrap or $spec-graph-bootstrap, or reply "继续完成" and the agent should run it.
+  2. Restart Claude Code/Codex or start a new session before relying on the newly written MCP config in downstream workflows.
 ```
 
 ## Reference
