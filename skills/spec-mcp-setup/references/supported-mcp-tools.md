@@ -2,6 +2,12 @@
 
 This reference is the human-readable index for the runtime managed by `spec-mcp-setup`. The machine truth for MCP servers and graph-provider MCP servers remains `skills/spec-mcp-setup/mcp-tools.json`.
 
+## Instruction Surface Boundary
+
+`AGENTS.md` and `CLAUDE.md` may contain a managed `spec-first:runtime-tools` block. That block is only a lightweight usage-boundary index for agents at session start.
+
+Do not treat repo-root instruction files as the tool catalog, install guide, or readiness source. Keep the complete human-readable catalog in this file, MCP / graph-provider MCP server machine truth in `skills/spec-mcp-setup/mcp-tools.json`, and dynamic readiness facts in the host setup ledger plus `.spec-first/config/graph-providers.json`.
+
 ## Required MCP Tools
 
 | Tool | Required | Category | Host Config | Project Bootstrap | Purpose |

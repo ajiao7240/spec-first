@@ -71,7 +71,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 脚本负责确定性工作：同步资产、校验状态、生成工件、发出 quality signal。
 - Skill / agent / template 变更后，不要手改生成产物；应修改源码后通过 `spec-first init --claude|--codex` 验证生成结果。
 - `doctor` / `init` / `clean` 依赖 managed state；涉及 runtime 治理的改动通常需要同时检查 `src/cli/commands/`, `src/cli/plugin.js`, `src/cli/state.js`, 以及对应 adapter。
-- `spec-mcp-setup` 当前支持的 MCP 工具、人类可读 readiness 语义与宿主差异统一收口在 `skills/spec-mcp-setup/references/supported-mcp-tools.md`；不要把完整工具目录重复写进本文件。
 - 任何源码改动都必须同步更新根目录 `CHANGELOG.md`。
 
 ## 测试与验证策略
@@ -162,10 +161,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 先验证目标改动，再验证相邻受影响行为。
 <!-- spec-first:coding-guidelines:end -->
 
+<!-- spec-first:runtime-tools:start -->
+## 代码智能与运行时工具（由 spec-first 管理）
+
+`spec-mcp-setup` 管理本项目推荐/必需的 MCP servers、graph-provider MCP servers 与 helper tooling。完整工具清单、安装命令、host-specific notes 与 readiness ledger 语义统一收口在 `.claude/skills/spec-mcp-setup/references/supported-mcp-tools.md`。
+
+### 使用边界
+- `GitNexus`：用于全局代码知识图谱、架构理解、影响分析和提交前变更检测。若本文件存在 `<!-- gitnexus:start -->` 管理块，优先遵守该块的强制规则。
+- `code-review-graph`：用于最小上下文、impact radius、review context、相关测试和 graph stats。只有 graph provider 已 query-ready 时使用；未 ready 时先运行 `/spec:graph-bootstrap`，或退回 bounded direct repo reads。
+- `Serena MCP`：用于 symbol overview、symbol lookup、references、LSP 辅助定位和精确编辑。它是上下文/编辑辅助，不替代源码真相源、测试或 graph-level 影响分析。
+- `ast-grep`：用于结构化代码搜索和安全 rewrite。简单文本/文件搜索仍优先 `rg` / `rg --files`；需要 AST 语义匹配时再使用 `ast-grep`。
+
+### 不要做
+- 不要把 helper tools 当成 MCP server 写入 `mcp-tools.json`。
+- 不要在本文件复制安装命令、版本号、完整工具表或动态 ready 状态。
+- 不要让多个 graph provider 规则互相覆盖；明确的强制治理块优先，其余工具作为上下文增强 provider 使用。
+<!-- spec-first:runtime-tools:end -->
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **spec-first** (19710 symbols, 22223 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **spec-first** (19803 symbols, 22386 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

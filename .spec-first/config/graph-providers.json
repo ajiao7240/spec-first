@@ -7,8 +7,8 @@
     "gitnexus": {
       "configured": true,
       "enabled_for_bootstrap": true,
-      "query_ready": false,
-      "bootstrap_required": true,
+      "query_ready": true,
+      "bootstrap_required": false,
       "required": true,
       "role": "global_knowledge",
       "mcp_server": "gitnexus",
@@ -22,13 +22,15 @@
         "repo_wiki",
         "query_global_graph"
       ],
-      "next_action": "run spec-graph-bootstrap"
+      "next_action": "",
+      "last_bootstrap_status": "ready",
+      "last_bootstrapped_at": "2026-04-27T19:30:20Z"
     },
     "code-review-graph": {
       "configured": true,
       "enabled_for_bootstrap": true,
-      "query_ready": false,
-      "bootstrap_required": true,
+      "query_ready": true,
+      "bootstrap_required": false,
       "required": true,
       "role": "impact_context",
       "mcp_server": "code-review-graph",
@@ -42,7 +44,9 @@
         "related_tests",
         "graph_stats"
       ],
-      "next_action": "run spec-graph-bootstrap"
+      "next_action": "",
+      "last_bootstrap_status": "ready",
+      "last_bootstrapped_at": "2026-04-27T19:30:20Z"
     }
   },
   "selection": {
@@ -54,6 +58,8 @@
     "setup_only": true,
     "does_not_run_gitnexus_analyze": true,
     "does_not_run_code_review_graph_build": true,
-    "graph_bootstrap_required": true
-  }
+    "graph_bootstrap_required": false
+  },
+  "last_updated_by": "spec-graph-bootstrap",
+  "last_bootstrapped_at": "2026-04-27T19:30:20Z"
 }
