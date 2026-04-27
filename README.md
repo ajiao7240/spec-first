@@ -203,7 +203,7 @@ iOS repositories are auto-detected (`Podfile.lock` / `.xcodeproj`) and Pod exclu
 | **Task-pack toolchain** (`spec-first tasks`) | Canonical source-plan hashing and task-pack validation before `spec-work` consumes a derived pack |
 | **Session / PR helpers** | Session history lookup, PR description / feedback handling, and browser evidence stay inside governed skills instead of one-off prompts |
 | **Dual platform support** | One methodology across Claude Code (`/spec:*`) and Codex (`$spec-*`). Claude uses a `SessionStart` hook + bare-agent rewrite; Codex uses `.agents/skills/` discovery + explicit `.codex/agents/...` path rewrite |
-| **Capability layer** | Bundled source assets ship with `39` skills, `51` agents, and no agent support files. Runtime delivery is host-filtered by governance: Claude installs `19` commands + `4` skill directories + `51` agents, while Codex installs `23` skill directories + `51` agents and no command directory |
+| **Capability layer** | Bundled source assets ship with `40` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `19` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `19` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
 | **Runtime governance** | Managed assets are tracked in `state.json` — sync, refresh, recover, and clean safely |
 
 ## Core Workflow
@@ -351,6 +351,8 @@ $ spec-first init --claude
 | Build graph evidence | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
 | Capture reusable learnings when useful | `/spec:compound` | `$spec-compound` |
 | Start the workflow | `/spec:ideate` → `/spec:brainstorm` → `/spec:plan` → `/spec:work` → `/spec:code-review` → `/spec:compound` | `$spec-ideate` → … → `$spec-compound` |
+
+Browser automation remains supported through the external `agent-browser` CLI. It is installed as an upstream/global helper through `/spec:mcp-setup` in Claude or `$spec-mcp-setup` in Codex; existing `agent-browser` commands stay unchanged. If an older runtime still has a local `agent-browser` skill copy, rerun `spec-first init --claude` or `spec-first init --codex` after updating so managed obsolete assets are removed.
 
 `graph-bootstrap` checks host readiness and CRG availability at startup. If graph evidence is unavailable, later workflows continue with explicit direct-read fallback.
 

@@ -1,19 +1,19 @@
 {
   "schema_version": "graph-quality/v1",
-  "generated_at": "2026-04-26T17:53:41.243Z",
-  "generation_id": "20260426175341061",
+  "generated_at": "2026-04-27T03:41:28.548Z",
+  "generation_id": "20260427034128141",
   "repo_root": "/Users/kuang/xiaobu/spec-first",
   "advisory": true,
   "coverage": {
-    "final_input_count": 191,
-    "parsed_count": 187,
-    "changed_parsed_count": 0,
+    "final_input_count": 223,
+    "parsed_count": 218,
+    "changed_parsed_count": 42,
     "skipped_count": 0,
     "no_parser_count": 0,
     "parse_error_count": 4,
-    "module_only_count": 0,
+    "module_only_count": 17,
     "skipped_sensitive_count": 3,
-    "parser_success_rate": 0.9791,
+    "parser_success_rate": 0.9776,
     "samples": {
       "skipped": [],
       "no_parser": [],
@@ -26,57 +26,65 @@
     }
   },
   "graph": {
-    "node_count": 927,
-    "edge_count": 2416,
+    "node_count": 1030,
+    "edge_count": 2651,
     "nodes_by_kind": {
-      "module": 187,
-      "function": 645,
+      "module": 218,
+      "function": 717,
       "class": 19,
       "method": 69,
       "struct": 2,
       "interface": 5
     },
     "edges_by_kind": {
-      "contains": 730,
-      "calls": 701,
-      "defined_in": 740,
-      "imports_from": 245
+      "contains": 802,
+      "calls": 773,
+      "defined_in": 812,
+      "imports_from": 264
     },
     "confidence_distribution": {
       "nodes": {
-        "Observed": 927
+        "Observed": 1030
       },
       "edges": {
-        "Observed": 1207,
-        "Inferred": 1209
+        "Observed": 1344,
+        "Inferred": 1307
       }
     },
     "edge_resolution_methods": {
-      "direct_target_id": 1207,
-      "module_path_exact": 740,
-      "relative_path_extension_probe": 245,
-      "symbol_unique": 224
+      "direct_target_id": 1344,
+      "module_path_exact": 812,
+      "relative_path_extension_probe": 264,
+      "symbol_unique": 231
     }
   },
   "unresolved_edges": {
-    "count": 3388,
-    "rate": 0.5837,
+    "count": 527,
+    "rate": 0.1658,
     "by_kind": {
-      "imports_from": 397,
-      "calls": 2981,
-      "contains": 10
+      "imports_from": 88,
+      "calls": 439
     },
     "by_reason": {
-      "no_match": 3313,
-      "ambiguous": 75
+      "no_match": 520,
+      "ambiguous": 7
     },
     "by_resolution_method": {
-      "unresolved": 3388
+      "unresolved": 527
     },
     "samples": [
       {
-        "source_id": "bin/postinstall.js#module#postinstall.js#L0",
-        "source_file": "bin/postinstall.js",
+        "source_id": "scripts/run-ai-dev-quality-gate.js#module#run-ai-dev-quality-gate.js#L0",
+        "source_file": "scripts/run-ai-dev-quality-gate.js",
+        "edge_kind": "imports_from",
+        "target_name": "node:fs",
+        "target_path_raw": "node:fs",
+        "reason": "no_match",
+        "evidence": "[]"
+      },
+      {
+        "source_id": "scripts/run-ai-dev-quality-gate.js#module#run-ai-dev-quality-gate.js#L0",
+        "source_file": "scripts/run-ai-dev-quality-gate.js",
         "edge_kind": "imports_from",
         "target_name": "node:path",
         "target_path_raw": "node:path",
@@ -84,17 +92,8 @@
         "evidence": "[]"
       },
       {
-        "source_id": "bin/postinstall.js#module#postinstall.js#L0",
-        "source_file": "bin/postinstall.js",
-        "edge_kind": "imports_from",
-        "target_name": "../package.json",
-        "target_path_raw": "../package.json",
-        "reason": "no_match",
-        "evidence": "[]"
-      },
-      {
-        "source_id": "bin/postinstall.js#module#postinstall.js#L0",
-        "source_file": "bin/postinstall.js",
+        "source_id": "scripts/run-ai-dev-quality-gate.js#module#run-ai-dev-quality-gate.js#L0",
+        "source_file": "scripts/run-ai-dev-quality-gate.js",
         "edge_kind": "imports_from",
         "target_name": "node:child_process",
         "target_path_raw": "node:child_process",
@@ -102,17 +101,17 @@
         "evidence": "[]"
       },
       {
-        "source_id": "bin/postinstall.js#function#probeBetterSqlite#L41",
-        "source_file": "bin/postinstall.js",
-        "edge_kind": "imports_from",
-        "target_name": "better-sqlite3",
-        "target_path_raw": "better-sqlite3",
+        "source_id": "scripts/run-ai-dev-quality-gate.js#function#ensureDir#L27",
+        "source_file": "scripts/run-ai-dev-quality-gate.js",
+        "edge_kind": "calls",
+        "target_name": "mkdirSync",
+        "target_path_raw": null,
         "reason": "no_match",
         "evidence": "[]"
       },
       {
-        "source_id": "bin/postinstall.js#function#findBetterSqliteDir#L45",
-        "source_file": "bin/postinstall.js",
+        "source_id": "scripts/run-ai-dev-quality-gate.js#function#writeJson#L31",
+        "source_file": "scripts/run-ai-dev-quality-gate.js",
         "edge_kind": "calls",
         "target_name": "dirname",
         "target_path_raw": null,
@@ -120,46 +119,46 @@
         "evidence": "[]"
       },
       {
-        "source_id": "bin/postinstall.js#function#findBetterSqliteDir#L45",
-        "source_file": "bin/postinstall.js",
+        "source_id": "scripts/run-ai-dev-quality-gate.js#function#writeJson#L31",
+        "source_file": "scripts/run-ai-dev-quality-gate.js",
         "edge_kind": "calls",
-        "target_name": "resolve",
+        "target_name": "writeFileSync",
         "target_path_raw": null,
         "reason": "no_match",
         "evidence": "[]"
       },
       {
-        "source_id": "bin/postinstall.js#function#findPrebuildInstallBin#L51",
-        "source_file": "bin/postinstall.js",
+        "source_id": "scripts/run-ai-dev-quality-gate.js#function#writeJson#L31",
+        "source_file": "scripts/run-ai-dev-quality-gate.js",
         "edge_kind": "calls",
-        "target_name": "filter",
+        "target_name": "stringify",
         "target_path_raw": null,
         "reason": "no_match",
         "evidence": "[]"
       },
       {
-        "source_id": "bin/postinstall.js#function#findPrebuildInstallBin#L51",
-        "source_file": "bin/postinstall.js",
+        "source_id": "scripts/run-ai-dev-quality-gate.js#function#relativeArtifactPath#L36",
+        "source_file": "scripts/run-ai-dev-quality-gate.js",
         "edge_kind": "calls",
-        "target_name": "join",
+        "target_name": "replace",
         "target_path_raw": null,
         "reason": "no_match",
         "evidence": "[]"
       },
       {
-        "source_id": "bin/postinstall.js#function#findPrebuildInstallBin#L51",
-        "source_file": "bin/postinstall.js",
+        "source_id": "scripts/run-ai-dev-quality-gate.js#function#relativeArtifactPath#L36",
+        "source_file": "scripts/run-ai-dev-quality-gate.js",
         "edge_kind": "calls",
-        "target_name": "join",
+        "target_name": "relative",
         "target_path_raw": null,
         "reason": "no_match",
         "evidence": "[]"
       },
       {
-        "source_id": "bin/postinstall.js#function#findPrebuildInstallBin#L51",
-        "source_file": "bin/postinstall.js",
+        "source_id": "scripts/run-ai-dev-quality-gate.js#function#buildGateResult#L40",
+        "source_file": "scripts/run-ai-dev-quality-gate.js",
         "edge_kind": "calls",
-        "target_name": "resolve",
+        "target_name": "every",
         "target_path_raw": null,
         "reason": "no_match",
         "evidence": "[]"
@@ -167,36 +166,37 @@
     ]
   },
   "retrieval_index": {
-    "fts_indexed": 927,
+    "fts_indexed": 1030,
     "fts_skipped": 0,
     "coverage_status": "available"
   },
   "communities": {
-    "count": 8,
+    "count": 15,
     "status": "available",
     "by_health": {
-      "scattered": 7,
-      "isolated": 1
+      "scattered": 13,
+      "isolated": 1,
+      "fragmented": 1
     },
     "by_source": {
-      "hybrid": 7,
+      "hybrid": 14,
       "directory": 1
     },
     "by_algorithm": {
       "directory_with_graph_hints": 6,
-      "directory_bfs_refinement": 2
+      "directory_bfs_refinement": 9
     }
   },
   "flows": {
-    "count": 80,
+    "count": 90,
     "status": "available",
     "by_entry_source": {
       "cli_like": 56,
-      "zero_in_degree_calls": 18,
+      "zero_in_degree_calls": 28,
       "test_like": 6
     },
     "by_entry_confidence": {
-      "Inferred": 80
+      "Inferred": 90
     },
     "truncated_count": 1
   },
@@ -206,8 +206,18 @@
       "count": 3
     },
     {
+      "type": "high_unresolved_edge_rate",
+      "scope": "last_build",
+      "rate": 0.5307150050352467,
+      "unresolved_count": 527
+    },
+    {
       "type": "parse_error_files",
       "count": 4
+    },
+    {
+      "type": "module_only_files",
+      "count": 17
     }
   ],
   "limitations": [
@@ -227,7 +237,7 @@
     },
     {
       "code": "unresolved-edges",
-      "count": 3388
+      "count": 527
     }
   ]
 }

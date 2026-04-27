@@ -32,7 +32,9 @@ Check whether `agent-browser` is installed:
 command -v agent-browser >/dev/null 2>&1 && echo "Installed" || echo "NOT INSTALLED"
 ```
 
-If not installed, inform the user: "`agent-browser` is not installed. Run `/spec:mcp-setup` to install required dependencies." Then stop — this skill cannot function without agent-browser.
+If not installed, inform the user: "`agent-browser` is not installed. Run `/spec:mcp-setup` in Claude or `$spec-mcp-setup` in Codex to install required dependencies." Then stop — this skill cannot function without agent-browser.
+
+After setup, use `agent-browser skills get core` when deeper upstream usage or troubleshooting guidance is needed.
 
 ## Workflow
 
@@ -44,7 +46,7 @@ Before starting, verify `agent-browser` is available:
 command -v agent-browser >/dev/null 2>&1 && echo "Ready" || echo "NOT INSTALLED"
 ```
 
-If not installed, inform the user: "`agent-browser` is not installed. Run `/spec:mcp-setup` to install required dependencies." Then stop.
+If not installed, inform the user: "`agent-browser` is not installed. Run `/spec:mcp-setup` in Claude or `$spec-mcp-setup` in Codex to install required dependencies." Then stop.
 
 ### 2. Ask Browser Mode
 

@@ -12,7 +12,6 @@ set -o pipefail
 # To add a dependency: add a line here. No other changes needed.
 
 deps=(
-  "agent-browser|recommended|CI=true npm install -g agent-browser --no-audit --no-fund --loglevel=error && agent-browser install && npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y|https://github.com/vercel-labs/agent-browser"
   "gh|recommended|NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q gh|https://cli.github.com"
   "jq|recommended|NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q jq|https://jqlang.github.io/jq/"
   "vhs|recommended|NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q vhs|https://github.com/charmbracelet/vhs"

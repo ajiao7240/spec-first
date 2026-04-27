@@ -203,7 +203,7 @@ iOS 仓库会自动检测（`Podfile.lock` / `.xcodeproj`），并自动应用 P
 | **Task-pack 工具链** (`spec-first tasks`) | 对 source plan 做 canonical hash，并在 `spec-work` 消费派生 task pack 前完成校验 |
 | **Session / PR 辅助技能** | session 历史检索、PR 描述 / 反馈处理和浏览器证据都留在受管 skill 里，而不是临时 prompt |
 | **双平台支持** | 一套方法论同时覆盖 Claude Code（`/spec:*`）与 Codex（`$spec-*`）。Claude 使用 `SessionStart` hook + bare-agent rewrite；Codex 使用 `.agents/skills/` discovery + 显式 `.codex/agents/...` path rewrite |
-| **能力层资产** | 仓库内置源码资产共 `39` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：Claude 侧安装 `19` 个 commands + `4` 个 skill 目录 + `51` 个 agents，Codex 侧安装 `23` 个 skill 目录 + `51` 个 agents，且没有 command directory |
+| **能力层资产** | 仓库内置源码资产共 `40` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `19` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `19` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
 | **运行时治理** | 受管资产记录在 `state.json` 中，可安全同步、刷新、恢复与清理 |
 
 ## 核心工作流
@@ -351,6 +351,8 @@ $ spec-first init --claude
 | 构建图证据 | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
 | 需要时沉淀可复用经验 | `/spec:compound` | `$spec-compound` |
 | 启动工作流 | `/spec:ideate` → `/spec:brainstorm` → `/spec:plan` → `/spec:work` → `/spec:code-review` → `/spec:compound` | `$spec-ideate` → … → `$spec-compound` |
+
+浏览器自动化能力仍然通过外部 `agent-browser` CLI 支持。它现在由 Claude 的 `/spec:mcp-setup` 或 Codex 的 `$spec-mcp-setup` 安装为 upstream/global helper；已有 `agent-browser` 命令不变。如果旧运行时里仍有本地 `agent-browser` skill 副本，请在升级后重新运行 `spec-first init --claude` 或 `spec-first init --codex`，让 managed obsolete assets 被清理。
 
 `graph-bootstrap` 在启动时会检查 host readiness 与 CRG 可用性。graph evidence 不可用时，后续 workflow 会显式退回 direct-read fallback。
 

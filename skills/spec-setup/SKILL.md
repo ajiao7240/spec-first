@@ -12,6 +12,8 @@ Ask the user each question below using the platform's blocking question tool: `A
 
 Interactive setup for spec-first — diagnoses environment health, cleans obsolete repo-local CE config, and helps configure required tools. Review agent selection is handled automatically by `spec-code-review`; project-specific review guidance belongs in `CLAUDE.md` or `AGENTS.md`.
 
+Browser automation setup is owned by `spec-mcp-setup`, not this legacy setup flow. If `agent-browser` is missing, direct Claude users to `/spec:mcp-setup` and Codex users to `$spec-mcp-setup`.
+
 ## Phase 1: Diagnose
 
 ### Step 1: Determine Plugin Version
@@ -24,7 +26,7 @@ If a version is found, pass it to the check script via `--version`. Otherwise om
 
 Before running the script, display: "Spec-First -- checking your environment..."
 
-Run the bundled check script. Do not perform manual dependency checks -- the script handles all CLI tools, agent skills, repo-local CE file checks, and `.gitignore` guidance in one pass.
+Run the bundled check script. Do not perform manual dependency checks -- the script handles this setup flow's CLI tools, agent skills, repo-local CE file checks, and `.gitignore` guidance in one pass. Do not add `agent-browser` install commands here; use `spec-mcp-setup` for that helper tool.
 
 ```bash
 bash scripts/check-health --version VERSION
@@ -59,7 +61,7 @@ If everything is installed, no repo-local cleanup is needed, and `.spec-first/co
 ```
  ✅ Spec-First setup complete
 
-    Tools:  🟢 agent-browser  🟢 gh  🟢 jq  🟢 vhs  🟢 silicon  🟢 ffmpeg  🟢 ast-grep
+    Tools:  🟢 gh  🟢 jq  🟢 vhs  🟢 silicon  🟢 ffmpeg  🟢 ast-grep
     Skills: 🟢 ast-grep
     Config: ✅
 
@@ -112,7 +114,6 @@ The following items are missing. Select which to install:
 (All items are pre-selected)
 
 Tools:
-  [x] agent-browser - Browser automation for testing and screenshots
   [x] gh - GitHub CLI for issues and PRs
   [x] jq - JSON processor
   [x] vhs (charmbracelet/vhs) - Create GIFs from CLI output
@@ -133,15 +134,15 @@ For each selected dependency, in order:
 1. **Show the install command** (from the diagnostic output) and ask for approval:
 
    ```
-   Install agent-browser?
-   Command: CI=true npm install -g agent-browser --no-audit --no-fund --loglevel=error && agent-browser install && npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
+   Install gh?
+   Command: NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q gh
 
    1. Run this command
    2. Skip - I'll install it manually
    ```
 
 2. **If approved:** Run the install command using a shell execution tool. After the command completes, verify installation:
-   - For a CLI tool, run the dependency's check command (e.g., `command -v agent-browser`).
+   - For a CLI tool, run the dependency's check command (e.g., `command -v gh`).
    - For an agent skill, prefer `npx --yes skills list --global --json | jq -r '.[].name' | grep -qx <skill-name>` when `npx` is available; otherwise fall back to checking that `~/.claude/skills/<skill-name>` exists (file, directory, or symlink).
 
 3. **If verification succeeds:** Report success.
@@ -155,7 +156,7 @@ Display a brief summary:
 ```
  ✅ Spec-First setup complete
 
-    Installed: agent-browser, gh, jq
+    Installed: gh, jq
     Skipped:   rtk
 
     Run /spec:setup anytime to re-check.

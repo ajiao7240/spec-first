@@ -1,7 +1,7 @@
 ---
 title: refactor: Move agent-browser to external helper setup
 type: refactor
-status: active
+status: completed
 date: 2026-04-27
 spec_id: 2026-04-27-002-agent-browser-external-tool
 ---

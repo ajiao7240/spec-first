@@ -20,6 +20,18 @@ The machine-truth tool registry remains `skills/spec-mcp-setup/mcp-tools.json`.
 | Context7 | Yes | Standard MCP entry | No | framework docs lookup |
 | Playwright MCP | No | Host MCP config only | No | browser / frontend automation |
 
+## Helper Tool Boundary
+
+`agent-browser` is intentionally not listed in the MCP Tool Index and must not be added to `mcp-tools.json`. It is a required external browser automation CLI plus upstream/global skill installed through the `spec-mcp-setup` Phase 0 helper-tool preflight, not an MCP server and not part of `baseline_ready`.
+
+The helper install path intentionally floats the current upstream package and skill source:
+
+```bash
+CI=true npm install -g agent-browser --no-audit --no-fund --loglevel=error && agent-browser install && npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
+```
+
+The trusted upstreams are the `agent-browser` npm package, `agent-browser install` for the browser/runtime bootstrap, and `https://github.com/vercel-labs/agent-browser` for the global skill stub. If that upstream path becomes unavailable or unsuitable for a host, do not add a local replacement skill in this repository; instead, rerun `spec-mcp-setup`, inspect `agent-browser --version`, and use the upstream/global skill docs from `agent-browser skills get core` for rollback or repair guidance.
+
 ## Host Target Notes
 
 Route B keeps one machine-readable registry in `mcp-tools.json` and projects these host facts:

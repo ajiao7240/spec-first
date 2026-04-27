@@ -5,6 +5,7 @@
 set -euo pipefail
 
 plugin_version=""
+json_output="no"
 while [ $# -gt 0 ]; do
   case "$1" in
     --version)
@@ -14,6 +15,10 @@ while [ $# -gt 0 ]; do
       else
         shift
       fi
+      ;;
+    --json)
+      json_output="yes"
+      shift
       ;;
     *)
       shift
@@ -97,13 +102,32 @@ ok()      { echo "  🟢  $1"; }
 warn()    { echo "  🟡  $1"; }
 detail()  { echo "       $1"; }
 section() { echo ""; echo " $1"; }
+required_label() {
+  case "$1" in
+    required) echo "yes" ;;
+    *) echo "no" ;;
+  esac
+}
+status_label() {
+  case "$1" in
+    ok) echo "installed" ;;
+    *) echo "missing" ;;
+  esac
+}
+json_escape() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/\\n}"
+  printf '%s' "$value"
+}
 
 os="$(detect_os)"
 has_brew="$(command -v brew >/dev/null 2>&1 && echo "yes" || echo "no")"
 in_repo="$(git rev-parse --is-inside-work-tree >/dev/null 2>&1 && echo "yes" || echo "no")"
 
 deps=(
-  "agent-browser|recommended"
+  "agent-browser|required"
   "gh|recommended"
   "jq|recommended"
   "vhs|recommended"
@@ -173,19 +197,59 @@ if [ "$in_repo" = "yes" ]; then
   fi
 fi
 
+if [ "$json_output" = "yes" ]; then
+  printf '{\n'
+  printf '  "schema_version": "spec-mcp-setup-helper-tools/v1",\n'
+  printf '  "tools": [\n'
+  for index in "${!results[@]}"; do
+    IFS='|' read -r name tier status install_cmd url <<<"${results[$index]}"
+    required="false"
+    if [ "$tier" = "required" ]; then
+      required="true"
+    fi
+    dependency_status="missing"
+    result_status="pending"
+    next_action="$install_cmd"
+    if [ "$status" = "ok" ]; then
+      dependency_status="ready"
+      result_status="ready"
+      next_action=""
+    elif [ "$tier" = "required" ]; then
+      result_status="action-required"
+    fi
+    printf '    {"id":"%s","required":%s,"dependency_status":"%s","host_config_status":"not-applicable","project_status":"not-applicable","result":"%s","next_action":"%s","install_command":"%s","url":"%s"}' \
+      "$(json_escape "$name")" \
+      "$required" \
+      "$(json_escape "$dependency_status")" \
+      "$(json_escape "$result_status")" \
+      "$(json_escape "$next_action")" \
+      "$(json_escape "$install_cmd")" \
+      "$(json_escape "$url")"
+    if [ "$index" -lt $((${#results[@]} - 1)) ]; then
+      printf ','
+    fi
+    printf '\n'
+  done
+  printf '  ]\n'
+  printf '}\n'
+  exit 0
+fi
+
 echo ""
 if [ -n "$plugin_version" ]; then
   ok "Spec-First version v${plugin_version}"
 fi
 
-section "Tools  ${cli_ok}/${cli_total}"
+section "Tool install status  ${cli_ok}/${cli_total}"
+printf "  %-15s %-9s %-10s\n" "Tool" "Required" "Status"
+printf "  %-15s %-9s %-10s\n" "----" "--------" "------"
 
 for result in "${results[@]}"; do
   IFS='|' read -r name tier status install_cmd url <<<"$result"
+  printf "  %-15s %-9s %-10s\n" "$name" "$(required_label "$tier")" "$(status_label "$status")"
   if [ "$status" = "ok" ]; then
-    ok "$name"
+    continue
   else
-    warn "$name"
     issues=$((issues + 1))
     if [ -n "$install_cmd" ]; then
       if [[ "$install_cmd" == *"brew install"* ]] && [ "$has_brew" != "yes" ]; then

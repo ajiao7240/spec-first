@@ -13,7 +13,7 @@ Capture individual PNG screenshots. No animation, no stitching.
 
 ### Web app or desktop app (agent-browser available)
 
-If `agent-browser` is not installed, inform the user: "`agent-browser` is not installed. Run `/spec:mcp-setup` to install required dependencies." Then skip to the CLI or fallback sections below.
+If `agent-browser` is not installed, inform the user: "`agent-browser` is not installed. Run `/spec:mcp-setup` in Claude or `$spec-mcp-setup` in Codex to install required dependencies." Then skip to the CLI or fallback sections below.
 
 ```bash
 agent-browser open [URL]

@@ -77,11 +77,15 @@ Display the script output to the user verbatim.
 The migrated `check-health` script is the single deterministic input for this phase.
 
 Use it for:
-- helper tool detection and install suggestions (`agent-browser`, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`)
+- helper tool detection and install suggestions (`agent-browser` is required; `gh`, `jq`, `vhs`, `silicon`, and `ffmpeg` are recommended)
 - legacy Spec-First detection
 - `.spec-first/config.local.yaml` presence
 - `.spec-first/config.local.example.yaml` freshness
 - `.gitignore` coverage hints
+
+`agent-browser` is a browser automation helper substrate, not an MCP server. This workflow is the project-owned entry point for detecting and installing the external CLI, running `agent-browser install`, and installing the upstream/global `agent-browser` skill with `npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y`.
+
+The preflight output should show helper-tool install status, and the final completion summary must merge helper-tool rows into the same table as MCP tools. Keep `agent-browser` as `Type=helper`, `Required=yes`, `Dependency=ready|missing`, `Host Config=n/a`, and `Project Bootstrap=n/a`.
 
 Do not:
 - add these helper tools to `mcp-tools.json`
@@ -365,13 +369,28 @@ This projection belongs in `detect-tools.*` / `verify-tools.*`, not in a second 
 
 ### 3.3i Table Output Contract
 
-When showing final machine-derived summary, keep the existing columns:
+When showing final machine-derived summary, use one table with these columns:
 
 ```text
-Tool | Required | Dependency | Host Config | Project Bootstrap | Result | Next Action
+Tool | Type | Required | Dependency | Host Config | Project Bootstrap | Result | Next Action
 ```
 
-The `Host Config` column may now contain `ready`, `fallback-active`, or `precedence-blocked`.
+Render rows from both ledger fields:
+- `tools` as `Type=MCP`
+- `helper_tools` as `Type=helper`
+
+Sort rows in this order:
+1. required MCP tools
+2. optional MCP tools
+3. required helper tools
+4. recommended helper tools
+
+For human display, map machine-only values without changing the ledger:
+- `not-applicable` -> `n/a`
+- optional MCP tools with `required=false`, `host_config_status=action-required`, and no install requested -> `Result=optional-pending`, `Next Action=run custom setup if needed`
+- helper tools keep `Host Config=n/a` and `Project Bootstrap=n/a`
+
+The `Host Config` column may contain `ready`, `fallback-active`, `precedence-blocked`, `action-required`, or `n/a`.
 
 ### 3.3j Downstream Compatibility
 
@@ -503,8 +522,12 @@ After all installations:
 4. Display a table derived from the ledger with these columns:
 
 ```text
-Tool | Required | Dependency | Host Config | Project Bootstrap | Result | Next Action
+Tool | Type | Required | Dependency | Host Config | Project Bootstrap | Result | Next Action
 ```
+
+The table must include MCP baseline rows from `tools` and helper-tool rows from `helper_tools`; do not put helper tools into `mcp-tools.json` just to make them appear in the summary.
+
+Use the display rules from **3.3i Table Output Contract** so the table distinguishes MCP readiness from helper tool installation and does not make optional MCP tools look like baseline failures.
 
 Recommended next steps after success:
 1. Restart the current host when needed to load the new MCP configuration

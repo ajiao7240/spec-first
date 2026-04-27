@@ -56,11 +56,11 @@
 | 35 | `ce-worktree` | `git-worktree` | 已集成 | 2→2 | 0→0 | 1→1 | 以 CE 为准覆盖后按 spec-first 命名适配 |
 | 36 | `lfg` | `lfg` | 已集成 | 2→2 | 1→1 | 0→0 | 以 CE 为准覆盖后按 spec-first 命名适配 |
 
-## 当前项目独有 skill 核对
+## 当前项目独有 / 外部 helper 核对
 
 | # | 当前项目 skill | 状态 | 文件数 | 说明 |
 |---:|---|---|---:|---|
-| 1 | `agent-browser` | 保留 | 11 | 当前项目独有浏览器自动化入口，保留。 |
+| 1 | `agent-browser` | 外部化 | 0 | 不再作为本地 source skill 交付；浏览器自动化由 `spec-mcp-setup` 安装 external/upstream helper tool，命令仍为 `agent-browser`。 |
 | 2 | `changelog` | 保留 | 1 | 当前项目独有 changelog 生成/维护入口，保留。 |
 | 3 | `spec-graph-bootstrap` | 保留 | 6 | spec-first 核心 Stage-0 / CRG bootstrap 能力，保留。 |
 | 4 | `spec-mcp-setup` | 保留 | 23 | 当前项目 MCP setup 真源入口，不由 CE ce-setup 覆盖。 |
@@ -112,7 +112,7 @@
 ## 结论
 
 - CE 侧 36 个 skill 均已有当前项目映射，没有未映射或映射后缺失项。
-- 当前项目 41 个 skill 中，36 个对应 CE，5 个为当前项目明确保留项：`agent-browser`、`changelog`、`spec-graph-bootstrap`、`spec-mcp-setup`、`using-spec-first`。
+- 当前项目 40 个本地 source skill 中，36 个对应 CE，4 个为当前项目明确保留项：`changelog`、`spec-graph-bootstrap`、`spec-mcp-setup`、`using-spec-first`；`agent-browser` 已调整为 external/upstream helper tool，不作为本地 source skill 计数。
 - 目录级核对未发现未登记的当前独有 skill。后续如果继续深查，应按单个 skill 对脚本行为和文案适配做语义审查，而不是把 CE 与当前项目内容做字节级一致性要求。
 
 ## Agents 映射核对
@@ -305,14 +305,14 @@
 ## 逐 Skill Host 边界审查
 
 - 审查时间：2026-04-26 01:43:00
-- 审查范围：`skills/*` 共 41 个 skill，包括 `SKILL.md`、`references/`、`scripts/`、`assets/` 中的文本与脚本引用。
+- 审查范围：`skills/*` 共 40 个本地 source skill，包括 `SKILL.md`、`references/`、`scripts/`、`assets/` 中的文本与脚本引用；`agent-browser` 已外部化，由 `spec-mcp-setup` 安装 upstream/global helper。
 - Host 边界：当前项目只支持 Claude Code 与 Codex；Gemini API image generation、Gemini Code Assist review bot 识别不属于宿主支持面，允许保留。
 - 验证结论：未发现 Cursor、Pi、OpenCode、Kilo、Gemini CLI 等 unsupported host 的可执行入口、默认搜索源或 question/subagent tool 说明；未发现真实旧 `/spec-*` workflow 命令写法残留。
 - 例外说明：`spec-setup` / `spec-mcp-setup` 中检测 `compound-engineering.local.md` 与 `.compound-engineering/config.local.yaml` 属于 legacy config 迁移诊断，不是 CE 运行入口。
 
 | # | Skill | Host 边界状态 | 结论 / 修正 |
 |---:|---|---|---|
-| 1 | `agent-browser` | 通过 | 未发现 unsupported host、旧 question tool 或旧 `/spec-*` 入口问题。 |
+| 1 | `agent-browser` | 不适用 | 已从本地 source skill 删除；由 `spec-mcp-setup` 安装 external/upstream helper tool。 |
 | 2 | `agent-native-architecture` | 通过 | 未发现 unsupported host、旧 question tool 或旧 `/spec-*` 入口问题。 |
 | 3 | `agent-native-audit` | 通过 | 修正 subagent primitive 说明，仅保留 Claude Code Agent 与 Codex spawn_agent。 |
 | 4 | `changelog` | 通过 | 未发现 unsupported host、旧 question tool 或旧 `/spec-*` 入口问题。 |
