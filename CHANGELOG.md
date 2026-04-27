@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-27 12:40:36 leokuang: release: 发布 spec-first 1.6.0，并基于当前 master 快照完成 npm 发版 (user-visible)
 - v1.5.9 2026-04-27 11:33:52 leokuang: docs(spec-mcp-setup): 优化最终 readiness 表格展示契约，新增 Type 列区分 MCP 与 helper，统一 n/a 显示并避免 optional MCP 被误读为 baseline 失败 (user-visible)
 - v1.5.9 2026-04-27 11:14:00 leokuang: fix(spec-mcp-setup): 将 helper tool 安装状态写入 readiness ledger 的 helper_tools，并要求最终完成表合并展示必装 agent-browser 状态 (user-visible)
 - v1.5.9 2026-04-27 10:46:07 leokuang: refactor(agent-browser): 将本地 agent-browser source skill 迁移为 spec-mcp-setup 管理的 external/upstream helper tool，清理 runtime governance 并补齐 downstream 提示、旧 runtime 清理和 package contract 覆盖 (user-visible)
