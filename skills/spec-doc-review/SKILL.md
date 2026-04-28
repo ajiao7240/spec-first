@@ -10,7 +10,7 @@ Review requirements, plan, or task-pack documents through multi-persona analysis
 
 ## Invocation Boundary
 
-`spec-doc-review` is a workflow orchestrator, not an agent type. Do not invoke it through Agent/Task/subagent primitives. Use the current host's document-review entrypoint instead (`/spec:doc-review <path>` on Claude Code, `$spec-doc-review <path>` on Codex); nested workflow callers execute the workflow inline in the current orchestrator. This workflow may dispatch persona agents during Phase 2, but the workflow itself is not one of those agents.
+`spec-doc-review` is a workflow orchestrator, not an agent type. Do not invoke it through Agent/Task/subagent primitives. Use the current host's document-review entrypoint instead; nested workflow callers execute the workflow inline in the current orchestrator. This workflow may dispatch persona agents during Phase 2, but the workflow itself is not one of those agents.
 
 ## Interactive mode rules
 

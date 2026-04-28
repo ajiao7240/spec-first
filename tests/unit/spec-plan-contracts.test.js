@@ -126,35 +126,35 @@ describe('spec_id planning contract', () => {
     expect(text).toContain('Use a new `spec_id` only when deliberately creating a new spec chain outside the deepening path');
   });
 
-  test('handoff work entrypoint remains host-specific', () => {
+  test('handoff work entrypoint remains host-neutral', () => {
     const text = fs.readFileSync(PLAN_HANDOFF_PATH, 'utf8');
     const skill = fs.readFileSync(SKILL_PATH, 'utf8');
 
     expect(text).toContain('current host\'s work entrypoint');
-    expect(text).toContain('/spec:work <plan-path>` on Claude Code');
-    expect(text).toContain('$spec-work <plan-path>` on Codex');
-    expect(text).toContain('/spec:work <task-pack-path>` on Claude Code');
-    expect(text).toContain('$spec-work <task-pack-path>` on Codex');
-    expect(text).toContain('`/spec:work` on Claude Code, `$spec-work` on Codex');
     expect(text).toContain('`Start work`, `Compile task pack`, or `Create Issue`');
     expect(text).not.toContain('`Start /spec:work`, `Compile task pack`, or `Create Issue`');
     expect(skill).toContain('**Start work** (recommended)');
-    expect(skill).toContain('current host\'s work entrypoint (`/spec:work` on Claude Code, `$spec-work` on Codex)');
+    expect(skill).toContain('current host\'s work entrypoint');
     expect(skill).not.toContain('**Start `/spec:work`** (recommended)');
+    expect(text).not.toContain('/spec:work <plan-path>` on Claude Code');
+    expect(text).not.toContain('$spec-work <plan-path>` on Codex');
+    expect(text).not.toContain('/spec:work <task-pack-path>` on Claude Code');
+    expect(text).not.toContain('$spec-work <task-pack-path>` on Codex');
+    expect(text).not.toContain('`/spec:work` on Claude Code, `$spec-work` on Codex');
   });
 
   test('universal planning avoids slash-only handoff wording', () => {
     const text = fs.readFileSync(UNIVERSAL_PLANNING_PATH, 'utf8');
 
     expect(text).toContain('current host\'s plan entrypoint');
-    expect(text).toContain('/spec:plan` on Claude Code');
-    expect(text).toContain('$spec-plan` on Codex');
     expect(text).toContain('software work entrypoint');
-    expect(text).toContain('/spec:work` on Claude Code');
-    expect(text).toContain('$spec-work` on Codex');
     expect(text).toContain('The user invoked the plan workflow');
     expect(text).not.toContain('Use `/spec:plan` directly');
     expect(text).not.toContain('The user invoked `/spec:plan`');
     expect(text).not.toContain('Do not offer `/spec:work`');
+    expect(text).not.toContain('/spec:plan` on Claude Code');
+    expect(text).not.toContain('$spec-plan` on Codex');
+    expect(text).not.toContain('/spec:work` on Claude Code');
+    expect(text).not.toContain('$spec-work` on Codex');
   });
 });

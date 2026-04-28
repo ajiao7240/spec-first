@@ -86,9 +86,8 @@ install). Tell the user (substituting the actual path):
 > "Skill is loaded from `{skill-directory}` — not the standard marketplace
 > cache at `~/.claude/plugins/cache/`. This is normal when using
 > `claude --plugin-dir` for local development. No action for this session.
-> Your marketplace install (if any) is unaffected — run the current host's
-> update entrypoint (`/spec:update` on Claude Code, `$spec-update` on Codex)
-> in a regular host session (no `--plugin-dir`) to check that cache."
+> Your marketplace install (if any) is unaffected — run the update workflow in
+> a regular host session (no `--plugin-dir`) to check that cache."
 
 Then stop.
 

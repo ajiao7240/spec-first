@@ -24,7 +24,7 @@ const REQUIREMENTS_PATH = path.join(
 );
 
 describe('spec-brainstorm host entrypoint contract', () => {
-  test('planning handoffs cover Claude and Codex entrypoints', () => {
+  test('planning handoffs use current-host entrypoint wording', () => {
     const combined = [
       fs.readFileSync(SKILL_PATH, 'utf8'),
       fs.readFileSync(UNIVERSAL_PATH, 'utf8'),
@@ -32,14 +32,14 @@ describe('spec-brainstorm host entrypoint contract', () => {
     ].join('\n');
 
     expect(combined).toContain('current host\'s plan entrypoint');
-    expect(combined).toContain('/spec:plan` on Claude Code');
-    expect(combined).toContain('$spec-plan` on Codex');
     expect(combined).toContain('current host\'s brainstorm entrypoint');
-    expect(combined).toContain('/spec:brainstorm on Claude Code');
-    expect(combined).toContain('$spec-brainstorm on Codex');
     expect(combined).not.toContain('precedes `/spec:plan`');
     expect(combined).not.toContain('hand off to `/spec:plan`');
     expect(combined).not.toContain('`-> /spec:plan`');
     expect(combined).not.toContain('`-> Resume /spec:brainstorm`');
+    expect(combined).not.toContain('/spec:plan` on Claude Code');
+    expect(combined).not.toContain('$spec-plan` on Codex');
+    expect(combined).not.toContain('/spec:brainstorm on Claude Code');
+    expect(combined).not.toContain('$spec-brainstorm on Codex');
   });
 });

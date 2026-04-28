@@ -8,7 +8,7 @@ The detection stub in SKILL.md routes here for anything that isn't clearly softw
 
 - **Is this actually a software task?** The key distinction is task-type, not topic-domain. A study guide about Rust is non-software (producing educational content). A Rust library refactor is software (modifying code). If this is actually software, return to Phase 0.2 in the main SKILL.md.
 - **Is this a quick-help request, not a planning task?** Error messages, factual questions, and single-step tasks don't need a plan. Respond directly and exit. Examples: "zsh: command not found: brew", "what's the capital of France."
-- **Pipeline mode?** If invoked from LFG, SLFG, or any `disable-model-invocation` context: output "This is a non-software task. The LFG/SLFG pipeline requires spec-work, which only supports software tasks. Use the current host's plan entrypoint (`/spec:plan` on Claude Code, `$spec-plan` on Codex) directly for non-software planning." and stop.
+- **Pipeline mode?** If invoked from LFG, SLFG, or any `disable-model-invocation` context: output "This is a non-software task. The LFG/SLFG pipeline requires spec-work, which only supports software tasks. Use the current host's plan entrypoint directly for non-software planning." and stop.
 
 Once past these checks, commit to producing a plan. Do not exit because the task looks like a "lookup" or "research question" — the user invoked `spec-plan` because they want a structured output.
 
@@ -111,4 +111,4 @@ After structuring the plan, ask the user how they want to receive it using the p
 
 3. **Save to disk AND open in Proof** — Do both: write the markdown file to disk and open the doc in Proof for review.
 
-Do not offer the software work entrypoint (`/spec:work` on Claude Code, `$spec-work` on Codex) or issue creation (not applicable to non-software plans).
+Do not offer the software work entrypoint or issue creation (not applicable to non-software plans).

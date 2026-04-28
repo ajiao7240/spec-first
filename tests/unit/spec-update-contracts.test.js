@@ -30,10 +30,10 @@ describe('spec-update contracts', () => {
     expect(skill).toContain('npm install -g spec-first@latest');
     expect(skill).toContain('spec-first doctor --codex --json');
     expect(skill).toContain('spec-first init --codex');
-    expect(skill).toContain('current host\'s');
-    expect(skill).toContain('/spec:update` on Claude Code');
-    expect(skill).toContain('$spec-update` on Codex');
+    expect(skill).toContain('run the update workflow');
     expect(skill).not.toContain('run `/spec:update` in a');
+    expect(skill).not.toContain('/spec:update` on Claude Code');
+    expect(skill).not.toContain('$spec-update` on Codex');
     expect(skill).not.toContain('ce_platforms: [claude]');
     expect(skill).not.toContain('Claude Code only.');
   });

@@ -147,8 +147,8 @@ spec_id: YYYY-MM-DD-NNN-<kebab-case-topic>
 
 ## Next Steps
 
-[If `Resolve Before Planning` is empty: `-> current host's plan entrypoint (/spec:plan on Claude Code, $spec-plan on Codex)` for structured implementation planning]
-[If `Resolve Before Planning` is not empty: `-> Resume current host's brainstorm entrypoint (/spec:brainstorm on Claude Code, $spec-brainstorm on Codex)` to resolve blocking questions before planning]
+[If `Resolve Before Planning` is empty: `-> current host's plan entrypoint` for structured implementation planning]
+[If `Resolve Before Planning` is not empty: `-> Resume current host's brainstorm entrypoint` to resolve blocking questions before planning]
 ```
 
 ## ID and layout rules

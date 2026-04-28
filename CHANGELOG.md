@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-29 01:19:01 leokuang: docs(workflow): 回收普通 skill prose 中重复的 Claude/Codex 入口映射，改为 current-host 表述并补防回归扫描 (user-visible)
 - v1.6.0 2026-04-29 01:13:35 leokuang: docs(spec-doc-review): 将 invocation boundary 中的入口提示改为当前宿主 document-review entrypoint (user-visible)
 - v1.6.0 2026-04-29 01:12:17 leokuang: docs(browser-tools): 将 agent-browser 缺失提示统一为当前宿主 MCP setup 入口 (user-visible)
 - v1.6.0 2026-04-29 01:10:42 leokuang: docs(spec-update): 将 marketplace 本地开发提示中的更新入口改为双宿主表述 (user-visible)

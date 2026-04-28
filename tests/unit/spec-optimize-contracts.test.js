@@ -10,12 +10,12 @@ describe('spec-optimize host entrypoint contract', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
     expect(text).toContain('current host\'s code-review entrypoint');
-    expect(text).toContain('/spec:code-review` on Claude Code');
-    expect(text).toContain('$spec-code-review` on Codex');
     expect(text).toContain('current host\'s compound entrypoint');
-    expect(text).toContain('/spec:compound` on Claude Code');
-    expect(text).toContain('$spec-compound` on Codex');
     expect(text).not.toContain('**Run `/spec:code-review`**');
     expect(text).not.toContain('**Run `/spec:compound`**');
+    expect(text).not.toContain('/spec:code-review` on Claude Code');
+    expect(text).not.toContain('$spec-code-review` on Codex');
+    expect(text).not.toContain('/spec:compound` on Claude Code');
+    expect(text).not.toContain('$spec-compound` on Codex');
   });
 });

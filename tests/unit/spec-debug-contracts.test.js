@@ -33,10 +33,10 @@ describe('spec-debug branch-aware handoff contract', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
     expect(text).toContain('current host\'s brainstorm entrypoint');
-    expect(text).toContain('/spec:brainstorm` on Claude Code');
-    expect(text).toContain('$spec-brainstorm` on Codex');
     expect(text).not.toContain('**Rethink the design** (`/spec:brainstorm`)');
     expect(text).not.toContain('suggest `/spec:brainstorm`');
     expect(text).not.toContain('transferred to `/spec:brainstorm`');
+    expect(text).not.toContain('/spec:brainstorm` on Claude Code');
+    expect(text).not.toContain('$spec-brainstorm` on Codex');
   });
 });

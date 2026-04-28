@@ -118,10 +118,10 @@ describe('spec-work-beta host entrypoint contract', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
     expect(text).toContain('current host\'s brainstorm or plan entrypoint');
-    expect(text).toContain('/spec:brainstorm` / `/spec:plan` on Claude Code');
-    expect(text).toContain('$spec-brainstorm` / `$spec-plan` on Codex');
-    expect(text).toContain('current host\'s plan entrypoint (`/spec:plan` on Claude Code, `$spec-plan` on Codex)');
     expect(text).not.toContain('would benefit from `/spec:brainstorm` or `/spec:plan`');
     expect(text).not.toContain('return to `/spec:plan` to reduce scope');
+    expect(text).not.toContain('/spec:brainstorm` / `/spec:plan` on Claude Code');
+    expect(text).not.toContain('$spec-brainstorm` / `$spec-plan` on Codex');
+    expect(text).not.toContain('current host\'s plan entrypoint (`/spec:plan` on Claude Code, `$spec-plan` on Codex)');
   });
 });

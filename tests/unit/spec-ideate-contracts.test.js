@@ -18,8 +18,8 @@ describe('spec-ideate host entrypoint contract', () => {
     const text = fs.readFileSync(POST_IDEATION_PATH, 'utf8');
 
     expect(text).toContain('current host\'s brainstorm entrypoint');
-    expect(text).toContain('/spec:brainstorm` on Claude Code');
-    expect(text).toContain('$spec-brainstorm` on Codex');
     expect(text).not.toContain('**recommended next step:** `/spec:brainstorm`');
+    expect(text).not.toContain('/spec:brainstorm` on Claude Code');
+    expect(text).not.toContain('$spec-brainstorm` on Codex');
   });
 });
