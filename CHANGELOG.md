@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-29 00:32:41 leokuang: docs(spec-sessions): 在 Usage 中补充 `$spec-sessions`，让 session history workflow 自身呈现双宿主入口 (user-visible)
 - v1.6.0 2026-04-29 00:31:23 leokuang: docs(spec-compound): 将 usage、manual override 与相关 workflow 提示改为 Claude/Codex 双宿主入口 (user-visible)
 - v1.6.0 2026-04-29 00:30:13 leokuang: docs(spec-optimize): 将优化收尾的 review/compound 选项改为当前宿主入口，并新增 contract 测试 (user-visible)
 - v1.6.0 2026-04-29 00:28:51 leokuang: docs(spec-debug): 将设计重思考转交改为当前宿主 brainstorm 入口，覆盖 Codex `$spec-brainstorm` (user-visible)

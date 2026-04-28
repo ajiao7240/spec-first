@@ -10,8 +10,13 @@ Search your session history.
 ## Usage
 
 ```
+# Claude Code
 /spec:sessions [question or topic]
 /spec:sessions
+
+# Codex
+$spec-sessions [question or topic]
+$spec-sessions
 ```
 
 ## Pre-resolved context

@@ -9,6 +9,15 @@ const HISTORIAN_AGENT = path.join(__dirname, '..', '..', 'agents', 'spec-session
 const { buildFilteredAssetSet } = require('../../src/cli/plugin');
 
 describe('spec session history contracts', () => {
+  test('usage covers Claude and Codex workflow entrypoints', () => {
+    const text = fs.readFileSync(SESSIONS_SKILL, 'utf8');
+
+    expect(text).toContain('# Claude Code');
+    expect(text).toContain('/spec:sessions [question or topic]');
+    expect(text).toContain('# Codex');
+    expect(text).toContain('$spec-sessions [question or topic]');
+  });
+
   test('pre-resolved repo name avoids shell case statements blocked by skill-load permissions', () => {
     const text = fs.readFileSync(SESSIONS_SKILL, 'utf8');
     const historian = fs.readFileSync(HISTORIAN_AGENT, 'utf8');
