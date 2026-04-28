@@ -124,6 +124,10 @@ describe('workflow invocation boundary', () => {
     expect(skill).toContain('## Invocation Boundary');
     expect(skill).toContain('workflow orchestrator, not an agent type');
     expect(skill).toContain('Do not invoke it through Agent/Task/subagent primitives');
+    expect(skill).toContain('current host\'s document-review entrypoint');
+    expect(skill).toContain('/spec:doc-review <path>` on Claude Code');
+    expect(skill).toContain('$spec-doc-review <path>` on Codex');
+    expect(skill).not.toContain('Claude users call `/spec:doc-review <path>`; Codex users call `$spec-doc-review <path>`');
     expect(skill).toContain('Phase 2');
     expect(skill).toContain('persona agents');
   });
