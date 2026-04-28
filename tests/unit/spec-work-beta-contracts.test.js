@@ -112,3 +112,16 @@ describe('spec-work-beta Codex delegation config contract', () => {
     expect(template).not.toContain('work_delegate_effort: high');
   });
 });
+
+describe('spec-work-beta host entrypoint contract', () => {
+  test('routes oversized work back through the current host entrypoint', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('current host\'s brainstorm or plan entrypoint');
+    expect(text).toContain('/spec:brainstorm` / `/spec:plan` on Claude Code');
+    expect(text).toContain('$spec-brainstorm` / `$spec-plan` on Codex');
+    expect(text).toContain('current host\'s plan entrypoint (`/spec:plan` on Claude Code, `$spec-plan` on Codex)');
+    expect(text).not.toContain('would benefit from `/spec:brainstorm` or `/spec:plan`');
+    expect(text).not.toContain('return to `/spec:plan` to reduce scope');
+  });
+});
