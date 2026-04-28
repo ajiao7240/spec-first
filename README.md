@@ -97,7 +97,7 @@ Expected Codex init output includes:
 | Brainstorm requirements | `/spec:brainstorm` | `$spec-brainstorm` |
 | Review docs/plans | `/spec:doc-review` | `$spec-doc-review` |
 | Write or deepen a plan | `/spec:plan` | `$spec-plan` |
-| Compile task pack | use installed `write-tasks` skill | standalone `spec-write-tasks` skill |
+| Compile task pack | use installed standalone `write-tasks` skill | use installed standalone `write-tasks` skill |
 | Debug a failure or bug | `/spec:debug` | `$spec-debug` |
 | Execute work | `/spec:work` | `$spec-work` |
 | Execute work with Codex delegation beta | `/spec:work-beta` | `$spec-work-beta` |

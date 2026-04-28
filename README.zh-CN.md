@@ -97,7 +97,7 @@ Codex init 的预期输出包含：
 | 需求澄清 | `/spec:brainstorm` | `$spec-brainstorm` |
 | 文档/计划评审 | `/spec:doc-review` | `$spec-doc-review` |
 | 写计划或深化计划 | `/spec:plan` | `$spec-plan` |
-| 编译 task pack | 使用已安装的 `write-tasks` skill | standalone `spec-write-tasks` skill |
+| 编译 task pack | 使用已安装的 standalone `write-tasks` skill | 使用已安装的 standalone `write-tasks` skill |
 | 调试失败或 bug | `/spec:debug` | `$spec-debug` |
 | 执行工作 | `/spec:work` | `$spec-work` |
 | 使用 Codex delegation beta 执行工作 | `/spec:work-beta` | `$spec-work-beta` |
