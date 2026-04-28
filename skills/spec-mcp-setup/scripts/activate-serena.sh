@@ -5,6 +5,26 @@ set -euo pipefail
 
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
 
+REFRESH=false
+LANGUAGES_TEXT=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --refresh)
+      REFRESH=true
+      shift
+      ;;
+    --language)
+      [ -n "${2:-}" ] || { echo "activate-serena.sh: --language requires a value" >&2; exit 1; }
+      LANGUAGES_TEXT="${LANGUAGES_TEXT}${2}"$'\n'
+      shift 2
+      ;;
+    *)
+      echo "activate-serena.sh: unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
@@ -16,7 +36,7 @@ READY_MARKER_PATH="$REPO_ROOT/$READY_MARKER_FILE"
 INDEX_COMMAND_JSON="$(jq -c '.tools[] | select(.id == "serena") | .project_bootstrap.index_command' "$TOOLS_JSON")"
 INDEX_COMMAND="$(jq -r '.command' <<<"$INDEX_COMMAND_JSON")"
 
-if [ -f "$PROJECT_FILE" ] && [ -f "$READY_MARKER_PATH" ]; then
+if [ "$REFRESH" != "true" ] && [ -f "$PROJECT_FILE" ] && [ -f "$READY_MARKER_PATH" ]; then
   exit 0
 fi
 
@@ -50,13 +70,23 @@ fi
 rm -f "$READY_MARKER_PATH"
 rm -f "$PROJECT_FILE"
 
-if command -v "$INDEX_COMMAND" >/dev/null 2>&1; then
-  index_args=()
+build_index_args() {
   while IFS= read -r arg; do
     index_args+=("$arg")
   done <<EOF
 $(jq -r '.args[]' <<<"$INDEX_COMMAND_JSON")
 EOF
+  if ! jq -e '.args | index("--language")' <<<"$INDEX_COMMAND_JSON" >/dev/null 2>&1; then
+    while IFS= read -r language; do
+      [ -n "$language" ] || continue
+      index_args+=("--language" "$language")
+    done <<<"$LANGUAGES_TEXT"
+  fi
+}
+
+if command -v "$INDEX_COMMAND" >/dev/null 2>&1; then
+  index_args=()
+  build_index_args
   if (cd "$REPO_ROOT" && "$INDEX_COMMAND" "${index_args[@]}") >/dev/null 2>&1; then
     mkdir -p "$(dirname "$READY_MARKER_PATH")"
     tmp_marker="$(mktemp "$(dirname "$READY_MARKER_PATH")/index-ready.XXXXXX")"

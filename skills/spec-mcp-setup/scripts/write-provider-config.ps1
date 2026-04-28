@@ -59,19 +59,23 @@ function ConvertTo-ComparableProjectionJson {
 }
 
 function Get-ProviderCommands {
-  param([string]$Provider)
+  param(
+    [string]$Provider,
+    [string]$RepoRoot
+  )
+  $repoName = Split-Path -Leaf $RepoRoot
   if ($Provider -eq 'gitnexus') {
     return [ordered]@{
       bootstrap = @('npx', '-y', 'gitnexus@latest', 'analyze')
       status = @('npx', '-y', 'gitnexus@latest', 'status')
-      query_probe = @('npx', '-y', 'gitnexus@latest', 'query')
+      query_probe = @('npx', '-y', 'gitnexus@latest', 'query', 'spec-first-readiness-probe', '--repo', $repoName)
     }
   }
   if ($Provider -eq 'code-review-graph') {
     return [ordered]@{
       bootstrap = @('uvx', 'code-review-graph', 'build')
       status = @('uvx', 'code-review-graph', 'status')
-      query_probe = @('uvx', 'code-review-graph', 'status', '--repo')
+      query_probe = @('uvx', 'code-review-graph', 'status', '--repo', $RepoRoot)
     }
   }
   return [ordered]@{}
@@ -192,7 +196,7 @@ foreach ($property in $facts.graph_providers.PSObject.Properties) {
     dependency_status = $provider.dependency_status
     host_config_status = $provider.host_config_status
     capabilities = @($provider.capabilities)
-    commands = Get-ProviderCommands -Provider $property.Name
+    commands = Get-ProviderCommands -Provider $property.Name -RepoRoot $facts.repo_root
     artifacts = Get-ProviderArtifacts -Provider $property.Name
     next_action = if ($ready -and $preserveQueryReady) { '' } elseif ($ready) { 'run spec-graph-bootstrap' } else { 'Fix provider setup and rerun spec-mcp-setup.' }
   }

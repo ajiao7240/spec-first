@@ -59,6 +59,24 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 
 Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure.
 
+Serena project language selection is semantic. The default deterministic bootstrap must not hard-code TypeScript/Vue or any other project language; when no `--language` values are passed, Serena's own project creation should infer languages from the target repo. If the agent notices an existing `.serena/project.yml` language mismatch, it should inspect bounded project evidence such as build files, package manifests, and representative source files, decide the intended language set, and run the safe refresh primitive instead of editing `.serena/project.yml` by hand:
+
+```bash
+bash skills/spec-mcp-setup/scripts/activate-serena.sh --refresh --language kotlin --language java
+```
+
+Windows:
+
+```powershell
+pwsh -File skills/spec-mcp-setup/scripts/activate-serena.ps1 -Refresh -Language kotlin,java
+```
+
+If language evidence is weak, omit explicit language flags and let Serena infer:
+
+```bash
+bash skills/spec-mcp-setup/scripts/activate-serena.sh --refresh
+```
+
 It must not run:
 
 - `npx -y gitnexus@latest analyze`
@@ -276,7 +294,7 @@ Expected projection boundaries:
       "commands": {
         "bootstrap": ["npx", "-y", "gitnexus@latest", "analyze"],
         "status": ["npx", "-y", "gitnexus@latest", "status"],
-        "query_probe": ["npx", "-y", "gitnexus@latest", "query"]
+        "query_probe": ["npx", "-y", "gitnexus@latest", "query", "spec-first-readiness-probe", "--repo", "<repo-name>"]
       }
     },
     "code-review-graph": {
@@ -284,7 +302,7 @@ Expected projection boundaries:
       "commands": {
         "bootstrap": ["uvx", "code-review-graph", "build"],
         "status": ["uvx", "code-review-graph", "status"],
-        "query_probe": ["uvx", "code-review-graph", "status", "--repo"]
+        "query_probe": ["uvx", "code-review-graph", "status", "--repo", "<repo-root>"]
       }
     }
   },

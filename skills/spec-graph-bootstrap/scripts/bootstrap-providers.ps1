@@ -78,7 +78,8 @@ function Test-CommandShapeSupported {
   param(
     [object]$ProviderConfig,
     [string]$Provider,
-    [string]$Kind
+    [string]$Kind,
+    [string]$RepoRoot
   )
   $actual = @($ProviderConfig.providers.$Provider.commands.$Kind)
   if ($actual.Count -eq 0) { return $false }
@@ -93,6 +94,18 @@ function Test-CommandShapeSupported {
       'status' { 'status' }
       'query_probe' { 'query' }
       default { $null }
+    }
+    if ($Kind -eq 'query_probe') {
+      return (
+        $actual.Count -eq 7 -and
+        [string]$actual[0] -eq 'npx' -and
+        [string]$actual[1] -eq '-y' -and
+        [string]$actual[2] -match '^gitnexus(@[A-Za-z0-9._~+:-]+)?$' -and
+        [string]$actual[3] -eq 'query' -and
+        [string]$actual[4] -eq 'spec-first-readiness-probe' -and
+        [string]$actual[5] -eq '--repo' -and
+        ([string]$actual[6]).Length -gt 0
+      )
     }
     return (
       $null -ne $subcommand -and
@@ -112,7 +125,7 @@ function Test-CommandShapeSupported {
       return ($actual.Count -eq 3 -and [string]$actual[0] -eq 'uvx' -and [string]$actual[1] -eq 'code-review-graph' -and [string]$actual[2] -eq 'status')
     }
     if ($Kind -eq 'query_probe') {
-      return ($actual.Count -eq 4 -and [string]$actual[0] -eq 'uvx' -and [string]$actual[1] -eq 'code-review-graph' -and [string]$actual[2] -eq 'status' -and [string]$actual[3] -eq '--repo')
+      return ($actual.Count -eq 5 -and [string]$actual[0] -eq 'uvx' -and [string]$actual[1] -eq 'code-review-graph' -and [string]$actual[2] -eq 'status' -and [string]$actual[3] -eq '--repo' -and [string]$actual[4] -eq $RepoRoot)
     }
   }
 
@@ -307,7 +320,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   }
   if (Test-ProviderEnabled -ProviderConfig $providerConfig -Provider $property.Name) {
     foreach ($kind in @('bootstrap', 'status', 'query_probe')) {
-      if (-not (Test-CommandShapeSupported -ProviderConfig $providerConfig -Provider $property.Name -Kind $kind)) {
+      if (-not (Test-CommandShapeSupported -ProviderConfig $providerConfig -Provider $property.Name -Kind $kind -RepoRoot $repoRoot)) {
         Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'unsupported-provider-command' -NextAction "Provider command shape is unsupported for $($property.Name):$kind."
       }
     }

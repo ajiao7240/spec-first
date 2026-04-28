@@ -121,6 +121,7 @@ assert_eq "agent-browser is outside MCP registry" "false" "$(jq -r '[.tools[].id
 assert_eq "browser MCP is not registered" "false" "$(jq -r '[.tools[].id] | any(. == "playwright")' "$TOOLS_JSON")"
 assert_eq "graph provider roles are configured" "global_knowledge,impact_context" "$(jq -r '[.tools[] | select(.category == "graph-provider") | .provider_role] | join(",")' "$TOOLS_JSON")"
 assert_eq "serena depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "serena") | .dependencies | join(",")' "$TOOLS_JSON")"
+assert_eq "Serena project bootstrap does not hard-code languages" "false" "$(jq -r '.tools[] | select(.id == "serena") | .project_bootstrap.index_command.args | index("--language") != null' "$TOOLS_JSON")"
 assert_eq "code-review-graph depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "code-review-graph") | .dependencies | join(",")' "$TOOLS_JSON")"
 assert_eq "gitnexus warmup command" "npx -y gitnexus@latest --help" "$(jq -r '.tools[] | select(.id == "gitnexus") | [.installation.unix.command] + .installation.unix.args | join(" ")' "$TOOLS_JSON")"
 assert_eq "code-review-graph mcp command" "uvx code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool" "$(jq -r '.tools[] | select(.id == "code-review-graph") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
@@ -258,6 +259,10 @@ assert_eq "installer writes GitNexus config" "npx" "$(jq -r '.mcpServers.gitnexu
 assert_eq "installer writes code-review-graph config" "uvx" "$(jq -r '.mcpServers["code-review-graph"].command' "$FAKE_HOME/.claude.json")"
 assert_eq "installer does not write internal scope into Claude config" "false" "$(jq -r '.mcpServers.serena | has("scope")' "$FAKE_HOME/.claude.json")"
 assert "Serena ready marker exists" test -f "$FAKE_REPO/.serena/index-ready.json"
+if grep -q 'serena project create .*--language typescript' "$COMMAND_LOG"; then
+  echo "FAIL: default Serena bootstrap should let Serena infer project languages" >&2
+  exit 1
+fi
 assert_contains "setup does not run GitNexus analyze" "gitnexus@latest --help" "$(cat "$COMMAND_LOG")"
 if grep -q 'gitnexus@latest analyze' "$COMMAND_LOG"; then
   echo "FAIL: spec-mcp-setup must not run gitnexus analyze" >&2
@@ -293,6 +298,15 @@ serena_restore_status=$?
 set -e
 assert_eq "Serena failed rebuild exits nonzero" "1" "$serena_restore_status"
 assert_eq "Serena failed rebuild restores existing project" "existing-project" "$(cat "$SERENA_RESTORE_REPO/.serena/project.yml")"
+
+SERENA_REFRESH_REPO="$TMP_DIR/serena-refresh-repo"
+SERENA_REFRESH_BIN="$TMP_DIR/serena-refresh-bin"
+SERENA_REFRESH_LOG="$TMP_DIR/serena-refresh-commands.log"
+make_repo "$SERENA_REFRESH_REPO"
+touch "$SERENA_REFRESH_LOG"
+make_fake_bin "$SERENA_REFRESH_BIN" "$SERENA_REFRESH_LOG"
+(cd "$SERENA_REFRESH_REPO" && PATH="$SERENA_REFRESH_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --refresh --language kotlin --language java)
+assert_contains "Serena refresh accepts LLM-selected languages" "serena project create . --index --language kotlin --language java" "$(cat "$SERENA_REFRESH_LOG")"
 
 detect_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh")"
 assert "detect-tools emits JSON" jq -e . <<<"$detect_output"
@@ -331,7 +345,8 @@ assert_eq "provider projection schema" "graph-providers.v1" "$(jq -r '.schema_ve
 assert_eq "runtime capabilities schema" "runtime-capabilities.v1" "$(jq -r '.schema_version' "$RUNTIME_CAPABILITIES")"
 assert_eq "provider artifacts schema" "provider-artifacts.v1" "$(jq -r '.schema_version' "$PROVIDER_ARTIFACTS")"
 assert_eq "provider projection is setup-only" "true" "$(jq -r '.boundaries.setup_only and .boundaries.does_not_run_gitnexus_analyze and .boundaries.does_not_run_code_review_graph_build' "$PROVIDER_CONFIG")"
-assert_eq "provider commands are config-defined arrays" "true" "$(jq -r '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y","gitnexus@latest","analyze"]) and (.providers["code-review-graph"].commands.bootstrap == ["uvx","code-review-graph","build"])' "$PROVIDER_CONFIG")"
+provider_config_repo_root="$(jq -r '.repo_root' "$PROVIDER_CONFIG")"
+assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$(basename "$provider_config_repo_root")" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y","gitnexus@latest","analyze"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y","gitnexus@latest","query","spec-first-readiness-probe","--repo",$repo_name]) and (.providers["code-review-graph"].commands.bootstrap == ["uvx","code-review-graph","build"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx","code-review-graph","status","--repo",$repo_root])' "$PROVIDER_CONFIG")"
 assert_eq "providers are configured but not query-ready" "true" "$(jq -r '(.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
 assert_eq "runtime capabilities points to host ledger" "$LEDGER_PATH" "$(jq -r '.host_ledger_pointer.path' "$RUNTIME_CAPABILITIES")"
 assert_eq "runtime capabilities starts not bootstrapped" "not-bootstrapped" "$(jq -r '.project_graph_readiness.status' "$RUNTIME_CAPABILITIES")"

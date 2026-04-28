@@ -75,6 +75,8 @@ make_repo() {
 
 write_fixture_config() {
   local repo_dir="$1"
+  local repo_root
+  repo_root="$(cd "$repo_dir" && pwd -P)"
   local ledger_path="$2"
   local baseline="${3:-true}"
   mkdir -p "$(dirname "$ledger_path")" "$repo_dir/.spec-first/config"
@@ -89,7 +91,7 @@ JSON
   cat > "$repo_dir/.spec-first/config/graph-providers.json" <<JSON
 {
   "schema_version": "graph-providers.v1",
-  "repo_root": "$repo_dir",
+  "repo_root": "$repo_root",
   "providers": {
     "gitnexus": {
       "configured": true,
@@ -99,7 +101,7 @@ JSON
       "commands": {
         "bootstrap": ["npx", "-y", "gitnexus@latest", "analyze"],
         "status": ["npx", "-y", "gitnexus@latest", "status"],
-        "query_probe": ["npx", "-y", "gitnexus@latest", "query"]
+        "query_probe": ["npx", "-y", "gitnexus@latest", "query", "spec-first-readiness-probe", "--repo", "$(basename "$repo_root")"]
       }
     },
     "code-review-graph": {
@@ -110,7 +112,7 @@ JSON
       "commands": {
         "bootstrap": ["uvx", "code-review-graph", "build"],
         "status": ["uvx", "code-review-graph", "status"],
-        "query_probe": ["uvx", "code-review-graph", "status", "--repo"]
+        "query_probe": ["uvx", "code-review-graph", "status", "--repo", "$repo_root"]
       }
     }
   },
@@ -192,11 +194,12 @@ make_repo "$PRIMARY_REPO"
 write_fixture_config "$PRIMARY_REPO" "$PRIMARY_LEDGER" true
 
 primary_output="$(cd "$PRIMARY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+PRIMARY_REPO_ROOT="$(cd "$PRIMARY_REPO" && pwd -P)"
 assert "primary output is JSON" jq -e . <<<"$primary_output"
 assert_eq "primary workflow mode" "primary" "$(jq -r '.workflow_mode' <<<"$primary_output")"
 assert_contains "runs gitnexus analyze" "npx -y gitnexus@latest analyze" "$(cat "$COMMAND_LOG")"
-assert_contains "runs gitnexus query proof" "npx -y gitnexus@latest query" "$(cat "$COMMAND_LOG")"
-assert_contains "runs code-review-graph query proof" "uvx code-review-graph status --repo" "$(cat "$COMMAND_LOG")"
+assert_contains "runs gitnexus query proof" "npx -y gitnexus@latest query spec-first-readiness-probe --repo $(basename "$PRIMARY_REPO_ROOT")" "$(cat "$COMMAND_LOG")"
+assert_contains "runs code-review-graph query proof" "uvx code-review-graph status --repo $PRIMARY_REPO_ROOT" "$(cat "$COMMAND_LOG")"
 assert "provider status aggregate exists" test -f "$PRIMARY_REPO/.spec-first/graph/provider-status.json"
 assert "graph facts exists" test -f "$PRIMARY_REPO/.spec-first/graph/graph-facts.json"
 assert "impact capabilities exists" test -f "$PRIMARY_REPO/.spec-first/impact/bootstrap-impact-capabilities.json"

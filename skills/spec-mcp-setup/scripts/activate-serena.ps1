@@ -1,4 +1,7 @@
-param()
+param(
+  [switch]$Refresh,
+  [string[]]$Language = @()
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -14,9 +17,20 @@ $readyMarkerFile = if ($null -ne $serenaTool.project_bootstrap.ready_marker_file
 $readyMarkerPath = Join-Path $repoRoot $readyMarkerFile
 $indexCommand = $serenaTool.project_bootstrap.index_command
 $command = $indexCommand.command
-$args = @($indexCommand.args)
+$indexArgs = New-Object System.Collections.Generic.List[string]
+foreach ($arg in @($indexCommand.args)) {
+  $indexArgs.Add([string]$arg)
+}
+if (@($indexCommand.args) -notcontains '--language') {
+  foreach ($language in @($Language)) {
+    if (-not [string]::IsNullOrWhiteSpace($language)) {
+      $indexArgs.Add('--language')
+      $indexArgs.Add([string]$language)
+    }
+  }
+}
 
-if ((Test-Path -LiteralPath $projectFile -PathType Leaf) -and (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf)) {
+if (-not $Refresh -and (Test-Path -LiteralPath $projectFile -PathType Leaf) -and (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf)) {
   exit 0
 }
 
@@ -52,7 +66,8 @@ try {
   Push-Location $repoRoot
   try {
     $global:LASTEXITCODE = 0
-    & $command @args | Out-Null
+    $indexArgArray = @($indexArgs.ToArray())
+    & $command @indexArgArray | Out-Null
     if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) {
       throw "Serena bootstrap command failed with exit code $LASTEXITCODE"
     }

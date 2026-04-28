@@ -116,7 +116,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('derived_readiness');
     expect(writeProviderSource).toContain('host_ledger_pointer');
     expect(writeProviderSource).toContain("bootstrap = @('npx', '-y', 'gitnexus@latest', 'analyze')");
-    expect(writeProviderSource).toContain("query_probe = @('uvx', 'code-review-graph', 'status', '--repo')");
+    expect(writeProviderSource).toContain("query_probe = @('npx', '-y', 'gitnexus@latest', 'query', 'spec-first-readiness-probe', '--repo', $repoName)");
+    expect(writeProviderSource).toContain("query_probe = @('uvx', 'code-review-graph', 'status', '--repo', $RepoRoot)");
     expect(writeProviderSource).toContain('[bool]$Provider.enabled_for_bootstrap');
     expect(writeProviderSource).toContain('$canonicalArtifactsAvailable');
     expect(writeProviderSource).toContain('$providerReadinessCurrent');
@@ -200,10 +201,16 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
   test('Serena bootstrap is idempotent and recoverable', () => {
     const activateSerenaSource = fs.readFileSync(path.join(repoRoot, 'skills/spec-mcp-setup/scripts/activate-serena.ps1'), 'utf8');
 
+    expect(activateSerenaSource).toContain('[switch]$Refresh');
+    expect(activateSerenaSource).toContain('[string[]]$Language = @()');
+    expect(activateSerenaSource).toContain("$indexArgs.Add('--language')");
+    expect(activateSerenaSource).toContain('foreach ($language in @($Language))');
     expect(activateSerenaSource).toContain('Test-Path -LiteralPath $projectFile -PathType Leaf');
+    expect(activateSerenaSource).toContain('-not $Refresh');
     expect(activateSerenaSource).toContain('function Restore-ExistingState');
     expect(activateSerenaSource).toContain('Restore-ExistingState');
     expect(activateSerenaSource).toContain('Move-Item -Force $tmpMarker $readyMarkerPath');
+    expect(activateSerenaSource).not.toContain('serena-project-facts.ps1');
   });
 
   test('project config bootstrap keeps local setup outside readiness ledger', () => {

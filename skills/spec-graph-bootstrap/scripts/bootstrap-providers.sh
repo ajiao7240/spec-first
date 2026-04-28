@@ -128,7 +128,7 @@ fi
 command_shape_supported() {
   local provider="$1"
   local kind="$2"
-  jq -e --arg provider "$provider" --arg kind "$kind" '
+  jq -e --arg provider "$provider" --arg kind "$kind" --arg repo_root "$REPO_ROOT" '
     def string_array:
       type == "array" and length > 0 and all(.[]; type == "string");
     def safe_args:
@@ -141,14 +141,18 @@ command_shape_supported() {
     def crg_shape:
       if $kind == "bootstrap" then length == 3 and .[0] == "uvx" and .[1] == "code-review-graph" and .[2] == "build"
       elif $kind == "status" then length == 3 and .[0] == "uvx" and .[1] == "code-review-graph" and .[2] == "status"
-      elif $kind == "query_probe" then length == 4 and .[0] == "uvx" and .[1] == "code-review-graph" and .[2] == "status" and .[3] == "--repo"
+      elif $kind == "query_probe" then length == 5 and .[0] == "uvx" and .[1] == "code-review-graph" and .[2] == "status" and .[3] == "--repo" and .[4] == $repo_root
       else false end;
     (.providers[$provider].commands[$kind]) as $cmd
     | ($cmd | string_array)
     and ($cmd | safe_args)
     and (
       if $provider == "gitnexus" then
-        ($cmd | length == 4 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == gitnexus_subcommand)
+        if $kind == "query_probe" then
+          ($cmd | length == 7 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "query" and .[4] == "spec-first-readiness-probe" and .[5] == "--repo" and (.[6] | length > 0))
+        else
+          ($cmd | length == 4 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == gitnexus_subcommand)
+        end
       elif $provider == "code-review-graph" then
         ($cmd | crg_shape)
       else false end

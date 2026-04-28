@@ -72,20 +72,20 @@ Allowed minimum command shapes are:
     "commands": {
       "bootstrap": ["npx", "-y", "gitnexus@latest", "analyze"],
       "status": ["npx", "-y", "gitnexus@latest", "status"],
-      "query_probe": ["npx", "-y", "gitnexus@latest", "query"]
+      "query_probe": ["npx", "-y", "gitnexus@latest", "query", "spec-first-readiness-probe", "--repo", "<repo-name>"]
     }
   },
   "code-review-graph": {
     "commands": {
       "bootstrap": ["uvx", "code-review-graph", "build"],
       "status": ["uvx", "code-review-graph", "status"],
-      "query_probe": ["uvx", "code-review-graph", "status", "--repo"]
+      "query_probe": ["uvx", "code-review-graph", "status", "--repo", "<repo-root>"]
     }
   }
 }
 ```
 
-The display forms are `npx -y gitnexus@latest analyze`, `npx -y gitnexus@latest status`, `npx -y gitnexus@latest query`, `uvx code-review-graph build`, and `uvx code-review-graph status`; the script still executes the validated arrays from `graph-providers.json`, not these prose strings. The bootstrap script owns the safety allowlist (provider id, executable, package name, and subcommand shape); `graph-providers.json` remains the command argv source.
+The display forms are `npx -y gitnexus@latest analyze`, `npx -y gitnexus@latest status`, `npx -y gitnexus@latest query spec-first-readiness-probe --repo <repo-name>`, `uvx code-review-graph build`, and `uvx code-review-graph status --repo <repo-root>`; the script still executes the validated arrays from `graph-providers.json`, not these prose strings. The bootstrap script owns the safety allowlist (provider id, executable, package name, and subcommand shape); `graph-providers.json` remains the command argv source.
 
 Reject string commands, `bash -c`, `sh -c`, and unsupported executable/package shapes. Shell metacharacters inside an array argument must not be interpreted by a shell.
 

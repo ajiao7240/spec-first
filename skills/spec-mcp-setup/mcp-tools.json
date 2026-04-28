@@ -92,7 +92,7 @@
         "ready_marker_file": ".serena/index-ready.json",
         "index_command": {
           "command": "uvx",
-          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "project", "create", ".", "--language", "typescript", "--language", "vue", "--language", "markdown", "--language", "yaml", "--language", "bash", "--index"]
+          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "project", "create", ".", "--index"]
         }
       },
       "provider_config": null

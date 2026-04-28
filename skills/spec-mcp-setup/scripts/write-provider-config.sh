@@ -61,6 +61,8 @@ impact_capabilities_exists=false
 [ -f "$REPO_ROOT/.spec-first/impact/bootstrap-impact-capabilities.json" ] && impact_capabilities_exists=true
 
 jq --arg generated_at "$generated_at" \
+   --arg repo_name "$(basename "$REPO_ROOT")" \
+   --arg repo_root "$REPO_ROOT" \
    --argjson graph_facts_exists "$graph_facts_exists" \
    --argjson provider_status_exists "$provider_status_exists" \
    --argjson impact_capabilities_exists "$impact_capabilities_exists" \
@@ -78,12 +80,12 @@ jq --arg generated_at "$generated_at" \
     if $key == "gitnexus" then {
       bootstrap: ["npx", "-y", "gitnexus@latest", "analyze"],
       status: ["npx", "-y", "gitnexus@latest", "status"],
-      query_probe: ["npx", "-y", "gitnexus@latest", "query"]
+      query_probe: ["npx", "-y", "gitnexus@latest", "query", "spec-first-readiness-probe", "--repo", $repo_name]
     }
     elif $key == "code-review-graph" then {
       bootstrap: ["uvx", "code-review-graph", "build"],
       status: ["uvx", "code-review-graph", "status"],
-      query_probe: ["uvx", "code-review-graph", "status", "--repo"]
+      query_probe: ["uvx", "code-review-graph", "status", "--repo", $repo_root]
     }
     else {} end;
 

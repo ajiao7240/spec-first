@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 09:46:50 leokuang: fix(spec-graph-bootstrap): 修复 provider query probe 命令缺少轻量验证参数导致 graph readiness 只能降级为 query-unverified 的问题，并同步安全校验与契约测试 (user-visible)
+- v1.6.0 2026-04-28 09:42:54 leokuang: fix(spec-mcp-setup): 移除 Serena 项目初始化的硬编码 TypeScript/Vue 语言，新增安全 refresh 参数供 LLM 基于项目证据选择语言并重建索引 (user-visible)
 - v1.6.0 2026-04-28 09:26:11 leokuang: refactor(spec-mcp-setup): 收紧 graph compiler setup 脚本、provider config 投影和契约测试，移除过期的 project 配置引用 (user-visible)
 - v1.6.0 2026-04-28 09:11:12 leokuang: fix(spec-graph-bootstrap): 按审查修复 readiness 保留、PowerShell parity、fallback fail-closed、provider skipped status、命令安全来源、生成态 artifact 忽略和 spec-plan/README contract 覆盖 (user-visible)
 - v1.6.0 2026-04-28 08:22:50 leokuang: feat(spec-graph-bootstrap): 实现 Graph Readiness Compiler，新增 setup-owned runtime/provider artifact config、受限 provider command arrays、query-unverified 三层探针、canonical graph/impact artifacts，并让 spec-plan 首个消费 Graph Readiness block (user-visible)
