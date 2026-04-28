@@ -120,7 +120,7 @@ Load the `proof` skill in HITL-review mode with:
 - **source content:** the survivors and rejection summary from Phase 4 (in repo mode, this is the file written in 5.1; in elsewhere mode, render to a temp file as the source for upload)
 - **doc title:** `Ideation: <topic>` or the H1 of the ideation doc
 - **identity:** `ai:spec-first` / `Spec-First`
-- **recommended next step:** `/spec:brainstorm` (shown in the proof skill's final terminal output)
+- **recommended next step:** current host's brainstorm entrypoint (`/spec:brainstorm` on Claude Code, `$spec-brainstorm` on Codex; shown in the proof skill's final terminal output)
 
 The Proof failure ladder in Phase 6.5 governs what happens when this hand-off fails.
 
