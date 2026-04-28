@@ -31,6 +31,15 @@ const PLAN_HANDOFF_PATH = path.join(
   'references',
   'plan-handoff.md',
 );
+const UNIVERSAL_PLANNING_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-plan',
+  'references',
+  'universal-planning.md',
+);
 
 describe('spec-plan context orientation contract', () => {
   test('uses direct repo context and preserves LLM decision boundary', () => {
@@ -130,5 +139,20 @@ describe('spec_id planning contract', () => {
     expect(skill).toContain('**Start work** (recommended)');
     expect(skill).toContain('current host\'s work entrypoint (`/spec:work` on Claude Code, `$spec-work` on Codex)');
     expect(skill).not.toContain('**Start `/spec:work`** (recommended)');
+  });
+
+  test('universal planning avoids slash-only handoff wording', () => {
+    const text = fs.readFileSync(UNIVERSAL_PLANNING_PATH, 'utf8');
+
+    expect(text).toContain('current host\'s plan entrypoint');
+    expect(text).toContain('/spec:plan` on Claude Code');
+    expect(text).toContain('$spec-plan` on Codex');
+    expect(text).toContain('software work entrypoint');
+    expect(text).toContain('/spec:work` on Claude Code');
+    expect(text).toContain('$spec-work` on Codex');
+    expect(text).toContain('The user invoked the plan workflow');
+    expect(text).not.toContain('Use `/spec:plan` directly');
+    expect(text).not.toContain('The user invoked `/spec:plan`');
+    expect(text).not.toContain('Do not offer `/spec:work`');
   });
 });
