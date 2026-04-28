@@ -170,8 +170,10 @@ describe('dual-host governance contracts', () => {
     expect(readme).toContain("Use the current host's setup workflow");
     expect(readme).toContain("Use the current host's graph bootstrap workflow");
     expect(readme).toContain("Use the current host's plan workflow");
+    expect(readme).toContain('Use the installed standalone `write-tasks` skill');
     expect(readme).not.toContain('Required harness runtime setup through `$spec-mcp-setup`');
     expect(readme).not.toContain('External graph readiness compilation through `$spec-graph-bootstrap`');
+    expect(readme).not.toContain('Use standalone `spec-write-tasks`');
     expect(readme).toContain(
       '| Compile task pack | use installed standalone `write-tasks` skill | use installed standalone `write-tasks` skill |',
     );
@@ -187,8 +189,10 @@ describe('dual-host governance contracts', () => {
     );
     expect(readmeZh).toContain('用当前宿主的 setup workflow');
     expect(readmeZh).toContain('当前宿主的 plan workflow');
+    expect(readmeZh).toContain('用已安装的 standalone `write-tasks` skill');
     expect(readmeZh).not.toContain('通过 `$spec-mcp-setup` 管理');
     expect(readmeZh).not.toContain('通过 `$spec-graph-bootstrap` 编译');
+    expect(readmeZh).not.toContain('用 standalone `spec-write-tasks`');
     expect(readmeZh).toContain(
       '| 编译 task pack | 使用已安装的 standalone `write-tasks` skill | 使用已安装的 standalone `write-tasks` skill |',
     );

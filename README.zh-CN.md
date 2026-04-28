@@ -38,7 +38,7 @@ spec-first init --codex -u <name> --lang zh
 - 在 setup 报告 `baseline_ready=true` 后运行当前宿主的 graph bootstrap workflow。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus/code-review-graph probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
 - 当前宿主的 plan workflow 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。
 - 在父 workspace 下存在多个 child Git repos 时，setup/bootstrap 脚本必须显式传 `--repo <child>`。父 workspace 只报告候选 repo，不拥有 repo-local `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*` 或 `.serena/*` 产物。
-- 用 standalone `spec-write-tasks` 做确定性的 task-pack handoff，再让当前宿主的 work、code-review 和 doc-review workflow 基于当前请求、plans/task packs、diffs、targeted file reads 与 tests 确定 scope authority。
+- 用已安装的 standalone `write-tasks` skill 做确定性的 task-pack handoff，再让当前宿主的 work、code-review 和 doc-review workflow 基于当前请求、plans/task packs、diffs、targeted file reads 与 tests 确定 scope authority。
 
 ## 主要命令
 

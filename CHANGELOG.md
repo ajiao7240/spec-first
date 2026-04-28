@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-29 01:39:55 leokuang: docs(readme): 将 task-pack handoff 共享段落同步为 installed write-tasks standalone skill (user-visible)
 - v1.6.0 2026-04-29 01:37:44 leokuang: docs(readme): 统一 task-pack 编译入口表为双宿主 installed write-tasks standalone skill (user-visible)
 - v1.6.0 2026-04-29 01:35:28 leokuang: docs(readme): 明确 init 示例按实际宿主选择运行，避免误导用户必须同时初始化 Claude 与 Codex (user-visible)
 - v1.6.0 2026-04-29 01:32:46 leokuang: docs(readme): 将 README 共享 setup/graph readiness 路径从 Codex-only 命令改为双宿主 current-host 表述 (user-visible)
