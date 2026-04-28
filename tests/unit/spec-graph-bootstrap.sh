@@ -300,6 +300,20 @@ assert_eq "no providers and no fallback blocks" "1" "$no_fallback_status"
 assert_eq "blocked workflow without fallback" "blocked" "$(jq -r '.workflow_mode' <<<"$no_fallback_output")"
 assert_eq "blocked impact capabilities fail closed" "none,none,none" "$(jq -r '[.capabilities.context_selection.support_level,.capabilities.impact_radius.support_level,.capabilities.review_support.support_level] | join(",")' "$NO_FALLBACK_REPO/.spec-first/impact/bootstrap-impact-capabilities.json")"
 
+BASELINE_NOT_READY_REPO="$TMP_DIR/baseline-not-ready-repo"
+BASELINE_NOT_READY_LEDGER="$TMP_DIR/baseline-not-ready-home/.codex/spec-first/host-setup.json"
+make_repo "$BASELINE_NOT_READY_REPO"
+write_fixture_config "$BASELINE_NOT_READY_REPO" "$BASELINE_NOT_READY_LEDGER" false
+before_baseline_not_ready_log="$(cat "$COMMAND_LOG")"
+set +e
+baseline_not_ready_output="$(cd "$BASELINE_NOT_READY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+baseline_not_ready_status=$?
+set -e
+assert_eq "baseline not ready fails" "1" "$baseline_not_ready_status"
+assert_eq "baseline not ready workflow mode" "setup-not-ready" "$(jq -r '.workflow_mode' <<<"$baseline_not_ready_output")"
+assert_eq "baseline not ready reason" "baseline_not_ready" "$(jq -r '.reason_code' <<<"$baseline_not_ready_output")"
+assert_eq "baseline not ready does not run providers" "$before_baseline_not_ready_log" "$(cat "$COMMAND_LOG")"
+
 CONFLICT_REPO="$TMP_DIR/conflict-repo"
 CONFLICT_LEDGER="$TMP_DIR/conflict-home/.codex/spec-first/host-setup.json"
 make_repo "$CONFLICT_REPO"

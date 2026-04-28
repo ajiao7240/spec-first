@@ -6,7 +6,7 @@
 
 当前推荐的事实准备与知识沉淀入口：
 
-- `spec-graph-bootstrap`：CRG 图索引与 query-first 决策输入入口
+- `spec-graph-bootstrap`：external graph-provider readiness facts 编译入口
 - `spec-compound`：工作完成后的稳定知识捕获入口
 
 当前功能状态：
@@ -30,7 +30,7 @@
 - 一个前置的 `/spec:ideate` 候选发散入口
 - Claude Code 的 `/spec:*` 命令入口
 - Codex 的 `$spec-*` skill 入口
-- 当前推荐的 CRG 事实入口：`spec-graph-bootstrap`，以及知识沉淀入口 `spec-compound`
+- 当前推荐的 graph readiness 事实入口：`spec-graph-bootstrap`，以及知识沉淀入口 `spec-compound`
 - 一条 `Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound` 的标准闭环
 - 项目级 `.claude/commands/spec`
 - 项目级 `.claude/skills`、`.claude/spec-first/workflows` 与 `.claude/agents`
@@ -61,7 +61,7 @@
 - 如果你要理解运行模型和前置 ideate + 五阶段闭环，先看 [核心概念](./02-核心概念.md)
 - 如果你要确认真实执行过程，看 [完整示例](./03-完整示例.md)
 - 如果你在排障，看 [常见问题](./04-常见问题.md)
-- 如果你关注 CRG 图索引、runtime/control-plane 与 Git 协作边界，重点看 [核心概念](./02-核心概念.md)、[最佳实践](./05-最佳实践.md) 和 [常见问题](./04-常见问题.md)
+- 如果你关注 graph readiness、runtime/control-plane 与 Git 协作边界，重点看 [核心概念](./02-核心概念.md)、[最佳实践](./05-最佳实践.md) 和 [常见问题](./04-常见问题.md)
 - 如果你在做本地调试或仓库维护，看 [本地源码安装](./06-本地源码安装.md)
 - 如果你在做团队内部分享或培训，先看 [内部培训使用讲稿](./07-内部培训使用讲稿.md)
 

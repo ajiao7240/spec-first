@@ -123,7 +123,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain("query_probe = @('uvx', 'code-review-graph', 'status', '--repo', $RepoRoot)");
     expect(writeProviderSource).toContain('[bool]$Provider.enabled_for_bootstrap');
     expect(writeProviderSource).toContain('$canonicalArtifactsAvailable');
-    expect(writeProviderSource).toContain('$providerReadinessCurrent');
+    expect(writeProviderSource).toContain('$canonicalArtifactsCurrent');
+    expect(writeProviderSource).toContain('graph_bootstrap_required = ($canonicalWorkflowMode -ne');
     expect(writeProviderSource).toContain('support_level');
     expect(writeProviderSource).toContain('project_graph_readiness');
     expect(writeProviderSource).toContain("$repoConfigStatus = 'ready'");

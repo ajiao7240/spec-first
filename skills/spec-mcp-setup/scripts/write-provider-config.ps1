@@ -311,16 +311,7 @@ $projectGraphReadiness = [ordered]@{
   confidence = 'unknown'
   limitations = @('Run spec-graph-bootstrap to compile project graph readiness.')
 }
-$providerReadinessCurrent = (-not [bool]$providerPayload.derived_readiness.graph_bootstrap_required) -and (@($readiness.Values | Where-Object { $_.query_ready }).Count -gt 0)
-$existingProjectGraphCurrent = (
-  $null -ne $existingRuntime -and
-  $null -ne $existingRuntime.project_graph_readiness -and
-  ($existingRuntime.project_graph_readiness.status -ne 'not-bootstrapped') -and
-  (-not [bool]$existingRuntime.project_graph_readiness.graph_bootstrap_required)
-)
-if ($canonicalArtifactsCurrent -and $existingProjectGraphCurrent) {
-  $projectGraphReadiness = $existingRuntime.project_graph_readiness
-} elseif ($canonicalArtifactsCurrent) {
+if ($canonicalArtifactsCurrent) {
   $canonicalConfidence = if ($canonicalGraphFacts.PSObject.Properties.Name -contains 'confidence') { $canonicalGraphFacts.confidence } else { 'medium' }
   $projectGraphReadiness = [ordered]@{
     status = $canonicalWorkflowMode

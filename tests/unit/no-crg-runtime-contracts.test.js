@@ -100,4 +100,28 @@ describe('retired internal graph runtime removal contract', () => {
     expect(fs.existsSync(path.join(REPO_ROOT, 'vendor', 'tree-sitter-swift'))).toBe(false);
     expect(findMatches(targets, patterns)).toEqual([]);
   });
+
+  test('current user-facing docs do not advertise retired internal graph runtime surfaces', () => {
+    const targets = [
+      'CLAUDE.md',
+      'AGENTS.md',
+      'README.md',
+      'README.zh-CN.md',
+      'docs/05-用户手册',
+    ];
+    const patterns = [
+      ['src/', 'crg'].join(''),
+      ['spec-first ', 'crg'].join(''),
+      ['graph', '\\.db'].join(''),
+      ['stage0', '-context'].join(''),
+      ['src/', 'bootstrap-compiler'].join(''),
+      ['src/', 'context-routing'].join(''),
+      ['tree', '-sitter'].join(''),
+      ['better', '-sqlite3'].join(''),
+      'CRG 图',
+      'CRG runtime',
+    ];
+
+    expect(findMatches(targets, patterns)).toEqual([]);
+  });
 });

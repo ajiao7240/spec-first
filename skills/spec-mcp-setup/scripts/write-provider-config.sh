@@ -248,14 +248,6 @@ jq --arg generated_at "$generated_at" \
     and ($canonical_impact_capabilities.schema_version == "bootstrap-impact-capabilities.v1")
     and (($canonical_graph_facts.repo_root // .repo_root) == .repo_root);
 
-  def provider_readiness_current:
-    ($provider[0].derived_readiness.graph_bootstrap_required == false)
-    and ([($provider[0].derived_readiness.providers // {})[] | .query_ready == true] | any);
-
-  def existing_project_readiness_current:
-    ($existing.project_graph_readiness.graph_bootstrap_required == false)
-    and (($existing.project_graph_readiness.status // "not-bootstrapped") != "not-bootstrapped");
-
   (.tools.serena // {}) as $serena
   | (.helper_tools."ast-grep" // {}) as $ast_grep
   | (tool_ready($serena)) as $serena_ready
@@ -315,12 +307,7 @@ jq --arg generated_at "$generated_at" \
         }
       },
       project_graph_readiness: (
-        if (
-          existing_project_readiness_current
-          and canonical_graph_artifacts_current
-        ) then
-          $existing.project_graph_readiness
-        elif canonical_graph_artifacts_current then
+        if canonical_graph_artifacts_current then
           {
             status: ($canonical_graph_facts.workflow_mode // $provider[0].derived_readiness.workflow_mode // "unknown"),
             canonical_graph_facts_artifact: ($provider[0].derived_readiness.graph_facts_artifact // ".spec-first/graph/graph-facts.json"),

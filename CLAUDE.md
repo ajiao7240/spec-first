@@ -16,45 +16,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `npm run typecheck`：对 CLI 与关键脚本做 `node --check` 语法检查。
 - `npm run build`：执行 `npm pack --dry-run`，验证发布包内容。
-- `npm test`：运行主测试链路，覆盖 unit、smoke、integration、CRG e2e。
+- `npm test`：运行主测试链路，覆盖 unit、smoke 和 integration。
 - `npm run test:unit`：运行 shell 单测与 Jest 单测。
 - `npm run test:smoke`：验证安装、本地 init、CLI 主路径等烟雾测试。
 - `npm run test:integration`：运行 verification gate + workflow 级集成测试。
-- `npm run test:e2e:crg`：运行 CRG 端到端脚本。
-- `npm run test:jest -- tests/unit/crg-parser.test.js --runInBand`：运行单个 Jest 测试文件。
-- `npx jest tests/unit/crg-parser.test.js --runInBand -t "parser"`：运行单测文件中的单个测试用例。
+- `npm run test:jest -- tests/unit/runtime-tools-index.test.js --runInBand`：运行单个 Jest 测试文件。
+- `npx jest tests/unit/runtime-tools-index.test.js --runInBand -t "runtime"`：运行单测文件中的单个测试用例。
 - `npm run lint:skill-entrypoints`：校验 skill / workflow 入口治理。
 - `spec-first --help`：查看 package CLI 命令面。
 - `spec-first doctor --claude` / `spec-first doctor --codex`：检查宿主侧运行时资产与状态。
 - `spec-first init --claude` / `spec-first init --codex`：把源码资产同步成宿主运行时资产。
 - `spec-first clean --claude` / `spec-first clean --codex`：移除 spec-first 管理的宿主资产。
-- `spec-first crg --help`：查看 CRG 子命令。
-- `spec-first crg build --repo .`：构建或刷新 Code Review Graph。
-- `spec-first stage0-context --stage plan --workflow spec-plan --format json`：输出指定 stage 的 Stage-0 上下文。
+- `npm run test:mcp-setup`：验证 required harness runtime setup 脚本与 projection contract。
+- `npm run test:graph-bootstrap`：验证 external graph-provider readiness compiler。
 
 ## 架构总览
 
-`spec-first` 是一个 Node.js CommonJS CLI。包级入口在 `bin/spec-first.js`：普通命令走 `src/cli/index.js`，`crg` 子命令单独延迟加载到 `src/crg/cli/router.js`，避免影响 `init/doctor/clean` 启动速度。
+`spec-first` 是一个 Node.js CommonJS CLI。包级入口在 `bin/spec-first.js`，命令分发走 `src/cli/index.js`。`init / doctor / clean / tasks` 是 package CLI 的稳定命令面；workflow 入口由宿主在 `spec-first init --claude|--codex` 后提供。
 
 仓库可以按四层理解：
 
-1. **CLI 控制面**：`src/cli/commands/` 实现 `doctor / init / clean / stage0-context`。这层负责可重复、确定性的宿主资产同步、状态检查、初始化与清理。
-2. **Bootstrap / Context 层**：`src/bootstrap-compiler/` 与 `src/context-routing/` 负责把代码库事实编译成 Stage-0 上下文，包括 `minimal-context`、`injection-index`、quality/fallback/verification 信号。这层的目标是提高 LLM 的输入质量，而不是替代 LLM 决策。
-3. **CRG 图引擎**：`src/crg/` 提供基于 SQLite + FTS5 的 Code Review Graph 能力，负责 AST/符号/边关系、影响分析、review-context、community、flow 等检索与分析。
-4. **Workflow 资产源码**：`skills/`、`agents/`、`templates/` 是 source of truth；`spec-first init` 会把它们转换并同步到 `.claude/`、`.codex/`、`.agents/skills/` 等宿主目录。**不要直接编辑生成出来的运行时资产。**
+1. **CLI 控制面**：`src/cli/commands/` 实现 `doctor / init / clean / tasks`。这层负责可重复、确定性的宿主资产同步、状态检查、初始化、清理与 task pack 校验。
+2. **运行时资产治理层**：`src/cli/plugin.js`、`src/cli/runtime-tools-index.js`、`src/cli/instruction-bootstrap.js`、`src/cli/state.js` 负责按双宿主治理 contract 下发 skills、agents、commands 和 managed instruction blocks。
+3. **Workflow / runtime setup 资产层**：`skills/`、`agents/`、`templates/` 是 source of truth；`spec-mcp-setup` 准备 host runtime 与 provider config，`spec-graph-bootstrap` 编译 external graph-provider readiness facts。**不要直接编辑生成出来的运行时资产。**
+4. **Verification / contracts 层**：`tests/`、`docs/contracts/`、`src/verification/` 约束发布物、runtime delivery、quality gates 和 workflow artifact path。
 
 ## 关键目录与职责
 
 - `bin/`：CLI 可执行入口与安装后处理脚本。
 - `src/cli/`：包级 CLI、平台 adapter、插件清单装载、指令注入、状态管理。
-- `src/bootstrap-compiler/`：Phase 0–4 事实提取与 machine artifacts / minimal-context 编译。
-- `src/context-routing/`：Stage-0 evaluator、verification evidence、selection context、fallback 与 telemetry。
-- `src/crg/`：CRG 图构建、查询、review-context、增量刷新与检索打包。
+- `src/verification/`：workflow / quality gate artifact path 解析。
 - `skills/`：workflow/standalone skill 源码。
 - `agents/`：review / research / design / docs 等 agent profile 源码。
 - `templates/`：宿主运行时模板，例如 Claude SessionStart hook。
-- `tests/`：按 `unit / smoke / integration / e2e / contracts` 分层；`tests/fixtures/` 提供 parser、benchmark、graphignore 等测试仓库。
-- `vendor/`：本地 vendored tree-sitter 依赖。
+- `tests/`：按 `unit / smoke / integration / e2e / contracts` 分层，重点覆盖 CLI、runtime delivery、setup/bootstrap 和治理 contract。
 
 ## 运行时与源码边界
 
@@ -63,7 +58,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Claude 侧运行时根在 `.claude/`，命令入口在 `.claude/commands/spec/`，skills 在 `.claude/skills/`，agents 在 `.claude/agents/`。
 - Codex 侧运行时根在 `.codex/`，用户可见 skills 在 `.agents/skills/`，agents 在 `.codex/agents/`。
 - 平台差异由 `src/cli/adapters/claude.js` 与 `src/cli/adapters/codex.js` 负责，包括路径重写、agent 名称改写、运行时文件同步与清理策略。
-- 资产清单与治理真相源在 `.claude-plugin/plugin.json` 和 `src/cli/contracts/dual-host-governance/skills-governance.json`；如果命令、skill、agent 是否应该下发到哪个宿主有疑问，优先看这两个文件。
+- 资产清单由 `src/cli/plugin.js` 从 `package.json`、`templates/` 和 `src/cli/contracts/dual-host-governance/skills-governance.json` 动态构建；如果命令、skill、agent 是否应该下发到哪个宿主有疑问，优先看治理 contract 与 source assets。
 
 ## 重要开发约束
 
@@ -77,8 +72,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - 改 CLI 参数、状态文件、运行时同步逻辑：至少跑相关 unit 测试和 smoke 测试。
 - 改 skill / agent 治理、入口映射、contract：先跑 `npm run lint:skill-entrypoints`，再补对应 contract/unit 测试。
-- 改 Stage-0 / verification / context routing：跑 `npm run test:integration`，必要时补 `tests/unit/*verification*` 与 `tests/unit/*context*`。
-- 改 CRG 图构建、检索或 SQLite 逻辑：跑相关 `tests/unit/crg-*.test.js`，并视影响面执行 `npm run test:e2e:crg`。
+- 改 verification / quality gate / artifact path：跑 `npm run test:integration`，必要时补 `tests/unit/*verification*` 与 quality gate contract 测试。
+- 改 `spec-mcp-setup` 或 `spec-graph-bootstrap` 脚本：至少跑 `npm run test:mcp-setup`、`npm run test:graph-bootstrap`，涉及 PowerShell parity 时补 `tests/unit/mcp-setup-powershell-contracts.test.js`。
 - 改发布物、打包内容、安装路径：至少跑 `npm run build`、相关 smoke/release 测试。
 
 ## Agent 与 Skill 变更验证
@@ -189,7 +184,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **spec-first** (19854 symbols, 22438 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **spec-first** (19862 symbols, 22458 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
