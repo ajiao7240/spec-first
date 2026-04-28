@@ -67,7 +67,7 @@ Expected Claude init output includes:
 下一步:
   1. 重启 Claude Code 或新开会话，让宿主加载刚生成的 /spec:* commands。
   2. 在新会话运行 /spec:mcp-setup，安装并验证必装 MCP/helper runtime。
-  3. 如果 /spec:mcp-setup 显示 graph readiness 仍 pending，再按提示运行 /spec:graph-bootstrap。
+  3. 如果 /spec:mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap。
 ```
 
 Expected Codex init output includes:

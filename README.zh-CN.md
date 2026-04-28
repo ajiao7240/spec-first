@@ -64,6 +64,10 @@ Claude init 的预期输出包含：
 📦 Generated 18 command file(s) in .claude/commands/spec
 🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
+下一步:
+  1. 重启 Claude Code 或新开会话，让宿主加载刚生成的 /spec:* commands。
+  2. 在新会话运行 /spec:mcp-setup，安装并验证必装 MCP/helper runtime。
+  3. 如果 /spec:mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap。
 ```
 
 Codex init 的预期输出包含：
@@ -117,6 +121,15 @@ npm test
 ```
 
 `npm run build` 执行 `npm pack --dry-run`，用于验证发布包内容。
+
+## 相关文档
+
+详细手册和实施文档均以中文为主。
+
+- [架构总览](./docs/02-架构设计/01-整体架构.md)
+- [开发规范](./docs/03-实施方案/06-开发规范.md)
+- [测试方案](./docs/03-实施方案/04-测试方案.md)
+- [版本更新记录](./docs/08-版本更新/README.md)
 
 ## 设计边界
 

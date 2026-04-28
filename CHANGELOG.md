@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 leokuang: docs(readme): 修正英文 README Claude init 第 3 步文案笔误，补全中文 README Claude init 下一步区块，并为中文 README 补充相关文档小节 (user-visible)
+- v1.6.0 2026-04-28 18:28:09 leokuang: fix(spec-mcp-setup): 将 verify-tools 的最终状态表改为 fenced code block 的对齐输出，减少 Codex 下 Markdown 表格换行导致的视觉错位 (user-visible)
 - v1.6.0 2026-04-28 17:40:00 leokuang: docs(plan): 修正 runtime tooling 边界计划的需求映射和验证矩阵，补齐 doctor 与 root marker 检查口径
 - v1.6.0 2026-04-28 17:33:51 leokuang: fix(spec-mcp-setup): 将最终 readiness 输出改为分组窄表，改善 Codex 下 MCP setup 完成后的表格可读性 (user-visible)
 - v1.6.0 2026-04-28 15:32:16 leokuang: refactor(runtime-tools): 停止向 CLAUDE.md/AGENTS.md 写入 runtime tooling 全局块，移除 init/doctor 治理链路并保留 clean 清理旧块能力 (user-visible)
