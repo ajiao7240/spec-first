@@ -54,18 +54,21 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 6. Warms and configures every required MCP server in the host MCP config.
 7. Bootstraps Serena for the current repo.
 8. Writes readiness ledger v2 to the host marker path.
-9. Writes `.spec-first/config/graph-providers.json` inside a git repo.
-10. Prints a clear next-step prompt after the final table: continue graph bootstrap now, then restart Claude Code/Codex or start a new session before relying on the newly written MCP config in downstream workflows.
+9. Writes setup-owned project facts inside a git repo: `.spec-first/config/graph-providers.json`, `.spec-first/config/runtime-capabilities.json`, and `.spec-first/config/provider-artifacts.json`.
+10. Prints a clear next-step prompt after the final table: continue graph readiness compilation now, then restart Claude Code/Codex or start a new session before relying on the newly written MCP config in downstream workflows.
 
 Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure.
 
 It must not run:
 
 - `npx -y gitnexus@latest analyze`
+- `npx -y gitnexus@latest status`
+- `npx -y gitnexus@latest query`
 - `uvx code-review-graph build`
+- `uvx code-review-graph status`
 - the retired internal graph CLI
 
-Graph construction is owned by `spec-graph-bootstrap`. Re-running setup must not force graph bootstrap again when the existing provider projection is already query-ready and the current provider setup is still ready.
+Graph readiness compilation is owned by `spec-graph-bootstrap`. Re-running setup must not reset an existing canonical project graph readiness summary to `not-bootstrapped` when the current provider setup remains ready.
 
 ## Project Preflight
 
@@ -148,7 +151,7 @@ Windows:
 pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1
 ```
 
-Write the final readiness ledger and project provider projection:
+Write the final readiness ledger and project setup facts:
 
 ```bash
 bash skills/spec-mcp-setup/scripts/verify-tools.sh
@@ -226,7 +229,7 @@ Then it computes one final readiness ledger:
 }
 ```
 
-`baseline_ready` includes required MCP tools, graph providers, and every required helper in `helper_tools`. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph bootstrap is still required.
+`baseline_ready` includes required MCP tools, graph providers, and every required helper in `helper_tools`. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph readiness compilation is still required.
 
 On a first setup, graph-provider facts show:
 
@@ -239,21 +242,27 @@ On a first setup, graph-provider facts show:
 }
 ```
 
-On repeated setup, reinstall, or post-upgrade verification, `write-provider-config.*` preserves an existing provider's `query_ready=true` / `bootstrap_required=false` when:
+On repeated setup, reinstall, or post-upgrade verification, `write-provider-config.*` preserves existing graph-bootstrap derived readiness summaries when:
 
 - `.spec-first/config/graph-providers.json` is schema `graph-providers.v1` for the same repo;
 - the same provider is still present;
 - the current dependency and host config are ready.
 
-If a provider is missing, uninstalled, or no longer configured, setup must not preserve query readiness; it should mark the provider as requiring action or bootstrap again. This keeps repeated runs idempotent without hiding real uninstall or broken-config cases.
+If a provider is missing, uninstalled, or no longer configured, setup must not preserve query readiness; it should mark the provider as requiring action or graph readiness compilation again. This keeps repeated runs idempotent without hiding real uninstall or broken-config cases.
 
-## Provider Projection
+## Project Setup Facts
 
-`write-provider-config.*` writes `.spec-first/config/graph-providers.json` only when running inside a git repo. This file is not a second registry. It is a project-local provider selection projection for downstream workflows.
+`write-provider-config.*` writes project config artifacts only when running inside a git repo:
 
-Repeated setup must not dirty the repo by rewriting this projection only to refresh `generated_at`. If the semantic projection is unchanged, `write-provider-config.*` keeps the existing `generated_at`, leaves the file unchanged, and reports `repo_config_status="ready"` instead of `written`.
+- `.spec-first/config/graph-providers.json`
+- `.spec-first/config/runtime-capabilities.json`
+- `.spec-first/config/provider-artifacts.json`
 
-When preserving an existing query-ready provider, `write-provider-config.*` must also preserve graph-bootstrap metadata that belongs to the projection, such as top-level `last_updated_by` / `last_bootstrapped_at` and provider `last_bootstrap_status` / `last_bootstrapped_at`.
+These files are setup-owned inputs for `spec-graph-bootstrap`. They are not canonical graph readiness artifacts.
+
+Repeated setup must not dirty the repo by rewriting these files only to refresh `generated_at`. If semantic payloads are unchanged, `write-provider-config.*` keeps existing timestamps, leaves files unchanged, and reports `ready` instead of `written`.
+
+When preserving an existing bootstrapped project, `write-provider-config.*` must preserve graph-bootstrap derived summaries such as `graph-providers.json.derived_readiness` and `runtime-capabilities.json.project_graph_readiness`. It may initialize missing summaries, but it must not unconditionally reset them to `not-bootstrapped`.
 
 Expected projection boundaries:
 
@@ -261,6 +270,31 @@ Expected projection boundaries:
 {
   "schema_version": "graph-providers.v1",
   "generated_by": "spec-mcp-setup",
+  "providers": {
+    "gitnexus": {
+      "configured": true,
+      "commands": {
+        "bootstrap": ["npx", "-y", "gitnexus@latest", "analyze"],
+        "status": ["npx", "-y", "gitnexus@latest", "status"],
+        "query_probe": ["npx", "-y", "gitnexus@latest", "query"]
+      }
+    },
+    "code-review-graph": {
+      "configured": true,
+      "commands": {
+        "bootstrap": ["uvx", "code-review-graph", "build"],
+        "status": ["uvx", "code-review-graph", "status"],
+        "query_probe": ["uvx", "code-review-graph", "status", "--repo"]
+      }
+    }
+  },
+  "derived_readiness": {
+    "updated_by": "spec-mcp-setup",
+    "workflow_mode": "setup-ready-bootstrap-required",
+    "provider_status_artifact": ".spec-first/graph/provider-status.json",
+    "graph_facts_artifact": ".spec-first/graph/graph-facts.json",
+    "impact_capabilities_artifact": ".spec-first/impact/bootstrap-impact-capabilities.json"
+  },
   "boundaries": {
     "setup_only": true,
     "does_not_run_gitnexus_analyze": true,
@@ -307,10 +341,12 @@ Required Harness Runtime status:
 | gitnexus | graph-provider | yes | ready | ready | n/a | pending | run spec-graph-bootstrap |
 | code-review-graph | graph-provider | yes | ready | ready | n/a | pending | run spec-graph-bootstrap |
 | graph-providers.json | project | yes | n/a | n/a | written | n/a | n/a |
+| runtime-capabilities.json | project | yes | n/a | n/a | written | n/a | n/a |
+| provider-artifacts.json | project | yes | n/a | n/a | written | n/a | n/a |
 
 下一步:
   1. 建议先重启 Claude Code/Codex 或新开会话，让新写入的 MCP 配置被宿主加载。
-  2. 然后运行 /spec:graph-bootstrap 或 $spec-graph-bootstrap；如果当前 agent 判断只需调用确定性 bootstrap 脚本，也可以在本会话直接回复“继续完成”，但下游 workflow 前仍要重启或新开会话。
+  2. 然后运行 /spec:graph-bootstrap 或 $spec-graph-bootstrap 编译 graph readiness facts；如果当前 agent 判断只需调用确定性 bootstrap 脚本，也可以在本会话直接回复“继续完成”，但下游 workflow 前仍要重启或新开会话。
 ```
 
 ## Reference

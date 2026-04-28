@@ -24,6 +24,7 @@ const DOCS_SIDE_GOVERNANCE_DIR = path.join(
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const README_PATH = path.join(REPO_ROOT, 'README.md');
 const README_ZH_PATH = path.join(REPO_ROOT, 'README.zh-CN.md');
+const GITIGNORE_PATH = path.join(REPO_ROOT, '.gitignore');
 const RELEASE_SMOKE_PATH = path.join(REPO_ROOT, 'tests/smoke/release-dual-host-governance.sh');
 const MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/SKILL.md');
 const MCP_SETUP_TOOLS_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/mcp-tools.json');
@@ -31,6 +32,10 @@ const MCP_SETUP_VERIFY_SH_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/scr
 const MCP_SETUP_VERIFY_PS1_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
 const DOCS_MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-mcp-setup/SKILL.md');
 const DOCS_MCP_SETUP_FLOW_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-mcp-setup/execution-flow.md');
+const DOCS_GRAPH_BOOTSTRAP_SKILL_PATH = path.join(
+  REPO_ROOT,
+  'docs/10-prompt/skills/spec-graph-bootstrap/SKILL.md',
+);
 const GRAPH_BOOTSTRAP_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-graph-bootstrap/SKILL.md');
 const RETIRED_BOOTSTRAP_NAME = ['spec', 'bootstrap'].join('-');
 const RETIRED_CLAUDE_ENTRYPOINT = '/spec:' + 'bootstrap';
@@ -98,7 +103,7 @@ describe('dual-host governance contracts', () => {
     });
     expect(graphBootstrap).toMatchObject({
       filename: 'graph-bootstrap.md',
-      description: 'Build required external graph-provider indexes for spec-first workflows',
+      description: 'Compile graph readiness facts for external graph-provider workflows',
       argumentHint: '',
       skill: 'spec-graph-bootstrap',
     });
@@ -120,6 +125,15 @@ describe('dual-host governance contracts', () => {
     ]);
   });
 
+  test('project-local graph readiness artifacts are ignored, not source truth', () => {
+    const gitignore = read(GITIGNORE_PATH);
+
+    expect(gitignore).toContain('.spec-first/config/*.json');
+    expect(gitignore).toContain('.spec-first/graph/');
+    expect(gitignore).toContain('.spec-first/providers/');
+    expect(gitignore).toContain('.spec-first/impact/');
+  });
+
   test('release governance smoke forbids docs-side machine-readable assets from tarball payload', () => {
     const releaseSmoke = read(RELEASE_SMOKE_PATH);
 
@@ -131,10 +145,15 @@ describe('dual-host governance contracts', () => {
 
   test('Codex-facing docs use $spec-* instead of /spec:*', () => {
     const readme = read(README_PATH);
+    const readmeZh = read(README_ZH_PATH);
     const mcpSetup = read(MCP_SETUP_SKILL_PATH);
 
     expect(readme).toContain('$spec-mcp-setup');
     expect(readme).toContain('$spec-graph-bootstrap');
+    expect(readme).toContain('standalone `spec-write-tasks` skill');
+    expect(readme).not.toContain('$spec-write-tasks');
+    expect(readmeZh).toContain('standalone `spec-write-tasks` skill');
+    expect(readmeZh).not.toContain('$spec-write-tasks');
     expect(readme).not.toContain(RETIRED_CODEX_ENTRYPOINT);
     expect(readme).not.toContain('$setup');
     expect(readme).not.toContain('Codex now also receives shared `/spec:*` command files under `.codex/commands/spec/`');
@@ -153,6 +172,7 @@ describe('dual-host governance contracts', () => {
       MCP_SETUP_VERIFY_PS1_PATH,
       DOCS_MCP_SETUP_SKILL_PATH,
       DOCS_MCP_SETUP_FLOW_PATH,
+      DOCS_GRAPH_BOOTSTRAP_SKILL_PATH,
       GRAPH_BOOTSTRAP_SKILL_PATH,
     ];
 
@@ -200,5 +220,22 @@ describe('dual-host governance contracts', () => {
     expect(readme).toContain('$spec-' + 'graph' + '-bootstrap');
     expect(readmeZh).toContain('/spec:' + 'graph' + '-bootstrap');
     expect(readmeZh).toContain('$spec-' + 'graph' + '-bootstrap');
+  });
+
+  test('graph bootstrap prompt mirror tracks readiness compiler contract', () => {
+    const mirror = read(DOCS_GRAPH_BOOTSTRAP_SKILL_PATH);
+
+    expect(mirror).toContain('project graph readiness');
+    expect(mirror).toContain('runtime-capabilities.json');
+    expect(mirror).toContain('provider-artifacts.json');
+    expect(mirror).toContain('host_ledger_pointer');
+    expect(mirror).toContain('provider-status.json');
+    expect(mirror).toContain('graph-facts.json');
+    expect(mirror).toContain('bootstrap-impact-capabilities.json');
+    expect(mirror).toContain('query-unverified');
+    expect(mirror).toContain('unsupported-provider-command');
+    expect(mirror).toContain('## Graph Readiness');
+    expect(mirror).toContain('bounded direct repo reads');
+    expect(mirror).not.toContain('只要 provider setup 仍 ready，重复 `spec-mcp-setup` 不应删除这些 readiness facts');
   });
 });

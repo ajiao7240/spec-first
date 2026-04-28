@@ -21,6 +21,7 @@ trap 'rm -f "$combined_tmp" "$final_tmp"' EXIT
 chmod 600 "$combined_tmp" "$final_tmp"
 
 jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+  --arg marker_path "$MARKER_PATH" \
   --argjson helper "$HELPER_JSON" \
   '
   def tool_ready:
@@ -39,8 +40,17 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
       platform: $facts.platform,
       repo_root: $facts.repo_root,
       repo_status: $facts.repo_status,
+      host_ledger_pointer: {
+        host: $facts.host,
+        path: $marker_path,
+        schema_version: "v2"
+      },
       repo_config_status: "pending",
       repo_config_path: null,
+      runtime_capabilities_status: "pending",
+      runtime_capabilities_path: null,
+      provider_artifacts_status: "pending",
+      provider_artifacts_path: null,
       overall_status: (if $baseline_ready then "ready" else "action-required" end),
       baseline_ready: $baseline_ready,
       host_runtime_ready: $baseline_ready,
@@ -64,6 +74,10 @@ PROVIDER_RESULT="$(bash "$SCRIPT_DIR/write-provider-config.sh" --facts-file "$co
 jq --argjson provider "$PROVIDER_RESULT" \
   '.repo_config_status = ($provider.repo_config_status // "unknown")
    | .repo_config_path = ($provider.repo_config_path // null)
+   | .runtime_capabilities_status = ($provider.runtime_capabilities_status // "unknown")
+   | .runtime_capabilities_path = ($provider.runtime_capabilities_path // null)
+   | .provider_artifacts_status = ($provider.provider_artifacts_status // "unknown")
+   | .provider_artifacts_path = ($provider.provider_artifacts_path // null)
    | .graph_bootstrap_required = (
        if ($provider | has("graph_bootstrap_required")) then
          ($provider.graph_bootstrap_required == true)
@@ -169,6 +183,26 @@ jq -r '
       project: .repo_config_status,
       query: null,
       next: (if (.repo_config_status == "ready" or .repo_config_status == "written") then "" else "write provider projection" end)
+    },
+    {
+      name: "runtime-capabilities.json",
+      type: "project",
+      required: true,
+      dependency: null,
+      host: null,
+      project: .runtime_capabilities_status,
+      query: null,
+      next: (if (.runtime_capabilities_status == "ready" or .runtime_capabilities_status == "written") then "" else "write runtime capabilities" end)
+    },
+    {
+      name: "provider-artifacts.json",
+      type: "project",
+      required: true,
+      dependency: null,
+      host: null,
+      project: .provider_artifacts_status,
+      query: null,
+      next: (if (.provider_artifacts_status == "ready" or .provider_artifacts_status == "written") then "" else "write provider artifacts" end)
     }
   ][]
   | [

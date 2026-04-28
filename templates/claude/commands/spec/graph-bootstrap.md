@@ -1,9 +1,9 @@
 ---
-description: "Build required external graph-provider indexes for spec-first workflows"
+description: "Compile graph readiness facts for external graph-provider workflows"
 argument-hint: ""
 ---
 
-# Graph Bootstrap
+# Graph Readiness Compiler
 
 This source template defines Claude command metadata only.
 

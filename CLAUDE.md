@@ -128,7 +128,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 修改文件、运行会改变状态的命令、或做架构/prompt/workflow 决策前，先判断是否应进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答
 - Claude workflow 入口使用 `/spec:*`
 - 不要把 `using-spec-first` 本身当作 command-backed workflow
-- 常见入口锚点：环境/MCP→`/spec:mcp-setup`；graph provider bootstrap→`/spec:graph-bootstrap`；更新/runtime 修复→`/spec:update`；bug/失败→`/spec:debug`；代码/文档评审→`/spec:code-review`/`/spec:doc-review`；需求/计划/任务编译/执行→`/spec:brainstorm`/`/spec:plan`/`spec-write-tasks`（standalone skill）/`/spec:work`
+- 常见入口锚点：环境/MCP→`/spec:mcp-setup`；graph readiness 编译→`/spec:graph-bootstrap`；更新/runtime 修复→`/spec:update`；bug/失败→`/spec:debug`；代码/文档评审→`/spec:code-review`/`/spec:doc-review`；需求/计划/任务编译/执行→`/spec:brainstorm`/`/spec:plan`/`spec-write-tasks`（standalone skill）/`/spec:work`
 - 完整选择策略、优先级和 red flags 由 spec-first 随包的 `using-spec-first` 维护；本 block 只保留启动提醒、host 入口边界和少量锚点
 - 不要直接暴露 internal-only skills：`spec-session-inventory`、`spec-session-extract`
 <!-- spec-first:bootstrap:end -->
@@ -168,7 +168,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 使用边界
 - `GitNexus`：用于全局代码知识图谱、架构理解、影响分析和提交前变更检测。若本文件存在 `<!-- gitnexus:start -->` 管理块，优先遵守该块的强制规则。
-- `code-review-graph`：用于最小上下文、impact radius、review context、相关测试和 graph stats。只有 graph provider 已 query-ready 时使用；未 ready 时先运行 `/spec:graph-bootstrap`，或退回 bounded direct repo reads。
+- `code-review-graph`：用于最小上下文、impact radius、review context、相关测试和 graph stats。只有 canonical graph facts / provider readiness 已 query-ready 且未 stale 时使用；blocked、stale 或未 ready 时先运行 `/spec:graph-bootstrap`，或退回 bounded direct repo reads。
 - `Serena MCP`：用于 symbol overview、symbol lookup、references、LSP 辅助定位和精确编辑。它是上下文/编辑辅助，不替代源码真相源、测试或 graph-level 影响分析。
 - `ast-grep`：用于结构化代码搜索和安全 rewrite。简单文本/文件搜索仍优先 `rg` / `rg --files`；需要 AST 语义匹配时再使用 `ast-grep`。
 

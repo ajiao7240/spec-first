@@ -6,7 +6,7 @@ This reference is the human-readable index for the runtime managed by `spec-mcp-
 
 `AGENTS.md` and `CLAUDE.md` may contain a managed `spec-first:runtime-tools` block. That block is only a lightweight usage-boundary index for agents at session start.
 
-Do not treat repo-root instruction files as the tool catalog, install guide, or readiness source. Keep the complete human-readable catalog in this file, MCP / graph-provider MCP server machine truth in `skills/spec-mcp-setup/mcp-tools.json`, and dynamic readiness facts in the host setup ledger plus `.spec-first/config/graph-providers.json`.
+Do not treat repo-root instruction files as the tool catalog, install guide, or readiness source. Keep the complete human-readable catalog in this file, MCP / graph-provider MCP server machine truth in `skills/spec-mcp-setup/mcp-tools.json`, setup-owned project facts in `.spec-first/config/*.json`, and canonical graph readiness facts in `.spec-first/graph/*` plus `.spec-first/impact/*`.
 
 ## Required MCP Tools
 
@@ -20,10 +20,10 @@ Do not treat repo-root instruction files as the tool catalog, install guide, or 
 
 | Tool | Required | Category | Role | Setup Command | Bootstrap Owner |
 |---|---:|---|---|---|---|
-| GitNexus | Yes | `graph-provider` | `global_knowledge` | `npx -y gitnexus@latest mcp` | `spec-graph-bootstrap` runs `npx -y gitnexus@latest analyze` |
-| code-review-graph | Yes | `graph-provider` | `impact_context` | `uvx code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool` | `spec-graph-bootstrap` runs `uvx code-review-graph build` |
+| GitNexus | Yes | `graph-provider` | `global_knowledge` | `npx -y gitnexus@latest mcp` | `spec-graph-bootstrap` reads `graph-providers.json` command arrays and transiently runs analyze/status/query probes |
+| code-review-graph | Yes | `graph-provider` | `impact_context` | `uvx code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool` | `spec-graph-bootstrap` reads `graph-providers.json` command arrays and transiently runs build/status/query-proof probes |
 
-`spec-mcp-setup` only warms and configures graph-provider MCP servers. It must not run `gitnexus analyze` or `code-review-graph build`.
+`spec-mcp-setup` only warms and configures graph-provider MCP servers and writes setup-owned config facts. It must not run `gitnexus analyze`, `gitnexus status`, `gitnexus query`, `code-review-graph build`, or `code-review-graph status`.
 
 ## Required Helper Tooling
 
@@ -79,7 +79,7 @@ Readiness ledger v2 is written by `verify-tools.*` after merging MCP/graph-provi
 - required graph-provider MCP servers are configured;
 - every required helper fact is ready.
 
-It does not mean graph indexes are query-ready. On first setup, graph providers remain:
+It does not mean graph facts are query-ready. On first setup, graph providers remain:
 
 ```json
 {
@@ -90,9 +90,17 @@ It does not mean graph indexes are query-ready. On first setup, graph providers 
 }
 ```
 
-Run `/spec:graph-bootstrap` or `$spec-graph-bootstrap` to build provider indexes and flip `query_ready=true`.
+`verify-tools.*` also writes setup-owned project facts when run inside a git repo:
 
-Repeated setup, reinstall, or post-upgrade verification preserves `query_ready=true` / `bootstrap_required=false` when the existing provider projection is for the same repo and the provider is still configured and dependency-ready. Uninstall or broken provider config must not preserve query readiness.
+- `.spec-first/config/graph-providers.json`
+- `.spec-first/config/runtime-capabilities.json`
+- `.spec-first/config/provider-artifacts.json`
+
+`runtime-capabilities.json` records a `host_ledger_pointer` to the host readiness ledger v2. `spec-graph-bootstrap` must follow that pointer and fail closed on conflicts; it must not guess host ledger paths.
+
+Run `/spec:graph-bootstrap` or `$spec-graph-bootstrap` to compile provider readiness, canonical graph facts, impact capabilities, and a bootstrap report. The command may transiently execute validated provider command arrays from `.spec-first/config/graph-providers.json`; it must not perform persistent installs or edit host MCP config.
+
+Repeated setup, reinstall, or post-upgrade verification preserves existing project graph readiness summaries when the existing provider projection is for the same repo and the provider is still configured and dependency-ready. It must not reset canonical project graph readiness to `not-bootstrapped` just because setup reran. Uninstall or broken provider config must not preserve query readiness.
 
 The final setup output should make this handoff explicit below the Markdown readiness table: the safe default is to restart Claude Code/Codex or start a new session first, then run the graph-bootstrap command. If the current agent determines it only needs the deterministic bootstrap script and does not need newly loaded MCP servers, it may accept "继续完成" in the current session; downstream workflows should still wait for a restarted/new session.
 

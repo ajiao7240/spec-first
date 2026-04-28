@@ -48,6 +48,8 @@ describe('runtime tools instruction block', () => {
     expect(codexBlock).toContain('## 代码智能与运行时工具（由 spec-first 管理）');
     expect(codexBlock).toContain('.agents/skills/spec-mcp-setup/references/supported-mcp-tools.md');
     expect(codexBlock).toContain('$spec-graph-bootstrap');
+    expect(codexBlock).toContain('canonical graph facts / provider readiness');
+    expect(codexBlock).toContain('blocked、stale 或未 ready');
     expect(codexBlock).toContain('若本文件存在 `<!-- gitnexus:start -->` 管理块，优先遵守该块的强制规则');
 
     expect(claudeBlock).toContain('.claude/skills/spec-mcp-setup/references/supported-mcp-tools.md');
@@ -65,6 +67,8 @@ describe('runtime tools instruction block', () => {
     expect(block).toContain('ast-grep');
     expect(block).toContain('.agents/skills/spec-mcp-setup/references/supported-mcp-tools.md');
     expect(block).toContain('$spec-graph-bootstrap');
+    expect(block).toContain('canonical graph facts / provider readiness');
+    expect(block).toContain('blocked, stale, or not ready');
   });
 
   test('does not duplicate install commands or dynamic readiness facts', () => {

@@ -7,6 +7,7 @@ const detectHostPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-
 const detectToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-tools.ps1');
 const verifyToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
 const writeProviderConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/write-provider-config.ps1');
+const bootstrapProvidersPs1 = path.join(repoRoot, 'skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1');
 const bootstrapProjectConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1');
 const installHelpersPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-helpers.ps1');
 const libTomlPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/lib-toml.ps1');
@@ -52,6 +53,9 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain("schema_version = 'v2'");
     expect(verifySource).toContain('Required Harness Runtime status:');
     expect(verifySource).toContain('graph-providers.json');
+    expect(verifySource).toContain('runtime-capabilities.json');
+    expect(verifySource).toContain('provider-artifacts.json');
+    expect(verifySource).toContain('host_ledger_pointer');
     expect(verifySource).toContain('Graph providers are query-ready.');
     expect(verifySource).toContain('if ($combined.graph_bootstrap_required)');
     expect(verifySource.indexOf('Required Harness Runtime status:')).toBeLessThan(
@@ -104,11 +108,54 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
 
     expect(writeProviderSource).toContain('function ConvertTo-ComparableProjectionJson');
     expect(writeProviderSource).toContain("PSObject.Properties.Name -contains 'generated_at'");
-    expect(writeProviderSource).toContain("$payload['generated_at'] = $existingGeneratedAt");
-    expect(writeProviderSource).toContain("$payload['last_updated_by'] = $existing.last_updated_by");
-    expect(writeProviderSource).toContain("$payload['last_bootstrapped_at'] = $existing.last_bootstrapped_at");
+    expect(writeProviderSource).toContain('$Payload.generated_at = $existing.generated_at');
+    expect(writeProviderSource).toContain('runtime-capabilities.v1');
+    expect(writeProviderSource).toContain('provider-artifacts.v1');
+    expect(writeProviderSource).toContain('derived_readiness');
+    expect(writeProviderSource).toContain('host_ledger_pointer');
+    expect(writeProviderSource).toContain("bootstrap = @('npx', '-y', 'gitnexus@latest', 'analyze')");
+    expect(writeProviderSource).toContain("query_probe = @('uvx', 'code-review-graph', 'status', '--repo')");
+    expect(writeProviderSource).toContain('[bool]$Provider.enabled_for_bootstrap');
+    expect(writeProviderSource).toContain('$canonicalArtifactsAvailable');
+    expect(writeProviderSource).toContain('$providerReadinessCurrent');
+    expect(writeProviderSource).toContain('support_level');
+    expect(writeProviderSource).toContain('project_graph_readiness');
     expect(writeProviderSource).toContain("$repoConfigStatus = 'ready'");
-    expect(writeProviderSource).toContain('repo_config_status = $repoConfigStatus');
+    expect(writeProviderSource).toContain('repo_config_status = $providerStatus');
+  });
+
+  test('graph bootstrap PowerShell exposes compiler contract and command safety', () => {
+    const source = fs.readFileSync(bootstrapProvidersPs1, 'utf8');
+
+    expect(source).toContain('runtime-capabilities.v1');
+    expect(source).toContain('provider-artifacts.v1');
+    expect(source).toContain('graph-providers.v1');
+    expect(source).toContain('host_ledger_pointer');
+    expect(source).toContain('readiness-conflict');
+    expect(source).toContain('unsupported-provider-command');
+    expect(source).toContain('query-unverified');
+    expect(source).toContain('degraded-fallback');
+    expect(source).toContain('graph-facts.v1');
+    expect(source).toContain('bootstrap-impact-capabilities.v1');
+    expect(source).toContain('.spec-first/providers/$provider/raw/');
+    expect(source).toContain("'analyze.log'");
+    expect(source).toContain("'build.log'");
+    expect(source).toContain('function Test-CommandShapeSupported');
+    expect(source).toContain("'^gitnexus(@[A-Za-z0-9._~+:-]+)?$'");
+    expect(source).toContain("'code-review-graph'");
+    expect(source).toContain('function Write-NormalizedArtifacts');
+    expect(source).toContain('provider-normalized-envelope.v1');
+    expect(source).toContain("command_source = '.spec-first/config/graph-providers.json'");
+    expect(source).toContain('fallback_support');
+    expect(source).toContain('primary_providers');
+    expect(source).toContain('skipped_primary_providers');
+    expect(source).toContain('disabled-for-bootstrap');
+    expect(source).toContain('function Write-JsonFileAtomic');
+    expect(source).toContain('Move-Item -Force');
+    expect(source).toContain('& $exe @args');
+    expect(source).not.toContain('Invoke-Expression');
+    expect(source).not.toContain('bash -c');
+    expect(source).not.toContain('sh -c');
   });
 
   test('helper verify-only is marker-based and does not install browser runtime', () => {

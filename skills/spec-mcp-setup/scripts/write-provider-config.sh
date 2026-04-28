@@ -1,5 +1,5 @@
 #!/bin/bash
-# write-provider-config.sh - Project-local graph provider projection writer.
+# write-provider-config.sh - Project-local graph provider and runtime facts writer.
 
 set -euo pipefail
 
@@ -25,73 +25,143 @@ REPO_STATUS="$(jq -r '.repo_status // "not-git-repo"' "$FACTS_FILE")"
 REPO_ROOT="$(jq -r '.repo_root' "$FACTS_FILE")"
 
 if [ "$REPO_STATUS" != "git-repo" ]; then
-  jq -n '{repo_config_status:"skipped-no-git-repo",repo_config_path:null}'
+  jq -n '{repo_config_status:"skipped-no-git-repo",repo_config_path:null,runtime_capabilities_path:null,provider_artifacts_path:null}'
   exit 0
 fi
 
 OUT_DIR="$REPO_ROOT/.spec-first/config"
-OUT_FILE="$OUT_DIR/graph-providers.json"
+PROVIDER_CONFIG="$OUT_DIR/graph-providers.json"
+RUNTIME_CAPABILITIES="$OUT_DIR/runtime-capabilities.json"
+PROVIDER_ARTIFACTS="$OUT_DIR/provider-artifacts.json"
 mkdir -p "$OUT_DIR"
-PROJECTION_TMP="$(mktemp "${OUT_FILE}.XXXXXX")"
-trap 'rm -f "${PROJECTION_TMP:-}"' EXIT
-chmod 600 "$PROJECTION_TMP"
 
-EXISTING_JSON='{}'
-if [ -f "$OUT_FILE" ] && jq -e --arg repo_root "$REPO_ROOT" '.schema_version == "graph-providers.v1" and .repo_root == $repo_root' "$OUT_FILE" >/dev/null 2>&1; then
-  EXISTING_JSON="$(cat "$OUT_FILE")"
+PROJECTION_TMP="$(mktemp "${PROVIDER_CONFIG}.XXXXXX")"
+RUNTIME_TMP="$(mktemp "${RUNTIME_CAPABILITIES}.XXXXXX")"
+ARTIFACTS_TMP="$(mktemp "${PROVIDER_ARTIFACTS}.XXXXXX")"
+trap 'rm -f "${PROJECTION_TMP:-}" "${RUNTIME_TMP:-}" "${ARTIFACTS_TMP:-}"' EXIT
+chmod 600 "$PROJECTION_TMP" "$RUNTIME_TMP" "$ARTIFACTS_TMP"
+
+existing_provider='{}'
+if [ -f "$PROVIDER_CONFIG" ] && jq -e --arg repo_root "$REPO_ROOT" '.schema_version == "graph-providers.v1" and .repo_root == $repo_root' "$PROVIDER_CONFIG" >/dev/null 2>&1; then
+  existing_provider="$(cat "$PROVIDER_CONFIG")"
 fi
 
-jq --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-   --argjson existing "$EXISTING_JSON" '
+existing_runtime='{}'
+if [ -f "$RUNTIME_CAPABILITIES" ] && jq -e --arg repo_root "$REPO_ROOT" '.schema_version == "runtime-capabilities.v1" and .repo_root == $repo_root' "$RUNTIME_CAPABILITIES" >/dev/null 2>&1; then
+  existing_runtime="$(cat "$RUNTIME_CAPABILITIES")"
+fi
+
+generated_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+graph_facts_exists=false
+provider_status_exists=false
+impact_capabilities_exists=false
+[ -f "$REPO_ROOT/.spec-first/graph/graph-facts.json" ] && graph_facts_exists=true
+[ -f "$REPO_ROOT/.spec-first/graph/provider-status.json" ] && provider_status_exists=true
+[ -f "$REPO_ROOT/.spec-first/impact/bootstrap-impact-capabilities.json" ] && impact_capabilities_exists=true
+
+jq --arg generated_at "$generated_at" \
+   --argjson graph_facts_exists "$graph_facts_exists" \
+   --argjson provider_status_exists "$provider_status_exists" \
+   --argjson impact_capabilities_exists "$impact_capabilities_exists" \
+   --argjson existing "$existing_provider" '
+  def canonical_graph_artifacts_exist:
+    $graph_facts_exists and $provider_status_exists and $impact_capabilities_exists;
+
   def provider_ready($provider):
     ($provider.configured == true)
+    and ($provider.enabled_for_bootstrap == true)
     and ($provider.dependency_status == "ready")
     and (($provider.host_config_status == "ready") or ($provider.host_config_status == "fallback-active"));
 
-  def provider_projection($entry):
-    $entry.key as $key
-    | $entry.value as $current
-    | ($existing.providers[$key] // {}) as $previous
-    | provider_ready($current) as $ready
-    | ($ready and ($previous.query_ready == true) and ($previous.bootstrap_required == false)) as $preserve_query_ready
-    | {
-        configured: ($current.configured == true),
-        enabled_for_bootstrap: ($current.enabled_for_bootstrap == true),
-        query_ready: $preserve_query_ready,
-        bootstrap_required: (if $ready then ($preserve_query_ready | not) else true end),
-        required: ($current.required == true),
-        role: $current.role,
-        mcp_server: $key,
-        dependency_status: $current.dependency_status,
-        host_config_status: $current.host_config_status,
-        capabilities: ($current.capabilities // []),
-        next_action: (
-          if $ready and $preserve_query_ready then ""
-          elif $ready then "run spec-graph-bootstrap"
-          else "Fix provider setup and rerun spec-mcp-setup."
-          end
-        )
-      }
-      + (if $preserve_query_ready then {
-          last_bootstrap_status: ($previous.last_bootstrap_status // "ready"),
-          last_bootstrapped_at: ($previous.last_bootstrapped_at // null)
-        } else {} end);
+  def provider_commands($key):
+    if $key == "gitnexus" then {
+      bootstrap: ["npx", "-y", "gitnexus@latest", "analyze"],
+      status: ["npx", "-y", "gitnexus@latest", "status"],
+      query_probe: ["npx", "-y", "gitnexus@latest", "query"]
+    }
+    elif $key == "code-review-graph" then {
+      bootstrap: ["uvx", "code-review-graph", "build"],
+      status: ["uvx", "code-review-graph", "status"],
+      query_probe: ["uvx", "code-review-graph", "status", "--repo"]
+    }
+    else {} end;
+
+  def provider_artifacts($key):
+    {
+      raw_dir: ".spec-first/providers/\($key)/raw",
+      normalized_dir: ".spec-first/providers/\($key)/normalized",
+      status_path: ".spec-first/providers/\($key)/status.json"
+    };
+
+  def previous_readiness($key):
+    ($existing.derived_readiness.providers[$key] // {
+      query_ready: ($existing.providers[$key].query_ready // false),
+      bootstrap_required: ($existing.providers[$key].bootstrap_required // true),
+      last_bootstrap_status: ($existing.providers[$key].last_bootstrap_status // "not-bootstrapped"),
+      last_bootstrapped_at: ($existing.providers[$key].last_bootstrapped_at // null)
+    });
 
   (
     (.graph_providers // {})
     | to_entries
-    | map({
-        key: .key,
-        value: provider_projection(.)
-      })
-    | from_entries
-  ) as $providers
+    | map(
+        .key as $key
+        | .value as $current
+        | provider_ready($current) as $ready
+        | previous_readiness($key) as $previous
+        | ($ready and canonical_graph_artifacts_exist and ($previous.query_ready == true) and ($previous.bootstrap_required == false)) as $preserve_query_ready
+        | {
+            key: $key,
+            value: {
+              configured: ($current.configured == true),
+              enabled_for_bootstrap: ($current.enabled_for_bootstrap == true),
+              required: ($current.required == true),
+              role: $current.role,
+              mcp_server: $key,
+              dependency_status: $current.dependency_status,
+              host_config_status: $current.host_config_status,
+              capabilities: ($current.capabilities // []),
+              commands: provider_commands($key),
+              artifacts: provider_artifacts($key),
+              next_action: (
+                if $ready and $preserve_query_ready then ""
+                elif $ready then "run spec-graph-bootstrap"
+                else "Fix provider setup and rerun spec-mcp-setup."
+                end
+              )
+            },
+            readiness: {
+              query_ready: $preserve_query_ready,
+              bootstrap_required: (if $ready then ($preserve_query_ready | not) else true end),
+              last_bootstrap_status: (if $preserve_query_ready then ($previous.last_bootstrap_status // "ready") else "not-bootstrapped" end),
+              last_bootstrapped_at: (if $preserve_query_ready then ($previous.last_bootstrapped_at // null) else null end),
+              provider_status_artifact: ".spec-first/providers/\($key)/status.json"
+            }
+          }
+      )
+  ) as $entries
+  | ($entries | map({key:.key,value:.value}) | from_entries) as $providers
+  | ($entries | map({key:.key,value:.readiness}) | from_entries) as $readiness
   | {
     schema_version: "graph-providers.v1",
     generated_by: "spec-mcp-setup",
     generated_at: $generated_at,
     repo_root: .repo_root,
     providers: $providers,
+    derived_readiness: (
+      ([($readiness // {})[] | .bootstrap_required == true] | any) as $bootstrap_required
+      | {
+      updated_by: (if $bootstrap_required then "spec-mcp-setup" else ($existing.derived_readiness.updated_by // "spec-mcp-setup") end),
+      updated_at: (if $bootstrap_required then null else ($existing.derived_readiness.updated_at // null) end),
+      workflow_mode: (if $bootstrap_required then "setup-ready-bootstrap-required" else ($existing.derived_readiness.workflow_mode // "setup-ready-bootstrap-required") end),
+      graph_bootstrap_required: $bootstrap_required,
+      provider_status_artifact: ($existing.derived_readiness.provider_status_artifact // ".spec-first/graph/provider-status.json"),
+      graph_facts_artifact: ($existing.derived_readiness.graph_facts_artifact // ".spec-first/graph/graph-facts.json"),
+      impact_capabilities_artifact: ($existing.derived_readiness.impact_capabilities_artifact // ".spec-first/impact/bootstrap-impact-capabilities.json"),
+      providers: $readiness
+      }
+    ),
     selection: {
       global_knowledge: "gitnexus",
       impact_context: "code-review-graph",
@@ -101,15 +171,9 @@ jq --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
       setup_only: true,
       does_not_run_gitnexus_analyze: true,
       does_not_run_code_review_graph_build: true,
-      graph_bootstrap_required: ([($providers // {})[] | .bootstrap_required == true] | any)
+      graph_bootstrap_required: ([($readiness // {})[] | .bootstrap_required == true] | any)
     }
   }
-  + (if (([($providers // {})[] | .query_ready == true] | any) and ($existing | has("last_updated_by"))) then
-      {last_updated_by: $existing.last_updated_by}
-    else {} end)
-  + (if (([($providers // {})[] | .query_ready == true] | any) and ($existing | has("last_bootstrapped_at"))) then
-      {last_bootstrapped_at: $existing.last_bootstrapped_at}
-    else {} end)
   as $projection
   | $projection
   | .generated_at = (
@@ -120,23 +184,207 @@ jq --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
       end
     )' "$FACTS_FILE" > "$PROJECTION_TMP"
 
-REPO_CONFIG_STATUS="written"
-if [ -f "$OUT_FILE" ] && jq -e --slurpfile projection "$PROJECTION_TMP" 'has("generated_at") and ((. | del(.generated_at)) == ($projection[0] | del(.generated_at)))' "$OUT_FILE" >/dev/null 2>&1; then
-  rm -f "$PROJECTION_TMP"
-  REPO_CONFIG_STATUS="ready"
-else
-  mv "$PROJECTION_TMP" "$OUT_FILE"
-fi
+jq --arg generated_at "$generated_at" \
+   --argjson existing "$existing_runtime" \
+   --argjson graph_facts_exists "$graph_facts_exists" \
+   --argjson provider_status_exists "$provider_status_exists" \
+   --argjson impact_capabilities_exists "$impact_capabilities_exists" \
+   --slurpfile provider "$PROJECTION_TMP" '
+  def helper_ready($helper):
+    (($helper.result // "action-required") == "ready");
 
-jq -n --arg path "$OUT_FILE" --arg status "$REPO_CONFIG_STATUS" --slurpfile projection "$OUT_FILE" '{
-  repo_config_status:$status,
-  repo_config_path:$path,
-  graph_bootstrap_required: (
-    if ($projection[0].boundaries | has("graph_bootstrap_required")) then
-      ($projection[0].boundaries.graph_bootstrap_required == true)
-    else
-      true
-    end
-  ),
-  providers: ($projection[0].providers // {})
-}'
+  def tool_ready($tool):
+    ($tool.dependency_status == "ready")
+    and (($tool.host_config_status == "ready") or ($tool.host_config_status == "fallback-active"))
+    and (($tool.project_status == "ready") or ($tool.project_status == "not-applicable"));
+
+  def canonical_graph_artifacts_exist:
+    $graph_facts_exists and $provider_status_exists and $impact_capabilities_exists;
+
+  def provider_readiness_current:
+    (($provider[0].derived_readiness.graph_bootstrap_required // true) == false)
+    and ([($provider[0].derived_readiness.providers // {})[] | .query_ready == true] | any);
+
+  (.tools.serena // {}) as $serena
+  | (.helper_tools."ast-grep" // {}) as $ast_grep
+  | (tool_ready($serena)) as $serena_ready
+  | (helper_ready($ast_grep)) as $ast_grep_ready
+  | {
+      schema_version: "runtime-capabilities.v1",
+      generated_by: "spec-mcp-setup",
+      generated_at: $generated_at,
+      repo_root: .repo_root,
+      host: .host,
+      platform: .platform,
+      repo_status: .repo_status,
+      host_ledger_pointer: (.host_ledger_pointer // {
+        host: .host,
+        path: null,
+        schema_version: "v2"
+      }),
+      baseline_summary: {
+        baseline_ready: (.baseline_ready == true),
+        host_runtime_ready: (.host_runtime_ready == true),
+        source: "host-readiness-ledger-v2"
+      },
+      fallback_tools: {
+        serena: {
+          support_level: (if $serena_ready then "partial" else "none" end),
+          readiness_status: (if $serena_ready then "ready" else "action-required" end),
+          confidence: (if $serena_ready then "medium" else "low" end),
+          capabilities: ["symbol_overview", "symbol_lookup", "references"],
+          limitations: (if $serena_ready then [] else ["Serena is not ready."] end)
+        },
+        "ast-grep": {
+          support_level: (if $ast_grep_ready then "partial" else "none" end),
+          readiness_status: (if $ast_grep_ready then "ready" else "action-required" end),
+          confidence: (if $ast_grep_ready then "medium" else "low" end),
+          capabilities: ["structural_search", "safe_rewrite"],
+          limitations: (if $ast_grep_ready then [] else ["ast-grep helper is not ready."] end)
+        }
+      },
+      fallback_capabilities: {
+        context_selection: {
+          support_level: (if $serena_ready or $ast_grep_ready then "partial" else "none" end),
+          confidence: (if $serena_ready or $ast_grep_ready then "medium" else "low" end),
+          providers: ([if $serena_ready then "serena" else empty end, if $ast_grep_ready then "ast-grep" else empty end]),
+          limitations: ["Fallback context is bounded local repo reads, not compiled graph evidence."]
+        },
+        impact_radius: {
+          support_level: (if $ast_grep_ready then "partial" else "none" end),
+          confidence: (if $ast_grep_ready then "low" else "unknown" end),
+          providers: ([if $ast_grep_ready then "ast-grep" else empty end]),
+          limitations: ["Fallback impact is heuristic and does not replace graph-provider impact radius."]
+        },
+        review_support: {
+          support_level: (if $ast_grep_ready then "partial" else "none" end),
+          confidence: (if $ast_grep_ready then "low" else "unknown" end),
+          providers: ([if $ast_grep_ready then "ast-grep" else empty end]),
+          limitations: ["Fallback review support has no canonical graph facts."]
+        }
+      },
+      project_graph_readiness: (
+        if (
+          ($existing.project_graph_readiness.canonical_graph_facts_artifact? != null)
+          and canonical_graph_artifacts_exist
+          and provider_readiness_current
+        ) then
+          $existing.project_graph_readiness
+        elif (canonical_graph_artifacts_exist and provider_readiness_current) then
+          {
+            status: ($provider[0].derived_readiness.workflow_mode // "unknown"),
+            canonical_graph_facts_artifact: ($provider[0].derived_readiness.graph_facts_artifact // ".spec-first/graph/graph-facts.json"),
+            provider_status_artifact: ($provider[0].derived_readiness.provider_status_artifact // ".spec-first/graph/provider-status.json"),
+            impact_capabilities_artifact: ($provider[0].derived_readiness.impact_capabilities_artifact // ".spec-first/impact/bootstrap-impact-capabilities.json"),
+            graph_bootstrap_required: ($provider[0].derived_readiness.graph_bootstrap_required == true),
+            confidence: "medium",
+            limitations: ["Derived summary; canonical readiness truth is under .spec-first/graph/ and .spec-first/impact/."]
+          }
+        else
+          {
+            status: "not-bootstrapped",
+            canonical_graph_facts_artifact: ".spec-first/graph/graph-facts.json",
+            provider_status_artifact: ".spec-first/graph/provider-status.json",
+            impact_capabilities_artifact: ".spec-first/impact/bootstrap-impact-capabilities.json",
+            graph_bootstrap_required: true,
+            confidence: "unknown",
+            limitations: ["Run spec-graph-bootstrap to compile project graph readiness."]
+          }
+        end
+      )
+    }
+  as $runtime
+  | $runtime
+  | .generated_at = (
+      if (($existing | has("generated_at")) and (($existing | del(.generated_at)) == ($runtime | del(.generated_at)))) then
+        $existing.generated_at
+      else
+        $generated_at
+      end
+    )' "$FACTS_FILE" > "$RUNTIME_TMP"
+
+jq --arg generated_at "$generated_at" --slurpfile provider "$PROJECTION_TMP" '
+  {
+    schema_version: "provider-artifacts.v1",
+    generated_by: "spec-mcp-setup",
+    generated_at: $generated_at,
+    repo_root: .repo_root,
+    providers: (
+      $provider[0].providers
+      | with_entries({
+          key: .key,
+          value: {
+            raw_dir: ".spec-first/providers/\(.key)/raw",
+            normalized_dir: ".spec-first/providers/\(.key)/normalized",
+            status_path: ".spec-first/providers/\(.key)/status.json",
+            raw_logs: (
+              if .key == "gitnexus" then {
+                bootstrap: ".spec-first/providers/gitnexus/raw/analyze.log",
+                status: ".spec-first/providers/gitnexus/raw/status.log",
+                query_probe: ".spec-first/providers/gitnexus/raw/query.log"
+              } else {
+                bootstrap: ".spec-first/providers/code-review-graph/raw/build.log",
+                status: ".spec-first/providers/code-review-graph/raw/status.log",
+                query_probe: ".spec-first/providers/code-review-graph/raw/query.log"
+              } end
+            ),
+            normalized_artifacts: (
+              if .key == "gitnexus" then {
+                architecture_facts: ".spec-first/providers/gitnexus/normalized/architecture-facts.json",
+                reuse_candidates: ".spec-first/providers/gitnexus/normalized/reuse-candidates.json"
+              } else {
+                impact_capabilities: ".spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
+              } end
+            )
+          }
+        })
+    ),
+    canonical: {
+      provider_status: ".spec-first/graph/provider-status.json",
+      graph_facts: ".spec-first/graph/graph-facts.json",
+      bootstrap_report: ".spec-first/graph/bootstrap-report.md",
+      impact_capabilities: ".spec-first/impact/bootstrap-impact-capabilities.json"
+    }
+  }' "$FACTS_FILE" > "$ARTIFACTS_TMP"
+
+write_if_changed() {
+  local tmp="$1"
+  local out="$2"
+  if [ -f "$out" ] && jq -e --slurpfile next "$tmp" 'has("generated_at") and ((. | del(.generated_at)) == ($next[0] | del(.generated_at)))' "$out" >/dev/null 2>&1; then
+    rm -f "$tmp"
+    echo ready
+  else
+    mv "$tmp" "$out"
+    echo written
+  fi
+}
+
+provider_status="$(write_if_changed "$PROJECTION_TMP" "$PROVIDER_CONFIG")"
+runtime_status="$(write_if_changed "$RUNTIME_TMP" "$RUNTIME_CAPABILITIES")"
+artifacts_status="$(write_if_changed "$ARTIFACTS_TMP" "$PROVIDER_ARTIFACTS")"
+
+jq -n \
+  --arg provider_path "$PROVIDER_CONFIG" \
+  --arg runtime_path "$RUNTIME_CAPABILITIES" \
+  --arg artifacts_path "$PROVIDER_ARTIFACTS" \
+  --arg provider_status "$provider_status" \
+  --arg runtime_status "$runtime_status" \
+  --arg artifacts_status "$artifacts_status" \
+  --slurpfile projection "$PROVIDER_CONFIG" '{
+    repo_config_status:$provider_status,
+    repo_config_path:$provider_path,
+    runtime_capabilities_status:$runtime_status,
+    runtime_capabilities_path:$runtime_path,
+    provider_artifacts_status:$artifacts_status,
+    provider_artifacts_path:$artifacts_path,
+    graph_bootstrap_required: (
+      if ($projection[0].derived_readiness | has("graph_bootstrap_required")) then
+        ($projection[0].derived_readiness.graph_bootstrap_required == true)
+      elif ($projection[0].boundaries | has("graph_bootstrap_required")) then
+        ($projection[0].boundaries.graph_bootstrap_required == true)
+      else
+        true
+      end
+    ),
+    providers: ($projection[0].derived_readiness.providers // {})
+  }'

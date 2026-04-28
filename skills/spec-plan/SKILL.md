@@ -197,6 +197,35 @@ Collect:
 - **Tools available + user didn't ask**: Note in output: "Slack tools detected. Ask me to search Slack for organizational context at any point, or include it in your next prompt."
 - **No tools + user asked**: Note in output: "Slack context was requested but no Slack tools are available. Install and authenticate the Slack plugin to enable organizational context search."
 
+#### 1.1a Graph Readiness Facts (Optional, Bounded)
+
+Check whether canonical graph readiness artifacts exist:
+
+- `.spec-first/graph/graph-facts.json`
+- `.spec-first/impact/bootstrap-impact-capabilities.json`
+
+If both artifacts exist, read them as compiled readiness facts before deciding how much graph evidence to trust. Compare recorded `source_revision` and `worktree_dirty` to the current repo snapshot. If either differs from the current snapshot, report the graph facts as `stale` and do not treat them as current primary evidence.
+
+If the artifacts are missing, blocked, setup-not-ready, stale, or degraded, planning still continues. Use bounded direct repo reads and local research as needed; graph readiness is evidence context, not a planning gate.
+
+In the generated plan, include a machine-testable Graph Readiness block before `Context & Research`:
+
+```md
+## Graph Readiness
+
+- status: primary | degraded-fallback | stale | blocked | setup-not-ready | unavailable
+- source_revision:
+- current_revision:
+- stale:
+- primary_providers:
+- degraded_providers:
+- fallback_capabilities:
+- confidence:
+- limitations:
+```
+
+Use `status: unavailable` when canonical artifacts are missing. For `degraded-fallback`, state usable primary providers and fallback capabilities with limitations. For `blocked` or `setup-not-ready`, report the fact and proceed with bounded direct repo reads where possible. Do not expand this into context selection, impact analysis, review evidence, or task-level artifacts.
+
 #### 1.1b Detect Execution Posture Signals
 
 Decide whether the plan should carry a lightweight execution posture signal.
@@ -549,6 +578,20 @@ deepened: YYYY-MM-DD  # optional, set when the confidence-first check substantiv
 
 - [Item]
 -->
+
+---
+
+## Graph Readiness
+
+- status: primary | degraded-fallback | stale | blocked | setup-not-ready | unavailable
+- source_revision:
+- current_revision:
+- stale:
+- primary_providers:
+- degraded_providers:
+- fallback_capabilities:
+- confidence:
+- limitations:
 
 ---
 

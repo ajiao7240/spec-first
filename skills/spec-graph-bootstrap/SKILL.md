@@ -1,40 +1,40 @@
 ---
 name: spec-graph-bootstrap
-description: Build external graph-provider indexes after spec-mcp-setup has prepared the host runtime and provider projection.
+description: Compile project graph readiness facts after spec-mcp-setup has prepared the host runtime and provider configuration.
 argument-hint: ""
 ---
 
-# Graph Provider Bootstrap
+# Graph Readiness Compiler
 
 Use this workflow after `/spec:mcp-setup` or `$spec-mcp-setup` reports `baseline_ready=true`.
 
-This workflow owns project graph construction. `spec-mcp-setup` only installs/configures the harness runtime and writes `.spec-first/config/graph-providers.json`; it must not run graph builds. First-time setup writes providers with `query_ready=false`. Repeated setup may preserve `query_ready=true` when a previous bootstrap is still valid and the provider setup remains ready.
+This workflow owns project graph readiness compilation. `spec-mcp-setup` installs/configures the harness runtime and writes setup-owned facts; `spec-graph-bootstrap` consumes those facts, transiently runs configured external graph-provider command arrays, captures evidence, and writes canonical project readiness artifacts.
 
 ## Contract
 
-Read these two machine facts before doing any graph work:
+Read these setup-owned machine facts before doing any graph work:
 
-1. Host readiness ledger v2:
-   - Claude: `~/.claude/spec-first/host-setup.json`
-   - Codex: `~/.codex/spec-first/host-setup.json`
-2. Project provider projection:
-   - `.spec-first/config/graph-providers.json`
+1. `.spec-first/config/runtime-capabilities.json`
+   - schema: `runtime-capabilities.v1`
+   - contains `baseline_ready`, `host_ledger_pointer`, fallback runtime facts, and a derived `project_graph_readiness` summary
+2. Host readiness ledger v2 referenced by `runtime-capabilities.json`
+   - graph-bootstrap must follow `host_ledger_pointer.path`
+   - graph-bootstrap must not guess Claude/Codex ledger paths independently
+3. `.spec-first/config/graph-providers.json`
+   - schema: `graph-providers.v1`
+   - contains provider configuration, artifact pointers, and provider command arrays under `providers.<id>.commands`
+4. `.spec-first/config/provider-artifacts.json`
+   - schema: `provider-artifacts.v1`
+   - contains provider raw/normalized/status path contracts and canonical graph/impact artifact paths
 
-The ledger must have:
-
-```json
-{
-  "schema_version": "v2",
-  "baseline_ready": true
-}
-```
-
-The provider projection must have `schema_version="graph-providers.v1"` and provider entries for:
+Allowed provider ids are:
 
 - `gitnexus`
 - `code-review-graph`
 
-Do not read or depend on any top-level `crg` field. The retired internal CRG runtime is not part of this workflow.
+If required inputs are missing, schemas are unsupported, `baseline_ready=false`, or `runtime-capabilities.json` disagrees with the pointed host ledger, fail closed with machine-readable `workflow_mode` / `reason_code` and do not run provider commands.
+
+Do not read or depend on any top-level `crg` field. The retired internal CRG runtime, `src/crg/`, `graph.db`, and the retired internal graph CLI are not part of this workflow.
 
 ## Execution
 
@@ -50,30 +50,95 @@ On Windows:
 pwsh -File skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1
 ```
 
-The script runs only the project graph build commands owned by this workflow:
+PowerShell parity v1 is source-contract parity in automated tests; shell behavior tests are the primary executable verification path until a Windows runner is available.
 
-- `npx -y gitnexus@latest analyze`
-- `uvx code-review-graph build`
+## Provider Command Safety
 
-After each provider succeeds, the script updates `.spec-first/config/graph-providers.json`:
+Provider command arrays are config-defined, but they are not arbitrary shell commands.
+
+`spec-graph-bootstrap` must:
+
+1. Treat command definitions as arrays, never strings to eval.
+2. Validate provider id against the allowlist above.
+3. Validate executable and package shape against supported provider commands.
+4. Execute without shell interpolation.
+5. Fail closed with `reason_code=unsupported-provider-command` if command shape is unsupported.
+
+Allowed minimum command shapes are:
 
 ```json
 {
-  "query_ready": true,
-  "bootstrap_required": false,
-  "next_action": ""
+  "gitnexus": {
+    "commands": {
+      "bootstrap": ["npx", "-y", "gitnexus@latest", "analyze"],
+      "status": ["npx", "-y", "gitnexus@latest", "status"],
+      "query_probe": ["npx", "-y", "gitnexus@latest", "query"]
+    }
+  },
+  "code-review-graph": {
+    "commands": {
+      "bootstrap": ["uvx", "code-review-graph", "build"],
+      "status": ["uvx", "code-review-graph", "status"],
+      "query_probe": ["uvx", "code-review-graph", "status", "--repo"]
+    }
+  }
 }
 ```
 
-It also records bootstrap metadata such as `last_bootstrapped_at`. Re-running `spec-mcp-setup` must preserve these readiness facts while the provider setup remains ready.
+The display forms are `npx -y gitnexus@latest analyze`, `npx -y gitnexus@latest status`, `npx -y gitnexus@latest query`, `uvx code-review-graph build`, and `uvx code-review-graph status`; the script still executes the validated arrays from `graph-providers.json`, not these prose strings. The bootstrap script owns the safety allowlist (provider id, executable, package name, and subcommand shape); `graph-providers.json` remains the command argv source.
+
+Reject string commands, `bash -c`, `sh -c`, and unsupported executable/package shapes. Shell metacharacters inside an array argument must not be interpreted by a shell.
+
+## Readiness Evidence
+
+`query_ready=true` requires all three evidence levels:
+
+1. Build/analyze command succeeds.
+2. Status command succeeds.
+3. Provider-specific query proof succeeds.
+
+If build and status succeed but query proof is missing, unsupported, or fails, write `status=query-unverified`, keep `query_ready=false`, and include diagnostics plus raw log pointers. Do not infer query readiness from build exit code alone.
+
+## Outputs
+
+Provider raw, normalized, and status artifacts live under `.spec-first/providers/<provider>/`:
+
+```text
+.spec-first/providers/gitnexus/raw/analyze.log
+.spec-first/providers/gitnexus/raw/status.log
+.spec-first/providers/gitnexus/raw/query.log
+.spec-first/providers/gitnexus/status.json
+.spec-first/providers/gitnexus/normalized/architecture-facts.json
+.spec-first/providers/gitnexus/normalized/reuse-candidates.json
+.spec-first/providers/code-review-graph/raw/build.log
+.spec-first/providers/code-review-graph/raw/status.log
+.spec-first/providers/code-review-graph/status.json
+.spec-first/providers/code-review-graph/normalized/impact-capabilities.json
+```
+
+Canonical downstream artifacts live under `.spec-first/graph/` and `.spec-first/impact/`:
+
+```text
+.spec-first/graph/provider-status.json
+.spec-first/graph/graph-facts.json
+.spec-first/graph/bootstrap-report.md
+.spec-first/impact/bootstrap-impact-capabilities.json
+```
+
+`graph-providers.json.derived_readiness` and `runtime-capabilities.json.project_graph_readiness` are derived summaries pointing back to canonical artifacts. They are not the canonical readiness truth source.
 
 ## Boundaries
 
 - Do not run the retired internal graph CLI.
 - Do not run graph builds from `spec-mcp-setup`.
-- Do not treat `.spec-first/config/graph-providers.json` as a registry; it is a project-local provider selection projection.
-- If a provider build fails, keep that provider `query_ready=false`, report the failed command, and ask the user to fix the provider before downstream workflows rely on graph context.
+- Do not perform persistent installs: no `npm install -g`, no `uv tool install`, no shell profile edits, and no MCP host config edits.
+- Do allow transient provider command execution after `spec-mcp-setup` has verified command availability and `graph-providers.json` command arrays pass safety validation.
+- Do not write provider raw logs under `.spec-first/graph/raw/<provider>/`; provider projection belongs under `.spec-first/providers/<provider>/`.
+- Do not generate glue contracts, context packs, task-level impact facts, review evidence, or semantic architecture/reuse/impact conclusions.
+- If a provider build or probe fails, keep that provider `query_ready=false`, report limitations, retain raw logs, and let downstream workflows decide how to use fallback evidence.
 
 ## Downstream Use
 
-After bootstrap succeeds, planning, work, and review workflows may query the configured graph providers as evidence. The LLM still decides which graph evidence is relevant; scripts only prepare and report deterministic graph readiness facts.
+`spec-plan` is the first downstream consumer in this phase. It reads `.spec-first/graph/graph-facts.json` and `.spec-first/impact/bootstrap-impact-capabilities.json` when present, reports graph readiness status, checks staleness against the current repo snapshot, and falls back to bounded direct repo reads when facts are unavailable, stale, blocked, or degraded.
+
+The LLM still decides which evidence is relevant. Scripts only prepare and report deterministic graph readiness facts.

@@ -40,6 +40,33 @@ describe('spec-plan context orientation contract', () => {
     expect(text).not.toContain('stage0-context');
     expect(text).not.toContain('selected_assets');
   });
+
+  test('consumes canonical graph readiness facts without making them a planning gate', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('.spec-first/graph/graph-facts.json');
+    expect(text).toContain('.spec-first/impact/bootstrap-impact-capabilities.json');
+    expect((text.match(/## Graph Readiness/g) || []).length).toBeGreaterThanOrEqual(2);
+    expect(text).toContain(
+      'status: primary | degraded-fallback | stale | blocked | setup-not-ready | unavailable',
+    );
+    for (const field of [
+      '- source_revision:',
+      '- current_revision:',
+      '- stale:',
+      '- primary_providers:',
+      '- degraded_providers:',
+      '- fallback_capabilities:',
+      '- confidence:',
+      '- limitations:',
+    ]) {
+      expect(text).toContain(field);
+    }
+    expect(text).toContain('status: unavailable');
+    expect(text).toContain('bounded direct repo reads');
+    expect(text).toContain('graph readiness is evidence context, not a planning gate');
+    expect(text).toContain('Do not expand this into context selection, impact analysis, review evidence');
+  });
 });
 
 describe('spec_id planning contract', () => {

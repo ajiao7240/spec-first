@@ -12,10 +12,10 @@
 - Workflow source assets under `skills/`, `agents/`, and `templates/`.
 - Host-filtered runtime generation for Claude Code and Codex.
 - Required MCP/helper/graph-provider runtime setup through `$spec-mcp-setup`.
-- External graph provider bootstrap through `$spec-graph-bootstrap`.
+- External graph readiness compilation through `$spec-graph-bootstrap`.
 - Plan, task-pack, work, review, setup, session, release-note, and compound workflows.
 
-The internal CRG runtime has been removed. Graph context is now provided by external graph providers configured by `$spec-mcp-setup` and built by `$spec-graph-bootstrap`.
+The internal CRG runtime has been removed. Graph context is now provided by external graph providers configured by `$spec-mcp-setup` and compiled into canonical readiness artifacts by `$spec-graph-bootstrap`.
 
 ## Install
 
@@ -33,11 +33,11 @@ Use `spec-first clean --claude` or `spec-first clean --codex` to remove managed 
 The internal CRG runtime has been removed. For current workflows:
 
 - Use `$spec-plan` for design and implementation planning.
-- Use `$spec-write-tasks` to compile executable task packs.
+- Use the standalone `spec-write-tasks` skill to compile executable task packs.
 - Use `$spec-work` with direct repo reads, nearby files, task packs, diffs, and tests.
 - Use `$spec-code-review` for review from diff, plan/task evidence, targeted file reads, and test results.
 - Use `$spec-mcp-setup` to install the required harness runtime: Serena, Sequential Thinking, Context7, GitNexus, code-review-graph, and agent-browser.
-- Use `$spec-graph-bootstrap` to run GitNexus/code-review-graph project builds and mark graph providers query-ready.
+- Use `$spec-graph-bootstrap` to run validated GitNexus/code-review-graph provider probes and compile canonical graph facts, provider status, impact capabilities, and a bootstrap report.
 
 ## Main Commands
 
@@ -58,7 +58,7 @@ spec-first tasks validate <task-pack.md> --json
 | **Capability layer** | Bundled source assets ship with `39` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `18` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `18` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
 | **Claude runtime** | Commands are generated under `.claude/commands/spec`, skills under `.claude/skills`, agents under `.claude/agents`, and managed state under `.claude/spec-first/state.json`. |
 | **Codex runtime** | Workflow skills are generated under `.agents/skills`, agents under `.codex/agents`, and managed state under `.codex/spec-first/state.json`. |
-| **Readiness** | `$spec-mcp-setup` writes readiness ledger v2 and graph provider projection with `query_ready=false`; `$spec-graph-bootstrap` builds provider indexes and flips `query_ready=true`. |
+| **Readiness** | `$spec-mcp-setup` writes readiness ledger v2 plus setup-owned `graph-providers.json`, `runtime-capabilities.json`, and `provider-artifacts.json`; `$spec-graph-bootstrap` consumes those facts and writes canonical graph facts, provider status, impact capabilities, and a report. |
 
 Expected Claude init output includes:
 
@@ -69,7 +69,7 @@ Expected Claude init output includes:
 下一步:
   1. 重启 Claude Code 或新开会话，让宿主加载刚生成的 /spec:* commands。
   2. 在新会话运行 /spec:mcp-setup，安装并验证必装 MCP/helper runtime。
-  3. 如果 /spec:mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap。
+  3. 如果 /spec:mcp-setup 显示 graph readiness 仍 pending，再按提示运行 /spec:graph-bootstrap。
 ```
 
 ## Workflow Entry Points
@@ -78,12 +78,12 @@ Expected Claude init output includes:
 |---|---|---|
 | Brainstorm requirements | `/spec:brainstorm` | `$spec-brainstorm` |
 | Write or deepen a plan | `/spec:plan` | `$spec-plan` |
-| Compile task pack | use installed `write-tasks` skill | `$spec-write-tasks` |
+| Compile task pack | use installed `write-tasks` skill | standalone `spec-write-tasks` skill |
 | Execute work | `/spec:work` | `$spec-work` |
 | Review code | `/spec:code-review` | `$spec-code-review` |
 | Review docs/plans | `/spec:doc-review` | `$spec-doc-review` |
 | Setup required harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` |
-| Build graph provider indexes | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
+| Compile graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
 | Capture learning | `/spec:compound` | `$spec-compound` |
 
 ## Development

@@ -115,7 +115,7 @@ function buildZhRuntimeToolsBody(host) {
 
 ### 使用边界
 - \`GitNexus\`：用于全局代码知识图谱、架构理解、影响分析和提交前变更检测。若本文件存在 \`<!-- gitnexus:start -->\` 管理块，优先遵守该块的强制规则。
-- \`code-review-graph\`：用于最小上下文、impact radius、review context、相关测试和 graph stats。只有 graph provider 已 query-ready 时使用；未 ready 时先运行 \`${graphBootstrapEntry}\`，或退回 bounded direct repo reads。
+- \`code-review-graph\`：用于最小上下文、impact radius、review context、相关测试和 graph stats。只有 canonical graph facts / provider readiness 已 query-ready 且未 stale 时使用；blocked、stale 或未 ready 时先运行 \`${graphBootstrapEntry}\`，或退回 bounded direct repo reads。
 - \`Serena MCP\`：用于 symbol overview、symbol lookup、references、LSP 辅助定位和精确编辑。它是上下文/编辑辅助，不替代源码真相源、测试或 graph-level 影响分析。
 - \`ast-grep\`：用于结构化代码搜索和安全 rewrite。简单文本/文件搜索仍优先 \`rg\` / \`rg --files\`；需要 AST 语义匹配时再使用 \`ast-grep\`。
 
@@ -135,7 +135,7 @@ function buildEnRuntimeToolsBody(host) {
 
 ### Usage Boundaries
 - \`GitNexus\`: Use for global code knowledge, architecture understanding, impact analysis, and pre-commit change detection. If this file contains a \`<!-- gitnexus:start -->\` managed block, follow that block's mandatory rules first.
-- \`code-review-graph\`: Use for minimal context, impact radius, review context, related tests, and graph stats. Use it only when the graph provider is query-ready; if it is not ready, run \`${graphBootstrapEntry}\` first or fall back to bounded direct repo reads.
+- \`code-review-graph\`: Use for minimal context, impact radius, review context, related tests, and graph stats. Use it only when canonical graph facts / provider readiness are query-ready and not stale; if readiness is blocked, stale, or not ready, run \`${graphBootstrapEntry}\` first or fall back to bounded direct repo reads.
 - \`Serena MCP\`: Use for symbol overview, symbol lookup, references, LSP-assisted navigation, and precise edits. It is a context/editing aid, not a replacement for source truth, tests, or graph-level impact analysis.
 - \`ast-grep\`: Use for structural code search and safe rewrites. Keep using \`rg\` / \`rg --files\` for simple text/file search; use \`ast-grep\` when AST semantics are needed.
 

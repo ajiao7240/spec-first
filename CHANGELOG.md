@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 09:11:12 leokuang: fix(spec-graph-bootstrap): 按审查修复 readiness 保留、PowerShell parity、fallback fail-closed、provider skipped status、命令安全来源、生成态 artifact 忽略和 spec-plan/README contract 覆盖 (user-visible)
+- v1.6.0 2026-04-28 08:22:50 leokuang: feat(spec-graph-bootstrap): 实现 Graph Readiness Compiler，新增 setup-owned runtime/provider artifact config、受限 provider command arrays、query-unverified 三层探针、canonical graph/impact artifacts，并让 spec-plan 首个消费 Graph Readiness block (user-visible)
 - v1.6.0 2026-04-28 03:35:50 leokuang: docs(spec-graph-bootstrap): 根据二轮文档审查补强 Graph Readiness Compiler 需求，收口 setup-owned config writer、blocked 输出、query-unverified、partial primary、freshness、per-capability fallback 与 spec-plan 首个消费闭环 (user-visible)
 - v1.6.0 2026-04-28 03:24:48 leokuang: feat(init): 新增 AGENTS.md/CLAUDE.md 的 `spec-first:runtime-tools` managed block，按宿主写入 GitNexus、code-review-graph、Serena MCP 与 ast-grep 的轻量使用边界，并接入 init/doctor/clean 治理 (user-visible)
 - v1.6.0 2026-04-28 03:13:17 leokuang: docs(plans): 新增 runtime tool instruction index 方案，收敛 GitNexus、code-review-graph、Serena MCP 与 ast-grep 在 AGENTS.md/CLAUDE.md 中的轻量使用边界和 managed block 实施路径 (user-visible)

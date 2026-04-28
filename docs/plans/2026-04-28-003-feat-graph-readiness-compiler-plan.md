@@ -1,7 +1,7 @@
 ---
 title: feat: Add Graph Readiness Compiler
 type: feat
-status: active
+status: completed
 date: 2026-04-28
 spec_id: 2026-04-28-001-spec-graph-bootstrap-readiness-compiler
 origin: docs/brainstorms/2026-04-28-001-spec-graph-bootstrap-readiness-compiler-requirements.md
@@ -61,7 +61,7 @@ deepened: 2026-04-28
 
 - DR1. `runtime-capabilities.json` writer ownership must be explicit: setup owns baseline/host/fallback facts and may only initialize missing `project_graph_readiness`; graph-bootstrap owns canonical readiness compilation and derived project graph summary updates.
 - DR2. Graph-bootstrap baseline gate source order is fixed: read `runtime-capabilities.json`, follow its `host_ledger_pointer`, validate the pointed host ledger v2, and fail closed with `reason_code=readiness-conflict` if runtime capabilities and host ledger disagree. Graph-bootstrap must not guess host ledger paths independently.
-- DR3. Provider command definitions must come from a single source in `.spec-first/config/graph-providers.json`; shell, PowerShell, tests, and docs may display those commands but must not maintain separate hardcoded command truth.
+- DR3. Provider command argv definitions must come from `.spec-first/config/graph-providers.json`; shell and PowerShell bootstrap may own a safety allowlist for provider id, executable, package name, and subcommand shape, but must execute the validated arrays from config rather than a second hardcoded command table.
 - DR4. Provider readiness probes are three-level evidence: build/analyze command success, status command success, and provider-specific query-surface proof. `query_ready=true` requires all three; build + status without query proof is `query-unverified`.
 - DR5. `spec-plan` must emit a machine-testable Graph Readiness block when it consumes or checks canonical graph artifacts; absence of artifacts is reported as `unavailable` and planning continues with bounded direct repo reads.
 
@@ -279,7 +279,7 @@ flowchart TD
 - Edge case: given not-git-repo setup verification, setup does not write project config artifacts and reports project config status as skipped/not applicable without changing host ledger `baseline_ready` semantics.
 - Error path: given unsupported existing provider-artifacts schema, setup replaces it only when it owns the file shape and can derive the new v1 contract; otherwise the bootstrap unit treats unsupported schema as blocked.
 - Integration: repeated setup after query-ready provider projection preserves graph readiness summary as derived facts without forcing graph bootstrap again or resetting `project_graph_readiness` to `not-bootstrapped`.
-- Contract: `graph-providers.json` contains command definitions for each configured provider, and shell/PowerShell bootstrap tests fail if commands are duplicated outside that field as a second truth source.
+- Contract: `graph-providers.json` contains command argv definitions for each configured provider, while shell/PowerShell keep only the safety allowlist needed to reject unsupported executable/package shapes.
 
 **Verification:**
 - Setup can produce all bootstrap-required config inputs in a fake repo without running provider build commands.
@@ -345,7 +345,7 @@ flowchart TD
 - Test: `tests/unit/mcp-setup-powershell-contracts.test.js`
 
 **Approach:**
-- Load provider command arrays from `.spec-first/config/graph-providers.json` and record both command display and command source path in provider status. Bootstrap scripts must not keep separate hardcoded command definitions except as fixture expectations in tests that assert the config source.
+- Load provider command arrays from `.spec-first/config/graph-providers.json` and record both command display and command source path in provider status. Bootstrap scripts must not keep a separate execution command table; any hardcoded provider data is limited to the safety allowlist.
 - For GitNexus, write raw `analyze.log`, `status.log`, and `query.log` under `.spec-first/providers/gitnexus/raw/`.
 - For `code-review-graph`, write raw `build.log` and `status.log` under `.spec-first/providers/code-review-graph/raw/`.
 - Provider `status.json` must include configured/enabled/setup readiness, command display, command source, exit code, status, `query_ready`, confidence, limitations, generated timestamp, repo snapshot, raw log paths, normalized artifact paths, `diagnostics`, `diagnostics_truncated`, and raw log pointers.
@@ -364,7 +364,7 @@ flowchart TD
 - Covers AE2. Happy path: fake `npx gitnexus analyze`, fake GitNexus status/query probes, fake `uvx code-review-graph build`, and fake CRG status probe all succeed; provider raw logs, provider `status.json`, and normalized envelopes exist under `.spec-first/providers/**`.
 - Covers AE8. Error path: fake GitNexus analyze exits 0 but query probe exits nonzero; GitNexus provider status is `query-unverified`, `query_ready=false`, and diagnostic explains command success did not prove query readiness.
 - Covers DR4. Error path: fake provider build and status both succeed but configured query proof is missing or exits nonzero; provider status remains `query-unverified`, not ready.
-- Covers DR3. Contract: changing provider command arrays in fixture `graph-providers.json` changes the command invoked by shell bootstrap, proving bootstrap reads the single command-definition source.
+- Covers DR3. Contract: changing provider command arrays within the supported executable/package shape in fixture `graph-providers.json` changes the command invoked by shell bootstrap, proving bootstrap reads config argv while still enforcing safety.
 - Covers AE3. Error path: fake GitNexus succeeds, fake `code-review-graph build` fails; GitNexus remains ready, CRG `query_ready=false`, and failure raw logs/status are retained.
 - Covers AE4. Path boundary: no provider raw evidence is written under `.spec-first/graph/raw/<provider>/`.
 - Edge case: provider configured=false or enabled=false is recorded as skipped with `query_ready=false`, limitations, and no build command invocation.
@@ -491,7 +491,7 @@ flowchart TD
 - Covers AE7. `package.json` normal unit chain includes the new graph-bootstrap test entry.
 - Covers AE8/DR4. Query-unverified path leaves provider `query_ready=false`, including the case where build/status succeed but query proof is absent or unverifiable.
 - Covers AE9. Setup-generated config artifacts are prerequisites in fake repo flow.
-- Covers DR3. Provider commands are resolved from `graph-providers.json` command definitions; shell and PowerShell tests fail if bootstrap keeps an independent command table.
+- Covers DR3. Provider commands are resolved from `graph-providers.json` command definitions; shell and PowerShell tests fail if bootstrap keeps an independent execution command table beyond the safety allowlist.
 
 **Verification:**
 - A normal unit-test run exercises graph-bootstrap behavior through fake providers and fails on the old “exit 0 means query_ready” behavior.

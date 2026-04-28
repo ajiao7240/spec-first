@@ -65,8 +65,17 @@ $combined = [ordered]@{
   platform = $Facts.platform
   repo_root = $Facts.repo_root
   repo_status = $Facts.repo_status
+  host_ledger_pointer = [ordered]@{
+    host = $Facts.host
+    path = $MarkerPath
+    schema_version = 'v2'
+  }
   repo_config_status = 'pending'
   repo_config_path = $null
+  runtime_capabilities_status = 'pending'
+  runtime_capabilities_path = $null
+  provider_artifacts_status = 'pending'
+  provider_artifacts_path = $null
   overall_status = if ($baselineReady) { 'ready' } else { 'action-required' }
   baseline_ready = [bool]$baselineReady
   host_runtime_ready = [bool]$baselineReady
@@ -85,6 +94,10 @@ $combined | ConvertTo-Json -Depth 10 | Set-Content -Encoding utf8 $combinedTmp
 $providerResult = & (Join-Path $ScriptDir 'write-provider-config.ps1') -FactsFile $combinedTmp | ConvertFrom-Json
 $combined.repo_config_status = $providerResult.repo_config_status
 $combined.repo_config_path = $providerResult.repo_config_path
+$combined.runtime_capabilities_status = if ($providerResult.PSObject.Properties.Name -contains 'runtime_capabilities_status') { $providerResult.runtime_capabilities_status } else { 'unknown' }
+$combined.runtime_capabilities_path = if ($providerResult.PSObject.Properties.Name -contains 'runtime_capabilities_path') { $providerResult.runtime_capabilities_path } else { $null }
+$combined.provider_artifacts_status = if ($providerResult.PSObject.Properties.Name -contains 'provider_artifacts_status') { $providerResult.provider_artifacts_status } else { 'unknown' }
+$combined.provider_artifacts_path = if ($providerResult.PSObject.Properties.Name -contains 'provider_artifacts_path') { $providerResult.provider_artifacts_path } else { $null }
 $combined.graph_bootstrap_required = if ($providerResult.PSObject.Properties.Name -contains 'graph_bootstrap_required') { [bool]$providerResult.graph_bootstrap_required } else { $true }
 
 if ($providerResult.PSObject.Properties.Name -contains 'providers' -and $null -ne $providerResult.providers) {
@@ -211,6 +224,28 @@ Write-StatusRow `
   (Format-Cell $combined.repo_config_status) `
   'n/a' `
   (Format-Cell $projectionNext)
+
+$runtimeNext = if ($combined.runtime_capabilities_status -eq 'ready' -or $combined.runtime_capabilities_status -eq 'written') { '' } else { 'write runtime capabilities' }
+Write-StatusRow `
+  'runtime-capabilities.json' `
+  'project' `
+  'yes' `
+  'n/a' `
+  'n/a' `
+  (Format-Cell $combined.runtime_capabilities_status) `
+  'n/a' `
+  (Format-Cell $runtimeNext)
+
+$artifactsNext = if ($combined.provider_artifacts_status -eq 'ready' -or $combined.provider_artifacts_status -eq 'written') { '' } else { 'write provider artifacts' }
+Write-StatusRow `
+  'provider-artifacts.json' `
+  'project' `
+  'yes' `
+  'n/a' `
+  'n/a' `
+  (Format-Cell $combined.provider_artifacts_status) `
+  'n/a' `
+  (Format-Cell $artifactsNext)
 
 switch ($combined.host) {
   'claude' {
