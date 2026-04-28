@@ -1,5 +1,7 @@
 param(
-  [string]$Only
+  [string]$Only,
+  [Alias('SerenaLanguages')]
+  [string[]]$SerenaLanguage = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,6 +20,21 @@ function Parse-List {
   param([string]$Value)
   if ([string]::IsNullOrWhiteSpace($Value)) { return @() }
   @($Value -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+}
+
+function Normalize-LanguageValues {
+  param([string[]]$Values)
+  $normalized = New-Object System.Collections.Generic.List[string]
+  foreach ($value in @($Values)) {
+    if ([string]::IsNullOrWhiteSpace($value)) { continue }
+    foreach ($language in @($value -split ',')) {
+      $trimmed = $language.Trim()
+      if (-not [string]::IsNullOrWhiteSpace($trimmed)) {
+        $normalized.Add($trimmed)
+      }
+    }
+  }
+  @($normalized)
 }
 
 $OnlyArray = Parse-List $Only
@@ -162,7 +179,12 @@ foreach ($tool in @($ToolsJson.tools)) {
   }
 
   if ($tool.id -eq 'serena' -and $status -eq 'ready') {
-    $activateRun = Invoke-Captured { & (Join-Path $ScriptDir 'activate-serena.ps1') }
+    $filteredSerenaLanguages = @(Normalize-LanguageValues -Values $SerenaLanguage)
+    $activateParams = @{}
+    if ($filteredSerenaLanguages.Count -gt 0) {
+      $activateParams.Language = @($filteredSerenaLanguages)
+    }
+    $activateRun = Invoke-Captured { & (Join-Path $ScriptDir 'activate-serena.ps1') @activateParams }
     try {
       if (-not $activateRun.ok) {
         throw 'Serena bootstrap command failed'

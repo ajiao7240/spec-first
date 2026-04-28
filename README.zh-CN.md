@@ -11,11 +11,11 @@
 - CLI helpers：`doctor`、`init`、`clean`、`tasks`、版本/help 输出和确定性 setup 检查。
 - `skills/`、`agents/`、`templates/` 下的 workflow source assets。
 - 面向 Claude Code 与 Codex 的 host-filtered runtime 生成。
-- 通过 `$spec-mcp-setup` 管理 required MCP/helper/graph-provider runtime setup。
-- 通过 `$spec-graph-bootstrap` 编译 external graph readiness facts。
-- plan、task-pack、work、review、setup、sessions、release-notes、compound 等 workflow。
+- 通过 `$spec-mcp-setup` 管理 required harness runtime setup，覆盖 MCP servers、graph-provider MCP servers、helper CLIs 和项目 setup facts。
+- 通过 `$spec-graph-bootstrap` 编译 external graph readiness，产出供下游 workflow 使用的 canonical graph / impact readiness artifacts。
+- ideation、brainstorm、plan、task-pack handoff、work、debug、review、setup、update、sessions、Slack research、release notes、compound、optimize 和 browser-visible polish 等公开 workflow 入口。
 
-内置 CRG runtime 已移除。图谱上下文改由 `$spec-mcp-setup` 配置 external graph providers，再由 `$spec-graph-bootstrap` 编译为 canonical readiness artifacts。
+图谱上下文由 `$spec-mcp-setup` 配置 external graph providers，再由 `$spec-graph-bootstrap` 编译为 canonical readiness artifacts。
 
 ## 安装
 
@@ -28,16 +28,14 @@ spec-first init --codex -u <name> --lang zh
 
 使用 `spec-first clean --claude` 或 `spec-first clean --codex` 删除 managed runtime assets。`.claude/`、`.codex/`、`.agents/skills/` 下的是生成副本；修改应落在 `skills/`、`agents/`、`templates/` 和 `src/cli/`。
 
-## CRG 删除后的代码库上下文路径
+## 上下文与 Graph Readiness
 
-内置 CRG runtime 已移除。当前 workflow 使用以下路径获取上下文：
+当前上下文与 graph readiness 使用以下路径：
 
-- 用 `$spec-plan` 做设计与实施规划。
-- 用 standalone `spec-write-tasks` skill 编译可执行 task packs。
-- 用 `$spec-work` 基于 direct repo reads、nearby files、task packs、diffs 和 tests 执行工作。
-- 用 `$spec-code-review` 基于 diff、plan/task evidence、targeted file reads 和 test results 做评审。
-- 用 `$spec-mcp-setup` 安装 required harness runtime：Serena、Sequential Thinking、Context7、GitNexus、code-review-graph 和 agent-browser。
-- 用 `$spec-graph-bootstrap` 运行受校验的 GitNexus/code-review-graph provider probes，并编译 canonical graph facts、provider status、impact capabilities 和 bootstrap report。
+- 用 `$spec-mcp-setup` 安装并验证 required harness runtime：Serena、Sequential Thinking、Context7、GitNexus、code-review-graph、`agent-browser`、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和 global `ast-grep` skill。
+- 在 setup 报告 `baseline_ready=true` 后运行 `$spec-graph-bootstrap`。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus/code-review-graph probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
+- `$spec-plan` 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。
+- 用 standalone `spec-write-tasks` 做确定性的 task-pack handoff，再让 `$spec-work`、`$spec-code-review` 和 `$spec-doc-review` 基于当前请求、plans/task packs、diffs、targeted file reads 与 tests 确定 scope authority。
 
 ## 主要命令
 
@@ -47,8 +45,8 @@ spec-first --version
 spec-first doctor [--json] [--claude|--codex]
 spec-first init (--claude|--codex) [-u <name>] [--lang zh|en] [--dry-run]
 spec-first clean (--claude|--codex) [--dry-run]
-spec-first tasks hash <plan.md>
-spec-first tasks validate <task-pack.md> --json
+spec-first tasks hash <plan-path> [--json]
+spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>]
 ```
 
 ## Runtime Assets
@@ -56,8 +54,8 @@ spec-first tasks validate <task-pack.md> --json
 | 层级 | 当前 contract |
 |---|---|
 | **能力层资产** | 仓库内置源码资产共 `39` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `18` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `18` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
-| **Claude runtime** | commands 生成到 `.claude/commands/spec`，skills 生成到 `.claude/skills`，agents 生成到 `.claude/agents`，managed state 位于 `.claude/spec-first/state.json`。 |
-| **Codex runtime** | workflow skills 生成到 `.agents/skills`，agents 生成到 `.codex/agents`，managed state 位于 `.codex/spec-first/state.json`。 |
+| **Claude runtime** | commands 生成到 `.claude/commands/spec`，standalone 与 agent-facing internal skills 生成到 `.claude/skills`，command-backed workflow skill 副本生成到 `.claude/spec-first/workflows`，agents 生成到 `.claude/agents`，managed state 位于 `.claude/spec-first/state.json`。 |
+| **Codex runtime** | workflow、standalone 与 agent-facing internal skills 生成到 `.agents/skills`，agents 生成到 `.codex/agents`，managed state 位于 `.codex/spec-first/state.json`。 |
 | **Readiness** | `$spec-mcp-setup` 写 readiness ledger v2 以及 setup-owned `graph-providers.json`、`runtime-capabilities.json`、`provider-artifacts.json`；`$spec-graph-bootstrap` 消费这些事实并写 canonical graph facts、provider status、impact capabilities 和 report。 |
 
 Claude init 的预期输出包含：
@@ -68,27 +66,52 @@ Claude init 的预期输出包含：
 🤖 Generated 51 agent file(s) in .claude/agents
 ```
 
+Codex init 的预期输出包含：
+
+```text
+🧩 Generated 22 skill directory(ies) in .agents/skills
+🤖 Generated 51 agent file(s) in .codex/agents
+下一步:
+  1. 重启 Codex 或新开会话，让宿主加载刚生成的 $spec-* skills。
+  2. 在新会话运行 $spec-mcp-setup，安装并验证必装 MCP/helper runtime。
+  3. 如果 $spec-mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 $spec-graph-bootstrap。
+```
+
 ## Workflow 入口
 
 | 意图 | Claude Code | Codex |
 |---|---|---|
+| 生成并评估想法 | `/spec:ideate` | `$spec-ideate` |
 | 需求澄清 | `/spec:brainstorm` | `$spec-brainstorm` |
 | 写计划或深化计划 | `/spec:plan` | `$spec-plan` |
 | 编译 task pack | 使用已安装的 `write-tasks` skill | standalone `spec-write-tasks` skill |
 | 执行工作 | `/spec:work` | `$spec-work` |
+| 使用 Codex delegation beta 执行工作 | `/spec:work-beta` | `$spec-work-beta` |
+| 调试失败或 bug | `/spec:debug` | `$spec-debug` |
 | 代码评审 | `/spec:code-review` | `$spec-code-review` |
 | 文档/计划评审 | `/spec:doc-review` | `$spec-doc-review` |
 | required harness runtime setup | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | 编译 graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
+| 更新 spec-first 或 runtime assets | `/spec:update` | `$spec-update` |
+| 优化可度量目标 | `/spec:optimize` | `$spec-optimize` |
+| polish browser-visible UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
+| 搜索 agent session 历史 | `/spec:sessions` | `$spec-sessions` |
+| 研究 Slack 组织上下文 | `/spec:slack-research` | `$spec-slack-research` |
+| 查看 release notes | `/spec:release-notes` | `$spec-release-notes` |
 | 知识沉淀 | `/spec:compound` | `$spec-compound` |
+| 刷新过期知识沉淀 | `/spec:compound-refresh` | `$spec-compound-refresh` |
 
 ## 开发与验证
 
 ```bash
 npm run typecheck
+npm run test:mcp-setup
+npm run test:graph-bootstrap
 npm run test:unit
 npm run test:smoke
 npm run test:integration
+npm run test:ai-dev:gate
+npm run test:release
 npm run build
 npm test
 ```

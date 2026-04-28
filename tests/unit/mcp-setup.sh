@@ -263,6 +263,19 @@ if grep -q 'serena project create .*--language typescript' "$COMMAND_LOG"; then
   echo "FAIL: default Serena bootstrap should let Serena infer project languages" >&2
   exit 1
 fi
+
+INSTALL_LANG_REPO="$TMP_DIR/install-lang-repo"
+INSTALL_LANG_HOME="$TMP_DIR/install-lang-home"
+INSTALL_LANG_BIN="$TMP_DIR/install-lang-bin"
+INSTALL_LANG_LOG="$TMP_DIR/install-lang-commands.log"
+make_repo "$INSTALL_LANG_REPO"
+mkdir -p "$INSTALL_LANG_HOME"
+touch "$INSTALL_LANG_LOG"
+make_fake_bin "$INSTALL_LANG_BIN" "$INSTALL_LANG_LOG"
+install_lang_output="$(cd "$INSTALL_LANG_REPO" && PATH="$INSTALL_LANG_BIN:$TEST_PATH" HOME="$INSTALL_LANG_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --only serena --serena-languages kotlin,java)"
+assert "install-mcp with Serena languages emits JSON" jq -e . <<<"$install_lang_output"
+assert_contains "install-mcp forwards LLM-selected Serena languages" "serena project create . --index --language kotlin --language java" "$(cat "$INSTALL_LANG_LOG")"
+
 assert_contains "setup does not run GitNexus analyze" "gitnexus@latest --help" "$(cat "$COMMAND_LOG")"
 if grep -q 'gitnexus@latest analyze' "$COMMAND_LOG"; then
   echo "FAIL: spec-mcp-setup must not run gitnexus analyze" >&2
@@ -307,6 +320,53 @@ touch "$SERENA_REFRESH_LOG"
 make_fake_bin "$SERENA_REFRESH_BIN" "$SERENA_REFRESH_LOG"
 (cd "$SERENA_REFRESH_REPO" && PATH="$SERENA_REFRESH_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --refresh --language kotlin --language java)
 assert_contains "Serena refresh accepts LLM-selected languages" "serena project create . --index --language kotlin --language java" "$(cat "$SERENA_REFRESH_LOG")"
+
+SERENA_FALLBACK_REPO="$TMP_DIR/serena-fallback-repo"
+SERENA_FALLBACK_BIN="$TMP_DIR/serena-fallback-bin"
+SERENA_FALLBACK_LOG="$TMP_DIR/serena-fallback-commands.log"
+make_repo "$SERENA_FALLBACK_REPO"
+touch "$SERENA_FALLBACK_LOG"
+make_fake_bin "$SERENA_FALLBACK_BIN" "$SERENA_FALLBACK_LOG"
+cat > "$SERENA_FALLBACK_BIN/uvx" <<SH
+#!/bin/bash
+echo "uvx \$*" >> "$SERENA_FALLBACK_LOG"
+if [[ " \$* " == *" --language java "* && " \$* " != *" --language kotlin "* ]]; then
+  mkdir -p .serena
+  printf 'created_by: fake-serena-java\n' > .serena/project.yml
+  exit 0
+fi
+exit 42
+SH
+chmod +x "$SERENA_FALLBACK_BIN/uvx"
+(cd "$SERENA_FALLBACK_REPO" && PATH="$SERENA_FALLBACK_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --refresh --language kotlin,java)
+assert_contains "Serena refresh first tries the full LLM-selected language set" "serena project create . --index --language kotlin --language java" "$(cat "$SERENA_FALLBACK_LOG")"
+assert_contains "Serena refresh falls back to Java when Kotlin LSP fails" "serena project create . --index --language java" "$(cat "$SERENA_FALLBACK_LOG")"
+assert_eq "Serena fallback bootstrap writes project" "created_by: fake-serena-java" "$(cat "$SERENA_FALLBACK_REPO/.serena/project.yml")"
+
+SERENA_REUSE_REPO="$TMP_DIR/serena-reuse-repo"
+SERENA_REUSE_BIN="$TMP_DIR/serena-reuse-bin"
+SERENA_REUSE_LOG="$TMP_DIR/serena-reuse-commands.log"
+make_repo "$SERENA_REUSE_REPO"
+mkdir -p "$SERENA_REUSE_REPO/.serena"
+cat > "$SERENA_REUSE_REPO/.serena/project.yml" <<'YAML'
+languages:
+- typescript
+- vue
+YAML
+printf '{"index_status":"ready"}\n' > "$SERENA_REUSE_REPO/.serena/index-ready.json"
+touch "$SERENA_REUSE_LOG"
+make_fake_bin "$SERENA_REUSE_BIN" "$SERENA_REUSE_LOG"
+(cd "$SERENA_REUSE_REPO" && PATH="$SERENA_REUSE_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --refresh)
+assert_contains "Serena refresh without explicit languages reuses existing config languages" "serena project create . --index --language typescript --language vue" "$(cat "$SERENA_REUSE_LOG")"
+
+SERENA_NO_LANG_REPO="$TMP_DIR/serena-no-lang-repo"
+make_repo "$SERENA_NO_LANG_REPO"
+set +e
+serena_no_lang_output="$(cd "$SERENA_NO_LANG_REPO" && PATH="$SERENA_REFRESH_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --refresh 2>&1)"
+serena_no_lang_status=$?
+set -e
+assert_eq "Serena refresh fails fast without language evidence" "1" "$serena_no_lang_status"
+assert_contains "Serena refresh failure asks LLM to pass language" "requires --language" "$serena_no_lang_output"
 
 detect_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh")"
 assert "detect-tools emits JSON" jq -e . <<<"$detect_output"

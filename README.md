@@ -11,11 +11,11 @@
 - CLI helpers: `doctor`, `init`, `clean`, `tasks`, version/help output, and deterministic setup checks.
 - Workflow source assets under `skills/`, `agents/`, and `templates/`.
 - Host-filtered runtime generation for Claude Code and Codex.
-- Required MCP/helper/graph-provider runtime setup through `$spec-mcp-setup`.
-- External graph readiness compilation through `$spec-graph-bootstrap`.
-- Plan, task-pack, work, review, setup, session, release-note, and compound workflows.
+- Required harness runtime setup through `$spec-mcp-setup`, covering MCP servers, graph-provider MCP servers, helper CLIs, and project setup facts.
+- External graph readiness compilation through `$spec-graph-bootstrap`, producing canonical graph and impact readiness artifacts for downstream workflows.
+- Public workflow entrypoints for ideation, brainstorming, planning, task-pack handoff, work execution, debugging, review, setup, update, session research, Slack research, release notes, compounding, optimization, and browser-visible polish.
 
-The internal CRG runtime has been removed. Graph context is now provided by external graph providers configured by `$spec-mcp-setup` and compiled into canonical readiness artifacts by `$spec-graph-bootstrap`.
+Graph context is provided by external graph providers configured by `$spec-mcp-setup` and compiled into canonical readiness artifacts by `$spec-graph-bootstrap`.
 
 ## Install
 
@@ -28,16 +28,14 @@ spec-first init --codex -u <name> --lang zh
 
 Use `spec-first clean --claude` or `spec-first clean --codex` to remove managed runtime assets. Runtime copies under `.claude/`, `.codex/`, and `.agents/skills/` are generated assets; edit source files under `skills/`, `agents/`, `templates/`, and `src/cli/` instead.
 
-## Codebase Context After CRG Removal
+## Context And Graph Readiness
 
-The internal CRG runtime has been removed. For current workflows:
+Current context and graph readiness use this path:
 
-- Use `$spec-plan` for design and implementation planning.
-- Use the standalone `spec-write-tasks` skill to compile executable task packs.
-- Use `$spec-work` with direct repo reads, nearby files, task packs, diffs, and tests.
-- Use `$spec-code-review` for review from diff, plan/task evidence, targeted file reads, and test results.
-- Use `$spec-mcp-setup` to install the required harness runtime: Serena, Sequential Thinking, Context7, GitNexus, code-review-graph, and agent-browser.
-- Use `$spec-graph-bootstrap` to run validated GitNexus/code-review-graph provider probes and compile canonical graph facts, provider status, impact capabilities, and a bootstrap report.
+- Use `$spec-mcp-setup` to install and verify the required harness runtime: Serena, Sequential Thinking, Context7, GitNexus, code-review-graph, `agent-browser`, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, `ast-grep`, and the global `ast-grep` skill.
+- Use `$spec-graph-bootstrap` after setup reports `baseline_ready=true`. It reads setup-owned config facts, validates provider command arrays, runs transient GitNexus/code-review-graph probes, and writes `.spec-first/graph/*`, `.spec-first/providers/*`, and `.spec-first/impact/*` readiness artifacts.
+- Use `$spec-plan` as the first graph-readiness consumer. It reports graph status, checks staleness, and falls back to bounded direct repo reads when facts are unavailable, blocked, stale, or degraded.
+- Use standalone `spec-write-tasks` for deterministic task-pack handoff, then `$spec-work`, `$spec-code-review`, and `$spec-doc-review` with the current request, plans/task packs, diffs, targeted file reads, and tests as scope authority.
 
 ## Main Commands
 
@@ -47,8 +45,8 @@ spec-first --version
 spec-first doctor [--json] [--claude|--codex]
 spec-first init (--claude|--codex) [-u <name>] [--lang zh|en] [--dry-run]
 spec-first clean (--claude|--codex) [--dry-run]
-spec-first tasks hash <plan.md>
-spec-first tasks validate <task-pack.md> --json
+spec-first tasks hash <plan-path> [--json]
+spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>]
 ```
 
 ## Runtime Assets
@@ -56,8 +54,8 @@ spec-first tasks validate <task-pack.md> --json
 | Layer | Current Contract |
 |---|---|
 | **Capability layer** | Bundled source assets ship with `39` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `18` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `18` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
-| **Claude runtime** | Commands are generated under `.claude/commands/spec`, skills under `.claude/skills`, agents under `.claude/agents`, and managed state under `.claude/spec-first/state.json`. |
-| **Codex runtime** | Workflow skills are generated under `.agents/skills`, agents under `.codex/agents`, and managed state under `.codex/spec-first/state.json`. |
+| **Claude runtime** | Commands are generated under `.claude/commands/spec`, standalone and agent-facing internal skills under `.claude/skills`, command-backed workflow skill copies under `.claude/spec-first/workflows`, agents under `.claude/agents`, and managed state under `.claude/spec-first/state.json`. |
+| **Codex runtime** | Workflow, standalone, and agent-facing internal skills are generated under `.agents/skills`, agents under `.codex/agents`, and managed state under `.codex/spec-first/state.json`. |
 | **Readiness** | `$spec-mcp-setup` writes readiness ledger v2 plus setup-owned `graph-providers.json`, `runtime-capabilities.json`, and `provider-artifacts.json`; `$spec-graph-bootstrap` consumes those facts and writes canonical graph facts, provider status, impact capabilities, and a report. |
 
 Expected Claude init output includes:
@@ -72,27 +70,52 @@ Expected Claude init output includes:
   3. 如果 /spec:mcp-setup 显示 graph readiness 仍 pending，再按提示运行 /spec:graph-bootstrap。
 ```
 
+Expected Codex init output includes:
+
+```text
+🧩 Generated 22 skill directory(ies) in .agents/skills
+🤖 Generated 51 agent file(s) in .codex/agents
+下一步:
+  1. 重启 Codex 或新开会话，让宿主加载刚生成的 $spec-* skills。
+  2. 在新会话运行 $spec-mcp-setup，安装并验证必装 MCP/helper runtime。
+  3. 如果 $spec-mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 $spec-graph-bootstrap。
+```
+
 ## Workflow Entry Points
 
 | Intent | Claude Code | Codex |
 |---|---|---|
+| Generate and evaluate ideas | `/spec:ideate` | `$spec-ideate` |
 | Brainstorm requirements | `/spec:brainstorm` | `$spec-brainstorm` |
 | Write or deepen a plan | `/spec:plan` | `$spec-plan` |
 | Compile task pack | use installed `write-tasks` skill | standalone `spec-write-tasks` skill |
 | Execute work | `/spec:work` | `$spec-work` |
+| Execute work with Codex delegation beta | `/spec:work-beta` | `$spec-work-beta` |
+| Debug a failure or bug | `/spec:debug` | `$spec-debug` |
 | Review code | `/spec:code-review` | `$spec-code-review` |
 | Review docs/plans | `/spec:doc-review` | `$spec-doc-review` |
 | Setup required harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | Compile graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
+| Update spec-first or runtime assets | `/spec:update` | `$spec-update` |
+| Optimize a measurable outcome | `/spec:optimize` | `$spec-optimize` |
+| Polish browser-visible UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
+| Search agent session history | `/spec:sessions` | `$spec-sessions` |
+| Research Slack context | `/spec:slack-research` | `$spec-slack-research` |
+| Read release notes | `/spec:release-notes` | `$spec-release-notes` |
 | Capture learning | `/spec:compound` | `$spec-compound` |
+| Refresh stale learnings | `/spec:compound-refresh` | `$spec-compound-refresh` |
 
 ## Development
 
 ```bash
 npm run typecheck
+npm run test:mcp-setup
+npm run test:graph-bootstrap
 npm run test:unit
 npm run test:smoke
 npm run test:integration
+npm run test:ai-dev:gate
+npm run test:release
 npm run build
 npm test
 ```

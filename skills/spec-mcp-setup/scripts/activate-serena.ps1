@@ -17,17 +17,80 @@ $readyMarkerFile = if ($null -ne $serenaTool.project_bootstrap.ready_marker_file
 $readyMarkerPath = Join-Path $repoRoot $readyMarkerFile
 $indexCommand = $serenaTool.project_bootstrap.index_command
 $command = $indexCommand.command
-$indexArgs = New-Object System.Collections.Generic.List[string]
-foreach ($arg in @($indexCommand.args)) {
-  $indexArgs.Add([string]$arg)
+
+function Get-SerenaProjectLanguages {
+  param([string]$Path)
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return @() }
+
+  $languages = New-Object System.Collections.Generic.List[string]
+  $inLanguages = $false
+  foreach ($line in Get-Content -LiteralPath $Path) {
+    if ($line -match '^\s*languages:\s*$') {
+      $inLanguages = $true
+      continue
+    }
+    if ($inLanguages -and $line -match '^\s*-\s*(.+?)\s*(?:#.*)?$') {
+      $value = $Matches[1].Trim().Trim('"').Trim("'")
+      if (-not [string]::IsNullOrWhiteSpace($value)) {
+        $languages.Add($value)
+      }
+      continue
+    }
+    if ($inLanguages -and $line -match '^\S') { break }
+  }
+  @($languages)
 }
-if (@($indexCommand.args) -notcontains '--language') {
-  foreach ($language in @($Language)) {
-    if (-not [string]::IsNullOrWhiteSpace($language)) {
-      $indexArgs.Add('--language')
-      $indexArgs.Add([string]$language)
+
+function Normalize-LanguageValues {
+  param([string[]]$Values)
+  $normalized = New-Object System.Collections.Generic.List[string]
+  foreach ($value in @($Values)) {
+    if ([string]::IsNullOrWhiteSpace($value)) { continue }
+    foreach ($language in @($value -split ',')) {
+      $trimmed = $language.Trim()
+      if (-not [string]::IsNullOrWhiteSpace($trimmed)) {
+        $normalized.Add($trimmed)
+      }
     }
   }
+  @($normalized)
+}
+
+$effectiveLanguages = @(Normalize-LanguageValues -Values $Language)
+if ($Refresh -and $effectiveLanguages.Count -eq 0) {
+  $effectiveLanguages = @(Get-SerenaProjectLanguages -Path $projectFile)
+  if ($effectiveLanguages.Count -eq 0) {
+    throw 'Serena refresh requires -Language when no existing project languages are available. Let the LLM inspect project evidence and pass explicit values, for example: -Language kotlin,java'
+  }
+}
+
+function New-IndexArgs {
+  param([string[]]$Languages)
+  $args = New-Object System.Collections.Generic.List[string]
+  foreach ($arg in @($indexCommand.args)) {
+    $args.Add([string]$arg)
+  }
+  if (@($indexCommand.args) -notcontains '--language') {
+    foreach ($language in @($Languages)) {
+      if (-not [string]::IsNullOrWhiteSpace($language)) {
+        $args.Add('--language')
+        $args.Add([string]$language)
+      }
+    }
+  }
+  @($args.ToArray())
+}
+
+function New-LanguageAttempts {
+  param([string[]]$Languages)
+  $attempts = New-Object System.Collections.Generic.List[object]
+  $attempts.Add([pscustomobject]@{ name = 'all-languages'; languages = @($Languages) })
+  if (@($Languages).Count -gt 1) {
+    foreach ($language in @($Languages)) {
+      $attempts.Add([pscustomobject]@{ name = "single-language:$language"; languages = @($language) })
+    }
+  }
+  @($attempts)
 }
 
 if (-not $Refresh -and (Test-Path -LiteralPath $projectFile -PathType Leaf) -and (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf)) {
@@ -63,16 +126,33 @@ if (Test-Path $projectFile) {
 }
 
 try {
-  Push-Location $repoRoot
-  try {
-    $global:LASTEXITCODE = 0
-    $indexArgArray = @($indexArgs.ToArray())
-    & $command @indexArgArray | Out-Null
-    if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) {
-      throw "Serena bootstrap command failed with exit code $LASTEXITCODE"
+  $attemptErrors = New-Object System.Collections.Generic.List[string]
+  $bootstrapSucceeded = $false
+  foreach ($attempt in @(New-LanguageAttempts -Languages $effectiveLanguages)) {
+    Remove-Item -Force $readyMarkerPath -ErrorAction SilentlyContinue
+    Remove-Item -Force $projectFile -ErrorAction SilentlyContinue
+    Push-Location $repoRoot
+    try {
+      $global:LASTEXITCODE = 0
+      $indexArgArray = @(New-IndexArgs -Languages @($attempt.languages))
+      $serenaOutput = @(& $command @indexArgArray 2>&1)
+      if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -eq 0) {
+        $bootstrapSucceeded = $true
+        break
+      }
+      $summary = (($serenaOutput | ForEach-Object { [string]$_ }) -join "`n").Trim()
+      if ($summary.Length -gt 2000) { $summary = $summary.Substring($summary.Length - 2000) }
+      $attemptErrors.Add("attempt=$($attempt.name) exit=$LASTEXITCODE`n$summary")
+    } catch {
+      $attemptErrors.Add("attempt=$($attempt.name) exit=1`n$($_.Exception.Message)")
+    } finally {
+      Pop-Location
     }
-  } finally {
-    Pop-Location
+  }
+  if (-not $bootstrapSucceeded) {
+    $summary = (($attemptErrors.ToArray()) -join "`n---`n").Trim()
+    if ($summary.Length -gt 5000) { $summary = $summary.Substring($summary.Length - 5000) }
+    throw "Serena bootstrap failed for all language attempts.`n$summary"
   }
   New-Item -ItemType Directory -Force -Path (Split-Path -Parent $readyMarkerPath) | Out-Null
   $tmpMarker = Join-Path (Split-Path -Parent $readyMarkerPath) ('index-ready.' + [guid]::NewGuid().ToString('N') + '.tmp')

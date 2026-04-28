@@ -1,6 +1,11 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 10:32:02 leokuang: fix(spec-mcp-setup): Serena bootstrap 对多语言候选执行完整集合加单语言降级重试，支持逗号语言参数，提升大型 Android 项目安装成功率 (user-visible)
+- v1.6.0 2026-04-28 10:15:24 leokuang: docs(readme): 按最新 CLI、双宿主 runtime、graph readiness 和 workflow 入口同步中英文 README (user-visible)
+- v1.6.0 2026-04-28 10:14:42 leokuang: docs(using-spec-first): 强化 workflow 入口治理 source-of-truth、已在 workflow/subagent 中不二次路由、spec-first 自身改动入口和可度量优化优先级，并同步 init 注入块契约 (user-visible)
+- v1.6.0 2026-04-28 10:13:36 leokuang: fix(spec-mcp-setup): 让 Serena refresh 复用既有语言或要求 LLM 显式传入语言，并为 install-mcp 增加 Serena 语言透传与失败诊断 (user-visible)
+- v1.6.0 2026-04-28 09:59:42 leokuang: docs(gitignore): 更新 spec-first 生成态本地配置和 graph readiness artifact 的忽略说明，明确需用 setup 脚本校验存在性与 schema (user-visible)
 - v1.6.0 2026-04-28 09:46:50 leokuang: fix(spec-graph-bootstrap): 修复 provider query probe 命令缺少轻量验证参数导致 graph readiness 只能降级为 query-unverified 的问题，并同步安全校验与契约测试 (user-visible)
 - v1.6.0 2026-04-28 09:42:54 leokuang: fix(spec-mcp-setup): 移除 Serena 项目初始化的硬编码 TypeScript/Vue 语言，新增安全 refresh 参数供 LLM 基于项目证据选择语言并重建索引 (user-visible)
 - v1.6.0 2026-04-28 09:26:11 leokuang: refactor(spec-mcp-setup): 收紧 graph compiler setup 脚本、provider config 投影和契约测试，移除过期的 project 配置引用 (user-visible)

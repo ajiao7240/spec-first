@@ -126,9 +126,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - 本 block 是 spec-first workflow 入口提醒；`using-spec-first` 是 standalone meta skill，不是 workflow command
 - 修改文件、运行会改变状态的命令、或做架构/prompt/workflow 决策前，先判断是否应进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答
+- 按当前用户意图选择一个最匹配入口；不要默认进入 `spec-brainstorm`，也不要自动串联多个 workflow
+- 如果已经在 spec-first workflow 中或作为 bounded subagent 执行，遵循当前 workflow/父任务范围，不重新入口分流
 - Claude workflow 入口使用 `/spec:*`
 - 不要把 `using-spec-first` 本身当作 command-backed workflow
-- 常见入口锚点：环境/MCP→`/spec:mcp-setup`；graph readiness 编译→`/spec:graph-bootstrap`；更新/runtime 修复→`/spec:update`；bug/失败→`/spec:debug`；代码/文档评审→`/spec:code-review`/`/spec:doc-review`；需求/计划/任务编译/执行→`/spec:brainstorm`/`/spec:plan`/`spec-write-tasks`（standalone skill）/`/spec:work`
+- 常见入口锚点：环境/MCP→`/spec:mcp-setup`；graph readiness 编译→`/spec:graph-bootstrap`；更新/runtime 修复→`/spec:update`；bug/失败→`/spec:debug`；代码/文档评审→`/spec:code-review`/`/spec:doc-review`；需求/计划/任务编译/执行→`/spec:brainstorm`/`/spec:plan`/`spec-write-tasks`（standalone skill）/`/spec:work`；可度量优化→`/spec:optimize`
 - 完整选择策略、优先级和 red flags 由 spec-first 随包的 `using-spec-first` 维护；本 block 只保留启动提醒、host 入口边界和少量锚点
 - 不要直接暴露 internal-only skills：`spec-session-inventory`、`spec-session-extract`
 <!-- spec-first:bootstrap:end -->
@@ -181,7 +183,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **spec-first** (19847 symbols, 22429 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **spec-first** (19845 symbols, 22429 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

@@ -38,7 +38,8 @@ yarn-error.log*
 .agents/
 .context/spec-first/
 
-# CRG runtime directories (old and new paths)
+# Generated spec-first local config and graph readiness artifacts
+# These files are runtime facts; verify presence/schema with setup scripts, not git status.
 .spec-first-graph/
 .spec-first/config.local.yaml
 .spec-first/config/*.json

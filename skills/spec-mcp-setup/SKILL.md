@@ -59,7 +59,7 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 
 Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure.
 
-Serena project language selection is semantic. The default deterministic bootstrap must not hard-code TypeScript/Vue or any other project language; when no `--language` values are passed, Serena's own project creation should infer languages from the target repo. If the agent notices an existing `.serena/project.yml` language mismatch, it should inspect bounded project evidence such as build files, package manifests, and representative source files, decide the intended language set, and run the safe refresh primitive instead of editing `.serena/project.yml` by hand:
+Serena project language selection is semantic. The default deterministic bootstrap must not hard-code TypeScript/Vue or any other project language; when no `--language` values are passed for a first-time bootstrap, Serena's own project creation may infer languages from the target repo. If the agent notices an existing `.serena/project.yml` language mismatch, it should inspect bounded project evidence such as build files, package manifests, and representative source files, decide the intended language set, and run the safe refresh primitive instead of editing `.serena/project.yml` by hand:
 
 ```bash
 bash skills/spec-mcp-setup/scripts/activate-serena.sh --refresh --language kotlin --language java
@@ -71,10 +71,26 @@ Windows:
 pwsh -File skills/spec-mcp-setup/scripts/activate-serena.ps1 -Refresh -Language kotlin,java
 ```
 
-If language evidence is weak, omit explicit language flags and let Serena infer:
+Refresh is intentionally non-interactive. If `--refresh` / `-Refresh` is used without explicit language values, the script may only reuse languages from the existing `.serena/project.yml`; when no existing languages are available, it must fail with a clear diagnostic and ask the agent to pass explicit languages. Do not use refresh-without-language as a way to ask Serena to re-decide a mismatched project.
+
+When the LLM supplies multiple languages, the safe refresh primitive should make a deterministic best-effort attempt: try the complete language set first, then retry each supplied language individually. This lets a large Android repo continue with `java` if the `kotlin` language server fails to initialize, without the script inventing a project language.
+
+For full setup, the agent may pass the LLM-selected language set through the installer:
 
 ```bash
-bash skills/spec-mcp-setup/scripts/activate-serena.sh --refresh
+bash skills/spec-mcp-setup/scripts/install-mcp.sh --serena-language kotlin --serena-language java
+```
+
+The installer also accepts a comma-separated form:
+
+```bash
+bash skills/spec-mcp-setup/scripts/install-mcp.sh --serena-languages kotlin,java
+```
+
+Windows:
+
+```powershell
+pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1 -SerenaLanguage kotlin,java
 ```
 
 It must not run:

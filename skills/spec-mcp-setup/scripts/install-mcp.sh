@@ -1,6 +1,6 @@
 #!/bin/bash
 # install-mcp.sh - Unix installer pipeline for Required Harness Runtime MCP servers
-# Usage: install-mcp.sh [--only <tool-ids>]
+# Usage: install-mcp.sh [--only <tool-ids>] [--serena-language <language>]... [--serena-languages <comma-list>]
 
 set -euo pipefail
 
@@ -18,10 +18,32 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CONFIG_DIR="$(dirname "$CONFIG_PATH")"
 
 ONLY_FILTER=""
+SERENA_LANGUAGES_TEXT=""
+append_serena_language_values() {
+  local raw="$1"
+  local language
+  IFS=',' read -ra language_values <<< "$raw"
+  for language in ${language_values[@]+"${language_values[@]}"}; do
+    language="$(printf '%s' "$language" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [ -n "$language" ] || continue
+    SERENA_LANGUAGES_TEXT="${SERENA_LANGUAGES_TEXT}${language}"$'\n'
+  done
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --only)
       ONLY_FILTER="${2:-}"
+      shift 2
+      ;;
+    --serena-language)
+      [ -n "${2:-}" ] || { echo "install-mcp.sh: --serena-language requires a value" >&2; exit 1; }
+      append_serena_language_values "$2"
+      shift 2
+      ;;
+    --serena-languages)
+      [ -n "${2:-}" ] || { echo "install-mcp.sh: --serena-languages requires a value" >&2; exit 1; }
+      append_serena_language_values "$2"
       shift 2
       ;;
     *)
@@ -214,7 +236,12 @@ EOF
   fi
 
   if [ "$tool_id" = "serena" ] && [ "$status" = "ready" ]; then
-    if ! run_and_capture bash "$SCRIPT_DIR/activate-serena.sh"; then
+    serena_activate_args=()
+    while IFS= read -r language; do
+      [ -n "$language" ] || continue
+      serena_activate_args+=("--language" "$language")
+    done <<<"$SERENA_LANGUAGES_TEXT"
+    if ! run_and_capture bash "$SCRIPT_DIR/activate-serena.sh" ${serena_activate_args[@]+"${serena_activate_args[@]}"}; then
       status="partial"
       last_action="failed"
       reason_code="serena_bootstrap_failed"

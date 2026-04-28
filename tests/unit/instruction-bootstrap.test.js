@@ -39,7 +39,11 @@ describe('instruction bootstrap', () => {
     expect(twice).toContain('Claude workflow 入口使用 `/spec:*`');
     expect(twice).toContain('本 block 是 spec-first workflow 入口提醒');
     expect(twice).toContain('`using-spec-first` 是 standalone meta skill，不是 workflow command');
+    expect(twice).toContain('不要默认进入 `spec-brainstorm`');
+    expect(twice).toContain('不要自动串联多个 workflow');
+    expect(twice).toContain('bounded subagent');
     expect(twice).toContain('常见入口锚点：环境/MCP');
+    expect(twice).toContain('可度量优化→`/spec:optimize`');
     expect(twice).toContain('完整选择策略、优先级和 red flags 由 spec-first 随包的 `using-spec-first` 维护');
     expect(twice).toContain('不要直接暴露 internal-only skills');
     expect(twice).not.toContain('internal-only skills：`using-spec-first`');
@@ -60,6 +64,7 @@ describe('instruction bootstrap', () => {
     expect(updated).toContain('## Existing Notes');
     expect(updated).toContain('Codex workflow entrypoints use `$spec-*`');
     expect(updated).toContain('Common entry anchors: environment/MCP');
+    expect(updated).toContain('measurable optimization→`$spec-optimize`');
     expect(updated).toContain('priority rules, and red flags');
     expect(updated).not.toContain('Claude workflow 入口使用 `/spec:*`');
   });

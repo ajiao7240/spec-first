@@ -30,8 +30,15 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('name: using-spec-first');
     expect(skill).toContain('standalone meta skill and entry governor');
     expect(skill).toContain('not a command-backed workflow');
+    expect(skill).toContain('Source Of Truth And Runtime Surface');
+    expect(skill).toContain('The managed bootstrap blocks in `CLAUDE.md` and `AGENTS.md` are intentionally thin startup reminders');
+    expect(skill).toContain('If You Are Already In A Workflow');
     expect(skill).toContain('If You Are A Subagent');
+    expect(skill).toContain('Decision Output Contract');
     expect(skill).toContain('substantial work');
+    expect(skill).toContain('Spec-First Self-Work');
+    expect(skill).toContain('host instruction blocks');
+    expect(skill).toContain('Do not modify generated `.claude/`, `.codex/`, or `.agents/skills/` mirrors');
     expect(skill).toContain('environment setup, host setup, MCP setup, missing tools, or host readiness');
     expect(skill).toContain('project-local setup');
     expect(skill).toContain('/spec:' + 'graph' + '-bootstrap');
@@ -42,8 +49,10 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('workflow-first');
     expect(skill).toContain('Routing Priority');
     expect(skill).toContain('Explicit user route');
+    expect(skill).toContain('Optimization routes');
     expect(skill).toContain('Routing Red Flags');
     expect(skill).toContain('Do not chain multiple workflows automatically');
+    expect(skill).toContain('Do not route by keyword alone');
     expect(skill).toContain('It does **not** exist to force every task through brainstorming.');
     expect(skill).toContain('Do **not** make `spec-brainstorm` the universal default front door.');
     expect(skill).toContain('Do **not** adopt the `using-superpowers` rule');

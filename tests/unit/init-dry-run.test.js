@@ -139,6 +139,8 @@ describe('init --dry-run', () => {
       }
 
       const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
+      expect(claudeInstruction).toContain('不要默认进入 `spec-brainstorm`');
+      expect(claudeInstruction).toContain('/spec:optimize');
       expect(claudeInstruction).toContain('<!-- spec-first:runtime-tools:start -->');
       expect(claudeInstruction).toContain('.claude/skills/spec-mcp-setup/references/supported-mcp-tools.md');
       expect(claudeInstruction).toContain('/spec:graph-bootstrap');
@@ -157,6 +159,8 @@ describe('init --dry-run', () => {
       expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
 
       const codexInstruction = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
+      expect(codexInstruction).toContain('不要默认进入 `spec-brainstorm`');
+      expect(codexInstruction).toContain('$spec-optimize');
       expect(codexInstruction).toContain('<!-- spec-first:runtime-tools:start -->');
       expect(codexInstruction).toContain('.agents/skills/spec-mcp-setup/references/supported-mcp-tools.md');
       expect(codexInstruction).toContain('$spec-graph-bootstrap');
