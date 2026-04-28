@@ -7,17 +7,17 @@ disable-model-invocation: true
 
 CRITICAL: You MUST execute every step below IN ORDER. Do NOT skip any required step. Do NOT jump ahead to coding or implementation. The plan phase (step 1) MUST be completed and verified BEFORE any work begins. Violating this order produces bad output.
 
-When invoking any skill referenced below, resolve its name against the available-skills list the host platform provides and use that exact entry. Some platforms list skills under a plugin namespace (e.g., `spec-first:spec-plan`); others list the bare name. Invoking a short-form guess that isn't in the list will fail — always match a listed entry verbatim before calling the Skill/Task tool.
+When executing any workflow referenced below, resolve its name against the available workflow/skill list the host platform provides and use that exact entry. Some platforms list workflows under a plugin namespace (e.g., `spec-first:spec-plan`); others list the bare name. Do not dispatch `spec-*` workflows through Agent/Task/subagent primitives — those primitives are only for installed `agents/*.agent.md` agent types.
 
-1. Invoke the `spec-plan` skill with `$ARGUMENTS`.
+1. Execute the `spec-plan` workflow with `$ARGUMENTS`.
 
-   GATE: STOP. If spec-plan reported the task is non-software and cannot be processed in pipeline mode, stop the pipeline and inform the user that LFG requires software tasks. Otherwise, verify that the `spec-plan` workflow produced a plan file in `docs/plans/`. If no plan file was created, invoke `spec-plan` again with `$ARGUMENTS`. Do NOT proceed to step 2 until a written plan exists. **Record the plan file path** — it will be passed to spec-code-review in step 3.
+   GATE: STOP. If spec-plan reported the task is non-software and cannot be processed in pipeline mode, stop the pipeline and inform the user that LFG requires software tasks. Otherwise, verify that the `spec-plan` workflow produced a plan file in `docs/plans/`. If no plan file was created, execute `spec-plan` again with `$ARGUMENTS`. Do NOT proceed to step 2 until a written plan exists. **Record the plan file path** — it will be passed to spec-code-review in step 3.
 
-2. Invoke the `spec-work` skill.
+2. Execute the `spec-work` workflow.
 
    GATE: STOP. Verify that implementation work was performed - files were created or modified beyond the plan. Do NOT proceed to step 3 if no code changes were made.
 
-3. Invoke the `spec-code-review` skill with `mode:autofix plan:<plan-path-from-step-1>`.
+3. Execute the `spec-code-review` workflow with `mode:autofix plan:<plan-path-from-step-1>`.
 
    Pass the plan file path from step 1 so spec-code-review can verify requirements completeness. Read the Residual Actionable Work summary the skill emits.
 
@@ -51,9 +51,9 @@ When invoking any skill referenced below, resolve its name against the available
 
    Never block DONE on tracker filing failures once residuals have been durably recorded. A `no_sink` outcome is success only when the findings are present in the PR body or in the pushed fallback file.
 
-6. Invoke the `test-browser` skill with `mode:pipeline`.
+6. Execute the `test-browser` skill with `mode:pipeline`.
 
-7. Invoke the `git-commit-push-pr` skill.
+7. Execute the `git-commit-push-pr` skill.
 
    This commits any remaining changes, pushes the branch, and opens a pull request. If step 5 already opened a PR (check with `gh pr view --json number,url,state 2>/dev/null`), skip PR creation but still commit and push any uncommitted changes.
 

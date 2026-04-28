@@ -180,7 +180,7 @@ If the Proof handoff fails, the §6.5 Proof Failure Ladder governs recovery.
 
 - Write or update the durable record per the mode default in Phase 5 (file in repo mode, Proof in elsewhere mode). When this routes through §5.2 Proof Save, apply §5.2's caller-aware return rule: continue into the next bullet on a successful Proof return instead of bouncing back to the Phase 6 menu. If Proof returned `aborted` (no durable record written), go back to the Phase 6 menu and do **not** proceed with the brainstorm handoff.
 - Mark the chosen idea as `Explored` in the saved record
-- Load the `spec-brainstorm` skill with the chosen idea as the seed
+- Execute the `spec-brainstorm` workflow with the chosen idea as the seed
 
 **Repo mode only:** do **not** skip brainstorming and go straight to `spec-plan` from ideation output — `spec-plan` wants brainstorm-grounded requirements. In elsewhere modes, ideation (or ideation + Proof iteration) is a legitimate terminal state; brainstorming is optional deeper development of one idea, not a required next rung on an implementation ladder that does not exist in these modes.
 

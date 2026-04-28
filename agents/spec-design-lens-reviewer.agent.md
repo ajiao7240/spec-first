@@ -1,6 +1,6 @@
 ---
 name: spec-design-lens-reviewer
-description: "Reviews planning documents for missing design decisions -- information architecture, interaction states, user flows, and AI slop risk. Uses dimensional rating to identify gaps. Spawned by the spec-doc-review skill."
+description: "Reviews planning documents for missing design decisions -- information architecture, interaction states, user flows, and AI slop risk. Uses dimensional rating to identify gaps. Spawned by the spec-doc-review workflow."
 model: sonnet
 tools: Read, Grep, Glob, Bash
 ---

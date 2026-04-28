@@ -1,6 +1,6 @@
 ---
 name: spec-scope-guardian-reviewer
-description: "Reviews planning documents for scope alignment and unjustified complexity -- challenges unnecessary abstractions, premature frameworks, and scope that exceeds stated goals. Spawned by the spec-doc-review skill."
+description: "Reviews planning documents for scope alignment and unjustified complexity -- challenges unnecessary abstractions, premature frameworks, and scope that exceeds stated goals. Spawned by the spec-doc-review workflow."
 model: sonnet
 tools: Read, Grep, Glob, Bash
 ---

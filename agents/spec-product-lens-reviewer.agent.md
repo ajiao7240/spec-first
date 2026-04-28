@@ -1,6 +1,6 @@
 ---
 name: spec-product-lens-reviewer
-description: "Reviews planning documents as a senior product leader -- challenges premise claims, assesses strategic consequences (trajectory, identity, adoption, opportunity cost), and surfaces goal-work misalignment. Domain-agnostic: users may be end users, developers, operators, or any audience. Spawned by the spec-doc-review skill."
+description: "Reviews planning documents as a senior product leader -- challenges premise claims, assesses strategic consequences (trajectory, identity, adoption, opportunity cost), and surfaces goal-work misalignment. Domain-agnostic: users may be end users, developers, operators, or any audience. Spawned by the spec-doc-review workflow."
 model: inherit
 tools: Read, Grep, Glob, Bash
 ---
