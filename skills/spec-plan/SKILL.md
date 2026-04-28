@@ -900,7 +900,7 @@ After document review and final checks, present this menu using the platform's b
 **Question:** "Plan ready at `docs/plans/YYYY-MM-DD-NNN-<type>-<name>-plan.md`. What would you like to do next?"
 
 **Options:**
-1. **Start `/spec:work`** (recommended) - Begin implementing this plan in the current session
+1. **Start work** (recommended) - Begin implementing this plan in the current session using the current host's work entrypoint (`/spec:work` on Claude Code, `$spec-work` on Codex)
 2. **Compile task pack with `spec-write-tasks`** - Use the standalone skill when the plan is large, dependency-heavy, or would benefit from a derived `docs/tasks/*-tasks.md` execution input
 3. **Create Issue** - Create a tracked issue from this plan in your configured issue tracker (GitHub or Linear)
 4. **Open in Proof (web app) — review and comment to iterate with the agent** - Open the doc in Every's Proof editor, iterate with the agent via comments, or copy a link to share with others

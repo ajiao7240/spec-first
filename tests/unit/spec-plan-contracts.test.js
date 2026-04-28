@@ -119,6 +119,7 @@ describe('spec_id planning contract', () => {
 
   test('handoff work entrypoint remains host-specific', () => {
     const text = fs.readFileSync(PLAN_HANDOFF_PATH, 'utf8');
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
 
     expect(text).toContain('current host\'s work entrypoint');
     expect(text).toContain('/spec:work <plan-path>` on Claude Code');
@@ -126,5 +127,8 @@ describe('spec_id planning contract', () => {
     expect(text).toContain('/spec:work <task-pack-path>` on Claude Code');
     expect(text).toContain('$spec-work <task-pack-path>` on Codex');
     expect(text).toContain('`/spec:work` on Claude Code, `$spec-work` on Codex');
+    expect(skill).toContain('**Start work** (recommended)');
+    expect(skill).toContain('current host\'s work entrypoint (`/spec:work` on Claude Code, `$spec-work` on Codex)');
+    expect(skill).not.toContain('**Start `/spec:work`** (recommended)');
   });
 });
