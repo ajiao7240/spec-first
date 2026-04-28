@@ -1,6 +1,24 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-29 00:15:51 leokuang: docs(spec-mcp-setup): 将 Codex delegation effort 模板改为占位示例，并澄清 invalid config 按字段忽略或回退 (user-visible)
+- v1.6.0 2026-04-29 00:10:56 leokuang: docs(agent-native): 将 agent-native architecture 示例中的 dated Claude model id 改为 host 配置别名，避免复制旧模型名 (user-visible)
+- v1.6.0 2026-04-29 00:09:14 leokuang: docs(code-review): 移除 trivial PR 判断中的 Codex 具体模型示例，改为稳定 alias 或继承默认模型 (user-visible)
+- v1.6.0 2026-04-29 00:07:30 leokuang: docs(spec-mcp-setup): 将 Codex delegation 模型配置模板改为占位示例，避免本地 config 引导硬编码具体模型名 (user-visible)
+- v1.6.0 2026-04-29 00:05:16 leokuang: docs(code-review): 移除 Codex mid-tier 硬编码模型示例，要求非 Claude 平台只使用稳定 alias 或继承默认模型 (user-visible)
+- v1.6.0 2026-04-29 00:03:21 leokuang: docs(spec-work): 明确 task-pack 结构字段被 validator 拒绝时执行器必须停止，不在执行端修补 JSON (user-visible)
+- v1.6.0 2026-04-29 00:02:27 leokuang: docs(task-pack): 同步 validator 边界到 task-pack schema，明确 POSIX 路径、wave id 和 parallelizable 类型契约 (user-visible)
+- v1.6.0 2026-04-29 00:00:45 leokuang: test(task-pack): 锁定 task-pack schema 示例不得重复声明 `done_signal`，避免 LLM 复制重复 JSON key
+- v1.6.0 2026-04-28 23:57:36 leokuang: fix(package): 将 `scripts/typecheck-js.js` 纳入发布包，避免 npm script 指向缺失文件
+- v1.6.0 2026-04-28 23:56:28 leokuang: fix(tasks): `validate --repo` 缺少路径值时直接报错，避免静默回退到当前目录 (user-visible)
+- v1.6.0 2026-04-28 23:55:23 leokuang: fix(tasks): `spec-first tasks` 拒绝未知选项，避免 task-pack hash/validate CLI 静默忽略拼写错误 (user-visible)
+- v1.6.0 2026-04-28 23:54:00 leokuang: fix(task-pack): 校验 execution wave id 必须为 string/number，避免对象波次被字符串化后进入任务图 (user-visible)
+- v1.6.0 2026-04-28 23:53:11 leokuang: fix(task-pack): 校验 optional `parallelizable` 字段必须为 boolean，避免任务编排提示字段出现字符串歧义 (user-visible)
+- v1.6.0 2026-04-28 23:51:31 leokuang: fix(task-pack): 将 source_plan frontmatter 收紧为 concrete repo-relative POSIX file path，避免任务包源计划定位跨平台漂移 (user-visible)
+- v1.6.0 2026-04-28 23:50:37 leokuang: fix(task-pack): 收紧 task file path 契约，拒绝反斜杠分隔符以保持跨平台 repo-relative 语义稳定 (user-visible)
+- v1.6.0 2026-04-28 23:48:15 leokuang: fix(package): 发布 doctor 运行时依赖的 verification evidence schema，避免全局安装后验证证据检查缺契约文件 (user-visible)
+- v1.6.0 2026-04-28 23:45:47 leokuang: test(typecheck): 将 typecheck 收口到脚本并覆盖 bin、src 与 scripts 下全部 JS/CJS 文件
+- v1.6.0 2026-04-28 23:44:35 leokuang: fix(init): 拒绝未实现的 `--force` 参数，避免 init 参数面静默接受无效选项 (user-visible)
 - v1.6.0 2026-04-28 23:22:33 leokuang: fix(graph-readiness): 移除 graph-bootstrap 文档和单测中的 GitNexus 版本硬编码，统一从 mcp-tools.json 投影的 configured package 读取 (user-visible)
 - v1.6.0 2026-04-28 23:19:44 leokuang: fix(graph-readiness): 后续 plan/work/code-review 在 graph readiness 降级、陈旧或缺失时优先尝试 live MCP 读图读码，成功仅作为会话证据，失败再回退 bounded direct repo reads (user-visible)
 - v1.6.0 2026-04-28 23:10:00 leokuang: fix(gitnexus): 将 mcp-tools.json 中 gitnexus 版本从 1.6.4-rc.21 降回 1.6.3 stable，修复 lbug::fts_extension::tableFunc SIGSEGV（@ladybugdb/core FTS extension null ptr deref on macOS arm64） (user-visible)

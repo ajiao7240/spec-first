@@ -8,7 +8,7 @@
   },
   "scripts": {
     "lint:skill-entrypoints": "node scripts/lint-skill-entrypoints.js",
-    "typecheck": "node --check bin/spec-first.js && node --check bin/postinstall.js && node --check scripts/lint-skill-entrypoints.js && node --check scripts/run-ai-dev-quality-gate.js",
+    "typecheck": "node scripts/typecheck-js.js",
     "build": "npm pack --dry-run",
     "release:publish": "node scripts/release-publish.cjs",
     "test:mcp-setup": "bash tests/unit/mcp-setup.sh",
@@ -28,6 +28,8 @@
     "bin/",
     "src/",
     "agents/",
+    "docs/contracts/verifiers/",
+    "scripts/typecheck-js.js",
     "skills/",
     "templates/",
     "README.md"

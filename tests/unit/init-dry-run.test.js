@@ -81,6 +81,21 @@ describe('init --dry-run', () => {
     }
   });
 
+  test('init rejects unsupported force flag instead of silently accepting it', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      const result = captureInit(projectRoot, ['--claude', '--force', '--dry-run', '-u', 'reviewer', '--lang', 'zh']);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('Usage: spec-first init');
+      expect(result.stdout).toBe('');
+      expect(snapshotTree(projectRoot)).toEqual([]);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   test('Claude init --dry-run previews prune/write actions without mutating the project', () => {
     const projectRoot = makeTempDir();
 

@@ -8,6 +8,7 @@ const CodexAdapter = require('../../src/cli/adapters/codex');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills/agent-native-architecture/SKILL.md');
+const REFERENCES_DIR = path.join(REPO_ROOT, 'skills/agent-native-architecture/references');
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -61,5 +62,18 @@ describe('agent-native-architecture contracts', () => {
     expect(codexRuntime).toContain('## Architecture Review Checklist');
     expect(claudeRuntime).not.toContain('compound-engineering');
     expect(codexRuntime).not.toContain('compound-engineering');
+  });
+
+  test('reference examples avoid dated provider model ids', () => {
+    const references = fs.readdirSync(REFERENCES_DIR)
+      .filter((entry) => entry.endsWith('.md'))
+      .map((entry) => read(path.join(REFERENCES_DIR, entry)))
+      .join('\n');
+
+    expect(references).not.toMatch(/claude-3-/);
+    expect(references).not.toMatch(/claude-sonnet-4-\d{8}/);
+    expect(references).not.toMatch(/claude-opus-4-\d{8}/);
+    expect(references).toContain('Config.models.fast');
+    expect(references).toContain('Config.models.frontier');
   });
 });

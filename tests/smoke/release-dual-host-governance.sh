@@ -31,6 +31,8 @@ echo "   tarball: $TARBALL_PATH"
 echo "2. 校验 tarball 包含 runtime governance assets..."
 tar -tf "$TARBALL_PATH" | grep -q '^package/src/cli/contracts/dual-host-governance/skills-governance.json$'
 tar -tf "$TARBALL_PATH" | grep -q '^package/src/cli/contracts/dual-host-governance/skills-governance.schema.json$'
+tar -tf "$TARBALL_PATH" | grep -q '^package/docs/contracts/verifiers/verification-evidence.schema.json$'
+tar -tf "$TARBALL_PATH" | grep -q '^package/scripts/typecheck-js.js$'
 if tar -tf "$TARBALL_PATH" | grep -q '^package/docs/contracts/dual-host-governance/skills-governance.json$'; then
   echo "✗ tarball 不应再包含 docs-side skills-governance.json"
   exit 1

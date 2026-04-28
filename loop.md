@@ -1,0 +1,20 @@
+# spec-first 代码质量小步迭代记录
+
+- 第 1 轮：发现 `spec-first init --force` 被解析器接受但没有实现和文档契约，修订为未知参数失败，并补 `init` 单测防止无效 CLI 面再次静默出现。验证目标：`npx jest tests/unit/init-dry-run.test.js --runInBand`。
+- 第 2 轮：发现 `npm run typecheck` 只检查少数入口和脚本，漏掉 `src/cli/**` 主实现。新增 `scripts/typecheck-js.js`，让 typecheck 覆盖 `bin/`、`src/`、`scripts/` 的全部 JS/CJS 文件，并用 package contract 测试锁定覆盖范围。验证目标：`npm run typecheck` 与 `npx jest tests/unit/package-install-contracts.test.js --runInBand`。
+- 第 3 轮：发现 `doctor` 运行时读取 `docs/contracts/verifiers/verification-evidence.schema.json`，但发布包未包含该 docs-side runtime schema。将 `docs/contracts/verifiers/` 纳入 `package.json files`，并在 release smoke 中断言 tarball 包含该 schema。验证目标：`npx jest tests/unit/package-install-contracts.test.js --runInBand` 与 `npm run build`。
+- 第 4 轮：发现 task pack 的 `files` 契约没有显式拒绝反斜杠路径，可能导致 POSIX/Windows 下同一字符串语义不同。收紧 `isConcreteRepoRelativeFile`，要求 task file 使用 POSIX repo-relative separators，并补 validator 单测。验证目标：`npx jest tests/unit/task-pack-command.test.js --runInBand`。
+- 第 5 轮：发现 `source_plan` frontmatter 的路径校验弱于 task `files`，会先尝试解析非 concrete 路径再报告 missing/outside。复用 concrete repo-relative 判断，统一要求 POSIX file path，并更新绝对路径与反斜杠路径测试。验证目标：`npx jest tests/unit/task-pack-command.test.js --runInBand`。
+- 第 6 轮：发现 task pack optional `parallelizable` 字段缺少类型校验，字符串值会进入 deterministic handoff 并给执行策略留下歧义。新增 boolean-only 校验和单测，保持脚本只做边界类型判断、并不替 LLM 决策并行策略。验证目标：`npx jest tests/unit/task-pack-command.test.js --runInBand`。
+- 第 7 轮：发现 `execution_waves[].wave` 没有限制为 string/number，对象会被字符串化后参与波次映射。新增 wave id 类型校验，防止结构错误被转换成看似合法的图节点。验证目标：`npx jest tests/unit/task-pack-command.test.js --runInBand`。
+- 第 8 轮：发现 `spec-first tasks hash/validate` 会静默忽略未知 flags。新增 unknown option 检查，并保持 `--json` 错误输出可解析，避免 handoff 工具因拼写错误继续执行。验证目标：`npx jest tests/unit/task-pack-command.test.js --runInBand`。
+- 第 9 轮：发现 `tasks validate --repo` 缺少路径值时会静默回退到 cwd。将 repo 参数解析改为显式结果对象，缺值返回 `tasks-repo-path-required`，避免用户误以为指定 repo 已生效。验证目标：`npx jest tests/unit/task-pack-command.test.js --runInBand`。
+- 第 10 轮：发现 `package.json` 的 `typecheck` 指向新增脚本，但发布白名单未包含该脚本，导致发布包内 npm script 指向缺失文件。将 `scripts/typecheck-js.js` 纳入发布包，并补 package/release smoke 契约。验证目标：`npx jest tests/unit/package-install-contracts.test.js --runInBand` 与 `npm run build`。
+- 第 11 轮：复核 `task-pack-schema.md` 的 JSON 示例字段唯一性，补 contract 测试锁定示例不得重复声明 `done_signal`，避免 LLM 从 schema 示例复制重复 JSON key。验证目标：`npx jest tests/unit/spec-write-tasks-contracts.test.js --runInBand`。
+- 第 12 轮：发现 validator 已收紧 POSIX path、wave id 和 `parallelizable` 类型，但 schema 文案仍偏宽。更新 `task-pack-schema.md`，让 LLM 生成端和脚本校验端对齐同一轻 contract。验证目标：`npx jest tests/unit/spec-write-tasks-contracts.test.js --runInBand`。
+- 第 13 轮：发现 `spec-work` / `spec-work-beta` 执行端只要求跑 validator，但没明确结构字段错误不可临场修补。补充执行器边界：非 POSIX 路径、非法 wave id、非 boolean `parallelizable` 等 validator 拒绝项是硬 handoff failure，应回到任务包生成。验证目标：`npx jest tests/unit/spec-write-tasks-contracts.test.js --runInBand`。
+- 第 14 轮：发现 `spec-code-review` 在 Codex 上举了具体 mid-tier 模型名示例，容易随模型发布节奏漂移。改为只允许 host-provided stable alias，否则继承默认模型，并补 contract 测试禁止硬编码非 Claude 模型名。验证目标：`npx jest tests/unit/spec-code-review-contracts.test.js --runInBand`。
+- 第 15 轮：发现 `spec-mcp-setup` 的本地配置模板仍用具体 `gpt-5.4` 作为 Codex delegation 模型示例，和执行端“未配置则继承用户 Codex 默认”的轻 contract 相冲突。改为 `<codex-model>` 占位，并补 contract 测试禁止模板重新 pin 具体模型名。验证目标：`npx jest tests/unit/spec-work-beta-contracts.test.js --runInBand`。
+- 第 16 轮：继续复核模型治理，发现 `spec-code-review` 的 trivial PR 预判仍写着 Codex 具体模型示例 `gpt-5.4-nano`。将其改为“非 Claude 平台使用 host-provided cheap stable alias 或省略模型参数”，并补测试禁止该硬编码回归。验证目标：`npx jest tests/unit/spec-code-review-contracts.test.js --runInBand`。
+- 第 17 轮：发现 `agent-native-architecture` 参考文档中的测试与模型分层示例仍写死 dated Claude model id，容易被用户复制为新项目默认配置。改为 `Config.models.*` / 环境变量式 host 配置别名，并补 contract 测试禁止 `claude-3-*` 与 dated Sonnet/Opus id 回流。验证目标：`npx jest tests/unit/agent-native-architecture-contracts.test.js --runInBand`。
+- 第 18 轮：发现 `spec-mcp-setup` 配置模板的 `work_delegate_effort` 仍以 `high` 为示例，且顶部笼统写 invalid values 回退 defaults，容易误读为 spec-first 自带默认 effort。改为 `<effort>` 占位，并澄清 invalid config 按字段忽略或回退。验证目标：`npx jest tests/unit/spec-work-beta-contracts.test.js --runInBand`。

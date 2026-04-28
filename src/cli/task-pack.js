@@ -189,6 +189,7 @@ function isInsidePath(parentPath, childPath) {
 
 function isConcreteRepoRelativeFile(filePath) {
   if (typeof filePath !== 'string' || filePath.trim() === '') return false;
+  if (filePath.includes('\\')) return false;
   if (path.isAbsolute(filePath)) return false;
   if (filePath.includes('...')) return false;
   if (/[*?[\]{}]/.test(filePath)) return false;
@@ -319,9 +320,9 @@ function validateTaskPack(taskPackPath, options = {}) {
   if (!metadata.source_plan) {
     validation.source_plan_path = 'missing';
     addFinding(errors, 'task-pack-source-plan-missing', 'Task pack is missing source_plan.');
-  } else if (path.isAbsolute(metadata.source_plan)) {
+  } else if (!isConcreteRepoRelativeFile(metadata.source_plan)) {
     validation.source_plan_path = 'invalid';
-    addFinding(errors, 'task-pack-source-plan-absolute', 'source_plan must be repo-relative.');
+    addFinding(errors, 'task-pack-source-plan-invalid', 'source_plan must be a concrete repo-relative POSIX file path.');
   } else {
     const sourcePlanPath = path.resolve(repoRoot, metadata.source_plan);
     result.source_plan.path = metadata.source_plan;
@@ -450,6 +451,10 @@ function validateTaskPackContract(contract, repoRoot, errors, limitations) {
       addFinding(errors, 'task-pack-wave-missing-id', 'Execution wave is missing wave id.');
       continue;
     }
+    if (!['string', 'number'].includes(typeof wave.wave)) {
+      addFinding(errors, 'task-pack-wave-id-invalid', 'Execution wave id must be a string or number.', { wave: wave.wave });
+      continue;
+    }
     const waveKey = String(wave.wave);
     if (waveIds.has(waveKey)) {
       addFinding(errors, 'task-pack-wave-duplicate', `Duplicate execution wave '${waveKey}'.`, { wave: wave.wave });
@@ -495,6 +500,13 @@ function validateTaskPackContract(contract, repoRoot, errors, limitations) {
           field,
         });
       }
+    }
+
+    if (task.parallelizable !== undefined && typeof task.parallelizable !== 'boolean') {
+      addFinding(errors, 'task-pack-task-parallelizable-invalid', `Task '${task.task_id || '<unknown>'}' 'parallelizable' must be a boolean when provided.`, {
+        task_id: task.task_id || null,
+        field: 'parallelizable',
+      });
     }
 
     for (const field of REQUIRED_TASK_FIELDS) {

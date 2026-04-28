@@ -35,6 +35,15 @@ function runTasks(argv) {
 function runHash(args) {
   const planPath = getPositionalArgs(args)[0];
   const json = args.includes('--json');
+  const unknown = getUnknownArgs(args, new Set(['--json']));
+
+  if (unknown.length > 0) {
+    return writeCliError({
+      json,
+      code: 'tasks-unknown-option',
+      message: `unknown option: ${unknown[0]}`,
+    });
+  }
 
   if (!planPath) {
     if (json) {
@@ -79,7 +88,24 @@ function runHash(args) {
 function runValidate(args) {
   const taskPackPath = getPositionalArgs(args)[0];
   const json = args.includes('--json');
-  const repoRoot = resolveRepoArg(args);
+  const repoArg = resolveRepoArg(args);
+  const unknown = getUnknownArgs(args, new Set(['--json', '--repo']));
+
+  if (unknown.length > 0) {
+    return writeCliError({
+      json,
+      code: 'tasks-unknown-option',
+      message: `unknown option: ${unknown[0]}`,
+    });
+  }
+
+  if (repoArg.error) {
+    return writeCliError({
+      json,
+      code: repoArg.error.code,
+      message: repoArg.error.message,
+    });
+  }
 
   if (!taskPackPath) {
     if (json) {
@@ -90,7 +116,7 @@ function runValidate(args) {
     return 1;
   }
 
-  const result = validateTaskPack(path.resolve(taskPackPath), { repoRoot });
+  const result = validateTaskPack(path.resolve(taskPackPath), { repoRoot: repoArg.repoRoot });
 
   if (json) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -120,16 +146,36 @@ function getPositionalArgs(args) {
   return positionals;
 }
 
+function getUnknownArgs(args, allowedFlags) {
+  const unknown = [];
+  for (const arg of args) {
+    if (!arg.startsWith('-')) continue;
+    if (allowedFlags.has(arg)) continue;
+    const [flag] = arg.split('=');
+    if (allowedFlags.has(flag)) continue;
+    unknown.push(arg);
+  }
+  return unknown;
+}
+
 function resolveRepoArg(args) {
   const equalsArg = args.find((arg) => arg.startsWith('--repo='));
-  if (equalsArg) return path.resolve(equalsArg.slice('--repo='.length));
-
-  const repoFlagIndex = args.indexOf('--repo');
-  if (repoFlagIndex !== -1 && args[repoFlagIndex + 1] && !args[repoFlagIndex + 1].startsWith('-')) {
-    return path.resolve(args[repoFlagIndex + 1]);
+  if (equalsArg) {
+    const value = equalsArg.slice('--repo='.length);
+    return value
+      ? { repoRoot: path.resolve(value), error: null }
+      : { repoRoot: null, error: { code: 'tasks-repo-path-required', message: 'repo path is required after --repo' } };
   }
 
-  return process.cwd();
+  const repoFlagIndex = args.indexOf('--repo');
+  if (repoFlagIndex !== -1) {
+    const value = args[repoFlagIndex + 1];
+    return value && !value.startsWith('-')
+      ? { repoRoot: path.resolve(value), error: null }
+      : { repoRoot: null, error: { code: 'tasks-repo-path-required', message: 'repo path is required after --repo' } };
+  }
+
+  return { repoRoot: process.cwd(), error: null };
 }
 
 function printTasksHelp(withErrorPrefix = false) {
@@ -161,6 +207,15 @@ function writeJsonError(code, message) {
       message,
     },
   }, null, 2)}\n`);
+}
+
+function writeCliError({ json, code, message }) {
+  if (json) {
+    writeJsonError(code, message);
+  } else {
+    console.error(`error: ${message}`);
+  }
+  return 1;
 }
 
 module.exports = {

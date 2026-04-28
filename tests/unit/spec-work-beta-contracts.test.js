@@ -4,6 +4,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-work-beta', 'SKILL.md');
+const CONFIG_TEMPLATE_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-mcp-setup',
+  'references',
+  'config-template.yaml',
+);
 const DELEGATION_REFERENCE_PATH = path.join(
   __dirname,
   '..',
@@ -90,5 +99,16 @@ describe('spec-work-beta Codex delegation config contract', () => {
     expect(reference).toContain('If `delegate_effort` is set');
     expect(reference).toContain('Do not substitute a placeholder string for unset values.');
     expect(reference).not.toContain('  -m "<delegate_model>" \\\n  -c \'model_reasoning_effort="<delegate_effort>"\'');
+  });
+
+  test('local config template does not pin a specific Codex delegate model', () => {
+    const template = fs.readFileSync(CONFIG_TEMPLATE_PATH, 'utf8');
+
+    expect(template).toContain('# work_delegate_model: <codex-model>');
+    expect(template).toContain('# work_delegate_effort: <effort>');
+    expect(template).toContain('Invalid values are ignored or fall back per setting.');
+    expect(template).toContain('omit to use ~/.codex/config.toml default');
+    expect(template).not.toContain('work_delegate_model: gpt-5.4');
+    expect(template).not.toContain('work_delegate_effort: high');
   });
 });

@@ -119,6 +119,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
      - confirm `source_plan_hash` is a concrete canonical source plan body `sha256:<64-hex>` hash, not `pending-tooling`, `unknown`, empty, or a draft marker
      - compare the task pack hash against the current source plan using `spec-first tasks validate <task-pack-path> --json`; if that tooling is unavailable, treat the task pack as unverifiable and stop
      - confirm the validator accepted the `Task Pack Contract` JSON block; do not infer executable task structure from free-form Markdown task cards
+     - treat validator-rejected structure fields as hard handoff failures, including non-POSIX repo-relative paths, invalid wave ids, and non-boolean `parallelizable`; do not repair task-pack JSON in the executor
      - reject draft, transient, missing-source, missing-spec-id, spec-id-mismatch, missing-hash, unavailable-hash-tooling, unverifiable-hash, or hash-mismatch task packs before implementation
      - when rejecting, stop and ask to rerun `spec-write-tasks` from the source plan or return to `spec-plan`; do not silently fall back to executing stale task cards
      - during execution, honor each task's `stop_if`; if triggered, stop and return to `spec-plan` or regenerate the task pack instead of expanding scope in place

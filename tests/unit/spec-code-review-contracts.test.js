@@ -117,4 +117,14 @@ describe('spec-code-review CE sync contracts', () => {
     expect(bulkPreview).toContain('Options (exactly two for routing option C)');
     expect(bulkPreview).not.toContain('in all three cases');
   });
+
+  test('model tiering avoids hard-coded non-Claude model names', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('use only a host-provided stable alias or omit the model parameter');
+    expect(text).toContain('do not invent a model name from memory');
+    expect(text).toContain('on other platforms use a host-provided cheap stable alias or omit the model parameter');
+    expect(text).not.toContain('gpt-5.4-mini');
+    expect(text).not.toContain('gpt-5.4-nano');
+  });
 });

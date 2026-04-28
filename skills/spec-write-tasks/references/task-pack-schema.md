@@ -37,7 +37,7 @@ source_sections:
 | `status` | Executable handoff must be `derived`; unverified drafts must use `draft` |
 | `date` | Generation date |
 | `spec_id` | Spec-chain identity copied from the source plan; executable handoff requires it |
-| `source_plan` | Repo-relative path to the single source plan |
+| `source_plan` | Concrete repo-relative POSIX file path to the single source plan |
 | `source_plan_hash` | Canonical source plan body hash; executable handoff must use `sha256:<64-hex>` |
 | `generated_by` | Must be `spec-write-tasks` |
 | `mode` | Executable handoff must be `derived`; transient slices are not stable `spec-work` input |
@@ -111,6 +111,7 @@ Task Graph explains:
 
 A wave is an execution grouping, not a state machine.
 
+- Wave ids must be strings or numbers.
 - Same-wave tasks should avoid shared files.
 - If files overlap, serialize the tasks or mark the overlap explicitly.
 - Hidden dependencies must not be hidden behind wave labels.
@@ -158,12 +159,12 @@ Every task card must include these fields:
 | `requirement_refs` | Related Requirements Trace / acceptance refs |
 | `goal` | Task goal |
 | `dependencies` | Prerequisite task IDs |
-| `files` | Allowed file list |
+| `files` | Concrete repo-relative POSIX file paths; no globs, directories, `..`, `...`, or backslash separators |
 | `context_refs` | Plan sections, code patterns, contracts, research, or references the executor must read |
 | `entry_hint` | Suggested place to begin reading; not implementation steps |
 | `test_focus` | Primary verification focus |
 | `done_signal` | Observable completion signal |
-| `parallelizable` | Whether the task can run in parallel |
+| `parallelizable` | Boolean hint for whether the task can run in parallel |
 | `risk_note` | Main risk |
 | `stop_if` | Condition that should send execution back to the plan or user confirmation |
 | `wave` | Execution wave |

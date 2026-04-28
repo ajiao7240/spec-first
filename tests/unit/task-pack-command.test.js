@@ -193,7 +193,26 @@ describe('task pack hash and validation', () => {
 
       expect(result.deterministic_handoff).toBe(false);
       expect(result.validation.source_plan_path).toBe('invalid');
-      expect(result.errors.map((error) => error.code)).toContain('task-pack-source-plan-absolute');
+      expect(result.errors.map((error) => error.code)).toContain('task-pack-source-plan-invalid');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('source plan path must be concrete repo-relative POSIX path', () => {
+    const tmp = copyFixtureProject();
+    try {
+      const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
+      fs.writeFileSync(taskPackPath, fs.readFileSync(taskPackPath, 'utf8').replace(
+        'source_plan: tests/fixtures/spec-write-tasks/valid/source-plan.md',
+        'source_plan: docs\\plans\\source-plan.md'
+      ));
+
+      const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
+
+      expect(result.deterministic_handoff).toBe(false);
+      expect(result.validation.source_plan_path).toBe('invalid');
+      expect(result.errors.map((error) => error.code)).toContain('task-pack-source-plan-invalid');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -212,7 +231,7 @@ describe('task pack hash and validation', () => {
 
       expect(result.deterministic_handoff).toBe(false);
       expect(result.validation.source_plan_path).toBe('invalid');
-      expect(result.errors.map((error) => error.code)).toContain('task-pack-source-plan-outside-repo');
+      expect(result.errors.map((error) => error.code)).toContain('task-pack-source-plan-invalid');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -286,6 +305,23 @@ describe('task pack hash and validation', () => {
 
       expect(result.deterministic_handoff).toBe(false);
       expect(result.errors.map((error) => error.code)).toContain('task-pack-same-wave-file-overlap');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('task file paths must use repo-relative POSIX separators', () => {
+    const tmp = copyFixtureProject();
+    try {
+      const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
+      replaceTaskPackContract(taskPackPath, (contract) => {
+        contract.tasks[0].files = ['src\\cli\\task-pack.js'];
+      });
+
+      const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
+
+      expect(result.deterministic_handoff).toBe(false);
+      expect(result.errors.map((error) => error.code)).toContain('task-pack-task-file-not-concrete');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -394,6 +430,23 @@ describe('task pack hash and validation', () => {
     }
   });
 
+  test('parallelizable must be boolean when provided', () => {
+    const tmp = copyFixtureProject();
+    try {
+      const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
+      replaceTaskPackContract(taskPackPath, (contract) => {
+        contract.tasks[0].parallelizable = 'yes';
+      });
+
+      const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
+
+      expect(result.deterministic_handoff).toBe(false);
+      expect(result.errors.map((error) => error.code)).toContain('task-pack-task-parallelizable-invalid');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
   test('task cannot be listed in multiple execution waves', () => {
     const tmp = copyFixtureProject();
     try {
@@ -407,6 +460,23 @@ describe('task pack hash and validation', () => {
       expect(result.deterministic_handoff).toBe(false);
       expect(result.errors.map((error) => error.code)).toContain('task-pack-wave-task-multiple-waves');
       expect(result.errors.map((error) => error.code)).toContain('task-pack-task-wave-list-mismatch');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('execution wave id must be string or number', () => {
+    const tmp = copyFixtureProject();
+    try {
+      const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
+      replaceTaskPackContract(taskPackPath, (contract) => {
+        contract.execution_waves[0].wave = { id: 1 };
+      });
+
+      const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
+
+      expect(result.deterministic_handoff).toBe(false);
+      expect(result.errors.map((error) => error.code)).toContain('task-pack-wave-id-invalid');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -453,5 +523,37 @@ describe('tasks CLI', () => {
 
     expect(code).toBe(1);
     expect(JSON.parse(stdout).error.code).toBe('tasks-subcommand-unknown');
+  });
+
+  test('unknown subcommand options are rejected instead of ignored', () => {
+    const hashResult = captureStdout(() => runTasks(['hash', '--bogus', VALID_PLAN, '--json']));
+    const validateResult = captureStdout(() => runTasks(['validate', VALID_TASK_PACK, '--bogus', `--repo=${REPO_ROOT}`, '--json']));
+
+    expect(hashResult.code).toBe(1);
+    expect(JSON.parse(hashResult.stdout).error).toEqual({
+      code: 'tasks-unknown-option',
+      message: 'unknown option: --bogus',
+    });
+    expect(validateResult.code).toBe(1);
+    expect(JSON.parse(validateResult.stdout).error).toEqual({
+      code: 'tasks-unknown-option',
+      message: 'unknown option: --bogus',
+    });
+  });
+
+  test('validate rejects repo flag without a value', () => {
+    const separateFlag = captureStdout(() => runTasks(['validate', VALID_TASK_PACK, '--repo', '--json']));
+    const equalsFlag = captureStdout(() => runTasks(['validate', VALID_TASK_PACK, '--repo=', '--json']));
+
+    expect(separateFlag.code).toBe(1);
+    expect(JSON.parse(separateFlag.stdout).error).toEqual({
+      code: 'tasks-repo-path-required',
+      message: 'repo path is required after --repo',
+    });
+    expect(equalsFlag.code).toBe(1);
+    expect(JSON.parse(equalsFlag.stdout).error).toEqual({
+      code: 'tasks-repo-path-required',
+      message: 'repo path is required after --repo',
+    });
   });
 });

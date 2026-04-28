@@ -69,10 +69,12 @@ describe('spec-write-tasks contracts', () => {
 
     expect(schema).toContain('spec_id: "YYYY-MM-DD-NNN-<slug>"');
     expect(schema).toContain('source_plan_hash: "sha256:<64-hex>"');
+    expect(schema).toContain('Concrete repo-relative POSIX file path to the single source plan');
     expect(schema).toContain('`spec_id` and `source_plan_hash` have separate jobs');
     expect(schema).toContain('canonical source plan body hashing');
     expect(schema).toContain('Task Pack Contract');
     expect(schema).toContain('only machine-readable task-card source for validators');
+    expect(schema).not.toContain('"done_signal": "Validator tests pass.",\n      "done_signal": "Validator tests pass.",');
     expect(schema).toContain('Orientation Evidence');
     expect(schema).toContain('provider');
     expect(schema).toContain('`direct-repo-reads`, `serena-lsp`, `mixed`, or `skipped`');
@@ -86,6 +88,9 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain('Traceability Matrix');
     expect(schema).toContain('Every task card must include these fields');
     expect(schema).toContain('MVP required task fields');
+    expect(schema).toContain('Wave ids must be strings or numbers.');
+    expect(schema).toContain('Concrete repo-relative POSIX file paths; no globs, directories, `..`, `...`, or backslash separators');
+    expect(schema).toContain('Boolean hint for whether the task can run in parallel');
     expect(schema).toContain('`stop_if`');
     expect(schema).toContain('Optional Task Fields');
     expect(schema).toContain('| `test_focus` | Primary verification focus |');
@@ -127,6 +132,8 @@ describe('spec-write-tasks contracts', () => {
       expect(skill).toContain('spec-first tasks validate <task-pack-path> --json');
       expect(skill).toContain('Task Pack Contract');
       expect(skill).toContain('if that tooling is unavailable, treat the task pack as unverifiable and stop');
+      expect(skill).toContain('non-POSIX repo-relative paths, invalid wave ids, and non-boolean `parallelizable`');
+      expect(skill).toContain('do not repair task-pack JSON in the executor');
       expect(skill).toContain('reject draft, transient, missing-source, missing-spec-id, spec-id-mismatch, missing-hash, unavailable-hash-tooling, unverifiable-hash, or hash-mismatch task packs before implementation');
       expect(skill).toContain('do not silently fall back to executing stale task cards');
       expect(skill).toContain("honor each task's `stop_if`");

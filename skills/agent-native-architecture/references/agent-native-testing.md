@@ -484,7 +484,7 @@ Agent tests cost API tokens. Strategies to manage:
 ```typescript
 // Use smaller models for basic tests
 const testConfig = {
-  model: process.env.CI ? "claude-3-haiku" : "claude-3-opus",
+  model: process.env.CI ? process.env.FAST_MODEL : process.env.FRONTIER_MODEL,
   maxTokens: 500,  // Limit output length
 };
 
@@ -515,7 +515,7 @@ class AgentTestHarness {
     this.mockServices = createMockServices();
     this.agent = await createAgent({
       services: this.mockServices,
-      model: "claude-3-haiku",  // Cheaper for tests
+      model: process.env.FAST_MODEL,  // Cheaper configured model for tests
     });
   }
 
