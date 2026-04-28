@@ -16,8 +16,13 @@ Captures problem solutions while context is fresh, creating structured documenta
 ## Usage
 
 ```bash
+# Claude Code
 /spec:compound                    # Document the most recent fix
 /spec:compound [brief context]    # Provide additional context hint
+
+# Codex
+$spec-compound                    # Document the most recent fix
+$spec-compound [brief context]    # Provide additional context hint
 ```
 
 ## Pre-resolved context
@@ -369,7 +374,7 @@ a brief mention helps all agents discover these learnings.
 
 Note: This was created in lightweight mode. For richer documentation
 (cross-references, detailed prevention strategies, specialized reviews),
-re-run /spec:compound in a fresh session.
+re-run the current host's compound entrypoint (`/spec:compound` on Claude Code, `$spec-compound` on Codex) in a fresh session.
 ```
 
 **No subagents are launched. No parallel tasks. One file written.**
@@ -509,7 +514,7 @@ Build → Test → Find Issue → Research → Improve → Document → Validate
 
 <auto_invoke> <trigger_phrases> - "that worked" - "it's fixed" - "working now" - "problem solved" </trigger_phrases>
 
-<manual_override> Use /spec:compound [context] to document immediately without waiting for auto-detection. </manual_override> </auto_invoke>
+<manual_override> Use the current host's compound entrypoint (`/spec:compound [context]` on Claude Code, `$spec-compound [context]` on Codex) to document immediately without waiting for auto-detection. </manual_override> </auto_invoke>
 
 ## Output
 
@@ -542,4 +547,4 @@ Based on problem type, these agents can enhance documentation:
 ## Related Commands
 
 - Research skills - Deep investigation (searches docs/solutions/ for patterns)
-- `/spec:plan` - Planning workflow (references documented solutions)
+- Current host's plan entrypoint (`/spec:plan` on Claude Code, `$spec-plan` on Codex) - Planning workflow (references documented solutions)
