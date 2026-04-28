@@ -55,17 +55,20 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(combined).not.toContain(parserDep);
     expect(combined).toContain(providerKey);
     expect(verifySource).toContain("schema_version = 'v2'");
-    expect(verifySource).toContain('Required Harness Runtime status:');
+    expect(verifySource).toContain('Required Harness Runtime status (grouped):');
     expect(verifySource).toContain('graph-providers.json');
     expect(verifySource).toContain('runtime-capabilities.json');
     expect(verifySource).toContain('provider-artifacts.json');
     expect(verifySource).toContain('host_ledger_pointer');
     expect(verifySource).toContain('Graph providers are query-ready.');
     expect(verifySource).toContain('if ($combined.graph_bootstrap_required)');
-    expect(verifySource.indexOf('Required Harness Runtime status:')).toBeLessThan(
+    expect(verifySource.indexOf('Required Harness Runtime status (grouped):')).toBeLessThan(
       verifySource.indexOf("Write-Host '下一步:'"),
     );
-    expect(verifySource).toContain('| Name | Remark | Type | Required | Dependency | Host | Project | Query | Next |');
+    expect(verifySource).toContain('| Name | Role | Dependency | Host | Project | Next |');
+    expect(verifySource).toContain('| Name | Role | Dependency | Host | Query | Next |');
+    expect(verifySource).toContain('| Name | Type | Result | Dependency | Install | Skill | Next |');
+    expect(verifySource).toContain('| Artifact | Project | Next |');
     expect(verifySource).toContain('Format-Remark');
     expect(verifySource).toContain('回复“继续完成”');
     expect(verifySource).toContain('建议先重启 $hostDisplay');

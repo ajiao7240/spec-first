@@ -44,7 +44,7 @@ verify-tools.*
   |-- compute baseline_ready once
   |-- write readiness ledger schema_version=v2
   |-- preserve query_ready=true when repeated setup sees ready providers
-  |-- print final Markdown status table
+  |-- print final grouped Markdown status tables
   |-- print friendly next steps:
   |     restart Claude Code/Codex or start a new session by default
   |     then run graph bootstrap

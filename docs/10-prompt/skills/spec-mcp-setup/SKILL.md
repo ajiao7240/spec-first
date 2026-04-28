@@ -17,7 +17,7 @@
 - `install-helpers.* --verify-only` 只读检查 helper facts；`agent-browser install` 的完成状态以 `$HOME/.agent-browser/spec-first-install.json` 为 marker。
 - `detect-tools.*` 只输出 tool facts，不输出 `baseline_ready`，不输出顶层 `crg`。
 - `verify-tools.*` 合并 tool facts 与 helper facts，统一写 readiness ledger v2。
-- 安装/验证完成后的 assistant 最终回复必须复述 readiness ledger v2 派生的完整 Markdown 状态表，并在表格下面追加简短友好的下一步提示；不要只依赖命令输出里出现过表格，避免最终结论丢失完整表格。
+- 安装/验证完成后的 assistant 最终回复必须复述 readiness ledger v2 派生的完整 Markdown 状态，并在表格下面追加简短友好的下一步提示；优先使用分组窄表（MCP servers / Graph providers / Helper tools / Project setup facts），不要用单个 9 列宽表挤压 Codex 输出区域；不要只依赖命令输出里出现过表格，避免最终结论丢失完整状态。
 - 如果 graph providers 仍是 `query_ready=false`，不要说 setup 已完全完成；要明确提示可运行 `/spec:graph-bootstrap` / `$spec-graph-bootstrap`，或回复“继续完成”让 agent 继续执行。
 - 同时提示用户：默认安全路径是先重启 Claude Code/Codex 或新开会话，让新写入的 MCP config 被宿主加载，再运行 graph bootstrap；如果 agent 判断当前只需调用 deterministic bootstrap 脚本，可以接受“继续完成”，但下游 workflow 前仍要重启或新开会话。
 - 重复执行 setup、init 后重新安装、升级后重新 init/verify 时，如果 canonical graph artifacts 仍存在且当前 provider 仍 ready，必须从 canonical artifacts 重建 `query_ready=true` / `bootstrap_required=false` projection，不要把已完成 bootstrap 的 projection 打回 pending。

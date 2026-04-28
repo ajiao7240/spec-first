@@ -1,171 +1,48 @@
 'use strict';
 
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-
-const { getAdapter } = require('../../src/cli/adapters');
-const { buildManagedBlock } = require('../../src/cli/lang-policy');
-const {
-  applyManagedBootstrapBlock,
-  buildBootstrapBlock,
-} = require('../../src/cli/instruction-bootstrap');
-const {
-  applyManagedCodingGuidelinesBlock,
-  buildCodingGuidelinesBlock,
-} = require('../../src/cli/coding-guidelines');
 const {
   RUNTIME_TOOLS_END,
   RUNTIME_TOOLS_START,
-  applyManagedRuntimeToolsBlock,
-  buildRuntimeToolsBlock,
-  inspectRuntimeToolsIndexBlock,
   removeManagedRuntimeToolsBlock,
-  writeRuntimeToolsIndexBlock,
 } = require('../../src/cli/runtime-tools-index');
 
-function makeTempDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-runtime-tools-'));
+function legacyRuntimeToolsBlock() {
+  return [
+    RUNTIME_TOOLS_START,
+    '## 代码智能与运行时工具（由 spec-first 管理）',
+    '',
+    '`spec-mcp-setup` 管理本项目推荐/必需的 MCP servers、graph-provider MCP servers 与 helper tooling。',
+    '',
+    '### 使用边界',
+    '- `GitNexus`：用于全局代码知识图谱、架构理解、自然语言代码咨询/搜索、相似模块查找、执行流查询、影响分析和提交前变更检测。',
+    '- `code-review-graph`：用于变更集影响分析、review context、相关测试和 graph stats。',
+    '- `Serena MCP`：用于 symbol overview、symbol lookup、references、LSP 辅助定位和精确编辑。',
+    '- `ast-grep`：用于结构化代码搜索和安全 rewrite。',
+    '',
+    '### 不要做',
+    '- 不要把 helper tools 当成 MCP server 写入 `mcp-tools.json`。',
+    '- 不要在本文件复制安装命令、版本号、完整工具表或动态 ready 状态。',
+    '',
+    RUNTIME_TOOLS_END,
+  ].join('\n');
 }
 
-function buildExistingManagedContent(adapter, lang = 'zh') {
-  const withLang = buildManagedBlock(lang);
-  const withBootstrap = applyManagedBootstrapBlock(withLang, buildBootstrapBlock(adapter, lang));
-  return applyManagedCodingGuidelinesBlock(withBootstrap, buildCodingGuidelinesBlock(lang));
-}
+describe('legacy runtime tools instruction cleanup', () => {
+  test('exports only marker constants and the legacy cleanup helper', () => {
+    const runtimeToolsIndex = require('../../src/cli/runtime-tools-index');
 
-describe('runtime tools instruction block', () => {
-  test('writes the managed block into an empty instruction file', () => {
-    const block = buildRuntimeToolsBlock('codex', 'zh');
-
-    expect(applyManagedRuntimeToolsBlock('', block)).toBe(block);
-  });
-
-  test('builds host-specific Chinese runtime tool guidance', () => {
-    const codexBlock = buildRuntimeToolsBlock('codex', 'zh');
-    const claudeBlock = buildRuntimeToolsBlock('claude', 'zh');
-
-    expect(codexBlock).toContain('## 代码智能与运行时工具（由 spec-first 管理）');
-    expect(codexBlock).toContain('.agents/skills/spec-mcp-setup/references/supported-mcp-tools.md');
-    expect(codexBlock).toContain('$spec-graph-bootstrap');
-    expect(codexBlock).toContain('自然语言代码咨询/搜索');
-    expect(codexBlock).toContain('优先用 `gitnexus_query`');
-    expect(codexBlock).toContain('需要单个符号上下文时用 `gitnexus_context`');
-    expect(codexBlock).toContain('不要把它当作通用咨询/搜索入口');
-    expect(codexBlock).toContain('不要恢复旧内置 CRG/runtime 图引擎');
-    expect(codexBlock).toContain('### 咨询/搜索降级顺序');
-    expect(codexBlock).toContain('优先使用 `GitNexus`');
-    expect(codexBlock).toContain('完成必要刷新/重建后仍然 stale / query-unverified');
-    expect(codexBlock).toContain('降级到 `Serena MCP`');
-    expect(codexBlock).toContain('降级到 bounded direct repo reads');
-    expect(codexBlock).toContain('`code-review-graph` 不在通用咨询/搜索降级链路中');
-    expect(codexBlock).toContain('canonical graph facts / provider readiness');
-    expect(codexBlock).toContain('blocked、stale 或未 ready');
-    expect(codexBlock).toContain('若本文件存在 `<!-- gitnexus:start -->` 管理块，优先遵守该块的强制规则');
-
-    expect(claudeBlock).toContain('.claude/spec-first/workflows/spec-mcp-setup/references/supported-mcp-tools.md');
-    expect(claudeBlock).toContain('/spec:graph-bootstrap');
-    expect(claudeBlock).not.toContain('$spec-graph-bootstrap');
-  });
-
-  test('builds English runtime tool guidance without translating technical identifiers', () => {
-    const block = buildRuntimeToolsBlock('codex', 'en');
-
-    expect(block).toContain('## Runtime Code Intelligence Tools (managed by spec-first)');
-    expect(block).toContain('GitNexus');
-    expect(block).toContain('code-review-graph');
-    expect(block).toContain('Serena MCP');
-    expect(block).toContain('ast-grep');
-    expect(block).toContain('.agents/skills/spec-mcp-setup/references/supported-mcp-tools.md');
-    expect(block).toContain('$spec-graph-bootstrap');
-    expect(block).toContain('natural-language code consultation/search');
-    expect(block).toContain('prefer `gitnexus_query`');
-    expect(block).toContain('use `gitnexus_context` for one-symbol context');
-    expect(block).toContain('Do not use it as the general consultation/search entrypoint');
-    expect(block).toContain('do not restore the retired internal CRG/runtime graph engine');
-    expect(block).toContain('### Consultation/Search Fallback Order');
-    expect(block).toContain('Prefer `GitNexus`');
-    expect(block).toContain('required refresh/rebuild it is still stale / query-unverified');
-    expect(block).toContain('fall back to `Serena MCP`');
-    expect(block).toContain('fall back to bounded direct repo reads');
-    expect(block).toContain('`code-review-graph` is not part of the general consultation/search fallback chain');
-    expect(block).toContain('canonical graph facts / provider readiness');
-    expect(block).toContain('blocked, stale, or not ready');
-  });
-
-  test('does not duplicate install commands or dynamic readiness facts', () => {
-    const block = buildRuntimeToolsBlock('codex', 'zh');
-
-    expect(block).not.toContain('npx -y gitnexus@latest analyze');
-    expect(block).not.toContain('uvx code-review-graph build');
-    expect(block).not.toContain('brew install');
-    expect(block).not.toContain('cargo install');
-    expect(block).not.toContain('symbol count');
-    expect(block).not.toContain('relationship count');
-    expect(block).not.toContain('query_ready=true');
-  });
-
-  test('is idempotent and follows existing spec-first managed blocks', () => {
-    const adapter = getAdapter('codex');
-    const existing = buildExistingManagedContent(adapter, 'zh');
-    const block = buildRuntimeToolsBlock(adapter, 'zh');
-    const once = applyManagedRuntimeToolsBlock(existing, block);
-    const twice = applyManagedRuntimeToolsBlock(once, block);
-
-    expect(twice).toBe(once);
-    expect(twice.indexOf('<!-- spec-first:lang:start -->')).toBeLessThan(twice.indexOf('<!-- spec-first:bootstrap:start -->'));
-    expect(twice.indexOf('<!-- spec-first:bootstrap:start -->')).toBeLessThan(twice.indexOf('<!-- spec-first:coding-guidelines:start -->'));
-    expect(twice.indexOf('<!-- spec-first:coding-guidelines:start -->')).toBeLessThan(twice.indexOf(RUNTIME_TOOLS_START));
-    expect(twice.match(/<!-- spec-first:runtime-tools:start -->/g)).toHaveLength(1);
-  });
-
-  test('inserts before external GitNexus block without changing it', () => {
-    const gitnexusBlock = [
-      '<!-- gitnexus:start -->',
-      '# GitNexus — Code Intelligence',
-      '',
-      'External managed content.',
-      '<!-- gitnexus:end -->',
-      '',
-    ].join('\n');
-    const existing = ['# Repo', '', gitnexusBlock].join('\n');
-    const block = buildRuntimeToolsBlock('codex', 'zh');
-
-    const updated = applyManagedRuntimeToolsBlock(existing, block);
-    const gitnexusStart = updated.lastIndexOf('<!-- gitnexus:start -->');
-
-    expect(updated.indexOf(RUNTIME_TOOLS_START)).toBeLessThan(gitnexusStart);
-    expect(updated.slice(gitnexusStart)).toBe(gitnexusBlock);
-  });
-
-  test('repairs corrupted markers by removing stale runtime tools body', () => {
-    const corrupted = [
-      '# Header',
-      '',
+    expect(runtimeToolsIndex).toEqual({
+      RUNTIME_TOOLS_END,
       RUNTIME_TOOLS_START,
-      buildRuntimeToolsBlock('claude', 'en')
-        .replace(`${RUNTIME_TOOLS_START}\n`, '')
-        .replace(`\n${RUNTIME_TOOLS_END}`, '')
-        .replace('Runtime Code Intelligence Tools', 'Runtime Tool Drift'),
-      '',
-      '# Tail',
-    ].join('\n');
-
-    const updated = applyManagedRuntimeToolsBlock(corrupted, buildRuntimeToolsBlock('codex', 'zh'));
-
-    expect(updated).toContain('# Header');
-    expect(updated).toContain('# Tail');
-    expect(updated).toContain('## 代码智能与运行时工具（由 spec-first 管理）');
-    expect(updated).not.toContain('Runtime Tool Drift');
-    expect(updated.match(/<!-- spec-first:runtime-tools:start -->/g)).toHaveLength(1);
-    expect(updated.match(/<!-- spec-first:runtime-tools:end -->/g)).toHaveLength(1);
+      removeManagedRuntimeToolsBlock,
+    });
   });
 
   test('removes only the managed block and preserves surrounding content', () => {
     const content = [
       '# Header',
       '',
-      buildRuntimeToolsBlock('codex', 'zh'),
+      legacyRuntimeToolsBlock(),
       '',
       '<!-- gitnexus:start -->',
       '# GitNexus — Code Intelligence',
@@ -180,45 +57,52 @@ describe('runtime tools instruction block', () => {
     expect(updated).toContain('# GitNexus — Code Intelligence');
     expect(updated).not.toContain(RUNTIME_TOOLS_START);
     expect(updated).not.toContain(RUNTIME_TOOLS_END);
+    expect(updated).not.toContain('代码智能与运行时工具');
   });
 
-  test('inspects installed, missing, partial, and drifted runtime tools blocks', () => {
-    const projectRoot = makeTempDir();
-    const adapter = getAdapter('codex');
-    const filePath = path.join(projectRoot, adapter.instructionFile);
+  test('repairs partial legacy markers by stripping the loose managed section', () => {
+    const corrupted = [
+      '# Header',
+      '',
+      RUNTIME_TOOLS_START,
+      '## Runtime Code Intelligence Tools (managed by spec-first)',
+      '',
+      '`spec-mcp-setup` manages the MCP servers and helper tooling.',
+      '',
+      '### Usage Boundaries',
+      '- `GitNexus`: Use for global code knowledge.',
+      '- `code-review-graph`: Use for change-set impact analysis.',
+      '- `Serena MCP`: Use for symbol lookup.',
+      '- `ast-grep`: Use for structural code search.',
+      '',
+      '### Do Not',
+      '- Do not write helper tools into `mcp-tools.json` as MCP servers.',
+      '- Do not duplicate install commands.',
+      '',
+      '<!-- gitnexus:start -->',
+      '# GitNexus — Code Intelligence',
+      '<!-- gitnexus:end -->',
+      '',
+    ].join('\n');
 
-    try {
-      expect(inspectRuntimeToolsIndexBlock(projectRoot, adapter)).toEqual({
-        status: 'missing',
-        message: 'AGENTS.md is missing',
-      });
+    const updated = removeManagedRuntimeToolsBlock(corrupted);
 
-      fs.writeFileSync(filePath, '# Repo\n', 'utf8');
-      expect(inspectRuntimeToolsIndexBlock(projectRoot, adapter)).toEqual({
-        status: 'missing',
-        message: 'managed runtime-tools block missing',
-      });
+    expect(updated).toContain('# Header');
+    expect(updated).toContain('<!-- gitnexus:start -->');
+    expect(updated).not.toContain(RUNTIME_TOOLS_START);
+    expect(updated).not.toContain('Runtime Code Intelligence Tools');
+  });
 
-      fs.writeFileSync(filePath, `${RUNTIME_TOOLS_START}\npartial\n`, 'utf8');
-      expect(inspectRuntimeToolsIndexBlock(projectRoot, adapter)).toEqual({
-        status: 'partial',
-        message: 'managed runtime-tools markers are incomplete',
-      });
+  test('leaves instruction files without legacy runtime tools unchanged except newline normalization', () => {
+    const content = [
+      '# Header',
+      '',
+      '<!-- gitnexus:start -->',
+      '# GitNexus — Code Intelligence',
+      '<!-- gitnexus:end -->',
+      '',
+    ].join('\n');
 
-      writeRuntimeToolsIndexBlock(projectRoot, adapter, 'zh');
-      expect(inspectRuntimeToolsIndexBlock(projectRoot, adapter)).toEqual({
-        status: 'installed',
-        message: 'managed runtime-tools block present',
-      });
-
-      const drifted = fs.readFileSync(filePath, 'utf8').replace('代码智能与运行时工具', '运行时工具');
-      fs.writeFileSync(filePath, drifted, 'utf8');
-      expect(inspectRuntimeToolsIndexBlock(projectRoot, adapter)).toEqual({
-        status: 'drifted',
-        message: 'managed runtime-tools block drifted from the bundled template',
-      });
-    } finally {
-      fs.rmSync(projectRoot, { recursive: true, force: true });
-    }
+    expect(removeManagedRuntimeToolsBlock(content)).toBe(content);
   });
 });

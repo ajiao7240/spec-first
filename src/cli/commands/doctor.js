@@ -4,7 +4,6 @@ const { spawnSync } = require('node:child_process');
 const { inspectInstalledAssets, listBundledCommands, loadPluginManifest } = require('../plugin');
 const { readDeveloperFile, getProjectDeveloperPath } = require('../developer');
 const { inspectCodingGuidelinesBlock } = require('../coding-guidelines');
-const { inspectRuntimeToolsIndexBlock } = require('../runtime-tools-index');
 const { isLegacyManagedState, readState, readStateFileRaw } = require('../state');
 const { getAdapter, getSupportedPlatforms } = require('../adapters');
 const { inspectInstructionBootstrap } = require('../instruction-bootstrap');
@@ -419,7 +418,6 @@ function buildDoctorReport({ projectRoot, platforms }) {
       checkManagedState(projectRoot, adapter),
       checkInstructionCodingGuidelines(projectRoot, adapter),
       checkInstructionBootstrap(projectRoot, adapter),
-      checkInstructionRuntimeTools(projectRoot, adapter),
       ...runtimeFileChecks,
       ...commandChecks,
     ];
@@ -963,24 +961,6 @@ function checkInstructionCodingGuidelines(projectRoot, adapter) {
     name: `${adapter.instructionFile} coding guidelines`,
     message: status.message,
     fix: `Run \`spec-first init --${adapter.id}\` in this project to restore the managed coding-guidelines block.`,
-  };
-}
-
-function checkInstructionRuntimeTools(projectRoot, adapter) {
-  const status = inspectRuntimeToolsIndexBlock(projectRoot, adapter);
-  if (status.status === 'installed') {
-    return {
-      level: 'PASS',
-      name: `${adapter.instructionFile} runtime tools index`,
-      message: status.message,
-    };
-  }
-
-  return {
-    level: 'WARNING',
-    name: `${adapter.instructionFile} runtime tools index`,
-    message: status.message,
-    fix: `Run \`spec-first init --${adapter.id}\` in this project to restore the managed runtime-tools block.`,
   };
 }
 

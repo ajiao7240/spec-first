@@ -142,9 +142,8 @@ describe('init --dry-run', () => {
       const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
       expect(claudeInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(claudeInstruction).toContain('/spec:optimize');
-      expect(claudeInstruction).toContain('<!-- spec-first:runtime-tools:start -->');
-      expect(claudeInstruction).toContain('.claude/spec-first/workflows/spec-mcp-setup/references/supported-mcp-tools.md');
-      expect(claudeInstruction).toContain('/spec:graph-bootstrap');
+      expect(claudeInstruction).not.toContain('<!-- spec-first:runtime-tools:start -->');
+      expect(claudeInstruction).not.toContain('代码智能与运行时工具');
       expect(claudeInstruction).not.toContain('$spec-graph-bootstrap');
 
       const claudeMcpSetupCommand = fs.readFileSync(
@@ -162,7 +161,7 @@ describe('init --dry-run', () => {
     }
   });
 
-  test('Codex init writes host-aware runtime tool guidance into AGENTS.md', () => {
+  test('Codex init does not write global runtime tool guidance into AGENTS.md', () => {
     const projectRoot = makeTempDir();
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
@@ -172,9 +171,8 @@ describe('init --dry-run', () => {
       const codexInstruction = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
       expect(codexInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(codexInstruction).toContain('$spec-optimize');
-      expect(codexInstruction).toContain('<!-- spec-first:runtime-tools:start -->');
-      expect(codexInstruction).toContain('.agents/skills/spec-mcp-setup/references/supported-mcp-tools.md');
-      expect(codexInstruction).toContain('$spec-graph-bootstrap');
+      expect(codexInstruction).not.toContain('<!-- spec-first:runtime-tools:start -->');
+      expect(codexInstruction).not.toContain('代码智能与运行时工具');
       expect(codexInstruction).not.toContain('/spec:graph-bootstrap');
 
       const codexMcpSetupSkill = fs.readFileSync(
@@ -184,6 +182,47 @@ describe('init --dry-run', () => {
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'scripts', 'check-health'))).toBe(true);
       expect(codexMcpSetupSkill).toContain('bash .agents/skills/spec-mcp-setup/scripts/check-health');
       expect(codexMcpSetupSkill).not.toContain('bash skills/spec-mcp-setup/scripts/check-health');
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init removes legacy runtime tool guidance while preserving external GitNexus blocks', () => {
+    const projectRoot = makeTempDir();
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const legacyRuntimeToolsBlock = [
+      '<!-- spec-first:runtime-tools:start -->',
+      '## 代码智能与运行时工具（由 spec-first 管理）',
+      '',
+      '### 使用边界',
+      '- `GitNexus`：旧全局提示。',
+      '- `code-review-graph`：旧全局提示。',
+      '- `Serena MCP`：旧全局提示。',
+      '- `ast-grep`：旧全局提示。',
+      '',
+      '### 不要做',
+      '- 不要复制旧提示。',
+      '<!-- spec-first:runtime-tools:end -->',
+    ].join('\n');
+    const gitnexusBlock = [
+      '<!-- gitnexus:start -->',
+      '# GitNexus — Code Intelligence',
+      '<!-- gitnexus:end -->',
+    ].join('\n');
+
+    try {
+      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      const agentsPath = path.join(projectRoot, 'AGENTS.md');
+      fs.appendFileSync(agentsPath, `\n\n${legacyRuntimeToolsBlock}\n\n${gitnexusBlock}\n`, 'utf8');
+
+      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+
+      const codexInstruction = fs.readFileSync(agentsPath, 'utf8');
+      expect(codexInstruction).not.toContain('spec-first:runtime-tools:start');
+      expect(codexInstruction).not.toContain('代码智能与运行时工具');
+      expect(codexInstruction).toContain('<!-- gitnexus:start -->');
+      expect(codexInstruction).toContain('# GitNexus — Code Intelligence');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

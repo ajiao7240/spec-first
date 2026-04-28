@@ -139,113 +139,76 @@ else
 fi
 echo "✅ readiness ledger v2 已写入"
 echo ""
-echo "Required Harness Runtime status:"
-echo "| Name | Remark | Type | Required | Dependency | Host | Project | Query | Next |"
-echo "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+echo "Required Harness Runtime status (grouped):"
 jq -r '
   def display($value):
     if ($value == null or $value == "" or $value == "not-applicable") then "n/a"
     elif $value == "fallback-active" then "fallback"
     else ($value | tostring) end;
-  def required($value):
-    if $value == true then "yes" elif $value == false then "no" else "n/a" end;
   def query($value):
     if $value == true then "ready" elif $value == false then "pending" else "n/a" end;
-  def markdown_row:
-    "| \(.name) | \(.remark) | \(.type) | \(.required) | \(.dependency) | \(.host) | \(.project) | \(.query) | \(.next) |";
-  [
-    (.tools // {} | to_entries[] | {
-      name: .key,
-      remark: (if .key == "serena" then "符号级精确编辑和项目索引"
-        elif .key == "sequential-thinking" then "反思式推理辅助"
-        elif .key == "context7" then "当前框架和库文档"
-        elif .key == "gitnexus" then "全局代码知识图谱与影响分析"
-        elif .key == "code-review-graph" then "变更影响半径与 review 上下文"
-        else "MCP 工具" end),
-      type: .value.type,
-      required: .value.required,
-      dependency: .value.dependency_status,
-      host: .value.host_config_status,
-      project: .value.project_status,
-      query: .value.query_ready,
-      next: .value.next_action
-    }),
-    (.helper_tools // {} | to_entries[] | {
-      name: .key,
-      remark: (if .key == "agent-browser" then "浏览器自动化辅助"
-        elif .key == "gh" then "GitHub issue 和 PR 操作"
-        elif .key == "jq" then "JSON 解析与转换"
-        elif .key == "vhs" then "终端演示录制"
-        elif .key == "silicon" then "代码截图渲染"
-        elif .key == "ffmpeg" then "媒体转换与视频合成"
-        elif .key == "ast-grep" then "结构化代码搜索和重写"
-        elif .key == "ast-grep-skill" then "ast-grep 使用指引"
-        else "Helper 工具" end),
-      type: (.value.type // "helper"),
-      required: .value.required,
-      dependency: .value.dependency_status,
-      host: .value.host_config_status,
-      project: .value.project_status,
-      query: null,
-      next: .value.next_action
-    }),
-    {
-      name: "graph-providers.json",
-      remark: "供 graph bootstrap 消费的 provider 投影",
-      type: "project",
-      required: true,
-      dependency: null,
-      host: null,
-      project: .repo_config_status,
-      query: null,
-      next: (if (.repo_config_status == "ready" or .repo_config_status == "written") then "" else "write provider projection" end)
-    },
-    {
-      name: "runtime-capabilities.json",
-      remark: "记录 setup-owned 能力事实和 host ledger 指针",
-      type: "project",
-      required: true,
-      dependency: null,
-      host: null,
-      project: .runtime_capabilities_status,
-      query: null,
-      next: (if (.runtime_capabilities_status == "ready" or .runtime_capabilities_status == "written") then "" else "write runtime capabilities" end)
-    },
-    {
-      name: "provider-artifacts.json",
-      remark: "记录 setup-owned provider 产物与就绪证据",
-      type: "project",
-      required: true,
-      dependency: null,
-      host: null,
-      project: .provider_artifacts_status,
-      query: null,
-      next: (if (.provider_artifacts_status == "ready" or .provider_artifacts_status == "written") then "" else "write provider artifacts" end)
-    }
-  ][]
-  | [
-      display(.name),
-      display(.remark),
-      display(.type),
-      required(.required),
-      display(.dependency),
-      display(.host),
-      display(.project),
-      query(.query),
-      display(.next)
-    ]
-    | {
-      name: .[0],
-      remark: .[1],
-      type: .[2],
-      required: .[3],
-      dependency: .[4],
-      host: .[5],
-      project: .[6],
-      query: .[7],
-      next: .[8]
-    }
-    | markdown_row
+  def remark($key):
+    if $key == "serena" then "符号级精确编辑和项目索引"
+    elif $key == "sequential-thinking" then "反思式推理辅助"
+    elif $key == "context7" then "当前框架和库文档"
+    elif $key == "gitnexus" then "全局代码知识图谱与影响分析"
+    elif $key == "code-review-graph" then "变更影响半径与 review 上下文"
+    elif $key == "agent-browser" then "浏览器自动化辅助"
+    elif $key == "gh" then "GitHub issue 和 PR 操作"
+    elif $key == "jq" then "JSON 解析与转换"
+    elif $key == "vhs" then "终端演示录制"
+    elif $key == "silicon" then "代码截图渲染"
+    elif $key == "ffmpeg" then "媒体转换与视频合成"
+    elif $key == "ast-grep" then "结构化代码搜索和重写"
+    elif $key == "ast-grep-skill" then "ast-grep 使用指引"
+    else "工具" end;
+  def mcp_rows:
+    (.tools // {} | to_entries[] | select((.value.type // "") == "mcp") |
+      "| \(display(.key)) | \(remark(.key)) | \(display(.value.dependency_status)) | \(display(.value.host_config_status)) | \(display(.value.project_status)) | \(display(.value.next_action)) |");
+  def graph_rows:
+    (.tools // {} | to_entries[] | select((.value.type // "") == "graph-provider") |
+      "| \(display(.key)) | \(remark(.key)) | \(display(.value.dependency_status)) | \(display(.value.host_config_status)) | \(query(.value.query_ready)) | \(display(.value.next_action)) |");
+  def helper_rows:
+    (.helper_tools // {} | to_entries[] |
+      "| \(display(.key)) | \(display(.value.type // "helper")) | \(display(.value.result)) | \(display(.value.dependency_status)) | \(display(.value.install_status)) | \(display(.value.skill_status)) | \(display(.value.next_action)) |");
+  def project_rows:
+    [
+      {
+        name: "graph-providers.json",
+        status: .repo_config_status,
+        next: (if (.repo_config_status == "ready" or .repo_config_status == "written") then "" else "write provider projection" end)
+      },
+      {
+        name: "runtime-capabilities.json",
+        status: .runtime_capabilities_status,
+        next: (if (.runtime_capabilities_status == "ready" or .runtime_capabilities_status == "written") then "" else "write runtime capabilities" end)
+      },
+      {
+        name: "provider-artifacts.json",
+        status: .provider_artifacts_status,
+        next: (if (.provider_artifacts_status == "ready" or .provider_artifacts_status == "written") then "" else "write provider artifacts" end)
+      }
+    ][]
+    | "| \(display(.name)) | \(display(.status)) | \(display(.next)) |";
+  "MCP servers:",
+  "| Name | Role | Dependency | Host | Project | Next |",
+  "| --- | --- | --- | --- | --- | --- |",
+  mcp_rows,
+  "",
+  "Graph providers:",
+  "| Name | Role | Dependency | Host | Query | Next |",
+  "| --- | --- | --- | --- | --- | --- |",
+  graph_rows,
+  "",
+  "Helper tools:",
+  "| Name | Type | Result | Dependency | Install | Skill | Next |",
+  "| --- | --- | --- | --- | --- | --- | --- |",
+  helper_rows,
+  "",
+  "Project setup facts:",
+  "| Artifact | Project | Next |",
+  "| --- | --- | --- |",
+  project_rows
 ' "$MARKER_PATH"
 
 host_name="$(jq -r '.host // "unknown"' "$MARKER_PATH")"

@@ -363,20 +363,43 @@ Uninstall does not delete `agent-browser`, external caches, or the project proje
 
 ## Success Summary
 
-When setup finishes, the assistant's final response must restate the complete Markdown status table sourced from readiness ledger v2, followed by a short friendly next-step prompt. Do not rely on prior command output as the only place where the table appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending.
+When setup finishes, the assistant's final response must restate the complete Markdown status sourced from readiness ledger v2, followed by a short friendly next-step prompt. Prefer grouped tables instead of one wide table. Do not rely on prior command output as the only place where the status appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending.
 
 ```text
 Required Harness Runtime is ready; graph bootstrap is still pending.
 
-Required Harness Runtime status:
-| Name | Remark | Type | Required | Dependency | Host | Project | Query | Next |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| serena | 符号级精确编辑和项目索引 | mcp | yes | ready | ready | ready | n/a | n/a |
-| gitnexus | 全局代码知识图谱与影响分析 | graph-provider | yes | ready | ready | n/a | pending | run spec-graph-bootstrap |
-| code-review-graph | 变更影响半径与 review 上下文 | graph-provider | yes | ready | ready | n/a | pending | run spec-graph-bootstrap |
-| graph-providers.json | 供 graph bootstrap 消费的 provider 投影 | project | yes | n/a | n/a | written | n/a | n/a |
-| runtime-capabilities.json | 记录 setup-owned 能力事实和 host ledger 指针 | project | yes | n/a | n/a | written | n/a | n/a |
-| provider-artifacts.json | 记录 setup-owned provider 产物与就绪证据 | project | yes | n/a | n/a | written | n/a | n/a |
+Required Harness Runtime status (grouped):
+MCP servers:
+| Name | Role | Dependency | Host | Project | Next |
+| --- | --- | --- | --- | --- | --- |
+| serena | 符号级精确编辑和项目索引 | ready | ready | ready | n/a |
+| sequential-thinking | 反思式推理辅助 | ready | ready | n/a | n/a |
+| context7 | 当前框架和库文档 | ready | ready | n/a | n/a |
+
+Graph providers:
+| Name | Role | Dependency | Host | Query | Next |
+| --- | --- | --- | --- | --- | --- |
+| gitnexus | 全局代码知识图谱与影响分析 | ready | ready | pending | run spec-graph-bootstrap |
+| code-review-graph | 变更影响半径与 review 上下文 | ready | ready | pending | run spec-graph-bootstrap |
+
+Helper tools:
+| Name | Type | Result | Dependency | Install | Skill | Next |
+| --- | --- | --- | --- | --- | --- | --- |
+| agent-browser | helper | ready | ready | ready | ready | n/a |
+| gh | helper | ready | ready | ready | n/a | n/a |
+| jq | helper | ready | ready | ready | n/a | n/a |
+| vhs | helper | ready | ready | ready | n/a | n/a |
+| silicon | helper | ready | ready | ready | n/a | n/a |
+| ffmpeg | helper | ready | ready | ready | n/a | n/a |
+| ast-grep | helper | ready | ready | ready | n/a | n/a |
+| ast-grep-skill | global-skill | ready | ready | ready | ready | n/a |
+
+Project setup facts:
+| Artifact | Project | Next |
+| --- | --- | --- |
+| graph-providers.json | written | n/a |
+| runtime-capabilities.json | written | n/a |
+| provider-artifacts.json | written | n/a |
 
 下一步:
   1. 建议先重启 Claude Code/Codex 或新开会话，让新写入的 MCP 配置被宿主加载。

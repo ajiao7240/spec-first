@@ -41,11 +41,7 @@ const {
   buildBootstrapBlock,
   inspectInstructionBootstrap,
 } = require('../instruction-bootstrap');
-const {
-  applyManagedRuntimeToolsBlock,
-  buildRuntimeToolsBlock,
-  inspectRuntimeToolsIndexBlock,
-} = require('../runtime-tools-index');
+const { removeManagedRuntimeToolsBlock } = require('../runtime-tools-index');
 const {
   getClaudeSettingsPath,
   inspectManagedSessionStartHook,
@@ -441,11 +437,6 @@ function inspectCurrentRuntimeDrift(projectRoot, adapter) {
     reasons.push(`coding_guidelines_${codingGuidelinesStatus.status}`);
   }
 
-  const runtimeToolsStatus = inspectRuntimeToolsIndexBlock(projectRoot, adapter);
-  if (runtimeToolsStatus.status !== 'installed') {
-    reasons.push(`runtime_tools_${runtimeToolsStatus.status}`);
-  }
-
   for (const check of adapter.inspectRuntimeFiles(projectRoot)) {
     if (check.level !== 'PASS') {
       reasons.push(`runtime_file_${String(check.name || 'unknown').replace(/[^a-z0-9]+/gi, '_').toLowerCase()}`);
@@ -645,7 +636,8 @@ function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, pla
   const existingInstruction = fs.existsSync(instructionPath)
     ? fs.readFileSync(instructionPath, 'utf8')
     : '';
-  const instructionWithLang = applyManagedBlock(existingInstruction, buildManagedBlock(developer.lang));
+  const instructionWithoutLegacyRuntimeTools = removeManagedRuntimeToolsBlock(existingInstruction);
+  const instructionWithLang = applyManagedBlock(instructionWithoutLegacyRuntimeTools, buildManagedBlock(developer.lang));
   const instructionWithBootstrap = applyManagedBootstrapBlock(
     instructionWithLang,
     buildBootstrapBlock(adapter, developer.lang),
@@ -654,14 +646,10 @@ function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, pla
     instructionWithBootstrap,
     buildCodingGuidelinesBlock(developer.lang),
   );
-  const instructionWithRuntimeTools = applyManagedRuntimeToolsBlock(
-    finalInstruction,
-    buildRuntimeToolsBlock(adapter, developer.lang),
-  );
   operations.push(buildPlanFileOperation(
     projectRoot,
     adapter.instructionFile,
-    instructionWithRuntimeTools,
+    finalInstruction,
     'managed_instruction_file',
   ));
 

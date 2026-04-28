@@ -377,14 +377,17 @@ assert_eq "graph providers are not query-ready after setup detection" "false,fal
 
 verify_text="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "verify reports ledger v2" "readiness ledger v2" "$verify_text"
-assert_contains "verify prints final status table" "Required Harness Runtime status:" "$verify_text"
+assert_contains "verify prints grouped final status tables" "Required Harness Runtime status (grouped):" "$verify_text"
 assert_contains "verify table includes helper" "agent-browser" "$verify_text"
 assert_contains "verify table includes required ast-grep helper" "ast-grep" "$verify_text"
 assert_contains "verify table includes required ast-grep skill" "ast-grep-skill" "$verify_text"
 assert_contains "verify table includes provider projection" "graph-providers.json" "$verify_text"
 assert_contains "verify table includes runtime capabilities" "runtime-capabilities.json" "$verify_text"
 assert_contains "verify table includes provider artifacts" "provider-artifacts.json" "$verify_text"
-assert_contains "verify prints markdown table" "| Name | Remark | Type | Required | Dependency | Host | Project | Query | Next |" "$verify_text"
+assert_contains "verify prints MCP server table" "| Name | Role | Dependency | Host | Project | Next |" "$verify_text"
+assert_contains "verify prints graph provider table" "| Name | Role | Dependency | Host | Query | Next |" "$verify_text"
+assert_contains "verify prints helper table" "| Name | Type | Result | Dependency | Install | Skill | Next |" "$verify_text"
+assert_contains "verify prints project setup table" "| Artifact | Project | Next |" "$verify_text"
 assert_contains "verify prints tool remark" "符号级精确编辑和项目索引" "$verify_text"
 assert_contains "verify prints friendly next steps" "下一步:" "$verify_text"
 assert_contains "verify prompts graph bootstrap command" "/spec:graph-bootstrap" "$verify_text"
@@ -496,7 +499,7 @@ if [ "$graph_log_before" = "$graph_log_after" ]; then
 fi
 assert_eq "graph-bootstrap writes canonical provider readiness" "true" "$(jq -r '(.ready_primary_providers | index("gitnexus") != null) and (.ready_primary_providers | index("code-review-graph") != null) and ([.providers[] | select(.query_ready == true)] | length == 2)' "$FAKE_REPO/.spec-first/graph/provider-status.json")"
 verify_after_bootstrap="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
-assert_contains "repeat verify shows graph provider query ready" "| gitnexus | 全局代码知识图谱与影响分析 | graph-provider | yes | ready | fallback | n/a | ready | n/a |" "$verify_after_bootstrap"
+assert_contains "repeat verify shows graph provider query ready" "| gitnexus | 全局代码知识图谱与影响分析 | ready | fallback | ready | n/a |" "$verify_after_bootstrap"
 assert_contains "repeat verify reports graph provider query ready summary" "Graph providers are query-ready." "$verify_after_bootstrap"
 if [[ "$verify_after_bootstrap" == *"Graph providers are configured but not query-ready yet."* ]]; then
   echo "FAIL: repeat verify should not say query-ready providers are pending" >&2

@@ -1,7 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
-- v1.6.0 2026-04-28 15:32:16 leokuang: docs(plans): 新增 runtime tooling 边界收窄实施计划，明确 graph/GitNexus/CRG 不应污染 brainstorm 等非执行阶段 workflow (user-visible)
+- v1.6.0 2026-04-28 17:33:51 leokuang: fix(spec-mcp-setup): 将最终 readiness 输出改为分组窄表，改善 Codex 下 MCP setup 完成后的表格可读性 (user-visible)
+- v1.6.0 2026-04-28 15:32:16 leokuang: refactor(runtime-tools): 停止向 CLAUDE.md/AGENTS.md 写入 runtime tooling 全局块，移除 init/doctor 治理链路并保留 clean 清理旧块能力 (user-visible)
 - v1.6.0 2026-04-28 15:24:28 leokuang: fix(workflow-boundary): 收紧 spec workflow 与 subagent primitive 边界，避免文档评审 workflow 被误当 Agent type 调用 (user-visible)
 - v1.6.0 2026-04-28 14:38:45 leokuang: fix(graph-readiness): 修复 setup-owned graph readiness projection 复用旧状态的问题，并同步清理用户手册中的退役内置图运行时口径 (user-visible)
 - v1.6.0 2026-04-28 14:06:04 leokuang: fix(init): 为 Claude command-backed workflows 生成受管 support assets，并将 mcp-setup runtime 脚本路径重写到宿主真实路径，避免 `/spec:mcp-setup` 找不到脚本 (user-visible)

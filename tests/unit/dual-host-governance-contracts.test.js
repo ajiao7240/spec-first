@@ -112,10 +112,13 @@ describe('dual-host governance contracts', () => {
   test('mcp setup final response preserves the full readiness table contract', () => {
     const mcpSetup = read(MCP_SETUP_SKILL_PATH);
 
-    expect(mcpSetup).toContain("the assistant's final response must restate the complete Markdown status table");
-    expect(mcpSetup).toContain('Do not rely on prior command output as the only place where the table appears.');
-    expect(mcpSetup).toContain('Required Harness Runtime status:');
-    expect(mcpSetup).toContain('| Name | Remark | Type | Required | Dependency | Host | Project | Query | Next |');
+    expect(mcpSetup).toContain("the assistant's final response must restate the complete Markdown status sourced from readiness ledger v2");
+    expect(mcpSetup).toContain('Do not rely on prior command output as the only place where the status appears.');
+    expect(mcpSetup).toContain('Required Harness Runtime status (grouped):');
+    expect(mcpSetup).toContain('| Name | Role | Dependency | Host | Project | Next |');
+    expect(mcpSetup).toContain('| Name | Role | Dependency | Host | Query | Next |');
+    expect(mcpSetup).toContain('| Name | Type | Result | Dependency | Install | Skill | Next |');
+    expect(mcpSetup).toContain('| Artifact | Project | Next |');
     expect(mcpSetup).toContain('下一步:');
   });
 
