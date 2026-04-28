@@ -157,7 +157,7 @@ spec-brainstorm
 
 **目标：** 让 `spec-first init --claude|--codex` 不再向 root instruction file 写入 `spec-first:runtime-tools` block。
 
-**需求：** R1, R2
+**需求：** R1
 
 **依赖：** 无
 
@@ -260,7 +260,8 @@ spec-brainstorm
 **方法：**
 - `CHANGELOG.md` 使用当前 developer profile author。
 - 验证命令按从窄到宽执行：
-  - `npx jest tests/unit/init-dry-run.test.js tests/unit/runtime-tools-index.test.js tests/unit/clean-dry-run.test.js --runInBand`
+  - `npx jest tests/unit/init-dry-run.test.js tests/unit/runtime-tools-index.test.js tests/unit/doctor-runtime-tools.test.js tests/unit/clean-dry-run.test.js --runInBand`
+  - `rg -n "spec-first:runtime-tools:start|spec-first:runtime-tools:end" AGENTS.md CLAUDE.md` 应无匹配。
   - `npm run typecheck`
   - 如 doctor / clean / init 影响面较大，再运行 `npm run test:unit`
 - 提交前运行 `gitnexus_detect_changes()`。
