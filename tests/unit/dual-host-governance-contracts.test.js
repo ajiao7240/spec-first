@@ -158,6 +158,9 @@ describe('dual-host governance contracts', () => {
 
     expect(readme).toContain('$spec-mcp-setup');
     expect(readme).toContain('$spec-graph-bootstrap');
+    expect(readme).toContain('Run the init command for each host you actually use.');
+    expect(readme).toContain('only `--claude` for Claude Code-only projects');
+    expect(readme).toContain('only `--codex` for Codex-only projects');
     expect(readme).toContain(
       'host-specific setup workflow (`/spec:mcp-setup` on Claude Code, `$spec-mcp-setup` on Codex)',
     );
@@ -174,6 +177,9 @@ describe('dual-host governance contracts', () => {
     expect(readmeZh).toContain(
       '当前宿主的 setup workflow（Claude Code `/spec:mcp-setup`，Codex `$spec-mcp-setup`）',
     );
+    expect(readmeZh).toContain('按实际使用的宿主运行 init');
+    expect(readmeZh).toContain('只用 Claude Code 就只跑 `--claude`');
+    expect(readmeZh).toContain('只用 Codex 就只跑 `--codex`');
     expect(readmeZh).toContain(
       '当前宿主的 graph bootstrap workflow（Claude Code `/spec:graph-bootstrap`，Codex `$spec-graph-bootstrap`）',
     );

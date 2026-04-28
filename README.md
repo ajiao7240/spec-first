@@ -26,6 +26,8 @@ spec-first init --claude -u <name> --lang zh
 spec-first init --codex -u <name> --lang zh
 ```
 
+Run the init command for each host you actually use. For example, run only `--claude` for Claude Code-only projects, only `--codex` for Codex-only projects, or both when the same repo should support both hosts.
+
 Use `spec-first clean --claude` or `spec-first clean --codex` to remove managed runtime assets. Runtime copies under `.claude/`, `.codex/`, and `.agents/skills/` are generated assets; edit source files under `skills/`, `agents/`, `templates/`, and `src/cli/` instead.
 
 ## Context And Graph Readiness

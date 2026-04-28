@@ -26,6 +26,8 @@ spec-first init --claude -u <name> --lang zh
 spec-first init --codex -u <name> --lang zh
 ```
 
+按实际使用的宿主运行 init：只用 Claude Code 就只跑 `--claude`，只用 Codex 就只跑 `--codex`；同一个 repo 需要同时支持两个宿主时才两个都跑。
+
 使用 `spec-first clean --claude` 或 `spec-first clean --codex` 删除 managed runtime assets。`.claude/`、`.codex/`、`.agents/skills/` 下的是生成副本；修改应落在 `skills/`、`agents/`、`templates/` 和 `src/cli/`。
 
 ## 上下文与 Graph Readiness
