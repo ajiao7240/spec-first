@@ -11,11 +11,11 @@
 - CLI helpers：`doctor`、`init`、`clean`、`tasks`、版本/help 输出和确定性 setup 检查。
 - `skills/`、`agents/`、`templates/` 下的 workflow source assets。
 - 面向 Claude Code 与 Codex 的 host-filtered runtime 生成。
-- 通过 `$spec-mcp-setup` 管理 required harness runtime setup，覆盖 MCP servers、graph-provider MCP servers、helper CLIs 和项目 setup facts。
-- 通过 `$spec-graph-bootstrap` 编译 external graph readiness，产出供下游 workflow 使用的 canonical graph / impact readiness artifacts。
+- 通过当前宿主的 setup workflow（Claude Code `/spec:mcp-setup`，Codex `$spec-mcp-setup`）管理 required harness runtime setup，覆盖 MCP servers、graph-provider MCP servers、helper CLIs 和项目 setup facts。
+- 通过当前宿主的 graph bootstrap workflow（Claude Code `/spec:graph-bootstrap`，Codex `$spec-graph-bootstrap`）编译 external graph readiness，产出供下游 workflow 使用的 canonical graph / impact readiness artifacts。
 - ideation、brainstorm、plan、task-pack handoff、work、debug、review、setup、update、sessions、Slack research、release notes、compound、optimize 和 browser-visible polish 等公开 workflow 入口。
 
-图谱上下文由 `$spec-mcp-setup` 配置 external graph providers，再由 `$spec-graph-bootstrap` 编译为 canonical readiness artifacts。
+图谱上下文由 setup workflow 配置 external graph providers，再由 graph bootstrap workflow 编译为 canonical readiness artifacts。
 
 ## 安装
 
@@ -32,11 +32,11 @@ spec-first init --codex -u <name> --lang zh
 
 当前上下文与 graph readiness 使用以下路径：
 
-- 用 `$spec-mcp-setup` 安装并验证 required harness runtime：Serena、Sequential Thinking、Context7、GitNexus、code-review-graph、`agent-browser`、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和 global `ast-grep` skill。
-- 在 setup 报告 `baseline_ready=true` 后运行 `$spec-graph-bootstrap`。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus/code-review-graph probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
-- `$spec-plan` 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。
+- 用当前宿主的 setup workflow 安装并验证 required harness runtime：Serena、Sequential Thinking、Context7、GitNexus、code-review-graph、`agent-browser`、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和 global `ast-grep` skill。
+- 在 setup 报告 `baseline_ready=true` 后运行当前宿主的 graph bootstrap workflow。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus/code-review-graph probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
+- 当前宿主的 plan workflow 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。
 - 在父 workspace 下存在多个 child Git repos 时，setup/bootstrap 脚本必须显式传 `--repo <child>`。父 workspace 只报告候选 repo，不拥有 repo-local `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*` 或 `.serena/*` 产物。
-- 用 standalone `spec-write-tasks` 做确定性的 task-pack handoff，再让 `$spec-work`、`$spec-code-review` 和 `$spec-doc-review` 基于当前请求、plans/task packs、diffs、targeted file reads 与 tests 确定 scope authority。
+- 用 standalone `spec-write-tasks` 做确定性的 task-pack handoff，再让当前宿主的 work、code-review 和 doc-review workflow 基于当前请求、plans/task packs、diffs、targeted file reads 与 tests 确定 scope authority。
 
 ## 主要命令
 
@@ -57,7 +57,7 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 | **能力层资产** | 仓库内置源码资产共 `39` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `18` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `18` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
 | **Claude runtime** | commands 生成到 `.claude/commands/spec`，standalone 与 agent-facing internal skills 生成到 `.claude/skills`，command-backed workflow skill 副本生成到 `.claude/spec-first/workflows`，agents 生成到 `.claude/agents`，managed state 位于 `.claude/spec-first/state.json`。 |
 | **Codex runtime** | workflow、standalone 与 agent-facing internal skills 生成到 `.agents/skills`，agents 生成到 `.codex/agents`，managed state 位于 `.codex/spec-first/state.json`。 |
-| **Readiness** | `$spec-mcp-setup` 写 readiness ledger v2 以及 setup-owned `graph-providers.json`、`runtime-capabilities.json`、`provider-artifacts.json`；`$spec-graph-bootstrap` 消费这些事实并写 canonical graph facts、provider status、impact capabilities 和 report。 |
+| **Readiness** | setup workflow 写 readiness ledger v2 以及 setup-owned `graph-providers.json`、`runtime-capabilities.json`、`provider-artifacts.json`；graph bootstrap workflow 消费这些事实并写 canonical graph facts、provider status、impact capabilities 和 report。 |
 
 Claude init 的预期输出包含：
 

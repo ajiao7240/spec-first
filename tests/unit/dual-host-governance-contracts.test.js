@@ -158,8 +158,29 @@ describe('dual-host governance contracts', () => {
 
     expect(readme).toContain('$spec-mcp-setup');
     expect(readme).toContain('$spec-graph-bootstrap');
+    expect(readme).toContain(
+      'host-specific setup workflow (`/spec:mcp-setup` on Claude Code, `$spec-mcp-setup` on Codex)',
+    );
+    expect(readme).toContain(
+      'host-specific graph bootstrap workflow (`/spec:graph-bootstrap` on Claude Code, `$spec-graph-bootstrap` on Codex)',
+    );
+    expect(readme).toContain("Use the current host's setup workflow");
+    expect(readme).toContain("Use the current host's graph bootstrap workflow");
+    expect(readme).toContain("Use the current host's plan workflow");
+    expect(readme).not.toContain('Required harness runtime setup through `$spec-mcp-setup`');
+    expect(readme).not.toContain('External graph readiness compilation through `$spec-graph-bootstrap`');
     expect(readme).toContain('standalone `spec-write-tasks` skill');
     expect(readme).not.toContain('$spec-write-tasks');
+    expect(readmeZh).toContain(
+      '当前宿主的 setup workflow（Claude Code `/spec:mcp-setup`，Codex `$spec-mcp-setup`）',
+    );
+    expect(readmeZh).toContain(
+      '当前宿主的 graph bootstrap workflow（Claude Code `/spec:graph-bootstrap`，Codex `$spec-graph-bootstrap`）',
+    );
+    expect(readmeZh).toContain('用当前宿主的 setup workflow');
+    expect(readmeZh).toContain('当前宿主的 plan workflow');
+    expect(readmeZh).not.toContain('通过 `$spec-mcp-setup` 管理');
+    expect(readmeZh).not.toContain('通过 `$spec-graph-bootstrap` 编译');
     expect(readmeZh).toContain('standalone `spec-write-tasks` skill');
     expect(readmeZh).not.toContain('$spec-write-tasks');
     expect(readme).not.toContain(RETIRED_CODEX_ENTRYPOINT);

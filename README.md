@@ -11,11 +11,11 @@
 - CLI helpers: `doctor`, `init`, `clean`, `tasks`, version/help output, and deterministic setup checks.
 - Workflow source assets under `skills/`, `agents/`, and `templates/`.
 - Host-filtered runtime generation for Claude Code and Codex.
-- Required harness runtime setup through `$spec-mcp-setup`, covering MCP servers, graph-provider MCP servers, helper CLIs, and project setup facts.
-- External graph readiness compilation through `$spec-graph-bootstrap`, producing canonical graph and impact readiness artifacts for downstream workflows.
+- Required harness runtime setup through the host-specific setup workflow (`/spec:mcp-setup` on Claude Code, `$spec-mcp-setup` on Codex), covering MCP servers, graph-provider MCP servers, helper CLIs, and project setup facts.
+- External graph readiness compilation through the host-specific graph bootstrap workflow (`/spec:graph-bootstrap` on Claude Code, `$spec-graph-bootstrap` on Codex), producing canonical graph and impact readiness artifacts for downstream workflows.
 - Public workflow entrypoints for ideation, brainstorming, planning, task-pack handoff, work execution, debugging, review, setup, update, session research, Slack research, release notes, compounding, optimization, and browser-visible polish.
 
-Graph context is provided by external graph providers configured by `$spec-mcp-setup` and compiled into canonical readiness artifacts by `$spec-graph-bootstrap`.
+Graph context is provided by external graph providers configured by the setup workflow and compiled into canonical readiness artifacts by the graph bootstrap workflow.
 
 ## Install
 
@@ -32,11 +32,11 @@ Use `spec-first clean --claude` or `spec-first clean --codex` to remove managed 
 
 Current context and graph readiness use this path:
 
-- Use `$spec-mcp-setup` to install and verify the required harness runtime: Serena, Sequential Thinking, Context7, GitNexus, code-review-graph, `agent-browser`, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, `ast-grep`, and the global `ast-grep` skill.
-- Use `$spec-graph-bootstrap` after setup reports `baseline_ready=true`. It reads setup-owned config facts, validates provider command arrays, runs transient GitNexus/code-review-graph probes, and writes `.spec-first/graph/*`, `.spec-first/providers/*`, and `.spec-first/impact/*` readiness artifacts.
-- Use `$spec-plan` as the first graph-readiness consumer. It reports graph status, checks staleness, and falls back to bounded direct repo reads when facts are unavailable, blocked, stale, or degraded.
+- Use the current host's setup workflow to install and verify the required harness runtime: Serena, Sequential Thinking, Context7, GitNexus, code-review-graph, `agent-browser`, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, `ast-grep`, and the global `ast-grep` skill.
+- Use the current host's graph bootstrap workflow after setup reports `baseline_ready=true`. It reads setup-owned config facts, validates provider command arrays, runs transient GitNexus/code-review-graph probes, and writes `.spec-first/graph/*`, `.spec-first/providers/*`, and `.spec-first/impact/*` readiness artifacts.
+- Use the current host's plan workflow as the first graph-readiness consumer. It reports graph status, checks staleness, and falls back to bounded direct repo reads when facts are unavailable, blocked, stale, or degraded.
 - In a parent workspace with multiple child Git repos, pass an explicit `--repo <child>` to setup/bootstrap scripts. The parent workspace only reports candidate repos and never owns repo-local `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, or `.serena/*` artifacts.
-- Use standalone `spec-write-tasks` for deterministic task-pack handoff, then `$spec-work`, `$spec-code-review`, and `$spec-doc-review` with the current request, plans/task packs, diffs, targeted file reads, and tests as scope authority.
+- Use standalone `spec-write-tasks` for deterministic task-pack handoff, then the current host's work, code-review, and doc-review workflows with the current request, plans/task packs, diffs, targeted file reads, and tests as scope authority.
 
 ## Main Commands
 
@@ -57,7 +57,7 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 | **Capability layer** | Bundled source assets ship with `39` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `18` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `18` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
 | **Claude runtime** | Commands are generated under `.claude/commands/spec`, standalone and agent-facing internal skills under `.claude/skills`, command-backed workflow skill copies under `.claude/spec-first/workflows`, agents under `.claude/agents`, and managed state under `.claude/spec-first/state.json`. |
 | **Codex runtime** | Workflow, standalone, and agent-facing internal skills are generated under `.agents/skills`, agents under `.codex/agents`, and managed state under `.codex/spec-first/state.json`. |
-| **Readiness** | `$spec-mcp-setup` writes readiness ledger v2 plus setup-owned `graph-providers.json`, `runtime-capabilities.json`, and `provider-artifacts.json`; `$spec-graph-bootstrap` consumes those facts and writes canonical graph facts, provider status, impact capabilities, and a report. |
+| **Readiness** | The setup workflow writes readiness ledger v2 plus setup-owned `graph-providers.json`, `runtime-capabilities.json`, and `provider-artifacts.json`; the graph bootstrap workflow consumes those facts and writes canonical graph facts, provider status, impact capabilities, and a report. |
 
 Expected Claude init output includes:
 
