@@ -114,10 +114,16 @@ function buildZhRuntimeToolsBody(host) {
 \`spec-mcp-setup\` 管理本项目推荐/必需的 MCP servers、graph-provider MCP servers 与 helper tooling。完整工具清单、安装命令、host-specific notes 与 readiness ledger 语义统一收口在 \`${referencePath}\`。
 
 ### 使用边界
-- \`GitNexus\`：用于全局代码知识图谱、架构理解、影响分析和提交前变更检测。若本文件存在 \`<!-- gitnexus:start -->\` 管理块，优先遵守该块的强制规则。
-- \`code-review-graph\`：用于最小上下文、impact radius、review context、相关测试和 graph stats。只有 canonical graph facts / provider readiness 已 query-ready 且未 stale 时使用；blocked、stale 或未 ready 时先运行 \`${graphBootstrapEntry}\`，或退回 bounded direct repo reads。
-- \`Serena MCP\`：用于 symbol overview、symbol lookup、references、LSP 辅助定位和精确编辑。它是上下文/编辑辅助，不替代源码真相源、测试或 graph-level 影响分析。
+- \`GitNexus\`：用于全局代码知识图谱、架构理解、自然语言代码咨询/搜索、相似模块查找、执行流查询、影响分析和提交前变更检测。咨询“X 怎么工作 / 在哪里实现 / 可复用什么”这类场景，优先用 \`gitnexus_query\`；需要单个符号上下文时用 \`gitnexus_context\`。若本文件存在 \`<!-- gitnexus:start -->\` 管理块，优先遵守该块的强制规则。
+- \`code-review-graph\`：用于变更集影响分析、review context、相关测试和 graph stats。不要把它当作通用咨询/搜索入口，也不要恢复旧内置 CRG/runtime 图引擎；只有 canonical graph facts / provider readiness 已 query-ready 且未 stale 时使用；blocked、stale 或未 ready 时先运行 \`${graphBootstrapEntry}\`，或退回 bounded direct repo reads。
+- \`Serena MCP\`：用于 symbol overview、symbol lookup、references、LSP 辅助定位和精确编辑。它是上下文/编辑辅助，适合在 GitNexus 或 direct repo reads 给出候选后做精确定位，不替代源码真相源、测试或 graph-level 影响分析。
 - \`ast-grep\`：用于结构化代码搜索和安全 rewrite。简单文本/文件搜索仍优先 \`rg\` / \`rg --files\`；需要 AST 语义匹配时再使用 \`ast-grep\`。
+
+### 咨询/搜索降级顺序
+- 优先使用 \`GitNexus\`：用 \`gitnexus_query\` 做自然语言代码咨询/搜索，用 \`gitnexus_context\` 查看单个符号上下文。
+- 当 \`GitNexus\` 不可用，或按 \`<!-- gitnexus:start -->\` 管理块完成必要刷新/重建后仍然 stale / query-unverified，或目标仓库未索引时，降级到 \`Serena MCP\` 做 symbol / references / LSP 级定位。
+- 当 \`Serena MCP\` 也不可用时，降级到 bounded direct repo reads，并用 \`rg\` / \`rg --files\` 做文本与文件搜索；只有需要 AST 结构语义时才用 \`ast-grep\`。
+- \`code-review-graph\` 不在通用咨询/搜索降级链路中；它只用于变更影响、review context、相关测试和 graph stats。
 
 ### 不要做
 - 不要把 helper tools 当成 MCP server 写入 \`mcp-tools.json\`。
@@ -134,10 +140,16 @@ function buildEnRuntimeToolsBody(host) {
 \`spec-mcp-setup\` manages the MCP servers, graph-provider MCP servers, and helper tooling recommended or required for this project. The complete tool catalog, install commands, host-specific notes, and readiness ledger semantics are centralized in \`${referencePath}\`.
 
 ### Usage Boundaries
-- \`GitNexus\`: Use for global code knowledge, architecture understanding, impact analysis, and pre-commit change detection. If this file contains a \`<!-- gitnexus:start -->\` managed block, follow that block's mandatory rules first.
-- \`code-review-graph\`: Use for minimal context, impact radius, review context, related tests, and graph stats. Use it only when canonical graph facts / provider readiness are query-ready and not stale; if readiness is blocked, stale, or not ready, run \`${graphBootstrapEntry}\` first or fall back to bounded direct repo reads.
-- \`Serena MCP\`: Use for symbol overview, symbol lookup, references, LSP-assisted navigation, and precise edits. It is a context/editing aid, not a replacement for source truth, tests, or graph-level impact analysis.
+- \`GitNexus\`: Use for global code knowledge, architecture understanding, natural-language code consultation/search, similar-module discovery, execution-flow lookup, impact analysis, and pre-commit change detection. For questions like "how does X work?", "where is X implemented?", or "what can I reuse?", prefer \`gitnexus_query\`; use \`gitnexus_context\` for one-symbol context. If this file contains a \`<!-- gitnexus:start -->\` managed block, follow that block's mandatory rules first.
+- \`code-review-graph\`: Use for change-set impact analysis, review context, related tests, and graph stats. Do not use it as the general consultation/search entrypoint, and do not restore the retired internal CRG/runtime graph engine; use it only when canonical graph facts / provider readiness are query-ready and not stale. If readiness is blocked, stale, or not ready, run \`${graphBootstrapEntry}\` first or fall back to bounded direct repo reads.
+- \`Serena MCP\`: Use for symbol overview, symbol lookup, references, LSP-assisted navigation, and precise edits. It is a context/editing aid for precise follow-up after GitNexus or direct repo reads identify candidates, not a replacement for source truth, tests, or graph-level impact analysis.
 - \`ast-grep\`: Use for structural code search and safe rewrites. Keep using \`rg\` / \`rg --files\` for simple text/file search; use \`ast-grep\` when AST semantics are needed.
+
+### Consultation/Search Fallback Order
+- Prefer \`GitNexus\`: use \`gitnexus_query\` for natural-language code consultation/search, and \`gitnexus_context\` for one-symbol context.
+- When \`GitNexus\` is unavailable, or after following the \`<!-- gitnexus:start -->\` block for required refresh/rebuild it is still stale / query-unverified, or the target repo is not indexed, fall back to \`Serena MCP\` for symbol / references / LSP-level navigation.
+- When \`Serena MCP\` is also unavailable, fall back to bounded direct repo reads and use \`rg\` / \`rg --files\` for text and file search; use \`ast-grep\` only when AST structural semantics are needed.
+- \`code-review-graph\` is not part of the general consultation/search fallback chain; it is reserved for change impact, review context, related tests, and graph stats.
 
 ### Do Not
 - Do not write helper tools into \`mcp-tools.json\` as MCP servers.

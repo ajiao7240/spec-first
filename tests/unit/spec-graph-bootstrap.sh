@@ -192,6 +192,8 @@ PRIMARY_REPO="$TMP_DIR/primary-repo"
 PRIMARY_LEDGER="$TMP_DIR/primary-home/.codex/spec-first/host-setup.json"
 make_repo "$PRIMARY_REPO"
 write_fixture_config "$PRIMARY_REPO" "$PRIMARY_LEDGER" true
+primary_provider_config_before="$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
+primary_runtime_capabilities_before="$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
 
 primary_output="$(cd "$PRIMARY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 PRIMARY_REPO_ROOT="$(cd "$PRIMARY_REPO" && pwd -P)"
@@ -207,8 +209,8 @@ assert "provider raw log exists" test -f "$PRIMARY_REPO/.spec-first/providers/gi
 assert "normalized artifact exists" test -f "$PRIMARY_REPO/.spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
 assert "old graph raw path is not used" test ! -e "$PRIMARY_REPO/.spec-first/graph/raw/gitnexus"
 assert_eq "provider status records command source" ".spec-first/config/graph-providers.json" "$(jq -r '.command_source' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
-assert_eq "derived readiness is primary" "primary" "$(jq -r '.derived_readiness.workflow_mode' "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
-assert_eq "runtime summary is primary" "primary" "$(jq -r '.project_graph_readiness.status' "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
+assert_eq "graph-bootstrap does not mutate provider config input" "$primary_provider_config_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
+assert_eq "graph-bootstrap does not mutate runtime capabilities input" "$primary_runtime_capabilities_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
 
 VERSIONED_REPO="$TMP_DIR/versioned-command-repo"
 VERSIONED_LEDGER="$TMP_DIR/versioned-home/.codex/spec-first/host-setup.json"
@@ -230,6 +232,21 @@ disabled_output="$(cd "$DISABLED_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCR
 assert_eq "disabled provider uses fallback workflow" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$disabled_output")"
 assert_eq "disabled provider status keeps real enabled flag" "false:disabled-for-bootstrap" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.enabled_for_bootstrap):\(.skip_reason)"' <<<"$disabled_output")"
 assert_eq "disabled provider is skipped not failed" "true" "$(jq -r '(.skipped_primary_providers | index("code-review-graph") != null) and (.failed_primary_providers | index("code-review-graph") == null)' "$DISABLED_REPO/.spec-first/graph/provider-status.json")"
+
+DISABLED_UNSAFE_REPO="$TMP_DIR/disabled-unsafe-repo"
+DISABLED_UNSAFE_LEDGER="$TMP_DIR/disabled-unsafe-home/.codex/spec-first/host-setup.json"
+make_repo "$DISABLED_UNSAFE_REPO"
+write_fixture_config "$DISABLED_UNSAFE_REPO" "$DISABLED_UNSAFE_LEDGER" true
+jq '.providers["code-review-graph"].enabled_for_bootstrap = false | .providers["code-review-graph"].commands.bootstrap = ["bash","-c","echo unsafe"]' "$DISABLED_UNSAFE_REPO/.spec-first/config/graph-providers.json" > "$DISABLED_UNSAFE_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$DISABLED_UNSAFE_REPO/.spec-first/config/graph-providers.json.tmp" "$DISABLED_UNSAFE_REPO/.spec-first/config/graph-providers.json"
+before_disabled_unsafe_log="$(cat "$COMMAND_LOG")"
+set +e
+disabled_unsafe_output="$(cd "$DISABLED_UNSAFE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+disabled_unsafe_status=$?
+set -e
+assert_eq "disabled unsafe provider fails closed" "1" "$disabled_unsafe_status"
+assert_eq "disabled unsafe provider reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$disabled_unsafe_output")"
+assert_eq "disabled unsafe provider is not executed" "$before_disabled_unsafe_log" "$(cat "$COMMAND_LOG")"
 
 SAFETY_REPO="$TMP_DIR/safety-repo"
 SAFETY_LEDGER="$TMP_DIR/safety-home/.codex/spec-first/host-setup.json"

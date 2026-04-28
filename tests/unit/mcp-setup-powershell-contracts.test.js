@@ -65,7 +65,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource.indexOf('Required Harness Runtime status:')).toBeLessThan(
       verifySource.indexOf("Write-Host '下一步:'"),
     );
-    expect(verifySource).toContain('| Name | Type | Required | Dependency | Host | Project | Query | Next |');
+    expect(verifySource).toContain('| Name | Remark | Type | Required | Dependency | Host | Project | Query | Next |');
+    expect(verifySource).toContain('Format-Remark');
     expect(verifySource).toContain('回复“继续完成”');
     expect(verifySource).toContain('建议先重启 $hostDisplay');
     expect(verifySource).toContain('graph_bootstrap_required');

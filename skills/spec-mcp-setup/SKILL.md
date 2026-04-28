@@ -296,7 +296,7 @@ These files are setup-owned inputs for `spec-graph-bootstrap`. They are not cano
 
 Repeated setup must not dirty the repo by rewriting these files only to refresh `generated_at`. If semantic payloads are unchanged, `write-provider-config.*` keeps existing timestamps, leaves files unchanged, and reports `ready` instead of `written`.
 
-When preserving an existing bootstrapped project, `write-provider-config.*` must preserve graph-bootstrap derived summaries such as `graph-providers.json.derived_readiness` and `runtime-capabilities.json.project_graph_readiness`. It may initialize missing summaries, but it must not unconditionally reset them to `not-bootstrapped`.
+When preserving an existing bootstrapped project, `write-provider-config.*` must reconstruct setup-owned readiness projections from canonical graph artifacts under `.spec-first/graph/` and `.spec-first/impact/`. It may initialize missing summaries, but it must not require `spec-graph-bootstrap` to mutate setup-owned config inputs, and it must not unconditionally reset current canonical readiness to `not-bootstrapped`.
 
 Expected projection boundaries:
 
@@ -369,14 +369,14 @@ When setup finishes, the assistant's final response must restate the complete Ma
 Required Harness Runtime is ready; graph bootstrap is still pending.
 
 Required Harness Runtime status:
-| Name | Type | Required | Dependency | Host | Project | Query | Next |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| serena | mcp | yes | ready | ready | ready | n/a | n/a |
-| gitnexus | graph-provider | yes | ready | ready | n/a | pending | run spec-graph-bootstrap |
-| code-review-graph | graph-provider | yes | ready | ready | n/a | pending | run spec-graph-bootstrap |
-| graph-providers.json | project | yes | n/a | n/a | written | n/a | n/a |
-| runtime-capabilities.json | project | yes | n/a | n/a | written | n/a | n/a |
-| provider-artifacts.json | project | yes | n/a | n/a | written | n/a | n/a |
+| Name | Remark | Type | Required | Dependency | Host | Project | Query | Next |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| serena | 符号级精确编辑和项目索引 | mcp | yes | ready | ready | ready | n/a | n/a |
+| gitnexus | 全局代码知识图谱与影响分析 | graph-provider | yes | ready | ready | n/a | pending | run spec-graph-bootstrap |
+| code-review-graph | 变更影响半径与 review 上下文 | graph-provider | yes | ready | ready | n/a | pending | run spec-graph-bootstrap |
+| graph-providers.json | 供 graph bootstrap 消费的 provider 投影 | project | yes | n/a | n/a | written | n/a | n/a |
+| runtime-capabilities.json | 记录 setup-owned 能力事实和 host ledger 指针 | project | yes | n/a | n/a | written | n/a | n/a |
+| provider-artifacts.json | 记录 setup-owned provider 产物与就绪证据 | project | yes | n/a | n/a | written | n/a | n/a |
 
 下一步:
   1. 建议先重启 Claude Code/Codex 或新开会话，让新写入的 MCP 配置被宿主加载。

@@ -140,8 +140,8 @@ fi
 echo "✅ readiness ledger v2 已写入"
 echo ""
 echo "Required Harness Runtime status:"
-echo "| Name | Type | Required | Dependency | Host | Project | Query | Next |"
-echo "| --- | --- | --- | --- | --- | --- | --- | --- |"
+echo "| Name | Remark | Type | Required | Dependency | Host | Project | Query | Next |"
+echo "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
 jq -r '
   def display($value):
     if ($value == null or $value == "" or $value == "not-applicable") then "n/a"
@@ -152,10 +152,16 @@ jq -r '
   def query($value):
     if $value == true then "ready" elif $value == false then "pending" else "n/a" end;
   def markdown_row:
-    "| \(.name) | \(.type) | \(.required) | \(.dependency) | \(.host) | \(.project) | \(.query) | \(.next) |";
+    "| \(.name) | \(.remark) | \(.type) | \(.required) | \(.dependency) | \(.host) | \(.project) | \(.query) | \(.next) |";
   [
     (.tools // {} | to_entries[] | {
       name: .key,
+      remark: (if .key == "serena" then "符号级精确编辑和项目索引"
+        elif .key == "sequential-thinking" then "反思式推理辅助"
+        elif .key == "context7" then "当前框架和库文档"
+        elif .key == "gitnexus" then "全局代码知识图谱与影响分析"
+        elif .key == "code-review-graph" then "变更影响半径与 review 上下文"
+        else "MCP 工具" end),
       type: .value.type,
       required: .value.required,
       dependency: .value.dependency_status,
@@ -166,6 +172,15 @@ jq -r '
     }),
     (.helper_tools // {} | to_entries[] | {
       name: .key,
+      remark: (if .key == "agent-browser" then "浏览器自动化辅助"
+        elif .key == "gh" then "GitHub issue 和 PR 操作"
+        elif .key == "jq" then "JSON 解析与转换"
+        elif .key == "vhs" then "终端演示录制"
+        elif .key == "silicon" then "代码截图渲染"
+        elif .key == "ffmpeg" then "媒体转换与视频合成"
+        elif .key == "ast-grep" then "结构化代码搜索和重写"
+        elif .key == "ast-grep-skill" then "ast-grep 使用指引"
+        else "Helper 工具" end),
       type: (.value.type // "helper"),
       required: .value.required,
       dependency: .value.dependency_status,
@@ -176,6 +191,7 @@ jq -r '
     }),
     {
       name: "graph-providers.json",
+      remark: "供 graph bootstrap 消费的 provider 投影",
       type: "project",
       required: true,
       dependency: null,
@@ -186,6 +202,7 @@ jq -r '
     },
     {
       name: "runtime-capabilities.json",
+      remark: "记录 setup-owned 能力事实和 host ledger 指针",
       type: "project",
       required: true,
       dependency: null,
@@ -196,6 +213,7 @@ jq -r '
     },
     {
       name: "provider-artifacts.json",
+      remark: "记录 setup-owned provider 产物与就绪证据",
       type: "project",
       required: true,
       dependency: null,
@@ -207,6 +225,7 @@ jq -r '
   ][]
   | [
       display(.name),
+      display(.remark),
       display(.type),
       required(.required),
       display(.dependency),
@@ -217,13 +236,14 @@ jq -r '
     ]
     | {
       name: .[0],
-      type: .[1],
-      required: .[2],
-      dependency: .[3],
-      host: .[4],
-      project: .[5],
-      query: .[6],
-      next: .[7]
+      remark: .[1],
+      type: .[2],
+      required: .[3],
+      dependency: .[4],
+      host: .[5],
+      project: .[6],
+      query: .[7],
+      next: .[8]
     }
     | markdown_row
 ' "$MARKER_PATH"

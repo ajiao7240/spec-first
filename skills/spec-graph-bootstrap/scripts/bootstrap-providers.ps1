@@ -247,7 +247,7 @@ function Write-NormalizedArtifacts {
       available_query_surfaces = if ($QueryReady) { @('status', 'query_graph_tool', 'get_impact_radius_tool') } else { @() }
       capabilities = @('detect_changes', 'blast_radius', 'minimal_context', 'review_context', 'related_tests', 'graph_stats')
       confidence = if ($QueryReady) { 'medium' } else { 'low' }
-      limitations = if ($QueryReady) { @('code-review-graph query proof is conservative and should be treated as provider readiness, not semantic evidence.') } else { @('Provider query readiness is not verified.') }
+      limitations = if ($QueryReady) { @('code-review-graph query-surface proof is conservative and should be treated as provider readiness, not semantic evidence.') } else { @('Provider query readiness is not verified.') }
     }
     Write-JsonFileAtomic -Path (Join-Path $normalizedDir 'impact-capabilities.json') -Payload ([pscustomobject]$payload) -Depth 20
   }
@@ -318,11 +318,9 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   if ($property.Name -ne 'gitnexus' -and $property.Name -ne 'code-review-graph') {
     Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'unsupported-provider-command' -NextAction "Unsupported graph provider id: $($property.Name)"
   }
-  if (Test-ProviderEnabled -ProviderConfig $providerConfig -Provider $property.Name) {
-    foreach ($kind in @('bootstrap', 'status', 'query_probe')) {
-      if (-not (Test-CommandShapeSupported -ProviderConfig $providerConfig -Provider $property.Name -Kind $kind -RepoRoot $repoRoot)) {
-        Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'unsupported-provider-command' -NextAction "Provider command shape is unsupported for $($property.Name):$kind."
-      }
+  foreach ($kind in @('bootstrap', 'status', 'query_probe')) {
+    if (-not (Test-CommandShapeSupported -ProviderConfig $providerConfig -Provider $property.Name -Kind $kind -RepoRoot $repoRoot)) {
+      Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'unsupported-provider-command' -NextAction "Provider command shape is unsupported for $($property.Name):$kind."
     }
   }
 }
@@ -366,7 +364,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
         } else {
           $status = 'query-unverified'
           $confidence = 'medium'
-          $limitations = @('Build and status succeeded, but query proof did not verify provider query readiness.')
+          $limitations = @('Build and status succeeded, but provider-specific query-surface proof did not verify provider readiness.')
         }
       } else {
         $status = 'query-unverified'
@@ -513,42 +511,6 @@ $impactCapabilities = [ordered]@{
   }
 }
 Write-JsonFileAtomic -Path (Join-Path $impactDir 'bootstrap-impact-capabilities.json') -Payload ([pscustomobject]$impactCapabilities) -Depth 20
-
-$providerConfig.derived_readiness = [pscustomobject][ordered]@{
-  updated_by = 'spec-graph-bootstrap'
-  updated_at = $bootstrappedAt
-  workflow_mode = $workflowMode
-  graph_bootstrap_required = ($workflowMode -ne 'primary')
-  provider_status_artifact = '.spec-first/graph/provider-status.json'
-  graph_facts_artifact = '.spec-first/graph/graph-facts.json'
-  impact_capabilities_artifact = '.spec-first/impact/bootstrap-impact-capabilities.json'
-  providers = [ordered]@{}
-}
-foreach ($status in $providerStatuses) {
-  $providerConfig.derived_readiness.providers[$status.provider] = [ordered]@{
-    query_ready = [bool]$status.query_ready
-    bootstrap_required = -not [bool]$status.query_ready
-    last_bootstrap_status = $status.status
-    last_bootstrapped_at = $bootstrappedAt
-    provider_status_artifact = ".spec-first/providers/$($status.provider)/status.json"
-  }
-  $providerConfig.providers.PSObject.Properties[$status.provider].Value.next_action = if ($status.query_ready) { '' } else { 'run spec-graph-bootstrap' }
-}
-$providerConfig.boundaries.graph_bootstrap_required = ($workflowMode -ne 'primary')
-Write-JsonFileAtomic -Path $providerConfigPath -Payload $providerConfig -Depth 30
-
-$runtimeCapabilities.project_graph_readiness = [pscustomobject][ordered]@{
-  status = $workflowMode
-  canonical_graph_facts_artifact = '.spec-first/graph/graph-facts.json'
-  provider_status_artifact = '.spec-first/graph/provider-status.json'
-  impact_capabilities_artifact = '.spec-first/impact/bootstrap-impact-capabilities.json'
-  graph_bootstrap_required = ($workflowMode -ne 'primary')
-  updated_by = 'spec-graph-bootstrap'
-  updated_at = $bootstrappedAt
-  confidence = $providerAggregate.confidence
-  limitations = if ($workflowMode -eq 'primary') { @() } else { @('Canonical graph readiness is not fully primary.') }
-}
-Write-JsonFileAtomic -Path $runtimeCapabilitiesPath -Payload $runtimeCapabilities -Depth 30
 
 Write-TextFileAtomic -Path (Join-Path $graphDir 'bootstrap-report.md') -Value @"
 # Graph Bootstrap Report

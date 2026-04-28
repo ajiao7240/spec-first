@@ -384,7 +384,8 @@ assert_contains "verify table includes required ast-grep skill" "ast-grep-skill"
 assert_contains "verify table includes provider projection" "graph-providers.json" "$verify_text"
 assert_contains "verify table includes runtime capabilities" "runtime-capabilities.json" "$verify_text"
 assert_contains "verify table includes provider artifacts" "provider-artifacts.json" "$verify_text"
-assert_contains "verify prints markdown table" "| Name | Type | Required | Dependency | Host | Project | Query | Next |" "$verify_text"
+assert_contains "verify prints markdown table" "| Name | Remark | Type | Required | Dependency | Host | Project | Query | Next |" "$verify_text"
+assert_contains "verify prints tool remark" "符号级精确编辑和项目索引" "$verify_text"
 assert_contains "verify prints friendly next steps" "下一步:" "$verify_text"
 assert_contains "verify prompts graph bootstrap command" "/spec:graph-bootstrap" "$verify_text"
 assert_contains "verify prompts continue completion" "继续完成" "$verify_text"
@@ -493,21 +494,31 @@ if [ "$graph_log_before" = "$graph_log_after" ]; then
   echo "FAIL: graph-bootstrap should run provider build commands" >&2
   exit 1
 fi
-assert_eq "graph-bootstrap flips query_ready" "true" "$(jq -r '.derived_readiness.providers.gitnexus.query_ready and .derived_readiness.providers["code-review-graph"].query_ready and (.derived_readiness.providers.gitnexus.bootstrap_required == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == false)' "$PROVIDER_CONFIG")"
-provider_config_before_repeat_verify="$(jq -S -c . "$PROVIDER_CONFIG")"
-runtime_graph_readiness_before_repeat_verify="$(jq -S -c '.project_graph_readiness' "$RUNTIME_CAPABILITIES")"
+assert_eq "graph-bootstrap writes canonical provider readiness" "true" "$(jq -r '(.ready_primary_providers | index("gitnexus") != null) and (.ready_primary_providers | index("code-review-graph") != null) and ([.providers[] | select(.query_ready == true)] | length == 2)' "$FAKE_REPO/.spec-first/graph/provider-status.json")"
 verify_after_bootstrap="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
-assert_contains "repeat verify shows graph provider query ready" "| gitnexus | graph-provider | yes | ready | fallback | n/a | ready | n/a |" "$verify_after_bootstrap"
+assert_contains "repeat verify shows graph provider query ready" "| gitnexus | 全局代码知识图谱与影响分析 | graph-provider | yes | ready | fallback | n/a | ready | n/a |" "$verify_after_bootstrap"
 assert_contains "repeat verify reports graph provider query ready summary" "Graph providers are query-ready." "$verify_after_bootstrap"
 if [[ "$verify_after_bootstrap" == *"Graph providers are configured but not query-ready yet."* ]]; then
   echo "FAIL: repeat verify should not say query-ready providers are pending" >&2
   exit 1
 fi
-assert_eq "repeat verify does not rewrite unchanged provider projection" "$provider_config_before_repeat_verify" "$(jq -S -c . "$PROVIDER_CONFIG")"
-assert_eq "repeat verify preserves runtime graph readiness summary" "$runtime_graph_readiness_before_repeat_verify" "$(jq -S -c '.project_graph_readiness' "$RUNTIME_CAPABILITIES")"
-assert_eq "repeat verify preserves provider query_ready" "true" "$(jq -r '.derived_readiness.providers.gitnexus.query_ready and .derived_readiness.providers["code-review-graph"].query_ready and (.derived_readiness.providers.gitnexus.bootstrap_required == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == false)' "$PROVIDER_CONFIG")"
+assert_eq "repeat verify projects provider query_ready from canonical artifacts" "true" "$(jq -r '.derived_readiness.providers.gitnexus.query_ready and .derived_readiness.providers["code-review-graph"].query_ready and (.derived_readiness.providers.gitnexus.bootstrap_required == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == false)' "$PROVIDER_CONFIG")"
+assert_eq "repeat verify projects runtime graph readiness summary" "primary:false:spec-mcp-setup" "$(jq -r '.project_graph_readiness | "\(.status):\(.graph_bootstrap_required):\(.updated_by)"' "$RUNTIME_CAPABILITIES")"
 assert_eq "repeat verify clears graph bootstrap next action" "false" "$(jq -r '.next_actions | index("run spec-graph-bootstrap") != null' "$LEDGER_PATH")"
 assert_eq "repeat verify ledger graph bootstrap no longer required" "false" "$(jq -r '.graph_bootstrap_required' "$LEDGER_PATH")"
+
+IMPACT_CAPABILITIES="$FAKE_REPO/.spec-first/impact/bootstrap-impact-capabilities.json"
+impact_capabilities_backup="$(cat "$IMPACT_CAPABILITIES")"
+jq '.schema_version = "wrong-impact-schema.v1"' "$IMPACT_CAPABILITIES" > "$IMPACT_CAPABILITIES.tmp"
+mv "$IMPACT_CAPABILITIES.tmp" "$IMPACT_CAPABILITIES"
+verify_after_invalid_impact="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
+assert_contains "invalid canonical impact artifact requires graph bootstrap" "Graph providers are configured but not query-ready yet." "$verify_after_invalid_impact"
+assert_eq "invalid canonical impact schema resets provider readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers["code-review-graph"].query_ready == false)' "$PROVIDER_CONFIG")"
+assert_eq "invalid canonical impact schema resets runtime summary" "not-bootstrapped:true" "$(jq -r '.project_graph_readiness | "\(.status):\(.graph_bootstrap_required)"' "$RUNTIME_CAPABILITIES")"
+printf '%s\n' "$impact_capabilities_backup" > "$IMPACT_CAPABILITIES"
+verify_after_restored_impact="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
+assert_contains "restored canonical impact artifact projects query ready" "Graph providers are query-ready." "$verify_after_restored_impact"
+assert_eq "restored canonical impact artifact restores provider readiness" "true" "$(jq -r '.derived_readiness.providers.gitnexus.query_ready and .derived_readiness.providers["code-review-graph"].query_ready and (.derived_readiness.providers.gitnexus.bootstrap_required == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == false)' "$PROVIDER_CONFIG")"
 
 rm -f "$FAKE_REPO/.spec-first/graph/graph-facts.json"
 verify_after_missing_canonical="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"

@@ -163,9 +163,33 @@ function Format-Query {
   return 'pending'
 }
 
+function Format-Remark {
+  param([string]$Name)
+  switch ($Name) {
+    'serena' { return '符号级精确编辑和项目索引' }
+    'sequential-thinking' { return '反思式推理辅助' }
+    'context7' { return '当前框架和库文档' }
+    'gitnexus' { return '全局代码知识图谱与影响分析' }
+    'code-review-graph' { return '变更影响半径与 review 上下文' }
+    'agent-browser' { return '浏览器自动化辅助' }
+    'gh' { return 'GitHub issue 和 PR 操作' }
+    'jq' { return 'JSON 解析与转换' }
+    'vhs' { return '终端演示录制' }
+    'silicon' { return '代码截图渲染' }
+    'ffmpeg' { return '媒体转换与视频合成' }
+    'ast-grep' { return '结构化代码搜索和重写' }
+    'ast-grep-skill' { return 'ast-grep 使用指引' }
+    'graph-providers.json' { return '供 graph bootstrap 消费的 provider 投影' }
+    'runtime-capabilities.json' { return '记录 setup-owned 能力事实和 host ledger 指针' }
+    'provider-artifacts.json' { return '记录 setup-owned provider 产物与就绪证据' }
+    default { return 'MCP 工具' }
+  }
+}
+
 function Write-StatusRow {
   param(
     [string]$Name,
+    [string]$Remark,
     [string]$Type,
     [string]$Required,
     [string]$Dependency,
@@ -174,7 +198,7 @@ function Write-StatusRow {
     [string]$Query,
     [string]$Next
   )
-  Write-Host ("| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} |" -f $Name, $Type, $Required, $Dependency, $HostConfig, $Project, $Query, $Next)
+  Write-Host ("| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8} |" -f $Name, $Remark, $Type, $Required, $Dependency, $HostConfig, $Project, $Query, $Next)
 }
 
 Write-Host "📝 宿主就绪标记已更新: $MarkerPath"
@@ -188,12 +212,13 @@ if ($combined.graph_bootstrap_required) {
 Write-Host '✅ readiness ledger v2 已写入'
 Write-Host ''
 Write-Host 'Required Harness Runtime status:'
-Write-Host '| Name | Type | Required | Dependency | Host | Project | Query | Next |'
-Write-Host '| --- | --- | --- | --- | --- | --- | --- | --- |'
+Write-Host '| Name | Remark | Type | Required | Dependency | Host | Project | Query | Next |'
+Write-Host '| --- | --- | --- | --- | --- | --- | --- | --- | --- |'
 foreach ($property in $combined.tools.PSObject.Properties) {
   $tool = $property.Value
   Write-StatusRow `
     (Format-Cell $property.Name) `
+    (Format-Cell (Format-Remark $property.Name)) `
     (Format-Cell $tool.type) `
     (Format-Required $tool.required) `
     (Format-Cell $tool.dependency_status) `
@@ -206,6 +231,7 @@ foreach ($property in $combined.helper_tools.PSObject.Properties) {
   $helper = $property.Value
   Write-StatusRow `
     (Format-Cell $property.Name) `
+    (Format-Cell (Format-Remark $property.Name)) `
     (Format-Cell $(if ($helper.PSObject.Properties.Name -contains 'type') { $helper.type } else { 'helper' })) `
     (Format-Required $helper.required) `
     (Format-Cell $helper.dependency_status) `
@@ -217,6 +243,7 @@ foreach ($property in $combined.helper_tools.PSObject.Properties) {
 $projectionNext = if ($combined.repo_config_status -eq 'ready' -or $combined.repo_config_status -eq 'written') { '' } else { 'write provider projection' }
 Write-StatusRow `
   'graph-providers.json' `
+  (Format-Cell (Format-Remark 'graph-providers.json')) `
   'project' `
   'yes' `
   'n/a' `
@@ -228,6 +255,7 @@ Write-StatusRow `
 $runtimeNext = if ($combined.runtime_capabilities_status -eq 'ready' -or $combined.runtime_capabilities_status -eq 'written') { '' } else { 'write runtime capabilities' }
 Write-StatusRow `
   'runtime-capabilities.json' `
+  (Format-Cell (Format-Remark 'runtime-capabilities.json')) `
   'project' `
   'yes' `
   'n/a' `
@@ -239,6 +267,7 @@ Write-StatusRow `
 $artifactsNext = if ($combined.provider_artifacts_status -eq 'ready' -or $combined.provider_artifacts_status -eq 'written') { '' } else { 'write provider artifacts' }
 Write-StatusRow `
   'provider-artifacts.json' `
+  (Format-Cell (Format-Remark 'provider-artifacts.json')) `
   'project' `
   'yes' `
   'n/a' `

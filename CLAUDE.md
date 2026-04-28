@@ -169,10 +169,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `spec-mcp-setup` 管理本项目推荐/必需的 MCP servers、graph-provider MCP servers 与 helper tooling。完整工具清单、安装命令、host-specific notes 与 readiness ledger 语义统一收口在 `.claude/skills/spec-mcp-setup/references/supported-mcp-tools.md`。
 
 ### 使用边界
-- `GitNexus`：用于全局代码知识图谱、架构理解、影响分析和提交前变更检测。若本文件存在 `<!-- gitnexus:start -->` 管理块，优先遵守该块的强制规则。
-- `code-review-graph`：用于最小上下文、impact radius、review context、相关测试和 graph stats。只有 canonical graph facts / provider readiness 已 query-ready 且未 stale 时使用；blocked、stale 或未 ready 时先运行 `/spec:graph-bootstrap`，或退回 bounded direct repo reads。
-- `Serena MCP`：用于 symbol overview、symbol lookup、references、LSP 辅助定位和精确编辑。它是上下文/编辑辅助，不替代源码真相源、测试或 graph-level 影响分析。
+- `GitNexus`：用于全局代码知识图谱、架构理解、自然语言代码咨询/搜索、相似模块查找、执行流查询、影响分析和提交前变更检测。咨询“X 怎么工作 / 在哪里实现 / 可复用什么”这类场景，优先用 `gitnexus_query`；需要单个符号上下文时用 `gitnexus_context`。若本文件存在 `<!-- gitnexus:start -->` 管理块，优先遵守该块的强制规则。
+- `code-review-graph`：用于变更集影响分析、review context、相关测试和 graph stats。不要把它当作通用咨询/搜索入口，也不要恢复旧内置 CRG/runtime 图引擎；只有 canonical graph facts / provider readiness 已 query-ready 且未 stale 时使用；blocked、stale 或未 ready 时先运行 `/spec:graph-bootstrap`，或退回 bounded direct repo reads。
+- `Serena MCP`：用于 symbol overview、symbol lookup、references、LSP 辅助定位和精确编辑。它是上下文/编辑辅助，适合在 GitNexus 或 direct repo reads 给出候选后做精确定位，不替代源码真相源、测试或 graph-level 影响分析。
 - `ast-grep`：用于结构化代码搜索和安全 rewrite。简单文本/文件搜索仍优先 `rg` / `rg --files`；需要 AST 语义匹配时再使用 `ast-grep`。
+
+### 咨询/搜索降级顺序
+- 优先使用 `GitNexus`：用 `gitnexus_query` 做自然语言代码咨询/搜索，用 `gitnexus_context` 查看单个符号上下文。
+- 当 `GitNexus` 不可用，或按 `<!-- gitnexus:start -->` 管理块完成必要刷新/重建后仍然 stale / query-unverified，或目标仓库未索引时，降级到 `Serena MCP` 做 symbol / references / LSP 级定位。
+- 当 `Serena MCP` 也不可用时，降级到 bounded direct repo reads，并用 `rg` / `rg --files` 做文本与文件搜索；只有需要 AST 结构语义时才用 `ast-grep`。
+- `code-review-graph` 不在通用咨询/搜索降级链路中；它只用于变更影响、review context、相关测试和 graph stats。
 
 ### 不要做
 - 不要把 helper tools 当成 MCP server 写入 `mcp-tools.json`。
@@ -183,7 +189,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **spec-first** (19845 symbols, 22429 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **spec-first** (19854 symbols, 22438 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

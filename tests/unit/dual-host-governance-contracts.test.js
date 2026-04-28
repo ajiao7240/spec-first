@@ -115,7 +115,7 @@ describe('dual-host governance contracts', () => {
     expect(mcpSetup).toContain("the assistant's final response must restate the complete Markdown status table");
     expect(mcpSetup).toContain('Do not rely on prior command output as the only place where the table appears.');
     expect(mcpSetup).toContain('Required Harness Runtime status:');
-    expect(mcpSetup).toContain('| Name | Type | Required | Dependency | Host | Project | Query | Next |');
+    expect(mcpSetup).toContain('| Name | Remark | Type | Required | Dependency | Host | Project | Query | Next |');
     expect(mcpSetup).toContain('下一步:');
   });
 

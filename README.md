@@ -85,25 +85,25 @@ Expected Codex init output includes:
 
 | Intent | Claude Code | Codex |
 |---|---|---|
-| Generate and evaluate ideas | `/spec:ideate` | `$spec-ideate` |
-| Brainstorm requirements | `/spec:brainstorm` | `$spec-brainstorm` |
-| Write or deepen a plan | `/spec:plan` | `$spec-plan` |
-| Compile task pack | use installed `write-tasks` skill | standalone `spec-write-tasks` skill |
-| Execute work | `/spec:work` | `$spec-work` |
-| Execute work with Codex delegation beta | `/spec:work-beta` | `$spec-work-beta` |
-| Debug a failure or bug | `/spec:debug` | `$spec-debug` |
-| Review code | `/spec:code-review` | `$spec-code-review` |
-| Review docs/plans | `/spec:doc-review` | `$spec-doc-review` |
 | Setup required harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | Compile graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
 | Update spec-first or runtime assets | `/spec:update` | `$spec-update` |
-| Optimize a measurable outcome | `/spec:optimize` | `$spec-optimize` |
-| Polish browser-visible UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
 | Search agent session history | `/spec:sessions` | `$spec-sessions` |
 | Research Slack context | `/spec:slack-research` | `$spec-slack-research` |
-| Read release notes | `/spec:release-notes` | `$spec-release-notes` |
+| Generate and evaluate ideas | `/spec:ideate` | `$spec-ideate` |
+| Brainstorm requirements | `/spec:brainstorm` | `$spec-brainstorm` |
+| Review docs/plans | `/spec:doc-review` | `$spec-doc-review` |
+| Write or deepen a plan | `/spec:plan` | `$spec-plan` |
+| Compile task pack | use installed `write-tasks` skill | standalone `spec-write-tasks` skill |
+| Debug a failure or bug | `/spec:debug` | `$spec-debug` |
+| Execute work | `/spec:work` | `$spec-work` |
+| Execute work with Codex delegation beta | `/spec:work-beta` | `$spec-work-beta` |
+| Optimize a measurable outcome | `/spec:optimize` | `$spec-optimize` |
+| Polish browser-visible UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
+| Review code | `/spec:code-review` | `$spec-code-review` |
 | Capture learning | `/spec:compound` | `$spec-compound` |
 | Refresh stale learnings | `/spec:compound-refresh` | `$spec-compound-refresh` |
+| Read release notes | `/spec:release-notes` | `$spec-release-notes` |
 
 ## Development
 

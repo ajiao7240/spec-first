@@ -81,25 +81,25 @@ Codex init 的预期输出包含：
 
 | 意图 | Claude Code | Codex |
 |---|---|---|
-| 生成并评估想法 | `/spec:ideate` | `$spec-ideate` |
-| 需求澄清 | `/spec:brainstorm` | `$spec-brainstorm` |
-| 写计划或深化计划 | `/spec:plan` | `$spec-plan` |
-| 编译 task pack | 使用已安装的 `write-tasks` skill | standalone `spec-write-tasks` skill |
-| 执行工作 | `/spec:work` | `$spec-work` |
-| 使用 Codex delegation beta 执行工作 | `/spec:work-beta` | `$spec-work-beta` |
-| 调试失败或 bug | `/spec:debug` | `$spec-debug` |
-| 代码评审 | `/spec:code-review` | `$spec-code-review` |
-| 文档/计划评审 | `/spec:doc-review` | `$spec-doc-review` |
 | required harness runtime setup | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | 编译 graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
 | 更新 spec-first 或 runtime assets | `/spec:update` | `$spec-update` |
-| 优化可度量目标 | `/spec:optimize` | `$spec-optimize` |
-| polish browser-visible UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
 | 搜索 agent session 历史 | `/spec:sessions` | `$spec-sessions` |
 | 研究 Slack 组织上下文 | `/spec:slack-research` | `$spec-slack-research` |
-| 查看 release notes | `/spec:release-notes` | `$spec-release-notes` |
+| 生成并评估想法 | `/spec:ideate` | `$spec-ideate` |
+| 需求澄清 | `/spec:brainstorm` | `$spec-brainstorm` |
+| 文档/计划评审 | `/spec:doc-review` | `$spec-doc-review` |
+| 写计划或深化计划 | `/spec:plan` | `$spec-plan` |
+| 编译 task pack | 使用已安装的 `write-tasks` skill | standalone `spec-write-tasks` skill |
+| 调试失败或 bug | `/spec:debug` | `$spec-debug` |
+| 执行工作 | `/spec:work` | `$spec-work` |
+| 使用 Codex delegation beta 执行工作 | `/spec:work-beta` | `$spec-work-beta` |
+| 优化可度量目标 | `/spec:optimize` | `$spec-optimize` |
+| polish browser-visible UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
+| 代码评审 | `/spec:code-review` | `$spec-code-review` |
 | 知识沉淀 | `/spec:compound` | `$spec-compound` |
 | 刷新过期知识沉淀 | `/spec:compound-refresh` | `$spec-compound-refresh` |
+| 查看 release notes | `/spec:release-notes` | `$spec-release-notes` |
 
 ## 开发与验证
 

@@ -91,13 +91,13 @@ Reject string commands, `bash -c`, `sh -c`, and unsupported executable/package s
 
 ## Readiness Evidence
 
-`query_ready=true` requires all three evidence levels:
+`query_ready=true` requires all three provider-specific evidence levels:
 
 1. Build/analyze command succeeds.
 2. Status command succeeds.
-3. Provider-specific query proof succeeds.
+3. Provider-specific query-surface proof succeeds.
 
-If build and status succeed but query proof is missing, unsupported, or fails, write `status=query-unverified`, keep `query_ready=false`, and include diagnostics plus raw log pointers. Do not infer query readiness from build exit code alone.
+If build and status succeed but query-surface proof is missing, unsupported, or fails, write `status=query-unverified`, keep `query_ready=false`, and include diagnostics plus raw log pointers. Do not infer query readiness from build exit code alone. For `code-review-graph`, the Level 3 proof is intentionally conservative and may reuse its `status --repo` surface probe; treat it as provider readiness evidence, not semantic graph evidence.
 
 ## Outputs
 
@@ -125,12 +125,13 @@ Canonical downstream artifacts live under `.spec-first/graph/` and `.spec-first/
 .spec-first/impact/bootstrap-impact-capabilities.json
 ```
 
-`graph-providers.json.derived_readiness` and `runtime-capabilities.json.project_graph_readiness` are derived summaries pointing back to canonical artifacts. They are not the canonical readiness truth source.
+`graph-providers.json.derived_readiness` and `runtime-capabilities.json.project_graph_readiness` are setup-owned projections pointing back to canonical artifacts. They are refreshed by `spec-mcp-setup` from `.spec-first/graph/` and `.spec-first/impact/`; graph-bootstrap must not mutate setup-owned config inputs to mark readiness.
 
 ## Boundaries
 
 - Do not run the retired internal graph CLI.
 - Do not run graph builds from `spec-mcp-setup`.
+- Do not write readiness results back into setup-owned config inputs such as `.spec-first/config/graph-providers.json` or `.spec-first/config/runtime-capabilities.json`.
 - Do not perform persistent installs: no `npm install -g`, no `uv tool install`, no shell profile edits, and no MCP host config edits.
 - Do allow transient provider command execution after `spec-mcp-setup` has verified command availability and `graph-providers.json` command arrays pass safety validation.
 - Do not write provider raw logs under `.spec-first/graph/raw/<provider>/`; provider projection belongs under `.spec-first/providers/<provider>/`.

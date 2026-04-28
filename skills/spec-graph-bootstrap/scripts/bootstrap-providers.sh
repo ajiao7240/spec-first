@@ -175,13 +175,11 @@ while IFS= read -r provider; do
     gitnexus|code-review-graph) ;;
     *) emit_blocked blocked unsupported-provider-command "Unsupported graph provider id: $provider" ;;
   esac
-  if provider_enabled "$provider"; then
-    for kind in bootstrap status query_probe; do
-      if ! command_shape_supported "$provider" "$kind"; then
-        emit_blocked blocked unsupported-provider-command "Provider command shape is unsupported for $provider:$kind."
-      fi
-    done
-  fi
+  for kind in bootstrap status query_probe; do
+    if ! command_shape_supported "$provider" "$kind"; then
+      emit_blocked blocked unsupported-provider-command "Provider command shape is unsupported for $provider:$kind."
+    fi
+  done
 done < <(jq -r '.providers | keys[]' "$PROVIDER_CONFIG")
 
 command_display() {
@@ -286,7 +284,7 @@ write_normalized_artifacts() {
         available_query_surfaces:(if $query_ready then ["status","query_graph_tool","get_impact_radius_tool"] else [] end),
         capabilities:["detect_changes","blast_radius","minimal_context","review_context","related_tests","graph_stats"],
         confidence:(if $query_ready then "medium" else "low" end),
-        limitations:(if $query_ready then ["code-review-graph query proof is conservative and should be treated as provider readiness, not semantic evidence."] else ["Provider query readiness is not verified."] end)
+        limitations:(if $query_ready then ["code-review-graph query-surface proof is conservative and should be treated as provider readiness, not semantic evidence."] else ["Provider query readiness is not verified."] end)
       }' | write_file_atomic "$normalized_dir/impact-capabilities.json"
   fi
 }
@@ -357,7 +355,7 @@ write_provider_status() {
           status="query-unverified"
           query_ready=false
           confidence="medium"
-          limitations='["Build and status succeeded, but query proof did not verify provider query readiness."]'
+          limitations='["Build and status succeeded, but provider-specific query-surface proof did not verify provider readiness."]'
         fi
       else
         status="query-unverified"
@@ -557,53 +555,6 @@ jq -n \
       limitations_required:($workflow_mode != "primary")
     }
   }' | write_file_atomic "$IMPACT_DIR/bootstrap-impact-capabilities.json"
-
-config_tmp="$(mktemp "${PROVIDER_CONFIG}.XXXXXX")"
-jq --arg bootstrapped_at "$BOOTSTRAPPED_AT" \
-   --arg workflow_mode "$WORKFLOW_MODE" \
-   --argjson providers "$statuses_json" '
-  .derived_readiness = {
-    updated_by:"spec-graph-bootstrap",
-    updated_at:$bootstrapped_at,
-    workflow_mode:$workflow_mode,
-    graph_bootstrap_required:($workflow_mode != "primary"),
-    provider_status_artifact:".spec-first/graph/provider-status.json",
-    graph_facts_artifact:".spec-first/graph/graph-facts.json",
-    impact_capabilities_artifact:".spec-first/impact/bootstrap-impact-capabilities.json",
-    providers:(
-      reduce $providers[] as $provider ({}; .[$provider.provider] = {
-        query_ready:($provider.query_ready == true),
-        bootstrap_required:($provider.query_ready != true),
-        last_bootstrap_status:$provider.status,
-        last_bootstrapped_at:$bootstrapped_at,
-        provider_status_artifact:(".spec-first/providers/" + $provider.provider + "/status.json")
-      })
-    )
-  }
-  | .boundaries.graph_bootstrap_required = ($workflow_mode != "primary")
-  | reduce $providers[] as $provider (.;
-      .providers[$provider.provider].next_action = (if $provider.query_ready == true then "" else "run spec-graph-bootstrap" end)
-    )
-' "$PROVIDER_CONFIG" > "$config_tmp"
-mv "$config_tmp" "$PROVIDER_CONFIG"
-
-runtime_tmp="$(mktemp "${RUNTIME_CAPABILITIES}.XXXXXX")"
-jq --arg bootstrapped_at "$BOOTSTRAPPED_AT" \
-   --arg workflow_mode "$WORKFLOW_MODE" \
-   --arg confidence "$(if [ "$WORKFLOW_MODE" = "primary" ]; then echo high; elif [ "$WORKFLOW_MODE" = "degraded-fallback" ]; then echo medium; else echo low; fi)" '
-  .project_graph_readiness = {
-    status:$workflow_mode,
-    canonical_graph_facts_artifact:".spec-first/graph/graph-facts.json",
-    provider_status_artifact:".spec-first/graph/provider-status.json",
-    impact_capabilities_artifact:".spec-first/impact/bootstrap-impact-capabilities.json",
-    graph_bootstrap_required:($workflow_mode != "primary"),
-    updated_by:"spec-graph-bootstrap",
-    updated_at:$bootstrapped_at,
-    confidence:$confidence,
-    limitations:(if $workflow_mode == "primary" then [] else ["Canonical graph readiness is not fully primary."] end)
-  }
-' "$RUNTIME_CAPABILITIES" > "$runtime_tmp"
-mv "$runtime_tmp" "$RUNTIME_CAPABILITIES"
 
 write_file_atomic "$GRAPH_DIR/bootstrap-report.md" <<MD
 # Graph Bootstrap Report

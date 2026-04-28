@@ -47,6 +47,23 @@ function Read-ExistingJson {
   return $null
 }
 
+function Read-CanonicalJson {
+  param(
+    [string]$Path,
+    [string]$SchemaVersion
+  )
+  if (-not (Test-Path $Path)) { return $null }
+  try {
+    $candidate = Get-Content -Raw $Path | ConvertFrom-Json
+    if ($candidate.schema_version -eq $SchemaVersion) {
+      return $candidate
+    }
+  } catch {
+    return $null
+  }
+  return $null
+}
+
 function ConvertTo-ComparableProjectionJson {
   param([object]$Projection)
   if ($null -eq $Projection) { return '' }
@@ -93,8 +110,24 @@ function Get-ProviderArtifacts {
 function Get-PreviousReadiness {
   param(
     [object]$Existing,
-    [string]$Provider
+    [string]$Provider,
+    [bool]$CanonicalArtifactsCurrent,
+    [object]$CanonicalProviderStatus
   )
+  if ($CanonicalArtifactsCurrent -and $null -ne $CanonicalProviderStatus -and $null -ne $CanonicalProviderStatus.providers) {
+    $matches = @($CanonicalProviderStatus.providers | Where-Object { $_.provider -eq $Provider } | Select-Object -First 1)
+    if ($matches.Count -gt 0) {
+      $status = $matches[0]
+      $queryReady = if ($status.PSObject.Properties.Name -contains 'query_ready') { [bool]$status.query_ready } else { $false }
+      return [pscustomobject]@{
+        query_ready = $queryReady
+        bootstrap_required = -not $queryReady
+        last_bootstrap_status = if ($status.PSObject.Properties.Name -contains 'status') { $status.status } else { 'unknown' }
+        last_bootstrapped_at = if ($status.PSObject.Properties.Name -contains 'generated_at') { $status.generated_at } else { $null }
+        provider_status_artifact = ".spec-first/providers/$Provider/status.json"
+      }
+    }
+  }
   if ($null -ne $Existing -and $null -ne $Existing.derived_readiness -and $null -ne $Existing.derived_readiness.providers -and ($Existing.derived_readiness.providers.PSObject.Properties.Name -contains $Provider)) {
     return $Existing.derived_readiness.providers.PSObject.Properties[$Provider].Value
   }
@@ -168,21 +201,43 @@ function Write-JsonIfChanged {
 $existingProvider = Read-ExistingJson -Path $providerFile -SchemaVersion 'graph-providers.v1' -RepoRoot $facts.repo_root
 $existingRuntime = Read-ExistingJson -Path $runtimeFile -SchemaVersion 'runtime-capabilities.v1' -RepoRoot $facts.repo_root
 $generatedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+$graphFactsPath = Join-Path $facts.repo_root '.spec-first/graph/graph-facts.json'
+$providerStatusPath = Join-Path $facts.repo_root '.spec-first/graph/provider-status.json'
+$impactCapabilitiesPath = Join-Path $facts.repo_root '.spec-first/impact/bootstrap-impact-capabilities.json'
 $canonicalArtifactsAvailable = (
-  (Test-Path -LiteralPath (Join-Path $facts.repo_root '.spec-first/graph/graph-facts.json') -PathType Leaf) -and
-  (Test-Path -LiteralPath (Join-Path $facts.repo_root '.spec-first/graph/provider-status.json') -PathType Leaf) -and
-  (Test-Path -LiteralPath (Join-Path $facts.repo_root '.spec-first/impact/bootstrap-impact-capabilities.json') -PathType Leaf)
+  (Test-Path -LiteralPath $graphFactsPath -PathType Leaf) -and
+  (Test-Path -LiteralPath $providerStatusPath -PathType Leaf) -and
+  (Test-Path -LiteralPath $impactCapabilitiesPath -PathType Leaf)
 )
+$canonicalGraphFacts = Read-CanonicalJson -Path $graphFactsPath -SchemaVersion 'graph-facts.v1'
+$canonicalProviderStatus = Read-CanonicalJson -Path $providerStatusPath -SchemaVersion 'graph-provider-status.v1'
+$canonicalImpactCapabilities = Read-CanonicalJson -Path $impactCapabilitiesPath -SchemaVersion 'bootstrap-impact-capabilities.v1'
+$canonicalGraphFactsRepoRoot = if ($null -ne $canonicalGraphFacts -and $canonicalGraphFacts.PSObject.Properties.Name -contains 'repo_root') { $canonicalGraphFacts.repo_root } else { $facts.repo_root }
+$canonicalArtifactsCurrent = $canonicalArtifactsAvailable -and $null -ne $canonicalGraphFacts -and $null -ne $canonicalProviderStatus -and $null -ne $canonicalImpactCapabilities -and $canonicalGraphFactsRepoRoot -eq $facts.repo_root
+$canonicalWorkflowMode = if ($canonicalArtifactsCurrent -and $canonicalProviderStatus.PSObject.Properties.Name -contains 'workflow_mode') {
+  $canonicalProviderStatus.workflow_mode
+} elseif ($canonicalArtifactsCurrent -and $canonicalGraphFacts.PSObject.Properties.Name -contains 'workflow_mode') {
+  $canonicalGraphFacts.workflow_mode
+} else {
+  $null
+}
+$canonicalUpdatedAt = if ($canonicalArtifactsCurrent -and $canonicalProviderStatus.PSObject.Properties.Name -contains 'generated_at') {
+  $canonicalProviderStatus.generated_at
+} elseif ($canonicalArtifactsCurrent -and $canonicalGraphFacts.PSObject.Properties.Name -contains 'generated_at') {
+  $canonicalGraphFacts.generated_at
+} else {
+  $null
+}
 
 $providers = [ordered]@{}
 $readiness = [ordered]@{}
 foreach ($property in $facts.graph_providers.PSObject.Properties) {
   $provider = $property.Value
   $ready = Test-ProviderReady -Provider $provider
-  $previous = Get-PreviousReadiness -Existing $existingProvider -Provider $property.Name
+  $previous = Get-PreviousReadiness -Existing $existingProvider -Provider $property.Name -CanonicalArtifactsCurrent $canonicalArtifactsCurrent -CanonicalProviderStatus $canonicalProviderStatus
   $preserveQueryReady = (
     $ready -and
-    $canonicalArtifactsAvailable -and
+    $canonicalArtifactsCurrent -and
     [bool]$previous.query_ready -and
     -not [bool]$previous.bootstrap_required
   )
@@ -217,9 +272,9 @@ $providerPayload = [ordered]@{
   repo_root = $facts.repo_root
   providers = $providers
   derived_readiness = [ordered]@{
-    updated_by = if ($graphBootstrapRequired) { 'spec-mcp-setup' } elseif ($null -ne $existingProvider -and $null -ne $existingProvider.derived_readiness -and $existingProvider.derived_readiness.updated_by) { $existingProvider.derived_readiness.updated_by } else { 'spec-mcp-setup' }
-    updated_at = if ($graphBootstrapRequired) { $null } elseif ($null -ne $existingProvider -and $null -ne $existingProvider.derived_readiness) { $existingProvider.derived_readiness.updated_at } else { $null }
-    workflow_mode = if ($graphBootstrapRequired) { 'setup-ready-bootstrap-required' } elseif ($null -ne $existingProvider -and $null -ne $existingProvider.derived_readiness -and $existingProvider.derived_readiness.workflow_mode) { $existingProvider.derived_readiness.workflow_mode } else { 'setup-ready-bootstrap-required' }
+    updated_by = 'spec-mcp-setup'
+    updated_at = if ($canonicalArtifactsCurrent) { $canonicalUpdatedAt } elseif ($graphBootstrapRequired) { $null } elseif ($null -ne $existingProvider -and $null -ne $existingProvider.derived_readiness) { $existingProvider.derived_readiness.updated_at } else { $null }
+    workflow_mode = if ($canonicalArtifactsCurrent) { $canonicalWorkflowMode } elseif ($graphBootstrapRequired) { 'setup-ready-bootstrap-required' } elseif ($null -ne $existingProvider -and $null -ne $existingProvider.derived_readiness -and $existingProvider.derived_readiness.workflow_mode) { $existingProvider.derived_readiness.workflow_mode } else { 'setup-ready-bootstrap-required' }
     graph_bootstrap_required = $graphBootstrapRequired
     provider_status_artifact = '.spec-first/graph/provider-status.json'
     graph_facts_artifact = '.spec-first/graph/graph-facts.json'
@@ -257,17 +312,26 @@ $projectGraphReadiness = [ordered]@{
   limitations = @('Run spec-graph-bootstrap to compile project graph readiness.')
 }
 $providerReadinessCurrent = (-not [bool]$providerPayload.derived_readiness.graph_bootstrap_required) -and (@($readiness.Values | Where-Object { $_.query_ready }).Count -gt 0)
-if ($canonicalArtifactsAvailable -and $providerReadinessCurrent -and $null -ne $existingRuntime -and $null -ne $existingRuntime.project_graph_readiness -and $existingRuntime.project_graph_readiness.canonical_graph_facts_artifact) {
+$existingProjectGraphCurrent = (
+  $null -ne $existingRuntime -and
+  $null -ne $existingRuntime.project_graph_readiness -and
+  ($existingRuntime.project_graph_readiness.status -ne 'not-bootstrapped') -and
+  (-not [bool]$existingRuntime.project_graph_readiness.graph_bootstrap_required)
+)
+if ($canonicalArtifactsCurrent -and $existingProjectGraphCurrent) {
   $projectGraphReadiness = $existingRuntime.project_graph_readiness
-} elseif ($canonicalArtifactsAvailable -and $providerReadinessCurrent) {
+} elseif ($canonicalArtifactsCurrent) {
+  $canonicalConfidence = if ($canonicalGraphFacts.PSObject.Properties.Name -contains 'confidence') { $canonicalGraphFacts.confidence } else { 'medium' }
   $projectGraphReadiness = [ordered]@{
-    status = $providerPayload.derived_readiness.workflow_mode
+    status = $canonicalWorkflowMode
     canonical_graph_facts_artifact = '.spec-first/graph/graph-facts.json'
     provider_status_artifact = '.spec-first/graph/provider-status.json'
     impact_capabilities_artifact = '.spec-first/impact/bootstrap-impact-capabilities.json'
-    graph_bootstrap_required = $graphBootstrapRequired
-    confidence = 'medium'
-    limitations = @('Derived summary; canonical readiness truth is under .spec-first/graph/ and .spec-first/impact/.')
+    graph_bootstrap_required = ($canonicalWorkflowMode -ne 'primary')
+    updated_by = 'spec-mcp-setup'
+    updated_at = $canonicalUpdatedAt
+    confidence = $canonicalConfidence
+    limitations = @('Setup projection derived from canonical graph artifacts; canonical readiness truth is under .spec-first/graph/ and .spec-first/impact/.')
   }
 }
 

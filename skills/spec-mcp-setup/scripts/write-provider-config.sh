@@ -60,15 +60,43 @@ impact_capabilities_exists=false
 [ -f "$REPO_ROOT/.spec-first/graph/provider-status.json" ] && provider_status_exists=true
 [ -f "$REPO_ROOT/.spec-first/impact/bootstrap-impact-capabilities.json" ] && impact_capabilities_exists=true
 
+canonical_graph_facts='{}'
+if [ -f "$REPO_ROOT/.spec-first/graph/graph-facts.json" ] && jq -e '.schema_version == "graph-facts.v1"' "$REPO_ROOT/.spec-first/graph/graph-facts.json" >/dev/null 2>&1; then
+  canonical_graph_facts="$(cat "$REPO_ROOT/.spec-first/graph/graph-facts.json")"
+fi
+
+canonical_provider_status='{}'
+if [ -f "$REPO_ROOT/.spec-first/graph/provider-status.json" ] && jq -e '.schema_version == "graph-provider-status.v1"' "$REPO_ROOT/.spec-first/graph/provider-status.json" >/dev/null 2>&1; then
+  canonical_provider_status="$(cat "$REPO_ROOT/.spec-first/graph/provider-status.json")"
+fi
+
+canonical_impact_capabilities='{}'
+if [ -f "$REPO_ROOT/.spec-first/impact/bootstrap-impact-capabilities.json" ] && jq -e '.schema_version == "bootstrap-impact-capabilities.v1"' "$REPO_ROOT/.spec-first/impact/bootstrap-impact-capabilities.json" >/dev/null 2>&1; then
+  canonical_impact_capabilities="$(cat "$REPO_ROOT/.spec-first/impact/bootstrap-impact-capabilities.json")"
+fi
+
 jq --arg generated_at "$generated_at" \
    --arg repo_name "$(basename "$REPO_ROOT")" \
    --arg repo_root "$REPO_ROOT" \
    --argjson graph_facts_exists "$graph_facts_exists" \
    --argjson provider_status_exists "$provider_status_exists" \
    --argjson impact_capabilities_exists "$impact_capabilities_exists" \
+   --argjson canonical_graph_facts "$canonical_graph_facts" \
+   --argjson canonical_provider_status "$canonical_provider_status" \
+   --argjson canonical_impact_capabilities "$canonical_impact_capabilities" \
    --argjson existing "$existing_provider" '
   def canonical_graph_artifacts_exist:
     $graph_facts_exists and $provider_status_exists and $impact_capabilities_exists;
+
+  def canonical_graph_artifacts_current:
+    canonical_graph_artifacts_exist
+    and ($canonical_graph_facts.schema_version == "graph-facts.v1")
+    and ($canonical_provider_status.schema_version == "graph-provider-status.v1")
+    and ($canonical_impact_capabilities.schema_version == "bootstrap-impact-capabilities.v1")
+    and (($canonical_graph_facts.repo_root // $repo_root) == $repo_root);
+
+  def canonical_provider_status($key):
+    [($canonical_provider_status.providers // [])[] | select(.provider == $key)][0] // null;
 
   def provider_ready($provider):
     ($provider.configured == true)
@@ -97,12 +125,19 @@ jq --arg generated_at "$generated_at" \
     };
 
   def previous_readiness($key):
-    ($existing.derived_readiness.providers[$key] // {
+    (canonical_provider_status($key)) as $canonical
+    | if canonical_graph_artifacts_current and ($canonical != null) then {
+      query_ready: ($canonical.query_ready == true),
+      bootstrap_required: ($canonical.query_ready != true),
+      last_bootstrap_status: ($canonical.status // "unknown"),
+      last_bootstrapped_at: ($canonical.generated_at // null),
+      provider_status_artifact: ".spec-first/providers/\($key)/status.json"
+    } else ($existing.derived_readiness.providers[$key] // {
       query_ready: ($existing.providers[$key].query_ready // false),
       bootstrap_required: (if ($existing.providers[$key] | has("bootstrap_required")) then ($existing.providers[$key].bootstrap_required == true) else true end),
       last_bootstrap_status: ($existing.providers[$key].last_bootstrap_status // "not-bootstrapped"),
       last_bootstrapped_at: ($existing.providers[$key].last_bootstrapped_at // null)
-    });
+    }) end;
 
   (
     (.graph_providers // {})
@@ -112,7 +147,7 @@ jq --arg generated_at "$generated_at" \
         | .value as $current
         | provider_ready($current) as $ready
         | previous_readiness($key) as $previous
-        | ($ready and canonical_graph_artifacts_exist and ($previous.query_ready == true) and ($previous.bootstrap_required == false)) as $preserve_query_ready
+        | ($ready and canonical_graph_artifacts_current and ($previous.query_ready == true) and ($previous.bootstrap_required == false)) as $preserve_query_ready
         | {
             key: $key,
             value: {
@@ -154,9 +189,9 @@ jq --arg generated_at "$generated_at" \
     derived_readiness: (
       ([($readiness // {})[] | .bootstrap_required == true] | any) as $bootstrap_required
       | {
-      updated_by: (if $bootstrap_required then "spec-mcp-setup" else ($existing.derived_readiness.updated_by // "spec-mcp-setup") end),
-      updated_at: (if $bootstrap_required then null else ($existing.derived_readiness.updated_at // null) end),
-      workflow_mode: (if $bootstrap_required then "setup-ready-bootstrap-required" else ($existing.derived_readiness.workflow_mode // "setup-ready-bootstrap-required") end),
+      updated_by: "spec-mcp-setup",
+      updated_at: (if canonical_graph_artifacts_current then ($canonical_provider_status.generated_at // $canonical_graph_facts.generated_at // null) elif $bootstrap_required then null else ($existing.derived_readiness.updated_at // null) end),
+      workflow_mode: (if canonical_graph_artifacts_current then ($canonical_provider_status.workflow_mode // $canonical_graph_facts.workflow_mode // "unknown") elif $bootstrap_required then "setup-ready-bootstrap-required" else ($existing.derived_readiness.workflow_mode // "setup-ready-bootstrap-required") end),
       graph_bootstrap_required: $bootstrap_required,
       provider_status_artifact: ($existing.derived_readiness.provider_status_artifact // ".spec-first/graph/provider-status.json"),
       graph_facts_artifact: ($existing.derived_readiness.graph_facts_artifact // ".spec-first/graph/graph-facts.json"),
@@ -191,6 +226,9 @@ jq --arg generated_at "$generated_at" \
    --argjson graph_facts_exists "$graph_facts_exists" \
    --argjson provider_status_exists "$provider_status_exists" \
    --argjson impact_capabilities_exists "$impact_capabilities_exists" \
+   --argjson canonical_graph_facts "$canonical_graph_facts" \
+   --argjson canonical_provider_status "$canonical_provider_status" \
+   --argjson canonical_impact_capabilities "$canonical_impact_capabilities" \
    --slurpfile provider "$PROJECTION_TMP" '
   def helper_ready($helper):
     (($helper.result // "action-required") == "ready");
@@ -203,9 +241,20 @@ jq --arg generated_at "$generated_at" \
   def canonical_graph_artifacts_exist:
     $graph_facts_exists and $provider_status_exists and $impact_capabilities_exists;
 
+  def canonical_graph_artifacts_current:
+    canonical_graph_artifacts_exist
+    and ($canonical_graph_facts.schema_version == "graph-facts.v1")
+    and ($canonical_provider_status.schema_version == "graph-provider-status.v1")
+    and ($canonical_impact_capabilities.schema_version == "bootstrap-impact-capabilities.v1")
+    and (($canonical_graph_facts.repo_root // .repo_root) == .repo_root);
+
   def provider_readiness_current:
     ($provider[0].derived_readiness.graph_bootstrap_required == false)
     and ([($provider[0].derived_readiness.providers // {})[] | .query_ready == true] | any);
+
+  def existing_project_readiness_current:
+    ($existing.project_graph_readiness.graph_bootstrap_required == false)
+    and (($existing.project_graph_readiness.status // "not-bootstrapped") != "not-bootstrapped");
 
   (.tools.serena // {}) as $serena
   | (.helper_tools."ast-grep" // {}) as $ast_grep
@@ -267,20 +316,21 @@ jq --arg generated_at "$generated_at" \
       },
       project_graph_readiness: (
         if (
-          ($existing.project_graph_readiness.canonical_graph_facts_artifact? != null)
-          and canonical_graph_artifacts_exist
-          and provider_readiness_current
+          existing_project_readiness_current
+          and canonical_graph_artifacts_current
         ) then
           $existing.project_graph_readiness
-        elif (canonical_graph_artifacts_exist and provider_readiness_current) then
+        elif canonical_graph_artifacts_current then
           {
-            status: ($provider[0].derived_readiness.workflow_mode // "unknown"),
+            status: ($canonical_graph_facts.workflow_mode // $provider[0].derived_readiness.workflow_mode // "unknown"),
             canonical_graph_facts_artifact: ($provider[0].derived_readiness.graph_facts_artifact // ".spec-first/graph/graph-facts.json"),
             provider_status_artifact: ($provider[0].derived_readiness.provider_status_artifact // ".spec-first/graph/provider-status.json"),
             impact_capabilities_artifact: ($provider[0].derived_readiness.impact_capabilities_artifact // ".spec-first/impact/bootstrap-impact-capabilities.json"),
-            graph_bootstrap_required: ($provider[0].derived_readiness.graph_bootstrap_required == true),
-            confidence: "medium",
-            limitations: ["Derived summary; canonical readiness truth is under .spec-first/graph/ and .spec-first/impact/."]
+            graph_bootstrap_required: (($canonical_graph_facts.workflow_mode // $provider[0].derived_readiness.workflow_mode // "unknown") != "primary"),
+            updated_by:"spec-mcp-setup",
+            updated_at:($canonical_graph_facts.generated_at // $provider[0].derived_readiness.updated_at // null),
+            confidence:($canonical_graph_facts.confidence // "medium"),
+            limitations: ["Setup projection derived from canonical graph artifacts; canonical readiness truth is under .spec-first/graph/ and .spec-first/impact/."]
           }
         else
           {

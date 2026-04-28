@@ -1,6 +1,13 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 13:30:29 leokuang: fix(graph-readiness): spec-mcp-setup 重建 graph readiness projection 时校验 canonical impact artifact schema，避免损坏产物被误投影为 query-ready (user-visible)
+- v1.6.0 2026-04-28 13:20:55 leokuang: docs(spec-mcp-setup): 为 mcp-setup 最终状态表新增 remark 列并说明各工具用途，统一 script、skill 样例与单测契约 (user-visible)
+- v1.6.0 2026-04-28 13:13:08 leokuang: fix(graph-readiness): 将 graph-bootstrap readiness 结果收口到 canonical artifacts，由 spec-mcp-setup 从 canonical artifacts 重建 setup-owned projection，避免 bootstrap 回写 setup-owned config (user-visible)
+- v1.6.0 2026-04-28 11:22:17 leokuang: docs(runtime-tools): 明确咨询搜索降级顺序为 GitNexus、Serena MCP、bounded direct repo reads，并排除 code-review-graph 通用搜索职责 (user-visible)
+- v1.6.0 2026-04-28 10:57:04 leokuang: docs(runtime-tools): 收紧 CLAUDE/AGENTS 工具引导，明确咨询搜索优先 GitNexus，并将 code-review-graph 收窄为变更影响与审查辅助 (user-visible)
+- v1.6.0 2026-04-28 10:56:57 leokuang: fix(spec-graph-bootstrap): 将 provider command shape 校验提升为所有已配置 provider 的前置安全检查，补齐禁用 provider 的失配阻断测试，并收紧 query-surface proof 术语以避免误称 (user-visible)
+- v1.6.0 2026-04-28 10:39:10 leokuang: docs(readme): 将中英文 README workflow 入口表调整为安装、上下文、研发执行和知识沉淀顺序 (user-visible)
 - v1.6.0 2026-04-28 10:32:02 leokuang: fix(spec-mcp-setup): Serena bootstrap 对多语言候选执行完整集合加单语言降级重试，支持逗号语言参数，提升大型 Android 项目安装成功率 (user-visible)
 - v1.6.0 2026-04-28 10:15:24 leokuang: docs(readme): 按最新 CLI、双宿主 runtime、graph readiness 和 workflow 入口同步中英文 README (user-visible)
 - v1.6.0 2026-04-28 10:14:42 leokuang: docs(using-spec-first): 强化 workflow 入口治理 source-of-truth、已在 workflow/subagent 中不二次路由、spec-first 自身改动入口和可度量优化优先级，并同步 init 注入块契约 (user-visible)
