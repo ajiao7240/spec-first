@@ -22,6 +22,9 @@ describe('spec-work-beta context orientation contract', () => {
     expect(text).toContain('Delegate prompts should carry bounded direct-read context');
     expect(text).toContain('explicit file boundaries');
     expect(text).toContain('not graph work-run ids');
+    expect(text).toContain('Workspace Repo Scope');
+    expect(text).toContain('per-unit/per-task `target_repo` values');
+    expect(text).toContain('Delegation may split across child repos only when repo scopes and write sets are explicit');
     expect(text).not.toContain('spec-first ' + 'crg hook');
     expect(text).not.toContain('$spec-' + 'graph' + '-bootstrap');
     expect(text).not.toContain('/spec:' + 'graph' + '-bootstrap');

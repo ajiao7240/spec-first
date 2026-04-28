@@ -199,6 +199,8 @@ Collect:
 
 #### 1.1a Graph Readiness Facts (Optional, Bounded)
 
+If the current cwd is a non-Git parent workspace that contains child Git repos, first resolve the intended project target. A single-repo plan must name a top-level `target_repo` using the workspace-relative child path before reading graph readiness. A cross-repo plan must name `target_repo` per implementation unit instead of implying workspace-wide write scope. If no active repo or explicit cross-repo scope is available, ask the user to choose before writing a repo-specific plan; do not let scripts or graph facts choose semantically between child repos.
+
 Check whether canonical graph readiness artifacts exist:
 
 - `.spec-first/graph/graph-facts.json`
@@ -213,6 +215,7 @@ In the generated plan, include a machine-testable Graph Readiness block before `
 ```md
 ## Graph Readiness
 
+- target_repo:
 - status: primary | degraded-fallback | stale | blocked | setup-not-ready | unavailable
 - source_revision:
 - current_revision:

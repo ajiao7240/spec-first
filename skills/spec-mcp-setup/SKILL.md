@@ -59,6 +59,46 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 
 Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure.
 
+## Workspace Repo Targeting
+
+Setup is target-aware for three topology modes:
+
+- A normal Git repo: project-local facts are written under that repo.
+- A monorepo with multiple modules: the Git root remains the single project boundary; modules are not separate readiness targets.
+- A parent workspace containing multiple independent child Git repos: the parent is advisory only. It may discover candidates and configure host-level MCP settings, but it must not write parent `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, `.spec-first/config.local*.yaml`, `.spec-first/*.local.yaml` gitignore entries, or `.serena/*`.
+
+Use the shared project target resolver before any repo-local writer:
+
+```bash
+bash skills/spec-mcp-setup/scripts/resolve-project-target.sh --format json
+bash skills/spec-mcp-setup/scripts/resolve-project-target.sh --repo project-a --format json
+```
+
+PowerShell:
+
+```powershell
+pwsh -File skills/spec-mcp-setup/scripts/resolve-project-target.ps1 -Format json
+pwsh -File skills/spec-mcp-setup/scripts/resolve-project-target.ps1 -Repo project-a -Format json
+```
+
+When run from an unresolved parent workspace, project rows use `workspace-target-required` and list candidate child repos. `workspace-single-candidate` is still fail-closed: it is a suggestion, not implicit write permission. Continue with an explicit child selection:
+
+```bash
+bash skills/spec-mcp-setup/scripts/install-mcp.sh --repo project-a
+bash skills/spec-mcp-setup/scripts/verify-tools.sh --repo project-a
+bash skills/spec-mcp-setup/scripts/bootstrap-project-config.sh --repo project-a --refresh-example --create-local --ensure-gitignore --json
+```
+
+Windows:
+
+```powershell
+pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1 -Repo project-a
+pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1 -Repo project-a
+pwsh -File skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1 -Repo project-a -RefreshExample -CreateLocal -EnsureGitignore -Json
+```
+
+`--repo` is workspace-scoped in this MVP. From a non-Git parent workspace it must resolve to a child Git repo inside the current workspace; escaping the workspace returns `repo-target-outside-workspace`.
+
 Serena project language selection is semantic. The default deterministic bootstrap must not hard-code TypeScript/Vue or any other project language; when no `--language` values are passed for a first-time bootstrap, Serena's own project creation may infer languages from the target repo. If the agent notices an existing `.serena/project.yml` language mismatch, it should inspect bounded project evidence such as build files, package manifests, and representative source files, decide the intended language set, and run the safe refresh primitive instead of editing `.serena/project.yml` by hand:
 
 ```bash

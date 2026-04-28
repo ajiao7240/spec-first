@@ -16,6 +16,10 @@ This command takes a work document (plan, task pack, or specification) or a bare
 
 Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. External tools may prioritize inspection, but they do not define scope authority. Scope expansion is judged against the plan/task pack and concrete diff, not a graph work-run.
 
+## Workspace Repo Scope
+
+When invoked from a parent workspace containing multiple independent Git repos, do not infer a write target from cwd alone. A plan or task pack must state a single `target_repo` or per-unit/per-task `target_repo` values before edits, tests, changelog updates, or commits. Verify that planned file paths and actual `git status` changes belong to the selected child repo. If repo scope is missing or ambiguous, return to `spec-plan` or ask for the active repo instead of writing into a sibling repo or the parent workspace.
+
 ## Input Document
 
 <input_document> #$ARGUMENTS </input_document>

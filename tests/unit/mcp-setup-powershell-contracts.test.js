@@ -6,6 +6,7 @@ const configureHostPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/conf
 const checkDepsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/check-deps.ps1');
 const detectHostPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-host.ps1');
 const detectToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-tools.ps1');
+const resolveProjectTargetPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/resolve-project-target.ps1');
 const verifyToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
 const writeProviderConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/write-provider-config.ps1');
 const repairInstallPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/repair-install.ps1');
@@ -79,6 +80,44 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('建议先重启 $hostDisplay');
     expect(verifySource).toContain('graph_bootstrap_required');
     expect(verifySource).toContain('$spec-graph-bootstrap');
+  });
+
+  test('PowerShell project target resolver matches workspace target contract', () => {
+    const resolverSource = fs.readFileSync(resolveProjectTargetPs1, 'utf8');
+    const detectSource = fs.readFileSync(detectToolsPs1, 'utf8');
+    const verifySource = fs.readFileSync(verifyToolsPs1, 'utf8');
+    const writeProviderSource = fs.readFileSync(writeProviderConfigPs1, 'utf8');
+    const activateSerenaSource = fs.readFileSync(activateSerenaPs1, 'utf8');
+    const installMcpSource = fs.readFileSync(installMcpPs1, 'utf8');
+    const projectConfigSource = fs.readFileSync(bootstrapProjectConfigPs1, 'utf8');
+    const graphBootstrapSource = fs.readFileSync(bootstrapProvidersPs1, 'utf8');
+
+    expect(resolverSource).toContain("schema_version = 'project-target.v1'");
+    expect(resolverSource).toContain("[ValidateSet('json', 'env')]");
+    expect(resolverSource).toContain('state_write_allowed');
+    expect(resolverSource).toContain('workspace-multi-repo');
+    expect(resolverSource).toContain('workspace-single-candidate');
+    expect(resolverSource).toContain('workspace-target-required');
+    expect(resolverSource).toContain('repo-target-outside-workspace');
+    expect(resolverSource).toContain('repo-target-not-git');
+    expect(resolverSource).toContain("'child_git_repo'");
+    expect(resolverSource).toContain("'.git', 'node_modules', 'vendor', '.claude', '.codex', '.agents', '.spec-first'");
+    expect(detectSource).toContain("Join-Path $ScriptDir 'resolve-project-target.ps1'");
+    expect(detectSource).toContain('target_candidate_count');
+    expect(verifySource).toContain('$detectParams.Repo = $Repo');
+    expect(verifySource).toContain('choose a child repo and rerun with --repo <child>');
+    expect(writeProviderSource).toContain('$targetWriteAllowed');
+    expect(writeProviderSource).toContain('graph_bootstrap_required = $true');
+    expect(activateSerenaSource).toContain('[string]$Repo');
+    expect(activateSerenaSource).toContain('serena-project-bootstrap.v1');
+    expect(activateSerenaSource).not.toContain("try { git rev-parse --show-toplevel } catch { (Get-Location).Path }");
+    expect(installMcpSource).toContain('$activateParams = @{ Repo = $ResolvedRepoRoot }');
+    expect(installMcpSource).toContain('workspace-target-required');
+    expect(projectConfigSource).toContain('[string]$Repo');
+    expect(projectConfigSource).toContain('resolve-project-target.ps1');
+    expect(graphBootstrapSource).toContain('resolve-project-target.ps1');
+    expect(graphBootstrapSource).toContain('workspace-target-required');
+    expect(graphBootstrapSource).toContain('candidates = @($targetFacts.candidates)');
   });
 
   test('uses shared TOML helpers for quoted Codex MCP keys', () => {

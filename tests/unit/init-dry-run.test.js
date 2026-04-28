@@ -179,7 +179,11 @@ describe('init --dry-run', () => {
         path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'SKILL.md'),
         'utf8',
       );
+      const codexGraphBootstrapScript = path.join(projectRoot, '.agents', 'skills', 'spec-graph-bootstrap', 'scripts', 'bootstrap-providers.sh');
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'scripts', 'check-health'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'scripts', 'resolve-project-target.sh'))).toBe(true);
+      expect(fs.existsSync(codexGraphBootstrapScript)).toBe(true);
+      expect(fs.readFileSync(codexGraphBootstrapScript, 'utf8')).toContain('../../spec-mcp-setup/scripts/resolve-project-target.sh');
       expect(codexMcpSetupSkill).toContain('bash .agents/skills/spec-mcp-setup/scripts/check-health');
       expect(codexMcpSetupSkill).not.toContain('bash skills/spec-mcp-setup/scripts/check-health');
     } finally {

@@ -10,19 +10,58 @@ SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
 source "$SCRIPT_DIR/lib-toml.sh"
 
+REPO_ARG=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repo)
+      REPO_ARG="${2:-}"
+      [ -n "$REPO_ARG" ] || { echo "detect-tools.sh: --repo requires a value" >&2; exit 1; }
+      shift 2
+      ;;
+    *)
+      echo "detect-tools.sh: unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
 HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
 HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
 CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
 PLATFORM="$(jq -r '.platform' <<<"$HOST_INFO_JSON")"
 SELECTED_SCOPE="$(jq -r '.selected_scope // empty' <<<"$HOST_INFO_JSON")"
 
-if git rev-parse --show-toplevel >/dev/null 2>&1; then
-  REPO_ROOT="$(git rev-parse --show-toplevel)"
-  REPO_STATUS="git-repo"
-else
-  REPO_ROOT="$(pwd)"
-  REPO_STATUS="not-git-repo"
+TARGET_ARGS=()
+if [ -n "$REPO_ARG" ]; then
+  TARGET_ARGS+=(--repo "$REPO_ARG")
 fi
+set +e
+TARGET_ENV="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format env ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
+TARGET_ENV_STATUS=$?
+TARGET_JSON="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format json ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
+TARGET_JSON_STATUS=$?
+set -e
+[ -n "$TARGET_ENV" ] || { echo "detect-tools.sh: target resolver returned no env output" >&2; exit 1; }
+[ -n "$TARGET_JSON" ] || { echo "detect-tools.sh: target resolver returned no JSON output" >&2; exit 1; }
+eval "$TARGET_ENV"
+TARGET_MODE="$mode"
+TARGET_REPO_STATUS="$repo_status"
+TARGET_SELECTION_SOURCE="$selection_source"
+TARGET_STATE_WRITE_ALLOWED="$state_write_allowed"
+TARGET_WORKSPACE_ROOT="$workspace_root"
+TARGET_SELECTED_REPO_ROOT="$selected_repo_root"
+TARGET_REPO_LABEL="$repo_label"
+TARGET_REASON_CODE="$reason_code"
+TARGET_NEXT_ACTION="$next_action"
+if [ "$TARGET_ENV_STATUS" -ne 0 ] || [ "$TARGET_JSON_STATUS" -ne 0 ]; then
+  TARGET_STATE_WRITE_ALLOWED="false"
+fi
+if [ -n "$TARGET_SELECTED_REPO_ROOT" ]; then
+  REPO_ROOT="$TARGET_SELECTED_REPO_ROOT"
+else
+  REPO_ROOT="$TARGET_WORKSPACE_ROOT"
+fi
+REPO_STATUS="$TARGET_REPO_STATUS"
 
 dependency_status() {
   local dep="$1"
@@ -126,6 +165,15 @@ project_status() {
     return
   fi
 
+  if [ "$TARGET_STATE_WRITE_ALLOWED" != "true" ]; then
+    if [ -n "$TARGET_REASON_CODE" ]; then
+      echo "$TARGET_REASON_CODE"
+    else
+      echo workspace-target-required
+    fi
+    return
+  fi
+
   project_file="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .project_bootstrap.project_file // empty' "$TOOLS_JSON")"
   ready_marker_file="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .project_bootstrap.ready_marker_file // empty' "$TOOLS_JSON")"
 
@@ -184,6 +232,8 @@ while IFS= read -r tool_id; do
     next_action="configure host"
   elif [ "$cfg_status" = "precedence-blocked" ]; then
     next_action="review higher-precedence host config"
+  elif [ "$proj_status" = "workspace-target-required" ] || [[ "$proj_status" == repo-target-* ]] || [ "$proj_status" = "workspace-no-git-candidates" ]; then
+    next_action="$TARGET_NEXT_ACTION"
   elif [ "$proj_status" = "pending" ]; then
     next_action="bootstrap project"
   elif [ "$category" = "graph-provider" ] && [ "$configured" = "true" ]; then
@@ -252,6 +302,7 @@ jq -n \
   --arg platform "$PLATFORM" \
   --arg repo_root "$REPO_ROOT" \
   --arg repo_status "$REPO_STATUS" \
+  --argjson target "$TARGET_JSON" \
   --argjson tools "$tools_json" \
   --argjson graph_providers "$graph_providers_json" \
   --argjson next_actions "$next_actions_json" \
@@ -261,6 +312,13 @@ jq -n \
     platform: $platform,
     repo_root: $repo_root,
     repo_status: $repo_status,
+    target: $target,
+    target_mode: ($target.mode // ""),
+    workspace_root: ($target.workspace_root // ""),
+    selected_repo_root: ($target.selected_repo_root // null),
+    target_candidate_count: (($target.candidates // []) | length),
+    target_candidates: ($target.candidates // []),
+    reason_code: ($target.reason_code // ""),
     tools: $tools,
     graph_providers: $graph_providers,
     next_actions: $next_actions

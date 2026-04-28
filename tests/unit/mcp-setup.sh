@@ -5,6 +5,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPTS_DIR="$REPO_ROOT/skills/spec-mcp-setup/scripts"
+RESOLVER_SCRIPT="$SCRIPTS_DIR/resolve-project-target.sh"
 GRAPH_BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
 GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1]' "$TOOLS_JSON")"
@@ -137,6 +138,34 @@ make_repo() {
 }
 
 echo "=== spec-mcp-setup required runtime tests ==="
+
+assert "project target resolver is executable" test -x "$RESOLVER_SCRIPT"
+TARGET_WORKSPACE="$TMP_DIR/target-workspace"
+make_repo "$TARGET_WORKSPACE/project-a"
+make_repo "$TARGET_WORKSPACE/project-b"
+make_repo "$TMP_DIR/outside"
+target_multi="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT")"
+assert_eq "resolver detects multi-repo workspace" "workspace-multi-repo" "$(jq -r '.mode' <<<"$target_multi")"
+assert_eq "multi-repo workspace requires explicit target" "workspace-target-required:false:2" "$(jq -r '"\(.reason_code):\(.state_write_allowed):\(.candidates | length)"' <<<"$target_multi")"
+target_selected="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT" --repo project-a)"
+assert_eq "resolver accepts explicit child repo" "git-repo:explicit-repo:true:project-a" "$(jq -r '"\(.mode):\(.selection_source):\(.state_write_allowed):\(.repo_label)"' <<<"$target_selected")"
+set +e
+target_outside="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT" --repo ../outside 2>/dev/null)"
+target_outside_status=$?
+set -e
+assert_eq "resolver rejects workspace escape" "1" "$target_outside_status"
+assert_eq "workspace escape reason is stable" "repo-target-outside-workspace" "$(jq -r '.reason_code' <<<"$target_outside")"
+rm -rf "$TARGET_WORKSPACE/project-b"
+target_single="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT")"
+assert_eq "single child repo is only advisory" "workspace-single-candidate:workspace-target-required:false" "$(jq -r '"\(.mode):\(.reason_code):\(.state_write_allowed)"' <<<"$target_single")"
+target_env="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT" --format env)"
+assert_contains "env output exposes mode without jq" "mode='workspace-single-candidate'" "$target_env"
+assert_contains "env output exposes write gate without jq" "state_write_allowed='false'" "$target_env"
+MONOREPO_FIXTURE="$TMP_DIR/monorepo-fixture"
+make_repo "$MONOREPO_FIXTURE"
+mkdir -p "$MONOREPO_FIXTURE/packages/a" "$MONOREPO_FIXTURE/packages/b"
+target_monorepo="$(cd "$MONOREPO_FIXTURE/packages/a" && bash "$RESOLVER_SCRIPT")"
+assert_eq "monorepo packages stay inside one git repo target" "git-repo:cwd-git-root:0" "$(jq -r '"\(.mode):\(.selection_source):\(.candidates | length)"' <<<"$target_monorepo")"
 
 assert_eq "mcp-tools schema is v4" "4" "$(jq -r '.schema_version' "$TOOLS_JSON")"
 assert_eq "tool ids are fixed" "serena,sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.tools[].id] | join(",")' "$TOOLS_JSON")"
@@ -394,6 +423,31 @@ serena_no_lang_status=$?
 set -e
 assert_eq "Serena refresh fails fast without language evidence" "1" "$serena_no_lang_status"
 assert_contains "Serena refresh failure asks LLM to pass language" "requires --language" "$serena_no_lang_output"
+
+PARENT_WORKSPACE="$TMP_DIR/parent-workspace"
+make_repo "$PARENT_WORKSPACE/project-a"
+make_repo "$PARENT_WORKSPACE/project-b"
+set +e
+serena_parent_output="$(cd "$PARENT_WORKSPACE" && PATH="$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" 2>&1)"
+serena_parent_status=$?
+set -e
+assert_eq "Serena refuses unresolved parent workspace" "1" "$serena_parent_status"
+assert_contains "Serena unresolved workspace reports reason code" "workspace-target-required" "$serena_parent_output"
+assert "Serena does not initialize parent workspace" test ! -e "$PARENT_WORKSPACE/.serena"
+(cd "$PARENT_WORKSPACE" && PATH="$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --repo project-a --language typescript)
+assert "Serena explicit child repo writes child project" test -f "$PARENT_WORKSPACE/project-a/.serena/project.yml"
+assert "Serena explicit child repo writes child ready marker" test -f "$PARENT_WORKSPACE/project-a/.serena/index-ready.json"
+assert "Serena explicit child repo still leaves parent clean" test ! -e "$PARENT_WORKSPACE/.serena"
+
+parent_detect_output="$(cd "$PARENT_WORKSPACE" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh")"
+assert_eq "detect-tools exposes workspace target mode" "workspace-multi-repo" "$(jq -r '.target_mode' <<<"$parent_detect_output")"
+assert_eq "detect-tools marks Serena project target required" "workspace-target-required" "$(jq -r '.tools.serena.project_status' <<<"$parent_detect_output")"
+parent_verify_output="$(cd "$PARENT_WORKSPACE" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
+assert_contains "verify project rows show target-required" "workspace-target-required" "$parent_verify_output"
+assert_contains "verify shows --repo next action" "--repo <child>" "$parent_verify_output"
+assert_eq "parent workspace keeps host baseline ready while project target is required" "true:workspace-target-required" "$(jq -r '(.baseline_ready | tostring) + ":" + .repo_config_status' "$FAKE_HOME/.claude/spec-first/host-setup.json")"
+assert "verify does not create parent project config dir" test ! -e "$PARENT_WORKSPACE/.spec-first/config"
+assert "verify does not create parent graph dir" test ! -e "$PARENT_WORKSPACE/.spec-first/graph"
 
 detect_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh")"
 assert "detect-tools emits JSON" jq -e . <<<"$detect_output"

@@ -34,6 +34,9 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('External tools may prioritize inspection, but they do not define scope authority');
     expect(text).toContain('The LLM still chooses the candidate change surface');
     expect(text).toContain('explicit repo context and source-plan constraints');
+    expect(text).toContain('target_repo');
+    expect(text).toContain('do not let scripts or graph facts choose semantically between child repos');
+    expect(text).toContain('A cross-repo plan must name `target_repo` per implementation unit');
     expect(text).not.toContain('spec-first ' + 'crg hook');
     expect(text).not.toContain('$spec-' + 'graph' + '-bootstrap');
     expect(text).not.toContain('/spec:' + 'graph' + '-bootstrap');

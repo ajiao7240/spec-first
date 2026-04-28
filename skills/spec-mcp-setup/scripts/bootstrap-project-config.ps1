@@ -6,6 +6,7 @@ param(
   [switch]$CreateLocal,
   [switch]$EnsureGitignore,
   [switch]$DeleteLegacyMarkdown,
+  [string]$Repo = '',
   [switch]$Json
 )
 
@@ -51,17 +52,15 @@ function Write-Result {
   }
 }
 
-$insideRepo = $false
-try {
-  $insideRepo = ((git rev-parse --is-inside-work-tree 2>$null) -eq 'true')
-} catch {
-  $insideRepo = $false
-}
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$resolverParams = @{ Format = 'json' }
+if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
+$targetFacts = (& (Join-Path $scriptDir 'resolve-project-target.ps1') @resolverParams) | ConvertFrom-Json
 
-if (-not $insideRepo) {
+if (-not [bool]$targetFacts.state_write_allowed) {
   Write-Result `
     -OverallStatus 'action-required' `
-    -Reason 'not-git-repo' `
+    -Reason $(if ([string]::IsNullOrWhiteSpace([string]$targetFacts.reason_code)) { 'workspace-target-required' } else { [string]$targetFacts.reason_code }) `
     -RepoRoot '' `
     -ExampleStatus 'not-applicable' `
     -LocalStatus 'not-applicable' `
@@ -71,8 +70,7 @@ if (-not $insideRepo) {
   exit 0
 }
 
-$repoRoot = (git rev-parse --show-toplevel)
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = [string]$targetFacts.selected_repo_root
 $template = Join-Path (Split-Path -Parent $scriptDir) 'references/config-template.yaml'
 $specDir = Join-Path $repoRoot '.spec-first'
 $exampleConfig = Join-Path $specDir 'config.local.example.yaml'

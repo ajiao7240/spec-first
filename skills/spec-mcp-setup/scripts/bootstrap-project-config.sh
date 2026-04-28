@@ -8,6 +8,7 @@ CREATE_LOCAL="no"
 ENSURE_GITIGNORE="no"
 DELETE_LEGACY_MARKDOWN="no"
 JSON_OUTPUT="no"
+REPO_ARG=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -31,11 +32,18 @@ while [[ $# -gt 0 ]]; do
       JSON_OUTPUT="yes"
       shift
       ;;
+    --repo)
+      REPO_ARG="${2:-}"
+      [ -n "$REPO_ARG" ] || { echo "bootstrap-project-config.sh: --repo requires a value" >&2; exit 1; }
+      shift 2
+      ;;
     *)
       shift
       ;;
   esac
 done
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 json_escape() {
   local value="$1"
@@ -70,17 +78,27 @@ emit_json() {
   printf '}\n'
 }
 
-if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+TARGET_ARGS=()
+if [ -n "$REPO_ARG" ]; then
+  TARGET_ARGS+=(--repo "$REPO_ARG")
+fi
+set +e
+TARGET_ENV="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format env ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
+TARGET_STATUS=$?
+set -e
+[ -n "$TARGET_ENV" ] || { echo "bootstrap-project-config.sh: target resolver returned no env output" >&2; exit 1; }
+eval "$TARGET_ENV"
+if [ "$TARGET_STATUS" -ne 0 ] || [ "$state_write_allowed" != "true" ]; then
+  resolved_reason="${reason_code:-workspace-target-required}"
   if [ "$JSON_OUTPUT" = "yes" ]; then
-    emit_json "action-required" "not-git-repo" "" "not-applicable" "not-applicable" "not-applicable" "not-applicable" "not-applicable"
+    emit_json "action-required" "$resolved_reason" "" "not-applicable" "not-applicable" "not-applicable" "not-applicable" "not-applicable"
   else
-    echo "Project config bootstrap requires a git repo."
+    echo "${next_action:-Project config bootstrap requires a selected git repo.}"
   fi
   exit 0
 fi
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$selected_repo_root"
 TEMPLATE="$SCRIPT_DIR/../references/config-template.yaml"
 SPEC_DIR="$REPO_ROOT/.spec-first"
 EXAMPLE_CONFIG="$SPEC_DIR/config.local.example.yaml"

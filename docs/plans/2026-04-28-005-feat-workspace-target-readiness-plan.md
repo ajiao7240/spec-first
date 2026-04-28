@@ -1,7 +1,7 @@
 ---
 title: feat: 支持 workspace repo target 解析用于 MCP setup 和 graph bootstrap
 type: feat
-status: active
+status: completed
 date: 2026-04-28
 spec_id: 2026-04-28-005-workspace-target-readiness
 ---

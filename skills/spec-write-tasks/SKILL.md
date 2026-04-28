@@ -36,6 +36,7 @@ When skipping, say explicitly that this is not an omission; this case does not n
 6. Each task should solve one clear subproblem and should usually have one primary verification target.
 7. Task splitting should reflect file boundaries, dependencies, verification surfaces, and parallelization opportunities instead of restating the plan.
 8. Source reads before task-pack generation must be bounded source orientation: use targeted direct repo reads first, optionally use Serena/LSP when available, and stop once task boundaries are accurate enough.
+9. If the source plan was created from a parent workspace, it must carry a top-level `target_repo` for single-repo work or per-unit `target_repo` for cross-repo work. If repo scope is missing, return to `spec-plan`; do not invent child repo targets while deriving tasks.
 
 ## Input Paths
 
@@ -74,6 +75,7 @@ When the input is `docs/tasks/*-tasks.md` or a file whose frontmatter has `type:
 
 1. Read the task pack frontmatter, `source_plan`, and source plan.
 2. Validate `generated_by: spec-write-tasks`, `mode/status`, `spec_id`, `source_plan`, `source_plan_hash`, required task-card fields, dependency references, and repo-relative `files`.
+2a. In workspace contexts, validate `target_repo` inheritance or per-task `target_repo` values before treating the task pack as executable.
 3. If deterministic hash tooling is unavailable, report the task pack as unverifiable handoff. Do not normalize and continue.
 4. If `source_plan_hash` does not match the current source plan, stop. Do not normalize and continue; require rebuilding from the source plan.
 5. If the task pack lacks `spec_id`, report it as missing identity and not executable handoff. Do not normalize and continue.

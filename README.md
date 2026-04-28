@@ -35,6 +35,7 @@ Current context and graph readiness use this path:
 - Use `$spec-mcp-setup` to install and verify the required harness runtime: Serena, Sequential Thinking, Context7, GitNexus, code-review-graph, `agent-browser`, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, `ast-grep`, and the global `ast-grep` skill.
 - Use `$spec-graph-bootstrap` after setup reports `baseline_ready=true`. It reads setup-owned config facts, validates provider command arrays, runs transient GitNexus/code-review-graph probes, and writes `.spec-first/graph/*`, `.spec-first/providers/*`, and `.spec-first/impact/*` readiness artifacts.
 - Use `$spec-plan` as the first graph-readiness consumer. It reports graph status, checks staleness, and falls back to bounded direct repo reads when facts are unavailable, blocked, stale, or degraded.
+- In a parent workspace with multiple child Git repos, pass an explicit `--repo <child>` to setup/bootstrap scripts. The parent workspace only reports candidate repos and never owns repo-local `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, or `.serena/*` artifacts.
 - Use standalone `spec-write-tasks` for deterministic task-pack handoff, then `$spec-work`, `$spec-code-review`, and `$spec-doc-review` with the current request, plans/task packs, diffs, targeted file reads, and tests as scope authority.
 
 ## Main Commands

@@ -27,10 +27,30 @@ done
 [ -f "$FACTS_FILE" ] || { echo "facts file not found: $FACTS_FILE" >&2; exit 1; }
 
 REPO_STATUS="$(jq -r '.repo_status // "not-git-repo"' "$FACTS_FILE")"
-REPO_ROOT="$(jq -r '.repo_root' "$FACTS_FILE")"
+TARGET_STATE_WRITE_ALLOWED="$(jq -r 'if (.target | type == "object") then (.target.state_write_allowed | tostring) else (if .repo_status == "git-repo" then "true" else "false" end) end' "$FACTS_FILE")"
+TARGET_REASON_CODE="$(jq -r '.target.reason_code // .reason_code // empty' "$FACTS_FILE")"
+TARGET_NEXT_ACTION="$(jq -r '.target.next_action // empty' "$FACTS_FILE")"
+REPO_ROOT="$(jq -r '.selected_repo_root // .repo_root' "$FACTS_FILE")"
 
-if [ "$REPO_STATUS" != "git-repo" ]; then
-  jq -n '{repo_config_status:"skipped-no-git-repo",repo_config_path:null,runtime_capabilities_path:null,provider_artifacts_path:null}'
+if [ "$TARGET_STATE_WRITE_ALLOWED" != "true" ] || [ "$REPO_STATUS" != "git-repo" ]; then
+  status="${TARGET_REASON_CODE:-skipped-no-git-repo}"
+  next="${TARGET_NEXT_ACTION:-Choose a Git repo target and rerun spec-mcp-setup with --repo <child>.}"
+  jq -n \
+    --arg status "$status" \
+    --arg next_action "$next" \
+    --slurpfile facts "$FACTS_FILE" '{
+      repo_config_status:$status,
+      repo_config_path:null,
+      runtime_capabilities_status:$status,
+      runtime_capabilities_path:null,
+      provider_artifacts_status:$status,
+      provider_artifacts_path:null,
+      graph_bootstrap_required:true,
+      reason_code:$status,
+      next_action:$next_action,
+      workspace_root: ($facts[0].target.workspace_root // $facts[0].workspace_root // null),
+      candidates: ($facts[0].target.candidates // $facts[0].target_candidates // [])
+    }'
   exit 0
 fi
 

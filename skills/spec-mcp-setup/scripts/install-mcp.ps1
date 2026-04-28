@@ -1,5 +1,6 @@
 param(
   [string]$Only,
+  [string]$Repo = '',
   [Alias('SerenaLanguages')]
   [string[]]$SerenaLanguage = @()
 )
@@ -15,6 +16,10 @@ $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
 $HostDisplayName = $HostInfo.display_name
 $Platform = $HostInfo.platform
+$resolverParams = @{ Format = 'json' }
+if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
+$TargetFacts = (& (Join-Path $ScriptDir 'resolve-project-target.ps1') @resolverParams) | ConvertFrom-Json
+$ResolvedRepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$TargetFacts.selected_repo_root)) { [string]$TargetFacts.selected_repo_root } else { [string]$TargetFacts.workspace_root }
 
 function Parse-List {
   param([string]$Value)
@@ -179,28 +184,36 @@ foreach ($tool in @($ToolsJson.tools)) {
   }
 
   if ($tool.id -eq 'serena' -and $status -eq 'ready') {
-    $filteredSerenaLanguages = @(Normalize-LanguageValues -Values $SerenaLanguage)
-    $activateParams = @{}
-    if ($filteredSerenaLanguages.Count -gt 0) {
-      $activateParams.Language = @($filteredSerenaLanguages)
-    }
-    $activateRun = Invoke-Captured { & (Join-Path $ScriptDir 'activate-serena.ps1') @activateParams }
-    try {
-      if (-not $activateRun.ok) {
-        throw 'Serena bootstrap command failed'
-      }
-      $readyMarkerFile = if ($null -ne $tool.project_bootstrap.ready_marker_file) { $tool.project_bootstrap.ready_marker_file } else { '.serena/index-ready.json' }
-      $readyMarkerPath = Join-Path (try { git rev-parse --show-toplevel } catch { (Get-Location).Path }) $readyMarkerFile
-      if (-not (Test-Path $readyMarkerPath)) {
-        throw 'Serena ready marker 缺失'
-      }
-    } catch {
+    if (-not [bool]$TargetFacts.state_write_allowed) {
       $status = 'partial'
-      $lastAction = 'failed'
-      $reasonCode = 'serena_bootstrap_failed'
-      $nextAction = '检查当前仓库 Serena project bootstrap'
-      $exitCode = $activateRun.exit_code
-      $diagnosticSummary = $activateRun.diagnostic_summary
+      $lastAction = 'skipped'
+      $reasonCode = if ([string]::IsNullOrWhiteSpace([string]$TargetFacts.reason_code)) { 'workspace-target-required' } else { [string]$TargetFacts.reason_code }
+      $nextAction = [string]$TargetFacts.next_action
+      $diagnosticSummary = "project target unresolved: $reasonCode"
+    } else {
+      $filteredSerenaLanguages = @(Normalize-LanguageValues -Values $SerenaLanguage)
+      $activateParams = @{ Repo = $ResolvedRepoRoot }
+      if ($filteredSerenaLanguages.Count -gt 0) {
+        $activateParams.Language = @($filteredSerenaLanguages)
+      }
+      $activateRun = Invoke-Captured { & (Join-Path $ScriptDir 'activate-serena.ps1') @activateParams }
+      try {
+        if (-not $activateRun.ok) {
+          throw 'Serena bootstrap command failed'
+        }
+        $readyMarkerFile = if ($null -ne $tool.project_bootstrap.ready_marker_file) { $tool.project_bootstrap.ready_marker_file } else { '.serena/index-ready.json' }
+        $readyMarkerPath = Join-Path $ResolvedRepoRoot $readyMarkerFile
+        if (-not (Test-Path $readyMarkerPath)) {
+          throw 'Serena ready marker 缺失'
+        }
+      } catch {
+        $status = 'partial'
+        $lastAction = 'failed'
+        $reasonCode = 'serena_bootstrap_failed'
+        $nextAction = '检查当前仓库 Serena project bootstrap'
+        $exitCode = $activateRun.exit_code
+        $diagnosticSummary = $activateRun.diagnostic_summary
+      }
     }
   }
 

@@ -5,7 +5,12 @@ set -euo pipefail
 
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILL_DIR="$(dirname "$SCRIPT_DIR")"
+TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
+
 REFRESH=false
+REPO_ARG=""
 LANGUAGES_TEXT=""
 append_language_values() {
   local raw="$1"
@@ -24,6 +29,11 @@ while [[ $# -gt 0 ]]; do
       REFRESH=true
       shift
       ;;
+    --repo)
+      REPO_ARG="${2:-}"
+      [ -n "$REPO_ARG" ] || { echo "activate-serena.sh: --repo requires a value" >&2; exit 1; }
+      shift 2
+      ;;
     --language)
       [ -n "${2:-}" ] || { echo "activate-serena.sh: --language requires a value" >&2; exit 1; }
       append_language_values "$2"
@@ -36,10 +46,35 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-SKILL_DIR="$(dirname "$SCRIPT_DIR")"
-TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
+TARGET_ARGS=()
+if [ -n "$REPO_ARG" ]; then
+  TARGET_ARGS+=(--repo "$REPO_ARG")
+fi
+set +e
+TARGET_ENV="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format env ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
+TARGET_STATUS=$?
+set -e
+[ -n "$TARGET_ENV" ] || { echo "activate-serena.sh: target resolver returned no env output" >&2; exit 1; }
+eval "$TARGET_ENV"
+if [ "$TARGET_STATUS" -ne 0 ] || [ "$state_write_allowed" != "true" ]; then
+  resolved_reason="${reason_code:-workspace-target-required}"
+  resolved_next="${next_action:-Choose a child Git repo and rerun with --repo <child>.}"
+  jq -n \
+    --arg reason_code "$resolved_reason" \
+    --arg next_action "$resolved_next" \
+    --arg workspace_root "$workspace_root" \
+    '{
+      schema_version:"serena-project-bootstrap.v1",
+      overall_status:"action-required",
+      reason_code:$reason_code,
+      workspace_root:$workspace_root,
+      next_action:$next_action
+    }'
+  echo "activate-serena.sh: $resolved_reason. $resolved_next" >&2
+  exit 1
+fi
+
+REPO_ROOT="$selected_repo_root"
 PROJECT_DIR="$REPO_ROOT/.serena"
 PROJECT_FILE="$PROJECT_DIR/project.yml"
 READY_MARKER_FILE="$(jq -r '.tools[] | select(.id == "serena") | .project_bootstrap.ready_marker_file // ".serena/index-ready.json"' "$TOOLS_JSON")"

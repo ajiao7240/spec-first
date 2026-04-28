@@ -1,4 +1,6 @@
-param()
+param(
+  [string]$Repo = ''
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -13,14 +15,12 @@ $ConfigPath = $HostInfo.config_path
 $Platform = $HostInfo.platform
 $SelectedScope = $HostInfo.selected_scope
 
-try {
-  $RepoRoot = (git rev-parse --show-toplevel 2>$null)
-  if ([string]::IsNullOrWhiteSpace($RepoRoot)) { throw 'not git' }
-  $RepoStatus = 'git-repo'
-} catch {
-  $RepoRoot = (Get-Location).Path
-  $RepoStatus = 'not-git-repo'
-}
+$resolverParams = @{ Format = 'json' }
+if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
+$targetJson = & (Join-Path $ScriptDir 'resolve-project-target.ps1') @resolverParams
+$TargetFacts = $targetJson | ConvertFrom-Json
+$RepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$TargetFacts.selected_repo_root)) { [string]$TargetFacts.selected_repo_root } else { [string]$TargetFacts.workspace_root }
+$RepoStatus = [string]$TargetFacts.repo_status
 
 function Get-DependencyStatus {
   param([string]$Name)
@@ -109,6 +109,10 @@ function Get-ProjectStatus {
   if ($Tool.project_bootstrap.kind -eq 'none' -or -not $Tool.project_bootstrap.required) {
     return 'not-applicable'
   }
+  if (-not [bool]$TargetFacts.state_write_allowed) {
+    if (-not [string]::IsNullOrWhiteSpace([string]$TargetFacts.reason_code)) { return [string]$TargetFacts.reason_code }
+    return 'workspace-target-required'
+  }
 
   $projectFile = Join-Path $RepoRoot $Tool.project_bootstrap.project_file
   $readyMarkerFile = if ($null -ne $Tool.project_bootstrap.ready_marker_file) { $Tool.project_bootstrap.ready_marker_file } else { '' }
@@ -151,6 +155,8 @@ foreach ($tool in @($ToolsJson.tools)) {
     $nextAction = 'configure host'
   } elseif ($hostConfigStatus -eq 'precedence-blocked') {
     $nextAction = 'review higher-precedence host config'
+  } elseif ($projectStatus -eq 'workspace-target-required' -or $projectStatus -like 'repo-target-*' -or $projectStatus -eq 'workspace-no-git-candidates') {
+    $nextAction = [string]$TargetFacts.next_action
   } elseif ($projectStatus -eq 'pending') {
     $nextAction = 'bootstrap project'
   } elseif ($type -eq 'graph-provider' -and $configured) {
@@ -198,6 +204,13 @@ foreach ($tool in @($ToolsJson.tools)) {
   platform = $Platform
   repo_root = $RepoRoot
   repo_status = $RepoStatus
+  target = $TargetFacts
+  target_mode = $TargetFacts.mode
+  workspace_root = $TargetFacts.workspace_root
+  selected_repo_root = $TargetFacts.selected_repo_root
+  target_candidate_count = @($TargetFacts.candidates).Count
+  target_candidates = @($TargetFacts.candidates)
+  reason_code = $TargetFacts.reason_code
   tools = $tools
   graph_providers = $graphProviders
   next_actions = @($nextActions)

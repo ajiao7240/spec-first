@@ -20,17 +20,26 @@ if (-not (Test-Path $toolsJsonPath)) {
 }
 
 $facts = Get-Content -Raw $FactsFile | ConvertFrom-Json
-if ($facts.repo_status -ne 'git-repo') {
+$targetWriteAllowed = if ($null -ne $facts.PSObject.Properties['target']) { [bool]$facts.target.state_write_allowed } else { $facts.repo_status -eq 'git-repo' }
+$targetReasonCode = if ($null -ne $facts.PSObject.Properties['target'] -and -not [string]::IsNullOrWhiteSpace([string]$facts.target.reason_code)) { [string]$facts.target.reason_code } else { 'skipped-no-git-repo' }
+if (-not $targetWriteAllowed -or $facts.repo_status -ne 'git-repo') {
   [pscustomobject]@{
-    repo_config_status = 'skipped-no-git-repo'
+    repo_config_status = $targetReasonCode
     repo_config_path = $null
+    runtime_capabilities_status = $targetReasonCode
     runtime_capabilities_path = $null
+    provider_artifacts_status = $targetReasonCode
     provider_artifacts_path = $null
+    graph_bootstrap_required = $true
+    reason_code = $targetReasonCode
+    next_action = if ($null -ne $facts.PSObject.Properties['target']) { [string]$facts.target.next_action } else { 'Choose a Git repo target and rerun spec-mcp-setup with --repo <child>.' }
+    candidates = if ($null -ne $facts.PSObject.Properties['target']) { @($facts.target.candidates) } else { @() }
   } | ConvertTo-Json -Compress
   return
 }
 
-$outDir = Join-Path $facts.repo_root '.spec-first/config'
+$repoRoot = if ($null -ne $facts.PSObject.Properties['selected_repo_root'] -and -not [string]::IsNullOrWhiteSpace([string]$facts.selected_repo_root)) { [string]$facts.selected_repo_root } else { [string]$facts.repo_root }
+$outDir = Join-Path $repoRoot '.spec-first/config'
 $providerFile = Join-Path $outDir 'graph-providers.json'
 $runtimeFile = Join-Path $outDir 'runtime-capabilities.json'
 $artifactsFile = Join-Path $outDir 'provider-artifacts.json'

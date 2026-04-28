@@ -14,6 +14,9 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).toContain('nearby implementation files');
     expect(text).toContain('nearby tests');
     expect(text).toContain('External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment');
+    expect(text).toContain('group changed files by Git repo');
+    expect(text).toContain('Resolve graph readiness, diff context, impact evidence, and test suggestions per child repo');
+    expect(text).toContain('risk assessments must remain scoped to the repo that owns the file');
     expect(text).not.toContain('spec-first ' + 'crg hook');
     expect(text).not.toContain('$spec-' + 'graph' + '-bootstrap');
     expect(text).not.toContain('/spec:' + 'graph' + '-bootstrap');

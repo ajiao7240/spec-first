@@ -5,13 +5,49 @@ set -euo pipefail
 
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
 
-if git rev-parse --show-toplevel >/dev/null 2>&1; then
-  REPO_ROOT="$(git rev-parse --show-toplevel)"
-else
-  jq -n '{schema_version:"graph-bootstrap-result.v1",overall_status:"action-required",workflow_mode:"blocked",reason_code:"not_git_repo",next_action:"Run spec-graph-bootstrap inside a git repo."}'
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+RESOLVER="$SCRIPT_DIR/../../spec-mcp-setup/scripts/resolve-project-target.sh"
+REPO_ARG=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repo)
+      REPO_ARG="${2:-}"
+      [ -n "$REPO_ARG" ] || { echo "bootstrap-providers.sh: --repo requires a value" >&2; exit 1; }
+      shift 2
+      ;;
+    *)
+      echo "bootstrap-providers.sh: unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+TARGET_ARGS=()
+if [ -n "$REPO_ARG" ]; then
+  TARGET_ARGS+=(--repo "$REPO_ARG")
+fi
+set +e
+TARGET_JSON="$(bash "$RESOLVER" --format json ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
+TARGET_STATUS=$?
+set -e
+[ -n "$TARGET_JSON" ] || { echo "bootstrap-providers.sh: target resolver returned no JSON output" >&2; exit 1; }
+TARGET_STATE_WRITE_ALLOWED="$(jq -r '.state_write_allowed | tostring' <<<"$TARGET_JSON")"
+if [ "$TARGET_STATUS" -ne 0 ] || [ "$TARGET_STATE_WRITE_ALLOWED" != "true" ]; then
+  jq -n --argjson target "$TARGET_JSON" '{
+    schema_version:"graph-bootstrap-result.v1",
+    overall_status:"action-required",
+    workflow_mode:"blocked",
+    reason_code:($target.reason_code // "workspace-target-required"),
+    workspace_root:($target.workspace_root // null),
+    candidates:($target.candidates // []),
+    next_action:($target.next_action // "Choose a child Git repo and rerun with --repo <child>.")
+  }'
   exit 1
 fi
 
+REPO_ROOT="$(jq -r '.selected_repo_root' <<<"$TARGET_JSON")"
+INVOCATION_WORKSPACE_ROOT="$(jq -r '.workspace_root // empty' <<<"$TARGET_JSON")"
+SELECTION_SOURCE="$(jq -r '.selection_source // empty' <<<"$TARGET_JSON")"
 SPEC_DIR="$REPO_ROOT/.spec-first"
 CONFIG_DIR="$SPEC_DIR/config"
 PROVIDER_CONFIG="$CONFIG_DIR/graph-providers.json"
@@ -82,6 +118,8 @@ emit_blocked() {
   write_blocked_report "$workflow_mode" "$reason_code" "$next_action"
   jq -n \
     --arg repo_root "$REPO_ROOT" \
+    --arg invocation_workspace_root "$INVOCATION_WORKSPACE_ROOT" \
+    --arg selection_source "$SELECTION_SOURCE" \
     --arg workflow_mode "$workflow_mode" \
     --arg reason_code "$reason_code" \
     --arg next_action "$next_action" \
@@ -91,6 +129,8 @@ emit_blocked() {
       workflow_mode:$workflow_mode,
       reason_code:$reason_code,
       repo_root:$repo_root,
+      invocation_workspace_root:$invocation_workspace_root,
+      selection_source:$selection_source,
       next_action:$next_action
     }'
   exit "$exit_code"
@@ -621,6 +661,8 @@ jq -n \
   --arg provider_config_path "$PROVIDER_CONFIG" \
   --arg runtime_capabilities_path "$RUNTIME_CAPABILITIES" \
   --arg provider_artifacts_path "$PROVIDER_ARTIFACTS" \
+  --arg invocation_workspace_root "$INVOCATION_WORKSPACE_ROOT" \
+  --arg selection_source "$SELECTION_SOURCE" \
   --arg workflow_mode "$WORKFLOW_MODE" \
   --arg overall_status "$OVERALL_STATUS" \
   --arg reason_code "$reason_code" \
@@ -631,6 +673,8 @@ jq -n \
     workflow_mode:$workflow_mode,
     reason_code:(if $reason_code == "" then null else $reason_code end),
     repo_root:$repo_root,
+    invocation_workspace_root:$invocation_workspace_root,
+    selection_source:$selection_source,
     ledger_path:$ledger_path,
     provider_config_path:$provider_config_path,
     runtime_capabilities_path:$runtime_capabilities_path,

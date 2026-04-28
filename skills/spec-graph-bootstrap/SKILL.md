@@ -44,13 +44,27 @@ Run the deterministic bootstrap script from the repo root:
 bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh
 ```
 
+From a parent workspace that contains multiple independent child Git repos, pass the selected child explicitly:
+
+```bash
+bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh --repo project-a
+```
+
 On Windows:
 
 ```powershell
 pwsh -File skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1
 ```
 
+PowerShell with an explicit child repo:
+
+```powershell
+pwsh -File skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1 -Repo project-a
+```
+
 PowerShell parity v1 is source-contract parity in automated tests; shell behavior tests are the primary executable verification path until a Windows runner is available.
+
+If the current directory is a non-Git parent workspace and no `--repo` / `-Repo` is provided, fail before provider command validation or directory creation with `workflow_mode=blocked`, `reason_code=workspace-target-required`, `candidates[]`, and a `next_action` that asks for an explicit child repo. `workspace-single-candidate` remains advisory and must not silently run providers. Parent workspaces must not receive `.spec-first/graph/*`, `.spec-first/impact/*`, or `.spec-first/providers/*` canonical project artifacts.
 
 ## Provider Command Safety
 

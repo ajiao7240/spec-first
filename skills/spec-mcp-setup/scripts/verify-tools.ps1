@@ -1,4 +1,5 @@
 param(
+  [string]$Repo = '',
   [switch]$NoInstall
 )
 
@@ -13,7 +14,9 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $MarkerPath = $HostInfo.marker_path
 $MarkerDir = Split-Path -Parent $MarkerPath
-$Facts = & (Join-Path $ScriptDir 'detect-tools.ps1') | ConvertFrom-Json
+$detectParams = @{}
+if (-not [string]::IsNullOrWhiteSpace($Repo)) { $detectParams.Repo = $Repo }
+$Facts = & (Join-Path $ScriptDir 'detect-tools.ps1') @detectParams | ConvertFrom-Json
 $HelperFacts = & (Join-Path $ScriptDir 'install-helpers.ps1') -VerifyOnly | ConvertFrom-Json
 
 function Test-ToolReady {
@@ -21,7 +24,7 @@ function Test-ToolReady {
   return (
     $Tool.dependency_status -eq 'ready' -and
     ($Tool.host_config_status -eq 'ready' -or $Tool.host_config_status -eq 'fallback-active') -and
-    ($Tool.project_status -eq 'ready' -or $Tool.project_status -eq 'not-applicable')
+    ($Tool.project_status -eq 'ready' -or $Tool.project_status -eq 'not-applicable' -or $Tool.project_status -eq 'workspace-target-required')
   )
 }
 
@@ -58,8 +61,10 @@ foreach ($property in $helperTools.PSObject.Properties) {
 if ($baselineReady -and -not $nextActions.Contains('run spec-graph-bootstrap')) {
   $nextActions.Add('run spec-graph-bootstrap')
 }
-if ($Facts.repo_status -eq 'not-git-repo' -and -not $nextActions.Contains('enter a git repo and run spec-graph-bootstrap')) {
-  $nextActions.Add('enter a git repo and run spec-graph-bootstrap')
+if ($null -ne $Facts.PSObject.Properties['target'] -and -not [bool]$Facts.target.state_write_allowed -and -not [string]::IsNullOrWhiteSpace([string]$Facts.target.next_action) -and -not $nextActions.Contains([string]$Facts.target.next_action)) {
+  $nextActions.Add([string]$Facts.target.next_action)
+} elseif ($Facts.repo_status -eq 'not-git-repo' -and -not $nextActions.Contains('choose a child repo and rerun with --repo <child>')) {
+  $nextActions.Add('choose a child repo and rerun with --repo <child>')
 }
 
 New-Item -ItemType Directory -Force -Path $MarkerDir | Out-Null
@@ -69,6 +74,13 @@ $combined = [ordered]@{
   platform = $Facts.platform
   repo_root = $Facts.repo_root
   repo_status = $Facts.repo_status
+  target = $Facts.target
+  target_mode = $Facts.target_mode
+  workspace_root = $Facts.workspace_root
+  selected_repo_root = $Facts.selected_repo_root
+  target_candidate_count = $Facts.target_candidate_count
+  target_candidates = @($Facts.target_candidates)
+  reason_code = $Facts.reason_code
   host_ledger_pointer = [ordered]@{
     host = $Facts.host
     path = $MarkerPath
@@ -132,8 +144,10 @@ foreach ($action in @($combined.next_actions)) {
     $filteredNextActions.Add($action)
   }
 }
-if ($combined.repo_status -eq 'not-git-repo' -and -not $filteredNextActions.Contains('enter a git repo and run spec-graph-bootstrap')) {
-  $filteredNextActions.Add('enter a git repo and run spec-graph-bootstrap')
+if ($null -ne $combined.target -and -not [bool]$combined.target.state_write_allowed -and -not [string]::IsNullOrWhiteSpace([string]$combined.target.next_action) -and -not $filteredNextActions.Contains([string]$combined.target.next_action)) {
+  $filteredNextActions.Add([string]$combined.target.next_action)
+} elseif ($combined.repo_status -eq 'not-git-repo' -and -not $filteredNextActions.Contains('choose a child repo and rerun with --repo <child>')) {
+  $filteredNextActions.Add('choose a child repo and rerun with --repo <child>')
 } elseif ($combined.baseline_ready -and $combined.graph_bootstrap_required -and -not $filteredNextActions.Contains('run spec-graph-bootstrap')) {
   $filteredNextActions.Add('run spec-graph-bootstrap')
 }
@@ -266,9 +280,10 @@ $helperRows = @(
   }
 )
 
-$projectionNext = if ($combined.repo_config_status -eq 'ready' -or $combined.repo_config_status -eq 'written') { '' } else { 'write provider projection' }
-$runtimeNext = if ($combined.runtime_capabilities_status -eq 'ready' -or $combined.runtime_capabilities_status -eq 'written') { '' } else { 'write runtime capabilities' }
-$artifactsNext = if ($combined.provider_artifacts_status -eq 'ready' -or $combined.provider_artifacts_status -eq 'written') { '' } else { 'write provider artifacts' }
+$targetNext = if ($null -ne $combined.target -and -not [string]::IsNullOrWhiteSpace([string]$combined.target.next_action)) { [string]$combined.target.next_action } else { '' }
+$projectionNext = if ($combined.repo_config_status -eq 'ready' -or $combined.repo_config_status -eq 'written') { '' } elseif (-not [string]::IsNullOrWhiteSpace($targetNext)) { $targetNext } else { 'write provider projection' }
+$runtimeNext = if ($combined.runtime_capabilities_status -eq 'ready' -or $combined.runtime_capabilities_status -eq 'written') { '' } elseif (-not [string]::IsNullOrWhiteSpace($targetNext)) { $targetNext } else { 'write runtime capabilities' }
+$artifactsNext = if ($combined.provider_artifacts_status -eq 'ready' -or $combined.provider_artifacts_status -eq 'written') { '' } elseif (-not [string]::IsNullOrWhiteSpace($targetNext)) { $targetNext } else { 'write provider artifacts' }
 
 $sections = @(
   [ordered]@{
@@ -320,11 +335,20 @@ switch ($combined.host) {
 Write-Host ''
 Write-Host '下一步:'
 if ($combined.baseline_ready) {
-  if ($combined.graph_bootstrap_required) {
-    Write-Host "  1. 建议先重启 $hostDisplay 或新开会话，让新写入的 MCP 配置被宿主加载。"
-    Write-Host "  2. 然后运行 $graphCommand；如果当前 agent 判断只需调用确定性 bootstrap 脚本，也可以在本会话直接回复“继续完成”，但下游 workflow 前仍要重启或新开会话。"
+  $targetStateWriteAllowed = if ($null -ne $combined.target) { [bool]$combined.target.state_write_allowed } else { $true }
+  $targetNextAction = if ($null -ne $combined.target) { [string]$combined.target.next_action } else { '' }
+  if (-not $targetStateWriteAllowed) {
+    Write-Host "  1. 选择目标 child repo，并用 --repo 重新运行 $setupCommand / $graphCommand。"
+    if (-not [string]::IsNullOrWhiteSpace($targetNextAction)) {
+      Write-Host "     $targetNextAction"
+    }
   } else {
-    Write-Host "  1. 重启 $hostDisplay 或新开会话后，再依赖新的 MCP 配置运行下游 workflow。"
+    if ($combined.graph_bootstrap_required) {
+      Write-Host "  1. 建议先重启 $hostDisplay 或新开会话，让新写入的 MCP 配置被宿主加载。"
+      Write-Host "  2. 然后运行 $graphCommand；如果当前 agent 判断只需调用确定性 bootstrap 脚本，也可以在本会话直接回复“继续完成”，但下游 workflow 前仍要重启或新开会话。"
+    } else {
+      Write-Host "  1. 重启 $hostDisplay 或新开会话后，再依赖新的 MCP 配置运行下游 workflow。"
+    }
   }
 } else {
   Write-Host "  1. 先处理表格中的 action-required 行，然后重新运行 $setupCommand。"

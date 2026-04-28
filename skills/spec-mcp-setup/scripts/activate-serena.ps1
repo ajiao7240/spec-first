@@ -1,15 +1,29 @@
 param(
   [switch]$Refresh,
+  [string]$Repo = '',
   [string[]]$Language = @()
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$repoRoot = try { git rev-parse --show-toplevel } catch { (Get-Location).Path }
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $skillDir = Split-Path -Parent $scriptDir
 $toolsJson = Get-Content -Raw (Join-Path $skillDir 'mcp-tools.json') | ConvertFrom-Json
+$resolverParams = @{ Format = 'json' }
+if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
+$targetFacts = (& (Join-Path $scriptDir 'resolve-project-target.ps1') @resolverParams) | ConvertFrom-Json
+if (-not [bool]$targetFacts.state_write_allowed) {
+  [pscustomobject]@{
+    schema_version = 'serena-project-bootstrap.v1'
+    overall_status = 'action-required'
+    reason_code = if ([string]::IsNullOrWhiteSpace([string]$targetFacts.reason_code)) { 'workspace-target-required' } else { [string]$targetFacts.reason_code }
+    workspace_root = $targetFacts.workspace_root
+    next_action = $targetFacts.next_action
+  } | ConvertTo-Json -Compress
+  exit 1
+}
+$repoRoot = [string]$targetFacts.selected_repo_root
 $serenaTool = @($toolsJson.tools | Where-Object { $_.id -eq 'serena' })[0]
 $projectDir = Join-Path $repoRoot '.serena'
 $projectFile = Join-Path $projectDir 'project.yml'

@@ -7,10 +7,29 @@ command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安
 command -v node >/dev/null 2>&1 || { echo '错误：node 是必需依赖，请先安装 Node.js' >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ARG=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repo)
+      REPO_ARG="${2:-}"
+      [ -n "$REPO_ARG" ] || { echo "verify-tools.sh: --repo requires a value" >&2; exit 1; }
+      shift 2
+      ;;
+    *)
+      echo "verify-tools.sh: unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
 HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
 MARKER_PATH="$(jq -r '.marker_path' <<<"$HOST_INFO_JSON")"
 MARKER_DIR="$(dirname "$MARKER_PATH")"
-FACTS_JSON="$(bash "$SCRIPT_DIR/detect-tools.sh")"
+DETECT_ARGS=()
+if [ -n "$REPO_ARG" ]; then
+  DETECT_ARGS+=(--repo "$REPO_ARG")
+fi
+FACTS_JSON="$(bash "$SCRIPT_DIR/detect-tools.sh" ${DETECT_ARGS[@]+"${DETECT_ARGS[@]}"})"
 HELPER_JSON="$(bash "$SCRIPT_DIR/install-helpers.sh" --verify-only)"
 
 mkdir -p "$MARKER_DIR"
@@ -28,7 +47,7 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
   def tool_ready:
     (.dependency_status == "ready")
     and ((.host_config_status == "ready") or (.host_config_status == "fallback-active"))
-    and ((.project_status == "ready") or (.project_status == "not-applicable"));
+    and ((.project_status == "ready") or (.project_status == "not-applicable") or (.project_status == "workspace-target-required"));
 
   . as $facts
   | ($helper.helper_tools // {}) as $helper_tools
@@ -41,6 +60,13 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
       platform: $facts.platform,
       repo_root: $facts.repo_root,
       repo_status: $facts.repo_status,
+      target: ($facts.target // null),
+      target_mode: ($facts.target_mode // ""),
+      workspace_root: ($facts.workspace_root // null),
+      selected_repo_root: ($facts.selected_repo_root // null),
+      target_candidate_count: ($facts.target_candidate_count // 0),
+      target_candidates: ($facts.target_candidates // []),
+      reason_code: ($facts.reason_code // ""),
       host_ledger_pointer: {
         host: $facts.host,
         path: $marker_path,
@@ -117,8 +143,10 @@ jq --argjson provider "$PROVIDER_RESULT" \
      )
    | .next_actions = (
        ((.next_actions // []) | map(select(. != "run spec-graph-bootstrap" and . != "enter a git repo and run spec-graph-bootstrap")))
-       + (if .repo_status == "not-git-repo" then
-            ["enter a git repo and run spec-graph-bootstrap"]
+       + (if ((.target.state_write_allowed // false) != true and ((.target.next_action // "") != "")) then
+            [.target.next_action]
+          elif .repo_status == "not-git-repo" then
+            ["choose a child repo and rerun with --repo <child>"]
           elif (.baseline_ready == true and .graph_bootstrap_required == true) then
             ["run spec-graph-bootstrap"]
           else
@@ -181,17 +209,17 @@ jq -c '
       {
         name: "graph-providers.json",
         status: .repo_config_status,
-        next: (if (.repo_config_status == "ready" or .repo_config_status == "written") then "" else "write provider projection" end)
+        next: (if (.repo_config_status == "ready" or .repo_config_status == "written") then "" elif ((.target.next_action // "") != "") then .target.next_action else "write provider projection" end)
       },
       {
         name: "runtime-capabilities.json",
         status: .runtime_capabilities_status,
-        next: (if (.runtime_capabilities_status == "ready" or .runtime_capabilities_status == "written") then "" else "write runtime capabilities" end)
+        next: (if (.runtime_capabilities_status == "ready" or .runtime_capabilities_status == "written") then "" elif ((.target.next_action // "") != "") then .target.next_action else "write runtime capabilities" end)
       },
       {
         name: "provider-artifacts.json",
         status: .provider_artifacts_status,
-        next: (if (.provider_artifacts_status == "ready" or .provider_artifacts_status == "written") then "" else "write provider artifacts" end)
+        next: (if (.provider_artifacts_status == "ready" or .provider_artifacts_status == "written") then "" elif ((.target.next_action // "") != "") then .target.next_action else "write provider artifacts" end)
       }
     ]
     | map([display(.name), display(.status), display(.next)]);
@@ -229,7 +257,14 @@ esac
 echo ""
 echo "下一步:"
 if [ "$baseline_ready" = "true" ]; then
-  if [ "$graph_bootstrap_required" = "true" ]; then
+  target_state_write_allowed="$(jq -r 'if (.target | type == "object") then (.target.state_write_allowed | tostring) else "true" end' "$MARKER_PATH")"
+  target_next_action="$(jq -r '.target.next_action // empty' "$MARKER_PATH")"
+  if [ "$target_state_write_allowed" != "true" ]; then
+    echo "  1. 选择目标 child repo，并用 --repo 重新运行 ${setup_command} / ${graph_command}。"
+    if [ -n "$target_next_action" ]; then
+      echo "     $target_next_action"
+    fi
+  elif [ "$graph_bootstrap_required" = "true" ]; then
     echo "  1. 建议先重启 ${host_display} 或新开会话，让新写入的 MCP 配置被宿主加载。"
     echo "  2. 然后运行 ${graph_command}；如果当前 agent 判断只需调用确定性 bootstrap 脚本，也可以在本会话直接回复“继续完成”，但下游 workflow 前仍要重启或新开会话。"
   else

@@ -14,10 +14,10 @@ HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
 HOST_DISPLAY_NAME="$(jq -r '.display_name' <<<"$HOST_INFO_JSON")"
 CONFIG_PATH="$(jq -r '.config_path' <<<"$HOST_INFO_JSON")"
 PLATFORM="$(jq -r '.platform' <<<"$HOST_INFO_JSON")"
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CONFIG_DIR="$(dirname "$CONFIG_PATH")"
 
 ONLY_FILTER=""
+REPO_ARG=""
 SERENA_LANGUAGES_TEXT=""
 append_serena_language_values() {
   local raw="$1"
@@ -36,6 +36,11 @@ while [[ $# -gt 0 ]]; do
       ONLY_FILTER="${2:-}"
       shift 2
       ;;
+    --repo)
+      REPO_ARG="${2:-}"
+      [ -n "$REPO_ARG" ] || { echo "install-mcp.sh: --repo requires a value" >&2; exit 1; }
+      shift 2
+      ;;
     --serena-language)
       [ -n "${2:-}" ] || { echo "install-mcp.sh: --serena-language requires a value" >&2; exit 1; }
       append_serena_language_values "$2"
@@ -52,6 +57,30 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+TARGET_ARGS=()
+if [ -n "$REPO_ARG" ]; then
+  TARGET_ARGS+=(--repo "$REPO_ARG")
+fi
+set +e
+TARGET_ENV="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format env ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
+TARGET_STATUS=$?
+set -e
+[ -n "$TARGET_ENV" ] || { echo "install-mcp.sh: target resolver returned no env output" >&2; exit 1; }
+eval "$TARGET_ENV"
+TARGET_STATE_WRITE_ALLOWED="$state_write_allowed"
+TARGET_REASON_CODE="$reason_code"
+TARGET_NEXT_ACTION="$next_action"
+TARGET_SELECTED_REPO_ROOT="$selected_repo_root"
+TARGET_WORKSPACE_ROOT="$workspace_root"
+if [ -n "$TARGET_SELECTED_REPO_ROOT" ]; then
+  REPO_ROOT="$TARGET_SELECTED_REPO_ROOT"
+else
+  REPO_ROOT="$TARGET_WORKSPACE_ROOT"
+fi
+if [ "$TARGET_STATUS" -ne 0 ]; then
+  TARGET_STATE_WRITE_ALLOWED="false"
+fi
 
 if [ -n "$ONLY_FILTER" ]; then
   IFS=',' read -ra ONLY_ARRAY <<< "$ONLY_FILTER"
@@ -236,18 +265,26 @@ EOF
   fi
 
   if [ "$tool_id" = "serena" ] && [ "$status" = "ready" ]; then
-    serena_activate_args=()
-    while IFS= read -r language; do
-      [ -n "$language" ] || continue
-      serena_activate_args+=("--language" "$language")
-    done <<<"$SERENA_LANGUAGES_TEXT"
-    if ! run_and_capture bash "$SCRIPT_DIR/activate-serena.sh" ${serena_activate_args[@]+"${serena_activate_args[@]}"}; then
+    if [ "$TARGET_STATE_WRITE_ALLOWED" != "true" ]; then
       status="partial"
-      last_action="failed"
-      reason_code="serena_bootstrap_failed"
-      next_action="检查当前仓库 Serena project bootstrap"
-      exit_code="$RUN_EXIT_CODE"
-      diagnostic_summary="$RUN_DIAGNOSTIC"
+      last_action="skipped"
+      reason_code="${TARGET_REASON_CODE:-workspace-target-required}"
+      next_action="${TARGET_NEXT_ACTION:-Choose a child Git repo and rerun with --repo <child>.}"
+      diagnostic_summary="project target unresolved: $reason_code"
+    else
+      serena_activate_args=(--repo "$REPO_ROOT")
+      while IFS= read -r language; do
+        [ -n "$language" ] || continue
+        serena_activate_args+=("--language" "$language")
+      done <<<"$SERENA_LANGUAGES_TEXT"
+      if ! run_and_capture bash "$SCRIPT_DIR/activate-serena.sh" ${serena_activate_args[@]+"${serena_activate_args[@]}"}; then
+        status="partial"
+        last_action="failed"
+        reason_code="serena_bootstrap_failed"
+        next_action="检查当前仓库 Serena project bootstrap"
+        exit_code="$RUN_EXIT_CODE"
+        diagnostic_summary="$RUN_DIAGNOSTIC"
+      fi
     fi
   fi
 

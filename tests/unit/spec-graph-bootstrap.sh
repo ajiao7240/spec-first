@@ -199,6 +199,42 @@ touch "$COMMAND_LOG"
 make_fake_bin "$FAKE_BIN" "$COMMAND_LOG"
 TEST_PATH="$FAKE_BIN:$PATH"
 
+WORKSPACE_REPO_A="$TMP_DIR/workspace/project-a"
+WORKSPACE_REPO_B="$TMP_DIR/workspace/project-b"
+WORKSPACE_LEDGER_A="$TMP_DIR/workspace-home-a/.codex/spec-first/host-setup.json"
+make_repo "$WORKSPACE_REPO_A"
+make_repo "$WORKSPACE_REPO_B"
+write_fixture_config "$WORKSPACE_REPO_A" "$WORKSPACE_LEDGER_A" true
+before_workspace_block_log="$(cat "$COMMAND_LOG")"
+set +e
+workspace_block_output="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+workspace_block_status=$?
+set -e
+assert_eq "workspace parent without repo fails closed" "1" "$workspace_block_status"
+assert_eq "workspace parent reason requires target" "workspace-target-required" "$(jq -r '.reason_code' <<<"$workspace_block_output")"
+assert_eq "workspace parent lists child candidates" "2" "$(jq -r '.candidates | length' <<<"$workspace_block_output")"
+assert_eq "workspace parent does not run providers" "$before_workspace_block_log" "$(cat "$COMMAND_LOG")"
+assert "workspace parent does not create graph artifacts" test ! -e "$TMP_DIR/workspace/.spec-first/graph"
+
+SINGLE_WORKSPACE="$TMP_DIR/single-workspace"
+make_repo "$SINGLE_WORKSPACE/project-only"
+before_single_block_log="$(cat "$COMMAND_LOG")"
+set +e
+single_block_output="$(cd "$SINGLE_WORKSPACE" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+single_block_status=$?
+set -e
+assert_eq "single child workspace also fails closed" "1" "$single_block_status"
+assert_eq "single child workspace remains target-required" "workspace-target-required" "$(jq -r '.reason_code' <<<"$single_block_output")"
+assert_eq "single child workspace does not run providers" "$before_single_block_log" "$(cat "$COMMAND_LOG")"
+
+workspace_selected_output="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --repo project-a)"
+WORKSPACE_REPO_A_ROOT="$(cd "$WORKSPACE_REPO_A" && pwd -P)"
+assert_eq "workspace explicit child runs primary bootstrap" "primary" "$(jq -r '.workflow_mode' <<<"$workspace_selected_output")"
+assert_eq "workspace explicit child records explicit selection" "explicit-repo" "$(jq -r '.selection_source' <<<"$workspace_selected_output")"
+assert "workspace explicit child writes child graph facts" test -f "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json"
+assert "workspace explicit child leaves parent graph clean" test ! -e "$TMP_DIR/workspace/.spec-first/graph"
+assert_contains "workspace explicit child runs provider from child root" "uvx --upgrade code-review-graph status --repo $WORKSPACE_REPO_A_ROOT" "$(cat "$COMMAND_LOG")"
+
 PRIMARY_REPO="$TMP_DIR/primary-repo"
 PRIMARY_LEDGER="$TMP_DIR/primary-home/.codex/spec-first/host-setup.json"
 make_repo "$PRIMARY_REPO"

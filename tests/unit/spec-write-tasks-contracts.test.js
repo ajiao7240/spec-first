@@ -56,6 +56,9 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('optionally use Serena/LSP when available');
     expect(skill).toContain('Serena/LSP provider rule');
     expect(skill).toContain('Do not let LSP references automatically expand task scope');
+    expect(skill).toContain('top-level `target_repo` for single-repo work or per-unit `target_repo` for cross-repo work');
+    expect(skill).toContain('do not invent child repo targets while deriving tasks');
+    expect(skill).toContain('validate `target_repo` inheritance or per-task `target_repo` values');
     expect(skill).not.toContain('spec-first ' + 'crg hook');
     expect(skill).not.toContain('$spec-' + 'graph' + '-bootstrap');
     expect(skill).not.toContain('/spec:' + 'graph' + '-bootstrap');

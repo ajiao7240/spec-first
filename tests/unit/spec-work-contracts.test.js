@@ -14,6 +14,9 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('nearby tests');
     expect(text).toContain('git diff or changed files');
     expect(text).toContain('Scope expansion is judged against the plan/task pack and concrete diff');
+    expect(text).toContain('Workspace Repo Scope');
+    expect(text).toContain('single `target_repo` or per-unit/per-task `target_repo`');
+    expect(text).toContain('actual `git status` changes belong to the selected child repo');
     expect(text).not.toContain('spec-first ' + 'crg hook');
     expect(text).not.toContain('$spec-' + 'graph' + '-bootstrap');
     expect(text).not.toContain('/spec:' + 'graph' + '-bootstrap');

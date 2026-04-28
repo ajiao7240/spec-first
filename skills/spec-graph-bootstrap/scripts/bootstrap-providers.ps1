@@ -1,4 +1,6 @@
-param()
+param(
+  [string]$Repo = ''
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -333,13 +335,27 @@ function Test-FallbackSupported {
   return ($null -ne $Fallback -and $Fallback.support_level -and $Fallback.support_level -ne 'none')
 }
 
-try {
-  $repoRoot = (git rev-parse --show-toplevel 2>$null)
-  if ([string]::IsNullOrWhiteSpace($repoRoot)) { throw 'not git' }
-} catch {
-  Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'not_git_repo' -NextAction 'Run spec-graph-bootstrap inside a git repo.'
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$resolverPath = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptDir)) 'spec-mcp-setup/scripts/resolve-project-target.ps1'
+$resolverParams = @{ Format = 'json' }
+if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
+$targetFacts = (& $resolverPath @resolverParams) | ConvertFrom-Json
+if (-not [bool]$targetFacts.state_write_allowed) {
+  [pscustomobject]@{
+    schema_version = 'graph-bootstrap-result.v1'
+    overall_status = 'action-required'
+    workflow_mode = 'blocked'
+    reason_code = if ([string]::IsNullOrWhiteSpace([string]$targetFacts.reason_code)) { 'workspace-target-required' } else { [string]$targetFacts.reason_code }
+    workspace_root = $targetFacts.workspace_root
+    candidates = @($targetFacts.candidates)
+    next_action = $targetFacts.next_action
+  } | ConvertTo-Json -Compress
+  exit 1
 }
 
+$repoRoot = [string]$targetFacts.selected_repo_root
+$invocationWorkspaceRoot = [string]$targetFacts.workspace_root
+$selectionSource = [string]$targetFacts.selection_source
 $specDir = Join-Path $repoRoot '.spec-first'
 $configDir = Join-Path $specDir 'config'
 $providerConfigPath = Join-Path $configDir 'graph-providers.json'
@@ -592,6 +608,8 @@ Write-TextFileAtomic -Path (Join-Path $graphDir 'bootstrap-report.md') -Value @"
   workflow_mode = $workflowMode
   reason_code = if ($workflowMode -eq 'blocked') { 'graph-not-ready' } else { $null }
   repo_root = $repoRoot
+  invocation_workspace_root = $invocationWorkspaceRoot
+  selection_source = $selectionSource
   ledger_path = $ledgerPath
   provider_config_path = $providerConfigPath
   runtime_capabilities_path = $runtimeCapabilitiesPath
