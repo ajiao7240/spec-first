@@ -208,7 +208,7 @@ Check whether canonical graph readiness artifacts exist:
 
 If both artifacts exist, read them as compiled readiness facts before deciding how much graph evidence to trust. Compare recorded `source_revision` and `worktree_dirty` to the current repo snapshot. If either differs from the current snapshot, report the graph facts as `stale` and do not treat them as current primary evidence.
 
-If the artifacts are missing, blocked, setup-not-ready, stale, or degraded, planning still continues. Use bounded direct repo reads and local research as needed; graph readiness is evidence context, not a planning gate.
+If the artifacts are missing, blocked, setup-not-ready, stale, or degraded, planning still continues. Before falling all the way back to bounded direct repo reads, try live MCP evidence when a relevant MCP tool is loaded in the current session and the planning question would benefit from it. For GitNexus, this means calling the MCP tools such as `gitnexus_query`, `gitnexus_context`, or `gitnexus_impact` for the concrete planning question and treating a successful response as session-local evidence. A successful live MCP call does not change compiled `query_ready`, does not make `.spec-first/graph/graph-facts.json` current, and must not be written back as graph readiness. If the MCP tool is unavailable, fails, or the provider status reports `graph_ready=false` / `provider-crash`, say so and use bounded direct repo reads and local research as needed; graph readiness is evidence context, not a planning gate.
 
 In the generated plan, include a machine-testable Graph Readiness block before `Context & Research`:
 
@@ -223,11 +223,12 @@ In the generated plan, include a machine-testable Graph Readiness block before `
 - primary_providers:
 - degraded_providers:
 - fallback_capabilities:
+- runtime_mcp_evidence:
 - confidence:
 - limitations:
 ```
 
-Use `status: unavailable` when canonical artifacts are missing. For `degraded-fallback`, state usable primary providers and fallback capabilities with limitations. For `blocked` or `setup-not-ready`, report the fact and proceed with bounded direct repo reads where possible. Do not expand this into context selection, impact analysis, review evidence, or task-level artifacts.
+Use `status: unavailable` when canonical artifacts are missing. For `degraded-fallback`, state usable primary providers, fallback capabilities, and any successful or failed live MCP evidence with limitations. For `blocked` or `setup-not-ready`, report the fact and proceed with live MCP evidence only if the tool is actually responsive; otherwise use bounded direct repo reads where possible. Do not expand this into context selection, impact analysis, review evidence, or task-level artifacts.
 
 #### 1.1b Detect Execution Posture Signals
 
@@ -593,6 +594,7 @@ deepened: YYYY-MM-DD  # optional, set when the confidence-first check substantiv
 - primary_providers:
 - degraded_providers:
 - fallback_capabilities:
+- runtime_mcp_evidence:
 - confidence:
 - limitations:
 

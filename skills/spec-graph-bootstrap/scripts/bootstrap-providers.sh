@@ -195,6 +195,12 @@ command_shape_supported() {
       if $provider == "gitnexus" then
         if $kind == "query_probe" then
           ($cmd | length == 7 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "query" and (.[4] | length > 0) and .[5] == "--repo" and (.[6] | length > 0))
+        elif $kind == "bootstrap" then
+          (
+            ($cmd | length == 4 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "analyze")
+            or
+            ($cmd | length == 5 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "analyze" and .[4] == "--force")
+          )
         else
           ($cmd | length == 4 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == gitnexus_subcommand)
         end
@@ -250,8 +256,10 @@ run_configured_command() {
   done < <(jq -r --arg provider "$provider" --arg kind "$kind" '.providers[$provider].commands[$kind][]' "$PROVIDER_CONFIG")
 
   set +e
+  printf 'spec-graph-bootstrap: running %s %s; dependencies may download on first use...\n' "$provider" "$kind" >&2
   (cd "$REPO_ROOT" && "${cmd[@]}") > "$log_path" 2>&1
   RUN_EXIT_CODE=$?
+  printf 'spec-graph-bootstrap: finished %s %s with exit %s\n' "$provider" "$kind" "$RUN_EXIT_CODE" >&2
   set -e
 
   byte_count="$(wc -c < "$log_path" | tr -d ' ')"
@@ -278,8 +286,7 @@ gitnexus_query_probe_has_results() {
   jq -e '
     (.warning? | not)
     and (((.processes // []) | length)
-      + ((.process_symbols // []) | length)
-      + ((.definitions // []) | length) > 0)
+      + ((.process_symbols // []) | length) > 0)
   ' >/dev/null 2>&1 <<<"$json_payload"
 }
 
@@ -295,10 +302,42 @@ query_probe_verified() {
     return 1
   fi
   if ! gitnexus_query_probe_has_results "$log_path"; then
-    QUERY_PROBE_VERIFICATION_REASON="GitNexus query probe did not return parseable non-empty query results."
+    QUERY_PROBE_VERIFICATION_REASON="GitNexus query probe did not return parseable non-empty BM25/process query results."
     return 1
   fi
   return 0
+}
+
+classify_provider_failure() {
+  local provider="$1"
+  local phase="$2"
+  local exit_code="$3"
+
+  if [ "$provider" = "gitnexus" ] && [ "$phase" = "bootstrap" ] && [ "$exit_code" -eq 139 ]; then
+    jq -n --argjson exit_code "$exit_code" '{
+      failed_phase:"bootstrap",
+      failure_class:"provider-crash",
+      reason_code:"gitnexus-analyze-sigsegv",
+      exit_code:$exit_code,
+      recommended_action:"Do not trust GitNexus artifacts. Use code-review-graph and bounded local fallback; capture analyze.log and retry with a newer GitNexus rc or safer GitNexus runtime settings."
+    }'
+  elif [ "$exit_code" -ne 0 ]; then
+    jq -n --arg phase "$phase" --argjson exit_code "$exit_code" '{
+      failed_phase:$phase,
+      failure_class:"provider-command-failed",
+      reason_code:"provider-command-failed",
+      exit_code:$exit_code,
+      recommended_action:"Inspect the provider raw log and rerun graph bootstrap after fixing the provider command failure."
+    }'
+  else
+    jq -n '{
+      failed_phase:null,
+      failure_class:null,
+      reason_code:null,
+      exit_code:null,
+      recommended_action:null
+    }'
+  fi
 }
 
 append_command_result() {
@@ -386,6 +425,7 @@ write_provider_status() {
   local query_ready=false
   local confidence="low"
   local limitations='["Provider is not configured for bootstrap."]'
+  local failure_info='{"failed_phase":null,"failure_class":null,"reason_code":null,"exit_code":null,"recommended_action":null}'
   local configured enabled dependency_status host_config_status skip_reason
   local bootstrap_log status_log query_log
   mkdir -p "$raw_dir" "$provider_dir/normalized"
@@ -452,7 +492,8 @@ write_provider_status() {
       status="failed"
       query_ready=false
       confidence="low"
-      limitations='["Provider bootstrap command failed."]'
+      failure_info="$(classify_provider_failure "$provider" bootstrap "$RUN_EXIT_CODE")"
+      limitations="$(jq -n --argjson failure "$failure_info" '["Provider bootstrap command failed."] + (if ($failure.recommended_action // "") != "" then [$failure.recommended_action] else [] end)')"
     fi
   fi
 
@@ -476,6 +517,8 @@ write_provider_status() {
     --argjson worktree_dirty "$WORKTREE_DIRTY" \
     --argjson command_results "$command_results" \
     --argjson limitations "$limitations" \
+    --argjson failure_info "$failure_info" \
+    --slurpfile provider_config "$PROVIDER_CONFIG" \
     '{
       schema_version:"provider-status.v1",
       provider:$provider,
@@ -488,8 +531,14 @@ write_provider_status() {
       status:$status,
       graph_ready:$graph_ready,
       query_ready:$query_ready,
+      failed_phase:$failure_info.failed_phase,
+      failure_class:$failure_info.failure_class,
+      reason_code:$failure_info.reason_code,
+      exit_code:$failure_info.exit_code,
+      recommended_action:$failure_info.recommended_action,
       confidence:$confidence,
       limitations:$limitations,
+      query_probe_policy:($provider_config[0].providers[$provider].query_probe_policy // null),
       repo_snapshot:{
         source_revision:$source_revision,
         worktree_dirty:$worktree_dirty

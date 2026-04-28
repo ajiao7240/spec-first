@@ -20,7 +20,7 @@ Do not treat repo-root instruction files as the tool catalog, install guide, or 
 
 | Tool | Required | Category | Role | Setup Command | Bootstrap Owner |
 |---|---:|---|---|---|---|
-| GitNexus | Yes | `graph-provider` | `global_knowledge` | `npx -y gitnexus@1.6.4-rc.21 mcp` | `spec-graph-bootstrap` reads `graph-providers.json` command arrays and transiently runs analyze/status/query probes |
+| GitNexus | Yes | `graph-provider` | `global_knowledge` | `npx -y <configured-gitnexus-package> mcp` | `spec-graph-bootstrap` reads `graph-providers.json` command arrays and transiently runs analyze/status/query probes |
 | code-review-graph | Yes | `graph-provider` | `impact_context` | `uvx --upgrade code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool` | `spec-graph-bootstrap` reads `graph-providers.json` command arrays and transiently runs build/status/query-proof probes |
 
 `spec-mcp-setup` only warms and configures graph-provider MCP servers and writes setup-owned config facts. It must not run `gitnexus analyze`, `gitnexus status`, `gitnexus query`, `code-review-graph build`, or `code-review-graph status`.
@@ -50,7 +50,7 @@ brew update && if brew list --formula <tool> >/dev/null 2>&1; then brew upgrade 
 npx -y skills@latest add ast-grep/agent-skill -g -y
 ```
 
-Package-backed setup paths request latest versions: npm/npx packages use `@latest`, `uvx` MCP/tool commands use `--upgrade`, Cargo installs use `--force`, and Homebrew/winget handoffs prefer upgrade-before-install semantics. Temporary package pins must live in `mcp-tools.json`; GitNexus is currently pinned there to `1.6.4-rc.21` for the upstream query read-only FTS remediation window. `--verify-only` only reads facts and does not upgrade.
+Package-backed setup paths request latest versions: npm/npx packages use `@latest`, `uvx` MCP/tool commands use `--upgrade`, Cargo installs use `--force`, and Homebrew/winget handoffs prefer upgrade-before-install semantics. Temporary package pins must live in `mcp-tools.json`; GitNexus projections must read that package spec from the registry instead of hard-coding it in prose or tests. `--verify-only` only reads facts and does not upgrade.
 
 After `agent-browser install` succeeds, `install-helpers.*` writes `$HOME/.agent-browser/spec-first-install.json`. `--verify-only` only reads that marker, the CLI presence, and the global skill file; it does not run install or diagnostic commands.
 

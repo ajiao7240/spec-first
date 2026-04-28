@@ -109,6 +109,24 @@ function Test-CommandShapeSupported {
         ([string]$actual[6]).Length -gt 0
       )
     }
+    if ($Kind -eq 'bootstrap') {
+      return (
+        (
+          $actual.Count -eq 4 -and
+          [string]$actual[0] -eq 'npx' -and
+          [string]$actual[1] -eq '-y' -and
+          [string]$actual[2] -match '^gitnexus(@[A-Za-z0-9._~+:-]+)?$' -and
+          [string]$actual[3] -eq 'analyze'
+        ) -or (
+          $actual.Count -eq 5 -and
+          [string]$actual[0] -eq 'npx' -and
+          [string]$actual[1] -eq '-y' -and
+          [string]$actual[2] -match '^gitnexus(@[A-Za-z0-9._~+:-]+)?$' -and
+          [string]$actual[3] -eq 'analyze' -and
+          [string]$actual[4] -eq '--force'
+        )
+      )
+    }
     return (
       $null -ne $subcommand -and
       $actual.Count -eq 4 -and
@@ -168,6 +186,7 @@ function Invoke-ConfiguredCommand {
   $args = @($command | Select-Object -Skip 1)
   $output = New-Object System.Collections.Generic.List[string]
   $exitCode = 0
+  [Console]::Error.WriteLine("spec-graph-bootstrap: running $Provider $Kind; dependencies may download on first use...")
   Push-Location $RepoRoot
   try {
     $global:LASTEXITCODE = 0
@@ -180,6 +199,7 @@ function Invoke-ConfiguredCommand {
   } finally {
     Pop-Location
   }
+  [Console]::Error.WriteLine("spec-graph-bootstrap: finished $Provider $Kind with exit $exitCode")
   $outputText = ($output -join [Environment]::NewLine)
   Set-Content -Encoding utf8 -Path $LogPath -Value $outputText
   $diagnostic = (($output -join ' ') -replace '\s+', ' ').Trim()
@@ -228,15 +248,48 @@ function Test-GitNexusQueryProbeVerified {
     return $false
   }
   $resultCount = 0
-  foreach ($propertyName in @('processes', 'process_symbols', 'definitions')) {
+  foreach ($propertyName in @('processes', 'process_symbols')) {
     if ($payload.PSObject.Properties.Name -contains $propertyName -and $null -ne $payload.$propertyName) {
       $resultCount += @($payload.$propertyName).Count
     }
   }
   if ($resultCount -le 0) {
-    $script:QueryProbeVerificationReason = 'GitNexus query probe did not return non-empty query results.'
+    $script:QueryProbeVerificationReason = 'GitNexus query probe did not return non-empty BM25/process query results.'
   }
   return ($resultCount -gt 0)
+}
+
+function Get-ProviderFailureInfo {
+  param(
+    [string]$Provider,
+    [string]$Phase,
+    [int]$ExitCode
+  )
+  if ($Provider -eq 'gitnexus' -and $Phase -eq 'bootstrap' -and $ExitCode -eq 139) {
+    return [ordered]@{
+      failed_phase = 'bootstrap'
+      failure_class = 'provider-crash'
+      reason_code = 'gitnexus-analyze-sigsegv'
+      exit_code = $ExitCode
+      recommended_action = 'Do not trust GitNexus artifacts. Use code-review-graph and bounded local fallback; capture analyze.log and retry with a newer GitNexus rc or safer GitNexus runtime settings.'
+    }
+  }
+  if ($ExitCode -ne 0) {
+    return [ordered]@{
+      failed_phase = $Phase
+      failure_class = 'provider-command-failed'
+      reason_code = 'provider-command-failed'
+      exit_code = $ExitCode
+      recommended_action = 'Inspect the provider raw log and rerun graph bootstrap after fixing the provider command failure.'
+    }
+  }
+  return [ordered]@{
+    failed_phase = $null
+    failure_class = $null
+    reason_code = $null
+    exit_code = $null
+    recommended_action = $null
+  }
 }
 
 function Test-QueryProbeVerified {
@@ -419,6 +472,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $confidence = 'low'
   $skipReason = Get-ProviderSkipReason -Entry $entry
   $limitations = Get-ProviderSkipLimitations -SkipReason $skipReason
+  $failureInfo = Get-ProviderFailureInfo -Provider $provider -Phase '' -ExitCode 0
 
   if (Test-ProviderEnabled -ProviderConfig $providerConfig -Provider $provider) {
     $bootstrapLog = Join-Path $rawDir $(if ($provider -eq 'gitnexus') { 'analyze.log' } else { 'build.log' })
@@ -452,7 +506,11 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
       }
     } else {
       $status = 'failed'
+      $failureInfo = Get-ProviderFailureInfo -Provider $provider -Phase 'bootstrap' -ExitCode ([int]$bootstrap.exit_code)
       $limitations = @('Provider bootstrap command failed.')
+      if (-not [string]::IsNullOrWhiteSpace([string]$failureInfo['recommended_action'])) {
+        $limitations += [string]$failureInfo['recommended_action']
+      }
     }
   }
 
@@ -470,8 +528,14 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     status = $status
     graph_ready = $graphReady
     query_ready = $queryReady
+    failed_phase = $failureInfo['failed_phase']
+    failure_class = $failureInfo['failure_class']
+    reason_code = $failureInfo['reason_code']
+    exit_code = $failureInfo['exit_code']
+    recommended_action = $failureInfo['recommended_action']
     confidence = $confidence
     limitations = $limitations
+    query_probe_policy = if ($entry.PSObject.Properties.Name -contains 'query_probe_policy') { $entry.query_probe_policy } else { $null }
     repo_snapshot = [ordered]@{
       source_revision = $sourceRevision
       worktree_dirty = $worktreeDirty

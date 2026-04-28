@@ -195,7 +195,9 @@ describe('dual-host governance contracts', () => {
       expect(content).not.toContain('spec-first ' + 'crg');
     }
 
-    expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain('npx -y gitnexus@1.6.4-rc.21 analyze');
+    expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain(
+      '<configured-gitnexus-package>", "analyze", "--force"',
+    );
     expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain('uvx --upgrade code-review-graph build');
   });
 

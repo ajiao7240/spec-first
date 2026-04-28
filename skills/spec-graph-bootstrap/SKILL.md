@@ -84,9 +84,9 @@ Allowed minimum command shapes are:
 {
   "gitnexus": {
     "commands": {
-      "bootstrap": ["npx", "-y", "gitnexus@1.6.4-rc.21", "analyze"],
-      "status": ["npx", "-y", "gitnexus@1.6.4-rc.21", "status"],
-      "query_probe": ["npx", "-y", "gitnexus@1.6.4-rc.21", "query", "main src build README package", "--repo", "<repo-name>"]
+      "bootstrap": ["npx", "-y", "<configured-gitnexus-package>", "analyze", "--force"],
+      "status": ["npx", "-y", "<configured-gitnexus-package>", "status"],
+      "query_probe": ["npx", "-y", "<configured-gitnexus-package>", "query", "<expected-source-basename>", "--repo", "<repo-name>"]
     }
   },
   "code-review-graph": {
@@ -99,7 +99,7 @@ Allowed minimum command shapes are:
 }
 ```
 
-The current display forms are `npx -y gitnexus@1.6.4-rc.21 analyze`, `npx -y gitnexus@1.6.4-rc.21 status`, `npx -y gitnexus@1.6.4-rc.21 query "main src build README package" --repo <repo-name>`, `uvx --upgrade code-review-graph build`, and `uvx --upgrade code-review-graph status --repo <repo-root>`; the script still executes the validated arrays from `graph-providers.json`, not these prose strings. The bootstrap script owns the safety allowlist (provider id, executable, package name, and subcommand shape); `mcp-tools.json` remains the package/version source, and `graph-providers.json` remains the projected command argv source.
+The current display forms are `npx -y <configured-gitnexus-package> analyze --force`, `npx -y <configured-gitnexus-package> status`, `npx -y <configured-gitnexus-package> query <expected-source-basename> --repo <repo-name>`, `uvx --upgrade code-review-graph build`, and `uvx --upgrade code-review-graph status --repo <repo-root>`; the script still executes the validated arrays from `graph-providers.json`, not these prose strings. The bootstrap script owns the safety allowlist (provider id, executable, package name, and subcommand shape); `mcp-tools.json` remains the package/version source, and `graph-providers.json` remains the projected command argv source.
 
 Reject string commands, `bash -c`, `sh -c`, and unsupported executable/package shapes. Shell metacharacters inside an array argument must not be interpreted by a shell.
 
@@ -111,7 +111,9 @@ Reject string commands, `bash -c`, `sh -c`, and unsupported executable/package s
 2. Status command succeeds.
 3. Provider-specific query-surface proof succeeds.
 
-If build and status succeed but query-surface proof is missing, unsupported, or fails, write `status=query-unverified`, keep `query_ready=false`, and include diagnostics plus raw log pointers. Do not infer query readiness from build exit code alone. For GitNexus, Level 3 is fail-closed: the query log must not contain FTS/read-only/missing-index diagnostics, the query JSON must parse, and at least one of `processes`, `process_symbols`, or `definitions` must be non-empty. If GitNexus build/status succeeds but query-surface proof fails, preserve `graph_ready=true` where status was verified, but keep `query_ready=false`. For `code-review-graph`, the Level 3 proof is intentionally conservative and may reuse its `status --repo` surface probe; treat it as provider readiness evidence, not semantic graph evidence.
+If build and status succeed but query-surface proof is missing, unsupported, or fails, write `status=query-unverified`, keep `query_ready=false`, and include diagnostics plus raw log pointers. Do not infer query readiness from build exit code alone. For GitNexus, Level 3 is fail-closed: the query log must not contain FTS/read-only/missing-index diagnostics, the query JSON must parse, and `processes` plus `process_symbols` must be non-empty. `definitions` is useful context but is not sufficient proof that the BM25/process query surface is healthy. If GitNexus build/status succeeds but query-surface proof fails, preserve `graph_ready=true` where status was verified, but keep `query_ready=false`. For `code-review-graph`, the Level 3 proof is intentionally conservative and may reuse its `status --repo` surface probe; treat it as provider readiness evidence, not semantic graph evidence.
+
+Provider commands may trigger first-use package downloads. Progress hints go to stderr, while stdout remains the final JSON result and raw provider output remains in `.spec-first/providers/<provider>/raw/*`.
 
 ## Outputs
 

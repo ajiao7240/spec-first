@@ -9,7 +9,7 @@ RESOLVER_SCRIPT="$SCRIPTS_DIR/resolve-project-target.sh"
 GRAPH_BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
 GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1]' "$TOOLS_JSON")"
-GITNEXUS_QUERY_PROBE="main src build README package"
+GITNEXUS_QUERY_PROBE="TradeLoginActivity"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -86,6 +86,9 @@ SH
   cat > "$bin_dir/npx" <<SH
 #!/bin/bash
 echo "npx \$*" >> "$log_file"
+if [ "\${DRAIN_NPX_STDIN:-}" = "1" ]; then
+  cat >/dev/null
+fi
 if [ "\${1:-}" = "--version" ]; then echo "10.0.0"; fi
 if [[ " \$* " == *" --skill agent-browser "* ]]; then
   mkdir -p "\$HOME/.agents/skills/agent-browser"
@@ -177,7 +180,7 @@ assert_eq "graph provider roles are configured" "global_knowledge,impact_context
 assert_eq "serena depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "serena") | .dependencies | join(",")' "$TOOLS_JSON")"
 assert_eq "Serena project bootstrap does not hard-code languages" "false" "$(jq -r '.tools[] | select(.id == "serena") | .project_bootstrap.index_command.args | index("--language") != null' "$TOOLS_JSON")"
 assert_eq "code-review-graph depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "code-review-graph") | .dependencies | join(",")' "$TOOLS_JSON")"
-assert_eq "gitnexus warmup command" "npx -y gitnexus@1.6.4-rc.21 --help" "$(jq -r '.tools[] | select(.id == "gitnexus") | [.installation.unix.command] + .installation.unix.args | join(" ")' "$TOOLS_JSON")"
+assert_eq "gitnexus warmup command uses configured package" "npx -y $GITNEXUS_PACKAGE --help" "$(jq -r '.tools[] | select(.id == "gitnexus") | [.installation.unix.command] + .installation.unix.args | join(" ")' "$TOOLS_JSON")"
 assert_eq "sequential-thinking uses latest npm package" "npx -y @modelcontextprotocol/server-sequential-thinking@latest" "$(jq -r '.tools[] | select(.id == "sequential-thinking") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
 assert_eq "context7 uses latest npm package" "npx -y @upstash/context7-mcp@latest" "$(jq -r '.tools[] | select(.id == "context7") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
 assert_eq "code-review-graph mcp command" "uvx --upgrade code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool" "$(jq -r '.tools[] | select(.id == "code-review-graph") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
@@ -280,6 +283,9 @@ assert_eq "check-health Windows output avoids Homebrew" "false" "$(jq -r '[.tool
 
 FAKE_REPO="$TMP_DIR/repo"
 make_repo "$FAKE_REPO"
+mkdir -p "$FAKE_REPO/trade/src/main/java/com/hstong/trade/tradelogin/login/ui"
+printf 'class TradeLoginActivity {}\n' > "$FAKE_REPO/trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java"
+git -C "$FAKE_REPO" add trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java
 preflight_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/check-health" --json)"
 assert "check-health --json emits JSON" jq -e . <<<"$preflight_output"
 assert_eq "check-health schema v2" "spec-mcp-setup-preflight.v2" "$(jq -r '.schema_version' <<<"$preflight_output")"
@@ -320,6 +326,15 @@ if grep -q 'serena project create .*--language typescript' "$COMMAND_LOG"; then
   exit 1
 fi
 
+STDIN_DRAIN_REPO="$TMP_DIR/stdin-drain-repo"
+STDIN_DRAIN_HOME="$TMP_DIR/stdin-drain-home"
+make_repo "$STDIN_DRAIN_REPO"
+stdin_drain_output="$(cd "$STDIN_DRAIN_REPO" && PATH="$TEST_PATH" HOME="$STDIN_DRAIN_HOME" MCP_SETUP_HOST=claude DRAIN_NPX_STDIN=1 bash "$SCRIPTS_DIR/install-mcp.sh")"
+assert "install-mcp with stdin-draining npx emits JSON" jq -e . <<<"$stdin_drain_output"
+assert_eq "installer protects tool iteration from child stdin drains" "serena,sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$stdin_drain_output")"
+assert_eq "stdin-drain installer writes latest sequential-thinking config" "@modelcontextprotocol/server-sequential-thinking@latest" "$(jq -r '.mcpServers["sequential-thinking"].args[1]' "$STDIN_DRAIN_HOME/.claude.json")"
+assert_eq "stdin-drain installer writes latest context7 config" "@upstash/context7-mcp@latest" "$(jq -r '.mcpServers.context7.args[1]' "$STDIN_DRAIN_HOME/.claude.json")"
+
 INSTALL_LANG_REPO="$TMP_DIR/install-lang-repo"
 INSTALL_LANG_HOME="$TMP_DIR/install-lang-home"
 INSTALL_LANG_BIN="$TMP_DIR/install-lang-bin"
@@ -356,6 +371,14 @@ chmod +x "$SERENA_FAIL_BIN/uvx"
 (cd "$SERENA_SAFE_REPO" && PATH="$SERENA_FAIL_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh")
 assert_eq "existing Serena project survives idempotent bootstrap" "existing-project" "$(cat "$SERENA_SAFE_REPO/.serena/project.yml")"
 assert "existing Serena ready marker survives idempotent bootstrap" test -f "$SERENA_SAFE_REPO/.serena/index-ready.json"
+serena_verify_ready="$(cd "$SERENA_SAFE_REPO" && PATH="$SERENA_FAIL_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --verify-only)"
+assert_eq "Serena verify-only reports ready project" "ready::$(cd "$SERENA_SAFE_REPO" && pwd -P)" "$(jq -r '"\(.overall_status):\(.reason_code // ""):\(.repo_root)"' <<<"$serena_verify_ready")"
+
+SERENA_VERIFY_MISSING_REPO="$TMP_DIR/serena-verify-missing-repo"
+make_repo "$SERENA_VERIFY_MISSING_REPO"
+serena_verify_missing="$(cd "$SERENA_VERIFY_MISSING_REPO" && PATH="$SERENA_FAIL_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --verify-only)"
+assert_eq "Serena verify-only reports missing project as action required" "action-required:serena-project-not-ready" "$(jq -r '"\(.overall_status):\(.reason_code)"' <<<"$serena_verify_missing")"
+assert "Serena verify-only does not create project directory" test ! -e "$SERENA_VERIFY_MISSING_REPO/.serena"
 
 SERENA_RESTORE_REPO="$TMP_DIR/serena-restore-repo"
 make_repo "$SERENA_RESTORE_REPO"
@@ -494,7 +517,7 @@ assert_eq "runtime capabilities schema" "runtime-capabilities.v1" "$(jq -r '.sch
 assert_eq "provider artifacts schema" "provider-artifacts.v1" "$(jq -r '.schema_version' "$PROVIDER_ARTIFACTS")"
 assert_eq "provider projection is setup-only" "true" "$(jq -r '.boundaries.setup_only and .boundaries.does_not_run_gitnexus_analyze and .boundaries.does_not_run_code_review_graph_build' "$PROVIDER_CONFIG")"
 provider_config_repo_root="$(jq -r '.repo_root' "$PROVIDER_CONFIG")"
-assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$(basename "$provider_config_repo_root")" --arg gitnexus_package "$GITNEXUS_PACKAGE" --arg query_probe "$GITNEXUS_QUERY_PROBE" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y",$gitnexus_package,"query",$query_probe,"--repo",$repo_name]) and (.providers["code-review-graph"].commands.bootstrap == ["uvx","--upgrade","code-review-graph","build"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx","--upgrade","code-review-graph","status","--repo",$repo_root])' "$PROVIDER_CONFIG")"
+assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$(basename "$provider_config_repo_root")" --arg gitnexus_package "$GITNEXUS_PACKAGE" --arg query_probe "$GITNEXUS_QUERY_PROBE" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze","--force"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y",$gitnexus_package,"query",$query_probe,"--repo",$repo_name]) and (.providers.gitnexus.query_probe_policy.expected_hit == true) and (.providers.gitnexus.query_probe_policy.source == "git-ls-files-code-basename") and (.providers.gitnexus.query_probe_policy.token == $query_probe) and (.providers.gitnexus.query_probe_policy.selected_from == "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java") and (.providers["code-review-graph"].commands.bootstrap == ["uvx","--upgrade","code-review-graph","build"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx","--upgrade","code-review-graph","status","--repo",$repo_root])' "$PROVIDER_CONFIG")"
 assert_eq "providers are configured but not query-ready" "true" "$(jq -r '(.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
 assert_eq "runtime capabilities points to host ledger" "$LEDGER_PATH" "$(jq -r '.host_ledger_pointer.path' "$RUNTIME_CAPABILITIES")"
 assert_eq "runtime capabilities starts not bootstrapped" "not-bootstrapped" "$(jq -r '.project_graph_readiness.status' "$RUNTIME_CAPABILITIES")"
@@ -575,7 +598,7 @@ bootstrap_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_S
 graph_log_after="$(cat "$COMMAND_LOG")"
 assert "graph-bootstrap emits JSON" jq -e . <<<"$bootstrap_output"
 assert_eq "graph-bootstrap result ready" "ready" "$(jq -r '.overall_status' <<<"$bootstrap_output")"
-assert_contains "graph-bootstrap runs GitNexus analyze" "npx -y $GITNEXUS_PACKAGE analyze" "$graph_log_after"
+assert_contains "graph-bootstrap runs GitNexus analyze" "npx -y $GITNEXUS_PACKAGE analyze --force" "$graph_log_after"
 assert_contains "graph-bootstrap runs latest code-review-graph build" "uvx --upgrade code-review-graph build" "$graph_log_after"
 if [ "$graph_log_before" = "$graph_log_after" ]; then
   echo "FAIL: graph-bootstrap should run provider build commands" >&2

@@ -111,6 +111,18 @@ Windows:
 pwsh -File skills/spec-mcp-setup/scripts/activate-serena.ps1 -Refresh -Language kotlin,java
 ```
 
+For a read-only Serena project readiness check, use the explicit verify primitive. It only reads `.serena/project.yml` and the ready marker, emits JSON facts, and must not run Serena or create `.serena/`:
+
+```bash
+bash skills/spec-mcp-setup/scripts/activate-serena.sh --verify-only
+```
+
+Windows:
+
+```powershell
+pwsh -File skills/spec-mcp-setup/scripts/activate-serena.ps1 -VerifyOnly
+```
+
 Refresh is intentionally non-interactive. If `--refresh` / `-Refresh` is used without explicit language values, the script may only reuse languages from the existing `.serena/project.yml`; when no existing languages are available, it must fail with a clear diagnostic and ask the agent to pass explicit languages. Do not use refresh-without-language as a way to ask Serena to re-decide a mismatched project.
 
 When the LLM supplies multiple languages, the safe refresh primitive should make a deterministic best-effort attempt: try the complete language set first, then retry each supplied language individually. This lets a large Android repo continue with `java` if the `kotlin` language server fails to initialize, without the script inventing a project language.
@@ -276,7 +288,7 @@ npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill ag
 npx -y skills@latest add ast-grep/agent-skill -g -y
 ```
 
-All package-backed setup commands must request the latest available safe version when they install or warm a tool: npm/npx packages normally use `@latest`, `uvx` tool invocations use `--upgrade`, Cargo installs use `--force` where supported, and package-manager handoff commands prefer upgrade-before-install semantics. A package may be pinned only for a documented upstream remediation window; the pin must live in `mcp-tools.json`. GitNexus is currently pinned there to `1.6.4-rc.21` until stable `latest` includes the query read-only FTS fix. `--verify-only` remains read-only and never upgrades tools.
+All package-backed setup commands must request the latest available safe version when they install or warm a tool: npm/npx packages normally use `@latest`, `uvx` tool invocations use `--upgrade`, Cargo installs use `--force` where supported, and package-manager handoff commands prefer upgrade-before-install semantics. A package may be pinned only for a documented upstream remediation window; the pin must live in `mcp-tools.json` and all setup/bootstrap projections must read that value instead of hard-coding the package spec. `--verify-only` remains read-only and never upgrades tools.
 
 ## Readiness Ledger v2
 
@@ -350,9 +362,15 @@ Expected projection boundaries:
     "gitnexus": {
       "configured": true,
       "commands": {
-        "bootstrap": ["npx", "-y", "<gitnexus package from mcp-tools.json>", "analyze"],
+        "bootstrap": ["npx", "-y", "<gitnexus package from mcp-tools.json>", "analyze", "--force"],
         "status": ["npx", "-y", "<gitnexus package from mcp-tools.json>", "status"],
-        "query_probe": ["npx", "-y", "<gitnexus package from mcp-tools.json>", "query", "main src build README package", "--repo", "<repo-name>"]
+        "query_probe": ["npx", "-y", "<gitnexus package from mcp-tools.json>", "query", "<expected-source-basename>", "--repo", "<repo-name>"]
+      },
+      "query_probe_policy": {
+        "expected_hit": true,
+        "source": "git-ls-files-code-basename",
+        "token": "<expected-source-basename>",
+        "selected_from": "<tracked-source-file>"
       }
     },
     "code-review-graph": {

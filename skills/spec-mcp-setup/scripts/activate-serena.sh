@@ -10,6 +10,7 @@ SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
 
 REFRESH=false
+VERIFY_ONLY=false
 REPO_ARG=""
 LANGUAGES_TEXT=""
 append_language_values() {
@@ -27,6 +28,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --refresh)
       REFRESH=true
+      shift
+      ;;
+    --verify-only)
+      VERIFY_ONLY=true
       shift
       ;;
     --repo)
@@ -81,6 +86,39 @@ READY_MARKER_FILE="$(jq -r '.tools[] | select(.id == "serena") | .project_bootst
 READY_MARKER_PATH="$REPO_ROOT/$READY_MARKER_FILE"
 INDEX_COMMAND_JSON="$(jq -c '.tools[] | select(.id == "serena") | .project_bootstrap.index_command' "$TOOLS_JSON")"
 INDEX_COMMAND="$(jq -r '.command' <<<"$INDEX_COMMAND_JSON")"
+
+if [ "$VERIFY_ONLY" = "true" ]; then
+  if [ -f "$PROJECT_FILE" ] && [ -f "$READY_MARKER_PATH" ]; then
+    jq -n \
+      --arg repo_root "$REPO_ROOT" \
+      --arg project_file ".serena/project.yml" \
+      --arg ready_marker "$READY_MARKER_FILE" \
+      '{
+        schema_version:"serena-project-bootstrap.v1",
+        overall_status:"ready",
+        reason_code:null,
+        repo_root:$repo_root,
+        project_file:$project_file,
+        ready_marker:$ready_marker,
+        next_action:""
+      }'
+  else
+    jq -n \
+      --arg repo_root "$REPO_ROOT" \
+      --arg project_file ".serena/project.yml" \
+      --arg ready_marker "$READY_MARKER_FILE" \
+      '{
+        schema_version:"serena-project-bootstrap.v1",
+        overall_status:"action-required",
+        reason_code:"serena-project-not-ready",
+        repo_root:$repo_root,
+        project_file:$project_file,
+        ready_marker:$ready_marker,
+        next_action:"Run spec-mcp-setup to activate Serena for the selected repo."
+      }'
+  fi
+  exit 0
+fi
 
 read_project_languages() {
   local project_file="$1"

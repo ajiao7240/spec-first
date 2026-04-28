@@ -1,6 +1,12 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 23:22:33 leokuang: fix(graph-readiness): 移除 graph-bootstrap 文档和单测中的 GitNexus 版本硬编码，统一从 mcp-tools.json 投影的 configured package 读取 (user-visible)
+- v1.6.0 2026-04-28 23:19:44 leokuang: fix(graph-readiness): 后续 plan/work/code-review 在 graph readiness 降级、陈旧或缺失时优先尝试 live MCP 读图读码，成功仅作为会话证据，失败再回退 bounded direct repo reads (user-visible)
+- v1.6.0 2026-04-28 23:10:00 leokuang: fix(gitnexus): 将 mcp-tools.json 中 gitnexus 版本从 1.6.4-rc.21 降回 1.6.3 stable，修复 lbug::fts_extension::tableFunc SIGSEGV（@ladybugdb/core FTS extension null ptr deref on macOS arm64） (user-visible)
+- v1.6.0 2026-04-28 22:44:24 leokuang: fix(spec-mcp-setup): install-mcp 隔离子命令 stdin 并先缓存工具列表，避免 npx/uvx 读取循环输入导致后续 MCP 配置未安装或 stale config 未刷新 (user-visible)
+- v1.6.0 2026-04-28 22:27:17 leokuang: fix(spec-mcp-setup): 为 activate-serena 增加只读 verify-only 模式，避免 Serena 状态检查调用不存在参数导致 mcp-setup 中断 (user-visible)
+- v1.6.0 2026-04-28 22:11:50 leokuang: fix(graph-readiness): GitNexus bootstrap 默认执行 `analyze --force` 重建旧索引，query-ready 改为只信任 BM25/process surface，并为 expected-hit probe、SIGSEGV 失败和首用下载提示补齐机器事实 (user-visible)
 - v1.6.0 2026-04-28 21:40:36 leokuang: feat(workspace-target): 为 mcp setup 和 graph bootstrap 增加 workspace-scoped --repo target 解析，父 workspace 多仓场景 fail-closed 且只向 selected child repo 写入 project artifacts (user-visible)
 - v1.6.0 2026-04-28 20:52:56 leokuang: docs(plans): 根据文档审查收紧 workspace target readiness 计划的 repo 边界、resolver 消费契约、候选发现和 all-repos MVP 范围 (user-visible)
 - v1.6.0 2026-04-28 20:49:29 leokuang: fix(graph-readiness): 将 GitNexus 固定到 mcp-tools.json 中的 1.6.4-rc.21，并让 provider 命令从同一配置投影，同时对 FTS/read-only 空 query 结果 fail-closed (user-visible)

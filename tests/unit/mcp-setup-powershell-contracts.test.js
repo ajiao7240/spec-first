@@ -109,7 +109,9 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('$targetWriteAllowed');
     expect(writeProviderSource).toContain('graph_bootstrap_required = $true');
     expect(activateSerenaSource).toContain('[string]$Repo');
+    expect(activateSerenaSource).toContain('[switch]$VerifyOnly');
     expect(activateSerenaSource).toContain('serena-project-bootstrap.v1');
+    expect(activateSerenaSource).toContain("reason_code = if ($ready) { $null } else { 'serena-project-not-ready' }");
     expect(activateSerenaSource).not.toContain("try { git rev-parse --show-toplevel } catch { (Get-Location).Path }");
     expect(installMcpSource).toContain('$activateParams = @{ Repo = $ResolvedRepoRoot }');
     expect(installMcpSource).toContain('workspace-target-required');
@@ -167,9 +169,12 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('host_ledger_pointer');
     expect(writeProviderSource).toContain("$toolsJsonPath = Join-Path $skillDir 'mcp-tools.json'");
     expect(writeProviderSource).toContain('$gitNexusPackageSpec = [string]$gitNexusTool[0].installation.unix.args[1]');
-    expect(writeProviderSource).toContain("bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze')");
-    expect(writeProviderSource).toContain("query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', 'main src build README package', '--repo', $repoName)");
-    expect(writeProviderSource).toContain('Get-ProviderCommands -Provider $property.Name -RepoRoot $facts.repo_root -GitNexusPackageSpec $gitNexusPackageSpec');
+    expect(writeProviderSource).toContain("bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--force')");
+    expect(writeProviderSource).toContain("query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', [string]$GitNexusQueryProbePolicy.token, '--repo', $repoName)");
+    expect(writeProviderSource).toContain('function Get-GitNexusQueryProbePolicy');
+    expect(writeProviderSource).toContain('git-ls-files-code-basename');
+    expect(writeProviderSource).toContain('query_probe_policy = if ($property.Name -eq');
+    expect(writeProviderSource).toContain('Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy');
     expect(writeProviderSource).toContain("query_probe = @('uvx', '--upgrade', 'code-review-graph', 'status', '--repo', $RepoRoot)");
     expect(writeProviderSource).toContain('[bool]$Provider.enabled_for_bootstrap');
     expect(writeProviderSource).toContain('$canonicalArtifactsAvailable');
@@ -211,6 +216,12 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('function Test-GitNexusQueryProbeVerified');
     expect(source).toContain('Cannot execute write operations in a read-only database');
     expect(source).toContain('missing[ -]index');
+    expect(source).toContain("'analyze' -and");
+    expect(source).toContain("'--force'");
+    expect(source).toContain('BM25/process query results');
+    expect(source).toContain('function Get-ProviderFailureInfo');
+    expect(source).toContain('gitnexus-analyze-sigsegv');
+    expect(source).toContain('dependencies may download on first use');
     expect(source).toContain('graph_ready = $graphReady');
     expect(source).toContain('function Write-JsonFileAtomic');
     expect(source).toContain('Move-Item -Force');

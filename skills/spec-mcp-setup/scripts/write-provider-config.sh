@@ -80,6 +80,90 @@ generated_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 gitnexus_package="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1] // empty' "$TOOLS_JSON")"
 [ -n "$gitnexus_package" ] || { echo "GitNexus package spec not found in mcp-tools.json" >&2; exit 1; }
 
+gitnexus_probe_path_excluded() {
+  case "$1" in
+    .spec-first/*|.gitnexus/*|.code-review-graph/*|.agents/*|.codex/*|.claude/*|.serena/*|node_modules/*|vendor/*) return 0 ;;
+    build/*|*/build/*|cache/*|*/cache/*|runtime/*|*/runtime/*|generated/*|*/generated/*|.gradle/*|*/.gradle/*) return 0 ;;
+    */src/test/*|*/src/androidTest/*|test/*|tests/*|*/test/*|*/tests/*) return 0 ;;
+    *.jar|*.aar|*.apk|*.dex|*.so|*.dylib|*.class|*.png|*.jpg|*.jpeg|*.gif|*.webp|*.zip|*.tar|*.gz|*.tgz|*.mp4|*.mov|*.pdf) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+gitnexus_probe_source_path() {
+  case "$1" in
+    *.kt|*.java|*.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.py|*.go|*.rb|*.php|*.rs|*.c|*.cc|*.cpp|*.h|*.hpp|*.swift) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+gitnexus_probe_token_from_path() {
+  local path="$1"
+  local base token
+  base="$(basename "$path")"
+  token="${base%.*}"
+  if [[ "$token" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    printf '%s\n' "$token"
+  fi
+}
+
+select_gitnexus_query_probe_policy() {
+  local repo_root="$1"
+  local path token priority
+  local selected_path="" selected_token=""
+  local -a files=()
+
+  while IFS= read -r path; do
+    files+=("$path")
+  done < <(git -C "$repo_root" ls-files 2>/dev/null || true)
+
+  for priority in android_named named any_source; do
+    for path in "${files[@]}"; do
+      gitnexus_probe_path_excluded "$path" && continue
+      gitnexus_probe_source_path "$path" || continue
+      token="$(gitnexus_probe_token_from_path "$path")"
+      [ -n "$token" ] || continue
+      case "$priority" in
+        android_named)
+          case "$path" in
+            *.kt|*.java) ;;
+            *) continue ;;
+          esac
+          [[ "$token" =~ (Activity|Fragment|ViewModel|Manager|Repository|Service)$ ]] || continue
+          ;;
+        named)
+          [[ "$token" =~ (Activity|Fragment|ViewModel|Manager|Repository|Service)$ ]] || continue
+          ;;
+        any_source) ;;
+      esac
+      selected_path="$path"
+      selected_token="$token"
+      break 2
+    done
+  done
+
+  if [ -n "$selected_token" ]; then
+    jq -n \
+      --arg token "$selected_token" \
+      --arg selected_from "$selected_path" \
+      '{
+        expected_hit:true,
+        source:"git-ls-files-code-basename",
+        token:$token,
+        selected_from:$selected_from
+      }'
+  else
+    jq -n '{
+      expected_hit:false,
+      source:"fallback-static",
+      token:"main src build README package",
+      selected_from:null
+    }'
+  fi
+}
+
+gitnexus_query_probe_policy="$(select_gitnexus_query_probe_policy "$REPO_ROOT")"
+
 graph_facts_exists=false
 provider_status_exists=false
 impact_capabilities_exists=false
@@ -106,6 +190,7 @@ jq --arg generated_at "$generated_at" \
    --arg repo_name "$(basename "$REPO_ROOT")" \
    --arg repo_root "$REPO_ROOT" \
    --arg gitnexus_package "$gitnexus_package" \
+   --argjson gitnexus_query_probe_policy "$gitnexus_query_probe_policy" \
    --argjson graph_facts_exists "$graph_facts_exists" \
    --argjson provider_status_exists "$provider_status_exists" \
    --argjson impact_capabilities_exists "$impact_capabilities_exists" \
@@ -134,9 +219,9 @@ jq --arg generated_at "$generated_at" \
 
   def provider_commands($key):
     if $key == "gitnexus" then {
-      bootstrap: ["npx", "-y", $gitnexus_package, "analyze"],
+      bootstrap: ["npx", "-y", $gitnexus_package, "analyze", "--force"],
       status: ["npx", "-y", $gitnexus_package, "status"],
-      query_probe: ["npx", "-y", $gitnexus_package, "query", "main src build README package", "--repo", $repo_name]
+      query_probe: ["npx", "-y", $gitnexus_package, "query", $gitnexus_query_probe_policy.token, "--repo", $repo_name]
     }
     elif $key == "code-review-graph" then {
       bootstrap: ["uvx", "--upgrade", "code-review-graph", "build"],
@@ -188,6 +273,7 @@ jq --arg generated_at "$generated_at" \
               host_config_status: $current.host_config_status,
               capabilities: ($current.capabilities // []),
               commands: provider_commands($key),
+              query_probe_policy: (if $key == "gitnexus" then $gitnexus_query_probe_policy else null end),
               artifacts: provider_artifacts($key),
               next_action: (
                 if $ready and $preserve_query_ready then ""

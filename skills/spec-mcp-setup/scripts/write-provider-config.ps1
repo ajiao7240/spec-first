@@ -95,14 +95,15 @@ function Get-ProviderCommands {
   param(
     [string]$Provider,
     [string]$RepoRoot,
-    [string]$GitNexusPackageSpec
+    [string]$GitNexusPackageSpec,
+    [object]$GitNexusQueryProbePolicy
   )
   $repoName = Split-Path -Leaf $RepoRoot
   if ($Provider -eq 'gitnexus') {
     return [ordered]@{
-      bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze')
+      bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--force')
       status = @('npx', '-y', $GitNexusPackageSpec, 'status')
-      query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', 'main src build README package', '--repo', $repoName)
+      query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', [string]$GitNexusQueryProbePolicy.token, '--repo', $repoName)
     }
   }
   if ($Provider -eq 'code-review-graph') {
@@ -113,6 +114,66 @@ function Get-ProviderCommands {
     }
   }
   return [ordered]@{}
+}
+
+function Test-GitNexusProbePathExcluded {
+  param([string]$Path)
+  return ($Path -match '(^|/)(\.spec-first|\.gitnexus|\.code-review-graph|\.agents|\.codex|\.claude|\.serena|node_modules|vendor|build|cache|runtime|generated|\.gradle|test|tests|androidTest)(/|$)' -or
+    $Path -match '\.(jar|aar|apk|dex|so|dylib|class|png|jpg|jpeg|gif|webp|zip|tar|gz|tgz|mp4|mov|pdf)$')
+}
+
+function Test-GitNexusProbeSourcePath {
+  param([string]$Path)
+  return ($Path -match '\.(kt|java|ts|tsx|js|jsx|mjs|cjs|py|go|rb|php|rs|c|cc|cpp|h|hpp|swift)$')
+}
+
+function Get-GitNexusProbeTokenFromPath {
+  param([string]$Path)
+  $base = [System.IO.Path]::GetFileName($Path)
+  $token = [System.IO.Path]::GetFileNameWithoutExtension($base)
+  if ($token -match '^[A-Za-z_][A-Za-z0-9_]*$') {
+    return $token
+  }
+  return ''
+}
+
+function Get-GitNexusQueryProbePolicy {
+  param([string]$RepoRoot)
+  $files = @()
+  try {
+    $files = @(git -C $RepoRoot ls-files 2>$null)
+  } catch {
+    $files = @()
+  }
+
+  foreach ($priority in @('android_named', 'named', 'any_source')) {
+    foreach ($path in $files) {
+      if (Test-GitNexusProbePathExcluded -Path $path) { continue }
+      if (-not (Test-GitNexusProbeSourcePath -Path $path)) { continue }
+      $token = Get-GitNexusProbeTokenFromPath -Path $path
+      if ([string]::IsNullOrWhiteSpace($token)) { continue }
+      if ($priority -eq 'android_named') {
+        if ($path -notmatch '\.(kt|java)$') { continue }
+        if ($token -notmatch '(Activity|Fragment|ViewModel|Manager|Repository|Service)$') { continue }
+      } elseif ($priority -eq 'named') {
+        if ($token -notmatch '(Activity|Fragment|ViewModel|Manager|Repository|Service)$') { continue }
+      }
+
+      return [ordered]@{
+        expected_hit = $true
+        source = 'git-ls-files-code-basename'
+        token = $token
+        selected_from = $path
+      }
+    }
+  }
+
+  return [ordered]@{
+    expected_hit = $false
+    source = 'fallback-static'
+    token = 'main src build README package'
+    selected_from = $null
+  }
 }
 
 function Get-ProviderArtifacts {
@@ -215,8 +276,8 @@ function Write-JsonIfChanged {
   return $repoConfigStatus
 }
 
-$existingProvider = Read-ExistingJson -Path $providerFile -SchemaVersion 'graph-providers.v1' -RepoRoot $facts.repo_root
-$existingRuntime = Read-ExistingJson -Path $runtimeFile -SchemaVersion 'runtime-capabilities.v1' -RepoRoot $facts.repo_root
+$existingProvider = Read-ExistingJson -Path $providerFile -SchemaVersion 'graph-providers.v1' -RepoRoot $repoRoot
+$existingRuntime = Read-ExistingJson -Path $runtimeFile -SchemaVersion 'runtime-capabilities.v1' -RepoRoot $repoRoot
 $generatedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
 $toolsJson = Get-Content -Raw $toolsJsonPath | ConvertFrom-Json
 $gitNexusTool = @($toolsJson.tools | Where-Object { $_.id -eq 'gitnexus' } | Select-Object -First 1)
@@ -227,9 +288,10 @@ $gitNexusPackageSpec = [string]$gitNexusTool[0].installation.unix.args[1]
 if ([string]::IsNullOrWhiteSpace($gitNexusPackageSpec)) {
   throw 'GitNexus package spec not found in mcp-tools.json'
 }
-$graphFactsPath = Join-Path $facts.repo_root '.spec-first/graph/graph-facts.json'
-$providerStatusPath = Join-Path $facts.repo_root '.spec-first/graph/provider-status.json'
-$impactCapabilitiesPath = Join-Path $facts.repo_root '.spec-first/impact/bootstrap-impact-capabilities.json'
+$gitNexusQueryProbePolicy = Get-GitNexusQueryProbePolicy -RepoRoot $repoRoot
+$graphFactsPath = Join-Path $repoRoot '.spec-first/graph/graph-facts.json'
+$providerStatusPath = Join-Path $repoRoot '.spec-first/graph/provider-status.json'
+$impactCapabilitiesPath = Join-Path $repoRoot '.spec-first/impact/bootstrap-impact-capabilities.json'
 $canonicalArtifactsAvailable = (
   (Test-Path -LiteralPath $graphFactsPath -PathType Leaf) -and
   (Test-Path -LiteralPath $providerStatusPath -PathType Leaf) -and
@@ -238,8 +300,8 @@ $canonicalArtifactsAvailable = (
 $canonicalGraphFacts = Read-CanonicalJson -Path $graphFactsPath -SchemaVersion 'graph-facts.v1'
 $canonicalProviderStatus = Read-CanonicalJson -Path $providerStatusPath -SchemaVersion 'graph-provider-status.v1'
 $canonicalImpactCapabilities = Read-CanonicalJson -Path $impactCapabilitiesPath -SchemaVersion 'bootstrap-impact-capabilities.v1'
-$canonicalGraphFactsRepoRoot = if ($null -ne $canonicalGraphFacts -and $canonicalGraphFacts.PSObject.Properties.Name -contains 'repo_root') { $canonicalGraphFacts.repo_root } else { $facts.repo_root }
-$canonicalArtifactsCurrent = $canonicalArtifactsAvailable -and $null -ne $canonicalGraphFacts -and $null -ne $canonicalProviderStatus -and $null -ne $canonicalImpactCapabilities -and $canonicalGraphFactsRepoRoot -eq $facts.repo_root
+$canonicalGraphFactsRepoRoot = if ($null -ne $canonicalGraphFacts -and $canonicalGraphFacts.PSObject.Properties.Name -contains 'repo_root') { $canonicalGraphFacts.repo_root } else { $repoRoot }
+$canonicalArtifactsCurrent = $canonicalArtifactsAvailable -and $null -ne $canonicalGraphFacts -and $null -ne $canonicalProviderStatus -and $null -ne $canonicalImpactCapabilities -and $canonicalGraphFactsRepoRoot -eq $repoRoot
 $canonicalWorkflowMode = if ($canonicalArtifactsCurrent -and $canonicalProviderStatus.PSObject.Properties.Name -contains 'workflow_mode') {
   $canonicalProviderStatus.workflow_mode
 } elseif ($canonicalArtifactsCurrent -and $canonicalGraphFacts.PSObject.Properties.Name -contains 'workflow_mode') {
@@ -277,7 +339,8 @@ foreach ($property in $facts.graph_providers.PSObject.Properties) {
     dependency_status = $provider.dependency_status
     host_config_status = $provider.host_config_status
     capabilities = @($provider.capabilities)
-    commands = Get-ProviderCommands -Provider $property.Name -RepoRoot $facts.repo_root -GitNexusPackageSpec $gitNexusPackageSpec
+    commands = Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy
+    query_probe_policy = if ($property.Name -eq 'gitnexus') { $gitNexusQueryProbePolicy } else { $null }
     artifacts = Get-ProviderArtifacts -Provider $property.Name
     next_action = if ($ready -and $preserveQueryReady) { '' } elseif ($ready) { 'run spec-graph-bootstrap' } else { 'Fix provider setup and rerun spec-mcp-setup.' }
   }
@@ -295,7 +358,7 @@ $providerPayload = [ordered]@{
   schema_version = 'graph-providers.v1'
   generated_by = 'spec-mcp-setup'
   generated_at = $generatedAt
-  repo_root = $facts.repo_root
+  repo_root = $repoRoot
   providers = $providers
   derived_readiness = [ordered]@{
     updated_by = 'spec-mcp-setup'
@@ -356,7 +419,7 @@ $runtimePayload = [ordered]@{
   schema_version = 'runtime-capabilities.v1'
   generated_by = 'spec-mcp-setup'
   generated_at = $generatedAt
-  repo_root = $facts.repo_root
+  repo_root = $repoRoot
   host = $facts.host
   platform = $facts.platform
   repo_status = $facts.repo_status
@@ -443,7 +506,7 @@ $artifactsPayload = [ordered]@{
   schema_version = 'provider-artifacts.v1'
   generated_by = 'spec-mcp-setup'
   generated_at = $generatedAt
-  repo_root = $facts.repo_root
+  repo_root = $repoRoot
   providers = $artifactProviders
   canonical = [ordered]@{
     provider_status = '.spec-first/graph/provider-status.json'

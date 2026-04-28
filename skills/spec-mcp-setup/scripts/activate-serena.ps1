@@ -1,5 +1,6 @@
 param(
   [switch]$Refresh,
+  [switch]$VerifyOnly,
   [string]$Repo = '',
   [string[]]$Language = @()
 )
@@ -31,6 +32,20 @@ $readyMarkerFile = if ($null -ne $serenaTool.project_bootstrap.ready_marker_file
 $readyMarkerPath = Join-Path $repoRoot $readyMarkerFile
 $indexCommand = $serenaTool.project_bootstrap.index_command
 $command = $indexCommand.command
+
+if ($VerifyOnly) {
+  $ready = (Test-Path -LiteralPath $projectFile -PathType Leaf) -and (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf)
+  [pscustomobject]@{
+    schema_version = 'serena-project-bootstrap.v1'
+    overall_status = if ($ready) { 'ready' } else { 'action-required' }
+    reason_code = if ($ready) { $null } else { 'serena-project-not-ready' }
+    repo_root = $repoRoot
+    project_file = '.serena/project.yml'
+    ready_marker = $readyMarkerFile
+    next_action = if ($ready) { '' } else { 'Run spec-mcp-setup to activate Serena for the selected repo.' }
+  } | ConvertTo-Json -Compress
+  exit 0
+}
 
 function Get-SerenaProjectLanguages {
   param([string]$Path)

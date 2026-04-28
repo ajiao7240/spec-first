@@ -13,6 +13,9 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).toContain('plan/task/work artifacts when present');
     expect(text).toContain('nearby implementation files');
     expect(text).toContain('nearby tests');
+    expect(text).toContain('prefer live MCP evidence for concrete review questions');
+    expect(text).toContain('fall back to bounded direct repo reads');
+    expect(text).toContain('they do not update compiled `query_ready`');
     expect(text).toContain('External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment');
     expect(text).toContain('group changed files by Git repo');
     expect(text).toContain('Resolve graph readiness, diff context, impact evidence, and test suggestions per child repo');

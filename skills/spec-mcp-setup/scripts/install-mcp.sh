@@ -168,7 +168,7 @@ run_and_capture() {
   stderr_file="$(mktemp "${TMPDIR:-/tmp}/spec-mcp-command-stderr.XXXXXX")"
 
   set +e
-  "$@" >"$stdout_file" 2>"$stderr_file"
+  "$@" </dev/null >"$stdout_file" 2>"$stderr_file"
   RUN_EXIT_CODE=$?
   set -e
 
@@ -187,7 +187,12 @@ trap 'rm -f "$ledger_tmp"' EXIT
 
 jq -n --arg host "$HOST" --arg display "$HOST_DISPLAY_NAME" --arg platform "$PLATFORM" '{host:$host,display_name:$display,platform:$platform,results:[]}' > "$ledger_tmp"
 
+TOOL_IDS=()
 while IFS= read -r tool_id; do
+  TOOL_IDS+=("$tool_id")
+done < <(jq -r '.tools[].id' "$TOOLS_JSON")
+
+for tool_id in "${TOOL_IDS[@]}"; do
   required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .required' "$TOOLS_JSON")"
   if [ "$required" != "true" ]; then
     append_result "$tool_id" "action-required" "failed" "warmup" "registry_not_required" "mcp-tools.json schema v4 只允许 required tools" "" "" false "" "" ""
@@ -299,6 +304,6 @@ EOF
   fi
 
   append_result "$tool_id" "$status" "$last_action" "$install_kind" "$reason_code" "$next_action" "$configured_path" "$selected_scope" "$fallback_applied" "$exit_code" "$diagnostic_summary" "$repair_diagnostic_summary"
-done < <(jq -r '.tools[].id' "$TOOLS_JSON")
+done
 
 cat "$ledger_tmp"

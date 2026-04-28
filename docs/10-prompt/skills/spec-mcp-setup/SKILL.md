@@ -15,7 +15,7 @@
 - `mcp-tools.json` 是 MCP 与 graph-provider MCP 的唯一 machine registry，schema version 为 `4`；所有 MCP / graph-provider MCP 的 package/version spec 只从这里读取，`.spec-first/config/graph-providers.json` 只是投影，不是第二个版本源。
 - required helper tooling 不进入 `mcp-tools.json`，由 `install-helpers.*` 管理。
 - `install-helpers.* --verify-only` 只读检查 helper facts；`agent-browser install` 的完成状态以 `$HOME/.agent-browser/spec-first-install.json` 为 marker。
-- 安装路径必须请求最新版本：npm/npx 使用 `@latest`，`uvx` 使用 `--upgrade`，Cargo 支持的工具使用 `--force`，Homebrew/winget handoff 优先 upgrade-before-install；临时 package pin 只能写在 `mcp-tools.json`，当前 GitNexus pin 为 `gitnexus@1.6.4-rc.21`；`--verify-only` 仍保持只读，不升级。
+- 安装路径必须请求最新版本：npm/npx 使用 `@latest`，`uvx` 使用 `--upgrade`，Cargo 支持的工具使用 `--force`，Homebrew/winget handoff 优先 upgrade-before-install；临时 package pin 只能写在 `mcp-tools.json`，所有 GitNexus 投影必须读取该配置值，不在 prose 或测试里硬编码版本；`--verify-only` 仍保持只读，不升级。
 - `detect-tools.*` 只输出 tool facts，不输出 `baseline_ready`，不输出顶层 `crg`。
 - `verify-tools.*` 合并 tool facts 与 helper facts，统一写 readiness ledger v2。
 - 安装/验证完成后的 assistant 最终回复必须复述 readiness ledger v2 派生的完整状态，并在状态块下面追加简短友好的下一步提示；优先使用 fenced code block 中的分组对齐状态块（MCP servers / Graph providers / Helper tools / Project setup facts），不要用单个 9 列宽表或裸 Markdown 表格挤压 Codex 输出区域；不要只依赖命令输出里出现过状态块，避免最终结论丢失完整状态。

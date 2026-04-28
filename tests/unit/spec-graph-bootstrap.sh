@@ -7,7 +7,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
 GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1]' "$TOOLS_JSON")"
-GITNEXUS_QUERY_PROBE="main src build README package"
+GITNEXUS_QUERY_PROBE="TradeLoginActivity"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -48,9 +48,13 @@ make_fake_bin() {
   local log_file="$2"
   mkdir -p "$bin_dir"
   ln -s "$(command -v jq)" "$bin_dir/jq"
-  cat > "$bin_dir/npx" <<SH
+cat > "$bin_dir/npx" <<SH
 #!/bin/bash
 echo "npx \$*" >> "$log_file"
+if [[ "\${FAIL_GITNEXUS_ANALYZE_SIGSEGV:-}" = "1" && " \$* " == *" gitnexus@"*" analyze "* ]]; then
+  echo "Segmentation fault: 11" >&2
+  exit 139
+fi
 if [[ "\${FAIL_GITNEXUS_QUERY:-}" = "1" && " \$* " == *" gitnexus@"*" query "* ]]; then
   echo "query failed" >&2
   exit 42
@@ -59,6 +63,10 @@ if [[ " \$* " == *" gitnexus@"*" query "* ]]; then
   if [[ "\${GITNEXUS_QUERY_FTS_EMPTY:-}" = "1" ]]; then
     echo "FTS index ensure failed: Cannot execute write operations in a read-only database" >&2
     printf '{"processes":[],"process_symbols":[],"definitions":[]}\n'
+    exit 0
+  fi
+  if [[ "\${GITNEXUS_QUERY_DEFINITIONS_ONLY:-}" = "1" ]]; then
+    printf '{"processes":[],"process_symbols":[],"definitions":[{"name":"TradeLoginActivity"}]}\n'
     exit 0
   fi
   printf '{"processes":[{"name":"probe"}],"process_symbols":[],"definitions":[]}\n'
@@ -110,9 +118,15 @@ JSON
       "dependency_status": "ready",
       "host_config_status": "ready",
       "commands": {
-        "bootstrap": ["npx", "-y", "$GITNEXUS_PACKAGE", "analyze"],
+        "bootstrap": ["npx", "-y", "$GITNEXUS_PACKAGE", "analyze", "--force"],
         "status": ["npx", "-y", "$GITNEXUS_PACKAGE", "status"],
         "query_probe": ["npx", "-y", "$GITNEXUS_PACKAGE", "query", "$GITNEXUS_QUERY_PROBE", "--repo", "$(basename "$repo_root")"]
+      },
+      "query_probe_policy": {
+        "expected_hit": true,
+        "source": "git-ls-files-code-basename",
+        "token": "$GITNEXUS_QUERY_PROBE",
+        "selected_from": "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java"
       }
     },
     "code-review-graph": {
@@ -246,7 +260,7 @@ primary_output="$(cd "$PRIMARY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIP
 PRIMARY_REPO_ROOT="$(cd "$PRIMARY_REPO" && pwd -P)"
 assert "primary output is JSON" jq -e . <<<"$primary_output"
 assert_eq "primary workflow mode" "primary" "$(jq -r '.workflow_mode' <<<"$primary_output")"
-assert_contains "runs gitnexus analyze" "npx -y $GITNEXUS_PACKAGE analyze" "$(cat "$COMMAND_LOG")"
+assert_contains "runs gitnexus analyze with force rebuild" "npx -y $GITNEXUS_PACKAGE analyze --force" "$(cat "$COMMAND_LOG")"
 assert_contains "runs gitnexus query proof" "npx -y $GITNEXUS_PACKAGE query $GITNEXUS_QUERY_PROBE --repo $(basename "$PRIMARY_REPO_ROOT")" "$(cat "$COMMAND_LOG")"
 assert_contains "runs latest code-review-graph query proof" "uvx --upgrade code-review-graph status --repo $PRIMARY_REPO_ROOT" "$(cat "$COMMAND_LOG")"
 assert "provider status aggregate exists" test -f "$PRIMARY_REPO/.spec-first/graph/provider-status.json"
@@ -256,6 +270,7 @@ assert "provider raw log exists" test -f "$PRIMARY_REPO/.spec-first/providers/gi
 assert "normalized artifact exists" test -f "$PRIMARY_REPO/.spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
 assert "old graph raw path is not used" test ! -e "$PRIMARY_REPO/.spec-first/graph/raw/gitnexus"
 assert_eq "provider status records command source" ".spec-first/config/graph-providers.json" "$(jq -r '.command_source' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
+assert_eq "provider status records expected-hit query policy" "true:git-ls-files-code-basename:$GITNEXUS_QUERY_PROBE" "$(jq -r '.query_probe_policy | "\(.expected_hit):\(.source):\(.token)"' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "graph-bootstrap does not mutate provider config input" "$primary_provider_config_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
 assert_eq "graph-bootstrap does not mutate runtime capabilities input" "$primary_runtime_capabilities_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
 
@@ -342,6 +357,24 @@ fts_empty_output="$(cd "$FTS_EMPTY_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_FTS
 assert_eq "FTS/read-only empty query result degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$fts_empty_output")"
 assert_eq "FTS/read-only empty result is not query-ready" "query-unverified:true:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.graph_ready):\(.query_ready)"' <<<"$fts_empty_output")"
 assert_contains "FTS/read-only limitation is recorded" "FTS/read-only/missing-index" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$fts_empty_output")"
+
+DEFINITIONS_ONLY_REPO="$TMP_DIR/definitions-only-repo"
+DEFINITIONS_ONLY_LEDGER="$TMP_DIR/definitions-only-home/.codex/spec-first/host-setup.json"
+make_repo "$DEFINITIONS_ONLY_REPO"
+write_fixture_config "$DEFINITIONS_ONLY_REPO" "$DEFINITIONS_ONLY_LEDGER" true
+definitions_only_output="$(cd "$DEFINITIONS_ONLY_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "definitions-only query result degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$definitions_only_output")"
+assert_eq "definitions-only result is not query-ready" "query-unverified:true:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.graph_ready):\(.query_ready)"' <<<"$definitions_only_output")"
+assert_contains "definitions-only limitation requires BM25/process surface" "BM25/process" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$definitions_only_output")"
+
+SIGSEGV_REPO="$TMP_DIR/sigsegv-repo"
+SIGSEGV_LEDGER="$TMP_DIR/sigsegv-home/.codex/spec-first/host-setup.json"
+make_repo "$SIGSEGV_REPO"
+write_fixture_config "$SIGSEGV_REPO" "$SIGSEGV_LEDGER" true
+sigsegv_output="$(cd "$SIGSEGV_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_ANALYZE_SIGSEGV=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "GitNexus sigsegv degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$sigsegv_output")"
+assert_eq "GitNexus sigsegv has structured reason" "failed:gitnexus-analyze-sigsegv:provider-crash:bootstrap:139" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$sigsegv_output")"
+assert_contains "GitNexus sigsegv limitation recommends fallback" "Do not trust GitNexus artifacts" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$sigsegv_output")"
 
 NO_FALLBACK_REPO="$TMP_DIR/no-fallback-repo"
 NO_FALLBACK_LEDGER="$TMP_DIR/no-fallback-home/.codex/spec-first/host-setup.json"

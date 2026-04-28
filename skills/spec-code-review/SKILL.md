@@ -18,7 +18,7 @@ Reviews code changes using dynamically selected reviewer personas. Spawns parall
 
 ## Context Orientation Anchor
 
-Orient review from the diff scope, current user request, plan/task/work artifacts when present, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and test results. External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment.
+Orient review from the diff scope, current user request, plan/task/work artifacts when present, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and test results. When graph readiness artifacts are degraded, stale, or unavailable, prefer live MCP evidence for concrete review questions when the relevant MCP tool is loaded and responsive, then fall back to bounded direct repo reads. Treat successful MCP calls as session-local evidence only; they do not update compiled `query_ready` or replace reviewer judgment. External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment.
 
 When review runs from a parent workspace containing multiple independent Git repos, group changed files by Git repo. Resolve graph readiness, diff context, impact evidence, and test suggestions per child repo, then aggregate findings without merging repo-local evidence. File references and risk assessments must remain scoped to the repo that owns the file.
 
