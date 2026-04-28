@@ -36,7 +36,7 @@ After spec-doc-review completes, present the options using the platform's blocki
 **Question:** "Plan ready at `docs/plans/YYYY-MM-DD-NNN-<type>-<name>-plan.md`. What would you like to do next?"
 
 **Options:**
-1. **Start `/spec:work`** (recommended) - Begin implementing this plan in the current session
+1. **Start work** (recommended) - Begin implementing this plan in the current session using the current host's work entrypoint (`/spec:work` on Claude Code, `$spec-work` on Codex)
 2. **Compile task pack with `spec-write-tasks`** - Use the standalone skill when the plan is large, dependency-heavy, or would benefit from a derived `docs/tasks/*-tasks.md` execution input
 3. **Create Issue** - Create a tracked issue from this plan in your configured issue tracker (GitHub or Linear)
 4. **Open in Proof (web app) — review and comment to iterate with the agent** - Open the doc in Every's Proof editor, iterate with the agent via comments, or copy a link to share with others
@@ -45,14 +45,14 @@ After spec-doc-review completes, present the options using the platform's blocki
 **Surface additional document review contextually, not as a menu fixture:** When the prior spec-doc-review pass surfaced residual P0/P1 findings that the user has not addressed, mention them adjacent to the menu and offer another review pass in prose (e.g., "Document review flagged 2 P1 findings you may want to address — want me to run another pass before you pick?"). Do not add it to the option list.
 
 Based on selection:
-- **Start `/spec:work`** -> Call `/spec:work` with the plan path
-- **Compile task pack with `spec-write-tasks`** -> Load the standalone `spec-write-tasks` skill with the plan path. Do not invoke `/spec:write-tasks` or `$spec-write-tasks`; this is a standalone skill, not a command-backed workflow. If it writes an executable task pack with matching `spec_id` and verifiable `source_plan_hash`, offer to proceed to `/spec:work <task-pack-path>`. If it returns `skip`, `return-to-plan`, `draft-only`, unverifiable identity/hash, or a non-executable task pack, do not offer task-pack execution; follow the returned recommendation instead.
+- **Start work** -> Call the current host's work entrypoint with the plan path: `/spec:work <plan-path>` on Claude Code or `$spec-work <plan-path>` on Codex
+- **Compile task pack with `spec-write-tasks`** -> Load the standalone `spec-write-tasks` skill with the plan path. Do not invoke `/spec:write-tasks` or `$spec-write-tasks`; this is a standalone skill, not a command-backed workflow. If it writes an executable task pack with matching `spec_id` and verifiable `source_plan_hash`, offer to proceed with the current host's work entrypoint: `/spec:work <task-pack-path>` on Claude Code or `$spec-work <task-pack-path>` on Codex. If it returns `skip`, `return-to-plan`, `draft-only`, unverifiable identity/hash, or a non-executable task pack, do not offer task-pack execution; follow the returned recommendation instead.
 - **Create Issue** -> Follow the Issue Creation section below
 - **Open in Proof (web app) — review and comment to iterate with the agent** -> Load the `proof` skill in HITL-review mode with:
   - source file: `docs/plans/<plan_filename>.md`
   - doc title: `Plan: <plan title from frontmatter>`
   - identity: `ai:spec-first` / `Spec-First`
-  - recommended next step: `/spec:work` (shown in the proof skill's final terminal output)
+  - recommended next step: current host's work entrypoint (`/spec:work` on Claude Code, `$spec-work` on Codex; shown in the proof skill's final terminal output)
 
   Follow `references/hitl-review.md` in the proof skill. It uploads the plan, prompts the user for review in Proof's web UI, ingests each thread by reading it fresh and replying in-thread, applies agreed edits as tracked suggestions, and syncs the final markdown back to the plan file atomically on proceed.
 
@@ -93,4 +93,4 @@ When the user selects "Create Issue", detect their project tracker:
 
 After issue creation:
 - Display the issue URL
-- Ask whether to proceed to `/spec:work` using the platform's blocking question tool
+- Ask whether to proceed to the current host's work entrypoint (`/spec:work` on Claude Code, `$spec-work` on Codex) using the platform's blocking question tool

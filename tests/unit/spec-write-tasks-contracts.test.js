@@ -183,7 +183,9 @@ describe('spec-write-tasks contracts', () => {
 
     expect(handoff).toContain('Load the standalone `spec-write-tasks` skill with the plan path');
     expect(handoff).toContain('If it writes an executable task pack with matching `spec_id` and verifiable `source_plan_hash`');
-    expect(handoff).toContain('offer to proceed to `/spec:work <task-pack-path>`');
+    expect(handoff).toContain('offer to proceed with the current host\'s work entrypoint');
+    expect(handoff).toContain('/spec:work <task-pack-path>` on Claude Code');
+    expect(handoff).toContain('$spec-work <task-pack-path>` on Codex');
     expect(handoff).toContain('If it returns `skip`, `return-to-plan`, `draft-only`, unverifiable identity/hash, or a non-executable task pack');
     expect(handoff).toContain('do not offer task-pack execution');
   });

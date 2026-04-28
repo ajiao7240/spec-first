@@ -22,6 +22,15 @@ const DEEPENING_PATH = path.join(
   'references',
   'deepening-workflow.md',
 );
+const PLAN_HANDOFF_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-plan',
+  'references',
+  'plan-handoff.md',
+);
 
 describe('spec-plan context orientation contract', () => {
   test('uses direct repo context and preserves LLM decision boundary', () => {
@@ -106,5 +115,16 @@ describe('spec_id planning contract', () => {
     expect(text).toContain('deepening strengthens the same plan and must preserve it');
     expect(text).toContain('Preserve the existing `spec_id` frontmatter value');
     expect(text).toContain('Use a new `spec_id` only when deliberately creating a new spec chain outside the deepening path');
+  });
+
+  test('handoff work entrypoint remains host-specific', () => {
+    const text = fs.readFileSync(PLAN_HANDOFF_PATH, 'utf8');
+
+    expect(text).toContain('current host\'s work entrypoint');
+    expect(text).toContain('/spec:work <plan-path>` on Claude Code');
+    expect(text).toContain('$spec-work <plan-path>` on Codex');
+    expect(text).toContain('/spec:work <task-pack-path>` on Claude Code');
+    expect(text).toContain('$spec-work <task-pack-path>` on Codex');
+    expect(text).toContain('`/spec:work` on Claude Code, `$spec-work` on Codex');
   });
 });
