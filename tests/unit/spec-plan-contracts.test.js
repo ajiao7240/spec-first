@@ -136,6 +136,8 @@ describe('spec_id planning contract', () => {
     expect(text).toContain('/spec:work <task-pack-path>` on Claude Code');
     expect(text).toContain('$spec-work <task-pack-path>` on Codex');
     expect(text).toContain('`/spec:work` on Claude Code, `$spec-work` on Codex');
+    expect(text).toContain('`Start work`, `Compile task pack`, or `Create Issue`');
+    expect(text).not.toContain('`Start /spec:work`, `Compile task pack`, or `Create Issue`');
     expect(skill).toContain('**Start work** (recommended)');
     expect(skill).toContain('current host\'s work entrypoint (`/spec:work` on Claude Code, `$spec-work` on Codex)');
     expect(skill).not.toContain('**Start `/spec:work`** (recommended)');

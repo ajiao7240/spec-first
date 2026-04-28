@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-29 00:50:00 leokuang: docs(spec-plan): 清理 Proof stale-local 提示中的残留 `Start /spec:work`，统一为 host-neutral `Start work` (user-visible)
 - v1.6.0 2026-04-29 00:36:10 leokuang: docs(spec-plan): 将 universal planning 中 non-software fallback 与 work 禁用提示改为双宿主入口表述 (user-visible)
 - v1.6.0 2026-04-29 00:35:00 leokuang: docs(spec-ideate): 将 Proof handoff 的 brainstorm 推荐下一步改为当前宿主入口 (user-visible)
 - v1.6.0 2026-04-29 00:33:50 leokuang: docs(spec-brainstorm): 将 plan/brainstorm 下一步提示改为当前宿主入口，并新增 contract 测试 (user-visible)
