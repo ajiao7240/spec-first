@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-29 00:19:16 leokuang: test(using-spec-first): 锁定 source/runtime surface 的双宿主 init 口径，防止 Codex-only 文案回流
 - v1.6.0 2026-04-29 00:15:51 leokuang: docs(spec-mcp-setup): 将 Codex delegation effort 模板改为占位示例，并澄清 invalid config 按字段忽略或回退 (user-visible)
 - v1.6.0 2026-04-29 00:10:56 leokuang: docs(agent-native): 将 agent-native architecture 示例中的 dated Claude model id 改为 host 配置别名，避免复制旧模型名 (user-visible)
 - v1.6.0 2026-04-29 00:09:14 leokuang: docs(code-review): 移除 trivial PR 判断中的 Codex 具体模型示例，改为稳定 alias 或继承默认模型 (user-visible)
