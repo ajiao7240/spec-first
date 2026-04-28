@@ -166,7 +166,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 <!-- spec-first:runtime-tools:start -->
 ## 代码智能与运行时工具（由 spec-first 管理）
 
-`spec-mcp-setup` 管理本项目推荐/必需的 MCP servers、graph-provider MCP servers 与 helper tooling。完整工具清单、安装命令、host-specific notes 与 readiness ledger 语义统一收口在 `.claude/skills/spec-mcp-setup/references/supported-mcp-tools.md`。
+`spec-mcp-setup` 管理本项目推荐/必需的 MCP servers、graph-provider MCP servers 与 helper tooling。完整工具清单、安装命令、host-specific notes 与 readiness ledger 语义统一收口在 `.claude/spec-first/workflows/spec-mcp-setup/references/supported-mcp-tools.md`。
 
 ### 使用边界
 - `GitNexus`：用于全局代码知识图谱、架构理解、自然语言代码咨询/搜索、相似模块查找、执行流查询、影响分析和提交前变更检测。咨询“X 怎么工作 / 在哪里实现 / 可复用什么”这类场景，优先用 `gitnexus_query`；需要单个符号上下文时用 `gitnexus_context`。若本文件存在 `<!-- gitnexus:start -->` 管理块，优先遵守该块的强制规则。

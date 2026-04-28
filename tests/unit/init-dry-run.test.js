@@ -105,7 +105,7 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('Would ensure');
       expect(result.stdout).toContain('Would write/update');
       expect(result.stdout).toContain('.claude/commands/spec/work.md');
-      expect(result.stdout).not.toContain('.claude/spec-first/workflows/spec-work/SKILL.md');
+      expect(result.stdout).toContain('.claude/spec-first/workflows/spec-mcp-setup/scripts/check-health');
       expect(result.stdout).toContain('.claude/agents/spec-security-reviewer.agent.md');
       expect(result.stdout).toContain('CLAUDE.md');
       expect(result.stdout).toContain('.claude/hooks/session-start');
@@ -130,6 +130,7 @@ describe('init --dry-run', () => {
         '.claude/commands/spec/work.md',
         '.claude/agents/spec-security-reviewer.agent.md',
         '.claude/hooks/session-start',
+        '.claude/spec-first/workflows/spec-mcp-setup/scripts/check-health',
         '.claude/settings.json',
         '.claude/spec-first/state.json',
         'CLAUDE.md',
@@ -142,9 +143,19 @@ describe('init --dry-run', () => {
       expect(claudeInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(claudeInstruction).toContain('/spec:optimize');
       expect(claudeInstruction).toContain('<!-- spec-first:runtime-tools:start -->');
-      expect(claudeInstruction).toContain('.claude/skills/spec-mcp-setup/references/supported-mcp-tools.md');
+      expect(claudeInstruction).toContain('.claude/spec-first/workflows/spec-mcp-setup/references/supported-mcp-tools.md');
       expect(claudeInstruction).toContain('/spec:graph-bootstrap');
       expect(claudeInstruction).not.toContain('$spec-graph-bootstrap');
+
+      const claudeMcpSetupCommand = fs.readFileSync(
+        path.join(projectRoot, '.claude', 'commands', 'spec', 'mcp-setup.md'),
+        'utf8',
+      );
+      expect(claudeMcpSetupCommand).toContain('bash .claude/spec-first/workflows/spec-mcp-setup/scripts/check-health');
+      expect(claudeMcpSetupCommand).not.toContain('bash skills/spec-mcp-setup/scripts/check-health');
+
+      const claudeState = JSON.parse(fs.readFileSync(path.join(projectRoot, '.claude', 'spec-first', 'state.json'), 'utf8'));
+      expect(claudeState.workflowSkills).toContain('spec-mcp-setup');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -165,6 +176,14 @@ describe('init --dry-run', () => {
       expect(codexInstruction).toContain('.agents/skills/spec-mcp-setup/references/supported-mcp-tools.md');
       expect(codexInstruction).toContain('$spec-graph-bootstrap');
       expect(codexInstruction).not.toContain('/spec:graph-bootstrap');
+
+      const codexMcpSetupSkill = fs.readFileSync(
+        path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'SKILL.md'),
+        'utf8',
+      );
+      expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'scripts', 'check-health'))).toBe(true);
+      expect(codexMcpSetupSkill).toContain('bash .agents/skills/spec-mcp-setup/scripts/check-health');
+      expect(codexMcpSetupSkill).not.toContain('bash skills/spec-mcp-setup/scripts/check-health');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -229,7 +248,7 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('.claude/commands/spec/work.md');
       expect(result.stdout).toContain('Would prune 1 unmanaged command file(s)');
       expect(result.stdout).toContain('.claude/commands/spec/custom.md');
-      expect(result.stdout).not.toContain('.claude/spec-first/workflows/spec-work/SKILL.md');
+      expect(result.stdout).toContain('.claude/spec-first/workflows/spec-mcp-setup/scripts/check-health');
     } finally {
       warnSpy.mockRestore();
       initLogSpy.mockRestore();

@@ -63,7 +63,7 @@ describe('runtime tools instruction block', () => {
     expect(codexBlock).toContain('blocked、stale 或未 ready');
     expect(codexBlock).toContain('若本文件存在 `<!-- gitnexus:start -->` 管理块，优先遵守该块的强制规则');
 
-    expect(claudeBlock).toContain('.claude/skills/spec-mcp-setup/references/supported-mcp-tools.md');
+    expect(claudeBlock).toContain('.claude/spec-first/workflows/spec-mcp-setup/references/supported-mcp-tools.md');
     expect(claudeBlock).toContain('/spec:graph-bootstrap');
     expect(claudeBlock).not.toContain('$spec-graph-bootstrap');
   });

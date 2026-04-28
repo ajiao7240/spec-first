@@ -186,7 +186,8 @@ function findStandaloneGitNexusStart(content) {
 }
 
 function runtimeToolsReferencePath(host) {
-  return `${host.skillsRoot}/spec-mcp-setup/references/supported-mcp-tools.md`;
+  const root = host.id === 'claude' ? host.workflowsRoot : host.skillsRoot;
+  return `${root}/spec-mcp-setup/references/supported-mcp-tools.md`;
 }
 
 function normalizeHost(adapterOrId) {
@@ -194,6 +195,7 @@ function normalizeHost(adapterOrId) {
     return {
       id: adapterOrId.id,
       skillsRoot: adapterOrId.skillsRoot,
+      workflowsRoot: adapterOrId.workflowsRoot,
     };
   }
 
@@ -201,12 +203,14 @@ function normalizeHost(adapterOrId) {
     return {
       id: 'claude',
       skillsRoot: '.claude/skills',
+      workflowsRoot: '.claude/spec-first/workflows',
     };
   }
 
   return {
     id: 'codex',
     skillsRoot: '.agents/skills',
+    workflowsRoot: '.agents/skills',
   };
 }
 

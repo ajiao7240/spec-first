@@ -82,9 +82,12 @@ class CodexAdapter extends PlatformAdapter {
       transformCodexContent(rewriteSharedPaths(content)),
       codexRuntimeSkillName(context),
     );
-    return context.skillName === 'using-spec-first'
-      ? preserveUsingSpecFirstHostInstallNotes(transformed)
+    const withRuntimePaths = context.isWorkflowSkill
+      ? rewriteSourceSkillRuntimePaths(transformed, context.skillName, `${this.workflowsRoot}/${context.skillName}`)
       : transformed;
+    return context.skillName === 'using-spec-first'
+      ? preserveUsingSpecFirstHostInstallNotes(withRuntimePaths)
+      : withRuntimePaths;
   }
 
   transformAgentContent(content) {
@@ -214,6 +217,21 @@ function rewriteSkillName(content, skillName) {
   }
 
   return content.replace(/^name:\s*.+$/m, `name: ${skillName}`);
+}
+
+function rewriteSourceSkillRuntimePaths(content, skillName, runtimeSkillRoot) {
+  if (typeof skillName !== 'string' || skillName.length === 0) {
+    return content;
+  }
+
+  return content.replace(
+    new RegExp(`skills/${escapeRegExp(skillName)}/`, 'g'),
+    `${runtimeSkillRoot}/`,
+  );
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function codexRuntimeSkillName(context = {}) {

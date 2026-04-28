@@ -574,6 +574,7 @@ function buildFilteredAssetSet(platformOrAdapter) {
         }
 
         commands.push(command);
+        workflowSkills.push(record.skill_name);
         continue;
       }
 

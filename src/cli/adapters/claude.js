@@ -60,14 +60,18 @@ class ClaudeAdapter extends PlatformAdapter {
       ? `${frontmatter}\n\n${body}`
       : body;
 
-    return this.transformSkillContent(merged, context);
+    return this.transformSkillContent(merged, { ...context, isWorkflowSkill: true });
   }
 
   transformSkillContent(content, context = {}) {
-    return rewriteClaudeStandaloneSkillName(
+    const transformed = rewriteClaudeStandaloneSkillName(
       rewriteCanonicalAgentNamesForSkills(content),
       context.skillName,
     );
+
+    return context.isWorkflowSkill
+      ? rewriteSourceSkillRuntimePaths(transformed, context.skillName, `${this.workflowsRoot}/${context.skillName}`)
+      : transformed;
   }
 
   transformAgentContent(content) {
@@ -203,6 +207,21 @@ function rewriteClaudeStandaloneSkillName(content, skillName) {
   }
 
   return content.replace(/^name:\s*spec-(.+)$/m, 'name: $1');
+}
+
+function rewriteSourceSkillRuntimePaths(content, skillName, runtimeSkillRoot) {
+  if (typeof skillName !== 'string' || skillName.length === 0) {
+    return content;
+  }
+
+  return content.replace(
+    new RegExp(`skills/${escapeRegExp(skillName)}/`, 'g'),
+    `${runtimeSkillRoot}/`,
+  );
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function listMarkdownFiles(rootPath) {

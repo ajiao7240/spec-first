@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 14:06:04 leokuang: fix(init): 为 Claude command-backed workflows 生成受管 support assets，并将 mcp-setup runtime 脚本路径重写到宿主真实路径，避免 `/spec:mcp-setup` 找不到脚本 (user-visible)
 - v1.6.0 2026-04-28 13:30:29 leokuang: fix(graph-readiness): spec-mcp-setup 重建 graph readiness projection 时校验 canonical impact artifact schema，避免损坏产物被误投影为 query-ready (user-visible)
 - v1.6.0 2026-04-28 13:20:55 leokuang: docs(spec-mcp-setup): 为 mcp-setup 最终状态表新增 remark 列并说明各工具用途，统一 script、skill 样例与单测契约 (user-visible)
 - v1.6.0 2026-04-28 13:13:08 leokuang: fix(graph-readiness): 将 graph-bootstrap readiness 结果收口到 canonical artifacts，由 spec-mcp-setup 从 canonical artifacts 重建 setup-owned projection，避免 bootstrap 回写 setup-owned config (user-visible)

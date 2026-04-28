@@ -109,7 +109,12 @@ grep -q "Generated ${expected_agent_count} agent file(s)" <<<"$claude_output"
 for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.md doc-review.md graph-bootstrap.md ideate.md mcp-setup.md optimize.md plan.md polish-beta.md release-notes.md sessions.md slack-research.md update.md work.md work-beta.md; do
   test -f "$TMP_DIR/.claude/commands/spec/$file"
 done
-test ! -e "$TMP_DIR/.claude/spec-first/workflows"
+test -f "$TMP_DIR/.claude/spec-first/workflows/spec-mcp-setup/scripts/check-health"
+grep -q 'bash .claude/spec-first/workflows/spec-mcp-setup/scripts/check-health' "$TMP_DIR/.claude/commands/spec/mcp-setup.md"
+if grep -q 'bash skills/spec-mcp-setup/scripts/check-health' "$TMP_DIR/.claude/commands/spec/mcp-setup.md"; then
+  echo "Claude mcp-setup command should not reference source-only skill script paths" >&2
+  exit 1
+fi
 installed_claude_skill_count="$(find "$TMP_DIR/.claude/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
 test "$installed_claude_skill_count" = "$expected_claude_skill_count"
 test -f "$TMP_DIR/.claude/skills/using-spec-first/SKILL.md"
@@ -130,7 +135,7 @@ const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
 if (state.commands.length !== Number(commandCount)) throw new Error('command count mismatch');
 if (state.skills.length !== Number(skillCount)) throw new Error('skill count mismatch');
 if (state.workflowSkills.length !== Number(workflowSkillCount)) throw new Error('workflow skill count mismatch');
-if (state.workflowSkills.length !== 0) throw new Error('Claude should not expose command-backed workflows as skills');
+if (!state.workflowSkills.includes('spec-mcp-setup')) throw new Error('missing Claude mcp-setup workflow support asset');
 if (state.agents.length !== Number(agentCount)) throw new Error('agent count mismatch');
 if (state.developer.name !== 'kuang' || state.developer.lang !== 'en') throw new Error('developer profile mismatch');
 NODE
