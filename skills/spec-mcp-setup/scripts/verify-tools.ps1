@@ -5,6 +5,10 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+  throw 'verify-tools.ps1: node 是必需依赖，请先安装 Node.js'
+}
+
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $MarkerPath = $HostInfo.marker_path
@@ -186,9 +190,18 @@ function Format-Remark {
   }
 }
 
-function Write-MarkdownRow {
-  param([string[]]$Cells)
-  Write-Host ('| ' + ($Cells -join ' | ') + ' |')
+function Write-StatusBlock {
+  param([object[]]$Sections)
+
+  $payload = [ordered]@{
+    sections = @($Sections)
+  }
+
+  $json = $payload | ConvertTo-Json -Depth 10
+  $json | & node (Join-Path $ScriptDir 'render-status-block.cjs')
+  if ($LASTEXITCODE -ne 0) {
+    throw "render-status-block.cjs failed with exit code $LASTEXITCODE"
+  }
 }
 
 Write-Host "📝 宿主就绪标记已更新: $MarkerPath"
@@ -202,65 +215,89 @@ if ($combined.graph_bootstrap_required) {
 Write-Host '✅ readiness ledger v2 已写入'
 Write-Host ''
 Write-Host 'Required Harness Runtime status (grouped):'
-Write-Host 'MCP servers:'
-Write-Host '| Name | Role | Dependency | Host | Project | Next |'
-Write-Host '| --- | --- | --- | --- | --- | --- |'
-foreach ($property in $combined.tools.PSObject.Properties) {
-  $tool = $property.Value
-  if ($tool.type -ne 'mcp') { continue }
-  Write-MarkdownRow @(
-    (Format-Cell $property.Name),
-    (Format-Cell (Format-Remark $property.Name)),
-    (Format-Cell $tool.dependency_status),
-    (Format-Cell $tool.host_config_status),
-    (Format-Cell $tool.project_status),
-    (Format-Cell $tool.next_action)
-  )
-}
-Write-Host ''
-Write-Host 'Graph providers:'
-Write-Host '| Name | Role | Dependency | Host | Query | Next |'
-Write-Host '| --- | --- | --- | --- | --- | --- |'
-foreach ($property in $combined.tools.PSObject.Properties) {
-  $tool = $property.Value
-  if ($tool.type -ne 'graph-provider') { continue }
-  Write-MarkdownRow @(
-    (Format-Cell $property.Name),
-    (Format-Cell (Format-Remark $property.Name)),
-    (Format-Cell $tool.dependency_status),
-    (Format-Cell $tool.host_config_status),
-    (Format-Query $tool.query_ready),
-    (Format-Cell $tool.next_action)
-  )
-}
-Write-Host ''
-Write-Host 'Helper tools:'
-Write-Host '| Name | Type | Result | Dependency | Install | Skill | Next |'
-Write-Host '| --- | --- | --- | --- | --- | --- | --- |'
-foreach ($property in $combined.helper_tools.PSObject.Properties) {
-  $helper = $property.Value
-  Write-MarkdownRow @(
-    (Format-Cell $property.Name),
-    (Format-Cell $(if ($helper.PSObject.Properties.Name -contains 'type') { $helper.type } else { 'helper' })),
-    (Format-Cell $helper.result),
-    (Format-Cell $helper.dependency_status),
-    (Format-Cell $helper.install_status),
-    (Format-Cell $helper.skill_status),
-    (Format-Cell $helper.next_action)
-  )
-}
-Write-Host ''
-Write-Host 'Project setup facts:'
-Write-Host '| Artifact | Project | Next |'
-Write-Host '| --- | --- | --- |'
+$mcpRows = @(
+  foreach ($property in $combined.tools.PSObject.Properties) {
+    $tool = $property.Value
+    if ($tool.type -ne 'mcp') {
+      continue
+    }
+
+    ,@(
+      (Format-Cell $property.Name),
+      (Format-Cell (Format-Remark $property.Name)),
+      (Format-Cell $tool.dependency_status),
+      (Format-Cell $tool.host_config_status),
+      (Format-Cell $tool.project_status),
+      (Format-Cell $tool.next_action)
+    )
+  }
+)
+
+$graphRows = @(
+  foreach ($property in $combined.tools.PSObject.Properties) {
+    $tool = $property.Value
+    if ($tool.type -ne 'graph-provider') {
+      continue
+    }
+
+    ,@(
+      (Format-Cell $property.Name),
+      (Format-Cell (Format-Remark $property.Name)),
+      (Format-Cell $tool.dependency_status),
+      (Format-Cell $tool.host_config_status),
+      (Format-Query $tool.query_ready),
+      (Format-Cell $tool.next_action)
+    )
+  }
+)
+
+$helperRows = @(
+  foreach ($property in $combined.helper_tools.PSObject.Properties) {
+    $helper = $property.Value
+    ,@(
+      (Format-Cell $property.Name),
+      (Format-Cell $(if ($helper.PSObject.Properties.Name -contains 'type') { $helper.type } else { 'helper' })),
+      (Format-Cell $helper.result),
+      (Format-Cell $helper.dependency_status),
+      (Format-Cell $helper.install_status),
+      (Format-Cell $helper.skill_status),
+      (Format-Cell $helper.next_action)
+    )
+  }
+)
+
 $projectionNext = if ($combined.repo_config_status -eq 'ready' -or $combined.repo_config_status -eq 'written') { '' } else { 'write provider projection' }
-Write-MarkdownRow @('graph-providers.json', (Format-Cell $combined.repo_config_status), (Format-Cell $projectionNext))
-
 $runtimeNext = if ($combined.runtime_capabilities_status -eq 'ready' -or $combined.runtime_capabilities_status -eq 'written') { '' } else { 'write runtime capabilities' }
-Write-MarkdownRow @('runtime-capabilities.json', (Format-Cell $combined.runtime_capabilities_status), (Format-Cell $runtimeNext))
-
 $artifactsNext = if ($combined.provider_artifacts_status -eq 'ready' -or $combined.provider_artifacts_status -eq 'written') { '' } else { 'write provider artifacts' }
-Write-MarkdownRow @('provider-artifacts.json', (Format-Cell $combined.provider_artifacts_status), (Format-Cell $artifactsNext))
+
+$sections = @(
+  [ordered]@{
+    title = 'MCP servers'
+    headers = @('Name', 'Role', 'Dependency', 'Host', 'Project', 'Next')
+    rows = $mcpRows
+  }
+  [ordered]@{
+    title = 'Graph providers'
+    headers = @('Name', 'Role', 'Dependency', 'Host', 'Query', 'Next')
+    rows = $graphRows
+  }
+  [ordered]@{
+    title = 'Helper tools'
+    headers = @('Name', 'Type', 'Result', 'Dependency', 'Install', 'Skill', 'Next')
+    rows = $helperRows
+  }
+  [ordered]@{
+    title = 'Project setup facts'
+    headers = @('Artifact', 'Project', 'Next')
+    rows = @(
+      @('graph-providers.json', (Format-Cell $combined.repo_config_status), (Format-Cell $projectionNext)),
+      @('runtime-capabilities.json', (Format-Cell $combined.runtime_capabilities_status), (Format-Cell $runtimeNext)),
+      @('provider-artifacts.json', (Format-Cell $combined.provider_artifacts_status), (Format-Cell $artifactsNext))
+    )
+  }
+)
+
+Write-StatusBlock -Sections $sections
 
 switch ($combined.host) {
   'claude' {

@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 18:42:41 leokuang: fix(spec-mcp-setup): 在源码技能中引入 display-width 对齐的最终状态块 renderer，并同步 shell、PowerShell 与测试契约 (user-visible)
+- v1.6.0 2026-04-28 19:08:30 leokuang: fix(spec-mcp-setup): 收紧 PowerShell renderer 失败语义，并补齐 display-width 与最终状态列契约测试 (user-visible)
 - v1.6.0 2026-04-28 leokuang: docs(readme): 修正英文 README Claude init 第 3 步文案笔误，补全中文 README Claude init 下一步区块，并为中文 README 补充相关文档小节 (user-visible)
 - v1.6.0 2026-04-28 18:28:09 leokuang: fix(spec-mcp-setup): 将 verify-tools 的最终状态表改为 fenced code block 的对齐输出，减少 Codex 下 Markdown 表格换行导致的视觉错位 (user-visible)
 - v1.6.0 2026-04-28 17:40:00 leokuang: docs(plan): 修正 runtime tooling 边界计划的需求映射和验证矩阵，补齐 doctor 与 root marker 检查口径

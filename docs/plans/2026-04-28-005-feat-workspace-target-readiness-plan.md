@@ -31,21 +31,35 @@ spec_id: 2026-04-28-005-workspace-target-readiness
 
 ## 需求追踪
 
+### 目标解析与写入许可
+
 - R1. 在父目录不是 Git repo、但包含多个 child Git repo 时，setup/bootstrap 必须识别为 `workspace-multi-repo`，而不是只报普通 `not-git-repo`。
-- R2. 父 workspace 不得生成 repo-local `.spec-first/config/*`、`.spec-first/graph/*` 或 `.spec-first/impact/*` 真相源；这些文件只写入被显式选择的 child repo。
 - R3. 所有会读写 repo-local 项目事实的脚本必须使用同一个 target resolver，避免 `detect-tools`、`activate-serena`、`write-provider-config`、`bootstrap-providers` 对 repo root 的判断漂移。
 - R4. 支持显式 `--repo <path>`，让用户可以从父 workspace 对某个 child repo 运行 `$spec-mcp-setup` 和 `$spec-graph-bootstrap`。
 - R5. 当未提供 `--repo` 且存在多个候选 child repos 时，所有 state-changing project actions 必须 fail closed，输出 candidate list 和 `reason_code=workspace-target-required`，不得自动选择。
 - R6. 单 Git repo 多 module / monorepo 仍按一个 Git root 处理；module 是 repo-local topology，不拆成多个 project readiness snapshots。
+- R13. State-changing commands 必须区分 selected repo 的来源：只有 `selection_source=cwd-git-root` 或 `selection_source=explicit-repo` 才允许 repo-local 写入；`workspace-single-candidate` 只能作为建议，不得静默写入。
+- R15. Resolver 必须做路径归一化与安全边界检查，避免 `--repo` 通过不存在路径、非 Git 路径、相对路径逃逸、symlink 歧义或 nested candidate 重复导致错误写入。
+
+### Artifact 边界与批处理
+
+- R2. 父 workspace 不得生成 repo-local `.spec-first/config/*`、`.spec-first/graph/*` 或 `.spec-first/impact/*` 真相源；也不得创建或修改 `.spec-first/config.local.yaml`、`.spec-first/config.local.example.yaml`、`.spec-first/*.local.yaml` gitignore 覆盖或任何 project-local preflight config。这些文件只写入被显式选择的 child repo。
 - R7. 可选 workspace advisory artifact 只能放在 `.spec-first/workspace/*`，用于候选、readiness、recommended next commands 和批处理摘要；它不能替代 child repo 的 canonical graph facts。
 - R8. `--all-repos` 如支持，必须是显式维护动作，逐个 child repo 执行 repo-local setup/bootstrap，并输出 per-child summary；不得成为默认 workflow 路径。
+
+### 下游消费契约
+
 - R9. 下游 workflows 必须消费 active repo / target repos：`spec-plan` 先确认目标 repo，再读取对应 child repo graph readiness；`spec-work` 只在计划或任务中明确 repo scope 后执行；`spec-code-review` 按 repo 分组 diff 和 evidence。
+
+### 跨平台与运行时交付
+
 - R10. PowerShell 脚本需要 source-contract parity：target resolver、`--repo`、workspace target-required、PowerShell 文案和 JSON reason codes 与 shell 对齐。
+- R14. Resolver 在生成后的 host runtime 中必须同时可供 `spec-mcp-setup` 和 `spec-graph-bootstrap` 调用，不能依赖源码仓库路径或当前会话缓存。
+
+### 文档与测试
+
 - R11. 用户文档必须解释三种开发模式的边界、命令入口、产物位置和后续 workflow 使用方式。
 - R12. 测试必须覆盖 parent workspace、多 child repos、`--repo` 指向 child、monorepo 不被误判、多 child 不自动执行 provider、Serena 不在父 workspace 初始化、downstream active repo contract。
-- R13. State-changing commands 必须区分 selected repo 的来源：只有 `selection_source=cwd-git-root` 或 `selection_source=explicit-repo` 才允许 repo-local 写入；`workspace-single-candidate` 只能作为建议，不得静默写入。
-- R14. Resolver 在生成后的 host runtime 中必须同时可供 `spec-mcp-setup` 和 `spec-graph-bootstrap` 调用，不能依赖源码仓库路径或当前会话缓存。
-- R15. Resolver 必须做路径归一化与安全边界检查，避免 `--repo` 通过不存在路径、非 Git 路径、相对路径逃逸、symlink 歧义或 nested candidate 重复导致错误写入。
 
 ---
 
@@ -123,7 +137,7 @@ spec_id: 2026-04-28-005-workspace-target-readiness
 - **让 `active_repo` 在 downstream artifacts 中可见。** Plans、task packs、work-run summaries 和 review reports 应暴露 repo scope，避免后续 agent 从 cwd 推断。
 - **把 `--all-repos` 当作显式 maintenance。** 它对大型 workspace 有价值，但必须输出 per-child summaries 和 partial success semantics；不能成为 planning 或 work 的推荐常规路径。
 - **保持 monorepo 语义不变。** 如果 `git rev-parse --show-toplevel` 成功，setup/bootstrap 就 targeting 这个 Git root。Packages/modules 后续由 repo-local topology 处理，不由 workspace target resolution 拆分。
-- **优先使用结构化 reason codes，而不是散文。** `workspace-target-required`、`workspace-no-git-candidates`、`repo-target-not-git`、`repo-target-outside-workspace` 和 `workspace-target-ambiguous` 应稳定且 machine-readable。
+- **优先使用结构化 reason codes，而不是散文。** `workspace-target-required`、`workspace-no-git-candidates`、`repo-target-not-git` 和 `repo-target-outside-workspace` 应稳定且 machine-readable。
 
 ---
 
@@ -322,6 +336,7 @@ flowchart TD
 - 当 project projection 因 unresolved workspace target 被跳过时，`verify-tools.*` 应把 project rows 显示为 `workspace-target-required`，并提供包含 `--repo` 的 next action。
 - `write-provider-config.*` 继续只在 selected repo roots 内写入。当 target 是 unresolved workspace 时，返回结构化 skipped/target-required facts，而不是只静默报告 `skipped-no-git-repo`。
 - 所有 repo-local writer 在写入前都检查同一份 resolver JSON 的 `state_write_allowed=true`，而不是重新用 `git rev-parse` 推断。
+- `bootstrap-project-config.*` 同样属于 repo-local writer；在 unresolved parent workspace 下不得创建或修改 `.spec-first/config.local.yaml`、`.spec-first/config.local.example.yaml`、`.spec-first/*.local.yaml` gitignore 覆盖或任何 project-local preflight config。
 
 **遵循模式：**
 - 复用现有 `repo_config_status`、`runtime_capabilities_status` 和 `provider_artifacts_status` ledger fields。
@@ -331,6 +346,7 @@ flowchart TD
 - 正常路径：在 child repo 内 setup 会写 child `.spec-first/config/*`。
 - 正常路径：从 parent 使用 `--repo project-a` setup，只写 `project-a/.spec-first/config/*` 和 `project-a/.serena/*`。
 - 边界情况：从 parent setup，存在多个 candidates 且没有 `--repo`，不创建 parent `.spec-first/config/*` 或 parent `.serena/*`。
+- 边界情况：从 parent setup，存在多个 candidates 且没有 `--repo`，不创建 parent `.spec-first/config.local.yaml`、`.spec-first/config.local.example.yaml` 或 `.spec-first/*.local.yaml` gitignore 覆盖。
 - 边界情况：从 parent setup，只有一个 candidate 且没有 `--repo`，也不创建 child 或 parent project artifacts，只输出建议命令。
 - 边界情况：即使 project projection 是 target-required，host MCP config 仍可从 parent workspace 验证。
 - 错误路径：invalid `--repo` 阻止 project bootstrap，并报告稳定 reason code。
@@ -581,6 +597,7 @@ flowchart TD
 
 **测试场景：**
 - 从 parent 不带 `--repo` setup，报告 workspace candidates，且不写 parent project projection。
+- 从 parent 不带 `--repo` setup，不创建 parent `.spec-first/config.local.yaml`、`.spec-first/config.local.example.yaml` 或 `.spec-first/*.local.yaml` gitignore 覆盖。
 - 从 parent 使用 `--repo project-a` setup，只写 project-a projection 和 Serena marker。
 - 从 parent 不带 `--repo` graph bootstrap，返回 `workspace-target-required`，且不执行 providers。
 - 从 parent 使用 `--repo project-b` graph bootstrap，在 project-b 中运行 providers。
@@ -656,6 +673,30 @@ flowchart TD
 - 明确用户应先运行 selected child flows；batch all-repo setup/bootstrap 只用于 explicit maintenance。
 - 提醒贡献者不要编辑 generated `.claude/`、`.codex/` 或 `.agents/skills/` mirrors；source skills 和 tests 才是真相源。
 - 因为行为 user-visible，`CHANGELOG.md` 必须加入一条使用项目 developer profile author 的记录。
+
+---
+
+## Deferred / Open Questions
+
+### From 2026-04-28 review
+
+- **显式 repo 边界规则未决** — 关键技术决策 / U1. 共享项目目标解析器 (P1, adversarial, feasibility, confidence-first 100)
+
+  实现者必须在两个互相冲突的安全模型之间临场选择：`--repo` 是任意目录可用的全局显式 target，还是只能选择当前 workspace 内的 child repo。选错会直接影响用户命令表面和安全边界：一种实现会破坏“任意目录运行”的承诺，另一种实现会让 workspace escape 测试与 reason code 设计失效。这个选择是 load-bearing，不能留给实现阶段隐式决定。
+
+  <!-- dedup-key: section="关键技术决策 u1 共享项目目标解析器" title="显式 repo 边界规则未决" evidence="使用 `--repo <path>` 作为显式 child selection primitive。它可以从 parent workspace、child repo 内部或任意目录运行；resolver" -->
+
+- **候选发现边界被推迟** — 开放问题 / U1. 共享项目目标解析器 (P2, adversarial, confidence-first 75)
+
+  resolver 是所有 repo-local 写入的 gate，但候选发现的深度、排除规则和 symlink/nested repo 处理仍被留到实现中确认。实现者会在 shell、PowerShell、setup、bootstrap 测试间自行补规则，结果可能是同一个 workspace 在不同入口下出现不同 candidate list，进而错误阻塞或错误允许写入。至少需要在计划层定义最小 discovery contract，具体高级配置可以后续 polish。
+
+  <!-- dedup-key: section="开放问题 u1 共享项目目标解析器" title="候选发现边界被推迟" evidence="精确的 child discovery depth 和 default excludes：实现应从 bounded scan 开始，并覆盖 `node_modules`、`.git`、`vendor`、hidden caches" -->
+
+- **单候选确认路径未定义** — U1. 共享项目目标解析器 / U2. 把 target resolution 接入 MCP setup (P2, adversarial, confidence-first 75)
+
+  单 child workspace 是最容易让用户期待自动继续的场景，但计划同时允许“workflow 明确确认后带 `--repo` 调用”和要求 setup/bootstrap 在单候选下不写入。实现者会遇到一个未定义的交互边界：脚本是否只打印 next action，workflow 是否可以追问并重入，还是一律要求用户手动重跑。这个空白会导致 host runtime ready 后的下一步体验在不同入口间漂移。
+
+  <!-- dedup-key: section="u1 共享项目目标解析器 u2 把 target resolution 接入 mcp setup" title="单候选确认路径未定义" evidence="`workspace-single-candidate` 只作为建议输出，不自动提升为 selected repo；state-changing callers 必须要求用户用 `--repo <child>` 重跑" -->
 
 ---
 

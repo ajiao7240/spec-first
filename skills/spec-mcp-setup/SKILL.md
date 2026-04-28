@@ -55,7 +55,7 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 7. Bootstraps Serena for the current repo.
 8. Writes readiness ledger v2 to the host marker path.
 9. Writes setup-owned project facts inside a git repo: `.spec-first/config/graph-providers.json`, `.spec-first/config/runtime-capabilities.json`, and `.spec-first/config/provider-artifacts.json`.
-10. Prints a clear next-step prompt after the final table: continue graph readiness compilation now, then restart Claude Code/Codex or start a new session before relying on the newly written MCP config in downstream workflows.
+10. Prints a clear next-step prompt after the final status block: continue graph readiness compilation now, then restart Claude Code/Codex or start a new session before relying on the newly written MCP config in downstream workflows.
 
 Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure.
 
@@ -363,43 +363,43 @@ Uninstall does not delete `agent-browser`, external caches, or the project proje
 
 ## Success Summary
 
-When setup finishes, the assistant's final response must restate the complete Markdown status sourced from readiness ledger v2, followed by a short friendly next-step prompt. Prefer grouped tables instead of one wide table. Do not rely on prior command output as the only place where the status appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending.
+When setup finishes, the assistant's final response must restate the complete readiness status sourced from readiness ledger v2, followed by a short friendly next-step prompt. Prefer grouped status blocks rendered inside fenced code blocks instead of one wide Markdown table. Do not rely on prior command output as the only place where the status appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending.
 
 ```text
 Required Harness Runtime is ready; graph bootstrap is still pending.
 
 Required Harness Runtime status (grouped):
 MCP servers:
-| Name | Role | Dependency | Host | Project | Next |
-| --- | --- | --- | --- | --- | --- |
-| serena | 符号级精确编辑和项目索引 | ready | ready | ready | n/a |
-| sequential-thinking | 反思式推理辅助 | ready | ready | n/a | n/a |
-| context7 | 当前框架和库文档 | ready | ready | n/a | n/a |
+| Name                | Role                     | Dependency | Host  | Project | Next |
+| ------------------- | ------------------------ | ---------- | ----- | ------- | ---- |
+| serena              | 符号级精确编辑和项目索引 | ready      | ready | ready   | n/a  |
+| sequential-thinking | 反思式推理辅助           | ready      | ready | n/a     | n/a  |
+| context7            | 当前框架和库文档         | ready      | ready | n/a     | n/a  |
 
 Graph providers:
-| Name | Role | Dependency | Host | Query | Next |
-| --- | --- | --- | --- | --- | --- |
-| gitnexus | 全局代码知识图谱与影响分析 | ready | ready | pending | run spec-graph-bootstrap |
-| code-review-graph | 变更影响半径与 review 上下文 | ready | ready | pending | run spec-graph-bootstrap |
+| Name              | Role                         | Dependency | Host  | Query   | Next                     |
+| ----------------- | ---------------------------- | ---------- | ----- | ------- | ------------------------ |
+| gitnexus          | 全局代码知识图谱与影响分析   | ready      | ready | pending | run spec-graph-bootstrap |
+| code-review-graph | 变更影响半径与 review 上下文 | ready      | ready | pending | run spec-graph-bootstrap |
 
 Helper tools:
-| Name | Type | Result | Dependency | Install | Skill | Next |
-| --- | --- | --- | --- | --- | --- | --- |
-| agent-browser | helper | ready | ready | ready | ready | n/a |
-| gh | helper | ready | ready | ready | n/a | n/a |
-| jq | helper | ready | ready | ready | n/a | n/a |
-| vhs | helper | ready | ready | ready | n/a | n/a |
-| silicon | helper | ready | ready | ready | n/a | n/a |
-| ffmpeg | helper | ready | ready | ready | n/a | n/a |
-| ast-grep | helper | ready | ready | ready | n/a | n/a |
-| ast-grep-skill | global-skill | ready | ready | ready | ready | n/a |
+| Name           | Type         | Result | Dependency | Install | Skill | Next |
+| -------------- | ------------ | ------ | ---------- | ------- | ----- | ---- |
+| agent-browser  | helper       | ready  | ready      | ready   | ready | n/a  |
+| gh             | helper       | ready  | ready      | ready   | n/a   | n/a  |
+| jq             | helper       | ready  | ready      | ready   | n/a   | n/a  |
+| vhs            | helper       | ready  | ready      | ready   | n/a   | n/a  |
+| silicon        | helper       | ready  | ready      | ready   | n/a   | n/a  |
+| ffmpeg         | helper       | ready  | ready      | ready   | n/a   | n/a  |
+| ast-grep       | helper       | ready  | ready      | ready   | n/a   | n/a  |
+| ast-grep-skill | global-skill | ready  | ready      | ready   | ready | n/a  |
 
 Project setup facts:
-| Artifact | Project | Next |
-| --- | --- | --- |
-| graph-providers.json | written | n/a |
-| runtime-capabilities.json | written | n/a |
-| provider-artifacts.json | written | n/a |
+| Artifact                  | Project | Next |
+| ------------------------- | ------- | ---- |
+| graph-providers.json      | written | n/a  |
+| runtime-capabilities.json | written | n/a  |
+| provider-artifacts.json   | written | n/a  |
 
 下一步:
   1. 建议先重启 Claude Code/Codex 或新开会话，让新写入的 MCP 配置被宿主加载。

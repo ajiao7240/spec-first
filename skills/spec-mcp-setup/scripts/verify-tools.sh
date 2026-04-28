@@ -4,6 +4,7 @@
 set -euo pipefail
 
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
+command -v node >/dev/null 2>&1 || { echo '错误：node 是必需依赖，请先安装 Node.js' >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
@@ -140,7 +141,11 @@ fi
 echo "✅ readiness ledger v2 已写入"
 echo ""
 echo "Required Harness Runtime status (grouped):"
-jq -r '
+render_status_block() {
+  node "$SCRIPT_DIR/render-status-block.cjs"
+}
+
+jq -c '
   def display($value):
     if ($value == null or $value == "" or $value == "not-applicable") then "n/a"
     elif $value == "fallback-active" then "fallback"
@@ -163,14 +168,14 @@ jq -r '
     elif $key == "ast-grep-skill" then "ast-grep 使用指引"
     else "工具" end;
   def mcp_rows:
-    (.tools // {} | to_entries[] | select((.value.type // "") == "mcp") |
-      "| \(display(.key)) | \(remark(.key)) | \(display(.value.dependency_status)) | \(display(.value.host_config_status)) | \(display(.value.project_status)) | \(display(.value.next_action)) |");
+    [(.tools // {} | to_entries[] | select((.value.type // "") == "mcp") |
+      [display(.key), remark(.key), display(.value.dependency_status), display(.value.host_config_status), display(.value.project_status), display(.value.next_action)])];
   def graph_rows:
-    (.tools // {} | to_entries[] | select((.value.type // "") == "graph-provider") |
-      "| \(display(.key)) | \(remark(.key)) | \(display(.value.dependency_status)) | \(display(.value.host_config_status)) | \(query(.value.query_ready)) | \(display(.value.next_action)) |");
+    [(.tools // {} | to_entries[] | select((.value.type // "") == "graph-provider") |
+      [display(.key), remark(.key), display(.value.dependency_status), display(.value.host_config_status), query(.value.query_ready), display(.value.next_action)])];
   def helper_rows:
-    (.helper_tools // {} | to_entries[] |
-      "| \(display(.key)) | \(display(.value.type // "helper")) | \(display(.value.result)) | \(display(.value.dependency_status)) | \(display(.value.install_status)) | \(display(.value.skill_status)) | \(display(.value.next_action)) |");
+    [(.helper_tools // {} | to_entries[] |
+      [display(.key), display(.value.type // "helper"), display(.value.result), display(.value.dependency_status), display(.value.install_status), display(.value.skill_status), display(.value.next_action)])];
   def project_rows:
     [
       {
@@ -188,28 +193,17 @@ jq -r '
         status: .provider_artifacts_status,
         next: (if (.provider_artifacts_status == "ready" or .provider_artifacts_status == "written") then "" else "write provider artifacts" end)
       }
-    ][]
-    | "| \(display(.name)) | \(display(.status)) | \(display(.next)) |";
-  "MCP servers:",
-  "| Name | Role | Dependency | Host | Project | Next |",
-  "| --- | --- | --- | --- | --- | --- |",
-  mcp_rows,
-  "",
-  "Graph providers:",
-  "| Name | Role | Dependency | Host | Query | Next |",
-  "| --- | --- | --- | --- | --- | --- |",
-  graph_rows,
-  "",
-  "Helper tools:",
-  "| Name | Type | Result | Dependency | Install | Skill | Next |",
-  "| --- | --- | --- | --- | --- | --- | --- |",
-  helper_rows,
-  "",
-  "Project setup facts:",
-  "| Artifact | Project | Next |",
-  "| --- | --- | --- |",
-  project_rows
-' "$MARKER_PATH"
+    ]
+    | map([display(.name), display(.status), display(.next)]);
+  {
+    sections: [
+      {title: "MCP servers", headers: ["Name", "Role", "Dependency", "Host", "Project", "Next"], rows: mcp_rows},
+      {title: "Graph providers", headers: ["Name", "Role", "Dependency", "Host", "Query", "Next"], rows: graph_rows},
+      {title: "Helper tools", headers: ["Name", "Type", "Result", "Dependency", "Install", "Skill", "Next"], rows: helper_rows},
+      {title: "Project setup facts", headers: ["Artifact", "Project", "Next"], rows: project_rows}
+    ]
+  }
+' "$MARKER_PATH" | render_status_block
 
 host_name="$(jq -r '.host // "unknown"' "$MARKER_PATH")"
 baseline_ready="$(jq -r '.baseline_ready // false' "$MARKER_PATH")"

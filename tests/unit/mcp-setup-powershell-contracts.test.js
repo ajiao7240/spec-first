@@ -60,15 +60,20 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('runtime-capabilities.json');
     expect(verifySource).toContain('provider-artifacts.json');
     expect(verifySource).toContain('host_ledger_pointer');
+    expect(verifySource).toContain("Get-Command node -ErrorAction SilentlyContinue");
     expect(verifySource).toContain('Graph providers are query-ready.');
     expect(verifySource).toContain('if ($combined.graph_bootstrap_required)');
     expect(verifySource.indexOf('Required Harness Runtime status (grouped):')).toBeLessThan(
       verifySource.indexOf("Write-Host '下一步:'"),
     );
-    expect(verifySource).toContain('| Name | Role | Dependency | Host | Project | Next |');
-    expect(verifySource).toContain('| Name | Role | Dependency | Host | Query | Next |');
-    expect(verifySource).toContain('| Name | Type | Result | Dependency | Install | Skill | Next |');
-    expect(verifySource).toContain('| Artifact | Project | Next |');
+    expect(verifySource).toContain("Join-Path $ScriptDir 'render-status-block.cjs'");
+    expect(verifySource).toContain('function Write-StatusBlock');
+    expect(verifySource).toContain('$LASTEXITCODE -ne 0');
+    expect(verifySource).toContain('render-status-block.cjs failed with exit code');
+    expect(verifySource).toContain("headers = @('Name', 'Role', 'Dependency', 'Host', 'Project', 'Next')");
+    expect(verifySource).toContain("headers = @('Name', 'Role', 'Dependency', 'Host', 'Query', 'Next')");
+    expect(verifySource).toContain("headers = @('Name', 'Type', 'Result', 'Dependency', 'Install', 'Skill', 'Next')");
+    expect(verifySource).toContain("headers = @('Artifact', 'Project', 'Next')");
     expect(verifySource).toContain('Format-Remark');
     expect(verifySource).toContain('回复“继续完成”');
     expect(verifySource).toContain('建议先重启 $hostDisplay');

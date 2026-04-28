@@ -42,17 +42,37 @@ assert_contains() {
   fi
 }
 
+renderer_fixture='{"sections":[{"title":"Display width","headers":["Name","Role","Next"],"rows":[["abc","中文宽度",""],["长长长","x","run"]]}]}'
+renderer_expected="$(cat <<'EOF'
+Display width:
+```text
+| Name   | Role     | Next |
+| ------ | -------- | ---- |
+| abc    | 中文宽度 |      |
+| 长长长 | x        | run  |
+```
+EOF
+)"
+renderer_actual="$(printf '%s' "$renderer_fixture" | node "$SCRIPTS_DIR/render-status-block.cjs")"
+assert_eq "renderer aligns mixed CJK and ASCII cell display widths" "$renderer_expected" "$renderer_actual"
+
 make_fake_bin() {
   local bin_dir="$1"
   local log_file="$2"
+  local real_node
+  real_node="$(command -v node)"
   mkdir -p "$bin_dir"
 
   ln -s "$(command -v jq)" "$bin_dir/jq"
   ln -s "$(command -v python3)" "$bin_dir/python3"
 
-  cat > "$bin_dir/node" <<'SH'
+  cat > "$bin_dir/node" <<SH
 #!/bin/bash
-echo "v20.0.0"
+if [ "\${1:-}" = "--version" ] || [ "\$#" -eq 0 ]; then
+  echo "v20.0.0"
+  exit 0
+fi
+exec "$real_node" "\$@"
 SH
   cat > "$bin_dir/npm" <<SH
 #!/bin/bash
@@ -384,10 +404,13 @@ assert_contains "verify table includes required ast-grep skill" "ast-grep-skill"
 assert_contains "verify table includes provider projection" "graph-providers.json" "$verify_text"
 assert_contains "verify table includes runtime capabilities" "runtime-capabilities.json" "$verify_text"
 assert_contains "verify table includes provider artifacts" "provider-artifacts.json" "$verify_text"
-assert_contains "verify prints MCP server table" "| Name | Role | Dependency | Host | Project | Next |" "$verify_text"
-assert_contains "verify prints graph provider table" "| Name | Role | Dependency | Host | Query | Next |" "$verify_text"
-assert_contains "verify prints helper table" "| Name | Type | Result | Dependency | Install | Skill | Next |" "$verify_text"
-assert_contains "verify prints project setup table" "| Artifact | Project | Next |" "$verify_text"
+assert_contains "verify prints fenced status blocks" '```text' "$verify_text"
+assert_contains "verify prints MCP server table" "MCP servers:" "$verify_text"
+assert_contains "verify prints graph provider table" "Graph providers:" "$verify_text"
+assert_contains "verify prints helper table" "Helper tools:" "$verify_text"
+assert_contains "verify prints project setup table" "Project setup facts:" "$verify_text"
+assert_contains "verify prints aligned MCP columns" "| Name" "$verify_text"
+assert_contains "verify prints aligned project columns" "| Artifact" "$verify_text"
 assert_contains "verify prints tool remark" "符号级精确编辑和项目索引" "$verify_text"
 assert_contains "verify prints friendly next steps" "下一步:" "$verify_text"
 assert_contains "verify prompts graph bootstrap command" "/spec:graph-bootstrap" "$verify_text"
@@ -499,7 +522,9 @@ if [ "$graph_log_before" = "$graph_log_after" ]; then
 fi
 assert_eq "graph-bootstrap writes canonical provider readiness" "true" "$(jq -r '(.ready_primary_providers | index("gitnexus") != null) and (.ready_primary_providers | index("code-review-graph") != null) and ([.providers[] | select(.query_ready == true)] | length == 2)' "$FAKE_REPO/.spec-first/graph/provider-status.json")"
 verify_after_bootstrap="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
-assert_contains "repeat verify shows graph provider query ready" "| gitnexus | 全局代码知识图谱与影响分析 | ready | fallback | ready | n/a |" "$verify_after_bootstrap"
+assert_contains "repeat verify shows gitnexus row" "gitnexus" "$verify_after_bootstrap"
+assert_contains "repeat verify shows graph provider query ready" "全局代码知识图谱与影响分析" "$verify_after_bootstrap"
+assert_contains "repeat verify shows ready query cell" "| ready | n/a  |" "$verify_after_bootstrap"
 assert_contains "repeat verify reports graph provider query ready summary" "Graph providers are query-ready." "$verify_after_bootstrap"
 if [[ "$verify_after_bootstrap" == *"Graph providers are configured but not query-ready yet."* ]]; then
   echo "FAIL: repeat verify should not say query-ready providers are pending" >&2
