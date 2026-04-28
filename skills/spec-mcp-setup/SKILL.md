@@ -18,7 +18,7 @@ Project-local config and legacy residue facts do not affect `baseline_ready`. Re
 
 ## Runtime Baseline
 
-`skills/spec-mcp-setup/mcp-tools.json` is the only machine registry for MCP servers and graph-provider MCP servers. Schema version is `4`.
+`skills/spec-mcp-setup/mcp-tools.json` is the only machine registry for MCP servers and graph-provider MCP servers. Schema version is `4`. Package/version specs for every MCP and graph-provider MCP command are sourced from this file; setup projections such as `.spec-first/config/graph-providers.json` must derive from it and must not become a second version registry.
 
 Required MCP tools:
 
@@ -95,9 +95,9 @@ pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1 -SerenaLanguage kotlin,
 
 It must not run:
 
-- `npx -y gitnexus@latest analyze`
-- `npx -y gitnexus@latest status`
-- `npx -y gitnexus@latest query`
+- `npx -y <configured-gitnexus-package> analyze`
+- `npx -y <configured-gitnexus-package> status`
+- `npx -y <configured-gitnexus-package> query`
 - `uvx --upgrade code-review-graph build`
 - `uvx --upgrade code-review-graph status`
 - the retired internal graph CLI
@@ -236,7 +236,7 @@ npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill ag
 npx -y skills@latest add ast-grep/agent-skill -g -y
 ```
 
-All package-backed setup commands must request the latest available version when they install or warm a tool: npm/npx packages use `@latest`, `uvx` tool invocations use `--upgrade`, Cargo installs use `--force` where supported, and package-manager handoff commands prefer upgrade-before-install semantics. `--verify-only` remains read-only and never upgrades tools.
+All package-backed setup commands must request the latest available safe version when they install or warm a tool: npm/npx packages normally use `@latest`, `uvx` tool invocations use `--upgrade`, Cargo installs use `--force` where supported, and package-manager handoff commands prefer upgrade-before-install semantics. A package may be pinned only for a documented upstream remediation window; the pin must live in `mcp-tools.json`. GitNexus is currently pinned there to `1.6.4-rc.21` until stable `latest` includes the query read-only FTS fix. `--verify-only` remains read-only and never upgrades tools.
 
 ## Readiness Ledger v2
 
@@ -310,9 +310,9 @@ Expected projection boundaries:
     "gitnexus": {
       "configured": true,
       "commands": {
-        "bootstrap": ["npx", "-y", "gitnexus@latest", "analyze"],
-        "status": ["npx", "-y", "gitnexus@latest", "status"],
-        "query_probe": ["npx", "-y", "gitnexus@latest", "query", "spec-first-readiness-probe", "--repo", "<repo-name>"]
+        "bootstrap": ["npx", "-y", "<gitnexus package from mcp-tools.json>", "analyze"],
+        "status": ["npx", "-y", "<gitnexus package from mcp-tools.json>", "status"],
+        "query_probe": ["npx", "-y", "<gitnexus package from mcp-tools.json>", "query", "main src build README package", "--repo", "<repo-name>"]
       }
     },
     "code-review-graph": {

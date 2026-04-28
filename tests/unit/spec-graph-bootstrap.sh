@@ -5,6 +5,9 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
+TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
+GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1]' "$TOOLS_JSON")"
+GITNEXUS_QUERY_PROBE="main src build README package"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -48,9 +51,17 @@ make_fake_bin() {
   cat > "$bin_dir/npx" <<SH
 #!/bin/bash
 echo "npx \$*" >> "$log_file"
-if [[ "\${FAIL_GITNEXUS_QUERY:-}" = "1" && " \$* " == *" gitnexus@latest query "* ]]; then
+if [[ "\${FAIL_GITNEXUS_QUERY:-}" = "1" && " \$* " == *" gitnexus@"*" query "* ]]; then
   echo "query failed" >&2
   exit 42
+fi
+if [[ " \$* " == *" gitnexus@"*" query "* ]]; then
+  if [[ "\${GITNEXUS_QUERY_FTS_EMPTY:-}" = "1" ]]; then
+    echo "FTS index ensure failed: Cannot execute write operations in a read-only database" >&2
+    printf '{"processes":[],"process_symbols":[],"definitions":[]}\n'
+    exit 0
+  fi
+  printf '{"processes":[{"name":"probe"}],"process_symbols":[],"definitions":[]}\n'
 fi
 exit 0
 SH
@@ -99,9 +110,9 @@ JSON
       "dependency_status": "ready",
       "host_config_status": "ready",
       "commands": {
-        "bootstrap": ["npx", "-y", "gitnexus@latest", "analyze"],
-        "status": ["npx", "-y", "gitnexus@latest", "status"],
-        "query_probe": ["npx", "-y", "gitnexus@latest", "query", "spec-first-readiness-probe", "--repo", "$(basename "$repo_root")"]
+        "bootstrap": ["npx", "-y", "$GITNEXUS_PACKAGE", "analyze"],
+        "status": ["npx", "-y", "$GITNEXUS_PACKAGE", "status"],
+        "query_probe": ["npx", "-y", "$GITNEXUS_PACKAGE", "query", "$GITNEXUS_QUERY_PROBE", "--repo", "$(basename "$repo_root")"]
       }
     },
     "code-review-graph": {
@@ -199,8 +210,8 @@ primary_output="$(cd "$PRIMARY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIP
 PRIMARY_REPO_ROOT="$(cd "$PRIMARY_REPO" && pwd -P)"
 assert "primary output is JSON" jq -e . <<<"$primary_output"
 assert_eq "primary workflow mode" "primary" "$(jq -r '.workflow_mode' <<<"$primary_output")"
-assert_contains "runs gitnexus analyze" "npx -y gitnexus@latest analyze" "$(cat "$COMMAND_LOG")"
-assert_contains "runs gitnexus query proof" "npx -y gitnexus@latest query spec-first-readiness-probe --repo $(basename "$PRIMARY_REPO_ROOT")" "$(cat "$COMMAND_LOG")"
+assert_contains "runs gitnexus analyze" "npx -y $GITNEXUS_PACKAGE analyze" "$(cat "$COMMAND_LOG")"
+assert_contains "runs gitnexus query proof" "npx -y $GITNEXUS_PACKAGE query $GITNEXUS_QUERY_PROBE --repo $(basename "$PRIMARY_REPO_ROOT")" "$(cat "$COMMAND_LOG")"
 assert_contains "runs latest code-review-graph query proof" "uvx --upgrade code-review-graph status --repo $PRIMARY_REPO_ROOT" "$(cat "$COMMAND_LOG")"
 assert "provider status aggregate exists" test -f "$PRIMARY_REPO/.spec-first/graph/provider-status.json"
 assert "graph facts exists" test -f "$PRIMARY_REPO/.spec-first/graph/graph-facts.json"
@@ -267,7 +278,7 @@ METACHAR_REPO="$TMP_DIR/metachar-repo"
 METACHAR_LEDGER="$TMP_DIR/metachar-home/.codex/spec-first/host-setup.json"
 make_repo "$METACHAR_REPO"
 write_fixture_config "$METACHAR_REPO" "$METACHAR_LEDGER" true
-jq '.providers.gitnexus.commands.bootstrap = ["npx","-y","gitnexus@latest","analyze;rm -rf /"]' "$METACHAR_REPO/.spec-first/config/graph-providers.json" > "$METACHAR_REPO/.spec-first/config/graph-providers.json.tmp"
+jq --arg package "$GITNEXUS_PACKAGE" '.providers.gitnexus.commands.bootstrap = ["npx","-y",$package,"analyze;rm -rf /"]' "$METACHAR_REPO/.spec-first/config/graph-providers.json" > "$METACHAR_REPO/.spec-first/config/graph-providers.json.tmp"
 mv "$METACHAR_REPO/.spec-first/config/graph-providers.json.tmp" "$METACHAR_REPO/.spec-first/config/graph-providers.json"
 before_metachar_log="$(cat "$COMMAND_LOG")"
 set +e
@@ -285,6 +296,16 @@ write_fixture_config "$QUERY_REPO" "$QUERY_LEDGER" true
 query_output="$(cd "$QUERY_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_QUERY=1 bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "query failure degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$query_output")"
 assert_eq "query-unverified provider stays not ready" "query-unverified:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.query_ready)"' <<<"$query_output")"
+assert_eq "query failure keeps graph ready separately" "true:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.graph_ready):\(.query_ready)"' <<<"$query_output")"
+
+FTS_EMPTY_REPO="$TMP_DIR/fts-empty-repo"
+FTS_EMPTY_LEDGER="$TMP_DIR/fts-empty-home/.codex/spec-first/host-setup.json"
+make_repo "$FTS_EMPTY_REPO"
+write_fixture_config "$FTS_EMPTY_REPO" "$FTS_EMPTY_LEDGER" true
+fts_empty_output="$(cd "$FTS_EMPTY_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_FTS_EMPTY=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "FTS/read-only empty query result degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$fts_empty_output")"
+assert_eq "FTS/read-only empty result is not query-ready" "query-unverified:true:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.graph_ready):\(.query_ready)"' <<<"$fts_empty_output")"
+assert_contains "FTS/read-only limitation is recorded" "FTS/read-only/missing-index" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$fts_empty_output")"
 
 NO_FALLBACK_REPO="$TMP_DIR/no-fallback-repo"
 NO_FALLBACK_LEDGER="$TMP_DIR/no-fallback-home/.codex/spec-first/host-setup.json"

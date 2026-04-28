@@ -54,7 +54,7 @@ PowerShell parity v1 is source-contract parity in automated tests; shell behavio
 
 ## Provider Command Safety
 
-Provider command arrays are config-defined, but they are not arbitrary shell commands.
+Provider command arrays are config-defined, but they are not arbitrary shell commands. GitNexus package/version selection is not owned here: `spec-mcp-setup` projects the package spec from `skills/spec-mcp-setup/mcp-tools.json` into `.spec-first/config/graph-providers.json`, and this workflow only validates and executes that projected argv.
 
 `spec-graph-bootstrap` must:
 
@@ -70,9 +70,9 @@ Allowed minimum command shapes are:
 {
   "gitnexus": {
     "commands": {
-      "bootstrap": ["npx", "-y", "gitnexus@latest", "analyze"],
-      "status": ["npx", "-y", "gitnexus@latest", "status"],
-      "query_probe": ["npx", "-y", "gitnexus@latest", "query", "spec-first-readiness-probe", "--repo", "<repo-name>"]
+      "bootstrap": ["npx", "-y", "gitnexus@1.6.4-rc.21", "analyze"],
+      "status": ["npx", "-y", "gitnexus@1.6.4-rc.21", "status"],
+      "query_probe": ["npx", "-y", "gitnexus@1.6.4-rc.21", "query", "main src build README package", "--repo", "<repo-name>"]
     }
   },
   "code-review-graph": {
@@ -85,7 +85,7 @@ Allowed minimum command shapes are:
 }
 ```
 
-The display forms are `npx -y gitnexus@latest analyze`, `npx -y gitnexus@latest status`, `npx -y gitnexus@latest query spec-first-readiness-probe --repo <repo-name>`, `uvx --upgrade code-review-graph build`, and `uvx --upgrade code-review-graph status --repo <repo-root>`; the script still executes the validated arrays from `graph-providers.json`, not these prose strings. The bootstrap script owns the safety allowlist (provider id, executable, package name, and subcommand shape); `graph-providers.json` remains the command argv source.
+The current display forms are `npx -y gitnexus@1.6.4-rc.21 analyze`, `npx -y gitnexus@1.6.4-rc.21 status`, `npx -y gitnexus@1.6.4-rc.21 query "main src build README package" --repo <repo-name>`, `uvx --upgrade code-review-graph build`, and `uvx --upgrade code-review-graph status --repo <repo-root>`; the script still executes the validated arrays from `graph-providers.json`, not these prose strings. The bootstrap script owns the safety allowlist (provider id, executable, package name, and subcommand shape); `mcp-tools.json` remains the package/version source, and `graph-providers.json` remains the projected command argv source.
 
 Reject string commands, `bash -c`, `sh -c`, and unsupported executable/package shapes. Shell metacharacters inside an array argument must not be interpreted by a shell.
 
@@ -97,7 +97,7 @@ Reject string commands, `bash -c`, `sh -c`, and unsupported executable/package s
 2. Status command succeeds.
 3. Provider-specific query-surface proof succeeds.
 
-If build and status succeed but query-surface proof is missing, unsupported, or fails, write `status=query-unverified`, keep `query_ready=false`, and include diagnostics plus raw log pointers. Do not infer query readiness from build exit code alone. For `code-review-graph`, the Level 3 proof is intentionally conservative and may reuse its `status --repo` surface probe; treat it as provider readiness evidence, not semantic graph evidence.
+If build and status succeed but query-surface proof is missing, unsupported, or fails, write `status=query-unverified`, keep `query_ready=false`, and include diagnostics plus raw log pointers. Do not infer query readiness from build exit code alone. For GitNexus, Level 3 is fail-closed: the query log must not contain FTS/read-only/missing-index diagnostics, the query JSON must parse, and at least one of `processes`, `process_symbols`, or `definitions` must be non-empty. If GitNexus build/status succeeds but query-surface proof fails, preserve `graph_ready=true` where status was verified, but keep `query_ready=false`. For `code-review-graph`, the Level 3 proof is intentionally conservative and may reuse its `status --repo` surface probe; treat it as provider readiness evidence, not semantic graph evidence.
 
 ## Outputs
 

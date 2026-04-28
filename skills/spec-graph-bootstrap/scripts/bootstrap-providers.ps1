@@ -102,7 +102,7 @@ function Test-CommandShapeSupported {
         [string]$actual[1] -eq '-y' -and
         [string]$actual[2] -match '^gitnexus(@[A-Za-z0-9._~+:-]+)?$' -and
         [string]$actual[3] -eq 'query' -and
-        [string]$actual[4] -eq 'spec-first-readiness-probe' -and
+        ([string]$actual[4]).Length -gt 0 -and
         [string]$actual[5] -eq '--repo' -and
         ([string]$actual[6]).Length -gt 0
       )
@@ -194,6 +194,59 @@ function Invoke-ConfiguredCommand {
     diagnostics_truncated = $truncated
     raw_log = $LogPath.Replace("$RepoRoot/", '')
   }
+}
+
+$script:QueryProbeVerificationReason = ''
+
+function Test-GitNexusQueryProbeVerified {
+  param(
+    [object]$CommandResult,
+    [string]$LogPath
+  )
+  $script:QueryProbeVerificationReason = ''
+  $badDiagnosticPattern = 'FTS index ensure failed|Cannot execute write operations in a read-only database|doesn.?t have an index|Connection exception|BM25/FTS search failed|FTS extension unavailable|missing[ -]index'
+  if ([string]$CommandResult.diagnostic -match $badDiagnosticPattern) {
+    $script:QueryProbeVerificationReason = 'GitNexus query probe emitted FTS/read-only/missing-index diagnostics.'
+    return $false
+  }
+  $logText = if (Test-Path -LiteralPath $LogPath -PathType Leaf) { Get-Content -Raw -LiteralPath $LogPath } else { '' }
+  $jsonMatch = [regex]::Match($logText, '(?ms)^[ \t]*\{.*\}\s*$')
+  if (-not $jsonMatch.Success) {
+    $script:QueryProbeVerificationReason = 'GitNexus query probe did not return parseable JSON.'
+    return $false
+  }
+  try {
+    $payload = $jsonMatch.Value | ConvertFrom-Json
+  } catch {
+    $script:QueryProbeVerificationReason = 'GitNexus query probe did not return parseable JSON.'
+    return $false
+  }
+  if ($payload.PSObject.Properties.Name -contains 'warning') {
+    $script:QueryProbeVerificationReason = 'GitNexus query probe returned a warning payload.'
+    return $false
+  }
+  $resultCount = 0
+  foreach ($propertyName in @('processes', 'process_symbols', 'definitions')) {
+    if ($payload.PSObject.Properties.Name -contains $propertyName -and $null -ne $payload.$propertyName) {
+      $resultCount += @($payload.$propertyName).Count
+    }
+  }
+  if ($resultCount -le 0) {
+    $script:QueryProbeVerificationReason = 'GitNexus query probe did not return non-empty query results.'
+  }
+  return ($resultCount -gt 0)
+}
+
+function Test-QueryProbeVerified {
+  param(
+    [string]$Provider,
+    [object]$CommandResult,
+    [string]$LogPath
+  )
+  if ($Provider -ne 'gitnexus') {
+    return $true
+  }
+  return (Test-GitNexusQueryProbeVerified -CommandResult $CommandResult -LogPath $LogPath)
 }
 
 function Get-ProviderSkipReason {
@@ -345,6 +398,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   New-Item -ItemType Directory -Force -Path $rawDir, $normalizedDir | Out-Null
   $commandResults = New-Object System.Collections.Generic.List[object]
   $status = 'skipped'
+  $graphReady = $false
   $queryReady = $false
   $confidence = 'low'
   $skipReason = Get-ProviderSkipReason -Entry $entry
@@ -360,9 +414,11 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
       $statusProbe = Invoke-ConfiguredCommand -ProviderConfig $providerConfig -Provider $provider -Kind 'status' -LogPath $statusLog -RepoRoot $repoRoot
       $commandResults.Add($statusProbe)
       if ($statusProbe.exit_code -eq 0) {
+        $graphReady = $true
+        $script:QueryProbeVerificationReason = ''
         $queryProbe = Invoke-ConfiguredCommand -ProviderConfig $providerConfig -Provider $provider -Kind 'query_probe' -LogPath $queryLog -RepoRoot $repoRoot
         $commandResults.Add($queryProbe)
-        if ($queryProbe.exit_code -eq 0) {
+        if ($queryProbe.exit_code -eq 0 -and (Test-QueryProbeVerified -Provider $provider -CommandResult $queryProbe -LogPath $queryLog)) {
           $status = 'ready'
           $queryReady = $true
           $confidence = 'high'
@@ -370,7 +426,8 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
         } else {
           $status = 'query-unverified'
           $confidence = 'medium'
-          $limitations = @('Build and status succeeded, but provider-specific query-surface proof did not verify provider readiness.')
+          $reason = if ([string]::IsNullOrWhiteSpace($script:QueryProbeVerificationReason)) { 'Provider-specific query-surface proof did not verify provider readiness.' } else { $script:QueryProbeVerificationReason }
+          $limitations = @('Build and status succeeded, but provider-specific query-surface proof did not verify provider readiness.', $reason)
         }
       } else {
         $status = 'query-unverified'
@@ -395,6 +452,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     host_config_status = $entry.host_config_status
     skip_reason = if ($status -eq 'skipped') { $skipReason } else { $null }
     status = $status
+    graph_ready = $graphReady
     query_ready = $queryReady
     confidence = $confidence
     limitations = $limitations

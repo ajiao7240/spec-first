@@ -5,6 +5,11 @@ set -euo pipefail
 
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
+[ -f "$TOOLS_JSON" ] || { echo "mcp-tools.json not found: $TOOLS_JSON" >&2; exit 1; }
+
 FACTS_FILE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -52,6 +57,8 @@ if [ -f "$RUNTIME_CAPABILITIES" ] && jq -e --arg repo_root "$REPO_ROOT" '.schema
 fi
 
 generated_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+gitnexus_package="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1] // empty' "$TOOLS_JSON")"
+[ -n "$gitnexus_package" ] || { echo "GitNexus package spec not found in mcp-tools.json" >&2; exit 1; }
 
 graph_facts_exists=false
 provider_status_exists=false
@@ -78,6 +85,7 @@ fi
 jq --arg generated_at "$generated_at" \
    --arg repo_name "$(basename "$REPO_ROOT")" \
    --arg repo_root "$REPO_ROOT" \
+   --arg gitnexus_package "$gitnexus_package" \
    --argjson graph_facts_exists "$graph_facts_exists" \
    --argjson provider_status_exists "$provider_status_exists" \
    --argjson impact_capabilities_exists "$impact_capabilities_exists" \
@@ -106,9 +114,9 @@ jq --arg generated_at "$generated_at" \
 
   def provider_commands($key):
     if $key == "gitnexus" then {
-      bootstrap: ["npx", "-y", "gitnexus@latest", "analyze"],
-      status: ["npx", "-y", "gitnexus@latest", "status"],
-      query_probe: ["npx", "-y", "gitnexus@latest", "query", "spec-first-readiness-probe", "--repo", $repo_name]
+      bootstrap: ["npx", "-y", $gitnexus_package, "analyze"],
+      status: ["npx", "-y", $gitnexus_package, "status"],
+      query_probe: ["npx", "-y", $gitnexus_package, "query", "main src build README package", "--repo", $repo_name]
     }
     elif $key == "code-review-graph" then {
       bootstrap: ["uvx", "--upgrade", "code-review-graph", "build"],

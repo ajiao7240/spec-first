@@ -126,8 +126,11 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('provider-artifacts.v1');
     expect(writeProviderSource).toContain('derived_readiness');
     expect(writeProviderSource).toContain('host_ledger_pointer');
-    expect(writeProviderSource).toContain("bootstrap = @('npx', '-y', 'gitnexus@latest', 'analyze')");
-    expect(writeProviderSource).toContain("query_probe = @('npx', '-y', 'gitnexus@latest', 'query', 'spec-first-readiness-probe', '--repo', $repoName)");
+    expect(writeProviderSource).toContain("$toolsJsonPath = Join-Path $skillDir 'mcp-tools.json'");
+    expect(writeProviderSource).toContain('$gitNexusPackageSpec = [string]$gitNexusTool[0].installation.unix.args[1]');
+    expect(writeProviderSource).toContain("bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze')");
+    expect(writeProviderSource).toContain("query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', 'main src build README package', '--repo', $repoName)");
+    expect(writeProviderSource).toContain('Get-ProviderCommands -Provider $property.Name -RepoRoot $facts.repo_root -GitNexusPackageSpec $gitNexusPackageSpec');
     expect(writeProviderSource).toContain("query_probe = @('uvx', '--upgrade', 'code-review-graph', 'status', '--repo', $RepoRoot)");
     expect(writeProviderSource).toContain('[bool]$Provider.enabled_for_bootstrap');
     expect(writeProviderSource).toContain('$canonicalArtifactsAvailable');
@@ -166,6 +169,10 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('primary_providers');
     expect(source).toContain('skipped_primary_providers');
     expect(source).toContain('disabled-for-bootstrap');
+    expect(source).toContain('function Test-GitNexusQueryProbeVerified');
+    expect(source).toContain('Cannot execute write operations in a read-only database');
+    expect(source).toContain('missing[ -]index');
+    expect(source).toContain('graph_ready = $graphReady');
     expect(source).toContain('function Write-JsonFileAtomic');
     expect(source).toContain('Move-Item -Force');
     expect(source).toContain('& $exe @args');

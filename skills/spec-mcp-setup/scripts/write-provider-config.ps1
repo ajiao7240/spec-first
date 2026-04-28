@@ -12,6 +12,13 @@ if (-not (Test-Path $FactsFile)) {
   throw "facts file not found: $FactsFile"
 }
 
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$skillDir = Split-Path -Parent $scriptDir
+$toolsJsonPath = Join-Path $skillDir 'mcp-tools.json'
+if (-not (Test-Path $toolsJsonPath)) {
+  throw "mcp-tools.json not found: $toolsJsonPath"
+}
+
 $facts = Get-Content -Raw $FactsFile | ConvertFrom-Json
 if ($facts.repo_status -ne 'git-repo') {
   [pscustomobject]@{
@@ -78,14 +85,15 @@ function ConvertTo-ComparableProjectionJson {
 function Get-ProviderCommands {
   param(
     [string]$Provider,
-    [string]$RepoRoot
+    [string]$RepoRoot,
+    [string]$GitNexusPackageSpec
   )
   $repoName = Split-Path -Leaf $RepoRoot
   if ($Provider -eq 'gitnexus') {
     return [ordered]@{
-      bootstrap = @('npx', '-y', 'gitnexus@latest', 'analyze')
-      status = @('npx', '-y', 'gitnexus@latest', 'status')
-      query_probe = @('npx', '-y', 'gitnexus@latest', 'query', 'spec-first-readiness-probe', '--repo', $repoName)
+      bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze')
+      status = @('npx', '-y', $GitNexusPackageSpec, 'status')
+      query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', 'main src build README package', '--repo', $repoName)
     }
   }
   if ($Provider -eq 'code-review-graph') {
@@ -201,6 +209,15 @@ function Write-JsonIfChanged {
 $existingProvider = Read-ExistingJson -Path $providerFile -SchemaVersion 'graph-providers.v1' -RepoRoot $facts.repo_root
 $existingRuntime = Read-ExistingJson -Path $runtimeFile -SchemaVersion 'runtime-capabilities.v1' -RepoRoot $facts.repo_root
 $generatedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+$toolsJson = Get-Content -Raw $toolsJsonPath | ConvertFrom-Json
+$gitNexusTool = @($toolsJson.tools | Where-Object { $_.id -eq 'gitnexus' } | Select-Object -First 1)
+if ($gitNexusTool.Count -eq 0 -or $null -eq $gitNexusTool[0].installation -or $null -eq $gitNexusTool[0].installation.unix -or @($gitNexusTool[0].installation.unix.args).Count -lt 2) {
+  throw 'GitNexus package spec not found in mcp-tools.json'
+}
+$gitNexusPackageSpec = [string]$gitNexusTool[0].installation.unix.args[1]
+if ([string]::IsNullOrWhiteSpace($gitNexusPackageSpec)) {
+  throw 'GitNexus package spec not found in mcp-tools.json'
+}
 $graphFactsPath = Join-Path $facts.repo_root '.spec-first/graph/graph-facts.json'
 $providerStatusPath = Join-Path $facts.repo_root '.spec-first/graph/provider-status.json'
 $impactCapabilitiesPath = Join-Path $facts.repo_root '.spec-first/impact/bootstrap-impact-capabilities.json'
@@ -251,7 +268,7 @@ foreach ($property in $facts.graph_providers.PSObject.Properties) {
     dependency_status = $provider.dependency_status
     host_config_status = $provider.host_config_status
     capabilities = @($provider.capabilities)
-    commands = Get-ProviderCommands -Provider $property.Name -RepoRoot $facts.repo_root
+    commands = Get-ProviderCommands -Provider $property.Name -RepoRoot $facts.repo_root -GitNexusPackageSpec $gitNexusPackageSpec
     artifacts = Get-ProviderArtifacts -Provider $property.Name
     next_action = if ($ready -and $preserveQueryReady) { '' } elseif ($ready) { 'run spec-graph-bootstrap' } else { 'Fix provider setup and rerun spec-mcp-setup.' }
   }

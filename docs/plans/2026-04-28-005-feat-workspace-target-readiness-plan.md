@@ -38,14 +38,14 @@ spec_id: 2026-04-28-005-workspace-target-readiness
 - R4. 支持显式 `--repo <path>`，让用户可以从父 workspace 对某个 child repo 运行 `spec-mcp-setup` 和 `spec-graph-bootstrap`。
 - R5. 当未提供 `--repo` 且存在多个候选 child repos 时，所有 state-changing project actions 必须 fail closed，输出 candidate list 和 `reason_code=workspace-target-required`，不得自动选择。
 - R6. 单 Git repo 多 module / monorepo 仍按一个 Git root 处理；module 是 repo-local topology，不拆成多个 project readiness snapshots。
-- R13. State-changing commands 必须区分 selected repo 的来源：只有 `selection_source=cwd-git-root` 或 `selection_source=explicit-repo` 才允许 repo-local 写入；`workspace-single-candidate` 只能作为建议，不得静默写入。
-- R15. Resolver 必须做路径归一化与安全边界检查，避免 `--repo` 通过不存在路径、非 Git 路径、相对路径逃逸、symlink 歧义或 nested candidate 重复导致错误写入。
+- R13. State-changing commands 必须区分 selected repo 的来源：只有 `selection_source=cwd-git-root` 或 `selection_source=explicit-repo` 才允许 repo-local 写入；`workspace-single-candidate` 只能作为建议，不得静默写入。具体地：`install-mcp.sh` 在 resolver 未返回 `state_write_allowed=true` 时必须跳过 Serena activation 并将 Serena project status 输出为 `workspace-target-required`（而不是 `failed`）；`activate-serena.sh` 不得对非 Git parent workspace fallback 到 `pwd`，必须以非零退出并返回 `reason_code=workspace-target-required`。
+- R15. Resolver 必须做路径归一化与安全边界检查，避免 `--repo` 通过不存在路径、非 Git 路径、相对路径逃逸、symlink 歧义或 nested candidate 重复导致错误写入。路径归一化必须在执行 `git -C <path> rev-parse` 之前完成，使用 `realpath` 或 `readlink -f` 将路径解析为 canonical 绝对路径；若平台不支持，可用 `python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))'` 作为 fallback。MVP 安全模型固定为 workspace-scoped selection：当 invocation cwd 是非 Git parent workspace 时，`--repo` 必须解析到该 workspace 内的 child Git repo；解析后路径逃逸 workspace root 的情况必须返回 `reason_code=repo-target-outside-workspace`，而不是继续执行 Git 检查。workspace 外 explicit target 不属于本计划。
 
 ### Artifact 边界与批处理
 
 - R2. 父 workspace 不得生成 repo-local `.spec-first/config/*`、`.spec-first/graph/*` 或 `.spec-first/impact/*` 真相源；也不得创建或修改 `.spec-first/config.local.yaml`、`.spec-first/config.local.example.yaml`、`.spec-first/*.local.yaml` gitignore 覆盖或任何 project-local preflight config。这些文件只写入被显式选择的 child repo。
 - R7. 可选 workspace advisory artifact 只能放在 `.spec-first/workspace/*`，用于候选、readiness、recommended next commands 和批处理摘要；它不能替代 child repo 的 canonical graph facts。
-- R8. `--all-repos` 如支持，必须是显式维护动作，逐个 child repo 执行 repo-local setup/bootstrap，并输出 per-child summary；不得成为默认 workflow 路径。
+- R8. `--all-repos` 不属于本轮 MVP；如后续支持，必须是显式维护动作，逐个 child repo 执行 repo-local setup/bootstrap，并输出 per-child summary；不得成为默认 workflow 路径。
 
 ### 下游消费契约
 
@@ -72,6 +72,7 @@ spec_id: 2026-04-28-005-workspace-target-readiness
 - 不把单 Git repo 多 module 误拆成多个独立 project。
 - 不恢复旧 internal CRG workspace runtime、旧 Stage-0 context routing、旧 graph.db 主路径。
 - 不默认执行 `--all-repos`；批处理只作为显式维护路径。
+- 不支持 workspace 外 explicit target；若未来需要任意目录 target，必须用独立计划重新定义安全模型、reason codes 和 caller 接受策略。
 
 ### 延后到后续工作
 
@@ -128,14 +129,14 @@ spec_id: 2026-04-28-005-workspace-target-readiness
 ## 关键技术决策
 
 - **引入单一项目目标解析器（Project Target Resolver），而不是让每个脚本各自做 ad hoc Git 检查。** 这样 setup、graph bootstrap、Serena 和下游 workflows 中的 repo root、workspace mode、candidate list、reason codes 保持一致。
-- **使用 `--repo <path>` 作为显式 child selection primitive。** 它可以从 parent workspace、child repo 内部或任意目录运行；resolver 会归一化到 Git root，并拒绝非 Git target。
+- **使用 `--repo <path>` 作为 workspace-scoped child selection primitive。** 它可以从 parent workspace 或 child repo 内部运行；resolver 会归一化到 Git root，并拒绝非 Git target。若 invocation cwd 是非 Git parent workspace，`--repo` 必须落在该 workspace 内，否则返回 `repo-target-outside-workspace`。任意目录 external target 不属于 MVP。
 - **多个 child repos 存在时不自动选择。** Candidate ranking 可以帮助 LLM/user 决策，但 provider execution 和 project file writing 必须有 selected repo。
 - **除非当前目录已经在 Git repo 内，或显式传入 `--repo`，state-changing commands 不自动选择。** 单个 child repo 可以作为 high-confidence suggestion 输出，但 setup/bootstrap 在写 repo-local state 前仍必须让 selected target 对用户可见。
 - **让 resolver 输出写入许可事实，而不是让调用方猜测。** `selection_source`、`selected_repo_root`、`state_write_allowed` 和 `reason_code` 是确定性事实；LLM/user 仍负责在候选之间做语义选择。
 - **区分 workspace advisory facts 和 project readiness facts。** Parent workflow 需要持久化时，workspace facts 可以放在 `.spec-first/workspace/*`；canonical graph facts 仍然是 child repo-local。
 - **resolver runtime delivery 也必须是单一契约。** 源码可以集中在 setup workflow 下，但 graph-bootstrap 在生成后的 `.agents/skills/*` 或 `.claude/spec-first/workflows/*` runtime 中必须能用稳定 sibling path 调用它，并用 contract tests 防止路径漂移。
 - **让 `active_repo` 在 downstream artifacts 中可见。** Plans、task packs、work-run summaries 和 review reports 应暴露 repo scope，避免后续 agent 从 cwd 推断。
-- **把 `--all-repos` 当作显式 maintenance。** 它对大型 workspace 有价值，但必须输出 per-child summaries 和 partial success semantics；不能成为 planning 或 work 的推荐常规路径。
+- **把 `--all-repos` 明确排除出 MVP。** 本轮只保留“不能默认批处理”和未来 result shape 不被阻断的 contract；真正的 per-child summaries、partial success semantics 和 aggregate artifacts 等维护能力，必须等 selected-repo flow 稳定后另行计划。
 - **保持 monorepo 语义不变。** 如果 `git rev-parse --show-toplevel` 成功，setup/bootstrap 就 targeting 这个 Git root。Packages/modules 后续由 repo-local topology 处理，不由 workspace target resolution 拆分。
 - **优先使用结构化 reason codes，而不是散文。** `workspace-target-required`、`workspace-no-git-candidates`、`repo-target-not-found`、`repo-target-not-git` 和 `repo-target-outside-workspace` 应稳定且 machine-readable。
 
@@ -146,13 +147,13 @@ spec_id: 2026-04-28-005-workspace-target-readiness
 ### 规划中已解决
 
 - 父 workspace 是否应该得到 `.spec-first/config/*`？不应该。它不是 project readiness source；只有 selected child repos 得到 repo-local config。
-- `--all-repos` 是否属于 MVP？Resolver 和 per-child result shape 应现在设计，但默认 workflow 应先交付 selected-repo flow。只要保持显式且 maintenance-only，`--all-repos` 可以在后续 unit 落地。
+- `--all-repos` 是否属于 MVP？不属于。本计划只保留禁止默认批处理、per-child result shape 不被当前设计阻断、以及未来可扩展的最低约束；具体批处理行为必须在 selected-repo flow 稳定后用后续计划决定。
 - `spec-plan` 是否可以从 parent workspace 继续？可以，但必须先有 target facts。Single-repo plan 必须选择一个 active repo；cross-repo plan 必须命名所有 target repos，并按 repo 拆分 implementation units。
 - setup 是否可以从 parent workspace 安装 host MCP config？可以。Host runtime setup 是 host-level，可以在 parent cwd 完成。Project-local setup facts 仍然要求显式 child repo。
 
 ### 延后到实现中确认
 
-- 精确的 child discovery depth 和 default excludes：实现应从 bounded scan 开始，并覆盖 `node_modules`、`.git`、`vendor`、hidden caches、symlink 目录和 nested child repos 的测试。
+- 高级 discovery 配置：include/exclude/max_depth 的用户可配置策略延后。MVP 的固定 discovery contract 在 U1 中定义，不能留给实现时各脚本自行决定。
 - Workspace advisory facts 默认是否总是写入，还是只输出 stdout：MVP 推荐只输出 stdout；如果实现选择写入 `.spec-first/workspace/*`，必须显式标记 `advisory: true` 和 `canonical_project_readiness: false`，且测试 parent 下没有 repo-local artifacts。
 - `workspace-target-required` 的精确表格文案：测试应锁定 reason codes 和高信号 table cells，不锁死每一句话。
 - `--repo` 用 CLI args、env vars，还是两者都用于内部脚本串联：用户可见表面应是 `--repo`；env var 只允许作为私有 plumbing detail。
@@ -272,13 +273,15 @@ flowchart TD
 
 **方案：**
 - 接受 `--repo <path>`，并为后续需要预留可选 workspace scan 参数。
-- 当存在 `--repo` 时，归一化路径，并要求 `git -C <path> rev-parse --show-toplevel` 成功。
+- 当存在 `--repo` 时，先归一化路径并执行 workspace 边界检查；若 invocation cwd 是非 Git parent workspace，target 必须位于该 workspace 内。边界检查通过后，要求 `git -C <path> rev-parse --show-toplevel` 成功。
 - 当没有 `--repo` 且 cwd 位于 Git repo 内时，返回 `mode=git-repo`、`selection_source=cwd-git-root`、`selected_repo_root` 和 `state_write_allowed=true`。
 - 当 cwd 不在 Git repo 内时，执行 bounded child discovery，并返回 `mode=workspace-multi-repo`、`workspace-single-candidate` 或 `workspace-no-git-candidates`；这些模式默认 `state_write_allowed=false`。
-- `workspace-single-candidate` 只作为建议输出，不自动提升为 selected repo；state-changing callers 必须要求用户用 `--repo <child>` 重跑，或由 workflow 明确确认后再带 `--repo` 调用脚本。
+- MVP discovery contract：从 invocation workspace root 开始，默认最多扫描 3 层目录；跳过 `.git`、`node_modules`、`vendor`、`.claude`、`.codex`、`.agents`、`.spec-first` 和常见 hidden cache 目录；不跟随 symlink 目录。若显式 `--repo` 指向 symlink，则先 canonicalize 再执行同样的边界检查。发现 Git root 后不继续递归其内部；候选按 canonical Git root 去重，并按 `workspace_relative_path` 字典序排序。
+- `workspace-single-candidate` 只作为建议输出，不自动提升为 selected repo；脚本一律 fail closed 并输出带 `--repo <child>` 的 next action。Interactive workflow 可以在用户确认后以显式 `--repo <child>` 重新调用脚本；不得引入 confirmation token 或让 resolver 把 single candidate 转为 `state_write_allowed=true`。
 - `--repo` 解析成功时返回 `selection_source=explicit-repo`、`state_write_allowed=true` 和 workspace-relative `repo_label`；解析失败时不得创建任何 project-local 目录。
 - 按已验证的 Git root 对 nested paths 去重，MVP 中最小化分类为 `child_git_repo`；如果实现能清晰验证，再为后续保留更丰富的 `submodule/worktree` relationship fields。
 - 输出包含稳定 `schema_version`、`mode`、`repo_status`、`selection_source`、`state_write_allowed`、`invocation_cwd`、`workspace_root`、`selected_repo_root`、`repo_label`、`candidates`、`reason_code` 和 `next_action` 的 JSON。
+- Resolver 需要提供最小 machine-consumption contract：默认 `--format json` 用于 diagnostics 和 candidate list；另提供无第三方依赖的 `--format env`，只输出 shell caller 必须读取的标量 gate fields（至少包含 `mode`、`repo_status`、`selection_source`、`state_write_allowed`、`selected_repo_root`、`workspace_root`、`repo_label`、`reason_code`）。Shell caller 必须消费 `--format env`，不得引入 `jq` 依赖或重新执行 Git 推断；PowerShell caller 可以使用 JSON + `ConvertFrom-Json`。两种格式必须由同一个 resolver object 派生，并用 source-contract parity tests 锁定字段一致性。
 - `candidates[]` 至少包含 `repo_label`、`git_root`、`workspace_relative_path` 和 `relationship=child_git_repo`；人类输出优先展示 workspace-relative path，machine JSON 可以包含 canonical absolute root。
 
 **遵循模式：**
@@ -294,11 +297,15 @@ flowchart TD
 - 边界情况：单个 Git repo 内有 nested modules 但只有一个 `.git` root -> 返回 root repo，不返回 workspace。
 - 错误路径：`--repo missing-dir` -> 以非零退出并返回 `reason_code=repo-target-not-found`。
 - 错误路径：`--repo non-git-dir` -> 以非零退出并返回 `reason_code=repo-target-not-git`。
-- 错误路径：`--repo ../outside` 在 workspace invocation 下逃逸当前 workspace -> 以非零退出并返回 `reason_code=repo-target-outside-workspace`，除非实现明确选择支持 absolute external targets 并在 JSON 中标记 `external_target=true`。
+- 错误路径：`--repo ../outside` 在 workspace invocation 下逃逸当前 workspace -> 以非零退出并返回 `reason_code=repo-target-outside-workspace`。MVP 不支持 `external_target=true`；任何任意目录 target 都必须拆到后续独立计划。
+- 契约路径：shell caller 在无 `jq` 环境下仍能通过 `--format env` 判断 `state_write_allowed`，并且不会重新用 `git rev-parse` 推断写入许可。
+
+**方案（补充 runtime delivery）：**
+- `bootstrap-providers.sh` 必须通过稳定相对 sibling path 引用 resolver（如 `$(dirname "$0")/../../spec-mcp-setup/scripts/resolve-project-target.sh`）；`spec-first init` 传输 `spec-graph-bootstrap` 和 `spec-mcp-setup` 两个 skills 时必须保持该 sibling relationship；此 contract 须在 `tests/unit/init-dry-run.test.js` 中验证——断言两个 hosts 下 bootstrap 脚本能通过该 path 读取到 resolver 文件。
 
 **验证：**
 - 所有需要 repo targeting 的脚本都能调用 resolver，并获得相同的 machine-readable mode 和 selected repo facts。
-- `spec-first init --claude|--codex --dry-run` 产物中，`spec-mcp-setup` 与 `spec-graph-bootstrap` runtime 都能通过稳定 sibling path 访问 resolver。
+- `spec-first init --claude|--codex --dry-run` 产物中，`spec-mcp-setup` 与 `spec-graph-bootstrap` runtime 都能通过稳定 sibling path 访问 resolver；`tests/unit/init-dry-run.test.js` 必须对此做断言。
 
 ---
 
@@ -364,7 +371,7 @@ flowchart TD
 
 **需求：** R1, R2, R3, R4, R5, R6, R10, R12, R13, R15
 
-**依赖：** U1, U2
+**依赖：** U1
 
 **文件：**
 - 修改: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh`
@@ -438,44 +445,38 @@ flowchart TD
 
 ---
 
-- U5. **可选的显式 All-Repos Maintenance Path**
+- U5. **后续的显式 All-Repos Maintenance Path（非 MVP）**
 
-**目标：** 定义并在实现范围允许时加入显式 `--all-repos` 行为，用于跨 child repos 的 maintenance setup/bootstrap，同时不改变默认 workflow。
+**目标：** 只保留未来显式 `--all-repos` 行为的边界约束，不把批处理实现纳入本轮完成条件。跨 child repos 的 maintenance setup/bootstrap 需要等 selected-repo flow 稳定后另起计划。
 
 **需求：** R7, R8, R9, R12
 
 **依赖：** U1, U2, U3, U4
 
 **文件：**
-- 修改: `skills/spec-mcp-setup/scripts/verify-tools.sh`
-- 修改: `skills/spec-mcp-setup/scripts/verify-tools.ps1`
-- 修改: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh`
-- 修改: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1`
-- 修改: `skills/spec-mcp-setup/SKILL.md`
-- 修改: `skills/spec-graph-bootstrap/SKILL.md`
-- 测试: `tests/unit/mcp-setup.sh`
-- 测试: `tests/unit/spec-graph-bootstrap.sh`
+- 当前计划只在 U1/U2/U3/U4 的结果 shape、文案和测试中保留“没有 explicit selection 时不得默认 all-repos”的约束。
+- 后续若实施 `--all-repos`，再修改 `skills/spec-mcp-setup/scripts/verify-tools.*`、`skills/spec-graph-bootstrap/scripts/bootstrap-providers.*`、相关 skill prose 和 unit tests。
 
 **方案：**
-- 如果 selected-repo flow 已经完成，可把本 unit 作为 MVP 的可选项处理。
-- 要求显式 `--all-repos`；除非用户明确要求所有 child repos，否则不要因为自然语言“继续完成”触发。
-- 对每个 child repo 执行隔离的 repo-local runs。某个 child 失败不能抹掉其他 child 的成功结果。
-- 当部分 children 失败时，输出带 `overall_status=partial` 的 aggregate status。
-- `results[]` 中包含 `repo_root`、`repo_label`、`exit_code`、`workflow_mode`、`reason_code` 和 artifact pointers。
-- Aggregate files 只保留在 `.spec-first/workspace/*` 下。
+- 本轮不实现 `--all-repos`，也不把它作为 release readiness 的 done signal。
+- 当前 contract 只要求：没有 `--repo` 或显式 `--all-repos` 时，多个 child candidates 仍然 fail closed，不执行 provider 或 project writer。
+- 未来若 selected-repo flow 发布后出现明确 maintenance 需求，再设计 `--all-repos`。届时必须要求显式 flag；除非用户明确要求所有 child repos，否则不要因为自然语言“继续完成”触发。
+- 后续实现必须对每个 child repo 执行隔离的 repo-local runs；某个 child 失败不能抹掉其他 child 的成功结果。
+- 后续实现若写 aggregate result，必须包含 `overall_status=partial` 语义，以及 `results[]` 的 `repo_root`、`repo_label`、`exit_code`、`workflow_mode`、`reason_code` 和 artifact pointers。
+- Aggregate files 只允许保留在 `.spec-first/workspace/*` 下。
 
 **遵循模式：**
 - 复用现有 graph bootstrap result envelope。
 - 复用先前 workspace follow-up decision：`--all` 是 maintenance-only，不是 workflow default。
 
 **测试场景：**
-- 正常路径：`--all-repos` 运行两个 fake child repos，并为两者写 child-local artifacts。
-- 错误路径：一个 child provider bootstrap 失败 -> aggregate result 是 partial，成功 child 的 artifacts 保留。
-- 回归：不生成 merged parent graph facts。
-- 回归：没有 `--all-repos` 时，多个 child candidates 仍然 fail closed。
+- 本轮回归：没有 `--all-repos` 时，多个 child candidates 仍然 fail closed。
+- 本轮回归：不生成 merged parent graph facts。
+- 后续实现时再补：`--all-repos` 运行两个 fake child repos，并为两者写 child-local artifacts。
+- 后续实现时再补：一个 child provider bootstrap 失败 -> aggregate result 是 partial，成功 child 的 artifacts 保留。
 
 **验证：**
-- Bulk setup/bootstrap 可用于显式 maintenance，但不会意外变成 semantic workspace orchestration。
+- 本轮验证只证明批处理不会意外变成 semantic workspace orchestration；bulk setup/bootstrap 的可用性不作为本计划交付信号。
 
 ---
 
@@ -567,7 +568,7 @@ flowchart TD
 - 契约：generated runtime mirrors 不是 source-of-truth。
 
 **验证：**
-- 用户读文档后能理解为什么 parent setup 可能 host-ready 但 project-target-required，以及如何继续而不破坏 workspace boundaries。
+- 用户读文档后能理解为什么 parent setup 可能 host-ready 但 workspace-target-required，以及如何继续而不破坏 workspace boundaries。
 
 ---
 
@@ -612,7 +613,7 @@ flowchart TD
 ## 系统级影响
 
 - **交互链路：** `spec-mcp-setup` 和 `spec-graph-bootstrap` 变成 target-aware；downstream workflows 在 workspace contexts 中消费 graph readiness 前，必须读取 target facts。
-- **错误传播：** unresolved workspace target 变成结构化 blocked/project-target-required condition，而不是泛化 failure。Provider errors 仍保持 child repo-local。
+- **错误传播：** unresolved workspace target 变成结构化 blocked/workspace-target-required condition，而不是泛化 failure。Provider errors 仍保持 child repo-local。
 - **状态生命周期风险：** parent workspace 不能积累 repo-local state。可选 `.spec-first/workspace/*` summaries 是 advisory，可能 stale；child repo canonical artifacts 仍然 authoritative。
 - **API 表面一致性：** shell 和 PowerShell scripts 需要匹配的 `--repo` 和 reason-code 行为。Skill prose 和 README 必须反映同一 command surface。
 - **集成覆盖：** tests 需要同时证明 child repos 内文件存在，以及 parent workspace 下文件不存在。
@@ -644,10 +645,10 @@ flowchart TD
 - U6 downstream workflow contracts。
 - U7 三种开发模式的用户文档。
 
-### 阶段 3：维护与批处理支持
+### 阶段 3：发布准备与后续批处理判定
 
-- 如果 selected-repo flow 后仍有需要，落地 U5 explicit `--all-repos`。
 - U8 完整 regression 和 release readiness。
+- selected-repo flow 稳定后，如果出现明确 maintenance 需求，再用后续计划评估 U5 explicit `--all-repos`；它不作为本轮完成条件。
 
 ---
 
@@ -697,6 +698,12 @@ flowchart TD
   单 child workspace 是最容易让用户期待自动继续的场景，但计划同时允许“workflow 明确确认后带 `--repo` 调用”和要求 setup/bootstrap 在单候选下不写入。实现者会遇到一个未定义的交互边界：脚本是否只打印 next action，workflow 是否可以追问并重入，还是一律要求用户手动重跑。这个空白会导致 host runtime ready 后的下一步体验在不同入口间漂移。
 
   <!-- dedup-key: section="u1 共享项目目标解析器 u2 把 target resolution 接入 mcp setup" title="单候选确认路径未定义" evidence="`workspace-single-candidate` 只作为建议输出，不自动提升为 selected repo；state-changing callers 必须要求用户用 `--repo <child>` 重跑" -->
+
+- **Shell 消费方 JSON 解析机制待定** — 实施单元 / U1 方案 (P1, feasibility, confidence-first 75)
+
+  Resolver 输出 JSON，但 `detect-tools.sh`、`bootstrap-providers.sh` 等 shell 消费方无原生 JSON 解析能力。U1 目前未规定解析机制或依赖（`jq` 依赖、`--format=env` flag、key=value side output 等），实现者需要在 shell、PowerShell、测试间自行确定一个方案，可能导致 shell/PowerShell parity 漂移，或在 jq 缺失环境下静默失败。至少需要在 U1 层定义一个最小消费 contract。
+
+  <!-- dedup-key: section="实施单元 u1 方案" title="shell 消费方 json 解析机制待定" evidence="Resolver 输出包含稳定 schema_version、mode、repo_status、selection_source、state_write_allowed、invocation_cwd" -->
 
 ---
 

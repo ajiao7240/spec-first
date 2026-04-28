@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 20:52:56 leokuang: docs(plans): 根据文档审查收紧 workspace target readiness 计划的 repo 边界、resolver 消费契约、候选发现和 all-repos MVP 范围 (user-visible)
+- v1.6.0 2026-04-28 20:49:29 leokuang: fix(graph-readiness): 将 GitNexus 固定到 mcp-tools.json 中的 1.6.4-rc.21，并让 provider 命令从同一配置投影，同时对 FTS/read-only 空 query 结果 fail-closed (user-visible)
 - v1.6.0 2026-04-28 19:23:04 leokuang: fix(spec-mcp-setup): 统一 MCP 与 helper 安装路径为 latest/upgrade 语义，确保 setup 写入和 handoff 命令默认请求最新版本 (user-visible)
 - v1.6.0 2026-04-28 18:42:41 leokuang: fix(spec-mcp-setup): 在源码技能中引入 display-width 对齐的最终状态块 renderer，并同步 shell、PowerShell 与测试契约 (user-visible)
 - v1.6.0 2026-04-28 19:08:30 leokuang: fix(spec-mcp-setup): 收紧 PowerShell renderer 失败语义，并补齐 display-width 与最终状态列契约测试 (user-visible)

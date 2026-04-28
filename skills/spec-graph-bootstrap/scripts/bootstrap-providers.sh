@@ -154,7 +154,7 @@ command_shape_supported() {
     and (
       if $provider == "gitnexus" then
         if $kind == "query_probe" then
-          ($cmd | length == 7 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "query" and .[4] == "spec-first-readiness-probe" and .[5] == "--repo" and (.[6] | length > 0))
+          ($cmd | length == 7 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "query" and (.[4] | length > 0) and .[5] == "--repo" and (.[6] | length > 0))
         else
           ($cmd | length == 4 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == gitnexus_subcommand)
         end
@@ -221,6 +221,44 @@ run_configured_command() {
     RUN_TRUNCATED=false
   fi
   RUN_DIAGNOSTIC="$(tr '\n' ' ' < "$log_path" | cut -c 1-1000)"
+}
+
+QUERY_PROBE_VERIFICATION_REASON=""
+
+gitnexus_query_probe_has_bad_diagnostics() {
+  local log_path="$1"
+  grep -Eiq 'FTS index ensure failed|Cannot execute write operations in a read-only database|doesn.?t have an index|Connection exception|BM25/FTS search failed|FTS extension unavailable|missing[ -]index' "$log_path"
+}
+
+gitnexus_query_probe_has_results() {
+  local log_path="$1"
+  local json_payload
+  json_payload="$(awk 'found || /^[[:space:]]*\{/ { found=1; print }' "$log_path" || true)"
+  [ -n "$json_payload" ] || return 1
+  jq -e '
+    (.warning? | not)
+    and (((.processes // []) | length)
+      + ((.process_symbols // []) | length)
+      + ((.definitions // []) | length) > 0)
+  ' >/dev/null 2>&1 <<<"$json_payload"
+}
+
+query_probe_verified() {
+  local provider="$1"
+  local log_path="$2"
+  QUERY_PROBE_VERIFICATION_REASON=""
+  if [ "$provider" != "gitnexus" ]; then
+    return 0
+  fi
+  if gitnexus_query_probe_has_bad_diagnostics "$log_path"; then
+    QUERY_PROBE_VERIFICATION_REASON="GitNexus query probe emitted FTS/read-only/missing-index diagnostics."
+    return 1
+  fi
+  if ! gitnexus_query_probe_has_results "$log_path"; then
+    QUERY_PROBE_VERIFICATION_REASON="GitNexus query probe did not return parseable non-empty query results."
+    return 1
+  fi
+  return 0
 }
 
 append_command_result() {
@@ -304,6 +342,7 @@ write_provider_status() {
   local command_results
   local command_results_file
   local status="skipped"
+  local graph_ready=false
   local query_ready=false
   local confidence="low"
   local limitations='["Provider is not configured for bootstrap."]'
@@ -349,9 +388,10 @@ write_provider_status() {
       run_configured_command "$provider" status "$status_log"
       append_command_result "$command_results_file" status "$(command_display "$provider" status)" "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC" "$RUN_TRUNCATED" "$(relpath "$status_log")"
       if [ "$RUN_EXIT_CODE" -eq 0 ]; then
+        graph_ready=true
         run_configured_command "$provider" query_probe "$query_log"
         append_command_result "$command_results_file" query_probe "$(command_display "$provider" query_probe)" "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC" "$RUN_TRUNCATED" "$(relpath "$query_log")"
-        if [ "$RUN_EXIT_CODE" -eq 0 ]; then
+        if [ "$RUN_EXIT_CODE" -eq 0 ] && query_probe_verified "$provider" "$query_log"; then
           status="ready"
           query_ready=true
           confidence="high"
@@ -360,7 +400,7 @@ write_provider_status() {
           status="query-unverified"
           query_ready=false
           confidence="medium"
-          limitations='["Build and status succeeded, but provider-specific query-surface proof did not verify provider readiness."]'
+          limitations="$(jq -n --arg reason "${QUERY_PROBE_VERIFICATION_REASON:-Provider-specific query-surface proof did not verify provider readiness.}" '["Build and status succeeded, but provider-specific query-surface proof did not verify provider readiness.", $reason]')"
         fi
       else
         status="query-unverified"
@@ -384,6 +424,7 @@ write_provider_status() {
     --arg provider "$provider" \
     --arg generated_at "$BOOTSTRAPPED_AT" \
     --arg status "$status" \
+    --argjson graph_ready "$graph_ready" \
     --argjson query_ready "$query_ready" \
     --argjson configured "$configured" \
     --argjson enabled "$enabled" \
@@ -405,6 +446,7 @@ write_provider_status() {
       host_config_status:$host_config_status,
       skip_reason:(if $status == "skipped" then $skip_reason else null end),
       status:$status,
+      graph_ready:$graph_ready,
       query_ready:$query_ready,
       confidence:$confidence,
       limitations:$limitations,
