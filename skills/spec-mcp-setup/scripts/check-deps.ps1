@@ -33,6 +33,7 @@ function Get-InstallSuggestion {
     '^(node|npm|npx):windows$' { return 'winget install OpenJS.NodeJS.LTS' }
     '^(node|npm|npx):macos$' { return 'brew install node' }
     '^(node|npm|npx):(linux|wsl)$' { return 'curl -fsSL https://fnm.vercel.app/install | bash && fnm install --lts' }
+    '^(uv|uvx):windows$' { return 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"' }
     '^(uv|uvx):' { return 'curl -LsSf https://astral.sh/uv/install.sh | sh' }
     '^git:windows$' { return 'winget install Git.Git' }
     '^git:macos$' { return 'xcode-select --install or brew install git' }

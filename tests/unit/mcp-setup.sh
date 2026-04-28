@@ -137,6 +137,34 @@ assert_eq "check-deps schema v2" "deps.v2" "$(jq -r '.schema_version' <<<"$deps_
 assert_eq "required Unix deps are ready" "true" "$(jq -r '[.dependencies | to_entries[] | select(.value.required == true) | .key] | sort | join(",") == "jq,node,npm,npx,python3,uv,uvx"' <<<"$deps_output")"
 assert_eq "check-deps required_ready true with fake deps" "true" "$(jq -r '.required_ready' <<<"$deps_output")"
 
+WIN_BIN="$TMP_DIR/windows-bin"
+mkdir -p "$WIN_BIN"
+ln -s "$(command -v jq)" "$WIN_BIN/jq"
+ln -s "$(command -v python3)" "$WIN_BIN/python3"
+ln -s "$(command -v git)" "$WIN_BIN/git"
+cat > "$WIN_BIN/uname" <<'SH'
+#!/bin/bash
+echo "MINGW64_NT-10.0"
+SH
+cat > "$WIN_BIN/node" <<'SH'
+#!/bin/bash
+echo "v20.0.0"
+SH
+cat > "$WIN_BIN/npm" <<'SH'
+#!/bin/bash
+if [ "${1:-}" = "--version" ]; then echo "10.0.0"; fi
+SH
+cat > "$WIN_BIN/npx" <<'SH'
+#!/bin/bash
+if [ "${1:-}" = "--version" ]; then echo "10.0.0"; exit 0; fi
+if [[ " $* " == *" skills list "* ]]; then echo "[]"; exit 0; fi
+exit 0
+SH
+chmod +x "$WIN_BIN/uname" "$WIN_BIN/node" "$WIN_BIN/npm" "$WIN_BIN/npx"
+windows_deps_output="$(PATH="$WIN_BIN:/usr/bin:/bin:/usr/sbin:/sbin" bash "$SCRIPTS_DIR/check-deps.sh")"
+assert_eq "check-deps detects Git Bash Windows" "windows" "$(jq -r '.platform' <<<"$windows_deps_output")"
+assert_contains "Windows uv suggestion uses PowerShell installer" "install.ps1 | iex" "$(jq -r '.dependencies.uv.install_suggestion' <<<"$windows_deps_output")"
+
 FAKE_HOME="$TMP_DIR/home"
 mkdir -p "$FAKE_HOME"
 
@@ -185,6 +213,13 @@ mkdir -p "$PREFLIGHT_HOME/.agents/skills/agent-browser"
 printf 'name: agent-browser\n' > "$PREFLIGHT_HOME/.agents/skills/agent-browser/SKILL.md"
 preflight_missing_marker="$(cd "$TMP_DIR" && PATH="$TEST_PATH" HOME="$PREFLIGHT_HOME" bash "$SCRIPTS_DIR/check-health" --json)"
 assert_eq "check-health requires agent-browser install marker" "action-required" "$(jq -r '.tools[] | select(.id == "agent-browser") | .result' <<<"$preflight_missing_marker")"
+
+WINDOWS_PREFLIGHT_HOME="$TMP_DIR/windows-preflight-home"
+mkdir -p "$WINDOWS_PREFLIGHT_HOME"
+windows_preflight="$(cd "$TMP_DIR" && PATH="$WIN_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$WINDOWS_PREFLIGHT_HOME" bash "$SCRIPTS_DIR/check-health" --json)"
+assert_eq "check-health Windows gh uses winget" "winget install --id GitHub.cli -e --silent --accept-package-agreements --accept-source-agreements" "$(jq -r '.tools[] | select(.id == "gh") | .install_command' <<<"$windows_preflight")"
+assert_eq "check-health Windows ast-grep uses npm" "npm install -g @ast-grep/cli" "$(jq -r '.tools[] | select(.id == "ast-grep") | .install_command' <<<"$windows_preflight")"
+assert_eq "check-health Windows output avoids Homebrew" "false" "$(jq -r '[.tools[].install_command, .skills[].install_command] | join("\n") | contains("brew install")' <<<"$windows_preflight")"
 
 FAKE_REPO="$TMP_DIR/repo"
 make_repo "$FAKE_REPO"

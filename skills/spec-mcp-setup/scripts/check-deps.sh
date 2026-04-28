@@ -52,6 +52,7 @@ install_suggestion_for() {
     node:macos|npm:macos|npx:macos) echo "brew install node" ;;
     node:linux|npm:linux|npx:linux|node:wsl|npm:wsl|npx:wsl) echo "curl -fsSL https://fnm.vercel.app/install | bash && fnm install --lts" ;;
     node:windows|npm:windows|npx:windows) echo "winget install OpenJS.NodeJS.LTS" ;;
+    uv:windows|uvx:windows) echo "powershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\"" ;;
     uv:*|uvx:*) echo "curl -LsSf https://astral.sh/uv/install.sh | sh" ;;
     python3:macos) echo "brew install python" ;;
     python3:linux|python3:wsl) echo "sudo apt-get install -y python3" ;;

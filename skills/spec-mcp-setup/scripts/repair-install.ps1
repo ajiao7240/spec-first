@@ -23,4 +23,4 @@ foreach ($dep in @($ToolDef.dependencies)) {
   }
 }
 
-& (Join-Path $ScriptDir 'configure-host.ps1') -Tool $Tool | Out-Null
+& (Join-Path $ScriptDir 'configure-host.ps1') -Tool $Tool

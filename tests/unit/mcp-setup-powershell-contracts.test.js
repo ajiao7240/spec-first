@@ -3,10 +3,12 @@ const path = require('path');
 
 const repoRoot = path.resolve(__dirname, '../..');
 const configureHostPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/configure-host.ps1');
+const checkDepsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/check-deps.ps1');
 const detectHostPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-host.ps1');
 const detectToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-tools.ps1');
 const verifyToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
 const writeProviderConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/write-provider-config.ps1');
+const repairInstallPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/repair-install.ps1');
 const bootstrapProvidersPs1 = path.join(repoRoot, 'skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1');
 const bootstrapProjectConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1');
 const installHelpersPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-helpers.ps1');
@@ -168,14 +170,31 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installHelpersSource).toContain('npx skills add ast-grep/agent-skill -g -y');
     expect(installHelpersSource).toContain("'ast-grep-skill'");
     expect(installHelpersSource).toContain("if ($IsWindows) { return 'windows' }");
-    expect(installHelpersSource).toContain('winget install --id GitHub.cli -e --silent');
+    expect(installHelpersSource).toContain('winget install --id GitHub.cli -e --silent --accept-package-agreements --accept-source-agreements');
+    expect(installHelpersSource).toContain('winget install --id jqlang.jq -e --silent --accept-package-agreements --accept-source-agreements');
+    expect(installHelpersSource).toContain('winget install --id Gyan.FFmpeg -e --silent --accept-package-agreements --accept-source-agreements');
+    expect(installHelpersSource).toContain("Test-CommandExists 'dnf'");
+    expect(installHelpersSource).toContain("Test-CommandExists 'pacman'");
+    expect(installHelpersSource).toContain("Test-CommandExists 'apk'");
+    expect(installHelpersSource).toContain('Install gh from https://cli.github.com');
     expect(installHelpersSource).toContain('npm install -g @ast-grep/cli');
-    expect(installHelpersSource).toContain('Test-Path $globalAgentBrowserSkill');
+    expect(installHelpersSource).toContain("Test-GlobalSkill 'agent-browser'");
     expect(installHelpersSource).toContain("$nextAction = 'agent-browser CLI not found after npm install'");
     expect(installHelpersSource).toContain("$status = 'ready'\n        $nextAction = ''");
     expect(installHelpersSource).not.toContain('agent-browser doctor');
     expect(installHelpersSource).not.toContain('doctor --fix');
     expect(installHelpersSource).toContain("$mode -eq 'verify-only' -and -not (Test-Path $agentBrowserInstallMarker)");
+  });
+
+  test('PowerShell dependency and repair paths are Windows-safe', () => {
+    const checkDepsSource = fs.readFileSync(checkDepsPs1, 'utf8');
+    const repairSource = fs.readFileSync(repairInstallPs1, 'utf8');
+
+    expect(checkDepsSource).toContain('^(uv|uvx):windows$');
+    expect(checkDepsSource).toContain('irm https://astral.sh/uv/install.ps1 | iex');
+    expect(checkDepsSource).toContain('curl -LsSf https://astral.sh/uv/install.sh | sh');
+    expect(repairSource).toContain("& (Join-Path $ScriptDir 'configure-host.ps1') -Tool $Tool");
+    expect(repairSource).not.toContain('| Out-Null');
   });
 
   test('Serena bootstrap is idempotent and recoverable', () => {

@@ -33,34 +33,125 @@ detect_os() {
   case "$os" in
     Darwin) echo "macos" ;;
     Linux) echo "linux" ;;
+    MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
     *) echo "unknown" ;;
   esac
+}
+
+linux_package_install_command() {
+  local apt_pkg="$1"
+  local dnf_pkg="$2"
+  local yum_pkg="$3"
+  local pacman_pkg="$4"
+  local apk_pkg="$5"
+
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "sudo apt-get install -y $apt_pkg"
+  elif command -v dnf >/dev/null 2>&1; then
+    echo "sudo dnf install -y $dnf_pkg"
+  elif command -v yum >/dev/null 2>&1; then
+    echo "sudo yum install -y $yum_pkg"
+  elif command -v pacman >/dev/null 2>&1; then
+    echo "sudo pacman -S --noconfirm $pacman_pkg"
+  elif command -v apk >/dev/null 2>&1; then
+    echo "sudo apk add $apk_pkg"
+  else
+    echo ""
+  fi
+}
+
+run_with_optional_sudo() {
+  if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
+    "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    return 1
+  fi
+}
+
+run_linux_package_install() {
+  local apt_pkg="$1"
+  local dnf_pkg="$2"
+  local yum_pkg="$3"
+  local pacman_pkg="$4"
+  local apk_pkg="$5"
+
+  if command -v apt-get >/dev/null 2>&1; then
+    run_with_optional_sudo apt-get install -y "$apt_pkg"
+  elif command -v dnf >/dev/null 2>&1; then
+    run_with_optional_sudo dnf install -y "$dnf_pkg"
+  elif command -v yum >/dev/null 2>&1; then
+    run_with_optional_sudo yum install -y "$yum_pkg"
+  elif command -v pacman >/dev/null 2>&1; then
+    run_with_optional_sudo pacman -S --noconfirm "$pacman_pkg"
+  elif command -v apk >/dev/null 2>&1; then
+    run_with_optional_sudo apk add "$apk_pkg"
+  else
+    return 1
+  fi
 }
 
 install_command_for() {
   local name="$1"
   local os="$2"
+  local linux_cmd
   case "$name" in
     agent-browser)
       echo "CI=true npm install -g agent-browser --no-audit --no-fund --loglevel=error && agent-browser install && npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y"
       ;;
     gh)
-      if [ "$os" = "linux" ]; then echo "sudo apt-get install -y gh"; else echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q gh"; fi
+      if [ "$os" = "windows" ]; then
+        echo "winget install --id GitHub.cli -e --silent --accept-package-agreements --accept-source-agreements"
+      elif [ "$os" = "linux" ]; then
+        linux_cmd="$(linux_package_install_command gh gh gh github-cli github-cli)"
+        echo "${linux_cmd:-Install gh from https://cli.github.com}"
+      else
+        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q gh"
+      fi
       ;;
     jq)
-      if [ "$os" = "linux" ]; then echo "sudo apt-get install -y jq"; else echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q jq"; fi
+      if [ "$os" = "windows" ]; then
+        echo "winget install --id jqlang.jq -e --silent --accept-package-agreements --accept-source-agreements"
+      elif [ "$os" = "linux" ]; then
+        linux_cmd="$(linux_package_install_command jq jq jq jq jq)"
+        echo "${linux_cmd:-Install jq from https://jqlang.github.io/jq/}"
+      else
+        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q jq"
+      fi
       ;;
     vhs)
-      if [ "$os" = "linux" ]; then echo "go install github.com/charmbracelet/vhs@latest"; else echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q vhs"; fi
+      if [ "$os" = "linux" ] || [ "$os" = "windows" ]; then
+        if command -v go >/dev/null 2>&1; then echo "go install github.com/charmbracelet/vhs@latest"; else echo "Install vhs from https://github.com/charmbracelet/vhs"; fi
+      else
+        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q vhs"
+      fi
       ;;
     silicon)
-      if [ "$os" = "linux" ]; then echo "cargo install silicon"; else echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q silicon"; fi
+      if [ "$os" = "linux" ] || [ "$os" = "windows" ]; then
+        if command -v cargo >/dev/null 2>&1; then echo "cargo install silicon"; else echo "Install silicon from https://github.com/Aloxaf/silicon"; fi
+      else
+        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q silicon"
+      fi
       ;;
     ffmpeg)
-      if [ "$os" = "linux" ]; then echo "sudo apt-get install -y ffmpeg"; else echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ffmpeg"; fi
+      if [ "$os" = "windows" ]; then
+        echo "winget install --id Gyan.FFmpeg -e --silent --accept-package-agreements --accept-source-agreements"
+      elif [ "$os" = "linux" ]; then
+        linux_cmd="$(linux_package_install_command ffmpeg ffmpeg ffmpeg ffmpeg ffmpeg)"
+        echo "${linux_cmd:-Install ffmpeg from https://ffmpeg.org/download.html}"
+      else
+        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ffmpeg"
+      fi
       ;;
     ast-grep)
-      if [ "$os" = "linux" ]; then echo "cargo install ast-grep --locked"; else echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ast-grep"; fi
+      if [ "$os" = "windows" ]; then
+        echo "npm install -g @ast-grep/cli"
+      elif [ "$os" = "linux" ]; then
+        if command -v cargo >/dev/null 2>&1; then echo "cargo install ast-grep --locked"; elif command -v npm >/dev/null 2>&1; then echo "npm install -g @ast-grep/cli"; else echo "Install ast-grep from https://ast-grep.github.io"; fi
+      else
+        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ast-grep"
+      fi
       ;;
     ast-grep-skill)
       echo "npx skills add ast-grep/agent-skill -g -y"
@@ -76,22 +167,22 @@ run_install_command() {
   local os="$2"
   case "$name" in
     gh)
-      if [ "$os" = "linux" ]; then sudo apt-get install -y gh; else NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q gh; fi
+      if [ "$os" = "windows" ]; then winget install --id GitHub.cli -e --silent --accept-package-agreements --accept-source-agreements; elif [ "$os" = "linux" ]; then run_linux_package_install gh gh gh github-cli github-cli; else NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q gh; fi
       ;;
     jq)
-      if [ "$os" = "linux" ]; then sudo apt-get install -y jq; else NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q jq; fi
+      if [ "$os" = "windows" ]; then winget install --id jqlang.jq -e --silent --accept-package-agreements --accept-source-agreements; elif [ "$os" = "linux" ]; then run_linux_package_install jq jq jq jq jq; else NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q jq; fi
       ;;
     vhs)
-      if [ "$os" = "linux" ]; then go install github.com/charmbracelet/vhs@latest; else NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q vhs; fi
+      if [ "$os" = "linux" ] || [ "$os" = "windows" ]; then command -v go >/dev/null 2>&1 && go install github.com/charmbracelet/vhs@latest; else NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q vhs; fi
       ;;
     silicon)
-      if [ "$os" = "linux" ]; then cargo install silicon; else NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q silicon; fi
+      if [ "$os" = "linux" ] || [ "$os" = "windows" ]; then command -v cargo >/dev/null 2>&1 && cargo install silicon; else NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q silicon; fi
       ;;
     ffmpeg)
-      if [ "$os" = "linux" ]; then sudo apt-get install -y ffmpeg; else NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ffmpeg; fi
+      if [ "$os" = "windows" ]; then winget install --id Gyan.FFmpeg -e --silent --accept-package-agreements --accept-source-agreements; elif [ "$os" = "linux" ]; then run_linux_package_install ffmpeg ffmpeg ffmpeg ffmpeg ffmpeg; else NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ffmpeg; fi
       ;;
     ast-grep)
-      if [ "$os" = "linux" ]; then cargo install ast-grep --locked; else NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ast-grep; fi
+      if [ "$os" = "windows" ]; then npm install -g @ast-grep/cli; elif [ "$os" = "linux" ]; then if command -v cargo >/dev/null 2>&1; then cargo install ast-grep --locked; elif command -v npm >/dev/null 2>&1; then npm install -g @ast-grep/cli; else return 1; fi; else NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ast-grep; fi
       ;;
     ast-grep-skill)
       npx skills add ast-grep/agent-skill -g -y
@@ -191,12 +282,12 @@ process_agent_browser() {
     fi
   fi
 
-  if [ "$status" = "ready" ] && [ ! -f "$GLOBAL_AGENT_BROWSER_SKILL" ]; then
+  if [ "$status" = "ready" ] && ! global_skill_installed "agent-browser"; then
     skill_status="action-required"
     status="action-required"
     next_action="install global agent-browser skill"
     if [ "$MODE" = "install" ]; then
-      if npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y >/dev/null 2>&1 && [ -f "$GLOBAL_AGENT_BROWSER_SKILL" ]; then
+      if npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y >/dev/null 2>&1 && global_skill_installed "agent-browser"; then
         skill_status="ready"
         status="ready"
         next_action=""

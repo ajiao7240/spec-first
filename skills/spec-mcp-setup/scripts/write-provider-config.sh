@@ -97,7 +97,7 @@ jq --arg generated_at "$generated_at" \
   def previous_readiness($key):
     ($existing.derived_readiness.providers[$key] // {
       query_ready: ($existing.providers[$key].query_ready // false),
-      bootstrap_required: ($existing.providers[$key].bootstrap_required // true),
+      bootstrap_required: (if ($existing.providers[$key] | has("bootstrap_required")) then ($existing.providers[$key].bootstrap_required == true) else true end),
       last_bootstrap_status: ($existing.providers[$key].last_bootstrap_status // "not-bootstrapped"),
       last_bootstrapped_at: ($existing.providers[$key].last_bootstrapped_at // null)
     });
@@ -202,7 +202,7 @@ jq --arg generated_at "$generated_at" \
     $graph_facts_exists and $provider_status_exists and $impact_capabilities_exists;
 
   def provider_readiness_current:
-    (($provider[0].derived_readiness.graph_bootstrap_required // true) == false)
+    ($provider[0].derived_readiness.graph_bootstrap_required == false)
     and ([($provider[0].derived_readiness.providers // {})[] | .query_ready == true] | any);
 
   (.tools.serena // {}) as $serena
