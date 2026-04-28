@@ -118,14 +118,20 @@ function Test-CommandShapeSupported {
   }
 
   if ($Provider -eq 'code-review-graph') {
+    $tail = @()
+    if ($actual.Count -ge 3 -and [string]$actual[0] -eq 'uvx' -and ([string]$actual[1] -eq '--upgrade' -or [string]$actual[1] -eq '--refresh') -and [string]$actual[2] -eq 'code-review-graph') {
+      $tail = @($actual | Select-Object -Skip 3)
+    } elseif ($actual.Count -ge 2 -and [string]$actual[0] -eq 'uvx' -and [string]$actual[1] -eq 'code-review-graph') {
+      $tail = @($actual | Select-Object -Skip 2)
+    }
     if ($Kind -eq 'bootstrap') {
-      return ($actual.Count -eq 3 -and [string]$actual[0] -eq 'uvx' -and [string]$actual[1] -eq 'code-review-graph' -and [string]$actual[2] -eq 'build')
+      return ($tail.Count -eq 1 -and [string]$tail[0] -eq 'build')
     }
     if ($Kind -eq 'status') {
-      return ($actual.Count -eq 3 -and [string]$actual[0] -eq 'uvx' -and [string]$actual[1] -eq 'code-review-graph' -and [string]$actual[2] -eq 'status')
+      return ($tail.Count -eq 1 -and [string]$tail[0] -eq 'status')
     }
     if ($Kind -eq 'query_probe') {
-      return ($actual.Count -eq 5 -and [string]$actual[0] -eq 'uvx' -and [string]$actual[1] -eq 'code-review-graph' -and [string]$actual[2] -eq 'status' -and [string]$actual[3] -eq '--repo' -and [string]$actual[4] -eq $RepoRoot)
+      return ($tail.Count -eq 3 -and [string]$tail[0] -eq 'status' -and [string]$tail[1] -eq '--repo' -and [string]$tail[2] -eq $RepoRoot)
     }
   }
 

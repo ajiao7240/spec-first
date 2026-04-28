@@ -12,17 +12,17 @@ check-deps.*
   v
 install-helpers.*
   |
-  |-- install/verify agent-browser CLI
+  |-- install/verify agent-browser CLI with latest package request
   |-- run agent-browser install
   |-- write/read ~/.agent-browser/spec-first-install.json
   |-- install global agent-browser skill
-  |-- install/verify gh, jq, vhs, silicon, ffmpeg, ast-grep
-  |-- install/verify global ast-grep skill
+  |-- install/verify gh, jq, vhs, silicon, ffmpeg, ast-grep with upgrade-before-install handoff
+  |-- install/verify global ast-grep skill with latest skills CLI
   |-- output helper_tools facts for every required helper
   v
 install-mcp.*
   |
-  |-- warm required MCP tools
+  |-- warm required MCP tools with latest package requests
   |-- write Claude/Codex host MCP config
   |-- support Codex quoted TOML key:
   |     [mcp_servers."code-review-graph"]

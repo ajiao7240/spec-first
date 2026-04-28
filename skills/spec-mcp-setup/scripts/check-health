@@ -45,18 +45,28 @@ linux_package_install_command() {
   local apk_pkg="$5"
 
   if command -v apt-get >/dev/null 2>&1; then
-    echo "sudo apt-get install -y $apt_pkg"
+    echo "sudo apt-get update && sudo apt-get install -y $apt_pkg"
   elif command -v dnf >/dev/null 2>&1; then
-    echo "sudo dnf install -y $dnf_pkg"
+    echo "if sudo dnf upgrade -y $dnf_pkg; then true; else sudo dnf install -y $dnf_pkg; fi"
   elif command -v yum >/dev/null 2>&1; then
-    echo "sudo yum install -y $yum_pkg"
+    echo "if sudo yum update -y $yum_pkg; then true; else sudo yum install -y $yum_pkg; fi"
   elif command -v pacman >/dev/null 2>&1; then
-    echo "sudo pacman -S --noconfirm $pacman_pkg"
+    echo "sudo pacman -Sy --noconfirm $pacman_pkg"
   elif command -v apk >/dev/null 2>&1; then
-    echo "sudo apk add $apk_pkg"
+    echo "sudo apk update && sudo apk add --upgrade $apk_pkg"
   else
     echo ""
   fi
+}
+
+brew_latest_install_command() {
+  local pkg="$1"
+  echo "brew update && if brew list --formula $pkg >/dev/null 2>&1; then brew upgrade -q $pkg; else brew install -q $pkg; fi"
+}
+
+winget_latest_install_command() {
+  local package_id="$1"
+  echo "if winget upgrade --id $package_id -e --silent --accept-package-agreements --accept-source-agreements; then true; else winget install --id $package_id -e --silent --accept-package-agreements --accept-source-agreements; fi"
 }
 
 build_install_command() {
@@ -66,26 +76,26 @@ build_install_command() {
 
   case "$name" in
     agent-browser)
-      echo "CI=true npm install -g agent-browser --no-audit --no-fund --loglevel=error && agent-browser install && npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y"
+      echo "CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error && agent-browser install && npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y"
       ;;
     gh)
       if [ "$os" = "windows" ]; then
-        echo "winget install --id GitHub.cli -e --silent --accept-package-agreements --accept-source-agreements"
+        winget_latest_install_command "GitHub.cli"
       elif [ "$os" = "linux" ]; then
         linux_cmd="$(linux_package_install_command gh gh gh github-cli github-cli)"
         echo "${linux_cmd:-Install gh from https://cli.github.com}"
       else
-        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q gh"
+        brew_latest_install_command "gh"
       fi
       ;;
     jq)
       if [ "$os" = "windows" ]; then
-        echo "winget install --id jqlang.jq -e --silent --accept-package-agreements --accept-source-agreements"
+        winget_latest_install_command "jqlang.jq"
       elif [ "$os" = "linux" ]; then
         linux_cmd="$(linux_package_install_command jq jq jq jq jq)"
         echo "${linux_cmd:-Install jq from https://jqlang.github.io/jq/}"
       else
-        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q jq"
+        brew_latest_install_command "jq"
       fi
       ;;
     vhs)
@@ -96,47 +106,47 @@ build_install_command() {
           echo "Install vhs from https://github.com/charmbracelet/vhs"
         fi
       else
-        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q vhs"
+        brew_latest_install_command "vhs"
       fi
       ;;
     silicon)
       if [ "$os" = "linux" ] || [ "$os" = "windows" ]; then
         if command -v cargo >/dev/null 2>&1; then
-          echo "cargo install silicon"
+          echo "cargo install silicon --force"
         else
           echo "Install silicon from https://github.com/Aloxaf/silicon"
         fi
       else
-        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q silicon"
+        brew_latest_install_command "silicon"
       fi
       ;;
     ffmpeg)
       if [ "$os" = "windows" ]; then
-        echo "winget install --id Gyan.FFmpeg -e --silent --accept-package-agreements --accept-source-agreements"
+        winget_latest_install_command "Gyan.FFmpeg"
       elif [ "$os" = "linux" ]; then
         linux_cmd="$(linux_package_install_command ffmpeg ffmpeg ffmpeg ffmpeg ffmpeg)"
         echo "${linux_cmd:-Install ffmpeg from https://ffmpeg.org/download.html}"
       else
-        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ffmpeg"
+        brew_latest_install_command "ffmpeg"
       fi
       ;;
     ast-grep)
       if [ "$os" = "windows" ]; then
-        echo "npm install -g @ast-grep/cli"
+        echo "npm install -g @ast-grep/cli@latest"
       elif [ "$os" = "linux" ]; then
         if command -v cargo >/dev/null 2>&1; then
-          echo "cargo install ast-grep --locked"
+          echo "cargo install ast-grep --locked --force"
         elif command -v npm >/dev/null 2>&1; then
-          echo "npm install -g @ast-grep/cli"
+          echo "npm install -g @ast-grep/cli@latest"
         else
           echo "Install ast-grep from https://ast-grep.github.io"
         fi
       else
-        echo "NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install -q ast-grep"
+        brew_latest_install_command "ast-grep"
       fi
       ;;
     ast-grep-skill)
-      echo "npx skills add ast-grep/agent-skill -g -y"
+      echo "npx -y skills@latest add ast-grep/agent-skill -g -y"
       ;;
     *)
       echo ""

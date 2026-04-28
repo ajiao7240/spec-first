@@ -110,9 +110,9 @@ JSON
       "dependency_status": "ready",
       "host_config_status": "ready",
       "commands": {
-        "bootstrap": ["uvx", "code-review-graph", "build"],
-        "status": ["uvx", "code-review-graph", "status"],
-        "query_probe": ["uvx", "code-review-graph", "status", "--repo", "$repo_root"]
+        "bootstrap": ["uvx", "--upgrade", "code-review-graph", "build"],
+        "status": ["uvx", "--upgrade", "code-review-graph", "status"],
+        "query_probe": ["uvx", "--upgrade", "code-review-graph", "status", "--repo", "$repo_root"]
       }
     }
   },
@@ -201,7 +201,7 @@ assert "primary output is JSON" jq -e . <<<"$primary_output"
 assert_eq "primary workflow mode" "primary" "$(jq -r '.workflow_mode' <<<"$primary_output")"
 assert_contains "runs gitnexus analyze" "npx -y gitnexus@latest analyze" "$(cat "$COMMAND_LOG")"
 assert_contains "runs gitnexus query proof" "npx -y gitnexus@latest query spec-first-readiness-probe --repo $(basename "$PRIMARY_REPO_ROOT")" "$(cat "$COMMAND_LOG")"
-assert_contains "runs code-review-graph query proof" "uvx code-review-graph status --repo $PRIMARY_REPO_ROOT" "$(cat "$COMMAND_LOG")"
+assert_contains "runs latest code-review-graph query proof" "uvx --upgrade code-review-graph status --repo $PRIMARY_REPO_ROOT" "$(cat "$COMMAND_LOG")"
 assert "provider status aggregate exists" test -f "$PRIMARY_REPO/.spec-first/graph/provider-status.json"
 assert "graph facts exists" test -f "$PRIMARY_REPO/.spec-first/graph/graph-facts.json"
 assert "impact capabilities exists" test -f "$PRIMARY_REPO/.spec-first/impact/bootstrap-impact-capabilities.json"

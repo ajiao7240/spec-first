@@ -10,7 +10,7 @@ spec_id: 2026-04-28-005-workspace-target-readiness
 
 ## 概览
 
-支持第三种开发拓扑：父目录下有多个独立 Git 工程，例如 `workspace/project-a`、`workspace/project-b`、`workspace/project-c` 各自拥有 `.git`。当前 `spec-mcp-setup` 在父目录运行时能完成 host runtime setup，但因为父目录不是 Git repo，会跳过 `.spec-first/config/*` 项目投影；后续 `$spec-graph-bootstrap` 又只能在 Git repo 内运行，导致用户看到 `baseline_ready=true` 但无法从父 workspace 顺畅进入某个 child repo 的 graph readiness 编译。
+支持第三种开发拓扑：父目录下有多个独立 Git 工程，例如 `workspace/project-a`、`workspace/project-b`、`workspace/project-c` 各自拥有 `.git`。当前 `spec-mcp-setup` 在父目录运行时能完成 host runtime setup，但因为父目录不是 Git repo，会跳过 `.spec-first/config/*` 项目投影；后续 `spec-graph-bootstrap` 又只能在 Git repo 内运行，导致用户看到 `baseline_ready=true` 但无法从父 workspace 顺畅进入某个 child repo 的 graph readiness 编译。
 
 本计划引入一个轻量项目目标解析器（Project Target Resolver），统一所有 setup/bootstrap 脚本对“当前 project 是哪个 Git repo”的判断。父目录仍不是 project，不生成父级 repo-local graph/config 真相源；它只可以生成或输出 workspace-level advisory target facts。每个 child repo 继续拥有自己的 `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*` 和 `.serena/*`。后续 `spec-plan`、`spec-work`、`spec-write-tasks`、`spec-code-review` 消费这些事实时必须显式携带 active repo / target repos，而不是把 workspace 当成单个 repo。
 
@@ -35,7 +35,7 @@ spec_id: 2026-04-28-005-workspace-target-readiness
 
 - R1. 在父目录不是 Git repo、但包含多个 child Git repo 时，setup/bootstrap 必须识别为 `workspace-multi-repo`，而不是只报普通 `not-git-repo`。
 - R3. 所有会读写 repo-local 项目事实的脚本必须使用同一个 target resolver，避免 `detect-tools`、`activate-serena`、`write-provider-config`、`bootstrap-providers` 对 repo root 的判断漂移。
-- R4. 支持显式 `--repo <path>`，让用户可以从父 workspace 对某个 child repo 运行 `$spec-mcp-setup` 和 `$spec-graph-bootstrap`。
+- R4. 支持显式 `--repo <path>`，让用户可以从父 workspace 对某个 child repo 运行 `spec-mcp-setup` 和 `spec-graph-bootstrap`。
 - R5. 当未提供 `--repo` 且存在多个候选 child repos 时，所有 state-changing project actions 必须 fail closed，输出 candidate list 和 `reason_code=workspace-target-required`，不得自动选择。
 - R6. 单 Git repo 多 module / monorepo 仍按一个 Git root 处理；module 是 repo-local topology，不拆成多个 project readiness snapshots。
 - R13. State-changing commands 必须区分 selected repo 的来源：只有 `selection_source=cwd-git-root` 或 `selection_source=explicit-repo` 才允许 repo-local 写入；`workspace-single-candidate` 只能作为建议，不得静默写入。
@@ -137,7 +137,7 @@ spec_id: 2026-04-28-005-workspace-target-readiness
 - **让 `active_repo` 在 downstream artifacts 中可见。** Plans、task packs、work-run summaries 和 review reports 应暴露 repo scope，避免后续 agent 从 cwd 推断。
 - **把 `--all-repos` 当作显式 maintenance。** 它对大型 workspace 有价值，但必须输出 per-child summaries 和 partial success semantics；不能成为 planning 或 work 的推荐常规路径。
 - **保持 monorepo 语义不变。** 如果 `git rev-parse --show-toplevel` 成功，setup/bootstrap 就 targeting 这个 Git root。Packages/modules 后续由 repo-local topology 处理，不由 workspace target resolution 拆分。
-- **优先使用结构化 reason codes，而不是散文。** `workspace-target-required`、`workspace-no-git-candidates`、`repo-target-not-git` 和 `repo-target-outside-workspace` 应稳定且 machine-readable。
+- **优先使用结构化 reason codes，而不是散文。** `workspace-target-required`、`workspace-no-git-candidates`、`repo-target-not-found`、`repo-target-not-git` 和 `repo-target-outside-workspace` 应稳定且 machine-readable。
 
 ---
 
@@ -360,7 +360,7 @@ flowchart TD
 
 - U3. **把 target resolution 接入 graph bootstrap**
 
-**目标：** 允许 `$spec-graph-bootstrap` 从 parent workspace 对显式选择的 child repo 运行；没有 target 时带 candidate facts fail closed。
+**目标：** 允许 `spec-graph-bootstrap` 从 parent workspace 对显式选择的 child repo 运行；没有 target 时带 candidate facts fail closed。
 
 **需求：** R1, R2, R3, R4, R5, R6, R10, R12, R13, R15
 

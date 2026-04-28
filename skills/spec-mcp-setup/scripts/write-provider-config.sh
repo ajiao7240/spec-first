@@ -111,9 +111,9 @@ jq --arg generated_at "$generated_at" \
       query_probe: ["npx", "-y", "gitnexus@latest", "query", "spec-first-readiness-probe", "--repo", $repo_name]
     }
     elif $key == "code-review-graph" then {
-      bootstrap: ["uvx", "code-review-graph", "build"],
-      status: ["uvx", "code-review-graph", "status"],
-      query_probe: ["uvx", "code-review-graph", "status", "--repo", $repo_root]
+      bootstrap: ["uvx", "--upgrade", "code-review-graph", "build"],
+      status: ["uvx", "--upgrade", "code-review-graph", "status"],
+      query_probe: ["uvx", "--upgrade", "code-review-graph", "status", "--repo", $repo_root]
     }
     else {} end;
 

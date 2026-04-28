@@ -88,7 +88,7 @@ if [[ " \$* " == *" --skill agent-browser "* ]]; then
   mkdir -p "\$HOME/.agents/skills/agent-browser"
   printf 'name: agent-browser\n' > "\$HOME/.agents/skills/agent-browser/SKILL.md"
 fi
-if [[ " \$* " == *" skills add ast-grep/agent-skill "* ]]; then
+if [[ " \$* " == *" add ast-grep/agent-skill "* ]]; then
   mkdir -p "\$HOME/.agents/skills/ast-grep"
   printf 'name: ast-grep\n' > "\$HOME/.agents/skills/ast-grep/SKILL.md"
 fi
@@ -144,7 +144,9 @@ assert_eq "serena depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.i
 assert_eq "Serena project bootstrap does not hard-code languages" "false" "$(jq -r '.tools[] | select(.id == "serena") | .project_bootstrap.index_command.args | index("--language") != null' "$TOOLS_JSON")"
 assert_eq "code-review-graph depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "code-review-graph") | .dependencies | join(",")' "$TOOLS_JSON")"
 assert_eq "gitnexus warmup command" "npx -y gitnexus@latest --help" "$(jq -r '.tools[] | select(.id == "gitnexus") | [.installation.unix.command] + .installation.unix.args | join(" ")' "$TOOLS_JSON")"
-assert_eq "code-review-graph mcp command" "uvx code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool" "$(jq -r '.tools[] | select(.id == "code-review-graph") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
+assert_eq "sequential-thinking uses latest npm package" "npx -y @modelcontextprotocol/server-sequential-thinking@latest" "$(jq -r '.tools[] | select(.id == "sequential-thinking") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
+assert_eq "context7 uses latest npm package" "npx -y @upstash/context7-mcp@latest" "$(jq -r '.tools[] | select(.id == "context7") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
+assert_eq "code-review-graph mcp command" "uvx --upgrade code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool" "$(jq -r '.tools[] | select(.id == "code-review-graph") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
 
 FAKE_BIN="$TMP_DIR/bin"
 COMMAND_LOG="$TMP_DIR/commands.log"
@@ -206,8 +208,8 @@ assert_eq "helper verify-only requires ast-grep global skill" "action-required" 
 helper_install="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh")"
 assert "install-helpers install emits JSON" jq -e . <<<"$helper_install"
 assert_contains "helper install runs agent-browser install" "agent-browser install" "$(cat "$COMMAND_LOG")"
-assert_contains "helper install installs global skill" "npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y" "$(cat "$COMMAND_LOG")"
-assert_contains "helper install installs ast-grep global skill" "npx skills add ast-grep/agent-skill -g -y" "$(cat "$COMMAND_LOG")"
+assert_contains "helper install installs global skill with latest skills CLI" "npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y" "$(cat "$COMMAND_LOG")"
+assert_contains "helper install installs ast-grep global skill with latest skills CLI" "npx -y skills@latest add ast-grep/agent-skill -g -y" "$(cat "$COMMAND_LOG")"
 assert "helper install writes browser install marker" test -f "$FAKE_HOME/.agent-browser/spec-first-install.json"
 assert_eq "helper install reports all helpers ready" "true" "$(jq -r '[.helper_tools[] | .result == "ready"] | all' <<<"$helper_install")"
 
@@ -226,7 +228,7 @@ rm -f "$NO_BROWSER_BIN/agent-browser"
 mkdir -p "$NO_BROWSER_HOME"
 no_browser_install="$(PATH="$NO_BROWSER_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$NO_BROWSER_HOME" bash "$SCRIPTS_DIR/install-helpers.sh")"
 assert "helper missing CLI install path emits JSON" jq -e . <<<"$no_browser_install"
-assert_contains "helper default attempts CLI install when missing" "npm install -g agent-browser --no-audit --no-fund --loglevel=error" "$(cat "$NO_BROWSER_LOG")"
+assert_contains "helper default attempts latest CLI install when missing" "npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error" "$(cat "$NO_BROWSER_LOG")"
 assert_eq "helper reports missing CLI if npm did not expose binary" "missing" "$(jq -r '.helper_tools."agent-browser".dependency_status' <<<"$no_browser_install")"
 
 PREFLIGHT_HOME="$TMP_DIR/preflight-home"
@@ -238,8 +240,8 @@ assert_eq "check-health requires agent-browser install marker" "action-required"
 WINDOWS_PREFLIGHT_HOME="$TMP_DIR/windows-preflight-home"
 mkdir -p "$WINDOWS_PREFLIGHT_HOME"
 windows_preflight="$(cd "$TMP_DIR" && PATH="$WIN_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$WINDOWS_PREFLIGHT_HOME" bash "$SCRIPTS_DIR/check-health" --json)"
-assert_eq "check-health Windows gh uses winget" "winget install --id GitHub.cli -e --silent --accept-package-agreements --accept-source-agreements" "$(jq -r '.tools[] | select(.id == "gh") | .install_command' <<<"$windows_preflight")"
-assert_eq "check-health Windows ast-grep uses npm" "npm install -g @ast-grep/cli" "$(jq -r '.tools[] | select(.id == "ast-grep") | .install_command' <<<"$windows_preflight")"
+assert_eq "check-health Windows gh upgrades or installs with winget" "if winget upgrade --id GitHub.cli -e --silent --accept-package-agreements --accept-source-agreements; then true; else winget install --id GitHub.cli -e --silent --accept-package-agreements --accept-source-agreements; fi" "$(jq -r '.tools[] | select(.id == "gh") | .install_command' <<<"$windows_preflight")"
+assert_eq "check-health Windows ast-grep uses latest npm package" "npm install -g @ast-grep/cli@latest" "$(jq -r '.tools[] | select(.id == "ast-grep") | .install_command' <<<"$windows_preflight")"
 assert_eq "check-health Windows output avoids Homebrew" "false" "$(jq -r '[.tools[].install_command, .skills[].install_command] | join("\n") | contains("brew install")' <<<"$windows_preflight")"
 
 FAKE_REPO="$TMP_DIR/repo"
@@ -433,7 +435,7 @@ assert_eq "runtime capabilities schema" "runtime-capabilities.v1" "$(jq -r '.sch
 assert_eq "provider artifacts schema" "provider-artifacts.v1" "$(jq -r '.schema_version' "$PROVIDER_ARTIFACTS")"
 assert_eq "provider projection is setup-only" "true" "$(jq -r '.boundaries.setup_only and .boundaries.does_not_run_gitnexus_analyze and .boundaries.does_not_run_code_review_graph_build' "$PROVIDER_CONFIG")"
 provider_config_repo_root="$(jq -r '.repo_root' "$PROVIDER_CONFIG")"
-assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$(basename "$provider_config_repo_root")" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y","gitnexus@latest","analyze"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y","gitnexus@latest","query","spec-first-readiness-probe","--repo",$repo_name]) and (.providers["code-review-graph"].commands.bootstrap == ["uvx","code-review-graph","build"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx","code-review-graph","status","--repo",$repo_root])' "$PROVIDER_CONFIG")"
+assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$(basename "$provider_config_repo_root")" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y","gitnexus@latest","analyze"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y","gitnexus@latest","query","spec-first-readiness-probe","--repo",$repo_name]) and (.providers["code-review-graph"].commands.bootstrap == ["uvx","--upgrade","code-review-graph","build"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx","--upgrade","code-review-graph","status","--repo",$repo_root])' "$PROVIDER_CONFIG")"
 assert_eq "providers are configured but not query-ready" "true" "$(jq -r '(.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
 assert_eq "runtime capabilities points to host ledger" "$LEDGER_PATH" "$(jq -r '.host_ledger_pointer.path' "$RUNTIME_CAPABILITIES")"
 assert_eq "runtime capabilities starts not bootstrapped" "not-bootstrapped" "$(jq -r '.project_graph_readiness.status' "$RUNTIME_CAPABILITIES")"
@@ -515,7 +517,7 @@ graph_log_after="$(cat "$COMMAND_LOG")"
 assert "graph-bootstrap emits JSON" jq -e . <<<"$bootstrap_output"
 assert_eq "graph-bootstrap result ready" "ready" "$(jq -r '.overall_status' <<<"$bootstrap_output")"
 assert_contains "graph-bootstrap runs GitNexus analyze" "npx -y gitnexus@latest analyze" "$graph_log_after"
-assert_contains "graph-bootstrap runs code-review-graph build" "uvx code-review-graph build" "$graph_log_after"
+assert_contains "graph-bootstrap runs latest code-review-graph build" "uvx --upgrade code-review-graph build" "$graph_log_after"
 if [ "$graph_log_before" = "$graph_log_after" ]; then
   echo "FAIL: graph-bootstrap should run provider build commands" >&2
   exit 1

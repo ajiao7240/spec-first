@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-28 19:23:04 leokuang: fix(spec-mcp-setup): 统一 MCP 与 helper 安装路径为 latest/upgrade 语义，确保 setup 写入和 handoff 命令默认请求最新版本 (user-visible)
 - v1.6.0 2026-04-28 18:42:41 leokuang: fix(spec-mcp-setup): 在源码技能中引入 display-width 对齐的最终状态块 renderer，并同步 shell、PowerShell 与测试契约 (user-visible)
 - v1.6.0 2026-04-28 19:08:30 leokuang: fix(spec-mcp-setup): 收紧 PowerShell renderer 失败语义，并补齐 display-width 与最终状态列契约测试 (user-visible)
 - v1.6.0 2026-04-28 leokuang: docs(readme): 修正英文 README Claude init 第 3 步文案笔误，补全中文 README Claude init 下一步区块，并为中文 README 补充相关文档小节 (user-visible)

@@ -138,10 +138,15 @@ command_shape_supported() {
       elif $kind == "status" then "status"
       elif $kind == "query_probe" then "query"
       else null end;
+    def crg_tail:
+      if length >= 3 and .[0] == "uvx" and ((.[1] == "--upgrade") or (.[1] == "--refresh")) and .[2] == "code-review-graph" then .[3:]
+      elif length >= 2 and .[0] == "uvx" and .[1] == "code-review-graph" then .[2:]
+      else [] end;
     def crg_shape:
-      if $kind == "bootstrap" then length == 3 and .[0] == "uvx" and .[1] == "code-review-graph" and .[2] == "build"
-      elif $kind == "status" then length == 3 and .[0] == "uvx" and .[1] == "code-review-graph" and .[2] == "status"
-      elif $kind == "query_probe" then length == 5 and .[0] == "uvx" and .[1] == "code-review-graph" and .[2] == "status" and .[3] == "--repo" and .[4] == $repo_root
+      (crg_tail) as $tail
+      | if $kind == "bootstrap" then $tail == ["build"]
+      elif $kind == "status" then $tail == ["status"]
+      elif $kind == "query_probe" then $tail == ["status", "--repo", $repo_root]
       else false end;
     (.providers[$provider].commands[$kind]) as $cmd
     | ($cmd | string_array)

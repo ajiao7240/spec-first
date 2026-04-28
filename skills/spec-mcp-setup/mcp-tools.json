@@ -24,17 +24,17 @@
         "kind": "warmup",
         "unix": {
           "command": "uvx",
-          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "--help"]
+          "args": ["--upgrade", "--from", "git+https://github.com/oraios/serena", "serena", "--help"]
         },
         "windows": {
           "command": "uvx",
-          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "--help"]
+          "args": ["--upgrade", "--from", "git+https://github.com/oraios/serena", "serena", "--help"]
         }
       },
       "host_config": {
         "claude": {
           "command": "uvx",
-          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"],
+          "args": ["--upgrade", "--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "ide-assistant", "--open-web-dashboard", "false"],
           "scope": "managed",
           "targets": {
             "managed": {
@@ -60,7 +60,7 @@
         },
         "codex": {
           "command": "uvx",
-          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "codex", "--open-web-dashboard", "false"],
+          "args": ["--upgrade", "--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--project-from-cwd", "--context", "codex", "--open-web-dashboard", "false"],
           "startup_timeout_sec": 90,
           "scope": "user",
           "targets": {
@@ -92,7 +92,7 @@
         "ready_marker_file": ".serena/index-ready.json",
         "index_command": {
           "command": "uvx",
-          "args": ["--from", "git+https://github.com/oraios/serena", "serena", "project", "create", ".", "--index"]
+          "args": ["--upgrade", "--from", "git+https://github.com/oraios/serena", "serena", "project", "create", ".", "--index"]
         }
       },
       "provider_config": null
@@ -110,17 +110,17 @@
         "kind": "warmup",
         "unix": {
           "command": "npx",
-          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking", "--help"]
+          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest", "--help"]
         },
         "windows": {
           "command": "npx",
-          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking", "--help"]
+          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest", "--help"]
         }
       },
       "host_config": {
         "claude": {
           "command": "npx",
-          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"],
           "scope": "managed",
           "targets": {
             "managed": {
@@ -146,7 +146,7 @@
         },
         "codex": {
           "command": "npx",
-          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"],
           "scope": "user",
           "targets": {
             "user": {
@@ -189,17 +189,17 @@
         "kind": "warmup",
         "unix": {
           "command": "npx",
-          "args": ["-y", "@upstash/context7-mcp", "--help"]
+          "args": ["-y", "@upstash/context7-mcp@latest", "--help"]
         },
         "windows": {
           "command": "npx",
-          "args": ["-y", "@upstash/context7-mcp", "--help"]
+          "args": ["-y", "@upstash/context7-mcp@latest", "--help"]
         }
       },
       "host_config": {
         "claude": {
           "command": "npx",
-          "args": ["-y", "@upstash/context7-mcp"],
+          "args": ["-y", "@upstash/context7-mcp@latest"],
           "scope": "managed",
           "targets": {
             "managed": {
@@ -225,7 +225,7 @@
         },
         "codex": {
           "command": "npx",
-          "args": ["-y", "@upstash/context7-mcp"],
+          "args": ["-y", "@upstash/context7-mcp@latest"],
           "scope": "user",
           "targets": {
             "user": {
@@ -364,17 +364,17 @@
         "kind": "warmup",
         "unix": {
           "command": "uvx",
-          "args": ["code-review-graph", "--help"]
+          "args": ["--upgrade", "code-review-graph", "--help"]
         },
         "windows": {
           "command": "uvx",
-          "args": ["code-review-graph", "--help"]
+          "args": ["--upgrade", "code-review-graph", "--help"]
         }
       },
       "host_config": {
         "claude": {
           "command": "uvx",
-          "args": ["code-review-graph", "serve", "--tools", "get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool"],
+          "args": ["--upgrade", "code-review-graph", "serve", "--tools", "get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool"],
           "scope": "managed",
           "targets": {
             "managed": {
@@ -400,7 +400,7 @@
         },
         "codex": {
           "command": "uvx",
-          "args": ["code-review-graph", "serve", "--tools", "get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool"],
+          "args": ["--upgrade", "code-review-graph", "serve", "--tools", "get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool"],
           "startup_timeout_sec": 120,
           "scope": "user",
           "targets": {

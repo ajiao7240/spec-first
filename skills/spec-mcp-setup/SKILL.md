@@ -98,8 +98,8 @@ It must not run:
 - `npx -y gitnexus@latest analyze`
 - `npx -y gitnexus@latest status`
 - `npx -y gitnexus@latest query`
-- `uvx code-review-graph build`
-- `uvx code-review-graph status`
+- `uvx --upgrade code-review-graph build`
+- `uvx --upgrade code-review-graph status`
 - the retired internal graph CLI
 
 Graph readiness compilation is owned by `spec-graph-bootstrap`. Re-running setup must not reset an existing canonical project graph readiness summary to `not-bootstrapped` when the current provider setup remains ready.
@@ -227,14 +227,16 @@ Default helper install mode must:
 5. Install the upstream/global `agent-browser` skill:
 
 ```bash
-npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
+npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
 ```
 
 6. Install the global `ast-grep` skill:
 
 ```bash
-npx skills add ast-grep/agent-skill -g -y
+npx -y skills@latest add ast-grep/agent-skill -g -y
 ```
+
+All package-backed setup commands must request the latest available version when they install or warm a tool: npm/npx packages use `@latest`, `uvx` tool invocations use `--upgrade`, Cargo installs use `--force` where supported, and package-manager handoff commands prefer upgrade-before-install semantics. `--verify-only` remains read-only and never upgrades tools.
 
 ## Readiness Ledger v2
 
@@ -316,9 +318,9 @@ Expected projection boundaries:
     "code-review-graph": {
       "configured": true,
       "commands": {
-        "bootstrap": ["uvx", "code-review-graph", "build"],
-        "status": ["uvx", "code-review-graph", "status"],
-        "query_probe": ["uvx", "code-review-graph", "status", "--repo", "<repo-root>"]
+        "bootstrap": ["uvx", "--upgrade", "code-review-graph", "build"],
+        "status": ["uvx", "--upgrade", "code-review-graph", "status"],
+        "query_probe": ["uvx", "--upgrade", "code-review-graph", "status", "--repo", "<repo-root>"]
       }
     }
   },

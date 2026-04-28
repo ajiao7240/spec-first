@@ -90,9 +90,9 @@ function Get-ProviderCommands {
   }
   if ($Provider -eq 'code-review-graph') {
     return [ordered]@{
-      bootstrap = @('uvx', 'code-review-graph', 'build')
-      status = @('uvx', 'code-review-graph', 'status')
-      query_probe = @('uvx', 'code-review-graph', 'status', '--repo', $RepoRoot)
+      bootstrap = @('uvx', '--upgrade', 'code-review-graph', 'build')
+      status = @('uvx', '--upgrade', 'code-review-graph', 'status')
+      query_probe = @('uvx', '--upgrade', 'code-review-graph', 'status', '--repo', $RepoRoot)
     }
   }
   return [ordered]@{}
