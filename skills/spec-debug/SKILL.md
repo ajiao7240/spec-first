@@ -134,7 +134,7 @@ Options to offer:
 
 1. **Fix it now** — proceed to Phase 3
 2. **Diagnosis only — I'll take it from here** — skip the fix, proceed to Phase 4's summary, and end the skill
-3. **Rethink the design** (`/spec:brainstorm`) — only when the root cause reveals a design problem (see below)
+3. **Rethink the design** (current host's brainstorm entrypoint: `/spec:brainstorm` on Claude Code, `$spec-brainstorm` on Codex) — only when the root cause reveals a design problem (see below)
 
 Do not assume the user wants action right now. The test recommendations are part of the diagnosis regardless of which path is chosen.
 
@@ -152,7 +152,7 @@ If 2-3 hypotheses are exhausted without confirmation, diagnose why:
 
 | Pattern | Diagnosis | Next move |
 |---------|-----------|-----------|
-| Hypotheses point to different subsystems | Architecture/design problem, not a localized bug | Present findings, suggest `/spec:brainstorm` |
+| Hypotheses point to different subsystems | Architecture/design problem, not a localized bug | Present findings, suggest the current host's brainstorm entrypoint (`/spec:brainstorm` on Claude Code, `$spec-brainstorm` on Codex) |
 | Evidence contradicts itself | Wrong mental model of the code | Step back, re-read the code path without assumptions |
 | Works locally, fails in CI/prod | Environment problem | Focus on env differences, config, dependencies, timing |
 | Fix works but prediction was wrong | Symptom fix, not root cause | The real cause is still active — keep investigating |
@@ -167,7 +167,7 @@ Present the diagnosis to the user before proceeding.
 
 *Reminder: one change at a time. If you are changing multiple things, stop.*
 
-If the user chose "Diagnosis only" at the end of Phase 2, skip this phase and go straight to Phase 4 for the summary — the skill's job was the diagnosis. If they chose "Rethink the design", control has transferred to `/spec:brainstorm` and this skill ends.
+If the user chose "Diagnosis only" at the end of Phase 2, skip this phase and go straight to Phase 4 for the summary — the skill's job was the diagnosis. If they chose "Rethink the design", control has transferred to the current host's brainstorm entrypoint (`/spec:brainstorm` on Claude Code, `$spec-brainstorm` on Codex) and this skill ends.
 
 **Workspace and branch check:** Before editing files:
 

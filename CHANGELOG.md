@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-29 00:28:51 leokuang: docs(spec-debug): 将设计重思考转交改为当前宿主 brainstorm 入口，覆盖 Codex `$spec-brainstorm` (user-visible)
 - v1.6.0 2026-04-29 00:24:58 leokuang: docs(spec-work): 将 oversized work 回退提示改为当前宿主 brainstorm/plan 入口，覆盖 Codex `$spec-*` (user-visible)
 - v1.6.0 2026-04-29 00:23:10 leokuang: docs(spec-plan): 同步主 skill handoff 菜单为双宿主 work 入口表述，消除 reference 与摘要副本漂移 (user-visible)
 - v1.6.0 2026-04-29 00:21:08 leokuang: docs(spec-plan): 将 plan handoff 的 work 后续入口改为 Claude/Codex 双宿主表述，避免 Codex 被引导到 slash command (user-visible)

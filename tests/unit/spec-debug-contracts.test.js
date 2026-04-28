@@ -28,4 +28,15 @@ describe('spec-debug branch-aware handoff contract', () => {
     expect(text).toContain('pattern appears in 3+ locations');
     expect(text).toContain('run `spec-compound`');
   });
+
+  test('design rethinking handoff uses the current host brainstorm entrypoint', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('current host\'s brainstorm entrypoint');
+    expect(text).toContain('/spec:brainstorm` on Claude Code');
+    expect(text).toContain('$spec-brainstorm` on Codex');
+    expect(text).not.toContain('**Rethink the design** (`/spec:brainstorm`)');
+    expect(text).not.toContain('suggest `/spec:brainstorm`');
+    expect(text).not.toContain('transferred to `/spec:brainstorm`');
+  });
 });
