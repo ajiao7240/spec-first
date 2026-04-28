@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-29 01:12:17 leokuang: docs(browser-tools): 将 agent-browser 缺失提示统一为当前宿主 MCP setup 入口 (user-visible)
 - v1.6.0 2026-04-29 01:10:42 leokuang: docs(spec-update): 将 marketplace 本地开发提示中的更新入口改为双宿主表述 (user-visible)
 - v1.6.0 2026-04-29 00:50:00 leokuang: docs(spec-plan): 清理 Proof stale-local 提示中的残留 `Start /spec:work`，统一为 host-neutral `Start work` (user-visible)
 - v1.6.0 2026-04-29 00:36:10 leokuang: docs(spec-plan): 将 universal planning 中 non-software fallback 与 work 禁用提示改为双宿主入口表述 (user-visible)

@@ -7,7 +7,7 @@ Capture 3-5 browser screenshots at key UI states and stitch into an animated GIF
 **Label:** "Demo"
 **Required tools:** agent-browser, ffmpeg
 
-If `agent-browser` is not installed, inform the user: "`agent-browser` is not installed. Run `/spec:mcp-setup` in Claude or `$spec-mcp-setup` in Codex to install required dependencies." Then fall back to a lower tier (static screenshots or skip).
+If `agent-browser` is not installed, inform the user: "`agent-browser` is not installed. Run the current host's MCP setup entrypoint (`/spec:mcp-setup` on Claude Code, `$spec-mcp-setup` on Codex) to install required dependencies." Then fall back to a lower tier (static screenshots or skip).
 
 For deeper upstream usage or troubleshooting guidance, use `agent-browser skills get core`.
 

@@ -220,8 +220,12 @@ describe('browser helper tool contracts', () => {
       const prompt = read(promptPath);
 
       expect(prompt).toContain('agent-browser');
+      expect(prompt).toContain('current host\'s MCP setup entrypoint');
+      expect(prompt).toContain('/spec:mcp-setup` on Claude Code');
+      expect(prompt).toContain('$spec-mcp-setup` on Codex');
       expect(prompt).not.toContain('skills/agent-browser');
       expect(prompt).not.toMatch(/load\/use the `agent-browser` skill/i);
+      expect(prompt).not.toContain('in Claude or `$spec-mcp-setup` in Codex');
     }
 
     const testBrowser = read(path.join(REPO_ROOT, 'skills', 'test-browser', 'SKILL.md'));
