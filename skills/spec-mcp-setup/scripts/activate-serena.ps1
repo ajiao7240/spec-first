@@ -85,12 +85,19 @@ function Normalize-LanguageValues {
   @($normalized)
 }
 
+if (-not $Refresh -and (Test-Path -LiteralPath $projectFile -PathType Leaf) -and (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf)) {
+  exit 0
+}
+
 $effectiveLanguages = @(Normalize-LanguageValues -Values $Language)
-if ($Refresh -and $effectiveLanguages.Count -eq 0) {
+if ($effectiveLanguages.Count -eq 0 -and (Test-Path -LiteralPath $projectFile -PathType Leaf)) {
   $effectiveLanguages = @(Get-SerenaProjectLanguages -Path $projectFile)
-  if ($effectiveLanguages.Count -eq 0) {
-    throw 'Serena refresh requires -Language when no existing project languages are available. Let the LLM inspect project evidence and pass explicit values, for example: -Language kotlin,java'
+}
+if ($effectiveLanguages.Count -eq 0) {
+  if ($Refresh) {
+    throw 'Serena refresh requires -Language when no existing project languages are available. Let the LLM inspect project evidence and pass supported Serena languages, for example: -Language typescript or -Language kotlin,java'
   }
+  throw 'Serena first-time bootstrap requires -Language for non-interactive setup. Let the LLM inspect project evidence and pass supported Serena languages, for example: -Language typescript or -Language kotlin,java'
 }
 
 function New-IndexArgs {
@@ -120,10 +127,6 @@ function New-LanguageAttempts {
     }
   }
   @($attempts)
-}
-
-if (-not $Refresh -and (Test-Path -LiteralPath $projectFile -PathType Leaf) -and (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf)) {
-  exit 0
 }
 
 New-Item -ItemType Directory -Force -Path $projectDir | Out-Null

@@ -143,15 +143,18 @@ if [ "$REFRESH" != "true" ] && [ -f "$PROJECT_FILE" ] && [ -f "$READY_MARKER_PAT
 fi
 
 EFFECTIVE_LANGUAGES_TEXT="$LANGUAGES_TEXT"
-if [ "$REFRESH" = "true" ] && [ -z "$EFFECTIVE_LANGUAGES_TEXT" ]; then
+if [ -z "$EFFECTIVE_LANGUAGES_TEXT" ] && [ -f "$PROJECT_FILE" ]; then
   EFFECTIVE_LANGUAGES_TEXT="$(read_project_languages "$PROJECT_FILE")"
-  if [ -z "$EFFECTIVE_LANGUAGES_TEXT" ]; then
-    {
-      echo "activate-serena.sh: Serena refresh requires --language when no existing project languages are available."
-      echo "activate-serena.sh: Let the LLM inspect project evidence and pass explicit values, for example: --language kotlin --language java"
-    } >&2
-    exit 1
+fi
+
+if [ -z "$EFFECTIVE_LANGUAGES_TEXT" ]; then
+  if [ "$REFRESH" = "true" ]; then
+    echo "activate-serena.sh: Serena refresh requires --language when no existing project languages are available." >&2
+  else
+    echo "activate-serena.sh: Serena first-time bootstrap requires --language for non-interactive setup." >&2
   fi
+  echo "activate-serena.sh: Let the LLM inspect project evidence and pass supported Serena languages, for example: --language typescript or --language kotlin --language java." >&2
+  exit 1
 fi
 
 mkdir -p "$PROJECT_DIR"

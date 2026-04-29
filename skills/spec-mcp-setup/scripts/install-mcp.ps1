@@ -213,6 +213,10 @@ foreach ($tool in @($ToolsJson.tools)) {
         $nextAction = '检查当前仓库 Serena project bootstrap'
         $exitCode = $activateRun.exit_code
         $diagnosticSummary = $activateRun.diagnostic_summary
+        if ($diagnosticSummary -like '*first-time bootstrap requires -Language*') {
+          $reasonCode = 'serena_language_required'
+          $nextAction = '基于项目证据选择 Serena 语言，并用 -SerenaLanguage <language> 重试'
+        }
       }
     }
   }

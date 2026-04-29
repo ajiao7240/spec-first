@@ -26,7 +26,12 @@ install-mcp.*
   |-- write Claude/Codex host MCP config
   |-- support Codex quoted TOML key:
   |     [mcp_servers."code-review-graph"]
-  |-- bootstrap Serena current repo without destroying an existing ready project
+  |-- bootstrap Serena current repo with explicit LLM-selected languages
+  |-- fail fast before Serena interactive language selection when no language facts exist
+  |-- return serena_language_required so the agent can inspect evidence and retry
+  |-- reuse existing .serena/project.yml languages for non-refresh rebuilds
+  |-- never ask the user for language when repo evidence is clear
+  |-- keep an existing ready Serena project without destroying it
   |-- keep internal setup metadata out of host MCP server entries
   |-- treat Codex higher-precedence config as blocking only for the same MCP section
   |-- do not run graph provider builds

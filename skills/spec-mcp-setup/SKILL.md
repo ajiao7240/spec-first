@@ -99,7 +99,11 @@ pwsh -File skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1 -Repo proj
 
 `--repo` is workspace-scoped in this MVP. From a non-Git parent workspace it must resolve to a child Git repo inside the current workspace; escaping the workspace returns `repo-target-outside-workspace`.
 
-Serena project language selection is semantic. The default deterministic bootstrap must not hard-code TypeScript/Vue or any other project language; when no `--language` values are passed for a first-time bootstrap, Serena's own project creation may infer languages from the target repo. If the agent notices an existing `.serena/project.yml` language mismatch, it should inspect bounded project evidence such as build files, package manifests, and representative source files, decide the intended language set, and run the safe refresh primitive instead of editing `.serena/project.yml` by hand:
+Serena project language selection is semantic and belongs to the LLM, not to shell scripts. Before a first-time Serena bootstrap, inspect bounded project evidence such as build files, package manifests, and representative source files, choose supported Serena language labels, and pass them through the installer. Do not ask the user to choose a language when the evidence is clear; continue with the LLM-selected language set. Node.js, JavaScript, TypeScript, and VitePress-style repos should use Serena language `typescript`; do not pass `javascript`, `json`, or `markdown` just because manifests, config files, or docs are present.
+
+The deterministic bootstrap must not hard-code TypeScript/Vue or any other project language, and it must not enter Serena's interactive language-selection flow. If no language values are passed for a first-time bootstrap, `activate-serena.*` fails fast with a diagnostic asking the agent to inspect project evidence and pass explicit supported languages. If the agent notices an existing `.serena/project.yml` language mismatch, it should inspect bounded project evidence, decide the intended language set, and run the safe refresh primitive instead of editing `.serena/project.yml` by hand:
+
+If `install-mcp.*` returns Serena `reason_code=serena_language_required`, do not ask the user for a language unless local evidence is genuinely ambiguous. Inspect project evidence, choose supported Serena language labels, and immediately rerun `install-mcp.*` with `--serena-language` / `-SerenaLanguage`.
 
 ```bash
 bash skills/spec-mcp-setup/scripts/activate-serena.sh --refresh --language kotlin --language java
@@ -123,7 +127,7 @@ Windows:
 pwsh -File skills/spec-mcp-setup/scripts/activate-serena.ps1 -VerifyOnly
 ```
 
-Refresh is intentionally non-interactive. If `--refresh` / `-Refresh` is used without explicit language values, the script may only reuse languages from the existing `.serena/project.yml`; when no existing languages are available, it must fail with a clear diagnostic and ask the agent to pass explicit languages. Do not use refresh-without-language as a way to ask Serena to re-decide a mismatched project.
+Refresh is intentionally non-interactive. If `--refresh` / `-Refresh` is used without explicit language values, the script may only reuse languages from the existing `.serena/project.yml`; when no existing languages are available, it must fail with a clear diagnostic and ask the agent to pass explicit languages. A non-refresh rebuild may also reuse languages from an existing `.serena/project.yml`; first-time setup without existing language facts must fail fast before invoking Serena. Do not use no-language setup as a way to ask Serena to re-decide a mismatched project.
 
 When the LLM supplies multiple languages, the safe refresh primitive should make a deterministic best-effort attempt: try the complete language set first, then retry each supplied language individually. This lets a large Android repo continue with `java` if the `kotlin` language server fails to initialize, without the script inventing a project language.
 
@@ -235,6 +239,18 @@ Windows:
 
 ```powershell
 pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1
+```
+
+For a first-time repo bootstrap, include the LLM-selected Serena language set in the install command:
+
+```bash
+bash skills/spec-mcp-setup/scripts/install-mcp.sh --serena-language typescript
+```
+
+Windows:
+
+```powershell
+pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1 -SerenaLanguage typescript
 ```
 
 Write the final readiness ledger and project setup facts:

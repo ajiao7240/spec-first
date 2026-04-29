@@ -1,6 +1,10 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-29 12:00:30 leokuang: fix(spec-mcp-setup): 调整 PowerShell Serena ready fast-path 到语言选择前，保持幂等 rerun 不要求语言 (user-visible)
+- v1.6.0 2026-04-29 11:38:40 leokuang: fix(spec-mcp-setup): Serena 首次 bootstrap 无显式语言时 fail-fast，并要求 agent 基于项目证据直接传入支持语言避免交互选择 (user-visible)
+- v1.6.0 2026-04-29 11:26:00 leokuang: chore(spec-mcp-setup): 刷新项目本地示例配置以匹配当前 setup contract (user-visible)
+- v1.6.0 2026-04-29 11:15:48 leokuang: docs(graph-bootstrap): 要求最终结果表格拆分 GitNexus compiled CLI readiness 与 session-local live MCP evidence，避免 MCP 探测成功被误写成 query_ready (user-visible)
 - v1.6.0 2026-04-29 03:18:00 leokuang: docs(graph-bootstrap): 明确 GitNexus CLI query probe 与 live MCP probe 的边界，要求 LLM 在工具可用且能澄清交付时做一次 session-local MCP 探测但不回写 compiled query_ready (user-visible)
 - v1.6.0 2026-04-29 03:05:00 leokuang: docs(gitnexus): 新增 GitNexus 安装、索引生成、readiness 与 live MCP 使用链路的 10 轮问题审查报告 (user-visible)
 - v1.6.0 2026-04-29 02:36:00 leokuang: docs(readme): 回收 README 共享段落中的 Claude/Codex 入口映射，只保留当前宿主 workflow 表述并用入口表承载公开映射 (user-visible)

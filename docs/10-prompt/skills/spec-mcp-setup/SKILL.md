@@ -23,6 +23,10 @@
 - 同时提示用户：默认安全路径是先重启 Claude Code/Codex 或新开会话，让新写入的 MCP config 被宿主加载，再运行 graph bootstrap；如果 agent 判断当前只需调用 deterministic bootstrap 脚本，可以接受“继续完成”，但下游 workflow 前仍要重启或新开会话。
 - 重复执行 setup、init 后重新安装、升级后重新 init/verify 时，如果 canonical graph artifacts 仍存在且当前 provider 仍 ready，必须从 canonical artifacts 重建 `query_ready=true` / `bootstrap_required=false` projection，不要把已完成 bootstrap 的 projection 打回 pending。
 - 卸载或 provider 不再 ready 时，不保留 query readiness；ledger/projection 应反映 action-required 或需要重新 bootstrap。
+- Serena 语言选择是语义决策，由 LLM 基于 package manifest、构建文件和代表性源码判断；证据明确时不要询问用户。Node.js / JavaScript / TypeScript / VitePress 类仓库使用 Serena `typescript`，不要因为存在 manifest、配置或文档就传 `javascript`、`json`、`markdown`。
+- 首次 Serena bootstrap 必须由 agent 传入显式 Serena 语言；脚本不得进入 Serena 交互式语言选择。无既有 `.serena/project.yml` 语言且未传语言时，`activate-serena.*` fail-fast 并要求 agent 传入显式语言。
+- `install-mcp.*` 遇到首次无语言时应返回 `reason_code=serena_language_required` 和明确重试动作；agent 看到该 reason 后基于本地证据选语言并立即重试，不把明确场景交给用户决策。
+- 非 refresh 重建可复用既有 `.serena/project.yml` 的语言；refresh 未显式传语言时也只能复用既有语言，不让 Serena 重新交互决策。
 - `.spec-first/config/graph-providers.json` 是 provider selection projection，不是第二个 registry。
 - 首次 setup 后 graph providers 是 `configured=true`、`enabled_for_bootstrap=true`、`query_ready=false`；重复 setup 可在 provider 仍 ready 且 canonical artifacts 仍 current 时投影 `query_ready=true`。
 - 重复执行 setup 必须幂等且非破坏：Serena 已 ready 时不强制重建；需要重建时先保留旧 `.serena/project.yml` 与 ready marker，失败要恢复旧状态。

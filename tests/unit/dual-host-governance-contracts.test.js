@@ -127,6 +127,23 @@ describe('dual-host governance contracts', () => {
     expect(mcpSetup).toContain('下一步:');
   });
 
+  test('mcp setup keeps Serena language selection with the agent and out of interactive CLI flows', () => {
+    const mcpSetup = read(MCP_SETUP_SKILL_PATH);
+    const mirror = read(DOCS_MCP_SETUP_SKILL_PATH);
+    const flow = read(DOCS_MCP_SETUP_FLOW_PATH);
+
+    expect(mcpSetup).toContain('Serena project language selection is semantic and belongs to the LLM');
+    expect(mcpSetup).toContain('Do not ask the user to choose a language when the evidence is clear');
+    expect(mcpSetup).toContain('use Serena language `typescript`');
+    expect(mcpSetup).toContain('reason_code=serena_language_required');
+    expect(mcpSetup).toContain('first-time setup without existing language facts must fail fast before invoking Serena');
+    expect(mcpSetup).not.toContain("Serena's own project creation may infer languages");
+    expect(mirror).toContain('证据明确时不要询问用户');
+    expect(mirror).toContain('reason_code=serena_language_required');
+    expect(flow).toContain('fail fast before Serena interactive language selection');
+    expect(flow).toContain('return serena_language_required');
+  });
+
   test('docs-side governance directory keeps only the human-readable contract', () => {
     expect(fs.readdirSync(DOCS_SIDE_GOVERNANCE_DIR).sort((a, b) => a.localeCompare(b))).toEqual([
       'README.md',

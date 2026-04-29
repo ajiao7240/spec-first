@@ -31,6 +31,11 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('session-local evidence only');
     expect(skill).toContain('Do not rewrite `.spec-first/graph/*`');
     expect(skill).toContain('do not set compiled `query_ready=true`');
+    expect(skill).toContain('update the final user-facing result table');
+    expect(skill).toContain('CLI graph_ready');
+    expect(skill).toContain('CLI query_ready');
+    expect(skill).toContain('Live MCP Probe');
+    expect(skill).toContain('Do not collapse `Live MCP Probe=passed` into `CLI query_ready=true`');
     expect(skill).toContain('code-review-graph and bounded direct repo reads');
     expect(skill).toContain('needs a restart or a new session');
 
@@ -39,6 +44,8 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(mirror).toContain('LLM 应在脚本完成后做一次 bounded live MCP probe');
     expect(mirror).toContain('live MCP probe 只尝试一个具体调用');
     expect(mirror).toContain('live MCP 成功只作为 session-local evidence');
+    expect(mirror).toContain('最终用户可见结果表格必须拆分 compiled CLI readiness 与 session-local MCP evidence');
+    expect(mirror).toContain('`Live MCP Probe=passed` 不能折叠成 `CLI query_ready=true`');
     expect(mirror).toContain('不把 compiled `query_ready` 改成 true');
   });
 });

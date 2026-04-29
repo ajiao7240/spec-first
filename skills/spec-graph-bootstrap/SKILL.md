@@ -127,6 +127,15 @@ For GitNexus specifically:
 - If the MCP tool is unavailable or fails, state that live MCP was unavailable or failed, then continue with code-review-graph and bounded direct repo reads.
 - If the host was just configured by `spec-mcp-setup`, remind the user that Claude Code / Codex usually needs a restart or a new session before newly written MCP servers are loaded.
 
+When live MCP probing is attempted or would clarify an otherwise degraded GitNexus result, update the final user-facing result table with separate compiled and session-local columns. The table must preserve the canonical CLI readiness values while showing the current session's MCP evidence:
+
+| Provider | CLI graph_ready | CLI query_ready | Live MCP Probe | Final Use |
+|---|---:|---:|---|---|
+| code-review-graph | `<true/false>` | `<true/false>` | `not applicable` | `<compiled readiness guidance>` |
+| gitnexus | `<true/false>` | `<true/false>` | `passed/failed/unavailable/not loaded/not attempted` | `<session-local MCP guidance plus compiled readiness caveat>` |
+
+Do not collapse `Live MCP Probe=passed` into `CLI query_ready=true`. If live MCP succeeds while compiled GitNexus `query_ready=false`, say that GitNexus MCP may be used in the current session, but downstream compiled facts still remain degraded or query-unverified.
+
 ## Outputs
 
 Provider raw, normalized, and status artifacts live under `.spec-first/providers/<provider>/`:

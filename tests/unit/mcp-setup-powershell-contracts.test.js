@@ -277,8 +277,16 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(activateSerenaSource).toContain('[string[]]$Language = @()');
     expect(activateSerenaSource).toContain('function Get-SerenaProjectLanguages');
     expect(activateSerenaSource).toContain('function Normalize-LanguageValues');
+    const readyFastPathIndex = activateSerenaSource.indexOf('if (-not $Refresh -and (Test-Path -LiteralPath $projectFile -PathType Leaf) -and (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf))');
+    const languageSelectionIndex = activateSerenaSource.indexOf('$effectiveLanguages = @(Normalize-LanguageValues -Values $Language)');
+    expect(readyFastPathIndex).toBeGreaterThan(-1);
+    expect(languageSelectionIndex).toBeGreaterThan(-1);
+    expect(readyFastPathIndex).toBeLessThan(languageSelectionIndex);
     expect(activateSerenaSource).toContain('$effectiveLanguages = @(Normalize-LanguageValues -Values $Language)');
+    expect(activateSerenaSource).toContain('$effectiveLanguages.Count -eq 0 -and (Test-Path -LiteralPath $projectFile -PathType Leaf)');
     expect(activateSerenaSource).toContain('Serena refresh requires -Language');
+    expect(activateSerenaSource).toContain('Serena first-time bootstrap requires -Language');
+    expect(activateSerenaSource).toContain('supported Serena languages');
     expect(activateSerenaSource).toContain('function New-IndexArgs');
     expect(activateSerenaSource).toContain('function New-LanguageAttempts');
     expect(activateSerenaSource).toContain("$args.Add('--language')");
@@ -303,6 +311,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installMcpSource).toContain('$filteredSerenaLanguages = @(Normalize-LanguageValues -Values $SerenaLanguage)');
     expect(installMcpSource).toContain('$activateParams.Language = @($filteredSerenaLanguages)');
     expect(installMcpSource).toContain("activate-serena.ps1') @activateParams");
+    expect(installMcpSource).toContain("serena_language_required");
+    expect(installMcpSource).toContain('-SerenaLanguage <language>');
   });
 
   test('project config bootstrap keeps local setup outside readiness ledger', () => {

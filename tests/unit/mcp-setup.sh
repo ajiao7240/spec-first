@@ -313,7 +313,7 @@ legacy_delete="$(cd "$FAKE_REPO" && bash "$SCRIPTS_DIR/bootstrap-project-config.
 assert_eq "legacy markdown deletion is explicit" "deleted" "$(jq -r '.legacy.compound_engineering_markdown_status' <<<"$legacy_delete")"
 test ! -e "$FAKE_REPO/compound-engineering.local.md"
 
-install_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh")"
+install_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --serena-language typescript)"
 assert "install-mcp emits JSON" jq -e . <<<"$install_output"
 assert_eq "installer configures all required tools" "serena,sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$install_output")"
 assert_eq "installer has no skipped optional results" "true" "$(jq -r 'all(.results[]; .status == "ready")' <<<"$install_output")"
@@ -321,15 +321,12 @@ assert_eq "installer writes GitNexus config" "npx" "$(jq -r '.mcpServers.gitnexu
 assert_eq "installer writes code-review-graph config" "uvx" "$(jq -r '.mcpServers["code-review-graph"].command' "$FAKE_HOME/.claude.json")"
 assert_eq "installer does not write internal scope into Claude config" "false" "$(jq -r '.mcpServers.serena | has("scope")' "$FAKE_HOME/.claude.json")"
 assert "Serena ready marker exists" test -f "$FAKE_REPO/.serena/index-ready.json"
-if grep -q 'serena project create .*--language typescript' "$COMMAND_LOG"; then
-  echo "FAIL: default Serena bootstrap should let Serena infer project languages" >&2
-  exit 1
-fi
+assert_contains "installer uses explicit LLM-selected TypeScript language for Node repo" "serena project create . --index --language typescript" "$(cat "$COMMAND_LOG")"
 
 STDIN_DRAIN_REPO="$TMP_DIR/stdin-drain-repo"
 STDIN_DRAIN_HOME="$TMP_DIR/stdin-drain-home"
 make_repo "$STDIN_DRAIN_REPO"
-stdin_drain_output="$(cd "$STDIN_DRAIN_REPO" && PATH="$TEST_PATH" HOME="$STDIN_DRAIN_HOME" MCP_SETUP_HOST=claude DRAIN_NPX_STDIN=1 bash "$SCRIPTS_DIR/install-mcp.sh")"
+stdin_drain_output="$(cd "$STDIN_DRAIN_REPO" && PATH="$TEST_PATH" HOME="$STDIN_DRAIN_HOME" MCP_SETUP_HOST=claude DRAIN_NPX_STDIN=1 bash "$SCRIPTS_DIR/install-mcp.sh" --serena-language typescript)"
 assert "install-mcp with stdin-draining npx emits JSON" jq -e . <<<"$stdin_drain_output"
 assert_eq "installer protects tool iteration from child stdin drains" "serena,sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$stdin_drain_output")"
 assert_eq "stdin-drain installer writes latest sequential-thinking config" "@modelcontextprotocol/server-sequential-thinking@latest" "$(jq -r '.mcpServers["sequential-thinking"].args[1]' "$STDIN_DRAIN_HOME/.claude.json")"
@@ -346,6 +343,24 @@ make_fake_bin "$INSTALL_LANG_BIN" "$INSTALL_LANG_LOG"
 install_lang_output="$(cd "$INSTALL_LANG_REPO" && PATH="$INSTALL_LANG_BIN:$TEST_PATH" HOME="$INSTALL_LANG_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --only serena --serena-languages kotlin,java)"
 assert "install-mcp with Serena languages emits JSON" jq -e . <<<"$install_lang_output"
 assert_contains "install-mcp forwards LLM-selected Serena languages" "serena project create . --index --language kotlin --language java" "$(cat "$INSTALL_LANG_LOG")"
+
+INSTALL_NO_LANG_REPO="$TMP_DIR/install-no-lang-repo"
+INSTALL_NO_LANG_HOME="$TMP_DIR/install-no-lang-home"
+INSTALL_NO_LANG_BIN="$TMP_DIR/install-no-lang-bin"
+INSTALL_NO_LANG_LOG="$TMP_DIR/install-no-lang-commands.log"
+make_repo "$INSTALL_NO_LANG_REPO"
+mkdir -p "$INSTALL_NO_LANG_HOME"
+touch "$INSTALL_NO_LANG_LOG"
+make_fake_bin "$INSTALL_NO_LANG_BIN" "$INSTALL_NO_LANG_LOG"
+install_no_lang_output="$(cd "$INSTALL_NO_LANG_REPO" && PATH="$INSTALL_NO_LANG_BIN:$TEST_PATH" HOME="$INSTALL_NO_LANG_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --only serena)"
+assert "install-mcp first-time no-language emits JSON" jq -e . <<<"$install_no_lang_output"
+assert_eq "install-mcp classifies first-time missing Serena language" "partial:serena_language_required" "$(jq -r '.results[] | select(.tool_id == "serena") | "\(.status):\(.reason_code)"' <<<"$install_no_lang_output")"
+assert_contains "install-mcp no-language next action names language flag" "--serena-language <language>" "$(jq -r '.results[] | select(.tool_id == "serena") | .next_action' <<<"$install_no_lang_output")"
+assert_contains "install-mcp no-language diagnostic preserves fast-fail cause" "first-time bootstrap requires --language" "$(jq -r '.results[] | select(.tool_id == "serena") | .diagnostic_summary' <<<"$install_no_lang_output")"
+if grep -q 'serena project create' "$INSTALL_NO_LANG_LOG"; then
+  echo "FAIL: install-mcp first-time no-language path must not invoke Serena interactive project create" >&2
+  exit 1
+fi
 
 assert_contains "setup does not run GitNexus analyze" "$GITNEXUS_PACKAGE --help" "$(cat "$COMMAND_LOG")"
 if grep -q "$GITNEXUS_PACKAGE analyze" "$COMMAND_LOG"; then
@@ -379,6 +394,24 @@ make_repo "$SERENA_VERIFY_MISSING_REPO"
 serena_verify_missing="$(cd "$SERENA_VERIFY_MISSING_REPO" && PATH="$SERENA_FAIL_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --verify-only)"
 assert_eq "Serena verify-only reports missing project as action required" "action-required:serena-project-not-ready" "$(jq -r '"\(.overall_status):\(.reason_code)"' <<<"$serena_verify_missing")"
 assert "Serena verify-only does not create project directory" test ! -e "$SERENA_VERIFY_MISSING_REPO/.serena"
+
+SERENA_FIRST_TIME_NO_LANG_REPO="$TMP_DIR/serena-first-time-no-lang-repo"
+SERENA_FIRST_TIME_NO_LANG_BIN="$TMP_DIR/serena-first-time-no-lang-bin"
+SERENA_FIRST_TIME_NO_LANG_LOG="$TMP_DIR/serena-first-time-no-lang-commands.log"
+make_repo "$SERENA_FIRST_TIME_NO_LANG_REPO"
+touch "$SERENA_FIRST_TIME_NO_LANG_LOG"
+make_fake_bin "$SERENA_FIRST_TIME_NO_LANG_BIN" "$SERENA_FIRST_TIME_NO_LANG_LOG"
+set +e
+serena_first_time_no_lang_output="$(cd "$SERENA_FIRST_TIME_NO_LANG_REPO" && PATH="$SERENA_FIRST_TIME_NO_LANG_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" 2>&1)"
+serena_first_time_no_lang_status=$?
+set -e
+assert_eq "Serena first-time bootstrap without language fails fast" "1" "$serena_first_time_no_lang_status"
+assert_contains "Serena first-time bootstrap asks LLM for supported language" "first-time bootstrap requires --language" "$serena_first_time_no_lang_output"
+if grep -q 'serena project create' "$SERENA_FIRST_TIME_NO_LANG_LOG"; then
+  echo "FAIL: first-time no-language bootstrap must not invoke Serena interactive project create" >&2
+  exit 1
+fi
+assert "Serena first-time no-language failure does not create project directory" test ! -e "$SERENA_FIRST_TIME_NO_LANG_REPO/.serena"
 
 SERENA_RESTORE_REPO="$TMP_DIR/serena-restore-repo"
 make_repo "$SERENA_RESTORE_REPO"
@@ -437,6 +470,20 @@ touch "$SERENA_REUSE_LOG"
 make_fake_bin "$SERENA_REUSE_BIN" "$SERENA_REUSE_LOG"
 (cd "$SERENA_REUSE_REPO" && PATH="$SERENA_REUSE_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --refresh)
 assert_contains "Serena refresh without explicit languages reuses existing config languages" "serena project create . --index --language typescript --language vue" "$(cat "$SERENA_REUSE_LOG")"
+
+SERENA_REUSE_REBUILD_REPO="$TMP_DIR/serena-reuse-rebuild-repo"
+SERENA_REUSE_REBUILD_BIN="$TMP_DIR/serena-reuse-rebuild-bin"
+SERENA_REUSE_REBUILD_LOG="$TMP_DIR/serena-reuse-rebuild-commands.log"
+make_repo "$SERENA_REUSE_REBUILD_REPO"
+mkdir -p "$SERENA_REUSE_REBUILD_REPO/.serena"
+cat > "$SERENA_REUSE_REBUILD_REPO/.serena/project.yml" <<'YAML'
+languages:
+- typescript
+YAML
+touch "$SERENA_REUSE_REBUILD_LOG"
+make_fake_bin "$SERENA_REUSE_REBUILD_BIN" "$SERENA_REUSE_REBUILD_LOG"
+(cd "$SERENA_REUSE_REBUILD_REPO" && PATH="$SERENA_REUSE_REBUILD_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh")
+assert_contains "Serena non-refresh rebuild reuses existing config languages" "serena project create . --index --language typescript" "$(cat "$SERENA_REUSE_REBUILD_LOG")"
 
 SERENA_NO_LANG_REPO="$TMP_DIR/serena-no-lang-repo"
 make_repo "$SERENA_NO_LANG_REPO"

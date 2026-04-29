@@ -289,6 +289,10 @@ EOF
         next_action="检查当前仓库 Serena project bootstrap"
         exit_code="$RUN_EXIT_CODE"
         diagnostic_summary="$RUN_DIAGNOSTIC"
+        if [[ "$RUN_DIAGNOSTIC" == *"first-time bootstrap requires --language"* ]]; then
+          reason_code="serena_language_required"
+          next_action="基于项目证据选择 Serena 语言，并用 --serena-language <language> 重试"
+        fi
       fi
     fi
   fi
