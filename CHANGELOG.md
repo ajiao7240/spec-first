@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-29 12:10:43 leokuang: docs(graph-bootstrap): 新增 Graph Blast Radius 产品能力地图与路线图，并同步专题索引 (user-visible)
+- v1.6.0 2026-04-29 12:02:16 leokuang: docs(solutions): 沉淀宿主入口映射只属于 init 与治理层的 workflow 边界经验 (user-visible)
 - v1.6.0 2026-04-29 12:00:30 leokuang: fix(spec-mcp-setup): 调整 PowerShell Serena ready fast-path 到语言选择前，保持幂等 rerun 不要求语言 (user-visible)
 - v1.6.0 2026-04-29 11:38:40 leokuang: fix(spec-mcp-setup): Serena 首次 bootstrap 无显式语言时 fail-fast，并要求 agent 基于项目证据直接传入支持语言避免交互选择 (user-visible)
 - v1.6.0 2026-04-29 11:26:00 leokuang: chore(spec-mcp-setup): 刷新项目本地示例配置以匹配当前 setup contract (user-visible)

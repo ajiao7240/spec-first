@@ -16,13 +16,16 @@
 3. [2026-04-18-spec-graph-bootstrap-target-model-and-migration-plan.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-target-model-and-migration-plan.md)  
    作用：给出面向未来的目标产物模型与迁移路线图，回答哪些产物应保留为真源、哪些应降级为 runtime cache、哪些应退出默认核心集合。
 
-4. [2026-04-18-spec-graph-bootstrap-optimization-roadmap.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-optimization-roadmap.md)  
+4. [2026-04-29-graph-blast-radius-product-capability-map-and-roadmap.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-29-graph-blast-radius-product-capability-map-and-roadmap.md)  
+   作用：定义 Graph Blast Radius 的产品定位、能力边界、成熟度判断与阶段路线图，并明确它与 graph readiness、live MCP probe、下游 workflow 消费之间的关系。
+
+5. [2026-04-18-spec-graph-bootstrap-optimization-roadmap.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-optimization-roadmap.md)  
    作用：整改路线图，把专项审查中的问题转成可执行的优化顺序、任务组和阶段目标。
 
-5. [2026-04-18-graphify-integration-analysis.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-graphify-integration-analysis.md)  
+6. [2026-04-18-graphify-integration-analysis.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-graphify-integration-analysis.md)  
    作用：分析 `graphify` 的项目思想、架构逻辑及其与 `spec-graph-bootstrap` 的集成边界，明确哪些能力适合以 sidecar 方式接入，哪些不应进入 Stage-0 主合同与主 gate。
 
-6. [2026-04-18-integration-decision-checklist.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-integration-decision-checklist.md)  
+7. [2026-04-18-integration-decision-checklist.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-integration-decision-checklist.md)  
    作用：把“哪些必须集成、哪些可选增强、哪些不要进入主路径”收敛成一份可执行清单，便于后续按高质量编码目标做取舍。
 
 ## 文档角色
@@ -38,6 +41,9 @@
 
 - `target-model-and-migration-plan`
   - 作用：定义更轻、更清晰的目标产物结构，并给出从当前实现迁移到目标结构的阶段化路径
+
+- `product-capability-map-and-roadmap`
+  - 作用：定义 Graph Blast Radius 的产品能力边界、用户价值、阶段路线图，以及它与 `spec-graph-bootstrap` / external graph provider readiness 的关系
 
 - `graphify-integration-analysis`
   - 作用：定义 `graphify` 在 `spec-first` 中的正确角色，避免把语义图旁路误接成主事实合同或主质量门
@@ -56,6 +62,7 @@
 
 - 专项审查：已完成
 - 整改路线图：已形成
+- 产品能力地图：已形成
 - 实施跟踪：尚未建立
 
 ## 目录治理规则
