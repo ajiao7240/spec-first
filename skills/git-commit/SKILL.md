@@ -32,10 +32,14 @@ Create a single, well-crafted git commit from the current working tree changes.
 
 **In Claude Code, skip this section — the data above is already available.**
 
-Run this single command to gather all context:
+Run these commands separately to gather context without interleaving unrelated output:
 
 ```bash
-printf '=== STATUS ===\n'; git status; printf '\n=== DIFF ===\n'; git diff HEAD; printf '\n=== BRANCH ===\n'; git branch --show-current; printf '\n=== LOG ===\n'; git log --oneline -10; printf '\n=== DEFAULT_BRANCH ===\n'; git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo '__DEFAULT_BRANCH_UNRESOLVED__'
+git status
+git diff HEAD
+git branch --show-current
+git log --oneline -10
+git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo '__DEFAULT_BRANCH_UNRESOLVED__'
 ```
 
 ---
@@ -88,16 +92,18 @@ Write the commit message:
 - **Subject line**: Concise, imperative mood, focused on *why* not *what*. Follow the convention determined in Step 2.
 - **Body** (when needed): Add a body separated by a blank line for non-trivial changes. Explain motivation, trade-offs, or anything a future reader would need. Omit the body for obvious single-purpose changes.
 
-For each commit group, stage and commit in a single call. Prefer staging specific files by name over `git add -A` or `git add .` to avoid accidentally including sensitive files (.env, credentials) or unrelated changes. Use a heredoc to preserve formatting:
+For each commit group, stage specific files by name over `git add -A` or `git add .` to avoid accidentally including sensitive files (.env, credentials) or unrelated changes. Write the message to a temp file and commit with `-F` so multi-line bodies are preserved without shell interpolation:
 
 ```bash
-git add file1 file2 file3 && git commit -m "$(cat <<'EOF'
+COMMIT_MSG=$(mktemp "${TMPDIR:-/tmp}/spec-commit-message.XXXXXX")
+cat > "$COMMIT_MSG" <<'EOF'
 type(scope): subject line here
 
 Optional body explaining why this change was made,
 not just what changed.
 EOF
-)"
+git add file1 file2 file3
+git commit -F "$COMMIT_MSG"
 ```
 
 ### Step 5: Confirm

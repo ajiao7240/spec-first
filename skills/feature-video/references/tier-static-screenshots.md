@@ -54,6 +54,6 @@ For multiple screenshots, the markdown embed uses multiple image lines:
 ```markdown
 ## Screenshots
 
-![Before](url-1)
-![After](url-2)
+![Before](<before-image-url>)
+![After](<after-image-url>)
 ```

@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # Spec-First Release Notes
 
-Look up what shipped in recent releases of the spec-first. Bare invocation summarizes the last 5 spec-first releases. Argument invocation searches the last 40 releases and answers a specific question, citing the release version that introduced the change.
+Look up what shipped in recent spec-first releases. Bare invocation summarizes the last 5 spec-first releases. Argument invocation searches the last 40 releases and answers a specific question, citing the release version that introduced the change.
 
 Data comes from the GitHub Releases API for `sunrain520/spec-first`, filtered to the `spec-first-v*` tag prefix so sibling components (`cli-v*`, `coding-tutor-v*`, `marketplace-v*`, `cursor-marketplace-v*`) are excluded.
 

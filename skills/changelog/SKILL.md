@@ -110,9 +110,15 @@ You can post changelogs to Discord by adding your own webhook URL:
 DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN"
 
 # Post using curl
+CHANGELOG_FILE=$(mktemp "${TMPDIR:-/tmp}/spec-changelog.XXXXXX")
+PAYLOAD_FILE=$(mktemp "${TMPDIR:-/tmp}/spec-changelog-payload.XXXXXX")
+cat > "$CHANGELOG_FILE" <<'EOF'
+{{CHANGELOG}}
+EOF
+jq -n --rawfile content "$CHANGELOG_FILE" '{content: $content}' > "$PAYLOAD_FILE"
 curl -H "Content-Type: application/json" \
-  -d "{\"content\": \"{{CHANGELOG}}\"}" \
-  $DISCORD_WEBHOOK_URL
+  --data @"$PAYLOAD_FILE" \
+  "$DISCORD_WEBHOOK_URL"
 ```
 
 To get a webhook URL, go to your Discord server → Server Settings → Integrations → Webhooks → New Webhook.

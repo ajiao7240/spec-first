@@ -46,15 +46,13 @@ Automatically gather environment details. Detect the coding agent platform and c
 uname -a
 ```
 
-**Plugin version:** Read the plugin manifest or installed plugin metadata. Common locations:
-- Claude Code: `~/.claude/plugins/installed_plugins.json`
-- Codex: `.codex/plugins/` or project config
-- Other platforms: check the platform's plugin registry
+**Plugin/runtime version:** Read the installed metadata for the active host:
+- Claude Code: `~/.claude/plugins/installed_plugins.json` and the loaded skill path when available
+- Codex: `spec-first --version`, `.codex/spec-first/state.json`, or the generated `.agents/skills/` runtime
 
 **Agent CLI version:** Run the platform's version command:
 - Claude Code: `claude --version`
 - Codex: `codex --version`
-- Other platforms: use the appropriate CLI version flag
 
 If any of these fail, note "unknown" and continue — do not block the report.
 
@@ -98,7 +96,7 @@ Create a well-structured bug report with:
 [Any other relevant information]
 
 ---
-*Reported via `/report-bug` skill*
+*Reported via `report-bug` skill*
 ```
 
 ## Step 4: Create GitHub Issue
@@ -106,10 +104,14 @@ Create a well-structured bug report with:
 Use the GitHub CLI to create the issue:
 
 ```bash
+BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/spec-first-bug-report.XXXXXX")
+cat > "$BODY_FILE" <<'__SPEC_FIRST_BUG_REPORT__'
+[Formatted bug report from Step 3]
+__SPEC_FIRST_BUG_REPORT__
 gh issue create \
   --repo sunrain520/spec-first \
   --title "[spec-first] Bug: [Brief description]" \
-  --body "[Formatted bug report from Step 3]" \
+  --body-file "$BODY_FILE" \
   --label "bug,spec-first"
 ```
 
@@ -118,7 +120,7 @@ gh issue create \
 gh issue create \
   --repo sunrain520/spec-first \
   --title "[spec-first] Bug: [Brief description]" \
-  --body "[Formatted bug report]"
+  --body-file "$BODY_FILE"
 ```
 
 ## Step 5: Confirm Submission
@@ -126,7 +128,7 @@ gh issue create \
 After the issue is created:
 1. Display the issue URL to the user
 2. Thank them for reporting the bug
-3. Let them know the maintainer (Kieran Klaassen) will be notified
+3. Let them know the spec-first maintainers will be notified
 
 ## Output Format
 

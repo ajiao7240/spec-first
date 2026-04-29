@@ -17,6 +17,8 @@ Start the dev server, open the feature in a browser, and iterate. You use the fe
 
 ## Phase 1: Start the dev server
 
+Resolve all `scripts/<name>.sh` paths relative to this skill's loaded directory. The target app stays in the user's project checkout; only these helper scripts live beside the skill.
+
 ### 1.1 Check for `.claude/launch.json`
 
 Run `bash scripts/read-launch-json.sh`. If it finds a configuration, use it — the user already told us how to start the project.

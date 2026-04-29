@@ -67,6 +67,8 @@ Use the workspace where the feature was built. Do not reinstall from scratch. If
 
 Use the capture target from Step 0 to decide which directory to classify. If the diff touches a specific subdirectory with its own package manifest (e.g., `packages/cli/`, `apps/web/`), pass that as the root. Otherwise use the repo root.
 
+Resolve `scripts/capture-demo.py` relative to this skill's loaded directory; do not assume the user's current working directory is the skill directory.
+
 ```bash
 python3 scripts/capture-demo.py detect --repo-root [TARGET_DIR]
 ```

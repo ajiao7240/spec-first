@@ -1,6 +1,10 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-29 13:26:50 leokuang: docs(skills): 简化 30 轮 skill 审查记录标题中的修复状态标注 (user-visible)
+- v1.6.0 2026-04-29 13:23:58 leokuang: docs(skills): 为 30 轮 skill 审查记录补充修复状态与具体修复方式 (user-visible)
+- v1.6.0 2026-04-29 13:21:40 leokuang: chore(gitnexus): 将 GitNexus package pin 临时切到 1.6.4-rc.21 以验证 query/FTS 修复效果 (user-visible)
+- v1.6.0 2026-04-29 12:21:55 leokuang: docs(skills): 完成 30 轮 skill 质量小步审查，收紧 discovery 文案、命令正文写入、安全路径与 scratch 目录 contract (user-visible)
 - v1.6.0 2026-04-29 12:10:43 leokuang: docs(graph-bootstrap): 新增 Graph Blast Radius 产品能力地图与路线图，并同步专题索引 (user-visible)
 - v1.6.0 2026-04-29 12:02:16 leokuang: docs(solutions): 沉淀宿主入口映射只属于 init 与治理层的 workflow 边界经验 (user-visible)
 - v1.6.0 2026-04-29 12:00:30 leokuang: fix(spec-mcp-setup): 调整 PowerShell Serena ready fast-path 到语言选择前，保持幂等 rerun 不要求语言 (user-visible)

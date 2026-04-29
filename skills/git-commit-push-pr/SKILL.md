@@ -1,6 +1,6 @@
 ---
 name: git-commit-push-pr
-description: Commit, push, and open a PR with an adaptive, value-first description. Use when the user says "commit and PR", "push and open a PR", "ship this", "create a PR", "open a pull request", "commit push PR", or wants to go from working changes to an open pull request in one step. Also use when the user says "update the PR description", "refresh the PR description", "freshen the PR", "rewrite the PR body", "write a PR description", "draft a PR description", or "describe this PR" — the skill will produce a description without committing or pushing if that is all the user wants. Produces PR descriptions that scale in depth with the complexity of the change, avoiding cookie-cutter templates.
+description: Commit, push, and open a PR, or write/update a PR description. Use for "commit and PR", "ship this", "create/open a PR", "push and open a PR", "write/draft/refresh/rewrite PR description", or "describe this PR". Description-only requests do not commit or push.
 ---
 
 # Git Commit, Push, and PR
@@ -45,10 +45,15 @@ Three flavors of intent. Pick one and follow the matching path; otherwise defaul
 
 **In Claude Code, skip this section — the data above is already available.**
 
-Run this single command to gather all context:
+Run these commands separately to gather context without interleaving unrelated output:
 
 ```bash
-printf '=== STATUS ===\n'; git status; printf '\n=== DIFF ===\n'; git diff HEAD; printf '\n=== BRANCH ===\n'; git branch --show-current; printf '\n=== LOG ===\n'; git log --oneline -10; printf '\n=== DEFAULT_BRANCH ===\n'; git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo 'DEFAULT_BRANCH_UNRESOLVED'; printf '\n=== PR_CHECK ===\n'; gh pr view --json url,title,state 2>/dev/null || echo 'NO_OPEN_PR'
+git status
+git diff HEAD
+git branch --show-current
+git log --oneline -10
+git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo 'DEFAULT_BRANCH_UNRESOLVED'
+gh pr view --json url,title,state 2>/dev/null || echo 'NO_OPEN_PR'
 ```
 
 ---
@@ -77,7 +82,7 @@ If confirmed, apply with `gh pr edit`. Substitute `<TITLE>` verbatim; if it cont
 BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/spec-pr-body.XXXXXX") && cat > "$BODY_FILE" <<'__SPEC_PR_BODY_END__'
 <the composed body markdown goes here, verbatim>
 __SPEC_PR_BODY_END__
-gh pr edit --title "<TITLE>" --body "$(cat "$BODY_FILE")"
+gh pr edit --title "<TITLE>" --body-file "$BODY_FILE"
 ```
 
 The quoted sentinel keeps `$VAR`, backticks, and any literal `EOF` inside the body from being expanded.
@@ -138,12 +143,14 @@ If the PR check returned `state: OPEN`, note the URL -- this is the existing-PR 
 
 1. If on the default branch, create a feature branch first with `git checkout -b <branch-name>`.
 2. Scan changed files for naturally distinct concerns. If files clearly group into separate logical changes, create separate commits (2-3 max). Group at the file level only (no `git add -p`). When ambiguous, one commit is fine.
-3. Stage and commit each group in a single call. Avoid `git add -A` or `git add .`. Follow conventions from Step 2:
+3. Stage and commit each group. Avoid `git add -A` or `git add .`. Follow conventions from Step 2 and use `-F` for the message body:
    ```bash
-   git add file1 file2 file3 && git commit -m "$(cat <<'EOF'
+   COMMIT_MSG=$(mktemp "${TMPDIR:-/tmp}/spec-commit-message.XXXXXX")
+   cat > "$COMMIT_MSG" <<'EOF'
    commit message here
    EOF
-   )"
+   git add file1 file2 file3
+   git commit -F "$COMMIT_MSG"
    ```
 
 ### Step 5: Push
@@ -191,7 +198,7 @@ The quoted sentinel keeps `$VAR`, backticks, and any literal `EOF` inside the bo
 #### New PR (no existing PR from Step 3)
 
 ```bash
-gh pr create --title "<TITLE>" --body "$(cat "$BODY_FILE")"
+gh pr create --title "<TITLE>" --body-file "$BODY_FILE"
 ```
 
 Keep the title under 72 characters; the writing reference already emits a conventional-commit title in that range.
@@ -207,7 +214,7 @@ The new commits are already on the PR from Step 5. Report the PR URL, then ask w
   3. If confirmed, apply with `gh pr edit`:
 
      ```bash
-     gh pr edit --title "<TITLE>" --body "$(cat "$BODY_FILE")"
+     gh pr edit --title "<TITLE>" --body-file "$BODY_FILE"
      ```
 
   Then report the PR URL (Step 8).

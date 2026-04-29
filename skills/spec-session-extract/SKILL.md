@@ -24,13 +24,13 @@ Space-separated positional args:
 **Skeleton mode** — narrative of user messages, assistant text, and collapsed tool-call summaries:
 
 ```bash
-cat <file> | python3 scripts/extract-skeleton.py
+python3 scripts/extract-skeleton.py < "<file>"
 ```
 
 **Errors mode** — just error signals:
 
 ```bash
-cat <file> | python3 scripts/extract-errors.py
+python3 scripts/extract-errors.py < "<file>"
 ```
 
 If `<limit>` is `head:N`, pipe through `head -n N`. If `tail:N`, pipe through `tail -n N`. Apply the limit after the Python script, never before — the `_meta` line is emitted last and a head cap may drop it; that is acceptable when the caller asks for a head cap.

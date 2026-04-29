@@ -487,3 +487,4 @@ Project setup facts:
 - Supported tools: `skills/spec-mcp-setup/references/supported-mcp-tools.md`
 - Machine registry: `skills/spec-mcp-setup/mcp-tools.json`
 - Claude command metadata: `templates/claude/commands/spec/mcp-setup.md`
+- Codex runtime loads this source skill directly; there is no separate Codex command template.

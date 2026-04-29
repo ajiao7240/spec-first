@@ -221,12 +221,12 @@ Generate a `<run-id>` once at the start of Phase 1 (8 hex chars). Reuse it for t
 **Pre-resolve the scratch directory path.** Scratch lives directly under `/tmp` (not under `$TMPDIR` and not under `.context/`). `$TMPDIR` on macOS resolves to an obscure per-user path like `/var/folders/64/.../T/` that is hostile for users who want to inspect checkpoints, copy them elsewhere, or reference them later — `/tmp` is universally accessible on macOS, Linux, and WSL, and the per-user isolation `$TMPDIR` provides is not valuable for ephemeral ideation scratch. Run one bash command to create the directory and capture its absolute path for downstream use.
 
 ```bash
-SCRATCH_DIR="/tmp/spec-first/spec:ideate/<run-id>"
+SCRATCH_DIR="/tmp/spec-first/spec-ideate/<run-id>"
 mkdir -p "$SCRATCH_DIR"
 echo "$SCRATCH_DIR"
 ```
 
-Use the echoed absolute path (`/tmp/spec-first/spec:ideate/<run-id>`) as `<scratch-dir>` for every subsequent checkpoint write and cache read in this run. The run directory is not deleted on Phase 6 completion — the V15 cache is session-scoped and reused across run-ids, and the checkpoints follow the cross-invocation-reusable convention of leaving session-scoped artifacts for later invocations to find.
+Use the echoed absolute path (`/tmp/spec-first/spec-ideate/<run-id>`) as `<scratch-dir>` for every subsequent checkpoint write and cache read in this run. The run directory is not deleted on Phase 6 completion — the V15 cache is session-scoped and reused across run-ids, and the checkpoints follow the cross-invocation-reusable convention of leaving session-scoped artifacts for later invocations to find.
 
 Run grounding agents in parallel in the **foreground** (do not background — results are needed before Phase 2):
 

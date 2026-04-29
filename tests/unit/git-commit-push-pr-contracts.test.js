@@ -23,9 +23,7 @@ describe('git-commit-push-pr PR description contracts', () => {
   test('description-only intent does not run commit or push gates', () => {
     const text = read(SKILL_PATH);
 
-    expect(text).toContain('"rewrite the PR body"');
-    expect(text).toContain('"write a PR description"');
-    expect(text).toContain('"draft a PR description"');
+    expect(text).toContain('"write/draft/refresh/rewrite PR description"');
     expect(text).toContain('"describe this PR"');
     expect(text).toContain('generate a description without touching git state');
     expect(text).toContain('Description-only generation');
@@ -44,6 +42,9 @@ describe('git-commit-push-pr PR description contracts', () => {
     expect(text).toContain('the Spec-First badge');
     expect(text).toContain('BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/spec-pr-body.XXXXXX")');
     expect(text).toContain("__SPEC_PR_BODY_END__");
+    expect(text).toContain('gh pr create --title "<TITLE>" --body-file "$BODY_FILE"');
+    expect(text).toContain('gh pr edit --title "<TITLE>" --body-file "$BODY_FILE"');
+    expect(text).not.toContain('--body "$(cat "$BODY_FILE")"');
     expect(text).toContain('feature-video');
     expect(reference).toContain('## Step Pre-A: Resolve the PR commit range and diff');
     expect(reference).toContain('Spec-First badge');

@@ -1,6 +1,6 @@
 ---
 name: spec-slack-research
-description: "Search Slack for interpreted organizational context -- decisions, constraints, and discussion arcs that shape the current task. Produces a research digest with cross-cutting analysis and research-value assessment, not raw message lists. Use when searching Slack for context during planning, brainstorming, or any task where organizational knowledge matters. Trigger phrases: 'search slack for', 'what did we discuss about', 'slack context for', 'organizational context about', 'what does the team think about', 'any slack discussions on'. Differs from slack:find-discussions which returns individual message results without synthesis."
+description: "Search Slack for interpreted organizational context: decisions, constraints, discussion arcs, and team opinions relevant to a task. Use for 'search Slack', 'what did we discuss', 'Slack context', or similar requests. Returns a synthesized digest, not raw message lists."
 ---
 
 # spec-slack-research
