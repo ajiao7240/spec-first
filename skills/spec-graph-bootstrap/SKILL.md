@@ -115,6 +115,18 @@ If build and status succeed but query-surface proof is missing, unsupported, or 
 
 Provider commands may trigger first-use package downloads. Progress hints go to stderr, while stdout remains the final JSON result and raw provider output remains in `.spec-first/providers/<provider>/raw/*`.
 
+## Live MCP Probe
+
+The deterministic bootstrap script cannot call host MCP tools. It only proves CLI-level provider readiness and writes compiled facts. After the script finishes, the LLM may run a bounded live MCP probe when the current session exposes the relevant MCP tool and the result would clarify the final handoff.
+
+For GitNexus specifically:
+
+- If `gitnexus` has `status=query-unverified`, `graph_ready=true`, and `query_ready=false`, do not describe this as a live MCP failure. It means the bootstrap CLI query probe failed.
+- If the current session has GitNexus MCP tools loaded, try one concrete live MCP call such as `gitnexus_query`, `gitnexus_context`, or `gitnexus_impact` using the expected-hit token from `query_probe_policy` or the user's concrete question.
+- Treat a successful live MCP response as session-local evidence only. Do not rewrite `.spec-first/graph/*`, do not set compiled `query_ready=true`, and do not change `graph-providers.json`.
+- If the MCP tool is unavailable or fails, state that live MCP was unavailable or failed, then continue with code-review-graph and bounded direct repo reads.
+- If the host was just configured by `spec-mcp-setup`, remind the user that Claude Code / Codex usually needs a restart or a new session before newly written MCP servers are loaded.
+
 ## Outputs
 
 Provider raw, normalized, and status artifacts live under `.spec-first/providers/<provider>/`:

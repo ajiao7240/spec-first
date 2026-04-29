@@ -32,6 +32,9 @@ Readiness 规则：
 
 - `query_ready=true` 需要 build/analyze、status probe、provider-specific query-surface proof 全部成功。
 - build/status 成功但 query-surface proof 缺失或失败时写 `status=query-unverified`，`query_ready=false`。
+- GitNexus `query-unverified` 只表示 bootstrap CLI query probe 未验证通过，不等于 live GitNexus MCP 一定不可用。
+- 脚本不能调用 host MCP tools；LLM 可在脚本完成后做 bounded live MCP probe，例如用 `gitnexus_query` / `gitnexus_context` / `gitnexus_impact` 验证当前会话是否能读图。
+- live MCP 成功只作为 session-local evidence，不回写 `.spec-first/graph/*`，不把 compiled `query_ready` 改成 true。
 - runtime baseline summary 与 host ledger v2 冲突时 fail closed，`reason_code=readiness-conflict`。
 - 没有 query-ready provider 时，capability envelope 必须根据 `runtime-capabilities.fallback_capabilities` 写 `partial` 或 `none`；不能凭空声明 fallback 可用。
 - 重复 `spec-mcp-setup` 只有在 canonical artifacts 仍存在且 current 时，才从 canonical readiness artifacts 重建 setup-owned project graph readiness projection。

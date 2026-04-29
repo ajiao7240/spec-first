@@ -11,8 +11,8 @@
 - CLI helpers: `doctor`, `init`, `clean`, `tasks`, version/help output, and deterministic setup checks.
 - Workflow source assets under `skills/`, `agents/`, and `templates/`.
 - Host-filtered runtime generation for Claude Code and Codex.
-- Required harness runtime setup through the host-specific setup workflow (`/spec:mcp-setup` on Claude Code, `$spec-mcp-setup` on Codex), covering MCP servers, graph-provider MCP servers, helper CLIs, and project setup facts.
-- External graph readiness compilation through the host-specific graph bootstrap workflow (`/spec:graph-bootstrap` on Claude Code, `$spec-graph-bootstrap` on Codex), producing canonical graph and impact readiness artifacts for downstream workflows.
+- Required harness runtime setup through the current host's setup workflow, covering MCP servers, graph-provider MCP servers, helper CLIs, and project setup facts.
+- External graph readiness compilation through the current host's graph bootstrap workflow, producing canonical graph and impact readiness artifacts for downstream workflows.
 - Public workflow entrypoints for ideation, brainstorming, planning, task-pack handoff, work execution, debugging, review, setup, update, session research, Slack research, release notes, compounding, optimization, and browser-visible polish.
 
 Graph context is provided by external graph providers configured by the setup workflow and compiled into canonical readiness artifacts by the graph bootstrap workflow.

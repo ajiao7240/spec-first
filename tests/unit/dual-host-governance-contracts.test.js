@@ -161,12 +161,8 @@ describe('dual-host governance contracts', () => {
     expect(readme).toContain('Run the init command for each host you actually use.');
     expect(readme).toContain('only `--claude` for Claude Code-only projects');
     expect(readme).toContain('only `--codex` for Codex-only projects');
-    expect(readme).toContain(
-      'host-specific setup workflow (`/spec:mcp-setup` on Claude Code, `$spec-mcp-setup` on Codex)',
-    );
-    expect(readme).toContain(
-      'host-specific graph bootstrap workflow (`/spec:graph-bootstrap` on Claude Code, `$spec-graph-bootstrap` on Codex)',
-    );
+    expect(readme).toContain("Required harness runtime setup through the current host's setup workflow");
+    expect(readme).toContain("External graph readiness compilation through the current host's graph bootstrap workflow");
     expect(readme).toContain("Use the current host's setup workflow");
     expect(readme).toContain("Use the current host's graph bootstrap workflow");
     expect(readme).toContain("Use the current host's plan workflow");
@@ -178,15 +174,11 @@ describe('dual-host governance contracts', () => {
       '| Compile task pack | use installed standalone `write-tasks` skill | use installed standalone `write-tasks` skill |',
     );
     expect(readme).not.toContain('$spec-write-tasks');
-    expect(readmeZh).toContain(
-      '当前宿主的 setup workflow（Claude Code `/spec:mcp-setup`，Codex `$spec-mcp-setup`）',
-    );
+    expect(readmeZh).toContain('通过当前宿主的 setup workflow 管理');
     expect(readmeZh).toContain('按实际使用的宿主运行 init');
     expect(readmeZh).toContain('只用 Claude Code 就只跑 `--claude`');
     expect(readmeZh).toContain('只用 Codex 就只跑 `--codex`');
-    expect(readmeZh).toContain(
-      '当前宿主的 graph bootstrap workflow（Claude Code `/spec:graph-bootstrap`，Codex `$spec-graph-bootstrap`）',
-    );
+    expect(readmeZh).toContain('通过当前宿主的 graph bootstrap workflow 编译');
     expect(readmeZh).toContain('用当前宿主的 setup workflow');
     expect(readmeZh).toContain('当前宿主的 plan workflow');
     expect(readmeZh).toContain('用已安装的 standalone `write-tasks` skill');

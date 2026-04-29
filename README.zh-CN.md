@@ -11,8 +11,8 @@
 - CLI helpers：`doctor`、`init`、`clean`、`tasks`、版本/help 输出和确定性 setup 检查。
 - `skills/`、`agents/`、`templates/` 下的 workflow source assets。
 - 面向 Claude Code 与 Codex 的 host-filtered runtime 生成。
-- 通过当前宿主的 setup workflow（Claude Code `/spec:mcp-setup`，Codex `$spec-mcp-setup`）管理 required harness runtime setup，覆盖 MCP servers、graph-provider MCP servers、helper CLIs 和项目 setup facts。
-- 通过当前宿主的 graph bootstrap workflow（Claude Code `/spec:graph-bootstrap`，Codex `$spec-graph-bootstrap`）编译 external graph readiness，产出供下游 workflow 使用的 canonical graph / impact readiness artifacts。
+- 通过当前宿主的 setup workflow 管理 required harness runtime setup，覆盖 MCP servers、graph-provider MCP servers、helper CLIs 和项目 setup facts。
+- 通过当前宿主的 graph bootstrap workflow 编译 external graph readiness，产出供下游 workflow 使用的 canonical graph / impact readiness artifacts。
 - ideation、brainstorm、plan、task-pack handoff、work、debug、review、setup、update、sessions、Slack research、release notes、compound、optimize 和 browser-visible polish 等公开 workflow 入口。
 
 图谱上下文由 setup workflow 配置 external graph providers，再由 graph bootstrap workflow 编译为 canonical readiness artifacts。

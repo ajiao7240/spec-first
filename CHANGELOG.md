@@ -1,6 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-29 03:18:00 leokuang: docs(graph-bootstrap): 明确 GitNexus CLI query probe 与 live MCP probe 的边界，允许 LLM 在脚本完成后做 session-local MCP 探测但不回写 compiled query_ready (user-visible)
+- v1.6.0 2026-04-29 03:05:00 leokuang: docs(gitnexus): 新增 GitNexus 安装、索引生成、readiness 与 live MCP 使用链路的 10 轮问题审查报告 (user-visible)
+- v1.6.0 2026-04-29 02:36:00 leokuang: docs(readme): 回收 README 共享段落中的 Claude/Codex 入口映射，只保留当前宿主 workflow 表述并用入口表承载公开映射 (user-visible)
 - v1.6.0 2026-04-29 01:39:55 leokuang: docs(readme): 将 task-pack handoff 共享段落同步为 installed write-tasks standalone skill (user-visible)
 - v1.6.0 2026-04-29 01:37:44 leokuang: docs(readme): 统一 task-pack 编译入口表为双宿主 installed write-tasks standalone skill (user-visible)
 - v1.6.0 2026-04-29 01:35:28 leokuang: docs(readme): 明确 init 示例按实际宿主选择运行，避免误导用户必须同时初始化 Claude 与 Codex (user-visible)
