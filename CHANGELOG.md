@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.0 2026-04-29 14:16:06 leokuang: fix(gitnexus): 将 GitNexus package pin 从 1.6.4-rc.21 回退到 1.6.3，规避 Hr360_temp 上 1.6.4 RC analyze SIGSEGV (user-visible)
 - v1.6.0 2026-04-29 13:46:40 leokuang: docs(skills): 恢复当前分支中被改动的 skill frontmatter description 原文 (user-visible)
 - v1.6.0 2026-04-29 13:26:50 leokuang: docs(skills): 简化 30 轮 skill 审查记录标题中的修复状态标注 (user-visible)
 - v1.6.0 2026-04-29 13:23:58 leokuang: docs(skills): 为 30 轮 skill 审查记录补充修复状态与具体修复方式 (user-visible)
