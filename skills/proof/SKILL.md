@@ -1,6 +1,6 @@
 ---
 name: proof
-description: Share and collaboratively review markdown documents in Proof. Use for Proof URLs, "view/share/iterate with Proof", HITL review of specs/plans/drafts, or syncing a Proof doc back to local. Do not trigger for evidence, math/logic proof, proof-of-concept, or simple proofreading.
+description: Create, share, view, comment on, edit, and run human-in-the-loop review loops over markdown documents via Proof, the collaborative markdown editor at proofeditor.ai ("Proof editor"). Use when the user wants to render or view a local markdown file in Proof, share markdown to get a URL, iterate collaboratively on a Proof doc, comment on or suggest edits in Proof, HITL a spec/plan/draft for human review, sync a Proof doc back to local, or work from a proofeditor.ai URL. Trigger on phrases like "view this in proof", "share to proof", "iterate with proof", or "HITL this doc", and on spec-brainstorm / spec-ideate / spec-plan handoffs for human review. Also match clear requests for a rendered/shared markdown review surface even if the user does not name Proof. Do not trigger on "proof" meaning evidence, math/logic proof, burden of proof, proof-of-concept, or bare "proofread this" requests where inline text review is expected.
 allowed-tools:
   - Bash
   - Read

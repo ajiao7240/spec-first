@@ -23,7 +23,9 @@ describe('git-commit-push-pr PR description contracts', () => {
   test('description-only intent does not run commit or push gates', () => {
     const text = read(SKILL_PATH);
 
-    expect(text).toContain('"write/draft/refresh/rewrite PR description"');
+    expect(text).toContain('"write a PR description"');
+    expect(text).toContain('"draft a PR description"');
+    expect(text).toContain('"refresh the PR description"');
     expect(text).toContain('"describe this PR"');
     expect(text).toContain('generate a description without touching git state');
     expect(text).toContain('Description-only generation');
