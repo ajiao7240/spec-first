@@ -108,6 +108,9 @@ Codex init 的预期输出包含：
 | 刷新过期知识沉淀 | `/spec:compound-refresh` | `$spec-compound-refresh` |
 | 查看 release notes | `/spec:release-notes` | `$spec-release-notes` |
 
+当 managed Claude hook 或 Codex 顶层 workflow-entry guidance 展示启动版本提醒时，
+提醒只会指向上表中的 update 入口；它不会安装包、刷新 runtime assets 或重启宿主。
+
 ## 开发与验证
 
 ```bash

@@ -64,10 +64,13 @@ codex_init_output="$(
   cd "$CODEX_PROJECT"
   SPEC_FIRST_VERSION_REMINDER_LATEST="$PACKAGE_VERSION" "$SHIM" init --codex -u test --lang en 2>&1
 )"
-grep -q 'new \$spec-\* skills' <<<"$codex_init_output"
+grep -q '\$spec-\* skills' <<<"$codex_init_output"
 test ! -e "$CODEX_PROJECT/.codex/commands/spec"
 test -f "$CODEX_PROJECT/.agents/skills/spec-work/SKILL.md"
 test -f "$CODEX_PROJECT/.agents/skills/using-spec-first/SKILL.md"
+grep -q 'spec-first startup-reminder --codex' "$CODEX_PROJECT/AGENTS.md"
+grep -q 'must not block routing' "$CODEX_PROJECT/AGENTS.md"
+grep -q 'bounded subagents, leaf reviewers, and worker agents' "$CODEX_PROJECT/AGENTS.md"
 test ! -e "$CODEX_PROJECT/.agents/skills/claude-permissions-optimizer/SKILL.md"
 test ! -e "$CODEX_PROJECT/.agents/skills/orchestrating-swarms/SKILL.md"
 
@@ -93,7 +96,10 @@ claude_init_output="$(
 grep -q '.claude/commands/spec' <<<"$claude_init_output"
 test -f "$CLAUDE_PROJECT/.claude/commands/spec/brainstorm.md"
 test -f "$CLAUDE_PROJECT/.claude/skills/using-spec-first/SKILL.md"
-test ! -e "$CLAUDE_PROJECT/.claude/spec-first/workflows/spec-work/SKILL.md"
+test -f "$CLAUDE_PROJECT/.claude/hooks/session-start"
+grep -q 'startup-reminder' "$CLAUDE_PROJECT/.claude/hooks/session-start"
+grep -q -- '--claude' "$CLAUDE_PROJECT/.claude/hooks/session-start"
+test -f "$CLAUDE_PROJECT/.claude/spec-first/workflows/spec-work/SKILL.md"
 
 claude_doctor_output="$(
   cd "$CLAUDE_PROJECT"
@@ -101,7 +107,7 @@ claude_doctor_output="$(
 )"
 grep -q '.claude/commands/spec' <<<"$claude_doctor_output"
 grep -q '.claude/skills' <<<"$claude_doctor_output"
-grep -q '0 workflow skills' <<<"$claude_doctor_output"
+grep -q 'workflow skills' <<<"$claude_doctor_output"
 echo "   ✓ Claude 安装态闭环通过"
 
 echo

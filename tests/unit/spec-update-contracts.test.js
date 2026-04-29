@@ -1,10 +1,22 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+
+const { getAdapter } = require('../../src/cli/adapters');
+const { planBundledAssetSync } = require('../../src/cli/plugin');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-update', 'SKILL.md');
+const COMMAND_TEMPLATE_PATH = path.join(
+  REPO_ROOT,
+  'templates',
+  'claude',
+  'commands',
+  'spec',
+  'update.md',
+);
 const GOVERNANCE_PATH = path.join(
   REPO_ROOT,
   'src',
@@ -18,6 +30,58 @@ function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
+function makeTempDir() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-update-contracts-'));
+}
+
+function renderClaudeSpecUpdate() {
+  const adapter = getAdapter('claude');
+  return adapter.renderCommandContent(
+    { name: 'update', filename: 'update.md', skill: 'spec-update' },
+    read(COMMAND_TEMPLATE_PATH),
+    {
+      commandName: 'update',
+      skillName: 'spec-update',
+      skillContent: read(SKILL_PATH),
+    },
+  );
+}
+
+function renderCodexSpecUpdate() {
+  const adapter = getAdapter('codex');
+  return adapter.transformSkillContent(read(SKILL_PATH), {
+    skillName: 'spec-update',
+    isWorkflowSkill: true,
+  });
+}
+
+function plannedRuntimeContent(platform, targetPath) {
+  const projectRoot = makeTempDir();
+
+  try {
+    const adapter = getAdapter(platform);
+    const { plan } = planBundledAssetSync(projectRoot, adapter);
+    const operation = plan.operations.find((entry) => entry.path === targetPath);
+    if (!operation) {
+      throw new Error(`Missing planned runtime operation for ${targetPath}`);
+    }
+    return operation.contents;
+  } finally {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  }
+}
+
+function expectRenderedRuntimeParity(content) {
+  expect(content).toContain('.agents/skills/spec-update/SKILL.md');
+  expect(content).toContain('.claude/commands/spec/update.md');
+  expect(content).toContain('spec-first init --claude');
+  expect(content).toContain('spec-first init --codex');
+  expect(content).not.toContain('.agents/.agents');
+  expect(content).not.toContain('.agents/.claude');
+  expect(content).not.toContain('.claude/.claude');
+  expect(content).not.toContain('.claude/.agents');
+}
+
 describe('spec-update contracts', () => {
   test('source skill supports Claude Code and Codex update flows', () => {
     const skill = read(SKILL_PATH);
@@ -28,12 +92,18 @@ describe('spec-update contracts', () => {
     expect(skill).toContain('Codex branch');
     expect(skill).toContain('claude plugin update');
     expect(skill).toContain('npm install -g spec-first@latest');
+    expect(skill).toContain('Startup version reminders may route users here');
+    expect(skill).toContain('/spec:update');
+    expect(skill).toContain('$spec-update');
+    expect(skill).toContain('Those reminders are advisory only');
+    expect(skill).toContain('install packages, refresh runtime assets, or restart the host');
+    expect(skill).toContain('spec-first startup-reminder --claude --reset');
+    expect(skill).toContain('spec-first startup-reminder --codex --reset');
+    expect(skill).toContain('spec-first doctor --claude --json');
     expect(skill).toContain('spec-first doctor --codex --json');
+    expect(skill).toContain('spec-first init --claude');
     expect(skill).toContain('spec-first init --codex');
     expect(skill).toContain('run the update workflow');
-    expect(skill).not.toContain('run `/spec:update` in a');
-    expect(skill).not.toContain('/spec:update` on Claude Code');
-    expect(skill).not.toContain('$spec-update` on Codex');
     expect(skill).not.toContain('ce_platforms: [claude]');
     expect(skill).not.toContain('Claude Code only.');
   });
@@ -66,5 +136,21 @@ describe('spec-update contracts', () => {
         }),
       ]),
     );
+  });
+
+  test('rendered Claude and Codex update entries preserve host-comparative runtime prose', () => {
+    const claude = renderClaudeSpecUpdate();
+    const codex = renderCodexSpecUpdate();
+
+    expectRenderedRuntimeParity(claude);
+    expectRenderedRuntimeParity(codex);
+  });
+
+  test('planned runtime generation preserves spec-update parity for both hosts', () => {
+    const claude = plannedRuntimeContent('claude', '.claude/commands/spec/update.md');
+    const codex = plannedRuntimeContent('codex', '.agents/skills/spec-update/SKILL.md');
+
+    expectRenderedRuntimeParity(claude);
+    expectRenderedRuntimeParity(codex);
   });
 });

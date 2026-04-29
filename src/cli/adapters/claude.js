@@ -214,10 +214,11 @@ function rewriteSourceSkillRuntimePaths(content, skillName, runtimeSkillRoot) {
     return content;
   }
 
-  return content.replace(
-    new RegExp(`skills/${escapeRegExp(skillName)}/`, 'g'),
-    `${runtimeSkillRoot}/`,
+  const sourcePathPattern = new RegExp(
+    `(^|[^A-Za-z0-9_./-])skills/${escapeRegExp(skillName)}/`,
+    'g',
   );
+  return content.replace(sourcePathPattern, (_match, prefix) => `${prefix}${runtimeSkillRoot}/`);
 }
 
 function escapeRegExp(value) {

@@ -64,6 +64,13 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('Do **not** write Claude workflow entrypoints as `$spec-*`.');
     expect(skill).toContain('Claude workflow entrypoints use `/spec:*`');
     expect(skill).toContain('Codex workflow entrypoints use `$spec-*`');
+    expect(skill).toContain('Codex Startup Version Reminder Boundary');
+    expect(skill).toContain('not a verified deterministic SessionStart hook');
+    expect(skill).toContain('top-level Codex orchestrator');
+    expect(skill).toContain('spec-first startup-reminder --codex');
+    expect(skill).toContain('Missing CLI, command failure, network failure, empty output, or malformed local state must be ignored');
+    expect(skill).toContain('The reminder points to `$spec-update`');
+    expect(skill).toContain('Bounded subagents, leaf reviewers, and worker agents must not run the startup reminder');
     expect(skill).toContain('do not reload or invoke `using-spec-first` just to bootstrap yourself');
     expect(skill).toContain('`using-spec-first` governs **entry routing only**');
     expect(skill).toContain('Do **not** expose internal-only skills as user entrypoints.');
@@ -118,6 +125,8 @@ describe('using-spec-first contracts', () => {
     expect(codexRuntime).toContain('name: using-spec-first');
     expect(claudeRuntime).toContain('Claude workflow entrypoints use `/spec:*`');
     expect(codexRuntime).toContain('Codex workflow entrypoints use `$spec-*`');
+    expect(codexRuntime).toContain('spec-first startup-reminder --codex');
+    expect(codexRuntime).toContain('Bounded subagents, leaf reviewers, and worker agents must not run the startup reminder');
     expect(codexRuntime).toContain('using-spec-first` itself is a standalone meta skill');
     expect(claudeRuntime).toContain('Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md`');
     expect(claudeRuntime).toContain('Codex installs it as `.agents/skills/using-spec-first/SKILL.md`');

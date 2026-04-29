@@ -204,6 +204,22 @@ These thoughts mean pause and apply the routing rules before acting:
 - `spec-write-tasks` is a standalone skill for optional plan-to-task-pack compilation, not a `/spec:*` or `$spec-*` workflow entrypoint.
 - Internal-only skills remain source/runtime support assets, not menu items.
 
+## Codex Startup Version Reminder Boundary
+
+Codex currently uses managed instruction guidance for startup reminders, not a verified deterministic SessionStart hook.
+
+When a **top-level Codex orchestrator** is about to route into a public `$spec-*` workflow and the `spec-first` CLI is available, it may run:
+
+```bash
+spec-first startup-reminder --codex
+```
+
+This is a read-only best-effort check. Missing CLI, command failure, network failure, empty output, or malformed local state must be ignored and must not block workflow routing.
+
+If the command prints a reminder, surface that reminder and continue routing. The reminder points to `$spec-update`, where the user decides whether to upgrade; it must not install packages, refresh runtime assets, or restart Codex.
+
+Bounded subagents, leaf reviewers, and worker agents must not run the startup reminder or write reminder cooldown state. They inherit the parent task scope.
+
 ## Injection Behavior
 
 If this guidance has already been injected through `CLAUDE.md`, `AGENTS.md`, or Claude SessionStart:

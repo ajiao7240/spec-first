@@ -223,6 +223,54 @@ describe('claude settings', () => {
     }
   });
 
+  test('session-start hook appends startup version reminder when the helper prints one', () => {
+    const projectRoot = makeTempDir();
+    const fakeBin = path.join(projectRoot, 'bin');
+    const instructionPath = path.join(projectRoot, 'CLAUDE.md');
+
+    try {
+      fs.mkdirSync(fakeBin, { recursive: true });
+      fs.writeFileSync(path.join(fakeBin, 'spec-first'), [
+        '#!/bin/bash',
+        'set -euo pipefail',
+        'if [ "$1" = "startup-reminder" ] && [ "$2" = "--claude" ]; then',
+        '  printf "%s\\n" "[spec-first] Update available for Claude Code runtime: 1.6.1 -> 1.6.2"',
+        '  printf "%s\\n" "Run /spec:update when you choose to upgrade."',
+        'fi',
+      ].join('\n'), 'utf8');
+      fs.chmodSync(path.join(fakeBin, 'spec-first'), 0o755);
+      fs.writeFileSync(instructionPath, [
+        '# CLAUDE.md',
+        '',
+        '<!-- spec-first:bootstrap:start -->',
+        '## Workflow 入口治理（由 spec-first 管理）',
+        '',
+        '- Claude workflow 入口使用 `/spec:*`',
+        '<!-- spec-first:bootstrap:end -->',
+        '',
+      ].join('\n'), 'utf8');
+
+      const result = spawnSync('bash', [SESSION_START_TEMPLATE_PATH], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          CLAUDE_PROJECT_DIR: projectRoot,
+          PATH: `${fakeBin}${path.delimiter}${process.env.PATH}`,
+        },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      const payload = JSON.parse(result.stdout);
+      expect(payload.hookSpecificOutput.additionalContext).toContain('using-spec-first SessionStart injection');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('1.6.1 -> 1.6.2');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('/spec:update');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   test('session-start hook degrades non-blockingly when the bootstrap block is missing', () => {
     const projectRoot = makeTempDir();
 

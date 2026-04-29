@@ -1257,6 +1257,13 @@ function transformedContentIntegrityIssues(actualContent, adapter, { kind, skill
 }
 
 function codexPathRewriteCheckContent(content, { skillName } = {}) {
+  if (skillName === 'spec-update') {
+    return content.replace(
+      '.claude/commands/spec/update.md',
+      '[claude spec-update command path]',
+    );
+  }
+
   if (skillName !== 'using-spec-first') return content;
 
   return content.replace(

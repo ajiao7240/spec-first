@@ -1,6 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.1 2026-04-29 23:59:00 leokuang: feat(update): 新增 Claude/Codex 启动版本提醒，修复 spec-update 双宿主 runtime 渲染并对齐手动升级入口 (user-visible)
+- v1.6.1 2026-04-29 22:48:03 leokuang: docs(plan): 规划 Claude/Codex 启动版本提醒的只读检测与手动升级引导实现 (user-visible)
+- v1.6.1 2026-04-29 22:43:12 leokuang: docs(brainstorm): 明确宿主启动版本更新提醒采用自动检测与用户手动升级决策 (user-visible)
 - v1.6.1 2026-04-29 leokuang: release: 将 leo_loop-28 分支合并到 master 并发布 patch 版本，含 28 个提交（TASK-LOOP-001~045，workflow 入口收敛、graph-bootstrap 边界澄清、mcp-setup gitnexus pin 回退等） (user-visible)
 - v1.6.0 2026-04-29 14:16:06 leokuang: fix(gitnexus): 将 GitNexus package pin 从 1.6.4-rc.21 回退到 1.6.3，规避 Hr360_temp 上 1.6.4 RC analyze SIGSEGV (user-visible)
 - v1.6.0 2026-04-29 13:46:40 leokuang: docs(skills): 恢复当前分支中被改动的 skill frontmatter description 原文 (user-visible)

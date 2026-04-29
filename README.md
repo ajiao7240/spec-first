@@ -108,6 +108,10 @@ Expected Codex init output includes:
 | Refresh stale learnings | `/spec:compound-refresh` | `$spec-compound-refresh` |
 | Read release notes | `/spec:release-notes` | `$spec-release-notes` |
 
+Startup version reminders, when surfaced by the managed Claude hook or Codex
+top-level workflow-entry guidance, only point to the update entrypoints above.
+They do not install packages, refresh runtime assets, or restart the host.
+
 ## Development
 
 ```bash

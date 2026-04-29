@@ -157,6 +157,7 @@ describe('init --dry-run', () => {
       const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
       expect(claudeInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(claudeInstruction).toContain('/spec:optimize');
+      expect(claudeInstruction).not.toContain('startup-reminder --codex');
       expect(claudeInstruction).not.toContain('<!-- spec-first:runtime-tools:start -->');
       expect(claudeInstruction).not.toContain('代码智能与运行时工具');
       expect(claudeInstruction).not.toContain('$spec-graph-bootstrap');
@@ -186,6 +187,10 @@ describe('init --dry-run', () => {
       const codexInstruction = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
       expect(codexInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(codexInstruction).toContain('$spec-optimize');
+      expect(codexInstruction).toContain('spec-first startup-reminder --codex');
+      expect(codexInstruction).toContain('$spec-update');
+      expect(codexInstruction).toContain('不阻塞路由');
+      expect(codexInstruction).toContain('bounded subagents、leaf reviewers、worker agents 不运行该检查');
       expect(codexInstruction).not.toContain('<!-- spec-first:runtime-tools:start -->');
       expect(codexInstruction).not.toContain('代码智能与运行时工具');
       expect(codexInstruction).not.toContain('/spec:graph-bootstrap');
