@@ -69,7 +69,7 @@
 | 2026-04-09 | feat | `spec-graph-bootstrap` | 新增阶段 1 安装集成入口，`bootstrap` 保持稳定默认入口，`graph-bootstrap` 以并行验证入口接入 Claude / Codex runtime、smoke 与文档链路 |
 | 2026-04-08 | fix | `mcp-setup` | 收紧双宿主健壮性，Serena MCP 配置按宿主上下文校验，宿主歧义时不再默认 Claude |
 | 2026-04-08 | docs | `mcp-setup` | 将技能命名统一为 `spec-mcp-setup`，Codex 直接调用格式改为 `$spec-mcp-setup`，与其他 spec-* 技能保持一致 |
-| 2026-04-08 | feat | `codex` | Codex init 现在也会生成 `/spec:*` command files，和 Claude 对齐命令可见性、doctor 检查和 clean 清理链路 |
+| 2026-04-08 | feat | `codex` | Codex init 曾短暂生成 `/spec:*` compatibility command files；该产品面后续已撤回，当前 Codex 正式入口以 `$spec-*` skills 为准 |
 | 2026-04-08 | docs | `mcp-setup` | 增加更友好的执行进度提示，安装与验证脚本会显示当前宿主检查、逐项配置、标记写入和完成状态 |
 | 2026-04-08 | feat | `mcp-setup` | 增加 Windows PowerShell 7+ 支持，补齐 detect/check/install/verify 的 .ps1 入口，并把技能合同改成按平台选择脚本 |
 | 2026-04-08 | fix | `mcp-setup/spec-graph-bootstrap` | 让 MCP 安装与引导流程按当前宿主自适应，自动区分 Claude Code / Codex 的配置文件与 host-setup 标记路径，并补齐双宿主 unit 测试与文档同步 |
@@ -2040,18 +2040,20 @@
 
 ### 更新内容
 
-Codex 侧的 `spec-first init` 现在也会生成 `/spec:*` 命令文件，和 Claude 侧保持一致的命令可见性与诊断体验。
+Codex 侧的 `spec-first init` 曾短暂生成 `/spec:*` compatibility command files，尝试和 Claude 侧保持一致的命令可见性与诊断体验。
+
+> 当前状态：该产品面后续已撤回。当前 Codex 正式入口以 `$spec-*` skills 和 `.agents/skills/` discovery 为准；`.codex/commands/spec/` 只作为旧版本遗留清理目标。
 
 ### 主要变化
 
-- `CodexAdapter` 从不生成命令，改为生成 `.codex/commands/spec/`
-- `doctor` 现在会在 Codex 平台检查命令目录是否存在
+- `CodexAdapter` 当时从不生成命令，改为生成 `.codex/commands/spec/`
+- `doctor` 当时会在 Codex 平台检查命令目录是否存在
 - smoke 测试同步验证 Codex init、doctor、clean 的命令链路
-- 用户文档更新为 Codex 也会出现 `/spec:*` 命令入口
+- 用户文档当时更新为 Codex 也会出现 `/spec:*` 命令入口
 
 ### 版本意义
 
-这次改动把 Codex 的工作流入口从“仅 skills”扩展为“commands + skills”，降低了跨平台认知差异。
+这次改动把 Codex 的工作流入口从“仅 skills”扩展为“commands + skills”，降低了跨平台认知差异；后续治理结论认为这会制造第二产品面，因此已回到“Codex 使用 `$spec-*` skills，Claude 使用 `/spec:*` commands”的边界。
 
 ---
 

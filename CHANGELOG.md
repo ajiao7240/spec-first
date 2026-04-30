@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.1 2026-04-30 13:36:13 leokuang: docs(audit): 完成 100 轮 spec-first 质量循环审查，修复 init 英文输出、Codex 入口文档漂移、贡献者指南真相源、项目审查链接和发布包 bytecode 防护 (user-visible)
 - v1.6.1 2026-04-29 23:59:00 leokuang: feat(update): 新增 Claude/Codex 启动版本提醒，修复 spec-update 双宿主 runtime 渲染并对齐手动升级入口 (user-visible)
 - v1.6.1 2026-04-29 22:48:03 leokuang: docs(plan): 规划 Claude/Codex 启动版本提醒的只读检测与手动升级引导实现 (user-visible)
 - v1.6.1 2026-04-29 22:43:12 leokuang: docs(brainstorm): 明确宿主启动版本更新提醒采用自动检测与用户手动升级决策 (user-visible)

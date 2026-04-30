@@ -22,8 +22,8 @@ Graph context is provided by external graph providers configured by the setup wo
 ```bash
 npm install -g spec-first
 spec-first doctor
-spec-first init --claude -u <name> --lang zh
-spec-first init --codex -u <name> --lang zh
+spec-first init --claude -u <name> --lang en
+spec-first init --codex -u <name> --lang en
 ```
 
 Run the init command for each host you actually use. For example, run only `--claude` for Claude Code-only projects, only `--codex` for Codex-only projects, or both when the same repo should support both hosts.
@@ -67,10 +67,10 @@ Expected Claude init output includes:
 📦 Generated 18 command file(s) in .claude/commands/spec
 🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
-下一步:
-  1. 重启 Claude Code 或新开会话，让宿主加载刚生成的 /spec:* commands。
-  2. 在新会话运行 /spec:mcp-setup，安装并验证必装 MCP/helper runtime。
-  3. 如果 /spec:mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap。
+Next steps:
+  1. Restart Claude Code or open a new session so the host loads the generated /spec:* commands.
+  2. In the new session, run /spec:mcp-setup to install and verify the required MCP/helper runtime.
+  3. If /spec:mcp-setup shows graph bootstrap is still pending, run /spec:graph-bootstrap when prompted.
 ```
 
 Expected Codex init output includes:
@@ -78,10 +78,10 @@ Expected Codex init output includes:
 ```text
 🧩 Generated 22 skill directory(ies) in .agents/skills
 🤖 Generated 51 agent file(s) in .codex/agents
-下一步:
-  1. 重启 Codex 或新开会话，让宿主加载刚生成的 $spec-* skills。
-  2. 在新会话运行 $spec-mcp-setup，安装并验证必装 MCP/helper runtime。
-  3. 如果 $spec-mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 $spec-graph-bootstrap。
+Next steps:
+  1. Restart Codex or open a new session so the host loads the generated $spec-* skills.
+  2. In the new session, run $spec-mcp-setup to install and verify the required MCP/helper runtime.
+  3. If $spec-mcp-setup shows graph bootstrap is still pending, run $spec-graph-bootstrap when prompted.
 ```
 
 ## Workflow Entry Points

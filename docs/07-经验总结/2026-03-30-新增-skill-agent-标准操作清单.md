@@ -76,7 +76,7 @@ description: ...
 在 skill 正文里，不要直接把某个平台运行时目录写成唯一真相，例如：
 
 - `.codex/commands/spec/...`
-- `.codex/skills/...`
+- `.agents/skills/...`
 - `.agents/plugins/...`
 
 当前仓库的设计是：
@@ -124,13 +124,13 @@ Task spec-first:review:correctness-reviewer(Review the current diff for correctn
 普通 skill：
 
 - 只需新增 `skills/<skill-name>/SKILL.md`
-- 通常不需要修改 `.claude-plugin/plugin.json`
+- 通常不需要修改 `src/cli/contracts/dual-host-governance/skills-governance.json`
 
 核心 workflow skill：
 
 - 既要能作为 Claude 的 `/spec:*` 命令被调用
 - 又要能作为 Codex 的 `$spec-*` skill 被发现
-- 同时会生成 `.codex/commands/spec/<name>.md` 兼容命令文件，但正式 discovery 仍以 `.agents/skills/spec-<name>/` 为准
+- 不再生成 `.codex/commands/spec/<name>.md`；Codex 正式 discovery 以 `.agents/skills/spec-<name>/` 为准
 
 如果是新增核心 workflow，还必须继续执行下面的“新增核心 workflow”步骤。
 
@@ -195,7 +195,7 @@ agent 文件本身只描述：
 
 修改：
 
-- `.claude-plugin/plugin.json`
+- `src/cli/contracts/dual-host-governance/skills-governance.json`
 
 新增 command 项：
 
@@ -256,7 +256,7 @@ $spec-triage
 
 - skill 中引用 agent 时，是否使用 `spec-first:<category>:<agent-name>`
 - 是否误写了 `.codex/agents/...`
-- 是否误写了 `.codex/skills/...`
+- 是否把 `.agents/skills/...` 当成源码真源写进 skill 正文
 
 ### 3. 是否不小心把平台运行时目录当成源码改了
 
@@ -338,7 +338,7 @@ $spec-<name>
 - [ ] 没有直接把 `.claude/`、`.codex/`、`.agents/skills/` 当源码改
 - [ ] source skill 的 `name:` 符合仓库内部命名约定；如是核心 workflow，已验证 Codex runtime `name:` 与目录名一致
 - [ ] 引用 agent 时使用 `spec-first:<category>:<agent-name>`
-- [ ] 如果是核心 workflow，已同步更新 `.claude-plugin/plugin.json`
+- [ ] 如果是核心 workflow，已同步更新 `src/cli/contracts/dual-host-governance/skills-governance.json`
 - [ ] 如果是核心 workflow，已新增 `templates/claude/commands/spec/<name>.md`
 - [ ] Claude 和 Codex 的 `init` / `doctor` 都验证过
 - [ ] smoke / integration 都通过

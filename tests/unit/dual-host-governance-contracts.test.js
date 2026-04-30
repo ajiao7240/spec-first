@@ -24,6 +24,10 @@ const DOCS_SIDE_GOVERNANCE_DIR = path.join(
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const README_PATH = path.join(REPO_ROOT, 'README.md');
 const README_ZH_PATH = path.join(REPO_ROOT, 'README.zh-CN.md');
+const USER_MANUAL_QUICKSTART_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/01-快速开始.md');
+const USER_MANUAL_FAQ_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/04-常见问题.md');
+const USER_MANUAL_LOCAL_INSTALL_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/06-本地源码安装.md');
+const RELEASE_NOTES_PATH = path.join(REPO_ROOT, 'docs/08-版本更新/README.md');
 const GITIGNORE_PATH = path.join(REPO_ROOT, '.gitignore');
 const RELEASE_SMOKE_PATH = path.join(REPO_ROOT, 'tests/smoke/release-dual-host-governance.sh');
 const MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/SKILL.md');
@@ -172,6 +176,10 @@ describe('dual-host governance contracts', () => {
     const readme = read(README_PATH);
     const readmeZh = read(README_ZH_PATH);
     const mcpSetup = read(MCP_SETUP_SKILL_PATH);
+    const quickstart = read(USER_MANUAL_QUICKSTART_PATH);
+    const faq = read(USER_MANUAL_FAQ_PATH);
+    const localInstall = read(USER_MANUAL_LOCAL_INSTALL_PATH);
+    const releaseNotes = read(RELEASE_NOTES_PATH);
 
     expect(readme).toContain('$spec-mcp-setup');
     expect(readme).toContain('$spec-graph-bootstrap');
@@ -212,6 +220,15 @@ describe('dual-host governance contracts', () => {
 
     expect(mcpSetup).toContain('**Codex entry point:** `$spec-mcp-setup`');
     expect(mcpSetup).not.toContain('**Codex entry point:** `/spec:mcp-setup`');
+
+    expect(quickstart).toContain('Codex 的 `.agents/skills`、`.codex/agents` 都通过检查');
+    expect(quickstart).not.toContain('Codex 的 `.codex/commands/spec`');
+    expect(faq).toContain('Claude 的 `/spec:*` 或 Codex 的 `$spec-*` 入口');
+    expect(faq).toContain('Claude 的 `/spec:*` 或 Codex 的 `$spec-*` 不生效');
+    expect(localInstall).not.toContain('ls .codex/commands/spec');
+    expect(releaseNotes).toContain('当前 Codex 正式入口以 `$spec-*` skills 为准');
+    expect(releaseNotes).toContain('只作为旧版本遗留清理目标');
+    expect(releaseNotes).not.toContain('Codex init 现在也会生成 `/spec:*` command files');
   });
 
   test('active source-of-truth surfaces use external graph bootstrap without retired CRG CLI', () => {

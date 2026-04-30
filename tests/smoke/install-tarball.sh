@@ -42,6 +42,10 @@ if grep -q '^package/\.claude-plugin/' "$PACK_LIST"; then
   echo "✗ tarball 文件列表不应包含安装生成的 .claude-plugin 产物"
   exit 1
 fi
+if grep -E '(^|/)__pycache__/|\.py[co]$' "$PACK_LIST"; then
+  echo "✗ tarball 文件列表不应包含 Python bytecode 缓存"
+  exit 1
+fi
 grep -q "skills/spec-graph-bootstrap/SKILL.md" "$PACK_LIST"
 grep -q "templates/claude/commands/spec/graph-bootstrap.md" "$PACK_LIST"
 echo "   ✓ tarball 未包含内置 CRG runtime / .claude-plugin，且包含 external graph bootstrap"

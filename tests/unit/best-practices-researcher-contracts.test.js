@@ -17,8 +17,12 @@ describe('best-practices-researcher contracts', () => {
     expect(agent).toContain('Rails/Ruby → `dhh-rails-style`');
     expect(agent).toContain('Documentation → `spec-compound`');
     expect(agent).toContain('File operations → `git-worktree`, `feature-video` artifacts');
+    expect(agent).toContain('current project/workspace skill directories');
+    expect(agent).toContain('Treat `.codex/skills/` and `~/.codex/skills/` as legacy cleanup signals only');
     expect(agent).toContain('From skill: dhh-rails-style');
     expect(agent).toContain('The dhh-rails-style skill recommends...');
+    expect(agent).not.toContain('project/workspace skill directories in `.claude/skills/**/SKILL.md`, `.codex/skills/**/SKILL.md`');
+    expect(agent).not.toContain('user/home skill directories in `~/.claude/skills/**/SKILL.md`, `~/.codex/skills/**/SKILL.md`');
     expect(agent).not.toContain('andrew-kane-gem-writer');
     expect(agent).not.toContain('dspy-ruby');
     expect(agent).not.toContain('every-style-editor');

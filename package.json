@@ -31,6 +31,9 @@
     "docs/contracts/verifiers/",
     "scripts/typecheck-js.js",
     "skills/",
+    "!skills/**/__pycache__/**",
+    "!skills/**/*.pyc",
+    "!skills/**/*.pyo",
     "templates/",
     "README.md"
   ],

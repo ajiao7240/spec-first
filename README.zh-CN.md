@@ -11,7 +11,7 @@
 - CLI helpers：`doctor`、`init`、`clean`、`tasks`、版本/help 输出和确定性 setup 检查。
 - `skills/`、`agents/`、`templates/` 下的 workflow source assets。
 - 面向 Claude Code 与 Codex 的 host-filtered runtime 生成。
-- 通过当前宿主的 setup workflow 管理 required harness runtime setup，覆盖 MCP servers、graph-provider MCP servers、helper CLIs 和项目 setup facts。
+- 通过当前宿主的 setup workflow 管理必备 harness runtime setup，覆盖 MCP servers、graph-provider MCP servers、helper CLIs 和项目 setup facts。
 - 通过当前宿主的 graph bootstrap workflow 编译 external graph readiness，产出供下游 workflow 使用的 canonical graph / impact readiness artifacts。
 - ideation、brainstorm、plan、task-pack handoff、work、debug、review、setup、update、sessions、Slack research、release notes、compound、optimize 和 browser-visible polish 等公开 workflow 入口。
 
@@ -88,7 +88,7 @@ Codex init 的预期输出包含：
 
 | 意图 | Claude Code | Codex |
 |---|---|---|
-| required harness runtime setup | `/spec:mcp-setup` | `$spec-mcp-setup` |
+| 安装必备 harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | 编译 graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
 | 更新 spec-first 或 runtime assets | `/spec:update` | `$spec-update` |
 | 搜索 agent session 历史 | `/spec:sessions` | `$spec-sessions` |
@@ -102,11 +102,11 @@ Codex init 的预期输出包含：
 | 执行工作 | `/spec:work` | `$spec-work` |
 | 使用 Codex delegation beta 执行工作 | `/spec:work-beta` | `$spec-work-beta` |
 | 优化可度量目标 | `/spec:optimize` | `$spec-optimize` |
-| polish browser-visible UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
+| 打磨可浏览 UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
 | 代码评审 | `/spec:code-review` | `$spec-code-review` |
 | 知识沉淀 | `/spec:compound` | `$spec-compound` |
 | 刷新过期知识沉淀 | `/spec:compound-refresh` | `$spec-compound-refresh` |
-| 查看 release notes | `/spec:release-notes` | `$spec-release-notes` |
+| 查看版本说明 | `/spec:release-notes` | `$spec-release-notes` |
 
 当 managed Claude hook 或 Codex 顶层 workflow-entry guidance 展示启动版本提醒时，
 提醒只会指向上表中的 update 入口；它不会安装包、刷新 runtime assets 或重启宿主。

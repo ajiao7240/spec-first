@@ -1,15 +1,15 @@
 # Spec-First 项目代码审查报告
 
-文档角色：`仓库级总审查报告`  
-阅读优先级：`第一篇`  
-关联专项：`spec-graph-bootstrap`  
-后续路线图：[2026-04-18-spec-graph-bootstrap-optimization-roadmap.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-optimization-roadmap.md)
+文档角色：`仓库级总审查报告`
+阅读优先级：`第一篇`
+关联专项：`spec-graph-bootstrap`
+后续路线图：[2026-04-18-spec-graph-bootstrap-optimization-roadmap.md](./spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-optimization-roadmap.md)
 
-日期：`2026-04-18`  
-范围：当前工作区中的 `spec-first` 仓库  
+日期：`2026-04-18`
+范围：当前工作区中的 `spec-first` 仓库
 审查依据：以仓库内代码、测试、脚本、manifest、workflow 资产为主，文档仅作辅助证据
 
-本报告是仓库级主结论；若要继续查看最关键的 Stage-0 / bootstrap 输入问题，请转到 [2026-04-18-spec-graph-bootstrap-audit.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-audit.md)。
+本报告是仓库级主结论；若要继续查看最关键的 Stage-0 / bootstrap 输入问题，请转到 [2026-04-18-spec-graph-bootstrap-audit.md](./spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-audit.md)。
 
 ## 证据标签说明
 

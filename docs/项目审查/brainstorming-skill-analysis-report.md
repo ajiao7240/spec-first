@@ -2,7 +2,7 @@
 
 ## 1. 文档对象
 
-- Skill 目录：`/Users/kuang/xiaobu/superpowers/skills/brainstorming`
+- Skill 目录：`superpowers/skills/brainstorming`
 - 主定义文件：`SKILL.md`
 - 视觉辅助指南：`visual-companion.md`
 - 相关提示模板：`spec-document-reviewer-prompt.md`

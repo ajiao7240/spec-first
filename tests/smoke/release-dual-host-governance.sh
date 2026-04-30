@@ -45,6 +45,10 @@ if tar -tf "$TARBALL_PATH" | grep -q '^package/\.claude-plugin/'; then
   echo "✗ tarball 不应包含安装生成的 .claude-plugin 产物"
   exit 1
 fi
+if tar -tf "$TARBALL_PATH" | grep -E '(^|/)__pycache__/|\.py[co]$'; then
+  echo "✗ tarball 不应包含 Python bytecode 缓存"
+  exit 1
+fi
 echo "   ✓ tarball 已包含 runtime governance JSON/schema"
 
 echo "3. 隔离安装 tarball..."

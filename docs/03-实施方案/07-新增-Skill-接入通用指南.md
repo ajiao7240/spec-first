@@ -46,14 +46,14 @@
 - `skills/`
 - `agents/`
 - `templates/claude/commands/spec/`
-- `.claude-plugin/plugin.json`
+- `src/cli/contracts/dual-host-governance/skills-governance.json`
 
 其中：
 
 - `skills/` 是 skill 的 canonical source
 - `agents/` 是 agent profile 的 canonical source
 - `templates/claude/commands/spec/` 是 Claude 的 slash command 模板
-- `.claude-plugin/plugin.json` 定义 Claude 侧公开 workflow 入口
+- `src/cli/contracts/dual-host-governance/skills-governance.json` 定义双宿主运行时交付与公开 workflow 入口治理
 
 ### 3.2 运行态生成层
 
@@ -135,7 +135,7 @@ spec-first init --codex
 
 1. 新增 `skills/spec-xxx/SKILL.md`
 2. 新增 Claude command template
-3. 更新 `.claude-plugin/plugin.json`
+3. 更新 `src/cli/contracts/dual-host-governance/skills-governance.json`
 4. 让 Codex 运行态通过 `.agents/skills/spec-xxx` 暴露 `$spec-xxx`
 
 ### 4.3 模式 C：agent-only 能力
@@ -379,7 +379,7 @@ Task spec-first:review:correctness-reviewer(Review rollback and migration risks)
 
 如果该能力要成为新的独立 workflow，则额外执行：
 
-1. 修改 `.claude-plugin/plugin.json`
+1. 修改 `src/cli/contracts/dual-host-governance/skills-governance.json`
 2. 新增 `templates/claude/commands/spec/<name>.md`
 3. 采用与现有主流程一致的 workflow 命名策略
 
@@ -459,7 +459,7 @@ hook 段建议统一按“触发器 + 行为 + 降级”三段结构写。
 不要在源码 skill 中直接引用：
 
 - `.claude/skills/...`
-- `.codex/skills/...`
+- `.agents/skills/...`
 - `.claude/agents/...`
 - `.codex/agents/...`
 

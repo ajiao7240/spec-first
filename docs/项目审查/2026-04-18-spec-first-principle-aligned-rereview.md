@@ -1,15 +1,15 @@
 # Spec-First 原则对齐版复审
 
-文档角色：`补充复审 / principle-aligned rereview`  
-上位文档：[2026-04-18-spec-first-code-audit-report.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/2026-04-18-spec-first-code-audit-report.md)  
-相关文档：[2026-04-18-spec-first-strengths-weaknesses-summary.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/2026-04-18-spec-first-strengths-weaknesses-summary.md)  
-相关路线图：[2026-04-18-spec-graph-bootstrap-optimization-roadmap.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-optimization-roadmap.md)  
-复审准绳：`轻 contract + 明确边界 + 让 LLM 决策`  
+文档角色：`补充复审 / principle-aligned rereview`
+上位文档：[2026-04-18-spec-first-code-audit-report.md](./2026-04-18-spec-first-code-audit-report.md)
+相关文档：[2026-04-18-spec-first-strengths-weaknesses-summary.md](./2026-04-18-spec-first-strengths-weaknesses-summary.md)
+相关路线图：[2026-04-18-spec-graph-bootstrap-optimization-roadmap.md](./spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-optimization-roadmap.md)
+复审准绳：`轻 contract + 明确边界 + 让 LLM 决策`
 日期：`2026-04-18`
 
 ## 1. 本次复审的目的
 
-这次复审不是重新推翻主报告，而是用仓库在 [AGENTS.md](/Users/kuang/xiaobu/spec-first/AGENTS.md) 中已经明确写下的原则，重新检查原报告的判断和整改建议是否完全对齐。
+这次复审不是重新推翻主报告，而是用仓库在 [AGENTS.md](../../AGENTS.md) 中已经明确写下的原则，重新检查原报告的判断和整改建议是否完全对齐。
 
 重点只审三件事：
 
@@ -27,7 +27,7 @@
 
 所以，本次复审后的主判断应当进一步收紧为：
 
-> `spec-first` 的质量提升主线，必须来自**更真实的上下文、更清楚的来源、更锋利的验证信号、更显式的 fallback 语义、更低的上下文漂移**；  
+> `spec-first` 的质量提升主线，必须来自**更真实的上下文、更清楚的来源、更锋利的验证信号、更显式的 fallback 语义、更低的上下文漂移**；
 > 不能来自把 workflow 变成一套多状态流转、审批分支和强执行树。
 
 ## 3. 对原主报告的再判断
@@ -97,7 +97,7 @@
 
 一句话：
 
-> 不要为了减少不确定性，就把系统做成强编排状态机。  
+> 不要为了减少不确定性，就把系统做成强编排状态机。
 > 应该做的是提高不确定性的可见性、来源清晰度和可消费性。
 
 ## 6. 对主报告整改建议的原则化改写
@@ -123,7 +123,7 @@
 
 ## 6.2 关于 `bootstrap / Stage-0`
 
-原报告要求修复“产物装配成功被误读成真实分析成功”，这个判断完全正确。  
+原报告要求修复“产物装配成功被误读成真实分析成功”，这个判断完全正确。
 但整改重点应当是：
 
 - 增强 truthfulness
@@ -202,12 +202,12 @@
 
 这套排序的关键变化是：
 
-> 先补输入质量，再补输入消费边界，最后才补更多运行时证据。  
+> 先补输入质量，再补输入消费边界，最后才补更多运行时证据。
 > 而不是先补更多 gate、更多状态、更多流程控制。
 
 ## 8. 对现有路线图的优化解释
 
-[2026-04-18-spec-graph-bootstrap-optimization-roadmap.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-optimization-roadmap.md) 的总体方向仍然正确，尤其是以下几点应保留：
+[2026-04-18-spec-graph-bootstrap-optimization-roadmap.md](./spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-optimization-roadmap.md) 的总体方向仍然正确，尤其是以下几点应保留：
 
 - 区分 `assembly_status` 与 `evidence_status`
 - 给 minimal context 补 `provenance / confidence / freshness`
@@ -235,5 +235,5 @@
 
 本次复审后的结论可以压缩成一句话：
 
-> `spec-first` 后续所有质量整改，都应该优先增加“事实质量”，而不是增加“流程控制”。  
+> `spec-first` 后续所有质量整改，都应该优先增加“事实质量”，而不是增加“流程控制”。
 > 如果某项改动主要增加状态流转、审批分支或编排耦合，却没有明显提升输入真实性、来源清晰度、验证信号质量和 fallback 可见性，那就是错误方向。

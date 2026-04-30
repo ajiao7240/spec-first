@@ -26,4 +26,17 @@ describe('README language split contract', () => {
     expect(englishReadme).toContain('[Chinese Testing Plan](./docs/03-实施方案/04-测试方案.md)');
     expect(englishReadme).toContain('[Chinese Release Notes](./docs/08-版本更新/README.md)');
   });
+
+  test('English README uses English init language examples and next steps', () => {
+    const englishReadme = fs.readFileSync(README_EN_PATH, 'utf8');
+
+    expect(englishReadme).toContain('spec-first init --claude -u <name> --lang en');
+    expect(englishReadme).toContain('spec-first init --codex -u <name> --lang en');
+    expect(englishReadme).toContain('Next steps:');
+    expect(englishReadme).toContain('Restart Claude Code or open a new session');
+    expect(englishReadme).toContain('Restart Codex or open a new session');
+    expect(englishReadme).not.toContain('spec-first init --claude -u <name> --lang zh');
+    expect(englishReadme).not.toContain('spec-first init --codex -u <name> --lang zh');
+    expect(englishReadme).not.toContain('下一步:');
+  });
 });
