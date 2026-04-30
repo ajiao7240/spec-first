@@ -1,6 +1,11 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.1 2026-04-30 16:48:00 leokuang: fix(spec-mcp-setup): 将 ast-grep global skill 安装改回直接 timeout 执行，避免嵌套 shell 影响慢路径探测与日志一致性 (user-visible)
+- v1.6.1 2026-04-30 16:34:00 leokuang: fix(spec-mcp-setup): 将 helper 安装超时包装切换到非登录 shell，避免 `bash -lc` 的启动副作用吞掉 `run_install_command` 路径日志 (user-visible)
+- v1.6.1 2026-04-30 16:12:00 leokuang: fix(spec-mcp-setup): 将 helper 安装超时保护扩展到所有 run_install_command 路径，避免 gh/jq/vhs/silicon/ffmpeg/ast-grep 在安装阶段无界阻塞 (user-visible)
+- v1.6.1 2026-04-30 15:34:47 leokuang: fix(spec-mcp-setup): GitNexus query probe 使用 indexed repo label，优先从 `.gitnexus/meta.json` remoteUrl 派生，避免目录名与仓库标识不一致导致 graph-bootstrap degraded (user-visible)
+- v1.6.1 2026-04-30 14:56:56 leokuang: fix(spec-mcp-setup): 为 helper/MCP 安装补阶段日志与可配置超时，提升长任务可观测性并避免静默卡住 (user-visible)
 - v1.6.1 2026-04-30 13:36:13 leokuang: docs(audit): 完成 100 轮 spec-first 质量循环审查，修复 init 英文输出、Codex 入口文档漂移、贡献者指南真相源、项目审查链接和发布包 bytecode 防护 (user-visible)
 - v1.6.1 2026-04-30 01:09:04 leokuang: fix(update): 修复启动版本提醒的 Claude hook 执行路径、runtime 识别、cooldown 状态与隐藏 CLI contract (user-visible)
 - v1.6.1 2026-04-29 23:59:00 leokuang: feat(update): 新增 Claude/Codex 启动版本提醒，修复 spec-update 双宿主 runtime 渲染并对齐手动升级入口 (user-visible)

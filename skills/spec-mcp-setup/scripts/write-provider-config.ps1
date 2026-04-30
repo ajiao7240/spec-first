@@ -91,19 +91,104 @@ function ConvertTo-ComparableProjectionJson {
   return ($clone | ConvertTo-Json -Depth 30 -Compress)
 }
 
+function Normalize-GitNexusRepoName {
+  param([string]$Value)
+  if ([string]::IsNullOrWhiteSpace($Value)) { return '' }
+  $trimmed = $Value.Trim()
+  if ($trimmed -match '^[A-Za-z0-9._-]+$') {
+    return $trimmed
+  }
+  return ''
+}
+
+function Get-GitNexusRepoNameFromRemoteUrl {
+  param([string]$RemoteUrl)
+  if ([string]::IsNullOrWhiteSpace($RemoteUrl)) { return '' }
+  $remote = $RemoteUrl.Trim()
+  $remote = ($remote -split '[?#]', 2)[0].TrimEnd([char[]]@('/', '\'))
+  if ([string]::IsNullOrWhiteSpace($remote)) { return '' }
+
+  $name = [System.IO.Path]::GetFileName($remote)
+  if ([string]::IsNullOrWhiteSpace($name) -or $name -eq $remote) {
+    $parts = $remote -split ':'
+    $name = $parts[$parts.Count - 1]
+  }
+  if ($name.EndsWith('.git')) {
+    $name = $name.Substring(0, $name.Length - 4)
+  }
+  return (Normalize-GitNexusRepoName -Value $name)
+}
+
+function Get-GitNexusRepoNameCandidate {
+  param(
+    [object]$Object,
+    [string]$PropertyName
+  )
+  if ($null -eq $Object -or -not ($Object.PSObject.Properties.Name -contains $PropertyName)) {
+    return ''
+  }
+  return (Normalize-GitNexusRepoName -Value ([string]$Object.PSObject.Properties[$PropertyName].Value))
+}
+
+function Get-GitNexusRepoName {
+  param(
+    [string]$RepoRoot,
+    [object]$Facts
+  )
+
+  $candidates = @()
+  $candidates += Get-GitNexusRepoNameCandidate -Object $Facts -PropertyName 'gitnexus_repo_name'
+  if ($null -ne $Facts -and $Facts.PSObject.Properties.Name -contains 'gitnexus') {
+    $candidates += Get-GitNexusRepoNameCandidate -Object $Facts.gitnexus -PropertyName 'repo_name'
+    $candidates += Get-GitNexusRepoNameCandidate -Object $Facts.gitnexus -PropertyName 'repository_name'
+  }
+  if ($null -ne $Facts -and $Facts.PSObject.Properties.Name -contains 'graph_providers' -and $null -ne $Facts.graph_providers -and $Facts.graph_providers.PSObject.Properties.Name -contains 'gitnexus') {
+    $candidates += Get-GitNexusRepoNameCandidate -Object $Facts.graph_providers.gitnexus -PropertyName 'repo_name'
+    $candidates += Get-GitNexusRepoNameCandidate -Object $Facts.graph_providers.gitnexus -PropertyName 'repository_name'
+  }
+  if ($null -ne $Facts -and $Facts.PSObject.Properties.Name -contains 'target') {
+    $candidates += Get-GitNexusRepoNameCandidate -Object $Facts.target -PropertyName 'gitnexus_repo_name'
+  }
+  foreach ($candidate in $candidates) {
+    if (-not [string]::IsNullOrWhiteSpace($candidate)) {
+      return $candidate
+    }
+  }
+
+  $metaPath = Join-Path $RepoRoot '.gitnexus/meta.json'
+  if (Test-Path -LiteralPath $metaPath -PathType Leaf) {
+    try {
+      $meta = Get-Content -Raw $metaPath | ConvertFrom-Json
+      if ($meta.PSObject.Properties.Name -contains 'remoteUrl') {
+        $remoteRepoName = Get-GitNexusRepoNameFromRemoteUrl -RemoteUrl ([string]$meta.remoteUrl)
+        if (-not [string]::IsNullOrWhiteSpace($remoteRepoName)) {
+          return $remoteRepoName
+        }
+      }
+    } catch {
+    }
+  }
+
+  $fallback = Normalize-GitNexusRepoName -Value (Split-Path -Leaf $RepoRoot)
+  if (-not [string]::IsNullOrWhiteSpace($fallback)) {
+    return $fallback
+  }
+  return (Split-Path -Leaf $RepoRoot)
+}
+
 function Get-ProviderCommands {
   param(
     [string]$Provider,
     [string]$RepoRoot,
     [string]$GitNexusPackageSpec,
-    [object]$GitNexusQueryProbePolicy
+    [object]$GitNexusQueryProbePolicy,
+    [string]$GitNexusRepoName
   )
-  $repoName = Split-Path -Leaf $RepoRoot
   if ($Provider -eq 'gitnexus') {
     return [ordered]@{
       bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--force')
       status = @('npx', '-y', $GitNexusPackageSpec, 'status')
-      query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', [string]$GitNexusQueryProbePolicy.token, '--repo', $repoName)
+      query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', [string]$GitNexusQueryProbePolicy.token, '--repo', $GitNexusRepoName)
     }
   }
   if ($Provider -eq 'code-review-graph') {
@@ -289,6 +374,7 @@ if ([string]::IsNullOrWhiteSpace($gitNexusPackageSpec)) {
   throw 'GitNexus package spec not found in mcp-tools.json'
 }
 $gitNexusQueryProbePolicy = Get-GitNexusQueryProbePolicy -RepoRoot $repoRoot
+$gitNexusRepoName = Get-GitNexusRepoName -RepoRoot $repoRoot -Facts $facts
 $graphFactsPath = Join-Path $repoRoot '.spec-first/graph/graph-facts.json'
 $providerStatusPath = Join-Path $repoRoot '.spec-first/graph/provider-status.json'
 $impactCapabilitiesPath = Join-Path $repoRoot '.spec-first/impact/bootstrap-impact-capabilities.json'
@@ -339,7 +425,7 @@ foreach ($property in $facts.graph_providers.PSObject.Properties) {
     dependency_status = $provider.dependency_status
     host_config_status = $provider.host_config_status
     capabilities = @($provider.capabilities)
-    commands = Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy
+    commands = Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy -GitNexusRepoName $gitNexusRepoName
     query_probe_policy = if ($property.Name -eq 'gitnexus') { $gitNexusQueryProbePolicy } else { $null }
     artifacts = Get-ProviderArtifacts -Provider $property.Name
     next_action = if ($ready -and $preserveQueryReady) { '' } elseif ($ready) { 'run spec-graph-bootstrap' } else { 'Fix provider setup and rerun spec-mcp-setup.' }

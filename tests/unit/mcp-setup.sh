@@ -10,6 +10,7 @@ GRAPH_BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
 GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1]' "$TOOLS_JSON")"
 GITNEXUS_QUERY_PROBE="TradeLoginActivity"
+GITNEXUS_REPO_LABEL="hr360"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -77,10 +78,13 @@ if [ "\${1:-}" = "--version" ] || [ "\$#" -eq 0 ]; then
 fi
 exec "$real_node" "\$@"
 SH
-  cat > "$bin_dir/npm" <<SH
+cat > "$bin_dir/npm" <<SH
 #!/bin/bash
 echo "npm \$*" >> "$log_file"
 if [ "\${1:-}" = "--version" ]; then echo "10.0.0"; fi
+if [ -n "\${SLOW_NPM_INSTALL_SECONDS:-}" ] && [[ " \$* " == *" agent-browser@latest "* ]]; then
+  sleep "\$SLOW_NPM_INSTALL_SECONDS"
+fi
 exit 0
 SH
   cat > "$bin_dir/npx" <<SH
@@ -99,7 +103,10 @@ if [[ " \$* " == *" add ast-grep/agent-skill "* ]]; then
   printf 'name: ast-grep\n' > "\$HOME/.agents/skills/ast-grep/SKILL.md"
 fi
 if [[ " \$* " == *" gitnexus@"*" query "* ]]; then
-  printf '{"processes":[{"name":"probe"}],"process_symbols":[],"definitions":[]}\n'
+  printf '{"processes":[{"name":"probe"}],"process_symbols":[{"symbol":"TradeLoginActivity"}],"definitions":[]}\n'
+fi
+if [ -n "\${SLOW_NPX_SKILL_SECONDS:-}" ] && [[ " \$* " == *" add ast-grep/agent-skill "* ]]; then
+  sleep "\$SLOW_NPX_SKILL_SECONDS"
 fi
 exit 0
 SH
@@ -242,7 +249,8 @@ assert_eq "helper verify-only flags missing install marker" "action-required" "$
 assert_eq "helper verify-only asks for agent-browser install" "run agent-browser install" "$(jq -r '.helper_tools."agent-browser".next_action' <<<"$helper_verify")"
 assert_eq "helper verify-only requires ast-grep global skill" "action-required" "$(jq -r '.helper_tools."ast-grep-skill".result' <<<"$helper_verify")"
 
-helper_install="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh")"
+helper_install_err="$TMP_DIR/helper-install.err"
+helper_install="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh" 2>"$helper_install_err")"
 assert "install-helpers install emits JSON" jq -e . <<<"$helper_install"
 assert_contains "helper install runs agent-browser install" "agent-browser install" "$(cat "$COMMAND_LOG")"
 assert_contains "helper install installs global skill with latest skills CLI" "npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y" "$(cat "$COMMAND_LOG")"
@@ -263,10 +271,20 @@ touch "$NO_BROWSER_LOG"
 make_fake_bin "$NO_BROWSER_BIN" "$NO_BROWSER_LOG"
 rm -f "$NO_BROWSER_BIN/agent-browser"
 mkdir -p "$NO_BROWSER_HOME"
-no_browser_install="$(PATH="$NO_BROWSER_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$NO_BROWSER_HOME" bash "$SCRIPTS_DIR/install-helpers.sh")"
+NO_BROWSER_STDERR="$TMP_DIR/no-browser-stderr.log"
+no_browser_install="$(PATH="$NO_BROWSER_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$NO_BROWSER_HOME" SLOW_NPM_INSTALL_SECONDS=2 SPEC_FIRST_STAGE_TIMEOUT_SECONDS=1 bash "$SCRIPTS_DIR/install-helpers.sh" 2>"$NO_BROWSER_STDERR")"
 assert "helper missing CLI install path emits JSON" jq -e . <<<"$no_browser_install"
 assert_contains "helper default attempts latest CLI install when missing" "npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error" "$(cat "$NO_BROWSER_LOG")"
+assert_contains "helper default records timeout on slow npm" "timed out after 1s" "$(cat "$NO_BROWSER_STDERR")"
 assert_eq "helper reports missing CLI if npm did not expose binary" "missing" "$(jq -r '.helper_tools."agent-browser".dependency_status' <<<"$no_browser_install")"
+
+SLOW_SKILL_HOME="$TMP_DIR/slow-skill-home"
+mkdir -p "$SLOW_SKILL_HOME"
+slow_skill_stderr="$TMP_DIR/slow-skill-stderr.log"
+slow_skill_install="$(PATH="$TEST_PATH" HOME="$SLOW_SKILL_HOME" SLOW_NPX_SKILL_SECONDS=2 SPEC_FIRST_STAGE_TIMEOUT_SECONDS=1 bash "$SCRIPTS_DIR/install-helpers.sh" --install 2>"$slow_skill_stderr")"
+assert "helper install with slow skill emits JSON" jq -e . <<<"$slow_skill_install"
+assert_contains "helper install times out slow ast-grep skill" "timed out after 1s" "$(cat "$slow_skill_stderr")"
+assert_eq "helper install marks ast-grep-skill action-required on timeout" "action-required" "$(jq -r '.helper_tools."ast-grep-skill".result' <<<"$slow_skill_install")"
 
 PREFLIGHT_HOME="$TMP_DIR/preflight-home"
 mkdir -p "$PREFLIGHT_HOME/.agents/skills/agent-browser"
@@ -283,6 +301,8 @@ assert_eq "check-health Windows output avoids Homebrew" "false" "$(jq -r '[.tool
 
 FAKE_REPO="$TMP_DIR/repo"
 make_repo "$FAKE_REPO"
+mkdir -p "$FAKE_REPO/.gitnexus"
+printf '{"remoteUrl":"https://gitee.com/sunnyrain/%s.git"}\n' "$GITNEXUS_REPO_LABEL" > "$FAKE_REPO/.gitnexus/meta.json"
 mkdir -p "$FAKE_REPO/trade/src/main/java/com/hstong/trade/tradelogin/login/ui"
 printf 'class TradeLoginActivity {}\n' > "$FAKE_REPO/trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java"
 git -C "$FAKE_REPO" add trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java
@@ -313,7 +333,8 @@ legacy_delete="$(cd "$FAKE_REPO" && bash "$SCRIPTS_DIR/bootstrap-project-config.
 assert_eq "legacy markdown deletion is explicit" "deleted" "$(jq -r '.legacy.compound_engineering_markdown_status' <<<"$legacy_delete")"
 test ! -e "$FAKE_REPO/compound-engineering.local.md"
 
-install_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --serena-language typescript)"
+install_mcp_log="$TMP_DIR/install-mcp.log"
+install_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --serena-language typescript 2>"$install_mcp_log")"
 assert "install-mcp emits JSON" jq -e . <<<"$install_output"
 assert_eq "installer configures all required tools" "serena,sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$install_output")"
 assert_eq "installer has no skipped optional results" "true" "$(jq -r 'all(.results[]; .status == "ready")' <<<"$install_output")"
@@ -322,6 +343,8 @@ assert_eq "installer writes code-review-graph config" "uvx" "$(jq -r '.mcpServer
 assert_eq "installer does not write internal scope into Claude config" "false" "$(jq -r '.mcpServers.serena | has("scope")' "$FAKE_HOME/.claude.json")"
 assert "Serena ready marker exists" test -f "$FAKE_REPO/.serena/index-ready.json"
 assert_contains "installer uses explicit LLM-selected TypeScript language for Node repo" "serena project create . --index --language typescript" "$(cat "$COMMAND_LOG")"
+assert_contains "installer prints configure-host stage logs" "spec-mcp-setup: [mcp/configure:serena] start" "$(cat "$install_mcp_log")"
+assert_contains "installer prints Serena stage logs" "spec-mcp-setup: [mcp/serena:serena] start" "$(cat "$install_mcp_log")"
 
 STDIN_DRAIN_REPO="$TMP_DIR/stdin-drain-repo"
 STDIN_DRAIN_HOME="$TMP_DIR/stdin-drain-home"
@@ -564,7 +587,7 @@ assert_eq "runtime capabilities schema" "runtime-capabilities.v1" "$(jq -r '.sch
 assert_eq "provider artifacts schema" "provider-artifacts.v1" "$(jq -r '.schema_version' "$PROVIDER_ARTIFACTS")"
 assert_eq "provider projection is setup-only" "true" "$(jq -r '.boundaries.setup_only and .boundaries.does_not_run_gitnexus_analyze and .boundaries.does_not_run_code_review_graph_build' "$PROVIDER_CONFIG")"
 provider_config_repo_root="$(jq -r '.repo_root' "$PROVIDER_CONFIG")"
-assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$(basename "$provider_config_repo_root")" --arg gitnexus_package "$GITNEXUS_PACKAGE" --arg query_probe "$GITNEXUS_QUERY_PROBE" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze","--force"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y",$gitnexus_package,"query",$query_probe,"--repo",$repo_name]) and (.providers.gitnexus.query_probe_policy.expected_hit == true) and (.providers.gitnexus.query_probe_policy.source == "git-ls-files-code-basename") and (.providers.gitnexus.query_probe_policy.token == $query_probe) and (.providers.gitnexus.query_probe_policy.selected_from == "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java") and (.providers["code-review-graph"].commands.bootstrap == ["uvx","--upgrade","code-review-graph","build"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx","--upgrade","code-review-graph","status","--repo",$repo_root])' "$PROVIDER_CONFIG")"
+assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$GITNEXUS_REPO_LABEL" --arg gitnexus_package "$GITNEXUS_PACKAGE" --arg query_probe "$GITNEXUS_QUERY_PROBE" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze","--force"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y",$gitnexus_package,"query",$query_probe,"--repo",$repo_name]) and (.providers.gitnexus.query_probe_policy.expected_hit == true) and (.providers.gitnexus.query_probe_policy.source == "git-ls-files-code-basename") and (.providers.gitnexus.query_probe_policy.token == $query_probe) and (.providers.gitnexus.query_probe_policy.selected_from == "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java") and (.providers["code-review-graph"].commands.bootstrap == ["uvx","--upgrade","code-review-graph","build"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx","--upgrade","code-review-graph","status","--repo",$repo_root])' "$PROVIDER_CONFIG")"
 assert_eq "providers are configured but not query-ready" "true" "$(jq -r '(.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
 assert_eq "runtime capabilities points to host ledger" "$LEDGER_PATH" "$(jq -r '.host_ledger_pointer.path' "$RUNTIME_CAPABILITIES")"
 assert_eq "runtime capabilities starts not bootstrapped" "not-bootstrapped" "$(jq -r '.project_graph_readiness.status' "$RUNTIME_CAPABILITIES")"
@@ -646,6 +669,7 @@ graph_log_after="$(cat "$COMMAND_LOG")"
 assert "graph-bootstrap emits JSON" jq -e . <<<"$bootstrap_output"
 assert_eq "graph-bootstrap result ready" "ready" "$(jq -r '.overall_status' <<<"$bootstrap_output")"
 assert_contains "graph-bootstrap runs GitNexus analyze" "npx -y $GITNEXUS_PACKAGE analyze --force" "$graph_log_after"
+assert_contains "graph-bootstrap uses GitNexus remote-derived repo label" "npx -y $GITNEXUS_PACKAGE query $GITNEXUS_QUERY_PROBE --repo $GITNEXUS_REPO_LABEL" "$graph_log_after"
 assert_contains "graph-bootstrap runs latest code-review-graph build" "uvx --upgrade code-review-graph build" "$graph_log_after"
 if [ "$graph_log_before" = "$graph_log_after" ]; then
   echo "FAIL: graph-bootstrap should run provider build commands" >&2

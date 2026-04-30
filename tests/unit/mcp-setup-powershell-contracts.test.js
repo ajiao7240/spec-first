@@ -170,11 +170,16 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain("$toolsJsonPath = Join-Path $skillDir 'mcp-tools.json'");
     expect(writeProviderSource).toContain('$gitNexusPackageSpec = [string]$gitNexusTool[0].installation.unix.args[1]');
     expect(writeProviderSource).toContain("bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--force')");
-    expect(writeProviderSource).toContain("query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', [string]$GitNexusQueryProbePolicy.token, '--repo', $repoName)");
+    expect(writeProviderSource).toContain('function Get-GitNexusRepoName');
+    expect(writeProviderSource).toContain('function Get-GitNexusRepoNameFromRemoteUrl');
+    expect(writeProviderSource).toContain("Join-Path $RepoRoot '.gitnexus/meta.json'");
+    expect(writeProviderSource).toContain("remoteUrl");
+    expect(writeProviderSource).toContain("query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', [string]$GitNexusQueryProbePolicy.token, '--repo', $GitNexusRepoName)");
     expect(writeProviderSource).toContain('function Get-GitNexusQueryProbePolicy');
     expect(writeProviderSource).toContain('git-ls-files-code-basename');
     expect(writeProviderSource).toContain('query_probe_policy = if ($property.Name -eq');
-    expect(writeProviderSource).toContain('Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy');
+    expect(writeProviderSource).toContain('$gitNexusRepoName = Get-GitNexusRepoName -RepoRoot $repoRoot -Facts $facts');
+    expect(writeProviderSource).toContain('Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy -GitNexusRepoName $gitNexusRepoName');
     expect(writeProviderSource).toContain("query_probe = @('uvx', '--upgrade', 'code-review-graph', 'status', '--repo', $RepoRoot)");
     expect(writeProviderSource).toContain('[bool]$Provider.enabled_for_bootstrap');
     expect(writeProviderSource).toContain('$canonicalArtifactsAvailable');

@@ -16,6 +16,8 @@ This workflow is the single setup entrypoint for spec-first. It has two distinct
 
 Project-local config and legacy residue facts do not affect `baseline_ready`. Required helper facts do affect `baseline_ready`. This workflow does not expose selectable MCP registry entries, legacy pending states, or a browser MCP server.
 
+GitNexus `query_probe` must target the GitNexus indexed repo label, not blindly the directory basename. `write-provider-config.*` resolves the label deterministically from explicit setup facts when present, then from `.gitnexus/meta.json` `remoteUrl` basename, and only falls back to the repo directory basename.
+
 ## Runtime Baseline
 
 `skills/spec-mcp-setup/mcp-tools.json` is the only machine registry for MCP servers and graph-provider MCP servers. Schema version is `4`. Package/version specs for every MCP and graph-provider MCP command are sourced from this file; setup projections such as `.spec-first/config/graph-providers.json` must derive from it and must not become a second version registry.

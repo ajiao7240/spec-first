@@ -107,6 +107,72 @@ gitnexus_probe_token_from_path() {
   fi
 }
 
+sanitize_gitnexus_repo_name() {
+  local value="$1"
+  value="$(printf '%s' "$value" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  if [[ "$value" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    printf '%s\n' "$value"
+  fi
+}
+
+gitnexus_repo_name_from_remote_url() {
+  local remote="$1"
+  local name sanitized
+  remote="$(printf '%s' "$remote" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  [ -n "$remote" ] || return 0
+  remote="${remote%%#*}"
+  remote="${remote%%\?*}"
+  while [ "${remote%/}" != "$remote" ]; do
+    remote="${remote%/}"
+  done
+  name="${remote##*/}"
+  if [ "$name" = "$remote" ]; then
+    name="${remote##*:}"
+  fi
+  name="${name%.git}"
+  sanitized="$(sanitize_gitnexus_repo_name "$name")"
+  [ -n "$sanitized" ] && printf '%s\n' "$sanitized"
+}
+
+resolve_gitnexus_repo_name() {
+  local repo_root="$1"
+  local facts_file="$2"
+  local explicit remote derived fallback meta_path
+
+  explicit="$(jq -r '[
+      .gitnexus_repo_name?,
+      .gitnexus.repo_name?,
+      .gitnexus.repository_name?,
+      .graph_providers.gitnexus.repo_name?,
+      .graph_providers.gitnexus.repository_name?,
+      .target.gitnexus_repo_name?
+    ]
+    | map(select(type == "string" and length > 0))
+    | .[0] // empty' "$facts_file")"
+  explicit="$(sanitize_gitnexus_repo_name "$explicit")"
+  if [ -n "$explicit" ]; then
+    printf '%s\n' "$explicit"
+    return 0
+  fi
+
+  meta_path="$repo_root/.gitnexus/meta.json"
+  if [ -f "$meta_path" ]; then
+    remote="$(jq -r '.remoteUrl // empty' "$meta_path" 2>/dev/null || true)"
+    derived="$(gitnexus_repo_name_from_remote_url "$remote")"
+    if [ -n "$derived" ]; then
+      printf '%s\n' "$derived"
+      return 0
+    fi
+  fi
+
+  fallback="$(sanitize_gitnexus_repo_name "$(basename "$repo_root")")"
+  if [ -n "$fallback" ]; then
+    printf '%s\n' "$fallback"
+  else
+    basename "$repo_root"
+  fi
+}
+
 select_gitnexus_query_probe_policy() {
   local repo_root="$1"
   local path token priority
@@ -163,6 +229,7 @@ select_gitnexus_query_probe_policy() {
 }
 
 gitnexus_query_probe_policy="$(select_gitnexus_query_probe_policy "$REPO_ROOT")"
+gitnexus_repo_name="$(resolve_gitnexus_repo_name "$REPO_ROOT" "$FACTS_FILE")"
 
 graph_facts_exists=false
 provider_status_exists=false
@@ -187,7 +254,7 @@ if [ -f "$REPO_ROOT/.spec-first/impact/bootstrap-impact-capabilities.json" ] && 
 fi
 
 jq --arg generated_at "$generated_at" \
-   --arg repo_name "$(basename "$REPO_ROOT")" \
+   --arg repo_name "$gitnexus_repo_name" \
    --arg repo_root "$REPO_ROOT" \
    --arg gitnexus_package "$gitnexus_package" \
    --argjson gitnexus_query_probe_policy "$gitnexus_query_probe_policy" \
