@@ -77,14 +77,24 @@ Use the first matching signal:
 4. If both runtimes exist and the user did not specify one, report both host
    checks separately.
 
-Before checking a branch, clear the startup reminder cooldown for that host so
-an explicit user-invoked update check is not hidden by a previous reminder.
-Ignore command failures and empty output:
+Before checking a branch, clear the startup reminder cooldown for the host being
+checked so an explicit user-invoked update check is not hidden by a previous
+reminder. Ignore command failures and empty output.
+
+For Claude Code:
 
 ```bash
 spec-first startup-reminder --claude --reset
+```
+
+For Codex:
+
+```bash
 spec-first startup-reminder --codex --reset
 ```
+
+If this workflow is reporting both host checks, run both reset commands before
+the branch-specific checks.
 
 ### 2. Claude Code branch
 

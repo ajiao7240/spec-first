@@ -14,9 +14,9 @@ const {
   upsertManagedSessionStartHook,
   validateClaudeSettingsFile,
 } = require('../../src/cli/claude-settings');
+const { getAdapter } = require('../../src/cli/adapters');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
-const SESSION_START_TEMPLATE_PATH = path.join(REPO_ROOT, 'templates', 'claude', 'hooks', 'session-start');
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-claude-settings-'));
@@ -24,6 +24,17 @@ function makeTempDir() {
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function writeRenderedSessionStartHook(projectRoot, transform = (content) => content) {
+  const adapter = getAdapter('claude');
+  const plan = adapter.planRuntimeFilesSync(projectRoot);
+  const hook = plan.operations.find((operation) => operation.path === '.claude/hooks/session-start');
+  const hookPath = path.join(projectRoot, '.claude', 'hooks', 'session-start');
+  fs.mkdirSync(path.dirname(hookPath), { recursive: true });
+  fs.writeFileSync(hookPath, transform(hook.contents), 'utf8');
+  fs.chmodSync(hookPath, 0o755);
+  return hookPath;
 }
 
 describe('claude settings', () => {
@@ -202,8 +213,9 @@ describe('claude settings', () => {
         '<!-- spec-first:bootstrap:end -->',
         '',
       ].join('\n'), 'utf8');
+      const hookPath = writeRenderedSessionStartHook(projectRoot);
 
-      const result = spawnSync('bash', [SESSION_START_TEMPLATE_PATH], {
+      const result = spawnSync('bash', [hookPath], {
         cwd: projectRoot,
         encoding: 'utf8',
         env: {
@@ -225,20 +237,16 @@ describe('claude settings', () => {
 
   test('session-start hook appends startup version reminder when the helper prints one', () => {
     const projectRoot = makeTempDir();
-    const fakeBin = path.join(projectRoot, 'bin');
     const instructionPath = path.join(projectRoot, 'CLAUDE.md');
+    const fakeCliPath = path.join(projectRoot, 'spec-first.js');
 
     try {
-      fs.mkdirSync(fakeBin, { recursive: true });
-      fs.writeFileSync(path.join(fakeBin, 'spec-first'), [
-        '#!/bin/bash',
-        'set -euo pipefail',
-        'if [ "$1" = "startup-reminder" ] && [ "$2" = "--claude" ]; then',
-        '  printf "%s\\n" "[spec-first] Update available for Claude Code runtime: 1.6.1 -> 1.6.2"',
-        '  printf "%s\\n" "Run /spec:update when you choose to upgrade."',
-        'fi',
+      fs.writeFileSync(fakeCliPath, [
+        'if (process.argv[2] === "startup-reminder" && process.argv[3] === "--claude") {',
+        '  console.log("[spec-first] Update available for Claude Code runtime: 1.6.1 -> 1.6.2");',
+        '  console.log("Run /spec:update when you choose to upgrade.");',
+        '}',
       ].join('\n'), 'utf8');
-      fs.chmodSync(path.join(fakeBin, 'spec-first'), 0o755);
       fs.writeFileSync(instructionPath, [
         '# CLAUDE.md',
         '',
@@ -249,14 +257,16 @@ describe('claude settings', () => {
         '<!-- spec-first:bootstrap:end -->',
         '',
       ].join('\n'), 'utf8');
+      const hookPath = writeRenderedSessionStartHook(projectRoot, (content) => (
+        content.replace(JSON.stringify(path.join(REPO_ROOT, 'bin', 'spec-first.js')), JSON.stringify(fakeCliPath))
+      ));
 
-      const result = spawnSync('bash', [SESSION_START_TEMPLATE_PATH], {
+      const result = spawnSync('bash', [hookPath], {
         cwd: projectRoot,
         encoding: 'utf8',
         env: {
           ...process.env,
           CLAUDE_PROJECT_DIR: projectRoot,
-          PATH: `${fakeBin}${path.delimiter}${process.env.PATH}`,
         },
       });
 
@@ -271,11 +281,79 @@ describe('claude settings', () => {
     }
   });
 
+  test('session-start hook does not execute a fake spec-first from PATH', () => {
+    const projectRoot = makeTempDir();
+    const fakeBin = path.join(projectRoot, 'bin');
+    const sentinelPath = path.join(projectRoot, 'fake-spec-first-ran');
+
+    try {
+      fs.mkdirSync(fakeBin, { recursive: true });
+      fs.writeFileSync(path.join(fakeBin, 'spec-first'), [
+        '#!/bin/bash',
+        `printf fake > ${JSON.stringify(sentinelPath)}`,
+        'printf "%s\\n" "FAKE PATH REMINDER"',
+      ].join('\n'), 'utf8');
+      fs.chmodSync(path.join(fakeBin, 'spec-first'), 0o755);
+      const hookPath = writeRenderedSessionStartHook(projectRoot);
+
+      const result = spawnSync('bash', [hookPath], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          CLAUDE_PROJECT_DIR: projectRoot,
+          PATH: `${fakeBin}${path.delimiter}${process.env.PATH}`,
+          HOME: path.join(projectRoot, 'home'),
+          SPEC_FIRST_VERSION_REMINDER_LATEST: '1.6.2',
+        },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(fs.existsSync(sentinelPath)).toBe(false);
+      expect(result.stdout).not.toContain('FAKE PATH REMINDER');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('session-start hook degrades non-blockingly when trusted helper exits non-zero', () => {
+    const projectRoot = makeTempDir();
+    const fakeCliPath = path.join(projectRoot, 'spec-first.js');
+
+    try {
+      fs.writeFileSync(fakeCliPath, 'process.exit(23);\n', 'utf8');
+      const hookPath = writeRenderedSessionStartHook(projectRoot, (content) => (
+        content.replace(JSON.stringify(path.join(REPO_ROOT, 'bin', 'spec-first.js')), JSON.stringify(fakeCliPath))
+      ));
+
+      const result = spawnSync('bash', [hookPath], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          CLAUDE_PROJECT_DIR: projectRoot,
+          HOME: path.join(projectRoot, 'home'),
+        },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      const payload = JSON.parse(result.stdout);
+      expect(payload.hookSpecificOutput.hookEventName).toBe('SessionStart');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('using-spec-first SessionStart injection');
+      expect(payload.hookSpecificOutput.additionalContext).not.toContain('Update available');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   test('session-start hook degrades non-blockingly when the bootstrap block is missing', () => {
     const projectRoot = makeTempDir();
 
     try {
-      const result = spawnSync('bash', [SESSION_START_TEMPLATE_PATH], {
+      const hookPath = writeRenderedSessionStartHook(projectRoot);
+      const result = spawnSync('bash', [hookPath], {
         cwd: projectRoot,
         encoding: 'utf8',
         env: {

@@ -2,6 +2,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PlatformAdapter = require('./base');
+const {
+  isHostComparativeRuntimeSkill,
+} = require('../host-comparative-workflows');
 
 /**
  * Codex platform adapter
@@ -186,7 +189,7 @@ function rewriteSharedPaths(content) {
 }
 
 function shouldPreserveHostComparativeRuntimeProse(context = {}) {
-  return context.isWorkflowSkill && context.skillName === 'spec-update';
+  return context.isWorkflowSkill && isHostComparativeRuntimeSkill(context.skillName);
 }
 
 function preserveUsingSpecFirstHostInstallNotes(content) {

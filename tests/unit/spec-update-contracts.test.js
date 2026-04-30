@@ -99,6 +99,9 @@ describe('spec-update contracts', () => {
     expect(skill).toContain('install packages, refresh runtime assets, or restart the host');
     expect(skill).toContain('spec-first startup-reminder --claude --reset');
     expect(skill).toContain('spec-first startup-reminder --codex --reset');
+    expect(skill).toContain('For Claude Code:');
+    expect(skill).toContain('For Codex:');
+    expect(skill).toContain('If this workflow is reporting both host checks');
     expect(skill).toContain('spec-first doctor --claude --json');
     expect(skill).toContain('spec-first doctor --codex --json');
     expect(skill).toContain('spec-first init --claude');

@@ -231,14 +231,18 @@ function managedRuntimeExists(projectRoot, adapter) {
   const candidates = [
     adapter.stateFile,
     adapter.managedRoot,
-    adapter.runtimeRoot,
-    adapter.skillsRoot,
-    adapter.workflowsRoot,
-    adapter.agentsRoot,
   ];
 
   if (adapter.hasCommands) {
-    candidates.push(adapter.commandRoot);
+    candidates.push(
+      path.join(adapter.commandRoot, 'update.md'),
+      path.join(adapter.skillsRoot, 'using-spec-first', 'SKILL.md'),
+    );
+  } else {
+    candidates.push(
+      path.join(adapter.workflowsRoot, 'spec-update', 'SKILL.md'),
+      path.join(adapter.skillsRoot, 'using-spec-first', 'SKILL.md'),
+    );
   }
 
   return candidates.some((relativePath) => {
@@ -260,6 +264,9 @@ function isStartupReminderCooldownActive({ host, key, nowMs, cooldownMs }, optio
   if (!Number.isFinite(shownAtMs)) {
     return false;
   }
+  if (shownAtMs > nowMs) {
+    return false;
+  }
 
   return nowMs - shownAtMs < cooldownMs;
 }
@@ -271,7 +278,6 @@ function recordStartupReminderCooldown(reminder, options = {}) {
       host: reminder.host,
       currentVersion: reminder.currentVersion,
       latestVersion: reminder.latestVersion,
-      projectRoot: reminder.projectRoot,
       shownAt: new Date(reminder.nowMs).toISOString(),
     };
     writeStartupReminderState(reminder.host, state, options);
@@ -315,15 +321,38 @@ function readStartupReminderState(host, options = {}) {
 
 function writeStartupReminderState(host, state, options = {}) {
   const statePath = getStartupReminderStatePath(host, options);
+  const tmpPath = `${statePath}.${process.pid}.${Date.now()}.tmp`;
   fs.mkdirSync(path.dirname(statePath), { recursive: true });
-  fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  try {
+    fs.writeFileSync(tmpPath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+    fs.renameSync(tmpPath, statePath);
+  } catch (error) {
+    try {
+      fs.rmSync(tmpPath, { force: true });
+    } catch {
+      // Best-effort cleanup only.
+    }
+    throw error;
+  }
 }
 
 function getStartupReminderStatePath(host, options = {}) {
   const homeRoot = options.homeRoot
-    || process.env.SPEC_FIRST_VERSION_REMINDER_HOME
-    || os.homedir();
+    || getDefaultHomeRoot();
   return path.join(homeRoot, `.${host}`, 'spec-first', 'startup-version-reminder.json');
+}
+
+function getDefaultHomeRoot() {
+  try {
+    const userInfo = os.userInfo();
+    if (userInfo && typeof userInfo.homedir === 'string' && userInfo.homedir.length > 0) {
+      return userInfo.homedir;
+    }
+  } catch {
+    // Fall back to Node's standard home resolution when userInfo is unavailable.
+  }
+
+  return os.homedir();
 }
 
 function buildStartupReminderKey({ host, currentVersion, latestVersion }) {

@@ -59,8 +59,9 @@ async function runCli(argv) {
 
 async function runStartupReminder(args) {
   const parsed = parseStartupReminderArgs(args);
-  if (!parsed.host) {
-    return 0;
+  if (parsed.error) {
+    console.error(`startup-reminder: ${parsed.error}`);
+    return 2;
   }
 
   if (parsed.reset) {
@@ -80,15 +81,31 @@ function parseStartupReminderArgs(args) {
   const parsed = {
     host: '',
     reset: false,
+    error: '',
+  };
+
+  const setHost = (host) => {
+    if (host !== 'claude' && host !== 'codex') {
+      parsed.error = `invalid host "${host}"`;
+      return;
+    }
+    if (parsed.host) {
+      parsed.error = 'exactly one host selector is allowed';
+      return;
+    }
+    parsed.host = host;
   };
 
   for (const arg of args) {
+    if (parsed.error) {
+      break;
+    }
     if (arg === '--claude') {
-      parsed.host = 'claude';
+      setHost('claude');
       continue;
     }
     if (arg === '--codex') {
-      parsed.host = 'codex';
+      setHost('codex');
       continue;
     }
     if (arg === '--reset') {
@@ -96,12 +113,14 @@ function parseStartupReminderArgs(args) {
       continue;
     }
     if (arg.startsWith('--host=')) {
-      parsed.host = arg.slice('--host='.length);
+      setHost(arg.slice('--host='.length));
+      continue;
     }
+    parsed.error = `unknown option "${arg}"`;
   }
 
-  if (parsed.host !== 'claude' && parsed.host !== 'codex') {
-    parsed.host = '';
+  if (!parsed.error && !parsed.host) {
+    parsed.error = 'missing host selector (--claude or --codex)';
   }
 
   return parsed;
