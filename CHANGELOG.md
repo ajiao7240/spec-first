@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.2 2026-05-02 05:05:48 leokuang: release: 发布 spec-first@1.6.2 release snapshot (user-visible)
 - v1.6.1 2026-05-02 04:52:30 leokuang: docs(app-audit): 瘦身升级技术方案主文档，将完整协议细节迁移为独立参考文档 (user-visible)
 - v1.6.1 2026-05-02 04:45:51 leokuang: docs(app-audit): 逐项修复升级方案审查问题，补齐精准降级、能力范围结论、证据族、交互 schema、安全保留和 v0.1 分期边界 (user-visible)
 - v1.6.1 2026-05-02 04:36:13 leokuang: docs(app-audit): 应用 doc-review safe auto，补齐 v0.1 收敛输出中的 artifact-manifest.json (user-visible)
