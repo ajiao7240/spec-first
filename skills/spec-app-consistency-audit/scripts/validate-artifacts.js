@@ -55,6 +55,7 @@ function validateArtifact(artifact, options = {}) {
   if (artifact.artifact_id === 'audit-report' || artifact.schema_version === 'spec-app-consistency-audit-report.v1') {
     validateAuditReportArtifact(artifact, errors);
   }
+  validateKnownContractArtifact(artifact, errors);
 
   return {
     valid: errors.length === 0,
@@ -102,6 +103,8 @@ function validatePreflightArtifact(artifact, errors) {
   for (const field of [
     'has_prd',
     'has_figma_context',
+    'has_figma_reference',
+    'has_figma_materialized_context',
     'has_analytics',
     'has_i18n',
     'has_component_system',
@@ -117,6 +120,10 @@ function validatePreflightArtifact(artifact, errors) {
   }
   if (!RUNTIME_MODES.has(artifact.default_runtime_mode)) {
     errors.push(error('default_runtime_mode', 'invalid_runtime_mode', 'default_runtime_mode is invalid.'));
+  }
+  if (typeof artifact.figma_context_mode === 'string'
+    && !['none', 'mcp_reference_only', 'materialized_json'].includes(artifact.figma_context_mode)) {
+    errors.push(error('figma_context_mode', 'invalid_figma_context_mode', 'figma_context_mode is invalid.'));
   }
   if (!Array.isArray(artifact.degraded_modes)) {
     errors.push(error('degraded_modes', 'degraded_modes_array_required', 'degraded_modes must be an array.'));
@@ -160,9 +167,12 @@ function validateAuditIssue(issue, index, errors) {
     errors.push(error(prefix, 'issue_not_object', 'audit report issue must be an object.'));
     return;
   }
-  for (const field of ['id', 'title', 'severity', 'category', 'expert', 'contract_status', 'confidence', 'impact', 'recommendation', 'data_sensitivity']) {
+  for (const field of ['id', 'title', 'severity', 'category', 'expert', 'contract_status', 'data_sensitivity']) {
     requireString(issue, field, errors, prefix);
   }
+  validateConfidence(issue, prefix, errors);
+  validateStringOrStringArray(issue, 'impact', prefix, errors);
+  validateStringOrStringArray(issue, 'recommendation', prefix, errors);
   for (const field of ['static_confirmed', 'requires_runtime_verification', 'requires_real_device']) {
     if (typeof issue[field] !== 'boolean') {
       errors.push(error(`${prefix}.${field}`, 'boolean_required', `${prefix}.${field} must be boolean.`));
@@ -180,6 +190,115 @@ function validateAuditIssue(issue, index, errors) {
   if (!issue.runtime_verification || typeof issue.runtime_verification !== 'object' || Array.isArray(issue.runtime_verification)) {
     errors.push(error(`${prefix}.runtime_verification`, 'runtime_verification_required', 'runtime_verification must be an object.'));
   }
+}
+
+function validateKnownContractArtifact(artifact, errors) {
+  switch (artifact.artifact_id) {
+    case 'product-contract':
+      requireSchemaVersion(artifact, 'product-contract.v1', errors);
+      requireArray(artifact, 'features', errors);
+      requireArray(artifact, 'pages', errors);
+      requireArray(artifact, 'degraded_modes', errors);
+      break;
+    case 'figma-design-contract':
+      requireSchemaVersion(artifact, 'figma-design-contract.v1', errors);
+      requireArray(artifact, 'screens', errors);
+      requireArray(artifact, 'components', errors);
+      if (typeof artifact.raw_label_policy === 'string'
+        && !['strict', 'internal', 'none'].includes(artifact.raw_label_policy)) {
+        errors.push(error('raw_label_policy', 'invalid_raw_label_policy', 'raw_label_policy is invalid.'));
+      }
+      break;
+    case 'codebase-contract':
+      requireSchemaVersion(artifact, 'codebase-contract.v1', errors);
+      requireArray(artifact, 'screens', errors);
+      requireArray(artifact, 'routes', errors);
+      requireArray(artifact, 'view_models', errors);
+      break;
+    case 'page-route-contract':
+      requireSchemaVersion(artifact, 'page-route-contract.v1', errors);
+      requireArray(artifact, 'routes', errors);
+      requireArray(artifact, 'coverage_gaps', errors);
+      break;
+    case 'kmp-architecture-contract':
+      requireSchemaVersion(artifact, 'kmp-architecture-contract.v1', errors);
+      requireArray(artifact, 'source_sets', errors);
+      requireArray(artifact, 'layers', errors);
+      requireArray(artifact, 'source_imports', errors);
+      requireArray(artifact, 'boundary_candidates', errors);
+      break;
+    case 'engineering-quality-contract':
+      requireSchemaVersion(artifact, 'engineering-quality-contract.v1', errors);
+      requireArray(artifact, 'candidates', errors);
+      if (typeof artifact.candidate_count !== 'number') {
+        errors.push(error('candidate_count', 'number_required', 'candidate_count must be a number.'));
+      }
+      break;
+    case 'component-contract':
+      requireSchemaVersion(artifact, 'component-contract.v1', errors);
+      requireArray(artifact, 'code_components', errors);
+      requireArray(artifact, 'figma_components', errors);
+      requireArray(artifact, 'component_mappings', errors);
+      break;
+    case 'module-contract':
+      requireSchemaVersion(artifact, 'module-contract.v1', errors);
+      requireArray(artifact, 'modules', errors);
+      requireArray(artifact, 'dependencies', errors);
+      requireArray(artifact, 'dependency_cycles', errors);
+      requireArray(artifact, 'dependency_metrics', errors);
+      requireArray(artifact, 'boundary_candidates', errors);
+      break;
+    case 'analytics-contract':
+      requireSchemaVersion(artifact, 'analytics-contract.v1', errors);
+      requireArray(artifact, 'events', errors);
+      if (!artifact.key_path_coverage || typeof artifact.key_path_coverage !== 'object' || Array.isArray(artifact.key_path_coverage)) {
+        errors.push(error('key_path_coverage', 'object_required', 'key_path_coverage must be an object.'));
+      }
+      break;
+    case 'i18n-contract':
+      requireSchemaVersion(artifact, 'i18n-contract.v1', errors);
+      requireArray(artifact, 'string_resources', errors);
+      requireArray(artifact, 'hardcoded_text_candidates', errors);
+      requireArray(artifact, 'locale_risk_candidates', errors);
+      break;
+    case 'industry-profile':
+      requireSchemaVersion(artifact, 'industry-profile.v1', errors);
+      requireArray(artifact, 'industry_candidates', errors);
+      if (typeof artifact.preview_only !== 'boolean') {
+        errors.push(error('preview_only', 'boolean_required', 'preview_only must be boolean.'));
+      }
+      break;
+    case 'rule-pack-selection':
+      requireSchemaVersion(artifact, 'rule-pack-selection.v1', errors);
+      requireArray(artifact, 'selected_rule_packs', errors);
+      if (!artifact.confirmed_issue_policy || typeof artifact.confirmed_issue_policy !== 'object' || Array.isArray(artifact.confirmed_issue_policy)) {
+        errors.push(error('confirmed_issue_policy', 'object_required', 'confirmed_issue_policy must be an object.'));
+      }
+      break;
+    case 'merged-app-audit-context':
+      requireSchemaVersion(artifact, 'merged-app-audit-context.v1', errors);
+      requireArray(artifact, 'artifacts', errors);
+      if (!artifact.coverage || typeof artifact.coverage !== 'object' || Array.isArray(artifact.coverage)) {
+        errors.push(error('coverage', 'object_required', 'coverage must be an object.'));
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+function validateConfidence(issue, prefix, errors) {
+  if (typeof issue.confidence === 'string' && issue.confidence.length > 0) return;
+  if (typeof issue.confidence === 'number' && issue.confidence >= 0 && issue.confidence <= 1) return;
+  errors.push(error(`${prefix}.confidence`, 'confidence_required', `${prefix}.confidence must be a non-empty string or a number between 0 and 1.`));
+}
+
+function validateStringOrStringArray(object, field, prefix, errors) {
+  const key = `${prefix}.${field}`;
+  const value = object[field];
+  if (typeof value === 'string' && value.length > 0) return;
+  if (Array.isArray(value) && value.length > 0 && value.every((entry) => typeof entry === 'string' && entry.length > 0)) return;
+  errors.push(error(key, 'string_or_string_array_required', `${key} must be a non-empty string or non-empty string array.`));
 }
 
 function hasIssueEvidence(evidence) {
@@ -201,6 +320,19 @@ function requireString(object, field, errors, prefix = '') {
   const key = prefix ? `${prefix}.${field}` : field;
   if (typeof object[field] !== 'string' || object[field].length === 0) {
     errors.push(error(key, 'string_required', `${key} must be a non-empty string.`));
+  }
+}
+
+function requireSchemaVersion(artifact, expected, errors) {
+  if (artifact.schema_version !== expected) {
+    errors.push(error('schema_version', 'invalid_schema_version', `schema_version must be ${expected}.`));
+  }
+}
+
+function requireArray(object, field, errors, prefix = '') {
+  const key = prefix ? `${prefix}.${field}` : field;
+  if (!Array.isArray(object[field])) {
+    errors.push(error(key, 'array_required', `${key} must be an array.`));
   }
 }
 

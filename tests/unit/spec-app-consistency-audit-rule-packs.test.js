@@ -78,6 +78,25 @@ describe('spec-app-consistency-audit rule pack selection', () => {
     }
   });
 
+  test('selects analytics and i18n packs even when signals are missing', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-missing-quality-rules-'));
+    try {
+      write(repoRoot, 'app/src/main/kotlin/HomeScreen.kt', 'class HomeScreen');
+      const preflight = runPreflight({ repoRoot, source: repoRoot });
+      const preflightPath = write(repoRoot, 'preflight.json', JSON.stringify(preflight));
+      const selected = selectRulePacks({ repoRoot, preflight: preflightPath });
+      const analytics = selected.selected_rule_packs.find((entry) => entry.name === 'analytics');
+      const i18n = selected.selected_rule_packs.find((entry) => entry.name === 'i18n');
+
+      expect(preflight.has_analytics).toBe(false);
+      expect(preflight.has_i18n).toBe(false);
+      expect(analytics.activation_reason).toContain('missing');
+      expect(i18n.activation_reason).toContain('missing');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   test('selected rule packs point to real YAML assets with evidence policy', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-rule-assets-'));
     try {

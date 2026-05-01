@@ -77,23 +77,28 @@ describe('spec-app-consistency-audit contract extraction', () => {
       expect(figma.schema_version).toBe('figma-design-contract.v1');
       expect(figma.screens[0]).toEqual(expect.objectContaining({
         node_id: '12:34',
-        raw_label_omitted: true,
+        name: 'TradeBuyScreen',
+        raw_label: 'TradeBuyScreen',
+        raw_label_omitted: false,
+        redaction_level: 'internal',
         status: 'candidate',
       }));
-      expect(figma.screens[0]).not.toHaveProperty('name');
       expect(figma.screens[0].components[0]).toEqual(expect.objectContaining({
         label_hash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
-        raw_label_omitted: true,
+        name: 'PrimaryButton Loading Disabled',
+        raw_label_omitted: false,
       }));
       expect(figma.screens[0].texts[0]).toEqual(expect.objectContaining({
         node_id: '12:35',
+        text: '买入',
         text_hash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
         character_count: 2,
+        raw_text_omitted: false,
       }));
-      expect(figma.screens[0].texts[0]).not.toHaveProperty('text');
-      expect(JSON.stringify(figma)).not.toContain('TradeBuyScreen');
-      expect(JSON.stringify(figma)).not.toContain('买入');
-      expect(JSON.stringify(figma)).not.toContain('PrimaryButton Loading Disabled');
+      expect(JSON.stringify(figma)).toContain('TradeBuyScreen');
+      expect(JSON.stringify(figma)).toContain('买入');
+      expect(JSON.stringify(figma)).toContain('PrimaryButton Loading Disabled');
+      expect(figma.raw_label_policy).toBe('internal');
 
       expect(code.schema_version).toBe('codebase-contract.v1');
       expect(code.screens[0]).toEqual(expect.objectContaining({
@@ -108,11 +113,35 @@ describe('spec-app-consistency-audit contract extraction', () => {
       }));
 
       expect(routes.schema_version).toBe('page-route-contract.v1');
-      expect(routes.routes[0].trace).toEqual(expect.objectContaining({
+      expect(routes.coverage_gaps.map((entry) => entry.type)).not.toContain('figma_screen_without_code_route');
+      expect(routes.routes.find((route) => route.trace.code_screen === 'TradeBuyScreen').trace).toEqual(expect.objectContaining({
         code_route: 'trade/buy/{symbol}',
         code_screen: 'TradeBuyScreen',
+        figma_screen: 'TradeBuyScreen',
       }));
       expect(routes.routes.every((route) => route.status === 'candidate')).toBe(true);
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('strict Figma redaction keeps hashes but omits raw labels and text', () => {
+    const fixture = makeRepo();
+    try {
+      const figma = extractFigmaContract({
+        repoRoot: fixture.repoRoot,
+        figmaContext: fixture.figmaContext,
+        redaction: 'strict',
+      });
+
+      expect(figma.raw_label_policy).toBe('strict');
+      expect(figma.screens[0]).not.toHaveProperty('name');
+      expect(figma.screens[0]).not.toHaveProperty('raw_label');
+      expect(figma.screens[0].raw_label_omitted).toBe(true);
+      expect(figma.screens[0].texts[0]).not.toHaveProperty('text');
+      expect(figma.screens[0].texts[0].raw_text_omitted).toBe(true);
+      expect(JSON.stringify(figma)).not.toContain('TradeBuyScreen');
+      expect(JSON.stringify(figma)).not.toContain('买入');
     } finally {
       fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
     }

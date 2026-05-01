@@ -282,7 +282,11 @@ jq --arg generated_at "$generated_at" \
     ($provider.configured == true)
     and ($provider.enabled_for_bootstrap == true)
     and ($provider.dependency_status == "ready")
-    and (($provider.host_config_status == "ready") or ($provider.host_config_status == "fallback-active"));
+    and (
+      ($provider.host_config_status == "ready")
+      or ($provider.host_config_status == "fallback-active")
+      or (($provider.host_config_required == false) and ($provider.host_config_status == "not-required"))
+    );
 
   def provider_commands($key):
     if $key == "gitnexus" then {
@@ -335,7 +339,9 @@ jq --arg generated_at "$generated_at" \
               enabled_for_bootstrap: ($current.enabled_for_bootstrap == true),
               required: ($current.required == true),
               role: $current.role,
-              mcp_server: $key,
+              access_mode: ($current.access_mode // (if ($current.host_config_required == false) then "cli_artifact" else "live_mcp" end)),
+              host_config_required: ($current.host_config_required != false),
+              mcp_server: (if ($current.host_config_required == false) then null else $key end),
               dependency_status: $current.dependency_status,
               host_config_status: $current.host_config_status,
               capabilities: ($current.capabilities // []),

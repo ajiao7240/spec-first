@@ -26,6 +26,10 @@ describe('spec-app-consistency-audit industry profile', () => {
       expect(artifact.preview_only).toBe(true);
       expect(artifact.requires_human_confirmation).toBe(true);
       expect(securities.confidence).toBeGreaterThan(0);
+      expect(securities.confidence).toBeLessThanOrEqual(0.6);
+      expect(securities.domain).toBe('finance');
+      expect(securities.feature_signals).toEqual(expect.arrayContaining(['股票', '买入']));
+      expect(securities.confidence_by_source.code).toBeGreaterThan(0);
       expect(securities.evidence.length).toBeGreaterThan(0);
       expect(securities.advisory_only).toBe(true);
       expect(securities.recommended_rule_packs).toContain('securities');
@@ -44,6 +48,9 @@ describe('spec-app-consistency-audit industry profile', () => {
       const finance = artifact.industry_candidates.find((entry) => entry.industry === 'finance-common');
 
       expect(finance.confidence).toBeGreaterThan(0);
+      expect(finance.domain).toBe('finance');
+      expect(finance.subdomain_candidates).toContain('finance-common');
+      expect(finance.confidence_by_source.code).toBeGreaterThan(0);
       expect(finance.advisory_only).toBe(true);
       expect(finance.recommended_rule_packs).toContain('finance-common');
     } finally {

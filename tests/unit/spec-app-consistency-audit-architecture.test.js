@@ -35,6 +35,11 @@ describe('spec-app-consistency-audit architecture extraction', () => {
         expect_count: 1,
         actual_count: 2,
       }));
+      expect(artifact.source_imports[0]).toEqual(expect.objectContaining({
+        source_set: 'commonMain',
+        layer: 'domain',
+        imports: ['android.content.Context'],
+      }));
       expect(artifact.architecture_candidates).toEqual(expect.arrayContaining(['kmp', 'clean-architecture']));
       expect(artifact.boundary_candidates.map((entry) => entry.type)).toEqual(expect.arrayContaining([
         'platform_import_in_common_main',

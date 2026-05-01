@@ -40,6 +40,32 @@ function makeRepo() {
 }
 
 describe('spec-app-consistency-audit artifact validation', () => {
+  test('ships schemas for app-audit contract artifacts consumed by validators', () => {
+    const schemaDir = path.join(__dirname, '../../skills/spec-app-consistency-audit/schemas');
+    const expected = [
+      'analytics-contract.schema.json',
+      'codebase-contract.schema.json',
+      'component-contract.schema.json',
+      'engineering-quality-contract.schema.json',
+      'figma-design-contract.schema.json',
+      'i18n-contract.schema.json',
+      'industry-profile.schema.json',
+      'kmp-architecture-contract.schema.json',
+      'merged-app-audit-context.schema.json',
+      'module-contract.schema.json',
+      'page-route-contract.schema.json',
+      'product-contract.schema.json',
+      'rule-pack-selection.schema.json',
+    ];
+
+    for (const fileName of expected) {
+      const schema = JSON.parse(fs.readFileSync(path.join(schemaDir, fileName), 'utf8'));
+
+      expect(schema.$schema).toContain('json-schema.org');
+      expect(schema.required).toEqual(expect.arrayContaining(['schema_version', 'artifact_id']));
+    }
+  });
+
   test('accepts valid metadata-only candidate artifact', () => {
     const result = validateArtifact(validBase());
 
@@ -126,6 +152,53 @@ describe('spec-app-consistency-audit artifact validation', () => {
       'runtime_verification_required',
       'related_rule_packs_array_required',
     ]));
+  });
+
+  test('accepts normalized issue protocol with numeric confidence and array fields', () => {
+    const report = validBase({
+      schema_version: 'spec-app-consistency-audit-report.v1',
+      artifact_id: 'audit-report',
+      summary: { blocker_count: 0 },
+      scope_and_degraded_modes: [],
+      issues: [{
+        id: 'APP-AUDIT-003',
+        title: 'Normalized issue',
+        severity: 'medium',
+        category: 'analytics',
+        expert: 'analytics-expert',
+        static_confirmed: true,
+        requires_runtime_verification: false,
+        requires_real_device: false,
+        contract_status: 'confirmed',
+        confidence: 0.91,
+        provenance: [{ source: 'analytics', file: 'Analytics.kt', summary: 'Event evidence.' }],
+        evidence: { analytics: [{ file: 'Analytics.kt', summary: 'Event evidence.' }] },
+        impact: ['Critical funnel coverage may drift.'],
+        recommendation: ['Align analytics event coverage with the product contract.'],
+        related_rule_packs: ['analytics'],
+        runtime_verification: { required: false },
+        data_sensitivity: 'internal',
+      }],
+    });
+
+    expect(validateArtifact(report).valid).toBe(true);
+  });
+
+  test('validates known app-audit contract fields by artifact_id', () => {
+    const figma = validBase({
+      schema_version: 'figma-design-contract.v1',
+      artifact_id: 'figma-design-contract',
+      raw_label_policy: 'internal',
+      screens: [],
+      components: [],
+    });
+    const broken = {
+      ...figma,
+      screens: undefined,
+    };
+
+    expect(validateArtifact(figma).valid).toBe(true);
+    expect(validateArtifact(broken).errors.map((entry) => entry.code)).toContain('array_required');
   });
 
   test('validates artifact files and builds context from artifact directory', () => {

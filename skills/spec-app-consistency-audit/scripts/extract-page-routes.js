@@ -73,13 +73,15 @@ function buildRouteContracts(inputs) {
   const routeMap = new Map();
   for (const route of inputs.codeRoutes) {
     const key = normalizeName(route.name || route.path);
+    const matchedScreen = route.screen || findNameMatch(route.name || route.path, inputs.codeScreens, 'name');
+    const crossSourceName = matchedScreen || route.name || route.path;
     routeMap.set(key, {
       id: slugify(route.name || route.path),
       name: route.name || route.path,
       path: route.path || route.name,
-      screen: route.screen || findNameMatch(route.name || route.path, inputs.codeScreens, 'name'),
-      figma_frame: findNameMatch(route.name || route.path, inputs.figmaScreens, 'name'),
-      prd_page: findNameMatch(route.name || route.path, inputs.productPages, 'name'),
+      screen: matchedScreen,
+      figma_frame: findNameMatch(crossSourceName, inputs.figmaScreens, 'name'),
+      prd_page: findNameMatch(crossSourceName, inputs.productPages, 'name'),
       entry_points: [],
       required_params: route.required_params || [],
       guards: route.guards || [],
@@ -172,7 +174,7 @@ function buildCoverageGaps(productPages, figmaScreens, codeRoutes, codeScreens) 
 }
 
 function figmaScreenRef(screen) {
-  return screen.node_id || screen.id || screen.label_hash || 'figma-screen';
+  return screen.name || screen.raw_label || screen.node_id || screen.id || screen.label_hash || 'figma-screen';
 }
 
 function findNameMatch(name, list, field) {

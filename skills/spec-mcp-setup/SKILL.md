@@ -12,7 +12,7 @@ argument-hint: ""
 This workflow is the single setup entrypoint for spec-first. It has two distinct layers:
 
 - Project Preflight / Local Setup: required developer helpers, project-local config bootstrap, and legacy Compound Engineering residue guidance.
-- Required Harness Runtime: required MCP servers, graph-provider MCP servers, `agent-browser`, readiness ledger v2, and graph provider projection.
+- Required Harness Runtime: required MCP servers, required graph providers, `agent-browser`, readiness ledger v2, and graph provider projection.
 
 Project-local config and legacy residue facts do not affect `baseline_ready`. Required helper facts do affect `baseline_ready`. This workflow does not expose selectable MCP registry entries, legacy pending states, or a browser MCP server.
 
@@ -20,7 +20,7 @@ GitNexus `query_probe` must target the GitNexus indexed repo label, not blindly 
 
 ## Runtime Baseline
 
-`skills/spec-mcp-setup/mcp-tools.json` is the only machine registry for MCP servers and graph-provider MCP servers. Schema version is `4`. Package/version specs for every MCP and graph-provider MCP command are sourced from this file; setup projections such as `.spec-first/config/graph-providers.json` must derive from it and must not become a second version registry.
+`skills/spec-mcp-setup/mcp-tools.json` is the only machine registry for MCP servers and graph providers. Schema version is `4`. Package/version specs for every MCP and graph-provider command are sourced from this file; setup projections such as `.spec-first/config/graph-providers.json` must derive from it and must not become a second version registry.
 
 Required MCP tools:
 
@@ -28,10 +28,12 @@ Required MCP tools:
 - `sequential-thinking`
 - `context7`
 
-Required graph-provider MCP tools:
+Required graph providers:
 
 - `gitnexus` with role `global_knowledge`
 - `code-review-graph` with role `impact_context`
+
+Graph provider does not always mean host MCP server. `gitnexus` remains a required host MCP server because downstream workflows can use live GitNexus tools for global code knowledge. `code-review-graph` is required as a CLI/provider backend for `spec-graph-bootstrap`, but its host MCP server is optional and must not be installed by default. The default `code-review-graph` access mode is `cli_artifact`: setup warms `uvx code-review-graph`, writes provider command projections, and lets graph-bootstrap compile `.spec-first/graph/*` and `.spec-first/impact/*` facts without adding `[mcp_servers."code-review-graph"]` to Claude/Codex host config. Live `code-review-graph serve` may be configured only as an explicit optional enhancement when the user wants direct MCP tools.
 
 Required helper tooling outside `mcp-tools.json`:
 
@@ -44,7 +46,7 @@ Required helper tooling outside `mcp-tools.json`:
 - `ast-grep`
 - global `ast-grep` skill
 
-All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp` or `graph-provider`. Required helper tooling must not be added to `mcp-tools.json`; it is managed by `install-helpers.*` and appears under readiness ledger `helper_tools`.
+All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp` or `graph-provider`. MCP tools must have `host_config_required=true`. Graph providers must declare whether host MCP config is required. `code-review-graph` must keep `host_config_required=false`, `provider_config.access_mode="cli_artifact"`, and `provider_config.optional_live_mcp=true` so host startup is not blocked by its optional MCP server. Required helper tooling must not be added to `mcp-tools.json`; it is managed by `install-helpers.*` and appears under readiness ledger `helper_tools`.
 
 ## What This Workflow Does
 
@@ -53,7 +55,7 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 3. Reports legacy Compound Engineering residue and asks before deleting `compound-engineering.local.md`.
 4. Checks required dependencies.
 5. Installs/verifies required helper tooling.
-6. Warms and configures every required MCP server in the host MCP config.
+6. Warms every required MCP/provider package and configures only host-MCP-required tools in the host MCP config.
 7. Bootstraps Serena for the current repo.
 8. Writes readiness ledger v2 to the host marker path.
 9. Writes setup-owned project facts inside a git repo: `.spec-first/config/graph-providers.json`, `.spec-first/config/runtime-capabilities.json`, and `.spec-first/config/provider-artifacts.json`.
@@ -335,7 +337,7 @@ Then it computes one final readiness ledger:
 }
 ```
 
-`baseline_ready` includes required MCP tools, graph providers, and every required helper in `helper_tools`. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph readiness compilation is still required.
+`baseline_ready` includes required MCP tools, required graph providers, and every required helper in `helper_tools`. For graph providers, host MCP readiness only gates baseline when `host_config_required=true`. `code-review-graph` can be baseline-ready with `host_config_status=not-required` as long as its dependencies are ready and its CLI provider projection is enabled. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph readiness compilation is still required.
 
 On a first setup, graph-provider facts show:
 
@@ -424,6 +426,8 @@ Codex MCP sections with hyphenated names must use quoted TOML table keys:
 [mcp_servers."code-review-graph"]
 ```
 
+The `code-review-graph` host MCP snippet is optional documentation for explicit live-MCP opt-in, not the default setup output. `spec-mcp-setup` must not write this snippet during normal install/verify. The default install result for `code-review-graph` should report the package warmup as ready, host config as `not-required`, and provider bootstrap as enabled.
+
 Before writing a Codex section, scripts must delete both legacy unquoted and current quoted sections for the same MCP server. `configure-host.*`, `detect-tools.*`, and `uninstall-mcp.*` must share the same TOML formatter/parser helpers.
 
 Host MCP config files must contain only host-supported MCP server fields such as `command`, `args`, and host-specific startup timeout fields. Internal setup metadata such as selected scope belongs in script output and readiness ledgers, not in Claude/Codex MCP server entries.
@@ -432,7 +436,7 @@ Codex higher-precedence config handling is tool-specific. A higher-precedence co
 
 ## Uninstall Contract
 
-`uninstall-mcp.*` must remove all registered MCP servers, including `gitnexus` and `code-review-graph`. After uninstall it must refresh:
+`uninstall-mcp.*` must remove registered MCP servers, including any optional `code-review-graph` MCP server if present. After uninstall it must refresh:
 
 - host readiness ledger v2
 - `.spec-first/config/graph-providers.json`
@@ -458,7 +462,7 @@ Graph providers:
 | Name              | Role                         | Dependency | Host  | Query   | Next                     |
 | ----------------- | ---------------------------- | ---------- | ----- | ------- | ------------------------ |
 | gitnexus          | 全局代码知识图谱与影响分析   | ready      | ready | pending | run spec-graph-bootstrap |
-| code-review-graph | 变更影响半径与 review 上下文 | ready      | ready | pending | run spec-graph-bootstrap |
+| code-review-graph | 变更影响半径与 review 上下文 | ready      | not-required | pending | run spec-graph-bootstrap |
 
 Helper tools:
 | Name           | Type         | Result | Dependency | Install | Skill | Next |

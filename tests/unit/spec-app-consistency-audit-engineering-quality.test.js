@@ -41,4 +41,30 @@ describe('spec-app-consistency-audit engineering quality extraction', () => {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }
   });
+
+  test('limits selected candidates to function-like blocks and adds App lifecycle signals', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-eq-lifecycle-'));
+    try {
+      write(repoRoot, 'shared/src/commonMain/kotlin/trade/TradeViewModel.kt', [
+        'class TradeViewModel(private val context: Context) {',
+        '  fun cancelElsewhere() { cancel() }',
+        '  fun load() { try { api.fetch() } catch (e: CancellationException) { log(e) } }',
+        '  fun okSubmit() { loading = true; repository.submit() }',
+        '  fun stream() { socket.collect { render(it) } }',
+        '}',
+        '@Composable fun TradeScreen() { LaunchedEffect(symbol) { repository.fetch() } }',
+      ].join('\n'));
+
+      const artifact = extractEngineeringQuality({ repoRoot, source: repoRoot });
+      const types = artifact.candidates.map((entry) => entry.type);
+
+      expect(types).toContain('cancellation_exception_not_rethrown');
+      expect(types).toContain('compose_launched_effect_request_candidate');
+      expect(types).toContain('lifecycle_stream_not_stopped_candidate');
+      expect(types).toContain('viewmodel_holds_ui_context_candidate');
+      expect(types).not.toContain('submit_without_duplicate_guard_signal');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
 });

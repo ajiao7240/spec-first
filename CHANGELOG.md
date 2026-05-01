@@ -1,6 +1,13 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.1 2026-05-01 21:52:05 leokuang: docs(spec-mcp-setup): 梳理 mcp-setup 执行逻辑、边界、产物和 failure next action，并补充 ASCII 流程图 (user-visible)
+- v1.6.1 2026-05-01 21:26:14 leokuang: fix(spec-mcp-setup): 将 code-review-graph 作为默认 CLI graph provider，不再写入 host MCP 配置，并让 graph-bootstrap 接受 not-required host readiness (user-visible)
+- v1.6.1 2026-05-01 21:26:14 leokuang: fix(app-audit): 页面路由 trace 优先用 code screen 关联 PRD 与 Figma，并对齐 Figma materialized context 与 internal redaction 测试契约 (user-visible)
+- v1.6.1 2026-05-01 21:25:32 leokuang: fix(app-audit): 加固 Figma materialization、脱敏匹配、artifact schema、CLI 串联、缺失审查规则与 App 静态质量候选 (user-visible)
+- v1.6.1 2026-05-01 21:09:17 leokuang: fix(app-audit): 补强 ECC source lock 只读用途、收紧审计报告 issue schema，并放宽 v0.2 本地静态结果门禁以支持 clean/high-only 审计 (user-visible)
+- v1.6.1 2026-05-01 21:08:26 leokuang: docs(readme): 重绘 README workflow SVG 为圆形 skill 循环，并按代码治理校准节点与文案边界 (user-visible)
+- v1.6.1 2026-05-01 20:58:41 leokuang: docs(readme): 借鉴 CodeStable README 框架重构中英文入口，强化生命周期编排、实体流程与运行时边界 (user-visible)
 - v1.6.1 2026-05-01 20:20:05 leokuang: docs(app-audit): 补齐 spec-app-consistency-audit 输出契约，明确最终报告与 preview-only writeback 边界 (user-visible)
 - v1.6.1 2026-05-01 19:52:38 leokuang: fix(app-audit): 收紧 evidence gate、输入路径边界、Figma raw label 省略、rule-pack 白名单和 v0.2 readiness gate，并补回归测试 (user-visible)
 - v1.6.1 2026-05-01 19:22:31 leokuang: docs(readme): 补充 README 小例子、路径选择和用户手册产物目录，强化首次使用理解链路 (user-visible)

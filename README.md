@@ -1,3 +1,5 @@
+<div align="center">
+
 # spec-first
 
 [![npm version](https://img.shields.io/npm/v/spec-first.svg)](https://www.npmjs.com/package/spec-first)
@@ -8,13 +10,17 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-Spec-driven AI engineering workflows for Claude Code and Codex.
+**Spec-driven AI engineering workflows for Claude Code and Codex.**
 
 `spec-first` turns AI coding sessions into a repeatable engineering loop: brainstorm requirements, write plans, compile task packs, execute work, review code, debug failures, and compound learnings.
 
 It keeps deterministic setup in scripts while leaving product judgment, implementation tradeoffs, and review decisions to the LLM.
 
 Official site: [spec-first.cn](http://spec-first.cn/)
+
+</div>
+
+---
 
 ## See It In 90 Seconds
 
@@ -60,7 +66,19 @@ For the detailed walkthrough, see [Chinese First Workflow Walkthrough](./docs/05
 
 AI coding breaks down when important decisions live only inside a chat window: the next session misses context, reviewers cannot see why a plan changed, and teams cannot reuse what worked.
 
-`spec-first` gives that work a lightweight shape:
+`spec-first` is opinionated about the real bottleneck. The hard problem is not only how to make more agents cooperate. The hard problem is how to keep the software lifecycle itself legible: requirements, plans, tasks, diffs, reviews, failures, and learnings must survive beyond one session.
+
+### The core difference: what gets orchestrated
+
+| Question | Agent orchestration tools | spec-first |
+|---|---|---|
+| Primary unit | Agent, role, team, queue | Requirement, plan, task pack, diff, review, bug, learning |
+| Main problem | How should agents coordinate? | How should software decisions stay durable and reusable? |
+| State location | Session state, message bus, runtime memory | Repo-local docs, generated runtime assets, and verifiable CLI facts |
+| Human role | Minimize intervention where possible | Keep engineers in the loop for scope, tradeoffs, and acceptance |
+| Automation boundary | Often pushes toward more autonomous chains | Scripts prepare facts; LLMs make semantic decisions |
+
+This is why `spec-first` gives the work a lightweight shape:
 
 - Requirements become durable briefs instead of disappearing prompts.
 - Plans and task packs turn vague intent into reviewable execution context.
@@ -119,6 +137,20 @@ From there, continue to the current host's plan entrypoint.
 
 ## What You Get
 
+`spec-first` models AI-assisted development as a small set of durable entities and event-driven flows.
+
+### Durable entities
+
+| Entity | Typical location | Role |
+|---|---|---|
+| Requirements brief | `docs/brainstorms/` | Captures the problem, actors, flows, constraints, and acceptance examples before implementation pressure takes over. |
+| Implementation plan | `docs/plans/` | Turns a settled goal into scoped implementation units, tradeoffs, verification targets, and non-goals. |
+| Task pack | `docs/tasks/` | Provides structured handoff when a plan needs deterministic task identity, dependency order, and validation. |
+| Review/debug evidence | Workflow output, diffs, tests, reports | Keeps code review and failure diagnosis tied to concrete evidence rather than vibes. |
+| Learning | `docs/solutions/` | Compounds solved problems into reusable engineering knowledge. |
+
+Repo-relative artifact roots:
+
 ```text
 docs/
   brainstorms/   requirements briefs from early problem framing
@@ -127,9 +159,7 @@ docs/
   solutions/     reusable learnings captured after solving problems
 ```
 
-In repo-relative form, those directories are `docs/brainstorms/`, `docs/plans/`, `docs/tasks/`, and `docs/solutions/`.
-
-You also get structured review findings, debug evidence, and verification notes from the relevant workflows. Not every workflow writes every artifact; each entrypoint writes only the artifact that fits its role.
+Not every workflow writes every artifact; each entrypoint writes only the artifact that fits its role.
 
 For who creates, reads, and should edit each artifact, see [Chinese Artifact Catalog](./docs/05-用户手册/10-产物目录.md).
 
@@ -151,6 +181,31 @@ Workflow artifacts
 ```
 
 Source-of-truth assets live in the repository. Generated runtime copies under `.claude/`, `.codex/`, and `.agents/skills/` are disposable and can be rebuilt with `spec-first init`.
+
+Runtime shape after init:
+
+```text
+your-project/
+├── docs/
+│   ├── brainstorms/
+│   ├── plans/
+│   ├── tasks/
+│   └── solutions/
+├── .claude/          # generated when using Claude Code
+├── .codex/           # generated when using Codex
+├── .agents/skills/   # generated Codex-facing skills
+└── AGENTS.md or CLAUDE.md
+```
+
+### Main flows
+
+| Flow | Start here | What it stabilizes |
+|---|---|---|
+| Problem framing | `/spec:brainstorm` or `$spec-brainstorm` | The original need, user-facing goal, boundaries, and acceptance examples. |
+| Implementation planning | `/spec:plan` or `$spec-plan` | Architecture choices, implementation units, verification scope, and known unknowns. |
+| Work execution | `/spec:work` or `$spec-work` | Code changes, focused tests, verification notes, and scope control. |
+| Quality and recovery | `/spec:code-review`, `$spec-code-review`, `/spec:debug`, `$spec-debug` | Findings, residual risks, root cause, fix, and evidence. |
+| Knowledge compounding | `/spec:compound` or `$spec-compound` | Reusable lessons after a problem is solved. |
 
 ## Choose Your Path
 
@@ -181,19 +236,24 @@ The operating rule is simple: Scripts prepare, LLM decides.
 - **What scripts do:** install, validate, generate, clean, hash, and report machine facts.
 - **What the LLM decides:** requirements framing, scope boundaries, tradeoffs, implementation judgment, review evidence, and next steps.
 - **What gets written:** repo-local docs, plans, task packs, review/debug artifacts, and managed runtime assets during init.
-- **What is generated:** `.claude/`, `.codex/`, and `.agents/skills/` runtime copies. Do not hand-edit them as source truth.
+- **What is generated:** `.claude/`, `.codex/`, and `.agents/skills/` runtime copies.
+- **What should be edited:** source assets under `skills/`, `agents/`, `templates/`, `src/cli/`, and docs. Rebuild runtime copies instead of hand-editing them.
 - **What spec-first does not do:** it is not a generic agent marketplace, not a single prompt pack, and not a standalone app that works without Claude Code or Codex.
+
+Use the installed standalone `write-tasks` skill when a plan needs a deterministic task-pack handoff before execution.
 
 Use `spec-first clean --claude` or `spec-first clean --codex` to remove managed runtime assets.
 
 ## Use spec-first when
+
+Use `spec-first` when:
 
 - You already use Claude Code or Codex and want project-local workflows instead of one-off prompts.
 - You want AI coding work to leave durable requirements, plans, review findings, and learnings.
 - You want scripts to handle deterministic setup while keeping semantic judgment with the LLM.
 - You want a lightweight workflow layer that can be regenerated from source assets.
 
-May not fit when you only need a single prompt snippet, a generic agent marketplace, a no-host standalone app, or a team process that does not want workflow artifacts written into the repo.
+It may not fit when you only need a single prompt snippet, a generic agent marketplace, a no-host standalone app, or a team process that does not want workflow artifacts written into the repo.
 
 ## Documentation
 
@@ -213,8 +273,6 @@ Use workflows:
 
 - [Chinese Quickstart](./docs/05-用户手册/01-快速开始.md)
 - [Chinese First Workflow Walkthrough](./docs/05-用户手册/09-首次工作流走查.md)
-- [Chinese Complete Example](./docs/05-用户手册/03-完整示例.md)
-- [Chinese Artifact Catalog](./docs/05-用户手册/10-产物目录.md)
 - [Chinese Workflows and Artifacts Map](./docs/05-用户手册/04-workflows-artifacts-map.md)
 
 Develop and contribute:

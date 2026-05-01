@@ -217,7 +217,11 @@ provider_enabled() {
     .providers[$provider].configured == true
     and .providers[$provider].enabled_for_bootstrap == true
     and .providers[$provider].dependency_status == "ready"
-    and ((.providers[$provider].host_config_status == "ready") or (.providers[$provider].host_config_status == "fallback-active"))
+    and (
+      (.providers[$provider].host_config_status == "ready")
+      or (.providers[$provider].host_config_status == "fallback-active")
+      or ((.providers[$provider].host_config_required == false) and (.providers[$provider].host_config_status == "not-required"))
+    )
   ' "$PROVIDER_CONFIG" >/dev/null
 }
 
@@ -426,14 +430,22 @@ write_provider_status() {
   local confidence="low"
   local limitations='["Provider is not configured for bootstrap."]'
   local failure_info='{"failed_phase":null,"failure_class":null,"reason_code":null,"exit_code":null,"recommended_action":null}'
-  local configured enabled dependency_status host_config_status skip_reason
+  local configured enabled dependency_status host_config_required host_config_status host_ready skip_reason
   local bootstrap_log status_log query_log
   mkdir -p "$raw_dir" "$provider_dir/normalized"
 
   configured="$(jq -r --arg provider "$provider" '.providers[$provider].configured == true' "$PROVIDER_CONFIG")"
   enabled="$(jq -r --arg provider "$provider" '.providers[$provider].enabled_for_bootstrap == true' "$PROVIDER_CONFIG")"
   dependency_status="$(jq -r --arg provider "$provider" '.providers[$provider].dependency_status // "unknown"' "$PROVIDER_CONFIG")"
+  host_config_required="$(jq -r --arg provider "$provider" '.providers[$provider] | if has("host_config_required") then .host_config_required else true end' "$PROVIDER_CONFIG")"
   host_config_status="$(jq -r --arg provider "$provider" '.providers[$provider].host_config_status // "unknown"' "$PROVIDER_CONFIG")"
+  host_ready=false
+  if [ "$host_config_status" = "ready" ] || [ "$host_config_status" = "fallback-active" ]; then
+    host_ready=true
+  elif [ "$host_config_required" != "true" ] && [ "$host_config_status" = "not-required" ]; then
+    host_ready=true
+  fi
+
   if [ "$configured" != "true" ]; then
     skip_reason="not-configured"
     limitations='["Provider is not configured."]'
@@ -443,7 +455,7 @@ write_provider_status() {
   elif [ "$dependency_status" != "ready" ]; then
     skip_reason="dependency-not-ready"
     limitations='["Provider dependency is not ready."]'
-  elif [ "$host_config_status" != "ready" ] && [ "$host_config_status" != "fallback-active" ]; then
+  elif [ "$host_ready" != "true" ]; then
     skip_reason="host-not-ready"
     limitations='["Provider host configuration is not ready."]'
   else

@@ -6,7 +6,7 @@ const {
 } = require('../../skills/spec-app-consistency-audit/scripts/merge-contracts');
 
 describe('spec-app-consistency-audit MVP gate', () => {
-  test('requires page routing, engineering quality, medium or low findings, evidence gate, and preview writeback', () => {
+  test('requires page routing, engineering quality, static result, evidence gate, and preview writeback', () => {
     const gate = buildMvpValidationGate({
       section_coverage: {
         page_routes: true,
@@ -15,7 +15,7 @@ describe('spec-app-consistency-audit MVP gate', () => {
       issues: [
         {
           id: 'APP-AUDIT-001',
-          severity: 'medium',
+          severity: 'high',
           evidence_gate: { passed: true },
         },
       ],
@@ -29,12 +29,31 @@ describe('spec-app-consistency-audit MVP gate', () => {
       static_first: true,
       has_page_route_section: true,
       has_engineering_quality_section: true,
-      has_medium_or_low_findings: true,
+      has_static_result: true,
       writeback_preview_only: true,
       evidence_gate_enforced: true,
       ready_for_v0_2: false,
     }));
     expect(gate.pilot_validation.pilot_recorded).toBe(false);
+  });
+
+  test('accepts a clean audit as a static result for local MVP gates', () => {
+    const gate = buildMvpValidationGate({
+      section_coverage: {
+        page_routes: true,
+        engineering_quality: true,
+      },
+      issues: [],
+      writeback_preview: {
+        mode: 'preview_only',
+        auto_apply: false,
+      },
+    });
+
+    expect(gate).toEqual(expect.objectContaining({
+      has_static_result: true,
+      evidence_gate_enforced: true,
+    }));
   });
 
   test('requires a recorded real or historical app pilot before v0.2 readiness', () => {

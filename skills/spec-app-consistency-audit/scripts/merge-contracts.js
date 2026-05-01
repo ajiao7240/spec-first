@@ -163,7 +163,7 @@ function buildMvpValidationGate(report) {
     static_first: true,
     has_page_route_section: Boolean(coverage.page_routes),
     has_engineering_quality_section: Boolean(coverage.engineering_quality),
-    has_medium_or_low_findings: issues.some((issue) => issue.severity === 'medium' || issue.severity === 'low'),
+    has_static_result: issues.length === 0 || issues.every((issue) => issue.evidence_gate && issue.evidence_gate.passed),
     writeback_preview_only: writeback.mode === 'preview_only' && writeback.auto_apply === false,
     evidence_gate_enforced: issues.every((issue) => !issue.evidence_gate || issue.evidence_gate.passed),
   };

@@ -226,6 +226,9 @@ function parseCommonArgs(argv) {
     else if (arg === '--figma-context') options.figmaContext = argv[++index];
     else if (arg === '--product-contract') options.productContract = argv[++index];
     else if (arg === '--figma-contract') options.figmaContract = argv[++index];
+    else if (arg === '--figma-node') options.figmaNode = argv[++index];
+    else if (arg === '--figma-file') options.figmaFile = argv[++index];
+    else if (arg === '--redaction') options.redaction = argv[++index];
     else if (arg === '--code-contract') options.codeContract = argv[++index];
     else if (arg === '--architecture-contract') options.architectureContract = argv[++index];
     else if (arg === '--analytics-contract') options.analyticsContract = argv[++index];

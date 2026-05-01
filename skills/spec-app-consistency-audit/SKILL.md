@@ -79,6 +79,40 @@ ECC-derived content may be used only as read-only lens, checklist, or evidence p
 12. Apply evidence gate.
 13. Generate final report, regression suggestions, and writeback preview.
 
+## Figma MCP Materialization
+
+Figma extraction consumes a local JSON context file. A Figma node or file reference is not the same as an extractable context.
+
+If the user provides a Figma node/file reference rather than `--figma-context`:
+
+1. Use the available host Figma MCP tool to fetch the design context.
+2. Write the normalized raw MCP response to:
+
+   ```text
+   .spec-first/app-audit/input/figma-context.json
+   ```
+
+3. Run `extract-figma-contract.js` with:
+
+   ```bash
+   node skills/spec-app-consistency-audit/scripts/extract-figma-contract.js \
+     --source . \
+     --figma-context .spec-first/app-audit/input/figma-context.json \
+     --output .spec-first/app-audit/figma-design-contract.json
+   ```
+
+Do not mark Figma design evidence as materialized until the local context JSON exists and is readable. Preflight distinguishes `has_figma_reference` from `has_figma_materialized_context`.
+
+## Figma Redaction Policy
+
+Default to `--redaction internal`.
+
+- `strict`: keep only hashes and metadata; omit raw labels and text.
+- `internal`: keep short non-sensitive screen, component, and text labels for PRD/Figma/Code matching; hash every label.
+- `none`: keep full labels/text only when the user explicitly allows it.
+
+Do not retain long text or sensitive-looking text by default.
+
 ## Outputs
 
 Default outputs are local audit artifacts that separate final review results from preview-only writeback suggestions.

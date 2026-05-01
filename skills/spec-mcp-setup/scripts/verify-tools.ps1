@@ -21,9 +21,14 @@ $HelperFacts = & (Join-Path $ScriptDir 'install-helpers.ps1') -VerifyOnly | Conv
 
 function Test-ToolReady {
   param([object]$Tool)
+  $hostReady = (
+    ($Tool.PSObject.Properties.Name -contains 'host_config_required' -and -not [bool]$Tool.host_config_required -and $Tool.host_config_status -eq 'not-required') -or
+    $Tool.host_config_status -eq 'ready' -or
+    $Tool.host_config_status -eq 'fallback-active'
+  )
   return (
     $Tool.dependency_status -eq 'ready' -and
-    ($Tool.host_config_status -eq 'ready' -or $Tool.host_config_status -eq 'fallback-active') -and
+    $hostReady -and
     ($Tool.project_status -eq 'ready' -or $Tool.project_status -eq 'not-applicable' -or $Tool.project_status -eq 'workspace-target-required')
   )
 }

@@ -313,11 +313,20 @@ function Get-PreviousReadiness {
 
 function Test-ProviderReady {
   param([object]$Provider)
+  $hostReady = (
+    $Provider.host_config_status -eq 'ready' -or
+    $Provider.host_config_status -eq 'fallback-active' -or
+    (
+      $Provider.PSObject.Properties.Name -contains 'host_config_required' -and
+      -not [bool]$Provider.host_config_required -and
+      $Provider.host_config_status -eq 'not-required'
+    )
+  )
   return (
     [bool]$Provider.configured -and
     [bool]$Provider.enabled_for_bootstrap -and
     $Provider.dependency_status -eq 'ready' -and
-    ($Provider.host_config_status -eq 'ready' -or $Provider.host_config_status -eq 'fallback-active')
+    $hostReady
   )
 }
 
@@ -421,7 +430,9 @@ foreach ($property in $facts.graph_providers.PSObject.Properties) {
     enabled_for_bootstrap = [bool]$provider.enabled_for_bootstrap
     required = [bool]$provider.required
     role = $provider.role
-    mcp_server = $property.Name
+    access_mode = if ($provider.PSObject.Properties.Name -contains 'access_mode') { $provider.access_mode } elseif ($provider.PSObject.Properties.Name -contains 'host_config_required' -and -not [bool]$provider.host_config_required) { 'cli_artifact' } else { 'live_mcp' }
+    host_config_required = if ($provider.PSObject.Properties.Name -contains 'host_config_required') { [bool]$provider.host_config_required } else { $true }
+    mcp_server = if ($provider.PSObject.Properties.Name -contains 'host_config_required' -and -not [bool]$provider.host_config_required) { $null } else { $property.Name }
     dependency_status = $provider.dependency_status
     host_config_status = $provider.host_config_status
     capabilities = @($provider.capabilities)

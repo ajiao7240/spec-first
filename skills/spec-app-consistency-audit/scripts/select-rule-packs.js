@@ -28,12 +28,22 @@ function selectRulePacks(options = {}) {
   if (!preflight || preflight.has_component_system || preflight.has_modular_structure) {
     selected.push(rulePack('component-module-reuse', 'architecture', false, 'Component or module structure signal is present.'));
   }
-  if (!preflight || preflight.has_analytics) {
-    selected.push(rulePack('analytics', 'quality', false, 'Analytics signal is present or needs explicit review.'));
-  }
-  if (!preflight || preflight.has_i18n) {
-    selected.push(rulePack('i18n', 'quality', false, 'I18n signal is present or needs explicit review.'));
-  }
+  selected.push(rulePack(
+    'analytics',
+    'quality',
+    false,
+    !preflight || preflight.has_analytics
+      ? 'Analytics signal is present; review should check event consistency on critical journeys.'
+      : 'Analytics signal is missing; review should check whether this is acceptable for App critical journeys.',
+  ));
+  selected.push(rulePack(
+    'i18n',
+    'quality',
+    false,
+    !preflight || preflight.has_i18n
+      ? 'I18n resources are present; review should check copy and key consistency.'
+      : 'I18n resources are missing; review should check hardcoded text and product language scope.',
+  ));
 
   const industryCandidates = industryProfile ? industryProfile.industry_candidates || [] : [];
   const previewIndustry = industryCandidates[0] ? industryCandidates[0].industry : null;

@@ -30,6 +30,10 @@ describe('spec-app-consistency-audit entry contract', () => {
     expect(skill).toContain('Do not copy app-audit-specific experts or ECC-derived lenses into `agents/`');
     expect(skill).toContain('No evidence, no issue.');
     expect(skill).toContain('Rule packs can explain risk and rationale, but they cannot be the only evidence');
+    expect(skill).toContain('## Figma MCP Materialization');
+    expect(skill).toContain('has_figma_reference');
+    expect(skill).toContain('## Figma Redaction Policy');
+    expect(skill).toContain('Default to `--redaction internal`.');
     expect(skill).toContain('.spec-first/app-audit/writeback-preview/');
     expect(skill).toContain('skills/spec-app-consistency-audit/scripts/');
     expect(skill).toContain('Scripts produce structured candidate or preview artifacts');

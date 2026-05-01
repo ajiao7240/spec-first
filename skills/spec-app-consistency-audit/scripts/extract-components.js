@@ -36,6 +36,7 @@ function extractComponents(options = {}) {
       code_components: codeComponents,
       figma_components: figmaComponents.map((component) => ({
         node_id: component.node_id || null,
+        name: component.name || component.raw_label || null,
         label_hash: component.label_hash || null,
         raw_label_omitted: component.raw_label_omitted === true,
         variants: component.variants || [],

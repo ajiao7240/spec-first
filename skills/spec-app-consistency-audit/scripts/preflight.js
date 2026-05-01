@@ -61,12 +61,25 @@ function runPreflight(options = {}) {
       allowOutside,
     })
     : null;
-  const hasFigmaContext = Boolean(options.figmaNode || options.figmaFile || (figmaResolution && figmaResolution.ok));
+  const hasFigmaReference = Boolean(options.figmaNode || options.figmaFile);
+  const hasFigmaMaterializedContext = Boolean(figmaResolution && figmaResolution.ok);
+  const hasFigmaContext = hasFigmaMaterializedContext;
+  const figmaContextMode = hasFigmaMaterializedContext
+    ? 'materialized_json'
+    : (hasFigmaReference ? 'mcp_reference_only' : 'none');
   if (figmaResolution && !figmaResolution.ok) {
     degradedModes.push(degraded(figmaResolution.reason_code || 'figma_unreadable', 'warning', figmaResolution.reason, figmaResolution.path));
   }
-  if (!hasFigmaContext) {
+  if (!hasFigmaMaterializedContext) {
     degradedModes.push(degraded('figma_missing', 'warning', 'Figma context was not provided.', null));
+  }
+  if (hasFigmaReference && !hasFigmaMaterializedContext) {
+    degradedModes.push(degraded(
+      'figma_materialized_context_missing',
+      'warning',
+      'Figma node/file reference was provided, but no materialized Figma context JSON was available for extraction.',
+      null,
+    ));
   }
   if (!prdResolution.ok && !hasFigmaContext) {
     degradedModes.push(degraded(
@@ -119,7 +132,7 @@ function runPreflight(options = {}) {
       source_hash_unavailable_reason: figmaResolution.reason_code || 'unreadable',
       freshness: 'unavailable',
     });
-  } else if (hasFigmaContext) {
+  } else if (hasFigmaReference) {
     sourceInputs.push({
       type: 'figma',
       path: options.figmaNode || options.figmaFile || 'figma-context',
@@ -142,6 +155,9 @@ function runPreflight(options = {}) {
     architecture_candidates: detectArchitectureCandidates(scan),
     has_prd: prdResolution.ok,
     has_figma_context: hasFigmaContext,
+    has_figma_reference: hasFigmaReference,
+    has_figma_materialized_context: hasFigmaMaterializedContext,
+    figma_context_mode: figmaContextMode,
     has_analytics: scan.signals.analytics,
     has_i18n: scan.signals.i18n,
     has_component_system: scan.signals.componentSystem,
@@ -159,6 +175,9 @@ function runPreflight(options = {}) {
       prd: publicResolution(prdResolution, repoRoot),
       figma: {
         provided: hasFigmaContext,
+        reference_provided: hasFigmaReference,
+        materialized_context_provided: hasFigmaMaterializedContext,
+        context_mode: figmaContextMode,
         node: options.figmaNode || null,
         file: options.figmaFile || null,
         context: options.figmaContext ? publicPath(repoRoot, options.figmaContext, 'figma-outside-repo') : null,

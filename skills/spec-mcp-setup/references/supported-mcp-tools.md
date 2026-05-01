@@ -1,29 +1,29 @@
 # Supported Required Harness Runtime Tools
 
-This reference is the human-readable index for the runtime managed by `spec-mcp-setup`. The machine truth for MCP servers and graph-provider MCP servers remains `skills/spec-mcp-setup/mcp-tools.json`.
+This reference is the human-readable index for the runtime managed by `spec-mcp-setup`. The machine truth for MCP servers and graph providers remains `skills/spec-mcp-setup/mcp-tools.json`.
 
 ## Instruction Surface Boundary
 
 `AGENTS.md` and `CLAUDE.md` may contain a managed `spec-first:runtime-tools` block. That block is only a lightweight usage-boundary index for agents at session start.
 
-Do not treat repo-root instruction files as the tool catalog, install guide, or readiness source. Keep the complete human-readable catalog in this file, MCP / graph-provider MCP server machine truth in `skills/spec-mcp-setup/mcp-tools.json`, setup-owned project facts in `.spec-first/config/*.json`, and canonical graph readiness facts in `.spec-first/graph/*` plus `.spec-first/impact/*`.
+Do not treat repo-root instruction files as the tool catalog, install guide, or readiness source. Keep the complete human-readable catalog in this file, MCP / graph-provider machine truth in `skills/spec-mcp-setup/mcp-tools.json`, setup-owned project facts in `.spec-first/config/*.json`, and canonical graph readiness facts in `.spec-first/graph/*` plus `.spec-first/impact/*`.
 
 ## Required MCP Tools
 
 | Tool | Required | Category | Host Config | Project Bootstrap | Purpose |
-|---|---:|---|---|---|---|
+|---|---:|---|---|---|---|---|
 | Serena | Yes | `mcp` | Claude/Codex MCP server | Yes | Symbol-aware repo editing and project indexing |
 | Sequential Thinking | Yes | `mcp` | Claude/Codex MCP server | No | Reflective reasoning support |
 | Context7 | Yes | `mcp` | Claude/Codex MCP server | No | Current framework/library documentation |
 
 ## Required Graph Providers
 
-| Tool | Required | Category | Role | Setup Command | Bootstrap Owner |
+| Tool | Required | Category | Role | Default Access | Setup Command | Bootstrap Owner |
 |---|---:|---|---|---|---|
-| GitNexus | Yes | `graph-provider` | `global_knowledge` | `npx -y <configured-gitnexus-package> mcp` | `spec-graph-bootstrap` reads `graph-providers.json` command arrays and transiently runs analyze/status/query probes |
-| code-review-graph | Yes | `graph-provider` | `impact_context` | `uvx --upgrade code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool` | `spec-graph-bootstrap` reads `graph-providers.json` command arrays and transiently runs build/status/query-proof probes |
+| GitNexus | Yes | `graph-provider` | `global_knowledge` | required host MCP | `npx -y <configured-gitnexus-package> mcp` | `spec-graph-bootstrap` reads `graph-providers.json` command arrays and transiently runs analyze/status/query probes |
+| code-review-graph | Yes | `graph-provider` | `impact_context` | CLI artifacts; host MCP optional | `uvx --upgrade code-review-graph --help` | `spec-graph-bootstrap` reads `graph-providers.json` command arrays and transiently runs build/status/query-proof probes |
 
-`spec-mcp-setup` only warms and configures graph-provider MCP servers and writes setup-owned config facts. It must not run `gitnexus analyze`, `gitnexus status`, `gitnexus query`, `code-review-graph build`, or `code-review-graph status`.
+`spec-mcp-setup` only warms required provider packages, configures host-MCP-required providers, and writes setup-owned config facts. It must not run `gitnexus analyze`, `gitnexus status`, `gitnexus query`, `code-review-graph build`, or `code-review-graph status`. `code-review-graph serve` remains an explicit optional live-MCP enhancement and is not part of the default baseline.
 
 ## Required Helper Tooling
 
@@ -78,7 +78,7 @@ Readiness ledger v2 is written by `verify-tools.*` after merging MCP/graph-provi
 `baseline_ready=true` means:
 
 - required MCP tools are configured;
-- required graph-provider MCP servers are configured;
+- required graph providers are configured; host MCP config is required only for providers with `host_config_required=true`;
 - every required helper fact is ready.
 
 It does not mean graph facts are query-ready. On first setup, graph providers remain:

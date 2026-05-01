@@ -24,6 +24,7 @@ function extractModules(options = {}) {
   const buildFiles = files.filter((filePath) => /build\.gradle(\.kts)?$/.test(filePath));
   const modules = detectModules(sourceRoot, repoRoot, settingsFiles, buildFiles);
   const dependencies = detectModuleDependencies(repoRoot, buildFiles);
+  const dependencyMetrics = calculateDependencyMetrics(modules, dependencies);
 
   return makeArtifact({
     schemaVersion: 'module-contract.v1',
@@ -34,6 +35,8 @@ function extractModules(options = {}) {
       dependencies,
       module_count: modules.length,
       dependency_count: dependencies.length,
+      dependency_cycles: detectDependencyCycles(dependencies),
+      dependency_metrics: dependencyMetrics,
       boundary_candidates: detectModuleBoundaryCandidates(dependencies),
       extraction_notes: [
         'Module graph is a static candidate derived from Gradle settings and project dependencies.',
@@ -101,6 +104,7 @@ function detectModuleDependencies(repoRoot, buildFiles) {
 
 function detectModuleBoundaryCandidates(dependencies) {
   const candidates = [];
+  const metrics = calculateDependencyMetrics([], dependencies);
   for (const dependency of dependencies) {
     const fromKind = classifyModule(dependency.from);
     const toKind = classifyModule(dependency.to);
@@ -110,8 +114,72 @@ function detectModuleBoundaryCandidates(dependencies) {
     if (fromKind === 'feature' && toKind === 'feature') {
       candidates.push(boundaryCandidate('feature_depends_on_feature', dependency));
     }
+    const fromMetrics = metrics.find((entry) => entry.module === dependency.from);
+    const toMetrics = metrics.find((entry) => entry.module === dependency.to);
+    if (fromMetrics && toMetrics && fromMetrics.instability < 0.35 && toMetrics.instability > 0.65) {
+      candidates.push(boundaryCandidate('stable_module_depends_on_unstable_module', dependency));
+    }
   }
   return candidates;
+}
+
+function calculateDependencyMetrics(modules, dependencies) {
+  const names = unique([
+    ...modules.map((moduleEntry) => moduleEntry.name),
+    ...dependencies.flatMap((dependency) => [dependency.from, dependency.to]),
+  ]);
+  return names.map((name) => {
+    const fanIn = dependencies.filter((dependency) => dependency.to === name).length;
+    const fanOut = dependencies.filter((dependency) => dependency.from === name).length;
+    return {
+      module: name,
+      fan_in: fanIn,
+      fan_out: fanOut,
+      instability: fanIn + fanOut === 0 ? 0 : Number((fanOut / (fanIn + fanOut)).toFixed(2)),
+      status: 'candidate',
+    };
+  });
+}
+
+function detectDependencyCycles(dependencies) {
+  const graph = dependencies.reduce((map, dependency) => {
+    if (!map.has(dependency.from)) map.set(dependency.from, []);
+    map.get(dependency.from).push(dependency.to);
+    return map;
+  }, new Map());
+  const cycles = [];
+  for (const start of graph.keys()) {
+    collectCycles(graph, start, start, [], cycles);
+  }
+  return dedupeCycles(cycles).map((cycle) => ({
+    modules: cycle,
+    status: 'candidate',
+    needs_semantic_review: true,
+    evidence: cycle.slice(0, -1).map((from, index) => evidence('code', null, `${from} depends on ${cycle[index + 1]}`)),
+  }));
+}
+
+function collectCycles(graph, start, current, pathStack, cycles) {
+  const nextPath = [...pathStack, current];
+  for (const next of graph.get(current) || []) {
+    if (next === start) {
+      cycles.push([...nextPath, start]);
+      continue;
+    }
+    if (!nextPath.includes(next)) collectCycles(graph, start, next, nextPath, cycles);
+  }
+}
+
+function dedupeCycles(cycles) {
+  const seen = new Set();
+  return cycles.filter((cycle) => {
+    const body = cycle.slice(0, -1);
+    const rotations = body.map((_, index) => [...body.slice(index), ...body.slice(0, index)].join('>'));
+    const key = rotations.sort()[0];
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function classifyModule(name) {
@@ -151,6 +219,8 @@ if (require.main === module) {
 }
 
 module.exports = {
+  calculateDependencyMetrics,
+  detectDependencyCycles,
   detectModuleBoundaryCandidates,
   extractModules,
 };

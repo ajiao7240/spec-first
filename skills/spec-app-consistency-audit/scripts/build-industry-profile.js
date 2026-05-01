@@ -90,18 +90,29 @@ function buildCorpus(inputs) {
 function scoreIndustry(industry, terms, corpus) {
   const evidenceItems = [];
   const seenTerms = new Set();
+  const termsBySource = {};
   for (const entry of corpus) {
     for (const term of terms) {
       if (entry.text.includes(term.toLowerCase())) {
         seenTerms.add(term);
+        termsBySource[entry.source] = termsBySource[entry.source] || new Set();
+        termsBySource[entry.source].add(term);
         evidenceItems.push(evidence(entry.source, entry.file, `${industry} signal: ${term}`));
       }
     }
   }
-  const confidence = Math.min(0.95, Number((seenTerms.size / Math.max(4, terms.length * 0.5)).toFixed(2)));
+  const confidenceBySource = buildConfidenceBySource(termsBySource, terms.length);
+  const sourceCount = Object.values(confidenceBySource).filter((value) => value > 0).length;
+  const rawConfidence = seenTerms.size / Math.max(4, terms.length * 0.5);
+  const confidenceCap = sourceCount >= 2 ? 0.95 : 0.6;
+  const confidence = Math.min(confidenceCap, Number(rawConfidence.toFixed(2)));
   return {
     industry,
+    domain: industryDomain(industry),
+    subdomain_candidates: [industry],
+    feature_signals: [...seenTerms].slice(0, 20),
     confidence,
+    confidence_by_source: confidenceBySource,
     evidence: uniqueEvidence(evidenceItems).slice(0, 20),
     recommended_rule_packs: [
       'common-app',
@@ -111,6 +122,32 @@ function scoreIndustry(industry, terms, corpus) {
     ],
     advisory_only: true,
   };
+}
+
+function buildConfidenceBySource(termsBySource, termCount) {
+  const sources = ['prd', 'product-contract', 'figma-design-contract', 'codebase-contract', 'analytics-contract', 'i18n-contract', 'code'];
+  return sources.reduce((result, source) => {
+    const matched = termsBySource[source] ? termsBySource[source].size : 0;
+    const key = canonicalSource(source);
+    const score = Math.min(0.6, Number((matched / Math.max(4, termCount * 0.5)).toFixed(2)));
+    result[key] = Math.max(result[key] || 0, score);
+    return result;
+  }, {});
+}
+
+function canonicalSource(source) {
+  if (source === 'product-contract') return 'prd';
+  if (source === 'figma-design-contract') return 'figma';
+  if (source === 'codebase-contract') return 'code';
+  if (source === 'analytics-contract') return 'analytics';
+  if (source === 'i18n-contract') return 'i18n';
+  return source;
+}
+
+function industryDomain(industry) {
+  if (industry === 'finance-common' || industry === 'securities') return 'finance';
+  if (industry === 'ecommerce') return 'commerce';
+  return 'unknown';
 }
 
 function stripLargeFields(artifact) {

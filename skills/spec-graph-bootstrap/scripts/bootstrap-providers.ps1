@@ -164,11 +164,17 @@ function Test-ProviderEnabled {
     [string]$Provider
   )
   $entry = $ProviderConfig.providers.$Provider
+  $hostConfigRequired = if ($entry.PSObject.Properties.Name -contains 'host_config_required') { [bool]$entry.host_config_required } else { $true }
+  $hostReady = (
+    $entry.host_config_status -eq 'ready' -or
+    $entry.host_config_status -eq 'fallback-active' -or
+    (-not $hostConfigRequired -and $entry.host_config_status -eq 'not-required')
+  )
   return (
     [bool]$entry.configured -and
     [bool]$entry.enabled_for_bootstrap -and
     $entry.dependency_status -eq 'ready' -and
-    ($entry.host_config_status -eq 'ready' -or $entry.host_config_status -eq 'fallback-active')
+    $hostReady
   )
 }
 
@@ -306,10 +312,16 @@ function Test-QueryProbeVerified {
 
 function Get-ProviderSkipReason {
   param([object]$Entry)
+  $hostConfigRequired = if ($Entry.PSObject.Properties.Name -contains 'host_config_required') { [bool]$Entry.host_config_required } else { $true }
+  $hostReady = (
+    $Entry.host_config_status -eq 'ready' -or
+    $Entry.host_config_status -eq 'fallback-active' -or
+    (-not $hostConfigRequired -and $Entry.host_config_status -eq 'not-required')
+  )
   if (-not [bool]$Entry.configured) { return 'not-configured' }
   if (-not [bool]$Entry.enabled_for_bootstrap) { return 'disabled-for-bootstrap' }
   if ($Entry.dependency_status -ne 'ready') { return 'dependency-not-ready' }
-  if ($Entry.host_config_status -ne 'ready' -and $Entry.host_config_status -ne 'fallback-active') { return 'host-not-ready' }
+  if (-not $hostReady) { return 'host-not-ready' }
   return ''
 }
 

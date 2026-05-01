@@ -1,145 +1,249 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="560" viewBox="0 0 1280 560" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" role="img" aria-labelledby="title desc">
   <title id="title">spec-first workflow flow</title>
-  <desc id="desc">A flow diagram showing how a loose idea moves through brainstorm, requirements, plan, task pack, work, review, and learning artifacts while scripts prepare facts and the LLM makes semantic decisions.</desc>
+  <desc id="desc">A circular flywheel diagram showing the core spec-first skill loop around graph-backed project memory. spec-graph-bootstrap compiles graph readiness, impact capabilities, and provider status that downstream planning, work, and review skills can consume.</desc>
+
   <style>
     :root {
       color-scheme: light dark;
     }
 
     .bg {
-      fill: #f8fafc;
+      fill: #f4f7fb;
     }
 
     .panel {
       fill: #ffffff;
-      stroke: #d8e2ee;
-      stroke-width: 1.4;
-    }
-
-    .lane {
-      fill: #eef6ff;
-      stroke: #c6dbf3;
-      stroke-width: 1.2;
-    }
-
-    .node {
-      fill: #ffffff;
-      stroke: #2563eb;
-      stroke-width: 2;
-      filter: url(#softShadow);
-    }
-
-    .node.alt {
-      stroke: #0f766e;
-    }
-
-    .node.final {
-      stroke: #7c3aed;
-    }
-
-    .label {
-      fill: #0f172a;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 24px;
-      font-weight: 700;
-      text-anchor: middle;
-    }
-
-    .small {
-      fill: #475569;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 16px;
-      font-weight: 500;
-      text-anchor: middle;
-    }
-
-    .caption {
-      fill: #334155;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 18px;
-      font-weight: 600;
-      text-anchor: middle;
+      stroke: #d9e4ef;
+      stroke-width: 1.5;
+      filter: url(#panelShadow);
     }
 
     .title {
       fill: #0f172a;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 34px;
-      font-weight: 800;
+      font-family: "Avenir Next", "Trebuchet MS", Verdana, sans-serif;
+      font-size: 44px;
+      font-weight: 900;
+      letter-spacing: -.03em;
       text-anchor: middle;
     }
 
     .subtitle {
       fill: #475569;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 18px;
-      font-weight: 500;
+      font-family: "Avenir Next", "Trebuchet MS", Verdana, sans-serif;
+      font-size: 22px;
+      font-weight: 650;
       text-anchor: middle;
     }
 
-    .arrow {
-      fill: none;
-      stroke: #94a3b8;
-      stroke-width: 4;
-      stroke-linecap: round;
-      marker-end: url(#arrowHead);
+    .halo {
+      fill: url(#haloGradient);
+      opacity: .88;
     }
 
-    .artifact {
-      fill: #f1f5f9;
+    .ringTrack {
+      fill: none;
+      stroke: url(#ringGradient);
+      stroke-width: 28;
+      stroke-linecap: round;
+      opacity: .18;
+    }
+
+    .orbitDash {
+      fill: none;
+      stroke: #0ea5e9;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-dasharray: 12 24;
+      opacity: .42;
+      animation: orbitDash 14s linear infinite;
+      transform-origin: 800px 520px;
+    }
+
+    .hub {
+      fill: #0f172a;
+      stroke: #38bdf8;
+      stroke-width: 2;
+      filter: url(#deepShadow);
+    }
+
+    .hubGlow {
+      fill: none;
+      stroke: #22d3ee;
+      stroke-width: 2;
+      opacity: .42;
+    }
+
+    .hubTitle {
+      fill: #f8fafc;
+      font-family: "Avenir Next", "Trebuchet MS", Verdana, sans-serif;
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: -.02em;
+      text-anchor: middle;
+    }
+
+    .hubText {
+      fill: #cbd5e1;
+      font-family: "Avenir Next", "Trebuchet MS", Verdana, sans-serif;
+      font-size: 18px;
+      font-weight: 650;
+      text-anchor: middle;
+    }
+
+    .hubChip {
+      fill: #e0f2fe;
+      stroke: #7dd3fc;
+      stroke-width: 1.3;
+    }
+
+    .hubChipText {
+      fill: #0f172a;
+      font-family: "Avenir Next", "Trebuchet MS", Verdana, sans-serif;
+      font-size: 15px;
+      font-weight: 800;
+      text-anchor: middle;
+    }
+
+    .node {
+      fill: #ffffff;
+      stroke: #2563eb;
+      stroke-width: 2.5;
+      filter: url(#softShadow);
+    }
+
+    .node.teal {
+      stroke: #0f766e;
+    }
+
+    .node.orange {
+      stroke: #ea580c;
+    }
+
+    .node.violet {
+      stroke: #7c3aed;
+    }
+
+    .stepBadge {
+      fill: #0f172a;
+    }
+
+    .stepText {
+      fill: #ffffff;
+      font-family: "Avenir Next", "Trebuchet MS", Verdana, sans-serif;
+      font-size: 16px;
+      font-weight: 900;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+
+    .label {
+      fill: #0f172a;
+      font-family: "Avenir Next", "Trebuchet MS", Verdana, sans-serif;
+      font-size: 25px;
+      font-weight: 900;
+      text-anchor: middle;
+    }
+
+    .small {
+      fill: #475569;
+      font-family: "Avenir Next", "Trebuchet MS", Verdana, sans-serif;
+      font-size: 16px;
+      font-weight: 750;
+      text-anchor: middle;
+    }
+
+    .supportPanel {
+      fill: #f8fafc;
       stroke: #cbd5e1;
       stroke-width: 1.4;
     }
 
+    .supportTitle {
+      fill: #0f172a;
+      font-family: "Avenir Next", "Trebuchet MS", Verdana, sans-serif;
+      font-size: 21px;
+      font-weight: 900;
+      text-anchor: middle;
+    }
+
+    .supportText {
+      fill: #475569;
+      font-family: "Avenir Next", "Trebuchet MS", Verdana, sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      text-anchor: middle;
+    }
+
+    .supportChip {
+      fill: #ecfeff;
+      stroke: #67e8f9;
+      stroke-width: 1.2;
+    }
+
+    .supportChipText {
+      fill: #164e63;
+      font-family: "Avenir Next", "Trebuchet MS", Verdana, sans-serif;
+      font-size: 15px;
+      font-weight: 850;
+      text-anchor: middle;
+    }
+
     .pulse {
-      animation: pulse 6s ease-in-out infinite;
+      animation: pulse 6.4s ease-in-out infinite;
       transform-origin: center;
     }
 
     .pulse2 {
-      animation-delay: .75s;
+      animation-delay: .4s;
     }
 
     .pulse3 {
-      animation-delay: 1.5s;
+      animation-delay: .8s;
     }
 
     .pulse4 {
-      animation-delay: 2.25s;
+      animation-delay: 1.2s;
     }
 
     .pulse5 {
-      animation-delay: 3s;
+      animation-delay: 1.6s;
     }
 
     .pulse6 {
-      animation-delay: 3.75s;
+      animation-delay: 2s;
     }
 
     .pulse7 {
-      animation-delay: 4.5s;
+      animation-delay: 2.4s;
+    }
+
+    .pulse8 {
+      animation-delay: 2.8s;
     }
 
     .dot {
-      fill: #2563eb;
+      fill: #0ea5e9;
       filter: url(#glow);
+      transform-origin: 800px 520px;
     }
 
     .dot.one {
-      animation: travelOne 6s linear infinite;
+      animation: travelOne 8.4s linear infinite;
     }
 
     .dot.two {
-      animation: travelTwo 6s linear infinite;
+      fill: #14b8a6;
+      animation: travelTwo 8.4s linear infinite;
     }
 
     .dot.three {
-      animation: travelThree 6s linear infinite;
+      fill: #f97316;
+      animation: travelThree 8.4s linear infinite;
     }
 
     @keyframes pulse {
       0%, 100% {
-        opacity: .92;
+        opacity: .94;
         transform: scale(1);
       }
 
@@ -149,45 +253,54 @@
       }
     }
 
+    @keyframes orbitDash {
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
     @keyframes travelOne {
-      0% { transform: translate(210px, 223px); opacity: 0; }
+      0% { transform: rotate(0deg); opacity: .08; }
       8% { opacity: 1; }
-      23% { transform: translate(410px, 223px); opacity: 1; }
-      31% { transform: translate(610px, 223px); opacity: 1; }
-      39% { opacity: 0; }
-      100% { transform: translate(610px, 223px); opacity: 0; }
+      92% { opacity: 1; }
+      100% { transform: rotate(360deg); opacity: .08; }
     }
 
     @keyframes travelTwo {
-      0%, 32% { transform: translate(610px, 223px); opacity: 0; }
-      40% { opacity: 1; }
-      52% { transform: translate(810px, 223px); opacity: 1; }
-      64% { transform: translate(1010px, 223px); opacity: 1; }
-      72% { opacity: 0; }
-      100% { transform: translate(1010px, 223px); opacity: 0; }
+      0% { transform: rotate(120deg); opacity: .08; }
+      8% { opacity: .92; }
+      92% { opacity: .92; }
+      100% { transform: rotate(480deg); opacity: .08; }
     }
 
     @keyframes travelThree {
-      0%, 58% { transform: translate(1010px, 223px); opacity: 0; }
-      66% { opacity: 1; }
-      80% { transform: translate(1010px, 346px); opacity: 1; }
-      92% { transform: translate(610px, 346px); opacity: 1; }
-      100% { transform: translate(210px, 346px); opacity: 0; }
+      0% { transform: rotate(240deg); opacity: .08; }
+      8% { opacity: .88; }
+      92% { opacity: .88; }
+      100% { transform: rotate(600deg); opacity: .08; }
     }
 
     @media (prefers-color-scheme: dark) {
       .bg {
-        fill: #0b1220;
+        fill: #08111f;
       }
 
       .panel {
-        fill: #111827;
-        stroke: #334155;
+        fill: #0d1728;
+        stroke: #27364c;
       }
 
-      .lane {
-        fill: #0f2437;
-        stroke: #27445f;
+      .halo {
+        opacity: .46;
+      }
+
+      .ringTrack {
+        opacity: .28;
+      }
+
+      .orbitDash {
+        stroke: #67e8f9;
+        opacity: .36;
       }
 
       .node {
@@ -195,138 +308,204 @@
         stroke: #60a5fa;
       }
 
-      .node.alt {
+      .node.teal {
         stroke: #2dd4bf;
       }
 
-      .node.final {
+      .node.orange {
+        stroke: #fb923c;
+      }
+
+      .node.violet {
         stroke: #a78bfa;
       }
 
       .label,
-      .title {
+      .title,
+      .supportTitle {
         fill: #f8fafc;
       }
 
       .small,
       .subtitle,
-      .caption {
+      .supportText {
         fill: #cbd5e1;
       }
 
-      .artifact {
-        fill: #162033;
+      .supportPanel {
+        fill: #111827;
         stroke: #334155;
       }
 
-      .arrow {
-        stroke: #64748b;
+      .supportChip {
+        fill: #083344;
+        stroke: #155e75;
+      }
+
+      .supportChipText {
+        fill: #cffafe;
       }
     }
 
     @media (prefers-reduced-motion: reduce) {
       .pulse,
-      .dot {
+      .dot,
+      .orbitDash {
         animation: none;
       }
 
       .dot {
-        opacity: .85;
+        opacity: .86;
       }
     }
   </style>
 
   <defs>
-    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0f172a" flood-opacity=".12" />
+    <radialGradient id="haloGradient" cx="50%" cy="50%" r="58%">
+      <stop offset="0%" stop-color="#dbeafe" />
+      <stop offset="50%" stop-color="#ccfbf1" />
+      <stop offset="100%" stop-color="#f8fafc" stop-opacity="0" />
+    </radialGradient>
+
+    <linearGradient id="ringGradient" x1="450" y1="170" x2="1150" y2="870" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="40%" stop-color="#14b8a6" />
+      <stop offset="72%" stop-color="#f97316" />
+      <stop offset="100%" stop-color="#7c3aed" />
+    </linearGradient>
+
+    <filter id="panelShadow" x="-5%" y="-6%" width="110%" height="112%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#0f172a" flood-opacity=".08" />
     </filter>
-    <filter id="glow" x="-70%" y="-70%" width="240%" height="240%">
-      <feGaussianBlur stdDeviation="5" result="blur" />
+
+    <filter id="softShadow" x="-22%" y="-28%" width="144%" height="156%">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#0f172a" flood-opacity=".14" />
+    </filter>
+
+    <filter id="deepShadow" x="-22%" y="-28%" width="144%" height="156%">
+      <feDropShadow dx="0" dy="20" stdDeviation="18" flood-color="#0f172a" flood-opacity=".24" />
+    </filter>
+
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
       <feMerge>
         <feMergeNode in="blur" />
         <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
-    <marker id="arrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
-    </marker>
+
   </defs>
 
-  <rect class="bg" width="1280" height="560" rx="34" />
-  <rect class="panel" x="38" y="34" width="1204" height="492" rx="28" />
+  <rect class="bg" width="1600" height="1080" rx="42" />
+  <rect class="panel" x="70" y="52" width="1460" height="976" rx="42" />
 
-  <text class="title" x="640" y="86">From prompt to durable engineering context</text>
-  <text class="subtitle" x="640" y="118">spec-first keeps deterministic setup in scripts and semantic decisions with the LLM</text>
+  <text class="title" x="800" y="112">Core spec-first workflow loop</text>
+  <text class="subtitle" x="800" y="150">Graph readiness sits at the center; public workflow skills reuse docs, graph facts, and impact evidence</text>
 
-  <rect class="lane" x="82" y="156" width="1116" height="152" rx="24" />
-  <text class="caption" x="640" y="184">First run: make the idea concrete</text>
+  <circle class="halo" cx="800" cy="520" r="430" />
+  <circle class="ringTrack" cx="800" cy="520" r="350" />
+  <circle class="orbitDash" cx="800" cy="520" r="350" />
+
+  <circle class="dot one" cx="800" cy="170" r="9" />
+  <circle class="dot two" cx="800" cy="170" r="7.5" />
+  <circle class="dot three" cx="800" cy="170" r="6.5" />
+
+  <g>
+    <rect class="hub" x="570" y="396" width="460" height="256" rx="40" />
+    <path class="hubGlow" d="M 620 472 C 700 414, 900 414, 980 472" />
+    <text class="hubTitle" x="800" y="446">Graph-backed memory</text>
+    <text class="hubText" x="800" y="480">$spec-graph-bootstrap compiles readiness</text>
+    <text class="hubText" x="800" y="506">graph facts feed plan / work / review</text>
+
+    <rect class="hubChip" x="578" y="532" width="142" height="34" rx="17" />
+    <text class="hubChipText" x="649" y="554">.spec-first/graph</text>
+    <rect class="hubChip" x="732" y="532" width="142" height="34" rx="17" />
+    <text class="hubChipText" x="803" y="554">.spec-first/impact</text>
+    <rect class="hubChip" x="886" y="532" width="136" height="34" rx="17" />
+    <text class="hubChipText" x="954" y="554">providers/*</text>
+
+    <rect class="hubChip" x="590" y="580" width="155" height="34" rx="17" />
+    <text class="hubChipText" x="668" y="602">docs/brainstorms</text>
+    <rect class="hubChip" x="760" y="580" width="115" height="34" rx="17" />
+    <text class="hubChipText" x="818" y="602">docs/plans</text>
+    <rect class="hubChip" x="890" y="580" width="115" height="34" rx="17" />
+    <text class="hubChipText" x="948" y="602">docs/tasks</text>
+  </g>
 
   <g class="pulse">
-    <rect class="node" x="110" y="205" width="190" height="70" rx="18" />
-    <text class="label" x="205" y="234">Loose idea</text>
-    <text class="small" x="205" y="258">user intent</text>
+    <rect class="node" x="670" y="168" width="260" height="86" rx="24" />
+    <circle class="stepBadge" cx="700" cy="198" r="18" />
+    <text class="stepText" x="700" y="198">1</text>
+    <text class="label" x="800" y="204">Brainstorm</text>
+    <text class="small" x="800" y="230">$spec-brainstorm</text>
   </g>
 
   <g class="pulse pulse2">
-    <rect class="node" x="330" y="205" width="190" height="70" rx="18" />
-    <text class="label" x="425" y="234">Brainstorm</text>
-    <text class="small" x="425" y="258">$spec-brainstorm</text>
+    <rect class="node teal" x="1080" y="230" width="270" height="88" rx="24" />
+    <circle class="stepBadge" cx="1110" cy="260" r="18" />
+    <text class="stepText" x="1110" y="260">2</text>
+    <text class="label" x="1215" y="266">Plan</text>
+    <text class="small" x="1215" y="293">$spec-plan</text>
   </g>
 
   <g class="pulse pulse3">
-    <rect class="node alt" x="550" y="205" width="190" height="70" rx="18" />
-    <text class="label" x="645" y="234">Requirements</text>
-    <text class="small" x="645" y="258">docs/brainstorms</text>
+    <rect class="node teal" x="1080" y="477" width="270" height="88" rx="24" />
+    <circle class="stepBadge" cx="1110" cy="507" r="18" />
+    <text class="stepText" x="1110" y="507">3</text>
+    <text class="label" x="1215" y="513">Doc review</text>
+    <text class="small" x="1215" y="540">$spec-doc-review</text>
   </g>
 
   <g class="pulse pulse4">
-    <rect class="node" x="770" y="205" width="190" height="70" rx="18" />
-    <text class="label" x="865" y="234">Plan</text>
-    <text class="small" x="865" y="258">docs/plans</text>
+    <rect class="node teal" x="1080" y="724" width="270" height="88" rx="24" />
+    <circle class="stepBadge" cx="1110" cy="754" r="18" />
+    <text class="stepText" x="1110" y="754">4</text>
+    <text class="label" x="1215" y="760">write-tasks</text>
+    <text class="small" x="1215" y="787">standalone skill</text>
   </g>
 
   <g class="pulse pulse5">
-    <rect class="node alt" x="990" y="205" width="190" height="70" rx="18" />
-    <text class="label" x="1085" y="234">Task pack</text>
-    <text class="small" x="1085" y="258">docs/tasks</text>
+    <rect class="node orange" x="670" y="822" width="260" height="88" rx="24" />
+    <circle class="stepBadge" cx="700" cy="852" r="18" />
+    <text class="stepText" x="700" y="852">5</text>
+    <text class="label" x="800" y="858">Work</text>
+    <text class="small" x="800" y="885">$spec-work</text>
   </g>
 
-  <path class="arrow" d="M 300 240 H 326" />
-  <path class="arrow" d="M 520 240 H 546" />
-  <path class="arrow" d="M 740 240 H 766" />
-  <path class="arrow" d="M 960 240 H 986" />
-
-  <rect class="lane" x="82" y="332" width="1116" height="126" rx="24" />
-  <text class="caption" x="640" y="360">Execution loop: ship, review, and compound learning</text>
-
   <g class="pulse pulse6">
-    <rect class="node" x="150" y="382" width="220" height="58" rx="16" />
-    <text class="label" x="260" y="407">Work</text>
-    <text class="small" x="260" y="430">code + tests</text>
+    <rect class="node orange" x="250" y="724" width="270" height="88" rx="24" />
+    <circle class="stepBadge" cx="280" cy="754" r="18" />
+    <text class="stepText" x="280" y="754">6</text>
+    <text class="label" x="385" y="760">Code review</text>
+    <text class="small" x="385" y="787">$spec-code-review</text>
   </g>
 
   <g class="pulse pulse7">
-    <rect class="node" x="530" y="382" width="220" height="58" rx="16" />
-    <text class="label" x="640" y="407">Review / Debug</text>
-    <text class="small" x="640" y="430">evidence + fixes</text>
+    <rect class="node orange" x="250" y="477" width="270" height="88" rx="24" />
+    <circle class="stepBadge" cx="280" cy="507" r="18" />
+    <text class="stepText" x="280" y="507">7</text>
+    <text class="label" x="385" y="513">Debug</text>
+    <text class="small" x="385" y="540">$spec-debug</text>
   </g>
 
-  <g class="pulse pulse5">
-    <rect class="node final" x="910" y="382" width="220" height="58" rx="16" />
-    <text class="label" x="1020" y="407">Compound</text>
-    <text class="small" x="1020" y="430">reusable learning</text>
+  <g class="pulse pulse8">
+    <rect class="node violet" x="250" y="230" width="270" height="88" rx="24" />
+    <circle class="stepBadge" cx="280" cy="260" r="18" />
+    <text class="stepText" x="280" y="260">8</text>
+    <text class="label" x="385" y="266">Compound</text>
+    <text class="small" x="385" y="293">$spec-compound</text>
   </g>
-
-  <path class="arrow" d="M 1085 276 C 1085 320, 1020 326, 1020 378" />
-  <path class="arrow" d="M 910 411 H 754" />
-  <path class="arrow" d="M 530 411 H 374" />
-
-  <circle class="dot one" cx="0" cy="0" r="8" />
-  <circle class="dot two" cx="0" cy="0" r="8" />
-  <circle class="dot three" cx="0" cy="0" r="8" />
 
   <g>
-    <rect class="artifact" x="212" y="486" width="856" height="28" rx="14" />
-    <text class="small" x="640" y="506">Scripts prepare facts and runtime assets -> LLM decides scope, tradeoffs, implementation, and review evidence</text>
+    <rect class="supportChip" x="510" y="948" width="210" height="38" rx="19" />
+    <text class="supportChipText" x="615" y="972">$spec-mcp-setup</text>
+    <rect class="supportChip" x="880" y="948" width="210" height="38" rx="19" />
+    <text class="supportChipText" x="985" y="972">$spec-update</text>
+    <text class="supportTitle" x="800" y="924">Setup writes graph provider config; update repairs stale runtime assets</text>
+  </g>
+
+  <g>
+    <rect class="supportPanel" x="220" y="1002" width="1160" height="42" rx="21" />
+    <text class="supportText" x="800" y="1029">Scripts prepare facts and runtime assets -> LLM decides scope, tradeoffs, implementation, and review evidence</text>
   </g>
 </svg>

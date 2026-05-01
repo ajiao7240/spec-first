@@ -56,7 +56,10 @@ describe('spec-app-consistency-audit preflight', () => {
       expect(artifact.platforms).toEqual(['android', 'ios']);
       expect(artifact.architecture_candidates).toEqual(expect.arrayContaining(['kmp', 'clean-architecture', 'mvvm']));
       expect(artifact.has_prd).toBe(true);
-      expect(artifact.has_figma_context).toBe(true);
+      expect(artifact.has_figma_context).toBe(false);
+      expect(artifact.has_figma_reference).toBe(true);
+      expect(artifact.has_figma_materialized_context).toBe(false);
+      expect(artifact.figma_context_mode).toBe('mcp_reference_only');
       expect(artifact.has_analytics).toBe(true);
       expect(artifact.has_i18n).toBe(true);
       expect(artifact.has_component_system).toBe(true);
@@ -82,10 +85,29 @@ describe('spec-app-consistency-audit preflight', () => {
 
       expect(artifact.has_prd).toBe(false);
       expect(artifact.has_figma_context).toBe(false);
+      expect(artifact.has_figma_reference).toBe(false);
+      expect(artifact.has_figma_materialized_context).toBe(false);
+      expect(artifact.figma_context_mode).toBe('none');
       expect(codes).toContain('prd_missing');
       expect(codes).toContain('figma_missing');
       expect(codes).toContain('prd_and_figma_missing');
       expect(validateArtifact(artifact).valid).toBe(true);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Figma node reference does not count as materialized extractable context', () => {
+    const repoRoot = makeRepo();
+    try {
+      const artifact = runPreflight({ repoRoot, source: repoRoot, figmaNode: '12:34' });
+      const codes = artifact.degraded_modes.map((mode) => mode.code);
+
+      expect(artifact.has_figma_reference).toBe(true);
+      expect(artifact.has_figma_materialized_context).toBe(false);
+      expect(artifact.has_figma_context).toBe(false);
+      expect(artifact.figma_context_mode).toBe('mcp_reference_only');
+      expect(codes).toContain('figma_materialized_context_missing');
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }
@@ -182,6 +204,8 @@ describe('spec-app-consistency-audit preflight', () => {
       const degradedCodes = artifact.degraded_modes.map((mode) => mode.code);
 
       expect(artifact.has_figma_context).toBe(true);
+      expect(artifact.has_figma_materialized_context).toBe(true);
+      expect(artifact.figma_context_mode).toBe('materialized_json');
       expect(degradedCodes).not.toContain('figma_missing');
       expect(degradedCodes).not.toContain('prd_and_figma_missing');
     } finally {

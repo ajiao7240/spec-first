@@ -19,6 +19,7 @@ function extractKmpArchitecture(options = {}) {
   const sourceSets = detectSourceSets(files, repoRoot);
   const layers = detectLayers(files, repoRoot);
   const expectActual = detectExpectActual(files, repoRoot);
+  const sourceImports = extractSourceImports(files, repoRoot);
   const boundaryCandidates = detectBoundaryCandidates(files, repoRoot);
 
   return makeArtifact({
@@ -28,6 +29,7 @@ function extractKmpArchitecture(options = {}) {
     body: {
       source_sets: sourceSets,
       layers,
+      source_imports: sourceImports,
       expect_actual: expectActual,
       boundary_candidates: boundaryCandidates,
       architecture_candidates: inferArchitectureCandidates(sourceSets, layers),
@@ -94,10 +96,11 @@ function detectBoundaryCandidates(files, repoRoot) {
   for (const filePath of files) {
     const rel = relativeTo(repoRoot, filePath);
     const text = readText(filePath);
-    if (/commonMain\//.test(rel) && /\bimport\s+(android|androidx|platform\.UIKit|platform\.Foundation|java\.io)\b/.test(text)) {
+    const imports = parseImports(text);
+    if (/commonMain\//.test(rel) && imports.some((entry) => /^(android|androidx|platform\.UIKit|platform\.Foundation|java\.io)\b/.test(entry))) {
       candidates.push(candidate('platform_import_in_common_main', rel, 'commonMain file imports platform-specific APIs.'));
     }
-    if (/(^|\/)domain\//i.test(rel) && /\bimport\s+.*(?:ui|compose|androidx|swiftui)\b/i.test(text)) {
+    if (/(^|\/)domain\//i.test(rel) && imports.some((entry) => /(?:ui|compose|androidx|swiftui)/i.test(entry))) {
       candidates.push(candidate('domain_depends_on_ui', rel, 'Domain layer appears to import UI/platform presentation APIs.'));
     }
     if (/(^|\/)(ui|presentation)\//i.test(rel) && /RepositoryImpl|Dao|Retrofit|HttpClient|SqlDriver/.test(text)) {
@@ -108,6 +111,46 @@ function detectBoundaryCandidates(files, repoRoot) {
     }
   }
   return candidates;
+}
+
+function extractSourceImports(files, repoRoot) {
+  return files
+    .filter((filePath) => /\.(kt|kts|swift|java)$/i.test(filePath))
+    .map((filePath) => {
+      const rel = relativeTo(repoRoot, filePath);
+      const imports = parseImports(readText(filePath));
+      return {
+        file: rel,
+        source_set: sourceSetForFile(rel),
+        layer: layerForFile(rel),
+        imports,
+        import_count: imports.length,
+        status: 'candidate',
+      };
+    })
+    .filter((entry) => entry.import_count > 0)
+    .slice(0, 500);
+}
+
+function parseImports(text) {
+  const imports = [];
+  const pattern = /^\s*import\s+([A-Za-z0-9_.*.`]+(?:\.[A-Za-z0-9_.*.`]+)*)/gm;
+  let match = pattern.exec(text);
+  while (match) {
+    imports.push(match[1].replace(/`/g, ''));
+    match = pattern.exec(text);
+  }
+  return unique(imports);
+}
+
+function sourceSetForFile(rel) {
+  const match = rel.match(/(^|\/)(commonMain|androidMain|iosMain|commonTest|androidTest|iosTest)\//);
+  return match ? match[2] : 'unknown';
+}
+
+function layerForFile(rel) {
+  const match = rel.match(/(^|\/)(domain|data|presentation|ui|platform|repository|usecases?)\//i);
+  return match ? match[2].toLowerCase() : 'unknown';
 }
 
 function inferArchitectureCandidates(sourceSets, layers) {
@@ -141,5 +184,7 @@ if (require.main === module) {
 
 module.exports = {
   detectBoundaryCandidates,
+  extractSourceImports,
   extractKmpArchitecture,
+  parseImports,
 };

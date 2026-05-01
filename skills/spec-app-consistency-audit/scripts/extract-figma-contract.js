@@ -22,6 +22,7 @@ const {
 
 function extractFigmaContract(options = {}) {
   const contextPath = options.figmaContext;
+  const redaction = normalizeRedaction(options.redaction || 'internal');
   if (!contextPath) {
     return makeArtifact({
       schemaVersion: 'figma-design-contract.v1',
@@ -30,10 +31,14 @@ function extractFigmaContract(options = {}) {
       body: {
         screens: [],
         components: [],
+        raw_label_policy: redaction,
+        figma_context_mode: options.figmaNode || options.figmaFile ? 'mcp_reference_only' : 'none',
         degraded_modes: [{
-          code: 'figma_context_missing',
+          code: options.figmaNode || options.figmaFile ? 'figma_materialized_context_missing' : 'figma_context_missing',
           severity: 'warning',
-          summary: 'Figma context file was not provided; design conclusions stay out of scope.',
+          summary: options.figmaNode || options.figmaFile
+            ? 'Figma reference was provided, but host MCP context was not materialized to a local JSON file.'
+            : 'Figma context file was not provided; design conclusions stay out of scope.',
           path: null,
         }],
       },
@@ -56,22 +61,25 @@ function extractFigmaContract(options = {}) {
   const nodes = normalizeFigmaNodes(context);
   const screens = nodes
     .filter((node) => isScreenNode(node))
-    .map((node) => normalizeScreen(node, absolutePath, repoRoot));
+    .map((node) => normalizeScreen(node, absolutePath, repoRoot, redaction));
   const components = nodes
     .filter((node) => isComponentNode(node))
-    .map((node) => normalizeComponent(node, absolutePath, repoRoot));
+    .map((node) => normalizeComponent(node, absolutePath, repoRoot, redaction));
 
   return makeArtifact({
     schemaVersion: 'figma-design-contract.v1',
     artifactId: 'figma-design-contract',
     sourceInputs: [sourceInputFromFile('figma', absolutePath, repoRoot)],
     body: {
+      raw_label_policy: redaction,
+      figma_context_mode: 'materialized_json',
       screen_count: screens.length,
       component_count: components.length,
       screens,
       components,
       extraction_notes: [
         'Figma context is treated as host-provided untrusted input and normalized without live MCP traversal.',
+        'Default internal redaction preserves short screen/component labels for cross-source matching while hashing all labels.',
       ],
       degraded_modes: [],
     },
@@ -107,24 +115,27 @@ function isComponentNode(node) {
   return type.includes('COMPONENT') || /(Button|Input|Card|Dialog|Sheet|Toast|组件)/.test(name);
 }
 
-function normalizeScreen(node, filePath, repoRoot) {
+function normalizeScreen(node, filePath, repoRoot, redaction = 'internal') {
   const textEntries = collectTextEntries(node);
   const text = `${node.name || ''}\n${textEntries.map((entry) => entry.value).join('\n')}`;
   const interactionNodes = collectInteractionNodes(node).map((entry) => ({
     type: entry.type,
     node_id: entry.node_id,
+    ...redactedLabelFields(entry.name, redaction),
     label_hash: hashText(entry.name),
-    raw_label_omitted: true,
     suggested_analytics_event: `figma_${slugify(entry.node_id || hashText(entry.name).slice(7, 15))}_${entry.type === 'button' ? 'click' : 'view'}`,
     event_kind: classifyEventKind(`${entry.type}_${hashText(entry.name).slice(7, 15)}`),
   }));
-  const components = collectComponentRefs(node);
+  const components = collectComponentRefs(node, redaction);
+  const labelFields = redactedLabelFields(node.name || node.id || 'UnnamedFrame', redaction);
 
   return {
     id: slugify(node.id || 'figma-screen'),
     node_id: node.id || null,
+    ...(labelFields.name ? { name: labelFields.name } : {}),
+    ...labelFields,
     label_hash: hashText(node.name || node.id || 'UnnamedFrame'),
-    raw_label_omitted: true,
+    redaction_level: redaction,
     status: 'candidate',
     states: classifyStates(text),
     components,
@@ -132,27 +143,33 @@ function normalizeScreen(node, filePath, repoRoot) {
       node_id: entry.node_id,
       kind: 'text_node',
       character_count: entry.value.length,
+      ...redactedTextFields(entry.value, redaction),
       text_hash: hashText(entry.value),
       suggested_i18n_key: suggestTextKey(entry),
-      evidence_summary: 'Figma text node candidate; raw text is omitted by default.',
+      evidence_summary: redaction === 'strict'
+        ? 'Figma text node candidate; raw text is omitted under strict redaction.'
+        : 'Figma text node candidate; short non-sensitive text may be retained for consistency matching.',
     })),
     interaction_nodes: interactionNodes,
-    evidence: [evidence('figma', publicPath(repoRoot, filePath, 'figma-outside-repo'), 'Figma frame candidate; raw node label omitted by default.', {
+    evidence: [evidence('figma', publicPath(repoRoot, filePath, 'figma-outside-repo'), 'Figma frame candidate extracted from materialized context.', {
       node: node.id || null,
     })],
   };
 }
 
-function normalizeComponent(node, filePath, repoRoot) {
+function normalizeComponent(node, filePath, repoRoot, redaction = 'internal') {
   const text = `${node.name || ''}\n${collectTextEntries(node).map((entry) => entry.value).join('\n')}`;
+  const labelFields = redactedLabelFields(node.name || node.id || 'UnnamedComponent', redaction);
   return {
     id: slugify(node.id || 'figma-component'),
     node_id: node.id || null,
+    ...(labelFields.name ? { name: labelFields.name } : {}),
+    ...labelFields,
     label_hash: hashText(node.name || node.id || 'UnnamedComponent'),
-    raw_label_omitted: true,
+    redaction_level: redaction,
     status: 'candidate',
     variants: classifyStates(text),
-    evidence: [evidence('figma', publicPath(repoRoot, filePath, 'figma-outside-repo'), 'Figma component candidate; raw node label omitted by default.', {
+    evidence: [evidence('figma', publicPath(repoRoot, filePath, 'figma-outside-repo'), 'Figma component candidate extracted from materialized context.', {
       node: node.id || null,
     })],
   };
@@ -204,15 +221,15 @@ function collectInteractionNodes(node) {
   return nodes;
 }
 
-function collectComponentRefs(node) {
+function collectComponentRefs(node, redaction = 'internal') {
   const refs = [];
   visit(node, (entry) => {
     const name = String(entry.name || '');
     if (/(Button|Input|Card|Dialog|Sheet|Toast|组件)/.test(name)) {
       refs.push({
         node_id: entry.id || null,
+        ...redactedLabelFields(name, redaction),
         label_hash: hashText(name),
-        raw_label_omitted: true,
       });
     }
   });
@@ -223,6 +240,65 @@ function collectComponentRefs(node) {
     seen.add(key);
     return true;
   });
+}
+
+function normalizeRedaction(value) {
+  const redaction = String(value || 'internal').toLowerCase();
+  if (['strict', 'internal', 'none'].includes(redaction)) return redaction;
+  return 'internal';
+}
+
+function redactedLabelFields(value, redaction) {
+  const label = String(value || '').trim();
+  if (redaction === 'strict' || !label) {
+    return {
+      raw_label_omitted: true,
+    };
+  }
+  if (redaction === 'none') {
+    return {
+      name: label,
+      raw_label: label,
+      raw_label_omitted: false,
+    };
+  }
+  if (shouldRetainShortLabel(label)) {
+    return {
+      name: label,
+      raw_label: label,
+      raw_label_omitted: false,
+    };
+  }
+  return {
+    raw_label_omitted: true,
+  };
+}
+
+function redactedTextFields(value, redaction) {
+  const text = String(value || '').trim();
+  if (redaction === 'strict' || !text) {
+    return {
+      raw_text_omitted: true,
+    };
+  }
+  if (redaction === 'none' || shouldRetainShortLabel(text)) {
+    return {
+      text,
+      raw_text_omitted: false,
+    };
+  }
+  return {
+    raw_text_omitted: true,
+  };
+}
+
+function shouldRetainShortLabel(value) {
+  const text = String(value || '').trim();
+  if (text.length === 0 || text.length > 80) return false;
+  if (/(password|passwd|token|secret|credential|phone|email|身份证|密码|手机号|邮箱|银行卡|证件)/i.test(text)) {
+    return false;
+  }
+  return true;
 }
 
 function visit(node, callback) {
@@ -244,5 +320,6 @@ if (require.main === module) {
 
 module.exports = {
   extractFigmaContract,
+  normalizeRedaction,
   normalizeFigmaNodes,
 };

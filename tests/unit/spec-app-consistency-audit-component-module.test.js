@@ -22,6 +22,7 @@ describe('spec-app-consistency-audit component and module extraction', () => {
       write(repoRoot, 'settings.gradle.kts', 'include(":app", ":feature:trade", ":core", ":design-system")');
       write(repoRoot, 'core/build.gradle.kts', 'dependencies { implementation(project(":feature:trade")) }');
       write(repoRoot, 'feature/trade/build.gradle.kts', 'dependencies { implementation(project(":design-system")) }');
+      write(repoRoot, 'design-system/build.gradle.kts', 'dependencies { implementation(project(":core")) }');
       write(repoRoot, 'design-system/src/commonMain/kotlin/PrimaryButton.kt', [
         '@Composable fun PrimaryButton(loading: Boolean, disabled: Boolean, accessibilityLabel: String) {',
         '  TextField(value = "", onValueChange = {})',
@@ -38,6 +39,11 @@ describe('spec-app-consistency-audit component and module extraction', () => {
       expect(components.code_components[0].props).toEqual(expect.arrayContaining(['loading', 'disabled', 'accessibilityLabel']));
       expect(modules.modules.map((entry) => entry.name)).toEqual(expect.arrayContaining([':feature:trade', ':core', ':design-system']));
       expect(modules.boundary_candidates.map((entry) => entry.type)).toContain('core_depends_on_feature');
+      expect(modules.dependency_metrics.find((entry) => entry.module === ':core')).toEqual(expect.objectContaining({
+        fan_out: 1,
+        status: 'candidate',
+      }));
+      expect(modules.dependency_cycles[0].modules).toEqual(expect.arrayContaining([':core', ':feature:trade', ':design-system']));
       expect(merged.schema_version).toBe('merged-app-audit-context.v1');
       expect(merged.coverage.components).toBe(true);
       expect(merged.coverage.modules).toBe(true);

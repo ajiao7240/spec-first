@@ -236,6 +236,7 @@ for tool_id in "${TOOL_IDS[@]}"; do
   fi
 
   install_kind="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .installation.kind' "$TOOLS_JSON")"
+  host_config_required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | if has("host_config_required") then .host_config_required else true end' "$TOOLS_JSON")"
 
   if ! should_install "$tool_id"; then
     continue
@@ -279,7 +280,7 @@ EOF
     fi
   fi
 
-  if [ "$status" = "ready" ]; then
+  if [ "$status" = "ready" ] && [ "$host_config_required" = "true" ]; then
     configure_output=""
     if run_and_capture "configure:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" bash "$SCRIPT_DIR/configure-host.sh" --tool "$tool_id"; then
       configure_output="$RUN_STDOUT"
@@ -303,6 +304,10 @@ EOF
         repair_diagnostic_summary="$RUN_DIAGNOSTIC"
       fi
     fi
+  elif [ "$status" = "ready" ]; then
+    last_action="host-config-skipped"
+    next_action="run spec-graph-bootstrap"
+    diagnostic_summary="host MCP config is not required for this provider"
   fi
 
   if [ "$tool_id" = "serena" ] && [ "$status" = "ready" ]; then

@@ -7,12 +7,13 @@
 固定 runtime baseline：
 
 - MCP：`serena`、`sequential-thinking`、`context7`
-- graph-provider MCP：`gitnexus`、`code-review-graph`
+- graph providers：`gitnexus`、`code-review-graph`
 - helper：`agent-browser`、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep`、global `ast-grep` skill
 
 边界：
 
-- `mcp-tools.json` 是 MCP 与 graph-provider MCP 的唯一 machine registry，schema version 为 `4`；所有 MCP / graph-provider MCP 的 package/version spec 只从这里读取，`.spec-first/config/graph-providers.json` 只是投影，不是第二个版本源。
+- `mcp-tools.json` 是 MCP 与 graph provider 的唯一 machine registry，schema version 为 `4`；所有 MCP / graph-provider 的 package/version spec 只从这里读取，`.spec-first/config/graph-providers.json` 只是投影，不是第二个版本源。
+- `code-review-graph` 默认是 `cli_artifact` graph provider，`host_config_required=false`，不由 `spec-mcp-setup` 默认写入 host MCP config；其 `serve` MCP server 只是显式可选增强。
 - required helper tooling 不进入 `mcp-tools.json`，由 `install-helpers.*` 管理。
 - `install-helpers.* --verify-only` 只读检查 helper facts；`agent-browser install` 的完成状态以 `$HOME/.agent-browser/spec-first-install.json` 为 marker。
 - 安装路径必须请求最新版本：npm/npx 使用 `@latest`，`uvx` 使用 `--upgrade`，Cargo 支持的工具使用 `--force`，Homebrew/winget handoff 优先 upgrade-before-install；临时 package pin 只能写在 `mcp-tools.json`，所有 GitNexus 投影必须读取该配置值，不在 prose 或测试里硬编码版本；`--verify-only` 仍保持只读，不升级。
@@ -28,9 +29,9 @@
 - `install-mcp.*` 遇到首次无语言时应返回 `reason_code=serena_language_required` 和明确重试动作；agent 看到该 reason 后基于本地证据选语言并立即重试，不把明确场景交给用户决策。
 - 非 refresh 重建可复用既有 `.serena/project.yml` 的语言；refresh 未显式传语言时也只能复用既有语言，不让 Serena 重新交互决策。
 - `.spec-first/config/graph-providers.json` 是 provider selection projection，不是第二个 registry。
-- 首次 setup 后 graph providers 是 `configured=true`、`enabled_for_bootstrap=true`、`query_ready=false`；重复 setup 可在 provider 仍 ready 且 canonical artifacts 仍 current 时投影 `query_ready=true`。
+- 首次 setup 后 graph providers 是 `configured=true`、`enabled_for_bootstrap=true`、`query_ready=false`；其中 `code-review-graph` 可显示 `host_config_status=not-required`。重复 setup 可在 provider 仍 ready 且 canonical artifacts 仍 current 时投影 `query_ready=true`。
 - 重复执行 setup 必须幂等且非破坏：Serena 已 ready 时不强制重建；需要重建时先保留旧 `.serena/project.yml` 与 ready marker，失败要恢复旧状态。
-- host MCP server entry 只写宿主支持字段，例如 `command`、`args`、`startup_timeout_sec`；`selected_scope` 等内部元数据只进入脚本输出和 ledger。
+- host MCP server entry 只写宿主支持字段，例如 `command`、`args`、`startup_timeout_sec`；`selected_scope` 等内部元数据只进入脚本输出和 ledger。`host_config_required=false` 的 provider 不应出现在默认 host MCP config 中。
 - Codex higher-precedence config 只在同名 MCP section 存在时影响该工具；profile-only 或无关 MCP section 不应阻断 selected-scope config。
 - `.spec-first/config/graph-providers.json` 语义未变化时不得只为刷新 `generated_at` 重写文件；重复 verify 应保持工作区干净，并把 projection 状态视为 `ready`。
 - 保留 query-ready provider 时，必须从 canonical provider status 投影 provider 级 `last_bootstrap_status` / `last_bootstrapped_at`；`spec-graph-bootstrap` 不回写 setup-owned config。

@@ -44,9 +44,13 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
   --arg marker_path "$MARKER_PATH" \
   --argjson helper "$HELPER_JSON" \
   '
+  def host_ready:
+    ((.host_config_required == false) and (.host_config_status == "not-required"))
+    or (.host_config_status == "ready")
+    or (.host_config_status == "fallback-active");
   def tool_ready:
     (.dependency_status == "ready")
-    and ((.host_config_status == "ready") or (.host_config_status == "fallback-active"))
+    and host_ready
     and ((.project_status == "ready") or (.project_status == "not-applicable") or (.project_status == "workspace-target-required"));
 
   . as $facts

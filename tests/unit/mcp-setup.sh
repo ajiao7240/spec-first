@@ -187,10 +187,11 @@ assert_eq "graph provider roles are configured" "global_knowledge,impact_context
 assert_eq "serena depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "serena") | .dependencies | join(",")' "$TOOLS_JSON")"
 assert_eq "Serena project bootstrap does not hard-code languages" "false" "$(jq -r '.tools[] | select(.id == "serena") | .project_bootstrap.index_command.args | index("--language") != null' "$TOOLS_JSON")"
 assert_eq "code-review-graph depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "code-review-graph") | .dependencies | join(",")' "$TOOLS_JSON")"
+assert_eq "code-review-graph host MCP is optional" "false:cli_artifact:true" "$(jq -r '.tools[] | select(.id == "code-review-graph") | "\(.host_config_required):\(.provider_config.access_mode):\(.provider_config.optional_live_mcp)"' "$TOOLS_JSON")"
 assert_eq "gitnexus warmup command uses configured package" "npx -y $GITNEXUS_PACKAGE --help" "$(jq -r '.tools[] | select(.id == "gitnexus") | [.installation.unix.command] + .installation.unix.args | join(" ")' "$TOOLS_JSON")"
 assert_eq "sequential-thinking uses latest npm package" "npx -y @modelcontextprotocol/server-sequential-thinking@latest" "$(jq -r '.tools[] | select(.id == "sequential-thinking") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
 assert_eq "context7 uses latest npm package" "npx -y @upstash/context7-mcp@latest" "$(jq -r '.tools[] | select(.id == "context7") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
-assert_eq "code-review-graph mcp command" "uvx --upgrade code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool" "$(jq -r '.tools[] | select(.id == "code-review-graph") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
+assert_eq "code-review-graph optional mcp command remains available" "uvx --upgrade code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool" "$(jq -r '.tools[] | select(.id == "code-review-graph") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
 
 FAKE_BIN="$TMP_DIR/bin"
 COMMAND_LOG="$TMP_DIR/commands.log"
@@ -339,7 +340,8 @@ assert "install-mcp emits JSON" jq -e . <<<"$install_output"
 assert_eq "installer configures all required tools" "serena,sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$install_output")"
 assert_eq "installer has no skipped optional results" "true" "$(jq -r 'all(.results[]; .status == "ready")' <<<"$install_output")"
 assert_eq "installer writes GitNexus config" "npx" "$(jq -r '.mcpServers.gitnexus.command' "$FAKE_HOME/.claude.json")"
-assert_eq "installer writes code-review-graph config" "uvx" "$(jq -r '.mcpServers["code-review-graph"].command' "$FAKE_HOME/.claude.json")"
+assert_eq "installer skips optional code-review-graph host MCP config" "false" "$(jq -r '.mcpServers | has("code-review-graph")' "$FAKE_HOME/.claude.json")"
+assert_eq "installer records code-review-graph host config skipped" "host-config-skipped" "$(jq -r '.results[] | select(.tool_id == "code-review-graph") | .last_action' <<<"$install_output")"
 assert_eq "installer does not write internal scope into Claude config" "false" "$(jq -r '.mcpServers.serena | has("scope")' "$FAKE_HOME/.claude.json")"
 assert "Serena ready marker exists" test -f "$FAKE_REPO/.serena/index-ready.json"
 assert_contains "installer uses explicit LLM-selected TypeScript language for Node repo" "serena project create . --index --language typescript" "$(cat "$COMMAND_LOG")"
@@ -548,6 +550,7 @@ assert_eq "detect-tools schema v2 facts" "tool-facts.v2" "$(jq -r '.schema_versi
 assert_eq "detect-tools has no baseline_ready" "false" "$(jq -r 'has("baseline_ready")' <<<"$detect_output")"
 assert_eq "detect-tools has no top-level crg" "false" "$(jq -r 'has("crg")' <<<"$detect_output")"
 assert_eq "graph providers are not query-ready after setup detection" "false,false" "$(jq -r '[.graph_providers[] | .query_ready] | join(",")' <<<"$detect_output")"
+assert_eq "code-review-graph provider does not require host MCP for bootstrap" "not-required:true:cli_artifact" "$(jq -r '.graph_providers["code-review-graph"] | "\(.host_config_status):\(.configured):\(.access_mode)"' <<<"$detect_output")"
 
 verify_text="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "verify reports ledger v2" "readiness ledger v2" "$verify_text"
@@ -581,13 +584,13 @@ assert "provider config exists" test -f "$PROVIDER_CONFIG"
 assert "runtime capabilities exists" test -f "$RUNTIME_CAPABILITIES"
 assert "provider artifacts exists" test -f "$PROVIDER_ARTIFACTS"
 assert_eq "ledger schema v2" "v2" "$(jq -r '.schema_version' "$LEDGER_PATH")"
-assert_eq "ledger baseline includes all helpers and tools" "true" "$(jq -r '.baseline_ready and ([.helper_tools[] | .result == "ready"] | all) and (.tools.gitnexus.host_config_status == "fallback-active") and (.tools["code-review-graph"].host_config_status == "fallback-active")' "$LEDGER_PATH")"
+assert_eq "ledger baseline includes helpers and CLI graph provider" "true" "$(jq -r '.baseline_ready and ([.helper_tools[] | .result == "ready"] | all) and (.tools.gitnexus.host_config_status == "fallback-active") and (.tools["code-review-graph"].host_config_status == "not-required") and (.tools["code-review-graph"].configured == true)' "$LEDGER_PATH")"
 assert_eq "provider projection schema" "graph-providers.v1" "$(jq -r '.schema_version' "$PROVIDER_CONFIG")"
 assert_eq "runtime capabilities schema" "runtime-capabilities.v1" "$(jq -r '.schema_version' "$RUNTIME_CAPABILITIES")"
 assert_eq "provider artifacts schema" "provider-artifacts.v1" "$(jq -r '.schema_version' "$PROVIDER_ARTIFACTS")"
 assert_eq "provider projection is setup-only" "true" "$(jq -r '.boundaries.setup_only and .boundaries.does_not_run_gitnexus_analyze and .boundaries.does_not_run_code_review_graph_build' "$PROVIDER_CONFIG")"
 provider_config_repo_root="$(jq -r '.repo_root' "$PROVIDER_CONFIG")"
-assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$GITNEXUS_REPO_LABEL" --arg gitnexus_package "$GITNEXUS_PACKAGE" --arg query_probe "$GITNEXUS_QUERY_PROBE" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze","--force"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y",$gitnexus_package,"query",$query_probe,"--repo",$repo_name]) and (.providers.gitnexus.query_probe_policy.expected_hit == true) and (.providers.gitnexus.query_probe_policy.source == "git-ls-files-code-basename") and (.providers.gitnexus.query_probe_policy.token == $query_probe) and (.providers.gitnexus.query_probe_policy.selected_from == "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java") and (.providers["code-review-graph"].commands.bootstrap == ["uvx","--upgrade","code-review-graph","build"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx","--upgrade","code-review-graph","status","--repo",$repo_root])' "$PROVIDER_CONFIG")"
+assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$GITNEXUS_REPO_LABEL" --arg gitnexus_package "$GITNEXUS_PACKAGE" --arg query_probe "$GITNEXUS_QUERY_PROBE" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze","--force"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y",$gitnexus_package,"query",$query_probe,"--repo",$repo_name]) and (.providers.gitnexus.query_probe_policy.expected_hit == true) and (.providers.gitnexus.query_probe_policy.source == "git-ls-files-code-basename") and (.providers.gitnexus.query_probe_policy.token == $query_probe) and (.providers.gitnexus.query_probe_policy.selected_from == "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java") and (.providers["code-review-graph"].commands.bootstrap == ["uvx","--upgrade","code-review-graph","build"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx","--upgrade","code-review-graph","status","--repo",$repo_root]) and (.providers["code-review-graph"].access_mode == "cli_artifact") and (.providers["code-review-graph"].host_config_required == false) and (.providers["code-review-graph"].mcp_server == null)' "$PROVIDER_CONFIG")"
 assert_eq "providers are configured but not query-ready" "true" "$(jq -r '(.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
 assert_eq "runtime capabilities points to host ledger" "$LEDGER_PATH" "$(jq -r '.host_ledger_pointer.path' "$RUNTIME_CAPABILITIES")"
 assert_eq "runtime capabilities starts not bootstrapped" "not-bootstrapped" "$(jq -r '.project_graph_readiness.status' "$RUNTIME_CAPABILITIES")"
@@ -621,20 +624,20 @@ if grep -q '^scope =' "$codex_config"; then
   exit 1
 fi
 codex_detect="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detect-tools.sh")"
-assert_eq "detect-tools reads quoted Codex key" "ready" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect")"
+assert_eq "detect-tools treats optional code-review-graph MCP as not required" "not-required" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect")"
 cat > "$codex_system_config" <<'TOML'
 [profiles.default]
 model = "gpt-5"
 TOML
 codex_detect_system_profile="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE="$codex_system_config" bash "$SCRIPTS_DIR/detect-tools.sh")"
-assert_eq "Codex higher-precedence profile-only config does not block MCP" "ready" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect_system_profile")"
+assert_eq "Codex higher-precedence profile-only config does not affect optional MCP" "not-required" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect_system_profile")"
 cat > "$codex_system_config" <<'TOML'
 [mcp_servers."code-review-graph"]
 command = "old"
 args = []
 TOML
 codex_detect_system_conflict="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE="$codex_system_config" bash "$SCRIPTS_DIR/detect-tools.sh")"
-assert_eq "Codex higher-precedence same MCP mismatch blocks selected config" "precedence-blocked" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect_system_conflict")"
+assert_eq "Codex higher-precedence optional MCP mismatch does not block baseline" "not-required" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect_system_conflict")"
 rm -f "$codex_system_config"
 cat > "$codex_config" <<'TOML'
 [mcp_servers."code-review-graph"]
@@ -643,7 +646,7 @@ args = []
 # code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool
 TOML
 codex_detect_bad_args="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detect-tools.sh")"
-assert_eq "detect-tools requires exact Codex args, not comment substrings" "action-required" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect_bad_args")"
+assert_eq "detect-tools ignores bad optional code-review-graph MCP args for baseline" "not-required" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect_bad_args")"
 cat > "$codex_config" <<'TOML'
 [mcp_servers.code-review-graph]
 command = "old"

@@ -1,3 +1,5 @@
+<div align="center">
+
 # spec-first
 
 [![npm version](https://img.shields.io/npm/v/spec-first.svg)](https://www.npmjs.com/package/spec-first)
@@ -8,13 +10,17 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-面向 Claude Code 与 Codex 的 spec-driven AI engineering workflows。
+**面向 Claude Code 与 Codex 的 spec-driven AI engineering workflows。**
 
 `spec-first` 帮助团队把 AI coding 会话变成可复用的工程闭环：需求澄清、计划编写、任务包编译、执行开发、代码评审、问题调试和知识沉淀。
 
 它让脚本负责确定性的安装、生成、校验和事实采集；让 LLM 负责需求理解、方案取舍、实现判断和评审决策。
 
 官网：[spec-first.cn](http://spec-first.cn/)
+
+</div>
+
+---
 
 ## 90 秒看懂
 
@@ -59,6 +65,18 @@ docs/tasks/2026-05-01-001-feat-cli-onboarding-tasks.md
 ## 为什么使用 spec-first？
 
 AI coding 最大的问题通常不是 agent 不会写代码，而是关键判断只停留在聊天窗口里：下一次会话缺上下文，reviewer 看不到计划为什么变化，团队也很难复用一次成功经验。
+
+`spec-first` 对问题的判断很明确：真正需要被编排的不只是 agent，而是软件生命周期本身。需求、计划、任务、diff、review、失败根因和经验沉淀必须能跨会话存活，才能支撑长期项目。
+
+### 核心区别：编排目标是谁
+
+| 问题 | Agent 编排工具 | spec-first |
+|---|---|---|
+| 核心对象 | Agent、role、team、queue | Requirement、plan、task pack、diff、review、bug、learning |
+| 主线问题 | Agent 之间怎么协作？ | 软件决策怎么被记下来、被验证、被复用？ |
+| 状态位置 | Session state、消息总线、runtime memory | 项目内文档、generated runtime assets、可验证 CLI facts |
+| 人的角色 | 尽量减少介入 | 工程师对 scope、tradeoff、验收保持在环 |
+| 自动化边界 | 倾向更长的自动接力 | 脚本准备事实，LLM 做语义判断 |
 
 `spec-first` 给这些工作一个轻量结构：
 
@@ -119,6 +137,20 @@ docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
 
 ## 你会得到什么
 
+`spec-first` 把 AI 辅助开发建模成少数可持久化实体和事件驱动流程。
+
+### 持久实体
+
+| 实体 | 典型位置 | 作用 |
+|---|---|---|
+| Requirements brief | `docs/brainstorms/` | 在实现压力到来前记录问题、角色、流程、约束和验收样例。 |
+| Implementation plan | `docs/plans/` | 把目标拆成实现单元、取舍、验证目标和非目标。 |
+| Task pack | `docs/tasks/` | 当计划需要确定性任务身份、依赖顺序和验证时，提供结构化交接。 |
+| Review/debug evidence | workflow 输出、diff、tests、reports | 让代码评审和失败诊断基于证据，而不是感觉。 |
+| Learning | `docs/solutions/` | 把已经解决的问题沉淀成可复用工程知识。 |
+
+按 repo-relative path 表示：
+
 ```text
 docs/
   brainstorms/   早期问题澄清得到的 requirements briefs
@@ -127,9 +159,7 @@ docs/
   solutions/     解决问题后沉淀的可复用经验
 ```
 
-按 repo-relative path 表示，这些目录是 `docs/brainstorms/`、`docs/plans/`、`docs/tasks/` 和 `docs/solutions/`。
-
-相关 workflows 还会产出结构化 review findings、debug evidence 和 verification notes。Not every workflow writes every artifact；每个入口只写入与自身职责匹配的产物。
+Not every workflow writes every artifact；每个入口只写入与自身职责匹配的产物。
 
 每类产物由谁生成、谁读取、是否应该手改，见 [产物目录](./docs/05-用户手册/10-产物目录.md)。
 
@@ -151,6 +181,31 @@ Workflow artifacts
 ```
 
 source of truth 位于仓库源码资产中。`.claude/`、`.codex/`、`.agents/skills/` 下的 generated runtime copies 可丢弃，可通过 `spec-first init` 重建。
+
+init 后的运行时结构：
+
+```text
+your-project/
+├── docs/
+│   ├── brainstorms/
+│   ├── plans/
+│   ├── tasks/
+│   └── solutions/
+├── .claude/          # 使用 Claude Code 时生成
+├── .codex/           # 使用 Codex 时生成
+├── .agents/skills/   # Codex-facing generated skills
+└── AGENTS.md 或 CLAUDE.md
+```
+
+### 主要流程
+
+| 流程 | 从这里开始 | 稳定什么 |
+|---|---|---|
+| 问题澄清 | `/spec:brainstorm` 或 `$spec-brainstorm` | 原始需求、用户目标、边界和验收样例。 |
+| 实施规划 | `/spec:plan` 或 `$spec-plan` | 架构选择、实现单元、验证范围和已知未知。 |
+| 执行开发 | `/spec:work` 或 `$spec-work` | 代码改动、聚焦测试、验证记录和 scope 控制。 |
+| 质量与恢复 | `/spec:code-review`、`$spec-code-review`、`/spec:debug`、`$spec-debug` | findings、residual risks、根因、修复和证据。 |
+| 知识复利 | `/spec:compound` 或 `$spec-compound` | 解决问题后的可复用经验。 |
 
 ## 选择你的路径
 
@@ -181,12 +236,17 @@ source of truth 位于仓库源码资产中。`.claude/`、`.codex/`、`.agents/
 - **脚本负责什么：** 安装、校验、生成、清理、hash 和机器事实报告。
 - **LLM 决定什么：** 需求 framing、scope boundaries、tradeoffs、implementation judgment、review evidence 和 next steps。
 - **会写入什么：** repo-local docs、plans、task packs、review/debug artifacts，以及 init 期间生成的 managed runtime assets。
-- **哪些是生成产物：** `.claude/`、`.codex/` 和 `.agents/skills/` runtime copies。不要把它们当作 source truth 手改。
+- **哪些是生成产物：** `.claude/`、`.codex/` 和 `.agents/skills/` runtime copies。
+- **应该修改什么：** 修改 `skills/`、`agents/`、`templates/`、`src/cli/` 和 docs 中的 source assets；不要手改 generated runtime copies。
 - **spec-first 不是什么：** 不是通用 agent marketplace，不是单次 prompt pack，也不是脱离 Claude Code/Codex 独立运行的应用。
+
+当 plan 需要确定性的 task-pack handoff 时，使用已安装的 standalone `write-tasks` skill，再进入执行 workflow。
 
 使用 `spec-first clean --claude` 或 `spec-first clean --codex` 删除 managed runtime assets。
 
 ## 适合使用 spec-first 的情况
+
+适合使用 `spec-first` 的情况：
 
 - 你已经在使用 Claude Code 或 Codex，并希望在项目内获得稳定 workflow，而不是一次性 prompt。
 - 你希望 AI coding 工作留下可追踪的 requirements、plans、review findings 和 learnings。
@@ -213,8 +273,6 @@ source of truth 位于仓库源码资产中。`.claude/`、`.codex/`、`.agents/
 
 - [快速开始](./docs/05-用户手册/01-快速开始.md)
 - [首次工作流走查](./docs/05-用户手册/09-首次工作流走查.md)
-- [完整示例](./docs/05-用户手册/03-完整示例.md)
-- [产物目录](./docs/05-用户手册/10-产物目录.md)
 - [Workflows 与产物地图](./docs/05-用户手册/04-workflows-artifacts-map.md)
 
 开发与贡献：
@@ -294,7 +352,7 @@ Runtime asset summary：
 | **能力层资产** | 仓库内置源码资产共 `41` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `20` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `20` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
 | **Claude runtime** | commands 生成到 `.claude/commands/spec`，standalone 与 agent-facing internal skills 生成到 `.claude/skills`，command-backed workflow skill 副本生成到 `.claude/spec-first/workflows`，agents 生成到 `.claude/agents`，managed state 位于 `.claude/spec-first/state.json`。 |
 | **Codex runtime** | workflow、standalone 与 agent-facing internal skills 生成到 `.agents/skills`，agents 生成到 `.codex/agents`，managed state 位于 `.codex/spec-first/state.json`。 |
-| **Readiness** | setup workflow 写 readiness ledger v2 以及 setup-owned `graph-providers.json`、`runtime-capabilities.json`、`provider-artifacts.json`；graph bootstrap workflow 消费这些事实并写 canonical graph facts、provider status、impact capabilities 和 report。 |
+| **Readiness** | setup workflow 写 readiness ledger v2 以及 setup-owned `graph-providers.json`、`runtime-capabilities.json` 和 `provider-artifacts.json`；graph bootstrap workflow 消费这些事实并写 canonical graph facts、provider status、impact capabilities 和 report。 |
 
 Claude init 的预期输出包含：
 

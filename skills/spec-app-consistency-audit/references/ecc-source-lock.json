@@ -9,6 +9,7 @@
     "mode": "skill-local-read-only-lens",
     "target_root": "skills/spec-app-consistency-audit/prompts",
     "do_not_copy_to_agents": true,
+    "source_usage_scope": "checklist_only_read_only_reference",
     "forbidden_capabilities": [
       "write",
       "edit",
@@ -29,6 +30,7 @@
       "agent": "kotlin-reviewer",
       "source_repo_relative_path": "agents/kotlin-reviewer.md",
       "sha256": "f3e5e28d7400bf0d3ab1e7d14abf4d3b6b3d6c25416da0677d83ca83cb958494",
+      "usage_scope": "checklist_only_read_only_reference",
       "absorbed_capabilities": [
         "KMP source-set boundary review",
         "Clean Architecture dependency direction",
@@ -51,6 +53,7 @@
       "agent": "a11y-architect",
       "source_repo_relative_path": "agents/a11y-architect.md",
       "sha256": "03292f618ffbac8748fefd1fc7d25c1e95ef3877a04446e387ef9b6d8a9280a1",
+      "usage_scope": "checklist_only_read_only_reference",
       "absorbed_capabilities": [
         "POUR accessibility framing",
         "screen-reader label and focus-flow review",
@@ -73,6 +76,7 @@
       "agent": "silent-failure-hunter",
       "source_repo_relative_path": "agents/silent-failure-hunter.md",
       "sha256": "004ce0389356e0666d80c89cef39ad895ab326b3f7d19d34d23c70ab249a795d",
+      "usage_scope": "checklist_only_read_only_reference",
       "absorbed_capabilities": [
         "empty catch and swallowed error detection",
         "bad fallback and false-success risk patterns",
@@ -94,6 +98,7 @@
       "agent": "type-design-analyzer",
       "source_repo_relative_path": "agents/type-design-analyzer.md",
       "sha256": "39f5c0536ec4a7e5bb87e2e95dfaef54930db22309f6a80c20a833c621b3c442",
+      "usage_scope": "checklist_only_read_only_reference",
       "absorbed_capabilities": [
         "illegal state prevention",
         "invariant expression and enforcement",
@@ -114,6 +119,7 @@
       "agent": "code-explorer",
       "source_repo_relative_path": "agents/code-explorer.md",
       "sha256": "21cb9c2a8bbb85d7969694482504a2db0fe5d8e091514190fcf0fdbd6dd5b07a",
+      "usage_scope": "checklist_only_read_only_reference",
       "absorbed_capabilities": [
         "entry point discovery",
         "execution path tracing",
@@ -132,6 +138,7 @@
       "agent": "code-architect",
       "source_repo_relative_path": "agents/code-architect.md",
       "sha256": "0f67e9953828779e2aa15b73814e056ec798b59d7c0f56c17748e157a97e9c50",
+      "usage_scope": "checklist_only_read_only_reference",
       "absorbed_capabilities": [
         "existing-pattern alignment",
         "module boundary and dependency-direction review",
@@ -151,6 +158,7 @@
       "agent": "pr-test-analyzer",
       "source_repo_relative_path": "agents/pr-test-analyzer.md",
       "sha256": "abfe4088e493e4e446c6afe1b0fc525b32a0005673e275ac2039d2b8d83999d9",
+      "usage_scope": "checklist_only_read_only_reference",
       "absorbed_capabilities": [
         "behavioral coverage review",
         "edge-case and error-path mapping",
@@ -169,6 +177,7 @@
       "agent": "security-reviewer",
       "source_repo_relative_path": "agents/security-reviewer.md",
       "sha256": "eacaa50c2b2fdee398ba2e3c896c018ea8887d34701e5b841278ea2c1472cc19",
+      "usage_scope": "checklist_only_read_only_reference",
       "absorbed_capabilities": [
         "sensitive data and log risk review",
         "input validation and auth boundary signals",
@@ -189,6 +198,7 @@
       "agent": "code-reviewer",
       "source_repo_relative_path": "agents/code-reviewer.md",
       "sha256": "e112e5e0bbc501788e8a3bfd2771d34e31a8564bbd87391bff7401af1509782c",
+      "usage_scope": "checklist_only_read_only_reference",
       "absorbed_capabilities": [
         "confidence-based filtering",
         "maintenance and missing-test risk framing",
@@ -207,6 +217,7 @@
       "agent": "doc-updater",
       "source_repo_relative_path": "agents/doc-updater.md",
       "sha256": "a0b96a358534fc9cefc33355b73d8b232132754283c3f335907468cb98ee021d",
+      "usage_scope": "checklist_only_read_only_reference",
       "absorbed_capabilities": [
         "documentation freshness mindset",
         "sectioned report organization",
@@ -225,6 +236,7 @@
       "agent": "e2e-runner",
       "source_repo_relative_path": "agents/e2e-runner.md",
       "sha256": "89813024c93cb28948656b066609eb42b4d024e96a8aeb5cbc320913c1e75123",
+      "usage_scope": "checklist_only_read_only_reference",
       "absorbed_capabilities": [
         "runtime verification scenario framing",
         "user-journey oriented validation"
@@ -242,6 +254,7 @@
       "agent": "tdd-guide",
       "source_repo_relative_path": "agents/tdd-guide.md",
       "sha256": "de339a6158d7708000ef796f8bd5e6d7ed45fe744f443d2d84739470ba4c5f2c",
+      "usage_scope": "checklist_only_read_only_reference",
       "absorbed_capabilities": [
         "test scenario decomposition",
         "behavior-first verification language"
