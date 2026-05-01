@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.1 2026-05-01 13:00:26 leokuang: fix(skill-audit): 清理固定 run id 重跑的旧 patch-preview，并避免 When Not To Use 可执行例外被降级为 P3 (user-visible)
 - v1.6.1 2026-05-01 11:45:55 leokuang: fix(skill-audit): 优化产物质量，降低 When Not To Use 禁止项误报并在 summary 明确 skipped governance/runtime scope (user-visible)
 - v1.6.1 2026-05-01 11:45:44 leokuang: test(spec-write-tasks): 收紧 eval case contract、failure mode 覆盖与 runtime sync 覆盖，从 skill contract 派生枚举防止样例和投递资产漂移
 - v1.6.1 2026-05-01 10:42:35 leokuang: fix(skill-audit): 修复单 skill 审计中 skipped governance 被当成缺失扣分，以及 promise implementation 自检混入目标报告的问题 (user-visible)

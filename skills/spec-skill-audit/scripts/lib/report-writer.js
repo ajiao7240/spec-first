@@ -25,6 +25,7 @@ function createRunDirectories(repoRoot, options = {}) {
     throw new Error(`Invalid run id "${runId}": run directory must stay under ${baseDir}`);
   }
 
+  fs.rmSync(runDir, { recursive: true, force: true });
   fs.mkdirSync(runDir, { recursive: true });
   return { baseDir, runId, runDir, latestDir };
 }

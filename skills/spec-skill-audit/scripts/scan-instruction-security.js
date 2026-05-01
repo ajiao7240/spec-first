@@ -82,13 +82,14 @@ function classifyFileContext(filePath) {
   return null;
 }
 
-function classifySectionContext(currentHeading) {
+function classifySectionContext(currentHeading, line) {
   const heading = String(currentHeading || '');
   if (
     heading.includes('when not')
     || heading.includes('do not')
     || heading.includes('not to use')
   ) {
+    if (hasExecutableExceptionCue(line)) return null;
     return {
       context: 'prohibited_pattern',
       severityOverride: 'P3',
@@ -107,10 +108,14 @@ function classifyScanContext(filePath, currentHeading, line) {
   const fileContext = classifyFileContext(filePath);
   if (fileContext) return fileContext;
 
-  const sectionContext = classifySectionContext(currentHeading);
+  const sectionContext = classifySectionContext(currentHeading, line);
   if (sectionContext) return sectionContext;
 
   return lineContext;
+}
+
+function hasExecutableExceptionCue(line) {
+  return /(?:\b(?:exception|except|unless|if\s+(?:the\s+)?user\s+(?:asks|insists|confirms|requests)|if\s+forced|if\s+needed)\b|例外|除非)/i.test(String(line || ''));
 }
 
 function resolveInventorySkillPath(repoRoot, sourcePath) {
@@ -213,6 +218,7 @@ module.exports = {
   classifyFileContext,
   classifyScanContext,
   classifySectionContext,
+  hasExecutableExceptionCue,
   listScannableFiles,
   resolveInventorySkillPath,
   scanFile,
