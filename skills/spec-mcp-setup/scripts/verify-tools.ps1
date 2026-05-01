@@ -21,9 +21,14 @@ $HelperFacts = & (Join-Path $ScriptDir 'install-helpers.ps1') -VerifyOnly | Conv
 
 function Test-ToolReady {
   param([object]$Tool)
+  $hostReady = (
+    ($Tool.PSObject.Properties.Name -contains 'host_config_required' -and -not [bool]$Tool.host_config_required -and $Tool.host_config_status -eq 'not-required') -or
+    $Tool.host_config_status -eq 'ready' -or
+    $Tool.host_config_status -eq 'fallback-active'
+  )
   return (
     $Tool.dependency_status -eq 'ready' -and
-    ($Tool.host_config_status -eq 'ready' -or $Tool.host_config_status -eq 'fallback-active') -and
+    $hostReady -and
     ($Tool.project_status -eq 'ready' -or $Tool.project_status -eq 'not-applicable' -or $Tool.project_status -eq 'workspace-target-required')
   )
 }
@@ -181,6 +186,34 @@ function Format-Query {
   return 'pending'
 }
 
+function Format-Bootstrap {
+  param([object]$Value)
+  if ($null -eq $Value) { return 'n/a' }
+  if ([bool]$Value) { return 'required' }
+  return 'done'
+}
+
+function Get-ProviderNamesByQueryReady {
+  param(
+    [object]$Tools,
+    [bool]$Ready
+  )
+
+  $names = @()
+  foreach ($property in $Tools.PSObject.Properties) {
+    $tool = $property.Value
+    if ($tool.type -ne 'graph-provider') {
+      continue
+    }
+    $queryReady = if ($tool.PSObject.Properties.Name -contains 'query_ready') { [bool]$tool.query_ready } else { $false }
+    if ($queryReady -eq $Ready) {
+      $names += $property.Name
+    }
+  }
+  if ($names.Count -eq 0) { return 'n/a' }
+  return ($names -join ',')
+}
+
 function Format-Remark {
   param([string]$Name)
   switch ($Name) {
@@ -229,6 +262,25 @@ if ($combined.graph_bootstrap_required) {
 Write-Host '✅ readiness ledger v2 已写入'
 Write-Host ''
 Write-Host 'Required Harness Runtime status (grouped):'
+$harnessNext = if ($combined.baseline_ready) { '' } else { 'fix action-required rows' }
+$graphSummaryStatus = if ($combined.graph_bootstrap_required) { 'pending' } else { 'ready' }
+$graphSummaryNext = if ($combined.graph_bootstrap_required) { 'run spec-graph-bootstrap' } else { '' }
+$graphSummaryEvidence = "ready: $(Get-ProviderNamesByQueryReady -Tools $combined.tools -Ready $true); pending: $(Get-ProviderNamesByQueryReady -Tools $combined.tools -Ready $false)"
+$summaryRows = @(
+  @(
+    'Harness runtime',
+    $(if ($combined.baseline_ready) { 'ready' } else { 'action-required' }),
+    "baseline_ready=$($combined.baseline_ready.ToString().ToLowerInvariant())",
+    $harnessNext
+  ),
+  @(
+    'Graph readiness',
+    $graphSummaryStatus,
+    $graphSummaryEvidence,
+    $graphSummaryNext
+  )
+)
+
 $mcpRows = @(
   foreach ($property in $combined.tools.PSObject.Properties) {
     $tool = $property.Value
@@ -260,6 +312,7 @@ $graphRows = @(
       (Format-Cell $tool.dependency_status),
       (Format-Cell $tool.host_config_status),
       (Format-Query $tool.query_ready),
+      (Format-Bootstrap $tool.bootstrap_required),
       (Format-Cell $tool.next_action)
     )
   }
@@ -287,13 +340,18 @@ $artifactsNext = if ($combined.provider_artifacts_status -eq 'ready' -or $combin
 
 $sections = @(
   [ordered]@{
+    title = 'Execution result'
+    headers = @('Area', 'Status', 'Evidence', 'Next')
+    rows = $summaryRows
+  }
+  [ordered]@{
     title = 'MCP servers'
     headers = @('Name', 'Role', 'Dependency', 'Host', 'Project', 'Next')
     rows = $mcpRows
   }
   [ordered]@{
     title = 'Graph providers'
-    headers = @('Name', 'Role', 'Dependency', 'Host', 'Query', 'Next')
+    headers = @('Name', 'Role', 'Dependency', 'Host', 'Query', 'Bootstrap', 'Next')
     rows = $graphRows
   }
   [ordered]@{
@@ -344,8 +402,8 @@ if ($combined.baseline_ready) {
     }
   } else {
     if ($combined.graph_bootstrap_required) {
-      Write-Host "  1. 建议先重启 $hostDisplay 或新开会话，让新写入的 MCP 配置被宿主加载。"
-      Write-Host "  2. 然后运行 $graphCommand；如果当前 agent 判断只需调用确定性 bootstrap 脚本，也可以在本会话直接回复“继续完成”，但下游 workflow 前仍要重启或新开会话。"
+      Write-Host "  1. 现在可以运行 $graphCommand 完成 deterministic graph readiness 编译；也可以在本会话直接回复“继续完成”，让 agent 调用 bootstrap 脚本。"
+      Write-Host "  2. 重启 $hostDisplay 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。"
     } else {
       Write-Host "  1. 重启 $hostDisplay 或新开会话后，再依赖新的 MCP 配置运行下游 workflow。"
     }

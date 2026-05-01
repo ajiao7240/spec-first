@@ -4,10 +4,14 @@ set -euo pipefail
 project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 instruction_path="$project_dir/CLAUDE.md"
 
-node - "$instruction_path" <<'EOF'
+node - "$instruction_path" "$project_dir" <<'EOF'
+const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
+const path = require('node:path');
 
 const instructionPath = process.argv[2];
+const projectDir = process.argv[3];
+const SPEC_FIRST_CLI_PATH = "__SPEC_FIRST_CLI_PATH__";
 const BOOTSTRAP_START = '<!-- spec-first:bootstrap:start -->';
 const BOOTSTRAP_END = '<!-- spec-first:bootstrap:end -->';
 const missingMessage = [
@@ -41,10 +45,59 @@ if (additionalContext === missingMessage && fs.existsSync(instructionPath)) {
   ].join('\n');
 }
 
+const startupReminder = readStartupReminder(projectDir);
+if (startupReminder) {
+  additionalContext = [
+    additionalContext,
+    '',
+    startupReminder,
+  ].join('\n');
+}
+
 process.stdout.write(JSON.stringify({
   hookSpecificOutput: {
     hookEventName: 'SessionStart',
     additionalContext,
   },
 }));
+
+function readStartupReminder(cwd) {
+  try {
+    if (!isTrustedSpecFirstCliPath(SPEC_FIRST_CLI_PATH)) {
+      return '';
+    }
+
+    const result = spawnSync(process.execPath, [SPEC_FIRST_CLI_PATH, 'startup-reminder', '--claude'], {
+      cwd,
+      encoding: 'utf8',
+      timeout: 1200,
+    });
+
+    if (result.error || result.status !== 0 || typeof result.stdout !== 'string') {
+      return '';
+    }
+
+    return result.stdout.trim();
+  } catch {
+    return '';
+  }
+}
+
+function isTrustedSpecFirstCliPath(cliPath) {
+  if (
+    typeof cliPath !== 'string'
+    || cliPath.length === 0
+    || cliPath === '__SPEC_FIRST_CLI_PATH__'
+    || !path.isAbsolute(cliPath)
+    || path.basename(cliPath) !== 'spec-first.js'
+  ) {
+    return false;
+  }
+
+  try {
+    return fs.statSync(cliPath).isFile();
+  } catch {
+    return false;
+  }
+}
 EOF

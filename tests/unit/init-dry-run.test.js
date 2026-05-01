@@ -157,6 +157,7 @@ describe('init --dry-run', () => {
       const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
       expect(claudeInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(claudeInstruction).toContain('/spec:optimize');
+      expect(claudeInstruction).not.toContain('startup-reminder --codex');
       expect(claudeInstruction).not.toContain('<!-- spec-first:runtime-tools:start -->');
       expect(claudeInstruction).not.toContain('代码智能与运行时工具');
       expect(claudeInstruction).not.toContain('$spec-graph-bootstrap');
@@ -186,6 +187,10 @@ describe('init --dry-run', () => {
       const codexInstruction = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
       expect(codexInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(codexInstruction).toContain('$spec-optimize');
+      expect(codexInstruction).toContain('spec-first startup-reminder --codex');
+      expect(codexInstruction).toContain('$spec-update');
+      expect(codexInstruction).toContain('不阻塞路由');
+      expect(codexInstruction).toContain('bounded subagents、leaf reviewers、worker agents 不运行该检查');
       expect(codexInstruction).not.toContain('<!-- spec-first:runtime-tools:start -->');
       expect(codexInstruction).not.toContain('代码智能与运行时工具');
       expect(codexInstruction).not.toContain('/spec:graph-bootstrap');
@@ -251,6 +256,7 @@ describe('init --dry-run', () => {
   test('init apply prints host-aware setup guidance after installing runtime assets', () => {
     const claudeProjectRoot = makeTempDir();
     const codexProjectRoot = makeTempDir();
+    const englishProjectRoot = makeTempDir();
 
     try {
       const claude = captureInit(claudeProjectRoot, ['--claude', '-u', 'reviewer', '--lang', 'zh']);
@@ -268,9 +274,19 @@ describe('init --dry-run', () => {
       expect(codex.stdout).toContain('重启 Codex 或新开会话');
       expect(codex.stdout).toContain('$spec-mcp-setup');
       expect(codex.stdout).toContain('$spec-graph-bootstrap');
+
+      const english = captureInit(englishProjectRoot, ['--codex', '-u', 'reviewer', '--lang', 'en']);
+      expect(english.exitCode).toBe(0);
+      expect(english.stderr).toBe('');
+      expect(english.stdout).toContain('Next steps:');
+      expect(english.stdout).toContain('Restart Codex or open a new session');
+      expect(english.stdout).toContain('$spec-mcp-setup');
+      expect(english.stdout).toContain('$spec-graph-bootstrap');
+      expect(english.stdout).not.toContain('下一步:');
     } finally {
       fs.rmSync(claudeProjectRoot, { recursive: true, force: true });
       fs.rmSync(codexProjectRoot, { recursive: true, force: true });
+      fs.rmSync(englishProjectRoot, { recursive: true, force: true });
     }
   });
 

@@ -1,11 +1,11 @@
 # `spec-graph-bootstrap` 优化路线图
 
-文档角色：`整改路线图 / 执行计划`  
-来源文档：[2026-04-18-spec-graph-bootstrap-audit.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-audit.md)  
-上位结论：[2026-04-18-spec-first-code-audit-report.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/2026-04-18-spec-first-code-audit-report.md)  
+文档角色：`整改路线图 / 执行计划`
+来源文档：[2026-04-18-spec-graph-bootstrap-audit.md](./2026-04-18-spec-graph-bootstrap-audit.md)
+上位结论：[2026-04-18-spec-first-code-audit-report.md](../2026-04-18-spec-first-code-audit-report.md)
 当前状态：`方案阶段，尚未进入实施跟踪`
 
-日期：`2026-04-18`  
+日期：`2026-04-18`
 目标：基于专项审查结果，将 `spec-graph-bootstrap` 从“可稳定装配的 Stage-0 控制面”推进到“对 LLM 足够诚实、可追溯、可降级的高质量决策输入层”
 
 本路线图基于专项审查结论制定，不重复证明问题是否存在，而是定义修复顺序、执行边界与阶段目标。

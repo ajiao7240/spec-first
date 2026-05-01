@@ -27,6 +27,23 @@ function Get-DependencyStatus {
   if (Get-Command $Name -ErrorAction SilentlyContinue) { 'ready' } else { 'missing' }
 }
 
+function Test-HostConfigRequired {
+  param([object]$Tool)
+  if ($null -ne $Tool.PSObject.Properties['host_config_required']) {
+    return [bool]$Tool.host_config_required
+  }
+  return $true
+}
+
+function Get-ProviderAccessMode {
+  param([object]$Tool)
+  if ($null -ne $Tool.provider_config -and $null -ne $Tool.provider_config.PSObject.Properties['access_mode']) {
+    return [string]$Tool.provider_config.access_mode
+  }
+  if (Test-HostConfigRequired -Tool $Tool) { return 'live_mcp' }
+  return 'cli_artifact'
+}
+
 function Get-ClaudeMcpServer {
   param(
     [object]$Config,
@@ -43,6 +60,7 @@ function Get-ClaudeMcpServer {
 
 function Get-HostConfigStatus {
   param([object]$Tool)
+  if (-not (Test-HostConfigRequired -Tool $Tool)) { return 'not-required' }
   if ([string]::IsNullOrWhiteSpace($SelectedScope)) { return 'action-required' }
 
   $hostConfig = $Tool.host_config.$DetectedHost
@@ -145,8 +163,23 @@ foreach ($tool in @($ToolsJson.tools)) {
 
   $hostConfigStatus = Get-HostConfigStatus -Tool $tool
   $projectStatus = Get-ProjectStatus -Tool $tool
-  $configured = ($hostConfigStatus -eq 'ready' -or $hostConfigStatus -eq 'fallback-active')
+  $hostConfigRequired = Test-HostConfigRequired -Tool $tool
+  $hostReady = (
+    $hostConfigStatus -eq 'ready' -or
+    $hostConfigStatus -eq 'fallback-active' -or
+    ((-not $hostConfigRequired) -and $hostConfigStatus -eq 'not-required')
+  )
   $type = if ($null -ne $tool.category) { $tool.category } else { 'mcp' }
+  $providerEnabled = (
+    $type -eq 'graph-provider' -and
+    $null -ne $tool.provider_config -and
+    [bool]$tool.provider_config.enabled_for_bootstrap
+  )
+  $configured = if ($type -eq 'graph-provider') {
+    ($providerEnabled -and $dependencyStatus -eq 'ready' -and $hostReady)
+  } else {
+    ($hostConfigStatus -eq 'ready' -or $hostConfigStatus -eq 'fallback-active')
+  }
   $nextAction = ''
 
   if ($dependencyStatus -ne 'ready') {
@@ -168,6 +201,7 @@ foreach ($tool in @($ToolsJson.tools)) {
   $toolFact = [ordered]@{
     required = [bool]$tool.required
     type = $type
+    host_config_required = [bool]$hostConfigRequired
     dependency_status = $dependencyStatus
     host_config_status = $hostConfigStatus
     project_status = $projectStatus
@@ -184,6 +218,8 @@ foreach ($tool in @($ToolsJson.tools)) {
     $graphProviders[$tool.id] = [ordered]@{
       required = [bool]$tool.required
       role = $tool.provider_role
+      access_mode = Get-ProviderAccessMode -Tool $tool
+      host_config_required = [bool]$hostConfigRequired
       dependency_status = $dependencyStatus
       host_config_status = $hostConfigStatus
       configured = [bool]$configured

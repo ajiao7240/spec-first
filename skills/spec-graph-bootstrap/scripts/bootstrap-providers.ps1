@@ -5,6 +5,8 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+$script:GitNexusQueryProbeCandidateLimit = 5
+
 function Write-ResultAndExit {
   param(
     [string]$WorkflowMode,
@@ -164,12 +166,44 @@ function Test-ProviderEnabled {
     [string]$Provider
   )
   $entry = $ProviderConfig.providers.$Provider
+  $hostConfigRequired = if ($entry.PSObject.Properties.Name -contains 'host_config_required') { [bool]$entry.host_config_required } else { $true }
+  $hostReady = (
+    $entry.host_config_status -eq 'ready' -or
+    $entry.host_config_status -eq 'fallback-active' -or
+    (-not $hostConfigRequired -and $entry.host_config_status -eq 'not-required')
+  )
   return (
     [bool]$entry.configured -and
     [bool]$entry.enabled_for_bootstrap -and
     $entry.dependency_status -eq 'ready' -and
-    ($entry.host_config_status -eq 'ready' -or $entry.host_config_status -eq 'fallback-active')
+    $hostReady
   )
+}
+
+function Test-QueryProbePolicySupported {
+  param(
+    [object]$ProviderConfig,
+    [string]$Provider
+  )
+  if ($Provider -ne 'gitnexus') { return $true }
+  $entry = $ProviderConfig.providers.$Provider
+  if (-not ($entry.PSObject.Properties.Name -contains 'query_probe_policy') -or $null -eq $entry.query_probe_policy) {
+    return $true
+  }
+  if (-not ($entry.query_probe_policy.PSObject.Properties.Name -contains 'candidates') -or $null -eq $entry.query_probe_policy.candidates) {
+    return $true
+  }
+  foreach ($candidate in @($entry.query_probe_policy.candidates)) {
+    if (-not ($candidate.PSObject.Properties.Name -contains 'token') -or [string]::IsNullOrWhiteSpace([string]$candidate.token) -or [string]$candidate.token -match '[;&|`$<>]') {
+      return $false
+    }
+    foreach ($propertyName in @('selected_from', 'reason_code')) {
+      if ($candidate.PSObject.Properties.Name -contains $propertyName -and $null -ne $candidate.$propertyName -and $candidate.$propertyName -isnot [string]) {
+        return $false
+      }
+    }
+  }
+  return $true
 }
 
 function Invoke-ConfiguredCommand {
@@ -218,33 +252,86 @@ function Invoke-ConfiguredCommand {
   }
 }
 
+function Invoke-GitNexusQueryProbeCandidate {
+  param(
+    [object]$ProviderConfig,
+    [string]$Provider,
+    [string]$Token,
+    [string]$LogPath,
+    [string]$RepoRoot
+  )
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LogPath) | Out-Null
+  $command = @($ProviderConfig.providers.$Provider.commands.query_probe)
+  $command[4] = $Token
+  $exe = [string]$command[0]
+  $args = @($command | Select-Object -Skip 1)
+  $output = New-Object System.Collections.Generic.List[string]
+  $exitCode = 0
+  [Console]::Error.WriteLine("spec-graph-bootstrap: running $Provider query_probe token=$Token; dependencies may download on first use...")
+  Push-Location $RepoRoot
+  try {
+    $global:LASTEXITCODE = 0
+    $captured = & $exe @args 2>&1
+    foreach ($line in @($captured)) { $output.Add([string]$line) }
+    if ($LASTEXITCODE -is [int]) { $exitCode = $LASTEXITCODE }
+  } catch {
+    $exitCode = if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }
+    $output.Add([string]$_.Exception.Message)
+  } finally {
+    Pop-Location
+  }
+  [Console]::Error.WriteLine("spec-graph-bootstrap: finished $Provider query_probe token=$Token with exit $exitCode")
+  $outputText = ($output -join [Environment]::NewLine)
+  Set-Content -Encoding utf8 -Path $LogPath -Value $outputText
+  $diagnostic = (($output -join ' ') -replace '\s+', ' ').Trim()
+  $truncated = $false
+  if ($diagnostic.Length -gt 1000) {
+    $diagnostic = $diagnostic.Substring(0, 1000)
+    $truncated = $true
+  }
+  [pscustomobject]@{
+    kind = 'query_probe'
+    command = ($command -join ' ')
+    exit_code = $exitCode
+    diagnostic = $diagnostic
+    diagnostics_truncated = $truncated
+    raw_log = $LogPath.Replace("$RepoRoot/", '')
+  }
+}
+
 $script:QueryProbeVerificationReason = ''
+$script:QueryProbeResultClass = ''
 
 function Test-GitNexusQueryProbeVerified {
   param(
     [object]$CommandResult,
     [string]$LogPath
-  )
+)
   $script:QueryProbeVerificationReason = ''
+  $script:QueryProbeResultClass = ''
   $badDiagnosticPattern = 'FTS index ensure failed|Cannot execute write operations in a read-only database|doesn.?t have an index|Connection exception|BM25/FTS search failed|FTS extension unavailable|missing[ -]index'
   if ([string]$CommandResult.diagnostic -match $badDiagnosticPattern) {
     $script:QueryProbeVerificationReason = 'GitNexus query probe emitted FTS/read-only/missing-index diagnostics.'
+    $script:QueryProbeResultClass = 'diagnostic'
     return $false
   }
   $logText = if (Test-Path -LiteralPath $LogPath -PathType Leaf) { Get-Content -Raw -LiteralPath $LogPath } else { '' }
   $jsonMatch = [regex]::Match($logText, '(?ms)^[ \t]*\{.*\}\s*$')
   if (-not $jsonMatch.Success) {
     $script:QueryProbeVerificationReason = 'GitNexus query probe did not return parseable JSON.'
+    $script:QueryProbeResultClass = 'empty-or-unparseable'
     return $false
   }
   try {
     $payload = $jsonMatch.Value | ConvertFrom-Json
   } catch {
     $script:QueryProbeVerificationReason = 'GitNexus query probe did not return parseable JSON.'
+    $script:QueryProbeResultClass = 'empty-or-unparseable'
     return $false
   }
   if ($payload.PSObject.Properties.Name -contains 'warning') {
     $script:QueryProbeVerificationReason = 'GitNexus query probe returned a warning payload.'
+    $script:QueryProbeResultClass = 'empty-or-unparseable'
     return $false
   }
   $resultCount = 0
@@ -254,9 +341,50 @@ function Test-GitNexusQueryProbeVerified {
     }
   }
   if ($resultCount -le 0) {
-    $script:QueryProbeVerificationReason = 'GitNexus query probe did not return non-empty BM25/process query results.'
+    $definitionCount = if ($payload.PSObject.Properties.Name -contains 'definitions' -and $null -ne $payload.definitions) { @($payload.definitions).Count } else { 0 }
+    if ($definitionCount -gt 0) {
+      $script:QueryProbeVerificationReason = 'GitNexus query probe returned definitions-only evidence without BM25/process query results.'
+      $script:QueryProbeResultClass = 'definitions-only'
+    } else {
+      $script:QueryProbeVerificationReason = 'GitNexus query probe did not return non-empty BM25/process query results.'
+      $script:QueryProbeResultClass = 'empty-or-unparseable'
+    }
+  }
+  if ($resultCount -gt 0) {
+    $script:QueryProbeResultClass = 'process-results'
   }
   return ($resultCount -gt 0)
+}
+
+function Get-GitNexusQueryProbeCandidates {
+  param(
+    [object]$ProviderConfig,
+    [string]$Provider
+  )
+  $entry = $ProviderConfig.providers.$Provider
+  if ($entry.PSObject.Properties.Name -contains 'query_probe_policy' -and $null -ne $entry.query_probe_policy -and $entry.query_probe_policy.PSObject.Properties.Name -contains 'candidates' -and @($entry.query_probe_policy.candidates).Count -gt 0) {
+    return @($entry.query_probe_policy.candidates | Select-Object -First $script:GitNexusQueryProbeCandidateLimit)
+  }
+  $policy = if ($entry.PSObject.Properties.Name -contains 'query_probe_policy') { $entry.query_probe_policy } else { $null }
+  $token = if ($null -ne $policy -and $policy.PSObject.Properties.Name -contains 'token') { [string]$policy.token } else { [string]@($entry.commands.query_probe)[4] }
+  $selectedFrom = if ($null -ne $policy -and $policy.PSObject.Properties.Name -contains 'selected_from') { $policy.selected_from } else { $null }
+  return @([pscustomobject][ordered]@{
+    token = $token
+    selected_from = $selectedFrom
+    reason_code = if ($null -ne $policy -and $policy.PSObject.Properties.Name -contains 'source') { [string]$policy.source } else { 'legacy-token' }
+  })
+}
+
+function Get-GitNexusQueryProbeCandidateCount {
+  param(
+    [object]$ProviderConfig,
+    [string]$Provider
+  )
+  $entry = $ProviderConfig.providers.$Provider
+  if ($entry.PSObject.Properties.Name -contains 'query_probe_policy' -and $null -ne $entry.query_probe_policy -and $entry.query_probe_policy.PSObject.Properties.Name -contains 'candidates' -and @($entry.query_probe_policy.candidates).Count -gt 0) {
+    return @($entry.query_probe_policy.candidates).Count
+  }
+  return 1
 }
 
 function Get-ProviderFailureInfo {
@@ -306,10 +434,16 @@ function Test-QueryProbeVerified {
 
 function Get-ProviderSkipReason {
   param([object]$Entry)
+  $hostConfigRequired = if ($Entry.PSObject.Properties.Name -contains 'host_config_required') { [bool]$Entry.host_config_required } else { $true }
+  $hostReady = (
+    $Entry.host_config_status -eq 'ready' -or
+    $Entry.host_config_status -eq 'fallback-active' -or
+    (-not $hostConfigRequired -and $Entry.host_config_status -eq 'not-required')
+  )
   if (-not [bool]$Entry.configured) { return 'not-configured' }
   if (-not [bool]$Entry.enabled_for_bootstrap) { return 'disabled-for-bootstrap' }
   if ($Entry.dependency_status -ne 'ready') { return 'dependency-not-ready' }
-  if ($Entry.host_config_status -ne 'ready' -and $Entry.host_config_status -ne 'fallback-active') { return 'host-not-ready' }
+  if (-not $hostReady) { return 'host-not-ready' }
   return ''
 }
 
@@ -330,20 +464,31 @@ function Write-NormalizedArtifacts {
     [string]$StatusPath,
     [bool]$QueryReady,
     [string]$BootstrappedAt,
-    [string]$ProvidersDir
+    [string]$ProvidersDir,
+    [object[]]$QueryProbeAttempts = @()
   )
   $normalizedDir = Join-Path (Join-Path $ProvidersDir $Provider) 'normalized'
   New-Item -ItemType Directory -Force -Path $normalizedDir | Out-Null
   $sourceStatusPath = ".spec-first/providers/$Provider/status.json"
 
   if ($Provider -eq 'gitnexus') {
+    $attemptLogs = @($QueryProbeAttempts | ForEach-Object { $_.raw_log })
+    $sourceRawLogs = @('.spec-first/providers/gitnexus/raw/analyze.log', '.spec-first/providers/gitnexus/raw/status.log')
+    if ($attemptLogs.Count -gt 0) {
+      $sourceRawLogs += $attemptLogs
+    } else {
+      $sourceRawLogs += '.spec-first/providers/gitnexus/raw/query.log'
+    }
+    $winningLogs = @($QueryProbeAttempts | Where-Object { $_.result_class -eq 'process-results' } | Select-Object -First 1 | ForEach-Object { $_.raw_log })
     foreach ($artifact in @('architecture-facts', 'reuse-candidates')) {
       $payload = [ordered]@{
         schema_version = 'provider-normalized-envelope.v1'
         provider = $Provider
         generated_at = $BootstrappedAt
         source_status_path = $sourceStatusPath
-        source_raw_logs = @('.spec-first/providers/gitnexus/raw/analyze.log', '.spec-first/providers/gitnexus/raw/status.log', '.spec-first/providers/gitnexus/raw/query.log')
+        source_raw_logs = $sourceRawLogs
+        query_probe_attempt_logs = $attemptLogs
+        winning_query_probe_log = if ($winningLogs.Count -gt 0) { $winningLogs[0] } else { $null }
         available_query_surfaces = if ($QueryReady) { @('status', 'query') } else { @() }
         capabilities = @('architecture_map', 'dependency_map', 'execution_flow', 'repo_wiki', 'query_global_graph')
         confidence = if ($QueryReady) { 'high' } else { 'low' }
@@ -451,6 +596,9 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
       Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'unsupported-provider-command' -NextAction "Provider command shape is unsupported for $($property.Name):$kind."
     }
   }
+  if (-not (Test-QueryProbePolicySupported -ProviderConfig $providerConfig -Provider $property.Name)) {
+    Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'unsupported-provider-command' -NextAction "Provider query probe policy is unsupported for $($property.Name)."
+  }
 }
 
 $bootstrappedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
@@ -473,6 +621,8 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $skipReason = Get-ProviderSkipReason -Entry $entry
   $limitations = Get-ProviderSkipLimitations -SkipReason $skipReason
   $failureInfo = Get-ProviderFailureInfo -Provider $provider -Phase '' -ExitCode 0
+  $queryProbeAttempts = New-Object System.Collections.Generic.List[object]
+  $queryProbeCandidatesTruncated = $false
 
   if (Test-ProviderEnabled -ProviderConfig $providerConfig -Provider $provider) {
     $bootstrapLog = Join-Path $rawDir $(if ($provider -eq 'gitnexus') { 'analyze.log' } else { 'build.log' })
@@ -486,11 +636,69 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
       if ($statusProbe.exit_code -eq 0) {
         $graphReady = $true
         $script:QueryProbeVerificationReason = ''
-        $queryProbe = Invoke-ConfiguredCommand -ProviderConfig $providerConfig -Provider $provider -Kind 'query_probe' -LogPath $queryLog -RepoRoot $repoRoot
-        $commandResults.Add($queryProbe)
-        if ($queryProbe.exit_code -eq 0 -and (Test-QueryProbeVerified -Provider $provider -CommandResult $queryProbe -LogPath $queryLog)) {
+        if ($provider -eq 'gitnexus') {
+          $attemptIndex = 0
+          $candidateCount = Get-GitNexusQueryProbeCandidateCount -ProviderConfig $providerConfig -Provider $provider
+          if ($candidateCount -gt $script:GitNexusQueryProbeCandidateLimit) {
+            $queryProbeCandidatesTruncated = $true
+          }
+          foreach ($candidate in @(Get-GitNexusQueryProbeCandidates -ProviderConfig $providerConfig -Provider $provider)) {
+            $attemptIndex += 1
+            $candidateToken = [string]$candidate.token
+            $candidateLog = if ($attemptIndex -eq 1) { Join-Path $rawDir 'query.log' } else { Join-Path $rawDir "query-$attemptIndex.log" }
+            $queryProbe = Invoke-GitNexusQueryProbeCandidate -ProviderConfig $providerConfig -Provider $provider -Token $candidateToken -LogPath $candidateLog -RepoRoot $repoRoot
+            $verified = $false
+            if ($queryProbe.exit_code -eq 0) {
+              $verified = Test-QueryProbeVerified -Provider $provider -CommandResult $queryProbe -LogPath $candidateLog
+            } else {
+              $script:QueryProbeResultClass = 'command-failed'
+              $script:QueryProbeVerificationReason = 'GitNexus query probe command failed.'
+            }
+            $queryProbe | Add-Member -NotePropertyName probe_token -NotePropertyValue $candidateToken
+            $queryProbe | Add-Member -NotePropertyName probe_selected_from -NotePropertyValue $(if ($candidate.PSObject.Properties.Name -contains 'selected_from') { $candidate.selected_from } else { $null })
+            $queryProbe | Add-Member -NotePropertyName probe_reason_code -NotePropertyValue $(if ($candidate.PSObject.Properties.Name -contains 'reason_code') { [string]$candidate.reason_code } else { 'legacy-token' })
+            $queryProbe | Add-Member -NotePropertyName result_class -NotePropertyValue $script:QueryProbeResultClass
+            $queryProbe | Add-Member -NotePropertyName verification_reason -NotePropertyValue $script:QueryProbeVerificationReason
+            $commandResults.Add($queryProbe)
+            $queryProbeAttempts.Add([pscustomobject][ordered]@{
+              token = $candidateToken
+              selected_from = if ($candidate.PSObject.Properties.Name -contains 'selected_from') { $candidate.selected_from } else { $null }
+              reason_code = if ($candidate.PSObject.Properties.Name -contains 'reason_code') { [string]$candidate.reason_code } else { 'legacy-token' }
+              exit_code = [int]$queryProbe.exit_code
+              result_class = $script:QueryProbeResultClass
+              verification_reason = if ([string]::IsNullOrWhiteSpace($script:QueryProbeVerificationReason)) { $null } else { $script:QueryProbeVerificationReason }
+              raw_log = $queryProbe.raw_log
+            }) | Out-Null
+            if ($verified) {
+              $queryReady = $true
+              break
+            }
+          }
+          if (-not $queryReady) {
+            if ($queryProbeAttempts.Count -eq 0) {
+              $script:QueryProbeVerificationReason = 'GitNexus query probe did not run any candidate.'
+            } elseif (@($queryProbeAttempts | Where-Object { $_.result_class -ne 'definitions-only' }).Count -eq 0) {
+              $script:QueryProbeVerificationReason = 'All GitNexus query probe candidates returned definitions-only evidence without BM25/process query results.'
+            } elseif (@($queryProbeAttempts | Where-Object { $_.result_class -eq 'diagnostic' }).Count -gt 0) {
+              $script:QueryProbeVerificationReason = 'GitNexus query probe emitted FTS/read-only/missing-index diagnostics.'
+            } elseif (@($queryProbeAttempts | Where-Object { $_.result_class -eq 'command-failed' }).Count -gt 0) {
+              $script:QueryProbeVerificationReason = 'GitNexus query probe command failed.'
+            } else {
+              $script:QueryProbeVerificationReason = 'GitNexus query probe candidates did not return non-empty BM25/process query results.'
+            }
+            if ($queryProbeCandidatesTruncated) {
+              $script:QueryProbeVerificationReason = "$($script:QueryProbeVerificationReason) Only the first $script:GitNexusQueryProbeCandidateLimit bounded GitNexus query probe candidates were attempted."
+            }
+          }
+        } else {
+          $queryProbe = Invoke-ConfiguredCommand -ProviderConfig $providerConfig -Provider $provider -Kind 'query_probe' -LogPath $queryLog -RepoRoot $repoRoot
+          $commandResults.Add($queryProbe)
+          if ($queryProbe.exit_code -eq 0 -and (Test-QueryProbeVerified -Provider $provider -CommandResult $queryProbe -LogPath $queryLog)) {
+            $queryReady = $true
+          }
+        }
+        if ($queryReady) {
           $status = 'ready'
-          $queryReady = $true
           $confidence = 'high'
           $limitations = @()
         } else {
@@ -515,7 +723,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   }
 
   $statusPath = Join-Path $providerDir 'status.json'
-  Write-NormalizedArtifacts -Provider $provider -StatusPath $statusPath -QueryReady $queryReady -BootstrappedAt $bootstrappedAt -ProvidersDir $providersDir
+  Write-NormalizedArtifacts -Provider $provider -StatusPath $statusPath -QueryReady $queryReady -BootstrappedAt $bootstrappedAt -ProvidersDir $providersDir -QueryProbeAttempts @($queryProbeAttempts)
   $providerStatus = [ordered]@{
     schema_version = 'provider-status.v1'
     provider = $provider
@@ -535,12 +743,16 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     recommended_action = $failureInfo['recommended_action']
     confidence = $confidence
     limitations = $limitations
+    query_verification_reason = if ($status -eq 'query-unverified' -and $limitations.Count -gt 0) { $limitations[$limitations.Count - 1] } else { $null }
     query_probe_policy = if ($entry.PSObject.Properties.Name -contains 'query_probe_policy') { $entry.query_probe_policy } else { $null }
+    query_probe_candidate_limit = if ($provider -eq 'gitnexus') { $script:GitNexusQueryProbeCandidateLimit } else { $null }
+    query_probe_candidates_truncated = if ($provider -eq 'gitnexus') { $queryProbeCandidatesTruncated } else { $null }
     repo_snapshot = [ordered]@{
       source_revision = $sourceRevision
       worktree_dirty = $worktreeDirty
     }
     command_results = @($commandResults)
+    query_probe_attempts = if ($provider -eq 'gitnexus') { @($queryProbeAttempts) } else { $null }
     command_source = '.spec-first/config/graph-providers.json'
     diagnostics = @($commandResults | Where-Object { -not [string]::IsNullOrWhiteSpace($_.diagnostic) } | ForEach-Object { $_.diagnostic })
     diagnostics_truncated = [bool](@($commandResults | Where-Object { $_.diagnostics_truncated }).Count)
@@ -604,7 +816,8 @@ $graphFacts = [ordered]@{
   workflow_mode = $workflowMode
   provider_summary = [ordered]@{
     ready_primary_providers = @($providerAggregate.ready_primary_providers)
-    degraded_providers = @($providerStatuses | Where-Object { -not $_.query_ready } | ForEach-Object { $_.provider })
+    degraded_providers = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'skipped' } | ForEach-Object { $_.provider })
+    skipped_primary_providers = @($providerStatuses | Where-Object { $_.status -eq 'skipped' } | ForEach-Object { $_.provider })
     partial_primary_available = ($readyCount -gt 0)
   }
   canonical_artifacts = [ordered]@{
@@ -656,14 +869,33 @@ $impactCapabilities = [ordered]@{
 }
 Write-JsonFileAtomic -Path (Join-Path $impactDir 'bootstrap-impact-capabilities.json') -Payload ([pscustomobject]$impactCapabilities) -Depth 20
 
+$providerReportRows = @($providerStatuses | ForEach-Object {
+  $attemptSummary = if ($_.PSObject.Properties.Name -contains 'query_probe_attempts' -and $null -ne $_.query_probe_attempts -and @($_.query_probe_attempts).Count -gt 0) {
+    (@($_.query_probe_attempts) | ForEach-Object { "$($_.token):$($_.result_class)" }) -join ','
+  } else {
+    ''
+  }
+  $token = if (-not [string]::IsNullOrWhiteSpace($attemptSummary)) { $attemptSummary } elseif ($null -ne $_.query_probe_policy -and $_.query_probe_policy.PSObject.Properties.Name -contains 'token') { [string]$_.query_probe_policy.token } else { 'n/a' }
+  $reason = if (-not [string]::IsNullOrWhiteSpace([string]$_.query_verification_reason)) { [string]$_.query_verification_reason } else { (@($_.limitations) -join '; ') }
+  if ([string]::IsNullOrWhiteSpace($reason)) { $reason = 'n/a' }
+  $reason = $reason.Replace('|', '/')
+  "| $($_.provider) | $($_.graph_ready) | $($_.query_ready) | $token | $($_.status) | $reason |"
+})
+
 Write-TextFileAtomic -Path (Join-Path $graphDir 'bootstrap-report.md') -Value @"
 # Graph Bootstrap Report
 
 - workflow_mode: $workflowMode
 - overall_status: $overallStatus
+- source_revision: $sourceRevision
+- worktree_dirty: $worktreeDirty
 - provider_status: .spec-first/graph/provider-status.json
 - graph_facts: .spec-first/graph/graph-facts.json
 - impact_capabilities: .spec-first/impact/bootstrap-impact-capabilities.json
+
+| Provider | Graph Ready | Query Ready | Probe Token | Evidence | Query Verification Reason |
+| --- | --- | --- | --- | --- | --- |
+$($providerReportRows -join [Environment]::NewLine)
 "@
 
 [pscustomobject]@{

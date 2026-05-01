@@ -243,11 +243,11 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 
 问题事实：
 
-- [skills/test-browser/SKILL.md](/Users/kuang/xiaobu/spec-first/skills/test-browser/SKILL.md) 当前写的是“权限受阻时转到 `/spec:mcp-setup`”
-- [docs/10-prompt/skills/test-browser/SKILL.md](/Users/kuang/xiaobu/spec-first/docs/10-prompt/skills/test-browser/SKILL.md) 仍保留旧的 `/spec:setup`
+- [skills/test-browser/SKILL.md](../../skills/test-browser/SKILL.md) 当前写的是“权限受阻时转到 `/spec:mcp-setup`”
+- [docs/10-prompt/skills/test-browser/SKILL.md](../10-prompt/skills/test-browser/SKILL.md) 仍保留旧的 `/spec:setup`
 - `spec-graph-bootstrap` 与 `spec-mcp-setup` 的 source skill / prompt mirror 也已出现非 byte-equal 漂移
-- 进一步下钻 skill 本体后发现，[skills/test-browser/SKILL.md:39](/Users/kuang/xiaobu/spec-first/skills/test-browser/SKILL.md#L39) 已改成 `/spec:mcp-setup`，但同一 source 文件的 [skills/test-browser/SKILL.md:54](/Users/kuang/xiaobu/spec-first/skills/test-browser/SKILL.md#L54) 仍保留 `/spec:setup`
-- 现有 [tests/unit/test-browser-contracts.test.js:30](/Users/kuang/xiaobu/spec-first/tests/unit/test-browser-contracts.test.js#L30) 只断言必须包含 `/spec:mcp-setup`，但没有显式禁止 `/spec:setup`
+- 进一步下钻 skill 本体后发现，[skills/test-browser/SKILL.md:39](../../skills/test-browser/SKILL.md#L39) 已改成 `/spec:mcp-setup`，但同一 source 文件的 [skills/test-browser/SKILL.md:54](../../skills/test-browser/SKILL.md#L54) 仍保留 `/spec:setup`
+- 现有 [tests/unit/test-browser-contracts.test.js:30](../../tests/unit/test-browser-contracts.test.js#L30) 只断言必须包含 `/spec:mcp-setup`，但没有显式禁止 `/spec:setup`
 
 为什么是问题：
 
@@ -257,11 +257,11 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 
 代码证据：
 
-- [skills/test-browser/SKILL.md:39](/Users/kuang/xiaobu/spec-first/skills/test-browser/SKILL.md#L39)
-- [skills/test-browser/SKILL.md:54](/Users/kuang/xiaobu/spec-first/skills/test-browser/SKILL.md#L54)
-- [docs/10-prompt/skills/test-browser/SKILL.md:39](/Users/kuang/xiaobu/spec-first/docs/10-prompt/skills/test-browser/SKILL.md#L39)
-- [tests/unit/test-browser-contracts.test.js:30](/Users/kuang/xiaobu/spec-first/tests/unit/test-browser-contracts.test.js#L30)
-- [tests/unit/asset-consistency.test.js:38](/Users/kuang/xiaobu/spec-first/tests/unit/asset-consistency.test.js#L38)
+- [skills/test-browser/SKILL.md:39](../../skills/test-browser/SKILL.md#L39)
+- [skills/test-browser/SKILL.md:54](../../skills/test-browser/SKILL.md#L54)
+- [docs/10-prompt/skills/test-browser/SKILL.md:39](../10-prompt/skills/test-browser/SKILL.md#L39)
+- [tests/unit/test-browser-contracts.test.js:30](../../tests/unit/test-browser-contracts.test.js#L30)
+- [tests/unit/asset-consistency.test.js:38](../../tests/unit/asset-consistency.test.js#L38)
 
 当前判断：
 
@@ -288,9 +288,9 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 
 代码证据：
 
-- [agents](/Users/kuang/xiaobu/spec-first/agents)
-- [docs/10-prompt/agents](/Users/kuang/xiaobu/spec-first/docs/10-prompt/agents)
-- [tests/unit/asset-consistency.test.js:170](/Users/kuang/xiaobu/spec-first/tests/unit/asset-consistency.test.js#L170)
+- [agents](../../agents)
+- [docs/10-prompt/agents](../10-prompt/agents)
+- [tests/unit/asset-consistency.test.js:170](../../tests/unit/asset-consistency.test.js#L170)
 
 当前判断：
 
@@ -315,10 +315,10 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 
 代码证据：
 
-- [package.json:26](/Users/kuang/xiaobu/spec-first/package.json#L26)
-- [.npmignore:1](/Users/kuang/xiaobu/spec-first/.npmignore#L1)
-- [skills/feature-video/scripts/__pycache__/capture-demo.cpython-311.pyc](/Users/kuang/xiaobu/spec-first/skills/feature-video/scripts/__pycache__/capture-demo.cpython-311.pyc)
-- [skills/gemini-imagegen/scripts/__pycache__/compose_images.cpython-311.pyc](/Users/kuang/xiaobu/spec-first/skills/gemini-imagegen/scripts/__pycache__/compose_images.cpython-311.pyc)
+- [package.json:26](../../package.json#L26)
+- [.npmignore:1](../../.npmignore#L1)
+- [skills/feature-video/scripts/__pycache__/capture-demo.cpython-311.pyc](../../skills/feature-video/scripts/__pycache__/capture-demo.cpython-311.pyc)
+- [skills/gemini-imagegen/scripts/__pycache__/compose_images.cpython-311.pyc](../../skills/gemini-imagegen/scripts/__pycache__/compose_images.cpython-311.pyc)
 
 当前判断：
 
@@ -340,8 +340,8 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 
 代码证据：
 
-- [tests/unit/asset-consistency.test.js:197](/Users/kuang/xiaobu/spec-first/tests/unit/asset-consistency.test.js#L197)
-- [tests/unit/asset-consistency.test.js:185](/Users/kuang/xiaobu/spec-first/tests/unit/asset-consistency.test.js#L185)
+- [tests/unit/asset-consistency.test.js:197](../../tests/unit/asset-consistency.test.js#L197)
+- [tests/unit/asset-consistency.test.js:185](../../tests/unit/asset-consistency.test.js#L185)
 
 当前判断：
 
@@ -352,11 +352,11 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 
 问题事实：
 
-- [src/cli/plugin.js](/Users/kuang/xiaobu/spec-first/src/cli/plugin.js)：1116 行
-- [src/cli/commands/doctor.js](/Users/kuang/xiaobu/spec-first/src/cli/commands/doctor.js)：1211 行
-- [src/cli/commands/init.js](/Users/kuang/xiaobu/spec-first/src/cli/commands/init.js)：729 行
-- [src/bootstrap-compiler/run-bootstrap.js](/Users/kuang/xiaobu/spec-first/src/bootstrap-compiler/run-bootstrap.js)：609 行
-- [src/context-routing/verification-summary.js](/Users/kuang/xiaobu/spec-first/src/context-routing/verification-summary.js)：520 行
+- [src/cli/plugin.js](../../src/cli/plugin.js)：1116 行
+- [src/cli/commands/doctor.js](../../src/cli/commands/doctor.js)：1211 行
+- [src/cli/commands/init.js](../../src/cli/commands/init.js)：729 行
+- [src/bootstrap-compiler/run-bootstrap.js](../../src/bootstrap-compiler/run-bootstrap.js)：609 行
+- [src/context-routing/verification-summary.js](../../src/context-routing/verification-summary.js)：520 行
 
 为什么是问题：
 
@@ -383,9 +383,9 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 
 代码证据：
 
-- [skills/proof/SKILL.md](/Users/kuang/xiaobu/spec-first/skills/proof/SKILL.md)
-- [skills/spec-debug/SKILL.md:127](/Users/kuang/xiaobu/spec-first/skills/spec-debug/SKILL.md#L127)
-- [skills/spec-plan/references/universal-planning.md:107](/Users/kuang/xiaobu/spec-first/skills/spec-plan/references/universal-planning.md#L107)
+- [skills/proof/SKILL.md](../../skills/proof/SKILL.md)
+- [skills/spec-debug/SKILL.md:127](../../skills/spec-debug/SKILL.md#L127)
+- [skills/spec-plan/references/universal-planning.md:107](../../skills/spec-plan/references/universal-planning.md#L107)
 
 当前判断：
 
@@ -520,8 +520,8 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 
 代码事实：
 
-- 它是 session 入口治理层，source of truth 在 [skills/using-spec-first/SKILL.md](/Users/kuang/xiaobu/spec-first/skills/using-spec-first/SKILL.md)
-- 双宿主 runtime 合同有专门测试：[tests/unit/using-spec-first-runtime-contracts.test.js](/Users/kuang/xiaobu/spec-first/tests/unit/using-spec-first-runtime-contracts.test.js)
+- 它是 session 入口治理层，source of truth 在 [skills/using-spec-first/SKILL.md](../../skills/using-spec-first/SKILL.md)
+- 双宿主 runtime 合同有专门测试：[tests/unit/using-spec-first-runtime-contracts.test.js](../../tests/unit/using-spec-first-runtime-contracts.test.js)
 - 路由规则明确覆盖 setup / update / sessions / debug / review / graph-bootstrap / brainstorm / ideate / plan / work
 
 判断：
@@ -544,9 +544,9 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 
 代码事实：
 
-- source skill 在 [skills/spec-mcp-setup/SKILL.md](/Users/kuang/xiaobu/spec-first/skills/spec-mcp-setup/SKILL.md)
+- source skill 在 [skills/spec-mcp-setup/SKILL.md](../../skills/spec-mcp-setup/SKILL.md)
 - 配套脚本和 metadata 最多：23 个文件
-- 主体合同更多由 shell tests 保证：[tests/unit/mcp-setup.sh](/Users/kuang/xiaobu/spec-first/tests/unit/mcp-setup.sh)
+- 主体合同更多由 shell tests 保证：[tests/unit/mcp-setup.sh](../../tests/unit/mcp-setup.sh)
 - 当前 prompt mirror 与 source 已出现 drift
 
 判断：
@@ -572,15 +572,15 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 
 - 它是 Stage-0 主节点，承担事实抽取与 context 产物生成
 - 相关实现横跨：
-  - [skills/spec-graph-bootstrap/SKILL.md](/Users/kuang/xiaobu/spec-first/skills/spec-graph-bootstrap/SKILL.md)
-  - [src/bootstrap-compiler/run-bootstrap.js](/Users/kuang/xiaobu/spec-first/src/bootstrap-compiler/run-bootstrap.js)
-  - [src/context-routing/loader.js](/Users/kuang/xiaobu/spec-first/src/context-routing/loader.js)
-  - [src/context-routing/evaluator.js](/Users/kuang/xiaobu/spec-first/src/context-routing/evaluator.js)
-  - [src/cli/commands/stage0-context.js](/Users/kuang/xiaobu/spec-first/src/cli/commands/stage0-context.js)
+  - [skills/spec-graph-bootstrap/SKILL.md](../../skills/spec-graph-bootstrap/SKILL.md)
+  - [src/bootstrap-compiler/run-bootstrap.js](../../src/bootstrap-compiler/run-bootstrap.js)
+  - [src/context-routing/loader.js](../../src/context-routing/loader.js)
+  - [src/context-routing/evaluator.js](../../src/context-routing/evaluator.js)
+  - [src/cli/commands/stage0-context.js](../../src/cli/commands/stage0-context.js)
 - 合同测试是当前最完整的节点之一：
-  - [tests/unit/spec-graph-bootstrap-contracts.test.js](/Users/kuang/xiaobu/spec-first/tests/unit/spec-graph-bootstrap-contracts.test.js)
-  - [tests/unit/spec-graph-bootstrap-compiler.test.js](/Users/kuang/xiaobu/spec-first/tests/unit/spec-graph-bootstrap-compiler.test.js)
-  - [tests/unit/spec-graph-bootstrap-monorepo.test.js](/Users/kuang/xiaobu/spec-first/tests/unit/spec-graph-bootstrap-monorepo.test.js)
+  - [tests/unit/spec-graph-bootstrap-contracts.test.js](../../tests/unit/spec-graph-bootstrap-contracts.test.js)
+  - [tests/unit/spec-graph-bootstrap-compiler.test.js](../../tests/unit/spec-graph-bootstrap-compiler.test.js)
+  - [tests/unit/spec-graph-bootstrap-monorepo.test.js](../../tests/unit/spec-graph-bootstrap-monorepo.test.js)
 - prompt mirror 当前存在 drift
 
 判断：
@@ -605,7 +605,7 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 
 - source skill 有明确的内部命名与 Stage-0 contract
 - 配套 references 完整，含 plan-handoff / deepening-workflow / universal-planning / visual-communication
-- tests 比较扎实：[tests/unit/spec-plan-contracts.test.js](/Users/kuang/xiaobu/spec-first/tests/unit/spec-plan-contracts.test.js)
+- tests 比较扎实：[tests/unit/spec-plan-contracts.test.js](../../tests/unit/spec-plan-contracts.test.js)
 
 判断：
 
@@ -1093,7 +1093,7 @@ spec-first 当前最值得保护的，不是“workflow 面越来越全”，而
 
 逐 skill 的完整内部文件清单、测试命中与内部结论见：
 
-- [2026-04-23-skill-内部资产全覆盖附录-紧凑版.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/2026-04-23-skill-内部资产全覆盖附录-紧凑版.md)
+- [2026-04-23-skill-内部资产全覆盖附录-紧凑版.md](./2026-04-23-skill-内部资产全覆盖附录-紧凑版.md)
 
 ## agent / mirror 附录
 

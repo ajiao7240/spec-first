@@ -5,7 +5,11 @@ const { runClean } = require('./commands/clean');
 const { runDoctor } = require('./commands/doctor');
 const { runInit } = require('./commands/init');
 const { runTasks } = require('./commands/tasks');
-const { maybeShowVersionReminder } = require('./version-reminder');
+const {
+  clearStartupVersionReminderCooldown,
+  maybeShowStartupVersionReminder,
+  maybeShowVersionReminder,
+} = require('./version-reminder');
 
 async function runCli(argv) {
   const args = [...argv];
@@ -19,6 +23,10 @@ async function runCli(argv) {
   if (cmd === '--version' || cmd === '-v') {
     printVersion();
     return Promise.resolve(0);
+  }
+
+  if (cmd === 'startup-reminder') {
+    return Promise.resolve(runStartupReminder(args.slice(1)));
   }
 
   if (cmd === 'doctor' || cmd === 'init' || cmd === 'clean') {
@@ -47,6 +55,75 @@ async function runCli(argv) {
   console.error(`Unknown command: ${cmd}`);
   printHelp(true);
   return Promise.resolve(1);
+}
+
+async function runStartupReminder(args) {
+  const parsed = parseStartupReminderArgs(args);
+  if (parsed.error) {
+    console.error(`startup-reminder: ${parsed.error}`);
+    return 2;
+  }
+
+  if (parsed.reset) {
+    clearStartupVersionReminderCooldown({ host: parsed.host });
+    return 0;
+  }
+
+  await maybeShowStartupVersionReminder({
+    host: parsed.host,
+    packageName: pkg.name,
+    output: process.stdout,
+  });
+  return 0;
+}
+
+function parseStartupReminderArgs(args) {
+  const parsed = {
+    host: '',
+    reset: false,
+    error: '',
+  };
+
+  const setHost = (host) => {
+    if (host !== 'claude' && host !== 'codex') {
+      parsed.error = `invalid host "${host}"`;
+      return;
+    }
+    if (parsed.host) {
+      parsed.error = 'exactly one host selector is allowed';
+      return;
+    }
+    parsed.host = host;
+  };
+
+  for (const arg of args) {
+    if (parsed.error) {
+      break;
+    }
+    if (arg === '--claude') {
+      setHost('claude');
+      continue;
+    }
+    if (arg === '--codex') {
+      setHost('codex');
+      continue;
+    }
+    if (arg === '--reset') {
+      parsed.reset = true;
+      continue;
+    }
+    if (arg.startsWith('--host=')) {
+      setHost(arg.slice('--host='.length));
+      continue;
+    }
+    parsed.error = `unknown option "${arg}"`;
+  }
+
+  if (!parsed.error && !parsed.host) {
+    parsed.error = 'missing host selector (--claude or --codex)';
+  }
+
+  return parsed;
 }
 
 function printHelp(withErrorPrefix = false) {

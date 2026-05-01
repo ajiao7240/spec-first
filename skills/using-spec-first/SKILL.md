@@ -1,6 +1,6 @@
 ---
 name: using-spec-first
-description: "Use before substantial work in a spec-first project. Decide whether to route into a public spec-first workflow before editing files, running state-changing commands, debugging, reviewing, planning, setup, update, or architecture/prompt/workflow decisions."
+description: "Use before substantial work in a spec-first project, and when users ask what spec-first workflow or command to run next. Decide whether to route into a public spec-first workflow before editing files, running state-changing commands, debugging, reviewing, planning, setup, update, or architecture/prompt/workflow decisions."
 ---
 
 # Using Spec-First
@@ -51,6 +51,37 @@ When no workflow meaningfully applies, say so briefly only if useful, then answe
 
 Do not route by keyword alone. The user's immediate intent beats broad subject area.
 
+If the user asks only for guidance about the next step, use User Next-Step Guide Mode instead of starting the workflow. If the user directly describes clear work, normal entry routing may announce the chosen workflow and continue under this contract.
+
+## User Next-Step Guide Mode
+
+Use this mode when the user explicitly asks what to run next, which `spec-first` command to use, which workflow applies, or says they do not know the next step.
+
+This mode is read-only. It may inspect lightweight context that is already available, but it must not create brainstorm, plan, task, review, solution, or runtime artifacts. It recommends the next public workflow entrypoint; the selected workflow performs the actual work.
+
+Output exactly one best next entrypoint, one concrete reason, and one next action. Do not print the full workflow menu.
+
+High-confidence guide cases may recommend without confirmation after naming the chosen route. Use the Routing Priority and Routing Rules below as the source of truth. Use the exact current-host public entrypoint those rules select. Common high-confidence guide cases include:
+- clear failures, stack traces, or test failures -> debug
+- clear code, PR, diff, requirements, plan, or markdown review requests -> code review or doc review based on the artifact
+- clear setup, host readiness, MCP, update, or runtime repair requests -> setup or update based on the repair target
+- existing plan, task pack, or implementation-ready task -> work
+
+Do not start the selected workflow from guide mode unless the user explicitly asks to continue with that workflow. When the user directly describes clear work instead of asking for guidance, normal entry routing may announce the chosen workflow and continue under the Decision Output Contract.
+
+Low-confidence cases need one narrow confirmation before routing:
+- idea generation vs requirement shaping vs execution planning is unclear
+- a change could be either a bug fix or a product behavior change
+- the user may need a durable artifact, but it is not clear whether that artifact should be requirements, a plan, tasks, or review notes
+- a workflow just finished, but its handoff context is unavailable or conflicts with the new request
+
+When the user asks "what next?" after a workflow:
+- If an active workflow has an explicit handoff, follow that workflow's handoff.
+- If a brainstorm requirements document exists and implementation direction is not yet planned, recommend plan.
+- If a plan or validated task pack exists and the work is implementation-ready, recommend work.
+- If there is an existing diff and the user asks whether it is ready, recommend code review or doc review based on the artifact.
+- After init, prefer setup/readiness guidance when runtime or MCP readiness is unresolved; otherwise route by the user's actual goal.
+
 ## What Counts as Substantial Work
 
 Treat these as substantial work:
@@ -70,17 +101,27 @@ These are **not** substantial work:
 
 Work on `spec-first` itself is substantial when it changes skills, agents, prompt/workflow prose, host instruction blocks, `init`/`doctor`/`clean` behavior, governance contracts, or runtime delivery rules.
 
+Before self-work that changes architecture, prompt, workflow, contract, source/runtime governance, or evolution policy, read `docs/10-prompt/结构化项目角色契约.md` and use it as the judgment baseline.
+
 Route concrete implementation or prose changes to:
 - Claude: `/spec:work`
 - Codex: `$spec-work`
 
-Route unresolved policy, architecture, or scope questions to `spec-brainstorm` or `spec-plan` based on whether the WHAT or HOW is unclear. Route concrete review requests to `spec-code-review` or `spec-doc-review`.
+Route unresolved policy, architecture, or scope questions to `spec-brainstorm` or `spec-plan` based on whether the WHAT or HOW is unclear. Route review-only requests to `spec-code-review` or `spec-doc-review`. If the request asks for review plus concrete revisions, route to work and keep a review posture during execution.
 
-For source changes, update source-of-truth files and the narrowest contract tests. Do not modify generated `.claude/`, `.codex/`, or `.agents/skills/` mirrors just to refresh runtime behavior.
+For source changes, update source-of-truth files, the narrowest contract tests, and `CHANGELOG.md` when project policy requires it. Do not modify generated `.claude/`, `.codex/`, or `.agents/skills/` mirrors just to refresh runtime behavior. If runtime drift must be repaired after source validation, use the appropriate `spec-first init --claude` or `spec-first init --codex` path as a runtime regeneration step, not as the source fix.
 
 ## Routing Rules
 
 Use a decision tree, not a blanket "brainstorm first" rule. Pick the first strongly matching route. If multiple routes apply, choose the workflow that best matches the user's immediate intent.
+
+## Explicit Route Normalization
+
+If the user names a current-host public workflow, honor that explicit route unless it is clearly impossible or unsafe.
+
+If the user names the other host's equivalent public workflow, translate it to the current host entrypoint and state the normalization. For example, Codex should translate `/spec:work` to `$spec-work`; Claude should translate `$spec-work` to `/spec:work`.
+
+If the user names a standalone skill rather than a public workflow, invoke that skill only when its scope fits. Do not invent a `/spec:*` or `$spec-*` command for standalone skills such as `using-spec-first` or `spec-write-tasks`.
 
 ## Routing Priority
 
@@ -204,6 +245,22 @@ These thoughts mean pause and apply the routing rules before acting:
 - `spec-write-tasks` is a standalone skill for optional plan-to-task-pack compilation, not a `/spec:*` or `$spec-*` workflow entrypoint.
 - Internal-only skills remain source/runtime support assets, not menu items.
 
+## Codex Startup Version Reminder Boundary
+
+Codex currently uses managed instruction guidance for startup reminders, not a verified deterministic SessionStart hook.
+
+When a **top-level Codex orchestrator** is about to route into a public `$spec-*` workflow and the `spec-first` CLI is available, it may run:
+
+```bash
+spec-first startup-reminder --codex
+```
+
+This is a read-only best-effort check. Missing CLI, command failure, network failure, empty output, or malformed local state must be ignored and must not block workflow routing.
+
+If the command prints a reminder, surface that reminder and continue routing. The reminder points to `$spec-update`, where the user decides whether to upgrade; it must not install packages, refresh runtime assets, or restart Codex.
+
+Bounded subagents, leaf reviewers, and worker agents must not run the startup reminder or write reminder cooldown state. They inherit the parent task scope.
+
 ## Injection Behavior
 
 If this guidance has already been injected through `CLAUDE.md`, `AGENTS.md`, or Claude SessionStart:
@@ -211,6 +268,14 @@ If this guidance has already been injected through `CLAUDE.md`, `AGENTS.md`, or 
 - use the appropriate public `/spec:*` or `$spec-*` workflow entrypoint when routing is needed
 - treat `skills/using-spec-first/SKILL.md` as the source-of-truth text for this routing policy
 - if the installed instruction block or standalone meta skill is missing or stale, the repair path is `spec-first init --claude` or `spec-first init --codex`
+
+## Artifact And Evidence Boundaries
+
+`using-spec-first` does not create plans, task packs, review reports, setup reports, or durable knowledge. It only decides entry routing or gives a next-step recommendation.
+
+Scripts and CLI commands may prepare deterministic facts for downstream workflows. This skill should not ask the agent to fabricate command results, infer runtime readiness without evidence, or replace downstream workflow judgment with a local routing checklist.
+
+When a workflow is selected, that workflow owns its artifacts, validation evidence, and final judgment. Do not use this governor to create pseudo-plan, pseudo-task, or pseudo-review artifacts.
 
 ## Exit Condition
 

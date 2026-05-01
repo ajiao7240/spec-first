@@ -296,15 +296,23 @@ function runInit(argv) {
   }
 
   console.log('');
-  printInitNextSteps(platform);
+  printInitNextSteps(platform, developer.lang);
   return 0;
 }
 
-function printInitNextSteps(platform) {
+function printInitNextSteps(platform, lang = 'zh') {
   const hostDisplay = platform === 'claude' ? 'Claude Code' : 'Codex';
   const entryKind = platform === 'claude' ? '/spec:* commands' : '$spec-* skills';
   const mcpSetupCommand = platform === 'claude' ? '/spec:mcp-setup' : '$spec-mcp-setup';
   const graphBootstrapCommand = platform === 'claude' ? '/spec:graph-bootstrap' : '$spec-graph-bootstrap';
+
+  if (lang === 'en') {
+    console.log('Next steps:');
+    console.log(`  1. Restart ${hostDisplay} or open a new session so the host loads the generated ${entryKind}.`);
+    console.log(`  2. In the new session, run ${mcpSetupCommand} to install and verify the required MCP/helper runtime.`);
+    console.log(`  3. If ${mcpSetupCommand} shows graph bootstrap is still pending, run ${graphBootstrapCommand} when prompted.`);
+    return;
+  }
 
   console.log('下一步:');
   console.log(`  1. 重启 ${hostDisplay} 或新开会话，让宿主加载刚生成的 ${entryKind}。`);

@@ -2,6 +2,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PlatformAdapter = require('./base');
+const {
+  isHostComparativeRuntimeSkill,
+} = require('../host-comparative-workflows');
 
 /**
  * Codex platform adapter
@@ -78,8 +81,11 @@ class CodexAdapter extends PlatformAdapter {
   }
 
   transformSkillContent(content, context = {}) {
+    const sharedPathContent = shouldPreserveHostComparativeRuntimeProse(context)
+      ? content
+      : rewriteSharedPaths(content);
     const transformed = rewriteSkillName(
-      transformCodexContent(rewriteSharedPaths(content)),
+      transformCodexContent(sharedPathContent),
       codexRuntimeSkillName(context),
     );
     const withRuntimePaths = context.isWorkflowSkill
@@ -182,6 +188,10 @@ function rewriteSharedPaths(content) {
     );
 }
 
+function shouldPreserveHostComparativeRuntimeProse(context = {}) {
+  return context.isWorkflowSkill && isHostComparativeRuntimeSkill(context.skillName);
+}
+
 function preserveUsingSpecFirstHostInstallNotes(content) {
   return content.replace(
     'Claude Code installs it as `.agents/skills/using-spec-first/SKILL.md`',
@@ -224,10 +234,11 @@ function rewriteSourceSkillRuntimePaths(content, skillName, runtimeSkillRoot) {
     return content;
   }
 
-  return content.replace(
-    new RegExp(`skills/${escapeRegExp(skillName)}/`, 'g'),
-    `${runtimeSkillRoot}/`,
+  const sourcePathPattern = new RegExp(
+    `(^|[^A-Za-z0-9_./-])skills/${escapeRegExp(skillName)}/`,
+    'g',
   );
+  return content.replace(sourcePathPattern, (_match, prefix) => `${prefix}${runtimeSkillRoot}/`);
 }
 
 function escapeRegExp(value) {

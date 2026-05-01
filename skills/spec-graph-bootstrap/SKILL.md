@@ -6,9 +6,43 @@ argument-hint: ""
 
 # Graph Readiness Compiler
 
-Use this workflow after `/spec:mcp-setup` or `$spec-mcp-setup` reports `baseline_ready=true`.
+## Purpose
 
 This workflow owns project graph readiness compilation. `spec-mcp-setup` installs/configures the harness runtime and writes setup-owned facts; `spec-graph-bootstrap` consumes those facts, transiently runs configured external graph-provider command arrays, captures evidence, and writes canonical project readiness artifacts.
+
+## When To Use
+
+Use this workflow after `/spec:mcp-setup` or `$spec-mcp-setup` reports `baseline_ready=true` and graph bootstrap is still pending.
+
+Use it when the user asks to compile, refresh, verify, or diagnose project graph-provider readiness facts for downstream spec-first workflows.
+
+## When Not To Use
+
+Do not use this workflow to install MCP servers, repair host config, update spec-first runtime assets, review code, plan features, or infer semantic architecture conclusions. Use `spec-mcp-setup`, `spec-update`, review, planning, or work workflows for those jobs.
+
+Do not run it from a parent workspace unless the target child repo is explicit.
+
+## Inputs
+
+Required setup-owned inputs:
+
+- `.spec-first/config/runtime-capabilities.json`
+- host readiness ledger v2 referenced by `runtime-capabilities.json.host_ledger_pointer.path`
+- `.spec-first/config/graph-providers.json`
+- `.spec-first/config/provider-artifacts.json`
+
+Optional invocation input:
+
+- `--repo <child>` / `-Repo <child>` when the current directory is a parent workspace.
+
+## Workflow
+
+1. Resolve a single project repo target and fail closed if the target is ambiguous.
+2. Validate setup-owned input schemas and host readiness ledger consistency.
+3. Validate provider ids, command arrays, and GitNexus query probe policy shape before running any provider command.
+4. Run configured provider bootstrap, status, and query proof commands without shell interpolation.
+5. Write provider raw logs, provider status, normalized envelopes, canonical graph facts, impact capability facts, and a human-readable bootstrap report.
+6. If useful for handoff and the current session has GitNexus MCP loaded, perform one bounded live MCP probe as session-local evidence only.
 
 ## Contract
 
@@ -111,7 +145,17 @@ Reject string commands, `bash -c`, `sh -c`, and unsupported executable/package s
 2. Status command succeeds.
 3. Provider-specific query-surface proof succeeds.
 
-If build and status succeed but query-surface proof is missing, unsupported, or fails, write `status=query-unverified`, keep `query_ready=false`, and include diagnostics plus raw log pointers. Do not infer query readiness from build exit code alone. For GitNexus, Level 3 is fail-closed: the query log must not contain FTS/read-only/missing-index diagnostics, the query JSON must parse, and `processes` plus `process_symbols` must be non-empty. `definitions` is useful context but is not sufficient proof that the BM25/process query surface is healthy. If GitNexus build/status succeeds but query-surface proof fails, preserve `graph_ready=true` where status was verified, but keep `query_ready=false`. For `code-review-graph`, the Level 3 proof is intentionally conservative and may reuse its `status --repo` surface probe; treat it as provider readiness evidence, not semantic graph evidence.
+If build and status succeed but query-surface proof is missing, unsupported, or fails, write `status=query-unverified`, keep `query_ready=false`, and include diagnostics plus raw log pointers. Do not infer query readiness from build exit code alone. For GitNexus, Level 3 is fail-closed: each query log must not contain FTS/read-only/missing-index diagnostics, the query JSON must parse, and at least one bounded candidate probe must return non-empty `processes` or `process_symbols`. `definitions` is useful context but is not sufficient proof that the BM25/process query surface is healthy. If all GitNexus candidates return definitions-only evidence or otherwise fail to produce process results, preserve `graph_ready=true` where status was verified, but keep `query_ready=false`. For `code-review-graph`, the Level 3 proof is intentionally conservative and may reuse its `status --repo` surface probe; treat it as provider readiness evidence, not semantic graph evidence.
+
+GitNexus candidate probing is bounded and deterministic:
+
+- `spec-mcp-setup` may provide `query_probe_policy.candidates[]` while preserving legacy `query_probe_policy.token`.
+- `spec-graph-bootstrap` may try the ordered candidate list up to its consumer-side limit, stopping at the first process result.
+- The current GitNexus consumer-side candidate limit is 5; if more candidates are provided, provider status records `query_probe_candidates_truncated=true` and `query_probe_candidate_limit=5`.
+- The first GitNexus candidate writes `.spec-first/providers/gitnexus/raw/query.log`; later candidates write `query-2.log`, `query-3.log`, and so on.
+- Provider status records `query_probe_attempts[]` with token, source path, reason code, exit code, result class, verification reason, and raw log.
+- Normalized GitNexus envelopes include attempted query logs and `winning_query_probe_log` when a later candidate is the first process result.
+- Candidate probing must not become broad search; keep it small and source-derived so scripts prepare facts and LLMs decide how to use them.
 
 Provider commands may trigger first-use package downloads. Progress hints go to stderr, while stdout remains the final JSON result and raw provider output remains in `.spec-first/providers/<provider>/raw/*`.
 
@@ -122,17 +166,18 @@ The deterministic bootstrap script cannot call host MCP tools. It only proves CL
 For GitNexus specifically:
 
 - If `gitnexus` has `status=query-unverified`, `graph_ready=true`, and `query_ready=false`, do not describe this as a live MCP failure. It means the bootstrap CLI query probe failed.
-- If the current session has GitNexus MCP tools loaded, try exactly one concrete live MCP call such as `gitnexus_query`, `gitnexus_context`, or `gitnexus_impact` using the expected-hit token from `query_probe_policy` or the user's concrete question. Do not loop, retry broadly, or turn live MCP probing into a gate for compiled readiness.
+- If the current session has GitNexus MCP tools loaded, try exactly one concrete live MCP call such as `gitnexus_query`, `gitnexus_context`, or `gitnexus_impact` using the first `query_probe_attempts[]` token whose `result_class` is `process-results`; if there is no successful attempt, use the first meaningful expected-hit token from `query_probe_policy.candidates[]` / `query_probe_policy.token` or the user's concrete question. Do not loop, retry broadly, or turn live MCP probing into a gate for compiled readiness.
 - Treat a successful live MCP response as session-local evidence only. Do not rewrite `.spec-first/graph/*`, do not set compiled `query_ready=true`, and do not change `graph-providers.json`.
+- If live GitNexus returns `definitions` but no `processes` / `process_symbols`, classify the probe as `partial-definitions-only`, not `failed`. Definitions-only evidence can help locate files or symbols, but it is not proof that the BM25/process query surface is healthy.
 - If the MCP tool is unavailable or fails, state that live MCP was unavailable or failed, then continue with code-review-graph and bounded direct repo reads.
 - If the host was just configured by `spec-mcp-setup`, remind the user that Claude Code / Codex usually needs a restart or a new session before newly written MCP servers are loaded.
 
 When live MCP probing is attempted or would clarify an otherwise degraded GitNexus result, update the final user-facing result table with separate compiled and session-local columns. The table must preserve the canonical CLI readiness values while showing the current session's MCP evidence:
 
-| Provider | CLI graph_ready | CLI query_ready | Live MCP Probe | Final Use |
-|---|---:|---:|---|---|
-| code-review-graph | `<true/false>` | `<true/false>` | `not applicable` | `<compiled readiness guidance>` |
-| gitnexus | `<true/false>` | `<true/false>` | `passed/failed/unavailable/not loaded/not attempted` | `<session-local MCP guidance plus compiled readiness caveat>` |
+| Provider | CLI graph_ready | CLI query_ready | Probe Token | CLI Evidence | Live MCP Probe | Final Use |
+|---|---:|---:|---|---|---|---|
+| code-review-graph | `<true/false>` | `<true/false>` | `n/a` | `<status/query proof summary>` | `not applicable` | `<compiled readiness guidance>` |
+| gitnexus | `<true/false>` | `<true/false>` | `<winning attempt or query_probe_policy token>` | `process results/definitions-only/FTS diagnostic/empty/unparseable` | `passed/partial-definitions-only/failed/unavailable/not loaded/not attempted` | `<session-local MCP guidance plus compiled readiness caveat>` |
 
 Do not collapse `Live MCP Probe=passed` into `CLI query_ready=true`. If live MCP succeeds while compiled GitNexus `query_ready=false`, say that GitNexus MCP may be used in the current session, but downstream compiled facts still remain degraded or query-unverified.
 
@@ -144,6 +189,7 @@ Provider raw, normalized, and status artifacts live under `.spec-first/providers
 .spec-first/providers/gitnexus/raw/analyze.log
 .spec-first/providers/gitnexus/raw/status.log
 .spec-first/providers/gitnexus/raw/query.log
+.spec-first/providers/gitnexus/raw/query-2.log
 .spec-first/providers/gitnexus/status.json
 .spec-first/providers/gitnexus/normalized/architecture-facts.json
 .spec-first/providers/gitnexus/normalized/reuse-candidates.json
@@ -152,6 +198,8 @@ Provider raw, normalized, and status artifacts live under `.spec-first/providers
 .spec-first/providers/code-review-graph/status.json
 .spec-first/providers/code-review-graph/normalized/impact-capabilities.json
 ```
+
+`query-2.log` and later GitNexus query logs are present only when bounded candidate probing needs more than one token. `.spec-first/providers/gitnexus/status.json` records the canonical `query_probe_attempts[]` list for all attempted candidates.
 
 Canonical downstream artifacts live under `.spec-first/graph/` and `.spec-first/impact/`:
 
@@ -163,6 +211,15 @@ Canonical downstream artifacts live under `.spec-first/graph/` and `.spec-first/
 ```
 
 `graph-providers.json.derived_readiness` and `runtime-capabilities.json.project_graph_readiness` are setup-owned projections pointing back to canonical artifacts. They are refreshed by `spec-mcp-setup` from `.spec-first/graph/` and `.spec-first/impact/`; graph-bootstrap must not mutate setup-owned config inputs to mark readiness.
+
+## Failure Modes
+
+- Missing config, unsupported schemas, baseline not ready, or readiness ledger conflict: fail closed before provider commands and emit `workflow_mode` / `reason_code`.
+- Ambiguous parent workspace target: return `workspace-target-required` with candidate repos and do not create project artifacts in the parent workspace.
+- Unsupported provider id, command shape, or unsafe query probe policy: return `unsupported-provider-command` before running provider commands.
+- Provider build failure: mark that provider failed, preserve raw logs, and use fallback workflow mode only when fallback capabilities are available.
+- Build/status success with query proof failure: preserve `graph_ready=true` where status verified, keep `query_ready=false`, record limitations and raw logs.
+- Definitions-only GitNexus evidence: use it only for local symbol/file pointers; do not mark compiled query readiness true.
 
 ## Boundaries
 

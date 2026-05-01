@@ -8,6 +8,9 @@ const {
   normalizeOperationPath,
   summarizeOperationPlan,
 } = require('./state');
+const {
+  maskAllowedCodexOtherHostPaths,
+} = require('./host-comparative-workflows');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
@@ -1257,9 +1260,11 @@ function transformedContentIntegrityIssues(actualContent, adapter, { kind, skill
 }
 
 function codexPathRewriteCheckContent(content, { skillName } = {}) {
-  if (skillName !== 'using-spec-first') return content;
+  const masked = maskAllowedCodexOtherHostPaths(content, skillName);
 
-  return content.replace(
+  if (skillName !== 'using-spec-first') return masked;
+
+  return masked.replace(
     'Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md`',
     'Claude Code installs it as `[claude using-spec-first skill path]`',
   );

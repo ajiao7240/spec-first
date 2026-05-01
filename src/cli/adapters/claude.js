@@ -4,6 +4,8 @@ const path = require('node:path');
 const PlatformAdapter = require('./base');
 const SESSION_START_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'claude', 'hooks', 'session-start');
 const SESSION_START_RELATIVE_PATH = '.claude/hooks/session-start';
+const SESSION_START_CLI_PLACEHOLDER = '__SPEC_FIRST_CLI_PATH__';
+const TRUSTED_SPEC_FIRST_CLI_PATH = path.join(__dirname, '..', '..', '..', 'bin', 'spec-first.js');
 
 /**
  * Claude platform adapter
@@ -158,7 +160,7 @@ class ClaudeAdapter extends PlatformAdapter {
           kind: fs.existsSync(targetPath) ? 'update_file' : 'write_file',
           path: SESSION_START_RELATIVE_PATH.replace(/\\/g, '/'),
           reason: 'managed_runtime_hook',
-          contents: fs.readFileSync(SESSION_START_TEMPLATE_PATH, 'utf8'),
+          contents: renderSessionStartHookTemplate(),
           mode: 0o755,
         },
       ],
@@ -214,10 +216,11 @@ function rewriteSourceSkillRuntimePaths(content, skillName, runtimeSkillRoot) {
     return content;
   }
 
-  return content.replace(
-    new RegExp(`skills/${escapeRegExp(skillName)}/`, 'g'),
-    `${runtimeSkillRoot}/`,
+  const sourcePathPattern = new RegExp(
+    `(^|[^A-Za-z0-9_./-])skills/${escapeRegExp(skillName)}/`,
+    'g',
   );
+  return content.replace(sourcePathPattern, (_match, prefix) => `${prefix}${runtimeSkillRoot}/`);
 }
 
 function escapeRegExp(value) {
@@ -285,7 +288,7 @@ function inspectSessionStartHook(projectRoot) {
   }
 
   const actual = fs.readFileSync(targetPath, 'utf8');
-  const expected = fs.readFileSync(SESSION_START_TEMPLATE_PATH, 'utf8');
+  const expected = renderSessionStartHookTemplate();
   if (actual !== expected) {
     return {
       level: 'WARNING',
@@ -300,6 +303,14 @@ function inspectSessionStartHook(projectRoot) {
     name: SESSION_START_RELATIVE_PATH,
     message: 'managed SessionStart hook present',
   };
+}
+
+function renderSessionStartHookTemplate() {
+  const template = fs.readFileSync(SESSION_START_TEMPLATE_PATH, 'utf8');
+  return template.replace(
+    JSON.stringify(SESSION_START_CLI_PLACEHOLDER),
+    JSON.stringify(TRUSTED_SPEC_FIRST_CLI_PATH),
+  );
 }
 
 function removeManagedFile(filePath, projectRoot) {

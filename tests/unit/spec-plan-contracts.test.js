@@ -87,7 +87,10 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('status: unavailable');
     expect(text).toContain('try live MCP evidence');
     expect(text).toContain('successful response as session-local evidence');
+    expect(text).toContain('runtime_mcp_evidence: partial-definitions-only');
+    expect(text).toContain('definitions only as local file/symbol pointers');
     expect(text).toContain('does not change compiled `query_ready`');
+    expect(text).toContain('successful, partial, or failed live MCP evidence');
     expect(text).toContain('bounded direct repo reads');
     expect(text).toContain('graph readiness is evidence context, not a planning gate');
     expect(text).toContain('Do not expand this into context selection, impact analysis, review evidence');

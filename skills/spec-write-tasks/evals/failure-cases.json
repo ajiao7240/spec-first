@@ -1,0 +1,68 @@
+{
+  "schema_version": "spec-first.spec-write-tasks-failure-cases.v1",
+  "cases": [
+    {
+      "id": "source-plan-missing",
+      "input": "docs/plans/missing-plan.md",
+      "context": "The referenced source plan path does not exist.",
+      "expected_failure": "source_plan_missing",
+      "expected_next_action": "Ask for a valid local plan path or return to spec-plan."
+    },
+    {
+      "id": "ambiguous-plan",
+      "input": "Split this plan into tasks.",
+      "context": "Several recent plan documents exist and no input uniquely identifies one.",
+      "expected_failure": "ambiguous_plan",
+      "expected_next_action": "Ask for the plan path instead of inferring task scope."
+    },
+    {
+      "id": "legacy-plan-missing-spec-id",
+      "input": "docs/plans/legacy-plan.md",
+      "context": "The plan has no spec_id frontmatter.",
+      "expected_failure": "missing_spec_id",
+      "expected_next_action": "Do not write an executable task pack; return to spec-plan or produce a draft only."
+    },
+    {
+      "id": "task-pack-hash-mismatch",
+      "input": "docs/tasks/stale-tasks.md",
+      "context": "spec-first tasks validate reports source_plan_hash mismatch.",
+      "expected_failure": "stale_hash",
+      "expected_next_action": "Reject the handoff and rebuild from the current source plan."
+    },
+    {
+      "id": "wrong-chain-task-pack",
+      "input": "docs/tasks/wrong-chain-tasks.md",
+      "context": "The task pack spec_id differs from the current source plan spec_id.",
+      "expected_failure": "wrong_chain",
+      "expected_next_action": "Reject the handoff and rebuild from the source plan."
+    },
+    {
+      "id": "hash-tool-unavailable",
+      "input": "docs/plans/ready-plan.md",
+      "context": "The plan is otherwise task-ready, but deterministic hash or validation tooling is unavailable.",
+      "expected_failure": "unverifiable_hash",
+      "expected_next_action": "Produce only a draft or explain that hash tooling is required before executable handoff."
+    },
+    {
+      "id": "invalid-task-pack-contract",
+      "input": "docs/tasks/invalid-contract-tasks.md",
+      "context": "The Task Pack Contract JSON block is missing or rejected by validation.",
+      "expected_failure": "invalid_contract",
+      "expected_next_action": "Do not repair it in spec-work; rerun spec-write-tasks from the source plan."
+    },
+    {
+      "id": "workspace-repo-scope-missing",
+      "input": "docs/tasks/workspace-tasks.md",
+      "context": "The source plan was created from a parent workspace but neither the pack nor tasks state target_repo.",
+      "expected_failure": "repo_scope_missing",
+      "expected_next_action": "Return to spec-plan or regenerate the task pack with explicit repo scope."
+    },
+    {
+      "id": "source-orientation-scope-gap",
+      "input": "docs/plans/unclear-contract-plan.md",
+      "context": "Bounded source orientation reveals a missing public contract decision that would change task scope.",
+      "expected_failure": "scope_gap",
+      "expected_next_action": "Choose return-to-plan or draft-only instead of inventing scope."
+    }
+  ]
+}

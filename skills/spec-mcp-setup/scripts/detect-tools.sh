@@ -72,9 +72,20 @@ dependency_status() {
   fi
 }
 
+host_config_required() {
+  local tool_id="$1"
+  jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | if has("host_config_required") then .host_config_required else true end' "$TOOLS_JSON"
+}
+
 host_config_status() {
   local tool_id="$1"
   local detect_kind detect_key host_cfg expected_command expected_args
+
+  if [ "$(host_config_required "$tool_id")" != "true" ]; then
+    echo not-required
+    return
+  fi
+
   detect_kind="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detection.kind' "$TOOLS_JSON")"
   detect_key="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detection.key' "$TOOLS_JSON")"
   host_cfg="$(jq -c --arg id "$tool_id" --arg host "$HOST" '.tools[] | select(.id == $id) | .host_config[$host]' "$TOOLS_JSON")"
@@ -208,6 +219,9 @@ while IFS= read -r tool_id; do
   required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .required' "$TOOLS_JSON")"
   category="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .category // "mcp"' "$TOOLS_JSON")"
   provider_role="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .provider_role // empty' "$TOOLS_JSON")"
+  host_required="$(host_config_required "$tool_id")"
+  provider_enabled="$(jq -r --arg id "$tool_id" '(.tools[] | select(.id == $id) | .provider_config.enabled_for_bootstrap) // false' "$TOOLS_JSON")"
+  access_mode="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | (.provider_config.access_mode // (if (if has("host_config_required") then .host_config_required else true end) then "live_mcp" else "cli_artifact" end))' "$TOOLS_JSON")"
   dep_status=ready
 
   while IFS= read -r dep; do
@@ -220,8 +234,19 @@ while IFS= read -r tool_id; do
 
   cfg_status="$(host_config_status "$tool_id")"
   proj_status="$(project_status "$tool_id")"
-  configured=false
+  host_ready=false
   if [ "$cfg_status" = "ready" ] || [ "$cfg_status" = "fallback-active" ]; then
+    host_ready=true
+  elif [ "$host_required" != "true" ] && [ "$cfg_status" = "not-required" ]; then
+    host_ready=true
+  fi
+
+  configured=false
+  if [ "$category" = "graph-provider" ]; then
+    if [ "$provider_enabled" = "true" ] && [ "$dep_status" = "ready" ] && [ "$host_ready" = "true" ]; then
+      configured=true
+    fi
+  elif [ "$cfg_status" = "ready" ] || [ "$cfg_status" = "fallback-active" ]; then
     configured=true
   fi
 
@@ -248,6 +273,7 @@ while IFS= read -r tool_id; do
     --arg type "$category" \
     --arg dep "$dep_status" \
     --arg cfg "$cfg_status" \
+    --arg host_required "$host_required" \
     --arg proj "$proj_status" \
     --arg scope "$SELECTED_SCOPE" \
     --arg next "$next_action" \
@@ -256,6 +282,7 @@ while IFS= read -r tool_id; do
       + {($id): {
         required: $required_json,
         type: $type,
+        host_config_required: ($host_required == "true"),
         dependency_status: $dep,
         host_config_status: $cfg,
         project_status: $proj,
@@ -276,6 +303,8 @@ while IFS= read -r tool_id; do
     graph_providers_json="$(jq \
       --arg id "$tool_id" \
       --arg role "$provider_role" \
+      --arg access_mode "$access_mode" \
+      --arg host_required "$host_required" \
       --argjson required_json "$required" \
       --arg dep "$dep_status" \
       --arg cfg "$cfg_status" \
@@ -285,6 +314,8 @@ while IFS= read -r tool_id; do
       '. + {($id): {
         required: $required_json,
         role: $role,
+        access_mode: $access_mode,
+        host_config_required: ($host_required == "true"),
         dependency_status: $dep,
         host_config_status: $cfg,
         configured: $configured,

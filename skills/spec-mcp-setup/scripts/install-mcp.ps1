@@ -156,7 +156,9 @@ foreach ($tool in @($ToolsJson.tools)) {
     }
   }
 
-  if ($status -eq 'ready') {
+  $hostConfigRequired = if ($null -ne $tool.PSObject.Properties['host_config_required']) { [bool]$tool.host_config_required } else { $true }
+
+  if ($status -eq 'ready' -and $hostConfigRequired) {
     $configureRun = Invoke-Captured { & (Join-Path $ScriptDir 'configure-host.ps1') -Tool $tool.id }
     if ($configureRun.ok) {
       $configureResult = $configureRun.stdout | ConvertFrom-Json
@@ -181,6 +183,10 @@ foreach ($tool in @($ToolsJson.tools)) {
         $repairDiagnosticSummary = $repairRun.diagnostic_summary
       }
     }
+  } elseif ($status -eq 'ready') {
+    $lastAction = 'host-config-skipped'
+    $nextAction = 'run spec-graph-bootstrap'
+    $diagnosticSummary = 'host MCP config is not required for this provider'
   }
 
   if ($tool.id -eq 'serena' -and $status -eq 'ready') {

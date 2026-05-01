@@ -5,9 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { runInit } = require('../../src/cli/commands/init');
-
-const REPO_ROOT = path.join(__dirname, '..', '..');
-const SESSION_START_TEMPLATE_PATH = path.join(REPO_ROOT, 'templates', 'claude', 'hooks', 'session-start');
+const { getAdapter } = require('../../src/cli/adapters');
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-hook-perms-'));
@@ -36,7 +34,7 @@ describe('Claude runtime hook permissions', () => {
       expect(withProject(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
 
       const hookPath = path.join(projectRoot, '.claude', 'hooks', 'session-start');
-      const expected = fs.readFileSync(SESSION_START_TEMPLATE_PATH, 'utf8');
+      const expected = getAdapter('claude').planRuntimeFilesSync(projectRoot).operations[0].contents;
       const actual = fs.readFileSync(hookPath, 'utf8');
       const mode = fs.statSync(hookPath).mode & 0o777;
 

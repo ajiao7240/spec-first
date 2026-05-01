@@ -1,6 +1,6 @@
 ---
 name: spec-write-tasks
-description: "Compile a settled spec-plan into a derived task pack for spec-work, or validate an existing task pack before execution. Use when the user asks to split a plan into tasks, write task docs, hand a plan to work through tasks, or when work should accept plan/task-pack input. Keep plan as the single source of truth; tasks are derived and optional."
+description: "Compile a settled spec-plan into an optional derived task pack for spec-work, or validate an existing task pack before execution. Use when the user asks to split a plan into tasks, write task docs, or when a work suitability check concludes a task pack would materially reduce execution risk or context load. Keep plan as the single source of truth; tasks are derived and optional."
 argument-hint: "[plan doc path, task-pack path, or task-splitting request]"
 ---
 
@@ -10,19 +10,27 @@ argument-hint: "[plan doc path, task-pack path, or task-splitting request]"
 
 It does not execute code. It compresses a settled plan into a task pack that is easier for `spec-work` to consume, reducing context load and making dependencies, file boundaries, verification focus, and parallelization opportunities explicit.
 
+## Purpose
+
+Use this skill to decide whether task compilation is worthwhile, compile a task pack from a settled source plan when it is, or validate an existing task pack before execution. It preserves `spec-plan` as the single source of truth and keeps task packs as optional derived handoff artifacts.
+
 ## When To Use
 
 - The user explicitly asks to split a plan into tasks.
 - The plan is large enough that direct execution would force the executor to understand and split it at the same time.
 - The plan has multiple implementation units, clear dependency chains, or clear file boundaries.
 - A standalone task document would be useful as input to `spec-work`.
+- A work suitability check has already found strong signals that task compilation would materially reduce execution risk or context load.
 - The right next step is to decide whether task compilation is worthwhile, not to force task generation by default.
 
-## When To Skip
+## When Not To Use
 
 - The change is small, touches few files, and has shallow dependencies.
 - One or two tasks are enough to understand the work directly.
 - Sending the plan straight to `spec-work` has lower carrying cost.
+- The user is still choosing product scope, architecture, acceptance criteria, or non-goals; return to `spec-plan` instead.
+- The user wants implementation execution, not task-pack compilation or validation; use `spec-work`.
+- The input is a remote repository, package name, marketplace skill, or generic task-listing request unrelated to a settled source plan.
 
 When skipping, say explicitly that this is not an omission; this case does not need another derived layer.
 
@@ -37,6 +45,26 @@ When skipping, say explicitly that this is not an omission; this case does not n
 7. Task splitting should reflect file boundaries, dependencies, verification surfaces, and parallelization opportunities instead of restating the plan.
 8. Source reads before task-pack generation must be bounded source orientation: use targeted direct repo reads first, optionally use Serena/LSP when available, and stop once task boundaries are accurate enough.
 9. If the source plan was created from a parent workspace, it must carry a top-level `target_repo` for single-repo work or per-unit `target_repo` for cross-repo work. If repo scope is missing, return to `spec-plan`; do not invent child repo targets while deriving tasks.
+
+## Inputs
+
+This skill accepts exactly one local work input:
+
+- a source plan path such as `docs/plans/*-plan.md`,
+- an existing task-pack path such as `docs/tasks/*-tasks.md`,
+- or a bare task-splitting request that clearly identifies, or can uniquely infer, a local source plan.
+
+It does not accept remote repositories, package names, marketplace identifiers, or implementation prompts that should go directly to `spec-work`.
+
+## Workflow
+
+1. Classify the input as a source plan, existing task pack, or bare task-splitting request.
+2. Resolve the local source plan and stop if plan identity, repo scope, or uniqueness is missing.
+3. For plan inputs, run the task-ready check and choose exactly one branch: `compile`, `skip`, `return-to-plan`, or `draft-only`.
+4. For existing task packs, validate identity, freshness, structure, source-plan linkage, and workspace repo scope before treating the pack as executable.
+5. Use bounded source orientation only when it improves task boundaries without changing plan scope.
+6. When compiling, write task cards, waves, traceability, validation notes, and regeneration rules from source-plan anchors.
+7. End every run with the final decision envelope so downstream `spec-work` can decide whether handoff is executable.
 
 ## Input Paths
 
@@ -75,7 +103,7 @@ When the input is `docs/tasks/*-tasks.md` or a file whose frontmatter has `type:
 
 1. Read the task pack frontmatter, `source_plan`, and source plan.
 2. Validate `generated_by: spec-write-tasks`, `mode/status`, `spec_id`, `source_plan`, `source_plan_hash`, required task-card fields, dependency references, and repo-relative `files`.
-2a. In workspace contexts, validate `target_repo` inheritance or per-task `target_repo` values before treating the task pack as executable.
+2a. In workspace contexts, inspect `target_repo` inheritance or per-task `target_repo` values before treating the task pack as executable; current deterministic validation does not prove workspace repo scope, so missing or ambiguous repo scope is a semantic handoff failure.
 3. If deterministic hash tooling is unavailable, report the task pack as unverifiable handoff. Do not normalize and continue.
 4. If `source_plan_hash` does not match the current source plan, stop. Do not normalize and continue; require rebuilding from the source plan.
 5. If the task pack lacks `spec_id`, report it as missing identity and not executable handoff. Do not normalize and continue.
@@ -124,7 +152,7 @@ This is an LLM semantic analysis order, not a script state machine. It does not 
 2. Identify foundations: find shared schemas, contracts, adapters, fixtures, test helpers, and CLI surfaces.
 3. Identify executable slices: decide whether each unit should remain one task, split into story tasks, or merge with a nearby unit.
 4. Build the dependency graph: record only real output dependencies, not preferred ordering.
-5. Assign waves: avoid shared files inside a wave; if files overlap, serialize or mark the overlap explicitly.
+5. Assign waves: avoid shared files inside a wave; executable task packs must serialize overlapping files into different waves because deterministic validation rejects same-wave file overlap.
 6. Write task cards: each task must state goal, files, context_refs, test_focus, done_signal, and stop_if.
 7. Run the quality pass: check traceability, scope, granularity, dependency accuracy, verification, and consumption readiness.
 
@@ -147,8 +175,8 @@ See [Task Quality Guide](references/task-quality-guide.md) for detailed quality 
 
 ## Task Splitting Principles
 
-- Identify foundation tasks first: test fixtures, schemas, contracts, CLI surfaces, shared helpers.
-- Then identify user-verifiable story slices or plan implementation units.
+- Create foundation tasks only when the source plan already requires shared fixtures, schemas, contracts, CLI surfaces, or helpers that multiple later tasks truly depend on.
+- Otherwise prefer closed user-verifiable story slices or plan implementation units.
 - Add integration, docs, release-surface, or polish tasks last.
 - Merge continuous changes in the same module.
 - Merge related changes on the same test surface.
@@ -159,6 +187,18 @@ See [Task Quality Guide](references/task-quality-guide.md) for detailed quality 
 - If a task cannot describe its completion signal in one sentence, it is usually too large.
 
 Do not mechanically convert each implementation unit into one task. A unit may contain multiple independently verifiable user stories; multiple units may also share one foundation task.
+
+## Outputs
+
+This skill can produce:
+
+- an executable task pack under `docs/tasks/YYYY-MM-DD-NNN-<type>-<slug>-tasks.md`,
+- a draft or transient non-executable task pack when identity or hash requirements cannot be satisfied,
+- a validation result for an existing task pack,
+- a `skip`, `return-to-plan`, or `draft-only` decision without writing an executable handoff,
+- and a compact final decision envelope in the assistant response.
+
+Only an executable task pack with matching `spec_id`, verifiable `source_plan_hash`, valid machine-readable `Task Pack Contract`, and acceptable semantic review may be handed to `spec-work` as task-pack input.
 
 ## Output Requirements
 
@@ -180,6 +220,8 @@ The body must include:
 - Orientation Evidence
 - Validation Notes
 - Regeneration Rules
+
+The deterministic validator only proves frontmatter identity/freshness plus the `Task Pack Contract` machine-readable structure. The other body sections are LLM/human handoff quality requirements and must not be described as CLI-validated unless a future validator explicitly checks them.
 
 When writing a task pack, read [Task Pack Schema](references/task-pack-schema.md) and use its frontmatter, task-card fields, and regeneration rules.
 
@@ -214,22 +256,31 @@ next_action: spec-work-task-pack | review-task-pack | spec-work-plan | revise-pl
 
 ## Required Task Card Semantics
 
-Every task card must express:
+Executable task cards have two layers:
+
+1. Deterministic contract fields validated by `spec-first tasks validate`: `task_id`, `dependencies`, non-empty concrete `files`, `goal`, `test_focus`, `done_signal`, `wave`, `stop_if`, plus at least one source anchor through `source_unit` or `requirement_refs`.
+2. LLM/human quality fields that should be present when they reduce execution context: `context_refs`, `entry_hint`, `parallelizable`, `risk_note`, `notes`, `review_focus`, `handoff_owner`, and workspace-scoped `target_repo` when applicable.
+
+Every executable task card must express:
 
 - `task_id`: stable identifier.
-- `source_unit`: matching plan U-ID; use `null` when no U-ID exists and point `context_refs` to the source section.
-- `requirement_refs`: related requirements or acceptance refs.
+- `source_unit`: matching plan U-ID when available.
+- `requirement_refs`: related requirements or acceptance refs; required when `source_unit` is absent.
 - `goal`: one-sentence task goal.
 - `dependencies`: prerequisite task IDs.
-- `files`: repo-relative paths the task is allowed to touch.
-- `context_refs`: plan sections, code patterns, contracts, research, or references the executor must read.
-- `entry_hint`: where to start reading; not a step-by-step implementation script.
+- `files`: non-empty concrete repo-relative POSIX file paths the task is allowed to touch.
 - `test_focus`: primary verification focus.
 - `done_signal`: observable completion signal.
-- `parallelizable`: whether the task can run in parallel.
-- `risk_note`: main risk.
 - `stop_if`: condition that should send execution back to `spec-plan` or user confirmation.
 - `wave`: execution wave.
+
+Add these quality fields when useful, but do not imply the CLI validator proves their semantic adequacy:
+
+- `context_refs`: plan sections, code patterns, contracts, research, or references the executor must read.
+- `entry_hint`: where to start reading; not a step-by-step implementation script.
+- `parallelizable`: whether the task can run in parallel.
+- `risk_note`: main risk.
+- `target_repo`: selected child repo in parent-workspace contexts.
 
 ## Drift And Hash
 
@@ -258,6 +309,18 @@ If the current environment has no deterministic hash capability, do not pretend 
 - If the task pack lacks a verifiable hash, has a hash mismatch, has a `spec_id` mismatch, or conflicts with the plan, reject handoff and rebuild from the plan.
 
 When consuming a task pack, `spec-work` must still read relevant code, discover tests, and identify execution-time facts. A task pack is a better input, not a replacement for execution judgment.
+
+## Failure Modes
+
+- `source_plan_missing`: no local source plan can be resolved. Ask for the plan path or return to `spec-plan`.
+- `ambiguous_plan`: multiple recent plans could match a bare request. Ask for the plan path instead of guessing.
+- `missing_spec_id`: the source plan or task pack lacks executable identity. Return to `spec-plan` for frontmatter or produce only a draft.
+- `wrong_chain`: source plan and task pack `spec_id` values mismatch. Reject the handoff and rebuild from the source plan.
+- `stale_hash`: `source_plan_hash` does not match the current source plan body. Reject the handoff and rerun task compilation.
+- `unverifiable_hash`: deterministic hash or validation tooling is unavailable. Do not mark the handoff executable.
+- `invalid_contract`: the `Task Pack Contract` machine-readable structure is missing or rejected. Do not repair it in `spec-work`; rerun `spec-write-tasks`.
+- `repo_scope_missing`: parent-workspace target repo information is missing or ambiguous. Return to `spec-plan` or regenerate the task pack with repo scope.
+- `scope_gap`: source orientation reveals missing scope, architecture, contract, or verification decisions. Return `return-to-plan` or `draft-only` instead of inventing scope.
 
 ## Scope Backoff
 

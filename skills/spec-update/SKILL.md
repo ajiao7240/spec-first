@@ -27,6 +27,11 @@ should be refreshed for the active host.
 Do not use Claude plugin cache paths to decide Codex state. Do not use npm CLI
 version facts to decide Claude marketplace cache state.
 
+Startup version reminders may route users here through `/spec:update` on Claude
+Code or `$spec-update` on Codex. Those reminders are advisory only: they do not
+install packages, refresh runtime assets, or restart the host. This workflow
+remains the single place where the user decides whether to update.
+
 ## Claude Code Pre-Resolved Context
 
 In Claude Code, the sections below are pre-populated. Use them directly; do not
@@ -71,6 +76,25 @@ Use the first matching signal:
      indicates Claude runtime.
 4. If both runtimes exist and the user did not specify one, report both host
    checks separately.
+
+Before checking a branch, clear the startup reminder cooldown for the host being
+checked so an explicit user-invoked update check is not hidden by a previous
+reminder. Ignore command failures and empty output.
+
+For Claude Code:
+
+```bash
+spec-first startup-reminder --claude --reset
+```
+
+For Codex:
+
+```bash
+spec-first startup-reminder --codex --reset
+```
+
+If this workflow is reporting both host checks, run both reset commands before
+the branch-specific checks.
 
 ### 2. Claude Code branch
 
@@ -123,7 +147,27 @@ spec-first init --claude
 
 from the target project if generated runtime assets still look stale.
 
-### 3. Codex branch
+Also check Claude runtime asset health in the current project:
+
+```bash
+spec-first doctor --claude --json
+```
+
+If the command is unavailable, say that project runtime asset health could not
+be verified and keep the plugin cache recommendation as the primary result. If
+`doctor --claude --json` reports missing, stale, drifted, or otherwise unhealthy
+Claude runtime assets, recommend:
+
+```bash
+spec-first init --claude
+```
+
+If both the plugin cache and Claude runtime assets are current, tell the user:
+
+> "spec-first **v{version}** is installed and Claude runtime assets are up to
+> date."
+
+### 4. Codex branch
 
 Gather these facts from the current project shell:
 

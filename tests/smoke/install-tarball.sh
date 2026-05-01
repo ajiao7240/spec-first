@@ -42,9 +42,16 @@ if grep -q '^package/\.claude-plugin/' "$PACK_LIST"; then
   echo "✗ tarball 文件列表不应包含安装生成的 .claude-plugin 产物"
   exit 1
 fi
+if grep -E '(^|/)__pycache__/|\.py[co]$' "$PACK_LIST"; then
+  echo "✗ tarball 文件列表不应包含 Python bytecode 缓存"
+  exit 1
+fi
 grep -q "skills/spec-graph-bootstrap/SKILL.md" "$PACK_LIST"
 grep -q "templates/claude/commands/spec/graph-bootstrap.md" "$PACK_LIST"
-echo "   ✓ tarball 未包含内置 CRG runtime / .claude-plugin，且包含 external graph bootstrap"
+grep -q "skills/spec-skill-audit/SKILL.md" "$PACK_LIST"
+grep -q "skills/spec-skill-audit/scripts/write-audit-artifacts.js" "$PACK_LIST"
+grep -q "templates/claude/commands/spec/skill-audit.md" "$PACK_LIST"
+echo "   ✓ tarball 未包含内置 CRG runtime / .claude-plugin，且包含 external graph bootstrap 与 skill audit"
 
 # -------------------------------------------------------------------------
 # 2. 隔离安装
@@ -146,8 +153,20 @@ if (!fs.existsSync(path.join(root, 'templates/claude/commands/spec/' + 'graph' +
   console.error('external graph bootstrap command missing from package');
   process.exit(1);
 }
+if (!fs.existsSync(path.join(root, 'skills/spec-' + 'skill' + '-audit/SKILL.md'))) {
+  console.error('skill audit skill missing from package');
+  process.exit(1);
+}
+if (!fs.existsSync(path.join(root, 'skills/spec-' + 'skill' + '-audit/scripts/write-audit-artifacts.js'))) {
+  console.error('skill audit artifact writer missing from package');
+  process.exit(1);
+}
+if (!fs.existsSync(path.join(root, 'templates/claude/commands/spec/' + 'skill' + '-audit.md'))) {
+  console.error('skill audit command missing from package');
+  process.exit(1);
+}
 "
-echo "   ✓ 全局包未包含内置 CRG runtime，且包含 external graph bootstrap"
+echo "   ✓ 全局包未包含内置 CRG runtime，且包含 external graph bootstrap 与 skill audit"
 
 # -------------------------------------------------------------------------
 # 完成

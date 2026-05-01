@@ -58,6 +58,27 @@ describe('coding guidelines instruction block', () => {
     expect(twice.match(/<!-- spec-first:coding-guidelines:start -->/g)).toHaveLength(1);
   });
 
+  test('stays scoped to execution posture instead of workflow routing', () => {
+    const zh = buildCodingGuidelinesBlock('zh');
+    const en = buildCodingGuidelinesBlock('en');
+
+    expect(zh).toContain('这些准则只约束进入工作后的执行姿势，不替代 `using-spec-first` 的 workflow 入口治理。');
+    expect(en).toContain('These guidelines shape execution posture after workflow routing; they do not replace spec-first workflow entry governance.');
+
+    for (const block of [zh, en]) {
+      expect(block).not.toContain('下一步');
+      expect(block).not.toContain('该用哪个命令');
+      expect(block).not.toContain('which command');
+      expect(block).not.toContain('what to run next');
+      expect(block).not.toContain('/spec:next');
+      expect(block).not.toContain('$spec-next');
+      expect(block).not.toContain('/spec:guide');
+      expect(block).not.toContain('$spec-guide');
+      expect(block).not.toContain('完整选择策略');
+      expect(block).not.toContain('Common entry anchors');
+    }
+  });
+
   test('removes only the managed block and preserves surrounding user content', () => {
     const content = [
       '# Header',

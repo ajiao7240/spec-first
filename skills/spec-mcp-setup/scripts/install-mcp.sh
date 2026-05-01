@@ -19,6 +19,14 @@ CONFIG_DIR="$(dirname "$CONFIG_PATH")"
 ONLY_FILTER=""
 REPO_ARG=""
 SERENA_LANGUAGES_TEXT=""
+DEFAULT_STAGE_TIMEOUT_SECONDS="${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}"
+
+stage_log() {
+  local stage="$1"
+  local message="$2"
+  printf 'spec-mcp-setup: [mcp/%s] %s\n' "$stage" "$message" >&2
+}
+
 append_serena_language_values() {
   local raw="$1"
   local language
@@ -137,7 +145,7 @@ append_result() {
      --arg next_action "$next_action" \
      --arg configured_path "$configured_path" \
      --arg selected_scope "$selected_scope" \
-     --argjson fallback_applied "$fallback_applied" \
+     --arg fallback_applied "$fallback_applied" \
      --arg exit_code "$exit_code" \
      --arg diagnostic_summary "$diagnostic_summary" \
      --arg repair_diagnostic_summary "$repair_diagnostic_summary" \
@@ -150,7 +158,7 @@ append_result() {
        next_action:$next_action,
        configured_path:$configured_path,
        selected_scope:$selected_scope,
-       fallback_applied:$fallback_applied,
+       fallback_applied:($fallback_applied == "true"),
        exit_code:($exit_code | if . == "" then null else tonumber end),
        diagnostic_summary:$diagnostic_summary,
        repair_diagnostic_summary:$repair_diagnostic_summary
@@ -163,12 +171,35 @@ RUN_STDOUT=""
 RUN_DIAGNOSTIC=""
 RUN_EXIT_CODE=0
 run_and_capture() {
+  local stage="$1"
+  local timeout_seconds="$2"
+  shift 2
   local stdout_file stderr_file combined
   stdout_file="$(mktemp "${TMPDIR:-/tmp}/spec-mcp-command-stdout.XXXXXX")"
   stderr_file="$(mktemp "${TMPDIR:-/tmp}/spec-mcp-command-stderr.XXXXXX")"
 
+  stage_log "$stage" "start"
   set +e
-  "$@" </dev/null >"$stdout_file" 2>"$stderr_file"
+  python3 - "$timeout_seconds" "$@" <<'PY' >"$stdout_file" 2>"$stderr_file"
+import subprocess
+import sys
+
+timeout = float(sys.argv[1])
+args = sys.argv[2:]
+
+try:
+    completed = subprocess.run(args, check=False, stdin=subprocess.DEVNULL, timeout=timeout)
+except subprocess.TimeoutExpired:
+    sys.exit(124)
+except FileNotFoundError as exc:
+    sys.stderr.write(f"{exc}\n")
+    sys.exit(127)
+except Exception as exc:
+    sys.stderr.write(f"{exc}\n")
+    sys.exit(1)
+
+sys.exit(completed.returncode)
+PY
   RUN_EXIT_CODE=$?
   set -e
 
@@ -176,6 +207,11 @@ run_and_capture() {
   combined="$(cat "$stderr_file" "$stdout_file" | tr '\n' ' ' | cut -c 1-1000)"
   RUN_DIAGNOSTIC="$combined"
   rm -f "$stdout_file" "$stderr_file"
+  if [ "$RUN_EXIT_CODE" -eq 124 ]; then
+    stage_log "$stage" "timed out after ${timeout_seconds}s"
+  else
+    stage_log "$stage" "done (exit $RUN_EXIT_CODE)"
+  fi
   return "$RUN_EXIT_CODE"
 }
 
@@ -200,6 +236,7 @@ for tool_id in "${TOOL_IDS[@]}"; do
   fi
 
   install_kind="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .installation.kind' "$TOOLS_JSON")"
+  host_config_required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | if has("host_config_required") then .host_config_required else true end' "$TOOLS_JSON")"
 
   if ! should_install "$tool_id"; then
     continue
@@ -233,7 +270,7 @@ for tool_id in "${TOOL_IDS[@]}"; do
     done <<EOF
 $(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .installation.unix.args[]' "$TOOLS_JSON")
 EOF
-    if ! run_and_capture "$install_command" "${install_args[@]}"; then
+    if ! run_and_capture "warmup:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$install_command" "${install_args[@]}"; then
       status="action-required"
       last_action="failed"
       reason_code="warmup_failed"
@@ -243,9 +280,9 @@ EOF
     fi
   fi
 
-  if [ "$status" = "ready" ]; then
+  if [ "$status" = "ready" ] && [ "$host_config_required" = "true" ]; then
     configure_output=""
-    if run_and_capture bash "$SCRIPT_DIR/configure-host.sh" --tool "$tool_id"; then
+    if run_and_capture "configure:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" bash "$SCRIPT_DIR/configure-host.sh" --tool "$tool_id"; then
       configure_output="$RUN_STDOUT"
       configured_path="$(jq -r '.configured_path // empty' <<<"$configure_output")"
       selected_scope="$(jq -r '.selected_scope // empty' <<<"$configure_output")"
@@ -253,7 +290,7 @@ EOF
     else
       exit_code="$RUN_EXIT_CODE"
       diagnostic_summary="$RUN_DIAGNOSTIC"
-      if run_and_capture bash "$SCRIPT_DIR/repair-install.sh" --tool "$tool_id"; then
+      if run_and_capture "repair:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" bash "$SCRIPT_DIR/repair-install.sh" --tool "$tool_id"; then
         repair_output="$RUN_STDOUT"
         last_action="repaired"
         configured_path="$(jq -r '.configured_path // empty' <<<"$repair_output")"
@@ -267,6 +304,10 @@ EOF
         repair_diagnostic_summary="$RUN_DIAGNOSTIC"
       fi
     fi
+  elif [ "$status" = "ready" ]; then
+    last_action="host-config-skipped"
+    next_action="run spec-graph-bootstrap"
+    diagnostic_summary="host MCP config is not required for this provider"
   fi
 
   if [ "$tool_id" = "serena" ] && [ "$status" = "ready" ]; then
@@ -282,7 +323,7 @@ EOF
         [ -n "$language" ] || continue
         serena_activate_args+=("--language" "$language")
       done <<<"$SERENA_LANGUAGES_TEXT"
-      if ! run_and_capture bash "$SCRIPT_DIR/activate-serena.sh" ${serena_activate_args[@]+"${serena_activate_args[@]}"}; then
+      if ! run_and_capture "serena:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" bash "$SCRIPT_DIR/activate-serena.sh" ${serena_activate_args[@]+"${serena_activate_args[@]}"}; then
         status="partial"
         last_action="failed"
         reason_code="serena_bootstrap_failed"

@@ -25,29 +25,29 @@
 本结论主要基于以下代码与文档：
 
 - `graphify`
-  - [README.md](/Users/kuang/xiaobu/graphify/README.md)
-  - [ARCHITECTURE.md](/Users/kuang/xiaobu/graphify/ARCHITECTURE.md)
-  - [graphify/build.py](/Users/kuang/xiaobu/graphify/graphify/build.py)
-  - [graphify/extract.py](/Users/kuang/xiaobu/graphify/graphify/extract.py)
-  - [graphify/analyze.py](/Users/kuang/xiaobu/graphify/graphify/analyze.py)
-  - [graphify/report.py](/Users/kuang/xiaobu/graphify/graphify/report.py)
-  - [graphify/serve.py](/Users/kuang/xiaobu/graphify/graphify/serve.py)
+  - `graphify/README.md`
+  - `graphify/ARCHITECTURE.md`
+  - `graphify/graphify/build.py`
+  - `graphify/graphify/extract.py`
+  - `graphify/graphify/analyze.py`
+  - `graphify/graphify/report.py`
+  - `graphify/graphify/serve.py`
 
 - `spec-first`
-  - [stage0-context.js](/Users/kuang/xiaobu/spec-first/src/cli/commands/stage0-context.js)
-  - [workspace-compiler.js](/Users/kuang/xiaobu/spec-first/src/bootstrap-compiler/workspace-compiler.js)
-  - [evaluator.js](/Users/kuang/xiaobu/spec-first/src/context-routing/evaluator.js)
+  - [stage0-context.js](../../../src/cli/commands/stage0-context.js)
+  - [workspace-compiler.js](../../../src/bootstrap-compiler/workspace-compiler.js)
+  - [evaluator.js](../../../src/context-routing/evaluator.js)
 
 - `code-review-graph`
-  - [README.md](/Users/kuang/xiaobu/code-review-graph/README.md)
-  - [graph.py](/Users/kuang/xiaobu/code-review-graph/code_review_graph/graph.py)
-  - [context.py](/Users/kuang/xiaobu/code-review-graph/code_review_graph/tools/context.py)
+  - `code-review-graph/README.md`
+  - `code-review-graph/code_review_graph/graph.py`
+  - `code-review-graph/code_review_graph/tools/context.py`
 
 ## `graphify` 的项目思想
 
 ### 1. 它不是“代码事实压缩器”，而是“跨模态知识图谱构建器”
 
-从 [README.md](/Users/kuang/xiaobu/graphify/README.md) 和 [ARCHITECTURE.md](/Users/kuang/xiaobu/graphify/ARCHITECTURE.md) 可以看到，`graphify` 的目标不是只服务代码审查，也不是只服务软件工程仓库，而是：
+从 `graphify/README.md` 和 `graphify/ARCHITECTURE.md` 可以看到，`graphify` 的目标不是只服务代码审查，也不是只服务软件工程仓库，而是：
 
 - 输入任意 corpus
   - 代码
@@ -71,12 +71,12 @@
 
 ### 2. 它天然接受“推断”和“不确定性”
 
-`graphify` 的置信度模型是显式设计的一部分。  
+`graphify` 的置信度模型是显式设计的一部分。
 代码依据：
 
-- [ARCHITECTURE.md](/Users/kuang/xiaobu/graphify/ARCHITECTURE.md)
-- [graphify/analyze.py](/Users/kuang/xiaobu/graphify/graphify/analyze.py)
-- [graphify/report.py](/Users/kuang/xiaobu/graphify/graphify/report.py)
+- `graphify/ARCHITECTURE.md`
+- `graphify/graphify/analyze.py`
+- `graphify/graphify/report.py`
 
 它把边区分成：
 
@@ -96,7 +96,7 @@
 
 ### 1. Pipeline 非常清晰，但它解决的是“语义图谱构建”问题
 
-[ARCHITECTURE.md](/Users/kuang/xiaobu/graphify/ARCHITECTURE.md) 明确给出了 pipeline：
+`graphify/ARCHITECTURE.md` 明确给出了 pipeline：
 
 `detect() -> extract() -> build_graph() -> cluster() -> analyze() -> report() -> export()`
 
@@ -129,7 +129,7 @@
 
 ### 2. 抽取结构是轻 schema，不是阶段化 workflow contract
 
-[graphify/extract.py](/Users/kuang/xiaobu/graphify/graphify/extract.py) 和 [ARCHITECTURE.md](/Users/kuang/xiaobu/graphify/ARCHITECTURE.md) 显示，它的 extractor 输出 schema 很轻：
+`graphify/graphify/extract.py` 和 `graphify/ARCHITECTURE.md` 显示，它的 extractor 输出 schema 很轻：
 
 - `nodes`
 - `edges`
@@ -154,7 +154,7 @@
 
 ### 3. 查询面是图查询，不是阶段上下文编译
 
-[graphify/serve.py](/Users/kuang/xiaobu/graphify/graphify/serve.py) 暴露的是典型图谱查询接口：
+`graphify/graphify/serve.py` 暴露的是典型图谱查询接口：
 
 - `query_graph`
 - `get_node`
@@ -185,7 +185,7 @@
 
 ### 1. `code-review-graph` 更像“工程审查上下文压缩器”
 
-从 [code_review_graph/graph.py](/Users/kuang/xiaobu/code-review-graph/code_review_graph/graph.py) 和 [context.py](/Users/kuang/xiaobu/code-review-graph/code_review_graph/tools/context.py) 可以看到，`code-review-graph` 的重心是：
+从 `code-review-graph/code_review_graph/graph.py` 和 `code-review-graph/code_review_graph/tools/context.py` 可以看到，`code-review-graph` 的重心是：
 
 - 用 AST 与图结构表示代码关系
 - 针对变更面做 blast radius
@@ -214,14 +214,14 @@
 - `code-review-graph` 更像“工程任务图”
 - `graphify` 更像“知识理解图”
 
-前者更适合做 deterministic workflow context compression。  
+前者更适合做 deterministic workflow context compression。
 后者更适合做 optional semantic augmentation。
 
 ## 与当前 `spec-graph-bootstrap` 的本质差异
 
 ### 1. 当前 `spec-first` runtime 的核心是“按 stage 编译最小充分决策输入”
 
-[workspace-compiler.js](/Users/kuang/xiaobu/spec-first/src/bootstrap-compiler/workspace-compiler.js) 和 [evaluator.js](/Users/kuang/xiaobu/spec-first/src/context-routing/evaluator.js) 的核心逻辑不是构图，而是：
+[workspace-compiler.js](../../../src/bootstrap-compiler/workspace-compiler.js) 和 [evaluator.js](../../../src/context-routing/evaluator.js) 的核心逻辑不是构图，而是：
 
 - 解析当前 repo 或 workspace 命中范围
 - 评估当前 context 状态
@@ -229,7 +229,7 @@
 - 合成 runtime verification bundle
 - 最终得到 stage-facing 决策包
 
-[stage0-context.js](/Users/kuang/xiaobu/spec-first/src/cli/commands/stage0-context.js) 又把这层能力暴露成统一 CLI 入口。
+[stage0-context.js](../../../src/cli/commands/stage0-context.js) 又把这层能力暴露成统一 CLI 入口。
 
 这说明当前 `spec-first` 真正稳定的系统轴线已经不是“静态写很多文档”，而是：
 
@@ -241,16 +241,16 @@
 
 如果把 `graphify` 直接塞进 `spec-graph-bootstrap` 的默认核心产物集合，会出现几个结构性问题：
 
-1. 真源边界变模糊  
+1. 真源边界变模糊
    `graph.json` 混合了确定性事实、推断关系、模糊关系，不再适合作为 Stage-0 主真源。
 
-2. 下游消费语义不稳定  
+2. 下游消费语义不稳定
    `spec-plan`、`spec-work`、`spec-code-review` 需要的是最小充分决策输入，而不是一个需要再次解释的大图。
 
-3. 质量门容易被做重  
+3. 质量门容易被做重
    一旦把 graphify 结果接入 freshness / completeness / quality gate，就会形成新的门控源，增加流程中断概率。
 
-4. 持久化产物膨胀  
+4. 持久化产物膨胀
    `graph.json`、`GRAPH_REPORT.md`、`graph.html`、cache、community 导出物很容易让 bootstrap 重新滑向“产物过多、消费不清、合同漂移”。
 
 ## 适合集成的点
@@ -266,7 +266,7 @@
 - 白板图
 - 历史方案文档
 
-连成一张语义图。  
+连成一张语义图。
 这对于 `spec-brainstorm`、`spec-ideate`、`spec-plan` 非常有价值，因为这些阶段经常需要：
 
 - 不只是知道“代码怎么写”
@@ -281,7 +281,7 @@
 - solution 文档
 - 历史事故复盘
 
-之间的语义桥接能力较弱。  
+之间的语义桥接能力较弱。
 `graphify` 在这里可以补位，尤其是：
 
 - 某个模块为什么这样设计
@@ -290,13 +290,13 @@
 
 ### 3. 生成“更高质量的问题”
 
-[graphify/analyze.py](/Users/kuang/xiaobu/graphify/graphify/analyze.py) 和 [graphify/report.py](/Users/kuang/xiaobu/graphify/graphify/report.py) 明确会生成：
+`graphify/graphify/analyze.py` 和 `graphify/graphify/report.py` 明确会生成：
 
 - `god_nodes`
 - `surprising_connections`
 - `suggested_questions`
 
-这类输出对 LLM 非常有价值，因为它们不是替 LLM 做决定，而是提升 LLM 提问和探索的质量。  
+这类输出对 LLM 非常有价值，因为它们不是替 LLM 做决定，而是提升 LLM 提问和探索的质量。
 这恰好符合“让 LLM 决策”的方向。
 
 ### 4. 作为 runtime 辅助输入，而不是持久化主合同
@@ -354,7 +354,7 @@
 
 ### 3. 不应把图查询 contract 冒充为 workflow contract
 
-`query_graph`、`shortest_path`、`get_neighbors` 很好，但它们解决的是图探索，不是 workflow 决策。  
+`query_graph`、`shortest_path`、`get_neighbors` 很好，但它们解决的是图探索，不是 workflow 决策。
 如果把它们包装成“plan/review/work 的必须上下文”，会造成：
 
 - contract 语义变混
@@ -363,12 +363,12 @@
 
 ### 4. 不应直接复用它的 host 注入策略作为 `spec-first` 主路径
 
-`graphify` 不只是生成图产物，它还会通过 skill 与 hook 机制把“先看图再读文件”的行为写入宿主环境。  
+`graphify` 不只是生成图产物，它还会通过 skill 与 hook 机制把“先看图再读文件”的行为写入宿主环境。
 代码依据：
 
-- [graphify/hooks.py](/Users/kuang/xiaobu/graphify/graphify/hooks.py)
-- [graphify/skill-codex.md](/Users/kuang/xiaobu/graphify/graphify/skill-codex.md)
-- [graphify/skill.md](/Users/kuang/xiaobu/graphify/graphify/skill.md)
+- `graphify/graphify/hooks.py`
+- `graphify/graphify/skill-codex.md`
+- `graphify/graphify/skill.md`
 
 这套机制本身没问题，但对 `spec-first` 来说有一个很现实的集成风险：
 
@@ -406,16 +406,16 @@
 
 可以把 `spec-first` 的知识输入分成三层：
 
-1. 主事实层  
-   来源：`spec-graph-bootstrap` / `stage0-context`  
+1. 主事实层
+   来源：`spec-graph-bootstrap` / `stage0-context`
    特征：确定性、可追溯、面向 workflow 决策
 
-2. 运行时辅助层  
-   来源：verification、changed-files、repo/workspace 选择结果  
+2. 运行时辅助层
+   来源：verification、changed-files、repo/workspace 选择结果
    特征：当前任务导向
 
-3. 语义旁路层  
-   来源：`graphify`  
+3. 语义旁路层
+   来源：`graphify`
    特征：探索性、启发性、多模态、允许推断和模糊
 
 `graphify` 应明确处在第 3 层，而不是第 1 层。
@@ -519,7 +519,7 @@
 
 ### 阶段 3：谨慎探索 workspace 级跨 repo 语义桥
 
-这一步只建议在后期考虑。  
+这一步只建议在后期考虑。
 如果 `spec-first` 未来确实要覆盖：
 
 - 多 repo 方案协同
@@ -540,7 +540,7 @@
 - 它会给出 `surprising_connections`
 - 它会提炼 `god_nodes`
 
-这些都在增强 LLM 的认知起点，而不是替代理由判断。  
+这些都在增强 LLM 的认知起点，而不是替代理由判断。
 `spec-first` 后续如果要提升质量，应该更多思考：
 
 - 如何让 runtime 给 LLM 一个更好的“起问面”
@@ -548,7 +548,7 @@
 
 ### 2. 应避免借鉴 `graphify` 的“全量导出倾向”
 
-`graphify` 自身做全量导出没有问题，因为它是一个图谱产品。  
+`graphify` 自身做全量导出没有问题，因为它是一个图谱产品。
 但 `spec-graph-bootstrap` 的目标不是做另一个图谱产品，而是为 `spec-plan`、`spec-work`、`spec-code-review` 提供高质量 Stage-0 输入。
 
 所以这里要明确克制：
@@ -585,13 +585,13 @@
 
 当前这一组文档建议这样使用：
 
-1. 看“当前真实产物和消费关系”  
-   以 [2026-04-18-spec-graph-bootstrap-artifacts-map.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-artifacts-map.md) 为准，再以代码为最终事实依据。
+1. 看“当前真实产物和消费关系”
+   以 [2026-04-18-spec-graph-bootstrap-artifacts-map.md](./2026-04-18-spec-graph-bootstrap-artifacts-map.md) 为准，再以代码为最终事实依据。
 
-2. 看“未来目标产物模型与迁移方向”  
-   以 [2026-04-18-spec-graph-bootstrap-target-model-and-migration-plan.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-target-model-and-migration-plan.md) 为准。
+2. 看“未来目标产物模型与迁移方向”
+   以 [2026-04-18-spec-graph-bootstrap-target-model-and-migration-plan.md](./2026-04-18-spec-graph-bootstrap-target-model-and-migration-plan.md) 为准。
 
-3. 看“`graphify` 该如何接入、不该如何接入”  
+3. 看“`graphify` 该如何接入、不该如何接入”
    以本文为准。
 
 ## 最终判断

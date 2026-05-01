@@ -1,7 +1,12 @@
 'use strict';
 
-const { listBundledAgentSupportFiles } = require('../../src/cli/plugin');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const { listBundledAgentSupportFiles, listBundledAgents } = require('../../src/cli/plugin');
 const { buildState } = require('../../src/cli/state');
+
+const REPO_ROOT = path.join(__dirname, '..', '..');
 
 describe('agent support file contracts', () => {
   test('bundled agent support files are tracked separately from markdown agents', () => {
@@ -30,5 +35,18 @@ describe('agent support file contracts', () => {
     expect(state.workflowSkills).toEqual(['spec-code-review', 'spec-plan']);
     expect(state.agents).toEqual(['spec-session-historian.agent.md']);
     expect(state.agentSupportFiles).toEqual([]);
+  });
+
+  test('bundled markdown agents do not carry trailing whitespace', () => {
+    for (const agentPath of listBundledAgents()) {
+      const absolutePath = path.join(REPO_ROOT, 'agents', agentPath);
+      const lines = fs.readFileSync(absolutePath, 'utf8').split(/\r?\n/);
+
+      lines.forEach((line, index) => {
+        if (/[ \t]+$/.test(line)) {
+          throw new Error(`${agentPath}:${index + 1} has trailing whitespace`);
+        }
+      });
+    }
   });
 });

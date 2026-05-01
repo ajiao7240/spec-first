@@ -168,6 +168,17 @@
       }
     },
     {
+      "skill_name": "spec-app-consistency-audit",
+      "entry_surface": "workflow_command",
+      "command_name": "app-consistency-audit",
+      "host_scope": "dual_host",
+      "owner_host": null,
+      "host_delivery": {
+        "claude": "command",
+        "codex": "skill"
+      }
+    },
+    {
       "skill_name": "spec-brainstorm",
       "entry_surface": "workflow_command",
       "command_name": "brainstorm",
@@ -336,6 +347,17 @@
       "skill_name": "spec-sessions",
       "entry_surface": "workflow_command",
       "command_name": "sessions",
+      "host_scope": "dual_host",
+      "owner_host": null,
+      "host_delivery": {
+        "claude": "command",
+        "codex": "skill"
+      }
+    },
+    {
+      "skill_name": "spec-skill-audit",
+      "entry_surface": "workflow_command",
+      "command_name": "skill-audit",
       "host_scope": "dual_host",
       "owner_host": null,
       "host_delivery": {

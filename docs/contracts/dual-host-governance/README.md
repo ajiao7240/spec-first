@@ -215,7 +215,7 @@ machine-readable 真源文件固定落位：
 其中：
 
 1. `skills-governance.json`
-   - 覆盖当前仓库 `48` 个 source skills
+   - 覆盖当前仓库 `40` 个 source skills
    - 是 `plugin.js` runtime filter、lint、审计脚本的共同真源
 2. `skills-governance.schema.json`
    - 固定 `schemaVersion=1`
@@ -246,6 +246,6 @@ machine-readable 真源文件固定落位：
 3. 不得把 standalone skill 写成已声明 slash command
 4. 不得把 Codex 用户入口写成 `**Codex entry point:** /spec:*`
 5. `Skill(...)`、`skill:`、以及其他内部调用 DSL 明确不属于“用户可见入口治理”范围
-6. `docs/10-prompt/skills/` 必须与 `skills/` 源文档同步刷新，避免镜像漂移
+6. `docs/10-prompt/skills/` 只维护仍被明确标记为 prompt mirror / runtime-critical mirror 的少量文档；新增普通 workflow skill 不默认新增 docs mirror，避免把 `skills/` 与 `docs/10-prompt/skills/` 重新变成双真相源
 7. 新增 lint / doctor / smoke 规则时，应优先引用 `skills-governance.json`，而不是重复手写 skill 名单
 8. 运行时 machine-readable contract 必须继续落在 `src/cli/contracts/dual-host-governance/`，不得重新回放到 `docs/`

@@ -79,6 +79,7 @@ fi
 generated_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 gitnexus_package="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1] // empty' "$TOOLS_JSON")"
 [ -n "$gitnexus_package" ] || { echo "GitNexus package spec not found in mcp-tools.json" >&2; exit 1; }
+GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT=5
 
 gitnexus_probe_path_excluded() {
   case "$1" in
@@ -107,62 +108,197 @@ gitnexus_probe_token_from_path() {
   fi
 }
 
+gitnexus_probe_token_low_signal() {
+  case "$1" in
+    app|App|index|Index|main|Main|postinstall|preinstall|install|setup|config|constants|types|utils|helpers|test|spec) return 0 ;;
+  esac
+  [[ "$1" =~ (Config|Types?|Schema|Constants?)$ || "$1" =~ _(config|types?|schema|constants?)$ ]]
+}
+
+gitnexus_probe_token_workflow_signal() {
+  [[ "$1" =~ (Activity|Fragment|ViewModel|Manager|Repository|Service|Controller|Handler|Form|Table|Page|Dashboard|Assessment|Questionnaire|Users|Relations|Login)$ ]]
+}
+
+gitnexus_probe_token_entry_signal() {
+  [[ "$1" =~ ^(MainActivity|Launcher|Launch[A-Za-z0-9_]*|Loading[A-Za-z0-9_]*|Home[A-Za-z0-9_]*|Login[A-Za-z0-9_]*)$ || "$1" =~ (Router|Navigator|Navigation|Redirect)[A-Za-z0-9_]*$ ]]
+}
+
+gitnexus_probe_token_weak_proof_signal() {
+  [[ "$1" =~ ^(Ad|Ads)$ || "$1" =~ ^(Advertise|Advertisement|Splash|Guide|Intro|Onboarding)[A-Za-z0-9_]* || "$1" =~ (Dialog|Adapter|Bean|DTO|Dto|VO|PO|Entity)$ ]]
+}
+
+gitnexus_probe_token_display_signal() {
+  [[ "$1" =~ (View|Screen|Layout|Modal|Report)$ ]]
+}
+
+sanitize_gitnexus_repo_name() {
+  local value="$1"
+  value="$(printf '%s' "$value" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  if [[ "$value" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    printf '%s\n' "$value"
+  fi
+}
+
+gitnexus_repo_name_from_remote_url() {
+  local remote="$1"
+  local name sanitized
+  remote="$(printf '%s' "$remote" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  [ -n "$remote" ] || return 0
+  remote="${remote%%#*}"
+  remote="${remote%%\?*}"
+  while [ "${remote%/}" != "$remote" ]; do
+    remote="${remote%/}"
+  done
+  name="${remote##*/}"
+  if [ "$name" = "$remote" ]; then
+    name="${remote##*:}"
+  fi
+  name="${name%.git}"
+  sanitized="$(sanitize_gitnexus_repo_name "$name")"
+  [ -n "$sanitized" ] && printf '%s\n' "$sanitized"
+}
+
+resolve_gitnexus_repo_name() {
+  local repo_root="$1"
+  local facts_file="$2"
+  local explicit remote derived fallback meta_path
+
+  explicit="$(jq -r '[
+      .gitnexus_repo_name?,
+      .gitnexus.repo_name?,
+      .gitnexus.repository_name?,
+      .graph_providers.gitnexus.repo_name?,
+      .graph_providers.gitnexus.repository_name?,
+      .target.gitnexus_repo_name?
+    ]
+    | map(select(type == "string" and length > 0))
+    | .[0] // empty' "$facts_file")"
+  explicit="$(sanitize_gitnexus_repo_name "$explicit")"
+  if [ -n "$explicit" ]; then
+    printf '%s\n' "$explicit"
+    return 0
+  fi
+
+  meta_path="$repo_root/.gitnexus/meta.json"
+  if [ -f "$meta_path" ]; then
+    remote="$(jq -r '.remoteUrl // empty' "$meta_path" 2>/dev/null || true)"
+    derived="$(gitnexus_repo_name_from_remote_url "$remote")"
+    if [ -n "$derived" ]; then
+      printf '%s\n' "$derived"
+      return 0
+    fi
+  fi
+
+  fallback="$(sanitize_gitnexus_repo_name "$(basename "$repo_root")")"
+  if [ -n "$fallback" ]; then
+    printf '%s\n' "$fallback"
+  else
+    basename "$repo_root"
+  fi
+}
+
 select_gitnexus_query_probe_policy() {
   local repo_root="$1"
   local path token priority
   local selected_path="" selected_token=""
+  local candidates_json="[]"
+  local candidate_count=0
   local -a files=()
 
   while IFS= read -r path; do
     files+=("$path")
   done < <(git -C "$repo_root" ls-files 2>/dev/null || true)
 
-  for priority in android_named named any_source; do
+  for priority in entrypoint_named workflow_named src_high_signal high_signal android_named workflow_display_named any_source; do
     for path in "${files[@]}"; do
       gitnexus_probe_path_excluded "$path" && continue
       gitnexus_probe_source_path "$path" || continue
       token="$(gitnexus_probe_token_from_path "$path")"
       [ -n "$token" ] || continue
       case "$priority" in
+        entrypoint_named)
+          gitnexus_probe_token_entry_signal "$token" || continue
+          ;;
         android_named)
           case "$path" in
             *.kt|*.java) ;;
             *) continue ;;
           esac
           [[ "$token" =~ (Activity|Fragment|ViewModel|Manager|Repository|Service)$ ]] || continue
+          gitnexus_probe_token_low_signal "$token" && continue
+          gitnexus_probe_token_display_signal "$token" && continue
+          gitnexus_probe_token_weak_proof_signal "$token" && continue
           ;;
-        named)
-          [[ "$token" =~ (Activity|Fragment|ViewModel|Manager|Repository|Service)$ ]] || continue
+        workflow_named)
+          gitnexus_probe_token_workflow_signal "$token" || continue
+          gitnexus_probe_token_weak_proof_signal "$token" && continue
+          ;;
+        src_high_signal)
+          case "$path" in
+            src/*|*/src/*) ;;
+            *) continue ;;
+          esac
+          gitnexus_probe_token_low_signal "$token" && continue
+          gitnexus_probe_token_display_signal "$token" && continue
+          gitnexus_probe_token_weak_proof_signal "$token" && continue
+          ;;
+        high_signal)
+          gitnexus_probe_token_low_signal "$token" && continue
+          gitnexus_probe_token_display_signal "$token" && continue
+          gitnexus_probe_token_weak_proof_signal "$token" && continue
+          ;;
+        workflow_display_named)
+          gitnexus_probe_token_display_signal "$token" || continue
           ;;
         any_source) ;;
       esac
-      selected_path="$path"
-      selected_token="$token"
-      break 2
+      if jq -e --arg token "$token" 'any(.[]; .token == $token)' >/dev/null <<<"$candidates_json"; then
+        continue
+      fi
+      candidates_json="$(jq -c \
+        --arg token "$token" \
+        --arg selected_from "$path" \
+        --arg reason_code "$priority" \
+        '. + [{token:$token, selected_from:$selected_from, reason_code:$reason_code}]' \
+        <<<"$candidates_json")"
+      candidate_count="$(jq 'length' <<<"$candidates_json")"
+      if [ "$candidate_count" -ge "$GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT" ]; then
+        break 2
+      fi
     done
   done
 
-  if [ -n "$selected_token" ]; then
+  if [ "$candidate_count" -gt 0 ]; then
+    selected_token="$(jq -r '.[0].token' <<<"$candidates_json")"
+    selected_path="$(jq -r '.[0].selected_from' <<<"$candidates_json")"
     jq -n \
       --arg token "$selected_token" \
       --arg selected_from "$selected_path" \
+      --argjson candidates "$candidates_json" \
       '{
         expected_hit:true,
         source:"git-ls-files-code-basename",
         token:$token,
-        selected_from:$selected_from
+        selected_from:$selected_from,
+        candidates:$candidates
       }'
   else
     jq -n '{
       expected_hit:false,
       source:"fallback-static",
       token:"main src build README package",
-      selected_from:null
+      selected_from:null,
+      candidates:[{
+        token:"main src build README package",
+        selected_from:null,
+        reason_code:"fallback-static"
+      }]
     }'
   fi
 }
 
 gitnexus_query_probe_policy="$(select_gitnexus_query_probe_policy "$REPO_ROOT")"
+gitnexus_repo_name="$(resolve_gitnexus_repo_name "$REPO_ROOT" "$FACTS_FILE")"
 
 graph_facts_exists=false
 provider_status_exists=false
@@ -187,7 +323,7 @@ if [ -f "$REPO_ROOT/.spec-first/impact/bootstrap-impact-capabilities.json" ] && 
 fi
 
 jq --arg generated_at "$generated_at" \
-   --arg repo_name "$(basename "$REPO_ROOT")" \
+   --arg repo_name "$gitnexus_repo_name" \
    --arg repo_root "$REPO_ROOT" \
    --arg gitnexus_package "$gitnexus_package" \
    --argjson gitnexus_query_probe_policy "$gitnexus_query_probe_policy" \
@@ -215,7 +351,11 @@ jq --arg generated_at "$generated_at" \
     ($provider.configured == true)
     and ($provider.enabled_for_bootstrap == true)
     and ($provider.dependency_status == "ready")
-    and (($provider.host_config_status == "ready") or ($provider.host_config_status == "fallback-active"));
+    and (
+      ($provider.host_config_status == "ready")
+      or ($provider.host_config_status == "fallback-active")
+      or (($provider.host_config_required == false) and ($provider.host_config_status == "not-required"))
+    );
 
   def provider_commands($key):
     if $key == "gitnexus" then {
@@ -268,7 +408,9 @@ jq --arg generated_at "$generated_at" \
               enabled_for_bootstrap: ($current.enabled_for_bootstrap == true),
               required: ($current.required == true),
               role: $current.role,
-              mcp_server: $key,
+              access_mode: ($current.access_mode // (if ($current.host_config_required == false) then "cli_artifact" else "live_mcp" end)),
+              host_config_required: ($current.host_config_required != false),
+              mcp_server: (if ($current.host_config_required == false) then null else $key end),
               dependency_status: $current.dependency_status,
               host_config_status: $current.host_config_status,
               capabilities: ($current.capabilities // []),

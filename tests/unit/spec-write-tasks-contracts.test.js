@@ -11,6 +11,8 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'SKILL.md');
 const SCHEMA_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'references', 'task-pack-schema.md');
 const GUIDE_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'references', 'task-quality-guide.md');
+const EVALS_DIR = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'evals');
+const EVALS_README_PATH = path.join(EVALS_DIR, 'README.md');
 const OPENAI_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'agents', 'openai.yaml');
 const SPEC_WORK_PATH = path.join(REPO_ROOT, 'skills', 'spec-work', 'SKILL.md');
 const SPEC_WORK_BETA_PATH = path.join(REPO_ROOT, 'skills', 'spec-work-beta', 'SKILL.md');
@@ -25,9 +27,19 @@ describe('spec-write-tasks contracts', () => {
     const skill = read(SKILL_PATH);
 
     expect(skill).toContain('name: spec-write-tasks');
+    expect(skill).toContain('## Purpose');
+    expect(skill).toContain('## Inputs');
+    expect(skill).toContain('## Outputs');
+    expect(skill).toContain('## Workflow');
+    expect(skill).toContain('## When Not To Use');
+    expect(skill).toContain('## Failure Modes');
     expect(skill).toContain('optional derived layer between `spec-plan` and `spec-work`');
     expect(skill).toContain('`spec-plan` is always the single source of truth');
     expect(skill).toContain('A task pack is a derived artifact; it must not become a second plan.');
+    expect(skill).toContain('It does not accept remote repositories, package names, marketplace identifiers');
+    expect(skill).toContain('End every run with the final decision envelope');
+    expect(skill).toContain('Only an executable task pack with matching `spec_id`');
+    expect(skill).toContain('`wrong_chain`: source plan and task pack `spec_id` values mismatch');
     expect(skill).toContain('Task-Ready Check');
     expect(skill).toContain('`compile`: the plan is clear enough');
     expect(skill).toContain('`skip`: the plan is small');
@@ -58,7 +70,11 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('Do not let LSP references automatically expand task scope');
     expect(skill).toContain('top-level `target_repo` for single-repo work or per-unit `target_repo` for cross-repo work');
     expect(skill).toContain('do not invent child repo targets while deriving tasks');
-    expect(skill).toContain('validate `target_repo` inheritance or per-task `target_repo` values');
+    expect(skill).toContain('inspect `target_repo` inheritance or per-task `target_repo` values');
+    expect(skill).toContain('current deterministic validation does not prove workspace repo scope');
+    expect(skill).toContain('Deterministic contract fields validated by `spec-first tasks validate`');
+    expect(skill).toContain('LLM/human quality fields that should be present when they reduce execution context');
+    expect(skill).toContain('The deterministic validator only proves frontmatter identity/freshness plus the `Task Pack Contract` machine-readable structure');
     expect(skill).not.toContain('spec-first ' + 'crg hook');
     expect(skill).not.toContain('$spec-' + 'graph' + '-bootstrap');
     expect(skill).not.toContain('/spec:' + 'graph' + '-bootstrap');
@@ -86,13 +102,15 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain('transient slices are not stable `spec-work` input');
     expect(schema).toContain('do not write an executable handoff');
     expect(schema).toContain('Traceability Matrix');
-    expect(schema).toContain('Every task card must include these fields');
+    expect(schema).toContain('Current deterministic validation only checks frontmatter identity/freshness and the `Task Pack Contract` JSON structure');
+    expect(schema).toContain('Executable task cards must include these deterministic fields');
+    expect(schema).toContain('Quality Task Fields');
     expect(schema).toContain('MVP required task fields');
     expect(schema).toContain('Wave ids must be strings or numbers.');
-    expect(schema).toContain('Concrete repo-relative POSIX file paths; no globs, directories, `..`, `...`, or backslash separators');
+    expect(schema).toContain('Non-empty concrete repo-relative POSIX file paths; no globs, directories, `.`, `..`, `...`, or backslash separators');
     expect(schema).toContain('Boolean hint for whether the task can run in parallel');
     expect(schema).toContain('`stop_if`');
-    expect(schema).toContain('Optional Task Fields');
+    expect(schema).toContain('`target_repo`');
     expect(schema).toContain('| `test_focus` | Primary verification focus |');
     expect(schema).toContain('Granularity Guide');
     expect(schema).toContain('Scripts must not judge task splitting quality');
@@ -111,10 +129,78 @@ describe('spec-write-tasks contracts', () => {
     expect(guide).toContain('### Bad');
     expect(guide).toContain('Field Writing Guide');
     expect(guide).toContain('Task Pack Review Checklist');
+    expect(guide).toContain('Current deterministic validation treats `context_refs` as auxiliary context, not as a replacement for `source_unit` or `requirement_refs`.');
+    expect(guide).toContain('Use non-empty concrete repo-relative POSIX file paths');
     expect(guide).toContain('orientation_evidence');
     expect(guide).toContain('provider, posture, evidence_refs, and limitations');
     expect(guide).toContain('without turning LSP/current code state into source-plan scope');
     expect(guide).not.toContain('CR' + 'G');
+  });
+
+  test('eval cases cover trigger, boundary, failure, and expected behavior posture', () => {
+    const skill = read(SKILL_PATH);
+    const readme = read(EVALS_README_PATH);
+    const decisionLine = skill.match(/^decision: (.+)$/m);
+    const evalFiles = [
+      'trigger-cases.json',
+      'boundary-cases.json',
+      'failure-cases.json',
+      'expected-behavior-cases.json',
+    ];
+    const failureModesSection = skill.split('## Failure Modes')[1].split('## Scope Backoff')[0];
+    const allowedDecisions = new Set(decisionLine[1].split('|').map((decision) => decision.trim()));
+    const allowedFailures = new Set([...failureModesSection.matchAll(/^- `([a-z_]+)`: /gm)].map((match) => match[1]));
+    const seenIds = new Set();
+    const coveredDecisions = new Set();
+    const coveredFailures = new Set();
+
+    expect(allowedDecisions.size).toBeGreaterThanOrEqual(5);
+    expect(allowedFailures.size).toBeGreaterThanOrEqual(9);
+    expect(readme).toContain('LLM review fixtures，不是 executable eval runner');
+    expect(readme).toContain('`expected_decision` 必须来自 `SKILL.md` 的 Final Decision Envelope');
+    expect(readme).toContain('`expected_failure` 必须来自 `SKILL.md` 的 Failure Modes 枚举');
+    expect(readme).toContain('每个 decision 至少要有一个 eval case 覆盖');
+    expect(readme).toContain('每个 failure 至少要有一个 eval case 覆盖');
+    expect(readme).toContain('确定性测试只校验 JSON shape');
+    expect(readme).toContain('LLM 负责判断样例是否代表真实触发、边界、失败或期望行为');
+
+    for (const fileName of evalFiles) {
+      const payload = JSON.parse(read(path.join(EVALS_DIR, fileName)));
+
+      expect(payload.schema_version).toContain('spec-write-tasks');
+      expect(Array.isArray(payload.cases)).toBe(true);
+      expect(payload.cases.length).toBeGreaterThanOrEqual(3);
+
+      for (const evalCase of payload.cases) {
+        expect(typeof evalCase.id).toBe('string');
+        expect(evalCase.id).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+        expect(seenIds.has(evalCase.id)).toBe(false);
+        seenIds.add(evalCase.id);
+        expect(typeof evalCase.input).toBe('string');
+        expect(evalCase.input.length).toBeGreaterThan(0);
+
+        if (evalCase.expected_decision) {
+          expect(allowedDecisions.has(evalCase.expected_decision)).toBe(true);
+          coveredDecisions.add(evalCase.expected_decision);
+        }
+        if (evalCase.expected_failure) {
+          expect(allowedFailures.has(evalCase.expected_failure)).toBe(true);
+          coveredFailures.add(evalCase.expected_failure);
+        }
+      }
+    }
+
+    for (const decision of allowedDecisions) {
+      expect(coveredDecisions.has(decision)).toBe(true);
+    }
+    for (const failure of allowedFailures) {
+      expect(coveredFailures.has(failure)).toBe(true);
+    }
+
+    const failureCases = read(path.join(EVALS_DIR, 'failure-cases.json'));
+    expect(failureCases).toContain('missing_spec_id');
+    expect(failureCases).toContain('stale_hash');
+    expect(failureCases).toContain('repo_scope_missing');
   });
 
   test('spec-work variants validate task packs before creating execution tasks', () => {
@@ -140,7 +226,9 @@ describe('spec-write-tasks contracts', () => {
       expect(skill).toContain('do not create execution tasks until the task-pack validation checks above have passed');
       expect(skill).toContain('optional task-pack suitability check before `before-work --plan`');
       expect(skill).toContain('offer the diversion once only when the plan has strong signals');
+      expect(skill).toContain('load the standalone `spec-write-tasks` skill with the plan path');
       expect(skill).toContain('do not prompt again in this work run');
+      expect(skill).not.toContain('run `spec-write-tasks <plan-path>`');
     }
   });
 
@@ -150,6 +238,7 @@ describe('spec-write-tasks contracts', () => {
     expect(metadata).toContain('Compile settled plans into optional derived task packs');
     expect(metadata).toContain('first decide whether task compilation is warranted');
     expect(metadata).toContain('the appropriate spec-work workflow');
+    expect(metadata).toContain('allow_implicit_invocation: false');
     expect(metadata).not.toContain('$spec-work');
     expect(metadata).not.toContain('/spec:work');
   });
@@ -163,6 +252,8 @@ describe('spec-write-tasks contracts', () => {
 
       const runtimeSkill = read(path.join(projectRoot, '.agents', 'skills', 'spec-write-tasks', 'SKILL.md'));
       const runtimeMetadata = read(path.join(projectRoot, '.agents', 'skills', 'spec-write-tasks', 'agents', 'openai.yaml'));
+      const runtimeTriggerCases = path.join(projectRoot, '.agents', 'skills', 'spec-write-tasks', 'evals', 'trigger-cases.json');
+      const runtimeEvalsReadme = path.join(projectRoot, '.agents', 'skills', 'spec-write-tasks', 'evals', 'README.md');
 
       expect(runtimeSkill).toContain('name: write-tasks');
       expect(runtimeSkill).toContain('Task-Ready Check');
@@ -172,7 +263,12 @@ describe('spec-write-tasks contracts', () => {
       expect(runtimeSkill).not.toContain('source_plan_hash: pending-tooling');
       expect(runtimeMetadata).toContain('first decide whether task compilation is warranted');
       expect(runtimeMetadata).toContain('the appropriate spec-work workflow');
+      expect(runtimeMetadata).toContain('allow_implicit_invocation: false');
       expect(runtimeMetadata).not.toContain('$spec-work');
+      expect(fs.existsSync(runtimeTriggerCases)).toBe(true);
+      expect(fs.existsSync(runtimeEvalsReadme)).toBe(true);
+      expect(read(runtimeTriggerCases)).toContain('explicit-split-plan');
+      expect(read(runtimeEvalsReadme)).toContain('LLM review fixtures，不是 executable eval runner');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

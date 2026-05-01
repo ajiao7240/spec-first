@@ -1,6 +1,6 @@
 # 项目审查文档索引
 
-本目录用于沉淀对 `spec-first` 项目的阶段性代码审查、专项分析与整改路线图。  
+本目录用于沉淀对 `spec-first` 项目的阶段性代码审查、专项分析与整改路线图。
 这里的文档默认分为三类：
 
 - 仓库级总审查
@@ -18,19 +18,19 @@
 
 ## 阅读顺序
 
-1. [2026-04-18-spec-first-code-audit-report.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/2026-04-18-spec-first-code-audit-report.md)  
+1. [2026-04-18-spec-first-code-audit-report.md](2026-04-18-spec-first-code-audit-report.md)
    作用：仓库级总审查，回答项目本质、系统定位、核心风险、总体优先级。
 
-2. [2026-04-18-spec-first-strengths-weaknesses-summary.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/2026-04-18-spec-first-strengths-weaknesses-summary.md)  
+2. [2026-04-18-spec-first-strengths-weaknesses-summary.md](2026-04-18-spec-first-strengths-weaknesses-summary.md)
    作用：补充摘要，聚焦项目优缺点、`caution over speed` 取向，以及从软件工程 / AI workflow / specification engineering 三个视角的判断。
 
-3. [2026-04-18-spec-first-principle-aligned-rereview.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/2026-04-18-spec-first-principle-aligned-rereview.md)  
+3. [2026-04-18-spec-first-principle-aligned-rereview.md](2026-04-18-spec-first-principle-aligned-rereview.md)
    作用：原则对齐版复审，专门检查整改建议是否符合“轻 contract + 明确边界 + 让 LLM 决策”，并防止后续优化滑向强编排 / 状态机。
 
-4. [2026-04-18-spec-graph-bootstrap-audit.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-audit.md)  
+4. [2026-04-18-spec-graph-bootstrap-audit.md](spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-audit.md)
    作用：专项深挖，聚焦 `spec-graph-bootstrap` 对 Stage-0 决策输入和 `plan/work/review` 下游链路的影响。
 
-5. [2026-04-18-spec-graph-bootstrap-optimization-roadmap.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-optimization-roadmap.md)  
+5. [2026-04-18-spec-graph-bootstrap-optimization-roadmap.md](spec-graph-bootstrap/2026-04-18-spec-graph-bootstrap-optimization-roadmap.md)
    作用：整改路线图，把专项审查结论转成可执行的优化顺序。
 
 ## 文档类型说明

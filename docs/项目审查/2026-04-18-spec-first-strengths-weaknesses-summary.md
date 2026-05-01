@@ -1,14 +1,14 @@
 # Spec-First 优缺点与架构判断摘要
 
-文档角色：`补充摘要 / executive summary`  
-服务对象：`技术负责人 / 工作流架构负责人 / Specification Engineering 负责人`  
-上位文档：[2026-04-18-spec-first-code-audit-report.md](/Users/kuang/xiaobu/spec-first/docs/项目审查/2026-04-18-spec-first-code-audit-report.md)  
-日期：`2026-04-18`  
+文档角色：`补充摘要 / executive summary`
+服务对象：`技术负责人 / 工作流架构负责人 / Specification Engineering 负责人`
+上位文档：[2026-04-18-spec-first-code-audit-report.md](./2026-04-18-spec-first-code-audit-report.md)
+日期：`2026-04-18`
 结论口径：以本次仓库代码检查与当日命令实测为准
 
 ## 1. 本文用途
 
-这不是第二份仓库级主报告。  
+这不是第二份仓库级主报告。
 它是对主报告的补充摘要，回答四个更聚焦的问题：
 
 1. 当前项目最强的地方是什么
@@ -89,19 +89,19 @@
 
 ## 5. 当前项目最强的 5 个点
 
-1. **双宿主治理做得扎实**  
+1. **双宿主治理做得扎实**
    `plugin.json`、`skills-governance.json`、adapter、runtime asset sync、doctor 检查之间有比较完整的闭环。
 
-2. **CLI 控制面是实的**  
+2. **CLI 控制面是实的**
    `init` 不只是拷文件，还是一次受管 runtime 交易，包含状态读取、迁移、重建、治理块写入和 drift 收口。
 
-3. **测试不是摆设**  
+3. **测试不是摆设**
    至少从这次实测看，contract、smoke、integration 形成了较可信的基本面。
 
-4. **项目定位清晰**  
+4. **项目定位清晰**
    它不是纯“自动代码生成器”，而是“治理 AI 如何协作、如何使用上下文、如何沉淀工件”的 workflow system。
 
-5. **设计哲学自洽**  
+5. **设计哲学自洽**
    仓库明确强调 `轻 contract + 明确边界 + 让 LLM 决策`，而不是执着于把所有执行路径硬编码成机械流程树。
 
 ## 6. 当前项目最弱的 5 个点
@@ -167,7 +167,7 @@
 
 更完整一点说：
 
-`spec-first` 已经具备成为高质量 AI Engineering Workflow 基础设施的潜力；它比大多数同类项目更早意识到 runtime governance、entry governance、host boundary、verification contract 和 knowledge compound 的重要性。  
+`spec-first` 已经具备成为高质量 AI Engineering Workflow 基础设施的潜力；它比大多数同类项目更早意识到 runtime governance、entry governance、host boundary、verification contract 和 knowledge compound 的重要性。
 但它现在最需要做的，不是再扩一层治理，而是**收口主控制面、压缩重复说明层、提升输入真实性，并降低整个系统的认知表面积**。
 
 ## 9. 最优先的整改建议

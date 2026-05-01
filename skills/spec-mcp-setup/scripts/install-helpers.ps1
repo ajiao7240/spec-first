@@ -24,6 +24,24 @@ function Invoke-HelperCommand {
   }
 }
 
+function Invoke-NpmGlobalInstallWithOptionalSudo {
+  param([string[]]$Packages)
+
+  $previousCi = $env:CI
+  $env:CI = 'true'
+  try {
+    if (Invoke-HelperCommand { npm install -g @Packages --no-audit --no-fund --loglevel=error }) {
+      return $true
+    }
+    if (Test-CommandExists 'sudo') {
+      return (Invoke-HelperCommand { sudo -n env CI=true npm install -g @Packages --no-audit --no-fund --loglevel=error })
+    }
+    return $false
+  } finally {
+    $env:CI = $previousCi
+  }
+}
+
 function Write-AgentBrowserInstallMarker {
   $markerDir = Split-Path -Parent $agentBrowserInstallMarker
   New-Item -ItemType Directory -Force -Path $markerDir | Out-Null
@@ -147,7 +165,7 @@ function Invoke-HelperInstall {
     )
 
     if (Test-CommandExists 'sudo') {
-      & sudo $Command @Arguments
+      & sudo -n $Command @Arguments
     } else {
       & $Command @Arguments
     }
@@ -215,10 +233,10 @@ function Invoke-HelperInstall {
       return (Invoke-BrewLatestInstall -Package 'ffmpeg')
     }
     'ast-grep' {
-      if ($Platform -eq 'windows') { return (Invoke-HelperCommand { npm install -g @ast-grep/cli@latest }) }
+      if ($Platform -eq 'windows') { return (Invoke-NpmGlobalInstallWithOptionalSudo -Packages @('@ast-grep/cli@latest')) }
       if ($Platform -eq 'linux') {
         if (Test-CommandExists 'cargo') { return (Invoke-HelperCommand { cargo install ast-grep --locked --force }) }
-        if (Test-CommandExists 'npm') { return (Invoke-HelperCommand { npm install -g @ast-grep/cli@latest }) }
+        if (Test-CommandExists 'npm') { return (Invoke-NpmGlobalInstallWithOptionalSudo -Packages @('@ast-grep/cli@latest')) }
         return $false
       }
       return (Invoke-BrewLatestInstall -Package 'ast-grep')
@@ -280,10 +298,7 @@ if (-not (Test-CommandExists 'agent-browser')) {
   $nextAction = 'install agent-browser CLI'
   if ($mode -eq 'verify-only') {
   } else {
-    $previousCi = $env:CI
-    $env:CI = 'true'
-    $installed = Invoke-HelperCommand { npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error }
-    $env:CI = $previousCi
+    $installed = Invoke-NpmGlobalInstallWithOptionalSudo -Packages @('agent-browser@latest')
     if ($installed) {
       $dependencyStatus = 'ready'
       $installStatus = 'ready'

@@ -60,16 +60,29 @@ if [[ "\${FAIL_GITNEXUS_QUERY:-}" = "1" && " \$* " == *" gitnexus@"*" query "* ]
   exit 42
 fi
 if [[ " \$* " == *" gitnexus@"*" query "* ]]; then
+  query_token=""
+  previous_arg=""
+  for current_arg in "\$@"; do
+    if [[ "\$previous_arg" = "query" ]]; then
+      query_token="\$current_arg"
+      break
+    fi
+    previous_arg="\$current_arg"
+  done
   if [[ "\${GITNEXUS_QUERY_FTS_EMPTY:-}" = "1" ]]; then
     echo "FTS index ensure failed: Cannot execute write operations in a read-only database" >&2
     printf '{"processes":[],"process_symbols":[],"definitions":[]}\n'
     exit 0
   fi
-  if [[ "\${GITNEXUS_QUERY_DEFINITIONS_ONLY:-}" = "1" ]]; then
-    printf '{"processes":[],"process_symbols":[],"definitions":[{"name":"TradeLoginActivity"}]}\n'
+  if [[ "\${GITNEXUS_QUERY_SECOND_CANDIDATE_SUCCEEDS:-}" = "1" && "\$query_token" != "$GITNEXUS_QUERY_PROBE" ]]; then
+    printf '{"processes":[],"process_symbols":[],"definitions":[{"name":"%s"}]}\n' "\$query_token"
     exit 0
   fi
-  printf '{"processes":[{"name":"probe"}],"process_symbols":[],"definitions":[]}\n'
+  if [[ "\${GITNEXUS_QUERY_DEFINITIONS_ONLY:-}" = "1" ]]; then
+    printf '{"processes":[],"process_symbols":[],"definitions":[{"name":"%s"}]}\n' "\$query_token"
+    exit 0
+  fi
+  printf '{"processes":[{"name":"probe","token":"%s"}],"process_symbols":[],"definitions":[]}\n' "\$query_token"
 fi
 exit 0
 SH
@@ -274,6 +287,51 @@ assert_eq "provider status records expected-hit query policy" "true:git-ls-files
 assert_eq "graph-bootstrap does not mutate provider config input" "$primary_provider_config_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
 assert_eq "graph-bootstrap does not mutate runtime capabilities input" "$primary_runtime_capabilities_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
 
+MULTI_PROBE_REPO="$TMP_DIR/multi-probe-repo"
+MULTI_PROBE_LEDGER="$TMP_DIR/multi-probe-home/.codex/spec-first/host-setup.json"
+make_repo "$MULTI_PROBE_REPO"
+write_fixture_config "$MULTI_PROBE_REPO" "$MULTI_PROBE_LEDGER" true
+jq --arg probe "$GITNEXUS_QUERY_PROBE" '
+  .providers.gitnexus.commands.query_probe[4] = "AdvertiseActivity"
+  | .providers.gitnexus.query_probe_policy.token = "AdvertiseActivity"
+  | .providers.gitnexus.query_probe_policy.selected_from = "app-core/src/main/java/com/hstong/app_core/ads/AdvertiseActivity.java"
+  | .providers.gitnexus.query_probe_policy.candidates = [
+      {token:"AdvertiseActivity", selected_from:"app-core/src/main/java/com/hstong/app_core/ads/AdvertiseActivity.java", reason_code:"android_named"},
+      {token:$probe, selected_from:"trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java", reason_code:"entrypoint_named"}
+    ]
+' "$MULTI_PROBE_REPO/.spec-first/config/graph-providers.json" > "$MULTI_PROBE_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$MULTI_PROBE_REPO/.spec-first/config/graph-providers.json.tmp" "$MULTI_PROBE_REPO/.spec-first/config/graph-providers.json"
+multi_probe_output="$(cd "$MULTI_PROBE_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_SECOND_CANDIDATE_SUCCEEDS=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "multi-candidate probe verifies on later process result" "primary" "$(jq -r '.workflow_mode' <<<"$multi_probe_output")"
+assert_eq "multi-candidate attempts are recorded" "2:definitions-only:process-results:true" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_attempts | length):\(.query_probe_attempts[0].result_class):\(.query_probe_attempts[1].result_class):\(.query_ready)"' <<<"$multi_probe_output")"
+assert_contains "multi-candidate probe runs first token" "npx -y $GITNEXUS_PACKAGE query AdvertiseActivity --repo $(basename "$MULTI_PROBE_REPO")" "$(cat "$COMMAND_LOG")"
+assert_contains "multi-candidate probe runs second token" "npx -y $GITNEXUS_PACKAGE query $GITNEXUS_QUERY_PROBE --repo $(basename "$MULTI_PROBE_REPO")" "$(cat "$COMMAND_LOG")"
+assert "multi-candidate secondary raw log exists" test -f "$MULTI_PROBE_REPO/.spec-first/providers/gitnexus/raw/query-2.log"
+assert_eq "multi-candidate normalized artifact points to winning raw log" "true:.spec-first/providers/gitnexus/raw/query-2.log" "$(jq -r '(.source_raw_logs | index(".spec-first/providers/gitnexus/raw/query-2.log") != null | tostring) + ":" + (.winning_query_probe_log // "")' "$MULTI_PROBE_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+
+TRUNCATED_PROBE_REPO="$TMP_DIR/truncated-probe-repo"
+TRUNCATED_PROBE_LEDGER="$TMP_DIR/truncated-probe-home/.codex/spec-first/host-setup.json"
+make_repo "$TRUNCATED_PROBE_REPO"
+write_fixture_config "$TRUNCATED_PROBE_REPO" "$TRUNCATED_PROBE_LEDGER" true
+jq '
+  .providers.gitnexus.commands.query_probe[4] = "ProbeOne"
+  | .providers.gitnexus.query_probe_policy.token = "ProbeOne"
+  | .providers.gitnexus.query_probe_policy.selected_from = "src/ProbeOne.ts"
+  | .providers.gitnexus.query_probe_policy.candidates = [
+      {token:"ProbeOne", selected_from:"src/ProbeOne.ts", reason_code:"workflow_named"},
+      {token:"ProbeTwo", selected_from:"src/ProbeTwo.ts", reason_code:"workflow_named"},
+      {token:"ProbeThree", selected_from:"src/ProbeThree.ts", reason_code:"workflow_named"},
+      {token:"ProbeFour", selected_from:"src/ProbeFour.ts", reason_code:"workflow_named"},
+      {token:"ProbeFive", selected_from:"src/ProbeFive.ts", reason_code:"workflow_named"},
+      {token:"ProbeSix", selected_from:"src/ProbeSix.ts", reason_code:"workflow_named"}
+    ]
+' "$TRUNCATED_PROBE_REPO/.spec-first/config/graph-providers.json" > "$TRUNCATED_PROBE_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$TRUNCATED_PROBE_REPO/.spec-first/config/graph-providers.json.tmp" "$TRUNCATED_PROBE_REPO/.spec-first/config/graph-providers.json"
+truncated_probe_output="$(cd "$TRUNCATED_PROBE_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "multi-candidate probe enforces consumer-side limit" "5:true:5:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_attempts | length):\(.query_probe_candidates_truncated):\(.query_probe_candidate_limit):\(.query_ready)"' <<<"$truncated_probe_output")"
+assert_contains "truncated candidate limitation is explicit" "Only the first 5 bounded GitNexus query probe candidates were attempted" "$(jq -r '.results[] | select(.provider=="gitnexus") | .query_verification_reason' <<<"$truncated_probe_output")"
+assert "sixth truncated query log is not created" test ! -f "$TRUNCATED_PROBE_REPO/.spec-first/providers/gitnexus/raw/query-6.log"
+
 VERSIONED_REPO="$TMP_DIR/versioned-command-repo"
 VERSIONED_LEDGER="$TMP_DIR/versioned-home/.codex/spec-first/host-setup.json"
 make_repo "$VERSIONED_REPO"
@@ -294,6 +352,7 @@ disabled_output="$(cd "$DISABLED_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCR
 assert_eq "disabled provider uses fallback workflow" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$disabled_output")"
 assert_eq "disabled provider status keeps real enabled flag" "false:disabled-for-bootstrap" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.enabled_for_bootstrap):\(.skip_reason)"' <<<"$disabled_output")"
 assert_eq "disabled provider is skipped not failed" "true" "$(jq -r '(.skipped_primary_providers | index("code-review-graph") != null) and (.failed_primary_providers | index("code-review-graph") == null)' "$DISABLED_REPO/.spec-first/graph/provider-status.json")"
+assert_eq "disabled provider is skipped not degraded in graph facts" "false:true" "$(jq -r '(.provider_summary.degraded_providers | index("code-review-graph") != null | tostring) + ":" + (.provider_summary.skipped_primary_providers | index("code-review-graph") != null | tostring)' "$DISABLED_REPO/.spec-first/graph/graph-facts.json")"
 
 DISABLED_UNSAFE_REPO="$TMP_DIR/disabled-unsafe-repo"
 DISABLED_UNSAFE_LEDGER="$TMP_DIR/disabled-unsafe-home/.codex/spec-first/host-setup.json"
@@ -340,6 +399,20 @@ assert_eq "metachar command fails closed" "1" "$metachar_status"
 assert_eq "metachar command reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$metachar_output")"
 assert_eq "metachar command is not shell-interpreted" "$before_metachar_log" "$(cat "$COMMAND_LOG")"
 
+METADATA_REPO="$TMP_DIR/metadata-repo"
+METADATA_LEDGER="$TMP_DIR/metadata-home/.codex/spec-first/host-setup.json"
+make_repo "$METADATA_REPO"
+write_fixture_config "$METADATA_REPO" "$METADATA_LEDGER" true
+jq '
+  .providers.gitnexus.query_probe_policy.candidates = [
+    {token:"TradeLoginActivity", selected_from:"src/routes/$id/TradeLoginActivity.ts", reason_code:"workflow_named"}
+  ]
+' "$METADATA_REPO/.spec-first/config/graph-providers.json" > "$METADATA_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$METADATA_REPO/.spec-first/config/graph-providers.json.tmp" "$METADATA_REPO/.spec-first/config/graph-providers.json"
+metadata_output="$(cd "$METADATA_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "query probe metadata allows route-style selected_from characters" "primary" "$(jq -r '.workflow_mode' <<<"$metadata_output")"
+assert_eq "metadata selected_from is preserved in attempts" 'src/routes/$id/TradeLoginActivity.ts' "$(jq -r '.results[] | select(.provider=="gitnexus") | .query_probe_attempts[0].selected_from' <<<"$metadata_output")"
+
 QUERY_REPO="$TMP_DIR/query-repo"
 QUERY_LEDGER="$TMP_DIR/query-home/.codex/spec-first/host-setup.json"
 make_repo "$QUERY_REPO"
@@ -365,7 +438,10 @@ write_fixture_config "$DEFINITIONS_ONLY_REPO" "$DEFINITIONS_ONLY_LEDGER" true
 definitions_only_output="$(cd "$DEFINITIONS_ONLY_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "definitions-only query result degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$definitions_only_output")"
 assert_eq "definitions-only result is not query-ready" "query-unverified:true:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.graph_ready):\(.query_ready)"' <<<"$definitions_only_output")"
-assert_contains "definitions-only limitation requires BM25/process surface" "BM25/process" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$definitions_only_output")"
+assert_contains "definitions-only limitation is explicit" "definitions-only evidence" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$definitions_only_output")"
+assert_contains "definitions-only reason is structured" "definitions-only evidence" "$(jq -r '.results[] | select(.provider=="gitnexus") | .query_verification_reason' <<<"$definitions_only_output")"
+assert_contains "bootstrap report includes probe token column" "Probe Token" "$(cat "$DEFINITIONS_ONLY_REPO/.spec-first/graph/bootstrap-report.md")"
+assert_contains "bootstrap report includes definitions-only evidence" "definitions-only evidence" "$(cat "$DEFINITIONS_ONLY_REPO/.spec-first/graph/bootstrap-report.md")"
 
 SIGSEGV_REPO="$TMP_DIR/sigsegv-repo"
 SIGSEGV_LEDGER="$TMP_DIR/sigsegv-home/.codex/spec-first/host-setup.json"

@@ -17,6 +17,7 @@
       "summary_label": "Serena",
       "required": true,
       "category": "mcp",
+      "host_config_required": true,
       "provider_role": null,
       "description": "符号级精确编辑引擎，spec-first 全工作流依赖",
       "dependencies": ["uv", "uvx"],
@@ -103,6 +104,7 @@
       "summary_label": "Sequential Thinking",
       "required": true,
       "category": "mcp",
+      "host_config_required": true,
       "provider_role": null,
       "description": "动态反思性问题解决，spec-first 全工作流通用依赖",
       "dependencies": ["node", "npx"],
@@ -182,6 +184,7 @@
       "summary_label": "Context7",
       "required": true,
       "category": "mcp",
+      "host_config_required": true,
       "provider_role": null,
       "description": "最新框架文档查询，spec-first 全工作流通用依赖",
       "dependencies": ["node", "npx"],
@@ -261,6 +264,7 @@
       "summary_label": "GitNexus",
       "required": true,
       "category": "graph-provider",
+      "host_config_required": true,
       "provider_role": "global_knowledge",
       "description": "全局代码库知识图谱与架构认知 provider，用于项目级代码事实输入",
       "dependencies": ["node", "npm", "npx"],
@@ -268,17 +272,17 @@
         "kind": "warmup",
         "unix": {
           "command": "npx",
-          "args": ["-y", "gitnexus@1.6.3", "--help"]
+          "args": ["-y", "gitnexus@1.6.4-rc.37", "--help"]
         },
         "windows": {
           "command": "npx",
-          "args": ["-y", "gitnexus@1.6.3", "--help"]
+          "args": ["-y", "gitnexus@1.6.4-rc.37", "--help"]
         }
       },
       "host_config": {
         "claude": {
           "command": "npx",
-          "args": ["-y", "gitnexus@1.6.3", "mcp"],
+          "args": ["-y", "gitnexus@1.6.4-rc.37", "mcp"],
           "scope": "managed",
           "targets": {
             "managed": {
@@ -304,7 +308,7 @@
         },
         "codex": {
           "command": "npx",
-          "args": ["-y", "gitnexus@1.6.3", "mcp"],
+          "args": ["-y", "gitnexus@1.6.4-rc.37", "mcp"],
           "startup_timeout_sec": 90,
           "scope": "user",
           "targets": {
@@ -357,8 +361,9 @@
       "summary_label": "code-review-graph",
       "required": true,
       "category": "graph-provider",
+      "host_config_required": false,
       "provider_role": "impact_context",
-      "description": "上游 code-review-graph MCP server，用于影响半径、最小上下文与 review context",
+      "description": "上游 code-review-graph CLI graph provider，用于影响半径、最小上下文与 review context；live MCP server 仅作为显式可选增强",
       "dependencies": ["uv", "uvx"],
       "installation": {
         "kind": "warmup",
@@ -430,6 +435,9 @@
         "required": false
       },
       "provider_config": {
+        "access_mode": "cli_artifact",
+        "host_mcp_required": false,
+        "optional_live_mcp": true,
         "enabled_for_bootstrap": true,
         "query_ready_after_setup": false,
         "role": "impact_context",

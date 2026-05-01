@@ -1,8 +1,10 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
+const ClaudeAdapter = require('../../src/cli/adapters/claude');
 const CodexAdapter = require('../../src/cli/adapters/codex');
 const {
   buildFilteredAssetSet,
@@ -10,6 +12,7 @@ const {
   listBundledAgentSupportFiles,
   listBundledSkills,
   loadPluginManifest,
+  syncBundledAssets,
 } = require('../../src/cli/plugin');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
@@ -24,6 +27,10 @@ const DOCS_SIDE_GOVERNANCE_DIR = path.join(
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const README_PATH = path.join(REPO_ROOT, 'README.md');
 const README_ZH_PATH = path.join(REPO_ROOT, 'README.zh-CN.md');
+const USER_MANUAL_QUICKSTART_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/01-快速开始.md');
+const USER_MANUAL_FAQ_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/04-常见问题.md');
+const USER_MANUAL_LOCAL_INSTALL_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/06-本地源码安装.md');
+const RELEASE_NOTES_PATH = path.join(REPO_ROOT, 'docs/08-版本更新/README.md');
 const GITIGNORE_PATH = path.join(REPO_ROOT, '.gitignore');
 const RELEASE_SMOKE_PATH = path.join(REPO_ROOT, 'tests/smoke/release-dual-host-governance.sh');
 const MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/SKILL.md');
@@ -68,6 +75,7 @@ describe('dual-host governance contracts', () => {
     expect(contract).toContain('skills');
     expect(contract).toContain('skipped');
     expect(contract).toContain('至少还要有一个非 `owner_host` 宿主可交付');
+    expect(contract).toContain('新增普通 workflow skill 不默认新增 docs mirror');
   });
 
   test('codex adapter stops installing command files but retains cleanup path', () => {
@@ -93,6 +101,7 @@ describe('dual-host governance contracts', () => {
     const manifest = loadPluginManifest();
     const mcpSetup = manifest.commands.find((command) => command.name === 'mcp-setup');
     const graphBootstrap = manifest.commands.find((command) => command.name === 'graph-bootstrap');
+    const skillAudit = manifest.commands.find((command) => command.name === 'skill-audit');
 
     expect(manifest.version).toBe(readJson(PACKAGE_JSON_PATH).version);
     expect(mcpSetup).toMatchObject({
@@ -107,6 +116,60 @@ describe('dual-host governance contracts', () => {
       argumentHint: '',
       skill: 'spec-graph-bootstrap',
     });
+    expect(skillAudit).toMatchObject({
+      filename: 'skill-audit.md',
+      description: 'Run the Spec-First skill audit workflow',
+      argumentHint: '[target skill path or audit options]',
+      skill: 'spec-skill-audit',
+    });
+  });
+
+  test('skill audit is delivered as a Claude command and Codex workflow skill', () => {
+    const claudeAssets = buildFilteredAssetSet('claude');
+    const codexAssets = buildFilteredAssetSet('codex');
+
+    expect(claudeAssets.commands.map((command) => command.name)).toContain('skill-audit');
+    expect(claudeAssets.workflowSkills).toContain('spec-skill-audit');
+    expect(codexAssets.workflowSkills).toContain('spec-skill-audit');
+    expect(codexAssets.commands.map((command) => command.name)).not.toContain('skill-audit');
+  });
+
+  test('skill audit runtime delivery writes Claude command and Codex workflow skill only', () => {
+    const claudeProject = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-claude-runtime-'));
+    const codexProject = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-codex-runtime-'));
+
+    try {
+      syncBundledAssets(claudeProject, new ClaudeAdapter());
+      syncBundledAssets(codexProject, new CodexAdapter());
+
+      const claudeCommandPath = path.join(claudeProject, '.claude', 'commands', 'spec', 'skill-audit.md');
+      const claudeWorkflowSkillPath = path.join(
+        claudeProject,
+        '.claude',
+        'spec-first',
+        'workflows',
+        'spec-skill-audit',
+        'SKILL.md',
+      );
+      const codexWorkflowSkillPath = path.join(
+        codexProject,
+        '.agents',
+        'skills',
+        'spec-skill-audit',
+        'SKILL.md',
+      );
+      const codexCommandPath = path.join(codexProject, '.codex', 'commands', 'spec', 'skill-audit.md');
+
+      expect(fs.existsSync(claudeCommandPath)).toBe(true);
+      expect(read(claudeCommandPath)).toContain('# Skill Audit');
+      expect(read(claudeCommandPath)).toContain('Audit agent skills as engineering protocols');
+      expect(fs.existsSync(claudeWorkflowSkillPath)).toBe(true);
+      expect(fs.existsSync(codexWorkflowSkillPath)).toBe(true);
+      expect(fs.existsSync(codexCommandPath)).toBe(false);
+    } finally {
+      fs.rmSync(claudeProject, { recursive: true, force: true });
+      fs.rmSync(codexProject, { recursive: true, force: true });
+    }
   });
 
   test('mcp setup final response preserves the full readiness table contract', () => {
@@ -121,7 +184,7 @@ describe('dual-host governance contracts', () => {
     expect(mcpSetup).toContain('Helper tools:');
     expect(mcpSetup).toContain('Project setup facts:');
     expect(mcpSetup).toMatch(/\|\s*Name\s*\|\s*Role\s*\|\s*Dependency\s*\|\s*Host\s*\|\s*Project\s*\|\s*Next\s*\|/);
-    expect(mcpSetup).toMatch(/\|\s*Name\s*\|\s*Role\s*\|\s*Dependency\s*\|\s*Host\s*\|\s*Query\s*\|\s*Next\s*\|/);
+    expect(mcpSetup).toMatch(/\|\s*Name\s*\|\s*Role\s*\|\s*Dependency\s*\|\s*Host\s*\|\s*Query\s*\|\s*Bootstrap\s*\|\s*Next\s*\|/);
     expect(mcpSetup).toMatch(/\|\s*Name\s*\|\s*Type\s*\|\s*Result\s*\|\s*Dependency\s*\|\s*Install\s*\|\s*Skill\s*\|\s*Next\s*\|/);
     expect(mcpSetup).toMatch(/\|\s*Artifact\s*\|\s*Project\s*\|\s*Next\s*\|/);
     expect(mcpSetup).toContain('下一步:');
@@ -172,6 +235,10 @@ describe('dual-host governance contracts', () => {
     const readme = read(README_PATH);
     const readmeZh = read(README_ZH_PATH);
     const mcpSetup = read(MCP_SETUP_SKILL_PATH);
+    const quickstart = read(USER_MANUAL_QUICKSTART_PATH);
+    const faq = read(USER_MANUAL_FAQ_PATH);
+    const localInstall = read(USER_MANUAL_LOCAL_INSTALL_PATH);
+    const releaseNotes = read(RELEASE_NOTES_PATH);
 
     expect(readme).toContain('$spec-mcp-setup');
     expect(readme).toContain('$spec-graph-bootstrap');
@@ -212,6 +279,15 @@ describe('dual-host governance contracts', () => {
 
     expect(mcpSetup).toContain('**Codex entry point:** `$spec-mcp-setup`');
     expect(mcpSetup).not.toContain('**Codex entry point:** `/spec:mcp-setup`');
+
+    expect(quickstart).toContain('Codex 的 `.agents/skills`、`.codex/agents` 都通过检查');
+    expect(quickstart).not.toContain('Codex 的 `.codex/commands/spec`');
+    expect(faq).toContain('Claude 的 `/spec:*` 或 Codex 的 `$spec-*` 入口');
+    expect(faq).toContain('Claude 的 `/spec:*` 或 Codex 的 `$spec-*` 不生效');
+    expect(localInstall).not.toContain('ls .codex/commands/spec');
+    expect(releaseNotes).toContain('当前 Codex 正式入口以 `$spec-*` skills 为准');
+    expect(releaseNotes).toContain('只作为旧版本遗留清理目标');
+    expect(releaseNotes).not.toContain('Codex init 现在也会生成 `/spec:*` command files');
   });
 
   test('active source-of-truth surfaces use external graph bootstrap without retired CRG CLI', () => {

@@ -7,6 +7,7 @@
 当前推荐的事实准备与知识沉淀入口：
 
 - `spec-graph-bootstrap`：external graph-provider readiness facts 编译入口
+- `spec-skill-audit`：source skill 质量、治理投递、runtime drift 与安全信号审计入口
 - `spec-compound`：工作完成后的稳定知识捕获入口
 
 当前功能状态：
@@ -30,7 +31,7 @@
 - 一个前置的 `/spec:ideate` 候选发散入口
 - Claude Code 的 `/spec:*` 命令入口
 - Codex 的 `$spec-*` skill 入口
-- 当前推荐的 graph readiness 事实入口：`spec-graph-bootstrap`，以及知识沉淀入口 `spec-compound`
+- 当前推荐的 graph readiness 事实入口：`spec-graph-bootstrap`，source skill 审计入口 `spec-skill-audit`，以及知识沉淀入口 `spec-compound`
 - 一条 `Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound` 的标准闭环
 - 项目级 `.claude/commands/spec`
 - 项目级 `.claude/skills`、`.claude/spec-first/workflows` 与 `.claude/agents`
@@ -38,6 +39,8 @@
 - 项目级 `.claude/spec-first/.developer` / `.codex/spec-first/.developer`
 - 严格 schema 的 `.claude/spec-first/state.json` / `.codex/spec-first/state.json`
 - 可更新、可恢复、可清理的受管资产模型
+- 一条面向首次使用者的 workflow 走查，说明从一个需求句子到 requirements / plan / task pack 的真实产物链路
+- 一份 workflow 产物目录，说明每类文档和 generated runtime assets 的生成者、读取方与 Git 边界
 
 ![Spec-First 五阶段工作流](../assets/svg/spec-first-workflow.svg)
 
@@ -48,25 +51,30 @@
 ## 阅读顺序
 
 1. [快速开始](./01-快速开始.md)
-2. [核心概念](./02-核心概念.md)
-3. [完整示例](./03-完整示例.md)
-4. [常见问题](./04-常见问题.md)
-5. [最佳实践](./05-最佳实践.md)
-6. [本地源码安装](./06-本地源码安装.md)
-7. [内部培训使用讲稿](./07-内部培训使用讲稿.md)
+2. [首次工作流走查](./09-首次工作流走查.md)
+3. [核心概念](./02-核心概念.md)
+4. [完整示例](./03-完整示例.md)
+5. [Workflows 与产物地图](./04-workflows-artifacts-map.md)
+6. [产物目录](./10-产物目录.md)
+7. [常见问题](./04-常见问题.md)
+8. [最佳实践](./05-最佳实践.md)
+9. [三种开发模式](./08-三种开发模式.md)
+10. [本地源码安装](./06-本地源码安装.md)
+11. [内部培训使用讲稿](./07-内部培训使用讲稿.md)
 
 ## 建议阅读路径
 
-- 如果你第一次使用，先看 [快速开始](./01-快速开始.md)
+- 如果你第一次使用，先看 [快速开始](./01-快速开始.md)，再看 [首次工作流走查](./09-首次工作流走查.md)
 - 如果你要理解运行模型和前置 ideate + 五阶段闭环，先看 [核心概念](./02-核心概念.md)
 - 如果你要确认真实执行过程，看 [完整示例](./03-完整示例.md)
+- 如果你要判断某个文档或 runtime 目录该不该手改、该不该提交，先看 [产物目录](./10-产物目录.md)
 - 如果你在排障，看 [常见问题](./04-常见问题.md)
-- 如果你关注 graph readiness、runtime/control-plane 与 Git 协作边界，重点看 [核心概念](./02-核心概念.md)、[最佳实践](./05-最佳实践.md) 和 [常见问题](./04-常见问题.md)
+- 如果你关注 graph readiness、runtime/control-plane 与 Git 协作边界，重点看 [核心概念](./02-核心概念.md)、[Workflows 与产物地图](./04-workflows-artifacts-map.md)、[最佳实践](./05-最佳实践.md) 和 [常见问题](./04-常见问题.md)
 - 如果你在做本地调试或仓库维护，看 [本地源码安装](./06-本地源码安装.md)
 - 如果你在做团队内部分享或培训，先看 [内部培训使用讲稿](./07-内部培训使用讲稿.md)
 
 ## 版本
 
-当前版本线：`v1.5.9`
+当前版本线：`v1.6.1`
 
 > 说明：本手册对应当前 `spec-first` 代码与运行时资产布局；若下游章节仍保留旧 Stage-0 / 旧目录口径，应以本手册前面的当前事实说明为准。

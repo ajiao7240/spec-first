@@ -1,0 +1,26 @@
+{
+  "schema_version": "spec-first.spec-write-tasks-trigger-cases.v1",
+  "cases": [
+    {
+      "id": "explicit-split-plan",
+      "input": "Please split docs/plans/2026-05-01-example-plan.md into tasks.",
+      "context": "The referenced plan exists, has spec_id, and has multiple implementation units.",
+      "expected_decision": "compile",
+      "expected_next_action": "Generate an executable task pack if the plan passes task-ready checks."
+    },
+    {
+      "id": "work-suitability-diversion",
+      "input": "A spec-work suitability check says the plan has dependency chains, cross-module files, and multiple verification layers.",
+      "context": "The user has not explicitly refused task compilation, and the source plan passes task-ready checks.",
+      "expected_decision": "compile",
+      "expected_next_action": "Generate an executable task pack because the suitability check already found strong value signals."
+    },
+    {
+      "id": "bare-request-no-unique-plan",
+      "input": "Split this plan into tasks.",
+      "context": "Multiple recent docs/plans/*-plan.md files exist and none is clearly referenced.",
+      "expected_decision": "return-to-plan",
+      "expected_next_action": "Ask for the plan path instead of guessing task scope."
+    }
+  ]
+}

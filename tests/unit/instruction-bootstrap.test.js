@@ -41,11 +41,17 @@ describe('instruction bootstrap', () => {
     expect(twice).toContain('`using-spec-first` 是 standalone meta skill，不是 workflow command');
     expect(twice).toContain('不要默认进入 `spec-brainstorm`');
     expect(twice).toContain('不要自动串联多个 workflow');
+    expect(twice).toContain('如果用户询问下一步、该用哪个命令或不知道 workflow');
+    expect(twice).toContain('按 `using-spec-first` 的 guide mode 推荐一个公开入口、一句理由和一个下一步动作');
     expect(twice).toContain('bounded subagent');
     expect(twice).toContain('常见入口锚点：环境/MCP');
     expect(twice).toContain('可度量优化→`/spec:optimize`');
     expect(twice).toContain('完整选择策略、优先级和 red flags 由 spec-first 随包的 `using-spec-first` 维护');
     expect(twice).toContain('不要直接暴露 internal-only skills');
+    expect(twice).not.toContain('startup-reminder --codex');
+    expect(twice).not.toContain('$spec-update` 由用户自主决策升级');
+    expect(twice).not.toContain('spec-next');
+    expect(twice).not.toContain('spec-guide');
     expect(twice).not.toContain('internal-only skills：`using-spec-first`');
     expect(twice).not.toContain('高级路由');
   });
@@ -63,6 +69,11 @@ describe('instruction bootstrap', () => {
     expect(updated.match(/<!-- spec-first:bootstrap:end -->/g)).toHaveLength(1);
     expect(updated).toContain('## Existing Notes');
     expect(updated).toContain('Codex workflow entrypoints use `$spec-*`');
+    expect(updated).toContain('startup-reminder --codex');
+    expect(updated).toContain('must not block routing');
+    expect(updated).toContain('If the user asks what to run next, which command to use, or does not know the workflow');
+    expect(updated).toContain('use `using-spec-first` guide mode to recommend one public entrypoint, one reason, and one next action');
+    expect(updated).toContain('bounded subagents, leaf reviewers, and worker agents');
     expect(updated).toContain('Common entry anchors: environment/MCP');
     expect(updated).toContain('measurable optimization→`$spec-optimize`');
     expect(updated).toContain('priority rules, and red flags');
@@ -168,5 +179,22 @@ describe('instruction bootstrap', () => {
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
+  });
+
+  test('Codex bootstrap includes best-effort top-level startup version reminder guidance', () => {
+    const codexZh = buildBootstrapBlock('codex', 'zh');
+    const codexEn = buildBootstrapBlock('codex', 'en');
+    const claudeZh = buildBootstrapBlock('claude', 'zh');
+
+    expect(codexZh).toContain('顶层 Codex orchestrator');
+    expect(codexZh).toContain('spec-first startup-reminder --codex');
+    expect(codexZh).toContain('$spec-update');
+    expect(codexZh).toContain('不阻塞路由');
+    expect(codexZh).toContain('bounded subagents、leaf reviewers、worker agents 不运行该检查');
+    expect(codexEn).toContain('top-level Codex orchestrator');
+    expect(codexEn).toContain('missing CLI, failure, or empty output must be ignored');
+    expect(codexEn).toContain('must not run the check or write cooldown state');
+    expect(claudeZh).not.toContain('startup-reminder --codex');
+    expect(claudeZh).not.toContain('$spec-update');
   });
 });

@@ -6,6 +6,7 @@ set -euo pipefail
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
 
 MODE="install"
+DEFAULT_STAGE_TIMEOUT_SECONDS="${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --install)
@@ -21,6 +22,37 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+stage_log() {
+  local stage="$1"
+  local message="$2"
+  printf 'spec-mcp-setup: [helpers/%s] %s\n' "$stage" "$message" >&2
+}
+
+run_with_timeout() {
+  local timeout_seconds="$1"
+  shift
+  python3 - "$timeout_seconds" "$@" <<'PY'
+import subprocess
+import sys
+
+timeout = float(sys.argv[1])
+args = sys.argv[2:]
+
+try:
+    completed = subprocess.run(args, check=False, stdin=subprocess.DEVNULL, timeout=timeout)
+except subprocess.TimeoutExpired:
+    sys.exit(124)
+except FileNotFoundError as exc:
+    sys.stderr.write(f"{exc}\n")
+    sys.exit(127)
+except Exception as exc:
+    sys.stderr.write(f"{exc}\n")
+    sys.exit(1)
+
+sys.exit(completed.returncode)
+PY
+}
 
 GLOBAL_AGENT_BROWSER_SKILL="$HOME/.agents/skills/agent-browser/SKILL.md"
 GLOBAL_AST_GREP_SKILL="$HOME/.agents/skills/ast-grep/SKILL.md"
@@ -64,10 +96,18 @@ run_with_optional_sudo() {
   if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
     "$@"
   elif command -v sudo >/dev/null 2>&1; then
-    sudo "$@"
+    sudo -n "$@"
   else
     return 1
   fi
+}
+
+run_npm_global_install_with_optional_sudo() {
+  if env CI=true npm install -g "$@" --no-audit --no-fund --loglevel=error; then
+    return 0
+  fi
+  command -v sudo >/dev/null 2>&1 || return 1
+  sudo -n env CI=true npm install -g "$@" --no-audit --no-fund --loglevel=error
 }
 
 brew_latest_install_command() {
@@ -210,7 +250,7 @@ run_install_command() {
       if [ "$os" = "windows" ]; then run_winget_latest_install "Gyan.FFmpeg"; elif [ "$os" = "linux" ]; then run_linux_package_install ffmpeg ffmpeg ffmpeg ffmpeg ffmpeg; else run_brew_latest_install "ffmpeg"; fi
       ;;
     ast-grep)
-      if [ "$os" = "windows" ]; then npm install -g @ast-grep/cli@latest; elif [ "$os" = "linux" ]; then if command -v cargo >/dev/null 2>&1; then cargo install ast-grep --locked --force; elif command -v npm >/dev/null 2>&1; then npm install -g @ast-grep/cli@latest; else return 1; fi; else run_brew_latest_install "ast-grep"; fi
+      if [ "$os" = "windows" ]; then run_npm_global_install_with_optional_sudo @ast-grep/cli@latest; elif [ "$os" = "linux" ]; then if command -v cargo >/dev/null 2>&1; then cargo install ast-grep --locked --force; elif command -v npm >/dev/null 2>&1; then run_npm_global_install_with_optional_sudo @ast-grep/cli@latest; else return 1; fi; else run_brew_latest_install "ast-grep"; fi
       ;;
     ast-grep-skill)
       npx -y skills@latest add ast-grep/agent-skill -g -y
@@ -220,6 +260,32 @@ run_install_command() {
       ;;
   esac
 }
+
+run_install_command_with_timeout() {
+  local name="$1"
+  local os="$2"
+  local stage="$3"
+  local exit_code=0
+  stage_log "$stage" "start"
+  if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" bash -c 'run_install_command "$1" "$2"' _ "$name" "$os" >/dev/null 2>&1; then
+    stage_log "$stage" "done (exit 0)"
+    return 0
+  fi
+  exit_code="$?"
+  if [ "$exit_code" -eq 124 ]; then
+    stage_log "$stage" "timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
+  else
+    stage_log "$stage" "done (exit $exit_code)"
+  fi
+  return "$exit_code"
+}
+
+export -f run_winget_latest_install
+export -f run_linux_package_install
+export -f run_brew_latest_install
+export -f run_with_optional_sudo
+export -f run_npm_global_install_with_optional_sudo
+export -f run_install_command
 
 add_helper_fact() {
   local id="$1"
@@ -283,13 +349,21 @@ process_agent_browser() {
     status="action-required"
     next_action="install agent-browser CLI"
     if [ "$MODE" = "install" ]; then
-      if CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error >/dev/null 2>&1 && command -v agent-browser >/dev/null 2>&1; then
+      stage_log "agent-browser" "installing CLI via npm"
+      if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" bash -c 'run_npm_global_install_with_optional_sudo agent-browser@latest' >/dev/null 2>&1 && command -v agent-browser >/dev/null 2>&1; then
         dependency_status="ready"
         install_status="ready"
         status="ready"
         next_action=""
+        stage_log "agent-browser" "CLI install finished"
       else
-        next_action="agent-browser CLI not found after npm install"
+        if [ "$?" -eq 124 ]; then
+          next_action="agent-browser CLI install timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
+          stage_log "agent-browser" "CLI install timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
+        else
+          next_action="agent-browser CLI not found after npm install"
+          stage_log "agent-browser" "CLI install did not produce an executable"
+        fi
       fi
     fi
   fi
@@ -301,12 +375,20 @@ process_agent_browser() {
   fi
 
   if [ "$status" = "ready" ] && [ "$MODE" = "install" ]; then
-    if agent-browser install >/dev/null 2>&1; then
+    stage_log "agent-browser" "running agent-browser install"
+    if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" agent-browser install >/dev/null 2>&1; then
       write_agent_browser_install_marker
+      stage_log "agent-browser" "agent-browser install finished"
     else
       status="action-required"
       install_status="action-required"
-      next_action="run agent-browser install manually"
+      if [ "$?" -eq 124 ]; then
+        next_action="agent-browser install timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
+        stage_log "agent-browser" "agent-browser install timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
+      else
+        next_action="run agent-browser install manually"
+        stage_log "agent-browser" "agent-browser install failed"
+      fi
     fi
   fi
 
@@ -315,12 +397,20 @@ process_agent_browser() {
     status="action-required"
     next_action="install global agent-browser skill"
     if [ "$MODE" = "install" ]; then
-      if npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y >/dev/null 2>&1 && global_skill_installed "agent-browser"; then
+      stage_log "agent-browser" "installing global skill"
+      if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y >/dev/null 2>&1 && global_skill_installed "agent-browser"; then
         skill_status="ready"
         status="ready"
         next_action=""
+        stage_log "agent-browser" "global skill install finished"
       else
-        next_action="install global agent-browser skill manually"
+        if [ "$?" -eq 124 ]; then
+          next_action="global agent-browser skill install timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
+          stage_log "agent-browser" "global skill install timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
+        else
+          next_action="install global agent-browser skill manually"
+          stage_log "agent-browser" "global skill install failed"
+        fi
       fi
     fi
   fi
@@ -342,7 +432,7 @@ process_cli_helper() {
     status="action-required"
     next_action="$(install_command_for "$name" "$os")"
     if [ "$MODE" = "install" ]; then
-      if run_install_command "$name" "$os" >/dev/null 2>&1 && command -v "$name" >/dev/null 2>&1; then
+      if run_install_command_with_timeout "$name" "$os" "install:$name" && command -v "$name" >/dev/null 2>&1; then
         dependency_status="ready"
         install_status="ready"
         status="ready"
@@ -372,14 +462,22 @@ process_global_skill() {
     status="action-required"
     next_action="$(install_command_for "${skill_name}-skill" "$(detect_os)")"
     if [ "$MODE" = "install" ]; then
-      if run_install_command "${skill_name}-skill" "$(detect_os)" >/dev/null 2>&1 && global_skill_installed "$skill_name"; then
+      stage_log "install:${skill_name}-skill" "start"
+      if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" npx -y skills@latest add ast-grep/agent-skill -g -y >/dev/null 2>&1 && global_skill_installed "$skill_name"; then
         dependency_status="ready"
         install_status="ready"
         skill_status="ready"
         status="ready"
         next_action=""
+        stage_log "install:${skill_name}-skill" "done (exit 0)"
       else
-        next_action="${next_action:-install global $skill_name skill manually}"
+        if [ "$?" -eq 124 ]; then
+          next_action="global ${skill_name}-skill install timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
+          stage_log "install:${skill_name}-skill" "timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
+        else
+          next_action="${next_action:-install global $skill_name skill manually}"
+          stage_log "install:${skill_name}-skill" "done (exit 1)"
+        fi
       fi
     fi
   fi

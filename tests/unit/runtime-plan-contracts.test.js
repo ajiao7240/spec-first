@@ -27,6 +27,12 @@ describe('runtime plan contracts', () => {
       });
       expect(typeof plan.operations[0].contents).toBe('string');
       expect(plan.operations[0].contents).toContain('using-spec-first SessionStart injection');
+      expect(plan.operations[0].contents).toContain('startup-reminder');
+      expect(plan.operations[0].contents).toContain('--claude');
+      expect(plan.operations[0].contents).toContain('process.execPath');
+      expect(plan.operations[0].contents).toContain(path.join(__dirname, '..', '..', 'bin', 'spec-first.js'));
+      expect(plan.operations[0].contents).not.toContain("spawnSync('spec-first'");
+      expect(plan.operations[0].contents).not.toContain('const SPEC_FIRST_CLI_PATH = "__SPEC_FIRST_CLI_PATH__";');
       expect(plan.summary).toEqual({ write_file: 1 });
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });

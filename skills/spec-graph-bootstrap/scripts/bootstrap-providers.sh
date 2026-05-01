@@ -56,6 +56,7 @@ PROVIDER_ARTIFACTS="$CONFIG_DIR/provider-artifacts.json"
 GRAPH_DIR="$SPEC_DIR/graph"
 IMPACT_DIR="$SPEC_DIR/impact"
 PROVIDERS_DIR="$SPEC_DIR/providers"
+GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT=5
 
 mkdir -p "$GRAPH_DIR" "$IMPACT_DIR" "$PROVIDERS_DIR"
 
@@ -211,13 +212,33 @@ command_shape_supported() {
   ' "$PROVIDER_CONFIG" >/dev/null
 }
 
+query_probe_policy_supported() {
+  local provider="$1"
+  if [ "$provider" != "gitnexus" ]; then
+    return 0
+  fi
+  jq -e --arg provider "$provider" '
+    (.providers[$provider].query_probe_policy // {}) as $policy
+    | (($policy.candidates // []) | type == "array")
+    and all(($policy.candidates // [])[];
+      (.token | type == "string" and length > 0 and (test("[;&|`$<>]") | not))
+      and ((.selected_from // "") | type == "string")
+      and ((.reason_code // "") | type == "string")
+    )
+  ' "$PROVIDER_CONFIG" >/dev/null
+}
+
 provider_enabled() {
   local provider="$1"
   jq -e --arg provider "$provider" '
     .providers[$provider].configured == true
     and .providers[$provider].enabled_for_bootstrap == true
     and .providers[$provider].dependency_status == "ready"
-    and ((.providers[$provider].host_config_status == "ready") or (.providers[$provider].host_config_status == "fallback-active"))
+    and (
+      (.providers[$provider].host_config_status == "ready")
+      or (.providers[$provider].host_config_status == "fallback-active")
+      or ((.providers[$provider].host_config_required == false) and (.providers[$provider].host_config_status == "not-required"))
+    )
   ' "$PROVIDER_CONFIG" >/dev/null
 }
 
@@ -231,6 +252,9 @@ while IFS= read -r provider; do
       emit_blocked blocked unsupported-provider-command "Provider command shape is unsupported for $provider:$kind."
     fi
   done
+  if ! query_probe_policy_supported "$provider"; then
+    emit_blocked blocked unsupported-provider-command "Provider query probe policy is unsupported for $provider."
+  fi
 done < <(jq -r '.providers | keys[]' "$PROVIDER_CONFIG")
 
 command_display() {
@@ -271,7 +295,45 @@ run_configured_command() {
   RUN_DIAGNOSTIC="$(tr '\n' ' ' < "$log_path" | cut -c 1-1000)"
 }
 
+run_configured_gitnexus_query_probe() {
+  local provider="$1"
+  local log_path="$2"
+  local token="$3"
+  local cmd=()
+  local byte_count
+
+  mkdir -p "$(dirname "$log_path")"
+  while IFS= read -r arg; do
+    cmd+=("$arg")
+  done < <(jq -r --arg provider "$provider" '.providers[$provider].commands.query_probe[]' "$PROVIDER_CONFIG")
+  cmd[4]="$token"
+
+  set +e
+  printf 'spec-graph-bootstrap: running %s query_probe token=%s; dependencies may download on first use...\n' "$provider" "$token" >&2
+  (cd "$REPO_ROOT" && "${cmd[@]}") > "$log_path" 2>&1
+  RUN_EXIT_CODE=$?
+  printf 'spec-graph-bootstrap: finished %s query_probe token=%s with exit %s\n' "$provider" "$token" "$RUN_EXIT_CODE" >&2
+  set -e
+
+  byte_count="$(wc -c < "$log_path" | tr -d ' ')"
+  if [ "${byte_count:-0}" -gt 1000 ]; then
+    RUN_TRUNCATED=true
+  else
+    RUN_TRUNCATED=false
+  fi
+  RUN_DIAGNOSTIC="$(tr '\n' ' ' < "$log_path" | cut -c 1-1000)"
+}
+
+gitnexus_query_probe_command_display() {
+  local provider="$1"
+  local token="$2"
+  jq -r --arg provider "$provider" --arg token "$token" '.providers[$provider].commands.query_probe | .[4] = $token | join(" ")' "$PROVIDER_CONFIG"
+}
+
 QUERY_PROBE_VERIFICATION_REASON=""
+QUERY_PROBE_RESULT_CLASS=""
+QUERY_PROBE_ATTEMPTS="[]"
+QUERY_PROBE_CANDIDATES_TRUNCATED=false
 
 gitnexus_query_probe_has_bad_diagnostics() {
   local log_path="$1"
@@ -290,22 +352,123 @@ gitnexus_query_probe_has_results() {
   ' >/dev/null 2>&1 <<<"$json_payload"
 }
 
+gitnexus_query_probe_is_definitions_only() {
+  local log_path="$1"
+  local json_payload
+  json_payload="$(awk 'found || /^[[:space:]]*\{/ { found=1; print }' "$log_path" || true)"
+  [ -n "$json_payload" ] || return 1
+  jq -e '
+    (.warning? | not)
+    and ((((.processes // []) | length)
+      + ((.process_symbols // []) | length)) == 0)
+    and (((.definitions // []) | length) > 0)
+  ' >/dev/null 2>&1 <<<"$json_payload"
+}
+
+gitnexus_query_probe_result_class() {
+  local log_path="$1"
+  if gitnexus_query_probe_has_bad_diagnostics "$log_path"; then
+    printf '%s\n' "diagnostic"
+  elif gitnexus_query_probe_has_results "$log_path"; then
+    printf '%s\n' "process-results"
+  elif gitnexus_query_probe_is_definitions_only "$log_path"; then
+    printf '%s\n' "definitions-only"
+  else
+    printf '%s\n' "empty-or-unparseable"
+  fi
+}
+
+gitnexus_query_probe_reason_for_class() {
+  case "$1" in
+    diagnostic)
+      printf '%s\n' "GitNexus query probe emitted FTS/read-only/missing-index diagnostics."
+      ;;
+    definitions-only)
+      printf '%s\n' "GitNexus query probe returned definitions-only evidence without BM25/process query results."
+      ;;
+    process-results)
+      printf '%s\n' ""
+      ;;
+    *)
+      printf '%s\n' "GitNexus query probe did not return parseable non-empty BM25/process query results."
+      ;;
+  esac
+}
+
 query_probe_verified() {
   local provider="$1"
   local log_path="$2"
   QUERY_PROBE_VERIFICATION_REASON=""
+  QUERY_PROBE_RESULT_CLASS=""
   if [ "$provider" != "gitnexus" ]; then
     return 0
   fi
-  if gitnexus_query_probe_has_bad_diagnostics "$log_path"; then
-    QUERY_PROBE_VERIFICATION_REASON="GitNexus query probe emitted FTS/read-only/missing-index diagnostics."
-    return 1
+  QUERY_PROBE_RESULT_CLASS="$(gitnexus_query_probe_result_class "$log_path")"
+  QUERY_PROBE_VERIFICATION_REASON="$(gitnexus_query_probe_reason_for_class "$QUERY_PROBE_RESULT_CLASS")"
+  if [ "$QUERY_PROBE_RESULT_CLASS" = "process-results" ]; then
+    return 0
   fi
-  if ! gitnexus_query_probe_has_results "$log_path"; then
-    QUERY_PROBE_VERIFICATION_REASON="GitNexus query probe did not return parseable non-empty BM25/process query results."
-    return 1
-  fi
-  return 0
+  return 1
+}
+
+gitnexus_query_probe_candidates() {
+  local provider="$1"
+  jq -r --arg provider "$provider" --argjson limit "$GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT" '
+    (.providers[$provider].query_probe_policy // {}) as $policy
+    | (if (($policy.candidates // []) | length) > 0 then
+        $policy.candidates
+      else
+        [{
+          token:($policy.token // (.providers[$provider].commands.query_probe[4] // "")),
+          selected_from:($policy.selected_from // null),
+          reason_code:($policy.source // "legacy-token")
+        }]
+      end)
+    | .[0:$limit]
+    | .[]
+    | [.token, (.selected_from // ""), (.reason_code // "legacy-token")] | @tsv
+  ' "$PROVIDER_CONFIG"
+}
+
+gitnexus_query_probe_candidate_count() {
+  local provider="$1"
+  jq -r --arg provider "$provider" '
+    (.providers[$provider].query_probe_policy // {}) as $policy
+    | if (($policy.candidates // []) | length) > 0 then
+        ($policy.candidates | length)
+      elif (($policy.token // (.providers[$provider].commands.query_probe[4] // "")) | length) > 0 then
+        1
+      else
+        0
+      end
+  ' "$PROVIDER_CONFIG"
+}
+
+append_query_probe_attempt() {
+  local token="$1"
+  local selected_from="$2"
+  local reason_code="$3"
+  local exit_code="$4"
+  local result_class="$5"
+  local verification_reason="$6"
+  local raw_log="$7"
+  QUERY_PROBE_ATTEMPTS="$(jq -c \
+    --arg token "$token" \
+    --arg selected_from "$selected_from" \
+    --arg reason_code "$reason_code" \
+    --argjson exit_code "$exit_code" \
+    --arg result_class "$result_class" \
+    --arg verification_reason "$verification_reason" \
+    --arg raw_log "$raw_log" \
+    '. + [{
+      token:$token,
+      selected_from:(if $selected_from == "" then null else $selected_from end),
+      reason_code:$reason_code,
+      exit_code:$exit_code,
+      result_class:$result_class,
+      verification_reason:(if $verification_reason == "" then null else $verification_reason end),
+      raw_log:$raw_log
+    }]' <<<"$QUERY_PROBE_ATTEMPTS")"
 }
 
 classify_provider_failure() {
@@ -348,12 +511,22 @@ append_command_result() {
   local diagnostic="$5"
   local truncated="$6"
   local raw_log="$7"
+  local probe_token="${8:-}"
+  local probe_selected_from="${9:-}"
+  local probe_reason_code="${10:-}"
+  local result_class="${11:-}"
+  local verification_reason="${12:-}"
   jq --arg kind "$kind" \
      --arg display "$display" \
      --argjson exit_code "$exit_code" \
      --arg diagnostic "$diagnostic" \
      --argjson truncated "$truncated" \
      --arg raw_log "$raw_log" \
+     --arg probe_token "$probe_token" \
+     --arg probe_selected_from "$probe_selected_from" \
+     --arg probe_reason_code "$probe_reason_code" \
+     --arg result_class "$result_class" \
+     --arg verification_reason "$verification_reason" \
      '. + [{
        kind:$kind,
        command:$display,
@@ -361,7 +534,13 @@ append_command_result() {
        diagnostic:$diagnostic,
        diagnostics_truncated:$truncated,
        raw_log:$raw_log
-     }]' "$results_file" > "$results_file.next"
+     }
+     + (if $probe_token != "" then {probe_token:$probe_token} else {} end)
+     + (if $probe_selected_from != "" then {probe_selected_from:$probe_selected_from} else {} end)
+     + (if $probe_reason_code != "" then {probe_reason_code:$probe_reason_code} else {} end)
+     + (if $result_class != "" then {result_class:$result_class} else {} end)
+     + (if $verification_reason != "" then {verification_reason:$verification_reason} else {} end)
+     ]' "$results_file" > "$results_file.next"
   mv "$results_file.next" "$results_file"
 }
 
@@ -379,12 +558,18 @@ write_normalized_artifacts() {
         --arg generated_at "$BOOTSTRAPPED_AT" \
         --arg source_status_path "$(relpath "$provider_status_path")" \
         --argjson query_ready "$query_ready" \
+        --argjson query_probe_attempts "$QUERY_PROBE_ATTEMPTS" \
         '{
           schema_version:"provider-normalized-envelope.v1",
           provider:$provider,
           generated_at:$generated_at,
           source_status_path:$source_status_path,
-          source_raw_logs:[".spec-first/providers/gitnexus/raw/analyze.log",".spec-first/providers/gitnexus/raw/status.log",".spec-first/providers/gitnexus/raw/query.log"],
+          source_raw_logs:(
+            [".spec-first/providers/gitnexus/raw/analyze.log",".spec-first/providers/gitnexus/raw/status.log"]
+            + (if ($query_probe_attempts | length) > 0 then [$query_probe_attempts[].raw_log] else [".spec-first/providers/gitnexus/raw/query.log"] end)
+          ),
+          query_probe_attempt_logs:[$query_probe_attempts[].raw_log],
+          winning_query_probe_log:([$query_probe_attempts[] | select(.result_class == "process-results") | .raw_log][0] // null),
           available_query_surfaces:(if $query_ready then ["status","query"] else [] end),
           capabilities:["architecture_map","dependency_map","execution_flow","repo_wiki","query_global_graph"],
           confidence:(if $query_ready then "high" else "low" end),
@@ -426,14 +611,25 @@ write_provider_status() {
   local confidence="low"
   local limitations='["Provider is not configured for bootstrap."]'
   local failure_info='{"failed_phase":null,"failure_class":null,"reason_code":null,"exit_code":null,"recommended_action":null}'
-  local configured enabled dependency_status host_config_status skip_reason
+  local configured enabled dependency_status host_config_required host_config_status host_ready skip_reason
   local bootstrap_log status_log query_log
+  local query_probe_candidates_truncated=false
+  QUERY_PROBE_ATTEMPTS="[]"
+  QUERY_PROBE_CANDIDATES_TRUNCATED=false
   mkdir -p "$raw_dir" "$provider_dir/normalized"
 
   configured="$(jq -r --arg provider "$provider" '.providers[$provider].configured == true' "$PROVIDER_CONFIG")"
   enabled="$(jq -r --arg provider "$provider" '.providers[$provider].enabled_for_bootstrap == true' "$PROVIDER_CONFIG")"
   dependency_status="$(jq -r --arg provider "$provider" '.providers[$provider].dependency_status // "unknown"' "$PROVIDER_CONFIG")"
+  host_config_required="$(jq -r --arg provider "$provider" '.providers[$provider] | if has("host_config_required") then .host_config_required else true end' "$PROVIDER_CONFIG")"
   host_config_status="$(jq -r --arg provider "$provider" '.providers[$provider].host_config_status // "unknown"' "$PROVIDER_CONFIG")"
+  host_ready=false
+  if [ "$host_config_status" = "ready" ] || [ "$host_config_status" = "fallback-active" ]; then
+    host_ready=true
+  elif [ "$host_config_required" != "true" ] && [ "$host_config_status" = "not-required" ]; then
+    host_ready=true
+  fi
+
   if [ "$configured" != "true" ]; then
     skip_reason="not-configured"
     limitations='["Provider is not configured."]'
@@ -443,7 +639,7 @@ write_provider_status() {
   elif [ "$dependency_status" != "ready" ]; then
     skip_reason="dependency-not-ready"
     limitations='["Provider dependency is not ready."]'
-  elif [ "$host_config_status" != "ready" ] && [ "$host_config_status" != "fallback-active" ]; then
+  elif [ "$host_ready" != "true" ]; then
     skip_reason="host-not-ready"
     limitations='["Provider host configuration is not ready."]'
   else
@@ -469,16 +665,89 @@ write_provider_status() {
       append_command_result "$command_results_file" status "$(command_display "$provider" status)" "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC" "$RUN_TRUNCATED" "$(relpath "$status_log")"
       if [ "$RUN_EXIT_CODE" -eq 0 ]; then
         graph_ready=true
-        run_configured_command "$provider" query_probe "$query_log"
-        append_command_result "$command_results_file" query_probe "$(command_display "$provider" query_probe)" "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC" "$RUN_TRUNCATED" "$(relpath "$query_log")"
-        if [ "$RUN_EXIT_CODE" -eq 0 ] && query_probe_verified "$provider" "$query_log"; then
+        QUERY_PROBE_ATTEMPTS="[]"
+        QUERY_PROBE_VERIFICATION_REASON=""
+        if [ "$provider" = "gitnexus" ]; then
+          attempt_index=0
+          query_ready=false
+          candidate_count="$(gitnexus_query_probe_candidate_count "$provider")"
+          if [ "${candidate_count:-0}" -gt "$GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT" ]; then
+            query_probe_candidates_truncated=true
+            QUERY_PROBE_CANDIDATES_TRUNCATED=true
+          fi
+          while IFS=$'\t' read -r probe_token probe_selected_from probe_reason_code; do
+            [ -n "$probe_token" ] || continue
+            attempt_index=$((attempt_index + 1))
+            if [ "$attempt_index" -eq 1 ]; then
+              query_log="$raw_dir/query.log"
+            else
+              query_log="$raw_dir/query-${attempt_index}.log"
+            fi
+            run_configured_gitnexus_query_probe "$provider" "$query_log" "$probe_token"
+            if [ "$RUN_EXIT_CODE" -eq 0 ] && query_probe_verified "$provider" "$query_log"; then
+              query_ready=true
+            elif [ "$RUN_EXIT_CODE" -ne 0 ]; then
+              QUERY_PROBE_RESULT_CLASS="command-failed"
+              QUERY_PROBE_VERIFICATION_REASON="GitNexus query probe command failed."
+            fi
+            append_command_result \
+              "$command_results_file" \
+              query_probe \
+              "$(gitnexus_query_probe_command_display "$provider" "$probe_token")" \
+              "$RUN_EXIT_CODE" \
+              "$RUN_DIAGNOSTIC" \
+              "$RUN_TRUNCATED" \
+              "$(relpath "$query_log")" \
+              "$probe_token" \
+              "$probe_selected_from" \
+              "$probe_reason_code" \
+              "$QUERY_PROBE_RESULT_CLASS" \
+              "$QUERY_PROBE_VERIFICATION_REASON"
+            append_query_probe_attempt \
+              "$probe_token" \
+              "$probe_selected_from" \
+              "$probe_reason_code" \
+              "$RUN_EXIT_CODE" \
+              "$QUERY_PROBE_RESULT_CLASS" \
+              "$QUERY_PROBE_VERIFICATION_REASON" \
+              "$(relpath "$query_log")"
+            if [ "$query_ready" = "true" ]; then
+              break
+            fi
+          done < <(gitnexus_query_probe_candidates "$provider")
+          if [ "$query_ready" != "true" ]; then
+            QUERY_PROBE_VERIFICATION_REASON="$(jq -r '
+              if length == 0 then
+                "GitNexus query probe did not run any candidate."
+              elif all(.[]; .result_class == "definitions-only") then
+                "All GitNexus query probe candidates returned definitions-only evidence without BM25/process query results."
+              elif any(.[]; .result_class == "diagnostic") then
+                "GitNexus query probe emitted FTS/read-only/missing-index diagnostics."
+	      elif any(.[]; .result_class == "command-failed") then
+		"GitNexus query probe command failed."
+	      else
+		"GitNexus query probe candidates did not return non-empty BM25/process query results."
+	      end
+	    ' <<<"$QUERY_PROBE_ATTEMPTS")"
+            if [ "$query_probe_candidates_truncated" = "true" ]; then
+              QUERY_PROBE_VERIFICATION_REASON="$QUERY_PROBE_VERIFICATION_REASON Only the first $GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT bounded GitNexus query probe candidates were attempted."
+            fi
+          fi
+        else
+          run_configured_command "$provider" query_probe "$query_log"
+          append_command_result "$command_results_file" query_probe "$(command_display "$provider" query_probe)" "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC" "$RUN_TRUNCATED" "$(relpath "$query_log")"
+          if [ "$RUN_EXIT_CODE" -eq 0 ] && query_probe_verified "$provider" "$query_log"; then
+            query_ready=true
+          else
+            query_ready=false
+          fi
+        fi
+        if [ "$query_ready" = "true" ]; then
           status="ready"
-          query_ready=true
           confidence="high"
           limitations='[]'
         else
           status="query-unverified"
-          query_ready=false
           confidence="medium"
           limitations="$(jq -n --arg reason "${QUERY_PROBE_VERIFICATION_REASON:-Provider-specific query-surface proof did not verify provider readiness.}" '["Build and status succeeded, but provider-specific query-surface proof did not verify provider readiness.", $reason]')"
         fi
@@ -516,6 +785,9 @@ write_provider_status() {
     --arg source_revision "$SOURCE_REVISION" \
     --argjson worktree_dirty "$WORKTREE_DIRTY" \
     --argjson command_results "$command_results" \
+    --argjson query_probe_attempts "$QUERY_PROBE_ATTEMPTS" \
+    --argjson query_probe_candidate_limit "$GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT" \
+    --argjson query_probe_candidates_truncated "$query_probe_candidates_truncated" \
     --argjson limitations "$limitations" \
     --argjson failure_info "$failure_info" \
     --slurpfile provider_config "$PROVIDER_CONFIG" \
@@ -538,17 +810,24 @@ write_provider_status() {
       recommended_action:$failure_info.recommended_action,
       confidence:$confidence,
       limitations:$limitations,
+      query_verification_reason:(if $status == "query-unverified" then ($limitations[-1] // null) else null end),
       query_probe_policy:($provider_config[0].providers[$provider].query_probe_policy // null),
+      query_probe_candidate_limit:(if $provider == "gitnexus" then $query_probe_candidate_limit else null end),
+      query_probe_candidates_truncated:(if $provider == "gitnexus" then $query_probe_candidates_truncated else null end),
       repo_snapshot:{
         source_revision:$source_revision,
         worktree_dirty:$worktree_dirty
       },
       command_results:$command_results,
+      query_probe_attempts:(if $provider == "gitnexus" then $query_probe_attempts else null end),
       command_source:".spec-first/config/graph-providers.json",
       commands:($command_results | map({(.kind): .command}) | add // {}),
       diagnostics:($command_results | map(select(.diagnostic != "") | .diagnostic)),
       diagnostics_truncated:([ $command_results[] | .diagnostics_truncated == true ] | any),
-      raw_logs:($command_results | map({(.kind): .raw_log}) | add // {}),
+      raw_logs:(
+        ($command_results | map(select(.kind != "query_probe") | {(.kind): .raw_log}) | add // {})
+        + (if ([$command_results[] | select(.kind == "query_probe")] | length) > 0 then {query_probe:([$command_results[] | select(.kind == "query_probe")][0].raw_log)} else {} end)
+      ),
       normalized_artifacts:(
         if $provider == "gitnexus" then {
           architecture_facts:".spec-first/providers/gitnexus/normalized/architecture-facts.json",
@@ -626,12 +905,13 @@ jq -n \
     repo_root:$repo_root,
     source_revision:$source_revision,
     worktree_dirty:$worktree_dirty,
-    workflow_mode:$workflow_mode,
-    provider_summary:{
-      ready_primary_providers:[$providers[] | select(.query_ready == true) | .provider],
-      degraded_providers:[$providers[] | select(.query_ready != true) | .provider],
-      partial_primary_available:([$providers[] | select(.query_ready == true)] | length > 0)
-    },
+	    workflow_mode:$workflow_mode,
+	    provider_summary:{
+	      ready_primary_providers:[$providers[] | select(.query_ready == true) | .provider],
+	      degraded_providers:[$providers[] | select(.query_ready != true and .status != "skipped") | .provider],
+	      skipped_primary_providers:[$providers[] | select(.status == "skipped") | .provider],
+	      partial_primary_available:([$providers[] | select(.query_ready == true)] | length > 0)
+	    },
     canonical_artifacts:{
       provider_status:".spec-first/graph/provider-status.json",
       impact_capabilities:".spec-first/impact/bootstrap-impact-capabilities.json"
@@ -692,6 +972,12 @@ jq -n \
     }
   }' | write_file_atomic "$IMPACT_DIR/bootstrap-impact-capabilities.json"
 
+provider_report_rows="$(jq -r '
+  .[]
+  | (((.query_probe_attempts // []) | map("\(.token):\(.result_class)") | join(",")) // "") as $attempts
+  | "| \(.provider) | \(.graph_ready) | \(.query_ready) | \(if $attempts == "" then (.query_probe_policy.token // "n/a") else $attempts end) | \(.status) | \((.query_verification_reason // ((.limitations // []) | join("; ")) // "n/a") | gsub("\\|"; "/")) |"
+' <<<"$statuses_json")"
+
 write_file_atomic "$GRAPH_DIR/bootstrap-report.md" <<MD
 # Graph Bootstrap Report
 
@@ -702,6 +988,10 @@ write_file_atomic "$GRAPH_DIR/bootstrap-report.md" <<MD
 - provider_status: .spec-first/graph/provider-status.json
 - graph_facts: .spec-first/graph/graph-facts.json
 - impact_capabilities: .spec-first/impact/bootstrap-impact-capabilities.json
+
+| Provider | Graph Ready | Query Ready | Probe Token | Evidence | Query Verification Reason |
+| --- | --- | --- | --- | --- | --- |
+$provider_report_rows
 MD
 
 jq -n \

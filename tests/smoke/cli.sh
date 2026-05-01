@@ -143,6 +143,8 @@ grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md"
 grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/CLAUDE.md"
 grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/CLAUDE.md"
 test -f "$TMP_DIR/.claude/hooks/session-start"
+grep -q 'startup-reminder' "$TMP_DIR/.claude/hooks/session-start"
+grep -q -- '--claude' "$TMP_DIR/.claude/hooks/session-start"
 echo "✓ Claude init generated commands, skills, agents, hooks, and state"
 
 echo "5. Run doctor after Claude initialization..."
@@ -189,6 +191,9 @@ done
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/AGENTS.md"
 grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/AGENTS.md"
 grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/AGENTS.md"
+grep -q 'spec-first startup-reminder --codex' "$TMP_DIR/AGENTS.md"
+grep -q 'must not block routing' "$TMP_DIR/AGENTS.md"
+grep -q 'bounded subagents, leaf reviewers, and worker agents' "$TMP_DIR/AGENTS.md"
 echo "✓ Codex init generated skills, agents, and AGENTS.md"
 
 echo "7. Verify clean dry-run and clean removal..."

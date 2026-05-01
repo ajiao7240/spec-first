@@ -1,0 +1,10 @@
+{
+  "schema_version": "spec-first.skill-audit-boundary-cases.v1",
+  "cases": [
+    {
+      "id": "plan-work-overlap",
+      "input": "A planning workflow says it edits code by default.",
+      "expected": "Candidate boundary conflict requiring LLM review."
+    }
+  ]
+}
