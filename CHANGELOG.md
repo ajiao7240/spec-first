@@ -1,6 +1,11 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.1 2026-05-02 04:21:38 leokuang: fix(graph-bootstrap): 收紧 GitNexus probe 弱信号过滤和 metadata 校验边界，避免误伤 Admin/Address 类业务流 token (user-visible)
+- v1.6.1 2026-05-02 04:16:22 leokuang: docs(app-audit): 将移动端交互审查方案降级为历史设计输入，并在升级方案中补充 interaction facts、Mobile UX guardrail 与可选 tech/task 输入边界 (user-visible)
+- v1.6.1 2026-05-02 04:00:41 leokuang: fix(graph-bootstrap): 强化 GitNexus 多候选 proof 的 consumer-side 限流、attempt evidence 指针和 skipped provider 汇总边界 (user-visible)
+- v1.6.1 2026-05-02 03:28:31 leokuang: docs(app-audit): 逐项吸收升级方案审查意见，补充落地决策矩阵并收敛 workflow handoff 与 v0.1 artifact 边界 (user-visible)
+- v1.6.1 2026-05-02 03:04:43 leokuang: fix(graph-bootstrap): 将 GitNexus query proof 升级为跨栈多候选 bounded probe，降低 definitions-only token 误降级并记录 candidate attempts (user-visible)
 - v1.6.1 2026-05-02 02:31:51 leokuang: docs(governance): 对齐 AGENTS/CLAUDE workflow guide mode 文案，明确输出入口、理由和下一步动作 (user-visible)
 - v1.6.1 2026-05-02 02:12:11 leokuang: docs(app-audit): 在升级方案中明确采用 in-place contract rebuild，保留可复用 skill 资产并禁止删除整个 skill 重写 (user-visible)
 - v1.6.1 2026-05-02 02:10:15 leokuang: fix(using-spec-first): 对齐 guide mode 当前宿主入口选择与 bootstrap 下一步动作文案 (user-visible)

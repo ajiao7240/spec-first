@@ -234,6 +234,19 @@ function Test-GitNexusProbeWorkflowSignalToken {
   return ($Token -match '(Activity|Fragment|ViewModel|Manager|Repository|Service|Controller|Handler|Form|Table|Page|Dashboard|Assessment|Questionnaire|Users|Relations|Login)$')
 }
 
+function Test-GitNexusProbeEntrySignalToken {
+  param([string]$Token)
+  return ($Token -match '^(MainActivity|Launcher|Launch[A-Za-z0-9_]*|Loading[A-Za-z0-9_]*|Home[A-Za-z0-9_]*|Login[A-Za-z0-9_]*)$' -or
+    $Token -match '(Router|Navigator|Navigation|Redirect)[A-Za-z0-9_]*$')
+}
+
+function Test-GitNexusProbeWeakProofToken {
+  param([string]$Token)
+  return ($Token -match '^(Ad|Ads)$' -or
+    $Token -match '^(Advertise|Advertisement|Splash|Guide|Intro|Onboarding)[A-Za-z0-9_]*' -or
+    $Token -match '(Dialog|Adapter|Bean|DTO|Dto|VO|PO|Entity)$')
+}
+
 function Test-GitNexusProbeDisplaySignalToken {
   param([string]$Token)
   return ($Token -match '(View|Screen|Layout|Modal|Report)$')
@@ -242,40 +255,67 @@ function Test-GitNexusProbeDisplaySignalToken {
 function Get-GitNexusQueryProbePolicy {
   param([string]$RepoRoot)
   $files = @()
+  $candidateLimit = if (Get-Variable -Name gitNexusQueryProbeCandidateLimit -Scope Script -ErrorAction SilentlyContinue) { $script:gitNexusQueryProbeCandidateLimit } else { 5 }
+  $candidates = New-Object System.Collections.Generic.List[object]
   try {
     $files = @(git -C $RepoRoot ls-files 2>$null)
   } catch {
     $files = @()
   }
 
-  foreach ($priority in @('android_named', 'workflow_named', 'src_high_signal', 'high_signal', 'workflow_display_named', 'any_source')) {
+  foreach ($priority in @('entrypoint_named', 'workflow_named', 'src_high_signal', 'high_signal', 'android_named', 'workflow_display_named', 'any_source')) {
     foreach ($path in $files) {
       if (Test-GitNexusProbePathExcluded -Path $path) { continue }
       if (-not (Test-GitNexusProbeSourcePath -Path $path)) { continue }
       $token = Get-GitNexusProbeTokenFromPath -Path $path
       if ([string]::IsNullOrWhiteSpace($token)) { continue }
-      if ($priority -eq 'android_named') {
+      if ($priority -eq 'entrypoint_named') {
+        if (-not (Test-GitNexusProbeEntrySignalToken -Token $token)) { continue }
+      } elseif ($priority -eq 'android_named') {
         if ($path -notmatch '\.(kt|java)$') { continue }
         if ($token -notmatch '(Activity|Fragment|ViewModel|Manager|Repository|Service)$') { continue }
+        if (Test-GitNexusProbeLowSignalToken -Token $token) { continue }
+        if (Test-GitNexusProbeDisplaySignalToken -Token $token) { continue }
+        if (Test-GitNexusProbeWeakProofToken -Token $token) { continue }
       } elseif ($priority -eq 'workflow_named') {
         if (-not (Test-GitNexusProbeWorkflowSignalToken -Token $token)) { continue }
+        if (Test-GitNexusProbeWeakProofToken -Token $token) { continue }
       } elseif ($priority -eq 'src_high_signal') {
         if ($path -notmatch '(^|/)src/') { continue }
         if (Test-GitNexusProbeLowSignalToken -Token $token) { continue }
         if (Test-GitNexusProbeDisplaySignalToken -Token $token) { continue }
+        if (Test-GitNexusProbeWeakProofToken -Token $token) { continue }
       } elseif ($priority -eq 'high_signal') {
         if (Test-GitNexusProbeLowSignalToken -Token $token) { continue }
         if (Test-GitNexusProbeDisplaySignalToken -Token $token) { continue }
+        if (Test-GitNexusProbeWeakProofToken -Token $token) { continue }
       } elseif ($priority -eq 'workflow_display_named') {
         if (-not (Test-GitNexusProbeDisplaySignalToken -Token $token)) { continue }
       }
 
-      return [ordered]@{
-        expected_hit = $true
-        source = 'git-ls-files-code-basename'
+      if (@($candidates | Where-Object { $_.token -eq $token }).Count -gt 0) { continue }
+      $candidates.Add([pscustomobject][ordered]@{
         token = $token
         selected_from = $path
+        reason_code = $priority
+      }) | Out-Null
+      if ($candidates.Count -ge $candidateLimit) {
+        break
       }
+    }
+    if ($candidates.Count -ge $candidateLimit) {
+      break
+    }
+  }
+
+  if ($candidates.Count -gt 0) {
+    $first = $candidates[0]
+    return [ordered]@{
+      expected_hit = $true
+      source = 'git-ls-files-code-basename'
+      token = [string]$first.token
+      selected_from = [string]$first.selected_from
+      candidates = @($candidates)
     }
   }
 
@@ -284,6 +324,11 @@ function Get-GitNexusQueryProbePolicy {
     source = 'fallback-static'
     token = 'main src build README package'
     selected_from = $null
+    candidates = @([pscustomobject][ordered]@{
+      token = 'main src build README package'
+      selected_from = $null
+      reason_code = 'fallback-static'
+    })
   }
 }
 
@@ -399,6 +444,7 @@ function Write-JsonIfChanged {
 $existingProvider = Read-ExistingJson -Path $providerFile -SchemaVersion 'graph-providers.v1' -RepoRoot $repoRoot
 $existingRuntime = Read-ExistingJson -Path $runtimeFile -SchemaVersion 'runtime-capabilities.v1' -RepoRoot $repoRoot
 $generatedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+$script:gitNexusQueryProbeCandidateLimit = 5
 $toolsJson = Get-Content -Raw $toolsJsonPath | ConvertFrom-Json
 $gitNexusTool = @($toolsJson.tools | Where-Object { $_.id -eq 'gitnexus' } | Select-Object -First 1)
 if ($gitNexusTool.Count -eq 0 -or $null -eq $gitNexusTool[0].installation -or $null -eq $gitNexusTool[0].installation.unix -or @($gitNexusTool[0].installation.unix.args).Count -lt 2) {

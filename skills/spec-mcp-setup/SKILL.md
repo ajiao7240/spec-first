@@ -16,7 +16,7 @@ This workflow is the single setup entrypoint for spec-first. It has two distinct
 
 Project-local config and legacy residue facts do not affect `baseline_ready`. Required helper facts do affect `baseline_ready`. This workflow does not expose selectable MCP registry entries, legacy pending states, or a browser MCP server.
 
-GitNexus `query_probe` must target the GitNexus indexed repo label, not blindly the directory basename. `write-provider-config.*` resolves the label deterministically from explicit setup facts when present, then from `.gitnexus/meta.json` `remoteUrl` basename, and only falls back to the repo directory basename. Its probe token policy should prefer high-signal tracked source basenames that are likely to participate in flows, such as UI forms/tables/pages, controllers, handlers, services, repositories, and Android Activity/ViewModel classes. Low-signal lifecycle, entrypoint, config, type, schema, and constants basenames such as `postinstall`, `index`, `main`, and `systemConfig` should be skipped until no better source candidate exists.
+GitNexus `query_probe` must target the GitNexus indexed repo label, not blindly the directory basename. `write-provider-config.*` resolves the label deterministically from explicit setup facts when present, then from `.gitnexus/meta.json` `remoteUrl` basename, and only falls back to the repo directory basename. Its probe token policy should write a bounded, ordered `candidates[]` list of at most 5 source-derived candidates while preserving legacy `token` / `selected_from` fields for compatibility. Candidate ordering is cross-stack: prefer entry/workflow basenames likely to participate in flows, such as main/launch/loading/home/login/router/navigation files, controllers, handlers, services, repositories, forms, tables, pages, dashboards, and Android Activity/ViewModel classes. Android names are one platform signal, not the default universal front door. Low-signal lifecycle, config, type, schema, constants, display-only, advertisement/guide/dialog/adapter/bean/entity basenames should be demoted until no better source candidate exists.
 
 ## Runtime Baseline
 
@@ -405,7 +405,14 @@ Expected projection boundaries:
         "expected_hit": true,
         "source": "git-ls-files-code-basename",
         "token": "<expected-source-basename>",
-        "selected_from": "<tracked-source-file>"
+        "selected_from": "<tracked-source-file>",
+        "candidates": [
+          {
+            "token": "<expected-source-basename>",
+            "selected_from": "<tracked-source-file>",
+            "reason_code": "entrypoint_named"
+          }
+        ]
       }
     },
     "code-review-graph": {
@@ -433,7 +440,7 @@ Expected projection boundaries:
 }
 ```
 
-GitNexus `query_probe_policy` selection must stay deterministic and source-derived. Prefer tracked source basenames that are likely to participate in execution flows: Android `Activity` / `Fragment` / `ViewModel`, controllers, handlers, services, repositories, forms, tables, pages, dashboards, and user-facing workflow nodes. Treat lifecycle/config/type/schema/constants basenames as low signal, and demote display-only basenames such as `Report`, `View`, `Screen`, `Layout`, and `Modal` so they do not beat stronger flow-bearing candidates. This keeps setup as a fact writer while improving the chance that `spec-graph-bootstrap` verifies the GitNexus BM25/process query surface.
+GitNexus `query_probe_policy` selection must stay deterministic and source-derived. Prefer tracked source basenames that are likely to participate in execution flows: main/launch/loading/home/login/router/navigation entry files, controllers, handlers, services, repositories, forms, tables, pages, dashboards, and Android `Activity` / `Fragment` / `ViewModel` classes. Treat lifecycle/config/type/schema/constants basenames as low signal, and demote display-only or weak proof basenames such as `Report`, `View`, `Screen`, `Layout`, `Modal`, `Advertise`, `Guide`, `Dialog`, `Adapter`, `Bean`, and `Entity` so they do not beat stronger flow-bearing candidates. The setup script only writes up to 5 candidates and reason codes; `spec-graph-bootstrap` enforces its own consumer-side candidate limit, performs the bounded CLI proof, and downstream LLM workflows decide how to consume degraded facts.
 
 ## Codex TOML Contract
 

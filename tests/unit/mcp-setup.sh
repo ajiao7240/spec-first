@@ -595,7 +595,7 @@ assert_eq "runtime capabilities schema" "runtime-capabilities.v1" "$(jq -r '.sch
 assert_eq "provider artifacts schema" "provider-artifacts.v1" "$(jq -r '.schema_version' "$PROVIDER_ARTIFACTS")"
 assert_eq "provider projection is setup-only" "true" "$(jq -r '.boundaries.setup_only and .boundaries.does_not_run_gitnexus_analyze and .boundaries.does_not_run_code_review_graph_build' "$PROVIDER_CONFIG")"
 provider_config_repo_root="$(jq -r '.repo_root' "$PROVIDER_CONFIG")"
-assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$GITNEXUS_REPO_LABEL" --arg gitnexus_package "$GITNEXUS_PACKAGE" --arg query_probe "$GITNEXUS_QUERY_PROBE" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze","--force"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y",$gitnexus_package,"query",$query_probe,"--repo",$repo_name]) and (.providers.gitnexus.query_probe_policy.expected_hit == true) and (.providers.gitnexus.query_probe_policy.source == "git-ls-files-code-basename") and (.providers.gitnexus.query_probe_policy.token == $query_probe) and (.providers.gitnexus.query_probe_policy.selected_from == "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java") and (.providers["code-review-graph"].commands.bootstrap == ["uvx","--upgrade","code-review-graph","build"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx","--upgrade","code-review-graph","status","--repo",$repo_root]) and (.providers["code-review-graph"].access_mode == "cli_artifact") and (.providers["code-review-graph"].host_config_required == false) and (.providers["code-review-graph"].mcp_server == null)' "$PROVIDER_CONFIG")"
+assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$GITNEXUS_REPO_LABEL" --arg gitnexus_package "$GITNEXUS_PACKAGE" --arg query_probe "$GITNEXUS_QUERY_PROBE" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze","--force"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y",$gitnexus_package,"query",$query_probe,"--repo",$repo_name]) and (.providers.gitnexus.query_probe_policy.expected_hit == true) and (.providers.gitnexus.query_probe_policy.source == "git-ls-files-code-basename") and (.providers.gitnexus.query_probe_policy.token == $query_probe) and (.providers.gitnexus.query_probe_policy.selected_from == "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java") and (.providers.gitnexus.query_probe_policy.candidates[0].token == $query_probe) and (.providers.gitnexus.query_probe_policy.candidates[0].reason_code == "workflow_named") and (.providers["code-review-graph"].commands.bootstrap == ["uvx","--upgrade","code-review-graph","build"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx","--upgrade","code-review-graph","status","--repo",$repo_root]) and (.providers["code-review-graph"].access_mode == "cli_artifact") and (.providers["code-review-graph"].host_config_required == false) and (.providers["code-review-graph"].mcp_server == null)' "$PROVIDER_CONFIG")"
 
 LOW_SIGNAL_REPO="$TMP_DIR/low-signal-repo"
 make_repo "$LOW_SIGNAL_REPO"
@@ -653,7 +653,26 @@ jq -n \
 low_signal_projection="$(bash "$SCRIPTS_DIR/write-provider-config.sh" --facts-file "$LOW_SIGNAL_FACTS")"
 assert "low-signal provider projection emits JSON" jq -e . <<<"$low_signal_projection"
 LOW_SIGNAL_PROVIDER_CONFIG="$LOW_SIGNAL_REPO/.spec-first/config/graph-providers.json"
-assert_eq "GitNexus probe skips low-signal and display-only basenames" "DashboardConfigForm:frontend/admin/src/components/DashboardConfigForm.tsx" "$(jq -r '.providers.gitnexus.query_probe_policy | "\(.token):\(.selected_from)"' "$LOW_SIGNAL_PROVIDER_CONFIG")"
+assert_eq "GitNexus probe skips low-signal and display-only basenames" "DashboardConfigForm:frontend/admin/src/components/DashboardConfigForm.tsx:workflow_named" "$(jq -r '.providers.gitnexus.query_probe_policy | "\(.token):\(.selected_from):\(.candidates[0].reason_code)"' "$LOW_SIGNAL_PROVIDER_CONFIG")"
+
+BUSINESS_TOKEN_REPO="$TMP_DIR/business-token-repo"
+make_repo "$BUSINESS_TOKEN_REPO"
+mkdir -p "$BUSINESS_TOKEN_REPO/src/address" "$BUSINESS_TOKEN_REPO/src/admin" "$BUSINESS_TOKEN_REPO/src/ads"
+printf 'export class AddressService {}\n' > "$BUSINESS_TOKEN_REPO/src/address/AddressService.ts"
+printf 'export class AdminController {}\n' > "$BUSINESS_TOKEN_REPO/src/admin/AdminController.ts"
+printf 'export class AdvertiseActivity {}\n' > "$BUSINESS_TOKEN_REPO/src/ads/AdvertiseActivity.ts"
+git -C "$BUSINESS_TOKEN_REPO" add src/address/AddressService.ts src/admin/AdminController.ts src/ads/AdvertiseActivity.ts
+BUSINESS_TOKEN_FACTS="$TMP_DIR/business-token-facts.json"
+jq --arg repo_root "$BUSINESS_TOKEN_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+  | .target.state_write_allowed = true
+' "$LOW_SIGNAL_FACTS" > "$BUSINESS_TOKEN_FACTS"
+business_token_projection="$(bash "$SCRIPTS_DIR/write-provider-config.sh" --facts-file "$BUSINESS_TOKEN_FACTS")"
+assert "business-token provider projection emits JSON" jq -e . <<<"$business_token_projection"
+BUSINESS_TOKEN_PROVIDER_CONFIG="$BUSINESS_TOKEN_REPO/.spec-first/config/graph-providers.json"
+assert_eq "GitNexus weak-proof filter does not demote Admin or Address flows" "AddressService,AdminController" "$(jq -r '.providers.gitnexus.query_probe_policy.candidates[0:2] | map(.token) | join(",")' "$BUSINESS_TOKEN_PROVIDER_CONFIG")"
+assert_eq "GitNexus weak-proof filter demotes Advertise behind flow-bearing tokens" "AdvertiseActivity" "$(jq -r '.providers.gitnexus.query_probe_policy.candidates[2].token' "$BUSINESS_TOKEN_PROVIDER_CONFIG")"
 
 assert_eq "providers are configured but not query-ready" "true" "$(jq -r '(.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
 assert_eq "runtime capabilities points to host ledger" "$LEDGER_PATH" "$(jq -r '.host_ledger_pointer.path' "$RUNTIME_CAPABILITIES")"

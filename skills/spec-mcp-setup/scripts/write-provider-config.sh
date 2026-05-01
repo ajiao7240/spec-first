@@ -79,6 +79,7 @@ fi
 generated_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 gitnexus_package="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1] // empty' "$TOOLS_JSON")"
 [ -n "$gitnexus_package" ] || { echo "GitNexus package spec not found in mcp-tools.json" >&2; exit 1; }
+GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT=5
 
 gitnexus_probe_path_excluded() {
   case "$1" in
@@ -116,6 +117,14 @@ gitnexus_probe_token_low_signal() {
 
 gitnexus_probe_token_workflow_signal() {
   [[ "$1" =~ (Activity|Fragment|ViewModel|Manager|Repository|Service|Controller|Handler|Form|Table|Page|Dashboard|Assessment|Questionnaire|Users|Relations|Login)$ ]]
+}
+
+gitnexus_probe_token_entry_signal() {
+  [[ "$1" =~ ^(MainActivity|Launcher|Launch[A-Za-z0-9_]*|Loading[A-Za-z0-9_]*|Home[A-Za-z0-9_]*|Login[A-Za-z0-9_]*)$ || "$1" =~ (Router|Navigator|Navigation|Redirect)[A-Za-z0-9_]*$ ]]
+}
+
+gitnexus_probe_token_weak_proof_signal() {
+  [[ "$1" =~ ^(Ad|Ads)$ || "$1" =~ ^(Advertise|Advertisement|Splash|Guide|Intro|Onboarding)[A-Za-z0-9_]* || "$1" =~ (Dialog|Adapter|Bean|DTO|Dto|VO|PO|Entity)$ ]]
 }
 
 gitnexus_probe_token_display_signal() {
@@ -192,28 +201,37 @@ select_gitnexus_query_probe_policy() {
   local repo_root="$1"
   local path token priority
   local selected_path="" selected_token=""
+  local candidates_json="[]"
+  local candidate_count=0
   local -a files=()
 
   while IFS= read -r path; do
     files+=("$path")
   done < <(git -C "$repo_root" ls-files 2>/dev/null || true)
 
-  for priority in android_named workflow_named src_high_signal high_signal workflow_display_named any_source; do
+  for priority in entrypoint_named workflow_named src_high_signal high_signal android_named workflow_display_named any_source; do
     for path in "${files[@]}"; do
       gitnexus_probe_path_excluded "$path" && continue
       gitnexus_probe_source_path "$path" || continue
       token="$(gitnexus_probe_token_from_path "$path")"
       [ -n "$token" ] || continue
       case "$priority" in
+        entrypoint_named)
+          gitnexus_probe_token_entry_signal "$token" || continue
+          ;;
         android_named)
           case "$path" in
             *.kt|*.java) ;;
             *) continue ;;
           esac
           [[ "$token" =~ (Activity|Fragment|ViewModel|Manager|Repository|Service)$ ]] || continue
+          gitnexus_probe_token_low_signal "$token" && continue
+          gitnexus_probe_token_display_signal "$token" && continue
+          gitnexus_probe_token_weak_proof_signal "$token" && continue
           ;;
         workflow_named)
           gitnexus_probe_token_workflow_signal "$token" || continue
+          gitnexus_probe_token_weak_proof_signal "$token" && continue
           ;;
         src_high_signal)
           case "$path" in
@@ -222,38 +240,59 @@ select_gitnexus_query_probe_policy() {
           esac
           gitnexus_probe_token_low_signal "$token" && continue
           gitnexus_probe_token_display_signal "$token" && continue
+          gitnexus_probe_token_weak_proof_signal "$token" && continue
           ;;
         high_signal)
           gitnexus_probe_token_low_signal "$token" && continue
           gitnexus_probe_token_display_signal "$token" && continue
+          gitnexus_probe_token_weak_proof_signal "$token" && continue
           ;;
         workflow_display_named)
           gitnexus_probe_token_display_signal "$token" || continue
           ;;
         any_source) ;;
       esac
-      selected_path="$path"
-      selected_token="$token"
-      break 2
+      if jq -e --arg token "$token" 'any(.[]; .token == $token)' >/dev/null <<<"$candidates_json"; then
+        continue
+      fi
+      candidates_json="$(jq -c \
+        --arg token "$token" \
+        --arg selected_from "$path" \
+        --arg reason_code "$priority" \
+        '. + [{token:$token, selected_from:$selected_from, reason_code:$reason_code}]' \
+        <<<"$candidates_json")"
+      candidate_count="$(jq 'length' <<<"$candidates_json")"
+      if [ "$candidate_count" -ge "$GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT" ]; then
+        break 2
+      fi
     done
   done
 
-  if [ -n "$selected_token" ]; then
+  if [ "$candidate_count" -gt 0 ]; then
+    selected_token="$(jq -r '.[0].token' <<<"$candidates_json")"
+    selected_path="$(jq -r '.[0].selected_from' <<<"$candidates_json")"
     jq -n \
       --arg token "$selected_token" \
       --arg selected_from "$selected_path" \
+      --argjson candidates "$candidates_json" \
       '{
         expected_hit:true,
         source:"git-ls-files-code-basename",
         token:$token,
-        selected_from:$selected_from
+        selected_from:$selected_from,
+        candidates:$candidates
       }'
   else
     jq -n '{
       expected_hit:false,
       source:"fallback-static",
       token:"main src build README package",
-      selected_from:null
+      selected_from:null,
+      candidates:[{
+        token:"main src build README package",
+        selected_from:null,
+        reason_code:"fallback-static"
+      }]
     }'
   fi
 }

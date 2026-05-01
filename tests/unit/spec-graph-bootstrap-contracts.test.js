@@ -20,8 +20,22 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     const mirror = fs.readFileSync(PROMPT_MIRROR_PATH, 'utf8');
 
     expect(skill).toContain('## Live MCP Probe');
+    expect(skill).toContain('## Purpose');
+    expect(skill).toContain('## When To Use');
+    expect(skill).toContain('## When Not To Use');
+    expect(skill).toContain('## Inputs');
+    expect(skill).toContain('## Workflow');
+    expect(skill).toContain('## Failure Modes');
     expect(skill).toContain('The deterministic bootstrap script cannot call host MCP tools.');
     expect(skill).toContain('After the script finishes, the LLM should run a bounded live MCP probe');
+    expect(skill).toContain('query_probe_policy.candidates[]');
+    expect(skill).toContain('query_probe_attempts[]');
+    expect(skill).toContain('query_probe_candidate_limit=5');
+    expect(skill).toContain('query_probe_candidates_truncated=true');
+    expect(skill).toContain('winning_query_probe_log');
+    expect(skill).toContain('query-2.log');
+    expect(skill).toContain('stopping at the first process result');
+    expect(skill).toContain('first `query_probe_attempts[]` token whose `result_class` is `process-results`');
     expect(skill).toContain('It means the bootstrap CLI query probe failed.');
     expect(skill).toContain('gitnexus_query');
     expect(skill).toContain('gitnexus_context');
@@ -44,6 +58,13 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('needs a restart or a new session');
 
     expect(mirror).toContain('bootstrap CLI query probe');
+    expect(mirror).toContain('bounded multi-candidate probe');
+    expect(mirror).toContain('Android 只是平台信号之一');
+    expect(mirror).toContain('`query_probe_attempts[]`');
+    expect(mirror).toContain('`query_probe_candidate_limit=5`');
+    expect(mirror).toContain('`query_probe_candidates_truncated=true`');
+    expect(mirror).toContain('`winning_query_probe_log`');
+    expect(mirror).toContain('第一个 `process-results` attempt');
     expect(mirror).toContain('不等于 live GitNexus MCP 一定不可用');
     expect(mirror).toContain('LLM 应在脚本完成后做一次 bounded live MCP probe');
     expect(mirror).toContain('live MCP probe 只尝试一个具体调用');
