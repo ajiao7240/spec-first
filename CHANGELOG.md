@@ -1,6 +1,19 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.1 2026-05-01 23:42:22 leokuang: docs(app-audit): 再次追加 50 轮全流程 skill/agent 方案审查，并补强 workflow handoff、安全隐私、agent catalog、eval readiness 与全链路协同边界 (user-visible)
+- v1.6.1 2026-05-01 23:28:35 leokuang: docs(app-audit): 追加 30 轮方案小步审查记录，并收紧升级方案的实现对齐、schema 迁移、manifest、reason_code、Figma input 与测试落地边界 (user-visible)
+- v1.6.1 2026-05-01 23:18:26 leokuang: docs(app-audit): 逐项优化升级技术方案，统一总流水线、report-only no-write、run-scoped contract、Agent IO、validation 与 code-review handoff 协议 (user-visible)
+- v1.6.1 2026-05-01 23:14:11 leokuang: docs(agents): 基于结构化项目角色契约重写 AGENTS.md 主体，收敛为 Codex 项目入口、演化基线、执行边界与验证治理说明 (user-visible)
+- v1.6.1 2026-05-01 23:09:33 leokuang: docs(role-contract): 在角色契约中补齐核心信念与 workflow 链路图、判断矩阵双宿主/runtime/schema/preview-first 扩展、任务分级原则与 80/20 原则 (user-visible)
+- v1.6.1 2026-05-01 22:54:46 leokuang: docs(agents): 在 AGENTS.md 增补项目协作与演化判断基线，压缩承接角色契约、脚本/LLM 边界、source/runtime 边界与 80/20 治理原则 (user-visible)
+- v1.6.1 2026-05-01 22:44:59 leokuang: fix(spec-mcp-setup): 将显式 setup 视为 bounded 安装授权，自动执行项目本地 bootstrap 并为 npm helper 安装增加非交互式提权重试 (user-visible)
+- v1.6.1 2026-05-01 22:37:46 leokuang: fix(graph-bootstrap): 降级展示型 GitNexus probe token 并在 bootstrap 报告中显式输出 definitions-only 证据原因 (user-visible)
+- v1.6.1 2026-05-01 22:25:10 leokuang: fix(spec-mcp-setup): 优化 verify 结果确认表，新增 Execution result 汇总并在 graph provider 明细中展示 Bootstrap 状态 (user-visible)
+- v1.6.1 2026-05-01 22:20:25 leokuang: fix(spec-mcp-setup): 修正 setup 完成后的 next step 文案，明确 graph-bootstrap 可立即运行，重启仅作为下游 live MCP reload 前置 (user-visible)
+- v1.6.1 2026-05-01 22:16:30 leokuang: docs(app-audit): 更新最新技术方案，补齐 mode、scope、Agent IO、synthesis、validation、headless envelope 与 code-review 协作协议 (user-visible)
+- v1.6.1 2026-05-01 22:15:06 leokuang: docs(graph-readiness): 同步 downstream skills 的 GitNexus definitions-only 口径，避免将局部 MCP 证据误写为失败或 query-ready (user-visible)
+- v1.6.1 2026-05-01 22:02:10 leokuang: fix(spec-mcp-setup): 升级 GitNexus provider pin 并优先选择流程型 query probe token，修复 FTS/read-only 与 definitions-only 导致 query surface pending 的链路 (user-visible)
 - v1.6.1 2026-05-01 21:52:05 leokuang: docs(spec-mcp-setup): 梳理 mcp-setup 执行逻辑、边界、产物和 failure next action，并补充 ASCII 流程图 (user-visible)
 - v1.6.1 2026-05-01 21:26:14 leokuang: fix(spec-mcp-setup): 将 code-review-graph 作为默认 CLI graph provider，不再写入 host MCP 配置，并让 graph-bootstrap 接受 not-required host readiness (user-visible)
 - v1.6.1 2026-05-01 21:26:14 leokuang: fix(app-audit): 页面路由 trace 优先用 code screen 关联 PRD 与 Figma，并对齐 Figma materialized context 与 internal redaction 测试契约 (user-visible)

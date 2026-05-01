@@ -17,11 +17,16 @@
 - required helper tooling 不进入 `mcp-tools.json`，由 `install-helpers.*` 管理。
 - `install-helpers.* --verify-only` 只读检查 helper facts；`agent-browser install` 的完成状态以 `$HOME/.agent-browser/spec-first-install.json` 为 marker。
 - 安装路径必须请求最新版本：npm/npx 使用 `@latest`，`uvx` 使用 `--upgrade`，Cargo 支持的工具使用 `--force`，Homebrew/winget handoff 优先 upgrade-before-install；临时 package pin 只能写在 `mcp-tools.json`，所有 GitNexus 投影必须读取该配置值，不在 prose 或测试里硬编码版本；`--verify-only` 仍保持只读，不升级。
+- GitNexus `query_probe` 使用 indexed repo label，并优先选择更可能参与流程的高信号 tracked source basename，例如 UI form/table/page/dashboard、controller、handler、service、repository、Android Activity/ViewModel；`postinstall`、`index`、`main`、`systemConfig` 等 lifecycle / entrypoint / config / type / schema / constants basename 只有在没有更好 source 候选时才可作为 fallback。`Report`、`View`、`Screen`、`Layout`、`Modal` 这类偏展示 basename 必须降级，不能压过更强的 flow-bearing 候选。
 - `detect-tools.*` 只输出 tool facts，不输出 `baseline_ready`，不输出顶层 `crg`。
 - `verify-tools.*` 合并 tool facts 与 helper facts，统一写 readiness ledger v2。
 - 安装/验证完成后的 assistant 最终回复必须复述 readiness ledger v2 派生的完整状态，并在状态块下面追加简短友好的下一步提示；优先使用 fenced code block 中的分组对齐状态块（MCP servers / Graph providers / Helper tools / Project setup facts），不要用单个 9 列宽表或裸 Markdown 表格挤压 Codex 输出区域；不要只依赖命令输出里出现过状态块，避免最终结论丢失完整状态。
+- 最终状态块第一段必须是 `Execution result` 汇总表，直接展示 `Harness runtime` 与 `Graph readiness` 判定，并列出 ready/pending graph providers；`Graph providers` 明细表必须同时展示 `Query` 与 `Bootstrap`，避免用户从 `Next` 反推 provider 状态。
+- 用户显式运行 `/spec:mcp-setup` 或 `$spec-mcp-setup` 时，视为已授权完成 required setup workflow；不要在创建/刷新 `.spec-first/config.local.example.yaml`、首次创建 `.spec-first/config.local.yaml`、更新 `.gitignore`、安装 required helper tooling、写 host MCP config 或写 setup-owned `.spec-first/config/*.json` 前再次询问用户。
+- 权限不足时，优先自动使用宿主允许的提权执行路径或脚本内非交互式 sudo/package-manager 路径重试；如果仍失败或需要当前 harness 无法提供的凭据，记录 command stage、reason、next action 并在最终状态中说明，不要卡在确认问题上。
+- 自主 setup 不包含破坏性或语义不明确动作；不要自动删除 `compound-engineering.local.md`、`.compound-engineering/config.local.yaml`、既有 `.spec-first/config.local.yaml` 或用户手写 host config section，除非用户明确要求删除/卸载。
 - 如果 graph providers 仍是 `query_ready=false`，不要说 setup 已完全完成；要明确提示可运行 `/spec:graph-bootstrap` / `$spec-graph-bootstrap`，或回复“继续完成”让 agent 继续执行。
-- 同时提示用户：默认安全路径是先重启 Claude Code/Codex 或新开会话，让新写入的 MCP config 被宿主加载，再运行 graph bootstrap；如果 agent 判断当前只需调用 deterministic bootstrap 脚本，可以接受“继续完成”，但下游 workflow 前仍要重启或新开会话。
+- 同时提示用户：graph bootstrap 是 deterministic CLI 编译，可以在当前会话直接运行；如果 agent 判断当前只需调用 deterministic bootstrap 脚本，可以接受“继续完成”。重启 Claude Code/Codex 或新开会话只在下游 workflow 依赖新写入的 MCP config 或 live MCP probe 前需要。
 - 重复执行 setup、init 后重新安装、升级后重新 init/verify 时，如果 canonical graph artifacts 仍存在且当前 provider 仍 ready，必须从 canonical artifacts 重建 `query_ready=true` / `bootstrap_required=false` projection，不要把已完成 bootstrap 的 projection 打回 pending。
 - 卸载或 provider 不再 ready 时，不保留 query readiness；ledger/projection 应反映 action-required 或需要重新 bootstrap。
 - Serena 语言选择是语义决策，由 LLM 基于 package manifest、构建文件和代表性源码判断；证据明确时不要询问用户。Node.js / JavaScript / TypeScript / VitePress 类仓库使用 Serena `typescript`，不要因为存在 manifest、配置或文档就传 `javascript`、`json`、`markdown`。
@@ -45,4 +50,4 @@
 
 后续 handoff：
 
-- setup 完成后在状态块下提示先重启/新会话，再运行 `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap`；同时允许 agent 在确认只需 deterministic script 时响应“继续完成”。
+- setup 完成后在状态块下提示现在可运行 `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` 编译 graph readiness；同时允许 agent 在确认只需 deterministic script 时响应“继续完成”。重启/新会话是下游 MCP reload caveat，不是 graph bootstrap 前置条件。

@@ -15,7 +15,10 @@ const installMcpPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install
 const bootstrapProvidersPs1 = path.join(repoRoot, 'skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1');
 const bootstrapProjectConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1');
 const installHelpersPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-helpers.ps1');
+const installHelpersSh = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-helpers.sh');
 const libTomlPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/lib-toml.ps1');
+const mcpSetupSkillPath = path.join(repoRoot, 'skills/spec-mcp-setup/SKILL.md');
+const mcpSetupPromptMirrorPath = path.join(repoRoot, 'docs/10-prompt/skills/spec-mcp-setup/SKILL.md');
 
 describe('spec-mcp-setup PowerShell host config contract', () => {
   const source = fs.readFileSync(configureHostPs1, 'utf8');
@@ -57,6 +60,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(combined).toContain(providerKey);
     expect(verifySource).toContain("schema_version = 'v2'");
     expect(verifySource).toContain('Required Harness Runtime status (grouped):');
+    expect(verifySource).toContain("title = 'Execution result'");
+    expect(verifySource).toContain('Graph readiness');
     expect(verifySource).toContain('graph-providers.json');
     expect(verifySource).toContain('runtime-capabilities.json');
     expect(verifySource).toContain('provider-artifacts.json');
@@ -72,12 +77,15 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('$LASTEXITCODE -ne 0');
     expect(verifySource).toContain('render-status-block.cjs failed with exit code');
     expect(verifySource).toContain("headers = @('Name', 'Role', 'Dependency', 'Host', 'Project', 'Next')");
-    expect(verifySource).toContain("headers = @('Name', 'Role', 'Dependency', 'Host', 'Query', 'Next')");
+    expect(verifySource).toContain("headers = @('Name', 'Role', 'Dependency', 'Host', 'Query', 'Bootstrap', 'Next')");
+    expect(verifySource).toContain('function Format-Bootstrap');
+    expect(verifySource).toContain('function Get-ProviderNamesByQueryReady');
     expect(verifySource).toContain("headers = @('Name', 'Type', 'Result', 'Dependency', 'Install', 'Skill', 'Next')");
     expect(verifySource).toContain("headers = @('Artifact', 'Project', 'Next')");
     expect(verifySource).toContain('Format-Remark');
     expect(verifySource).toContain('回复“继续完成”');
-    expect(verifySource).toContain('建议先重启 $hostDisplay');
+    expect(verifySource).toContain('现在可以运行 $graphCommand');
+    expect(verifySource).toContain('live MCP probe 前需要');
     expect(verifySource).toContain('graph_bootstrap_required');
     expect(verifySource).toContain('$spec-graph-bootstrap');
   });
@@ -176,6 +184,13 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain("remoteUrl");
     expect(writeProviderSource).toContain("query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', [string]$GitNexusQueryProbePolicy.token, '--repo', $GitNexusRepoName)");
     expect(writeProviderSource).toContain('function Get-GitNexusQueryProbePolicy');
+    expect(writeProviderSource).toContain('function Test-GitNexusProbeLowSignalToken');
+    expect(writeProviderSource).toContain('function Test-GitNexusProbeWorkflowSignalToken');
+    expect(writeProviderSource).toContain('function Test-GitNexusProbeDisplaySignalToken');
+    expect(writeProviderSource).toContain('workflow_named');
+    expect(writeProviderSource).toContain('workflow_display_named');
+    expect(writeProviderSource).toContain('src_high_signal');
+    expect(writeProviderSource).toContain('postinstall|preinstall');
     expect(writeProviderSource).toContain('git-ls-files-code-basename');
     expect(writeProviderSource).toContain('query_probe_policy = if ($property.Name -eq');
     expect(writeProviderSource).toContain('$gitNexusRepoName = Get-GitNexusRepoName -RepoRoot $repoRoot -Facts $facts');
@@ -224,6 +239,9 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain("'analyze' -and");
     expect(source).toContain("'--force'");
     expect(source).toContain('BM25/process query results');
+    expect(source).toContain('definitions-only evidence');
+    expect(source).toContain('query_verification_reason');
+    expect(source).toContain('Probe Token');
     expect(source).toContain('function Get-ProviderFailureInfo');
     expect(source).toContain('gitnexus-analyze-sigsegv');
     expect(source).toContain('dependencies may download on first use');
@@ -242,6 +260,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installHelpersSource).toContain('.agent-browser/spec-first-install.json');
     expect(installHelpersSource).toContain('Write-AgentBrowserInstallMarker');
     expect(installHelpersSource).toContain('agent-browser install');
+    expect(installHelpersSource).toContain('Invoke-NpmGlobalInstallWithOptionalSudo');
+    expect(installHelpersSource).toContain('sudo -n');
     expect(installHelpersSource).toContain("'gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep'");
     expect(installHelpersSource).toContain('npx -y skills@latest add ast-grep/agent-skill -g -y');
     expect(installHelpersSource).toContain("'ast-grep-skill'");
@@ -332,5 +352,30 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(bootstrapSource).toContain('.spec-first/*.local.yaml');
     expect(bootstrapSource).toContain('compound-engineering.local.md');
     expect(bootstrapSource).not.toContain('baseline_ready');
+  });
+
+  test('setup skill runs bounded setup autonomously after explicit invocation', () => {
+    const skill = fs.readFileSync(mcpSetupSkillPath, 'utf8');
+    const mirror = fs.readFileSync(mcpSetupPromptMirrorPath, 'utf8');
+    const installHelpersSource = fs.readFileSync(installHelpersSh, 'utf8');
+
+    expect(skill).toContain('## Autonomy And Permissions');
+    expect(skill).toContain('authorization to complete the required setup workflow without intermediate confirmation prompts');
+    expect(skill).toContain('Do not stop to ask before running deterministic, bounded setup actions');
+    expect(skill).toContain('creating or refreshing `.spec-first/config.local.example.yaml`');
+    expect(skill).toContain('creating `.spec-first/config.local.yaml` only when it does not already exist');
+    expect(skill).toContain('If a setup command fails because the host sandbox or OS denies permission');
+    expect(skill).toContain('non-interactive sudo/package-manager path');
+    expect(skill).toContain('Do not pass `--delete-legacy-markdown`');
+    expect(skill).not.toContain('ask the user before changing files');
+    expect(skill).not.toContain('asks before deleting `compound-engineering.local.md`');
+
+    expect(mirror).toContain('视为已授权完成 required setup workflow');
+    expect(mirror).toContain('不要在创建/刷新 `.spec-first/config.local.example.yaml`');
+    expect(mirror).toContain('权限不足时，优先自动使用宿主允许的提权执行路径');
+    expect(mirror).toContain('自主 setup 不包含破坏性或语义不明确动作');
+
+    expect(installHelpersSource).toContain('run_npm_global_install_with_optional_sudo');
+    expect(installHelpersSource).toContain('sudo -n env CI=true npm install -g');
   });
 });

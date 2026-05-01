@@ -1,0 +1,2844 @@
+# spec-app-consistency-audit 最新技术方案
+
+> 文档定位：`spec-first` 新增 App 专项一致性审查 Skill 的最新设计方案  
+> Skill 名称：`spec-app-consistency-audit`  
+> 关系定位：不替代 `spec-code-review`，而是作为 App 专项审查 workflow，被 `spec-code-review` 按需调用 / 推荐  
+> 默认模式：静态审查优先；不默认启动真机、模拟器、打包或云真机  
+> 核心模式：Skill 作为 Orchestrator；脚本产出 Impact Facts；LLM 生成 Audit Plan；按需调度专家 Agent；确定性 Evidence Gate + LLM Evidence Auditor 控制输出质量
+
+---
+
+## 1. 最新结论
+
+`spec-app-consistency-audit` 应该保留为独立 Skill，但需要从“每次全量专家审查”调整为：
+
+```text
+一个主 Skill
+  +
+Deterministic Impact Facts
+  +
+LLM Audit Planner
+  +
+按需专家 Agent 调度
+  +
+Deterministic Evidence Gate
+  +
+LLM Evidence Auditor
+  +
+Report Writer
+```
+
+它不应该与 `spec-code-review` 合并成一个大 Skill，也不应该把所有 App 审查专家直接塞进 `spec-code-review`。
+
+最佳关系是：
+
+```text
+spec-code-review
+  = 通用代码变更审查 orchestrator
+
+spec-app-consistency-audit
+  = App 产品-设计-架构-代码一致性专项审查 workflow
+
+两者通过 impact-facts / audit-plan / headless / report-summary 协作
+```
+
+一句话：
+
+> `spec-code-review` 负责通用 PR / diff 审查；`spec-app-consistency-audit` 负责 App 专项一致性审查；当 code-review 命中 App/KMP/Figma/PRD/埋点/i18n/行业关键路径时，再委托 app-audit 运行专项审查。
+
+全局约束：
+
+```text
+1. 脚本只产出确定性 facts、候选 signals、schema 校验和 artifact 写入。
+2. LLM 负责影响面解释、专家选择、严重等级、证据充分性和下一步建议。
+3. 所有 machine-readable artifacts 必须声明 schema_version、artifact_id、source_inputs、freshness、consumers、contract_status 和 data_sensitivity。
+4. app-audit 输出必须 run-scoped，避免 code-review 或后续 workflow 读取旧产物。
+5. Rule Pack 只能增强专家判断，不能作为 confirmed issue 的唯一证据。
+6. 未确认行业画像只能产生 advisory risk，不能直接产生行业 confirmed issue。
+```
+
+---
+
+## 2. 为什么不能直接并入 code-review
+
+`spec-code-review` 的心智模型是：
+
+```text
+我改了代码，请审查 diff / PR 风险。
+```
+
+`spec-app-consistency-audit` 的心智模型是：
+
+```text
+请基于 PRD、Figma、App 源码、架构、交互、埋点、国际化和行业规则，审查 App 实现是否一致。
+```
+
+两者输入、产物和用户意图不同。
+
+### 2.1 code-review 更适合做什么
+
+```text
+代码正确性
+测试覆盖
+安全风险
+性能风险
+可靠性
+API 合约
+通用可维护性
+diff 风险
+PR 合并前检查
+```
+
+### 2.2 app-consistency-audit 更适合做什么
+
+```text
+PRD ↔ Figma ↔ Code 一致性
+Figma 状态是否进入 UiState
+设计组件是否映射代码组件
+KMP + Clean Architecture 是否承载业务规则
+Android / iOS 行为是否漂移
+移动端交互风险
+App 工程质量
+组件化 / 模块化 / 复用
+埋点完整性
+国际化完整性
+行业关键流程审查
+运行验证建议
+```
+
+### 2.3 如果直接并入 code-review 的问题
+
+```text
+1. code-review 入口变重
+2. PRD / Figma / 行业规则等非 diff 输入污染通用 review 流程
+3. App 专项 artifacts 会混进 code-review artifacts
+4. 用户想单独做 App 一致性审查时没有清晰入口
+5. App 专项能力无法独立演进
+6. 专家数量过多，容易每次开“专家大会”
+```
+
+因此，正确方式是协作，而不是合并。
+
+---
+
+## 3. 最新架构总览
+
+```text
+Host app-consistency-audit entrypoint
+        ↓
+Preflight / 输入与项目形态预检
+        ↓
+Impact Facts Builder / 确定性改动事实与候选 signals
+        ↓
+Contract Extraction / 契约抽取
+        ↓
+App Audit Context / 合并候选事实
+        ↓
+LLM Audit Planner / 审查计划生成
+        ↓
+Selected Expert Agents / 按需专家审查
+        ↓
+Normalize / Enrich Issue Candidates
+        ↓
+Issue Synthesis / Dedup
+        ↓
+Deterministic Evidence Gate / 结构化证据校验
+        ↓
+LLM Evidence Auditor / 语义证据审计
+        ↓
+Validation Pass / 独立复核外部化问题
+        ↓
+Report Writer / 报告合成
+        ↓
+Run-scoped Issues + Report + Summary + Regression Suggestions + Writeback Preview
+```
+
+它不是一个“大模型一口气看全项目”的流程，而是：
+
+```text
+Scripts prepare facts
+LLM Audit Planner decides scope from facts
+Agents review selected domains
+Scripts reject structurally invalid issues
+LLM Evidence Auditor removes semantically unsupported claims
+Report Writer outputs actionable report
+```
+
+### 3.1 权威总流水线
+
+后续所有章节都以这一条流水线为准；局部章节只能补充字段和失败语义，不能重新定义顺序。
+
+```text
+1. Argument Parsing / Mode Detection
+   - 解析 mode:headless / mode:report-only / base:<ref> / prd:<path> / figma-context:<path> / source:<path> / industry:<name> / depth:deep / from:code-review
+   - 发现冲突 mode 时立即停止，不调度专家
+
+2. Scope Detection / Preflight
+   - default/headless 写 run-scoped metadata.json 和 preflight.json
+   - report-only 只生成内存 preflight facts，不写任何 artifact
+
+3. Impact Facts Builder + Contract Extraction
+   - 脚本只输出 candidate facts / candidate contracts / degraded_modes
+   - 所有可落盘产物必须位于 .spec-first/app-audit/runs/<run-id>/
+
+4. App Audit Context Assembly
+   - 合并 impact-facts、contracts、用户输入和 degraded_modes
+
+5. LLM Audit Planner
+   - LLM 基于 facts 生成 audit-plan.json
+   - selected_experts / skipped_experts 是语义计划结果，不是脚本规则命中结果
+
+6. Selected Expert Agents
+   - 专家只读审查并输出 gate-ready issue candidates
+   - 专家不编辑项目源码、runtime assets 或 durable standards
+
+7. Normalize / Enrich Issue Candidates
+   - 规范化 severity、confidence、evidence、provenance、runtime_verification、affected_surface、claim_type
+   - 生成稳定 issue id 和 dedup key
+   - 缺少 gate 必需字段的 candidate 在此阶段标记为 malformed，不进入 confirmed 流程
+
+8. Issue Synthesis / Dedup
+   - 合并重复问题、记录跨专家一致与冲突
+   - 不做最终 confirmed/advisory 分区
+
+9. Deterministic Evidence Gate
+   - 脚本拒绝结构无效、无项目 evidence、rule-pack-only confirmed、未确认行业 confirmed 等问题
+
+10. LLM Evidence Auditor
+   - LLM 判断证据是否语义支持标题、严重等级、影响和建议
+   - 弱证据降级为 candidate/advisory/follow-up
+
+11. Validation Pass
+   - 只对将外部化的高价值问题运行，尤其是 mode:headless / from:code-review / blocker / high
+   - validator_rejected 才拒绝；validator_unavailable 不自动抹掉强证据 confirmed finding
+
+12. Final Partition + Code Review Handoff
+   - confirmed_issues / candidate_issues / advisory_risks / runtime_verification_suggestions / rejected_findings
+   - from:code-review 时为每条进入 summary 的 issue 写入 machine-readable code_review_handoff
+
+13. Report Writer + Headless Envelope
+   - default 生成完整报告
+   - headless 返回结构化 envelope 和 terminal signal
+   - report-only 只输出当前响应，不写 artifact
+```
+
+设计边界：
+
+```text
+1. Gate 是确认点，不是中心化状态机。
+2. 所有脚本阶段只处理确定性事实、结构校验和 artifact 写入。
+3. 所有语义取舍由 LLM planner / expert / evidence auditor 完成。
+4. report-only 的 no-write contract 高于任何 artifact 章节描述。
+```
+
+### 3.2 当前实现对齐与迁移边界
+
+本方案是升级目标，不是当前代码已经全部具备的能力。为了避免“文档领先实现太多”造成误用，落地时必须显式区分当前事实、迁移目标和禁止路径。
+
+当前 source-of-truth：
+
+```text
+skills/spec-app-consistency-audit/SKILL.md
+skills/spec-app-consistency-audit/scripts/*.js
+skills/spec-app-consistency-audit/schemas/*.schema.json
+skills/spec-app-consistency-audit/prompts/*.md
+templates/claude/commands/spec/app-consistency-audit.md
+src/cli/contracts/dual-host-governance/skills-governance.json
+tests/unit/spec-app-consistency-audit-*.test.js
+docs/02-架构设计/spec_app_consistency_audit_升级技术方案.md
+```
+
+当前实现事实：
+
+```text
+1. 已有 preflight、contract extraction、context merge、rule-pack selection、evidence gate、report assembly 的脚本雏形。
+2. 已有 audit-report.schema.json 与 validate-artifacts.js，但 issue schema 仍是宽松 v1，尚未强制 claim_type、affected_surface、validation_status、code_review_handoff。
+3. 已有 CLI subprocess e2e，但测试仍使用 .spec-first/app-audit/ 扁平输出路径。
+4. 已有 app-audit 专家 prompt 文件，但尚未形成 run-scoped expert-reviews/*.json 的统一 Agent IO 产物。
+5. 当前 SKILL.md 仍描述静态优先 MVP 流程，尚未完整表达本升级方案里的 mode/headless/report-only/audit-plan/validation/handoff 协议。
+```
+
+迁移原则：
+
+```text
+1. 先改 source-of-truth，不手改 .claude/、.codex/、.agents/skills/。
+2. schema 采用 additive v1 hardening 优先；只有破坏现有 consumer 时才引入 v2。
+3. 扁平旧路径只允许作为 migration compatibility 读取来源，不能继续作为新产物写入目标。
+4. 任何 legacy alias 都必须在 artifact-manifest.json 标记 deprecated，不得成为第二真相源。
+5. README / command template 只在 skill 源协议稳定后更新，避免入口文案承诺未落地能力。
+```
+
+### 3.3 全流程 Skill / Agent 协同边界
+
+`spec-app-consistency-audit` 在项目全链路中的位置是专项 Review 节点，而不是新的总控入口。
+
+```text
+Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
+                                      ^
+                                      |
+                         spec-app-consistency-audit
+                         = App 专项一致性 Review lens
+```
+
+它可以消费上游事实、补充 Review 证据、向下游提出 handoff 建议，但不能替代其他 workflow：
+
+```text
+1. Codebase / Graph:
+   - 可消费 Git diff、changed files、changed symbols、graph readiness facts、provider pointers。
+   - 不替代 spec-mcp-setup / spec-graph-bootstrap；Graph 不可用时记录 degraded，回退 bounded source scan。
+
+2. Spec / Plan:
+   - 可消费 PRD、Figma context、product contract 和 plan 中的 App 约束。
+   - PRD / plan 缺失时，只输出 missing-input handoff，不编造需求，不替代 spec-brainstorm / spec-plan。
+
+3. Tasks / Code:
+   - 可指出实现与 PRD / Figma / architecture contract 的漂移。
+   - 不拆任务、不改代码、不替代 spec-work / spec-work-beta，也不自动生成 implementation task pack。
+
+4. Review:
+   - 与 spec-code-review 协作，作为 App 专项 lens。
+   - 不替代通用 correctness / security / performance / API contract / test coverage review。
+
+5. Knowledge:
+   - 可提出可沉淀规范和 learning candidates。
+   - 不自动写 docs/solutions/ 或 durable standards；知识沉淀交给 spec-compound / spec-compound-refresh。
+```
+
+全局 skill/agent 审计得到的 P0/P1/P2 信号只能作为方案设计输入，不是 app-audit 的执行门禁。`spec-skill-audit` 负责 skill 质量、trigger、治理、runtime drift 和 eval readiness；app-audit 只在 App 专项一致性范围内消费其结论性上下文，不能把 skill-audit 的 deterministic scorecard 变成 App 审查失败条件。
+
+### 3.4 Workflow Handoff Suggestions Contract
+
+app-audit 发现自己不应该处理的事项时，输出结构化 handoff 建议，而不是内联执行其他 workflow。handoff 是建议，不是强编排状态机。
+
+输出位置：
+
+```text
+default/headless:
+  .spec-first/app-audit/runs/<run-id>/workflow-handoff-suggestions.json
+  同步摘要到 app-consistency-audit.summary.md 和 headless envelope
+
+report-only:
+  不写文件，只在当前响应 Coverage / Follow-ups 中输出同等建议
+```
+
+最小协议：
+
+```json
+{
+  "schema_version": "spec-app-consistency-audit-handoff-suggestions.v1",
+  "artifact_id": "workflow-handoff-suggestions",
+  "source_run_id": "<run-id>",
+  "suggestions": [
+    {
+      "target_workflow": "spec-plan",
+      "reason_code": "input_prd_missing",
+      "trigger": "PRD 缺失导致 Product Expert 只能 advisory",
+      "recommended_action": "先补齐需求/计划，再重新运行 App 一致性审查",
+      "blocking": false,
+      "confidence": 0.86
+    }
+  ]
+}
+```
+
+建议映射：
+
+```text
+using-spec-first:
+  - 当前请求其实是 workflow 入口判断，而非 App 一致性审查
+
+spec-brainstorm / spec-plan:
+  - PRD、验收标准、用户流程或非目标缺失
+  - app-audit 只能指出缺口，不补写产品决策
+
+spec-mcp-setup / spec-graph-bootstrap:
+  - Graph provider 不可用、stale、definitions-only 或 readiness 不足
+  - app-audit 记录 degraded 并回退，不自行安装或配置 provider
+
+spec-code-review:
+  - diff 正确性、安全、性能、测试覆盖、API contract 是主问题
+  - app-audit 仅输出 App 专项问题和 code_review_handoff
+
+spec-doc-review:
+  - PRD / plan 文档本身不一致、范围过宽、验收标准漂移
+  - app-audit 不做文档评审 persona 编排
+
+spec-skill-audit:
+  - 发现 skill trigger、runtime governance、eval readiness 或 source/runtime drift 问题
+  - app-audit 不修 skill，也不把 skill score 当作 App issue
+
+spec-polish-beta / browser / runtime validation:
+  - 静态证据无法确认，需要 simulator、real device、browser 或视觉验证
+  - app-audit 只输出 runtime_verification_suggestions
+
+spec-compound / spec-compound-refresh:
+  - 发现可复用模式、团队规范或长期知识
+  - app-audit 只提出 learning candidate，不自动写 durable docs
+
+spec-update:
+  - 发现当前 host runtime 或 spec-first 资产可能过期
+  - app-audit 只提示，不修改 generated runtime
+```
+
+### 3.5 全局安全、隐私与执行边界
+
+全量 skill/agent 审计暴露的安全信号需要进入 app-audit 的默认边界，而不是等实现后再补救。
+
+硬边界：
+
+```text
+1. 默认不读取、复制、输出或 materialize .env / .env.* / secrets / token / credentials。
+2. 不执行 remote script pipe，不下载未知脚本，不在审查过程中安装依赖。
+3. 不默认启动 build、simulator、real device、cloud device、browser 或网络请求。
+4. 不写 product source、generated runtime assets、repo-profile.yaml 或 durable standards。
+5. 不把 Figma / PRD 的长文本、PII、凭证样式字符串写进报告；必须经过 redaction mode。
+6. 不把 runtime-local state 写成项目 source-of-truth。
+```
+
+允许的最小读取：
+
+```text
+1. 可读取 repo 内 source、docs、local materialized figma-context、contract artifacts 和 git diff。
+2. 可读取配置文件中的非敏感结构信息，例如 route、module、i18n key、analytics event name。
+3. 如必须识别端口或本地 dev 配置，只能读取白名单字段并在 source_inputs 中标记 data_sensitivity:redacted。
+4. 若发现疑似 secret，只记录 secret_detected reason_code 和文件路径级 evidence，不输出 secret 值。
+```
+
+新增 reason_code：
+
+```text
+secret_input_blocked
+remote_execution_blocked
+network_access_blocked
+runtime_validation_deferred
+host_runtime_stale_suspected
+skill_audit_signal_observed
+```
+
+### 3.6 Agent Catalog 与专家边界
+
+app-audit 的专家 lens 默认属于 skill-local prompt，而不是全局 `agents/` 目录。
+
+```text
+skills/spec-app-consistency-audit/prompts/
+  = App 专项专家、ECC-derived lens、行业 rule-pack reviewer prompt 的 source-of-truth
+
+agents/
+  = 跨 workflow 稳定通用 Agent，例如 security、testing、architecture、design、product、coherence reviewers
+```
+
+使用原则：
+
+```text
+1. app-audit 可以引用全局通用 agent 的方法论，但不复制其 source 内容。
+2. App 专项专家如果只服务 app-audit，继续留在 skill-local prompts。
+3. 如果某个 App 专家 lens 升级为跨 workflow agent，必须新增/更新 agents/ source、dual-host governance、触发边界、fresh-source eval 和回归测试。
+4. 不允许为了本方案直接手改 .claude/、.codex/、.agents/skills/ 中的 generated agent/skill runtime。
+5. Validation Pass 可使用独立 reviewer 角色，但它只读验证 finding，不拥有修改权或最终语义裁决权。
+```
+
+### 3.7 Eval Readiness 与 Skill-Audit 信号处理
+
+全量 skill 审计显示当前项目有大量 missing-section、boundary-overlap、security、eval-readiness 信号。对本方案的正确处理方式是：吸收为 app-audit 的设计约束和测试清单，而不是在 app-audit 内实现通用 skill 治理。
+
+v0.1 最小 eval / 回归集：
+
+```text
+1. trigger cases:
+   - App/KMP/UI/analytics/i18n diff 推荐 app-audit
+   - 非 App 纯后端 diff 不触发 app-audit
+
+2. boundary cases:
+   - PRD 缺失时输出 spec-plan handoff，不产生 Product confirmed issue
+   - Figma ref-only 在 headless/report-only 中 degraded，不自动 materialize
+   - skill quality 问题只输出 spec-skill-audit handoff，不变成 App issue
+
+3. mode cases:
+   - mode:report-only 不写任何 artifact
+   - mode:headless 缺少 diff scope 返回 failed envelope
+   - from:code-review 不切换 checkout，不询问用户
+
+4. artifact cases:
+   - run-scoped metadata / manifest / issues / summary 路径正确
+   - latest-summary 只指向 complete/degraded run
+   - legacy flat path 只读兼容，不作为新写入目标
+
+5. evidence cases:
+   - rule-pack-only confirmed 被拒绝
+   - 未确认 industry 只能 advisory/candidate
+   - validator_unavailable 不自动抹掉强证据 confirmed issue
+
+6. safety cases:
+   - .env* / secret-like input 被阻断或脱敏
+   - remote execution / network / runtime validation 默认 deferred
+
+7. handoff cases:
+   - workflow_handoff_suggestions 写入正确 target_workflow / reason_code / confidence
+   - headless envelope 与 issues.json 中的 code_review_handoff 一致
+```
+
+这些 eval 是本方案进入实现前的最低可验证边界；它们证明 workflow contract、source/runtime 边界和证据链可靠，不证明所有专家语义判断都“正确”。专家质量仍需要基于真实 App 案例持续迭代。
+
+---
+
+## 4. Skill / Script / Agent 的职责边界
+
+### 4.1 Skill 职责
+
+`spec-app-consistency-audit` 本身是 workflow orchestrator。
+
+负责：
+
+```text
+1. 读取用户输入
+2. 运行 preflight
+3. 组织 diff / changed files / changed symbols 的事实收集
+4. 抽取 PRD / Figma / Code / KMP / Component / Analytics / I18n / Industry facts
+5. 合并 app-audit-context.json
+6. 让 LLM Audit Planner 基于 facts 生成 audit-plan.json
+7. 向专家分发最小必要上下文
+8. 收集专家 findings
+9. normalize / enrich issue candidates
+10. 合成、去重和冲突记录
+11. 调用 deterministic evidence gate
+12. 调用 LLM Evidence Auditor
+13. 按条件运行 Validation Pass
+14. 调用 Report Writer
+15. 输出 run-scoped artifacts
+16. 生成 writeback preview
+```
+
+### 4.2 Script 职责
+
+Script 是确定性执行器，不做最终语义判断。
+
+负责：
+
+```text
+1. 文件发现、路径解析、hash / freshness 计算
+2. preflight 与 degraded modes
+3. git diff / changed files / changed symbols 候选事实
+4. PRD / Figma / Code / KMP / Component / Analytics / I18n / Industry 候选 contract 抽取
+5. impact-facts.json 和 app-audit-context.json 写入
+6. JSON schema 校验
+7. deterministic evidence gate：空 evidence、rule-pack-only evidence、缺少 provenance 等结构性拒绝
+8. run_id、artifact 目录和 summary 指针写入
+```
+
+不能：
+
+```text
+1. 决定业务影响是否成立
+2. 决定专家组合是否足够
+3. 将行业候选升级为 confirmed 行业事实
+4. 判断严重等级和修复优先级
+5. 用规则引擎替代专家 review
+```
+
+### 4.3 Agent 职责
+
+Agent 是专业审查执行者。
+
+负责：
+
+```text
+1. 在自己的领域内审查事实
+2. 输出有证据的问题
+3. 给出影响分析和修复建议
+4. 标记置信度
+5. 标记是否需要运行验证
+6. 不越权审查无关领域
+```
+
+### 4.4 Rule Pack 职责
+
+Rule Pack 是知识增强材料，不是硬编码规则引擎。
+
+负责：
+
+```text
+1. 提供领域术语
+2. 提供关键路径 checklist
+3. 提供常见风险
+4. 提供严重等级参考
+5. 提供行业专项规则
+```
+
+不能：
+
+```text
+1. 单独作为 issue 证据
+2. 自动强制失败
+3. 代替 LLM 判断
+```
+
+### 4.5 Argument Parsing 与 Mode Contract
+
+参考 `spec-code-review` 的设计，app-audit 的 mode 必须是可执行协议，不只是调用示例。
+
+参数解析：
+
+```text
+mode:headless
+  程序化调用模式。禁止用户提问，必须写 run-scoped artifacts，并返回 headless envelope。
+
+mode:report-only
+  严格只读模式。不写 run artifacts，不 materialize Figma，不写 preview。只能基于当前响应输出报告。
+  可执行只读 discovery 和 stdout/in-memory extraction；如果某个 extractor 只能写 artifact，则该输入降级并提示改用 default/headless。
+
+base:<sha-or-ref>
+  指定 diff base。headless from:code-review 应优先传入，避免 app-audit 自行猜测 scope。
+
+source:<repo-relative-path>
+  指定 App 源码根。默认当前仓库根。
+
+prd:<repo-relative-path>
+  指定 PRD 输入。缺失时 Product Expert 只能基于已有 product contract 或降级为 advisory。
+
+figma-context:<repo-relative-path>
+  指定已 materialized 的 Figma JSON。Figma node/file reference 不是 context。
+
+figma-ref:<id-or-url>
+  仅表示引用。interactive 可尝试 materialize；headless/report-only 不主动拉取，记录 degraded。
+
+industry:<name>
+  用户显式行业输入。可启用 Industry Expert，但 confirmed issue 仍需项目特定 evidence。
+
+depth:deep
+  显式请求深审。它不是 mode，不与 mode:headless / mode:report-only 冲突。
+
+from:code-review
+  标记由 code-review 调用。必须保持 no checkout switch、run-scoped 输出和 summary-first handoff。
+```
+
+冲突规则：
+
+```text
+1. 多个 mode 同时出现时停止，不调度专家。
+2. mode:headless 缺少可确定 diff scope 时停止并返回 failed envelope。
+3. mode:report-only 不允许写 run artifact、input materialization 或 preview；如果某个必要 extractor 不支持 stdout/in-memory，记录 degraded 并提示改用 default/headless。
+4. from:code-review 不允许切换 shared checkout。
+5. figma-ref 在 headless/report-only 中不能自动 materialize，只能产生 degraded mode。
+6. `prd:<path>` / `figma-context:<path>` / `source:<path>` / `industry:<name>` / `depth:deep` 是 canonical token 语法；宿主 CLI 如支持 `--prd` 等选项，必须在进入 workflow 前归一化为 token。
+```
+
+Mode 行为：
+
+| Mode | 写 artifact | 用户提问 | Figma materialize | writeback apply | 典型用途 |
+|---|---:|---:|---:|---:|---|
+| default / interactive | 是 | 可问 | 可在用户授权下执行 | 不自动 apply | 人工专项审查 |
+| headless | 是 | 否 | 否，只降级 | 禁止 | code-review / parent workflow 调用 |
+| report-only | 否 | 否 | 否 | 禁止 | 并行只读验证或快速意见 |
+
+所有 mode 都不得修改产品源码、运行时生成资产或 `.spec-first/specs/repo-profile.yaml`。writeback 只允许输出 preview，apply 必须是后续独立确认动作。
+
+### 4.6 Scope Detection 与降级策略
+
+Scope Detection 是 preflight 前置阶段，负责确定本轮审查到底覆盖什么。
+
+确定性步骤：
+
+```text
+1. 解析 source root，并拒绝 repo 外路径或 symlink escape。
+2. 解析 base:<ref>；没有 base 时从当前 checkout 推断 diff scope。
+3. 收集 changed files、changed symbols、untracked files。
+4. 标记 untracked files 是否纳入 scope；默认 diff 审查不纳入未跟踪文件，只在 Coverage 中说明。
+5. 检查 PRD、Figma materialized context、App source、KMP、analytics、i18n、design-system 是否可读。
+6. default/headless 生成 run-scoped preflight.json 和 degraded_modes；report-only 只保留内存 preflight facts，并在输出中呈现 degraded_modes。
+```
+
+失败 / 降级语义：
+
+```text
+failed:
+  - source root 不存在或越界
+  - headless 无法确定 diff scope
+  - required JSON artifact schema invalid 且无法降级
+
+degraded:
+  - PRD 缺失，Product Expert 只能 advisory
+  - Figma 只有 reference，Design Expert 只能跳过或 advisory
+  - graph artifacts 缺失，改用本地源码 facts
+  - i18n / analytics 缺失，对应专家跳过并写 skipped reason
+
+advisory_only:
+  - 行业只来自术语候选，未获用户或 repo-profile confirmed
+  - 只有 rule-pack 命中，没有项目特定 evidence
+```
+
+default/headless 下，`preflight.json` 必须把这些状态写入 `degraded_modes[]`。report-only 下不写 `preflight.json`，但必须在当前响应的 Coverage 中呈现同等的 degraded_modes。任何后续章节如果要求写 artifact，都只适用于 default/headless。
+
+reason_code 最小集合：
+
+```text
+scope_source_missing
+scope_source_outside_repo
+scope_base_unresolved
+scope_headless_missing_base
+input_prd_missing
+input_figma_reference_only
+input_figma_context_unreadable
+input_materialization_not_allowed
+graph_unavailable
+graph_stale
+graph_definitions_only
+contract_schema_invalid
+contract_extraction_unavailable
+expert_failed
+expert_malformed_return
+evidence_gate_rejected
+evidence_auditor_rejected
+validator_rejected
+validator_unavailable
+report_writer_failed
+secret_input_blocked
+remote_execution_blocked
+network_access_blocked
+runtime_validation_deferred
+host_runtime_stale_suspected
+skill_audit_signal_observed
+```
+
+### 4.7 Input Materialization 与路径边界
+
+输入 materialization 是确定性准备阶段，不是审查结论。它只能把外部或宿主上下文转成本轮可引用的本地证据文件。
+
+路径规则：
+
+```text
+default/headless:
+  .spec-first/app-audit/runs/<run-id>/input/
+
+report-only:
+  禁止写 input/；只能读取用户已经提供的本地 figma-context / prd / source 文件。
+```
+
+Figma materialization：
+
+```text
+1. figma-ref:<id-or-url> 只是外部引用，不等于 evidence。
+2. interactive/default 可在用户授权或宿主已提供上下文时 materialize 到 runs/<run-id>/input/figma-context.json。
+3. headless/report-only 不主动拉取 Figma MCP；缺 materialized context 时记录 degraded。
+4. extract-figma-contract.js 只能消费本地 figma-context JSON。
+5. materialized raw input 必须写 source_inputs，并标记 data_sensitivity 与 redaction mode。
+```
+
+禁止：
+
+```text
+1. 将 .spec-first/app-audit/input/ 作为新产物默认路径。
+2. 从 Figma node id 或 URL 直接推断设计事实。
+3. 在 report-only 中为了完整性偷偷写入 materialized input。
+```
+
+---
+
+## 5. 与 spec-code-review 的协作方式
+
+### 5.1 code-review 调用 app-audit 的触发条件
+
+`spec-code-review` 在分析 diff 时，如果命中以下条件，默认只建议运行 `spec-app-consistency-audit`；只有用户显式要求、父 workflow 明确允许，或 code-review 以 headless 子流程模式运行时，才直接调用 app-audit：
+
+```text
+1. diff 命中 Android / iOS / KMP / Compose / SwiftUI
+2. diff 命中 ViewModel / UiState / UiEvent / UseCase / Repository
+3. diff 命中 page route / navigation / screen
+4. diff 命中 analytics / i18n / design-system
+5. diff 命中 PRD / Figma context / app-audit input
+6. diff 命中行业关键路径：trade / payment / order / refund / login / kyc
+7. 用户显式要求 App 一致性审查
+```
+
+触发分层：
+
+```text
+recommend_only:
+  - 命中 App/KMP/UI/analytics/i18n/design-system 文件
+  - 有 App 专项风险但缺少 PRD / Figma / source 上下文
+  - 当前 code-review 处于 interactive/report-only 且用户未授权子流程
+
+headless_allowed:
+  - 用户显式要求 App 一致性审查
+  - 父 workflow 已声明允许 app-audit headless
+  - code-review 能确定 diff scope，且不会切换 shared checkout
+
+manual_required:
+  - Figma 只有 node/file reference，尚未 materialized
+  - 需要用户确认 industry profile
+  - app-audit 输入缺失导致只能输出 advisory
+```
+
+### 5.2 协作模式
+
+#### 模式 A：推荐运行
+
+`spec-code-review` 报告中提示：
+
+```text
+This change touches KMP commonMain + TradeBuyScreen + analytics events.
+Consider running the host-specific app consistency audit entrypoint:
+Claude /spec:app-consistency-audit
+Codex  $spec-app-consistency-audit
+```
+
+#### 模式 B：headless 子流程
+
+宿主入口必须保持 host-aware：
+
+```text
+Claude: /spec:app-consistency-audit mode:headless from:code-review base:<ref>
+Codex:  $spec-app-consistency-audit mode:headless from:code-review base:<ref>
+```
+
+headless 子流程必须输出 run-scoped artifacts：
+
+```text
+.spec-first/app-audit/runs/<run-id>/issues.json
+.spec-first/app-audit/runs/<run-id>/app-consistency-audit.summary.md
+.spec-first/app-audit/runs/<run-id>/app-consistency-audit.md
+```
+
+并返回结构化 completion envelope，至少包含：
+
+```text
+status: complete | degraded | failed
+run_id
+summary_path
+issues_path
+selected_experts
+degraded_modes
+terminal_signal: App consistency audit complete
+```
+
+`spec-code-review` 只合并 summary 和 high-signal issues，不读取 app-audit 的完整 debug contracts。
+
+#### 模式 C：专项人工触发
+
+用户直接执行：
+
+```text
+Claude: /spec:app-consistency-audit prd:docs/prd/trade.md figma-context:.spec-first/app-audit/input/figma.json source:.
+Codex:  $spec-app-consistency-audit prd:docs/prd/trade.md figma-context:.spec-first/app-audit/input/figma.json source:.
+```
+
+用于完整 App 专项一致性审查。
+
+### 5.3 两者 artifacts 不混用
+
+`spec-code-review` 输出仍属于 code-review：
+
+```text
+.spec-first/code-review/
+```
+
+`spec-app-consistency-audit` 输出属于 app-audit：
+
+```text
+.spec-first/app-audit/
+```
+
+code-review 只能读取 app-audit 的 summary / issues，不应吞并其完整 artifacts。
+
+---
+
+## 6. Impact Facts + LLM Audit Planner 设计
+
+### 6.1 目标
+
+目标是用最小但足够的专家组完成 App 专项审查，同时避免把影响面判断硬编码成规则引擎。
+
+```text
+Impact Facts Builder
+  = 脚本产出确定性改动事实和候选 signals
+
+LLM Audit Planner
+  = 基于 facts 和用户意图生成 audit-plan.json
+```
+
+它解决的问题是：
+
+```text
+不是每次都跑 Product / Design / UX / KMP / Component / Engineering / Analytics / I18n / Industry / Regression 全部专家。
+```
+
+同时必须避免：
+
+```text
+1. 脚本直接判断业务影响是否成立
+2. 脚本直接决定行业 critical flow
+3. 脚本直接把某个专家标记为“必须启用”
+4. 用复杂规则引擎替代 LLM 审查计划
+```
+
+### 6.2 Impact Facts 输入
+
+```text
+1. git diff
+2. changed files
+3. changed symbols
+4. import / dependency changes
+5. route / screen / ViewModel / UseCase / Repository 影响面
+6. PRD 是否变更
+7. Figma context 是否提供或 materialized
+8. analytics / i18n 文件是否变更
+9. industry profile / rule-pack signals
+10. graph artifacts，如果存在
+11. user tokens，例如 depth:deep / industry:<name>
+```
+
+Graph / MCP 边界：
+
+```text
+1. graph artifacts 是可选输入，不是 app-audit scope authority。
+2. GitNexus / code-review-graph / Serena 等 provider 只能提供 candidate pointers、changed symbols、call relationships 或 definitions。
+3. provider degraded、stale、definitions-only 时，Impact Facts Builder 记录 reason_code，并回退到 bounded source scan。
+4. 成功的 live MCP 查询只能作为 session-local evidence pointer，不能替代 run-scoped canonical artifacts。
+5. app-audit 的最终 issue 必须仍引用项目特定 source evidence，而不是只引用 provider 输出。
+```
+
+### 6.3 Impact Facts 不能只看 diff 附近几行
+
+App 审查必须扩展上下文。
+
+```text
+changed lines
+  → enclosing function / class
+  → related UiState / UiEvent / Effect
+  → related UseCase / Repository
+  → related Screen / Route
+  → related analytics / i18n / Figma state
+  → related product journey / industry critical flow
+```
+
+### 6.4 Impact Facts 输出
+
+```text
+.spec-first/app-audit/runs/<run-id>/impact-facts.json
+```
+
+示例：
+
+```json
+{
+  "schema_version": "spec-app-consistency-audit-impact-facts.v1",
+  "artifact_id": "impact-facts",
+  "generated_at": "2026-05-01T00:00:00.000Z",
+  "source_inputs": [
+    {
+      "type": "git_diff",
+      "path": ".",
+      "source_hash_unavailable_reason": "working tree diff",
+      "freshness": "current-run"
+    }
+  ],
+  "consumers": ["llm-audit-planner"],
+  "contract_status": "candidate",
+  "data_sensitivity": "internal",
+  "changed_files": [
+    "shared/src/commonMain/kotlin/trade/SubmitTradeOrderUseCase.kt",
+    "androidApp/src/main/kotlin/trade/TradeBuyScreen.kt",
+    "shared/src/commonMain/kotlin/analytics/TradeAnalytics.kt"
+  ],
+  "candidate_signals": [
+    {
+      "type": "usecase_changed",
+      "confidence": 0.86,
+      "evidence": [
+        {
+          "source": "code",
+          "file": "shared/src/commonMain/kotlin/trade/SubmitTradeOrderUseCase.kt",
+          "summary": "UseCase file changed."
+        }
+      ]
+    },
+    {
+      "type": "screen_changed",
+      "confidence": 0.78,
+      "evidence": [
+        {
+          "source": "code",
+          "file": "androidApp/src/main/kotlin/trade/TradeBuyScreen.kt",
+          "summary": "Screen file changed."
+        }
+      ]
+    },
+    {
+      "type": "analytics_change",
+      "confidence": 0.91,
+      "evidence": [
+        {
+          "source": "code",
+          "file": "shared/src/commonMain/kotlin/analytics/TradeAnalytics.kt",
+          "summary": "Analytics file changed."
+        }
+      ]
+    },
+    {
+      "type": "industry_term_candidate",
+      "industry": "securities",
+      "confidence": 0.88,
+      "advisory_only": true,
+      "evidence": [
+        {
+          "source": "code",
+          "file": "shared/src/commonMain/kotlin/trade/SubmitTradeOrderUseCase.kt",
+          "summary": "Identifiers contain trade/order/buy terms."
+        }
+      ]
+    }
+  ],
+  "available_context": {
+    "prd": false,
+    "figma_materialized": false,
+    "graph_artifacts": false,
+    "analytics": true,
+    "i18n": false
+  }
+}
+```
+
+### 6.5 Audit Plan 输出
+
+`audit-plan.json` 是 LLM Audit Planner 的语义产物，不是脚本规则命中的直接结果。
+
+输出：
+
+```text
+.spec-first/app-audit/runs/<run-id>/audit-plan.json
+```
+
+最小协议：
+
+```json
+{
+  "schema_version": "spec-app-consistency-audit-plan.v1",
+  "artifact_id": "audit-plan",
+  "generated_at": "2026-05-01T00:00:00.000Z",
+  "source_inputs": [
+    {
+      "type": "impact_facts",
+      "path": ".spec-first/app-audit/runs/<run-id>/impact-facts.json",
+      "source_hash": "sha256:<64-hex>",
+      "freshness": "current-run"
+    }
+  ],
+  "consumers": ["app-audit-orchestrator", "report-writer"],
+  "contract_status": "candidate",
+  "data_sensitivity": "internal",
+  "mode": "default",
+  "planner_decisions": [
+    {
+      "decision": "business_rule_review_needed",
+      "confidence": 0.82,
+      "basis": ["usecase_changed", "submit/order terms present"],
+      "semantic_note": "UseCase change appears close to order submission, but PRD is unavailable; Product Expert should review as focused/advisory."
+    }
+  ],
+  "selected_experts": [
+    {
+      "expert": "Product Expert",
+      "mode": "focused",
+      "reason": "UseCase changed near order submission terms; PRD unavailable so findings must stay evidence-bounded."
+    },
+    {
+      "expert": "Mobile UX Expert",
+      "mode": "focused",
+      "reason": "TradeBuyScreen changed; submit interaction may be affected."
+    },
+    {
+      "expert": "KMP Architect",
+      "mode": "focused",
+      "reason": "commonMain domain UseCase changed."
+    },
+    {
+      "expert": "Engineering Quality Expert",
+      "mode": "deep",
+      "reason": "Critical submit flow changed."
+    },
+    {
+      "expert": "Analytics Expert",
+      "mode": "focused",
+      "reason": "Trade analytics file changed."
+    },
+    {
+      "expert": "Industry Expert",
+      "mode": "advisory",
+      "reason": "Securities terms are candidate-only; industry profile is not user-confirmed."
+    },
+    {
+      "expert": "LLM Evidence Auditor",
+      "mode": "required",
+      "reason": "Semantic evidence audit is always required after deterministic evidence gate."
+    },
+    {
+      "expert": "Report Writer",
+      "mode": "required",
+      "reason": "Always required."
+    }
+  ],
+  "skipped_experts": [
+    {
+      "expert": "I18n Expert",
+      "reason": "No user-facing text or i18n resource changed."
+    },
+    {
+      "expert": "Design Expert",
+      "reason": "No Figma context or design/component change detected."
+    },
+    {
+      "expert": "Regression Expert",
+      "reason": "Will be enabled only if High/Blocker issues require runtime verification."
+    }
+  ]
+}
+```
+
+原则：
+
+```text
+1. selected_experts 是 LLM 计划结果。
+2. skipped_experts 必须写明缺失的 evidence 或不启用原因。
+3. 行业专家在行业未确认时只能 advisory。
+4. audit-plan 本身不确认 issue，只定义本轮审查范围。
+5. audit-plan 必须通过 schema 校验后才能调度专家。
+```
+
+---
+
+## 7. 专家 Agent 调度规则
+
+### 7.1 永远启用
+
+#### Deterministic Evidence Gate
+
+永远启用。
+
+职责：
+
+```text
+1. 校验 issue JSON schema
+2. 拒绝缺少 evidence / provenance / data_sensitivity / runtime_verification 的 issue
+3. 拒绝 rule-pack-only evidence 的 confirmed issue
+4. 拒绝未确认行业 profile 产生的行业 confirmed issue
+5. 规范化 confidence、impact、recommendation、related_rule_packs
+6. 输出 evidence-gate-result.json
+```
+
+这是脚本门禁，只处理确定性结构问题，不判断证据语义是否充分。
+
+#### LLM Evidence Auditor
+
+永远启用。
+
+职责：
+
+```text
+1. 复核 Issue Synthesis / Dedup 后的候选问题
+2. 检查证据是否支持标题、严重等级、影响和建议
+3. 删除语义证据不足的问题
+4. 将弱证据问题降级为 candidate / advisory / follow-up
+5. 标记 static_confirmed / requires_runtime_verification / requires_real_device
+6. 防止专家幻觉和跨领域越权
+```
+
+原则：
+
+```text
+No evidence, no issue.
+```
+
+#### Report Writer
+
+永远启用。
+
+职责：
+
+```text
+1. 根据启用专家动态生成报告章节
+2. 输出 issues 摘要
+3. 输出 high / blocker 优先级
+4. 输出修复建议
+5. 输出是否需要运行验证
+6. 输出可沉淀规范
+```
+
+报告不应每次都输出所有章节。
+
+---
+
+### 7.2 默认轻量启用
+
+#### Engineering Quality Expert
+
+默认 lightweight 启用。
+
+轻量审查：
+
+```text
+异常处理
+主线程风险
+协程取消
+复杂度
+重复代码
+敏感日志
+明显性能问题
+可测性风险
+```
+
+以下情况升级 deep：
+
+```text
+核心业务 UseCase 改动
+远程请求逻辑改动
+本地缓存 / 数据库改动
+支付 / 交易 / 订单 / 登录变更
+并发 / 协程 / Flow / Job 变更
+重试 / timeout / retry 变更
+复杂方法变长
+```
+
+---
+
+### 7.3 按需启用专家
+
+#### Product Expert
+
+启用条件：
+
+```text
+PRD 变更
+业务规则变更
+用户流程变更
+核心 feature 新增 / 删除
+页面入口、提交逻辑、状态流转变化
+UseCase 承载业务规则变化
+```
+
+#### Design Expert
+
+启用条件：
+
+```text
+Figma context 提供
+设计系统组件变更
+UI 组件 props / variant 变更
+页面布局、文案、状态样式变更
+颜色、字体、spacing、radius token 变更
+```
+
+#### Mobile UX Expert
+
+启用条件：
+
+```text
+Screen / View / Composable / SwiftUI 变更
+导航变更
+表单变更
+TextInput / Keyboard / BottomSheet / Dialog 变更
+权限、返回、刷新、分页、空态、错误态变更
+```
+
+#### KMP Architect
+
+启用条件：
+
+```text
+commonMain 变更
+androidMain / iosMain 变更
+expect / actual 变更
+domain / data / presentation 分层变更
+UseCase / Repository / PlatformService 变更
+模块依赖变更
+```
+
+#### Component Module Expert
+
+启用条件：
+
+```text
+组件库变更
+design-system 变更
+feature module 依赖变更
+core module 变更
+公共组件被修改
+Gradle module / package structure 变更
+```
+
+#### Analytics Expert
+
+启用条件：
+
+```text
+analytics 模块变更
+track / logEvent / eventName / params 变更
+关键用户路径变更
+按钮点击、页面曝光、提交成功 / 失败逻辑变更
+PRD 中有埋点要求
+行业关键链路变更
+```
+
+#### I18n Expert
+
+启用条件：
+
+```text
+strings.xml 变更
+Localizable.strings 变更
+shared resources 变更
+用户可见文案变更
+错误提示变更
+按钮文案变更
+placeholder 变更
+日期、金额、数字格式化变更
+新增硬编码文案
+```
+
+#### Industry Expert
+
+启用条件：
+
+```text
+用户确认行业画像
+行业关键路径变更
+用户显式指定行业
+repo-profile.yaml 中已有 confirmed 行业配置
+改动命中行业 rule-pack 的 critical flow 候选
+```
+
+默认不启用。低置信度或未确认行业时，只记录行业候选；如启用 Industry Expert，也只能输出 advisory risk，不能产生行业 confirmed issue。
+
+#### Regression Expert
+
+启用条件：
+
+```text
+Blocker / High 问题出现
+核心用户路径变更
+导航 / 表单 / 提交 / 支付 / 交易变更
+需要模拟器 / 真机验证
+用户要求生成回归建议
+```
+
+### 7.4 Agent IO Contract
+
+每个专家 Agent 都使用相同输入/输出协议，避免专家 prompt 变成不可合成的长文。
+
+输入包：
+
+```text
+1. 专家 prompt 文件内容
+2. audit-plan.json 中与该专家相关的 selected_experts 条目
+3. app-audit-context.json
+4. 可用 contract artifact 路径清单
+5. issue schema 和 evidence policy
+6. mode、run_id、source root、base ref、degraded modes
+7. 专家边界：只审查本领域，不编辑项目文件，不写 durable standards
+```
+
+输出分两层：
+
+```text
+compact return:
+  - expert
+  - findings[]
+  - residual_risks[]
+  - runtime_verification_suggestions[]
+  - coverage_notes[]
+
+full artifact:
+  .spec-first/app-audit/runs/<run-id>/expert-reviews/<expert>.json
+```
+
+compact finding 是 gate-ready 最小 issue，不是自然语言摘要。它必须包含 Deterministic Evidence Gate 需要的核心字段；full artifact 只能补充更长 reasoning，不能补齐 compact return 缺失的必填证据字段。report-only 因为不写 full artifact，也依赖同一个 compact finding 协议。
+
+compact finding 最小字段：
+
+```json
+{
+  "title": "交易提交前确认状态未进入 UiState",
+  "severity": "high",
+  "category": "industry_interaction",
+  "claim_type": "missing_confirmation_state",
+  "affected_surface": {
+    "type": "view_model",
+    "id": "TradeViewModel",
+    "file": "shared/src/commonMain/kotlin/trade/TradeViewModel.kt"
+  },
+  "confidence": 0.91,
+  "contract_status": "confirmed",
+  "data_sensitivity": "internal",
+  "static_confirmed": true,
+  "requires_runtime_verification": false,
+  "requires_real_device": false,
+  "provenance": [
+    {
+      "source": "code",
+      "file": "shared/src/commonMain/kotlin/trade/TradeViewModel.kt",
+      "summary": "未发现 ConfirmState 或 TradeOrderPreview 状态"
+    }
+  ],
+  "evidence": {
+    "code": [
+      {
+        "source": "code",
+        "file": "shared/src/commonMain/kotlin/trade/TradeViewModel.kt",
+        "summary": "未发现 ConfirmState 或 TradeOrderPreview 状态"
+      }
+    ]
+  },
+  "impact": [
+    "交易提交前缺少可审查的确认状态"
+  ],
+  "recommendation": [
+    "在 commonMain 建模 TradeOrderPreview"
+  ],
+  "runtime_verification": {
+    "required": false,
+    "level": "none",
+    "reason": "静态源码证据已能确认状态缺失"
+  }
+}
+```
+
+失败处理：
+
+```text
+1. 单个按需专家失败：记录 failed_experts，不阻塞报告。
+2. Deterministic Evidence Gate / Report Writer 失败：本轮 failed。
+3. LLM Evidence Auditor 失败：降级输出 deterministic gate 后的 candidate/advisory，不产生新的 confirmed issue。
+4. 所有审查专家失败：headless 返回 degraded envelope；interactive 报告 Coverage 后停止。
+```
+
+---
+
+## 8. 运行模式与审查深度
+
+`mode:headless` / `mode:report-only` 控制交互和 artifact 写入行为；`depth:deep` / `industry:<name>` 控制审查深度和专项 lens。两者不是同一类参数，不能混用成多套 mode。
+
+### 8.1 default depth
+
+默认模式。
+
+```text
+Impact Facts Builder
+LLM Audit Planner
+Engineering Quality Expert lightweight
+按需专家
+Normalize / Enrich Issue Candidates
+Issue Synthesis / Dedup
+Deterministic Evidence Gate
+LLM Evidence Auditor
+Validation Pass when externalizing high-value findings
+Report Writer
+```
+
+适合日常代码改动。
+
+### 8.2 depth:deep
+
+用户显式指定：
+
+```text
+Claude: /spec:app-consistency-audit depth:deep
+Codex:  $spec-app-consistency-audit depth:deep
+```
+
+启用：
+
+```text
+Product Expert
+Design Expert
+Mobile UX Expert
+KMP Architect
+Component Module Expert
+Engineering Quality Expert deep
+Analytics Expert
+I18n Expert
+Normalize / Enrich Issue Candidates
+Issue Synthesis / Dedup
+Deterministic Evidence Gate
+LLM Evidence Auditor
+Validation Pass when externalizing high-value findings
+Report Writer
+```
+
+Industry Expert 仍然根据行业规则决定，不默认强启。
+
+### 8.3 industry:<name>
+
+用户显式指定：
+
+```text
+Claude: /spec:app-consistency-audit industry:securities
+Codex:  $spec-app-consistency-audit industry:securities
+```
+
+或用户确认 industry profile 后启用。仅凭 Impact Facts 的高置信行业候选，不足以产生行业 confirmed issue。
+
+---
+
+## 9. 最小审查小组示例
+
+### 普通 UI 文案改动
+
+```text
+I18n Expert
+Mobile UX Expert lightweight
+Deterministic Evidence Gate
+LLM Evidence Auditor
+Report Writer
+```
+
+### 普通样式改动
+
+```text
+Design Expert
+Mobile UX Expert lightweight
+Deterministic Evidence Gate
+LLM Evidence Auditor
+Report Writer
+```
+
+### ViewModel 状态改动
+
+```text
+Mobile UX Expert
+Engineering Quality Expert
+KMP Architect focused
+Deterministic Evidence Gate
+LLM Evidence Auditor
+Report Writer
+```
+
+### UseCase 业务规则改动
+
+```text
+Product Expert
+KMP Architect
+Engineering Quality Expert
+Industry Expert advisory if candidate / confirmed if user-confirmed
+Analytics Expert if critical path
+Deterministic Evidence Gate
+LLM Evidence Auditor
+Report Writer
+```
+
+### 埋点改动
+
+```text
+Analytics Expert
+Product Expert focused
+Industry Expert advisory if candidate / confirmed if user-confirmed
+Deterministic Evidence Gate
+LLM Evidence Auditor
+Report Writer
+```
+
+### i18n 资源改动
+
+```text
+I18n Expert
+Mobile UX Expert focused
+Deterministic Evidence Gate
+LLM Evidence Auditor
+Report Writer
+```
+
+### Gradle / module 结构改动
+
+```text
+Component Module Expert
+KMP Architect
+Engineering Quality Expert
+Deterministic Evidence Gate
+LLM Evidence Auditor
+Report Writer
+```
+
+### 交易 / 支付 / 订单核心路径改动
+
+```text
+Product Expert
+Mobile UX Expert
+KMP Architect
+Engineering Quality Expert deep
+Analytics Expert
+Industry Expert advisory / confirmed per industry profile
+Regression Expert
+Deterministic Evidence Gate
+LLM Evidence Auditor
+Report Writer
+```
+
+---
+
+## 10. Contract Extraction 设计
+
+虽然专家按需启用，但事实抽取应尽量稳定、轻量、可复用。
+
+所有脚本抽取出的 contract 默认都是 `contract_status: candidate`。它们可以作为专家输入和 issue evidence，但不能由脚本直接升级为 confirmed issue。
+
+default/headless 下 contract 输出必须 run-scoped。report-only 下不得写 contract artifact；若 extractor 支持 stdout/in-memory，可作为本轮只读事实输入，否则该 contract 标记 degraded。
+
+每个 contract artifact 必须包含：
+
+```text
+schema_version
+artifact_id
+generated_at
+source_inputs[]，含 path/hash 或 hash unavailable reason、freshness
+consumers[]
+contract_status
+data_sensitivity
+degraded_modes[]，如果适用
+```
+
+### 10.1 Product Contract
+
+来源：PRD 本地文件。
+
+抽取：
+
+```text
+业务目标
+用户角色
+用户旅程
+页面清单
+字段规则
+异常规则
+权限规则
+埋点要求
+国际化要求
+行业术语
+合规要求
+平台差异要求
+```
+
+输出：
+
+```text
+.spec-first/app-audit/runs/<run-id>/contracts/product-contract.json
+```
+
+### 10.2 Figma Design Contract
+
+来源：Figma MCP materialized context。
+
+抽取：
+
+```text
+Frame / Screen
+Component
+Variant
+Text
+Token
+Loading / Empty / Error / Disabled / Success states
+Dialog / BottomSheet / Toast
+Layout constraints
+Safe area / keyboard / long text risk
+```
+
+输出：
+
+```text
+.spec-first/app-audit/runs/<run-id>/contracts/figma-design-contract.json
+```
+
+注意：
+
+```text
+Figma node/file reference 不等于 materialized context。
+必须先通过 Figma MCP 读取并落盘，再标记 design contract 可用。
+```
+
+### 10.3 Codebase Contract
+
+来源：本地源码。
+
+抽取：
+
+```text
+route graph
+screen graph
+ViewModel
+UiState
+UiEvent
+Effect
+UseCase
+Repository
+PlatformService
+Component usage
+Analytics call
+I18n usage
+```
+
+输出：
+
+```text
+.spec-first/app-audit/runs/<run-id>/contracts/codebase-contract.json
+```
+
+### 10.4 KMP Architecture Contract
+
+抽取：
+
+```text
+commonMain
+androidMain
+iosMain
+domain
+data
+presentation
+ui
+platform
+expect / actual
+repository interface / impl
+platform adapter
+```
+
+输出：
+
+```text
+.spec-first/app-audit/runs/<run-id>/contracts/kmp-architecture-contract.json
+```
+
+### 10.5 Component / Module / Reuse Contract
+
+抽取：
+
+```text
+Figma Component → Code Component mapping
+component variants
+component props
+module dependency graph
+feature/core/design-system boundaries
+duplicate logic / duplicate components
+```
+
+输出：
+
+```text
+.spec-first/app-audit/runs/<run-id>/contracts/component-contract.json
+.spec-first/app-audit/runs/<run-id>/contracts/module-contract.json
+.spec-first/app-audit/runs/<run-id>/contracts/reuse-contract.json
+```
+
+### 10.6 Analytics Contract
+
+抽取：
+
+```text
+page view
+click
+submit
+success
+failed
+exposure
+params
+failure reason
+source page
+cross-platform event mapping
+```
+
+输出：
+
+```text
+.spec-first/app-audit/runs/<run-id>/contracts/analytics-contract.json
+```
+
+### 10.7 I18n Contract
+
+抽取：
+
+```text
+strings.xml
+Localizable.strings
+shared resources
+hardcoded user-facing text
+placeholder
+plural
+date / amount / number formatting
+RTL risk
+accessibility label text
+```
+
+输出：
+
+```text
+.spec-first/app-audit/runs/<run-id>/contracts/i18n-contract.json
+```
+
+### 10.8 Industry Profile
+
+抽取来源：
+
+```text
+PRD 术语
+Figma 页面 / 文案
+源码类名 / UseCase / Repository
+API path
+埋点事件
+i18n key
+模块名
+业务组件名
+```
+
+输出：
+
+```text
+.spec-first/app-audit/runs/<run-id>/contracts/industry-profile.preview.json
+```
+
+要求：
+
+```text
+必须有置信度
+必须有证据
+低置信度只记录候选，不启用 Industry Expert
+高置信但未确认时，Industry Expert 也只能输出 advisory risk
+不自动写 repo-profile.yaml
+```
+
+---
+
+## 11. App 工程质量审查聚焦范围
+
+Engineering Quality Expert 必须聚焦 App 场景，不能把后端审查清单原样搬进移动端。
+
+重点是：
+
+```text
+App 架构边界
+移动端生命周期
+UI 主线程与渲染性能
+协程 / 异步任务取消
+弱网与离线体验
+本地缓存与远端状态一致性
+权限与隐私
+WebView / Deep Link / Scheme 安全
+埋点与日志脱敏
+KMP commonMain 与平台层隔离
+Android / iOS 行为一致性
+App 端可测性与回归成本
+```
+
+后端概念在 App 语境下的转换：
+
+```text
+慢 SQL
+→ 本地数据库查询、Room/SQLDelight 查询、列表加载、主线程 IO
+
+分布式事务
+→ App 本地状态、缓存、远端提交、支付/交易/订单状态的最终一致性
+
+防雪崩 / 防过载
+→ 高频点击、重复请求、弱网重试、并发刷新、接口失败保护
+
+服务可用性
+→ 弱网、接口失败、部分失败、缓存兜底下核心路径是否仍可用
+
+安全性
+→ token、隐私数据、日志、WebView、Deep Link、剪贴板、截图录屏等移动端风险
+```
+
+---
+
+## 12. 规则包设计
+
+规则包分层：
+
+```text
+L0 common-app
+  - 通用移动端交互
+  - 状态完整性
+  - 键盘
+  - 安全区
+  - 无障碍
+  - 弱网
+  - 权限
+
+L1 kmp-clean-architecture
+  - KMP source set
+  - Clean Architecture
+  - UseCase
+  - Repository
+  - ViewModel
+  - UiState / UiEvent
+  - expect / actual
+
+L2 component-module-reuse
+  - 组件化
+  - 模块化
+  - 复用
+  - 设计系统
+  - token
+  - duplicate logic
+
+L3 analytics
+  - event coverage
+  - params
+  - failure reason
+  - exposure dedup
+  - cross-platform naming
+
+L4 i18n
+  - hardcoded text
+  - key mapping
+  - placeholder
+  - plural
+  - locale formatting
+  - long text / RTL risk
+
+L5 industry
+  - finance-common
+  - securities
+  - ecommerce
+  - healthcare
+  - education
+  - logistics
+```
+
+规则包只为专家提供上下文，不直接生成 issue。
+
+---
+
+## 13. Issue 协议
+
+所有专家输出统一 issue 结构，并必须能通过 deterministic evidence gate。
+
+```json
+{
+  "id": "APP-AUDIT-023",
+  "title": "交易提交前确认状态未进入 UiState",
+  "severity": "blocker",
+  "category": "industry_interaction",
+  "claim_type": "missing_confirmation_state",
+  "affected_surface": {
+    "type": "view_model",
+    "id": "TradeViewModel",
+    "file": "shared/src/commonMain/kotlin/trade/TradeViewModel.kt"
+  },
+  "expert": "securities-expert",
+  "confidence": 0.91,
+  "contract_status": "confirmed",
+  "data_sensitivity": "internal",
+  "static_confirmed": true,
+  "requires_runtime_verification": false,
+  "requires_real_device": false,
+  "provenance": [
+    {
+      "source": "prd",
+      "file": "docs/prd/trade.md",
+      "summary": "PRD 要求买入前展示委托确认信息"
+    },
+    {
+      "source": "figma",
+      "file": ".spec-first/app-audit/runs/<run-id>/contracts/figma-design-contract.json",
+      "summary": "Figma materialized context 中存在 TradeConfirmDialog"
+    },
+    {
+      "source": "code",
+      "file": "shared/src/commonMain/kotlin/trade/TradeViewModel.kt",
+      "summary": "未发现 ConfirmState 或 TradeOrderPreview 状态"
+    }
+  ],
+  "evidence": {
+    "prd": [
+      {
+        "source": "prd",
+        "file": "docs/prd/trade.md",
+        "summary": "PRD 要求买入前展示委托确认信息"
+      }
+    ],
+    "figma": [
+      {
+        "source": "figma",
+        "file": ".spec-first/app-audit/runs/<run-id>/contracts/figma-design-contract.json",
+        "summary": "Figma materialized context 中存在 TradeConfirmDialog"
+      }
+    ],
+    "code": [
+      {
+        "source": "code",
+        "file": "shared/src/commonMain/kotlin/trade/TradeViewModel.kt",
+        "summary": "未发现 ConfirmState 或 TradeOrderPreview 状态"
+      }
+    ]
+  },
+  "impact": [
+    "用户可能未确认交易信息就提交委托",
+    "交易确认曝光和确认提交埋点无法稳定采集",
+    "Android/iOS 交易确认行为可能漂移"
+  ],
+  "recommendation": [
+    "在 commonMain 建模 TradeOrderPreview",
+    "增加 TradeUiState.Confirming",
+    "提交前先进入确认态，再触发 SubmitTradeOrderUseCase",
+    "补充 trade_confirm_view 和 trade_confirm_submit 埋点"
+  ],
+  "related_rule_packs": [
+    "common-app",
+    "finance-common",
+    "securities"
+  ],
+  "runtime_verification": {
+    "required": false,
+    "level": "none",
+    "reason": "PRD / Figma / Code 证据链已能静态确认状态缺失。"
+  },
+  "validation_status": "not_required",
+  "code_review_handoff": {
+    "enabled": true,
+    "severity": "P1",
+    "autofix_class": "manual",
+    "owner": "downstream-resolver",
+    "requires_verification": false,
+    "summary": "交易提交前确认状态未进入 UiState"
+  }
+}
+```
+
+硬性要求：
+
+```text
+confidence 使用 0~1 数字
+contract_status 必须是 candidate / confirmed / rejected
+claim_type 必须描述问题语义，不能从 title 临时推导
+affected_surface 必须指向主要受影响的 screen / usecase / route / event / i18n key / component / module / view_model
+confirmed issue 必须有至少一个项目特定 evidence
+rule_pack 不能作为唯一 evidence
+未确认行业画像只能产生 advisory / candidate，不能产生行业 confirmed issue
+provenance 必须非空
+runtime_verification 必须存在
+data_sensitivity 必须存在
+validation_status 必须存在，取值为 not_required / validated / validator_rejected / validator_unavailable
+impact 使用数组
+recommendation 使用数组
+from:code-review 或 headless envelope 中进入 code-review summary 的 issue 必须包含 code_review_handoff
+```
+
+避免只用字符串，便于后续排序、聚合和 report synthesis。
+
+### 13.0 Schema 演进原则
+
+当前 `skills/spec-app-consistency-audit/schemas/audit-report.schema.json` 是宽松 v1，已经允许 `additionalProperties`。升级时优先做 additive hardening：
+
+```text
+1. 新增 spec-app-consistency-audit-issue.v1 作为独立 issue schema。
+2. audit-report.schema.json 继续引用 issue schema，但保留 additionalProperties 以兼容旧报告。
+3. validate-artifacts.js 增加 strict issue mode，用于新 run-scoped issues.json；旧 audit-report 可通过 compatibility mode 验证。
+4. claim_type / affected_surface / validation_status / code_review_handoff 先在 strict mode 必填，再决定是否升为 audit-report v2。
+5. schema 变更必须同步 tests/unit/spec-app-consistency-audit-validate.test.js 和 CLI e2e。
+```
+
+`validate-artifacts.js` 的职责边界：
+
+```text
+1. 可以校验字段存在、枚举、hash、source_inputs、run path 和 evidence 结构。
+2. 可以给出 reason_code。
+3. 不能判断 evidence 是否语义支持 issue。
+4. 不能把 candidate 自动提升为 confirmed。
+5. audit-report 若 contract_status: confirmed，必须通过明确的 --allow-confirmed 或 report writer 专用调用路径，避免脚本产物默认 confirmed。
+```
+
+### 13.1 Issue Synthesis Pipeline
+
+多专家输出必须经过统一合成，不能由 Report Writer 直接拼接专家长文。
+
+合成步骤：
+
+```text
+1. Validate compact returns
+   - 缺少 expert / findings / residual_risks / coverage_notes 时丢弃该专家返回
+   - finding 缺少 title / severity / category / claim_type / affected_surface / confidence / contract_status / data_sensitivity / evidence / provenance / impact / recommendation / runtime_verification 时丢弃该 finding
+
+2. Normalize
+   - severity 归一为 blocker / high / medium / low
+   - confidence 归一为 0~1 number
+   - impact / recommendation 归一为 array
+   - evidence 归一为 source-keyed object
+   - provenance 归一为 flat evidence source list
+   - validation_status 初始设为 not_required
+   - from:code-review 时预填 code_review_handoff 候选字段
+
+3. Deduplicate
+   fingerprint =
+     normalize(category)
+     + normalize(claim_type)
+     + normalize(affected_surface.type)
+     + normalize(affected_surface.id)
+     + normalize(primary project evidence file or contract path)
+
+   title 只作为展示文案，不能作为 fingerprint 的主要组成部分。否则不同专家用不同标题描述同一问题时会漏合并。
+
+4. Cross-expert agreement
+   - 2 个以上独立专家命中同一 fingerprint，可提升 confidence
+   - Product + Design + Code 三方证据同时存在，可提升 confidence 或 static_confirmed
+   - 行业专家不能单独提升为 confirmed，除非行业已确认且有项目特定 evidence
+
+5. Conservative conflict resolution
+   - severity 冲突时保留更高风险等级，但在 evidence_audit_notes 中记录冲突
+   - contract_status 冲突时保守选择 candidate，除非证据链充分
+   - runtime verification 冲突时保留更严格验证建议
+
+6. Pre-gate candidate set
+   - 输出 deduped_issue_candidates
+   - 此阶段不产生最终 confirmed_issues
+   - 后续必须依次经过 Deterministic Evidence Gate、LLM Evidence Auditor、Validation Pass，再做 Final Partition
+
+7. Sort
+   - severity
+   - confidence
+   - static_confirmed
+   - source path
+```
+
+### 13.2 Validation Pass
+
+参考 `spec-code-review` 的 Stage 5b，app-audit 在外部化输出前需要独立复核高价值 finding。
+
+运行条件：
+
+```text
+1. mode:headless
+2. from:code-review
+3. blocker / high confirmed issue
+4. 将进入 code-review summary 的 issue
+```
+
+执行规则：
+
+```text
+1. 最多验证 15 条，按 severity 和 confidence 排序。
+2. 每条 finding 独立验证，避免批量 validator 继承专家偏见。
+3. validator 只读：可读 source、contract、evidence，不编辑文件。
+4. validator 返回 status: validated | rejected | unavailable 和一句 reason。
+5. rejected 的 finding 设置 validation_status: validator_rejected，进入 rejected_findings，并在 Coverage 中记录。
+6. unavailable 表示 validator 超时、失败或返回格式无效；它不是反证。
+7. validator_unavailable 时：
+   - 已通过 Deterministic Evidence Gate 和 LLM Evidence Auditor 的强证据 confirmed issue 保留 confirmed，但设置 validation_status: validator_unavailable，并在 Coverage 标记未完成独立复核。
+   - candidate/advisory 保持原等级，不因 validator unavailable 升级。
+   - 如果该 finding 只有单一弱 evidence 或 LLM Evidence Auditor 已标记语义不足，则降级为 candidate/advisory。
+```
+
+Final Partition 只在 Validation Pass 后执行：
+
+```text
+confirmed_issues
+  - contract_status: confirmed
+  - static_confirmed: true 或 runtime_verification.required 有明确 reason
+  - validation_status 不是 validator_rejected
+
+candidate_issues
+  - 证据存在但语义链不完整
+  - 需要 PRD / Figma / runtime / human confirmation 才能确认
+
+advisory_risks
+  - 行业未确认、rule-pack 辅助、低置信趋势、回归建议等非 confirmed 内容
+
+runtime_verification_suggestions
+  - 静态审查无法确认、但需要 simulator / real_device / QA 验证的项目
+
+rejected_findings
+  - deterministic gate rejected
+  - evidence auditor rejected
+  - validator_rejected
+  - malformed compact finding
+```
+
+### 13.3 与 code-review 的 finding 映射
+
+app-audit 内部保留 App 语义等级，但给 `spec-code-review` 的 summary 必须提供映射字段。
+
+```text
+blocker
+  -> code-review P0/P1
+  -> owner: downstream-resolver | human
+  -> autofix_class: manual
+
+high
+  -> code-review P1/P2
+  -> owner: downstream-resolver
+  -> autofix_class: manual
+
+medium
+  -> code-review P2
+  -> owner: downstream-resolver | human
+  -> autofix_class: manual | advisory
+
+low
+  -> code-review P3
+  -> owner: human
+  -> autofix_class: advisory
+```
+
+默认情况下，app-audit 不产生 `safe_auto`。它审查的是产品/设计/架构/代码一致性，修复通常涉及行为、交互或 contract 取舍，应交给 downstream-resolver 或 human。
+
+机器可读 issue 中必须落地同一映射，不能只写在 headless envelope 文本里：
+
+```json
+{
+  "code_review_handoff": {
+    "enabled": true,
+    "severity": "P1",
+    "autofix_class": "manual",
+    "owner": "downstream-resolver",
+    "requires_verification": true,
+    "summary": "交易提交前确认状态未进入 UiState",
+    "source_run_id": "<run-id>",
+    "source_issue_id": "APP-AUDIT-023"
+  }
+}
+```
+
+规则：
+
+```text
+1. from:code-review 时，所有进入 summary 的 confirmed/candidate issue 都必须包含 code_review_handoff。
+2. standalone/default 运行可以省略 code_review_handoff，或设置 enabled:false。
+3. code_review_handoff 只能表达移交语义，不改变 app-audit 内部 severity / contract_status。
+4. spec-code-review 只消费 code_review_handoff、summary_path、issues_path 和 Coverage，不读取 debug contracts。
+```
+
+---
+
+## 14. 严重等级
+
+### Blocker
+
+```text
+核心业务流程缺失
+行业关键操作缺确认
+交易 / 支付 / 提交缺防重复
+PRD 明确要求但代码完全没有
+Android / iOS 核心行为明显不一致
+关键转化埋点缺失
+关键错误态无恢复路径
+合规 / 风险提示缺失
+```
+
+### High
+
+```text
+Figma 关键状态未实现
+UseCase 未结构化表达失败
+业务规则落在 UI 层
+平台能力没有隔离
+核心文案硬编码
+埋点事件跨端不一致
+模块边界严重破坏
+行业关键异常未建模
+```
+
+### Medium
+
+```text
+组件复用不足
+设计 token 不一致
+部分 error / empty 缺失
+曝光埋点可能重复
+i18n key 不统一
+模块依赖不清晰
+多语言布局有风险
+```
+
+### Low
+
+```text
+命名不统一
+轻微文案漂移
+组件 API 不够标准
+非核心埋点参数缺失
+建议补充回归 flow
+```
+
+---
+
+## 15. Runtime Verification Policy
+
+默认不运行设备，但每个问题必须判断是否需要运行验证。
+
+### 静态可确认
+
+```text
+没有 UiState
+没有 UseCase
+没有 i18n key
+没有 analytics event
+没有组件 variant
+模块依赖反向
+UI 直接依赖 data
+commonMain 出现 Android Context
+```
+
+### 建议模拟器验证
+
+```text
+键盘遮挡
+安全区遮挡
+导航返回
+深色模式
+系统字体放大
+多语言文案裁剪
+弹窗层级
+基础手势
+```
+
+### 建议真机验证
+
+```text
+相机
+定位
+蓝牙
+推送
+生物识别
+支付
+证券交易安全链路
+性能
+弱网
+系统权限永久拒绝
+```
+
+输出字段：
+
+```json
+{
+  "runtime_verification": {
+    "required": true,
+    "level": "simulator",
+    "reason": "静态证据显示存在键盘遮挡风险，但需要真实渲染确认"
+  }
+}
+```
+
+---
+
+## 16. 输出 artifacts
+
+输出必须 run-scoped，避免后续 workflow 读取过期产物。
+
+```text
+.spec-first/app-audit/
+  runs/
+    <run-id>/
+      metadata.json
+      artifact-manifest.json
+      preflight.json
+      impact-facts.json
+      audit-plan.json
+      app-audit-context.json
+
+      input/
+        figma-context.json
+
+      contracts/
+        product-contract.json
+        figma-design-contract.json
+        codebase-contract.json
+        kmp-architecture-contract.json
+        component-contract.json
+        module-contract.json
+        reuse-contract.json
+        interaction-contract.json
+        engineering-quality-contract.json
+        analytics-contract.json
+        i18n-contract.json
+        industry-profile.preview.json
+        industry-rule-pack-selection.json
+
+      expert-reviews/
+        product-review.json
+        design-review.json
+        mobile-ux-review.json
+        kmp-architecture-review.json
+        component-module-review.json
+        engineering-quality-review.json
+        analytics-review.json
+        i18n-review.json
+        industry-review.json
+        human-notes/
+          product-review.md
+          design-review.md
+
+      evidence-gate-result.json
+      issues.json
+      workflow-handoff-suggestions.json
+      app-consistency-audit.md
+      app-consistency-audit.summary.md
+
+      regression-suggestions/
+        maestro/
+        appium/
+
+      writeback-preview/
+        repo-profile.patch.yaml
+        suggested-standards.md
+
+  latest-summary.json
+```
+
+`expert-reviews/*.json` 是唯一机器可读专家产物。`expert-reviews/human-notes/*.md` 只允许作为可读摘要或调试备注，不能被 Evidence Gate、LLM Evidence Auditor、Report Writer 或 code-review handoff 当作 source-of-truth。
+
+`artifact-manifest.json` 是 run 内部索引，不承载审查结论。它只列出本轮写出的 artifact 路径、schema_version、artifact_id、producer、consumer、sha256、freshness、data_sensitivity、deprecated_aliases 和 degraded reason_code。消费者读取任何 run artifact 前，应先通过 manifest 或 metadata 校验该 artifact 属于当前 run。
+
+`workflow-handoff-suggestions.json` 只承载跨 workflow 的下一步建议，不承载 App issue 结论。它不能触发自动执行，也不能作为 parent workflow 的硬门禁；parent workflow 只能把它作为用户可见 follow-up 或下一步路由参考。
+
+`metadata.json` 最小字段：
+
+```json
+{
+  "run_id": "<run-id>",
+  "host": "claude|codex",
+  "mode": "headless",
+  "source_root": ".",
+  "branch": "<git branch --show-current>",
+  "head_sha": "<git rev-parse HEAD>",
+  "base_ref": "<base-ref-or-empty>",
+  "started_at": "<ISO 8601>",
+  "completed_at": "<ISO 8601>",
+  "status": "complete",
+  "status_reason_codes": [],
+  "contract_versions": {
+    "preflight": "spec-app-consistency-audit-preflight.v1",
+    "audit_report": "spec-app-consistency-audit-report.v1",
+    "issue": "spec-app-consistency-audit-issue.v1"
+  },
+  "depth": "default|deep",
+  "summary_path": ".spec-first/app-audit/runs/<run-id>/app-consistency-audit.summary.md",
+  "issues_path": ".spec-first/app-audit/runs/<run-id>/issues.json"
+}
+```
+
+`latest-summary.json` 只能作为指针，内容包含 `run_id`、`summary_path`、`issues_path`、`generated_at`、`head_sha` 和 `source_hash`。消费者必须优先读取 run-scoped path，并用 `metadata.json` 校验 branch / head 是否匹配当前 checkout。
+
+失败语义：
+
+```text
+1. scope detection 在 run 创建前失败：允许没有 run_id，但必须返回 failed envelope 和 reason_code。
+2. run 创建后失败：必须写 metadata.json、artifact-manifest.json 和 status_reason_codes。
+3. failed/degraded 也要尽量写 summary_path，供 parent workflow 展示 Coverage。
+4. latest-summary.json 只有 complete/degraded run 可以更新；failed run 不更新 latest 指针。
+```
+
+### v0.1 收敛建议
+
+为了避免 artifacts 过度膨胀，v0.1 可以先输出：
+
+```text
+preflight.json
+metadata.json
+impact-facts.json
+audit-plan.json
+app-audit-context.json
+evidence-gate-result.json
+issues.json
+workflow-handoff-suggestions.json
+app-consistency-audit.md
+app-consistency-audit.summary.md
+```
+
+其他 contracts 作为可选 debug artifacts，但如果输出，也必须具备完整 artifact metadata 并通过 schema 校验。
+
+---
+
+## 17. 最终报告结构
+
+报告章节应根据启用专家动态生成。
+
+基础结构：
+
+```markdown
+# App Consistency Audit Report
+
+## 1. 审查结论
+- 总体风险等级
+- Blocker / High / Medium / Low 数量
+- 静态可确认问题数量
+- 需要模拟器验证问题数量
+- 需要真机验证问题数量
+
+## 2. 审查范围
+- changed files
+- selected experts
+- skipped experts
+- audit mode
+
+## 3. 改动影响分析
+- business rule impact
+- interaction impact
+- architecture impact
+- analytics impact
+- i18n impact
+- industry impact
+
+## 4. 关键问题清单
+
+## 5. 专家审查结果
+- 只输出启用专家对应章节
+
+## 6. 运行验证建议
+
+## 7. 回归建议
+
+## 8. 可沉淀规范
+
+## 9. Workflow Handoff Suggestions
+- 只列出需要转交给 spec-plan / spec-code-review / spec-skill-audit / spec-polish-beta / spec-compound 等 workflow 的建议
+```
+
+如果没有启用 I18n Expert，就不要输出完整 i18n 章节；只在 skipped experts 中说明原因。
+
+### 17.1 Headless Output Envelope
+
+`mode:headless` 不输出交互式长报告，而是返回结构化文本 envelope，供 `spec-code-review` 或父 workflow 直接消费。
+
+```text
+App consistency audit complete (headless mode).
+
+Status: <complete | degraded | failed>
+Mode: headless
+Run: <run-id>
+Artifact: .spec-first/app-audit/runs/<run-id>/
+Summary: .spec-first/app-audit/runs/<run-id>/app-consistency-audit.summary.md
+Issues: .spec-first/app-audit/runs/<run-id>/issues.json
+Verdict: <Ready | Ready with follow-ups | Not ready | Advisory only>
+Selected experts: <expert list with reasons>
+Skipped experts: <expert list with reasons>
+
+Confirmed issues:
+[blocker][static-confirmed] <category> -- <title> (<expert>, confidence <N>)
+  Evidence: <evidence[0]>
+  Impact: <impact[0]>
+  Recommendation: <recommendation[0]>
+  Validation: <validated | not_required | validator_unavailable>
+  Code-review handoff: <P0/P1/P2/P3>, <autofix_class>, <owner>, <requires_verification>
+
+Candidate issues:
+[medium][needs-runtime-verification] <category> -- <title> (<expert>, confidence <N>)
+  Evidence: <evidence[0]>
+  Next: <required validation or missing input>
+
+Advisory risks:
+[low][advisory] <category> -- <title> (<expert>, confidence <N>)
+
+Runtime verification:
+- <simulator | real_device>: <reason>
+
+Workflow handoff suggestions:
+- <target_workflow>: <reason_code> -- <recommended_action>
+
+Rejected findings:
+- <title> -- <deterministic gate | validator | evidence auditor reason>
+
+Coverage:
+- Degraded modes: <codes>
+- Failed experts: <experts>
+- Evidence gate drops: <N>
+- Validator drops: <N>
+- Untracked files excluded: <files>
+
+App consistency audit complete
+```
+
+规则：
+
+```text
+1. 以 `App consistency audit complete` 作为 terminal signal。
+2. 空 section 可以省略。
+3. confirmed issue 必须带 Evidence / Impact / Recommendation。
+4. from:code-review 时必须带 Code-review handoff，且必须与 issues.json 中的 code_review_handoff 字段一致。
+5. failed 状态仍要返回 run_id 和 degraded/failed reason，除非 scope detection 在 artifact 创建前失败。
+```
+
+---
+
+## 18. 与 repo-profile.yaml 的关系
+
+本 Skill 可以读取：
+
+```text
+.spec-first/specs/repo-profile.yaml
+```
+
+但默认不写入。
+
+只生成 preview：
+
+```text
+.spec-first/app-audit/runs/<run-id>/writeback-preview/repo-profile.patch.yaml
+```
+
+示例：
+
+```yaml
+project_intent:
+  domain: securities
+  subdomains:
+    - market_quote
+    - trading
+    - portfolio
+    - risk_assessment
+
+review_defaults:
+  industry_rule_packs:
+    - common-app
+    - finance-common
+    - securities
+
+non_negotiables:
+  - trade_submit_requires_confirmation
+  - trade_flow_requires_structured_failure
+  - analytics_events_must_be_cross_platform_consistent
+  - i18n_no_hardcoded_user_facing_text
+```
+
+必须用户确认后才能写入。
+
+---
+
+## 19. MVP 分期
+
+### v0.1：Impact Facts + 核心闭环 hardening
+
+目标：先跑稳。
+
+必须完成：
+
+```text
+1. preflight
+2. argument parsing + mode contract
+3. scope detection + degraded modes
+4. impact-facts.json，脚本只产出候选 facts/signals
+5. LLM Audit Planner 生成 audit-plan.json
+6. app-audit-context.json
+7. metadata.json + run-scoped artifacts
+8. codebase contract
+9. kmp architecture contract
+10. Agent IO contract + selected experts minimal review
+11. issue synthesis pipeline
+12. deterministic evidence gate
+13. LLM evidence auditor
+14. headless envelope
+15. report writer
+16. issues.json
+17. app-consistency-audit.summary.md
+18. artifact-manifest.json
+19. strict issue schema + compatibility validation mode
+20. workflow-handoff-suggestions.json
+21. secrets / network / remote execution / runtime validation 默认阻断或 deferred 的安全边界
+22. CLI subprocess e2e test：覆盖 run-scoped path，不再只测扁平 .spec-first/app-audit/
+23. 最小 eval / 回归集：trigger、boundary、mode、artifact、evidence、safety、handoff
+```
+
+暂缓：
+
+```text
+多行业完整规则包
+Maestro / Appium flow
+全量 matrices
+非核心全量 schema
+复杂公司规则
+```
+
+### v0.2：Figma / PRD 真实链路
+
+重点：
+
+```text
+1. Figma MCP materialization 到 runs/<run-id>/input/figma-context.json
+2. PRD contract extraction
+3. Product ↔ Figma ↔ Code matrix
+4. Design Expert / Product Expert focused review
+5. redaction strict / internal / none 的 schema 与测试
+```
+
+### v0.3：组件化、模块化、复用
+
+重点：
+
+```text
+1. component contract
+2. module dependency graph
+3. reuse candidate detection
+4. Component Module Expert
+```
+
+### v0.4：埋点和国际化
+
+重点：
+
+```text
+1. analytics contract
+2. i18n contract
+3. analytics matrix
+4. i18n matrix
+5. Analytics Expert / I18n Expert
+```
+
+### v0.5：行业规则包
+
+重点：
+
+```text
+1. industry profile
+2. finance-common
+3. securities
+4. ecommerce
+5. Industry Expert advisory / confirmed 边界
+6. 用户确认 industry profile 后才允许行业 confirmed issue
+```
+
+### v0.6：回归建议和运行验证计划
+
+重点：
+
+```text
+1. Regression Expert
+2. Maestro flow draft
+3. Appium flow draft
+4. simulator / real device verification plan
+```
+
+---
+
+## 20. 当前实现优化方向
+
+基于当前分支审查，优先优化以下点：
+
+### P0：先收敛文档与真实实现差距
+
+```text
+1. 更新 skills/spec-app-consistency-audit/SKILL.md，使 mode/report-only/headless/run-scoped/artifact-manifest 与本方案一致。
+2. 更新 templates/claude/commands/spec/app-consistency-audit.md 的 argument-hint，避免继续暗示旧的自由参数形态。
+3. 更新 tests/unit/spec-app-consistency-audit-cli-e2e.test.js，输出目录改为 .spec-first/app-audit/runs/<run-id>/。
+4. 保留旧扁平路径读取兼容只作为 migration test，不作为新写入目标。
+5. README 入口只写稳定能力，不提前承诺未实现的 LLM Audit Planner / Validation Pass 全自动链路。
+6. 将全流程 handoff 边界写入 SKILL.md：app-audit 只建议 spec-plan / spec-code-review / spec-skill-audit / spec-polish-beta / spec-compound，不内联执行。
+7. 明确 skill-audit deterministic scorecard 只是设计输入，不作为 app-audit 执行 gate。
+```
+
+### P0：先保证能稳定执行
+
+```text
+1. 修复新增文件换行 / frontmatter / shebang 风险
+2. 增加 CLI subprocess 测试
+3. 验证 /spec:app-consistency-audit 和 $spec-app-consistency-audit init 后可加载
+4. 建立 mode/headless/scope failure 的最小 contract 测试
+5. 建立 report-only no-write 回归测试，确认不会写 preflight/input/preview/run artifacts
+6. 建立 generated runtime drift 检查：只读验证 source 投递，不手改 runtime
+7. 建立 secrets / remote execution / network / runtime validation 默认阻断或 deferred 测试
+```
+
+### P0：先补可执行 workflow contract
+
+```text
+1. Argument Parsing / Mode Detection
+2. Scope Detection / degraded mode
+3. Agent IO Contract
+4. Issue Synthesis Pipeline
+5. Headless Output Envelope
+6. metadata.json + latest-summary 指针校验
+7. artifact-manifest.json + reason_code 列表
+8. strict issue schema + compatibility validation mode
+9. workflow-handoff-suggestions.json
+10. global safety / redaction / data_sensitivity contract
+11. agent catalog graduation policy
+```
+
+### P1：补 Impact Facts + LLM Audit Planner，而不是全量专家
+
+```text
+1. 新增 route-change-impact.js 或 build-impact-facts.js，只输出候选 facts/signals
+2. 新增 audit-plan.schema.json
+3. 新增 issue.schema.json
+4. LLM Audit Planner 基于 impact-facts/app-audit-context 输出 audit-plan.json
+5. 专家按 plan 启用
+6. 报告按启用专家动态输出章节
+7. planner 只决定 app-audit 专家组合；跨 workflow 建议写入 workflow_handoff_suggestions，不直接调度其他 workflow
+```
+
+### P1：Figma 链路要真实可用
+
+```text
+1. 区分 figma reference 和 materialized context
+2. 增加 Figma MCP materialization 步骤，落盘到 runs/<run-id>/input/figma-context.json
+3. 不要默认完全 hash screen/component/text
+4. 支持 redaction mode：strict / internal / none
+```
+
+### P1：收敛 artifacts
+
+```text
+1. v0.1 不要强制输出所有 contract
+2. 先输出 run-scoped impact-facts.json + audit-plan.json + app-audit-context.json + issues.json + workflow-handoff-suggestions.json + report
+3. 其他 artifacts 放 debug 或 depth:deep 模式
+4. latest-summary.json 只作为 run 指针，不作为事实源
+```
+
+### P1：issue 协议升级
+
+```text
+1. confidence 用 number
+2. impact 用 array
+3. recommendation 用 array
+4. evidence 必须结构化
+5. contract_status / provenance / data_sensitivity / runtime_verification 必填
+6. 所有 issue 必须先经过 deterministic evidence gate，再经过 LLM Evidence Auditor
+7. code_review_handoff 与 workflow_handoff_suggestions 分离：前者移交单条 finding，后者建议下一步 workflow
+```
+
+### P1：补 eval readiness，而不是扩大默认专家集
+
+```text
+1. 为 trigger / boundary / mode / artifact / evidence / safety / handoff 建立最小 eval fixtures。
+2. 对 report-only no-write、headless failed envelope、Figma ref-only degraded、rule-pack-only rejection 做回归测试。
+3. 对 skill quality / runtime drift / missing PRD 等非 App issue 场景验证 handoff suggestion。
+4. fresh-source eval 只验证 source skill / prompt 当前磁盘内容，不依赖已加载 runtime cache。
+```
+
+### P2：code-review 协作
+
+```text
+1. code-review 默认只做 App 专项路由推荐
+2. headless 调用必须有用户显式要求或父 workflow 授权
+3. app-audit 输出 run-scoped summary 供 code-review 合并
+4. code-review 不读取 app-audit 完整 debug contracts
+```
+
+### P2：行业规则收敛
+
+```text
+1. industry-profile.preview.json 永远 preview-first
+2. 未确认行业画像只能 advisory
+3. 用户确认或 repo-profile confirmed 后，行业规则包才能参与 confirmed issue 判断
+4. Rule Pack 仍不能作为唯一 evidence
+```
+
+---
+
+## 21. 最终技术结论
+
+`spec-app-consistency-audit` 的最新正确形态是：
+
+```text
+一个 App 专项 Skill
+  作为 Orchestrator
+  先用脚本产出 Impact Facts
+  再由 LLM Audit Planner 生成审查计划
+  再按需调度专家 Agent
+  最后通过 deterministic Evidence Gate、LLM Evidence Auditor 和 Report Writer 输出结果
+```
+
+它与 `spec-code-review` 的关系是：
+
+```text
+code-review 是通用代码审查入口
+app-consistency-audit 是 App 专项一致性审查入口
+code-review 默认根据 diff 命中情况推荐 app-audit
+在用户显式要求或父 workflow 授权时，code-review 可以 headless 调用 app-audit
+两者不合并，但协作
+```
+
+最终一句话：
+
+> 不要把 `spec-app-consistency-audit` 做成每次全量跑的重型平台，也不要把 Router 做成隐藏规则引擎；要把它做成 App 专项审查 orchestrator，由脚本提供确定性 facts，由 LLM 组织最小专家小组，做到轻入口、强专家、证据驱动、按需深审，并通过结构化 handoff 把不属于 App 一致性的问题交还给正确 workflow。

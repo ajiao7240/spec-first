@@ -105,7 +105,7 @@ skills/spec-mcp-setup/
 |   - legacy compound-engineering residue                       |
 |                                                               |
 | bootstrap-project-config                                      |
-|   - only when user/agent chooses explicit local setup action   |
+|   - runs automatically for required bounded local setup writes |
 |   - may refresh example, create local config, ensure gitignore |
 |   - does not determine baseline_ready                         |
 +---------------------------------------------------------------+

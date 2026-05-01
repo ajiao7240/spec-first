@@ -124,15 +124,16 @@ For GitNexus specifically:
 - If `gitnexus` has `status=query-unverified`, `graph_ready=true`, and `query_ready=false`, do not describe this as a live MCP failure. It means the bootstrap CLI query probe failed.
 - If the current session has GitNexus MCP tools loaded, try exactly one concrete live MCP call such as `gitnexus_query`, `gitnexus_context`, or `gitnexus_impact` using the expected-hit token from `query_probe_policy` or the user's concrete question. Do not loop, retry broadly, or turn live MCP probing into a gate for compiled readiness.
 - Treat a successful live MCP response as session-local evidence only. Do not rewrite `.spec-first/graph/*`, do not set compiled `query_ready=true`, and do not change `graph-providers.json`.
+- If live GitNexus returns `definitions` but no `processes` / `process_symbols`, classify the probe as `partial-definitions-only`, not `failed`. Definitions-only evidence can help locate files or symbols, but it is not proof that the BM25/process query surface is healthy.
 - If the MCP tool is unavailable or fails, state that live MCP was unavailable or failed, then continue with code-review-graph and bounded direct repo reads.
 - If the host was just configured by `spec-mcp-setup`, remind the user that Claude Code / Codex usually needs a restart or a new session before newly written MCP servers are loaded.
 
 When live MCP probing is attempted or would clarify an otherwise degraded GitNexus result, update the final user-facing result table with separate compiled and session-local columns. The table must preserve the canonical CLI readiness values while showing the current session's MCP evidence:
 
-| Provider | CLI graph_ready | CLI query_ready | Live MCP Probe | Final Use |
-|---|---:|---:|---|---|
-| code-review-graph | `<true/false>` | `<true/false>` | `not applicable` | `<compiled readiness guidance>` |
-| gitnexus | `<true/false>` | `<true/false>` | `passed/failed/unavailable/not loaded/not attempted` | `<session-local MCP guidance plus compiled readiness caveat>` |
+| Provider | CLI graph_ready | CLI query_ready | Probe Token | CLI Evidence | Live MCP Probe | Final Use |
+|---|---:|---:|---|---|---|---|
+| code-review-graph | `<true/false>` | `<true/false>` | `n/a` | `<status/query proof summary>` | `not applicable` | `<compiled readiness guidance>` |
+| gitnexus | `<true/false>` | `<true/false>` | `<query_probe_policy.token>` | `process results/definitions-only/FTS diagnostic/empty/unparseable` | `passed/partial-definitions-only/failed/unavailable/not loaded/not attempted` | `<session-local MCP guidance plus compiled readiness caveat>` |
 
 Do not collapse `Live MCP Probe=passed` into `CLI query_ready=true`. If live MCP succeeds while compiled GitNexus `query_ready=false`, say that GitNexus MCP may be used in the current session, but downstream compiled facts still remain degraded or query-unverified.
 

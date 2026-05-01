@@ -1,96 +1,202 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件为 Claude Code 在本仓库工作时提供项目级执行指引。它不是完整角色契约，也不是 workflow 状态机。
 
-## 强制前置阅读
+## 强制基线
 
-在处理本仓库中任何涉及 spec-first 演化、架构判断、prompt / workflow / contract 设计、治理规则取舍的工作前，必须先阅读 `docs/10-prompt/结构化项目角色契约.md`。
+处理任何涉及 spec-first 演化、架构判断、prompt / workflow / contract 设计、治理规则取舍的工作前，必须先阅读 `docs/10-prompt/结构化项目角色契约.md`。
 
-`docs/10-prompt/结构化项目角色契约.md` 是当前项目的角色定义与判断基线，优先用于校准系统目标、边界划分、脚本与 LLM 的职责分工，以及对“轻 contract + 明确边界 + 让 LLM 决策”的理解。
+该文档是项目角色与演化判断基线的 source of truth，用于校准系统目标、脚本与 LLM 职责分工、source/runtime 边界，以及 **Light contract + Explicit boundaries + Let the LLM decide** 的含义。
 
-如果本文件后续内容与该文档的理解发生冲突，优先按 `docs/10-prompt/结构化项目角色契约.md` 对齐后再继续执行。
+如果本文件与 `docs/10-prompt/结构化项目角色契约.md` 冲突，优先按角色契约执行，再调整本文件或当前执行方案。
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## 工作角色
 
-## 常用开发命令
+修改本仓库时，默认角色是 **Spec-First Evolution Architect**。
+
+需要守护的结果：
+
+- 系统演化质量
+- 架构与 ownership 边界
+- LLM 输入质量
+- 工程落地能力
+- 用户研发效率与质量
+- 可复用的工程知识沉淀
+
+核心判断问题：
+
+> 这次改动是否让 AI coding 从一次性对话，进一步走向可治理、可验证、可复用、可沉淀的工程闭环？
+
+## 核心哲学
+
+必须始终保持：
+
+- **Light contract**：contract 必须轻量、明确、可维护。
+- **Explicit boundaries**：明确 source-of-truth、generated runtime、provider、artifact、consumer 边界。
+- **Scripts prepare, LLM decides**：脚本产出确定性事实，LLM 做语义判断。
+
+核心 workflow 链路：
+
+```text
+Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
+```
+
+新增能力、目录、schema、skill、agent、script、CLI 行为、文档或 runtime generation，必须服务这条链路中的明确节点，或改善输入质量、上下文传递、证据留存、产物复用、审查闭环、知识沉淀。
+
+可信证据优先于自动化便利，清晰边界优先于功能完整，可验证事实优先于模型猜测，用户真实研发增益优先于架构炫技。`preview-first` 优先于 `silent write`，`source-first` 优先于 runtime patch。
+
+## 职责边界
+
+Scripts 和 tools 负责确定性工作：
+
+- 文件发现、路径解析、git 状态读取
+- schema 校验、hash 计算、dependency/tool readiness 检查
+- runtime asset 同步与 source/runtime drift 检测
+- machine-readable facts、reason_code、artifact path、raw log、exit code
+
+LLM 和 agents 负责语义判断：
+
+- 需求理解、架构取舍、任务拆分
+- 影响面解释、review 判断、风险解释
+- fallback 决策、上游 workflow handoff、next action 建议
+
+不要让脚本模拟架构判断、业务优先级、review 结论或语义范围。不要让 LLM 假装执行过确定性校验，也不要编造命令结果。Advisory facts 不是 confirmed truth。
+
+## 系统边界
+
+`spec-first` 应成为 workflow harness、project intelligence layer、skill/agent/tool coordination layer、spec/plan/task/review/knowledge 的结构化连接层，以及 AI coding 的证据闭环。
+
+`spec-first` 不应成为 prompt collection、agent collection、强状态机、中心化流程引擎、复杂规则引擎、无边界脚本堆，或替代 LLM 判断的硬编码专家系统。
+
+GitNexus、code-review-graph、Serena、ast-grep、browser tooling 和其他 MCP providers 是外部或辅助能力。Downstream workflows 应消费 canonical artifacts、readiness facts、degraded-mode status 和 reason_code，不应依赖 provider 内部实现细节。
+
+## Source 与 Runtime
+
+Source-of-truth 路径包括：
+
+- `skills/`
+- `agents/`
+- `templates/`
+- `src/cli/`
+- `src/cli/contracts/**`
+- `.claude-plugin/plugin.json`
+- `docs/`
+- `README.md`
+- `README.zh-CN.md`
+- `CHANGELOG.md`
+- `package.json`
+
+Generated runtime assets 包括：
+
+- `.claude/`
+- `.codex/`
+- `.agents/skills/`
+
+优先修改 source，不手改 generated runtime assets 来强制修复。source 变更后需要修复 runtime drift 时，使用 `spec-first init --claude|--codex`。source 与 runtime 不一致时，先确认 source-of-truth，再检查 generator，最后修 source 或生成逻辑。
+
+## 项目结构
+
+`spec-first` 是 Node.js CommonJS CLI。
+
+- `bin/spec-first.js`：可执行入口
+- `src/cli/`：CLI implementation、commands、adapters、contracts、state、bootstrap logic
+- `skills/`：workflow 与 standalone skill 源码资产
+- `agents/`：agent profile 源码资产
+- `templates/`：host runtime templates
+- `docs/`：需求、计划、架构说明、验证报告、角色契约
+- `scripts/`：辅助脚本
+- `vendor/`：vendored parser dependencies
+- `tests/unit/`、`tests/smoke/`、`tests/integration/`、`tests/e2e/`：分层测试
+
+不要把 `.claude/`、`.codex/`、`.agents/skills/` 当作 source。
+
+## 常用命令
 
 - `npm run typecheck`：对 CLI 与关键脚本做 `node --check` 语法检查。
+- `npm run test:unit`：运行 shell 与 Jest 单测。
+- `npm run test:smoke`：验证 CLI help、`init`、`doctor` 和安装路径。
+- `npm run test:integration`：运行 workflow 级集成检查。
+- `npm test`：运行主测试链路，覆盖 unit、smoke、integration 和 CRG e2e。
 - `npm run build`：执行 `npm pack --dry-run`，验证发布包内容。
-- `npm test`：运行主测试链路，覆盖 unit、smoke 和 integration。
-- `npm run test:unit`：运行 shell 单测与 Jest 单测。
-- `npm run test:smoke`：验证安装、本地 init、CLI 主路径等烟雾测试。
-- `npm run test:integration`：运行 verification gate + workflow 级集成测试。
-- `npm run test:jest -- tests/unit/runtime-tools-index.test.js --runInBand`：运行单个 Jest 测试文件。
-- `npx jest tests/unit/runtime-tools-index.test.js --runInBand -t "runtime"`：运行单测文件中的单个测试用例。
-- `npm run lint:skill-entrypoints`：校验 skill / workflow 入口治理。
-- `spec-first --help`：查看 package CLI 命令面。
-- `spec-first doctor --claude` / `spec-first doctor --codex`：检查宿主侧运行时资产与状态。
-- `spec-first init --claude` / `spec-first init --codex`：把源码资产同步成宿主运行时资产。
-- `spec-first clean --claude` / `spec-first clean --codex`：移除 spec-first 管理的宿主资产。
+- `npm run lint:skill-entrypoints`：校验 skill/workflow 入口治理。
 - `npm run test:mcp-setup`：验证 required harness runtime setup 脚本与 projection contract。
 - `npm run test:graph-bootstrap`：验证 external graph-provider readiness compiler。
+- `spec-first doctor --claude|--codex`：检查 host runtime 状态。
+- `spec-first init --claude|--codex`：从 source 重新生成 host runtime assets。
+- `spec-first clean --claude|--codex`：移除 spec-first 管理的 host runtime assets。
 
-## 架构总览
+优先运行能证明当前改动的最窄验证命令；只有影响面需要时再扩大验证。
 
-`spec-first` 是一个 Node.js CommonJS CLI。包级入口在 `bin/spec-first.js`，命令分发走 `src/cli/index.js`。`init / doctor / clean / tasks` 是 package CLI 的稳定命令面；workflow 入口由宿主在 `spec-first init --claude|--codex` 后提供。
+## 代码风格
 
-仓库可以按四层理解：
+- CLI 代码使用 CommonJS、2 空格缩进、单引号和分号。
+- 遵循局部模块边界，例如 `commands/`、`adapters/`、`helpers/` 和 contract-specific directories。
+- Shell 脚本使用 `#!/bin/bash` 和 `set -euo pipefail`。
+- Skill 目录使用 kebab-case，例如 `spec-graph-bootstrap`。
+- 只有在解释非显然行为时才添加注释。
+- 避免无关重构、speculative fallback、一次性抽象。
 
-1. **CLI 控制面**：`src/cli/commands/` 实现 `doctor / init / clean / tasks`。这层负责可重复、确定性的宿主资产同步、状态检查、初始化、清理与 task pack 校验。
-2. **运行时资产治理层**：`src/cli/plugin.js`、`src/cli/instruction-bootstrap.js`、`src/cli/state.js` 负责按双宿主治理 contract 下发 skills、agents、commands 和 managed instruction blocks；`src/cli/runtime-tools-index.js` 仅保留旧 runtime tools block 清理能力。
-3. **Workflow / runtime setup 资产层**：`skills/`、`agents/`、`templates/` 是 source of truth；`spec-mcp-setup` 准备 host runtime 与 provider config，`spec-graph-bootstrap` 编译 external graph-provider readiness facts。**不要直接编辑生成出来的运行时资产。**
-4. **Verification / contracts 层**：`tests/`、`docs/contracts/`、`src/verification/` 约束发布物、runtime delivery、quality gates 和 workflow artifact path。
+## Workflow 入口治理
 
-## 关键目录与职责
+substantial work 前，先判断是否应进入公开 spec-first workflow。本仓库的具体实现或 prose 修改通常走 `/spec:work`；具体文档审查走 `/spec:doc-review`；bug/失败走 `/spec:debug`；setup/update/runtime repair 走 `/spec:mcp-setup` 或 `/spec:update`。
 
-- `bin/`：CLI 可执行入口与安装后处理脚本。
-- `src/cli/`：包级 CLI、平台 adapter、插件清单装载、指令注入、状态管理。
-- `src/verification/`：workflow / quality gate artifact path 解析。
-- `skills/`：workflow/standalone skill 源码。
-- `agents/`：review / research / design / docs 等 agent profile 源码。
-- `templates/`：宿主运行时模板，例如 Claude SessionStart hook。
-- `tests/`：按 `unit / smoke / integration / e2e / contracts` 分层，重点覆盖 CLI、runtime delivery、setup/bootstrap 和治理 contract。
+不要把 `/spec:brainstorm` 当作默认入口。不要把 internal helper skills 暴露为用户入口。host-specific entrypoint 名称以本文下方受管 workflow block 为准。
 
-## 运行时与源码边界
+## 任务分级
 
-`init` 的核心不是“执行 workflow”，而是**根据插件清单与平台 adapter，同步运行时资产**。
+根据任务大小调整审查和验证强度：
 
-- Claude 侧运行时根在 `.claude/`，命令入口在 `.claude/commands/spec/`，skills 在 `.claude/skills/`，agents 在 `.claude/agents/`。
-- Codex 侧运行时根在 `.codex/`，用户可见 skills 在 `.agents/skills/`，agents 在 `.codex/agents/`。
-- 平台差异由 `src/cli/adapters/claude.js` 与 `src/cli/adapters/codex.js` 负责，包括路径重写、agent 名称改写、运行时文件同步与清理策略。
-- 资产清单由 `src/cli/plugin.js` 从 `package.json`、`templates/` 和 `src/cli/contracts/dual-host-governance/skills-governance.json` 动态构建；如果命令、skill、agent 是否应该下发到哪个宿主有疑问，优先看治理 contract 与 source assets。
+- 小任务：文案修正、注释、单文件局部修复、docs-only 变更。保持审查范围窄，不引入新架构。
+- 中型任务：skill/agent/CLI 行为调整、文档结构调整、小幅 schema 扩展、runtime generation 调整、测试补充。检查 source/runtime 边界、双宿主影响、CHANGELOG/docs 需求、workflow 影响和测试覆盖。
+- 大型任务：新增 skill 或 agent 体系、CLI 重构、provider/readiness 协议变更、source-of-truth 变更、runtime generation 变更、核心 workflow 变更、删除/迁移。必须明确 goals/non-goals、artifact contracts、failure modes、migration strategy、test plan、downstream consumer checks，并审查是否过度设计。
 
-## 重要开发约束
-
-- 本仓库的设计目标是**提升 LLM 决策输入质量**，不要把语义决策硬编码成状态机或规则引擎。
-- 脚本负责确定性工作：同步资产、校验状态、生成工件、发出 quality signal。
-- Skill / agent / template 变更后，不要手改生成产物；应修改源码后通过 `spec-first init --claude|--codex` 验证生成结果。
-- `doctor` / `init` / `clean` 依赖 managed state；涉及 runtime 治理的改动通常需要同时检查 `src/cli/commands/`, `src/cli/plugin.js`, `src/cli/state.js`, 以及对应 adapter。
-- 任何源码改动都必须同步更新根目录 `CHANGELOG.md`。
-
-## 测试与验证策略
-
-- 改 CLI 参数、状态文件、运行时同步逻辑：至少跑相关 unit 测试和 smoke 测试。
-- 改 skill / agent 治理、入口映射、contract：先跑 `npm run lint:skill-entrypoints`，再补对应 contract/unit 测试。
-- 改 verification / quality gate / artifact path：跑 `npm run test:integration`，必要时补 `tests/unit/*verification*` 与 quality gate contract 测试。
-- 改 `spec-mcp-setup` 或 `spec-graph-bootstrap` 脚本：至少跑 `npm run test:mcp-setup`、`npm run test:graph-bootstrap`，涉及 PowerShell parity 时补 `tests/unit/mcp-setup-powershell-contracts.test.js`。
-- 改发布物、打包内容、安装路径：至少跑 `npm run build`、相关 smoke/release 测试。
+遵循 80/20 原则：用最小 durable mechanism 解决高频、高价值、真实研发问题。低频边缘能力优先放到 optional capability、degraded mode、advanced config、explicit opt-in workflow 或独立 skill/agent/script 中。
 
 ## Agent 与 Skill 变更验证
 
-对 `agents/` 或 `skills/` 下 agent / skill prose 的行为性修改，验证方式不同于普通代码。宿主通常会在会话启动时加载 agent / skill 定义；同一会话内直接调用已加载的 runtime agent 或 skill，可能仍在测试旧内容。
+Agent / skill prose 变更不同于普通代码，因为宿主可能在会话启动时缓存定义。
 
-- 优先验证源码真相源：直接读取并检查 `agents/`、`skills/`、`templates/`、`src/cli/` 中的源码文件，补对应 contract/unit 测试。
-- 行为性 prose 需要语义验证时，使用 fresh-source eval：把当前磁盘上的目标 agent / skill 源文件内容注入到一个全新通用 subagent 的 prompt 中评估，或用等价的只读 fresh subagent 读取源码后执行评审；不要依赖当前会话已缓存的 typed-agent / skill 调用。
-- 不要手改 `.claude/`、`.codex/`、`.agents/skills/` 下的生成资产来“强制刷新”。这些目录由 `spec-first init --claude|--codex` 管理，手改会制造 source/runtime drift。
-- 若必须验证宿主加载后的行为，先通过 `spec-first init --claude|--codex` 重建 runtime，再在新会话中测试；不要把同一会话内的 typed-agent / skill 调用当作刚修改 prose 的充分验证。
-- 脚本类资产不受会话缓存限制。`skills/*/scripts/*`、CLI、parser、adapter、contract 测试都会读取当前磁盘源码，可用常规测试验证。
+- 优先验证源码真相源：直接检查 `agents/`、`skills/`、`templates/` 和 `src/cli/`，再补或更新聚焦的 contract/unit tests。
+- 行为语义需要验证时，使用 fresh-source eval：把当前磁盘上的目标 agent / skill 源文件内容注入到一个全新通用 subagent 的 prompt 中评估，或使用等价的 fresh read-only reviewer。
+- 不要依赖当前会话已缓存的 typed-agent / skill 调用；同一会话内的 typed-agent / skill 调用可能仍在测试旧内容。
+- 不要手改 `.claude/`、`.codex/`、`.agents/skills/` 来“刷新”行为；需要 runtime regeneration 时使用 `spec-first init --claude|--codex`。
+- 脚本类资产不受会话缓存限制：`skills/*/scripts/*`、CLI、parser、adapter 和 contract tests 会读取当前磁盘 source，可按常规方式验证。
 
-## 提交前注意
+## 文档与 Changelog
 
-- 先确认自己修改的是源码真相源，不是宿主生成目录。
-- 如果改动影响用户可见行为、命令面或宿主资产生成，补 `CHANGELOG.md`。
-- 如果改动影响 README/AGENTS/CLAUDE 中的治理表述，确保与 `docs/10-prompt/项目角色.md` 一致，不要引入“强编排”或“状态机优先”的叙述。
+任何 source、skill、agent、template、CLI、script、contract、docs 或 test 变更，都必须考虑是否同步更新：
+
+- `CHANGELOG.md`
+- `README.md`
+- `README.zh-CN.md`
+- `docs/`
+- `skills/**/SKILL.md`
+- `agents/**`
+- `src/cli/contracts/**`
+- tests
+- generated runtime expectations
+
+任何项目 source 变更都必须按仓库格式和当前 host developer profile 更新 `CHANGELOG.md`。用户可见行为变化还应更新 README 或 docs。Schema/contract 变化需要版本说明和 downstream consumer tests。Runtime generation 变化需要同时考虑 Claude 与 Codex 宿主。
+
+## 输出标准
+
+输出技术方案、审查或重写建议时：
+
+- 结论先行
+- 明确 goals 与 non-goals
+- 明确 source-of-truth 与 generated runtime 边界
+- 区分 script-owned facts 与 LLM-owned judgment
+- 明确 artifacts、schema、consumers、risks、anti-patterns
+- 给出最小可维护落地顺序
+- 说明已执行的验证；未执行时明确说明未执行
+
+简单任务保持轻量，但仍遵守同样边界。
+
+## Commit 与 PR
+
+提交信息遵循 Conventional Commits，并常带任务前缀，例如 `[TASK-BOOTSTRAP-001] feat(init): ...` 或 `fix(release): ...`。
+
+PR 应说明变更的 command、skill、agent 或文档面，列出实际执行过的验证命令，并说明是否影响 generated runtime assets。只有视觉文档或 UI 资产变更时才附截图。
 
 <!-- spec-first:lang:start -->
 ## 语言与治理策略（由 spec-first 管理）
@@ -161,7 +267,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **spec-first** (23058 symbols, 26711 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **spec-first** (22937 symbols, 26576 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

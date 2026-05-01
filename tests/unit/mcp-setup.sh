@@ -555,6 +555,9 @@ assert_eq "code-review-graph provider does not require host MCP for bootstrap" "
 verify_text="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "verify reports ledger v2" "readiness ledger v2" "$verify_text"
 assert_contains "verify prints grouped final status tables" "Required Harness Runtime status (grouped):" "$verify_text"
+assert_contains "verify prints execution result summary" "Execution result:" "$verify_text"
+assert_contains "verify summary includes harness runtime decision" "Harness runtime" "$verify_text"
+assert_contains "verify summary includes graph provider split" "ready: n/a; pending: gitnexus,code-review-graph" "$verify_text"
 assert_contains "verify table includes helper" "agent-browser" "$verify_text"
 assert_contains "verify table includes required ast-grep helper" "ast-grep" "$verify_text"
 assert_contains "verify table includes required ast-grep skill" "ast-grep-skill" "$verify_text"
@@ -569,12 +572,14 @@ assert_contains "verify prints project setup table" "Project setup facts:" "$ver
 assert_contains "verify prints aligned MCP columns" "| Name" "$verify_text"
 assert_contains "verify prints aligned project columns" "| Artifact" "$verify_text"
 assert_contains "verify prints tool remark" "符号级精确编辑和项目索引" "$verify_text"
+assert_contains "verify graph table includes bootstrap column" "Bootstrap" "$verify_text"
+assert_contains "verify graph table shows bootstrap required" "required" "$verify_text"
 assert_contains "verify prints friendly next steps" "下一步:" "$verify_text"
 assert_contains "verify prompts graph bootstrap command" "/spec:graph-bootstrap" "$verify_text"
 assert_contains "verify prompts continue completion" "继续完成" "$verify_text"
-assert_contains "verify prompts host restart first" "建议先重启 Claude Code" "$verify_text"
+assert_contains "verify says graph bootstrap can run now" "现在可以运行 /spec:graph-bootstrap" "$verify_text"
 last_verify_line="$(printf '%s\n' "$verify_text" | sed '/^[[:space:]]*$/d' | tail -n 1)"
-assert_contains "verify output ends with downstream restart caveat" "下游 workflow 前仍要重启或新开会话" "$last_verify_line"
+assert_contains "verify output ends with downstream restart caveat" "live MCP probe 前需要" "$last_verify_line"
 LEDGER_PATH="$FAKE_HOME/.claude/spec-first/host-setup.json"
 PROVIDER_CONFIG="$FAKE_REPO/.spec-first/config/graph-providers.json"
 RUNTIME_CAPABILITIES="$FAKE_REPO/.spec-first/config/runtime-capabilities.json"
@@ -591,6 +596,65 @@ assert_eq "provider artifacts schema" "provider-artifacts.v1" "$(jq -r '.schema_
 assert_eq "provider projection is setup-only" "true" "$(jq -r '.boundaries.setup_only and .boundaries.does_not_run_gitnexus_analyze and .boundaries.does_not_run_code_review_graph_build' "$PROVIDER_CONFIG")"
 provider_config_repo_root="$(jq -r '.repo_root' "$PROVIDER_CONFIG")"
 assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$GITNEXUS_REPO_LABEL" --arg gitnexus_package "$GITNEXUS_PACKAGE" --arg query_probe "$GITNEXUS_QUERY_PROBE" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze","--force"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y",$gitnexus_package,"query",$query_probe,"--repo",$repo_name]) and (.providers.gitnexus.query_probe_policy.expected_hit == true) and (.providers.gitnexus.query_probe_policy.source == "git-ls-files-code-basename") and (.providers.gitnexus.query_probe_policy.token == $query_probe) and (.providers.gitnexus.query_probe_policy.selected_from == "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java") and (.providers["code-review-graph"].commands.bootstrap == ["uvx","--upgrade","code-review-graph","build"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx","--upgrade","code-review-graph","status","--repo",$repo_root]) and (.providers["code-review-graph"].access_mode == "cli_artifact") and (.providers["code-review-graph"].host_config_required == false) and (.providers["code-review-graph"].mcp_server == null)' "$PROVIDER_CONFIG")"
+
+LOW_SIGNAL_REPO="$TMP_DIR/low-signal-repo"
+make_repo "$LOW_SIGNAL_REPO"
+mkdir -p "$LOW_SIGNAL_REPO/bin" "$LOW_SIGNAL_REPO/frontend/admin/src/api" "$LOW_SIGNAL_REPO/frontend/admin/src/components" "$LOW_SIGNAL_REPO/src/cli/adapters"
+printf 'console.log("install")\n' > "$LOW_SIGNAL_REPO/bin/postinstall.js"
+printf 'export function getSystemConfig() {}\n' > "$LOW_SIGNAL_REPO/frontend/admin/src/api/systemConfig.ts"
+printf 'export function AssessmentReport() {}\n' > "$LOW_SIGNAL_REPO/frontend/admin/src/components/AssessmentReport.tsx"
+printf 'export function DashboardConfigForm() {}\n' > "$LOW_SIGNAL_REPO/frontend/admin/src/components/DashboardConfigForm.tsx"
+printf 'export class ClaudeAdapter {}\n' > "$LOW_SIGNAL_REPO/src/cli/adapters/claude.js"
+git -C "$LOW_SIGNAL_REPO" add bin/postinstall.js frontend/admin/src/api/systemConfig.ts frontend/admin/src/components/AssessmentReport.tsx frontend/admin/src/components/DashboardConfigForm.tsx src/cli/adapters/claude.js
+LOW_SIGNAL_FACTS="$TMP_DIR/low-signal-facts.json"
+LOW_SIGNAL_HOME="$TMP_DIR/low-signal-home"
+mkdir -p "$LOW_SIGNAL_HOME"
+jq -n \
+  --arg repo_root "$LOW_SIGNAL_REPO" \
+  --arg ledger_path "$LOW_SIGNAL_HOME/.claude/spec-first/host-setup.json" \
+  '{
+    schema_version:"v2",
+    host:"claude",
+    platform:"macos",
+    repo_status:"git-repo",
+    repo_root:$repo_root,
+    selected_repo_root:$repo_root,
+    target:{state_write_allowed:true},
+    host_ledger_pointer:{host:"claude", path:$ledger_path, schema_version:"v2"},
+    baseline_ready:true,
+    host_runtime_ready:true,
+    tools:{},
+    helper_tools:{},
+    graph_providers:{
+      gitnexus:{
+        configured:true,
+        enabled_for_bootstrap:true,
+        required:true,
+        role:"global_knowledge",
+        access_mode:"live_mcp",
+        host_config_required:true,
+        dependency_status:"ready",
+        host_config_status:"ready",
+        capabilities:[]
+      },
+      "code-review-graph":{
+        configured:true,
+        enabled_for_bootstrap:true,
+        required:true,
+        role:"impact_context",
+        access_mode:"cli_artifact",
+        host_config_required:false,
+        dependency_status:"ready",
+        host_config_status:"not-required",
+        capabilities:[]
+      }
+    }
+  }' > "$LOW_SIGNAL_FACTS"
+low_signal_projection="$(bash "$SCRIPTS_DIR/write-provider-config.sh" --facts-file "$LOW_SIGNAL_FACTS")"
+assert "low-signal provider projection emits JSON" jq -e . <<<"$low_signal_projection"
+LOW_SIGNAL_PROVIDER_CONFIG="$LOW_SIGNAL_REPO/.spec-first/config/graph-providers.json"
+assert_eq "GitNexus probe skips low-signal and display-only basenames" "DashboardConfigForm:frontend/admin/src/components/DashboardConfigForm.tsx" "$(jq -r '.providers.gitnexus.query_probe_policy | "\(.token):\(.selected_from)"' "$LOW_SIGNAL_PROVIDER_CONFIG")"
+
 assert_eq "providers are configured but not query-ready" "true" "$(jq -r '(.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
 assert_eq "runtime capabilities points to host ledger" "$LEDGER_PATH" "$(jq -r '.host_ledger_pointer.path' "$RUNTIME_CAPABILITIES")"
 assert_eq "runtime capabilities starts not bootstrapped" "not-bootstrapped" "$(jq -r '.project_graph_readiness.status' "$RUNTIME_CAPABILITIES")"
@@ -682,7 +746,8 @@ assert_eq "graph-bootstrap writes canonical provider readiness" "true" "$(jq -r 
 verify_after_bootstrap="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "repeat verify shows gitnexus row" "gitnexus" "$verify_after_bootstrap"
 assert_contains "repeat verify shows graph provider query ready" "全局代码知识图谱与影响分析" "$verify_after_bootstrap"
-assert_contains "repeat verify shows ready query cell" "| ready | n/a  |" "$verify_after_bootstrap"
+assert_contains "repeat verify shows ready query and done bootstrap cells" "| ready | done" "$verify_after_bootstrap"
+assert_contains "repeat verify summary lists ready providers" "ready: gitnexus,code-review-graph; pending: n/a" "$verify_after_bootstrap"
 assert_contains "repeat verify reports graph provider query ready summary" "Graph providers are query-ready." "$verify_after_bootstrap"
 if [[ "$verify_after_bootstrap" == *"Graph providers are configured but not query-ready yet."* ]]; then
   echo "FAIL: repeat verify should not say query-ready providers are pending" >&2

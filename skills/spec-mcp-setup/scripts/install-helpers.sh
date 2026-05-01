@@ -96,10 +96,18 @@ run_with_optional_sudo() {
   if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
     "$@"
   elif command -v sudo >/dev/null 2>&1; then
-    sudo "$@"
+    sudo -n "$@"
   else
     return 1
   fi
+}
+
+run_npm_global_install_with_optional_sudo() {
+  if env CI=true npm install -g "$@" --no-audit --no-fund --loglevel=error; then
+    return 0
+  fi
+  command -v sudo >/dev/null 2>&1 || return 1
+  sudo -n env CI=true npm install -g "$@" --no-audit --no-fund --loglevel=error
 }
 
 brew_latest_install_command() {
@@ -242,7 +250,7 @@ run_install_command() {
       if [ "$os" = "windows" ]; then run_winget_latest_install "Gyan.FFmpeg"; elif [ "$os" = "linux" ]; then run_linux_package_install ffmpeg ffmpeg ffmpeg ffmpeg ffmpeg; else run_brew_latest_install "ffmpeg"; fi
       ;;
     ast-grep)
-      if [ "$os" = "windows" ]; then npm install -g @ast-grep/cli@latest; elif [ "$os" = "linux" ]; then if command -v cargo >/dev/null 2>&1; then cargo install ast-grep --locked --force; elif command -v npm >/dev/null 2>&1; then npm install -g @ast-grep/cli@latest; else return 1; fi; else run_brew_latest_install "ast-grep"; fi
+      if [ "$os" = "windows" ]; then run_npm_global_install_with_optional_sudo @ast-grep/cli@latest; elif [ "$os" = "linux" ]; then if command -v cargo >/dev/null 2>&1; then cargo install ast-grep --locked --force; elif command -v npm >/dev/null 2>&1; then run_npm_global_install_with_optional_sudo @ast-grep/cli@latest; else return 1; fi; else run_brew_latest_install "ast-grep"; fi
       ;;
     ast-grep-skill)
       npx -y skills@latest add ast-grep/agent-skill -g -y
@@ -276,6 +284,7 @@ export -f run_winget_latest_install
 export -f run_linux_package_install
 export -f run_brew_latest_install
 export -f run_with_optional_sudo
+export -f run_npm_global_install_with_optional_sudo
 export -f run_install_command
 
 add_helper_fact() {
@@ -341,7 +350,7 @@ process_agent_browser() {
     next_action="install agent-browser CLI"
     if [ "$MODE" = "install" ]; then
       stage_log "agent-browser" "installing CLI via npm"
-      if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" env CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error >/dev/null 2>&1 && command -v agent-browser >/dev/null 2>&1; then
+      if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" bash -c 'run_npm_global_install_with_optional_sudo agent-browser@latest' >/dev/null 2>&1 && command -v agent-browser >/dev/null 2>&1; then
         dependency_status="ready"
         install_status="ready"
         status="ready"

@@ -16,7 +16,7 @@ This workflow is the single setup entrypoint for spec-first. It has two distinct
 
 Project-local config and legacy residue facts do not affect `baseline_ready`. Required helper facts do affect `baseline_ready`. This workflow does not expose selectable MCP registry entries, legacy pending states, or a browser MCP server.
 
-GitNexus `query_probe` must target the GitNexus indexed repo label, not blindly the directory basename. `write-provider-config.*` resolves the label deterministically from explicit setup facts when present, then from `.gitnexus/meta.json` `remoteUrl` basename, and only falls back to the repo directory basename.
+GitNexus `query_probe` must target the GitNexus indexed repo label, not blindly the directory basename. `write-provider-config.*` resolves the label deterministically from explicit setup facts when present, then from `.gitnexus/meta.json` `remoteUrl` basename, and only falls back to the repo directory basename. Its probe token policy should prefer high-signal tracked source basenames that are likely to participate in flows, such as UI forms/tables/pages, controllers, handlers, services, repositories, and Android Activity/ViewModel classes. Low-signal lifecycle, entrypoint, config, type, schema, and constants basenames such as `postinstall`, `index`, `main`, and `systemConfig` should be skipped until no better source candidate exists.
 
 ## Runtime Baseline
 
@@ -51,8 +51,8 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 ## What This Workflow Does
 
 1. Runs project preflight with `check-health`.
-2. Offers explicit project-local config bootstrap actions when needed.
-3. Reports legacy Compound Engineering residue and asks before deleting `compound-engineering.local.md`.
+2. Runs bounded project-local config bootstrap actions when needed.
+3. Reports legacy Compound Engineering residue without deleting it automatically.
 4. Checks required dependencies.
 5. Installs/verifies required helper tooling.
 6. Warms every required MCP/provider package and configures only host-MCP-required tools in the host MCP config.
@@ -62,6 +62,21 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 10. Prints a clear next-step prompt after the final status block: continue graph readiness compilation now, then restart Claude Code/Codex or start a new session before relying on the newly written MCP config in downstream workflows.
 
 Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure.
+
+## Autonomy And Permissions
+
+An explicit `/spec:mcp-setup` or `$spec-mcp-setup` invocation is authorization to complete the required setup workflow without intermediate confirmation prompts. Do not stop to ask before running deterministic, bounded setup actions that this skill owns:
+
+- creating or refreshing `.spec-first/config.local.example.yaml`
+- creating `.spec-first/config.local.yaml` only when it does not already exist
+- ensuring `.gitignore` contains `.spec-first/*.local.yaml`
+- installing or verifying required helper tooling
+- writing host MCP config for required host-MCP tools
+- writing readiness ledgers and setup-owned `.spec-first/config/*.json` facts
+
+If a setup command fails because the host sandbox or OS denies permission, retry through the host's approved escalation path or the script's non-interactive sudo/package-manager path without asking the user first. Do not invent destructive escalation. If escalation is unavailable, requires credentials that the harness cannot provide, or still fails, record the failed command stage, reason, and next action in the final status instead of blocking on confirmation.
+
+Keep destructive or ambiguous actions out of the autonomous path. Do not delete `compound-engineering.local.md`, `.compound-engineering/config.local.yaml`, existing `.spec-first/config.local.yaml`, or user-authored host config sections unless the user explicitly asks for that deletion or uninstall behavior.
 
 ## Workspace Repo Targeting
 
@@ -191,7 +206,7 @@ On Windows, run `check-health` from Git Bash or WSL; project bootstrap has a nat
 - legacy `compound-engineering.local.md`
 - legacy `.compound-engineering/config.local.yaml`
 
-If project-local setup actions are needed, ask the user before changing files, then run the deterministic bootstrap script with explicit flags:
+If project-local setup actions are needed inside the resolved target repo, run the deterministic bootstrap script with explicit flags. Do not ask for an extra confirmation; the workflow invocation already authorizes these bounded, idempotent setup writes.
 
 ```bash
 bash skills/spec-mcp-setup/scripts/bootstrap-project-config.sh --refresh-example --create-local --ensure-gitignore --json
@@ -203,7 +218,7 @@ Windows:
 pwsh -File skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1 -RefreshExample -CreateLocal -EnsureGitignore -Json
 ```
 
-Only pass `--delete-legacy-markdown` / `-DeleteLegacyMarkdown` after the user confirms deleting `compound-engineering.local.md`. Do not automatically delete `.compound-engineering/config.local.yaml`; report it as legacy residue and tell the user that spec-first now uses `.spec-first/config.local.yaml`.
+Do not pass `--delete-legacy-markdown` / `-DeleteLegacyMarkdown` during ordinary setup. Do not automatically delete `.compound-engineering/config.local.yaml`; report legacy residue and tell the user that spec-first now uses `.spec-first/config.local.yaml`.
 
 Project preflight prepares setup input. Missing required helper tooling must mark Required Harness Runtime as failed. Missing local config, outdated example config, and legacy CE residue must not mark Required Harness Runtime as failed.
 
@@ -418,6 +433,8 @@ Expected projection boundaries:
 }
 ```
 
+GitNexus `query_probe_policy` selection must stay deterministic and source-derived. Prefer tracked source basenames that are likely to participate in execution flows: Android `Activity` / `Fragment` / `ViewModel`, controllers, handlers, services, repositories, forms, tables, pages, dashboards, and user-facing workflow nodes. Treat lifecycle/config/type/schema/constants basenames as low signal, and demote display-only basenames such as `Report`, `View`, `Screen`, `Layout`, and `Modal` so they do not beat stronger flow-bearing candidates. This keeps setup as a fact writer while improving the chance that `spec-graph-bootstrap` verifies the GitNexus BM25/process query surface.
+
 ## Codex TOML Contract
 
 Codex MCP sections with hyphenated names must use quoted TOML table keys:
@@ -445,12 +462,18 @@ Uninstall does not delete `agent-browser`, external caches, or the project proje
 
 ## Success Summary
 
-When setup finishes, the assistant's final response must restate the complete readiness status sourced from readiness ledger v2, followed by a short friendly next-step prompt. Prefer grouped status blocks rendered inside fenced code blocks instead of one wide Markdown table. Do not rely on prior command output as the only place where the status appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending.
+When setup finishes, the assistant's final response must restate the complete readiness status sourced from readiness ledger v2, followed by a short friendly next-step prompt. Prefer grouped status blocks rendered inside fenced code blocks instead of one wide Markdown table. The first grouped section must be an `Execution result` summary that shows `Harness runtime` and `Graph readiness` decisions, including ready and pending graph providers. Do not rely on prior command output as the only place where the status appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending. When graph bootstrap is pending, tell the user it can run now because it is deterministic CLI compilation; restart or a new session is required only before downstream workflows rely on newly written host MCP config or live MCP probes.
 
 ```text
 Required Harness Runtime is ready; graph bootstrap is still pending.
 
 Required Harness Runtime status (grouped):
+Execution result:
+| Area             | Status  | Evidence                                      | Next                     |
+| ---------------- | ------- | --------------------------------------------- | ------------------------ |
+| Harness runtime  | ready   | baseline_ready=true                           | n/a                      |
+| Graph readiness  | pending | ready: code-review-graph; pending: gitnexus   | run spec-graph-bootstrap |
+
 MCP servers:
 | Name                | Role                     | Dependency | Host  | Project | Next |
 | ------------------- | ------------------------ | ---------- | ----- | ------- | ---- |
@@ -459,10 +482,10 @@ MCP servers:
 | context7            | 当前框架和库文档         | ready      | ready | n/a     | n/a  |
 
 Graph providers:
-| Name              | Role                         | Dependency | Host  | Query   | Next                     |
-| ----------------- | ---------------------------- | ---------- | ----- | ------- | ------------------------ |
-| gitnexus          | 全局代码知识图谱与影响分析   | ready      | ready | pending | run spec-graph-bootstrap |
-| code-review-graph | 变更影响半径与 review 上下文 | ready      | not-required | pending | run spec-graph-bootstrap |
+| Name              | Role                         | Dependency | Host         | Query   | Bootstrap | Next                     |
+| ----------------- | ---------------------------- | ---------- | ------------ | ------- | --------- | ------------------------ |
+| gitnexus          | 全局代码知识图谱与影响分析   | ready      | ready        | pending | required  | run spec-graph-bootstrap |
+| code-review-graph | 变更影响半径与 review 上下文 | ready      | not-required | ready   | done      | n/a                      |
 
 Helper tools:
 | Name           | Type         | Result | Dependency | Install | Skill | Next |
@@ -484,8 +507,8 @@ Project setup facts:
 | provider-artifacts.json   | written | n/a  |
 
 下一步:
-  1. 建议先重启 Claude Code/Codex 或新开会话，让新写入的 MCP 配置被宿主加载。
-  2. 然后运行 /spec:graph-bootstrap 或 $spec-graph-bootstrap 编译 graph readiness facts；如果当前 agent 判断只需调用确定性 bootstrap 脚本，也可以在本会话直接回复“继续完成”，但下游 workflow 前仍要重启或新开会话。
+  1. 现在可以运行 /spec:graph-bootstrap 或 $spec-graph-bootstrap 完成 deterministic graph readiness 编译；也可以在本会话直接回复“继续完成”，让 agent 调用 bootstrap 脚本。
+  2. 重启 Claude Code/Codex 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。
 ```
 
 ## Reference

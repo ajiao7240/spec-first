@@ -260,7 +260,12 @@ function Test-GitNexusQueryProbeVerified {
     }
   }
   if ($resultCount -le 0) {
-    $script:QueryProbeVerificationReason = 'GitNexus query probe did not return non-empty BM25/process query results.'
+    $definitionCount = if ($payload.PSObject.Properties.Name -contains 'definitions' -and $null -ne $payload.definitions) { @($payload.definitions).Count } else { 0 }
+    if ($definitionCount -gt 0) {
+      $script:QueryProbeVerificationReason = 'GitNexus query probe returned definitions-only evidence without BM25/process query results.'
+    } else {
+      $script:QueryProbeVerificationReason = 'GitNexus query probe did not return non-empty BM25/process query results.'
+    }
   }
   return ($resultCount -gt 0)
 }
@@ -547,6 +552,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     recommended_action = $failureInfo['recommended_action']
     confidence = $confidence
     limitations = $limitations
+    query_verification_reason = if ($status -eq 'query-unverified' -and $limitations.Count -gt 0) { $limitations[$limitations.Count - 1] } else { $null }
     query_probe_policy = if ($entry.PSObject.Properties.Name -contains 'query_probe_policy') { $entry.query_probe_policy } else { $null }
     repo_snapshot = [ordered]@{
       source_revision = $sourceRevision
@@ -668,14 +674,28 @@ $impactCapabilities = [ordered]@{
 }
 Write-JsonFileAtomic -Path (Join-Path $impactDir 'bootstrap-impact-capabilities.json') -Payload ([pscustomobject]$impactCapabilities) -Depth 20
 
+$providerReportRows = @($providerStatuses | ForEach-Object {
+  $token = if ($null -ne $_.query_probe_policy -and $_.query_probe_policy.PSObject.Properties.Name -contains 'token') { [string]$_.query_probe_policy.token } else { 'n/a' }
+  $reason = if (-not [string]::IsNullOrWhiteSpace([string]$_.query_verification_reason)) { [string]$_.query_verification_reason } else { (@($_.limitations) -join '; ') }
+  if ([string]::IsNullOrWhiteSpace($reason)) { $reason = 'n/a' }
+  $reason = $reason.Replace('|', '/')
+  "| $($_.provider) | $($_.graph_ready) | $($_.query_ready) | $token | $($_.status) | $reason |"
+})
+
 Write-TextFileAtomic -Path (Join-Path $graphDir 'bootstrap-report.md') -Value @"
 # Graph Bootstrap Report
 
 - workflow_mode: $workflowMode
 - overall_status: $overallStatus
+- source_revision: $sourceRevision
+- worktree_dirty: $worktreeDirty
 - provider_status: .spec-first/graph/provider-status.json
 - graph_facts: .spec-first/graph/graph-facts.json
 - impact_capabilities: .spec-first/impact/bootstrap-impact-capabilities.json
+
+| Provider | Graph Ready | Query Ready | Probe Token | Evidence | Query Verification Reason |
+| --- | --- | --- | --- | --- | --- |
+$($providerReportRows -join [Environment]::NewLine)
 "@
 
 [pscustomobject]@{

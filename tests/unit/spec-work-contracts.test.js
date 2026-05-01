@@ -16,6 +16,8 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('prefer live MCP evidence for concrete execution questions');
     expect(text).toContain('fall back to bounded direct repo reads');
     expect(text).toContain('they do not update compiled `query_ready`');
+    expect(text).toContain('definitions-only evidence');
+    expect(text).toContain('local file/symbol pointers');
     expect(text).toContain('Scope expansion is judged against the plan/task pack and concrete diff');
     expect(text).toContain('Workspace Repo Scope');
     expect(text).toContain('single `target_repo` or per-unit/per-task `target_repo`');

@@ -184,6 +184,11 @@ jq -c '
     else ($value | tostring) end;
   def query($value):
     if $value == true then "ready" elif $value == false then "pending" else "n/a" end;
+  def bootstrap($value):
+    if $value == true then "required" elif $value == false then "done" else "n/a" end;
+  def provider_names($ready):
+    [(.tools // {} | to_entries[] | select((.value.type // "") == "graph-provider" and ((.value.query_ready // false) == $ready)) | .key)]
+    | if length == 0 then "n/a" else join(",") end;
   def remark($key):
     if $key == "serena" then "符号级精确编辑和项目索引"
     elif $key == "sequential-thinking" then "反思式推理辅助"
@@ -199,12 +204,27 @@ jq -c '
     elif $key == "ast-grep" then "结构化代码搜索和重写"
     elif $key == "ast-grep-skill" then "ast-grep 使用指引"
     else "工具" end;
+  def summary_rows:
+    [
+      [
+        "Harness runtime",
+        (if .baseline_ready == true then "ready" else "action-required" end),
+        "baseline_ready=\((.baseline_ready // false) | tostring)",
+        (if .baseline_ready == true then "" else "fix action-required rows" end)
+      ],
+      [
+        "Graph readiness",
+        (if .graph_bootstrap_required == true then "pending" else "ready" end),
+        "ready: \(provider_names(true)); pending: \(provider_names(false))",
+        (if .graph_bootstrap_required == true then "run spec-graph-bootstrap" else "" end)
+      ]
+    ];
   def mcp_rows:
     [(.tools // {} | to_entries[] | select((.value.type // "") == "mcp") |
       [display(.key), remark(.key), display(.value.dependency_status), display(.value.host_config_status), display(.value.project_status), display(.value.next_action)])];
   def graph_rows:
     [(.tools // {} | to_entries[] | select((.value.type // "") == "graph-provider") |
-      [display(.key), remark(.key), display(.value.dependency_status), display(.value.host_config_status), query(.value.query_ready), display(.value.next_action)])];
+      [display(.key), remark(.key), display(.value.dependency_status), display(.value.host_config_status), query(.value.query_ready), bootstrap(.value.bootstrap_required), display(.value.next_action)])];
   def helper_rows:
     [(.helper_tools // {} | to_entries[] |
       [display(.key), display(.value.type // "helper"), display(.value.result), display(.value.dependency_status), display(.value.install_status), display(.value.skill_status), display(.value.next_action)])];
@@ -229,8 +249,9 @@ jq -c '
     | map([display(.name), display(.status), display(.next)]);
   {
     sections: [
+      {title: "Execution result", headers: ["Area", "Status", "Evidence", "Next"], rows: summary_rows},
       {title: "MCP servers", headers: ["Name", "Role", "Dependency", "Host", "Project", "Next"], rows: mcp_rows},
-      {title: "Graph providers", headers: ["Name", "Role", "Dependency", "Host", "Query", "Next"], rows: graph_rows},
+      {title: "Graph providers", headers: ["Name", "Role", "Dependency", "Host", "Query", "Bootstrap", "Next"], rows: graph_rows},
       {title: "Helper tools", headers: ["Name", "Type", "Result", "Dependency", "Install", "Skill", "Next"], rows: helper_rows},
       {title: "Project setup facts", headers: ["Artifact", "Project", "Next"], rows: project_rows}
     ]
@@ -269,8 +290,8 @@ if [ "$baseline_ready" = "true" ]; then
       echo "     $target_next_action"
     fi
   elif [ "$graph_bootstrap_required" = "true" ]; then
-    echo "  1. 建议先重启 ${host_display} 或新开会话，让新写入的 MCP 配置被宿主加载。"
-    echo "  2. 然后运行 ${graph_command}；如果当前 agent 判断只需调用确定性 bootstrap 脚本，也可以在本会话直接回复“继续完成”，但下游 workflow 前仍要重启或新开会话。"
+    echo "  1. 现在可以运行 ${graph_command} 完成 deterministic graph readiness 编译；也可以在本会话直接回复“继续完成”，让 agent 调用 bootstrap 脚本。"
+    echo "  2. 重启 ${host_display} 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。"
   else
     echo "  1. 重启 ${host_display} 或新开会话后，再依赖新的 MCP 配置运行下游 workflow。"
   fi

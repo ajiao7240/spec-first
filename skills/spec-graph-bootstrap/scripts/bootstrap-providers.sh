@@ -294,6 +294,19 @@ gitnexus_query_probe_has_results() {
   ' >/dev/null 2>&1 <<<"$json_payload"
 }
 
+gitnexus_query_probe_is_definitions_only() {
+  local log_path="$1"
+  local json_payload
+  json_payload="$(awk 'found || /^[[:space:]]*\{/ { found=1; print }' "$log_path" || true)"
+  [ -n "$json_payload" ] || return 1
+  jq -e '
+    (.warning? | not)
+    and ((((.processes // []) | length)
+      + ((.process_symbols // []) | length)) == 0)
+    and (((.definitions // []) | length) > 0)
+  ' >/dev/null 2>&1 <<<"$json_payload"
+}
+
 query_probe_verified() {
   local provider="$1"
   local log_path="$2"
@@ -305,11 +318,15 @@ query_probe_verified() {
     QUERY_PROBE_VERIFICATION_REASON="GitNexus query probe emitted FTS/read-only/missing-index diagnostics."
     return 1
   fi
-  if ! gitnexus_query_probe_has_results "$log_path"; then
-    QUERY_PROBE_VERIFICATION_REASON="GitNexus query probe did not return parseable non-empty BM25/process query results."
-    return 1
+  if gitnexus_query_probe_has_results "$log_path"; then
+    return 0
   fi
-  return 0
+  if gitnexus_query_probe_is_definitions_only "$log_path"; then
+    QUERY_PROBE_VERIFICATION_REASON="GitNexus query probe returned definitions-only evidence without BM25/process query results."
+  else
+    QUERY_PROBE_VERIFICATION_REASON="GitNexus query probe did not return parseable non-empty BM25/process query results."
+  fi
+  return 1
 }
 
 classify_provider_failure() {
@@ -550,6 +567,7 @@ write_provider_status() {
       recommended_action:$failure_info.recommended_action,
       confidence:$confidence,
       limitations:$limitations,
+      query_verification_reason:(if $status == "query-unverified" then ($limitations[-1] // null) else null end),
       query_probe_policy:($provider_config[0].providers[$provider].query_probe_policy // null),
       repo_snapshot:{
         source_revision:$source_revision,
@@ -704,6 +722,11 @@ jq -n \
     }
   }' | write_file_atomic "$IMPACT_DIR/bootstrap-impact-capabilities.json"
 
+provider_report_rows="$(jq -r '
+  .[]
+  | "| \(.provider) | \(.graph_ready) | \(.query_ready) | \(.query_probe_policy.token // "n/a") | \(.status) | \((.query_verification_reason // ((.limitations // []) | join("; ")) // "n/a") | gsub("\\|"; "/")) |"
+' <<<"$statuses_json")"
+
 write_file_atomic "$GRAPH_DIR/bootstrap-report.md" <<MD
 # Graph Bootstrap Report
 
@@ -714,6 +737,10 @@ write_file_atomic "$GRAPH_DIR/bootstrap-report.md" <<MD
 - provider_status: .spec-first/graph/provider-status.json
 - graph_facts: .spec-first/graph/graph-facts.json
 - impact_capabilities: .spec-first/impact/bootstrap-impact-capabilities.json
+
+| Provider | Graph Ready | Query Ready | Probe Token | Evidence | Query Verification Reason |
+| --- | --- | --- | --- | --- | --- |
+$provider_report_rows
 MD
 
 jq -n \

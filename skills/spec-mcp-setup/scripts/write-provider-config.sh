@@ -107,6 +107,21 @@ gitnexus_probe_token_from_path() {
   fi
 }
 
+gitnexus_probe_token_low_signal() {
+  case "$1" in
+    app|App|index|Index|main|Main|postinstall|preinstall|install|setup|config|constants|types|utils|helpers|test|spec) return 0 ;;
+  esac
+  [[ "$1" =~ (Config|Types?|Schema|Constants?)$ || "$1" =~ _(config|types?|schema|constants?)$ ]]
+}
+
+gitnexus_probe_token_workflow_signal() {
+  [[ "$1" =~ (Activity|Fragment|ViewModel|Manager|Repository|Service|Controller|Handler|Form|Table|Page|Dashboard|Assessment|Questionnaire|Users|Relations|Login)$ ]]
+}
+
+gitnexus_probe_token_display_signal() {
+  [[ "$1" =~ (View|Screen|Layout|Modal|Report)$ ]]
+}
+
 sanitize_gitnexus_repo_name() {
   local value="$1"
   value="$(printf '%s' "$value" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
@@ -183,7 +198,7 @@ select_gitnexus_query_probe_policy() {
     files+=("$path")
   done < <(git -C "$repo_root" ls-files 2>/dev/null || true)
 
-  for priority in android_named named any_source; do
+  for priority in android_named workflow_named src_high_signal high_signal workflow_display_named any_source; do
     for path in "${files[@]}"; do
       gitnexus_probe_path_excluded "$path" && continue
       gitnexus_probe_source_path "$path" || continue
@@ -197,8 +212,23 @@ select_gitnexus_query_probe_policy() {
           esac
           [[ "$token" =~ (Activity|Fragment|ViewModel|Manager|Repository|Service)$ ]] || continue
           ;;
-        named)
-          [[ "$token" =~ (Activity|Fragment|ViewModel|Manager|Repository|Service)$ ]] || continue
+        workflow_named)
+          gitnexus_probe_token_workflow_signal "$token" || continue
+          ;;
+        src_high_signal)
+          case "$path" in
+            src/*|*/src/*) ;;
+            *) continue ;;
+          esac
+          gitnexus_probe_token_low_signal "$token" && continue
+          gitnexus_probe_token_display_signal "$token" && continue
+          ;;
+        high_signal)
+          gitnexus_probe_token_low_signal "$token" && continue
+          gitnexus_probe_token_display_signal "$token" && continue
+          ;;
+        workflow_display_named)
+          gitnexus_probe_token_display_signal "$token" || continue
           ;;
         any_source) ;;
       esac

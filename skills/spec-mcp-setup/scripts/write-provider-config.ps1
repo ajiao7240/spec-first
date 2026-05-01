@@ -222,6 +222,23 @@ function Get-GitNexusProbeTokenFromPath {
   return ''
 }
 
+function Test-GitNexusProbeLowSignalToken {
+  param([string]$Token)
+  return ($Token -match '^(app|App|index|Index|main|Main|postinstall|preinstall|install|setup|config|constants|types|utils|helpers|test|spec)$' -or
+    $Token -match '(Config|Types?|Schema|Constants?)$' -or
+    $Token -match '_(config|types?|schema|constants?)$')
+}
+
+function Test-GitNexusProbeWorkflowSignalToken {
+  param([string]$Token)
+  return ($Token -match '(Activity|Fragment|ViewModel|Manager|Repository|Service|Controller|Handler|Form|Table|Page|Dashboard|Assessment|Questionnaire|Users|Relations|Login)$')
+}
+
+function Test-GitNexusProbeDisplaySignalToken {
+  param([string]$Token)
+  return ($Token -match '(View|Screen|Layout|Modal|Report)$')
+}
+
 function Get-GitNexusQueryProbePolicy {
   param([string]$RepoRoot)
   $files = @()
@@ -231,7 +248,7 @@ function Get-GitNexusQueryProbePolicy {
     $files = @()
   }
 
-  foreach ($priority in @('android_named', 'named', 'any_source')) {
+  foreach ($priority in @('android_named', 'workflow_named', 'src_high_signal', 'high_signal', 'workflow_display_named', 'any_source')) {
     foreach ($path in $files) {
       if (Test-GitNexusProbePathExcluded -Path $path) { continue }
       if (-not (Test-GitNexusProbeSourcePath -Path $path)) { continue }
@@ -240,8 +257,17 @@ function Get-GitNexusQueryProbePolicy {
       if ($priority -eq 'android_named') {
         if ($path -notmatch '\.(kt|java)$') { continue }
         if ($token -notmatch '(Activity|Fragment|ViewModel|Manager|Repository|Service)$') { continue }
-      } elseif ($priority -eq 'named') {
-        if ($token -notmatch '(Activity|Fragment|ViewModel|Manager|Repository|Service)$') { continue }
+      } elseif ($priority -eq 'workflow_named') {
+        if (-not (Test-GitNexusProbeWorkflowSignalToken -Token $token)) { continue }
+      } elseif ($priority -eq 'src_high_signal') {
+        if ($path -notmatch '(^|/)src/') { continue }
+        if (Test-GitNexusProbeLowSignalToken -Token $token) { continue }
+        if (Test-GitNexusProbeDisplaySignalToken -Token $token) { continue }
+      } elseif ($priority -eq 'high_signal') {
+        if (Test-GitNexusProbeLowSignalToken -Token $token) { continue }
+        if (Test-GitNexusProbeDisplaySignalToken -Token $token) { continue }
+      } elseif ($priority -eq 'workflow_display_named') {
+        if (-not (Test-GitNexusProbeDisplaySignalToken -Token $token)) { continue }
       }
 
       return [ordered]@{

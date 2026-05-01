@@ -365,7 +365,10 @@ write_fixture_config "$DEFINITIONS_ONLY_REPO" "$DEFINITIONS_ONLY_LEDGER" true
 definitions_only_output="$(cd "$DEFINITIONS_ONLY_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "definitions-only query result degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$definitions_only_output")"
 assert_eq "definitions-only result is not query-ready" "query-unverified:true:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.graph_ready):\(.query_ready)"' <<<"$definitions_only_output")"
-assert_contains "definitions-only limitation requires BM25/process surface" "BM25/process" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$definitions_only_output")"
+assert_contains "definitions-only limitation is explicit" "definitions-only evidence" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$definitions_only_output")"
+assert_contains "definitions-only reason is structured" "definitions-only evidence" "$(jq -r '.results[] | select(.provider=="gitnexus") | .query_verification_reason' <<<"$definitions_only_output")"
+assert_contains "bootstrap report includes probe token column" "Probe Token" "$(cat "$DEFINITIONS_ONLY_REPO/.spec-first/graph/bootstrap-report.md")"
+assert_contains "bootstrap report includes definitions-only evidence" "definitions-only evidence" "$(cat "$DEFINITIONS_ONLY_REPO/.spec-first/graph/bootstrap-report.md")"
 
 SIGSEGV_REPO="$TMP_DIR/sigsegv-repo"
 SIGSEGV_LEDGER="$TMP_DIR/sigsegv-home/.codex/spec-first/host-setup.json"
