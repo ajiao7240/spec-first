@@ -19,7 +19,10 @@ const {
   renderPatchPreview,
   validateRunId,
 } = require('../../skills/spec-skill-audit/scripts/lib/report-writer');
-const { writeAuditArtifacts } = require('../../skills/spec-skill-audit/scripts/write-audit-artifacts');
+const {
+  buildExecutorContext,
+  writeAuditArtifacts,
+} = require('../../skills/spec-skill-audit/scripts/write-audit-artifacts');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
@@ -384,10 +387,47 @@ describe('spec-skill-audit scripts', () => {
     const report = buildPromiseImplementationReport({ repoRoot: REPO_ROOT });
 
     expect(report.implemented_files).toContain('promise-implementation-report.json');
+    expect(report.implemented_files).toContain('executor-context.json');
     expect(report.documented_files.required).toContain('promise-implementation-report.json');
+    expect(report.documented_files.required).toContain('executor-context.json');
+    expect(report.documented_files.skill_outputs).toContain('executor-context.json');
     expect(report.documented_options).toEqual(expect.arrayContaining(['--repo', '--runtime', '--target', '--patch-preview']));
     expect(report.implemented_options).toEqual(expect.arrayContaining(['--repo', '--runtime', '--target', '--patch-preview']));
     expect(report.findings).toEqual([]);
+  });
+
+  test('records source executor context without treating it as runtime drift', () => {
+    const context = buildExecutorContext(REPO_ROOT);
+
+    expect(context).toEqual(expect.objectContaining({
+      schema_version: 'spec-first.skill-audit-executor-context.v1',
+      executor_origin: 'source',
+      executor_path: 'skills/spec-skill-audit/scripts/write-audit-artifacts.js',
+      source_script_path: 'skills/spec-skill-audit/scripts/write-audit-artifacts.js',
+      source_runtime_drift_known: false,
+      warnings: [],
+    }));
+  });
+
+  test('classifies runtime and unknown audit executors without calling external copies source', () => {
+    const runtimeContext = buildExecutorContext(REPO_ROOT, {
+      scriptPath: path.join(REPO_ROOT, '.agents', 'skills', 'spec-skill-audit', 'scripts', 'write-audit-artifacts.js'),
+    });
+    const unknownContext = buildExecutorContext(REPO_ROOT, {
+      scriptPath: path.join(os.tmpdir(), 'other', 'skills', 'spec-skill-audit', 'scripts', 'write-audit-artifacts.js'),
+    });
+
+    expect(runtimeContext.executor_origin).toBe('runtime');
+    expect(runtimeContext.warnings).toContain(
+      'running generated runtime audit script inside spec-first source repo; source-of-truth script exists at skills/spec-skill-audit/scripts/write-audit-artifacts.js',
+    );
+    expect(unknownContext.executor_origin).toBe('unknown');
+    expect(unknownContext.warnings).toContain(
+      'running non-source audit script inside spec-first source repo; source-of-truth script exists at skills/spec-skill-audit/scripts/write-audit-artifacts.js',
+    );
+    expect(unknownContext.warnings).not.toContain(
+      'running generated runtime audit script inside spec-first source repo; source-of-truth script exists at skills/spec-skill-audit/scripts/write-audit-artifacts.js',
+    );
   });
 
   test('writes run artifacts and latest copy without modifying source files', () => {
@@ -405,12 +445,15 @@ describe('spec-skill-audit scripts', () => {
     expect(result.files).toContain('skill-source-inventory.json');
     expect(result.files).toContain('skill-audit-summary.md');
     expect(result.files).toContain('promise-implementation-report.json');
+    expect(result.files).toContain('executor-context.json');
     expect(result.files).toContain('patch-preview/summary.md');
+    expect(result.executor_context.executor_origin).toBe('source');
     expect(fs.existsSync(path.join(repoRoot, '.spec-first', 'audits', 'skill-audit', 'latest', 'skill-improvement-plan.md'))).toBe(true);
 
     const latestDir = path.join(repoRoot, '.spec-first', 'audits', 'skill-audit', 'latest');
     const auditReport = JSON.parse(fs.readFileSync(path.join(latestDir, 'skill-audit-report.json'), 'utf8'));
     const scorecard = JSON.parse(fs.readFileSync(path.join(latestDir, 'expert-scorecard.json'), 'utf8'));
+    const executorContext = JSON.parse(fs.readFileSync(path.join(latestDir, 'executor-context.json'), 'utf8'));
     const promiseReport = JSON.parse(fs.readFileSync(path.join(latestDir, 'promise-implementation-report.json'), 'utf8'));
     const summary = fs.readFileSync(path.join(latestDir, 'skill-audit-summary.md'), 'utf8');
     const improvementPlan = fs.readFileSync(path.join(latestDir, 'skill-improvement-plan.md'), 'utf8');
@@ -418,7 +461,11 @@ describe('spec-skill-audit scripts', () => {
     expect(Object.keys(scorecard.weights)).toHaveLength(12);
     expect(scorecard.score_is_signal_not_gate).toBe(true);
     expect(scorecard.requires_llm_review).toBe(true);
+    expect(scorecard.skills[0].dimension_reasons.input_contract.why_not_5).toContain('semantic completeness');
+    expect(scorecard.skills[0].score_explanation.why_not_perfect.length).toBeGreaterThan(0);
     expect(auditReport.summary.requires_llm_review).toBe(true);
+    expect(auditReport.executor_context.executor_origin).toBe('source');
+    expect(executorContext.executor_origin).toBe('source');
     for (const finding of auditReport.findings.filter((entry) => ['P0', 'P1'].includes(entry.severity))) {
       expect(finding.evidence.length).toBeGreaterThan(0);
       expect(finding.signal).toEqual(expect.any(String));
@@ -440,6 +487,10 @@ describe('spec-skill-audit scripts', () => {
     expect(summary).toContain('LLM review decides');
     expect(summary).toContain('Scorecards are signals, not gates');
     expect(summary).toContain('Score reliability');
+    expect(summary).toContain('Execution Context');
+    expect(summary).toContain('Executor origin: source');
+    expect(summary).toContain('Score Explanation');
+    expect(summary).toContain('Main non-perfect signals');
     expect(summary).toContain('Promise Implementation');
     expect(summary).toContain('Patch preview artifacts are explicit only');
     expect(scorecard.score_reliability.level).toEqual(expect.any(String));
@@ -539,6 +590,12 @@ describe('spec-skill-audit scripts', () => {
     expect(skillScore.dimensions.runtime_governance).toBeNull();
     expect(skillScore.dimensions.cross_host_portability).toBeNull();
     expect(skillScore.dimension_status.runtime_governance).toBe('not_checked');
+    expect(skillScore.dimension_reasons.runtime_governance.why_not_scored).toContain('not scored because governance evidence was not checked');
+    expect(skillScore.dimension_reasons.cross_host_portability.why_not_scored).toContain('null is not treated as failure');
+    expect(skillScore.score_explanation.not_scored_dimensions.map((entry) => entry.dimension)).toEqual(expect.arrayContaining([
+      'runtime_governance',
+      'cross_host_portability',
+    ]));
     expect(skillScore.score_reliability.reasons).toContain('governance evidence was skipped for this audit scope');
     expect(skillScore.recommended_next_action).not.toContain('Add or repair the dual-host governance record');
   });

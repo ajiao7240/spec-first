@@ -2,11 +2,11 @@
 
 ## 强制前置阅读
 
-在处理本仓库中任何涉及 spec-first 演化、架构判断、prompt / workflow / contract 设计、治理规则取舍的工作前，必须先阅读 `docs/10-prompt/项目角色.md`。
+在处理本仓库中任何涉及 spec-first 演化、架构判断、prompt / workflow / contract 设计、治理规则取舍的工作前，必须先阅读 `docs/10-prompt/结构化项目角色契约.md`。
 
-`docs/10-prompt/项目角色.md` 是当前项目的角色定义与判断基线，优先用于校准系统目标、边界划分、脚本与 LLM 的职责分工，以及对“轻 contract + 明确边界 + 让 LLM 决策”的理解。
+`docs/10-prompt/结构化项目角色契约.md` 是当前项目的角色定义与判断基线，优先用于校准系统目标、边界划分、脚本与 LLM 的职责分工，以及对“轻 contract + 明确边界 + 让 LLM 决策”的理解。
 
-如果本文件后续内容与该文档的理解发生冲突，优先按 `docs/10-prompt/项目角色.md` 对齐后再继续执行。
+如果本文件后续内容与该文档的理解发生冲突，优先按 `docs/10-prompt/结构化项目角色契约.md` 对齐后再继续执行。
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 

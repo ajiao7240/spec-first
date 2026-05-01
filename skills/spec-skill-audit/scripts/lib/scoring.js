@@ -18,6 +18,7 @@ const WEIGHTS = {
 function buildScorecard({ inventory, structureFindings, securityFindings, governanceReport, boundaryReport }) {
   const governanceSkipped = Boolean(governanceReport && governanceReport.skipped);
   const governanceChecked = Boolean(governanceReport && !governanceReport.skipped && Array.isArray(governanceReport.records));
+  const governanceSkipReason = governanceReport && governanceReport.reason ? governanceReport.reason : null;
   const governanceBySkill = new Map();
   for (const record of (governanceReport && governanceReport.records) || []) {
     governanceBySkill.set(record.skill_name, record);
@@ -34,10 +35,11 @@ function buildScorecard({ inventory, structureFindings, securityFindings, govern
     const perSkillStructure = structureFindings.filter((finding) => finding.skill_id === skill.skill_id);
     const perSkillSecurity = securityFindings.filter((finding) => finding.skill_id === skill.skill_id);
     const governanceRecord = governanceBySkill.get(skill.skill_id);
+    const boundaryCandidateCount = boundaryBySkill.get(skill.skill_id) || 0;
     const dimensions = {
       spec_compliance: scoreSpecCompliance(skill, perSkillStructure),
       trigger_precision: scoreTriggerPrecision(skill),
-      boundary_discipline: Math.max(0, 5 - Math.min(3, boundaryBySkill.get(skill.skill_id) || 0)),
+      boundary_discipline: Math.max(0, 5 - Math.min(3, boundaryCandidateCount)),
       input_contract: hasSection(skill, ['inputs']) ? 4 : 2,
       output_contract: hasSection(skill, ['outputs']) ? 4 : 2,
       workflow_explicitness: hasSection(skill, ['workflow', 'execution']) ? 4 : 2,
@@ -48,6 +50,27 @@ function buildScorecard({ inventory, structureFindings, securityFindings, govern
       cross_host_portability: scoreCrossHostPortability(governanceRecord, governanceChecked),
       spec_first_alignment: scoreSpecFirstAlignment(skill),
     };
+    const dimensionStatus = buildDimensionStatus({
+      skill,
+      dimensions,
+      perSkillStructure,
+      perSkillSecurity,
+      governanceRecord,
+      governanceChecked,
+      governanceSkipped,
+      boundaryCandidateCount,
+    });
+    const dimensionReasons = buildDimensionReasons({
+      skill,
+      dimensions,
+      dimensionStatus,
+      perSkillStructure,
+      perSkillSecurity,
+      governanceRecord,
+      governanceSkipped,
+      governanceSkipReason,
+      boundaryCandidateCount,
+    });
     const scoredDimensions = Object.entries(dimensions)
       .filter(([_key, score]) => typeof score === 'number');
     const activeWeight = scoredDimensions.reduce((total, [key]) => total + (WEIGHTS[key] || 0), 0);
@@ -61,10 +84,12 @@ function buildScorecard({ inventory, structureFindings, securityFindings, govern
       overall_score: overallScore,
       grade: gradeForScore(overallScore),
       dimensions,
-      dimension_status: {
-        runtime_governance: governanceDimensionStatus(governanceRecord, governanceChecked, governanceSkipped),
-        cross_host_portability: governanceDimensionStatus(governanceRecord, governanceChecked, governanceSkipped),
-      },
+      dimension_status: dimensionStatus,
+      dimension_reasons: dimensionReasons,
+      score_explanation: buildScoreExplanation({
+        dimensions,
+        dimensionReasons,
+      }),
       score_is_signal_not_gate: true,
       top_risks: [...perSkillStructure, ...perSkillSecurity]
         .filter((finding) => ['P0', 'P1'].includes(finding.severity))
@@ -90,6 +115,286 @@ function buildScorecard({ inventory, structureFindings, securityFindings, govern
     weights: WEIGHTS,
     skills,
   };
+}
+
+function buildDimensionStatus({
+  skill,
+  dimensions,
+  perSkillStructure,
+  perSkillSecurity,
+  governanceRecord,
+  governanceChecked,
+  governanceSkipped,
+  boundaryCandidateCount,
+}) {
+  return {
+    spec_compliance: !skill.has_skill_md
+      ? 'missing'
+      : perSkillStructure.length === 0 && dimensions.spec_compliance === 5
+      ? 'no_findings'
+      : 'findings_present',
+    trigger_precision: dimensions.trigger_precision === 5 ? 'ready' : 'partial_contract',
+    boundary_discipline: boundaryCandidateCount === 0 ? 'no_findings' : 'overlap_candidates',
+    input_contract: hasSection(skill, ['inputs']) ? 'present' : 'missing',
+    output_contract: hasSection(skill, ['outputs']) ? 'present' : 'missing',
+    workflow_explicitness: hasSection(skill, ['workflow', 'execution']) ? 'present' : 'missing',
+    progressive_disclosure: dimensions.progressive_disclosure === 5 ? 'ready' : 'conservative_signal',
+    eval_readiness: skill.has_evals ? 'conservative_signal' : 'missing',
+    security_posture: perSkillSecurity.length === 0 && dimensions.security_posture === 5
+      ? 'no_findings'
+      : 'findings_present',
+    runtime_governance: governanceDimensionStatus(governanceRecord, governanceChecked, governanceSkipped),
+    cross_host_portability: governanceDimensionStatus(governanceRecord, governanceChecked, governanceSkipped),
+    spec_first_alignment: dimensions.spec_first_alignment === 5 ? 'ready' : 'conservative_signal',
+  };
+}
+
+function buildDimensionReasons({
+  skill,
+  dimensions,
+  dimensionStatus,
+  perSkillStructure,
+  perSkillSecurity,
+  governanceRecord,
+  governanceSkipped,
+  governanceSkipReason,
+  boundaryCandidateCount,
+}) {
+  return Object.fromEntries(Object.keys(WEIGHTS).map((dimension) => [
+    dimension,
+    explainDimension(dimension, {
+      skill,
+      score: dimensions[dimension],
+      status: dimensionStatus[dimension],
+      perSkillStructure,
+      perSkillSecurity,
+      governanceRecord,
+      governanceSkipped,
+      governanceSkipReason,
+      boundaryCandidateCount,
+    }),
+  ]));
+}
+
+function explainDimension(dimension, context) {
+  const { skill, score, status } = context;
+  switch (dimension) {
+    case 'spec_compliance':
+      return dimensionReason({
+        score,
+        status,
+        signals: structureSignals(skill, context.perSkillStructure),
+        whyNot5: !skill.has_skill_md
+          ? 'Missing SKILL.md prevents structural skill review.'
+          : 'Deterministic structure findings reduced this score; LLM review decides whether they are real quality issues.',
+      });
+    case 'trigger_precision':
+      return dimensionReason({
+        score,
+        status,
+        signals: [
+          skill.frontmatter && skill.frontmatter.description ? 'frontmatter description present' : 'frontmatter description missing',
+          hasSection(skill, ['when-to-use', 'usage']) ? 'positive trigger section present' : 'positive trigger section missing',
+          hasSection(skill, ['when-not-to-use']) ? 'negative boundary section present' : 'negative boundary section missing',
+        ],
+        whyNot5: 'Trigger precision is incomplete unless description, positive triggers, and negative boundaries are all present.',
+      });
+    case 'boundary_discipline':
+      return dimensionReason({
+        score,
+        status,
+        signals: [`boundary overlap candidates: ${context.boundaryCandidateCount}`],
+        whyNot5: 'Overlap candidates reduce the deterministic signal; LLM review decides whether the boundary conflict is real.',
+      });
+    case 'input_contract':
+      return dimensionReason({
+        score,
+        status,
+        signals: [hasSection(skill, ['inputs']) ? 'Inputs section exists' : 'Inputs section missing'],
+        whyNot5: hasSection(skill, ['inputs'])
+          ? 'Input contract presence is deterministic, but semantic completeness still requires LLM review.'
+          : 'Missing input contract weakens handoff clarity.',
+      });
+    case 'output_contract':
+      return dimensionReason({
+        score,
+        status,
+        signals: [hasSection(skill, ['outputs']) ? 'Outputs section exists' : 'Outputs section missing'],
+        whyNot5: hasSection(skill, ['outputs'])
+          ? 'Output contract presence is deterministic, but semantic completeness still requires LLM review.'
+          : 'Missing output contract weakens handoff clarity.',
+      });
+    case 'workflow_explicitness':
+      return dimensionReason({
+        score,
+        status,
+        signals: [hasSection(skill, ['workflow', 'execution']) ? 'Workflow or execution section exists' : 'Workflow or execution section missing'],
+        whyNot5: hasSection(skill, ['workflow', 'execution'])
+          ? 'Workflow section presence is deterministic, but the step quality still requires LLM review.'
+          : 'Missing workflow steps weaken repeatability.',
+      });
+    case 'progressive_disclosure':
+      return dimensionReason({
+        score,
+        status,
+        signals: [
+          `estimated tokens: ${skill.estimated_tokens || 0}`,
+          skill.has_references ? 'references present' : 'references missing',
+          skill.has_scripts ? 'scripts present' : 'scripts missing',
+        ],
+        whyNot5: 'Large or mostly inline skills are capped until a reviewer confirms the right details are progressively disclosed.',
+      });
+    case 'eval_readiness':
+      return dimensionReason({
+        score,
+        status,
+        signals: [skill.has_evals ? `eval fixture files: ${evalFileCount(skill)}` : 'eval fixture files missing'],
+        whyNot5: skill.has_evals
+          ? 'Eval fixtures exist, but no executable eval runner is proven; fixtures are review inputs only.'
+          : 'No eval fixtures were found.',
+      });
+    case 'security_posture':
+      return dimensionReason({
+        score,
+        status,
+        signals: securitySignals(context.perSkillSecurity),
+        whyNot5: 'Security findings reduced the deterministic signal; LLM review decides whether context lowers or raises the risk.',
+      });
+    case 'runtime_governance':
+      return governanceReason({
+        dimension,
+        score,
+        status,
+        governanceRecord: context.governanceRecord,
+        governanceSkipped: context.governanceSkipped,
+        governanceSkipReason: context.governanceSkipReason,
+      });
+    case 'cross_host_portability':
+      return governanceReason({
+        dimension,
+        score,
+        status,
+        governanceRecord: context.governanceRecord,
+        governanceSkipped: context.governanceSkipped,
+        governanceSkipReason: context.governanceSkipReason,
+      });
+    case 'spec_first_alignment':
+      return dimensionReason({
+        score,
+        status,
+        signals: [skill.skill_id && skill.skill_id.startsWith('spec-') ? 'spec-prefixed skill id' : 'non-spec skill id'],
+        whyNot5: 'The source does not expose enough spec-first alignment language for deterministic scoring to treat it as fully explicit.',
+      });
+    default:
+      return dimensionReason({
+        score,
+        status,
+        signals: ['no dimension-specific explanation available'],
+        whyNot5: 'Score is below 5 and requires LLM review.',
+      });
+  }
+}
+
+function dimensionReason({ score, status, signals, whyNot5 }) {
+  const reason = {
+    score,
+    status,
+    signals: signals.filter(Boolean),
+  };
+  if (typeof score === 'number' && score < 5) {
+    reason.why_not_5 = whyNot5;
+  }
+  return reason;
+}
+
+function governanceReason({ dimension, score, status, governanceRecord, governanceSkipped, governanceSkipReason }) {
+  const label = dimension === 'runtime_governance' ? 'runtime governance' : 'cross-host portability';
+  if (typeof score !== 'number') {
+    return {
+      score,
+      status,
+      signals: [
+        governanceSkipped
+          ? `governance audit skipped: ${governanceSkipReason || 'not in scope'}`
+          : 'governance evidence unavailable',
+      ],
+      why_not_scored: `The ${label} dimension was not scored because governance evidence was not checked for this audit scope; null is not treated as failure.`,
+    };
+  }
+  return dimensionReason({
+    score,
+    status,
+    signals: [
+      governanceRecord ? 'governance record present' : 'governance record missing',
+      governanceRecord && governanceRecord.host_scope ? `host scope: ${governanceRecord.host_scope}` : null,
+    ],
+    whyNot5: dimension === 'runtime_governance'
+      ? 'The skill lacks a checked governance record.'
+      : 'The skill is not marked as dual-host portable in checked governance evidence.',
+  });
+}
+
+function buildScoreExplanation({ dimensions, dimensionReasons }) {
+  const whyNotPerfect = Object.entries(dimensions)
+    .filter(([_dimension, score]) => typeof score === 'number' && score < 5)
+    .map(([dimension, score]) => ({
+      dimension,
+      score,
+      status: dimensionReasons[dimension] ? dimensionReasons[dimension].status : 'unknown',
+      reason: dimensionReasons[dimension] && dimensionReasons[dimension].why_not_5
+        ? dimensionReasons[dimension].why_not_5
+        : 'This dimension was not scored as perfect by deterministic signals.',
+    }))
+    .sort((left, right) => left.score - right.score || (WEIGHTS[right.dimension] || 0) - (WEIGHTS[left.dimension] || 0));
+  const notScored = Object.entries(dimensions)
+    .filter(([_dimension, score]) => typeof score !== 'number')
+    .map(([dimension]) => ({
+      dimension,
+      status: dimensionReasons[dimension] ? dimensionReasons[dimension].status : 'unknown',
+      reason: dimensionReasons[dimension] && dimensionReasons[dimension].why_not_scored
+        ? dimensionReasons[dimension].why_not_scored
+        : 'This dimension was not evaluated in the current audit scope.',
+    }));
+
+  return {
+    summary: notScored.length > 0
+      ? 'Overall score weights only numeric dimensions; not-scored dimensions are excluded from the denominator.'
+      : 'Overall score is a weighted deterministic signal across scored dimensions.',
+    why_not_perfect: whyNotPerfect,
+    not_scored_dimensions: notScored,
+    score_is_signal_not_gate: true,
+    requires_llm_review: true,
+  };
+}
+
+function structureSignals(skill, findings) {
+  const signals = [skill.has_skill_md ? 'SKILL.md present' : 'SKILL.md missing'];
+  if (findings.length === 0) signals.push('no structural findings');
+  for (const [severity, count] of countSeverities(findings)) {
+    signals.push(`${severity} structural findings: ${count}`);
+  }
+  return signals;
+}
+
+function securitySignals(findings) {
+  if (findings.length === 0) return ['no security findings'];
+  return countSeverities(findings).map(([severity, count]) => `${severity} security findings: ${count}`);
+}
+
+function countSeverities(findings) {
+  const counts = new Map();
+  for (const finding of findings || []) {
+    const severity = finding.severity || 'unknown';
+    counts.set(severity, (counts.get(severity) || 0) + 1);
+  }
+  return [...counts.entries()].sort((left, right) => left[0].localeCompare(right[0]));
+}
+
+function evalFileCount(skill) {
+  const files = skill.resources && skill.resources.evals && Array.isArray(skill.resources.evals.files)
+    ? skill.resources.evals.files
+    : [];
+  return files.length;
 }
 
 function scoreRuntimeGovernance(governanceRecord, governanceChecked) {

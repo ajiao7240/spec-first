@@ -103,6 +103,7 @@ The full self-audit run may write:
 - `promise-implementation-report.json`
 - `governance-drift-report.json`
 - `runtime-drift-report.json`
+- `executor-context.json`
 - `skill-audit-summary.md`
 - `skill-improvement-plan.md`
 

@@ -1,6 +1,13 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.1 2026-05-01 15:06:42 leokuang: docs(app-audit): 收口修正 Rule Pack 证据边界并补齐 artifact source/freshness/consumer 元数据契约 (user-visible)
+- v1.6.1 2026-05-01 15:00:22 leokuang: docs(app-audit): 完成 50 轮方案演化审查，收紧 source/runtime、输入降级、证据、行业包、产物安全和 MVP 验证边界 (user-visible)
+- v1.6.1 2026-05-01 14:51:41 leokuang: docs(app-audit): 吸收候选方案中的 App 工程质量审查域，补齐工程质量契约、专家、矩阵、报告和 MVP 闭环 (user-visible)
+- v1.6.1 2026-05-01 14:43:27 leokuang: fix(skill-audit): 收紧 executor origin 判定并将 executor-context 纳入审计输出契约 (user-visible)
+- v1.6.1 2026-05-01 14:10:29 leokuang: docs(app-audit): 将页面路由审查提升为独立契约、专家、矩阵、报告与 v0.1 闭环能力 (user-visible)
+- v1.6.1 2026-05-01 14:07:14 leokuang: docs(app-audit): 应用 doc-review 自动修正，统一运行验证字段并补齐 v0.1 契约抽取脚本清单 (user-visible)
+- v1.6.1 2026-05-01 13:47:36 leokuang: fix(skill-audit): 增加 executor source/runtime 上下文、score 解释字段和 spec-write-tasks eval fixture contract，提升审计结果可解释性 (user-visible)
 - v1.6.1 2026-05-01 13:00:26 leokuang: fix(skill-audit): 清理固定 run id 重跑的旧 patch-preview，并避免 When Not To Use 可执行例外被降级为 P3 (user-visible)
 - v1.6.1 2026-05-01 11:45:55 leokuang: fix(skill-audit): 优化产物质量，降低 When Not To Use 禁止项误报并在 summary 明确 skipped governance/runtime scope (user-visible)
 - v1.6.1 2026-05-01 11:45:44 leokuang: test(spec-write-tasks): 收紧 eval case contract、failure mode 覆盖与 runtime sync 覆盖，从 skill contract 派生枚举防止样例和投递资产漂移

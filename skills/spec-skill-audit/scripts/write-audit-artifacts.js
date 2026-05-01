@@ -27,6 +27,9 @@ const { buildSecurityReport, scanInstructionSecurity } = require('./scan-instruc
 function runSelfAudit(options = {}) {
   const repoRoot = path.resolve(options.repoRoot || process.cwd());
   const targetPath = options.targetPath || '.';
+  const executorContext = buildExecutorContext(repoRoot, {
+    scriptPath: options.executorScriptPath,
+  });
   const inventory = collectSkillFacts({ repoRoot, targetPath });
   if (inventory.layout.mode === 'no_skills') {
     throw new Error(`NO_SKILLS_FOUND: no SKILL.md found for target "${targetPath}". Searched the target directory and its direct child skill directories.`);
@@ -68,7 +71,7 @@ function runSelfAudit(options = {}) {
     ...((governanceReport && governanceReport.findings) || []),
     ...((runtimeReport && runtimeReport.findings) || []),
   ]).sort(compareFindings);
-  const auditReport = buildAuditReport({ inventory, findings: allFindings });
+  const auditReport = buildAuditReport({ inventory, findings: allFindings, executorContext });
   const scorecard = buildScorecard({
     inventory,
     structureFindings,
@@ -86,6 +89,7 @@ function runSelfAudit(options = {}) {
     runtimeReport,
     securityReport,
     promiseReport,
+    executorContext,
   });
   const improvementPlan = renderImprovementPlan({ auditReport });
 
@@ -102,6 +106,7 @@ function runSelfAudit(options = {}) {
     runtimeReport,
     summaryMarkdown,
     improvementPlan,
+    executorContext,
   };
 }
 
@@ -120,6 +125,7 @@ function writeAuditArtifacts(options = {}) {
   writeJson(path.join(dirs.runDir, 'promise-implementation-report.json'), reports.promiseReport);
   writeJson(path.join(dirs.runDir, 'governance-drift-report.json'), reports.governanceReport);
   writeJson(path.join(dirs.runDir, 'runtime-drift-report.json'), reports.runtimeReport);
+  writeJson(path.join(dirs.runDir, 'executor-context.json'), reports.executorContext);
   writeText(path.join(dirs.runDir, 'skill-audit-summary.md'), reports.summaryMarkdown);
   writeText(path.join(dirs.runDir, 'skill-improvement-plan.md'), reports.improvementPlan);
 
@@ -138,11 +144,12 @@ function writeAuditArtifacts(options = {}) {
     run_id: dirs.runId,
     run_dir: path.relative(repoRoot, dirs.runDir).replace(/\\/g, '/'),
     latest_dir: path.relative(repoRoot, dirs.latestDir).replace(/\\/g, '/'),
+    executor_context: reports.executorContext,
     files: listFiles(dirs.runDir).map((filePath) => path.relative(dirs.runDir, filePath).replace(/\\/g, '/')),
   };
 }
 
-function buildAuditReport({ inventory, findings }) {
+function buildAuditReport({ inventory, findings, executorContext }) {
   const counts = countBySeverity(findings);
   return {
     schema_version: 'spec-first.skill-audit-report.v1',
@@ -156,8 +163,86 @@ function buildAuditReport({ inventory, findings }) {
       average_score: null,
       requires_llm_review: true,
     },
+    executor_context: executorContext,
     findings,
   };
+}
+
+function buildExecutorContext(repoRoot, options = {}) {
+  const resolvedRepoRoot = path.resolve(repoRoot || process.cwd());
+  const executorPath = path.resolve(options.scriptPath || __filename);
+  const sourceScriptPath = path.join(
+    resolvedRepoRoot,
+    'skills',
+    'spec-skill-audit',
+    'scripts',
+    'write-audit-artifacts.js',
+  );
+  const sourceExists = fs.existsSync(sourceScriptPath);
+  const driftKnown = compareExecutorToSource(executorPath, sourceScriptPath, sourceExists);
+  const origin = detectExecutorOrigin(executorPath, sourceScriptPath, { sourceExists });
+  const warnings = [];
+
+  if (sourceExists && executorPath !== sourceScriptPath && origin === 'runtime') {
+    warnings.push(
+      'running generated runtime audit script inside spec-first source repo; source-of-truth script exists at skills/spec-skill-audit/scripts/write-audit-artifacts.js',
+    );
+  } else if (sourceExists && executorPath !== sourceScriptPath) {
+    warnings.push(
+      'running non-source audit script inside spec-first source repo; source-of-truth script exists at skills/spec-skill-audit/scripts/write-audit-artifacts.js',
+    );
+  }
+  if (driftKnown === true) {
+    warnings.push('executor script content differs from the source-of-truth audit script');
+  }
+
+  return {
+    schema_version: 'spec-first.skill-audit-executor-context.v1',
+    generated_at: new Date().toISOString(),
+    executor_origin: origin,
+    executor_path: displayPath(resolvedRepoRoot, executorPath),
+    source_script_path: sourceExists
+      ? displayPath(resolvedRepoRoot, sourceScriptPath)
+      : 'skills/spec-skill-audit/scripts/write-audit-artifacts.js (not found under audited repo)',
+    source_runtime_drift_known: driftKnown,
+    warnings,
+  };
+}
+
+function compareExecutorToSource(executorPath, sourceScriptPath, sourceExists) {
+  if (!sourceExists) return 'not_checked';
+  if (executorPath === sourceScriptPath) return false;
+  try {
+    return fs.readFileSync(executorPath, 'utf8') !== fs.readFileSync(sourceScriptPath, 'utf8');
+  } catch (_error) {
+    return 'not_checked';
+  }
+}
+
+function detectExecutorOrigin(executorPath, sourceScriptPath, options = {}) {
+  if (executorPath === sourceScriptPath) return 'source';
+  const parts = executorPath.split(path.sep).filter(Boolean);
+  const runtimeRoots = new Set(['.agents', '.claude', '.codex']);
+  const runtimeIndex = parts.findIndex((part) => runtimeRoots.has(part));
+  const tail = ['skills', 'spec-skill-audit', 'scripts', 'write-audit-artifacts.js'];
+  const hasExpectedTail = endsWithParts(parts, tail);
+  if (runtimeIndex !== -1 && hasExpectedTail) return 'runtime';
+  if (hasExpectedTail && !options.sourceExists) return 'source';
+  return 'unknown';
+}
+
+function endsWithParts(parts, tail) {
+  if (parts.length < tail.length) return false;
+  const offset = parts.length - tail.length;
+  return tail.every((part, index) => parts[offset + index] === part);
+}
+
+function displayPath(repoRoot, targetPath) {
+  const relative = path.relative(repoRoot, targetPath);
+  if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
+    return relative.replace(/\\/g, '/');
+  }
+  return targetPath.replace(/\\/g, '/');
 }
 
 function buildEvalReadinessReport(inventory) {
@@ -293,6 +378,7 @@ if (require.main === module) {
 module.exports = {
   buildAuditReport,
   buildEvalReadinessReport,
+  buildExecutorContext,
   averageScore,
   runSelfAudit,
   writeAuditArtifacts,

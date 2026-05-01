@@ -56,7 +56,7 @@ function refreshLatest(runDir, latestDir) {
   fs.cpSync(runDir, latestDir, { recursive: true });
 }
 
-function renderSummaryMarkdown({ inventory, auditReport, scorecard, governanceReport, runtimeReport, securityReport, promiseReport }) {
+function renderSummaryMarkdown({ inventory, auditReport, scorecard, governanceReport, runtimeReport, securityReport, promiseReport, executorContext }) {
   const counts = auditReport.summary || {};
   const topFindings = (auditReport.findings || [])
     .filter((finding) => ['P0', 'P1'].includes(finding.severity))
@@ -79,6 +79,10 @@ function renderSummaryMarkdown({ inventory, auditReport, scorecard, governanceRe
     `- Score reliability: ${scorecard.score_reliability ? scorecard.score_reliability.level : 'unknown'}; conclusion ceiling: ${scorecard.conclusion_ceiling || 'tentative'}`,
     '- LLM review decides semantic quality; deterministic scripts only prepare facts.',
     '',
+    '## Execution Context',
+    '',
+    renderExecutorContext(executorContext),
+    '',
     '## P0/P1 Findings',
     '',
     topFindings.length === 0
@@ -90,6 +94,12 @@ function renderSummaryMarkdown({ inventory, auditReport, scorecard, governanceRe
     scoreRows.length === 0
       ? 'No score signals were produced.'
       : scoreRows.map((row) => `- ${row.skill_id}: ${row.overall_score} (${row.grade})`).join('\n'),
+    '',
+    '## Score Explanation',
+    '',
+    scoreRows.length === 0
+      ? 'No score explanations were produced.'
+      : scoreRows.map(renderScoreExplanation).join('\n'),
     '',
     '## Governance',
     '',
@@ -146,6 +156,44 @@ function renderImprovementPlan({ auditReport }) {
 
 function renderFindingBullet(finding) {
   return `- ${finding.severity} ${finding.id}: ${finding.skill_id || 'repo'} - ${finding.title}`;
+}
+
+function renderExecutorContext(context) {
+  if (!context) return 'Execution context was not recorded.';
+  const lines = [
+    `- Executor origin: ${context.executor_origin || 'unknown'}`,
+    `- Executor path: ${context.executor_path || 'unknown'}`,
+    `- Source script path: ${context.source_script_path || 'unknown'}`,
+    `- Source-runtime drift known: ${String(context.source_runtime_drift_known)}`,
+  ];
+  const warnings = context.warnings || [];
+  if (warnings.length > 0) {
+    lines.push(...warnings.map((warning) => `- Warning: ${warning}`));
+  }
+  return lines.join('\n');
+}
+
+function renderScoreExplanation(row) {
+  const explanation = row.score_explanation || {};
+  const notScored = explanation.not_scored_dimensions || [];
+  const whyNotPerfect = explanation.why_not_perfect || [];
+  const reliability = row.score_reliability || {};
+  const reliabilityReasons = reliability.reasons || [];
+
+  return [
+    `- ${row.skill_id}: ${row.overall_score} (${row.grade})`,
+    `  - Not scored: ${notScored.length === 0 ? 'none' : notScored.map((entry) => `${entry.dimension} (${entry.status})`).join(', ')}`,
+    `  - Main non-perfect signals: ${renderNonPerfectSignals(whyNotPerfect)}`,
+    `  - Reliability: ${reliability.level || 'unknown'}; ${reliabilityReasons[0] || 'score requires review'}`,
+  ].join('\n');
+}
+
+function renderNonPerfectSignals(entries) {
+  if (!entries || entries.length === 0) return 'none';
+  return entries
+    .slice(0, 4)
+    .map((entry) => `${entry.dimension}=${entry.score} (${entry.reason})`)
+    .join('; ');
 }
 
 function renderFindingPlan(findings, emptyText) {

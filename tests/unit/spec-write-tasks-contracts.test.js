@@ -12,6 +12,7 @@ const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'SKILL.md'
 const SCHEMA_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'references', 'task-pack-schema.md');
 const GUIDE_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'references', 'task-quality-guide.md');
 const EVALS_DIR = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'evals');
+const EVALS_README_PATH = path.join(EVALS_DIR, 'README.md');
 const OPENAI_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'agents', 'openai.yaml');
 const SPEC_WORK_PATH = path.join(REPO_ROOT, 'skills', 'spec-work', 'SKILL.md');
 const SPEC_WORK_BETA_PATH = path.join(REPO_ROOT, 'skills', 'spec-work-beta', 'SKILL.md');
@@ -138,6 +139,7 @@ describe('spec-write-tasks contracts', () => {
 
   test('eval cases cover trigger, boundary, failure, and expected behavior posture', () => {
     const skill = read(SKILL_PATH);
+    const readme = read(EVALS_README_PATH);
     const decisionLine = skill.match(/^decision: (.+)$/m);
     const evalFiles = [
       'trigger-cases.json',
@@ -154,6 +156,13 @@ describe('spec-write-tasks contracts', () => {
 
     expect(allowedDecisions.size).toBeGreaterThanOrEqual(5);
     expect(allowedFailures.size).toBeGreaterThanOrEqual(9);
+    expect(readme).toContain('LLM review fixtures，不是 executable eval runner');
+    expect(readme).toContain('`expected_decision` 必须来自 `SKILL.md` 的 Final Decision Envelope');
+    expect(readme).toContain('`expected_failure` 必须来自 `SKILL.md` 的 Failure Modes 枚举');
+    expect(readme).toContain('每个 decision 至少要有一个 eval case 覆盖');
+    expect(readme).toContain('每个 failure 至少要有一个 eval case 覆盖');
+    expect(readme).toContain('确定性测试只校验 JSON shape');
+    expect(readme).toContain('LLM 负责判断样例是否代表真实触发、边界、失败或期望行为');
 
     for (const fileName of evalFiles) {
       const payload = JSON.parse(read(path.join(EVALS_DIR, fileName)));
@@ -244,6 +253,7 @@ describe('spec-write-tasks contracts', () => {
       const runtimeSkill = read(path.join(projectRoot, '.agents', 'skills', 'spec-write-tasks', 'SKILL.md'));
       const runtimeMetadata = read(path.join(projectRoot, '.agents', 'skills', 'spec-write-tasks', 'agents', 'openai.yaml'));
       const runtimeTriggerCases = path.join(projectRoot, '.agents', 'skills', 'spec-write-tasks', 'evals', 'trigger-cases.json');
+      const runtimeEvalsReadme = path.join(projectRoot, '.agents', 'skills', 'spec-write-tasks', 'evals', 'README.md');
 
       expect(runtimeSkill).toContain('name: write-tasks');
       expect(runtimeSkill).toContain('Task-Ready Check');
@@ -256,7 +266,9 @@ describe('spec-write-tasks contracts', () => {
       expect(runtimeMetadata).toContain('allow_implicit_invocation: false');
       expect(runtimeMetadata).not.toContain('$spec-work');
       expect(fs.existsSync(runtimeTriggerCases)).toBe(true);
+      expect(fs.existsSync(runtimeEvalsReadme)).toBe(true);
       expect(read(runtimeTriggerCases)).toContain('explicit-split-plan');
+      expect(read(runtimeEvalsReadme)).toContain('LLM review fixtures，不是 executable eval runner');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

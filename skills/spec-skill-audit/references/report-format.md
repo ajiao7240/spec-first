@@ -8,6 +8,7 @@ The audit writes local run artifacts under `.spec-first/audits/skill-audit/`.
 - `skill-audit-report.json`: normalized findings with severity and evidence
 - `expert-scorecard.json`: score signals, never gates
 - `promise-implementation-report.json`: documented promises compared with implementation facts
+- `executor-context.json`: executor source/runtime origin and drift warning context
 - `skill-audit-summary.md`: human summary of P0/P1 and top risks
 - `skill-improvement-plan.md`: prioritized remediation plan
 
