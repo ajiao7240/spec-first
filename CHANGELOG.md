@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.1 2026-05-02 02:31:51 leokuang: docs(governance): 对齐 AGENTS/CLAUDE workflow guide mode 文案，明确输出入口、理由和下一步动作 (user-visible)
 - v1.6.1 2026-05-02 02:12:11 leokuang: docs(app-audit): 在升级方案中明确采用 in-place contract rebuild，保留可复用 skill 资产并禁止删除整个 skill 重写 (user-visible)
 - v1.6.1 2026-05-02 02:10:15 leokuang: fix(using-spec-first): 对齐 guide mode 当前宿主入口选择与 bootstrap 下一步动作文案 (user-visible)
 - v1.6.1 2026-05-02 01:38:35 leokuang: docs(using-spec-first): 30 轮审查收紧 guide mode 只读边界、跨宿主入口归一、self-work 修订路由和 artifact evidence 边界 (user-visible)
