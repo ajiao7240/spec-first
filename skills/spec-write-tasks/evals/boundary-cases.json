@@ -1,0 +1,26 @@
+{
+  "schema_version": "spec-first.spec-write-tasks-boundary-cases.v1",
+  "cases": [
+    {
+      "id": "implementation-request",
+      "input": "Implement the plan now.",
+      "context": "The user is asking for execution, not task-pack compilation or validation.",
+      "expected_decision": "skip",
+      "expected_next_action": "Use spec-work with the source plan instead of generating a derived task pack."
+    },
+    {
+      "id": "unsettled-architecture",
+      "input": "Create tasks for this plan.",
+      "context": "The source plan marks a public CLI contract and acceptance criteria as unresolved.",
+      "expected_decision": "return-to-plan",
+      "expected_next_action": "Return to spec-plan rather than inventing missing scope in task cards."
+    },
+    {
+      "id": "small-plan",
+      "input": "Split docs/plans/small-docs-fix-plan.md into tasks.",
+      "context": "The plan touches one documentation file and has one verification step.",
+      "expected_decision": "skip",
+      "expected_next_action": "Explain that direct spec-work execution has lower carrying cost."
+    }
+  ]
+}

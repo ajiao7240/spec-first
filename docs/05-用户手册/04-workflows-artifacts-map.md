@@ -12,6 +12,7 @@
 | `.spec-first/providers/<provider>/` | `spec-graph-bootstrap` provider evidence 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 保存 provider 原始日志、provider 状态和规范化能力事实 | `raw/*.log`、`status.json`、`normalized/*.json` |
 | `.spec-first/graph/` | `spec-graph-bootstrap` canonical graph readiness 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 提供下游 workflow 读取的 graph readiness 真相源与用户报告 | `provider-status.json`、`graph-facts.json`、`bootstrap-report.md` |
 | `.spec-first/impact/` | `spec-graph-bootstrap` capability envelope 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 表达 context selection、impact radius、review support 的 primary/fallback 支持情况 | `bootstrap-impact-capabilities.json` |
+| `.spec-first/audits/skill-audit/` | `spec-skill-audit` source skill audit 阶段 | `/spec:skill-audit`、`$spec-skill-audit` 或直接运行 `write-audit-artifacts.js` | 保存 source skill inventory、scorecard、安全/治理/runtime drift 信号和改进计划 | `latest/skill-audit-summary.md`、`latest/skill-improvement-plan.md`、`latest/*.json`、`latest/patch-preview/*` |
 | `.spec-first/workflows/verification/<slug>/` | verification evidence 阶段 | 上游 verification 流程写入，`doctor` 读取 | 作为验证证据投递目录 | `verification-evidence.json` |
 | `.spec-first/workflows/quality-gates/ai-dev-quality-gate/` | AI Dev Quality Gate 阶段 | `npm run test:ai-dev:gate` | 记录质量门结果与失败主题，供后续诊断和知识沉淀 | `ai-dev-quality-gate-result.json`、`quality-feedback-topics.json`、JUnit 输出 |
 
@@ -23,6 +24,7 @@
 | `providers/<provider>/` | provider-local evidence | 失败诊断、原始日志追踪、provider 规范化事实复核 |
 | `graph/` | canonical readiness facts | `spec-plan` 等下游 workflow 判断 graph facts 是否 primary、degraded、blocked 或 stale |
 | `impact/` | impact/review capability envelope | 下游 workflow 决定是否使用 provider 影响分析，或回退 bounded direct repo reads |
+| `audits/skill-audit/` | skill audit execution artifacts | 维护者读取审计摘要、P0/P1 evidence、score signals 和改进计划 |
 | `verification/*` | 验证证据投递目录 | `doctor` 校验与汇总 |
 | `quality-gates/*` | 质量门机器结果 | gate 结果留痕与失败主题沉淀 |
 
@@ -34,6 +36,7 @@
 | `providers/<provider>/` | graph-bootstrap 报告、维护者排障 | bootstrap 后诊断 | 查看 provider 原始输出和规范化结果 |
 | `graph/` | `spec-plan`，后续 graph-aware workflow | plan / work / review 前置判断 | 判断 graph readiness、provider 覆盖、confidence、limitations 与 staleness |
 | `impact/` | `spec-plan`，后续 impact-aware workflow | plan / work / review 前置判断 | 判断 impact radius、review support 与 context selection 是否有可信 provider 支持 |
+| `audits/skill-audit` | 维护者、`spec-skill-audit` 后续 LLM 审查 | skill 审计后 | 查看 deterministic facts、score signals、P0/P1 evidence 和 patch preview 建议 |
 | `verification/<slug>` | `src/cli/commands/doctor.js` | `doctor` 检查阶段 | 校验 verification evidence 是否存在、有效、足够新 |
 | `quality-gates/ai-dev-quality-gate` | `scripts/run-ai-dev-quality-gate.js`、`src/verification/quality-feedback.js` | AI gate 执行后 | 记录 gate 结果并提取失败主题 |
 
@@ -114,7 +117,40 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 
 没有 query-ready provider 时，capability envelope 必须明确 `partial` 或 `none`，不能凭空声明 provider impact 可用。
 
-## 5. verification/&lt;slug&gt;
+## 5. audits/skill-audit/
+
+| 项目 | 内容 |
+| --- | --- |
+| 阶段 | source skill audit |
+| 触发 | `/spec:skill-audit`、`$spec-skill-audit`，或直接运行 `node skills/spec-skill-audit/scripts/write-audit-artifacts.js --repo .` |
+| 目录形状 | `.spec-first/audits/skill-audit/<run-id>/` 与 `.spec-first/audits/skill-audit/latest/` |
+| 关键源码 | `skills/spec-skill-audit/scripts/write-audit-artifacts.js` |
+| 事实边界 | 审计执行产物；不是 source truth，不进入 Git |
+
+### 写入内容
+
+| 文件 | 角色 |
+| --- | --- |
+| `skill-source-inventory.json` | source skill inventory、frontmatter、heading、declared input/output 和资源目录事实 |
+| `skill-audit-report.json` | P0/P1/P2/P3 finding 聚合，P0/P1 必须保留 signal、evidence、counter-evidence、decision、reason、recommendation、confidence |
+| `expert-scorecard.json` | 12 维评分信号；评分是 review signal，不是 gate |
+| `security-risk-report.json` | remote script、secret access、runtime hand-edit、destructive command 等安全信号 |
+| `promise-implementation-report.json` | 文档承诺、CLI 参数和脚本实际写出产物的一致性信号 |
+| `governance-drift-report.json` | `skills/` 与 dual-host governance contract 的漂移信号 |
+| `runtime-drift-report.json` | 生成 runtime 缺失或漂移信号；修复方式是重新 `spec-first init` |
+| `trigger-routing-report.json` | trigger wording 和 workflow reference 的确定性信号 |
+| `boundary-overlap-matrix.json` | skill 职责重叠候选；最终是否冲突由 LLM 判断 |
+| `skill-audit-summary.md` | 面向维护者的摘要入口 |
+| `skill-improvement-plan.md` | 按 P0/P1/P2 分层的改进计划 |
+| `patch-preview/*` | 仅在显式传 `--patch-preview` 时生成的建议，不会修改源码 |
+
+协作规则：
+
+- `.spec-first/audits/` 已被 `.gitignore` 忽略，提交时不带这些产物
+- 需要审单个 skill 时使用 `--target skills/<skill-name>` 或宿主入口后跟 `skills/<skill-name>`
+- runtime drift finding 的修复方式是 `spec-first init --claude` 或 `spec-first init --codex`，不是手改 `.claude/`、`.codex/`、`.agents/skills/`
+
+## 6. verification/&lt;slug&gt;
 
 | 项目 | 内容 |
 | --- | --- |
@@ -126,7 +162,7 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 
 这个目录是验证证据投递目录。`doctor` 可读取并校验 evidence 文件，帮助判断运行时验证是否可信。
 
-## 6. quality-gates/ai-dev-quality-gate
+## 7. quality-gates/ai-dev-quality-gate
 
 | 项目 | 内容 |
 | --- | --- |
@@ -143,9 +179,9 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 | `quality-feedback-topics.json` | 失败主题，供后续知识沉淀参考 |
 | JUnit 输出 | 单测/契约测试的机器可读结果 |
 
-## 7. Git 边界
+## 8. Git 边界
 
-- `.spec-first/config/`、`.spec-first/providers/`、`.spec-first/graph/`、`.spec-first/impact/` 与 `.spec-first/workflows/` 默认不进入 Git。
+- `.spec-first/config/`、`.spec-first/providers/`、`.spec-first/graph/`、`.spec-first/impact/`、`.spec-first/audits/` 与 `.spec-first/workflows/` 默认不进入 Git。
 - `docs/solutions/`、`docs/plans/` 和 `docs/brainstorms/` 才是长期协作文档层。
 - provider readiness facts 是当前代码和工具状态的投影，不要把它改造成第二套手工维护事实源。
 - 若 graph facts stale、blocked 或 degraded，下游 workflow 应说明限制，并回退到 bounded direct repo reads 或其他已配置 provider。

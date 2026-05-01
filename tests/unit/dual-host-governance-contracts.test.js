@@ -1,8 +1,10 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
+const ClaudeAdapter = require('../../src/cli/adapters/claude');
 const CodexAdapter = require('../../src/cli/adapters/codex');
 const {
   buildFilteredAssetSet,
@@ -10,6 +12,7 @@ const {
   listBundledAgentSupportFiles,
   listBundledSkills,
   loadPluginManifest,
+  syncBundledAssets,
 } = require('../../src/cli/plugin');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
@@ -72,6 +75,7 @@ describe('dual-host governance contracts', () => {
     expect(contract).toContain('skills');
     expect(contract).toContain('skipped');
     expect(contract).toContain('至少还要有一个非 `owner_host` 宿主可交付');
+    expect(contract).toContain('新增普通 workflow skill 不默认新增 docs mirror');
   });
 
   test('codex adapter stops installing command files but retains cleanup path', () => {
@@ -97,6 +101,7 @@ describe('dual-host governance contracts', () => {
     const manifest = loadPluginManifest();
     const mcpSetup = manifest.commands.find((command) => command.name === 'mcp-setup');
     const graphBootstrap = manifest.commands.find((command) => command.name === 'graph-bootstrap');
+    const skillAudit = manifest.commands.find((command) => command.name === 'skill-audit');
 
     expect(manifest.version).toBe(readJson(PACKAGE_JSON_PATH).version);
     expect(mcpSetup).toMatchObject({
@@ -111,6 +116,60 @@ describe('dual-host governance contracts', () => {
       argumentHint: '',
       skill: 'spec-graph-bootstrap',
     });
+    expect(skillAudit).toMatchObject({
+      filename: 'skill-audit.md',
+      description: 'Run the Spec-First skill audit workflow',
+      argumentHint: '[target skill path or audit options]',
+      skill: 'spec-skill-audit',
+    });
+  });
+
+  test('skill audit is delivered as a Claude command and Codex workflow skill', () => {
+    const claudeAssets = buildFilteredAssetSet('claude');
+    const codexAssets = buildFilteredAssetSet('codex');
+
+    expect(claudeAssets.commands.map((command) => command.name)).toContain('skill-audit');
+    expect(claudeAssets.workflowSkills).toContain('spec-skill-audit');
+    expect(codexAssets.workflowSkills).toContain('spec-skill-audit');
+    expect(codexAssets.commands.map((command) => command.name)).not.toContain('skill-audit');
+  });
+
+  test('skill audit runtime delivery writes Claude command and Codex workflow skill only', () => {
+    const claudeProject = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-claude-runtime-'));
+    const codexProject = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-codex-runtime-'));
+
+    try {
+      syncBundledAssets(claudeProject, new ClaudeAdapter());
+      syncBundledAssets(codexProject, new CodexAdapter());
+
+      const claudeCommandPath = path.join(claudeProject, '.claude', 'commands', 'spec', 'skill-audit.md');
+      const claudeWorkflowSkillPath = path.join(
+        claudeProject,
+        '.claude',
+        'spec-first',
+        'workflows',
+        'spec-skill-audit',
+        'SKILL.md',
+      );
+      const codexWorkflowSkillPath = path.join(
+        codexProject,
+        '.agents',
+        'skills',
+        'spec-skill-audit',
+        'SKILL.md',
+      );
+      const codexCommandPath = path.join(codexProject, '.codex', 'commands', 'spec', 'skill-audit.md');
+
+      expect(fs.existsSync(claudeCommandPath)).toBe(true);
+      expect(read(claudeCommandPath)).toContain('# Skill Audit');
+      expect(read(claudeCommandPath)).toContain('Audit agent skills as engineering protocols');
+      expect(fs.existsSync(claudeWorkflowSkillPath)).toBe(true);
+      expect(fs.existsSync(codexWorkflowSkillPath)).toBe(true);
+      expect(fs.existsSync(codexCommandPath)).toBe(false);
+    } finally {
+      fs.rmSync(claudeProject, { recursive: true, force: true });
+      fs.rmSync(codexProject, { recursive: true, force: true });
+    }
   });
 
   test('mcp setup final response preserves the full readiness table contract', () => {

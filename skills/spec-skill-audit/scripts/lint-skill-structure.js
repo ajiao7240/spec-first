@@ -1,0 +1,167 @@
+#!/usr/bin/env node
+'use strict';
+
+const fs = require('node:fs');
+
+const { createFinding } = require('./lib/finding');
+
+const REQUIRED_SECTIONS = [
+  { normalized: 'purpose', title: 'Purpose', severity: 'P2' },
+  { normalized: 'when-to-use', title: 'When To Use', severity: 'P1' },
+  { normalized: 'when-not-to-use', title: 'When Not To Use', severity: 'P1' },
+  { normalized: 'inputs', title: 'Inputs', severity: 'P2' },
+  { normalized: 'outputs', title: 'Outputs', severity: 'P1' },
+  { normalized: 'workflow', title: 'Workflow', severity: 'P1' },
+  { normalized: 'failure-modes', title: 'Failure Modes', severity: 'P2' },
+];
+
+function lintSkillStructure(inventory) {
+  const findings = [];
+
+  for (const skill of inventory.skills || []) {
+    findings.push(...lintSingleSkill(skill));
+  }
+
+  return findings;
+}
+
+function lintSingleSkill(skill) {
+  const findings = [];
+  const evidenceFile = skill.skill_file || skill.source_path;
+
+  if (!skill.has_skill_md) {
+    findings.push(createFinding({
+      severity: 'P0',
+      category: 'missing_skill_md',
+      skill_id: skill.skill_id,
+      title: 'Missing SKILL.md',
+      evidence: [{ file: evidenceFile }],
+      reason: 'A skill directory cannot be discovered or loaded without SKILL.md.',
+      recommendation: 'Add SKILL.md or remove the directory from bundled source skills.',
+      confidence: 'high',
+    }));
+    return findings;
+  }
+
+  if (!skill.has_frontmatter) {
+    findings.push(createFinding({
+      severity: 'P1',
+      category: 'frontmatter',
+      skill_id: skill.skill_id,
+      title: 'Missing YAML frontmatter',
+      evidence: [{ file: evidenceFile }],
+      reason: 'Host skill discovery relies on frontmatter metadata.',
+      recommendation: 'Add frontmatter with at least name and description.',
+      confidence: 'high',
+    }));
+  }
+
+  if (!skill.frontmatter || !skill.frontmatter.name) {
+    findings.push(createFinding({
+      severity: 'P1',
+      category: 'frontmatter',
+      skill_id: skill.skill_id,
+      title: 'Missing frontmatter name',
+      evidence: [{ file: evidenceFile }],
+      reason: 'Skill identity is missing from frontmatter.',
+      recommendation: 'Set frontmatter name to the skill directory name.',
+      confidence: 'high',
+    }));
+  } else if (skill.frontmatter.name !== skill.skill_id) {
+    findings.push(createFinding({
+      severity: 'P1',
+      category: 'frontmatter',
+      skill_id: skill.skill_id,
+      title: 'Frontmatter name does not match directory name',
+      evidence: [{ file: evidenceFile, excerpt: `name: ${skill.frontmatter.name}` }],
+      reason: 'Name/directory drift weakens runtime governance and source lookup.',
+      recommendation: `Use name: ${skill.skill_id} or rename the directory intentionally.`,
+      confidence: 'high',
+    }));
+  }
+
+  if (!skill.frontmatter || !skill.frontmatter.description) {
+    findings.push(createFinding({
+      severity: 'P1',
+      category: 'frontmatter',
+      skill_id: skill.skill_id,
+      title: 'Missing frontmatter description',
+      evidence: [{ file: evidenceFile }],
+      reason: 'Skill routing depends heavily on the description field.',
+      recommendation: 'Add a concrete description that states when to use the workflow.',
+      confidence: 'high',
+    }));
+  } else if (String(skill.frontmatter.description).length < 40) {
+    findings.push(createFinding({
+      severity: 'P2',
+      category: 'description_quality',
+      skill_id: skill.skill_id,
+      title: 'Description is very short',
+      evidence: [{ file: evidenceFile, excerpt: String(skill.frontmatter.description) }],
+      reason: 'Short descriptions often under-specify trigger conditions.',
+      recommendation: 'Expand the description with specific trigger language.',
+      confidence: 'medium',
+    }));
+  }
+
+  const sectionNames = new Set((skill.sections || []).map((section) => section.normalized));
+  for (const section of REQUIRED_SECTIONS) {
+    if (sectionNames.has(section.normalized)) continue;
+    findings.push(createFinding({
+      severity: section.severity,
+      category: 'missing_section',
+      skill_id: skill.skill_id,
+      title: `Missing ${section.title} section`,
+      evidence: [{ file: evidenceFile }],
+      reason: `The ${section.title} section is part of the minimum skill audit contract.`,
+      recommendation: `Add a concise ${section.title} section or document why the contract is intentionally not applicable.`,
+      confidence: 'medium',
+    }));
+  }
+
+  if (!skill.has_scripts && !skill.has_references && !skill.has_examples) {
+    findings.push(createFinding({
+      severity: 'P3',
+      category: 'progressive_disclosure',
+      skill_id: skill.skill_id,
+      title: 'No scripts, references, or examples directory',
+      evidence: [{ file: skill.source_path }],
+      reason: 'Leaf skills can be self-contained, but larger workflows usually benefit from progressive disclosure.',
+      recommendation: 'Add references, examples, or scripts when the main file starts carrying detailed implementation logic.',
+      confidence: 'low',
+    }));
+  }
+
+  for (const link of skill.local_links || []) {
+    if (link.exists) continue;
+    findings.push(createFinding({
+      severity: 'P2',
+      category: 'broken_local_link',
+      skill_id: skill.skill_id,
+      title: 'Local markdown link target is missing',
+      evidence: [{ file: evidenceFile, excerpt: link.target }],
+      reason: 'Broken local references reduce workflow reliability and progressive disclosure.',
+      recommendation: `Fix or remove the link to ${link.target}.`,
+      confidence: 'high',
+    }));
+  }
+
+  return findings;
+}
+
+function main(argv = process.argv.slice(2)) {
+  const filePath = argv[0];
+  if (!filePath) throw new Error('Usage: node lint-skill-structure.js <skill-source-inventory.json>');
+  const inventory = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  process.stdout.write(`${JSON.stringify({ findings: lintSkillStructure(inventory) }, null, 2)}\n`);
+}
+
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  lintSkillStructure,
+  lintSingleSkill,
+  REQUIRED_SECTIONS,
+};

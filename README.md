@@ -13,7 +13,7 @@
 - Host-filtered runtime generation for Claude Code and Codex.
 - Required harness runtime setup through the current host's setup workflow, covering MCP servers, graph-provider MCP servers, helper CLIs, and project setup facts.
 - External graph readiness compilation through the current host's graph bootstrap workflow, producing canonical graph and impact readiness artifacts for downstream workflows.
-- Public workflow entrypoints for ideation, brainstorming, planning, task-pack handoff, work execution, debugging, review, setup, update, session research, Slack research, release notes, compounding, optimization, and browser-visible polish.
+- Public workflow entrypoints for ideation, brainstorming, planning, task-pack handoff, work execution, debugging, review, setup, update, session research, Slack research, release notes, skill audit, compounding, optimization, and browser-visible polish.
 
 Graph context is provided by external graph providers configured by the setup workflow and compiled into canonical readiness artifacts by the graph bootstrap workflow.
 
@@ -56,7 +56,7 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 
 | Layer | Current Contract |
 |---|---|
-| **Capability layer** | Bundled source assets ship with `39` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `18` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `18` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
+| **Capability layer** | Bundled source assets ship with `40` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `19` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `19` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
 | **Claude runtime** | Commands are generated under `.claude/commands/spec`, standalone and agent-facing internal skills under `.claude/skills`, command-backed workflow skill copies under `.claude/spec-first/workflows`, agents under `.claude/agents`, and managed state under `.claude/spec-first/state.json`. |
 | **Codex runtime** | Workflow, standalone, and agent-facing internal skills are generated under `.agents/skills`, agents under `.codex/agents`, and managed state under `.codex/spec-first/state.json`. |
 | **Readiness** | The setup workflow writes readiness ledger v2 plus setup-owned `graph-providers.json`, `runtime-capabilities.json`, and `provider-artifacts.json`; the graph bootstrap workflow consumes those facts and writes canonical graph facts, provider status, impact capabilities, and a report. |
@@ -64,7 +64,7 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 Expected Claude init output includes:
 
 ```text
-📦 Generated 18 command file(s) in .claude/commands/spec
+📦 Generated 19 command file(s) in .claude/commands/spec
 🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 Next steps:
@@ -76,7 +76,7 @@ Next steps:
 Expected Codex init output includes:
 
 ```text
-🧩 Generated 22 skill directory(ies) in .agents/skills
+🧩 Generated 23 skill directory(ies) in .agents/skills
 🤖 Generated 51 agent file(s) in .codex/agents
 Next steps:
   1. Restart Codex or open a new session so the host loads the generated $spec-* skills.
@@ -93,6 +93,7 @@ Next steps:
 | Update spec-first or runtime assets | `/spec:update` | `$spec-update` |
 | Search agent session history | `/spec:sessions` | `$spec-sessions` |
 | Research Slack context | `/spec:slack-research` | `$spec-slack-research` |
+| Audit source skills | `/spec:skill-audit` | `$spec-skill-audit` |
 | Generate and evaluate ideas | `/spec:ideate` | `$spec-ideate` |
 | Brainstorm requirements | `/spec:brainstorm` | `$spec-brainstorm` |
 | Review docs/plans | `/spec:doc-review` | `$spec-doc-review` |

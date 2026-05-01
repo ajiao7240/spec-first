@@ -7,6 +7,7 @@
 当前推荐的事实准备与知识沉淀入口：
 
 - `spec-graph-bootstrap`：external graph-provider readiness facts 编译入口
+- `spec-skill-audit`：source skill 质量、治理投递、runtime drift 与安全信号审计入口
 - `spec-compound`：工作完成后的稳定知识捕获入口
 
 当前功能状态：
@@ -30,7 +31,7 @@
 - 一个前置的 `/spec:ideate` 候选发散入口
 - Claude Code 的 `/spec:*` 命令入口
 - Codex 的 `$spec-*` skill 入口
-- 当前推荐的 graph readiness 事实入口：`spec-graph-bootstrap`，以及知识沉淀入口 `spec-compound`
+- 当前推荐的 graph readiness 事实入口：`spec-graph-bootstrap`，source skill 审计入口 `spec-skill-audit`，以及知识沉淀入口 `spec-compound`
 - 一条 `Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound` 的标准闭环
 - 项目级 `.claude/commands/spec`
 - 项目级 `.claude/skills`、`.claude/spec-first/workflows` 与 `.claude/agents`

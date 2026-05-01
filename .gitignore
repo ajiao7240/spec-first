@@ -43,6 +43,7 @@ yarn-error.log*
 .spec-first-graph/
 .spec-first/config.local.yaml
 .spec-first/config/*.json
+.spec-first/audits/
 .spec-first/graph/
 .spec-first/providers/
 .spec-first/impact/

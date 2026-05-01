@@ -1,0 +1,10 @@
+{
+  "schema_version": "spec-first.skill-audit-trigger-cases.v1",
+  "cases": [
+    {
+      "id": "broad-description",
+      "input": "description: Use for any task.",
+      "expected_signal": "ambiguous_trigger_wording"
+    }
+  ]
+}

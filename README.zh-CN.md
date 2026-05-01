@@ -13,7 +13,7 @@
 - 面向 Claude Code 与 Codex 的 host-filtered runtime 生成。
 - 通过当前宿主的 setup workflow 管理必备 harness runtime setup，覆盖 MCP servers、graph-provider MCP servers、helper CLIs 和项目 setup facts。
 - 通过当前宿主的 graph bootstrap workflow 编译 external graph readiness，产出供下游 workflow 使用的 canonical graph / impact readiness artifacts。
-- ideation、brainstorm、plan、task-pack handoff、work、debug、review、setup、update、sessions、Slack research、release notes、compound、optimize 和 browser-visible polish 等公开 workflow 入口。
+- ideation、brainstorm、plan、task-pack handoff、work、debug、review、setup、update、sessions、Slack research、release notes、skill audit、compound、optimize 和 browser-visible polish 等公开 workflow 入口。
 
 图谱上下文由 setup workflow 配置 external graph providers，再由 graph bootstrap workflow 编译为 canonical readiness artifacts。
 
@@ -56,7 +56,7 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 
 | 层级 | 当前 contract |
 |---|---|
-| **能力层资产** | 仓库内置源码资产共 `39` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `18` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `18` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
+| **能力层资产** | 仓库内置源码资产共 `40` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `19` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `19` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
 | **Claude runtime** | commands 生成到 `.claude/commands/spec`，standalone 与 agent-facing internal skills 生成到 `.claude/skills`，command-backed workflow skill 副本生成到 `.claude/spec-first/workflows`，agents 生成到 `.claude/agents`，managed state 位于 `.claude/spec-first/state.json`。 |
 | **Codex runtime** | workflow、standalone 与 agent-facing internal skills 生成到 `.agents/skills`，agents 生成到 `.codex/agents`，managed state 位于 `.codex/spec-first/state.json`。 |
 | **Readiness** | setup workflow 写 readiness ledger v2 以及 setup-owned `graph-providers.json`、`runtime-capabilities.json`、`provider-artifacts.json`；graph bootstrap workflow 消费这些事实并写 canonical graph facts、provider status、impact capabilities 和 report。 |
@@ -64,7 +64,7 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 Claude init 的预期输出包含：
 
 ```text
-📦 Generated 18 command file(s) in .claude/commands/spec
+📦 Generated 19 command file(s) in .claude/commands/spec
 🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 下一步:
@@ -76,7 +76,7 @@ Claude init 的预期输出包含：
 Codex init 的预期输出包含：
 
 ```text
-🧩 Generated 22 skill directory(ies) in .agents/skills
+🧩 Generated 23 skill directory(ies) in .agents/skills
 🤖 Generated 51 agent file(s) in .codex/agents
 下一步:
   1. 重启 Codex 或新开会话，让宿主加载刚生成的 $spec-* skills。
@@ -93,6 +93,7 @@ Codex init 的预期输出包含：
 | 更新 spec-first 或 runtime assets | `/spec:update` | `$spec-update` |
 | 搜索 agent session 历史 | `/spec:sessions` | `$spec-sessions` |
 | 研究 Slack 组织上下文 | `/spec:slack-research` | `$spec-slack-research` |
+| 审查 source skills | `/spec:skill-audit` | `$spec-skill-audit` |
 | 生成并评估想法 | `/spec:ideate` | `$spec-ideate` |
 | 需求澄清 | `/spec:brainstorm` | `$spec-brainstorm` |
 | 文档/计划评审 | `/spec:doc-review` | `$spec-doc-review` |

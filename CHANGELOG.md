@@ -1,6 +1,19 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.1 2026-05-01 11:45:55 leokuang: fix(skill-audit): 优化产物质量，降低 When Not To Use 禁止项误报并在 summary 明确 skipped governance/runtime scope (user-visible)
+- v1.6.1 2026-05-01 11:45:44 leokuang: test(spec-write-tasks): 收紧 eval case contract、failure mode 覆盖与 runtime sync 覆盖，从 skill contract 派生枚举防止样例和投递资产漂移
+- v1.6.1 2026-05-01 10:42:35 leokuang: fix(skill-audit): 修复单 skill 审计中 skipped governance 被当成缺失扣分，以及 promise implementation 自检混入目标报告的问题 (user-visible)
+- v1.6.1 2026-05-01 03:38:50 leokuang: feat(skill-audit): 吸收 skill-craft 审计模型，新增 finding decision evidence 字段、promise-implementation 报告、trigger discovery readiness 与 score reliability 信号 (user-visible)
+- v1.6.1 2026-05-01 03:34:44 leokuang: docs(spec-write-tasks): 补齐 skill audit 所需的 purpose、input/output、workflow、failure mode、non-trigger 契约章节与 eval cases (user-visible)
+- v1.6.1 2026-05-01 03:26:11 leokuang: fix(task-pack): 为 optional quality fields 增加确定性类型校验，并补 CLI JSON 与路径段回归测试 (user-visible)
+- v1.6.1 2026-05-01 02:32:58 leokuang: fix(spec-write-tasks): 30 轮审查收紧 task-pack 字段层级、standalone 入口边界、validator 路径与空任务校验，并补逐轮记录 (user-visible)
+- v1.6.1 2026-05-01 03:12:24 leokuang: docs(user-manual): 补充 spec-skill-audit 使用入口、审计产物与 Git 边界说明 (user-visible)
+- v1.6.1 2026-05-01 02:45:53 leokuang: fix(skill-audit): 修复审计产物路径逃逸、单 skill target、runtime/governance trust 边界、CRLF/重复 heading 解析和安全扫描覆盖，并补齐入口投递与报告 contract 测试 (user-visible)
+- v1.6.1 2026-05-01 02:08:02 leokuang: feat(skill-audit): 新增 spec-skill-audit workflow 入口、治理投递、self audit 脚本、报告产物与 contract 测试 (user-visible)
+- v1.6.1 2026-05-01 01:20:47 leokuang: docs(skill-audit): 修正 spec-skill-audit 最小版本清单、trigger 信号脚本边界与 runtime drift 复用策略 (user-visible)
+- v1.6.1 2026-05-01 00:54:31 leokuang: docs(skill-audit): 明确 `.spec-first/audits/` 为 gitignored 执行产物，并收敛 spec-skill-audit 入口接入与分阶段落地顺序 (user-visible)
+- v1.6.1 2026-04-30 17:36:00 leokuang: chore(gitnexus): 将 GitNexus provider package pin 升到 1.6.4-rc.25 以验证 query/FTS 修复效果 (user-visible)
 - v1.6.1 2026-04-30 16:48:00 leokuang: fix(spec-mcp-setup): 将 ast-grep global skill 安装改回直接 timeout 执行，避免嵌套 shell 影响慢路径探测与日志一致性 (user-visible)
 - v1.6.1 2026-04-30 16:34:00 leokuang: fix(spec-mcp-setup): 将 helper 安装超时包装切换到非登录 shell，避免 `bash -lc` 的启动副作用吞掉 `run_install_command` 路径日志 (user-visible)
 - v1.6.1 2026-04-30 16:12:00 leokuang: fix(spec-mcp-setup): 将 helper 安装超时保护扩展到所有 run_install_command 路径，避免 gh/jq/vhs/silicon/ffmpeg/ast-grep 在安装阶段无界阻塞 (user-visible)
