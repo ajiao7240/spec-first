@@ -1,6 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.1 2026-05-02 04:52:30 leokuang: docs(app-audit): 瘦身升级技术方案主文档，将完整协议细节迁移为独立参考文档 (user-visible)
+- v1.6.1 2026-05-02 04:45:51 leokuang: docs(app-audit): 逐项修复升级方案审查问题，补齐精准降级、能力范围结论、证据族、交互 schema、安全保留和 v0.1 分期边界 (user-visible)
+- v1.6.1 2026-05-02 04:36:13 leokuang: docs(app-audit): 应用 doc-review safe auto，补齐 v0.1 收敛输出中的 artifact-manifest.json (user-visible)
 - v1.6.1 2026-05-02 04:21:38 leokuang: fix(graph-bootstrap): 收紧 GitNexus probe 弱信号过滤和 metadata 校验边界，避免误伤 Admin/Address 类业务流 token (user-visible)
 - v1.6.1 2026-05-02 04:16:22 leokuang: docs(app-audit): 将移动端交互审查方案降级为历史设计输入，并在升级方案中补充 interaction facts、Mobile UX guardrail 与可选 tech/task 输入边界 (user-visible)
 - v1.6.1 2026-05-02 04:00:41 leokuang: fix(graph-bootstrap): 强化 GitNexus 多候选 proof 的 consumer-side 限流、attempt evidence 指针和 skipped provider 汇总边界 (user-visible)
