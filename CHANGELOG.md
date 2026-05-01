@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.1 2026-05-02 01:38:35 leokuang: docs(using-spec-first): 30 轮审查收紧 guide mode 只读边界、跨宿主入口归一、self-work 修订路由和 artifact evidence 边界 (user-visible)
 - v1.6.1 2026-05-02 00:52:57 leokuang: test(spec-mcp-setup): 修复 dual-host governance 中 mcp-setup 表格与 Serena fail-fast 文档契约断言漂移 (user-visible)
 - v1.6.1 2026-05-02 00:32:42 leokuang: feat(using-spec-first): 增加下一步 guide mode、init bootstrap 薄提醒和边界测试，帮助用户直接描述任务或询问 workflow 入口 (user-visible)
 - v1.6.1 2026-05-02 00:03:24 leokuang: docs(plan): 新增 using-spec-first 下一步引导实施计划，明确 guide mode、薄 bootstrap、coding-guidelines 边界与验证切片 (user-visible)

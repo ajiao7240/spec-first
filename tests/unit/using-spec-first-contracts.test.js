@@ -47,7 +47,9 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('must not create brainstorm, plan, task, review, solution, or runtime artifacts');
     expect(skill).toContain('Output exactly one best next entrypoint, one concrete reason, and one next action');
     expect(skill).toContain('Do not print the full workflow menu.');
-    expect(skill).toContain('High-confidence cases may route directly after announcing the choice');
+    expect(skill).toContain('If the user asks only for guidance about the next step, use User Next-Step Guide Mode');
+    expect(skill).toContain('Use the Routing Priority and Routing Rules below as the source of truth');
+    expect(skill).toContain('Do not start the selected workflow from guide mode unless the user explicitly asks to continue with that workflow.');
     expect(skill).toContain('Low-confidence cases need one narrow confirmation before routing');
     expect(skill).toContain('a change could be either a bug fix or a product behavior change');
     expect(skill).toContain('If a brainstorm requirements document exists and implementation direction is not yet planned, recommend plan.');
@@ -55,7 +57,10 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('After init, prefer setup/readiness guidance when runtime or MCP readiness is unresolved');
     expect(skill).toContain('substantial work');
     expect(skill).toContain('Spec-First Self-Work');
+    expect(skill).toContain('docs/10-prompt/结构化项目角色契约.md');
     expect(skill).toContain('host instruction blocks');
+    expect(skill).toContain('If the request asks for review plus concrete revisions, route to work and keep a review posture during execution.');
+    expect(skill).toContain('For source changes, update source-of-truth files, the narrowest contract tests, and `CHANGELOG.md`');
     expect(skill).toContain('Do not modify generated `.claude/`, `.codex/`, or `.agents/skills/` mirrors');
     expect(skill).toContain('environment setup, host setup, MCP setup, missing tools, or host readiness');
     expect(skill).toContain('project-local setup');
@@ -65,6 +70,10 @@ describe('using-spec-first contracts', () => {
     expect(skill).not.toContain('$spec-setup');
     expect(skill).not.toContain('spec-first ' + 'crg');
     expect(skill).toContain('workflow-first');
+    expect(skill).toContain('Explicit Route Normalization');
+    expect(skill).toContain("If the user names the other host's equivalent public workflow, translate it to the current host entrypoint");
+    expect(skill).toContain('Codex should translate `/spec:work` to `$spec-work`');
+    expect(skill).toContain('Do not invent a `/spec:*` or `$spec-*` command for standalone skills');
     expect(skill).toContain('Routing Priority');
     expect(skill).toContain('Explicit user route');
     expect(skill).toContain('Optimization routes');
@@ -87,6 +96,9 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('Bounded subagents, leaf reviewers, and worker agents must not run the startup reminder');
     expect(skill).toContain('do not reload or invoke `using-spec-first` just to bootstrap yourself');
     expect(skill).toContain('`using-spec-first` governs **entry routing only**');
+    expect(skill).toContain('Artifact And Evidence Boundaries');
+    expect(skill).toContain('This skill should not ask the agent to fabricate command results');
+    expect(skill).toContain('Do not use this governor to create pseudo-plan, pseudo-task, or pseudo-review artifacts.');
     expect(skill).toContain('Do **not** expose internal-only skills as user entrypoints.');
     expect(skill).toContain('spec-session-inventory');
     expect(skill).toContain('using-spec-first` itself is a standalone meta skill');
