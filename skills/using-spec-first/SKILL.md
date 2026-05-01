@@ -61,7 +61,7 @@ This mode is read-only. It may inspect lightweight context that is already avail
 
 Output exactly one best next entrypoint, one concrete reason, and one next action. Do not print the full workflow menu.
 
-High-confidence guide cases may recommend without confirmation after naming the chosen route. Use the Routing Priority and Routing Rules below as the source of truth; common high-confidence guide cases include:
+High-confidence guide cases may recommend without confirmation after naming the chosen route. Use the Routing Priority and Routing Rules below as the source of truth. Use the exact current-host public entrypoint those rules select. Common high-confidence guide cases include:
 - clear failures, stack traces, or test failures -> debug
 - clear code, PR, diff, requirements, plan, or markdown review requests -> code review or doc review based on the artifact
 - clear setup, host readiness, MCP, update, or runtime repair requests -> setup or update based on the repair target

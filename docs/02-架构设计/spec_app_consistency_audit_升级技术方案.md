@@ -268,6 +268,54 @@ docs/02-架构设计/spec_app_consistency_audit_升级技术方案.md
 5. README / command template 只在 skill 源协议稳定后更新，避免入口文案承诺未落地能力。
 ```
 
+### 3.2.1 实施策略决策：In-place Contract Rebuild
+
+当前 `skills/spec-app-consistency-audit` 的问题不是目录身份错误，而是 workflow contract spine 与最新方案不一致。因此落地策略应是 **in-place contract rebuild**，不是删除整个 skill 后重写。
+
+决策：
+
+```text
+1. 保留 skills/spec-app-consistency-audit 目录、skill identity 和 dual-host governance entry。
+2. 保留可复用的 deterministic facts 资产：
+   - preflight / contract extraction / context merge / rule-pack selection / evidence gate / report assembly 脚本
+   - schemas 中仍可兼容的 contract schema
+   - prompts 中仍可作为专家 lens 的 source prompt
+   - rule-packs 中仍可作为知识增强材料的规则包
+   - tests 中仍能证明基础 extractor / boundary / evidence behavior 的用例
+3. 重建 workflow contract spine：
+   - SKILL.md 的 Inputs / Modes / Workflow / Failure Modes / Outputs
+   - mode:headless / mode:report-only / from:code-review / depth:deep
+   - run-scoped artifact tree
+   - input_expectations / coverage_capabilities / precise degraded_modes / conclusion_caps
+   - claim_type evidence requirement matrix
+   - strict issue schema
+   - workflow_handoff_suggestions 与 code_review_handoff
+   - report-only no-write 与 headless envelope
+4. 旧扁平 artifact 路径、旧 reason_code 和宽松 report schema 只作为 legacy compatibility。
+5. 不通过删除目录来制造“干净实现”；删除整个 skill 会丢失已验证的确定性资产、双宿主治理连续性和迁移证据。
+```
+
+允许替换旧资产的条件：
+
+```text
+1. 某个旧脚本无法适配 run-scoped artifact contract。
+2. 某个旧脚本会持续产生错误 facts，且无法通过小改修正。
+3. 某个旧 schema 与 strict issue / precise degraded mode contract 冲突，且 compatibility mode 无法隔离。
+4. 某个 prompt 与新 Agent IO contract 冲突，保留会诱导专家越权。
+```
+
+即便满足替换条件，也应只替换具体文件或模块，不做 `rm -rf skills/spec-app-consistency-audit` 级别的破坏性重建。只有当整个目录已无可复用 deterministic asset，且 tests / governance / runtime delivery 都需要整体重建时，才允许重新 scaffold；当前事实不满足这个条件。
+
+实施顺序：
+
+```text
+1. 先锁定 source-of-truth 与测试边界。
+2. 再重写 SKILL.md 的 workflow contract。
+3. 再让 preflight / metadata / manifest 支持 run-scoped artifact 和 precise degradation。
+4. 再逐步适配 extractors 与 validators。
+5. 最后清理 legacy aliases 和扁平路径兼容。
+```
+
 ### 3.3 全流程 Skill / Agent 协同边界
 
 `spec-app-consistency-audit` 在项目全链路中的位置是专项 Review 节点，而不是新的总控入口。
@@ -3072,15 +3120,16 @@ Maestro / Appium flow
 ### P0：先收敛文档与真实实现差距
 
 ```text
-1. 更新 skills/spec-app-consistency-audit/SKILL.md，使 mode/report-only/headless/run-scoped/artifact-manifest 与本方案一致。
-2. 更新 templates/claude/commands/spec/app-consistency-audit.md 的 argument-hint，避免继续暗示旧的自由参数形态。
-3. 更新 tests/unit/spec-app-consistency-audit-cli-e2e.test.js，输出目录改为 .spec-first/app-audit/runs/<run-id>/。
-4. 保留旧扁平路径读取兼容只作为 migration test，不作为新写入目标。
-5. README 入口只写稳定能力，不提前承诺未实现的 LLM Audit Planner / Validation Pass 全自动链路。
-6. 将全流程 handoff 边界写入 SKILL.md：app-audit 只建议 spec-plan / spec-code-review / spec-skill-audit / spec-polish-beta / spec-compound，不内联执行。
-7. 明确 skill-audit deterministic scorecard 只是设计输入，不作为 app-audit 执行 gate。
-8. 在 SKILL.md Inputs / Failure Modes 中明确：PRD、Figma、技术方案、开发任务文档都是可选输入，缺失时精准降级而不是默认中断。
-9. 在 SKILL.md Workflow 中明确降级传播链：preflight -> context -> planner -> experts -> evidence gate -> evidence auditor -> report writer。
+1. 采用 in-place contract rebuild：保留 skill identity、governance entry、可复用 scripts / schemas / prompts / rule-packs / tests，不删除整个 skill 目录重写。
+2. 更新 skills/spec-app-consistency-audit/SKILL.md，使 mode/report-only/headless/run-scoped/artifact-manifest 与本方案一致。
+3. 更新 templates/claude/commands/spec/app-consistency-audit.md 的 argument-hint，避免继续暗示旧的自由参数形态。
+4. 更新 tests/unit/spec-app-consistency-audit-cli-e2e.test.js，输出目录改为 .spec-first/app-audit/runs/<run-id>/。
+5. 保留旧扁平路径读取兼容只作为 migration test，不作为新写入目标。
+6. README 入口只写稳定能力，不提前承诺未实现的 LLM Audit Planner / Validation Pass 全自动链路。
+7. 将全流程 handoff 边界写入 SKILL.md：app-audit 只建议 spec-plan / spec-code-review / spec-skill-audit / spec-polish-beta / spec-compound，不内联执行。
+8. 明确 skill-audit deterministic scorecard 只是设计输入，不作为 app-audit 执行 gate。
+9. 在 SKILL.md Inputs / Failure Modes 中明确：PRD、Figma、技术方案、开发任务文档都是可选输入，缺失时精准降级而不是默认中断。
+10. 在 SKILL.md Workflow 中明确降级传播链：preflight -> context -> planner -> experts -> evidence gate -> evidence auditor -> report writer。
 ```
 
 ### P0：先保证能稳定执行

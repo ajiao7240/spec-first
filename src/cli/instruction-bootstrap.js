@@ -148,7 +148,7 @@ function buildZhBootstrapBody(hostId) {
 - 本 block 是 spec-first workflow 入口提醒；\`using-spec-first\` 是 standalone meta skill，不是 workflow command
 - 修改文件、运行会改变状态的命令、或做架构/prompt/workflow 决策前，先判断是否应进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答
 - 按当前用户意图选择一个最匹配入口；不要默认进入 \`spec-brainstorm\`，也不要自动串联多个 workflow
-- 如果用户询问下一步、该用哪个命令或不知道 workflow，按 \`using-spec-first\` 的 guide mode 推荐一个公开入口和一句理由
+- 如果用户询问下一步、该用哪个命令或不知道 workflow，按 \`using-spec-first\` 的 guide mode 推荐一个公开入口、一句理由和一个下一步动作
 - 如果已经在 spec-first workflow 中或作为 bounded subagent 执行，遵循当前 workflow/父任务范围，不重新入口分流
 ${hostLine}
 ${surfaceLine}
@@ -178,7 +178,7 @@ function buildEnBootstrapBody(hostId) {
 - This block is the spec-first workflow entry reminder; \`using-spec-first\` is a standalone meta skill, not a workflow command
 - Before editing files, running state-changing commands, or making architecture/prompt/workflow decisions, decide whether to enter a public spec-first workflow; lightweight Q&A and narrow factual lookups may be answered directly
 - Pick one best-matching entrypoint by current user intent; do not default to \`spec-brainstorm\` or automatically chain workflows
-- If the user asks what to run next, which command to use, or does not know the workflow, use \`using-spec-first\` guide mode to recommend one public entrypoint with one reason
+- If the user asks what to run next, which command to use, or does not know the workflow, use \`using-spec-first\` guide mode to recommend one public entrypoint, one reason, and one next action
 - If already inside a spec-first workflow or running as a bounded subagent, follow the active workflow/parent scope instead of restarting entry routing
 ${hostLine}
 ${surfaceLine}

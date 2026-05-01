@@ -42,7 +42,7 @@ describe('instruction bootstrap', () => {
     expect(twice).toContain('不要默认进入 `spec-brainstorm`');
     expect(twice).toContain('不要自动串联多个 workflow');
     expect(twice).toContain('如果用户询问下一步、该用哪个命令或不知道 workflow');
-    expect(twice).toContain('按 `using-spec-first` 的 guide mode 推荐一个公开入口和一句理由');
+    expect(twice).toContain('按 `using-spec-first` 的 guide mode 推荐一个公开入口、一句理由和一个下一步动作');
     expect(twice).toContain('bounded subagent');
     expect(twice).toContain('常见入口锚点：环境/MCP');
     expect(twice).toContain('可度量优化→`/spec:optimize`');
@@ -72,7 +72,7 @@ describe('instruction bootstrap', () => {
     expect(updated).toContain('startup-reminder --codex');
     expect(updated).toContain('must not block routing');
     expect(updated).toContain('If the user asks what to run next, which command to use, or does not know the workflow');
-    expect(updated).toContain('use `using-spec-first` guide mode to recommend one public entrypoint with one reason');
+    expect(updated).toContain('use `using-spec-first` guide mode to recommend one public entrypoint, one reason, and one next action');
     expect(updated).toContain('bounded subagents, leaf reviewers, and worker agents');
     expect(updated).toContain('Common entry anchors: environment/MCP');
     expect(updated).toContain('measurable optimization→`$spec-optimize`');

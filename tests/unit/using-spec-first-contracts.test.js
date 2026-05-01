@@ -49,6 +49,7 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('Do not print the full workflow menu.');
     expect(skill).toContain('If the user asks only for guidance about the next step, use User Next-Step Guide Mode');
     expect(skill).toContain('Use the Routing Priority and Routing Rules below as the source of truth');
+    expect(skill).toContain('Use the exact current-host public entrypoint those rules select');
     expect(skill).toContain('Do not start the selected workflow from guide mode unless the user explicitly asks to continue with that workflow.');
     expect(skill).toContain('Low-confidence cases need one narrow confirmation before routing');
     expect(skill).toContain('a change could be either a bug fix or a product behavior change');
