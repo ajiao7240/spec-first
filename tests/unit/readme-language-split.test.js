@@ -7,18 +7,33 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 const README_EN_PATH = path.join(REPO_ROOT, 'README.md');
 const README_ZH_PATH = path.join(REPO_ROOT, 'README.zh-CN.md');
 
+function read(filePath) {
+  return fs.readFileSync(filePath, 'utf8');
+}
+
+function expectOrderedSections(content, sections) {
+  let previousIndex = -1;
+
+  for (const section of sections) {
+    const currentIndex = content.indexOf(section);
+
+    expect(currentIndex).toBeGreaterThan(previousIndex);
+    previousIndex = currentIndex;
+  }
+}
+
 describe('README language split contract', () => {
   test('repository keeps both English and Chinese README entrypoints', () => {
     expect(fs.existsSync(README_EN_PATH)).toBe(true);
     expect(fs.existsSync(README_ZH_PATH)).toBe(true);
 
-    const englishReadme = fs.readFileSync(README_EN_PATH, 'utf8');
+    const englishReadme = read(README_EN_PATH);
 
     expect(englishReadme).toContain('[English](./README.md) | [简体中文](./README.zh-CN.md)');
   });
 
   test('English README marks Chinese-first docs explicitly to avoid misleading readers', () => {
-    const englishReadme = fs.readFileSync(README_EN_PATH, 'utf8');
+    const englishReadme = read(README_EN_PATH);
 
     expect(englishReadme).toContain('Detailed manuals and implementation docs are currently Chinese-first.');
     expect(englishReadme).toContain('[Chinese Architecture Overview](./docs/02-架构设计/01-整体架构.md)');
@@ -28,8 +43,10 @@ describe('README language split contract', () => {
   });
 
   test('English README uses English init language examples and next steps', () => {
-    const englishReadme = fs.readFileSync(README_EN_PATH, 'utf8');
+    const englishReadme = read(README_EN_PATH);
+    const chineseReadme = read(README_ZH_PATH);
 
+    expect(englishReadme).toContain('Official site: [spec-first.cn](http://spec-first.cn/)');
     expect(englishReadme).toContain('spec-first init --claude -u <name> --lang en');
     expect(englishReadme).toContain('spec-first init --codex -u <name> --lang en');
     expect(englishReadme).toContain('Next steps:');
@@ -38,5 +55,98 @@ describe('README language split contract', () => {
     expect(englishReadme).not.toContain('spec-first init --claude -u <name> --lang zh');
     expect(englishReadme).not.toContain('spec-first init --codex -u <name> --lang zh');
     expect(englishReadme).not.toContain('下一步:');
+    expect(chineseReadme).toContain('官网：[spec-first.cn](http://spec-first.cn/)');
+  });
+
+  test('English README foregrounds the community entry flow before runtime reference details', () => {
+    const englishReadme = read(README_EN_PATH);
+
+    expect(englishReadme).toContain('Spec-driven AI engineering workflows for Claude Code and Codex.');
+    expect(englishReadme).toContain('It keeps deterministic setup in scripts while leaving product judgment');
+    expect(englishReadme).not.toContain('Spec-driven workflow asset bundle');
+    expectOrderedSections(englishReadme, [
+      'Spec-driven AI engineering workflows for Claude Code and Codex.',
+      '## See It In 90 Seconds',
+      '## A Tiny Example',
+      '## Why spec-first?',
+      '## Quickstart',
+      '## What You Get',
+      '## How It Works',
+      '## Choose Your Path',
+      '## Core Workflows',
+      '## Trust Model',
+      '## Use spec-first when',
+      '## Documentation',
+      '## Full Workflow Reference',
+      '## Runtime Reference',
+      '## Development & Contributing',
+    ]);
+    expect(englishReadme.indexOf('Runtime asset summary:')).toBeGreaterThan(
+      englishReadme.indexOf('## Runtime Reference'),
+    );
+    expect(englishReadme.indexOf('Runtime asset summary:')).toBeGreaterThan(
+      englishReadme.indexOf('## Documentation'),
+    );
+  });
+
+  test('README quickstart separates terminal commands from host-session workflow entries', () => {
+    const englishReadme = read(README_EN_PATH);
+
+    expect(englishReadme).toContain('Node.js `>=20.0.0` and npm.');
+    expect(englishReadme).toContain('with one chosen as the current host');
+    expect(englishReadme).toContain('root of the project repo');
+    expect(englishReadme).toContain('throwaway/test repo');
+    expectOrderedSections(englishReadme, [
+      'Terminal commands:',
+      'npm install -g spec-first',
+      'spec-first doctor',
+      'Initialize only the host you actually use:',
+      'spec-first init --codex -u <name> --lang en',
+      'Host-session workflow entries are not shell commands:',
+      '$spec-brainstorm "Improve onboarding"',
+      '### You are done when',
+      "From there, continue to the current host's plan entrypoint.",
+    ]);
+    expect(englishReadme).toContain('docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md');
+  });
+
+  test('README trust model preserves source and runtime asset boundaries', () => {
+    const englishReadme = read(README_EN_PATH);
+
+    expect(englishReadme).toContain('Scripts prepare, LLM decides');
+    expect(englishReadme).toContain('does not ask the LLM to simulate deterministic tooling');
+    expect(englishReadme).toContain('**What scripts do:** install, validate, generate, clean, hash, and report machine facts.');
+    expect(englishReadme).toContain('**What the LLM decides:** requirements framing');
+    expect(englishReadme).toContain('**What is generated:** `.claude/`, `.codex/`, and `.agents/skills/` runtime copies.');
+    expect(englishReadme).toContain('Generated runtime copies under `.claude/`, `.codex/`, and `.agents/skills/` are disposable and can be rebuilt with `spec-first init`.');
+    expect(englishReadme).toContain('Use the installed standalone `write-tasks` skill');
+  });
+
+  test('Chinese README mirrors the English community entry structure and first-run guidance', () => {
+    const chineseReadme = read(README_ZH_PATH);
+
+    expect(chineseReadme).toContain('面向 Claude Code 与 Codex 的 spec-driven AI engineering workflows。');
+    expect(chineseReadme).toContain('把 AI coding 会话变成可复用的工程闭环');
+    expectOrderedSections(chineseReadme, [
+      '## 90 秒看懂',
+      '## 一个小例子',
+      '## 为什么使用 spec-first？',
+      '## 快速开始',
+      '## 你会得到什么',
+      '## 工作方式',
+      '## 选择你的路径',
+      '## 核心 workflows',
+      '## Trust Model',
+      '## 适合使用 spec-first 的情况',
+      '## 相关文档',
+      '## 完整 Workflow Reference',
+      '## Runtime Reference',
+      '## 开发与贡献',
+    ]);
+    expect(chineseReadme).toContain('宿主内 workflow 入口不是 shell 命令');
+    expect(chineseReadme).toContain('$spec-brainstorm "改进 onboarding"');
+    expect(chineseReadme).toContain('第一次 brainstorm 运行会生成类似这样的 requirements brief');
+    expect(chineseReadme).toContain('docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md');
+    expect(chineseReadme).toContain('详细手册和实施文档均以中文为主。');
   });
 });

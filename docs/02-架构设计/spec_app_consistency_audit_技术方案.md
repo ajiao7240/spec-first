@@ -1,3 +1,8 @@
+---
+title: "spec-app-consistency-audit 技术方案"
+spec_id: "2026-05-01-001-spec-app-consistency-audit"
+---
+
 # spec-app-consistency-audit 技术方案
 
 > 文档定位：新增 `spec-first` Skill 的详细技术方案
@@ -328,10 +333,16 @@ skills/spec-app-consistency-audit/
     component-module-expert.md
     analytics-expert.md
     i18n-expert.md
+    accessibility-i18n-lens.md
     industry-expert.md
     evidence-auditor.md
     regression-expert.md
     report-writer.md
+
+  references/
+    report-format.md
+    ecc-source-lock.json
+    pilot-validation.md
 
   rule-packs/
     common-app/
@@ -431,6 +442,24 @@ skills/spec-app-consistency-audit/
 templates/claude/commands/spec/app-consistency-audit.md
 src/cli/contracts/dual-host-governance/skills-governance.json
 ```
+
+#### 6.1.1 目录归属规则
+
+`spec-app-consistency-audit` 的 app 专家能力优先收敛到 skill 本地目录，不默认向 `agents/` 扩散。
+
+```text
+skills/spec-app-consistency-audit/prompts/
+```
+
+用于存放本 Skill 的原生专家 prompts、只读 lenses 和报告角色。这里的内容必须直接服从本 Skill 的 issue schema、evidence/provenance 和 preview-first 边界。
+
+```text
+agents/
+```
+
+仅用于跨 workflow、可稳定复用的通用专家角色。MVP 阶段不把 app-audit 专属角色写入 `agents/`，也不把 ECC 派生能力原样复制到该目录。
+
+如果后续某个角色被证明脱离 app-audit 场景仍具有跨 workflow 通用性，先在 skill 本地完成验证，再单独评估是否有必要晋升为全局 agent。
 
 ### 6.2 输出目录
 
@@ -1386,6 +1415,8 @@ Expert Mode 不是强绑定多 Agent runtime，而是一套角色协议。
 14. Report Writer / 报告专家
 ```
 
+ECC-derived lens prompts 是专家输入增强材料，不作为拥有最终 verdict 的独立专家角色。
+
 ---
 
 ## 8.3 Orchestrator Agent
@@ -1710,6 +1741,67 @@ Weak evidence, mark as risk not confirmed issue.
 5. 输出矩阵
 6. 输出可沉淀规范
 7. 输出 writeback preview
+```
+
+---
+
+## 8.17 ECC Derived Lens Integration
+
+`everything-claude-code` 只作为能力素材来源，不作为 `spec-app-consistency-audit` 的 runtime 真相源。
+
+集成原则：
+
+```text
+1. 只吸收只读 lens / checklist / evidence pattern。
+2. 不引入 ECC 的 write / edit / repair / build / cleanup 职责。
+3. 不把 ECC commands、hooks 或原样 agent 文件导入 `spec-first/agents/`。
+4. ECC 能力必须映射为 app-audit 原生专家 prompt，而不是独立执行角色。
+5. 所有集成后的专家输出仍然服从本 Skill 的 issue schema、evidence/provenance 和 runtime verification policy。
+```
+
+### 8.17.1 目录复用决策
+
+ECC 派生能力的落点先是 `skills/spec-app-consistency-audit/prompts/*.md`，不是 `spec-first/agents/`。
+
+理由很简单：
+
+1. app-audit 的专家角色是审计矩阵的一部分，强依赖本 Skill 的 issue schema、rule packs 和 evidence gate。
+2. `agents/` 应只承载跨 workflow 稳定复用的通用专家，不适合先放 app-audit 专属 lens。
+3. 将 app-audit 专家写入 `agents/` 会把局部审计能力提升成全局默认能力，扩大治理面和 drift 面。
+4. Skill 本地 prompts 更容易保持只读、preview-first 和 No evidence, no issue 的协议一致性。
+
+可吸收的 ECC 能力映射：
+
+| ECC 能力 | app-audit 落点 | 用法 |
+|---|---|---|
+| `kotlin-reviewer` | `KMP Clean Architect`、`Page Route Expert`、`Engineering Quality Expert` | Kotlin/KMP、coroutine、Compose、clean architecture、跨端行为一致性 |
+| `a11y-architect` | `Figma Design Expert`、`Mobile UX Expert`、`I18n Expert` | 可访问性、焦点流、目标尺寸、文案膨胀、屏幕阅读器语义 |
+| `silent-failure-hunter` | `Mobile UX Expert`、`Analytics Expert`、`Engineering Quality Expert`、`Evidence Auditor` | 错误吞没、坏 fallback、缺失 error propagation、静默失败 |
+| `type-design-analyzer` | `KMP Clean Architect`、`Engineering Quality Expert`、`Evidence Auditor` | UiState / sealed hierarchy / invariant 表达 |
+| `code-explorer` | `Page Route Expert`、`Orchestrator Agent` | 路径追踪、入口/出口、导航证据链 |
+| `code-architect` | `KMP Clean Architect`、`Component Module Expert` | 依赖方向、边界、重复实现、模块拆分 |
+| `pr-test-analyzer` | `Evidence Auditor`、`Regression Expert` | 行为覆盖、边界用例、回归焦点 |
+| `security-reviewer` | `Engineering Quality Expert`（安全分支） | 只保留敏感数据、输入验证、认证/授权、WebView/Deep Link 风险清单 |
+| `code-reviewer` | `Evidence Auditor`、`Engineering Quality Expert` | 通用质量门禁、缺测试、缺错误处理、维护性风险 |
+| `doc-updater` | `Report Writer` | 仅参考报告组织方式，不导入写入型职责 |
+
+原样不进入主流程的 ECC 能力：
+
+```text
+commands / hooks
+build resolver 系列
+refactor-cleaner
+code-simplifier
+performance-optimizer 的执行型形态
+security-reviewer 的修复/写入型形态
+database-reviewer 作为默认 app-audit 专家
+```
+
+建议把这层集成结果写入：
+
+```text
+docs/02-架构设计/SPEC-APP-CONSISTENCY-AUDIT-ECC-AGENTS-INTEGRATION.md
+skills/spec-app-consistency-audit/prompts/*.md
 ```
 
 ---
@@ -3000,6 +3092,8 @@ Industry：交易 / 支付 / 下单属于关键操作，必须防重复
 14. mobile-ux-expert.md
 15. evidence-auditor.md
 16. report-writer.md
+17. accessibility-i18n-lens.md
+18. ECC-derived lens prompts
 ```
 
 ### 第一阶段不要做
