@@ -1,6 +1,15 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.1 2026-05-02 00:52:57 leokuang: test(spec-mcp-setup): 修复 dual-host governance 中 mcp-setup 表格与 Serena fail-fast 文档契约断言漂移 (user-visible)
+- v1.6.1 2026-05-02 00:32:42 leokuang: feat(using-spec-first): 增加下一步 guide mode、init bootstrap 薄提醒和边界测试，帮助用户直接描述任务或询问 workflow 入口 (user-visible)
+- v1.6.1 2026-05-02 00:03:24 leokuang: docs(plan): 新增 using-spec-first 下一步引导实施计划，明确 guide mode、薄 bootstrap、coding-guidelines 边界与验证切片 (user-visible)
+- v1.6.1 2026-05-02 00:03:07 leokuang: docs(governance): 统一角色契约与双宿主入口的 source/runtime、workflow 入口和 GitNexus 降级边界 (user-visible)
+- v1.6.1 2026-05-02 00:00:36 leokuang: docs(app-audit): 追加 30 轮精准降级执行闭环审查，补强 input_expectations、run_status 分层、claim_type 证据矩阵与降级传播责任链 (user-visible)
+- v1.6.1 2026-05-01 23:57:23 leokuang: docs(brainstorm): 补充 using-spec-first 下一步引导与 coding-guidelines managed block 的分层边界 (user-visible)
+- v1.6.1 2026-05-01 23:51:35 leokuang: docs(app-audit): 完善升级方案的精准降级契约，明确缺 PRD、Figma、技术方案、任务文档时的能力覆盖、专家降级、结论封顶与 reason_code alias (user-visible)
+- v1.6.1 2026-05-01 23:50:35 leokuang: docs(brainstorm): 新增 using-spec-first 下一步引导需求，收敛用户求助与任务开场自动分流边界 (user-visible)
+- v1.6.1 2026-05-01 23:48:30 leokuang: docs(claude): 重构 CLAUDE.md 为与 AGENTS.md 对齐的项目级协作入口，保留 spec-first 受管 blocks 与 GitNexus 指引 (user-visible)
 - v1.6.1 2026-05-01 23:42:22 leokuang: docs(app-audit): 再次追加 50 轮全流程 skill/agent 方案审查，并补强 workflow handoff、安全隐私、agent catalog、eval readiness 与全链路协同边界 (user-visible)
 - v1.6.1 2026-05-01 23:28:35 leokuang: docs(app-audit): 追加 30 轮方案小步审查记录，并收紧升级方案的实现对齐、schema 迁移、manifest、reason_code、Figma input 与测试落地边界 (user-visible)
 - v1.6.1 2026-05-01 23:18:26 leokuang: docs(app-audit): 逐项优化升级技术方案，统一总流水线、report-only no-write、run-scoped contract、Agent IO、validation 与 code-review handoff 协议 (user-visible)

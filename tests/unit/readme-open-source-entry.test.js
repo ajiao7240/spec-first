@@ -157,6 +157,7 @@ describe('README open-source entry contract', () => {
     expect(englishReadme).toContain('docs/plans/2026-05-01-001-feat-cli-onboarding-plan.md');
     expect(englishReadme).toContain('docs/tasks/2026-05-01-001-feat-cli-onboarding-tasks.md');
     expect(englishReadme).toContain('The first brainstorm run usually creates only the requirements brief.');
+    expect(englishReadme).toContain('If you are not sure which workflow to use');
     expect(englishReadme).toContain('## Choose Your Path');
     expect(englishReadme).toContain('A rough idea or product problem');
     expect(englishReadme).toContain('/spec:debug');
@@ -166,6 +167,7 @@ describe('README open-source entry contract', () => {
 
     expect(chineseReadme).toContain('## 一个小例子');
     expect(chineseReadme).toContain('第一次 brainstorm 通常只生成 requirements brief');
+    expect(chineseReadme).toContain('如果不确定该用哪个 workflow');
     expect(chineseReadme).toContain('## 选择你的路径');
     expect(chineseReadme).toContain('只有模糊想法或产品问题');
     expect(chineseReadme).toContain('$spec-debug');

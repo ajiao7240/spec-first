@@ -104,10 +104,14 @@ describe('README language split contract', () => {
       'spec-first init --codex -u <name> --lang en',
       'Host-session workflow entries are not shell commands:',
       '$spec-brainstorm "Improve onboarding"',
+      'If you are not sure which workflow to use',
       '### You are done when',
       "From there, continue to the current host's plan entrypoint.",
     ]);
     expect(englishReadme).toContain('docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md');
+    expect(englishReadme).toContain('`using-spec-first` will recommend one public entrypoint with a reason.');
+    expect(englishReadme).not.toContain('$spec-next');
+    expect(englishReadme).not.toContain('/spec:next');
   });
 
   test('README trust model preserves source and runtime asset boundaries', () => {
@@ -145,6 +149,8 @@ describe('README language split contract', () => {
     ]);
     expect(chineseReadme).toContain('宿主内 workflow 入口不是 shell 命令');
     expect(chineseReadme).toContain('$spec-brainstorm "改进 onboarding"');
+    expect(chineseReadme).toContain('如果不确定该用哪个 workflow，可以在宿主会话中直接描述任务或询问下一步');
+    expect(chineseReadme).toContain('`using-spec-first` 会推荐一个公开入口并说明原因。');
     expect(chineseReadme).toContain('第一次 brainstorm 运行会生成类似这样的 requirements brief');
     expect(chineseReadme).toContain('docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md');
     expect(chineseReadme).toContain('详细手册和实施文档均以中文为主。');

@@ -1,6 +1,6 @@
 ---
 name: using-spec-first
-description: "Use before substantial work in a spec-first project. Decide whether to route into a public spec-first workflow before editing files, running state-changing commands, debugging, reviewing, planning, setup, update, or architecture/prompt/workflow decisions."
+description: "Use before substantial work in a spec-first project, and when users ask what spec-first workflow or command to run next. Decide whether to route into a public spec-first workflow before editing files, running state-changing commands, debugging, reviewing, planning, setup, update, or architecture/prompt/workflow decisions."
 ---
 
 # Using Spec-First
@@ -50,6 +50,33 @@ When routing is needed, state the chosen entrypoint and one concrete reason, the
 When no workflow meaningfully applies, say so briefly only if useful, then answer directly or execute normally.
 
 Do not route by keyword alone. The user's immediate intent beats broad subject area.
+
+## User Next-Step Guide Mode
+
+Use this mode when the user explicitly asks what to run next, which `spec-first` command to use, which workflow applies, or says they do not know the next step.
+
+This mode is read-only. It may inspect lightweight context that is already available, but it must not create brainstorm, plan, task, review, solution, or runtime artifacts. It recommends the next public workflow entrypoint; the selected workflow performs the actual work.
+
+Output exactly one best next entrypoint, one concrete reason, and one next action. Do not print the full workflow menu.
+
+High-confidence cases may route directly after announcing the choice:
+- clear failures, stack traces, or test failures -> debug
+- clear code, PR, diff, requirements, plan, or markdown review requests -> review
+- clear setup, host readiness, MCP, update, or runtime repair requests -> setup or update
+- existing plan, task pack, or implementation-ready task -> work
+
+Low-confidence cases need one narrow confirmation before routing:
+- idea generation vs requirement shaping vs execution planning is unclear
+- a change could be either a bug fix or a product behavior change
+- the user may need a durable artifact, but it is not clear whether that artifact should be requirements, a plan, tasks, or review notes
+- a workflow just finished, but its handoff context is unavailable or conflicts with the new request
+
+When the user asks "what next?" after a workflow:
+- If an active workflow has an explicit handoff, follow that workflow's handoff.
+- If a brainstorm requirements document exists and implementation direction is not yet planned, recommend plan.
+- If a plan or validated task pack exists and the work is implementation-ready, recommend work.
+- If there is an existing diff and the user asks whether it is ready, recommend code review or doc review based on the artifact.
+- After init, prefer setup/readiness guidance when runtime or MCP readiness is unresolved; otherwise route by the user's actual goal.
 
 ## What Counts as Substantial Work
 

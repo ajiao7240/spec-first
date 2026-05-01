@@ -125,6 +125,8 @@ Host-session workflow entries are not shell commands:
 $spec-brainstorm "Improve onboarding"
 ```
 
+If you are not sure which workflow to use, describe the task or ask what to run next in the host session; `using-spec-first` will recommend one public entrypoint with a reason.
+
 ### You are done when
 
 The first brainstorm run produces a requirements brief such as:

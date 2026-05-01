@@ -321,6 +321,8 @@ Important rule:
 LLM chooses supported Serena language labels from project evidence.
 Scripts execute the selected labels.
 Scripts do not enter Serena interactive language selection.
+No language facts means fail fast before Serena interactive language selection.
+The deterministic result must return serena_language_required for the LLM retry path.
 ```
 
 ## Readiness Ledger Flow

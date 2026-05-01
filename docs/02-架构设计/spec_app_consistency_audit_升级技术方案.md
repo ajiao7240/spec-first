@@ -672,12 +672,18 @@ reason_code 最小集合：
 
 ```text
 scope_source_missing
+scope_source_unreadable
 scope_source_outside_repo
 scope_base_unresolved
 scope_headless_missing_base
+source_scan_truncated
 input_prd_missing
+input_figma_context_missing
 input_figma_reference_only
 input_figma_context_unreadable
+input_product_design_context_missing
+input_tech_plan_missing
+input_task_doc_missing
 input_materialization_not_allowed
 graph_unavailable
 graph_stale
@@ -697,6 +703,341 @@ network_access_blocked
 runtime_validation_deferred
 host_runtime_stale_suspected
 skill_audit_signal_observed
+```
+
+### 4.6.1 精准降级契约
+
+降级不是一个布尔值。缺少某个输入时，流程应继续还是停止，取决于该输入是否是当前审查能力的硬前提。默认原则：
+
+```text
+1. 缺可读 source root 才是 App 审查硬失败。
+2. 缺 PRD / Figma / 技术方案 / 开发任务文档，不应默认中断。
+3. 缺某类输入时，只关闭或降级依赖该输入的审查能力。
+4. 降级后不能输出依赖缺失输入的 confirmed issue。
+5. 所有降级必须进入 Coverage，不能静默跳过。
+```
+
+`degraded_modes[]` 最小字段：
+
+```json
+{
+  "code": "input_prd_missing",
+  "severity": "warning",
+  "capability": "product_consistency",
+  "affected_experts": ["Product Expert"],
+  "expert_action": "advisory_or_skip",
+  "conclusion_cap": "no_prd_alignment_confirmed_issue",
+  "recovery_hint": "提供 prd:<repo-relative-path> 后重新运行审查。",
+  "handoff_target": "spec-plan",
+  "legacy_aliases": ["prd_missing"]
+}
+```
+
+字段含义：
+
+```text
+code:
+  canonical reason_code。旧实现里的 prd_missing / figma_missing 等只能作为 legacy_aliases。
+
+capability:
+  被影响的审查能力，例如 product_consistency / design_consistency / task_fidelity。
+
+affected_experts:
+  哪些专家需要 skip、focused、advisory 或降低结论等级。
+
+expert_action:
+  skip | focused | advisory_only | bounded_static | unavailable。
+
+conclusion_cap:
+  缺输入后允许输出的最高结论边界。
+
+recovery_hint:
+  用户或 parent workflow 如何补足输入。
+
+handoff_target:
+  可选。只有需要上游 workflow 补输入时才填写。
+```
+
+推荐在 `preflight.json`、`app-audit-context.json`、summary 和 headless envelope 中同步输出能力覆盖表：
+
+```json
+{
+  "coverage_capabilities": {
+    "code_static": "available",
+    "product_consistency": "unavailable",
+    "design_consistency": "unavailable",
+    "architecture_static": "available",
+    "architecture_intent_conformance": "unavailable",
+    "task_fidelity": "unavailable",
+    "analytics_static": "available",
+    "i18n_static": "available",
+    "industry_review": "advisory_only",
+    "runtime_verification": "deferred"
+  }
+}
+```
+
+#### 输入缺失处理矩阵
+
+| 输入 / 条件 | 是否中断 | 状态 | 被影响能力 | 专家行为 | 禁止输出的结论 | 允许继续输出 |
+|---|---:|---|---|---|---|---|
+| source root 不存在、不可读、越界或 symlink escape | 是 | failed | 全部 | 不调度专家 | 全部 issue | failed envelope + reason_code |
+| source scan truncated | 否 | degraded | code_static / architecture_static 置信度降低 | bounded_static | 全仓影响面 confirmed | 基于已扫描文件的 bounded finding |
+| default 模式缺 base | 否 | degraded | diff_scope | focused | 精确 diff impact confirmed | current-worktree / changed-files 可得范围审查 |
+| headless / from:code-review 缺 base 且无法确定 scope | 是 | failed | diff_scope | 不调度专家 | 全部 issue | failed envelope + `scope_headless_missing_base` |
+| PRD 缺失 | 否 | degraded | product_consistency | Product Expert advisory 或 skip | “违反 PRD / 未满足产品要求” confirmed issue | 源码静态问题、产品输入缺失 handoff |
+| Figma context 缺失 | 否 | degraded | design_consistency | Design Expert advisory 或 skip | “违反 Figma / 设计稿未实现” confirmed issue | UI 源码静态问题、设计输入缺失 handoff |
+| 只有 Figma ref，没有 materialized JSON | 否 | degraded | design_consistency | Design Expert advisory 或 skip | 从 node id / URL 推断的 design confirmed issue | `figma-ref` 作为 missing-context pointer |
+| PRD 和 Figma 都缺失 | 否 | degraded | product_design_cross_check | Product / Design skip 或 advisory | 产品-设计-代码三方一致性 confirmed issue | App source static audit |
+| 技术方案缺失 | 否 | degraded 或不记录 | architecture_intent_conformance | KMP / Architecture 只做源码静态审查 | “违反技术方案” confirmed issue | 基于源码的 KMP / Clean Architecture finding |
+| 开发任务文档缺失 | 否 | degraded 或不记录 | task_fidelity | 不启用 task-fidelity lens | “任务未完成 / 偏离任务” confirmed issue | 基于 diff/source 的 App issue |
+| Graph unavailable / stale / definitions-only | 否 | degraded | impact_breadth | bounded_static | 全调用链影响 confirmed | 本地 bounded source scan |
+| analytics 文件缺失且无 PRD analytics 要求 | 否 | complete 或 degraded | analytics_static | Analytics Expert skip | “缺埋点” confirmed issue | Coverage 说明未覆盖 analytics |
+| analytics 文件缺失但 PRD 明确要求埋点 | 否 | degraded | analytics_consistency | Analytics Expert focused | 仅靠规则包的缺埋点 confirmed issue | 基于 PRD + code 搜索 evidence 的 candidate/confirmed |
+| i18n 资源缺失且有用户可见文案代码证据 | 否 | degraded | i18n_static | I18n Expert focused | 无代码 evidence 的 i18n issue | 基于 hardcoded text evidence 的 finding |
+| industry 只有术语候选 | 否 | advisory_only | industry_review | Industry Expert advisory | 行业 confirmed issue | 行业风险提示和补充确认建议 |
+| rule-pack-only 命中 | 否 | advisory_only | related lens | 对应专家 advisory | confirmed issue | advisory risk |
+| validator unavailable | 否 | degraded | validation | 保留 validation_status | 把 unavailable 当作反证 | 强证据 confirmed 可保留并标记未独立复核 |
+
+技术方案和开发任务文档在当前实现中不是 first-class input。升级方案若未来加入，只能作为可选输入：
+
+```text
+tech-plan:<repo-relative-path>
+task-doc:<repo-relative-path>
+```
+
+默认缺失时不应每次都写 noisy degraded mode。只有满足以下条件之一，才记录 `input_tech_plan_missing` 或 `input_task_doc_missing`：
+
+```text
+1. 用户显式要求审查“是否符合技术方案 / 开发任务文档”。
+2. parent workflow 在 headless 调用中声明 expected_inputs 包含 tech_plan / task_doc。
+3. audit-plan 需要使用该输入才能判断某个高价值 finding。
+```
+
+#### 结论封顶规则
+
+缺输入时，最大结论等级必须被封顶：
+
+```text
+缺 PRD:
+  - product_alignment claim: out_of_scope / advisory / candidate
+  - code_static claim: 可 confirmed，只要有源码 evidence
+
+缺 Figma:
+  - design_alignment claim: out_of_scope / advisory / candidate
+  - ui_code_static claim: 可 confirmed，只要有源码 evidence
+
+缺技术方案:
+  - architecture_intent_conformance claim: out_of_scope / advisory
+  - architecture_static claim: 可 confirmed，只要有源码 evidence
+
+缺开发任务文档:
+  - task_fidelity claim: out_of_scope / advisory
+  - implementation_quality claim: 可 confirmed，只要有源码 evidence
+
+缺 Graph:
+  - impact_breadth claim: candidate / bounded_static
+  - local_code claim: 可 confirmed，只要扫描范围和 evidence 明确
+
+未确认 industry:
+  - industry_compliance claim: advisory / candidate
+  - generic_app_quality claim: 可 confirmed，只要不依赖行业规则作为唯一 evidence
+```
+
+Report Writer 必须把被封顶的 finding 放入 `candidate_issues`、`advisory_risks` 或 Coverage，不能为了报告完整性把它们提升为 confirmed。
+
+#### 当前实现 reason_code alias 对齐
+
+当前脚本已经存在一些旧 code。升级时不必破坏旧报告，但新 artifact 应使用 canonical code，并在 `legacy_aliases` 中标注旧名：
+
+| 当前 / legacy code | canonical code | 处理 |
+|---|---|---|
+| `prd_missing` | `input_prd_missing` | 保留读取兼容，新写 canonical |
+| `figma_missing` / `figma_context_missing` | `input_figma_context_missing` | 保留读取兼容，新写 canonical |
+| `figma_materialized_context_missing` | `input_figma_reference_only` | 表示 ref-only，不可作为 evidence |
+| `prd_and_figma_missing` | `input_product_design_context_missing` | 表示三方一致性能力不可用 |
+| `source_unreadable` | `scope_source_unreadable` | headless/default 均应失败或 bounded fallback |
+| `source_scan_truncated` | `source_scan_truncated` | 限制全仓影响面结论 |
+
+### 4.6.2 输入期望、运行状态与结论封顶传播
+
+精准降级必须区分三个层次，不能把它们混成一个 `degraded`：
+
+```text
+run_status:
+  本轮 workflow 是否成功执行到可消费输出。
+
+coverage_capabilities:
+  本轮覆盖了哪些审查能力，哪些能力缺输入、降级或不适用。
+
+issue_status / conclusion_cap:
+  某条 finding 依据现有 evidence 最多能进入 confirmed / candidate / advisory / out_of_scope 哪一层。
+```
+
+#### 输入期望等级
+
+同一个输入缺失，在不同调用意图下影响不同。preflight 必须先把输入分成四类：
+
+```text
+required:
+  当前 mode 的硬前提。缺失即 failed。
+
+expected:
+  用户显式提供、父 workflow 声明 expected_inputs、或当前审查目标明确依赖的输入。缺失通常是 degraded。
+
+opportunistic:
+  有则增强审查，缺失不应把 run 标记为 degraded，只应体现在 coverage gap。
+
+not_applicable:
+  当前项目形态或用户目标不需要该输入。缺失不记录 degraded。
+```
+
+最小结构：
+
+```json
+{
+  "input_expectations": {
+    "source": {
+      "level": "required",
+      "status": "available",
+      "effect": "run_can_continue"
+    },
+    "prd": {
+      "level": "opportunistic",
+      "status": "missing",
+      "effect": "product_consistency_unavailable"
+    },
+    "figma_context": {
+      "level": "opportunistic",
+      "status": "missing",
+      "effect": "design_consistency_unavailable"
+    },
+    "tech_plan": {
+      "level": "not_applicable",
+      "status": "not_provided",
+      "effect": "no_degraded_mode"
+    },
+    "task_doc": {
+      "level": "not_applicable",
+      "status": "not_provided",
+      "effect": "no_degraded_mode"
+    }
+  }
+}
+```
+
+run status 规则：
+
+```text
+failed:
+  - required input 缺失或不可读
+  - mode 冲突
+  - headless/from:code-review 无法确定 required diff scope
+  - required artifact schema invalid 且无法降级
+
+degraded:
+  - expected input 缺失
+  - provider / graph / validator / expert 失败但可继续
+  - source scan truncated 或 fallback 到 bounded source scan
+
+complete:
+  - required inputs 可用
+  - expected inputs 满足或不存在
+  - opportunistic inputs 缺失只形成 coverage gap，不降级 run_status
+```
+
+因此，“没有 PRD / 没有 Figma / 没有技术方案 / 没有开发任务文档”不是同一种状态：
+
+```text
+用户只是要求 App 源码静态审查:
+  PRD/Figma/tech-plan/task-doc = opportunistic 或 not_applicable
+  run_status 可以是 complete
+  coverage_capabilities 标记对应能力 unavailable
+
+用户要求审查是否符合 PRD:
+  PRD = expected
+  PRD 缺失 => run_status degraded，product_alignment out_of_scope
+
+code-review headless 要求 App 专项审查并传 expected_inputs:
+  expected 输入缺失 => run_status degraded，写 workflow_handoff_suggestions
+
+source root 缺失:
+  source = required
+  run_status failed
+```
+
+#### Claim Type 证据需求矩阵
+
+`claim_type` 必须声明它依赖哪些证据源。Evidence Gate 应基于该矩阵执行结论封顶；LLM Evidence Auditor 只负责语义充分性复核。
+
+| claim_type / claim family | required evidence for confirmed | 缺证据时最高状态 |
+|---|---|---|
+| `product_alignment` | PRD/product contract + code evidence | candidate / advisory / out_of_scope |
+| `design_alignment` | materialized Figma contract + code evidence | candidate / advisory / out_of_scope |
+| `product_design_code_alignment` | PRD + materialized Figma + code evidence | candidate / advisory / out_of_scope |
+| `architecture_static` | code / module / KMP contract evidence | confirmed |
+| `architecture_intent_conformance` | tech-plan + code evidence | advisory / out_of_scope |
+| `task_fidelity` | task-doc + diff/source evidence | advisory / out_of_scope |
+| `analytics_static` | analytics code/resource evidence | confirmed |
+| `analytics_requirement_alignment` | PRD analytics requirement + code evidence | candidate / confirmed when both present |
+| `i18n_static` | user-facing code/resource evidence | confirmed |
+| `industry_compliance` | confirmed industry profile + project-specific evidence | advisory / candidate |
+| `runtime_behavior` | runtime validation result | runtime_verification_suggestion |
+
+规则：
+
+```text
+1. Evidence Gate 可以根据 required evidence sources 做确定性 reject / downgrade。
+2. Evidence Gate 不能判断“证据语义是否足够强”，这仍归 LLM Evidence Auditor。
+3. 专家输出 finding 时必须填写 claim_type；缺 claim_type 的 finding 不能进入 confirmed 流程。
+4. Report Writer 不得通过改标题绕过 claim_type 的 evidence requirement。
+```
+
+#### 降级传播责任链
+
+```text
+Preflight:
+  计算 input_expectations、coverage_capabilities、degraded_modes、conclusion_caps。
+
+App Audit Context:
+  合并所有 caps，并保留 legacy_aliases，供 planner 和 experts 使用。
+
+LLM Audit Planner:
+  根据 coverage_capabilities 选择专家。
+  如果能力 unavailable，只能 skip 或 advisory，不得强启专家制造 confirmed issue。
+
+Expert Agents:
+  接收 conclusion_caps。
+  finding 必须带 claim_type、evidence 和 contract_status。
+  专家可以提出 missing-input residual risk，但不能把缺输入本身写成产品缺陷。
+
+Normalize / Enrich:
+  为 finding 补充 cap_context、required_evidence_sources、missing_evidence_sources。
+
+Deterministic Evidence Gate:
+  根据 claim_type 证据需求矩阵执行结构性降级或拒绝。
+
+LLM Evidence Auditor:
+  复核证据语义是否支持标题、严重等级、影响和建议。
+
+Final Partition:
+  在 confirmed / candidate / advisory / rejected 分区时应用 conclusion_cap。
+
+Report Writer:
+  在 Coverage 中展示 input_expectations、coverage_capabilities 和 conclusion_caps。
+```
+
+#### 反模式
+
+```text
+1. 把缺 PRD / Figma / 技术方案 / 任务文档统一标成 run failed。
+2. 把 opportunistic 输入缺失统一标成 degraded run。
+3. 因为缺 PRD 就停止源码静态审查。
+4. 用文件名、目录名、术语候选或 rule-pack 代替缺失 PRD/Figma。
+5. 把“缺任务文档”写成“任务未完成”的 confirmed issue。
+6. 把 “Figma URL / node id 存在”当成 design evidence。
+7. 让 Report Writer 通过自然语言摘要绕过 Evidence Gate 的 conclusion_cap。
+8. 在 headless 模式下为了补输入去问用户或拉取外部上下文。
 ```
 
 ### 4.7 Input Materialization 与路径边界
@@ -2404,6 +2745,22 @@ commonMain 出现 Android Context
     "issue": "spec-app-consistency-audit-issue.v1"
   },
   "depth": "default|deep",
+  "input_expectations": {
+    "source": "required:available",
+    "prd": "opportunistic:missing",
+    "figma_context": "opportunistic:missing",
+    "tech_plan": "not_applicable:not_provided",
+    "task_doc": "not_applicable:not_provided"
+  },
+  "coverage_capabilities": {
+    "code_static": "available",
+    "product_consistency": "available|degraded|unavailable",
+    "design_consistency": "available|degraded|unavailable",
+    "architecture_static": "available|degraded|unavailable",
+    "architecture_intent_conformance": "available|degraded|unavailable",
+    "task_fidelity": "available|degraded|unavailable",
+    "runtime_verification": "deferred"
+  },
   "summary_path": ".spec-first/app-audit/runs/<run-id>/app-consistency-audit.summary.md",
   "issues_path": ".spec-first/app-audit/runs/<run-id>/issues.json"
 }
@@ -2462,6 +2819,8 @@ app-consistency-audit.summary.md
 - selected experts
 - skipped experts
 - audit mode
+- capability coverage
+- degraded modes with conclusion caps
 
 ## 3. 改动影响分析
 - business rule impact
@@ -2531,7 +2890,9 @@ Rejected findings:
 - <title> -- <deterministic gate | validator | evidence auditor reason>
 
 Coverage:
+- Capability coverage: <capability=available|degraded|unavailable|advisory_only|deferred>
 - Degraded modes: <codes>
+- Conclusion caps: <claim_type -> max_status>
 - Failed experts: <experts>
 - Evidence gate drops: <N>
 - Validator drops: <N>
@@ -2625,9 +2986,12 @@ non_negotiables:
 18. artifact-manifest.json
 19. strict issue schema + compatibility validation mode
 20. workflow-handoff-suggestions.json
-21. secrets / network / remote execution / runtime validation 默认阻断或 deferred 的安全边界
-22. CLI subprocess e2e test：覆盖 run-scoped path，不再只测扁平 .spec-first/app-audit/
-23. 最小 eval / 回归集：trigger、boundary、mode、artifact、evidence、safety、handoff
+21. coverage_capabilities + precise degraded_modes + conclusion_caps
+22. input_expectations + run_status / coverage_capabilities / issue_status 分层
+23. claim_type required evidence matrix
+24. secrets / network / remote execution / runtime validation 默认阻断或 deferred 的安全边界
+25. CLI subprocess e2e test：覆盖 run-scoped path，不再只测扁平 .spec-first/app-audit/
+26. 最小 eval / 回归集：trigger、boundary、mode、artifact、evidence、safety、handoff、precise-degradation
 ```
 
 暂缓：
@@ -2715,6 +3079,8 @@ Maestro / Appium flow
 5. README 入口只写稳定能力，不提前承诺未实现的 LLM Audit Planner / Validation Pass 全自动链路。
 6. 将全流程 handoff 边界写入 SKILL.md：app-audit 只建议 spec-plan / spec-code-review / spec-skill-audit / spec-polish-beta / spec-compound，不内联执行。
 7. 明确 skill-audit deterministic scorecard 只是设计输入，不作为 app-audit 执行 gate。
+8. 在 SKILL.md Inputs / Failure Modes 中明确：PRD、Figma、技术方案、开发任务文档都是可选输入，缺失时精准降级而不是默认中断。
+9. 在 SKILL.md Workflow 中明确降级传播链：preflight -> context -> planner -> experts -> evidence gate -> evidence auditor -> report writer。
 ```
 
 ### P0：先保证能稳定执行
@@ -2727,6 +3093,8 @@ Maestro / Appium flow
 5. 建立 report-only no-write 回归测试，确认不会写 preflight/input/preview/run artifacts
 6. 建立 generated runtime drift 检查：只读验证 source 投递，不手改 runtime
 7. 建立 secrets / remote execution / network / runtime validation 默认阻断或 deferred 测试
+8. 建立 precise-degradation 回归测试：缺 PRD、缺 Figma、ref-only、缺技术方案、缺任务文档、缺 Graph、source scan truncated、headless 缺 base 的状态与结论封顶正确。
+9. 建立 run_status 分层测试：opportunistic 输入缺失不导致 run degraded；expected 输入缺失才 degraded；required 输入缺失才 failed。
 ```
 
 ### P0：先补可执行 workflow contract
@@ -2743,6 +3111,9 @@ Maestro / Appium flow
 9. workflow-handoff-suggestions.json
 10. global safety / redaction / data_sensitivity contract
 11. agent catalog graduation policy
+12. precise degraded_modes schema：capability、affected_experts、expert_action、conclusion_cap、recovery_hint、legacy_aliases
+13. input_expectations schema：required / expected / opportunistic / not_applicable
+14. claim_type evidence requirement matrix
 ```
 
 ### P1：补 Impact Facts + LLM Audit Planner，而不是全量专家
@@ -2755,6 +3126,7 @@ Maestro / Appium flow
 5. 专家按 plan 启用
 6. 报告按启用专家动态输出章节
 7. planner 只决定 app-audit 专家组合；跨 workflow 建议写入 workflow_handoff_suggestions，不直接调度其他 workflow
+8. planner 必须消费 coverage_capabilities 和 conclusion_caps；能力 unavailable 时只能 skip 或 advisory，不得强启专家制造 confirmed issue
 ```
 
 ### P1：Figma 链路要真实可用
@@ -2794,6 +3166,8 @@ Maestro / Appium flow
 2. 对 report-only no-write、headless failed envelope、Figma ref-only degraded、rule-pack-only rejection 做回归测试。
 3. 对 skill quality / runtime drift / missing PRD 等非 App issue 场景验证 handoff suggestion。
 4. fresh-source eval 只验证 source skill / prompt 当前磁盘内容，不依赖已加载 runtime cache。
+5. 对 conclusion_cap 做断言：缺 PRD 不能输出 PRD alignment confirmed，缺 Figma 不能输出 design alignment confirmed，缺任务文档不能输出 task fidelity confirmed。
+6. 对 claim_type evidence matrix 做断言：product_alignment 必须有 PRD+code，design_alignment 必须有 Figma+code，task_fidelity 必须有 task-doc+diff/source。
 ```
 
 ### P2：code-review 协作
@@ -2841,4 +3215,4 @@ code-review 默认根据 diff 命中情况推荐 app-audit
 
 最终一句话：
 
-> 不要把 `spec-app-consistency-audit` 做成每次全量跑的重型平台，也不要把 Router 做成隐藏规则引擎；要把它做成 App 专项审查 orchestrator，由脚本提供确定性 facts，由 LLM 组织最小专家小组，做到轻入口、强专家、证据驱动、按需深审，并通过结构化 handoff 把不属于 App 一致性的问题交还给正确 workflow。
+> 不要把 `spec-app-consistency-audit` 做成每次全量跑的重型平台，也不要把 Router 做成隐藏规则引擎；要把它做成 App 专项审查 orchestrator，由脚本提供确定性 facts，由 LLM 组织最小专家小组，做到轻入口、强专家、证据驱动、按需深审、精准降级，并通过结构化 handoff 把不属于 App 一致性的问题交还给正确 workflow。

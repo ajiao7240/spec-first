@@ -125,6 +125,8 @@ spec-first init --codex -u <name> --lang zh
 $spec-brainstorm "改进 onboarding"
 ```
 
+如果不确定该用哪个 workflow，可以在宿主会话中直接描述任务或询问下一步；`using-spec-first` 会推荐一个公开入口并说明原因。
+
 ### 完成标志
 
 第一次 brainstorm 运行会生成类似这样的 requirements brief：

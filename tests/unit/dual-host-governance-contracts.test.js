@@ -184,7 +184,7 @@ describe('dual-host governance contracts', () => {
     expect(mcpSetup).toContain('Helper tools:');
     expect(mcpSetup).toContain('Project setup facts:');
     expect(mcpSetup).toMatch(/\|\s*Name\s*\|\s*Role\s*\|\s*Dependency\s*\|\s*Host\s*\|\s*Project\s*\|\s*Next\s*\|/);
-    expect(mcpSetup).toMatch(/\|\s*Name\s*\|\s*Role\s*\|\s*Dependency\s*\|\s*Host\s*\|\s*Query\s*\|\s*Next\s*\|/);
+    expect(mcpSetup).toMatch(/\|\s*Name\s*\|\s*Role\s*\|\s*Dependency\s*\|\s*Host\s*\|\s*Query\s*\|\s*Bootstrap\s*\|\s*Next\s*\|/);
     expect(mcpSetup).toMatch(/\|\s*Name\s*\|\s*Type\s*\|\s*Result\s*\|\s*Dependency\s*\|\s*Install\s*\|\s*Skill\s*\|\s*Next\s*\|/);
     expect(mcpSetup).toMatch(/\|\s*Artifact\s*\|\s*Project\s*\|\s*Next\s*\|/);
     expect(mcpSetup).toContain('下一步:');
