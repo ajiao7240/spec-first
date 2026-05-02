@@ -2,7 +2,7 @@
 
 本文说明当前 `spec-first` 会写入哪些 project-local runtime/control-plane 产物、它们由谁生成、后续如何被使用，以及哪些目录不应提交到 Git。
 
-当前版本的图相关产物是 **external graph-provider readiness facts**，不是内置代码图库。脚本负责写入确定性事实，LLM 根据这些事实判断下一步是否使用 GitNexus、code-review-graph 或 bounded direct repo reads。
+当前版本的图相关产物是 **external graph-provider readiness facts**，不是内置代码图库。App consistency audit、skill audit 和 quality gate 等目录也是可重建的执行产物。脚本负责写入确定性事实，LLM 根据这些事实判断下一步是否使用 GitNexus、code-review-graph、bounded direct repo reads 或专项审查报告。
 
 ## 总览
 
@@ -13,6 +13,7 @@
 | `.spec-first/graph/` | `spec-graph-bootstrap` canonical graph readiness 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 提供下游 workflow 读取的 graph readiness 真相源与用户报告 | `provider-status.json`、`graph-facts.json`、`bootstrap-report.md` |
 | `.spec-first/impact/` | `spec-graph-bootstrap` capability envelope 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 表达 context selection、impact radius、review support 的 primary/fallback 支持情况 | `bootstrap-impact-capabilities.json` |
 | `.spec-first/audits/skill-audit/` | `spec-skill-audit` source skill audit 阶段 | `/spec:skill-audit`、`$spec-skill-audit` 或直接运行 `write-audit-artifacts.js` | 保存 source skill inventory、scorecard、安全/治理/runtime drift 信号和改进计划 | `latest/skill-audit-summary.md`、`latest/skill-improvement-plan.md`、`latest/*.json`、`latest/patch-preview/*` |
+| `.spec-first/app-audit/runs/<run-id>/` | `spec-app-consistency-audit` App 一致性审查阶段 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit` | 保存移动 App PRD / Figma / source / route / architecture / analytics / i18n 静态一致性审查证据 | `metadata.json`、`preflight.json`、`impact-facts.json`、`issues.json`、`audit-report.json`、`app-consistency-audit.md` |
 | `.spec-first/workflows/verification/<slug>/` | verification evidence 阶段 | 上游 verification 流程写入，`doctor` 读取 | 作为验证证据投递目录 | `verification-evidence.json` |
 | `.spec-first/workflows/quality-gates/ai-dev-quality-gate/` | AI Dev Quality Gate 阶段 | `npm run test:ai-dev:gate` | 记录质量门结果与失败主题，供后续诊断和知识沉淀 | `ai-dev-quality-gate-result.json`、`quality-feedback-topics.json`、JUnit 输出 |
 
@@ -25,6 +26,7 @@
 | `graph/` | canonical readiness facts | `spec-plan` 等下游 workflow 判断 graph facts 是否 primary、degraded、blocked 或 stale |
 | `impact/` | impact/review capability envelope | 下游 workflow 决定是否使用 provider 影响分析，或回退 bounded direct repo reads |
 | `audits/skill-audit/` | skill audit execution artifacts | 维护者读取审计摘要、P0/P1 evidence、score signals 和改进计划 |
+| `app-audit/runs/` | App consistency audit execution artifacts | 评审者读取静态一致性报告、degraded modes、issues 和 runtime follow-up 建议 |
 | `verification/*` | 验证证据投递目录 | `doctor` 校验与汇总 |
 | `quality-gates/*` | 质量门机器结果 | gate 结果留痕与失败主题沉淀 |
 
@@ -37,6 +39,7 @@
 | `graph/` | `spec-plan`，后续 graph-aware workflow | plan / work / review 前置判断 | 判断 graph readiness、provider 覆盖、confidence、limitations 与 staleness |
 | `impact/` | `spec-plan`，后续 impact-aware workflow | plan / work / review 前置判断 | 判断 impact radius、review support 与 context selection 是否有可信 provider 支持 |
 | `audits/skill-audit` | 维护者、`spec-skill-audit` 后续 LLM 审查 | skill 审计后 | 查看 deterministic facts、score signals、P0/P1 evidence 和 patch preview 建议 |
+| `app-audit/runs/<run-id>` | 评审者、`spec-code-review` headless 调用、后续 QA / runtime validation | App 一致性审查后 | 查看 PRD/Figma/source 一致性问题、证据链、降级范围和运行时验证建议 |
 | `verification/<slug>` | `src/cli/commands/doctor.js` | `doctor` 检查阶段 | 校验 verification evidence 是否存在、有效、足够新 |
 | `quality-gates/ai-dev-quality-gate` | `scripts/run-ai-dev-quality-gate.js`、`src/verification/quality-feedback.js` | AI gate 执行后 | 记录 gate 结果并提取失败主题 |
 
@@ -150,7 +153,37 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 - 需要审单个 skill 时使用 `--target skills/<skill-name>` 或宿主入口后跟 `skills/<skill-name>`
 - runtime drift finding 的修复方式是 `spec-first init --claude` 或 `spec-first init --codex`，不是手改 `.claude/`、`.codex/`、`.agents/skills/`
 
-## 6. verification/&lt;slug&gt;
+## 6. app-audit/runs/
+
+| 项目 | 内容 |
+| --- | --- |
+| 阶段 | App consistency audit |
+| 触发 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit` |
+| 目录形状 | `.spec-first/app-audit/runs/<run-id>/`，并可带 `latest-summary.json` 指针 |
+| 关键源码 | `skills/spec-app-consistency-audit/scripts/*` |
+| 事实边界 | 审计执行产物；不是 source truth，不进入 Git |
+
+### 写入内容
+
+| 文件 | 角色 |
+| --- | --- |
+| `metadata.json` | run id、scope、head sha、diff hash、worktree fingerprint 和审查模式 |
+| `artifact-manifest.json` | 本次 run 写出的 artifact 清单、hash 和 path contract |
+| `preflight.json` | 输入可用性、degraded modes、Figma reference/context 状态 |
+| `impact-facts.json` | source、diff、route、interaction 和候选影响面机器事实 |
+| `app-audit-context.json` | LLM 专家使用的聚合上下文和 capability coverage |
+| `issues.json` | 通过 deterministic evidence gate 后的结构化 issue 集合 |
+| `audit-report.json` | 机器可读审查报告 |
+| `app-consistency-audit.md` | 面向用户的静态一致性审查报告 |
+
+协作规则：
+
+- `.spec-first/app-audit/` 默认不进入 Git，报告需要共享时应摘录结论或另存为团队约定的 durable doc。
+- `figma-context:<path>` 才是可抽取 evidence；`figma-ref:<id-or-url>` 只是 reference。
+- Figma MCP 是宿主可选能力，用来 materialize 本地 JSON，不属于 required harness setup。
+- `mode:headless` 供 `spec-code-review` 等父流程消费；`mode:report-only` 不写 run artifacts。
+
+## 7. verification/&lt;slug&gt;
 
 | 项目 | 内容 |
 | --- | --- |
@@ -162,7 +195,7 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 
 这个目录是验证证据投递目录。`doctor` 可读取并校验 evidence 文件，帮助判断运行时验证是否可信。
 
-## 7. quality-gates/ai-dev-quality-gate
+## 8. quality-gates/ai-dev-quality-gate
 
 | 项目 | 内容 |
 | --- | --- |
@@ -179,9 +212,9 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 | `quality-feedback-topics.json` | 失败主题，供后续知识沉淀参考 |
 | JUnit 输出 | 单测/契约测试的机器可读结果 |
 
-## 8. Git 边界
+## 9. Git 边界
 
-- `.spec-first/config/`、`.spec-first/providers/`、`.spec-first/graph/`、`.spec-first/impact/`、`.spec-first/audits/` 与 `.spec-first/workflows/` 默认不进入 Git。
+- `.spec-first/config/`、`.spec-first/providers/`、`.spec-first/graph/`、`.spec-first/impact/`、`.spec-first/audits/`、`.spec-first/app-audit/` 与 `.spec-first/workflows/` 默认不进入 Git。
 - `docs/solutions/`、`docs/plans/` 和 `docs/brainstorms/` 才是长期协作文档层。
 - provider readiness facts 是当前代码和工具状态的投影，不要把它改造成第二套手工维护事实源。
 - 若 graph facts stale、blocked 或 degraded，下游 workflow 应说明限制，并回退到 bounded direct repo reads 或其他已配置 provider。

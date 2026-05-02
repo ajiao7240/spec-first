@@ -4,9 +4,10 @@
 
 `spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init (--claude|--codex) / clean (--claude|--codex)` 把 Claude Code 的 `/spec:*` 命令、Codex 的 `$spec-*` skills、workflow skills、agents、agent support files、项目级 `.developer` 和受管状态安装到当前项目中。
 
-当前推荐的事实准备与知识沉淀入口：
+当前推荐的事实准备、专项审查与知识沉淀入口：
 
 - `spec-graph-bootstrap`：external graph-provider readiness facts 编译入口
+- `spec-app-consistency-audit`：移动 App 的 PRD / Figma / source / route / architecture / analytics / i18n 静态一致性审查入口
 - `spec-skill-audit`：source skill 质量、治理投递、runtime drift 与安全信号审计入口
 - `spec-compound`：工作完成后的稳定知识捕获入口
 
@@ -31,7 +32,7 @@
 - 一个前置的 `/spec:ideate` 候选发散入口
 - Claude Code 的 `/spec:*` 命令入口
 - Codex 的 `$spec-*` skill 入口
-- 当前推荐的 graph readiness 事实入口：`spec-graph-bootstrap`，source skill 审计入口 `spec-skill-audit`，以及知识沉淀入口 `spec-compound`
+- 当前推荐的 graph readiness 事实入口 `spec-graph-bootstrap`、App 一致性审查入口 `spec-app-consistency-audit`、source skill 审计入口 `spec-skill-audit`，以及知识沉淀入口 `spec-compound`
 - 一条 `Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound` 的标准闭环
 - 项目级 `.claude/commands/spec`
 - 项目级 `.claude/skills`、`.claude/spec-first/workflows` 与 `.claude/agents`
@@ -41,6 +42,23 @@
 - 可更新、可恢复、可清理的受管资产模型
 - 一条面向首次使用者的 workflow 走查，说明从一个需求句子到 requirements / plan / task pack 的真实产物链路
 - 一份 workflow 产物目录，说明每类文档和 generated runtime assets 的生成者、读取方与 Git 边界
+
+## App 一致性审查
+
+移动 App 的产品、设计和代码在进入模拟器、真机或打包验证前，可以使用专项入口做静态一致性审查：
+
+```text
+/spec:app-consistency-audit prd:<path> figma-context:<path> source:<path>
+$spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
+```
+
+它适合检查 PRD、materialized Figma context、本地源码、页面路由、KMP / Clean Architecture、组件复用、埋点、i18n 和行业规则之间是否一致。审查产物写入 `.spec-first/app-audit/runs/<run-id>/`，默认是 runtime/control-plane evidence，不作为长期手工维护文档提交。
+
+边界：
+
+- `figma-context:<path>` 是可抽取 evidence；`figma-ref:<id-or-url>` 只是 reference。
+- Figma MCP 是宿主可选能力，只在默认交互模式下用于 materialize 本地 JSON；它不是 `spec-mcp-setup` 的 required baseline。
+- 缺 PRD、Figma 或 graph readiness 时应降级披露能力范围，不把缺失输入直接当作整个审查失败。
 
 ![Spec-First 五阶段工作流](../assets/svg/spec-first-workflow.svg)
 

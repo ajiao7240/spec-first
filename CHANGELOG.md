@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.2 2026-05-02 15:55:52 leokuang: docs(app-audit): 更新用户手册与中英文 README，补齐 spec-app-consistency-audit 入口、适用场景、Figma evidence 边界和 .spec-first/app-audit 产物说明 (user-visible)
 - v1.6.2 2026-05-02 11:34:09 leokuang: fix(app-audit): 修复真实测试审查发现的 strict issue 空证据通过与 industry confirmed 正向路径缺失回归覆盖 (user-visible)
 - v1.6.2 2026-05-02 06:29:07 leokuang: docs(app-audit): 追加主测试链路通过记录，说明用户手册版本线漂移修复与 npm test 收口结果
 - v1.6.2 2026-05-02 06:26:00 leokuang: docs(manual): 同步用户手册版本线到 package.json 的 v1.6.2，修复主测试链路契约失败 (user-visible)
