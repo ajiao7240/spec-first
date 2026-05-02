@@ -6,6 +6,7 @@ const path = require('node:path');
 const {
   makeArtifact,
   parseCommonArgs,
+  redactForArtifactText,
   readArtifact,
   sourceInputFromFile,
   unavailableSourceInput,
@@ -20,11 +21,15 @@ const PROJECT_EVIDENCE_SOURCES = new Set([
   'figma',
   'design',
   'code',
+  'git_diff',
   'route',
   'architecture',
   'engineering_quality',
   'analytics',
   'i18n',
+  'tech_plan',
+  'task_doc',
+  'runtime_validation',
 ]);
 
 const SEVERITY_ORDER = {
@@ -34,6 +39,28 @@ const SEVERITY_ORDER = {
   low: 3,
   info: 4,
 };
+const CLAIM_FAMILY_REQUIREMENTS = {
+  product_alignment: [['prd', 'product'], ['code']],
+  design_alignment: [['figma', 'design'], ['code']],
+  product_design_code_alignment: [['prd', 'product'], ['figma', 'design'], ['code']],
+  architecture_static: [['code', 'route', 'architecture', 'engineering_quality', 'contract']],
+  architecture_intent_conformance: [['tech_plan'], ['code', 'architecture']],
+  task_fidelity: [['task_doc'], ['code', 'git_diff']],
+  analytics_static: [['analytics', 'code']],
+  analytics_requirement_alignment: [['prd', 'product'], ['analytics', 'code']],
+  i18n_static: [['i18n', 'code']],
+  industry_compliance: [['code', 'route', 'analytics', 'i18n', 'architecture']],
+  runtime_behavior: [['runtime_validation']],
+};
+const CODE_REVIEW_SEVERITY = {
+  blocker: 'P1',
+  high: 'P1',
+  medium: 'P2',
+  low: 'P3',
+  info: 'P3',
+};
+const TRACEABLE_EVIDENCE_FIELDS = ['file', 'path', 'artifact_id', 'node_id', 'route', 'event', 'key'];
+const CONFIRMED_INDUSTRY_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 function mergeContracts(options = {}) {
   const artifactPaths = options.artifacts || [];
@@ -67,39 +94,66 @@ function mergeContracts(options = {}) {
   });
 }
 
-function applyEvidenceGate(issues) {
-  return issues.map((issue) => {
+function applyEvidenceGate(issues, options = {}) {
+  return issues.map((inputIssue) => {
+    const issue = normalizeIssue(inputIssue, options);
     const allEvidence = collectIssueEvidence(issue);
     const projectEvidence = collectProjectEvidence(issue);
     const rulePackEvidence = collectRulePackEvidence(issue);
     if (allEvidence.length === 0) {
-      return {
-        ...issue,
-        contract_status: 'rejected',
-        static_confirmed: false,
-        evidence_gate: {
-          passed: false,
-          reason: 'issue_requires_evidence_or_provenance',
-          project_evidence_count: 0,
-          rule_pack_evidence_count: rulePackEvidence.length,
-        },
-      };
+      return rejectIssue(issue, {
+        reason: 'issue_requires_evidence_or_provenance',
+        projectEvidence,
+        rulePackEvidence,
+      });
+    }
+    if (issue.contract_status === 'confirmed' && !issue.claim_family) {
+      return rejectIssue(issue, {
+        reason: 'confirmed_issue_requires_claim_family',
+        projectEvidence,
+        rulePackEvidence,
+      });
     }
     if (issue.contract_status === 'confirmed' && projectEvidence.length === 0) {
+      return rejectIssue(issue, {
+        reason: 'confirmed_issue_requires_project_specific_evidence',
+        projectEvidence,
+        rulePackEvidence,
+      });
+    }
+    if (issue.contract_status === 'confirmed'
+      && issue.claim_family === 'industry_compliance'
+      && !isIndustryConfirmed(issue, options)) {
+      return rejectIssue(issue, {
+        reason: 'industry_confirmed_issue_requires_confirmed_industry_profile',
+        projectEvidence,
+        rulePackEvidence,
+      });
+    }
+    const missingEvidenceSources = missingRequiredEvidenceSources(issue);
+    if (issue.contract_status === 'confirmed' && missingEvidenceSources.length > 0) {
       return {
         ...issue,
-        contract_status: 'rejected',
+        contract_status: 'candidate',
         static_confirmed: false,
+        missing_evidence_sources: missingEvidenceSources,
         evidence_gate: {
           passed: false,
-          reason: 'confirmed_issue_requires_project_specific_evidence',
-          project_evidence_count: 0,
+          reason: 'claim_family_required_evidence_missing',
+          project_evidence_count: projectEvidence.length,
           rule_pack_evidence_count: rulePackEvidence.length,
         },
+        review_lifecycle: appendLifecycle(issue, {
+          stage: 'deterministic_evidence_gate',
+          action: 'downgraded',
+          reason_code: 'claim_family_required_evidence_missing',
+          missing_evidence_sources: missingEvidenceSources,
+        }),
       };
     }
     return {
       ...issue,
+      missing_evidence_sources: [],
       evidence_gate: {
         passed: true,
         reason: projectEvidence.length > 0
@@ -108,6 +162,13 @@ function applyEvidenceGate(issues) {
         project_evidence_count: projectEvidence.length,
         rule_pack_evidence_count: rulePackEvidence.length,
       },
+      review_lifecycle: appendLifecycle(issue, {
+        stage: 'deterministic_evidence_gate',
+        action: 'accepted',
+        reason_code: projectEvidence.length > 0
+          ? 'project_specific_evidence_present'
+          : 'advisory_evidence_only',
+      }),
     };
   });
 }
@@ -115,14 +176,11 @@ function applyEvidenceGate(issues) {
 function buildAuditReport(options = {}) {
   const artifacts = (options.artifacts || []).map((filePath) => readArtifact(filePath));
   const pilotValidation = options.pilotValidation ? readArtifact(options.pilotValidation) : null;
-  const rawIssues = (options.issues || []).flatMap((filePath) => {
-    const input = readArtifact(filePath);
-    return Array.isArray(input) ? input : (input.issues || []);
-  });
-  const gatedIssues = applyEvidenceGate(rawIssues);
+  const gatedIssues = gateInputIssues(options);
   const acceptedIssues = gatedIssues.filter((issue) => issue.contract_status !== 'rejected');
   const rejectedIssues = gatedIssues.filter((issue) => issue.contract_status === 'rejected');
   const scopeAndDegradedModes = artifacts.flatMap((artifact) => artifact.degraded_modes || []);
+  const writebackPreview = buildWritebackPreview(artifacts, acceptedIssues, options);
   const sourceInputs = [
     ...artifacts.flatMap((artifact) => artifact.source_inputs || []),
     ...(options.issues || []).map((filePath) => sourceInputFromFile('issues', filePath, options.repoRoot || process.cwd())),
@@ -142,16 +200,80 @@ function buildAuditReport(options = {}) {
       rejected_issues: rejectedIssues,
       section_coverage: buildCoverage(artifacts),
       regression_suggestions: buildRegressionSuggestions(acceptedIssues),
-      writeback_preview: buildWritebackPreview(artifacts, acceptedIssues),
+      writeback_preview: writebackPreview,
       mvp_validation: buildMvpValidationGate({
         issues: acceptedIssues,
         scope_and_degraded_modes: scopeAndDegradedModes,
         section_coverage: buildCoverage(artifacts),
-        writeback_preview: buildWritebackPreview(artifacts, acceptedIssues),
+        writeback_preview: writebackPreview,
         pilot_validation: pilotValidation,
       }),
     },
   });
+}
+
+function buildIssuesArtifact(options = {}) {
+  const gatedIssues = gateInputIssues(options);
+  const acceptedIssues = gatedIssues.filter((issue) => issue.contract_status !== 'rejected');
+  const rejectedIssues = gatedIssues.filter((issue) => issue.contract_status === 'rejected');
+  const sourceInputs = (options.issues || []).map((filePath) => sourceInputFromFile('issues', filePath, options.repoRoot || process.cwd()));
+  return makeArtifact({
+    schemaVersion: 'spec-app-consistency-audit-issues.v1',
+    artifactId: 'issues',
+    sourceInputs: sourceInputs.length > 0
+      ? sourceInputs
+      : [unavailableSourceInput('issues', 'issues', 'issue_inputs_missing')],
+    consumers: ['report-writer', 'spec-code-review'],
+    body: {
+      issues: sortIssues(acceptedIssues),
+      rejected_issues: rejectedIssues,
+      summary: summarizeIssues(acceptedIssues, rejectedIssues),
+    },
+  });
+}
+
+function gateInputIssues(options = {}) {
+  const inputArtifacts = (options.issues || []).map((filePath) => readArtifact(filePath));
+  const rawIssues = inputArtifacts.flatMap((input) => {
+    return Array.isArray(input) ? input : (input.issues || []);
+  });
+  const upstreamRejected = inputArtifacts.flatMap((input) => {
+    if (Array.isArray(input)) return [];
+    return Array.isArray(input.rejected_issues) ? input.rejected_issues : [];
+  });
+  const gatedIssues = applyEvidenceGate(rawIssues, {
+    fromCodeReview: options.fromCodeReview,
+    repoRoot: options.repoRoot,
+    source: options.source,
+    runId: options.runId,
+    confirmedIndustry: options.confirmedIndustry,
+  });
+  const rejectedIssues = upstreamRejected.map((issue) => normalizeRejectedIssue(issue, options));
+  return [...gatedIssues, ...rejectedIssues];
+}
+
+function normalizeRejectedIssue(issue, options = {}) {
+  const normalized = normalizeIssue({
+    ...issue,
+    contract_status: 'rejected',
+    static_confirmed: false,
+  }, options);
+  return {
+    ...normalized,
+    contract_status: 'rejected',
+    static_confirmed: false,
+    evidence_gate: normalized.evidence_gate || {
+      passed: false,
+      reason: 'rejected_by_upstream_issues_artifact',
+      project_evidence_count: collectProjectEvidence(normalized).length,
+      rule_pack_evidence_count: collectRulePackEvidence(normalized).length,
+    },
+    review_lifecycle: appendLifecycle(normalized, {
+      stage: 'deterministic_evidence_gate',
+      action: 'preserved',
+      reason_code: 'rejected_by_upstream_issues_artifact',
+    }),
+  };
 }
 
 function buildMvpValidationGate(report) {
@@ -220,6 +342,124 @@ function buildPilotValidationGate(report) {
   };
 }
 
+function normalizeIssue(issue, options = {}) {
+  const normalized = {
+    ...issue,
+    title: redactForArtifactText(issue.title || issue.id || 'App consistency audit finding', { maxLength: 240 }),
+    severity: normalizeSeverity(issue.severity),
+    contract_status: issue.contract_status || 'candidate',
+    confidence: normalizeConfidence(issue.confidence),
+    impact: normalizeTextArray(issue.impact || 'App consistency risk requires review.').map((entry) => redactForArtifactText(entry, { maxLength: 500 })),
+    recommendation: normalizeTextArray(issue.recommendation || 'Review and align the affected App contract.').map((entry) => redactForArtifactText(entry, { maxLength: 500 })),
+    affected_surface: issue.affected_surface && typeof issue.affected_surface === 'object' && !Array.isArray(issue.affected_surface)
+      ? sanitizeAffectedSurface(issue.affected_surface, options)
+      : { type: 'unknown', id: issue.id || 'unknown', file: 'unknown' },
+    evidence: sanitizeEvidence(issue.evidence, options),
+    provenance: sanitizeEvidenceArray(issue.provenance, undefined, options),
+    related_rule_packs: Array.isArray(issue.related_rule_packs) ? issue.related_rule_packs : [],
+    runtime_verification: issue.runtime_verification && typeof issue.runtime_verification === 'object'
+      ? sanitizeRuntimeVerification(issue.runtime_verification)
+      : { required: Boolean(issue.requires_runtime_verification), level: 'simulator', reason: 'Runtime verification requirement was not specified.' },
+    validation_status: issue.validation_status || 'not_required',
+    data_sensitivity: issue.data_sensitivity || 'internal',
+    review_lifecycle: appendLifecycle(issue, {
+      stage: 'normalize',
+      action: 'accepted',
+      reason_code: 'required_fields_normalized',
+    }),
+  };
+  if (typeof normalized.static_confirmed !== 'boolean') {
+    normalized.static_confirmed = normalized.contract_status === 'confirmed';
+  }
+  if (typeof normalized.requires_runtime_verification !== 'boolean') {
+    normalized.requires_runtime_verification = Boolean(normalized.runtime_verification.required);
+  }
+  if (typeof normalized.requires_real_device !== 'boolean') {
+    normalized.requires_real_device = normalized.runtime_verification.level === 'real_device';
+  }
+  if ((options.fromCodeReview || issue.code_review_handoff) && (!issue.code_review_handoff || issue.code_review_handoff.enabled !== false)) {
+    normalized.code_review_handoff = buildCodeReviewHandoff(normalized, options);
+  }
+  return normalized;
+}
+
+function rejectIssue(issue, details) {
+  return {
+    ...issue,
+    contract_status: 'rejected',
+    static_confirmed: false,
+    evidence_gate: {
+      passed: false,
+      reason: details.reason,
+      project_evidence_count: details.projectEvidence.length,
+      rule_pack_evidence_count: details.rulePackEvidence.length,
+    },
+    review_lifecycle: appendLifecycle(issue, {
+      stage: 'deterministic_evidence_gate',
+      action: 'rejected',
+      reason_code: details.reason,
+    }),
+  };
+}
+
+function appendLifecycle(issue, entry) {
+  const lifecycle = Array.isArray(issue.review_lifecycle) ? issue.review_lifecycle : [];
+  const key = `${entry.stage}:${entry.action}:${entry.reason_code || entry.reason || ''}`;
+  const exists = lifecycle.some((current) => `${current.stage}:${current.action}:${current.reason_code || current.reason || ''}` === key);
+  return exists ? lifecycle : [...lifecycle, entry];
+}
+
+function missingRequiredEvidenceSources(issue) {
+  const requirements = CLAIM_FAMILY_REQUIREMENTS[issue.claim_family] || [];
+  if (requirements.length === 0) return [];
+  const evidenceSources = new Set(collectProjectEvidence(issue).map((entry) => entry.source));
+  return requirements
+    .filter((aliases) => !aliases.some((source) => evidenceSources.has(source)))
+    .map((aliases) => aliases.join('|'));
+}
+
+function isIndustryConfirmed(issue, options) {
+  return typeof options.confirmedIndustry === 'string'
+    && CONFIRMED_INDUSTRY_PATTERN.test(options.confirmedIndustry);
+}
+
+function buildCodeReviewHandoff(issue, options = {}) {
+  return {
+    enabled: true,
+    severity: CODE_REVIEW_SEVERITY[normalizeSeverity(issue.severity)] || 'P2',
+    autofix_class: issue.severity === 'low' || issue.severity === 'info' ? 'advisory' : 'manual',
+    owner: issue.severity === 'low' || issue.severity === 'info' ? 'human' : 'downstream-resolver',
+    requires_verification: Boolean(issue.requires_runtime_verification || (issue.runtime_verification && issue.runtime_verification.required)),
+    summary: redactForArtifactText(issue.title || issue.id || 'App consistency audit finding', { maxLength: 240 }),
+    source_run_id: options.runId || issue.source_run_id || null,
+    source_issue_id: issue.id || null,
+  };
+}
+
+function normalizeSeverity(value) {
+  const normalized = String(value || 'medium').toLowerCase();
+  return SEVERITY_ORDER[normalized] === undefined ? 'medium' : normalized;
+}
+
+function normalizeConfidence(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value < 0) return 0;
+    if (value > 1) return 1;
+    return value;
+  }
+  const normalized = String(value || '').toLowerCase();
+  if (normalized === 'high') return 0.85;
+  if (normalized === 'medium') return 0.6;
+  if (normalized === 'low') return 0.35;
+  return 0.5;
+}
+
+function normalizeTextArray(value) {
+  if (Array.isArray(value)) return value.filter((entry) => typeof entry === 'string' && entry.length > 0);
+  if (typeof value === 'string' && value.length > 0) return [value];
+  return [];
+}
+
 function collectProjectEvidence(issue) {
   const entries = [];
   const evidence = issue.evidence || {};
@@ -244,6 +484,13 @@ function collectRulePackEvidence(issue) {
   if (Array.isArray(evidence)) {
     entries.push(...evidence.filter(isRulePackEvidence));
   }
+  if (evidence && typeof evidence === 'object' && !Array.isArray(evidence)) {
+    for (const [source, values] of Object.entries(evidence)) {
+      if (Array.isArray(values)) {
+        entries.push(...values.map((entry) => ({ source, ...entry })).filter(isRulePackEvidence));
+      }
+    }
+  }
   if (Array.isArray(evidence.rule_pack)) entries.push(...evidence.rule_pack);
   if (Array.isArray(evidence.rule_pack_selection)) entries.push(...evidence.rule_pack_selection);
   if (Array.isArray(issue.related_rule_packs)) entries.push(...issue.related_rule_packs.map((name) => ({ source: 'rule_pack', name })));
@@ -265,10 +512,17 @@ function collectIssueEvidence(issue) {
 
 function isProjectEvidence(entry) {
   if (!entry || typeof entry !== 'object') return false;
-  if (PROJECT_EVIDENCE_SOURCES.has(entry.source)) return true;
-  if (entry.source !== 'contract') return false;
   if (isRulePackEvidence(entry)) return false;
-  return Boolean(entry.file || entry.artifact_id || entry.path);
+  if (PROJECT_EVIDENCE_SOURCES.has(entry.source)) return hasTraceableEvidenceField(entry);
+  if (entry.source !== 'contract') return false;
+  return hasTraceableEvidenceField(entry);
+}
+
+function hasTraceableEvidenceField(entry) {
+  return TRACEABLE_EVIDENCE_FIELDS.some((field) => {
+    const value = entry[field];
+    return typeof value === 'string' && value.length > 0;
+  });
 }
 
 function isRulePackEvidence(entry) {
@@ -303,6 +557,8 @@ function summarizeIssues(issues, rejectedIssues) {
     low_count: issues.filter((issue) => issue.severity === 'low').length,
     rejected_count: rejectedIssues.length,
     static_confirmed_count: issues.filter((issue) => issue.static_confirmed === true).length,
+    candidate_count: issues.filter((issue) => issue.contract_status === 'candidate').length,
+    code_review_handoff_count: issues.filter((issue) => issue.code_review_handoff && issue.code_review_handoff.enabled).length,
   };
 }
 
@@ -324,14 +580,20 @@ function buildRegressionSuggestions(issues) {
   }));
 }
 
-function buildWritebackPreview(artifacts, issues) {
+function buildWritebackPreview(artifacts, issues, options = {}) {
   const domains = buildCoverage(artifacts);
+  const repoRoot = options.repoRoot || options.source || process.cwd();
+  const inferredRunDir = options.runDir || (options.output ? path.dirname(path.resolve(options.output)) : '');
+  const base = inferredRunDir
+    ? publicPath(repoRoot, inferredRunDir, 'run-outside-repo')
+    : path.posix.join('.spec-first/app-audit/runs', options.runId || '<run-id>');
+  const previewBase = path.posix.join(base, 'writeback-preview');
   return {
     mode: 'preview_only',
     auto_apply: false,
     paths: [
-      '.spec-first/app-audit/writeback-preview/repo-profile.patch.yaml',
-      '.spec-first/app-audit/writeback-preview/suggested-standards.md',
+      path.posix.join(previewBase, 'repo-profile.patch.yaml'),
+      path.posix.join(previewBase, 'suggested-standards.md'),
     ],
     suggested_profile_updates: {
       app_audit_domains_seen: Object.entries(domains).filter(([, present]) => present).map(([domain]) => domain),
@@ -340,10 +602,66 @@ function buildWritebackPreview(artifacts, issues) {
   };
 }
 
+function sanitizeAffectedSurface(surface, options = {}) {
+  return {
+    ...surface,
+    file: sanitizePathLike(surface.file || 'unknown', options),
+  };
+}
+
+function sanitizeEvidence(evidence, options = {}) {
+  if (Array.isArray(evidence)) return sanitizeEvidenceArray(evidence, undefined, options);
+  if (!evidence || typeof evidence !== 'object') return evidence;
+  return Object.fromEntries(Object.entries(evidence).map(([source, values]) => {
+    if (!Array.isArray(values)) return [source, values];
+    return [source, sanitizeEvidenceArray(values, source, options)];
+  }));
+}
+
+function sanitizeEvidenceArray(values, source, options = {}) {
+  if (!Array.isArray(values)) return [];
+  return values
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => sanitizeEvidenceEntry(source ? { source, ...entry } : entry, options));
+}
+
+function sanitizeEvidenceEntry(entry, options = {}) {
+  const sanitized = { ...entry };
+  for (const field of ['summary', 'file', 'path', 'artifact_id', 'node_id', 'route', 'event', 'key']) {
+    if (typeof sanitized[field] === 'string') {
+      sanitized[field] = field === 'file' || field === 'path'
+        ? sanitizePathLike(sanitized[field], options)
+        : redactForArtifactText(sanitized[field], { maxLength: field === 'summary' ? 500 : 240 });
+    }
+  }
+  return sanitized;
+}
+
+function sanitizePathLike(value, options = {}) {
+  const raw = String(value || '');
+  const redacted = redactForArtifactText(raw, { maxLength: 240 });
+  if (redacted !== raw) return redacted;
+  if (/^[A-Za-z]:[\\/]/.test(raw)) return '<issue-path:redacted>';
+  if (path.isAbsolute(raw)) {
+    return publicPath(options.repoRoot || options.source || process.cwd(), raw, 'issue-outside-repo');
+  }
+  return redacted;
+}
+
+function sanitizeRuntimeVerification(runtimeVerification) {
+  return {
+    ...runtimeVerification,
+    reason: redactForArtifactText(runtimeVerification.reason || '', { maxLength: 500 }),
+    level: redactForArtifactText(runtimeVerification.level || 'simulator', { maxLength: 80 }),
+  };
+}
+
 if (require.main === module) {
   try {
     const options = parseCommonArgs(process.argv.slice(2));
-    const result = options.issue || options.issues ? buildAuditReport(options) : mergeContracts(options);
+    const result = options.issuesArtifact
+      ? buildIssuesArtifact(options)
+      : (options.issue || options.issues ? buildAuditReport(options) : mergeContracts(options));
     writeJsonOutput(result, options.output);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
@@ -354,7 +672,10 @@ if (require.main === module) {
 module.exports = {
   applyEvidenceGate,
   buildAuditReport,
+  buildCodeReviewHandoff,
+  buildIssuesArtifact,
   buildMvpValidationGate,
   buildPilotValidationGate,
   mergeContracts,
+  normalizeIssue,
 };

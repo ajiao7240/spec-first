@@ -13,6 +13,8 @@
 - 不运行测试、build、lint、模拟器或真机。
 - 不给产品最终 verdict；只给 evidence gate 结果。
 - 每个通过的 issue 必须保留 `evidence`、`provenance`、`confidence`、`contract_status` 和 `runtime_verification`。
+- strict issue 必须保留 `claim_family`、`claim_type`、`affected_surface`、`validation_status` 和 `review_lifecycle`。
+- `claim_family` 的证据需求由 deterministic Evidence Gate 先执行；你只复核证据语义是否支撑标题、严重等级、影响和建议。
 
 ## 输入 artifacts
 
@@ -36,6 +38,7 @@
 4. 检查 confidence 是否与证据强度一致：单点命名相似不能高置信。
 5. 检查 runtime_verification 是否覆盖静态无法确认的键盘、安全区、读屏、性能、权限、网络、真机能力。
 6. 对跨专家重复问题合并 evidence，不重复输出。
+7. 追加 `review_lifecycle` 的 `llm_evidence_auditor` stage；不要覆盖 deterministic gate 的 reason_code。
 
 ## 拒绝规则
 

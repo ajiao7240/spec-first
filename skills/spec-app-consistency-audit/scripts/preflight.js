@@ -5,6 +5,11 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const {
+  buildFigmaReference,
+  parseCommonArgs,
+} = require('./lib/audit-utils');
+
 const DEFAULT_PRD_MAX_BYTES = 5 * 1024 * 1024;
 const DEFAULT_MAX_SCAN_FILES = 2000;
 const SKIPPED_DIRS = new Set([
@@ -24,7 +29,7 @@ const SKIPPED_DIRS = new Set([
 function runPreflight(options = {}) {
   const repoRoot = resolveExistingDirectory(options.repoRoot || options.source || process.cwd(), 'source');
   const allowOutside = normalizeAllowOutside(repoRoot, options.allowOutside || options.allowOutsidePaths || []);
-  const degradedModes = [];
+  const degradedModes = [...(Array.isArray(options.degraded_modes) ? options.degraded_modes : [])];
   const sourceResolution = resolveInputPath({
     repoRoot,
     inputPath: options.source || repoRoot,
@@ -61,7 +66,8 @@ function runPreflight(options = {}) {
       allowOutside,
     })
     : null;
-  const hasFigmaReference = Boolean(options.figmaNode || options.figmaFile);
+  const hasFigmaReference = Boolean(options.figmaRef || options.figmaNode || options.figmaFile);
+  const figmaReference = buildFigmaReference(options);
   const hasFigmaMaterializedContext = Boolean(figmaResolution && figmaResolution.ok);
   const hasFigmaContext = hasFigmaMaterializedContext;
   const figmaContextMode = hasFigmaMaterializedContext
@@ -135,7 +141,7 @@ function runPreflight(options = {}) {
   } else if (hasFigmaReference) {
     sourceInputs.push({
       type: 'figma',
-      path: options.figmaNode || options.figmaFile || 'figma-context',
+      path: figmaReference ? figmaReference.path : 'figma-reference',
       source_hash_unavailable_reason: 'external_mcp_context',
       freshness: 'session-context',
     });
@@ -173,13 +179,16 @@ function runPreflight(options = {}) {
     inputs: {
       source: publicResolution(sourceResolution, repoRoot),
       prd: publicResolution(prdResolution, repoRoot),
-      figma: {
+	      figma: {
         provided: hasFigmaContext,
         reference_provided: hasFigmaReference,
+        reference_kind: figmaReference ? figmaReference.reference_kind : null,
+        reference_hash: figmaReference ? figmaReference.reference_hash : null,
+        reference_type: figmaReference ? figmaReference.reference_type : null,
+        reference_host: figmaReference ? figmaReference.reference_host || null : null,
+        has_query: figmaReference ? Boolean(figmaReference.has_query) : false,
         materialized_context_provided: hasFigmaMaterializedContext,
         context_mode: figmaContextMode,
-        node: options.figmaNode || null,
-        file: options.figmaFile || null,
         context: options.figmaContext ? publicPath(repoRoot, options.figmaContext, 'figma-outside-repo') : null,
       },
     },
@@ -472,28 +481,7 @@ function toPosix(value) {
 }
 
 function parseArgs(argv) {
-  const options = {};
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    const next = argv[index + 1];
-    if (arg === '--source') options.source = argv[++index];
-    else if (arg === '--repo-root') options.repoRoot = argv[++index];
-    else if (arg === '--prd') options.prd = argv[++index];
-    else if (arg === '--figma-node') options.figmaNode = argv[++index];
-    else if (arg === '--figma-file') options.figmaFile = argv[++index];
-    else if (arg === '--figma-context') options.figmaContext = argv[++index];
-    else if (arg === '--platform') options.platform = argv[++index];
-    else if (arg === '--industry') options.industry = argv[++index];
-    else if (arg === '--allow-outside') {
-      options.allowOutside = options.allowOutside || [];
-      options.allowOutside.push(argv[++index]);
-    } else if (arg === '--output') options.output = argv[++index];
-    else if (arg === '--max-scan-files') options.maxScanFiles = Number(argv[++index]);
-    else if (arg === '--prd-max-bytes') options.prdMaxBytes = Number(argv[++index]);
-    else if (!arg.startsWith('--') && !options.source) options.source = arg;
-    else if (arg.startsWith('--') && next === undefined) throw new Error(`Missing value for ${arg}`);
-  }
-  return options;
+  return parseCommonArgs(argv);
 }
 
 if (require.main === module) {

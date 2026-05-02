@@ -16,6 +16,11 @@
 
 ## 输入 artifacts
 
+- `metadata.json`
+- `artifact-manifest.json`
+- `impact-facts.json`
+- `audit-plan.json`
+- `app-audit-context.json`
 - Evidence-gated issues
 - rejected issues
 - section coverage
@@ -23,6 +28,7 @@
 - writeback preview
 - degraded modes
 - source_inputs
+- headless envelope 需要的 `summary_path`、`issues_path`、`audit_verdict_scope` 和 `code_review_handoff`
 
 ## 必含章节
 
@@ -36,6 +42,8 @@
 - 国际化审查
 - 行业专项审查
 - Evidence Gate 结果
+- Capability Coverage / Conclusion Caps
+- Headless / code-review handoff summary
 - Regression Suggestions
 - Writeback Preview
 
@@ -45,3 +53,5 @@
 - 不自动写回 repo-profile。
 - 不隐藏 medium / low findings。
 - 不把 ECC agent 名称作为报告专家暴露给用户，除非是在来源说明或实现注释中。
+- 不读取 stale `latest-summary.json` 当作事实源；必须优先使用当前 run-scoped artifacts。
+- 不把 workflow handoff suggestion 当作自动执行指令；v0.1 只写入 summary/headless follow-up。

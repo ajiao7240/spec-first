@@ -1,6 +1,16 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.2 2026-05-02 11:34:09 leokuang: fix(app-audit): 修复真实测试审查发现的 strict issue 空证据通过与 industry confirmed 正向路径缺失回归覆盖 (user-visible)
+- v1.6.2 2026-05-02 06:29:07 leokuang: docs(app-audit): 追加主测试链路通过记录，说明用户手册版本线漂移修复与 npm test 收口结果
+- v1.6.2 2026-05-02 06:26:00 leokuang: docs(manual): 同步用户手册版本线到 package.json 的 v1.6.2，修复主测试链路契约失败 (user-visible)
+- v1.6.2 2026-05-02 06:24:59 leokuang: docs(app-audit): 追加第20-50轮改造收口验证记录，固化测试、typecheck、lint、schema、runtime边界和GitNexus影响面结果
+- v1.6.2 2026-05-02 06:23:12 leokuang: fix(app-audit): 完成第20-50轮小步审查，收紧Figma脱敏、issue证据路径、headless路径、manifest/latest边界、metadata headless scope与validator/schema一致性 (user-visible)
+- v1.6.2 2026-05-02 06:11:14 leokuang: docs(app-audit): 追加长任务临时 checkpoint，记录当前要求、执行边界、已完成进度、恢复点和验证收口清单
+- v1.6.2 2026-05-02 05:58:07 leokuang: fix(app-audit): 修复 code-review 发现的 base ref 安全、headless 失败 envelope、report-only no-write、evidence gate、脱敏、strict rejected validation 与 run-scoped path 漂移 (user-visible)
+- v1.6.2 2026-05-02 05:39:23 leokuang: docs(app-audit): 追加 spec-app-consistency-audit 长任务断点恢复快照，固化审查发现、修复队列与自主执行边界
+- v1.6.2 2026-05-02 05:30:45 leokuang: feat(app-audit): 落地 spec-app-consistency-audit run-scoped contract spine、headless/report-only mode、impact facts、strict issue 与 handoff 骨架 (user-visible)
+- v1.6.2 2026-05-02 05:16:01 leokuang: docs(app-audit): 记录 spec-app-consistency-audit 长任务执行快照与后续审查要求，避免上下文丢失
 - v1.6.2 2026-05-02 05:05:48 leokuang: release: 发布 spec-first@1.6.2 release snapshot (user-visible)
 - v1.6.1 2026-05-02 04:52:30 leokuang: docs(app-audit): 瘦身升级技术方案主文档，将完整协议细节迁移为独立参考文档 (user-visible)
 - v1.6.1 2026-05-02 04:45:51 leokuang: docs(app-audit): 逐项修复升级方案审查问题，补齐精准降级、能力范围结论、证据族、交互 schema、安全保留和 v0.1 分期边界 (user-visible)

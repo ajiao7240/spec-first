@@ -7,6 +7,13 @@ const path = require('node:path');
 const ARTIFACT_CONTRACT_STATUSES = new Set(['candidate', 'confirmed', 'rejected', 'degraded']);
 const DATA_SENSITIVITY_VALUES = new Set(['public', 'internal', 'confidential', 'restricted']);
 const RUNTIME_MODES = new Set(['static_only', 'runtime_suggested', 'real_device_suggested']);
+const ISSUE_SEVERITIES = new Set(['blocker', 'high', 'medium', 'low', 'info']);
+const ISSUE_CONTRACT_STATUSES = new Set(['candidate', 'confirmed', 'rejected']);
+const VALIDATION_STATUSES = new Set(['not_required', 'validated', 'validator_rejected', 'validator_unavailable']);
+const SENSITIVE_TEXT_PATTERN = /(https?:\/\/|Authorization\s*[:=]|Bearer\s+|Cookie\s*[:=]|(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|token|secret|password|passwd|session(?:id)?|jwt)\s*[:=])/i;
+const METADATA_HOSTS = new Set(['unknown', 'claude', 'codex']);
+const DIFF_SCOPE_KINDS = new Set(['git_diff', 'working_tree', 'source_snapshot']);
+const TRACEABLE_EVIDENCE_FIELDS = ['file', 'path', 'artifact_id', 'node_id', 'route', 'event', 'key'];
 
 function validateArtifact(artifact, options = {}) {
   const errors = [];
@@ -53,7 +60,10 @@ function validateArtifact(artifact, options = {}) {
     validatePreflightArtifact(artifact, errors);
   }
   if (artifact.artifact_id === 'audit-report' || artifact.schema_version === 'spec-app-consistency-audit-report.v1') {
-    validateAuditReportArtifact(artifact, errors);
+    validateAuditReportArtifact(artifact, errors, options);
+  }
+  if (artifact.artifact_id === 'issues' || artifact.schema_version === 'spec-app-consistency-audit-issues.v1') {
+    validateIssuesArtifact(artifact, errors, options);
   }
   validateKnownContractArtifact(artifact, errors);
 
@@ -139,9 +149,10 @@ function validatePreflightArtifact(artifact, errors) {
       requireString(mode, 'summary', errors, prefix);
     });
   }
+  requireObject(artifact, 'inputs', errors);
 }
 
-function validateAuditReportArtifact(artifact, errors) {
+function validateAuditReportArtifact(artifact, errors, options = {}) {
   if (artifact.schema_version !== 'spec-app-consistency-audit-report.v1') {
     errors.push(error('schema_version', 'invalid_audit_report_schema', 'audit report schema_version is invalid.'));
   }
@@ -154,21 +165,59 @@ function validateAuditReportArtifact(artifact, errors) {
   if (!Array.isArray(artifact.issues)) {
     errors.push(error('issues', 'issues_array_required', 'audit report issues must be an array.'));
   } else {
-    artifact.issues.forEach((issue, index) => validateAuditIssue(issue, index, errors));
+    artifact.issues.forEach((issue, index) => validateAuditIssue(issue, index, errors, { ...options, strictIssues: true }));
+  }
+  if (!Array.isArray(artifact.rejected_issues)) {
+    errors.push(error('rejected_issues', 'rejected_issues_array_required', 'audit report must include rejected_issues array.'));
+  } else {
+    artifact.rejected_issues.forEach((issue, index) => validateAuditIssue(issue, index, errors, {
+      ...options,
+      strictIssues: true,
+      issuePrefix: `rejected_issues[${index}]`,
+    }));
   }
   if (!Array.isArray(artifact.scope_and_degraded_modes)) {
     errors.push(error('scope_and_degraded_modes', 'scope_degraded_modes_required', 'audit report must expose scope_and_degraded_modes.'));
   }
 }
 
-function validateAuditIssue(issue, index, errors) {
-  const prefix = `issues[${index}]`;
+function validateIssuesArtifact(artifact, errors, options = {}) {
+  if (artifact.schema_version !== 'spec-app-consistency-audit-issues.v1') {
+    errors.push(error('schema_version', 'invalid_issues_schema', 'issues artifact schema_version is invalid.'));
+  }
+  if (artifact.artifact_id !== 'issues') {
+    errors.push(error('artifact_id', 'invalid_issues_artifact_id', 'issues artifact_id must be issues.'));
+  }
+  if (!Array.isArray(artifact.issues)) {
+    errors.push(error('issues', 'issues_array_required', 'issues artifact must include issues array.'));
+  } else {
+    artifact.issues.forEach((issue, index) => validateAuditIssue(issue, index, errors, { ...options, strictIssues: true }));
+  }
+  if (!Array.isArray(artifact.rejected_issues)) {
+    errors.push(error('rejected_issues', 'rejected_issues_array_required', 'issues artifact must include rejected_issues array.'));
+  } else {
+    artifact.rejected_issues.forEach((issue, index) => validateAuditIssue(issue, index, errors, {
+      ...options,
+      strictIssues: true,
+      issuePrefix: `rejected_issues[${index}]`,
+    }));
+  }
+}
+
+function validateAuditIssue(issue, index, errors, options = {}) {
+  const prefix = options.issuePrefix || `issues[${index}]`;
   if (!issue || typeof issue !== 'object' || Array.isArray(issue)) {
     errors.push(error(prefix, 'issue_not_object', 'audit report issue must be an object.'));
     return;
   }
   for (const field of ['id', 'title', 'severity', 'category', 'expert', 'contract_status', 'data_sensitivity']) {
     requireString(issue, field, errors, prefix);
+  }
+  if (typeof issue.severity === 'string' && !ISSUE_SEVERITIES.has(issue.severity)) {
+    errors.push(error(`${prefix}.severity`, 'invalid_issue_severity', `${prefix}.severity is invalid.`));
+  }
+  if (typeof issue.contract_status === 'string' && !ISSUE_CONTRACT_STATUSES.has(issue.contract_status)) {
+    errors.push(error(`${prefix}.contract_status`, 'invalid_issue_contract_status', `${prefix}.contract_status is invalid.`));
   }
   validateConfidence(issue, prefix, errors);
   validateStringOrStringArray(issue, 'impact', prefix, errors);
@@ -190,6 +239,116 @@ function validateAuditIssue(issue, index, errors) {
   if (!issue.runtime_verification || typeof issue.runtime_verification !== 'object' || Array.isArray(issue.runtime_verification)) {
     errors.push(error(`${prefix}.runtime_verification`, 'runtime_verification_required', 'runtime_verification must be an object.'));
   }
+  if (options.strictIssues) {
+    validateStrictIssueFields(issue, prefix, errors, options);
+  }
+}
+
+function validateStrictIssueFields(issue, prefix, errors, options = {}) {
+  for (const field of ['claim_family', 'claim_type', 'validation_status']) {
+    requireString(issue, field, errors, prefix);
+  }
+  validateArtifactText(issue.title, `${prefix}.title`, errors, 240);
+  if (typeof issue.confidence !== 'number' || issue.confidence < 0 || issue.confidence > 1) {
+    errors.push(error(`${prefix}.confidence`, 'strict_confidence_number_required', 'strict issue confidence must be a number between 0 and 1.'));
+  }
+  if (!Array.isArray(issue.impact) || issue.impact.length === 0) {
+    errors.push(error(`${prefix}.impact`, 'strict_impact_array_required', 'strict issue impact must be a non-empty array.'));
+  } else {
+    issue.impact.forEach((entry, index) => validateArtifactText(entry, `${prefix}.impact[${index}]`, errors, 500));
+  }
+  if (!Array.isArray(issue.recommendation) || issue.recommendation.length === 0) {
+    errors.push(error(`${prefix}.recommendation`, 'strict_recommendation_array_required', 'strict issue recommendation must be a non-empty array.'));
+  } else {
+    issue.recommendation.forEach((entry, index) => validateArtifactText(entry, `${prefix}.recommendation[${index}]`, errors, 500));
+  }
+  if (!issue.affected_surface || typeof issue.affected_surface !== 'object' || Array.isArray(issue.affected_surface)) {
+    errors.push(error(`${prefix}.affected_surface`, 'affected_surface_required', 'strict issue must include affected_surface object.'));
+  } else {
+    for (const field of ['type', 'id', 'file']) {
+      requireString(issue.affected_surface, field, errors, `${prefix}.affected_surface`);
+    }
+  }
+  if (!VALIDATION_STATUSES.has(issue.validation_status)) {
+    errors.push(error(`${prefix}.validation_status`, 'invalid_validation_status', 'validation_status is invalid.'));
+  }
+  if (!Array.isArray(issue.review_lifecycle) || issue.review_lifecycle.length === 0) {
+    errors.push(error(`${prefix}.review_lifecycle`, 'review_lifecycle_required', 'strict issue must include review_lifecycle.'));
+  }
+  if (options.requireCodeReviewHandoff && (!issue.code_review_handoff || issue.code_review_handoff.enabled !== true)) {
+    errors.push(error(`${prefix}.code_review_handoff`, 'code_review_handoff_required', 'code-review handoff issue must include enabled code_review_handoff.'));
+  }
+  validateStrictIssueArtifactText(issue, prefix, errors);
+}
+
+function validateArtifactText(value, pathName, errors, maxLength) {
+  if (typeof value !== 'string') return;
+  if (value.length > maxLength) {
+    errors.push(error(pathName, 'artifact_text_too_long', `artifact text must be at most ${maxLength} characters.`));
+  }
+  if (SENSITIVE_TEXT_PATTERN.test(value)) {
+    errors.push(error(pathName, 'artifact_text_not_redacted', 'artifact text must not contain raw URLs or secret-bearing tokens.'));
+  }
+}
+
+function validateArtifactPath(value, pathName, errors) {
+  if (typeof value !== 'string' || value.length === 0) return;
+  validateArtifactText(value, pathName, errors, 240);
+  if (path.isAbsolute(value) || /^[A-Za-z]:[\\/]/.test(value)) {
+    errors.push(error(pathName, 'artifact_path_not_public', 'artifact paths must be repo-relative or redacted public paths.'));
+  }
+}
+
+function validateStrictIssueArtifactText(issue, prefix, errors) {
+  if (Array.isArray(issue.provenance)) {
+    issue.provenance.forEach((entry, index) => {
+      validateTraceableEvidenceEntry(entry, `${prefix}.provenance[${index}]`, errors, { requireSource: true });
+    });
+  }
+  validateEvidenceArtifactText(issue.evidence, `${prefix}.evidence`, errors);
+  if (issue.runtime_verification && typeof issue.runtime_verification === 'object' && !Array.isArray(issue.runtime_verification)) {
+    validateArtifactText(issue.runtime_verification.reason, `${prefix}.runtime_verification.reason`, errors, 500);
+    validateArtifactText(issue.runtime_verification.level, `${prefix}.runtime_verification.level`, errors, 80);
+  }
+  if (issue.affected_surface && typeof issue.affected_surface === 'object' && !Array.isArray(issue.affected_surface)) {
+    validateArtifactPath(issue.affected_surface.file, `${prefix}.affected_surface.file`, errors);
+  }
+}
+
+function validateEvidenceArtifactText(evidence, prefix, errors) {
+  if (Array.isArray(evidence)) {
+    evidence.forEach((entry, index) => {
+      validateTraceableEvidenceEntry(entry, `${prefix}[${index}]`, errors, { requireSource: true });
+    });
+    return;
+  }
+  if (!evidence || typeof evidence !== 'object') return;
+  for (const [bucket, values] of Object.entries(evidence)) {
+    if (!Array.isArray(values)) continue;
+    values.forEach((entry, index) => {
+      validateTraceableEvidenceEntry(entry, `${prefix}.${bucket}[${index}]`, errors, { bucket });
+    });
+  }
+}
+
+function validateTraceableEvidenceEntry(entry, pathName, errors, options = {}) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    errors.push(error(pathName, 'evidence_entry_not_object', 'evidence entry must be an object.'));
+    return;
+  }
+  if (options.requireSource && (typeof entry.source !== 'string' || entry.source.length === 0)) {
+    errors.push(error(`${pathName}.source`, 'evidence_source_required', 'array-shaped evidence entries must include source.'));
+  }
+  if (!hasTraceableEvidenceField(entry)) {
+    errors.push(error(pathName, 'evidence_trace_required', 'evidence entry must include a traceable field.'));
+  }
+  validateArtifactPath(entry.file, `${pathName}.file`, errors);
+  validateArtifactPath(entry.path, `${pathName}.path`, errors);
+  validateArtifactText(entry.summary, `${pathName}.summary`, errors, 500);
+}
+
+function hasTraceableEvidenceField(entry) {
+  return TRACEABLE_EVIDENCE_FIELDS.some((field) => typeof entry[field] === 'string' && entry[field].length > 0);
 }
 
 function validateKnownContractArtifact(artifact, errors) {
@@ -208,6 +367,7 @@ function validateKnownContractArtifact(artifact, errors) {
         && !['strict', 'internal', 'none'].includes(artifact.raw_label_policy)) {
         errors.push(error('raw_label_policy', 'invalid_raw_label_policy', 'raw_label_policy is invalid.'));
       }
+      validateFigmaContractRedaction(artifact, errors);
       break;
     case 'codebase-contract':
       requireSchemaVersion(artifact, 'codebase-contract.v1', errors);
@@ -282,8 +442,112 @@ function validateKnownContractArtifact(artifact, errors) {
         errors.push(error('coverage', 'object_required', 'coverage must be an object.'));
       }
       break;
+    case 'app-audit-context':
+      requireSchemaVersion(artifact, 'spec-app-consistency-audit-context.v1', errors);
+      requireString(artifact, 'artifacts_dir', errors);
+      requireArray(artifact, 'artifacts', errors);
+      requireArray(artifact, 'validation', errors);
+      if (typeof artifact.artifact_count !== 'number') {
+        errors.push(error('artifact_count', 'number_required', 'artifact_count must be a number.'));
+      } else if (Array.isArray(artifact.artifacts) && artifact.artifact_count !== artifact.artifacts.length) {
+        errors.push(error('artifact_count', 'artifact_count_mismatch', 'artifact_count must match artifacts.length.'));
+      }
+      if (typeof artifact.valid !== 'boolean') {
+        errors.push(error('valid', 'boolean_required', 'valid must be boolean.'));
+      }
+      break;
+    case 'impact-facts':
+      requireSchemaVersion(artifact, 'spec-app-consistency-audit-impact-facts.v1', errors);
+      requireString(artifact, 'mode', errors);
+      requireObject(artifact, 'diff_scope', errors);
+      requireArray(artifact, 'changed_files', errors);
+      requireArray(artifact, 'candidate_signals', errors);
+      requireArray(artifact, 'interaction_surface_changed', errors);
+      requireObject(artifact, 'available_context', errors);
+      requireObject(artifact, 'coverage_capabilities', errors);
+      requireObject(artifact, 'input_expectations', errors);
+      requireString(artifact, 'audit_verdict_scope', errors);
+      break;
+    case 'metadata':
+      requireSchemaVersion(artifact, 'spec-app-consistency-audit-metadata.v1', errors);
+      for (const field of ['run_id', 'host', 'mode', 'head_sha', 'diff_hash', 'diff_scope_kind', 'worktree_fingerprint', 'audit_verdict_scope', 'run_dir', 'summary_path', 'issues_path']) {
+        requireString(artifact, field, errors);
+      }
+      if (typeof artifact.host === 'string' && !METADATA_HOSTS.has(artifact.host)) {
+        errors.push(error('host', 'invalid_metadata_host', 'metadata host must be unknown, claude, or codex.'));
+      }
+      if (typeof artifact.diff_scope_kind === 'string' && !DIFF_SCOPE_KINDS.has(artifact.diff_scope_kind)) {
+        errors.push(error('diff_scope_kind', 'invalid_diff_scope_kind', 'diff_scope_kind is invalid.'));
+      }
+      requireObject(artifact, 'coverage_capabilities', errors);
+      requireObject(artifact, 'input_expectations', errors);
+      break;
+    case 'artifact-manifest':
+      requireSchemaVersion(artifact, 'spec-app-consistency-audit-artifact-manifest.v1', errors);
+      requireString(artifact, 'run_id', errors);
+      requireString(artifact, 'run_dir', errors);
+      requireArray(artifact, 'artifacts', errors);
+      if (typeof artifact.artifact_count !== 'number') {
+        errors.push(error('artifact_count', 'number_required', 'artifact_count must be a number.'));
+      } else if (Array.isArray(artifact.artifacts) && artifact.artifact_count !== artifact.artifacts.length) {
+        errors.push(error('artifact_count', 'artifact_count_mismatch', 'artifact_count must match artifacts.length.'));
+      }
+      if (Array.isArray(artifact.artifacts)) {
+        artifact.artifacts.forEach((entry, index) => validateManifestEntry(entry, index, errors));
+      }
+      break;
+    case 'audit-plan':
+      requireSchemaVersion(artifact, 'spec-app-consistency-audit-plan.v1', errors);
+      requireObject(artifact, 'planner_guardrails', errors);
+      requireArray(artifact, 'planner_decisions', errors);
+      requireArray(artifact, 'selected_experts', errors);
+      requireArray(artifact, 'skipped_experts', errors);
+      break;
     default:
       break;
+  }
+}
+
+function validateManifestEntry(entry, index, errors) {
+  const prefix = `artifacts[${index}]`;
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    errors.push(error(prefix, 'manifest_entry_not_object', 'manifest entry must be an object.'));
+    return;
+  }
+  for (const field of ['path', 'schema_version', 'artifact_id', 'producer', 'freshness', 'data_sensitivity', 'contract_status']) {
+    requireString(entry, field, errors, prefix);
+  }
+  if (!Array.isArray(entry.consumers)) {
+    errors.push(error(`${prefix}.consumers`, 'array_required', `${prefix}.consumers must be an array.`));
+  }
+  if (typeof entry.sha256 !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(entry.sha256)) {
+    errors.push(error(`${prefix}.sha256`, 'invalid_sha256', 'manifest entry sha256 is invalid.'));
+  }
+}
+
+function validateFigmaContractRedaction(artifact, errors) {
+  for (const [collectionName, values] of Object.entries({
+    screens: artifact.screens,
+    components: artifact.components,
+  })) {
+    if (!Array.isArray(values)) continue;
+    values.forEach((entry, index) => validateFigmaTextNode(entry, `${collectionName}[${index}]`, errors));
+  }
+}
+
+function validateFigmaTextNode(value, pathName, errors) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+  for (const [key, entry] of Object.entries(value)) {
+    const childPath = `${pathName}.${key}`;
+    if (['name', 'raw_label', 'text'].includes(key)) {
+      validateArtifactText(entry, childPath, errors, key === 'text' ? 500 : 240);
+      continue;
+    }
+    if (Array.isArray(entry)) {
+      entry.forEach((child, index) => validateFigmaTextNode(child, `${childPath}[${index}]`, errors));
+    } else if (entry && typeof entry === 'object') {
+      validateFigmaTextNode(entry, childPath, errors);
+    }
   }
 }
 
@@ -336,6 +600,13 @@ function requireArray(object, field, errors, prefix = '') {
   }
 }
 
+function requireObject(object, field, errors, prefix = '') {
+  const key = prefix ? `${prefix}.${field}` : field;
+  if (!object[field] || typeof object[field] !== 'object' || Array.isArray(object[field])) {
+    errors.push(error(key, 'object_required', `${key} must be an object.`));
+  }
+}
+
 function error(pathExpression, code, message) {
   return { path: pathExpression, code, message };
 }
@@ -346,6 +617,8 @@ function parseArgs(argv) {
     const arg = argv[index];
     if (arg === '--file') options.files.push(argv[++index]);
     else if (arg === '--allow-confirmed') options.requireCandidate = false;
+    else if (arg === '--strict-issues') options.strictIssues = true;
+    else if (arg === '--require-code-review-handoff') options.requireCodeReviewHandoff = true;
     else if (!arg.startsWith('--')) options.files.push(arg);
   }
   return options;
@@ -368,6 +641,7 @@ if (require.main === module) {
 module.exports = {
   validateArtifact,
   validateArtifactFile,
+  validateAuditIssue,
   validateAuditReportArtifact,
   validatePreflightArtifact,
 };

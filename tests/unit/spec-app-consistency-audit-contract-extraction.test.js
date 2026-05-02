@@ -147,6 +147,37 @@ describe('spec-app-consistency-audit contract extraction', () => {
     }
   });
 
+  test('internal Figma redaction omits URL and credential-like raw labels and text', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-figma-redaction-'));
+    try {
+      const figmaContext = write(repoRoot, 'figma-context.json', JSON.stringify({
+        nodes: [{
+          id: '99:1',
+          type: 'FRAME',
+          name: 'https://internal.example.test/design',
+          children: [
+            { id: '99:2', type: 'TEXT', name: 'Token label', characters: 'Authorization: Bearer abc.def.ghi' },
+            { id: '99:3', type: 'COMPONENT', name: 'PrimaryButton Cookie: session=secret' },
+          ],
+        }],
+      }));
+
+      const figma = extractFigmaContract({ repoRoot, figmaContext });
+      const serialized = JSON.stringify(figma);
+
+      expect(figma.screens[0].raw_label_omitted).toBe(true);
+      expect(figma.screens[0]).not.toHaveProperty('raw_label');
+      expect(figma.screens[0].texts[0].raw_text_omitted).toBe(true);
+      expect(figma.screens[0].texts[0]).not.toHaveProperty('text');
+      expect(figma.screens[0].components[0].raw_label_omitted).toBe(true);
+      expect(serialized).not.toContain('https://internal.example.test');
+      expect(serialized).not.toContain('Authorization: Bearer');
+      expect(serialized).not.toContain('Cookie: session');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   test('code source hash changes when file content changes without path changes', () => {
     const fixture = makeRepo();
     const sourceFile = path.join(fixture.repoRoot, 'shared/src/commonMain/kotlin/trade/TradeBuyScreen.kt');

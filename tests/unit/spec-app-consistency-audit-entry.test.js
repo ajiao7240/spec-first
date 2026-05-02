@@ -25,6 +25,11 @@ describe('spec-app-consistency-audit entry contract', () => {
 
     expect(skill).toContain('name: spec-app-consistency-audit');
     expect(skill).toContain('Default to `static_only`.');
+    expect(skill).toContain('## Mode Contract');
+    expect(skill).toContain('mode:headless');
+    expect(skill).toContain('mode:report-only');
+    expect(skill).toContain('.spec-first/app-audit/runs/<run-id>/');
+    expect(skill).toContain('report-only');
     expect(skill).toContain('Do not hand-edit generated runtime assets.');
     expect(skill).toContain('skills/spec-app-consistency-audit/prompts/');
     expect(skill).toContain('Do not copy app-audit-specific experts or ECC-derived lenses into `agents/`');
@@ -34,8 +39,9 @@ describe('spec-app-consistency-audit entry contract', () => {
     expect(skill).toContain('has_figma_reference');
     expect(skill).toContain('## Figma Redaction Policy');
     expect(skill).toContain('Default to `--redaction internal`.');
-    expect(skill).toContain('.spec-first/app-audit/writeback-preview/');
+    expect(skill).toContain('.spec-first/app-audit/runs/<run-id>/writeback-preview/');
     expect(skill).toContain('skills/spec-app-consistency-audit/scripts/');
+    expect(skill).toContain('build-impact-facts.js');
     expect(skill).toContain('Scripts produce structured candidate or preview artifacts');
     expect(skill).toContain('skills/spec-app-consistency-audit/rule-packs/');
   });
@@ -47,7 +53,7 @@ describe('spec-app-consistency-audit entry contract', () => {
     expect(command).toMatchObject({
       filename: 'app-consistency-audit.md',
       description: 'Run the Spec-First App consistency audit workflow',
-      argumentHint: '[prd path] [source path] [figma context or options]',
+      argumentHint: '[mode:headless|mode:report-only] [base:<ref>] [source:<path>] [prd:<path>] [figma-context:<path>|figma-ref:<id-or-url>] [industry:<name>] [depth:deep]',
       skill: 'spec-app-consistency-audit',
     });
   });
@@ -106,11 +112,14 @@ describe('spec-app-consistency-audit entry contract', () => {
 
       expect(claudeCommand).toContain('# App Consistency Audit');
       expect(claudeCommand).toContain('No evidence, no issue.');
+      expect(claudeCommand).toContain('mode:headless');
+      expect(claudeCommand).toContain('.spec-first/app-audit/runs/<run-id>/');
       expect(claudeCommand).not.toContain('Source truth for this workflow lives under:');
       expect(claudeCommand).not.toContain('- `.claude/spec-first/workflows/spec-app-consistency-audit/`');
       expect(fs.existsSync(claudeWorkflowSkillPath)).toBe(true);
       expect(fs.existsSync(codexWorkflowSkillPath)).toBe(true);
       expect(codexWorkflowSkill).toContain('Default to `static_only`.');
+      expect(codexWorkflowSkill).toContain('mode:report-only');
       expect(codexWorkflowSkill).not.toContain('Source truth for this workflow lives under:');
       expect(codexWorkflowSkill).not.toContain('- `.agents/skills/spec-app-consistency-audit/`');
       expect(codexWorkflowSkill).not.toContain('spec-first init --codex|--codex');

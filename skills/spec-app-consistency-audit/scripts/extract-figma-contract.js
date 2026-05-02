@@ -12,6 +12,7 @@ const {
   parseCommonArgs,
   publicPath,
   readJson,
+  redactForArtifactText,
   resolveBoundedInputPath,
   slugify,
   sourceInputFromFile,
@@ -250,7 +251,7 @@ function normalizeRedaction(value) {
 
 function redactedLabelFields(value, redaction) {
   const label = String(value || '').trim();
-  if (redaction === 'strict' || !label) {
+  if (redaction === 'strict' || !label || isSensitiveArtifactText(label)) {
     return {
       raw_label_omitted: true,
     };
@@ -276,7 +277,7 @@ function redactedLabelFields(value, redaction) {
 
 function redactedTextFields(value, redaction) {
   const text = String(value || '').trim();
-  if (redaction === 'strict' || !text) {
+  if (redaction === 'strict' || !text || isSensitiveArtifactText(text)) {
     return {
       raw_text_omitted: true,
     };
@@ -295,10 +296,17 @@ function redactedTextFields(value, redaction) {
 function shouldRetainShortLabel(value) {
   const text = String(value || '').trim();
   if (text.length === 0 || text.length > 80) return false;
+  if (isSensitiveArtifactText(text)) return false;
   if (/(password|passwd|token|secret|credential|phone|email|身份证|密码|手机号|邮箱|银行卡|证件)/i.test(text)) {
     return false;
   }
   return true;
+}
+
+function isSensitiveArtifactText(value) {
+  const text = String(value || '').trim();
+  if (!text) return false;
+  return redactForArtifactText(text, { maxLength: Math.max(text.length + 32, 120) }) !== text;
 }
 
 function visit(node, callback) {

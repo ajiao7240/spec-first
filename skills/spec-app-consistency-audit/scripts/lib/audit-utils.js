@@ -1,5 +1,6 @@
 'use strict';
 
+const { spawnSync } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -18,6 +19,8 @@ const SKIPPED_DIRS = new Set([
   'out',
   'target',
 ]);
+const APP_AUDIT_MODES = new Set(['default', 'headless', 'report-only']);
+const GIT_REF_PATTERN = /^[A-Za-z0-9._/@{}^~+-]+$/;
 
 function makeArtifact(options) {
   return {
@@ -160,6 +163,92 @@ function writeJsonOutput(result, outputPath) {
   }
 }
 
+function redactForArtifactText(value, options = {}) {
+  const maxLength = options.maxLength || 500;
+  let text = String(value || '');
+  text = redactUrls(text);
+  text = text
+    .replace(/\bAuthorization\s*[:=]\s*(?:Bearer\s+)?[^\s"'`]+/gi, '<redacted-secret>')
+    .replace(/\bCookie\s*[:=]\s*[^\r\n]+/gi, '<redacted-secret>')
+    .replace(/\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|token|secret|password|passwd|session(?:id)?|jwt)\s*[:=]\s*[^\s&"'`]+/gi, '<redacted-secret>')
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (text.length > maxLength) return `${text.slice(0, Math.max(0, maxLength - 16)).trimEnd()}... [truncated]`;
+  return text;
+}
+
+function redactUrls(text) {
+  return String(text || '').replace(/https?:\/\/[^\s"'<>]+/gi, (raw) => {
+    try {
+      // URL host/path 也可能泄漏内部产品、Figma、工单或客户上下文。
+      new URL(raw);
+      return '<redacted-url>';
+    } catch (_error) {
+      return '<redacted-url>';
+    }
+  });
+}
+
+function sanitizeFigmaReference(value, kind = 'reference') {
+  if (!value) return null;
+  const raw = String(value);
+  const fullHash = hashText(raw);
+  const hash = fullHash.slice(7, 19);
+  const result = {
+    reference_provided: true,
+    reference_kind: kind,
+    reference_hash: fullHash,
+    path: `figma-${kind}:${hash}`,
+  };
+  try {
+    const parsed = new URL(raw);
+    result.reference_type = 'url';
+    result.reference_host = parsed.host;
+    result.has_query = parsed.search.length > 0;
+  } catch (_error) {
+    result.reference_type = 'opaque';
+  }
+  return result;
+}
+
+function buildFigmaReference(options = {}) {
+  if (options.figmaRef) return sanitizeFigmaReference(options.figmaRef, 'ref');
+  if (options.figmaNode) return sanitizeFigmaReference(options.figmaNode, 'node');
+  if (options.figmaFile) return sanitizeFigmaReference(options.figmaFile, 'file');
+  return null;
+}
+
+function buildAppAuditInputExpectations(options = {}) {
+  const expected = new Set(options.expectedInputs || []);
+  return {
+    source: 'required:available',
+    prd: `${expected.has('prd') ? 'expected' : 'opportunistic'}:${options.prd ? 'available' : 'missing'}`,
+    figma_context: `${expected.has('figma_context') ? 'expected' : 'opportunistic'}:${options.figmaContext ? 'available' : 'missing'}`,
+    tech_plan: `${expected.has('tech_plan') ? 'expected' : 'not_applicable'}:${options.techPlan ? 'available' : 'not_provided'}`,
+    task_doc: `${expected.has('task_doc') ? 'expected' : 'not_applicable'}:${options.taskDoc ? 'available' : 'not_provided'}`,
+  };
+}
+
+function buildAppAuditCoverageCapabilities(options = {}) {
+  return {
+    code_static: 'available',
+    product_consistency: options.prd ? 'available' : 'unavailable',
+    design_consistency: options.figmaContext ? 'available' : (buildFigmaReference(options) ? 'degraded' : 'unavailable'),
+    architecture_static: 'available',
+    architecture_intent_conformance: options.techPlan ? 'available' : 'unavailable',
+    task_fidelity: options.taskDoc ? 'available' : 'unavailable',
+    runtime_verification: 'deferred',
+    industry: options.industry ? 'advisory_only' : 'unavailable',
+  };
+}
+
+function buildAppAuditVerdictScope(options = {}) {
+  if (options.prd && options.figmaContext) return 'full_app_consistency_audit';
+  if (options.prd || options.figmaContext) return 'product_design_consistency_audit';
+  return 'source_only_app_static_audit';
+}
+
 function evidence(source, filePath, summary, extra = {}) {
   return {
     source,
@@ -217,18 +306,33 @@ function classifyEventKind(eventName) {
 }
 
 function parseCommonArgs(argv) {
-  const options = {};
+  const options = {
+    mode: 'default',
+    depth: 'default',
+    fromCodeReview: false,
+    expectedInputs: [],
+  };
+  const modeTokens = [];
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === '--source') options.source = argv[++index];
+    const token = parseCanonicalToken(arg);
+    if (token) {
+      applyCanonicalToken(options, token, modeTokens);
+    } else if (arg === '--mode') {
+      const mode = argv[++index];
+      setMode(options, mode, modeTokens);
+    } else if (arg === '--source') options.source = argv[++index];
     else if (arg === '--repo-root') options.repoRoot = argv[++index];
+    else if (arg === '--base') options.base = argv[++index];
     else if (arg === '--prd') options.prd = argv[++index];
     else if (arg === '--figma-context') options.figmaContext = argv[++index];
+    else if (arg === '--figma-ref') options.figmaRef = argv[++index];
     else if (arg === '--product-contract') options.productContract = argv[++index];
     else if (arg === '--figma-contract') options.figmaContract = argv[++index];
     else if (arg === '--figma-node') options.figmaNode = argv[++index];
     else if (arg === '--figma-file') options.figmaFile = argv[++index];
     else if (arg === '--redaction') options.redaction = argv[++index];
+    else if (arg === '--platform') options.platform = argv[++index];
     else if (arg === '--code-contract') options.codeContract = argv[++index];
     else if (arg === '--architecture-contract') options.architectureContract = argv[++index];
     else if (arg === '--analytics-contract') options.analyticsContract = argv[++index];
@@ -237,21 +341,163 @@ function parseCommonArgs(argv) {
     else if (arg === '--pilot-validation') options.pilotValidation = argv[++index];
     else if (arg === '--preflight') options.preflight = argv[++index];
     else if (arg === '--industry') options.industry = argv[++index];
+    else if (arg === '--tech-plan') options.techPlan = argv[++index];
+    else if (arg === '--task-doc') options.taskDoc = argv[++index];
+    else if (arg === '--run-id') options.runId = argv[++index];
+    else if (arg === '--run-dir') options.runDir = argv[++index];
+    else if (arg === '--artifacts-dir') options.artifactsDir = argv[++index];
+    else if (arg === '--host') options.host = argv[++index];
+    else if (arg === '--status') options.status = argv[++index];
+    else if (arg === '--metadata') options.metadata = argv[++index];
+    else if (arg === '--report') options.report = argv[++index];
+    else if (arg === '--reason-code') options.reasonCode = argv[++index];
+    else if (arg === '--message') options.message = argv[++index];
+    else if (arg === '--expected-input') {
+      options.expectedInputs = options.expectedInputs || [];
+      options.expectedInputs.push(argv[++index]);
+    } else if (arg === '--from-code-review') options.fromCodeReview = true;
+    else if (arg === '--deep') options.depth = 'deep';
     else if (arg === '--confirmed-industry') options.confirmedIndustry = argv[++index];
     else if (arg === '--allow-outside') {
       options.allowOutside = options.allowOutside || [];
       options.allowOutside.push(argv[++index]);
     } else if (arg === '--max-files') options.maxFiles = Number(argv[++index]);
+    else if (arg === '--max-scan-files') options.maxScanFiles = Number(argv[++index]);
+    else if (arg === '--prd-max-bytes') options.prdMaxBytes = Number(argv[++index]);
     else if (arg === '--artifacts') {
       options.artifacts = options.artifacts || [];
       options.artifacts.push(argv[++index]);
     } else if (arg === '--issue') {
       options.issues = options.issues || [];
       options.issues.push(argv[++index]);
-    } else if (arg === '--output') options.output = argv[++index];
+    } else if (arg === '--issues-artifact') options.issuesArtifact = true;
+    else if (arg === '--output') options.output = argv[++index];
     else if (!arg.startsWith('--') && !options.source) options.source = arg;
   }
+  finalizeModeOptions(options, modeTokens);
   return options;
+}
+
+function parseCanonicalToken(arg) {
+  const match = String(arg || '').match(/^([a-z][a-z-]*):(.*)$/);
+  if (!match) return null;
+  const key = match[1];
+  const value = match[2];
+  const known = new Set([
+    'mode',
+    'base',
+    'source',
+    'prd',
+    'figma-context',
+    'figma-ref',
+    'industry',
+    'tech-plan',
+    'task-doc',
+    'depth',
+    'from',
+    'expected-input',
+    'run-id',
+    'run-dir',
+  ]);
+  return known.has(key) ? { key, value } : null;
+}
+
+function applyCanonicalToken(options, token, modeTokens) {
+  switch (token.key) {
+    case 'mode':
+      setMode(options, token.value, modeTokens);
+      break;
+    case 'base':
+      options.base = token.value;
+      break;
+    case 'source':
+      options.source = token.value;
+      break;
+    case 'prd':
+      options.prd = token.value;
+      break;
+    case 'figma-context':
+      options.figmaContext = token.value;
+      break;
+    case 'figma-ref':
+      options.figmaRef = token.value;
+      break;
+    case 'industry':
+      options.industry = token.value;
+      break;
+    case 'tech-plan':
+      options.techPlan = token.value;
+      break;
+    case 'task-doc':
+      options.taskDoc = token.value;
+      break;
+    case 'depth':
+      options.depth = token.value || 'default';
+      break;
+    case 'from':
+      options.fromCodeReview = token.value === 'code-review';
+      options.from = token.value;
+      break;
+    case 'expected-input':
+      options.expectedInputs = options.expectedInputs || [];
+      options.expectedInputs.push(token.value);
+      break;
+    case 'run-id':
+      options.runId = token.value;
+      break;
+    case 'run-dir':
+      options.runDir = token.value;
+      break;
+    default:
+      break;
+  }
+}
+
+function setMode(options, mode, modeTokens) {
+  if (!APP_AUDIT_MODES.has(mode)) {
+    throw new Error(`Invalid app-audit mode: ${mode}`);
+  }
+  options.mode = mode;
+  modeTokens.push(mode);
+}
+
+function finalizeModeOptions(options, modeTokens) {
+  if (new Set(modeTokens).size > 1 || modeTokens.length > 1) {
+    throw new Error(`conflicting mode flags: ${modeTokens.join(', ')}`);
+  }
+  if (options.depth && !['default', 'deep'].includes(options.depth)) {
+    throw new Error(`Invalid app-audit depth: ${options.depth}`);
+  }
+  if (options.mode === 'report-only' && options.output) {
+    throw new Error('mode:report-only forbids --output and run artifact writes.');
+  }
+  if ((options.mode === 'headless' || options.mode === 'report-only') && options.figmaRef && !options.figmaContext) {
+    options.degraded_modes = options.degraded_modes || [];
+    options.degraded_modes.push(degradedMode(
+      'input_figma_reference_only',
+      'warning',
+      'Figma reference was provided without materialized context; non-interactive modes do not fetch remote Figma data.',
+      null,
+    ));
+  }
+}
+
+function createRunId(date = new Date()) {
+  return `${date.toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-')}-${crypto.randomBytes(4).toString('hex')}`;
+}
+
+function resolveRunDir(options = {}) {
+  if (options.mode === 'report-only') return null;
+  const repoRoot = path.resolve(options.repoRoot || options.source || '.');
+  const runId = options.runId || createRunId();
+  const runDir = options.runDir
+    ? path.resolve(repoRoot, options.runDir)
+    : path.join(repoRoot, '.spec-first', 'app-audit', 'runs', runId);
+  return {
+    runId,
+    runDir,
+    relativeRunDir: publicPath(repoRoot, runDir, 'run-outside-repo'),
+  };
 }
 
 function relativeTo(root, filePath) {
@@ -272,6 +518,105 @@ function safeHashFile(filePath) {
 
 function hashText(value) {
   return `sha256:${crypto.createHash('sha256').update(value).digest('hex')}`;
+}
+
+function collectGitDiffFacts(repoRoot, options = {}) {
+  const cwd = path.resolve(repoRoot || '.');
+  const untrackedFiles = gitLines(cwd, ['ls-files', '--others', '--exclude-standard'])
+    .map(toPosix)
+    .filter(Boolean);
+  if (options.base) {
+    const resolvedBase = resolveGitCommit(cwd, options.base);
+    const mergeBase = resolveMergeBase(cwd, resolvedBase) || resolvedBase;
+    const diffResult = gitResult(cwd, ['diff', '--no-ext-diff', '--no-textconv', '-U0', mergeBase, '--']);
+    const namesResult = gitResult(cwd, ['diff', '--no-ext-diff', '--no-textconv', '--name-only', mergeBase, '--']);
+    if (diffResult.status !== 0 || namesResult.status !== 0) {
+      throw new Error(`scope_base_unresolved: unable to diff against ${options.base}.`);
+    }
+    const diff = diffResult.stdout;
+    return {
+      kind: 'git_diff',
+      base_ref: options.base,
+      resolved_base_sha: resolvedBase,
+      effective_base_sha: mergeBase,
+      changedFiles: namesResult.stdout.split(/\r?\n/).map(toPosix).filter(Boolean),
+      diffText: diff,
+      diffHash: hashText(diff),
+      untrackedFiles,
+    };
+  }
+  if (isGitRepo(cwd)) {
+    const diff = [
+      gitText(cwd, ['diff', '--no-ext-diff', '--no-textconv', '-U0', '--']),
+      gitText(cwd, ['diff', '--cached', '--no-ext-diff', '--no-textconv', '-U0', '--']),
+    ].join('\n');
+    const changedFiles = unique([
+      ...gitLines(cwd, ['diff', '--no-ext-diff', '--no-textconv', '--name-only', '--']),
+      ...gitLines(cwd, ['diff', '--cached', '--no-ext-diff', '--no-textconv', '--name-only', '--']),
+    ].map(toPosix));
+    return {
+      kind: 'working_tree',
+      base_ref: '',
+      resolved_base_sha: '',
+      effective_base_sha: '',
+      changedFiles,
+      diffText: diff,
+      diffHash: hashText(diff),
+      untrackedFiles,
+    };
+  }
+  return {
+    kind: 'source_snapshot',
+    base_ref: '',
+    resolved_base_sha: '',
+    effective_base_sha: '',
+    changedFiles: [],
+    diffText: '',
+    diffHash: 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
+    untrackedFiles: [],
+  };
+}
+
+function resolveGitCommit(cwd, ref) {
+  validateGitBaseRef(ref);
+  if (!isGitRepo(cwd)) {
+    throw new Error('scope_base_unresolved: base:<ref> requires a git worktree.');
+  }
+  const result = gitResult(cwd, ['rev-parse', '--verify', '--end-of-options', `${ref}^{commit}`]);
+  if (result.status !== 0) {
+    throw new Error(`scope_base_unresolved: unable to resolve base ref ${ref}.`);
+  }
+  return result.stdout.trim();
+}
+
+function validateGitBaseRef(ref) {
+  const value = String(ref || '');
+  if (!value) throw new Error('scope_base_unresolved: base:<ref> is empty.');
+  if (value.length > 200 || value.startsWith('-') || value.includes('://') || /[\s\u0000-\u001f\u007f]/.test(value) || !GIT_REF_PATTERN.test(value)) {
+    throw new Error('scope_base_unresolved: unsafe base ref.');
+  }
+}
+
+function resolveMergeBase(cwd, baseSha) {
+  const result = gitResult(cwd, ['merge-base', 'HEAD', baseSha]);
+  return result.status === 0 ? result.stdout.trim() : '';
+}
+
+function isGitRepo(cwd) {
+  return spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, encoding: 'utf8' }).status === 0;
+}
+
+function gitLines(cwd, args) {
+  return gitText(cwd, args).split(/\r?\n/).filter(Boolean);
+}
+
+function gitText(cwd, args) {
+  const result = gitResult(cwd, args);
+  return result.status === 0 ? result.stdout : '';
+}
+
+function gitResult(cwd, args) {
+  return spawnSync('git', args, { cwd, encoding: 'utf8' });
 }
 
 function resolveBoundedInputPath(options) {
@@ -399,8 +744,14 @@ function toPosix(value) {
 }
 
 module.exports = {
+  buildFigmaReference,
+  buildAppAuditCoverageCapabilities,
+  buildAppAuditInputExpectations,
+  buildAppAuditVerdictScope,
   classifyEventKind,
   classifyStates,
+  collectGitDiffFacts,
+  createRunId,
   evidence,
   hashFile,
   hashText,
@@ -410,13 +761,16 @@ module.exports = {
   makeArtifact,
   normalizeName,
   parseCommonArgs,
+  parseCanonicalToken,
   publicPath,
+  redactForArtifactText,
   readArtifact,
   readJson,
   readText,
   relativeTo,
   resolveBoundedInputPath,
   resolveBoundedSourceRoot,
+  resolveGitCommit,
   slugify,
   sourceInputFromFile,
   sourceInputFromFiles,
@@ -424,4 +778,5 @@ module.exports = {
   unavailableSourceInput,
   unique,
   writeJsonOutput,
+  resolveRunDir,
 };
