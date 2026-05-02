@@ -12,7 +12,7 @@
 
 **面向 Claude Code 与 Codex 的 spec-driven AI engineering workflows。**
 
-`spec-first` 帮助团队把 AI coding 会话变成可复用的工程闭环：需求澄清、计划编写、任务包编译、执行开发、代码评审、问题调试和知识沉淀。
+`spec-first` 帮助团队把 AI coding 会话变成可复用的工程闭环：需求澄清、计划编写、任务包编译、执行开发、App 一致性审查、代码评审、问题调试和知识沉淀。
 
 它让脚本负责确定性的安装、生成、校验和事实采集；让 LLM 负责需求理解、方案取舍、实现判断和评审决策。
 
@@ -148,6 +148,7 @@ docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
 | Requirements brief | `docs/brainstorms/` | 在实现压力到来前记录问题、角色、流程、约束和验收样例。 |
 | Implementation plan | `docs/plans/` | 把目标拆成实现单元、取舍、验证目标和非目标。 |
 | Task pack | `docs/tasks/` | 当计划需要确定性任务身份、依赖顺序和验证时，提供结构化交接。 |
+| App consistency audit run | `.spec-first/app-audit/runs/<run-id>/` | 在运行时验证前记录 PRD、Figma、源码、路由、架构、埋点和 i18n 的静态一致性证据。 |
 | Review/debug evidence | workflow 输出、diff、tests、reports | 让代码评审和失败诊断基于证据，而不是感觉。 |
 | Learning | `docs/solutions/` | 把已经解决的问题沉淀成可复用工程知识。 |
 
@@ -159,6 +160,8 @@ docs/
   plans/         可评审、可执行的 implementation plans
   tasks/         大计划需要结构化交接时生成的 task packs
   solutions/     解决问题后沉淀的可复用经验
+.spec-first/
+  app-audit/runs/ App 静态一致性审查事实和报告
 ```
 
 Not every workflow writes every artifact；每个入口只写入与自身职责匹配的产物。
@@ -206,6 +209,7 @@ your-project/
 | 问题澄清 | `/spec:brainstorm` 或 `$spec-brainstorm` | 原始需求、用户目标、边界和验收样例。 |
 | 实施规划 | `/spec:plan` 或 `$spec-plan` | 架构选择、实现单元、验证范围和已知未知。 |
 | 执行开发 | `/spec:work` 或 `$spec-work` | 代码改动、聚焦测试、验证记录和 scope 控制。 |
+| App 一致性审查 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit` | 运行时验证前审查 PRD、Figma、源码、路由、KMP/Clean Architecture、埋点、i18n 和行业规则一致性。 |
 | 质量与恢复 | `/spec:code-review`、`$spec-code-review`、`/spec:debug`、`$spec-debug` | findings、residual risks、根因、修复和证据。 |
 | 知识复利 | `/spec:compound` 或 `$spec-compound` | 解决问题后的可复用经验。 |
 
@@ -216,6 +220,7 @@ your-project/
 | 只有模糊想法或产品问题 | `/spec:brainstorm` 或 `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
 | 目标已定，但还没有实施策略 | `/spec:plan` 或 `$spec-plan` | `docs/plans/` 下的 plan |
 | 已有 plan 或 task pack，准备执行 | `/spec:work` 或 `$spec-work` | 代码改动、测试和验证记录 |
+| 移动 App 改动在 QA 前需要 PRD/Figma/source 一致性审查 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit` | `.spec-first/app-audit/runs/` 下的静态审查报告和范围化证据 |
 | 遇到失败测试、bug 或难解释的错误 | `/spec:debug` 或 `$spec-debug` | 根因、修复和验证证据 |
 | 合并前需要评审 diff 风险 | `/spec:code-review` 或 `$spec-code-review` | 结构化 findings 和 residual risks |
 
@@ -226,6 +231,7 @@ your-project/
 | 探索想法 | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
 | 规划实现 | `/spec:plan` | `$spec-plan` | `docs/plans/` 下的 plan |
 | 执行开发 | `/spec:work` | `$spec-work` | 代码、测试和验证记录 |
+| 审查 App 一致性 | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` | 静态一致性报告和范围化审查产物 |
 | 代码评审 | `/spec:code-review` | `$spec-code-review` | 结构化 findings 和 residual risks |
 | 调试问题 | `/spec:debug` | `$spec-debug` | 根因、修复和验证 |
 
@@ -334,6 +340,7 @@ your-project/
 - 当前宿主的 plan workflow 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。
 - 在父 workspace 下存在多个 child Git repos 时，setup/bootstrap 脚本必须显式传 `--repo <child>`。父 workspace 只报告候选 repo，不拥有 repo-local `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*` 或 `.serena/*` 产物。
 - 用已安装的 standalone `write-tasks` skill 做确定性的 task-pack handoff，再让当前宿主的 work、code-review 和 doc-review workflow 基于当前请求、plans/task packs、diffs、targeted file reads 与 tests 确定 scope authority。
+- 移动 App 的 PRD/Figma/source 对齐审查使用 App consistency audit workflow。它消费本地 `prd:<path>` 与 `figma-context:<path>` 输入；`figma-ref:<id-or-url>` 只是 reference，只有宿主提供的 Figma MCP 能力 materialize 出本地 JSON 后才成为 evidence。Figma MCP 是 App-audit 可选能力，不属于 required setup baseline。
 
 CLI reference：
 

@@ -7,8 +7,10 @@ const {
   classifyEventKind,
   classifyStates,
   evidence,
+  hashText,
   makeArtifact,
   parseCommonArgs,
+  redactForArtifactText,
   readText,
   resolveBoundedInputPath,
   slugify,
@@ -65,7 +67,7 @@ function extractPrdContract(options = {}) {
   const industrySignals = extractIndustrySignals(text);
   const states = classifyStates(text);
 
-  const featureName = firstHeading(sections) || path.basename(absolutePrd, path.extname(absolutePrd));
+  const featureName = redactForArtifactText(firstHeading(sections) || path.basename(absolutePrd, path.extname(absolutePrd)), { maxLength: 120 });
   const feature = {
     id: slugify(featureName),
     name: featureName,
@@ -123,13 +125,15 @@ function extractPages(lines, filePath, repoRoot) {
   for (const line of lines) {
     const pageMatch = line.match(/(?:页面|Page|Screen|Route)[:：\s-]+([A-Za-z0-9_\-\u4e00-\u9fa5 /]+)/i);
     const quoted = line.match(/([A-Za-z][A-Za-z0-9_]*(?:Screen|Page|Route))/);
-    const name = pageMatch ? pageMatch[1].trim() : (quoted ? quoted[1] : '');
+    const name = redactForArtifactText(pageMatch ? pageMatch[1].trim() : (quoted ? quoted[1] : ''), { maxLength: 120 });
     if (!name) continue;
     pages.push({
       id: slugify(name),
       name,
       status: 'candidate',
-      evidence: [evidence('prd', toPosix(path.relative(repoRoot, filePath)), `PRD mentions page candidate: ${name}`)],
+      evidence: [evidence('prd', toPosix(path.relative(repoRoot, filePath)), `PRD mentions page candidate: ${name}`, {
+        line_hash: hashText(line),
+      })],
     });
   }
   return dedupeByName(pages);
@@ -142,7 +146,7 @@ function extractJourneys(lines, filePath, repoRoot) {
     const steps = line
       .replace(/^[-*]\s*/, '')
       .split(/->|→|，|,|;|；/)
-      .map((step) => step.replace(/^(流程|旅程|journey|flow)[:：\s-]*/i, '').trim())
+      .map((step) => redactForArtifactText(step.replace(/^(流程|旅程|journey|flow)[:：\s-]*/i, '').trim(), { maxLength: 120 }))
       .filter(Boolean);
     if (steps.length === 0) continue;
     const name = steps.length > 1 ? steps.join(' -> ') : steps[0];
@@ -151,7 +155,9 @@ function extractJourneys(lines, filePath, repoRoot) {
       name,
       steps,
       status: 'candidate',
-      evidence: [evidence('prd', toPosix(path.relative(repoRoot, filePath)), `PRD mentions journey candidate: ${name}`)],
+      evidence: [evidence('prd', toPosix(path.relative(repoRoot, filePath)), `PRD mentions journey candidate: ${name}`, {
+        line_hash: hashText(line),
+      })],
     });
   }
   return dedupeByName(journeys);
@@ -163,9 +169,11 @@ function extractBusinessRules(lines, filePath, repoRoot) {
     .filter((line) => patterns.test(line))
     .map((line, index) => ({
       id: `rule_${index + 1}`,
-      description: line.replace(/^[-*]\s*/, ''),
+      description: redactForArtifactText(line.replace(/^[-*]\s*/, ''), { maxLength: 240 }),
       status: 'candidate',
-      evidence: [evidence('prd', toPosix(path.relative(repoRoot, filePath)), line.replace(/^[-*]\s*/, ''))],
+      evidence: [evidence('prd', toPosix(path.relative(repoRoot, filePath)), redactForArtifactText(line.replace(/^[-*]\s*/, ''), { maxLength: 240 }), {
+        line_hash: hashText(line),
+      })],
     }));
 }
 

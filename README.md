@@ -12,7 +12,7 @@
 
 **Spec-driven AI engineering workflows for Claude Code and Codex.**
 
-`spec-first` turns AI coding sessions into a repeatable engineering loop: brainstorm requirements, write plans, compile task packs, execute work, review code, debug failures, and compound learnings.
+`spec-first` turns AI coding sessions into a repeatable engineering loop: brainstorm requirements, write plans, compile task packs, execute work, audit App consistency, review code, debug failures, and compound learnings.
 
 It keeps deterministic setup in scripts while leaving product judgment, implementation tradeoffs, and review decisions to the LLM.
 
@@ -148,6 +148,7 @@ From there, continue to the current host's plan entrypoint.
 | Requirements brief | `docs/brainstorms/` | Captures the problem, actors, flows, constraints, and acceptance examples before implementation pressure takes over. |
 | Implementation plan | `docs/plans/` | Turns a settled goal into scoped implementation units, tradeoffs, verification targets, and non-goals. |
 | Task pack | `docs/tasks/` | Provides structured handoff when a plan needs deterministic task identity, dependency order, and validation. |
+| App consistency audit run | `.spec-first/app-audit/runs/<run-id>/` | Captures static PRD, Figma, source, route, architecture, analytics, and i18n consistency evidence before runtime validation. |
 | Review/debug evidence | Workflow output, diffs, tests, reports | Keeps code review and failure diagnosis tied to concrete evidence rather than vibes. |
 | Learning | `docs/solutions/` | Compounds solved problems into reusable engineering knowledge. |
 
@@ -159,6 +160,8 @@ docs/
   plans/         implementation plans ready for review and execution
   tasks/         derived task packs when a plan needs structured handoff
   solutions/     reusable learnings captured after solving problems
+.spec-first/
+  app-audit/runs/ static App consistency audit facts and reports
 ```
 
 Not every workflow writes every artifact; each entrypoint writes only the artifact that fits its role.
@@ -206,6 +209,7 @@ your-project/
 | Problem framing | `/spec:brainstorm` or `$spec-brainstorm` | The original need, user-facing goal, boundaries, and acceptance examples. |
 | Implementation planning | `/spec:plan` or `$spec-plan` | Architecture choices, implementation units, verification scope, and known unknowns. |
 | Work execution | `/spec:work` or `$spec-work` | Code changes, focused tests, verification notes, and scope control. |
+| App consistency audit | `/spec:app-consistency-audit` or `$spec-app-consistency-audit` | PRD, Figma, source, route, KMP/Clean Architecture, analytics, i18n, and rule-pack consistency before runtime validation. |
 | Quality and recovery | `/spec:code-review`, `$spec-code-review`, `/spec:debug`, `$spec-debug` | Findings, residual risks, root cause, fix, and evidence. |
 | Knowledge compounding | `/spec:compound` or `$spec-compound` | Reusable lessons after a problem is solved. |
 
@@ -216,6 +220,7 @@ your-project/
 | A rough idea or product problem | `/spec:brainstorm` or `$spec-brainstorm` | Requirements brief under `docs/brainstorms/` |
 | A settled goal but no implementation strategy | `/spec:plan` or `$spec-plan` | Plan under `docs/plans/` |
 | A plan or task pack ready to execute | `/spec:work` or `$spec-work` | Code changes, tests, and verification notes |
+| A mobile App change needs PRD/Figma/source consistency before QA | `/spec:app-consistency-audit` or `$spec-app-consistency-audit` | Static audit report and run-scoped evidence under `.spec-first/app-audit/runs/` |
 | A failing test, bug, or confusing error | `/spec:debug` or `$spec-debug` | Root cause, fix, and verification evidence |
 | A diff that needs confidence before merge | `/spec:code-review` or `$spec-code-review` | Structured findings and residual risks |
 
@@ -226,6 +231,7 @@ your-project/
 | Explore an idea | `/spec:brainstorm` | `$spec-brainstorm` | Requirements brief under `docs/brainstorms/` |
 | Plan implementation | `/spec:plan` | `$spec-plan` | Plan under `docs/plans/` |
 | Execute work | `/spec:work` | `$spec-work` | Code, tests, and verification notes |
+| Audit App consistency | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` | Static consistency report and scoped audit artifacts |
 | Review code | `/spec:code-review` | `$spec-code-review` | Structured findings and residual risks |
 | Debug a failure | `/spec:debug` | `$spec-debug` | Root cause, fix, and verification |
 
@@ -334,6 +340,7 @@ Current context and graph readiness use this path:
 - Use the current host's plan workflow as the first graph-readiness consumer. It reports graph status, checks staleness, and falls back to bounded direct repo reads when facts are unavailable, blocked, stale, or degraded.
 - In a parent workspace with multiple child Git repos, pass an explicit `--repo <child>` to setup/bootstrap scripts. The parent workspace only reports candidate repos and never owns repo-local `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, or `.serena/*` artifacts.
 - Use the installed standalone `write-tasks` skill for deterministic task-pack handoff, then the current host's work, code-review, and doc-review workflows with the current request, plans/task packs, diffs, targeted file reads, and tests as scope authority.
+- Use the App consistency audit workflow for mobile App PRD/Figma/source alignment. It consumes local `prd:<path>` and `figma-context:<path>` inputs when available; `figma-ref:<id-or-url>` is only a reference until a host-provided Figma MCP capability materializes local JSON. Figma MCP is an optional App-audit capability, not part of the required setup baseline.
 
 CLI reference:
 

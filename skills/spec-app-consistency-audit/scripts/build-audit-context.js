@@ -4,11 +4,31 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const {
+  hashFile,
+  parseCommonArgs,
+  publicPath,
+  unavailableSourceInput,
+  writeJsonOutput,
+} = require('./lib/audit-utils');
 const { validateArtifact } = require('./validate-artifacts');
 
 function buildAuditContext(options = {}) {
-  const artifactsDir = path.resolve(options.artifactsDir || '.spec-first/app-audit');
-  const files = listJsonFiles(artifactsDir);
+  if (!options.artifactsDir && !options.runDir) {
+    throw new Error('artifacts_dir_required: build-audit-context requires --artifacts-dir or run-dir:<path>.');
+  }
+  const repoRoot = path.resolve(options.repoRoot || options.source || process.cwd());
+  const artifactsDir = path.resolve(options.artifactsDir || options.runDir);
+  const outputPath = options.output ? path.resolve(options.output) : null;
+  const files = listJsonFiles(artifactsDir, {
+    excludeDirs: new Set(['input', 'writeback-preview']),
+    exclude: new Set([
+      outputPath,
+      path.join(artifactsDir, 'app-audit-context.json'),
+      path.join(artifactsDir, 'artifact-manifest.json'),
+      path.join(artifactsDir, 'latest-summary.json'),
+    ].filter(Boolean).map((filePath) => path.resolve(filePath))),
+  });
   const artifacts = [];
   const validation = [];
 
@@ -44,8 +64,20 @@ function buildAuditContext(options = {}) {
 
   const context = {
     schema_version: 'spec-app-consistency-audit-context.v1',
+    artifact_id: 'app-audit-context',
     generated_at: new Date().toISOString(),
-    artifacts_dir: '.',
+    source_inputs: artifacts.length > 0
+      ? artifacts.map((entry) => ({
+        type: 'run_artifact',
+        path: entry.file,
+        source_hash: hashFile(path.join(artifactsDir, entry.file)),
+        freshness: 'current-run',
+      }))
+      : [unavailableSourceInput('run_artifacts', publicPath(repoRoot, artifactsDir, 'run-outside-repo'), 'no_json_artifacts')],
+    consumers: ['llm-audit-planner', 'expert-agents', 'report-writer'],
+    contract_status: 'candidate',
+    data_sensitivity: 'internal',
+    artifacts_dir: publicPath(repoRoot, artifactsDir, 'run-outside-repo'),
     artifact_count: artifacts.length,
     valid: validation.every((entry) => entry.valid),
     artifacts,
@@ -63,16 +95,19 @@ function buildAuditContext(options = {}) {
   return context;
 }
 
-function listJsonFiles(dirPath) {
+function listJsonFiles(dirPath, options = {}) {
   if (!fs.existsSync(dirPath)) return [];
   const entries = fs.readdirSync(dirPath, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
     const fullPath = path.join(dirPath, entry.name);
     if (entry.isDirectory()) {
-      files.push(...listJsonFiles(fullPath));
+      if (!options.excludeDirs || !options.excludeDirs.has(entry.name)) {
+        files.push(...listJsonFiles(fullPath, options));
+      }
     } else if (entry.isFile() && entry.name.endsWith('.json')) {
-      files.push(fullPath);
+      const absolutePath = path.resolve(fullPath);
+      if (!options.exclude || !options.exclude.has(absolutePath)) files.push(fullPath);
     }
   }
   return files.sort((left, right) => left.localeCompare(right));
@@ -83,11 +118,10 @@ function toPosix(value) {
 }
 
 function parseArgs(argv) {
-  const options = {};
+  const options = parseCommonArgs(argv);
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--artifacts-dir') options.artifactsDir = argv[++index];
-    else if (arg === '--output') options.output = argv[++index];
   }
   return options;
 }
@@ -96,13 +130,7 @@ if (require.main === module) {
   try {
     const options = parseArgs(process.argv.slice(2));
     const context = buildAuditContext(options);
-    const json = `${JSON.stringify(context, null, 2)}\n`;
-    if (options.output) {
-      fs.mkdirSync(path.dirname(path.resolve(options.output)), { recursive: true });
-      fs.writeFileSync(path.resolve(options.output), json);
-    } else {
-      process.stdout.write(json);
-    }
+    writeJsonOutput(context, options.output);
     if (!context.valid) process.exitCode = 1;
   } catch (error) {
     process.stderr.write(`${error.message}\n`);

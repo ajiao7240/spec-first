@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { buildAuditReport } = require('../../skills/spec-app-consistency-audit/scripts/merge-contracts');
+const { renderHeadlessEnvelope } = require('../../skills/spec-app-consistency-audit/scripts/render-headless-envelope');
 const { validateArtifact } = require('../../skills/spec-app-consistency-audit/scripts/validate-artifacts');
 
 function write(root, relativePath, content) {
@@ -39,6 +40,9 @@ function issue(overrides = {}) {
     title: 'Issue',
     severity: 'medium',
     category: 'page_route',
+    claim_family: 'architecture_static',
+    claim_type: 'route_guard_missing',
+    affected_surface: { type: 'route', id: 'TradeRoute', file: 'Routes.kt' },
     expert: 'page-route-expert',
     static_confirmed: true,
     requires_runtime_verification: false,
@@ -51,6 +55,8 @@ function issue(overrides = {}) {
     recommendation: 'Align route behavior with the product contract.',
     related_rule_packs: ['common-app'],
     runtime_verification: { required: false, reason: 'Static evidence is sufficient.' },
+    validation_status: 'not_required',
+    review_lifecycle: [{ stage: 'normalize', action: 'accepted', reason_code: 'fixture' }],
     data_sensitivity: 'internal',
     ...overrides,
   };
@@ -97,6 +103,22 @@ describe('spec-app-consistency-audit report generation', () => {
             severity: 'high',
             category: 'page_route',
             evidence: { route: [{ file: 'Routes.kt', summary: 'missing guard' }] },
+            impact: 'Authorization: Bearer abc.def.ghi can leak in raw impact.',
+            recommendation: 'Call https://internal.example.test/path?token=secret before proceeding.',
+          }),
+        ],
+        rejected_issues: [
+          issue({
+            id: 'APP-AUDIT-REJECTED',
+            title: 'Rejected issue',
+            contract_status: 'rejected',
+            static_confirmed: false,
+            evidence_gate: {
+              passed: false,
+              reason: 'fixture_rejected',
+              project_evidence_count: 0,
+              rule_pack_evidence_count: 1,
+            },
           }),
         ],
       }));
@@ -106,6 +128,7 @@ describe('spec-app-consistency-audit report generation', () => {
         artifacts: [routePath, eqPath],
         issues: [issuesPath],
         pilotValidation: pilotPath,
+        runId: '20260502-report-test',
       });
 
       expect(report.schema_version).toBe('spec-app-consistency-audit-report.v1');
@@ -113,12 +136,82 @@ describe('spec-app-consistency-audit report generation', () => {
       expect(report.section_coverage.page_routes).toBe(true);
       expect(report.section_coverage.engineering_quality).toBe(true);
       expect(report.regression_suggestions).toHaveLength(2);
+      expect(report.rejected_issues.map((entry) => entry.id)).toContain('APP-AUDIT-REJECTED');
       expect(report.writeback_preview).toEqual(expect.objectContaining({
         mode: 'preview_only',
         auto_apply: false,
       }));
+      expect(report.writeback_preview.paths).toEqual([
+        '.spec-first/app-audit/runs/20260502-report-test/writeback-preview/repo-profile.patch.yaml',
+        '.spec-first/app-audit/runs/20260502-report-test/writeback-preview/suggested-standards.md',
+      ]);
+      expect(JSON.stringify(report)).not.toContain('abc.def.ghi');
+      expect(JSON.stringify(report)).not.toContain('token=secret');
+      expect(JSON.stringify(report)).not.toContain('internal.example.test');
       expect(report.mvp_validation.pilot_validation.pilot_recorded).toBe(true);
+      expect(validateArtifact(report).errors).toEqual([]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('headless envelope redacts absolute artifact paths from metadata', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-headless-paths-'));
+    try {
+      const metadataPath = write(root, 'metadata.json', JSON.stringify({
+        status: 'complete',
+        run_id: 'headless-path-test',
+        run_dir: path.join(root, '.spec-first/app-audit/runs/headless-path-test'),
+        summary_path: path.join(root, '.spec-first/app-audit/runs/headless-path-test/app-consistency-audit.summary.md'),
+        issues_path: path.join(root, '.spec-first/app-audit/runs/headless-path-test/issues.json'),
+        audit_verdict_scope: 'source_only_app_static_audit',
+      }));
+      const reportPath = write(root, 'audit-report.json', JSON.stringify({
+        issues: [],
+        rejected_issues: [],
+        scope_and_degraded_modes: [],
+      }));
+
+      const envelope = renderHeadlessEnvelope({ metadata: metadataPath, report: reportPath });
+
+      expect(envelope).toContain('Artifact: <absolute-path:redacted>');
+      expect(envelope).toContain('Summary: <absolute-path:redacted>');
+      expect(envelope).toContain('Issues: <absolute-path:redacted>');
+      expect(envelope).not.toContain(root);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('normalizes issue path-like fields before report validation', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-report-paths-'));
+    try {
+      const routePath = write(root, 'route.json', JSON.stringify(artifact('page-route-contract', 'page-route-contract.v1')));
+      const sourceFile = write(root, 'src/Analytics.kt', 'fun track() {}');
+      const issuesPath = write(root, 'issues.json', JSON.stringify({
+        issues: [issue({
+          id: 'APP-AUDIT-PATHS',
+          affected_surface: { type: 'event', id: 'trade_submit', file: sourceFile },
+          provenance: [{ source: 'analytics', file: sourceFile, summary: 'See https://internal.example.test/path' }],
+          evidence: { analytics: [{ file: sourceFile, summary: 'Cookie: session=secret' }] },
+          runtime_verification: { required: true, level: 'simulator', reason: 'Authorization: Bearer abc.def.ghi' },
+        })],
+      }));
+
+      const report = buildAuditReport({
+        repoRoot: root,
+        artifacts: [routePath],
+        issues: [issuesPath],
+      });
+      const serialized = JSON.stringify(report);
+
       expect(validateArtifact(report).valid).toBe(true);
+      expect(report.issues[0].affected_surface.file).toBe('src/Analytics.kt');
+      expect(report.issues[0].evidence.analytics[0].file).toBe('src/Analytics.kt');
+      expect(serialized).not.toContain(root);
+      expect(serialized).not.toContain('internal.example.test');
+      expect(serialized).not.toContain('Cookie: session');
+      expect(serialized).not.toContain('abc.def.ghi');
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

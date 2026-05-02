@@ -113,6 +113,32 @@ describe('spec-app-consistency-audit preflight', () => {
     }
   });
 
+  test('Figma ref token is recorded as sanitized reference-only context', () => {
+    const repoRoot = makeRepo();
+    try {
+      const artifact = runPreflight({
+        repoRoot,
+        source: repoRoot,
+        figmaRef: 'https://www.figma.com/file/abc123/Secret?node-id=12%3A34&token=very-secret',
+      });
+      const figmaInput = artifact.source_inputs.find((input) => input.type === 'figma');
+      const serialized = JSON.stringify(artifact);
+
+      expect(artifact.has_figma_reference).toBe(true);
+      expect(artifact.has_figma_materialized_context).toBe(false);
+      expect(artifact.figma_context_mode).toBe('mcp_reference_only');
+      expect(artifact.inputs.figma.reference_kind).toBe('ref');
+      expect(artifact.inputs.figma.reference_hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+      expect(artifact.inputs.figma.reference_host).toBe('www.figma.com');
+      expect(figmaInput.path).toMatch(/^figma-ref:[a-f0-9]{12}$/);
+      expect(serialized).not.toContain('very-secret');
+      expect(serialized).not.toContain('node-id=12');
+      expect(serialized).not.toContain('abc123/Secret?');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   test('rejects symlink escape by default', () => {
     const repoRoot = makeRepo();
     const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-outside-'));

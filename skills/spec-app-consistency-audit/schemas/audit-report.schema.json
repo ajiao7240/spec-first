@@ -13,7 +13,8 @@
     "data_sensitivity",
     "summary",
     "scope_and_degraded_modes",
-    "issues"
+    "issues",
+    "rejected_issues"
   ],
   "properties": {
     "schema_version": { "const": "spec-app-consistency-audit-report.v1" },
@@ -42,6 +43,9 @@
         "title",
         "severity",
         "category",
+        "claim_family",
+        "claim_type",
+        "affected_surface",
         "expert",
         "contract_status",
         "confidence",
@@ -54,23 +58,26 @@
         "provenance",
         "evidence",
         "related_rule_packs",
-        "runtime_verification"
+        "runtime_verification",
+        "validation_status",
+        "review_lifecycle"
       ],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
-        "title": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 240 },
         "severity": { "enum": ["blocker", "high", "medium", "low", "info"] },
         "category": { "type": "string", "minLength": 1 },
+        "claim_family": { "type": "string", "minLength": 1 },
+        "claim_type": { "type": "string", "minLength": 1 },
+        "affected_surface": {
+          "type": "object",
+          "required": ["type", "id", "file"]
+        },
         "expert": { "type": "string", "minLength": 1 },
         "contract_status": { "enum": ["candidate", "confirmed", "rejected"] },
-        "confidence": {
-          "oneOf": [
-            { "type": "string", "minLength": 1 },
-            { "type": "number", "minimum": 0, "maximum": 1 }
-          ]
-        },
-        "impact": { "$ref": "#/$defs/string_or_string_array" },
-        "recommendation": { "$ref": "#/$defs/string_or_string_array" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "impact": { "$ref": "#/$defs/string_array" },
+        "recommendation": { "$ref": "#/$defs/string_array" },
         "data_sensitivity": { "enum": ["public", "internal", "confidential", "restricted"] },
         "static_confirmed": { "type": "boolean" },
         "requires_runtime_verification": { "type": "boolean" },
@@ -105,7 +112,9 @@
         "runtime_verification": {
           "type": "object",
           "minProperties": 1
-        }
+        },
+        "validation_status": { "enum": ["not_required", "validated", "validator_rejected", "validator_unavailable"] },
+        "review_lifecycle": { "type": "array", "minItems": 1 }
       },
       "additionalProperties": true
     },
@@ -114,15 +123,10 @@
       "minProperties": 1,
       "additionalProperties": true
     },
-    "string_or_string_array": {
-      "oneOf": [
-        { "type": "string", "minLength": 1 },
-        {
-          "type": "array",
-          "minItems": 1,
-          "items": { "type": "string", "minLength": 1 }
-        }
-      ]
+    "string_array": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
     }
   },
   "additionalProperties": true

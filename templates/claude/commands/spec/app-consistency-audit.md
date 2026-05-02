@@ -1,6 +1,6 @@
 ---
 description: "Run the Spec-First App consistency audit workflow"
-argument-hint: "[prd path] [source path] [figma context or options]"
+argument-hint: "[mode:headless|mode:report-only] [base:<ref>] [source:<path>] [prd:<path>] [figma-context:<path>|figma-ref:<id-or-url>] [industry:<name>] [depth:deep]"
 ---
 
 # Spec-First App Consistency Audit

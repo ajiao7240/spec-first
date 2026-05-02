@@ -17,16 +17,21 @@
 ## 输入 artifacts
 
 - `preflight.json`
+- `impact-facts.json`
+- `audit-plan.json`，由 LLM Audit Planner 基于 facts 生成，不是脚本规则命中结果
+- `app-audit-context.json`
 - product、figma、code、page-route、architecture、engineering-quality、component、module、analytics、i18n、industry、rule-pack artifacts
 - `ecc-source-lock.json` 仅作为 lens 来源说明，不作为项目 evidence
 
 ## 顺序
 
 1. 读取 preflight 和 degraded modes。
-2. 分别读取各 contract artifact，确认 schema、source_inputs、freshness 和 degraded modes。
-3. 将对应 artifact 投给对应专家。
-4. 汇总候选问题后交给 Evidence Auditor。
-5. Evidence Auditor 通过后再交给 Report Writer。
+2. 读取 impact facts 和 app-audit-context，确认 candidate signals 与 capability coverage。
+3. 让 LLM Audit Planner 生成 audit-plan；selected/skipped experts 由 LLM 判断，不由脚本硬编码。
+4. 分别读取各 contract artifact，确认 schema、source_inputs、freshness 和 degraded modes。
+5. 只调度 audit-plan 选中的专家；未选专家只在 skipped_experts 中说明。
+6. 汇总候选问题后先过 deterministic Evidence Gate，再交给 LLM Evidence Auditor。
+7. Evidence Auditor 通过后再交给 Report Writer。
 
 ## 审查步骤
 
@@ -34,6 +39,7 @@
 2. 按入口到出口组织证据链：Product journey -> Figma screen -> Code route -> Architecture boundary -> Analytics/I18n/Industry。
 3. 对跨专家重复问题做归并，保留最强项目证据，不用 rule pack 替代项目证据。
 4. 把 runtime-only 风险标记为验证建议，不升级为 static_confirmed。
+5. report-only 不写 run artifact；headless/default 必须使用 `.spec-first/app-audit/runs/<run-id>/`。
 
 ## 禁止
 

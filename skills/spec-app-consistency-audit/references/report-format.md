@@ -36,7 +36,7 @@
 
 只允许 preview 路径：
 
-- `.spec-first/app-audit/writeback-preview/repo-profile.patch.yaml`
-- `.spec-first/app-audit/writeback-preview/suggested-standards.md`
+- `.spec-first/app-audit/runs/<run-id>/writeback-preview/repo-profile.patch.yaml`
+- `.spec-first/app-audit/runs/<run-id>/writeback-preview/suggested-standards.md`
 
 禁止自动修改 durable repo-profile 或 standards。
