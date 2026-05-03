@@ -28,12 +28,17 @@ describe('spec-work-beta context orientation contract', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     expect(text).toContain('Context Orientation Anchor');
     expect(text).toContain('the plan or task pack');
+    expect(text).toContain('workspace-graph-targets.v1');
+    expect(text).toContain('bounded candidate repos');
+    expect(text).toContain('GitNexus-first evidence per candidate');
+    expect(text).toContain('definitions-only GitNexus results as pointers');
     expect(text).toContain('Delegate prompts should carry bounded direct-read context');
     expect(text).toContain('explicit file boundaries');
     expect(text).toContain('not graph work-run ids');
     expect(text).toContain('Workspace Repo Scope');
     expect(text).toContain('per-unit/per-task `target_repo` values');
     expect(text).toContain('Delegation may split across child repos only when repo scopes and write sets are explicit');
+    expect(text).toContain('advisory graph target facts');
     expect(text).not.toContain('spec-first ' + 'crg hook');
     expect(text).not.toContain('$spec-' + 'graph' + '-bootstrap');
     expect(text).not.toContain('/spec:' + 'graph' + '-bootstrap');

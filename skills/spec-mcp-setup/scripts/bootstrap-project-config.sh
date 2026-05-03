@@ -3,12 +3,15 @@
 
 set -euo pipefail
 
+command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
+
 REFRESH_EXAMPLE="no"
 CREATE_LOCAL="no"
 ENSURE_GITIGNORE="no"
 DELETE_LEGACY_MARKDOWN="no"
 JSON_OUTPUT="no"
 REPO_ARG=""
+ALL_REPOS="no"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +39,10 @@ while [[ $# -gt 0 ]]; do
       REPO_ARG="${2:-}"
       [ -n "$REPO_ARG" ] || { echo "bootstrap-project-config.sh: --repo requires a value" >&2; exit 1; }
       shift 2
+      ;;
+    --all-repos)
+      ALL_REPOS="yes"
+      shift
       ;;
     *)
       shift
@@ -78,16 +85,176 @@ emit_json() {
   printf '}\n'
 }
 
+write_file_atomic_path() {
+  local path="$1"
+  local tmp
+  mkdir -p "$(dirname "$path")"
+  tmp="$(mktemp "${path}.XXXXXX")"
+  cat > "$tmp"
+  mv "$tmp" "$path"
+}
+
+write_all_repos_project_config_summary_and_exit() {
+  local target_json="$1"
+  local selection_source="${2:-explicit-all-repos}"
+  local target_mode workspace_root candidate_count summary_items summary_json
+
+  target_mode="$(jq -r '.mode // empty' <<<"$target_json")"
+  workspace_root="$(jq -r '.workspace_root // .invocation_cwd' <<<"$target_json")"
+
+  if [ -n "$REPO_ARG" ]; then
+    jq -n --arg workspace_root "$workspace_root" '{
+      schema_version:"workspace-project-config-bootstrap-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:"all-repos-conflicts-with-repo",
+      workspace_root:$workspace_root,
+      advisory:true,
+      next_action:"Use either --all-repos from a parent workspace or --repo <child>, not both."
+    }'
+    exit 1
+  fi
+
+  if [ "$target_mode" = "git-repo" ]; then
+    jq -n --arg workspace_root "$workspace_root" '{
+      schema_version:"workspace-project-config-bootstrap-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:"all-repos-requires-parent-workspace",
+      workspace_root:$workspace_root,
+      advisory:true,
+      next_action:"Run --all-repos from a parent workspace containing child Git repos, or omit --all-repos in a single Git repo."
+    }'
+    exit 1
+  fi
+
+  candidate_count="$(jq -r '(.candidates // []) | length' <<<"$target_json")"
+  if [ "$candidate_count" -eq 0 ]; then
+    jq -n --argjson target "$target_json" '{
+      schema_version:"workspace-project-config-bootstrap-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:($target.reason_code // "workspace-no-git-candidates"),
+      workspace_root:($target.workspace_root // null),
+      candidates:($target.candidates // []),
+      advisory:true,
+      next_action:($target.next_action // "Run from a parent workspace containing child Git repos.")
+    }'
+    exit 1
+  fi
+
+  summary_items="$(mktemp "${TMPDIR:-/tmp}/project-config-all-repos.XXXXXX")"
+  jq -n '[]' > "$summary_items"
+  while IFS=$'\t' read -r child_label child_path; do
+    [ -n "$child_path" ] || continue
+    child_args=(--repo "$child_path" --json)
+    [ "$REFRESH_EXAMPLE" = "yes" ] && child_args+=(--refresh-example)
+    [ "$CREATE_LOCAL" = "yes" ] && child_args+=(--create-local)
+    [ "$ENSURE_GITIGNORE" = "yes" ] && child_args+=(--ensure-gitignore)
+    [ "$DELETE_LEGACY_MARKDOWN" = "yes" ] && child_args+=(--delete-legacy-markdown)
+    set +e
+    child_output="$(bash "$0" ${child_args[@]+"${child_args[@]}"})"
+    child_status=$?
+    set -e
+    if ! jq -e . >/dev/null 2>&1 <<<"$child_output"; then
+      child_result="$(jq -n --arg output "$child_output" '{schema_version:"project-config-bootstrap.v1",overall_status:"action-required",reason:"child-output-unparseable",diagnostic:$output}')"
+    else
+      child_result="$child_output"
+    fi
+    jq \
+      --arg repo_label "$child_label" \
+      --arg workspace_relative_path "$child_path" \
+      --argjson exit_code "$child_status" \
+      --argjson result "$child_result" \
+      '. + [{
+        repo_label:$repo_label,
+        workspace_relative_path:$workspace_relative_path,
+        exit_code:$exit_code,
+        overall_status:($result.overall_status // "unknown"),
+        reason_code:(if (($result.reason // "") == "") then null else $result.reason end),
+        result:$result
+      }]' "$summary_items" > "$summary_items.next"
+    mv "$summary_items.next" "$summary_items"
+  done < <(jq -r '.candidates[] | [.repo_label, .workspace_relative_path] | @tsv' <<<"$target_json")
+
+  summary_json="$(jq -n \
+    --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    --arg selection_source "$selection_source" \
+    --argjson target "$target_json" \
+    --slurpfile items "$summary_items" \
+    '($items[0] // []) as $results
+    | {
+        schema_version:"workspace-project-config-bootstrap-summary.v1",
+        generated_at:$generated_at,
+        advisory:true,
+        workflow_mode:"all-repos",
+        selection_source:$selection_source,
+        workspace_root:($target.workspace_root // null),
+        parent_writes_repo_local_artifacts:false,
+        results:$results,
+        counts:{
+          total:($results | length),
+          ready:([$results[] | select(.overall_status == "ready")] | length),
+          action_required:([$results[] | select(.overall_status != "ready")] | length)
+        },
+        overall_status:(
+          if ($results | length) == 0 then "action-required"
+          elif ([$results[] | select(.overall_status != "ready")] | length) == 0 then "ready"
+          elif ([$results[] | select(.overall_status == "ready")] | length) > 0 then "partial"
+          else "action-required"
+          end
+        ),
+        reason_code:(
+          if ($results | length) == 0 then "workspace-no-git-candidates"
+          elif ([$results[] | select(.overall_status != "ready")] | length) == 0 then null
+          else "all-repos-partial-or-action-required"
+          end
+        ),
+        next_action:(
+          if ([$results[] | select(.overall_status != "ready")] | length) == 0 then
+            "All child repos completed project config bootstrap."
+          else
+            "Inspect per-child reason_code and rerun project config bootstrap for action-required repos."
+          end
+        )
+      }')"
+  rm -f "$summary_items"
+  printf '%s\n' "$summary_json" | write_file_atomic_path "$workspace_root/.spec-first/workspace/project-config-bootstrap-summary.json"
+  printf '%s\n' "$summary_json"
+  if [ "$(jq -r '.overall_status' <<<"$summary_json")" = "action-required" ]; then
+    exit 1
+  fi
+  exit 0
+}
+
 TARGET_ARGS=()
-if [ -n "$REPO_ARG" ]; then
+if [ -n "$REPO_ARG" ] && [ "$ALL_REPOS" != "yes" ]; then
   TARGET_ARGS+=(--repo "$REPO_ARG")
 fi
 set +e
 TARGET_ENV="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format env ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
 TARGET_STATUS=$?
+TARGET_JSON="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format json ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
+TARGET_JSON_STATUS=$?
 set -e
 [ -n "$TARGET_ENV" ] || { echo "bootstrap-project-config.sh: target resolver returned no env output" >&2; exit 1; }
+[ -n "$TARGET_JSON" ] || { echo "bootstrap-project-config.sh: target resolver returned no JSON output" >&2; exit 1; }
 eval "$TARGET_ENV"
+if [ "$ALL_REPOS" = "yes" ]; then
+  write_all_repos_project_config_summary_and_exit "$TARGET_JSON" "explicit-all-repos"
+fi
+DEFAULT_ALL_REPOS="no"
+TARGET_MODE="$(jq -r '.mode // empty' <<<"$TARGET_JSON")"
+TARGET_CANDIDATE_COUNT="$(jq -r '(.candidates // []) | length' <<<"$TARGET_JSON")"
+if [ -z "$REPO_ARG" ] && [ "$TARGET_MODE" != "git-repo" ] && [ "$TARGET_CANDIDATE_COUNT" -gt 0 ]; then
+  DEFAULT_ALL_REPOS="yes"
+fi
+if [ "$DEFAULT_ALL_REPOS" = "yes" ]; then
+  write_all_repos_project_config_summary_and_exit "$TARGET_JSON" "workspace-default-all-repos"
+fi
+if [ "$TARGET_JSON_STATUS" -ne 0 ]; then
+  TARGET_STATUS="$TARGET_JSON_STATUS"
+fi
 if [ "$TARGET_STATUS" -ne 0 ] || [ "$state_write_allowed" != "true" ]; then
   resolved_reason="${reason_code:-workspace-target-required}"
   if [ "$JSON_OUTPUT" = "yes" ]; then

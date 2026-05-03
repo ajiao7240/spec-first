@@ -17,11 +17,11 @@ This command takes a work document (plan, task pack, or specification) or a bare
 
 ## Context Orientation Anchor
 
-Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. External tools may prioritize inspection, but they do not define scope authority. Delegate prompts should carry bounded direct-read context and explicit file boundaries, not graph work-run ids.
+Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. When parent-workspace read-only orientation needs repo candidates, use `workspace-graph-targets.v1` as advisory facts, prefer bounded candidate repos with `primary` status, and try GitNexus-first evidence per candidate before bounded direct reads. Treat `degraded-fallback` or definitions-only GitNexus results as pointers, not authority to change behavior. External tools may prioritize inspection, but they do not define scope authority. Delegate prompts should carry bounded direct-read context and explicit file boundaries, not graph work-run ids.
 
 ## Workspace Repo Scope
 
-When invoked from a parent workspace containing multiple independent Git repos, require an explicit single `target_repo` or per-unit/per-task `target_repo` values before any write, test, changelog, delegation, or commit work. Delegation may split across child repos only when repo scopes and write sets are explicit; otherwise run serially or return to `spec-plan` for repo scoping. Do not let a parent workspace cwd imply permission to edit sibling repos.
+When invoked from a parent workspace containing multiple independent Git repos, require an explicit single `target_repo` or per-unit/per-task `target_repo` values before any write, test, changelog, delegation, or commit work. Delegation may split across child repos only when repo scopes and write sets are explicit; otherwise run serially or return to `spec-plan` for repo scoping. Do not let a parent workspace cwd, advisory graph target facts, or live MCP results imply permission to edit sibling repos.
 
 ## Input Document
 

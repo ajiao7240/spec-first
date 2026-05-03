@@ -272,17 +272,17 @@
         "kind": "warmup",
         "unix": {
           "command": "npx",
-          "args": ["-y", "gitnexus@1.6.4-rc.37", "--help"]
+          "args": ["-y", "gitnexus@1.6.4-rc.48", "--help"]
         },
         "windows": {
           "command": "npx",
-          "args": ["-y", "gitnexus@1.6.4-rc.37", "--help"]
+          "args": ["-y", "gitnexus@1.6.4-rc.48", "--help"]
         }
       },
       "host_config": {
         "claude": {
           "command": "npx",
-          "args": ["-y", "gitnexus@1.6.4-rc.37", "mcp"],
+          "args": ["-y", "gitnexus@1.6.4-rc.48", "mcp"],
           "scope": "managed",
           "targets": {
             "managed": {
@@ -308,7 +308,7 @@
         },
         "codex": {
           "command": "npx",
-          "args": ["-y", "gitnexus@1.6.4-rc.37", "mcp"],
+          "args": ["-y", "gitnexus@1.6.4-rc.48", "mcp"],
           "startup_timeout_sec": 90,
           "scope": "user",
           "targets": {

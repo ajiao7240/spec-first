@@ -20,6 +20,7 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     const mirror = fs.readFileSync(PROMPT_MIRROR_PATH, 'utf8');
 
     expect(skill).toContain('## Live MCP Probe');
+    expect(skill).toContain('## Final Response Contract');
     expect(skill).toContain('## Purpose');
     expect(skill).toContain('## When To Use');
     expect(skill).toContain('## When Not To Use');
@@ -54,6 +55,9 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('CLI Evidence');
     expect(skill).toContain('Live MCP Probe');
     expect(skill).toContain('Do not collapse `Live MCP Probe=passed` into `CLI query_ready=true`');
+    expect(skill).toContain('summarize `run_id`, total child count, ready/degraded/action-required counts');
+    expect(skill).toContain('every `results[]` child row carries the same `parent_run_id`');
+    expect(skill).toContain('Always report the compiled artifacts first, then any session-local live MCP evidence');
     expect(skill).toContain('code-review-graph and bounded direct repo reads');
     expect(skill).toContain('needs a restart or a new session');
 
@@ -75,6 +79,10 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(mirror).toContain('`Probe Token`');
     expect(mirror).toContain('`CLI Evidence`');
     expect(mirror).toContain('`Live MCP Probe=passed` 不能折叠成 `CLI query_ready=true`');
+    expect(mirror).toContain('summary 必须包含 `run_id`');
+    expect(mirror).toContain('child row 必须包含对应 `parent_run_id`');
+    expect(mirror).toContain('最终回复必须先报告 compiled artifacts，再报告 session-local MCP evidence');
+    expect(mirror).toContain('多仓输出 `run_id`、child 总数、ready/degraded/action-required 计数和逐仓状态');
     expect(mirror).toContain('不把 compiled `query_ready` 改成 true');
   });
 });

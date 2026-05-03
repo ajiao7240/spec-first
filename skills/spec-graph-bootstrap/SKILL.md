@@ -20,7 +20,7 @@ Use it when the user asks to compile, refresh, verify, or diagnose project graph
 
 Do not use this workflow to install MCP servers, repair host config, update spec-first runtime assets, review code, plan features, or infer semantic architecture conclusions. Use `spec-mcp-setup`, `spec-update`, review, planning, or work workflows for those jobs.
 
-Do not run it from a parent workspace unless the target child repo is explicit.
+Do not write repo-local graph artifacts into a parent workspace. When run from a parent workspace without `--repo`, the workflow defaults to the all-child-repos maintenance path and writes only parent advisory workspace summaries plus child-local canonical artifacts.
 
 ## Inputs
 
@@ -33,11 +33,17 @@ Required setup-owned inputs:
 
 Optional invocation input:
 
-- `--repo <child>` / `-Repo <child>` when the current directory is a parent workspace.
+- no argument from a parent workspace: default all-child-repos maintenance action.
+- `--repo <child>` / `-Repo <child>` when the current directory is a parent workspace and the user wants one child only.
+- `--all-repos` / `-AllRepos` as an explicit parent-workspace maintenance action. This is equivalent to the default parent-workspace no-argument behavior. It loops over discovered child Git repos, runs the existing child-scoped bootstrap flow, and writes an advisory `.spec-first/workspace/graph-bootstrap-summary.json` summary in the parent workspace.
+
+Optional read-only workspace routing input:
+
+- `skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh` / `.ps1` may be used from a parent workspace to compile advisory `workspace-graph-targets.v1` facts for read-only GitNexus-first evidence selection. This resolver does not run providers and does not create parent repo-local graph artifacts unless explicitly invoked with `--write-summary` / `-WriteSummary`, in which case it writes only `.spec-first/workspace/graph-targets.json` as an advisory control-plane summary.
 
 ## Workflow
 
-1. Resolve a single project repo target and fail closed if the target is ambiguous.
+1. Resolve the project target. In a Git repo, bootstrap that repo. In a parent workspace, bootstrap all child repos by default unless `--repo <child>` selects one child.
 2. Validate setup-owned input schemas and host readiness ledger consistency.
 3. Validate provider ids, command arrays, and GitNexus query probe policy shape before running any provider command.
 4. Run configured provider bootstrap, status, and query proof commands without shell interpolation.
@@ -78,11 +84,25 @@ Run the deterministic bootstrap script from the repo root:
 bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh
 ```
 
-From a parent workspace that contains multiple independent child Git repos, pass the selected child explicitly:
+From a parent workspace that contains multiple independent child Git repos, running without `--repo` defaults to all child repos:
+
+```bash
+bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh
+```
+
+Pass a selected child only when narrowing the run:
 
 ```bash
 bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh --repo project-a
 ```
+
+For read-only target discovery from a parent workspace, run the advisory resolver instead of bootstrap:
+
+```bash
+bash skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh
+```
+
+The resolver emits `schema_version=workspace-graph-targets.v1`, per-child `status` values such as `primary`, `degraded-fallback`, `dirty-uncertain`, `stale`, `setup-ready-bootstrap-required`, or `unavailable`, GitNexus repo/query probe pointers, setup-owned config pointers, and canonical graph artifact pointers. Downstream LLM workflows use this output to choose bounded candidate repos for read-only GitNexus-first evidence; scripts still do not decide semantic repo relevance.
 
 On Windows:
 
@@ -96,9 +116,29 @@ PowerShell with an explicit child repo:
 pwsh -File skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1 -Repo project-a
 ```
 
+Explicit all-repos maintenance from a parent workspace is also supported and is equivalent to the parent-workspace default:
+
+```bash
+bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh --all-repos
+```
+
+```powershell
+pwsh -File skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1 -AllRepos
+```
+
+The parent-workspace default and `--all-repos` / `-AllRepos` preserve per-child partial success, write child repo canonical artifacts only, and write the parent summary under `.spec-first/workspace/graph-bootstrap-summary.json` as advisory control-plane evidence.
+
+PowerShell read-only target discovery:
+
+```powershell
+pwsh -File skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.ps1
+```
+
 PowerShell parity v1 is source-contract parity in automated tests; shell behavior tests are the primary executable verification path until a Windows runner is available.
 
-If the current directory is a non-Git parent workspace and no `--repo` / `-Repo` is provided, fail before provider command validation or directory creation with `workflow_mode=blocked`, `reason_code=workspace-target-required`, `candidates[]`, and a `next_action` that asks for an explicit child repo. `workspace-single-candidate` remains advisory and must not silently run providers. Parent workspaces must not receive `.spec-first/graph/*`, `.spec-first/impact/*`, or `.spec-first/providers/*` canonical project artifacts.
+If the current directory is a non-Git parent workspace and no `--repo` / `-Repo` is provided, run the all-child-repos maintenance path. If no child Git repos are discovered, fail before provider command validation or directory creation with `workflow_mode=blocked`, `reason_code=workspace-no-git-candidates`, and a `next_action` that asks for a Git repo or child repo. Parent workspaces must not receive `.spec-first/graph/*`, `.spec-first/impact/*`, or `.spec-first/providers/*` canonical project artifacts.
+
+This parent-workspace bootstrap rule is separate from read-only workspace graph target discovery. The resolver may list all child repos and their graph readiness without running providers; bootstrap remains child-scoped internally and uses the all-child maintenance path only to loop over explicit child-scoped invocations.
 
 ## Provider Command Safety
 
@@ -157,7 +197,7 @@ GitNexus candidate probing is bounded and deterministic:
 - Normalized GitNexus envelopes include attempted query logs and `winning_query_probe_log` when a later candidate is the first process result.
 - Candidate probing must not become broad search; keep it small and source-derived so scripts prepare facts and LLMs decide how to use them.
 
-Provider commands may trigger first-use package downloads. Progress hints go to stderr, while stdout remains the final JSON result and raw provider output remains in `.spec-first/providers/<provider>/raw/*`.
+Provider commands may trigger first-use package downloads. Progress hints go to stderr, while stdout remains the final JSON result and raw provider output remains in `.spec-first/providers/<provider>/raw/*`. Parent all-repos runs also emit child start/finish progress to stderr and stamp `.spec-first/workspace/graph-bootstrap-summary.json` with a `run_id`; every `results[]` child row carries the same `parent_run_id` for log correlation.
 
 ## Live MCP Probe
 
@@ -180,6 +220,16 @@ When live MCP probing is attempted or would clarify an otherwise degraded GitNex
 | gitnexus | `<true/false>` | `<true/false>` | `<winning attempt or query_probe_policy token>` | `process results/definitions-only/FTS diagnostic/empty/unparseable` | `passed/partial-definitions-only/failed/unavailable/not loaded/not attempted` | `<session-local MCP guidance plus compiled readiness caveat>` |
 
 Do not collapse `Live MCP Probe=passed` into `CLI query_ready=true`. If live MCP succeeds while compiled GitNexus `query_ready=false`, say that GitNexus MCP may be used in the current session, but downstream compiled facts still remain degraded or query-unverified.
+
+## Final Response Contract
+
+Always report the compiled artifacts first, then any session-local live MCP evidence:
+
+1. For a single repo, summarize `workflow_mode`, `overall_status`, provider `graph_ready/query_ready`, key `reason_code`, and the canonical artifact paths.
+2. For parent workspace all-repos runs, summarize `run_id`, total child count, ready/degraded/action-required counts, and per-child status. Keep parent `.spec-first/workspace/graph-bootstrap-summary.json` explicitly advisory.
+3. If any GitNexus provider is `query-unverified` or the live MCP probe was attempted, include the separate compiled-vs-session table from the Live MCP Probe section. Do not omit this table just because code-review-graph is ready.
+4. If the final answer mentions rerunning with elevated permissions, network repair, cache repair, restart/new session, or degraded fallback use, tie that advice to structured `reason_code`, `failure_class`, raw log paths, or live MCP evidence.
+5. Never rewrite or imply updated compiled readiness based on a live MCP response. A live MCP response is only current-session evidence for the LLM handoff.
 
 ## Outputs
 
@@ -215,7 +265,7 @@ Canonical downstream artifacts live under `.spec-first/graph/` and `.spec-first/
 ## Failure Modes
 
 - Missing config, unsupported schemas, baseline not ready, or readiness ledger conflict: fail closed before provider commands and emit `workflow_mode` / `reason_code`.
-- Ambiguous parent workspace target: return `workspace-target-required` with candidate repos and do not create project artifacts in the parent workspace.
+- Parent workspace target: default to all child repos, preserve child-scoped canonical artifacts, and write only advisory parent workspace summaries. If no child repos exist, return `workspace-no-git-candidates`.
 - Unsupported provider id, command shape, or unsafe query probe policy: return `unsupported-provider-command` before running provider commands.
 - Provider build failure: mark that provider failed, preserve raw logs, and use fallback workflow mode only when fallback capabilities are available.
 - Build/status success with query proof failure: preserve `graph_ready=true` where status verified, keep `query_ready=false`, record limitations and raw logs.

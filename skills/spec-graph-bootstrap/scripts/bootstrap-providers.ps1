@@ -1,11 +1,13 @@
 param(
-  [string]$Repo = ''
+  [string]$Repo = '',
+  [switch]$AllRepos
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $script:GitNexusQueryProbeCandidateLimit = 5
+$script:BootstrapProvidersScript = $PSCommandPath
 
 function Write-ResultAndExit {
   param(
@@ -22,6 +24,156 @@ function Write-ResultAndExit {
     next_action = $NextAction
   } | ConvertTo-Json -Compress
   exit $ExitCode
+}
+
+function Invoke-ChildJsonScript {
+  param(
+    [string]$ScriptPath,
+    [hashtable]$Arguments
+  )
+
+  $stderrPath = Join-Path ([System.IO.Path]::GetTempPath()) ('spec-first-child-stderr-{0}.log' -f ([guid]::NewGuid().ToString('N')))
+  $informationPath = Join-Path ([System.IO.Path]::GetTempPath()) ('spec-first-child-information-{0}.log' -f ([guid]::NewGuid().ToString('N')))
+  $stdout = @()
+  $exitCode = 0
+  $exceptionText = ''
+  try {
+    $global:LASTEXITCODE = 0
+    $stdout = @(& $ScriptPath @Arguments 2> $stderrPath 6> $informationPath)
+    if ($LASTEXITCODE -is [int]) { $exitCode = $LASTEXITCODE }
+  } catch {
+    $exitCode = if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }
+    $exceptionText = [string]$_.Exception.Message
+  }
+
+  $stderrText = if (Test-Path -LiteralPath $stderrPath -PathType Leaf) { Get-Content -Raw -LiteralPath $stderrPath } else { '' }
+  $informationText = if (Test-Path -LiteralPath $informationPath -PathType Leaf) { Get-Content -Raw -LiteralPath $informationPath } else { '' }
+  Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $stderrPath, $informationPath
+
+  $diagnosticParts = @($stderrText, $informationText, $exceptionText) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+  [pscustomobject]@{
+    stdout = ($stdout -join "`n")
+    stderr = $stderrText
+    information = $informationText
+    diagnostic = ($diagnosticParts -join "`n").Trim()
+    exit_code = $exitCode
+  }
+}
+
+function Write-WorkspaceGraphBootstrapSummaryAndExit {
+  param(
+    [object]$TargetFacts,
+    [string]$SelectionSource = 'explicit-all-repos'
+  )
+
+  if (-not [string]::IsNullOrWhiteSpace($Repo)) {
+    [pscustomobject]@{
+      schema_version = 'workspace-graph-bootstrap-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = 'all-repos-conflicts-with-repo'
+      workspace_root = $TargetFacts.workspace_root
+      advisory = $true
+      next_action = 'Use either -AllRepos from a parent workspace or -Repo <child>, not both.'
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
+
+  if ($TargetFacts.mode -eq 'git-repo') {
+    [pscustomobject]@{
+      schema_version = 'workspace-graph-bootstrap-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = 'all-repos-requires-parent-workspace'
+      workspace_root = $TargetFacts.workspace_root
+      advisory = $true
+      next_action = 'Run -AllRepos from a parent workspace containing child Git repos, or omit -AllRepos in a single Git repo.'
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
+
+  $children = @($TargetFacts.candidates)
+  if ($children.Count -eq 0) {
+    [pscustomobject]@{
+      schema_version = 'workspace-graph-bootstrap-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = if ([string]::IsNullOrWhiteSpace([string]$TargetFacts.reason_code)) { 'workspace-no-git-candidates' } else { [string]$TargetFacts.reason_code }
+      workspace_root = $TargetFacts.workspace_root
+      candidates = @($TargetFacts.candidates)
+      advisory = $true
+      next_action = if ([string]::IsNullOrWhiteSpace([string]$TargetFacts.next_action)) { 'Run from a parent workspace containing child Git repos.' } else { [string]$TargetFacts.next_action }
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
+
+  $runId = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
+  $results = @()
+  $childIndex = 0
+  foreach ($child in $children) {
+    $childIndex += 1
+    [Console]::Error.WriteLine("spec-graph-bootstrap: all-repos child $childIndex/$($children.Count) start repo=$([string]$child.workspace_relative_path)")
+    $childRun = Invoke-ChildJsonScript -ScriptPath $script:BootstrapProvidersScript -Arguments @{ Repo = [string]$child.workspace_relative_path }
+    $childStatus = [int]$childRun.exit_code
+    $childText = [string]$childRun.stdout
+    try {
+      $childResult = $childText | ConvertFrom-Json
+    } catch {
+      $diagnostic = (@($childText, [string]$childRun.diagnostic) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }) -join "`n"
+      $childResult = [pscustomobject]@{
+        schema_version = 'graph-bootstrap-result.v1'
+        overall_status = 'action-required'
+        workflow_mode = 'blocked'
+        reason_code = 'child-bootstrap-output-unparseable'
+        diagnostic = $diagnostic
+      }
+    }
+    $results += [pscustomobject][ordered]@{
+      parent_run_id = $runId
+      repo_label = [string]$child.repo_label
+      workspace_relative_path = [string]$child.workspace_relative_path
+      exit_code = $childStatus
+      overall_status = [string]($childResult.overall_status ?? 'unknown')
+      workflow_mode = [string]($childResult.workflow_mode ?? 'unknown')
+      reason_code = $childResult.reason_code
+      result = $childResult
+    }
+    [Console]::Error.WriteLine("spec-graph-bootstrap: all-repos child $childIndex/$($children.Count) finish repo=$([string]$child.workspace_relative_path) status=$([string]($childResult.overall_status ?? 'unknown')) workflow=$([string]($childResult.workflow_mode ?? 'unknown'))")
+  }
+
+  $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
+  $degradedCount = @($results | Where-Object { $_.workflow_mode -eq 'degraded-fallback' -or $_.overall_status -eq 'degraded' }).Count
+  $actionRequiredCount = @($results | Where-Object { $_.overall_status -ne 'ready' -and $_.workflow_mode -ne 'degraded-fallback' -and $_.overall_status -ne 'degraded' }).Count
+  $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -eq 0 -and $degradedCount -eq 0) { 'ready' } elseif (($readyCount + $degradedCount) -gt 0) { 'partial' } else { 'action-required' }
+  $summary = [ordered]@{
+    schema_version = 'workspace-graph-bootstrap-summary.v1'
+    generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    run_id = $runId
+    advisory = $true
+    workflow_mode = 'all-repos'
+    selection_source = $SelectionSource
+    workspace_root = $TargetFacts.workspace_root
+    parent_writes_repo_local_artifacts = $false
+    results = @($results)
+    counts = [ordered]@{
+      total = $results.Count
+      ready = $readyCount
+      degraded = $degradedCount
+      action_required = $actionRequiredCount
+      primary = @($results | Where-Object { $_.workflow_mode -eq 'primary' }).Count
+      blocked = @($results | Where-Object { $_.workflow_mode -eq 'blocked' -or $_.workflow_mode -eq 'setup-not-ready' }).Count
+    }
+    overall_status = $overallStatus
+    reason_code = if ($actionRequiredCount -gt 0) { 'all-repos-partial-or-action-required' } elseif ($degradedCount -gt 0) { 'all-repos-degraded-fallback' } else { $null }
+    next_action = if ($actionRequiredCount -gt 0) { 'Inspect per-child reason_code and rerun setup/bootstrap for action-required repos.' } elseif ($degradedCount -gt 0) { 'Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos.' } else { 'All child repos produced graph bootstrap artifacts.' }
+  }
+
+  $workspaceDir = Join-Path $TargetFacts.workspace_root '.spec-first/workspace'
+  New-Item -ItemType Directory -Force -Path $workspaceDir | Out-Null
+  Write-JsonFileAtomic -Path (Join-Path $workspaceDir 'graph-bootstrap-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
+  [pscustomobject]$summary | ConvertTo-Json -Depth 30 -Compress
+  if ($overallStatus -eq 'action-required') { exit 1 }
+  exit 0
 }
 
 function Read-JsonFile {
@@ -463,7 +615,8 @@ function Get-ProviderFailureInfo {
   param(
     [string]$Provider,
     [string]$Phase,
-    [int]$ExitCode
+    [int]$ExitCode,
+    [string]$Diagnostic = ''
   )
   if ($Provider -eq 'gitnexus' -and $Phase -eq 'bootstrap' -and $ExitCode -eq 139) {
     return [ordered]@{
@@ -472,6 +625,28 @@ function Get-ProviderFailureInfo {
       reason_code = 'gitnexus-analyze-sigsegv'
       exit_code = $ExitCode
       recommended_action = 'Do not trust GitNexus artifacts. Use code-review-graph and bounded local fallback; capture analyze.log and retry with a newer GitNexus rc or safer GitNexus runtime settings.'
+    }
+  }
+  if ($ExitCode -ne 0 -and [string]$Diagnostic -match '(?i)(ENOTFOUND|getaddrinfo|registry\.npmmirror\.com|registry\.npmjs\.org|EAI_AGAIN)') {
+    return [ordered]@{
+      failed_phase = $Phase
+      failure_class = 'provider-environment'
+      reason_code = 'provider-network-unavailable'
+      exit_code = $ExitCode
+      recommended_action = 'Provider package registry or network resolution failed. Restore registry/network access or warm the package cache, then rerun graph bootstrap.'
+    }
+  }
+  if (
+    $ExitCode -ne 0 -and
+    [string]$Diagnostic -match '(?i)(Operation not permitted|Permission denied|EACCES)' -and
+    [string]$Diagnostic -match '(?i)(\.cache[\\/]+uv|[\\/]\.npm|\.npm)'
+  ) {
+    return [ordered]@{
+      failed_phase = $Phase
+      failure_class = 'provider-environment'
+      reason_code = 'provider-cache-permission-denied'
+      exit_code = $ExitCode
+      recommended_action = 'Provider cache access was denied. Fix permissions or run with access to the provider cache directories, then rerun graph bootstrap.'
     }
   }
   if ($ExitCode -ne 0) {
@@ -610,6 +785,13 @@ $resolverPath = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptDir)) '
 $resolverParams = @{ Format = 'json' }
 if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
 $targetFacts = (& $resolverPath @resolverParams) | ConvertFrom-Json
+if ($AllRepos) {
+  Write-WorkspaceGraphBootstrapSummaryAndExit -TargetFacts $targetFacts -SelectionSource 'explicit-all-repos'
+}
+$targetCandidates = @($targetFacts.candidates)
+if (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo) -and $targetFacts.mode -ne 'git-repo' -and $targetCandidates.Count -gt 0) {
+  Write-WorkspaceGraphBootstrapSummaryAndExit -TargetFacts $targetFacts -SelectionSource 'workspace-default-all-repos'
+}
 if (-not [bool]$targetFacts.state_write_allowed) {
   [pscustomobject]@{
     schema_version = 'graph-bootstrap-result.v1'
@@ -789,11 +971,15 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
       } else {
         $status = 'query-unverified'
         $confidence = 'medium'
+        $failureInfo = Get-ProviderFailureInfo -Provider $provider -Phase 'status' -ExitCode ([int]$statusProbe.exit_code) -Diagnostic ([string]$statusProbe.diagnostic)
         $limitations = @('Build succeeded, but status probe did not verify provider readiness.')
+        if (-not [string]::IsNullOrWhiteSpace([string]$failureInfo['recommended_action'])) {
+          $limitations += [string]$failureInfo['recommended_action']
+        }
       }
     } else {
       $status = 'failed'
-      $failureInfo = Get-ProviderFailureInfo -Provider $provider -Phase 'bootstrap' -ExitCode ([int]$bootstrap.exit_code)
+      $failureInfo = Get-ProviderFailureInfo -Provider $provider -Phase 'bootstrap' -ExitCode ([int]$bootstrap.exit_code) -Diagnostic ([string]$bootstrap.diagnostic)
       $limitations = @('Provider bootstrap command failed.')
       if (-not [string]::IsNullOrWhiteSpace([string]$failureInfo['recommended_action'])) {
         $limitations += [string]$failureInfo['recommended_action']

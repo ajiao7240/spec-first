@@ -6,6 +6,7 @@
 
 当前推荐的事实准备、专项审查与知识沉淀入口：
 
+- `spec-mcp-setup`：required harness runtime、MCP servers、graph providers 和 helper tools 的安装与验证入口
 - `spec-graph-bootstrap`：external graph-provider readiness facts 编译入口
 - `spec-app-consistency-audit`：移动 App 的 PRD / Figma / source / route / architecture / analytics / i18n 静态一致性审查入口
 - `spec-skill-audit`：source skill 质量、治理投递、runtime drift 与安全信号审计入口
@@ -43,6 +44,35 @@
 - 一条面向首次使用者的 workflow 走查，说明从一个需求句子到 requirements / plan / task pack 的真实产物链路
 - 一份 workflow 产物目录，说明每类文档和 generated runtime assets 的生成者、读取方与 Git 边界
 
+## 当前工程闭环
+
+主链路可以从 `Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound` 理解，但当前用户手册覆盖的是更完整的工程闭环：
+
+```text
+mcp-setup / graph-bootstrap
+  -> ideate
+  -> brainstorm
+  -> doc-review
+  -> plan
+  -> write-tasks
+  -> work / debug / optimize / polish
+  -> code-review / app-consistency-audit
+  -> compound / compound-refresh / sessions / slack-research / skill-audit
+  -> 反哺项目知识、文档、skills 和下一次 workflow 选择
+```
+
+这不是必须顺序执行的命令链。用户应从当前状态最匹配的节点进入；当下一步不清楚时，在宿主会话里询问即可由入口治理推荐一个公开 workflow。`write-tasks` 是 standalone skill，不是 `/spec:*` 或 `$spec-*` command-backed workflow。
+
+## 支持的开发模式
+
+当前文档按仓库拓扑区分三种开发模式：
+
+1. 单仓单项目
+2. 单仓多模块
+3. 多仓工作区
+
+核心边界是：`.spec-first` 的权威事实属于 **selected Git repo root**。单仓多模块不在每个 module 下拆多套 `.spec-first`；多仓工作区的父目录只拥有 advisory workspace summaries，不拥有 child repo 的 `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*`、`.spec-first/providers/*` 或 `.serena/*` canonical artifacts。详见 [三种开发模式](./08-三种开发模式.md)。
+
 ## App 一致性审查
 
 移动 App 的产品、设计和代码在进入模拟器、真机或打包验证前，可以使用专项入口做静态一致性审查：
@@ -64,7 +94,7 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 
 ![Spec-First 运行模型总览](../assets/svg/spec-first-runtime-assets.svg)
 
-![三层工程概念](../assets/svg/spec-first-engineering-layers.svg)
+![三层工程概念](../assets/svg/three-layer-architecture.svg)
 
 ## 阅读顺序
 
@@ -83,7 +113,8 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 ## 建议阅读路径
 
 - 如果你第一次使用，先看 [快速开始](./01-快速开始.md)，再看 [首次工作流走查](./09-首次工作流走查.md)
-- 如果你要理解运行模型和前置 ideate + 五阶段闭环，先看 [核心概念](./02-核心概念.md)
+- 如果你要理解运行模型、工程闭环和 graph readiness 边界，先看 [核心概念](./02-核心概念.md)
+- 如果你要判断单仓、多模块或多仓 workspace 怎么使用，先看 [三种开发模式](./08-三种开发模式.md)
 - 如果你要确认真实执行过程，看 [完整示例](./03-完整示例.md)
 - 如果你要判断某个文档或 runtime 目录该不该手改、该不该提交，先看 [产物目录](./10-产物目录.md)
 - 如果你在排障，看 [常见问题](./04-常见问题.md)
@@ -95,4 +126,4 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 
 当前版本线：`v1.6.2`
 
-> 说明：本手册对应当前 `spec-first` 代码与运行时资产布局；若下游章节仍保留旧 Stage-0 / 旧目录口径，应以本手册前面的当前事实说明为准。
+> 说明：本手册对应当前 `spec-first` 代码与运行时资产布局；遇到行为疑问时，优先以 source-of-truth 文件、CLI contract 和本手册当前章节为准。

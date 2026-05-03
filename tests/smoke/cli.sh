@@ -141,6 +141,7 @@ if (state.developer.name !== 'kuang' || state.developer.lang !== 'en') throw new
 NODE
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md"
 grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/CLAUDE.md"
+grep -q 'workspace-graph-targets.v1' "$TMP_DIR/CLAUDE.md"
 grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/CLAUDE.md"
 test -f "$TMP_DIR/.claude/hooks/session-start"
 grep -q 'startup-reminder' "$TMP_DIR/.claude/hooks/session-start"
@@ -190,6 +191,7 @@ for agent in spec-repo-research-analyst.agent.md spec-session-historian.agent.md
 done
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/AGENTS.md"
 grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/AGENTS.md"
+grep -q 'workspace-graph-targets.v1' "$TMP_DIR/AGENTS.md"
 grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/AGENTS.md"
 grep -q 'spec-first startup-reminder --codex' "$TMP_DIR/AGENTS.md"
 grep -q 'must not block routing' "$TMP_DIR/AGENTS.md"

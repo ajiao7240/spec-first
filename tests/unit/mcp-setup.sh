@@ -145,6 +145,9 @@ make_repo() {
   local repo_dir="$1"
   mkdir -p "$repo_dir"
   git -C "$repo_dir" init -q
+  git -C "$repo_dir" config user.name "Spec First Test"
+  git -C "$repo_dir" config user.email "spec-first-test@example.invalid"
+  git -C "$repo_dir" config core.hooksPath /dev/null
 }
 
 echo "=== spec-mcp-setup required runtime tests ==="
@@ -307,6 +310,9 @@ printf '{"remoteUrl":"https://gitee.com/sunnyrain/%s.git"}\n' "$GITNEXUS_REPO_LA
 mkdir -p "$FAKE_REPO/trade/src/main/java/com/hstong/trade/tradelogin/login/ui"
 printf 'class TradeLoginActivity {}\n' > "$FAKE_REPO/trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java"
 git -C "$FAKE_REPO" add trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java
+git -C "$FAKE_REPO" config user.name "Spec First Test"
+git -C "$FAKE_REPO" config user.email "spec-first-test@example.invalid"
+git -C "$FAKE_REPO" commit -q -m "Add fixture source"
 preflight_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/check-health" --json)"
 assert "check-health --json emits JSON" jq -e . <<<"$preflight_output"
 assert_eq "check-health schema v2" "spec-mcp-setup-preflight.v2" "$(jq -r '.schema_version' <<<"$preflight_output")"
@@ -333,6 +339,19 @@ printf 'legacy\n' > "$FAKE_REPO/compound-engineering.local.md"
 legacy_delete="$(cd "$FAKE_REPO" && bash "$SCRIPTS_DIR/bootstrap-project-config.sh" --delete-legacy-markdown --json)"
 assert_eq "legacy markdown deletion is explicit" "deleted" "$(jq -r '.legacy.compound_engineering_markdown_status' <<<"$legacy_delete")"
 test ! -e "$FAKE_REPO/compound-engineering.local.md"
+
+PROJECT_CONFIG_WORKSPACE="$TMP_DIR/project-config-workspace"
+make_repo "$PROJECT_CONFIG_WORKSPACE/project-a"
+make_repo "$PROJECT_CONFIG_WORKSPACE/project-b"
+project_config_default_output="$(cd "$PROJECT_CONFIG_WORKSPACE" && bash "$SCRIPTS_DIR/bootstrap-project-config.sh" --refresh-example --create-local --ensure-gitignore --json)"
+assert "bootstrap-project-config parent default emits JSON" jq -e . <<<"$project_config_default_output"
+assert_eq "bootstrap-project-config parent default schema" "workspace-project-config-bootstrap-summary.v1" "$(jq -r '.schema_version' <<<"$project_config_default_output")"
+assert_eq "bootstrap-project-config parent default selection source" "workspace-default-all-repos" "$(jq -r '.selection_source' <<<"$project_config_default_output")"
+assert_eq "bootstrap-project-config parent default writes all children" "ready:2:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$project_config_default_output")"
+assert "bootstrap-project-config parent default writes advisory summary" test -f "$PROJECT_CONFIG_WORKSPACE/.spec-first/workspace/project-config-bootstrap-summary.json"
+assert "bootstrap-project-config parent default writes child a local config" test -f "$PROJECT_CONFIG_WORKSPACE/project-a/.spec-first/config.local.yaml"
+assert "bootstrap-project-config parent default writes child b local config" test -f "$PROJECT_CONFIG_WORKSPACE/project-b/.spec-first/config.local.yaml"
+assert "bootstrap-project-config parent default does not write parent config" test ! -e "$PROJECT_CONFIG_WORKSPACE/.spec-first/config.local.yaml"
 
 install_mcp_log="$TMP_DIR/install-mcp.log"
 install_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --serena-language typescript 2>"$install_mcp_log")"
@@ -538,11 +557,60 @@ parent_detect_output="$(cd "$PARENT_WORKSPACE" && PATH="$TEST_PATH" HOME="$FAKE_
 assert_eq "detect-tools exposes workspace target mode" "workspace-multi-repo" "$(jq -r '.target_mode' <<<"$parent_detect_output")"
 assert_eq "detect-tools marks Serena project target required" "workspace-target-required" "$(jq -r '.tools.serena.project_status' <<<"$parent_detect_output")"
 parent_verify_output="$(cd "$PARENT_WORKSPACE" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
-assert_contains "verify project rows show target-required" "workspace-target-required" "$parent_verify_output"
-assert_contains "verify shows --repo next action" "--repo <child>" "$parent_verify_output"
-assert_eq "parent workspace keeps host baseline ready while project target is required" "true:workspace-target-required" "$(jq -r '(.baseline_ready | tostring) + ":" + .repo_config_status' "$FAKE_HOME/.claude/spec-first/host-setup.json")"
+assert "verify-tools parent default emits JSON" jq -e . <<<"$parent_verify_output"
+assert_eq "verify-tools parent default schema" "workspace-mcp-verify-summary.v1" "$(jq -r '.schema_version' <<<"$parent_verify_output")"
+assert_eq "verify-tools parent default selection source" "workspace-default-all-repos" "$(jq -r '.selection_source' <<<"$parent_verify_output")"
+assert_eq "verify-tools parent default verifies all children" "partial:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$parent_verify_output")"
+assert "verify-tools parent default writes advisory summary" test -f "$PARENT_WORKSPACE/.spec-first/workspace/mcp-verify-summary.json"
 assert "verify does not create parent project config dir" test ! -e "$PARENT_WORKSPACE/.spec-first/config"
 assert "verify does not create parent graph dir" test ! -e "$PARENT_WORKSPACE/.spec-first/graph"
+
+MCP_ALL_REPOS_WORKSPACE="$TMP_DIR/mcp-all-repos-workspace"
+MCP_ALL_REPOS_HOME="$FAKE_HOME"
+make_repo "$MCP_ALL_REPOS_WORKSPACE/project-a"
+make_repo "$MCP_ALL_REPOS_WORKSPACE/project-b"
+default_repos_install_output="$(cd "$MCP_ALL_REPOS_WORKSPACE" && PATH="$TEST_PATH" HOME="$MCP_ALL_REPOS_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --only serena --serena-language-for project-a=typescript)"
+assert "install-mcp parent default emits JSON" jq -e . <<<"$default_repos_install_output"
+assert_eq "install-mcp parent default schema" "workspace-mcp-setup-summary.v1" "$(jq -r '.schema_version' <<<"$default_repos_install_output")"
+assert_eq "install-mcp parent default selection source" "workspace-default-all-repos" "$(jq -r '.selection_source' <<<"$default_repos_install_output")"
+assert_eq "install-mcp parent default reports partial language-gated success" "partial:1:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.partial):\(.counts.serena_language_required)"' <<<"$default_repos_install_output")"
+assert "install-mcp parent default writes advisory summary" test -f "$MCP_ALL_REPOS_WORKSPACE/.spec-first/workspace/mcp-setup-summary.json"
+rm -rf "$MCP_ALL_REPOS_WORKSPACE/project-a/.serena" "$MCP_ALL_REPOS_WORKSPACE/.spec-first/workspace/mcp-setup-summary.json"
+all_repos_install_output="$(cd "$MCP_ALL_REPOS_WORKSPACE" && PATH="$TEST_PATH" HOME="$MCP_ALL_REPOS_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --all-repos --only serena --serena-language-for project-a=typescript)"
+assert "install-mcp --all-repos emits JSON" jq -e . <<<"$all_repos_install_output"
+assert_eq "install-mcp --all-repos emits summary schema" "workspace-mcp-setup-summary.v1" "$(jq -r '.schema_version' <<<"$all_repos_install_output")"
+assert_eq "install-mcp --all-repos records explicit selection source" "explicit-all-repos" "$(jq -r '.selection_source' <<<"$all_repos_install_output")"
+assert_eq "install-mcp --all-repos reports partial language-gated success" "partial:1:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.partial):\(.counts.serena_language_required)"' <<<"$all_repos_install_output")"
+assert_eq "install-mcp --all-repos records per-child language gate" "project-b:serena_language_required" "$(jq -r '.results[] | select(.workspace_relative_path=="project-b") | "\(.repo_label):\(.reason_code)"' <<<"$all_repos_install_output")"
+assert "install-mcp --all-repos writes advisory workspace summary" test -f "$MCP_ALL_REPOS_WORKSPACE/.spec-first/workspace/mcp-setup-summary.json"
+assert "install-mcp --all-repos writes explicit-language child Serena project" test -f "$MCP_ALL_REPOS_WORKSPACE/project-a/.serena/project.yml"
+assert "install-mcp --all-repos does not create no-language child Serena project" test ! -e "$MCP_ALL_REPOS_WORKSPACE/project-b/.serena"
+assert "install-mcp --all-repos does not initialize parent Serena" test ! -e "$MCP_ALL_REPOS_WORKSPACE/.serena"
+assert "install-mcp --all-repos does not write parent project config" test ! -e "$MCP_ALL_REPOS_WORKSPACE/.spec-first/config"
+
+set +e
+all_repos_conflict_output="$(cd "$MCP_ALL_REPOS_WORKSPACE" && PATH="$TEST_PATH" HOME="$MCP_ALL_REPOS_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --all-repos --repo project-a 2>/dev/null)"
+all_repos_conflict_status=$?
+set -e
+assert_eq "install-mcp --all-repos rejects --repo conflict" "1" "$all_repos_conflict_status"
+assert_eq "install-mcp --all-repos conflict reason" "all-repos-conflicts-with-repo" "$(jq -r '.reason_code' <<<"$all_repos_conflict_output")"
+
+set +e
+all_repos_single_setup_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$MCP_ALL_REPOS_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --all-repos 2>/dev/null)"
+all_repos_single_setup_status=$?
+set -e
+assert_eq "install-mcp --all-repos inside git repo fails closed" "1" "$all_repos_single_setup_status"
+assert_eq "install-mcp --all-repos inside git repo reason" "all-repos-requires-parent-workspace" "$(jq -r '.reason_code' <<<"$all_repos_single_setup_output")"
+
+all_repos_verify_output="$(cd "$MCP_ALL_REPOS_WORKSPACE" && PATH="$TEST_PATH" HOME="$MCP_ALL_REPOS_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh" --all-repos)"
+assert "verify-tools --all-repos emits JSON" jq -e . <<<"$all_repos_verify_output"
+assert_eq "verify-tools --all-repos emits summary schema" "workspace-mcp-verify-summary.v1" "$(jq -r '.schema_version' <<<"$all_repos_verify_output")"
+assert_eq "verify-tools --all-repos records explicit selection source" "explicit-all-repos" "$(jq -r '.selection_source' <<<"$all_repos_verify_output")"
+assert_eq "verify-tools --all-repos reports partial readiness" "partial:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$all_repos_verify_output")"
+assert "verify-tools --all-repos writes advisory workspace summary" test -f "$MCP_ALL_REPOS_WORKSPACE/.spec-first/workspace/mcp-verify-summary.json"
+assert "verify-tools --all-repos writes child provider projection" test -f "$MCP_ALL_REPOS_WORKSPACE/project-a/.spec-first/config/graph-providers.json"
+assert "verify-tools --all-repos does not write parent graph facts" test ! -e "$MCP_ALL_REPOS_WORKSPACE/.spec-first/graph"
+assert "verify-tools --all-repos does not write parent provider projection" test ! -e "$MCP_ALL_REPOS_WORKSPACE/.spec-first/config/graph-providers.json"
 
 detect_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh")"
 assert "detect-tools emits JSON" jq -e . <<<"$detect_output"
@@ -673,6 +741,39 @@ assert "business-token provider projection emits JSON" jq -e . <<<"$business_tok
 BUSINESS_TOKEN_PROVIDER_CONFIG="$BUSINESS_TOKEN_REPO/.spec-first/config/graph-providers.json"
 assert_eq "GitNexus weak-proof filter does not demote Admin or Address flows" "AddressService,AdminController" "$(jq -r '.providers.gitnexus.query_probe_policy.candidates[0:2] | map(.token) | join(",")' "$BUSINESS_TOKEN_PROVIDER_CONFIG")"
 assert_eq "GitNexus weak-proof filter demotes Advertise behind flow-bearing tokens" "AdvertiseActivity" "$(jq -r '.providers.gitnexus.query_probe_policy.candidates[2].token' "$BUSINESS_TOKEN_PROVIDER_CONFIG")"
+
+HEALTH_TOKEN_REPO="$TMP_DIR/health-token-repo"
+make_repo "$HEALTH_TOKEN_REPO"
+mkdir -p "$HEALTH_TOKEN_REPO/src/health" "$HEALTH_TOKEN_REPO/src/money"
+printf 'class HealthController {}\n' > "$HEALTH_TOKEN_REPO/src/health/HealthController.java"
+printf 'class MemberWithdrawController {}\n' > "$HEALTH_TOKEN_REPO/src/money/MemberWithdrawController.java"
+git -C "$HEALTH_TOKEN_REPO" add src/health/HealthController.java src/money/MemberWithdrawController.java
+HEALTH_TOKEN_FACTS="$TMP_DIR/health-token-facts.json"
+jq --arg repo_root "$HEALTH_TOKEN_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+  | .target.state_write_allowed = true
+' "$LOW_SIGNAL_FACTS" > "$HEALTH_TOKEN_FACTS"
+health_token_projection="$(bash "$SCRIPTS_DIR/write-provider-config.sh" --facts-file "$HEALTH_TOKEN_FACTS")"
+assert "health-token provider projection emits JSON" jq -e . <<<"$health_token_projection"
+HEALTH_TOKEN_PROVIDER_CONFIG="$HEALTH_TOKEN_REPO/.spec-first/config/graph-providers.json"
+assert_eq "GitNexus probe demotes health controller behind business flow" "MemberWithdrawController:workflow_named" "$(jq -r '.providers.gitnexus.query_probe_policy | "\(.token):\(.candidates[0].reason_code)"' "$HEALTH_TOKEN_PROVIDER_CONFIG")"
+
+HEALTH_ONLY_REPO="$TMP_DIR/health-only-repo"
+make_repo "$HEALTH_ONLY_REPO"
+mkdir -p "$HEALTH_ONLY_REPO/src/health"
+printf 'class HealthController {}\n' > "$HEALTH_ONLY_REPO/src/health/HealthController.java"
+git -C "$HEALTH_ONLY_REPO" add src/health/HealthController.java
+HEALTH_ONLY_FACTS="$TMP_DIR/health-only-facts.json"
+jq --arg repo_root "$HEALTH_ONLY_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+  | .target.state_write_allowed = true
+' "$LOW_SIGNAL_FACTS" > "$HEALTH_ONLY_FACTS"
+health_only_projection="$(bash "$SCRIPTS_DIR/write-provider-config.sh" --facts-file "$HEALTH_ONLY_FACTS")"
+assert "health-only provider projection emits JSON" jq -e . <<<"$health_only_projection"
+HEALTH_ONLY_PROVIDER_CONFIG="$HEALTH_ONLY_REPO/.spec-first/config/graph-providers.json"
+assert_eq "GitNexus probe keeps health-only fallback explicit" "HealthController:any_source" "$(jq -r '.providers.gitnexus.query_probe_policy | "\(.token):\(.candidates[0].reason_code)"' "$HEALTH_ONLY_PROVIDER_CONFIG")"
 
 assert_eq "providers are configured but not query-ready" "true" "$(jq -r '(.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
 assert_eq "runtime capabilities points to host ledger" "$LEDGER_PATH" "$(jq -r '.host_ledger_pointer.path' "$RUNTIME_CAPABILITIES")"

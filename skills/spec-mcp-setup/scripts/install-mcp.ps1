@@ -1,8 +1,11 @@
 param(
   [string]$Only,
   [string]$Repo = '',
+  [switch]$AllRepos,
   [Alias('SerenaLanguages')]
-  [string[]]$SerenaLanguage = @()
+  [string[]]$SerenaLanguage = @(),
+  [Alias('SerenaLanguageMap', 'SerenaLanguageFor')]
+  [string[]]$SerenaLanguageFor = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,7 +20,7 @@ $DetectedHost = $HostInfo.host
 $HostDisplayName = $HostInfo.display_name
 $Platform = $HostInfo.platform
 $resolverParams = @{ Format = 'json' }
-if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
+if (-not $AllRepos -and -not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
 $TargetFacts = (& (Join-Path $ScriptDir 'resolve-project-target.ps1') @resolverParams) | ConvertFrom-Json
 $ResolvedRepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$TargetFacts.selected_repo_root)) { [string]$TargetFacts.selected_repo_root } else { [string]$TargetFacts.workspace_root }
 
@@ -42,7 +45,235 @@ function Normalize-LanguageValues {
   @($normalized)
 }
 
+function Normalize-LanguageMapEntries {
+  param([string[]]$Values)
+  $entries = New-Object System.Collections.Generic.List[string]
+  foreach ($value in @($Values)) {
+    if ([string]::IsNullOrWhiteSpace($value)) { continue }
+    foreach ($entry in @($value -split ';')) {
+      $trimmed = $entry.Trim()
+      if ([string]::IsNullOrWhiteSpace($trimmed)) { continue }
+      if ($trimmed -notlike '*=*') {
+        throw 'install-mcp.ps1: -SerenaLanguageFor expects <child>=<language>[,<language>]'
+      }
+      $entries.Add($trimmed)
+    }
+  }
+  @($entries)
+}
+
+function Get-LanguageMapValue {
+  param(
+    [string[]]$Entries,
+    [string]$RepoLabel,
+    [string]$WorkspaceRelativePath
+  )
+  foreach ($entry in @($Entries)) {
+    $parts = $entry -split '=', 2
+    if ($parts.Count -ne 2) { continue }
+    $key = $parts[0].Trim()
+    $value = $parts[1].Trim()
+    if ($key -eq $RepoLabel -or $key -eq $WorkspaceRelativePath) {
+      return $value
+    }
+  }
+  return ''
+}
+
+function Write-JsonFileAtomic {
+  param(
+    [string]$Path,
+    [object]$Payload,
+    [int]$Depth = 30
+  )
+  $dir = Split-Path -Parent $Path
+  New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  $tmp = Join-Path $dir ('.{0}.{1}.tmp' -f (Split-Path -Leaf $Path), ([guid]::NewGuid().ToString('N')))
+  $Payload | ConvertTo-Json -Depth $Depth | Set-Content -Encoding utf8 $tmp
+  Move-Item -Force $tmp $Path
+}
+
+function Invoke-ChildJsonScript {
+  param(
+    [string]$ScriptPath,
+    [hashtable]$Arguments
+  )
+
+  $stderrPath = Join-Path ([System.IO.Path]::GetTempPath()) ('spec-first-child-stderr-{0}.log' -f ([guid]::NewGuid().ToString('N')))
+  $informationPath = Join-Path ([System.IO.Path]::GetTempPath()) ('spec-first-child-information-{0}.log' -f ([guid]::NewGuid().ToString('N')))
+  $stdout = @()
+  $exitCode = 0
+  $exceptionText = ''
+  try {
+    $global:LASTEXITCODE = 0
+    $stdout = @(& $ScriptPath @Arguments 2> $stderrPath 6> $informationPath)
+    if ($LASTEXITCODE -is [int]) { $exitCode = $LASTEXITCODE }
+  } catch {
+    $exitCode = if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }
+    $exceptionText = [string]$_.Exception.Message
+  }
+
+  $stderrText = if (Test-Path -LiteralPath $stderrPath -PathType Leaf) { Get-Content -Raw -LiteralPath $stderrPath } else { '' }
+  $informationText = if (Test-Path -LiteralPath $informationPath -PathType Leaf) { Get-Content -Raw -LiteralPath $informationPath } else { '' }
+  Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $stderrPath, $informationPath
+
+  $diagnosticParts = @($stderrText, $informationText, $exceptionText) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+  [pscustomobject]@{
+    stdout = ($stdout -join "`n")
+    stderr = $stderrText
+    information = $informationText
+    diagnostic = ($diagnosticParts -join "`n").Trim()
+    exit_code = $exitCode
+  }
+}
+
+function Write-WorkspaceMcpSetupSummaryAndExit {
+  param(
+    [object]$TargetFacts,
+    [string]$SelectionSource = 'explicit-all-repos'
+  )
+
+  $workspaceRoot = [string]$TargetFacts.workspace_root
+  if (-not [string]::IsNullOrWhiteSpace($Repo)) {
+    [pscustomobject]@{
+      schema_version = 'workspace-mcp-setup-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = 'all-repos-conflicts-with-repo'
+      workspace_root = $workspaceRoot
+      advisory = $true
+      next_action = 'Use either -AllRepos from a parent workspace or -Repo <child>, not both.'
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
+
+  if (@(Normalize-LanguageValues -Values $SerenaLanguage).Count -gt 0) {
+    [pscustomobject]@{
+      schema_version = 'workspace-mcp-setup-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = 'all-repos-requires-language-map'
+      workspace_root = $workspaceRoot
+      advisory = $true
+      next_action = 'Use -SerenaLanguageFor <child>=<language>[,<language>] with -AllRepos instead of a global -SerenaLanguage.'
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
+
+  if ($TargetFacts.mode -eq 'git-repo') {
+    [pscustomobject]@{
+      schema_version = 'workspace-mcp-setup-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = 'all-repos-requires-parent-workspace'
+      workspace_root = $workspaceRoot
+      advisory = $true
+      next_action = 'Run -AllRepos from a parent workspace containing child Git repos, or omit -AllRepos in a single Git repo.'
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
+
+  $children = @($TargetFacts.candidates)
+  if ($children.Count -eq 0) {
+    [pscustomobject]@{
+      schema_version = 'workspace-mcp-setup-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = if ([string]::IsNullOrWhiteSpace([string]$TargetFacts.reason_code)) { 'workspace-no-git-candidates' } else { [string]$TargetFacts.reason_code }
+      workspace_root = $workspaceRoot
+      candidates = @($TargetFacts.candidates)
+      advisory = $true
+      next_action = if ([string]::IsNullOrWhiteSpace([string]$TargetFacts.next_action)) { 'Run from a parent workspace containing child Git repos.' } else { [string]$TargetFacts.next_action }
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
+
+  $languageMapEntries = @(Normalize-LanguageMapEntries -Values $SerenaLanguageFor)
+  $results = @()
+  foreach ($child in $children) {
+    $childParams = @{ Repo = [string]$child.workspace_relative_path }
+    if (-not [string]::IsNullOrWhiteSpace($Only)) { $childParams.Only = $Only }
+    $childLanguages = Get-LanguageMapValue -Entries $languageMapEntries -RepoLabel ([string]$child.repo_label) -WorkspaceRelativePath ([string]$child.workspace_relative_path)
+    if (-not [string]::IsNullOrWhiteSpace($childLanguages)) {
+      $childParams.SerenaLanguage = @($childLanguages)
+    }
+    $childRun = Invoke-ChildJsonScript -ScriptPath $PSCommandPath -Arguments $childParams
+    $childStatus = [int]$childRun.exit_code
+    $childText = [string]$childRun.stdout
+    try {
+      $childResult = $childText | ConvertFrom-Json
+    } catch {
+      $diagnostic = (@($childText, [string]$childRun.diagnostic) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }) -join "`n"
+      $childResult = [pscustomobject]@{ host = 'unknown'; display_name = 'unknown'; platform = 'unknown'; results = @(); diagnostic = $diagnostic }
+    }
+    $childResults = @($childResult.results)
+    $childOverall = if ($childResults.Count -eq 0) {
+      'action-required'
+    } elseif (@($childResults | Where-Object { $_.status -eq 'action-required' }).Count -gt 0) {
+      'action-required'
+    } elseif (@($childResults | Where-Object { $_.status -eq 'partial' }).Count -gt 0) {
+      'partial'
+    } else {
+      'ready'
+    }
+    $childReason = @($childResults | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.reason_code) } | Select-Object -First 1 | ForEach-Object { [string]$_.reason_code })
+    $results += [pscustomobject][ordered]@{
+      repo_label = [string]$child.repo_label
+      workspace_relative_path = [string]$child.workspace_relative_path
+      exit_code = $childStatus
+      overall_status = $childOverall
+      reason_code = if ($childReason.Count -gt 0) { $childReason[0] } else { $null }
+      result = $childResult
+    }
+  }
+
+  $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
+  $partialCount = @($results | Where-Object { $_.overall_status -eq 'partial' }).Count
+  $actionRequiredCount = @($results | Where-Object { $_.overall_status -eq 'action-required' }).Count
+  $serenaLanguageRequiredCount = @($results | Where-Object { $_.reason_code -eq 'serena_language_required' }).Count
+  $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -gt 0 -and ($readyCount + $partialCount) -eq 0) { 'action-required' } elseif (($partialCount + $actionRequiredCount) -gt 0) { 'partial' } else { 'ready' }
+  $summary = [ordered]@{
+    schema_version = 'workspace-mcp-setup-summary.v1'
+    generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    advisory = $true
+    workflow_mode = 'all-repos'
+    selection_source = $SelectionSource
+    workspace_root = $workspaceRoot
+    parent_writes_repo_local_artifacts = $false
+    language_map_required_for_first_time_serena = $true
+    results = @($results)
+    counts = [ordered]@{
+      total = $results.Count
+      ready = $readyCount
+      partial = $partialCount
+      action_required = $actionRequiredCount
+      serena_language_required = $serenaLanguageRequiredCount
+    }
+    overall_status = $overallStatus
+    reason_code = if (($partialCount + $actionRequiredCount) -eq 0) { $null } else { 'all-repos-partial-or-action-required' }
+    next_action = if ($serenaLanguageRequiredCount -gt 0) { 'Inspect per-child project evidence and rerun with -SerenaLanguageFor <child>=<language>[,<language>] for action-required children.' } elseif (($partialCount + $actionRequiredCount) -gt 0) { 'Inspect per-child reason_code and rerun setup for action-required repos.' } else { 'All child repos completed MCP setup.' }
+  }
+
+  Write-JsonFileAtomic -Path (Join-Path $workspaceRoot '.spec-first/workspace/mcp-setup-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
+  [pscustomobject]$summary | ConvertTo-Json -Depth 30 -Compress
+  if ($overallStatus -eq 'action-required') { exit 1 }
+  exit 0
+}
+
 $OnlyArray = Parse-List $Only
+
+if ($AllRepos) {
+  Write-WorkspaceMcpSetupSummaryAndExit -TargetFacts $TargetFacts -SelectionSource 'explicit-all-repos'
+}
+
+$defaultChildren = @($TargetFacts.candidates)
+if (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo) -and $TargetFacts.mode -ne 'git-repo' -and $defaultChildren.Count -gt 0) {
+  Write-WorkspaceMcpSetupSummaryAndExit -TargetFacts $TargetFacts -SelectionSource 'workspace-default-all-repos'
+}
+
+if (@(Normalize-LanguageMapEntries -Values $SerenaLanguageFor).Count -gt 0) {
+  throw 'install-mcp.ps1: -SerenaLanguageFor is only valid with -AllRepos or parent-workspace default all-repos'
+}
 
 function Should-Install {
   param([object]$Tool)

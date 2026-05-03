@@ -156,6 +156,8 @@ describe('init --dry-run', () => {
 
       const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
       expect(claudeInstruction).toContain('不要默认进入 `spec-brainstorm`');
+      expect(claudeInstruction).toContain('workspace-graph-targets.v1');
+      expect(claudeInstruction).toContain('target_repo');
       expect(claudeInstruction).toContain('/spec:optimize');
       expect(claudeInstruction).not.toContain('startup-reminder --codex');
       expect(claudeInstruction).not.toContain('<!-- spec-first:runtime-tools:start -->');
@@ -186,6 +188,8 @@ describe('init --dry-run', () => {
 
       const codexInstruction = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
       expect(codexInstruction).toContain('不要默认进入 `spec-brainstorm`');
+      expect(codexInstruction).toContain('workspace-graph-targets.v1');
+      expect(codexInstruction).toContain('target_repo');
       expect(codexInstruction).toContain('$spec-optimize');
       expect(codexInstruction).toContain('spec-first startup-reminder --codex');
       expect(codexInstruction).toContain('$spec-update');

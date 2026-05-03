@@ -6,6 +6,18 @@ const path = require('node:path');
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-debug', 'SKILL.md');
 
 describe('spec-debug branch-aware handoff contract', () => {
+  test('uses workspace graph targets only for read-only debugging evidence', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Context Orientation Anchor');
+    expect(text).toContain('workspace-graph-targets.v1');
+    expect(text).toContain('GitNexus-first queries');
+    expect(text).toContain('degraded-fallback');
+    expect(text).toContain('definitions-only GitNexus results as file/symbol pointers');
+    expect(text).toContain('single explicit `target_repo` or per-fix repo scope');
+    expect(text).toContain('do not let cwd, graph target facts, or live MCP results choose a sibling repo for edits');
+  });
+
   test('skill-owned branches default to commit-and-PR with explicit override checks', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 

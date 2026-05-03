@@ -1,5 +1,6 @@
 param(
   [string]$Repo = '',
+  [switch]$AllRepos,
   [switch]$NoInstall
 )
 
@@ -14,6 +15,199 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $MarkerPath = $HostInfo.marker_path
 $MarkerDir = Split-Path -Parent $MarkerPath
+
+function Write-JsonFileAtomic {
+  param(
+    [string]$Path,
+    [object]$Payload,
+    [int]$Depth = 30
+  )
+  $dir = Split-Path -Parent $Path
+  New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  $tmp = Join-Path $dir ('.{0}.{1}.tmp' -f (Split-Path -Leaf $Path), ([guid]::NewGuid().ToString('N')))
+  $Payload | ConvertTo-Json -Depth $Depth | Set-Content -Encoding utf8 $tmp
+  Move-Item -Force $tmp $Path
+}
+
+function Invoke-ChildScriptCaptured {
+  param(
+    [string]$ScriptPath,
+    [hashtable]$Arguments
+  )
+
+  $stderrPath = Join-Path ([System.IO.Path]::GetTempPath()) ('spec-first-child-stderr-{0}.log' -f ([guid]::NewGuid().ToString('N')))
+  $informationPath = Join-Path ([System.IO.Path]::GetTempPath()) ('spec-first-child-information-{0}.log' -f ([guid]::NewGuid().ToString('N')))
+  $stdout = @()
+  $exitCode = 0
+  $exceptionText = ''
+  try {
+    $global:LASTEXITCODE = 0
+    $stdout = @(& $ScriptPath @Arguments 2> $stderrPath 6> $informationPath)
+    if ($LASTEXITCODE -is [int]) { $exitCode = $LASTEXITCODE }
+  } catch {
+    $exitCode = if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }
+    $exceptionText = [string]$_.Exception.Message
+  }
+
+  $stderrText = if (Test-Path -LiteralPath $stderrPath -PathType Leaf) { Get-Content -Raw -LiteralPath $stderrPath } else { '' }
+  $informationText = if (Test-Path -LiteralPath $informationPath -PathType Leaf) { Get-Content -Raw -LiteralPath $informationPath } else { '' }
+  Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $stderrPath, $informationPath
+
+  $stdoutText = ($stdout -join "`n")
+  $diagnosticParts = @($stdoutText, $stderrText, $informationText, $exceptionText) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+  [pscustomobject]@{
+    stdout = $stdoutText
+    stderr = $stderrText
+    information = $informationText
+    diagnostic = ($diagnosticParts -join "`n").Trim()
+    exit_code = $exitCode
+  }
+}
+
+function Write-WorkspaceMcpVerifySummaryAndExit {
+  param(
+    [object]$TargetFacts,
+    [string]$SelectionSource = 'explicit-all-repos'
+  )
+
+  $workspaceRoot = [string]$TargetFacts.workspace_root
+  if (-not [string]::IsNullOrWhiteSpace($Repo)) {
+    [pscustomobject]@{
+      schema_version = 'workspace-mcp-verify-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = 'all-repos-conflicts-with-repo'
+      workspace_root = $workspaceRoot
+      advisory = $true
+      next_action = 'Use either -AllRepos from a parent workspace or -Repo <child>, not both.'
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
+
+  if ($TargetFacts.mode -eq 'git-repo') {
+    [pscustomobject]@{
+      schema_version = 'workspace-mcp-verify-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = 'all-repos-requires-parent-workspace'
+      workspace_root = $workspaceRoot
+      advisory = $true
+      next_action = 'Run -AllRepos from a parent workspace containing child Git repos, or omit -AllRepos in a single Git repo.'
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
+
+  $children = @($TargetFacts.candidates)
+  if ($children.Count -eq 0) {
+    [pscustomobject]@{
+      schema_version = 'workspace-mcp-verify-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = if ([string]::IsNullOrWhiteSpace([string]$TargetFacts.reason_code)) { 'workspace-no-git-candidates' } else { [string]$TargetFacts.reason_code }
+      workspace_root = $workspaceRoot
+      candidates = @($TargetFacts.candidates)
+      advisory = $true
+      next_action = if ([string]::IsNullOrWhiteSpace([string]$TargetFacts.next_action)) { 'Run from a parent workspace containing child Git repos.' } else { [string]$TargetFacts.next_action }
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
+
+  New-Item -ItemType Directory -Force -Path $MarkerDir | Out-Null
+  $results = @()
+  foreach ($child in $children) {
+    $childRun = Invoke-ChildScriptCaptured -ScriptPath $PSCommandPath -Arguments @{ Repo = [string]$child.workspace_relative_path }
+    $childStatus = [int]$childRun.exit_code
+    $childText = [string]$childRun.diagnostic
+    if (Test-Path -LiteralPath $MarkerPath -PathType Leaf) {
+      try {
+        $childLedger = Get-Content -Raw $MarkerPath | ConvertFrom-Json
+        $childOverall = if ([bool]$childLedger.baseline_ready) { 'ready' } else { 'action-required' }
+        if ($childStatus -ne 0 -and $childOverall -eq 'ready') {
+          $childOverall = 'action-required'
+        }
+        $childReason = if ($childStatus -ne 0 -and [string]::IsNullOrWhiteSpace([string]$childLedger.reason_code)) { 'child-verify-failed' } else { [string]$childLedger.reason_code }
+        $childResult = [pscustomobject]@{
+          schema_version = 'mcp-verify-child-result.v1'
+          baseline_ready = [bool]$childLedger.baseline_ready
+          repo_config_status = $childLedger.repo_config_status
+          runtime_capabilities_status = $childLedger.runtime_capabilities_status
+          provider_artifacts_status = $childLedger.provider_artifacts_status
+          graph_bootstrap_required = [bool]$childLedger.graph_bootstrap_required
+          reason_code = [string]$childLedger.reason_code
+          next_actions = @($childLedger.next_actions)
+        }
+      } catch {
+        $childOverall = 'action-required'
+        $childReason = 'child-verify-ledger-unavailable'
+        $childResult = [pscustomobject]@{
+          schema_version = 'mcp-verify-child-result.v1'
+          baseline_ready = $false
+          reason_code = 'child-verify-ledger-unavailable'
+          diagnostic = $childText
+        }
+      }
+    } else {
+      $childOverall = 'action-required'
+      $childReason = 'child-verify-ledger-unavailable'
+      $childResult = [pscustomobject]@{
+        schema_version = 'mcp-verify-child-result.v1'
+        baseline_ready = $false
+        reason_code = 'child-verify-ledger-unavailable'
+        diagnostic = $childText
+      }
+    }
+
+    $results += [pscustomobject][ordered]@{
+      repo_label = [string]$child.repo_label
+      workspace_relative_path = [string]$child.workspace_relative_path
+      exit_code = $childStatus
+      overall_status = $childOverall
+      reason_code = if ([string]::IsNullOrWhiteSpace($childReason)) { $null } else { $childReason }
+      result = $childResult
+    }
+  }
+
+  $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
+  $actionRequiredCount = @($results | Where-Object { $_.overall_status -ne 'ready' }).Count
+  $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -eq 0) { 'ready' } elseif ($readyCount -gt 0) { 'partial' } else { 'action-required' }
+  $summary = [ordered]@{
+    schema_version = 'workspace-mcp-verify-summary.v1'
+    generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    advisory = $true
+    workflow_mode = 'all-repos'
+    selection_source = $SelectionSource
+    workspace_root = $workspaceRoot
+    parent_writes_repo_local_artifacts = $false
+    results = @($results)
+    counts = [ordered]@{
+      total = $results.Count
+      ready = $readyCount
+      action_required = $actionRequiredCount
+    }
+    overall_status = $overallStatus
+    reason_code = if ($actionRequiredCount -eq 0) { $null } else { 'all-repos-partial-or-action-required' }
+    next_action = if ($actionRequiredCount -eq 0) { 'All child repos verified Required Harness Runtime readiness.' } else { 'Inspect per-child reason_code and rerun setup/verify for action-required repos.' }
+  }
+
+  Write-JsonFileAtomic -Path (Join-Path $workspaceRoot '.spec-first/workspace/mcp-verify-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
+  [pscustomobject]$summary | ConvertTo-Json -Depth 30 -Compress
+  if ($overallStatus -eq 'action-required') { exit 1 }
+  exit 0
+}
+
+if ($AllRepos) {
+  $targetFactsForAll = (& (Join-Path $ScriptDir 'resolve-project-target.ps1') -Format json) | ConvertFrom-Json
+  Write-WorkspaceMcpVerifySummaryAndExit -TargetFacts $targetFactsForAll -SelectionSource 'explicit-all-repos'
+}
+
+if (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo)) {
+  $targetFactsForDefaultAll = (& (Join-Path $ScriptDir 'resolve-project-target.ps1') -Format json) | ConvertFrom-Json
+  $defaultChildren = @($targetFactsForDefaultAll.candidates)
+  if ($targetFactsForDefaultAll.mode -ne 'git-repo' -and $defaultChildren.Count -gt 0) {
+    Write-WorkspaceMcpVerifySummaryAndExit -TargetFacts $targetFactsForDefaultAll -SelectionSource 'workspace-default-all-repos'
+  }
+}
+
 $detectParams = @{}
 if (-not [string]::IsNullOrWhiteSpace($Repo)) { $detectParams.Repo = $Repo }
 $Facts = & (Join-Path $ScriptDir 'detect-tools.ps1') @detectParams | ConvertFrom-Json

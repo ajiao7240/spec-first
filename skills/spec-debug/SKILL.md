@@ -19,6 +19,10 @@ These principles govern every phase. They are repeated at decision points becaus
 3. **One change at a time.** Test one hypothesis, change one thing. If you're changing multiple things to "see if it helps," stop — that is shotgun debugging.
 4. **When stuck, diagnose why — don't just try harder.**
 
+## Context Orientation Anchor
+
+Orient debugging from the reported symptom, reproduction path, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, recent diffs, and runtime logs. In a parent workspace containing multiple independent Git repos, use `workspace-graph-targets.v1` only as advisory read-only evidence: prefer bounded candidate repos with `primary` status, try GitNexus-first queries for the concrete symptom, and treat `degraded-fallback` or definitions-only GitNexus results as file/symbol pointers to verify with Serena, code-review-graph, tests, or direct reads. Before Phase 3 writes, the bug must have a single explicit `target_repo` or per-fix repo scope; do not let cwd, graph target facts, or live MCP results choose a sibling repo for edits.
+
 ## Execution Flow
 
 | Phase | Name | Purpose |

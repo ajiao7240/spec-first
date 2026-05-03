@@ -53,6 +53,10 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('The LLM still chooses the candidate change surface');
     expect(text).toContain('explicit repo context and source-plan constraints');
     expect(text).toContain('target_repo');
+    expect(text).toContain('workspace-graph-targets.v1');
+    expect(text).toContain('GitNexus-first evidence');
+    expect(text).toContain('bounded candidate repos');
+    expect(text).toContain('dirty-uncertain');
     expect(text).toContain('do not let scripts or graph facts choose semantically between child repos');
     expect(text).toContain('A cross-repo plan must name `target_repo` per implementation unit');
     expect(text).not.toContain('spec-first ' + 'crg hook');

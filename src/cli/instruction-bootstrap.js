@@ -150,6 +150,7 @@ function buildZhBootstrapBody(hostId) {
 - 按当前用户意图选择一个最匹配入口；不要默认进入 \`spec-brainstorm\`，也不要自动串联多个 workflow
 - 如果用户询问下一步、该用哪个命令或不知道 workflow，按 \`using-spec-first\` 的 guide mode 推荐一个公开入口、一句理由和一个下一步动作
 - 如果已经在 spec-first workflow 中或作为 bounded subagent 执行，遵循当前 workflow/父任务范围，不重新入口分流
+- 父级多仓 workspace 的只读代码问题可使用 \`workspace-graph-targets.v1\` advisory facts 做候选 repo 发现并优先 GitNexus；写入、修复、测试、review autofix 或 commit 前仍必须有明确 \`target_repo\` / per-child scope
 ${hostLine}
 ${surfaceLine}
 ${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；graph readiness 编译→\`${entry('graph-bootstrap')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务编译/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`（standalone skill）/\`${entry('work')}\`；可度量优化→\`${entry('optimize')}\`
@@ -180,6 +181,7 @@ function buildEnBootstrapBody(hostId) {
 - Pick one best-matching entrypoint by current user intent; do not default to \`spec-brainstorm\` or automatically chain workflows
 - If the user asks what to run next, which command to use, or does not know the workflow, use \`using-spec-first\` guide mode to recommend one public entrypoint, one reason, and one next action
 - If already inside a spec-first workflow or running as a bounded subagent, follow the active workflow/parent scope instead of restarting entry routing
+- Read-only code questions from a parent multi-repo workspace may use \`workspace-graph-targets.v1\` advisory facts for candidate repo discovery and prefer GitNexus-first evidence; writes, fixes, tests, review autofix, or commits still require explicit \`target_repo\` / per-child scope
 ${hostLine}
 ${surfaceLine}
 ${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; graph readiness compilation→\`${entry('graph-bootstrap')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/task compilation/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\` (standalone skill)/\`${entry('work')}\`; measurable optimization→\`${entry('optimize')}\`

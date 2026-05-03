@@ -1,6 +1,6 @@
 #!/bin/bash
 # install-mcp.sh - Unix installer pipeline for Required Harness Runtime MCP servers
-# Usage: install-mcp.sh [--only <tool-ids>] [--serena-language <language>]... [--serena-languages <comma-list>]
+# Usage: install-mcp.sh [--only <tool-ids>] [--repo <child>] [--all-repos] [--serena-language <language>]... [--serena-languages <comma-list>] [--serena-language-for <child>=<comma-list>]...
 
 set -euo pipefail
 
@@ -18,7 +18,9 @@ CONFIG_DIR="$(dirname "$CONFIG_PATH")"
 
 ONLY_FILTER=""
 REPO_ARG=""
+ALL_REPOS=false
 SERENA_LANGUAGES_TEXT=""
+SERENA_LANGUAGE_MAP_TEXT=""
 DEFAULT_STAGE_TIMEOUT_SECONDS="${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}"
 
 stage_log() {
@@ -38,6 +40,208 @@ append_serena_language_values() {
   done
 }
 
+append_serena_language_map_value() {
+  local raw="$1"
+  local entry
+  IFS=';' read -ra map_entries <<< "$raw"
+  for entry in ${map_entries[@]+"${map_entries[@]}"}; do
+    entry="$(printf '%s' "$entry" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [ -n "$entry" ] || continue
+    [[ "$entry" == *"="* ]] || { echo "install-mcp.sh: --serena-language-for expects <child>=<language>[,<language>]" >&2; exit 1; }
+    SERENA_LANGUAGE_MAP_TEXT="${SERENA_LANGUAGE_MAP_TEXT}${entry}"$'\n'
+  done
+}
+
+lookup_serena_language_map_value() {
+  local child_label="$1"
+  local child_path="$2"
+  local entry key value
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    key="${entry%%=*}"
+    value="${entry#*=}"
+    key="$(printf '%s' "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    value="$(printf '%s' "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    if [ "$key" = "$child_label" ] || [ "$key" = "$child_path" ]; then
+      printf '%s' "$value"
+      return 0
+    fi
+  done <<<"$SERENA_LANGUAGE_MAP_TEXT"
+  return 0
+}
+
+write_file_atomic_path() {
+  local path="$1"
+  local tmp
+  mkdir -p "$(dirname "$path")"
+  tmp="$(mktemp "${path}.XXXXXX")"
+  cat > "$tmp"
+  mv "$tmp" "$path"
+}
+
+write_all_repos_install_summary_and_exit() {
+  local target_json="$1"
+  local selection_source="${2:-explicit-all-repos}"
+  local target_mode workspace_root candidate_count summary_items summary_json
+
+  target_mode="$(jq -r '.mode // empty' <<<"$target_json")"
+  workspace_root="$(jq -r '.workspace_root // .invocation_cwd' <<<"$target_json")"
+
+  if [ -n "$REPO_ARG" ]; then
+    jq -n --arg workspace_root "$workspace_root" '{
+      schema_version:"workspace-mcp-setup-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:"all-repos-conflicts-with-repo",
+      workspace_root:$workspace_root,
+      advisory:true,
+      next_action:"Use either --all-repos from a parent workspace or --repo <child>, not both."
+    }'
+    exit 1
+  fi
+
+  if [ -n "$SERENA_LANGUAGES_TEXT" ]; then
+    jq -n --arg workspace_root "$workspace_root" '{
+      schema_version:"workspace-mcp-setup-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:"all-repos-requires-language-map",
+      workspace_root:$workspace_root,
+      advisory:true,
+      next_action:"Use --serena-language-for <child>=<language>[,<language>] with --all-repos instead of a global --serena-language."
+    }'
+    exit 1
+  fi
+
+  if [ "$target_mode" = "git-repo" ]; then
+    jq -n --arg workspace_root "$workspace_root" '{
+      schema_version:"workspace-mcp-setup-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:"all-repos-requires-parent-workspace",
+      workspace_root:$workspace_root,
+      advisory:true,
+      next_action:"Run --all-repos from a parent workspace containing child Git repos, or omit --all-repos in a single Git repo."
+    }'
+    exit 1
+  fi
+
+  candidate_count="$(jq -r '(.candidates // []) | length' <<<"$target_json")"
+  if [ "$candidate_count" -eq 0 ]; then
+    jq -n --argjson target "$target_json" '{
+      schema_version:"workspace-mcp-setup-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:($target.reason_code // "workspace-no-git-candidates"),
+      workspace_root:($target.workspace_root // null),
+      candidates:($target.candidates // []),
+      advisory:true,
+      next_action:($target.next_action // "Run from a parent workspace containing child Git repos.")
+    }'
+    exit 1
+  fi
+
+  summary_items="$(mktemp "${TMPDIR:-/tmp}/mcp-setup-all-repos.XXXXXX")"
+  jq -n '[]' > "$summary_items"
+  while IFS=$'\t' read -r child_label child_path; do
+    [ -n "$child_path" ] || continue
+    child_args=(--repo "$child_path")
+    if [ -n "$ONLY_FILTER" ]; then
+      child_args+=(--only "$ONLY_FILTER")
+    fi
+    child_languages="$(lookup_serena_language_map_value "$child_label" "$child_path")"
+    if [ -n "$child_languages" ]; then
+      child_args+=(--serena-languages "$child_languages")
+    fi
+    set +e
+    child_output="$(bash "$0" ${child_args[@]+"${child_args[@]}"})"
+    child_status=$?
+    set -e
+    if ! jq -e . >/dev/null 2>&1 <<<"$child_output"; then
+      child_result="$(jq -n --arg output "$child_output" '{host:"unknown",display_name:"unknown",platform:"unknown",results:[],diagnostic:$output}')"
+    else
+      child_result="$child_output"
+    fi
+    child_overall="$(jq -r '
+      if ((.results // []) | length) == 0 then "action-required"
+      elif any((.results // [])[]; .status == "action-required") then "action-required"
+      elif any((.results // [])[]; .status == "partial") then "partial"
+      else "ready"
+      end' <<<"$child_result")"
+    child_reason="$(jq -r '[(.results // [])[] | select((.reason_code // "") != "") | .reason_code][0] // empty' <<<"$child_result")"
+    jq \
+      --arg repo_label "$child_label" \
+      --arg workspace_relative_path "$child_path" \
+      --argjson exit_code "$child_status" \
+      --arg overall_status "$child_overall" \
+      --arg reason_code "$child_reason" \
+      --argjson result "$child_result" \
+      '. + [{
+        repo_label:$repo_label,
+        workspace_relative_path:$workspace_relative_path,
+        exit_code:$exit_code,
+        overall_status:$overall_status,
+        reason_code:(if $reason_code == "" then null else $reason_code end),
+        result:$result
+      }]' "$summary_items" > "$summary_items.next"
+    mv "$summary_items.next" "$summary_items"
+  done < <(jq -r '.candidates[] | [.repo_label, .workspace_relative_path] | @tsv' <<<"$target_json")
+
+  summary_json="$(jq -n \
+    --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    --arg selection_source "$selection_source" \
+    --argjson target "$target_json" \
+    --slurpfile items "$summary_items" \
+    '($items[0] // []) as $results
+    | {
+        schema_version:"workspace-mcp-setup-summary.v1",
+        generated_at:$generated_at,
+        advisory:true,
+        workflow_mode:"all-repos",
+        selection_source:$selection_source,
+        workspace_root:($target.workspace_root // null),
+        parent_writes_repo_local_artifacts:false,
+        language_map_required_for_first_time_serena:true,
+        results:$results,
+        counts:{
+          total:($results | length),
+          ready:([$results[] | select(.overall_status == "ready")] | length),
+          partial:([$results[] | select(.overall_status == "partial")] | length),
+          action_required:([$results[] | select(.overall_status == "action-required")] | length),
+          serena_language_required:([$results[] | select(.reason_code == "serena_language_required")] | length)
+        },
+        overall_status:(
+          if ($results | length) == 0 then "action-required"
+          elif ([$results[] | select(.overall_status == "action-required")] | length) > 0 and ([$results[] | select(.overall_status != "action-required")] | length) == 0 then "action-required"
+          elif ([$results[] | select(.overall_status != "ready")] | length) > 0 then "partial"
+          else "ready"
+          end
+        ),
+        reason_code:(
+          if ($results | length) == 0 then "workspace-no-git-candidates"
+          elif ([$results[] | select(.overall_status != "ready")] | length) == 0 then null
+          else "all-repos-partial-or-action-required"
+          end
+        ),
+        next_action:(
+          if ([$results[] | select(.reason_code == "serena_language_required")] | length) > 0 then
+            "Inspect per-child project evidence and rerun with --serena-language-for <child>=<language>[,<language>] for action-required children."
+          elif ([$results[] | select(.overall_status != "ready")] | length) > 0 then
+            "Inspect per-child reason_code and rerun setup for action-required repos."
+          else
+            "All child repos completed MCP setup."
+          end
+        )
+      }')"
+  rm -f "$summary_items"
+  printf '%s\n' "$summary_json" | write_file_atomic_path "$workspace_root/.spec-first/workspace/mcp-setup-summary.json"
+  printf '%s\n' "$summary_json"
+  if [ "$(jq -r '.overall_status' <<<"$summary_json")" = "action-required" ]; then
+    exit 1
+  fi
+  exit 0
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --only)
@@ -49,6 +253,10 @@ while [[ $# -gt 0 ]]; do
       [ -n "$REPO_ARG" ] || { echo "install-mcp.sh: --repo requires a value" >&2; exit 1; }
       shift 2
       ;;
+    --all-repos)
+      ALL_REPOS=true
+      shift
+      ;;
     --serena-language)
       [ -n "${2:-}" ] || { echo "install-mcp.sh: --serena-language requires a value" >&2; exit 1; }
       append_serena_language_values "$2"
@@ -59,6 +267,11 @@ while [[ $# -gt 0 ]]; do
       append_serena_language_values "$2"
       shift 2
       ;;
+    --serena-language-for|--serena-language-map)
+      [ -n "${2:-}" ] || { echo "install-mcp.sh: $1 requires a value" >&2; exit 1; }
+      append_serena_language_map_value "$2"
+      shift 2
+      ;;
     *)
       echo "未知参数: $1" >&2
       exit 1
@@ -67,27 +280,49 @@ while [[ $# -gt 0 ]]; do
 done
 
 TARGET_ARGS=()
-if [ -n "$REPO_ARG" ]; then
+if [ -n "$REPO_ARG" ] && [ "$ALL_REPOS" != "true" ]; then
   TARGET_ARGS+=(--repo "$REPO_ARG")
 fi
 set +e
 TARGET_ENV="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format env ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
 TARGET_STATUS=$?
+TARGET_JSON="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format json ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
+TARGET_JSON_STATUS=$?
 set -e
 [ -n "$TARGET_ENV" ] || { echo "install-mcp.sh: target resolver returned no env output" >&2; exit 1; }
+[ -n "$TARGET_JSON" ] || { echo "install-mcp.sh: target resolver returned no JSON output" >&2; exit 1; }
 eval "$TARGET_ENV"
 TARGET_STATE_WRITE_ALLOWED="$state_write_allowed"
 TARGET_REASON_CODE="$reason_code"
 TARGET_NEXT_ACTION="$next_action"
 TARGET_SELECTED_REPO_ROOT="$selected_repo_root"
 TARGET_WORKSPACE_ROOT="$workspace_root"
+TARGET_MODE="$(jq -r '.mode // empty' <<<"$TARGET_JSON")"
+TARGET_CANDIDATE_COUNT="$(jq -r '(.candidates // []) | length' <<<"$TARGET_JSON")"
+DEFAULT_ALL_REPOS=false
+if [ "$ALL_REPOS" != "true" ] && [ -z "$REPO_ARG" ] && [ "$TARGET_MODE" != "git-repo" ] && [ "$TARGET_CANDIDATE_COUNT" -gt 0 ]; then
+  DEFAULT_ALL_REPOS=true
+fi
 if [ -n "$TARGET_SELECTED_REPO_ROOT" ]; then
   REPO_ROOT="$TARGET_SELECTED_REPO_ROOT"
 else
   REPO_ROOT="$TARGET_WORKSPACE_ROOT"
 fi
-if [ "$TARGET_STATUS" -ne 0 ]; then
+if [ "$TARGET_STATUS" -ne 0 ] || [ "$TARGET_JSON_STATUS" -ne 0 ]; then
   TARGET_STATE_WRITE_ALLOWED="false"
+fi
+
+if [ "$ALL_REPOS" = "true" ]; then
+  write_all_repos_install_summary_and_exit "$TARGET_JSON" "explicit-all-repos"
+fi
+
+if [ "$DEFAULT_ALL_REPOS" = "true" ]; then
+  write_all_repos_install_summary_and_exit "$TARGET_JSON" "workspace-default-all-repos"
+fi
+
+if [ -n "$SERENA_LANGUAGE_MAP_TEXT" ]; then
+  echo "install-mcp.sh: --serena-language-for is only valid with --all-repos or parent-workspace default all-repos" >&2
+  exit 1
 fi
 
 if [ -n "$ONLY_FILTER" ]; then

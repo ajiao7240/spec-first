@@ -7,6 +7,7 @@ param(
   [switch]$EnsureGitignore,
   [switch]$DeleteLegacyMarkdown,
   [string]$Repo = '',
+  [switch]$AllRepos,
   [switch]$Json
 )
 
@@ -52,10 +53,168 @@ function Write-Result {
   }
 }
 
+function Write-JsonFileAtomic {
+  param(
+    [string]$Path,
+    [object]$Payload,
+    [int]$Depth = 30
+  )
+  $dir = Split-Path -Parent $Path
+  New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  $tmp = Join-Path $dir ('.{0}.{1}.tmp' -f (Split-Path -Leaf $Path), ([guid]::NewGuid().ToString('N')))
+  $Payload | ConvertTo-Json -Depth $Depth | Set-Content -Encoding utf8 $tmp
+  Move-Item -Force $tmp $Path
+}
+
+function Invoke-ChildJsonScript {
+  param(
+    [string]$ScriptPath,
+    [hashtable]$Arguments
+  )
+
+  $stderrPath = Join-Path ([System.IO.Path]::GetTempPath()) ('spec-first-child-stderr-{0}.log' -f ([guid]::NewGuid().ToString('N')))
+  $stdout = @()
+  $exitCode = 0
+  $exceptionText = ''
+  try {
+    $global:LASTEXITCODE = 0
+    $stdout = @(& $ScriptPath @Arguments 2> $stderrPath)
+    if ($LASTEXITCODE -is [int]) { $exitCode = $LASTEXITCODE }
+  } catch {
+    $exitCode = if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }
+    $exceptionText = [string]$_.Exception.Message
+  }
+
+  $stderrText = if (Test-Path -LiteralPath $stderrPath -PathType Leaf) { Get-Content -Raw -LiteralPath $stderrPath } else { '' }
+  Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $stderrPath
+  $diagnosticParts = @($stderrText, $exceptionText) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+  [pscustomobject]@{
+    stdout = ($stdout -join "`n")
+    diagnostic = ($diagnosticParts -join "`n").Trim()
+    exit_code = $exitCode
+  }
+}
+
+function Write-WorkspaceProjectConfigSummaryAndExit {
+  param(
+    [object]$TargetFacts,
+    [string]$SelectionSource = 'explicit-all-repos'
+  )
+
+  $workspaceRoot = [string]$TargetFacts.workspace_root
+  if (-not [string]::IsNullOrWhiteSpace($Repo)) {
+    [pscustomobject]@{
+      schema_version = 'workspace-project-config-bootstrap-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = 'all-repos-conflicts-with-repo'
+      workspace_root = $workspaceRoot
+      advisory = $true
+      next_action = 'Use either -AllRepos from a parent workspace or -Repo <child>, not both.'
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
+
+  if ($TargetFacts.mode -eq 'git-repo') {
+    [pscustomobject]@{
+      schema_version = 'workspace-project-config-bootstrap-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = 'all-repos-requires-parent-workspace'
+      workspace_root = $workspaceRoot
+      advisory = $true
+      next_action = 'Run -AllRepos from a parent workspace containing child Git repos, or omit -AllRepos in a single Git repo.'
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
+
+  $children = @($TargetFacts.candidates)
+  if ($children.Count -eq 0) {
+    [pscustomobject]@{
+      schema_version = 'workspace-project-config-bootstrap-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = if ([string]::IsNullOrWhiteSpace([string]$TargetFacts.reason_code)) { 'workspace-no-git-candidates' } else { [string]$TargetFacts.reason_code }
+      workspace_root = $workspaceRoot
+      candidates = @($TargetFacts.candidates)
+      advisory = $true
+      next_action = if ([string]::IsNullOrWhiteSpace([string]$TargetFacts.next_action)) { 'Run from a parent workspace containing child Git repos.' } else { [string]$TargetFacts.next_action }
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
+
+  $results = @()
+  foreach ($child in $children) {
+    $childParams = @{ Repo = [string]$child.workspace_relative_path; Json = $true }
+    if ($RefreshExample) { $childParams.RefreshExample = $true }
+    if ($CreateLocal) { $childParams.CreateLocal = $true }
+    if ($EnsureGitignore) { $childParams.EnsureGitignore = $true }
+    if ($DeleteLegacyMarkdown) { $childParams.DeleteLegacyMarkdown = $true }
+    $childRun = Invoke-ChildJsonScript -ScriptPath $PSCommandPath -Arguments $childParams
+    $childStatus = [int]$childRun.exit_code
+    try {
+      $childResult = [string]$childRun.stdout | ConvertFrom-Json
+    } catch {
+      $childResult = [pscustomobject]@{
+        schema_version = 'project-config-bootstrap.v1'
+        overall_status = 'action-required'
+        reason = 'child-output-unparseable'
+        diagnostic = (@([string]$childRun.stdout, [string]$childRun.diagnostic) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }) -join "`n"
+      }
+    }
+    $childOverallStatus = [string]$childResult.overall_status
+    if ([string]::IsNullOrWhiteSpace($childOverallStatus)) { $childOverallStatus = 'unknown' }
+    $results += [pscustomobject][ordered]@{
+      repo_label = [string]$child.repo_label
+      workspace_relative_path = [string]$child.workspace_relative_path
+      exit_code = $childStatus
+      overall_status = $childOverallStatus
+      reason_code = if ([string]::IsNullOrWhiteSpace([string]$childResult.reason)) { $null } else { [string]$childResult.reason }
+      result = $childResult
+    }
+  }
+
+  $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
+  $actionRequiredCount = @($results | Where-Object { $_.overall_status -ne 'ready' }).Count
+  $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -eq 0) { 'ready' } elseif ($readyCount -gt 0) { 'partial' } else { 'action-required' }
+  $summary = [ordered]@{
+    schema_version = 'workspace-project-config-bootstrap-summary.v1'
+    generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    advisory = $true
+    workflow_mode = 'all-repos'
+    selection_source = $SelectionSource
+    workspace_root = $workspaceRoot
+    parent_writes_repo_local_artifacts = $false
+    results = @($results)
+    counts = [ordered]@{
+      total = $results.Count
+      ready = $readyCount
+      action_required = $actionRequiredCount
+    }
+    overall_status = $overallStatus
+    reason_code = if ($actionRequiredCount -eq 0) { $null } else { 'all-repos-partial-or-action-required' }
+    next_action = if ($actionRequiredCount -eq 0) { 'All child repos completed project config bootstrap.' } else { 'Inspect per-child reason_code and rerun project config bootstrap for action-required repos.' }
+  }
+
+  Write-JsonFileAtomic -Path (Join-Path $workspaceRoot '.spec-first/workspace/project-config-bootstrap-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
+  [pscustomobject]$summary | ConvertTo-Json -Depth 30 -Compress
+  if ($overallStatus -eq 'action-required') { exit 1 }
+  exit 0
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $resolverParams = @{ Format = 'json' }
-if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
+if (-not $AllRepos -and -not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
 $targetFacts = (& (Join-Path $scriptDir 'resolve-project-target.ps1') @resolverParams) | ConvertFrom-Json
+
+if ($AllRepos) {
+  Write-WorkspaceProjectConfigSummaryAndExit -TargetFacts $targetFacts -SelectionSource 'explicit-all-repos'
+}
+
+$defaultChildren = @($targetFacts.candidates)
+if (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo) -and $targetFacts.mode -ne 'git-repo' -and $defaultChildren.Count -gt 0) {
+  Write-WorkspaceProjectConfigSummaryAndExit -TargetFacts $targetFacts -SelectionSource 'workspace-default-all-repos'
+}
 
 if (-not [bool]$targetFacts.state_write_allowed) {
   Write-Result `
