@@ -642,10 +642,10 @@ gitnexus_query_probe_candidates() {
           reason_code:($policy.source // "legacy-token")
         }]
       end)
-	    | .[0:$limit]
-	    | .[]
-	    | @base64
-	  ' "$PROVIDER_CONFIG"
+    | .[0:$limit]
+    | .[]
+    | @base64
+  ' "$PROVIDER_CONFIG"
 }
 
 gitnexus_query_probe_candidate_count() {
@@ -912,12 +912,12 @@ write_provider_status() {
             query_probe_candidates_truncated=true
             QUERY_PROBE_CANDIDATES_TRUNCATED=true
           fi
-	  while IFS= read -r probe_candidate; do
-	    [ -n "$probe_candidate" ] || continue
-	    probe_token="$(jq -rR '@base64d | fromjson | .token // ""' <<<"$probe_candidate")"
-	    probe_selected_from="$(jq -rR '@base64d | fromjson | .selected_from // ""' <<<"$probe_candidate")"
-	    probe_reason_code="$(jq -rR '@base64d | fromjson | .reason_code // "legacy-token"' <<<"$probe_candidate")"
-	    [ -n "$probe_token" ] || continue
+          while IFS= read -r probe_candidate; do
+            [ -n "$probe_candidate" ] || continue
+            probe_token="$(jq -rR '@base64d | fromjson | .token // ""' <<<"$probe_candidate")"
+            probe_selected_from="$(jq -rR '@base64d | fromjson | .selected_from // ""' <<<"$probe_candidate")"
+            probe_reason_code="$(jq -rR '@base64d | fromjson | .reason_code // "legacy-token"' <<<"$probe_candidate")"
+            [ -n "$probe_token" ] || continue
             attempt_index=$((attempt_index + 1))
             if [ "$attempt_index" -eq 1 ]; then
               query_log="$raw_dir/query.log"

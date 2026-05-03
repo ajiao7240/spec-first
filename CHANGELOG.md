@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.2 2026-05-03 23:47:00 leokuang: style(graph-bootstrap): 对齐 provider bootstrap shell 脚本缩进
 - v1.6.2 2026-05-03 23:40:26 leokuang: fix(graph-bootstrap): 补强多仓 graph bootstrap 的无源码 fallback、环境失败分类、all-repos 进度和 final handoff 契约 (user-visible)
 - v1.6.2 2026-05-03 23:20:47 leokuang: docs(manual): 全面同步用户手册的工程闭环、多仓 workspace、graph readiness、App audit、FAQ 和产物边界说明 (user-visible)
 - v1.6.2 2026-05-03 23:20:05 leokuang: fix(spec-mcp-setup): 将 GitNexus runtime package pin 切换到 1.6.4-rc.48 (user-visible)
