@@ -47,7 +47,8 @@ Readiness 规则：
 - 如果 setup 侧提供超过 5 个候选，bootstrap 只尝试前 5 个，并写出 `query_probe_candidate_limit=5`、`query_probe_candidates_truncated=true`；这是防止 provider probe 变成 broad search 的 consumer-side 边界。
 - GitNexus normalized envelopes 必须包含实际 attempted query logs；如果第二个或后续候选首次产生 process result，`winning_query_probe_log` 应指向对应 `query-N.log`，不能只指向 `query.log`。
 - GitNexus `query-unverified` 只表示 bootstrap CLI query probe 未验证通过，不等于 live GitNexus MCP 一定不可用。
-- 所有候选都只返回 definitions-only 时仍然是 `query-unverified`；definitions-only 只能说明符号定位可用，不能证明 BM25/process query surface 健康。
+- expected-hit 候选都只返回 definitions-only 时仍然是 `query-unverified`；definitions-only 只能说明符号定位可用，不能证明 BM25/process query surface 健康。
+- 如果 `query_probe_policy.expected_hit=false`，说明 setup 没有找到 source-derived GitNexus query probe candidate；bootstrap 在 build/status 成功后写 `status=query-not-applicable`、`query_ready=false`，单仓结果使用 `workflow_mode=no-source` / `overall_status=not-applicable`，父级 all-repos summary 用 `counts.not_applicable` 单独计数，不把 README-only child repo 混入 degraded。
 - 脚本不能调用 host MCP tools；如果当前会话已加载 GitNexus MCP 且结果会澄清最终交付，LLM 应在脚本完成后做一次 bounded live MCP probe，例如用 `gitnexus_query` / `gitnexus_context` / `gitnexus_impact` 验证当前会话是否能读图；probe token 优先使用 `query_probe_attempts[]` 中第一个 `process-results` attempt，没有成功 attempt 时再回退到 policy candidate。
 - live MCP probe 只尝试一个具体调用；不要循环重试、广泛探测，或把 live MCP probe 变成 compiled readiness 的 gate。
 - live MCP 成功只作为 session-local evidence，不回写 `.spec-first/graph/*`，不把 compiled `query_ready` 改成 true。

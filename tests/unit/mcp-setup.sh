@@ -775,6 +775,25 @@ assert "health-only provider projection emits JSON" jq -e . <<<"$health_only_pro
 HEALTH_ONLY_PROVIDER_CONFIG="$HEALTH_ONLY_REPO/.spec-first/config/graph-providers.json"
 assert_eq "GitNexus probe keeps health-only fallback explicit" "HealthController:any_source" "$(jq -r '.providers.gitnexus.query_probe_policy | "\(.token):\(.candidates[0].reason_code)"' "$HEALTH_ONLY_PROVIDER_CONFIG")"
 
+WEB_METHOD_REPO="$TMP_DIR/web-method-repo"
+make_repo "$WEB_METHOD_REPO"
+mkdir -p "$WEB_METHOD_REPO/src/main/java/com/acme/web/controller/money" "$WEB_METHOD_REPO/src/main/java/com/acme/web/controller/opening" "$WEB_METHOD_REPO/src/main/java/com/acme/web/controller/optional"
+printf 'class MemberDepositController {\n  public Result<Void> queryDepositHistoryPage() { return null; }\n  public Result<Void> queryDepositDetail() { return null; }\n}\n' > "$WEB_METHOD_REPO/src/main/java/com/acme/web/controller/money/MemberDepositController.java"
+printf 'class OpeningController {\n  public Result<Void> stepSave() { return null; }\n  public Result<Void> options() { return null; }\n}\n' > "$WEB_METHOD_REPO/src/main/java/com/acme/web/controller/opening/OpeningController.java"
+printf 'class MemberOptionalStockController {\n  public Result<Void> save() { return null; }\n  public Result<Void> delete() { return null; }\n  public Result<Void> add() { return null; }\n  private <T> Result<T> booleanResult() { return null; }\n}\n' > "$WEB_METHOD_REPO/src/main/java/com/acme/web/controller/optional/MemberOptionalStockController.java"
+git -C "$WEB_METHOD_REPO" add src/main/java/com/acme/web/controller/money/MemberDepositController.java src/main/java/com/acme/web/controller/opening/OpeningController.java src/main/java/com/acme/web/controller/optional/MemberOptionalStockController.java
+WEB_METHOD_FACTS="$TMP_DIR/web-method-facts.json"
+jq --arg repo_root "$WEB_METHOD_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+  | .target.state_write_allowed = true
+' "$LOW_SIGNAL_FACTS" > "$WEB_METHOD_FACTS"
+web_method_projection="$(bash "$SCRIPTS_DIR/write-provider-config.sh" --facts-file "$WEB_METHOD_FACTS")"
+assert "web-method provider projection emits JSON" jq -e . <<<"$web_method_projection"
+WEB_METHOD_PROVIDER_CONFIG="$WEB_METHOD_REPO/.spec-first/config/graph-providers.json"
+assert_eq "GitNexus probe prefers flow-like methods over controller class names" "git-ls-files-source-symbol:stepSave:workflow_method:OpeningController.java" "$(jq -r '.providers.gitnexus.query_probe_policy | "\(.source):\(.token):\(.candidates[0].reason_code):\(.candidates[0].selected_from | split("/")[-1])"' "$WEB_METHOD_PROVIDER_CONFIG")"
+assert_eq "GitNexus method candidates stay bounded and source-derived" "stepSave,options,save,delete,add" "$(jq -r '.providers.gitnexus.query_probe_policy.candidates | map(.token) | join(",")' "$WEB_METHOD_PROVIDER_CONFIG")"
+
 assert_eq "providers are configured but not query-ready" "true" "$(jq -r '(.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
 assert_eq "runtime capabilities points to host ledger" "$LEDGER_PATH" "$(jq -r '.host_ledger_pointer.path' "$RUNTIME_CAPABILITIES")"
 assert_eq "runtime capabilities starts not bootstrapped" "not-bootstrapped" "$(jq -r '.project_graph_readiness.status' "$RUNTIME_CAPABILITIES")"

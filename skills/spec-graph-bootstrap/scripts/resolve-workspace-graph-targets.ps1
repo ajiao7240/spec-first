@@ -134,10 +134,11 @@ function Inspect-Repo {
     $graphStatus = 'unavailable'
   } elseif ($null -ne $graphFacts) {
     if ($stale) { $graphStatus = 'stale' }
-    elseif ($dirtyUncertain) { $graphStatus = 'dirty-uncertain' }
-    elseif ($graphWorkflowMode -eq 'primary') { $graphStatus = 'primary' }
-    elseif ($graphWorkflowMode -eq 'degraded-fallback') { $graphStatus = 'degraded-fallback' }
-    else { $graphStatus = [string]($graphWorkflowMode ?? 'unavailable') }
+	    elseif ($dirtyUncertain) { $graphStatus = 'dirty-uncertain' }
+	    elseif ($graphWorkflowMode -eq 'primary') { $graphStatus = 'primary' }
+	    elseif ($graphWorkflowMode -eq 'degraded-fallback') { $graphStatus = 'degraded-fallback' }
+	    elseif ($graphWorkflowMode -eq 'no-source') { $graphStatus = 'no-source' }
+	    else { $graphStatus = [string]($graphWorkflowMode ?? 'unavailable') }
   } elseif ($setupReady) {
     $graphStatus = [string]($setupWorkflowMode ?? 'setup-ready-bootstrap-required')
   } else {
@@ -154,7 +155,9 @@ function Inspect-Repo {
   if ($stale) { $limitations.Add('compiled graph facts source revision differs from current HEAD') }
   if ($dirtyUncertain) { $limitations.Add('compiled graph facts were generated from a dirty worktree without a matching status fingerprint') }
   if ($null -eq $graphFacts -and $setupReady) { $limitations.Add('graph bootstrap has not produced canonical graph facts') }
-  if ([bool](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'graph_ready' -Default $false) -and -not [bool](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'query_ready' -Default $false)) {
+  if ([string](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'status' -Default '') -eq 'query-not-applicable') {
+    $limitations.Add('GitNexus process routing is not applicable because no source-derived query target exists')
+  } elseif ([bool](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'graph_ready' -Default $false) -and -not [bool](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'query_ready' -Default $false)) {
     $limitations.Add('GitNexus graph exists but query readiness is unverified; use live MCP probe or bounded direct reads')
   }
 
@@ -236,10 +239,11 @@ function Inspect-Repo {
     }
     candidate_tokens = @($candidateTokens)
     limitations = @($limitations)
-    next_action = switch ($graphStatus) {
-      'primary' { 'Use GitNexus-first for bounded read-only evidence.'; break }
-      'degraded-fallback' { 'Use available provider facts with disclosed fallback limitations.'; break }
-      'dirty-uncertain' { 'Refresh graph bootstrap or use one bounded live MCP probe/direct read fallback.'; break }
+	    next_action = switch ($graphStatus) {
+	      'primary' { 'Use GitNexus-first for bounded read-only evidence.'; break }
+	      'degraded-fallback' { 'Use available provider facts with disclosed fallback limitations.'; break }
+	      'no-source' { 'Skip GitNexus process routing for this no-source child repo.'; break }
+	      'dirty-uncertain' { 'Refresh graph bootstrap or use one bounded live MCP probe/direct read fallback.'; break }
       'stale' { 'Rerun spec-graph-bootstrap for this child repo or use bounded fallback evidence.'; break }
       'setup-ready-bootstrap-required' { 'Run spec-graph-bootstrap for this child repo.'; break }
       default { 'Run spec-mcp-setup for this child repo.' }
@@ -272,9 +276,10 @@ $result = [ordered]@{
   repos = @($repos)
   counts = [ordered]@{
     total = $repos.Count
-    primary = $primaryCount
-    degraded = @($repos | Where-Object { $_.status -eq 'degraded-fallback' }).Count
-    stale = @($repos | Where-Object { $_.status -eq 'stale' }).Count
+	    primary = $primaryCount
+	    degraded = @($repos | Where-Object { $_.status -eq 'degraded-fallback' }).Count
+	    no_source = @($repos | Where-Object { $_.status -eq 'no-source' }).Count
+	    stale = @($repos | Where-Object { $_.status -eq 'stale' }).Count
     dirty_uncertain = @($repos | Where-Object { $_.status -eq 'dirty-uncertain' }).Count
     setup_ready_bootstrap_required = @($repos | Where-Object { $_.status -eq 'setup-ready-bootstrap-required' }).Count
     unavailable = @($repos | Where-Object { $_.status -eq 'unavailable' }).Count

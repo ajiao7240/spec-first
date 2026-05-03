@@ -143,7 +143,8 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
 
   $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
   $degradedCount = @($results | Where-Object { $_.workflow_mode -eq 'degraded-fallback' -or $_.overall_status -eq 'degraded' }).Count
-  $actionRequiredCount = @($results | Where-Object { $_.overall_status -ne 'ready' -and $_.workflow_mode -ne 'degraded-fallback' -and $_.overall_status -ne 'degraded' }).Count
+  $notApplicableCount = @($results | Where-Object { $_.workflow_mode -eq 'no-source' -or $_.overall_status -eq 'not-applicable' }).Count
+  $actionRequiredCount = @($results | Where-Object { $_.overall_status -ne 'ready' -and $_.workflow_mode -ne 'degraded-fallback' -and $_.overall_status -ne 'degraded' -and $_.workflow_mode -ne 'no-source' -and $_.overall_status -ne 'not-applicable' }).Count
   $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -eq 0 -and $degradedCount -eq 0) { 'ready' } elseif (($readyCount + $degradedCount) -gt 0) { 'partial' } else { 'action-required' }
   $summary = [ordered]@{
     schema_version = 'workspace-graph-bootstrap-summary.v1'
@@ -159,13 +160,14 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
       total = $results.Count
       ready = $readyCount
       degraded = $degradedCount
+      not_applicable = $notApplicableCount
       action_required = $actionRequiredCount
       primary = @($results | Where-Object { $_.workflow_mode -eq 'primary' }).Count
       blocked = @($results | Where-Object { $_.workflow_mode -eq 'blocked' -or $_.workflow_mode -eq 'setup-not-ready' }).Count
     }
     overall_status = $overallStatus
     reason_code = if ($actionRequiredCount -gt 0) { 'all-repos-partial-or-action-required' } elseif ($degradedCount -gt 0) { 'all-repos-degraded-fallback' } else { $null }
-    next_action = if ($actionRequiredCount -gt 0) { 'Inspect per-child reason_code and rerun setup/bootstrap for action-required repos.' } elseif ($degradedCount -gt 0) { 'Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos.' } else { 'All child repos produced graph bootstrap artifacts.' }
+    next_action = if ($actionRequiredCount -gt 0) { 'Inspect per-child reason_code and rerun setup/bootstrap for action-required repos.' } elseif ($degradedCount -gt 0) { 'Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos.' } elseif ($notApplicableCount -gt 0) { 'All code-bearing child repos produced graph bootstrap artifacts; skip GitNexus process routing for no-source children.' } else { 'All child repos produced graph bootstrap artifacts.' }
   }
 
   $workspaceDir = Join-Path $TargetFacts.workspace_root '.spec-first/workspace'
@@ -611,6 +613,18 @@ function Get-GitNexusQueryProbeCandidateCount {
   return 1
 }
 
+function Test-GitNexusQueryProbeExpectedHit {
+  param(
+    [object]$ProviderConfig,
+    [string]$Provider
+  )
+  $entry = $ProviderConfig.providers.$Provider
+  if ($entry.PSObject.Properties.Name -contains 'query_probe_policy' -and $null -ne $entry.query_probe_policy -and $entry.query_probe_policy.PSObject.Properties.Name -contains 'expected_hit') {
+    return [bool]$entry.query_probe_policy.expected_hit
+  }
+  return $true
+}
+
 function Get-ProviderFailureInfo {
   param(
     [string]$Provider,
@@ -884,6 +898,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $failureInfo = Get-ProviderFailureInfo -Provider $provider -Phase '' -ExitCode 0
   $queryProbeAttempts = New-Object System.Collections.Generic.List[object]
   $queryProbeCandidatesTruncated = $false
+  $queryProbeExpectedHit = $true
 
   if (Test-ProviderEnabled -ProviderConfig $providerConfig -Provider $provider) {
     $bootstrapLog = Join-Path $rawDir $(if ($provider -eq 'gitnexus') { 'analyze.log' } else { 'build.log' })
@@ -899,6 +914,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
         $script:QueryProbeVerificationReason = ''
         if ($provider -eq 'gitnexus') {
           $attemptIndex = 0
+          $queryProbeExpectedHit = Test-GitNexusQueryProbeExpectedHit -ProviderConfig $providerConfig -Provider $provider
           $candidateCount = Get-GitNexusQueryProbeCandidateCount -ProviderConfig $providerConfig -Provider $provider
           if ($candidateCount -gt $script:GitNexusQueryProbeCandidateLimit) {
             $queryProbeCandidatesTruncated = $true
@@ -962,6 +978,18 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
           $status = 'ready'
           $confidence = 'high'
           $limitations = @()
+        } elseif ($provider -eq 'gitnexus' -and -not $queryProbeExpectedHit) {
+          $status = 'query-not-applicable'
+          $confidence = 'medium'
+          $script:QueryProbeVerificationReason = 'GitNexus query proof is not expected because setup found no source-derived probe candidate.'
+          $failureInfo = [ordered]@{
+            failed_phase = $null
+            failure_class = $null
+            reason_code = 'gitnexus-query-not-applicable'
+            exit_code = $null
+            recommended_action = 'Skip GitNexus process routing for this no-source child repo; use file/direct-read context only if needed.'
+          }
+          $limitations = @('Build and status succeeded; this repo has no source-derived GitNexus query probe candidate.', $script:QueryProbeVerificationReason)
         } else {
           $status = 'query-unverified'
           $confidence = 'medium'
@@ -1008,7 +1036,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     recommended_action = $failureInfo['recommended_action']
     confidence = $confidence
     limitations = $limitations
-    query_verification_reason = if ($status -eq 'query-unverified' -and $limitations.Count -gt 0) { $limitations[$limitations.Count - 1] } else { $null }
+    query_verification_reason = if (($status -eq 'query-unverified' -or $status -eq 'query-not-applicable') -and $limitations.Count -gt 0) { $limitations[$limitations.Count - 1] } else { $null }
     query_probe_policy = if ($entry.PSObject.Properties.Name -contains 'query_probe_policy') { $entry.query_probe_policy } else { $null }
     query_probe_candidate_limit = if ($provider -eq 'gitnexus') { $script:GitNexusQueryProbeCandidateLimit } else { $null }
     query_probe_candidates_truncated = if ($provider -eq 'gitnexus') { $queryProbeCandidatesTruncated } else { $null }
@@ -1043,10 +1071,16 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
 
 $readyCount = @($providerStatuses | Where-Object { $_.query_ready }).Count
 $providerCount = @($providerStatuses).Count
+$notApplicableCount = @($providerStatuses | Where-Object { $_.status -eq 'query-not-applicable' }).Count
+$blockingNotReadyCount = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'query-not-applicable' -and $_.status -ne 'skipped' }).Count
 $fallbackReady = [bool](@($runtimeCapabilities.fallback_capabilities.PSObject.Properties | Where-Object { $_.Value.support_level -ne 'none' }).Count)
 if ($providerCount -gt 0 -and $readyCount -eq $providerCount) {
   $workflowMode = 'primary'
   $overallStatus = 'ready'
+  $exitCode = 0
+} elseif ($providerCount -gt 0 -and $notApplicableCount -gt 0 -and $blockingNotReadyCount -eq 0) {
+  $workflowMode = 'no-source'
+  $overallStatus = 'not-applicable'
   $exitCode = 0
 } elseif ($fallbackReady) {
   $workflowMode = 'degraded-fallback'
@@ -1063,12 +1097,13 @@ $providerAggregate = [ordered]@{
   generated_at = $bootstrappedAt
   workflow_mode = $workflowMode
   ready_primary_providers = @($providerStatuses | Where-Object { $_.query_ready } | ForEach-Object { $_.provider })
-  failed_primary_providers = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'skipped' } | ForEach-Object { $_.provider })
+  failed_primary_providers = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'skipped' -and $_.status -ne 'query-not-applicable' } | ForEach-Object { $_.provider })
+  not_applicable_providers = @($providerStatuses | Where-Object { $_.status -eq 'query-not-applicable' } | ForEach-Object { $_.provider })
   skipped_primary_providers = @($providerStatuses | Where-Object { $_.status -eq 'skipped' } | ForEach-Object { $_.provider })
   partial_primary_available = ($readyCount -gt 0)
   providers = @($providerStatuses)
-  confidence = if ($workflowMode -eq 'primary') { 'high' } elseif ($workflowMode -eq 'degraded-fallback') { 'medium' } else { 'low' }
-  limitations = if ($workflowMode -eq 'primary') { @() } elseif ($workflowMode -eq 'degraded-fallback') { @('One or more primary graph providers are unavailable or query-unverified; fallback capabilities are required.') } else { @('No query-ready graph provider or fallback capability is available.') }
+  confidence = if ($workflowMode -eq 'primary') { 'high' } elseif ($workflowMode -eq 'degraded-fallback' -or $workflowMode -eq 'no-source') { 'medium' } else { 'low' }
+  limitations = if ($workflowMode -eq 'primary') { @() } elseif ($workflowMode -eq 'degraded-fallback') { @('One or more primary graph providers are unavailable or query-unverified; fallback capabilities are required.') } elseif ($workflowMode -eq 'no-source') { @('No source-derived GitNexus process query target is available for this repo.') } else { @('No query-ready graph provider or fallback capability is available.') }
 }
 Write-JsonFileAtomic -Path (Join-Path $graphDir 'provider-status.json') -Payload ([pscustomobject]$providerAggregate) -Depth 30
 
@@ -1079,9 +1114,10 @@ $graphFacts = [ordered]@{
   source_revision = $sourceRevision
   worktree_dirty = $worktreeDirty
   workflow_mode = $workflowMode
-  provider_summary = [ordered]@{
-    ready_primary_providers = @($providerAggregate.ready_primary_providers)
-    degraded_providers = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'skipped' } | ForEach-Object { $_.provider })
+	  provider_summary = [ordered]@{
+	    ready_primary_providers = @($providerAggregate.ready_primary_providers)
+	    degraded_providers = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'skipped' -and $_.status -ne 'query-not-applicable' } | ForEach-Object { $_.provider })
+	    not_applicable_providers = @($providerStatuses | Where-Object { $_.status -eq 'query-not-applicable' } | ForEach-Object { $_.provider })
     skipped_primary_providers = @($providerStatuses | Where-Object { $_.status -eq 'skipped' } | ForEach-Object { $_.provider })
     partial_primary_available = ($readyCount -gt 0)
   }

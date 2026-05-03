@@ -189,12 +189,13 @@ inspect_repo() {
     | (
         if $current_revision == "" then "unavailable"
         elif ($graph | length) > 0 then
-          if $stale then "stale"
-          elif $dirty_uncertain then "dirty-uncertain"
-          elif $graph_workflow_mode == "primary" then "primary"
-          elif $graph_workflow_mode == "degraded-fallback" then "degraded-fallback"
-          else ($graph_workflow_mode // "unavailable")
-          end
+	          if $stale then "stale"
+	          elif $dirty_uncertain then "dirty-uncertain"
+	          elif $graph_workflow_mode == "primary" then "primary"
+	          elif $graph_workflow_mode == "degraded-fallback" then "degraded-fallback"
+	          elif $graph_workflow_mode == "no-source" then "no-source"
+	          else ($graph_workflow_mode // "unavailable")
+	          end
         elif $setup_ready then ($setup_workflow_mode // "setup-ready-bootstrap-required")
         else "unavailable"
         end
@@ -269,12 +270,13 @@ inspect_repo() {
           + (if $stale then ["compiled graph facts source revision differs from current HEAD"] else [] end)
           + (if $dirty_uncertain then ["compiled graph facts were generated from a dirty worktree without a matching status fingerprint"] else [] end)
           + (if (($graph | length) == 0 and $setup_ready) then ["graph bootstrap has not produced canonical graph facts"] else [] end)
-          + (if ((provider_status_for("gitnexus").graph_ready // false) == true and (provider_status_for("gitnexus").query_ready // false) != true) then ["GitNexus graph exists but query readiness is unverified; use live MCP probe or bounded direct reads"] else [] end)
-        ),
-        next_action:(
-          if $graph_status == "primary" then "Use GitNexus-first for bounded read-only evidence."
-          elif $graph_status == "degraded-fallback" then "Use available provider facts with disclosed fallback limitations."
-          elif $graph_status == "dirty-uncertain" then "Refresh graph bootstrap or use one bounded live MCP probe/direct read fallback."
+	          + (if ((provider_status_for("gitnexus").status // null) == "query-not-applicable") then ["GitNexus process routing is not applicable because no source-derived query target exists"] elif ((provider_status_for("gitnexus").graph_ready // false) == true and (provider_status_for("gitnexus").query_ready // false) != true) then ["GitNexus graph exists but query readiness is unverified; use live MCP probe or bounded direct reads"] else [] end)
+	        ),
+	        next_action:(
+	          if $graph_status == "primary" then "Use GitNexus-first for bounded read-only evidence."
+	          elif $graph_status == "degraded-fallback" then "Use available provider facts with disclosed fallback limitations."
+	          elif $graph_status == "no-source" then "Skip GitNexus process routing for this no-source child repo."
+	          elif $graph_status == "dirty-uncertain" then "Refresh graph bootstrap or use one bounded live MCP probe/direct read fallback."
           elif $graph_status == "stale" then "Rerun spec-graph-bootstrap for this child repo or use bounded fallback evidence."
           elif $graph_status == "setup-ready-bootstrap-required" then "Run spec-graph-bootstrap for this child repo."
           else "Run spec-mcp-setup for this child repo."
@@ -311,8 +313,9 @@ RESULT_JSON="$(jq -n \
       counts:{
         total:($repos | length),
         primary:([$repos[] | select(.status == "primary")] | length),
-        degraded:([$repos[] | select(.status == "degraded-fallback")] | length),
-        stale:([$repos[] | select(.status == "stale")] | length),
+	        degraded:([$repos[] | select(.status == "degraded-fallback")] | length),
+	        no_source:([$repos[] | select(.status == "no-source")] | length),
+	        stale:([$repos[] | select(.status == "stale")] | length),
         dirty_uncertain:([$repos[] | select(.status == "dirty-uncertain")] | length),
         setup_ready_bootstrap_required:([$repos[] | select(.status == "setup-ready-bootstrap-required")] | length),
         unavailable:([$repos[] | select(.status == "unavailable")] | length)

@@ -81,13 +81,17 @@ if [[ " \$* " == *" gitnexus@"*" query "* ]]; then
     printf '{"processes":[],"process_symbols":[],"definitions":[]}\n'
     exit 0
   fi
-  if [[ "\${GITNEXUS_QUERY_SECOND_CANDIDATE_SUCCEEDS:-}" = "1" && "\$query_token" != "$GITNEXUS_QUERY_PROBE" ]]; then
-    printf '{"processes":[],"process_symbols":[],"definitions":[{"name":"%s"}]}\n' "\$query_token"
-    exit 0
-  fi
-  if [[ "\${GITNEXUS_QUERY_DEFINITIONS_ONLY:-}" = "1" ]]; then
-    printf '{"processes":[],"process_symbols":[],"definitions":[{"name":"%s"}]}\n' "\$query_token"
-    exit 0
+	  if [[ "\${GITNEXUS_QUERY_SECOND_CANDIDATE_SUCCEEDS:-}" = "1" && "\$query_token" != "$GITNEXUS_QUERY_PROBE" ]]; then
+	    printf '{"processes":[],"process_symbols":[],"definitions":[{"name":"%s"}]}\n' "\$query_token"
+	    exit 0
+	  fi
+	  if [[ "\${GITNEXUS_QUERY_NO_SOURCE_TOKEN_DEFINITIONS_ONLY:-}" = "1" && "\$query_token" = "main src build README package" ]]; then
+	    printf '{"processes":[],"process_symbols":[],"definitions":[{"name":"%s"}]}\n' "\$query_token"
+	    exit 0
+	  fi
+	  if [[ "\${GITNEXUS_QUERY_DEFINITIONS_ONLY:-}" = "1" ]]; then
+	    printf '{"processes":[],"process_symbols":[],"definitions":[{"name":"%s"}]}\n' "\$query_token"
+	    exit 0
   fi
   printf '{"processes":[{"name":"probe","token":"%s"}],"process_symbols":[],"definitions":[]}\n' "\$query_token"
 fi
@@ -345,6 +349,27 @@ all_repos_degraded_output="$(cd "$ALL_REPOS_DEGRADED_WORKSPACE" && PATH="$TEST_P
 assert_eq "all-repos graph bootstrap keeps degraded children non-blocking" "partial:0:2:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.degraded):\(.counts.action_required)"' <<<"$all_repos_degraded_output")"
 assert_eq "all-repos graph bootstrap reports degraded reason separately" "all-repos-degraded-fallback" "$(jq -r '.reason_code' <<<"$all_repos_degraded_output")"
 assert_contains "all-repos degraded next action discloses limitations" "Use degraded child artifacts with disclosed limitations" "$(jq -r '.next_action' <<<"$all_repos_degraded_output")"
+
+ALL_REPOS_NO_SOURCE_WORKSPACE="$TMP_DIR/all-repos-no-source-workspace"
+ALL_REPOS_NO_SOURCE_LEDGER="$TMP_DIR/all-repos-no-source-home/.codex/spec-first/host-setup.json"
+make_repo "$ALL_REPOS_NO_SOURCE_WORKSPACE/project-a"
+make_repo "$ALL_REPOS_NO_SOURCE_WORKSPACE/project-b"
+write_fixture_config "$ALL_REPOS_NO_SOURCE_WORKSPACE/project-a" "$ALL_REPOS_NO_SOURCE_LEDGER" true
+write_fixture_config "$ALL_REPOS_NO_SOURCE_WORKSPACE/project-b" "$ALL_REPOS_NO_SOURCE_LEDGER" true
+jq '
+  .providers.gitnexus.commands.query_probe[4] = "main src build README package"
+  | .providers.gitnexus.query_probe_policy.expected_hit = false
+  | .providers.gitnexus.query_probe_policy.source = "fallback-static"
+  | .providers.gitnexus.query_probe_policy.token = "main src build README package"
+  | .providers.gitnexus.query_probe_policy.selected_from = null
+  | .providers.gitnexus.query_probe_policy.candidates = [
+      {token:"main src build README package", selected_from:null, reason_code:"fallback-static"}
+    ]
+' "$ALL_REPOS_NO_SOURCE_WORKSPACE/project-b/.spec-first/config/graph-providers.json" > "$ALL_REPOS_NO_SOURCE_WORKSPACE/project-b/.spec-first/config/graph-providers.json.tmp"
+mv "$ALL_REPOS_NO_SOURCE_WORKSPACE/project-b/.spec-first/config/graph-providers.json.tmp" "$ALL_REPOS_NO_SOURCE_WORKSPACE/project-b/.spec-first/config/graph-providers.json"
+all_repos_no_source_output="$(cd "$ALL_REPOS_NO_SOURCE_WORKSPACE" && PATH="$TEST_PATH" GITNEXUS_QUERY_NO_SOURCE_TOKEN_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT" --all-repos)"
+assert_eq "all-repos graph bootstrap separates no-source children from degraded" "ready:1:0:1:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.degraded):\(.counts.not_applicable):\(.counts.action_required)"' <<<"$all_repos_no_source_output")"
+assert_eq "all-repos no-source child workflow is explicit" "project-b:no-source:not-applicable" "$(jq -r '.results[] | select(.workspace_relative_path=="project-b") | "\(.repo_label):\(.workflow_mode):\(.overall_status)"' <<<"$all_repos_no_source_output")"
 
 ALL_REPOS_SINGLE_REPO="$TMP_DIR/all-repos-single-repo"
 make_repo "$ALL_REPOS_SINGLE_REPO"
@@ -626,9 +651,10 @@ jq '
 ' "$NO_SOURCE_FALLBACK_REPO/.spec-first/config/graph-providers.json" > "$NO_SOURCE_FALLBACK_REPO/.spec-first/config/graph-providers.json.tmp"
 mv "$NO_SOURCE_FALLBACK_REPO/.spec-first/config/graph-providers.json.tmp" "$NO_SOURCE_FALLBACK_REPO/.spec-first/config/graph-providers.json"
 no_source_fallback_output="$(cd "$NO_SOURCE_FALLBACK_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT")"
-assert_eq "no-source fallback policy is degraded not blocked" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$no_source_fallback_output")"
-assert_eq "no-source fallback keeps null selected_from" "null:fallback-static:definitions-only:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_attempts[0].selected_from | tostring):\(.query_probe_attempts[0].reason_code):\(.query_probe_attempts[0].result_class):\(.query_ready)"' <<<"$no_source_fallback_output")"
+assert_eq "no-source fallback policy is not applicable not degraded" "no-source:not-applicable" "$(jq -r '"\(.workflow_mode):\(.overall_status)"' <<<"$no_source_fallback_output")"
+assert_eq "no-source fallback keeps null selected_from" "null:fallback-static:definitions-only:false:query-not-applicable" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_attempts[0].selected_from | tostring):\(.query_probe_attempts[0].reason_code):\(.query_probe_attempts[0].result_class):\(.query_ready):\(.status)"' <<<"$no_source_fallback_output")"
 assert_eq "no-source fallback policy preserves nullable source pointer" "false:null:fallback-static" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_policy.expected_hit):\(.query_probe_policy.selected_from | tostring):\(.query_probe_policy.source)"' <<<"$no_source_fallback_output")"
+assert_eq "no-source fallback records structured reason" "gitnexus-query-not-applicable" "$(jq -r '.results[] | select(.provider=="gitnexus") | .reason_code' <<<"$no_source_fallback_output")"
 
 SIGSEGV_REPO="$TMP_DIR/sigsegv-repo"
 SIGSEGV_LEDGER="$TMP_DIR/sigsegv-home/.codex/spec-first/host-setup.json"

@@ -162,13 +162,14 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
           total:($results | length),
           ready:([$results[] | select(.overall_status == "ready")] | length),
           degraded:([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length),
-          action_required:([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded")] | length),
+          not_applicable:([$results[] | select(.workflow_mode == "no-source" or .overall_status == "not-applicable")] | length),
+          action_required:([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length),
           primary:([$results[] | select(.workflow_mode == "primary")] | length),
           blocked:([$results[] | select(.workflow_mode == "blocked" or .workflow_mode == "setup-not-ready")] | length)
         },
         overall_status:(
           if ($results | length) == 0 then "action-required"
-          elif ([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded")] | length) == 0
+          elif ([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length) == 0
             and ([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) == 0 then "ready"
           elif ([$results[] | select(.overall_status == "ready" or .workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) > 0 then "partial"
           else "action-required"
@@ -176,14 +177,15 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
         ),
         reason_code:(
           if ($results | length) == 0 then "workspace-no-git-candidates"
-          elif ([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded")] | length) > 0 then "all-repos-partial-or-action-required"
+          elif ([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length) > 0 then "all-repos-partial-or-action-required"
           elif ([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) > 0 then "all-repos-degraded-fallback"
           else null
           end
         ),
         next_action:(
-          if ([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded")] | length) > 0 then "Inspect per-child reason_code and rerun setup/bootstrap for action-required repos."
+          if ([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length) > 0 then "Inspect per-child reason_code and rerun setup/bootstrap for action-required repos."
           elif ([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) > 0 then "Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos."
+          elif ([$results[] | select(.workflow_mode == "no-source" or .overall_status == "not-applicable")] | length) > 0 then "All code-bearing child repos produced graph bootstrap artifacts; skip GitNexus process routing for no-source children."
           else "All child repos produced graph bootstrap artifacts."
           end
         )
@@ -662,6 +664,14 @@ gitnexus_query_probe_candidate_count() {
   ' "$PROVIDER_CONFIG"
 }
 
+gitnexus_query_probe_expected_hit() {
+  local provider="$1"
+  jq -r --arg provider "$provider" '
+    (.providers[$provider].query_probe_policy // {}) as $policy
+    | if ($policy | has("expected_hit")) then ($policy.expected_hit == true) else true end
+  ' "$PROVIDER_CONFIG"
+}
+
 append_query_probe_attempt() {
   local token="$1"
   local selected_from="$2"
@@ -851,6 +861,7 @@ write_provider_status() {
   local configured enabled dependency_status host_config_required host_config_status host_ready skip_reason
   local bootstrap_log status_log query_log
   local query_probe_candidates_truncated=false
+  local query_probe_expected_hit=true
   QUERY_PROBE_ATTEMPTS="[]"
   QUERY_PROBE_CANDIDATES_TRUNCATED=false
   mkdir -p "$raw_dir" "$provider_dir/normalized"
@@ -907,6 +918,7 @@ write_provider_status() {
         if [ "$provider" = "gitnexus" ]; then
           attempt_index=0
           query_ready=false
+          query_probe_expected_hit="$(gitnexus_query_probe_expected_hit "$provider")"
           candidate_count="$(gitnexus_query_probe_candidate_count "$provider")"
           if [ "${candidate_count:-0}" -gt "$GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT" ]; then
             query_probe_candidates_truncated=true
@@ -987,6 +999,12 @@ write_provider_status() {
           status="ready"
           confidence="high"
           limitations='[]'
+        elif [ "$provider" = "gitnexus" ] && [ "$query_probe_expected_hit" != "true" ]; then
+          status="query-not-applicable"
+          confidence="medium"
+          QUERY_PROBE_VERIFICATION_REASON="GitNexus query proof is not expected because setup found no source-derived probe candidate."
+          failure_info="$(jq -n '{failed_phase:null,failure_class:null,reason_code:"gitnexus-query-not-applicable",exit_code:null,recommended_action:"Skip GitNexus process routing for this no-source child repo; use file/direct-read context only if needed."}')"
+          limitations="$(jq -n --arg reason "$QUERY_PROBE_VERIFICATION_REASON" '["Build and status succeeded; this repo has no source-derived GitNexus query probe candidate.", $reason]')"
         else
           status="query-unverified"
           confidence="medium"
@@ -1052,7 +1070,7 @@ write_provider_status() {
       recommended_action:$failure_info.recommended_action,
       confidence:$confidence,
       limitations:$limitations,
-      query_verification_reason:(if $status == "query-unverified" then ($limitations[-1] // null) else null end),
+      query_verification_reason:(if ($status == "query-unverified" or $status == "query-not-applicable") then ($limitations[-1] // null) else null end),
       query_probe_policy:($provider_config[0].providers[$provider].query_probe_policy // null),
       query_probe_candidate_limit:(if $provider == "gitnexus" then $query_probe_candidate_limit else null end),
       query_probe_candidates_truncated:(if $provider == "gitnexus" then $query_probe_candidates_truncated else null end),
@@ -1089,11 +1107,17 @@ done < <(jq -r '.providers | keys[]' "$PROVIDER_CONFIG")
 statuses_json="$(jq -s '.' "${STATUS_FILES[@]}")"
 provider_count="$(jq 'length' <<<"$statuses_json")"
 ready_count="$(jq '[.[] | select(.query_ready == true)] | length' <<<"$statuses_json")"
+not_applicable_count="$(jq '[.[] | select(.status == "query-not-applicable")] | length' <<<"$statuses_json")"
+blocking_not_ready_count="$(jq '[.[] | select(.query_ready != true and .status != "query-not-applicable" and .status != "skipped")] | length' <<<"$statuses_json")"
 fallback_ready="$(jq -r '[.fallback_capabilities[]? | select(.support_level != "none")] | length > 0' "$RUNTIME_CAPABILITIES")"
 
 if [ "$provider_count" -gt 0 ] && [ "$ready_count" -eq "$provider_count" ]; then
   WORKFLOW_MODE="primary"
   OVERALL_STATUS="ready"
+  EXIT_CODE=0
+elif [ "$provider_count" -gt 0 ] && [ "$not_applicable_count" -gt 0 ] && [ "$blocking_not_ready_count" -eq 0 ]; then
+  WORKFLOW_MODE="no-source"
+  OVERALL_STATUS="not-applicable"
   EXIT_CODE=0
 elif [ "$fallback_ready" = "true" ]; then
   WORKFLOW_MODE="degraded-fallback"
@@ -1113,14 +1137,15 @@ fi
 jq -n \
   --arg generated_at "$BOOTSTRAPPED_AT" \
   --arg workflow_mode "$WORKFLOW_MODE" \
-  --arg confidence "$(if [ "$WORKFLOW_MODE" = "primary" ]; then echo high; elif [ "$WORKFLOW_MODE" = "degraded-fallback" ]; then echo medium; else echo low; fi)" \
+  --arg confidence "$(if [ "$WORKFLOW_MODE" = "primary" ]; then echo high; elif [ "$WORKFLOW_MODE" = "degraded-fallback" ] || [ "$WORKFLOW_MODE" = "no-source" ]; then echo medium; else echo low; fi)" \
   --argjson providers "$statuses_json" \
   '{
     schema_version:"graph-provider-status.v1",
     generated_at:$generated_at,
     workflow_mode:$workflow_mode,
     ready_primary_providers:[$providers[] | select(.query_ready == true) | .provider],
-    failed_primary_providers:[$providers[] | select(.query_ready != true and .status != "skipped") | .provider],
+    failed_primary_providers:[$providers[] | select(.query_ready != true and .status != "skipped" and .status != "query-not-applicable") | .provider],
+    not_applicable_providers:[$providers[] | select(.status == "query-not-applicable") | .provider],
     skipped_primary_providers:[$providers[] | select(.status == "skipped") | .provider],
     partial_primary_available:([$providers[] | select(.query_ready == true)] | length > 0),
     providers:$providers,
@@ -1128,6 +1153,7 @@ jq -n \
     limitations:(
       if $workflow_mode == "primary" then []
       elif $workflow_mode == "degraded-fallback" then ["One or more primary graph providers are unavailable or query-unverified; fallback capabilities are required."]
+      elif $workflow_mode == "no-source" then ["No source-derived GitNexus process query target is available for this repo."]
       else ["No query-ready graph provider or fallback capability is available."]
       end
     )
@@ -1139,7 +1165,7 @@ jq -n \
   --arg source_revision "$SOURCE_REVISION" \
   --argjson worktree_dirty "$WORKTREE_DIRTY" \
   --arg workflow_mode "$WORKFLOW_MODE" \
-  --arg confidence "$(if [ "$WORKFLOW_MODE" = "primary" ]; then echo high; elif [ "$WORKFLOW_MODE" = "degraded-fallback" ]; then echo medium; else echo low; fi)" \
+  --arg confidence "$(if [ "$WORKFLOW_MODE" = "primary" ]; then echo high; elif [ "$WORKFLOW_MODE" = "degraded-fallback" ] || [ "$WORKFLOW_MODE" = "no-source" ]; then echo medium; else echo low; fi)" \
   --argjson providers "$statuses_json" \
   '{
     schema_version:"graph-facts.v1",
@@ -1150,7 +1176,8 @@ jq -n \
 	    workflow_mode:$workflow_mode,
 	    provider_summary:{
 	      ready_primary_providers:[$providers[] | select(.query_ready == true) | .provider],
-	      degraded_providers:[$providers[] | select(.query_ready != true and .status != "skipped") | .provider],
+	      degraded_providers:[$providers[] | select(.query_ready != true and .status != "skipped" and .status != "query-not-applicable") | .provider],
+	      not_applicable_providers:[$providers[] | select(.status == "query-not-applicable") | .provider],
 	      skipped_primary_providers:[$providers[] | select(.status == "skipped") | .provider],
 	      partial_primary_available:([$providers[] | select(.query_ready == true)] | length > 0)
 	    },
@@ -1170,6 +1197,7 @@ jq -n \
     limitations:(
       if $workflow_mode == "primary" then []
       elif $workflow_mode == "degraded-fallback" then ["Graph facts are partial; downstream workflows must disclose limitations."]
+      elif $workflow_mode == "no-source" then ["Graph facts are not applicable for GitNexus process routing because no source-derived query target exists."]
       else ["Graph facts are not query-ready."]
       end
     )

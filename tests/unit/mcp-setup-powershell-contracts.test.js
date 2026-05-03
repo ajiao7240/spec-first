@@ -223,6 +223,11 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('function Test-GitNexusProbeWeakProofToken');
     expect(writeProviderSource).toContain('function Test-GitNexusProbeInfrastructureToken');
     expect(writeProviderSource).toContain('function Test-GitNexusProbeDisplaySignalToken');
+    expect(writeProviderSource).toContain('function Test-GitNexusProbeMethodSignalToken');
+    expect(writeProviderSource).toContain('function Get-GitNexusProbeMethodTokensFromPath');
+    expect(writeProviderSource).toContain('workflow_method');
+    expect(writeProviderSource).toContain('src_method');
+    expect(writeProviderSource).toContain('git-ls-files-source-symbol');
     expect(writeProviderSource).toContain('Health|Ping|Actuator|Status|Info|Error|Metrics');
     expect(writeProviderSource).toContain("'^(Ad|Ads)$'");
     expect(writeProviderSource).toContain("'^(Advertise|Advertisement|Splash|Guide|Intro|Onboarding)[A-Za-z0-9_]*'");
@@ -297,6 +302,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('function Test-GitNexusQueryProbeVerified');
     expect(source).toContain('function Get-GitNexusQueryProbeCandidates');
     expect(source).toContain('function Get-GitNexusQueryProbeCandidateCount');
+    expect(source).toContain('function Test-GitNexusQueryProbeExpectedHit');
     expect(source).toContain('function Invoke-GitNexusQueryProbeCandidate');
     expect(source).toContain('function Test-QueryProbePolicySupported');
     expect(source).toContain('GitNexusQueryProbeCandidateLimit = 5');
@@ -310,6 +316,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('query_probe_attempts');
     expect(source).toContain('query_probe_candidate_limit');
     expect(source).toContain('query_probe_candidates_truncated');
+    expect(source).toContain('query-not-applicable');
+    expect(source).toContain('not_applicable');
     expect(source).toContain('winning_query_probe_log');
     expect(source).toContain('query-');
     expect(source).toContain('query_global_graph');
