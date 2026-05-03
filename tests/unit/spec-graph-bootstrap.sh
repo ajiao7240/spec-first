@@ -371,6 +371,27 @@ all_repos_no_source_output="$(cd "$ALL_REPOS_NO_SOURCE_WORKSPACE" && PATH="$TEST
 assert_eq "all-repos graph bootstrap separates no-source children from degraded" "ready:1:0:1:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.degraded):\(.counts.not_applicable):\(.counts.action_required)"' <<<"$all_repos_no_source_output")"
 assert_eq "all-repos no-source child workflow is explicit" "project-b:no-source:not-applicable" "$(jq -r '.results[] | select(.workspace_relative_path=="project-b") | "\(.repo_label):\(.workflow_mode):\(.overall_status)"' <<<"$all_repos_no_source_output")"
 
+ONLY_NO_SOURCE_WORKSPACE="$TMP_DIR/only-no-source-workspace"
+ONLY_NO_SOURCE_LEDGER="$TMP_DIR/only-no-source-home/.codex/spec-first/host-setup.json"
+make_repo "$ONLY_NO_SOURCE_WORKSPACE/project-only"
+write_fixture_config "$ONLY_NO_SOURCE_WORKSPACE/project-only" "$ONLY_NO_SOURCE_LEDGER" true
+jq '
+  .providers.gitnexus.commands.query_probe[4] = "main src build README package"
+  | .providers.gitnexus.query_probe_policy.expected_hit = false
+  | .providers.gitnexus.query_probe_policy.source = "fallback-static"
+  | .providers.gitnexus.query_probe_policy.token = "main src build README package"
+  | .providers.gitnexus.query_probe_policy.selected_from = null
+  | .providers.gitnexus.query_probe_policy.candidates = [
+      {token:"main src build README package", selected_from:null, reason_code:"fallback-static"}
+    ]
+' "$ONLY_NO_SOURCE_WORKSPACE/project-only/.spec-first/config/graph-providers.json" > "$ONLY_NO_SOURCE_WORKSPACE/project-only/.spec-first/config/graph-providers.json.tmp"
+mv "$ONLY_NO_SOURCE_WORKSPACE/project-only/.spec-first/config/graph-providers.json.tmp" "$ONLY_NO_SOURCE_WORKSPACE/project-only/.spec-first/config/graph-providers.json"
+only_no_source_output="$(cd "$ONLY_NO_SOURCE_WORKSPACE" && PATH="$TEST_PATH" GITNEXUS_QUERY_NO_SOURCE_TOKEN_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT" --all-repos)"
+assert_eq "only no-source all-repos remains successful" "ready:0:0:1:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.degraded):\(.counts.not_applicable):\(.counts.action_required)"' <<<"$only_no_source_output")"
+only_no_source_targets="$(cd "$ONLY_NO_SOURCE_WORKSPACE" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
+assert_eq "resolver has explicit no-source reason when every child is no-source" "workspace-graph-targets-no-source:1" "$(jq -r '.reason_code + ":" + (.counts.no_source | tostring)' <<<"$only_no_source_targets")"
+assert_contains "resolver no-source next action is explicit" "No code-bearing graph target is available" "$(jq -r '.next_action' <<<"$only_no_source_targets")"
+
 ALL_REPOS_SINGLE_REPO="$TMP_DIR/all-repos-single-repo"
 make_repo "$ALL_REPOS_SINGLE_REPO"
 set +e
@@ -402,8 +423,13 @@ assert "workspace explicit child leaves parent graph clean" test ! -e "$TMP_DIR/
 assert_contains "workspace explicit child runs provider from child root" "uvx --upgrade code-review-graph status --repo $WORKSPACE_REPO_A_ROOT" "$(cat "$COMMAND_LOG")"
 
 workspace_targets_after_bootstrap="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
-assert_eq "dirty graph facts without fingerprint are uncertain" "dirty-uncertain:true" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | .status + ":" + (.freshness.dirty_uncertain | tostring)' <<<"$workspace_targets_after_bootstrap")"
-assert_contains "dirty uncertainty limitation is explicit" "dirty worktree without a matching status fingerprint" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | .limitations | join(" ")' <<<"$workspace_targets_after_bootstrap")"
+assert_eq "dirty graph facts with matching fingerprint stay usable" "primary:false" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | .status + ":" + (.freshness.dirty_uncertain | tostring)' <<<"$workspace_targets_after_bootstrap")"
+assert_eq "graph facts record worktree status fingerprint" "true:true" "$(jq -r '(.worktree_status_hash | startswith("sha256:") | tostring) + ":" + (.staleness_hints.worktree_status_hash | startswith("sha256:") | tostring)' "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json")"
+jq 'del(.worktree_status_hash) | del(.staleness_hints.worktree_status_hash)' "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json" > "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json.tmp"
+mv "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json.tmp" "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json"
+workspace_targets_without_fingerprint="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
+assert_eq "dirty graph facts without fingerprint are uncertain" "dirty-uncertain:true" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | .status + ":" + (.freshness.dirty_uncertain | tostring)' <<<"$workspace_targets_without_fingerprint")"
+assert_contains "dirty uncertainty limitation is explicit" "dirty worktree without a matching status fingerprint" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | .limitations | join(" ")' <<<"$workspace_targets_without_fingerprint")"
 
 PRIMARY_REPO="$TMP_DIR/primary-repo"
 PRIMARY_LEDGER="$TMP_DIR/primary-home/.codex/spec-first/host-setup.json"

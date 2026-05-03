@@ -2,6 +2,7 @@
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
 - v1.6.3 2026-05-04 02:32:19 leokuang: fix(app-audit): 完成 2026-05-03 50 轮一致性审查，收紧 preflight freshness、issue status、industry lens、metadata lifecycle、headless verdict、脱敏契约，并修复用户手册契约漂移 (user-visible)
+- v1.6.3 2026-05-04 02:29:55 leokuang: fix(graph-bootstrap): 补齐 graph readiness eval fixtures、no-source resolver 语义、dirty worktree freshness fingerprint 契约，并忽略本地 worktrees scratch 目录 (user-visible)
 - v1.6.3 2026-05-04 01:27:37 leokuang: fix(graph-bootstrap): 区分无源码子仓与真实 degraded，并增强 GitNexus flow-like method probe 候选 (user-visible)
 - v1.6.3 2026-05-04 00:39:32 leokuang: release: 发布 spec-first 1.6.3 到 npmjs registry (user-visible)
 - v1.6.2 2026-05-03 23:47:00 leokuang: style(graph-bootstrap): 对齐 provider bootstrap shell 脚本缩进

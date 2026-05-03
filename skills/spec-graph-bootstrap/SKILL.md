@@ -102,7 +102,11 @@ For read-only target discovery from a parent workspace, run the advisory resolve
 bash skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh
 ```
 
-The resolver emits `schema_version=workspace-graph-targets.v1`, per-child `status` values such as `primary`, `degraded-fallback`, `dirty-uncertain`, `stale`, `setup-ready-bootstrap-required`, or `unavailable`, GitNexus repo/query probe pointers, setup-owned config pointers, and canonical graph artifact pointers. Downstream LLM workflows use this output to choose bounded candidate repos for read-only GitNexus-first evidence; scripts still do not decide semantic repo relevance.
+The resolver emits `schema_version=workspace-graph-targets.v1`, per-child `status` values such as `primary`, `degraded-fallback`, `no-source`, `dirty-uncertain`, `stale`, `setup-ready-bootstrap-required`, or `unavailable`, GitNexus repo/query probe pointers, setup-owned config pointers, and canonical graph artifact pointers. Downstream LLM workflows use this output to choose bounded candidate repos for read-only GitNexus-first evidence; scripts still do not decide semantic repo relevance.
+
+If every discovered child repo is `status=no-source`, the resolver reports `reason_code=workspace-graph-targets-no-source` instead of generic degraded. That preserves the distinction between “no code-bearing graph target exists” and “a code-bearing graph target failed readiness.”
+
+Graph facts include a `worktree_status_hash` freshness fingerprint. The resolver uses it to distinguish a dirty worktree whose status matches bootstrap time from a genuinely changed dirty worktree; missing or mismatched dirty fingerprints become `dirty-uncertain`.
 
 On Windows:
 
@@ -227,7 +231,7 @@ Do not collapse `Live MCP Probe=passed` into `CLI query_ready=true`. If live MCP
 Always report the compiled artifacts first, then any session-local live MCP evidence:
 
 1. For a single repo, summarize `workflow_mode`, `overall_status`, provider `graph_ready/query_ready`, key `reason_code`, and the canonical artifact paths.
-2. For parent workspace all-repos runs, summarize `run_id`, total child count, ready/degraded/action-required counts, and per-child status. Keep parent `.spec-first/workspace/graph-bootstrap-summary.json` explicitly advisory.
+2. For parent workspace all-repos runs, summarize `run_id`, total child count, ready/degraded/not-applicable/action-required counts, and per-child status. Keep parent `.spec-first/workspace/graph-bootstrap-summary.json` explicitly advisory.
 3. If any GitNexus provider is `query-unverified` or the live MCP probe was attempted, include the separate compiled-vs-session table from the Live MCP Probe section. Do not omit this table just because code-review-graph is ready.
 4. If the final answer mentions rerunning with elevated permissions, network repair, cache repair, restart/new session, or degraded fallback use, tie that advice to structured `reason_code`, `failure_class`, raw log paths, or live MCP evidence.
 5. Never rewrite or imply updated compiled readiness based on a live MCP response. A live MCP response is only current-session evidence for the LLM handoff.
@@ -260,6 +264,15 @@ Canonical downstream artifacts live under `.spec-first/graph/` and `.spec-first/
 .spec-first/graph/bootstrap-report.md
 .spec-first/impact/bootstrap-impact-capabilities.json
 ```
+
+Parent workspace advisory summaries live under `.spec-first/workspace/`:
+
+```text
+.spec-first/workspace/graph-bootstrap-summary.json
+.spec-first/workspace/graph-targets.json
+```
+
+These workspace summaries are advisory control-plane evidence only. They do not replace child repo canonical graph facts.
 
 `graph-providers.json.derived_readiness` and `runtime-capabilities.json.project_graph_readiness` are setup-owned projections pointing back to canonical artifacts. They are refreshed by `spec-mcp-setup` from `.spec-first/graph/` and `.spec-first/impact/`; graph-bootstrap must not mutate setup-owned config inputs to mark readiness.
 

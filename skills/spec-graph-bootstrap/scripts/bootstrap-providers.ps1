@@ -26,6 +26,18 @@ function Write-ResultAndExit {
   exit $ExitCode
 }
 
+function Get-StatusHash {
+  param([string]$Text)
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
+    $hash = $sha.ComputeHash($bytes)
+    return 'sha256:' + ([BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant())
+  } finally {
+    $sha.Dispose()
+  }
+}
+
 function Invoke-ChildJsonScript {
   param(
     [string]$ScriptPath,
@@ -878,7 +890,9 @@ if ($LASTEXITCODE -ne 0 -or $sourceRevisionOutput.Count -eq 0 -or [string]::IsNu
   Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'repo-snapshot-unavailable' -NextAction 'Resolve git repository state before graph bootstrap.'
 }
 $sourceRevision = [string]$sourceRevisionOutput[0]
-$worktreeDirty = -not [string]::IsNullOrWhiteSpace((git -C $repoRoot status --porcelain 2>$null))
+$worktreeStatus = (git -C $repoRoot status --porcelain 2>$null) -join "`n"
+$worktreeDirty = -not [string]::IsNullOrWhiteSpace($worktreeStatus)
+$worktreeStatusHash = Get-StatusHash -Text $worktreeStatus
 $providerStatuses = New-Object System.Collections.Generic.List[object]
 
 foreach ($property in $providerConfig.providers.PSObject.Properties) {
@@ -1113,11 +1127,12 @@ $graphFacts = [ordered]@{
   repo_root = $repoRoot
   source_revision = $sourceRevision
   worktree_dirty = $worktreeDirty
+  worktree_status_hash = $worktreeStatusHash
   workflow_mode = $workflowMode
-	  provider_summary = [ordered]@{
-	    ready_primary_providers = @($providerAggregate.ready_primary_providers)
-	    degraded_providers = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'skipped' -and $_.status -ne 'query-not-applicable' } | ForEach-Object { $_.provider })
-	    not_applicable_providers = @($providerStatuses | Where-Object { $_.status -eq 'query-not-applicable' } | ForEach-Object { $_.provider })
+  provider_summary = [ordered]@{
+    ready_primary_providers = @($providerAggregate.ready_primary_providers)
+    degraded_providers = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'skipped' -and $_.status -ne 'query-not-applicable' } | ForEach-Object { $_.provider })
+    not_applicable_providers = @($providerStatuses | Where-Object { $_.status -eq 'query-not-applicable' } | ForEach-Object { $_.provider })
     skipped_primary_providers = @($providerStatuses | Where-Object { $_.status -eq 'skipped' } | ForEach-Object { $_.provider })
     partial_primary_available = ($readyCount -gt 0)
   }
@@ -1132,6 +1147,7 @@ $graphFacts = [ordered]@{
   staleness_hints = [ordered]@{
     compare_source_revision = $true
     compare_worktree_dirty = $true
+    worktree_status_hash = $worktreeStatusHash
   }
   confidence = $providerAggregate.confidence
   limitations = @($providerAggregate.limitations)

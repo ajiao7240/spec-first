@@ -324,6 +324,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('impact_context');
     expect(source).toContain('staleness_hints');
     expect(source).toContain('compare_source_revision = $true');
+    expect(source).toContain('function Get-StatusHash');
+    expect(source).toContain('worktree_status_hash = $worktreeStatusHash');
     expect(source).toContain('Probe Token');
     expect(source).toContain('function Get-ProviderFailureInfo');
     expect(source).toContain('gitnexus-analyze-sigsegv');
@@ -357,6 +359,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('parent_writes_repo_local_artifacts');
     expect(source).toContain('.spec-first/workspace');
     expect(source).toContain('graph-targets.json');
+    expect(source).toContain('workspace-graph-targets-no-source');
+    expect(source).toContain('No code-bearing graph target is available');
     expect(source).toContain('GitNexus-first');
     expect(source).toContain("$legacyToken = Get-PropertyValue -Object $queryProbePolicy -Name 'token' -Default ''");
     expect(source).toContain("Get-PropertyValue -Object $queryProbePolicy -Name 'source' -Default 'legacy-token'");

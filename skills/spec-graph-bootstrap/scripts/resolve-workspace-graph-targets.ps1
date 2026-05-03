@@ -134,11 +134,11 @@ function Inspect-Repo {
     $graphStatus = 'unavailable'
   } elseif ($null -ne $graphFacts) {
     if ($stale) { $graphStatus = 'stale' }
-	    elseif ($dirtyUncertain) { $graphStatus = 'dirty-uncertain' }
-	    elseif ($graphWorkflowMode -eq 'primary') { $graphStatus = 'primary' }
-	    elseif ($graphWorkflowMode -eq 'degraded-fallback') { $graphStatus = 'degraded-fallback' }
-	    elseif ($graphWorkflowMode -eq 'no-source') { $graphStatus = 'no-source' }
-	    else { $graphStatus = [string]($graphWorkflowMode ?? 'unavailable') }
+    elseif ($dirtyUncertain) { $graphStatus = 'dirty-uncertain' }
+    elseif ($graphWorkflowMode -eq 'primary') { $graphStatus = 'primary' }
+    elseif ($graphWorkflowMode -eq 'degraded-fallback') { $graphStatus = 'degraded-fallback' }
+    elseif ($graphWorkflowMode -eq 'no-source') { $graphStatus = 'no-source' }
+    else { $graphStatus = [string]($graphWorkflowMode ?? 'unavailable') }
   } elseif ($setupReady) {
     $graphStatus = [string]($setupWorkflowMode ?? 'setup-ready-bootstrap-required')
   } else {
@@ -239,11 +239,11 @@ function Inspect-Repo {
     }
     candidate_tokens = @($candidateTokens)
     limitations = @($limitations)
-	    next_action = switch ($graphStatus) {
-	      'primary' { 'Use GitNexus-first for bounded read-only evidence.'; break }
-	      'degraded-fallback' { 'Use available provider facts with disclosed fallback limitations.'; break }
-	      'no-source' { 'Skip GitNexus process routing for this no-source child repo.'; break }
-	      'dirty-uncertain' { 'Refresh graph bootstrap or use one bounded live MCP probe/direct read fallback.'; break }
+    next_action = switch ($graphStatus) {
+      'primary' { 'Use GitNexus-first for bounded read-only evidence.'; break }
+      'degraded-fallback' { 'Use available provider facts with disclosed fallback limitations.'; break }
+      'no-source' { 'Skip GitNexus process routing for this no-source child repo.'; break }
+      'dirty-uncertain' { 'Refresh graph bootstrap or use one bounded live MCP probe/direct read fallback.'; break }
       'stale' { 'Rerun spec-graph-bootstrap for this child repo or use bounded fallback evidence.'; break }
       'setup-ready-bootstrap-required' { 'Run spec-graph-bootstrap for this child repo.'; break }
       default { 'Run spec-mcp-setup for this child repo.' }
@@ -261,6 +261,7 @@ if ($null -ne $targetFacts.selected_repo_root) {
 
 $repos = @($targets | ForEach-Object { Inspect-Repo -TargetItem $_ })
 $primaryCount = @($repos | Where-Object { $_.status -eq 'primary' }).Count
+$noSourceCount = @($repos | Where-Object { $_.status -eq 'no-source' }).Count
 
 $result = [ordered]@{
   schema_version = 'workspace-graph-targets.v1'
@@ -276,16 +277,16 @@ $result = [ordered]@{
   repos = @($repos)
   counts = [ordered]@{
     total = $repos.Count
-	    primary = $primaryCount
-	    degraded = @($repos | Where-Object { $_.status -eq 'degraded-fallback' }).Count
-	    no_source = @($repos | Where-Object { $_.status -eq 'no-source' }).Count
-	    stale = @($repos | Where-Object { $_.status -eq 'stale' }).Count
+    primary = $primaryCount
+    degraded = @($repos | Where-Object { $_.status -eq 'degraded-fallback' }).Count
+    no_source = $noSourceCount
+    stale = @($repos | Where-Object { $_.status -eq 'stale' }).Count
     dirty_uncertain = @($repos | Where-Object { $_.status -eq 'dirty-uncertain' }).Count
     setup_ready_bootstrap_required = @($repos | Where-Object { $_.status -eq 'setup-ready-bootstrap-required' }).Count
     unavailable = @($repos | Where-Object { $_.status -eq 'unavailable' }).Count
   }
-  reason_code = if ($repos.Count -eq 0) { [string]($targetFacts.reason_code ?? 'workspace-no-git-candidates') } elseif ($primaryCount -gt 0) { 'workspace-graph-targets-ready' } else { 'workspace-graph-targets-degraded' }
-  next_action = if ($repos.Count -eq 0) { [string]($targetFacts.next_action ?? 'Run from a Git repo or parent workspace with child Git repos.') } elseif ($primaryCount -gt 0) { 'Use bounded GitNexus-first routing for read-only questions; require target_repo before writes.' } else { 'Use per-child next_action values to bootstrap or refresh graph readiness.' }
+  reason_code = if ($repos.Count -eq 0) { [string]($targetFacts.reason_code ?? 'workspace-no-git-candidates') } elseif ($primaryCount -gt 0) { 'workspace-graph-targets-ready' } elseif ($noSourceCount -eq $repos.Count) { 'workspace-graph-targets-no-source' } else { 'workspace-graph-targets-degraded' }
+  next_action = if ($repos.Count -eq 0) { [string]($targetFacts.next_action ?? 'Run from a Git repo or parent workspace with child Git repos.') } elseif ($primaryCount -gt 0) { 'Use bounded GitNexus-first routing for read-only questions; require target_repo before writes.' } elseif ($noSourceCount -eq $repos.Count) { 'No code-bearing graph target is available; skip GitNexus process routing for no-source child repos.' } else { 'Use per-child next_action values to bootstrap or refresh graph readiness.' }
 }
 
 if ($WriteSummary) {

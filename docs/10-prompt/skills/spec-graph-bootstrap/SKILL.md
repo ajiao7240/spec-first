@@ -32,7 +32,7 @@
 
 - 父级 workspace 是 advisory control-plane，不拥有 repo-local graph truth。
 - `resolve-workspace-graph-targets.*` 可以从父级 workspace 只读汇总 child repo graph readiness，输出 `schema_version=workspace-graph-targets.v1`，用于下游 LLM 选择 bounded candidate repos 并优先 GitNexus-first evidence。
-- resolver 只报告确定性 facts，例如 child `status=primary`、`degraded-fallback`、`dirty-uncertain`、`stale`、`setup-ready-bootstrap-required` 或 `unavailable`，不做语义 repo 排名，不运行 provider。
+- resolver 只报告确定性 facts，例如 child `status=primary`、`degraded-fallback`、`no-source`、`dirty-uncertain`、`stale`、`setup-ready-bootstrap-required` 或 `unavailable`，不做语义 repo 排名，不运行 provider。
 - 父级 workspace 无 `--repo` 时默认进入 all-child-repos maintenance action；`--all-repos` / `-AllRepos` 仍作为显式等价入口保留。该路径逐个 child repo 复用既有 bootstrap flow，canonical artifacts 仍写入各 child repo 的 `.spec-first/graph/*`、`.spec-first/impact/*`、`.spec-first/providers/*`。
 - 父级 workspace 只能写 advisory `.spec-first/workspace/graph-targets.json` 或 `.spec-first/workspace/graph-bootstrap-summary.json`；不能写父级 `.spec-first/graph/*`、`.spec-first/impact/*`、`.spec-first/providers/*` 或 `.serena/*`。
 - 父级 workspace 只有在没有发现 child Git repo、显式 `--repo` 无效，或显式 `--all-repos` 与 `--repo` 冲突时才 fail closed。
@@ -49,13 +49,15 @@ Readiness 规则：
 - GitNexus `query-unverified` 只表示 bootstrap CLI query probe 未验证通过，不等于 live GitNexus MCP 一定不可用。
 - expected-hit 候选都只返回 definitions-only 时仍然是 `query-unverified`；definitions-only 只能说明符号定位可用，不能证明 BM25/process query surface 健康。
 - 如果 `query_probe_policy.expected_hit=false`，说明 setup 没有找到 source-derived GitNexus query probe candidate；bootstrap 在 build/status 成功后写 `status=query-not-applicable`、`query_ready=false`，单仓结果使用 `workflow_mode=no-source` / `overall_status=not-applicable`，父级 all-repos summary 用 `counts.not_applicable` 单独计数，不把 README-only child repo 混入 degraded。
+- `resolve-workspace-graph-targets.*` 在所有候选都是 `status=no-source` 时使用 `reason_code=workspace-graph-targets-no-source`，不要把 README-only workspace 归入 generic degraded。
+- `graph-facts.json` 必须写出 `worktree_status_hash` freshness fingerprint；resolver 用它区分“bootstrap 时已知的 dirty 状态”和“bootstrap 后发生变化的 dirty 状态”。dirty 且 fingerprint 缺失或不匹配时才输出 `dirty-uncertain`。
 - 脚本不能调用 host MCP tools；如果当前会话已加载 GitNexus MCP 且结果会澄清最终交付，LLM 应在脚本完成后做一次 bounded live MCP probe，例如用 `gitnexus_query` / `gitnexus_context` / `gitnexus_impact` 验证当前会话是否能读图；probe token 优先使用 `query_probe_attempts[]` 中第一个 `process-results` attempt，没有成功 attempt 时再回退到 policy candidate。
 - live MCP probe 只尝试一个具体调用；不要循环重试、广泛探测，或把 live MCP probe 变成 compiled readiness 的 gate。
 - live MCP 成功只作为 session-local evidence，不回写 `.spec-first/graph/*`，不把 compiled `query_ready` 改成 true。
 - 如果 live GitNexus 返回 `definitions` 但没有 `processes` / `process_symbols`，标记为 `partial-definitions-only`，不要写成 `failed`；这类证据只能作为定位文件或符号的局部指针，不证明 BM25/process query surface 健康。
 - 如果执行或需要说明 live MCP probe，最终用户可见结果表格必须拆分 compiled CLI readiness 与 session-local MCP evidence，例如包含 `CLI graph_ready`、`CLI query_ready`、`Probe Token`、`CLI Evidence`、`Live MCP Probe`、`Final Use` 列。
 - `Live MCP Probe=passed` 不能折叠成 `CLI query_ready=true`；只能说明当前会话可用 GitNexus MCP，downstream compiled facts 仍保持 degraded 或 query-unverified。
-- 最终回复必须先报告 compiled artifacts，再报告 session-local MCP evidence。单仓输出 `workflow_mode`、`overall_status`、provider `graph_ready/query_ready`、关键 `reason_code` 和 canonical artifact paths；多仓输出 `run_id`、child 总数、ready/degraded/action-required 计数和逐仓状态，并明确父级 workspace summary 只是 advisory control-plane evidence。
+- 最终回复必须先报告 compiled artifacts，再报告 session-local MCP evidence。单仓输出 `workflow_mode`、`overall_status`、provider `graph_ready/query_ready`、关键 `reason_code` 和 canonical artifact paths；多仓输出 `run_id`、child 总数、ready/degraded/not-applicable/action-required 计数和逐仓状态，并明确父级 workspace summary 只是 advisory control-plane evidence。
 - 如果 GitNexus 是 `query-unverified` 或执行了 live MCP probe，最终回复不能只给总体 partial/ready 表，必须额外给 compiled-vs-session-local 表；任何网络、cache 权限、重启新会话或 degraded fallback 建议都要绑定 `reason_code`、`failure_class`、raw log 或 live MCP evidence。
 - runtime baseline summary 与 host ledger v2 冲突时 fail closed，`reason_code=readiness-conflict`。
 - 没有 query-ready provider 时，capability envelope 必须根据 `runtime-capabilities.fallback_capabilities` 写 `partial` 或 `none`；不能凭空声明 fallback 可用。

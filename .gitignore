@@ -24,6 +24,7 @@ yarn-error.log*
 # Local tooling and scratch data
 .history/
 .serena/
+.worktrees/
 .claude/tasks/
 .playwright-mcp/
 

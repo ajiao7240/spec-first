@@ -1,0 +1,33 @@
+{
+  "schema_version": "spec-first.spec-graph-bootstrap-failure-cases.v1",
+  "cases": [
+    {
+      "id": "missing-provider-config",
+      "input": "Run bootstrap before spec-mcp-setup writes graph-providers.json.",
+      "context": "Required setup-owned graph provider config is absent.",
+      "expected_failure": "missing_provider_config",
+      "expected_next_action": "Run spec-mcp-setup for the selected repo or child repos before graph bootstrap."
+    },
+    {
+      "id": "unsupported-provider-command",
+      "input": "graph-providers.json contains [\"bash\", \"-c\", \"...\"] as a provider command.",
+      "context": "Provider commands must be validated argv arrays with supported executable and subcommand shapes.",
+      "expected_failure": "unsupported-provider-command",
+      "expected_next_action": "Fail closed before running provider commands."
+    },
+    {
+      "id": "readiness-ledger-conflict",
+      "input": "runtime-capabilities.json baseline disagrees with the pointed host readiness ledger.",
+      "context": "The bootstrap must follow host_ledger_pointer.path and cannot guess host state.",
+      "expected_failure": "readiness-conflict",
+      "expected_next_action": "Rerun spec-mcp-setup to refresh setup-owned facts and the host ledger pointer."
+    },
+    {
+      "id": "no-source-query-not-applicable",
+      "input": "GitNexus build/status succeed, but query_probe_policy.expected_hit=false.",
+      "context": "Setup found no source-derived GitNexus process query probe candidate.",
+      "expected_failure": "gitnexus-query-not-applicable",
+      "expected_next_action": "Report workflow_mode=no-source / overall_status=not-applicable instead of degraded."
+    }
+  ]
+}

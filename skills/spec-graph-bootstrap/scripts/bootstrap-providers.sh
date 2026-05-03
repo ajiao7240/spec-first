@@ -240,6 +240,13 @@ if [ -n "$WORKTREE_STATUS" ]; then
 else
   WORKTREE_DIRTY=false
 fi
+if command -v shasum >/dev/null 2>&1; then
+  WORKTREE_STATUS_HASH="$(printf '%s' "$WORKTREE_STATUS" | shasum -a 256 | awk '{print "sha256:" $1}')"
+elif command -v sha256sum >/dev/null 2>&1; then
+  WORKTREE_STATUS_HASH="$(printf '%s' "$WORKTREE_STATUS" | sha256sum | awk '{print "sha256:" $1}')"
+else
+  WORKTREE_STATUS_HASH="$(printf '%s' "$WORKTREE_STATUS" | python3 -c 'import hashlib,sys; print("sha256:" + hashlib.sha256(sys.stdin.buffer.read()).hexdigest())')"
+fi
 
 relpath() {
   local path="$1"
@@ -1163,6 +1170,7 @@ jq -n \
   --arg generated_at "$BOOTSTRAPPED_AT" \
   --arg repo_root "$REPO_ROOT" \
   --arg source_revision "$SOURCE_REVISION" \
+  --arg worktree_status_hash "$WORKTREE_STATUS_HASH" \
   --argjson worktree_dirty "$WORKTREE_DIRTY" \
   --arg workflow_mode "$WORKFLOW_MODE" \
   --arg confidence "$(if [ "$WORKFLOW_MODE" = "primary" ]; then echo high; elif [ "$WORKFLOW_MODE" = "degraded-fallback" ] || [ "$WORKFLOW_MODE" = "no-source" ]; then echo medium; else echo low; fi)" \
@@ -1173,14 +1181,15 @@ jq -n \
     repo_root:$repo_root,
     source_revision:$source_revision,
     worktree_dirty:$worktree_dirty,
-	    workflow_mode:$workflow_mode,
-	    provider_summary:{
-	      ready_primary_providers:[$providers[] | select(.query_ready == true) | .provider],
-	      degraded_providers:[$providers[] | select(.query_ready != true and .status != "skipped" and .status != "query-not-applicable") | .provider],
-	      not_applicable_providers:[$providers[] | select(.status == "query-not-applicable") | .provider],
-	      skipped_primary_providers:[$providers[] | select(.status == "skipped") | .provider],
-	      partial_primary_available:([$providers[] | select(.query_ready == true)] | length > 0)
-	    },
+    worktree_status_hash:$worktree_status_hash,
+    workflow_mode:$workflow_mode,
+    provider_summary:{
+      ready_primary_providers:[$providers[] | select(.query_ready == true) | .provider],
+      degraded_providers:[$providers[] | select(.query_ready != true and .status != "skipped" and .status != "query-not-applicable") | .provider],
+      not_applicable_providers:[$providers[] | select(.status == "query-not-applicable") | .provider],
+      skipped_primary_providers:[$providers[] | select(.status == "skipped") | .provider],
+      partial_primary_available:([$providers[] | select(.query_ready == true)] | length > 0)
+    },
     canonical_artifacts:{
       provider_status:".spec-first/graph/provider-status.json",
       impact_capabilities:".spec-first/impact/bootstrap-impact-capabilities.json"
@@ -1191,7 +1200,8 @@ jq -n \
     },
     staleness_hints:{
       compare_source_revision:true,
-      compare_worktree_dirty:true
+      compare_worktree_dirty:true,
+      worktree_status_hash:$worktree_status_hash
     },
     confidence:$confidence,
     limitations:(
