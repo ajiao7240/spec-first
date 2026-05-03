@@ -61,6 +61,7 @@ const CODE_REVIEW_SEVERITY = {
 };
 const TRACEABLE_EVIDENCE_FIELDS = ['file', 'path', 'artifact_id', 'node_id', 'route', 'event', 'key'];
 const CONFIRMED_INDUSTRY_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
+const CONFIRMED_CONFIDENCE_THRESHOLD = 0.75;
 
 function mergeContracts(options = {}) {
   const artifactPaths = options.artifacts || [];
@@ -129,6 +130,26 @@ function applyEvidenceGate(issues, options = {}) {
         projectEvidence,
         rulePackEvidence,
       });
+    }
+    if (issue.contract_status === 'confirmed' && issue.confidence < CONFIRMED_CONFIDENCE_THRESHOLD) {
+      return {
+        ...issue,
+        contract_status: 'candidate',
+        static_confirmed: false,
+        evidence_gate: {
+          passed: false,
+          reason: 'confirmed_issue_confidence_below_threshold',
+          project_evidence_count: projectEvidence.length,
+          rule_pack_evidence_count: rulePackEvidence.length,
+          confidence_threshold: CONFIRMED_CONFIDENCE_THRESHOLD,
+        },
+        review_lifecycle: appendLifecycle(issue, {
+          stage: 'deterministic_evidence_gate',
+          action: 'downgraded',
+          reason_code: 'confirmed_issue_confidence_below_threshold',
+          confidence_threshold: CONFIRMED_CONFIDENCE_THRESHOLD,
+        }),
+      };
     }
     const missingEvidenceSources = missingRequiredEvidenceSources(issue);
     if (issue.contract_status === 'confirmed' && missingEvidenceSources.length > 0) {
@@ -662,7 +683,7 @@ if (require.main === module) {
     const result = options.issuesArtifact
       ? buildIssuesArtifact(options)
       : (options.issue || options.issues ? buildAuditReport(options) : mergeContracts(options));
-    writeJsonOutput(result, options.output);
+    writeJsonOutput(result, options.output, options);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

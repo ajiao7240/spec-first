@@ -344,7 +344,7 @@ describe('spec-app-consistency-audit CLI e2e', () => {
     }
   });
 
-  test('run metadata rejects headless missing base before writing output', () => {
+  test('run metadata returns headless failed envelope before writing output', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-metadata-headless-base-'));
     const output = path.join(repoRoot, '.spec-first/app-audit/runs/test/metadata.json');
     try {
@@ -365,7 +365,37 @@ describe('spec-app-consistency-audit CLI e2e', () => {
       ]);
 
       expect(result.status).not.toBe(0);
-      expect(result.stderr).toContain('scope_headless_missing_base');
+      expect(result.stdout).toContain('Reason code: scope_headless_missing_base');
+      expect(result.stdout).toContain('App consistency audit complete');
+      expect(fs.existsSync(output)).toBe(false);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('preflight returns headless failed envelope before writing output when base is missing', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-preflight-headless-base-'));
+    const output = path.join(repoRoot, '.spec-first/app-audit/runs/test/preflight.json');
+    try {
+      write(repoRoot, 'App.kt', 'class App');
+      runGit(['init'], repoRoot);
+      runGit(['config', 'user.email', 'spec-first@example.test'], repoRoot);
+      runGit(['config', 'user.name', 'Spec First Test'], repoRoot);
+      runGit(['add', '.'], repoRoot);
+      runGit(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'test: initial'], repoRoot);
+
+      const result = runNodeRaw([
+        script('preflight.js'),
+        'mode:headless',
+        '--source',
+        repoRoot,
+        '--output',
+        output,
+      ]);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stdout).toContain('Reason code: scope_headless_missing_base');
+      expect(result.stdout).toContain('App consistency audit complete');
       expect(fs.existsSync(output)).toBe(false);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
@@ -421,6 +451,154 @@ describe('spec-app-consistency-audit CLI e2e', () => {
       expect(manifest.stderr).toContain('mode:report-only forbids --output');
       expect(fs.existsSync(metadataOutput)).toBe(false);
       expect(fs.existsSync(manifestOutput)).toBe(false);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('keeps repo root and source root separate for monorepo app scope', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-monorepo-'));
+    const runId = 'monorepo-scope';
+    const outputDir = path.join(repoRoot, '.spec-first/app-audit/runs', runId);
+    try {
+      write(repoRoot, 'apps/mobile/src/HomeScreen.kt', 'class HomeScreen');
+      write(repoRoot, 'services/api/order.ts', 'export const order = 1;');
+      write(repoRoot, 'docs/prd.md', '# Mobile PRD\n');
+      runGit(['init'], repoRoot);
+      runGit(['config', 'user.email', 'spec-first@example.test'], repoRoot);
+      runGit(['config', 'user.name', 'Spec First Test'], repoRoot);
+      runGit(['add', '.'], repoRoot);
+      runGit(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'test: initial monorepo fixture'], repoRoot);
+      const base = runGit(['rev-parse', 'HEAD'], repoRoot).stdout.trim();
+      fs.appendFileSync(path.join(repoRoot, 'apps/mobile/src/HomeScreen.kt'), '\nfun navigate() { navController.navigate("home") }\n');
+      fs.appendFileSync(path.join(repoRoot, 'services/api/order.ts'), '\nexport const changed = true;\n');
+
+      const metadataPath = path.join(outputDir, 'metadata.json');
+      const impactPath = path.join(outputDir, 'impact-facts.json');
+      runNode([
+        script('build-run-metadata.js'),
+        'mode:headless',
+        `base:${base}`,
+        `run-id:${runId}`,
+        '--repo-root',
+        repoRoot,
+        'source:apps/mobile',
+        'prd:docs/prd.md',
+        '--output',
+        metadataPath,
+      ]);
+      runNode([
+        script('build-impact-facts.js'),
+        'mode:headless',
+        `base:${base}`,
+        '--repo-root',
+        repoRoot,
+        'source:apps/mobile',
+        '--output',
+        impactPath,
+      ]);
+
+      const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+      const impact = JSON.parse(fs.readFileSync(impactPath, 'utf8'));
+
+      expect(metadata.source_root).toBe('apps/mobile');
+      expect(metadata.source_inputs[0].path).toBe('apps/mobile');
+      expect(metadata.run_dir).toBe('.spec-first/app-audit/runs/monorepo-scope');
+      expect(metadata.status).toBe('started');
+      expect(metadata.completed_at).toBeUndefined();
+      expect(fs.existsSync(path.join(repoRoot, 'apps/mobile/.spec-first'))).toBe(false);
+      expect(impact.changed_files).toEqual(expect.arrayContaining([
+        'apps/mobile/src/HomeScreen.kt',
+        'services/api/order.ts',
+      ]));
+      expect(impact.diff_scope.source_scoped_changed_files).toEqual(['apps/mobile/src/HomeScreen.kt']);
+      expect(impact.diff_scope.out_of_source_changed_files).toEqual(['services/api/order.ts']);
+      expect(impact.candidate_signals.every((signal) => {
+        const file = signal.affected_surface ? signal.affected_surface.file : ((signal.evidence || [])[0] || {}).file;
+        return !file || file.startsWith('apps/mobile/');
+      })).toBe(true);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('default run metadata ids are unique and do not target a fixed run directory', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-run-id-'));
+    try {
+      write(repoRoot, 'App.kt', 'class App');
+      runGit(['init'], repoRoot);
+      runGit(['config', 'user.email', 'spec-first@example.test'], repoRoot);
+      runGit(['config', 'user.name', 'Spec First Test'], repoRoot);
+      runGit(['add', '.'], repoRoot);
+      runGit(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'test: initial'], repoRoot);
+
+      const first = JSON.parse(runNode([
+        script('build-run-metadata.js'),
+        '--repo-root',
+        repoRoot,
+      ]).stdout);
+      const second = JSON.parse(runNode([
+        script('build-run-metadata.js'),
+        '--repo-root',
+        repoRoot,
+      ]).stdout);
+
+      expect(first.run_id).not.toBe('app-audit-run');
+      expect(second.run_id).not.toBe('app-audit-run');
+      expect(first.run_id).not.toBe(second.run_id);
+      expect(first.run_dir).not.toBe(second.run_dir);
+      expect(first.run_dir).toMatch(/^\.spec-first\/app-audit\/runs\//);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('build-audit-context resolves relative run dir against repo root regardless of cwd', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-context-cwd-'));
+    try {
+      write(repoRoot, '.spec-first/app-audit/runs/r1/preflight.json', JSON.stringify({
+        schema_version: 'example-artifact.v1',
+        artifact_id: 'example',
+        generated_at: '2026-05-02T00:00:00.000Z',
+        source_inputs: [{ type: 'code', path: '.', source_hash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', freshness: 'current-worktree' }],
+        consumers: ['expert-agents'],
+        contract_status: 'candidate',
+        data_sensitivity: 'internal',
+      }));
+
+      const result = runNodeRaw([
+        script('build-audit-context.js'),
+        '--repo-root',
+        repoRoot,
+        'run-dir:.spec-first/app-audit/runs/r1',
+      ], os.tmpdir());
+
+      expect(result.status).toBe(0);
+      const context = JSON.parse(result.stdout);
+      expect(context.artifacts_dir).toBe('.spec-first/app-audit/runs/r1');
+      expect(context.artifact_count).toBe(1);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('preflight enforces report-only no-write contract', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-preflight-report-only-'));
+    const output = path.join(repoRoot, '.spec-first/app-audit/runs/test/preflight.json');
+    try {
+      write(repoRoot, 'App.kt', 'class App');
+      const result = runNodeRaw([
+        script('preflight.js'),
+        'mode:report-only',
+        '--source',
+        repoRoot,
+        '--output',
+        output,
+      ]);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('mode:report-only forbids --output');
+      expect(fs.existsSync(output)).toBe(false);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }

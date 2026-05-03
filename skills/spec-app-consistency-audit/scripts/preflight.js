@@ -6,8 +6,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
+  DEFAULT_MAX_SOURCE_HASH_BYTES,
+  DEFAULT_MAX_SKIPPED_LARGE_FILES,
   buildFigmaReference,
   parseCommonArgs,
+  resolvePathAgainstRoot,
+  resolveRepoRoot,
+  writeJsonOutput,
 } = require('./lib/audit-utils');
 
 const DEFAULT_PRD_MAX_BYTES = 5 * 1024 * 1024;
@@ -27,12 +32,15 @@ const SKIPPED_DIRS = new Set([
 ]);
 
 function runPreflight(options = {}) {
-  const repoRoot = resolveExistingDirectory(options.repoRoot || options.source || process.cwd(), 'source');
+  if (options.mode === 'headless' && !options.base) {
+    throw new Error('scope_headless_missing_base: mode:headless requires base:<ref> for deterministic preflight scope.');
+  }
+  const repoRoot = resolveExistingDirectory(resolveRepoRoot(options), 'repo-root');
   const allowOutside = normalizeAllowOutside(repoRoot, options.allowOutside || options.allowOutsidePaths || []);
   const degradedModes = [...(Array.isArray(options.degraded_modes) ? options.degraded_modes : [])];
   const sourceResolution = resolveInputPath({
     repoRoot,
-    inputPath: options.source || repoRoot,
+    inputPath: options.source || '.',
     kind: 'source',
     expected: 'directory',
     allowOutside,
@@ -97,15 +105,19 @@ function runPreflight(options = {}) {
   }
 
   const scanRoot = sourceResolution.ok ? sourceResolution.realpath : repoRoot;
-  const scan = scanSourceTree(scanRoot, { maxFiles: options.maxScanFiles || DEFAULT_MAX_SCAN_FILES });
+  const scan = scanSourceTree(scanRoot, {
+    maxFiles: options.maxScanFiles || DEFAULT_MAX_SCAN_FILES,
+    maxHashBytes: options.maxFileBytes || options.maxSourceHashBytes || DEFAULT_MAX_SOURCE_HASH_BYTES,
+  });
   for (const mode of buildStructureDegradedModes(scan)) degradedModes.push(mode);
 
   const sourceInputs = [];
   sourceInputs.push({
     type: 'code',
     path: publicPath(repoRoot, scanRoot, 'source-outside-repo'),
-    source_hash: scan.source_hash,
-    freshness: 'current-worktree',
+    ...(scan.source_hash_unavailable_reason
+      ? { source_hash_unavailable_reason: scan.source_hash_unavailable_reason, freshness: 'partial-worktree' }
+      : { source_hash: scan.source_hash, freshness: 'current-worktree' }),
   });
 
   if (prdResolution.ok) {
@@ -179,7 +191,7 @@ function runPreflight(options = {}) {
     inputs: {
       source: publicResolution(sourceResolution, repoRoot),
       prd: publicResolution(prdResolution, repoRoot),
-	      figma: {
+      figma: {
         provided: hasFigmaContext,
         reference_provided: hasFigmaReference,
         reference_kind: figmaReference ? figmaReference.reference_kind : null,
@@ -196,6 +208,8 @@ function runPreflight(options = {}) {
       scanned_files: scan.scanned_files,
       scan_truncated: scan.scan_truncated,
       skipped_directories: scan.skipped_directories,
+      skipped_large_files: scan.skipped_large_files,
+      skipped_large_file_count: scan.skipped_large_file_count,
     },
   };
 }
@@ -222,7 +236,7 @@ function normalizeAllowOutside(repoRoot, values) {
 
 function resolveInputPath(options) {
   const repoRoot = options.repoRoot;
-  const requested = path.resolve(repoRoot, String(options.inputPath || '.'));
+  const requested = resolvePathAgainstRoot(repoRoot, options.inputPath || '.');
   const result = {
     ok: false,
     kind: options.kind,
@@ -283,6 +297,9 @@ function resolveInputPath(options) {
 function scanSourceTree(root, options = {}) {
   const files = [];
   const skipped = new Set();
+  const skippedLargeFiles = [];
+  const maxSkippedLargeFiles = options.maxSkippedLargeFiles || DEFAULT_MAX_SKIPPED_LARGE_FILES;
+  let skippedLargeFileCount = 0;
   const stack = [root];
   let truncated = false;
 
@@ -306,6 +323,22 @@ function scanSourceTree(root, options = {}) {
         continue;
       }
       if (!entry.isFile()) continue;
+      let stat = null;
+      try {
+        stat = fs.statSync(fullPath);
+      } catch (_error) {
+        continue;
+      }
+      if (isTextLike(fullPath) && stat.size > (options.maxHashBytes || DEFAULT_MAX_SOURCE_HASH_BYTES)) {
+        skippedLargeFileCount += 1;
+        if (skippedLargeFiles.length < maxSkippedLargeFiles) {
+          skippedLargeFiles.push({
+            path: toPosix(path.relative(root, fullPath)),
+            size_bytes: stat.size,
+            reason: 'file_too_large_for_source_hash',
+          });
+        }
+      }
       files.push(fullPath);
       if (files.length >= options.maxFiles) {
         truncated = true;
@@ -323,7 +356,10 @@ function scanSourceTree(root, options = {}) {
     scanned_files: relFiles.length,
     scan_truncated: truncated,
     skipped_directories: [...skipped].sort(),
-    source_hash: hashFileList(root, files),
+    skipped_large_files: skippedLargeFiles.sort((left, right) => left.path.localeCompare(right.path)),
+    skipped_large_file_count: skippedLargeFileCount,
+    source_hash: skippedLargeFileCount > 0 ? null : hashFileList(root, files),
+    source_hash_unavailable_reason: skippedLargeFileCount > 0 ? 'large_file_skipped' : null,
     signals: {
       commonMain: relFiles.some((file) => file.includes('commonMain/')),
       androidMain: relFiles.some((file) => file.includes('androidMain/')),
@@ -354,6 +390,11 @@ function scanContentSignals(files) {
   };
   for (const filePath of files.slice(0, 500)) {
     if (!isTextLike(filePath)) continue;
+    try {
+      if (fs.statSync(filePath).size > DEFAULT_MAX_SOURCE_HASH_BYTES) continue;
+    } catch (_error) {
+      continue;
+    }
     let text = '';
     try {
       text = fs.readFileSync(filePath, 'utf8').slice(0, 65536).toLowerCase();
@@ -379,6 +420,9 @@ function buildStructureDegradedModes(scan) {
   if (!scan.signals.iosMain) modes.push(degraded('ios_main_missing', 'info', 'iosMain source set not found.', null));
   if (!scan.signals.analytics) modes.push(degraded('analytics_system_missing', 'warning', 'Analytics module or calls not found.', null));
   if (!scan.signals.i18n) modes.push(degraded('i18n_system_missing', 'warning', 'I18n resources not found.', null));
+  if (scan.skipped_large_file_count > 0) {
+    modes.push(degraded('source_large_files_skipped', 'warning', 'Large files were skipped from source hashing to keep preflight bounded.', null));
+  }
   return modes;
 }
 
@@ -462,6 +506,9 @@ function hashFileList(root, files) {
 
 function safeHashFile(filePath) {
   try {
+    const stat = fs.statSync(filePath);
+    if (!isTextLike(filePath)) return `binary_asset:size=${stat.size}`;
+    if (stat.size > DEFAULT_MAX_SOURCE_HASH_BYTES) return `large_file_skipped:size=${stat.size}`;
     return hashFile(filePath);
   } catch (error) {
     return `unreadable:${error.code || 'read_failed'}`;
@@ -485,18 +532,22 @@ function parseArgs(argv) {
 }
 
 if (require.main === module) {
+  let options = {};
   try {
-    const options = parseArgs(process.argv.slice(2));
+    options = parseArgs(process.argv.slice(2));
     const result = runPreflight(options);
-    const json = `${JSON.stringify(result, null, 2)}\n`;
-    if (options.output) {
-      fs.mkdirSync(path.dirname(path.resolve(options.output)), { recursive: true });
-      fs.writeFileSync(path.resolve(options.output), json);
-    } else {
-      process.stdout.write(json);
-    }
+    writeJsonOutput(result, options.output, options);
   } catch (error) {
-    process.stderr.write(`${error.message}\n`);
+    if (options.mode === 'headless' && /^scope_/.test(error.message)) {
+      const { renderHeadlessFailureEnvelope } = require('./render-headless-envelope');
+      process.stdout.write(renderHeadlessFailureEnvelope({
+        reasonCode: error.message.split(':')[0],
+        message: error.message,
+        runId: options.runId,
+      }));
+    } else {
+      process.stderr.write(`${error.message}\n`);
+    }
     process.exitCode = 1;
   }
 }

@@ -8,6 +8,8 @@ const {
   hashFile,
   parseCommonArgs,
   publicPath,
+  resolvePathAgainstRoot,
+  resolveRepoRoot,
   unavailableSourceInput,
   writeJsonOutput,
 } = require('./lib/audit-utils');
@@ -17,9 +19,9 @@ function buildAuditContext(options = {}) {
   if (!options.artifactsDir && !options.runDir) {
     throw new Error('artifacts_dir_required: build-audit-context requires --artifacts-dir or run-dir:<path>.');
   }
-  const repoRoot = path.resolve(options.repoRoot || options.source || process.cwd());
-  const artifactsDir = path.resolve(options.artifactsDir || options.runDir);
-  const outputPath = options.output ? path.resolve(options.output) : null;
+  const repoRoot = resolveRepoRoot(options);
+  const artifactsDir = resolvePathAgainstRoot(repoRoot, options.artifactsDir || options.runDir);
+  const outputPath = options.output ? resolvePathAgainstRoot(repoRoot, options.output) : null;
   const files = listJsonFiles(artifactsDir, {
     excludeDirs: new Set(['input', 'writeback-preview']),
     exclude: new Set([
@@ -130,7 +132,8 @@ if (require.main === module) {
   try {
     const options = parseArgs(process.argv.slice(2));
     const context = buildAuditContext(options);
-    writeJsonOutput(context, options.output);
+    const outputPath = options.output ? resolvePathAgainstRoot(resolveRepoRoot(options), options.output) : null;
+    writeJsonOutput(context, outputPath, options);
     if (!context.valid) process.exitCode = 1;
   } catch (error) {
     process.stderr.write(`${error.message}\n`);

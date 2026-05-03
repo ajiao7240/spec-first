@@ -20,6 +20,10 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('local file/symbol pointers');
     expect(text).toContain('Scope expansion is judged against the plan/task pack and concrete diff');
     expect(text).toContain('Workspace Repo Scope');
+    expect(text).toContain('workspace-graph-targets.v1');
+    expect(text).toContain('bounded candidate repos');
+    expect(text).toContain('GitNexus-first evidence per candidate');
+    expect(text).toContain('degraded-fallback');
     expect(text).toContain('single `target_repo` or per-unit/per-task `target_repo`');
     expect(text).toContain('actual `git status` changes belong to the selected child repo');
     expect(text).not.toContain('spec-first ' + 'crg hook');

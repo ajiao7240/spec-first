@@ -18,7 +18,7 @@ Orient execution from the current user request, the plan or task pack, `AGENTS.m
 
 ## Workspace Repo Scope
 
-When invoked from a parent workspace containing multiple independent Git repos, do not infer a write target from cwd alone. A plan or task pack must state a single `target_repo` or per-unit/per-task `target_repo` values before edits, tests, changelog updates, or commits. Verify that planned file paths and actual `git status` changes belong to the selected child repo. If repo scope is missing or ambiguous, return to `spec-plan` or ask for the active repo instead of writing into a sibling repo or the parent workspace.
+When invoked from a parent workspace containing multiple independent Git repos, do not infer a write target from cwd alone. For read-only orientation questions, use `workspace-graph-targets.v1` as an advisory candidate list when available: prefer bounded candidate repos with `primary` status, try GitNexus-first evidence per candidate, and treat `degraded-fallback` or definitions-only GitNexus results as pointers that need Serena, code-review-graph, or bounded direct reads before behavior changes. A plan or task pack must state a single `target_repo` or per-unit/per-task `target_repo` values before edits, tests, changelog updates, or commits. Verify that planned file paths and actual `git status` changes belong to the selected child repo. If repo scope is missing or ambiguous, return to `spec-plan` or ask for the active repo instead of writing into a sibling repo or the parent workspace.
 
 ## Input Document
 

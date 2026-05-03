@@ -100,7 +100,15 @@ pwsh -File skills/spec-mcp-setup/scripts/resolve-project-target.ps1 -Format json
 pwsh -File skills/spec-mcp-setup/scripts/resolve-project-target.ps1 -Repo project-a -Format json
 ```
 
-When run from an unresolved parent workspace, project rows use `workspace-target-required` and list candidate child repos. `workspace-single-candidate` is still fail-closed: it is a suggestion, not implicit write permission. Continue with an explicit child selection:
+When run from a parent workspace, default to all child repos instead of stopping for a repo choice. The parent remains advisory only: scripts loop through child-scoped `--repo` flows, write child-local setup artifacts, and write only advisory summaries under `.spec-first/workspace/`:
+
+```bash
+bash skills/spec-mcp-setup/scripts/bootstrap-project-config.sh --refresh-example --create-local --ensure-gitignore --json
+bash skills/spec-mcp-setup/scripts/install-mcp.sh
+bash skills/spec-mcp-setup/scripts/verify-tools.sh
+```
+
+Use an explicit child selection only when narrowing the setup run:
 
 ```bash
 bash skills/spec-mcp-setup/scripts/install-mcp.sh --repo project-a
@@ -116,13 +124,31 @@ pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1 -Repo project-a
 pwsh -File skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1 -Repo project-a -RefreshExample -CreateLocal -EnsureGitignore -Json
 ```
 
+The setup scripts also support `--all-repos` / `-AllRepos` as an explicit equivalent to the parent-workspace default:
+
+```bash
+bash skills/spec-mcp-setup/scripts/bootstrap-project-config.sh --all-repos --refresh-example --create-local --ensure-gitignore --json
+bash skills/spec-mcp-setup/scripts/install-mcp.sh --all-repos --serena-language-for project-a=typescript --serena-language-for project-b=java
+bash skills/spec-mcp-setup/scripts/verify-tools.sh --all-repos
+```
+
+Windows:
+
+```powershell
+pwsh -File skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1 -AllRepos -RefreshExample -CreateLocal -EnsureGitignore -Json
+pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1 -AllRepos -SerenaLanguageFor project-a=typescript,project-b=java
+pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1 -AllRepos
+```
+
+Parent-workspace default all-repos and explicit `--all-repos` reject `--repo` and single Git repo execution. They must not write parent `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, `.spec-first/providers/*`, or `.serena/*`. First-time Serena bootstrap in batch mode requires an explicit language map entry for each child that lacks existing `.serena/project.yml` language evidence. Children without language evidence are reported as `serena_language_required`; the agent should inspect that child repo and rerun with `--serena-language-for <child>=<language>[,<language>]`. A global `--serena-language` is intentionally rejected in parent-workspace batch mode so a heterogeneous workspace is not silently treated as one language.
+
 `--repo` is workspace-scoped in this MVP. From a non-Git parent workspace it must resolve to a child Git repo inside the current workspace; escaping the workspace returns `repo-target-outside-workspace`.
 
 Serena project language selection is semantic and belongs to the LLM, not to shell scripts. Before a first-time Serena bootstrap, inspect bounded project evidence such as build files, package manifests, and representative source files, choose supported Serena language labels, and pass them through the installer. Do not ask the user to choose a language when the evidence is clear; continue with the LLM-selected language set. Node.js, JavaScript, TypeScript, and VitePress-style repos should use Serena language `typescript`; do not pass `javascript`, `json`, or `markdown` just because manifests, config files, or docs are present.
 
 The deterministic bootstrap must not hard-code TypeScript/Vue or any other project language, and it must not enter Serena's interactive language-selection flow. If no language values are passed for a first-time bootstrap, `activate-serena.*` fails fast with a diagnostic asking the agent to inspect project evidence and pass explicit supported languages. If the agent notices an existing `.serena/project.yml` language mismatch, it should inspect bounded project evidence, decide the intended language set, and run the safe refresh primitive instead of editing `.serena/project.yml` by hand:
 
-If `install-mcp.*` returns Serena `reason_code=serena_language_required`, do not ask the user for a language unless local evidence is genuinely ambiguous. Inspect project evidence, choose supported Serena language labels, and immediately rerun `install-mcp.*` with `--serena-language` / `-SerenaLanguage`.
+If `install-mcp.*` returns Serena `reason_code=serena_language_required`, do not ask the user for a language unless local evidence is genuinely ambiguous. Inspect project evidence, choose supported Serena language labels, and immediately rerun `install-mcp.*`: use `--serena-language` / `-SerenaLanguage` for a single selected repo, or `--serena-language-for <child>=<language>[,<language>]` / `-SerenaLanguageFor` for parent-workspace batch setup.
 
 ```bash
 bash skills/spec-mcp-setup/scripts/activate-serena.sh --refresh --language kotlin --language java

@@ -250,6 +250,10 @@ describe('dual-host governance contracts', () => {
     expect(readme).toContain("Use the current host's setup workflow");
     expect(readme).toContain("Use the current host's graph bootstrap workflow");
     expect(readme).toContain("Use the current host's plan workflow");
+    expect(readme).toContain('workspace-graph-targets.v1');
+    expect(readme).toContain('GitNexus-first evidence');
+    expect(readme).toContain('explicit `target_repo` / per-child scope');
+    expect(readme).toContain('advisory `.spec-first/workspace/*summary.json`');
     expect(readme).toContain('Use the installed standalone `write-tasks` skill');
     expect(readme).not.toContain('Required harness runtime setup through `$spec-mcp-setup`');
     expect(readme).not.toContain('External graph readiness compilation through `$spec-graph-bootstrap`');
@@ -265,6 +269,10 @@ describe('dual-host governance contracts', () => {
     expect(readmeZh).toContain('通过当前宿主的 graph bootstrap workflow 编译');
     expect(readmeZh).toContain('用当前宿主的 setup workflow');
     expect(readmeZh).toContain('当前宿主的 plan workflow');
+    expect(readmeZh).toContain('workspace-graph-targets.v1');
+    expect(readmeZh).toContain('GitNexus-first evidence');
+    expect(readmeZh).toContain('明确 `target_repo` / per-child scope');
+    expect(readmeZh).toContain('advisory `.spec-first/workspace/*summary.json`');
     expect(readmeZh).toContain('用已安装的 standalone `write-tasks` skill');
     expect(readmeZh).not.toContain('通过 `$spec-mcp-setup` 管理');
     expect(readmeZh).not.toContain('通过 `$spec-graph-bootstrap` 编译');
@@ -362,6 +370,13 @@ describe('dual-host governance contracts', () => {
     expect(mirror).toContain('provider-status.json');
     expect(mirror).toContain('graph-facts.json');
     expect(mirror).toContain('bootstrap-impact-capabilities.json');
+    expect(mirror).toContain('workspace-graph-targets.v1');
+    expect(mirror).toContain('bounded candidate repos');
+    expect(mirror).toContain('GitNexus-first evidence');
+    expect(mirror).toContain('`--all-repos` / `-AllRepos`');
+    expect(mirror).toContain('.spec-first/workspace/graph-bootstrap-summary.json');
+    expect(mirror).toContain('canonical artifacts');
+    expect(mirror).toContain('父级 workspace 无 `--repo` 时默认进入 all-child-repos maintenance action');
     expect(mirror).toContain('query-unverified');
     expect(mirror).toContain('unsupported-provider-command');
     expect(mirror).toContain('## Graph Readiness');

@@ -127,6 +127,10 @@ gitnexus_probe_token_weak_proof_signal() {
   [[ "$1" =~ ^(Ad|Ads)$ || "$1" =~ ^(Advertise|Advertisement|Splash|Guide|Intro|Onboarding)[A-Za-z0-9_]* || "$1" =~ (Dialog|Adapter|Bean|DTO|Dto|VO|PO|Entity)$ ]]
 }
 
+gitnexus_probe_token_infrastructure_signal() {
+  [[ "$1" =~ ^(Health|Ping|Actuator|Status|Info|Error|Metrics)[A-Za-z0-9_]*$ || "$1" =~ (Health|Ping|Actuator|Status|Info|Error|Metrics)(Controller|Endpoint|Handler|Service|Page|View|Route|Router)$ ]]
+}
+
 gitnexus_probe_token_display_signal() {
   [[ "$1" =~ (View|Screen|Layout|Modal|Report)$ ]]
 }
@@ -203,7 +207,7 @@ select_gitnexus_query_probe_policy() {
   local selected_path="" selected_token=""
   local candidates_json="[]"
   local candidate_count=0
-  local -a files=()
+  local -a files=("__spec_first_empty_file_list_sentinel__")
 
   while IFS= read -r path; do
     files+=("$path")
@@ -211,6 +215,7 @@ select_gitnexus_query_probe_policy() {
 
   for priority in entrypoint_named workflow_named src_high_signal high_signal android_named workflow_display_named any_source; do
     for path in "${files[@]}"; do
+      [ "$path" != "__spec_first_empty_file_list_sentinel__" ] || continue
       gitnexus_probe_path_excluded "$path" && continue
       gitnexus_probe_source_path "$path" || continue
       token="$(gitnexus_probe_token_from_path "$path")"
@@ -226,11 +231,13 @@ select_gitnexus_query_probe_policy() {
           esac
           [[ "$token" =~ (Activity|Fragment|ViewModel|Manager|Repository|Service)$ ]] || continue
           gitnexus_probe_token_low_signal "$token" && continue
+          gitnexus_probe_token_infrastructure_signal "$token" && continue
           gitnexus_probe_token_display_signal "$token" && continue
           gitnexus_probe_token_weak_proof_signal "$token" && continue
           ;;
         workflow_named)
           gitnexus_probe_token_workflow_signal "$token" || continue
+          gitnexus_probe_token_infrastructure_signal "$token" && continue
           gitnexus_probe_token_weak_proof_signal "$token" && continue
           ;;
         src_high_signal)
@@ -239,11 +246,13 @@ select_gitnexus_query_probe_policy() {
             *) continue ;;
           esac
           gitnexus_probe_token_low_signal "$token" && continue
+          gitnexus_probe_token_infrastructure_signal "$token" && continue
           gitnexus_probe_token_display_signal "$token" && continue
           gitnexus_probe_token_weak_proof_signal "$token" && continue
           ;;
         high_signal)
           gitnexus_probe_token_low_signal "$token" && continue
+          gitnexus_probe_token_infrastructure_signal "$token" && continue
           gitnexus_probe_token_display_signal "$token" && continue
           gitnexus_probe_token_weak_proof_signal "$token" && continue
           ;;

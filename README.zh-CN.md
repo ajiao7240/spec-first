@@ -12,7 +12,7 @@
 
 **面向 Claude Code 与 Codex 的 spec-driven AI engineering workflows。**
 
-`spec-first` 帮助团队把 AI coding 会话变成可复用的工程闭环：需求澄清、计划编写、任务包编译、执行开发、App 一致性审查、代码评审、问题调试和知识沉淀。
+`spec-first` 帮助团队把 AI coding 会话变成可复用的工程闭环：环境与代码图谱准备、想法整理、需求澄清、文档审查、计划编写、任务包编译、执行/调试/优化/打磨、代码与 App 一致性审查、知识沉淀与系统进化。
 
 它让脚本负责确定性的安装、生成、校验和事实采集；让 LLM 负责需求理解、方案取舍、实现判断和评审决策。
 
@@ -136,6 +136,138 @@ docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
 ```
 
 随后进入当前宿主的 plan 入口继续推进。
+
+## 研发全流程总览
+
+这张图用于区分终端命令和宿主会话内 workflow 入口，并快速看到从安装到执行完成的全景路径：
+
+```text
+在目标项目 repo 的终端中
+  |
+  | npm install -g spec-first
+  | spec-first doctor
+  | spec-first init --claude -u <name> --lang zh
+  |   或
+  | spec-first init --codex -u <name> --lang zh
+  v
+重启 Claude Code 或 Codex
+  |
+  | /spec:mcp-setup       或 $spec-mcp-setup
+  | /spec:graph-bootstrap 或 $spec-graph-bootstrap
+  v
+在宿主会话中选择下一步 workflow
+  |
+  +-- 只有模糊想法或产品问题
+  |     -> /spec:brainstorm 或 $spec-brainstorm
+  |     -> docs/brainstorms/*-requirements.md
+  |
+  +-- 目标已定，但实现路径还不清楚
+  |     -> /spec:plan 或 $spec-plan
+  |     -> docs/plans/*-plan.md
+  |
+  +-- 计划较大，需要确定性任务交接
+  |     -> 已安装的 standalone write-tasks skill
+  |     -> docs/tasks/*-tasks.md
+  |
+  +-- plan 或 task pack 已准备好执行
+  |     -> /spec:work 或 $spec-work
+  |     -> 代码、测试和验证记录
+  |
+  +-- 移动 App 改动需要在运行时 QA 前做静态一致性审查
+  |     -> /spec:app-consistency-audit 或 $spec-app-consistency-audit
+  |     -> .spec-first/app-audit/runs/<run-id>/
+  |
+  +-- 失败、bug 或难解释的错误
+  |     -> /spec:debug 或 $spec-debug
+  |     -> 根因、修复和验证证据
+  v
+合并或交接前
+  |
+  | /spec:code-review 或 $spec-code-review
+  | /spec:doc-review  或 $spec-doc-review
+  v
+问题解决后
+  |
+  | /spec:compound 或 $spec-compound
+  v
+为下一次 AI coding 会话留下项目内可复用上下文
+```
+
+不是每个项目都要走完所有节点。按当前状态选择入口；状态不清楚时，直接在宿主会话里询问下一步该运行什么。
+
+## 当前工程闭环
+
+上面的总览图展示的是常见 first-run 路径。完整闭环更广：
+
+```text
+mcp-setup / graph-bootstrap
+  -> ideate
+  -> brainstorm
+  -> doc-review
+  -> plan
+  -> write-tasks
+  -> work / debug / optimize / polish
+  -> code-review / app-consistency-audit
+  -> compound / compound-refresh / sessions / slack-research / skill-audit
+  -> 反哺项目知识、文档、skills 和下一次 workflow 选择
+```
+
+这是一条工程闭环，不是一串必须逐项执行的命令。根据当前状态进入最匹配的节点；当下一步不清楚时，宿主会话里的入口治理会推荐一个公开 workflow 并说明理由。`write-tasks` 是 standalone skill；可浏览 UI 的 polish 当前通过 `polish-beta` 暴露。
+
+| 层级 | 节点 | 回答的问题 | 持久输出 |
+|---|---|---|---|
+| 能力底座 | `mcp-setup`、`graph-bootstrap` | AI 是否有正确工具？是否拿到了当前代码库事实？ | setup 报告、provider 配置、graph readiness facts、impact capability facts。 |
+| 需求成型 | `ideate`、`brainstorm`、`doc-review` | 问题是否值得做、是否清楚、文档是否有明显缺口？ | 想法、requirements briefs、审查 findings、风险和开放问题。 |
+| 设计与交接 | `plan`、standalone `write-tasks` skill | 该怎么实现？大计划如何变成可执行任务？ | implementation plans 和 validated task packs。 |
+| 工程执行 | `work`、`debug`、`optimize`、`polish` | 如何实现、修复、优化或完成交付细节？ | 代码改动、测试、修复、度量结果和验证记录。 |
+| 质量关口 | `code-review`、`app-consistency-audit` | 结果是否符合计划、代码质量和 App/产品一致性要求？ | review findings、residual risks 和 run-scoped audit evidence。 |
+| 知识与进化 | `compound`、`compound-refresh`、`sessions`、`slack-research`、`skill-audit` | 什么经验要复用、什么外部/历史/团队上下文要刷新、spec-first 自己哪里要进化？ | learnings、刷新后的上下文、会话总结、组织研究和 skill audit findings。 |
+
+边界仍然保持轻量：scripts 和 CLI 负责准备事实；LLM 负责判断 scope、tradeoff、下一步 workflow、实现策略和评审结论。最后一层把经验反哺到文档、skills 和项目记忆中，而不是把 `spec-first` 变成刚性状态机。
+
+## 支持的开发模式
+
+`spec-first` 的开发模式按仓库和项目拓扑定义，不按单个 workflow 的 `mode:*` 参数定义。当前支持三种：
+
+| 模式 | 典型形态 | `.spec-first` 权威边界 | 处理方式 |
+|---|---|---|---|
+| 单仓单项目 | 一个 Git repo 中就是一个应用、SDK、CLI 或服务 | 当前 repo root | requirements、plan、work、review、graph facts 都以当前 repo 为边界。 |
+| 单仓多模块 | 一个 Git repo 中包含多个 app、package、service 或 Android module | 同一个 repo root | 不为每个 module 拆多套 `.spec-first`；由 plan、task pack、work 和 review 在 repo 内按 module 边界拆分和路由。 |
+| 多仓工作区 | 父目录下有多个独立 child Git repos | 每个 child repo 自己的 repo root | 父 workspace 只做候选发现和提示；repo-local setup、graph、plan、work、review 必须落到显式 child repo。 |
+
+```text
+单仓单项目
+my-app/
+  .git/
+  .spec-first/
+  src/
+
+单仓多模块
+platform/
+  .git/
+  .spec-first/
+  apps/web/
+  apps/mobile/
+  packages/core/
+
+多仓工作区
+workspace/
+  frontend/
+    .git/
+    .spec-first/
+  backend/
+    .git/
+    .spec-first/
+  mobile/
+    .git/
+    .spec-first/
+```
+
+核心 contract 是：`.spec-first` 的事实边界永远是 **selected Git repo root**。
+
+- 单仓多模块不要在每个 module 下各放一套 `.spec-first`，否则 plan、review、graph facts 和 knowledge 会分裂。
+- 多仓工作区的父目录不拥有 repo-local truth；从父 workspace 操作 child repo 时，需要显式 `--repo <child>`，计划或任务也需要写明 `target_repo` 或 per-unit/per-task `target_repo`。
+- `mode:headless`、`mode:report-only`、`mode:autofix`、`depth:deep` 等是 workflow 或 skill 的运行姿态，不是开发模式分类。
 
 ## 你会得到什么
 
@@ -338,7 +470,8 @@ your-project/
 - 用当前宿主的 setup workflow 安装并验证 required harness runtime：Serena、Sequential Thinking、Context7、GitNexus、code-review-graph、`agent-browser`、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和 global `ast-grep` skill。
 - 在 setup 报告 `baseline_ready=true` 后运行当前宿主的 graph bootstrap workflow。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus/code-review-graph probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
 - 当前宿主的 plan workflow 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。
-- 在父 workspace 下存在多个 child Git repos 时，setup/bootstrap 脚本必须显式传 `--repo <child>`。父 workspace 只报告候选 repo，不拥有 repo-local `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*` 或 `.serena/*` 产物。
+- 在父 workspace 下存在多个 child Git repos 时，只读代码问题可以使用 `workspace-graph-targets.v1` advisory facts 选择 bounded candidate repos，并优先使用 GitNexus-first evidence。写入、测试、changelog、review autofix 和 commit 仍必须有明确 `target_repo` / per-child scope。
+- 父 workspace 维护操作中，setup 和 graph bootstrap 在未传 `--repo <child>` 时默认处理全部 child repos；`--repo <child>` 用于收窄范围，`--all-repos` 仍作为显式等价入口。首次 Serena 激活仍需要 per-child language evidence，缺语言的 child 会返回 `serena_language_required`，由 agent 用 `--serena-language-for <child>=<language>` 重跑。父目录可以写 advisory `.spec-first/workspace/*summary.json`，但不拥有 repo-local `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*`、`.spec-first/providers/*` 或 `.serena/*` 产物。
 - 用已安装的 standalone `write-tasks` skill 做确定性的 task-pack handoff，再让当前宿主的 work、code-review 和 doc-review workflow 基于当前请求、plans/task packs、diffs、targeted file reads 与 tests 确定 scope authority。
 - 移动 App 的 PRD/Figma/source 对齐审查使用 App consistency audit workflow。它消费本地 `prd:<path>` 与 `figma-context:<path>` 输入；`figma-ref:<id-or-url>` 只是 reference，只有宿主提供的 Figma MCP 能力 materialize 出本地 JSON 后才成为 evidence。Figma MCP 是 App-audit 可选能力，不属于 required setup baseline。
 

@@ -8,12 +8,17 @@ command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RESOLVER="$SCRIPT_DIR/../../spec-mcp-setup/scripts/resolve-project-target.sh"
 REPO_ARG=""
+ALL_REPOS=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo)
       REPO_ARG="${2:-}"
       [ -n "$REPO_ARG" ] || { echo "bootstrap-providers.sh: --repo requires a value" >&2; exit 1; }
       shift 2
+      ;;
+    --all-repos)
+      ALL_REPOS=true
+      shift
       ;;
     *)
       echo "bootstrap-providers.sh: unknown argument: $1" >&2
@@ -31,6 +36,167 @@ TARGET_JSON="$(bash "$RESOLVER" --format json ${TARGET_ARGS[@]+"${TARGET_ARGS[@]
 TARGET_STATUS=$?
 set -e
 [ -n "$TARGET_JSON" ] || { echo "bootstrap-providers.sh: target resolver returned no JSON output" >&2; exit 1; }
+
+TARGET_MODE="$(jq -r '.mode // empty' <<<"$TARGET_JSON")"
+WORKSPACE_ROOT_FOR_ALL="$(jq -r '.workspace_root // .invocation_cwd' <<<"$TARGET_JSON")"
+CANDIDATE_COUNT="$(jq -r '(.candidates // []) | length' <<<"$TARGET_JSON")"
+DEFAULT_ALL_REPOS=false
+if [ "$ALL_REPOS" != "true" ] && [ -z "$REPO_ARG" ] && [ "$TARGET_MODE" != "git-repo" ] && [ "$CANDIDATE_COUNT" -gt 0 ]; then
+  DEFAULT_ALL_REPOS=true
+fi
+
+write_file_atomic_path() {
+  local path="$1"
+  local tmp
+  mkdir -p "$(dirname "$path")"
+  tmp="$(mktemp "${path}.XXXXXX")"
+  cat > "$tmp"
+  mv "$tmp" "$path"
+}
+
+if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
+  if [ "$DEFAULT_ALL_REPOS" = "true" ]; then
+    ALL_REPOS_SELECTION_SOURCE="workspace-default-all-repos"
+  else
+    ALL_REPOS_SELECTION_SOURCE="explicit-all-repos"
+  fi
+  if [ -n "$REPO_ARG" ]; then
+    jq -n --arg workspace_root "$WORKSPACE_ROOT_FOR_ALL" '{
+      schema_version:"workspace-graph-bootstrap-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:"all-repos-conflicts-with-repo",
+      workspace_root:$workspace_root,
+      advisory:true,
+      next_action:"Use either --all-repos from a parent workspace or --repo <child>, not both."
+    }'
+    exit 1
+  fi
+  if [ "$TARGET_MODE" = "git-repo" ]; then
+    jq -n --arg workspace_root "$WORKSPACE_ROOT_FOR_ALL" '{
+      schema_version:"workspace-graph-bootstrap-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:"all-repos-requires-parent-workspace",
+      workspace_root:$workspace_root,
+      advisory:true,
+      next_action:"Run --all-repos from a parent workspace containing child Git repos, or omit --all-repos in a single Git repo."
+    }'
+    exit 1
+  fi
+
+  if [ "$CANDIDATE_COUNT" -eq 0 ]; then
+    jq -n --argjson target "$TARGET_JSON" '{
+      schema_version:"workspace-graph-bootstrap-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:($target.reason_code // "workspace-no-git-candidates"),
+      workspace_root:($target.workspace_root // null),
+      candidates:($target.candidates // []),
+      advisory:true,
+      next_action:($target.next_action // "Run from a parent workspace containing child Git repos.")
+    }'
+    exit 1
+  fi
+
+  SUMMARY_ITEMS="$(mktemp "${TMPDIR:-/tmp}/graph-bootstrap-all-repos.XXXXXX")"
+  WORKSPACE_RUN_ID="$(date -u +"%Y%m%dT%H%M%SZ")"
+  child_index=0
+  jq -n '[]' > "$SUMMARY_ITEMS"
+  while IFS=$'\t' read -r child_label child_path; do
+    [ -n "$child_path" ] || continue
+    child_index=$((child_index + 1))
+    printf 'spec-graph-bootstrap: all-repos child %s/%s start repo=%s\n' "$child_index" "$CANDIDATE_COUNT" "$child_path" >&2
+    set +e
+    child_output="$(bash "$0" --repo "$child_path")"
+    child_status=$?
+    set -e
+    if ! jq -e . >/dev/null 2>&1 <<<"$child_output"; then
+      child_result="$(jq -n --arg output "$child_output" '{schema_version:"graph-bootstrap-result.v1",overall_status:"action-required",workflow_mode:"blocked",reason_code:"child-bootstrap-output-unparseable",diagnostic:$output}')"
+    else
+      child_result="$child_output"
+    fi
+    jq \
+      --arg parent_run_id "$WORKSPACE_RUN_ID" \
+      --arg repo_label "$child_label" \
+      --arg workspace_relative_path "$child_path" \
+      --argjson exit_code "$child_status" \
+      --argjson result "$child_result" \
+      '. + [{
+        parent_run_id:$parent_run_id,
+        repo_label:$repo_label,
+        workspace_relative_path:$workspace_relative_path,
+        exit_code:$exit_code,
+        overall_status:($result.overall_status // "unknown"),
+        workflow_mode:($result.workflow_mode // "unknown"),
+        reason_code:($result.reason_code // null),
+        result:$result
+      }]' "$SUMMARY_ITEMS" > "$SUMMARY_ITEMS.next"
+    mv "$SUMMARY_ITEMS.next" "$SUMMARY_ITEMS"
+    printf 'spec-graph-bootstrap: all-repos child %s/%s finish repo=%s status=%s workflow=%s\n' \
+      "$child_index" \
+      "$CANDIDATE_COUNT" \
+      "$child_path" \
+      "$(jq -r '.overall_status // "unknown"' <<<"$child_result")" \
+      "$(jq -r '.workflow_mode // "unknown"' <<<"$child_result")" >&2
+  done < <(jq -r '.candidates[] | [.repo_label, .workspace_relative_path] | @tsv' <<<"$TARGET_JSON")
+
+  SUMMARY_JSON="$(jq -n \
+    --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    --arg run_id "$WORKSPACE_RUN_ID" \
+    --arg selection_source "$ALL_REPOS_SELECTION_SOURCE" \
+    --argjson target "$TARGET_JSON" \
+    --slurpfile items "$SUMMARY_ITEMS" \
+    '($items[0] // []) as $results
+    | {
+        schema_version:"workspace-graph-bootstrap-summary.v1",
+        generated_at:$generated_at,
+        run_id:$run_id,
+        advisory:true,
+        workflow_mode:"all-repos",
+        selection_source:$selection_source,
+        workspace_root:($target.workspace_root // null),
+        parent_writes_repo_local_artifacts:false,
+        results:$results,
+        counts:{
+          total:($results | length),
+          ready:([$results[] | select(.overall_status == "ready")] | length),
+          degraded:([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length),
+          action_required:([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded")] | length),
+          primary:([$results[] | select(.workflow_mode == "primary")] | length),
+          blocked:([$results[] | select(.workflow_mode == "blocked" or .workflow_mode == "setup-not-ready")] | length)
+        },
+        overall_status:(
+          if ($results | length) == 0 then "action-required"
+          elif ([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded")] | length) == 0
+            and ([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) == 0 then "ready"
+          elif ([$results[] | select(.overall_status == "ready" or .workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) > 0 then "partial"
+          else "action-required"
+          end
+        ),
+        reason_code:(
+          if ($results | length) == 0 then "workspace-no-git-candidates"
+          elif ([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded")] | length) > 0 then "all-repos-partial-or-action-required"
+          elif ([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) > 0 then "all-repos-degraded-fallback"
+          else null
+          end
+        ),
+        next_action:(
+          if ([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded")] | length) > 0 then "Inspect per-child reason_code and rerun setup/bootstrap for action-required repos."
+          elif ([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) > 0 then "Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos."
+          else "All child repos produced graph bootstrap artifacts."
+          end
+        )
+      }')"
+  rm -f "$SUMMARY_ITEMS"
+  printf '%s\n' "$SUMMARY_JSON" | write_file_atomic_path "$WORKSPACE_ROOT_FOR_ALL/.spec-first/workspace/graph-bootstrap-summary.json"
+  printf '%s\n' "$SUMMARY_JSON"
+  if [ "$(jq -r '.overall_status' <<<"$SUMMARY_JSON")" = "action-required" ]; then
+    exit 1
+  fi
+  exit 0
+fi
+
 TARGET_STATE_WRITE_ALLOWED="$(jq -r '.state_write_allowed | tostring' <<<"$TARGET_JSON")"
 if [ "$TARGET_STATUS" -ne 0 ] || [ "$TARGET_STATE_WRITE_ALLOWED" != "true" ]; then
   jq -n --argjson target "$TARGET_JSON" '{
@@ -61,7 +227,7 @@ GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT=5
 mkdir -p "$GRAPH_DIR" "$IMPACT_DIR" "$PROVIDERS_DIR"
 
 BOOTSTRAPPED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-SOURCE_REVISION="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || true)"
+SOURCE_REVISION="$(git -C "$REPO_ROOT" rev-parse --verify 'HEAD^{commit}' 2>/dev/null || true)"
 if [ -z "$SOURCE_REVISION" ]; then
   jq -n '{schema_version:"graph-bootstrap-result.v1",overall_status:"action-required",workflow_mode:"blocked",reason_code:"repo-snapshot-unavailable",next_action:"Resolve git repository state before graph bootstrap."}'
   exit 1
@@ -151,6 +317,50 @@ require_file_schema "$PROVIDER_CONFIG" "graph-providers.v1" "missing_provider_co
 require_file_schema "$RUNTIME_CAPABILITIES" "runtime-capabilities.v1" "missing_runtime_capabilities"
 require_file_schema "$PROVIDER_ARTIFACTS" "provider-artifacts.v1" "missing_provider_artifacts"
 
+provider_artifact_contract_supported() {
+  jq -e --slurpfile provider_config "$PROVIDER_CONFIG" '
+    (.canonical.provider_status == ".spec-first/graph/provider-status.json")
+    and (.canonical.graph_facts == ".spec-first/graph/graph-facts.json")
+    and (.canonical.bootstrap_report == ".spec-first/graph/bootstrap-report.md")
+    and (.canonical.impact_capabilities == ".spec-first/impact/bootstrap-impact-capabilities.json")
+    and ((.providers // {}) | type == "object")
+    and (
+      (.providers // {}) as $artifact_providers
+      | ($provider_config[0].providers | keys) as $configured_providers
+      | all($configured_providers[]; ($artifact_providers[.] // null) != null)
+    )
+    and (
+      (.providers.gitnexus // null) == null
+      or (
+        .providers.gitnexus.raw_dir == ".spec-first/providers/gitnexus/raw"
+        and .providers.gitnexus.normalized_dir == ".spec-first/providers/gitnexus/normalized"
+        and .providers.gitnexus.status_path == ".spec-first/providers/gitnexus/status.json"
+        and .providers.gitnexus.raw_logs.bootstrap == ".spec-first/providers/gitnexus/raw/analyze.log"
+        and .providers.gitnexus.raw_logs.status == ".spec-first/providers/gitnexus/raw/status.log"
+        and .providers.gitnexus.raw_logs.query_probe == ".spec-first/providers/gitnexus/raw/query.log"
+        and .providers.gitnexus.normalized_artifacts.architecture_facts == ".spec-first/providers/gitnexus/normalized/architecture-facts.json"
+        and .providers.gitnexus.normalized_artifacts.reuse_candidates == ".spec-first/providers/gitnexus/normalized/reuse-candidates.json"
+      )
+    )
+    and (
+      (.providers["code-review-graph"] // null) == null
+      or (
+        .providers["code-review-graph"].raw_dir == ".spec-first/providers/code-review-graph/raw"
+        and .providers["code-review-graph"].normalized_dir == ".spec-first/providers/code-review-graph/normalized"
+        and .providers["code-review-graph"].status_path == ".spec-first/providers/code-review-graph/status.json"
+        and .providers["code-review-graph"].raw_logs.bootstrap == ".spec-first/providers/code-review-graph/raw/build.log"
+        and .providers["code-review-graph"].raw_logs.status == ".spec-first/providers/code-review-graph/raw/status.log"
+        and .providers["code-review-graph"].raw_logs.query_probe == ".spec-first/providers/code-review-graph/raw/query.log"
+        and .providers["code-review-graph"].normalized_artifacts.impact_capabilities == ".spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
+      )
+    )
+  ' "$PROVIDER_ARTIFACTS" >/dev/null
+}
+
+if ! provider_artifact_contract_supported; then
+  emit_blocked blocked readiness-conflict "Rerun spec-mcp-setup; provider artifact path contract drifted."
+fi
+
 LEDGER_POINTER="$(jq -r '.host_ledger_pointer.path // empty' "$RUNTIME_CAPABILITIES")"
 [ -n "$LEDGER_POINTER" ] || emit_blocked blocked readiness-conflict "Rerun spec-mcp-setup to write host_ledger_pointer."
 LEDGER_PATH="$(resolve_pointer_path "$LEDGER_POINTER")"
@@ -218,10 +428,18 @@ query_probe_policy_supported() {
     return 0
   fi
   jq -e --arg provider "$provider" '
+    def safe_token:
+      type == "string" and length > 0 and (test("[;&|`$<>]") | not);
+    def optional_nullable_string($key):
+      ((has($key) | not) or (.[$key] == null) or (.[$key] | type == "string"));
     (.providers[$provider].query_probe_policy // {}) as $policy
-    | (($policy.candidates // []) | type == "array")
+    | ($policy | type == "object")
+    and (($policy.candidates // []) | type == "array")
+    and ($policy | optional_nullable_string("selected_from"))
+    and ($policy | optional_nullable_string("source"))
+    and (if ($policy | has("token")) then ($policy.token | safe_token) else true end)
     and all(($policy.candidates // [])[];
-      (.token | type == "string" and length > 0 and (test("[;&|`$<>]") | not))
+      (.token | safe_token)
       and ((.selected_from // "") | type == "string")
       and ((.reason_code // "") | type == "string")
     )
@@ -426,7 +644,7 @@ gitnexus_query_probe_candidates() {
       end)
     | .[0:$limit]
     | .[]
-    | [.token, (.selected_from // ""), (.reason_code // "legacy-token")] | @tsv
+    | @base64
   ' "$PROVIDER_CONFIG"
 }
 
@@ -475,6 +693,7 @@ classify_provider_failure() {
   local provider="$1"
   local phase="$2"
   local exit_code="$3"
+  local diagnostic="${4:-}"
 
   if [ "$provider" = "gitnexus" ] && [ "$phase" = "bootstrap" ] && [ "$exit_code" -eq 139 ]; then
     jq -n --argjson exit_code "$exit_code" '{
@@ -483,6 +702,24 @@ classify_provider_failure() {
       reason_code:"gitnexus-analyze-sigsegv",
       exit_code:$exit_code,
       recommended_action:"Do not trust GitNexus artifacts. Use code-review-graph and bounded local fallback; capture analyze.log and retry with a newer GitNexus rc or safer GitNexus runtime settings."
+    }'
+  elif [ "$exit_code" -ne 0 ] && grep -Eiq 'ENOTFOUND|getaddrinfo|registry\.npmmirror\.com|registry\.npmjs\.org|EAI_AGAIN' <<<"$diagnostic"; then
+    jq -n --arg phase "$phase" --argjson exit_code "$exit_code" '{
+      failed_phase:$phase,
+      failure_class:"provider-environment",
+      reason_code:"provider-network-unavailable",
+      exit_code:$exit_code,
+      recommended_action:"Provider package registry or network resolution failed. Restore registry/network access or warm the package cache, then rerun graph bootstrap."
+    }'
+  elif [ "$exit_code" -ne 0 ] \
+    && grep -Eiq 'Operation not permitted|Permission denied|EACCES' <<<"$diagnostic" \
+    && grep -Eiq '(\.cache/uv|/\.npm|\.npm)' <<<"$diagnostic"; then
+    jq -n --arg phase "$phase" --argjson exit_code "$exit_code" '{
+      failed_phase:$phase,
+      failure_class:"provider-environment",
+      reason_code:"provider-cache-permission-denied",
+      exit_code:$exit_code,
+      recommended_action:"Provider cache access was denied. Fix permissions or run with access to the provider cache directories, then rerun graph bootstrap."
     }'
   elif [ "$exit_code" -ne 0 ]; then
     jq -n --arg phase "$phase" --argjson exit_code "$exit_code" '{
@@ -675,7 +912,11 @@ write_provider_status() {
             query_probe_candidates_truncated=true
             QUERY_PROBE_CANDIDATES_TRUNCATED=true
           fi
-          while IFS=$'\t' read -r probe_token probe_selected_from probe_reason_code; do
+          while IFS= read -r probe_candidate; do
+            [ -n "$probe_candidate" ] || continue
+            probe_token="$(jq -rR '@base64d | fromjson | .token // ""' <<<"$probe_candidate")"
+            probe_selected_from="$(jq -rR '@base64d | fromjson | .selected_from // ""' <<<"$probe_candidate")"
+            probe_reason_code="$(jq -rR '@base64d | fromjson | .reason_code // "legacy-token"' <<<"$probe_candidate")"
             [ -n "$probe_token" ] || continue
             attempt_index=$((attempt_index + 1))
             if [ "$attempt_index" -eq 1 ]; then
@@ -755,13 +996,14 @@ write_provider_status() {
         status="query-unverified"
         query_ready=false
         confidence="medium"
-        limitations='["Build succeeded, but status probe did not verify provider readiness."]'
+        failure_info="$(classify_provider_failure "$provider" status "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC")"
+        limitations="$(jq -n --argjson failure "$failure_info" '["Build succeeded, but status probe did not verify provider readiness."] + (if ($failure.recommended_action // "") != "" then [$failure.recommended_action] else [] end)')"
       fi
     else
       status="failed"
       query_ready=false
       confidence="low"
-      failure_info="$(classify_provider_failure "$provider" bootstrap "$RUN_EXIT_CODE")"
+      failure_info="$(classify_provider_failure "$provider" bootstrap "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC")"
       limitations="$(jq -n --argjson failure "$failure_info" '["Provider bootstrap command failed."] + (if ($failure.recommended_action // "") != "" then [$failure.recommended_action] else [] end)')"
     fi
   fi

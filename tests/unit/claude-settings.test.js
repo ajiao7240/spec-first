@@ -229,6 +229,7 @@ describe('claude settings', () => {
       expect(payload.hookSpecificOutput.hookEventName).toBe('SessionStart');
       expect(payload.hookSpecificOutput.additionalContext).toContain('[spec-first] using-spec-first SessionStart injection');
       expect(payload.hookSpecificOutput.additionalContext).toContain('workflow-entry trigger');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('parent multi-repo workspaces');
       expect(payload.hookSpecificOutput.additionalContext).toContain('先判断是否应进入公开 spec-first workflow');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });

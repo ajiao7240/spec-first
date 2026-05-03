@@ -2,7 +2,6 @@
 'use strict';
 
 const { spawnSync } = require('node:child_process');
-const fs = require('node:fs');
 const path = require('node:path');
 
 const {
@@ -10,10 +9,13 @@ const {
   buildAppAuditInputExpectations,
   buildAppAuditVerdictScope,
   collectGitDiffFacts,
+  createRunId,
   hashText,
   listSourceTextFiles,
   parseCommonArgs,
   publicPath,
+  resolvePathAgainstRoot,
+  resolveRepoRoot,
   sourceInputFromFiles,
   writeJsonOutput,
 } = require('./lib/audit-utils');
@@ -25,14 +27,17 @@ function buildRunMetadata(options = {}) {
   if (options.mode === 'headless' && !options.base) {
     throw new Error('scope_headless_missing_base: mode:headless requires base:<ref> before metadata writes.');
   }
-  const repoRoot = fs.realpathSync(path.resolve(options.repoRoot || options.source || '.'));
-  const runId = options.runId || 'app-audit-run';
-  const runDir = options.runDir || path.join('.spec-first', 'app-audit', 'runs', runId);
-  const absoluteRunDir = path.resolve(repoRoot, runDir);
+  const repoRoot = resolveRepoRoot(options);
+  const runId = options.runId || createRunId();
+  const absoluteRunDir = options.runDir
+    ? resolvePathAgainstRoot(repoRoot, options.runDir)
+    : path.join(repoRoot, '.spec-first', 'app-audit', 'runs', runId);
   const publicRunDir = publicPath(repoRoot, absoluteRunDir, 'run-outside-repo');
+  const generatedAt = new Date().toISOString();
+  const status = options.status || 'started';
   const source = listSourceTextFiles({
     repoRoot,
-    source: options.source || repoRoot,
+    source: options.source || '.',
     allowOutside: options.allowOutside,
     maxFiles: options.maxFiles || options.maxScanFiles || 2000,
   });
@@ -43,6 +48,8 @@ function buildRunMetadata(options = {}) {
     sourceRoot: source.sourceRoot,
     truncated: source.truncated,
     maxFiles: source.maxFiles,
+    skippedLargeFiles: source.skippedLargeFiles,
+    skippedLargeFileCount: source.skippedLargeFileCount,
   });
   const worktreeFingerprint = hashText([
     headSha || 'no-head',
@@ -51,10 +58,10 @@ function buildRunMetadata(options = {}) {
     sourceInput.source_hash || sourceInput.source_hash_unavailable_reason || '',
   ].join('\n'));
 
-  return {
+  const metadata = {
     schema_version: 'spec-app-consistency-audit-metadata.v1',
     artifact_id: 'metadata',
-    generated_at: new Date().toISOString(),
+    generated_at: generatedAt,
     source_inputs: [sourceInput],
     consumers: ['parent-workflow', 'report-writer', 'artifact-consumers'],
     contract_status: 'candidate',
@@ -80,9 +87,8 @@ function buildRunMetadata(options = {}) {
       resolved_base_sha: diffFacts.resolved_base_sha || '',
       source_root_hash: sourceInput.source_hash || sourceInput.source_hash_unavailable_reason,
     },
-    started_at: options.startedAt || new Date().toISOString(),
-    completed_at: options.completedAt || new Date().toISOString(),
-    status: options.status || 'complete',
+    started_at: options.startedAt || generatedAt,
+    status,
     status_reason_codes: [],
     contract_versions: {
       preflight: 'spec-app-consistency-audit-preflight.v1',
@@ -98,6 +104,10 @@ function buildRunMetadata(options = {}) {
     summary_path: path.posix.join(publicRunDir, 'app-consistency-audit.summary.md'),
     issues_path: path.posix.join(publicRunDir, 'issues.json'),
   };
+  if (options.completedAt || ['complete', 'degraded', 'failed'].includes(status)) {
+    metadata.completed_at = options.completedAt || generatedAt;
+  }
+  return metadata;
 }
 
 function buildLatestSummary(metadata) {
@@ -122,12 +132,22 @@ function gitText(cwd, args) {
 }
 
 if (require.main === module) {
+  let options = {};
   try {
-    const options = parseCommonArgs(process.argv.slice(2));
+    options = parseCommonArgs(process.argv.slice(2));
     const metadata = buildRunMetadata(options);
-    writeJsonOutput(metadata, options.output);
+    writeJsonOutput(metadata, options.output, options);
   } catch (error) {
-    process.stderr.write(`${error.message}\n`);
+    if (options.mode === 'headless' && /^scope_/.test(error.message)) {
+      const { renderHeadlessFailureEnvelope } = require('./render-headless-envelope');
+      process.stdout.write(renderHeadlessFailureEnvelope({
+        reasonCode: error.message.split(':')[0],
+        message: error.message,
+        runId: options.runId,
+      }));
+    } else {
+      process.stderr.write(`${error.message}\n`);
+    }
     process.exitCode = 1;
   }
 }

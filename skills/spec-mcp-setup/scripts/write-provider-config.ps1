@@ -247,6 +247,12 @@ function Test-GitNexusProbeWeakProofToken {
     $Token -match '(Dialog|Adapter|Bean|DTO|Dto|VO|PO|Entity)$')
 }
 
+function Test-GitNexusProbeInfrastructureToken {
+  param([string]$Token)
+  return ($Token -match '^(Health|Ping|Actuator|Status|Info|Error|Metrics)[A-Za-z0-9_]*$' -or
+    $Token -match '(Health|Ping|Actuator|Status|Info|Error|Metrics)(Controller|Endpoint|Handler|Service|Page|View|Route|Router)$')
+}
+
 function Test-GitNexusProbeDisplaySignalToken {
   param([string]$Token)
   return ($Token -match '(View|Screen|Layout|Modal|Report)$')
@@ -275,18 +281,22 @@ function Get-GitNexusQueryProbePolicy {
         if ($path -notmatch '\.(kt|java)$') { continue }
         if ($token -notmatch '(Activity|Fragment|ViewModel|Manager|Repository|Service)$') { continue }
         if (Test-GitNexusProbeLowSignalToken -Token $token) { continue }
+        if (Test-GitNexusProbeInfrastructureToken -Token $token) { continue }
         if (Test-GitNexusProbeDisplaySignalToken -Token $token) { continue }
         if (Test-GitNexusProbeWeakProofToken -Token $token) { continue }
       } elseif ($priority -eq 'workflow_named') {
         if (-not (Test-GitNexusProbeWorkflowSignalToken -Token $token)) { continue }
+        if (Test-GitNexusProbeInfrastructureToken -Token $token) { continue }
         if (Test-GitNexusProbeWeakProofToken -Token $token) { continue }
       } elseif ($priority -eq 'src_high_signal') {
         if ($path -notmatch '(^|/)src/') { continue }
         if (Test-GitNexusProbeLowSignalToken -Token $token) { continue }
+        if (Test-GitNexusProbeInfrastructureToken -Token $token) { continue }
         if (Test-GitNexusProbeDisplaySignalToken -Token $token) { continue }
         if (Test-GitNexusProbeWeakProofToken -Token $token) { continue }
       } elseif ($priority -eq 'high_signal') {
         if (Test-GitNexusProbeLowSignalToken -Token $token) { continue }
+        if (Test-GitNexusProbeInfrastructureToken -Token $token) { continue }
         if (Test-GitNexusProbeDisplaySignalToken -Token $token) { continue }
         if (Test-GitNexusProbeWeakProofToken -Token $token) { continue }
       } elseif ($priority -eq 'workflow_display_named') {

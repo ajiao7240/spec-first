@@ -153,6 +153,10 @@ Do not chain multiple workflows automatically unless the active workflow explici
    - Claude: `/spec:mcp-setup`
    - Codex: `$spec-mcp-setup`
 
+### Parent Workspace Graph Evidence
+
+If the user asks a read-only codebase question from a parent workspace containing multiple child Git repos, do not force a workflow only because there are multiple repos. Use `workspace-graph-targets.v1` as advisory evidence when available, prefer bounded candidate repos with `primary` status, and try GitNexus-first evidence for the concrete question before bounded direct reads. `degraded-fallback`, `stale`, `dirty-uncertain`, and definitions-only GitNexus evidence must be named as limitations. If the request asks for planning, writing, fixing, testing, changelog updates, review autofix, or commits, route normally but require explicit `target_repo` / per-child scope before any repo-local write.
+
 ### Research And Context
 
 5. If the request is about retrieving past coding-agent sessions or asking what happened in prior work, route to:

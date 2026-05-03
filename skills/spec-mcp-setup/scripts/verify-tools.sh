@@ -8,12 +8,17 @@ command -v node >/dev/null 2>&1 || { echo '错误：node 是必需依赖，请�
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ARG=""
+ALL_REPOS=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo)
       REPO_ARG="${2:-}"
       [ -n "$REPO_ARG" ] || { echo "verify-tools.sh: --repo requires a value" >&2; exit 1; }
       shift 2
+      ;;
+    --all-repos)
+      ALL_REPOS=true
+      shift
       ;;
     *)
       echo "verify-tools.sh: unknown argument: $1" >&2
@@ -25,10 +30,198 @@ done
 HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
 MARKER_PATH="$(jq -r '.marker_path' <<<"$HOST_INFO_JSON")"
 MARKER_DIR="$(dirname "$MARKER_PATH")"
+
+write_file_atomic_path() {
+  local path="$1"
+  local tmp
+  mkdir -p "$(dirname "$path")"
+  tmp="$(mktemp "${path}.XXXXXX")"
+  cat > "$tmp"
+  mv "$tmp" "$path"
+}
+
+write_all_repos_verify_summary_and_exit() {
+  local target_json="$1"
+  local selection_source="${2:-explicit-all-repos}"
+  local target_mode workspace_root candidate_count summary_items summary_json
+
+  target_mode="$(jq -r '.mode // empty' <<<"$target_json")"
+  workspace_root="$(jq -r '.workspace_root // .invocation_cwd' <<<"$target_json")"
+
+  if [ -n "$REPO_ARG" ]; then
+    jq -n --arg workspace_root "$workspace_root" '{
+      schema_version:"workspace-mcp-verify-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:"all-repos-conflicts-with-repo",
+      workspace_root:$workspace_root,
+      advisory:true,
+      next_action:"Use either --all-repos from a parent workspace or --repo <child>, not both."
+    }'
+    exit 1
+  fi
+
+  if [ "$target_mode" = "git-repo" ]; then
+    jq -n --arg workspace_root "$workspace_root" '{
+      schema_version:"workspace-mcp-verify-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:"all-repos-requires-parent-workspace",
+      workspace_root:$workspace_root,
+      advisory:true,
+      next_action:"Run --all-repos from a parent workspace containing child Git repos, or omit --all-repos in a single Git repo."
+    }'
+    exit 1
+  fi
+
+  candidate_count="$(jq -r '(.candidates // []) | length' <<<"$target_json")"
+  if [ "$candidate_count" -eq 0 ]; then
+    jq -n --argjson target "$target_json" '{
+      schema_version:"workspace-mcp-verify-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:($target.reason_code // "workspace-no-git-candidates"),
+      workspace_root:($target.workspace_root // null),
+      candidates:($target.candidates // []),
+      advisory:true,
+      next_action:($target.next_action // "Run from a parent workspace containing child Git repos.")
+    }'
+    exit 1
+  fi
+
+  mkdir -p "$MARKER_DIR"
+  summary_items="$(mktemp "${TMPDIR:-/tmp}/mcp-verify-all-repos.XXXXXX")"
+  jq -n '[]' > "$summary_items"
+  while IFS=$'\t' read -r child_label child_path; do
+    [ -n "$child_path" ] || continue
+    set +e
+    child_output="$(bash "$0" --repo "$child_path")"
+    child_status=$?
+    set -e
+    if [ -f "$MARKER_PATH" ] && jq -e . "$MARKER_PATH" >/dev/null 2>&1; then
+      child_ledger="$(cat "$MARKER_PATH")"
+      child_overall="$(jq -r 'if (.baseline_ready == true) then "ready" else "action-required" end' <<<"$child_ledger")"
+      child_reason="$(jq -r '.reason_code // empty' <<<"$child_ledger")"
+      child_result="$(jq -n --argjson ledger "$child_ledger" '{
+        schema_version:"mcp-verify-child-result.v1",
+        baseline_ready:($ledger.baseline_ready // false),
+        repo_config_status:($ledger.repo_config_status // "unknown"),
+        runtime_capabilities_status:($ledger.runtime_capabilities_status // "unknown"),
+        provider_artifacts_status:($ledger.provider_artifacts_status // "unknown"),
+        graph_bootstrap_required:($ledger.graph_bootstrap_required // true),
+        reason_code:($ledger.reason_code // ""),
+        next_actions:($ledger.next_actions // [])
+      }')"
+    else
+      child_overall="action-required"
+      child_reason="child-verify-ledger-unavailable"
+      child_result="$(jq -n --arg output "$child_output" '{schema_version:"mcp-verify-child-result.v1",baseline_ready:false,reason_code:"child-verify-ledger-unavailable",diagnostic:$output}')"
+    fi
+    if [ "$child_status" -ne 0 ] && [ "$child_overall" = "ready" ]; then
+      child_overall="action-required"
+      child_reason="child-verify-failed"
+    fi
+    jq \
+      --arg repo_label "$child_label" \
+      --arg workspace_relative_path "$child_path" \
+      --argjson exit_code "$child_status" \
+      --arg overall_status "$child_overall" \
+      --arg reason_code "$child_reason" \
+      --argjson result "$child_result" \
+      '. + [{
+        repo_label:$repo_label,
+        workspace_relative_path:$workspace_relative_path,
+        exit_code:$exit_code,
+        overall_status:$overall_status,
+        reason_code:(if $reason_code == "" then null else $reason_code end),
+        result:$result
+      }]' "$summary_items" > "$summary_items.next"
+    mv "$summary_items.next" "$summary_items"
+  done < <(jq -r '.candidates[] | [.repo_label, .workspace_relative_path] | @tsv' <<<"$target_json")
+
+  summary_json="$(jq -n \
+    --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    --arg selection_source "$selection_source" \
+    --argjson target "$target_json" \
+    --slurpfile items "$summary_items" \
+    '($items[0] // []) as $results
+    | {
+        schema_version:"workspace-mcp-verify-summary.v1",
+        generated_at:$generated_at,
+        advisory:true,
+        workflow_mode:"all-repos",
+        selection_source:$selection_source,
+        workspace_root:($target.workspace_root // null),
+        parent_writes_repo_local_artifacts:false,
+        results:$results,
+        counts:{
+          total:($results | length),
+          ready:([$results[] | select(.overall_status == "ready")] | length),
+          action_required:([$results[] | select(.overall_status != "ready")] | length)
+        },
+        overall_status:(
+          if ($results | length) == 0 then "action-required"
+          elif ([$results[] | select(.overall_status != "ready")] | length) == 0 then "ready"
+          elif ([$results[] | select(.overall_status == "ready")] | length) > 0 then "partial"
+          else "action-required"
+          end
+        ),
+        reason_code:(
+          if ($results | length) == 0 then "workspace-no-git-candidates"
+          elif ([$results[] | select(.overall_status != "ready")] | length) == 0 then null
+          else "all-repos-partial-or-action-required"
+          end
+        ),
+        next_action:(
+          if ([$results[] | select(.overall_status != "ready")] | length) == 0 then
+            "All child repos verified Required Harness Runtime readiness."
+          else
+            "Inspect per-child reason_code and rerun setup/verify for action-required repos."
+          end
+        )
+      }')"
+  rm -f "$summary_items"
+  printf '%s\n' "$summary_json" | write_file_atomic_path "$workspace_root/.spec-first/workspace/mcp-verify-summary.json"
+  printf '%s\n' "$summary_json"
+  if [ "$(jq -r '.overall_status' <<<"$summary_json")" = "action-required" ]; then
+    exit 1
+  fi
+  exit 0
+}
+
 DETECT_ARGS=()
-if [ -n "$REPO_ARG" ]; then
+if [ -n "$REPO_ARG" ] && [ "$ALL_REPOS" != "true" ]; then
   DETECT_ARGS+=(--repo "$REPO_ARG")
 fi
+
+if [ "$ALL_REPOS" = "true" ]; then
+  set +e
+  TARGET_JSON="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format json)"
+  TARGET_STATUS=$?
+  set -e
+  [ -n "$TARGET_JSON" ] || { echo "verify-tools.sh: target resolver returned no JSON output" >&2; exit 1; }
+  if [ "$TARGET_STATUS" -ne 0 ]; then
+    :
+  fi
+  write_all_repos_verify_summary_and_exit "$TARGET_JSON" "explicit-all-repos"
+fi
+
+if [ -z "$REPO_ARG" ]; then
+  set +e
+  DEFAULT_TARGET_JSON="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format json)"
+  DEFAULT_TARGET_STATUS=$?
+  set -e
+  [ -n "$DEFAULT_TARGET_JSON" ] || { echo "verify-tools.sh: target resolver returned no JSON output" >&2; exit 1; }
+  DEFAULT_TARGET_MODE="$(jq -r '.mode // empty' <<<"$DEFAULT_TARGET_JSON")"
+  DEFAULT_TARGET_CANDIDATE_COUNT="$(jq -r '(.candidates // []) | length' <<<"$DEFAULT_TARGET_JSON")"
+  if [ "$DEFAULT_TARGET_MODE" != "git-repo" ] && [ "$DEFAULT_TARGET_CANDIDATE_COUNT" -gt 0 ]; then
+    if [ "$DEFAULT_TARGET_STATUS" -ne 0 ]; then
+      :
+    fi
+    write_all_repos_verify_summary_and_exit "$DEFAULT_TARGET_JSON" "workspace-default-all-repos"
+  fi
+fi
+
 FACTS_JSON="$(bash "$SCRIPT_DIR/detect-tools.sh" ${DETECT_ARGS[@]+"${DETECT_ARGS[@]}"})"
 HELPER_JSON="$(bash "$SCRIPT_DIR/install-helpers.sh" --verify-only)"
 

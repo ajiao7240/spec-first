@@ -14,6 +14,7 @@ function issue(overrides = {}) {
     expert: 'engineering-quality-expert',
     static_confirmed: true,
     contract_status: 'confirmed',
+    confidence: 0.82,
     evidence: {
       code: [{ source: 'code', file: 'TradeViewModel.kt', summary: 'No failure state was detected.' }],
     },
@@ -199,6 +200,45 @@ describe('spec-app-consistency-audit evidence gate', () => {
       passed: true,
       reason: 'project_specific_evidence_present',
       project_evidence_count: 1,
+    }));
+  });
+
+  test('downgrades confirmed issues below the confidence threshold', () => {
+    const issues = applyEvidenceGate([
+      issue({
+        id: 'APP-AUDIT-013',
+        title: 'Low confidence confirmed issue',
+        confidence: 0.62,
+        evidence: {
+          code: [{ source: 'code', file: 'TradeViewModel.kt', summary: 'State looks incomplete.' }],
+        },
+      }),
+      issue({
+        id: 'APP-AUDIT-014',
+        title: 'High confidence confirmed issue',
+        confidence: 0.75,
+        evidence: {
+          code: [{ source: 'code', file: 'TradeViewModel.kt', summary: 'State is incomplete.' }],
+        },
+      }),
+    ]);
+
+    expect(issues[0]).toEqual(expect.objectContaining({
+      contract_status: 'candidate',
+      static_confirmed: false,
+    }));
+    expect(issues[0].evidence_gate).toEqual(expect.objectContaining({
+      passed: false,
+      reason: 'confirmed_issue_confidence_below_threshold',
+      confidence_threshold: 0.75,
+    }));
+    expect(issues[1]).toEqual(expect.objectContaining({
+      contract_status: 'confirmed',
+      static_confirmed: true,
+    }));
+    expect(issues[1].evidence_gate).toEqual(expect.objectContaining({
+      passed: true,
+      reason: 'project_specific_evidence_present',
     }));
   });
 

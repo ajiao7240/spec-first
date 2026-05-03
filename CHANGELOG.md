@@ -1,6 +1,24 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.2 2026-05-03 23:47:00 leokuang: style(graph-bootstrap): 对齐 provider bootstrap shell 脚本缩进
+- v1.6.2 2026-05-03 23:40:26 leokuang: fix(graph-bootstrap): 补强多仓 graph bootstrap 的无源码 fallback、环境失败分类、all-repos 进度和 final handoff 契约 (user-visible)
+- v1.6.2 2026-05-03 23:20:47 leokuang: docs(manual): 全面同步用户手册的工程闭环、多仓 workspace、graph readiness、App audit、FAQ 和产物边界说明 (user-visible)
+- v1.6.2 2026-05-03 23:20:05 leokuang: fix(spec-mcp-setup): 将 GitNexus runtime package pin 切换到 1.6.4-rc.48 (user-visible)
+- v1.6.2 2026-05-03 22:46:25 leokuang: feat(workspace-setup): 让父级多仓 workspace 下 mcp-setup 无参数默认处理全部 child repo 的 config、install 与 verify (user-visible)
+- v1.6.2 2026-05-03 22:42:44 leokuang: docs(manual): 在首次工作流走查中补充 CLI 安装、宿主初始化、mcp-setup 与 graph-bootstrap 环境准备步骤 (user-visible)
+- v1.6.2 2026-05-03 22:33:29 leokuang: docs(readme): 补充中英文 README 的当前工程闭环说明，串联 setup、graph、需求、执行、审查与知识进化节点 (user-visible)
+- v1.6.2 2026-05-03 22:26:19 leokuang: docs(readme): 补充中英文 README 的三种开发模式说明，明确 selected repo root 边界与 workflow mode 区分 (user-visible)
+- v1.6.2 2026-05-03 22:24:18 leokuang: feat(workspace-graph): 让父级多仓 workspace 下 graph bootstrap 无参数默认生成全部 child repo 图谱 readiness (user-visible)
+- v1.6.2 2026-05-03 18:59:02 leokuang: fix(workspace-graph): 修复多仓 all-repos PowerShell JSON 输出捕获、degraded 汇总语义和 legacy probe token parity (user-visible)
+- v1.6.2 2026-05-03 14:34:24 leokuang: feat(workspace-graph): 支持多仓 workspace advisory graph targets、显式 all-repos setup/bootstrap 与 GitNexus-first 只读路由 (user-visible)
+- v1.6.2 2026-05-03 13:44:37 leokuang: docs(tasks): 拆分多仓 workspace GitNexus-first 查询路由计划为可执行任务包 (user-visible)
+- v1.6.2 2026-05-03 13:34:21 leokuang: docs(plan): 根据方案审查补强多仓 GitNexus-first 计划的 dirty freshness、Serena language map、setup config、普通问答和 runtime delivery 边界 (user-visible)
+- v1.6.2 2026-05-03 12:57:44 leokuang: docs(plan): 新增多仓 workspace GitNexus-first 查询路由改造计划，明确 resolver、all-repos、downstream skill 与 probe candidate 验证边界 (user-visible)
+- v1.6.2 2026-05-03 01:46:48 leokuang: fix(graph-bootstrap): 修复 PowerShell graph-facts 字段漂移、空提交仓库 snapshot 误判、legacy probe token 校验和 provider artifact path 契约校验 (user-visible)
+- v1.6.2 2026-05-03 01:34:54 leokuang: fix(app-audit): 修复 preflight headless 缺 base 半写、二进制大资源误降级和超大文本扫描无界风险 (user-visible)
+- v1.6.2 2026-05-02 16:29:03 leokuang: fix(app-audit): 钉牢 repoRoot/sourceRoot、headless、report-only、run metadata 和 source-scoped diff 契约并补回归测试 (user-visible)
+- v1.6.2 2026-05-02 16:14:32 leokuang: docs(readme): 增加从安装到执行完成的端到端研发流程 ASCII 总览图 (user-visible)
 - v1.6.2 2026-05-02 15:55:52 leokuang: docs(app-audit): 更新用户手册与中英文 README，补齐 spec-app-consistency-audit 入口、适用场景、Figma evidence 边界和 .spec-first/app-audit 产物说明 (user-visible)
 - v1.6.2 2026-05-02 11:34:09 leokuang: fix(app-audit): 修复真实测试审查发现的 strict issue 空证据通过与 industry confirmed 正向路径缺失回归覆盖 (user-visible)
 - v1.6.2 2026-05-02 06:29:07 leokuang: docs(app-audit): 追加主测试链路通过记录，说明用户手册版本线漂移修复与 npm test 收口结果

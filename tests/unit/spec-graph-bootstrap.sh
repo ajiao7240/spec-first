@@ -5,6 +5,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
+WORKSPACE_TARGET_RESOLVER="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
 GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1]' "$TOOLS_JSON")"
 GITNEXUS_QUERY_PROBE="TradeLoginActivity"
@@ -51,6 +52,12 @@ make_fake_bin() {
 cat > "$bin_dir/npx" <<SH
 #!/bin/bash
 echo "npx \$*" >> "$log_file"
+if [[ "\${FAIL_GITNEXUS_NETWORK:-}" = "1" && " \$* " == *" gitnexus@"*" analyze "* ]]; then
+  echo "npm error code ENOTFOUND" >&2
+  echo "npm error syscall getaddrinfo" >&2
+  echo "npm error request to https://registry.npmmirror.com/gitnexus failed, reason: getaddrinfo ENOTFOUND registry.npmmirror.com" >&2
+  exit 1
+fi
 if [[ "\${FAIL_GITNEXUS_ANALYZE_SIGSEGV:-}" = "1" && " \$* " == *" gitnexus@"*" analyze "* ]]; then
   echo "Segmentation fault: 11" >&2
   exit 139
@@ -89,6 +96,10 @@ SH
   cat > "$bin_dir/uvx" <<SH
 #!/bin/bash
 echo "uvx \$*" >> "$log_file"
+if [[ "\${FAIL_CRG_CACHE_PERMISSION:-}" = "1" && " \$* " == *" code-review-graph build "* ]]; then
+  echo "error: failed to open file \"/Users/spec/.cache/uv/sdists-v9/.git\": Operation not permitted (os error 1)" >&2
+  exit 2
+fi
 if [[ "\${FAIL_CRG_BUILD:-}" = "1" && " \$* " == *" code-review-graph build "* ]]; then
   echo "build failed" >&2
   exit 43
@@ -99,6 +110,19 @@ SH
 }
 
 make_repo() {
+  local repo_dir="$1"
+  mkdir -p "$repo_dir"
+  git -C "$repo_dir" init -q
+  git -C "$repo_dir" config user.name "Spec First Test"
+  git -C "$repo_dir" config user.email "spec-first-test@example.invalid"
+  git -C "$repo_dir" config core.hooksPath /dev/null
+  printf '# fixture\n' > "$repo_dir/README.md"
+  git -C "$repo_dir" add README.md
+  git -C "$repo_dir" commit -q -m "Initial fixture commit"
+  mkdir -p "$repo_dir/.spec-first/config"
+}
+
+make_unborn_repo() {
   local repo_dir="$1"
   mkdir -p "$repo_dir"
   git -C "$repo_dir" init -q
@@ -208,10 +232,39 @@ JSON
 {
   "schema_version": "provider-artifacts.v1",
   "repo_root": "$repo_dir",
-  "providers": {},
+  "providers": {
+    "gitnexus": {
+      "raw_dir": ".spec-first/providers/gitnexus/raw",
+      "normalized_dir": ".spec-first/providers/gitnexus/normalized",
+      "status_path": ".spec-first/providers/gitnexus/status.json",
+      "raw_logs": {
+        "bootstrap": ".spec-first/providers/gitnexus/raw/analyze.log",
+        "status": ".spec-first/providers/gitnexus/raw/status.log",
+        "query_probe": ".spec-first/providers/gitnexus/raw/query.log"
+      },
+      "normalized_artifacts": {
+        "architecture_facts": ".spec-first/providers/gitnexus/normalized/architecture-facts.json",
+        "reuse_candidates": ".spec-first/providers/gitnexus/normalized/reuse-candidates.json"
+      }
+    },
+    "code-review-graph": {
+      "raw_dir": ".spec-first/providers/code-review-graph/raw",
+      "normalized_dir": ".spec-first/providers/code-review-graph/normalized",
+      "status_path": ".spec-first/providers/code-review-graph/status.json",
+      "raw_logs": {
+        "bootstrap": ".spec-first/providers/code-review-graph/raw/build.log",
+        "status": ".spec-first/providers/code-review-graph/raw/status.log",
+        "query_probe": ".spec-first/providers/code-review-graph/raw/query.log"
+      },
+      "normalized_artifacts": {
+        "impact_capabilities": ".spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
+      }
+    }
+  },
   "canonical": {
     "provider_status": ".spec-first/graph/provider-status.json",
     "graph_facts": ".spec-first/graph/graph-facts.json",
+    "bootstrap_report": ".spec-first/graph/bootstrap-report.md",
     "impact_capabilities": ".spec-first/impact/bootstrap-impact-capabilities.json"
   }
 }
@@ -232,16 +285,23 @@ WORKSPACE_LEDGER_A="$TMP_DIR/workspace-home-a/.codex/spec-first/host-setup.json"
 make_repo "$WORKSPACE_REPO_A"
 make_repo "$WORKSPACE_REPO_B"
 write_fixture_config "$WORKSPACE_REPO_A" "$WORKSPACE_LEDGER_A" true
-before_workspace_block_log="$(cat "$COMMAND_LOG")"
-set +e
-workspace_block_output="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
-workspace_block_status=$?
-set -e
-assert_eq "workspace parent without repo fails closed" "1" "$workspace_block_status"
-assert_eq "workspace parent reason requires target" "workspace-target-required" "$(jq -r '.reason_code' <<<"$workspace_block_output")"
-assert_eq "workspace parent lists child candidates" "2" "$(jq -r '.candidates | length' <<<"$workspace_block_output")"
-assert_eq "workspace parent does not run providers" "$before_workspace_block_log" "$(cat "$COMMAND_LOG")"
-assert "workspace parent does not create graph artifacts" test ! -e "$TMP_DIR/workspace/.spec-first/graph"
+workspace_targets_output="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
+assert_eq "workspace graph target resolver schema" "workspace-graph-targets.v1" "$(jq -r '.schema_version' <<<"$workspace_targets_output")"
+assert_eq "workspace graph target resolver keeps parent advisory" "true:false" "$(jq -r '(.advisory | tostring) + ":" + (.parent_writes_repo_local_artifacts | tostring)' <<<"$workspace_targets_output")"
+assert_eq "workspace graph target resolver lists children" "2" "$(jq -r '.repos | length' <<<"$workspace_targets_output")"
+assert_eq "workspace graph target resolver sees setup-ready child" "setup-ready-bootstrap-required" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | .status' <<<"$workspace_targets_output")"
+assert_eq "workspace graph target resolver sees unconfigured child" "unavailable" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-b") | .status' <<<"$workspace_targets_output")"
+assert_eq "workspace graph target resolver reads setup-owned config pointers" ".spec-first/config/graph-providers.json|.spec-first/config/runtime-capabilities.json|.spec-first/config/provider-artifacts.json" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | [.artifacts.graph_providers,.artifacts.runtime_capabilities,.artifacts.provider_artifacts] | join("|")' <<<"$workspace_targets_output")"
+assert "workspace graph target resolver does not create parent graph artifacts" test ! -e "$TMP_DIR/workspace/.spec-first/graph"
+
+workspace_default_output="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "workspace parent without repo defaults to all repos" "workspace-graph-bootstrap-summary.v1" "$(jq -r '.schema_version' <<<"$workspace_default_output")"
+assert_eq "workspace parent default all-repos selection source" "workspace-default-all-repos" "$(jq -r '.selection_source' <<<"$workspace_default_output")"
+assert_eq "workspace parent default all-repos reports partial success" "partial:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$workspace_default_output")"
+assert_eq "workspace parent default all-repos records missing child config" "project-b:missing_provider_config" "$(jq -r '.results[] | select(.workspace_relative_path=="project-b") | "\(.repo_label):\(.reason_code)"' <<<"$workspace_default_output")"
+assert "workspace parent default all-repos writes advisory workspace summary" test -f "$TMP_DIR/workspace/.spec-first/workspace/graph-bootstrap-summary.json"
+assert "workspace parent default all-repos writes child graph facts" test -f "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json"
+assert "workspace parent default all-repos does not create parent graph artifacts" test ! -e "$TMP_DIR/workspace/.spec-first/graph"
 
 SINGLE_WORKSPACE="$TMP_DIR/single-workspace"
 make_repo "$SINGLE_WORKSPACE/project-only"
@@ -250,9 +310,63 @@ set +e
 single_block_output="$(cd "$SINGLE_WORKSPACE" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 single_block_status=$?
 set -e
-assert_eq "single child workspace also fails closed" "1" "$single_block_status"
-assert_eq "single child workspace remains target-required" "workspace-target-required" "$(jq -r '.reason_code' <<<"$single_block_output")"
-assert_eq "single child workspace does not run providers" "$before_single_block_log" "$(cat "$COMMAND_LOG")"
+assert_eq "single child workspace defaults to all repos and reports action required" "1" "$single_block_status"
+assert_eq "single child workspace summary schema" "workspace-graph-bootstrap-summary.v1" "$(jq -r '.schema_version' <<<"$single_block_output")"
+assert_eq "single child workspace default all-repos reason" "all-repos-partial-or-action-required" "$(jq -r '.reason_code' <<<"$single_block_output")"
+assert_eq "single child workspace default all-repos selection source" "workspace-default-all-repos" "$(jq -r '.selection_source' <<<"$single_block_output")"
+assert_eq "single child workspace does not run providers without child config" "$before_single_block_log" "$(cat "$COMMAND_LOG")"
+
+ALL_REPOS_WORKSPACE="$TMP_DIR/all-repos-workspace"
+ALL_REPOS_LEDGER="$TMP_DIR/all-repos-home/.codex/spec-first/host-setup.json"
+make_repo "$ALL_REPOS_WORKSPACE/project-a"
+make_repo "$ALL_REPOS_WORKSPACE/project-b"
+write_fixture_config "$ALL_REPOS_WORKSPACE/project-a" "$ALL_REPOS_LEDGER" true
+all_repos_progress_err="$TMP_DIR/all-repos-progress.err"
+all_repos_output="$(cd "$ALL_REPOS_WORKSPACE" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --all-repos 2>"$all_repos_progress_err")"
+assert_eq "all-repos graph bootstrap emits workspace summary" "workspace-graph-bootstrap-summary.v1" "$(jq -r '.schema_version' <<<"$all_repos_output")"
+assert_eq "all-repos graph bootstrap records explicit selection source" "explicit-all-repos" "$(jq -r '.selection_source' <<<"$all_repos_output")"
+assert_eq "all-repos graph bootstrap records run id" "true" "$(jq -r '(.run_id | type == "string") and (.run_id | length > 0)' <<<"$all_repos_output")"
+assert_eq "all-repos child rows carry parent run id" "true" "$(jq -r '(.run_id as $run_id | all(.results[]; .parent_run_id == $run_id))' <<<"$all_repos_output")"
+assert_eq "all-repos graph bootstrap reports partial success" "partial:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$all_repos_output")"
+assert_eq "all-repos graph bootstrap records child reason" "project-b:missing_provider_config" "$(jq -r '.results[] | select(.workspace_relative_path=="project-b") | "\(.repo_label):\(.reason_code)"' <<<"$all_repos_output")"
+assert_contains "all-repos graph bootstrap prints child start progress" "all-repos child 1/2 start repo=project-a" "$(cat "$all_repos_progress_err")"
+assert_contains "all-repos graph bootstrap prints child finish progress" "all-repos child 1/2 finish repo=project-a status=ready workflow=primary" "$(cat "$all_repos_progress_err")"
+assert "all-repos graph bootstrap writes advisory workspace summary" test -f "$ALL_REPOS_WORKSPACE/.spec-first/workspace/graph-bootstrap-summary.json"
+assert "all-repos graph bootstrap writes child graph facts" test -f "$ALL_REPOS_WORKSPACE/project-a/.spec-first/graph/graph-facts.json"
+assert "all-repos graph bootstrap does not write parent graph facts" test ! -e "$ALL_REPOS_WORKSPACE/.spec-first/graph"
+
+ALL_REPOS_DEGRADED_WORKSPACE="$TMP_DIR/all-repos-degraded-workspace"
+ALL_REPOS_DEGRADED_LEDGER="$TMP_DIR/all-repos-degraded-home/.codex/spec-first/host-setup.json"
+make_repo "$ALL_REPOS_DEGRADED_WORKSPACE/project-a"
+make_repo "$ALL_REPOS_DEGRADED_WORKSPACE/project-b"
+write_fixture_config "$ALL_REPOS_DEGRADED_WORKSPACE/project-a" "$ALL_REPOS_DEGRADED_LEDGER" true
+write_fixture_config "$ALL_REPOS_DEGRADED_WORKSPACE/project-b" "$ALL_REPOS_DEGRADED_LEDGER" true
+all_repos_degraded_output="$(cd "$ALL_REPOS_DEGRADED_WORKSPACE" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT" --all-repos)"
+assert_eq "all-repos graph bootstrap keeps degraded children non-blocking" "partial:0:2:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.degraded):\(.counts.action_required)"' <<<"$all_repos_degraded_output")"
+assert_eq "all-repos graph bootstrap reports degraded reason separately" "all-repos-degraded-fallback" "$(jq -r '.reason_code' <<<"$all_repos_degraded_output")"
+assert_contains "all-repos degraded next action discloses limitations" "Use degraded child artifacts with disclosed limitations" "$(jq -r '.next_action' <<<"$all_repos_degraded_output")"
+
+ALL_REPOS_SINGLE_REPO="$TMP_DIR/all-repos-single-repo"
+make_repo "$ALL_REPOS_SINGLE_REPO"
+set +e
+all_repos_single_output="$(cd "$ALL_REPOS_SINGLE_REPO" 2>/dev/null && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --all-repos)"
+all_repos_single_status=$?
+set -e
+assert_eq "all-repos inside git repo fails closed" "1" "$all_repos_single_status"
+assert_eq "all-repos inside git repo reason" "all-repos-requires-parent-workspace" "$(jq -r '.reason_code' <<<"$all_repos_single_output")"
+
+UNBORN_REPO="$TMP_DIR/unborn-repo"
+UNBORN_LEDGER="$TMP_DIR/unborn-home/.codex/spec-first/host-setup.json"
+make_unborn_repo "$UNBORN_REPO"
+write_fixture_config "$UNBORN_REPO" "$UNBORN_LEDGER" true
+before_unborn_log="$(cat "$COMMAND_LOG")"
+set +e
+unborn_output="$(cd "$UNBORN_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+unborn_status=$?
+set -e
+assert_eq "unborn repository fails snapshot validation" "1" "$unborn_status"
+assert_eq "unborn repository reason" "repo-snapshot-unavailable" "$(jq -r '.reason_code' <<<"$unborn_output")"
+assert_eq "unborn repository does not run providers" "$before_unborn_log" "$(cat "$COMMAND_LOG")"
 
 workspace_selected_output="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --repo project-a)"
 WORKSPACE_REPO_A_ROOT="$(cd "$WORKSPACE_REPO_A" && pwd -P)"
@@ -261,6 +375,10 @@ assert_eq "workspace explicit child records explicit selection" "explicit-repo" 
 assert "workspace explicit child writes child graph facts" test -f "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json"
 assert "workspace explicit child leaves parent graph clean" test ! -e "$TMP_DIR/workspace/.spec-first/graph"
 assert_contains "workspace explicit child runs provider from child root" "uvx --upgrade code-review-graph status --repo $WORKSPACE_REPO_A_ROOT" "$(cat "$COMMAND_LOG")"
+
+workspace_targets_after_bootstrap="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
+assert_eq "dirty graph facts without fingerprint are uncertain" "dirty-uncertain:true" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | .status + ":" + (.freshness.dirty_uncertain | tostring)' <<<"$workspace_targets_after_bootstrap")"
+assert_contains "dirty uncertainty limitation is explicit" "dirty worktree without a matching status fingerprint" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | .limitations | join(" ")' <<<"$workspace_targets_after_bootstrap")"
 
 PRIMARY_REPO="$TMP_DIR/primary-repo"
 PRIMARY_LEDGER="$TMP_DIR/primary-home/.codex/spec-first/host-setup.json"
@@ -282,10 +400,29 @@ assert "impact capabilities exists" test -f "$PRIMARY_REPO/.spec-first/impact/bo
 assert "provider raw log exists" test -f "$PRIMARY_REPO/.spec-first/providers/gitnexus/raw/analyze.log"
 assert "normalized artifact exists" test -f "$PRIMARY_REPO/.spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
 assert "old graph raw path is not used" test ! -e "$PRIMARY_REPO/.spec-first/graph/raw/gitnexus"
+assert_eq "graph facts source revision is a commit SHA" "true" "$(jq -r '.source_revision | test("^[0-9a-f]{40}$")' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
+assert_eq "graph facts exposes capability booleans" "true:true" "$(jq -r '(.capabilities.query_global_graph | tostring) + ":" + (.capabilities.impact_context | tostring)' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
+assert_eq "graph facts exposes staleness hints" "true:true" "$(jq -r '(.staleness_hints.compare_source_revision | tostring) + ":" + (.staleness_hints.compare_worktree_dirty | tostring)' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
 assert_eq "provider status records command source" ".spec-first/config/graph-providers.json" "$(jq -r '.command_source' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "provider status records expected-hit query policy" "true:git-ls-files-code-basename:$GITNEXUS_QUERY_PROBE" "$(jq -r '.query_probe_policy | "\(.expected_hit):\(.source):\(.token)"' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "graph-bootstrap does not mutate provider config input" "$primary_provider_config_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
 assert_eq "graph-bootstrap does not mutate runtime capabilities input" "$primary_runtime_capabilities_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
+
+CLEAN_GRAPH_REPO="$TMP_DIR/clean-graph-repo"
+CLEAN_GRAPH_LEDGER="$TMP_DIR/clean-graph-home/.codex/spec-first/host-setup.json"
+make_repo "$CLEAN_GRAPH_REPO"
+write_fixture_config "$CLEAN_GRAPH_REPO" "$CLEAN_GRAPH_LEDGER" true
+git -C "$CLEAN_GRAPH_REPO" add .spec-first/config
+git -C "$CLEAN_GRAPH_REPO" commit -q -m "Add setup facts"
+clean_graph_output="$(cd "$CLEAN_GRAPH_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "clean graph bootstrap is primary" "primary" "$(jq -r '.workflow_mode' <<<"$clean_graph_output")"
+clean_graph_targets="$(cd "$CLEAN_GRAPH_REPO" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
+assert_eq "single repo graph target resolver can report primary" "primary:true:true" "$(jq -r '.repos[0] | .status + ":" + (.capabilities.query_global_graph | tostring) + ":" + (.capabilities.impact_context | tostring)' <<<"$clean_graph_targets")"
+printf 'changed\n' >> "$CLEAN_GRAPH_REPO/README.md"
+git -C "$CLEAN_GRAPH_REPO" add README.md
+git -C "$CLEAN_GRAPH_REPO" commit -q -m "Change source revision"
+stale_graph_targets="$(cd "$CLEAN_GRAPH_REPO" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
+assert_eq "source revision mismatch marks stale" "stale:true:false" "$(jq -r '.repos[0] | .status + ":" + (.freshness.stale | tostring) + ":" + (.freshness.source_revision_matches | tostring)' <<<"$stale_graph_targets")"
 
 MULTI_PROBE_REPO="$TMP_DIR/multi-probe-repo"
 MULTI_PROBE_LEDGER="$TMP_DIR/multi-probe-home/.codex/spec-first/host-setup.json"
@@ -399,6 +536,36 @@ assert_eq "metachar command fails closed" "1" "$metachar_status"
 assert_eq "metachar command reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$metachar_output")"
 assert_eq "metachar command is not shell-interpreted" "$before_metachar_log" "$(cat "$COMMAND_LOG")"
 
+LEGACY_TOKEN_REPO="$TMP_DIR/legacy-token-repo"
+LEGACY_TOKEN_LEDGER="$TMP_DIR/legacy-token-home/.codex/spec-first/host-setup.json"
+make_repo "$LEGACY_TOKEN_REPO"
+write_fixture_config "$LEGACY_TOKEN_REPO" "$LEGACY_TOKEN_LEDGER" true
+jq '.providers.gitnexus.query_probe_policy.token = "TradeLoginActivity;rm" | del(.providers.gitnexus.query_probe_policy.candidates)' "$LEGACY_TOKEN_REPO/.spec-first/config/graph-providers.json" > "$LEGACY_TOKEN_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$LEGACY_TOKEN_REPO/.spec-first/config/graph-providers.json.tmp" "$LEGACY_TOKEN_REPO/.spec-first/config/graph-providers.json"
+before_legacy_token_log="$(cat "$COMMAND_LOG")"
+set +e
+legacy_token_output="$(cd "$LEGACY_TOKEN_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+legacy_token_status=$?
+set -e
+assert_eq "unsafe legacy query token fails closed" "1" "$legacy_token_status"
+assert_eq "unsafe legacy query token reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$legacy_token_output")"
+assert_eq "unsafe legacy query token is not executed" "$before_legacy_token_log" "$(cat "$COMMAND_LOG")"
+
+ARTIFACT_DRIFT_REPO="$TMP_DIR/artifact-drift-repo"
+ARTIFACT_DRIFT_LEDGER="$TMP_DIR/artifact-drift-home/.codex/spec-first/host-setup.json"
+make_repo "$ARTIFACT_DRIFT_REPO"
+write_fixture_config "$ARTIFACT_DRIFT_REPO" "$ARTIFACT_DRIFT_LEDGER" true
+jq '.canonical.graph_facts = ".spec-first/graph/drifted.json"' "$ARTIFACT_DRIFT_REPO/.spec-first/config/provider-artifacts.json" > "$ARTIFACT_DRIFT_REPO/.spec-first/config/provider-artifacts.json.tmp"
+mv "$ARTIFACT_DRIFT_REPO/.spec-first/config/provider-artifacts.json.tmp" "$ARTIFACT_DRIFT_REPO/.spec-first/config/provider-artifacts.json"
+before_artifact_drift_log="$(cat "$COMMAND_LOG")"
+set +e
+artifact_drift_output="$(cd "$ARTIFACT_DRIFT_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+artifact_drift_status=$?
+set -e
+assert_eq "provider artifact path drift fails closed" "1" "$artifact_drift_status"
+assert_eq "provider artifact path drift reason" "readiness-conflict" "$(jq -r '.reason_code' <<<"$artifact_drift_output")"
+assert_eq "provider artifact path drift does not run providers" "$before_artifact_drift_log" "$(cat "$COMMAND_LOG")"
+
 METADATA_REPO="$TMP_DIR/metadata-repo"
 METADATA_LEDGER="$TMP_DIR/metadata-home/.codex/spec-first/host-setup.json"
 make_repo "$METADATA_REPO"
@@ -443,6 +610,26 @@ assert_contains "definitions-only reason is structured" "definitions-only eviden
 assert_contains "bootstrap report includes probe token column" "Probe Token" "$(cat "$DEFINITIONS_ONLY_REPO/.spec-first/graph/bootstrap-report.md")"
 assert_contains "bootstrap report includes definitions-only evidence" "definitions-only evidence" "$(cat "$DEFINITIONS_ONLY_REPO/.spec-first/graph/bootstrap-report.md")"
 
+NO_SOURCE_FALLBACK_REPO="$TMP_DIR/no-source-fallback-repo"
+NO_SOURCE_FALLBACK_LEDGER="$TMP_DIR/no-source-fallback-home/.codex/spec-first/host-setup.json"
+make_repo "$NO_SOURCE_FALLBACK_REPO"
+write_fixture_config "$NO_SOURCE_FALLBACK_REPO" "$NO_SOURCE_FALLBACK_LEDGER" true
+jq '
+  .providers.gitnexus.commands.query_probe[4] = "main src build README package"
+  | .providers.gitnexus.query_probe_policy.expected_hit = false
+  | .providers.gitnexus.query_probe_policy.source = "fallback-static"
+  | .providers.gitnexus.query_probe_policy.token = "main src build README package"
+  | .providers.gitnexus.query_probe_policy.selected_from = null
+  | .providers.gitnexus.query_probe_policy.candidates = [
+      {token:"main src build README package", selected_from:null, reason_code:"fallback-static"}
+    ]
+' "$NO_SOURCE_FALLBACK_REPO/.spec-first/config/graph-providers.json" > "$NO_SOURCE_FALLBACK_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$NO_SOURCE_FALLBACK_REPO/.spec-first/config/graph-providers.json.tmp" "$NO_SOURCE_FALLBACK_REPO/.spec-first/config/graph-providers.json"
+no_source_fallback_output="$(cd "$NO_SOURCE_FALLBACK_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "no-source fallback policy is degraded not blocked" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$no_source_fallback_output")"
+assert_eq "no-source fallback keeps null selected_from" "null:fallback-static:definitions-only:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_attempts[0].selected_from | tostring):\(.query_probe_attempts[0].reason_code):\(.query_probe_attempts[0].result_class):\(.query_ready)"' <<<"$no_source_fallback_output")"
+assert_eq "no-source fallback policy preserves nullable source pointer" "false:null:fallback-static" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_policy.expected_hit):\(.query_probe_policy.selected_from | tostring):\(.query_probe_policy.source)"' <<<"$no_source_fallback_output")"
+
 SIGSEGV_REPO="$TMP_DIR/sigsegv-repo"
 SIGSEGV_LEDGER="$TMP_DIR/sigsegv-home/.codex/spec-first/host-setup.json"
 make_repo "$SIGSEGV_REPO"
@@ -451,6 +638,24 @@ sigsegv_output="$(cd "$SIGSEGV_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_ANALYZE_
 assert_eq "GitNexus sigsegv degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$sigsegv_output")"
 assert_eq "GitNexus sigsegv has structured reason" "failed:gitnexus-analyze-sigsegv:provider-crash:bootstrap:139" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$sigsegv_output")"
 assert_contains "GitNexus sigsegv limitation recommends fallback" "Do not trust GitNexus artifacts" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$sigsegv_output")"
+
+NETWORK_REPO="$TMP_DIR/network-repo"
+NETWORK_LEDGER="$TMP_DIR/network-home/.codex/spec-first/host-setup.json"
+make_repo "$NETWORK_REPO"
+write_fixture_config "$NETWORK_REPO" "$NETWORK_LEDGER" true
+network_output="$(cd "$NETWORK_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_NETWORK=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "GitNexus network failure degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$network_output")"
+assert_eq "GitNexus network failure is environment classified" "failed:provider-network-unavailable:provider-environment:bootstrap:1" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$network_output")"
+assert_contains "GitNexus network failure recommends network/cache fix" "registry or network resolution failed" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$network_output")"
+
+CRG_CACHE_REPO="$TMP_DIR/crg-cache-repo"
+CRG_CACHE_LEDGER="$TMP_DIR/crg-cache-home/.codex/spec-first/host-setup.json"
+make_repo "$CRG_CACHE_REPO"
+write_fixture_config "$CRG_CACHE_REPO" "$CRG_CACHE_LEDGER" true
+crg_cache_output="$(cd "$CRG_CACHE_REPO" && PATH="$TEST_PATH" FAIL_CRG_CACHE_PERMISSION=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "code-review-graph cache failure degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$crg_cache_output")"
+assert_eq "code-review-graph cache failure is environment classified" "failed:provider-cache-permission-denied:provider-environment:bootstrap:2" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$crg_cache_output")"
+assert_contains "code-review-graph cache failure recommends permission fix" "Provider cache access was denied" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .limitations | join(" ")' <<<"$crg_cache_output")"
 
 NO_FALLBACK_REPO="$TMP_DIR/no-fallback-repo"
 NO_FALLBACK_LEDGER="$TMP_DIR/no-fallback-home/.codex/spec-first/host-setup.json"

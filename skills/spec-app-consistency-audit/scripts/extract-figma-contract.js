@@ -319,7 +319,7 @@ function visit(node, callback) {
 if (require.main === module) {
   try {
     const options = parseCommonArgs(process.argv.slice(2));
-    writeJsonOutput(extractFigmaContract(options), options.output);
+    writeJsonOutput(extractFigmaContract(options), options.output, options);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

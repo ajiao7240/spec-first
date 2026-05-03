@@ -65,6 +65,12 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('Do not modify generated `.claude/`, `.codex/`, or `.agents/skills/` mirrors');
     expect(skill).toContain('environment setup, host setup, MCP setup, missing tools, or host readiness');
     expect(skill).toContain('project-local setup');
+    expect(skill).toContain('Parent Workspace Graph Evidence');
+    expect(skill).toContain('workspace-graph-targets.v1');
+    expect(skill).toContain('GitNexus-first evidence');
+    expect(skill).toContain('bounded candidate repos');
+    expect(skill).toContain('degraded-fallback');
+    expect(skill).toContain('explicit `target_repo` / per-child scope');
     expect(skill).toContain('/spec:' + 'graph' + '-bootstrap');
     expect(skill).toContain('$spec-' + 'graph' + '-bootstrap');
     expect(skill).not.toContain('/spec:setup');

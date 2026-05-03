@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 'use strict';
 
-const fs = require('node:fs');
 const path = require('node:path');
 
 const {
   parseCommonArgs,
   readJson,
   redactForArtifactText,
+  writeTextOutput,
 } = require('./lib/audit-utils');
 
 function renderHeadlessEnvelope(options = {}) {
@@ -167,12 +167,7 @@ if (require.main === module) {
   try {
     const options = parseArgs(process.argv.slice(2));
     const envelope = renderHeadlessEnvelope(options);
-    if (options.output) {
-      fs.mkdirSync(path.dirname(path.resolve(options.output)), { recursive: true });
-      fs.writeFileSync(path.resolve(options.output), envelope);
-    } else {
-      process.stdout.write(envelope);
-    }
+    writeTextOutput(envelope, options.output, options);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;
