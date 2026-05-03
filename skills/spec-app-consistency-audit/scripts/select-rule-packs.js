@@ -18,6 +18,7 @@ function selectRulePacks(options = {}) {
   const preflight = options.preflight ? readArtifact(options.preflight) : null;
   const industryProfile = options.industryProfile ? readArtifact(options.industryProfile) : null;
   const explicitIndustry = options.industry || options.confirmedIndustry || null;
+  const confirmedIndustry = options.confirmedIndustry || null;
   const selected = [];
   const degradedModes = [];
 
@@ -49,15 +50,17 @@ function selectRulePacks(options = {}) {
   const previewIndustry = industryCandidates[0] ? industryCandidates[0].industry : null;
   const industry = explicitIndustry || previewIndustry;
   if (industry) {
-    const confirmed = Boolean(explicitIndustry || options.confirmedIndustry);
+    const confirmed = confirmedIndustry === industry;
     if (rulePackPath(industry, 'industry')) {
       selected.push(rulePack(
         industry,
         'industry',
         !confirmed,
         confirmed
-          ? `Industry ${industry} was explicitly specified or confirmed.`
-          : `Industry ${industry} came from preview profile and remains advisory-only.`,
+          ? `Industry ${industry} was confirmed by caller-provided profile.`
+          : (options.industry === industry
+            ? `Industry ${industry} was explicitly selected as a lens and remains advisory-only until confirmed.`
+            : `Industry ${industry} came from preview profile and remains advisory-only.`),
         industryCandidates.find((candidate) => candidate.industry === industry),
       ));
     } else {

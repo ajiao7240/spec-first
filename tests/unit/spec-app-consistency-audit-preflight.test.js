@@ -185,6 +185,26 @@ describe('spec-app-consistency-audit preflight', () => {
     }
   });
 
+  test('unreadable explicit source does not reuse repo root hash as source evidence', () => {
+    const repoRoot = makeRepo();
+    try {
+      const missingSource = 'missing-mobile-app';
+      const artifact = runPreflight({ repoRoot, source: missingSource });
+      const codes = artifact.degraded_modes.map((mode) => mode.code);
+
+      expect(codes).toContain('source_unreadable');
+      expect(artifact.source_inputs[0]).toEqual(expect.objectContaining({
+        type: 'code',
+        path: 'missing-mobile-app',
+        source_hash_unavailable_reason: 'source_missing',
+        freshness: 'unavailable',
+      }));
+      expect(artifact.source_inputs[0].source_hash).toBeUndefined();
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   test('records file size degraded fact for oversized PRD', () => {
     const repoRoot = makeRepo();
     try {
@@ -272,6 +292,24 @@ describe('spec-app-consistency-audit preflight', () => {
       expect(scan.scannedTextLikeFileCount).toBe(3);
       expect(scan.skippedLargeFileCount).toBe(3);
       expect(scan.skippedLargeFiles).toHaveLength(2);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('source scan truncation does not claim full preflight source freshness', () => {
+    const repoRoot = makeRepo();
+    try {
+      const artifact = runPreflight({
+        repoRoot,
+        source: repoRoot,
+        maxScanFiles: 1,
+      });
+
+      expect(artifact.source_inputs[0].source_hash).toBeUndefined();
+      expect(artifact.source_inputs[0].source_hash_unavailable_reason).toBe('file_scan_truncated');
+      expect(artifact.source_inputs[0].freshness).toBe('partial-worktree');
+      expect(artifact.degraded_modes.map((mode) => mode.code)).toContain('source_scan_truncated');
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }

@@ -72,6 +72,7 @@ describe('spec-app-consistency-audit artifact validation', () => {
       expect(schema.required).toEqual(expect.arrayContaining(['schema_version', 'artifact_id']));
     }
     const issueSchema = JSON.parse(fs.readFileSync(path.join(schemaDir, 'issue.schema.json'), 'utf8'));
+    const reportSchema = JSON.parse(fs.readFileSync(path.join(schemaDir, 'audit-report.schema.json'), 'utf8'));
     const manifestSchema = JSON.parse(fs.readFileSync(path.join(schemaDir, 'artifact-manifest.schema.json'), 'utf8'));
     expect(issueSchema.$schema).toContain('json-schema.org');
     expect(issueSchema.required).toEqual(expect.arrayContaining([
@@ -81,6 +82,36 @@ describe('spec-app-consistency-audit artifact validation', () => {
       'validation_status',
       'review_lifecycle',
     ]));
+    expect(issueSchema.allOf).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        if: expect.objectContaining({
+          properties: { contract_status: { const: 'confirmed' } },
+        }),
+      }),
+      expect.objectContaining({
+        if: expect.objectContaining({
+          properties: { contract_status: { enum: ['candidate', 'rejected'] } },
+        }),
+      }),
+    ]));
+    expect(issueSchema.$defs.evidence_entry.anyOf).toEqual(expect.arrayContaining([
+      { required: ['file'] },
+      { required: ['artifact_id'] },
+      { required: ['route'] },
+    ]));
+    expect(reportSchema.$defs.audit_issue.allOf).toHaveLength(2);
+    expect(reportSchema.$defs.evidence_entry.anyOf).toEqual(expect.arrayContaining([
+      { required: ['file'] },
+      { required: ['artifact_id'] },
+      { required: ['route'] },
+    ]));
+    const metadataSchema = JSON.parse(fs.readFileSync(path.join(schemaDir, 'metadata.schema.json'), 'utf8'));
+    expect(metadataSchema.required).toEqual(expect.arrayContaining([
+      'status',
+      'status_reason_codes',
+      'started_at',
+    ]));
+    expect(metadataSchema.properties.status.enum).toEqual(['started', 'complete', 'degraded', 'failed']);
     expect(manifestSchema.properties.artifacts.items.required).toEqual(expect.arrayContaining([
       'schema_version',
       'artifact_id',
@@ -110,6 +141,35 @@ describe('spec-app-consistency-audit artifact validation', () => {
 
     expect(validateArtifact(artifact).errors.map((entry) => entry.code)).toContain('script_artifact_must_be_candidate');
     expect(validateArtifact(artifact, { requireCandidate: false }).valid).toBe(true);
+  });
+
+  test('validates metadata lifecycle status fields', () => {
+    const metadata = validBase({
+      schema_version: 'spec-app-consistency-audit-metadata.v1',
+      artifact_id: 'metadata',
+      run_id: 'run',
+      host: 'codex',
+      mode: 'headless',
+      head_sha: 'abc123',
+      diff_hash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      diff_scope_kind: 'git_diff',
+      worktree_fingerprint: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      audit_verdict_scope: 'source_only_app_static_audit',
+      run_dir: '.spec-first/app-audit/runs/run',
+      summary_path: '.spec-first/app-audit/runs/run/app-consistency-audit.summary.md',
+      issues_path: '.spec-first/app-audit/runs/run/issues.json',
+      status: 'started',
+      status_reason_codes: [],
+      started_at: '2026-05-03T00:00:00.000Z',
+      coverage_capabilities: {},
+      input_expectations: {},
+    });
+    const missingStatus = { ...metadata, status: undefined };
+    const invalidStatus = { ...metadata, status: 'done' };
+
+    expect(validateArtifact(metadata).valid).toBe(true);
+    expect(validateArtifact(missingStatus).errors.map((entry) => entry.path)).toContain('status');
+    expect(validateArtifact(invalidStatus).errors.map((entry) => entry.code)).toContain('invalid_metadata_status');
   });
 
   test('validates preflight-specific fields', () => {
@@ -259,6 +319,47 @@ describe('spec-app-consistency-audit artifact validation', () => {
 
     expect(validateArtifact(strictReport, { strictIssues: true }).valid).toBe(true);
     expect(validateArtifact(broken, { strictIssues: true }).errors.map((entry) => entry.code)).toContain('string_required');
+  });
+
+  test('rejects static_confirmed and contract_status mismatches', () => {
+    const baseIssue = {
+      id: 'APP-AUDIT-STATUS-MISMATCH',
+      title: 'Status mismatch',
+      severity: 'medium',
+      category: 'analytics',
+      claim_family: 'analytics_static',
+      claim_type: 'missing_event',
+      affected_surface: { type: 'event', id: 'trade_submit', file: 'Analytics.kt' },
+      expert: 'analytics-expert',
+      static_confirmed: true,
+      requires_runtime_verification: false,
+      requires_real_device: false,
+      contract_status: 'candidate',
+      confidence: 0.6,
+      provenance: [{ source: 'analytics', file: 'Analytics.kt', summary: 'Event evidence.' }],
+      evidence: { analytics: [{ file: 'Analytics.kt', summary: 'Event evidence.' }] },
+      impact: ['Candidate impact.'],
+      recommendation: ['Review the candidate.'],
+      related_rule_packs: ['analytics'],
+      runtime_verification: { required: false },
+      validation_status: 'not_required',
+      review_lifecycle: [{ stage: 'normalize', action: 'accepted', reason_code: 'fixture' }],
+      data_sensitivity: 'internal',
+    };
+    const report = validBase({
+      schema_version: 'spec-app-consistency-audit-report.v1',
+      artifact_id: 'audit-report',
+      summary: { blocker_count: 0 },
+      scope_and_degraded_modes: [],
+      issues: [baseIssue],
+      rejected_issues: [{ ...baseIssue, id: 'APP-AUDIT-REJECTED-MISMATCH', contract_status: 'rejected' }],
+    });
+    const errors = validateArtifact(report).errors;
+
+    expect(errors.map((entry) => entry.code)).toEqual(expect.arrayContaining([
+      'static_confirmed_contract_status_mismatch',
+    ]));
+    expect(errors.filter((entry) => entry.code === 'static_confirmed_contract_status_mismatch')).toHaveLength(2);
   });
 
   test('strict issue mode rejects empty evidence and provenance entries without traceable fields', () => {

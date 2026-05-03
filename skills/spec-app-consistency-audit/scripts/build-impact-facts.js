@@ -54,7 +54,8 @@ function buildImpactFacts(options = {}) {
     sourceRoot: source.sourceRoot,
     changedFiles: sourceScopedChangedFiles,
     mode: options.mode || 'default',
-    industry: options.industry || null,
+    industry: options.industry || options.confirmedIndustry || null,
+    confirmedIndustry: options.confirmedIndustry || null,
   });
   const sourceInputs = [
     diffScope.sourceInput,
@@ -208,7 +209,7 @@ function buildCandidateSignals(options) {
       });
     }
 
-    const industrySignal = inferIndustrySignal(filePath, text, options.industry);
+    const industrySignal = inferIndustrySignal(filePath, text, options.industry, options.confirmedIndustry);
     if (industrySignal) signals.push(industrySignal);
   }
   return dedupeSignals(signals);
@@ -223,15 +224,16 @@ function addPathSignal(signals, filePath, text, pattern, type, summary) {
   });
 }
 
-function inferIndustrySignal(filePath, text, explicitIndustry) {
+function inferIndustrySignal(filePath, text, explicitIndustry, confirmedIndustry) {
   const haystack = `${filePath}\n${text}`.toLowerCase();
   const finance = /trade|order|stock|security|securities|broker|quote|buy|sell|支付|交易|订单|买入|卖出|委托|风控/.test(haystack);
-  if (!finance && !explicitIndustry) return null;
+  const industry = explicitIndustry || confirmedIndustry || null;
+  if (!finance && !industry) return null;
   return {
     type: 'industry_term_candidate',
-    industry: explicitIndustry || 'finance-common',
-    confidence: explicitIndustry ? 0.85 : 0.68,
-    advisory_only: !explicitIndustry,
+    industry: industry || 'finance-common',
+    confidence: industry ? 0.85 : 0.68,
+    advisory_only: confirmedIndustry !== (industry || 'finance-common'),
     evidence: [evidence('code', toPosix(filePath), 'Changed identifiers or text contain industry-sensitive terms.')],
   };
 }
