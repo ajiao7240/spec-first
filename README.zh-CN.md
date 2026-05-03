@@ -137,6 +137,64 @@ docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
 
 随后进入当前宿主的 plan 入口继续推进。
 
+## 研发全流程总览
+
+这张图用于区分终端命令和宿主会话内 workflow 入口，并快速看到从安装到执行完成的全景路径：
+
+```text
+在目标项目 repo 的终端中
+  |
+  | npm install -g spec-first
+  | spec-first doctor
+  | spec-first init --claude -u <name> --lang zh
+  |   或
+  | spec-first init --codex -u <name> --lang zh
+  v
+重启 Claude Code 或 Codex
+  |
+  | /spec:mcp-setup       或 $spec-mcp-setup
+  | /spec:graph-bootstrap 或 $spec-graph-bootstrap
+  v
+在宿主会话中选择下一步 workflow
+  |
+  +-- 只有模糊想法或产品问题
+  |     -> /spec:brainstorm 或 $spec-brainstorm
+  |     -> docs/brainstorms/*-requirements.md
+  |
+  +-- 目标已定，但实现路径还不清楚
+  |     -> /spec:plan 或 $spec-plan
+  |     -> docs/plans/*-plan.md
+  |
+  +-- 计划较大，需要确定性任务交接
+  |     -> 已安装的 standalone write-tasks skill
+  |     -> docs/tasks/*-tasks.md
+  |
+  +-- plan 或 task pack 已准备好执行
+  |     -> /spec:work 或 $spec-work
+  |     -> 代码、测试和验证记录
+  |
+  +-- 移动 App 改动需要在运行时 QA 前做静态一致性审查
+  |     -> /spec:app-consistency-audit 或 $spec-app-consistency-audit
+  |     -> .spec-first/app-audit/runs/<run-id>/
+  |
+  +-- 失败、bug 或难解释的错误
+  |     -> /spec:debug 或 $spec-debug
+  |     -> 根因、修复和验证证据
+  v
+合并或交接前
+  |
+  | /spec:code-review 或 $spec-code-review
+  | /spec:doc-review  或 $spec-doc-review
+  v
+问题解决后
+  |
+  | /spec:compound 或 $spec-compound
+  v
+为下一次 AI coding 会话留下项目内可复用上下文
+```
+
+不是每个项目都要走完所有节点。按当前状态选择入口；状态不清楚时，直接在宿主会话里询问下一步该运行什么。
+
 ## 你会得到什么
 
 `spec-first` 把 AI 辅助开发建模成少数可持久化实体和事件驱动流程。

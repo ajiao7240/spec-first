@@ -63,6 +63,14 @@ Conflict and failure rules:
 - `figma-ref` in headless/report-only is degraded as `input_figma_reference_only`; do not fetch remote Figma data.
 - All modes are read-only with respect to product source, generated runtime assets, durable standards, and `.spec-first/specs/repo-profile.yaml`.
 
+Scope resolution contract:
+
+- `repoRoot` is always the git/project root used for diff, artifact placement, and repo-relative public paths.
+- `sourceRoot` is the App source subtree selected by `source:<path>`.
+- Relative `source:`, `prd:`, `figma-context:`, `run-dir:` and `artifacts-dir` values resolve against `repoRoot`, not against `sourceRoot` or the caller's incidental cwd.
+- Diff facts keep all changed files, but app-audit candidate signals are scoped to `sourceRoot`; out-of-source changes remain visible as cross-surface context.
+- Large text-like files and binary assets may be represented by bounded metadata or degraded facts instead of full content hashes.
+
 ## Run-Scoped Artifacts
 
 Default and headless modes write artifacts under:
@@ -87,6 +95,8 @@ headless-envelope.txt
 ```
 
 `latest-summary.json` is only a pointer to the latest complete/degraded run. Consumers must validate `head_sha`, `diff_hash`, `worktree_fingerprint`, and `audit_verdict_scope` against `metadata.json` before treating any run artifact as current evidence.
+
+`metadata.json` starts with `status: started`. Finalization steps may promote the run to `complete`, `degraded`, or `failed` after required artifacts, issue gating, report writing, and the headless envelope are known. Do not mark metadata complete in early scope/preflight steps.
 
 Do not write new artifacts to the legacy flat `.spec-first/app-audit/` path. Legacy flat paths may be read only for migration compatibility tests.
 
@@ -216,6 +226,7 @@ Weak evidence may be reported as risk, candidate, or follow-up. It must not be p
 Strict issue protocol:
 
 - `confidence` is a number from 0 to 1.
+- `contract_status: confirmed` requires `confidence >= 0.75`; lower confidence findings must remain `candidate` or advisory even when they cite project evidence.
 - `impact` and `recommendation` are arrays.
 - `claim_family` controls deterministic evidence requirements and conclusion caps.
 - `claim_type` describes the domain issue semantics.

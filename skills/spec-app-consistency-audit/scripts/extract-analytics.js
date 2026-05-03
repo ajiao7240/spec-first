@@ -119,7 +119,7 @@ function dedupeEvents(events) {
 if (require.main === module) {
   try {
     const options = parseCommonArgs(process.argv.slice(2));
-    writeJsonOutput(extractAnalytics(options), options.output);
+    writeJsonOutput(extractAnalytics(options), options.output, options);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

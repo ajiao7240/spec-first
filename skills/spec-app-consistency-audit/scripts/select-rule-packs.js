@@ -129,7 +129,7 @@ function rulePackPath(name, layer) {
 if (require.main === module) {
   try {
     const options = parseCommonArgs(process.argv.slice(2));
-    writeJsonOutput(selectRulePacks(options), options.output);
+    writeJsonOutput(selectRulePacks(options), options.output, options);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

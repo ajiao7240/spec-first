@@ -231,7 +231,7 @@ function dedupeByName(items) {
 if (require.main === module) {
   try {
     const options = parseCommonArgs(process.argv.slice(2));
-    writeJsonOutput(extractPrdContract(options), options.output);
+    writeJsonOutput(extractPrdContract(options), options.output, options);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

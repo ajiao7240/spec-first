@@ -221,10 +221,14 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('graph-providers.v1');
     expect(source).toContain('host_ledger_pointer');
     expect(source).toContain('readiness-conflict');
+    expect(source).toContain('function Test-ProviderArtifactContractSupported');
+    expect(source).toContain('provider artifact path contract drifted');
     expect(source).toContain('unsupported-provider-command');
     expect(source).toContain('query-unverified');
     expect(source).toContain('degraded-fallback');
     expect(source).toContain('graph-facts.v1');
+    expect(source).toContain("HEAD^{commit}");
+    expect(source).toContain('repo-snapshot-unavailable');
     expect(source).toContain('bootstrap-impact-capabilities.v1');
     expect(source).toContain('.spec-first/providers/$provider/raw/');
     expect(source).toContain("'analyze.log'");
@@ -258,6 +262,10 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('query_probe_candidates_truncated');
     expect(source).toContain('winning_query_probe_log');
     expect(source).toContain('query-');
+    expect(source).toContain('query_global_graph');
+    expect(source).toContain('impact_context');
+    expect(source).toContain('staleness_hints');
+    expect(source).toContain('compare_source_revision = $true');
     expect(source).toContain('Probe Token');
     expect(source).toContain('function Get-ProviderFailureInfo');
     expect(source).toContain('gitnexus-analyze-sigsegv');

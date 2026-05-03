@@ -9,6 +9,9 @@ const {
   runPreflight,
 } = require('../../skills/spec-app-consistency-audit/scripts/preflight');
 const {
+  listTextFilesWithMetadata,
+} = require('../../skills/spec-app-consistency-audit/scripts/lib/audit-utils');
+const {
   validateArtifact,
 } = require('../../skills/spec-app-consistency-audit/scripts/validate-artifacts');
 
@@ -209,6 +212,66 @@ describe('spec-app-consistency-audit preflight', () => {
       const after = runPreflight({ repoRoot, source: repoRoot });
 
       expect(after.source_inputs[0].source_hash).not.toBe(before.source_inputs[0].source_hash);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('large text-like files are skipped from source hashing with degraded metadata', () => {
+    const repoRoot = makeRepo();
+    try {
+      write(repoRoot, 'app/src/main/assets/huge.json', `${'x'.repeat(1024 * 1024 + 1)}\n`);
+
+      const artifact = runPreflight({ repoRoot, source: repoRoot });
+
+      expect(artifact.source_inputs[0].source_hash).toBeUndefined();
+      expect(artifact.source_inputs[0].source_hash_unavailable_reason).toBe('large_file_skipped');
+      expect(artifact.degraded_modes.map((mode) => mode.code)).toContain('source_large_files_skipped');
+      expect(artifact.scan_summary.skipped_large_files).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          path: 'app/src/main/assets/huge.json',
+          reason: 'file_too_large_for_source_hash',
+        }),
+      ]));
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('large binary assets stay fingerprinted by size without degrading source hash', () => {
+    const repoRoot = makeRepo();
+    try {
+      write(repoRoot, 'app/src/main/res/drawable/hero.png', Buffer.alloc(1024 * 1024 + 1));
+
+      const artifact = runPreflight({ repoRoot, source: repoRoot });
+
+      expect(artifact.source_inputs[0].source_hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+      expect(artifact.source_inputs[0].source_hash_unavailable_reason).toBeUndefined();
+      expect(artifact.degraded_modes.map((mode) => mode.code)).not.toContain('source_large_files_skipped');
+      expect(artifact.scan_summary.skipped_large_file_count).toBe(0);
+      expect(artifact.scan_summary.skipped_large_files).toEqual([]);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('large text-like skipped files count toward scan limit with capped details', () => {
+    const repoRoot = makeRepo();
+    try {
+      for (let index = 0; index < 5; index += 1) {
+        write(repoRoot, `fixtures/huge-${index}.json`, `${'x'.repeat(1024 * 1024 + 1)}\n`);
+      }
+
+      const scan = listTextFilesWithMetadata(path.join(repoRoot, 'fixtures'), {
+        maxFiles: 3,
+        maxSkippedLargeFiles: 2,
+      });
+
+      expect(scan.truncated).toBe(true);
+      expect(scan.files).toEqual([]);
+      expect(scan.scannedTextLikeFileCount).toBe(3);
+      expect(scan.skippedLargeFileCount).toBe(3);
+      expect(scan.skippedLargeFiles).toHaveLength(2);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }

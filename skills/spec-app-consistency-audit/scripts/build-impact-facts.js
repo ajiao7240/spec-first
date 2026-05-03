@@ -13,9 +13,8 @@ const {
   listSourceTextFiles,
   makeArtifact,
   parseCommonArgs,
-  publicPath,
   readText,
-  relativeTo,
+  resolveRepoRoot,
   sourceInputFromFiles,
   toPosix,
   unique,
@@ -35,23 +34,25 @@ const INTERACTION_PATTERNS = [
 ];
 
 function buildImpactFacts(options = {}) {
-  const repoRoot = fs.realpathSync(path.resolve(options.repoRoot || options.source || '.'));
+  const repoRoot = resolveRepoRoot(options);
   if (options.mode === 'headless' && !options.base) {
     throw new Error('scope_headless_missing_base: mode:headless requires base:<ref> for deterministic diff scope.');
   }
 
   const source = listSourceTextFiles({
     repoRoot,
-    source: options.source || repoRoot,
+    source: options.source || '.',
     allowOutside: options.allowOutside,
     maxFiles: options.maxFiles || options.maxScanFiles || 2000,
   });
   const diffScope = collectDiffScope(repoRoot, options);
   const changedFiles = diffScope.changedFiles.length > 0 ? diffScope.changedFiles : [];
+  const sourceScopedChangedFiles = filterChangedFilesBySource(repoRoot, source.sourceRoot, changedFiles, true);
+  const outOfSourceChangedFiles = filterChangedFilesBySource(repoRoot, source.sourceRoot, changedFiles, false);
   const candidateSignals = buildCandidateSignals({
     repoRoot,
     sourceRoot: source.sourceRoot,
-    changedFiles,
+    changedFiles: sourceScopedChangedFiles,
     mode: options.mode || 'default',
     industry: options.industry || null,
   });
@@ -61,6 +62,8 @@ function buildImpactFacts(options = {}) {
       sourceRoot: source.sourceRoot,
       truncated: source.truncated,
       maxFiles: source.maxFiles,
+      skippedLargeFiles: source.skippedLargeFiles,
+      skippedLargeFileCount: source.skippedLargeFileCount,
     }),
   ];
 
@@ -76,6 +79,10 @@ function buildImpactFacts(options = {}) {
         kind: diffScope.kind,
         base_ref: options.base || '',
         changed_file_count: changedFiles.length,
+        source_scoped_changed_file_count: sourceScopedChangedFiles.length,
+        out_of_source_changed_file_count: outOfSourceChangedFiles.length,
+        source_scoped_changed_files: sourceScopedChangedFiles,
+        out_of_source_changed_files: outOfSourceChangedFiles,
         diff_hash: diffScope.diffHash,
         untracked_files: diffScope.untrackedFiles,
         untracked_policy: 'excluded',
@@ -99,6 +106,16 @@ function buildImpactFacts(options = {}) {
         ...buildInputDegradedModes(options),
       ],
     },
+  });
+}
+
+function filterChangedFilesBySource(repoRoot, sourceRoot, changedFiles, insideSource) {
+  const root = path.resolve(repoRoot || '.');
+  const source = path.resolve(sourceRoot || root);
+  return changedFiles.filter((filePath) => {
+    const absolutePath = path.resolve(root, filePath);
+    const isInside = isInsideOrSame(source, absolutePath);
+    return insideSource ? isInside : !isInside;
   });
 }
 
@@ -271,12 +288,17 @@ function dedupeSignals(signals) {
   });
 }
 
+function isInsideOrSame(parentPath, childPath) {
+  const relative = path.relative(parentPath, childPath);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
 if (require.main === module) {
   let options = {};
   try {
     options = parseCommonArgs(process.argv.slice(2));
     const facts = buildImpactFacts(options);
-    writeJsonOutput(facts, options.output);
+    writeJsonOutput(facts, options.output, options);
   } catch (error) {
     if (options.mode === 'headless' && /^scope_/.test(error.message)) {
       const { renderHeadlessFailureEnvelope } = require('./render-headless-envelope');

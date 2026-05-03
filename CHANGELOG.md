@@ -1,6 +1,13 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.2 2026-05-03 13:44:37 leokuang: docs(tasks): 拆分多仓 workspace GitNexus-first 查询路由计划为可执行任务包 (user-visible)
+- v1.6.2 2026-05-03 13:34:21 leokuang: docs(plan): 根据方案审查补强多仓 GitNexus-first 计划的 dirty freshness、Serena language map、setup config、普通问答和 runtime delivery 边界 (user-visible)
+- v1.6.2 2026-05-03 12:57:44 leokuang: docs(plan): 新增多仓 workspace GitNexus-first 查询路由改造计划，明确 resolver、all-repos、downstream skill 与 probe candidate 验证边界 (user-visible)
+- v1.6.2 2026-05-03 01:46:48 leokuang: fix(graph-bootstrap): 修复 PowerShell graph-facts 字段漂移、空提交仓库 snapshot 误判、legacy probe token 校验和 provider artifact path 契约校验 (user-visible)
+- v1.6.2 2026-05-03 01:34:54 leokuang: fix(app-audit): 修复 preflight headless 缺 base 半写、二进制大资源误降级和超大文本扫描无界风险 (user-visible)
+- v1.6.2 2026-05-02 16:29:03 leokuang: fix(app-audit): 钉牢 repoRoot/sourceRoot、headless、report-only、run metadata 和 source-scoped diff 契约并补回归测试 (user-visible)
+- v1.6.2 2026-05-02 16:14:32 leokuang: docs(readme): 增加从安装到执行完成的端到端研发流程 ASCII 总览图 (user-visible)
 - v1.6.2 2026-05-02 15:55:52 leokuang: docs(app-audit): 更新用户手册与中英文 README，补齐 spec-app-consistency-audit 入口、适用场景、Figma evidence 边界和 .spec-first/app-audit 产物说明 (user-visible)
 - v1.6.2 2026-05-02 11:34:09 leokuang: fix(app-audit): 修复真实测试审查发现的 strict issue 空证据通过与 industry confirmed 正向路径缺失回归覆盖 (user-visible)
 - v1.6.2 2026-05-02 06:29:07 leokuang: docs(app-audit): 追加主测试链路通过记录，说明用户手册版本线漂移修复与 npm test 收口结果

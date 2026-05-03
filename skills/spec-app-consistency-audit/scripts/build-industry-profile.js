@@ -169,7 +169,7 @@ function uniqueEvidence(items) {
 if (require.main === module) {
   try {
     const options = parseCommonArgs(process.argv.slice(2));
-    writeJsonOutput(buildIndustryProfile(options), options.output);
+    writeJsonOutput(buildIndustryProfile(options), options.output, options);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

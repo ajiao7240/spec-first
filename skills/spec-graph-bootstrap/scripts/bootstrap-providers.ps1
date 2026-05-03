@@ -78,6 +78,64 @@ function Write-JsonFileAtomic {
   Write-TextFileAtomic -Path $Path -Value ($Payload | ConvertTo-Json -Depth $Depth)
 }
 
+function Get-ObjectPropertyValue {
+  param(
+    [object]$Object,
+    [string]$Name
+  )
+  if ($null -eq $Object) { return $null }
+  $property = $Object.PSObject.Properties[$Name]
+  if ($null -eq $property) { return $null }
+  return $property.Value
+}
+
+function Test-ProviderArtifactContractSupported {
+  param(
+    [object]$ProviderArtifacts,
+    [object]$ProviderConfig
+  )
+  $canonical = $ProviderArtifacts.canonical
+  if ((Get-ObjectPropertyValue -Object $canonical -Name 'provider_status') -ne '.spec-first/graph/provider-status.json') { return $false }
+  if ((Get-ObjectPropertyValue -Object $canonical -Name 'graph_facts') -ne '.spec-first/graph/graph-facts.json') { return $false }
+  if ((Get-ObjectPropertyValue -Object $canonical -Name 'bootstrap_report') -ne '.spec-first/graph/bootstrap-report.md') { return $false }
+  if ((Get-ObjectPropertyValue -Object $canonical -Name 'impact_capabilities') -ne '.spec-first/impact/bootstrap-impact-capabilities.json') { return $false }
+
+  foreach ($property in $ProviderConfig.providers.PSObject.Properties) {
+    if ($null -eq (Get-ObjectPropertyValue -Object $ProviderArtifacts.providers -Name $property.Name)) {
+      return $false
+    }
+  }
+
+  $gitNexusArtifacts = Get-ObjectPropertyValue -Object $ProviderArtifacts.providers -Name 'gitnexus'
+  if ($null -ne $gitNexusArtifacts) {
+    if ((Get-ObjectPropertyValue -Object $gitNexusArtifacts -Name 'raw_dir') -ne '.spec-first/providers/gitnexus/raw') { return $false }
+    if ((Get-ObjectPropertyValue -Object $gitNexusArtifacts -Name 'normalized_dir') -ne '.spec-first/providers/gitnexus/normalized') { return $false }
+    if ((Get-ObjectPropertyValue -Object $gitNexusArtifacts -Name 'status_path') -ne '.spec-first/providers/gitnexus/status.json') { return $false }
+    $rawLogs = Get-ObjectPropertyValue -Object $gitNexusArtifacts -Name 'raw_logs'
+    if ((Get-ObjectPropertyValue -Object $rawLogs -Name 'bootstrap') -ne '.spec-first/providers/gitnexus/raw/analyze.log') { return $false }
+    if ((Get-ObjectPropertyValue -Object $rawLogs -Name 'status') -ne '.spec-first/providers/gitnexus/raw/status.log') { return $false }
+    if ((Get-ObjectPropertyValue -Object $rawLogs -Name 'query_probe') -ne '.spec-first/providers/gitnexus/raw/query.log') { return $false }
+    $normalized = Get-ObjectPropertyValue -Object $gitNexusArtifacts -Name 'normalized_artifacts'
+    if ((Get-ObjectPropertyValue -Object $normalized -Name 'architecture_facts') -ne '.spec-first/providers/gitnexus/normalized/architecture-facts.json') { return $false }
+    if ((Get-ObjectPropertyValue -Object $normalized -Name 'reuse_candidates') -ne '.spec-first/providers/gitnexus/normalized/reuse-candidates.json') { return $false }
+  }
+
+  $crgArtifacts = Get-ObjectPropertyValue -Object $ProviderArtifacts.providers -Name 'code-review-graph'
+  if ($null -ne $crgArtifacts) {
+    if ((Get-ObjectPropertyValue -Object $crgArtifacts -Name 'raw_dir') -ne '.spec-first/providers/code-review-graph/raw') { return $false }
+    if ((Get-ObjectPropertyValue -Object $crgArtifacts -Name 'normalized_dir') -ne '.spec-first/providers/code-review-graph/normalized') { return $false }
+    if ((Get-ObjectPropertyValue -Object $crgArtifacts -Name 'status_path') -ne '.spec-first/providers/code-review-graph/status.json') { return $false }
+    $rawLogs = Get-ObjectPropertyValue -Object $crgArtifacts -Name 'raw_logs'
+    if ((Get-ObjectPropertyValue -Object $rawLogs -Name 'bootstrap') -ne '.spec-first/providers/code-review-graph/raw/build.log') { return $false }
+    if ((Get-ObjectPropertyValue -Object $rawLogs -Name 'status') -ne '.spec-first/providers/code-review-graph/raw/status.log') { return $false }
+    if ((Get-ObjectPropertyValue -Object $rawLogs -Name 'query_probe') -ne '.spec-first/providers/code-review-graph/raw/query.log') { return $false }
+    $normalized = Get-ObjectPropertyValue -Object $crgArtifacts -Name 'normalized_artifacts'
+    if ((Get-ObjectPropertyValue -Object $normalized -Name 'impact_capabilities') -ne '.spec-first/providers/code-review-graph/normalized/impact-capabilities.json') { return $false }
+  }
+
+  return $true
+}
+
 function Test-CommandShapeSupported {
   param(
     [object]$ProviderConfig,
@@ -190,10 +248,24 @@ function Test-QueryProbePolicySupported {
   if (-not ($entry.PSObject.Properties.Name -contains 'query_probe_policy') -or $null -eq $entry.query_probe_policy) {
     return $true
   }
-  if (-not ($entry.query_probe_policy.PSObject.Properties.Name -contains 'candidates') -or $null -eq $entry.query_probe_policy.candidates) {
+  $policy = $entry.query_probe_policy
+  if ($policy -isnot [pscustomobject]) {
+    return $false
+  }
+  foreach ($propertyName in @('selected_from', 'source')) {
+    if ($policy.PSObject.Properties.Name -contains $propertyName -and $null -ne $policy.$propertyName -and $policy.$propertyName -isnot [string]) {
+      return $false
+    }
+  }
+  if ($policy.PSObject.Properties.Name -contains 'token') {
+    if ([string]::IsNullOrWhiteSpace([string]$policy.token) -or [string]$policy.token -match '[;&|`$<>]') {
+      return $false
+    }
+  }
+  if (-not ($policy.PSObject.Properties.Name -contains 'candidates') -or $null -eq $policy.candidates) {
     return $true
   }
-  foreach ($candidate in @($entry.query_probe_policy.candidates)) {
+  foreach ($candidate in @($policy.candidates)) {
     if (-not ($candidate.PSObject.Properties.Name -contains 'token') -or [string]::IsNullOrWhiteSpace([string]$candidate.token) -or [string]$candidate.token -match '[;&|`$<>]') {
       return $false
     }
@@ -567,6 +639,9 @@ New-Item -ItemType Directory -Force -Path $graphDir, $impactDir, $providersDir |
 $providerConfig = Assert-Schema -Path $providerConfigPath -SchemaVersion 'graph-providers.v1' -MissingReason 'missing_provider_config'
 $runtimeCapabilities = Assert-Schema -Path $runtimeCapabilitiesPath -SchemaVersion 'runtime-capabilities.v1' -MissingReason 'missing_runtime_capabilities'
 $providerArtifacts = Assert-Schema -Path $providerArtifactsPath -SchemaVersion 'provider-artifacts.v1' -MissingReason 'missing_provider_artifacts'
+if (-not (Test-ProviderArtifactContractSupported -ProviderArtifacts $providerArtifacts -ProviderConfig $providerConfig)) {
+  Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'readiness-conflict' -NextAction 'Rerun spec-mcp-setup; provider artifact path contract drifted.'
+}
 
 $ledgerPointer = $runtimeCapabilities.host_ledger_pointer.path
 if ([string]::IsNullOrWhiteSpace($ledgerPointer)) {
@@ -602,7 +677,11 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
 }
 
 $bootstrappedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
-$sourceRevision = (git -C $repoRoot rev-parse HEAD 2>$null)
+$sourceRevisionOutput = @(git -C $repoRoot rev-parse --verify 'HEAD^{commit}' 2>$null)
+if ($LASTEXITCODE -ne 0 -or $sourceRevisionOutput.Count -eq 0 -or [string]::IsNullOrWhiteSpace([string]$sourceRevisionOutput[0])) {
+  Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'repo-snapshot-unavailable' -NextAction 'Resolve git repository state before graph bootstrap.'
+}
+$sourceRevision = [string]$sourceRevisionOutput[0]
 $worktreeDirty = -not [string]::IsNullOrWhiteSpace((git -C $repoRoot status --porcelain 2>$null))
 $providerStatuses = New-Object System.Collections.Generic.List[object]
 
@@ -823,6 +902,14 @@ $graphFacts = [ordered]@{
   canonical_artifacts = [ordered]@{
     provider_status = '.spec-first/graph/provider-status.json'
     impact_capabilities = '.spec-first/impact/bootstrap-impact-capabilities.json'
+  }
+  capabilities = [ordered]@{
+    query_global_graph = (@($providerStatuses | Where-Object { $_.provider -eq 'gitnexus' -and $_.query_ready }).Count -gt 0)
+    impact_context = (@($providerStatuses | Where-Object { $_.provider -eq 'code-review-graph' -and $_.query_ready }).Count -gt 0)
+  }
+  staleness_hints = [ordered]@{
+    compare_source_revision = $true
+    compare_worktree_dirty = $true
   }
   confidence = $providerAggregate.confidence
   limitations = @($providerAggregate.limitations)

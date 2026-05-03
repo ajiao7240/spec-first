@@ -102,6 +102,19 @@ make_repo() {
   local repo_dir="$1"
   mkdir -p "$repo_dir"
   git -C "$repo_dir" init -q
+  git -C "$repo_dir" config user.name "Spec First Test"
+  git -C "$repo_dir" config user.email "spec-first-test@example.invalid"
+  git -C "$repo_dir" config core.hooksPath /dev/null
+  printf '# fixture\n' > "$repo_dir/README.md"
+  git -C "$repo_dir" add README.md
+  git -C "$repo_dir" commit -q -m "Initial fixture commit"
+  mkdir -p "$repo_dir/.spec-first/config"
+}
+
+make_unborn_repo() {
+  local repo_dir="$1"
+  mkdir -p "$repo_dir"
+  git -C "$repo_dir" init -q
   mkdir -p "$repo_dir/.spec-first/config"
 }
 
@@ -208,10 +221,39 @@ JSON
 {
   "schema_version": "provider-artifacts.v1",
   "repo_root": "$repo_dir",
-  "providers": {},
+  "providers": {
+    "gitnexus": {
+      "raw_dir": ".spec-first/providers/gitnexus/raw",
+      "normalized_dir": ".spec-first/providers/gitnexus/normalized",
+      "status_path": ".spec-first/providers/gitnexus/status.json",
+      "raw_logs": {
+        "bootstrap": ".spec-first/providers/gitnexus/raw/analyze.log",
+        "status": ".spec-first/providers/gitnexus/raw/status.log",
+        "query_probe": ".spec-first/providers/gitnexus/raw/query.log"
+      },
+      "normalized_artifacts": {
+        "architecture_facts": ".spec-first/providers/gitnexus/normalized/architecture-facts.json",
+        "reuse_candidates": ".spec-first/providers/gitnexus/normalized/reuse-candidates.json"
+      }
+    },
+    "code-review-graph": {
+      "raw_dir": ".spec-first/providers/code-review-graph/raw",
+      "normalized_dir": ".spec-first/providers/code-review-graph/normalized",
+      "status_path": ".spec-first/providers/code-review-graph/status.json",
+      "raw_logs": {
+        "bootstrap": ".spec-first/providers/code-review-graph/raw/build.log",
+        "status": ".spec-first/providers/code-review-graph/raw/status.log",
+        "query_probe": ".spec-first/providers/code-review-graph/raw/query.log"
+      },
+      "normalized_artifacts": {
+        "impact_capabilities": ".spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
+      }
+    }
+  },
   "canonical": {
     "provider_status": ".spec-first/graph/provider-status.json",
     "graph_facts": ".spec-first/graph/graph-facts.json",
+    "bootstrap_report": ".spec-first/graph/bootstrap-report.md",
     "impact_capabilities": ".spec-first/impact/bootstrap-impact-capabilities.json"
   }
 }
@@ -254,6 +296,19 @@ assert_eq "single child workspace also fails closed" "1" "$single_block_status"
 assert_eq "single child workspace remains target-required" "workspace-target-required" "$(jq -r '.reason_code' <<<"$single_block_output")"
 assert_eq "single child workspace does not run providers" "$before_single_block_log" "$(cat "$COMMAND_LOG")"
 
+UNBORN_REPO="$TMP_DIR/unborn-repo"
+UNBORN_LEDGER="$TMP_DIR/unborn-home/.codex/spec-first/host-setup.json"
+make_unborn_repo "$UNBORN_REPO"
+write_fixture_config "$UNBORN_REPO" "$UNBORN_LEDGER" true
+before_unborn_log="$(cat "$COMMAND_LOG")"
+set +e
+unborn_output="$(cd "$UNBORN_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+unborn_status=$?
+set -e
+assert_eq "unborn repository fails snapshot validation" "1" "$unborn_status"
+assert_eq "unborn repository reason" "repo-snapshot-unavailable" "$(jq -r '.reason_code' <<<"$unborn_output")"
+assert_eq "unborn repository does not run providers" "$before_unborn_log" "$(cat "$COMMAND_LOG")"
+
 workspace_selected_output="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --repo project-a)"
 WORKSPACE_REPO_A_ROOT="$(cd "$WORKSPACE_REPO_A" && pwd -P)"
 assert_eq "workspace explicit child runs primary bootstrap" "primary" "$(jq -r '.workflow_mode' <<<"$workspace_selected_output")"
@@ -282,6 +337,9 @@ assert "impact capabilities exists" test -f "$PRIMARY_REPO/.spec-first/impact/bo
 assert "provider raw log exists" test -f "$PRIMARY_REPO/.spec-first/providers/gitnexus/raw/analyze.log"
 assert "normalized artifact exists" test -f "$PRIMARY_REPO/.spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
 assert "old graph raw path is not used" test ! -e "$PRIMARY_REPO/.spec-first/graph/raw/gitnexus"
+assert_eq "graph facts source revision is a commit SHA" "true" "$(jq -r '.source_revision | test("^[0-9a-f]{40}$")' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
+assert_eq "graph facts exposes capability booleans" "true:true" "$(jq -r '(.capabilities.query_global_graph | tostring) + ":" + (.capabilities.impact_context | tostring)' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
+assert_eq "graph facts exposes staleness hints" "true:true" "$(jq -r '(.staleness_hints.compare_source_revision | tostring) + ":" + (.staleness_hints.compare_worktree_dirty | tostring)' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
 assert_eq "provider status records command source" ".spec-first/config/graph-providers.json" "$(jq -r '.command_source' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "provider status records expected-hit query policy" "true:git-ls-files-code-basename:$GITNEXUS_QUERY_PROBE" "$(jq -r '.query_probe_policy | "\(.expected_hit):\(.source):\(.token)"' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "graph-bootstrap does not mutate provider config input" "$primary_provider_config_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
@@ -398,6 +456,36 @@ set -e
 assert_eq "metachar command fails closed" "1" "$metachar_status"
 assert_eq "metachar command reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$metachar_output")"
 assert_eq "metachar command is not shell-interpreted" "$before_metachar_log" "$(cat "$COMMAND_LOG")"
+
+LEGACY_TOKEN_REPO="$TMP_DIR/legacy-token-repo"
+LEGACY_TOKEN_LEDGER="$TMP_DIR/legacy-token-home/.codex/spec-first/host-setup.json"
+make_repo "$LEGACY_TOKEN_REPO"
+write_fixture_config "$LEGACY_TOKEN_REPO" "$LEGACY_TOKEN_LEDGER" true
+jq '.providers.gitnexus.query_probe_policy.token = "TradeLoginActivity;rm" | del(.providers.gitnexus.query_probe_policy.candidates)' "$LEGACY_TOKEN_REPO/.spec-first/config/graph-providers.json" > "$LEGACY_TOKEN_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$LEGACY_TOKEN_REPO/.spec-first/config/graph-providers.json.tmp" "$LEGACY_TOKEN_REPO/.spec-first/config/graph-providers.json"
+before_legacy_token_log="$(cat "$COMMAND_LOG")"
+set +e
+legacy_token_output="$(cd "$LEGACY_TOKEN_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+legacy_token_status=$?
+set -e
+assert_eq "unsafe legacy query token fails closed" "1" "$legacy_token_status"
+assert_eq "unsafe legacy query token reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$legacy_token_output")"
+assert_eq "unsafe legacy query token is not executed" "$before_legacy_token_log" "$(cat "$COMMAND_LOG")"
+
+ARTIFACT_DRIFT_REPO="$TMP_DIR/artifact-drift-repo"
+ARTIFACT_DRIFT_LEDGER="$TMP_DIR/artifact-drift-home/.codex/spec-first/host-setup.json"
+make_repo "$ARTIFACT_DRIFT_REPO"
+write_fixture_config "$ARTIFACT_DRIFT_REPO" "$ARTIFACT_DRIFT_LEDGER" true
+jq '.canonical.graph_facts = ".spec-first/graph/drifted.json"' "$ARTIFACT_DRIFT_REPO/.spec-first/config/provider-artifacts.json" > "$ARTIFACT_DRIFT_REPO/.spec-first/config/provider-artifacts.json.tmp"
+mv "$ARTIFACT_DRIFT_REPO/.spec-first/config/provider-artifacts.json.tmp" "$ARTIFACT_DRIFT_REPO/.spec-first/config/provider-artifacts.json"
+before_artifact_drift_log="$(cat "$COMMAND_LOG")"
+set +e
+artifact_drift_output="$(cd "$ARTIFACT_DRIFT_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+artifact_drift_status=$?
+set -e
+assert_eq "provider artifact path drift fails closed" "1" "$artifact_drift_status"
+assert_eq "provider artifact path drift reason" "readiness-conflict" "$(jq -r '.reason_code' <<<"$artifact_drift_output")"
+assert_eq "provider artifact path drift does not run providers" "$before_artifact_drift_log" "$(cat "$COMMAND_LOG")"
 
 METADATA_REPO="$TMP_DIR/metadata-repo"
 METADATA_LEDGER="$TMP_DIR/metadata-home/.codex/spec-first/host-setup.json"

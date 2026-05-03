@@ -61,7 +61,7 @@ GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT=5
 mkdir -p "$GRAPH_DIR" "$IMPACT_DIR" "$PROVIDERS_DIR"
 
 BOOTSTRAPPED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-SOURCE_REVISION="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || true)"
+SOURCE_REVISION="$(git -C "$REPO_ROOT" rev-parse --verify 'HEAD^{commit}' 2>/dev/null || true)"
 if [ -z "$SOURCE_REVISION" ]; then
   jq -n '{schema_version:"graph-bootstrap-result.v1",overall_status:"action-required",workflow_mode:"blocked",reason_code:"repo-snapshot-unavailable",next_action:"Resolve git repository state before graph bootstrap."}'
   exit 1
@@ -151,6 +151,50 @@ require_file_schema "$PROVIDER_CONFIG" "graph-providers.v1" "missing_provider_co
 require_file_schema "$RUNTIME_CAPABILITIES" "runtime-capabilities.v1" "missing_runtime_capabilities"
 require_file_schema "$PROVIDER_ARTIFACTS" "provider-artifacts.v1" "missing_provider_artifacts"
 
+provider_artifact_contract_supported() {
+  jq -e --slurpfile provider_config "$PROVIDER_CONFIG" '
+    (.canonical.provider_status == ".spec-first/graph/provider-status.json")
+    and (.canonical.graph_facts == ".spec-first/graph/graph-facts.json")
+    and (.canonical.bootstrap_report == ".spec-first/graph/bootstrap-report.md")
+    and (.canonical.impact_capabilities == ".spec-first/impact/bootstrap-impact-capabilities.json")
+    and ((.providers // {}) | type == "object")
+    and (
+      (.providers // {}) as $artifact_providers
+      | ($provider_config[0].providers | keys) as $configured_providers
+      | all($configured_providers[]; ($artifact_providers[.] // null) != null)
+    )
+    and (
+      (.providers.gitnexus // null) == null
+      or (
+        .providers.gitnexus.raw_dir == ".spec-first/providers/gitnexus/raw"
+        and .providers.gitnexus.normalized_dir == ".spec-first/providers/gitnexus/normalized"
+        and .providers.gitnexus.status_path == ".spec-first/providers/gitnexus/status.json"
+        and .providers.gitnexus.raw_logs.bootstrap == ".spec-first/providers/gitnexus/raw/analyze.log"
+        and .providers.gitnexus.raw_logs.status == ".spec-first/providers/gitnexus/raw/status.log"
+        and .providers.gitnexus.raw_logs.query_probe == ".spec-first/providers/gitnexus/raw/query.log"
+        and .providers.gitnexus.normalized_artifacts.architecture_facts == ".spec-first/providers/gitnexus/normalized/architecture-facts.json"
+        and .providers.gitnexus.normalized_artifacts.reuse_candidates == ".spec-first/providers/gitnexus/normalized/reuse-candidates.json"
+      )
+    )
+    and (
+      (.providers["code-review-graph"] // null) == null
+      or (
+        .providers["code-review-graph"].raw_dir == ".spec-first/providers/code-review-graph/raw"
+        and .providers["code-review-graph"].normalized_dir == ".spec-first/providers/code-review-graph/normalized"
+        and .providers["code-review-graph"].status_path == ".spec-first/providers/code-review-graph/status.json"
+        and .providers["code-review-graph"].raw_logs.bootstrap == ".spec-first/providers/code-review-graph/raw/build.log"
+        and .providers["code-review-graph"].raw_logs.status == ".spec-first/providers/code-review-graph/raw/status.log"
+        and .providers["code-review-graph"].raw_logs.query_probe == ".spec-first/providers/code-review-graph/raw/query.log"
+        and .providers["code-review-graph"].normalized_artifacts.impact_capabilities == ".spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
+      )
+    )
+  ' "$PROVIDER_ARTIFACTS" >/dev/null
+}
+
+if ! provider_artifact_contract_supported; then
+  emit_blocked blocked readiness-conflict "Rerun spec-mcp-setup; provider artifact path contract drifted."
+fi
+
 LEDGER_POINTER="$(jq -r '.host_ledger_pointer.path // empty' "$RUNTIME_CAPABILITIES")"
 [ -n "$LEDGER_POINTER" ] || emit_blocked blocked readiness-conflict "Rerun spec-mcp-setup to write host_ledger_pointer."
 LEDGER_PATH="$(resolve_pointer_path "$LEDGER_POINTER")"
@@ -218,10 +262,18 @@ query_probe_policy_supported() {
     return 0
   fi
   jq -e --arg provider "$provider" '
+    def safe_token:
+      type == "string" and length > 0 and (test("[;&|`$<>]") | not);
+    def optional_string($key):
+      ((has($key) | not) or (.[$key] | type == "string"));
     (.providers[$provider].query_probe_policy // {}) as $policy
-    | (($policy.candidates // []) | type == "array")
+    | ($policy | type == "object")
+    and (($policy.candidates // []) | type == "array")
+    and ($policy | optional_string("selected_from"))
+    and ($policy | optional_string("source"))
+    and (if ($policy | has("token")) then ($policy.token | safe_token) else true end)
     and all(($policy.candidates // [])[];
-      (.token | type == "string" and length > 0 and (test("[;&|`$<>]") | not))
+      (.token | safe_token)
       and ((.selected_from // "") | type == "string")
       and ((.reason_code // "") | type == "string")
     )

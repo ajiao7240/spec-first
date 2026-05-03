@@ -9,6 +9,8 @@ const {
   parseCommonArgs,
   publicPath,
   readJson,
+  resolvePathAgainstRoot,
+  resolveRepoRoot,
   toPosix,
   unavailableSourceInput,
   writeJsonOutput,
@@ -18,8 +20,8 @@ function buildArtifactManifest(options = {}) {
   if (options.mode === 'report-only') {
     throw new Error('mode:report-only forbids artifact-manifest writes.');
   }
-  const runDir = path.resolve(options.runDir || options.source || '.');
-  const repoRoot = path.resolve(options.repoRoot || options.source || process.cwd());
+  const repoRoot = resolveRepoRoot(options);
+  const runDir = resolvePathAgainstRoot(repoRoot, options.runDir || options.source || '.');
   const files = listJsonFiles(runDir, { excludeDirs: new Set(['input', 'writeback-preview']) })
     .filter((filePath) => !new Set(['artifact-manifest.json', 'latest-summary.json']).has(path.basename(filePath)));
   const artifacts = files.map((filePath) => artifactEntry(runDir, filePath));
@@ -113,7 +115,7 @@ if (require.main === module) {
   try {
     const options = parseCommonArgs(process.argv.slice(2));
     const manifest = buildArtifactManifest(options);
-    writeJsonOutput(manifest, options.output);
+    writeJsonOutput(manifest, options.output, options);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

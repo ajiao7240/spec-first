@@ -137,6 +137,64 @@ docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
 
 From there, continue to the current host's plan entrypoint.
 
+## End-To-End Development Flow
+
+Use this map to see where shell commands stop and host-session workflows begin:
+
+```text
+Terminal in your target repo
+  |
+  | npm install -g spec-first
+  | spec-first doctor
+  | spec-first init --claude -u <name> --lang en
+  |   or
+  | spec-first init --codex -u <name> --lang en
+  v
+Restart Claude Code or Codex
+  |
+  | /spec:mcp-setup       or $spec-mcp-setup
+  | /spec:graph-bootstrap or $spec-graph-bootstrap
+  v
+Choose the next workflow in the host session
+  |
+  +-- Rough idea or product problem
+  |     -> /spec:brainstorm or $spec-brainstorm
+  |     -> docs/brainstorms/*-requirements.md
+  |
+  +-- Settled goal, unclear implementation path
+  |     -> /spec:plan or $spec-plan
+  |     -> docs/plans/*-plan.md
+  |
+  +-- Large plan that needs deterministic task handoff
+  |     -> installed standalone write-tasks skill
+  |     -> docs/tasks/*-tasks.md
+  |
+  +-- Plan or task pack ready to execute
+  |     -> /spec:work or $spec-work
+  |     -> code, tests, and verification notes
+  |
+  +-- Mobile App change before runtime QA
+  |     -> /spec:app-consistency-audit or $spec-app-consistency-audit
+  |     -> .spec-first/app-audit/runs/<run-id>/
+  |
+  +-- Failure, bug, or confusing error
+  |     -> /spec:debug or $spec-debug
+  |     -> root cause, fix, and verification evidence
+  v
+Before merge or handoff
+  |
+  | /spec:code-review or $spec-code-review
+  | /spec:doc-review  or $spec-doc-review
+  v
+After the problem is solved
+  |
+  | /spec:compound or $spec-compound
+  v
+Durable repo context for the next AI coding session
+```
+
+Not every project passes through every node. Pick the entrypoint that matches the current state, and ask the host session what to run next when the state is unclear.
+
 ## What You Get
 
 `spec-first` models AI-assisted development as a small set of durable entities and event-driven flows.

@@ -21,6 +21,8 @@ const SKIPPED_DIRS = new Set([
 ]);
 const APP_AUDIT_MODES = new Set(['default', 'headless', 'report-only']);
 const GIT_REF_PATTERN = /^[A-Za-z0-9._/@{}^~+-]+$/;
+const DEFAULT_MAX_SOURCE_HASH_BYTES = 1024 * 1024;
+const DEFAULT_MAX_SKIPPED_LARGE_FILES = 50;
 
 function makeArtifact(options) {
   return {
@@ -48,14 +50,20 @@ function sourceInputFromFile(type, filePath, repoRoot) {
 }
 
 function sourceInputFromFiles(type, files, repoRoot, options = {}) {
-  if (options.truncated) {
+  const skippedLargeFiles = Array.isArray(options.skippedLargeFiles) ? options.skippedLargeFiles : [];
+  const skippedLargeFileCount = Number.isFinite(options.skippedLargeFileCount)
+    ? options.skippedLargeFileCount
+    : skippedLargeFiles.length;
+  if (options.truncated || skippedLargeFileCount > 0) {
     return {
       type,
       path: options.sourceRoot && repoRoot ? publicPath(repoRoot, options.sourceRoot, 'source-outside-repo') : (repoRoot ? '.' : 'multiple-files'),
-      source_hash_unavailable_reason: 'file_scan_truncated',
+      source_hash_unavailable_reason: options.truncated ? 'file_scan_truncated' : 'large_file_skipped',
       freshness: 'partial-worktree',
       file_count: files.length,
       max_files: options.maxFiles || files.length,
+      skipped_file_count: skippedLargeFileCount,
+      skipped_large_files: skippedLargeFiles.slice(0, DEFAULT_MAX_SKIPPED_LARGE_FILES),
     };
   }
   const fileInputs = files
@@ -88,11 +96,16 @@ function listTextFiles(root, options = {}) {
 function listTextFilesWithMetadata(root, options = {}) {
   const absoluteRoot = path.resolve(root || '.');
   const maxFiles = options.maxFiles || 2000;
+  const maxFileBytes = options.maxFileBytes || DEFAULT_MAX_SOURCE_HASH_BYTES;
+  const maxSkippedLargeFiles = options.maxSkippedLargeFiles || DEFAULT_MAX_SKIPPED_LARGE_FILES;
   const files = [];
+  const skippedLargeFiles = [];
+  let skippedLargeFileCount = 0;
+  let scannedTextLikeFileCount = 0;
   const stack = [absoluteRoot];
   let truncated = false;
 
-  while (stack.length > 0 && files.length < maxFiles) {
+  while (stack.length > 0 && scannedTextLikeFileCount < maxFiles) {
     const current = stack.pop();
     let entries = [];
     try {
@@ -108,8 +121,30 @@ function listTextFilesWithMetadata(root, options = {}) {
         continue;
       }
       if (entry.isFile() && TEXT_FILE_PATTERN.test(entry.name)) {
+        scannedTextLikeFileCount += 1;
+        let stat = null;
+        try {
+          stat = fs.statSync(fullPath);
+        } catch (_error) {
+          continue;
+        }
+        if (stat.size > maxFileBytes) {
+          skippedLargeFileCount += 1;
+          if (skippedLargeFiles.length < maxSkippedLargeFiles) {
+            skippedLargeFiles.push({
+              path: toPosix(path.relative(absoluteRoot, fullPath)),
+              size_bytes: stat.size,
+              reason: 'file_too_large_for_source_hash',
+            });
+          }
+          if (scannedTextLikeFileCount >= maxFiles) {
+            truncated = true;
+            break;
+          }
+          continue;
+        }
         files.push(fullPath);
-        if (files.length >= maxFiles) {
+        if (scannedTextLikeFileCount >= maxFiles) {
           truncated = true;
           break;
         }
@@ -120,28 +155,56 @@ function listTextFilesWithMetadata(root, options = {}) {
   return {
     files: files.sort((left, right) => left.localeCompare(right)),
     maxFiles,
+    maxFileBytes,
     truncated,
+    skippedLargeFiles,
+    skippedLargeFileCount,
+    scannedTextLikeFileCount,
   };
 }
 
 function listSourceTextFiles(options = {}) {
   const source = resolveBoundedSourceRoot(options);
-  const scan = listTextFilesWithMetadata(source.sourceRoot, { maxFiles: options.maxFiles || 2000 });
-  return {
-    ...source,
-    ...scan,
-    degraded_modes: scan.truncated ? [degradedMode(
+  const scan = listTextFilesWithMetadata(source.sourceRoot, {
+    maxFiles: options.maxFiles || 2000,
+    maxFileBytes: options.maxFileBytes || options.maxSourceHashBytes || DEFAULT_MAX_SOURCE_HASH_BYTES,
+  });
+  const degradedModes = [];
+  if (scan.truncated) {
+    degradedModes.push(degradedMode(
       'source_scan_truncated',
       'warning',
       'Source scan reached max file limit; source hash is intentionally unavailable.',
       null,
-    )] : [],
+    ));
+  }
+  if (scan.skippedLargeFileCount > 0) {
+    degradedModes.push(degradedMode(
+      'source_large_files_skipped',
+      'warning',
+      'Large text-like files were skipped from source hashing to keep static audit bounded.',
+      null,
+    ));
+  }
+  return {
+    ...source,
+    ...scan,
+    degraded_modes: degradedModes,
   };
 }
 
 function readText(filePath, maxBytes = 128 * 1024) {
-  const buffer = fs.readFileSync(filePath);
-  return buffer.slice(0, maxBytes).toString('utf8');
+  const stat = fs.statSync(filePath);
+  const bytesToRead = Math.min(maxBytes, stat.size);
+  if (bytesToRead <= 0) return '';
+  const buffer = Buffer.alloc(bytesToRead);
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const bytesRead = fs.readSync(fd, buffer, 0, bytesToRead, 0);
+    return buffer.slice(0, bytesRead).toString('utf8');
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 function readJson(filePath) {
@@ -152,15 +215,40 @@ function readArtifact(filePath) {
   return readJson(filePath);
 }
 
-function writeJsonOutput(result, outputPath) {
+function assertCanWrite(options = {}, targetPath, artifactKind = 'artifact') {
+  if (options.mode === 'report-only' && targetPath) {
+    throw new Error(`mode:report-only forbids --output and run artifact writes (${artifactKind}).`);
+  }
+  return targetPath;
+}
+
+function writeJsonOutput(result, outputPath, options = {}) {
   const json = `${JSON.stringify(result, null, 2)}\n`;
   if (outputPath) {
-    const absolutePath = path.resolve(outputPath);
+    assertCanWrite(options, outputPath, 'json');
+    const absolutePath = resolveOutputPath(outputPath, options);
     fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
     fs.writeFileSync(absolutePath, json);
   } else {
     process.stdout.write(json);
   }
+}
+
+function writeTextOutput(text, outputPath, options = {}) {
+  if (outputPath) {
+    assertCanWrite(options, outputPath, 'text');
+    const absolutePath = resolveOutputPath(outputPath, options);
+    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+    fs.writeFileSync(absolutePath, text);
+  } else {
+    process.stdout.write(text);
+  }
+}
+
+function resolveOutputPath(outputPath, options = {}) {
+  if (path.isAbsolute(String(outputPath))) return path.resolve(outputPath);
+  const repoRoot = resolveRepoRoot(options);
+  return resolvePathAgainstRoot(repoRoot, outputPath);
 }
 
 function redactForArtifactText(value, options = {}) {
@@ -488,10 +576,10 @@ function createRunId(date = new Date()) {
 
 function resolveRunDir(options = {}) {
   if (options.mode === 'report-only') return null;
-  const repoRoot = path.resolve(options.repoRoot || options.source || '.');
+  const repoRoot = resolveRepoRoot(options);
   const runId = options.runId || createRunId();
   const runDir = options.runDir
-    ? path.resolve(repoRoot, options.runDir)
+    ? resolvePathAgainstRoot(repoRoot, options.runDir)
     : path.join(repoRoot, '.spec-first', 'app-audit', 'runs', runId);
   return {
     runId,
@@ -619,11 +707,50 @@ function gitResult(cwd, args) {
   return spawnSync('git', args, { cwd, encoding: 'utf8' });
 }
 
+function resolveRepoRoot(options = {}) {
+  const explicitRepoRoot = options.repoRoot ? path.resolve(options.repoRoot) : null;
+  const sourcePath = options.source ? String(options.source) : null;
+  const sourceIsAbsolute = sourcePath ? path.isAbsolute(sourcePath) : false;
+  const candidate = explicitRepoRoot
+    || (sourceIsAbsolute ? path.resolve(sourcePath) : process.cwd());
+  const existingCandidate = existingDirectoryFor(candidate);
+  const gitTopLevel = discoverGitTopLevel(existingCandidate);
+  return fs.existsSync(gitTopLevel || existingCandidate)
+    ? fs.realpathSync(gitTopLevel || existingCandidate)
+    : path.resolve(gitTopLevel || existingCandidate);
+}
+
+function resolvePathAgainstRoot(root, maybePath) {
+  const value = String(maybePath || '.');
+  return path.isAbsolute(value) ? path.resolve(value) : path.resolve(root, value);
+}
+
+function discoverGitTopLevel(startPath) {
+  const cwd = existingDirectoryFor(startPath);
+  if (!fs.existsSync(cwd)) return '';
+  const result = gitResult(cwd, ['rev-parse', '--show-toplevel']);
+  if (result.status !== 0) return '';
+  const topLevel = result.stdout.trim();
+  return topLevel && fs.existsSync(topLevel) ? fs.realpathSync(topLevel) : topLevel;
+}
+
+function existingDirectoryFor(inputPath) {
+  let current = path.resolve(inputPath || '.');
+  if (fs.existsSync(current) && fs.statSync(current).isFile()) current = path.dirname(current);
+  while (!fs.existsSync(current)) {
+    const parent = path.dirname(current);
+    if (parent === current) return current;
+    current = parent;
+  }
+  if (!fs.statSync(current).isDirectory()) return path.dirname(current);
+  return current;
+}
+
 function resolveBoundedInputPath(options) {
   const repoRoot = fs.existsSync(path.resolve(options.repoRoot || '.'))
     ? fs.realpathSync(path.resolve(options.repoRoot || '.'))
     : path.resolve(options.repoRoot || '.');
-  const requested = path.resolve(repoRoot, String(options.inputPath || '.'));
+  const requested = resolvePathAgainstRoot(repoRoot, options.inputPath || '.');
   const result = {
     ok: false,
     kind: options.kind,
@@ -682,10 +809,7 @@ function resolveBoundedInputPath(options) {
 }
 
 function resolveBoundedSourceRoot(options = {}) {
-  const repoRootInput = options.repoRoot || options.source || '.';
-  const repoRoot = fs.existsSync(path.resolve(repoRootInput))
-    ? fs.realpathSync(path.resolve(repoRootInput))
-    : path.resolve(repoRootInput);
+  const repoRoot = resolveRepoRoot(options);
   const resolution = resolveBoundedInputPath({
     repoRoot,
     inputPath: options.source || '.',
@@ -744,6 +868,9 @@ function toPosix(value) {
 }
 
 module.exports = {
+  DEFAULT_MAX_SOURCE_HASH_BYTES,
+  DEFAULT_MAX_SKIPPED_LARGE_FILES,
+  assertCanWrite,
   buildFigmaReference,
   buildAppAuditCoverageCapabilities,
   buildAppAuditInputExpectations,
@@ -771,6 +898,9 @@ module.exports = {
   resolveBoundedInputPath,
   resolveBoundedSourceRoot,
   resolveGitCommit,
+  resolveOutputPath,
+  resolvePathAgainstRoot,
+  resolveRepoRoot,
   slugify,
   sourceInputFromFile,
   sourceInputFromFiles,
@@ -778,5 +908,6 @@ module.exports = {
   unavailableSourceInput,
   unique,
   writeJsonOutput,
+  writeTextOutput,
   resolveRunDir,
 };
