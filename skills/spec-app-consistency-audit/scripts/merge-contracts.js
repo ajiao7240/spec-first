@@ -392,6 +392,11 @@ function normalizeIssue(issue, options = {}) {
   if (typeof normalized.static_confirmed !== 'boolean') {
     normalized.static_confirmed = normalized.contract_status === 'confirmed';
   }
+  if (normalized.contract_status !== 'confirmed') {
+    normalized.static_confirmed = false;
+  } else if (normalized.static_confirmed !== true) {
+    normalized.static_confirmed = true;
+  }
   if (typeof normalized.requires_runtime_verification !== 'boolean') {
     normalized.requires_runtime_verification = Boolean(normalized.runtime_verification.required);
   }

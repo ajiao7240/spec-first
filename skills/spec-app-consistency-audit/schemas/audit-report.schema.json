@@ -116,11 +116,41 @@
         "validation_status": { "enum": ["not_required", "validated", "validator_rejected", "validator_unavailable"] },
         "review_lifecycle": { "type": "array", "minItems": 1 }
       },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "contract_status": { "const": "confirmed" } },
+            "required": ["contract_status"]
+          },
+          "then": {
+            "properties": { "static_confirmed": { "const": true } },
+            "required": ["static_confirmed"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "contract_status": { "enum": ["candidate", "rejected"] } },
+            "required": ["contract_status"]
+          },
+          "then": {
+            "properties": { "static_confirmed": { "const": false } },
+            "required": ["static_confirmed"]
+          }
+        }
+      ],
       "additionalProperties": true
     },
     "evidence_entry": {
       "type": "object",
-      "minProperties": 1,
+      "anyOf": [
+        { "required": ["file"] },
+        { "required": ["path"] },
+        { "required": ["artifact_id"] },
+        { "required": ["node_id"] },
+        { "required": ["route"] },
+        { "required": ["event"] },
+        { "required": ["key"] }
+      ],
       "additionalProperties": true
     },
     "string_array": {

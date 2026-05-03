@@ -103,7 +103,7 @@ describe('spec-app-consistency-audit report generation', () => {
             severity: 'high',
             category: 'page_route',
             evidence: { route: [{ file: 'Routes.kt', summary: 'missing guard' }] },
-            impact: 'Authorization: Bearer abc.def.ghi can leak in raw impact.',
+            impact: 'Bearer bare.secret.token can leak in raw impact.',
             recommendation: 'Call https://internal.example.test/path?token=secret before proceeding.',
           }),
         ],
@@ -146,6 +146,7 @@ describe('spec-app-consistency-audit report generation', () => {
         '.spec-first/app-audit/runs/20260502-report-test/writeback-preview/suggested-standards.md',
       ]);
       expect(JSON.stringify(report)).not.toContain('abc.def.ghi');
+      expect(JSON.stringify(report)).not.toContain('bare.secret.token');
       expect(JSON.stringify(report)).not.toContain('token=secret');
       expect(JSON.stringify(report)).not.toContain('internal.example.test');
       expect(report.mvp_validation.pilot_validation.pilot_recorded).toBe(true);
@@ -178,6 +179,33 @@ describe('spec-app-consistency-audit report generation', () => {
       expect(envelope).toContain('Summary: <absolute-path:redacted>');
       expect(envelope).toContain('Issues: <absolute-path:redacted>');
       expect(envelope).not.toContain(root);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('headless envelope does not mark degraded no-issue runs as ready', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-headless-degraded-'));
+    try {
+      const metadataPath = write(root, 'metadata.json', JSON.stringify({
+        status: 'degraded',
+        run_id: 'headless-degraded-test',
+        run_dir: '.spec-first/app-audit/runs/headless-degraded-test',
+        summary_path: '.spec-first/app-audit/runs/headless-degraded-test/app-consistency-audit.summary.md',
+        issues_path: '.spec-first/app-audit/runs/headless-degraded-test/issues.json',
+        audit_verdict_scope: 'source_only_app_static_audit',
+      }));
+      const reportPath = write(root, 'audit-report.json', JSON.stringify({
+        issues: [],
+        rejected_issues: [],
+        scope_and_degraded_modes: [{ code: 'prd_and_figma_missing' }],
+      }));
+
+      const envelope = renderHeadlessEnvelope({ metadata: metadataPath, report: reportPath });
+
+      expect(envelope).toContain('Verdict: No issues in scoped audit');
+      expect(envelope).toContain('- Degraded modes: prd_and_figma_missing');
+      expect(envelope).not.toContain('Verdict: Ready\n');
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

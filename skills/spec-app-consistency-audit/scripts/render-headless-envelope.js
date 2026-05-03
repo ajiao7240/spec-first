@@ -22,6 +22,7 @@ function renderHeadlessEnvelope(options = {}) {
   const report = options.report ? readJson(options.report) : { issues: [], rejected_issues: [], scope_and_degraded_modes: [] };
   const issues = Array.isArray(report.issues) ? report.issues : [];
   const rejected = Array.isArray(report.rejected_issues) ? report.rejected_issues : [];
+  const degradedModes = collectDegradedModes(metadata, report);
   const confirmed = issues.filter((issue) => issue.contract_status === 'confirmed');
   const candidates = issues.filter((issue) => issue.contract_status !== 'confirmed');
   const lines = [
@@ -33,7 +34,7 @@ function renderHeadlessEnvelope(options = {}) {
     `Artifact: ${safePathLine(metadata.run_dir || inferRunDir(options), 240)}`,
     `Summary: ${safePathLine(metadata.summary_path || 'app-consistency-audit.summary.md', 240)}`,
     `Issues: ${safePathLine(metadata.issues_path || 'issues.json', 240)}`,
-    `Verdict: ${buildVerdict(issues, rejected)}`,
+    `Verdict: ${buildVerdict(issues, rejected, degradedModes)}`,
     `Verdict scope: ${safeLine(metadata.audit_verdict_scope || 'source_only_app_static_audit', 160)}`,
   ];
 
@@ -102,10 +103,7 @@ function renderRejected(lines, rejected) {
 }
 
 function renderCoverage(lines, metadata, report) {
-  const degraded = [
-    ...(Array.isArray(report.scope_and_degraded_modes) ? report.scope_and_degraded_modes : []),
-    ...(Array.isArray(metadata.status_reason_codes) ? metadata.status_reason_codes.map((code) => ({ code })) : []),
-  ].map((entry) => entry.code || entry).filter(Boolean);
+  const degraded = collectDegradedModes(metadata, report);
   lines.push('', 'Coverage:');
   if (metadata.coverage_capabilities) {
     lines.push(`- Capability coverage: ${safeLine(Object.entries(metadata.coverage_capabilities).map(([key, value]) => `${key}=${value}`).join(', '), 500)}`);
@@ -114,9 +112,17 @@ function renderCoverage(lines, metadata, report) {
   lines.push(`- Evidence gate drops: ${(report.rejected_issues || []).length}`);
 }
 
-function buildVerdict(issues, rejected) {
+function collectDegradedModes(metadata, report) {
+  return [
+    ...(Array.isArray(report.scope_and_degraded_modes) ? report.scope_and_degraded_modes : []),
+    ...(Array.isArray(metadata.status_reason_codes) ? metadata.status_reason_codes.map((code) => ({ code })) : []),
+  ].map((entry) => entry.code || entry).filter(Boolean);
+}
+
+function buildVerdict(issues, rejected, degradedModes = []) {
   if (issues.some((issue) => issue.severity === 'blocker')) return 'Not ready';
   if (issues.some((issue) => ['high', 'medium'].includes(issue.severity))) return 'Ready with follow-ups';
+  if (issues.length === 0 && rejected.length === 0 && degradedModes.length > 0) return 'No issues in scoped audit';
   if (issues.length === 0 && rejected.length === 0) return 'Ready';
   return 'Advisory only';
 }

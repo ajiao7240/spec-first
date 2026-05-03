@@ -35,6 +35,8 @@ describe('spec-app-consistency-audit entry contract', () => {
     expect(skill).toContain('Do not copy app-audit-specific experts or ECC-derived lenses into `agents/`');
     expect(skill).toContain('No evidence, no issue.');
     expect(skill).toContain('Rule packs can explain risk and rationale, but they cannot be the only evidence');
+    expect(skill).toContain('`provenance` and `evidence` entries must contain a traceable project field');
+    expect(skill).toContain('`industry:<name>` is an explicit lens, not a confirmed industry profile');
     expect(skill).toContain('## Figma MCP Materialization');
     expect(skill).toContain('has_figma_reference');
     expect(skill).toContain('## Figma Redaction Policy');

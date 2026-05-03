@@ -13,6 +13,7 @@ const VALIDATION_STATUSES = new Set(['not_required', 'validated', 'validator_rej
 const SENSITIVE_TEXT_PATTERN = /(https?:\/\/|Authorization\s*[:=]|Bearer\s+|Cookie\s*[:=]|(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|token|secret|password|passwd|session(?:id)?|jwt)\s*[:=])/i;
 const METADATA_HOSTS = new Set(['unknown', 'claude', 'codex']);
 const DIFF_SCOPE_KINDS = new Set(['git_diff', 'working_tree', 'source_snapshot']);
+const METADATA_STATUSES = new Set(['started', 'complete', 'degraded', 'failed']);
 const TRACEABLE_EVIDENCE_FIELDS = ['file', 'path', 'artifact_id', 'node_id', 'route', 'event', 'key'];
 
 function validateArtifact(artifact, options = {}) {
@@ -225,6 +226,14 @@ function validateAuditIssue(issue, index, errors, options = {}) {
   for (const field of ['static_confirmed', 'requires_runtime_verification', 'requires_real_device']) {
     if (typeof issue[field] !== 'boolean') {
       errors.push(error(`${prefix}.${field}`, 'boolean_required', `${prefix}.${field} must be boolean.`));
+    }
+  }
+  if (typeof issue.static_confirmed === 'boolean' && typeof issue.contract_status === 'string') {
+    if (issue.contract_status === 'confirmed' && issue.static_confirmed !== true) {
+      errors.push(error(`${prefix}.static_confirmed`, 'static_confirmed_contract_status_mismatch', 'confirmed issues must set static_confirmed to true.'));
+    }
+    if (issue.contract_status !== 'confirmed' && issue.static_confirmed !== false) {
+      errors.push(error(`${prefix}.static_confirmed`, 'static_confirmed_contract_status_mismatch', 'candidate or rejected issues must set static_confirmed to false.'));
     }
   }
   if (!Array.isArray(issue.provenance) || issue.provenance.length === 0) {
@@ -470,15 +479,19 @@ function validateKnownContractArtifact(artifact, errors) {
       break;
     case 'metadata':
       requireSchemaVersion(artifact, 'spec-app-consistency-audit-metadata.v1', errors);
-      for (const field of ['run_id', 'host', 'mode', 'head_sha', 'diff_hash', 'diff_scope_kind', 'worktree_fingerprint', 'audit_verdict_scope', 'run_dir', 'summary_path', 'issues_path']) {
+      for (const field of ['run_id', 'host', 'mode', 'head_sha', 'diff_hash', 'diff_scope_kind', 'worktree_fingerprint', 'audit_verdict_scope', 'run_dir', 'summary_path', 'issues_path', 'status', 'started_at']) {
         requireString(artifact, field, errors);
       }
       if (typeof artifact.host === 'string' && !METADATA_HOSTS.has(artifact.host)) {
         errors.push(error('host', 'invalid_metadata_host', 'metadata host must be unknown, claude, or codex.'));
       }
+      if (typeof artifact.status === 'string' && !METADATA_STATUSES.has(artifact.status)) {
+        errors.push(error('status', 'invalid_metadata_status', 'metadata status is invalid.'));
+      }
       if (typeof artifact.diff_scope_kind === 'string' && !DIFF_SCOPE_KINDS.has(artifact.diff_scope_kind)) {
         errors.push(error('diff_scope_kind', 'invalid_diff_scope_kind', 'diff_scope_kind is invalid.'));
       }
+      requireArray(artifact, 'status_reason_codes', errors);
       requireObject(artifact, 'coverage_capabilities', errors);
       requireObject(artifact, 'input_expectations', errors);
       break;
