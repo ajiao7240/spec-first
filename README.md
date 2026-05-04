@@ -3,12 +3,12 @@
 # spec-first
 
 [![npm version](https://img.shields.io/npm/v/spec-first.svg)](https://www.npmjs.com/package/spec-first)
-[![license](https://img.shields.io/npm/l/spec-first.svg)](./LICENSE)
-[![node](https://img.shields.io/node/v/spec-first.svg)](./package.json)
+[![license](https://img.shields.io/npm/l/spec-first.svg)](https://github.com/sunrain520/spec-first/blob/main/LICENSE)
+[![node](https://img.shields.io/node/v/spec-first.svg)](https://github.com/sunrain520/spec-first/blob/main/package.json)
 [![CI](https://github.com/sunrain520/spec-first/actions/workflows/npm-install-matrix.yml/badge.svg)](https://github.com/sunrain520/spec-first/actions/workflows/npm-install-matrix.yml)
 [![docs](https://img.shields.io/badge/docs-spec--first.cn-0b7285.svg)](http://spec-first.cn/)
 
-[English](./README.md) | [简体中文](./README.zh-CN.md)
+[English](https://github.com/sunrain520/spec-first/blob/main/README.md) | [简体中文](https://github.com/sunrain520/spec-first/blob/main/README.zh-CN.md)
 
 **Spec-driven AI engineering workflows for Claude Code and Codex.**
 
@@ -24,7 +24,7 @@ Official site: [spec-first.cn](http://spec-first.cn/)
 
 ## See It In 90 Seconds
 
-![spec-first workflow flow](./docs/assets/readme/spec-first-flow.svg)
+![spec-first workflow flow](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)
 
 ```text
 Loose idea
@@ -60,7 +60,7 @@ docs/tasks/2026-05-01-001-feat-cli-onboarding-tasks.md
 
 The first brainstorm run usually creates only the requirements brief. The plan, task-pack, work, review, debug, and compound entries add their own artifacts when you choose to continue the chain.
 
-For the detailed walkthrough, see [Chinese First Workflow Walkthrough](./docs/05-用户手册/09-首次工作流走查.md).
+For the detailed walkthrough, see [Chinese First Workflow Walkthrough](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md).
 
 ## Why spec-first?
 
@@ -307,7 +307,7 @@ docs/
 
 Not every workflow writes every artifact; each entrypoint writes only the artifact that fits its role.
 
-For who creates, reads, and should edit each artifact, see [Chinese Artifact Catalog](./docs/05-用户手册/10-产物目录.md).
+For who creates, reads, and should edit each artifact, see [Chinese Artifact Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/10-%E4%BA%A7%E7%89%A9%E7%9B%AE%E5%BD%95.md).
 
 ## How It Works
 
@@ -409,32 +409,32 @@ It may not fit when you only need a single prompt snippet, a generic agent marke
 Official site and language entrypoints:
 
 - [spec-first.cn](http://spec-first.cn/)
-- [English README](./README.md)
-- [简体中文 README](./README.zh-CN.md)
+- [English README](https://github.com/sunrain520/spec-first/blob/main/README.md)
+- [简体中文 README](https://github.com/sunrain520/spec-first/blob/main/README.zh-CN.md)
 
 Learn the model:
 
-- [Chinese User Manual](./docs/05-用户手册/README.md)
-- [Chinese Core Concepts](./docs/05-用户手册/02-核心概念.md)
-- [Chinese Architecture Overview](./docs/02-架构设计/01-整体架构.md)
+- [Chinese User Manual](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/README.md)
+- [Chinese Core Concepts](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/02-%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5.md)
+- [Chinese Architecture Overview](https://github.com/sunrain520/spec-first/blob/main/docs/02-%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/01-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84.md)
 
 Use workflows:
 
-- [Chinese Quickstart](./docs/05-用户手册/01-快速开始.md)
-- [Chinese First Workflow Walkthrough](./docs/05-用户手册/09-首次工作流走查.md)
-- [Chinese Workflows and Artifacts Map](./docs/05-用户手册/04-workflows-artifacts-map.md)
+- [Chinese Quickstart](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/01-%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B.md)
+- [Chinese First Workflow Walkthrough](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md)
+- [Chinese Workflows and Artifacts Map](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/04-workflows-artifacts-map.md)
 
 Develop and contribute:
 
-- [Contributing Guide](./CONTRIBUTING.md)
-- [Security Policy](./SECURITY.md)
-- [License](./LICENSE)
-- [Chinese Development Guide](./docs/03-实施方案/06-开发规范.md)
-- [Chinese Testing Plan](./docs/03-实施方案/04-测试方案.md)
+- [Contributing Guide](https://github.com/sunrain520/spec-first/blob/main/CONTRIBUTING.md)
+- [Security Policy](https://github.com/sunrain520/spec-first/blob/main/SECURITY.md)
+- [License](https://github.com/sunrain520/spec-first/blob/main/LICENSE)
+- [Chinese Development Guide](https://github.com/sunrain520/spec-first/blob/main/docs/03-%E5%AE%9E%E6%96%BD%E6%96%B9%E6%A1%88/06-%E5%BC%80%E5%8F%91%E8%A7%84%E8%8C%83.md)
+- [Chinese Testing Plan](https://github.com/sunrain520/spec-first/blob/main/docs/03-%E5%AE%9E%E6%96%BD%E6%96%B9%E6%A1%88/04-%E6%B5%8B%E8%AF%95%E6%96%B9%E6%A1%88.md)
 
 Release history:
 
-- [Chinese Release Notes](./docs/08-版本更新/README.md)
+- [Chinese Release Notes](https://github.com/sunrain520/spec-first/blob/main/docs/08-%E7%89%88%E6%9C%AC%E6%9B%B4%E6%96%B0/README.md)
 
 Detailed manuals and implementation docs are currently Chinese-first.
 
@@ -499,6 +499,8 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 
 Runtime asset summary:
 
+Detailed runtime capability catalog: [Runtime Capability Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/catalog/runtime-capabilities.md).
+
 | Layer | Current Contract |
 |---|---|
 | **Capability layer** | Bundled source assets ship with `42` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `21` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `21` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
@@ -550,4 +552,4 @@ npm test
 
 When changing source assets, edit `skills/`, `agents/`, `templates/`, or `src/cli/`, then regenerate runtime copies with `spec-first init --claude` or `spec-first init --codex` in a fresh host session.
 
-For contribution and support details, see [CONTRIBUTING.md](./CONTRIBUTING.md), [SECURITY.md](./SECURITY.md), [LICENSE](./LICENSE), and [GitHub Issues](https://github.com/sunrain520/spec-first/issues).
+For contribution and support details, see [CONTRIBUTING.md](https://github.com/sunrain520/spec-first/blob/main/CONTRIBUTING.md), [SECURITY.md](https://github.com/sunrain520/spec-first/blob/main/SECURITY.md), [LICENSE](https://github.com/sunrain520/spec-first/blob/main/LICENSE), and [GitHub Issues](https://github.com/sunrain520/spec-first/issues).

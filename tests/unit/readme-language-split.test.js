@@ -6,6 +6,7 @@ const path = require('node:path');
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const README_EN_PATH = path.join(REPO_ROOT, 'README.md');
 const README_ZH_PATH = path.join(REPO_ROOT, 'README.zh-CN.md');
+const GITHUB_BLOB_ROOT = 'https://github.com/sunrain520/spec-first/blob/main';
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -29,17 +30,17 @@ describe('README language split contract', () => {
 
     const englishReadme = read(README_EN_PATH);
 
-    expect(englishReadme).toContain('[English](./README.md) | [简体中文](./README.zh-CN.md)');
+    expect(englishReadme).toContain(`[English](${GITHUB_BLOB_ROOT}/README.md) | [简体中文](${GITHUB_BLOB_ROOT}/README.zh-CN.md)`);
   });
 
   test('English README marks Chinese-first docs explicitly to avoid misleading readers', () => {
     const englishReadme = read(README_EN_PATH);
 
     expect(englishReadme).toContain('Detailed manuals and implementation docs are currently Chinese-first.');
-    expect(englishReadme).toContain('[Chinese Architecture Overview](./docs/02-架构设计/01-整体架构.md)');
-    expect(englishReadme).toContain('[Chinese Development Guide](./docs/03-实施方案/06-开发规范.md)');
-    expect(englishReadme).toContain('[Chinese Testing Plan](./docs/03-实施方案/04-测试方案.md)');
-    expect(englishReadme).toContain('[Chinese Release Notes](./docs/08-版本更新/README.md)');
+    expect(englishReadme).toContain(`[Chinese Architecture Overview](${GITHUB_BLOB_ROOT}/docs/02-%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/01-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84.md)`);
+    expect(englishReadme).toContain(`[Chinese Development Guide](${GITHUB_BLOB_ROOT}/docs/03-%E5%AE%9E%E6%96%BD%E6%96%B9%E6%A1%88/06-%E5%BC%80%E5%8F%91%E8%A7%84%E8%8C%83.md)`);
+    expect(englishReadme).toContain(`[Chinese Testing Plan](${GITHUB_BLOB_ROOT}/docs/03-%E5%AE%9E%E6%96%BD%E6%96%B9%E6%A1%88/04-%E6%B5%8B%E8%AF%95%E6%96%B9%E6%A1%88.md)`);
+    expect(englishReadme).toContain(`[Chinese Release Notes](${GITHUB_BLOB_ROOT}/docs/08-%E7%89%88%E6%9C%AC%E6%9B%B4%E6%96%B0/README.md)`);
   });
 
   test('English README uses English init language examples and next steps', () => {

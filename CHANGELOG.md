@@ -1,6 +1,10 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-04 22:10:40 leokuang: fix(audit-p2): 修复 npm README 链接体验，补强 doctor 状态解释并生成 runtime capability catalog (user-visible)
+- v1.6.3 2026-05-04 22:05:23 leokuang: docs(ce-sync): 再审并校准 CE 06a7cee0 同步计划，新增逐文件语义对比 gate 并收紧直接同步判定 (user-visible)
+- v1.6.3 2026-05-04 22:00:34 leokuang: docs(ce-sync): 优化上游 CE 同步方法论，补充当前项目语义对比、agent 权限适配和 CLI readiness 删除审计规则 (user-visible)
+- v1.6.3 2026-05-04 21:51:52 leokuang: docs(ce-sync): 细化 CE agent 同步计划，对比上游权限 diff、当前 spec-first reviewer 契约和 CLI readiness 引用后改为语义适配同步 (user-visible)
 - v1.6.3 2026-05-04 21:47:15 leokuang: fix(audit-p1): 收口 spec-work planned run artifact 边界并澄清 code-review 临时 handoff 与 durable summary 触发条件 (user-visible)
 - v1.6.3 2026-05-04 21:45:07 leokuang: docs(ce-sync): 将 CE 06a7cee0 同步计划文档的自然语言内容统一改为中文，保留路径、命令和技术标识原文 (user-visible)
 - v1.6.3 2026-05-04 21:36:41 leokuang: fix(audit-p1): 完成全局审查推荐 P1 任务，修复 source truth、artifact Git 边界和 init 下一步引导 (user-visible)

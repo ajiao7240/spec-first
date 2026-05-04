@@ -3,12 +3,12 @@
 # spec-first
 
 [![npm version](https://img.shields.io/npm/v/spec-first.svg)](https://www.npmjs.com/package/spec-first)
-[![license](https://img.shields.io/npm/l/spec-first.svg)](./LICENSE)
-[![node](https://img.shields.io/node/v/spec-first.svg)](./package.json)
+[![license](https://img.shields.io/npm/l/spec-first.svg)](https://github.com/sunrain520/spec-first/blob/main/LICENSE)
+[![node](https://img.shields.io/node/v/spec-first.svg)](https://github.com/sunrain520/spec-first/blob/main/package.json)
 [![CI](https://github.com/sunrain520/spec-first/actions/workflows/npm-install-matrix.yml/badge.svg)](https://github.com/sunrain520/spec-first/actions/workflows/npm-install-matrix.yml)
 [![docs](https://img.shields.io/badge/docs-spec--first.cn-0b7285.svg)](http://spec-first.cn/)
 
-[English](./README.md) | [简体中文](./README.zh-CN.md)
+[English](https://github.com/sunrain520/spec-first/blob/main/README.md) | [简体中文](https://github.com/sunrain520/spec-first/blob/main/README.zh-CN.md)
 
 **面向 Claude Code 与 Codex 的 spec-driven AI engineering workflows。**
 
@@ -24,7 +24,7 @@
 
 ## 90 秒看懂
 
-![spec-first workflow flow](./docs/assets/readme/spec-first-flow.svg)
+![spec-first workflow flow](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)
 
 ```text
 模糊想法
@@ -60,7 +60,7 @@ docs/tasks/2026-05-01-001-feat-cli-onboarding-tasks.md
 
 第一次 brainstorm 通常只生成 requirements brief。plan、task-pack、work、review、debug 和 compound 入口会在你继续推进链路时分别写入各自职责内的产物。
 
-完整走查见 [首次工作流走查](./docs/05-用户手册/09-首次工作流走查.md)。
+完整走查见 [首次工作流走查](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md)。
 
 ## 为什么使用 spec-first？
 
@@ -307,7 +307,7 @@ docs/
 
 Not every workflow writes every artifact；每个入口只写入与自身职责匹配的产物。
 
-每类产物由谁生成、谁读取、是否应该手改，见 [产物目录](./docs/05-用户手册/10-产物目录.md)。
+每类产物由谁生成、谁读取、是否应该手改，见 [产物目录](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/10-%E4%BA%A7%E7%89%A9%E7%9B%AE%E5%BD%95.md)。
 
 ## 工作方式
 
@@ -409,32 +409,32 @@ your-project/
 官网与语言入口：
 
 - [spec-first.cn](http://spec-first.cn/)
-- [English README](./README.md)
-- [简体中文 README](./README.zh-CN.md)
+- [English README](https://github.com/sunrain520/spec-first/blob/main/README.md)
+- [简体中文 README](https://github.com/sunrain520/spec-first/blob/main/README.zh-CN.md)
 
 理解模型：
 
-- [用户手册](./docs/05-用户手册/README.md)
-- [核心概念](./docs/05-用户手册/02-核心概念.md)
-- [架构总览](./docs/02-架构设计/01-整体架构.md)
+- [用户手册](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/README.md)
+- [核心概念](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/02-%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5.md)
+- [架构总览](https://github.com/sunrain520/spec-first/blob/main/docs/02-%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/01-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84.md)
 
 使用 workflows：
 
-- [快速开始](./docs/05-用户手册/01-快速开始.md)
-- [首次工作流走查](./docs/05-用户手册/09-首次工作流走查.md)
-- [Workflows 与产物地图](./docs/05-用户手册/04-workflows-artifacts-map.md)
+- [快速开始](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/01-%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B.md)
+- [首次工作流走查](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md)
+- [Workflows 与产物地图](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/04-workflows-artifacts-map.md)
 
 开发与贡献：
 
-- [贡献指南](./CONTRIBUTING.md)
-- [安全政策](./SECURITY.md)
-- [License](./LICENSE)
-- [开发规范](./docs/03-实施方案/06-开发规范.md)
-- [测试方案](./docs/03-实施方案/04-测试方案.md)
+- [贡献指南](https://github.com/sunrain520/spec-first/blob/main/CONTRIBUTING.md)
+- [安全政策](https://github.com/sunrain520/spec-first/blob/main/SECURITY.md)
+- [License](https://github.com/sunrain520/spec-first/blob/main/LICENSE)
+- [开发规范](https://github.com/sunrain520/spec-first/blob/main/docs/03-%E5%AE%9E%E6%96%BD%E6%96%B9%E6%A1%88/06-%E5%BC%80%E5%8F%91%E8%A7%84%E8%8C%83.md)
+- [测试方案](https://github.com/sunrain520/spec-first/blob/main/docs/03-%E5%AE%9E%E6%96%BD%E6%96%B9%E6%A1%88/04-%E6%B5%8B%E8%AF%95%E6%96%B9%E6%A1%88.md)
 
 版本记录：
 
-- [版本更新记录](./docs/08-版本更新/README.md)
+- [版本更新记录](https://github.com/sunrain520/spec-first/blob/main/docs/08-%E7%89%88%E6%9C%AC%E6%9B%B4%E6%96%B0/README.md)
 
 详细手册和实施文档均以中文为主。
 
@@ -499,6 +499,8 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 
 Runtime asset summary：
 
+详细 runtime capability catalog 见 [Runtime Capability Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/catalog/runtime-capabilities.md)。
+
 | 层级 | 当前 contract |
 |---|---|
 | **能力层资产** | 仓库内置源码资产共 `42` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `21` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `21` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
@@ -550,4 +552,4 @@ npm test
 
 修改 source assets 时，应修改 `skills/`、`agents/`、`templates/` 或 `src/cli/`，再在新宿主会话中通过 `spec-first init --claude` 或 `spec-first init --codex` 重建 runtime copies。
 
-贡献与支持细节见 [CONTRIBUTING.md](./CONTRIBUTING.md)、[SECURITY.md](./SECURITY.md)、[LICENSE](./LICENSE) 和 [GitHub Issues](https://github.com/sunrain520/spec-first/issues)。
+贡献与支持细节见 [CONTRIBUTING.md](https://github.com/sunrain520/spec-first/blob/main/CONTRIBUTING.md)、[SECURITY.md](https://github.com/sunrain520/spec-first/blob/main/SECURITY.md)、[LICENSE](https://github.com/sunrain520/spec-first/blob/main/LICENSE) 和 [GitHub Issues](https://github.com/sunrain520/spec-first/issues)。

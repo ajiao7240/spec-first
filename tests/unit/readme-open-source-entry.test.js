@@ -9,6 +9,8 @@ const README_ZH_PATH = path.join(REPO_ROOT, 'README.zh-CN.md');
 const CONTRIBUTING_PATH = path.join(REPO_ROOT, 'CONTRIBUTING.md');
 const SECURITY_PATH = path.join(REPO_ROOT, 'SECURITY.md');
 const README_FLOW_SVG_PATH = path.join(REPO_ROOT, 'docs/assets/readme/spec-first-flow.svg');
+const README_FLOW_SVG_URL = 'https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg';
+const GITHUB_BLOB_ROOT = 'https://github.com/sunrain520/spec-first/blob/main';
 const USER_MANUAL_INDEX_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/README.md');
 const FIRST_WORKFLOW_WALKTHROUGH_PATH = path.join(
   REPO_ROOT,
@@ -70,8 +72,9 @@ describe('README open-source entry contract', () => {
       expect(readme).toContain('[![npm version]');
       expect(readme).toContain('https://www.npmjs.com/package/spec-first');
       expect(readme).toContain('[![license]');
-      expect(readme).toContain('./LICENSE');
+      expect(readme).toContain(`${GITHUB_BLOB_ROOT}/LICENSE`);
       expect(readme).toContain('[![node]');
+      expect(readme).toContain(`${GITHUB_BLOB_ROOT}/package.json`);
       expect(readme).toContain('npm-install-matrix.yml');
       expect(readme).toContain('http://spec-first.cn/');
     }
@@ -124,7 +127,7 @@ describe('README open-source entry contract', () => {
     const svg = read(README_FLOW_SVG_PATH);
 
     for (const readme of [englishReadme, chineseReadme]) {
-      expect(readme).toContain('![spec-first workflow flow](./docs/assets/readme/spec-first-flow.svg)');
+      expect(readme).toContain(`![spec-first workflow flow](${README_FLOW_SVG_URL})`);
     }
 
     expect(svg).toContain('<svg');
@@ -162,8 +165,8 @@ describe('README open-source entry contract', () => {
     expect(englishReadme).toContain('A rough idea or product problem');
     expect(englishReadme).toContain('/spec:debug');
     expect(englishReadme).toContain('$spec-code-review');
-    expect(englishReadme).toContain('./docs/05-用户手册/09-首次工作流走查.md');
-    expect(englishReadme).toContain('./docs/05-用户手册/10-产物目录.md');
+    expect(englishReadme).toContain(`${GITHUB_BLOB_ROOT}/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md`);
+    expect(englishReadme).toContain(`${GITHUB_BLOB_ROOT}/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/10-%E4%BA%A7%E7%89%A9%E7%9B%AE%E5%BD%95.md`);
 
     expect(chineseReadme).toContain('## 一个小例子');
     expect(chineseReadme).toContain('第一次 brainstorm 通常只生成 requirements brief');
@@ -234,9 +237,9 @@ describe('README open-source entry contract', () => {
     for (const readmePath of [README_EN_PATH, README_ZH_PATH]) {
       const readme = read(readmePath);
 
-      expect(readme).toContain('./CONTRIBUTING.md');
-      expect(readme).toContain('./SECURITY.md');
-      expect(readme).toContain('./LICENSE');
+      expect(readme).toContain(`${GITHUB_BLOB_ROOT}/CONTRIBUTING.md`);
+      expect(readme).toContain(`${GITHUB_BLOB_ROOT}/SECURITY.md`);
+      expect(readme).toContain(`${GITHUB_BLOB_ROOT}/LICENSE`);
       expect(readme).not.toContain('CODE_OF_CONDUCT.md');
 
       for (const target of localMarkdownLinks(readme)) {

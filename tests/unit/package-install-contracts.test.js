@@ -11,6 +11,7 @@ const PACKAGE_LOCK_PATH = path.join(REPO_ROOT, 'package-lock.json');
 const NPM_IGNORE_PATH = path.join(REPO_ROOT, '.npmignore');
 const POSTINSTALL_PATH = path.join(REPO_ROOT, 'bin/postinstall.js');
 const TYPECHECK_SCRIPT_PATH = path.join(REPO_ROOT, 'scripts/typecheck-js.js');
+const README_PATH = path.join(REPO_ROOT, 'README.md');
 
 function removeDirectoryIfEmpty(dirPath) {
   try {
@@ -62,6 +63,7 @@ describe('package install contracts', () => {
 
     expect(pkg.files).not.toContain('vendor/');
     expect(pkg.files).toContain('docs/contracts/verifiers/');
+    expect(pkg.files).toContain('scripts/generate-runtime-capability-catalog.js');
     expect(pkg.files).toContain('scripts/typecheck-js.js');
     expect(pkg.files).toContain('!skills/**/__pycache__/**');
     expect(pkg.files).toContain('!skills/**/*.pyc');
@@ -77,6 +79,21 @@ describe('package install contracts', () => {
     expect(npmIgnore).toContain('__pycache__/');
     expect(npmIgnore).toContain('*.pyc');
     expect(npmIgnore).toContain('*.pyo');
+  });
+
+  test('published README uses absolute repository links instead of bundling docs payload', () => {
+    const pkg = readJson(PACKAGE_JSON_PATH);
+    const readme = fs.readFileSync(README_PATH, 'utf8');
+
+    expect(pkg.files).toContain('README.md');
+    expect(pkg.files).not.toContain('README.zh-CN.md');
+    expect(pkg.files).not.toContain('docs/assets/readme/');
+    expect(pkg.files).not.toContain('docs/05-用户手册/');
+    expect(readme).toContain('https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg');
+    expect(readme).toContain('https://github.com/sunrain520/spec-first/blob/main/README.zh-CN.md');
+    expect(readme).toContain('https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/README.md');
+    expect(readme).not.toMatch(/\]\(\.\/|\]\(\.\.\//);
+    expect(readme).not.toMatch(/!\[[^\]]*\]\(\.\/|!\[[^\]]*\]\(\.\.\//);
   });
 
   test('npm pack dry-run excludes generated Python bytecode caches', () => {

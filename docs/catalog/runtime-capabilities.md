@@ -1,0 +1,88 @@
+# Runtime Capability Catalog
+
+> 本文件由 `scripts/generate-runtime-capability-catalog.js` 从 `src/cli/plugin.js`、`src/cli/contracts/dual-host-governance/skills-governance.json` 和当前 `skills/` / `agents/` source 资产派生生成。
+> 它是只读 catalog，不是第二套 source of truth；修改 runtime 能力时应先改 source/governance，再重新生成本文件。
+
+## Source Truth
+
+| Source | 职责 |
+|---|---|
+| `src/cli/plugin.js` | 构建 plugin manifest、filtered asset set、runtime sync 与 drift 检查的实现真相源 |
+| `src/cli/contracts/dual-host-governance/skills-governance.json` | workflow / standalone / internal skill 的 host delivery 治理真相源 |
+| `templates/claude/commands/spec/*.md` | Claude `/spec:*` command source templates |
+| `skills/*/SKILL.md` | workflow、standalone、agent-facing internal skill source |
+| `agents/**/*.agent.md` | Claude/Codex 双宿主 agent source |
+
+## Summary
+
+| 范围 | 当前值 |
+|---|---|
+| Bundled source skills | 42 |
+| Bundled source agents | 51 |
+| Bundled agent support files | 0 |
+| Governance records by entry surface | internal_only: 19, standalone_skill: 2, workflow_command: 21 |
+| Claude runtime delivery | 21 commands, 21 workflow skills, 2 standalone skills, 2 agent-facing internal skills, 51 agents, 0 agent support files |
+| Codex runtime delivery | 0 commands, 21 workflow skills, 2 standalone skills, 2 agent-facing internal skills, 51 agents, 0 agent support files |
+| Beta workflow entries | spec-polish-beta, spec-work-beta |
+
+## Public Workflows
+
+| Workflow | Skill | Claude Entry | Codex Entry | Host Delivery | Beta | Description |
+|---|---|---|---|---|---|---|
+| app-consistency-audit | spec-app-consistency-audit | /spec:app-consistency-audit | $spec-app-consistency-audit | claude=command; codex=skill | no | Run the Spec-First App consistency audit workflow |
+| brainstorm | spec-brainstorm | /spec:brainstorm | $spec-brainstorm | claude=command; codex=skill | no | Run the Spec-First brainstorm workflow |
+| code-review | spec-code-review | /spec:code-review | $spec-code-review | claude=command; codex=skill | no | Run the Spec-First code review workflow |
+| compound | spec-compound | /spec:compound | $spec-compound | claude=command; codex=skill | no | Run the Spec-First knowledge capture workflow |
+| compound-refresh | spec-compound-refresh | /spec:compound-refresh | $spec-compound-refresh | claude=command; codex=skill | no | Refresh stale Spec-First solution docs |
+| debug | spec-debug | /spec:debug | $spec-debug | claude=command; codex=skill | no | Run the Spec-First debug workflow |
+| doc-review | spec-doc-review | /spec:doc-review | $spec-doc-review | claude=command; codex=skill | no | Run the Spec-First document review workflow |
+| graph-bootstrap | spec-graph-bootstrap | /spec:graph-bootstrap | $spec-graph-bootstrap | claude=command; codex=skill | no | Compile graph readiness facts for external graph-provider workflows |
+| ideate | spec-ideate | /spec:ideate | $spec-ideate | claude=command; codex=skill | no | Run the Spec-First ideation workflow |
+| mcp-setup | spec-mcp-setup | /spec:mcp-setup | $spec-mcp-setup | claude=command; codex=skill | no | Install and verify the required harness runtime for spec-first workflows |
+| optimize | spec-optimize | /spec:optimize | $spec-optimize | claude=command; codex=skill | no | Run metric-driven iterative optimization loops |
+| plan | spec-plan | /spec:plan | $spec-plan | claude=command; codex=skill | no | Run the Spec-First planning workflow |
+| polish-beta | spec-polish-beta | /spec:polish-beta | $spec-polish-beta | claude=command; codex=skill | yes | [BETA] Start the dev server and iterate on browser-visible polish |
+| release-notes | spec-release-notes | /spec:release-notes | $spec-release-notes | claude=command; codex=skill | no | Summarize recent spec-first releases or answer release questions |
+| sessions | spec-sessions | /spec:sessions | $spec-sessions | claude=command; codex=skill | no | Search and summarize prior coding agent sessions |
+| skill-audit | spec-skill-audit | /spec:skill-audit | $spec-skill-audit | claude=command; codex=skill | no | Run the Spec-First skill audit workflow |
+| slack-research | spec-slack-research | /spec:slack-research | $spec-slack-research | claude=command; codex=skill | no | Search Slack for interpreted organizational context |
+| standards | spec-standards | /spec:standards | $spec-standards | claude=command; codex=skill | no | Compile project standards and glue capability baseline artifacts |
+| update | spec-update | /spec:update | $spec-update | claude=command; codex=skill | no | Run the Spec-First update and runtime repair workflow |
+| work | spec-work | /spec:work | $spec-work | claude=command; codex=skill | no | Run the Spec-First execution workflow |
+| work-beta | spec-work-beta | /spec:work-beta | $spec-work-beta | claude=command; codex=skill | yes | [BETA] Run Spec-First execution with external delegate support |
+
+## Standalone Skills
+
+Standalone skills 会安装为宿主可发现的 skills，不是 command-backed workflows。
+
+| Skill | Claude Delivery | Codex Delivery | Description |
+|---|---|---|---|
+| spec-write-tasks | standalone skill: spec-write-tasks | standalone skill: spec-write-tasks | Compile a settled spec-plan into an optional derived task pack for spec-work, or validate an existing task pack before execution. Use when the user asks to split a plan into tasks, write task docs, or when a work suitability check concludes a task pack would materially reduce execution risk or context load. Keep plan as the single source of truth; tasks are derived and optional. |
+| using-spec-first | standalone skill: using-spec-first | standalone skill: using-spec-first | Use before substantial work in a spec-first project, and when users ask what spec-first workflow or command to run next. Decide whether to route into a public spec-first workflow before editing files, running state-changing commands, debugging, reviewing, planning, setup, update, or architecture/prompt/workflow decisions. |
+
+## Internal Skill Governance
+
+Most `internal_only` governance records are source governance entries and are not copied into the user-facing runtime skill set. Current runtime delivery only installs agent-facing internal skills that subagents need directly.
+
+| Category | Skills |
+|---|---|
+| Delivered agent-facing internal skills | spec-session-extract, spec-session-inventory |
+| Governance-only internal records | agent-native-architecture, agent-native-audit, changelog, feature-video, frontend-design, gemini-imagegen, git-clean-gone-branches, git-commit, git-commit-push-pr, git-worktree, lfg, proof, report-bug, resolve-pr-feedback, spec-dhh-rails-style, test-browser, test-xcode |
+
+## Runtime Paths
+
+| Host | Runtime surface | Generated path |
+|---|---|---|
+| Claude Code | `/spec:*` commands | `.claude/commands/spec/` |
+| Claude Code | standalone and agent-facing internal skills | `.claude/skills/` |
+| Claude Code | workflow skill mirrors for command-backed workflows | `.claude/spec-first/workflows/` |
+| Claude Code | agents | `.claude/agents/` |
+| Codex | workflow, standalone, and agent-facing internal skills | `.agents/skills/` |
+| Codex | agents | `.codex/agents/` |
+
+## Maintenance Contract
+
+- 不手改 `.claude/`、`.codex/` 或 `.agents/skills/` 作为 source fix；需要刷新 runtime 时运行 `spec-first init --claude|--codex`。
+- 不在本 catalog 中手写能力数量；能力数量必须由 generator 从 source/governance 推导。
+- 新增、删除或改变 host delivery 时，同步更新 governance/source，运行 `npm run docs:runtime-catalog`，再运行 targeted governance tests。
+- 该 catalog 只描述 delivery surface，不判断某个 MCP/provider 当前是否 ready；provider readiness 由 `spec-mcp-setup` 和 `spec-graph-bootstrap` 产物表达。

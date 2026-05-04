@@ -15,6 +15,8 @@ origin: docs/solutions/architecture-patterns/upstream-ce-sync-upgrade-methodolog
 
 本计划用于把 CE `4b5f28da..06a7cee0` 中适合 spec-first 的 workflow、agent、script 和 governance 变更同步到当前仓库。同步采用“事实取证 + 语义适配”方式：安全修复和既有 workflow 改良进入本轮实施，新产品能力入口先进入产品边界 spike，不把 CE 新 skill 机械复制进 spec-first。
 
+2026-05-04 再审校准后，本计划进一步收紧同步口径：目标文件已存在的 agent、skill、reference 和 script 变更不再使用“直接同步并改名”作为默认判定；执行前必须先对比 CE 实际 hunk、当前 spec-first 目标文件、调用方和验证契约，再只同步能被当前项目语义支撑的最小行为切片。
+
 ## 问题背景
 
 CE 本轮更新覆盖 98 个文件、4004 行新增和 1158 行删除，既包含 shell safety、review numbering、PR branch/body 安全、setup/update 脚本等高价值修复，也包含 `ce-strategy`、`ce-product-pulse`、`ce-simplify-code` 等新增能力。spec-first 与 CE 已分叉，当前项目有双宿主 runtime、source/runtime 边界、公开 workflow 暴露面和 CHANGELOG 治理，不能用整文件覆盖或按 CE 路径直接迁移。
@@ -74,6 +76,9 @@ Updating 4b5f28da..06a7cee0
 - CE head: `06a7cee0ad68cb50cebdb8a2a864ec4148ffba78`
 - 完整 CE diff：98 个文件
 - 过滤 `docs/**` 和 `tests/**` 后的实施目标：77 个 file entry
+- CE agent diff 中，17 个保留的 code-review reviewer agents 只修改 frontmatter `tools` 一行：从 `Read, Grep, Glob, Bash` 追加 `Write`。另外 2 个 CLI readiness reviewer agents 被删除。
+- 当前 spec-first `skills/spec-code-review/references/subagent-template.md` 要求带 run ID 的 leaf reviewer 将完整 JSON 分析写到 `/tmp/spec-first/spec-code-review/<run-id>/<reviewer_name>.json`，并说明这是唯一允许的写操作。
+- 当前 spec-first 对应 reviewer agents 的 frontmatter 仍是 `tools: Read, Grep, Glob, Bash`，尚未授予 `Write`。
 - 计划开始时观察到的 spec-first 未提交改动文件：
   - `CHANGELOG.md`
   - `docs/2026-05-04/spec-first-global-audit/08-priority-roadmap.md`
@@ -123,6 +128,15 @@ Updating 4b5f28da..06a7cee0
 - CE `docs/solutions/workflow/stale-local-base-contamination.md` 解释 branch creation 修复。
 - CE tests 定义需要移植到本仓库 `tests/unit/*` 形态的断言。
 
+## 同步质量校准规则
+
+- 文件判定表只是同步索引，不是直接编辑许可。每个 `M`/`R`/`D` 文件在实施前必须补齐一次当前项目语义对比：CE 实际 hunk、spec-first 当前目标文件状态、调用方或 selector、要同步的最小切片、验证断言。
+- 已存在的 spec-first 目标文件默认走“语义适配”。只有新增 reference/script 且不存在现有目标语义、或 diff 纯粹是路径/命名替换并已证明无 host/runtime 边界影响时，才允许“直接同步”。
+- Agent、skill frontmatter、tool allowlist、selector、workflow entrypoint、artifact path、runtime governance 和 README count 变更必须单独写清 source-of-truth、generated runtime、consumer 和验证边界。
+- CE tests 不直接复制，但其断言必须被映射为本仓库的 contract/unit/shell tests；如果没有可落点的测试，计划必须记录保留为 manual verification 的原因。
+- 删除类变更必须先做 inbound-reference audit。CE 删除 selector 或文件不代表 spec-first 删除；spec-first 作为 CLI/workflow harness 的特有覆盖面优先于 CE parity。
+- 当前 worktree 有多处无关 dirty files，执行时必须以最新 `git status --short` 为准；任何目标文件存在既有改动时，先读当前内容并局部合并，不覆盖用户/并行改动。
+
 ## 路径映射
 
 | CE 路径 | spec-first 目标 |
@@ -171,25 +185,31 @@ Updating 4b5f28da..06a7cee0
 
 ### Agent 文件
 
+Agent 对比结论：
+
+- **CE 保留的 17 个 code-review reviewer agents**：本次 diff 只改 frontmatter `tools`，从 `Read, Grep, Glob, Bash` 追加 `Write`；没有 agent 正文、模型、颜色或职责变更。当前 spec-first 对应 `spec-*` agent 均存在，frontmatter 仍未授予 `Write`。语义适配结论是：只在 code-review pipeline 需要 leaf reviewer 自写 `/tmp/spec-first/spec-code-review/<run-id>/...json` artifact 且 host 支持该 allowlist 语义时，给对应 spec reviewer 追加 `Write`，不复制 CE 正文。
+- **CE 删除的 2 个 CLI readiness agents**：CE 同时删除 agent 文件，并从 CE `persona-catalog.md` 中移除 `cli-readiness` selector。当前 spec-first 仍在 `skills/spec-code-review/SKILL.md` 和 `skills/spec-code-review/references/persona-catalog.md` 引用 `spec-cli-readiness-reviewer`，历史验证文档也将两个 CLI readiness agents 记录为已集成能力。语义适配结论是：不跟随 CE 删除；保留到 U9 做独立引用审计和产品价值判断。
+- **spec-first 额外 reviewer agents**：`spec-agent-native-reviewer`、`spec-learnings-researcher`、doc-review lens agents、writer/fixer 类 agents 不在 CE 本次 agent diff 范围内，本轮不因 CE `Write` 变更而扩大权限。
+
 | CE 文件 | 状态 | 判定 | 理由 |
 |---|---:|---|---|
-| `plugins/compound-engineering/agents/ce-adversarial-reviewer.agent.md` | M | 条件同步：仅权限适配 | CE diff 只把 `tools` 从 `Read, Grep, Glob, Bash` 改为追加 `Write`；只有确认 spec-first 该 reviewer 会通过 code-review template 写 `/tmp/spec-first/spec-code-review/<run-id>/` artifact，且 host frontmatter `Write` 不扩大为 repo mutation 权限后才同步 |
-| `plugins/compound-engineering/agents/ce-api-contract-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-correctness-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-data-migrations-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-dhh-rails-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-julik-frontend-races-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-kieran-python-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-kieran-rails-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-kieran-typescript-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-maintainability-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-performance-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-previous-comments-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；还需先同步 previous-comments gate，避免无 PR feedback 时启动该 reviewer |
-| `plugins/compound-engineering/agents/ce-project-standards-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-reliability-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-security-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-swift-ios-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
-| `plugins/compound-engineering/agents/ce-testing-reviewer.agent.md` | M | 条件同步：仅权限适配 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-adversarial-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | CE diff 只把 `tools` 从 `Read, Grep, Glob, Bash` 改为追加 `Write`；只有确认 spec-first 该 reviewer 会通过 code-review template 写 `/tmp/spec-first/spec-code-review/<run-id>/` artifact，且 host frontmatter `Write` 不扩大为 repo mutation 权限后才同步 |
+| `plugins/compound-engineering/agents/ce-api-contract-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-correctness-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-data-migrations-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-dhh-rails-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-julik-frontend-races-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-kieran-python-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-kieran-rails-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-kieran-typescript-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-maintainability-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-performance-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-previous-comments-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；还需先同步 previous-comments gate，避免无 PR feedback 时启动该 reviewer |
+| `plugins/compound-engineering/agents/ce-project-standards-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-reliability-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-security-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-swift-ios-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
+| `plugins/compound-engineering/agents/ce-testing-reviewer.agent.md` | M | 语义适配：仅同步 `Write` 权限 | 同一项 `Write` 权限适配；不复制 agent 正文 |
 | `plugins/compound-engineering/agents/ce-cli-agent-readiness-reviewer.agent.md` | D | 延后 spike，默认保留 | spec-first 当前引用 `spec-cli-agent-readiness-reviewer`；删除前需要仓库特定价值判断和引用审计 |
 | `plugins/compound-engineering/agents/ce-cli-readiness-reviewer.agent.md` | D | 延后 spike，默认保留 | spec-first 当前选择 `spec-cli-readiness-reviewer`；删除会改变 review 覆盖面 |
 
@@ -203,25 +223,25 @@ Updating 4b5f28da..06a7cee0
 | `plugins/compound-engineering/skills/ce-brainstorm/references/synthesis-summary.md` | A | 语义适配 | 新 reference 价值高；创建 `skills/spec-brainstorm/references/synthesis-summary.md` |
 | `plugins/compound-engineering/skills/ce-code-review/SKILL.md` | M | 语义适配 | 同步 quick review、有界 dispatch、稳定编号、comment gate、script path 移动和 `Requirements` section 兼容 |
 | `plugins/compound-engineering/skills/ce-code-review/references/persona-catalog.md` | M | 部分延后 | 同步 previous-comments gate；CLI-readiness 移除由删除决策门控 |
-| `plugins/compound-engineering/skills/ce-code-review/references/review-output-template.md` | M | 直接同步 | 稳定顺序 finding 编号规则 |
+| `plugins/compound-engineering/skills/ce-code-review/references/review-output-template.md` | M | 语义适配：同步编号规则 | 稳定顺序 finding 编号规则；先对比当前 `review-output-template.md` 的 schema/output 语义，避免覆盖 spec-first 已有字段 |
 | `plugins/compound-engineering/skills/ce-code-review/{references => scripts}/resolve-base.sh` | R099 | 语义适配 | 移到 `skills/spec-code-review/scripts/resolve-base.sh`；更新全部引用和测试 |
 | `plugins/compound-engineering/skills/ce-commit-push-pr/SKILL.md` | M | 语义适配 | 强制 `--body-file` 和新鲜 base 分支创建；映射到 `git-commit-push-pr` |
 | `plugins/compound-engineering/skills/ce-commit-push-pr/references/branch-creation.md` | A | 语义适配 | 新 reference 应加入 `skills/git-commit-push-pr/references/` |
-| `plugins/compound-engineering/skills/ce-commit-push-pr/references/pr-description-writing.md` | M | 直接同步并改名 | 在 badge model slug 示例中 URL-encode 字面括号 |
+| `plugins/compound-engineering/skills/ce-commit-push-pr/references/pr-description-writing.md` | M | 语义适配：同步 URL encode 规则 | 在 badge model slug 示例中 URL-encode 字面括号；同步时保留 spec-first badge、host matrix 和 PR body 写作边界 |
 | `plugins/compound-engineering/skills/ce-compound-refresh/SKILL.md` | M | 语义适配 | 删除前检查 inbound links；同步 |
-| `plugins/compound-engineering/skills/ce-compound/SKILL.md` | M | 直接同步并改名 | 移除 repo-name 预解析和不安全 parameter expansion |
+| `plugins/compound-engineering/skills/ce-compound/SKILL.md` | M | 语义适配：同步 shell safety 切片 | 移除 repo-name 预解析和不安全 parameter expansion；先确认当前 `spec-compound` 的 branch/context 读取路径 |
 | `plugins/compound-engineering/skills/ce-doc-review/SKILL.md` | M | 语义适配 | 同步有界 parallel dispatch |
-| `plugins/compound-engineering/skills/ce-doc-review/references/synthesis-and-presentation.md` | M | 直接同步并改名 | 将 `Summary` 视为 framing-level section |
+| `plugins/compound-engineering/skills/ce-doc-review/references/synthesis-and-presentation.md` | M | 语义适配：同步 section 分类规则 | 将 `Summary` 视为 framing-level section；保留 spec-doc-review 当前 synthesis pipeline 语义 |
 | `plugins/compound-engineering/skills/ce-ideate/SKILL.md` | M | 部分延后 | 读取 `STRATEGY.md`；仅在接受 strategy anchor 后同步 |
 | `plugins/compound-engineering/skills/ce-plan/SKILL.md` | M | 语义适配 | 同步 cross-repo bug route、synthesis phases、`Summary` template、`Requirements` section 兼容和 handoff 加载 |
 | `plugins/compound-engineering/skills/ce-plan/references/deepening-workflow.md` | M | 语义适配 | 实施时检查 diff；大概率是 naming/template 一致性更新 |
 | `plugins/compound-engineering/skills/ce-plan/references/plan-handoff.md` | M | 语义适配 | 同步内联 post-generation routing 和绝对 chat path |
 | `plugins/compound-engineering/skills/ce-plan/references/synthesis-summary.md` | A | 语义适配 | 新 reference 价值高；创建到 `skills/spec-plan/references/` |
-| `plugins/compound-engineering/skills/ce-plan/references/universal-planning.md` | M | 直接同步并改名 | 移除 SLFG wording |
-| `plugins/compound-engineering/skills/ce-plan/references/visual-communication.md` | M | 直接同步并改名 | `Summary` 替代 `Overview` |
-| `plugins/compound-engineering/skills/ce-polish-beta/scripts/detect-project-type.sh` | M | 直接同步并改名 | 用 Bash 3.2 兼容的 newline list 替换 associative array |
+| `plugins/compound-engineering/skills/ce-plan/references/universal-planning.md` | M | 语义适配：移除过时 wording | 移除 SLFG wording；同步前确认当前 spec-first plan reference 是否仍有同义旧术语 |
+| `plugins/compound-engineering/skills/ce-plan/references/visual-communication.md` | M | 语义适配：同步 heading rename | `Summary` 替代 `Overview`；保留 legacy read compatibility |
+| `plugins/compound-engineering/skills/ce-polish-beta/scripts/detect-project-type.sh` | M | 语义适配：同步 Bash 3.2 实现 | 用 Bash 3.2 兼容的 newline list 替换 associative array；必须保持当前 spec-polish-beta project type 输出 shape |
 | `plugins/compound-engineering/skills/ce-product-pulse/**` | A | 延后 spike | 新 product observability skill；需要 source/runtime/governance 决策 |
-| `plugins/compound-engineering/skills/ce-sessions/SKILL.md` | M | 直接同步并改名 | 移除 repo-name 预解析和不安全 parameter expansion |
+| `plugins/compound-engineering/skills/ce-sessions/SKILL.md` | M | 语义适配：同步 shell safety 切片 | 移除 repo-name 预解析和不安全 parameter expansion；先确认当前 `spec-sessions` 的 session inventory 边界 |
 | `plugins/compound-engineering/skills/ce-setup/SKILL.md` | M | 语义适配 | Plugin-root 检测和 Codex/global skill roots；映射到当前 setup skill 边界 |
 | `plugins/compound-engineering/skills/ce-setup/references/config-template.yaml` | M | 部分延后 | 新 `pulse_*` config 由 product-pulse 决策门控 |
 | `plugins/compound-engineering/skills/ce-setup/scripts/check-health` | M | 语义适配 | 增加 `.claude`、`.agents`、`.codex` 全局 skill roots；如果 `spec-mcp-setup` script 有同等职责则映射过去 |
@@ -229,8 +249,8 @@ Updating 4b5f28da..06a7cee0
 | `plugins/compound-engineering/skills/ce-strategy/**` | A | 延后 spike | 新 strategy anchor 和 `STRATEGY.md` artifact；需要产品边界决策 |
 | `plugins/compound-engineering/skills/ce-update/SKILL.md` | M | 语义适配 | 将 Claude marketplace probes 抽到 scripts；保留 spec-first Codex branch |
 | `plugins/compound-engineering/skills/ce-update/scripts/*.sh` | A | 语义适配 | 增加 `skills/spec-update/scripts/*`，并使用 spec-first repo/plugin 名称 |
-| `plugins/compound-engineering/skills/ce-work-beta/SKILL.md` | M | 直接同步并改名 | Config 预解析安全、`Requirements` section 兼容、heading rename |
-| `plugins/compound-engineering/skills/ce-work-beta/references/codex-delegation-workflow.md` | M | 直接同步并改名 | Codex CLI path 预解析为绝对路径 |
+| `plugins/compound-engineering/skills/ce-work-beta/SKILL.md` | M | 语义适配：同步执行契约切片 | Config 预解析安全、`Requirements` section 兼容、heading rename；保留 spec-work-beta 当前 opt-in/delegation 边界 |
+| `plugins/compound-engineering/skills/ce-work-beta/references/codex-delegation-workflow.md` | M | 语义适配：同步路径解析规则 | Codex CLI path 预解析为绝对路径；保留当前 beta delegation consent 和 sandbox 边界 |
 | `plugins/compound-engineering/skills/ce-work-beta/references/shipping-workflow.md` | M | 语义适配 | 同步 review-tier policy；simplify-code step 由决策门控 |
 | `plugins/compound-engineering/skills/ce-work/SKILL.md` | M | 语义适配 | `Requirements` section 兼容和强制加载 shipping reference |
 | `plugins/compound-engineering/skills/ce-work/references/shipping-workflow.md` | M | 语义适配 | 同步 review-tier policy；simplify-code step 由决策门控 |
@@ -266,8 +286,40 @@ Updating 4b5f28da..06a7cee0
 - **D5: 使用 spec-first 当前宿主语言。** 任何复制的 CE `/ce-*` 文案必须改为当前宿主表述，Claude 使用 `/spec:*`，Codex 使用 `$spec-*`；共享 source skill 中可使用中性的“当前宿主入口”表述。
 - **D6: 测试遵循 spec-first 布局。** CE 的 Bun/TS tests 是上游断言，不是目标文件。断言应移植到现有 `tests/unit/*.test.js` 或 shell tests。
 - **D7: 本计划本身仅是文档变更。** 本计划不实施 patch，不重新生成 runtime，也不运行 CE sync tests。
+- **D8: Agent 权限是证据驱动的最小适配，不是整文件同步。** CE agent 正文没有变化，`Write` 只是为了让 JSON-pipeline leaf reviewers 写 run artifact。spec-first 只能在确认当前 code-review template、host frontmatter 语义和 runtime generation 都需要且支持该权限后，追加 `Write`；不得借此复制 CE agent 正文或删除 spec-first 特有 CLI reviewers。
 
 ## 实施单元
+
+### U0. 逐文件语义对比 gate
+
+文件：
+
+- `docs/plans/2026-05-04-001-sync-ce-06a7cee0-workflow-updates-plan.md`
+- 本轮实施 PR description 或执行记录
+
+动作：
+
+- 对过滤后的 77 个 CE file entries 建立 implementation-time 对比 ledger。每一行至少包含：
+  - CE file/status
+  - CE actual change type：正文、frontmatter、权限 allowlist、selector、script、runtime metadata、删除
+  - CE diff evidence：关键 hunk 或 `--unified=0` 摘要
+  - spec-first target current state：目标文件是否存在、当前职责、frontmatter、调用方、selector、artifact contract
+  - accepted sync slice：本轮同步的最小行为切片
+  - not-synced slice：保持分叉或延后部分
+  - validation assertion
+- 如果某个文件缺少上述 ledger，不进入 patch。
+- 如果目标文件已有无关 dirty changes，先记录当前状态并局部合并，不覆盖。
+- 对所有 agent/skill frontmatter 或 selector 变更，先证明 source/runtime/consumer 边界，再改 source。
+
+测试场景：
+
+- 旧判定扫描无残留：
+
+  ```bash
+  awk -F'|' '/^\| .*plugins\/compound-engineering\// && $4 ~ /(直接同步并改名|Direct sync|Semantic adapt|Do not sync|Defer)/ { print NR ":" $0 }' docs/plans/2026-05-04-001-sync-ce-06a7cee0-workflow-updates-plan.md
+  ```
+- 每个实施 PR 或执行记录能从 changed file 追溯到 CE hunk、spec-first 当前状态和验证断言。
+- 执行前 `git status --short` 已记录，并且未覆盖无关 dirty files。
 
 ### U1. 事实重放与 dirty worktree 保护
 
@@ -375,7 +427,8 @@ Updating 4b5f28da..06a7cee0
 - 将 `resolve-base.sh` 从 `references/` 移到 `scripts/`，并更新所有路径。
 - 给 reviewer 和 validator subagents 增加 bounded parallel dispatch。
 - 增加 previous-comments `hasPriorComments` gate 和 approval-only skip。
-- 当 artifact 需要写入且 host delivery 支持该字段时，在 reviewer agent frontmatter 中增加 `Write`。
+- 对 agent 权限做最小适配：先确认 CE diff 只追加 `Write`、当前 `subagent-template.md` 确实要求 leaf reviewer 写 `/tmp/spec-first/spec-code-review/<run-id>/...json`、host delivery 支持 `tools: ..., Write`，再只给实际通过 code-review template 写 artifact 的 reviewer agents 追加 `Write`。
+- 如果当前 host 不依赖 agent frontmatter allowlist，或 artifact 写入改为 orchestrator 代写，则不追加 `Write`，改为记录保持分叉的原因。
 - 本单元不删除 CLI readiness reviewers，除非 U9 删除审计接受。
 
 测试场景：
@@ -384,6 +437,8 @@ Updating 4b5f28da..06a7cee0
 - `resolve-base.sh` 的路径引用指向 `scripts/resolve-base.sh`。
 - 只有存在 PR metadata 和真实 prior feedback 时，才选择 previous-comments reviewer。
 - bounded-dispatch 文案将 concurrency-limit errors 视为 backpressure，而不是 reviewer failure。
+- 若追加 `Write`，contract test 或 source scan 证明变更只覆盖 code-review leaf reviewers，不覆盖 doc-review reviewers、writer/fixer agents 或 CLI readiness 删除。
+- Fresh-source eval 验证 leaf reviewer 仍只允许写 `/tmp/spec-first/spec-code-review/<run-id>/` run artifact，不允许编辑 repo 文件。
 
 ### U5. Work、work-beta 与 shipping
 
@@ -559,6 +614,7 @@ Updating 4b5f28da..06a7cee0
 
 | 单元 | 最小验证 |
 |---|---|
+| U0 | 对比 ledger 完整；旧判定扫描无残留 |
 | U1 | `git diff --check -- docs/plans/2026-05-04-001-sync-ce-06a7cee0-workflow-updates-plan.md CHANGELOG.md` |
 | U2 | `npm run typecheck`；如可直接运行则执行 `node tests/unit/spec-update-contracts.test.js`；如 Jest 支持 path filter 则执行 `npm run test:unit -- --runTestsByPath ...`；否则 fallback 到 `npm run test:unit` |
 | U3 | `tests/unit/spec-brainstorm-contracts.test.js`、`tests/unit/spec-plan-contracts.test.js`、`npm run lint:skill-entrypoints` |
@@ -580,15 +636,16 @@ Updating 4b5f28da..06a7cee0
 
 ## 实施顺序
 
-1. U1 事实重放与 dirty worktree guard。
-2. U2 shell safety/setup/update 变更。
-3. U3 brainstorm/plan synthesis references。
-4. U4 code-review pipeline 变更，不包含 CLI reviewer 删除。
-5. U6 PR branch/body safety。
-6. U7 compound/sessions/doc-review/polish 修复。
-7. U5 code-review 行为稳定后，再处理 work/work-beta shipping policy。
-8. U9 CLI readiness 删除审计决策。
-9. U8 新 skills 的产品边界 spike。
-10. U10 README/governance/changelog/runtime/test 收口。
+1. U0 逐文件语义对比 gate。
+2. U1 事实重放与 dirty worktree guard。
+3. U2 shell safety/setup/update 变更。
+4. U3 brainstorm/plan synthesis references。
+5. U4 code-review pipeline 变更，不包含 CLI reviewer 删除。
+6. U6 PR branch/body safety。
+7. U7 compound/sessions/doc-review/polish 修复。
+8. U5 code-review 行为稳定后，再处理 work/work-beta shipping policy。
+9. U9 CLI readiness 删除审计决策。
+10. U8 新 skills 的产品边界 spike。
+11. U10 README/governance/changelog/runtime/test 收口。
 
 该顺序优先处理确定性安全修复，并把产品 surface 扩展留到核心同步稳定之后。
