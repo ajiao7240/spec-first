@@ -156,6 +156,7 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 | 触发 | `/spec:standards` 或 `$spec-standards`；支持 `--baseline`、`--quick`、`--refresh`、`--deep` 和 `--import-source <git-or-path>` |
 | 目录形状 | `.spec-first/standards/` |
 | 关键源码 | `skills/spec-standards/SKILL.md`、`skills/spec-standards/scripts/prepare-baseline.js` |
+| 用户手册 | [项目规范与胶水基线](./11-项目规范与胶水基线.md) |
 | 事实边界 | 项目规范候选与 glue baseline；observed/suggested candidates 不是 confirmed project policy |
 
 ### 写入内容

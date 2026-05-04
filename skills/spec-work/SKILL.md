@@ -48,6 +48,17 @@ Determine how to proceed based on what was provided in `<input_document>`.
    | **Small / Medium** | Clear scope, under ~10 files | Build a task list from discovery. Proceed to Phase 1 step 2 |
    | **Large** | Cross-cutting, architectural decisions, 10+ files, touches auth/payments/migrations | Inform the user this would benefit from the current host's brainstorm or plan entrypoint to surface edge cases and scope boundaries. Honor their choice. If proceeding, build a task list and continue to Phase 1 step 2 |
 
+3. **Oversized intake and handoff**
+
+   Apply this before creating execution tasks:
+
+   - If the input is a bare prompt and the product WHAT is unclear, recommend the current host's brainstorm entrypoint before execution.
+   - If the desired outcome is clear but no settled plan exists, return to the current host's plan entrypoint rather than forcing `spec-work` to plan while implementing.
+   - If the input is a settled plan and the plan is large enough that execution would require the executor to split dependencies, waves, or cross-module file ownership while implementing, offer the standalone `spec-write-tasks` diversion once.
+   - Do not describe task compilation as a command-backed workflow entrypoint; `spec-write-tasks` remains a standalone skill.
+   - If execution discovers scope beyond the plan/task pack, stop and return to `spec-plan` or rerun `spec-write-tasks`. Do not expand scope in place.
+   - Do not invent human-time phases, multi-day slices, or "this session only" subsets as an oversized-work workaround.
+
 ---
 
 ### Phase 1: Quick Start

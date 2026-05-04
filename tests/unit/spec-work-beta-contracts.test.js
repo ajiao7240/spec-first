@@ -24,6 +24,16 @@ const DELEGATION_REFERENCE_PATH = path.join(
 );
 
 describe('spec-work-beta context orientation contract', () => {
+  test('keeps beta execution as explicit opt-in instead of default handoff', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Beta rollout note');
+    expect(text).toContain('manually only when the current request explicitly asks to trial beta execution');
+    expect(text).toContain('Codex delegation');
+    expect(text).toContain('delegate:codex');
+    expect(text).toContain('guide-mode recommendations, planning handoffs, and ordinary execution-ready work remain pointed at stable `spec-work`');
+  });
+
   test('passes bounded direct-read context to delegates without retired graph ids', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     expect(text).toContain('Context Orientation Anchor');
@@ -122,11 +132,22 @@ describe('spec-work-beta host entrypoint contract', () => {
   test('routes oversized work back through the current host entrypoint', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
+    expect(text).toContain('Oversized intake and handoff');
     expect(text).toContain('current host\'s brainstorm or plan entrypoint');
+    expect(text).toContain('If the input is a bare prompt and the product WHAT is unclear, recommend the current host\'s brainstorm entrypoint');
+    expect(text).toContain('If the desired outcome is clear but no settled plan exists, return to the current host\'s plan entrypoint');
+    expect(text).toContain('offer the standalone `spec-write-tasks` diversion once');
+    expect(text).toContain('Do not describe task compilation as a command-backed workflow entrypoint');
+    expect(text).toContain('If execution discovers scope beyond the plan/task pack');
+    expect(text).toContain('Do not expand scope in place.');
+    expect(text).toContain('Do not invent human-time phases');
     expect(text).not.toContain('would benefit from `/spec:brainstorm` or `/spec:plan`');
     expect(text).not.toContain('return to `/spec:plan` to reduce scope');
     expect(text).not.toContain('/spec:brainstorm` / `/spec:plan` on Claude Code');
     expect(text).not.toContain('$spec-brainstorm` / `$spec-plan` on Codex');
     expect(text).not.toContain('current host\'s plan entrypoint (`/spec:plan` on Claude Code, `$spec-plan` on Codex)');
+    expect(text).not.toContain('/spec:write-tasks');
+    expect(text).not.toContain('/spec:spec-write-tasks');
+    expect(text).not.toContain('$spec-write-tasks');
   });
 });

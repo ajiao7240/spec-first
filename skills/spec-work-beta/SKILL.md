@@ -13,7 +13,7 @@ Execute work efficiently while maintaining quality and finishing features.
 
 This command takes a work document (plan, task pack, or specification) or a bare prompt describing the work, and executes it systematically. The focus is on **shipping complete features** by understanding requirements quickly, following existing patterns, and maintaining quality throughout.
 
-**Beta rollout note:** Invoke `spec-work-beta` manually when you want to trial Codex delegation. During the beta period, planning and workflow handoffs remain pointed at stable `spec-work` to avoid dual-path orchestration complexity.
+**Beta rollout note:** Invoke `spec-work-beta` manually only when the current request explicitly asks to trial beta execution, Codex delegation, `delegate:codex`, or delegation mode. During the beta period, guide-mode recommendations, planning handoffs, and ordinary execution-ready work remain pointed at stable `spec-work` to avoid dual-path orchestration complexity.
 
 ## Context Orientation Anchor
 
@@ -100,6 +100,17 @@ Determine how to proceed based on what was provided in `<input_document>`.
    | **Trivial** | 1-2 files, no behavioral change (typo, config, rename) | Proceed to Phase 1 step 2 (environment setup), then implement directly — no task list, no execution loop. Apply Test Discovery if the change touches behavior-bearing code |
    | **Small / Medium** | Clear scope, under ~10 files | Build a task list from discovery. Proceed to Phase 1 step 2 |
    | **Large** | Cross-cutting, architectural decisions, 10+ files, touches auth/payments/migrations | Inform the user this would benefit from the current host's brainstorm or plan entrypoint to surface edge cases and scope boundaries. Honor their choice. If proceeding, build a task list and continue to Phase 1 step 2 |
+
+3. **Oversized intake and handoff**
+
+   Apply this before creating execution tasks:
+
+   - If the input is a bare prompt and the product WHAT is unclear, recommend the current host's brainstorm entrypoint before execution.
+   - If the desired outcome is clear but no settled plan exists, return to the current host's plan entrypoint rather than forcing `spec-work-beta` to plan while implementing.
+   - If the input is a settled plan and the plan is large enough that execution would require the executor to split dependencies, waves, or cross-module file ownership while implementing, offer the standalone `spec-write-tasks` diversion once.
+   - Do not describe task compilation as a command-backed workflow entrypoint; `spec-write-tasks` remains a standalone skill.
+   - If execution discovers scope beyond the plan/task pack, stop and return to `spec-plan` or rerun `spec-write-tasks`. Do not expand scope in place.
+   - Do not invent human-time phases, multi-day slices, or "this session only" subsets as an oversized-work workaround.
 
 ---
 

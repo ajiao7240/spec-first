@@ -13,6 +13,7 @@ const FAQ_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/04-常见问题.md')
 const BEST_PRACTICES_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/05-最佳实践.md');
 const LOCAL_INSTALL_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/06-本地源码安装.md');
 const ARTIFACT_CATALOG_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/10-产物目录.md');
+const STANDARDS_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/11-项目规范与胶水基线.md');
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -72,5 +73,26 @@ describe('user manual contracts', () => {
     expect(artifactMap).toContain('app-consistency-audit.md');
     expect(artifactCatalog).toContain('.spec-first/app-audit/');
     expect(artifactCatalog).toContain('Figma ref 不等于 materialized evidence');
+  });
+
+  test('user manual includes a standalone spec-standards guide', () => {
+    const manual = read(USER_MANUAL_README_PATH);
+    const quickstart = read(QUICKSTART_PATH);
+    const artifactMap = read(ARTIFACT_MAP_PATH);
+    const standardsGuide = read(STANDARDS_GUIDE_PATH);
+
+    expect(manual).toContain('[项目规范与胶水基线](./11-项目规范与胶水基线.md)');
+    expect(quickstart).toContain('[`spec-standards`](./11-项目规范与胶水基线.md)');
+    expect(artifactMap).toContain('[项目规范与胶水基线](./11-项目规范与胶水基线.md)');
+    expect(standardsGuide).toContain('$spec-standards --quick');
+    expect(standardsGuide).toContain('$spec-standards --refresh --domain cli');
+    expect(standardsGuide).toContain('$spec-standards --deep');
+    expect(standardsGuide).toContain('$spec-standards --baseline --import-source ../shared-standards');
+    expect(standardsGuide).toContain('node skills/spec-standards/scripts/prepare-baseline.js --quick');
+    expect(standardsGuide).toContain('standards-update-decision.json');
+    expect(standardsGuide).toContain('graph-query-index.json');
+    expect(standardsGuide).toContain('import-lock.json');
+    expect(standardsGuide).toContain('下游 workflow 只能把 `confirmed` standards 当作硬约束');
+    expect(standardsGuide).toContain('不要手改 `.claude/`、`.codex/` 或 `.agents/skills/` runtime mirror');
   });
 });

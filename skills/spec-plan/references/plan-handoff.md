@@ -46,7 +46,7 @@ After spec-doc-review completes, present the options using the platform's blocki
 
 Based on selection:
 - **Start work** -> Call the current host's work entrypoint with the plan path
-- **Compile task pack with `spec-write-tasks`** -> Load the standalone `spec-write-tasks` skill with the plan path. Do not invoke `/spec:write-tasks` or `$spec-write-tasks`; this is a standalone skill, not a command-backed workflow. If it writes an executable task pack with matching `spec_id` and verifiable `source_plan_hash`, offer to proceed with the current host's work entrypoint using the task-pack path. If it returns `skip`, `return-to-plan`, `draft-only`, unverifiable identity/hash, or a non-executable task pack, do not offer task-pack execution; follow the returned recommendation instead.
+- **Compile task pack with `spec-write-tasks`** -> Load the standalone `spec-write-tasks` skill with the plan path. Do not invoke it through slash commands, `$spec-*` commands, or any command-backed workflow surface. If it writes an executable task pack with matching `spec_id` and verifiable `source_plan_hash`, offer to proceed with the current host's work entrypoint using the task-pack path. If it returns `skip`, `return-to-plan`, `draft-only`, unverifiable identity/hash, or a non-executable task pack, do not offer task-pack execution; follow the returned recommendation instead.
 - **Create Issue** -> Follow the Issue Creation section below
 - **Open in Proof (web app) — review and comment to iterate with the agent** -> Load the `proof` skill in HITL-review mode with:
   - source file: `docs/plans/<plan_filename>.md`

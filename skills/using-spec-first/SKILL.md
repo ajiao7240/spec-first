@@ -192,13 +192,14 @@ If the user asks a read-only codebase question from a parent workspace containin
 14. If the desired outcome is clear and the user needs an execution plan, route to:
    - Claude: `/spec:plan`
    - Codex: `$spec-plan`
-15. If the user asks to split a settled plan into executable tasks, write task docs, compile tasks before work, or the plan is large enough that execution would benefit from a derived task pack, use `spec-write-tasks` as a standalone skill. Do not describe it as `/spec:write-tasks` or `$spec-write-tasks`; it is not a command-backed workflow.
+15. If the user asks to split a settled plan into executable tasks, write task docs, compile tasks before work, or the plan is large enough that execution would benefit from a derived task pack, use `spec-write-tasks` as a standalone skill. Do not describe task compilation as a slash command, `$spec-*` command, or command-backed workflow.
 16. If there is already a plan, task pack, or the implementation task is clear enough to execute, route to:
    - Claude: `/spec:work`
    - Codex: `$spec-work`
 17. If the user explicitly asks to trial beta execution with Codex delegation, route to:
    - Claude: `/spec:work-beta`
    - Codex: `$spec-work-beta`
+   Do not recommend this route in User Next-Step Guide Mode unless the current request explicitly asks for beta execution, Codex delegation, `delegate:codex`, or delegation mode. Ordinary execution-ready work routes to the stable work entrypoint.
 18. If the user asks to polish a browser-visible UI and iterate with a running app, route to:
    - Claude: `/spec:polish-beta`
    - Codex: `$spec-polish-beta`

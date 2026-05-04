@@ -1,6 +1,12 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-04 13:16:03 leokuang: docs(spec-work-beta): 将 delegation beta 收紧为显式 opt-in，默认 guide 与 handoff 继续指向稳定 work workflow (user-visible)
+- v1.6.3 2026-05-04 13:15:56 leokuang: fix(lint): 允许 standalone skill command alias 的禁止性 guardrail 文案通过入口治理检查
+- v1.6.3 2026-05-04 13:13:06 leokuang: test(spec-write-tasks): 用 governance-derived lint 阻止 standalone task 编译 skill 被误写成命令入口
+- v1.6.3 2026-05-04 12:57:17 leokuang: docs(spec-work): 明确 oversized work 的 plan 与 standalone task-pack handoff 边界，避免执行 workflow 现场扩 scope (user-visible)
+- v1.6.3 2026-05-04 12:50:22 leokuang: test(using-spec-first): 用 lint 合同阻止将 standalone meta skill 误写成 spec slash command
+- v1.6.3 2026-05-04 12:47:42 leokuang: docs(spec-standards): 新增独立用户手册页，说明项目规范与胶水基线的入口、模式、产物和确认边界 (user-visible)
 - v1.6.3 2026-05-04 11:58:30 leokuang: docs(ecc): 将 ECC agent integration final 文档归档到 ECC 集成架构目录
 - v1.6.3 2026-05-04 10:53:15 leokuang: feat(spec-standards): 将 quick、refresh、deep 和 import-source 升级为正式可执行模式，补齐 deterministic artifacts、文档和契约测试 (user-visible)
 - v1.6.3 2026-05-04 04:05:59 leokuang: fix(audit): 修复系统审查 P0/P1 队列中的 Jest worktree 隔离、npm pack 测试隔离、provider/CLI timeout、docs lifecycle 与 lightweight schema validator 契约，并记录 ECC 漂移阻塞边界 (user-visible)

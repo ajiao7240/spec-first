@@ -41,24 +41,32 @@ function buildRules(config = loadConfig(), governance = loadSkillsGovernance()) 
   }
 
   rules.push({
-    id: 'standalone-slash-command',
+    id: 'standalone-command-entrypoint',
     severity: 'error',
     regex: buildStandaloneSlashCommandPattern(governance),
-    message: 'Standalone skills must be described as skills, not slash commands.',
+    message: 'Standalone skills must be described as skills, not command entrypoints.',
   });
 
   return rules;
 }
 
 function buildStandaloneSlashCommandPattern(governance = loadSkillsGovernance()) {
-  const standaloneSkillNames = governance.skills
+  const standaloneSkillNameAliases = governance.skills
     .filter((record) => record.entry_surface === 'standalone_skill')
-    .map((record) => record.skill_name)
+    .flatMap((record) => {
+      const names = [record.skill_name];
+      if (record.skill_name.startsWith('spec-')) {
+        names.push(record.skill_name.slice('spec-'.length));
+      }
+      return names;
+    })
+    .filter((name, index, names) => names.indexOf(name) === index)
     .sort((a, b) => b.length - a.length)
     .map(escapeRegex);
+  const standaloneNames = standaloneSkillNameAliases.join('|');
 
   return new RegExp(
-    `(^|[^A-Za-z0-9_.:-])/(${standaloneSkillNames.join('|')})(?=$|[^A-Za-z0-9.-])`,
+    `(^|[^A-Za-z0-9_.:-])(?:/(?:spec:)?(${standaloneNames})|\\$(?:spec-)?(${standaloneNames}))(?=$|[^A-Za-z0-9.-])`,
   );
 }
 
@@ -76,6 +84,9 @@ function analyzeContent(content, filePath, options = {}) {
 
     for (const rule of rules) {
       if (!rule.regex.test(line)) {
+        continue;
+      }
+      if (rule.id === 'standalone-command-entrypoint' && isStandaloneCommandEntrypointGuardrail(line)) {
         continue;
       }
 
@@ -150,6 +161,13 @@ function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function isStandaloneCommandEntrypointGuardrail(line) {
+  const normalized = line.toLowerCase();
+  return /\b(do not|don't|never)\b/.test(normalized)
+    || /\bnot\b.*\b(command-backed workflow|command entrypoint|workflow entrypoint|slash command)\b/.test(normalized)
+    || /\b(command-backed workflow|command entrypoint|workflow entrypoint|slash command)\b.*\bnot\b/.test(normalized);
+}
+
 function main() {
   const config = loadConfig();
   const governance = loadSkillsGovernance();
@@ -187,5 +205,6 @@ module.exports = {
   buildRules,
   buildStandaloneSlashCommandPattern,
   collectFiles,
+  isStandaloneCommandEntrypointGuardrail,
   loadConfig,
 };
