@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-05 02:21:32 leokuang: docs(spec-standards): 补充 artifact 质量门计划中外部确认与 evidence shape 的测试场景 (user-visible)
 - v1.6.3 2026-05-05 01:59:34 leokuang: docs(ce-sync): 完成 U8 新 skill 产品边界 spike，明确 strategy、product-pulse、simplify-code 暂不进入 public skill 面 (user-visible)
 - v1.6.3 2026-05-05 01:59:34 leokuang: docs(ce-sync): 完成 U9 CLI readiness 删除审计，保留 spec-first CLI reviewer 覆盖并将同步历史限制在 ledger/contract 中，清理 runtime-facing CE/上游来源措辞 (user-visible)
 - v1.6.3 2026-05-05 01:46:49 leokuang: docs(spec-standards): 开发前微调 artifact 质量门计划，钉牢 degraded pass 输出、preview reason_code 和 U0/U4 测试边界 (user-visible)

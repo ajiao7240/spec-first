@@ -385,13 +385,15 @@ The validator owns only the `I -> J` quality gate and the `trust_level` distinct
 
 **Test scenarios:**
 - Happy path: `repo_profile_confirmed` + `confirmed` -> 通过。
-- Happy path: `shared_standard_imported` + `confirmed` + `confirmation.type=human_confirmed` -> 通过。
+- Happy path: `shared_standard_imported` + `confirmed` + `confirmation.type=human_confirmed` 且 candidate id 出现在 `confirmations.json` -> 通过。
 - Happy path: `unknown` 有 question/reason/missing_evidence 且无 code evidence -> 通过。
 - Error path: `shared_standard_imported` + `confirmed` 且无 confirmation -> 失败，reason_code 为 `unsafe-confirmed-without-confirmation`。
+- Error path: `shared_standard_imported` + `confirmed` + `confirmation.type=human_confirmed`，但 `confirmations.json` 不存在且 patch 未列入该 id -> 失败，reason_code 为 `confirmation-not-externally-attested`。
 - Error path: `graph_observed` + `confirmed` 且无 confirmation -> 失败，reason_code 为 `unsafe-confirmed-source`。
 - Error path: patch 引用 `observed` candidate -> 失败，reason_code 为 `patch-references-non-confirmed-candidate`。
 - Error path: `conflict` 无 conflict refs -> 失败，reason_code 为 `missing-conflict-reference`。
 - Error path: `unknown` 无 question/reason/missing_evidence -> 失败，reason_code 为 `missing-unknown-question`。
+- Error path: `evidence: [""]` 或 `evidence: [{}]` -> 失败，reason_code 为 `invalid-evidence-shape`。
 
 **Verification:**
 - 所有错误状态都有稳定 reason_code。
