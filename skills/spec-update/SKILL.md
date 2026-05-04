@@ -5,8 +5,8 @@ description: |
   assets need refreshing. Use when the user says "update spec-first",
   "check spec-first version", "spec-first update", "is spec-first up to date",
   "update spec-first plugin", or reports issues that might stem from stale
-spec-first plugin, CLI, or generated runtime assets. Supports Claude Code and
-Codex with host-specific update commands.
+  spec-first plugin, CLI, or generated runtime assets. Supports Claude Code and
+  Codex with host-specific update commands.
 disable-model-invocation: true
 ---
 

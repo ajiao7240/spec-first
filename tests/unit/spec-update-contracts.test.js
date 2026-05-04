@@ -31,6 +31,42 @@ function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
+function findUnindentedBlockScalarLines(content) {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) {
+    throw new Error('Missing frontmatter');
+  }
+
+  const lines = match[1].split(/\r?\n/);
+  const findings = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const blockScalar = lines[index].match(/^([A-Za-z0-9_-]+):\s*[>|]/);
+    if (!blockScalar) {
+      continue;
+    }
+
+    for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
+      const line = lines[nextIndex];
+      if (/^[A-Za-z0-9_-]+:\s*/.test(line)) {
+        break;
+      }
+      if (line.trim() === '') {
+        continue;
+      }
+      if (!/^\s/.test(line)) {
+        findings.push({
+          key: blockScalar[1],
+          line: nextIndex + 2,
+          content: line,
+        });
+      }
+    }
+  }
+
+  return findings;
+}
+
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-update-contracts-'));
 }
@@ -100,6 +136,11 @@ function expectRenderedRuntimeParity(content) {
 }
 
 describe('spec-update contracts', () => {
+  test('source and generated Codex frontmatter keep block scalar continuation lines indented', () => {
+    expect(findUnindentedBlockScalarLines(read(SKILL_PATH))).toEqual([]);
+    expect(findUnindentedBlockScalarLines(plannedRuntimeContent('codex', '.agents/skills/spec-update/SKILL.md'))).toEqual([]);
+  });
+
   test('source skill supports Claude Code and Codex update flows', () => {
     const skill = read(SKILL_PATH);
 

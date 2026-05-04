@@ -17,7 +17,7 @@ This command takes a work document (plan, task pack, or specification) or a bare
 
 ## Context Orientation Anchor
 
-Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. When parent-workspace read-only orientation needs repo candidates, use `workspace-graph-targets.v1` as advisory facts, prefer bounded candidate repos with `primary` status, and try GitNexus-first evidence per candidate before bounded direct reads. Treat `degraded-fallback` or definitions-only GitNexus results as pointers, not authority to change behavior. External tools may prioritize inspection, but they do not define scope authority. Delegate prompts should carry bounded direct-read context and explicit file boundaries, not graph work-run ids.
+Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. When parent-workspace read-only orientation needs repo candidates, use `workspace-graph-targets.v1` as advisory facts, prefer bounded candidate repos with `primary` status, and try GitNexus-first evidence per candidate before bounded direct repo reads. Treat `degraded-fallback` or definitions-only GitNexus results as pointers, not authority to change behavior. External tools may prioritize inspection, but they do not define scope authority. Delegate prompts should carry bounded direct repo-read context and explicit file boundaries, not graph work-run ids.
 
 ## Workspace Repo Scope
 

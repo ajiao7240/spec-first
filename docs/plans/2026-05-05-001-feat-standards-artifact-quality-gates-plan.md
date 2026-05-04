@@ -63,7 +63,7 @@ prepare-baseline.js
 - 不写 `.claude/`、`.codex/`、`.agents/skills/` generated runtime mirrors。
 - 不实现 `repo-profile.yaml` apply；若检测到 `repo-profile.patch.yaml`，只做 safety validation。
 - 不新增 `.spec-standards/` standards pack 目录体系；当前真相源仍是 `.spec-first/standards/` runtime artifacts 与 source skill/docs/tests。
-- 不新增 `deprecated` candidate status；drift/update 阶段如需要废弃语义，另行计划。
+- 不在本计划中新增或重新设计 candidate status 词表；validator 以 `standards-plan.json.synthesis_contract.allowed_statuses` 为准。`deprecated`、`drifted` 若由当前 source script 暴露，属于既有 vocabulary，不是本计划新增能力。
 
 ### Deferred to Follow-Up Work
 
@@ -115,7 +115,7 @@ prepare-baseline.js
 - Add `validate-artifacts.js` as a deterministic checker, not as a generator. Rationale: keeps semantic synthesis in LLM-owned space while making artifact handoff verifiable.
 - Keep artifact-first as the operating model. Rationale: standards context should survive outside chat history as reviewable `standards-candidates.json` and `standards-preview.md`, then be consumed by downstream workflows with explicit trust boundaries.
 - Require standards artifacts to be downstream-readable, not only human-readable. Rationale: Plan/Tasks/Work/Review need stable status, support, risk, and trust signals; prose-only preview is not enough for a reusable engineering loop.
-- Keep `advisory` out of `candidate.status`. Rationale: candidate status remains `confirmed`、`observed`、`imported`、`suggested`、`conflict`、`unknown`; `advisory` is a downstream `consumption_mode`, not a candidate lifecycle state.
+- Keep `advisory` out of `candidate.status`. Rationale: candidate status vocabulary is provided by `standards-plan.json.synthesis_contract.allowed_statuses`; `advisory` is a downstream `consumption_mode`, not a candidate lifecycle state. The core consumption mapping remains `confirmed -> hard`、`observed/imported/suggested -> advisory`、`conflict/unknown -> risk/question`; additional existing statuses such as `deprecated` or `drifted` must be handled through explicit consumption mapping, not silently treated as confirmed.
 - Require confirmation evidence for `confirmed`, and require that evidence's provenance is **non-LLM-authored**. Rationale: a candidate can become hard context only if it comes from repo profile confirmation, explicit `--user-input` provenance, or an external confirmation file (e.g., `repo-profile.patch.yaml.confirmed_candidate_ids` or `.spec-first/standards/confirmations.json`) that the LLM does not write in the same synthesis pass; `confirmation.type` alone inside `standards-candidates.json` is self-attestation and must not be trusted.
 - Validate support requirements by status. Rationale: `unknown` should not be forced to invent code evidence; it needs `question`、`reason` 或 `missing_evidence`，while `observed` needs evidence, `imported` needs source document, `suggested` needs rationale, and `conflict` needs conflict references. Each `evidence[]` element must be either a non-empty string of meaningful length or a `{ source, quote }` object with both fields non-empty; `evidence: [""]` / `evidence: [{}]` must fail with reason_code `invalid-evidence-shape`.
 - Read allowed statuses, source types, and `candidate_required_fields` from `standards-plan.json`'s `synthesis_contract` when available, and treat the script as the single source of truth for the vocabulary. Rationale: `prepare-baseline.js` already exposes `CANDIDATE_STATUSES` (including `deprecated`、`drifted`) and `CANDIDATE_SOURCE_TYPES` via `synthesis_contract`; validator must not hard-code a narrower list and must not treat fallback vocabulary as trusted.
@@ -289,6 +289,7 @@ The validator owns only the `I -> J` quality gate and the `trust_level` distinct
 **Approach:**
 - 在 validator 中集中定义 `candidate.status` 词表、`consumption_mode` 映射、reason_code 词表、exit code、validation output envelope 和 downstream-readable consumption map。
 - 明确 `advisory` 只存在于 downstream consumption，不存在于 `candidate.status`。
+- `consumption_mode` 必须显式映射每个 allowed status；任何未映射 allowed status 必须 fail validation 或降级为 risk/degraded advisory，不能默认成为 hard context。
 - 输出 `trust_level: trusted|degraded`；`degraded` 不等于 trusted baseline。
 - 固定 CLI contract：`--standards-dir`、`--candidates`、`--preview`、`--plan`、`--json`、`--allow-fallback-vocabulary`。
 - 缺少 `standards-plan.json` 时默认 validation fail；只有显式 `--allow-fallback-vocabulary` 才可返回 `status=pass`、`trust_level=degraded`、exit code `4`，并携带 warnings。
@@ -301,6 +302,7 @@ The validator owns only the `I -> J` quality gate and the `trust_level` distinct
 **Test scenarios:**
 - CLI: `--standards-dir` + `--json` 输出包含固定 envelope。
 - CLI: 单文件参数 `--candidates`、`--preview`、`--plan` 可组合执行。
+- Error path: `allowed_statuses` 出现未映射状态且 validator 没有 explicit consumption mapping -> 失败或 degraded/risk，不能默认为 hard。
 - Error path: 缺少 `standards-plan.json` 且未传 `--allow-fallback-vocabulary` -> exit code 1，reason_code 为 `missing-standards-plan`。
 - Degraded path: 缺少 `standards-plan.json` 但传 `--allow-fallback-vocabulary` -> `status=pass`、`trust_level=degraded`、warnings 非空、exit code `4`，不能标记为 trusted。
 - Usage path: 参数不完整或互斥 -> exit code 2。
@@ -429,6 +431,7 @@ The validator owns only the `I -> J` quality gate and the `trust_level` distinct
   - Glue Capability Map Summary：存在 `glue-map.json` 时必需。
 - 检查 preview 明确声明 `repo-profile.yaml was not modified` 或 `repo-profile.yaml 未被修改`。
 - 如果 candidates 中存在 conflict 或 unknown，preview 必须出现对应 id 或数量摘要。
+- 如果 preview 对 Candidates By Status、Conflicts 或 Unknowns 给出显式计数，计数必须与 `standards-candidates.json.status_counts` 一致；不一致时返回 `preview-count-mismatch`。
 - missing graph fixture 应证明 graph 缺失只能降低 evidence quality，不应阻止 direct-read candidates 通过结构校验。
 
 **Patterns to follow:**
@@ -441,6 +444,8 @@ The validator owns only the `I -> J` quality gate and the `trust_level` distinct
 - Error path: preview 有 Writeback Status 章节但没有 repo-profile 未修改声明 -> 失败，reason_code 为 `preview-missing-repo-profile-unchanged-statement`。
 - Error path: candidates 含 conflict，但 preview 没有 conflict 可见摘要 -> 失败，reason_code 为 `preview-hides-conflict`。
 - Error path: candidates 含 unknown，但 preview 没有 unknown 可见摘要 -> 失败，reason_code 为 `preview-hides-unknown`。
+- Error path: preview 写 `Conflicts: 0`，但 candidates/status_counts 中存在 conflict -> 失败，reason_code 为 `preview-count-mismatch`。
+- Error path: preview 写 `Unknowns: 0`，但 candidates/status_counts 中存在 unknown -> 失败，reason_code 为 `preview-count-mismatch`。
 - Edge case: 中文章节标题和中文 writeback 声明 -> 通过。
 - Edge case: `glue-map.json` 不存在时不要求 Glue Capability Map Summary。
 
@@ -477,6 +482,7 @@ The validator owns only the `I -> J` quality gate and the `trust_level` distinct
 - Missing graph fixture -> 结构通过或 degraded warning，不把 graph 缺失误判成 candidate invalid。
 - Imported standards fixture -> imported 为 advisory consumption；导入后 human confirmed 才能 confirmed。
 - Conflict/unknown fixture -> preview 必须显式展示风险和待决问题。
+- Conflict/unknown fixture -> 包含 preview count mismatch 负例，证明 checker 不只是查标题或关键词。
 - Invalid writeback fixture -> patch 引用非 confirmed candidate 时 fail。
 
 **Verification:**
@@ -569,32 +575,23 @@ The validator owns only the `I -> J` quality gate and the `trust_level` distinct
 
 ---
 
-- U7. **Dogfood 当前 spec-first 的最小闭环**
+## Pre-Merge Manual Validation
 
-**Goal:** 用当前仓库跑一次真实 artifact handoff，证明 validator 不是纸面 contract，也不会把 degraded/fallback 结果误当可信 baseline。
+Dogfood 当前 `spec-first` repo 是 pre-merge manual validation，不是阻塞 implementation unit。原因：真实 `.spec-first/standards/` artifacts 可能需要一次 LLM-owned `spec-standards` workflow 才能生成；它适合证明真实 handoff 体验，不适合作为 U0-U6 的 deterministic / CI-gated 前置条件。
 
-**Requirements:** R1, R2, R5, R6, R7
+U0-U6 的阻塞验证由 fixtures 覆盖：
 
-**Dependencies:** U1, U2, U3, U4, U5, U6
-
-**Files:**
-- No durable source file required unless dogfood exposes a real doc/test gap.
-- Optional validation note: 只有 implementation 产生值得保留的复用证据时，才新增 `docs/validation/`。
-
-**Approach:**
-- 基于当前 `spec-first` repo 生成或复用 `.spec-first/standards/` artifacts。
-- 对完整 artifacts 运行 validator，预期 trusted pass。
-- 删除或隔离 `standards-plan.json` 的副本再运行 validator，预期默认 fail；显式 `--allow-fallback-vocabulary` 时才 degraded。
-- 检查 downstream workflow 文档读取 contract 是否能解释 trusted/degraded/advisory 差异。
-
-**Test scenarios:**
-- Full artifacts -> trusted pass。
+- Full fixture artifacts -> trusted pass。
 - Missing plan without fallback flag -> fail。
-- Missing plan with fallback flag -> degraded result，不进入 trusted baseline。
+- Missing plan with fallback flag -> exit code `4` degraded pass，不进入 trusted baseline。
 - Preview contains conflict/unknown -> validator 要求可见摘要。
+- Preview count mismatch -> `preview-count-mismatch`。
 
-**Verification:**
-- 实施收口时记录实际执行命令和结果。
+Manual dogfood 建议：
+
+- 若当前 repo 已有 `.spec-first/standards/` artifacts，可直接运行 validator 并记录 trusted/degraded/fail 结果。
+- 若 artifacts 不存在，不强制现场生成 LLM-owned artifacts；记录未执行原因即可。
+- 如产生值得保留的证据，写入 `docs/validation/standards-artifact-quality-gates-dogfood-2026-05-05.md`。
 - 若 dogfood 暴露真实 artifact 缺口，回到 U1-U6 修正；不要放宽 validator 来掩盖问题。
 
 ---
@@ -605,7 +602,7 @@ The validator owns only the `I -> J` quality gate and the `trust_level` distinct
 - **Error propagation:** validator 失败应以 reason_code 和具体 candidate/file path 返回，不应吞掉错误或让下游误以为 baseline 可用。
 - **State lifecycle risks:** 不写 `repo-profile.yaml`，不写 runtime mirrors；只校验 `.spec-first/standards/` 下的 reviewable artifacts。
 - **API surface parity:** `validate-artifacts.js` 是 source skill script，不是新增 public `$spec-*` workflow；Claude/Codex runtime 投递只需在 source skill 更新后由 init 再生成。
-- **Integration coverage:** Unit tests 覆盖 artifact contract；downstream consumer tests 覆盖 prose contract 和结构化消费映射；dogfood 覆盖当前仓库的真实 artifact handoff；不需要完整 e2e runtime workflow 执行。
+- **Integration coverage:** Unit tests 覆盖 artifact contract；downstream consumer tests 覆盖 prose contract 和结构化消费映射；pre-merge manual dogfood 在 artifacts 可用时覆盖当前仓库的真实 handoff；不需要完整 e2e runtime workflow 执行。
 - **Unchanged invariants:** `prepare-baseline.js` 仍只写 deterministic facts 和 mode-support artifacts；LLM 仍负责 candidates/preview；repo-profile 仍默认不修改。
 
 ---
@@ -618,9 +615,10 @@ The validator owns only the `I -> J` quality gate and the `trust_level` distinct
 | Preview checker 对中英文文案过度僵硬 | 使用语义章节别名和关键状态检查，避免 exact prose matching |
 | 状态词表出现多 truth source | 优先读取 `standards-plan.json` 的 `synthesis_contract`；缺 plan 默认 fail，显式 fallback 只能 degraded |
 | `advisory` 被误写成 candidate status | 在 validator constants、fixtures 和 downstream consumer tests 中固定 status 与 consumption mode 的分离 |
-| 导入规范被确认后无法表达 | 用 `confirmation.type=user_input|human_confirmed` 支持 imported -> confirmed，同时保留 origin/source evidence |
+| 导入规范被确认后无法表达 | 用 non-LLM-authored attestation 支持 imported -> confirmed，同时保留 origin/source evidence |
 | unknown 被迫伪造 evidence | 按 status 分级校验 support，unknown 只要求 question/reason/missing_evidence |
 | 下游 workflow 误用未验证 artifacts | 文档、consumer tests 和结构化 fixture 明确 validated baseline 与 degraded/advisory context 区分 |
+| dogfood 隐性依赖 LLM-owned workflow | 将 dogfood 降级为 pre-merge manual validation，U0-U6 的阻塞验证由 fixtures 覆盖 |
 | 补充材料诱导新增一套 standards pack 目录 | 明确当前不新增 `.spec-standards/`，只吸收 artifact-first、reviewable candidate、downstream-readable 原则 |
 | 计划范围扩张到 repo-profile apply 或 shared standards platform | 本计划明确 defer apply、remote fetch、diff、drift 和 workspace engine |
 

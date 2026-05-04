@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-05 03:15:58 leokuang: fix(runtime): 修复 Codex startup skill YAML 与 spec-work-beta doctor drift，并补回归测试 (user-visible)
+- v1.6.3 2026-05-05 03:07:52 leokuang: docs(spec-standards): 收口 artifact 质量门计划剩余审查问题，统一状态词表真相源、补 preview 计数负例并降级 dogfood 为人工验证 (user-visible)
 - v1.6.3 2026-05-05 02:21:32 leokuang: docs(spec-standards): 补充 artifact 质量门计划中外部确认与 evidence shape 的测试场景 (user-visible)
 - v1.6.3 2026-05-05 01:59:34 leokuang: docs(ce-sync): 完成 U8 新 skill 产品边界 spike，明确 strategy、product-pulse、simplify-code 暂不进入 public skill 面 (user-visible)
 - v1.6.3 2026-05-05 01:59:34 leokuang: docs(ce-sync): 完成 U9 CLI readiness 删除审计，保留 spec-first CLI reviewer 覆盖并将同步历史限制在 ledger/contract 中，清理 runtime-facing CE/上游来源措辞 (user-visible)

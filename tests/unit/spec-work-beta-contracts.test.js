@@ -50,8 +50,9 @@ describe('spec-work-beta context orientation contract', () => {
     expect(text).toContain('workspace-graph-targets.v1');
     expect(text).toContain('bounded candidate repos');
     expect(text).toContain('GitNexus-first evidence per candidate');
+    expect(text).toContain('bounded direct repo reads');
     expect(text).toContain('definitions-only GitNexus results as pointers');
-    expect(text).toContain('Delegate prompts should carry bounded direct-read context');
+    expect(text).toContain('Delegate prompts should carry bounded direct repo-read context');
     expect(text).toContain('explicit file boundaries');
     expect(text).toContain('not graph work-run ids');
     expect(text).toContain('Workspace Repo Scope');
