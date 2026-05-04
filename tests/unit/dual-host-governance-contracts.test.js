@@ -27,6 +27,9 @@ const DOCS_SIDE_GOVERNANCE_DIR = path.join(
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const README_PATH = path.join(REPO_ROOT, 'README.md');
 const README_ZH_PATH = path.join(REPO_ROOT, 'README.zh-CN.md');
+const AGENTS_PATH = path.join(REPO_ROOT, 'AGENTS.md');
+const CLAUDE_PATH = path.join(REPO_ROOT, 'CLAUDE.md');
+const ROLE_CONTRACT_PATH = path.join(REPO_ROOT, 'docs', '10-prompt', '结构化项目角色契约.md');
 const USER_MANUAL_QUICKSTART_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/01-快速开始.md');
 const USER_MANUAL_FAQ_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/04-常见问题.md');
 const USER_MANUAL_LOCAL_INSTALL_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/06-本地源码安装.md');
@@ -222,13 +225,28 @@ describe('dual-host governance contracts', () => {
     ]);
   });
 
-  test('project-local graph readiness artifacts are ignored, not source truth', () => {
+  test('project source-truth docs use dynamic manifest sources instead of retired plugin manifest', () => {
+    for (const sourcePath of [AGENTS_PATH, CLAUDE_PATH, ROLE_CONTRACT_PATH]) {
+      const content = read(sourcePath);
+
+      expect(content).not.toContain('.claude-plugin/plugin.json');
+      expect(content).toContain('src/cli/plugin.js');
+      expect(content).toContain('src/cli/contracts/dual-host-governance/**');
+      expect(content).toContain('templates/claude/commands/spec/*.md');
+    }
+  });
+
+  test('project-local runtime artifacts are ignored, not source truth', () => {
     const gitignore = read(GITIGNORE_PATH);
 
     expect(gitignore).toContain('.spec-first/config/*.json');
+    expect(gitignore).toContain('.spec-first/audits/');
+    expect(gitignore).toContain('.spec-first/app-audit/');
     expect(gitignore).toContain('.spec-first/graph/');
     expect(gitignore).toContain('.spec-first/providers/');
     expect(gitignore).toContain('.spec-first/impact/');
+    expect(gitignore).toContain('.spec-first/workflows/');
+    expect(gitignore).toContain('.spec-first/workspace/');
   });
 
   test('release governance smoke forbids docs-side machine-readable assets from tarball payload', () => {

@@ -39,15 +39,18 @@ yarn-error.log*
 .agents/
 .context/spec-first/
 
-# Generated spec-first local config and graph readiness artifacts
+# Generated spec-first local config, graph readiness, and workflow runtime artifacts
 # These files are runtime facts; verify presence/schema with setup scripts, not git status.
 .spec-first-graph/
 .spec-first/config.local.yaml
 .spec-first/config/*.json
 .spec-first/audits/
+.spec-first/app-audit/
 .spec-first/graph/
 .spec-first/providers/
 .spec-first/impact/
+.spec-first/workflows/
+.spec-first/workspace/
 .spec-first/standards/work/
 .spec-first/standards/tmp/
 .spec-first/standards/cache/

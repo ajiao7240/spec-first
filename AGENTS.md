@@ -79,9 +79,11 @@ Source-of-truth 路径包括：
 - `skills/`
 - `agents/`
 - `templates/`
+- `templates/claude/commands/spec/*.md`
 - `src/cli/`
+- `src/cli/plugin.js`
 - `src/cli/contracts/**`
-- `.claude-plugin/plugin.json`
+- `src/cli/contracts/dual-host-governance/**`
 - `docs/`
 - `README.md`
 - `README.zh-CN.md`

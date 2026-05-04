@@ -516,6 +516,7 @@ Next steps:
   1. Restart Claude Code or open a new session so the host loads the generated /spec:* commands.
   2. In the new session, run /spec:mcp-setup to install and verify the required MCP/helper runtime.
   3. If /spec:mcp-setup shows graph bootstrap is still pending, run /spec:graph-bootstrap when prompted.
+  4. After graph readiness is ready, run /spec:standards to compile project standards and glue baseline before downstream workflows.
 ```
 
 Expected Codex init output includes:
@@ -527,6 +528,7 @@ Next steps:
   1. Restart Codex or open a new session so the host loads the generated $spec-* skills.
   2. In the new session, run $spec-mcp-setup to install and verify the required MCP/helper runtime.
   3. If $spec-mcp-setup shows graph bootstrap is still pending, run $spec-graph-bootstrap when prompted.
+  4. After graph readiness is ready, run $spec-standards to compile project standards and glue baseline before downstream workflows.
 ```
 
 ## Development & Contributing

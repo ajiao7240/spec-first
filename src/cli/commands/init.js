@@ -305,12 +305,14 @@ function printInitNextSteps(platform, lang = 'zh') {
   const entryKind = platform === 'claude' ? '/spec:* commands' : '$spec-* skills';
   const mcpSetupCommand = platform === 'claude' ? '/spec:mcp-setup' : '$spec-mcp-setup';
   const graphBootstrapCommand = platform === 'claude' ? '/spec:graph-bootstrap' : '$spec-graph-bootstrap';
+  const standardsCommand = platform === 'claude' ? '/spec:standards' : '$spec-standards';
 
   if (lang === 'en') {
     console.log('Next steps:');
     console.log(`  1. Restart ${hostDisplay} or open a new session so the host loads the generated ${entryKind}.`);
     console.log(`  2. In the new session, run ${mcpSetupCommand} to install and verify the required MCP/helper runtime.`);
     console.log(`  3. If ${mcpSetupCommand} shows graph bootstrap is still pending, run ${graphBootstrapCommand} when prompted.`);
+    console.log(`  4. After graph readiness is ready, run ${standardsCommand} to compile project standards and glue baseline before downstream workflows.`);
     return;
   }
 
@@ -318,6 +320,7 @@ function printInitNextSteps(platform, lang = 'zh') {
   console.log(`  1. 重启 ${hostDisplay} 或新开会话，让宿主加载刚生成的 ${entryKind}。`);
   console.log(`  2. 在新会话运行 ${mcpSetupCommand}，安装并验证必装 MCP/helper runtime。`);
   console.log(`  3. 如果 ${mcpSetupCommand} 显示 graph bootstrap 仍 pending，再按提示运行 ${graphBootstrapCommand}。`);
+  console.log(`  4. graph readiness 就绪后，运行 ${standardsCommand} 编译项目规范与胶水基线，再进入下游 workflow。`);
 }
 
 function printHelp() {
@@ -328,8 +331,8 @@ function printHelp() {
     '  spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run]',
     '',
     '➡️ After successful init:',
-    '  Claude: restart Claude Code, run /spec:mcp-setup, then /spec:graph-bootstrap if prompted.',
-    '  Codex: restart Codex, run $spec-mcp-setup, then $spec-graph-bootstrap if prompted.',
+    '  Claude: restart Claude Code, run /spec:mcp-setup, then /spec:graph-bootstrap if prompted, then /spec:standards after graph readiness is ready.',
+    '  Codex: restart Codex, run $spec-mcp-setup, then $spec-graph-bootstrap if prompted, then $spec-standards after graph readiness is ready.',
     '',
     '🔗 Repository:',
     '  https://github.com/sunrain520/spec-first',

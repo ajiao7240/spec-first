@@ -516,6 +516,7 @@ Claude init 的预期输出包含：
   1. 重启 Claude Code 或新开会话，让宿主加载刚生成的 /spec:* commands。
   2. 在新会话运行 /spec:mcp-setup，安装并验证必装 MCP/helper runtime。
   3. 如果 /spec:mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap。
+  4. graph readiness 就绪后，运行 /spec:standards 编译项目规范与胶水基线，再进入下游 workflow。
 ```
 
 Codex init 的预期输出包含：
@@ -527,6 +528,7 @@ Codex init 的预期输出包含：
   1. 重启 Codex 或新开会话，让宿主加载刚生成的 $spec-* skills。
   2. 在新会话运行 $spec-mcp-setup，安装并验证必装 MCP/helper runtime。
   3. 如果 $spec-mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 $spec-graph-bootstrap。
+  4. graph readiness 就绪后，运行 $spec-standards 编译项目规范与胶水基线，再进入下游 workflow。
 ```
 
 ## 开发与贡献

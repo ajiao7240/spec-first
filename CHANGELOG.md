@@ -1,6 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-04 21:36:41 leokuang: fix(audit-p1): 完成全局审查推荐 P1 任务，修复 source truth、artifact Git 边界和 init 下一步引导 (user-visible)
+- v1.6.3 2026-05-04 21:32:12 leokuang: docs(ce-sync): 新增 CE 4b5f28da..06a7cee0 workflow 更新同步计划，区分安全修复、核心 workflow 适配、CLI reviewer 删除审计与 strategy/product-pulse/simplify-code 产品边界 spike (user-visible)
+- v1.6.3 2026-05-04 21:15:12 leokuang: docs(audit): 校准全局审查路线图与任务清单的测试范围、runtime owner、app-audit runner 和 review artifact 优先级 (user-visible)
 - v1.6.3 2026-05-04 16:59:51 leokuang: docs(audit): 新增 spec-first 全局一致性深度审查文档，梳理 workflow、artifact、双宿主、文档、过度设计与修复路线 (user-visible)
 - v1.6.3 2026-05-04 15:43:44 leokuang: fix(spec-mcp-setup): 完善 setup 完成后的下一步引导，ready 状态下推荐 standards handoff 并保留重启边界 (user-visible)
 - v1.6.3 2026-05-04 13:37:36 leokuang: fix(spec-standards): 收紧 child repo 写入边界、候选规范合成契约和 downstream standards consumption 规则 (user-visible)
