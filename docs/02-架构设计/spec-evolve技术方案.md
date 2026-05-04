@@ -9,10 +9,16 @@
 
 # 0. 最终结论
 
-`spec-evolve` 值得做，但它不能一上来做成：
+`spec-evolve` 是一个有潜力的自我演化决策入口，但是否新增为正式 source skill，必须由 Cycle 0 composition baseline 决定。
+
+如果现有 `skill-audit` + `doc-review` + `spec-plan` + `compound` 的组合已经能稳定完成系统级演进决策，则不新增 `spec-evolve`。
+
+如果 Cycle 0 发现明确 named gaps，则进入 Cycle 1，新增 source-only `spec-evolve` MVP。
+
+即使进入 Cycle 1，它也不能一上来做成：
 
 ```text
-可运行 /spec:spec-evolve 命令
+可运行 workflow command
 + 11 份报告
 + 多个自动分析脚本
 + 第二套 agent 专家体系
@@ -289,7 +295,7 @@ evidence -> decision -> plan handoff -> plan -> tasks -> work -> review -> compo
 | 不输出 implementation plan        | implementation plan 属于 `spec-plan` |
 | 不默认新增 agent profiles           | 优先复用现有 reviewer / lens             |
 | 不默认新增 scripts                  | P0/P1 先 source-only / dogfood      |
-| 不承诺 P0 可运行 `/spec:spec-evolve` | P0 是 source-only MVP               |
+| 不承诺 P0 可运行 `/spec:evolve` / `$spec-evolve` | P0 是 source-only MVP               |
 | 不做后台 daemon                    | 当前由 maintainer 手动触发                |
 | 不成为所有小改默认 gate                 | 只覆盖系统级变更                           |
 | 不自动写 `repo-profile.yaml`       | repo-profile 只存确认过的稳定标准            |
@@ -324,8 +330,8 @@ Primary operator: spec-first maintainer
 | source/runtime 生成机制调整       | 是                    |
 | AGENTS.md / CLAUDE.md 治理调整  | 是                    |
 | agent/lens 调度规则调整           | 是                    |
-| release readiness           | 是                    |
-| 大版本发布前                      | 是                    |
+| release readiness           | 条件触发                 |
+| 大版本发布前                      | 条件触发                 |
 | 官网/README 大改                | 建议运行                 |
 | 普通 bugfix                   | 否，可选                 |
 | 文案 typo                     | 否                    |
@@ -337,6 +343,20 @@ Primary operator: spec-first maintainer
 ```text
 spec-evolve 是系统演进前置裁判，不是日常小改硬 gate。
 ```
+
+Release readiness / 大版本发布前只有在 release 包含系统级演进面时默认运行 `spec-evolve`，例如：
+
+```text
+workflow changes
+skill changes
+artifact contract changes
+runtime governance changes
+graph/provider readiness changes
+agent/lens dispatch changes
+public positioning changes that affect product identity
+```
+
+普通 patch release、版本号更新、小文档或小 bugfix 不默认触发 `spec-evolve`。
 
 ---
 
@@ -470,6 +490,54 @@ code-review findings if available
 compound lessons if available
 ```
 
+### Evidence Intake 规则
+
+Cycle 0 不能只描述 happy path。每个 evidence input 必须声明：
+
+| 字段                   | 说明                         |
+| -------------------- | ---------------------------- |
+| discovery path       | 从哪里找该证据                 |
+| required / optional  | 是否是本轮判断的必要输入         |
+| freshness signal     | 如何判断是否过期               |
+| nil handling         | 不存在时如何处理               |
+| empty handling       | 存在但无结果时如何处理           |
+| error handling       | 读取失败时如何处理              |
+| degradation behavior | 降级后还能否继续综合             |
+
+默认规则：
+
+```text
+required evidence missing:
+  stop and output insufficient_evidence
+
+optional evidence missing:
+  continue with missing_evidence_note
+
+stale artifact:
+  use only as advisory evidence
+
+read error:
+  record reason_code and do not infer semantic truth from that source
+```
+
+示例：
+
+```yaml
+evidence_inputs:
+  skill_audit_reports:
+    discovery_path:
+      - docs/**/skill-audit*.md
+      - .spec-first/reports/skill-audit/**
+    required: false
+    freshness_signal:
+      - source_commit
+      - generated_at
+    nil_handling: continue_with_missing_evidence_note
+    empty_handling: record_no_prior_skill_audit
+    error_handling: mark_uncertain_do_not_infer
+    degradation_behavior: advisory_only
+```
+
 ### 必须回答
 
 现有 skill 组合能不能稳定完成：
@@ -535,10 +603,12 @@ docs/YYYY-MM-DD-spec-evolve-baseline/
 
 ```text
 新增 source-only spec-evolve/SKILL.md。
+新增 skills-governance.json 记录，entry_surface=standalone_skill，command_name=null。
 不接 runtime command。
+不绑定 command template。
 不新增 scripts。
 不新增 agent profiles。
-不承诺 /spec:spec-evolve 可运行。
+不承诺 Claude `/spec:evolve` 或 Codex `$spec-evolve` 可运行。
 ```
 
 ### P0 输出文档
@@ -605,10 +675,27 @@ Accepted / Skipped / Deferred
 延后后什么时候重新评估。
 
 ### Plan Handoff Target
-spec-plan / skill-audit / doc-review / none
+spec-plan / skill-audit / doc-review / code-review / compound / none
+
+默认规则：
+
+```text
+accepted implementation-oriented proposals -> spec-plan
+validation-oriented decisions -> code-review / skill-audit / doc-review
+learning-only decisions -> compound
+no follow-up needed -> none
+```
 
 ### Verification
 如何判断这个 decision 有效。
+
+### Effectiveness Check
+- Linked named gap:
+- What decision changed:
+- What would have happened without this ED:
+- Plan handoff adoption:
+- Follow-up review result:
+- Compound feedback:
 
 ### Residual Risk
 剩余风险是什么。
@@ -619,7 +706,16 @@ spec-plan / skill-audit / doc-review / none
 P0 不能只证明“报告存在”，必须证明：
 
 ```text
-spec-evolve 能做出有证据的演进决策。
+spec-evolve 能做出有证据、可追溯、会改变或澄清真实演进动作的决策。
+```
+
+Dogfood success 必须满足：
+
+```text
+1. ED 追溯到 Cycle 0 named gap。
+2. ED 明确改变、阻止、延后或澄清了什么演进动作。
+3. ED 有 plan handoff 或 no-handoff reason。
+4. 后续 review / compound 记录该 ED 被确认、修正还是推翻。
 ```
 
 ---
@@ -678,20 +774,21 @@ validate-evolution-proposal.js
 
 ## Cycle 4：Command Wiring
 
-只有 source-only MVP 和 dogfood decision 被验证后，才接命令。
+只有 source-only MVP、governance record 和 first dogfood ED effectiveness check 被验证后，才接命令。
 
 可考虑接入：
 
 ```text
 templates/claude/commands/spec/evolve.md
-skills-governance.json
+skills-governance.json 从 standalone_skill 升级为 workflow_command
 src/cli/contracts/**
 ```
 
 这时才允许承诺：
 
 ```text
-/spec:spec-evolve 可运行
+Claude: /spec:evolve
+Codex: $spec-evolve
 ```
 
 ### Command Wiring 验收
@@ -701,8 +798,10 @@ src/cli/contracts/**
 2. command 模板只路由到 source skill
 3. runtime copies 仍由 init/sync 生成
 4. skills-governance.json 中有触发说明
-5. npm run lint:skill-entrypoints 通过
-6. CHANGELOG.md 更新
+5. Claude 入口写作 /spec:evolve
+6. Codex 入口写作 $spec-evolve
+7. npm run lint:skill-entrypoints 通过
+8. CHANGELOG.md 更新
 ```
 
 ---
@@ -969,6 +1068,24 @@ docs/YYYY-MM-DD-spec-evolve/
   02-prioritized-roadmap.md
 ```
 
+每个 MVP Markdown 产物必须在头部记录最小 freshness metadata。P0 不需要新增脚本，但必须显式记录这些事实：
+
+```yaml
+---
+generated_at: 2026-05-05T12:00:00Z
+source_commit: <git-sha>
+branch: <branch-name>
+dirty_state: true|false
+reviewed_inputs:
+  - README.md
+  - CHANGELOG.md
+  - skills/
+  - templates/
+  - src/
+  - docs/
+---
+```
+
 ### `00-summary.md`
 
 ```markdown
@@ -1058,10 +1175,29 @@ Cycle 3 后可出现 runtime artifacts：
 .spec-first/evolution/latest/
   evolution-signals.json
   evolution-decisions.json
+  evolution-proposal.json
   plan-handoff.json
 ```
 
 这些必须 ignored。
+
+关系：
+
+```text
+evolution-signals.json
+  -> 原始结构化 signals
+
+evolution-decisions.json
+  -> LLM synthesis 后的 ED 决策记录
+
+evolution-proposal.json
+  -> accepted ED 聚合后的 advisory evolution proposal
+
+plan-handoff.json
+  -> 从 proposal 派生出来、交给 spec-plan 的 handoff brief
+```
+
+`plan-handoff.json` 必须链接 `proposal_id` 和 `decision_id`。
 
 每个 artifact 必须包含 freshness metadata：
 
@@ -1123,6 +1259,13 @@ Accepted / Skipped / Deferred
 ### Proposal
 要不要做什么。
 
+### Source Freshness
+- generated_at:
+- source_commit:
+- branch:
+- dirty_state:
+- reviewed_inputs:
+
 ### Evidence
 - 文件、报告、review finding、代码路径、历史 lesson。
 - 每条 evidence 必须可追溯。
@@ -1138,6 +1281,14 @@ spec-plan / skill-audit / doc-review / code-review / compound / none
 
 ### Verification
 如何验证这个决策是正确的。
+
+### Effectiveness Check
+- Linked named gap:
+- What decision changed:
+- What would have happened without this ED:
+- Plan handoff adoption:
+- Follow-up review result:
+- Compound feedback:
 
 ### Residual Risk
 剩余风险。
@@ -1157,6 +1308,18 @@ spec-plan / skill-audit / doc-review / code-review / compound / none
   "title": "Add source-only spec-evolve skill",
   "decision": "accepted",
   "proposal": "Add source-only spec-evolve/SKILL.md.",
+  "source_freshness": {
+    "generated_at": "2026-05-05T12:00:00Z",
+    "source_commit": "abc123",
+    "branch": "leo-2026-05-05-spec-evolve",
+    "dirty_state": true,
+    "reviewed_inputs": [
+      "skills/",
+      "templates/",
+      "src/",
+      "docs/"
+    ]
+  },
   "evidence": [
     {
       "type": "named_gap",
@@ -1170,6 +1333,14 @@ spec-plan / skill-audit / doc-review / code-review / compound / none
   "verification": [
     "Dogfood must produce at least one evidence-backed evolution decision."
   ],
+  "effectiveness_check": {
+    "linked_named_gap": "GAP-001",
+    "what_decision_changed": "Prevented direct command wiring before source-only dogfood.",
+    "what_would_have_happened_without_this_ed": "The project may have added runtime command wiring before validating the source skill.",
+    "plan_handoff_adoption": "pending",
+    "follow_up_review_result": "pending",
+    "compound_feedback": "pending"
+  },
   "residual_risk": [
     "May still overlap with skill-audit if boundaries are not enforced."
   ],
@@ -1269,20 +1440,28 @@ Accepted / Skipped / Deferred
 
 ---
 
-## 13.4 首批建议吸收的业界实践
+## 13.4 Best Practice Watchlist
 
-| 实践                     | 解决问题                | spec-first 集成点                    | 优先级 |
-| ---------------------- | ------------------- | --------------------------------- | --- |
-| Plan-first             | 复杂任务直接实现导致返工        | `spec-plan` 前置治理                  | P0  |
-| Repo-local skills      | 重复工程流程无法复用          | skill contract 统一                 | P0  |
-| Progressive disclosure | 上下文过载               | context routing                   | P0  |
-| Context engineering    | 模型注意力被稀释            | context-bloat audit               | P0  |
-| Report-first workflow  | 自动修改容易失控            | evolve / docs-sync / coverage 先报告 | P0  |
-| Skill evals            | skill 好坏靠感觉         | skill-audit + eval                | P1  |
-| Subagents              | 并行审查复杂任务            | macro audit / PR review           | P1  |
-| Security review        | MCP/skill/tool 信任风险 | mcp-setup / skill-audit lens      | P1  |
-| Release readiness      | 发布前一致性风险            | release-readiness report          | P1  |
-| Evolution memory       | 经验不能复利              | compound next-cycle input         | P1  |
+首批实践只能作为 watchlist，不能直接赋予 P0/P1，也不能直接绑定 integration target。
+
+规则：
+
+```text
+No best practice receives priority or integration target until linked to a current named gap or accepted ED.
+```
+
+| Practice               | Source                          | Problem Solved       | Possible Relevance          | Counter-signal        | Evidence Quality | Status    |
+| ---------------------- | ------------------------------- | -------------------- | --------------------------- | --------------------- | ---------------- | --------- |
+| Plan-first             | Codex docs / project dogfood    | 降低复杂任务返工        | workflow 变更需要先 plan       | 小变更不应强制 plan      | medium           | watchlist |
+| Repo-local skills      | project dogfood / OSS agents    | 重复工程流程无法复用      | skill contract 统一           | 现有 skill 组合可能足够   | medium           | watchlist |
+| Progressive disclosure | model-context practice          | 上下文过载             | context routing             | 过度路由会增加认知负担      | medium           | watchlist |
+| Context engineering    | model-context practice          | 模型注意力被稀释          | context-bloat audit         | 缺少本项目 token 证据     | medium           | watchlist |
+| Report-first workflow  | project review / safety pattern | 自动修改容易失控          | evolve / docs-sync 先报告      | 对机械修复可能太重         | medium           | watchlist |
+| Skill evals            | agent workflow practice         | skill 好坏靠感觉        | skill-audit + eval          | eval 成本可能高于收益      | low              | watchlist |
+| Subagents              | review workflow practice        | 并行审查复杂任务          | macro audit / PR review     | 普通文档审查可能不需要      | medium           | watchlist |
+| Security review        | MCP/tool trust practice         | MCP/skill/tool 信任风险 | mcp-setup / skill-audit lens | 无 trust boundary 时不适用 | medium           | watchlist |
+| Release readiness      | release engineering practice    | 发布前一致性风险          | release-readiness report    | 普通 patch release 不应触发 | medium           | watchlist |
+| Evolution memory       | compound dogfood                | 经验不能复利            | compound next-cycle input   | 早期可先人工记录          | medium           | watchlist |
 
 ---
 
@@ -1703,15 +1882,19 @@ P0 完成条件：
 1. 已完成 composition baseline。
 2. 已证明现有 skill 组合存在 named gaps，或明确决定不新增 spec-evolve。
 3. 若新增，spec-evolve 是 source-only MVP。
-4. 不承诺 /spec:spec-evolve 可运行。
-5. 不新增 scripts。
-6. 不新增 agent profiles。
-7. 不修改 runtime generated copies。
-8. 已明确 source/runtime 边界。
-9. 已明确 script/LLM 边界。
-10. 已明确 plan handoff 是 advisory context。
-11. 至少产生一个 evidence-backed evolution decision。
-12. 若修改 source/docs，已更新 CHANGELOG.md。
+4. 若新增，已写入 skills-governance.json 记录，entry_surface=standalone_skill，command_name=null。
+5. 不承诺 Claude /spec:evolve 或 Codex $spec-evolve 可运行。
+6. 不新增 scripts。
+7. 不新增 agent profiles。
+8. 不修改 runtime generated copies。
+9. 已明确 source/runtime 边界。
+10. 已明确 script/LLM 边界。
+11. 已明确 plan handoff 是 advisory context。
+12. 已明确 Evidence Intake 的 nil/empty/error/stale 处理。
+13. MVP Markdown、ED 和 Plan Handoff 记录最小 freshness metadata。
+14. 首次 dogfood 已产生至少一个 evidence-backed evolution decision。
+15. 首个 ED 通过 effectiveness check，证明它改变、阻止、延后或澄清了真实演进动作。
+16. 若修改 source/docs，已更新 CHANGELOG.md。
 ```
 
 ---
@@ -1729,19 +1912,19 @@ P0 完成条件：
 | runtime/source 混淆 | 手改 `.claude` 或 `.spec-first` | 明确 source/runtime boundary                       |
 | context 膨胀        | AGENTS.md 越写越长               | 只写短规则和触发规则                                       |
 | latest 过期         | 下游消费旧 proposal               | freshness metadata + consumer rule               |
-| 业界实践大杂烩           | 什么都想集成                       | Best Practice Intake + Accepted/Skipped/Deferred |
+| 业界实践大杂烩           | 什么都想集成                       | Best Practice Watchlist + named gap / accepted ED gate |
 | 小改流程过重            | 每个 bugfix 都跑 evolve          | 仅系统级变更默认触发                                       |
 
 ---
 
 # 20. Roadmap
 
-## P0：Composition Baseline + Source-only MVP
+## P0：Composition Baseline + Source-only MVP + First Dogfood Gate
 
 目标：
 
 ```text
-证明是否需要 spec-evolve，并在 gap 成立时新增最小 source skill。
+证明是否需要 spec-evolve，并在 gap 成立时新增最小 source skill，同时完成首次 dogfood ED。
 ```
 
 包含：
@@ -1750,8 +1933,11 @@ P0 完成条件：
 composition baseline
 named gaps
 source-only SKILL.md
+standalone governance record
 3 个 MVP docs
-evolution decision
+first dogfood gate
+first evidence-backed evolution decision
+ED effectiveness check
 ```
 
 不包含：
@@ -1771,13 +1957,14 @@ plan/work 自动接线
 目标：
 
 ```text
-证明 spec-evolve 能持续产生有价值的演进决策。
+证明 spec-evolve 能持续产生有价值的演进决策，并开始受控吸收 best-practice watchlist。
 ```
 
 包含：
 
 ```text
-best-practice-intake
+continuous dogfood
+best-practice-intake from watchlist
 evolution decision log
 plan-handoff brief
 compound next-cycle input
@@ -1810,7 +1997,7 @@ collect-doc-code-surface-signals.js
 目标：
 
 ```text
-让 /spec:spec-evolve 成为稳定入口。
+让 Claude /spec:evolve 和 Codex $spec-evolve 成为稳定入口。
 ```
 
 包含：
@@ -1911,7 +2098,8 @@ docs/YYYY-MM-DD-spec-evolve-baseline/
   02-named-gaps.md
 
 Rules:
-- Do not modify source files.
+- Do not modify existing implementation files, existing source skills, templates, CLI code, runtime assets, or existing docs.
+- Only write the required baseline report artifacts under docs/YYYY-MM-DD-spec-evolve-baseline/.
 - Do not add spec-evolve yet.
 - Do not create new agents.
 - Do not create scripts.
@@ -1927,8 +2115,9 @@ Rules:
 Implement source-only MVP for spec-evolve only if the composition baseline found named gaps.
 
 Scope:
-- Add source skill definition only.
-- Do not wire /spec:spec-evolve command yet.
+- Add source skill definition.
+- Add a skills-governance.json record with entry_surface=standalone_skill and command_name=null.
+- Do not wire Claude /spec:evolve or Codex $spec-evolve command entry yet.
 - Do not edit generated runtime copies.
 - Do not add scripts.
 - Do not add new agent profiles.
@@ -1964,11 +2153,13 @@ Use the new spec-evolve skill to produce at least one evidence-backed evolution 
 Required:
 - Decision ID
 - Accepted / Skipped / Deferred
+- Source freshness
 - Evidence
 - Reason
 - Consequence
 - Plan handoff target
 - Verification
+- Effectiveness Check
 - Residual risk
 - Next-cycle input
 
