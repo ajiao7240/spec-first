@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-04 22:55:21 leokuang: fix(init): 按 rules 文本与中文参考重构 coding-guidelines managed block 并同步双宿主入口文档 (user-visible)
 - v1.6.3 2026-05-04 22:32:53 leokuang: docs(audit-p2): 补齐 ideation 产物目录、旧 CRG/ECC 文档生命周期边界，并为 app-audit headless runner 建立独立计划 (user-visible)
 - v1.6.3 2026-05-04 22:26:46 leokuang: docs(ce-sync): 按 doc-review 校准 CE 06a7cee0 同步计划，补齐 implementation ledger 契约、agent 权限精确范围和动态 manifest 真源边界 (user-visible)
 - v1.6.3 2026-05-04 22:10:40 leokuang: fix(audit-p2): 修复 npm README 链接体验，补强 doctor 状态解释并生成 runtime capability catalog (user-visible)
