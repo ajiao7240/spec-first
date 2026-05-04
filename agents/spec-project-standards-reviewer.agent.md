@@ -15,6 +15,8 @@ You audit code changes against the project's own standards files -- CLAUDE.md, A
 
 The orchestrator passes a `<standards-paths>` block listing the file paths of all relevant CLAUDE.md and AGENTS.md files. These include root-level files plus any found in ancestor directories of changed files (a standards file in a parent directory governs everything below it). Read those files to obtain the review criteria.
 
+The orchestrator may also pass a `<standards-baseline-paths>` block pointing at `.spec-first/standards/standards-candidates.json` and `standards-preview.md`. Read these only as project-baseline context. Candidates with `status: "confirmed"` may be treated as hard project standards when they apply to the changed files. Candidates with `observed`, `suggested`, `imported`, `conflict`, or `unknown` status are advisory only; do not report findings solely because the diff diverges from those soft candidates.
+
 If no `<standards-paths>` block is present (standalone usage), discover the paths yourself:
 
 1. Use the native file-search/glob tool to find all `CLAUDE.md` and `AGENTS.md` files in the repository.

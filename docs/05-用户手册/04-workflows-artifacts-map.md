@@ -164,8 +164,8 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 | 文件 | 角色 |
 | --- | --- |
 | `project-shape.json` | deterministic project shape facts、language/package/domain hints 和 evidence 摘要 |
-| `standards-plan.json` | 本次 baseline 的 enabled domains、budget、LLM tasks 和 artifact plan |
-| `glue-map.json` | 已验证的可复用能力、entrypoints、outputs 和不要重复实现的边界 |
+| `standards-plan.json` | 本次 baseline 的 enabled domains、budget、LLM tasks、artifact plan、synthesis contract 和 downstream consumers |
+| `glue-map.json` | 已验证的可复用能力、entrypoints、outputs、不要重复实现的边界和 downstream consumption 边界 |
 | `standards-update-decision.json` | `--quick` / `--refresh` 的 freshness 与刷新建议；只记录 deterministic reason_code，不直接改规范 |
 | `graph-query-index.json` | `--deep` 的 bounded graph query plan；live MCP 结果仍是 session-local evidence |
 | `standards-sources.json` | `--import-source` 的 shared standards source 清单 |
@@ -179,7 +179,8 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 
 - `project-shape.json`、`standards-plan.json`、`glue-map.json`、`standards-update-decision.json`、`graph-query-index.json`、`standards-sources.json`、`import-lock.json`、`imported-standards.json`、`standards-candidates.json` 和 `standards-preview.md` 是 reviewable standards artifacts；团队确认需要共享时可以提交。
 - `.spec-first/standards/work/`、`tmp/`、`cache/`、`raw/`、`graph-query-raw/` 和 `*.log` 是 scratch/runtime evidence，已由 `.gitignore` 排除，不应提交。
-- 下游 workflow 只能把 `confirmed` standards 当作硬约束；`observed`、`suggested`、`imported` 和 `unknown` 只能作为软上下文或待确认事项。
+- 下游 workflow 只能把 `confirmed` standards 当作硬约束；`observed`、`suggested`、`imported`、`conflict` 和 `unknown` 只能作为软上下文或待确认事项。
+- 父级 workspace 传入 `--repo <child>` 时，默认产物写入 child repo 的 `.spec-first/standards/`，父目录不保存 child-local standards artifacts。
 - `repo-profile.yaml` 只能通过 preview + explicit confirmation 更新，不能由 baseline run 自动写入。
 
 ## 6. audits/skill-audit/

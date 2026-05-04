@@ -10,6 +10,7 @@ The implementation is preview-first:
 
 - Detect project shape with deterministic facts.
 - Plan enabled standards domains.
+- Write a `standards-plan.json` synthesis contract for candidate shape, status vocabulary, evidence limits, writeback policy, and downstream consumers.
 - Build a lightweight glue capability map.
 - Check existing baseline freshness with `--quick`.
 - Refresh bounded domains/modules/repos with `--refresh`.
@@ -20,6 +21,8 @@ The implementation is preview-first:
 - Do not write `.spec-first/specs/repo-profile.yaml`.
 
 Repo-profile patch apply, monorepo module outputs, workspace outputs, and drift checks remain explicit future boundaries.
+
+For parent workspaces, `--repo <child>` selects a child repo as the target root and writes default artifacts under that child repo's `.spec-first/standards/`. The parent workspace is only the launcher and must not receive child-local standards artifacts.
 
 ## Deterministic Script
 
@@ -43,7 +46,7 @@ The baseline script writes:
 
 Mode-support artifacts include `standards-update-decision.json`, `graph-query-index.json`, `standards-sources.json`, `import-lock.json`, and `imported-standards.json`.
 
-The script does not write standards candidates, previews, or repo-profile changes. Those require semantic judgment.
+The script does not write standards candidates, previews, or repo-profile changes. Those require semantic judgment. Downstream workflow usage is described in `standards-plan.json` and `glue-map.json`; only `confirmed` candidates are hard constraints.
 
 ## Example Artifacts
 

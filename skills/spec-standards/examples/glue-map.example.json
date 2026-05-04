@@ -2,7 +2,9 @@
   "schema_version": "spec-first.glue-map.v1",
   "scope": {
     "type": "repo",
-    "root": "."
+    "root": ".",
+    "domains": [],
+    "modules": []
   },
   "capabilities": [
     {
@@ -18,7 +20,8 @@
       "outputs": [
         ".spec-first/graph/graph-facts.json",
         ".spec-first/graph/architecture-facts.json",
-        ".spec-first/graph/reuse-candidates.json"
+        ".spec-first/graph/reuse-candidates.json",
+        ".spec-first/graph/bootstrap-impact-capabilities.json"
       ],
       "reuse_when": [
         "需要项目图谱事实",
@@ -33,6 +36,27 @@
       "evidence": [
         "skills/spec-graph-bootstrap/SKILL.md"
       ]
+    }
+  ],
+  "downstream_consumers": [
+    {
+      "workflow": "spec-plan",
+      "hard_context": [
+        "confirmed"
+      ],
+      "soft_context": [
+        "observed",
+        "suggested",
+        "imported",
+        "conflict",
+        "unknown"
+      ],
+      "consume": [
+        "project-shape.json",
+        "standards-candidates.json",
+        "glue-map.json"
+      ],
+      "boundary": "Use glue capabilities for reuse-first implementation boundaries; resolve conflicts in the plan."
     }
   ],
   "glue_patterns": [],

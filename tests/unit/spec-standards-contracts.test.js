@@ -45,6 +45,10 @@ describe('spec-standards workflow contract', () => {
     expect(skill).toContain('Preview before writeback.');
     expect(skill).toContain('Observed is not confirmed.');
     expect(skill).toContain('Do not write `repo-profile.yaml`.');
+    expect(skill).toContain('`--repo <child>` selects the child repo as the target repo root');
+    expect(skill).toContain('synthesis_contract.candidate_required_fields');
+    expect(skill).toContain('spec-first.standards-candidates.v1');
+    expect(skill).toContain('Confirmed standards are the only hard constraints.');
     expect(skill).toContain('Default mode. Prepare a first project baseline');
     expect(skill).toContain('.spec-first/standards/project-shape.json');
     expect(skill).toContain('.spec-first/standards/standards-plan.json');
@@ -117,6 +121,12 @@ describe('spec-standards workflow contract', () => {
       const glueMap = readJson(path.join(tmp, '.spec-first/standards/glue-map.json'));
 
       expect(projectShape.schema_version).toBe('spec-first.project-shape.v1');
+      expect(projectShape.scope).toEqual({
+        type: 'repo',
+        root: '.',
+        domains: [],
+        modules: [],
+      });
       expect(projectShape.project_mode).toBe('single_project_repo');
       expect(projectShape.project.detected_type).toBe('node_cli_ai_workflow_framework');
       expect(projectShape.evidence.inventory_hash).toMatch(/^sha256:[a-f0-9]{64}$/);
@@ -128,12 +138,76 @@ describe('spec-standards workflow contract', () => {
       expect(standardsPlan.schema_version).toBe('spec-first.standards-plan.v1');
       expect(standardsPlan.budget.allow_deep_graph_queries).toBe(false);
       expect(standardsPlan.tasks.every((task) => task.owner === 'llm')).toBe(true);
+      expect(standardsPlan.synthesis_contract).toEqual(expect.objectContaining({
+        schema_version: 'spec-first.standards-synthesis-contract.v1',
+        candidate_required_fields: expect.arrayContaining(['status', 'evidence', 'downstream_usage']),
+        allowed_statuses: expect.arrayContaining(['confirmed', 'imported', 'observed', 'suggested', 'conflict', 'unknown']),
+        allowed_source_types: expect.arrayContaining(['repo_profile_confirmed', 'shared_standard_imported', 'graph_observed']),
+      }));
+      expect(standardsPlan.synthesis_contract.writeback_policy).toEqual({
+        repo_profile_yaml_modified_by_default: false,
+        only_confirmed_candidates_are_patch_eligible: true,
+        patch_requires_explicit_user_confirmation: true,
+      });
       expect(glueMap.schema_version).toBe('spec-first.glue-map.v1');
       expect(glueMap.capabilities.map((capability) => capability.id)).toEqual(expect.arrayContaining([
         'capability.workflow.skills',
         'capability.cli.runtime-sync',
         'capability.contracts.machine-readable',
       ]));
+      expect(glueMap.downstream_consumers.map((consumer) => consumer.workflow)).toEqual(expect.arrayContaining([
+        'spec-plan',
+        'spec-write-tasks',
+        'spec-work',
+        'spec-code-review',
+      ]));
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('repo selector scans and writes child-local standards artifacts', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-child-repo-'));
+    try {
+      writeFile(tmp, 'packages/app/package.json', JSON.stringify({ name: 'child-project' }));
+      writeFile(tmp, 'packages/app/bin/spec-first.js', '#!/usr/bin/env node\n');
+      writeFile(tmp, 'packages/app/src/cli/index.js', "'use strict';\n");
+
+      const result = prepareBaseline({
+        root: tmp,
+        repo: 'packages/app',
+        mode: 'baseline',
+        dryRun: false,
+      });
+
+      expect(result.target_repo).toBe('packages/app');
+      expect(result.repo_root).toBe(path.join(tmp, 'packages/app'));
+      expect(result.scope).toEqual({
+        type: 'workspace_child_repo',
+        root: '.',
+        domains: [],
+        modules: [],
+        workspace_child: 'packages/app',
+      });
+      expect(result.artifacts).toEqual([
+        '.spec-first/standards/project-shape.json',
+        '.spec-first/standards/standards-plan.json',
+        '.spec-first/standards/glue-map.json',
+      ]);
+      expect(result.workspace_artifacts).toEqual([
+        'packages/app/.spec-first/standards/project-shape.json',
+        'packages/app/.spec-first/standards/standards-plan.json',
+        'packages/app/.spec-first/standards/glue-map.json',
+      ]);
+      expect(fs.existsSync(path.join(tmp, '.spec-first/standards/project-shape.json'))).toBe(false);
+      expect(fs.existsSync(path.join(tmp, 'packages/app/.spec-first/standards/project-shape.json'))).toBe(true);
+
+      const projectShape = readJson(path.join(tmp, 'packages/app/.spec-first/standards/project-shape.json'));
+      const glueMap = readJson(path.join(tmp, 'packages/app/.spec-first/standards/glue-map.json'));
+      expect(projectShape.scope.type).toBe('workspace_child_repo');
+      expect(projectShape.scope.workspace_child).toBe('packages/app');
+      expect(projectShape.project.detected_type).toBe('node_cli');
+      expect(glueMap.scope.workspace_child).toBe('packages/app');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -294,6 +368,8 @@ describe('spec-standards workflow contract', () => {
       expect(importLock.schema_version).toBe('spec-first.standards-import-lock.v1');
       expect(importLock.source.status).toBe('available');
       expect(imported.schema_version).toBe('spec-first.imported-standards.v1');
+      expect(imported.alignment_required).toBe(true);
+      expect(imported.eligible_for_repo_profile_writeback).toBe(false);
       expect(imported.items).toEqual([
         expect.objectContaining({
           id: 'imported.backend-md',
@@ -356,6 +432,10 @@ describe('spec-standards workflow contract', () => {
       {
         args: ['--root'],
         message: '--root requires a value.',
+      },
+      {
+        args: ['--repo', '../outside', '--dry-run'],
+        message: '--repo must not traverse outside the workspace root: ../outside',
       },
     ];
 

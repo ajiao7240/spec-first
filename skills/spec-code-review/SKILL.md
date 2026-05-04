@@ -399,8 +399,9 @@ Before spawning sub-agents, find the file paths (not contents) of all relevant s
 
 1. Use the native file-search tool (e.g., Glob in Claude Code) to find all `**/CLAUDE.md` and `**/AGENTS.md` in the repo.
 2. Filter to those whose directory is an ancestor of at least one changed file. A standards file governs all files below it (e.g., `plugins/spec-first/AGENTS.md` applies to everything under `plugins/spec-first/`).
+3. If `.spec-first/standards/standards-candidates.json` exists for the target repo, include that path and `.spec-first/standards/standards-preview.md` when present in a separate `<standards-baseline-paths>` block. These artifacts are optional context: only `confirmed` standards may become hard review criteria; observed, suggested, imported, conflict, and unknown candidates remain advisory.
 
-Pass the resulting path list to the `project-standards` persona inside a `<standards-paths>` block in its review context (see Stage 4). The persona reads the files itself, targeting only the sections relevant to the changed file types. This keeps the orchestrator's work cheap (path discovery only) and avoids bloating the subagent prompt with content the reviewer may not fully need.
+Pass the resulting path list to the `project-standards` persona inside a `<standards-paths>` block in its review context (see Stage 4), and pass standards baseline paths inside `<standards-baseline-paths>` when available. The persona reads the files itself, targeting only the sections relevant to the changed file types. This keeps the orchestrator's work cheap (path discovery only) and avoids bloating the subagent prompt with content the reviewer may not fully need.
 
 ### Stage 4: Spawn sub-agents
 
@@ -437,7 +438,7 @@ Spawn each selected persona reviewer as a parallel sub-agent using the subagent 
 4. PR metadata: title, body, and URL when reviewing a PR (empty string otherwise). Passed in a `<pr-context>` block so reviewers can verify code against stated intent
 5. Review context: intent summary, file list, diff
 6. Run ID and reviewer name for the artifact file path
-7. **For `project-standards` only:** the standards file path list from Stage 3b, wrapped in a `<standards-paths>` block appended to the review context
+7. **For `project-standards` only:** the standards file path list from Stage 3b, wrapped in a `<standards-paths>` block appended to the review context; when present, append `.spec-first/standards/` baseline paths in `<standards-baseline-paths>`
 
 Persona sub-agents are **read-only** with respect to the project: they review and return structured JSON. They do not edit project files or propose refactors. The one permitted write is saving their full analysis to the run-artifact path specified in the output contract under `/tmp/spec-first/spec-code-review/<run-id>/`.
 

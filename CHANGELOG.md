@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-04 13:37:36 leokuang: fix(spec-standards): 收紧 child repo 写入边界、候选规范合成契约和 downstream standards consumption 规则 (user-visible)
 - v1.6.3 2026-05-04 13:16:03 leokuang: docs(spec-work-beta): 将 delegation beta 收紧为显式 opt-in，默认 guide 与 handoff 继续指向稳定 work workflow (user-visible)
 - v1.6.3 2026-05-04 13:15:56 leokuang: fix(lint): 允许 standalone skill command alias 的禁止性 guardrail 文案通过入口治理检查
 - v1.6.3 2026-05-04 13:13:06 leokuang: test(spec-write-tasks): 用 governance-derived lint 阻止 standalone task 编译 skill 被误写成命令入口

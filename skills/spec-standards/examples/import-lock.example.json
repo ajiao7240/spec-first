@@ -6,6 +6,7 @@
     "type": "local_directory",
     "status": "available",
     "local_path": "../shared-standards",
+    "workspace_path": "../shared-standards",
     "git": {
       "commit": "abcdef1234567890",
       "remote": "git@example.com:team/shared-standards.git"
