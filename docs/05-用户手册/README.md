@@ -8,6 +8,7 @@
 
 - `spec-mcp-setup`：required harness runtime、MCP servers、graph providers 和 helper tools 的安装与验证入口
 - `spec-graph-bootstrap`：external graph-provider readiness facts 编译入口
+- `spec-standards`：项目规范、freshness check、bounded refresh、shared standards alignment 和 glue/reuse capability baseline 的 preview-first 编译入口
 - `spec-app-consistency-audit`：移动 App 的 PRD / Figma / source / route / architecture / analytics / i18n 静态一致性审查入口
 - `spec-skill-audit`：source skill 质量、治理投递、runtime drift 与安全信号审计入口
 - `spec-compound`：工作完成后的稳定知识捕获入口
@@ -33,7 +34,7 @@
 - 一个前置的 `/spec:ideate` 候选发散入口
 - Claude Code 的 `/spec:*` 命令入口
 - Codex 的 `$spec-*` skill 入口
-- 当前推荐的 graph readiness 事实入口 `spec-graph-bootstrap`、App 一致性审查入口 `spec-app-consistency-audit`、source skill 审计入口 `spec-skill-audit`，以及知识沉淀入口 `spec-compound`
+- 当前推荐的 graph readiness 事实入口 `spec-graph-bootstrap`、项目规范 baseline/refresh/import 入口 `spec-standards`、App 一致性审查入口 `spec-app-consistency-audit`、source skill 审计入口 `spec-skill-audit`，以及知识沉淀入口 `spec-compound`
 - 一条 `Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound` 的标准闭环
 - 项目级 `.claude/commands/spec`
 - 项目级 `.claude/skills`、`.claude/spec-first/workflows` 与 `.claude/agents`
@@ -49,7 +50,7 @@
 主链路可以从 `Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound` 理解，但当前用户手册覆盖的是更完整的工程闭环：
 
 ```text
-mcp-setup / graph-bootstrap
+mcp-setup / graph-bootstrap / standards
   -> ideate
   -> brainstorm
   -> doc-review

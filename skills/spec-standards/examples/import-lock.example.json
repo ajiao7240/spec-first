@@ -1,0 +1,17 @@
+{
+  "schema_version": "spec-first.standards-import-lock.v1",
+  "source": {
+    "id": "standards-source.example",
+    "input": "../shared-standards",
+    "type": "local_directory",
+    "status": "available",
+    "local_path": "../shared-standards",
+    "git": {
+      "commit": "abcdef1234567890",
+      "remote": "git@example.com:team/shared-standards.git"
+    },
+    "reason_code": null
+  },
+  "item_count": 1,
+  "content_hash": "sha256:example"
+}

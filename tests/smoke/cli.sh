@@ -106,7 +106,7 @@ claude_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" init --cla
 grep -q "Generated ${expected_command_count} command file(s)" <<<"$claude_output"
 grep -q "Generated ${expected_claude_skill_count} skill directory(ies)" <<<"$claude_output"
 grep -q "Generated ${expected_agent_count} agent file(s)" <<<"$claude_output"
-for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.md doc-review.md graph-bootstrap.md ideate.md mcp-setup.md optimize.md plan.md polish-beta.md release-notes.md sessions.md slack-research.md update.md work.md work-beta.md; do
+for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.md doc-review.md graph-bootstrap.md ideate.md mcp-setup.md optimize.md plan.md polish-beta.md release-notes.md sessions.md slack-research.md standards.md update.md work.md work-beta.md; do
   test -f "$TMP_DIR/.claude/commands/spec/$file"
 done
 test -f "$TMP_DIR/.claude/spec-first/workflows/spec-mcp-setup/scripts/check-health"
@@ -173,7 +173,7 @@ grep -q "Generated ${expected_agent_count} agent file(s) in .codex/agents" <<<"$
 grep -q "Generated ${expected_codex_total_skill_count} skill directory(ies) in .agents/skills" <<<"$codex_output"
 installed_codex_skill_count="$(find "$TMP_DIR/.agents/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 test "$installed_codex_skill_count" = "$expected_codex_total_skill_count"
-for skill in spec-plan spec-work spec-code-review spec-doc-review spec-brainstorm spec-graph-bootstrap spec-mcp-setup spec-compound-refresh spec-work-beta; do
+for skill in spec-plan spec-work spec-code-review spec-doc-review spec-brainstorm spec-graph-bootstrap spec-mcp-setup spec-standards spec-compound-refresh spec-work-beta; do
   test -f "$TMP_DIR/.agents/skills/$skill/SKILL.md"
 done
 test -f "$TMP_DIR/.agents/skills/using-spec-first/SKILL.md"

@@ -1,0 +1,29 @@
+{
+  "schema_version": "spec-first.standards-candidates.v1",
+  "candidates": [
+    {
+      "id": "glue.artifact-handoff.canonical-artifacts",
+      "domain": "glue",
+      "type": "artifact_contract",
+      "status": "observed",
+      "confidence": "high",
+      "rule_candidate": "跨 workflow 传递上下文时，应优先使用显式 canonical artifacts，而不是依赖聊天历史。",
+      "source_type": "graph_observed",
+      "evidence": [
+        {
+          "path": ".spec-first/graph/graph-facts.json",
+          "source": "graph-artifact",
+          "reason": "Graph facts are compiled as canonical downstream input"
+        }
+      ],
+      "suggested_action": "confirm",
+      "downstream_usage": [
+        "spec-plan",
+        "spec-work",
+        "spec-code-review"
+      ]
+    }
+  ],
+  "conflicts": [],
+  "unknowns": []
+}

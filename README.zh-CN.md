@@ -154,6 +154,7 @@ docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
   |
   | /spec:mcp-setup       或 $spec-mcp-setup
   | /spec:graph-bootstrap 或 $spec-graph-bootstrap
+  | /spec:standards       或 $spec-standards
   v
 在宿主会话中选择下一步 workflow
   |
@@ -435,6 +436,7 @@ your-project/
 |---|---|---|
 | 安装必备 harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | 编译 graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
+| 编译、检查、刷新、深挖或导入项目规范与胶水能力基线 | `/spec:standards` | `$spec-standards` |
 | 更新 spec-first 或 runtime assets | `/spec:update` | `$spec-update` |
 | 搜索 agent session 历史 | `/spec:sessions` | `$spec-sessions` |
 | 研究 Slack 组织上下文 | `/spec:slack-research` | `$spec-slack-research` |
@@ -491,7 +493,7 @@ Runtime asset summary：
 
 | 层级 | 当前 contract |
 |---|---|
-| **能力层资产** | 仓库内置源码资产共 `41` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `20` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `20` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
+| **能力层资产** | 仓库内置源码资产共 `42` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `21` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `21` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
 | **Claude runtime** | commands 生成到 `.claude/commands/spec`，standalone 与 agent-facing internal skills 生成到 `.claude/skills`，command-backed workflow skill 副本生成到 `.claude/spec-first/workflows`，agents 生成到 `.claude/agents`，managed state 位于 `.claude/spec-first/state.json`。 |
 | **Codex runtime** | workflow、standalone 与 agent-facing internal skills 生成到 `.agents/skills`，agents 生成到 `.codex/agents`，managed state 位于 `.codex/spec-first/state.json`。 |
 | **Readiness** | setup workflow 写 readiness ledger v2 以及 setup-owned `graph-providers.json`、`runtime-capabilities.json` 和 `provider-artifacts.json`；graph bootstrap workflow 消费这些事实并写 canonical graph facts、provider status、impact capabilities 和 report。 |
@@ -499,7 +501,7 @@ Runtime asset summary：
 Claude init 的预期输出包含：
 
 ```text
-📦 Generated 20 command file(s) in .claude/commands/spec
+📦 Generated 21 command file(s) in .claude/commands/spec
 🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 下一步:

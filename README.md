@@ -154,6 +154,7 @@ Restart Claude Code or Codex
   |
   | /spec:mcp-setup       or $spec-mcp-setup
   | /spec:graph-bootstrap or $spec-graph-bootstrap
+  | /spec:standards       or $spec-standards
   v
 Choose the next workflow in the host session
   |
@@ -435,6 +436,7 @@ Detailed manuals and implementation docs are currently Chinese-first.
 |---|---|---|
 | Setup required harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | Compile graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
+| Compile, check, refresh, deepen, or import project standards and glue baseline | `/spec:standards` | `$spec-standards` |
 | Update spec-first or runtime assets | `/spec:update` | `$spec-update` |
 | Search agent session history | `/spec:sessions` | `$spec-sessions` |
 | Research Slack context | `/spec:slack-research` | `$spec-slack-research` |
@@ -491,7 +493,7 @@ Runtime asset summary:
 
 | Layer | Current Contract |
 |---|---|
-| **Capability layer** | Bundled source assets ship with `41` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `20` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `20` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
+| **Capability layer** | Bundled source assets ship with `42` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `21` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `21` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
 | **Claude runtime** | Commands are generated under `.claude/commands/spec`, standalone and agent-facing internal skills under `.claude/skills`, command-backed workflow skill copies under `.claude/spec-first/workflows`, agents under `.claude/agents`, and managed state under `.claude/spec-first/state.json`. |
 | **Codex runtime** | Workflow, standalone, and agent-facing internal skills are generated under `.agents/skills`, agents under `.codex/agents`, and managed state under `.codex/spec-first/state.json`. |
 | **Readiness** | The setup workflow writes readiness ledger v2 plus setup-owned `graph-providers.json`, `runtime-capabilities.json`, and `provider-artifacts.json`; the graph bootstrap workflow consumes those facts and writes canonical graph facts, provider status, impact capabilities, and a report. |
@@ -499,7 +501,7 @@ Runtime asset summary:
 Expected Claude init output includes:
 
 ```text
-📦 Generated 20 command file(s) in .claude/commands/spec
+📦 Generated 21 command file(s) in .claude/commands/spec
 🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 Next steps:

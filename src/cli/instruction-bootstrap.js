@@ -153,7 +153,7 @@ function buildZhBootstrapBody(hostId) {
 - 父级多仓 workspace 的只读代码问题可使用 \`workspace-graph-targets.v1\` advisory facts 做候选 repo 发现并优先 GitNexus；写入、修复、测试、review autofix 或 commit 前仍必须有明确 \`target_repo\` / per-child scope
 ${hostLine}
 ${surfaceLine}
-${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；graph readiness 编译→\`${entry('graph-bootstrap')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务编译/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`（standalone skill）/\`${entry('work')}\`；可度量优化→\`${entry('optimize')}\`
+${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；graph readiness 编译→\`${entry('graph-bootstrap')}\`；项目规范/胶水基线→\`${entry('standards')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务编译/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`（standalone skill）/\`${entry('work')}\`；可度量优化→\`${entry('optimize')}\`
 - 完整选择策略、优先级和 red flags 由 spec-first 随包的 \`using-spec-first\` 维护；本 block 只保留启动提醒、host 入口边界和少量锚点
 - 不要直接暴露 internal-only skills：\`spec-session-inventory\`、\`spec-session-extract\``;
 }
@@ -184,7 +184,7 @@ function buildEnBootstrapBody(hostId) {
 - Read-only code questions from a parent multi-repo workspace may use \`workspace-graph-targets.v1\` advisory facts for candidate repo discovery and prefer GitNexus-first evidence; writes, fixes, tests, review autofix, or commits still require explicit \`target_repo\` / per-child scope
 ${hostLine}
 ${surfaceLine}
-${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; graph readiness compilation→\`${entry('graph-bootstrap')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/task compilation/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\` (standalone skill)/\`${entry('work')}\`; measurable optimization→\`${entry('optimize')}\`
+${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; graph readiness compilation→\`${entry('graph-bootstrap')}\`; project standards/glue baseline→\`${entry('standards')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/task compilation/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\` (standalone skill)/\`${entry('work')}\`; measurable optimization→\`${entry('optimize')}\`
 - The full selection policy, priority rules, and red flags are maintained by the bundled spec-first \`using-spec-first\`; this block only keeps the startup reminder, host entrypoint boundaries, and a few anchors
 - Do not expose internal-only skills directly: \`spec-session-inventory\`, \`spec-session-extract\``;
 }

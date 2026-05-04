@@ -215,7 +215,7 @@ machine-readable 真源文件固定落位：
 其中：
 
 1. `skills-governance.json`
-   - 覆盖当前仓库 `40` 个 source skills
+   - 覆盖当前仓库 `42` 个 source skills
    - 是 `plugin.js` runtime filter、lint、审计脚本的共同真源
 2. `skills-governance.schema.json`
    - 固定 `schemaVersion=1`

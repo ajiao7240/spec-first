@@ -24,6 +24,7 @@ yarn-error.log*
 # Local tooling and scratch data
 .history/
 .serena/
+.worktrees/
 .claude/tasks/
 .playwright-mcp/
 
@@ -47,6 +48,12 @@ yarn-error.log*
 .spec-first/graph/
 .spec-first/providers/
 .spec-first/impact/
+.spec-first/standards/work/
+.spec-first/standards/tmp/
+.spec-first/standards/cache/
+.spec-first/standards/raw/
+.spec-first/standards/graph-query-raw/
+.spec-first/standards/**/*.log
 
 # Published/package artifacts
 *.tgz

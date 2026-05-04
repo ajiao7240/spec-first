@@ -377,6 +377,17 @@
       }
     },
     {
+      "skill_name": "spec-standards",
+      "entry_surface": "workflow_command",
+      "command_name": "standards",
+      "host_scope": "dual_host",
+      "owner_host": null,
+      "host_delivery": {
+        "claude": "command",
+        "codex": "skill"
+      }
+    },
+    {
       "skill_name": "spec-update",
       "entry_surface": "workflow_command",
       "command_name": "update",
