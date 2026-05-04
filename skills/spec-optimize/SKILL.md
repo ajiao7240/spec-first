@@ -61,6 +61,12 @@ If any item is missing, stop and help the user create a safe spec or route the w
 
 First-run specs should default to `execution.mode: serial`, `execution.max_concurrent: 1`, `stopping.max_iterations: 4`, `stopping.max_hours: 1`, `stopping.plateau_iterations: 3`, and `max_runner_up_merges_per_batch: 0`. Treat higher-throughput settings as opt-in. If a provided spec asks for `execution.max_concurrent > 4`, `stopping.max_iterations > 30`, `stopping.max_hours > 4`, or uncapped judge spend, surface those costs in the approval gate before running the baseline.
 
+## Dispatch And Backend Boundary
+
+Optimization dispatch is an optional capability selected by the approved optimization spec and runtime readiness, not a correctness requirement. Serial local/worktree execution remains the safe fallback when Codex delegation, subagent dispatch, or parallel execution is unavailable or unsafe.
+
+Parallel experiments require explicit `execution.mode`, bounded `execution.max_concurrent`, clean mutable/immutable scope, and the worktree readiness probes below. Worktree-backed mutation happens in experiment worktrees; Codex delegation must fall back after repeated failures when the serial/local path can continue. The orchestrator owns final integration: selecting kept experiments, merging or cherry-picking winners, reverting non-winners, cleaning worktrees, updating experiment logs, and presenting post-completion actions.
+
 ---
 
 ## Persistence Discipline

@@ -9,6 +9,8 @@ disable-model-invocation: true
 
 Conduct a comprehensive review of the codebase against agent-native architecture principles, launching parallel sub-agents for each principle and producing a scored report.
 
+This is an internal helper skill, not a public `spec-*` workflow entrypoint. It must not be invoked through public workflow routing unless an upstream workflow explicitly delegates this audit as a bounded helper task.
+
 ## Core Principles to Audit
 
 1. **Action Parity** - "Whatever the user can do, the agent can do"
@@ -34,7 +36,9 @@ Select option 7 (action parity) to load the full reference material.
 
 ### Step 2: Launch Parallel Sub-Agents
 
-Launch 8 parallel sub-agents using the platform's subagent primitive (`Agent` with `subagent_type: Explore` in Claude Code or `spawn_agent` with `agent_type: "explorer"` in Codex), one for each principle. Each agent should:
+Launch 8 parallel sub-agents only when the host exposes a dispatch primitive and current session policy authorizes helper dispatch. Use the platform's subagent primitive (`Agent` with `subagent_type: Explore` in Claude Code or `spawn_agent` with `agent_type: "explorer"` in Codex), one for each principle. If dispatch is unavailable or not authorized, run the eight principle audits sequentially in the current agent and state that sequential fallback in the report.
+
+Sub-agents are read-only explorers. They inspect code and return findings; the orchestrator owns the final scored report. Keep parallelism bounded to these eight principles and do not spawn additional nested agents from leaf audits. Each agent should:
 
 1. Enumerate ALL instances in the codebase (user actions, tools, contexts, data stores, etc.)
 2. Check compliance against the principle

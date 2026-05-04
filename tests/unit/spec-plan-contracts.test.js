@@ -117,6 +117,29 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('graph readiness is evidence context, not a planning gate');
     expect(text).toContain('Do not expand this into context selection, impact analysis, review evidence');
   });
+
+  test('planning research dispatch is host-neutral with explicit inline fallback', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Planning research agents are read-only.');
+    expect(text).toContain('A direct plan workflow invocation may authorize this documented research phase');
+    expect(text).toContain('including `spawn_agent` where provided');
+    expect(text).toContain('Do not downgrade solely because the host is Codex.');
+    expect(text).toContain('run the same research sequentially in the current agent');
+    expect(text).toContain('applying it inline as an explicit fallback');
+    expect(text).toContain('Plan generation must still complete when research dispatch is unavailable');
+    expect(text).toContain('`spec-repo-research-analyst`');
+    expect(text).toContain('`spec-learnings-researcher`');
+    expect(text).toContain('`spec-best-practices-researcher`');
+    expect(text).toContain('`spec-framework-docs-researcher`');
+    expect(text).toContain('`spec-spec-flow-analyzer`');
+    expect(text).not.toContain('Task spec-repo-research-analyst');
+    expect(text).not.toContain('Task spec-learnings-researcher');
+    expect(text).not.toContain('Task spec-best-practices-researcher');
+    expect(text).not.toContain('Task spec-framework-docs-researcher');
+    expect(text).not.toContain('Task spec-spec-flow-analyzer');
+    expect(text).not.toContain('`Task` / `Agent` on Claude Code, or `spawn_agent` on Codex');
+  });
 });
 
 describe('spec_id planning contract', () => {

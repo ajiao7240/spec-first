@@ -199,10 +199,14 @@ Prepare a concise planning context summary (a paragraph or two) to pass as input
 - If an origin document exists, summarize the problem frame, requirements, and key decisions from that document
 - Otherwise use the feature description directly
 
-Run these agents in parallel:
+Planning research agents are read-only. A direct plan workflow invocation may authorize this documented research phase only when host capability and session policy allow it. Use the active host's authorized agent-dispatch primitive when available (including `spawn_agent` where provided), omit permission-mode overrides, and keep dispatch bounded to the named research agents below. Do not downgrade solely because the host is Codex.
 
-- Task spec-repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
-- Task spec-learnings-researcher(planning context summary)
+If dispatch is unavailable, disallowed, or fails for a non-capacity reason, run the same research sequentially in the current agent by reading the corresponding agent profile and applying it inline as an explicit fallback. Plan generation must still complete when research dispatch is unavailable; dispatch improves latency and context separation, not correctness.
+
+Dispatch these read-only research agents in parallel when authorized, or run the explicit sequential/inline fallback:
+
+- `spec-repo-research-analyst` — Scope: technology, architecture, patterns. Input: `{planning context summary}`.
+- `spec-learnings-researcher` — Input: `{planning context summary}`.
 Collect:
 - Technology stack and versions (used in section 1.2 to make sharper external research decisions)
 - Architectural patterns and conventions to follow
@@ -303,10 +307,10 @@ Announce the decision briefly before continuing. Examples:
 
 #### 1.3 External Research (Conditional)
 
-If Step 1.2 indicates external research is useful, run these agents in parallel:
+If Step 1.2 indicates external research is useful, dispatch these read-only agents in parallel when authorized, or run them sequentially/inline in the current agent as the explicit fallback:
 
-- Task spec-best-practices-researcher(planning context summary)
-- Task spec-framework-docs-researcher(planning context summary)
+- `spec-best-practices-researcher` — Input: `{planning context summary}`.
+- `spec-framework-docs-researcher` — Input: `{planning context summary}`.
 
 #### 1.4 Consolidate Research
 
@@ -332,9 +336,9 @@ This ensures flow analysis (Phase 1.5) runs and the confidence-first check (Phas
 
 #### 1.5 Flow and Edge-Case Analysis (Conditional)
 
-For **Standard** or **Deep** plans, or when user flow completeness is still unclear, run:
+For **Standard** or **Deep** plans, or when user flow completeness is still unclear, dispatch the read-only flow analyzer when authorized, or run the same analysis sequentially/inline in the current agent as the explicit fallback:
 
-- Task spec-spec-flow-analyzer(planning context summary, research findings)
+- `spec-spec-flow-analyzer` — Input: `{planning context summary, research findings}`.
 
 Use the output to:
 - Identify missing edge cases, state transitions, or handoff gaps

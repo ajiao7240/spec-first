@@ -208,8 +208,8 @@ function transformCodexContent(content) {
       const summary = args.trim();
       const agentPath = `.codex/agents/${agentName}.agent.md`;
       return summary
-        ? `${prefix}Read \`${agentPath}\` and apply that agent profile to: ${summary}`
-        : `${prefix}Read \`${agentPath}\` and apply that agent profile`;
+        ? `${prefix}Dispatch \`${agentPath}\` with \`spawn_agent\` when Codex dispatch is authorized; fallback: read the profile and apply it inline in the current agent only when \`spawn_agent\` is unavailable or disallowed. Task: ${summary}`
+        : `${prefix}Dispatch \`${agentPath}\` with \`spawn_agent\` when Codex dispatch is authorized; fallback: read the profile and apply it inline in the current agent only when \`spawn_agent\` is unavailable or disallowed.`;
     },
   );
 

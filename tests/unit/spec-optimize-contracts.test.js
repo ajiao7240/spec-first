@@ -48,4 +48,19 @@ describe('spec-optimize host entrypoint contract', () => {
 
     expect(readme).toContain('Give every run an explicit experiment budget');
   });
+
+  test('dispatch backends are optional and orchestrator-owned', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(skill).toContain('Dispatch And Backend Boundary');
+    expect(skill).toContain('Optimization dispatch is an optional capability');
+    expect(skill).toContain('Serial local/worktree execution remains the safe fallback');
+    expect(skill).toContain('Parallel experiments require explicit `execution.mode`, bounded `execution.max_concurrent`');
+    expect(skill).toContain('Worktree-backed mutation happens in experiment worktrees');
+    expect(skill).toContain('Codex delegation must fall back after repeated failures');
+    expect(skill).toContain('The orchestrator owns final integration');
+    expect(skill).toContain('selecting kept experiments, merging or cherry-picking winners, reverting non-winners');
+    expect(skill).toContain('Codex failure cascade');
+    expect(skill).toContain('After 3 consecutive failures, auto-disable Codex for remaining experiments and fall back to subagent dispatch.');
+  });
 });

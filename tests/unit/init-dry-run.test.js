@@ -205,6 +205,10 @@ describe('init --dry-run', () => {
         path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'SKILL.md'),
         'utf8',
       );
+      const codexPlanSkill = fs.readFileSync(
+        path.join(projectRoot, '.agents', 'skills', 'spec-plan', 'SKILL.md'),
+        'utf8',
+      );
       const codexGraphBootstrapScript = path.join(projectRoot, '.agents', 'skills', 'spec-graph-bootstrap', 'scripts', 'bootstrap-providers.sh');
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'scripts', 'check-health'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'scripts', 'resolve-project-target.sh'))).toBe(true);
@@ -212,6 +216,10 @@ describe('init --dry-run', () => {
       expect(fs.readFileSync(codexGraphBootstrapScript, 'utf8')).toContain('../../spec-mcp-setup/scripts/resolve-project-target.sh');
       expect(codexMcpSetupSkill).toContain('bash .agents/skills/spec-mcp-setup/scripts/check-health');
       expect(codexMcpSetupSkill).not.toContain('bash skills/spec-mcp-setup/scripts/check-health');
+      expect(codexPlanSkill).toContain('including `spawn_agent` where provided');
+      expect(codexPlanSkill).toContain('applying it inline as an explicit fallback');
+      expect(codexPlanSkill).toContain('`.codex/agents/spec-repo-research-analyst.agent.md`');
+      expect(codexPlanSkill).not.toContain('Read `.codex/agents/spec-repo-research-analyst.agent.md` and apply that agent profile to');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
