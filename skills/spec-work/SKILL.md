@@ -334,7 +334,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - The plan should reference similar code - read those files first
    - Match naming conventions exactly
    - Reuse existing components where possible
-   - Follow project coding standards (see AGENTS.md; use CLAUDE.md only if the repo still keeps a compatibility shim); when `.spec-first/standards/` exists, treat confirmed standards as hard context and use `glue-map.json` to prefer existing capabilities over reimplementation
+   - Follow project coding standards (see AGENTS.md; use CLAUDE.md only if the repo still keeps a compatibility shim); when `.spec-first/standards/` exists, treat `confirmed` standards as hard context, treat `observed` / `imported` / `suggested` as advisory context, carry `conflict` as risk context and `unknown` as question context, and use `glue-map.json` to prefer existing capabilities over reimplementation. If standards validation failed, is missing, or reports `trust_level=degraded`, consume standards artifacts as degraded/advisory only. `glue-map.json` is reuse-first context, not a workflow state machine.
    - When in doubt, grep for similar implementations
 
 4. **Test Continuously**

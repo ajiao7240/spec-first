@@ -3,26 +3,13 @@
   "generated_at": "2026-05-05T00:00:00.000Z",
   "scope": {
     "type": "repo",
-    "root": ".",
-    "domains": [
-      "workflow",
-      "artifact_contracts"
-    ],
-    "modules": []
+    "root": "."
   },
   "source_artifacts": [
     ".spec-first/standards/project-shape.json",
     ".spec-first/standards/standards-plan.json",
     ".spec-first/standards/glue-map.json"
   ],
-  "consumption_modes": {
-    "confirmed": "hard",
-    "observed": "advisory",
-    "imported": "advisory",
-    "suggested": "advisory",
-    "conflict": "risk",
-    "unknown": "question"
-  },
   "candidates": [
     {
       "id": "standards.confirmed.preview-first",
@@ -30,54 +17,53 @@
       "type": "writeback_policy",
       "status": "confirmed",
       "confidence": "high",
-      "rule_candidate": "Long-lived project standards must be previewed before repo-profile writeback.",
+      "rule_candidate": "repo-profile.yaml changes must be preview-first.",
       "source_type": "repo_profile_confirmed",
       "evidence": [
         {
-          "source": ".spec-first/specs/repo-profile.yaml",
+          "source": "repo-profile",
           "quote": "Preview before writeback."
         }
       ],
       "suggested_action": "keep",
       "downstream_usage": [
         "spec-plan",
-        "spec-work",
-        "spec-code-review"
+        "spec-work"
       ]
     },
     {
-      "id": "standards.observed.canonical-artifacts",
-      "domain": "artifact_contracts",
-      "type": "artifact_handoff",
+      "id": "standards.observed.artifacts",
+      "domain": "workflow",
+      "type": "artifact_contract",
       "status": "observed",
       "confidence": "high",
-      "rule_candidate": "Cross-workflow context should prefer canonical artifacts over chat history.",
+      "rule_candidate": "Use canonical artifacts for workflow handoff.",
       "source_type": "graph_observed",
       "evidence": [
         {
           "path": ".spec-first/graph/graph-facts.json",
-          "reason": "Graph facts are compiled as canonical downstream input."
+          "reason": "Graph facts are compiled as downstream input."
         }
       ],
       "suggested_action": "review",
       "downstream_usage": [
         "spec-plan",
-        "spec-work"
+        "spec-code-review"
       ]
     },
     {
-      "id": "standards.imported.release-gate",
-      "domain": "workflow",
+      "id": "standards.imported.service-boundary",
+      "domain": "backend",
       "type": "shared_standard",
       "status": "imported",
       "confidence": "medium",
-      "rule_candidate": "Release-facing changes should include verification evidence.",
+      "rule_candidate": "Use explicit service boundaries.",
       "source_type": "shared_standard_imported",
-      "source_document": "shared/release.md",
+      "source_document": "shared/backend.md",
       "evidence": [
         {
-          "source": "shared/release.md",
-          "quote": "Release-facing changes should include verification evidence."
+          "source": "shared/backend.md",
+          "quote": "Use explicit service boundaries."
         }
       ],
       "suggested_action": "align",
@@ -86,21 +72,41 @@
       ]
     },
     {
+      "id": "standards.suggested.cli-contracts",
+      "domain": "cli",
+      "type": "llm_recommendation",
+      "status": "suggested",
+      "confidence": "medium",
+      "rule_candidate": "Document CLI exit codes before downstream use.",
+      "source_type": "llm_suggested",
+      "rationale": "Exit codes are consumed by shell callers and tests.",
+      "evidence": [
+        {
+          "source": "standards-plan.json",
+          "quote": "Exit codes are part of the public validator contract."
+        }
+      ],
+      "suggested_action": "review",
+      "downstream_usage": [
+        "spec-work"
+      ]
+    },
+    {
       "id": "standards.conflict.runtime-mirror",
-      "domain": "workflow",
+      "domain": "runtime",
       "type": "conflict",
       "status": "conflict",
       "confidence": "medium",
-      "rule_candidate": "Runtime mirror files should not be edited as source.",
+      "rule_candidate": "Runtime mirrors should not be edited as source.",
       "source_type": "docs_observed",
       "evidence": [
         {
           "source": "AGENTS.md",
-          "quote": "Do not hand-edit generated runtime mirrors as the source of truth."
+          "quote": "Do not hand-edit generated mirrors as the source of truth."
         }
       ],
       "conflict_refs": [
-        "shared.runtime-mirror-editing"
+        "shared.runtime.patch"
       ],
       "suggested_action": "resolve",
       "downstream_usage": [
@@ -109,14 +115,19 @@
     },
     {
       "id": "standards.unknown.owner",
-      "domain": "workflow",
+      "domain": "ownership",
       "type": "unknown",
       "status": "unknown",
       "confidence": "low",
-      "rule_candidate": "Repo-profile confirmation ownership needs a project decision.",
+      "rule_candidate": "Ownership rules need user decision.",
       "source_type": "llm_suggested",
-      "question": "Who owns final confirmation for imported standards?",
-      "evidence": [],
+      "question": "Which team owns repo-profile confirmation?",
+      "evidence": [
+        {
+          "source": "missing-evidence",
+          "quote": "No deterministic owner artifact was found."
+        }
+      ],
       "suggested_action": "ask-user",
       "downstream_usage": [
         "spec-plan"
@@ -127,6 +138,7 @@
     "confirmed": 1,
     "observed": 1,
     "imported": 1,
+    "suggested": 1,
     "conflict": 1,
     "unknown": 1
   },

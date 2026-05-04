@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-Baseline run for a single-project repository. This preview proposes project standards candidates from deterministic project shape facts and bounded evidence.
+Baseline run for a single-project repository. This preview proposes project standards candidates from deterministic project shape facts, bounded evidence, and optional shared standards imports.
 
 ## 2. Detected Project Mode
 
@@ -11,57 +11,54 @@ Baseline run for a single-project repository. This preview proposes project stan
 ## 3. Detected Project Shape
 
 - Type: `node_cli_ai_workflow_framework`
-- Domains: `cli`, `skill_workflow`, `artifact_contracts`, `glue`, `graph`
+- Domains: `workflow`, `artifact_contracts`, `glue`, `graph`
 
-## 4. Imported Shared Standards
-
-None provided in this run.
-
-## 5. Artifact Plan
+## 4. Artifact Plan
 
 - Generated: `project-shape.json`, `standards-plan.json`, `glue-map.json`, `standards-candidates.json`, `standards-preview.md`
 - Deferred: `repo-profile.patch.yaml`
 - Synthesis contract: `standards-plan.json` defines candidate shape, allowed statuses, evidence budget, writeback policy, and downstream consumers.
 
-## 6. Graph-Backed Findings
+## 5. Evidence Quality
 
-Graph evidence is available and can support candidate synthesis.
+Evidence is bounded to source paths, graph summaries, imported documents, or explicit user input. Raw graph query dumps are not committed as standards evidence.
 
-## 7. Glue Capability Map Summary
+## 6. Glue Capability Map Summary
 
-The project exposes graph readiness, workflow skill, CLI runtime sync, and machine-readable contract capabilities.
+The project exposes graph readiness, workflow skill, CLI runtime sync, and machine-readable contract capabilities. `glue-map.json` supports reuse-first decisions only; it is not a workflow state machine.
 
-## 8. Observed Conventions
+## 7. Candidates By Status
 
-### CLI
+- confirmed: 1
+- observed: 1
+- imported: 1
+- conflict: 1
+- unknown: 1
 
-CLI behavior is implemented under `src/cli/` and exposed through `bin/spec-first.js`.
+## 8. Conflicts
 
-### Skill Workflow
+Conflicts: 1
 
-Workflow behavior lives in `skills/*/SKILL.md`; Claude command templates provide metadata only.
+- `standards.conflict.runtime-mirror`
 
-### Artifact Contracts
+## 9. Unknowns / Requires User Decision
 
-Machine-readable contract truth sources live under `src/cli/contracts/**`.
+Unknowns: 1
 
-## 9. Conflicts
+- `standards.unknown.owner`
 
-None detected.
+## 10. Suggested Actions
 
-## 10. Unknowns / Requires User Decision
+Review candidates, resolve conflict and unknown entries, then explicitly confirm which standards should be promoted through a future `repo-profile.patch.yaml`.
 
-- Whether imported shared standards should be added in a later run.
+## 11. Downstream Consumption
 
-## 11. Suggested Actions
+- `confirmed` candidates are hard context.
+- `observed`, `imported`, and `suggested` candidates are advisory context.
+- `conflict` candidates are risk context.
+- `unknown` candidates are question context.
+- validator fail, missing validator result, or `trust_level=degraded` means degraded/advisory only.
 
-Review candidates, then explicitly confirm which standards should be promoted through a future `repo-profile.patch.yaml`.
+## 12. Writeback Status
 
-## 12. Downstream Consumption
-
-- `spec-plan`, `spec-write-tasks`, `spec-work`, and `spec-code-review` may consume confirmed standards as hard context.
-- `observed`, `suggested`, `imported`, `conflict`, and `unknown` candidates remain advisory until confirmed or resolved.
-
-## 13. Writeback Status
-
-`.spec-first/specs/repo-profile.yaml` was not modified.
+`repo-profile.yaml` was not modified. `.spec-first/specs/repo-profile.yaml` was not modified.

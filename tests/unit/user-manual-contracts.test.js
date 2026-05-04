@@ -92,10 +92,15 @@ describe('user manual contracts', () => {
     expect(standardsGuide).toContain('$spec-standards --deep');
     expect(standardsGuide).toContain('$spec-standards --baseline --import-source ../shared-standards');
     expect(standardsGuide).toContain('node skills/spec-standards/scripts/prepare-baseline.js --quick');
+    expect(standardsGuide).toContain('node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json');
+    expect(standardsGuide).toContain('trust_level=degraded');
+    expect(standardsGuide).toContain('validator 只检查 artifact handoff contract');
+    expect(standardsGuide).toContain('`advisory` 不是 candidate status，只是消费模式');
     expect(standardsGuide).toContain('standards-update-decision.json');
     expect(standardsGuide).toContain('graph-query-index.json');
     expect(standardsGuide).toContain('import-lock.json');
     expect(standardsGuide).toContain('下游 workflow 只能把 `confirmed` standards 当作硬约束');
+    expect(standardsGuide).toContain('`glue-map.json` 只用于 reuse-first 判断');
     expect(standardsGuide).toContain('不要手改 `.claude/`、`.codex/` 或 `.agents/skills/` runtime mirror');
   });
 

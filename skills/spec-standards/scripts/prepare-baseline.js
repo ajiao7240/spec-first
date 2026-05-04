@@ -1303,39 +1303,62 @@ function buildGlueMap(projectShape, inventory, args = {}) {
 }
 
 function buildDownstreamConsumers() {
+  const consumptionModes = {
+    confirmed: 'hard',
+    observed: 'advisory',
+    imported: 'advisory',
+    suggested: 'advisory',
+    conflict: 'risk',
+    unknown: 'question',
+    deprecated: 'risk',
+    drifted: 'risk',
+    validator_fail: 'degraded/advisory',
+    trust_level_degraded: 'degraded/advisory',
+    missing_validation_result: 'degraded/advisory',
+  };
+  const sharedBoundary = {
+    hard_context: ['confirmed'],
+    advisory_context: ['observed', 'imported', 'suggested'],
+    risk_context: ['conflict', 'deprecated', 'drifted'],
+    question_context: ['unknown'],
+    degraded_context: ['validator_fail', 'trust_level=degraded', 'missing_validation_result'],
+    consumption_modes: consumptionModes,
+    glue_map_boundary: 'glue-map.json supports reuse-first decisions only; it is not a workflow state machine.',
+  };
+
   return [
     {
+      ...sharedBoundary,
       workflow: 'spec-brainstorm',
-      hard_context: ['confirmed'],
-      soft_context: ['observed', 'suggested', 'unknown'],
+      soft_context: ['observed', 'imported', 'suggested', 'conflict', 'unknown', 'deprecated', 'drifted'],
       consume: ['project-shape.json', 'standards-candidates.json'],
       boundary: 'Use standards to avoid off-target requirements; do not turn observed conventions into product scope.',
     },
     {
+      ...sharedBoundary,
       workflow: 'spec-plan',
-      hard_context: ['confirmed'],
-      soft_context: ['observed', 'suggested', 'imported', 'conflict', 'unknown'],
+      soft_context: ['observed', 'imported', 'suggested', 'conflict', 'unknown', 'deprecated', 'drifted'],
       consume: ['project-shape.json', 'standards-candidates.json', 'glue-map.json'],
       boundary: 'Use glue capabilities for reuse-first implementation boundaries; resolve conflicts in the plan.',
     },
     {
+      ...sharedBoundary,
       workflow: 'spec-write-tasks',
-      hard_context: ['confirmed'],
-      soft_context: ['observed', 'suggested'],
+      soft_context: ['observed', 'imported', 'suggested', 'conflict', 'unknown', 'deprecated', 'drifted'],
       consume: ['standards-candidates.json', 'glue-map.json'],
       boundary: 'Carry standards as context refs and task constraints without changing source-plan scope.',
     },
     {
+      ...sharedBoundary,
       workflow: 'spec-work',
-      hard_context: ['confirmed'],
-      soft_context: ['observed', 'suggested'],
+      soft_context: ['observed', 'imported', 'suggested', 'conflict', 'unknown', 'deprecated', 'drifted'],
       consume: ['standards-candidates.json', 'glue-map.json'],
       boundary: 'Follow confirmed standards and prefer listed glue capabilities; treat soft candidates as advisory.',
     },
     {
+      ...sharedBoundary,
       workflow: 'spec-code-review',
-      hard_context: ['confirmed'],
-      soft_context: ['observed', 'suggested', 'conflict', 'unknown'],
+      soft_context: ['observed', 'imported', 'suggested', 'conflict', 'unknown', 'deprecated', 'drifted'],
       consume: ['standards-candidates.json', 'standards-preview.md'],
       boundary: 'Report confirmed-standard violations as findings; use soft candidates only for context or questions.',
     },

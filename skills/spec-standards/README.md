@@ -18,6 +18,7 @@ The implementation is preview-first:
 - Import shared standards from a locked source with `--import-source`.
 - Let the LLM synthesize standards candidates from facts and evidence.
 - Render `standards-preview.md`.
+- Validate generated candidates and preview artifacts before trusted downstream consumption.
 - Do not write `.spec-first/specs/repo-profile.yaml`.
 
 Repo-profile patch apply, monorepo module outputs, workspace outputs, and drift checks remain explicit future boundaries.
@@ -47,6 +48,22 @@ The baseline script writes:
 Mode-support artifacts include `standards-update-decision.json`, `graph-query-index.json`, `standards-sources.json`, `import-lock.json`, and `imported-standards.json`.
 
 The script does not write standards candidates, previews, or repo-profile changes. Those require semantic judgment. Downstream workflow usage is described in `standards-plan.json` and `glue-map.json`; only `confirmed` candidates are hard constraints.
+
+## Artifact Validator
+
+After the LLM has written `standards-candidates.json` and `standards-preview.md`, run:
+
+```bash
+node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json
+```
+
+The validator checks artifact handoff quality only: JSON shape, status/source vocabulary, status-specific support, conflict/unknown visibility, preview writeback status, and patch safety. It does not decide whether a proposed standard is semantically correct.
+
+Exit code `0` is a trusted pass. Exit code `4` is a degraded pass, such as explicit fallback vocabulary use; downstream workflows may treat that as advisory structure only, not as a trusted baseline. Validation failure uses stable `reason_code` values so downstream workflows can explain what blocked trusted consumption.
+
+Candidate statuses and consumption modes stay separate: `confirmed` is hard context, `observed` / `imported` / `suggested` are advisory, `conflict` is risk context, and `unknown` is question context.
+
+Candidate ids must be unique because conflict lists, unknown lists, confirmation attestation, and patch safety all reference candidates by id. When attestation files live outside `.spec-first/standards/`, pass them explicitly with `--confirmations <path>` or `--patch <path>`.
 
 ## Example Artifacts
 

@@ -6,6 +6,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const {
+  buildDownstreamConsumers,
   buildGlueMap,
   buildInventory,
   buildProjectShape,
@@ -55,6 +56,10 @@ describe('spec-standards workflow contract', () => {
     expect(skill).toContain('.spec-first/standards/glue-map.json');
     expect(skill).toContain('.spec-first/standards/standards-candidates.json');
     expect(skill).toContain('.spec-first/standards/standards-preview.md');
+    expect(skill).toContain('node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json');
+    expect(skill).toContain('trust_level=degraded');
+    expect(skill).toContain('validator fail, missing validator result, or `trust_level=degraded` -> degraded/advisory only');
+    expect(skill).toContain('`advisory` is not a candidate status');
     expect(skill).toContain('node skills/spec-standards/scripts/prepare-baseline.js --mode <baseline|quick|refresh|deep>');
     expect(skill).toContain('Shared standards do not become project policy on import');
     expect(skill).toContain('Supported Modes');
@@ -73,6 +78,31 @@ describe('spec-standards workflow contract', () => {
     expect(template).toContain('This source template defines Claude command metadata only.');
     expect(template).toContain('skills/spec-standards/SKILL.md');
     expect(template).toContain('Edit the paired skill to change workflow behavior.');
+  });
+
+  test('downstream consumers expose trusted advisory risk and degraded consumption boundaries', () => {
+    const consumers = buildDownstreamConsumers();
+    const planConsumer = consumers.find((consumer) => consumer.workflow === 'spec-plan');
+    const workConsumer = consumers.find((consumer) => consumer.workflow === 'spec-work');
+    const reviewConsumer = consumers.find((consumer) => consumer.workflow === 'spec-code-review');
+
+    for (const consumer of [planConsumer, workConsumer, reviewConsumer]) {
+      expect(consumer.hard_context).toEqual(['confirmed']);
+      expect(consumer.advisory_context).toEqual(['observed', 'imported', 'suggested']);
+      expect(consumer.risk_context).toEqual(['conflict', 'deprecated', 'drifted']);
+      expect(consumer.question_context).toEqual(['unknown']);
+      expect(consumer.degraded_context).toEqual(['validator_fail', 'trust_level=degraded', 'missing_validation_result']);
+      expect(consumer.consumption_modes).toEqual(expect.objectContaining({
+        confirmed: 'hard',
+        observed: 'advisory',
+        imported: 'advisory',
+        suggested: 'advisory',
+        conflict: 'risk',
+        unknown: 'question',
+        validator_fail: 'degraded/advisory',
+      }));
+      expect(consumer.glue_map_boundary).toContain('not a workflow state machine');
+    }
   });
 
   test('deterministic baseline script writes only fact artifacts', () => {

@@ -1,0 +1,7 @@
+{
+  "schema_version": "spec-first.project-shape.v1",
+  "project_mode": "single_project_repo",
+  "project": {
+    "detected_type": "node_cli_ai_workflow_framework"
+  }
+}

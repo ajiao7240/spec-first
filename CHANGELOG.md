@@ -1,7 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-05 04:30:12 leokuang: fix(spec-standards): 修复 artifact validator 的 candidate id 唯一性与外部确认路径覆盖契约 (user-visible)
 - v1.6.3 2026-05-05 04:17:11 leokuang: fix(dispatch): 收口 CE 血缘 skill dispatch 边界，修复 Codex runtime inline 降级并补跨 skill 回归测试 (user-visible)
+- v1.6.3 2026-05-05 04:11:05 leokuang: feat(spec-standards): 新增 standards artifact validator、fixtures、文档和下游消费契约测试 (user-visible)
 - v1.6.3 2026-05-05 03:46:35 leokuang: docs(plan): 将 CE dispatch control-plane 修复方案规范化为正式 plan，保留 plan-local spec_id 并移除临时 review 草稿 (user-visible)
 - v1.6.3 2026-05-05 03:15:58 leokuang: fix(runtime): 修复 Codex startup skill YAML 与 spec-work-beta doctor drift，并补回归测试 (user-visible)
 - v1.6.3 2026-05-05 03:07:52 leokuang: docs(spec-standards): 收口 artifact 质量门计划剩余审查问题，统一状态词表真相源、补 preview 计数负例并降级 dogfood 为人工验证 (user-visible)

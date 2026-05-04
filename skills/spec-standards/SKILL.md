@@ -48,6 +48,7 @@ Do not use this workflow to:
 4. **Evidence before conclusion.** Every candidate needs a source type and bounded evidence path, query id, imported standards id, or explicit user input.
 5. **Light contract.** Keep `repo-profile.yaml` small. Store bulky evidence, candidate lists, and glue maps under `.spec-first/standards/`.
 6. **Explicit boundaries.** Shared standards repositories provide standard inputs; the target project owns project confirmation.
+7. **Validate before trusted consumption.** Generated `standards-candidates.json` and `standards-preview.md` must pass artifact validation before downstream workflows treat them as a trusted standards baseline. The validator checks artifact contract only; it does not judge whether a candidate standard is semantically correct.
 
 ## Inputs
 
@@ -184,6 +185,8 @@ Candidate statuses:
 
 Only `confirmed` may be proposed for `repo-profile.yaml` writeback, and only through an explicit patch plus user confirmation.
 
+`advisory` is not a candidate status. It is a downstream consumption mode for `observed`, `imported`, and `suggested` candidates.
+
 ## Workflow
 
 ### Phase 0: Scope And Safety
@@ -306,7 +309,31 @@ Create `.spec-first/standards/standards-preview.md` with:
 12. Downstream consumption summary
 13. Explicit statement that `repo-profile.yaml` was not modified
 
-### Phase 5: Optional Confirmation Handoff
+### Phase 5: Artifact Validation
+
+Validate the generated candidates and preview before reporting a trusted baseline:
+
+```bash
+node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json
+```
+
+Use explicit paths when the artifacts are outside the default directory:
+
+```bash
+node skills/spec-standards/scripts/validate-artifacts.js \
+  --candidates .spec-first/standards/standards-candidates.json \
+  --preview .spec-first/standards/standards-preview.md \
+  --plan .spec-first/standards/standards-plan.json \
+  --json
+```
+
+Exit code `0` means `status=pass` and `trust_level=trusted`. Exit code `4` means `status=pass` and `trust_level=degraded`, for example when fallback vocabulary was explicitly allowed; degraded pass proves the artifacts are structurally readable, not that they are a trusted standards baseline. Exit code `1` means validation fail, `2` means usage error, and `3` means internal error.
+
+If `standards-plan.json` is missing, validation must fail unless the caller explicitly passes `--allow-fallback-vocabulary`. Do not use fallback vocabulary for trusted downstream consumption.
+
+When confirmation evidence or patch safety input is stored outside `.spec-first/standards/`, pass `--confirmations <path>` or `--patch <path>` explicitly. These files are treated as non-LLM-authored attestation inputs; candidate ids inside `standards-candidates.json` must remain unique because downstream references and patch safety use ids as stable keys.
+
+### Phase 6: Optional Confirmation Handoff
 
 If the user explicitly asks to apply confirmed standards, build `repo-profile.patch.yaml` first. Apply only confirmed items after explicit user confirmation.
 
@@ -334,11 +361,22 @@ Downstream workflows should consume standards artifacts as context inputs:
 - `spec-brainstorm`: use project shape and confirmed standards to avoid off-target requirements.
 - `spec-plan`: use project shape, standards candidates, and glue map to choose implementation boundaries.
 - `spec-write-tasks`: use artifact and glue constraints when deriving task handoff.
-- `spec-work`: follow confirmed standards and reuse-first glue map; do not treat observed candidates as hard rules.
-- `spec-code-review`: use confirmed standards for project-standards findings and use observed/suggested candidates only as soft review context.
+- `spec-work`: follow confirmed standards and reuse-first glue map; do not treat advisory candidates as hard rules.
+- `spec-code-review`: use confirmed standards for project-standards findings and use advisory/risk/question candidates only as soft review context.
 - `spec-compound-refresh`: propose candidate updates from repeated review/learning signals.
 
-Confirmed standards are the only hard constraints. `observed`, `suggested`, `imported`, `conflict`, and `unknown` entries are advisory context unless a downstream workflow explicitly asks the user to confirm or resolve them.
+Confirmed standards are the only hard constraints.
+
+Consumption modes:
+
+- `confirmed` -> hard context.
+- `observed`, `imported`, and `suggested` -> advisory context.
+- `conflict` -> risk context that must stay visible until resolved.
+- `unknown` -> question context that requires user or project evidence before hard use.
+- `deprecated` and `drifted` -> risk context.
+- validator fail, missing validator result, or `trust_level=degraded` -> degraded/advisory only.
+
+`glue-map.json` supports reuse-first decisions. It is not a workflow state machine and must not override the active plan, task pack, work scope, or review judgment.
 
 ## Cost Controls
 

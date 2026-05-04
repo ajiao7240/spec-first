@@ -1,7 +1,7 @@
 ---
 title: feat: 为 spec-standards 最小闭环增加 artifact 质量门
 date: 2026-05-05
-status: active
+status: completed
 type: feat
 spec_id: 2026-05-05-001-standards-artifact-quality-gates
 target_repo: spec-first
@@ -206,6 +206,7 @@ Initial stable vocabulary:
 missing-required-field
 invalid-candidate-status
 invalid-source-type
+duplicate-candidate-id
 missing-support
 empty-evidence
 invalid-evidence-shape
@@ -234,6 +235,7 @@ file-not-found
 Reason code boundaries:
 
 - `missing-support`: a candidate status requires a support object or equivalent support field, but no support field is present.
+- `duplicate-candidate-id`: two or more candidates use the same `id`; downstream references, conflict/unknown lists, and patch safety use candidate id as a stable key, so duplicates must fail deterministically.
 - `empty-evidence`: `status=observed` has an `evidence` field, but it is an empty array or otherwise empty.
 - `invalid-evidence-shape`: `evidence[]` 至少有一个元素既不是非空字符串（≥ 8 字符），也不是 `{ source, quote }` 且两字段都非空的对象。
 - `missing-source`: `status=imported` lacks a source document reference.
