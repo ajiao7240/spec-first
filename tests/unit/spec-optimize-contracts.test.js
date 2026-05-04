@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-optimize', 'SKILL.md');
+const SCHEMA_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-optimize', 'references', 'optimize-spec-schema.yaml');
+const README_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-optimize', 'README.md');
 
 describe('spec-optimize host entrypoint contract', () => {
   test('post-completion options use current host workflow entrypoints', () => {
@@ -25,5 +27,25 @@ describe('spec-optimize host entrypoint contract', () => {
     expect(text).toContain('mkdir -p .spec-first/workflows/spec-optimize/<spec-name>/');
     expect(text).not.toContain('.spec-first/workflowsspec-optimize');
     expect(text).toContain('Resolve `scripts/measure.sh`, `scripts/parallel-probe.sh`, and `scripts/experiment-worktree.sh` relative to this skill');
+  });
+
+  test('requires measurable goals and bounded first-run optimization budgets', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
+    const readme = fs.readFileSync(README_PATH, 'utf8');
+
+    expect(skill).toContain('Do not run `spec-optimize` as an expensive substitute for ordinary work.');
+    expect(skill).toContain('A repeatable measurement target: `metric.primary.type`, `metric.primary.name`, and `metric.primary.direction`');
+    expect(skill).toContain('At least one cheap degenerate gate');
+    expect(skill).toContain('Explicit experiment budget: `stopping.max_iterations`, `stopping.max_hours`, and `stopping.plateau_iterations`');
+    expect(skill).toContain('First-run specs should default to `execution.mode: serial`, `execution.max_concurrent: 1`, `stopping.max_iterations: 4`, `stopping.max_hours: 1`, `stopping.plateau_iterations: 3`, and `max_runner_up_merges_per_batch: 0`.');
+    expect(skill).toContain('High-throughput settings are called out for explicit user approval before baseline');
+
+    expect(schema).toContain('default: { mode: "serial", backend: "worktree", max_concurrent: 1 }');
+    expect(schema).toContain('default: { max_iterations: 4, max_hours: 1, plateau_iterations: 3, target_reached: true }');
+    expect(schema).toContain('default: 0');
+    expect(schema).toContain('uncapped judge spend requires explicit user approval before baseline');
+
+    expect(readme).toContain('Give every run an explicit experiment budget');
   });
 });

@@ -45,6 +45,22 @@ For a friendly overview of what this skill is for, when to use hard metrics vs L
 
 `references/usage-guide.md`
 
+## Admission And Budget Gate
+
+Do not run `spec-optimize` as an expensive substitute for ordinary work. Before Phase 1, confirm the run has all of these:
+
+- A repeatable measurement target: `metric.primary.type`, `metric.primary.name`, and `metric.primary.direction`
+- At least one cheap degenerate gate that rejects broken variants before judging or ranking
+- A measurement command, or a concrete plan to build the harness before any experiment is dispatched
+- Explicit `scope.mutable` and `scope.immutable` boundaries
+- Explicit experiment budget: `stopping.max_iterations`, `stopping.max_hours`, and `stopping.plateau_iterations`
+- Execution budget: `execution.mode` and `execution.max_concurrent`
+- For judge mode, a finite `metric.judge.max_total_cost_usd`, unless the user explicitly approves uncapped spend
+
+If any item is missing, stop and help the user create a safe spec or route the work to the current host's plan/work/debug entrypoint instead. Do not continue with an open-ended optimization loop.
+
+First-run specs should default to `execution.mode: serial`, `execution.max_concurrent: 1`, `stopping.max_iterations: 4`, `stopping.max_hours: 1`, `stopping.plateau_iterations: 3`, and `max_runner_up_merges_per_batch: 0`. Treat higher-throughput settings as opt-in. If a provided spec asks for `execution.max_concurrent > 4`, `stopping.max_iterations > 30`, `stopping.max_hours > 4`, or uncapped judge spend, surface those costs in the approval gate before running the baseline.
+
 ---
 
 ## Persistence Discipline
@@ -131,9 +147,12 @@ Check whether the input is:
    - At least one degenerate gate defined
    - `measurement.command` is non-empty
    - `scope.mutable` and `scope.immutable` each have at least one entry
+   - `stopping.max_iterations`, `stopping.max_hours`, and `stopping.plateau_iterations` are present and finite
+   - `execution.mode` and `execution.max_concurrent` are present
    - Gate check operators are valid (`>=`, `<=`, `>`, `<`, `==`, `!=`)
    - `execution.max_concurrent` is at least 1
    - `execution.max_concurrent` does not exceed 6 when backend is `worktree`
+   - High-throughput settings are called out for explicit user approval before baseline: `execution.max_concurrent > 4`, `stopping.max_iterations > 30`, or `stopping.max_hours > 4`
 3. If validation fails, report errors and ask the user to fix them
 
 **If description provided:**

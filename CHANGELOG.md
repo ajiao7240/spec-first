@@ -1,6 +1,14 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-04 13:34:41 leokuang: docs(audit): 在系统审查报告中补充 skill/workflow 治理优化进展与剩余项
+- v1.6.3 2026-05-04 13:33:37 leokuang: docs(governance): 新增 fresh-source eval checklist，明确 skill/agent prose 语义验证的 source/runtime 与未执行记录边界
+- v1.6.3 2026-05-04 13:31:35 leokuang: docs(spec-release-notes): 增加 version/range/topic 过滤契约，避免 release 摘要退化成长 changelog 倾倒 (user-visible)
+- v1.6.3 2026-05-04 13:29:59 leokuang: docs(lfg): 将 lfg 明确标为 legacy/internal shim，并用 contract test 防止暴露为公开 workflow 入口
+- v1.6.3 2026-05-04 13:28:12 leokuang: docs(spec-code-review): 增加 reviewer dispatch 能力门禁与 single-agent report-only fallback，避免 Codex 未授权派生 subagent (user-visible)
+- v1.6.3 2026-05-04 13:26:42 leokuang: docs(spec-optimize): 强化可度量目标、退化 gate 与首轮实验预算，避免 optimization workflow 变成高成本默认执行入口 (user-visible)
+- v1.6.3 2026-05-04 13:24:09 leokuang: docs(spec-doc-review): 将多轮 decision-primer 细则下沉到 reference，保持核心 workflow contract 轻量
+- v1.6.3 2026-05-04 13:17:40 leokuang: docs(readme): 增加 ideate、brainstorm、doc-review 的入口判定表，避免将 brainstorm 当作默认入口 (user-visible)
 - v1.6.3 2026-05-04 13:16:03 leokuang: docs(spec-work-beta): 将 delegation beta 收紧为显式 opt-in，默认 guide 与 handoff 继续指向稳定 work workflow (user-visible)
 - v1.6.3 2026-05-04 13:15:56 leokuang: fix(lint): 允许 standalone skill command alias 的禁止性 guardrail 文案通过入口治理检查
 - v1.6.3 2026-05-04 13:13:06 leokuang: test(spec-write-tasks): 用 governance-derived lint 阻止 standalone task 编译 skill 被误写成命令入口

@@ -215,6 +215,14 @@ mcp-setup / graph-bootstrap
 
 这是一条工程闭环，不是一串必须逐项执行的命令。根据当前状态进入最匹配的节点；当下一步不清楚时，宿主会话里的入口治理会推荐一个公开 workflow 并说明理由。`write-tasks` 是 standalone skill；可浏览 UI 的 polish 当前通过 `polish-beta` 暴露。
 
+想要选项、批判或意外方向，还没确定问题框架时，用 `ideate`。已经有粗略产品问题或功能想法，需要整理 actors、flows、边界和验收样例时，用 `brainstorm`。已有 requirements、plan 或 task 文档，需要找缺口时，用 `doc-review`。不要把 `brainstorm` 当作所有不清楚请求的默认入口。
+
+| 需求 | 更合适的入口 |
+|---|---|
+| “我们该改进什么？”或“给我一些想法” | `ideate` |
+| “我有一个粗略产品问题，帮我成型” | `brainstorm` |
+| “这份 requirements 或 plan 文档可能有缺口” | `doc-review` |
+
 | 层级 | 节点 | 回答的问题 | 持久输出 |
 |---|---|---|---|
 | 能力底座 | `mcp-setup`、`graph-bootstrap` | AI 是否有正确工具？是否拿到了当前代码库事实？ | setup 报告、provider 配置、graph readiness facts、impact capability facts。 |
@@ -449,7 +457,7 @@ your-project/
 | 审查 App 一致性 | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` |
 | 调试失败或 bug | `/spec:debug` | `$spec-debug` |
 | 执行工作 | `/spec:work` | `$spec-work` |
-| 使用 Codex delegation beta 执行工作 | `/spec:work-beta` | `$spec-work-beta` |
+| 试用 Codex delegation beta（显式 opt-in） | `/spec:work-beta` | `$spec-work-beta` |
 | 优化可度量目标 | `/spec:optimize` | `$spec-optimize` |
 | 打磨可浏览 UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
 | 代码评审 | `/spec:code-review` | `$spec-code-review` |

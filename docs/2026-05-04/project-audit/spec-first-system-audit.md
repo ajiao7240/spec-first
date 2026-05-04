@@ -397,3 +397,23 @@
 | `npm run test:unit` | 通过：80 suites / 413 tests |
 | `gitnexus_detect_changes(scope=all)` | medium：主要影响 `BuildDoctorReport -> CheckGit`；P1-2 高风险路径已用 targeted timeout tests 覆盖 |
 | `git status --ignored --short skills/spec-release-notes/scripts/__pycache__` | 仍存在 ignored `__pycache__/`，不是 source；本轮未删除 |
+
+## 19. 后续 skill / workflow 治理优化进展
+
+本节记录 P1/P2 修复后的逐项 workflow 治理优化。目标不是增加新 workflow，而是收紧公开入口、standalone/internal 边界、成本上限、source/runtime 语义验证和 README 用户路径。
+
+| 问题 | 状态 | 最佳方案落地 | 证据 | 验证 |
+|---|---|---|---|---|
+| `using-spec-first` 自身不是 workflow，但容易被误写成命令 | fixed | 用 governance-derived lint 阻止 standalone meta skill 被写成 `/spec:*`、`$spec-*` 或短别名；保持其 standalone entry-governor 定位 | `scripts/lint-skill-entrypoints.js`、`tests/unit/lint-skill-entrypoints.test.js`、`skills/using-spec-first/SKILL.md` | `npm run lint:skill-entrypoints` |
+| `spec-write-tasks` 是否暴露入口 | fixed | 保持 standalone skill，不新增 command-backed workflow；README 与 plan handoff 只描述 standalone task-pack handoff | `README.md`、`README.zh-CN.md`、`skills/spec-plan/references/plan-handoff.md`、`skills/using-spec-first/SKILL.md` | `tests/unit/spec-write-tasks-contracts.test.js`、`npm run lint:skill-entrypoints` |
+| `spec-work` 大任务可能过载 | fixed | 增加 oversized intake/handoff：WHAT 不清回 brainstorm、HOW 不清回 plan、settled plan 过大时一次性建议 standalone `spec-write-tasks`；禁止现场扩 scope | `skills/spec-work/SKILL.md`、`skills/spec-work-beta/SKILL.md` | `tests/unit/spec-work-contracts.test.js`、`tests/unit/spec-work-beta-contracts.test.js` |
+| `spec-work-beta` beta 风险高 | fixed | 默认不推荐；只有显式 beta / Codex delegation / `delegate:codex` / delegation mode 才进入 beta，普通执行继续用稳定 `spec-work` | `skills/spec-work-beta/SKILL.md`、`skills/using-spec-first/SKILL.md`、`README.md`、`README.zh-CN.md` | `tests/unit/spec-work-beta-contracts.test.js`、`tests/unit/using-spec-first-contracts.test.js` |
+| `spec-ideate` 与 `spec-brainstorm` 边界靠 prose 维持 | fixed | README 双语增加 `ideate` / `brainstorm` / `doc-review` 判定表，避免 `brainstorm` 成为所有不清楚请求的默认入口 | `README.md`、`README.zh-CN.md` | `tests/unit/readme-open-source-entry.test.js` |
+| `spec-doc-review` synthesis / chain 规则过重 | fixed | 保留多轮复审能力，但把 decision-primer / R29 / R30 细则下沉到 reference；核心 skill 只保留何时读取与传递什么变量 | `skills/spec-doc-review/SKILL.md`、`skills/spec-doc-review/references/decision-primer.md`、`skills/spec-doc-review/references/synthesis-and-presentation.md` | `tests/unit/spec-doc-review-contracts.test.js` |
+| `spec-optimize` 成本易上升 | fixed | 增加 admission/budget gate；必须有 repeatable metric、degenerate gates、scope、实验上限和 judge cost cap；schema 默认改为首轮 serial/cheap | `skills/spec-optimize/SKILL.md`、`skills/spec-optimize/references/optimize-spec-schema.yaml`、`skills/spec-optimize/README.md` | `tests/unit/spec-optimize-contracts.test.js` |
+| `spec-code-review` 依赖 subagents，Codex 当前会话规则可能不允许未经授权派生 | fixed | 增加 dispatch capability gate；未授权或不可用时降级为 single-agent report-only review，不写 artifact、不 auto-fix、不调用 `spawn_agent` | `skills/spec-code-review/SKILL.md` | `tests/unit/spec-code-review-contracts.test.js` |
+| `lfg` legacy/internal 噪音 | fixed | 在 skill 本体和 `using-spec-first` 中明确 legacy/internal shim，不推荐为公开 workflow，不新增 `/spec:lfg` 或 `$spec-lfg` | `skills/lfg/SKILL.md`、`skills/using-spec-first/SKILL.md` | `tests/unit/lfg-contracts.test.js`、`tests/unit/using-spec-first-contracts.test.js` |
+| CHANGELOG / release notes 可读性下降 | fixed for release-notes | 不拆历史 changelog；给 `spec-release-notes` 增加 `version:` / `since:` / `until:` / `topic:` 过滤契约，要求 scoped synthesis，避免长 release body 倾倒 | `skills/spec-release-notes/SKILL.md` | `tests/unit/spec-release-notes-contracts.test.js` |
+| generated runtime fresh-source eval 过程偏手工 | fixed | 新增 fresh-source eval checklist/template，明确只验证当前磁盘 source；宿主不允许 fresh reviewer/subagent 时记录 `not_run`，不能假装通过 | `docs/contracts/workflows/fresh-source-eval-checklist.md`、`AGENTS.md`、`CLAUDE.md` | `tests/unit/fresh-source-eval-contracts.test.js` |
+
+本节未处理或仍需后续单独计划的项：P1-5 ECC 文档移动确认、P2-1 CLI help/i18n polish、P2-2 `write-provider-config.sh` 拆分、P2-6 provider heuristic golden eval、P2-7 重 skill token budget 量化、P2-8 sessions/slack 外部上下文成本、P2-10 package build/test 成本分层。

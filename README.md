@@ -215,6 +215,14 @@ mcp-setup / graph-bootstrap
 
 Read this as an engineering loop, not a mandatory command chain. Enter at the node that matches the current state; the host guidance can recommend one public entrypoint when the next step is unclear. `write-tasks` is a standalone skill, and browser-visible polishing is currently exposed as `polish-beta`.
 
+Use `ideate` when you want options, critiques, or surprising directions before committing to a problem frame. Use `brainstorm` when you already have a rough problem or feature and need a requirements brief with actors, flows, boundaries, and acceptance examples. Use `doc-review` when a requirements, plan, or task document already exists and needs gap-finding. Do not make `brainstorm` the default entrypoint for every unclear request.
+
+| Need | Better entrypoint |
+|---|---|
+| "What should we improve?" or "give me ideas" | `ideate` |
+| "I have this rough product problem; shape it" | `brainstorm` |
+| "This requirements or plan document has gaps" | `doc-review` |
+
 | Layer | Nodes | What it answers | Durable output |
 |---|---|---|---|
 | Capability foundation | `mcp-setup`, `graph-bootstrap` | Can the AI use the right tools, and does it have current codebase facts? | Setup reports, provider config, graph readiness facts, impact capability facts. |
@@ -449,7 +457,7 @@ Detailed manuals and implementation docs are currently Chinese-first.
 | Audit App consistency | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` |
 | Debug a failure or bug | `/spec:debug` | `$spec-debug` |
 | Execute work | `/spec:work` | `$spec-work` |
-| Execute work with Codex delegation beta | `/spec:work-beta` | `$spec-work-beta` |
+| Trial Codex delegation beta (explicit opt-in) | `/spec:work-beta` | `$spec-work-beta` |
 | Optimize a measurable outcome | `/spec:optimize` | `$spec-optimize` |
 | Polish browser-visible UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
 | Review code | `/spec:code-review` | `$spec-code-review` |

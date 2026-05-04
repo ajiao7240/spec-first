@@ -260,15 +260,15 @@ optional_fields:
 
   execution:
     type: object
-    default: { mode: "parallel", backend: "worktree", max_concurrent: 4 }
+    default: { mode: "serial", backend: "worktree", max_concurrent: 1 }
     description: "How experiments are executed"
     optional_children:
       mode:
         type: enum
         values:
-          - parallel  # run experiments simultaneously (default)
-          - serial    # run one at a time
-        default: parallel
+          - parallel  # run experiments simultaneously (opt-in after harness is trusted)
+          - serial    # run one at a time (first-run default)
+        default: serial
       backend:
         type: enum
         values:
@@ -277,9 +277,9 @@ optional_fields:
         default: worktree
       max_concurrent:
         type: integer
-        default: 4
+        default: 1
         minimum: 1
-        description: "Maximum experiments to run in parallel. Capped at 6 for worktree backend. 8+ only valid for Codex backend."
+        description: "Maximum experiments to run in parallel. First-run default is 1. Capped at 6 for worktree backend. 8+ only valid for Codex backend."
       codex_security:
         type: enum
         values:
@@ -345,20 +345,20 @@ optional_fields:
 
   stopping:
     type: object
-    default: { max_iterations: 100, max_hours: 8, plateau_iterations: 10, target_reached: true }
+    default: { max_iterations: 4, max_hours: 1, plateau_iterations: 3, target_reached: true }
     description: "When the optimization loop should stop. Any criterion can trigger a stop."
     optional_children:
       max_iterations:
         type: integer
-        default: 100
-        description: "Stop after this many total experiments"
+        default: 4
+        description: "Stop after this many total experiments. First-run default is intentionally small; raise it only after the harness is trustworthy."
       max_hours:
         type: number
-        default: 8
-        description: "Stop after this many hours of wall-clock time"
+        default: 1
+        description: "Stop after this many hours of wall-clock time. First-run default is intentionally short; raise it only after the harness is trustworthy."
       plateau_iterations:
         type: integer
-        default: 10
+        default: 3
         description: "Stop if no improvement for this many consecutive experiments"
       target_reached:
         type: boolean
@@ -367,8 +367,8 @@ optional_fields:
 
   max_runner_up_merges_per_batch:
     type: integer
-    default: 1
-    description: "Maximum number of file-disjoint runner-up experiments to attempt merging per batch after keeping the best experiment"
+    default: 0
+    description: "Maximum number of file-disjoint runner-up experiments to attempt merging per batch after keeping the best experiment. First-run default is 0 to keep attribution clear."
 
 # ============================================================================
 # VALIDATION RULES
@@ -386,6 +386,8 @@ validation_rules:
   - "Gate check operators must be one of: >=, <=, >, <, ==, !="
   - "execution.max_concurrent must be >= 1"
   - "execution.max_concurrent must not exceed 6 when execution.backend is 'worktree'"
+  - "stopping.max_iterations, stopping.max_hours, and stopping.plateau_iterations should be explicit and finite"
+  - "execution.max_concurrent > 4, stopping.max_iterations > 30, stopping.max_hours > 4, or uncapped judge spend requires explicit user approval before baseline"
   - "If parallel.exclusive_resources is non-empty, execution.mode should be 'serial'"
   - "If metric.judge.singleton_sample > 0, metric.judge.singleton_rubric must be present"
   - "If metric.primary.type is 'judge' and metric.judge.max_total_cost_usd is null, the user should explicitly approve uncapped spend"

@@ -6,6 +6,7 @@ const path = require('node:path');
 const DOC_REVIEW_FILES = [
   path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'),
   path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'bulk-preview.md'),
+  path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'decision-primer.md'),
   path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'open-questions-defer.md'),
   path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'synthesis-and-presentation.md'),
   path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'walkthrough.md'),
@@ -51,6 +52,27 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('derived rather than a second plan');
     expect(skill).toContain('Task Pack Contract');
     expect(skill).toContain('spec-first tasks validate --json');
+  });
+
+  test('doc review keeps multi-round decision-primer detail in a reference', () => {
+    const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
+    const primer = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'decision-primer.md'),
+      'utf8',
+    );
+    const synthesis = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'synthesis-and-presentation.md'),
+      'utf8',
+    );
+
+    expect(skill).toContain('read `references/decision-primer.md`');
+    expect(skill).toContain('The primer is the only cross-round memory for the current interactive invocation');
+    expect(skill).not.toContain('Each entry carries an `Evidence:` line because synthesis R29');
+    expect(primer).toContain('Each entry carries an `Evidence:` line because synthesis R29');
+    expect(primer).toContain('R30 (fix-landed verification)');
+    expect(primer).toContain('Cross-session persistence is out of scope');
+    expect(synthesis).toContain('see `references/decision-primer.md`');
+    expect(synthesis).not.toContain('see `SKILL.md` — Decision primer');
   });
 
   test('subagent template requires committed suggested fixes and consequence-first rationale', () => {

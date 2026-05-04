@@ -6,7 +6,7 @@ argument-hint: "[blank to review current branch, or provide PR link]"
 
 # Code Review
 
-Reviews code changes using dynamically selected reviewer personas. Spawns parallel sub-agents that return structured JSON, then merges and deduplicates findings into a single report.
+Reviews code changes using dynamically selected reviewer personas. When the host and current session rules permit reviewer dispatch, spawns parallel sub-agents that return structured JSON, then merges and deduplicates findings into a single report. When dispatch is unavailable or not authorized, falls back to a single-agent report-only review instead of bypassing host rules.
 
 ## When to Use
 
@@ -158,7 +158,9 @@ Routing rules:
 
 ## Review Scope
 
-Every review spawns all 4 always-on personas plus the 2 Spec-First always-on agents, then adds whichever cross-cutting and stack-specific conditionals fit the diff. The model naturally right-sizes: a small config change triggers 0 conditionals = 6 reviewers. A Rails auth feature might trigger security + reliability + kieran-rails + dhh-rails = 10 reviewers.
+When dispatch is available, every full multi-persona review spawns all 4 always-on personas plus the 2 Spec-First always-on agents, then adds whichever cross-cutting and stack-specific conditionals fit the diff. The model naturally right-sizes: a small config change triggers 0 conditionals = 6 reviewers. A Rails auth feature might trigger security + reliability + kieran-rails + dhh-rails = 10 reviewers.
+
+If dispatch is unavailable or current host/developer instructions do not authorize subagent use for this request, run the single-agent report-only fallback described in Stage 4. Do not silently skip review and do not work around the restriction by invoking hidden helpers or external CLIs as pseudo-agents.
 
 ## Protected Artifacts
 
@@ -404,6 +406,24 @@ Pass the resulting path list to the `project-standards` persona inside a `<stand
 
 ### Stage 4: Spawn sub-agents
 
+### Dispatch capability gate
+
+Before creating a run ID or dispatching any reviewer, confirm the current host and session rules allow subagent use for this review. Permission is part of the runtime boundary, not a reviewer-selection preference.
+
+- If the user explicitly requested subagents, parallel agents, or delegated review and the host exposes a dispatch primitive, continue with normal multi-persona dispatch.
+- If the active workflow or parent orchestrator explicitly delegated this code-review workflow and allowed reviewer agents, continue with normal multi-persona dispatch.
+- If the host lacks a dispatch primitive, the current runtime cannot call it, or current instructions require explicit user authorization that has not been given, do not call `Agent`, `Task`, `spawn_agent`, or equivalent dispatch tools.
+- Codex-specific rule: do not call `spawn_agent` merely because this skill mentions reviewer personas. Honor the current session's developer instructions for subagent authorization.
+
+When dispatch is not allowed, set `single_agent_report_only_fallback: true` and run the rest of the review in read-only form:
+
+- Treat the effective mode as report-only, even if no `mode:report-only` token was provided.
+- If the user requested `mode:autofix` or `mode:headless`, stop and explain that mutating review requires reviewer/fixer dispatch authorization or an isolated workflow that permits it; offer report-only as the safe fallback.
+- Do not create `/tmp/spec-first/spec-code-review/<run-id>/` and do not write reviewer artifacts.
+- The orchestrator applies the selected persona lenses itself, serially, using the same diff, plan, standards, and graph evidence.
+- Skip Stage 5b validator dispatch and all fixer paths.
+- In Coverage, state `single-agent report-only fallback: reviewer dispatch unavailable or not authorized`.
+
 #### Model tiering
 
 Three reviewers inherit the session model with no override: `spec-correctness-reviewer`, `spec-security-reviewer`, and `spec-adversarial-reviewer`. These perform the highest-stakes analysis — logic bugs, security vulnerabilities, adversarial failure scenarios — and should run at whatever capability level the user has configured. If the user is on Opus, these get Opus.
@@ -424,6 +444,8 @@ mkdir -p "/tmp/spec-first/spec-code-review/$RUN_ID"
 Pass `{run_id}` to every persona sub-agent so they can write their full analysis to `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json`.
 
 **Report-only mode:** Skip run-id generation and directory creation. Do not pass `{run_id}` to agents. Agents return compact JSON only with no file write, consistent with report-only's no-write contract.
+
+**Single-agent report-only fallback:** also skip run-id generation and directory creation. There are no agent artifact files; Stage 6 must omit artifact-enriched detail that is unavailable and name the fallback in Coverage.
 
 #### Spawning
 
@@ -547,6 +569,7 @@ Independent verification gate. Spawn one validator sub-agent per surviving findi
 | `interactive`, File-tickets routing (option C) | Yes, on all pending findings | Before tracker dispatch |
 | `interactive`, Report-only routing (option D) | No -- nothing is being externalized | n/a |
 | `report-only` | No -- read-only mode externalizes nothing | n/a |
+| single-agent report-only fallback | No -- dispatch is unavailable or not authorized | n/a |
 
 When Stage 5b does not run, the merged finding set from Stage 5 flows through to Stage 6 unchanged. When it runs, the steps below execute on the relevant set.
 

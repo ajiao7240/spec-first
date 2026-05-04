@@ -133,4 +133,19 @@ describe('spec-code-review CE sync contracts', () => {
     expect(text).not.toContain('gpt-5.4-mini');
     expect(text).not.toContain('gpt-5.4-nano');
   });
+
+  test('supports single-agent report-only fallback when reviewer dispatch is unavailable', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('When dispatch is unavailable or not authorized, falls back to a single-agent report-only review instead of bypassing host rules.');
+    expect(text).toContain('Dispatch capability gate');
+    expect(text).toContain('Permission is part of the runtime boundary, not a reviewer-selection preference.');
+    expect(text).toContain('Codex-specific rule: do not call `spawn_agent` merely because this skill mentions reviewer personas.');
+    expect(text).toContain('set `single_agent_report_only_fallback: true`');
+    expect(text).toContain('Treat the effective mode as report-only');
+    expect(text).toContain('Do not create `/tmp/spec-first/spec-code-review/<run-id>/` and do not write reviewer artifacts.');
+    expect(text).toContain('Skip Stage 5b validator dispatch and all fixer paths.');
+    expect(text).toContain('single-agent report-only fallback: reviewer dispatch unavailable or not authorized');
+    expect(text).toContain('| single-agent report-only fallback | No -- dispatch is unavailable or not authorized | n/a |');
+  });
 });
