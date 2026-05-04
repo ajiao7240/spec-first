@@ -1,8 +1,64 @@
 'use strict';
 
+const SUPPORTED_SCHEMA_KEYWORDS = [
+  'type',
+  'enum',
+  'const',
+  'required',
+  'properties',
+  'items',
+  'additionalProperties',
+  'anyOf',
+  'oneOf',
+  'allOf',
+  'if',
+  'then',
+  'else',
+  'minItems',
+  'maxItems',
+  'minLength',
+  'maxLength',
+  'minimum',
+  'maximum',
+];
+
 function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
   if (!schema || typeof schema !== 'object') {
     return { valid: false, errors: [`${pointer}: missing schema`] };
+  }
+
+  if (Array.isArray(schema.allOf)) {
+    for (const childSchema of schema.allOf) {
+      validateAgainstSchema(childSchema, value, pointer, errors);
+    }
+  }
+
+  if (Array.isArray(schema.anyOf)) {
+    const matches = schema.anyOf
+      .map((childSchema) => validateAgainstSchema(childSchema, value, pointer, []))
+      .filter((result) => result.valid);
+    if (matches.length === 0) {
+      errors.push(`${pointer}: value did not match anyOf`);
+    }
+  }
+
+  if (Array.isArray(schema.oneOf)) {
+    const matches = schema.oneOf
+      .map((childSchema) => validateAgainstSchema(childSchema, value, pointer, []))
+      .filter((result) => result.valid);
+    if (matches.length !== 1) {
+      errors.push(`${pointer}: value matched ${matches.length} oneOf schemas`);
+    }
+  }
+
+  if (schema.if && typeof schema.if === 'object') {
+    const condition = validateAgainstSchema(schema.if, value, pointer, []);
+    if (condition.valid && schema.then && typeof schema.then === 'object') {
+      validateAgainstSchema(schema.then, value, pointer, errors);
+    }
+    if (!condition.valid && schema.else && typeof schema.else === 'object') {
+      validateAgainstSchema(schema.else, value, pointer, errors);
+    }
   }
 
   const expectedType = schema.type;
@@ -46,7 +102,13 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
       }
     }
 
-    if (schema.additionalProperties && typeof schema.additionalProperties === 'object') {
+    if (schema.additionalProperties === false) {
+      for (const key of Object.keys(value)) {
+        if (!Object.prototype.hasOwnProperty.call(properties, key)) {
+          errors.push(`${pointer}.${key}: unexpected additional key`);
+        }
+      }
+    } else if (schema.additionalProperties && typeof schema.additionalProperties === 'object') {
       for (const [key, child] of Object.entries(value)) {
         if (!Object.prototype.hasOwnProperty.call(properties, key)) {
           validateAgainstSchema(schema.additionalProperties, child, `${pointer}.${key}`, errors);
@@ -61,9 +123,37 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
     });
   }
 
+  if (schema.type === 'array' && Array.isArray(value)) {
+    if (Number.isInteger(schema.minItems) && value.length < schema.minItems) {
+      errors.push(`${pointer}: expected at least ${schema.minItems} item(s), received ${value.length}`);
+    }
+    if (Number.isInteger(schema.maxItems) && value.length > schema.maxItems) {
+      errors.push(`${pointer}: expected at most ${schema.maxItems} item(s), received ${value.length}`);
+    }
+  }
+
+  if (schema.type === 'string' && typeof value === 'string') {
+    if (Number.isInteger(schema.minLength) && value.length < schema.minLength) {
+      errors.push(`${pointer}: expected string length at least ${schema.minLength}, received ${value.length}`);
+    }
+    if (Number.isInteger(schema.maxLength) && value.length > schema.maxLength) {
+      errors.push(`${pointer}: expected string length at most ${schema.maxLength}, received ${value.length}`);
+    }
+  }
+
+  if ((schema.type === 'number' || schema.type === 'integer') && typeof value === 'number') {
+    if (typeof schema.minimum === 'number' && value < schema.minimum) {
+      errors.push(`${pointer}: expected number >= ${schema.minimum}, received ${value}`);
+    }
+    if (typeof schema.maximum === 'number' && value > schema.maximum) {
+      errors.push(`${pointer}: expected number <= ${schema.maximum}, received ${value}`);
+    }
+  }
+
   return { valid: errors.length === 0, errors };
 }
 
 module.exports = {
+  SUPPORTED_SCHEMA_KEYWORDS,
   validateAgainstSchema,
 };

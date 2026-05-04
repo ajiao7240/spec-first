@@ -43,7 +43,7 @@ When skipping, say explicitly that this is not an omission; this case does not n
 5. `spec-write-tasks` does not introduce its own lifecycle hook. Context references may appear only as `context_refs`, `entry_hint`, `test_focus`, or orientation evidence; `spec-work` later executes from the source plan or task-pack handoff using direct repo reads.
 6. Each task should solve one clear subproblem and should usually have one primary verification target.
 7. Task splitting should reflect file boundaries, dependencies, verification surfaces, and parallelization opportunities instead of restating the plan.
-8. Source reads before task-pack generation must be bounded source orientation: use targeted direct repo reads first, optionally use Serena/LSP when available, and stop once task boundaries are accurate enough.
+8. Source reads before task-pack generation must be bounded source orientation: use targeted direct repo reads first, read `.spec-first/standards/standards-candidates.json`, `.spec-first/standards/standards-preview.md`, validation result, and `glue-map.json` when present as context refs, optionally use Serena/LSP when available, and stop once task boundaries are accurate enough. Standards consumption contract: `confirmed` -> hard task constraint only when consistent with the source plan; `observed` / `imported` / `suggested` -> advisory context refs; `conflict` -> risk context; `unknown` -> question context. Validator fail, missing validator result, or `trust_level=degraded` means standards artifacts are degraded/advisory only. `glue-map.json` supports reuse-first task shaping and must not become a workflow state machine or expand source-plan scope.
 9. If the source plan was created from a parent workspace, it must carry a top-level `target_repo` for single-repo work or per-unit `target_repo` for cross-repo work. If repo scope is missing, return to `spec-plan`; do not invent child repo targets while deriving tasks.
 
 ## Inputs
@@ -74,7 +74,7 @@ First classify the input, then follow the matching path.
 
 When the input is `docs/plans/*-plan.md` or another explicit plan file:
 
-1. Read the plan, focusing on `Requirements Trace`, `Scope Boundaries`, `Technical Approach`, `Implementation Units`, `Files`, `Test Scenarios`, `Verification`, and `Deferred to Implementation`.
+1. Read the plan, focusing on `Requirements` (or legacy `Requirements Trace`), `Scope Boundaries`, `Technical Approach`, `Implementation Units`, `Files`, `Test Scenarios`, `Verification`, and `Deferred to Implementation`.
 2. Read the plan frontmatter. Executable task packs require a source plan `spec_id`. If the source plan is a legacy plan without `spec_id`, do not write an executable task pack; return to `spec-plan` to add plan frontmatter, or produce only a draft/transient task pack that is explicitly not valid `spec-work` input.
 3. Decide whether a task pack will actually reduce execution risk or context load.
 4. If task compilation is not worthwhile, explain why and recommend sending the plan directly to `spec-work`.

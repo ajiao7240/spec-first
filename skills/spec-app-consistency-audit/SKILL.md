@@ -215,11 +215,17 @@ Every issue must include:
 - `contract_status`
 - `confidence`
 - `provenance`
+- `evidence`
 - `claim_family`
 - `claim_type`
 - `affected_surface`
+- `impact`
+- `recommendation`
+- `related_rule_packs`
+- `runtime_verification`
 - `validation_status`
 - `review_lifecycle`
+- `data_sensitivity`
 
 Weak evidence may be reported as risk, candidate, or follow-up. It must not be promoted to a confirmed issue.
 
@@ -227,6 +233,9 @@ Strict issue protocol:
 
 - `confidence` is a number from 0 to 1.
 - `contract_status: confirmed` requires `confidence >= 0.75`; lower confidence findings must remain `candidate` or advisory even when they cite project evidence.
+- `contract_status: confirmed` requires `static_confirmed: true`; `candidate` and `rejected` issues require `static_confirmed: false`.
+- `provenance` and `evidence` entries must contain a traceable project field such as `file`, `path`, `artifact_id`, `node_id`, `route`, `event`, or `key`.
+- `industry:<name>` is an explicit lens, not a confirmed industry profile; confirmed industry issues require caller-provided `confirmedIndustry` evidence plus project-specific evidence.
 - `impact` and `recommendation` are arrays.
 - `claim_family` controls deterministic evidence requirements and conclusion caps.
 - `claim_type` describes the domain issue semantics.

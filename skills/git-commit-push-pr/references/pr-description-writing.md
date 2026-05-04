@@ -265,7 +265,7 @@ Assemble the body in this order:
 | Claude Code | `claude` | `D97757` |
 | Codex | (omit logo param) | `000000` |
 
-**Model slug:** Replace spaces with underscores. Append context window and thinking level in parentheses if known. Examples: `Opus_4.6_(1M,_Extended_Thinking)`, `Sonnet_4.6_(200K)`, `GPT-5.3`.
+**Model slug:** Replace spaces with underscores. Append context window and thinking level with URL-encoded literal parentheses if known. Examples: `Opus_4.6_%281M,_Extended_Thinking%29`, `Sonnet_4.6_%28200K%29`, `GPT-5.3`.
 
 ---
 

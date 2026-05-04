@@ -22,8 +22,27 @@ const DELEGATION_REFERENCE_PATH = path.join(
   'references',
   'codex-delegation-workflow.md',
 );
+const SHIPPING_WORKFLOW_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-work-beta',
+  'references',
+  'shipping-workflow.md',
+);
 
 describe('spec-work-beta context orientation contract', () => {
+  test('keeps beta execution as explicit opt-in instead of default handoff', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Beta rollout note');
+    expect(text).toContain('manually only when the current request explicitly asks to trial beta execution');
+    expect(text).toContain('Codex delegation');
+    expect(text).toContain('delegate:codex');
+    expect(text).toContain('guide-mode recommendations, planning handoffs, and ordinary execution-ready work remain pointed at stable `spec-work`');
+  });
+
   test('passes bounded direct-read context to delegates without retired graph ids', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     expect(text).toContain('Context Orientation Anchor');
@@ -31,8 +50,9 @@ describe('spec-work-beta context orientation contract', () => {
     expect(text).toContain('workspace-graph-targets.v1');
     expect(text).toContain('bounded candidate repos');
     expect(text).toContain('GitNexus-first evidence per candidate');
+    expect(text).toContain('bounded direct repo reads');
     expect(text).toContain('definitions-only GitNexus results as pointers');
-    expect(text).toContain('Delegate prompts should carry bounded direct-read context');
+    expect(text).toContain('Delegate prompts should carry bounded direct repo-read context');
     expect(text).toContain('explicit file boundaries');
     expect(text).toContain('not graph work-run ids');
     expect(text).toContain('Workspace Repo Scope');
@@ -55,6 +75,49 @@ describe('spec-work-beta task-pack identity contract', () => {
     expect(text).toContain('reject the task pack as wrong-chain handoff before implementation');
     expect(text).toContain('missing-spec-id, spec-id-mismatch');
     expect(text).toContain('Do not treat it as execution state or completion status');
+  });
+
+  test('keeps validated task packs as first-class executable work documents', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Treat a validated task pack as a first-class executable work document.');
+    expect(text).toContain('The task pack supplies execution order, task boundaries, file focus, `stop_if`, and validation notes');
+    expect(text).toContain('If the work document is already a validated task pack, do not offer task compilation again');
+    expect(text).toContain('do not rebuild execution structure from the source plan');
+    expect(text).toContain('Execute from the task pack\'s validated task structure');
+  });
+});
+
+describe('spec-work-beta requirements and shipping policy contract', () => {
+  test('reads Requirements as the current plan section while preserving legacy compatibility', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const shipping = fs.readFileSync(SHIPPING_WORKFLOW_PATH, 'utf8');
+
+    expect(text).toContain('`Requirements` (or legacy `Requirements Trace`)');
+    expect(text).toContain('Quality Check and Finishing Work');
+    expect(text).toContain('you must read `references/shipping-workflow.md`');
+    expect(text).toContain('Do not skip this.');
+    expect(shipping).toContain('If the plan has a `Requirements` section (or legacy `Requirements Trace`)');
+  });
+
+  test('shipping review tiers use real host-native review or spec-code-review fallback', () => {
+    const shipping = fs.readFileSync(SHIPPING_WORKFLOW_PATH, 'utf8');
+
+    expect(shipping).toContain('Tier 1 -- host-native code review');
+    expect(shipping).toContain('real built-in code review command or skill');
+    expect(shipping).toContain('Do not treat ordinary self-review as Tier 1.');
+    expect(shipping).toContain('Tier 2 -- `spec-code-review`');
+    expect(shipping).toContain('No host-native review exists');
+    expect(shipping).toContain('Sensitive surface touched');
+    expect(shipping).toContain('Large and diffuse change');
+    expect(shipping).toContain('Very large change');
+    expect(shipping).toContain('Plan or task explicitly requests it');
+    expect(shipping).toContain('Code review completed (Tier 1 host-native or Tier 2 `spec-code-review`)');
+    expect(shipping).not.toContain('inline self-review');
+    expect(shipping).not.toContain('/simplify');
+    expect(shipping).not.toContain('ce-simplify-code');
+    expect(shipping).not.toContain('spec-simplify-code');
+    expect(shipping).not.toContain('ce-code-review');
   });
 });
 
@@ -91,9 +154,22 @@ describe('spec-work-beta Codex delegation config contract', () => {
     const skill = fs.readFileSync(SKILL_PATH, 'utf8');
 
     expect(skill).toContain('(top=$(git rev-parse --show-toplevel 2>/dev/null); [ -n "$top" ]');
-    expect(skill).toContain('(common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); [ -n "$common" ]');
     expect(skill).toContain('|| echo \'__NO_CONFIG__\'');
+    expect(skill).not.toContain('git rev-parse --path-format=absolute --git-common-dir');
+    expect(skill).not.toContain('cat "$(dirname "$common")/.spec-first/config.local.yaml"');
     expect(skill).not.toContain('cat "$(git rev-parse --show-toplevel 2>/dev/null)/.spec-first/config.local.yaml"');
+  });
+
+  test('Codex availability pre-resolution uses a path probe with runtime fallback', () => {
+    const reference = fs.readFileSync(DELEGATION_REFERENCE_PATH, 'utf8');
+
+    expect(reference).toContain('Codex CLI path (pre-resolved)');
+    expect(reference).toContain('command -v codex 2>/dev/null || true');
+    expect(reference).toContain('shows an absolute path');
+    expect(reference).toContain('run `command -v codex` via the shell/Bash tool');
+    expect(reference).not.toContain('CODEX_AVAILABLE');
+    expect(reference).not.toContain('CODEX_NOT_FOUND');
+    expect(reference).not.toContain('command -v codex >/dev/null 2>&1 && echo');
   });
 
   test('codex exec omits model and effort flags unless configured', () => {
@@ -122,11 +198,22 @@ describe('spec-work-beta host entrypoint contract', () => {
   test('routes oversized work back through the current host entrypoint', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
+    expect(text).toContain('Oversized intake and handoff');
     expect(text).toContain('current host\'s brainstorm or plan entrypoint');
+    expect(text).toContain('If the input is a bare prompt and the product WHAT is unclear, recommend the current host\'s brainstorm entrypoint');
+    expect(text).toContain('If the desired outcome is clear but no settled plan exists, return to the current host\'s plan entrypoint');
+    expect(text).toContain('offer the standalone `spec-write-tasks` diversion once');
+    expect(text).toContain('Do not describe task compilation as a command-backed workflow entrypoint');
+    expect(text).toContain('If execution discovers scope beyond the plan/task pack');
+    expect(text).toContain('Do not expand scope in place.');
+    expect(text).toContain('Do not invent human-time phases');
     expect(text).not.toContain('would benefit from `/spec:brainstorm` or `/spec:plan`');
     expect(text).not.toContain('return to `/spec:plan` to reduce scope');
     expect(text).not.toContain('/spec:brainstorm` / `/spec:plan` on Claude Code');
     expect(text).not.toContain('$spec-brainstorm` / `$spec-plan` on Codex');
     expect(text).not.toContain('current host\'s plan entrypoint (`/spec:plan` on Claude Code, `$spec-plan` on Codex)');
+    expect(text).not.toContain('/spec:write-tasks');
+    expect(text).not.toContain('/spec:spec-write-tasks');
+    expect(text).not.toContain('$spec-write-tasks');
   });
 });

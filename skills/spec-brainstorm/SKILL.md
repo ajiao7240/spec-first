@@ -82,7 +82,7 @@ Before proceeding to Phase 0.2, classify whether this is a software task. The ke
 - Constrained, well-defined scope
 
 **If requirements are already clear:**
-Keep the interaction brief. Confirm understanding and present concise next-step options rather than forcing a long brainstorm. Only write a short requirements document when a durable handoff to planning or later review would be valuable. Skip Phase 1.1 and 1.2 entirely — go straight to Phase 1.3 or Phase 3.
+Keep the interaction brief. Confirm understanding and present concise next-step options rather than forcing a long brainstorm. Only write a short requirements document when a durable handoff to planning or later review would be valuable. Skip Phase 1.1 and 1.2 entirely — go straight to Phase 1.3 or Phase 2.5 in announce-mode (synthesis emitted for visibility, no blocking confirmation), then to Phase 3.
 
 #### 0.3 Assess Scope
 
@@ -200,6 +200,8 @@ For each approach, provide:
 - Key risks or unknowns
 - When it's best suited
 
+**Approach granularity: mechanism / product shape, not architecture.** Approach descriptions name mechanism-level distinctions and product-relevant trade-offs, not implementation specifics. Do not name column names, table names, file paths, service classes, JSON shapes, exact method names, or other code-level details unless the brainstorm itself is explicitly about a technical architecture decision. Detailed implementation belongs in `spec-plan`; leaking it into brainstorm forces planning decisions onto shallow product-context research.
+
 After presenting all approaches, state your recommendation and explain why. Prefer simpler solutions when added complexity creates real carrying cost, but do not reject low-cost, high-value polish just because it is not strictly necessary.
 
 If one approach is clearly best and alternatives are not meaningful, skip the menu and state the recommendation directly.
@@ -208,6 +210,18 @@ If relevant, call out whether the choice is:
 - Reuse an existing pattern
 - Extend an existing capability
 - Build something net new
+
+### Phase 2.5: Synthesis Summary
+
+**STOP. Before composing the synthesis, read `references/synthesis-summary.md`.** The prose-summary requirement, three-bucket structure, anti-pattern guidance, soft-cut behavior, self-redirect support, prose-feedback rules, and routing into requirements doc sections all live there. Composing a synthesis without these rules loaded produces malformed output such as missing prose summaries, implementation-detail leakage, and proposal-pitch wording.
+
+Surface a synthesis to the user before Phase 3 writes the requirements doc. This is the user's last low-cost opportunity to correct scope before the durable artifact lands.
+
+Fires for **all tiers** including Lightweight. Skip Phase 2.5 entirely on the Phase 0.1b non-software route that uses `references/universal-brainstorming.md`.
+
+**Headless mode** (pipeline / `disable-model-invocation`): compose the synthesis but do not ask for confirmation. Inferred bets route to a `## Assumptions` section in the doc so downstream review can scrutinize them as unvalidated assumptions, not confirmed decisions.
+
+**Announce-mode (Phase 0.2 fast path):** on the "requirements already clear" fast path, Phase 2.5 fires in announce-mode: emit the Stated / Inferred / Out-of-scope synthesis for visibility, then end the turn. Do not write the requirements doc in the same turn as the synthesis emission. On the user's next message, proceed to Phase 3 doc-write if it is an acknowledgment, follow-up, or non-correcting input; if it corrects scope, revise and re-emit the synthesis.
 
 ### Phase 3: Capture the Requirements
 

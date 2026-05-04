@@ -21,6 +21,8 @@ const {
 } = require('../../src/cli/coding-guidelines');
 const { getAdapter } = require('../../src/cli/adapters');
 
+const RULES_TEMPLATE_PATH = path.join(__dirname, '..', '..', 'templates', 'rules', 'claude.md');
+
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-coding-guidelines-'));
 }
@@ -62,8 +64,13 @@ describe('coding guidelines instruction block', () => {
     const zh = buildCodingGuidelinesBlock('zh');
     const en = buildCodingGuidelinesBlock('en');
 
-    expect(zh).toContain('这些准则只约束进入工作后的执行姿势，不替代 `using-spec-first` 的 workflow 入口治理。');
-    expect(en).toContain('These guidelines shape execution posture after workflow routing; they do not replace spec-first workflow entry governance.');
+    expect(zh).toContain('### 1. 编码前思考');
+    expect(zh).toContain('LLM 经常默默选择一种解释然后执行。这个原则强制明确推理：');
+    expect(zh).toContain('### 2. 简洁优先');
+    expect(zh).toContain('检验标准：每一行修改都应该能直接追溯到用户的请求。');
+    expect(en).toContain('Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.');
+    expect(en).toContain('### 2. Simplicity First');
+    expect(en).toContain('The test: Every changed line should trace directly to the user\'s request.');
 
     for (const block of [zh, en]) {
       expect(block).not.toContain('下一步');
@@ -77,6 +84,18 @@ describe('coding guidelines instruction block', () => {
       expect(block).not.toContain('完整选择策略');
       expect(block).not.toContain('Common entry anchors');
     }
+  });
+
+  test('keeps the English managed block aligned with the source rules template', () => {
+    const template = fs.readFileSync(RULES_TEMPLATE_PATH, 'utf8').trimEnd()
+      .replace('# CLAUDE.md', '## Coding Execution Guidelines (managed by spec-first)')
+      .replace(/\n## (\d\. )/g, '\n### $1');
+    const generated = buildCodingGuidelinesBlock('en')
+      .replace(`${CODING_GUIDELINES_START}\n`, '')
+      .replace(`\n${CODING_GUIDELINES_END}`, '')
+      .trimEnd();
+
+    expect(generated).toBe(template);
   });
 
   test('removes only the managed block and preserves surrounding user content', () => {
@@ -163,7 +182,7 @@ describe('coding guidelines instruction block', () => {
       });
 
       const filePath = path.join(projectRoot, adapter.instructionFile);
-      const drifted = fs.readFileSync(filePath, 'utf8').replace('先想清楚再动手', '先想清楚再编码');
+      const drifted = fs.readFileSync(filePath, 'utf8').replace('编码前思考', '编码前先思考');
       fs.writeFileSync(filePath, drifted, 'utf8');
 
       expect(inspectCodingGuidelinesBlock(projectRoot, adapter)).toEqual({

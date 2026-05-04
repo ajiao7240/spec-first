@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { getAdapter } = require('../../src/cli/adapters');
+const SPEC_PLAN_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-plan', 'SKILL.md');
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-runtime-plan-'));
@@ -91,6 +92,39 @@ describe('runtime plan contracts', () => {
       expect(plan.operations.every((entry) => entry.kind === 'remove_dir')).toBe(true);
       expect(plan.summary).toEqual({ remove_dir: expectedPaths.length });
     }
+  });
+
+  test('Codex-rendered spec-plan preserves research dispatch semantics', () => {
+    const adapter = getAdapter('codex');
+    const rendered = adapter.transformSkillContent(fs.readFileSync(SPEC_PLAN_PATH, 'utf8'), {
+      skillName: 'spec-plan',
+      isWorkflowSkill: true,
+    });
+
+    expect(rendered).toContain('including `spawn_agent` where provided');
+    expect(rendered).toContain('Do not downgrade solely because the host is Codex.');
+    expect(rendered).toContain('explicit fallback');
+    expect(rendered).toContain('Plan generation must still complete when research dispatch is unavailable');
+    expect(rendered).toContain('`.codex/agents/spec-repo-research-analyst.agent.md`');
+    expect(rendered).toContain('`.codex/agents/spec-learnings-researcher.agent.md`');
+    expect(rendered).not.toContain('Read `.codex/agents/spec-repo-research-analyst.agent.md` and apply that agent profile to');
+    expect(rendered).not.toContain('Read `.codex/agents/spec-learnings-researcher.agent.md` and apply that agent profile to');
+  });
+
+  test('legacy Task shorthand renders as Codex dispatch with explicit inline fallback', () => {
+    const adapter = getAdapter('codex');
+    const rendered = adapter.transformSkillContent(
+      '- Task spec-repo-research-analyst(Scope: technology, architecture, patterns.)',
+      {
+        skillName: 'spec-plan',
+        isWorkflowSkill: true,
+      },
+    );
+
+    expect(rendered).toContain('Dispatch `.codex/agents/spec-repo-research-analyst.agent.md` with `spawn_agent`');
+    expect(rendered).toContain('fallback: read the profile and apply it inline in the current agent only when `spawn_agent` is unavailable or disallowed');
+    expect(rendered).toContain('Task: Scope: technology, architecture, patterns.');
+    expect(rendered).not.toContain('Read `.codex/agents/spec-repo-research-analyst.agent.md` and apply that agent profile to');
   });
 
 });

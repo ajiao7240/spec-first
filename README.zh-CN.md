@@ -3,12 +3,12 @@
 # spec-first
 
 [![npm version](https://img.shields.io/npm/v/spec-first.svg)](https://www.npmjs.com/package/spec-first)
-[![license](https://img.shields.io/npm/l/spec-first.svg)](./LICENSE)
-[![node](https://img.shields.io/node/v/spec-first.svg)](./package.json)
+[![license](https://img.shields.io/npm/l/spec-first.svg)](https://github.com/sunrain520/spec-first/blob/main/LICENSE)
+[![node](https://img.shields.io/node/v/spec-first.svg)](https://github.com/sunrain520/spec-first/blob/main/package.json)
 [![CI](https://github.com/sunrain520/spec-first/actions/workflows/npm-install-matrix.yml/badge.svg)](https://github.com/sunrain520/spec-first/actions/workflows/npm-install-matrix.yml)
 [![docs](https://img.shields.io/badge/docs-spec--first.cn-0b7285.svg)](http://spec-first.cn/)
 
-[English](./README.md) | [简体中文](./README.zh-CN.md)
+[English](https://github.com/sunrain520/spec-first/blob/main/README.md) | [简体中文](https://github.com/sunrain520/spec-first/blob/main/README.zh-CN.md)
 
 **面向 Claude Code 与 Codex 的 spec-driven AI engineering workflows。**
 
@@ -24,10 +24,13 @@
 
 ## 90 秒看懂
 
-![spec-first workflow flow](./docs/assets/readme/spec-first-flow.svg)
+![spec-first workflow flow](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)
 
 ```text
-模糊想法
+开放式改进问题
+  -> $spec-ideate 或 /spec:ideate
+  -> docs/ideation/YYYY-MM-DD-topic-ideation.md
+  -> 选定一个粗略想法
   -> $spec-brainstorm 或 /spec:brainstorm
   -> docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
   -> $spec-plan 或 /spec:plan
@@ -53,14 +56,15 @@ Claude Code 用户可改用 `/spec:brainstorm "Improve onboarding for first-time
 一条完整 workflow 链路可能留下这些产物：
 
 ```text
+docs/ideation/2026-05-01-cli-onboarding-ideation.md
 docs/brainstorms/2026-05-01-001-cli-onboarding-requirements.md
 docs/plans/2026-05-01-001-feat-cli-onboarding-plan.md
 docs/tasks/2026-05-01-001-feat-cli-onboarding-tasks.md
 ```
 
-第一次 brainstorm 通常只生成 requirements brief。plan、task-pack、work、review、debug 和 compound 入口会在你继续推进链路时分别写入各自职责内的产物。
+当你需要 AI 主动生成并排序多个方向时，先用 `ideate`。第一次 brainstorm 通常只为一个已选想法生成 requirements brief。plan、task-pack、work、review、debug 和 compound 入口会在你继续推进链路时分别写入各自职责内的产物。
 
-完整走查见 [首次工作流走查](./docs/05-用户手册/09-首次工作流走查.md)。
+完整走查见 [首次工作流走查](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md)。
 
 ## 为什么使用 spec-first？
 
@@ -154,10 +158,15 @@ docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
   |
   | /spec:mcp-setup       或 $spec-mcp-setup
   | /spec:graph-bootstrap 或 $spec-graph-bootstrap
+  | /spec:standards       或 $spec-standards
   v
 在宿主会话中选择下一步 workflow
   |
-  +-- 只有模糊想法或产品问题
+  +-- 需要候选方向、批判或改进想法
+  |     -> /spec:ideate 或 $spec-ideate
+  |     -> docs/ideation/*-ideation.md
+  |
+  +-- 已有粗略产品问题或功能想法
   |     -> /spec:brainstorm 或 $spec-brainstorm
   |     -> docs/brainstorms/*-requirements.md
   |
@@ -213,6 +222,14 @@ mcp-setup / graph-bootstrap
 ```
 
 这是一条工程闭环，不是一串必须逐项执行的命令。根据当前状态进入最匹配的节点；当下一步不清楚时，宿主会话里的入口治理会推荐一个公开 workflow 并说明理由。`write-tasks` 是 standalone skill；可浏览 UI 的 polish 当前通过 `polish-beta` 暴露。
+
+想要选项、批判或意外方向，还没确定问题框架时，用 `ideate`。已经有粗略产品问题或功能想法，需要整理 actors、flows、边界和验收样例时，用 `brainstorm`。已有 requirements、plan 或 task 文档，需要找缺口时，用 `doc-review`。不要把 `brainstorm` 当作所有不清楚请求的默认入口。
+
+| 需求 | 更合适的入口 |
+|---|---|
+| “我们该改进什么？”或“给我一些想法” | `ideate` |
+| “我有一个粗略产品问题，帮我成型” | `brainstorm` |
+| “这份 requirements 或 plan 文档可能有缺口” | `doc-review` |
 
 | 层级 | 节点 | 回答的问题 | 持久输出 |
 |---|---|---|---|
@@ -277,6 +294,7 @@ workspace/
 
 | 实体 | 典型位置 | 作用 |
 |---|---|---|
+| Ideation shortlist | `docs/ideation/` | 在进入需求成型前，对候选想法进行排序、批判和取舍。 |
 | Requirements brief | `docs/brainstorms/` | 在实现压力到来前记录问题、角色、流程、约束和验收样例。 |
 | Implementation plan | `docs/plans/` | 把目标拆成实现单元、取舍、验证目标和非目标。 |
 | Task pack | `docs/tasks/` | 当计划需要确定性任务身份、依赖顺序和验证时，提供结构化交接。 |
@@ -288,6 +306,7 @@ workspace/
 
 ```text
 docs/
+  ideation/      需求成型前的候选想法排序与批判
   brainstorms/   早期问题澄清得到的 requirements briefs
   plans/         可评审、可执行的 implementation plans
   tasks/         大计划需要结构化交接时生成的 task packs
@@ -298,7 +317,7 @@ docs/
 
 Not every workflow writes every artifact；每个入口只写入与自身职责匹配的产物。
 
-每类产物由谁生成、谁读取、是否应该手改，见 [产物目录](./docs/05-用户手册/10-产物目录.md)。
+每类产物由谁生成、谁读取、是否应该手改，见 [产物目录](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/10-%E4%BA%A7%E7%89%A9%E7%9B%AE%E5%BD%95.md)。
 
 ## 工作方式
 
@@ -314,7 +333,7 @@ Host runtime assets
         |
         v
 Workflow artifacts
-  brainstorms -> plans -> tasks -> work/review/debug -> learnings
+  ideation -> brainstorms -> plans -> tasks -> work/review/debug -> learnings
 ```
 
 source of truth 位于仓库源码资产中。`.claude/`、`.codex/`、`.agents/skills/` 下的 generated runtime copies 可丢弃，可通过 `spec-first init` 重建。
@@ -324,6 +343,7 @@ init 后的运行时结构：
 ```text
 your-project/
 ├── docs/
+│   ├── ideation/
 │   ├── brainstorms/
 │   ├── plans/
 │   ├── tasks/
@@ -338,7 +358,8 @@ your-project/
 
 | 流程 | 从这里开始 | 稳定什么 |
 |---|---|---|
-| 问题澄清 | `/spec:brainstorm` 或 `$spec-brainstorm` | 原始需求、用户目标、边界和验收样例。 |
+| 想法生成 | `/spec:ideate` 或 `$spec-ideate` | 候选方向、批判、排序，以及进入单个想法的 handoff。 |
+| 问题澄清 | `/spec:brainstorm` 或 `$spec-brainstorm` | 一个已选想法的原始需求、用户目标、边界和验收样例。 |
 | 实施规划 | `/spec:plan` 或 `$spec-plan` | 架构选择、实现单元、验证范围和已知未知。 |
 | 执行开发 | `/spec:work` 或 `$spec-work` | 代码改动、聚焦测试、验证记录和 scope 控制。 |
 | App 一致性审查 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit` | 运行时验证前审查 PRD、Figma、源码、路由、KMP/Clean Architecture、埋点、i18n 和行业规则一致性。 |
@@ -349,7 +370,8 @@ your-project/
 
 | 你的情况 | 从这里开始 | 预期结果 |
 |---|---|---|
-| 只有模糊想法或产品问题 | `/spec:brainstorm` 或 `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
+| 需要开放式改进方向或多个候选想法 | `/spec:ideate` 或 `$spec-ideate` | `docs/ideation/` 下的 ranked ideation artifact |
+| 已有粗略产品问题或功能想法 | `/spec:brainstorm` 或 `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
 | 目标已定，但还没有实施策略 | `/spec:plan` 或 `$spec-plan` | `docs/plans/` 下的 plan |
 | 已有 plan 或 task pack，准备执行 | `/spec:work` 或 `$spec-work` | 代码改动、测试和验证记录 |
 | 移动 App 改动在 QA 前需要 PRD/Figma/source 一致性审查 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit` | `.spec-first/app-audit/runs/` 下的静态审查报告和范围化证据 |
@@ -360,7 +382,8 @@ your-project/
 
 | 我想要... | Claude Code | Codex | 预期产物 |
 |---|---|---|---|
-| 探索想法 | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
+| 生成并排序想法 | `/spec:ideate` | `$spec-ideate` | `docs/ideation/` 下的 ideation artifact |
+| 把一个想法澄清成需求 | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
 | 规划实现 | `/spec:plan` | `$spec-plan` | `docs/plans/` 下的 plan |
 | 执行开发 | `/spec:work` | `$spec-work` | 代码、测试和验证记录 |
 | 审查 App 一致性 | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` | 静态一致性报告和范围化审查产物 |
@@ -375,7 +398,7 @@ your-project/
 
 - **脚本负责什么：** 安装、校验、生成、清理、hash 和机器事实报告。
 - **LLM 决定什么：** 需求 framing、scope boundaries、tradeoffs、implementation judgment、review evidence 和 next steps。
-- **会写入什么：** repo-local docs、plans、task packs、review/debug artifacts，以及 init 期间生成的 managed runtime assets。
+- **会写入什么：** repo-local docs、plans、task packs、显式路由后的 durable review/debug summaries，以及 init 期间生成的 managed runtime assets。full-detail code-review JSON 默认只作为 `/tmp/spec-first/spec-code-review/<run-id>/` 临时 handoff，除非 workflow 写入 concise durable summary。
 - **哪些是生成产物：** `.claude/`、`.codex/` 和 `.agents/skills/` runtime copies。
 - **应该修改什么：** 修改 `skills/`、`agents/`、`templates/`、`src/cli/` 和 docs 中的 source assets；不要手改 generated runtime copies。
 - **spec-first 不是什么：** 不是通用 agent marketplace，不是单次 prompt pack，也不是脱离 Claude Code/Codex 独立运行的应用。
@@ -389,7 +412,7 @@ your-project/
 适合使用 `spec-first` 的情况：
 
 - 你已经在使用 Claude Code 或 Codex，并希望在项目内获得稳定 workflow，而不是一次性 prompt。
-- 你希望 AI coding 工作留下可追踪的 requirements、plans、review findings 和 learnings。
+- 你希望 AI coding 工作留下可追踪的 requirements、plans、显式路由后的 review summaries 和 learnings。
 - 你希望脚本处理确定性 setup，同时把语义判断保留给 LLM。
 - 你希望 workflow layer 足够轻量，并能从 source assets 重建。
 
@@ -400,32 +423,32 @@ your-project/
 官网与语言入口：
 
 - [spec-first.cn](http://spec-first.cn/)
-- [English README](./README.md)
-- [简体中文 README](./README.zh-CN.md)
+- [English README](https://github.com/sunrain520/spec-first/blob/main/README.md)
+- [简体中文 README](https://github.com/sunrain520/spec-first/blob/main/README.zh-CN.md)
 
 理解模型：
 
-- [用户手册](./docs/05-用户手册/README.md)
-- [核心概念](./docs/05-用户手册/02-核心概念.md)
-- [架构总览](./docs/02-架构设计/01-整体架构.md)
+- [用户手册](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/README.md)
+- [核心概念](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/02-%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5.md)
+- [架构总览](https://github.com/sunrain520/spec-first/blob/main/docs/02-%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/01-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84.md)
 
 使用 workflows：
 
-- [快速开始](./docs/05-用户手册/01-快速开始.md)
-- [首次工作流走查](./docs/05-用户手册/09-首次工作流走查.md)
-- [Workflows 与产物地图](./docs/05-用户手册/04-workflows-artifacts-map.md)
+- [快速开始](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/01-%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B.md)
+- [首次工作流走查](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md)
+- [Workflows 与产物地图](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/04-workflows-artifacts-map.md)
 
 开发与贡献：
 
-- [贡献指南](./CONTRIBUTING.md)
-- [安全政策](./SECURITY.md)
-- [License](./LICENSE)
-- [开发规范](./docs/03-实施方案/06-开发规范.md)
-- [测试方案](./docs/03-实施方案/04-测试方案.md)
+- [贡献指南](https://github.com/sunrain520/spec-first/blob/main/CONTRIBUTING.md)
+- [安全政策](https://github.com/sunrain520/spec-first/blob/main/SECURITY.md)
+- [License](https://github.com/sunrain520/spec-first/blob/main/LICENSE)
+- [开发规范](https://github.com/sunrain520/spec-first/blob/main/docs/03-%E5%AE%9E%E6%96%BD%E6%96%B9%E6%A1%88/06-%E5%BC%80%E5%8F%91%E8%A7%84%E8%8C%83.md)
+- [测试方案](https://github.com/sunrain520/spec-first/blob/main/docs/03-%E5%AE%9E%E6%96%BD%E6%96%B9%E6%A1%88/04-%E6%B5%8B%E8%AF%95%E6%96%B9%E6%A1%88.md)
 
 版本记录：
 
-- [版本更新记录](./docs/08-版本更新/README.md)
+- [版本更新记录](https://github.com/sunrain520/spec-first/blob/main/docs/08-%E7%89%88%E6%9C%AC%E6%9B%B4%E6%96%B0/README.md)
 
 详细手册和实施文档均以中文为主。
 
@@ -435,6 +458,7 @@ your-project/
 |---|---|---|
 | 安装必备 harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | 编译 graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
+| 编译、检查、刷新、深挖或导入项目规范与胶水能力基线 | `/spec:standards` | `$spec-standards` |
 | 更新 spec-first 或 runtime assets | `/spec:update` | `$spec-update` |
 | 搜索 agent session 历史 | `/spec:sessions` | `$spec-sessions` |
 | 研究 Slack 组织上下文 | `/spec:slack-research` | `$spec-slack-research` |
@@ -447,7 +471,7 @@ your-project/
 | 审查 App 一致性 | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` |
 | 调试失败或 bug | `/spec:debug` | `$spec-debug` |
 | 执行工作 | `/spec:work` | `$spec-work` |
-| 使用 Codex delegation beta 执行工作 | `/spec:work-beta` | `$spec-work-beta` |
+| 试用 Codex delegation beta（显式 opt-in） | `/spec:work-beta` | `$spec-work-beta` |
 | 优化可度量目标 | `/spec:optimize` | `$spec-optimize` |
 | 打磨可浏览 UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
 | 代码评审 | `/spec:code-review` | `$spec-code-review` |
@@ -489,9 +513,11 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 
 Runtime asset summary：
 
+详细 runtime capability catalog 见 [Runtime Capability Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/catalog/runtime-capabilities.md)。
+
 | 层级 | 当前 contract |
 |---|---|
-| **能力层资产** | 仓库内置源码资产共 `41` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `20` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `20` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
+| **能力层资产** | 仓库内置源码资产共 `42` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `21` 个 commands + `2` 个 standalone skills + `2` 个 agent-facing internal skills，在 Codex 侧安装 `21` 个 workflow skills + `2` 个 standalone skills + `2` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
 | **Claude runtime** | commands 生成到 `.claude/commands/spec`，standalone 与 agent-facing internal skills 生成到 `.claude/skills`，command-backed workflow skill 副本生成到 `.claude/spec-first/workflows`，agents 生成到 `.claude/agents`，managed state 位于 `.claude/spec-first/state.json`。 |
 | **Codex runtime** | workflow、standalone 与 agent-facing internal skills 生成到 `.agents/skills`，agents 生成到 `.codex/agents`，managed state 位于 `.codex/spec-first/state.json`。 |
 | **Readiness** | setup workflow 写 readiness ledger v2 以及 setup-owned `graph-providers.json`、`runtime-capabilities.json` 和 `provider-artifacts.json`；graph bootstrap workflow 消费这些事实并写 canonical graph facts、provider status、impact capabilities 和 report。 |
@@ -499,13 +525,14 @@ Runtime asset summary：
 Claude init 的预期输出包含：
 
 ```text
-📦 Generated 20 command file(s) in .claude/commands/spec
+📦 Generated 21 command file(s) in .claude/commands/spec
 🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 下一步:
   1. 重启 Claude Code 或新开会话，让宿主加载刚生成的 /spec:* commands。
   2. 在新会话运行 /spec:mcp-setup，安装并验证必装 MCP/helper runtime。
   3. 如果 /spec:mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap。
+  4. graph readiness 就绪后，运行 /spec:standards 编译项目规范与胶水基线，再进入下游 workflow。
 ```
 
 Codex init 的预期输出包含：
@@ -517,6 +544,7 @@ Codex init 的预期输出包含：
   1. 重启 Codex 或新开会话，让宿主加载刚生成的 $spec-* skills。
   2. 在新会话运行 $spec-mcp-setup，安装并验证必装 MCP/helper runtime。
   3. 如果 $spec-mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 $spec-graph-bootstrap。
+  4. graph readiness 就绪后，运行 $spec-standards 编译项目规范与胶水基线，再进入下游 workflow。
 ```
 
 ## 开发与贡献
@@ -538,4 +566,4 @@ npm test
 
 修改 source assets 时，应修改 `skills/`、`agents/`、`templates/` 或 `src/cli/`，再在新宿主会话中通过 `spec-first init --claude` 或 `spec-first init --codex` 重建 runtime copies。
 
-贡献与支持细节见 [CONTRIBUTING.md](./CONTRIBUTING.md)、[SECURITY.md](./SECURITY.md)、[LICENSE](./LICENSE) 和 [GitHub Issues](https://github.com/sunrain520/spec-first/issues)。
+贡献与支持细节见 [CONTRIBUTING.md](https://github.com/sunrain520/spec-first/blob/main/CONTRIBUTING.md)、[SECURITY.md](https://github.com/sunrain520/spec-first/blob/main/SECURITY.md)、[LICENSE](https://github.com/sunrain520/spec-first/blob/main/LICENSE) 和 [GitHub Issues](https://github.com/sunrain520/spec-first/issues)。

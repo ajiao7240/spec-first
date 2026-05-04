@@ -16,7 +16,7 @@ This workflow is the single setup entrypoint for spec-first. It has two distinct
 
 Project-local config and legacy residue facts do not affect `baseline_ready`. Required helper facts do affect `baseline_ready`. This workflow does not expose selectable MCP registry entries, legacy pending states, or a browser MCP server.
 
-GitNexus `query_probe` must target the GitNexus indexed repo label, not blindly the directory basename. `write-provider-config.*` resolves the label deterministically from explicit setup facts when present, then from `.gitnexus/meta.json` `remoteUrl` basename, and only falls back to the repo directory basename. Its probe token policy should write a bounded, ordered `candidates[]` list of at most 5 source-derived candidates while preserving legacy `token` / `selected_from` fields for compatibility. Candidate ordering is cross-stack: prefer entry/workflow basenames likely to participate in flows, such as main/launch/loading/home/login/router/navigation files, controllers, handlers, services, repositories, forms, tables, pages, dashboards, and Android Activity/ViewModel classes. Android names are one platform signal, not the default universal front door. Low-signal lifecycle, config, type, schema, constants, display-only, advertisement/guide/dialog/adapter/bean/entity basenames should be demoted until no better source candidate exists.
+GitNexus `query_probe` must target the GitNexus indexed repo label, not blindly the directory basename. `write-provider-config.*` resolves the label deterministically from explicit setup facts when present, then from `.gitnexus/meta.json` `remoteUrl` basename, and only falls back to the repo directory basename. Its probe token policy should write a bounded, ordered `candidates[]` list of at most 5 source-derived candidates while preserving legacy `token` / `selected_from` fields for compatibility. Candidate ordering is cross-stack: prefer entry/workflow basenames likely to participate in flows, such as main/launch/loading/home/login/router/navigation files, controllers, handlers, services, repositories, forms, tables, pages, dashboards, and Android Activity/ViewModel classes. For controller-heavy repos where class basenames often return definitions-only, setup may extract bounded method-level source tokens from tracked workflow files and prefer flow-like method names such as step/save/add/delete/submit/validate/failure/options before controller class names. Android names are one platform signal, not the default universal front door. Low-signal lifecycle, config, type, schema, constants, display-only, advertisement/guide/dialog/adapter/bean/entity basenames should be demoted until no better source candidate exists.
 
 ## Runtime Baseline
 
@@ -59,7 +59,7 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 7. Bootstraps Serena for the current repo.
 8. Writes readiness ledger v2 to the host marker path.
 9. Writes setup-owned project facts inside a git repo: `.spec-first/config/graph-providers.json`, `.spec-first/config/runtime-capabilities.json`, and `.spec-first/config/provider-artifacts.json`.
-10. Prints a clear next-step prompt after the final status block: continue graph readiness compilation now, then restart Claude Code/Codex or start a new session before relying on the newly written MCP config in downstream workflows.
+10. Prints a clear next-step prompt after the final status block: continue graph readiness compilation now when it is pending; when graph readiness is already ready, recommend the project standards/glue baseline workflow as the next durable setup handoff; restart Claude Code/Codex or start a new session before downstream workflows rely on newly written MCP config or live MCP probes.
 
 Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure.
 
@@ -246,7 +246,7 @@ pwsh -File skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1 -RefreshEx
 
 Do not pass `--delete-legacy-markdown` / `-DeleteLegacyMarkdown` during ordinary setup. Do not automatically delete `.compound-engineering/config.local.yaml`; report legacy residue and tell the user that spec-first now uses `.spec-first/config.local.yaml`.
 
-Project preflight prepares setup input. Missing required helper tooling must mark Required Harness Runtime as failed. Missing local config, outdated example config, and legacy CE residue must not mark Required Harness Runtime as failed.
+Project preflight prepares setup input. Missing required helper tooling must mark Required Harness Runtime as failed. Missing local config, outdated example config, and legacy compound-engineering residue must not mark Required Harness Runtime as failed.
 
 ## Deterministic Commands
 
@@ -466,7 +466,7 @@ Expected projection boundaries:
 }
 ```
 
-GitNexus `query_probe_policy` selection must stay deterministic and source-derived. Prefer tracked source basenames that are likely to participate in execution flows: main/launch/loading/home/login/router/navigation entry files, controllers, handlers, services, repositories, forms, tables, pages, dashboards, and Android `Activity` / `Fragment` / `ViewModel` classes. Treat lifecycle/config/type/schema/constants basenames as low signal, and demote display-only or weak proof basenames such as `Report`, `View`, `Screen`, `Layout`, `Modal`, `Advertise`, `Guide`, `Dialog`, `Adapter`, `Bean`, and `Entity` so they do not beat stronger flow-bearing candidates. The setup script only writes up to 5 candidates and reason codes; `spec-graph-bootstrap` enforces its own consumer-side candidate limit, performs the bounded CLI proof, and downstream LLM workflows decide how to consume degraded facts.
+GitNexus `query_probe_policy` selection must stay deterministic and source-derived. Prefer tracked source basenames that are likely to participate in execution flows: main/launch/loading/home/login/router/navigation entry files, controllers, handlers, services, repositories, forms, tables, pages, dashboards, and Android `Activity` / `Fragment` / `ViewModel` classes. For source files with workflow-like basenames, bounded method-token extraction may add stronger proof candidates before class basenames when method names look flow-bearing, for example `stepSave`, `validatePayload`, `booleanResult`, `failure`, `options`, `add`, `save`, `delete`, `create`, `cancel`, `submit`, or `update`. Treat lifecycle/config/type/schema/constants basenames as low signal, and demote display-only or weak proof basenames such as `Report`, `View`, `Screen`, `Layout`, `Modal`, `Advertise`, `Guide`, `Dialog`, `Adapter`, `Bean`, and `Entity` so they do not beat stronger flow-bearing candidates. The setup script only writes up to 5 candidates and reason codes; `spec-graph-bootstrap` enforces its own consumer-side candidate limit, performs the bounded CLI proof, and downstream LLM workflows decide how to consume degraded facts.
 
 ## Codex TOML Contract
 
@@ -495,7 +495,7 @@ Uninstall does not delete `agent-browser`, external caches, or the project proje
 
 ## Success Summary
 
-When setup finishes, the assistant's final response must restate the complete readiness status sourced from readiness ledger v2, followed by a short friendly next-step prompt. Prefer grouped status blocks rendered inside fenced code blocks instead of one wide Markdown table. The first grouped section must be an `Execution result` summary that shows `Harness runtime` and `Graph readiness` decisions, including ready and pending graph providers. Do not rely on prior command output as the only place where the status appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending. When graph bootstrap is pending, tell the user it can run now because it is deterministic CLI compilation; restart or a new session is required only before downstream workflows rely on newly written host MCP config or live MCP probes.
+When setup finishes, the assistant's final response must restate the complete readiness status sourced from readiness ledger v2, followed by a short friendly next-step prompt. Prefer grouped status blocks rendered inside fenced code blocks instead of one wide Markdown table. The first grouped section must be an `Execution result` summary that shows `Harness runtime` and `Graph readiness` decisions, including ready and pending graph providers. Do not rely on prior command output as the only place where the status appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending. When graph bootstrap is pending, tell the user it can run now because it is deterministic CLI compilation; restart or a new session is required only before downstream workflows rely on newly written host MCP config or live MCP probes. When graph readiness is already ready, the next-step prompt must not stop at a restart caveat; recommend `/spec:standards` or `$spec-standards` as the next durable handoff to compile project standards and glue capability baseline, and tell users with an already-clear task they can describe it directly in a restarted/new session so `using-spec-first` can route by intent.
 
 ```text
 Required Harness Runtime is ready; graph bootstrap is still pending.
@@ -541,7 +541,8 @@ Project setup facts:
 
 下一步:
   1. 现在可以运行 /spec:graph-bootstrap 或 $spec-graph-bootstrap 完成 deterministic graph readiness 编译；也可以在本会话直接回复“继续完成”，让 agent 调用 bootstrap 脚本。
-  2. 重启 Claude Code/Codex 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。
+  2. graph readiness 完成后，推荐运行 /spec:standards 或 $spec-standards 编译项目规范与 glue capability baseline，给后续需求、计划、执行和审查提供可复用上下文。
+  3. 重启 Claude Code/Codex 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。
 ```
 
 ## Reference

@@ -13,11 +13,11 @@ Execute work efficiently while maintaining quality and finishing features.
 
 This command takes a work document (plan, task pack, or specification) or a bare prompt describing the work, and executes it systematically. The focus is on **shipping complete features** by understanding requirements quickly, following existing patterns, and maintaining quality throughout.
 
-**Beta rollout note:** Invoke `spec-work-beta` manually when you want to trial Codex delegation. During the beta period, planning and workflow handoffs remain pointed at stable `spec-work` to avoid dual-path orchestration complexity.
+**Beta rollout note:** Invoke `spec-work-beta` manually only when the current request explicitly asks to trial beta execution, Codex delegation, `delegate:codex`, or delegation mode. During the beta period, guide-mode recommendations, planning handoffs, and ordinary execution-ready work remain pointed at stable `spec-work` to avoid dual-path orchestration complexity.
 
 ## Context Orientation Anchor
 
-Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. When parent-workspace read-only orientation needs repo candidates, use `workspace-graph-targets.v1` as advisory facts, prefer bounded candidate repos with `primary` status, and try GitNexus-first evidence per candidate before bounded direct reads. Treat `degraded-fallback` or definitions-only GitNexus results as pointers, not authority to change behavior. External tools may prioritize inspection, but they do not define scope authority. Delegate prompts should carry bounded direct-read context and explicit file boundaries, not graph work-run ids.
+Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. When parent-workspace read-only orientation needs repo candidates, use `workspace-graph-targets.v1` as advisory facts, prefer bounded candidate repos with `primary` status, and try GitNexus-first evidence per candidate before bounded direct repo reads. Treat `degraded-fallback` or definitions-only GitNexus results as pointers, not authority to change behavior. External tools may prioritize inspection, but they do not define scope authority. Delegate prompts should carry bounded direct repo-read context and explicit file boundaries, not graph work-run ids.
 
 ## Workspace Repo Scope
 
@@ -51,7 +51,7 @@ After extracting tokens from arguments, resolve the delegation state using this 
 3. **Hard default** -- `false` (delegation off)
 
 **Config (pre-resolved):**
-!`(top=$(git rev-parse --show-toplevel 2>/dev/null); [ -n "$top" ] && cat "$top/.spec-first/config.local.yaml" 2>/dev/null) || (common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); [ -n "$common" ] && cat "$(dirname "$common")/.spec-first/config.local.yaml" 2>/dev/null) || echo '__NO_CONFIG__'`
+!`(top=$(git rev-parse --show-toplevel 2>/dev/null); [ -n "$top" ] && cat "$top/.spec-first/config.local.yaml" 2>/dev/null) || echo '__NO_CONFIG__'`
 
 If the block above contains YAML key-value pairs, extract values for the keys listed below.
 If it shows `__NO_CONFIG__`, the file does not exist — all settings fall through to defaults.
@@ -101,6 +101,17 @@ Determine how to proceed based on what was provided in `<input_document>`.
    | **Small / Medium** | Clear scope, under ~10 files | Build a task list from discovery. Proceed to Phase 1 step 2 |
    | **Large** | Cross-cutting, architectural decisions, 10+ files, touches auth/payments/migrations | Inform the user this would benefit from the current host's brainstorm or plan entrypoint to surface edge cases and scope boundaries. Honor their choice. If proceeding, build a task list and continue to Phase 1 step 2 |
 
+3. **Oversized intake and handoff**
+
+   Apply this before creating execution tasks:
+
+   - If the input is a bare prompt and the product WHAT is unclear, recommend the current host's brainstorm entrypoint before execution.
+   - If the desired outcome is clear but no settled plan exists, return to the current host's plan entrypoint rather than forcing `spec-work-beta` to plan while implementing.
+   - If the input is a settled plan and the plan is large enough that execution would require the executor to split dependencies, waves, or cross-module file ownership while implementing, offer the standalone `spec-write-tasks` diversion once.
+   - Do not describe task compilation as a command-backed workflow entrypoint; `spec-write-tasks` remains a standalone skill.
+   - If execution discovers scope beyond the plan/task pack, stop and return to `spec-plan` or rerun `spec-write-tasks`. Do not expand scope in place.
+   - Do not invent human-time phases, multi-day slices, or "this session only" subsets as an oversized-work workaround.
+
 ---
 
 ### Phase 1: Quick Start
@@ -109,7 +120,8 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    - Read the work document completely
    - Treat the plan as a decision artifact, not an execution script
-   - If the work document includes sections such as `Implementation Units`, `Work Breakdown`, `Requirements Trace`, `Files`, `Test Scenarios`, or `Verification`, use those as the primary source material for execution
+   - Treat a validated task pack as a first-class executable work document. The task pack supplies execution order, task boundaries, file focus, `stop_if`, and validation notes; its `source_plan` remains the single source of truth for scope, requirements, and non-goals.
+   - If the work document includes sections such as `Implementation Units`, `Work Breakdown`, `Requirements` (or legacy `Requirements Trace`), `Files`, `Test Scenarios`, or `Verification`, use those as the primary source material for execution
    - If the work document is a task pack, also use `Task Graph`, `Execution Waves`, `Task Cards`, `Validation Notes`, and `Regeneration Rules` as the primary source material for execution
    - If the work document is a task pack, validate it before creating execution tasks:
      - read its frontmatter and confirm `type: task-pack`, `generated_by: spec-write-tasks`, `status: derived`, and `mode: derived`
@@ -123,6 +135,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
      - reject draft, transient, missing-source, missing-spec-id, spec-id-mismatch, missing-hash, unavailable-hash-tooling, unverifiable-hash, or hash-mismatch task packs before implementation
      - when rejecting, stop and ask to rerun `spec-write-tasks` from the source plan or return to `spec-plan`; do not silently fall back to executing stale task cards
      - during execution, honor each task's `stop_if`; if triggered, stop and return to `spec-plan` or regenerate the task pack instead of expanding scope in place
+   - If the work document is already a validated task pack, do not offer task compilation again, do not rebuild execution structure from the source plan, and do not silently downgrade to plan-only execution. Execute from the task pack's validated task structure while keeping `source_plan` as scope authority.
    - If the work document is a plan path, and validated task-pack consumption is available, run the optional task-pack suitability check before `before-work --plan`, before creating a work-run, and before creating the internal task tracker:
      - offer the diversion once only when the plan has strong signals: 3+ implementation units, multiple phases, cross-module files, foundation tasks, dependency chains, parallel waves, 6+ likely core files, or verification across unit/smoke/integration layers
      - do not offer it for 1-2 file changes, docs-only/config-only/narrow bugfix plans, plans whose units are already small enough for the internal tracker, or when the user explicitly says to execute the plan directly
@@ -376,7 +389,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - The plan should reference similar code - read those files first
    - Match naming conventions exactly
    - Reuse existing components where possible
-   - Follow project coding standards (see AGENTS.md; use CLAUDE.md only if the repo still keeps a compatibility shim)
+   - Follow project coding standards (see AGENTS.md; use CLAUDE.md only if the repo still keeps a compatibility shim); when `.spec-first/standards/` exists, treat confirmed standards as hard context and use `glue-map.json` to prefer existing capabilities over reimplementation
    - When in doubt, grep for similar implementations
 
 4. **Test Continuously**
@@ -419,9 +432,9 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - Keep user informed of major milestones
    - When the plan defines U-IDs for Implementation Units, or the plan or origin document carries stable R-IDs (and optionally A/F/AE IDs), reference them in blockers, deferred-work notes, task summaries, and final verification — not routine status updates. U-IDs anchor units across plan edits; R/A/F/AE anchor product intent across the brainstorm-plan handoff. When available, include `spec_id` only as artifact-chain trace context, not as execution progress. Use the IDs the plan supplies and do not invent ones it does not. This preserves traceability without burying signal under noise.
 
-### Phase 3-4: Quality Check and Ship It
+### Phase 3-4: Quality Check and Finishing Work
 
-When all Phase 2 tasks are complete and execution transitions to quality check, read `references/shipping-workflow.md` for the full shipping workflow: quality checks, code review, final validation, PR creation, and notification.
+When all Phase 2 tasks are complete and execution transitions to quality check, you must read `references/shipping-workflow.md` for the full shipping workflow: quality checks, code review, final validation, PR creation, and notification. Do not skip this.
 
 ---
 

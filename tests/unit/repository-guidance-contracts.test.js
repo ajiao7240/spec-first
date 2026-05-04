@@ -20,4 +20,13 @@ describe('repository guidance contracts', () => {
     expect(text).toContain('同一会话内的 typed-agent / skill 调用');
     expect(text).toContain('脚本类资产不受会话缓存限制');
   });
+
+  test.each(GUIDANCE_FILES)('%s has a single GitNexus index summary inside the managed block', (fileName) => {
+    const text = fs.readFileSync(path.join(REPO_ROOT, fileName), 'utf8');
+    const blockMatch = text.match(/<!-- gitnexus:start -->[\s\S]*?<!-- gitnexus:end -->/u);
+
+    expect(blockMatch).not.toBeNull();
+    const summaries = blockMatch[0].match(/This project is indexed by GitNexus as \*\*spec-first\*\*/gu) || [];
+    expect(summaries).toHaveLength(1);
+  });
 });

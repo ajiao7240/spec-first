@@ -1,13 +1,13 @@
 ---
 name: resolve-pr-feedback
-description: Resolve PR review feedback by evaluating validity and fixing issues in parallel. Use when addressing PR review comments, resolving review threads, or fixing code review feedback.
+description: Resolve PR review feedback by evaluating validity and fixing issues with conflict-aware resolver dispatch. Use when addressing PR review comments, resolving review threads, or fixing code review feedback.
 argument-hint: "[PR number, comment URL, or blank for current branch's PR]"
 allowed-tools: Bash(gh *), Bash(git *), Read
 ---
 
 # Resolve PR Review Feedback
 
-Evaluate and fix PR review feedback, then reply and resolve threads. Spawns parallel agents for each thread.
+Evaluate and fix PR review feedback, then reply and resolve threads. Uses resolver agents when dispatch is safe and authorized; overlapping or unsafe work is serialized or handled by the current agent.
 
 > **Agent time is cheap. Tech debt is expensive.**
 > Fix everything valid -- including nitpicks and low-priority items. If we're already in the code, fix it rather than punt it. Narrow exception: when implementing the suggested fix would actively make the code worse (violates a project rule in CLAUDE.md/AGENTS.md, adds dead defensive code, suppresses errors that should propagate, premature abstraction, restates code in comments), use the `declined` verdict and cite the specific harm. When in doubt, fix it.
@@ -138,6 +138,14 @@ If step 3 produced clusters, include them in the task list as cluster items alon
 ### 5. Implement (PARALLEL)
 
 Process all three feedback types. Review threads are the primary type; PR comments and review bodies are secondary but should not be ignored.
+
+#### Mutating resolver dispatch boundary
+
+Resolver dispatch is mutating-sensitive. Direct invocation of this workflow may authorize resolver dispatch only when the host exposes a dispatch primitive, current session policy allows it, the user has not forbidden delegation, and the dispatch units pass the batching and file-overlap checks below.
+
+Each resolver may edit only the files needed for its assigned thread or cluster and must return the actual `files_changed` list. The orchestrator owns final integration: combined validation, staging, commits, pushes, PR replies, and thread resolution. Resolver agents must not stage files, create commits, push, or resolve review threads directly unless a future host-specific isolation contract explicitly says otherwise.
+
+If dispatch is unavailable, disallowed, or mutation would be unsafe, process dispatch units sequentially in the current agent. If file overlap or discovered collisions make parallel mutation unsafe, serialize the affected units or stop for orchestration instead of running shared-file fixes in parallel.
 
 #### Dispatch boundary for previously-resolved threads
 

@@ -31,6 +31,24 @@ const PLAN_HANDOFF_PATH = path.join(
   'references',
   'plan-handoff.md',
 );
+const SYNTHESIS_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-plan',
+  'references',
+  'synthesis-summary.md',
+);
+const VISUAL_COMMUNICATION_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-plan',
+  'references',
+  'visual-communication.md',
+);
 const UNIVERSAL_PLANNING_PATH = path.join(
   __dirname,
   '..',
@@ -99,6 +117,29 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('graph readiness is evidence context, not a planning gate');
     expect(text).toContain('Do not expand this into context selection, impact analysis, review evidence');
   });
+
+  test('planning research dispatch is host-neutral with explicit inline fallback', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Planning research agents are read-only.');
+    expect(text).toContain('A direct plan workflow invocation may authorize this documented research phase');
+    expect(text).toContain('including `spawn_agent` where provided');
+    expect(text).toContain('Do not downgrade solely because the host is Codex.');
+    expect(text).toContain('run the same research sequentially in the current agent');
+    expect(text).toContain('applying it inline as an explicit fallback');
+    expect(text).toContain('Plan generation must still complete when research dispatch is unavailable');
+    expect(text).toContain('`spec-repo-research-analyst`');
+    expect(text).toContain('`spec-learnings-researcher`');
+    expect(text).toContain('`spec-best-practices-researcher`');
+    expect(text).toContain('`spec-framework-docs-researcher`');
+    expect(text).toContain('`spec-spec-flow-analyzer`');
+    expect(text).not.toContain('Task spec-repo-research-analyst');
+    expect(text).not.toContain('Task spec-learnings-researcher');
+    expect(text).not.toContain('Task spec-best-practices-researcher');
+    expect(text).not.toContain('Task spec-framework-docs-researcher');
+    expect(text).not.toContain('Task spec-spec-flow-analyzer');
+    expect(text).not.toContain('`Task` / `Agent` on Claude Code, or `spawn_agent` on Codex');
+  });
 });
 
 describe('spec_id planning contract', () => {
@@ -139,6 +180,10 @@ describe('spec_id planning contract', () => {
 
     expect(text).toContain('current host\'s work entrypoint');
     expect(text).toContain('`Start work`, `Compile task pack`, or `Create Issue`');
+    expect(text).toContain('Invoke the current host\'s work entrypoint');
+    expect(text).toContain('<absolute path to plan>');
+    expect(skill).toContain('Act on the user\'s selection');
+    expect(skill).toContain('routed action has executed or been explicitly declined');
     expect(text).not.toContain('`Start /spec:work`, `Compile task pack`, or `Create Issue`');
     expect(skill).toContain('**Start work** (recommended)');
     expect(skill).toContain('current host\'s work entrypoint');
@@ -148,6 +193,35 @@ describe('spec_id planning contract', () => {
     expect(text).not.toContain('/spec:work <task-pack-path>` on Claude Code');
     expect(text).not.toContain('$spec-work <task-pack-path>` on Codex');
     expect(text).not.toContain('`/spec:work` on Claude Code, `$spec-work` on Codex');
+  });
+
+  test('plan synthesis checkpoints and template naming are in place', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const synthesis = fs.readFileSync(SYNTHESIS_PATH, 'utf8');
+    const deepening = fs.readFileSync(DEEPENING_PATH, 'utf8');
+    const visual = fs.readFileSync(VISUAL_COMMUNICATION_PATH, 'utf8');
+
+    expect(skill).toContain('#### 0.7 Solo-Mode Scope Summary');
+    expect(skill).toContain('#### 5.1.5 Brainstorm-Sourced Scope Summary');
+    expect(skill).toContain('read `references/synthesis-summary.md`');
+    expect(skill).toContain('## Summary');
+    expect(skill).toContain('## Requirements');
+    expect(skill).toContain('treat `## Overview` as the legacy name');
+    expect(skill).toContain('legacy `## Requirements Trace`');
+    expect(skill).toContain('## Assumptions');
+    expect(skill).toContain('Include only for unconfirmed inferred bets');
+    expect(skill).toContain('Keep these out of Key Technical Decisions and Implementation Units');
+    const template = skill.split('#### 4.2 Core Plan Template')[1];
+    expect(template.indexOf('## Requirements')).toBeLessThan(template.indexOf('## Assumptions'));
+    expect(template.indexOf('## Assumptions')).toBeLessThan(template.indexOf('## Scope Boundaries'));
+    expect(synthesis).toContain('Solo variant (Phase 0.7)');
+    expect(synthesis).toContain('Brainstorm-sourced variant (Phase 5.1.5)');
+    expect(synthesis).toContain('## Assumptions');
+    expect(deepening).toContain('**Requirements**');
+    expect(deepening).toContain('Requirements / Open Questions classification');
+    expect(visual).toContain('Summary or Problem Frame');
+    expect([skill, synthesis].join('\n')).not.toContain('STRATEGY.md');
+    expect([skill, synthesis].join('\n')).not.toContain('/ce-');
   });
 
   test('universal planning avoids slash-only handoff wording', () => {

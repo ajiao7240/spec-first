@@ -1,6 +1,6 @@
 # Shipping Workflow
 
-This file contains the shipping workflow (Phase 3-4). Load it only when all Phase 2 tasks are complete and execution transitions to quality check.
+This file contains the shipping workflow (Phase 3-4). It is loaded when all Phase 2 tasks are complete and execution transitions to quality check.
 
 ## Phase 3: Quality Check
 
@@ -18,15 +18,21 @@ This file contains the shipping workflow (Phase 3-4). Load it only when all Phas
 
 2. **Code Review** (REQUIRED)
 
-   Every change gets reviewed before shipping. The depth scales with the change's risk profile, but review itself is never skipped.
+   Every change gets reviewed before shipping. Prefer the lightest real review surface that the current host actually provides, and escalate when risk signals call for it.
 
-   **Tier 2: Full review (default)** -- REQUIRED unless Tier 1 criteria are explicitly met. Execute the `spec-code-review` workflow with `mode:autofix` to run specialized reviewer agents, auto-apply safe fixes, and record residual downstream work in the per-run artifact. Do not dispatch `spec-code-review` as an Agent/Task/subagent type; the workflow dispatches reviewer agents internally. When the plan file path is known, pass it as `plan:<path>`. This is the mandatory default -- proceed to Tier 1 only after confirming every criterion below.
+   **Tier 1 -- host-native code review.** Run this tier only when the current host exposes a real built-in code review command or skill (for example, a native `/review` command). Address blocking and suggested findings inline before Final Validation. Skip the Residual Work Gate. If the current host has no real built-in code review command or skill, Tier 1 cannot run — use Tier 2 so "Every change gets reviewed" remains true. Do not treat ordinary self-review as Tier 1.
 
-   **Tier 1: Inline self-review** -- A lighter alternative permitted only when **all four** criteria are true. Before choosing Tier 1, explicitly state which criteria apply and why. If any criterion is uncertain, use Tier 2.
-   - Purely additive (new files only, no existing behavior modified)
-   - Single concern (one skill, one component -- not cross-cutting)
-   - Pattern-following (implementation mirrors an existing example with no novel logic)
-   - Plan-faithful (no scope growth, no deferred questions resolved with surprising answers)
+   **Tier 2 -- `spec-code-review`.** Execute the `spec-code-review` workflow with `mode:autofix`, passing `plan:<path>` when known. The workflow runs specialized reviewer agents, auto-applies safe fixes, and records residual downstream work in the per-run artifact. Do not dispatch `spec-code-review` as an Agent/Task/subagent type; the workflow dispatches reviewer agents internally. Then proceed to the Residual Work Gate.
+
+   Use Tier 2 when **any** of the following is true:
+
+   - **No host-native review exists.** The current host lacks a real built-in code review command or skill.
+   - **Sensitive surface touched.** The diff modifies authentication or authorization, payments or billing, data migrations or backfills, cryptography or secret handling, security-relevant configuration, public API or library contracts, or dependency manifests.
+   - **Large and diffuse change.** The diff is >=400 changed lines and spans more than 3 directories or 2 distinct subsystems. Either alone is a soft signal; together they trigger escalation.
+   - **Very large change.** The diff is >=1,000 changed lines regardless of diffusion.
+   - **Plan or task explicitly requests it.** The plan, originating task, or another in-scope instruction calls for a full, deep, or thorough code review.
+
+   When the change is small, concentrated, outside the sensitive surface list, and a real host-native review exists, Tier 1 is sufficient.
 
 3. **Residual Work Gate** (REQUIRED when Tier 2 ran)
 
@@ -42,7 +48,7 @@ This file contains the shipping workflow (Phase 3-4). Load it only when all Phas
    - `Accept and proceed` — record the residual findings verbatim in a durable "Known Residuals" sink before shipping. If a PR will be created or updated in Phase 4, include them in the PR description's "Known Residuals" section (the agent owns this when calling `git-commit-push-pr`). If the user later chooses the no-PR `git-commit` path, create `docs/residual-review-findings/<branch-or-head-sha>.md`, include the accepted findings and source review-run context, stage it with the implementation commit, and mention the file path in the final summary. The user has acknowledged the risk, but the findings must not live only in the transient session.
    - `Stop — do not ship` — abort the shipping workflow. The user will handle findings manually before re-invoking.
 
-   Skip this gate entirely when the review reported `Residual actionable work: none.` or when only Tier 1 (inline self-review) was used. Do not proceed past this gate on an `Accept and proceed` decision until the agent has recorded whether the durable sink is `PR Known Residuals` or `docs/residual-review-findings/<branch-or-head-sha>.md`.
+   Skip this gate entirely when the review reported `Residual actionable work: none.` or when only Tier 1 was used. Do not proceed past this gate on an `Accept and proceed` decision until the agent has recorded whether the durable sink is `PR Known Residuals` or `docs/residual-review-findings/<branch-or-head-sha>.md`.
 
 4. **Final Validation**
    - All tasks marked completed
@@ -51,7 +57,7 @@ This file contains the shipping workflow (Phase 3-4). Load it only when all Phas
    - Code follows existing patterns
    - Figma designs match (if applicable)
    - No console errors or warnings
-   - If the plan has a `Requirements Trace`, verify each requirement is satisfied by the completed work
+   - If the plan has a `Requirements` section (or legacy `Requirements Trace`), verify each requirement is satisfied by the completed work
    - If the work document has `spec_id`, verify final summaries and handoff notes use it only as artifact-chain trace context, not as progress or approval state
    - If any `Deferred to Implementation` questions were noted, confirm they were resolved during execution
 
@@ -113,7 +119,7 @@ Before creating PR, verify:
 - [ ] Evidence decision handled by `git-commit-push-pr` when the change has observable behavior
 - [ ] Commit messages follow conventional format
 - [ ] PR description includes Post-Deploy Monitoring & Validation section (or explicit no-impact rationale)
-- [ ] Code review completed (inline self-review or full `spec-code-review`)
+- [ ] Code review completed (Tier 1 host-native or Tier 2 `spec-code-review`)
 - [ ] PR description includes summary, testing notes, and evidence when captured
 - [ ] PR description includes Compound Engineered badge with accurate model and harness
 
@@ -121,10 +127,13 @@ Before creating PR, verify:
 
 Every change gets reviewed. The tier determines depth, not whether review happens.
 
-**Tier 2 (full review)** -- REQUIRED default. Invoke `spec-code-review mode:autofix` with `plan:<path>` when available. Safe fixes are applied automatically; residual work is recorded in the run artifact for downstream routing. Always use this tier unless all four Tier 1 criteria are explicitly confirmed.
+**Tier 1 -- host-native code review.** Run this tier only when the current host exposes a real built-in code review command or skill. Address blocking and suggested findings inline. If the current host has no real built-in code review command or skill, Tier 1 cannot run.
 
-**Tier 1 (inline self-review)** -- permitted only when all four are true (state each explicitly before choosing):
-- Purely additive (new files only, no existing behavior modified)
-- Single concern (one skill, one component -- not cross-cutting)
-- Pattern-following (mirrors an existing example, no novel logic)
-- Plan-faithful (no scope growth, no surprising deferred-question resolutions)
+**Tier 2 -- `spec-code-review`.** Invoke `spec-code-review mode:autofix` with `plan:<path>` when available. Safe fixes are applied automatically; residual work routes through the Residual Work Gate.
+
+Escalate to Tier 2 when any of these holds:
+- The current host has no real host-native code review command or skill
+- Sensitive surface touched (auth/authz, payments/billing, data migrations or backfills, cryptography or secrets, security-relevant config, public API or library contracts, dependency manifests)
+- Large and diffuse change (>=400 changed lines and >3 directories or 2 subsystems)
+- Very large change (>=1,000 changed lines)
+- Plan or task explicitly requests a full, deep, or thorough code review

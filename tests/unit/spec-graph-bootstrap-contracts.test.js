@@ -49,13 +49,20 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('Do not rewrite `.spec-first/graph/*`');
     expect(skill).toContain('do not set compiled `query_ready=true`');
     expect(skill).toContain('update the final user-facing result table');
+    expect(skill).toContain('ready/degraded/not-applicable/action-required counts');
+    expect(skill).toContain('.spec-first/workspace/graph-bootstrap-summary.json');
+    expect(skill).toContain('.spec-first/workspace/graph-targets.json');
+    expect(skill).toContain('They do not replace child repo canonical graph facts.');
+    expect(skill).toContain('reason_code=workspace-graph-targets-no-source');
+    expect(skill).toContain('worktree_status_hash');
+    expect(skill).toContain('dirty fingerprints become `dirty-uncertain`');
     expect(skill).toContain('CLI graph_ready');
     expect(skill).toContain('CLI query_ready');
     expect(skill).toContain('Probe Token');
     expect(skill).toContain('CLI Evidence');
     expect(skill).toContain('Live MCP Probe');
     expect(skill).toContain('Do not collapse `Live MCP Probe=passed` into `CLI query_ready=true`');
-    expect(skill).toContain('summarize `run_id`, total child count, ready/degraded/action-required counts');
+    expect(skill).toContain('summarize `run_id`, total child count, ready/degraded/not-applicable/action-required counts');
     expect(skill).toContain('every `results[]` child row carries the same `parent_run_id`');
     expect(skill).toContain('Always report the compiled artifacts first, then any session-local live MCP evidence');
     expect(skill).toContain('code-review-graph and bounded direct repo reads');
@@ -82,7 +89,36 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(mirror).toContain('summary 必须包含 `run_id`');
     expect(mirror).toContain('child row 必须包含对应 `parent_run_id`');
     expect(mirror).toContain('最终回复必须先报告 compiled artifacts，再报告 session-local MCP evidence');
-    expect(mirror).toContain('多仓输出 `run_id`、child 总数、ready/degraded/action-required 计数和逐仓状态');
+    expect(mirror).toContain('多仓输出 `run_id`、child 总数、ready/degraded/not-applicable/action-required 计数和逐仓状态');
     expect(mirror).toContain('不把 compiled `query_ready` 改成 true');
+    expect(mirror).toContain('`reason_code=workspace-graph-targets-no-source`');
+    expect(mirror).toContain('`worktree_status_hash` freshness fingerprint');
+    expect(mirror).toContain('fingerprint 缺失或不匹配时才输出 `dirty-uncertain`');
+  });
+
+  test('ships review fixtures for trigger, boundary, failure, and expected behavior cases', () => {
+    const evalDir = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'evals');
+    const expectedFiles = [
+      'README.md',
+      'trigger-cases.json',
+      'boundary-cases.json',
+      'failure-cases.json',
+      'expected-behavior-cases.json',
+    ];
+
+    for (const fileName of expectedFiles) {
+      expect(fs.existsSync(path.join(evalDir, fileName))).toBe(true);
+    }
+
+    const readCases = fileName => JSON.parse(fs.readFileSync(path.join(evalDir, fileName), 'utf8')).cases;
+    expect(readCases('trigger-cases.json').map(item => item.expected_decision)).toContain('run-all-repos');
+    expect(readCases('boundary-cases.json').map(item => item.expected_decision)).toContain('do-not-write-parent-canonical-artifacts');
+    expect(readCases('failure-cases.json').map(item => item.expected_failure)).toContain('unsupported-provider-command');
+    expect(readCases('expected-behavior-cases.json').map(item => item.expected_output)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('counts.not_applicable'),
+        expect.stringContaining('worktree_status_hash'),
+      ]),
+    );
   });
 });

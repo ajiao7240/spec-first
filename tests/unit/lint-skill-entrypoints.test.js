@@ -1,0 +1,124 @@
+'use strict';
+
+const {
+  analyzeContent,
+  buildRules,
+} = require('../../scripts/lint-skill-entrypoints');
+
+function testConfig() {
+  return {
+    scanRoots: [],
+    markdownExtensions: ['.md'],
+    ignoredLineContains: [],
+    blockedPatterns: [],
+    warnPatterns: [],
+  };
+}
+
+function testGovernance() {
+  return {
+    skills: [
+      {
+        skill_name: 'using-spec-first',
+        entry_surface: 'standalone_skill',
+      },
+      {
+        skill_name: 'spec-write-tasks',
+        entry_surface: 'standalone_skill',
+      },
+      {
+        skill_name: 'spec-work',
+        entry_surface: 'workflow_command',
+      },
+    ],
+  };
+}
+
+describe('lint skill entrypoints', () => {
+  test('allows guardrail prose that forbids standalone command aliases', () => {
+    const config = testConfig();
+    const governance = testGovernance();
+    const rules = buildRules(config, governance);
+    const forbiddenCommand = '/spec:' + 'using-spec-first';
+
+    const findings = analyzeContent(
+      `Do not route users to \`${forbiddenCommand}\`.`,
+      'fixture.md',
+      { config, governance, rules },
+    );
+
+    expect(findings).toEqual([]);
+  });
+
+  test('blocks using-spec-first when written as a positive spec slash command', () => {
+    const config = testConfig();
+    const governance = testGovernance();
+    const rules = buildRules(config, governance);
+    const forbiddenCommand = '/spec:' + 'using-spec-first';
+
+    const findings = analyzeContent(
+      `Route users to \`${forbiddenCommand}\`.`,
+      'fixture.md',
+      { config, governance, rules },
+    );
+
+    expect(findings).toEqual([
+      expect.objectContaining({
+        ruleId: 'standalone-command-entrypoint',
+        severity: 'error',
+        line: 1,
+      }),
+    ]);
+  });
+
+  test('blocks spec-write-tasks positive command entrypoint aliases', () => {
+    const config = testConfig();
+    const governance = testGovernance();
+    const rules = buildRules(config, governance);
+    const slashCommand = '/spec:' + 'write-tasks';
+    const sourceSlashCommand = '/spec:' + 'spec-write-tasks';
+    const codexCommand = '$' + 'spec-write-tasks';
+
+    const findings = analyzeContent(
+      [
+        `Route users to \`${slashCommand}\`.`,
+        `Invoke \`${sourceSlashCommand}\`.`,
+        `Use \`${codexCommand}\`.`,
+      ].join('\n'),
+      'fixture.md',
+      { config, governance, rules },
+    );
+
+    expect(findings).toEqual([
+      expect.objectContaining({
+        ruleId: 'standalone-command-entrypoint',
+        severity: 'error',
+        line: 1,
+      }),
+      expect.objectContaining({
+        ruleId: 'standalone-command-entrypoint',
+        severity: 'error',
+        line: 2,
+      }),
+      expect.objectContaining({
+        ruleId: 'standalone-command-entrypoint',
+        severity: 'error',
+        line: 3,
+      }),
+    ]);
+  });
+
+  test('allows public workflow command prose for workflow-command skills', () => {
+    const config = testConfig();
+    const governance = testGovernance();
+    const rules = buildRules(config, governance);
+
+    const findings = analyzeContent(
+      'Route implementation work to `/spec:work` on Claude or `$spec-work` on Codex.',
+      'fixture.md',
+      { config, governance, rules },
+    );
+
+    expect(findings).toEqual([]);
+  });
+});

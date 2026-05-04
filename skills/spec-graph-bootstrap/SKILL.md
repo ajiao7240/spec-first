@@ -102,7 +102,11 @@ For read-only target discovery from a parent workspace, run the advisory resolve
 bash skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh
 ```
 
-The resolver emits `schema_version=workspace-graph-targets.v1`, per-child `status` values such as `primary`, `degraded-fallback`, `dirty-uncertain`, `stale`, `setup-ready-bootstrap-required`, or `unavailable`, GitNexus repo/query probe pointers, setup-owned config pointers, and canonical graph artifact pointers. Downstream LLM workflows use this output to choose bounded candidate repos for read-only GitNexus-first evidence; scripts still do not decide semantic repo relevance.
+The resolver emits `schema_version=workspace-graph-targets.v1`, per-child `status` values such as `primary`, `degraded-fallback`, `no-source`, `dirty-uncertain`, `stale`, `setup-ready-bootstrap-required`, or `unavailable`, GitNexus repo/query probe pointers, setup-owned config pointers, and canonical graph artifact pointers. Downstream LLM workflows use this output to choose bounded candidate repos for read-only GitNexus-first evidence; scripts still do not decide semantic repo relevance.
+
+If every discovered child repo is `status=no-source`, the resolver reports `reason_code=workspace-graph-targets-no-source` instead of generic degraded. That preserves the distinction between “no code-bearing graph target exists” and “a code-bearing graph target failed readiness.”
+
+Graph facts include a `worktree_status_hash` freshness fingerprint. The resolver uses it to distinguish a dirty worktree whose status matches bootstrap time from a genuinely changed dirty worktree; missing or mismatched dirty fingerprints become `dirty-uncertain`.
 
 On Windows:
 
@@ -185,7 +189,7 @@ Reject string commands, `bash -c`, `sh -c`, and unsupported executable/package s
 2. Status command succeeds.
 3. Provider-specific query-surface proof succeeds.
 
-If build and status succeed but query-surface proof is missing, unsupported, or fails, write `status=query-unverified`, keep `query_ready=false`, and include diagnostics plus raw log pointers. Do not infer query readiness from build exit code alone. For GitNexus, Level 3 is fail-closed: each query log must not contain FTS/read-only/missing-index diagnostics, the query JSON must parse, and at least one bounded candidate probe must return non-empty `processes` or `process_symbols`. `definitions` is useful context but is not sufficient proof that the BM25/process query surface is healthy. If all GitNexus candidates return definitions-only evidence or otherwise fail to produce process results, preserve `graph_ready=true` where status was verified, but keep `query_ready=false`. For `code-review-graph`, the Level 3 proof is intentionally conservative and may reuse its `status --repo` surface probe; treat it as provider readiness evidence, not semantic graph evidence.
+If build and status succeed but query-surface proof is missing, unsupported, or fails, write `status=query-unverified`, keep `query_ready=false`, and include diagnostics plus raw log pointers. Do not infer query readiness from build exit code alone. For GitNexus, Level 3 is fail-closed: each query log must not contain FTS/read-only/missing-index diagnostics, the query JSON must parse, and at least one bounded candidate probe must return non-empty `processes` or `process_symbols`. `definitions` is useful context but is not sufficient proof that the BM25/process query surface is healthy. If all expected-hit GitNexus candidates return definitions-only evidence or otherwise fail to produce process results, preserve `graph_ready=true` where status was verified, but keep `query_ready=false`. If `query_probe_policy.expected_hit=false` because setup found no source-derived probe candidate, record `status=query-not-applicable`, keep `query_ready=false`, and let the single-repo workflow report `workflow_mode=no-source` / `overall_status=not-applicable` instead of treating the child as degraded. For `code-review-graph`, the Level 3 proof is intentionally conservative and may reuse its `status --repo` surface probe; treat it as provider readiness evidence, not semantic graph evidence.
 
 GitNexus candidate probing is bounded and deterministic:
 
@@ -196,6 +200,7 @@ GitNexus candidate probing is bounded and deterministic:
 - Provider status records `query_probe_attempts[]` with token, source path, reason code, exit code, result class, verification reason, and raw log.
 - Normalized GitNexus envelopes include attempted query logs and `winning_query_probe_log` when a later candidate is the first process result.
 - Candidate probing must not become broad search; keep it small and source-derived so scripts prepare facts and LLMs decide how to use them.
+- Parent all-repos summaries count `no-source` / `not-applicable` children separately from degraded children; a README-only child repo should not make code-bearing children look degraded.
 
 Provider commands may trigger first-use package downloads. Progress hints go to stderr, while stdout remains the final JSON result and raw provider output remains in `.spec-first/providers/<provider>/raw/*`. Parent all-repos runs also emit child start/finish progress to stderr and stamp `.spec-first/workspace/graph-bootstrap-summary.json` with a `run_id`; every `results[]` child row carries the same `parent_run_id` for log correlation.
 
@@ -226,7 +231,7 @@ Do not collapse `Live MCP Probe=passed` into `CLI query_ready=true`. If live MCP
 Always report the compiled artifacts first, then any session-local live MCP evidence:
 
 1. For a single repo, summarize `workflow_mode`, `overall_status`, provider `graph_ready/query_ready`, key `reason_code`, and the canonical artifact paths.
-2. For parent workspace all-repos runs, summarize `run_id`, total child count, ready/degraded/action-required counts, and per-child status. Keep parent `.spec-first/workspace/graph-bootstrap-summary.json` explicitly advisory.
+2. For parent workspace all-repos runs, summarize `run_id`, total child count, ready/degraded/not-applicable/action-required counts, and per-child status. Keep parent `.spec-first/workspace/graph-bootstrap-summary.json` explicitly advisory.
 3. If any GitNexus provider is `query-unverified` or the live MCP probe was attempted, include the separate compiled-vs-session table from the Live MCP Probe section. Do not omit this table just because code-review-graph is ready.
 4. If the final answer mentions rerunning with elevated permissions, network repair, cache repair, restart/new session, or degraded fallback use, tie that advice to structured `reason_code`, `failure_class`, raw log paths, or live MCP evidence.
 5. Never rewrite or imply updated compiled readiness based on a live MCP response. A live MCP response is only current-session evidence for the LLM handoff.
@@ -259,6 +264,15 @@ Canonical downstream artifacts live under `.spec-first/graph/` and `.spec-first/
 .spec-first/graph/bootstrap-report.md
 .spec-first/impact/bootstrap-impact-capabilities.json
 ```
+
+Parent workspace advisory summaries live under `.spec-first/workspace/`:
+
+```text
+.spec-first/workspace/graph-bootstrap-summary.json
+.spec-first/workspace/graph-targets.json
+```
+
+These workspace summaries are advisory control-plane evidence only. They do not replace child repo canonical graph facts.
 
 `graph-providers.json.derived_readiness` and `runtime-capabilities.json.project_graph_readiness` are setup-owned projections pointing back to canonical artifacts. They are refreshed by `spec-mcp-setup` from `.spec-first/graph/` and `.spec-first/impact/`; graph-bootstrap must not mutate setup-owned config inputs to mark readiness.
 

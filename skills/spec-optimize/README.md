@@ -28,6 +28,7 @@ Usually not a good fit:
 - Start with [`references/example-hard-spec.yaml`](./references/example-hard-spec.yaml) for objective targets
 - Start with [`references/example-judge-spec.yaml`](./references/example-judge-spec.yaml) when semantics matter and you need LLM-as-judge
 - Keep the first run serial, small, and cheap until the harness is trustworthy
+- Give every run an explicit experiment budget: max iterations, max hours, plateau limit, max concurrency, and judge cost cap when judge mode is used
 - Avoid introducing new dependencies until the baseline and evaluation loop are stable
 
 ## Docs

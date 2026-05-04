@@ -3,12 +3,12 @@
 # spec-first
 
 [![npm version](https://img.shields.io/npm/v/spec-first.svg)](https://www.npmjs.com/package/spec-first)
-[![license](https://img.shields.io/npm/l/spec-first.svg)](./LICENSE)
-[![node](https://img.shields.io/node/v/spec-first.svg)](./package.json)
+[![license](https://img.shields.io/npm/l/spec-first.svg)](https://github.com/sunrain520/spec-first/blob/main/LICENSE)
+[![node](https://img.shields.io/node/v/spec-first.svg)](https://github.com/sunrain520/spec-first/blob/main/package.json)
 [![CI](https://github.com/sunrain520/spec-first/actions/workflows/npm-install-matrix.yml/badge.svg)](https://github.com/sunrain520/spec-first/actions/workflows/npm-install-matrix.yml)
 [![docs](https://img.shields.io/badge/docs-spec--first.cn-0b7285.svg)](http://spec-first.cn/)
 
-[English](./README.md) | [简体中文](./README.zh-CN.md)
+[English](https://github.com/sunrain520/spec-first/blob/main/README.md) | [简体中文](https://github.com/sunrain520/spec-first/blob/main/README.zh-CN.md)
 
 **Spec-driven AI engineering workflows for Claude Code and Codex.**
 
@@ -24,10 +24,13 @@ Official site: [spec-first.cn](http://spec-first.cn/)
 
 ## See It In 90 Seconds
 
-![spec-first workflow flow](./docs/assets/readme/spec-first-flow.svg)
+![spec-first workflow flow](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)
 
 ```text
-Loose idea
+Open-ended improvement question
+  -> $spec-ideate or /spec:ideate
+  -> docs/ideation/YYYY-MM-DD-topic-ideation.md
+  -> choose one rough idea
   -> $spec-brainstorm or /spec:brainstorm
   -> docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
   -> $spec-plan or /spec:plan
@@ -53,14 +56,15 @@ Claude Code users can run `/spec:brainstorm "Improve onboarding for first-time C
 A complete workflow chain can leave artifacts like:
 
 ```text
+docs/ideation/2026-05-01-cli-onboarding-ideation.md
 docs/brainstorms/2026-05-01-001-cli-onboarding-requirements.md
 docs/plans/2026-05-01-001-feat-cli-onboarding-plan.md
 docs/tasks/2026-05-01-001-feat-cli-onboarding-tasks.md
 ```
 
-The first brainstorm run usually creates only the requirements brief. The plan, task-pack, work, review, debug, and compound entries add their own artifacts when you choose to continue the chain.
+Use `ideate` first when you want the AI to generate and rank options. The first brainstorm run usually creates only the requirements brief for one chosen idea. The plan, task-pack, work, review, debug, and compound entries add their own artifacts when you choose to continue the chain.
 
-For the detailed walkthrough, see [Chinese First Workflow Walkthrough](./docs/05-用户手册/09-首次工作流走查.md).
+For the detailed walkthrough, see [Chinese First Workflow Walkthrough](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md).
 
 ## Why spec-first?
 
@@ -154,10 +158,15 @@ Restart Claude Code or Codex
   |
   | /spec:mcp-setup       or $spec-mcp-setup
   | /spec:graph-bootstrap or $spec-graph-bootstrap
+  | /spec:standards       or $spec-standards
   v
 Choose the next workflow in the host session
   |
-  +-- Rough idea or product problem
+  +-- Need options, critiques, or improvement ideas
+  |     -> /spec:ideate or $spec-ideate
+  |     -> docs/ideation/*-ideation.md
+  |
+  +-- Rough product problem or feature idea
   |     -> /spec:brainstorm or $spec-brainstorm
   |     -> docs/brainstorms/*-requirements.md
   |
@@ -213,6 +222,14 @@ mcp-setup / graph-bootstrap
 ```
 
 Read this as an engineering loop, not a mandatory command chain. Enter at the node that matches the current state; the host guidance can recommend one public entrypoint when the next step is unclear. `write-tasks` is a standalone skill, and browser-visible polishing is currently exposed as `polish-beta`.
+
+Use `ideate` when you want options, critiques, or surprising directions before committing to a problem frame. Use `brainstorm` when you already have a rough problem or feature and need a requirements brief with actors, flows, boundaries, and acceptance examples. Use `doc-review` when a requirements, plan, or task document already exists and needs gap-finding. Do not make `brainstorm` the default entrypoint for every unclear request.
+
+| Need | Better entrypoint |
+|---|---|
+| "What should we improve?" or "give me ideas" | `ideate` |
+| "I have this rough product problem; shape it" | `brainstorm` |
+| "This requirements or plan document has gaps" | `doc-review` |
 
 | Layer | Nodes | What it answers | Durable output |
 |---|---|---|---|
@@ -277,6 +294,7 @@ The core contract is: `.spec-first` facts are authoritative at the **selected Gi
 
 | Entity | Typical location | Role |
 |---|---|---|
+| Ideation shortlist | `docs/ideation/` | Ranks and critiques candidate ideas before one is selected for requirement shaping. |
 | Requirements brief | `docs/brainstorms/` | Captures the problem, actors, flows, constraints, and acceptance examples before implementation pressure takes over. |
 | Implementation plan | `docs/plans/` | Turns a settled goal into scoped implementation units, tradeoffs, verification targets, and non-goals. |
 | Task pack | `docs/tasks/` | Provides structured handoff when a plan needs deterministic task identity, dependency order, and validation. |
@@ -288,6 +306,7 @@ Repo-relative artifact roots:
 
 ```text
 docs/
+  ideation/      ranked idea candidates before requirements shaping
   brainstorms/   requirements briefs from early problem framing
   plans/         implementation plans ready for review and execution
   tasks/         derived task packs when a plan needs structured handoff
@@ -298,7 +317,7 @@ docs/
 
 Not every workflow writes every artifact; each entrypoint writes only the artifact that fits its role.
 
-For who creates, reads, and should edit each artifact, see [Chinese Artifact Catalog](./docs/05-用户手册/10-产物目录.md).
+For who creates, reads, and should edit each artifact, see [Chinese Artifact Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/10-%E4%BA%A7%E7%89%A9%E7%9B%AE%E5%BD%95.md).
 
 ## How It Works
 
@@ -314,7 +333,7 @@ Host runtime assets
         |
         v
 Workflow artifacts
-  brainstorms -> plans -> tasks -> work/review/debug -> learnings
+  ideation -> brainstorms -> plans -> tasks -> work/review/debug -> learnings
 ```
 
 Source-of-truth assets live in the repository. Generated runtime copies under `.claude/`, `.codex/`, and `.agents/skills/` are disposable and can be rebuilt with `spec-first init`.
@@ -324,6 +343,7 @@ Runtime shape after init:
 ```text
 your-project/
 ├── docs/
+│   ├── ideation/
 │   ├── brainstorms/
 │   ├── plans/
 │   ├── tasks/
@@ -338,7 +358,8 @@ your-project/
 
 | Flow | Start here | What it stabilizes |
 |---|---|---|
-| Problem framing | `/spec:brainstorm` or `$spec-brainstorm` | The original need, user-facing goal, boundaries, and acceptance examples. |
+| Idea generation | `/spec:ideate` or `$spec-ideate` | Candidate directions, critique, ranking, and the handoff into one selected idea. |
+| Problem framing | `/spec:brainstorm` or `$spec-brainstorm` | The original need, user-facing goal, boundaries, and acceptance examples for one chosen idea. |
 | Implementation planning | `/spec:plan` or `$spec-plan` | Architecture choices, implementation units, verification scope, and known unknowns. |
 | Work execution | `/spec:work` or `$spec-work` | Code changes, focused tests, verification notes, and scope control. |
 | App consistency audit | `/spec:app-consistency-audit` or `$spec-app-consistency-audit` | PRD, Figma, source, route, KMP/Clean Architecture, analytics, i18n, and rule-pack consistency before runtime validation. |
@@ -349,7 +370,8 @@ your-project/
 
 | If you have... | Start here | Expected result |
 |---|---|---|
-| A rough idea or product problem | `/spec:brainstorm` or `$spec-brainstorm` | Requirements brief under `docs/brainstorms/` |
+| An open-ended improvement question or you want options | `/spec:ideate` or `$spec-ideate` | Ranked ideation artifact under `docs/ideation/` |
+| A rough product problem or feature idea | `/spec:brainstorm` or `$spec-brainstorm` | Requirements brief under `docs/brainstorms/` |
 | A settled goal but no implementation strategy | `/spec:plan` or `$spec-plan` | Plan under `docs/plans/` |
 | A plan or task pack ready to execute | `/spec:work` or `$spec-work` | Code changes, tests, and verification notes |
 | A mobile App change needs PRD/Figma/source consistency before QA | `/spec:app-consistency-audit` or `$spec-app-consistency-audit` | Static audit report and run-scoped evidence under `.spec-first/app-audit/runs/` |
@@ -360,7 +382,8 @@ your-project/
 
 | I want to... | Claude Code | Codex | Expected result |
 |---|---|---|---|
-| Explore an idea | `/spec:brainstorm` | `$spec-brainstorm` | Requirements brief under `docs/brainstorms/` |
+| Generate and rank ideas | `/spec:ideate` | `$spec-ideate` | Ideation artifact under `docs/ideation/` |
+| Shape one idea into requirements | `/spec:brainstorm` | `$spec-brainstorm` | Requirements brief under `docs/brainstorms/` |
 | Plan implementation | `/spec:plan` | `$spec-plan` | Plan under `docs/plans/` |
 | Execute work | `/spec:work` | `$spec-work` | Code, tests, and verification notes |
 | Audit App consistency | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` | Static consistency report and scoped audit artifacts |
@@ -375,7 +398,7 @@ The operating rule is simple: Scripts prepare, LLM decides.
 
 - **What scripts do:** install, validate, generate, clean, hash, and report machine facts.
 - **What the LLM decides:** requirements framing, scope boundaries, tradeoffs, implementation judgment, review evidence, and next steps.
-- **What gets written:** repo-local docs, plans, task packs, review/debug artifacts, and managed runtime assets during init.
+- **What gets written:** repo-local docs, plans, task packs, durable review/debug summaries when explicitly routed, and managed runtime assets during init. Full-detail code-review JSON stays in `/tmp/spec-first/spec-code-review/<run-id>/` as a temporary handoff unless a workflow writes a concise durable summary.
 - **What is generated:** `.claude/`, `.codex/`, and `.agents/skills/` runtime copies.
 - **What should be edited:** source assets under `skills/`, `agents/`, `templates/`, `src/cli/`, and docs. Rebuild runtime copies instead of hand-editing them.
 - **What spec-first does not do:** it is not a generic agent marketplace, not a single prompt pack, and not a standalone app that works without Claude Code or Codex.
@@ -389,7 +412,7 @@ Use `spec-first clean --claude` or `spec-first clean --codex` to remove managed 
 Use `spec-first` when:
 
 - You already use Claude Code or Codex and want project-local workflows instead of one-off prompts.
-- You want AI coding work to leave durable requirements, plans, review findings, and learnings.
+- You want AI coding work to leave durable requirements, plans, explicitly routed review summaries, and learnings.
 - You want scripts to handle deterministic setup while keeping semantic judgment with the LLM.
 - You want a lightweight workflow layer that can be regenerated from source assets.
 
@@ -400,32 +423,32 @@ It may not fit when you only need a single prompt snippet, a generic agent marke
 Official site and language entrypoints:
 
 - [spec-first.cn](http://spec-first.cn/)
-- [English README](./README.md)
-- [简体中文 README](./README.zh-CN.md)
+- [English README](https://github.com/sunrain520/spec-first/blob/main/README.md)
+- [简体中文 README](https://github.com/sunrain520/spec-first/blob/main/README.zh-CN.md)
 
 Learn the model:
 
-- [Chinese User Manual](./docs/05-用户手册/README.md)
-- [Chinese Core Concepts](./docs/05-用户手册/02-核心概念.md)
-- [Chinese Architecture Overview](./docs/02-架构设计/01-整体架构.md)
+- [Chinese User Manual](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/README.md)
+- [Chinese Core Concepts](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/02-%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5.md)
+- [Chinese Architecture Overview](https://github.com/sunrain520/spec-first/blob/main/docs/02-%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/01-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84.md)
 
 Use workflows:
 
-- [Chinese Quickstart](./docs/05-用户手册/01-快速开始.md)
-- [Chinese First Workflow Walkthrough](./docs/05-用户手册/09-首次工作流走查.md)
-- [Chinese Workflows and Artifacts Map](./docs/05-用户手册/04-workflows-artifacts-map.md)
+- [Chinese Quickstart](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/01-%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B.md)
+- [Chinese First Workflow Walkthrough](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md)
+- [Chinese Workflows and Artifacts Map](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/04-workflows-artifacts-map.md)
 
 Develop and contribute:
 
-- [Contributing Guide](./CONTRIBUTING.md)
-- [Security Policy](./SECURITY.md)
-- [License](./LICENSE)
-- [Chinese Development Guide](./docs/03-实施方案/06-开发规范.md)
-- [Chinese Testing Plan](./docs/03-实施方案/04-测试方案.md)
+- [Contributing Guide](https://github.com/sunrain520/spec-first/blob/main/CONTRIBUTING.md)
+- [Security Policy](https://github.com/sunrain520/spec-first/blob/main/SECURITY.md)
+- [License](https://github.com/sunrain520/spec-first/blob/main/LICENSE)
+- [Chinese Development Guide](https://github.com/sunrain520/spec-first/blob/main/docs/03-%E5%AE%9E%E6%96%BD%E6%96%B9%E6%A1%88/06-%E5%BC%80%E5%8F%91%E8%A7%84%E8%8C%83.md)
+- [Chinese Testing Plan](https://github.com/sunrain520/spec-first/blob/main/docs/03-%E5%AE%9E%E6%96%BD%E6%96%B9%E6%A1%88/04-%E6%B5%8B%E8%AF%95%E6%96%B9%E6%A1%88.md)
 
 Release history:
 
-- [Chinese Release Notes](./docs/08-版本更新/README.md)
+- [Chinese Release Notes](https://github.com/sunrain520/spec-first/blob/main/docs/08-%E7%89%88%E6%9C%AC%E6%9B%B4%E6%96%B0/README.md)
 
 Detailed manuals and implementation docs are currently Chinese-first.
 
@@ -435,6 +458,7 @@ Detailed manuals and implementation docs are currently Chinese-first.
 |---|---|---|
 | Setup required harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` |
 | Compile graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
+| Compile, check, refresh, deepen, or import project standards and glue baseline | `/spec:standards` | `$spec-standards` |
 | Update spec-first or runtime assets | `/spec:update` | `$spec-update` |
 | Search agent session history | `/spec:sessions` | `$spec-sessions` |
 | Research Slack context | `/spec:slack-research` | `$spec-slack-research` |
@@ -447,7 +471,7 @@ Detailed manuals and implementation docs are currently Chinese-first.
 | Audit App consistency | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` |
 | Debug a failure or bug | `/spec:debug` | `$spec-debug` |
 | Execute work | `/spec:work` | `$spec-work` |
-| Execute work with Codex delegation beta | `/spec:work-beta` | `$spec-work-beta` |
+| Trial Codex delegation beta (explicit opt-in) | `/spec:work-beta` | `$spec-work-beta` |
 | Optimize a measurable outcome | `/spec:optimize` | `$spec-optimize` |
 | Polish browser-visible UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
 | Review code | `/spec:code-review` | `$spec-code-review` |
@@ -489,9 +513,11 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 
 Runtime asset summary:
 
+Detailed runtime capability catalog: [Runtime Capability Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/catalog/runtime-capabilities.md).
+
 | Layer | Current Contract |
 |---|---|
-| **Capability layer** | Bundled source assets ship with `41` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `20` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `20` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
+| **Capability layer** | Bundled source assets ship with `42` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `21` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `21` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
 | **Claude runtime** | Commands are generated under `.claude/commands/spec`, standalone and agent-facing internal skills under `.claude/skills`, command-backed workflow skill copies under `.claude/spec-first/workflows`, agents under `.claude/agents`, and managed state under `.claude/spec-first/state.json`. |
 | **Codex runtime** | Workflow, standalone, and agent-facing internal skills are generated under `.agents/skills`, agents under `.codex/agents`, and managed state under `.codex/spec-first/state.json`. |
 | **Readiness** | The setup workflow writes readiness ledger v2 plus setup-owned `graph-providers.json`, `runtime-capabilities.json`, and `provider-artifacts.json`; the graph bootstrap workflow consumes those facts and writes canonical graph facts, provider status, impact capabilities, and a report. |
@@ -499,13 +525,14 @@ Runtime asset summary:
 Expected Claude init output includes:
 
 ```text
-📦 Generated 20 command file(s) in .claude/commands/spec
+📦 Generated 21 command file(s) in .claude/commands/spec
 🧩 Generated 4 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 Next steps:
   1. Restart Claude Code or open a new session so the host loads the generated /spec:* commands.
   2. In the new session, run /spec:mcp-setup to install and verify the required MCP/helper runtime.
   3. If /spec:mcp-setup shows graph bootstrap is still pending, run /spec:graph-bootstrap when prompted.
+  4. After graph readiness is ready, run /spec:standards to compile project standards and glue baseline before downstream workflows.
 ```
 
 Expected Codex init output includes:
@@ -517,6 +544,7 @@ Next steps:
   1. Restart Codex or open a new session so the host loads the generated $spec-* skills.
   2. In the new session, run $spec-mcp-setup to install and verify the required MCP/helper runtime.
   3. If $spec-mcp-setup shows graph bootstrap is still pending, run $spec-graph-bootstrap when prompted.
+  4. After graph readiness is ready, run $spec-standards to compile project standards and glue baseline before downstream workflows.
 ```
 
 ## Development & Contributing
@@ -538,4 +566,4 @@ npm test
 
 When changing source assets, edit `skills/`, `agents/`, `templates/`, or `src/cli/`, then regenerate runtime copies with `spec-first init --claude` or `spec-first init --codex` in a fresh host session.
 
-For contribution and support details, see [CONTRIBUTING.md](./CONTRIBUTING.md), [SECURITY.md](./SECURITY.md), [LICENSE](./LICENSE), and [GitHub Issues](https://github.com/sunrain520/spec-first/issues).
+For contribution and support details, see [CONTRIBUTING.md](https://github.com/sunrain520/spec-first/blob/main/CONTRIBUTING.md), [SECURITY.md](https://github.com/sunrain520/spec-first/blob/main/SECURITY.md), [LICENSE](https://github.com/sunrain520/spec-first/blob/main/LICENSE), and [GitHub Issues](https://github.com/sunrain520/spec-first/issues).

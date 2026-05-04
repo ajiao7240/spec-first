@@ -62,6 +62,7 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('A task pack that can be handed to `spec-work` must include `spec_id`');
     expect(skill).toContain('If the source plan is a legacy plan without `spec_id`, do not write an executable task pack');
     expect(skill).toContain('copying `spec_id` from the source plan');
+    expect(skill).toContain('`Requirements` (or legacy `Requirements Trace`)');
     expect(skill).toContain('A mismatch is a wrong-chain handoff');
     expect(skill).toContain('bounded source orientation');
     expect(skill).toContain('targeted direct repo reads first');
@@ -85,6 +86,8 @@ describe('spec-write-tasks contracts', () => {
 
     expect(schema).toContain('spec_id: "YYYY-MM-DD-NNN-<slug>"');
     expect(schema).toContain('source_plan_hash: "sha256:<64-hex>"');
+    expect(schema).toContain('- "Requirements"');
+    expect(schema).not.toContain('- "Requirements Trace"');
     expect(schema).toContain('Concrete repo-relative POSIX file path to the single source plan');
     expect(schema).toContain('`spec_id` and `source_plan_hash` have separate jobs');
     expect(schema).toContain('canonical source plan body hashing');
@@ -104,6 +107,9 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain('Traceability Matrix');
     expect(schema).toContain('Current deterministic validation only checks frontmatter identity/freshness and the `Task Pack Contract` JSON structure');
     expect(schema).toContain('Executable task cards must include these deterministic fields');
+    expect(schema).toContain('Related Requirements / legacy Requirements Trace / acceptance refs');
+    expect(schema).toContain("entry_hint: Start with the plan's Requirements and Scope Boundaries");
+    expect(schema).not.toContain("entry_hint: Start with the plan's Requirements Trace");
     expect(schema).toContain('Quality Task Fields');
     expect(schema).toContain('MVP required task fields');
     expect(schema).toContain('Wave ids must be strings or numbers.');

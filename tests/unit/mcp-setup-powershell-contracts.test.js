@@ -86,9 +86,13 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('Format-Remark');
     expect(verifySource).toContain('回复“继续完成”');
     expect(verifySource).toContain('现在可以运行 $graphCommand');
+    expect(verifySource).toContain('$standardsCommand');
+    expect(verifySource).toContain('推荐下一步运行 $standardsCommand');
+    expect(verifySource).toContain('如果已经有明确任务，可以在新会话直接描述目标');
     expect(verifySource).toContain('live MCP probe 前需要');
     expect(verifySource).toContain('graph_bootstrap_required');
     expect(verifySource).toContain('$spec-graph-bootstrap');
+    expect(verifySource).toContain('$spec-standards');
   });
 
   test('PowerShell project target resolver matches workspace target contract', () => {
@@ -223,6 +227,11 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('function Test-GitNexusProbeWeakProofToken');
     expect(writeProviderSource).toContain('function Test-GitNexusProbeInfrastructureToken');
     expect(writeProviderSource).toContain('function Test-GitNexusProbeDisplaySignalToken');
+    expect(writeProviderSource).toContain('function Test-GitNexusProbeMethodSignalToken');
+    expect(writeProviderSource).toContain('function Get-GitNexusProbeMethodTokensFromPath');
+    expect(writeProviderSource).toContain('workflow_method');
+    expect(writeProviderSource).toContain('src_method');
+    expect(writeProviderSource).toContain('git-ls-files-source-symbol');
     expect(writeProviderSource).toContain('Health|Ping|Actuator|Status|Info|Error|Metrics');
     expect(writeProviderSource).toContain("'^(Ad|Ads)$'");
     expect(writeProviderSource).toContain("'^(Advertise|Advertisement|Splash|Guide|Intro|Onboarding)[A-Za-z0-9_]*'");
@@ -297,6 +306,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('function Test-GitNexusQueryProbeVerified');
     expect(source).toContain('function Get-GitNexusQueryProbeCandidates');
     expect(source).toContain('function Get-GitNexusQueryProbeCandidateCount');
+    expect(source).toContain('function Test-GitNexusQueryProbeExpectedHit');
     expect(source).toContain('function Invoke-GitNexusQueryProbeCandidate');
     expect(source).toContain('function Test-QueryProbePolicySupported');
     expect(source).toContain('GitNexusQueryProbeCandidateLimit = 5');
@@ -310,23 +320,31 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('query_probe_attempts');
     expect(source).toContain('query_probe_candidate_limit');
     expect(source).toContain('query_probe_candidates_truncated');
+    expect(source).toContain('query-not-applicable');
+    expect(source).toContain('not_applicable');
     expect(source).toContain('winning_query_probe_log');
     expect(source).toContain('query-');
     expect(source).toContain('query_global_graph');
     expect(source).toContain('impact_context');
     expect(source).toContain('staleness_hints');
     expect(source).toContain('compare_source_revision = $true');
+    expect(source).toContain('function Get-StatusHash');
+    expect(source).toContain('worktree_status_hash = $worktreeStatusHash');
     expect(source).toContain('Probe Token');
     expect(source).toContain('function Get-ProviderFailureInfo');
     expect(source).toContain('gitnexus-analyze-sigsegv');
     expect(source).toContain('provider-network-unavailable');
     expect(source).toContain('provider-cache-permission-denied');
+    expect(source).toContain('ProviderCommandTimeoutSeconds');
+    expect(source).toContain('function Invoke-ExternalCommandWithTimeout');
+    expect(source).toContain('provider-command-timeout');
+    expect(source).toContain('provider-timeout');
     expect(source).toContain('Provider package registry or network resolution failed');
     expect(source).toContain('dependencies may download on first use');
     expect(source).toContain('graph_ready = $graphReady');
     expect(source).toContain('function Write-JsonFileAtomic');
     expect(source).toContain('Move-Item -Force');
-    expect(source).toContain('& $exe @args');
+    expect(source).toContain('Invoke-ExternalCommandWithTimeout -Exe $exe');
     expect(source).not.toContain('Invoke-Expression');
     expect(source).not.toContain('bash -c');
     expect(source).not.toContain('sh -c');
@@ -349,6 +367,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('parent_writes_repo_local_artifacts');
     expect(source).toContain('.spec-first/workspace');
     expect(source).toContain('graph-targets.json');
+    expect(source).toContain('workspace-graph-targets-no-source');
+    expect(source).toContain('No code-bearing graph target is available');
     expect(source).toContain('GitNexus-first');
     expect(source).toContain("$legacyToken = Get-PropertyValue -Object $queryProbePolicy -Name 'token' -Default ''");
     expect(source).toContain("Get-PropertyValue -Object $queryProbePolicy -Name 'source' -Default 'legacy-token'");

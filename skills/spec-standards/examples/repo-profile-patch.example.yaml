@@ -1,0 +1,13 @@
+schema_version: spec-first.repo-profile-patch.v1
+source: .spec-first/standards/standards-preview.md
+confirmed_candidate_ids:
+  - glue.artifact-handoff.canonical-artifacts
+patch:
+  confirmed_standards:
+    glue:
+      artifact_handoff: "跨 workflow 传递上下文时优先使用显式 canonical artifacts，不依赖聊天历史。"
+safety:
+  contains_observed: false
+  contains_suggested: false
+  contains_conflict: false
+  requires_user_confirmation: true

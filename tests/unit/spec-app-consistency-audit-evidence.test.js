@@ -242,6 +242,37 @@ describe('spec-app-consistency-audit evidence gate', () => {
     }));
   });
 
+  test('normalizes static confirmation to match accepted contract status', () => {
+    const issues = applyEvidenceGate([
+      issue({
+        id: 'APP-AUDIT-015',
+        title: 'Candidate cannot stay static confirmed',
+        contract_status: 'candidate',
+        static_confirmed: true,
+        evidence: {
+          code: [{ source: 'code', file: 'TradeViewModel.kt', summary: 'Candidate evidence.' }],
+        },
+      }),
+      issue({
+        id: 'APP-AUDIT-016',
+        title: 'Confirmed issue becomes static confirmed',
+        static_confirmed: false,
+        evidence: {
+          code: [{ source: 'code', file: 'TradeViewModel.kt', summary: 'Confirmed evidence.' }],
+        },
+      }),
+    ]);
+
+    expect(issues[0]).toEqual(expect.objectContaining({
+      contract_status: 'candidate',
+      static_confirmed: false,
+    }));
+    expect(issues[1]).toEqual(expect.objectContaining({
+      contract_status: 'confirmed',
+      static_confirmed: true,
+    }));
+  });
+
   test('downgrades confirmed issues that miss claim-family-required evidence and rejects unconfirmed industry confirmed claims', () => {
     const issues = applyEvidenceGate([
       issue({

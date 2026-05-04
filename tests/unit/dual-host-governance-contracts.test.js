@@ -27,6 +27,9 @@ const DOCS_SIDE_GOVERNANCE_DIR = path.join(
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const README_PATH = path.join(REPO_ROOT, 'README.md');
 const README_ZH_PATH = path.join(REPO_ROOT, 'README.zh-CN.md');
+const AGENTS_PATH = path.join(REPO_ROOT, 'AGENTS.md');
+const CLAUDE_PATH = path.join(REPO_ROOT, 'CLAUDE.md');
+const ROLE_CONTRACT_PATH = path.join(REPO_ROOT, 'docs', '10-prompt', '结构化项目角色契约.md');
 const USER_MANUAL_QUICKSTART_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/01-快速开始.md');
 const USER_MANUAL_FAQ_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/04-常见问题.md');
 const USER_MANUAL_LOCAL_INSTALL_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/06-本地源码安装.md');
@@ -101,6 +104,7 @@ describe('dual-host governance contracts', () => {
     const manifest = loadPluginManifest();
     const mcpSetup = manifest.commands.find((command) => command.name === 'mcp-setup');
     const graphBootstrap = manifest.commands.find((command) => command.name === 'graph-bootstrap');
+    const standards = manifest.commands.find((command) => command.name === 'standards');
     const skillAudit = manifest.commands.find((command) => command.name === 'skill-audit');
 
     expect(manifest.version).toBe(readJson(PACKAGE_JSON_PATH).version);
@@ -115,6 +119,12 @@ describe('dual-host governance contracts', () => {
       description: 'Compile graph readiness facts for external graph-provider workflows',
       argumentHint: '',
       skill: 'spec-graph-bootstrap',
+    });
+    expect(standards).toMatchObject({
+      filename: 'standards.md',
+      description: 'Compile project standards and glue capability baseline artifacts',
+      argumentHint: '[--baseline|--quick|--refresh|--deep] [--import-source <git-or-path>]',
+      skill: 'spec-standards',
     });
     expect(skillAudit).toMatchObject({
       filename: 'skill-audit.md',
@@ -188,6 +198,8 @@ describe('dual-host governance contracts', () => {
     expect(mcpSetup).toMatch(/\|\s*Name\s*\|\s*Type\s*\|\s*Result\s*\|\s*Dependency\s*\|\s*Install\s*\|\s*Skill\s*\|\s*Next\s*\|/);
     expect(mcpSetup).toMatch(/\|\s*Artifact\s*\|\s*Project\s*\|\s*Next\s*\|/);
     expect(mcpSetup).toContain('下一步:');
+    expect(mcpSetup).toContain('/spec:standards 或 $spec-standards');
+    expect(mcpSetup).toContain('When graph readiness is already ready');
   });
 
   test('mcp setup keeps Serena language selection with the agent and out of interactive CLI flows', () => {
@@ -213,13 +225,28 @@ describe('dual-host governance contracts', () => {
     ]);
   });
 
-  test('project-local graph readiness artifacts are ignored, not source truth', () => {
+  test('project source-truth docs use dynamic manifest sources instead of retired plugin manifest', () => {
+    for (const sourcePath of [AGENTS_PATH, CLAUDE_PATH, ROLE_CONTRACT_PATH]) {
+      const content = read(sourcePath);
+
+      expect(content).not.toContain('.claude-plugin/plugin.json');
+      expect(content).toContain('src/cli/plugin.js');
+      expect(content).toContain('src/cli/contracts/dual-host-governance/**');
+      expect(content).toContain('templates/claude/commands/spec/*.md');
+    }
+  });
+
+  test('project-local runtime artifacts are ignored, not source truth', () => {
     const gitignore = read(GITIGNORE_PATH);
 
     expect(gitignore).toContain('.spec-first/config/*.json');
+    expect(gitignore).toContain('.spec-first/audits/');
+    expect(gitignore).toContain('.spec-first/app-audit/');
     expect(gitignore).toContain('.spec-first/graph/');
     expect(gitignore).toContain('.spec-first/providers/');
     expect(gitignore).toContain('.spec-first/impact/');
+    expect(gitignore).toContain('.spec-first/workflows/');
+    expect(gitignore).toContain('.spec-first/workspace/');
   });
 
   test('release governance smoke forbids docs-side machine-readable assets from tarball payload', () => {
@@ -242,6 +269,7 @@ describe('dual-host governance contracts', () => {
 
     expect(readme).toContain('$spec-mcp-setup');
     expect(readme).toContain('$spec-graph-bootstrap');
+    expect(readme).toContain('$spec-standards');
     expect(readme).toContain('Run the init command for each host you actually use.');
     expect(readme).toContain('only `--claude` for Claude Code-only projects');
     expect(readme).toContain('only `--codex` for Codex-only projects');
@@ -267,6 +295,7 @@ describe('dual-host governance contracts', () => {
     expect(readmeZh).toContain('只用 Claude Code 就只跑 `--claude`');
     expect(readmeZh).toContain('只用 Codex 就只跑 `--codex`');
     expect(readmeZh).toContain('通过当前宿主的 graph bootstrap workflow 编译');
+    expect(readmeZh).toContain('$spec-standards');
     expect(readmeZh).toContain('用当前宿主的 setup workflow');
     expect(readmeZh).toContain('当前宿主的 plan workflow');
     expect(readmeZh).toContain('workspace-graph-targets.v1');

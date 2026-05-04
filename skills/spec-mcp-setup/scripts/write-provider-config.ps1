@@ -258,6 +258,47 @@ function Test-GitNexusProbeDisplaySignalToken {
   return ($Token -match '(View|Screen|Layout|Modal|Report)$')
 }
 
+function Test-GitNexusProbeMethodSignalToken {
+  param([string]$Token)
+  return ($Token -match '^(step[A-Za-z0-9_]*|validate[A-Za-z0-9_]*|parse[A-Za-z0-9_]*|booleanResult|isSuccess|success|failure|options|bootstrap|start|submit|resubmit|create[A-Za-z0-9_]*|cancel[A-Za-z0-9_]*|add[A-Za-z0-9_]*|save[A-Za-z0-9_]*|delete[A-Za-z0-9_]*|update[A-Za-z0-9_]*|upload[A-Za-z0-9_]*|download[A-Za-z0-9_]*|handle[A-Za-z0-9_]*|process[A-Za-z0-9_]*)$')
+}
+
+function Test-GitNexusProbeLowSignalMethodToken {
+  param([string]$Token)
+  return ($Token -match '^(get|set|is|has|toString|equals|hashCode|query[A-Za-z0-9_]*|list[A-Za-z0-9_]*|resolve[A-Za-z0-9_]*|build[A-Za-z0-9_]*|convert[A-Za-z0-9_]*|map[A-Za-z0-9_]*)$')
+}
+
+function Get-GitNexusProbeMethodTokensFromPath {
+  param(
+    [string]$RepoRoot,
+    [string]$Path
+  )
+  $fullPath = Join-Path $RepoRoot $Path
+  if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) { return @() }
+  $item = Get-Item -LiteralPath $fullPath -ErrorAction SilentlyContinue
+  if ($null -eq $item -or $item.Length -gt $script:gitNexusQueryProbeSourceFileLimitBytes) { return @() }
+
+  $tokens = New-Object System.Collections.Generic.List[string]
+  foreach ($line in Get-Content -LiteralPath $fullPath -ErrorAction SilentlyContinue) {
+    if ($line -notmatch '\(') { continue }
+    $candidateLine = ($line -replace '//.*$', '').Trim()
+    if ($candidateLine -match '^(if|for|while|switch|catch|return|throw|new)\s*\(') { continue }
+    if ($candidateLine -match '=>') { continue }
+    $before = ($candidateLine -replace '\(.*$', '').Trim()
+    if ([string]::IsNullOrWhiteSpace($before)) { continue }
+    $parts = @($before -split '\s+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($parts.Count -eq 0) { continue }
+    $token = [string]$parts[$parts.Count - 1]
+    if ($token -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') { continue }
+    if ($token -match '^(if|for|while|switch|catch|return|throw|new|class|interface|enum)$') { continue }
+    if (-not (Test-GitNexusProbeMethodSignalToken -Token $token)) { continue }
+    if (Test-GitNexusProbeLowSignalMethodToken -Token $token) { continue }
+    if (@($tokens | Where-Object { $_ -eq $token }).Count -gt 0) { continue }
+    $tokens.Add($token) | Out-Null
+  }
+  return @($tokens)
+}
+
 function Get-GitNexusQueryProbePolicy {
   param([string]$RepoRoot)
   $files = @()
@@ -269,7 +310,7 @@ function Get-GitNexusQueryProbePolicy {
     $files = @()
   }
 
-  foreach ($priority in @('entrypoint_named', 'workflow_named', 'src_high_signal', 'high_signal', 'android_named', 'workflow_display_named', 'any_source')) {
+  foreach ($priority in @('entrypoint_named', 'workflow_method', 'src_method', 'workflow_named', 'src_high_signal', 'high_signal', 'android_named', 'workflow_display_named', 'any_source')) {
     foreach ($path in $files) {
       if (Test-GitNexusProbePathExcluded -Path $path) { continue }
       if (-not (Test-GitNexusProbeSourcePath -Path $path)) { continue }
@@ -277,6 +318,36 @@ function Get-GitNexusQueryProbePolicy {
       if ([string]::IsNullOrWhiteSpace($token)) { continue }
       if ($priority -eq 'entrypoint_named') {
         if (-not (Test-GitNexusProbeEntrySignalToken -Token $token)) { continue }
+      } elseif ($priority -eq 'workflow_method') {
+        if (-not (Test-GitNexusProbeWorkflowSignalToken -Token $token)) { continue }
+        if (Test-GitNexusProbeInfrastructureToken -Token $token) { continue }
+        if (Test-GitNexusProbeWeakProofToken -Token $token) { continue }
+        foreach ($methodToken in @(Get-GitNexusProbeMethodTokensFromPath -RepoRoot $RepoRoot -Path $path)) {
+          if (@($candidates | Where-Object { $_.token -eq $methodToken }).Count -gt 0) { continue }
+          $candidates.Add([pscustomobject][ordered]@{
+            token = $methodToken
+            selected_from = $path
+            reason_code = $priority
+          }) | Out-Null
+          if ($candidates.Count -ge $candidateLimit) { break }
+        }
+        if ($candidates.Count -ge $candidateLimit) { break }
+        continue
+      } elseif ($priority -eq 'src_method') {
+        if ($path -notmatch '(^|/)src/') { continue }
+        if (Test-GitNexusProbeInfrastructureToken -Token $token) { continue }
+        if (Test-GitNexusProbeWeakProofToken -Token $token) { continue }
+        foreach ($methodToken in @(Get-GitNexusProbeMethodTokensFromPath -RepoRoot $RepoRoot -Path $path)) {
+          if (@($candidates | Where-Object { $_.token -eq $methodToken }).Count -gt 0) { continue }
+          $candidates.Add([pscustomobject][ordered]@{
+            token = $methodToken
+            selected_from = $path
+            reason_code = $priority
+          }) | Out-Null
+          if ($candidates.Count -ge $candidateLimit) { break }
+        }
+        if ($candidates.Count -ge $candidateLimit) { break }
+        continue
       } elseif ($priority -eq 'android_named') {
         if ($path -notmatch '\.(kt|java)$') { continue }
         if ($token -notmatch '(Activity|Fragment|ViewModel|Manager|Repository|Service)$') { continue }
@@ -320,9 +391,10 @@ function Get-GitNexusQueryProbePolicy {
 
   if ($candidates.Count -gt 0) {
     $first = $candidates[0]
+    $source = if ([string]$first.reason_code -match '_method$') { 'git-ls-files-source-symbol' } else { 'git-ls-files-code-basename' }
     return [ordered]@{
       expected_hit = $true
-      source = 'git-ls-files-code-basename'
+      source = $source
       token = [string]$first.token
       selected_from = [string]$first.selected_from
       candidates = @($candidates)
@@ -455,6 +527,7 @@ $existingProvider = Read-ExistingJson -Path $providerFile -SchemaVersion 'graph-
 $existingRuntime = Read-ExistingJson -Path $runtimeFile -SchemaVersion 'runtime-capabilities.v1' -RepoRoot $repoRoot
 $generatedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
 $script:gitNexusQueryProbeCandidateLimit = 5
+$script:gitNexusQueryProbeSourceFileLimitBytes = 200000
 $toolsJson = Get-Content -Raw $toolsJsonPath | ConvertFrom-Json
 $gitNexusTool = @($toolsJson.tools | Where-Object { $_.id -eq 'gitnexus' } | Select-Object -First 1)
 if ($gitNexusTool.Count -eq 0 -or $null -eq $gitNexusTool[0].installation -or $null -eq $gitNexusTool[0].installation.unix -or @($gitNexusTool[0].installation.unix.args).Count -lt 2) {

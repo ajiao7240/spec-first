@@ -32,10 +32,11 @@ Code or `$spec-update` on Codex. Those reminders are advisory only: they do not
 install packages, refresh runtime assets, or restart the host. This workflow
 remains the single place where the user decides whether to update.
 
-## Claude Code Pre-Resolved Context
+## Claude Code Version Probe Scripts
 
-In Claude Code, the sections below are pre-populated. Use them directly; do not
-re-run them unless the output is missing or clearly malformed.
+In Claude Code, gather the marketplace-cache version facts by running these
+scripts with the Bash tool. Each script prints one line. Capture the values for
+the Claude Code branch below.
 
 `${CLAUDE_SKILL_DIR}` is a Claude Code-documented substitution that resolves
 at skill-load time. For a marketplace-cached install it looks like
@@ -47,17 +48,21 @@ the latest GitHub release tag, because the marketplace installs plugin contents
 from `main` HEAD. Comparing against release tags false-positives whenever
 `main` is ahead of the last tag (the normal state between releases).
 
-**Skill directory:**
-!`echo "${CLAUDE_SKILL_DIR}"`
+```bash
+bash "${CLAUDE_SKILL_DIR}/scripts/upstream-version.sh"
+bash "${CLAUDE_SKILL_DIR}/scripts/currently-loaded-version.sh"
+bash "${CLAUDE_SKILL_DIR}/scripts/marketplace-name.sh"
+```
 
-**Latest upstream version:**
-!`version=$(gh api repos/sunrain520/spec-first/contents/package.json --jq '.content | @base64d | fromjson | .version' 2>/dev/null) && [ -n "$version" ] && echo "$version" || echo '__SPEC_UPDATE_VERSION_FAILED__'`
+`scripts/upstream-version.sh` reads source `package.json` on `main` via `gh api`.
+It prints the version string, or the sentinel
+`__SPEC_UPDATE_VERSION_FAILED__` if the lookup fails.
 
-**Currently loaded version:**
-!`echo "${CLAUDE_SKILL_DIR}" | grep -q "/plugins/cache/.*/spec-first/.*/skills/spec-update$" && basename "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")" || echo '__SPEC_UPDATE_NOT_MARKETPLACE__'`
-
-**Marketplace name:**
-!`echo "${CLAUDE_SKILL_DIR}" | grep -q "/plugins/cache/.*/spec-first/.*/skills/spec-update$" && basename "$(dirname "$(dirname "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")")")" || echo '__SPEC_UPDATE_NOT_MARKETPLACE__'`
+`scripts/currently-loaded-version.sh` and `scripts/marketplace-name.sh` parse
+their own script path against the marketplace-cache layout above. They print the
+version segment / marketplace segment, or the sentinel
+`__SPEC_UPDATE_NOT_MARKETPLACE__` if the path does not match. That mismatch is
+normal for `claude --plugin-dir` local-development sessions.
 
 ## Decision Logic
 
@@ -98,17 +103,18 @@ the branch-specific checks.
 
 ### 2. Claude Code branch
 
-If **Latest upstream version** contains `__SPEC_UPDATE_VERSION_FAILED__`: tell
+If `scripts/upstream-version.sh` printed `__SPEC_UPDATE_VERSION_FAILED__`: tell
 the user the upstream version could not be fetched (gh may be unavailable or
 rate-limited) and stop.
 
-If **Currently loaded version** contains `__SPEC_UPDATE_NOT_MARKETPLACE__`: this
-session loaded the skill from outside the standard marketplace cache (typical
-when using `claude --plugin-dir` for local development, or for a non-standard
-install). Tell the user (substituting the actual path):
+If `scripts/currently-loaded-version.sh` printed
+`__SPEC_UPDATE_NOT_MARKETPLACE__`: this session loaded the skill from outside
+the standard marketplace cache. Two cases collapse to the same handling: a
+`claude --plugin-dir` local-development session, or a non-Claude-Code platform
+that does not use the Claude plugin harness cache. Tell the user:
 
-> "Skill is loaded from `{skill-directory}` — not the standard marketplace
-> cache at `~/.claude/plugins/cache/`. This is normal when using
+> "Skill is loaded from outside the marketplace cache at
+> `~/.claude/plugins/cache/`. This is normal when using
 > `claude --plugin-dir` for local development. No action for this session.
 > Your marketplace install (if any) is unaffected — run the update workflow in
 > a regular host session (no `--plugin-dir`) to check that cache."

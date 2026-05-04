@@ -1,7 +1,7 @@
 ---
 title: 上游 CE 更新同步到 spec-first 的常态化升级方法
 date: 2026-04-26
-last_updated: 2026-04-27
+last_updated: 2026-05-04
 category: docs/solutions/architecture-patterns
 module: workflow-asset-sync
 problem_type: architecture_pattern
@@ -28,6 +28,8 @@ tags: [ce-sync, workflow-assets, migration, governance, spec-first]
 - CE 的 `src/data/plugin-legacy-artifacts.ts` / `src/utils/legacy-cleanup.ts` 在 spec-first 没有同路径，必须按 spec-first 当前 runtime cleanup 面判断，不能按路径机械迁移。
 - 一次同步若混入其他文档或功能变更，必须在审查和 PR 叙事里明确边界。
 
+后续 CE `4b5f28da..06a7cee0` 计划过程又补充了一个关键教训：**路径映射和文件状态不足以决定同步方式**。例如 17 个 CE reviewer agent 的真实 diff 只是 frontmatter `tools` 追加 `Write`，而不是 agent 正文变化；2 个 CLI readiness agents 在 CE 中被删除，但 spec-first 当前仍有 selector 和历史验证依据。正确处理不是“直接同步并改名”，而是先对比 CE diff、spec-first 当前 agent、review artifact 写入契约和 host allowlist 语义，再做语义适配。
+
 因此，CE 同步应成为固定协议：脚本负责事实层，LLM 负责语义判断；先逐文件取证，再做路径映射和局部 patch；最后用审查报告和验证矩阵收口。
 
 ## Guidance
@@ -50,7 +52,7 @@ CE_RANGE=<base-sha>..HEAD
 
 ### 0. 角色边界
 
-同步时必须先按 `docs/10-prompt/项目角色.md` 校准：
+同步时必须先按 `docs/10-prompt/结构化项目角色契约.md` 校准：
 
 - **脚本做确定性流程**：列文件、取 diff、查引用、跑测试、验证格式、重建 runtime。
 - **LLM 做语义判断**：是否同步、如何适配、是否删除、是否保留分叉、是否延后 spike。
@@ -123,6 +125,29 @@ spec-first 当前引用面：
 验证断言：
 ```
 
+### 2.1. 先做 CE diff 与当前项目语义对比
+
+路径映射之后、同步判定之前，必须把 CE 的具体 diff 和 spec-first 当前目标文件并排比较。不能因为两边文件名可映射、状态是 `M`，就给出“直接同步并改名”。
+
+每个映射目标至少记录四类事实：
+
+```text
+CE 实际变化类型：正文 / frontmatter / 权限 allowlist / selector / runtime metadata / 删除
+CE diff 证据：关键 hunk 或 unified=0 摘要
+spec-first 当前状态：目标文件是否存在、当前职责、frontmatter、调用方、selector、artifact contract
+语义适配结论：同步哪一部分、不同步哪一部分、保持分叉的原因、验证断言
+```
+
+Agent 和 skill frontmatter 变更必须更严格：
+
+- **权限变更不是正文同步。** 如果 CE 只追加 `Write`、`Bash`、`Edit` 等 tool allowlist，先确认 spec-first 当前 workflow 是否真的需要 leaf agent 使用该工具。
+- **确认写入边界。** 例如 code-review leaf reviewer 写 `/tmp/spec-first/spec-code-review/<run-id>/...json` 是 run artifact，不等于允许编辑 repo 文件。计划必须写明允许的唯一写入位置和禁止的 mutation。
+- **确认 host/runtime 语义。** 只有 Claude/Codex runtime generation 和 agent frontmatter 都支持该字段时，才同步权限；否则记录保持分叉或改为 orchestrator 代写 artifact。
+- **不扩大到相邻 agents。** 只更新 CE diff 覆盖且 spec-first 同构的 agents；doc-review lens、writer/fixer、project-specific extra agents 不因相似名称自动获得新权限。
+- **删除与 selector 分开判断。** CE 删除 agent 文件并移除 persona catalog selector，只说明 CE 不再使用；spec-first 是否删除必须看当前 selector、引用审计、产品价值和历史验证记录。
+
+如果对比后发现 CE 变化只是当前项目已有契约的权限缺口，判定应写成“语义适配：仅同步 `<permission>` 权限”，而不是“直接同步”。如果 CE 删除的是 spec-first 仍有明确价值的分叉，默认进入删除审计或保留分叉，不跟随删除。
+
 ### 3. CE 到 spec-first 的路径映射
 
 同步前先读 spec-first 当前文件。目标路径不能只由 CE 路径推断。
@@ -162,6 +187,12 @@ spec-first 当前引用面：
 2. **语义适配后同步**
    CE 方向正确，但必须适配 spec-first 的 workflow 入口、host 能力、artifact 路径、frontmatter name、README 计数或 governance contract。
 
+   适用于 CE diff 只提供方向、而 spec-first 需要按当前契约重写的情况，例如：
+
+   - agent frontmatter 只追加 `Write`，spec-first 只同步能支撑 run artifact 写入的最小权限。
+   - CE 删除 selector，但 spec-first 当前还有 selector、调用方和产品价值，需要延后审计。
+   - CE reference 名称、host entrypoint 或 artifact 路径与 spec-first 当前 source/runtime 边界不同。
+
 3. **不同步**
    CE 变更只服务 CE 自身 converter、legacy cleanup，或 spec-first 没有同构治理面，或迁移会制造多真相源。
 
@@ -185,6 +216,7 @@ docs/plans/YYYY-MM-DD-NNN-sync-ce-<head-sha>-workflow-updates-plan.md
 - 逐文件同步判定表。
 - 按主题整理的明确改动点。
 - 每个修改文件的 before/after diff 文案依据。
+- 每个映射目标的 spec-first 当前状态和语义对比结论。
 - 每个新增文件的 CE 路径索引和 spec-first 落点。
 - 每个删除文件的引用审计和删除/保留决策。
 - 实施单元和顺序。
@@ -199,7 +231,9 @@ docs/plans/YYYY-MM-DD-NNN-sync-ce-<head-sha>-workflow-updates-plan.md
 
 - 过滤后的 CE 文件是否 100% 有判定。
 - 每个 M 文件是否有 diff 文案级依据。
+- 每个 M 文件是否对比了 spec-first 当前目标文件，而不是只照抄 CE hunk。
 - 每个 D 文件是否有引用审计。
+- agent / skill frontmatter 权限变更是否证明了当前 workflow 需要、host 支持和写入边界。
 - 是否误套 CE host 假设。
 - 是否有 CE 命名、CE badge、CE repo URL 残留。
 - 是否会制造第二真相源。
@@ -249,6 +283,15 @@ rg -n '<old-skill-name>|<mapped-skill-name>|<command-name>' \
 - contract tests 和 smoke tests
 
 删除结论只能在引用审计后确定。
+
+Agent 删除还必须额外检查：
+
+- persona catalog 或 orchestrator selector 是否仍引用该 agent。
+- 当前项目是否存在 CE 没有的产品定位，例如 spec-first 对 CLI/workflow harness 的特殊审查需求。
+- 历史验证文档是否把该 agent 记录为已集成能力或有意分叉。
+- 删除是否会影响 README/runtime 计数、fresh-source eval、review coverage 或 downstream workflow fallback。
+
+当 CE 删除和 spec-first 当前价值冲突时，默认写成“延后 spike / 默认保留”，直到引用审计和产品价值判断完成。
 
 ### 9. PR description 特殊协议
 
@@ -350,6 +393,7 @@ find .agents/skills .claude/commands/spec .claude/skills -maxdepth 3 \
 | skill / agent prompt contract | 对应 `tests/unit/*contracts.test.js` |
 | PR workflow | `git-commit-push-pr-contracts`、`using-spec-first-contracts`、`dual-host-governance-contracts` |
 | review workflow | `spec-code-review-contracts`、`spec-doc-review-contracts` |
+| agent frontmatter 权限 | source scan 证明只覆盖目标 agents；fresh-source eval 验证 leaf agent 只写允许的 run artifact，不编辑 repo |
 | session scripts | `session-history-scripts.test.js` |
 | frontmatter validator | `frontmatter-validator.test.js` |
 | runtime governance | dual-host governance、smoke |
@@ -481,10 +525,33 @@ CE 修改 `src/data/plugin-legacy-artifacts.ts` 和 `src/utils/legacy-cleanup.ts
 - 只有存在同构问题时才迁移。
 - 不为追齐 CE 文件树创建无用源文件。
 
+### Agent `Write` 权限同步判断
+
+CE `4b5f28da..06a7cee0` 中，17 个 code-review reviewer agents 的真实变化只有：
+
+```diff
+-tools: Read, Grep, Glob, Bash
++tools: Read, Grep, Glob, Bash, Write
+```
+
+正确判断步骤：
+
+1. 确认 CE diff 没有正文、模型、颜色或职责变化。
+2. 读取 spec-first 对应 `agents/spec-*-reviewer.agent.md`，确认当前 frontmatter 仍缺 `Write`。
+3. 读取 `skills/spec-code-review/references/subagent-template.md`，确认 leaf reviewer 在有 run ID 时需要写 `/tmp/spec-first/spec-code-review/<run-id>/<reviewer_name>.json`。
+4. 明确 `Write` 的唯一目的：写 OS temp run artifact，不允许编辑 repo 文件、切换分支、提交或推送。
+5. 只给实际通过 code-review JSON pipeline 写 artifact 的 reviewers 追加 `Write`；不扩展到 doc-review lens、writer/fixer、CLI readiness 删除或 spec-first extra agents。
+6. 用 contract test / source scan / fresh-source eval 验证边界。
+
+最终计划判定应是“语义适配：仅同步 `Write` 权限”，不是“直接同步并改名”。
+
+同一轮 CE 删除了两个 CLI readiness agents，并从 CE persona catalog 移除 selector。但 spec-first 当前仍引用 `spec-cli-readiness-reviewer`，且作为 CLI/workflow harness 可能比 CE 更需要该覆盖面。正确结论是：删除进入独立 U9 审计，默认保留分叉，不能跟随 CE 删除。
+
 ## Related
 
-- `docs/10-prompt/项目角色.md` — spec-first 演化判断基线。
+- `docs/10-prompt/结构化项目角色契约.md` — spec-first 演化判断基线。
 - `docs/plans/2026-04-26-004-sync-ce-e8c118e2-workflow-updates-plan.md` — 本方法论抽取自该次 CE 同步计划。
+- `docs/plans/2026-05-04-001-sync-ce-06a7cee0-workflow-updates-plan.md` — 追加沉淀 agent 权限和 CLI readiness 删除的语义适配判断。
 - `skills/using-spec-first/SKILL.md` — 公共 workflow 路由和 internal-only skill 边界。
 - `docs/solutions/architecture-patterns/workflow-entrypoint-exposure-contract-2026-04-26.md` — workflow 入口暴露的双宿主治理经验。
 - `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md` — 修改 source asset 而不是 runtime artifact 的经验。

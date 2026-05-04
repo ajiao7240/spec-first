@@ -41,6 +41,12 @@ If no argument is provided, proceed with open-ended ideation.
 2. **Generate many -> critique all -> explain survivors only** - The quality mechanism is explicit rejection with reasons, not optimistic ranking. Do not let extra process obscure this pattern.
 3. **Route action into brainstorming** - Ideation identifies promising directions; `spec-brainstorm` defines the selected one precisely enough for planning. Do not skip to planning from ideation output.
 
+## Dispatch Boundary
+
+Ideation dispatch is optional and read-only. Direct invocation of the current host's ideation workflow may authorize the documented grounding and ideation sub-agent phases only when host capability and session policy allow it. Use the platform's dispatch primitive when authorized, keep dispatch bounded to the counts computed in Phase 0.6, and omit permission-mode overrides so the user's configured policy applies.
+
+If dispatch is unavailable, disallowed, or fails for a non-capacity reason, run grounding and ideation sequentially or inline in the current agent. The workflow must still produce an ideation artifact when dispatch is unavailable; dispatch improves breadth, latency, and context separation, not correctness. The orchestrator owns scratch checkpoints, merged candidates, critique, and final artifact writes.
+
 ## Execution Flow
 
 ### Phase 0: Resume and Scope

@@ -6,6 +6,7 @@ const path = require('node:path');
 const DOC_REVIEW_FILES = [
   path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'),
   path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'bulk-preview.md'),
+  path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'decision-primer.md'),
   path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'open-questions-defer.md'),
   path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'synthesis-and-presentation.md'),
   path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'walkthrough.md'),
@@ -51,6 +52,55 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('derived rather than a second plan');
     expect(skill).toContain('Task Pack Contract');
     expect(skill).toContain('spec-first tasks validate --json');
+  });
+
+  test('doc review uses bounded persona dispatch with Codex-safe report-only fallback', () => {
+    const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
+
+    expect(skill).toContain('Dispatch Capability Gate');
+    expect(skill).toContain('Permission is part of the runtime boundary, not a reviewer-selection preference.');
+    expect(skill).toContain('treat that workflow invocation as authorization for this documented persona-reviewer phase');
+    expect(skill).toContain('Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex.');
+    expect(skill).toContain('stricter dispatch authorization boundary');
+    expect(skill).toContain('set `single_agent_report_only_fallback: true`');
+    expect(skill).toContain('Treat the effective mode as report-only');
+    expect(skill).toContain('Do not apply `safe_auto` fixes, append Open Questions, or edit the document.');
+    expect(skill).toContain('single-agent report-only fallback: reviewer dispatch unavailable or not authorized');
+    expect(skill).toContain('Dispatch agents using **bounded parallelism**');
+    expect(skill).toContain('active-agent/thread/concurrency-limit spawn errors as backpressure');
+    expect(skill).not.toContain('Dispatch all agents in **parallel**');
+  });
+
+  test('doc review treats Summary as a framing-level section for chain roots', () => {
+    const synthesis = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'synthesis-and-presentation.md'),
+      'utf8',
+    );
+
+    expect(synthesis).toContain('Problem Frame, Summary, Overview, Why, Motivation, Goals');
+    expect(synthesis).toContain('`Summary` is the new spec-plan / spec-brainstorm template heading');
+    expect(synthesis).toContain('`Overview` is retained as legacy');
+  });
+
+  test('doc review keeps multi-round decision-primer detail in a reference', () => {
+    const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
+    const primer = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'decision-primer.md'),
+      'utf8',
+    );
+    const synthesis = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'synthesis-and-presentation.md'),
+      'utf8',
+    );
+
+    expect(skill).toContain('read `references/decision-primer.md`');
+    expect(skill).toContain('The primer is the only cross-round memory for the current interactive invocation');
+    expect(skill).not.toContain('Each entry carries an `Evidence:` line because synthesis R29');
+    expect(primer).toContain('Each entry carries an `Evidence:` line because synthesis R29');
+    expect(primer).toContain('R30 (fix-landed verification)');
+    expect(primer).toContain('Cross-session persistence is out of scope');
+    expect(synthesis).toContain('see `references/decision-primer.md`');
+    expect(synthesis).not.toContain('see `SKILL.md` — Decision primer');
   });
 
   test('subagent template requires committed suggested fixes and consequence-first rationale', () => {

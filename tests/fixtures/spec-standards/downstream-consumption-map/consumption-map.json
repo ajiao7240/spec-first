@@ -1,0 +1,11 @@
+{
+  "confirmed": "hard",
+  "observed": "advisory",
+  "imported": "advisory",
+  "suggested": "advisory",
+  "conflict": "risk",
+  "unknown": "question",
+  "deprecated": "risk",
+  "drifted": "risk",
+  "validator_fail": "degraded/advisory"
+}

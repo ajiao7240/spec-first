@@ -74,8 +74,10 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('After successful init');
       expect(result.stdout).toContain('/spec:mcp-setup');
       expect(result.stdout).toContain('/spec:graph-bootstrap');
+      expect(result.stdout).toContain('/spec:standards');
       expect(result.stdout).toContain('$spec-mcp-setup');
       expect(result.stdout).toContain('$spec-graph-bootstrap');
+      expect(result.stdout).toContain('$spec-standards');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -203,6 +205,10 @@ describe('init --dry-run', () => {
         path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'SKILL.md'),
         'utf8',
       );
+      const codexPlanSkill = fs.readFileSync(
+        path.join(projectRoot, '.agents', 'skills', 'spec-plan', 'SKILL.md'),
+        'utf8',
+      );
       const codexGraphBootstrapScript = path.join(projectRoot, '.agents', 'skills', 'spec-graph-bootstrap', 'scripts', 'bootstrap-providers.sh');
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'scripts', 'check-health'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'scripts', 'resolve-project-target.sh'))).toBe(true);
@@ -210,6 +216,10 @@ describe('init --dry-run', () => {
       expect(fs.readFileSync(codexGraphBootstrapScript, 'utf8')).toContain('../../spec-mcp-setup/scripts/resolve-project-target.sh');
       expect(codexMcpSetupSkill).toContain('bash .agents/skills/spec-mcp-setup/scripts/check-health');
       expect(codexMcpSetupSkill).not.toContain('bash skills/spec-mcp-setup/scripts/check-health');
+      expect(codexPlanSkill).toContain('including `spawn_agent` where provided');
+      expect(codexPlanSkill).toContain('applying it inline as an explicit fallback');
+      expect(codexPlanSkill).toContain('`.codex/agents/spec-repo-research-analyst.agent.md`');
+      expect(codexPlanSkill).not.toContain('Read `.codex/agents/spec-repo-research-analyst.agent.md` and apply that agent profile to');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -270,6 +280,8 @@ describe('init --dry-run', () => {
       expect(claude.stdout).toContain('重启 Claude Code 或新开会话');
       expect(claude.stdout).toContain('/spec:mcp-setup');
       expect(claude.stdout).toContain('/spec:graph-bootstrap');
+      expect(claude.stdout).toContain('/spec:standards');
+      expect(claude.stdout).toContain('graph readiness 就绪后');
 
       const codex = captureInit(codexProjectRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']);
       expect(codex.exitCode).toBe(0);
@@ -278,6 +290,8 @@ describe('init --dry-run', () => {
       expect(codex.stdout).toContain('重启 Codex 或新开会话');
       expect(codex.stdout).toContain('$spec-mcp-setup');
       expect(codex.stdout).toContain('$spec-graph-bootstrap');
+      expect(codex.stdout).toContain('$spec-standards');
+      expect(codex.stdout).toContain('graph readiness 就绪后');
 
       const english = captureInit(englishProjectRoot, ['--codex', '-u', 'reviewer', '--lang', 'en']);
       expect(english.exitCode).toBe(0);
@@ -286,6 +300,8 @@ describe('init --dry-run', () => {
       expect(english.stdout).toContain('Restart Codex or open a new session');
       expect(english.stdout).toContain('$spec-mcp-setup');
       expect(english.stdout).toContain('$spec-graph-bootstrap');
+      expect(english.stdout).toContain('$spec-standards');
+      expect(english.stdout).toContain('After graph readiness is ready');
       expect(english.stdout).not.toContain('下一步:');
     } finally {
       fs.rmSync(claudeProjectRoot, { recursive: true, force: true });

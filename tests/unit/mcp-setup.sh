@@ -296,6 +296,12 @@ printf 'name: agent-browser\n' > "$PREFLIGHT_HOME/.agents/skills/agent-browser/S
 preflight_missing_marker="$(cd "$TMP_DIR" && PATH="$TEST_PATH" HOME="$PREFLIGHT_HOME" bash "$SCRIPTS_DIR/check-health" --json)"
 assert_eq "check-health requires agent-browser install marker" "action-required" "$(jq -r '.tools[] | select(.id == "agent-browser") | .result' <<<"$preflight_missing_marker")"
 
+PREFLIGHT_CODEX_SKILL_HOME="$TMP_DIR/preflight-codex-skill-home"
+mkdir -p "$PREFLIGHT_CODEX_SKILL_HOME/.codex/skills/ast-grep"
+printf 'name: ast-grep\n' > "$PREFLIGHT_CODEX_SKILL_HOME/.codex/skills/ast-grep/SKILL.md"
+preflight_codex_skill="$(cd "$TMP_DIR" && PATH="$TEST_PATH" HOME="$PREFLIGHT_CODEX_SKILL_HOME" bash "$SCRIPTS_DIR/check-health" --json)"
+assert_eq "check-health detects Codex global skill fallback even when skills CLI omits it" "ready" "$(jq -r '.skills[] | select(.id == "ast-grep") | .result' <<<"$preflight_codex_skill")"
+
 WINDOWS_PREFLIGHT_HOME="$TMP_DIR/windows-preflight-home"
 mkdir -p "$WINDOWS_PREFLIGHT_HOME"
 windows_preflight="$(cd "$TMP_DIR" && PATH="$WIN_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$WINDOWS_PREFLIGHT_HOME" bash "$SCRIPTS_DIR/check-health" --json)"
@@ -646,6 +652,7 @@ assert_contains "verify prints friendly next steps" "下一步:" "$verify_text"
 assert_contains "verify prompts graph bootstrap command" "/spec:graph-bootstrap" "$verify_text"
 assert_contains "verify prompts continue completion" "继续完成" "$verify_text"
 assert_contains "verify says graph bootstrap can run now" "现在可以运行 /spec:graph-bootstrap" "$verify_text"
+assert_contains "verify points to standards after graph bootstrap" "推荐运行 /spec:standards" "$verify_text"
 last_verify_line="$(printf '%s\n' "$verify_text" | sed '/^[[:space:]]*$/d' | tail -n 1)"
 assert_contains "verify output ends with downstream restart caveat" "live MCP probe 前需要" "$last_verify_line"
 LEDGER_PATH="$FAKE_HOME/.claude/spec-first/host-setup.json"
@@ -775,6 +782,25 @@ assert "health-only provider projection emits JSON" jq -e . <<<"$health_only_pro
 HEALTH_ONLY_PROVIDER_CONFIG="$HEALTH_ONLY_REPO/.spec-first/config/graph-providers.json"
 assert_eq "GitNexus probe keeps health-only fallback explicit" "HealthController:any_source" "$(jq -r '.providers.gitnexus.query_probe_policy | "\(.token):\(.candidates[0].reason_code)"' "$HEALTH_ONLY_PROVIDER_CONFIG")"
 
+WEB_METHOD_REPO="$TMP_DIR/web-method-repo"
+make_repo "$WEB_METHOD_REPO"
+mkdir -p "$WEB_METHOD_REPO/src/main/java/com/acme/web/controller/money" "$WEB_METHOD_REPO/src/main/java/com/acme/web/controller/opening" "$WEB_METHOD_REPO/src/main/java/com/acme/web/controller/optional"
+printf 'class MemberDepositController {\n  public Result<Void> queryDepositHistoryPage() { return null; }\n  public Result<Void> queryDepositDetail() { return null; }\n}\n' > "$WEB_METHOD_REPO/src/main/java/com/acme/web/controller/money/MemberDepositController.java"
+printf 'class OpeningController {\n  public Result<Void> stepSave() { return null; }\n  public Result<Void> options() { return null; }\n}\n' > "$WEB_METHOD_REPO/src/main/java/com/acme/web/controller/opening/OpeningController.java"
+printf 'class MemberOptionalStockController {\n  public Result<Void> save() { return null; }\n  public Result<Void> delete() { return null; }\n  public Result<Void> add() { return null; }\n  private <T> Result<T> booleanResult() { return null; }\n}\n' > "$WEB_METHOD_REPO/src/main/java/com/acme/web/controller/optional/MemberOptionalStockController.java"
+git -C "$WEB_METHOD_REPO" add src/main/java/com/acme/web/controller/money/MemberDepositController.java src/main/java/com/acme/web/controller/opening/OpeningController.java src/main/java/com/acme/web/controller/optional/MemberOptionalStockController.java
+WEB_METHOD_FACTS="$TMP_DIR/web-method-facts.json"
+jq --arg repo_root "$WEB_METHOD_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+  | .target.state_write_allowed = true
+' "$LOW_SIGNAL_FACTS" > "$WEB_METHOD_FACTS"
+web_method_projection="$(bash "$SCRIPTS_DIR/write-provider-config.sh" --facts-file "$WEB_METHOD_FACTS")"
+assert "web-method provider projection emits JSON" jq -e . <<<"$web_method_projection"
+WEB_METHOD_PROVIDER_CONFIG="$WEB_METHOD_REPO/.spec-first/config/graph-providers.json"
+assert_eq "GitNexus probe prefers flow-like methods over controller class names" "git-ls-files-source-symbol:stepSave:workflow_method:OpeningController.java" "$(jq -r '.providers.gitnexus.query_probe_policy | "\(.source):\(.token):\(.candidates[0].reason_code):\(.candidates[0].selected_from | split("/")[-1])"' "$WEB_METHOD_PROVIDER_CONFIG")"
+assert_eq "GitNexus method candidates stay bounded and source-derived" "stepSave,options,save,delete,add" "$(jq -r '.providers.gitnexus.query_probe_policy.candidates | map(.token) | join(",")' "$WEB_METHOD_PROVIDER_CONFIG")"
+
 assert_eq "providers are configured but not query-ready" "true" "$(jq -r '(.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
 assert_eq "runtime capabilities points to host ledger" "$LEDGER_PATH" "$(jq -r '.host_ledger_pointer.path' "$RUNTIME_CAPABILITIES")"
 assert_eq "runtime capabilities starts not bootstrapped" "not-bootstrapped" "$(jq -r '.project_graph_readiness.status' "$RUNTIME_CAPABILITIES")"
@@ -869,6 +895,8 @@ assert_contains "repeat verify shows graph provider query ready" "全局代码�
 assert_contains "repeat verify shows ready query and done bootstrap cells" "| ready | done" "$verify_after_bootstrap"
 assert_contains "repeat verify summary lists ready providers" "ready: gitnexus,code-review-graph; pending: n/a" "$verify_after_bootstrap"
 assert_contains "repeat verify reports graph provider query ready summary" "Graph providers are query-ready." "$verify_after_bootstrap"
+assert_contains "repeat verify recommends standards handoff" "推荐下一步运行 /spec:standards" "$verify_after_bootstrap"
+assert_contains "repeat verify allows direct task description after restart" "如果已经有明确任务，可以在新会话直接描述目标" "$verify_after_bootstrap"
 if [[ "$verify_after_bootstrap" == *"Graph providers are configured but not query-ready yet."* ]]; then
   echo "FAIL: repeat verify should not say query-ready providers are pending" >&2
   exit 1

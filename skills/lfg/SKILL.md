@@ -1,9 +1,17 @@
 ---
 name: lfg
-description: Full autonomous engineering workflow
+description: "Legacy internal autonomous workflow shim. Internal-only; do not recommend as a public spec-first entrypoint."
 argument-hint: "[feature description]"
 disable-model-invocation: true
 ---
+
+# LFG Legacy Internal Shim
+
+`lfg` is a legacy/internal autonomous pipeline shim retained for compatibility with older internal experiments. It is not a public `spec-first` workflow, not a command-backed entrypoint, and not part of the recommended user path.
+
+Do not recommend it in README, user manuals, `using-spec-first` guide mode, or public workflow tables. Prefer the explicit public chain: `spec-plan` when HOW is unclear, standalone `spec-write-tasks` when a settled plan needs task-pack handoff, `spec-work` for execution, `spec-code-review` for review, and `spec-compound` for knowledge capture.
+
+Only run this skill when an internal caller explicitly invokes `lfg` and accepts its autonomous side effects.
 
 CRITICAL: You MUST execute every step below IN ORDER. Do NOT skip any required step. Do NOT jump ahead to coding or implementation. The plan phase (step 1) MUST be completed and verified BEFORE any work begins. Violating this order produces bad output.
 

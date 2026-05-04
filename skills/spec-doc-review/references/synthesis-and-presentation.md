@@ -127,7 +127,7 @@ Run this step after 3.5b (recommended_action normalized) and before 3.6 (auto-pr
 - Severity is `P0` or `P1` (premise-level issues carry high priority by nature)
 - `autofix_class` is `manual` (the root itself requires judgment — a safe/gated root is acted on, not cascaded)
 - `why_it_matters` or `title` challenges a foundational premise, not a detail. Signal phrases (shape, not vocabulary): "premise unsupported", "justification missing", "do-nothing baseline not evaluated", "is X justified", "unsupported by evidence", "is the proposed solution the right approach"
-- The finding's `section` is framing-level (Problem Frame, Overview, Why, Motivation, Goals) OR the finding explicitly questions whether a named component should exist
+- The finding's `section` is framing-level (Problem Frame, Summary, Overview, Why, Motivation, Goals — `Summary` is the new spec-plan / spec-brainstorm template heading; `Overview` is retained as legacy) OR the finding explicitly questions whether a named component should exist
 
 If multiple candidates match the criteria, elevate ALL of them. The criteria above (P0/P1, manual, framing-level section, premise-challenge signal phrases) are restrictive enough that this list will be short for any well-formed document; do not impose a further numerical cap. Picking only one root when two valid roots exist leaves the second root's natural dependents stranded as independent manual findings — the exact UX problem chains are meant to solve.
 
@@ -325,7 +325,7 @@ Include the Coverage table, applied fixes, FYI observations (as a distinct subse
 
 ### R29 Rejected-Finding Suppression (Round 2+)
 
-When the orchestrator is running round 2+ on the same document in the same session, the decision primer (see `SKILL.md` — Decision primer) carries forward every prior-round Skipped, Deferred, and Acknowledged finding. Synthesis suppresses re-raised rejected findings rather than re-surfacing them to the user. Acknowledged is treated as a rejected-class decision here: the user saw the finding, chose not to act on it (no Apply, no Defer append), and wants it on record — equivalent to Skip for suppression purposes.
+When the orchestrator is running round 2+ on the same document in the same session, the decision primer (see `references/decision-primer.md`) carries forward every prior-round Skipped, Deferred, and Acknowledged finding. Synthesis suppresses re-raised rejected findings rather than re-surfacing them to the user. Acknowledged is treated as a rejected-class decision here: the user saw the finding, chose not to act on it (no Apply, no Defer append), and wants it on record — equivalent to Skip for suppression purposes.
 
 For each current-round finding, compare against the primer's rejected list:
 

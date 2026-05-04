@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const { spawnSyncWithTimeout } = require('./external-command');
 
 const GLOBAL_DEVELOPER_RELATIVE_PATH = path.join('.spec-first', '.developer');
 const PROJECT_DEVELOPER_RELATIVE_PATHS = [
@@ -263,7 +263,7 @@ function normalizePathForContract(filePath) {
 }
 
 function readGitUserName(projectRoot) {
-  const result = spawnSync('git', ['config', 'user.name'], {
+  const result = spawnSyncWithTimeout('git', ['config', 'user.name'], {
     cwd: projectRoot,
     encoding: 'utf8',
   });

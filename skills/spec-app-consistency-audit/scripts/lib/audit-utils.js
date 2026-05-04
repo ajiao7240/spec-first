@@ -257,6 +257,7 @@ function redactForArtifactText(value, options = {}) {
   text = redactUrls(text);
   text = text
     .replace(/\bAuthorization\s*[:=]\s*(?:Bearer\s+)?[^\s"'`]+/gi, '<redacted-secret>')
+    .replace(/\bBearer\s+[^\s"'`]+/gi, '<redacted-secret>')
     .replace(/\bCookie\s*[:=]\s*[^\r\n]+/gi, '<redacted-secret>')
     .replace(/\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|token|secret|password|passwd|session(?:id)?|jwt)\s*[:=]\s*[^\s&"'`]+/gi, '<redacted-secret>')
     .replace(/[\u0000-\u001f\u007f]+/g, ' ')
@@ -327,7 +328,7 @@ function buildAppAuditCoverageCapabilities(options = {}) {
     architecture_intent_conformance: options.techPlan ? 'available' : 'unavailable',
     task_fidelity: options.taskDoc ? 'available' : 'unavailable',
     runtime_verification: 'deferred',
-    industry: options.industry ? 'advisory_only' : 'unavailable',
+    industry: options.confirmedIndustry ? 'confirmed_profile' : (options.industry ? 'advisory_only' : 'unavailable'),
   };
 }
 

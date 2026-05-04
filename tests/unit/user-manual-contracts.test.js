@@ -5,6 +5,8 @@ const path = require('node:path');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
+const README_EN_PATH = path.join(REPO_ROOT, 'README.md');
+const README_ZH_PATH = path.join(REPO_ROOT, 'README.zh-CN.md');
 const USER_MANUAL_README_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/README.md');
 const QUICKSTART_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/01-快速开始.md');
 const CORE_CONCEPTS_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/02-核心概念.md');
@@ -13,6 +15,8 @@ const FAQ_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/04-常见问题.md')
 const BEST_PRACTICES_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/05-最佳实践.md');
 const LOCAL_INSTALL_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/06-本地源码安装.md');
 const ARTIFACT_CATALOG_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/10-产物目录.md');
+const STANDARDS_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/11-项目规范与胶水基线.md');
+const SPEC_IDEATE_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-ideate/SKILL.md');
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -72,5 +76,67 @@ describe('user manual contracts', () => {
     expect(artifactMap).toContain('app-consistency-audit.md');
     expect(artifactCatalog).toContain('.spec-first/app-audit/');
     expect(artifactCatalog).toContain('Figma ref 不等于 materialized evidence');
+  });
+
+  test('user manual includes a standalone spec-standards guide', () => {
+    const manual = read(USER_MANUAL_README_PATH);
+    const quickstart = read(QUICKSTART_PATH);
+    const artifactMap = read(ARTIFACT_MAP_PATH);
+    const standardsGuide = read(STANDARDS_GUIDE_PATH);
+
+    expect(manual).toContain('[项目规范与胶水基线](./11-项目规范与胶水基线.md)');
+    expect(quickstart).toContain('[`spec-standards`](./11-项目规范与胶水基线.md)');
+    expect(artifactMap).toContain('[项目规范与胶水基线](./11-项目规范与胶水基线.md)');
+    expect(standardsGuide).toContain('$spec-standards --quick');
+    expect(standardsGuide).toContain('$spec-standards --refresh --domain cli');
+    expect(standardsGuide).toContain('$spec-standards --deep');
+    expect(standardsGuide).toContain('$spec-standards --baseline --import-source ../shared-standards');
+    expect(standardsGuide).toContain('node skills/spec-standards/scripts/prepare-baseline.js --quick');
+    expect(standardsGuide).toContain('node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json');
+    expect(standardsGuide).toContain('trust_level=degraded');
+    expect(standardsGuide).toContain('validator 只检查 artifact handoff contract');
+    expect(standardsGuide).toContain('`advisory` 不是 candidate status，只是消费模式');
+    expect(standardsGuide).toContain('standards-update-decision.json');
+    expect(standardsGuide).toContain('graph-query-index.json');
+    expect(standardsGuide).toContain('import-lock.json');
+    expect(standardsGuide).toContain('下游 workflow 只能把 `confirmed` standards 当作硬约束');
+    expect(standardsGuide).toContain('`glue-map.json` 只用于 reuse-first 判断');
+    expect(standardsGuide).toContain('不要手改 `.claude/`、`.codex/` 或 `.agents/skills/` runtime mirror');
+  });
+
+  test('user manual distinguishes temporary code-review handoff from durable summaries', () => {
+    const artifactMap = read(ARTIFACT_MAP_PATH);
+    const artifactCatalog = read(ARTIFACT_CATALOG_PATH);
+
+    for (const content of [artifactMap, artifactCatalog]) {
+      expect(content).toContain('/tmp/spec-first/spec-code-review/<run-id>/');
+      expect(content).toContain('session/orchestrator handoff');
+      expect(content).toContain('docs/residual-review-findings/<branch-or-head-sha>.md');
+      expect(content).toContain('Known Residuals');
+    }
+    expect(artifactMap).toContain('不默认把 full-detail per-reviewer JSON bundle 复制进 `docs/` 或 `.spec-first/`');
+  });
+
+  test('user manual catalogs ideation artifacts as durable docs before brainstorm', () => {
+    const englishReadme = read(README_EN_PATH);
+    const chineseReadme = read(README_ZH_PATH);
+    const artifactMap = read(ARTIFACT_MAP_PATH);
+    const artifactCatalog = read(ARTIFACT_CATALOG_PATH);
+    const ideateSkill = read(SPEC_IDEATE_SKILL_PATH);
+
+    expect(ideateSkill).toContain('This workflow produces a ranked ideation artifact in `docs/ideation/`.');
+    expect(ideateSkill).toContain('It does **not** produce requirements, plans, or code.');
+
+    for (const content of [englishReadme, chineseReadme, artifactMap, artifactCatalog]) {
+      expect(content).toContain('docs/ideation/');
+      expect(content).toContain('/spec:ideate');
+      expect(content).toContain('$spec-ideate');
+    }
+
+    expect(artifactMap).toContain('docs/ideation/*-ideation.md');
+    expect(artifactMap).toContain('不是 requirements、plan 或代码');
+    expect(artifactCatalog).toContain('候选想法、批判、排序和拒绝理由');
+    expect(englishReadme).toContain('| Generate and rank ideas | `/spec:ideate` | `$spec-ideate` | Ideation artifact under `docs/ideation/` |');
+    expect(chineseReadme).toContain('| 生成并排序想法 | `/spec:ideate` | `$spec-ideate` | `docs/ideation/` 下的 ideation artifact |');
   });
 });

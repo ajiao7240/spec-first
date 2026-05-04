@@ -1,6 +1,68 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-05 05:09:53 leokuang: fix(spec-standards): 收口 PR 审查反馈中的 module facts、inventory hash 降级、脚本语法门禁和根目录临时记录边界 (user-visible)
+- v1.6.3 2026-05-05 04:56:23 leokuang: fix(spec-standards): 让 repo-profile patch 缺少 confirmed_candidate_ids 时 fail closed，并移除根目录原始会话日志 (user-visible)
+- v1.6.3 2026-05-05 04:49:19 leokuang: docs(spec-evolve): 收敛自我演化方案的反证门槛、P0 dogfood、入口命名、freshness 和 best-practice intake 边界 (user-visible)
+- v1.6.3 2026-05-05 04:30:12 leokuang: fix(spec-standards): 修复 artifact validator 的 candidate id 唯一性与外部确认路径覆盖契约 (user-visible)
+- v1.6.3 2026-05-05 04:17:11 leokuang: fix(dispatch): 收口 CE 血缘 skill dispatch 边界，修复 Codex runtime inline 降级并补跨 skill 回归测试 (user-visible)
+- v1.6.3 2026-05-05 04:11:05 leokuang: feat(spec-standards): 新增 standards artifact validator、fixtures、文档和下游消费契约测试 (user-visible)
+- v1.6.3 2026-05-05 03:46:35 leokuang: docs(plan): 将 CE dispatch control-plane 修复方案规范化为正式 plan，保留 plan-local spec_id 并移除临时 review 草稿 (user-visible)
+- v1.6.3 2026-05-05 03:15:58 leokuang: fix(runtime): 修复 Codex startup skill YAML 与 spec-work-beta doctor drift，并补回归测试 (user-visible)
+- v1.6.3 2026-05-05 03:07:52 leokuang: docs(spec-standards): 收口 artifact 质量门计划剩余审查问题，统一状态词表真相源、补 preview 计数负例并降级 dogfood 为人工验证 (user-visible)
+- v1.6.3 2026-05-05 02:21:32 leokuang: docs(spec-standards): 补充 artifact 质量门计划中外部确认与 evidence shape 的测试场景 (user-visible)
+- v1.6.3 2026-05-05 01:59:34 leokuang: docs(ce-sync): 完成 U8 新 skill 产品边界 spike，明确 strategy、product-pulse、simplify-code 暂不进入 public skill 面 (user-visible)
+- v1.6.3 2026-05-05 01:59:34 leokuang: docs(ce-sync): 完成 U9 CLI readiness 删除审计，保留 spec-first CLI reviewer 覆盖并将同步历史限制在 ledger/contract 中，清理 runtime-facing CE/上游来源措辞 (user-visible)
+- v1.6.3 2026-05-05 01:46:49 leokuang: docs(spec-standards): 开发前微调 artifact 质量门计划，钉牢 degraded pass 输出、preview reason_code 和 U0/U4 测试边界 (user-visible)
+- v1.6.3 2026-05-05 01:35:04 leokuang: fix(ce-sync): 修复审查发现的 code-review helper 路径、reviewer 写权限、update allowlist、PR 分支/正文安全、task-pack 迁移遗漏和 unit contract 漂移 (user-visible)
+- v1.6.3 2026-05-05 01:14:53 leokuang: docs(spec-standards): 在 artifact 质量门计划中补充 artifact-first、downstream-readable 和不新增 standards pack 目录的边界 (user-visible)
+- v1.6.3 2026-05-05 01:05:31 leokuang: docs(spec-standards): 根据审查收紧 standards artifact 质量门计划的状态模型、confirmation、fallback trust 和 validator CLI 契约 (user-visible)
+- v1.6.3 2026-05-05 00:59:25 leokuang: docs(plan): 新增 CE dispatch-boundary 全量 skill 核实与 Codex runtime 修复计划，覆盖 code-review、plan、ideate、work 与反馈处理边界 (user-visible)
+- v1.6.3 2026-05-05 00:51:33 leokuang: docs(spec-standards): 沉淀 spec-standards 存在价值、反过度设计边界和下一步最小闭环判断 (user-visible)
+- v1.6.3 2026-05-05 00:42:41 leokuang: fix(ce-sync): 语义适配 CE 06a7cee0 workflow 安全修复，补齐 update/setup、brainstorm/plan synthesis、code-review、PR、work 与 doc workflow 契约 (user-visible)
+- v1.6.3 2026-05-05 00:36:39 leokuang: docs(compound): 记录 spec-doc-review 适配 Codex 多 agent dispatch 与受限会话 fallback 的 workflow 边界经验
+- v1.6.3 2026-05-05 00:27:39 leokuang: docs(spec-doc-review): 参考 CE bounded persona dispatch 模式补齐 Codex 多 agent 支持与受限会话 fallback 边界 (user-visible)
+- v1.6.3 2026-05-05 00:13:48 leokuang: docs(owner-role): 修复项目 owner 角色文档中的 Markdown 行尾空格，恢复 diff whitespace 校验
+- v1.6.3 2026-05-05 00:07:28 leokuang: docs(spec-standards): 新增 standards artifact 质量门实施计划，收敛 candidates、preview、writeback safety 与下游消费边界 (user-visible)
+- v1.6.3 2026-05-04 22:55:21 leokuang: fix(init): 按 rules 文本与中文参考重构 coding-guidelines managed block 并同步双宿主入口文档 (user-visible)
+- v1.6.3 2026-05-04 22:32:53 leokuang: docs(audit-p2): 补齐 ideation 产物目录、旧 CRG/ECC 文档生命周期边界，并为 app-audit headless runner 建立独立计划 (user-visible)
+- v1.6.3 2026-05-04 22:26:46 leokuang: docs(ce-sync): 按 doc-review 校准 CE 06a7cee0 同步计划，补齐 implementation ledger 契约、agent 权限精确范围和动态 manifest 真源边界 (user-visible)
+- v1.6.3 2026-05-04 22:10:40 leokuang: fix(audit-p2): 修复 npm README 链接体验，补强 doctor 状态解释并生成 runtime capability catalog (user-visible)
+- v1.6.3 2026-05-04 22:05:23 leokuang: docs(ce-sync): 再审并校准 CE 06a7cee0 同步计划，新增逐文件语义对比 gate 并收紧直接同步判定 (user-visible)
+- v1.6.3 2026-05-04 22:00:34 leokuang: docs(ce-sync): 优化上游 CE 同步方法论，补充当前项目语义对比、agent 权限适配和 CLI readiness 删除审计规则 (user-visible)
+- v1.6.3 2026-05-04 21:51:52 leokuang: docs(ce-sync): 细化 CE agent 同步计划，对比上游权限 diff、当前 spec-first reviewer 契约和 CLI readiness 引用后改为语义适配同步 (user-visible)
+- v1.6.3 2026-05-04 21:47:15 leokuang: fix(audit-p1): 收口 spec-work planned run artifact 边界并澄清 code-review 临时 handoff 与 durable summary 触发条件 (user-visible)
+- v1.6.3 2026-05-04 21:45:07 leokuang: docs(ce-sync): 将 CE 06a7cee0 同步计划文档的自然语言内容统一改为中文，保留路径、命令和技术标识原文 (user-visible)
+- v1.6.3 2026-05-04 21:36:41 leokuang: fix(audit-p1): 完成全局审查推荐 P1 任务，修复 source truth、artifact Git 边界和 init 下一步引导 (user-visible)
+- v1.6.3 2026-05-04 21:32:12 leokuang: docs(ce-sync): 新增 CE 4b5f28da..06a7cee0 workflow 更新同步计划，区分安全修复、核心 workflow 适配、CLI reviewer 删除审计与 strategy/product-pulse/simplify-code 产品边界 spike (user-visible)
+- v1.6.3 2026-05-04 21:15:12 leokuang: docs(audit): 校准全局审查路线图与任务清单的测试范围、runtime owner、app-audit runner 和 review artifact 优先级 (user-visible)
+- v1.6.3 2026-05-04 16:59:51 leokuang: docs(audit): 新增 spec-first 全局一致性深度审查文档，梳理 workflow、artifact、双宿主、文档、过度设计与修复路线 (user-visible)
+- v1.6.3 2026-05-04 15:43:44 leokuang: fix(spec-mcp-setup): 完善 setup 完成后的下一步引导，ready 状态下推荐 standards handoff 并保留重启边界 (user-visible)
+- v1.6.3 2026-05-04 13:37:36 leokuang: fix(spec-standards): 收紧 child repo 写入边界、候选规范合成契约和 downstream standards consumption 规则 (user-visible)
+- v1.6.3 2026-05-04 13:34:41 leokuang: docs(audit): 在系统审查报告中补充 skill/workflow 治理优化进展与剩余项
+- v1.6.3 2026-05-04 13:33:37 leokuang: docs(governance): 新增 fresh-source eval checklist，明确 skill/agent prose 语义验证的 source/runtime 与未执行记录边界
+- v1.6.3 2026-05-04 13:31:35 leokuang: docs(spec-release-notes): 增加 version/range/topic 过滤契约，避免 release 摘要退化成长 changelog 倾倒 (user-visible)
+- v1.6.3 2026-05-04 13:29:59 leokuang: docs(lfg): 将 lfg 明确标为 legacy/internal shim，并用 contract test 防止暴露为公开 workflow 入口
+- v1.6.3 2026-05-04 13:28:12 leokuang: docs(spec-code-review): 增加 reviewer dispatch 能力门禁与 single-agent report-only fallback，避免 Codex 未授权派生 subagent (user-visible)
+- v1.6.3 2026-05-04 13:26:42 leokuang: docs(spec-optimize): 强化可度量目标、退化 gate 与首轮实验预算，避免 optimization workflow 变成高成本默认执行入口 (user-visible)
+- v1.6.3 2026-05-04 13:24:09 leokuang: docs(spec-doc-review): 将多轮 decision-primer 细则下沉到 reference，保持核心 workflow contract 轻量
+- v1.6.3 2026-05-04 13:17:40 leokuang: docs(readme): 增加 ideate、brainstorm、doc-review 的入口判定表，避免将 brainstorm 当作默认入口 (user-visible)
+- v1.6.3 2026-05-04 13:16:03 leokuang: docs(spec-work-beta): 将 delegation beta 收紧为显式 opt-in，默认 guide 与 handoff 继续指向稳定 work workflow (user-visible)
+- v1.6.3 2026-05-04 13:15:56 leokuang: fix(lint): 允许 standalone skill command alias 的禁止性 guardrail 文案通过入口治理检查
+- v1.6.3 2026-05-04 13:13:06 leokuang: test(spec-write-tasks): 用 governance-derived lint 阻止 standalone task 编译 skill 被误写成命令入口
+- v1.6.3 2026-05-04 12:57:17 leokuang: docs(spec-work): 明确 oversized work 的 plan 与 standalone task-pack handoff 边界，避免执行 workflow 现场扩 scope (user-visible)
+- v1.6.3 2026-05-04 12:50:22 leokuang: test(using-spec-first): 用 lint 合同阻止将 standalone meta skill 误写成 spec slash command
+- v1.6.3 2026-05-04 12:47:42 leokuang: docs(spec-standards): 新增独立用户手册页，说明项目规范与胶水基线的入口、模式、产物和确认边界 (user-visible)
+- v1.6.3 2026-05-04 11:58:30 leokuang: docs(ecc): 将 ECC agent integration final 文档归档到 ECC 集成架构目录
+- v1.6.3 2026-05-04 10:53:15 leokuang: feat(spec-standards): 将 quick、refresh、deep 和 import-source 升级为正式可执行模式，补齐 deterministic artifacts、文档和契约测试 (user-visible)
+- v1.6.3 2026-05-04 04:05:59 leokuang: fix(audit): 修复系统审查 P0/P1 队列中的 Jest worktree 隔离、npm pack 测试隔离、provider/CLI timeout、docs lifecycle 与 lightweight schema validator 契约，并记录 ECC 漂移阻塞边界 (user-visible)
+- v1.6.3 2026-05-04 03:37:13 leokuang: docs(audit): 新增 spec-first 系统级质量审查报告，明确 P0/P1/P2 风险、产物边界、graph provider、测试隔离与后续修复任务 (user-visible)
+- v1.6.3 2026-05-04 03:35:50 leokuang: fix(spec-standards): 收紧 baseline facts 扫描边界、MVP 参数暴露和 standards artifacts Git 边界文档 (user-visible)
+- v1.6.3 2026-05-04 03:04:59 leokuang: feat(spec-standards): 新增项目规范与胶水能力 baseline workflow，接入双宿主入口、runtime 投递、用户文档和 preview-first contract 测试 (user-visible)
+- v1.6.3 2026-05-04 02:32:19 leokuang: fix(app-audit): 完成 2026-05-03 50 轮一致性审查，收紧 preflight freshness、issue status、industry lens、metadata lifecycle、headless verdict、脱敏契约，并修复用户手册契约漂移 (user-visible)
+- v1.6.3 2026-05-04 02:29:55 leokuang: fix(graph-bootstrap): 补齐 graph readiness eval fixtures、no-source resolver 语义、dirty worktree freshness fingerprint 契约，并忽略本地 worktrees scratch 目录 (user-visible)
+- v1.6.3 2026-05-04 01:27:37 leokuang: fix(graph-bootstrap): 区分无源码子仓与真实 degraded，并增强 GitNexus flow-like method probe 候选 (user-visible)
+- v1.6.3 2026-05-04 00:39:32 leokuang: release: 发布 spec-first 1.6.3 到 npmjs registry (user-visible)
 - v1.6.2 2026-05-03 23:47:00 leokuang: style(graph-bootstrap): 对齐 provider bootstrap shell 脚本缩进
 - v1.6.2 2026-05-03 23:40:26 leokuang: fix(graph-bootstrap): 补强多仓 graph bootstrap 的无源码 fallback、环境失败分类、all-repos 进度和 final handoff 契约 (user-visible)
 - v1.6.2 2026-05-03 23:20:47 leokuang: docs(manual): 全面同步用户手册的工程闭环、多仓 workspace、graph readiness、App audit、FAQ 和产物边界说明 (user-visible)

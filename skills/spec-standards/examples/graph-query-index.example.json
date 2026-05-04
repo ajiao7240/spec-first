@@ -1,0 +1,28 @@
+{
+  "schema_version": "spec-first.standards-graph-query-index.v1",
+  "mode": "deep",
+  "scope": {
+    "type": "repo",
+    "root": ".",
+    "domains": [
+      "cli"
+    ],
+    "modules": []
+  },
+  "graph_status": "available",
+  "query_budget": {
+    "max_queries": 2,
+    "max_results_per_query": 8,
+    "raw_results_path": ".spec-first/standards/graph-query-raw/"
+  },
+  "planned_queries": [
+    {
+      "id": "deep.cli.conventions",
+      "domain": "cli",
+      "provider_hint": "GitNexus",
+      "query": "cli conventions standards evidence",
+      "purpose": "Find observed project conventions that can support standards candidates."
+    }
+  ],
+  "execution_boundary": "This index is a deterministic query plan. Live MCP results are session-local evidence and must not be written as confirmed standards without LLM review."
+}

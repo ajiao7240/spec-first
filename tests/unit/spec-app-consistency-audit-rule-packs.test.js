@@ -33,11 +33,17 @@ describe('spec-app-consistency-audit rule pack selection', () => {
       const preflightPath = write(repoRoot, 'preflight.json', JSON.stringify(preflight));
       const industryPath = write(repoRoot, 'industry.json', JSON.stringify(industryProfile));
       const preview = selectRulePacks({ repoRoot, preflight: preflightPath, industryProfile: industryPath });
-      const confirmed = selectRulePacks({
+      const explicitLens = selectRulePacks({
         repoRoot,
         preflight: preflightPath,
         industryProfile: industryPath,
         industry: 'securities',
+      });
+      const confirmed = selectRulePacks({
+        repoRoot,
+        preflight: preflightPath,
+        industryProfile: industryPath,
+        confirmedIndustry: 'securities',
       });
 
       expect(preview.selected_rule_packs.map((entry) => entry.name)).toEqual(expect.arrayContaining([
@@ -49,6 +55,8 @@ describe('spec-app-consistency-audit rule pack selection', () => {
         'securities',
       ]));
       expect(preview.selected_rule_packs.find((entry) => entry.name === 'securities').advisory_only).toBe(true);
+      expect(explicitLens.selected_rule_packs.find((entry) => entry.name === 'securities').advisory_only).toBe(true);
+      expect(explicitLens.selected_rule_packs.find((entry) => entry.name === 'securities').activation_reason).toContain('explicitly selected as a lens');
       expect(confirmed.selected_rule_packs.find((entry) => entry.name === 'securities').advisory_only).toBe(false);
       expect(preview.confirmed_issue_policy.rule_pack_cannot_be_only_evidence).toBe(true);
     } finally {

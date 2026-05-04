@@ -80,6 +80,7 @@ generated_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 gitnexus_package="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1] // empty' "$TOOLS_JSON")"
 [ -n "$gitnexus_package" ] || { echo "GitNexus package spec not found in mcp-tools.json" >&2; exit 1; }
 GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT=5
+GITNEXUS_QUERY_PROBE_SOURCE_FILE_LIMIT_BYTES=200000
 
 gitnexus_probe_path_excluded() {
   case "$1" in
@@ -133,6 +134,47 @@ gitnexus_probe_token_infrastructure_signal() {
 
 gitnexus_probe_token_display_signal() {
   [[ "$1" =~ (View|Screen|Layout|Modal|Report)$ ]]
+}
+
+gitnexus_probe_method_token_signal() {
+  [[ "$1" =~ ^(step[A-Za-z0-9_]*|validate[A-Za-z0-9_]*|parse[A-Za-z0-9_]*|booleanResult|isSuccess|success|failure|options|bootstrap|start|submit|resubmit|create[A-Za-z0-9_]*|cancel[A-Za-z0-9_]*|add[A-Za-z0-9_]*|save[A-Za-z0-9_]*|delete[A-Za-z0-9_]*|update[A-Za-z0-9_]*|upload[A-Za-z0-9_]*|download[A-Za-z0-9_]*|handle[A-Za-z0-9_]*|process[A-Za-z0-9_]*)$ ]]
+}
+
+gitnexus_probe_method_token_low_signal() {
+  [[ "$1" =~ ^(get|set|is|has|toString|equals|hashCode|query[A-Za-z0-9_]*|list[A-Za-z0-9_]*|resolve[A-Za-z0-9_]*|build[A-Za-z0-9_]*|convert[A-Za-z0-9_]*|map[A-Za-z0-9_]*)$ ]]
+}
+
+gitnexus_probe_method_tokens_from_path() {
+  local repo_root="$1"
+  local path="$2"
+  local full_path size
+  full_path="$repo_root/$path"
+  [ -f "$full_path" ] || return 0
+  size="$(wc -c < "$full_path" 2>/dev/null || printf '0')"
+  [[ "$size" =~ ^[0-9]+$ ]] || size=0
+  [ "$size" -le "$GITNEXUS_QUERY_PROBE_SOURCE_FILE_LIMIT_BYTES" ] || return 0
+
+  awk '
+    /\(/ {
+      line = $0
+      sub(/\/\/.*/, "", line)
+      if (line ~ /^[[:space:]]*(if|for|while|switch|catch|return|throw|new)[[:space:]]*\(/) next
+      if (line ~ /=>/) next
+      before = line
+      sub(/\(.*/, "", before)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", before)
+      n = split(before, parts, /[[:space:]]+/)
+      token = parts[n]
+      if (token ~ /^[A-Za-z_][A-Za-z0-9_]*$/ && token !~ /^(if|for|while|switch|catch|return|throw|new|class|interface|enum)$/) {
+        print token
+      }
+    }
+  ' "$full_path" | while IFS= read -r token; do
+    [ -n "$token" ] || continue
+    gitnexus_probe_method_token_signal "$token" || continue
+    gitnexus_probe_method_token_low_signal "$token" && continue
+    printf '%s\n' "$token"
+  done | awk '!seen[$0]++'
 }
 
 sanitize_gitnexus_repo_name() {
@@ -203,17 +245,37 @@ resolve_gitnexus_repo_name() {
 
 select_gitnexus_query_probe_policy() {
   local repo_root="$1"
-  local path token priority
+  local path token priority method_token selected_reason policy_source
   local selected_path="" selected_token=""
   local candidates_json="[]"
   local candidate_count=0
+  local candidate_limit_reached=false
   local -a files=("__spec_first_empty_file_list_sentinel__")
 
   while IFS= read -r path; do
     files+=("$path")
   done < <(git -C "$repo_root" ls-files 2>/dev/null || true)
 
-  for priority in entrypoint_named workflow_named src_high_signal high_signal android_named workflow_display_named any_source; do
+  append_gitnexus_probe_candidate() {
+    local candidate_token="$1"
+    local candidate_path="$2"
+    local candidate_reason="$3"
+    if jq -e --arg token "$candidate_token" 'any(.[]; .token == $token)' >/dev/null <<<"$candidates_json"; then
+      return 0
+    fi
+    candidates_json="$(jq -c \
+      --arg token "$candidate_token" \
+      --arg selected_from "$candidate_path" \
+      --arg reason_code "$candidate_reason" \
+      '. + [{token:$token, selected_from:$selected_from, reason_code:$reason_code}]' \
+      <<<"$candidates_json")"
+    candidate_count="$(jq 'length' <<<"$candidates_json")"
+    if [ "$candidate_count" -ge "$GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT" ]; then
+      candidate_limit_reached=true
+    fi
+  }
+
+  for priority in entrypoint_named workflow_method src_method workflow_named src_high_signal high_signal android_named workflow_display_named any_source; do
     for path in "${files[@]}"; do
       [ "$path" != "__spec_first_empty_file_list_sentinel__" ] || continue
       gitnexus_probe_path_excluded "$path" && continue
@@ -223,6 +285,33 @@ select_gitnexus_query_probe_policy() {
       case "$priority" in
         entrypoint_named)
           gitnexus_probe_token_entry_signal "$token" || continue
+          ;;
+        workflow_method)
+          gitnexus_probe_token_workflow_signal "$token" || continue
+          gitnexus_probe_token_infrastructure_signal "$token" && continue
+          gitnexus_probe_token_weak_proof_signal "$token" && continue
+          while IFS= read -r method_token; do
+            [ -n "$method_token" ] || continue
+            append_gitnexus_probe_candidate "$method_token" "$path" "$priority"
+            [ "$candidate_limit_reached" = "true" ] && break
+          done < <(gitnexus_probe_method_tokens_from_path "$repo_root" "$path")
+          [ "$candidate_limit_reached" = "true" ] && break 2
+          continue
+          ;;
+        src_method)
+          case "$path" in
+            src/*|*/src/*) ;;
+            *) continue ;;
+          esac
+          gitnexus_probe_token_infrastructure_signal "$token" && continue
+          gitnexus_probe_token_weak_proof_signal "$token" && continue
+          while IFS= read -r method_token; do
+            [ -n "$method_token" ] || continue
+            append_gitnexus_probe_candidate "$method_token" "$path" "$priority"
+            [ "$candidate_limit_reached" = "true" ] && break
+          done < <(gitnexus_probe_method_tokens_from_path "$repo_root" "$path")
+          [ "$candidate_limit_reached" = "true" ] && break 2
+          continue
           ;;
         android_named)
           case "$path" in
@@ -261,17 +350,8 @@ select_gitnexus_query_probe_policy() {
           ;;
         any_source) ;;
       esac
-      if jq -e --arg token "$token" 'any(.[]; .token == $token)' >/dev/null <<<"$candidates_json"; then
-        continue
-      fi
-      candidates_json="$(jq -c \
-        --arg token "$token" \
-        --arg selected_from "$path" \
-        --arg reason_code "$priority" \
-        '. + [{token:$token, selected_from:$selected_from, reason_code:$reason_code}]' \
-        <<<"$candidates_json")"
-      candidate_count="$(jq 'length' <<<"$candidates_json")"
-      if [ "$candidate_count" -ge "$GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT" ]; then
+      append_gitnexus_probe_candidate "$token" "$path" "$priority"
+      if [ "$candidate_limit_reached" = "true" ]; then
         break 2
       fi
     done
@@ -280,13 +360,20 @@ select_gitnexus_query_probe_policy() {
   if [ "$candidate_count" -gt 0 ]; then
     selected_token="$(jq -r '.[0].token' <<<"$candidates_json")"
     selected_path="$(jq -r '.[0].selected_from' <<<"$candidates_json")"
+    selected_reason="$(jq -r '.[0].reason_code' <<<"$candidates_json")"
+    if [[ "$selected_reason" =~ _method$ ]]; then
+      policy_source="git-ls-files-source-symbol"
+    else
+      policy_source="git-ls-files-code-basename"
+    fi
     jq -n \
       --arg token "$selected_token" \
       --arg selected_from "$selected_path" \
+      --arg source "$policy_source" \
       --argjson candidates "$candidates_json" \
       '{
         expected_hit:true,
-        source:"git-ls-files-code-basename",
+        source:$source,
         token:$token,
         selected_from:$selected_from,
         candidates:$candidates

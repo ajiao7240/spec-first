@@ -22,7 +22,7 @@ source_plan_hash: "sha256:<64-hex>"
 generated_by: "spec-write-tasks"
 mode: "derived"
 source_sections:
-  - "Requirements Trace"
+  - "Requirements"
   - "Scope Boundaries"
   - "Implementation Units"
 ---
@@ -168,7 +168,7 @@ Executable task cards must include these deterministic fields:
 | --- | --- |
 | `task_id` | Stable identifier such as `T001` |
 | `source_unit` | Matching plan `U-ID` when available |
-| `requirement_refs` | Related Requirements Trace / acceptance refs; required when `source_unit` is absent |
+| `requirement_refs` | Related Requirements / legacy Requirements Trace / acceptance refs; required when `source_unit` is absent |
 | `goal` | Task goal |
 | `dependencies` | Prerequisite task IDs |
 | `files` | Non-empty concrete repo-relative POSIX file paths; no globs, directories, `.`, `..`, `...`, or backslash separators |
@@ -207,7 +207,7 @@ These fields should be added when useful for context compression, review, or wor
   context_refs:
     - docs/plans/...#Implementation-Units
     - skills/spec-work/SKILL.md
-  entry_hint: Start with the plan's Requirements Trace and Scope Boundaries
+  entry_hint: Start with the plan's Requirements and Scope Boundaries
   test_focus: Minimal happy path for core behavior
   done_signal: Relevant tests pass and the boundary is stable
   parallelizable: false

@@ -112,13 +112,22 @@ function runPreflight(options = {}) {
   for (const mode of buildStructureDegradedModes(scan)) degradedModes.push(mode);
 
   const sourceInputs = [];
-  sourceInputs.push({
-    type: 'code',
-    path: publicPath(repoRoot, scanRoot, 'source-outside-repo'),
-    ...(scan.source_hash_unavailable_reason
-      ? { source_hash_unavailable_reason: scan.source_hash_unavailable_reason, freshness: 'partial-worktree' }
-      : { source_hash: scan.source_hash, freshness: 'current-worktree' }),
-  });
+  if (sourceResolution.ok) {
+    sourceInputs.push({
+      type: 'code',
+      path: publicPath(repoRoot, scanRoot, 'source-outside-repo'),
+      ...(scan.source_hash_unavailable_reason
+        ? { source_hash_unavailable_reason: scan.source_hash_unavailable_reason, freshness: 'partial-worktree' }
+        : { source_hash: scan.source_hash, freshness: 'current-worktree' }),
+    });
+  } else {
+    sourceInputs.push({
+      type: 'code',
+      path: publicPath(repoRoot, sourceResolution.path || options.source || '.', 'source-outside-repo'),
+      source_hash_unavailable_reason: sourceResolution.reason_code || 'source_unreadable',
+      freshness: 'unavailable',
+    });
+  }
 
   if (prdResolution.ok) {
     sourceInputs.push({
@@ -358,8 +367,10 @@ function scanSourceTree(root, options = {}) {
     skipped_directories: [...skipped].sort(),
     skipped_large_files: skippedLargeFiles.sort((left, right) => left.path.localeCompare(right.path)),
     skipped_large_file_count: skippedLargeFileCount,
-    source_hash: skippedLargeFileCount > 0 ? null : hashFileList(root, files),
-    source_hash_unavailable_reason: skippedLargeFileCount > 0 ? 'large_file_skipped' : null,
+    source_hash: (truncated || skippedLargeFileCount > 0) ? null : hashFileList(root, files),
+    source_hash_unavailable_reason: truncated
+      ? 'file_scan_truncated'
+      : (skippedLargeFileCount > 0 ? 'large_file_skipped' : null),
     signals: {
       commonMain: relFiles.some((file) => file.includes('commonMain/')),
       androidMain: relFiles.some((file) => file.includes('androidMain/')),

@@ -1,12 +1,12 @@
 ---
 name: spec-doc-review
-description: Review requirements, plan, or task-pack documents using parallel persona agents that surface role-specific issues. Use when a requirements document, plan document, or derived task pack exists and the user wants to improve it.
+description: Review requirements, plan, or task-pack documents using persona reviewers that surface role-specific issues. When reviewer dispatch is available and authorized, run bounded parallel reviewers; when dispatch is unavailable or not authorized, fall back to a single-agent report-only review instead of bypassing host rules.
 argument-hint: "[mode:headless] [path/to/document.md]"
 ---
 
 # Document Review
 
-Review requirements, plan, or task-pack documents through multi-persona analysis. Dispatches specialized reviewer agents in parallel, auto-applies `safe_auto` fixes, and routes remaining findings through a four-option interaction (per-finding walk-through, Auto-resolve with best judgment, Append-to-Open-Questions, Report-only) for user decision.
+Review requirements, plan, or task-pack documents through multi-persona analysis. When the host and current session rules permit reviewer dispatch, dispatch specialized reviewer agents with bounded parallelism, auto-apply `safe_auto` fixes, and route remaining findings through a four-option interaction (per-finding walk-through, Auto-resolve with best judgment, Append-to-Open-Questions, Report-only) for user decision. When reviewer dispatch is unavailable or not authorized, run the single-agent report-only fallback described in Phase 2 so the workflow still returns review findings without violating host rules.
 
 ## Invocation Boundary
 
@@ -134,9 +134,29 @@ Add activated conditional personas:
 - `spec-scope-guardian-reviewer`
 - `spec-adversarial-document-reviewer`
 
+### Dispatch Capability Gate
+
+Before dispatching any reviewer, confirm the current host and session rules allow subagent use for this document review. Permission is part of the runtime boundary, not a reviewer-selection preference.
+
+- If the user explicitly requested subagents, parallel agents, delegated review, or persona reviewer dispatch and the host exposes a dispatch primitive, continue with normal bounded multi-persona dispatch.
+- If the user explicitly invoked the current host's document-review workflow entrypoint and the current session rules permit workflow-owned reviewer dispatch, treat that workflow invocation as authorization for this documented persona-reviewer phase; do not require a second "use subagents" phrase.
+- If an active workflow or parent orchestrator explicitly delegated this doc-review workflow and allowed reviewer agents, continue with normal bounded multi-persona dispatch.
+- If the host lacks a dispatch primitive, the current runtime cannot call it, or current instructions require explicit user authorization that has not been given, do not call `Agent`, `Task`, `spawn_agent`, or equivalent dispatch tools.
+- Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex. Honor current session developer instructions if they impose a stricter dispatch authorization boundary.
+
+When dispatch is not allowed, set `single_agent_report_only_fallback: true` and run a read-only review in the current orchestrator:
+
+- Treat the effective mode as report-only, even if no `mode:report-only` token was provided.
+- Do not apply `safe_auto` fixes, append Open Questions, or edit the document.
+- Use the selected persona list as an inline checklist, preserving the same classification boundaries where possible.
+- Skip the routing question, walk-through, and bulk-preview flow.
+- In Coverage, state `single-agent report-only fallback: reviewer dispatch unavailable or not authorized`.
+
 ### Dispatch
 
-Dispatch all agents in **parallel** using the platform's subagent primitive (e.g., `Agent` in Claude Code or `spawn_agent` in Codex). Omit the `mode` parameter so the user's configured permission settings apply. Each agent receives the prompt built from the subagent template included below with these variables filled:
+Dispatch agents using **bounded parallelism** with the platform's subagent primitive (e.g., `Agent` in Claude Code or `spawn_agent` in Codex). Omit the `mode` parameter so the user's configured permission settings apply. Respect the current harness's active-subagent limit: queue selected reviewers, dispatch only as many as the harness accepts, and fill freed slots as reviewers complete. Treat active-agent/thread/concurrency-limit spawn errors as backpressure, not reviewer failure: leave the reviewer queued and retry after a slot frees. Record a reviewer as failed only after a successful dispatch times out/fails, or when dispatch fails for a non-capacity reason.
+
+Each agent receives the prompt built from the subagent template included below with these variables filled:
 
 | Variable | Value |
 |----------|-------|
@@ -149,46 +169,13 @@ Dispatch all agents in **parallel** using the platform's subagent primitive (e.g
 
 Pass each agent the **full document** — do not split into sections.
 
-### Decision primer
+### Decision Primer
 
-On round 1 (no prior decisions), set `{decision_primer}` to:
-
-```
-<prior-decisions>
-Round 1 — no prior decisions.
-</prior-decisions>
-```
-
-On round 2+ (after one or more prior rounds in the current interactive session), accumulate prior-round decisions and render them as:
-
-```
-<prior-decisions>
-Round 1 — applied (N entries):
-- {section}: "{title}" ({reviewer}, {confidence})
-  Evidence: "{evidence_snippet}"
-
-Round 1 — rejected (M entries):
-- {section}: "{title}" — Skipped because {reason}
-  Evidence: "{evidence_snippet}"
-- {section}: "{title}" — Deferred to Open Questions because {reason or "no reason provided"}
-  Evidence: "{evidence_snippet}"
-- {section}: "{title}" — Acknowledged without applying because {reason or "no suggested_fix — user acknowledged"}
-  Evidence: "{evidence_snippet}"
-
-Round 2 — applied (N entries):
-...
-</prior-decisions>
-```
-
-Each entry carries an `Evidence:` line because synthesis R29 (rejected-finding suppression) and R30 (fix-landed verification) both use an evidence-substring overlap check as part of their matching predicate — without the evidence snippet in the primer, the orchestrator cannot compute the `>50%` overlap test and has to fall back to fingerprint-only matching, which either re-surfaces rejected findings or suppresses too aggressively. The `{evidence_snippet}` is the first evidence quote from the finding, truncated to the first ~120 characters (preserving whole words at the boundary) and with internal quotes escaped. If a finding has multiple evidence entries, use the first one; the rest live in the run artifact and are not needed for the overlap check.
-
-Accumulate across all rounds in the current session. Skip, Defer, and Acknowledge actions all count as "rejected" for suppression purposes — each signals the user decided the finding wasn't worth actioning this round (Acknowledge is the no-fix-guard variant: the user saw a finding with no `suggested_fix`, chose not to defer or skip explicitly, and recorded acknowledgement instead; for round-to-round suppression that is semantically equivalent to Skip). Applied findings stay on the applied list so round-N+1 personas can verify fixes landed (see R30 in `references/synthesis-and-presentation.md`).
-
-Cross-session persistence is out of scope. A new invocation of spec-doc-review on the same document starts with a fresh round 1 and no carried primer, even if prior sessions deferred findings into the document's Open Questions section.
+Before dispatch, read `references/decision-primer.md` and build `{decision_primer}` from that contract. The primer is the only cross-round memory for the current interactive invocation: round 1 sends the empty prior-decision block, while round 2+ summarizes prior Apply / Skip / Defer / Acknowledge decisions with evidence snippets so synthesis can suppress rejected re-raises and verify applied fixes. Do not persist the primer across sessions.
 
 **Error handling:** If an agent fails or times out, proceed with findings from agents that completed. Note the failed agent in the Coverage section. Do not block the entire review on a single agent failure.
 
-**Dispatch limit:** Even at maximum (7 agents), use parallel dispatch. These are document reviewers with bounded scope reading a single document -- parallel is safe and fast.
+**Dispatch limit:** Even at maximum (7 agents), use bounded parallel dispatch. These are document reviewers with bounded scope reading a single document -- parallel is safe and fast when the host allows it. If the harness cap is lower than the selected team size, queue the remainder and launch them as active reviewers complete.
 
 ## Phases 3-5: Synthesis, Presentation, and Next Action
 

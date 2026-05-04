@@ -43,4 +43,16 @@ describe('spec-ideate host entrypoint contract', () => {
     expect(combined).toContain('SCRATCH_ROOT="/tmp/spec-first/spec-ideate"');
     expect(combined).not.toContain('/tmp/spec-first/spec:ideate');
   });
+
+  test('ideation dispatch is optional, read-only, and has sequential fallback', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Dispatch Boundary');
+    expect(text).toContain('Ideation dispatch is optional and read-only.');
+    expect(text).toContain('Direct invocation of the current host\'s ideation workflow may authorize the documented grounding and ideation sub-agent phases');
+    expect(text).toContain('keep dispatch bounded to the counts computed in Phase 0.6');
+    expect(text).toContain('run grounding and ideation sequentially or inline in the current agent');
+    expect(text).toContain('workflow must still produce an ideation artifact when dispatch is unavailable');
+    expect(text).toContain('The orchestrator owns scratch checkpoints, merged candidates, critique, and final artifact writes.');
+  });
 });

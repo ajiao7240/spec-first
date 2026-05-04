@@ -517,6 +517,36 @@ describe('spec-app-consistency-audit CLI e2e', () => {
         const file = signal.affected_surface ? signal.affected_surface.file : ((signal.evidence || [])[0] || {}).file;
         return !file || file.startsWith('apps/mobile/');
       })).toBe(true);
+      const explicitIndustryImpact = JSON.parse(runNode([
+        script('build-impact-facts.js'),
+        'mode:headless',
+        `base:${base}`,
+        '--repo-root',
+        repoRoot,
+        'source:apps/mobile',
+        'industry:securities',
+      ]).stdout);
+      const explicitIndustrySignal = explicitIndustryImpact.candidate_signals.find((signal) => signal.type === 'industry_term_candidate');
+      expect(explicitIndustrySignal).toEqual(expect.objectContaining({
+        industry: 'securities',
+        advisory_only: true,
+      }));
+      const confirmedIndustryImpact = JSON.parse(runNode([
+        script('build-impact-facts.js'),
+        'mode:headless',
+        `base:${base}`,
+        '--repo-root',
+        repoRoot,
+        'source:apps/mobile',
+        '--confirmed-industry',
+        'securities',
+      ]).stdout);
+      const confirmedIndustrySignal = confirmedIndustryImpact.candidate_signals.find((signal) => signal.type === 'industry_term_candidate');
+      expect(confirmedIndustryImpact.coverage_capabilities.industry).toBe('confirmed_profile');
+      expect(confirmedIndustrySignal).toEqual(expect.objectContaining({
+        industry: 'securities',
+        advisory_only: false,
+      }));
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }

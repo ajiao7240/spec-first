@@ -73,6 +73,8 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('explicit `target_repo` / per-child scope');
     expect(skill).toContain('/spec:' + 'graph' + '-bootstrap');
     expect(skill).toContain('$spec-' + 'graph' + '-bootstrap');
+    expect(skill).toContain('/spec:standards');
+    expect(skill).toContain('$spec-standards');
     expect(skill).not.toContain('/spec:setup');
     expect(skill).not.toContain('$spec-setup');
     expect(skill).not.toContain('spec-first ' + 'crg');
@@ -107,6 +109,7 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('This skill should not ask the agent to fabricate command results');
     expect(skill).toContain('Do not use this governor to create pseudo-plan, pseudo-task, or pseudo-review artifacts.');
     expect(skill).toContain('Do **not** expose internal-only skills as user entrypoints.');
+    expect(skill).toContain('legacy/internal `lfg`');
     expect(skill).toContain('spec-session-inventory');
     expect(skill).toContain('using-spec-first` itself is a standalone meta skill');
     expect(skill).toContain('/spec:update');
@@ -125,6 +128,9 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('not a `/spec:*` or `$spec-*` workflow entrypoint');
     expect(skill).toContain('/spec:work');
     expect(skill).toContain('$spec-work');
+    expect(skill).toContain('Do not recommend this route in User Next-Step Guide Mode unless the current request explicitly asks for beta execution');
+    expect(skill).toContain('Ordinary execution-ready work routes to the stable work entrypoint.');
+    expect(skill).toContain('Legacy/internal `lfg` must not be recommended as a public workflow path.');
     expect(skill).not.toContain('/spec:next');
     expect(skill).not.toContain('$spec-next');
     expect(skill).not.toContain('/spec:guide');

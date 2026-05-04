@@ -51,7 +51,7 @@ Render as markdown. Labels on their own line, blank lines between sections:
 Substitutions:
 
 - **`{plain-English title}`:** a 3-8 word summary suitable as a heading. Derived from the merged finding's `title` field but rephrased so it reads as observable behavior (e.g., "Path traversal in loadUserFromCache" rather than "Missing userId validation on line 36").
-- **`why_it_matters`:** read the contributing reviewer's artifact file at `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json` using the same `file + line_bucket(line, +/-3) + normalize(title)` matching that headless mode uses (see `SKILL.md` Stage 6 detail enrichment). When multiple reviewers flagged the merged finding, try them in the order they appear in the merged finding's reviewer list. Use the first match.
+- **`why_it_matters`:** use the contributing reviewer's returned detail fields first. If the in-memory detail is unavailable and a parent-owned artifact cache exists, read `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json` using the same `file + line_bucket(line, +/-3) + normalize(title)` matching that headless mode uses (see `SKILL.md` Stage 6 detail enrichment). When multiple reviewers flagged the merged finding, try them in the order they appear in the merged finding's reviewer list. Use the first match.
 - **`suggested_fix`:** from the merged finding's `suggested_fix` field. Render as prose describing **intent**, not as syntax. The fixer subagent owns the exact code — the walk-through just needs enough for the user to trust or reject the action. Rules:
   - **Default — one sentence describing the effect.** What does the fix achieve, and where does it live? Prefer intent language over quoted code.
     - ✅ `Throw on non-2xx response before parsing JSON.`
@@ -67,7 +67,7 @@ Substitutions:
 - **`Why it works`:** grounded reasoning that, where possible, references a similar pattern already used elsewhere in the codebase (e.g., "matches the format-validation pattern already used at src/cli/io.ts:41"). One to three sentences.
 - **R15 conflict context line (when applicable):** when contributing reviewers implied different actions for this finding and Stage 5 step 7b broke the tie, surface that briefly. Example: `Correctness recommends Apply; Testing recommends Skip (low confidence). Agent's recommendation: Skip.` The orchestrator's recommendation — the post-tie-break value — is what the menu labels "recommended."
 
-When no artifact match exists for the finding (merge-synthesized finding, or the persona's artifact write failed), the terminal block degrades to the heading + `suggested_fix` only (omit the `What's wrong` and `Why it works` sections) and records the gap for the Coverage section of the completion report.
+When no detail match exists for the finding (merge-synthesized finding, legacy reviewer return without detail, or missing parent-owned artifact cache), the terminal block degrades to the heading + `suggested_fix` only (omit the `What's wrong` and `Why it works` sections) and records the gap for the Coverage section of the completion report.
 
 ### Question stem (short, decision-focused)
 
@@ -216,7 +216,7 @@ Every terminal path of Interactive mode emits the same completion report structu
 
 Carry forward the existing Coverage data (suppressed-finding count, residual risks, testing gaps, failed reviewers) and add one new element:
 
-- **Framing-enrichment gaps:** count of findings where artifact lookup returned no match (merge-synthesized findings, or failed persona artifact writes). Name the personas contributing those gaps so the data feeds any future persona-upgrade decision. A trail of gaps per run tells the team which persona agents still need attention.
+- **Framing-enrichment gaps:** count of findings where reviewer-return detail and optional artifact lookup returned no match. Name the personas contributing those gaps so the data feeds any future persona-upgrade decision. A trail of gaps per run tells the team which persona agents still need attention.
 
 ### Report ordering
 

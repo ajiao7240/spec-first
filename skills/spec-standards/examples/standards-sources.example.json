@@ -1,0 +1,18 @@
+{
+  "schema_version": "spec-first.standards-sources.v1",
+  "sources": [
+    {
+      "id": "standards-source.example",
+      "input": "../shared-standards",
+      "type": "local_directory",
+      "status": "available",
+      "local_path": "../shared-standards",
+      "workspace_path": "../shared-standards",
+      "git": {
+        "commit": "abcdef1234567890",
+        "remote": "git@example.com:team/shared-standards.git"
+      },
+      "reason_code": null
+    }
+  ]
+}

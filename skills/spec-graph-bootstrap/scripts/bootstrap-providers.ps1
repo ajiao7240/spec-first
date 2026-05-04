@@ -8,6 +8,13 @@ Set-StrictMode -Version Latest
 
 $script:GitNexusQueryProbeCandidateLimit = 5
 $script:BootstrapProvidersScript = $PSCommandPath
+$script:ProviderCommandTimeoutSeconds = if ($env:SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS -match '^[0-9]+$') {
+  [int]$env:SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS
+} elseif ($env:SPEC_FIRST_STAGE_TIMEOUT_SECONDS -match '^[0-9]+$') {
+  [int]$env:SPEC_FIRST_STAGE_TIMEOUT_SECONDS
+} else {
+  900
+}
 
 function Write-ResultAndExit {
   param(
@@ -24,6 +31,18 @@ function Write-ResultAndExit {
     next_action = $NextAction
   } | ConvertTo-Json -Compress
   exit $ExitCode
+}
+
+function Get-StatusHash {
+  param([string]$Text)
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
+    $hash = $sha.ComputeHash($bytes)
+    return 'sha256:' + ([BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant())
+  } finally {
+    $sha.Dispose()
+  }
 }
 
 function Invoke-ChildJsonScript {
@@ -143,7 +162,8 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
 
   $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
   $degradedCount = @($results | Where-Object { $_.workflow_mode -eq 'degraded-fallback' -or $_.overall_status -eq 'degraded' }).Count
-  $actionRequiredCount = @($results | Where-Object { $_.overall_status -ne 'ready' -and $_.workflow_mode -ne 'degraded-fallback' -and $_.overall_status -ne 'degraded' }).Count
+  $notApplicableCount = @($results | Where-Object { $_.workflow_mode -eq 'no-source' -or $_.overall_status -eq 'not-applicable' }).Count
+  $actionRequiredCount = @($results | Where-Object { $_.overall_status -ne 'ready' -and $_.workflow_mode -ne 'degraded-fallback' -and $_.overall_status -ne 'degraded' -and $_.workflow_mode -ne 'no-source' -and $_.overall_status -ne 'not-applicable' }).Count
   $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -eq 0 -and $degradedCount -eq 0) { 'ready' } elseif (($readyCount + $degradedCount) -gt 0) { 'partial' } else { 'action-required' }
   $summary = [ordered]@{
     schema_version = 'workspace-graph-bootstrap-summary.v1'
@@ -159,13 +179,14 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
       total = $results.Count
       ready = $readyCount
       degraded = $degradedCount
+      not_applicable = $notApplicableCount
       action_required = $actionRequiredCount
       primary = @($results | Where-Object { $_.workflow_mode -eq 'primary' }).Count
       blocked = @($results | Where-Object { $_.workflow_mode -eq 'blocked' -or $_.workflow_mode -eq 'setup-not-ready' }).Count
     }
     overall_status = $overallStatus
     reason_code = if ($actionRequiredCount -gt 0) { 'all-repos-partial-or-action-required' } elseif ($degradedCount -gt 0) { 'all-repos-degraded-fallback' } else { $null }
-    next_action = if ($actionRequiredCount -gt 0) { 'Inspect per-child reason_code and rerun setup/bootstrap for action-required repos.' } elseif ($degradedCount -gt 0) { 'Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos.' } else { 'All child repos produced graph bootstrap artifacts.' }
+    next_action = if ($actionRequiredCount -gt 0) { 'Inspect per-child reason_code and rerun setup/bootstrap for action-required repos.' } elseif ($degradedCount -gt 0) { 'Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos.' } elseif ($notApplicableCount -gt 0) { 'All code-bearing child repos produced graph bootstrap artifacts; skip GitNexus process routing for no-source children.' } else { 'All child repos produced graph bootstrap artifacts.' }
   }
 
   $workspaceDir = Join-Path $TargetFacts.workspace_root '.spec-first/workspace'
@@ -430,6 +451,60 @@ function Test-QueryProbePolicySupported {
   return $true
 }
 
+function Invoke-ExternalCommandWithTimeout {
+  param(
+    [string]$Exe,
+    [object[]]$CommandArguments,
+    [string]$WorkingDirectory,
+    [int]$TimeoutSeconds
+  )
+  $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $processInfo.FileName = $Exe
+  foreach ($argument in @($CommandArguments)) {
+    [void]$processInfo.ArgumentList.Add([string]$argument)
+  }
+  $processInfo.WorkingDirectory = $WorkingDirectory
+  $processInfo.RedirectStandardOutput = $true
+  $processInfo.RedirectStandardError = $true
+  $processInfo.UseShellExecute = $false
+
+  $process = [System.Diagnostics.Process]::new()
+  $process.StartInfo = $processInfo
+  try {
+    [void]$process.Start()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $timedOut = -not $process.WaitForExit($TimeoutSeconds * 1000)
+    if ($timedOut) {
+      try {
+        $process.Kill($true)
+      } catch {
+        try { $process.Kill() } catch {}
+      }
+      $process.WaitForExit()
+    }
+    $stdoutTask.Wait()
+    $stderrTask.Wait()
+    $outputParts = @($stdoutTask.Result, $stderrTask.Result) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+    if ($timedOut) {
+      $outputParts += "command timed out after ${TimeoutSeconds}s"
+    }
+    return [pscustomobject]@{
+      exit_code = if ($timedOut) { 124 } else { $process.ExitCode }
+      output = ($outputParts -join [Environment]::NewLine)
+      timed_out = $timedOut
+    }
+  } catch {
+    return [pscustomobject]@{
+      exit_code = 127
+      output = [string]$_.Exception.Message
+      timed_out = $false
+    }
+  } finally {
+    $process.Dispose()
+  }
+}
+
 function Invoke-ConfiguredCommand {
   param(
     [object]$ProviderConfig,
@@ -441,26 +516,18 @@ function Invoke-ConfiguredCommand {
   New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LogPath) | Out-Null
   $command = @($ProviderConfig.providers.$Provider.commands.$Kind)
   $exe = [string]$command[0]
-  $args = @($command | Select-Object -Skip 1)
-  $output = New-Object System.Collections.Generic.List[string]
-  $exitCode = 0
+  $commandArgs = @($command | Select-Object -Skip 1)
   [Console]::Error.WriteLine("spec-graph-bootstrap: running $Provider $Kind; dependencies may download on first use...")
-  Push-Location $RepoRoot
-  try {
-    $global:LASTEXITCODE = 0
-    $captured = & $exe @args 2>&1
-    foreach ($line in @($captured)) { $output.Add([string]$line) }
-    if ($LASTEXITCODE -is [int]) { $exitCode = $LASTEXITCODE }
-  } catch {
-    $exitCode = if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }
-    $output.Add([string]$_.Exception.Message)
-  } finally {
-    Pop-Location
+  $result = Invoke-ExternalCommandWithTimeout -Exe $exe -CommandArguments $commandArgs -WorkingDirectory $RepoRoot -TimeoutSeconds $script:ProviderCommandTimeoutSeconds
+  $exitCode = [int]$result.exit_code
+  if ($result.timed_out) {
+    [Console]::Error.WriteLine("spec-graph-bootstrap: timed out $Provider $Kind after ${script:ProviderCommandTimeoutSeconds}s")
+  } else {
+    [Console]::Error.WriteLine("spec-graph-bootstrap: finished $Provider $Kind with exit $exitCode")
   }
-  [Console]::Error.WriteLine("spec-graph-bootstrap: finished $Provider $Kind with exit $exitCode")
-  $outputText = ($output -join [Environment]::NewLine)
+  $outputText = [string]$result.output
   Set-Content -Encoding utf8 -Path $LogPath -Value $outputText
-  $diagnostic = (($output -join ' ') -replace '\s+', ' ').Trim()
+  $diagnostic = (($outputText -replace '\s+', ' ').Trim())
   $truncated = $false
   if ($diagnostic.Length -gt 1000) {
     $diagnostic = $diagnostic.Substring(0, 1000)
@@ -488,26 +555,18 @@ function Invoke-GitNexusQueryProbeCandidate {
   $command = @($ProviderConfig.providers.$Provider.commands.query_probe)
   $command[4] = $Token
   $exe = [string]$command[0]
-  $args = @($command | Select-Object -Skip 1)
-  $output = New-Object System.Collections.Generic.List[string]
-  $exitCode = 0
+  $commandArgs = @($command | Select-Object -Skip 1)
   [Console]::Error.WriteLine("spec-graph-bootstrap: running $Provider query_probe token=$Token; dependencies may download on first use...")
-  Push-Location $RepoRoot
-  try {
-    $global:LASTEXITCODE = 0
-    $captured = & $exe @args 2>&1
-    foreach ($line in @($captured)) { $output.Add([string]$line) }
-    if ($LASTEXITCODE -is [int]) { $exitCode = $LASTEXITCODE }
-  } catch {
-    $exitCode = if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }
-    $output.Add([string]$_.Exception.Message)
-  } finally {
-    Pop-Location
+  $result = Invoke-ExternalCommandWithTimeout -Exe $exe -CommandArguments $commandArgs -WorkingDirectory $RepoRoot -TimeoutSeconds $script:ProviderCommandTimeoutSeconds
+  $exitCode = [int]$result.exit_code
+  if ($result.timed_out) {
+    [Console]::Error.WriteLine("spec-graph-bootstrap: timed out $Provider query_probe token=$Token after ${script:ProviderCommandTimeoutSeconds}s")
+  } else {
+    [Console]::Error.WriteLine("spec-graph-bootstrap: finished $Provider query_probe token=$Token with exit $exitCode")
   }
-  [Console]::Error.WriteLine("spec-graph-bootstrap: finished $Provider query_probe token=$Token with exit $exitCode")
-  $outputText = ($output -join [Environment]::NewLine)
+  $outputText = [string]$result.output
   Set-Content -Encoding utf8 -Path $LogPath -Value $outputText
-  $diagnostic = (($output -join ' ') -replace '\s+', ' ').Trim()
+  $diagnostic = (($outputText -replace '\s+', ' ').Trim())
   $truncated = $false
   if ($diagnostic.Length -gt 1000) {
     $diagnostic = $diagnostic.Substring(0, 1000)
@@ -611,6 +670,18 @@ function Get-GitNexusQueryProbeCandidateCount {
   return 1
 }
 
+function Test-GitNexusQueryProbeExpectedHit {
+  param(
+    [object]$ProviderConfig,
+    [string]$Provider
+  )
+  $entry = $ProviderConfig.providers.$Provider
+  if ($entry.PSObject.Properties.Name -contains 'query_probe_policy' -and $null -ne $entry.query_probe_policy -and $entry.query_probe_policy.PSObject.Properties.Name -contains 'expected_hit') {
+    return [bool]$entry.query_probe_policy.expected_hit
+  }
+  return $true
+}
+
 function Get-ProviderFailureInfo {
   param(
     [string]$Provider,
@@ -625,6 +696,15 @@ function Get-ProviderFailureInfo {
       reason_code = 'gitnexus-analyze-sigsegv'
       exit_code = $ExitCode
       recommended_action = 'Do not trust GitNexus artifacts. Use code-review-graph and bounded local fallback; capture analyze.log and retry with a newer GitNexus rc or safer GitNexus runtime settings.'
+    }
+  }
+  if ($ExitCode -eq 124) {
+    return [ordered]@{
+      failed_phase = $Phase
+      failure_class = 'provider-timeout'
+      reason_code = 'provider-command-timeout'
+      exit_code = $ExitCode
+      recommended_action = 'Provider command timed out. Inspect the raw log, increase SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS if the command is legitimately slow, or fix the provider before rerunning graph bootstrap.'
     }
   }
   if ($ExitCode -ne 0 -and [string]$Diagnostic -match '(?i)(ENOTFOUND|getaddrinfo|registry\.npmmirror\.com|registry\.npmjs\.org|EAI_AGAIN)') {
@@ -864,7 +944,9 @@ if ($LASTEXITCODE -ne 0 -or $sourceRevisionOutput.Count -eq 0 -or [string]::IsNu
   Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'repo-snapshot-unavailable' -NextAction 'Resolve git repository state before graph bootstrap.'
 }
 $sourceRevision = [string]$sourceRevisionOutput[0]
-$worktreeDirty = -not [string]::IsNullOrWhiteSpace((git -C $repoRoot status --porcelain 2>$null))
+$worktreeStatus = (git -C $repoRoot status --porcelain 2>$null) -join "`n"
+$worktreeDirty = -not [string]::IsNullOrWhiteSpace($worktreeStatus)
+$worktreeStatusHash = Get-StatusHash -Text $worktreeStatus
 $providerStatuses = New-Object System.Collections.Generic.List[object]
 
 foreach ($property in $providerConfig.providers.PSObject.Properties) {
@@ -884,6 +966,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $failureInfo = Get-ProviderFailureInfo -Provider $provider -Phase '' -ExitCode 0
   $queryProbeAttempts = New-Object System.Collections.Generic.List[object]
   $queryProbeCandidatesTruncated = $false
+  $queryProbeExpectedHit = $true
 
   if (Test-ProviderEnabled -ProviderConfig $providerConfig -Provider $provider) {
     $bootstrapLog = Join-Path $rawDir $(if ($provider -eq 'gitnexus') { 'analyze.log' } else { 'build.log' })
@@ -899,6 +982,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
         $script:QueryProbeVerificationReason = ''
         if ($provider -eq 'gitnexus') {
           $attemptIndex = 0
+          $queryProbeExpectedHit = Test-GitNexusQueryProbeExpectedHit -ProviderConfig $providerConfig -Provider $provider
           $candidateCount = Get-GitNexusQueryProbeCandidateCount -ProviderConfig $providerConfig -Provider $provider
           if ($candidateCount -gt $script:GitNexusQueryProbeCandidateLimit) {
             $queryProbeCandidatesTruncated = $true
@@ -962,6 +1046,18 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
           $status = 'ready'
           $confidence = 'high'
           $limitations = @()
+        } elseif ($provider -eq 'gitnexus' -and -not $queryProbeExpectedHit) {
+          $status = 'query-not-applicable'
+          $confidence = 'medium'
+          $script:QueryProbeVerificationReason = 'GitNexus query proof is not expected because setup found no source-derived probe candidate.'
+          $failureInfo = [ordered]@{
+            failed_phase = $null
+            failure_class = $null
+            reason_code = 'gitnexus-query-not-applicable'
+            exit_code = $null
+            recommended_action = 'Skip GitNexus process routing for this no-source child repo; use file/direct-read context only if needed.'
+          }
+          $limitations = @('Build and status succeeded; this repo has no source-derived GitNexus query probe candidate.', $script:QueryProbeVerificationReason)
         } else {
           $status = 'query-unverified'
           $confidence = 'medium'
@@ -1008,7 +1104,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     recommended_action = $failureInfo['recommended_action']
     confidence = $confidence
     limitations = $limitations
-    query_verification_reason = if ($status -eq 'query-unverified' -and $limitations.Count -gt 0) { $limitations[$limitations.Count - 1] } else { $null }
+    query_verification_reason = if (($status -eq 'query-unverified' -or $status -eq 'query-not-applicable') -and $limitations.Count -gt 0) { $limitations[$limitations.Count - 1] } else { $null }
     query_probe_policy = if ($entry.PSObject.Properties.Name -contains 'query_probe_policy') { $entry.query_probe_policy } else { $null }
     query_probe_candidate_limit = if ($provider -eq 'gitnexus') { $script:GitNexusQueryProbeCandidateLimit } else { $null }
     query_probe_candidates_truncated = if ($provider -eq 'gitnexus') { $queryProbeCandidatesTruncated } else { $null }
@@ -1043,10 +1139,16 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
 
 $readyCount = @($providerStatuses | Where-Object { $_.query_ready }).Count
 $providerCount = @($providerStatuses).Count
+$notApplicableCount = @($providerStatuses | Where-Object { $_.status -eq 'query-not-applicable' }).Count
+$blockingNotReadyCount = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'query-not-applicable' -and $_.status -ne 'skipped' }).Count
 $fallbackReady = [bool](@($runtimeCapabilities.fallback_capabilities.PSObject.Properties | Where-Object { $_.Value.support_level -ne 'none' }).Count)
 if ($providerCount -gt 0 -and $readyCount -eq $providerCount) {
   $workflowMode = 'primary'
   $overallStatus = 'ready'
+  $exitCode = 0
+} elseif ($providerCount -gt 0 -and $notApplicableCount -gt 0 -and $blockingNotReadyCount -eq 0) {
+  $workflowMode = 'no-source'
+  $overallStatus = 'not-applicable'
   $exitCode = 0
 } elseif ($fallbackReady) {
   $workflowMode = 'degraded-fallback'
@@ -1063,12 +1165,13 @@ $providerAggregate = [ordered]@{
   generated_at = $bootstrappedAt
   workflow_mode = $workflowMode
   ready_primary_providers = @($providerStatuses | Where-Object { $_.query_ready } | ForEach-Object { $_.provider })
-  failed_primary_providers = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'skipped' } | ForEach-Object { $_.provider })
+  failed_primary_providers = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'skipped' -and $_.status -ne 'query-not-applicable' } | ForEach-Object { $_.provider })
+  not_applicable_providers = @($providerStatuses | Where-Object { $_.status -eq 'query-not-applicable' } | ForEach-Object { $_.provider })
   skipped_primary_providers = @($providerStatuses | Where-Object { $_.status -eq 'skipped' } | ForEach-Object { $_.provider })
   partial_primary_available = ($readyCount -gt 0)
   providers = @($providerStatuses)
-  confidence = if ($workflowMode -eq 'primary') { 'high' } elseif ($workflowMode -eq 'degraded-fallback') { 'medium' } else { 'low' }
-  limitations = if ($workflowMode -eq 'primary') { @() } elseif ($workflowMode -eq 'degraded-fallback') { @('One or more primary graph providers are unavailable or query-unverified; fallback capabilities are required.') } else { @('No query-ready graph provider or fallback capability is available.') }
+  confidence = if ($workflowMode -eq 'primary') { 'high' } elseif ($workflowMode -eq 'degraded-fallback' -or $workflowMode -eq 'no-source') { 'medium' } else { 'low' }
+  limitations = if ($workflowMode -eq 'primary') { @() } elseif ($workflowMode -eq 'degraded-fallback') { @('One or more primary graph providers are unavailable or query-unverified; fallback capabilities are required.') } elseif ($workflowMode -eq 'no-source') { @('No source-derived GitNexus process query target is available for this repo.') } else { @('No query-ready graph provider or fallback capability is available.') }
 }
 Write-JsonFileAtomic -Path (Join-Path $graphDir 'provider-status.json') -Payload ([pscustomobject]$providerAggregate) -Depth 30
 
@@ -1078,10 +1181,12 @@ $graphFacts = [ordered]@{
   repo_root = $repoRoot
   source_revision = $sourceRevision
   worktree_dirty = $worktreeDirty
+  worktree_status_hash = $worktreeStatusHash
   workflow_mode = $workflowMode
   provider_summary = [ordered]@{
     ready_primary_providers = @($providerAggregate.ready_primary_providers)
-    degraded_providers = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'skipped' } | ForEach-Object { $_.provider })
+    degraded_providers = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'skipped' -and $_.status -ne 'query-not-applicable' } | ForEach-Object { $_.provider })
+    not_applicable_providers = @($providerStatuses | Where-Object { $_.status -eq 'query-not-applicable' } | ForEach-Object { $_.provider })
     skipped_primary_providers = @($providerStatuses | Where-Object { $_.status -eq 'skipped' } | ForEach-Object { $_.provider })
     partial_primary_available = ($readyCount -gt 0)
   }
@@ -1096,6 +1201,7 @@ $graphFacts = [ordered]@{
   staleness_hints = [ordered]@{
     compare_source_revision = $true
     compare_worktree_dirty = $true
+    worktree_status_hash = $worktreeStatusHash
   }
   confidence = $providerAggregate.confidence
   limitations = @($providerAggregate.limitations)

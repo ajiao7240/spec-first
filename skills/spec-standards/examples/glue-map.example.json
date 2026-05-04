@@ -1,0 +1,64 @@
+{
+  "schema_version": "spec-first.glue-map.v1",
+  "scope": {
+    "type": "repo",
+    "root": ".",
+    "domains": [],
+    "modules": []
+  },
+  "capabilities": [
+    {
+      "id": "capability.graph.readiness",
+      "name": "Graph Readiness Compiler",
+      "kind": "code_facts_provider",
+      "owners": [
+        "spec-graph-bootstrap"
+      ],
+      "entrypoints": [
+        "skills/spec-graph-bootstrap/SKILL.md"
+      ],
+      "outputs": [
+        ".spec-first/graph/graph-facts.json",
+        ".spec-first/graph/architecture-facts.json",
+        ".spec-first/graph/reuse-candidates.json",
+        ".spec-first/graph/bootstrap-impact-capabilities.json"
+      ],
+      "reuse_when": [
+        "需要项目图谱事实",
+        "需要影响面或复用候选"
+      ],
+      "do_not_reimplement": [
+        "不要在下游 workflow 中重新扫描全仓替代 graph readiness facts"
+      ],
+      "discovered_by": [
+        "spec-standards.prepare-baseline"
+      ],
+      "evidence": [
+        "skills/spec-graph-bootstrap/SKILL.md"
+      ]
+    }
+  ],
+  "downstream_consumers": [
+    {
+      "workflow": "spec-plan",
+      "hard_context": [
+        "confirmed"
+      ],
+      "soft_context": [
+        "observed",
+        "suggested",
+        "imported",
+        "conflict",
+        "unknown"
+      ],
+      "consume": [
+        "project-shape.json",
+        "standards-candidates.json",
+        "glue-map.json"
+      ],
+      "boundary": "Use glue capabilities for reuse-first implementation boundaries; resolve conflicts in the plan."
+    }
+  ],
+  "glue_patterns": [],
+  "risks": []
+}

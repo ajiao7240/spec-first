@@ -12,17 +12,33 @@ The requirements document is for product definition and scope control. Do **not*
 
 | Section | Lightweight | Standard / Deep-feature | Deep-product |
 |---|---|---|---|
+| Summary | Required (1-3 line prose; skip only for truly trivial cases) | Required (1-3 line prose) | Required (1-3 line prose) |
 | Problem Frame | Required | Required | Required |
+| Assumptions | Non-interactive only, when Inferred bets exist | Non-interactive only, when Inferred bets exist | Non-interactive only, when Inferred bets exist |
 | Actors | Omit unless triggered | Triggered (see below) | Triggered (see below) |
 | Key Flows | Omit unless triggered | Triggered (see below) | Expected by default |
 | Requirements | Required | Required (with R-IDs) | Required (with R-IDs) |
-| Acceptance Examples | Omit unless triggered | Triggered (see below) | Triggered (see below) |
+| Acceptance Examples | Required for behavioral-conditional requirements; otherwise omit unless triggered | Required for behavioral-conditional requirements; otherwise triggered (see below) | Required for behavioral-conditional requirements; otherwise triggered (see below) |
 | Success Criteria | Required | Required | Required |
 | Scope Boundaries | Required (single list) | Required (single list) | Required (split into "Deferred for later" and "Outside this product's identity") |
 | Key Decisions | Include when material | Include when material | Include when material |
 | Dependencies / Assumptions | Include when material | Include when material | Include when material |
 | Outstanding Questions | Include when material | Include when material | Include when material |
-| Next Steps | Required | Required | Required |
+
+## Summary vs Problem Frame discipline
+
+Both sections describe the work, but they answer different questions:
+
+| Section | Question it answers | Time direction | Length |
+|---|---|---|---|
+| `## Summary` | What is this doc proposing? | Forward-looking | 1-3 lines |
+| `## Problem Frame` | Why does this proposal exist? | Backward-looking / situational | Paragraphs |
+
+Disciplines:
+- **Summary does not need problem context.** A reader scanning Summary gets the proposal at a glance without first reading motivation.
+- **Problem Frame does not restate the proposal.** It establishes the situation, pain, and cost shape. The remedy lives in Summary.
+
+For truly trivial Lightweight cases where Summary is skipped, Problem Frame may absorb the situational and remedy framing in a tighter form. In all other cases, keep both sections and keep their roles separate.
 
 ## Triggered sections — when to include
 
@@ -30,7 +46,7 @@ The requirements document is for product definition and scope control. Do **not*
 
 **Key Flows** — include when the work involves multi-step interaction or coordinates across existing flows. At Deep-product tier, include 2-4 primary flows by default; omit only when the product is not meaningfully flow-shaped (e.g., pure API, policy, or artifact output) and Actors, Requirements, Scope Boundaries, and Acceptance Examples already prevent downstream invention of user/agent paths. When omitting at product tier, note the reason in the doc.
 
-**Acceptance Examples** — include when a requirement's behavior is hard to pin down without a concrete scenario. Each example disambiguates one or more requirements via a `Covers: R-IDs` back-reference. Examples are definitive for what they describe but the section is not exhaustive — only include examples where the requirement alone is ambiguous.
+**Acceptance Examples** — include when a requirement's behavior is hard to pin down without a concrete scenario. Always include Acceptance Examples covering behavioral-conditional requirements — any requirement framed as "When X, Y" or "If X, Y" — because conditional behavior is where prose often leaves implicit ambiguity. Each example disambiguates one or more requirements via a `Covers: R-IDs` back-reference. Examples are definitive for what they describe but the section is not exhaustive.
 
 ## Template
 
@@ -45,9 +61,25 @@ spec_id: YYYY-MM-DD-NNN-<kebab-case-topic>
 
 # <Topic Title>
 
+## Summary
+
+[1-3 line prose summary — what is being proposed, in plain language. Forward-looking, not retrospective. Required for Standard / Deep-feature / Deep-product. Skip for Lightweight only when the Requirements bullets are already the summary.]
+
+---
+
 ## Problem Frame
 
-[Who is affected, what is changing, and why it matters.]
+[Who is affected, what is changing, and why it matters. Backward-looking / situational. Establishes the pain that motivates the work; does not restate the proposal.]
+
+---
+
+<!-- Include ONLY in non-interactive/headless mode when the agent had Inferred bets that
+     were not user-confirmed in chat. Omit in interactive mode. -->
+## Assumptions
+
+*This requirements doc was authored without synchronous user confirmation. The items below are agent inferences that fill gaps in the input — unvalidated bets that should be reviewed before planning proceeds.*
+
+- [Inferred scope item the agent chose without user confirmation]
 
 ---
 
@@ -142,13 +174,6 @@ spec_id: YYYY-MM-DD-NNN-<kebab-case-topic>
 
 - [Affects R2][Technical] [Question answered during planning or codebase exploration]
 - [Affects R2][Needs research] [Question likely requiring research during planning]
-
----
-
-## Next Steps
-
-[If `Resolve Before Planning` is empty: `-> current host's plan entrypoint` for structured implementation planning]
-[If `Resolve Before Planning` is not empty: `-> Resume current host's brainstorm entrypoint` to resolve blocking questions before planning]
 ```
 
 ## ID and layout rules

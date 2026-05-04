@@ -1,6 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "spec-first spec-work run artifact",
+  "title": "spec-first spec-work run artifact planned contract",
+  "description": "Planned docs-side contract only. Current spec-work runtime does not write run.json, and consumers must not treat this schema as runtime truth until an explicit producer is implemented.",
+  "x-spec-first-contract-status": "planned",
+  "x-spec-first-producer": "unimplemented",
+  "x-spec-first-runtime-path": ".spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json",
+  "x-spec-first-boundary": "docs-side contract; src/cli must not implicitly consume this schema",
   "type": "object",
   "required": [
     "schema_version",

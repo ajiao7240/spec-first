@@ -14,7 +14,7 @@ If spec-doc-review returns findings that were auto-applied, note them briefly wh
 
 When spec-doc-review returns "Review complete", proceed to Final Checks.
 
-**Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context, execute `spec-doc-review` with `mode:headless` and the plan path. Headless mode applies auto-fixes silently and returns structured findings without interactive prompts. Address any P0/P1 findings before returning control to the caller.
+**Pipeline mode:** If invoked from an automated workflow such as LFG or any `disable-model-invocation` context, execute `spec-doc-review` with `mode:headless` and the plan path. Headless mode applies auto-fixes silently and returns structured findings without interactive prompts. Address any P0/P1 findings before returning control to the caller.
 
 ## 5.3.9 Final Checks and Cleanup
 
@@ -29,11 +29,13 @@ If artifact-backed mode was used:
 
 ## 5.4 Post-Generation Options
 
-**Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context, skip the interactive menu below and return control to the caller immediately. The plan file has already been written, the confidence-first check has already run, and spec-doc-review has already run — the caller (e.g., lfg, slfg) determines the next step.
+**Pipeline mode:** If invoked from an automated workflow such as LFG or any `disable-model-invocation` context, skip the interactive menu below and return control to the caller immediately. The plan file has already been written, the confidence-first check has already run, and spec-doc-review has already run — the caller determines the next step.
 
 After spec-doc-review completes, present the options using the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
-**Question:** "Plan ready at `docs/plans/YYYY-MM-DD-NNN-<type>-<name>-plan.md`. What would you like to do next?"
+**Path format:** Use absolute paths for chat-output file references so they are clickable in modern terminals. Plan document contents themselves must keep repo-relative file references.
+
+**Question:** "Plan ready at `<absolute path to plan>`. What would you like to do next?"
 
 **Options:**
 1. **Start work** (recommended) - Begin implementing this plan in the current session using the current host's work entrypoint
@@ -45,8 +47,8 @@ After spec-doc-review completes, present the options using the platform's blocki
 **Surface additional document review contextually, not as a menu fixture:** When the prior spec-doc-review pass surfaced residual P0/P1 findings that the user has not addressed, mention them adjacent to the menu and offer another review pass in prose (e.g., "Document review flagged 2 P1 findings you may want to address — want me to run another pass before you pick?"). Do not add it to the option list.
 
 Based on selection:
-- **Start work** -> Call the current host's work entrypoint with the plan path
-- **Compile task pack with `spec-write-tasks`** -> Load the standalone `spec-write-tasks` skill with the plan path. Do not invoke `/spec:write-tasks` or `$spec-write-tasks`; this is a standalone skill, not a command-backed workflow. If it writes an executable task pack with matching `spec_id` and verifiable `source_plan_hash`, offer to proceed with the current host's work entrypoint using the task-pack path. If it returns `skip`, `return-to-plan`, `draft-only`, unverifiable identity/hash, or a non-executable task pack, do not offer task-pack execution; follow the returned recommendation instead.
+- **Start work** -> Invoke the current host's work entrypoint with the plan path in the current session. Do not merely tell the user to run it manually.
+- **Compile task pack with `spec-write-tasks`** -> Load the standalone `spec-write-tasks` skill with the plan path. Do not invoke it through slash commands, `$spec-*` commands, or any command-backed workflow surface. If it writes an executable task pack with matching `spec_id` and verifiable `source_plan_hash`, offer to proceed with the current host's work entrypoint using the task-pack path. If it returns `skip`, `return-to-plan`, `draft-only`, unverifiable identity/hash, or a non-executable task pack, do not offer task-pack execution; follow the returned recommendation instead.
 - **Create Issue** -> Follow the Issue Creation section below
 - **Open in Proof (web app) — review and comment to iterate with the agent** -> Load the `proof` skill in HITL-review mode with:
   - source file: `docs/plans/<plan_filename>.md`
@@ -63,7 +65,7 @@ Based on selection:
   - `status: aborted` -> fall back to the options without changes.
 
   If the initial upload fails (network error, Proof API down), retry once after a short wait. If it still fails, tell the user the upload didn't succeed and briefly explain why, then return to the options — don't leave them wondering why the option did nothing.
-- **Done for now** -> Display a brief confirmation that the plan file is saved and end the turn
+- **Done for now** -> Display a brief confirmation that the plan file is saved and end the turn. Do not start follow-up work without an explicit further user prompt.
 - **If the user asks for another document review** (either from the contextual prompt when P0/P1 findings remain, or by free-form request) -> Execute the `spec-doc-review` workflow with the plan path for another pass, then return to the options
 - **Other** -> Accept free text for revisions and loop back to options
 
