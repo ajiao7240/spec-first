@@ -41,6 +41,35 @@ function captureCommand(cwd, runner, args) {
   }
 }
 
+function writeExecutable(filePath, contents) {
+  fs.writeFileSync(filePath, contents, 'utf8');
+  fs.chmodSync(filePath, 0o755);
+}
+
+function withEnv(updates, fn) {
+  const previous = {};
+  for (const [key, value] of Object.entries(updates)) {
+    previous[key] = process.env[key];
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+
+  try {
+    return fn();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
 describe('doctor runtime tools boundary', () => {
   test('does not require a global runtime tools block after init', () => {
     const projectRoot = makeTempDir();
@@ -62,6 +91,44 @@ describe('doctor runtime tools boundary', () => {
       expect(result.exitCode).toBe(0);
       expect(checkNames).not.toContain('AGENTS.md runtime tools index');
       expect(checkText).not.toContain('managed runtime-tools block');
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('bounds git and host CLI version checks with a timeout', () => {
+    const projectRoot = makeTempDir();
+    const fakeBin = path.join(projectRoot, 'bin');
+    fs.mkdirSync(fakeBin, { recursive: true });
+    writeExecutable(path.join(fakeBin, 'git'), '#!/bin/sh\nsleep 5\n');
+    writeExecutable(path.join(fakeBin, 'codex'), '#!/bin/sh\nsleep 5\n');
+
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      const result = withEnv({
+        PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
+        SPEC_FIRST_EXTERNAL_COMMAND_TIMEOUT_MS: '50',
+      }, () => {
+        expect(process.env.PATH.split(path.delimiter)[0]).toBe(fakeBin);
+        expect(fs.existsSync(path.join(fakeBin, 'git'))).toBe(true);
+        return captureCommand(projectRoot, runDoctor, ['--codex', '--json']);
+      });
+      const payload = JSON.parse(result.stdout);
+      const gitCheck = payload.common_checks.find((check) => check.name === 'Git');
+      const codexCheck = payload.platform_checks.codex.find((check) => check.name === 'Codex');
+
+      expect(gitCheck).toMatchObject({
+        level: 'ERROR',
+        message: 'version check timed out',
+      });
+      expect(codexCheck).toMatchObject({
+        level: 'WARNING',
+        message: 'version check timed out',
+      });
+      expect(result.exitCode).toBe(1);
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

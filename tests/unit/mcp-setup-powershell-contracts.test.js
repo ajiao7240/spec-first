@@ -331,12 +331,16 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('gitnexus-analyze-sigsegv');
     expect(source).toContain('provider-network-unavailable');
     expect(source).toContain('provider-cache-permission-denied');
+    expect(source).toContain('ProviderCommandTimeoutSeconds');
+    expect(source).toContain('function Invoke-ExternalCommandWithTimeout');
+    expect(source).toContain('provider-command-timeout');
+    expect(source).toContain('provider-timeout');
     expect(source).toContain('Provider package registry or network resolution failed');
     expect(source).toContain('dependencies may download on first use');
     expect(source).toContain('graph_ready = $graphReady');
     expect(source).toContain('function Write-JsonFileAtomic');
     expect(source).toContain('Move-Item -Force');
-    expect(source).toContain('& $exe @args');
+    expect(source).toContain('Invoke-ExternalCommandWithTimeout -Exe $exe');
     expect(source).not.toContain('Invoke-Expression');
     expect(source).not.toContain('bash -c');
     expect(source).not.toContain('sh -c');

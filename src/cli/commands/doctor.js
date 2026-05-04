@@ -1,8 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
 const { inspectInstalledAssets, listBundledCommands, loadPluginManifest } = require('../plugin');
 const { readDeveloperFile, getProjectDeveloperPath } = require('../developer');
+const { isCommandTimeout, spawnSyncWithTimeout } = require('../external-command');
 const { inspectCodingGuidelinesBlock } = require('../coding-guidelines');
 const { isLegacyManagedState, readState, readStateFileRaw } = require('../state');
 const { getAdapter, getSupportedPlatforms } = require('../adapters');
@@ -114,12 +114,21 @@ function checkNodeVersion() {
 }
 
 function checkGit() {
-  const result = spawnSync('git', ['--version'], { encoding: 'utf8' });
+  const result = spawnSyncWithTimeout('git', ['--version'], { encoding: 'utf8' });
   if (result.status === 0) {
     return {
       level: 'PASS',
       name: 'Git',
       message: result.stdout.trim(),
+    };
+  }
+
+  if (isCommandTimeout(result)) {
+    return {
+      level: 'ERROR',
+      name: 'Git',
+      message: 'version check timed out',
+      fix: 'Run `git --version` manually and inspect PATH or shell startup scripts.',
     };
   }
 
@@ -135,12 +144,21 @@ function checkPlatformCli(platform) {
   const command = platform === 'codex' ? 'codex' : 'claude';
   const displayName = platform === 'codex' ? 'Codex' : 'Claude Code';
   // Note: Codex CLI may not be available yet - this is expected during MVP phase
-  const result = spawnSync(command, ['--version'], { encoding: 'utf8' });
+  const result = spawnSyncWithTimeout(command, ['--version'], { encoding: 'utf8' });
   if (result.status === 0) {
     return {
       level: 'PASS',
       name: displayName,
       message: result.stdout.trim() || 'available',
+    };
+  }
+
+  if (isCommandTimeout(result)) {
+    return {
+      level: 'WARNING',
+      name: displayName,
+      message: 'version check timed out',
+      fix: `Run \`${command} --version\` manually and inspect PATH or shell startup scripts.`,
     };
   }
 

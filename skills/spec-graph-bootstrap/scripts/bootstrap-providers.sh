@@ -9,6 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RESOLVER="$SCRIPT_DIR/../../spec-mcp-setup/scripts/resolve-project-target.sh"
 REPO_ARG=""
 ALL_REPOS=false
+PROVIDER_COMMAND_TIMEOUT_SECONDS="${SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS:-${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo)
@@ -494,6 +495,45 @@ RUN_EXIT_CODE=0
 RUN_DIAGNOSTIC=""
 RUN_TRUNCATED=false
 
+run_command_with_timeout() {
+  local timeout_seconds="$1"
+  local log_path="$2"
+  shift 2
+  python3 - "$timeout_seconds" "$log_path" "$@" <<'PY'
+import subprocess
+import sys
+
+timeout = float(sys.argv[1])
+log_path = sys.argv[2]
+args = sys.argv[3:]
+
+try:
+    with open(log_path, "wb") as log:
+        try:
+            completed = subprocess.run(
+                args,
+                check=False,
+                stdin=subprocess.DEVNULL,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                timeout=timeout,
+            )
+            sys.exit(completed.returncode)
+        except subprocess.TimeoutExpired:
+            log.write(f"\ncommand timed out after {timeout:g}s\n".encode("utf-8"))
+            sys.exit(124)
+        except FileNotFoundError as exc:
+            log.write(f"{exc}\n".encode("utf-8"))
+            sys.exit(127)
+        except Exception as exc:
+            log.write(f"{exc}\n".encode("utf-8"))
+            sys.exit(1)
+except OSError as exc:
+    sys.stderr.write(f"{exc}\n")
+    sys.exit(1)
+PY
+}
+
 run_configured_command() {
   local provider="$1"
   local kind="$2"
@@ -508,9 +548,13 @@ run_configured_command() {
 
   set +e
   printf 'spec-graph-bootstrap: running %s %s; dependencies may download on first use...\n' "$provider" "$kind" >&2
-  (cd "$REPO_ROOT" && "${cmd[@]}") > "$log_path" 2>&1
+  (cd "$REPO_ROOT" && run_command_with_timeout "$PROVIDER_COMMAND_TIMEOUT_SECONDS" "$log_path" "${cmd[@]}")
   RUN_EXIT_CODE=$?
-  printf 'spec-graph-bootstrap: finished %s %s with exit %s\n' "$provider" "$kind" "$RUN_EXIT_CODE" >&2
+  if [ "$RUN_EXIT_CODE" -eq 124 ]; then
+    printf 'spec-graph-bootstrap: timed out %s %s after %ss\n' "$provider" "$kind" "$PROVIDER_COMMAND_TIMEOUT_SECONDS" >&2
+  else
+    printf 'spec-graph-bootstrap: finished %s %s with exit %s\n' "$provider" "$kind" "$RUN_EXIT_CODE" >&2
+  fi
   set -e
 
   byte_count="$(wc -c < "$log_path" | tr -d ' ')"
@@ -537,9 +581,13 @@ run_configured_gitnexus_query_probe() {
 
   set +e
   printf 'spec-graph-bootstrap: running %s query_probe token=%s; dependencies may download on first use...\n' "$provider" "$token" >&2
-  (cd "$REPO_ROOT" && "${cmd[@]}") > "$log_path" 2>&1
+  (cd "$REPO_ROOT" && run_command_with_timeout "$PROVIDER_COMMAND_TIMEOUT_SECONDS" "$log_path" "${cmd[@]}")
   RUN_EXIT_CODE=$?
-  printf 'spec-graph-bootstrap: finished %s query_probe token=%s with exit %s\n' "$provider" "$token" "$RUN_EXIT_CODE" >&2
+  if [ "$RUN_EXIT_CODE" -eq 124 ]; then
+    printf 'spec-graph-bootstrap: timed out %s query_probe token=%s after %ss\n' "$provider" "$token" "$PROVIDER_COMMAND_TIMEOUT_SECONDS" >&2
+  else
+    printf 'spec-graph-bootstrap: finished %s query_probe token=%s with exit %s\n' "$provider" "$token" "$RUN_EXIT_CODE" >&2
+  fi
   set -e
 
   byte_count="$(wc -c < "$log_path" | tr -d ' ')"
@@ -719,6 +767,14 @@ classify_provider_failure() {
       reason_code:"gitnexus-analyze-sigsegv",
       exit_code:$exit_code,
       recommended_action:"Do not trust GitNexus artifacts. Use code-review-graph and bounded local fallback; capture analyze.log and retry with a newer GitNexus rc or safer GitNexus runtime settings."
+    }'
+  elif [ "$exit_code" -eq 124 ]; then
+    jq -n --arg phase "$phase" --argjson exit_code "$exit_code" '{
+      failed_phase:$phase,
+      failure_class:"provider-timeout",
+      reason_code:"provider-command-timeout",
+      exit_code:$exit_code,
+      recommended_action:"Provider command timed out. Inspect the raw log, increase SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS if the command is legitimately slow, or fix the provider before rerunning graph bootstrap."
     }'
   elif [ "$exit_code" -ne 0 ] && grep -Eiq 'ENOTFOUND|getaddrinfo|registry\.npmmirror\.com|registry\.npmjs\.org|EAI_AGAIN' <<<"$diagnostic"; then
     jq -n --arg phase "$phase" --argjson exit_code "$exit_code" '{

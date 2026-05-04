@@ -217,6 +217,20 @@ assert_output "git source is reported" "git_config" "$source"
 assert_output "git host marker is reported" "git" "$host"
 assert_output "git path marker is reported" "user.name" "$path_value"
 
+echo "12. changelog author does not hang when git config times out"
+FAKE_BIN="$TMP_DIR/fake-bin"
+mkdir -p "$FAKE_BIN"
+cat > "$FAKE_BIN/git" <<'EOF'
+#!/bin/sh
+sleep 5
+EOF
+chmod +x "$FAKE_BIN/git"
+author=$(PATH="$FAKE_BIN:$PATH" SPEC_FIRST_EXTERNAL_COMMAND_TIMEOUT_MS=50 run_changelog_author "$HOME_DIR" "$PROJECT_DIR" "")
+name=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.name);" "$author")
+source=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.source);" "$author")
+assert_output "timed out git config does not choose a name" "" "$name"
+assert_output "timed out git config falls through unresolved" "unresolved" "$source"
+
 echo ""
 echo "=== Results ==="
 echo "  Passed: $pass"

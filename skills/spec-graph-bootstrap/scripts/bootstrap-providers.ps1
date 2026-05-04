@@ -8,6 +8,13 @@ Set-StrictMode -Version Latest
 
 $script:GitNexusQueryProbeCandidateLimit = 5
 $script:BootstrapProvidersScript = $PSCommandPath
+$script:ProviderCommandTimeoutSeconds = if ($env:SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS -match '^[0-9]+$') {
+  [int]$env:SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS
+} elseif ($env:SPEC_FIRST_STAGE_TIMEOUT_SECONDS -match '^[0-9]+$') {
+  [int]$env:SPEC_FIRST_STAGE_TIMEOUT_SECONDS
+} else {
+  900
+}
 
 function Write-ResultAndExit {
   param(
@@ -444,6 +451,60 @@ function Test-QueryProbePolicySupported {
   return $true
 }
 
+function Invoke-ExternalCommandWithTimeout {
+  param(
+    [string]$Exe,
+    [object[]]$CommandArguments,
+    [string]$WorkingDirectory,
+    [int]$TimeoutSeconds
+  )
+  $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $processInfo.FileName = $Exe
+  foreach ($argument in @($CommandArguments)) {
+    [void]$processInfo.ArgumentList.Add([string]$argument)
+  }
+  $processInfo.WorkingDirectory = $WorkingDirectory
+  $processInfo.RedirectStandardOutput = $true
+  $processInfo.RedirectStandardError = $true
+  $processInfo.UseShellExecute = $false
+
+  $process = [System.Diagnostics.Process]::new()
+  $process.StartInfo = $processInfo
+  try {
+    [void]$process.Start()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $timedOut = -not $process.WaitForExit($TimeoutSeconds * 1000)
+    if ($timedOut) {
+      try {
+        $process.Kill($true)
+      } catch {
+        try { $process.Kill() } catch {}
+      }
+      $process.WaitForExit()
+    }
+    $stdoutTask.Wait()
+    $stderrTask.Wait()
+    $outputParts = @($stdoutTask.Result, $stderrTask.Result) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+    if ($timedOut) {
+      $outputParts += "command timed out after ${TimeoutSeconds}s"
+    }
+    return [pscustomobject]@{
+      exit_code = if ($timedOut) { 124 } else { $process.ExitCode }
+      output = ($outputParts -join [Environment]::NewLine)
+      timed_out = $timedOut
+    }
+  } catch {
+    return [pscustomobject]@{
+      exit_code = 127
+      output = [string]$_.Exception.Message
+      timed_out = $false
+    }
+  } finally {
+    $process.Dispose()
+  }
+}
+
 function Invoke-ConfiguredCommand {
   param(
     [object]$ProviderConfig,
@@ -455,26 +516,18 @@ function Invoke-ConfiguredCommand {
   New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LogPath) | Out-Null
   $command = @($ProviderConfig.providers.$Provider.commands.$Kind)
   $exe = [string]$command[0]
-  $args = @($command | Select-Object -Skip 1)
-  $output = New-Object System.Collections.Generic.List[string]
-  $exitCode = 0
+  $commandArgs = @($command | Select-Object -Skip 1)
   [Console]::Error.WriteLine("spec-graph-bootstrap: running $Provider $Kind; dependencies may download on first use...")
-  Push-Location $RepoRoot
-  try {
-    $global:LASTEXITCODE = 0
-    $captured = & $exe @args 2>&1
-    foreach ($line in @($captured)) { $output.Add([string]$line) }
-    if ($LASTEXITCODE -is [int]) { $exitCode = $LASTEXITCODE }
-  } catch {
-    $exitCode = if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }
-    $output.Add([string]$_.Exception.Message)
-  } finally {
-    Pop-Location
+  $result = Invoke-ExternalCommandWithTimeout -Exe $exe -CommandArguments $commandArgs -WorkingDirectory $RepoRoot -TimeoutSeconds $script:ProviderCommandTimeoutSeconds
+  $exitCode = [int]$result.exit_code
+  if ($result.timed_out) {
+    [Console]::Error.WriteLine("spec-graph-bootstrap: timed out $Provider $Kind after ${script:ProviderCommandTimeoutSeconds}s")
+  } else {
+    [Console]::Error.WriteLine("spec-graph-bootstrap: finished $Provider $Kind with exit $exitCode")
   }
-  [Console]::Error.WriteLine("spec-graph-bootstrap: finished $Provider $Kind with exit $exitCode")
-  $outputText = ($output -join [Environment]::NewLine)
+  $outputText = [string]$result.output
   Set-Content -Encoding utf8 -Path $LogPath -Value $outputText
-  $diagnostic = (($output -join ' ') -replace '\s+', ' ').Trim()
+  $diagnostic = (($outputText -replace '\s+', ' ').Trim())
   $truncated = $false
   if ($diagnostic.Length -gt 1000) {
     $diagnostic = $diagnostic.Substring(0, 1000)
@@ -502,26 +555,18 @@ function Invoke-GitNexusQueryProbeCandidate {
   $command = @($ProviderConfig.providers.$Provider.commands.query_probe)
   $command[4] = $Token
   $exe = [string]$command[0]
-  $args = @($command | Select-Object -Skip 1)
-  $output = New-Object System.Collections.Generic.List[string]
-  $exitCode = 0
+  $commandArgs = @($command | Select-Object -Skip 1)
   [Console]::Error.WriteLine("spec-graph-bootstrap: running $Provider query_probe token=$Token; dependencies may download on first use...")
-  Push-Location $RepoRoot
-  try {
-    $global:LASTEXITCODE = 0
-    $captured = & $exe @args 2>&1
-    foreach ($line in @($captured)) { $output.Add([string]$line) }
-    if ($LASTEXITCODE -is [int]) { $exitCode = $LASTEXITCODE }
-  } catch {
-    $exitCode = if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }
-    $output.Add([string]$_.Exception.Message)
-  } finally {
-    Pop-Location
+  $result = Invoke-ExternalCommandWithTimeout -Exe $exe -CommandArguments $commandArgs -WorkingDirectory $RepoRoot -TimeoutSeconds $script:ProviderCommandTimeoutSeconds
+  $exitCode = [int]$result.exit_code
+  if ($result.timed_out) {
+    [Console]::Error.WriteLine("spec-graph-bootstrap: timed out $Provider query_probe token=$Token after ${script:ProviderCommandTimeoutSeconds}s")
+  } else {
+    [Console]::Error.WriteLine("spec-graph-bootstrap: finished $Provider query_probe token=$Token with exit $exitCode")
   }
-  [Console]::Error.WriteLine("spec-graph-bootstrap: finished $Provider query_probe token=$Token with exit $exitCode")
-  $outputText = ($output -join [Environment]::NewLine)
+  $outputText = [string]$result.output
   Set-Content -Encoding utf8 -Path $LogPath -Value $outputText
-  $diagnostic = (($output -join ' ') -replace '\s+', ' ').Trim()
+  $diagnostic = (($outputText -replace '\s+', ' ').Trim())
   $truncated = $false
   if ($diagnostic.Length -gt 1000) {
     $diagnostic = $diagnostic.Substring(0, 1000)
@@ -651,6 +696,15 @@ function Get-ProviderFailureInfo {
       reason_code = 'gitnexus-analyze-sigsegv'
       exit_code = $ExitCode
       recommended_action = 'Do not trust GitNexus artifacts. Use code-review-graph and bounded local fallback; capture analyze.log and retry with a newer GitNexus rc or safer GitNexus runtime settings.'
+    }
+  }
+  if ($ExitCode -eq 124) {
+    return [ordered]@{
+      failed_phase = $Phase
+      failure_class = 'provider-timeout'
+      reason_code = 'provider-command-timeout'
+      exit_code = $ExitCode
+      recommended_action = 'Provider command timed out. Inspect the raw log, increase SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS if the command is legitimately slow, or fix the provider before rerunning graph bootstrap.'
     }
   }
   if ($ExitCode -ne 0 -and [string]$Diagnostic -match '(?i)(ENOTFOUND|getaddrinfo|registry\.npmmirror\.com|registry\.npmjs\.org|EAI_AGAIN)') {

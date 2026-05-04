@@ -62,6 +62,10 @@ if [[ "\${FAIL_GITNEXUS_ANALYZE_SIGSEGV:-}" = "1" && " \$* " == *" gitnexus@"*" 
   echo "Segmentation fault: 11" >&2
   exit 139
 fi
+if [[ "\${HANG_GITNEXUS_ANALYZE:-}" = "1" && " \$* " == *" gitnexus@"*" analyze "* ]]; then
+  sleep 5
+  exit 0
+fi
 if [[ "\${FAIL_GITNEXUS_QUERY:-}" = "1" && " \$* " == *" gitnexus@"*" query "* ]]; then
   echo "query failed" >&2
   exit 42
@@ -107,6 +111,10 @@ fi
 if [[ "\${FAIL_CRG_BUILD:-}" = "1" && " \$* " == *" code-review-graph build "* ]]; then
   echo "build failed" >&2
   exit 43
+fi
+if [[ "\${HANG_CRG_BUILD:-}" = "1" && " \$* " == *" code-review-graph build "* ]]; then
+  sleep 5
+  exit 0
 fi
 exit 0
 SH
@@ -699,6 +707,15 @@ network_output="$(cd "$NETWORK_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_NETWORK=
 assert_eq "GitNexus network failure degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$network_output")"
 assert_eq "GitNexus network failure is environment classified" "failed:provider-network-unavailable:provider-environment:bootstrap:1" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$network_output")"
 assert_contains "GitNexus network failure recommends network/cache fix" "registry or network resolution failed" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$network_output")"
+
+TIMEOUT_REPO="$TMP_DIR/timeout-repo"
+TIMEOUT_LEDGER="$TMP_DIR/timeout-home/.codex/spec-first/host-setup.json"
+make_repo "$TIMEOUT_REPO"
+write_fixture_config "$TIMEOUT_REPO" "$TIMEOUT_LEDGER" true
+timeout_output="$(cd "$TIMEOUT_REPO" && PATH="$TEST_PATH" SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS=1 HANG_GITNEXUS_ANALYZE=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "GitNexus timeout degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$timeout_output")"
+assert_eq "GitNexus timeout has structured reason" "failed:provider-command-timeout:provider-timeout:bootstrap:124" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$timeout_output")"
+assert_contains "GitNexus timeout raw log records timeout" "command timed out after 1s" "$(cat "$TIMEOUT_REPO/.spec-first/providers/gitnexus/raw/analyze.log")"
 
 CRG_CACHE_REPO="$TMP_DIR/crg-cache-repo"
 CRG_CACHE_LEDGER="$TMP_DIR/crg-cache-home/.codex/spec-first/host-setup.json"
