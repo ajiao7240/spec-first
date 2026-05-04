@@ -86,9 +86,13 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('Format-Remark');
     expect(verifySource).toContain('回复“继续完成”');
     expect(verifySource).toContain('现在可以运行 $graphCommand');
+    expect(verifySource).toContain('$standardsCommand');
+    expect(verifySource).toContain('推荐下一步运行 $standardsCommand');
+    expect(verifySource).toContain('如果已经有明确任务，可以在新会话直接描述目标');
     expect(verifySource).toContain('live MCP probe 前需要');
     expect(verifySource).toContain('graph_bootstrap_required');
     expect(verifySource).toContain('$spec-graph-bootstrap');
+    expect(verifySource).toContain('$spec-standards');
   });
 
   test('PowerShell project target resolver matches workspace target contract', () => {

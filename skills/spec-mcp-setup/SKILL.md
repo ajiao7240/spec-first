@@ -59,7 +59,7 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 7. Bootstraps Serena for the current repo.
 8. Writes readiness ledger v2 to the host marker path.
 9. Writes setup-owned project facts inside a git repo: `.spec-first/config/graph-providers.json`, `.spec-first/config/runtime-capabilities.json`, and `.spec-first/config/provider-artifacts.json`.
-10. Prints a clear next-step prompt after the final status block: continue graph readiness compilation now, then restart Claude Code/Codex or start a new session before relying on the newly written MCP config in downstream workflows.
+10. Prints a clear next-step prompt after the final status block: continue graph readiness compilation now when it is pending; when graph readiness is already ready, recommend the project standards/glue baseline workflow as the next durable setup handoff; restart Claude Code/Codex or start a new session before downstream workflows rely on newly written MCP config or live MCP probes.
 
 Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure.
 
@@ -495,7 +495,7 @@ Uninstall does not delete `agent-browser`, external caches, or the project proje
 
 ## Success Summary
 
-When setup finishes, the assistant's final response must restate the complete readiness status sourced from readiness ledger v2, followed by a short friendly next-step prompt. Prefer grouped status blocks rendered inside fenced code blocks instead of one wide Markdown table. The first grouped section must be an `Execution result` summary that shows `Harness runtime` and `Graph readiness` decisions, including ready and pending graph providers. Do not rely on prior command output as the only place where the status appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending. When graph bootstrap is pending, tell the user it can run now because it is deterministic CLI compilation; restart or a new session is required only before downstream workflows rely on newly written host MCP config or live MCP probes.
+When setup finishes, the assistant's final response must restate the complete readiness status sourced from readiness ledger v2, followed by a short friendly next-step prompt. Prefer grouped status blocks rendered inside fenced code blocks instead of one wide Markdown table. The first grouped section must be an `Execution result` summary that shows `Harness runtime` and `Graph readiness` decisions, including ready and pending graph providers. Do not rely on prior command output as the only place where the status appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending. When graph bootstrap is pending, tell the user it can run now because it is deterministic CLI compilation; restart or a new session is required only before downstream workflows rely on newly written host MCP config or live MCP probes. When graph readiness is already ready, the next-step prompt must not stop at a restart caveat; recommend `/spec:standards` or `$spec-standards` as the next durable handoff to compile project standards and glue capability baseline, and tell users with an already-clear task they can describe it directly in a restarted/new session so `using-spec-first` can route by intent.
 
 ```text
 Required Harness Runtime is ready; graph bootstrap is still pending.
@@ -541,7 +541,8 @@ Project setup facts:
 
 下一步:
   1. 现在可以运行 /spec:graph-bootstrap 或 $spec-graph-bootstrap 完成 deterministic graph readiness 编译；也可以在本会话直接回复“继续完成”，让 agent 调用 bootstrap 脚本。
-  2. 重启 Claude Code/Codex 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。
+  2. graph readiness 完成后，推荐运行 /spec:standards 或 $spec-standards 编译项目规范与 glue capability baseline，给后续需求、计划、执行和审查提供可复用上下文。
+  3. 重启 Claude Code/Codex 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。
 ```
 
 ## Reference

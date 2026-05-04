@@ -30,6 +30,7 @@
 - 自主 setup 不包含破坏性或语义不明确动作；不要自动删除 `compound-engineering.local.md`、`.compound-engineering/config.local.yaml`、既有 `.spec-first/config.local.yaml` 或用户手写 host config section，除非用户明确要求删除/卸载。
 - 如果 graph providers 仍是 `query_ready=false`，不要说 setup 已完全完成；要明确提示可运行 `/spec:graph-bootstrap` / `$spec-graph-bootstrap`，或回复“继续完成”让 agent 继续执行。
 - 同时提示用户：graph bootstrap 是 deterministic CLI 编译，可以在当前会话直接运行；如果 agent 判断当前只需调用 deterministic bootstrap 脚本，可以接受“继续完成”。重启 Claude Code/Codex 或新开会话只在下游 workflow 依赖新写入的 MCP config 或 live MCP probe 前需要。
+- 当 graph readiness 已经 ready 时，下一步提示不能只停留在重启 caveat；应推荐 `/spec:standards` 或 `$spec-standards` 作为 durable handoff，用来编译项目规范与 glue capability baseline，并提示已有明确任务的用户可在重启/新会话后直接描述目标，由 `using-spec-first` 按意图分流。
 - 重复执行 setup、init 后重新安装、升级后重新 init/verify 时，如果 canonical graph artifacts 仍存在且当前 provider 仍 ready，必须从 canonical artifacts 重建 `query_ready=true` / `bootstrap_required=false` projection，不要把已完成 bootstrap 的 projection 打回 pending。
 - 卸载或 provider 不再 ready 时，不保留 query readiness；ledger/projection 应反映 action-required 或需要重新 bootstrap。
 - Serena 语言选择是语义决策，由 LLM 基于 package manifest、构建文件和代表性源码判断；证据明确时不要询问用户。Node.js / JavaScript / TypeScript / VitePress 类仓库使用 Serena `typescript`，不要因为存在 manifest、配置或文档就传 `javascript`、`json`、`markdown`。

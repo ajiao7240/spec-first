@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-04 16:59:51 leokuang: docs(audit): 新增 spec-first 全局一致性深度审查文档，梳理 workflow、artifact、双宿主、文档、过度设计与修复路线 (user-visible)
+- v1.6.3 2026-05-04 15:43:44 leokuang: fix(spec-mcp-setup): 完善 setup 完成后的下一步引导，ready 状态下推荐 standards handoff 并保留重启边界 (user-visible)
 - v1.6.3 2026-05-04 13:37:36 leokuang: fix(spec-standards): 收紧 child repo 写入边界、候选规范合成契约和 downstream standards consumption 规则 (user-visible)
 - v1.6.3 2026-05-04 13:34:41 leokuang: docs(audit): 在系统审查报告中补充 skill/workflow 治理优化进展与剩余项
 - v1.6.3 2026-05-04 13:33:37 leokuang: docs(governance): 新增 fresh-source eval checklist，明确 skill/agent prose 语义验证的 source/runtime 与未执行记录边界

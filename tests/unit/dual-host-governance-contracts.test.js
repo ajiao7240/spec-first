@@ -195,6 +195,8 @@ describe('dual-host governance contracts', () => {
     expect(mcpSetup).toMatch(/\|\s*Name\s*\|\s*Type\s*\|\s*Result\s*\|\s*Dependency\s*\|\s*Install\s*\|\s*Skill\s*\|\s*Next\s*\|/);
     expect(mcpSetup).toMatch(/\|\s*Artifact\s*\|\s*Project\s*\|\s*Next\s*\|/);
     expect(mcpSetup).toContain('下一步:');
+    expect(mcpSetup).toContain('/spec:standards 或 $spec-standards');
+    expect(mcpSetup).toContain('When graph readiness is already ready');
   });
 
   test('mcp setup keeps Serena language selection with the agent and out of interactive CLI flows', () => {

@@ -459,16 +459,19 @@ case "$host_name" in
     host_display="Claude Code"
     setup_command="/spec:mcp-setup"
     graph_command="/spec:graph-bootstrap"
+    standards_command="/spec:standards"
     ;;
   codex)
     host_display="Codex"
     setup_command='$spec-mcp-setup'
     graph_command='$spec-graph-bootstrap'
+    standards_command='$spec-standards'
     ;;
   *)
     host_display="Claude Code / Codex"
     setup_command='/spec:mcp-setup or $spec-mcp-setup'
     graph_command='/spec:graph-bootstrap or $spec-graph-bootstrap'
+    standards_command='/spec:standards or $spec-standards'
     ;;
 esac
 
@@ -484,9 +487,12 @@ if [ "$baseline_ready" = "true" ]; then
     fi
   elif [ "$graph_bootstrap_required" = "true" ]; then
     echo "  1. 现在可以运行 ${graph_command} 完成 deterministic graph readiness 编译；也可以在本会话直接回复“继续完成”，让 agent 调用 bootstrap 脚本。"
-    echo "  2. 重启 ${host_display} 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。"
+    echo "  2. graph readiness 完成后，推荐运行 ${standards_command} 编译项目规范与 glue capability baseline，给后续需求、计划、执行和审查提供可复用上下文。"
+    echo "  3. 重启 ${host_display} 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。"
   else
-    echo "  1. 重启 ${host_display} 或新开会话后，再依赖新的 MCP 配置运行下游 workflow。"
+    echo "  1. 推荐下一步运行 ${standards_command} 编译项目规范与 glue capability baseline，给后续需求、计划、执行和审查提供可复用上下文。"
+    echo "  2. 如果已经有明确任务，可以在新会话直接描述目标；using-spec-first 会按意图选择合适 workflow。"
+    echo "  3. 重启 ${host_display} 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。"
   fi
 else
   echo "  1. 先处理表格中的 action-required 行，然后重新运行 ${setup_command}。"

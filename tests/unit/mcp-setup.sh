@@ -646,6 +646,7 @@ assert_contains "verify prints friendly next steps" "下一步:" "$verify_text"
 assert_contains "verify prompts graph bootstrap command" "/spec:graph-bootstrap" "$verify_text"
 assert_contains "verify prompts continue completion" "继续完成" "$verify_text"
 assert_contains "verify says graph bootstrap can run now" "现在可以运行 /spec:graph-bootstrap" "$verify_text"
+assert_contains "verify points to standards after graph bootstrap" "推荐运行 /spec:standards" "$verify_text"
 last_verify_line="$(printf '%s\n' "$verify_text" | sed '/^[[:space:]]*$/d' | tail -n 1)"
 assert_contains "verify output ends with downstream restart caveat" "live MCP probe 前需要" "$last_verify_line"
 LEDGER_PATH="$FAKE_HOME/.claude/spec-first/host-setup.json"
@@ -888,6 +889,8 @@ assert_contains "repeat verify shows graph provider query ready" "全局代码�
 assert_contains "repeat verify shows ready query and done bootstrap cells" "| ready | done" "$verify_after_bootstrap"
 assert_contains "repeat verify summary lists ready providers" "ready: gitnexus,code-review-graph; pending: n/a" "$verify_after_bootstrap"
 assert_contains "repeat verify reports graph provider query ready summary" "Graph providers are query-ready." "$verify_after_bootstrap"
+assert_contains "repeat verify recommends standards handoff" "推荐下一步运行 /spec:standards" "$verify_after_bootstrap"
+assert_contains "repeat verify allows direct task description after restart" "如果已经有明确任务，可以在新会话直接描述目标" "$verify_after_bootstrap"
 if [[ "$verify_after_bootstrap" == *"Graph providers are configured but not query-ready yet."* ]]; then
   echo "FAIL: repeat verify should not say query-ready providers are pending" >&2
   exit 1

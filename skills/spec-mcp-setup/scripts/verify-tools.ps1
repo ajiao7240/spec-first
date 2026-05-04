@@ -571,16 +571,19 @@ switch ($combined.host) {
     $hostDisplay = 'Claude Code'
     $setupCommand = '/spec:mcp-setup'
     $graphCommand = '/spec:graph-bootstrap'
+    $standardsCommand = '/spec:standards'
   }
   'codex' {
     $hostDisplay = 'Codex'
     $setupCommand = '$spec-mcp-setup'
     $graphCommand = '$spec-graph-bootstrap'
+    $standardsCommand = '$spec-standards'
   }
   default {
     $hostDisplay = 'Claude Code / Codex'
     $setupCommand = '/spec:mcp-setup or $spec-mcp-setup'
     $graphCommand = '/spec:graph-bootstrap or $spec-graph-bootstrap'
+    $standardsCommand = '/spec:standards or $spec-standards'
   }
 }
 
@@ -597,9 +600,12 @@ if ($combined.baseline_ready) {
   } else {
     if ($combined.graph_bootstrap_required) {
       Write-Host "  1. 现在可以运行 $graphCommand 完成 deterministic graph readiness 编译；也可以在本会话直接回复“继续完成”，让 agent 调用 bootstrap 脚本。"
-      Write-Host "  2. 重启 $hostDisplay 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。"
+      Write-Host "  2. graph readiness 完成后，推荐运行 $standardsCommand 编译项目规范与 glue capability baseline，给后续需求、计划、执行和审查提供可复用上下文。"
+      Write-Host "  3. 重启 $hostDisplay 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。"
     } else {
-      Write-Host "  1. 重启 $hostDisplay 或新开会话后，再依赖新的 MCP 配置运行下游 workflow。"
+      Write-Host "  1. 推荐下一步运行 $standardsCommand 编译项目规范与 glue capability baseline，给后续需求、计划、执行和审查提供可复用上下文。"
+      Write-Host '  2. 如果已经有明确任务，可以在新会话直接描述目标；using-spec-first 会按意图选择合适 workflow。'
+      Write-Host "  3. 重启 $hostDisplay 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。"
     }
   }
 } else {
