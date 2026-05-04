@@ -47,6 +47,10 @@ All tokens are optional. Each one present means one less thing to infer. When ab
 | **Report-only** | `mode:report-only` in arguments | Strictly read-only. Review and report only, then stop with no edits, artifacts, commits, pushes, or PR actions |
 | **Headless** | `mode:headless` in arguments | Programmatic mode for skill-to-skill invocation. Apply `safe_auto` fixes silently (single pass), return all other findings as structured text output, write run artifacts, and return "Review complete" signal. No interactive prompts. |
 
+### Run artifact boundary
+
+`/tmp/spec-first/spec-code-review/<run-id>/` is a session/orchestrator handoff, not repo-local durable truth. Use it to coordinate reviewer JSON, detail enrichment, autofix residuals, and headless callers during the current run. Do not promise it will be committed or retained. Durable review evidence is created only when the workflow explicitly routes it: PR descriptions may include accepted Known Residuals, and the no-PR shipping path may create `docs/residual-review-findings/<branch-or-head-sha>.md` for accepted residuals. Do not copy full-detail reviewer JSON into repo-local docs by default.
+
 ### Autofix mode rules
 
 - **Skip all user questions.** Never pause for approval or clarification once scope has been established.
@@ -826,6 +830,7 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
   Capture `branch` and `head_sha` at dispatch time (before any autofixes land), and write the file after the verdict is finalized. This file is additive -- pre-existing artifacts that predate this field are still valid, and downstream skills fall back to file mtime when it is missing.
 - In autofix mode, the run artifact is the handoff. Orchestrators read the artifact's residual actionable work and route it as appropriate. The skill itself does not file tickets or prompt the user in autofix.
 - Interactive mode may offer to externalize residual actionable work via `references/tracker-defer.md` (named tracker -> GitHub Issues via `gh`), but it is not required to finish the review.
+- The `/tmp` artifact remains temporary even when it contains complete reviewer JSON. When residual review findings must survive the session, write only a concise durable summary through the shipping workflow's accepted-residual path or PR Known Residuals section; do not durable-store the full per-reviewer JSON bundle by default.
 
 #### Step 5: Final next steps
 

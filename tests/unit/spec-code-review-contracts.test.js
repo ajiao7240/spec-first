@@ -47,6 +47,10 @@ describe('spec-code-review CE sync contracts', () => {
     );
 
     expect(text).toContain('/tmp/spec-first/spec-code-review/<run-id>/');
+    expect(text).toContain('session/orchestrator handoff, not repo-local durable truth');
+    expect(text).toContain('Do not promise it will be committed or retained.');
+    expect(text).toContain('docs/residual-review-findings/<branch-or-head-sha>.md');
+    expect(text).toContain('do not durable-store the full per-reviewer JSON bundle by default');
     expect(text).not.toContain('.spec-first/workflows/spec:code-review');
     expect(text).toContain('Auto-resolve with best judgment — apply per-finding fixes the agent can defend, surface the rest');
     expect(text).toContain('No Stage 5b validator pre-pass. No bulk-preview approval gate.');

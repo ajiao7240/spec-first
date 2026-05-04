@@ -384,7 +384,7 @@ your-project/
 
 - **脚本负责什么：** 安装、校验、生成、清理、hash 和机器事实报告。
 - **LLM 决定什么：** 需求 framing、scope boundaries、tradeoffs、implementation judgment、review evidence 和 next steps。
-- **会写入什么：** repo-local docs、plans、task packs、review/debug artifacts，以及 init 期间生成的 managed runtime assets。
+- **会写入什么：** repo-local docs、plans、task packs、显式路由后的 durable review/debug summaries，以及 init 期间生成的 managed runtime assets。full-detail code-review JSON 默认只作为 `/tmp/spec-first/spec-code-review/<run-id>/` 临时 handoff，除非 workflow 写入 concise durable summary。
 - **哪些是生成产物：** `.claude/`、`.codex/` 和 `.agents/skills/` runtime copies。
 - **应该修改什么：** 修改 `skills/`、`agents/`、`templates/`、`src/cli/` 和 docs 中的 source assets；不要手改 generated runtime copies。
 - **spec-first 不是什么：** 不是通用 agent marketplace，不是单次 prompt pack，也不是脱离 Claude Code/Codex 独立运行的应用。
@@ -398,7 +398,7 @@ your-project/
 适合使用 `spec-first` 的情况：
 
 - 你已经在使用 Claude Code 或 Codex，并希望在项目内获得稳定 workflow，而不是一次性 prompt。
-- 你希望 AI coding 工作留下可追踪的 requirements、plans、review findings 和 learnings。
+- 你希望 AI coding 工作留下可追踪的 requirements、plans、显式路由后的 review summaries 和 learnings。
 - 你希望脚本处理确定性 setup，同时把语义判断保留给 LLM。
 - 你希望 workflow layer 足够轻量，并能从 source assets 重建。
 

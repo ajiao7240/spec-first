@@ -19,7 +19,20 @@ function readJson(filePath) {
 }
 
 describe('spec-work run artifact contract', () => {
-  test('schema validates a complete machine-truth run artifact sample', () => {
+  test('schema is explicitly planned until a runtime producer exists', () => {
+    const schema = readJson(SCHEMA_PATH);
+
+    expect(schema.title).toBe('spec-first spec-work run artifact planned contract');
+    expect(schema.description).toContain('Current spec-work runtime does not write run.json');
+    expect(schema['x-spec-first-contract-status']).toBe('planned');
+    expect(schema['x-spec-first-producer']).toBe('unimplemented');
+    expect(schema['x-spec-first-runtime-path']).toBe(
+      '.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json'
+    );
+    expect(schema['x-spec-first-boundary']).toContain('src/cli must not implicitly consume this schema');
+  });
+
+  test('schema validates a complete planned run artifact sample', () => {
     const schema = readJson(SCHEMA_PATH);
     const artifact = {
       schema_version: 'v1',
@@ -58,7 +71,7 @@ describe('spec-work run artifact contract', () => {
       },
       residual_risks: [
         {
-          summary: 'runtime 尚未真正写出 run.json，本轮只固定 contract 与 consumer handoff',
+          summary: 'runtime 尚未真正写出 run.json，本 contract 仅作为 planned schema 和 consumer 边界',
           severity: 'P2',
         },
       ],
@@ -67,7 +80,7 @@ describe('spec-work run artifact contract', () => {
         next_focus: '决定是否进入 CLI/runtime implementation',
         open_questions: ['spec-work-beta 是否在 Unit 3 单独纳入 artifact path'],
       },
-      next_recommended_action: '进入 spec-code-review 收口并决定是否继续实现 runtime 写入',
+      next_recommended_action: '先明确 producer owner，再决定是否实现 runtime 写入',
     };
 
     expect(validateAgainstSchema(schema, artifact).errors).toEqual([]);

@@ -95,4 +95,17 @@ describe('user manual contracts', () => {
     expect(standardsGuide).toContain('下游 workflow 只能把 `confirmed` standards 当作硬约束');
     expect(standardsGuide).toContain('不要手改 `.claude/`、`.codex/` 或 `.agents/skills/` runtime mirror');
   });
+
+  test('user manual distinguishes temporary code-review handoff from durable summaries', () => {
+    const artifactMap = read(ARTIFACT_MAP_PATH);
+    const artifactCatalog = read(ARTIFACT_CATALOG_PATH);
+
+    for (const content of [artifactMap, artifactCatalog]) {
+      expect(content).toContain('/tmp/spec-first/spec-code-review/<run-id>/');
+      expect(content).toContain('session/orchestrator handoff');
+      expect(content).toContain('docs/residual-review-findings/<branch-or-head-sha>.md');
+      expect(content).toContain('Known Residuals');
+    }
+    expect(artifactMap).toContain('不默认把 full-detail per-reviewer JSON bundle 复制进 `docs/` 或 `.spec-first/`');
+  });
 });

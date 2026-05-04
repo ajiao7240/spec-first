@@ -34,6 +34,18 @@ describe('spec-work context orientation contract', () => {
   });
 });
 
+describe('spec-work run artifact boundary contract', () => {
+  test('does not claim planned run artifact schema as current runtime truth', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Run Artifact Boundary');
+    expect(text).toContain('docs-side planned contract');
+    expect(text).toContain('does not currently write');
+    expect(text).toContain('.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json');
+    expect(text).toContain('Do not claim this artifact exists');
+  });
+});
+
 describe('spec-work task-pack identity contract', () => {
   test('rejects missing or mismatched spec_id before creating execution tasks', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
