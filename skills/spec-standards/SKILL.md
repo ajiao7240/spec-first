@@ -78,11 +78,16 @@ If graph artifacts are missing or stale, continue in degraded mode with direct r
 
 Default mode. Prepare a first project baseline for `single_project_repo` and bounded simple repos.
 
-Generate:
+Complete baseline output is split by ownership.
+
+Script-generated deterministic artifacts:
 
 - `.spec-first/standards/project-shape.json`
 - `.spec-first/standards/standards-plan.json`
 - `.spec-first/standards/glue-map.json`
+
+LLM-generated review artifacts, created after reading the deterministic facts:
+
 - `.spec-first/standards/standards-candidates.json`
 - `.spec-first/standards/standards-preview.md`
 
@@ -138,12 +143,15 @@ Default artifact root:
 .spec-first/standards/
 ```
 
-Baseline artifacts:
+Baseline artifacts by owner:
 
 ```text
+# Script-generated deterministic facts
 .spec-first/standards/project-shape.json
 .spec-first/standards/standards-plan.json
 .spec-first/standards/glue-map.json
+
+# LLM-generated review artifacts
 .spec-first/standards/standards-candidates.json
 .spec-first/standards/standards-preview.md
 ```

@@ -142,12 +142,12 @@ describe('package install contracts', () => {
     expect(postinstall).toMatch(/Claude|Codex/);
   });
 
-  test('typecheck script covers packaged cli source directories', () => {
+  test('typecheck script covers packaged JavaScript source directories', () => {
     const pkg = readJson(PACKAGE_JSON_PATH);
     const typecheckSource = fs.readFileSync(TYPECHECK_SCRIPT_PATH, 'utf8');
 
     expect(pkg.scripts.typecheck).toBe('node scripts/typecheck-js.js');
-    expect(typecheckSource).toContain("const CHECK_ROOTS = ['bin', 'src', 'scripts']");
+    expect(typecheckSource).toContain("const CHECK_ROOTS = ['bin', 'src', 'scripts', 'skills']");
     expect(typecheckSource).toContain("new Set(['.cjs', '.js'])");
 
     const result = spawnSync(process.execPath, [TYPECHECK_SCRIPT_PATH], {

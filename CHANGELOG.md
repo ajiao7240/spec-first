@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-05 05:09:53 leokuang: fix(spec-standards): 收口 PR 审查反馈中的 module facts、inventory hash 降级、脚本语法门禁和根目录临时记录边界 (user-visible)
 - v1.6.3 2026-05-05 04:56:23 leokuang: fix(spec-standards): 让 repo-profile patch 缺少 confirmed_candidate_ids 时 fail closed，并移除根目录原始会话日志 (user-visible)
 - v1.6.3 2026-05-05 04:30:12 leokuang: fix(spec-standards): 修复 artifact validator 的 candidate id 唯一性与外部确认路径覆盖契约 (user-visible)
 - v1.6.3 2026-05-05 04:17:11 leokuang: fix(dispatch): 收口 CE 血缘 skill dispatch 边界，修复 Codex runtime inline 降级并补跨 skill 回归测试 (user-visible)

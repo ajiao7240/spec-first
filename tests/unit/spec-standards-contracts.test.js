@@ -18,6 +18,7 @@ const {
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-standards/SKILL.md');
 const SCRIPT_PATH = path.join(REPO_ROOT, 'skills/spec-standards/scripts/prepare-baseline.js');
+const VALIDATOR_SCRIPT_PATH = path.join(REPO_ROOT, 'skills/spec-standards/scripts/validate-artifacts.js');
 const COMMAND_TEMPLATE_PATH = path.join(REPO_ROOT, 'templates/claude/commands/spec/standards.md');
 
 function read(filePath) {
@@ -159,7 +160,21 @@ describe('spec-standards workflow contract', () => {
       });
       expect(projectShape.project_mode).toBe('single_project_repo');
       expect(projectShape.project.detected_type).toBe('node_cli_ai_workflow_framework');
+      expect(projectShape.module_detection).toEqual({
+        status: 'not_requested',
+        requested_modules: [],
+        detected_count: 0,
+        unavailable_modules: [],
+      });
+      expect(projectShape.scan).toEqual({
+        max_files: 4000,
+        scanned_file_count: expect.any(Number),
+        truncated: false,
+        hash_reliability: 'complete',
+        ordering: 'lexical',
+      });
       expect(projectShape.evidence.inventory_hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+      expect(projectShape.evidence.inventory_hash_reliability).toBe('complete');
       expect(projectShape.recommended_standard_domains).toEqual(expect.arrayContaining([
         'artifact_contracts',
         'cli',
@@ -319,10 +334,29 @@ describe('spec-standards workflow contract', () => {
       ]));
 
       const standardsPlan = readJson(path.join(tmp, '.spec-first/standards/standards-plan.json'));
+      const projectShape = readJson(path.join(tmp, '.spec-first/standards/project-shape.json'));
       const decision = readJson(path.join(tmp, '.spec-first/standards/standards-update-decision.json'));
       expect(standardsPlan.mode).toBe('refresh');
       expect(standardsPlan.scope_plan.global.domains).toEqual(['database']);
       expect(standardsPlan.scope_plan.modules).toEqual(['src/db']);
+      expect(projectShape.module_detection).toEqual({
+        status: 'requested',
+        requested_modules: ['src/db'],
+        detected_count: 1,
+        unavailable_modules: [],
+        limitations: [],
+      });
+      expect(projectShape.modules).toEqual([
+        expect.objectContaining({
+          path: 'src/db',
+          status: 'detected',
+          detected_type: 'database_module',
+          evidence: [expect.objectContaining({
+            reason_code: 'requested-module-scan',
+            file_count: 1,
+          })],
+        }),
+      ]);
       expect(standardsPlan.tasks).toEqual(expect.arrayContaining([
         expect.objectContaining({
           id: 'refresh.database',
@@ -519,6 +553,55 @@ describe('spec-standards workflow contract', () => {
       expect(projectShape.domains.mobile.detected).toBe(false);
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('inventory scan is lexical and marks truncated hashes as partial evidence', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-inventory-'));
+    try {
+      writeFile(tmp, 'z-last.js', "'use strict';\n");
+      writeFile(tmp, 'a-first.js', "'use strict';\n");
+      writeFile(tmp, 'm-middle.js', "'use strict';\n");
+
+      const inventory = buildInventory(tmp, { maxFiles: 2 });
+      const projectShape = buildProjectShape(tmp, inventory);
+
+      expect(inventory.files).toEqual(['a-first.js', 'm-middle.js']);
+      expect(inventory.truncated).toBe(true);
+      expect(inventory.scan).toEqual({
+        max_files: 2,
+        scanned_file_count: 2,
+        truncated: true,
+        hash_reliability: 'partial',
+        ordering: 'lexical',
+      });
+      expect(projectShape.scan.hash_reliability).toBe('partial');
+      expect(projectShape.evidence.inventory_hash_reliability).toBe('partial');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('spec-standards CLI scripts keep executable syntax and help output', () => {
+    const scripts = [
+      [SCRIPT_PATH, 'Prepare deterministic spec-standards facts.'],
+      [VALIDATOR_SCRIPT_PATH, 'Validate generated spec-standards candidates and preview artifacts.'],
+    ];
+
+    for (const [scriptPath, expectedHelp] of scripts) {
+      const check = spawnSync(process.execPath, ['--check', scriptPath], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+      });
+      expect(check.status).toBe(0);
+
+      const help = spawnSync(process.execPath, [scriptPath, '--help'], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+      });
+      expect(help.status).toBe(0);
+      expect(help.stdout).toContain('Usage');
+      expect(help.stdout).toContain(expectedHelp);
     }
   });
 

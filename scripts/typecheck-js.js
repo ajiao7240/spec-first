@@ -6,7 +6,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const REPO_ROOT = path.join(__dirname, '..');
-const CHECK_ROOTS = ['bin', 'src', 'scripts'];
+const CHECK_ROOTS = ['bin', 'src', 'scripts', 'skills'];
 const CHECK_EXTENSIONS = new Set(['.cjs', '.js']);
 
 function listJavaScriptFiles(rootDir) {

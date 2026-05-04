@@ -42,6 +42,7 @@ const BASELINE_REVIEW_ARTIFACTS = [
   'standards-candidates.json',
   'standards-preview.md',
 ];
+const DEFAULT_INVENTORY_MAX_FILES = 4000;
 
 function parseArgs(argv) {
   const args = {
@@ -286,9 +287,10 @@ function buildArtifactWrites({
   return writes;
 }
 
-function buildInventory(repoRoot) {
+function buildInventory(repoRoot, args = {}) {
+  const maxFiles = args.maxFiles || DEFAULT_INVENTORY_MAX_FILES;
   const files = walkFiles(repoRoot, {
-    maxFiles: 4000,
+    maxFiles,
     root: repoRoot,
     ignoredDirs: new Set([
       '.git',
@@ -310,10 +312,19 @@ function buildInventory(repoRoot) {
   });
 
   const relativeFiles = files.map((filePath) => path.relative(repoRoot, filePath).replace(/\\/g, '/'));
+  const truncated = Boolean(files.truncated);
   return {
     files: relativeFiles,
     file_count: relativeFiles.length,
-    truncated: files.length >= 4000,
+    max_files: maxFiles,
+    truncated,
+    scan: {
+      max_files: maxFiles,
+      scanned_file_count: relativeFiles.length,
+      truncated,
+      hash_reliability: truncated ? 'partial' : 'complete',
+      ordering: 'lexical',
+    },
     manifests: pickExisting(relativeFiles, [
       'package.json',
       'pnpm-workspace.yaml',
@@ -347,12 +358,16 @@ function buildInventory(repoRoot) {
 
 function walkFiles(root, options) {
   const result = [];
+  const maxFiles = options.maxFiles || Number.POSITIVE_INFINITY;
 
   function walk(current) {
-    if (result.length >= options.maxFiles) return;
+    if (result.length > maxFiles) return;
 
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      if (result.length >= options.maxFiles) return;
+    const entries = fs.readdirSync(current, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    for (const entry of entries) {
+      if (result.length > maxFiles) return;
       if (options.ignoredDirs.has(entry.name)) continue;
 
       const entryPath = path.join(current, entry.name);
@@ -372,7 +387,13 @@ function walkFiles(root, options) {
   }
 
   walk(root);
-  return result;
+  const truncated = result.length > maxFiles;
+  const files = truncated ? result.slice(0, maxFiles) : result;
+  Object.defineProperty(files, 'truncated', {
+    value: truncated,
+    enumerable: false,
+  });
+  return files;
 }
 
 function pickExisting(files, candidates) {
@@ -393,6 +414,8 @@ function buildProjectShape(repoRoot, inventory, args = {}) {
   const frameworks = detectFrameworks(packageJson, inventory);
   const domains = detectDomains(packageJson, inventory);
   const projectMode = detectProjectMode(packageJson, inventory);
+  const modules = buildModuleFacts(repoRoot, inventory, options.modules);
+  const scan = buildScanSummary(inventory);
 
   return {
     schema_version: PROJECT_SHAPE_SCHEMA,
@@ -413,7 +436,9 @@ function buildProjectShape(repoRoot, inventory, args = {}) {
       available_artifacts: inventory.graph_artifacts,
       status: inventory.graph_artifacts.length > 0 ? 'available' : 'not_detected',
     },
-    modules: [],
+    modules,
+    module_detection: buildModuleDetection(options.modules, modules, inventory),
+    scan,
     recommended_standard_domains: recommendDomains(domains),
     skipped_standard_domains: skippedDomains(domains),
     evidence: {
@@ -421,7 +446,111 @@ function buildProjectShape(repoRoot, inventory, args = {}) {
       scanned_file_count: inventory.file_count,
       scan_truncated: inventory.truncated,
       inventory_hash: hashInventory(repoRoot, inventory.files),
+      inventory_hash_reliability: scan.hash_reliability,
     },
+  };
+}
+
+function buildScanSummary(inventory) {
+  return inventory.scan || {
+    max_files: inventory.max_files || DEFAULT_INVENTORY_MAX_FILES,
+    scanned_file_count: inventory.file_count,
+    truncated: Boolean(inventory.truncated),
+    hash_reliability: inventory.truncated ? 'partial' : 'complete',
+    ordering: 'lexical',
+  };
+}
+
+function buildModuleFacts(repoRoot, inventory, requestedModules) {
+  return uniqueList(requestedModules || []).map((modulePath) => {
+    const normalizedPath = normalizeModulePath(modulePath);
+    if (!normalizedPath) {
+      return {
+        path: modulePath,
+        status: 'invalid',
+        detected_type: 'unknown',
+        languages: [],
+        evidence: [{
+          reason_code: 'module-path-outside-repo',
+          path: modulePath,
+        }],
+      };
+    }
+
+    const moduleRoot = path.join(repoRoot, normalizedPath);
+    const exists = fs.existsSync(moduleRoot);
+    const prefix = `${normalizedPath}/`;
+    const moduleFiles = inventory.files
+      .filter((filePath) => filePath === normalizedPath || filePath.startsWith(prefix))
+      .sort((left, right) => left.localeCompare(right));
+    const languages = detectLanguages(moduleFiles);
+
+    return {
+      path: normalizedPath,
+      status: exists || moduleFiles.length > 0 ? 'detected' : 'not_found',
+      detected_type: detectModuleType(normalizedPath, moduleFiles, languages),
+      languages,
+      evidence: [{
+        reason_code: moduleFiles.length > 0 ? 'requested-module-scan' : 'requested-module-not-found',
+        file_count: moduleFiles.length,
+        files_sample: moduleFiles.slice(0, 5),
+      }],
+    };
+  });
+}
+
+function normalizeModulePath(modulePath) {
+  const normalized = String(modulePath || '').replace(/\\/g, '/').replace(/^\.\//, '');
+  if (!normalized || path.isAbsolute(normalized) || normalized.split('/').includes('..')) return null;
+  return normalized;
+}
+
+function detectModuleType(modulePath, moduleFiles, languages) {
+  const lowerPath = modulePath.toLowerCase();
+  const lowerFiles = moduleFiles.map((filePath) => filePath.toLowerCase());
+  if (lowerPath.includes('mobile')
+    || languages.includes('kotlin')
+    || languages.includes('swift')
+    || lowerFiles.some((filePath) => filePath.includes('/android/') || filePath.includes('/ios/'))) {
+    return 'mobile_app';
+  }
+  if (lowerPath.includes('db')
+    || lowerPath.includes('database')
+    || lowerFiles.some((filePath) => filePath.includes('/migrations/') || filePath.endsWith('.sql'))) {
+    return 'database_module';
+  }
+  if (lowerFiles.some((filePath) => filePath === `${lowerPath}/bin/spec-first.js`
+    || filePath.includes('/src/cli/'))) {
+    return 'node_cli';
+  }
+  if (lowerFiles.some((filePath) => filePath.endsWith('/package.json'))) {
+    return 'node_package';
+  }
+  if (languages.some((language) => ['javascript', 'typescript'].includes(language))) {
+    return 'js_ts_module';
+  }
+  return moduleFiles.length > 0 ? 'generic_module' : 'unknown';
+}
+
+function buildModuleDetection(requestedModules, modules, inventory) {
+  const requested = uniqueList(requestedModules || []);
+  if (requested.length === 0) {
+    return {
+      status: 'not_requested',
+      requested_modules: [],
+      detected_count: 0,
+      unavailable_modules: [],
+    };
+  }
+
+  return {
+    status: inventory.truncated ? 'partial' : 'requested',
+    requested_modules: requested,
+    detected_count: modules.filter((moduleInfo) => moduleInfo.status === 'detected').length,
+    unavailable_modules: modules
+      .filter((moduleInfo) => moduleInfo.status !== 'detected')
+      .map((moduleInfo) => moduleInfo.path),
+    limitations: inventory.truncated ? ['inventory-scan-truncated'] : [],
   };
 }
 
@@ -925,13 +1054,23 @@ function buildUpdateDecision(repoRoot, options, projectShape) {
     .map((artifact) => artifact.path);
   const existingProjectShape = readJsonIfExists(path.join(options.output, 'project-shape.json'));
   const currentInventoryHash = projectShape.evidence.inventory_hash;
+  const currentInventoryHashReliability = projectShape.evidence.inventory_hash_reliability || 'complete';
   const existingInventoryHash = existingProjectShape
     && existingProjectShape.evidence
     && existingProjectShape.evidence.inventory_hash
       ? existingProjectShape.evidence.inventory_hash
       : null;
+  const existingInventoryHashReliability = existingProjectShape
+    && existingProjectShape.evidence
+    && existingProjectShape.evidence.inventory_hash_reliability
+      ? existingProjectShape.evidence.inventory_hash_reliability
+      : null;
   const reasonCodes = [];
   let recommendation = 'reuse-current-baseline';
+
+  if (currentInventoryHashReliability === 'partial') {
+    reasonCodes.push('inventory-scan-truncated');
+  }
 
   if (options.mode === 'refresh') {
     recommendation = 'refresh-requested';
@@ -963,6 +1102,8 @@ function buildUpdateDecision(repoRoot, options, projectShape) {
     reason_codes: reasonCodes,
     current_inventory_hash: currentInventoryHash,
     existing_inventory_hash: existingInventoryHash,
+    current_inventory_hash_reliability: currentInventoryHashReliability,
+    existing_inventory_hash_reliability: existingInventoryHashReliability,
     existing_artifacts: existingArtifacts,
     missing_artifacts: missingArtifacts,
     next_actions: buildUpdateNextActions(recommendation),

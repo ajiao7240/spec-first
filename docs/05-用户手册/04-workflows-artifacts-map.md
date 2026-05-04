@@ -195,7 +195,7 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 
 | 文件 | 角色 |
 | --- | --- |
-| `project-shape.json` | deterministic project shape facts、language/package/domain hints 和 evidence 摘要 |
+| `project-shape.json` | deterministic project shape facts、language/package/domain/module hints、scan truncation/hash reliability 和 evidence 摘要 |
 | `standards-plan.json` | 本次 baseline 的 enabled domains、budget、LLM tasks、artifact plan、synthesis contract 和 downstream consumers |
 | `glue-map.json` | 已验证的可复用能力、entrypoints、outputs、不要重复实现的边界和 downstream consumption 边界 |
 | `standards-update-decision.json` | `--quick` / `--refresh` 的 freshness 与刷新建议；只记录 deterministic reason_code，不直接改规范 |

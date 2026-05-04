@@ -48,6 +48,19 @@
     "status": "available"
   },
   "modules": [],
+  "module_detection": {
+    "status": "not_requested",
+    "requested_modules": [],
+    "detected_count": 0,
+    "unavailable_modules": []
+  },
+  "scan": {
+    "max_files": 4000,
+    "scanned_file_count": 120,
+    "truncated": false,
+    "hash_reliability": "complete",
+    "ordering": "lexical"
+  },
   "recommended_standard_domains": [
     "artifact_contracts",
     "cli",
@@ -65,6 +78,7 @@
     ],
     "scanned_file_count": 120,
     "scan_truncated": false,
-    "inventory_hash": "sha256:example"
+    "inventory_hash": "sha256:example",
+    "inventory_hash_reliability": "complete"
   }
 }

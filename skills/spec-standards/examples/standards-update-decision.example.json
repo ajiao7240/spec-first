@@ -13,6 +13,8 @@
   ],
   "current_inventory_hash": "sha256:current",
   "existing_inventory_hash": "sha256:previous",
+  "current_inventory_hash_reliability": "complete",
+  "existing_inventory_hash_reliability": "complete",
   "existing_artifacts": [
     {
       "path": ".spec-first/standards/project-shape.json",

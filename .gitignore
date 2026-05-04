@@ -27,6 +27,8 @@ yarn-error.log*
 .worktrees/
 .claude/tasks/
 .playwright-mcp/
+/*-loop.md
+/*-userskuang*.txt
 
 # Generated runtime assets in this repo checkout
 .claude/commands/spec/
