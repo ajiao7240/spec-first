@@ -383,6 +383,39 @@ describe('spec-standards artifact validator', () => {
     }
   });
 
+  test('repo profile patch must include non-empty confirmed candidate ids', () => {
+    const missingIds = copyFixture();
+    const emptyIds = copyFixture();
+    try {
+      fs.writeFileSync(
+        path.join(missingIds, 'repo-profile.patch.yaml'),
+        [
+          'schema_version: spec-first.repo-profile-patch.v1',
+          'patch:',
+          '  confirmed_standards:',
+          '    unsafe: "writes without stable candidate ids"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      const missing = runValidator(['--standards-dir', missingIds, '--json']);
+      expect(missing.status).toBe(1);
+      expectReason(missing, 'patch-missing-confirmed-candidate-ids');
+
+      fs.writeFileSync(
+        path.join(emptyIds, 'repo-profile.patch.yaml'),
+        'confirmed_candidate_ids: []\n',
+        'utf8',
+      );
+      const empty = runValidator(['--standards-dir', emptyIds, '--json']);
+      expect(empty.status).toBe(1);
+      expectReason(empty, 'patch-missing-confirmed-candidate-ids');
+    } finally {
+      fs.rmSync(missingIds, { recursive: true, force: true });
+      fs.rmSync(emptyIds, { recursive: true, force: true });
+    }
+  });
+
   test('preview checker reports missing writeback section separately from missing unchanged statement', () => {
     const missingSection = copyFixture();
     const missingStatement = copyFixture();

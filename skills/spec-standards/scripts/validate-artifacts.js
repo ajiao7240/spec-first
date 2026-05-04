@@ -312,9 +312,11 @@ function readPatchConfirmedCandidateIds(filePath, result) {
   if (!fs.existsSync(filePath)) return new Set();
   const text = fs.readFileSync(filePath, 'utf8');
   const ids = new Set();
+  let hasConfirmedCandidateIds = false;
   let inConfirmedList = false;
   for (const line of text.split(/\r?\n/)) {
     if (/^\s*confirmed_candidate_ids\s*:\s*$/.test(line)) {
+      hasConfirmedCandidateIds = true;
       inConfirmedList = true;
       continue;
     }
@@ -330,14 +332,15 @@ function readPatchConfirmedCandidateIds(filePath, result) {
     }
     const inline = line.match(/confirmed_candidate_ids\s*:\s*\[([^\]]*)\]/);
     if (inline) {
+      hasConfirmedCandidateIds = true;
       for (const rawId of inline[1].split(',')) {
         const id = rawId.trim().replace(/^['"]|['"]$/g, '');
         if (id) ids.add(id);
       }
     }
   }
-  if (text.includes('confirmed_candidate_ids') && ids.size === 0) {
-    addIssue(result.warnings, 'missing-support', filePath, 'Patch file contains confirmed_candidate_ids but no ids were parsed.');
+  if (!hasConfirmedCandidateIds || ids.size === 0) {
+    addIssue(result.errors, 'patch-missing-confirmed-candidate-ids', filePath, 'Patch file exists but lacks non-empty confirmed_candidate_ids; writeback safety cannot be verified.');
   }
   return ids;
 }
