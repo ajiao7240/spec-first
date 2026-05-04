@@ -137,6 +137,33 @@ Updating 4b5f28da..06a7cee0
 - 删除类变更必须先做 inbound-reference audit。CE 删除 selector 或文件不代表 spec-first 删除；spec-first 作为 CLI/workflow harness 的特有覆盖面优先于 CE parity。
 - 当前 worktree 有多处无关 dirty files，执行时必须以最新 `git status --short` 为准；任何目标文件存在既有改动时，先读当前内容并局部合并，不覆盖用户/并行改动。
 
+## 实施对比 Ledger Contract
+
+过滤后的 77 个 CE file entries 已在本计划中完成计划级判定；实施时不要求把 77 行全部复制成新表，但任何会导致 spec-first source patch、删除决策或公开 surface 变化的 CE entry，都必须进入 implementation ledger。
+
+ledger 的落点必须是可审查的 durable artifact：
+
+- PR 模式：PR body 中的 `## CE Sync Ledger` section。
+- 无 PR 或本地执行模式：`docs/validation/<YYYY-MM-DD>-ce-06a7cee0-sync-ledger.md`。
+
+ledger 每行必须能从 spec-first changed target 反查到上游证据。最低列要求：
+
+| 列 | 要求 |
+|---|---|
+| `spec-first target` | 精确目标路径；如果一个目标聚合多个 CE entries，列出所有来源 |
+| `CE source` | CE file/status 和 commit 或 hunk 摘要 |
+| `target current state` | 目标当前职责、frontmatter、selector、调用方或 artifact contract |
+| `accepted slice` | 本轮实际同步的最小行为切片 |
+| `kept/deferred slice` | 明确保持分叉、延后或不同步的部分 |
+| `validation` | 能证明该切片的测试、source scan、fresh-source eval 或 manual reason |
+
+完备性要求：
+
+- `agents/`、`skills/`、`templates/`、`src/cli/`、`README*`、`AGENTS.md`、`CLAUDE.md`、`docs/` 中的每个实施改动目标，都必须在 ledger 的 `spec-first target` 中出现一次。
+- `CHANGELOG.md` 可只记录在最终变更说明中，不要求单独 ledger 行。
+- `docs/validation/*ce-06a7cee0-sync-ledger.md` 自身如果作为 ledger artifact 创建，不需要自引用。
+- product-boundary spike、CLI readiness 删除审计、CE release metadata 等未实施项，可以继续依赖本计划的文件判定表；一旦实施 patch，必须补 ledger 行。
+
 ## 路径映射
 
 | CE 路径 | spec-first 目标 |
@@ -295,19 +322,13 @@ Agent 对比结论：
 文件：
 
 - `docs/plans/2026-05-04-001-sync-ce-06a7cee0-workflow-updates-plan.md`
-- 本轮实施 PR description 或执行记录
+- PR body 的 `## CE Sync Ledger` section，或 `docs/validation/<YYYY-MM-DD>-ce-06a7cee0-sync-ledger.md`
 
 动作：
 
-- 对过滤后的 77 个 CE file entries 建立 implementation-time 对比 ledger。每一行至少包含：
-  - CE file/status
-  - CE actual change type：正文、frontmatter、权限 allowlist、selector、script、runtime metadata、删除
-  - CE diff evidence：关键 hunk 或 `--unified=0` 摘要
-  - spec-first target current state：目标文件是否存在、当前职责、frontmatter、调用方、selector、artifact contract
-  - accepted sync slice：本轮同步的最小行为切片
-  - not-synced slice：保持分叉或延后部分
-  - validation assertion
-- 如果某个文件缺少上述 ledger，不进入 patch。
+- 对会导致 spec-first patch、删除决策或公开 surface 变化的 CE file entries 建立 implementation-time 对比 ledger。
+- ledger 采用上方 `实施对比 Ledger Contract` 的列和完备性要求。
+- 如果某个将被修改的目标文件缺少 ledger 覆盖，不进入 patch。
 - 如果目标文件已有无关 dirty changes，先记录当前状态并局部合并，不覆盖。
 - 对所有 agent/skill frontmatter 或 selector 变更，先证明 source/runtime/consumer 边界，再改 source。
 
@@ -318,7 +339,18 @@ Agent 对比结论：
   ```bash
   awk -F'|' '/^\| .*plugins\/compound-engineering\// && $4 ~ /(直接同步并改名|Direct sync|Semantic adapt|Do not sync|Defer)/ { print NR ":" $0 }' docs/plans/2026-05-04-001-sync-ce-06a7cee0-workflow-updates-plan.md
   ```
-- 每个实施 PR 或执行记录能从 changed file 追溯到 CE hunk、spec-first 当前状态和验证断言。
+- ledger artifact 存在；如果 ledger 在 PR body 中，先导出为 `$LEDGER_FILE` 供本地检查。
+- 每个 changed source target 都能从 ledger 追溯到 CE hunk、spec-first 当前状态和验证断言。最小覆盖检查：
+
+  ```bash
+  git diff --name-only --diff-filter=ACMRD -- agents skills templates src README.md README.zh-CN.md AGENTS.md CLAUDE.md docs \
+    | while IFS= read -r file; do
+        case "$file" in
+          CHANGELOG.md|docs/validation/*ce-06a7cee0-sync-ledger.md) continue ;;
+        esac
+        rg -F "\`$file\`" "$LEDGER_FILE" >/dev/null || printf 'missing ledger: %s\n' "$file"
+      done
+  ```
 - 执行前 `git status --short` 已记录，并且未覆盖无关 dirty files。
 
 ### U1. 事实重放与 dirty worktree 保护
@@ -416,7 +448,23 @@ Agent 对比结论：
 - `skills/spec-code-review/references/review-output-template.md`
 - `skills/spec-code-review/references/resolve-base.sh`
 - `skills/spec-code-review/scripts/resolve-base.sh`
-- `agents/spec-*-reviewer.agent.md`
+- `agents/spec-adversarial-reviewer.agent.md`
+- `agents/spec-api-contract-reviewer.agent.md`
+- `agents/spec-correctness-reviewer.agent.md`
+- `agents/spec-data-migrations-reviewer.agent.md`
+- `agents/spec-dhh-rails-reviewer.agent.md`
+- `agents/spec-julik-frontend-races-reviewer.agent.md`
+- `agents/spec-kieran-python-reviewer.agent.md`
+- `agents/spec-kieran-rails-reviewer.agent.md`
+- `agents/spec-kieran-typescript-reviewer.agent.md`
+- `agents/spec-maintainability-reviewer.agent.md`
+- `agents/spec-performance-reviewer.agent.md`
+- `agents/spec-previous-comments-reviewer.agent.md`
+- `agents/spec-project-standards-reviewer.agent.md`
+- `agents/spec-reliability-reviewer.agent.md`
+- `agents/spec-security-reviewer.agent.md`
+- `agents/spec-swift-ios-reviewer.agent.md`
+- `agents/spec-testing-reviewer.agent.md`
 - `tests/unit/spec-code-review-contracts.test.js`
 - `tests/unit/skill-shell-safety.test.js`
 
@@ -438,6 +486,7 @@ Agent 对比结论：
 - 只有存在 PR metadata 和真实 prior feedback 时，才选择 previous-comments reviewer。
 - bounded-dispatch 文案将 concurrency-limit errors 视为 backpressure，而不是 reviewer failure。
 - 若追加 `Write`，contract test 或 source scan 证明变更只覆盖 code-review leaf reviewers，不覆盖 doc-review reviewers、writer/fixer agents 或 CLI readiness 删除。
+- agent 权限变更不得使用 `agents/spec-*-reviewer.agent.md` 这类宽 glob；只能覆盖本单元文件列表中的 17 个 CE-mapped code-review JSON leaf reviewers。
 - Fresh-source eval 验证 leaf reviewer 仍只允许写 `/tmp/spec-first/spec-code-review/<run-id>/` run artifact，不允许编辑 repo 文件。
 
 ### U5. Work、work-beta 与 shipping
@@ -589,15 +638,16 @@ Agent 对比结论：
 - `CHANGELOG.md`
 - `README.md`
 - `README.zh-CN.md`
+- `src/cli/plugin.js`
 - `src/cli/contracts/dual-host-governance/skills-governance.json`
 - `src/cli/contracts/dual-host-governance/agents-governance.json`，如存在
-- `.claude-plugin/plugin.json`
 - `templates/claude/commands/spec/**`
 - 相关 tests
 
 动作：
 
 - 只为已接受的 source 变更更新 README/manual/runtime counts。
+- 当前仓库没有 checked-in `.claude-plugin/plugin.json` 真相源；runtime manifest 由 `src/cli/plugin.js` 基于 governance JSON、templates、`skills/` 和 `agents/` 动态生成。实施不得重新引入退休 manifest。
 - 使用当前 host developer profile author 更新 `CHANGELOG.md`。
 - 运行 source/runtime drift checks；只有 implementation 修改了会投递到 host runtime 的 source assets 时，才通过 `spec-first init --claude|--codex` regenerate runtime。
 - 对 skill/agent prose 行为变更，运行 fresh-source eval；无法执行时记录原因。
@@ -614,7 +664,7 @@ Agent 对比结论：
 
 | 单元 | 最小验证 |
 |---|---|
-| U0 | 对比 ledger 完整；旧判定扫描无残留 |
+| U0 | ledger artifact 存在；changed target 精确路径覆盖检查通过；旧判定扫描无残留 |
 | U1 | `git diff --check -- docs/plans/2026-05-04-001-sync-ce-06a7cee0-workflow-updates-plan.md CHANGELOG.md` |
 | U2 | `npm run typecheck`；如可直接运行则执行 `node tests/unit/spec-update-contracts.test.js`；如 Jest 支持 path filter 则执行 `npm run test:unit -- --runTestsByPath ...`；否则 fallback 到 `npm run test:unit` |
 | U3 | `tests/unit/spec-brainstorm-contracts.test.js`、`tests/unit/spec-plan-contracts.test.js`、`npm run lint:skill-entrypoints` |
@@ -624,7 +674,7 @@ Agent 对比结论：
 | U7 | compound/sessions/doc-review/polish 聚焦 tests，加上 `bash -n skills/spec-polish-beta/scripts/detect-project-type.sh` |
 | U8 | 没有独立 plan 不实施；若接受，则先补 governance 和 runtime tests，再交付 source |
 | U9 | inbound-reference audit 输出，加上聚焦 review contract tests |
-| U10 | `npm run lint:skill-entrypoints`、`npm run test:smoke`、changed skill/agent prose 的 fresh-source eval |
+| U10 | `npm run lint:skill-entrypoints`、`npm run test:smoke`、changed skill/agent prose 的 fresh-source eval；source scan 确认未把 `.claude-plugin/plugin.json` 重新写成当前真相源 |
 
 ## 剩余风险
 

@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-04 22:26:46 leokuang: docs(ce-sync): 按 doc-review 校准 CE 06a7cee0 同步计划，补齐 implementation ledger 契约、agent 权限精确范围和动态 manifest 真源边界 (user-visible)
 - v1.6.3 2026-05-04 22:10:40 leokuang: fix(audit-p2): 修复 npm README 链接体验，补强 doctor 状态解释并生成 runtime capability catalog (user-visible)
 - v1.6.3 2026-05-04 22:05:23 leokuang: docs(ce-sync): 再审并校准 CE 06a7cee0 同步计划，新增逐文件语义对比 gate 并收紧直接同步判定 (user-visible)
 - v1.6.3 2026-05-04 22:00:34 leokuang: docs(ce-sync): 优化上游 CE 同步方法论，补充当前项目语义对比、agent 权限适配和 CLI readiness 删除审计规则 (user-visible)
