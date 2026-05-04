@@ -16,7 +16,7 @@ This workflow produces a durable implementation plan. It does **not** implement 
 
 ## Context Orientation Anchor
 
-Orient from the current user request or requirement, existing plans or task packs, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. External tools may prioritize inspection, but they do not define scope authority. The LLM still chooses the candidate change surface from explicit repo context and source-plan constraints.
+Orient from the current user request or requirement, existing plans or task packs, `AGENTS.md` / `CLAUDE.md` / project role docs, `.spec-first/standards/project-shape.json`, `.spec-first/standards/standards-candidates.json`, `.spec-first/standards/glue-map.json` when present, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. Treat confirmed standards as hard project context; treat observed, suggested, imported, conflict, and unknown standards as advisory context that may require plan-time resolution. External tools may prioritize inspection, but they do not define scope authority. The LLM still chooses the candidate change surface from explicit repo context and source-plan constraints.
 
 ## Interaction Method
 

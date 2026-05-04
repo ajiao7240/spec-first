@@ -27,6 +27,7 @@ The workflow answers:
 - Which conventions are confirmed, imported, observed, suggested, conflicting, or unknown?
 - Which existing capabilities should downstream work reuse instead of reimplementing?
 - Which artifacts should downstream workflows read, and which should remain preview-only?
+- Which candidate standards are hard constraints for downstream workflows, and which are only soft context?
 
 ## Non-Goals
 
@@ -85,6 +86,8 @@ Generate:
 - `.spec-first/standards/standards-preview.md`
 
 Do not write `repo-profile.yaml`.
+
+In parent workspaces, `--repo <child>` selects the child repo as the target repo root. Default artifacts are written under the child repo's `.spec-first/standards/`, and the parent workspace must not receive child-local standards artifacts.
 
 ### `--quick`
 
@@ -210,8 +213,8 @@ node skills/spec-standards/scripts/prepare-baseline.js --baseline --import-sourc
 The script writes deterministic facts and mode-support artifacts only:
 
 - `project-shape.json`
-- `standards-plan.json`
-- `glue-map.json`
+- `standards-plan.json`, including the `synthesis_contract` that defines candidate fields, status vocabulary, evidence limits, writeback policy, and downstream consumers
+- `glue-map.json`, including reusable capabilities and downstream consumption boundaries
 - `standards-update-decision.json` for `--quick` / `--refresh`
 - `graph-query-index.json` for `--deep`
 - `standards-sources.json`, `import-lock.json`, and `imported-standards.json` for `--import-source`
@@ -223,6 +226,16 @@ For `--quick`, stop after reading `standards-update-decision.json` unless the us
 ### Phase 2: Evidence Review
 
 Read the generated fact artifacts and the available upstream graph/readiness artifacts.
+
+Treat `standards-plan.json` as the LLM handoff contract:
+
+- `scope` tells whether the run is repo-local or a `workspace_child_repo` run.
+- `artifacts.generate` lists durable artifacts expected by this mode.
+- `synthesis_contract.candidate_required_fields` is the candidate JSON minimum shape.
+- `synthesis_contract.allowed_statuses` and `allowed_source_types` define allowed vocabulary.
+- `synthesis_contract.evidence_policy` sets evidence budgets and graph degradation boundaries.
+- `synthesis_contract.writeback_policy` keeps `repo-profile.yaml` preview-first.
+- `synthesis_contract.downstream_consumers` explains how later workflows may use confirmed vs soft candidates.
 
 Classify evidence source types:
 
@@ -241,6 +254,18 @@ When GitNexus or another graph MCP is available, use one or two targeted queries
 
 Create `.spec-first/standards/standards-candidates.json`.
 
+Use this top-level shape:
+
+- `schema_version`: `spec-first.standards-candidates.v1`
+- `generated_at`
+- `scope`
+- `source_artifacts[]`
+- `candidates[]`
+- `status_counts`
+- `conflicts[]`
+- `unknowns[]`
+- `confirmation_policy`
+
 For each candidate, include:
 
 - stable `id`
@@ -253,6 +278,13 @@ For each candidate, include:
 - bounded `evidence[]`
 - `suggested_action`
 - `downstream_usage[]`
+
+Status rules:
+
+- `confirmed` candidates are hard constraints only when already confirmed by user input or repo profile evidence.
+- `imported` candidates come from shared standards and are not project policy until aligned and confirmed.
+- `observed` and `suggested` candidates are soft context for downstream workflows.
+- `conflict` and `unknown` candidates must stay visible in preview and must not be hidden inside prose.
 
 Do not overfit the candidate list. Prefer a small high-signal baseline over exhaustive standards.
 
@@ -271,7 +303,8 @@ Create `.spec-first/standards/standards-preview.md` with:
 9. Conflicts
 10. Unknowns / requires user decision
 11. Suggested actions
-12. Explicit statement that `repo-profile.yaml` was not modified
+12. Downstream consumption summary
+13. Explicit statement that `repo-profile.yaml` was not modified
 
 ### Phase 5: Optional Confirmation Handoff
 
@@ -290,6 +323,7 @@ Shared standards do not become project policy on import.
 3. Align imported items with current project shape.
 4. Mark imported items as `imported`, not `confirmed`.
 5. Surface conflicts in preview.
+6. Keep `imported-standards.json` marked as alignment-required and not eligible for repo-profile writeback by itself.
 
 If a remote git source cannot be fetched in the current environment, record the source descriptor and reason code in `import-lock.json`, keep imported items empty, and list a local checkout or accessible path as the next action. Do not silently treat unavailable shared standards as confirmed project policy.
 
@@ -303,6 +337,8 @@ Downstream workflows should consume standards artifacts as context inputs:
 - `spec-work`: follow confirmed standards and reuse-first glue map; do not treat observed candidates as hard rules.
 - `spec-code-review`: use confirmed standards for project-standards findings and use observed/suggested candidates only as soft review context.
 - `spec-compound-refresh`: propose candidate updates from repeated review/learning signals.
+
+Confirmed standards are the only hard constraints. `observed`, `suggested`, `imported`, `conflict`, and `unknown` entries are advisory context unless a downstream workflow explicitly asks the user to confirm or resolve them.
 
 ## Cost Controls
 
@@ -320,7 +356,7 @@ Downstream workflows should consume standards artifacts as context inputs:
 Report:
 
 1. Mode, target repo, and whether the run was preview-only.
-2. Artifact paths written.
+2. Artifact paths written, including child-repo relative paths when `--repo <child>` was used.
 3. Evidence quality: graph-backed, degraded, imported-only, or direct-read only.
 4. Candidate counts by status.
 5. Conflicts and unknowns.

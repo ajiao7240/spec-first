@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-04 13:37:36 leokuang: fix(spec-standards): 收紧 child repo 写入边界、候选规范合成契约和 downstream standards consumption 规则 (user-visible)
 - v1.6.3 2026-05-04 13:34:41 leokuang: docs(audit): 在系统审查报告中补充 skill/workflow 治理优化进展与剩余项
 - v1.6.3 2026-05-04 13:33:37 leokuang: docs(governance): 新增 fresh-source eval checklist，明确 skill/agent prose 语义验证的 source/runtime 与未执行记录边界
 - v1.6.3 2026-05-04 13:31:35 leokuang: docs(spec-release-notes): 增加 version/range/topic 过滤契约，避免 release 摘要退化成长 changelog 倾倒 (user-visible)

@@ -20,5 +20,7 @@
       ]
     }
   ],
+  "alignment_required": true,
+  "eligible_for_repo_profile_writeback": false,
   "import_boundary": "Imported standards are awaiting project alignment and are not confirmed project policy."
 }

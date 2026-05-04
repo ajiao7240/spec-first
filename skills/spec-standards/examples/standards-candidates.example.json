@@ -1,5 +1,17 @@
 {
   "schema_version": "spec-first.standards-candidates.v1",
+  "generated_at": "2026-05-04T00:00:00.000Z",
+  "scope": {
+    "type": "repo",
+    "root": ".",
+    "domains": [],
+    "modules": []
+  },
+  "source_artifacts": [
+    ".spec-first/standards/project-shape.json",
+    ".spec-first/standards/standards-plan.json",
+    ".spec-first/standards/glue-map.json"
+  ],
   "candidates": [
     {
       "id": "glue.artifact-handoff.canonical-artifacts",
@@ -24,6 +36,14 @@
       ]
     }
   ],
+  "status_counts": {
+    "observed": 1
+  },
   "conflicts": [],
-  "unknowns": []
+  "unknowns": [],
+  "confirmation_policy": {
+    "confirmed_only_writeback": true,
+    "repo_profile_patch_required": true,
+    "observed_is_not_confirmed": true
+  }
 }

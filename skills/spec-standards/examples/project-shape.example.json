@@ -1,5 +1,11 @@
 {
   "schema_version": "spec-first.project-shape.v1",
+  "scope": {
+    "type": "repo",
+    "root": ".",
+    "domains": [],
+    "modules": []
+  },
   "project_mode": "single_project_repo",
   "project": {
     "root": ".",
@@ -52,5 +58,13 @@
   "skipped_standard_domains": [
     "frontend",
     "mobile"
-  ]
+  ],
+  "evidence": {
+    "manifest_paths": [
+      "package.json"
+    ],
+    "scanned_file_count": 120,
+    "scan_truncated": false,
+    "inventory_hash": "sha256:example"
+  }
 }

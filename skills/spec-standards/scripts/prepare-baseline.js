@@ -15,6 +15,26 @@ const STANDARDS_SOURCES_SCHEMA = 'spec-first.standards-sources.v1';
 const IMPORT_LOCK_SCHEMA = 'spec-first.standards-import-lock.v1';
 const IMPORTED_STANDARDS_SCHEMA = 'spec-first.imported-standards.v1';
 const SUPPORTED_MODES = ['baseline', 'quick', 'refresh', 'deep'];
+const CANDIDATE_STATUSES = [
+  'confirmed',
+  'imported',
+  'observed',
+  'suggested',
+  'conflict',
+  'unknown',
+  'deprecated',
+  'drifted',
+];
+const CANDIDATE_SOURCE_TYPES = [
+  'user_input',
+  'repo_profile_confirmed',
+  'shared_standard_imported',
+  'graph_observed',
+  'code_observed',
+  'config_observed',
+  'docs_observed',
+  'llm_suggested',
+];
 const BASELINE_REVIEW_ARTIFACTS = [
   'project-shape.json',
   'standards-plan.json',
@@ -140,12 +160,12 @@ function prepareBaseline(args) {
   }
 
   const inventory = buildInventory(repoRoot);
-  const projectShape = buildProjectShape(repoRoot, inventory);
+  const projectShape = buildProjectShape(repoRoot, inventory, options);
   const importArtifacts = options.importSource
-    ? buildImportArtifacts(repoRoot, options.importSource)
+    ? buildImportArtifacts(repoRoot, options.importSource, options.workspaceRoot)
     : null;
   const standardsPlan = buildStandardsPlan(projectShape, inventory, options, importArtifacts);
-  const glueMap = buildGlueMap(projectShape, inventory);
+  const glueMap = buildGlueMap(projectShape, inventory, options);
   const updateDecision = ['quick', 'refresh'].includes(options.mode)
     ? buildUpdateDecision(repoRoot, options, projectShape)
     : null;
@@ -173,17 +193,25 @@ function prepareBaseline(args) {
   return {
     schema_version: 'spec-first.standards-prepare-baseline.result.v1',
     mode: options.mode,
+    workspace_root: options.workspaceRoot,
     repo_root: repoRoot,
+    target_repo: options.repo,
     output_root: options.output,
     dry_run: options.dryRun,
     scope: buildScope(options),
     import_source: options.importSource,
     artifacts: writes.map(([fileName]) => path.relative(repoRoot, path.join(options.output, fileName)).replace(/\\/g, '/')),
+    workspace_artifacts: writes.map(([fileName]) => path.relative(options.workspaceRoot, path.join(options.output, fileName)).replace(/\\/g, '/')),
   };
 }
 
 function normalizePrepareOptions(args) {
-  const root = path.resolve(args.root || process.cwd());
+  const alreadyNormalized = Boolean(args.workspaceRoot);
+  const workspaceRoot = path.resolve(args.workspaceRoot || args.root || process.cwd());
+  const repo = normalizeRepoSelector(args.repo || null);
+  const root = alreadyNormalized
+    ? path.resolve(args.root || (repo ? path.resolve(workspaceRoot, repo) : workspaceRoot))
+    : (repo ? path.resolve(workspaceRoot, repo) : workspaceRoot);
   const output = path.resolve(root, args.output || '.spec-first/standards');
   const mode = args.mode || 'baseline';
   if (!SUPPORTED_MODES.includes(mode)) {
@@ -192,14 +220,28 @@ function normalizePrepareOptions(args) {
 
   return {
     mode,
+    workspaceRoot,
     root,
     output,
     dryRun: Boolean(args.dryRun),
     domains: uniqueList(args.domains || (args.domain ? [args.domain] : [])),
     modules: uniqueList(args.modules || (args.module ? [args.module] : [])),
-    repo: args.repo || null,
+    repo,
     importSource: args.importSource || args.import_source || null,
   };
+}
+
+function normalizeRepoSelector(repo) {
+  if (!repo) return null;
+  const normalized = String(repo).trim().replace(/\\/g, '/').replace(/\/+$/g, '');
+  if (!normalized) return null;
+  if (path.isAbsolute(normalized)) {
+    throw new Error(`--repo must be a workspace-relative child repo path: ${repo}`);
+  }
+  if (normalized.split('/').includes('..')) {
+    throw new Error(`--repo must not traverse outside the workspace root: ${repo}`);
+  }
+  return normalized;
 }
 
 function uniqueList(values) {
@@ -343,7 +385,8 @@ function hasDir(root, relativePath) {
   return fs.existsSync(target) && fs.statSync(target).isDirectory();
 }
 
-function buildProjectShape(repoRoot, inventory) {
+function buildProjectShape(repoRoot, inventory, args = {}) {
+  const options = normalizePlanOptions(args);
   const packageJson = readPackageJson(repoRoot);
   const languages = detectLanguages(inventory.files);
   const packageManagers = detectPackageManagers(inventory.files);
@@ -354,6 +397,7 @@ function buildProjectShape(repoRoot, inventory) {
   return {
     schema_version: PROJECT_SHAPE_SCHEMA,
     generated_at: new Date().toISOString(),
+    scope: buildScope(options),
     project_mode: projectMode,
     project: {
       root: '.',
@@ -648,6 +692,7 @@ function buildStandardsPlan(projectShape, inventory, args = {}, importArtifacts 
     },
     tasks: buildPlanTasks(options, enabledDomains, importArtifacts),
     artifacts: buildPlanArtifacts(options, importArtifacts),
+    synthesis_contract: buildSynthesisContract(options, enabledDomains, importArtifacts),
     dispatch: {
       mode: options.mode === 'deep' ? 'multi_lens_review' : 'single_skill',
       enabled_lenses: enabledDomains.map((domain) => `${domain}-standards-lens`),
@@ -665,6 +710,7 @@ function normalizePlanOptions(args) {
     domains: uniqueList(args.domains || []),
     modules: uniqueList(args.modules || []),
     repo: args.repo || null,
+    workspaceRoot: args.workspaceRoot || args.root || process.cwd(),
   };
 }
 
@@ -711,12 +757,16 @@ function buildModeBudget(mode) {
 }
 
 function buildScope(options) {
-  return {
+  const scope = {
     type: options.repo ? 'workspace_child_repo' : 'repo',
-    root: options.repo || '.',
+    root: '.',
     domains: options.domains,
     modules: options.modules,
   };
+  if (options.repo) {
+    scope.workspace_child = options.repo;
+  }
+  return scope;
 }
 
 function buildPlanTasks(options, enabledDomains, importArtifacts) {
@@ -801,6 +851,60 @@ function buildPlanArtifacts(options, importArtifacts) {
       '.spec-first/standards/repo-profile.patch.yaml',
     ],
     skip: [],
+  };
+}
+
+function buildSynthesisContract(options, enabledDomains, importArtifacts) {
+  return {
+    schema_version: 'spec-first.standards-synthesis-contract.v1',
+    mode: options.mode,
+    enabled_domains: enabledDomains,
+    inputs: {
+      deterministic_facts: [
+        '.spec-first/standards/project-shape.json',
+        '.spec-first/standards/standards-plan.json',
+        '.spec-first/standards/glue-map.json',
+      ],
+      optional_imports: importArtifacts ? [
+        '.spec-first/standards/standards-sources.json',
+        '.spec-first/standards/import-lock.json',
+        '.spec-first/standards/imported-standards.json',
+      ] : [],
+      optional_graph_plan: options.mode === 'deep'
+        ? '.spec-first/standards/graph-query-index.json'
+        : null,
+    },
+    outputs: {
+      candidates: '.spec-first/standards/standards-candidates.json',
+      preview: '.spec-first/standards/standards-preview.md',
+      repo_profile_patch: '.spec-first/standards/repo-profile.patch.yaml',
+    },
+    candidate_required_fields: [
+      'id',
+      'domain',
+      'type',
+      'status',
+      'confidence',
+      'rule_candidate',
+      'source_type',
+      'evidence',
+      'suggested_action',
+      'downstream_usage',
+    ],
+    allowed_statuses: CANDIDATE_STATUSES,
+    allowed_source_types: CANDIDATE_SOURCE_TYPES,
+    evidence_policy: {
+      max_evidence_per_candidate: buildModeBudget(options.mode).max_evidence_per_candidate,
+      bounded_paths_only: true,
+      raw_graph_results_are_session_local: true,
+      missing_graph_means_degraded_confidence: true,
+    },
+    writeback_policy: {
+      repo_profile_yaml_modified_by_default: false,
+      only_confirmed_candidates_are_patch_eligible: true,
+      patch_requires_explicit_user_confirmation: true,
+    },
+    downstream_consumers: buildDownstreamConsumers(),
   };
 }
 
@@ -925,8 +1029,8 @@ function buildGraphQueryIndex(projectShape, options) {
   };
 }
 
-function buildImportArtifacts(repoRoot, importSource) {
-  const source = inspectImportSource(repoRoot, importSource);
+function buildImportArtifacts(repoRoot, importSource, workspaceRoot = repoRoot) {
+  const source = inspectImportSource(repoRoot, importSource, workspaceRoot);
   const importedItems = source.local_path
     ? collectImportedStandards(source.local_path)
     : [];
@@ -936,6 +1040,7 @@ function buildImportArtifacts(repoRoot, importSource) {
     type: source.type,
     status: source.status,
     local_path: source.local_path ? path.relative(repoRoot, source.local_path).replace(/\\/g, '/') : null,
+    workspace_path: source.local_path ? path.relative(workspaceRoot, source.local_path).replace(/\\/g, '/') : null,
     git: source.git,
     reason_code: source.reason_code,
   };
@@ -962,13 +1067,15 @@ function buildImportArtifacts(repoRoot, importSource) {
       source_id: source.id,
       source_status: source.status,
       items: importedItems,
+      alignment_required: true,
+      eligible_for_repo_profile_writeback: false,
       import_boundary: 'Imported standards are awaiting project alignment and are not confirmed project policy.',
     },
   };
 }
 
-function inspectImportSource(repoRoot, importSource) {
-  const localPath = resolveLocalImportPath(repoRoot, importSource);
+function inspectImportSource(repoRoot, importSource, workspaceRoot = repoRoot) {
+  const localPath = resolveLocalImportPath(repoRoot, importSource, workspaceRoot);
   const isRemote = /^(https?:\/\/|git@|ssh:\/\/)/.test(importSource);
   if (!localPath) {
     return {
@@ -982,18 +1089,23 @@ function inspectImportSource(repoRoot, importSource) {
   }
 
   const stat = fs.statSync(localPath);
+  const git = readGitMetadata(localPath);
+  const sourceIdentity = git && git.remote
+    ? `${git.remote}:${git.commit || 'unknown'}`
+    : path.relative(workspaceRoot, localPath).replace(/\\/g, '/') || importSource;
   return {
-    id: `standards-source.${hashString(localPath).slice(7, 19)}`,
+    id: `standards-source.${hashString(`${stat.isDirectory() ? 'local_directory' : 'local_file'}:${sourceIdentity}`).slice(7, 19)}`,
     type: stat.isDirectory() ? 'local_directory' : 'local_file',
     status: 'available',
     local_path: localPath,
-    git: readGitMetadata(localPath),
+    git,
     reason_code: null,
   };
 }
 
-function resolveLocalImportPath(repoRoot, importSource) {
+function resolveLocalImportPath(repoRoot, importSource, workspaceRoot = repoRoot) {
   const candidates = [
+    path.resolve(workspaceRoot, importSource),
     path.resolve(repoRoot, importSource),
     path.resolve(importSource),
   ];
@@ -1093,7 +1205,8 @@ function readJsonIfExists(filePath) {
   }
 }
 
-function buildGlueMap(projectShape, inventory) {
+function buildGlueMap(projectShape, inventory, args = {}) {
+  const options = normalizePlanOptions(args);
   const capabilities = [];
   const domains = projectShape.domains;
   const files = new Set(inventory.files);
@@ -1167,11 +1280,9 @@ function buildGlueMap(projectShape, inventory) {
   return {
     schema_version: GLUE_MAP_SCHEMA,
     generated_at: new Date().toISOString(),
-    scope: {
-      type: 'repo',
-      root: '.',
-    },
+    scope: buildScope(options),
     capabilities,
+    downstream_consumers: buildDownstreamConsumers(),
     glue_patterns: [
       {
         id: 'pattern.source-first-runtime-regeneration',
@@ -1189,6 +1300,46 @@ function buildGlueMap(projectShape, inventory) {
       ]
       : [],
   };
+}
+
+function buildDownstreamConsumers() {
+  return [
+    {
+      workflow: 'spec-brainstorm',
+      hard_context: ['confirmed'],
+      soft_context: ['observed', 'suggested', 'unknown'],
+      consume: ['project-shape.json', 'standards-candidates.json'],
+      boundary: 'Use standards to avoid off-target requirements; do not turn observed conventions into product scope.',
+    },
+    {
+      workflow: 'spec-plan',
+      hard_context: ['confirmed'],
+      soft_context: ['observed', 'suggested', 'imported', 'conflict', 'unknown'],
+      consume: ['project-shape.json', 'standards-candidates.json', 'glue-map.json'],
+      boundary: 'Use glue capabilities for reuse-first implementation boundaries; resolve conflicts in the plan.',
+    },
+    {
+      workflow: 'spec-write-tasks',
+      hard_context: ['confirmed'],
+      soft_context: ['observed', 'suggested'],
+      consume: ['standards-candidates.json', 'glue-map.json'],
+      boundary: 'Carry standards as context refs and task constraints without changing source-plan scope.',
+    },
+    {
+      workflow: 'spec-work',
+      hard_context: ['confirmed'],
+      soft_context: ['observed', 'suggested'],
+      consume: ['standards-candidates.json', 'glue-map.json'],
+      boundary: 'Follow confirmed standards and prefer listed glue capabilities; treat soft candidates as advisory.',
+    },
+    {
+      workflow: 'spec-code-review',
+      hard_context: ['confirmed'],
+      soft_context: ['observed', 'suggested', 'conflict', 'unknown'],
+      consume: ['standards-candidates.json', 'standards-preview.md'],
+      boundary: 'Report confirmed-standard violations as findings; use soft candidates only for context or questions.',
+    },
+  ];
 }
 
 function capability(fields) {
@@ -1218,6 +1369,7 @@ module.exports = {
   buildProjectShape,
   buildStandardsPlan,
   buildUpdateDecision,
+  buildDownstreamConsumers,
   parseArgs,
   prepareBaseline,
 };

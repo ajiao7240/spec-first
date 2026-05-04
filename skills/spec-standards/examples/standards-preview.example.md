@@ -21,6 +21,7 @@ None provided in this run.
 
 - Generated: `project-shape.json`, `standards-plan.json`, `glue-map.json`, `standards-candidates.json`, `standards-preview.md`
 - Deferred: `repo-profile.patch.yaml`
+- Synthesis contract: `standards-plan.json` defines candidate shape, allowed statuses, evidence budget, writeback policy, and downstream consumers.
 
 ## 6. Graph-Backed Findings
 
@@ -56,6 +57,11 @@ None detected.
 
 Review candidates, then explicitly confirm which standards should be promoted through a future `repo-profile.patch.yaml`.
 
-## 12. Writeback Status
+## 12. Downstream Consumption
+
+- `spec-plan`, `spec-write-tasks`, `spec-work`, and `spec-code-review` may consume confirmed standards as hard context.
+- `observed`, `suggested`, `imported`, `conflict`, and `unknown` candidates remain advisory until confirmed or resolved.
+
+## 13. Writeback Status
 
 `.spec-first/specs/repo-profile.yaml` was not modified.
