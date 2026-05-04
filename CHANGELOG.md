@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-05 05:28:27 leokuang: docs(self-evolution): 新增自我审视与能力升级 report-only Prompt 基线，沉淀持续进化输入与边界规则 (user-visible)
 - v1.6.3 2026-05-05 05:09:53 leokuang: fix(spec-standards): 收口 PR 审查反馈中的 module facts、inventory hash 降级、脚本语法门禁和根目录临时记录边界 (user-visible)
 - v1.6.3 2026-05-05 04:56:23 leokuang: fix(spec-standards): 让 repo-profile patch 缺少 confirmed_candidate_ids 时 fail closed，并移除根目录原始会话日志 (user-visible)
 - v1.6.3 2026-05-05 04:49:19 leokuang: docs(spec-evolve): 收敛自我演化方案的反证门槛、P0 dogfood、入口命名、freshness 和 best-practice intake 边界 (user-visible)
