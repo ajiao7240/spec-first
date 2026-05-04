@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-05 03:46:35 leokuang: docs(plan): 将 CE dispatch control-plane 修复方案规范化为正式 plan，保留 plan-local spec_id 并移除临时 review 草稿 (user-visible)
 - v1.6.3 2026-05-05 03:15:58 leokuang: fix(runtime): 修复 Codex startup skill YAML 与 spec-work-beta doctor drift，并补回归测试 (user-visible)
 - v1.6.3 2026-05-05 03:07:52 leokuang: docs(spec-standards): 收口 artifact 质量门计划剩余审查问题，统一状态词表真相源、补 preview 计数负例并降级 dogfood 为人工验证 (user-visible)
 - v1.6.3 2026-05-05 02:21:32 leokuang: docs(spec-standards): 补充 artifact 质量门计划中外部确认与 evidence shape 的测试场景 (user-visible)
