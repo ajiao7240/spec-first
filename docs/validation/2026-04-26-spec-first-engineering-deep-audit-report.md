@@ -1,5 +1,7 @@
 # spec-first 工程深度审查报告
 
+> Lifecycle: historical-input. 本报告描述的是 2026-04-26 当时的 CRG implementation 和 dirty worktree 状态；其中 `src/crg`、`spec-first crg`、`graph.db`、CRG workspace/topology 等口径已被后续 external graph-provider readiness 架构取代。当前 graph/provider contract 以 `spec-mcp-setup`、`spec-graph-bootstrap`、`.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*` 和 `skills/spec-graph-bootstrap/scripts/bootstrap-providers.*` 为准。
+
 日期：2026-04-26  
 审查人：Codex  
 审查范围：`/Users/kuang/xiaobu/spec-first` 当前工作区  

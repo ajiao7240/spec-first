@@ -27,7 +27,10 @@ Official site: [spec-first.cn](http://spec-first.cn/)
 ![spec-first workflow flow](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)
 
 ```text
-Loose idea
+Open-ended improvement question
+  -> $spec-ideate or /spec:ideate
+  -> docs/ideation/YYYY-MM-DD-topic-ideation.md
+  -> choose one rough idea
   -> $spec-brainstorm or /spec:brainstorm
   -> docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
   -> $spec-plan or /spec:plan
@@ -53,12 +56,13 @@ Claude Code users can run `/spec:brainstorm "Improve onboarding for first-time C
 A complete workflow chain can leave artifacts like:
 
 ```text
+docs/ideation/2026-05-01-cli-onboarding-ideation.md
 docs/brainstorms/2026-05-01-001-cli-onboarding-requirements.md
 docs/plans/2026-05-01-001-feat-cli-onboarding-plan.md
 docs/tasks/2026-05-01-001-feat-cli-onboarding-tasks.md
 ```
 
-The first brainstorm run usually creates only the requirements brief. The plan, task-pack, work, review, debug, and compound entries add their own artifacts when you choose to continue the chain.
+Use `ideate` first when you want the AI to generate and rank options. The first brainstorm run usually creates only the requirements brief for one chosen idea. The plan, task-pack, work, review, debug, and compound entries add their own artifacts when you choose to continue the chain.
 
 For the detailed walkthrough, see [Chinese First Workflow Walkthrough](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md).
 
@@ -158,7 +162,11 @@ Restart Claude Code or Codex
   v
 Choose the next workflow in the host session
   |
-  +-- Rough idea or product problem
+  +-- Need options, critiques, or improvement ideas
+  |     -> /spec:ideate or $spec-ideate
+  |     -> docs/ideation/*-ideation.md
+  |
+  +-- Rough product problem or feature idea
   |     -> /spec:brainstorm or $spec-brainstorm
   |     -> docs/brainstorms/*-requirements.md
   |
@@ -286,6 +294,7 @@ The core contract is: `.spec-first` facts are authoritative at the **selected Gi
 
 | Entity | Typical location | Role |
 |---|---|---|
+| Ideation shortlist | `docs/ideation/` | Ranks and critiques candidate ideas before one is selected for requirement shaping. |
 | Requirements brief | `docs/brainstorms/` | Captures the problem, actors, flows, constraints, and acceptance examples before implementation pressure takes over. |
 | Implementation plan | `docs/plans/` | Turns a settled goal into scoped implementation units, tradeoffs, verification targets, and non-goals. |
 | Task pack | `docs/tasks/` | Provides structured handoff when a plan needs deterministic task identity, dependency order, and validation. |
@@ -297,6 +306,7 @@ Repo-relative artifact roots:
 
 ```text
 docs/
+  ideation/      ranked idea candidates before requirements shaping
   brainstorms/   requirements briefs from early problem framing
   plans/         implementation plans ready for review and execution
   tasks/         derived task packs when a plan needs structured handoff
@@ -323,7 +333,7 @@ Host runtime assets
         |
         v
 Workflow artifacts
-  brainstorms -> plans -> tasks -> work/review/debug -> learnings
+  ideation -> brainstorms -> plans -> tasks -> work/review/debug -> learnings
 ```
 
 Source-of-truth assets live in the repository. Generated runtime copies under `.claude/`, `.codex/`, and `.agents/skills/` are disposable and can be rebuilt with `spec-first init`.
@@ -333,6 +343,7 @@ Runtime shape after init:
 ```text
 your-project/
 ├── docs/
+│   ├── ideation/
 │   ├── brainstorms/
 │   ├── plans/
 │   ├── tasks/
@@ -347,7 +358,8 @@ your-project/
 
 | Flow | Start here | What it stabilizes |
 |---|---|---|
-| Problem framing | `/spec:brainstorm` or `$spec-brainstorm` | The original need, user-facing goal, boundaries, and acceptance examples. |
+| Idea generation | `/spec:ideate` or `$spec-ideate` | Candidate directions, critique, ranking, and the handoff into one selected idea. |
+| Problem framing | `/spec:brainstorm` or `$spec-brainstorm` | The original need, user-facing goal, boundaries, and acceptance examples for one chosen idea. |
 | Implementation planning | `/spec:plan` or `$spec-plan` | Architecture choices, implementation units, verification scope, and known unknowns. |
 | Work execution | `/spec:work` or `$spec-work` | Code changes, focused tests, verification notes, and scope control. |
 | App consistency audit | `/spec:app-consistency-audit` or `$spec-app-consistency-audit` | PRD, Figma, source, route, KMP/Clean Architecture, analytics, i18n, and rule-pack consistency before runtime validation. |
@@ -358,7 +370,8 @@ your-project/
 
 | If you have... | Start here | Expected result |
 |---|---|---|
-| A rough idea or product problem | `/spec:brainstorm` or `$spec-brainstorm` | Requirements brief under `docs/brainstorms/` |
+| An open-ended improvement question or you want options | `/spec:ideate` or `$spec-ideate` | Ranked ideation artifact under `docs/ideation/` |
+| A rough product problem or feature idea | `/spec:brainstorm` or `$spec-brainstorm` | Requirements brief under `docs/brainstorms/` |
 | A settled goal but no implementation strategy | `/spec:plan` or `$spec-plan` | Plan under `docs/plans/` |
 | A plan or task pack ready to execute | `/spec:work` or `$spec-work` | Code changes, tests, and verification notes |
 | A mobile App change needs PRD/Figma/source consistency before QA | `/spec:app-consistency-audit` or `$spec-app-consistency-audit` | Static audit report and run-scoped evidence under `.spec-first/app-audit/runs/` |
@@ -369,7 +382,8 @@ your-project/
 
 | I want to... | Claude Code | Codex | Expected result |
 |---|---|---|---|
-| Explore an idea | `/spec:brainstorm` | `$spec-brainstorm` | Requirements brief under `docs/brainstorms/` |
+| Generate and rank ideas | `/spec:ideate` | `$spec-ideate` | Ideation artifact under `docs/ideation/` |
+| Shape one idea into requirements | `/spec:brainstorm` | `$spec-brainstorm` | Requirements brief under `docs/brainstorms/` |
 | Plan implementation | `/spec:plan` | `$spec-plan` | Plan under `docs/plans/` |
 | Execute work | `/spec:work` | `$spec-work` | Code, tests, and verification notes |
 | Audit App consistency | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` | Static consistency report and scoped audit artifacts |

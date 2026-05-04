@@ -143,6 +143,7 @@ describe('README open-source entry contract', () => {
   test('README names first-run artifacts and does not imply every workflow emits every artifact', () => {
     const englishReadme = read(README_EN_PATH);
 
+    expect(englishReadme).toContain('docs/ideation/2026-05-01-cli-onboarding-ideation.md');
     expect(englishReadme).toContain('docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md');
     expect(englishReadme).toContain('docs/plans/');
     expect(englishReadme).toContain('docs/tasks/');
@@ -156,23 +157,28 @@ describe('README open-source entry contract', () => {
 
     expect(englishReadme).toContain('## A Tiny Example');
     expect(englishReadme).toContain('$spec-brainstorm "Improve onboarding for first-time CLI users"');
+    expect(englishReadme).toContain('docs/ideation/2026-05-01-cli-onboarding-ideation.md');
     expect(englishReadme).toContain('docs/brainstorms/2026-05-01-001-cli-onboarding-requirements.md');
     expect(englishReadme).toContain('docs/plans/2026-05-01-001-feat-cli-onboarding-plan.md');
     expect(englishReadme).toContain('docs/tasks/2026-05-01-001-feat-cli-onboarding-tasks.md');
-    expect(englishReadme).toContain('The first brainstorm run usually creates only the requirements brief.');
+    expect(englishReadme).toContain('Use `ideate` first when you want the AI to generate and rank options.');
+    expect(englishReadme).toContain('The first brainstorm run usually creates only the requirements brief for one chosen idea.');
     expect(englishReadme).toContain('If you are not sure which workflow to use');
     expect(englishReadme).toContain('## Choose Your Path');
-    expect(englishReadme).toContain('A rough idea or product problem');
+    expect(englishReadme).toContain('An open-ended improvement question or you want options');
+    expect(englishReadme).toContain('A rough product problem or feature idea');
     expect(englishReadme).toContain('/spec:debug');
     expect(englishReadme).toContain('$spec-code-review');
     expect(englishReadme).toContain(`${GITHUB_BLOB_ROOT}/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md`);
     expect(englishReadme).toContain(`${GITHUB_BLOB_ROOT}/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/10-%E4%BA%A7%E7%89%A9%E7%9B%AE%E5%BD%95.md`);
 
     expect(chineseReadme).toContain('## 一个小例子');
-    expect(chineseReadme).toContain('第一次 brainstorm 通常只生成 requirements brief');
+    expect(chineseReadme).toContain('当你需要 AI 主动生成并排序多个方向时，先用 `ideate`。');
+    expect(chineseReadme).toContain('第一次 brainstorm 通常只为一个已选想法生成 requirements brief');
     expect(chineseReadme).toContain('如果不确定该用哪个 workflow');
     expect(chineseReadme).toContain('## 选择你的路径');
-    expect(chineseReadme).toContain('只有模糊想法或产品问题');
+    expect(chineseReadme).toContain('需要开放式改进方向或多个候选想法');
+    expect(chineseReadme).toContain('已有粗略产品问题或功能想法');
     expect(chineseReadme).toContain('$spec-debug');
   });
 
@@ -219,6 +225,7 @@ describe('README open-source entry contract', () => {
 
     for (const expected of [
       'docs/brainstorms/*-requirements.md',
+      'docs/ideation/*-ideation.md',
       'docs/plans/*-plan.md',
       'docs/tasks/*-tasks.md',
       'docs/solutions/**/*',

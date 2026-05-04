@@ -1,5 +1,7 @@
 # spec-graph-bootstrap 当前执行主链
 
+> Lifecycle: historical-input / bridge. 本文保留旧 graph-bootstrap 主链的迁移背景，正文中的 `src/bootstrap-compiler/*`、`spec-first crg`、`graph.db`、`crg stats/build` 等口径不代表当前仓库头状态。当前 graph-provider 边界以 `spec-mcp-setup`、`spec-graph-bootstrap`、`.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*` 和 `skills/spec-graph-bootstrap/scripts/bootstrap-providers.*` 为准；下游 workflow 应读取 canonical readiness artifacts，而不是旧 CRG 内部路径。
+
 > 校准时间: 2026-04-20
 > 当前代码依据:
 > - `skills/spec-graph-bootstrap/SKILL.md`

@@ -1,5 +1,7 @@
 # Spec-First 项目介绍
 
+> Lifecycle: historical-input. 本目录保存早期项目介绍、CRG 旧方案和阶段性审查材料；其中版本号、文件数量、`src/crg`、`spec-first crg`、`graph.db`、命令数量等内容可能已过期。当前项目定位和 graph/provider 边界以根目录 `README.md`、`README.zh-CN.md`、`docs/README.md`、`docs/05-用户手册/`、`spec-mcp-setup`、`spec-graph-bootstrap`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 ## 一句话定义
 
 `spec-first` 是一个开源 npm CLI 工具，将 AI 编码从"即兴对话"转变为"规格驱动的工程交付闭环"，为 Claude Code 和 Codex 两个宿主提供统一的 `需求 → 计划 → 实现 → 评审 → 知识沉淀` 工作流。

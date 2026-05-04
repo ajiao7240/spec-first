@@ -25,10 +25,24 @@
 | --- | --- | --- | --- | --- |
 | `/tmp/spec-first/spec-code-review/<run-id>/` | `spec-code-review` interactive / autofix / headless run | `/spec:code-review` 或 `$spec-code-review`，report-only 除外 | 保存当前 run 的 reviewer JSON、detail enrichment、safe_auto 结果和 residual handoff，供 orchestrator 当前会话读取 | 临时 session/orchestrator handoff，不提交；需要长期保留时只通过 PR Known Residuals 或 `docs/residual-review-findings/<branch-or-head-sha>.md` 写 concise summary |
 
+不在 `.spec-first/` 下、但属于长期协作文档层的 durable artifacts：
+
+| 路径 | 写入阶段 | 触发方式 | 主要作用 | Git 边界 |
+| --- | --- | --- | --- | --- |
+| `docs/ideation/*-ideation.md` | 主动想法探索与候选方向收敛 | `/spec:ideate` 或 `$spec-ideate` | 保存候选想法、批判、排序、被拒原因和进入 brainstorm 的 handoff；不是 requirements、plan 或代码 | 通常提交，作为后续 brainstorm/plan 的背景输入 |
+| `docs/brainstorms/*-requirements.md` | 需求成型 | `/spec:brainstorm` 或 `$spec-brainstorm` | 保存一个已选想法的问题框架、actors、flows、边界、非目标和验收样例 | 通常提交，作为 plan 的上游输入 |
+| `docs/plans/*-plan.md` | 实施规划 | `/spec:plan` 或 `$spec-plan` | 保存实施单元、取舍、验证范围、风险和非目标 | 通常提交，作为 work 或 write-tasks 的上游输入 |
+| `docs/tasks/*-tasks.md` | 任务包派生 | standalone `write-tasks` skill | 保存从 plan 派生的 executable handoff、依赖、任务身份和 freshness contract | 视团队协作需要提交 |
+| `docs/solutions/**/*` | 知识沉淀 | `/spec:compound` 或 `$spec-compound` | 保存已解决问题的可复用工程经验 | 通常提交 |
+
 ## 用途总览
 
 | 目录类型 | 主要作用 | 典型后续用途 |
 | --- | --- | --- |
+| `docs/ideation/` | 候选方向与想法排序 | `spec-brainstorm` 选择一个想法继续成型；维护者回看被拒绝方向与取舍理由 |
+| `docs/brainstorms/` | 需求成型 brief | `spec-plan`、doc review、后续维护者复核 scope 和 acceptance examples |
+| `docs/plans/` / `docs/tasks/` | 计划与可执行任务交接 | `spec-work`、standalone `write-tasks`、code/doc review |
+| `docs/solutions/` | 可复用工程知识 | 后续 brainstorm/plan/work/debug/review 复用经验 |
 | `config/` | setup-owned machine facts | graph-bootstrap 前置校验、host readiness 指针、fallback 能力判断 |
 | `providers/<provider>/` | provider-local evidence | 失败诊断、原始日志追踪、provider 规范化事实复核 |
 | `graph/` | canonical readiness facts | `spec-plan` 等下游 workflow 判断 graph facts 是否 primary、degraded、blocked 或 stale |
@@ -296,6 +310,6 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 ## 9. Git 边界
 
 - `.spec-first/config/`、`.spec-first/providers/`、`.spec-first/graph/`、`.spec-first/impact/`、`.spec-first/workspace/`、`.spec-first/audits/`、`.spec-first/app-audit/` 与 `.spec-first/workflows/` 默认不进入 Git。
-- `docs/solutions/`、`docs/plans/` 和 `docs/brainstorms/` 才是长期协作文档层。
+- `docs/ideation/`、`docs/brainstorms/`、`docs/plans/`、`docs/tasks/` 和 `docs/solutions/` 才是长期协作文档层。
 - provider readiness facts 是当前代码和工具状态的投影，不要把它改造成第二套手工维护事实源。
 - 若 graph facts stale、blocked 或 degraded，下游 workflow 应说明限制，并回退到 bounded direct repo reads 或其他已配置 provider。

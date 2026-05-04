@@ -20,6 +20,7 @@
 | `docs/contracts/` | current | schema、quality gate、workflow contract 与 verifier contract |
 | `docs/10-prompt/结构化项目角色契约.md` | current | spec-first 演化判断和 source/runtime 边界基线 |
 | `docs/2026-05-04/project-audit/` | active-artifact | 当前系统级审查报告与修复阶段证据 |
+| `docs/ideation/` | active-artifact | ideation artifact；进入 brainstorm 前需要确认 freshness 和所选方向 |
 | `docs/brainstorms/` | active-artifact | requirements brief；进入 plan/work 前需要确认 freshness |
 | `docs/plans/` | active-artifact | implementation plan；执行前以当前代码和 task-pack validation 复核 |
 | `docs/tasks/` | active-artifact | derived task pack；必须通过 task-pack validator 后才能作为 work handoff |
@@ -45,6 +46,25 @@
 | `docs/项目介绍/` | historical-input | 项目介绍和 CRG 旧方案材料；当前 graph provider 边界以 `spec-mcp-setup` 与 `spec-graph-bootstrap` 为准 |
 | `docs/项目审查/` | historical-input | 旧审查材料；引用前必须核对当前代码 |
 | `docs/业界分析/` | external-reference | 业界与 CE 对比材料，不代表当前 implementation contract |
+
+## Legacy CRG / ECC 搜索边界
+
+如果搜索命中 `src/crg`、`spec-first crg`、`graph.db`、`CRG Stage-0`、`ECC` 或旧的 bootstrap-compiler 路径，默认先按 `historical-input` 处理，不要直接当作当前实现、CLI 或 graph readiness contract。
+
+当前 graph / provider 主线以这些 source 和 artifact contract 为准：
+
+- setup 与 provider config：`spec-mcp-setup`、`.spec-first/config/runtime-capabilities.json`、`.spec-first/config/graph-providers.json`、`.spec-first/config/provider-artifacts.json`
+- graph readiness 编译：`spec-graph-bootstrap`、`skills/spec-graph-bootstrap/scripts/bootstrap-providers.*`
+- canonical graph facts：`.spec-first/graph/provider-status.json`、`.spec-first/graph/graph-facts.json`、`.spec-first/graph/bootstrap-report.md`
+- impact capability envelope：`.spec-first/impact/bootstrap-impact-capabilities.json`
+- 下游消费边界：`skills/spec-plan/SKILL.md`、`skills/spec-work/SKILL.md`、`skills/spec-code-review/SKILL.md`、`docs/05-用户手册/04-workflows-artifacts-map.md`
+
+高频历史命中文档的读取规则：
+
+- `docs/validation/2026-04-26-spec-first-engineering-deep-audit-report.md` 描述的是 2026-04-26 当时的 CRG implementation，不代表当前 provider 架构。
+- `docs/spec-graph-bootstrap-flow.md` 是旧 graph-bootstrap 主链的 bridge 文档；可用于理解迁移背景，不能覆盖当前 `bootstrap-providers.*` contract。
+- `docs/02-架构设计/*CRG*`、`docs/项目介绍/crg/` 和 `docs/项目介绍/*CRG*` 是历史方案输入；引用其中的 `src/crg`、`spec-first crg` 或 `graph.db` 前必须先核对当前代码、用户手册和 `CHANGELOG.md`。
+- `ECC` 相关 App audit 文档只有在当前 `skills/spec-app-consistency-audit/`、`agents/` 或 tests 仍有对应 source evidence 时，才可作为当前实现依据；否则按历史设计输入处理。
 
 ## 维护规则
 

@@ -27,7 +27,10 @@
 ![spec-first workflow flow](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)
 
 ```text
-模糊想法
+开放式改进问题
+  -> $spec-ideate 或 /spec:ideate
+  -> docs/ideation/YYYY-MM-DD-topic-ideation.md
+  -> 选定一个粗略想法
   -> $spec-brainstorm 或 /spec:brainstorm
   -> docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
   -> $spec-plan 或 /spec:plan
@@ -53,12 +56,13 @@ Claude Code 用户可改用 `/spec:brainstorm "Improve onboarding for first-time
 一条完整 workflow 链路可能留下这些产物：
 
 ```text
+docs/ideation/2026-05-01-cli-onboarding-ideation.md
 docs/brainstorms/2026-05-01-001-cli-onboarding-requirements.md
 docs/plans/2026-05-01-001-feat-cli-onboarding-plan.md
 docs/tasks/2026-05-01-001-feat-cli-onboarding-tasks.md
 ```
 
-第一次 brainstorm 通常只生成 requirements brief。plan、task-pack、work、review、debug 和 compound 入口会在你继续推进链路时分别写入各自职责内的产物。
+当你需要 AI 主动生成并排序多个方向时，先用 `ideate`。第一次 brainstorm 通常只为一个已选想法生成 requirements brief。plan、task-pack、work、review、debug 和 compound 入口会在你继续推进链路时分别写入各自职责内的产物。
 
 完整走查见 [首次工作流走查](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md)。
 
@@ -158,7 +162,11 @@ docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
   v
 在宿主会话中选择下一步 workflow
   |
-  +-- 只有模糊想法或产品问题
+  +-- 需要候选方向、批判或改进想法
+  |     -> /spec:ideate 或 $spec-ideate
+  |     -> docs/ideation/*-ideation.md
+  |
+  +-- 已有粗略产品问题或功能想法
   |     -> /spec:brainstorm 或 $spec-brainstorm
   |     -> docs/brainstorms/*-requirements.md
   |
@@ -286,6 +294,7 @@ workspace/
 
 | 实体 | 典型位置 | 作用 |
 |---|---|---|
+| Ideation shortlist | `docs/ideation/` | 在进入需求成型前，对候选想法进行排序、批判和取舍。 |
 | Requirements brief | `docs/brainstorms/` | 在实现压力到来前记录问题、角色、流程、约束和验收样例。 |
 | Implementation plan | `docs/plans/` | 把目标拆成实现单元、取舍、验证目标和非目标。 |
 | Task pack | `docs/tasks/` | 当计划需要确定性任务身份、依赖顺序和验证时，提供结构化交接。 |
@@ -297,6 +306,7 @@ workspace/
 
 ```text
 docs/
+  ideation/      需求成型前的候选想法排序与批判
   brainstorms/   早期问题澄清得到的 requirements briefs
   plans/         可评审、可执行的 implementation plans
   tasks/         大计划需要结构化交接时生成的 task packs
@@ -323,7 +333,7 @@ Host runtime assets
         |
         v
 Workflow artifacts
-  brainstorms -> plans -> tasks -> work/review/debug -> learnings
+  ideation -> brainstorms -> plans -> tasks -> work/review/debug -> learnings
 ```
 
 source of truth 位于仓库源码资产中。`.claude/`、`.codex/`、`.agents/skills/` 下的 generated runtime copies 可丢弃，可通过 `spec-first init` 重建。
@@ -333,6 +343,7 @@ init 后的运行时结构：
 ```text
 your-project/
 ├── docs/
+│   ├── ideation/
 │   ├── brainstorms/
 │   ├── plans/
 │   ├── tasks/
@@ -347,7 +358,8 @@ your-project/
 
 | 流程 | 从这里开始 | 稳定什么 |
 |---|---|---|
-| 问题澄清 | `/spec:brainstorm` 或 `$spec-brainstorm` | 原始需求、用户目标、边界和验收样例。 |
+| 想法生成 | `/spec:ideate` 或 `$spec-ideate` | 候选方向、批判、排序，以及进入单个想法的 handoff。 |
+| 问题澄清 | `/spec:brainstorm` 或 `$spec-brainstorm` | 一个已选想法的原始需求、用户目标、边界和验收样例。 |
 | 实施规划 | `/spec:plan` 或 `$spec-plan` | 架构选择、实现单元、验证范围和已知未知。 |
 | 执行开发 | `/spec:work` 或 `$spec-work` | 代码改动、聚焦测试、验证记录和 scope 控制。 |
 | App 一致性审查 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit` | 运行时验证前审查 PRD、Figma、源码、路由、KMP/Clean Architecture、埋点、i18n 和行业规则一致性。 |
@@ -358,7 +370,8 @@ your-project/
 
 | 你的情况 | 从这里开始 | 预期结果 |
 |---|---|---|
-| 只有模糊想法或产品问题 | `/spec:brainstorm` 或 `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
+| 需要开放式改进方向或多个候选想法 | `/spec:ideate` 或 `$spec-ideate` | `docs/ideation/` 下的 ranked ideation artifact |
+| 已有粗略产品问题或功能想法 | `/spec:brainstorm` 或 `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
 | 目标已定，但还没有实施策略 | `/spec:plan` 或 `$spec-plan` | `docs/plans/` 下的 plan |
 | 已有 plan 或 task pack，准备执行 | `/spec:work` 或 `$spec-work` | 代码改动、测试和验证记录 |
 | 移动 App 改动在 QA 前需要 PRD/Figma/source 一致性审查 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit` | `.spec-first/app-audit/runs/` 下的静态审查报告和范围化证据 |
@@ -369,7 +382,8 @@ your-project/
 
 | 我想要... | Claude Code | Codex | 预期产物 |
 |---|---|---|---|
-| 探索想法 | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
+| 生成并排序想法 | `/spec:ideate` | `$spec-ideate` | `docs/ideation/` 下的 ideation artifact |
+| 把一个想法澄清成需求 | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
 | 规划实现 | `/spec:plan` | `$spec-plan` | `docs/plans/` 下的 plan |
 | 执行开发 | `/spec:work` | `$spec-work` | 代码、测试和验证记录 |
 | 审查 App 一致性 | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` | 静态一致性报告和范围化审查产物 |
