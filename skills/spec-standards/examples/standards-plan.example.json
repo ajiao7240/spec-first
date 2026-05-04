@@ -1,0 +1,56 @@
+{
+  "schema_version": "spec-first.standards-plan.v1",
+  "project_mode": "single_project_repo",
+  "mode": "baseline",
+  "budget": {
+    "mode": "baseline",
+    "max_enabled_lenses": 5,
+    "max_candidates_per_domain": 12,
+    "max_evidence_per_candidate": 4,
+    "allow_multi_agent": false,
+    "allow_raw_source_context": false,
+    "allow_deep_graph_queries": false
+  },
+  "scope_plan": {
+    "global": {
+      "enabled": true,
+      "domains": [
+        "cli",
+        "skill_workflow",
+        "artifact_contracts",
+        "glue",
+        "graph"
+      ]
+    },
+    "modules": [],
+    "repo": null
+  },
+  "tasks": [
+    {
+      "id": "baseline.cli",
+      "domain": "cli",
+      "action": "synthesize_candidates_from_evidence",
+      "owner": "llm"
+    }
+  ],
+  "artifacts": {
+    "generate": [
+      ".spec-first/standards/project-shape.json",
+      ".spec-first/standards/standards-plan.json",
+      ".spec-first/standards/glue-map.json",
+      ".spec-first/standards/standards-candidates.json",
+      ".spec-first/standards/standards-preview.md"
+    ],
+    "defer": [
+      ".spec-first/standards/repo-profile.patch.yaml"
+    ],
+    "skip": []
+  },
+  "dispatch": {
+    "mode": "single_skill",
+    "enabled_lenses": [
+      "cli-standards-lens"
+    ],
+    "skipped_lenses": []
+  }
+}

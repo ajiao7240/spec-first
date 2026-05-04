@@ -48,6 +48,9 @@ if grep -E '(^|/)__pycache__/|\.py[co]$' "$PACK_LIST"; then
 fi
 grep -q "skills/spec-graph-bootstrap/SKILL.md" "$PACK_LIST"
 grep -q "templates/claude/commands/spec/graph-bootstrap.md" "$PACK_LIST"
+grep -q "skills/spec-standards/SKILL.md" "$PACK_LIST"
+grep -q "skills/spec-standards/scripts/prepare-baseline.js" "$PACK_LIST"
+grep -q "templates/claude/commands/spec/standards.md" "$PACK_LIST"
 grep -q "skills/spec-skill-audit/SKILL.md" "$PACK_LIST"
 grep -q "skills/spec-skill-audit/scripts/write-audit-artifacts.js" "$PACK_LIST"
 grep -q "templates/claude/commands/spec/skill-audit.md" "$PACK_LIST"

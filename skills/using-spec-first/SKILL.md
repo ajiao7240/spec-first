@@ -146,10 +146,13 @@ Do not chain multiple workflows automatically unless the active workflow explici
 2. If the request is about building or refreshing configured graph-provider indexes after MCP setup, route to:
    - Claude: `/spec:graph-bootstrap`
    - Codex: `$spec-graph-bootstrap`
-3. If the request is about checking/updating spec-first, refreshing generated runtime assets, or repairing stale `/spec:*` / `$spec-*` entries, route to:
+3. If the request is about compiling, refreshing, importing, or inspecting project standards, repo-profile candidates, shared engineering standards, or glue/reuse capability baselines for downstream workflows, route to:
+   - Claude: `/spec:standards`
+   - Codex: `$spec-standards`
+4. If the request is about checking/updating spec-first, refreshing generated runtime assets, or repairing stale `/spec:*` / `$spec-*` entries, route to:
    - Claude: `/spec:update`
    - Codex: `$spec-update`
-4. If the request is about diagnosing the installed spec-first environment itself, project-local setup, missing recommended tools, or local config bootstrap, route to:
+5. If the request is about diagnosing the installed spec-first environment itself, project-local setup, missing recommended tools, or local config bootstrap, route to:
    - Claude: `/spec:mcp-setup`
    - Codex: `$spec-mcp-setup`
 
@@ -159,60 +162,60 @@ If the user asks a read-only codebase question from a parent workspace containin
 
 ### Research And Context
 
-5. If the request is about retrieving past coding-agent sessions or asking what happened in prior work, route to:
+6. If the request is about retrieving past coding-agent sessions or asking what happened in prior work, route to:
    - Claude: `/spec:sessions`
    - Codex: `$spec-sessions`
-6. If the request explicitly asks for Slack or organizational discussion context, route to:
+7. If the request explicitly asks for Slack or organizational discussion context, route to:
    - Claude: `/spec:slack-research`
    - Codex: `$spec-slack-research`
 
 ### Delivery Workflows
 
-7. If there is an existing bug, failure, test failure, stack trace, or abnormal behavior to reproduce or diagnose, route to:
+8. If there is an existing bug, failure, test failure, stack trace, or abnormal behavior to reproduce or diagnose, route to:
    - Claude: `/spec:debug`
    - Codex: `$spec-debug`
-8. If the request is a code review, PR review, diff audit, or implementation-quality evaluation, route to:
+9. If the request is a code review, PR review, diff audit, or implementation-quality evaluation, route to:
    - Claude: `/spec:code-review`
    - Codex: `$spec-code-review`
-9. If the request is a requirements, plan, spec, or markdown document review, route to:
+10. If the request is a requirements, plan, spec, or markdown document review, route to:
    - Claude: `/spec:doc-review`
    - Codex: `$spec-doc-review`
-10. If the user is asking what to build, wants ideas, or asks for options/surprising improvements without presenting their own concrete feature, route to:
+11. If the user is asking what to build, wants ideas, or asks for options/surprising improvements without presenting their own concrete feature, route to:
    - Claude: `/spec:ideate`
    - Codex: `$spec-ideate`
-11. If the user is still defining WHAT to build, the problem frame is unclear, or product decisions need to be resolved before planning, route to:
+12. If the user is still defining WHAT to build, the problem frame is unclear, or product decisions need to be resolved before planning, route to:
    - Claude: `/spec:brainstorm` or `/spec:ideate`
    - Codex: `$spec-brainstorm` or `$spec-ideate`
-12. If the user asks to optimize a measurable outcome through experiments, route to:
+13. If the user asks to optimize a measurable outcome through experiments, route to:
    - Claude: `/spec:optimize`
    - Codex: `$spec-optimize`
-13. If the desired outcome is clear and the user needs an execution plan, route to:
+14. If the desired outcome is clear and the user needs an execution plan, route to:
    - Claude: `/spec:plan`
    - Codex: `$spec-plan`
-14. If the user asks to split a settled plan into executable tasks, write task docs, compile tasks before work, or the plan is large enough that execution would benefit from a derived task pack, use `spec-write-tasks` as a standalone skill. Do not describe it as `/spec:write-tasks` or `$spec-write-tasks`; it is not a command-backed workflow.
-15. If there is already a plan, task pack, or the implementation task is clear enough to execute, route to:
+15. If the user asks to split a settled plan into executable tasks, write task docs, compile tasks before work, or the plan is large enough that execution would benefit from a derived task pack, use `spec-write-tasks` as a standalone skill. Do not describe it as `/spec:write-tasks` or `$spec-write-tasks`; it is not a command-backed workflow.
+16. If there is already a plan, task pack, or the implementation task is clear enough to execute, route to:
    - Claude: `/spec:work`
    - Codex: `$spec-work`
-16. If the user explicitly asks to trial beta execution with Codex delegation, route to:
+17. If the user explicitly asks to trial beta execution with Codex delegation, route to:
    - Claude: `/spec:work-beta`
    - Codex: `$spec-work-beta`
-17. If the user asks to polish a browser-visible UI and iterate with a running app, route to:
+18. If the user asks to polish a browser-visible UI and iterate with a running app, route to:
    - Claude: `/spec:polish-beta`
    - Codex: `$spec-polish-beta`
 
 ### Knowledge And Release Support
 
-18. If the user wants to capture a recently solved problem, create a durable learning, or compound knowledge after work, route to:
+19. If the user wants to capture a recently solved problem, create a durable learning, or compound knowledge after work, route to:
    - Claude: `/spec:compound`
    - Codex: `$spec-compound`
-19. If the request is to refresh, correct, merge, replace, or retire existing durable docs/learnings/pattern docs, route to:
+20. If the request is to refresh, correct, merge, replace, or retire existing durable docs/learnings/pattern docs, route to:
    - Claude: `/spec:compound-refresh`
    - Codex: `$spec-compound-refresh`
-20. If the user asks for PR description writing or regeneration, route to the `git-commit-push-pr` skill in description-only mode; do not expose a separate spec-first PR-description workflow entrypoint.
-21. If the user asks what changed in recent spec-first releases, route to:
+21. If the user asks for PR description writing or regeneration, route to the `git-commit-push-pr` skill in description-only mode; do not expose a separate spec-first PR-description workflow entrypoint.
+22. If the user asks what changed in recent spec-first releases, route to:
    - Claude: `/spec:release-notes`
    - Codex: `$spec-release-notes`
-22. If none of the above applies, do not force the request into `spec-first`.
+23. If none of the above applies, do not force the request into `spec-first`.
 
 ## Hard Rules
 

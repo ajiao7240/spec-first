@@ -1,0 +1,24 @@
+{
+  "schema_version": "spec-first.imported-standards.v1",
+  "source_id": "standards-source.example",
+  "source_status": "available",
+  "items": [
+    {
+      "id": "imported.backend-md",
+      "source_path": "backend.md",
+      "title": "Backend Standards",
+      "status": "imported",
+      "source_type": "shared_standard_imported",
+      "content_hash": "sha256:example",
+      "size_bytes": 128,
+      "evidence": [
+        {
+          "path": "backend.md",
+          "source": "import-source",
+          "reason": "Imported for project alignment; not confirmed policy."
+        }
+      ]
+    }
+  ],
+  "import_boundary": "Imported standards are awaiting project alignment and are not confirmed project policy."
+}

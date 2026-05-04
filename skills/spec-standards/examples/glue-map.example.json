@@ -1,0 +1,40 @@
+{
+  "schema_version": "spec-first.glue-map.v1",
+  "scope": {
+    "type": "repo",
+    "root": "."
+  },
+  "capabilities": [
+    {
+      "id": "capability.graph.readiness",
+      "name": "Graph Readiness Compiler",
+      "kind": "code_facts_provider",
+      "owners": [
+        "spec-graph-bootstrap"
+      ],
+      "entrypoints": [
+        "skills/spec-graph-bootstrap/SKILL.md"
+      ],
+      "outputs": [
+        ".spec-first/graph/graph-facts.json",
+        ".spec-first/graph/architecture-facts.json",
+        ".spec-first/graph/reuse-candidates.json"
+      ],
+      "reuse_when": [
+        "需要项目图谱事实",
+        "需要影响面或复用候选"
+      ],
+      "do_not_reimplement": [
+        "不要在下游 workflow 中重新扫描全仓替代 graph readiness facts"
+      ],
+      "discovered_by": [
+        "spec-standards.prepare-baseline"
+      ],
+      "evidence": [
+        "skills/spec-graph-bootstrap/SKILL.md"
+      ]
+    }
+  ],
+  "glue_patterns": [],
+  "risks": []
+}

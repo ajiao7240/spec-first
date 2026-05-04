@@ -1,8 +1,11 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-04 10:53:15 leokuang: feat(spec-standards): 将 quick、refresh、deep 和 import-source 升级为正式可执行模式，补齐 deterministic artifacts、文档和契约测试 (user-visible)
 - v1.6.3 2026-05-04 04:05:59 leokuang: fix(audit): 修复系统审查 P0/P1 队列中的 Jest worktree 隔离、npm pack 测试隔离、provider/CLI timeout、docs lifecycle 与 lightweight schema validator 契约，并记录 ECC 漂移阻塞边界 (user-visible)
 - v1.6.3 2026-05-04 03:37:13 leokuang: docs(audit): 新增 spec-first 系统级质量审查报告，明确 P0/P1/P2 风险、产物边界、graph provider、测试隔离与后续修复任务 (user-visible)
+- v1.6.3 2026-05-04 03:35:50 leokuang: fix(spec-standards): 收紧 baseline facts 扫描边界、MVP 参数暴露和 standards artifacts Git 边界文档 (user-visible)
+- v1.6.3 2026-05-04 03:04:59 leokuang: feat(spec-standards): 新增项目规范与胶水能力 baseline workflow，接入双宿主入口、runtime 投递、用户文档和 preview-first contract 测试 (user-visible)
 - v1.6.3 2026-05-04 02:32:19 leokuang: fix(app-audit): 完成 2026-05-03 50 轮一致性审查，收紧 preflight freshness、issue status、industry lens、metadata lifecycle、headless verdict、脱敏契约，并修复用户手册契约漂移 (user-visible)
 - v1.6.3 2026-05-04 02:29:55 leokuang: fix(graph-bootstrap): 补齐 graph readiness eval fixtures、no-source resolver 语义、dirty worktree freshness fingerprint 契约，并忽略本地 worktrees scratch 目录 (user-visible)
 - v1.6.3 2026-05-04 01:27:37 leokuang: fix(graph-bootstrap): 区分无源码子仓与真实 degraded，并增强 GitNexus flow-like method probe 候选 (user-visible)

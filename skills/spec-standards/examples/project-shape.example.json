@@ -1,0 +1,56 @@
+{
+  "schema_version": "spec-first.project-shape.v1",
+  "project_mode": "single_project_repo",
+  "project": {
+    "root": ".",
+    "detected_type": "node_cli_ai_workflow_framework",
+    "summary": "Node.js CLI and AI workflow framework",
+    "confidence": "high"
+  },
+  "languages": [
+    {
+      "language": "javascript",
+      "file_count": 42
+    }
+  ],
+  "frameworks": [
+    "jest",
+    "spec-first-skills"
+  ],
+  "package_managers": [
+    "npm"
+  ],
+  "domains": {
+    "cli": {
+      "detected": true,
+      "evidence": [
+        "bin/spec-first.js",
+        "src/cli/index.js"
+      ]
+    },
+    "skill_workflow": {
+      "detected": true,
+      "evidence": [
+        "skills/"
+      ]
+    }
+  },
+  "graph": {
+    "available_artifacts": [
+      ".spec-first/graph/graph-facts.json"
+    ],
+    "status": "available"
+  },
+  "modules": [],
+  "recommended_standard_domains": [
+    "artifact_contracts",
+    "cli",
+    "glue",
+    "graph",
+    "skill_workflow"
+  ],
+  "skipped_standard_domains": [
+    "frontend",
+    "mobile"
+  ]
+}

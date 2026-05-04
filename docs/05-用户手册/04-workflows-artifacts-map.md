@@ -12,6 +12,7 @@
 | `.spec-first/providers/<provider>/` | `spec-graph-bootstrap` provider evidence 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 保存 provider 原始日志、provider 状态和规范化能力事实 | `raw/*.log`、`status.json`、`normalized/*.json` |
 | `.spec-first/graph/` | `spec-graph-bootstrap` canonical graph readiness 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 提供下游 workflow 读取的 graph readiness 真相源与用户报告 | `provider-status.json`、`graph-facts.json`、`bootstrap-report.md` |
 | `.spec-first/impact/` | `spec-graph-bootstrap` capability envelope 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 表达 context selection、impact radius、review support 的 primary/fallback 支持情况 | `bootstrap-impact-capabilities.json` |
+| `.spec-first/standards/` | `spec-standards` project baseline / quick / refresh / deep / import 阶段 | `/spec:standards` 或 `$spec-standards` | 保存项目规范候选、preview、freshness decision、import lock 和 glue/reuse capability baseline；scratch/raw/cache/logs 不提交 | `project-shape.json`、`standards-plan.json`、`glue-map.json`、`standards-update-decision.json`、`graph-query-index.json`、`import-lock.json`、`standards-candidates.json`、`standards-preview.md` |
 | `.spec-first/workspace/` | parent workspace advisory 阶段 | 父 workspace 下的 `spec-mcp-setup`、`spec-graph-bootstrap` 或 read-only resolver | 保存跨 child repo 候选、批量维护 summary 和只读 graph target 建议 | `project-config-bootstrap-summary.json`、`mcp-setup-summary.json`、`mcp-verify-summary.json`、`graph-bootstrap-summary.json`、`graph-targets.json` |
 | `.spec-first/audits/skill-audit/` | `spec-skill-audit` source skill audit 阶段 | `/spec:skill-audit`、`$spec-skill-audit` 或直接运行 `write-audit-artifacts.js` | 保存 source skill inventory、scorecard、安全/治理/runtime drift 信号和改进计划 | `latest/skill-audit-summary.md`、`latest/skill-improvement-plan.md`、`latest/*.json`、`latest/patch-preview/*` |
 | `.spec-first/app-audit/runs/<run-id>/` | `spec-app-consistency-audit` App 一致性审查阶段 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit` | 保存移动 App PRD / Figma / source / route / architecture / analytics / i18n 静态一致性审查证据 | `metadata.json`、`preflight.json`、`impact-facts.json`、`issues.json`、`audit-report.json`、`app-consistency-audit.md` |
@@ -26,6 +27,7 @@
 | `providers/<provider>/` | provider-local evidence | 失败诊断、原始日志追踪、provider 规范化事实复核 |
 | `graph/` | canonical readiness facts | `spec-plan` 等下游 workflow 判断 graph facts 是否 primary、degraded、blocked 或 stale |
 | `impact/` | impact/review capability envelope | 下游 workflow 决定是否使用 provider 影响分析，或回退 bounded direct repo reads |
+| `standards/` | project standards baseline | 下游 brainstorm/plan/work/review 读取项目形态、候选规范和 glue map；只有确认后的 durable baseline 适合提交 |
 | `workspace/` | parent workspace advisory summaries | 多仓父目录下展示 child repo readiness、批量维护结果和只读候选；不作为 repo-local truth |
 | `audits/skill-audit/` | skill audit execution artifacts | 维护者读取审计摘要、P0/P1 evidence、score signals 和改进计划 |
 | `app-audit/runs/` | App consistency audit execution artifacts | 评审者读取静态一致性报告、degraded modes、issues 和 runtime follow-up 建议 |
@@ -40,6 +42,7 @@
 | `providers/<provider>/` | graph-bootstrap 报告、维护者排障 | bootstrap 后诊断 | 查看 provider 原始输出和规范化结果 |
 | `graph/` | `spec-plan`，后续 graph-aware workflow | plan / work / review 前置判断 | 判断 graph readiness、provider 覆盖、confidence、limitations 与 staleness |
 | `impact/` | `spec-plan`，后续 impact-aware workflow | plan / work / review 前置判断 | 判断 impact radius、review support 与 context selection 是否有可信 provider 支持 |
+| `standards/` | `spec-brainstorm`、`spec-plan`、`spec-work`、`spec-code-review`、`spec-compound-refresh` | requirements / plan / work / review / knowledge 前置判断 | 复用项目形态、规范候选、confirmed standards 和 glue/reuse capability；observed/suggested candidates 只能作为软上下文 |
 | `workspace/` | 父 workspace 下的 LLM workflow、维护者 | workspace 只读定位或批量维护后 | 查看 child repo 候选、per-child readiness 和 next action；不替代 child repo canonical artifacts |
 | `audits/skill-audit` | 维护者、`spec-skill-audit` 后续 LLM 审查 | skill 审计后 | 查看 deterministic facts、score signals、P0/P1 evidence 和 patch preview 建议 |
 | `app-audit/runs/<run-id>` | 评审者、`spec-code-review` headless 调用、后续 QA / runtime validation | App 一致性审查后 | 查看 PRD/Figma/source 一致性问题、证据链、降级范围和运行时验证建议 |
@@ -145,7 +148,40 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 
 没有 query-ready provider 时，capability envelope 必须明确 `partial` 或 `none`，不能凭空声明 provider impact 可用。
 
-## 5. audits/skill-audit/
+## 5. standards/
+
+| 项目 | 内容 |
+| --- | --- |
+| 阶段 | Project standards and glue baseline |
+| 触发 | `/spec:standards` 或 `$spec-standards`；支持 `--baseline`、`--quick`、`--refresh`、`--deep` 和 `--import-source <git-or-path>` |
+| 目录形状 | `.spec-first/standards/` |
+| 关键源码 | `skills/spec-standards/SKILL.md`、`skills/spec-standards/scripts/prepare-baseline.js` |
+| 事实边界 | 项目规范候选与 glue baseline；observed/suggested candidates 不是 confirmed project policy |
+
+### 写入内容
+
+| 文件 | 角色 |
+| --- | --- |
+| `project-shape.json` | deterministic project shape facts、language/package/domain hints 和 evidence 摘要 |
+| `standards-plan.json` | 本次 baseline 的 enabled domains、budget、LLM tasks 和 artifact plan |
+| `glue-map.json` | 已验证的可复用能力、entrypoints、outputs 和不要重复实现的边界 |
+| `standards-update-decision.json` | `--quick` / `--refresh` 的 freshness 与刷新建议；只记录 deterministic reason_code，不直接改规范 |
+| `graph-query-index.json` | `--deep` 的 bounded graph query plan；live MCP 结果仍是 session-local evidence |
+| `standards-sources.json` | `--import-source` 的 shared standards source 清单 |
+| `import-lock.json` | `--import-source` 的 source identity、commit/hash 和导入锁定信息 |
+| `imported-standards.json` | 导入项清单；所有条目默认是 `imported`，不是 confirmed project policy |
+| `standards-candidates.json` | LLM 基于事实和证据合成的候选规范；必须标注 confirmed/imported/observed/suggested/conflict/unknown 等状态 |
+| `standards-preview.md` | 面向用户确认的 preview，必须说明 `repo-profile.yaml` 是否被修改 |
+| `repo-profile.patch.yaml` | 后续 apply 阶段的显式 patch；只有用户确认后才能写入 repo profile |
+
+协作规则：
+
+- `project-shape.json`、`standards-plan.json`、`glue-map.json`、`standards-update-decision.json`、`graph-query-index.json`、`standards-sources.json`、`import-lock.json`、`imported-standards.json`、`standards-candidates.json` 和 `standards-preview.md` 是 reviewable standards artifacts；团队确认需要共享时可以提交。
+- `.spec-first/standards/work/`、`tmp/`、`cache/`、`raw/`、`graph-query-raw/` 和 `*.log` 是 scratch/runtime evidence，已由 `.gitignore` 排除，不应提交。
+- 下游 workflow 只能把 `confirmed` standards 当作硬约束；`observed`、`suggested`、`imported` 和 `unknown` 只能作为软上下文或待确认事项。
+- `repo-profile.yaml` 只能通过 preview + explicit confirmation 更新，不能由 baseline run 自动写入。
+
+## 6. audits/skill-audit/
 
 | 项目 | 内容 |
 | --- | --- |
@@ -178,7 +214,7 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 - 需要审单个 skill 时使用 `--target skills/<skill-name>` 或宿主入口后跟 `skills/<skill-name>`
 - runtime drift finding 的修复方式是 `spec-first init --claude` 或 `spec-first init --codex`，不是手改 `.claude/`、`.codex/`、`.agents/skills/`
 
-## 6. app-audit/runs/
+## 7. app-audit/runs/
 
 | 项目 | 内容 |
 | --- | --- |
@@ -208,7 +244,7 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 - Figma MCP 是宿主可选能力，用来 materialize 本地 JSON，不属于 required harness setup。
 - `mode:headless` 供 `spec-code-review` 等父流程消费；`mode:report-only` 不写 run artifacts。
 
-## 7. verification/&lt;slug&gt;
+## 8. verification/&lt;slug&gt;
 
 | 项目 | 内容 |
 | --- | --- |
