@@ -14,6 +14,13 @@ const WRITING_REFERENCE_PATH = path.join(
   'references',
   'pr-description-writing.md',
 );
+const BRANCH_CREATION_REFERENCE_PATH = path.join(
+  REPO_ROOT,
+  'skills',
+  'git-commit-push-pr',
+  'references',
+  'branch-creation.md',
+);
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -43,7 +50,11 @@ describe('git-commit-push-pr PR description contracts', () => {
     expect(text).toContain('Step 6 walks through it in order (Pre-A through H)');
     expect(text).toContain('the Spec-First badge');
     expect(text).toContain('BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/spec-pr-body.XXXXXX")');
-    expect(text).toContain("__SPEC_PR_BODY_END__");
+    expect(text).toContain('Use the platform\'s file-write tool to write the composed body markdown to `$BODY_FILE` verbatim.');
+    expect(text).toContain('test -s "$BODY_FILE"');
+    expect(text).toContain('PR body placeholder was not replaced');
+    expect(text).toContain('gh pr view "$PR_URL" --json body --jq \'.body\'');
+    expect(text).toContain('gh pr view --json body --jq \'.body\'');
     expect(text).toContain('gh pr create --title "<TITLE>" --body-file "$BODY_FILE"');
     expect(text).toContain('gh pr edit --title "<TITLE>" --body-file "$BODY_FILE"');
     expect(text).not.toContain('--body "$(cat "$BODY_FILE")"');
@@ -54,6 +65,7 @@ describe('git-commit-push-pr PR description contracts', () => {
     expect(text).not.toContain('ce-pr-description');
     expect(text).not.toContain('spec-pr-description');
     expect(text).not.toContain('__CE_PR_BODY_END__');
+    expect(text).not.toContain('__SPEC_PR_BODY_END__');
     expect(text).not.toContain('ce-pr-body');
     expect(text).not.toContain('ce-demo-reel');
     expect(reference).not.toContain('ce-commit-push-pr');
@@ -62,6 +74,58 @@ describe('git-commit-push-pr PR description contracts', () => {
     expect(text).not.toContain('ask_user` in Gemini');
     expect(text).not.toContain('ask_user` in Pi');
     expect(text).not.toContain('Compound Engineering badge');
+  });
+
+  test('creates feature branches from an explicit fresh-base decision flow', () => {
+    const text = read(SKILL_PATH);
+    const reference = read(BRANCH_CREATION_REFERENCE_PATH);
+
+    expect(fs.existsSync(BRANCH_CREATION_REFERENCE_PATH)).toBe(true);
+    expect(text).toContain('Read `references/branch-creation.md` and follow its decision flow');
+    expect(text).toContain('If yes, read `references/branch-creation.md`, follow its decision flow, then continue from Step 5');
+    expect(reference).toContain('git check-ref-format --branch "$BASE"');
+    expect(reference).toContain('git check-ref-format --branch "$BRANCH_NAME"');
+    expect(reference).toContain('git fetch --no-tags origin "$BASE"');
+    expect(reference).toContain('Stale-base contamination');
+    expect(reference).toContain('Forgot-to-branch');
+    expect(reference).toContain('git log "origin/$BASE"..HEAD --oneline');
+    expect(reference).toContain('Carry forward');
+    expect(reference).toContain('Leave on `<base>`');
+    expect(reference).toContain('git stash push -u -m "spec-commit-push-pr: pre-branch $BRANCH_NAME"');
+    expect(reference).toContain('git stash pop');
+    expect(reference).toContain('Do not attempt to auto-resolve conflicts');
+    expect(reference).toContain('Do not silently branch from local HEAD.');
+    expect(reference).toContain('explicitly request a local-HEAD branch after acknowledging base freshness was not verified');
+    expect(reference).toContain('git checkout -b "$BRANCH_NAME" HEAD');
+    expect(reference).toContain('base freshness was not verified');
+    expect(reference).not.toContain('git checkout -b <branch-name>');
+  });
+
+  test('applies PR bodies only through explicit body files', () => {
+    const text = read(SKILL_PATH);
+    const commandBlocks = Array.from(text.matchAll(/```(?:bash)?\n([\s\S]*?)```/g))
+      .map((match) => match[1])
+      .join('\n');
+
+    expect(text).toContain('gh pr create --title "<TITLE>" --body-file "$BODY_FILE"');
+    expect(text).toContain('gh pr edit --title "<TITLE>" --body-file "$BODY_FILE"');
+    expect(text).toContain('Never use `--body-file -`, stdin pipes, heredoc-to-stdin, or `--body "$(cat ...)"`');
+    expect(text).toContain('Do not embed the body in a shell heredoc');
+    expect(text).toContain('PR body was empty after create');
+    expect(text).toContain('PR body was empty after edit');
+    expect(commandBlocks).not.toContain('--body "$(cat "$BODY_FILE")"');
+    expect(commandBlocks).not.toContain('--body-file -');
+    expect(commandBlocks).not.toContain('__SPEC_PR_BODY_END__');
+    expect(commandBlocks).not.toMatch(/\|\s*gh pr (create|edit)\b/);
+  });
+
+  test('badge model slug examples URL-encode literal parentheses', () => {
+    const reference = read(WRITING_REFERENCE_PATH);
+
+    expect(reference).toContain('Opus_4.6_%281M,_Extended_Thinking%29');
+    expect(reference).toContain('Sonnet_4.6_%28200K%29');
+    expect(reference).not.toContain('Opus_4.6_(1M,_Extended_Thinking)');
+    expect(reference).not.toContain('Sonnet_4.6_(200K)');
   });
 
   test('standalone spec-pr-description workflow is removed', () => {

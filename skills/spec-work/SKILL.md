@@ -22,7 +22,7 @@ When invoked from a parent workspace containing multiple independent Git repos, 
 
 ## Run Artifact Boundary
 
-`docs/contracts/workflows/spec-work-run-artifact.schema.json` is a docs-side planned contract. The current `spec-work` skill does not currently write `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json`, and `src/cli` must not silently adopt that docs-side schema as runtime truth. Do not claim this artifact exists unless a future explicit producer has written it during the current run. Until then, carry work completion evidence through git commits, test output, final summaries, and any downstream `spec-code-review` artifact the review workflow actually writes.
+`docs/contracts/workflows/spec-work-run-artifact.schema.json` is a docs-side planned contract. The current `spec-work` workflow source does not currently write `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json`, and `src/cli` must not silently adopt that docs-side schema as runtime truth. Do not claim this artifact exists unless a future explicit producer has written it during the current run. Until then, carry work completion evidence through git commits, test output, final summaries, and any downstream `spec-code-review` artifact the review workflow actually writes.
 
 ## Input Document
 
@@ -67,11 +67,12 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
 ### Phase 1: Quick Start
 
-1. **Read Plan and Clarify** _(skip if arriving from Phase 0 with a bare prompt)_
+1. **Read Work Document and Clarify** _(skip if arriving from Phase 0 with a bare prompt)_
 
    - Read the work document completely
-   - Treat the plan as a decision artifact, not an execution script
-   - If the work document includes sections such as `Implementation Units`, `Work Breakdown`, `Requirements Trace`, `Files`, `Test Scenarios`, or `Verification`, use those as the primary source material for execution
+   - Treat a plan as a decision artifact, not an execution script
+   - Treat a validated task pack as a first-class executable work document. The task pack supplies execution order, task boundaries, file focus, `stop_if`, and validation notes; its `source_plan` remains the single source of truth for scope, requirements, and non-goals.
+   - If the work document includes sections such as `Implementation Units`, `Work Breakdown`, `Requirements` (or legacy `Requirements Trace`), `Files`, `Test Scenarios`, or `Verification`, use those as the primary source material for execution
    - If the work document is a task pack, also use `Task Graph`, `Execution Waves`, `Task Cards`, `Validation Notes`, and `Regeneration Rules` as the primary source material for execution
    - If the work document is a task pack, validate it before creating execution tasks:
      - read its frontmatter and confirm `type: task-pack`, `generated_by: spec-write-tasks`, `status: derived`, and `mode: derived`
@@ -85,6 +86,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
      - reject draft, transient, missing-source, missing-spec-id, spec-id-mismatch, missing-hash, unavailable-hash-tooling, unverifiable-hash, or hash-mismatch task packs before implementation
      - when rejecting, stop and ask to rerun `spec-write-tasks` from the source plan or return to `spec-plan`; do not silently fall back to executing stale task cards
      - during execution, honor each task's `stop_if`; if triggered, stop and return to `spec-plan` or regenerate the task pack instead of expanding scope in place
+   - If the work document is already a validated task pack, do not offer task compilation again, do not rebuild execution structure from the source plan, and do not silently downgrade to plan-only execution. Execute from the task pack's validated task structure while keeping `source_plan` as scope authority.
    - If the work document is a plan path, and validated task-pack consumption is available, run the optional task-pack suitability check before `before-work --plan`, before creating a work-run, and before creating the internal task tracker:
      - offer the diversion once only when the plan has strong signals: 3+ implementation units, multiple phases, cross-module files, foundation tasks, dependency chains, parallel waves, 6+ likely core files, or verification across unit/smoke/integration layers
      - do not offer it for 1-2 file changes, docs-only/config-only/narrow bugfix plans, plans whose units are already small enough for the internal tracker, or when the user explicitly says to execute the plan directly
@@ -176,8 +178,8 @@ Determine how to proceed based on what was provided in `<input_document>`.
    | Strategy | When to use |
    |----------|-------------|
    | **Inline** | 1-2 small tasks, or tasks needing user interaction mid-flight. **Default for bare-prompt work** — bare prompts rarely produce enough structured context to justify subagent dispatch |
-   | **Serial subagents** | 3+ tasks with dependencies between them. Each subagent gets a fresh context window focused on one unit — prevents context degradation across many tasks. Requires plan-unit metadata (Goal, Files, Approach, Test scenarios) |
-   | **Parallel subagents** | 3+ tasks that pass the Parallel Safety Check (below). Dispatch independent units simultaneously, run dependent units after their prerequisites complete. Requires plan-unit metadata |
+   | **Serial subagents** | 3+ tasks with dependencies between them. Each subagent gets a fresh context window focused on one unit/task — prevents context degradation across many tasks. Requires plan-unit metadata or validated task-card metadata (Goal, Files, Approach, Test scenarios, `test_focus`, `done_signal`) |
+   | **Parallel subagents** | 3+ tasks that pass the Parallel Safety Check (below). Dispatch independent units/tasks simultaneously, run dependent work after prerequisites complete. Requires plan-unit metadata or validated task-card metadata |
 
    **Parallel Safety Check** — required before choosing parallel dispatch:
 
@@ -197,8 +199,8 @@ Determine how to proceed based on what was provided in `<input_document>`.
    | No subagent support | Inline execution only. | Not applicable. | The current agent owns all work. |
 
    **Subagent dispatch** uses your available subagent or task spawning mechanism. For each unit, give the subagent:
-   - The full plan file path (for overall context)
-   - The specific unit's Goal, Files, Approach, Execution note, Patterns, Test scenarios, and Verification
+   - The full work-document path. If it is a task pack, also pass the `source_plan` path for scope context
+   - The specific unit/task's Goal, Files, Approach, Execution note, Patterns, Test scenarios, Verification, or task-card equivalents (`task_id`, `dependencies`, `wave`, `files`, `test_focus`, `done_signal`, `stop_if`)
    - Any resolved deferred questions relevant to that unit
    - Instruction to check whether the unit's test scenarios cover all applicable categories (happy paths, edge cases, error paths, integration) and supplement gaps before writing tests
 
@@ -245,7 +247,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    ```
    while (tasks remain):
      - Mark task as in-progress
-     - Read any referenced files from the plan or discovered during Phase 0
+     - Read any referenced files from the plan, task pack, or discovered during Phase 0
      - **If the unit's work is already present and matches the plan's intent** (files exist with the expected capability, or the unit's `Verification` criteria are already satisfied by the current code), the work has likely shipped on a prior branch or session. Verify it matches, mark the task complete, and move on. Do not silently reimplement.
      - Look for similar patterns in codebase
      - Find existing test files for implementation files being changed (Test Discovery — see below)
@@ -305,7 +307,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    **Heuristic:** "Can I write a commit message that describes a complete, valuable change? If yes, commit. If the message would be 'WIP' or 'partial X', wait."
 
-   If the plan has Implementation Units, use them as a starting guide for commit boundaries — but adapt based on what you find during implementation. A unit might need multiple commits if it's larger than expected, or small related units might land together. Use each unit's Goal to inform the commit message.
+   If the work document has Implementation Units, use them as a starting guide for commit boundaries. If the work document is a task pack, use `Task Cards`, `Execution Waves`, `dependencies`, and `task_id` as the starting guide instead. Adapt based on what you find during implementation: a unit/task might need multiple commits if it is larger than expected, or small related units/tasks might land together. Use each unit's Goal or task card `done_signal` to inform the commit message.
 
    **Commit workflow:**
    ```bash
@@ -367,9 +369,9 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - Keep user informed of major milestones
    - When the plan defines U-IDs for Implementation Units, or the plan or origin document carries stable R-IDs (and optionally A/F/AE IDs), reference them in blockers, deferred-work notes, task summaries, and final verification — not routine status updates. U-IDs anchor units across plan edits; R/A/F/AE anchor product intent across the brainstorm-plan handoff. When available, include `spec_id` only as artifact-chain trace context, not as execution progress. Use the IDs the plan supplies and do not invent ones it does not. This preserves traceability without burying signal under noise.
 
-### Phase 3-4: Quality Check and Ship It
+### Phase 3-4: Quality Check and Finishing Work
 
-When all Phase 2 tasks are complete and execution transitions to quality check, read `references/shipping-workflow.md` for the full shipping workflow: quality checks, code review, final validation, PR creation, and notification.
+When all Phase 2 tasks are complete and execution transitions to quality check, you must read `references/shipping-workflow.md` for the full shipping workflow: quality checks, code review, final validation, PR creation, and notification. Do not skip this.
 
 ## Key Principles
 

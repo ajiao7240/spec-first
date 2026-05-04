@@ -9,6 +9,7 @@ const { planBundledAssetSync } = require('../../src/cli/plugin');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-update', 'SKILL.md');
+const SCRIPTS_DIR = path.join(REPO_ROOT, 'skills', 'spec-update', 'scripts');
 const COMMAND_TEMPLATE_PATH = path.join(
   REPO_ROOT,
   'templates',
@@ -71,6 +72,22 @@ function plannedRuntimeContent(platform, targetPath) {
   }
 }
 
+function plannedRuntimeOperation(platform, targetPath) {
+  const projectRoot = makeTempDir();
+
+  try {
+    const adapter = getAdapter(platform);
+    const { plan } = planBundledAssetSync(projectRoot, adapter);
+    const operation = plan.operations.find((entry) => entry.path === targetPath);
+    if (!operation) {
+      throw new Error(`Missing planned runtime operation for ${targetPath}`);
+    }
+    return operation;
+  } finally {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  }
+}
+
 function expectRenderedRuntimeParity(content) {
   expect(content).toContain('.agents/skills/spec-update/SKILL.md');
   expect(content).toContain('.claude/commands/spec/update.md');
@@ -111,14 +128,61 @@ describe('spec-update contracts', () => {
     expect(skill).not.toContain('Claude Code only.');
   });
 
-  test('Claude marketplace pre-resolution avoids case statements and uses stable sentinel', () => {
+  test('Claude marketplace probes use bounded scripts with stable sentinels', () => {
     const skill = read(SKILL_PATH);
 
-    expect(skill).toContain('grep -q "/plugins/cache/.*/spec-first/.*/skills/spec-update$"');
+    expect(skill).not.toContain('allowed-tools:');
+    expect(skill).toContain('bash "${CLAUDE_SKILL_DIR}/scripts/upstream-version.sh"');
+    expect(skill).toContain('bash "${CLAUDE_SKILL_DIR}/scripts/currently-loaded-version.sh"');
+    expect(skill).toContain('bash "${CLAUDE_SKILL_DIR}/scripts/marketplace-name.sh"');
     expect(skill).toContain('__SPEC_UPDATE_NOT_MARKETPLACE__');
+    expect(skill).toContain('__SPEC_UPDATE_VERSION_FAILED__');
     expect(skill).not.toContain('__SPEC_UPDATE_NOT_MARKETPLASPEC__');
+    expect(skill).not.toContain('!`version=');
+    expect(skill).not.toContain('!`echo "${CLAUDE_SKILL_DIR}"');
     expect(skill).not.toContain('case "${CLAUDE_SKILL_DIR}"');
     expect(skill).not.toContain(';; esac');
+  });
+
+  test('Claude marketplace probe scripts self-locate and use spec-first sentinels', () => {
+    const currentVersionScript = read(path.join(SCRIPTS_DIR, 'currently-loaded-version.sh'));
+    const marketplaceScript = read(path.join(SCRIPTS_DIR, 'marketplace-name.sh'));
+    const upstreamScript = read(path.join(SCRIPTS_DIR, 'upstream-version.sh'));
+
+    for (const scriptName of ['currently-loaded-version.sh', 'marketplace-name.sh', 'upstream-version.sh']) {
+      const script = read(path.join(SCRIPTS_DIR, scriptName));
+      const mode = fs.statSync(path.join(SCRIPTS_DIR, scriptName)).mode & 0o111;
+      expect(mode).not.toBe(0);
+      expect(script).toContain('#!/bin/bash');
+      expect(script).toContain('set -euo pipefail');
+    }
+
+    expect(currentVersionScript).toContain('BASH_SOURCE[0]');
+    expect(currentVersionScript).toContain('/spec-first/([^/]+)/skills/spec-update');
+    expect(currentVersionScript).toContain('__SPEC_UPDATE_NOT_MARKETPLACE__');
+    expect(marketplaceScript).toContain('BASH_SOURCE[0]');
+    expect(marketplaceScript).toContain('/spec-first/[^/]+/skills/spec-update');
+    expect(marketplaceScript).toContain('__SPEC_UPDATE_NOT_MARKETPLACE__');
+    expect(upstreamScript).toContain('repos/sunrain520/spec-first/contents/package.json');
+    expect(upstreamScript).toContain('2>/dev/null || true');
+    expect(upstreamScript).toContain('__SPEC_UPDATE_VERSION_FAILED__');
+    expect(upstreamScript).not.toContain('EveryInc/compound-engineering-plugin');
+  });
+
+  test('runtime sync includes update probe scripts on both hosts', () => {
+    for (const [platform, prefix] of [
+      ['claude', '.claude/spec-first/workflows/spec-update/scripts'],
+      ['codex', '.agents/skills/spec-update/scripts'],
+    ]) {
+      for (const scriptName of ['currently-loaded-version.sh', 'marketplace-name.sh', 'upstream-version.sh']) {
+        const operation = plannedRuntimeOperation(platform, `${prefix}/${scriptName}`);
+
+        expect(operation.kind).toBe('write_file');
+        expect(operation.mode & 0o111).not.toBe(0);
+        expect(operation.contents).toContain('#!/bin/bash');
+        expect(operation.contents).toContain('set -euo pipefail');
+      }
+    }
   });
 
   test('governance exposes spec-update on both hosts', () => {

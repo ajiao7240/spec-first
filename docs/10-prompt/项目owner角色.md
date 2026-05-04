@@ -18,7 +18,7 @@
 
 `spec-first` 的核心定位是：
 
-> AI coding is not a prompt problem — it is a workflow problem.  
+> AI coding is not a prompt problem — it is a workflow problem.
 > Spec > Code. Systems > Prompts.
 
 `spec-first` 不是一个 Prompt 集合，也不是普通 CLI 工具，而是一个围绕 AI Coding 全流程构建的工程闭环系统。

@@ -296,6 +296,12 @@ printf 'name: agent-browser\n' > "$PREFLIGHT_HOME/.agents/skills/agent-browser/S
 preflight_missing_marker="$(cd "$TMP_DIR" && PATH="$TEST_PATH" HOME="$PREFLIGHT_HOME" bash "$SCRIPTS_DIR/check-health" --json)"
 assert_eq "check-health requires agent-browser install marker" "action-required" "$(jq -r '.tools[] | select(.id == "agent-browser") | .result' <<<"$preflight_missing_marker")"
 
+PREFLIGHT_CODEX_SKILL_HOME="$TMP_DIR/preflight-codex-skill-home"
+mkdir -p "$PREFLIGHT_CODEX_SKILL_HOME/.codex/skills/ast-grep"
+printf 'name: ast-grep\n' > "$PREFLIGHT_CODEX_SKILL_HOME/.codex/skills/ast-grep/SKILL.md"
+preflight_codex_skill="$(cd "$TMP_DIR" && PATH="$TEST_PATH" HOME="$PREFLIGHT_CODEX_SKILL_HOME" bash "$SCRIPTS_DIR/check-health" --json)"
+assert_eq "check-health detects Codex global skill fallback even when skills CLI omits it" "ready" "$(jq -r '.skills[] | select(.id == "ast-grep") | .result' <<<"$preflight_codex_skill")"
+
 WINDOWS_PREFLIGHT_HOME="$TMP_DIR/windows-preflight-home"
 mkdir -p "$WINDOWS_PREFLIGHT_HOME"
 windows_preflight="$(cd "$TMP_DIR" && PATH="$WIN_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$WINDOWS_PREFLIGHT_HOME" bash "$SCRIPTS_DIR/check-health" --json)"

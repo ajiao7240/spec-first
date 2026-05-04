@@ -22,6 +22,24 @@ const REQUIREMENTS_PATH = path.join(
   'references',
   'requirements-capture.md',
 );
+const HANDOFF_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-brainstorm',
+  'references',
+  'handoff.md',
+);
+const SYNTHESIS_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-brainstorm',
+  'references',
+  'synthesis-summary.md',
+);
 
 describe('spec-brainstorm host entrypoint contract', () => {
   test('planning handoffs use current-host entrypoint wording', () => {
@@ -29,6 +47,8 @@ describe('spec-brainstorm host entrypoint contract', () => {
       fs.readFileSync(SKILL_PATH, 'utf8'),
       fs.readFileSync(UNIVERSAL_PATH, 'utf8'),
       fs.readFileSync(REQUIREMENTS_PATH, 'utf8'),
+      fs.readFileSync(HANDOFF_PATH, 'utf8'),
+      fs.readFileSync(SYNTHESIS_PATH, 'utf8'),
     ].join('\n');
 
     expect(combined).toContain('current host\'s plan entrypoint');
@@ -41,5 +61,42 @@ describe('spec-brainstorm host entrypoint contract', () => {
     expect(combined).not.toContain('$spec-plan` on Codex');
     expect(combined).not.toContain('/spec:brainstorm on Claude Code');
     expect(combined).not.toContain('$spec-brainstorm on Codex');
+  });
+
+  test('synthesis checkpoint is required before requirements capture', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const synthesis = fs.readFileSync(SYNTHESIS_PATH, 'utf8');
+
+    expect(skill).toContain('### Phase 2.5: Synthesis Summary');
+    expect(skill).toContain('read `references/synthesis-summary.md`');
+    expect(skill).toContain('announce-mode');
+    expect(skill).toContain('Do not write the requirements doc in the same turn');
+    expect(synthesis).toContain('Three-Bucket Structure');
+    expect(synthesis).toContain('**Stated**');
+    expect(synthesis).toContain('**Inferred**');
+    expect(synthesis).toContain('**Out of scope**');
+    expect(synthesis).toContain('## Assumptions');
+    expect(synthesis).not.toContain('STRATEGY.md');
+    expect(synthesis).not.toContain('/ce-');
+  });
+
+  test('requirements template uses Summary and Assumptions without durable Next Steps', () => {
+    const text = fs.readFileSync(REQUIREMENTS_PATH, 'utf8');
+
+    expect(text).toContain('| Summary |');
+    expect(text).toContain('## Summary');
+    expect(text).toContain('## Summary vs Problem Frame discipline');
+    expect(text).toContain('## Assumptions');
+    expect(text).toContain('behavioral-conditional requirements');
+    expect(text).not.toContain('## Next Steps');
+    expect(text).not.toContain('`-> current host');
+  });
+
+  test('chat handoff uses absolute paths while docs stay portable', () => {
+    const text = fs.readFileSync(HANDOFF_PATH, 'utf8');
+
+    expect(text).toContain('Use absolute paths for chat-output file references');
+    expect(text).toContain('<absolute path to requirements doc>');
+    expect(text).toContain('Generated requirements documents themselves must still use repo-relative file references');
   });
 });

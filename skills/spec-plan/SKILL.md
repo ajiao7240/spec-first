@@ -145,7 +145,12 @@ If the bootstrap uncovers major unresolved product questions:
 
 If the bootstrap reveals that a different workflow would serve the user better:
 
-- **Symptom without a root cause** (user describes broken behavior but hasn't identified why) — announce that investigation is needed before planning and execute the `spec-debug` workflow. A plan requires a known problem to solve; debugging identifies what that problem is. Announce the routing clearly: "This needs investigation before planning — switching to spec-debug to find the root cause."
+- **Bug-shaped prompt** (user describes broken behavior, an error message, a regression, or "doesn't work") — surface `spec-debug` as a route-out option alongside continuing with `spec-plan` when the bug surface is reachable in the current repo or at a named local repo path. Stay in `spec-plan` when the named code cannot be found locally; paper planning may be the only useful output for unreachable surfaces.
+
+  When the bug is at another local path, announce the target before any cross-repo investigation: which path will be read and where the plan output will land. Default to the target repo for both investigation and plan writing unless the user redirects. Cross-repo target location and workflow choice are separate decisions; do not silently write a plan into the wrong repository.
+
+  In headless mode, skip the route-out menu and continue with `spec-plan`. Auto-routing into debugging would change workflows without synchronous user authorization.
+
 - **Clear task ready to execute** (known root cause, obvious fix, no architectural decisions) — suggest `spec-work` as a faster alternative alongside continuing with planning. The user decides.
 
 #### 0.5 Classify Outstanding Questions Before Planning
@@ -171,6 +176,20 @@ Classify the work into one of these plan depths:
 - **Deep** - cross-cutting, strategic, high-risk, or highly ambiguous implementation work
 
 If depth is unclear, ask one targeted question and then continue.
+
+#### 0.7 Solo-Mode Scope Summary
+
+**STOP. Before composing the synthesis, read `references/synthesis-summary.md`.** The discipline rules, prose-summary requirement, three-bucket structure, anti-pattern guidance, soft-cut behavior, self-redirect support, solo-variant content focus, and routing into plan sections all live there.
+
+Surface a synthesis to the user after the brief Phase 0.4 bootstrap and before Phase 1 research begins. This protects against spending research and sub-agent attention on the wrong scope.
+
+Fires only when all guards are true:
+- Phase 0.2 found no upstream brainstorm doc
+- Phase 0.4 stayed in `spec-plan` rather than routing to debug, work, or universal planning
+- Phase 0.5 cleared without unresolved blockers
+- The run is not on a Phase 0.1 fast path such as resume-normal or deepen-intent
+
+Skip Phase 0.7 for brainstorm-sourced invocations; those use Phase 5.1.5 after research. In headless mode, compose the synthesis but do not ask for confirmation. Continue to Phase 1 research, then route inferred bets to `## Assumptions` at plan-write time.
 
 ### Phase 1: Gather Context
 
@@ -503,6 +522,8 @@ Do not add these as boilerplate. Include them only when they improve execution q
 
 Omit clearly inapplicable optional sections, especially for Lightweight plans.
 
+Use `## Summary` for new plans. When reading, editing, or deepening older plans, treat `## Overview` as the legacy name for the same framing slot. Use `## Requirements` for new plans, while continuing to read legacy `## Requirements Trace` as equivalent input.
+
 ```markdown
 ---
 title: [Plan Title]
@@ -516,9 +537,9 @@ deepened: YYYY-MM-DD  # optional, set when the confidence-first check substantiv
 
 # [Plan Title]
 
-## Overview
+## Summary
 
-[What is changing and why]
+[1-3 line prose summary — what this plan proposes and how it approaches the work. Forward-looking, not a recap of the problem.]
 
 ---
 
@@ -528,7 +549,7 @@ deepened: YYYY-MM-DD  # optional, set when the confidence-first check substantiv
 
 ---
 
-## Requirements Trace
+## Requirements
 
 - R1. [Requirement or success criterion this plan must satisfy]
 - R2. [Requirement or success criterion this plan must satisfy]
@@ -541,6 +562,15 @@ deepened: YYYY-MM-DD  # optional, set when the confidence-first check substantiv
 **Origin actors:** [A1 (role/name), A2 (role/name), …]
 **Origin flows:** [F1 (flow name), F2 (flow name), …]
 **Origin acceptance examples:** [AE1 (covers R1, R4), AE2 (covers R3), …]
+
+---
+
+## Assumptions
+
+<!-- Optional. Include only for unconfirmed inferred bets, especially in headless/non-interactive planning.
+     Keep these out of Key Technical Decisions and Implementation Units until the user confirms them. -->
+
+- A1. [Unconfirmed inference or assumption that shaped this plan]
 
 ---
 
@@ -795,7 +825,7 @@ For larger `Deep` plans, extend the core template only when useful with sections
 
 #### 4.4 Visual Communication in Plan Documents
 
-When the plan contains 4+ implementation units with non-linear dependencies, 3+ interacting surfaces in System-Wide Impact, 3+ behavioral modes/variants in Overview or Problem Frame, or 3+ interacting decisions in Key Technical Decisions or alternatives in Alternative Approaches, read `references/visual-communication.md` for diagram and table guidance. This covers plan-structure visuals (dependency graphs, interaction diagrams, comparison tables) — not solution-design diagrams, which are covered in Section 3.4.
+When the plan contains 4+ implementation units with non-linear dependencies, 3+ interacting surfaces in System-Wide Impact, 3+ behavioral modes/variants in Summary or Problem Frame, or 3+ interacting decisions in Key Technical Decisions or alternatives in Alternative Approaches, read `references/visual-communication.md` for diagram and table guidance. Legacy plans may still use `Overview`; treat it as the old Summary slot. This covers plan-structure visuals (dependency graphs, interaction diagrams, comparison tables) — not solution-design diagrams, which are covered in Section 3.4.
 
 ### Phase 5: Final Review, Write File, and Handoff
 
@@ -826,8 +856,18 @@ If the plan originated from a requirements document, re-read that document and v
 - Scope boundaries and success criteria are preserved
 - Blocking questions were either resolved, explicitly assumed, or sent back to `spec-brainstorm`
 - Every section of the origin document is addressed in the plan — scan each section to confirm nothing was silently dropped
-- If origin supplies A/F/AE IDs: every origin R/F/AE that *affects implementation* is referenced in Requirements Trace, a U-ID unit, test scenarios, verification, scope boundaries, or explicitly deferred. Actors are carried forward when they affect behavior, permissions, UX, orchestration, handoff, or verification. The standard is preservation of product intent, not mandatory ID spam — irrelevant origin IDs may be omitted
+- If origin supplies A/F/AE IDs: every origin R/F/AE that *affects implementation* is referenced in Requirements, a U-ID unit, test scenarios, verification, scope boundaries, or explicitly deferred. Actors are carried forward when they affect behavior, permissions, UX, orchestration, handoff, or verification. The standard is preservation of product intent, not mandatory ID spam — irrelevant origin IDs may be omitted
 - If origin was Deep-product (origin contains an `Outside this product's identity` subsection): the plan's Scope Boundaries preserves the three-way split — `Deferred for later` and `Outside this product's identity` carried verbatim from origin, `Deferred to Follow-Up Work` reserved for plan-local implementation sequencing
+
+#### 5.1.5 Brainstorm-Sourced Scope Summary
+
+**STOP. Before composing the synthesis, read `references/synthesis-summary.md`.** The discipline rules, prose-summary requirement, three-bucket structure, anti-pattern guidance, soft-cut behavior, self-redirect support, brainstorm-sourced content focus, doc-body reading rules, and routing into plan sections all live there.
+
+Surface the agent's plan-time decisions to the user before Phase 5.2 commits the plan to disk. The upstream brainstorm validated WHAT to build; this phase surfaces HOW the plan will execute it, including patterns extended, files or modules touched, test scope, and deliberate exclusions.
+
+Fires only when the plan was sourced from an upstream brainstorm requirements doc and the run is not on a Phase 0.1 fast path. Skip it in solo invocation because solo plans use Phase 0.7.
+
+In headless mode, compose the synthesis but do not ask for confirmation. Proceed to Phase 5.2 and route inferred bets to `## Assumptions` instead of Key Technical Decisions.
 
 #### 5.2 Write Plan File
 
@@ -839,13 +879,13 @@ Use the Write tool to save the complete plan to:
 docs/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.md
 ```
 
-Confirm:
+Confirm using an absolute path so the reference is clickable in modern terminals:
 
 ```text
-Plan written to docs/plans/[filename]
+Plan written to <absolute path to plan>
 ```
 
-**Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context, skip interactive questions. Make the needed choices automatically and proceed to writing the plan.
+**Pipeline mode:** If invoked from an automated workflow such as LFG or any `disable-model-invocation` context, skip interactive questions. Make the needed choices automatically and proceed to writing the plan.
 
 #### 5.3 Confidence-first Check and Deepening
 
@@ -895,11 +935,11 @@ When deepening is warranted, read `references/deepening-workflow.md` for confide
 
 ##### 5.3.8–5.4 Document Review, Final Checks, and Post-Generation Options
 
-**Load `references/plan-handoff.md` now.** It contains the full instructions for 5.3.8 (document review), 5.3.9 (final checks and cleanup), and 5.4 (post-generation handoff, including the Proof HITL flow, post-HITL re-review, and Issue Creation branching). Document review is mandatory — do not skip it even if the confidence-first check already ran.
+**STOP. Load `references/plan-handoff.md` now before continuing.** It contains the full instructions for 5.3.8 (document review), 5.3.9 (final checks and cleanup), and 5.4 (post-generation handoff, including the Proof HITL flow, post-HITL re-review, and Issue Creation branching). This load is non-optional: without it, agents can render the menu, capture a selection, and stop without firing the routed action. Document review is mandatory — do not skip it even if the confidence-first check already ran.
 
 After document review and final checks, present this menu using the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
-**Question:** "Plan ready at `docs/plans/YYYY-MM-DD-NNN-<type>-<name>-plan.md`. What would you like to do next?"
+**Question:** "Plan ready at `<absolute path to plan>`. What would you like to do next?"
 
 **Options:**
 1. **Start work** (recommended) - Begin implementing this plan in the current session using the current host's work entrypoint
@@ -908,8 +948,8 @@ After document review and final checks, present this menu using the platform's b
 4. **Open in Proof (web app) — review and comment to iterate with the agent** - Open the doc in Every's Proof editor, iterate with the agent via comments, or copy a link to share with others
 5. **Done for now** - Pause; the plan file is saved and can be resumed later
 
-Routing each selection, contextual surfacing of residual spec-doc-review findings, and the post-HITL resync logic all live in `references/plan-handoff.md` — follow it for every branch.
+Routing each selection, contextual surfacing of residual spec-doc-review findings, and the post-HITL resync logic all live in `references/plan-handoff.md` — follow it for every branch. Act on the user's selection; do not only tell the user which command to run.
 
-**Completion check:** This skill is not complete until the post-generation menu above has been presented and the user has selected an action. If you have written the plan file and have not yet presented the menu, you are not done — go to the load instruction above and continue.
+**Completion check:** This skill is not complete until the post-generation menu above has been presented, the user has selected an action, and the routed action has executed or been explicitly declined. Presenting the menu and stopping at the selection is not completion.
 
-**Pipeline mode exception:** In LFG, SLFG, or any `disable-model-invocation` context, skip the interactive menu and return control to the caller after the plan file is written, confidence-first check has run, and `spec-doc-review` has run in headless mode (per `references/plan-handoff.md`).
+**Pipeline mode exception:** In LFG or any `disable-model-invocation` context, skip the interactive menu and return control to the caller after the plan file is written, confidence-first check has run, and `spec-doc-review` has run in headless mode (per `references/plan-handoff.md`).

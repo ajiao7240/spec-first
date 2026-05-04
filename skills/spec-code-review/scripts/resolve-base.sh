@@ -1,8 +1,9 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Resolve the review base branch and compute the merge-base for spec-code-review.
 # Handles fork-safe remote resolution, PR metadata, and multi-fallback detection.
 #
-# Usage: bash references/resolve-base.sh
+# Usage from source: bash skills/spec-code-review/scripts/resolve-base.sh
+# Runtime adapters rewrite that source path to the loaded workflow skill path.
 # Output: BASE:<sha> on success, ERROR:<message> on failure.
 #
 # Detects the base branch from (in priority order):

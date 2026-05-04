@@ -246,7 +246,7 @@ pwsh -File skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1 -RefreshEx
 
 Do not pass `--delete-legacy-markdown` / `-DeleteLegacyMarkdown` during ordinary setup. Do not automatically delete `.compound-engineering/config.local.yaml`; report legacy residue and tell the user that spec-first now uses `.spec-first/config.local.yaml`.
 
-Project preflight prepares setup input. Missing required helper tooling must mark Required Harness Runtime as failed. Missing local config, outdated example config, and legacy CE residue must not mark Required Harness Runtime as failed.
+Project preflight prepares setup input. Missing required helper tooling must mark Required Harness Runtime as failed. Missing local config, outdated example config, and legacy compound-engineering residue must not mark Required Harness Runtime as failed.
 
 ## Deterministic Commands
 

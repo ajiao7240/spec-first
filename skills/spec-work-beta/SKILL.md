@@ -51,7 +51,7 @@ After extracting tokens from arguments, resolve the delegation state using this 
 3. **Hard default** -- `false` (delegation off)
 
 **Config (pre-resolved):**
-!`(top=$(git rev-parse --show-toplevel 2>/dev/null); [ -n "$top" ] && cat "$top/.spec-first/config.local.yaml" 2>/dev/null) || (common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); [ -n "$common" ] && cat "$(dirname "$common")/.spec-first/config.local.yaml" 2>/dev/null) || echo '__NO_CONFIG__'`
+!`(top=$(git rev-parse --show-toplevel 2>/dev/null); [ -n "$top" ] && cat "$top/.spec-first/config.local.yaml" 2>/dev/null) || echo '__NO_CONFIG__'`
 
 If the block above contains YAML key-value pairs, extract values for the keys listed below.
 If it shows `__NO_CONFIG__`, the file does not exist — all settings fall through to defaults.
@@ -120,7 +120,8 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    - Read the work document completely
    - Treat the plan as a decision artifact, not an execution script
-   - If the work document includes sections such as `Implementation Units`, `Work Breakdown`, `Requirements Trace`, `Files`, `Test Scenarios`, or `Verification`, use those as the primary source material for execution
+   - Treat a validated task pack as a first-class executable work document. The task pack supplies execution order, task boundaries, file focus, `stop_if`, and validation notes; its `source_plan` remains the single source of truth for scope, requirements, and non-goals.
+   - If the work document includes sections such as `Implementation Units`, `Work Breakdown`, `Requirements` (or legacy `Requirements Trace`), `Files`, `Test Scenarios`, or `Verification`, use those as the primary source material for execution
    - If the work document is a task pack, also use `Task Graph`, `Execution Waves`, `Task Cards`, `Validation Notes`, and `Regeneration Rules` as the primary source material for execution
    - If the work document is a task pack, validate it before creating execution tasks:
      - read its frontmatter and confirm `type: task-pack`, `generated_by: spec-write-tasks`, `status: derived`, and `mode: derived`
@@ -134,6 +135,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
      - reject draft, transient, missing-source, missing-spec-id, spec-id-mismatch, missing-hash, unavailable-hash-tooling, unverifiable-hash, or hash-mismatch task packs before implementation
      - when rejecting, stop and ask to rerun `spec-write-tasks` from the source plan or return to `spec-plan`; do not silently fall back to executing stale task cards
      - during execution, honor each task's `stop_if`; if triggered, stop and return to `spec-plan` or regenerate the task pack instead of expanding scope in place
+   - If the work document is already a validated task pack, do not offer task compilation again, do not rebuild execution structure from the source plan, and do not silently downgrade to plan-only execution. Execute from the task pack's validated task structure while keeping `source_plan` as scope authority.
    - If the work document is a plan path, and validated task-pack consumption is available, run the optional task-pack suitability check before `before-work --plan`, before creating a work-run, and before creating the internal task tracker:
      - offer the diversion once only when the plan has strong signals: 3+ implementation units, multiple phases, cross-module files, foundation tasks, dependency chains, parallel waves, 6+ likely core files, or verification across unit/smoke/integration layers
      - do not offer it for 1-2 file changes, docs-only/config-only/narrow bugfix plans, plans whose units are already small enough for the internal tracker, or when the user explicitly says to execute the plan directly
@@ -430,9 +432,9 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - Keep user informed of major milestones
    - When the plan defines U-IDs for Implementation Units, or the plan or origin document carries stable R-IDs (and optionally A/F/AE IDs), reference them in blockers, deferred-work notes, task summaries, and final verification — not routine status updates. U-IDs anchor units across plan edits; R/A/F/AE anchor product intent across the brainstorm-plan handoff. When available, include `spec_id` only as artifact-chain trace context, not as execution progress. Use the IDs the plan supplies and do not invent ones it does not. This preserves traceability without burying signal under noise.
 
-### Phase 3-4: Quality Check and Ship It
+### Phase 3-4: Quality Check and Finishing Work
 
-When all Phase 2 tasks are complete and execution transitions to quality check, read `references/shipping-workflow.md` for the full shipping workflow: quality checks, code review, final validation, PR creation, and notification.
+When all Phase 2 tasks are complete and execution transitions to quality check, you must read `references/shipping-workflow.md` for the full shipping workflow: quality checks, code review, final validation, PR creation, and notification. Do not skip this.
 
 ---
 

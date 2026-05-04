@@ -4,6 +4,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-work', 'SKILL.md');
+const SHIPPING_WORKFLOW_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-work',
+  'references',
+  'shipping-workflow.md',
+);
 
 describe('spec-work context orientation contract', () => {
   test('uses plan/task-pack guided direct reads without retired graph hooks', () => {
@@ -46,6 +55,39 @@ describe('spec-work run artifact boundary contract', () => {
   });
 });
 
+describe('spec-work requirements and shipping policy contract', () => {
+  test('reads Requirements as the current plan section while preserving legacy compatibility', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const shipping = fs.readFileSync(SHIPPING_WORKFLOW_PATH, 'utf8');
+
+    expect(text).toContain('`Requirements` (or legacy `Requirements Trace`)');
+    expect(text).toContain('Quality Check and Finishing Work');
+    expect(text).toContain('you must read `references/shipping-workflow.md`');
+    expect(text).toContain('Do not skip this.');
+    expect(shipping).toContain('If the plan has a `Requirements` section (or legacy `Requirements Trace`)');
+  });
+
+  test('shipping review tiers use real host-native review or spec-code-review fallback', () => {
+    const shipping = fs.readFileSync(SHIPPING_WORKFLOW_PATH, 'utf8');
+
+    expect(shipping).toContain('Tier 1 -- host-native code review');
+    expect(shipping).toContain('real built-in code review command or skill');
+    expect(shipping).toContain('Do not treat ordinary self-review as Tier 1.');
+    expect(shipping).toContain('Tier 2 -- `spec-code-review`');
+    expect(shipping).toContain('No host-native review exists');
+    expect(shipping).toContain('Sensitive surface touched');
+    expect(shipping).toContain('Large and diffuse change');
+    expect(shipping).toContain('Very large change');
+    expect(shipping).toContain('Plan or task explicitly requests it');
+    expect(shipping).toContain('Code review completed (Tier 1 host-native or Tier 2 `spec-code-review`)');
+    expect(shipping).not.toContain('inline self-review');
+    expect(shipping).not.toContain('/simplify');
+    expect(shipping).not.toContain('ce-simplify-code');
+    expect(shipping).not.toContain('spec-simplify-code');
+    expect(shipping).not.toContain('ce-code-review');
+  });
+});
+
 describe('spec-work task-pack identity contract', () => {
   test('rejects missing or mismatched spec_id before creating execution tasks', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
@@ -55,6 +97,21 @@ describe('spec-work task-pack identity contract', () => {
     expect(text).toContain('reject the task pack as wrong-chain handoff before implementation');
     expect(text).toContain('missing-spec-id, spec-id-mismatch');
     expect(text).toContain('Do not treat it as execution state or completion status');
+  });
+
+  test('keeps validated task packs as first-class executable work documents', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Treat a validated task pack as a first-class executable work document.');
+    expect(text).toContain('The task pack supplies execution order, task boundaries, file focus, `stop_if`, and validation notes');
+    expect(text).toContain('If the work document is already a validated task pack, do not offer task compilation again');
+    expect(text).toContain('do not rebuild execution structure from the source plan');
+    expect(text).toContain('Execute from the task pack\'s validated task structure');
+    expect(text).toContain('Requires plan-unit metadata or validated task-card metadata');
+    expect(text).toContain('The full work-document path. If it is a task pack, also pass the `source_plan` path');
+    expect(text).toContain('task-card equivalents (`task_id`, `dependencies`, `wave`, `files`, `test_focus`, `done_signal`, `stop_if`)');
+    expect(text).toContain('Read any referenced files from the plan, task pack, or discovered during Phase 0');
+    expect(text).toContain('If the work document is a task pack, use `Task Cards`, `Execution Waves`, `dependencies`, and `task_id`');
   });
 });
 

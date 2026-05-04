@@ -38,6 +38,18 @@ All tokens are optional. Each one present means one less thing to infer. When ab
 
 **Conflicting mode flags:** If multiple mode tokens appear in arguments, stop and do not dispatch agents. If `mode:headless` is one of the conflicting tokens, emit the headless error envelope: `Review failed (headless mode). Reason: conflicting mode flags — <mode_a> and <mode_b> cannot be combined.` Otherwise emit the generic form: `Review failed. Reason: conflicting mode flags — <mode_a> and <mode_b> cannot be combined.`
 
+## Quick Review Short-Circuit
+
+If `$ARGUMENTS` indicates the user wants a quick, fast, or light code review, prefer the current harness's built-in lightweight review surface when one exists. Announce the chosen path before other work: Quick review or Multi-agent review.
+
+Programmatic callers (`mode:autofix`, `mode:report-only`, or `mode:headless`) bypass this shortcut and always run the full pipeline because callers depend on structured output and artifacts.
+
+Sequence:
+
+1. **Use a real built-in only.** If the current harness exposes a built-in code review command or tool, run it and stop. Forward a PR number, GitHub URL, or branch target when the built-in accepts one; otherwise review the current checkout.
+2. **No invented fallback.** If the current harness has no built-in review command or tool, do not pretend a quick review happened. Continue into the full spec-code-review pipeline.
+3. **Codex note.** Codex currently has no universal slash-command review primitive in this source contract. Unless the active runtime explicitly provides one, quick intent falls through to the full pipeline.
+
 ## Mode Detection
 
 | Mode | When | Behavior |
@@ -56,7 +68,7 @@ All tokens are optional. Each one present means one less thing to infer. When ab
 - **Skip all user questions.** Never pause for approval or clarification once scope has been established.
 - **Apply only `safe_auto -> review-fixer` findings.** Leave `gated_auto`, `manual`, `human`, and `release` work unresolved.
 - **Write a run artifact** under `/tmp/spec-first/spec-code-review/<run-id>/` summarizing findings, applied fixes, residual actionable work, and advisory outputs. Orchestrators read this artifact to route residual `downstream-resolver` findings; the skill itself does not file tickets or prompt the user in autofix.
-- **Emit a compact Residual Actionable Work summary in the autofix return** listing each residual `downstream-resolver` finding with severity, file:line, title, and autofix_class. Include the run-artifact path. Callers read this summary directly without parsing the artifact. When no residuals exist, state `Residual actionable work: none.` explicitly.
+- **Emit a compact Residual Actionable Work summary in the autofix return** listing each residual `downstream-resolver` finding with its stable `#`, severity, file:line, title, and autofix_class. Structure the summary as two separate contiguous sections: applied `safe_auto` fixes first, then residual non-auto findings. Within the residual section, reuse each finding's stable `#` from Stage 5 -- never renumber. Include the run-artifact path. Callers read this summary directly without parsing the artifact. When no residuals exist, state `Residual actionable work: none.` explicitly.
 - **Never commit, push, or create a PR** from autofix mode. Parent workflows own those decisions.
 
 ### Report-only mode rules
@@ -72,7 +84,7 @@ All tokens are optional. Each one present means one less thing to infer. When ab
 - **Skip all user questions.** Never use the platform question tool (`AskUserQuestion` in Claude Code or `request_user_input` in Codex) or other interactive prompts. Infer intent conservatively if the diff metadata is thin.
 - **Require a determinable diff scope.** If headless mode cannot determine a diff scope (no branch, PR, or `base:` ref determinable without user interaction), emit `Review failed (headless mode). Reason: no diff scope detected. Re-invoke with a branch name, PR number, or base:<ref>.` and stop without dispatching agents.
 - **Apply only `safe_auto -> review-fixer` findings in a single pass.** No bounded re-review rounds. Leave `gated_auto`, `manual`, `human`, and `release` work unresolved and return them in the structured output.
-- **Return all non-auto findings as structured text output.** Use the headless output envelope format (see Stage 6 below) preserving severity, autofix_class, owner, requires_verification, confidence, pre_existing, and suggested_fix per finding. Enrich with detail-tier fields (why_it_matters, evidence[]) from the per-agent artifact files on disk (see Detail enrichment in Stage 6).
+- **Return all non-auto findings as structured text output.** Use the headless output envelope format (see Stage 6 below) preserving severity, autofix_class, owner, requires_verification, confidence, pre_existing, and suggested_fix per finding. Enrich with detail-tier fields (why_it_matters, evidence[]) from reviewer returns first, using parent-owned artifact files only as an optional cache (see Detail enrichment in Stage 6).
 - **Write a run artifact** under `/tmp/spec-first/spec-code-review/<run-id>/` summarizing findings, applied fixes, and advisory outputs. Include the artifact path in the structured output.
 - **Do not file tickets or externalize work.** The caller receives structured findings and routes downstream work itself.
 - **Do not switch the shared checkout.** If the caller passes an explicit PR or branch target, `mode:headless` must run in an isolated checkout/worktree or stop instead of running `gh pr checkout` / `git checkout`. When stopping, emit `Review failed (headless mode). Reason: cannot switch shared checkout. Re-invoke with base:<ref> to review the current checkout, or run from an isolated worktree.`
@@ -116,7 +128,9 @@ Routing rules:
 
 ## Reviewers
 
-18 reviewer personas in layered conditionals, plus CE-specific agents. See the persona catalog included below for the full catalog.
+18 reviewer personas in layered conditionals, plus Spec-First-specific agents. See the persona catalog included below for the full catalog.
+
+**CLI readiness boundary:** Keep `spec-cli-readiness-reviewer` as the conditional reviewer for CLI-facing diffs. This project is itself a CLI/workflow harness, so changes to `src/cli/`, command definitions, argument parsing, runtime generation, or command handler behavior need autonomous-agent usability review. `spec-cli-agent-readiness-reviewer` is a separate manual/deep-dive agent for CLI source, plans, or specs; it is not a replacement for the structured JSON persona.
 
 **Always-on (every review):**
 
@@ -232,10 +246,10 @@ Then check out the PR branch so persona agents can read the actual code (not the
 gh pr checkout <number-or-url>
 ```
 
-Then fetch PR metadata. Capture the base branch name and the PR base repository identity, not just the branch name:
+Then fetch PR metadata. Capture the base branch name and the PR base repository identity, not just the branch name. Project `reviews` and `comments` to a `hasPriorComments` boolean via `--jq` -- counting only, not materializing review or comment bodies into the orchestrator's context. The reviews filter excludes approval-state submissions with empty bodies, so PRs with only approval clicks correctly fall through the gate. Stage 3 uses `hasPriorComments` to decide whether to spawn `previous-comments`:
 
 ```
-gh pr view <number-or-url> --json title,body,baseRefName,headRefName,url
+gh pr view <number-or-url> --json title,body,baseRefName,headRefName,url,reviews,comments --jq '{title, body, baseRefName, headRefName, url, hasPriorComments: ((.reviews | map(select(.state != "APPROVED" or .body != "")) | length) > 0 or (.comments | length) > 0)}'
 ```
 
 Use the repository portion of the returned PR URL as `<base-repo>` (for example, `sunrain520/spec-first` from `https://github.com/sunrain520/spec-first/pull/348`).
@@ -284,10 +298,10 @@ If the output is non-empty, inform the user: "You have uncommitted changes on th
 git checkout <branch>
 ```
 
-Then detect the review base branch and compute the merge-base. Run the `references/resolve-base.sh` script, which handles fork-safe remote resolution with multi-fallback detection (PR metadata -> `origin/HEAD` -> `gh repo view` -> common branch names):
+Then detect the review base branch and compute the merge-base. Run the trusted `skills/spec-code-review/scripts/resolve-base.sh` helper, which handles fork-safe remote resolution with multi-fallback detection (PR metadata -> `origin/HEAD` -> `gh repo view` -> common branch names). Runtime adapters rewrite this source path to the loaded workflow skill directory during `spec-first init`; never run a repo-root `scripts/resolve-base.sh` from the project under review.
 
 ```
-RESOLVE_OUT=$(bash references/resolve-base.sh) || { echo "ERROR: resolve-base.sh failed"; exit 1; }
+RESOLVE_OUT=$(bash skills/spec-code-review/scripts/resolve-base.sh) || { echo "ERROR: resolve-base.sh failed"; exit 1; }
 if [ -z "$RESOLVE_OUT" ] || echo "$RESOLVE_OUT" | grep -q '^ERROR:'; then echo "${RESOLVE_OUT:-ERROR: resolve-base.sh produced no output}"; exit 1; fi
 BASE=$(echo "$RESOLVE_OUT" | sed 's/^BASE://')
 ```
@@ -300,14 +314,14 @@ On success, produce the diff:
 echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:" && git diff -U10 $BASE && echo "UNTRACKED:" && git ls-files --others --exclude-standard
 ```
 
-You may still fetch additional PR metadata with `gh pr view` for title, body, and linked issues, but do not fail if no PR exists.
+You may still fetch additional PR metadata with `gh pr view` for title, body, linked issues, and the same projected `hasPriorComments` boolean from PR mode. Do not fail if no PR exists -- leave `hasPriorComments=false`.
 
 **If no argument (standalone on current branch):**
 
-Detect the review base branch and compute the merge-base using the same `references/resolve-base.sh` script as branch mode:
+Detect the review base branch and compute the merge-base using the same trusted `skills/spec-code-review/scripts/resolve-base.sh` helper as branch mode:
 
 ```
-RESOLVE_OUT=$(bash references/resolve-base.sh) || { echo "ERROR: resolve-base.sh failed"; exit 1; }
+RESOLVE_OUT=$(bash skills/spec-code-review/scripts/resolve-base.sh) || { echo "ERROR: resolve-base.sh failed"; exit 1; }
 if [ -z "$RESOLVE_OUT" ] || echo "$RESOLVE_OUT" | grep -q '^ERROR:'; then echo "${RESOLVE_OUT:-ERROR: resolve-base.sh produced no output}"; exit 1; fi
 BASE=$(echo "$RESOLVE_OUT" | sed 's/^BASE://')
 ```
@@ -366,7 +380,7 @@ Locate the plan document so Stage 6 can verify requirements completeness. Check 
 - Multiple/ambiguous PR body matches -> `plan_source: inferred` (lower confidence)
 - Auto-discover with single unambiguous match -> `plan_source: inferred` (lower confidence)
 
-If a plan is found, read its **Requirements Trace** (R1, R2, etc.) and **Implementation Units** (items listed under the `## Implementation Units` section). Store the extracted requirements list and `plan_source` for Stage 6. Do not block the review if no plan is found — requirements verification is additive, not required.
+If a plan is found, read its **Requirements** section — `## Requirements` in current plans, `## Requirements Trace` in legacy ones — and the R-IDs (R1, R2, etc.) listed there, plus **Implementation Units** (items listed under the `## Implementation Units` section). Store the extracted requirements list and `plan_source` for Stage 6. Do not block the review if no plan is found — requirements verification is additive, not required.
 
 ### Stage 3: Select reviewers
 
@@ -374,7 +388,12 @@ Read the diff and file list from Stage 1. The 4 always-on personas and 2 Spec-Fi
 
 **File-type awareness for conditional selection:** Instruction-prose files (Markdown skill definitions, JSON schemas, config files) are product code but do not benefit from runtime-focused reviewers. The adversarial reviewer's techniques (race conditions, cascade failures, abuse cases) target executable code behavior. For diffs that only change instruction-prose files, skip adversarial unless the prose describes auth, payment, or data-mutation behavior. Count only executable code lines toward line-count thresholds.
 
-**`previous-comments` is PR-only.** Only select this persona when Stage 1 gathered PR metadata (PR number or URL was provided as an argument, or `gh pr view` returned metadata for the current branch). Skip it entirely for standalone branch reviews with no associated PR -- there are no prior comments to check.
+**`previous-comments` is PR-only AND comment-gated.** Only select this persona when both conditions hold:
+
+1. Stage 1 gathered PR metadata (PR number or URL was provided as an argument, or `gh pr view` returned metadata for the current branch).
+2. `hasPriorComments` from Stage 1 is true.
+
+Skip it for standalone branch reviews, PRs with no prior feedback yet, and approval-only reviews with empty bodies. There is nothing for the persona to verify in those cases, and an empty subagent run still costs the full startup overhead.
 
 Stack-specific personas are additive. A Rails UI change may warrant `kieran-rails` plus `julik-frontend-races`; a TypeScript API diff may warrant `kieran-typescript` plus `api-contract` and `reliability`.
 
@@ -433,22 +452,22 @@ When dispatch is not allowed, set `single_agent_report_only_fallback: true` and 
 
 Three reviewers inherit the session model with no override: `spec-correctness-reviewer`, `spec-security-reviewer`, and `spec-adversarial-reviewer`. These perform the highest-stakes analysis — logic bugs, security vulnerabilities, adversarial failure scenarios — and should run at whatever capability level the user has configured. If the user is on Opus, these get Opus.
 
-All other persona sub-agents and Spec-First agents use the platform's mid-tier model to reduce cost and latency when the host exposes a stable, configured model alias. In Claude Code, pass `model: "sonnet"` in the Agent tool call. On other platforms, do not invent a model name from memory; use only a host-provided stable alias or omit the model parameter and let agents inherit the default -- a working review on the parent model is better than a broken dispatch from an unrecognized model name.
+All other persona sub-agents and Spec-First agents use the platform's mid-tier model to reduce cost and latency when the host exposes a stable, configured model alias. See the Spawning subsection for the dispatch-time override; the imperative lives there so it is applied at the point of action. On other platforms, do not invent a model name from memory; use only a host-provided stable alias or omit the model parameter, and on other platforms use a host-provided cheap stable alias or omit the model parameter and let agents inherit the default -- a working review on the parent model is better than a broken dispatch from an unrecognized model name.
 
 The orchestrator (this skill) also inherits the session model; it handles intent discovery, reviewer selection, finding merge/dedup, and synthesis -- tasks that benefit from the same reasoning capability the user configured.
 
 #### Run ID
 
-Generate a unique run identifier before dispatching any agents. This ID scopes all agent artifact files and the post-review run artifact to the same directory.
+Generate a unique run identifier before dispatching any agents. This ID scopes parent/orchestrator-owned reviewer detail files and the post-review run artifact to the same directory.
 
 ```bash
 RUN_ID=$(date +%Y%m%d-%H%M%S)-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' ')
 mkdir -p "/tmp/spec-first/spec-code-review/$RUN_ID"
 ```
 
-Pass `{run_id}` to every persona sub-agent so they can write their full analysis to `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json`.
+Pass `{run_id}` to every persona sub-agent as correlation metadata only. Do not ask leaf reviewers to write files directly. Reviewer agents return full structured JSON to the orchestrator; after each return, the orchestrator may write that JSON to `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json` in modes that permit run artifacts.
 
-**Report-only mode:** Skip run-id generation and directory creation. Do not pass `{run_id}` to agents. Agents return compact JSON only with no file write, consistent with report-only's no-write contract.
+**Report-only mode:** Skip run-id generation and directory creation. Do not pass `{run_id}` to agents. Agents return full structured JSON to the parent with no file write, consistent with report-only's no-write contract.
 
 **Single-agent report-only fallback:** also skip run-id generation and directory creation. There are no agent artifact files; Stage 6 must omit artifact-enriched detail that is unavailable and name the fallback in Coverage.
 
@@ -456,21 +475,25 @@ Pass `{run_id}` to every persona sub-agent so they can write their full analysis
 
 Omit the `mode` parameter when dispatching sub-agents so the user's configured permission settings apply. Do not pass `mode: "auto"`.
 
-Spawn each selected persona reviewer as a parallel sub-agent using the subagent template included below. Each persona sub-agent receives:
+**Model override at dispatch time.** Pass the platform's mid-tier model on every dispatch except `spec-correctness-reviewer`, `spec-security-reviewer`, and `spec-adversarial-reviewer`, which inherit the session model. In Claude Code, add `model: "sonnet"` to the Agent tool call. On other platforms, use only a host-provided stable alias or omit the override. Check this on every Agent / `spawn_agent` / equivalent call in the dispatch loop.
+
+**Bounded parallel dispatch.** Respect the current harness's active-subagent limit. Queue selected reviewers, dispatch only as many as the harness accepts, and fill freed slots as reviewers complete. Treat active-agent/thread/concurrency-limit spawn errors as backpressure, not reviewer failure: leave the reviewer queued and retry after a slot frees. Record a reviewer as failed only after successful dispatch times out/fails, or when dispatch fails for a non-capacity reason.
+
+Spawn each selected persona reviewer using the subagent template included below. Each persona sub-agent receives:
 
 1. Their persona file content (identity, failure modes, calibration, suppress conditions)
 2. Shared diff-scope rules from the diff-scope reference included below
 3. The JSON output contract from the findings schema included below
 4. PR metadata: title, body, and URL when reviewing a PR (empty string otherwise). Passed in a `<pr-context>` block so reviewers can verify code against stated intent
 5. Review context: intent summary, file list, diff
-6. Run ID and reviewer name for the artifact file path
+6. Run ID and reviewer name for correlation and parent-owned artifact filenames
 7. **For `project-standards` only:** the standards file path list from Stage 3b, wrapped in a `<standards-paths>` block appended to the review context; when present, append `.spec-first/standards/` baseline paths in `<standards-baseline-paths>`
 
-Persona sub-agents are **read-only** with respect to the project: they review and return structured JSON. They do not edit project files or propose refactors. The one permitted write is saving their full analysis to the run-artifact path specified in the output contract under `/tmp/spec-first/spec-code-review/<run-id>/`.
+Persona sub-agents are **read-only** with respect to the project and the filesystem: they review and return structured JSON. They do not edit project files, write `/tmp` artifacts, or propose refactors. Artifact persistence is parent/orchestrator-owned so reviewer capability frontmatter does not need broad `Write`.
 
 Read-only here means **non-mutating**, not "no shell access." Reviewer sub-agents may use non-mutating inspection commands when needed to gather evidence or verify scope, including read-oriented `git` / `gh` usage such as `git diff`, `git show`, `git blame`, `git log`, and `gh pr view`. They must not edit project files, change branches, commit, push, create PRs, or otherwise mutate the checkout or repository state.
 
-Each persona sub-agent writes full JSON (all schema fields) to `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json` and returns compact JSON with merge-tier fields only:
+Each persona sub-agent returns full JSON (all schema fields) to the orchestrator. In non-report-only modes, the orchestrator may persist that exact return to `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json` for detail enrichment and debugging:
 
 ```json
 {
@@ -481,7 +504,11 @@ Each persona sub-agent writes full JSON (all schema fields) to `/tmp/spec-first/
       "severity": "P0",
       "file": "orders_controller.rb",
       "line": 42,
+      "why_it_matters": "Any signed-in user can read another user's orders by pasting the target account ID into the URL. The controller looks up the account and returns its orders without verifying the current user owns it.",
       "confidence": 100,
+      "evidence": [
+        "orders_controller.rb:42 -- account = Account.find(params[:account_id])"
+      ],
       "autofix_class": "gated_auto",
       "owner": "downstream-resolver",
       "requires_verification": true,
@@ -494,19 +521,19 @@ Each persona sub-agent writes full JSON (all schema fields) to `/tmp/spec-first/
 }
 ```
 
-Detail-tier fields (`why_it_matters`, `evidence`) are in the artifact file only. `suggested_fix` is optional in both tiers -- included in compact returns when present so the orchestrator has fix context for auto-apply decisions. If the file write fails, the compact return still provides everything the merge needs.
+Detail-tier fields (`why_it_matters`, `evidence`) come from the reviewer return first. Persisted artifact files are an optional parent-owned cache for downstream detail enrichment; if artifact persistence fails, the in-memory return still provides everything the merge needs.
 
-**Spec-First always-on agents** (spec-agent-native-reviewer, spec-learnings-researcher) are dispatched as standard Agent calls in parallel with the persona agents. Give them the same review context bundle the personas receive: entry mode, any PR metadata gathered in Stage 1, intent summary, review base branch name when known, `BASE:` marker, file list, diff, and `UNTRACKED:` scope notes. Do not invoke them with a generic "review this" prompt. Their output is unstructured and synthesized separately in Stage 6.
+**Spec-First always-on agents** (spec-agent-native-reviewer, spec-learnings-researcher) are dispatched as standard Agent calls through the same bounded scheduler as the persona agents. Give them the same review context bundle the personas receive: entry mode, any PR metadata gathered in Stage 1, intent summary, review base branch name when known, `BASE:` marker, file list, diff, and `UNTRACKED:` scope notes. Do not invoke them with a generic "review this" prompt. Their output is unstructured and synthesized separately in Stage 6.
 
-**Spec-First conditional agents** (spec-schema-drift-detector, spec-deployment-verification-agent) are also dispatched as standard Agent calls when applicable. Pass the same review context bundle plus the applicability reason (for example, which migration files triggered the agent). For spec-schema-drift-detector specifically, pass the resolved review base branch explicitly so it never assumes `main`. Their output is unstructured and must be preserved for Stage 6 synthesis just like the Spec-First always-on agents.
+**Spec-First conditional agents** (spec-schema-drift-detector, spec-deployment-verification-agent) are also dispatched as standard Agent calls through the same bounded scheduler when applicable. Pass the same review context bundle plus the applicability reason (for example, which migration files triggered the agent). For spec-schema-drift-detector specifically, pass the resolved review base branch explicitly so it never assumes `main`. Their output is unstructured and must be preserved for Stage 6 synthesis just like the Spec-First always-on agents.
 
 ### Stage 5: Merge findings
 
-Convert multiple reviewer compact JSON returns into one deduplicated, confidence-gated finding set. The compact returns contain merge-tier fields (title, severity, file, line, confidence, autofix_class, owner, requires_verification, pre_existing) plus the optional suggested_fix. Detail-tier fields (why_it_matters, evidence) are on disk in the per-agent artifact files and are not loaded at this stage.
+Convert multiple reviewer JSON returns into one deduplicated, confidence-gated finding set. The returns contain merge-tier fields (title, severity, file, line, confidence, autofix_class, owner, requires_verification, pre_existing, suggested_fix) plus detail-tier fields (`why_it_matters`, `evidence`). Stage 5 uses merge-tier fields for dedup and keeps detail-tier fields attached for Stage 6; persisted artifact files are a cache, not the source of truth.
 
 `confidence` is one of 5 discrete anchors (`0`, `25`, `50`, `75`, `100`) with behavioral definitions in the findings schema. Synthesis treats anchors as integers; do not coerce to floats.
 
-1. **Validate.** Check each compact return for required top-level and per-finding fields, plus value constraints. Drop malformed returns or findings. Record the drop count.
+1. **Validate.** Check each reviewer return for required top-level and per-finding fields, plus value constraints. Drop malformed returns or findings. Record the drop count.
    - **Top-level required:** reviewer (string), findings (array), residual_risks (array), testing_gaps (array). Drop the entire return if any are missing or wrong type.
    - **Per-finding required:** title, severity, file, line, confidence, autofix_class, owner, requires_verification, pre_existing
    - **Value constraints:**
@@ -516,7 +543,7 @@ Convert multiple reviewer compact JSON returns into one deduplicated, confidence
      - confidence: integer in {0, 25, 50, 75, 100}
      - line: positive integer
      - pre_existing, requires_verification: boolean
-   - Do not validate against the full schema here -- the full schema (including why_it_matters and evidence) applies to the artifact files on disk, not the compact returns.
+   - Validate against the full schema when reviewers return full JSON. If a detail-tier field is malformed but the merge-tier fields are valid, keep the finding only when the missing detail can be safely omitted from the current output mode and record the degradation in Coverage.
 2. **Deduplicate.** Compute fingerprint: `normalize(file) + line_bucket(line, +/-3) + normalize(title)`. When fingerprints match, merge: keep highest severity, keep highest anchor, note which reviewers flagged it. Dedup runs over the full validated set (including anchor 50) so cross-reviewer promotion in step 3 can lift matching anchor-50 findings into the actionable tier.
 3. **Cross-reviewer agreement.** When 2+ independent reviewers flag the same issue (same fingerprint), promote the merged finding by one anchor step: `50 -> 75`, `75 -> 100`, `100 -> 100`. Cross-reviewer corroboration is a stronger signal than any single reviewer's anchor; the promotion routes a previously-soft finding into the actionable tier or strengthens its already-actionable position. Note the agreement in the Reviewer column of the output (e.g., "security, correctness").
 4. **Separate pre-existing.** Pull out findings with `pre_existing: true` into a separate list.
@@ -544,7 +571,7 @@ A finding qualifies for demotion when **all** of these hold:
    - **All** contributing reviewers are `testing` or `maintainability` — if any other persona also flagged this finding, cross-reviewer corroboration is present and the finding stays in primary findings regardless of its severity or advisory status (expand the weak-signal list later only with evidence)
 
 When a finding qualifies, route by mode:
-   - **Interactive and report-only modes:** Move the finding out of the primary findings set. If the contributing reviewer is `testing`, append `<file:line> -- <title>` to `testing_gaps`. If `maintainability`, append the same to `residual_risks`. Record the demotion count for Coverage. The finding does not appear in the Stage 6 findings table. (Use title only -- the compact return omits `why_it_matters`, and report-only mode skips artifact files entirely. Soft-bucket entries are FYI items; readers who want depth can open the per-agent artifact when one exists.)
+   - **Interactive and report-only modes:** Move the finding out of the primary findings set. If the contributing reviewer is `testing`, append `<file:line> -- <title>` to `testing_gaps`. If `maintainability`, append the same to `residual_risks`. Record the demotion count for Coverage. The finding does not appear in the Stage 6 findings table. Soft-bucket entries are FYI items; include detail only when it helps and is already available from the reviewer return.
    - **Headless and autofix modes:** Suppress the finding entirely. Record the suppressed count in Coverage as "mode-aware demotion suppressions" so the user can see what was filtered.
 
 Demotion is intentionally narrow. The conservative scope (testing/maintainability + P2/P3 + advisory) is the starting point; do not expand the rule by guessing which other personas overproduce noise. If real review runs show another persona consistently emitting weak signal, expand with evidence.
@@ -554,7 +581,7 @@ Demotion is intentionally narrow. The conservative scope (testing/maintainabilit
    - in-skill fixer queue: only `safe_auto -> review-fixer`
    - residual actionable queue: unresolved `gated_auto` or `manual` findings whose owner is `downstream-resolver`
    - report-only queue: `advisory` findings plus anything owned by `human` or `release`
-9. **Sort.** Order by severity (P0 first) -> anchor (descending) -> file path -> line number.
+9. **Sort and number.** Order by severity (P0 first) -> anchor (descending) -> file path -> line number, then assign monotonically increasing `#` values across the full primary finding set in that sorted order. Do not restart numbering inside each severity table or autofix/routing bucket. If later sections repeat a finding (for example Residual Actionable Work after `safe_auto` fixes are applied), reuse the same stable `#` so users and downstream workflows can reference findings by `#` after the autofix loop rewrites the report.
 10. **Collect coverage data.** Union residual_risks and testing_gaps across reviewers.
 11. **Preserve Spec-First agent artifacts.** Keep the learnings, agent-native, schema-drift, and deployment-verification outputs alongside the merged finding set. Do not drop unstructured agent output just because it does not match the persona JSON schema.
 
@@ -586,9 +613,9 @@ The best-judgment path skips Stage 5b deliberately. Running validators before fi
    - **headless/autofix:** All survivors of Stage 5.
    - **interactive File-tickets (option C):** All pending findings regardless of recommended action. Option C externalizes every finding as a ticket, so every finding needs validation.
 2. **Apply dispatch budget cap.** If the selected set exceeds 15 findings, validate the highest-severity 15 (P0 first, then P1, then P2, then P3, breaking ties by anchor descending). Drop the remainder and record the over-budget count for the Coverage section. The blunt drop is intentional; a review producing 15+ surviving findings is already in territory where a second wave would not change the user's triage approach.
-3. **Spawn validators in parallel.** One sub-agent per finding, dispatched concurrently using the validator template. Each validator receives:
+3. **Spawn validators with bounded parallelism.** One sub-agent per finding, dispatched independently using the validator template and the same bounded scheduler from Stage 4. Each validator receives:
    - The finding's title, severity, file, line, suggested_fix, original reviewer name, and confidence-first anchor
-   - `why_it_matters` when available — loaded from the per-agent artifact file at `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json`; omit when the file is absent or the artifact write failed. The validator proceeds without it, using the diff and cited code directly.
+   - `why_it_matters` when available — loaded from the reviewer return. If the return has only merge-tier fields because a legacy reviewer/template was used, omit it and record the degradation. The validator proceeds without it, using the diff and cited code directly.
    - The full diff
    - Read-tool access to inspect the cited code, callers, guards, framework defaults, and git blame
 4. **Collect verdicts.** Each validator returns `{ "validated": true | false, "reason": "<one sentence>" }`.
@@ -598,14 +625,14 @@ The best-judgment path skips Stage 5b deliberately. Running validators before fi
 5. **Use mid-tier model for validators.** Same model class (sonnet) the persona reviewers use. Validators are read-only — same constraints as persona reviewers. They may use non-mutating inspection commands (Read, Grep, Glob, git blame, gh).
 6. **Record metrics for Coverage.** Total dispatched, validated true count, validated false count (with reasons), failures, and over-budget drops.
 
-**Why per-finding parallel dispatch (not batched):** Independence is the point. A single batched validator looking at all findings together pattern-matches across them and recreates the persona-bias problem. Per-finding parallel dispatch preserves fresh context per call. Per-file batching is a plausible future optimization for reviews with many findings clustered in few files; not implemented today.
+**Why per-finding bounded dispatch (not batched):** Independence is the point. A single batched validator looking at all findings together pattern-matches across them and recreates the persona-bias problem. Per-finding dispatch preserves fresh context while the scheduler respects harness limits. Per-file batching is a plausible future optimization for reviews with many findings clustered in few files; not implemented today.
 
 ### Stage 6: Synthesize and present
 
 Assemble the final report using **pipe-delimited markdown tables for findings** from the review output template included below. The table format is mandatory for finding rows in interactive mode — do not render findings as freeform text blocks or horizontal-rule-separated prose. Other report sections (Applied Fixes, Learnings, Coverage, etc.) use bullet lists and the `---` separator before the verdict, as shown in the template.
 
 1. **Header.** Scope, intent, mode, reviewer team with per-conditional justifications.
-2. **Findings.** Rendered as pipe-delimited tables grouped by severity (`### P0 -- Critical`, `### P1 -- High`, `### P2 -- Moderate`, `### P3 -- Low`). Each finding row shows `#`, file, issue, reviewer(s), confidence, and synthesized route. Omit empty severity levels. Never render findings as freeform text blocks or numbered lists.
+2. **Findings.** Rendered as pipe-delimited tables grouped by severity (`### P0 -- Critical`, `### P1 -- High`, `### P2 -- Moderate`, `### P3 -- Low`). Each finding row shows `#`, file, issue, reviewer(s), confidence, and synthesized route. Omit empty severity levels. Never render findings as freeform text blocks or numbered lists. Finding numbers come from the stable assignment in Stage 5 -- never re-derive them per severity table.
 3. **Requirements Completeness.** Include only when a plan was found in Stage 2b. For each requirement (R1, R2, etc.) and implementation unit in the plan, report whether corresponding work appears in the diff. Use a simple checklist: met / not addressed / partially addressed. Routing depends on `plan_source`:
    - **`explicit`** (caller-provided or PR body): Flag unaddressed requirements as P1 findings with `autofix_class: manual`, `owner: downstream-resolver`. These enter the residual actionable queue.
    - **`inferred`** (auto-discovered): Flag unaddressed requirements as P3 findings with `autofix_class: advisory`, `owner: human`. These stay in the report only — no autonomous follow-up. An inferred plan match is a hint, not a contract.
@@ -692,11 +719,11 @@ Coverage:
 Review complete
 ```
 
-**Detail enrichment (headless only):** The headless envelope includes `Why:`, `Evidence:`, and `Suggested fix:` lines. After merge (Stage 5), read the per-agent artifact files from `/tmp/spec-first/spec-code-review/{run_id}/` for only the findings that survived dedup and confidence-first gating.
-   - **Field tiers:** `Why:` and `Evidence:` are detail-tier -- load from per-agent artifact files. `Suggested fix:` is merge-tier -- use it directly from the compact return without artifact lookup.
-   - **Artifact matching:** For each surviving finding, look up its detail-tier fields in the artifact files of the contributing reviewers. Match on `file + line_bucket(line, +/-3)` (the same tolerance used in Stage 5 dedup) within each contributing reviewer's artifact. When multiple artifact entries fall within the line bucket, apply `normalize(title)` to both the merged finding's title and each candidate entry's title as a tie-breaker.
+**Detail enrichment (headless only):** The headless envelope includes `Why:`, `Evidence:`, and `Suggested fix:` lines. After merge (Stage 5), use detail-tier fields from the surviving reviewer returns. Parent-owned artifact files under `/tmp/spec-first/spec-code-review/{run_id}/` are an optional cache for debugging and downstream lookup, not the authority for detail enrichment.
+   - **Field tiers:** `Why:` and `Evidence:` are detail-tier -- load from reviewer returns first. `Suggested fix:` is merge-tier -- use it directly from the same reviewer return.
+   - **Artifact matching:** Only when in-memory detail is unavailable and parent-owned artifacts exist, look up detail-tier fields in the artifact files of the contributing reviewers. Match on `file + line_bucket(line, +/-3)` (the same tolerance used in Stage 5 dedup) within each contributing reviewer's artifact. When multiple artifact entries fall within the line bucket, apply `normalize(title)` to both the merged finding's title and each candidate entry's title as a tie-breaker.
    - **Reviewer order:** Try contributing reviewers in the order they appear in the merged finding's reviewer list; use the first match.
-   - **No-match fallback:** If no artifact file contains a match (all writes failed, or the finding was synthesized during merge), omit the `Why:` and `Evidence:` lines for that finding and note the gap in Coverage. The `Suggested fix:` line can still be populated from the compact return since it is merge-tier.
+   - **No-match fallback:** If no reviewer return or parent-owned artifact contains a match, omit the `Why:` and `Evidence:` lines for that finding and note the gap in Coverage. The `Suggested fix:` line can still be populated from merge-tier fields when present.
 
 **Formatting rules:**
 - The `[needs-verification]` marker appears only on findings where `requires_verification: true`.
@@ -761,7 +788,7 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
   The numbered-list text fallback applies when `ToolSearch` explicitly returns no match for the platform's question tool or the tool call errors (including Codex runtime modes where `request_user_input` is unavailable). It does not apply when the agent simply hasn't loaded the tool yet — in that case, load it now (see the verification checklist above). When the fallback applies, present the options as a numbered list and wait for the user's reply — never silently skip the question.
 
 - **Dispatch on selection.** Route by the option letter (A / B / C / D), not by the rendered label string. The option-C label varies by tracker-detection confidence (`File a [TRACKER] ticket per finding without applying fixes` for a named tracker, `File an issue per finding without applying fixes` as the generic fallback, or omitted entirely when no sink is available — see `references/tracker-defer.md`), and options A / B / D have a single canonical label each. The letter is the stable dispatch signal; the canonical labels below are shown for documentation only. A low-confidence run that rendered option C as the generic label routes to the same branch as a high-confidence run that rendered it with the named tracker.
-  - (A) `Review each finding one by one` — load `references/walkthrough.md` and enter the per-finding walk-through loop. The walk-through accumulates Apply decisions in memory; Defer decisions execute inline via `references/tracker-defer.md`; Skip / Acknowledge decisions are recorded as no-action. `Auto-resolve with best judgment on the rest` exits the loop and dispatches one fixer pass on the union of already-accumulated Apply decisions plus remaining undecided findings. When the user works through every finding without invoking that shortcut, dispatch one fixer subagent for the accumulated Apply set at end of loop (Step 3). Emit the unified completion report after dispatch.
+  - (A) `Review each finding one by one` — before presenting the first finding, read `references/walkthrough.md` in full. It is the canonical spec for the per-finding presentation format and option menu. Then enter the per-finding walk-through loop. The walk-through accumulates Apply decisions in memory; Defer decisions execute inline via `references/tracker-defer.md`; Skip / Acknowledge decisions are recorded as no-action. `Auto-resolve with best judgment on the rest` exits the loop and dispatches one fixer pass on the union of already-accumulated Apply decisions plus remaining undecided findings. When the user works through every finding without invoking that shortcut, dispatch one fixer subagent for the accumulated Apply set at end of loop (Step 3). Emit the unified completion report after dispatch.
   - (B) `Auto-resolve with best judgment — apply per-finding fixes the agent can defend, surface the rest` — dispatch the fixer subagent (Step 3) immediately on the full pending action set (`gated_auto` + `manual` + `advisory`). No Stage 5b validator pre-pass. No bulk-preview approval gate. The fixer applies items with concrete `suggested_fix`, no-ops on advisory items, and routes items where the fix cannot be applied cleanly, or where cited evidence no longer matches the code, to a `failed` bucket with a one-line reason.
 
     **After the fixer returns, the order is:**
@@ -865,7 +892,7 @@ If "Push fixes": push the branch with `git push` to update the existing PR.
 
 ## Fallback
 
-If the platform doesn't support parallel sub-agents, run reviewers sequentially. Everything else (stages, output format, merge pipeline) stays the same.
+If the platform doesn't support parallel sub-agents, run reviewers sequentially. If the platform supports sub-agents but caps active concurrency, use the bounded queueing rules in Stage 4 rather than treating cap-related spawn failures as reviewer failures. Everything else (stages, output format, merge pipeline) stays the same.
 
 ---
 

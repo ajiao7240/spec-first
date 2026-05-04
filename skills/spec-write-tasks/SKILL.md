@@ -74,7 +74,7 @@ First classify the input, then follow the matching path.
 
 When the input is `docs/plans/*-plan.md` or another explicit plan file:
 
-1. Read the plan, focusing on `Requirements Trace`, `Scope Boundaries`, `Technical Approach`, `Implementation Units`, `Files`, `Test Scenarios`, `Verification`, and `Deferred to Implementation`.
+1. Read the plan, focusing on `Requirements` (or legacy `Requirements Trace`), `Scope Boundaries`, `Technical Approach`, `Implementation Units`, `Files`, `Test Scenarios`, `Verification`, and `Deferred to Implementation`.
 2. Read the plan frontmatter. Executable task packs require a source plan `spec_id`. If the source plan is a legacy plan without `spec_id`, do not write an executable task pack; return to `spec-plan` to add plan frontmatter, or produce only a draft/transient task pack that is explicitly not valid `spec-work` input.
 3. Decide whether a task pack will actually reduce execution risk or context load.
 4. If task compilation is not worthwhile, explain why and recommend sending the plan directly to `spec-work`.

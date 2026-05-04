@@ -1,6 +1,6 @@
 # Persona Catalog
 
-18 reviewer personas organized into always-on, cross-cutting conditional, and stack-specific conditional layers, plus CE-specific agents. The orchestrator uses this catalog to select which reviewers to spawn for each review.
+18 reviewer personas organized into always-on, cross-cutting conditional, and stack-specific conditional layers, plus Spec-First-specific agents. The orchestrator uses this catalog to select which reviewers to spawn for each review.
 
 ## Always-on (4 personas + 2 Spec-First agents)
 
@@ -26,6 +26,8 @@ Spawned on every review regardless of diff content.
 
 Spawned when the orchestrator identifies relevant patterns in the diff. The orchestrator reads the full diff and reasons about selection -- this is agent judgment, not keyword matching.
 
+**CLI readiness boundary:** Keep `cli-readiness` because this repository ships a CLI/workflow harness. CLI-facing changes must still be reviewed for autonomous-agent usability, parseable output, non-interactive behavior, bounded output, and actionable errors. Do not delete this selector without a separate spec-first product decision and replacement review coverage.
+
 | Persona | Agent | Select when diff touches... |
 |---------|-------|---------------------------|
 | `security` | `spec-security-reviewer` | Auth middleware, public endpoints, user input handling, permission checks, secrets management |
@@ -35,7 +37,7 @@ Spawned when the orchestrator identifies relevant patterns in the diff. The orch
 | `reliability` | `spec-reliability-reviewer` | Error handling, retry logic, circuit breakers, timeouts, background jobs, async handlers, health checks |
 | `adversarial` | `spec-adversarial-reviewer` | Diff has >=50 changed non-test, non-generated, non-lockfile lines, OR touches auth, payments, data mutations, external API integrations, or other high-risk domains |
 | `cli-readiness` | `spec-cli-readiness-reviewer` | CLI command definitions, argument parsing, CLI framework usage, command handler implementations |
-| `previous-comments` | `spec-previous-comments-reviewer` | **PR-only.** Reviewing a PR that has existing review comments or review threads from prior review rounds. Skip entirely when no PR metadata was gathered in Stage 1. |
+| `previous-comments` | `spec-previous-comments-reviewer` | **PR-only AND comment-gated.** Reviewing a PR that has existing review comments or review threads from prior review rounds. Skip entirely when no PR metadata was gathered in Stage 1, or when Stage 1's `hasPriorComments` flag is false. |
 
 ## Stack-Specific Conditional (6 personas)
 
@@ -52,7 +54,7 @@ These reviewers keep their original opinionated lens. They are additive with the
 
 ## Spec-First Conditional Agents (migration-specific)
 
-These CE-native agents provide specialized analysis beyond what the persona agents cover. Spawn them when the diff includes database migrations, schema.rb, or data backfills.
+These Spec-First conditional agents provide specialized analysis beyond what the persona agents cover. Spawn them when the diff includes database migrations, schema.rb, or data backfills.
 
 | Agent | Focus |
 |-------|-------|

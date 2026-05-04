@@ -20,13 +20,14 @@ describe('spec session history contracts', () => {
     expect(text).not.toContain('$spec-sessions [question or topic]');
   });
 
-  test('pre-resolved repo name avoids shell case statements blocked by skill-load permissions', () => {
+  test('pre-resolved branch avoids shell forms blocked by skill-load permissions', () => {
     const text = fs.readFileSync(SESSIONS_SKILL, 'utf8');
     const historian = fs.readFileSync(HISTORIAN_AGENT, 'utf8');
 
-    expect(text).toContain('git rev-parse --path-format=absolute --git-common-dir');
-    expect(text).toContain('[ -n "$common" ]');
-    expect(text).toContain('basename "$(dirname "$common")"');
+    expect(text).toContain('git rev-parse --abbrev-ref HEAD 2>/dev/null || true');
+    expect(text).toContain('plain branch name');
+    expect(text).not.toContain('git rev-parse --path-format=absolute --git-common-dir');
+    expect(text).not.toContain('basename "$(dirname "$common")"');
     expect(text).not.toContain('case "$common" in /*)');
     expect(text).not.toContain('if [ "$common" = ".git" ]');
 

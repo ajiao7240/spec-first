@@ -54,6 +54,34 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('spec-first tasks validate --json');
   });
 
+  test('doc review uses bounded persona dispatch with Codex-safe report-only fallback', () => {
+    const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
+
+    expect(skill).toContain('Dispatch Capability Gate');
+    expect(skill).toContain('Permission is part of the runtime boundary, not a reviewer-selection preference.');
+    expect(skill).toContain('treat that workflow invocation as authorization for this documented persona-reviewer phase');
+    expect(skill).toContain('Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex.');
+    expect(skill).toContain('stricter dispatch authorization boundary');
+    expect(skill).toContain('set `single_agent_report_only_fallback: true`');
+    expect(skill).toContain('Treat the effective mode as report-only');
+    expect(skill).toContain('Do not apply `safe_auto` fixes, append Open Questions, or edit the document.');
+    expect(skill).toContain('single-agent report-only fallback: reviewer dispatch unavailable or not authorized');
+    expect(skill).toContain('Dispatch agents using **bounded parallelism**');
+    expect(skill).toContain('active-agent/thread/concurrency-limit spawn errors as backpressure');
+    expect(skill).not.toContain('Dispatch all agents in **parallel**');
+  });
+
+  test('doc review treats Summary as a framing-level section for chain roots', () => {
+    const synthesis = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'synthesis-and-presentation.md'),
+      'utf8',
+    );
+
+    expect(synthesis).toContain('Problem Frame, Summary, Overview, Why, Motivation, Goals');
+    expect(synthesis).toContain('`Summary` is the new spec-plan / spec-brainstorm template heading');
+    expect(synthesis).toContain('`Overview` is retained as legacy');
+  });
+
   test('doc review keeps multi-round decision-primer detail in a reference', () => {
     const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
     const primer = fs.readFileSync(

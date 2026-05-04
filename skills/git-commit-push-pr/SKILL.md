@@ -76,16 +76,19 @@ Use the current branch and existing PR check from context. If the current branch
 
 **Compare and confirm.** Briefly explain what the new description covers differently from the old one. Ask the user to confirm before applying. If the user provided focus, confirm it was addressed.
 
-If confirmed, apply with `gh pr edit`. Substitute `<TITLE>` verbatim; if it contains `"`, `` ` ``, `$`, or `\`, escape them or switch to single quotes. The body is best written to a temp file first to avoid shell-escaping the whole markdown body:
+If confirmed, apply with `gh pr edit`. Substitute `<TITLE>` verbatim; if it contains `"`, `` ` ``, `$`, or `\`, escape them or switch to single quotes.
+
+The body **must** be written to a temp file and passed via `--body-file <path>`. Never use `--body-file -`, stdin pipes, heredoc-to-stdin, or `--body "$(cat ...)"` — wrappers and stdin handling can silently produce an empty PR body while `gh` still exits 0 and returns a URL.
 
 ```bash
-BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/spec-pr-body.XXXXXX") && cat > "$BODY_FILE" <<'__SPEC_PR_BODY_END__'
-<the composed body markdown goes here, verbatim>
-__SPEC_PR_BODY_END__
-gh pr edit --title "<TITLE>" --body-file "$BODY_FILE"
+BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/spec-pr-body.XXXXXX")
 ```
 
-The quoted sentinel keeps `$VAR`, backticks, and any literal `EOF` inside the body from being expanded.
+Use the platform's file-write tool to write the composed body markdown to `$BODY_FILE` verbatim. Do not embed the body in a shell heredoc, stdin pipe, command substitution, or inline shell string.
+
+```bash
+gh pr edit --title "<TITLE>" --body-file "$BODY_FILE"
+```
 
 Report the PR URL.
 
@@ -106,7 +109,7 @@ gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'
 If both fail, fall back to `main`.
 
 If the current branch is empty (detached HEAD), explain that a branch is required. Ask whether to create a feature branch now.
-- If yes, derive a branch name from the change content, create with `git checkout -b <branch-name>`, and use that for the rest of the workflow.
+- If yes, derive a branch name from the change content, validate it with `git check-ref-format --branch "$BRANCH_NAME"`, create with `git checkout -b "$BRANCH_NAME"`, and use that for the rest of the workflow.
 - If no, stop.
 
 If the working tree is clean (no staged, modified, or untracked files), determine the next action:
@@ -116,7 +119,7 @@ If the working tree is clean (no staged, modified, or untracked files), determin
 
 Decision tree:
 
-- **On default branch, unpushed commits or no upstream** -- ask whether to create a feature branch (pushing default directly is not supported). If yes, create and continue from Step 5. If no, stop.
+- **On default branch, unpushed commits or no upstream** -- pushing default directly is not supported. Ask whether to create a feature branch. If yes, read `references/branch-creation.md`, follow its decision flow, then continue from Step 5. If no, stop.
 - **On default branch, all pushed, no open PR** -- report no feature branch work. Stop.
 - **Feature branch, no upstream** -- skip Step 4, continue from Step 5.
 - **Feature branch, unpushed commits** -- skip Step 4, continue from Step 5.
@@ -141,7 +144,7 @@ If the PR check returned `state: OPEN`, note the URL -- this is the existing-PR 
 
 ### Step 4: Branch, stage, and commit
 
-1. If on the default branch, create a feature branch first with `git checkout -b <branch-name>`.
+1. If on the default branch, branch creation must handle stale local base state, unpushed commits on local `<base>`, and uncommitted checkout collisions. Read `references/branch-creation.md` and follow its decision flow, then continue to step 2 below.
 2. Scan changed files for naturally distinct concerns. If files clearly group into separate logical changes, create separate commits (2-3 max). Group at the file level only (no `git add -p`). When ambiguous, one commit is fine.
 3. Stage and commit each group. Avoid `git add -A` or `git add .`. Follow conventions from Step 2 and use `-F` for the message body:
    ```bash
@@ -185,20 +188,24 @@ When evidence is not possible (docs-only, markdown-only, changelog-only, release
 
 ### Step 7: Create or update the PR
 
-Apply via `gh pr create` (new PR) or `gh pr edit` (existing PR). The body is best written to a temp file first to avoid shell-escaping the whole markdown body. Substitute `<TITLE>` verbatim; if it contains `"`, `` ` ``, `$`, or `\`, escape them or switch to single quotes:
+Apply via `gh pr create` (new PR) or `gh pr edit` (existing PR). Substitute `<TITLE>` verbatim; if it contains `"`, `` ` ``, `$`, or `\`, escape them or switch to single quotes.
+
+The body **must** be written to a temp file and passed via `--body-file <path>`. Never use `--body-file -`, stdin pipes, heredoc-to-stdin, or `--body "$(cat ...)"` — wrappers and stdin handling can silently produce an empty PR body while `gh` still exits 0 and returns a URL.
 
 ```bash
-BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/spec-pr-body.XXXXXX") && cat > "$BODY_FILE" <<'__SPEC_PR_BODY_END__'
-<the composed body markdown goes here, verbatim>
-__SPEC_PR_BODY_END__
+BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/spec-pr-body.XXXXXX")
 ```
 
-The quoted sentinel keeps `$VAR`, backticks, and any literal `EOF` inside the body from being expanded.
+Use the platform's file-write tool to write the composed body markdown to `$BODY_FILE` verbatim. Do not embed the body in a shell heredoc, stdin pipe, command substitution, or inline shell string; arbitrary PR body text can contain delimiter-like or shell-sensitive content.
 
 #### New PR (no existing PR from Step 3)
 
 ```bash
-gh pr create --title "<TITLE>" --body-file "$BODY_FILE"
+test -s "$BODY_FILE" || { echo "ERROR: PR body file is empty"; exit 1; }
+if grep -q '<the composed body markdown goes here, verbatim>' "$BODY_FILE"; then echo "ERROR: PR body placeholder was not replaced"; exit 1; fi
+PR_URL=$(gh pr create --title "<TITLE>" --body-file "$BODY_FILE")
+printf '%s\n' "$PR_URL"
+gh pr view "$PR_URL" --json body --jq '.body' | grep -q '[^[:space:]]' || { echo "ERROR: PR body was empty after create"; exit 1; }
 ```
 
 Keep the title under 72 characters; the writing reference already emits a conventional-commit title in that range.
@@ -214,7 +221,10 @@ The new commits are already on the PR from Step 5. Report the PR URL, then ask w
   3. If confirmed, apply with `gh pr edit`:
 
      ```bash
+     test -s "$BODY_FILE" || { echo "ERROR: PR body file is empty"; exit 1; }
+     if grep -q '<the composed body markdown goes here, verbatim>' "$BODY_FILE"; then echo "ERROR: PR body placeholder was not replaced"; exit 1; fi
      gh pr edit --title "<TITLE>" --body-file "$BODY_FILE"
+     gh pr view --json body --jq '.body' | grep -q '[^[:space:]]' || { echo "ERROR: PR body was empty after edit"; exit 1; }
      ```
 
   Then report the PR URL (Step 8).

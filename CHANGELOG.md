@@ -1,6 +1,19 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-05 01:59:34 leokuang: docs(ce-sync): 完成 U8 新 skill 产品边界 spike，明确 strategy、product-pulse、simplify-code 暂不进入 public skill 面 (user-visible)
+- v1.6.3 2026-05-05 01:59:34 leokuang: docs(ce-sync): 完成 U9 CLI readiness 删除审计，保留 spec-first CLI reviewer 覆盖并将同步历史限制在 ledger/contract 中，清理 runtime-facing CE/上游来源措辞 (user-visible)
+- v1.6.3 2026-05-05 01:46:49 leokuang: docs(spec-standards): 开发前微调 artifact 质量门计划，钉牢 degraded pass 输出、preview reason_code 和 U0/U4 测试边界 (user-visible)
+- v1.6.3 2026-05-05 01:35:04 leokuang: fix(ce-sync): 修复审查发现的 code-review helper 路径、reviewer 写权限、update allowlist、PR 分支/正文安全、task-pack 迁移遗漏和 unit contract 漂移 (user-visible)
+- v1.6.3 2026-05-05 01:14:53 leokuang: docs(spec-standards): 在 artifact 质量门计划中补充 artifact-first、downstream-readable 和不新增 standards pack 目录的边界 (user-visible)
+- v1.6.3 2026-05-05 01:05:31 leokuang: docs(spec-standards): 根据审查收紧 standards artifact 质量门计划的状态模型、confirmation、fallback trust 和 validator CLI 契约 (user-visible)
+- v1.6.3 2026-05-05 00:59:25 leokuang: docs(plan): 新增 CE dispatch-boundary 全量 skill 核实与 Codex runtime 修复计划，覆盖 code-review、plan、ideate、work 与反馈处理边界 (user-visible)
+- v1.6.3 2026-05-05 00:51:33 leokuang: docs(spec-standards): 沉淀 spec-standards 存在价值、反过度设计边界和下一步最小闭环判断 (user-visible)
+- v1.6.3 2026-05-05 00:42:41 leokuang: fix(ce-sync): 语义适配 CE 06a7cee0 workflow 安全修复，补齐 update/setup、brainstorm/plan synthesis、code-review、PR、work 与 doc workflow 契约 (user-visible)
+- v1.6.3 2026-05-05 00:36:39 leokuang: docs(compound): 记录 spec-doc-review 适配 Codex 多 agent dispatch 与受限会话 fallback 的 workflow 边界经验
+- v1.6.3 2026-05-05 00:27:39 leokuang: docs(spec-doc-review): 参考 CE bounded persona dispatch 模式补齐 Codex 多 agent 支持与受限会话 fallback 边界 (user-visible)
+- v1.6.3 2026-05-05 00:13:48 leokuang: docs(owner-role): 修复项目 owner 角色文档中的 Markdown 行尾空格，恢复 diff whitespace 校验
+- v1.6.3 2026-05-05 00:07:28 leokuang: docs(spec-standards): 新增 standards artifact 质量门实施计划，收敛 candidates、preview、writeback safety 与下游消费边界 (user-visible)
 - v1.6.3 2026-05-04 22:55:21 leokuang: fix(init): 按 rules 文本与中文参考重构 coding-guidelines managed block 并同步双宿主入口文档 (user-visible)
 - v1.6.3 2026-05-04 22:32:53 leokuang: docs(audit-p2): 补齐 ideation 产物目录、旧 CRG/ECC 文档生命周期边界，并为 app-audit headless runner 建立独立计划 (user-visible)
 - v1.6.3 2026-05-04 22:26:46 leokuang: docs(ce-sync): 按 doc-review 校准 CE 06a7cee0 同步计划，补齐 implementation ledger 契约、agent 权限精确范围和动态 manifest 真源边界 (user-visible)
