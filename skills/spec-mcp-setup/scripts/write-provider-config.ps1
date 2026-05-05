@@ -119,6 +119,53 @@ function Get-GitNexusRepoNameFromRemoteUrl {
   return (Normalize-GitNexusRepoName -Value $name)
 }
 
+function Invoke-GitConfigValue {
+  param(
+    [string]$RepoRoot,
+    [string[]]$GitArguments
+  )
+  try {
+    $output = & git -C $RepoRoot @GitArguments 2>$null
+    if ($LASTEXITCODE -eq 0 -and $null -ne $output) {
+      return [string](@($output)[0])
+    }
+  } catch {
+  }
+  return ''
+}
+
+function Get-GitRemoteUrl {
+  param([string]$RepoRoot)
+  if ($null -eq (Get-Command git -ErrorAction SilentlyContinue)) {
+    return ''
+  }
+
+  $originUrl = Invoke-GitConfigValue -RepoRoot $RepoRoot -GitArguments @('config', '--get', 'remote.origin.url')
+  if (-not [string]::IsNullOrWhiteSpace($originUrl)) {
+    return $originUrl
+  }
+
+  $currentBranch = Invoke-GitConfigValue -RepoRoot $RepoRoot -GitArguments @('rev-parse', '--abbrev-ref', 'HEAD')
+  if (-not [string]::IsNullOrWhiteSpace($currentBranch) -and $currentBranch -ne 'HEAD') {
+    $branchRemote = Invoke-GitConfigValue -RepoRoot $RepoRoot -GitArguments @('config', '--get', "branch.$currentBranch.remote")
+    if (-not [string]::IsNullOrWhiteSpace($branchRemote)) {
+      $branchRemoteUrl = Invoke-GitConfigValue -RepoRoot $RepoRoot -GitArguments @('config', '--get', "remote.$branchRemote.url")
+      if (-not [string]::IsNullOrWhiteSpace($branchRemoteUrl)) {
+        return $branchRemoteUrl
+      }
+    }
+  }
+
+  try {
+    $remoteNames = @(& git -C $RepoRoot remote 2>$null | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    if ($LASTEXITCODE -eq 0 -and $remoteNames.Count -eq 1) {
+      return (Invoke-GitConfigValue -RepoRoot $RepoRoot -GitArguments @('config', '--get', "remote.$($remoteNames[0]).url"))
+    }
+  } catch {
+  }
+  return ''
+}
+
 function Get-GitNexusRepoNameCandidate {
   param(
     [object]$Object,
@@ -167,6 +214,11 @@ function Get-GitNexusRepoName {
       }
     } catch {
     }
+  }
+
+  $gitRemoteRepoName = Get-GitNexusRepoNameFromRemoteUrl -RemoteUrl (Get-GitRemoteUrl -RepoRoot $RepoRoot)
+  if (-not [string]::IsNullOrWhiteSpace($gitRemoteRepoName)) {
+    return $gitRemoteRepoName
   }
 
   $fallback = Normalize-GitNexusRepoName -Value (Split-Path -Leaf $RepoRoot)

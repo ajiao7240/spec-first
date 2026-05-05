@@ -727,6 +727,101 @@ gitnexus_query_probe_expected_hit() {
   ' "$PROVIDER_CONFIG"
 }
 
+gitnexus_repo_name_from_remote_url_for_diagnostic() {
+  local remote="$1"
+  local name
+  remote="$(printf '%s' "$remote" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  [ -n "$remote" ] || return 0
+  remote="${remote%%#*}"
+  remote="${remote%%\?*}"
+  while [ "${remote%/}" != "$remote" ]; do
+    remote="${remote%/}"
+  done
+  name="${remote##*/}"
+  if [ "$name" = "$remote" ]; then
+    name="${remote##*:}"
+  fi
+  name="${name%.git}"
+  if [[ "$name" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    printf '%s\n' "$name"
+  fi
+}
+
+git_remote_url_for_repo_diagnostic() {
+  local repo_root="$1"
+  local remote_url current_branch branch_remote remote_names remote_count first_remote
+  command -v git >/dev/null 2>&1 || return 0
+
+  remote_url="$(git -C "$repo_root" config --get remote.origin.url 2>/dev/null || true)"
+  if [ -n "$remote_url" ]; then
+    printf '%s\n' "$remote_url"
+    return 0
+  fi
+
+  current_branch="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+  if [ -n "$current_branch" ] && [ "$current_branch" != "HEAD" ]; then
+    branch_remote="$(git -C "$repo_root" config --get "branch.$current_branch.remote" 2>/dev/null || true)"
+    if [ -n "$branch_remote" ]; then
+      remote_url="$(git -C "$repo_root" config --get "remote.$branch_remote.url" 2>/dev/null || true)"
+      if [ -n "$remote_url" ]; then
+        printf '%s\n' "$remote_url"
+        return 0
+      fi
+    fi
+  fi
+
+  remote_names="$(git -C "$repo_root" remote 2>/dev/null || true)"
+  remote_count="$(printf '%s\n' "$remote_names" | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')"
+  if [ "${remote_count:-0}" -eq 1 ]; then
+    first_remote="$(printf '%s\n' "$remote_names" | sed '/^[[:space:]]*$/d' | head -n 1)"
+    remote_url="$(git -C "$repo_root" config --get "remote.$first_remote.url" 2>/dev/null || true)"
+    if [ -n "$remote_url" ]; then
+      printf '%s\n' "$remote_url"
+    fi
+  fi
+}
+
+gitnexus_current_repo_label_for_diagnostic() {
+  local meta_path="$REPO_ROOT/.gitnexus/meta.json"
+  local remote derived
+  if [ -f "$meta_path" ]; then
+    remote="$(jq -r '.remoteUrl // empty' "$meta_path" 2>/dev/null || true)"
+    derived="$(gitnexus_repo_name_from_remote_url_for_diagnostic "$remote")"
+    if [ -n "$derived" ]; then
+      printf '%s\n' "$derived"
+      return 0
+    fi
+  fi
+
+  remote="$(git_remote_url_for_repo_diagnostic "$REPO_ROOT")"
+  derived="$(gitnexus_repo_name_from_remote_url_for_diagnostic "$remote")"
+  if [ -n "$derived" ]; then
+    printf '%s\n' "$derived"
+  fi
+}
+
+gitnexus_query_repo_label_mismatch_failure() {
+  local exit_code="$1"
+  local configured current
+  configured="$(jq -r '.providers.gitnexus.commands.query_probe[6] // empty' "$PROVIDER_CONFIG" 2>/dev/null || true)"
+  current="$(gitnexus_current_repo_label_for_diagnostic)"
+  if [ -n "$configured" ] && [ -n "$current" ] && [ "$configured" != "$current" ]; then
+    jq -n \
+      --arg configured "$configured" \
+      --arg current "$current" \
+      --argjson exit_code "$exit_code" '{
+        failed_phase:"query_probe",
+        failure_class:"provider-projection-stale",
+        reason_code:"gitnexus-repo-label-mismatch",
+        exit_code:$exit_code,
+        recommended_action:"Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from GitNexus metadata or git remote basename, then rerun spec-graph-bootstrap.",
+        diagnostic:("GitNexus query probe used setup-projected repo label `" + $configured + "`, but current repository metadata points to `" + $current + "`.")
+      }'
+    return 0
+  fi
+  return 1
+}
+
 append_query_probe_attempt() {
   local token="$1"
   local selected_from="$2"
@@ -1047,6 +1142,11 @@ write_provider_status() {
 	    ' <<<"$QUERY_PROBE_ATTEMPTS")"
             if [ "$query_probe_candidates_truncated" = "true" ]; then
               QUERY_PROBE_VERIFICATION_REASON="$QUERY_PROBE_VERIFICATION_REASON Only the first $GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT bounded GitNexus query probe candidates were attempted."
+            fi
+            mismatch_failure="$(gitnexus_query_repo_label_mismatch_failure "$RUN_EXIT_CODE" || true)"
+            if [ -n "$mismatch_failure" ]; then
+              failure_info="$mismatch_failure"
+              QUERY_PROBE_VERIFICATION_REASON="$(jq -r '.diagnostic' <<<"$failure_info")"
             fi
           fi
         else

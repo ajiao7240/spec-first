@@ -204,6 +204,40 @@ gitnexus_repo_name_from_remote_url() {
   [ -n "$sanitized" ] && printf '%s\n' "$sanitized"
 }
 
+git_remote_url_for_repo() {
+  local repo_root="$1"
+  local remote_url current_branch branch_remote remote_names remote_count first_remote
+  command -v git >/dev/null 2>&1 || return 0
+
+  remote_url="$(git -C "$repo_root" config --get remote.origin.url 2>/dev/null || true)"
+  if [ -n "$remote_url" ]; then
+    printf '%s\n' "$remote_url"
+    return 0
+  fi
+
+  current_branch="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+  if [ -n "$current_branch" ] && [ "$current_branch" != "HEAD" ]; then
+    branch_remote="$(git -C "$repo_root" config --get "branch.$current_branch.remote" 2>/dev/null || true)"
+    if [ -n "$branch_remote" ]; then
+      remote_url="$(git -C "$repo_root" config --get "remote.$branch_remote.url" 2>/dev/null || true)"
+      if [ -n "$remote_url" ]; then
+        printf '%s\n' "$remote_url"
+        return 0
+      fi
+    fi
+  fi
+
+  remote_names="$(git -C "$repo_root" remote 2>/dev/null || true)"
+  remote_count="$(printf '%s\n' "$remote_names" | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')"
+  if [ "${remote_count:-0}" -eq 1 ]; then
+    first_remote="$(printf '%s\n' "$remote_names" | sed '/^[[:space:]]*$/d' | head -n 1)"
+    remote_url="$(git -C "$repo_root" config --get "remote.$first_remote.url" 2>/dev/null || true)"
+    if [ -n "$remote_url" ]; then
+      printf '%s\n' "$remote_url"
+    fi
+  fi
+}
+
 resolve_gitnexus_repo_name() {
   local repo_root="$1"
   local facts_file="$2"
@@ -233,6 +267,13 @@ resolve_gitnexus_repo_name() {
       printf '%s\n' "$derived"
       return 0
     fi
+  fi
+
+  remote="$(git_remote_url_for_repo "$repo_root")"
+  derived="$(gitnexus_repo_name_from_remote_url "$remote")"
+  if [ -n "$derived" ]; then
+    printf '%s\n' "$derived"
+    return 0
   fi
 
   fallback="$(sanitize_gitnexus_repo_name "$(basename "$repo_root")")"

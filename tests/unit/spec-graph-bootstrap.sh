@@ -648,6 +648,19 @@ assert_eq "query failure degrades with fallback" "degraded-fallback" "$(jq -r '.
 assert_eq "query-unverified provider stays not ready" "query-unverified:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.query_ready)"' <<<"$query_output")"
 assert_eq "query failure keeps graph ready separately" "true:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.graph_ready):\(.query_ready)"' <<<"$query_output")"
 
+STALE_LABEL_REPO="$TMP_DIR/stale-label/Hr360_temp"
+STALE_LABEL_LEDGER="$TMP_DIR/stale-label-home/.codex/spec-first/host-setup.json"
+make_repo "$STALE_LABEL_REPO"
+write_fixture_config "$STALE_LABEL_REPO" "$STALE_LABEL_LEDGER" true
+mkdir -p "$STALE_LABEL_REPO/.gitnexus"
+printf '{"remoteUrl":"https://gitee.com/sunnyrain/hr360.git"}\n' > "$STALE_LABEL_REPO/.gitnexus/meta.json"
+stale_label_output="$(cd "$STALE_LABEL_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_QUERY=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "stale GitNexus repo label degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$stale_label_output")"
+assert_eq "stale GitNexus repo label is structured" "query-unverified:gitnexus-repo-label-mismatch:provider-projection-stale:query_probe:42" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$stale_label_output")"
+assert_contains "stale GitNexus repo label reason names projected label" "Hr360_temp" "$(jq -r '.results[] | select(.provider=="gitnexus") | .query_verification_reason' <<<"$stale_label_output")"
+assert_contains "stale GitNexus repo label reason names current label" "hr360" "$(jq -r '.results[] | select(.provider=="gitnexus") | .query_verification_reason' <<<"$stale_label_output")"
+assert_contains "stale GitNexus repo label recommends setup refresh" "Rerun spec-mcp-setup" "$(jq -r '.results[] | select(.provider=="gitnexus") | .recommended_action' <<<"$stale_label_output")"
+
 FTS_EMPTY_REPO="$TMP_DIR/fts-empty-repo"
 FTS_EMPTY_LEDGER="$TMP_DIR/fts-empty-home/.codex/spec-first/host-setup.json"
 make_repo "$FTS_EMPTY_REPO"

@@ -217,6 +217,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain("bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--force')");
     expect(writeProviderSource).toContain('function Get-GitNexusRepoName');
     expect(writeProviderSource).toContain('function Get-GitNexusRepoNameFromRemoteUrl');
+    expect(writeProviderSource).toContain('function Get-GitRemoteUrl');
+    expect(writeProviderSource).toContain("remote.origin.url");
     expect(writeProviderSource).toContain("Join-Path $RepoRoot '.gitnexus/meta.json'");
     expect(writeProviderSource).toContain("remoteUrl");
     expect(writeProviderSource).toContain("query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', [string]$GitNexusQueryProbePolicy.token, '--repo', $GitNexusRepoName)");
@@ -308,6 +310,9 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('function Get-GitNexusQueryProbeCandidateCount');
     expect(source).toContain('function Test-GitNexusQueryProbeExpectedHit');
     expect(source).toContain('function Invoke-GitNexusQueryProbeCandidate');
+    expect(source).toContain('function Get-GitNexusRepoLabelMismatchFailureInfo');
+    expect(source).toContain('gitnexus-repo-label-mismatch');
+    expect(source).toContain('provider-projection-stale');
     expect(source).toContain('function Test-QueryProbePolicySupported');
     expect(source).toContain('GitNexusQueryProbeCandidateLimit = 5');
     expect(source).toContain('Cannot execute write operations in a read-only database');

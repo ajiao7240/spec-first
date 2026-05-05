@@ -886,6 +886,25 @@ assert "low-signal provider projection emits JSON" jq -e . <<<"$low_signal_proje
 LOW_SIGNAL_PROVIDER_CONFIG="$LOW_SIGNAL_REPO/.spec-first/config/graph-providers.json"
 assert_eq "GitNexus probe skips low-signal and display-only basenames" "DashboardConfigForm:frontend/admin/src/components/DashboardConfigForm.tsx:workflow_named" "$(jq -r '.providers.gitnexus.query_probe_policy | "\(.token):\(.selected_from):\(.candidates[0].reason_code)"' "$LOW_SIGNAL_PROVIDER_CONFIG")"
 
+REMOTE_LABEL_REPO="$TMP_DIR/Hr360_temp"
+make_repo "$REMOTE_LABEL_REPO"
+git -C "$REMOTE_LABEL_REPO" remote add origin "https://gitee.com/sunnyrain/$GITNEXUS_REPO_LABEL.git"
+mkdir -p "$REMOTE_LABEL_REPO/frontend/admin/src/pages"
+printf 'export default function Login() { return null }\n' > "$REMOTE_LABEL_REPO/frontend/admin/src/pages/Login.tsx"
+git -C "$REMOTE_LABEL_REPO" add frontend/admin/src/pages/Login.tsx
+REMOTE_LABEL_FACTS="$TMP_DIR/remote-label-facts.json"
+jq --arg repo_root "$REMOTE_LABEL_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+  | .target.state_write_allowed = true
+' "$LOW_SIGNAL_FACTS" > "$REMOTE_LABEL_FACTS"
+remote_label_projection="$(bash "$SCRIPTS_DIR/write-provider-config.sh" --facts-file "$REMOTE_LABEL_FACTS")"
+assert "remote-label provider projection emits JSON" jq -e . <<<"$remote_label_projection"
+assert "remote-label fixture intentionally has no GitNexus metadata yet" test ! -e "$REMOTE_LABEL_REPO/.gitnexus/meta.json"
+REMOTE_LABEL_PROVIDER_CONFIG="$REMOTE_LABEL_REPO/.spec-first/config/graph-providers.json"
+assert_eq "GitNexus repo label falls back to git remote before directory basename" "$GITNEXUS_REPO_LABEL" "$(jq -r '.providers.gitnexus.commands.query_probe[6]' "$REMOTE_LABEL_PROVIDER_CONFIG")"
+assert_eq "GitNexus repo label remote fallback avoids temp directory basename" "false" "$(jq -r '.providers.gitnexus.commands.query_probe[6] == "Hr360_temp"' "$REMOTE_LABEL_PROVIDER_CONFIG")"
+
 BUSINESS_TOKEN_REPO="$TMP_DIR/business-token-repo"
 make_repo "$BUSINESS_TOKEN_REPO"
 mkdir -p "$BUSINESS_TOKEN_REPO/src/address" "$BUSINESS_TOKEN_REPO/src/admin" "$BUSINESS_TOKEN_REPO/src/ads"

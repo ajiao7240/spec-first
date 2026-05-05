@@ -682,6 +682,114 @@ function Test-GitNexusQueryProbeExpectedHit {
   return $true
 }
 
+function Get-GitNexusRepoNameFromRemoteUrlForDiagnostic {
+  param([string]$RemoteUrl)
+  if ([string]::IsNullOrWhiteSpace($RemoteUrl)) { return '' }
+  $remote = $RemoteUrl.Trim()
+  $remote = ($remote -split '[?#]', 2)[0].TrimEnd([char[]]@('/', '\'))
+  if ([string]::IsNullOrWhiteSpace($remote)) { return '' }
+
+  $name = [System.IO.Path]::GetFileName($remote)
+  if ([string]::IsNullOrWhiteSpace($name) -or $name -eq $remote) {
+    $parts = $remote -split ':'
+    $name = $parts[$parts.Count - 1]
+  }
+  if ($name.EndsWith('.git')) {
+    $name = $name.Substring(0, $name.Length - 4)
+  }
+  if ($name -match '^[A-Za-z0-9._-]+$') {
+    return $name
+  }
+  return ''
+}
+
+function Invoke-GitConfigValueForDiagnostic {
+  param(
+    [string]$RepoRoot,
+    [string[]]$GitArguments
+  )
+  try {
+    $output = & git -C $RepoRoot @GitArguments 2>$null
+    if ($LASTEXITCODE -eq 0 -and $null -ne $output) {
+      return [string](@($output)[0])
+    }
+  } catch {
+  }
+  return ''
+}
+
+function Get-GitRemoteUrlForDiagnostic {
+  param([string]$RepoRoot)
+  if ($null -eq (Get-Command git -ErrorAction SilentlyContinue)) {
+    return ''
+  }
+
+  $originUrl = Invoke-GitConfigValueForDiagnostic -RepoRoot $RepoRoot -GitArguments @('config', '--get', 'remote.origin.url')
+  if (-not [string]::IsNullOrWhiteSpace($originUrl)) {
+    return $originUrl
+  }
+
+  $currentBranch = Invoke-GitConfigValueForDiagnostic -RepoRoot $RepoRoot -GitArguments @('rev-parse', '--abbrev-ref', 'HEAD')
+  if (-not [string]::IsNullOrWhiteSpace($currentBranch) -and $currentBranch -ne 'HEAD') {
+    $branchRemote = Invoke-GitConfigValueForDiagnostic -RepoRoot $RepoRoot -GitArguments @('config', '--get', "branch.$currentBranch.remote")
+    if (-not [string]::IsNullOrWhiteSpace($branchRemote)) {
+      $branchRemoteUrl = Invoke-GitConfigValueForDiagnostic -RepoRoot $RepoRoot -GitArguments @('config', '--get', "remote.$branchRemote.url")
+      if (-not [string]::IsNullOrWhiteSpace($branchRemoteUrl)) {
+        return $branchRemoteUrl
+      }
+    }
+  }
+
+  try {
+    $remoteNames = @(& git -C $RepoRoot remote 2>$null | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    if ($LASTEXITCODE -eq 0 -and $remoteNames.Count -eq 1) {
+      return (Invoke-GitConfigValueForDiagnostic -RepoRoot $RepoRoot -GitArguments @('config', '--get', "remote.$($remoteNames[0]).url"))
+    }
+  } catch {
+  }
+  return ''
+}
+
+function Get-GitNexusCurrentRepoLabelForDiagnostic {
+  param([string]$RepoRoot)
+  $metaPath = Join-Path $RepoRoot '.gitnexus/meta.json'
+  if (Test-Path -LiteralPath $metaPath -PathType Leaf) {
+    try {
+      $meta = Get-Content -Raw -LiteralPath $metaPath | ConvertFrom-Json
+      if ($meta.PSObject.Properties.Name -contains 'remoteUrl') {
+        $metaRepoName = Get-GitNexusRepoNameFromRemoteUrlForDiagnostic -RemoteUrl ([string]$meta.remoteUrl)
+        if (-not [string]::IsNullOrWhiteSpace($metaRepoName)) {
+          return $metaRepoName
+        }
+      }
+    } catch {
+    }
+  }
+
+  return (Get-GitNexusRepoNameFromRemoteUrlForDiagnostic -RemoteUrl (Get-GitRemoteUrlForDiagnostic -RepoRoot $RepoRoot))
+}
+
+function Get-GitNexusRepoLabelMismatchFailureInfo {
+  param(
+    [object]$ProviderConfig,
+    [string]$RepoRoot,
+    [int]$ExitCode
+  )
+  $configured = [string]@($ProviderConfig.providers.gitnexus.commands.query_probe)[6]
+  $current = Get-GitNexusCurrentRepoLabelForDiagnostic -RepoRoot $RepoRoot
+  if (-not [string]::IsNullOrWhiteSpace($configured) -and -not [string]::IsNullOrWhiteSpace($current) -and $configured -ne $current) {
+    return [ordered]@{
+      failed_phase = 'query_probe'
+      failure_class = 'provider-projection-stale'
+      reason_code = 'gitnexus-repo-label-mismatch'
+      exit_code = $ExitCode
+      recommended_action = 'Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from GitNexus metadata or git remote basename, then rerun spec-graph-bootstrap.'
+      diagnostic = "GitNexus query probe used setup-projected repo label '$configured', but current repository metadata points to '$current'."
+    }
+  }
+  return $null
+}
+
 function Get-ProviderFailureInfo {
   param(
     [string]$Provider,
@@ -1033,6 +1141,12 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
             }
             if ($queryProbeCandidatesTruncated) {
               $script:QueryProbeVerificationReason = "$($script:QueryProbeVerificationReason) Only the first $script:GitNexusQueryProbeCandidateLimit bounded GitNexus query probe candidates were attempted."
+            }
+            $lastQueryExitCode = if ($queryProbeAttempts.Count -gt 0) { [int]$queryProbeAttempts[$queryProbeAttempts.Count - 1].exit_code } else { 0 }
+            $mismatchFailureInfo = Get-GitNexusRepoLabelMismatchFailureInfo -ProviderConfig $providerConfig -RepoRoot $repoRoot -ExitCode $lastQueryExitCode
+            if ($null -ne $mismatchFailureInfo) {
+              $failureInfo = $mismatchFailureInfo
+              $script:QueryProbeVerificationReason = [string]$mismatchFailureInfo['diagnostic']
             }
           }
         } else {

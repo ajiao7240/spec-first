@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.6.3 2026-05-05 21:05:10 leokuang: chore(gitnexus): 刷新 AGENTS/CLAUDE 入口文档中的本地 GitNexus 索引统计
+- v1.6.3 2026-05-05 20:56:14 leokuang: fix(graph-bootstrap): 修复 GitNexus repo label 投影时序耦合，setup 支持 git remote 推导并让 bootstrap 输出 stale label 诊断 (user-visible)
 - v1.6.3 2026-05-05 19:24:41 leokuang: test(prompt-mirrors): 将 graph-bootstrap 与 mcp-setup prompt mirror 退役边界同步到 unit contracts，避免测试继续读取已删除 mirror
 - v1.6.3 2026-05-05 19:18:18 leokuang: docs(ecc): 恢复 ECC replacement docs 的 index/worktree 一致性并记录 F1 follow-up (user-visible)
 - v1.6.3 2026-05-05 19:17:00 leokuang: docs(ecc): 修复 ECC 能力包方案审查发现的 G0-G6.5 阶段边界、Claude/Codex 显式入口和 source freshness schema 不一致，并补 30 轮复查闭环 (user-visible)

@@ -282,7 +282,7 @@ These workspace summaries are advisory control-plane evidence only. They do not 
 - Parent workspace target: default to all child repos, preserve child-scoped canonical artifacts, and write only advisory parent workspace summaries. If no child repos exist, return `workspace-no-git-candidates`.
 - Unsupported provider id, command shape, or unsafe query probe policy: return `unsupported-provider-command` before running provider commands.
 - Provider build failure: mark that provider failed, preserve raw logs, and use fallback workflow mode only when fallback capabilities are available.
-- Build/status success with query proof failure: preserve `graph_ready=true` where status verified, keep `query_ready=false`, record limitations and raw logs.
+- Build/status success with query proof failure: preserve `graph_ready=true` where status verified, keep `query_ready=false`, record limitations and raw logs. If GitNexus query fails because the setup-projected `--repo` label differs from `.gitnexus/meta.json` or git remote basename, write `reason_code=gitnexus-repo-label-mismatch` with an action to rerun `spec-mcp-setup` and then `spec-graph-bootstrap`; do not mutate setup-owned `graph-providers.json`.
 - Definitions-only GitNexus evidence: use it only for local symbol/file pointers; do not mark compiled query readiness true.
 
 ## Boundaries
