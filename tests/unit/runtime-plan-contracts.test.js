@@ -122,7 +122,8 @@ describe('runtime plan contracts', () => {
     );
 
     expect(rendered).toContain('Dispatch `.codex/agents/spec-repo-research-analyst.agent.md` with `spawn_agent`');
-    expect(rendered).toContain('fallback: read the profile and apply it inline in the current agent only when `spawn_agent` is unavailable or disallowed');
+    expect(rendered).toContain('fallback: read the profile and apply it inline in the current agent only when `spawn_agent` is unavailable, explicitly disabled, or unsafe');
+    expect(rendered).not.toContain('when `spawn_agent` is unavailable or explicitly disabled');
     expect(rendered).toContain('Task: Scope: technology, architecture, patterns.');
     expect(rendered).not.toContain('Read `.codex/agents/spec-repo-research-analyst.agent.md` and apply that agent profile to');
   });

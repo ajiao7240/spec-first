@@ -78,7 +78,7 @@ function Get-HelperInstallCommand {
     if (Test-CommandExists 'apt-get') { return "sudo apt-get update && sudo apt-get install -y $AptPackage" }
     if (Test-CommandExists 'dnf') { return "sudo dnf upgrade -y $DnfPackage || sudo dnf install -y $DnfPackage" }
     if (Test-CommandExists 'yum') { return "sudo yum update -y $YumPackage || sudo yum install -y $YumPackage" }
-    if (Test-CommandExists 'pacman') { return "sudo pacman -Sy --noconfirm $PacmanPackage" }
+    if (Test-CommandExists 'pacman') { return "sudo pacman -Syu --needed $PacmanPackage" }
     if (Test-CommandExists 'apk') { return "sudo apk update && sudo apk add --upgrade $ApkPackage" }
     return ''
   }
@@ -183,7 +183,7 @@ function Invoke-HelperInstall {
     if (Test-CommandExists 'apt-get') { return ((Invoke-HelperCommand { Invoke-WithOptionalSudo 'apt-get' @('update') }) -and (Invoke-HelperCommand { Invoke-WithOptionalSudo 'apt-get' @('install', '-y', $AptPackage) })) }
     if (Test-CommandExists 'dnf') { return ((Invoke-HelperCommand { Invoke-WithOptionalSudo 'dnf' @('upgrade', '-y', $DnfPackage) }) -or (Invoke-HelperCommand { Invoke-WithOptionalSudo 'dnf' @('install', '-y', $DnfPackage) })) }
     if (Test-CommandExists 'yum') { return ((Invoke-HelperCommand { Invoke-WithOptionalSudo 'yum' @('update', '-y', $YumPackage) }) -or (Invoke-HelperCommand { Invoke-WithOptionalSudo 'yum' @('install', '-y', $YumPackage) })) }
-    if (Test-CommandExists 'pacman') { return (Invoke-HelperCommand { Invoke-WithOptionalSudo 'pacman' @('-Sy', '--noconfirm', $PacmanPackage) }) }
+    if (Test-CommandExists 'pacman') { return (Invoke-HelperCommand { Invoke-WithOptionalSudo 'pacman' @('-Syu', '--needed', '--noconfirm', $PacmanPackage) }) }
     if (Test-CommandExists 'apk') { return ((Invoke-HelperCommand { Invoke-WithOptionalSudo 'apk' @('update') }) -and (Invoke-HelperCommand { Invoke-WithOptionalSudo 'apk' @('add', '--upgrade', $ApkPackage) })) }
     return $false
   }

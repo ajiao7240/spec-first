@@ -46,6 +46,17 @@ assert_contains() {
   fi
 }
 
+assert_not_contains() {
+  local message="$1"
+  local needle="$2"
+  local haystack="$3"
+  if [[ "$haystack" == *"$needle"* ]]; then
+    echo "FAIL: $message" >&2
+    echo "unexpected: $needle" >&2
+    exit 1
+  fi
+}
+
 renderer_fixture='{"sections":[{"title":"Display width","headers":["Name","Role","Next"],"rows":[["abc","中文宽度",""],["长长长","x","run"]]}]}'
 renderer_expected="$(cat <<'EOF'
 Display width:
@@ -208,6 +219,148 @@ assert_eq "check-deps schema v2" "deps.v2" "$(jq -r '.schema_version' <<<"$deps_
 assert_eq "required Unix deps are ready" "true" "$(jq -r '[.dependencies | to_entries[] | select(.value.required == true) | .key] | sort | join(",") == "jq,node,npm,npx,python3,uv,uvx"' <<<"$deps_output")"
 assert_eq "check-deps required_ready true with fake deps" "true" "$(jq -r '.required_ready' <<<"$deps_output")"
 
+MISSING_UV_BIN="$TMP_DIR/missing-uv-bin"
+mkdir -p "$MISSING_UV_BIN"
+ln -s "$(command -v jq)" "$MISSING_UV_BIN/jq"
+ln -s "$(command -v python3)" "$MISSING_UV_BIN/python3"
+ln -s "$(command -v git)" "$MISSING_UV_BIN/git"
+ln -s "$FAKE_BIN/node" "$MISSING_UV_BIN/node"
+ln -s "$FAKE_BIN/npm" "$MISSING_UV_BIN/npm"
+ln -s "$FAKE_BIN/npx" "$MISSING_UV_BIN/npx"
+missing_uv_deps_output="$(PATH="$MISSING_UV_BIN:/usr/bin:/bin:/usr/sbin:/sbin" bash "$SCRIPTS_DIR/check-deps.sh")"
+missing_uv_suggestion="$(jq -r '.dependencies.uv.install_suggestion' <<<"$missing_uv_deps_output")"
+assert_contains "Unix uv suggestion downloads installer to local file" 'curl -LsSf https://astral.sh/uv/install.sh -o "$tmp"' "$missing_uv_suggestion"
+assert_contains "Unix uv suggestion prints explicit review handoff" "Review it, then run: sh" "$missing_uv_suggestion"
+assert_not_contains "Unix uv suggestion avoids interactive pager" 'less "$tmp"' "$missing_uv_suggestion"
+assert_not_contains "Unix uv suggestion avoids pipe-to-sh" "install.sh | sh" "$missing_uv_suggestion"
+
+DNF_DEPS_BIN="$TMP_DIR/dnf-deps-bin"
+mkdir -p "$DNF_DEPS_BIN"
+ln -s "$(command -v jq)" "$DNF_DEPS_BIN/jq"
+ln -s "$(command -v python3)" "$DNF_DEPS_BIN/python3"
+ln -s "$(command -v head)" "$DNF_DEPS_BIN/head"
+ln -s "$(command -v grep)" "$DNF_DEPS_BIN/grep"
+cat > "$DNF_DEPS_BIN/uname" <<'SH'
+#!/bin/bash
+echo "Linux"
+SH
+cat > "$DNF_DEPS_BIN/dnf" <<'SH'
+#!/bin/bash
+exit 0
+SH
+for cmd in node npm npx uv uvx; do
+  cat > "$DNF_DEPS_BIN/$cmd" <<'SH'
+#!/bin/bash
+echo "0.0.0"
+SH
+done
+chmod +x "$DNF_DEPS_BIN/uname" "$DNF_DEPS_BIN/dnf" "$DNF_DEPS_BIN/node" "$DNF_DEPS_BIN/npm" "$DNF_DEPS_BIN/npx" "$DNF_DEPS_BIN/uv" "$DNF_DEPS_BIN/uvx"
+dnf_deps_output="$(PATH="$DNF_DEPS_BIN:/bin" bash "$SCRIPTS_DIR/check-deps.sh")"
+assert_eq "check-deps uses detected dnf for missing git" "sudo dnf install -y git" "$(jq -r '.dependencies.git.install_suggestion' <<<"$dnf_deps_output")"
+
+MISSING_NODE_DNF_BIN="$TMP_DIR/missing-node-dnf-bin"
+mkdir -p "$MISSING_NODE_DNF_BIN"
+ln -s "$(command -v jq)" "$MISSING_NODE_DNF_BIN/jq"
+ln -s "$(command -v python3)" "$MISSING_NODE_DNF_BIN/python3"
+ln -s "$(command -v git)" "$MISSING_NODE_DNF_BIN/git"
+ln -s "$(command -v head)" "$MISSING_NODE_DNF_BIN/head"
+ln -s "$(command -v grep)" "$MISSING_NODE_DNF_BIN/grep"
+cat > "$MISSING_NODE_DNF_BIN/uname" <<'SH'
+#!/bin/bash
+echo "Linux"
+SH
+cat > "$MISSING_NODE_DNF_BIN/dnf" <<'SH'
+#!/bin/bash
+exit 0
+SH
+for cmd in uv uvx; do
+  cat > "$MISSING_NODE_DNF_BIN/$cmd" <<'SH'
+#!/bin/bash
+echo "0.0.0"
+SH
+done
+chmod +x "$MISSING_NODE_DNF_BIN/uname" "$MISSING_NODE_DNF_BIN/dnf" "$MISSING_NODE_DNF_BIN/uv" "$MISSING_NODE_DNF_BIN/uvx"
+missing_node_dnf_output="$(PATH="$MISSING_NODE_DNF_BIN:/bin" bash "$SCRIPTS_DIR/check-deps.sh")"
+assert_eq "check-deps uses detected dnf for missing node" "sudo dnf install -y nodejs" "$(jq -r '.dependencies.node.install_suggestion' <<<"$missing_node_dnf_output")"
+assert_eq "check-deps uses detected dnf for missing npm" "sudo dnf install -y npm" "$(jq -r '.dependencies.npm.install_suggestion' <<<"$missing_node_dnf_output")"
+assert_eq "check-deps uses detected dnf for missing npx" "sudo dnf install -y npm" "$(jq -r '.dependencies.npx.install_suggestion' <<<"$missing_node_dnf_output")"
+assert_not_contains "Linux node suggestion avoids fnm when package manager exists" "fnm.vercel.app/install" "$(jq -r '.dependencies.node.install_suggestion' <<<"$missing_node_dnf_output")"
+
+MISSING_NODE_NO_MANAGER_BIN="$TMP_DIR/missing-node-no-manager-bin"
+mkdir -p "$MISSING_NODE_NO_MANAGER_BIN"
+ln -s "$(command -v jq)" "$MISSING_NODE_NO_MANAGER_BIN/jq"
+ln -s "$(command -v python3)" "$MISSING_NODE_NO_MANAGER_BIN/python3"
+ln -s "$(command -v git)" "$MISSING_NODE_NO_MANAGER_BIN/git"
+ln -s "$(command -v head)" "$MISSING_NODE_NO_MANAGER_BIN/head"
+ln -s "$(command -v grep)" "$MISSING_NODE_NO_MANAGER_BIN/grep"
+cat > "$MISSING_NODE_NO_MANAGER_BIN/uname" <<'SH'
+#!/bin/bash
+echo "Linux"
+SH
+for cmd in uv uvx; do
+  cat > "$MISSING_NODE_NO_MANAGER_BIN/$cmd" <<'SH'
+#!/bin/bash
+echo "0.0.0"
+SH
+done
+chmod +x "$MISSING_NODE_NO_MANAGER_BIN/uname" "$MISSING_NODE_NO_MANAGER_BIN/uv" "$MISSING_NODE_NO_MANAGER_BIN/uvx"
+missing_node_no_manager_output="$(PATH="$MISSING_NODE_NO_MANAGER_BIN:/bin" bash "$SCRIPTS_DIR/check-deps.sh")"
+assert_contains "Linux node fallback downloads fnm installer for review when package manager is absent" "fnm.vercel.app/install" "$(jq -r '.dependencies.node.install_suggestion' <<<"$missing_node_no_manager_output")"
+assert_contains "Linux node fallback prints review handoff" "Review it, then run: bash" "$(jq -r '.dependencies.node.install_suggestion' <<<"$missing_node_no_manager_output")"
+assert_not_contains "Linux node fallback avoids pipe-to-shell" "install | bash" "$(jq -r '.dependencies.node.install_suggestion' <<<"$missing_node_no_manager_output")"
+
+PACMAN_DEPS_BIN="$TMP_DIR/pacman-deps-bin"
+mkdir -p "$PACMAN_DEPS_BIN"
+ln -s "$(command -v jq)" "$PACMAN_DEPS_BIN/jq"
+ln -s "$(command -v python3)" "$PACMAN_DEPS_BIN/python3"
+ln -s "$(command -v git)" "$PACMAN_DEPS_BIN/git"
+ln -s "$(command -v dirname)" "$PACMAN_DEPS_BIN/dirname"
+ln -s "$(command -v head)" "$PACMAN_DEPS_BIN/head"
+ln -s "$(command -v grep)" "$PACMAN_DEPS_BIN/grep"
+cat > "$PACMAN_DEPS_BIN/uname" <<'SH'
+#!/bin/bash
+echo "Linux"
+SH
+cat > "$PACMAN_DEPS_BIN/pacman" <<'SH'
+#!/bin/bash
+exit 0
+SH
+for cmd in uv uvx; do
+  cat > "$PACMAN_DEPS_BIN/$cmd" <<'SH'
+#!/bin/bash
+echo "0.0.0"
+SH
+done
+chmod +x "$PACMAN_DEPS_BIN/uname" "$PACMAN_DEPS_BIN/pacman" "$PACMAN_DEPS_BIN/uv" "$PACMAN_DEPS_BIN/uvx"
+pacman_deps_output="$(PATH="$PACMAN_DEPS_BIN:/bin" bash "$SCRIPTS_DIR/check-deps.sh")"
+assert_eq "check-deps pacman suggestion avoids partial upgrade" "sudo pacman -Syu --needed nodejs" "$(jq -r '.dependencies.node.install_suggestion' <<<"$pacman_deps_output")"
+assert_not_contains "check-deps pacman suggestion does not use -Sy" "pacman -Sy --noconfirm" "$(jq -r '.dependencies.node.install_suggestion' <<<"$pacman_deps_output")"
+pacman_preflight_output="$(PATH="$PACMAN_DEPS_BIN:/bin" HOME="$TMP_DIR/pacman-home" bash "$SCRIPTS_DIR/check-health" --json)"
+assert_eq "check-health pacman suggestion avoids partial upgrade" "sudo pacman -Syu --needed github-cli" "$(jq -r '.tools[] | select(.id == "gh") | .install_command' <<<"$pacman_preflight_output")"
+assert_not_contains "check-health pacman suggestion does not use -Sy" "pacman -Sy --noconfirm" "$(jq -r '[.tools[].install_command, .skills[].install_command] | join("\n")' <<<"$pacman_preflight_output")"
+pacman_helper_output="$(PATH="$PACMAN_DEPS_BIN:/bin" HOME="$TMP_DIR/pacman-helper-home" bash "$SCRIPTS_DIR/install-helpers.sh" --verify-only)"
+assert_eq "install-helpers pacman suggestion avoids partial upgrade" "sudo pacman -Syu --needed github-cli" "$(jq -r '.helper_tools.gh.next_action' <<<"$pacman_helper_output")"
+assert_not_contains "install-helpers pacman suggestion does not use -Sy" "pacman -Sy --noconfirm" "$(jq -r '[.helper_tools[].next_action] | join("\n")' <<<"$pacman_helper_output")"
+
+NO_JQ_DNF_BIN="$TMP_DIR/no-jq-dnf-bin"
+mkdir -p "$NO_JQ_DNF_BIN"
+ln -s "$(command -v grep)" "$NO_JQ_DNF_BIN/grep"
+cat > "$NO_JQ_DNF_BIN/uname" <<'SH'
+#!/bin/bash
+echo "Linux"
+SH
+cat > "$NO_JQ_DNF_BIN/dnf" <<'SH'
+#!/bin/bash
+exit 0
+SH
+chmod +x "$NO_JQ_DNF_BIN/uname" "$NO_JQ_DNF_BIN/dnf"
+set +e
+no_jq_dnf_error="$(PATH="$NO_JQ_DNF_BIN:/bin" bash "$SCRIPTS_DIR/check-deps.sh" 2>&1 >/dev/null)"
+no_jq_dnf_status=$?
+set -e
+assert_eq "check-deps exits when jq is missing" "1" "$no_jq_dnf_status"
+assert_contains "check-deps jq bootstrap suggestion uses detected dnf" "sudo dnf install -y jq" "$no_jq_dnf_error"
+
 WIN_BIN="$TMP_DIR/windows-bin"
 mkdir -p "$WIN_BIN"
 ln -s "$(command -v jq)" "$WIN_BIN/jq"
@@ -234,7 +387,10 @@ SH
 chmod +x "$WIN_BIN/uname" "$WIN_BIN/node" "$WIN_BIN/npm" "$WIN_BIN/npx"
 windows_deps_output="$(PATH="$WIN_BIN:/usr/bin:/bin:/usr/sbin:/sbin" bash "$SCRIPTS_DIR/check-deps.sh")"
 assert_eq "check-deps detects Git Bash Windows" "windows" "$(jq -r '.platform' <<<"$windows_deps_output")"
-assert_contains "Windows uv suggestion uses PowerShell installer" "install.ps1 | iex" "$(jq -r '.dependencies.uv.install_suggestion' <<<"$windows_deps_output")"
+assert_contains "Windows uv suggestion downloads PowerShell installer for review" "Invoke-WebRequest -Uri https://astral.sh/uv/install.ps1 -OutFile" "$(jq -r '.dependencies.uv.install_suggestion' <<<"$windows_deps_output")"
+assert_contains "Windows uv suggestion prints review handoff" "Review it, then run: powershell -NoProfile -ExecutionPolicy ByPass -File" "$(jq -r '.dependencies.uv.install_suggestion' <<<"$windows_deps_output")"
+assert_not_contains "Windows uv suggestion avoids pipe-to-iex" "install.ps1 | iex" "$(jq -r '.dependencies.uv.install_suggestion' <<<"$windows_deps_output")"
+assert_not_contains "Windows uv suggestion avoids GUI editor dependency" "notepad" "$(jq -r '.dependencies.uv.install_suggestion' <<<"$windows_deps_output")"
 
 FAKE_HOME="$TMP_DIR/home"
 mkdir -p "$FAKE_HOME"

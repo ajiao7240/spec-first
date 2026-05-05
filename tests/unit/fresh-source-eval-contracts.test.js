@@ -17,16 +17,16 @@ describe('fresh-source eval checklist contract', () => {
     expect(checklist).toContain('checks the current source files on disk');
     expect(checklist).toContain('not runtime mirrors or definitions cached by the current session');
     expect(checklist).toContain('It must not treat `.claude/`, `.codex/`, or `.agents/skills/` as source.');
-    expect(checklist).toContain('If the current host or developer instructions do not authorize subagents/fresh reviewers, do not bypass that restriction.');
+    expect(checklist).toContain('If the current host lacks a dispatch primitive, the runtime cannot call it, or the user explicitly disabled helper agents, do not fake a fresh reviewer.');
     expect(checklist).toContain('Record `fresh_source_eval: not_run` with the reason.');
     expect(checklist).toContain('Do not claim fresh-source eval passed.');
     expect(checklist).toContain('Do not validate changed skill prose by invoking the same typed skill in the current session');
-    expect(checklist).toContain('Do not use the checklist to require subagent dispatch when the current host policy forbids it.');
+    expect(checklist).toContain('Do not use the checklist to require subagent dispatch when the host lacks a dispatch primitive or the user explicitly disabled helper agents.');
     expect(checklist).toContain('deterministic_vs_semantic_boundary');
 
     for (const entryDoc of [agents, claude]) {
       expect(entryDoc).toContain('docs/contracts/workflows/fresh-source-eval-checklist.md');
-      expect(entryDoc).toContain('如果当前宿主策略不允许 fresh reviewer/subagent，必须记录未执行原因，不能声称通过。');
+      expect(entryDoc).toContain('如果宿主缺少 dispatch primitive、runtime 无法调用，或用户显式禁用 helper agents，必须记录未执行原因，不能声称通过。');
     }
   });
 });

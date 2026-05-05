@@ -60,6 +60,9 @@ describe('spec-standards workflow contract', () => {
     expect(skill).toContain('node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json');
     expect(skill).toContain('trust_level=degraded');
     expect(skill).toContain('validator fail, missing validator result, or `trust_level=degraded` -> degraded/advisory only');
+    expect(skill).toContain('Artifact validation is the completion gate.');
+    expect(skill).toContain('If validator has not returned exit code `0`, do not report a trusted baseline or completed standards baseline');
+    expect(skill).toContain('Do not rewrite contract-bearing headings, tool names, paths, command names, candidate ids, or author names just to clear diagnostics.');
     expect(skill).toContain('`advisory` is not a candidate status');
     expect(skill).toContain('node skills/spec-standards/scripts/prepare-baseline.js --mode <baseline|quick|refresh|deep>');
     expect(skill).toContain('Shared standards do not become project policy on import');

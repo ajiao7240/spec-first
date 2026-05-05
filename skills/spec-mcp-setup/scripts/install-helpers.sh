@@ -84,7 +84,7 @@ linux_package_install_command() {
   elif command -v yum >/dev/null 2>&1; then
     echo "sudo yum update -y $yum_pkg || sudo yum install -y $yum_pkg"
   elif command -v pacman >/dev/null 2>&1; then
-    echo "sudo pacman -Sy --noconfirm $pacman_pkg"
+    echo "sudo pacman -Syu --needed $pacman_pkg"
   elif command -v apk >/dev/null 2>&1; then
     echo "sudo apk update && sudo apk add --upgrade $apk_pkg"
   else
@@ -151,7 +151,7 @@ run_linux_package_install() {
   elif command -v yum >/dev/null 2>&1; then
     run_with_optional_sudo yum update -y "$yum_pkg" || run_with_optional_sudo yum install -y "$yum_pkg"
   elif command -v pacman >/dev/null 2>&1; then
-    run_with_optional_sudo pacman -Sy --noconfirm "$pacman_pkg"
+    run_with_optional_sudo pacman -Syu --needed --noconfirm "$pacman_pkg"
   elif command -v apk >/dev/null 2>&1; then
     run_with_optional_sudo apk update
     run_with_optional_sudo apk add --upgrade "$apk_pkg"

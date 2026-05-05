@@ -49,7 +49,8 @@ describe('spec-ideate host entrypoint contract', () => {
 
     expect(text).toContain('Dispatch Boundary');
     expect(text).toContain('Ideation dispatch is optional and read-only.');
-    expect(text).toContain('Direct invocation of the current host\'s ideation workflow may authorize the documented grounding and ideation sub-agent phases');
+    expect(text).toContain('Direct invocation of the current host\'s ideation workflow authorizes the documented grounding and ideation sub-agent phases when host capability exists');
+    expect(text).toContain('do not ask for a second subagent confirmation');
     expect(text).toContain('keep dispatch bounded to the counts computed in Phase 0.6');
     expect(text).toContain('run grounding and ideation sequentially or inline in the current agent');
     expect(text).toContain('workflow must still produce an ideation artifact when dispatch is unavailable');

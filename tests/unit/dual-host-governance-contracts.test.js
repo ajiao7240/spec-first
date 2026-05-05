@@ -41,8 +41,8 @@ const MCP_SETUP_TOOLS_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/mcp-too
 const MCP_SETUP_VERIFY_SH_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/scripts/verify-tools.sh');
 const MCP_SETUP_VERIFY_PS1_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
 const DOCS_MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-mcp-setup/SKILL.md');
-const DOCS_MCP_SETUP_FLOW_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-mcp-setup/execution-flow.md');
-const DOCS_GRAPH_BOOTSTRAP_SKILL_PATH = path.join(
+const RETIRED_MCP_SETUP_FLOW_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-mcp-setup/execution-flow.md');
+const RETIRED_GRAPH_BOOTSTRAP_PROMPT_MIRROR_PATH = path.join(
   REPO_ROOT,
   'docs/10-prompt/skills/spec-graph-bootstrap/SKILL.md',
 );
@@ -205,8 +205,8 @@ describe('dual-host governance contracts', () => {
   test('mcp setup keeps Serena language selection with the agent and out of interactive CLI flows', () => {
     const mcpSetup = read(MCP_SETUP_SKILL_PATH);
     const mirror = read(DOCS_MCP_SETUP_SKILL_PATH);
-    const flow = read(DOCS_MCP_SETUP_FLOW_PATH);
 
+    expect(fs.existsSync(RETIRED_MCP_SETUP_FLOW_PATH)).toBe(false);
     expect(mcpSetup).toContain('Serena project language selection is semantic and belongs to the LLM');
     expect(mcpSetup).toContain('Do not ask the user to choose a language when the evidence is clear');
     expect(mcpSetup).toContain('use Serena language `typescript`');
@@ -215,8 +215,8 @@ describe('dual-host governance contracts', () => {
     expect(mcpSetup).not.toContain("Serena's own project creation may infer languages");
     expect(mirror).toContain('证据明确时不要询问用户');
     expect(mirror).toContain('reason_code=serena_language_required');
-    expect(flow).toContain('fail fast before Serena interactive language selection');
-    expect(flow).toContain('return serena_language_required');
+    expect(mirror).toContain('脚本不得进入 Serena 交互式语言选择');
+    expect(mirror).toContain('fail-fast');
   });
 
   test('docs-side governance directory keeps only the human-readable contract', () => {
@@ -336,8 +336,6 @@ describe('dual-host governance contracts', () => {
       MCP_SETUP_VERIFY_SH_PATH,
       MCP_SETUP_VERIFY_PS1_PATH,
       DOCS_MCP_SETUP_SKILL_PATH,
-      DOCS_MCP_SETUP_FLOW_PATH,
-      DOCS_GRAPH_BOOTSTRAP_SKILL_PATH,
       GRAPH_BOOTSTRAP_SKILL_PATH,
     ];
 
@@ -389,27 +387,28 @@ describe('dual-host governance contracts', () => {
     expect(readmeZh).toContain('$spec-' + 'graph' + '-bootstrap');
   });
 
-  test('graph bootstrap prompt mirror tracks readiness compiler contract', () => {
-    const mirror = read(DOCS_GRAPH_BOOTSTRAP_SKILL_PATH);
+  test('graph bootstrap source skill owns the readiness compiler contract', () => {
+    const skill = read(GRAPH_BOOTSTRAP_SKILL_PATH);
 
-    expect(mirror).toContain('project graph readiness');
-    expect(mirror).toContain('runtime-capabilities.json');
-    expect(mirror).toContain('provider-artifacts.json');
-    expect(mirror).toContain('host_ledger_pointer');
-    expect(mirror).toContain('provider-status.json');
-    expect(mirror).toContain('graph-facts.json');
-    expect(mirror).toContain('bootstrap-impact-capabilities.json');
-    expect(mirror).toContain('workspace-graph-targets.v1');
-    expect(mirror).toContain('bounded candidate repos');
-    expect(mirror).toContain('GitNexus-first evidence');
-    expect(mirror).toContain('`--all-repos` / `-AllRepos`');
-    expect(mirror).toContain('.spec-first/workspace/graph-bootstrap-summary.json');
-    expect(mirror).toContain('canonical artifacts');
-    expect(mirror).toContain('父级 workspace 无 `--repo` 时默认进入 all-child-repos maintenance action');
-    expect(mirror).toContain('query-unverified');
-    expect(mirror).toContain('unsupported-provider-command');
-    expect(mirror).toContain('## Graph Readiness');
-    expect(mirror).toContain('bounded direct repo reads');
-    expect(mirror).not.toContain('只要 provider setup 仍 ready，重复 `spec-mcp-setup` 不应删除这些 readiness facts');
+    expect(fs.existsSync(RETIRED_GRAPH_BOOTSTRAP_PROMPT_MIRROR_PATH)).toBe(false);
+    expect(skill).toContain('project graph readiness');
+    expect(skill).toContain('runtime-capabilities.json');
+    expect(skill).toContain('provider-artifacts.json');
+    expect(skill).toContain('host_ledger_pointer');
+    expect(skill).toContain('provider-status.json');
+    expect(skill).toContain('graph-facts.json');
+    expect(skill).toContain('bootstrap-impact-capabilities.json');
+    expect(skill).toContain('workspace-graph-targets.v1');
+    expect(skill).toContain('bounded candidate repos');
+    expect(skill).toContain('GitNexus-first evidence');
+    expect(skill).toContain('`--all-repos` / `-AllRepos`');
+    expect(skill).toContain('.spec-first/workspace/graph-bootstrap-summary.json');
+    expect(skill).toContain('canonical artifacts');
+    expect(skill).toContain('When run from a parent workspace without `--repo`');
+    expect(skill).toContain('query-unverified');
+    expect(skill).toContain('unsupported-provider-command');
+    expect(skill).toContain('## Readiness Evidence');
+    expect(skill).toContain('bounded direct repo reads');
+    expect(skill).not.toContain('只要 provider setup 仍 ready，重复 `spec-mcp-setup` 不应删除这些 readiness facts');
   });
 });

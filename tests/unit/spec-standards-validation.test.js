@@ -437,6 +437,30 @@ describe('spec-standards artifact validator', () => {
     }
   });
 
+  test('preview checker accepts localized required section headings', () => {
+    const dir = copyFixture();
+    try {
+      mutatePreview(dir, (preview) => preview
+        .replace('## 1. Summary', '## 摘要')
+        .replace('## 2. Detected Project Mode', '## 项目模式')
+        .replace('## 3. Detected Project Shape', '## 项目形态')
+        .replace('## 4. Artifact Plan', '## 产物计划')
+        .replace('## 5. Evidence Quality', '## 证据质量')
+        .replace('## 6. Glue Capability Map Summary', '## 胶水能力摘要')
+        .replace('## 7. Candidates By Status', '## 候选规范状态')
+        .replace('## 8. Conflicts', '## 冲突')
+        .replace('## 9. Unknowns / Requires User Decision', '## 需要用户决策')
+        .replace('## 10. Downstream Consumption', '## 下游消费摘要')
+        .replace('## 11. Writeback Status', '## 写回状态'));
+
+      const result = runValidator(['--standards-dir', dir, '--json']);
+      expect(result.status).toBe(0);
+      expect(result.json.status).toBe('pass');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('preview must expose conflict and unknown risks', () => {
     const dir = copyFixture();
     try {

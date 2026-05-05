@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'SKILL.md');
-const PROMPT_MIRROR_PATH = path.join(
+const RETIRED_PROMPT_MIRROR_PATH = path.join(
   REPO_ROOT,
   'docs',
   '10-prompt',
@@ -17,8 +17,8 @@ const PROMPT_MIRROR_PATH = path.join(
 describe('spec-graph-bootstrap live MCP probe contract', () => {
   test('keeps CLI readiness separate from session-local MCP evidence', () => {
     const skill = fs.readFileSync(SKILL_PATH, 'utf8');
-    const mirror = fs.readFileSync(PROMPT_MIRROR_PATH, 'utf8');
 
+    expect(fs.existsSync(RETIRED_PROMPT_MIRROR_PATH)).toBe(false);
     expect(skill).toContain('## Live MCP Probe');
     expect(skill).toContain('## Final Response Contract');
     expect(skill).toContain('## Purpose');
@@ -67,33 +67,6 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('Always report the compiled artifacts first, then any session-local live MCP evidence');
     expect(skill).toContain('code-review-graph and bounded direct repo reads');
     expect(skill).toContain('needs a restart or a new session');
-
-    expect(mirror).toContain('bootstrap CLI query probe');
-    expect(mirror).toContain('bounded multi-candidate probe');
-    expect(mirror).toContain('Android 只是平台信号之一');
-    expect(mirror).toContain('`query_probe_attempts[]`');
-    expect(mirror).toContain('`query_probe_candidate_limit=5`');
-    expect(mirror).toContain('`query_probe_candidates_truncated=true`');
-    expect(mirror).toContain('`winning_query_probe_log`');
-    expect(mirror).toContain('第一个 `process-results` attempt');
-    expect(mirror).toContain('不等于 live GitNexus MCP 一定不可用');
-    expect(mirror).toContain('LLM 应在脚本完成后做一次 bounded live MCP probe');
-    expect(mirror).toContain('live MCP probe 只尝试一个具体调用');
-    expect(mirror).toContain('live MCP 成功只作为 session-local evidence');
-    expect(mirror).toContain('标记为 `partial-definitions-only`');
-    expect(mirror).toContain('不证明 BM25/process query surface 健康');
-    expect(mirror).toContain('最终用户可见结果表格必须拆分 compiled CLI readiness 与 session-local MCP evidence');
-    expect(mirror).toContain('`Probe Token`');
-    expect(mirror).toContain('`CLI Evidence`');
-    expect(mirror).toContain('`Live MCP Probe=passed` 不能折叠成 `CLI query_ready=true`');
-    expect(mirror).toContain('summary 必须包含 `run_id`');
-    expect(mirror).toContain('child row 必须包含对应 `parent_run_id`');
-    expect(mirror).toContain('最终回复必须先报告 compiled artifacts，再报告 session-local MCP evidence');
-    expect(mirror).toContain('多仓输出 `run_id`、child 总数、ready/degraded/not-applicable/action-required 计数和逐仓状态');
-    expect(mirror).toContain('不把 compiled `query_ready` 改成 true');
-    expect(mirror).toContain('`reason_code=workspace-graph-targets-no-source`');
-    expect(mirror).toContain('`worktree_status_hash` freshness fingerprint');
-    expect(mirror).toContain('fingerprint 缺失或不匹配时才输出 `dirty-uncertain`');
   });
 
   test('ships review fixtures for trigger, boundary, failure, and expected behavior cases', () => {

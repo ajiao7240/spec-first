@@ -32,7 +32,7 @@ Preferred path:
 
 Fallback path:
 
-- If the current host or developer instructions do not authorize subagents/fresh reviewers, do not bypass that restriction.
+- If the current host lacks a dispatch primitive, the runtime cannot call it, or the user explicitly disabled helper agents, do not fake a fresh reviewer.
 - Run source contract tests and direct source reads.
 - Record `fresh_source_eval: not_run` with the reason. Do not claim fresh-source eval passed.
 
@@ -80,4 +80,4 @@ fresh_source_eval:
 - Do not validate changed skill prose by invoking the same typed skill in the current session; it may still use cached definitions.
 - Do not patch `.claude/`, `.codex/`, or `.agents/skills/` to make the eval pass.
 - Do not claim a fresh-source eval passed when only normal unit tests or current-session reads were executed.
-- Do not use the checklist to require subagent dispatch when the current host policy forbids it.
+- Do not use the checklist to require subagent dispatch when the host lacks a dispatch primitive or the user explicitly disabled helper agents.

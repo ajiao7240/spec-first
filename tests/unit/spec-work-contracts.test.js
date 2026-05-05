@@ -86,6 +86,20 @@ describe('spec-work requirements and shipping policy contract', () => {
     expect(shipping).not.toContain('spec-simplify-code');
     expect(shipping).not.toContain('ce-code-review');
   });
+
+  test('shipping notification includes verification and residual status in the final user response', () => {
+    const shipping = fs.readFileSync(SHIPPING_WORKFLOW_PATH, 'utf8');
+
+    expect(shipping).toContain('Completion Response Contract');
+    expect(shipping).toContain('final user-visible response must be compact but complete');
+    expect(shipping).toContain('Completed: <what changed and the main files or artifact paths>');
+    expect(shipping).toContain('Verification: <commands/checks run with pass/fail/not-run status>');
+    expect(shipping).toContain('Review: <review tier or workflow used, plus residual status>');
+    expect(shipping).toContain('Artifacts: <PR link, plan/task-pack path, evidence, or known-residuals path when applicable>');
+    expect(shipping).toContain('Next action: <only if the user needs to do something now>');
+    expect(shipping).toContain('If a check was not run, say `not run` with the concrete reason.');
+    expect(shipping).toContain('omit `Next action` instead of inventing follow-up work');
+  });
 });
 
 describe('spec-work task-pack identity contract', () => {
@@ -153,5 +167,18 @@ describe('spec-work host entrypoint contract', () => {
     expect(text).not.toContain('/spec:write-tasks');
     expect(text).not.toContain('/spec:spec-write-tasks');
     expect(text).not.toContain('$spec-write-tasks');
+  });
+
+  test('gives users a compact handoff when execution cannot continue safely', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('User-Facing Handoff Contract');
+    expect(text).toContain('do not stop with only "return to spec-plan" or a bare workflow name');
+    expect(text).toContain('Blocking reason: <specific reason execution cannot continue safely>');
+    expect(text).toContain('Recommended entrypoint: <current-host public entrypoint or standalone skill name>');
+    expect(text).toContain('Next action: <copy-ready invocation or short reply phrase>');
+    expect(text).toContain('Context to carry: <plan/task-pack path, failed validation command, stop_if, target_repo gap, or scope evidence when applicable>');
+    expect(text).toContain('something the user can immediately run or approve');
+    expect(text).toContain('do not give a menu of every possible workflow');
   });
 });

@@ -8,16 +8,48 @@ detect_os_without_jq() {
   os="$(uname -s 2>/dev/null || echo "unknown")"
   case "$os" in
     Darwin) echo "macos" ;;
-    Linux) echo "linux" ;;
+    Linux)
+      if grep -qi microsoft /proc/version 2>/dev/null; then
+        echo "wsl"
+      else
+        echo "linux"
+      fi
+      ;;
     MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
     *) echo "unknown" ;;
   esac
 }
 
+linux_package_install_command() {
+  local apt_pkg="$1"
+  local dnf_pkg="$2"
+  local yum_pkg="$3"
+  local pacman_pkg="$4"
+  local apk_pkg="$5"
+
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "sudo apt-get update && sudo apt-get install -y $apt_pkg"
+  elif command -v dnf >/dev/null 2>&1; then
+    echo "sudo dnf install -y $dnf_pkg"
+	  elif command -v yum >/dev/null 2>&1; then
+	    echo "sudo yum install -y $yum_pkg"
+	  elif command -v pacman >/dev/null 2>&1; then
+	    echo "sudo pacman -Syu --needed $pacman_pkg"
+	  elif command -v apk >/dev/null 2>&1; then
+	    echo "sudo apk update && sudo apk add --upgrade $apk_pkg"
+  else
+    echo ""
+  fi
+}
+
 jq_install_suggestion() {
+  local linux_cmd
   case "$(detect_os_without_jq)" in
     macos) echo "brew install jq" ;;
-    linux) echo "sudo apt-get install -y jq" ;;
+    linux|wsl)
+      linux_cmd="$(linux_package_install_command jq jq jq jq jq)"
+      echo "${linux_cmd:-请参考 https://jqlang.github.io/jq/ 安装 jq}"
+      ;;
     windows) echo "winget install jqlang.jq" ;;
     *) echo "请参考 https://jqlang.github.io/jq/ 安装 jq" ;;
   esac
@@ -46,18 +78,33 @@ detect_os() {
 }
 
 install_suggestion_for() {
-  local cmd="$1"
-  local os="$2"
-  case "$cmd:$os" in
-    node:macos|npm:macos|npx:macos) echo "brew install node" ;;
-    node:linux|npm:linux|npx:linux|node:wsl|npm:wsl|npx:wsl) echo "curl -fsSL https://fnm.vercel.app/install | bash && fnm install --lts" ;;
-    node:windows|npm:windows|npx:windows) echo "winget install OpenJS.NodeJS.LTS" ;;
-    uv:windows|uvx:windows) echo "powershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\"" ;;
-    uv:*|uvx:*) echo "curl -LsSf https://astral.sh/uv/install.sh | sh" ;;
+	  local cmd="$1"
+	  local os="$2"
+	  local linux_cmd
+	  local fnm_fallback='tmp=$(mktemp) && curl -fsSL https://fnm.vercel.app/install -o "$tmp" && printf '\''Installer saved to %s\nReview it, then run: bash "%s" && fnm install --lts\n'\'' "$tmp" "$tmp"'
+	  case "$cmd:$os" in
+	    node:macos|npm:macos|npx:macos) echo "brew install node" ;;
+	    node:linux|node:wsl)
+	      linux_cmd="$(linux_package_install_command nodejs nodejs nodejs nodejs nodejs)"
+	      echo "${linux_cmd:-$fnm_fallback}"
+	      ;;
+	    npm:linux|npx:linux|npm:wsl|npx:wsl)
+	      linux_cmd="$(linux_package_install_command npm npm npm npm npm)"
+	      echo "${linux_cmd:-$fnm_fallback}"
+	      ;;
+	    node:windows|npm:windows|npx:windows) echo "winget install OpenJS.NodeJS.LTS" ;;
+    uv:windows|uvx:windows) echo "powershell -NoProfile -ExecutionPolicy ByPass -Command \"\$script = Join-Path \$env:TEMP 'uv-install.ps1'; Invoke-WebRequest -Uri https://astral.sh/uv/install.ps1 -OutFile \$script; Write-Output ('Installer saved to ' + \$script); Write-Output ('Review it, then run: powershell -NoProfile -ExecutionPolicy ByPass -File ' + \$script)\"" ;;
+    uv:*|uvx:*) echo "tmp=\$(mktemp) && curl -LsSf https://astral.sh/uv/install.sh -o \"\$tmp\" && printf 'Installer saved to %s\nReview it, then run: sh \"%s\"\n' \"\$tmp\" \"\$tmp\"" ;;
     python3:macos) echo "brew install python" ;;
-    python3:linux|python3:wsl) echo "sudo apt-get install -y python3" ;;
+    python3:linux|python3:wsl)
+      linux_cmd="$(linux_package_install_command python3 python3 python3 python python3)"
+      echo "${linux_cmd:-Install Python from https://www.python.org/downloads/}"
+      ;;
     git:macos) echo "xcode-select --install or brew install git" ;;
-    git:linux|git:wsl) echo "sudo apt-get install -y git" ;;
+    git:linux|git:wsl)
+      linux_cmd="$(linux_package_install_command git git git git git)"
+      echo "${linux_cmd:-Install git from https://git-scm.com/downloads}"
+      ;;
     git:windows) echo "winget install Git.Git" ;;
     *) echo "" ;;
   esac

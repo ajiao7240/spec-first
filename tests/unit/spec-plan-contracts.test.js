@@ -122,12 +122,14 @@ describe('spec-plan context orientation contract', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
     expect(text).toContain('Planning research agents are read-only.');
-    expect(text).toContain('A direct plan workflow invocation may authorize this documented research phase');
+    expect(text).toContain('A direct plan workflow invocation authorizes this documented research phase when host capability exists');
+    expect(text).toContain('do not ask for a second subagent confirmation');
     expect(text).toContain('including `spawn_agent` where provided');
     expect(text).toContain('Do not downgrade solely because the host is Codex.');
     expect(text).toContain('run the same research sequentially in the current agent');
     expect(text).toContain('applying it inline as an explicit fallback');
     expect(text).toContain('Plan generation must still complete when research dispatch is unavailable');
+    expect(text).toContain('Dispatch these read-only research agents in parallel when available');
     expect(text).toContain('`spec-repo-research-analyst`');
     expect(text).toContain('`spec-learnings-researcher`');
     expect(text).toContain('`spec-best-practices-researcher`');
@@ -139,6 +141,16 @@ describe('spec-plan context orientation contract', () => {
     expect(text).not.toContain('Task spec-framework-docs-researcher');
     expect(text).not.toContain('Task spec-spec-flow-analyzer');
     expect(text).not.toContain('`Task` / `Agent` on Claude Code, or `spawn_agent` on Codex');
+  });
+
+  test('deepening research fallback distinguishes sequential dispatch from inline current-agent fallback', () => {
+    const text = fs.readFileSync(DEEPENING_PATH, 'utf8');
+
+    expect(text).toContain('supports dispatch but not parallel dispatch');
+    expect(text).toContain('run the same selected agents sequentially through the host dispatch primitive');
+    expect(text).toContain('If dispatch is unavailable, explicitly disabled, or unsafe');
+    expect(text).toContain('perform the selected research sequentially in the current agent');
+    expect(text).toContain('dispatch_fallback: inline-current-agent');
   });
 });
 

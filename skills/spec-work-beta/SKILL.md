@@ -112,6 +112,19 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - If execution discovers scope beyond the plan/task pack, stop and return to `spec-plan` or rerun `spec-write-tasks`. Do not expand scope in place.
    - Do not invent human-time phases, multi-day slices, or "this session only" subsets as an oversized-work workaround.
 
+   **User-Facing Handoff Contract**
+
+   When `spec-work-beta` cannot continue safely and must recommend another workflow, task compilation, repo scoping, task-pack regeneration, delegation deactivation, or user clarification, do not stop with only "return to spec-plan" or a bare workflow name. Give the user a compact handoff in the current conversation language:
+
+   ```text
+   Blocking reason: <specific reason execution cannot continue safely>
+   Recommended entrypoint: <current-host public entrypoint or standalone skill name>
+   Next action: <copy-ready invocation or short reply phrase>
+   Context to carry: <plan/task-pack path, failed validation command, stop_if, target_repo gap, delegation gate result, or scope evidence when applicable>
+   ```
+
+   Keep `Context to carry` short and omit it only when there is no artifact, command, or scope fact worth preserving. The next action must be something the user can immediately run or approve; do not give a menu of every possible workflow.
+
 ---
 
 ### Phase 1: Quick Start

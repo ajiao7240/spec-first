@@ -164,7 +164,7 @@ Agent / skill prose 变更不同于普通代码，因为宿主可能在会话启
 
 - 优先验证源码真相源：直接检查 `agents/`、`skills/`、`templates/` 和 `src/cli/`，再补或更新聚焦的 contract/unit tests。
 - 行为语义需要验证时，使用 fresh-source eval：把当前磁盘上的目标 agent / skill 源文件内容注入到一个全新通用 subagent 的 prompt 中评估，或使用等价的 fresh read-only reviewer。
-- fresh-source eval 的可复用 checklist 见 `docs/contracts/workflows/fresh-source-eval-checklist.md`；如果当前宿主策略不允许 fresh reviewer/subagent，必须记录未执行原因，不能声称通过。
+- fresh-source eval 的可复用 checklist 见 `docs/contracts/workflows/fresh-source-eval-checklist.md`；如果宿主缺少 dispatch primitive、runtime 无法调用，或用户显式禁用 helper agents，必须记录未执行原因，不能声称通过。
 - 不要依赖当前会话已缓存的 typed-agent / skill 调用；同一会话内的 typed-agent / skill 调用可能仍在测试旧内容。
 - 不要手改 `.claude/`、`.codex/`、`.agents/skills/` 来“刷新”行为；需要 runtime regeneration 时使用 `spec-first init --claude|--codex`。
 - 脚本类资产不受会话缓存限制：`skills/*/scripts/*`、CLI、parser、adapter 和 contract tests 会读取当前磁盘 source，可按常规方式验证。

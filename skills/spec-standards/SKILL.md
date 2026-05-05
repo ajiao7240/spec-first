@@ -341,6 +341,10 @@ If `standards-plan.json` is missing, validation must fail unless the caller expl
 
 When confirmation evidence or patch safety input is stored outside `.spec-first/standards/`, pass `--confirmations <path>` or `--patch <path>` explicitly. These files are treated as non-LLM-authored attestation inputs; candidate ids inside `standards-candidates.json` must remain unique because downstream references and patch safety use ids as stable keys.
 
+Artifact validation is the completion gate. If validator has not returned exit code `0`, do not report a trusted baseline or completed standards baseline; report the artifacts as generated with validation pending or failed, include the validator command, and surface the blocking `reason_code`.
+
+Editor/IDE diagnostics, markdownlint notices, and cSpell notices are secondary to artifact validation and evidence fidelity. Fix contract-neutral formatting issues when useful, then rerun validator. Do not rewrite contract-bearing headings, tool names, paths, command names, candidate ids, or author names just to clear diagnostics. If a diagnostic conflicts with validator output or faithful evidence, preserve the artifact contract/evidence and report the diagnostic as allowlist/noise work instead of mutating the artifact.
+
 ### Phase 6: Optional Confirmation Handoff
 
 If the user explicitly asks to apply confirmed standards, build `repo-profile.patch.yaml` first. Apply only confirmed items after explicit user confirmation.

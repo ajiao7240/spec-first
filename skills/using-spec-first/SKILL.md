@@ -61,6 +61,16 @@ This mode is read-only. It may inspect lightweight context that is already avail
 
 Output exactly one best next entrypoint, one concrete reason, and one next action. Do not print the full workflow menu.
 
+Use a compact, user-visible shape so the answer is easy to scan:
+
+```text
+推荐入口: <current-host entrypoint>
+理由: <one concrete reason>
+下一步: <one action the user can take now>
+```
+
+In English sessions, use the same three fields as `Recommended entrypoint`, `Reason`, and `Next action`. The next action should be a copy-ready workflow invocation or a short continuation phrase such as "reply `继续` to run it now". Do not start the selected workflow from guide mode unless the user explicitly asks to continue.
+
 High-confidence guide cases may recommend without confirmation after naming the chosen route. Use the Routing Priority and Routing Rules below as the source of truth. Use the exact current-host public entrypoint those rules select. Common high-confidence guide cases include:
 - clear failures, stack traces, or test failures -> debug
 - clear code, PR, diff, requirements, plan, or markdown review requests -> code review or doc review based on the artifact

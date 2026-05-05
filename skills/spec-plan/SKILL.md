@@ -199,11 +199,11 @@ Prepare a concise planning context summary (a paragraph or two) to pass as input
 - If an origin document exists, summarize the problem frame, requirements, and key decisions from that document
 - Otherwise use the feature description directly
 
-Planning research agents are read-only. A direct plan workflow invocation may authorize this documented research phase only when host capability and session policy allow it. Use the active host's authorized agent-dispatch primitive when available (including `spawn_agent` where provided), omit permission-mode overrides, and keep dispatch bounded to the named research agents below. Do not downgrade solely because the host is Codex.
+Planning research agents are read-only. A direct plan workflow invocation authorizes this documented research phase when host capability exists; do not ask for a second subagent confirmation. Use the active host's agent-dispatch primitive when available (including `spawn_agent` where provided), omit permission-mode overrides, and keep dispatch bounded to the named research agents below. Do not downgrade solely because the host is Codex.
 
-If dispatch is unavailable, disallowed, or fails for a non-capacity reason, run the same research sequentially in the current agent by reading the corresponding agent profile and applying it inline as an explicit fallback. Plan generation must still complete when research dispatch is unavailable; dispatch improves latency and context separation, not correctness.
+If dispatch is unavailable, explicitly disabled, or fails for a non-capacity reason, run the same research sequentially in the current agent by reading the corresponding agent profile and applying it inline as an explicit fallback. Plan generation must still complete when research dispatch is unavailable; dispatch improves latency and context separation, not correctness.
 
-Dispatch these read-only research agents in parallel when authorized, or run the explicit sequential/inline fallback:
+Dispatch these read-only research agents in parallel when available, or run the explicit sequential/inline fallback:
 
 - `spec-repo-research-analyst` — Scope: technology, architecture, patterns. Input: `{planning context summary}`.
 - `spec-learnings-researcher` — Input: `{planning context summary}`.
@@ -307,7 +307,7 @@ Announce the decision briefly before continuing. Examples:
 
 #### 1.3 External Research (Conditional)
 
-If Step 1.2 indicates external research is useful, dispatch these read-only agents in parallel when authorized, or run them sequentially/inline in the current agent as the explicit fallback:
+If Step 1.2 indicates external research is useful, dispatch these read-only agents in parallel when available, or run them sequentially/inline in the current agent as the explicit fallback:
 
 - `spec-best-practices-researcher` — Input: `{planning context summary}`.
 - `spec-framework-docs-researcher` — Input: `{planning context summary}`.
@@ -336,7 +336,7 @@ This ensures flow analysis (Phase 1.5) runs and the confidence-first check (Phas
 
 #### 1.5 Flow and Edge-Case Analysis (Conditional)
 
-For **Standard** or **Deep** plans, or when user flow completeness is still unclear, dispatch the read-only flow analyzer when authorized, or run the same analysis sequentially/inline in the current agent as the explicit fallback:
+For **Standard** or **Deep** plans, or when user flow completeness is still unclear, dispatch the read-only flow analyzer when available, or run the same analysis sequentially/inline in the current agent as the explicit fallback:
 
 - `spec-spec-flow-analyzer` — Input: `{planning context summary, research findings}`.
 

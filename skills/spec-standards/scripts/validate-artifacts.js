@@ -620,31 +620,31 @@ function validatePatch(patchIds, candidatesDoc, result) {
 
 function validatePreview(preview, candidatesDoc, inputs, result) {
   const requiredSections = [
-    ['Summary', /(^|\n)#{1,4}\s*(\d+\.\s*)?(Summary|摘要)\b/i],
-    ['Candidates By Status', /(^|\n)#{1,4}\s*(\d+\.\s*)?(Candidates By Status|候选.*状态|按状态.*候选)\b/i],
-    ['Conflicts', /(^|\n)#{1,4}\s*(\d+\.\s*)?(Conflicts|冲突)\b/i],
-    ['Unknowns / Requires User Decision', /(^|\n)#{1,4}\s*(\d+\.\s*)?(Unknowns|Requires User Decision|未知|待决|需要用户决策)\b/i],
-    ['Downstream Consumption', /(^|\n)#{1,4}\s*(\d+\.\s*)?(Downstream Consumption|下游.*消费)\b/i],
-    ['Writeback Status', /(^|\n)#{1,4}\s*(\d+\.\s*)?(Writeback Status|写回.*状态)\b/i],
+    ['Summary', headingPattern('Summary', '摘要')],
+    ['Candidates By Status', headingPattern('Candidates By Status', '候选.*状态', '按状态.*候选')],
+    ['Conflicts', headingPattern('Conflicts', '冲突')],
+    ['Unknowns / Requires User Decision', headingPattern('Unknowns', 'Requires User Decision', '未知', '待决', '需要用户决策')],
+    ['Downstream Consumption', headingPattern('Downstream Consumption', '下游.*消费', '下游.*消费.*摘要')],
+    ['Writeback Status', headingPattern('Writeback Status', '写回.*状态')],
   ];
   const conditionalSections = [];
   if (fs.existsSync(inputs.projectShape)) {
     conditionalSections.push(
-      ['Detected Project Mode', /(^|\n)#{1,4}\s*(\d+\.\s*)?(Detected Project Mode|项目模式)\b/i],
-      ['Detected Project Shape', /(^|\n)#{1,4}\s*(\d+\.\s*)?(Detected Project Shape|项目形态)\b/i],
+      ['Detected Project Mode', headingPattern('Detected Project Mode', '项目模式')],
+      ['Detected Project Shape', headingPattern('Detected Project Shape', '项目形态')],
     );
   }
   if (fs.existsSync(inputs.plan)) {
-    conditionalSections.push(['Artifact Plan', /(^|\n)#{1,4}\s*(\d+\.\s*)?(Artifact Plan|产物计划)\b/i]);
+    conditionalSections.push(['Artifact Plan', headingPattern('Artifact Plan', '产物计划')]);
   }
   const hasCandidateEvidence = (candidatesDoc.candidates || []).some((candidate) => (
     Array.isArray(candidate.evidence) && candidate.evidence.length > 0
   ));
   if (fs.existsSync(path.join(path.dirname(inputs.candidates), 'graph-query-index.json')) || hasCandidateEvidence) {
-    conditionalSections.push(['Evidence Quality', /(^|\n)#{1,4}\s*(\d+\.\s*)?(Evidence Quality|Graph-Backed|证据质量|图谱证据)\b/i]);
+    conditionalSections.push(['Evidence Quality', headingPattern('Evidence Quality', 'Graph-Backed', '证据质量', '图谱证据')]);
   }
   if (fs.existsSync(inputs.glueMap)) {
-    conditionalSections.push(['Glue Capability Map Summary', /(^|\n)#{1,4}\s*(\d+\.\s*)?(Glue Capability Map Summary|Glue.*Summary|胶水.*摘要|能力.*摘要)\b/i]);
+    conditionalSections.push(['Glue Capability Map Summary', headingPattern('Glue Capability Map Summary', 'Glue.*Summary', '胶水.*摘要', '能力.*摘要')]);
   }
 
   for (const [section, pattern] of [...requiredSections, ...conditionalSections]) {
@@ -665,6 +665,10 @@ function validatePreview(preview, candidatesDoc, inputs, result) {
   validatePreviewVisibility(preview, candidatesDoc, counts, 'unknown', 'preview-hides-unknown', result);
   validatePreviewCount(preview, counts, 'conflict', result);
   validatePreviewCount(preview, counts, 'unknown', result);
+}
+
+function headingPattern(...alternatives) {
+  return new RegExp(`(^|\\n)#{1,4}\\s*(\\d+\\.\\s*)?(${alternatives.join('|')})(?=\\s|$|[:：])`, 'iu');
 }
 
 function validatePreviewVisibility(preview, candidatesDoc, counts, status, reasonCode, result) {

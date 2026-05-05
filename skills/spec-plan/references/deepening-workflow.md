@@ -179,7 +179,7 @@ Refer to the echoed absolute path as `<scratch-dir>` throughout the rest of this
 
 ## 5.3.6 Run Targeted Research
 
-Launch the selected agents in parallel using the execution mode chosen above. If the current platform does not support parallel dispatch, run them sequentially instead. Omit the `mode` parameter when dispatching so the user's configured permission settings apply.
+Launch the selected agents in parallel using the execution mode chosen above. If the current platform supports dispatch but not parallel dispatch, run the same selected agents sequentially through the host dispatch primitive. If dispatch is unavailable, explicitly disabled, or unsafe, read the corresponding agent profiles and perform the selected research sequentially in the current agent, marking the deepening report with `dispatch_fallback: inline-current-agent`. Omit the `mode` parameter when dispatching so the user's configured permission settings apply.
 
 Prefer local repo and institutional evidence first. Use external research only when the gap cannot be closed responsibly from repo context or already-cited sources.
 

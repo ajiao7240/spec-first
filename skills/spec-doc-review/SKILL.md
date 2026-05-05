@@ -1,12 +1,12 @@
 ---
 name: spec-doc-review
-description: Review requirements, plan, or task-pack documents using persona reviewers that surface role-specific issues. When reviewer dispatch is available and authorized, run bounded parallel reviewers; when dispatch is unavailable or not authorized, fall back to a single-agent report-only review instead of bypassing host rules.
+description: Review requirements, plan, or task-pack documents using persona reviewers that surface role-specific issues. When reviewer dispatch is available, run bounded parallel reviewers; when dispatch is unavailable, explicitly disabled, or unsafe, fall back to a single-agent report-only review instead of bypassing host boundaries.
 argument-hint: "[mode:headless] [path/to/document.md]"
 ---
 
 # Document Review
 
-Review requirements, plan, or task-pack documents through multi-persona analysis. When the host and current session rules permit reviewer dispatch, dispatch specialized reviewer agents with bounded parallelism, auto-apply `safe_auto` fixes, and route remaining findings through a four-option interaction (per-finding walk-through, Auto-resolve with best judgment, Append-to-Open-Questions, Report-only) for user decision. When reviewer dispatch is unavailable or not authorized, run the single-agent report-only fallback described in Phase 2 so the workflow still returns review findings without violating host rules.
+Review requirements, plan, or task-pack documents through multi-persona analysis. When the host exposes a reviewer dispatch primitive, dispatch specialized reviewer agents with bounded parallelism by default, auto-apply `safe_auto` fixes, and route remaining findings through a four-option interaction (per-finding walk-through, Auto-resolve with best judgment, Append-to-Open-Questions, Report-only) for user decision. When reviewer dispatch is unavailable, explicitly disabled by the user, or unsafe for the current runtime, run the single-agent report-only fallback described in Phase 2 so the workflow still returns review findings without violating host boundaries.
 
 ## Invocation Boundary
 
@@ -136,21 +136,21 @@ Add activated conditional personas:
 
 ### Dispatch Capability Gate
 
-Before dispatching any reviewer, confirm the current host and session rules allow subagent use for this document review. Permission is part of the runtime boundary, not a reviewer-selection preference.
+Before dispatching any reviewer, confirm the current host exposes a dispatch primitive and the selected reviewers are part of this documented document-review phase. Dispatch capability is part of the runtime boundary, not a reviewer-selection preference.
 
+- A direct invocation of the current host's document-review workflow entrypoint authorizes this documented persona-reviewer phase; do not ask for a second "use subagents" confirmation.
 - If the user explicitly requested subagents, parallel agents, delegated review, or persona reviewer dispatch and the host exposes a dispatch primitive, continue with normal bounded multi-persona dispatch.
-- If the user explicitly invoked the current host's document-review workflow entrypoint and the current session rules permit workflow-owned reviewer dispatch, treat that workflow invocation as authorization for this documented persona-reviewer phase; do not require a second "use subagents" phrase.
-- If an active workflow or parent orchestrator explicitly delegated this doc-review workflow and allowed reviewer agents, continue with normal bounded multi-persona dispatch.
-- If the host lacks a dispatch primitive, the current runtime cannot call it, or current instructions require explicit user authorization that has not been given, do not call `Agent`, `Task`, `spawn_agent`, or equivalent dispatch tools.
-- Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex. Honor current session developer instructions if they impose a stricter dispatch authorization boundary.
+- If an active workflow or parent orchestrator explicitly delegated this doc-review workflow, continue with normal bounded multi-persona dispatch.
+- If the user explicitly requests report-only/no-agents mode, the host lacks a dispatch primitive, or the current runtime cannot call it, do not call `Agent`, `Task`, `spawn_agent`, or equivalent dispatch tools.
+- Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex.
 
-When dispatch is not allowed, set `single_agent_report_only_fallback: true` and run a read-only review in the current orchestrator:
+When dispatch is unavailable, explicitly disabled, or unsafe, set `single_agent_report_only_fallback: true` and run a read-only review in the current orchestrator:
 
 - Treat the effective mode as report-only, even if no `mode:report-only` token was provided.
 - Do not apply `safe_auto` fixes, append Open Questions, or edit the document.
 - Use the selected persona list as an inline checklist, preserving the same classification boundaries where possible.
 - Skip the routing question, walk-through, and bulk-preview flow.
-- In Coverage, state `single-agent report-only fallback: reviewer dispatch unavailable or not authorized`.
+- In Coverage, state `single-agent report-only fallback: reviewer dispatch unavailable, explicitly disabled, or unsafe`.
 
 ### Dispatch
 

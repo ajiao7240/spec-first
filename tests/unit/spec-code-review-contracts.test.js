@@ -274,6 +274,9 @@ describe('spec-code-review CE sync contracts', () => {
     expect(text).toContain('active-agent/thread/concurrency-limit spawn errors as backpressure');
     expect(text).toContain('Spawn validators with bounded parallelism');
     expect(text).toContain('bounded queueing rules in Stage 4');
+    expect(text).toContain('supports reviewer dispatch but not parallel sub-agents');
+    expect(text).toContain('dispatch reviewers sequentially through the same Stage 4 scheduler');
+    expect(text).toContain('If the platform has no dispatch primitive, or dispatch is explicitly disabled or unsafe, use the Stage 4 single-agent report-only fallback');
   });
 
   test('code-review leaf reviewers remain read-only while artifacts are parent-owned', () => {
@@ -339,25 +342,26 @@ describe('spec-code-review CE sync contracts', () => {
     expect(skill).toContain('Artifact persistence is parent/orchestrator-owned');
   });
 
-  test('supports single-agent report-only fallback when reviewer dispatch is unavailable', () => {
+  test('supports single-agent report-only fallback when reviewer dispatch is unavailable or unsafe', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
-    expect(text).toContain('When dispatch is unavailable or not authorized, falls back to a single-agent report-only review instead of bypassing host rules.');
+    expect(text).toContain('When dispatch is unavailable, explicitly disabled, or unsafe, falls back to a single-agent report-only review instead of bypassing host boundaries.');
     expect(text).toContain('Dispatch capability gate');
-    expect(text).toContain('Permission is part of the runtime boundary, not a reviewer-selection preference.');
+    expect(text).toContain('Dispatch capability is part of the runtime boundary, not a reviewer-selection preference.');
     expect(text).toContain('current host\'s code-review workflow entrypoint');
-    expect(text).toContain('authorization for this documented reviewer phase');
-    expect(text).toContain('Codex supports reviewer dispatch through `spawn_agent` when host capability and session policy allow it.');
+    expect(text).toContain('authorizes this documented reviewer phase; do not ask for a second "use subagents" confirmation');
+    expect(text).toContain('Codex supports reviewer dispatch through `spawn_agent`.');
     expect(text).toContain('Do not downgrade solely because the host is Codex.');
     expect(text).toContain('Do not call `spawn_agent` solely because a profile exists');
-    expect(text).toContain('workflow\'s documented reviewer phase, host capability, and session policy authorize it');
+    expect(text).toContain('workflow\'s documented reviewer phase and host capability select it');
     expect(text).toContain('set `single_agent_report_only_fallback: true`');
     expect(text).toContain('Treat the effective mode as report-only');
     expect(text).toContain('Do not create `/tmp/spec-first/spec-code-review/<run-id>/` and do not write reviewer artifacts.');
     expect(text).toContain('Skip Stage 5b validator dispatch and all fixer paths.');
-    expect(text).toContain('single-agent report-only fallback: reviewer dispatch unavailable or not authorized');
-    expect(text).toContain('| single-agent report-only fallback | No -- dispatch is unavailable or not authorized | n/a |');
+    expect(text).toContain('single-agent report-only fallback: reviewer dispatch unavailable, explicitly disabled, or unsafe');
+    expect(text).toContain('| single-agent report-only fallback | No -- dispatch is unavailable, explicitly disabled, or unsafe | n/a |');
     expect(text).not.toContain('Codex-specific rule: do not call `spawn_agent` merely because this skill mentions reviewer personas.');
     expect(text).not.toContain('Codex should inline reviewer personas');
+    expect(text).not.toContain('explicit user authorization');
   });
 });

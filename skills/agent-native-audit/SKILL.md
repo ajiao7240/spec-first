@@ -36,7 +36,7 @@ Select option 7 (action parity) to load the full reference material.
 
 ### Step 2: Launch Parallel Sub-Agents
 
-Launch 8 parallel sub-agents only when the host exposes a dispatch primitive and current session policy authorizes helper dispatch. Use the platform's subagent primitive (`Agent` with `subagent_type: Explore` in Claude Code or `spawn_agent` with `agent_type: "explorer"` in Codex), one for each principle. If dispatch is unavailable or not authorized, run the eight principle audits sequentially in the current agent and state that sequential fallback in the report.
+Launch 8 parallel sub-agents when the host exposes a dispatch primitive. Use the platform's subagent primitive (`Agent` with `subagent_type: Explore` in Claude Code or `spawn_agent` with `agent_type: "explorer"` in Codex), one for each principle. If dispatch is unavailable, explicitly disabled, or unsafe, run the eight principle audits sequentially in the current agent and state that sequential fallback in the report.
 
 Sub-agents are read-only explorers. They inspect code and return findings; the orchestrator owns the final scored report. Keep parallelism bounded to these eight principles and do not spawn additional nested agents from leaf audits. Each agent should:
 
@@ -261,7 +261,7 @@ After all agents complete, compile a summary with:
 
 ## Success Criteria
 
-- [ ] All 8 sub-agents complete their audits
+- [ ] All 8 principle audits complete, whether via parallel sub-agents or sequential current-agent fallback
 - [ ] Each principle has a specific numeric score (X/Y format)
 - [ ] Summary table shows all scores and status indicators
 - [ ] Top 10 recommendations are prioritized by impact

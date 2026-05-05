@@ -169,7 +169,6 @@ function rewriteSharedPaths(content) {
     .replace(/\.codex\/skills\//g, '.agents/skills/')
     .replace(/\.claude\/agents\//g, '.codex/agents/')
     .replace(/\.codex\/agents\//g, '.codex/agents/')
-    .replace(/--claude\b/g, '--codex')
     .replace(
       /(spec-first\s+(?:init|clean)\s+--codex\s+#\s*)Claude 运行时/g,
       '$1Codex 运行时',
@@ -208,8 +207,8 @@ function transformCodexContent(content) {
       const summary = args.trim();
       const agentPath = `.codex/agents/${agentName}.agent.md`;
       return summary
-        ? `${prefix}Dispatch \`${agentPath}\` with \`spawn_agent\` when Codex dispatch is authorized; fallback: read the profile and apply it inline in the current agent only when \`spawn_agent\` is unavailable or disallowed. Task: ${summary}`
-        : `${prefix}Dispatch \`${agentPath}\` with \`spawn_agent\` when Codex dispatch is authorized; fallback: read the profile and apply it inline in the current agent only when \`spawn_agent\` is unavailable or disallowed.`;
+        ? `${prefix}Dispatch \`${agentPath}\` with \`spawn_agent\` when Codex dispatch is available; fallback: read the profile and apply it inline in the current agent only when \`spawn_agent\` is unavailable, explicitly disabled, or unsafe. Task: ${summary}`
+        : `${prefix}Dispatch \`${agentPath}\` with \`spawn_agent\` when Codex dispatch is available; fallback: read the profile and apply it inline in the current agent only when \`spawn_agent\` is unavailable, explicitly disabled, or unsafe.`;
     },
   );
 

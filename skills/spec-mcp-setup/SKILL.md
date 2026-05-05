@@ -18,6 +18,79 @@ Project-local config and legacy residue facts do not affect `baseline_ready`. Re
 
 GitNexus `query_probe` must target the GitNexus indexed repo label, not blindly the directory basename. `write-provider-config.*` resolves the label deterministically from explicit setup facts when present, then from `.gitnexus/meta.json` `remoteUrl` basename, and only falls back to the repo directory basename. Its probe token policy should write a bounded, ordered `candidates[]` list of at most 5 source-derived candidates while preserving legacy `token` / `selected_from` fields for compatibility. Candidate ordering is cross-stack: prefer entry/workflow basenames likely to participate in flows, such as main/launch/loading/home/login/router/navigation files, controllers, handlers, services, repositories, forms, tables, pages, dashboards, and Android Activity/ViewModel classes. For controller-heavy repos where class basenames often return definitions-only, setup may extract bounded method-level source tokens from tracked workflow files and prefer flow-like method names such as step/save/add/delete/submit/validate/failure/options before controller class names. Android names are one platform signal, not the default universal front door. Low-signal lifecycle, config, type, schema, constants, display-only, advertisement/guide/dialog/adapter/bean/entity basenames should be demoted until no better source candidate exists.
 
+## Purpose
+
+Prepare a verified, repeatable spec-first harness runtime for Claude Code or Codex without turning setup into a semantic decision engine.
+
+The workflow should leave deterministic facts behind for downstream workflows: host MCP config status, helper tool status, project-local setup facts, graph-provider projections, readiness ledger v2, and explicit next actions. Scripts own detection, installation, config writing, and JSON facts; the LLM owns host routing, Serena language choice, failure interpretation, and workflow handoff judgment.
+
+## When To Use
+
+Use this workflow when the user asks to install, repair, verify, or diagnose spec-first's required runtime surface:
+
+- first-time spec-first setup on Claude Code or Codex;
+- missing or stale required MCP servers;
+- missing helper tools such as `agent-browser`, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, or `ast-grep`;
+- Serena project bootstrap or readiness issues;
+- parent workspace setup across child Git repos;
+- readiness ledger, graph-provider projection, or setup-owned `.spec-first/config/*.json` repair.
+
+## When Not To Use
+
+Do not use this workflow to:
+
+- compile graph readiness itself; hand off to `spec-graph-bootstrap` after setup facts are ready;
+- run GitNexus analyze/status/query or code-review-graph build/status/query provider commands;
+- choose product requirements, implementation plans, review findings, or architecture tradeoffs;
+- install optional live `code-review-graph serve` MCP unless the user explicitly requests that enhancement;
+- delete legacy local files or user-authored host config sections outside explicit uninstall/delete commands;
+- patch generated runtime mirrors under `.claude/`, `.codex/`, or `.agents/skills/`.
+
+## Inputs
+
+Primary inputs are the current host, current working directory, `skills/spec-mcp-setup/mcp-tools.json`, host config files, project git state, and optional user-supplied target arguments:
+
+- `--repo <child>` / `-Repo <child>` to select one child repo from a parent workspace;
+- `--all-repos` / `-AllRepos` to explicitly process every child repo from a parent workspace;
+- `--serena-language <language>` / `-SerenaLanguage <language>` for a selected repo;
+- `--serena-language-for <child>=<language>[,<language>]` / `-SerenaLanguageFor` for parent workspace batch setup;
+- host override env vars such as `MCP_SETUP_HOST`, `MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE`, and `MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE` for deterministic tests or unusual host layouts.
+
+## Workflow
+
+1. Resolve the project target with `resolve-project-target.*`; in a parent workspace, default to all child repos and keep parent writes advisory-only.
+2. Run project preflight with `check-health`; bootstrap project-local config only through `bootstrap-project-config.*` with explicit bounded flags.
+3. Run dependency checks with `check-deps.*`; missing installer suggestions must be review-first, current-platform aware, and must not pipe remote scripts directly into an interpreter. Linux/WSL suggestions should prefer the package manager actually available on the host.
+4. Install or verify required helper tooling with `install-helpers.*`; `--verify-only` remains read-only.
+5. Warm required MCP/provider packages and write host MCP config only for tools whose registry entry requires host config.
+6. Bootstrap Serena non-interactively with LLM-selected languages, or fail with `serena_language_required` when evidence is missing.
+7. Write readiness ledger v2 with `verify-tools.*` and setup-owned project facts with `write-provider-config.*`.
+8. Report the full grouped status and hand off to `spec-graph-bootstrap` when graph readiness is still pending, or to `spec-standards` when graph readiness is already ready.
+
+## Outputs
+
+Setup may write these deterministic artifacts:
+
+- host readiness ledger v2 at the host marker path reported by `detect-host.*`;
+- child-local `.spec-first/config/graph-providers.json`;
+- child-local `.spec-first/config/runtime-capabilities.json`;
+- child-local `.spec-first/config/provider-artifacts.json`;
+- project-local `.spec-first/config.local.example.yaml`, `.spec-first/config.local.yaml`, and `.gitignore` entries when explicitly bootstrapped;
+- `.serena/project.yml` and the configured Serena ready marker for selected child repos;
+- parent advisory summaries under `.spec-first/workspace/` when running all-repos modes.
+
+The assistant's final response must restate readiness from ledger v2 instead of relying only on command output.
+
+## Failure Modes
+
+- `missing_dependency`: a required package manager, runtime, or CLI dependency is missing; report the install suggestion and stop before pretending setup succeeded.
+- `serena_language_required`: first-time Serena bootstrap lacks explicit language evidence; the LLM should inspect project files and rerun with selected supported languages.
+- `workspace-target-required` / `repo-target-*`: repo-local writes are blocked until a valid child Git repo is selected or all-repos mode is used.
+- `precedence-blocked`: a higher-precedence Codex config contains a mismatched MCP section; report the blocking path instead of overwriting it.
+- `configure_failed` / `warmup_failed`: capture stage, exit code, bounded diagnostic summary, and next action.
+- `skipped-no-git-repo`: provider projections are not written outside a Git repo.
+- Permission or credential failures should record the failed stage and next action; do not invent destructive escalation or silently patch generated runtime mirrors.
+
 ## Runtime Baseline
 
 `skills/spec-mcp-setup/mcp-tools.json` is the only machine registry for MCP servers and graph providers. Schema version is `4`. Package/version specs for every MCP and graph-provider command are sourced from this file; setup projections such as `.spec-first/config/graph-providers.json` must derive from it and must not become a second version registry.

@@ -1,25 +1,27 @@
 'use strict';
 
 const RUNTIME_PATH_PATTERN = '(?:\\.claude(?:/|\\b)|\\.codex(?:/|\\b)|\\.agents/skills(?:/|\\b))';
-const RUNTIME_WRITE_VERB_PATTERN = '(?:\\b(?:modify|write|edit|patch|overwrite|fix|update|change|repair)\\b|(?:修改|编辑|覆盖|修复|更新|手改|写入|改动|直接改))';
+const EN_RUNTIME_WRITE_VERB_PATTERN = '(?:^|[\\s`"(\\[])(?:modify|write|edit|patch|overwrite|fix|update|change|repair)\\b(?![-\\w])';
+const ZH_RUNTIME_WRITE_VERB_PATTERN = '(?:修改|编辑|覆盖|修复|更新|手改|写入|改动|直接改)';
+const RUNTIME_WRITE_VERB_PATTERN = `(?:${EN_RUNTIME_WRITE_VERB_PATTERN}|${ZH_RUNTIME_WRITE_VERB_PATTERN})`;
 
 const DANGEROUS_PATTERNS = [
+	  {
+	    code: 'REMOTE_SCRIPT_PIPE',
+	    severity: 'P0',
+	    category: 'security',
+	    regex: /(?:\b(?:curl|wget)\b[^\n|]*\|\s*(?:sudo\s+)?(?:bash|sh)\b|\b(?:irm|iwr|Invoke-RestMethod|Invoke-WebRequest)\b[^\n|]*\|\s*(?:iex|Invoke-Expression)\b)/i,
+	    title: 'Remote script pipe execution',
+	    recommendation: 'Require explicit human confirmation and avoid piping remote content directly into a shell.',
+	  },
   {
-    code: 'REMOTE_SCRIPT_PIPE',
-    severity: 'P0',
-    category: 'security',
-    regex: /\b(?:curl|wget)\b[^\n|]*\|\s*(?:sudo\s+)?(?:bash|sh)\b/i,
-    title: 'Remote script pipe execution',
-    recommendation: 'Require explicit human confirmation and avoid piping remote content directly into a shell.',
-  },
-  {
-    code: 'SECRET_READ',
-    severity: 'P1',
-    category: 'security',
-    regex: /(?:\.ssh\b|id_rsa\b|\.env\b|wallet|browser profile|Google\/Chrome|Login Data)/i,
-    title: 'Potential secret or credential access',
-    recommendation: 'Do not read credentials, browser profiles, wallet data, or environment secrets during skill execution.',
-  },
+	    code: 'SECRET_READ',
+	    severity: 'P1',
+	    category: 'security',
+	    regex: /(?:\.ssh\b|id_rsa\b|(?:^|[\s"'`\/\\=])\.env(?:\b|[.*_-])|wallet|browser profile|Google\/Chrome|Login Data)/i,
+	    title: 'Potential secret or credential access',
+	    recommendation: 'Do not read credentials, browser profiles, wallet data, or environment secrets during skill execution.',
+	  },
   {
     code: 'GENERATED_RUNTIME_WRITE',
     severity: 'P0',
@@ -75,6 +77,7 @@ const PROHIBITION_HINTS = [
   /\bnever\b/i,
   /\bavoid\b/i,
   /\bmust not\b/i,
+  /\bwill not\b/i,
   /\bforbid/i,
   /禁止/,
   /不要/,

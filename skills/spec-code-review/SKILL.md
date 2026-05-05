@@ -6,7 +6,7 @@ argument-hint: "[blank to review current branch, or provide PR link]"
 
 # Code Review
 
-Reviews code changes using dynamically selected reviewer personas. When the host and current session rules permit reviewer dispatch, spawns parallel sub-agents that return structured JSON, then merges and deduplicates findings into a single report. When dispatch is unavailable or not authorized, falls back to a single-agent report-only review instead of bypassing host rules.
+Reviews code changes using dynamically selected reviewer personas. When the host exposes a reviewer dispatch primitive, spawns parallel sub-agents by default that return structured JSON, then merges and deduplicates findings into a single report. When dispatch is unavailable, explicitly disabled, or unsafe, falls back to a single-agent report-only review instead of bypassing host boundaries.
 
 ## When to Use
 
@@ -178,7 +178,7 @@ Routing rules:
 
 When dispatch is available, every full multi-persona review spawns all 4 always-on personas plus the 2 Spec-First always-on agents, then adds whichever cross-cutting and stack-specific conditionals fit the diff. The model naturally right-sizes: a small config change triggers 0 conditionals = 6 reviewers. A Rails auth feature might trigger security + reliability + kieran-rails + dhh-rails = 10 reviewers.
 
-If dispatch is unavailable or current host/developer instructions do not authorize subagent use for this request, run the single-agent report-only fallback described in Stage 4. Do not silently skip review and do not work around the restriction by invoking hidden helpers or external CLIs as pseudo-agents.
+If dispatch is unavailable, explicitly disabled by the user, or unsafe for the selected review mode, run the single-agent report-only fallback described in Stage 4. Do not silently skip review and do not work around the boundary by invoking hidden helpers or external CLIs as pseudo-agents.
 
 ## Protected Artifacts
 
@@ -432,22 +432,22 @@ Pass the resulting path list to the `project-standards` persona inside a `<stand
 
 ### Dispatch capability gate
 
-Before creating a run ID or dispatching any reviewer, confirm the current host and session rules allow subagent use for this review. Permission is part of the runtime boundary, not a reviewer-selection preference.
+Before creating a run ID or dispatching any reviewer, confirm the current host exposes a dispatch primitive and the selected reviewers are part of this documented code-review phase. Dispatch capability is part of the runtime boundary, not a reviewer-selection preference.
 
+- A direct invocation of the current host's code-review workflow entrypoint authorizes this documented reviewer phase; do not ask for a second "use subagents" confirmation.
 - If the user explicitly requested subagents, parallel agents, or delegated review and the host exposes a dispatch primitive, continue with normal multi-persona dispatch.
-- If the user explicitly invoked the current host's code-review workflow entrypoint and the current session rules permit workflow-owned reviewer dispatch, treat that workflow invocation as authorization for this documented reviewer phase; do not require a second "use subagents" phrase.
-- If the active workflow or parent orchestrator explicitly delegated this code-review workflow and allowed reviewer agents, continue with normal multi-persona dispatch.
-- If the host lacks a dispatch primitive, the current runtime cannot call it, or current instructions require explicit user authorization that has not been given, do not call `Agent`, `Task`, `spawn_agent`, or equivalent dispatch tools.
-- Codex supports reviewer dispatch through `spawn_agent` when host capability and session policy allow it. Do not downgrade solely because the host is Codex. Do not call `spawn_agent` solely because a profile exists; call it only when the workflow's documented reviewer phase, host capability, and session policy authorize it. Honor current session developer instructions if they impose a stricter dispatch authorization boundary.
+- If the active workflow or parent orchestrator explicitly delegated this code-review workflow, continue with normal multi-persona dispatch.
+- If the user explicitly requests report-only/no-agents mode, the host lacks a dispatch primitive, or the current runtime cannot call it, do not call `Agent`, `Task`, `spawn_agent`, or equivalent dispatch tools.
+- Codex supports reviewer dispatch through `spawn_agent`. Do not downgrade solely because the host is Codex. Do not call `spawn_agent` solely because a profile exists; call it only when the workflow's documented reviewer phase and host capability select it.
 
-When dispatch is not allowed, set `single_agent_report_only_fallback: true` and run the rest of the review in read-only form:
+When dispatch is unavailable, explicitly disabled, or unsafe, set `single_agent_report_only_fallback: true` and run the rest of the review in read-only form:
 
 - Treat the effective mode as report-only, even if no `mode:report-only` token was provided.
-- If the user requested `mode:autofix` or `mode:headless`, stop and explain that mutating review requires reviewer/fixer dispatch authorization or an isolated workflow that permits it; offer report-only as the safe fallback.
+- If the user requested `mode:autofix` or `mode:headless`, stop and explain that mutating review requires reviewer/fixer dispatch capability or an isolated workflow that permits it; offer report-only as the safe fallback.
 - Do not create `/tmp/spec-first/spec-code-review/<run-id>/` and do not write reviewer artifacts.
 - The orchestrator applies the selected persona lenses itself, serially, using the same diff, plan, standards, and graph evidence.
 - Skip Stage 5b validator dispatch and all fixer paths.
-- In Coverage, state `single-agent report-only fallback: reviewer dispatch unavailable or not authorized`.
+- In Coverage, state `single-agent report-only fallback: reviewer dispatch unavailable, explicitly disabled, or unsafe`.
 
 #### Model tiering
 
@@ -602,7 +602,7 @@ Independent verification gate. Spawn one validator sub-agent per surviving findi
 | `interactive`, File-tickets routing (option C) | Yes, on all pending findings | Before tracker dispatch |
 | `interactive`, Report-only routing (option D) | No -- nothing is being externalized | n/a |
 | `report-only` | No -- read-only mode externalizes nothing | n/a |
-| single-agent report-only fallback | No -- dispatch is unavailable or not authorized | n/a |
+| single-agent report-only fallback | No -- dispatch is unavailable, explicitly disabled, or unsafe | n/a |
 
 When Stage 5b does not run, the merged finding set from Stage 5 flows through to Stage 6 unchanged. When it runs, the steps below execute on the relevant set.
 
@@ -893,7 +893,7 @@ If "Push fixes": push the branch with `git push` to update the existing PR.
 
 ## Fallback
 
-If the platform doesn't support parallel sub-agents, run reviewers sequentially. If the platform supports sub-agents but caps active concurrency, use the bounded queueing rules in Stage 4 rather than treating cap-related spawn failures as reviewer failures. Everything else (stages, output format, merge pipeline) stays the same.
+If the platform supports reviewer dispatch but not parallel sub-agents, dispatch reviewers sequentially through the same Stage 4 scheduler. If the platform supports sub-agents but caps active concurrency, use the bounded queueing rules in Stage 4 rather than treating cap-related spawn failures as reviewer failures. If the platform has no dispatch primitive, or dispatch is explicitly disabled or unsafe, use the Stage 4 single-agent report-only fallback instead of pretending sequential persona dispatch is available. Everything else (stages, output format, merge pipeline) stays the same.
 
 ---
 

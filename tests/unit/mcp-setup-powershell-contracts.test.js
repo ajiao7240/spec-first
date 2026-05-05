@@ -394,6 +394,10 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installHelpersSource).toContain("Test-CommandExists 'dnf'");
     expect(installHelpersSource).toContain("Test-CommandExists 'pacman'");
     expect(installHelpersSource).toContain("Test-CommandExists 'apk'");
+    expect(installHelpersSource).toContain("sudo pacman -Syu --needed $PacmanPackage");
+    expect(installHelpersSource).toContain("'pacman' @('-Syu', '--needed', '--noconfirm', $PacmanPackage)");
+    expect(installHelpersSource).not.toContain("sudo pacman -Sy --noconfirm $PacmanPackage");
+    expect(installHelpersSource).not.toContain("'pacman' @('-Sy', '--noconfirm', $PacmanPackage)");
     expect(installHelpersSource).toContain('Install gh from https://cli.github.com');
     expect(installHelpersSource).toContain('npm install -g @ast-grep/cli@latest');
     expect(installHelpersSource).toContain("Test-GlobalSkill 'agent-browser'");
@@ -409,8 +413,24 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     const repairSource = fs.readFileSync(repairInstallPs1, 'utf8');
 
     expect(checkDepsSource).toContain('^(uv|uvx):windows$');
-    expect(checkDepsSource).toContain('irm https://astral.sh/uv/install.ps1 | iex');
-    expect(checkDepsSource).toContain('curl -LsSf https://astral.sh/uv/install.sh | sh');
+    expect(checkDepsSource).toContain('Get-LinuxPackageInstallCommand');
+    expect(checkDepsSource).toContain("Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue");
+	    expect(checkDepsSource).toContain("if ((Get-Content -LiteralPath '/proc/version' -Raw) -match 'microsoft') { return 'wsl' }");
+	    expect(checkDepsSource).toContain("Test-CommandExists 'dnf'");
+	    expect(checkDepsSource).toContain("sudo pacman -Syu --needed $PacmanPackage");
+	    expect(checkDepsSource).not.toContain("sudo pacman -Sy --noconfirm $PacmanPackage");
+	    expect(checkDepsSource).toContain("Get-LinuxPackageInstallCommand -AptPackage 'nodejs' -DnfPackage 'nodejs' -YumPackage 'nodejs' -PacmanPackage 'nodejs' -ApkPackage 'nodejs'");
+	    expect(checkDepsSource).toContain("Get-LinuxPackageInstallCommand -AptPackage 'npm' -DnfPackage 'npm' -YumPackage 'npm' -PacmanPackage 'npm' -ApkPackage 'npm'");
+	    expect(checkDepsSource).toContain("sudo apk update && sudo apk add --upgrade $ApkPackage");
+    expect(checkDepsSource).toContain('Invoke-WebRequest -Uri https://astral.sh/uv/install.ps1 -OutFile $script');
+    expect(checkDepsSource).toContain('Invoke-WebRequest -Uri https://astral.sh/uv/install.sh -OutFile $script');
+    expect(checkDepsSource).toContain('Join-Path ([System.IO.Path]::GetTempPath())');
+    expect(checkDepsSource).toContain('Write-Output "Review $script, then run:');
+    expect(checkDepsSource).not.toContain('install.ps1 | iex');
+    expect(checkDepsSource).not.toContain('curl -LsSf https://astral.sh/uv/install.sh | sh');
+    expect(checkDepsSource).not.toContain('tmp=$(mktemp)');
+    expect(checkDepsSource).not.toContain('less "$tmp"');
+    expect(checkDepsSource).not.toContain('notepad $script');
     expect(repairSource).toContain("& (Join-Path $ScriptDir 'configure-host.ps1') -Tool $Tool");
     expect(repairSource).not.toContain('| Out-Null');
   });

@@ -106,6 +106,20 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
    - Note any follow-up work needed
    - Suggest next steps if applicable
 
+   **Completion Response Contract**
+
+   The final user-visible response must be compact but complete. Include these fields in the current conversation language:
+
+   ```text
+   Completed: <what changed and the main files or artifact paths>
+   Verification: <commands/checks run with pass/fail/not-run status>
+   Review: <review tier or workflow used, plus residual status>
+   Artifacts: <PR link, plan/task-pack path, evidence, or known-residuals path when applicable>
+   Next action: <only if the user needs to do something now>
+   ```
+
+   If a check was not run, say `not run` with the concrete reason. If no user action remains, omit `Next action` instead of inventing follow-up work.
+
 ## Quality Checklist
 
 Before creating PR, verify:

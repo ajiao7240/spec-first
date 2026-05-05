@@ -15,6 +15,12 @@ const REQUIRED_SECTIONS = [
   { normalized: 'failure-modes', title: 'Failure Modes', severity: 'P2' },
 ];
 
+const ALLOWED_FRONTMATTER_NAME_ALIASES = new Map([
+  ['spec-dhh-rails-style', 'dhh-rails-style'],
+  ['spec-session-extract', 'session-extract'],
+  ['spec-session-inventory', 'session-inventory'],
+]);
+
 function lintSkillStructure(inventory) {
   const findings = [];
 
@@ -67,7 +73,7 @@ function lintSingleSkill(skill) {
       recommendation: 'Set frontmatter name to the skill directory name.',
       confidence: 'high',
     }));
-  } else if (skill.frontmatter.name !== skill.skill_id) {
+  } else if (!isAcceptedFrontmatterName(skill)) {
     findings.push(createFinding({
       severity: 'P1',
       category: 'frontmatter',
@@ -149,6 +155,12 @@ function lintSingleSkill(skill) {
   return findings;
 }
 
+function isAcceptedFrontmatterName(skill) {
+  const declaredName = skill.frontmatter && skill.frontmatter.name;
+  if (declaredName === skill.skill_id) return true;
+  return ALLOWED_FRONTMATTER_NAME_ALIASES.get(skill.skill_id) === declaredName;
+}
+
 function main(argv = process.argv.slice(2)) {
   const filePath = argv[0];
   if (!filePath) throw new Error('Usage: node lint-skill-structure.js <skill-source-inventory.json>');
@@ -161,6 +173,8 @@ if (require.main === module) {
 }
 
 module.exports = {
+  ALLOWED_FRONTMATTER_NAME_ALIASES,
+  isAcceptedFrontmatterName,
   lintSkillStructure,
   lintSingleSkill,
   REQUIRED_SECTIONS,

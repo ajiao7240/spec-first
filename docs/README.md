@@ -18,6 +18,7 @@
 |---|---|---|
 | `docs/05-用户手册/` | current | 用户使用手册、workflow 入口、产物目录和首次走查 |
 | `docs/contracts/` | current | schema、quality gate、workflow contract 与 verifier contract |
+| `docs/contracts/workflows/self-reflection-capability-upgrade.md` | current | 自我审视、CUD、最佳实践 intake、plan/review/compound handoff 和 30-cycle loop 的轻量 contract |
 | `docs/10-prompt/结构化项目角色契约.md` | current | spec-first 演化判断和 source/runtime 边界基线 |
 | `docs/2026-05-04/project-audit/` | active-artifact | 当前系统级审查报告与修复阶段证据 |
 | `docs/ideation/` | active-artifact | ideation artifact；进入 brainstorm 前需要确认 freshness 和所选方向 |

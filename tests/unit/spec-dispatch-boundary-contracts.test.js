@@ -11,6 +11,19 @@ function read(relativePath) {
   return fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
 }
 
+function readMarkdownFiles(relativeDir) {
+  const dir = path.join(REPO_ROOT, relativeDir);
+  if (!fs.existsSync(dir)) {
+    return [];
+  }
+  return fs.readdirSync(dir)
+    .filter((fileName) => fileName.endsWith('.md'))
+    .map((fileName) => ({
+      fileName,
+      content: fs.readFileSync(path.join(dir, fileName), 'utf8'),
+    }));
+}
+
 describe('CE-lineage dispatch boundary contracts', () => {
   test('audit matrix covers required dispatch-bearing skills with actions', () => {
     const matrix = read('docs/validation/2026-05-05-ce-dispatch-boundary-audit-matrix.md');
@@ -61,6 +74,56 @@ describe('CE-lineage dispatch boundary contracts', () => {
     expect(combined).not.toMatch(/Codex should inline reviewer personas/i);
   });
 
+  test('dispatch-boundary durable learnings do not retain stale authorization gates', () => {
+    const docs = readMarkdownFiles('docs/solutions/workflow-issues')
+      .filter(({ fileName, content }) => (
+        fileName.includes('dispatch')
+        || /\bdispatch\b|spawn_agent|subagent|sub-agent/i.test(content)
+      ));
+    const combined = docs.map(({ fileName, content }) => `\n--- ${fileName} ---\n${content}`).join('\n');
+
+    expect(docs.length).toBeGreaterThan(0);
+    expect(combined).not.toMatch(/session authorization/i);
+    expect(combined).not.toContain('current session rules permit workflow-owned reviewer dispatch');
+    expect(combined).not.toContain('stricter dispatch authorization boundary');
+    expect(combined).not.toContain('Codex dispatch is authorized');
+    expect(combined).not.toContain('unavailable or disallowed');
+  });
+
+  test('dispatch planning docs do not reintroduce user-confirmation gates', () => {
+    const docs = readMarkdownFiles('docs/plans')
+      .filter(({ fileName, content }) => (
+        fileName.includes('dispatch')
+        || /\bdispatch\b|spawn_agent|subagent|sub-agent|reviewer subagents/i.test(content)
+      ));
+    const combined = docs.map(({ fileName, content }) => `\n--- ${fileName} ---\n${content}`).join('\n');
+
+    expect(docs.length).toBeGreaterThan(0);
+    expect(combined).not.toMatch(/session authorization/i);
+    expect(combined).not.toMatch(/current session authorization/i);
+    expect(combined).not.toContain('当前用户没有显式授权 reviewer subagents');
+    expect(combined).not.toContain('因为当前用户没有显式授权 reviewer subagents');
+    expect(combined).not.toContain('cannot dispatch because the user did not ask for subagents');
+    expect(combined).not.toContain('Codex should inline reviewer personas');
+    expect(combined).not.toContain('Codex cannot dispatch');
+    expect(combined).not.toContain('when dispatch is authorized');
+    expect(combined).not.toContain('unavailable or disallowed');
+  });
+
+  test('local skill-agent audit docs do not preserve exact stale dispatch phrases', () => {
+    const docs = readMarkdownFiles('docs/2026-05-05-skill-agent-audit');
+    const combined = docs.map(({ fileName, content }) => `\n--- ${fileName} ---\n${content}`).join('\n');
+
+    expect(docs.length).toBeGreaterThan(0);
+    expect(combined).not.toMatch(/session authorization/i);
+    expect(combined).not.toMatch(/current session authorization/i);
+    expect(combined).not.toContain('Codex should inline reviewer personas');
+    expect(combined).not.toContain('Codex cannot dispatch');
+    expect(combined).not.toContain('when dispatch is authorized');
+    expect(combined).not.toContain('unavailable or disallowed');
+    expect(combined).not.toContain('do not call spawn_agent merely because this skill mentions reviewer personas');
+  });
+
   test('Codex runtime never silently rewrites legacy Task dispatch to inline-only profile application', () => {
     const adapter = getAdapter('codex');
     const rendered = adapter.transformSkillContent(
@@ -72,7 +135,8 @@ describe('CE-lineage dispatch boundary contracts', () => {
     );
 
     expect(rendered).toContain('Dispatch `.codex/agents/spec-repo-research-analyst.agent.md` with `spawn_agent`');
-    expect(rendered).toContain('fallback: read the profile and apply it inline in the current agent only when `spawn_agent` is unavailable or disallowed');
+    expect(rendered).toContain('fallback: read the profile and apply it inline in the current agent only when `spawn_agent` is unavailable, explicitly disabled, or unsafe');
+    expect(rendered).not.toContain('when `spawn_agent` is unavailable or explicitly disabled');
     expect(rendered).not.toContain('Read `.codex/agents/spec-repo-research-analyst.agent.md` and apply that agent profile to');
   });
 
@@ -106,9 +170,13 @@ describe('CE-lineage dispatch boundary contracts', () => {
 
     expect(text).toContain('internal helper skill');
     expect(text).toContain('not a public `spec-*` workflow entrypoint');
-    expect(text).toContain('only when the host exposes a dispatch primitive and current session policy authorizes helper dispatch');
+    expect(text).toContain('Launch 8 parallel sub-agents when the host exposes a dispatch primitive');
+    expect(text).toContain('If dispatch is unavailable, explicitly disabled, or unsafe');
+    expect(text).not.toContain('If dispatch is unavailable or explicitly disabled');
     expect(text).toContain('run the eight principle audits sequentially in the current agent');
     expect(text).toContain('Sub-agents are read-only explorers.');
     expect(text).toContain('Keep parallelism bounded to these eight principles');
+    expect(text).toContain('All 8 principle audits complete, whether via parallel sub-agents or sequential current-agent fallback');
+    expect(text).not.toContain('All 8 sub-agents complete their audits');
   });
 });

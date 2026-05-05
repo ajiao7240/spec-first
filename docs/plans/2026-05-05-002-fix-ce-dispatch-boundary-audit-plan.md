@@ -98,9 +98,9 @@ Read .codex/agents/... and apply that agent profile inline
 部分 skill 仍然带有旧假设：
 
 ```text
-Codex should not call spawn_agent
-Codex means no dispatch
-Codex should inline reviewer personas
+旧假设 A：把 Codex 等同为无 dispatch 能力
+旧假设 B：把 Codex reviewer persona 固定降级为 inline profile simulation
+旧假设 C：把 workflow documented dispatch phase 写成需要额外用户确认
 ```
 
 但当前边界应改为：
@@ -218,8 +218,8 @@ source skill 与 generated runtime 的语义不一致
 
 ```text
 host capability
-session authorization
-workflow invocation authorization
+workflow-owned documented phase authorization
+explicit user no-agents / report-only override
 fallback behavior
 mutation boundary
 artifact boundary
@@ -555,9 +555,9 @@ Do not downgrade solely because the host is Codex.
 禁止旧假设：
 
 ```text
-Codex cannot dispatch
-Codex should always inline profiles
-Do not call spawn_agent merely because this skill mentions reviewer personas
+不要把 Codex host 本身当成 dispatch unavailable。
+不要把 Codex reviewer profiles 固定降级为 inline-only simulation。
+不要因为文件中出现 agent profile 就脱离 documented workflow phase 直接 dispatch。
 ```
 
 更准确的表述是：
@@ -594,8 +594,8 @@ host capability, and session policy authorize it.
 
 ```text
 host capability
-current session authorization
-workflow invocation authorization
+workflow invocation authorizes documented dispatch phase
+explicit user no-agents / report-only override
 fallback behavior
 ```
 
@@ -1097,17 +1097,17 @@ CHANGELOG.md
 替换 stale wording：
 
 ```text
-Codex-specific rule: do not call spawn_agent merely because this skill mentions reviewer personas
+旧 Codex-specific anti-pattern：把 agent profile 出现本身误当成 dispatch 触发条件，同时又否定 documented reviewer phase 下的 Codex dispatch 能力
 ```
 
 替换为更准确 contract：
 
 ```text
-Codex supports reviewer dispatch through spawn_agent when host capability and session policy allow it.
+Codex supports reviewer dispatch through spawn_agent when the workflow's documented reviewer phase and host capability select it.
 Do not downgrade solely because the host is Codex.
 Do not call spawn_agent solely because a profile exists.
 Call spawn_agent only when the workflow's documented reviewer phase,
-host capability, and session policy authorize it.
+and host capability select it.
 ```
 
 ##### Preserve existing rules
@@ -1243,8 +1243,8 @@ Task spec-xxx(...)
 Codex adapter render 为：
 
 ```text
-Use spawn_agent with the corresponding .codex/agents/spec-xxx.md profile when dispatch is authorized.
-Fallback: read and apply the profile inline only when spawn_agent is unavailable or disallowed.
+Use spawn_agent with the corresponding .codex/agents/spec-xxx.md profile when the workflow's documented dispatch phase and host capability select it.
+Fallback: read and apply the profile inline only when spawn_agent is unavailable or explicitly disabled.
 ```
 
 ##### Preference
@@ -1288,7 +1288,7 @@ host-neutral
 用最小测试防止三类最高风险回归：
 
 ```text
-Codex cannot dispatch 旧假设回归
+Codex host 被误判为无 dispatch 能力
 source dispatch 被 runtime 静默 inline 化
 mutating parallel 缺 isolation / fallback
 ```
@@ -1316,10 +1316,9 @@ CHANGELOG.md
 高风险 skills 不得出现：
 
 ```text
-Codex cannot dispatch
-Codex does not support agents
-do not call spawn_agent merely because this skill mentions reviewer personas
-Codex should inline reviewer personas
+Codex host 被写成无 dispatch 能力
+Codex reviewer persona 被固定改为 inline-only profile simulation
+agent profile 存在即绕过 documented workflow phase 直接 dispatch
 ```
 
 除非 matrix 中明确标记为 accepted divergence。
@@ -1883,7 +1882,7 @@ docs/solutions/workflow-issues/*
 如果包含用户可见行为，追加：
 
 ```markdown
-  - (user-visible) `$spec-code-review` now documents Codex reviewer dispatch support when authorized.
+  - (user-visible) `$spec-code-review` now documents Codex reviewer dispatch support when the workflow's documented reviewer phase and host capability select it.
 ```
 
 ---

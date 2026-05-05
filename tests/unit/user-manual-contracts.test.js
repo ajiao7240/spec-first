@@ -95,6 +95,8 @@ describe('user manual contracts', () => {
     expect(standardsGuide).toContain('node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json');
     expect(standardsGuide).toContain('trust_level=degraded');
     expect(standardsGuide).toContain('validator 只检查 artifact handoff contract');
+    expect(standardsGuide).toContain('validator pass 是 trusted baseline 的完成标准');
+    expect(standardsGuide).toContain('不要为了消除诊断而改写 contract heading、candidate id、命令名、路径、工具名或作者名');
     expect(standardsGuide).toContain('`advisory` 不是 candidate status，只是消费模式');
     expect(standardsGuide).toContain('standards-update-decision.json');
     expect(standardsGuide).toContain('graph-query-index.json');
