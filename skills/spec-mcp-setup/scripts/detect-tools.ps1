@@ -27,6 +27,52 @@ function Get-DependencyStatus {
   if (Get-Command $Name -ErrorAction SilentlyContinue) { 'ready' } else { 'missing' }
 }
 
+function Get-PathSizeBytes {
+  param([string]$Path)
+  if (-not (Test-Path -LiteralPath $Path)) { return 0 }
+  if (Test-Path -LiteralPath $Path -PathType Leaf) {
+    return ([System.IO.FileInfo]$Path).Length
+  }
+  $total = 0L
+  Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    if (-not $_.PSIsContainer) { $total += [int64]$_.Length }
+  }
+  return $total
+}
+
+function Get-SerenaCacheWarning {
+  param([int64]$SizeBytes)
+  if ($SizeBytes -ge 1073741824) { return 'large-cache-high' }
+  if ($SizeBytes -ge 536870912) { return 'large-cache' }
+  return $null
+}
+
+function Get-SerenaProjectFacts {
+  param([object]$Tool)
+  if ($Tool.id -ne 'serena' -or -not [bool]$TargetFacts.state_write_allowed) { return $null }
+
+  $readyMarkerFile = if ($null -ne $Tool.project_bootstrap.ready_marker_file) { [string]$Tool.project_bootstrap.ready_marker_file } else { '.serena/index-ready.json' }
+  $readyMarkerPath = Join-Path $RepoRoot $readyMarkerFile
+  $cacheDir = Join-Path $RepoRoot '.serena/cache'
+  $cacheSizeBytes = [int64](Get-PathSizeBytes -Path $cacheDir)
+  $cacheStatus = if (-not (Test-Path -LiteralPath $cacheDir -PathType Container)) {
+    'not-found'
+  } elseif (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf) {
+    'ready'
+  } else {
+    'incomplete'
+  }
+
+  [ordered]@{
+    serena_cache = [ordered]@{
+      path = '.serena/cache'
+      status = $cacheStatus
+      size_bytes = $cacheSizeBytes
+      warning = Get-SerenaCacheWarning -SizeBytes $cacheSizeBytes
+    }
+  }
+}
+
 function Test-HostConfigRequired {
   param([object]$Tool)
   if ($null -ne $Tool.PSObject.Properties['host_config_required']) {
@@ -163,6 +209,7 @@ foreach ($tool in @($ToolsJson.tools)) {
 
   $hostConfigStatus = Get-HostConfigStatus -Tool $tool
   $projectStatus = Get-ProjectStatus -Tool $tool
+  $serenaProjectFacts = Get-SerenaProjectFacts -Tool $tool
   $hostConfigRequired = Test-HostConfigRequired -Tool $tool
   $hostReady = (
     $hostConfigStatus -eq 'ready' -or
@@ -192,8 +239,16 @@ foreach ($tool in @($ToolsJson.tools)) {
     $nextAction = [string]$TargetFacts.next_action
   } elseif ($projectStatus -eq 'pending') {
     $nextAction = 'bootstrap project'
+  } elseif ($projectStatus -eq 'failed') {
+    if ($null -ne $serenaProjectFacts -and $serenaProjectFacts.serena_cache.status -eq 'incomplete') {
+      $nextAction = 'remove incomplete .serena/cache and rerun spec-mcp-setup'
+    } else {
+      $nextAction = 'repair project bootstrap'
+    }
   } elseif ($type -eq 'graph-provider' -and $configured) {
     $nextAction = 'run spec-graph-bootstrap'
+  } elseif ($tool.id -eq 'serena' -and $null -ne $serenaProjectFacts -and $serenaProjectFacts.serena_cache.warning -eq 'large-cache-high') {
+    $nextAction = 'review .serena/cache size and clear stale cache only if Serena indexing is complete'
   }
 
   Add-NextAction $nextAction
@@ -207,6 +262,9 @@ foreach ($tool in @($ToolsJson.tools)) {
     project_status = $projectStatus
     selected_scope = $SelectedScope
     next_action = $nextAction
+  }
+  if ($null -ne $serenaProjectFacts) {
+    $toolFact.serena_cache = $serenaProjectFacts.serena_cache
   }
 
   if ($type -eq 'graph-provider') {

@@ -28,13 +28,175 @@ $repoRoot = [string]$targetFacts.selected_repo_root
 $serenaTool = @($toolsJson.tools | Where-Object { $_.id -eq 'serena' })[0]
 $projectDir = Join-Path $repoRoot '.serena'
 $projectFile = Join-Path $projectDir 'project.yml'
+$projectLocalFile = Join-Path $projectDir 'project.local.yml'
 $readyMarkerFile = if ($null -ne $serenaTool.project_bootstrap.ready_marker_file) { $serenaTool.project_bootstrap.ready_marker_file } else { '.serena/index-ready.json' }
 $readyMarkerPath = Join-Path $repoRoot $readyMarkerFile
 $indexCommand = $serenaTool.project_bootstrap.index_command
 $command = $indexCommand.command
 
+function Get-PathSizeBytes {
+  param([string]$Path)
+  if (-not (Test-Path -LiteralPath $Path)) { return 0 }
+  $total = 0L
+  if (Test-Path -LiteralPath $Path -PathType Leaf) {
+    return ([System.IO.FileInfo]$Path).Length
+  }
+  Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    if (-not $_.PSIsContainer) { $total += [int64]$_.Length }
+  }
+  return $total
+}
+
+function Get-SerenaCacheStatus {
+  $cacheDir = Join-Path $projectDir 'cache'
+  if (-not (Test-Path -LiteralPath $cacheDir -PathType Container)) { return 'not-found' }
+  if (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf) { return 'ready' }
+  return 'incomplete'
+}
+
+function Get-SerenaCacheWarning {
+  param([int64]$SizeBytes)
+  if ($SizeBytes -ge 1073741824) { return 'large-cache-high' }
+  if ($SizeBytes -ge 536870912) { return 'large-cache' }
+  return $null
+}
+
+function Get-SerenaSafeIgnoredPaths {
+  @(
+    '**/node_modules/',
+    '**/.pnpm-store/',
+    '**/.yarn/',
+    '**/dist/',
+    '**/build/',
+    '**/coverage/',
+    '**/.next/',
+    '**/.nuxt/',
+    '**/.turbo/',
+    '**/.cache/',
+    '**/__pycache__/',
+    '**/.pytest_cache/',
+    '**/.ruff_cache/',
+    '**/.mypy_cache/',
+    '**/.venv/',
+    '**/venv/',
+    '**/env/',
+    '**/.tox/',
+    '.spec-first/',
+    '.claude/',
+    '.codex/',
+    '.agents/skills/',
+    '.serena/cache/'
+  )
+}
+
+function ConvertTo-YamlDoubleQuoted {
+  param([string]$Value)
+  $escaped = $Value.Replace('\', '\\').Replace('"', '\"')
+  return '"' + $escaped + '"'
+}
+
+function Get-IgnoredPathScalar {
+  param([string]$Value)
+  $cleaned = ($Value -replace '#.*$', '').Trim().Trim('"').Trim("'").Trim()
+  if ([string]::IsNullOrWhiteSpace($cleaned)) { return $null }
+  return $cleaned
+}
+
+function Get-InlineIgnoredPathValues {
+  param([string]$Value)
+  $trimmed = $Value.Trim()
+  if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed -eq '[]') { return @() }
+  if ($trimmed.StartsWith('[') -and $trimmed.EndsWith(']')) {
+    $items = New-Object System.Collections.Generic.List[string]
+    foreach ($item in @($trimmed.Substring(1, $trimmed.Length - 2) -split ',')) {
+      $cleaned = Get-IgnoredPathScalar -Value $item
+      if (-not [string]::IsNullOrWhiteSpace($cleaned)) { $items.Add($cleaned) }
+    }
+    return @($items)
+  }
+  $single = Get-IgnoredPathScalar -Value $trimmed
+  if ([string]::IsNullOrWhiteSpace($single)) { return @() }
+  return @($single)
+}
+
+function New-IgnoredPathsBlock {
+  param([string[]]$Values)
+  $lines = New-Object System.Collections.Generic.List[string]
+  $seen = New-Object 'System.Collections.Generic.HashSet[string]'
+  $lines.Add('ignored_paths:')
+  foreach ($value in @($Values)) {
+    if ([string]::IsNullOrWhiteSpace($value)) { continue }
+    if ($seen.Add($value)) {
+      $lines.Add('  - ' + (ConvertTo-YamlDoubleQuoted -Value $value))
+    }
+  }
+  @($lines)
+}
+
+function Ensure-SerenaLocalIgnoredPaths {
+  param([string]$Path)
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Path) | Out-Null
+  $defaults = @(Get-SerenaSafeIgnoredPaths)
+  $lines = if (Test-Path -LiteralPath $Path -PathType Leaf) {
+    @(Get-Content -LiteralPath $Path)
+  } else {
+    @(
+      '# This file allows spec-first and local development to keep Serena indexing bounded.',
+      '# It is local runtime configuration and should not be committed.',
+      ''
+    )
+  }
+
+  $start = -1
+  $existing = New-Object System.Collections.Generic.List[string]
+  for ($i = 0; $i -lt $lines.Count; $i++) {
+    if ($lines[$i] -match '^ignored_paths:\s*(.*?)\s*$') {
+      $start = $i
+      foreach ($value in @(Get-InlineIgnoredPathValues -Value $Matches[1])) { $existing.Add($value) }
+      break
+    }
+  }
+
+  if ($start -lt 0) {
+    $output = New-Object System.Collections.Generic.List[string]
+    foreach ($line in @($lines)) { $output.Add($line) }
+    if ($output.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($output[$output.Count - 1])) { $output.Add('') }
+    foreach ($line in @(New-IgnoredPathsBlock -Values $defaults)) { $output.Add($line) }
+    $output | Set-Content -Encoding utf8 $Path
+    return
+  }
+
+  $end = $start + 1
+  while ($end -lt $lines.Count) {
+    $line = $lines[$end]
+    if ($line -match '^\S' -and -not $line.TrimStart().StartsWith('#')) { break }
+    if ($line -match '^\s*-\s*(.+)$') {
+      $value = Get-IgnoredPathScalar -Value $Matches[1]
+      if (-not [string]::IsNullOrWhiteSpace($value)) { $existing.Add($value) }
+    }
+    $end += 1
+  }
+
+  $merged = @($existing) + $defaults
+  $newBlock = @(New-IgnoredPathsBlock -Values $merged)
+  $before = if ($start -gt 0) { @($lines[0..($start - 1)]) } else { @() }
+  $after = if ($end -lt $lines.Count) { @($lines[$end..($lines.Count - 1)]) } else { @() }
+  @($before + $newBlock + $after) | Set-Content -Encoding utf8 $Path
+}
+
+function Clear-IncompleteSerenaCache {
+  $cacheDir = Join-Path $projectDir 'cache'
+  if ((Test-Path -LiteralPath $cacheDir -PathType Container) -and -not (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf)) {
+    Remove-Item -Recurse -Force $cacheDir -ErrorAction SilentlyContinue
+  }
+}
+
 if ($VerifyOnly) {
   $ready = (Test-Path -LiteralPath $projectFile -PathType Leaf) -and (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf)
+  $cacheDir = Join-Path $projectDir 'cache'
+  $cacheSizeBytes = [int64](Get-PathSizeBytes -Path $cacheDir)
+  $cacheStatus = Get-SerenaCacheStatus
+  $cacheWarning = Get-SerenaCacheWarning -SizeBytes $cacheSizeBytes
   [pscustomobject]@{
     schema_version = 'serena-project-bootstrap.v1'
     overall_status = if ($ready) { 'ready' } else { 'action-required' }
@@ -42,7 +204,13 @@ if ($VerifyOnly) {
     repo_root = $repoRoot
     project_file = '.serena/project.yml'
     ready_marker = $readyMarkerFile
-    next_action = if ($ready) { '' } else { 'Run spec-mcp-setup to activate Serena for the selected repo.' }
+    cache = [ordered]@{
+      path = '.serena/cache'
+      status = $cacheStatus
+      size_bytes = $cacheSizeBytes
+      warning = $cacheWarning
+    }
+    next_action = if ($ready) { '' } elseif ($cacheStatus -eq 'incomplete') { 'Remove incomplete .serena/cache and rerun spec-mcp-setup.' } else { 'Run spec-mcp-setup to activate Serena for the selected repo.' }
   } | ConvertTo-Json -Compress
   exit 0
 }
@@ -130,6 +298,8 @@ function New-LanguageAttempts {
 }
 
 New-Item -ItemType Directory -Force -Path $projectDir | Out-Null
+Ensure-SerenaLocalIgnoredPaths -Path $projectLocalFile
+Clear-IncompleteSerenaCache
 $backupDir = Join-Path ([System.IO.Path]::GetTempPath()) ('spec-serena-bootstrap.' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
 $projectBackup = ''
@@ -163,6 +333,7 @@ try {
   foreach ($attempt in @(New-LanguageAttempts -Languages $effectiveLanguages)) {
     Remove-Item -Force $readyMarkerPath -ErrorAction SilentlyContinue
     Remove-Item -Force $projectFile -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force (Join-Path $projectDir 'cache') -ErrorAction SilentlyContinue
     Push-Location $repoRoot
     try {
       $global:LASTEXITCODE = 0

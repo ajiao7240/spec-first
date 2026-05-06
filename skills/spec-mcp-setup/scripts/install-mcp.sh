@@ -416,14 +416,47 @@ run_and_capture() {
   stage_log "$stage" "start"
   set +e
   python3 - "$timeout_seconds" "$@" <<'PY' >"$stdout_file" 2>"$stderr_file"
+import os
+import signal
 import subprocess
 import sys
+import time
 
 timeout = float(sys.argv[1])
 args = sys.argv[2:]
 
+def terminate_process_tree(process):
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except Exception:
+        try:
+            process.terminate()
+        except Exception:
+            return
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        if process.poll() is not None:
+            return
+        time.sleep(0.1)
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except Exception:
+        try:
+            process.kill()
+        except Exception:
+            pass
+
 try:
-    completed = subprocess.run(args, check=False, stdin=subprocess.DEVNULL, timeout=timeout)
+    process = subprocess.Popen(
+        args,
+        stdin=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    try:
+        exit_code = process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        terminate_process_tree(process)
+        sys.exit(124)
 except subprocess.TimeoutExpired:
     sys.exit(124)
 except FileNotFoundError as exc:
@@ -433,7 +466,7 @@ except Exception as exc:
     sys.stderr.write(f"{exc}\n")
     sys.exit(1)
 
-sys.exit(completed.returncode)
+sys.exit(exit_code)
 PY
   RUN_EXIT_CODE=$?
   set -e

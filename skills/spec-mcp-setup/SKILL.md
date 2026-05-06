@@ -76,7 +76,7 @@ Setup may write these deterministic artifacts:
 - child-local `.spec-first/config/runtime-capabilities.json`;
 - child-local `.spec-first/config/provider-artifacts.json`;
 - project-local `.spec-first/config.local.example.yaml`, `.spec-first/config.local.yaml`, and `.gitignore` entries when explicitly bootstrapped;
-- `.serena/project.yml` and the configured Serena ready marker for selected child repos;
+- `.serena/project.yml`, `.serena/project.local.yml` safe indexing overrides, and the configured Serena ready marker for selected child repos;
 - parent advisory summaries under `.spec-first/workspace/` when running all-repos modes.
 
 The assistant's final response must restate readiness from ledger v2 instead of relying only on command output.
@@ -129,12 +129,12 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 4. Checks required dependencies.
 5. Installs/verifies required helper tooling.
 6. Warms every required MCP/provider package and configures only host-MCP-required tools in the host MCP config.
-7. Bootstraps Serena for the current repo.
+7. Bootstraps Serena for the current repo with bounded local ignore rules before indexing.
 8. Writes readiness ledger v2 to the host marker path.
 9. Writes setup-owned project facts inside a git repo: `.spec-first/config/graph-providers.json`, `.spec-first/config/runtime-capabilities.json`, and `.spec-first/config/provider-artifacts.json`.
 10. Prints a clear next-step prompt after the final status block: continue graph readiness compilation now when it is pending; when graph readiness is already ready, recommend the project standards/glue baseline workflow as the next durable setup handoff; restart Claude Code/Codex or start a new session before downstream workflows rely on newly written MCP config or live MCP probes.
 
-Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure.
+Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure. Before running `serena project create --index`, setup may maintain `.serena/project.local.yml` with safe local `ignored_paths` for common dependency, build, cache, virtualenv, and generated runtime directories. If `.serena/cache` exists while the ready marker is missing, setup may remove only that incomplete setup-owned cache before rebuilding; it must not delete `.serena/project.yml`, `.serena/project.local.yml`, memories, or user-authored project source.
 
 ## Autonomy And Permissions
 
@@ -146,6 +146,7 @@ An explicit `/spec:mcp-setup` or `$spec-mcp-setup` invocation is authorization t
 - installing or verifying required helper tooling
 - writing host MCP config for required host-MCP tools
 - writing readiness ledgers and setup-owned `.spec-first/config/*.json` facts
+- maintaining Serena local safe ignore rules and clearing incomplete `.serena/cache` before a controlled rebuild
 
 If a setup command fails because the host sandbox or OS denies permission, retry through the host's approved escalation path or the script's non-interactive sudo/package-manager path without asking the user first. Do not invent destructive escalation. If escalation is unavailable, requires credentials that the harness cannot provide, or still fails, record the failed command stage, reason, and next action in the final status instead of blocking on confirmation.
 
@@ -233,7 +234,7 @@ Windows:
 pwsh -File skills/spec-mcp-setup/scripts/activate-serena.ps1 -Refresh -Language kotlin,java
 ```
 
-For a read-only Serena project readiness check, use the explicit verify primitive. It only reads `.serena/project.yml` and the ready marker, emits JSON facts, and must not run Serena or create `.serena/`:
+For a read-only Serena project readiness check, use the explicit verify primitive. It only reads `.serena/project.yml`, the ready marker, and `.serena/cache` size/status facts, emits JSON facts, and must not run Serena or create `.serena/`:
 
 ```bash
 bash skills/spec-mcp-setup/scripts/activate-serena.sh --verify-only

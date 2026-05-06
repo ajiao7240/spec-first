@@ -594,6 +594,9 @@ make_fake_bin "$INSTALL_LANG_BIN" "$INSTALL_LANG_LOG"
 install_lang_output="$(cd "$INSTALL_LANG_REPO" && PATH="$INSTALL_LANG_BIN:$TEST_PATH" HOME="$INSTALL_LANG_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --only serena --serena-languages kotlin,java)"
 assert "install-mcp with Serena languages emits JSON" jq -e . <<<"$install_lang_output"
 assert_contains "install-mcp forwards LLM-selected Serena languages" "serena project create . --index --language kotlin --language java" "$(cat "$INSTALL_LANG_LOG")"
+assert_contains "Serena local override ignores node_modules before indexing" '"**/node_modules/"' "$(cat "$INSTALL_LANG_REPO/.serena/project.local.yml")"
+assert_contains "Serena local override ignores virtualenvs before indexing" '"**/.venv/"' "$(cat "$INSTALL_LANG_REPO/.serena/project.local.yml")"
+assert_contains "Serena local override ignores generated runtime before indexing" '".agents/skills/"' "$(cat "$INSTALL_LANG_REPO/.serena/project.local.yml")"
 
 INSTALL_NO_LANG_REPO="$TMP_DIR/install-no-lang-repo"
 INSTALL_NO_LANG_HOME="$TMP_DIR/install-no-lang-home"
@@ -645,6 +648,26 @@ make_repo "$SERENA_VERIFY_MISSING_REPO"
 serena_verify_missing="$(cd "$SERENA_VERIFY_MISSING_REPO" && PATH="$SERENA_FAIL_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --verify-only)"
 assert_eq "Serena verify-only reports missing project as action required" "action-required:serena-project-not-ready" "$(jq -r '"\(.overall_status):\(.reason_code)"' <<<"$serena_verify_missing")"
 assert "Serena verify-only does not create project directory" test ! -e "$SERENA_VERIFY_MISSING_REPO/.serena"
+
+SERENA_INCOMPLETE_REPO="$TMP_DIR/serena-incomplete-repo"
+SERENA_INCOMPLETE_BIN="$TMP_DIR/serena-incomplete-bin"
+SERENA_INCOMPLETE_LOG="$TMP_DIR/serena-incomplete-commands.log"
+make_repo "$SERENA_INCOMPLETE_REPO"
+mkdir -p "$SERENA_INCOMPLETE_REPO/.serena/cache/typescript"
+cat > "$SERENA_INCOMPLETE_REPO/.serena/project.yml" <<'YAML'
+languages:
+- typescript
+YAML
+printf 'stale-cache\n' > "$SERENA_INCOMPLETE_REPO/.serena/cache/typescript/raw_document_symbols.pkl"
+touch "$SERENA_INCOMPLETE_LOG"
+make_fake_bin "$SERENA_INCOMPLETE_BIN" "$SERENA_INCOMPLETE_LOG"
+serena_incomplete_verify="$(cd "$SERENA_INCOMPLETE_REPO" && PATH="$SERENA_INCOMPLETE_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --verify-only)"
+assert_eq "Serena verify-only reports incomplete cache without ready marker" "incomplete" "$(jq -r '.cache.status' <<<"$serena_incomplete_verify")"
+assert_contains "Serena verify-only next action names incomplete cache" ".serena/cache" "$(jq -r '.next_action' <<<"$serena_incomplete_verify")"
+(cd "$SERENA_INCOMPLETE_REPO" && PATH="$SERENA_INCOMPLETE_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh")
+assert "Serena rebuild removes stale incomplete cache file" test ! -e "$SERENA_INCOMPLETE_REPO/.serena/cache/typescript/raw_document_symbols.pkl"
+assert_contains "Serena incomplete rebuild reuses existing language" "serena project create . --index --language typescript" "$(cat "$SERENA_INCOMPLETE_LOG")"
+assert_contains "Serena incomplete rebuild keeps safe local ignored paths" '"**/node_modules/"' "$(cat "$SERENA_INCOMPLETE_REPO/.serena/project.local.yml")"
 
 SERENA_FIRST_TIME_NO_LANG_REPO="$TMP_DIR/serena-first-time-no-lang-repo"
 SERENA_FIRST_TIME_NO_LANG_BIN="$TMP_DIR/serena-first-time-no-lang-bin"
@@ -735,6 +758,38 @@ touch "$SERENA_REUSE_REBUILD_LOG"
 make_fake_bin "$SERENA_REUSE_REBUILD_BIN" "$SERENA_REUSE_REBUILD_LOG"
 (cd "$SERENA_REUSE_REBUILD_REPO" && PATH="$SERENA_REUSE_REBUILD_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh")
 assert_contains "Serena non-refresh rebuild reuses existing config languages" "serena project create . --index --language typescript" "$(cat "$SERENA_REUSE_REBUILD_LOG")"
+
+SERENA_TIMEOUT_REPO="$TMP_DIR/serena-timeout-repo"
+SERENA_TIMEOUT_HOME="$TMP_DIR/serena-timeout-home"
+SERENA_TIMEOUT_BIN="$TMP_DIR/serena-timeout-bin"
+SERENA_TIMEOUT_LOG="$TMP_DIR/serena-timeout-commands.log"
+SERENA_TIMEOUT_CHILD_PID="$TMP_DIR/serena-timeout-child.pid"
+make_repo "$SERENA_TIMEOUT_REPO"
+mkdir -p "$SERENA_TIMEOUT_HOME"
+touch "$SERENA_TIMEOUT_LOG"
+make_fake_bin "$SERENA_TIMEOUT_BIN" "$SERENA_TIMEOUT_LOG"
+cat > "$SERENA_TIMEOUT_BIN/uvx" <<SH
+#!/bin/bash
+echo "uvx \$*" >> "$SERENA_TIMEOUT_LOG"
+if [[ " \$* " == *" serena project create "* ]]; then
+  (while true; do sleep 1; done) &
+  echo "\$!" > "$SERENA_TIMEOUT_CHILD_PID"
+  wait
+fi
+exit 0
+SH
+chmod +x "$SERENA_TIMEOUT_BIN/uvx"
+set +e
+serena_timeout_output="$(cd "$SERENA_TIMEOUT_REPO" && PATH="$SERENA_TIMEOUT_BIN:$TEST_PATH" HOME="$SERENA_TIMEOUT_HOME" MCP_SETUP_HOST=claude SPEC_FIRST_STAGE_TIMEOUT_SECONDS=1 bash "$SCRIPTS_DIR/install-mcp.sh" --only serena --serena-language typescript)"
+serena_timeout_status=$?
+set -e
+assert_eq "install-mcp timeout returns JSON without crashing" "0" "$serena_timeout_status"
+assert "install-mcp timeout output is JSON" jq -e . <<<"$serena_timeout_output"
+assert_eq "install-mcp classifies timed out Serena bootstrap as partial" "partial:serena_bootstrap_failed" "$(jq -r '.results[] | select(.tool_id == "serena") | "\(.status):\(.reason_code)"' <<<"$serena_timeout_output")"
+if [ -f "$SERENA_TIMEOUT_CHILD_PID" ] && kill -0 "$(cat "$SERENA_TIMEOUT_CHILD_PID")" 2>/dev/null; then
+  echo "FAIL: timed out Serena bootstrap left child process running" >&2
+  exit 1
+fi
 
 SERENA_NO_LANG_REPO="$TMP_DIR/serena-no-lang-repo"
 make_repo "$SERENA_NO_LANG_REPO"

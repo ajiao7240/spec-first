@@ -38,6 +38,9 @@
 - Serena 语言选择是语义决策，由 LLM 基于 package manifest、构建文件和代表性源码判断；证据明确时不要询问用户。
 - 首次 Serena bootstrap 必须由 agent 传入显式 Serena 语言；脚本不得进入 Serena 交互式语言选择。无既有 `.serena/project.yml` 语言且未传语言时，`activate-serena.*` fail-fast 并要求 agent 传入显式语言。
 - `install-mcp.*` 遇到首次无语言时应返回 `reason_code=serena_language_required` 和明确重试动作；agent 看到该 reason 后基于本地证据选语言并立即重试，不把明确场景交给用户决策。
+- Serena 索引前，setup 可维护 `.serena/project.local.yml` 的本地 `ignored_paths`，排除常见 dependency、build、cache、virtualenv 和 generated runtime 目录；这是本地 runtime 安全边界，不改变语言选择语义。
+- 如果 `.serena/cache` 存在但 ready marker 缺失，setup 可在受控重建前清理这个半成品 cache；不得删除 `.serena/project.yml`、`.serena/project.local.yml`、memories 或用户源码。
+- `activate-serena.* --verify-only` 和 `detect-tools.*` 可输出 `.serena/cache` size/status advisory facts。大 cache warning 不应单独让 `baseline_ready=false`；只有 project/ready marker 不可用才影响 readiness。
 - `.spec-first/config/graph-providers.json` 是 provider selection projection，不是第二个 registry。
 - 首次 setup 后 graph providers 是 `configured=true`、`enabled_for_bootstrap=true`、`query_ready=false`；重复 setup 可在 provider 仍 ready 且 canonical artifacts 仍 current 时投影 `query_ready=true`。
 - 重复执行 setup 必须幂等且非破坏：Serena 已 ready 时不强制重建；需要重建时先保留旧 `.serena/project.yml` 与 ready marker，失败要恢复旧状态。

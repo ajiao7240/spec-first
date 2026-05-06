@@ -12,6 +12,7 @@ const writeProviderConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/script
 const repairInstallPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/repair-install.ps1');
 const activateSerenaPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/activate-serena.ps1');
 const installMcpPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-mcp.ps1');
+const installMcpSh = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-mcp.sh');
 const bootstrapProvidersPs1 = path.join(repoRoot, 'skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1');
 const resolveWorkspaceGraphTargetsPs1 = path.join(repoRoot, 'skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.ps1');
 const bootstrapProjectConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1');
@@ -466,6 +467,13 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(activateSerenaSource).toContain('supported Serena languages');
     expect(activateSerenaSource).toContain('function New-IndexArgs');
     expect(activateSerenaSource).toContain('function New-LanguageAttempts');
+    expect(activateSerenaSource).toContain('function Ensure-SerenaLocalIgnoredPaths');
+    expect(activateSerenaSource).toContain('function Clear-IncompleteSerenaCache');
+    expect(activateSerenaSource).toContain("'**/node_modules/'");
+    expect(activateSerenaSource).toContain("'.agents/skills/'");
+    expect(activateSerenaSource).toContain('.serena/cache');
+    expect(activateSerenaSource).toContain('Remove-Item -Recurse -Force (Join-Path $projectDir \'cache\')');
+    expect(activateSerenaSource).toContain('large-cache-high');
     expect(activateSerenaSource).toContain("$args.Add('--language')");
     expect(activateSerenaSource).toContain('foreach ($language in @($Languages))');
     expect(activateSerenaSource).toContain('single-language:$language');
@@ -477,6 +485,29 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(activateSerenaSource).toContain('Serena bootstrap failed for all language attempts');
     expect(activateSerenaSource).toContain('Move-Item -Force $tmpMarker $readyMarkerPath');
     expect(activateSerenaSource).not.toContain('serena-project-facts.ps1');
+  });
+
+  test('Serena cache facts are advisory and cross-host detectable', () => {
+    const detectSource = fs.readFileSync(detectToolsPs1, 'utf8');
+    const activateSerenaSource = fs.readFileSync(activateSerenaPs1, 'utf8');
+
+    expect(detectSource).toContain('function Get-SerenaProjectFacts');
+    expect(detectSource).toContain('serena_cache');
+    expect(detectSource).toContain('large-cache-high');
+    expect(detectSource).toContain('remove incomplete .serena/cache and rerun spec-mcp-setup');
+    expect(activateSerenaSource).toContain("next_action = if ($ready) { '' } elseif ($cacheStatus -eq 'incomplete')");
+  });
+
+  test('Unix setup timeouts terminate child process groups', () => {
+    const installMcpSource = fs.readFileSync(installMcpSh, 'utf8');
+    const installHelpersSource = fs.readFileSync(installHelpersSh, 'utf8');
+
+    for (const source of [installMcpSource, installHelpersSource]) {
+      expect(source).toContain('start_new_session=True');
+      expect(source).toContain('def terminate_process_tree(process):');
+      expect(source).toContain('os.killpg(process.pid, signal.SIGTERM)');
+      expect(source).toContain('os.killpg(process.pid, signal.SIGKILL)');
+    }
   });
 
   test('PowerShell install-mcp forwards LLM-selected Serena languages', () => {
