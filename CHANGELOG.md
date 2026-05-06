@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.7.1 2026-05-07 02:35:40 leokuang: docs(plan): 新增 skill/agent 质量治理技术优化方案和文档审查记录，收敛执行安全、eval readiness、agent 输出契约与研究证据纪律 (user-visible)
 - v1.7.1 2026-05-07 02:09:27 leokuang: docs(review): 新增 skills 与 agents 三方 prompt 专家会审报告，补充内容质量、主链路适配、执行安全、eval readiness 与外部调研能力建议 (user-visible)
 - v1.7.1 2026-05-07 01:36:54 leokuang: docs(review): 新增 source 全量逐文件逐行 2 轮审查报告，汇总多 agent 覆盖、外部调研信号、优先级 findings 与 3 项能力升级建议 (user-visible)
 - v1.7.1 2026-05-07 00:05:16 leokuang: fix(instructions): 精简增加宿主中性的工具参数卫生准则，避免文本读取误传空 `pages` 参数污染 `/spec:*` 执行日志 (user-visible)
