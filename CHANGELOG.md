@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.7.0 2026-05-06 leokuang: chore(release): bump minor version to 1.7.0
+- v1.7.0 2026-05-05 21:47:13 leokuang: fix(graph-bootstrap): 稳定 GitNexus repo label readiness 检测时序，移除不稳定的 label 依赖断言 (user-visible)
 - v1.6.3 2026-05-05 21:05:10 leokuang: chore(gitnexus): 刷新 AGENTS/CLAUDE 入口文档中的本地 GitNexus 索引统计
 - v1.6.3 2026-05-05 20:56:14 leokuang: fix(graph-bootstrap): 修复 GitNexus repo label 投影时序耦合，setup 支持 git remote 推导并让 bootstrap 输出 stale label 诊断 (user-visible)
 - v1.6.3 2026-05-05 19:24:41 leokuang: test(prompt-mirrors): 将 graph-bootstrap 与 mcp-setup prompt mirror 退役边界同步到 unit contracts，避免测试继续读取已删除 mirror
