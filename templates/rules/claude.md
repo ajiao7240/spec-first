@@ -60,6 +60,14 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Tool Parameter Hygiene
+
+When using file-read tools, omit optional parameters that do not apply:
+
+- For Markdown, text, source, or config files, do not pass PDF/page pagination parameters.
+- Do not send empty strings, empty arrays, or placeholders for uncertain optional parameters.
+- For host file-read tools, pass only the path and needed range parameters for text files; reserve pagination parameters such as `pages` for real PDFs/paginated documents, never `""`.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

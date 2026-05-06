@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.7.1 2026-05-07 00:05:16 leokuang: fix(instructions): 精简增加宿主中性的工具参数卫生准则，避免文本读取误传空 `pages` 参数污染 `/spec:*` 执行日志 (user-visible)
 - v1.7.1 2026-05-06 21:48:25 leokuang: fix(spec-mcp-setup): 加固 Serena 首次索引边界，写入本地安全忽略规则、清理半成品 cache，让 Unix timeout 终止整棵子进程树，并同步用户手册版本线 (user-visible)
 - v1.7.1 2026-05-06 19:43:45 leokuang: chore(release): 发布 spec-first 1.7.1 patch 版本到 npm (user-visible)
 - v1.7.0 2026-05-06 19:27:54 leokuang: fix(spec-mcp-setup): 让 helper 首装并发执行 agent-browser browser runtime、global agent-browser skill 与 global ast-grep skill，补 PowerShell job 超时收敛、Bash 并发墙钟回归和文档同步 (user-visible)
