@@ -1,7 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
-- v1.7.0 2026-05-06 19:27:54 leokuang: fix(spec-mcp-setup): 让 helper 首装并发执行 agent-browser browser runtime 与 global skill，补 PowerShell job 超时收敛、Bash 并发墙钟回归和文档同步 (user-visible)
+- v1.7.0 2026-05-06 19:27:54 leokuang: fix(spec-mcp-setup): 让 helper 首装并发执行 agent-browser browser runtime、global agent-browser skill 与 global ast-grep skill，补 PowerShell job 超时收敛、Bash 并发墙钟回归和文档同步 (user-visible)
 - v1.7.0 2026-05-06 19:24:30 leokuang: test(mcp-setup): 让 mcp-setup shell contract 在 npm lifecycle 环境下保持 hermetic，并同步 agent-browser fallback 文案断言
 - v1.7.0 2026-05-06 19:14:24 leokuang: feat(init): 让 init 自动维护 spec-first gitignore managed block，并覆盖 dry-run、幂等和多仓非递归边界 (user-visible)
 - v1.7.0 2026-05-06 19:00:30 leokuang: fix(spec-mcp-setup): 让 helper 安装保留 npm registry/proxy/mirror 环境并将 agent-browser Linux 首装切换为 `--with-deps` (user-visible)
