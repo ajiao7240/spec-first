@@ -3,6 +3,14 @@
 
 set -euo pipefail
 
+while IFS='=' read -r env_name _; do
+  case "$env_name" in
+    INIT_CWD|npm_*)
+      unset "$env_name" 2>/dev/null || true
+      ;;
+  esac
+done < <(env)
+
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPTS_DIR="$REPO_ROOT/skills/spec-mcp-setup/scripts"
 RESOLVER_SCRIPT="$SCRIPTS_DIR/resolve-project-target.sh"
@@ -105,6 +113,9 @@ if [ "\${DRAIN_NPX_STDIN:-}" = "1" ]; then
   cat >/dev/null
 fi
 if [ "\${1:-}" = "--version" ]; then echo "10.0.0"; fi
+if [ -n "\${SLOW_AGENT_BROWSER_SKILL_SECONDS:-}" ] && [[ " \$* " == *" --skill agent-browser "* ]]; then
+  sleep "\$SLOW_AGENT_BROWSER_SKILL_SECONDS"
+fi
 if [[ " \$* " == *" --skill agent-browser "* ]]; then
   mkdir -p "\$HOME/.agents/skills/agent-browser"
   printf 'name: agent-browser\n' > "\$HOME/.agents/skills/agent-browser/SKILL.md"
@@ -139,6 +150,9 @@ SH
 #!/bin/bash
 echo "agent-browser \$*" >> "$log_file"
 if [ "\${1:-}" = "--version" ]; then echo "agent-browser 0.0.0"; fi
+if [ -n "\${SLOW_AGENT_BROWSER_INSTALL_SECONDS:-}" ] && [[ " \$* " == *" install "* ]]; then
+  sleep "\$SLOW_AGENT_BROWSER_INSTALL_SECONDS"
+fi
 exit 0
 SH
   for helper in gh vhs silicon ffmpeg ast-grep; do
@@ -406,7 +420,7 @@ assert_eq "helper shape contains required ast-grep skill" "true" "$(jq -r '.help
 assert_eq "helper verify-only does not run install commands" "$helper_verify_log_before" "$helper_verify_log_after"
 assert_eq "helper verify-only requires browser install marker" "action-required" "$(jq -r '.helper_tools."agent-browser".result' <<<"$helper_verify")"
 assert_eq "helper verify-only flags missing install marker" "action-required" "$(jq -r '.helper_tools."agent-browser".install_status' <<<"$helper_verify")"
-assert_eq "helper verify-only asks for agent-browser install" "run agent-browser install" "$(jq -r '.helper_tools."agent-browser".next_action' <<<"$helper_verify")"
+assert_eq "helper verify-only asks for agent-browser install" "run agent-browser install or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable" "$(jq -r '.helper_tools."agent-browser".next_action' <<<"$helper_verify")"
 assert_eq "helper verify-only requires ast-grep global skill" "action-required" "$(jq -r '.helper_tools."ast-grep-skill".result' <<<"$helper_verify")"
 
 helper_install_err="$TMP_DIR/helper-install.err"
@@ -423,6 +437,25 @@ helper_verify_after_install="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPT
 helper_verify_after_install_log_after="$(cat "$COMMAND_LOG")"
 assert_eq "helper verify-only stays read-only after install" "$helper_verify_after_install_log_before" "$helper_verify_after_install_log_after"
 assert_eq "helper verify-only ready after marker and skill" "ready" "$(jq -r '.helper_tools."agent-browser".result' <<<"$helper_verify_after_install")"
+
+CONCURRENT_BIN="$TMP_DIR/concurrent-bin"
+CONCURRENT_HOME="$TMP_DIR/concurrent-home"
+CONCURRENT_LOG="$TMP_DIR/concurrent-commands.log"
+touch "$CONCURRENT_LOG"
+make_fake_bin "$CONCURRENT_BIN" "$CONCURRENT_LOG"
+mkdir -p "$CONCURRENT_HOME/.agents/skills/ast-grep"
+printf 'name: ast-grep\n' > "$CONCURRENT_HOME/.agents/skills/ast-grep/SKILL.md"
+concurrent_start_ms="$(python3 -c 'import time; print(int(time.time() * 1000))')"
+concurrent_output="$(PATH="$CONCURRENT_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$CONCURRENT_HOME" SLOW_AGENT_BROWSER_INSTALL_SECONDS=2 SLOW_AGENT_BROWSER_SKILL_SECONDS=2 SPEC_FIRST_STAGE_TIMEOUT_SECONDS=10 bash "$SCRIPTS_DIR/install-helpers.sh")"
+concurrent_end_ms="$(python3 -c 'import time; print(int(time.time() * 1000))')"
+concurrent_duration_ms="$((concurrent_end_ms - concurrent_start_ms))"
+assert "helper install concurrent run emits JSON" jq -e . <<<"$concurrent_output"
+assert "helper install concurrent run writes browser marker" test -f "$CONCURRENT_HOME/.agent-browser/spec-first-install.json"
+assert_contains "helper install concurrent run starts browser install" "agent-browser install" "$(cat "$CONCURRENT_LOG")"
+assert_contains "helper install concurrent run starts browser skill install" "npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y" "$(cat "$CONCURRENT_LOG")"
+concurrent_fast_enough="$(python3 -c 'import sys; print(str(int(sys.argv[1]) < 3500).lower())' "$concurrent_duration_ms")"
+assert_eq "helper install concurrent run remains below serial baseline" "true" "$concurrent_fast_enough"
+assert_eq "helper install concurrent run keeps agent-browser ready" "ready" "$(jq -r '.helper_tools."agent-browser".result' <<<"$concurrent_output")"
 
 NO_BROWSER_BIN="$TMP_DIR/bin-no-browser"
 NO_BROWSER_LOG="$TMP_DIR/no-browser-commands.log"
@@ -497,6 +530,18 @@ project_bootstrap_again="$(cd "$FAKE_REPO" && bash "$SCRIPTS_DIR/bootstrap-proje
 assert_eq "bootstrap does not overwrite local config" "custom-local-config" "$(cat "$FAKE_REPO/.spec-first/config.local.yaml")"
 assert_eq "bootstrap reports existing local config" "already-exists" "$(jq -r '.project.local_config_status' <<<"$project_bootstrap_again")"
 assert_eq "gitignore entry is not duplicated" "1" "$(grep -cFx '.spec-first/*.local.yaml' "$FAKE_REPO/.gitignore")"
+
+INIT_GITIGNORE_REPO="$TMP_DIR/init-gitignore-repo"
+make_repo "$INIT_GITIGNORE_REPO"
+node - "$REPO_ROOT" > "$INIT_GITIGNORE_REPO/.gitignore" <<'NODE'
+const repoRoot = process.argv[2];
+const { buildSpecFirstGitignoreBlock } = require(`${repoRoot}/src/cli/gitignore-policy`);
+console.log(buildSpecFirstGitignoreBlock());
+NODE
+init_block_bootstrap="$(cd "$INIT_GITIGNORE_REPO" && bash "$SCRIPTS_DIR/bootstrap-project-config.sh" --create-local --ensure-gitignore --json)"
+assert_eq "init managed block already ignores local config" "already-ignored" "$(jq -r '.project.local_config_gitignore_status' <<<"$init_block_bootstrap")"
+assert_eq "mcp setup does not duplicate init gitignore local config rule" "1" "$(grep -cFx '.spec-first/*.local.yaml' "$INIT_GITIGNORE_REPO/.gitignore")"
+
 printf 'legacy\n' > "$FAKE_REPO/compound-engineering.local.md"
 legacy_delete="$(cd "$FAKE_REPO" && bash "$SCRIPTS_DIR/bootstrap-project-config.sh" --delete-legacy-markdown --json)"
 assert_eq "legacy markdown deletion is explicit" "deleted" "$(jq -r '.legacy.compound_engineering_markdown_status' <<<"$legacy_delete")"

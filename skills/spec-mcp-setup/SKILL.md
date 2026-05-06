@@ -385,6 +385,8 @@ pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1
 
 `install-helpers.* --verify-only` must only detect helper facts. It must not install the CLI, run `agent-browser install`, or install the global skill. It checks `$HOME/.agent-browser/spec-first-install.json` as the marker that the default install path has completed `agent-browser install`; missing marker means `install_status=action-required`.
 
+`install-helpers.*` preserves inherited npm registry, proxy, and mirror env vars through the helper install path. If you need a domestic npm source or corporate proxy, set the standard `NPM_CONFIG_REGISTRY` / `npm_config_registry` and proxy env vars before running setup; the install helpers will forward them through the sudo fallback instead of discarding them. On Linux, `agent-browser install` uses `--with-deps` so the browser runtime and system packages are installed together. When both `agent-browser` browser runtime and the global `agent-browser` skill are missing, their installs run in parallel while other helper installs stay serialized to avoid package-manager lock conflicts and keep the failure surface narrow.
+
 ## Helper Output Shape
 
 `install-helpers.*` always returns helper facts under this top-level shape:
@@ -407,8 +409,8 @@ pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1
 Default helper install mode must:
 
 1. Install `agent-browser` CLI if missing.
-2. Run `agent-browser install`.
-3. Write `$HOME/.agent-browser/spec-first-install.json` after `agent-browser install` succeeds.
+2. Run `agent-browser install` on macOS or `agent-browser install --with-deps` on Linux.
+3. Write `$HOME/.agent-browser/spec-first-install.json` after the platform-appropriate `agent-browser install` succeeds.
 4. Install required helper CLIs: `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, and `ast-grep`.
 5. Install the upstream/global `agent-browser` skill:
 

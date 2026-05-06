@@ -41,6 +41,7 @@
 - 项目级 `.agents/skills` 与 `.codex/agents`
 - 项目级 `.claude/spec-first/.developer` / `.codex/spec-first/.developer`
 - 严格 schema 的 `.claude/spec-first/state.json` / `.codex/spec-first/state.json`
+- `init` 自动维护的 `.gitignore` spec-first managed block，用于忽略可重建 runtime 和本地 readiness facts
 - 可更新、可恢复、可清理的受管资产模型
 - 一条面向首次使用者的 workflow 走查，说明从一个需求句子到 requirements / plan / task pack 的真实产物链路
 - 一份 workflow 产物目录，说明每类文档和 generated runtime assets 的生成者、读取方与 Git 边界
@@ -106,11 +107,12 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 5. [Workflows 与产物地图](./04-workflows-artifacts-map.md)
 6. [项目规范与胶水基线](./11-项目规范与胶水基线.md)
 7. [产物目录](./10-产物目录.md)
-8. [常见问题](./04-常见问题.md)
-9. [最佳实践](./05-最佳实践.md)
-10. [三种开发模式](./08-三种开发模式.md)
-11. [本地源码安装](./06-本地源码安装.md)
-12. [内部培训使用讲稿](./07-内部培训使用讲稿.md)
+8. [Gitignore 参考](./12-gitignore参考.md)
+9. [常见问题](./04-常见问题.md)
+10. [最佳实践](./05-最佳实践.md)
+11. [三种开发模式](./08-三种开发模式.md)
+12. [本地源码安装](./06-本地源码安装.md)
+13. [内部培训使用讲稿](./07-内部培训使用讲稿.md)
 
 ## 建议阅读路径
 
@@ -120,6 +122,7 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 - 如果你要判断单仓、多模块或多仓 workspace 怎么使用，先看 [三种开发模式](./08-三种开发模式.md)
 - 如果你要确认真实执行过程，看 [完整示例](./03-完整示例.md)
 - 如果你要判断某个文档或 runtime 目录该不该手改、该不该提交，先看 [产物目录](./10-产物目录.md)
+- 如果你要给业务项目配置 `.gitignore`，先看 [Gitignore 参考](./12-gitignore参考.md)
 - 如果你在排障，看 [常见问题](./04-常见问题.md)
 - 如果你关注 graph readiness、runtime/control-plane 与 Git 协作边界，重点看 [核心概念](./02-核心概念.md)、[Workflows 与产物地图](./04-workflows-artifacts-map.md)、[最佳实践](./05-最佳实践.md) 和 [常见问题](./04-常见问题.md)
 - 如果你在做本地调试或仓库维护，看 [本地源码安装](./06-本地源码安装.md)
@@ -127,6 +130,6 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 
 ## 版本
 
-当前版本线：`v1.6.3`
+当前版本线：`v1.7.0`
 
 > 说明：本手册对应当前 `spec-first` 代码与运行时资产布局；遇到行为疑问时，优先以 source-of-truth 文件、CLI contract 和本手册当前章节为准。

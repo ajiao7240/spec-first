@@ -5,6 +5,10 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { runInit } = require('../../src/cli/commands/init');
+const {
+  SPEC_FIRST_GITIGNORE_START,
+  buildSpecFirstGitignoreBlock,
+} = require('../../src/cli/gitignore-policy');
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-init-dry-run-'));
@@ -60,6 +64,10 @@ function snapshotTree(rootDir) {
 
   walk(rootDir);
   return results.sort();
+}
+
+function countGitignoreMarkers(content) {
+  return (content.match(new RegExp(SPEC_FIRST_GITIGNORE_START, 'g')) || []).length;
 }
 
 describe('init --dry-run', () => {
@@ -125,9 +133,11 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('.claude/spec-first/workflows/spec-mcp-setup/scripts/check-health');
       expect(result.stdout).toContain('.claude/agents/spec-security-reviewer.agent.md');
       expect(result.stdout).toContain('CLAUDE.md');
+      expect(result.stdout).toContain('.gitignore');
       expect(result.stdout).toContain('.claude/hooks/session-start');
       expect(result.stdout).toContain('.claude/spec-first/state.json');
       expect(result.stdout).toContain('No files were changed.');
+      expect(fs.existsSync(path.join(projectRoot, '.gitignore'))).toBe(false);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -150,11 +160,18 @@ describe('init --dry-run', () => {
         '.claude/spec-first/workflows/spec-mcp-setup/scripts/check-health',
         '.claude/settings.json',
         '.claude/spec-first/state.json',
+        '.gitignore',
         'CLAUDE.md',
       ]) {
         expect(dryRun.stdout).toContain(relativePath);
         expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(true);
       }
+
+      const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
+      expect(gitignore).toContain(buildSpecFirstGitignoreBlock());
+      expect(gitignore).toContain('.claude/commands/spec/');
+      expect(gitignore).toContain('.spec-first/standards/repo-profile.patch.yaml');
+      expect(gitignore).not.toContain('.spec-first/standards/\n');
 
       const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
       expect(claudeInstruction).toContain('不要默认进入 `spec-brainstorm`');
@@ -189,6 +206,10 @@ describe('init --dry-run', () => {
       expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
 
       const codexInstruction = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
+      const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
+      expect(gitignore).toContain(buildSpecFirstGitignoreBlock());
+      expect(gitignore).toContain('.agents/skills/');
+      expect(gitignore).not.toContain('.agents/\n');
       expect(codexInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(codexInstruction).toContain('workspace-graph-targets.v1');
       expect(codexInstruction).toContain('target_repo');
@@ -264,6 +285,68 @@ describe('init --dry-run', () => {
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('repeated init keeps a single gitignore managed block', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      expect(captureInit(projectRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
+      expect(captureInit(projectRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
+
+      const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
+      expect(countGitignoreMarkers(gitignore)).toBe(1);
+      expect(gitignore).toContain('.spec-first/*.local.yaml');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init preserves existing user gitignore content around the managed block', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      fs.writeFileSync(path.join(projectRoot, '.gitignore'), 'node_modules/\n.env\n', 'utf8');
+
+      expect(captureInit(projectRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
+
+      const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
+      expect(gitignore.startsWith('node_modules/\n.env\n\n')).toBe(true);
+      expect(gitignore).toContain(buildSpecFirstGitignoreBlock());
+      expect(countGitignoreMarkers(gitignore)).toBe(1);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init writes only the current project gitignore in multi-module and multi-repo shapes', () => {
+    const monorepoRoot = makeTempDir();
+    const workspaceRoot = makeTempDir();
+
+    try {
+      fs.mkdirSync(path.join(monorepoRoot, 'packages', 'app'), { recursive: true });
+      fs.mkdirSync(path.join(monorepoRoot, 'packages', 'lib'), { recursive: true });
+
+      expect(captureInit(monorepoRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
+      expect(fs.existsSync(path.join(monorepoRoot, '.gitignore'))).toBe(true);
+      expect(fs.existsSync(path.join(monorepoRoot, 'packages', 'app', '.gitignore'))).toBe(false);
+      expect(fs.existsSync(path.join(monorepoRoot, 'packages', 'lib', '.gitignore'))).toBe(false);
+
+      fs.mkdirSync(path.join(workspaceRoot, 'project-a', '.git'), { recursive: true });
+      fs.mkdirSync(path.join(workspaceRoot, 'project-b', '.git'), { recursive: true });
+
+      expect(captureInit(workspaceRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
+      expect(fs.existsSync(path.join(workspaceRoot, '.gitignore'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(false);
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-b', '.gitignore'))).toBe(false);
+
+      expect(captureInit(path.join(workspaceRoot, 'project-a'), ['--codex', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-b', '.gitignore'))).toBe(false);
+    } finally {
+      fs.rmSync(monorepoRoot, { recursive: true, force: true });
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
     }
   });
 

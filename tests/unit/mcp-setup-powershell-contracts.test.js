@@ -385,8 +385,11 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installHelpersSource).toContain('.agent-browser/spec-first-install.json');
     expect(installHelpersSource).toContain('Write-AgentBrowserInstallMarker');
     expect(installHelpersSource).toContain('agent-browser install');
+    expect(installHelpersSource).toContain('agent-browser install --with-deps');
     expect(installHelpersSource).toContain('Invoke-NpmGlobalInstallWithOptionalSudo');
     expect(installHelpersSource).toContain('sudo -n');
+    expect(installHelpersSource).toContain('NPM_CONFIG_REGISTRY');
+    expect(installHelpersSource).toContain('npm_config_registry');
     expect(installHelpersSource).toContain("'gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep'");
     expect(installHelpersSource).toContain('npx -y skills@latest add ast-grep/agent-skill -g -y');
     expect(installHelpersSource).toContain("'ast-grep-skill'");
@@ -406,11 +409,15 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installHelpersSource).toContain('Install gh from https://cli.github.com');
     expect(installHelpersSource).toContain('npm install -g @ast-grep/cli@latest');
     expect(installHelpersSource).toContain("Test-GlobalSkill 'agent-browser'");
-    expect(installHelpersSource).toContain("$nextAction = 'agent-browser CLI not found after npm install'");
-    expect(installHelpersSource).toContain("$status = 'ready'\n        $nextAction = ''");
+    expect(installHelpersSource).toContain("$agentBrowserNextAction = 'agent-browser CLI not found after npm install'");
+    expect(installHelpersSource).toContain("$agentBrowserStatus = 'ready'\n        $agentBrowserNextAction = ''");
+    expect(installHelpersSource).toContain('Start-ParallelCommandTask');
+    expect(installHelpersSource).toContain('Wait-ParallelCommandTasks');
+    expect(installHelpersSource).toContain('Wait-Job -Job $entry.Value.job -Timeout $TimeoutSeconds');
+    expect(installHelpersSource).toContain('Stop-Job -Job $entry.Value.job -Force');
     expect(installHelpersSource).not.toContain('agent-browser doctor');
     expect(installHelpersSource).not.toContain('doctor --fix');
-    expect(installHelpersSource).toContain("$mode -eq 'verify-only' -and -not (Test-Path $agentBrowserInstallMarker)");
+    expect(installHelpersSource).toContain("$mode -eq 'verify-only' -and $agentBrowserStatus -eq 'ready' -and -not (Test-Path $agentBrowserInstallMarker)");
   });
 
   test('PowerShell dependency and repair paths are Windows-safe', () => {
@@ -524,6 +531,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(mirror).toContain('自主 setup 不包含破坏性或语义不明确动作');
 
     expect(installHelpersSource).toContain('run_npm_global_install_with_optional_sudo');
-    expect(installHelpersSource).toContain('sudo -n env CI=true npm install -g');
+    expect(installHelpersSource).toContain('sudo -n env CI=true');
+    expect(installHelpersSource).toContain('NPM_CONFIG_REGISTRY');
   });
 });

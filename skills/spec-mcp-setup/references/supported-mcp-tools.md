@@ -50,6 +50,8 @@ brew update && if brew list --formula <tool> >/dev/null 2>&1; then brew upgrade 
 npx -y skills@latest add ast-grep/agent-skill -g -y
 ```
 
+The helper install path preserves inherited npm registry / proxy env vars through the sudo fallback, so `NPM_CONFIG_REGISTRY` / `npm_config_registry` can point npm and npx at a domestic mirror without rewriting global config. On Linux, `agent-browser install` uses `--with-deps`; on macOS and Windows it stays `agent-browser install` and relies on existing browser detection or the upstream runtime download path. When both `agent-browser` browser runtime and the global `agent-browser` skill are missing, `install-helpers.*` installs them in parallel and keeps the remaining helper tools serialized to avoid package-manager lock contention.
+
 Package-backed setup paths request latest versions: npm/npx packages use `@latest`, `uvx` MCP/tool commands use `--upgrade`, Cargo installs use `--force`, and Homebrew/winget handoffs prefer upgrade-before-install semantics. Temporary package pins must live in `mcp-tools.json`; GitNexus projections must read that package spec from the registry instead of hard-coding it in prose or tests. `--verify-only` only reads facts and does not upgrade.
 
 After `agent-browser install` succeeds, `install-helpers.*` writes `$HOME/.agent-browser/spec-first-install.json`. `--verify-only` only reads that marker, the CLI presence, and the global skill file; it does not run install or diagnostic commands.

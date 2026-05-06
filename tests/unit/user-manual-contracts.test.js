@@ -3,6 +3,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { getSpecFirstGitignorePatterns } = require('../../src/cli/gitignore-policy');
+
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const README_EN_PATH = path.join(REPO_ROOT, 'README.md');
@@ -16,6 +18,7 @@ const BEST_PRACTICES_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/05-最佳
 const LOCAL_INSTALL_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/06-本地源码安装.md');
 const ARTIFACT_CATALOG_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/10-产物目录.md');
 const STANDARDS_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/11-项目规范与胶水基线.md');
+const GITIGNORE_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/12-gitignore参考.md');
 const SPEC_IDEATE_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-ideate/SKILL.md');
 
 function read(filePath) {
@@ -104,6 +107,27 @@ describe('user manual contracts', () => {
     expect(standardsGuide).toContain('下游 workflow 只能把 `confirmed` standards 当作硬约束');
     expect(standardsGuide).toContain('`glue-map.json` 只用于 reuse-first 判断');
     expect(standardsGuide).toContain('不要手改 `.claude/`、`.codex/` 或 `.agents/skills/` runtime mirror');
+  });
+
+  test('user manual documents init-managed gitignore policy boundaries', () => {
+    const manual = read(USER_MANUAL_README_PATH);
+    const gitignoreGuide = read(GITIGNORE_GUIDE_PATH);
+
+    expect(manual).toContain('[Gitignore 参考](./12-gitignore参考.md)');
+    expect(manual).toContain('`init` 自动维护的 `.gitignore` spec-first managed block');
+    expect(gitignoreGuide).toContain('`spec-first init --claude|--codex` 会在当前目标项目的 `.gitignore` 中自动写入或更新');
+    expect(gitignoreGuide).toContain('`init --dry-run` 会预览这次写入');
+    expect(gitignoreGuide).toContain('# spec-first:start');
+    expect(gitignoreGuide).toContain('.claude/commands/spec/');
+    expect(gitignoreGuide).toContain('.agents/skills/');
+    expect(gitignoreGuide).toContain('.spec-first/standards/repo-profile.patch.yaml');
+    expect(gitignoreGuide).toContain('`init` 不会递归修改多仓 workspace 里的所有 child repo');
+    expect(gitignoreGuide).toContain('不要默认加入');
+    expect(gitignoreGuide).toContain('.spec-first/standards/');
+    expect(gitignoreGuide).toContain('`*.tgz` 是本地打包产物');
+    for (const pattern of getSpecFirstGitignorePatterns()) {
+      expect(gitignoreGuide).toContain(pattern);
+    }
   });
 
   test('user manual distinguishes temporary code-review handoff from durable summaries', () => {

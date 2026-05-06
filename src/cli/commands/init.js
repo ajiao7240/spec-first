@@ -36,6 +36,7 @@ const {
   inspectCodingGuidelinesBlock,
 } = require('../coding-guidelines');
 const { buildInitialChangelog, formatChangelogTimestamp } = require('../changelog');
+const { applySpecFirstGitignoreBlock } = require('../gitignore-policy');
 const {
   applyManagedBootstrapBlock,
   buildBootstrapBlock,
@@ -284,6 +285,11 @@ function runInit(argv) {
   console.log(`🤖 Generated ${agentPaths.length} agent file(s) in ${adapter.agentsRoot}`);
   if (agentSupportFiles.length > 0) {
     console.log(`🧰 Generated ${agentSupportFiles.length} agent support file(s) in ${adapter.agentsRoot}`);
+  }
+  const gitignoreOperation = initWritePlan.operations.find((operation) => operation.reason === 'managed_gitignore_policy');
+  if (gitignoreOperation) {
+    const action = gitignoreOperation.gitignoreStatus === 'added' ? 'Added' : 'Updated';
+    console.log(`🧹 ${action} .gitignore spec-first managed block`);
   }
   console.log('🪪 Wrote project developer profile:');
   console.log(`  📍 path: ${adapter.developerFile}`);
@@ -627,12 +633,41 @@ function buildInitWritePlan({
   return mergeOperationPlans(
     assetPlan,
     runtimePlan || buildInitRuntimePreviewPlan(projectRoot, adapter),
+    buildInitGitignorePlan(projectRoot),
     buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, platform }),
   );
 }
 
 function buildInitRuntimePreviewPlan(projectRoot, adapter) {
   return adapter.planRuntimeFilesSync(projectRoot);
+}
+
+function buildInitGitignorePlan(projectRoot) {
+  const gitignorePath = path.join(projectRoot, '.gitignore');
+  const existingGitignore = fs.existsSync(gitignorePath)
+    ? fs.readFileSync(gitignorePath, 'utf8')
+    : '';
+  const gitignoreResult = applySpecFirstGitignoreBlock(existingGitignore);
+
+  if (gitignoreResult.status === 'already-current') {
+    return {
+      operations: [],
+      summary: summarizeOperationPlan([]),
+    };
+  }
+
+  const operation = buildFileWriteOperation(
+    projectRoot,
+    gitignorePath,
+    gitignoreResult.content,
+    'managed_gitignore_policy',
+  );
+  operation.gitignoreStatus = gitignoreResult.status;
+
+  return {
+    operations: [operation],
+    summary: summarizeOperationPlan([operation]),
+  };
 }
 
 function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, platform }) {

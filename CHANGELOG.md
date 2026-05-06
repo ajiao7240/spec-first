@@ -1,6 +1,12 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.7.0 2026-05-06 19:27:54 leokuang: fix(spec-mcp-setup): 让 helper 首装并发执行 agent-browser browser runtime 与 global skill，补 PowerShell job 超时收敛、Bash 并发墙钟回归和文档同步 (user-visible)
+- v1.7.0 2026-05-06 19:24:30 leokuang: test(mcp-setup): 让 mcp-setup shell contract 在 npm lifecycle 环境下保持 hermetic，并同步 agent-browser fallback 文案断言
+- v1.7.0 2026-05-06 19:14:24 leokuang: feat(init): 让 init 自动维护 spec-first gitignore managed block，并覆盖 dry-run、幂等和多仓非递归边界 (user-visible)
+- v1.7.0 2026-05-06 19:00:30 leokuang: fix(spec-mcp-setup): 让 helper 安装保留 npm registry/proxy/mirror 环境并将 agent-browser Linux 首装切换为 `--with-deps` (user-visible)
+- v1.7.0 2026-05-06 18:48:34 leokuang: docs(plan): 新增 init 自动维护用户项目 gitignore 的实施计划，覆盖三种研发模式和 runtime/source 边界 (user-visible)
+- v1.7.0 2026-05-06 18:15:11 leokuang: docs(manual): 新增用户侧 spec-first 产物 gitignore 参考，明确 runtime、graph 和 standards baseline 的提交边界 (user-visible)
 - v1.7.0 2026-05-06 leokuang: chore(release): bump minor version to 1.7.0
 - v1.7.0 2026-05-05 21:47:13 leokuang: fix(graph-bootstrap): 稳定 GitNexus repo label readiness 检测时序，移除不稳定的 label 依赖断言 (user-visible)
 - v1.6.3 2026-05-05 21:05:10 leokuang: chore(gitnexus): 刷新 AGENTS/CLAUDE 入口文档中的本地 GitNexus 索引统计
