@@ -1,8 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
-- v1.7.1 2026-05-07 19:20:46 leokuang: fix(spec-mcp-setup): 把 GitNexus pin 从未声明回退的 `gitnexus@1.6.4-rc.48` 校正回 `gitnexus@1.6.3`（npm `dist-tags.latest`，对齐 LOOP-045 stable 锁定决策），并同步修订 GitNexus 证据治理 plan 的 SP1 命令、D1 路径表、风险章节，避免下次静默通道反转 (user-visible)
-- v1.7.1 2026-05-07 19:16:38 leokuang: docs(plan): skill/agent 质量治理计划终审修订（F1–F10 + S3 + S6），删除 U2 重复 Files、清理 U7 与 P1-C 矛盾、补齐 U5/U7/U8 漏列产物、量化 abort 协议边界、重写三个 Phase exit gate、补 Verification 命令集 (user-visible)
+- v1.7.2 2026-05-07 19:31:44 leokuang: chore(release): 发布 spec-first 1.7.2 patch 版本到 npm，含 GitNexus pin 校正回 1.6.3 与 governance plans revision 3 (user-visible)
+- v1.7.2 2026-05-07 19:20:46 leokuang: fix(spec-mcp-setup): 把 GitNexus pin 从未声明回退的 `gitnexus@1.6.4-rc.48` 校正回 `gitnexus@1.6.3`（npm `dist-tags.latest`，对齐 LOOP-045 stable 锁定决策），并同步修订 GitNexus 证据治理 plan 的 SP1 命令、D1 路径表、风险章节，避免下次静默通道反转 (user-visible)
+- v1.7.2 2026-05-07 19:16:38 leokuang: docs(plan): skill/agent 质量治理计划终审修订（F1–F10 + S3 + S6），删除 U2 重复 Files、清理 U7 与 P1-C 矛盾、补齐 U5/U7/U8 漏列产物、量化 abort 协议边界、重写三个 Phase exit gate、补 Verification 命令集 (user-visible)
 - v1.7.1 2026-05-07 19:09:09 leokuang: docs(plan): 重构 GitNexus 证据治理计划骨架，前置 SP1 spike、引入 D1 ownership 三路径决策、把 graph evidence policy 升为 single source of truth、对齐 spec-plan status enum、显式声明双宿主 parity 与 CHANGELOG 节奏 (user-visible)
 - v1.7.1 2026-05-07 19:08:41 leokuang: docs(plan): 将终审校准写回 code-review-graph evidence preflight 方案，明确实施门禁、全流程位置和预期收益 (user-visible)
 - v1.7.1 2026-05-07 19:04:41 leokuang: docs(manual): 同步图谱 provider 用户手册，说明 graph-impact reviewer 是默认评估、条件派发的影响面审查专家 (user-visible)
