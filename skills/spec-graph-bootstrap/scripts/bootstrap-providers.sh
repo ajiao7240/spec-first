@@ -6,7 +6,11 @@ set -euo pipefail
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-RESOLVER="$SCRIPT_DIR/../../spec-mcp-setup/scripts/resolve-project-target.sh"
+# Cross-skill helper reuse: spec-graph-bootstrap is shipped together with spec-mcp-setup
+# inside the same spec-first package, so the relative path to the resolver is intentionally
+# stable. Override with SPEC_FIRST_PROJECT_TARGET_RESOLVER if a future packaging splits the
+# two skills.
+RESOLVER="${SPEC_FIRST_PROJECT_TARGET_RESOLVER:-$SCRIPT_DIR/../../spec-mcp-setup/scripts/resolve-project-target.sh}"
 REPO_ARG=""
 ALL_REPOS=false
 PROVIDER_COMMAND_TIMEOUT_SECONDS="${SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS:-${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}}"

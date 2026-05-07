@@ -4,6 +4,12 @@ type: solution
 category: workflow-issues
 date: 2026-05-07
 status: open
+problem_type: workflow_issue
+component: spec-doc-review
+severity: medium
+applies_when:
+  - "reviewer dispatch fails because the host gateway rejects large context or concurrent subagent calls"
+  - "a doc-review workflow must fall back to single-agent report-only review without losing findings"
 related_plan: docs/plans/2026-05-07-001-feat-skill-agent-quality-governance-plan.md
 related_tracker: docs/plans/2026-05-08-001-source-code-deferred-tracker.md
 tracker_entry: dispatch-failure-1
@@ -38,6 +44,28 @@ tracker_entry: dispatch-failure-1
 ## Workaround Used This Session
 
 按 spec-doc-review fallback 协议执行 single-agent report-only 审查，输出 13 条 finding（P1×6 + P2×5 + P2-Security×2 + FYI×3）。fallback 在父计划 `## Review Reception` 第 1 轮明示。
+
+## Guidance
+
+- reviewer dispatch 失败时，不等待不确定的网关恢复；按 `spec-doc-review` 的 fallback 协议切换到 single-agent report-only。
+- fallback 输出必须明确标注能力降级来源、未执行的 multi-persona cross-check，以及需要后续重跑的 trigger。
+- 如果失败信号来自上下文窗口或网关 panic，下一轮优先缩小 subagent prompt 输入，并让 reviewer 自行读取 source 文件。
+
+## Why This Matters
+
+doc-review 的价值来自可追溯的 findings，而不是强依赖某一种 dispatch 机制。把 fallback 作为显式 workflow 行为，可以在宿主能力不稳定时保住审查闭环，同时避免读者误把单 agent 输出当成多 reviewer 共识。
+
+## When to Apply
+
+当 reviewer agent 全部失败、部分失败但无可信 findings、或宿主网关对大上下文并发 dispatch 不稳定时，使用这条记录作为降级处理参考。若至少有足够的独立 reviewer findings 返回，优先合并真实 reviewer 输出，而不是直接降级。
+
+## Examples
+
+```text
+dispatch result: 6 reviewer agents failed
+fallback: single-agent report-only
+required disclosure: dispatch failure reason + residual multi-persona rerun action
+```
 
 ## Followup Actions
 

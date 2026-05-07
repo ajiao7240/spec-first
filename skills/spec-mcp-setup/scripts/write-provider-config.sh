@@ -77,8 +77,8 @@ if [ -f "$RUNTIME_CAPABILITIES" ] && jq -e --arg repo_root "$REPO_ROOT" '.schema
 fi
 
 generated_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-gitnexus_package="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1] // empty' "$TOOLS_JSON")"
-[ -n "$gitnexus_package" ] || { echo "GitNexus package spec not found in mcp-tools.json" >&2; exit 1; }
+gitnexus_package="$(jq -r '.tools[] | select(.id == "gitnexus") | (.package // "") + "@" + (.version // "")' "$TOOLS_JSON")"
+[ "$gitnexus_package" != "@" ] && [ -n "$gitnexus_package" ] || { echo "GitNexus package/version fields not found in mcp-tools.json" >&2; exit 1; }
 GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT=5
 GITNEXUS_QUERY_PROBE_SOURCE_FILE_LIMIT_BYTES=200000
 

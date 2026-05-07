@@ -23,6 +23,8 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
   {
     title: 'spec-first local setup, graph readiness, standards, and workflow runtime artifacts',
     patterns: [
+      '.gitnexus/',
+      '.code-review-graph/',
       '.spec-first-graph/',
       '.spec-first/*.local.yaml',
       '.spec-first/config.local.yaml',

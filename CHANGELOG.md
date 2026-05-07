@@ -1,6 +1,23 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.0 2026-05-08 02:48:09 leokuang: fix(spec-mcp-setup): 收紧 mcp-tools 模板与 GitNexus pin 治理，PowerShell 模板展开改用字面替换并对齐空值语义，bash helper 变量加 `SPEC_FIRST_` 前缀，PowerShell graph bootstrap 补 resolver override parity，并用测试锁定 RC.85 pin 与 `env_quote` fast path (user-visible)
+- v1.8.0 2026-05-08 02:38:03 leokuang: fix(spec-mcp-setup): `uninstall-mcp.ps1` 复用 template helper 的 `Get-ToolField` 读取 host target config path，消除 PowerShell map/object 形态差异风险 (user-visible)
+- v1.8.0 2026-05-08 02:36:47 leokuang: fix(spec-mcp-setup): Codex higher-precedence PowerShell 检测改用 `Get-ToolField` 读取 target map，避免动态属性读取在对象形态变化时失效 (user-visible)
+- v1.8.0 2026-05-08 02:34:14 leokuang: fix(spec-mcp-setup): PowerShell setup 超时与 warmup TTL 环境变量改用 TryParse fallback，避免超大数字或非法值在加载阶段抛异常 (user-visible)
+- v1.8.0 2026-05-08 02:31:52 leokuang: fix(init): 对齐父 workspace `init` 默认 all-repos 治理契约，明确 init/setup/graph bootstrap 作为 maintenance 例外，并修正 mcp-tools schema v5 文档残留 (user-visible)
+- v1.8.0 2026-05-08 02:29:39 leokuang: docs(spec-mcp-setup): 校正 pipeline runtime dependencies 为 host-specific contract，明确 Unix shell path 需要 `jq/python3`，Windows PowerShell 7 path 不强制安装二者并补 contract 测试 (user-visible)
+- v1.8.0 2026-05-08 02:19:47 leokuang: fix(spec-mcp-setup): 将 MCP warmup cache 写入降级为 best-effort，避免缓存目录权限或临时文件异常阻断实际 setup 成功路径 (user-visible)
+- v1.8.0 2026-05-08 02:04:59 leokuang: fix(spec-mcp-setup): 修 `resolve-project-target.sh` 的 `env_quote` 在含单引号 input 时让 `eval "$TARGET_ENV"` 报 EOF 的真实 bug，改为 case-based 双路径（fast path 仍是 bash 内置无 fork、含 `'` 时走 sed 正确 escape）；测试覆盖单引号 / 命令替换 / 分号 / 反引号 / 单引号+命令替换混合 / 换行 6 个对抗 payload；为 `install-mcp.sh` 顶层 `SCRIPT_DIR` 重复赋值加 grep 防回归断言 (user-visible)
+- v1.8.0 2026-05-08 01:51:40 leokuang: docs+chore(spec-mcp-setup): 在 SKILL.md 显式声明 setup 流水线运行时依赖（jq/python3/node）与各自承担角色；为 GitNexus pin 加 unblock 条件（≥1.7.0 stable + spike 通过）；在 GitNexus 证据治理 plan 追加 v1.8.0 SP1 spike 实测输出与通道治理状态；为 spec-graph-bootstrap 跨 skill resolver 路径加 `SPEC_FIRST_PROJECT_TARGET_RESOLVER` 环境变量 fallback 与耦合注释；为 resolve-project-target.sh 的 `env_quote` 加对抗性 unit test（命令替换/分号/反引号/换行）并显式声明不支持单引号 input 的 known limitation (user-visible)
+- v1.8.0 2026-05-08 01:12:58 leokuang: feat(spec-mcp-setup): 为 MCP package warmup 增加 host-level command hash cache，重复项目 setup 可跳过同版本 warmup 并在 ledger 标记 `warmup-cache-hit`，同时容错损坏 cache marker 与非法 TTL 环境变量 (user-visible)
+- v1.8.0 2026-05-08 00:56:27 leokuang: docs(spec-mcp-setup): 同步 mcp-tools schema v5、spec-first 1.8.0 用户手册版本线与 GitNexus `1.6.4-rc.85` pin 治理说明 (user-visible)
+- v1.8.0 2026-05-08 00:35:13 leokuang: feat(spec-mcp-setup): 在 mcp-tools.json gitnexus tool 抽出 `package` + `version` 顶层字段做模板化（schema_version v4→v5），4 处 args 改用 `{{package}}@{{version}}` 占位符；新增 `lib-template.ps1` 与 `lib-template.sh` 模板展开 helper，由 install/configure/detect/write-provider-config 共享消费；将 GitNexus pin 升到 `1.6.4-rc.85` (user-visible)
+- v1.7.3 2026-05-07 23:40:19 leokuang: fix(docs): 校正 gitignore 用户手册中单 repo/monorepo init 目标目录表述，避免误导为自动提升到 Git repo root (user-visible)
+- v1.7.3 2026-05-07 23:19:28 leokuang: fix(docs): 补齐 reviewer dispatch failure solution 的 `problem_type`、`applies_when` 和知识文档章节，恢复 docs/solutions frontmatter contract
+- v1.7.3 2026-05-07 23:05:25 leokuang: feat(init): 让 init 自动识别父 workspace 多 repo 模式并批量初始化 child repo，父目录只写 advisory summary，同时支持 `--repo` / `--all-repos` 显式目标参数，并将 `.gitnexus/` 与 `.code-review-graph/` 纳入 managed `.gitignore` 与用户手册 (user-visible)
+- v1.7.3 2026-05-07 22:58:14 leokuang: fix(spec-mcp-setup): 为 PowerShell Serena bootstrap 增加外部索引命令超时和 Windows 可执行 shim 解析，避免原生 setup 在索引阶段无限挂起 (user-visible)
+- v1.7.3 2026-05-07 22:22:43 leokuang: fix(spec-mcp-setup): 修复 PowerShell 7 下 helper 镜像 env、ordered 参数声明、host config/target map 读取、bool 归一化与 macOS 平台判定兼容性问题，并让 provider 投影和宿主配置写入使用临时文件原子替换、MCP warmup 使用有界超时，补回归 contract (user-visible)
 - v1.7.3 2026-05-07 21:40:00 leokuang: chore(release): 发布 spec-first 1.7.3 patch 版本到 npm，含 graph-bootstrap Windows shim 解析与跨平台路径规范化 (user-visible)
 - v1.7.2 2026-05-07 21:18:19 leokuang: fix(graph-bootstrap): 修复 Windows PowerShell 下 `npx.ps1` 不能被 `ProcessStartInfo` 直接启动导致 GitNexus bootstrap 失败，保持 raw log 路径跨平台 repo-relative，并稳固 normalized artifact 写入 (user-visible)
 - v1.7.2 2026-05-07 19:51:13 leokuang: chore(gitnexus): 同步 graph-bootstrap 刷新的 AGENTS/CLAUDE 本地 GitNexus 索引统计

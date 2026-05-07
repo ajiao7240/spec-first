@@ -16,6 +16,17 @@ $script:MirrorEndpoints = [ordered]@{
 
 $script:LastInstallProvenance = $null
 
+function Get-NonNegativeIntEnv {
+  param(
+    [string]$Name,
+    [int]$Default
+  )
+  $raw = [Environment]::GetEnvironmentVariable($Name)
+  [int]$parsed = 0
+  if ([int]::TryParse($raw, [ref]$parsed) -and $parsed -ge 0) { return $parsed }
+  return $Default
+}
+
 function Reset-InstallProvenance {
   $script:LastInstallProvenance = $null
 }
@@ -71,7 +82,6 @@ function Invoke-WithMirrorFallback {
 function Get-NpmMirrorEnv {
   $value = $script:MirrorEndpoints.npm
   return @{
-    npm_config_registry = $value
     NPM_CONFIG_REGISTRY = $value
   }
 }
@@ -146,9 +156,20 @@ function Write-AgentBrowserInstallMarker {
 }
 
 function Get-PlatformName {
-  if ($IsWindows) { return 'windows' }
-  if ($IsLinux) { return 'linux' }
-  if ($IsMacOS) { return 'macos' }
+  $hasIsWindows = $null -ne (Get-Variable -Name IsWindows -ErrorAction SilentlyContinue)
+  $hasIsLinux = $null -ne (Get-Variable -Name IsLinux -ErrorAction SilentlyContinue)
+  $hasIsMacOS = $null -ne (Get-Variable -Name IsMacOS -ErrorAction SilentlyContinue)
+  if ($hasIsWindows) {
+    if ($IsWindows) { return 'windows' }
+    if ($IsMacOS) { return 'macos' }
+    if ($IsLinux) { return 'linux' }
+    return 'unknown'
+  }
+  switch ([System.Environment]::OSVersion.Platform) {
+    ([System.PlatformID]::Win32NT) { return 'windows' }
+    ([System.PlatformID]::Unix) { return 'linux' }
+    ([System.PlatformID]::MacOSX) { return 'macos' }
+  }
   return 'unknown'
 }
 
@@ -355,7 +376,7 @@ function Test-GlobalSkill {
 
 function Add-HelperFact {
   param(
-    [ordered]$HelperTools,
+    [System.Collections.IDictionary]$HelperTools,
     [string]$Id,
     [string]$Type,
     [string]$DependencyStatus,
@@ -388,7 +409,7 @@ function Start-ParallelCommandTask {
   param(
     [string]$Name,
     [scriptblock]$ScriptBlock,
-    [ordered]$Tasks
+    [System.Collections.IDictionary]$Tasks
   )
 
   $statusPath = [System.IO.Path]::GetTempFileName()
@@ -414,7 +435,7 @@ function Start-ParallelCommandTask {
 
 function Wait-ParallelCommandTasks {
   param(
-    [ordered]$Tasks,
+    [System.Collections.IDictionary]$Tasks,
     [int]$TimeoutSeconds
   )
 
@@ -446,10 +467,7 @@ $helperTools = [ordered]@{}
 $parallelTasks = [ordered]@{}
 $platform = Get-PlatformName
 $agentBrowserInstallMarker = Join-Path $HOME '.agent-browser/spec-first-install.json'
-$stageTimeoutSeconds = 900
-if (-not [string]::IsNullOrWhiteSpace($env:SPEC_FIRST_STAGE_TIMEOUT_SECONDS)) {
-  $stageTimeoutSeconds = [int]$env:SPEC_FIRST_STAGE_TIMEOUT_SECONDS
-}
+$stageTimeoutSeconds = Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900
 
 $agentBrowserStatus = 'ready'
 $agentBrowserDependencyStatus = 'ready'

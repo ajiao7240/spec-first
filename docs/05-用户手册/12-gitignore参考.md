@@ -31,6 +31,8 @@
 .context/spec-first/
 
 # spec-first local setup, graph readiness, standards, and workflow runtime artifacts
+.gitnexus/
+.code-review-graph/
 .spec-first-graph/
 .spec-first/*.local.yaml
 .spec-first/config.local.yaml
@@ -49,7 +51,7 @@
 # spec-first:end
 ```
 
-`init` 不会递归修改多仓 workspace 里的所有 child repo。你在哪个目录运行 `spec-first init --claude|--codex`，它只维护当前目标目录的 `.gitignore`；如果要给某个 child repo 安装运行时资产和 `.gitignore`，请在该 child repo 内运行 init，或使用后续显式 all-repos setup 流程。
+普通单 repo / monorepo 中，`init` 保持当前行为，只维护当前执行目录对应的目标项目 `.gitignore`，通常应在项目根目录运行。在父 workspace 且检测到多个 child Git repos 时，`init` 默认进入 all-child maintenance：逐个初始化 child repo，并只在父目录写 `.spec-first/workspace/init-summary.json` advisory summary；父目录不写 `.gitignore`、`AGENTS.md`、`CLAUDE.md`、`.claude/`、`.codex/` 或 `.agents/` 等 repo-local artifacts。使用 `--repo <child>` 可只初始化一个 child repo，使用 `--all-repos` 可显式声明批量初始化意图。
 
 如果项目里已经有同类规则，`init` 仍会保留 spec-first managed block，保证后续版本可以幂等更新。它不会尝试判断所有语义等价的 glob，也不会删除 block 外的用户规则。
 
@@ -83,6 +85,9 @@
 
   .agents/
     skills/                         # Codex skill runtime mirror，忽略
+
+  .gitnexus/                         # GitNexus 本地图谱索引/metadata，忽略
+  .code-review-graph/                # code-review-graph 本地索引/cache，忽略
 
   .spec-first/
     config.local.example.yaml       # 本地配置模板，可提交
@@ -146,6 +151,7 @@
 | `.claude/tasks/`、`.claude/worktrees/` | Claude Code host-local scratch/worktree 产物 |
 | `.codex/commands/spec/`、`.codex/spec-first/`、`.codex/agents/`、`.agents/skills/` | `spec-first init --codex` 可重建的 runtime assets |
 | `.spec-first/config.local.yaml`、`.spec-first/*.local.yaml` | 本地配置，可能包含个人路径或私有设置 |
+| `.gitnexus/`、`.code-review-graph/` | 本地图谱 provider 索引、metadata 或 cache，可由对应 provider 重建 |
 | `.spec-first/config/*.json` | `spec-mcp-setup` 生成的 setup-owned 本地投影，不是第二个版本源 |
 | `.spec-first/providers/` | provider 原始日志、状态和规范化输出，依赖本机环境和当前索引 |
 | `.spec-first/graph/` | graph readiness facts，可由 `spec-graph-bootstrap` 重建 |

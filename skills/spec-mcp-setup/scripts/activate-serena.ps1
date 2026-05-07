@@ -34,6 +34,19 @@ $readyMarkerPath = Join-Path $repoRoot $readyMarkerFile
 $indexCommand = $serenaTool.project_bootstrap.index_command
 $command = $indexCommand.command
 
+function Get-NonNegativeIntEnv {
+  param(
+    [string]$Name,
+    [int]$Default
+  )
+  $raw = [Environment]::GetEnvironmentVariable($Name)
+  [int]$parsed = 0
+  if ([int]::TryParse($raw, [ref]$parsed) -and $parsed -ge 0) { return $parsed }
+  return $Default
+}
+
+$stageTimeoutSeconds = Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900
+
 function Get-PathSizeBytes {
   param([string]$Path)
   if (-not (Test-Path -LiteralPath $Path)) { return 0 }
@@ -191,6 +204,92 @@ function Clear-IncompleteSerenaCache {
   }
 }
 
+function Test-WindowsHost {
+  $isWindowsVariable = Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue
+  return ([bool]$isWindowsVariable -or [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT)
+}
+
+function Resolve-ProcessExecutable {
+  param([string]$Exe)
+
+  if ([string]::IsNullOrWhiteSpace($Exe)) { return $Exe }
+  if ([System.IO.Path]::IsPathRooted($Exe) -or $Exe.Contains('\') -or $Exe.Contains('/')) { return $Exe }
+
+  $commands = @(Get-Command $Exe -All -ErrorAction SilentlyContinue)
+  $application = @($commands | Where-Object { $_.CommandType -eq 'Application' } | Select-Object -First 1)
+  if ($application.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$application[0].Path)) {
+    return [string]$application[0].Path
+  }
+
+  $externalScript = @($commands | Where-Object { $_.CommandType -eq 'ExternalScript' } | Select-Object -First 1)
+  if ($externalScript.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$externalScript[0].Path)) {
+    $scriptPath = [string]$externalScript[0].Path
+    if ((Test-WindowsHost) -and [System.IO.Path]::GetExtension($scriptPath).Equals('.ps1', [System.StringComparison]::OrdinalIgnoreCase)) {
+      $basePath = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($scriptPath), [System.IO.Path]::GetFileNameWithoutExtension($scriptPath))
+      foreach ($extension in @('.cmd', '.exe', '.bat', '.com')) {
+        $candidate = "${basePath}${extension}"
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+      }
+    }
+    return $scriptPath
+  }
+
+  return $Exe
+}
+
+function Invoke-ExternalCommandWithTimeout {
+  param(
+    [string]$Exe,
+    [object[]]$CommandArguments,
+    [string]$WorkingDirectory,
+    [int]$TimeoutSeconds
+  )
+
+  $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $processInfo.FileName = Resolve-ProcessExecutable -Exe $Exe
+  foreach ($argument in @($CommandArguments)) {
+    [void]$processInfo.ArgumentList.Add([string]$argument)
+  }
+  $processInfo.WorkingDirectory = $WorkingDirectory
+  $processInfo.RedirectStandardOutput = $true
+  $processInfo.RedirectStandardError = $true
+  $processInfo.UseShellExecute = $false
+
+  $process = [System.Diagnostics.Process]::new()
+  $process.StartInfo = $processInfo
+  try {
+    [void]$process.Start()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $timedOut = -not $process.WaitForExit($TimeoutSeconds * 1000)
+    if ($timedOut) {
+      try {
+        $process.Kill($true)
+      } catch {
+        try { $process.Kill() } catch {}
+      }
+      $process.WaitForExit()
+    }
+    $stdoutTask.Wait()
+    $stderrTask.Wait()
+    $outputParts = @($stdoutTask.Result, $stderrTask.Result) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+    if ($timedOut) { $outputParts += "command timed out after ${TimeoutSeconds}s" }
+    return [pscustomobject]@{
+      exit_code = if ($timedOut) { 124 } else { [int]$process.ExitCode }
+      output = ($outputParts -join [Environment]::NewLine)
+      timed_out = $timedOut
+    }
+  } catch {
+    return [pscustomobject]@{
+      exit_code = 127
+      output = [string]$_.Exception.Message
+      timed_out = $false
+    }
+  } finally {
+    $process.Dispose()
+  }
+}
+
 if ($VerifyOnly) {
   $ready = (Test-Path -LiteralPath $projectFile -PathType Leaf) -and (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf)
   $cacheDir = Join-Path $projectDir 'cache'
@@ -338,14 +437,16 @@ try {
     try {
       $global:LASTEXITCODE = 0
       $indexArgArray = @(New-IndexArgs -Languages @($attempt.languages))
-      $serenaOutput = @(& $command @indexArgArray 2>&1)
-      if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -eq 0) {
+      $indexRun = Invoke-ExternalCommandWithTimeout -Exe $command -CommandArguments $indexArgArray -WorkingDirectory $repoRoot -TimeoutSeconds $stageTimeoutSeconds
+      $global:LASTEXITCODE = [int]$indexRun.exit_code
+      $serenaOutput = @($indexRun.output)
+      if ($indexRun.exit_code -eq 0) {
         $bootstrapSucceeded = $true
         break
       }
       $summary = (($serenaOutput | ForEach-Object { [string]$_ }) -join "`n").Trim()
       if ($summary.Length -gt 2000) { $summary = $summary.Substring($summary.Length - 2000) }
-      $attemptErrors.Add("attempt=$($attempt.name) exit=$LASTEXITCODE`n$summary")
+      $attemptErrors.Add("attempt=$($attempt.name) exit=$($indexRun.exit_code)`n$summary")
     } catch {
       $attemptErrors.Add("attempt=$($attempt.name) exit=1`n$($_.Exception.Message)")
     } finally {

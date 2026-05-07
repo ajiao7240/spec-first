@@ -319,7 +319,7 @@ describe('init --dry-run', () => {
     }
   });
 
-  test('init writes only the current project gitignore in multi-module and multi-repo shapes', () => {
+  test('init preserves single repo behavior and auto-batches parent workspaces into child repos', () => {
     const monorepoRoot = makeTempDir();
     const workspaceRoot = makeTempDir();
 
@@ -336,16 +336,102 @@ describe('init --dry-run', () => {
       fs.mkdirSync(path.join(workspaceRoot, 'project-b', '.git'), { recursive: true });
 
       expect(captureInit(workspaceRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
-      expect(fs.existsSync(path.join(workspaceRoot, '.gitignore'))).toBe(true);
-      expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(false);
-      expect(fs.existsSync(path.join(workspaceRoot, 'project-b', '.gitignore'))).toBe(false);
+      expect(fs.existsSync(path.join(workspaceRoot, '.gitignore'))).toBe(false);
+      expect(fs.existsSync(path.join(workspaceRoot, 'AGENTS.md'))).toBe(false);
+      expect(fs.existsSync(path.join(workspaceRoot, '.codex'))).toBe(false);
+      expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'workspace', 'init-summary.json'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-b', '.gitignore'))).toBe(true);
+      expect(fs.readFileSync(path.join(workspaceRoot, 'project-a', '.gitignore'), 'utf8')).toContain(buildSpecFirstGitignoreBlock());
+      expect(fs.readFileSync(path.join(workspaceRoot, 'project-b', '.gitignore'), 'utf8')).toContain(buildSpecFirstGitignoreBlock());
 
-      expect(captureInit(path.join(workspaceRoot, 'project-a'), ['--codex', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
+      const summary = JSON.parse(fs.readFileSync(path.join(workspaceRoot, '.spec-first', 'workspace', 'init-summary.json'), 'utf8'));
+      expect(summary.schema_version).toBe('workspace-init-summary.v1');
+      expect(summary.selection_source).toBe('workspace-default-all-repos');
+      expect(summary.parent_writes_repo_local_artifacts).toBe(false);
+      expect(summary.counts).toMatchObject({ total: 2, ready: 2, action_required: 0 });
+
+      fs.rmSync(path.join(workspaceRoot, 'project-a', '.gitignore'), { force: true });
+      fs.rmSync(path.join(workspaceRoot, 'project-b', '.gitignore'), { force: true });
+      fs.rmSync(path.join(workspaceRoot, '.spec-first'), { recursive: true, force: true });
+
+      expect(captureInit(workspaceRoot, ['--codex', '--repo', 'project-a', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
       expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(true);
       expect(fs.existsSync(path.join(workspaceRoot, 'project-b', '.gitignore'))).toBe(false);
+      expect(fs.existsSync(path.join(workspaceRoot, '.gitignore'))).toBe(false);
     } finally {
       fs.rmSync(monorepoRoot, { recursive: true, force: true });
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init --all-repos dry-run previews child repos without writing parent or child files', () => {
+    const workspaceRoot = makeTempDir();
+
+    try {
+      fs.mkdirSync(path.join(workspaceRoot, 'project-a', '.git'), { recursive: true });
+      fs.mkdirSync(path.join(workspaceRoot, 'project-b', '.git'), { recursive: true });
+      const before = snapshotTree(workspaceRoot);
+
+      const result = captureInit(workspaceRoot, ['--codex', '--all-repos', '--dry-run', '-u', 'reviewer', '--lang', 'zh']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toContain('Workspace init: spec-first init (codex)');
+      expect(result.stdout).toContain('selection_source: explicit-all-repos');
+      expect(result.stdout).toContain('Dry run: no parent advisory summary was written.');
+      expect(snapshotTree(workspaceRoot)).toEqual(before);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init rejects invalid workspace target flag combinations', () => {
+    const projectRoot = makeTempDir();
+    const workspaceRoot = makeTempDir();
+
+    try {
+      fs.mkdirSync(path.join(projectRoot, '.git'), { recursive: true });
+      fs.mkdirSync(path.join(workspaceRoot, 'project-a', '.git'), { recursive: true });
+
+      const allReposInsideGit = captureInit(projectRoot, ['--codex', '--all-repos', '-u', 'reviewer', '--lang', 'zh']);
+      expect(allReposInsideGit.exitCode).toBe(1);
+      expect(allReposInsideGit.stderr).toContain('--all-repos must be run from a parent workspace');
+      expect(fs.existsSync(path.join(projectRoot, '.gitignore'))).toBe(false);
+
+      const conflicting = captureInit(workspaceRoot, ['--codex', '--all-repos', '--repo', 'project-a', '-u', 'reviewer', '--lang', 'zh']);
+      expect(conflicting.exitCode).toBe(1);
+      expect(conflicting.stderr).toContain('Cannot combine --repo and --all-repos');
+      expect(fs.existsSync(path.join(workspaceRoot, '.gitignore'))).toBe(false);
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(false);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init --repo rejects symlink targets that escape the parent workspace', () => {
+    const workspaceRoot = makeTempDir();
+    const outsideRepo = makeTempDir();
+
+    try {
+      fs.mkdirSync(path.join(outsideRepo, '.git'), { recursive: true });
+      const linkedRepo = path.join(workspaceRoot, 'linked-outside');
+      try {
+        fs.symlinkSync(outsideRepo, linkedRepo, 'dir');
+      } catch (_error) {
+        return;
+      }
+
+      const result = captureInit(workspaceRoot, ['--codex', '--repo', 'linked-outside', '-u', 'reviewer', '--lang', 'zh']);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('--repo target must be inside the current workspace');
+      expect(fs.existsSync(path.join(outsideRepo, '.gitignore'))).toBe(false);
+      expect(fs.existsSync(path.join(outsideRepo, 'AGENTS.md'))).toBe(false);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+      fs.rmSync(outsideRepo, { recursive: true, force: true });
     }
   });
 

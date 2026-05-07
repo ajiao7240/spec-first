@@ -8,13 +8,21 @@ Set-StrictMode -Version Latest
 
 $script:GitNexusQueryProbeCandidateLimit = 5
 $script:BootstrapProvidersScript = $PSCommandPath
-$script:ProviderCommandTimeoutSeconds = if ($env:SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS -match '^[0-9]+$') {
-  [int]$env:SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS
-} elseif ($env:SPEC_FIRST_STAGE_TIMEOUT_SECONDS -match '^[0-9]+$') {
-  [int]$env:SPEC_FIRST_STAGE_TIMEOUT_SECONDS
-} else {
-  900
+
+function Get-NonNegativeIntEnv {
+  param(
+    [string]$Name,
+    [int]$Default
+  )
+  $raw = [Environment]::GetEnvironmentVariable($Name)
+  [int]$parsed = 0
+  if ([int]::TryParse($raw, [ref]$parsed) -and $parsed -ge 0) { return $parsed }
+  return $Default
 }
+
+$script:ProviderCommandTimeoutSeconds = Get-NonNegativeIntEnv `
+  -Name 'SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS' `
+  -Default (Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900)
 
 function Write-ResultAndExit {
   param(
@@ -1038,7 +1046,12 @@ function Test-FallbackSupported {
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$resolverPath = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptDir)) 'spec-mcp-setup/scripts/resolve-project-target.ps1'
+$resolverOverride = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROJECT_TARGET_RESOLVER')
+if ([string]::IsNullOrWhiteSpace($resolverOverride)) {
+  $resolverPath = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptDir)) 'spec-mcp-setup/scripts/resolve-project-target.ps1'
+} else {
+  $resolverPath = $resolverOverride
+}
 $resolverParams = @{ Format = 'json' }
 if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
 $targetFacts = (& $resolverPath @resolverParams) | ConvertFrom-Json

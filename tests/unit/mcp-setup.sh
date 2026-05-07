@@ -16,7 +16,7 @@ SCRIPTS_DIR="$REPO_ROOT/skills/spec-mcp-setup/scripts"
 RESOLVER_SCRIPT="$SCRIPTS_DIR/resolve-project-target.sh"
 GRAPH_BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
-GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1]' "$TOOLS_JSON")"
+GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | (.package // "") + "@" + (.version // "")' "$TOOLS_JSON")"
 GITNEXUS_QUERY_PROBE="TradeLoginActivity"
 GITNEXUS_REPO_LABEL="hr360"
 TMP_DIR="$(mktemp -d)"
@@ -199,13 +199,81 @@ assert_eq "single child repo is only advisory" "workspace-single-candidate:works
 target_env="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT" --format env)"
 assert_contains "env output exposes mode without jq" "mode='workspace-single-candidate'" "$target_env"
 assert_contains "env output exposes write gate without jq" "state_write_allowed='false'" "$target_env"
+
+# env_quote adversarial coverage: load the real implementation from resolve-project-target.sh
+# and confirm it neutralizes single quotes, command substitution, semicolon injection,
+# backticks, and embedded newlines so the eval "$TARGET_ENV" call site in install-mcp.sh
+# stays safe even when a repo path or git config value contains apostrophes.
+ENV_QUOTE_LIB="$TMP_DIR/env-quote.sh"
+sed -n '/^env_quote()/,/^}/p' "$RESOLVER_SCRIPT" > "$ENV_QUOTE_LIB"
+assert "env_quote function extracted from resolver" test -s "$ENV_QUOTE_LIB"
+# shellcheck source=/dev/null
+source "$ENV_QUOTE_LIB"
+
+ENV_QUOTE_SENTINEL="$TMP_DIR/env-quote-injection-marker"
+rm -f "$ENV_QUOTE_SENTINEL"
+
+quote_case_simple="hello-world"
+eval "actual_simple=$(env_quote "$quote_case_simple")"
+assert_eq "env_quote round-trips plain ASCII (fast path)" "$quote_case_simple" "$actual_simple"
+SED_GUARD_BIN="$TMP_DIR/sed-guard-bin"
+mkdir -p "$SED_GUARD_BIN"
+cat > "$SED_GUARD_BIN/sed" <<'EOF'
+#!/bin/sh
+echo "sed-called" > "$SED_GUARD_MARKER"
+exit 99
+EOF
+chmod +x "$SED_GUARD_BIN/sed"
+SED_GUARD_MARKER="$TMP_DIR/env-quote-sed-called"
+rm -f "$SED_GUARD_MARKER"
+guarded_fast="$(SED_GUARD_MARKER="$SED_GUARD_MARKER" PATH="$SED_GUARD_BIN:$PATH" env_quote "$quote_case_simple")"
+eval "actual_guarded_fast=$guarded_fast"
+assert_eq "env_quote fast path round-trips without sed" "$quote_case_simple" "$actual_guarded_fast"
+assert "env_quote fast path does not fork sed" test ! -e "$SED_GUARD_MARKER"
+
+quote_case_single="hello'world"
+eval "actual_single=$(env_quote "$quote_case_single")"
+assert_eq "env_quote round-trips single quote (slow path)" "$quote_case_single" "$actual_single"
+
+quote_case_cmdsub='$(touch '"$ENV_QUOTE_SENTINEL"')'
+eval "actual_cmdsub=$(env_quote "$quote_case_cmdsub")"
+assert_eq "env_quote round-trips command-substitution literal" "$quote_case_cmdsub" "$actual_cmdsub"
+assert "env_quote prevents command substitution from executing" test ! -e "$ENV_QUOTE_SENTINEL"
+
+quote_case_semi="value;touch $ENV_QUOTE_SENTINEL"
+eval "actual_semi=$(env_quote "$quote_case_semi")"
+assert_eq "env_quote round-trips semicolon payload" "$quote_case_semi" "$actual_semi"
+assert "env_quote prevents semicolon-chained command from executing" test ! -e "$ENV_QUOTE_SENTINEL"
+
+quote_case_backtick='`touch '"$ENV_QUOTE_SENTINEL"'`'
+eval "actual_backtick=$(env_quote "$quote_case_backtick")"
+assert_eq "env_quote round-trips backtick payload" "$quote_case_backtick" "$actual_backtick"
+assert "env_quote prevents backtick command from executing" test ! -e "$ENV_QUOTE_SENTINEL"
+
+quote_case_mixed='abc$(touch '"$ENV_QUOTE_SENTINEL"')'"'"'def'
+eval "actual_mixed=$(env_quote "$quote_case_mixed")"
+assert_eq "env_quote round-trips mixed single-quote + cmd-sub payload" "$quote_case_mixed" "$actual_mixed"
+assert "env_quote prevents mixed payload from executing" test ! -e "$ENV_QUOTE_SENTINEL"
+
+quote_case_newline=$'line1\nline2'
+eval "actual_newline=$(env_quote "$quote_case_newline")"
+assert_eq "env_quote round-trips embedded newline" "$quote_case_newline" "$actual_newline"
+
+unset env_quote
+
+# Regression guard: install-mcp.sh must define SCRIPT_DIR exactly once at the top level.
+# A previous lint pass introduced a duplicate (one BASH_SOURCE-based, one $0-based) and the
+# second assignment silently shadowed the first. Pin the count so a future lint cannot
+# reintroduce that drift unnoticed.
+install_mcp_script_dir_lines=$(grep -cE '^SCRIPT_DIR=' "$SCRIPTS_DIR/install-mcp.sh")
+assert_eq "install-mcp.sh defines SCRIPT_DIR exactly once" "1" "$install_mcp_script_dir_lines"
 MONOREPO_FIXTURE="$TMP_DIR/monorepo-fixture"
 make_repo "$MONOREPO_FIXTURE"
 mkdir -p "$MONOREPO_FIXTURE/packages/a" "$MONOREPO_FIXTURE/packages/b"
 target_monorepo="$(cd "$MONOREPO_FIXTURE/packages/a" && bash "$RESOLVER_SCRIPT")"
 assert_eq "monorepo packages stay inside one git repo target" "git-repo:cwd-git-root:0" "$(jq -r '"\(.mode):\(.selection_source):\(.candidates | length)"' <<<"$target_monorepo")"
 
-assert_eq "mcp-tools schema is v4" "4" "$(jq -r '.schema_version' "$TOOLS_JSON")"
+assert_eq "mcp-tools schema is v5" "5" "$(jq -r '.schema_version' "$TOOLS_JSON")"
 assert_eq "tool ids are fixed" "serena,sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.tools[].id] | join(",")' "$TOOLS_JSON")"
 assert_eq "every registry tool is required" "true" "$(jq -r 'all(.tools[]; .required == true)' "$TOOLS_JSON")"
 assert_eq "categories are constrained" "true" "$(jq -r 'all(.tools[]; (.category == "mcp" or .category == "graph-provider"))' "$TOOLS_JSON")"
@@ -216,7 +284,8 @@ assert_eq "serena depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.i
 assert_eq "Serena project bootstrap does not hard-code languages" "false" "$(jq -r '.tools[] | select(.id == "serena") | .project_bootstrap.index_command.args | index("--language") != null' "$TOOLS_JSON")"
 assert_eq "code-review-graph depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "code-review-graph") | .dependencies | join(",")' "$TOOLS_JSON")"
 assert_eq "code-review-graph host MCP is optional" "false:cli_artifact:true" "$(jq -r '.tools[] | select(.id == "code-review-graph") | "\(.host_config_required):\(.provider_config.access_mode):\(.provider_config.optional_live_mcp)"' "$TOOLS_JSON")"
-assert_eq "gitnexus warmup command uses configured package" "npx -y $GITNEXUS_PACKAGE --help" "$(jq -r '.tools[] | select(.id == "gitnexus") | [.installation.unix.command] + .installation.unix.args | join(" ")' "$TOOLS_JSON")"
+assert_eq "GitNexus package pin is explicit" "gitnexus@1.6.4-rc.85" "$GITNEXUS_PACKAGE"
+assert_eq "gitnexus warmup command uses configured package" "npx -y $GITNEXUS_PACKAGE --help" "$(jq -r '.tools[] | select(.id == "gitnexus") as $t | [$t.installation.unix.command] + ($t.installation.unix.args | map(gsub("\\{\\{package\\}\\}"; ($t.package // "")) | gsub("\\{\\{version\\}\\}"; ($t.version // "")))) | join(" ")' "$TOOLS_JSON")"
 assert_eq "sequential-thinking uses latest npm package" "npx -y @modelcontextprotocol/server-sequential-thinking@latest" "$(jq -r '.tools[] | select(.id == "sequential-thinking") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
 assert_eq "context7 uses latest npm package" "npx -y @upstash/context7-mcp@latest" "$(jq -r '.tools[] | select(.id == "context7") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
 assert_eq "code-review-graph optional mcp command remains available" "uvx --upgrade code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool" "$(jq -r '.tools[] | select(.id == "code-review-graph") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
@@ -634,6 +703,31 @@ assert "Serena ready marker exists" test -f "$FAKE_REPO/.serena/index-ready.json
 assert_contains "installer uses explicit LLM-selected TypeScript language for Node repo" "serena project create . --index --language typescript" "$(cat "$COMMAND_LOG")"
 assert_contains "installer prints configure-host stage logs" "spec-mcp-setup: [mcp/configure:serena] start" "$(cat "$install_mcp_log")"
 assert_contains "installer prints Serena stage logs" "spec-mcp-setup: [mcp/serena:serena] start" "$(cat "$install_mcp_log")"
+
+gitnexus_warmup_count_before="$(grep -cF "npx -y $GITNEXUS_PACKAGE --help" "$COMMAND_LOG" || true)"
+WARMUP_CACHE_REUSE_REPO="$TMP_DIR/warmup-cache-reuse-repo"
+make_repo "$WARMUP_CACHE_REUSE_REPO"
+warmup_cache_reuse_output="$(cd "$WARMUP_CACHE_REUSE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --only gitnexus)"
+assert "warmup cache reuse emits JSON" jq -e . <<<"$warmup_cache_reuse_output"
+gitnexus_warmup_count_after="$(grep -cF "npx -y $GITNEXUS_PACKAGE --help" "$COMMAND_LOG" || true)"
+assert_eq "second repo reuses GitNexus warmup cache instead of rerunning npx" "$gitnexus_warmup_count_before" "$gitnexus_warmup_count_after"
+assert_eq "ledger reports GitNexus warmup cache hit" "ready:warmup-cache-hit" "$(jq -r '.results[] | select(.tool_id == "gitnexus") | "\(.status):\(.last_action)"' <<<"$warmup_cache_reuse_output")"
+gitnexus_warmup_cache_file="$(find "$FAKE_HOME/.spec-first/cache/mcp-warmup" -path '*/gitnexus.json' -print -quit)"
+assert "GitNexus warmup cache marker exists" test -n "$gitnexus_warmup_cache_file"
+assert_eq "GitNexus warmup cache records configured package" "$GITNEXUS_PACKAGE" "$(jq -r '.package_spec' "$gitnexus_warmup_cache_file")"
+
+sequential_warmup_count_before="$(grep -cF 'npx -y @modelcontextprotocol/server-sequential-thinking@latest' "$COMMAND_LOG" || true)"
+warmup_invalid_ttl_output="$(cd "$WARMUP_CACHE_REUSE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS=not-a-number bash "$SCRIPTS_DIR/install-mcp.sh" --only sequential-thinking)"
+assert "warmup cache tolerates invalid latest TTL env" jq -e . <<<"$warmup_invalid_ttl_output"
+sequential_warmup_count_after="$(grep -cF 'npx -y @modelcontextprotocol/server-sequential-thinking@latest' "$COMMAND_LOG" || true)"
+assert_eq "invalid latest TTL env falls back without rerunning cached warmup" "$sequential_warmup_count_before" "$sequential_warmup_count_after"
+assert_eq "latest package cache hit remains explicit" "ready:warmup-cache-hit" "$(jq -r '.results[] | select(.tool_id == "sequential-thinking") | "\(.status):\(.last_action)"' <<<"$warmup_invalid_ttl_output")"
+
+BROKEN_WARMUP_CACHE_PATH="$TMP_DIR/warmup-cache-as-file"
+printf 'not a directory\n' > "$BROKEN_WARMUP_CACHE_PATH"
+warmup_broken_cache_output="$(cd "$WARMUP_CACHE_REUSE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude SPEC_FIRST_FORCE_WARMUP=1 SPEC_FIRST_WARMUP_CACHE_DIR="$BROKEN_WARMUP_CACHE_PATH" bash "$SCRIPTS_DIR/install-mcp.sh" --only gitnexus)"
+assert "warmup cache write failure remains non-blocking" jq -e . <<<"$warmup_broken_cache_output"
+assert_eq "broken warmup cache path does not fail setup" "ready:installed" "$(jq -r '.results[] | select(.tool_id == "gitnexus") | "\(.status):\(.last_action)"' <<<"$warmup_broken_cache_output")"
 
 STDIN_DRAIN_REPO="$TMP_DIR/stdin-drain-repo"
 STDIN_DRAIN_HOME="$TMP_DIR/stdin-drain-home"

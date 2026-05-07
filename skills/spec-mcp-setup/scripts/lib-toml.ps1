@@ -172,6 +172,43 @@ function Test-TomlMcpSectionExact {
   return $true
 }
 
+function ConvertTo-MutableHashtable {
+  param([object]$Object)
+  if ($null -eq $Object) { return $null }
+  if ($Object -is [string] -or $Object -is [int] -or $Object -is [bool] -or $Object -is [long] -or $Object -is [double]) { return $Object }
+  if ($Object -is [System.Collections.IDictionary]) {
+    $result = [ordered]@{}
+    foreach ($key in $Object.Keys) { $result[$key] = ConvertTo-MutableHashtable -Object $Object[$key] }
+    return $result
+  }
+  if ($Object -is [System.Collections.IList]) {
+    $result = New-Object System.Collections.ArrayList
+    foreach ($item in $Object) { $null = $result.Add((ConvertTo-MutableHashtable -Object $item)) }
+    return $result
+  }
+  $result = [ordered]@{}
+  foreach ($prop in $Object.PSObject.Properties) {
+    $result[$prop.Name] = ConvertTo-MutableHashtable -Object $prop.Value
+  }
+  return $result
+}
+
+function Set-TextFileAtomic {
+  param(
+    [string]$Path,
+    [string]$Value
+  )
+
+  $dir = Split-Path -Parent $Path
+  if (-not [string]::IsNullOrWhiteSpace($dir)) {
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  }
+  $tmpName = '.{0}.{1}.tmp' -f (Split-Path -Leaf $Path), ([guid]::NewGuid().ToString('N'))
+  $tmp = if ([string]::IsNullOrWhiteSpace($dir)) { $tmpName } else { Join-Path $dir $tmpName }
+  Set-Content -Encoding utf8 -Path $tmp -Value $Value
+  Move-Item -Force -Path $tmp -Destination $Path
+}
+
 function Write-TomlMcpSection {
   param(
     [string]$Path,
@@ -190,5 +227,5 @@ function Write-TomlMcpSection {
     $text = "$section"
   }
 
-  Set-Content -Encoding utf8 $Path $text
+  Set-TextFileAtomic -Path $Path -Value $text
 }

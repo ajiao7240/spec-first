@@ -494,8 +494,8 @@ your-project/
 - 用当前宿主的 setup workflow 安装并验证 required harness runtime：Serena、Sequential Thinking、Context7、GitNexus、code-review-graph、`agent-browser`、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和 global `ast-grep` skill。
 - 在 setup 报告 `baseline_ready=true` 后运行当前宿主的 graph bootstrap workflow。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus/code-review-graph probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
 - 当前宿主的 plan workflow 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。
-- 在父 workspace 下存在多个 child Git repos 时，只读代码问题可以使用 `workspace-graph-targets.v1` advisory facts 选择 bounded candidate repos，并优先使用 GitNexus-first evidence。写入、测试、changelog、review autofix 和 commit 仍必须有明确 `target_repo` / per-child scope。
-- 父 workspace 维护操作中，setup 和 graph bootstrap 在未传 `--repo <child>` 时默认处理全部 child repos；`--repo <child>` 用于收窄范围，`--all-repos` 仍作为显式等价入口。首次 Serena 激活仍需要 per-child language evidence，缺语言的 child 会返回 `serena_language_required`，由 agent 用 `--serena-language-for <child>=<language>` 重跑。父目录可以写 advisory `.spec-first/workspace/*summary.json`，但不拥有 repo-local `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*`、`.spec-first/providers/*` 或 `.serena/*` 产物。
+- 在父 workspace 下存在多个 child Git repos 时，只读代码问题可以使用 `workspace-graph-targets.v1` advisory facts 选择 bounded candidate repos，并优先使用 GitNexus-first evidence。除下一条父 workspace 维护入口外，写入、测试、changelog、review autofix 和 commit 仍必须有明确 `target_repo` / per-child scope。
+- 父 workspace 维护操作中，init、setup 和 graph bootstrap 在未传 `--repo <child>` 时默认处理全部 child repos；`--repo <child>` 用于收窄范围，`--all-repos` 仍作为显式等价入口。首次 Serena 激活仍需要 per-child language evidence，缺语言的 child 会返回 `serena_language_required`，由 agent 用 `--serena-language-for <child>=<language>` 重跑。父目录可以写 advisory `.spec-first/workspace/*summary.json`，但不拥有 repo-local `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*`、`.spec-first/providers/*` 或 `.serena/*` 产物。
 - 用已安装的 standalone `write-tasks` skill 做确定性的 task-pack handoff，再让当前宿主的 work、code-review 和 doc-review workflow 基于当前请求、plans/task packs、diffs、targeted file reads 与 tests 确定 scope authority。
 - 移动 App 的 PRD/Figma/source 对齐审查使用 App consistency audit workflow。它消费本地 `prd:<path>` 与 `figma-context:<path>` 输入；`figma-ref:<id-or-url>` 只是 reference，只有宿主提供的 Figma MCP 能力 materialize 出本地 JSON 后才成为 evidence。Figma MCP 是 App-audit 可选能力，不属于 required setup baseline。
 
@@ -505,13 +505,17 @@ CLI reference：
 spec-first --help
 spec-first --version
 spec-first doctor [--json] [--claude|--codex]
-spec-first init (--claude|--codex) [-u <name>] [--lang zh|en] [--dry-run]
+spec-first init (--claude|--codex) [-u <name>] [--lang zh|en] [--dry-run] [--repo <child>|--all-repos]
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first tasks hash <plan-path> [--json]
 spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>]
 ```
 
 Runtime asset summary：
+
+当 `init` 在包含多个 child Git repo 的父 workspace 中运行时，会自动识别 workspace 模式并初始化每个 child repo，只在父目录写 advisory summary：`.spec-first/workspace/init-summary.json`。它不会在父目录写 `.gitignore`、`AGENTS.md`、`CLAUDE.md`、`.claude/`、`.codex/` 或 `.agents/` 等 repo-local artifacts。使用 `--repo <child>` 可只初始化一个 child repo，使用 `--all-repos` 可显式声明批量初始化意图。
+
+managed `.gitignore` block 也会忽略 `.gitnexus/` 和 `.code-review-graph/` 等本地图谱 provider artifacts。
 
 详细 runtime capability catalog 见 [Runtime Capability Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/catalog/runtime-capabilities.md)。
 

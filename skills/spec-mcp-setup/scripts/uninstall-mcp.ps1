@@ -8,7 +8,20 @@ Set-StrictMode -Version Latest
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
 . (Join-Path $ScriptDir 'lib-toml.ps1')
-$ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json -AsHashtable
+. (Join-Path $ScriptDir 'lib-template.ps1')
+
+function ConvertFrom-JsonCompat {
+  param(
+    [string]$Json,
+    [switch]$AsHashtable
+  )
+  if ($AsHashtable -and $PSVersionTable.PSVersion.Major -ge 6) {
+    return $Json | ConvertFrom-Json -AsHashtable
+  }
+  return $Json | ConvertFrom-Json
+}
+
+$ToolsJson = ConvertFrom-JsonCompat -Json (Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json')) -AsHashtable
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
 $Platform = $HostInfo.platform
@@ -27,11 +40,12 @@ function Remove-ClaudeEntry {
   $backupPath = '{0}.backup.{1}' -f $ConfigPath, ([guid]::NewGuid().ToString('N'))
   Copy-Item -LiteralPath $ConfigPath -Destination $backupPath -Force
   try {
-    $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json -AsHashtable
-    if ($config.ContainsKey('mcpServers')) {
+    $parsed = ConvertFrom-JsonCompat -Json (Get-Content -Raw $ConfigPath) -AsHashtable
+    $config = ConvertTo-MutableHashtable -Object $parsed
+    if ($config.Contains('mcpServers')) {
       $null = $config['mcpServers'].Remove($ToolId)
     }
-    $config | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 $ConfigPath
+    Set-TextFileAtomic -Path $ConfigPath -Value ($config | ConvertTo-Json -Depth 8)
     Remove-Item -Force $backupPath -ErrorAction SilentlyContinue
   } catch {
     Copy-Item -LiteralPath $backupPath -Destination $ConfigPath -Force
@@ -48,7 +62,7 @@ function Remove-CodexEntry {
   try {
     $text = Get-Content -Raw $ConfigPath
     $text = Remove-TomlMcpSection -Text $text -Key $DetectKey
-    Set-Content -Encoding utf8 $ConfigPath ($(if ($text) { $text + "`n" } else { '' }))
+    Set-TextFileAtomic -Path $ConfigPath -Value ($(if ($text) { $text + "`n" } else { '' }))
     Remove-Item -Force $backupPath -ErrorAction SilentlyContinue
   } catch {
     Copy-Item -LiteralPath $backupPath -Destination $ConfigPath -Force
@@ -69,7 +83,8 @@ foreach ($toolId in $toolIds) {
   $detectKey = $toolDef.detection.key
   foreach ($targetKey in @($toolDef.host_config[$DetectedHost].uninstall_targets)) {
     $target = $toolDef.host_config[$DetectedHost].targets[$targetKey]
-    $rawPath = if ($target.config_path -is [hashtable]) { $target.config_path[$Platform] } else { $target.config_path }
+    $configPathValue = Get-ToolField -Tool $target -Name 'config_path'
+    $rawPath = if ($configPathValue -is [string]) { [string]$configPathValue } else { [string](Get-ToolField -Tool $configPathValue -Name $Platform) }
     if ([string]::IsNullOrWhiteSpace($rawPath)) { continue }
     $configPath = Resolve-PathTemplate $rawPath
     if ($DetectedHost -eq 'claude') {

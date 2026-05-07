@@ -122,7 +122,8 @@ describe('user manual contracts', () => {
     expect(gitignoreGuide).toContain('.claude/commands/spec/');
     expect(gitignoreGuide).toContain('.agents/skills/');
     expect(gitignoreGuide).toContain('.spec-first/standards/');
-    expect(gitignoreGuide).toContain('`init` 不会递归修改多仓 workspace 里的所有 child repo');
+    expect(gitignoreGuide).toContain('在父 workspace 且检测到多个 child Git repos 时，`init` 默认进入 all-child maintenance');
+    expect(gitignoreGuide).toContain('父目录不写 `.gitignore`、`AGENTS.md`、`CLAUDE.md`');
     expect(gitignoreGuide).toContain('不要默认加入');
     expect(gitignoreGuide).toContain('`*.tgz` 是本地打包产物');
     for (const pattern of getSpecFirstGitignorePatterns()) {

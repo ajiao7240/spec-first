@@ -494,8 +494,8 @@ Current context and graph readiness use this path:
 - Use the current host's setup workflow to install and verify the required harness runtime: Serena, Sequential Thinking, Context7, GitNexus, code-review-graph, `agent-browser`, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, `ast-grep`, and the global `ast-grep` skill.
 - Use the current host's graph bootstrap workflow after setup reports `baseline_ready=true`. It reads setup-owned config facts, validates provider command arrays, runs transient GitNexus/code-review-graph probes, and writes `.spec-first/graph/*`, `.spec-first/providers/*`, and `.spec-first/impact/*` readiness artifacts.
 - Use the current host's plan workflow as the first graph-readiness consumer. It reports graph status, checks staleness, and falls back to bounded direct repo reads when facts are unavailable, blocked, stale, or degraded.
-- In a parent workspace with multiple child Git repos, read-only code questions can use `workspace-graph-targets.v1` advisory facts to choose bounded candidate repos and prefer GitNexus-first evidence. Writes, tests, changelog updates, review autofix, and commits still require explicit `target_repo` / per-child scope.
-- For parent-workspace maintenance, setup and graph bootstrap default to all child repos when no `--repo <child>` is provided; `--repo <child>` narrows the run and `--all-repos` remains an explicit equivalent. First-time Serena activation still needs per-child language evidence, so language-gated children report `serena_language_required` until the agent reruns setup with `--serena-language-for <child>=<language>`. The parent workspace may write advisory `.spec-first/workspace/*summary.json` files, but never owns repo-local `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, `.spec-first/providers/*`, or `.serena/*` artifacts.
+- In a parent workspace with multiple child Git repos, read-only code questions can use `workspace-graph-targets.v1` advisory facts to choose bounded candidate repos and prefer GitNexus-first evidence. Outside the parent-workspace maintenance entries below, writes, tests, changelog updates, review autofix, and commits still require explicit `target_repo` / per-child scope.
+- For parent-workspace maintenance, init, setup, and graph bootstrap default to all child repos when no `--repo <child>` is provided; `--repo <child>` narrows the run and `--all-repos` remains an explicit equivalent. First-time Serena activation still needs per-child language evidence, so language-gated children report `serena_language_required` until the agent reruns setup with `--serena-language-for <child>=<language>`. The parent workspace may write advisory `.spec-first/workspace/*summary.json` files, but never owns repo-local `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, `.spec-first/providers/*`, or `.serena/*` artifacts.
 - Use the installed standalone `write-tasks` skill for deterministic task-pack handoff, then the current host's work, code-review, and doc-review workflows with the current request, plans/task packs, diffs, targeted file reads, and tests as scope authority.
 - Use the App consistency audit workflow for mobile App PRD/Figma/source alignment. It consumes local `prd:<path>` and `figma-context:<path>` inputs when available; `figma-ref:<id-or-url>` is only a reference until a host-provided Figma MCP capability materializes local JSON. Figma MCP is an optional App-audit capability, not part of the required setup baseline.
 
@@ -505,13 +505,17 @@ CLI reference:
 spec-first --help
 spec-first --version
 spec-first doctor [--json] [--claude|--codex]
-spec-first init (--claude|--codex) [-u <name>] [--lang zh|en] [--dry-run]
+spec-first init (--claude|--codex) [-u <name>] [--lang zh|en] [--dry-run] [--repo <child>|--all-repos]
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first tasks hash <plan-path> [--json]
 spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>]
 ```
 
 Runtime asset summary:
+
+When `init` is run from a parent workspace that contains child Git repos, it auto-detects the workspace mode, initializes each child repo, and writes only an advisory parent summary at `.spec-first/workspace/init-summary.json`. It does not write parent repo-local artifacts such as `.gitignore`, `AGENTS.md`, `CLAUDE.md`, `.claude/`, `.codex/`, or `.agents/`. Use `--repo <child>` to initialize one child repo, or `--all-repos` to make the batch intent explicit.
+
+The managed `.gitignore` block also ignores local graph provider artifacts such as `.gitnexus/` and `.code-review-graph/`.
 
 Detailed runtime capability catalog: [Runtime Capability Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/catalog/runtime-capabilities.md).
 

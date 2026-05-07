@@ -70,7 +70,7 @@
 35. 更新 package.json test scripts。
 36. 删除或重写旧 quick/custom、optional、Playwright、crg v1 测试。
 37. 补齐新测试：
-    - mcp-tools schema v4
+    - mcp-tools schema v5
     - helper install / verify-only
     - dependency detection
     - Codex TOML quoted key

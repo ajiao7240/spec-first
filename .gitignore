@@ -63,6 +63,7 @@ __pycache__/
 *.pyc
 *.pyo
 .gitnexus
+.code-review-graph
 
 # spec-first:start
 # spec-first generated runtime assets
@@ -79,6 +80,8 @@ __pycache__/
 .context/spec-first/
 
 # spec-first local setup, graph readiness, standards, and workflow runtime artifacts
+.gitnexus/
+.code-review-graph/
 .spec-first-graph/
 .spec-first/*.local.yaml
 .spec-first/config.local.yaml

@@ -93,7 +93,7 @@ The assistant's final response must restate readiness from ledger v2 instead of 
 
 ## Runtime Baseline
 
-`skills/spec-mcp-setup/mcp-tools.json` is the only machine registry for MCP servers and graph providers. Schema version is `4`. Package/version specs for every MCP and graph-provider command are sourced from this file; setup projections such as `.spec-first/config/graph-providers.json` must derive from it and must not become a second version registry.
+`skills/spec-mcp-setup/mcp-tools.json` is the only machine registry for MCP servers and graph providers. Schema version is `5`. Package/version specs for every MCP and graph-provider command are sourced from this file; tools that declare top-level `package` + `version` fields must expand `{{package}}` / `{{version}}` templates through the shared template helpers before warmup, host config, detection, or provider projection. Setup projections such as `.spec-first/config/graph-providers.json` must derive from this registry and must not become a second version registry.
 
 Required MCP tools:
 
@@ -425,7 +425,7 @@ npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill ag
 npx -y skills@latest add ast-grep/agent-skill -g -y
 ```
 
-All package-backed setup commands must request the latest available safe version when they install or warm a tool: npm/npx packages normally use `@latest`, `uvx` tool invocations use `--upgrade`, Cargo installs use `--force` where supported, and package-manager handoff commands prefer upgrade-before-install semantics. A package may be pinned only for a documented upstream remediation window; the pin must live in `mcp-tools.json` and all setup/bootstrap projections must read that value instead of hard-coding the package spec. `--verify-only` remains read-only and never upgrades tools.
+All package-backed setup commands must request the latest available safe version when they install or warm a tool: npm/npx packages normally use `@latest`, `uvx` tool invocations use `--upgrade`, Cargo installs use `--force` where supported, and package-manager handoff commands prefer upgrade-before-install semantics. A package may be pinned only for a documented upstream remediation window; the pin must live in `mcp-tools.json` and all setup/bootstrap projections must read that value instead of hard-coding the package spec. Successful MCP warmups may be cached under `$HOME/.spec-first/cache/mcp-warmup/` by host, platform, tool id, and resolved command hash; `SPEC_FIRST_WARMUP_CACHE_DIR` may override the cache root. Pinned package specs stay valid until the command hash changes, while `@latest` / `--upgrade` warmups use a bounded TTL controlled by `SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS` and defaulting to 86400 seconds. `SPEC_FIRST_FORCE_WARMUP=1` or `SPEC_FIRST_DISABLE_WARMUP_CACHE=1` must force the script back to running the warmup command. `--verify-only` remains read-only and never upgrades tools.
 
 ## Readiness Ledger v2
 
@@ -620,6 +620,21 @@ Project setup facts:
   2. graph readiness 完成后，推荐运行 /spec:standards 或 $spec-standards 编译项目规范与 glue capability baseline，给后续需求、计划、执行和审查提供可复用上下文。
   3. 重启 Claude Code/Codex 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。
 ```
+
+## Pipeline Runtime Dependencies
+
+The setup pipeline scripts themselves depend on a small set of host tools that are separate from per-tool `dependencies` declared in `mcp-tools.json`. `check-deps.sh` / `check-deps.ps1` run at the start of setup and fail visibly before tool-level work begins, but the required set is host-path specific:
+
+- Unix shell path (`*.sh`) requires `node`, `npm`, `npx`, `uv`, `uvx`, `jq`, and `python3`.
+- Windows PowerShell 7 path (`*.ps1`) requires `node`, `npm`, `npx`, `uv`, and `uvx`; `git` remains optional. It does not require `jq` or `python3` because JSON/TOML handling and bounded process execution are implemented with native PowerShell/.NET in the `.ps1` scripts.
+
+Unix-only dependency details:
+
+- `jq` — required by shell scripts for reading and projecting `mcp-tools.json`, host configs, and JSON status payloads.
+- `python3` — required by shell scripts for: hashlib-backed warmup-cache hashing (`install-mcp.sh`), bounded subprocess timeout management with `start_new_session` + `os.killpg` (`install-mcp.sh`, `bootstrap-providers.sh`), and TOML section regex parsing (`lib-toml.sh`). Currently any reasonably modern `python3` (≥3.6) suffices; we do not depend on `tomllib` (3.11+).
+- `node` — required by `verify-tools.sh` to invoke `render-status-block.cjs` for CJK-width-aware status table rendering. Also implied by all `npx`-based MCP installs (gitnexus, sequential-thinking, context7).
+
+`uv` / `uvx` are still checked as required setup dependencies because required tools (Serena, code-review-graph) need them during the setup flow.
 
 ## Reference
 

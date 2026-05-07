@@ -8,6 +8,7 @@ Set-StrictMode -Version Latest
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
 . (Join-Path $ScriptDir 'lib-toml.ps1')
+. (Join-Path $ScriptDir 'lib-template.ps1')
 $ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
@@ -112,17 +113,17 @@ function Get-HostConfigStatus {
   $hostConfig = $Tool.host_config.$DetectedHost
   if ($DetectedHost -eq 'codex') {
     $selectedProperty = $HostInfo.targets.PSObject.Properties[$SelectedScope]
-    $selectedPrecedence = if ($null -ne $selectedProperty) { [int]$selectedProperty.Value.precedence } else { 0 }
+    $selectedPrecedence = if ($null -ne $selectedProperty) { [int](Get-ToolField -Tool $selectedProperty.Value -Name 'precedence') } else { 0 }
     foreach ($entry in $HostInfo.targets.PSObject.Properties) {
       if ($entry.Name -eq $SelectedScope) { continue }
       $target = $entry.Value
-      if (-not [bool]$target.exists) { continue }
-      if ([int]$target.precedence -le $selectedPrecedence) { continue }
-      $path = [string]$target.config_path
+      if (-not [bool](Get-ToolField -Tool $target -Name 'exists')) { continue }
+      if ([int](Get-ToolField -Tool $target -Name 'precedence') -le $selectedPrecedence) { continue }
+      $path = [string](Get-ToolField -Tool $target -Name 'config_path')
       if ([string]::IsNullOrWhiteSpace($path) -or -not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
       $section = Get-TomlMcpSection -Path $path -Key $Tool.detection.key
       if ([string]::IsNullOrWhiteSpace($section)) { continue }
-      if (Test-TomlMcpSectionExact -Path $path -Key $Tool.detection.key -Command $hostConfig.command -Args @($hostConfig.args)) {
+      if (Test-TomlMcpSectionExact -Path $path -Key $Tool.detection.key -Command $hostConfig.command -Args @(Expand-ToolArgs -Tool $Tool -Args $hostConfig.args)) {
         return 'ready'
       }
       return 'precedence-blocked'
@@ -139,7 +140,7 @@ function Get-HostConfigStatus {
         if ($null -eq $server) { return 'action-required' }
         if ($server.command -ne $hostConfig.command) { return 'action-required' }
         $serverArgs = @($server.args)
-        $expectedArgs = @($hostConfig.args)
+        $expectedArgs = @(Expand-ToolArgs -Tool $Tool -Args $hostConfig.args)
         if ($serverArgs.Count -ne $expectedArgs.Count) { return 'action-required' }
         for ($i = 0; $i -lt $expectedArgs.Count; $i++) {
           if ($serverArgs[$i] -ne $expectedArgs[$i]) { return 'action-required' }
@@ -149,7 +150,7 @@ function Get-HostConfigStatus {
         return 'fallback-active'
       }
 
-      if (-not (Test-TomlMcpSectionExact -Path $ConfigPath -Key $Tool.detection.key -Command $hostConfig.command -Args @($hostConfig.args))) {
+      if (-not (Test-TomlMcpSectionExact -Path $ConfigPath -Key $Tool.detection.key -Command $hostConfig.command -Args @(Expand-ToolArgs -Tool $Tool -Args $hostConfig.args))) {
         return 'action-required'
       }
       return 'ready'
