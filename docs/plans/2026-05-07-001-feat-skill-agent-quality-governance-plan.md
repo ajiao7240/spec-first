@@ -3,8 +3,8 @@ title: "feat: 建立 skill/agent 质量治理与安全执行薄契约"
 type: feat
 status: active
 date: 2026-05-07
-revision: 2
-last_updated: 2026-05-07T17:30+08:00
+revision: 3
+last_updated: 2026-05-07T19:16+08:00
 spec_id: 2026-05-07-001-skill-agent-quality-governance
 target_repo: spec-first
 origin: docs/项目审查/2026-05-07-skill-agent-prompt-expert-review.md
@@ -510,7 +510,12 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
   - local skills are historical experience, not current external fact.
 - 在更新 `spec-best-practices-researcher` authority 前，先做 downstream consumer audit：grep 全仓 dispatch 点（`agents/`、`skills/`、`src/cli/`、`templates/`、`docs/contracts/`），确认现有调用方未对旧 authority 形成 hard-coded 依赖；若发现 consumer 显式假设旧 order，列入 deferred breaking change 并在 IU 末尾备注。
 - **audit 产物规格化**：audit 报告写入 `docs/validation/2026-05-07-best-practices-researcher-consumer-audit.md`，最低字段：`audit_date`、`audit_command`（grep / 工具命令）、`hits[]`（每条含 `path`、`line`、`callsite_kind`：dispatch / prose-reference / contract-assertion、`assumes_old_authority`：true/false/unknown、`evidence_quote`）、`hard_coded_dependencies[]`（仅 true 命中）、`migration_decision`：apply-now / defer / abort、`reviewer`、`signoff_at`。
-- **abort 协议**：当 `hard_coded_dependencies` 数量超过 3 条且至少 1 条来自 public workflow（`workflow_command/*`），U7 中 authority change 必须 abort，仅保留新增字段与新 agent 创建；abort 决策写入 `migration_decision: abort` 并触发新 plan。`hard_coded_dependencies = 0` 时正常 apply；介于 1–3 条且非 public workflow 时按 defer 处理，逐条标 deferred 并保留 audit 跟踪。
+- **abort 协议**（按 `H = hard_coded_dependencies` 数量与 `P = 命中 public_workflow 的子集` 量化决策）：
+  - `H == 0`：apply-now，authority change 与 audit 同 PR 提交。
+  - `1 <= H <= 2` 且 `|P| == 0`：defer，逐条 hit 写入 audit `hard_coded_dependencies[]` 并标 `deferred`，authority change 仍可 apply-now。
+  - `1 <= H <= 2` 且 `|P| >= 1`：defer，**且** authority change 必须 abort（保留新增字段与新 agent 创建），由独立 plan 处理 public workflow 迁移。
+  - `H >= 3`（不论 `|P|`）：abort，authority change 整体推迟到独立 plan；audit 仍归档为 source-of-truth。
+  - 任一 abort 决策都必须在 audit 文档 `migration_decision: abort` 中记录触发条件（`H`、`|P|`、命中 public workflow 路径列表），并在父 plan tracker 中追加触发条件。
 - Add untrusted input handling to researchers that read external pages, GitHub issues, Slack, session history or social content.
 - Add `spec-competitive-intelligence-researcher` for GitHub + Twitter/X + official/release signal synthesis. The output must separate `confirmed facts`, `market signals`, `social discourse`, `adopt`, `avoid`, and `fit-to-spec-first`.
 - 默认作为 source-only agent 创建，不在本计划内推到 runtime delivery。`src/cli/contracts/dual-host-governance/skills-governance.json` 与 `src/cli/plugin.js` 的 bundling 修改延后到具体 workflow（如未来的 `spec-research` 或 `spec-ideate` 扩展）显式声明 consumer 之后再单独 plan 处理。
@@ -580,37 +585,44 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 
 ## Sequencing
 
+每个 Phase exit gate 验证的是 source-mod / runtime-effect 证据，不接受仅 plan-prose 的"声明已应用"。所有 phase 退出前必须按 Universal IU Rules 第 5 条同步更新 Risks 表 `Verified by` 列。
+
 ### Phase A: Safety And Deterministic Drift
 
 Execute U1, U2, U3 first.
 
-Exit gate:
+Exit gate（全部满足才能退出）：
 
-- No default env copy.
-- No unbounded delegation staging guidance.
-- Gemini defaults and agent-native audit text no longer drift.
-- Focused unit/contract tests pass.
+- **U1 落地**：`skills/git-worktree/SKILL.md` 与 `worktree-manager.sh` 默认不复制 env；`--copy-env` opt-in 路径写 `.env-copy.log`（仅指纹，append-only，进 gitignore）；`tests/unit/git-worktree-contracts.test.js` 通过。
+- **U2 落地**：`skills/spec-work-beta/references/codex-delegation-workflow.md` 不再含 unbounded `git add`；引入 batch-owned ∪ `expected_side_effects` 集合 + orchestrator 三选一；`src/cli/contracts/security/secret-deny-patterns.json` 存在并通过 schema 校验；`skills/spec-write-tasks/references/task-pack-schema.md` 含 `expected_side_effects` 字段定义且禁 `**` 全仓 glob；U1↔U2 互锁条文同时出现在两份 source；`tests/unit/spec-work-beta-contracts.test.js`、`tests/unit/secret-deny-patterns-contracts.test.js` 通过。
+- **U3 落地**：`agent-native-audit` option/typo 修复；`gemini-imagegen` prose 与 scripts 默认模型/扩展名一致；触及文件中的 hardcoded year 已替换为 U8 canonical wording；contract test 与 `python3 -m py_compile` 通过。
+- **fresh-source eval**：U1 / U2 / U3 各自记录 `fresh_source_eval: ran` 或 `not_run` 与原因。
+- **CHANGELOG**：U1 / U2 / U3 至少各 1 条独立记录（U2 因跨能力面允许多条）。
 
 ### Phase B: Thin Contracts And Eval Readiness
 
 Execute U4 and U5.
 
-Exit gate:
+Exit gate：
 
-- `skill-agent-quality-governance.md` exists and is contract-tested.
-- First-wave public workflows have minimal eval fixtures.
-- `write-audit-artifacts.js` reports first-wave readiness improvement.
+- **U4 落地**：`docs/contracts/workflows/skill-agent-quality-governance.md` 存在并涵盖四类薄契约；含 doc-review orchestrator-injected schema 例外条款；`tests/unit/skill-agent-quality-governance-contracts.test.js` 通过。
+- **U5 canonical schema**：`skills/spec-skill-audit/references/eval-fixture-schema.md` 与 `eval-fixture.schema.json` 存在；现有 ready 模板（`spec-graph-bootstrap` / `spec-write-tasks`）若不一致已对齐。
+- **First-wave 8 个 skill** 各自有 4 类 fixture 且通过 fixture content contract test（每文件 ≥2 条 case；case 含 `name`、`input.user_intent`、`expected_behavior` / `expected_violation` 至少一项非空；failure 类含 `expected_violation.kind`）。
+- **`write-audit-artifacts.js`** 输出 readiness summary：first-wave 8 个 skill 全部 `ready`；`spec-write-tasks` 仍 `ready`。
+- **Phase A test 模式 review**：Phase A 编写的 contract test 已对照新 governance contract 模式 review；不一致项已迁移（视为 Phase B 退出条件）。
+- **Risks 表**：含 fixture canonical schema、contract doc 边界相关 mitigation，`Verified by` 引用真实 test。
 
 ### Phase C: Semantic Alignment And Research Capability
 
 Execute U6, U7, U8.
 
-Exit gate:
+Exit gate：
 
-- Work/work-beta execution prose no longer conflicts with precise editing.
-- Researcher authority/freshness discipline is consistent.
-- Competitive intelligence researcher exists and is not treated as a fact source without verification.
-- Prompt source lint catches mechanical drift without judging semantic quality.
+- **U6 落地**：stable `spec-work` 与 beta UI guidance parity（按 `Frontend Design Guidance` section title 锚定）；stable Step 6 重号已修复；`Start Fast` 改为"先建立成功标准再执行"；`Simplify as You Go` 限定到本次 ownership；`tests/unit/spec-work-contracts.test.js`、`spec-work-beta-contracts.test.js` 通过且断言 beta delegation delta 仍隔离。
+- **U7 落地**：`docs/validation/2026-05-07-best-practices-researcher-consumer-audit.md` 存在且通过 schema 校验；`migration_decision` ∈ {apply-now, defer, abort} 已记录且按 abort 协议执行；researcher 输出字段（`research_value`、`claims`、`sources`、`authority_tier`、`date_checked`、`freshness_limitations`、`untrusted_input_handling`、`actionability_for_spec_first`）已加入相关 agent profile；`spec-competitive-intelligence-researcher.agent.md` 创建为 source-only（runtime catalog 未变）；`tests/unit/best-practices-researcher-contracts.test.js`、`tests/unit/agent-support-contracts.test.js` 通过。
+- **U8 落地**：`scripts/lint-prompt-source.js` 与 config / config-schema 存在；`.github/workflows/ai-dev-quality-gate.yml` path filter 覆盖 4 类目录且新增 `release_age >= 2` 失败 step；lint config 每条 rule 含 `severity` / `introduced_in_release`，`exceptions[]` 含 `expires_at`；`npm run lint:prompt-source` 通过；`tests/unit/lint-prompt-source.test.js` 通过（含 `release_age >= 2` 模拟失败用例）。
+- **Phase B contract review**：Phase B 后续修改若影响 Phase C 契约一致性，已同步 review（视为 Phase C 退出条件）。
+- **Risks 表**：含 abort 协议、CI warning 升级、UI parity section title 锚定相关 mitigation，`Verified by` 引用真实 test。
 
 ## Review Plan
 
@@ -639,9 +651,21 @@ Minimum command set after each phase:
 
 Additional commands by phase:
 
-- Phase A: `bash -n skills/git-worktree/scripts/worktree-manager.sh`; `python3 -m py_compile skills/gemini-imagegen/scripts/*.py`
-- Phase B: `npx jest tests/unit/skill-audit-scripts.test.js tests/unit/skill-agent-quality-governance-contracts.test.js --runInBand`
-- Phase C: `npx jest tests/unit/spec-work-contracts.test.js tests/unit/spec-work-beta-contracts.test.js tests/unit/best-practices-researcher-contracts.test.js --runInBand`
+- **Phase A**：
+  - `bash -n skills/git-worktree/scripts/worktree-manager.sh`
+  - `python3 -m py_compile skills/gemini-imagegen/scripts/*.py`
+  - `npx jest tests/unit/git-worktree-contracts.test.js tests/unit/spec-work-beta-contracts.test.js tests/unit/secret-deny-patterns-contracts.test.js tests/unit/agent-native-architecture-contracts.test.js tests/unit/skill-shell-safety.test.js --runInBand`
+  - schema 校验：`src/cli/contracts/security/secret-deny-patterns.json` 通过 `secret-deny-patterns.schema.json`
+  - schema 校验：`skills/spec-write-tasks/references/task-pack-schema.md` 中 `expected_side_effects` 字段引用样例通过 spec-write-tasks 现有 task-pack contract test
+- **Phase B**：
+  - `npx jest tests/unit/skill-audit-scripts.test.js tests/unit/skill-agent-quality-governance-contracts.test.js --runInBand`
+  - canonical fixture schema 自校验：`eval-fixture.schema.json` 对 `skills/spec-graph-bootstrap/evals/*.json`、`skills/spec-write-tasks/evals/*.json` 与第一批 8 个 skill evals 全部通过
+  - `node skills/spec-skill-audit/scripts/write-audit-artifacts.js --repo .` 输出 first-wave readiness 全 `ready`
+- **Phase C**：
+  - `npx jest tests/unit/spec-work-contracts.test.js tests/unit/spec-work-beta-contracts.test.js tests/unit/best-practices-researcher-contracts.test.js tests/unit/agent-support-contracts.test.js tests/unit/lint-prompt-source.test.js --runInBand`
+  - `npm run lint:prompt-source`
+  - schema 校验：`docs/validation/2026-05-07-best-practices-researcher-consumer-audit.md` 通过 `best-practices-researcher-consumer-audit.schema.json`
+  - CI 模拟：构造 `release_age >= 2` 仍 warning 场景，断言 `.github/workflows/ai-dev-quality-gate.yml` lint step 失败
 
 Before any commit:
 
@@ -757,6 +781,36 @@ Expected artifacts after implementation:
 - F-2：审查流程改进归入独立 plan（待创建）。
 
 第 2 轮仍属 plan-prose；落地仍需 Phase A/B/C source-mod。
+
+### 2026-05-07 第 3 轮（终审修订）
+
+第 2 轮后做一次全面终审，识别 F1–F10 必修项 + S 类建议项。逐条修订：
+
+- **F1**：删 U2 重复 `**Files:**` 段。
+- **F2**：删 U7 Files 中与 P1-C 决策矛盾的 plugin.js 行，改为 `Do not modify` 显式声明。
+- **F3**：U7 Files 补 `docs/validation/2026-05-07-best-practices-researcher-consumer-audit.md` 与对应 schema。
+- **F4**：U5 Files 补 `skills/spec-skill-audit/references/eval-fixture-schema.md` 与对应 JSON schema；现有 ready 模板 align 写入 Files。
+- **F5**：U8 Files 补 `.github/workflows/ai-dev-quality-gate.yml`、lint config schema。
+- **F6**：Open Questions 删 `spec-work-beta:433-440` 行号锚点，改 section title 锚定描述。
+- **F7**：Open Questions 删已被 U8 解决的 warning 升级 question；保留尚未确定的 `exceptions[]` 初始名单。
+- **F8**：U3 Approach 显式引用 U8 canonical wording `use the host/session current date provided in startup reminders`，禁占位符。
+- **F9**：重写 Phase A/B/C exit gate，逐项引用 source-mod 证据（U1–U8 各自落地条件、fresh-source eval、CHANGELOG 拆条、Phase-to-Phase contract review）。
+- **F10**：Verification 节按 phase 列出完整 test 命令集，含 `secret-deny-patterns-contracts.test.js` / `lint-prompt-source.test.js` / consumer-audit schema 校验 / CI 模拟。
+- **S3**：U7 abort 协议量化为 `H` / `|P|` 公式，覆盖边界条件。
+- **S6**：CHANGELOG 第 2 轮 issue 计数从 27 勘误为 26（A4+B4+C5+D5+E6+F2）。
+
+第 3 轮仍属 plan-prose；P 类（必修）已全部消除，S/L 类剩余项保留为 plan-prose 滚动维护。批量验收：F 类 0 条剩余，可进入 Phase A U1（git-worktree）开发。
+
+未应用的 S 类（保留为后续滚动修订）：
+
+- S1（Universal IU Rules 第 4 条仅覆盖 A→B 测试模式迁移，未补 B→C）
+- S2（Phase 1 Limits fixture 描述偏弱）
+- S4（Modification Levels 与 Sequencing 关系未在 Sequencing 节内重申，但 Phase 9 已通过 exit gate 重写隐式覆盖）
+- S5（competitive-intelligence agent dead-end consumer dispatch 校验）
+- S7–S14（命名对称、tracker 反向引用等治理闭环建议）
+- L1–L6（措辞 / 可读性）
+
+上述项不阻塞执行，由后续 plan revision 或独立审查流程改进 plan 接续。
 
 ### 2026-05-07 第 1 轮明细（保留作历史）
 
