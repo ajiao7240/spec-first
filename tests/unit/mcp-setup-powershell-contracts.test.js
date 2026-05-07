@@ -462,7 +462,13 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('parent_run_id = $runId');
     expect(source).toContain('all-repos child $childIndex');
     expect(source).toContain('function Invoke-ChildJsonScript');
+    expect(source).toContain('function Resolve-ChildPowerShellExecutable');
+    expect(source).toContain('$currentCommandName = if ($currentEdition -eq \'Core\') { \'pwsh\' } else { \'powershell\' }');
+    expect(source).toContain('Get-Command powershell -ErrorAction SilentlyContinue');
+    expect(source).toContain("@('-NoProfile', '-File', $ScriptPath)");
+    expect(source).toContain('$stdout = @(& $powerShellExe @childArgs 2> $stderrPath 6> $informationPath)');
     expect(source).toContain('2> $stderrPath 6> $informationPath');
+    expect(source).not.toContain('$stdout = @(& $ScriptPath @Arguments 2> $stderrPath 6> $informationPath)');
     expect(source).not.toContain('$script:BootstrapProvidersScript -Repo ([string]$child.workspace_relative_path) 2>&1');
     expect(source).toContain("'^gitnexus(@[A-Za-z0-9._~+:-]+)?$'");
     expect(source).toContain("'code-review-graph'");

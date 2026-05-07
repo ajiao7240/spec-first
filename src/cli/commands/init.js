@@ -743,7 +743,12 @@ function parseInitArgs(argv) {
     }
 
     if (arg.startsWith('--repo=')) {
-      parsed.repo = arg.slice('--repo='.length);
+      const repoValue = arg.slice('--repo='.length);
+      if (!repoValue) {
+        parsed.unknown.push(arg);
+        continue;
+      }
+      parsed.repo = repoValue;
       continue;
     }
 

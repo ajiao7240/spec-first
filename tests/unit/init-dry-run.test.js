@@ -404,6 +404,11 @@ describe('init --dry-run', () => {
       expect(conflicting.stderr).toContain('Cannot combine --repo and --all-repos');
       expect(fs.existsSync(path.join(workspaceRoot, '.gitignore'))).toBe(false);
       expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(false);
+
+      const emptyRepoEquals = captureInit(workspaceRoot, ['--codex', '--repo=', '-u', 'reviewer', '--lang', 'zh']);
+      expect(emptyRepoEquals.exitCode).toBe(1);
+      expect(emptyRepoEquals.stderr).toContain('Usage: spec-first init');
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(false);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
       fs.rmSync(workspaceRoot, { recursive: true, force: true });

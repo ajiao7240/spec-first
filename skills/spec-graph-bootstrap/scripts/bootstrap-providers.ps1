@@ -41,6 +41,27 @@ function Write-ResultAndExit {
   exit $ExitCode
 }
 
+function Resolve-ChildPowerShellExecutable {
+  $currentEdition = if ($PSVersionTable.PSObject.Properties.Name -contains 'PSEdition') { [string]$PSVersionTable.PSEdition } else { '' }
+  $currentCommandName = if ($currentEdition -eq 'Core') { 'pwsh' } else { 'powershell' }
+  $currentCommand = Get-Command $currentCommandName -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($null -ne $currentCommand -and -not [string]::IsNullOrWhiteSpace([string]$currentCommand.Path)) {
+    return [string]$currentCommand.Path
+  }
+
+  $pwshCommand = Get-Command pwsh -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($null -ne $pwshCommand -and -not [string]::IsNullOrWhiteSpace([string]$pwshCommand.Path)) {
+    return [string]$pwshCommand.Path
+  }
+
+  $powershellCommand = Get-Command powershell -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($null -ne $powershellCommand -and -not [string]::IsNullOrWhiteSpace([string]$powershellCommand.Path)) {
+    return [string]$powershellCommand.Path
+  }
+
+  return 'pwsh'
+}
+
 function Get-StatusHash {
   param([string]$Text)
   $sha = [System.Security.Cryptography.SHA256]::Create()
@@ -61,12 +82,20 @@ function Invoke-ChildJsonScript {
 
   $stderrPath = Join-Path ([System.IO.Path]::GetTempPath()) ('spec-first-child-stderr-{0}.log' -f ([guid]::NewGuid().ToString('N')))
   $informationPath = Join-Path ([System.IO.Path]::GetTempPath()) ('spec-first-child-information-{0}.log' -f ([guid]::NewGuid().ToString('N')))
+  $powerShellExe = Resolve-ChildPowerShellExecutable
+  $childArgs = @('-NoProfile', '-File', $ScriptPath)
+  foreach ($entry in $Arguments.GetEnumerator()) {
+    $childArgs += "-$($entry.Key)"
+    foreach ($value in @($entry.Value)) {
+      $childArgs += [string]$value
+    }
+  }
   $stdout = @()
   $exitCode = 0
   $exceptionText = ''
   try {
     $global:LASTEXITCODE = 0
-    $stdout = @(& $ScriptPath @Arguments 2> $stderrPath 6> $informationPath)
+    $stdout = @(& $powerShellExe @childArgs 2> $stderrPath 6> $informationPath)
     if ($LASTEXITCODE -is [int]) { $exitCode = $LASTEXITCODE }
   } catch {
     $exitCode = if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }

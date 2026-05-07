@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.0 2026-05-08 03:22:45 leokuang: fix(review): 修复 PowerShell graph-bootstrap all-repos 子脚本必须独立 PowerShell 进程执行、`init --repo=` 空值静默默认 all-repos，以及 bash GitNexus package/version 校验 parity，并补回归测试 (user-visible)
 - v1.8.0 2026-05-08 02:48:09 leokuang: fix(spec-mcp-setup): 收紧 mcp-tools 模板与 GitNexus pin 治理，PowerShell 模板展开改用字面替换并对齐空值语义，bash helper 变量加 `SPEC_FIRST_` 前缀，PowerShell graph bootstrap 补 resolver override parity，并用测试锁定 RC.85 pin 与 `env_quote` fast path (user-visible)
 - v1.8.0 2026-05-08 02:38:03 leokuang: fix(spec-mcp-setup): `uninstall-mcp.ps1` 复用 template helper 的 `Get-ToolField` 读取 host target config path，消除 PowerShell map/object 形态差异风险 (user-visible)
 - v1.8.0 2026-05-08 02:36:47 leokuang: fix(spec-mcp-setup): Codex higher-precedence PowerShell 检测改用 `Get-ToolField` 读取 target map，避免动态属性读取在对象形态变化时失效 (user-visible)
