@@ -413,6 +413,51 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).not.toContain('sh -c');
   });
 
+  test('graph bootstrap PowerShell resolves Windows command shims before CreateProcess', () => {
+    const source = fs.readFileSync(bootstrapProvidersPs1, 'utf8');
+
+    expect(source).toContain('function Resolve-ProcessExecutable');
+    expect(source).toContain('Get-Command $Exe -All -ErrorAction SilentlyContinue');
+    expect(source).toContain("$_.CommandType -eq 'Application'");
+    expect(source).toContain("$_.CommandType -eq 'ExternalScript'");
+    expect(source).toContain('function Test-WindowsHost');
+    expect(source).toContain('$isWindowsVariable = Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue');
+    expect(source).toContain('return ([bool]$isWindowsVariable -or [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT)');
+    expect(source).toContain('if ((Test-WindowsHost) -and [System.IO.Path]::GetExtension($scriptPath)');
+    expect(source).toContain(".Equals('.ps1', [System.StringComparison]::OrdinalIgnoreCase)");
+    expect(source).toContain("foreach ($extension in @('.cmd', '.exe', '.bat', '.com'))");
+    expect(source).toContain('$resolvedExe = Resolve-ProcessExecutable -Exe $Exe');
+    expect(source).toContain('$processInfo.FileName = $resolvedExe');
+    expect(source).not.toContain('$processInfo.FileName = $Exe');
+  });
+
+  test('graph bootstrap PowerShell keeps raw log paths repo-relative across platforms', () => {
+    const source = fs.readFileSync(bootstrapProvidersPs1, 'utf8');
+
+    expect(source).toContain('function ConvertTo-RepoRelativePath');
+    expect(source).toContain("[System.IO.Path]::GetFullPath($Path).Replace('\\', '/')");
+    expect(source).toContain("[System.IO.Path]::GetFullPath($RepoRoot).Replace('\\', '/').TrimEnd('/')");
+    expect(source).toContain('$comparison = if (Test-WindowsHost) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }');
+    expect(source).toContain('return $normalizedPath.Substring($prefix.Length)');
+    expect(source).toContain('raw_log = ConvertTo-RepoRelativePath -Path $LogPath -RepoRoot $RepoRoot');
+    expect(source).not.toContain('raw_log = $LogPath.Replace("$RepoRoot/", \'\')');
+  });
+
+  test('graph bootstrap PowerShell precomputes normalized artifact fields', () => {
+    const source = fs.readFileSync(bootstrapProvidersPs1, 'utf8');
+    const normalizedStart = source.indexOf('function Write-NormalizedArtifacts');
+    const fallbackStart = source.indexOf('function Get-FallbackCapability');
+    const normalizedSource = source.slice(normalizedStart, fallbackStart);
+
+    expect(normalizedSource).toContain('$winningQueryProbeLog = if ($winningLogs.Count -gt 0)');
+    expect(normalizedSource).toContain("$availableQuerySurfaces = if ($QueryReady) { @('status', 'query') } else { @() }");
+    expect(normalizedSource).toContain("$availableQuerySurfaces = if ($QueryReady) { @('status', 'query_graph_tool', 'get_impact_radius_tool') } else { @() }");
+    expect(normalizedSource).not.toMatch(/^\s+winning_query_probe_log = if \(/m);
+    expect(normalizedSource).not.toMatch(/^\s+available_query_surfaces = if \(/m);
+    expect(normalizedSource).not.toMatch(/^\s+confidence = if \(/m);
+    expect(normalizedSource).not.toMatch(/^\s+limitations = if \(/m);
+  });
+
   test('PowerShell workspace graph target resolver exposes advisory multi-repo contract', () => {
     const source = fs.readFileSync(resolveWorkspaceGraphTargetsPs1, 'utf8');
 

@@ -451,6 +451,67 @@ function Test-QueryProbePolicySupported {
   return $true
 }
 
+function Resolve-ProcessExecutable {
+  param([string]$Exe)
+
+  if ([string]::IsNullOrWhiteSpace($Exe)) {
+    return $Exe
+  }
+  if ([System.IO.Path]::IsPathRooted($Exe) -or $Exe.Contains('\') -or $Exe.Contains('/')) {
+    return $Exe
+  }
+
+  $commands = @(Get-Command $Exe -All -ErrorAction SilentlyContinue)
+  $application = @($commands | Where-Object { $_.CommandType -eq 'Application' } | Select-Object -First 1)
+  if ($application.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$application[0].Path)) {
+    return [string]$application[0].Path
+  }
+
+  $externalScript = @($commands | Where-Object { $_.CommandType -eq 'ExternalScript' } | Select-Object -First 1)
+  if ($externalScript.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$externalScript[0].Path)) {
+    $scriptPath = [string]$externalScript[0].Path
+    if ((Test-WindowsHost) -and [System.IO.Path]::GetExtension($scriptPath).Equals('.ps1', [System.StringComparison]::OrdinalIgnoreCase)) {
+      $basePath = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($scriptPath), [System.IO.Path]::GetFileNameWithoutExtension($scriptPath))
+      foreach ($extension in @('.cmd', '.exe', '.bat', '.com')) {
+        $candidate = "${basePath}${extension}"
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+          return $candidate
+        }
+      }
+    }
+    return $scriptPath
+  }
+
+  return $Exe
+}
+
+function Test-WindowsHost {
+  $isWindowsVariable = Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue
+  return ([bool]$isWindowsVariable -or [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT)
+}
+
+function ConvertTo-RepoRelativePath {
+  param(
+    [string]$Path,
+    [string]$RepoRoot
+  )
+  if ([string]::IsNullOrWhiteSpace($Path) -or [string]::IsNullOrWhiteSpace($RepoRoot)) {
+    return $Path
+  }
+
+  $normalizedPath = [System.IO.Path]::GetFullPath($Path).Replace('\', '/')
+  $normalizedRoot = [System.IO.Path]::GetFullPath($RepoRoot).Replace('\', '/').TrimEnd('/')
+  $comparison = if (Test-WindowsHost) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+  if ($normalizedPath.Equals($normalizedRoot, $comparison)) {
+    return '.'
+  }
+  $prefix = "$normalizedRoot/"
+  if ($normalizedPath.StartsWith($prefix, $comparison)) {
+    return $normalizedPath.Substring($prefix.Length)
+  }
+  return $normalizedPath
+}
+
 function Invoke-ExternalCommandWithTimeout {
   param(
     [string]$Exe,
@@ -458,8 +519,9 @@ function Invoke-ExternalCommandWithTimeout {
     [string]$WorkingDirectory,
     [int]$TimeoutSeconds
   )
+  $resolvedExe = Resolve-ProcessExecutable -Exe $Exe
   $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
-  $processInfo.FileName = $Exe
+  $processInfo.FileName = $resolvedExe
   foreach ($argument in @($CommandArguments)) {
     [void]$processInfo.ArgumentList.Add([string]$argument)
   }
@@ -539,7 +601,7 @@ function Invoke-ConfiguredCommand {
     exit_code = $exitCode
     diagnostic = $diagnostic
     diagnostics_truncated = $truncated
-    raw_log = $LogPath.Replace("$RepoRoot/", '')
+    raw_log = ConvertTo-RepoRelativePath -Path $LogPath -RepoRoot $RepoRoot
   }
 }
 
@@ -578,7 +640,7 @@ function Invoke-GitNexusQueryProbeCandidate {
     exit_code = $exitCode
     diagnostic = $diagnostic
     diagnostics_truncated = $truncated
-    raw_log = $LogPath.Replace("$RepoRoot/", '')
+    raw_log = ConvertTo-RepoRelativePath -Path $LogPath -RepoRoot $RepoRoot
   }
 }
 
@@ -915,6 +977,10 @@ function Write-NormalizedArtifacts {
       $sourceRawLogs += '.spec-first/providers/gitnexus/raw/query.log'
     }
     $winningLogs = @($QueryProbeAttempts | Where-Object { $_.result_class -eq 'process-results' } | Select-Object -First 1 | ForEach-Object { $_.raw_log })
+    $winningQueryProbeLog = if ($winningLogs.Count -gt 0) { $winningLogs[0] } else { $null }
+    $availableQuerySurfaces = if ($QueryReady) { @('status', 'query') } else { @() }
+    $confidence = if ($QueryReady) { 'high' } else { 'low' }
+    $limitations = if ($QueryReady) { @() } else { @('Provider query readiness is not verified.') }
     foreach ($artifact in @('architecture-facts', 'reuse-candidates')) {
       $payload = [ordered]@{
         schema_version = 'provider-normalized-envelope.v1'
@@ -923,25 +989,28 @@ function Write-NormalizedArtifacts {
         source_status_path = $sourceStatusPath
         source_raw_logs = $sourceRawLogs
         query_probe_attempt_logs = $attemptLogs
-        winning_query_probe_log = if ($winningLogs.Count -gt 0) { $winningLogs[0] } else { $null }
-        available_query_surfaces = if ($QueryReady) { @('status', 'query') } else { @() }
+        winning_query_probe_log = $winningQueryProbeLog
+        available_query_surfaces = $availableQuerySurfaces
         capabilities = @('architecture_map', 'dependency_map', 'execution_flow', 'repo_wiki', 'query_global_graph')
-        confidence = if ($QueryReady) { 'high' } else { 'low' }
-        limitations = if ($QueryReady) { @() } else { @('Provider query readiness is not verified.') }
+        confidence = $confidence
+        limitations = $limitations
       }
       Write-JsonFileAtomic -Path (Join-Path $normalizedDir "$artifact.json") -Payload ([pscustomobject]$payload) -Depth 20
     }
   } else {
+    $availableQuerySurfaces = if ($QueryReady) { @('status', 'query_graph_tool', 'get_impact_radius_tool') } else { @() }
+    $confidence = if ($QueryReady) { 'medium' } else { 'low' }
+    $limitations = if ($QueryReady) { @('code-review-graph query-surface proof is conservative and should be treated as provider readiness, not semantic evidence.') } else { @('Provider query readiness is not verified.') }
     $payload = [ordered]@{
       schema_version = 'provider-normalized-envelope.v1'
       provider = $Provider
       generated_at = $BootstrappedAt
       source_status_path = $sourceStatusPath
       source_raw_logs = @('.spec-first/providers/code-review-graph/raw/build.log', '.spec-first/providers/code-review-graph/raw/status.log', '.spec-first/providers/code-review-graph/raw/query.log')
-      available_query_surfaces = if ($QueryReady) { @('status', 'query_graph_tool', 'get_impact_radius_tool') } else { @() }
+      available_query_surfaces = $availableQuerySurfaces
       capabilities = @('detect_changes', 'blast_radius', 'minimal_context', 'review_context', 'related_tests', 'graph_stats')
-      confidence = if ($QueryReady) { 'medium' } else { 'low' }
-      limitations = if ($QueryReady) { @('code-review-graph query-surface proof is conservative and should be treated as provider readiness, not semantic evidence.') } else { @('Provider query readiness is not verified.') }
+      confidence = $confidence
+      limitations = $limitations
     }
     Write-JsonFileAtomic -Path (Join-Path $normalizedDir 'impact-capabilities.json') -Payload ([pscustomobject]$payload) -Depth 20
   }
