@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.7.3 2026-05-07 21:40:00 leokuang: chore(release): 发布 spec-first 1.7.3 patch 版本到 npm，含 graph-bootstrap Windows shim 解析与跨平台路径规范化 (user-visible)
 - v1.7.2 2026-05-07 21:18:19 leokuang: fix(graph-bootstrap): 修复 Windows PowerShell 下 `npx.ps1` 不能被 `ProcessStartInfo` 直接启动导致 GitNexus bootstrap 失败，保持 raw log 路径跨平台 repo-relative，并稳固 normalized artifact 写入 (user-visible)
 - v1.7.2 2026-05-07 19:51:13 leokuang: chore(gitnexus): 同步 graph-bootstrap 刷新的 AGENTS/CLAUDE 本地 GitNexus 索引统计
 - v1.7.2 2026-05-07 19:31:44 leokuang: chore(release): 发布 spec-first 1.7.2 patch 版本到 npm，含 GitNexus pin 校正回 1.6.3 与 governance plans revision 3 (user-visible)
