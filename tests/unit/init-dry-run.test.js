@@ -170,8 +170,7 @@ describe('init --dry-run', () => {
       const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
       expect(gitignore).toContain(buildSpecFirstGitignoreBlock());
       expect(gitignore).toContain('.claude/commands/spec/');
-      expect(gitignore).toContain('.spec-first/standards/repo-profile.patch.yaml');
-      expect(gitignore).not.toContain('.spec-first/standards/\n');
+      expect(gitignore).toContain('.spec-first/standards/');
 
       const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
       expect(claudeInstruction).toContain('不要默认进入 `spec-brainstorm`');

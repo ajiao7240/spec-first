@@ -3,9 +3,20 @@ title: "feat: 建立 skill/agent 质量治理与安全执行薄契约"
 type: feat
 status: active
 date: 2026-05-07
+revision: 2
+last_updated: 2026-05-07T17:30+08:00
 spec_id: 2026-05-07-001-skill-agent-quality-governance
 target_repo: spec-first
 origin: docs/项目审查/2026-05-07-skill-agent-prompt-expert-review.md
+referenced_reviews:
+  - path: docs/项目审查/2026-05-07-skill-agent-prompt-expert-review.md
+    role: origin
+    scope: in
+  - path: docs/项目审查/2026-05-07-source-code-comprehensive-review.md
+    role: cross-reference
+    scope: deferred
+    deferred_findings: ["P1-1", "P1-2", "P1-4", "P1-5", "P1-6"]
+    followup_plan: docs/plans/2026-05-08-001-source-code-deferred-tracker.md
 ---
 
 # feat: 建立 skill/agent 质量治理与安全执行薄契约
@@ -30,6 +41,25 @@ origin: docs/项目审查/2026-05-07-skill-agent-prompt-expert-review.md
 - `spec-doc-review` 文档审查 personas 不应被当成普通 `freeform` agent 补 JSON 输出形状。`skills/spec-doc-review/references/subagent-template.md` 已在 orchestrator dispatch 时注入 JSON findings schema、severity、confidence、evidence 和 false-positive suppression。对这些 persona 的后续工作应聚焦 domain quality、evidence discipline 和误报抑制，而不是在每个 agent 文件里重复 schema。
 - `internal_only` optional skills 不应全部机械补齐 eval fixtures。第一批 eval 应覆盖 public workflow、高风险执行 helper 和下游自动消费面；低风险 optional skills 只需明确 optional/plugin 边界、触发范围和安全说明，等进入高流量或高风险路径后再补 eval。
 
+## Modification Levels
+
+为避免 plan-level prose 修订与 implementation 落地混淆，本计划区分三层修订状态：
+
+- **plan-prose**：仅修改本计划文档措辞，未触达任何 source。Review Reception 默认归为此层。
+- **source-mod**：修改 `skills/`、`agents/`、`scripts/`、`src/cli/`、`tests/` 等仓库源码。每条 source-mod 都必须有独立 CHANGELOG 记录与 IU 编号。
+- **runtime-effect**：source-mod 落地后，宿主行为发生变化（如 worktree 不再默认复制 env、delegation 不再 unbounded staging）。Phase exit gate 必须验证此层而非仅 plan-prose。
+
+本计划当前 revision=2 之前的所有修订都属于 plan-prose；source-mod 与 runtime-effect 由 Phase A/B/C 在执行时分批产生。Verification 与 exit gate 引用 source-mod / runtime-effect 证据，不引用 plan-prose 修订。
+
+## Phase 1 Methodological Limits
+
+本计划默认承认下列方法论限制是 Phase 1 已知短板，不在本计划内消除；后续 plan 显式接续：
+
+- **fixture-only regression**：U5 的 eval fixtures 仅是结构化文档，不会被任何 runner 自动灌入模型。fixture content contract test 只能阻止"空文件 game readiness"，不能保证 prompt 行为不退化。LLM-as-judge / replay runner 是后续 plan 的能力，不在本计划范围。
+- **untrusted_input_handling self-declaration**：U7 增加的字段是 agent 对自己处理方式的声明，不是 runtime 强制。无 sandbox、无 output sanitization。后续若发现 agent 输出真被 prompt injection 污染，需新建 `runtime untrusted input enforcement` 能力 plan。
+- **social/confirmed/market 三类分离无验证**：D6 要求 `spec-competitive-intelligence-researcher` 在输出中区分三类，但本计划不引入 reviewer 校验该字段是否被滥用。该校验由 consumer workflow 在 dispatch 时承担。
+- **plan-prose 修订不等于行为变更**：所有 Modification Levels = plan-prose 的修订（包括 Review Reception 列出的 13 条）必须在 Phase A/B/C 通过 source-mod 落地才会改变实际行为。
+
 ## Requirements
 
 | ID | Requirement | Origin evidence | Planned response |
@@ -47,14 +77,23 @@ origin: docs/项目审查/2026-05-07-skill-agent-prompt-expert-review.md
 
 ## Scope Boundaries
 
+- 本计划只承接 `docs/项目审查/2026-05-07-skill-agent-prompt-expert-review.md`（doc 1，prompt/agent 层）的 P1/P2。`docs/项目审查/2026-05-07-source-code-comprehensive-review.md`（doc 2，source-code 层）的下列 finding **不在本计划范围**：
+  - doc 2 P1-1 `src/cli/state.js` managed state 删除路径 final containment guard
+  - doc 2 P1-2 `.agents/plugins` Codex marketplace cleanup ownership
+  - doc 2 P1-4 `package.json` / `package-lock.json` 版本漂移
+  - doc 2 P1-5 `spec-standards` impact capabilities canonical path 漂移
+  - doc 2 P1-6 public workflow helper / reference runtime delivery 不闭环
+  - 例外：doc 2 P1-3 `spec-work-beta` 无界 staging 与 doc 1 P1-02 重叠，已通过本计划 R2/U2 覆盖。
+  - 上述 deferred finding 由后续独立 plan 承接；本计划执行不应顺手修这些点。
 - 本计划不把 `spec-first` 改成重状态机、中心化 gate 系统或复杂 prompt 规则引擎。
 - 本计划不一次性重写 42 个 skill 和 51 个 agent。
 - 本计划不手改 `.claude/`、`.codex/`、`.agents/skills/` generated runtime mirror。
 - 本计划不把 external prompt docs、GitHub repo、Twitter/X 观点变成项目 source of truth。
 - 本计划不要求所有 agent 输出同一 JSON schema。
-- 本计划不把 low-risk optional/internal skills 纳入第一批 eval 强制覆盖。
+- 本计划不把 low-risk optional/internal skills 纳入第一批 eval 强制覆盖；剩余 internal_only / optional skills 的 eval 决策延后到该 skill 进入 high-traffic 路径或下游 consumer 出现时再评估。
 - 本计划不引入新的 runtime workflow command；新增能力优先是 source contract、tests、agent profile 或 lint。
 - 本计划不执行实际外部竞品调研，只建立可复用 competitive intelligence agent 与证据 contract。每次调研必须在执行时重新取最新来源。
+- 本计划默认将 `spec-competitive-intelligence-researcher` 作为 source-only 资产创建，runtime delivery 推迟到具体 workflow 显式声明 consumer 之后。
 
 ## Graph Readiness
 
@@ -179,6 +218,16 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 
 ## Implementation Units
 
+### Universal IU Rules
+
+下列规则适用于本计划下所有 IU，避免在每个 IU 重复声明：
+
+1. **文件存在性核验**：IU 开始时先核验 `Files` 中所有 `Modify:` 路径在仓库中实际存在；不存在的改为 `Create:` 并在 IU 末尾备注（含创建原因）。`Create:` 路径核验确实不存在，避免覆盖既有文件。
+2. **fresh-source eval**：所有触及 `skills/`、`agents/` prose 的 IU 必须按 `docs/contracts/workflows/fresh-source-eval-checklist.md` 执行 fresh-source eval；helper dispatch 不可用时记录 `fresh_source_eval: not_run` 与原因，不能默认 typed-agent 缓存通过。
+3. **CHANGELOG 拆条**：每个 IU 至少产生 1 条独立 CHANGELOG 记录；触及多个能力面（如 U2 同时改 task-pack schema 与 spec-work-beta reference）时拆为多条，每条聚焦一个能力面。
+4. **Test 模式与 contract 关系**：Phase A 编写的 contract test 在 Phase B 出 `docs/contracts/workflows/skill-agent-quality-governance.md` 后必须做一次模式 review；若新 contract 暴露已有测试断言不一致，由 Phase B 在退出前同步迁移测试模式（视为 Phase B 的退出条件之一），不重写 Phase A 实际逻辑。
+5. **Risks 表反映**：若 IU 引入新机制（如 secret deny pattern、orchestrator 三选一、audit 报告），同步在 `## Risks And Mitigations` 表中追加或更新对应行，并以 `Verified by:` 引用具体 contract test。
+
 ### U1. Harden `git-worktree` Env Handling
 
 **Goal:** Worktree creation no longer copies secrets by default.
@@ -196,17 +245,26 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 
 - Change CLI usage to `create [--copy-env] <branch-name> [from-branch]` or equivalent explicit opt-in.
 - Default path prints that env files were not copied and how to opt in, without reading file contents.
-- `--copy-env` copies only `.env*` except `.env.example`, preserving current backup behavior.
+- `--copy-env` copies only `.env*` except `.env.example`, preserving current backup behavior。触发时必须先输出待复制 env 文件清单（仅文件名，不读取内容），并将操作记录写入 `.worktrees/<name>/.env-copy.log`。log 治理规则：
+  - log 仅记录 `timestamp`、`source_path`、`destination_path`、`size_bytes`、`sha256_8`（前 8 位指纹），禁止写文件内容；
+  - log 文件路径必须出现在 worktree 内的 `.gitignore` 或全局 `.gitignore` 中，禁止纳入 commit；
+  - log 默认保留 30 天，超期由 worktree-manager 在 list/clean 子命令中提示；
+  - 多次 opt-in append 写入，禁止 overwrite，确保审计可追溯。
 - Keep `.worktrees` gitignore and dev-tool trust behavior unchanged.
-- Update prose to remove the current manual "copy `.env*`" snippet as a default recommendation; replace with explicit opt-in wording.
+- Update prose to remove the current manual "copy `.env*`" snippet as a default recommendation; replace with explicit opt-in wording。
+- **U1↔U2 互锁**：worktree 内合法编辑 env 文件后，U2 的 secret deny pattern 默认仍然拒 staging，避免 env 漂入 commit。如果 batch 显式声明 `expected_side_effects` 中包含具体 env 文件名（必须精确路径，不接受 glob），且 IU 描述里明确"修改 env"为意图变更，secret deny 才让步；其他情况一律按 deny pattern 处理。这个互锁规则必须同时出现在 `skills/git-worktree/SKILL.md` 与 `skills/spec-work-beta/references/codex-delegation-workflow.md` 中。
 
 **Test scenarios:**
 
 - Default create path does not call/copy env files.
 - `--copy-env` path copies expected env filenames and still skips `.env.example`.
+- `--copy-env` 输出 env 文件清单且写入 `.env-copy.log`，log 不含文件内容、字段命中规格（timestamp/source/destination/size/sha256_8）。
+- `.env-copy.log` 路径在 gitignore 中、append 模式可见、超 30 天提示存在。
 - Existing destination env file is backed up only in opt-in path.
+- 即使 worktree 复制了 env，U2 secret deny pattern 在 staging 时仍拒绝 env 文件，除非 batch 声明了精确 env 路径作为 `expected_side_effects`。
 - `bash -n skills/git-worktree/scripts/worktree-manager.sh` passes.
-- Contract test asserts `SKILL.md` no longer says env copying is default.
+- Contract test asserts `SKILL.md` no longer says env copying is default。
+- IU 开始时核验 `tests/unit/git-worktree-contracts.test.js` 是否已存在；不存在改为 Create 并在 CHANGELOG 单独记录。
 
 **Verification:**
 
@@ -225,24 +283,48 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 - Modify: `tests/unit/spec-work-beta-contracts.test.js`
 - Modify: `CHANGELOG.md`
 
+**Files:**
+
+- Modify: `skills/spec-work-beta/references/codex-delegation-workflow.md`
+- Modify: `skills/spec-write-tasks/references/task-pack-schema.md`（新增 `expected_side_effects` 字段定义）
+- Create: `src/cli/contracts/security/secret-deny-patterns.json`（统一管理 secret deny pattern source）
+- Create or Modify: `tests/unit/spec-work-beta-contracts.test.js`
+- Create or Modify: `tests/unit/secret-deny-patterns-contracts.test.js`
+- Modify: `CHANGELOG.md`
+
 **Approach:**
 
 - Replace the success-path `git add $(git diff --name-only HEAD; git ls-files --others --exclude-standard)` guidance with a batch-owned file set gate.
 - Define the batch-owned set as the combined `Files` list from the plan units/tasks assigned to that batch, plus any result JSON `files_modified` that are within that combined set.
-- Before staging, compare actual modified/untracked files to the batch-owned set.
-- If any diff path is outside the batch-owned set, stop batch commit and require orchestrator judgment; do not auto-stage.
+- 允许 batch 在 task-pack 中显式声明 `expected_side_effects` 白名单（如 lockfile 同步、generated fixture、formatter 邻近格式化），写入 batch-owned set 即视为合法；未声明的副作用一律视为越界。
+  - **task-pack schema 同步修改**：`skills/spec-write-tasks/references/task-pack-schema.md` 新增 `expected_side_effects: string[]` 字段，每条为 repo-relative 精确路径或 glob，禁止 `**` 全仓 glob；spec-write-tasks 在生成 task-pack 时把 IU `Files` 中标 "Modify" / "Create" 的路径自动作为初始白名单候选。
+- Before staging, compare actual modified/untracked files to the (batch-owned ∪ expected_side_effects) set.
+- If any diff path is outside the resulting set, stop batch commit and surface到 orchestrator：orchestrator 决策 `extend-batch`、`drop-stray`、`abort` 三选一，不允许 silent auto-stage。
+- 任何 staging path 命中 secret deny pattern 一律拒绝并停止 batch，无论是否在 batch-owned set 内。Secret deny pattern source 集中维护在 `src/cli/contracts/security/secret-deny-patterns.json`，初版至少覆盖：
+  - 通用 env：`.env`、`.env.*`（除 `.env.example`、`.env.template`、`.env.sample`）；
+  - 私钥：`*.pem`、`*.key`、`id_rsa*`、`id_ed25519*`、`id_dsa*`、`id_ecdsa*`、`*.p12`、`*.pfx`、`*.keystore`、`*.kdbx`、`*.htpasswd`；
+  - 工具凭据：`.npmrc`、`.pypirc`、`.netrc`、`.git-credentials`、`.aws/credentials`、`.aws/config`、`.gcp/*credentials*.json`、`google-services.json`、`GoogleService-Info.plist`、`*serviceAccount*.json`、`firebase-adminsdk-*.json`；
+  - token / secret 词形：`**/*token*`、`**/*secret*`、`**/*credentials*`、`**/*password*`、`**/*apikey*`、`**/*api_key*`（不区分大小写，配置文件中可白名单具体路径）；
+  - 移动平台签名：`*.mobileprovision`、`*.cer`、`*.certSigningRequest`。
+- secret-deny-patterns.json 必须支持 `allowlist`（精确路径），用于 IU 显式声明合法 env 修改（与 U1↔U2 互锁规则配合）。
 - Stage only batch-owned paths. Use a path-safe approach in implementation prose and tests; do not rely on unquoted command substitution.
 
 **Test scenarios:**
 
 - Reference text no longer contains unbounded `git add $(git diff --name-only HEAD; git ls-files --others --exclude-standard)`.
 - Reference requires batch file-set comparison before staging.
-- Reference says out-of-batch diff stops commit and surfaces to orchestrator.
+- Reference says out-of-batch diff stops commit and surfaces to orchestrator with three explicit options（extend-batch / drop-stray / abort）。
+- Reference 引用 `src/cli/contracts/security/secret-deny-patterns.json` 作为 deny pattern source（不在 prose 中硬编码 pattern）。
+- `secret-deny-patterns.json` schema 校验：含 `version`、`patterns[]`、`allowlist[]`、`exclusions[]` 四个根字段。
+- task-pack schema 包含 `expected_side_effects` 定义；spec-write-tasks 输出样例覆盖该字段；`**` 全仓 glob 被 schema 校验拒绝。
+- Reference allows IU 显式 `expected_side_effects` allowlist 并要求该字段在 plan 单元中声明。
 - Reference preserves rollback path scoping to batch file list.
+- secret-deny 命中场景下 staging 拒绝并 surface，含 env、private key、token、cloud credential 等至少 4 种命中样例的测试。
 
 **Verification:**
 
-- `npx jest tests/unit/spec-work-beta-contracts.test.js --runInBand`
+- `npx jest tests/unit/spec-work-beta-contracts.test.js tests/unit/secret-deny-patterns-contracts.test.js --runInBand`
+- Fresh-source eval per `docs/contracts/workflows/fresh-source-eval-checklist.md`（确认 spec-work-beta delegation prose 行为已对齐磁盘最新源；如 helper dispatch 不可用，记录 `fresh_source_eval: not_run` 与原因）。
 
 ### U3. Fix Prompt/Script Drift Quick Wins
 
@@ -337,6 +419,11 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 **Approach:**
 
 - Reuse `skills/spec-graph-bootstrap/evals/` and `skills/spec-write-tasks/evals/` schema style.
+- 由于现有 ready 模板自身 schema 不完全统一，本计划 IU 开始时先抽出 canonical fixture schema 写入 `skills/spec-skill-audit/references/eval-fixture-schema.md`（共用），再让第一批 8 个 skill 一致采用：
+  - 顶层字段：`schema_version`（string，初版 `"1.0"`）、`skill`（string，对应 skill id）、`category`（enum：`trigger` / `boundary` / `failure` / `expected-behavior`）、`cases`（数组，至少 2 条）。
+  - case 顶层字段：`name`（string，唯一）、`input`（object，含 `user_intent`、`context_snippets[]`、`prior_state` 可选项）、`expected_behavior` 或 `expected_violation`（至少一个非空，前者用于 trigger / expected-behavior，后者用于 boundary / failure）、`notes`（可选）。
+  - failure 类必须含 `expected_violation.kind`（如 `missing_input`、`tool_unavailable`、`unauthorized_dispatch`）。
+- 每个 skill 至少 4 个文件覆盖 4 个 category。
 - Each skill gets four minimal files:
   - `trigger-cases.json`
   - `boundary-cases.json`
@@ -344,13 +431,16 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
   - `expected-behavior-cases.json`
 - Keep each file small: 2 to 5 cases per category.
 - Cover both positive and negative routing, especially `using-spec-first` public workflow selection, `spec-plan` versus `spec-brainstorm`, and `spec-work` execution-ready boundaries.
-- Do not implement LLM-as-judge in this phase.
+- Do not implement LLM-as-judge in this phase（已在 Phase 1 Methodological Limits 显式承认该限制）。
 
 **Test scenarios:**
 
 - `write-audit-artifacts.js` marks the first-wave skills ready.
-- JSON fixture files parse and include `schema_version` plus non-empty `cases`.
-- `spec-write-tasks` remains the ready template, not a new public workflow command.
+- JSON fixture files parse and 通过 canonical schema 校验：含 `schema_version="1.0"`、`skill`、`category`、`cases[]`。
+- 每个 fixture 文件至少包含 2 条 case；每条 case 必须含 `name`、`input.user_intent`、`expected_behavior` / `expected_violation` 中至少一个非空字段——空数组、仅 schema_version 的占位文件、字段全为空字符串均视为 not ready，禁止用空文件 game readiness gate。
+- failure-cases.json 中每条 case 必须含 `expected_violation.kind`。
+- `spec-write-tasks` remains the ready template, not a new public workflow command。若 `spec-graph-bootstrap` / `spec-write-tasks` 现有 fixture 与新 schema 不一致，IU 内通过迁移脚本 align（不破坏 ready 状态）。
+- 剩余 internal_only / optional skills（如 `git-commit`、`git-commit-push-pr`、`changelog`、`proof`、`feature-video` 等）继续保持 missing 状态，等待 high-traffic 触发或下游 consumer 显式声明再补 eval。该决策在 `Scope Boundaries` 中明示，本 IU 不修改它们。
 
 **Verification:**
 
@@ -377,12 +467,15 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 - Add red flags where the executor must not fast-forward: target repo ambiguity, source-of-truth ambiguity, runtime generation, auth/security, migration, external side effects, unbounded file set.
 - Limit `Simplify as You Go` to complexity introduced or directly exposed by the current change, inside current ownership/file scope.
 - Tell executor to record unrelated pre-existing complexity as follow-up instead of refactoring it.
-- Bring stable `spec-work` and `spec-work-beta` UI guidance parity back into alignment, while keeping beta-only delegation delta isolated.
+- Bring stable `spec-work` and `spec-work-beta` UI guidance parity back into alignment：在 `skills/spec-work/SKILL.md` 中按 `spec-work-beta` 的 `Frontend Design Guidance` section 等价化（**通过 section title 锚定，不锚定行号**：插入位置位于 `Figma` 相关章节之后、`Track Progress` 章节之前）；保持 stable 不引入 beta-only delegation delta，仅同步 frontend-design phase trigger 与 done signal。如果 spec-work-beta 中该 section title 在 IU 执行前已重命名，IU 须先做 sync read 确认最新 section title 再插入。
+- 同步修复 stable `spec-work` 的两个 Step 6 编号重复（按 origin review P3 finding 校正为 Step 6 / Step 7）。
 
 **Test scenarios:**
 
 - Stable and beta work skills both contain the bounded simplification rule.
 - Stable and beta work skills both contain the success-standard-first wording.
+- Stable `spec-work` 在 `Figma` 相关章节之后、`Track Progress` 章节之前存在 `Frontend Design Guidance` 等价 section（contract test 通过 markdown heading 顺序匹配，不引用行号）。
+- Stable `spec-work` 不再出现重复的 Step 6 编号。
 - Beta delegation remains explicit opt-in.
 - Tests continue to reject old host entrypoint drift.
 
@@ -415,21 +508,26 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
   - project convention: project standards/skills/source docs first;
   - external facts: official docs/primary sources/current releases first;
   - local skills are historical experience, not current external fact.
+- 在更新 `spec-best-practices-researcher` authority 前，先做 downstream consumer audit：grep 全仓 dispatch 点（`agents/`、`skills/`、`src/cli/`、`templates/`、`docs/contracts/`），确认现有调用方未对旧 authority 形成 hard-coded 依赖；若发现 consumer 显式假设旧 order，列入 deferred breaking change 并在 IU 末尾备注。
+- **audit 产物规格化**：audit 报告写入 `docs/validation/2026-05-07-best-practices-researcher-consumer-audit.md`，最低字段：`audit_date`、`audit_command`（grep / 工具命令）、`hits[]`（每条含 `path`、`line`、`callsite_kind`：dispatch / prose-reference / contract-assertion、`assumes_old_authority`：true/false/unknown、`evidence_quote`）、`hard_coded_dependencies[]`（仅 true 命中）、`migration_decision`：apply-now / defer / abort、`reviewer`、`signoff_at`。
+- **abort 协议**：当 `hard_coded_dependencies` 数量超过 3 条且至少 1 条来自 public workflow（`workflow_command/*`），U7 中 authority change 必须 abort，仅保留新增字段与新 agent 创建；abort 决策写入 `migration_decision: abort` 并触发新 plan。`hard_coded_dependencies = 0` 时正常 apply；介于 1–3 条且非 public workflow 时按 defer 处理，逐条标 deferred 并保留 audit 跟踪。
 - Add untrusted input handling to researchers that read external pages, GitHub issues, Slack, session history or social content.
 - Add `spec-competitive-intelligence-researcher` for GitHub + Twitter/X + official/release signal synthesis. The output must separate `confirmed facts`, `market signals`, `social discourse`, `adopt`, `avoid`, and `fit-to-spec-first`.
-- If the agent is bundled, update `src/cli/contracts/dual-host-governance/skills-governance.json` or relevant runtime projection source through normal source-first flow.
+- 默认作为 source-only agent 创建，不在本计划内推到 runtime delivery。`src/cli/contracts/dual-host-governance/skills-governance.json` 与 `src/cli/plugin.js` 的 bundling 修改延后到具体 workflow（如未来的 `spec-research` 或 `spec-ideate` 扩展）显式声明 consumer 之后再单独 plan 处理。
 
 **Test scenarios:**
 
 - Best-practices researcher no longer states skill-based guidance is highest authority for external API facts.
+- `docs/validation/2026-05-07-best-practices-researcher-consumer-audit.md` 存在且通过 schema 校验（必填字段非空、`migration_decision` ∈ {apply-now, defer, abort}）。
+- audit 决策 = abort 时，spec-best-practices-researcher authority prose 修改不被 commit；决策 = apply-now 时 prose 修改与 audit 同 PR 提交。
 - Competitive intelligence agent requires source freshness and separates social signal from confirmed fact.
 - Researchers include untrusted input handling.
-- Runtime catalog/governance tests pass if the new agent is bundled.
+- Runtime catalog/governance tests 不需断言 `spec-competitive-intelligence-researcher` 已 bundled——本计划保持 source-only。
 
 **Verification:**
 
 - `npx jest tests/unit/best-practices-researcher-contracts.test.js tests/unit/agent-support-contracts.test.js --runInBand`
-- `npm run docs:runtime-catalog` if bundled runtime catalog changes
+- 不运行 `npm run docs:runtime-catalog`：本计划不变更 bundled runtime catalog。
 
 ### U8. Add Prompt Source Drift Lint
 
@@ -447,20 +545,31 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 
 **Approach:**
 
+- 新建独立 lint 而非扩展 `scripts/lint-skill-entrypoints.js`：现有 lint 关注 entrypoint frontmatter / 入口治理，prompt-source lint 关注文本级 drift；二者关注面不同，合并会让单脚本既懂 entrypoint schema 又懂 prose 模式，违反 single responsibility。**前置条件**：在 IU 开始时先复核 `scripts/lint-skill-entrypoints.js` 是否已具备规则扩展点；若可低成本加入 prose lint 规则，则改为扩展该脚本并在 IU 中说明决策。
 - Lint only deterministic text signals:
-  - hardcoded current year outside examples/history;
-  - stale slash command entrypoints;
-  - option number references that mismatch nearby headings or known contracts when explicitly configured;
-  - model/default drift between declared prose and helper scripts when explicitly configured;
+  - hardcoded current year outside examples/history（年份漂移）；prose 必须改为 "use the host/session current date provided in startup reminders" 类提示，禁止使用占位符（`{{year}}` / `{{current_date}}`）——由宿主在 SessionStart hook / 启动 reminder 中注入；
+  - stale slash command entrypoints；
+  - option number references that mismatch nearby headings or known contracts when explicitly configured；
+  - model/default drift between declared prose and helper scripts when explicitly configured；
   - source docs that present generated runtime mirrors as source truth.
 - Keep semantic quality out of lint. The script can produce facts and reason codes; LLM/reviewer decides priority.
-- Start with warning mode for new lint categories except known dangerous runtime/source boundary violations.
+- Start with warning mode for new lint categories except known dangerous runtime/source boundary violations。**warning 升级 fail-closed 的可执行机制**：
+  - lint config 中每条 rule 必须含 `severity`（warning / error）与 `introduced_in_release`（语义版本号）；
+  - `scripts/lint-prompt-source.js` 在 warning 模式输出 `release_age = current_release - introduced_in_release`；
+  - 新增 CI step 在 `.github/workflows/ai-dev-quality-gate.yml` 中读取 lint 输出：当某条 rule 的 `release_age >= 2` 且当前仓库仍有该规则的 warning 时，CI 失败并要求该 rule 在下一次 release 前升级 severity 为 error 或显式加入 `exceptions[]`；
+  - `exceptions[]` 必须含 `rule_id`、`path_glob`、`reason`、`expires_at`（必填，禁止永不过期）；
+  - 升级动作由人工触发（修改 lint config severity 字段），但 CI 在 release_age >= 2 时强制要求决策，不允许 warning 永久存在。
+- IU 必须同时更新 `.github/workflows/ai-dev-quality-gate.yml` 的 path filter 让 lint 触发在 skill / agent / template / docs/contracts 目录下都生效。
 
 **Test scenarios:**
 
 - Fixtures prove hardcoded current year is flagged unless under an allowlisted historical doc/example.
+- Fixtures prove prose 使用 `{{year}}` / `{{current_date}}` 类占位符时被 flag。
 - Fixtures prove stale entrypoint pattern is flagged.
 - Existing source tree passes or produces only expected warnings documented in test snapshots.
+- lint config schema 校验：每条 rule 必须含 `severity`、`introduced_in_release`，`exceptions[]` 必须含 `expires_at`。
+- CI 模拟测试：构造 release_age >= 2 且仍 warning 的场景，断言 CI 失败。
+- IU 决策记录（扩展现有 lint vs 新建独立 lint）出现在 `CHANGELOG.md` 或 PR 描述。
 
 **Verification:**
 
@@ -529,34 +638,44 @@ Additional commands by phase:
 
 Before any commit:
 
-- Run `gitnexus_detect_changes(scope: "staged")` and confirm changed symbols/artifacts match the phase scope.
+- 先 `git add` 当前 phase 计划单元产物，再调用 `gitnexus_detect_changes()`，确认 staged symbols/artifacts 与 phase scope 匹配；若 GitNexus 后续支持参数化 scope，再通过 contract test 升级调用形态。
 
 ## Risks And Mitigations
 
-| Risk | Why it matters | Mitigation |
-|---|---|---|
-| Eval fixtures become ritual, not proof | Adding files without meaningful cases gives false confidence | Keep fixtures tied to concrete trigger/boundary/failure scenarios and review them like source |
-| Contract doc grows into hidden rules engine | Violates Light contract | Keep one doc, four thin contracts, no semantic state machine |
-| Research agent overweights Twitter/X | Social content is noisy and manipulable | Separate social discourse from confirmed facts; require primary source for factual claims |
-| Prompt lint overreaches into semantic judgment | Scripts would replace LLM judgment | Lint only deterministic drift signals and reason codes |
-| Work/work-beta parity refactor breaks beta isolation | Beta must remain explicit opt-in | Tests must assert beta delegation delta remains isolated |
-| Runtime mirror edited directly | Creates source/runtime drift | All changes source-first; runtime regeneration only through `spec-first init --claude|--codex` when needed |
+| Risk | Why it matters | Mitigation | Verified by |
+|---|---|---|---|
+| Eval fixtures become ritual, not proof | Adding files without meaningful cases gives false confidence | Keep fixtures tied to concrete trigger/boundary/failure scenarios; canonical fixture schema 在 `eval-fixture-schema.md`；fixture content contract test 拒绝空字段 | `tests/unit/skill-audit-scripts.test.js`、`canonical fixture schema` 校验 |
+| Contract doc grows into hidden rules engine | Violates Light contract | Keep one doc, four thin contracts, no semantic state machine | `tests/unit/skill-agent-quality-governance-contracts.test.js` |
+| Research agent overweights Twitter/X | Social content is noisy and manipulable | Separate social discourse from confirmed facts; require primary source for factual claims；untrusted_input_handling 字段（self-declaration，已在 Phase 1 Limits 声明） | `tests/unit/best-practices-researcher-contracts.test.js` |
+| Prompt lint overreaches into semantic judgment | Scripts would replace LLM judgment | Lint only deterministic drift signals and reason codes; warning 升级 fail-closed 由 CI 强制（release_age >= 2） | `tests/unit/lint-prompt-source.test.js`、CI step in `.github/workflows/ai-dev-quality-gate.yml` |
+| Work/work-beta parity refactor breaks beta isolation | Beta must remain explicit opt-in | Tests must assert beta delegation delta remains isolated；UI parity 通过 section title 锚定不锚行号 | `tests/unit/spec-work-contracts.test.js`、`tests/unit/spec-work-beta-contracts.test.js` |
+| Runtime mirror edited directly | Creates source/runtime drift | All changes source-first; runtime regeneration only through `spec-first init --claude\|--codex` when needed | `npm run lint:skill-entrypoints` |
+| `--copy-env` opt-in 仍泄露 secrets | opt-in 用户决策门槛低，env 易漂入 commit | U1 输出 `.env-copy.log`（仅指纹）；U2 secret deny pattern 默认拒 staging；U1↔U2 互锁仅放精确路径 allowlist | `tests/unit/git-worktree-contracts.test.js`、`tests/unit/secret-deny-patterns-contracts.test.js` |
+| Batch-owned + side_effects 仍误 stage 越界文件 | delegation 成功路径默认信任 batch，未声明的副作用可能漂入 | orchestrator 三选一（extend-batch / drop-stray / abort）；secret deny 跨集合一律拒；`expected_side_effects` 不接受 `**` 全仓 glob | `tests/unit/spec-work-beta-contracts.test.js` |
+| `spec-best-practices-researcher` authority 升级破坏 downstream consumer | hard-coded 假设旧 order 的 dispatch 点会静默失效 | U7 强制 audit `docs/validation/...consumer-audit.md`；abort 协议（>=3 hard-coded 或 public workflow 命中触发 abort） | `docs/validation/2026-05-07-best-practices-researcher-consumer-audit.md` 校验、`tests/unit/best-practices-researcher-contracts.test.js` |
+| reviewer dispatch 失败导致审查降级 fallback | single-orchestrator 易漏 persona 视角 | reviewer 恢复后须重做一轮 cross-check；本轮失败根因记录在 `docs/solutions/reviewer-dispatch-failure-2026-05-07.md` | followup plan 中的 review re-run 任务 |
+| Plan-prose 修订被误读为行为变更 | Review Reception 列表易让读者以为 source 已改 | 引入 Modification Levels（plan-prose / source-mod / runtime-effect）；exit gate 引用 source-mod 证据 | Phase A/B/C exit gate 文案校验 |
 
 ## Open Questions
 
 ### Resolved During Planning
 
-- Should every internal skill receive eval fixtures now? No. First wave covers public workflows, high-risk execution helpers and downstream-consumed behavior.
+- Should every internal skill receive eval fixtures now? No. First wave covers public workflows, high-risk execution helpers and downstream-consumed behavior。剩余 internal_only / optional skills 延后到 high-traffic 触发或下游 consumer 出现时再评估。
 - Should doc-review personas receive duplicated JSON schema in each agent file? No. Output contract is injected by `spec-doc-review` subagent template.
 - Should competitive intelligence use Twitter/X? Yes, but only as social/market signal with source freshness and fact separation.
 - Should contract definitions start as machine-readable schemas? No. Start as human-readable source contract; add schemas when deterministic validation needs them.
+- Should `spec-competitive-intelligence-researcher` ship to runtime in this plan? No. 默认 source-only；runtime delivery 推迟到具体 workflow 显式声明 consumer 后由独立 plan 处理。
+- Should U8 extend `lint-skill-entrypoints` or create new lint? Default 新建独立 lint；IU 开始时复核现有 lint 是否易扩展，若易扩展则改方案并记录决策。
+- Should the `gitnexus_detect_changes` call use a `scope` argument? No。CLAUDE.md 标准用法是无参；本计划先 `git add` phase 产物再调用。
+- Are doc 2（source-code-comprehensive-review）的 P1-1/P1-2/P1-4/P1-5/P1-6 在本计划范围？No。已在 Scope Boundaries 中明示 deferred；本计划只承接 doc 1 的 P1/P2。
 
 ### Deferred To Implementation
 
 - Exact `git-worktree` opt-in flag parsing shape.
 - Whether `gemini-imagegen` should keep `gemini-3-pro-image-preview` as default after checking current official Gemini docs.
-- Whether the new competitive intelligence agent ships to runtime immediately or remains source-only until a workflow consumes it.
-- Whether prompt source lint should start as `warning` for all categories or fail closed for a small denylist.
+- 具体 `spec-best-practices-researcher` downstream consumer audit 报告的呈现形式（PR 评论 / IU 备注 / docs/validation 子文档）。
+- `spec-work` UI Quality Guard 段落的具体措辞（参考 `spec-work-beta:433-440` 等价化，不引入新规则）。
+- Whether prompt source lint should start as `warning` for all categories or fail closed for a small denylist。预设连续 2 次 release 后 warning 升级 fail-closed 的具体计数与豁免名单。
 
 ## Completion Evidence
 
@@ -576,3 +695,32 @@ Expected artifacts after implementation:
 - Full `npm test` for every docs-only or prompt-only phase unless the changed surface justifies it.
 - Runtime regeneration unless source changes affect projected runtime assets and `spec-first doctor --claude|--codex` reports drift.
 - External GitHub/Twitter/X data collection during this plan authoring. The new researcher agent will perform current data collection at execution time.
+
+## Review Reception
+
+2026-05-07 通过 `/spec:doc-review` 对本计划做 single-agent report-only 审查（reviewer dispatch 因 1m context API 与服务端 panic 不可用，按 fallback 协议执行）。审查应用 6 类 inline persona checklist：coherence、feasibility、scope-guardian、adversarial、product-lens、security-lens。
+
+已在本版本应用的修订：
+
+- P1-A：Scope Boundaries 显式列出 doc 2 的 deferred P1 与例外。
+- P1-B：U2 batch staging 增加 `expected_side_effects` allowlist、orchestrator 三选一决策协议、secret deny pattern。
+- P1-C：U7 默认将 `spec-competitive-intelligence-researcher` 作为 source-only；runtime delivery 推迟到 consumer 出现后由独立 plan 处理。
+- P1-D：U5 fixture content contract test，禁止用空文件 game readiness。
+- P1-E：Verification 修复 `gitnexus_detect_changes()` 调用形态（无参）。
+- P1-F：U7 增加 `spec-best-practices-researcher` 下游 consumer audit 步骤。
+- P2-A：U8 prose 禁止占位符，要求宿主 SessionStart hook / 启动 reminder 注入当前日期。
+- P2-B：U6 指定 stable `spec-work` 的 UI guidance 插入位置（Figma stage 之后、Track Progress 之前），并修复 Step 6 重复编号。
+- P2-C：U8 显式 IU 开始时复核 `lint-skill-entrypoints` 扩展可行性，记录决策。
+- P2-D：U2 Verification 增加 fresh-source eval 步骤。
+- P2-E：U5 / Scope Boundaries 明示剩余 internal_only / optional skills 延后策略。
+- P2-SE-1：U1 `--copy-env` 触发输出文件清单与 `.env-copy.log`，不写文件内容。
+- P2-SE-2：U2 secret deny pattern（`.env*`、`*.pem`、`*.key`、`id_rsa*`、`secrets.*` 等）一律拒绝 staging。
+
+未应用的 finding（advisory only，不动 plan 主体）：
+
+- FYI-1 4 类薄契约单文件 vs 拆分：保持单文件，未来契约扩张时再评估。
+- FYI-2 Risks mitigation 加 "Verified by"：保持当前 prose 形式，避免 contract 过度 mechanical。
+- FYI-3 competitive-intelligence agent "新增 vs 收敛" 路径：已通过 P1-C 决策（source-only 新增）间接表态。
+- P2-SE-3 D6 Twitter/X 出方约束（IP / 身份）：作为 implementation-time 注意事项，不写入 plan，由具体 consumer plan 承担。
+
+Review docs（doc 1 / doc 2）的 meta 质量短板（P-numbering 不统一、URL freshness 时间戳缺失、Coverage Ledger Appendix 体积大）属于已交付 review 报告的回顾性问题，不在本计划修订范围；后续审查流程改进 plan 处理。

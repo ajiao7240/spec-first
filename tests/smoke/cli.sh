@@ -151,7 +151,7 @@ grep -q -- '--claude' "$TMP_DIR/.claude/hooks/session-start"
 test -f "$TMP_DIR/.gitignore"
 grep -q '# spec-first:start' "$TMP_DIR/.gitignore"
 grep -q '.claude/commands/spec/' "$TMP_DIR/.gitignore"
-grep -q '.spec-first/standards/repo-profile.patch.yaml' "$TMP_DIR/.gitignore"
+grep -q '.spec-first/standards/' "$TMP_DIR/.gitignore"
 if grep -qxF '.spec-first/' "$TMP_DIR/.gitignore" || grep -qxF '.agents/' "$TMP_DIR/.gitignore"; then
   echo "init gitignore should not hide broad source/runtime roots" >&2
   exit 1

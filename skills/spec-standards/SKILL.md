@@ -137,11 +137,13 @@ Imported standards are marked `imported`, not `confirmed`, and require project a
 
 ## Artifact Contract
 
-Default artifact root:
+Default local artifact root:
 
 ```text
 .spec-first/standards/
 ```
+
+`spec-first init` adds this root to the managed `.gitignore` block. Treat it as a local standards workspace by default. Confirmed standards that should travel with the team must be promoted to an explicit source path, such as `.spec-first/specs/repo-profile.yaml`, `docs/specs/**`, or another project-owned standards document.
 
 Baseline artifacts by owner:
 
@@ -168,7 +170,7 @@ Mode-specific or optional artifacts:
 .spec-first/standards/standards-drift.md
 ```
 
-Runtime scratch paths must not be committed:
+Runtime scratch paths live under the same local root:
 
 ```text
 .spec-first/standards/work/

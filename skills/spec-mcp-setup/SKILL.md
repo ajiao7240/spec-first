@@ -14,7 +14,7 @@ This workflow is the single setup entrypoint for spec-first. It has two distinct
 - Project Preflight / Local Setup: required developer helpers, project-local config bootstrap, and legacy Compound Engineering residue guidance.
 - Required Harness Runtime: required MCP servers, required graph providers, `agent-browser`, readiness ledger v2, and graph provider projection.
 
-Project-local config and legacy residue facts do not affect `baseline_ready`. Required helper facts do affect `baseline_ready`. This workflow does not expose selectable MCP registry entries, legacy pending states, or a browser MCP server.
+Project-local config and legacy residue facts do not affect `baseline_ready`. Required helper facts affect `baseline_ready` when their `baseline_blocking` fact is not explicitly `false`. This workflow does not expose selectable MCP registry entries, legacy pending states, or a browser MCP server.
 
 GitNexus `query_probe` must target the GitNexus indexed repo label, not blindly the directory basename. `write-provider-config.*` resolves the label deterministically from explicit setup facts when present, then from `.gitnexus/meta.json` `remoteUrl` basename, then from git remote URL basename, and only falls back to the repo directory basename. Its probe token policy should write a bounded, ordered `candidates[]` list of at most 5 source-derived candidates while preserving legacy `token` / `selected_from` fields for compatibility. Candidate ordering is cross-stack: prefer entry/workflow basenames likely to participate in flows, such as main/launch/loading/home/login/router/navigation files, controllers, handlers, services, repositories, forms, tables, pages, dashboards, and Android Activity/ViewModel classes. For controller-heavy repos where class basenames often return definitions-only, setup may extract bounded method-level source tokens from tracked workflow files and prefer flow-like method names such as step/save/add/delete/submit/validate/failure/options before controller class names. Android names are one platform signal, not the default universal front door. Low-signal lifecycle, config, type, schema, constants, display-only, advertisement/guide/dialog/adapter/bean/entity basenames should be demoted until no better source candidate exists.
 
@@ -320,7 +320,7 @@ pwsh -File skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1 -RefreshEx
 
 Do not pass `--delete-legacy-markdown` / `-DeleteLegacyMarkdown` during ordinary setup. Do not automatically delete `.compound-engineering/config.local.yaml`; report legacy residue and tell the user that spec-first now uses `.spec-first/config.local.yaml`.
 
-Project preflight prepares setup input. Missing required helper tooling must mark Required Harness Runtime as failed. Missing local config, outdated example config, and legacy compound-engineering residue must not mark Required Harness Runtime as failed.
+Project preflight prepares setup input. Missing required helper tooling must mark Required Harness Runtime as failed, except Windows `agent-browser` browser runtime marker/download failures when the CLI and global skill are already ready; those are reported as non-blocking degraded helper facts so graph readiness can continue. Missing local config, outdated example config, and legacy compound-engineering residue must not mark Required Harness Runtime as failed.
 
 ## Deterministic Commands
 
@@ -384,7 +384,7 @@ Windows:
 pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1
 ```
 
-`install-helpers.* --verify-only` must only detect helper facts. It must not install the CLI, run `agent-browser install`, or install the global skill. It checks `$HOME/.agent-browser/spec-first-install.json` as the marker that the default install path has completed `agent-browser install`; missing marker means `install_status=action-required`.
+`install-helpers.* --verify-only` must only detect helper facts. It must not install the CLI, run `agent-browser install`, or install the global skill. It checks `$HOME/.agent-browser/spec-first-install.json` as the marker that the default install path has completed `agent-browser install`; missing marker means `install_status=action-required`. On Windows only, when the `agent-browser` CLI and global skill are ready but the browser runtime marker is missing or `agent-browser install` fails, setup reports `result=degraded` and `baseline_blocking=false` with a repair `next_action` instead of blocking `baseline_ready`.
 
 `install-helpers.*` preserves inherited npm registry, proxy, and mirror env vars through the helper install path. If you need a domestic npm source or corporate proxy, set the standard `NPM_CONFIG_REGISTRY` / `npm_config_registry` and proxy env vars before running setup; the install helpers will forward them through the sudo fallback instead of discarding them. On Linux, `agent-browser install` uses `--with-deps` so the browser runtime and system packages are installed together. When missing, `agent-browser` browser runtime, the global `agent-browser` skill, and the global `ast-grep` skill install in parallel; package-manager-backed helper CLIs stay serialized to avoid lock conflicts and keep the failure surface narrow.
 
@@ -410,7 +410,7 @@ pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1
 Default helper install mode must:
 
 1. Install `agent-browser` CLI if missing.
-2. Run `agent-browser install` on macOS or `agent-browser install --with-deps` on Linux.
+2. Run `agent-browser install` on macOS/Windows or `agent-browser install --with-deps` on Linux; Windows browser runtime failure is non-blocking when the CLI and global skill are ready.
 3. Write `$HOME/.agent-browser/spec-first-install.json` after the platform-appropriate `agent-browser install` succeeds.
 4. Install required helper CLIs: `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, and `ast-grep`.
 5. Install the upstream/global `agent-browser` skill:
@@ -454,7 +454,7 @@ Then it computes one final readiness ledger:
 }
 ```
 
-`baseline_ready` includes required MCP tools, required graph providers, and every required helper in `helper_tools`. For graph providers, host MCP readiness only gates baseline when `host_config_required=true`. `code-review-graph` can be baseline-ready with `host_config_status=not-required` as long as its dependencies are ready and its CLI provider projection is enabled. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph readiness compilation is still required.
+`baseline_ready` includes required MCP tools, required graph providers, and every baseline-blocking required helper in `helper_tools`. For graph providers, host MCP readiness only gates baseline when `host_config_required=true`. `code-review-graph` can be baseline-ready with `host_config_status=not-required` as long as its dependencies are ready and its CLI provider projection is enabled. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph readiness compilation is still required.
 
 On a first setup, graph-provider facts show:
 

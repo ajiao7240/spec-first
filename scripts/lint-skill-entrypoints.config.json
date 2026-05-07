@@ -1,7 +1,6 @@
 {
   "scanRoots": [
-    "skills",
-    "docs/10-prompt/skills"
+    "skills"
   ],
   "markdownExtensions": [
     ".md"

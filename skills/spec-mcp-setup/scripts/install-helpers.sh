@@ -7,6 +7,93 @@ command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安
 
 MODE="install"
 DEFAULT_STAGE_TIMEOUT_SECONDS="${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}"
+
+NPM_MIRROR_ENDPOINT="https://registry.npmmirror.com"
+UV_MIRROR_ENDPOINT="https://mirrors.tuna.tsinghua.edu.cn/pypi/simple"
+CHROME_MIRROR_ENDPOINT="https://npmmirror.com/mirrors/chrome-for-testing"
+LAST_INSTALL_SOURCE="official"
+LAST_INSTALL_MIRROR_USED="false"
+export NPM_MIRROR_ENDPOINT UV_MIRROR_ENDPOINT CHROME_MIRROR_ENDPOINT
+
+reset_install_provenance() {
+  LAST_INSTALL_SOURCE="official"
+  LAST_INSTALL_MIRROR_USED="false"
+}
+
+write_install_provenance() {
+  if [ -n "${LAST_INSTALL_PROVENANCE_FILE:-}" ]; then
+    printf 'install_source=%s\nmirror_used=%s\n' "$LAST_INSTALL_SOURCE" "$LAST_INSTALL_MIRROR_USED" >"$LAST_INSTALL_PROVENANCE_FILE" 2>/dev/null || true
+  fi
+}
+
+# run_with_mirror_fallback <mirror_env_pairs...> -- <cmd...>
+# mirror_env_pairs: KEY=VALUE entries injected on the second attempt only.
+run_with_mirror_fallback() {
+  local -a mirror_env=()
+  while [ $# -gt 0 ]; do
+    if [ "$1" = "--" ]; then
+      shift
+      break
+    fi
+    mirror_env+=("$1")
+    shift
+  done
+
+  if "$@"; then
+    LAST_INSTALL_SOURCE="official"
+    LAST_INSTALL_MIRROR_USED="false"
+    write_install_provenance
+    return 0
+  fi
+
+  if [ ${#mirror_env[@]} -eq 0 ]; then
+    LAST_INSTALL_SOURCE="both-failed"
+    LAST_INSTALL_MIRROR_USED="false"
+    write_install_provenance
+    return 1
+  fi
+
+  local pair key value rc=0
+  local -a saved_keys_set=()
+  local -a saved_values_set=()
+  local -a saved_keys_unset=()
+  for pair in "${mirror_env[@]}"; do
+    key="${pair%%=*}"
+    value="${pair#*=}"
+    if [ -n "${!key+x}" ]; then
+      saved_keys_set+=("$key")
+      saved_values_set+=("${!key}")
+    else
+      saved_keys_unset+=("$key")
+    fi
+    export "$key=$value"
+  done
+  "$@" || rc=$?
+  local i
+  for ((i=0; i<${#saved_keys_set[@]}; i++)); do
+    export "${saved_keys_set[$i]}=${saved_values_set[$i]}"
+  done
+  for key in "${saved_keys_unset[@]}"; do
+    unset "$key"
+  done
+
+  if [ "$rc" -eq 0 ]; then
+    LAST_INSTALL_SOURCE="mirror"
+    LAST_INSTALL_MIRROR_USED="true"
+    write_install_provenance
+    return 0
+  fi
+
+  LAST_INSTALL_SOURCE="both-failed"
+  LAST_INSTALL_MIRROR_USED="true"
+  write_install_provenance
+  return 1
+}
+
+npm_mirror_env_pairs() {
+  printf '%s\n' "npm_config_registry=${NPM_MIRROR_ENDPOINT}" "NPM_CONFIG_REGISTRY=${NPM_MIRROR_ENDPOINT}"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --install)
@@ -140,7 +227,7 @@ run_with_optional_sudo() {
   fi
 }
 
-run_npm_global_install_with_optional_sudo() {
+run_npm_global_install_attempt() {
   local npm_env=()
   if [ -n "${NPM_CONFIG_REGISTRY:-}" ]; then
     npm_env+=("NPM_CONFIG_REGISTRY=$NPM_CONFIG_REGISTRY")
@@ -167,11 +254,19 @@ run_npm_global_install_with_optional_sudo() {
     npm_env+=("no_proxy=$no_proxy")
   fi
 
-  if CI=true npm install -g "$@" --no-audit --no-fund --loglevel=error; then
+  if CI=true npm install -g "$@" --no-audit --no-fund --loglevel=error --fetch-timeout=30000 --fetch-retries=1; then
     return 0
   fi
   command -v sudo >/dev/null 2>&1 || return 1
-  sudo -n env CI=true "${npm_env[@]}" npm install -g "$@" --no-audit --no-fund --loglevel=error
+  sudo -n env CI=true "${npm_env[@]}" npm install -g "$@" --no-audit --no-fund --loglevel=error --fetch-timeout=30000 --fetch-retries=1
+}
+
+run_npm_global_install_with_optional_sudo() {
+  local mirror_pairs=()
+  while IFS= read -r pair; do
+    mirror_pairs+=("$pair")
+  done < <(npm_mirror_env_pairs)
+  run_with_mirror_fallback "${mirror_pairs[@]}" -- run_npm_global_install_attempt "$@"
 }
 
 brew_latest_install_command() {
@@ -321,7 +416,11 @@ run_install_command() {
       if [ "$os" = "windows" ]; then run_npm_global_install_with_optional_sudo @ast-grep/cli@latest; elif [ "$os" = "linux" ]; then if command -v cargo >/dev/null 2>&1; then cargo install ast-grep --locked --force; elif command -v npm >/dev/null 2>&1; then run_npm_global_install_with_optional_sudo @ast-grep/cli@latest; else return 1; fi; else run_brew_latest_install "ast-grep"; fi
       ;;
     ast-grep-skill)
-      npx -y skills@latest add ast-grep/agent-skill -g -y
+      local mirror_pairs=()
+      while IFS= read -r pair; do
+        mirror_pairs+=("$pair")
+      done < <(npm_mirror_env_pairs)
+      run_with_mirror_fallback "${mirror_pairs[@]}" -- npx -y skills@latest add ast-grep/agent-skill -g -y
       ;;
     *)
       return 1
@@ -353,6 +452,11 @@ export -f run_linux_package_install
 export -f run_brew_latest_install
 export -f run_with_optional_sudo
 export -f run_npm_global_install_with_optional_sudo
+export -f run_npm_global_install_attempt
+export -f run_with_mirror_fallback
+export -f reset_install_provenance
+export -f write_install_provenance
+export -f npm_mirror_env_pairs
 export -f run_install_command
 
 add_helper_fact() {
@@ -363,6 +467,9 @@ add_helper_fact() {
   local skill_status="$5"
   local result="$6"
   local next_action="$7"
+  local baseline_blocking="${8:-true}"
+  local install_source="${9:-official}"
+  local mirror_used="${10:-false}"
 
   HELPER_JSON="$(jq \
     --arg id "$id" \
@@ -372,8 +479,12 @@ add_helper_fact() {
     --arg skill_status "$skill_status" \
     --arg result "$result" \
     --arg next_action "$next_action" \
+    --argjson baseline_blocking "$baseline_blocking" \
+    --arg install_source "$install_source" \
+    --argjson mirror_used "$mirror_used" \
     '. + {($id): {
       required: true,
+      baseline_blocking: $baseline_blocking,
       type: $type,
       dependency_status: $dependency_status,
       host_config_status: "not-applicable",
@@ -381,7 +492,9 @@ add_helper_fact() {
       skill_status: $skill_status,
       project_status: "not-applicable",
       result: $result,
-      next_action: $next_action
+      next_action: $next_action,
+      install_source: $install_source,
+      mirror_used: $mirror_used
     }}' <<<"$HELPER_JSON")"
 }
 
@@ -458,29 +571,49 @@ wait_for_parallel_tasks() {
 process_cli_helper() {
   local name="$1"
   local os="$2"
+  local baseline_blocking="${3:-true}"
   local status="ready"
   local dependency_status="ready"
   local install_status="ready"
   local next_action=""
+  local install_command
+  local install_source="official"
+  local mirror_used="false"
 
   if ! command -v "$name" >/dev/null 2>&1; then
     dependency_status="missing"
     install_status="action-required"
-    status="action-required"
-    next_action="$(install_command_for "$name" "$os")"
+    install_command="$(install_command_for "$name" "$os")"
     if [ "$MODE" = "install" ]; then
+      reset_install_provenance
       if run_install_command_with_timeout "$name" "$os" "install:$name" && command -v "$name" >/dev/null 2>&1; then
         dependency_status="ready"
         install_status="ready"
         status="ready"
         next_action=""
+        install_source="$LAST_INSTALL_SOURCE"
+        mirror_used="$LAST_INSTALL_MIRROR_USED"
       else
-        next_action="${next_action:-install $name manually}"
+        if [ "$baseline_blocking" = "false" ]; then
+          status="degraded"
+          next_action="optional helper for feature-video skill; install via: ${install_command:-install $name manually}"
+        else
+          status="action-required"
+          next_action="${install_command:-install $name manually}"
+        fi
+      fi
+    else
+      if [ "$baseline_blocking" = "false" ]; then
+        status="degraded"
+        next_action="optional helper for feature-video skill; install via: ${install_command:-install $name manually}"
+      else
+        status="action-required"
+        next_action="${install_command:-install $name manually}"
       fi
     fi
   fi
 
-  add_helper_fact "$name" "helper" "$dependency_status" "$install_status" "not-applicable" "$status" "$next_action"
+  add_helper_fact "$name" "helper" "$dependency_status" "$install_status" "not-applicable" "$status" "$next_action" "$baseline_blocking" "$install_source" "$mirror_used"
 }
 
 process_agent_browser() {
@@ -489,11 +622,14 @@ process_agent_browser() {
   local install_status="ready"
   local skill_status="ready"
   local next_action=""
+  local baseline_blocking="true"
   local os="${OS:-$(detect_os)}"
   local agent_browser_install_command="agent-browser install"
   local agent_browser_install_args=(agent-browser install)
   local browser_install_queued="no"
   local skill_install_queued="no"
+  local install_source="official"
+  local mirror_used="false"
 
   if [ "$os" = "linux" ]; then
     agent_browser_install_command="agent-browser install --with-deps"
@@ -517,11 +653,23 @@ process_agent_browser() {
   if [ "$dependency_status" = "missing" ] && [ "$MODE" = "install" ]; then
     stage_log "agent-browser" "installing CLI via npm"
     local npm_install_exit_code=0
-    if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" bash -c 'run_npm_global_install_with_optional_sudo agent-browser@latest' >/dev/null 2>&1; then
+    local provenance_file
+    provenance_file="$(mktemp 2>/dev/null || echo /tmp/spec-first-ab-prov.$$)"
+    : >"$provenance_file" 2>/dev/null || true
+    if LAST_INSTALL_PROVENANCE_FILE="$provenance_file" run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" bash -c 'run_npm_global_install_with_optional_sudo agent-browser@latest' >/dev/null 2>&1; then
       npm_install_exit_code=0
     else
       npm_install_exit_code="$?"
     fi
+    if [ -s "$provenance_file" ]; then
+      while IFS='=' read -r key value; do
+        case "$key" in
+          install_source) install_source="$value" ;;
+          mirror_used) mirror_used="$value" ;;
+        esac
+      done <"$provenance_file"
+    fi
+    rm -f "$provenance_file" 2>/dev/null || true
     if [ "$npm_install_exit_code" -eq 0 ] && command -v agent-browser >/dev/null 2>&1; then
       dependency_status="ready"
       install_status="ready"
@@ -542,24 +690,31 @@ process_agent_browser() {
   fi
 
   if [ "$MODE" = "verify-only" ] && [ "$status" = "ready" ] && [ ! -f "$AGENT_BROWSER_INSTALL_MARKER" ]; then
-    status="action-required"
     install_status="action-required"
-    if [ "$os" = "macos" ]; then
+    if [ "$os" = "windows" ]; then
+      status="degraded"
+      baseline_blocking="false"
+      next_action="agent-browser browser runtime is not installed; browser automation may be unavailable. Rerun ${agent_browser_install_command} or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable."
+    elif [ "$os" = "macos" ]; then
+      status="action-required"
       next_action="run ${agent_browser_install_command} or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable"
     else
+      status="action-required"
       next_action="run ${agent_browser_install_command}"
     fi
   fi
 
-  if [ "$MODE" = "verify-only" ] && [ "$status" = "ready" ] && ! global_skill_installed "agent-browser"; then
+  if [ "$MODE" = "verify-only" ] && [ "$dependency_status" = "ready" ] && ! global_skill_installed "agent-browser"; then
     skill_status="action-required"
     status="action-required"
+    baseline_blocking="true"
     next_action="install global agent-browser skill"
   fi
 
   if [ "$MODE" = "install" ] && [ "$dependency_status" = "ready" ] && [ ! -f "$AGENT_BROWSER_INSTALL_MARKER" ]; then
     install_status="action-required"
     status="action-required"
+    baseline_blocking="true"
     browser_install_queued="yes"
     queue_parallel_task "agent-browser-browser-install" run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" "${agent_browser_install_args[@]}"
   fi
@@ -571,11 +726,14 @@ process_agent_browser() {
   AGENT_BROWSER_SKILL_STATUS="$skill_status"
   AGENT_BROWSER_RESULT="$status"
   AGENT_BROWSER_NEXT_ACTION="$next_action"
+  AGENT_BROWSER_BASELINE_BLOCKING="$baseline_blocking"
   AGENT_BROWSER_BROWSER_INSTALL_QUEUED="$browser_install_queued"
   AGENT_BROWSER_SKILL_INSTALL_QUEUED="$skill_install_queued"
+  AGENT_BROWSER_INSTALL_SOURCE="$install_source"
+  AGENT_BROWSER_MIRROR_USED="$mirror_used"
 
   if [ "$browser_install_queued" = "no" ] && [ "$skill_install_queued" = "no" ]; then
-    add_helper_fact "agent-browser" "helper" "$dependency_status" "$install_status" "$skill_status" "$status" "$next_action"
+    add_helper_fact "agent-browser" "helper" "$dependency_status" "$install_status" "$skill_status" "$status" "$next_action" "$baseline_blocking" "$install_source" "$mirror_used"
   fi
 }
 
@@ -588,6 +746,9 @@ finalize_agent_browser() {
   local next_action="$6"
   local browser_install_queued="$7"
   local skill_install_queued="$8"
+  local baseline_blocking="$9"
+  local install_source="${10:-official}"
+  local mirror_used="${11:-false}"
   local browser_failed="no"
   local install_command="${AGENT_BROWSER_INSTALL_COMMAND:-agent-browser install}"
 
@@ -602,11 +763,16 @@ finalize_agent_browser() {
         install_status="ready"
       else
         install_status="action-required"
-        status="action-required"
         browser_failed="yes"
-        if [ "$os" = "macos" ]; then
+        if [ "$os" = "windows" ]; then
+          status="degraded"
+          baseline_blocking="false"
+          next_action="agent-browser browser runtime install failed; browser automation may be unavailable. Rerun ${install_command} or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable."
+        elif [ "$os" = "macos" ]; then
+          status="action-required"
           next_action="run ${install_command} manually or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable"
         else
+          status="action-required"
           next_action="run ${install_command} manually"
         fi
       fi
@@ -618,6 +784,7 @@ finalize_agent_browser() {
       else
         skill_status="action-required"
         status="action-required"
+        baseline_blocking="true"
         if [ "$browser_failed" != "yes" ] && [ "$dependency_status" = "ready" ]; then
           next_action="install global agent-browser skill manually"
         fi
@@ -626,11 +793,12 @@ finalize_agent_browser() {
 
     if [ "$dependency_status" = "ready" ] && [ "$install_status" = "ready" ] && [ "$skill_status" = "ready" ]; then
       status="ready"
+      baseline_blocking="true"
       next_action=""
     fi
   fi
 
-  add_helper_fact "agent-browser" "helper" "$dependency_status" "$install_status" "$skill_status" "$status" "$next_action"
+  add_helper_fact "agent-browser" "helper" "$dependency_status" "$install_status" "$skill_status" "$status" "$next_action" "$baseline_blocking" "$install_source" "$mirror_used"
 }
 
 process_global_skill() {
@@ -702,7 +870,10 @@ finalize_global_skill() {
 OS="$(detect_os)"
 process_agent_browser
 for helper in gh jq vhs silicon ffmpeg ast-grep; do
-  process_cli_helper "$helper" "$OS"
+  case "$helper" in
+    vhs|silicon|ffmpeg) process_cli_helper "$helper" "$OS" "false" ;;
+    *) process_cli_helper "$helper" "$OS" "true" ;;
+  esac
 done
 process_global_skill "ast-grep" "ast-grep-skill"
 wait_for_parallel_tasks
@@ -714,7 +885,26 @@ finalize_agent_browser \
   "$AGENT_BROWSER_RESULT" \
   "$AGENT_BROWSER_NEXT_ACTION" \
   "$AGENT_BROWSER_BROWSER_INSTALL_QUEUED" \
-  "$AGENT_BROWSER_SKILL_INSTALL_QUEUED"
+  "$AGENT_BROWSER_SKILL_INSTALL_QUEUED" \
+  "$AGENT_BROWSER_BASELINE_BLOCKING" \
+  "${AGENT_BROWSER_INSTALL_SOURCE:-official}" \
+  "${AGENT_BROWSER_MIRROR_USED:-false}"
 finalize_global_skill "ast-grep-skill" "ast-grep"
 
-jq -n --argjson helper_tools "$HELPER_JSON" '{helper_tools: $helper_tools}'
+jq -n \
+  --argjson helper_tools "$HELPER_JSON" \
+  --arg npm_mirror "$NPM_MIRROR_ENDPOINT" \
+  --arg uv_mirror "$UV_MIRROR_ENDPOINT" \
+  --arg chrome_mirror "$CHROME_MIRROR_ENDPOINT" \
+  '{
+    helper_tools: $helper_tools,
+    mirror_endpoints: {
+      npm: $npm_mirror,
+      uv: $uv_mirror,
+      chrome: $chrome_mirror
+    },
+    recommended_environment_variables: {
+      npm: { npm_config_registry: $npm_mirror },
+      uv: { UV_INDEX_URL: $uv_mirror }
+    }
+  }'

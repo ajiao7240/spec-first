@@ -1,6 +1,19 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.7.1 2026-05-07 18:48:45 leokuang: docs(plan): 将 GitNexus 证据治理计划全文中文化，统一 graph evidence lifecycle、验证计划与交接标准表述 (user-visible)
+- v1.7.1 2026-05-07 18:46:05 leokuang: docs(plan): 将 code-review-graph evidence preflight 计划全文中文化，保留必要技术标识并统一刷新机制表述 (user-visible)
+- v1.7.1 2026-05-07 18:44:04 leokuang: docs(plan): 补强 code-review-graph evidence preflight 计划，加入 workflow 节点级刷新机制、三种研发拓扑适配和 check-only 默认策略 (user-visible)
+- v1.7.1 2026-05-07 18:31:01 leokuang: docs(manual): 新增代码图谱 provider 作用域与差异化说明，明确 GitNexus/global_knowledge 与 code-review-graph/impact_context 的竞争力边界 (user-visible)
+- v1.7.1 2026-05-07 18:29:44 leokuang: feat(spec-mcp-setup): npm 安装失败时自动降级到国内镜像 `registry.npmmirror.com` 并在 ledger 暴露 install_source/mirror_used 与 uv/PyPI 镜像 advisory，国内裸网用户无需配置即可完成 helper 安装 (user-visible)
+- v1.7.1 2026-05-07 18:19:15 leokuang: docs(plan): 新增 code-review-graph evidence preflight 方案，明确在 code-review 中默认收集影响证据但不包装成 agent (user-visible)
+- v1.7.1 2026-05-07 18:05:44 leokuang: docs(plan): 新增 GitNexus 证据层与全流程 graph governance 优化计划，明确 source mutation 防护、freshness-aware 消费和 review evidence 边界 (user-visible)
+- v1.7.1 2026-05-07 17:59:01 leokuang: fix(init): 将 `.spec-first/standards/` 纳入 init managed `.gitignore` 默认忽略规则，避免 standards 本地基线产物污染业务仓库状态 (user-visible)
+- v1.7.1 2026-05-07 17:06:19 leokuang: docs(plan): 按 doc-review 修订 skill/agent 质量治理计划，固化 doc 2 deferred 边界、batch staging side-effect/secret deny、fixture content gate、competitive-intelligence source-only、gitnexus 调用形态等 13 项 finding (user-visible)
+- v1.7.1 2026-05-07 17:00:16 leokuang: fix(spec-mcp-setup): 把 vhs/silicon/ffmpeg 等 feature-video 演示型 helper 的缺失降级为非阻塞 degraded fact，避免 Windows 缺 cargo/go 时阻断 mcp-setup baseline (user-visible)
+- v1.7.1 2026-05-07 14:56:49 leokuang: refactor(governance): 删除 `docs/10-prompt/skills/` prompt mirror 目录并移除 active contract、lint 与 quality gate 中的同步要求 (user-visible)
+- v1.7.1 2026-05-07 14:38:49 leokuang: fix(spec-mcp-setup): 将 Windows agent-browser 浏览器 runtime 安装失败降级为非阻塞 helper fact，让 harness ready 后可继续 graph bootstrap (user-visible)
+- v1.7.1 2026-05-07 14:06:06 leokuang: fix(spec-mcp-setup): 修复 PowerShell setup 入口的 SerenaLanguageFor 自别名和 detect-host `$Host` 参数冲突，恢复 Windows ledger 刷新路径 (user-visible)
 - v1.7.1 2026-05-07 02:35:40 leokuang: docs(plan): 新增 skill/agent 质量治理技术优化方案和文档审查记录，收敛执行安全、eval readiness、agent 输出契约与研究证据纪律 (user-visible)
 - v1.7.1 2026-05-07 02:09:27 leokuang: docs(review): 新增 skills 与 agents 三方 prompt 专家会审报告，补充内容质量、主链路适配、执行安全、eval readiness 与外部调研能力建议 (user-visible)
 - v1.7.1 2026-05-07 01:36:54 leokuang: docs(review): 新增 source 全量逐文件逐行 2 轮审查报告，汇总多 agent 覆盖、外部调研信号、优先级 findings 与 3 项能力升级建议 (user-visible)

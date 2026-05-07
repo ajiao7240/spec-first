@@ -2,7 +2,7 @@
 
 `spec-standards` is the source workflow for the Graph-backed Project Standards & Glue Compiler.
 
-It prepares durable project baseline artifacts under `.spec-first/standards/` so downstream brainstorm, plan, work, review, and knowledge workflows can reuse project facts and confirmed standards without re-discovering the same context every time.
+It prepares local project baseline artifacts under `.spec-first/standards/` so downstream brainstorm, plan, work, review, and knowledge workflows can reuse project facts and confirmed standards without re-discovering the same context every time. `spec-first init` gitignores this local workspace by default; confirmed standards that should travel with the team must be promoted to an explicit source path.
 
 ## Supported Scope
 

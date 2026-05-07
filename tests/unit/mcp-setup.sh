@@ -408,10 +408,13 @@ assert_not_contains "Windows uv suggestion avoids GUI editor dependency" "notepa
 
 FAKE_HOME="$TMP_DIR/home"
 mkdir -p "$FAKE_HOME"
+mkdir -p "$FAKE_HOME/.agents/skills/agent-browser"
+printf 'name: agent-browser\n' > "$FAKE_HOME/.agents/skills/agent-browser/SKILL.md"
 
 helper_verify_log_before="$(cat "$COMMAND_LOG")"
 helper_verify="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh" --verify-only)"
 helper_verify_log_after="$(cat "$COMMAND_LOG")"
+rm -rf "$FAKE_HOME/.agents/skills/agent-browser"
 assert "install-helpers verify-only emits JSON" jq -e . <<<"$helper_verify"
 assert_eq "helper shape contains agent-browser" "true" "$(jq -r '.helper_tools | has("agent-browser")' <<<"$helper_verify")"
 assert_eq "helper shape contains required jq" "true" "$(jq -r '.helper_tools | has("jq")' <<<"$helper_verify")"
@@ -422,6 +425,26 @@ assert_eq "helper verify-only requires browser install marker" "action-required"
 assert_eq "helper verify-only flags missing install marker" "action-required" "$(jq -r '.helper_tools."agent-browser".install_status' <<<"$helper_verify")"
 assert_eq "helper verify-only asks for agent-browser install" "run agent-browser install or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable" "$(jq -r '.helper_tools."agent-browser".next_action' <<<"$helper_verify")"
 assert_eq "helper verify-only requires ast-grep global skill" "action-required" "$(jq -r '.helper_tools."ast-grep-skill".result' <<<"$helper_verify")"
+
+WINDOWS_HELPER_BIN="$TMP_DIR/windows-helper-bin"
+WINDOWS_HELPER_LOG="$TMP_DIR/windows-helper-commands.log"
+WINDOWS_HELPER_HOME="$TMP_DIR/windows-helper-home"
+touch "$WINDOWS_HELPER_LOG"
+make_fake_bin "$WINDOWS_HELPER_BIN" "$WINDOWS_HELPER_LOG"
+cat > "$WINDOWS_HELPER_BIN/uname" <<'SH'
+#!/bin/bash
+echo "MINGW64_NT-10.0"
+SH
+chmod +x "$WINDOWS_HELPER_BIN/uname"
+mkdir -p "$WINDOWS_HELPER_HOME/.agents/skills/agent-browser" "$WINDOWS_HELPER_HOME/.agents/skills/ast-grep"
+printf 'name: agent-browser\n' > "$WINDOWS_HELPER_HOME/.agents/skills/agent-browser/SKILL.md"
+printf 'name: ast-grep\n' > "$WINDOWS_HELPER_HOME/.agents/skills/ast-grep/SKILL.md"
+windows_helper_verify="$(PATH="$WINDOWS_HELPER_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$WINDOWS_HELPER_HOME" bash "$SCRIPTS_DIR/install-helpers.sh" --verify-only)"
+assert "Windows helper verify-only emits JSON" jq -e . <<<"$windows_helper_verify"
+assert_eq "Windows agent-browser missing runtime is degraded" "degraded" "$(jq -r '.helper_tools."agent-browser".result' <<<"$windows_helper_verify")"
+assert_eq "Windows agent-browser degraded runtime is non-blocking" "false" "$(jq -r '.helper_tools."agent-browser".baseline_blocking' <<<"$windows_helper_verify")"
+assert_contains "Windows agent-browser degraded runtime suggests executable override" "AGENT_BROWSER_EXECUTABLE_PATH" "$(jq -r '.helper_tools."agent-browser".next_action' <<<"$windows_helper_verify")"
+assert_eq "Windows agent-browser CLI remains required" "ready" "$(jq -r '.helper_tools."agent-browser".dependency_status' <<<"$windows_helper_verify")"
 
 helper_install_err="$TMP_DIR/helper-install.err"
 helper_install="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh" 2>"$helper_install_err")"
@@ -478,6 +501,44 @@ slow_skill_install="$(PATH="$TEST_PATH" HOME="$SLOW_SKILL_HOME" SLOW_NPX_SKILL_S
 assert "helper install with slow skill emits JSON" jq -e . <<<"$slow_skill_install"
 assert_contains "helper install times out slow ast-grep skill" "timed out after 1s" "$(cat "$slow_skill_stderr")"
 assert_eq "helper install marks ast-grep-skill action-required on timeout" "action-required" "$(jq -r '.helper_tools."ast-grep-skill".result' <<<"$slow_skill_install")"
+
+# --- Mirror fallback: official npm registry fails, mirror succeeds.
+MIRROR_BIN="$TMP_DIR/mirror-bin"
+MIRROR_LOG="$TMP_DIR/mirror-commands.log"
+MIRROR_HOME="$TMP_DIR/mirror-home"
+touch "$MIRROR_LOG"
+make_fake_bin "$MIRROR_BIN" "$MIRROR_LOG"
+rm -f "$MIRROR_BIN/agent-browser"
+cat > "$MIRROR_BIN/npm" <<SH
+#!/bin/bash
+echo "npm \$* registry=\${npm_config_registry:-}\${NPM_CONFIG_REGISTRY:-}" >> "$MIRROR_LOG"
+if [ "\${1:-}" = "--version" ]; then echo "10.0.0"; exit 0; fi
+case " \$* " in
+  *" install -g "*)
+    if [ -n "\${npm_config_registry:-}\${NPM_CONFIG_REGISTRY:-}" ]; then
+      mkdir -p "\$HOME/.npm-global/bin"
+      cat > "\$HOME/.npm-global/bin/agent-browser" <<'INNER'
+#!/bin/bash
+exit 0
+INNER
+      chmod +x "\$HOME/.npm-global/bin/agent-browser"
+      exit 0
+    fi
+    exit 1
+    ;;
+esac
+exit 0
+SH
+chmod +x "$MIRROR_BIN/npm"
+mkdir -p "$MIRROR_HOME/.agents/skills/ast-grep" "$MIRROR_HOME/.npm-global/bin"
+printf 'name: ast-grep\n' > "$MIRROR_HOME/.agents/skills/ast-grep/SKILL.md"
+mirror_install="$(PATH="$MIRROR_HOME/.npm-global/bin:$MIRROR_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$MIRROR_HOME" SPEC_FIRST_STAGE_TIMEOUT_SECONDS=15 bash "$SCRIPTS_DIR/install-helpers.sh" --install 2>/dev/null)"
+assert "mirror fallback install emits JSON" jq -e . <<<"$mirror_install"
+assert_eq "mirror fallback marks agent-browser source mirror" "mirror" "$(jq -r '.helper_tools."agent-browser".install_source' <<<"$mirror_install")"
+assert_eq "mirror fallback flags mirror_used true" "true" "$(jq -r '.helper_tools."agent-browser".mirror_used' <<<"$mirror_install")"
+assert_eq "ledger advertises npm mirror endpoint" "https://registry.npmmirror.com" "$(jq -r '.mirror_endpoints.npm' <<<"$mirror_install")"
+assert_eq "ledger advertises uv mirror endpoint" "https://mirrors.tuna.tsinghua.edu.cn/pypi/simple" "$(jq -r '.mirror_endpoints.uv' <<<"$mirror_install")"
+assert_contains "mirror fallback retries with mirror registry" "registry=https://registry.npmmirror.com" "$(cat "$MIRROR_LOG")"
 
 PREFLIGHT_HOME="$TMP_DIR/preflight-home"
 mkdir -p "$PREFLIGHT_HOME/.agents/skills/agent-browser"

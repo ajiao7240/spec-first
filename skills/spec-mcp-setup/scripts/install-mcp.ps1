@@ -4,7 +4,7 @@ param(
   [switch]$AllRepos,
   [Alias('SerenaLanguages')]
   [string[]]$SerenaLanguage = @(),
-  [Alias('SerenaLanguageMap', 'SerenaLanguageFor')]
+  [Alias('SerenaLanguageMap')]
   [string[]]$SerenaLanguageFor = @()
 )
 

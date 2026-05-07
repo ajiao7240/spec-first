@@ -51,15 +51,15 @@ function Resolve-PathTemplate {
 
 function Resolve-TargetPathOverride {
   param(
-    [string]$Host,
+    [string]$HostName,
     [string]$TargetKey,
     [string]$ResolvedPath
   )
 
-  if ($Host -eq 'claude' -and $TargetKey -eq 'managed' -and -not [string]::IsNullOrWhiteSpace($env:MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE)) {
+  if ($HostName -eq 'claude' -and $TargetKey -eq 'managed' -and -not [string]::IsNullOrWhiteSpace($env:MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE)) {
     return $env:MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE
   }
-  if ($Host -eq 'codex' -and $TargetKey -eq 'system' -and -not [string]::IsNullOrWhiteSpace($env:MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE)) {
+  if ($HostName -eq 'codex' -and $TargetKey -eq 'system' -and -not [string]::IsNullOrWhiteSpace($env:MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE)) {
     return $env:MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE
   }
   return $ResolvedPath
@@ -116,9 +116,9 @@ function Test-TargetWritable {
 }
 
 function Get-HostContract {
-  param([string]$Host)
+  param([string]$HostName)
   $contracts = @($ToolsJson.tools | ForEach-Object {
-    $cfg = $_.host_config[$Host]
+    $cfg = $_.host_config[$HostName]
     [ordered]@{
       scope = $cfg.scope
       targets = $cfg.targets
@@ -128,22 +128,22 @@ function Get-HostContract {
   })
   $uniqueContracts = @($contracts | Select-Object -Unique)
   if ($uniqueContracts.Count -ne 1) {
-    throw "错误：$Host 宿主配置元数据在不同工具之间不一致，请先统一 mcp-tools.json"
+    throw "错误：$HostName 宿主配置元数据在不同工具之间不一致，请先统一 mcp-tools.json"
   }
   return ($uniqueContracts[0] | ConvertFrom-Json -AsHashtable)
 }
 
 function Get-TargetFact {
   param(
-    [hashtable]$HostContract,
+    [hashtable]$McpHostContract,
     [string]$Platform,
     [string]$TargetKey
   )
 
-  $target = $HostContract.targets[$TargetKey]
+  $target = $McpHostContract.targets[$TargetKey]
   $rawPath = if ($target.config_path -is [hashtable]) { $target.config_path[$Platform] } else { $target.config_path }
   $resolvedPath = Resolve-PathTemplate $rawPath
-  $resolvedPath = Resolve-TargetPathOverride -Host $detectedHost -TargetKey $TargetKey -ResolvedPath $resolvedPath
+  $resolvedPath = Resolve-TargetPathOverride -HostName $detectedHost -TargetKey $TargetKey -ResolvedPath $resolvedPath
   $exists = Test-Path $resolvedPath
   $writableCheck = if ($target.ContainsKey('writable_check')) { $target.writable_check } else { 'parent-or-file' }
   $writable = Test-TargetWritable -Path $resolvedPath -CheckMode $writableCheck
@@ -180,13 +180,13 @@ switch ($detectedHost) {
   }
 }
 
-$hostContract = Get-HostContract $detectedHost
-$primaryScope = $hostContract.scope
-$fallbackOrder = @($hostContract.fallback_order)
-$uninstallTargets = @($hostContract.uninstall_targets)
+$mcpHostContract = Get-HostContract $detectedHost
+$primaryScope = $mcpHostContract.scope
+$fallbackOrder = @($mcpHostContract.fallback_order)
+$uninstallTargets = @($mcpHostContract.uninstall_targets)
 $targets = [ordered]@{}
-foreach ($targetKey in $hostContract.targets.Keys) {
-  $targets[$targetKey] = Get-TargetFact -HostContract $hostContract -Platform $platform -TargetKey $targetKey
+foreach ($targetKey in $mcpHostContract.targets.Keys) {
+  $targets[$targetKey] = Get-TargetFact -McpHostContract $mcpHostContract -Platform $platform -TargetKey $targetKey
 }
 
 $selectedScope = ''

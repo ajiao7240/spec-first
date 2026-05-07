@@ -53,12 +53,7 @@ yarn-error.log*
 .spec-first/impact/
 .spec-first/workflows/
 .spec-first/workspace/
-.spec-first/standards/work/
-.spec-first/standards/tmp/
-.spec-first/standards/cache/
-.spec-first/standards/raw/
-.spec-first/standards/graph-query-raw/
-.spec-first/standards/**/*.log
+.spec-first/standards/
 
 # Published/package artifacts
 *.tgz
@@ -83,7 +78,7 @@ __pycache__/
 .agents/skills/
 .context/spec-first/
 
-# spec-first local setup, graph readiness, and workflow runtime artifacts
+# spec-first local setup, graph readiness, standards, and workflow runtime artifacts
 .spec-first-graph/
 .spec-first/*.local.yaml
 .spec-first/config.local.yaml
@@ -95,15 +90,7 @@ __pycache__/
 .spec-first/impact/
 .spec-first/workflows/
 .spec-first/workspace/
-
-# spec-first standards scratch/runtime evidence
-.spec-first/standards/work/
-.spec-first/standards/tmp/
-.spec-first/standards/cache/
-.spec-first/standards/raw/
-.spec-first/standards/graph-query-raw/
-.spec-first/standards/**/*.log
-.spec-first/standards/repo-profile.patch.yaml
+.spec-first/standards/
 
 # local project tooling used by spec-first workflows
 .serena/

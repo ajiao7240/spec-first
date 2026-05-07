@@ -43,10 +43,7 @@ describe('AI dev quality gate integration', () => {
     expect(workflow).toContain("tests/unit/branch-protection-policy.test.js");
     expect(workflow).toContain("tests/unit/no-crg-runtime-contracts.test.js");
     expect(workflow).toContain("tests/unit/package-install-contracts.test.js");
-    expect(workflow).toContain("docs/10-prompt/skills/spec-plan/**");
-    expect(workflow).toContain("docs/10-prompt/skills/spec-work/**");
-    expect(workflow).toContain("docs/10-prompt/skills/spec-work-beta/**");
-    expect(workflow).toContain("docs/10-prompt/skills/spec-code-review/**");
+    expect(workflow).not.toContain("docs/10-prompt/skills/");
     expect(workflow).toContain("tests/integration/verification-gate.integration.test.js");
     expect(workflow).not.toContain("src/bootstrap-compiler/**");
     expect(workflow).not.toContain("docs/contracts/spec-" + "graph" + "-bootstrap/**");

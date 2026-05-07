@@ -18,13 +18,12 @@ describe('spec-first gitignore policy', () => {
     expect(patterns).toContain('.claude/commands/spec/');
     expect(patterns).toContain('.agents/skills/');
     expect(patterns).toContain('.spec-first/config/*.json');
-    expect(patterns).toContain('.spec-first/standards/repo-profile.patch.yaml');
+    expect(patterns).toContain('.spec-first/standards/');
     expect(patterns).toContain('.serena/');
     expect(patterns).not.toContain('.claude/');
     expect(patterns).not.toContain('.codex/');
     expect(patterns).not.toContain('.agents/');
     expect(patterns).not.toContain('.spec-first/');
-    expect(patterns).not.toContain('.spec-first/standards/');
     expect(patterns).not.toContain('*.tgz');
   });
 

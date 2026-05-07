@@ -47,7 +47,7 @@
 | `providers/<provider>/` | provider-local evidence | 失败诊断、原始日志追踪、provider 规范化事实复核 |
 | `graph/` | canonical readiness facts | `spec-plan` 等下游 workflow 判断 graph facts 是否 primary、degraded、blocked 或 stale |
 | `impact/` | impact/review capability envelope | 下游 workflow 决定是否使用 provider 影响分析，或回退 bounded direct repo reads |
-| `standards/` | project standards baseline | 下游 brainstorm/plan/work/review 读取项目形态、候选规范和 glue map；只有确认后的 durable baseline 适合提交 |
+| `standards/` | local project standards baseline | 下游 brainstorm/plan/work/review 读取项目形态、候选规范和 glue map；目录默认 gitignored，需要共享的 confirmed standards 应 promote 到明确 source 路径 |
 | `workspace/` | parent workspace advisory summaries | 多仓父目录下展示 child repo readiness、批量维护结果和只读候选；不作为 repo-local truth |
 | `audits/skill-audit/` | skill audit execution artifacts | 维护者读取审计摘要、P0/P1 evidence、score signals 和改进计划 |
 | `app-audit/runs/` | App consistency audit execution artifacts | 评审者读取静态一致性报告、degraded modes、issues 和 runtime follow-up 建议 |
@@ -210,7 +210,7 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 协作规则：
 
 - `project-shape.json`、`standards-plan.json`、`glue-map.json`、`standards-update-decision.json`、`graph-query-index.json`、`standards-sources.json`、`import-lock.json`、`imported-standards.json`、`standards-candidates.json` 和 `standards-preview.md` 是 reviewable standards artifacts；团队确认需要共享时可以提交。
-- `.spec-first/standards/work/`、`tmp/`、`cache/`、`raw/`、`graph-query-raw/` 和 `*.log` 是 scratch/runtime evidence，已由 `.gitignore` 排除，不应提交。
+- `.spec-first/standards/` 是本地 standards baseline、preview、scratch 和 evidence 工作区，已由 `init` managed `.gitignore` 排除；需要团队共享的 confirmed standards 应 promote 到明确 source 路径。
 - 下游 workflow 只能把 `confirmed` standards 当作硬约束；`observed`、`suggested`、`imported`、`conflict` 和 `unknown` 只能作为软上下文或待确认事项。
 - 父级 workspace 传入 `--repo <child>` 时，默认产物写入 child repo 的 `.spec-first/standards/`，父目录不保存 child-local standards artifacts。
 - `repo-profile.yaml` 只能通过 preview + explicit confirmation 更新，不能由 baseline run 自动写入。

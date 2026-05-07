@@ -238,7 +238,9 @@ foreach ($property in $Facts.tools.PSObject.Properties) {
 $helperTools = $HelperFacts.helper_tools
 $helperReady = $true
 foreach ($property in $helperTools.PSObject.Properties) {
-  if ($property.Value.result -ne 'ready') {
+  $baselineBlocking = if ($property.Value.PSObject.Properties.Name -contains 'baseline_blocking') { [bool]$property.Value.baseline_blocking } else { $true }
+  $nonBlockingDegraded = (-not $baselineBlocking) -and $property.Value.result -eq 'degraded'
+  if ($property.Value.result -ne 'ready' -and -not $nonBlockingDegraded) {
     $helperReady = $false
     break
   }
@@ -299,6 +301,8 @@ $combined = [ordered]@{
   tools = $Facts.tools
   graph_providers = $Facts.graph_providers
   helper_tools = $helperTools
+  mirror_endpoints = if ($HelperFacts.PSObject.Properties.Name -contains 'mirror_endpoints') { $HelperFacts.mirror_endpoints } else { $null }
+  recommended_environment_variables = if ($HelperFacts.PSObject.Properties.Name -contains 'recommended_environment_variables') { $HelperFacts.recommended_environment_variables } else { $null }
   next_actions = @($nextActions)
 }
 

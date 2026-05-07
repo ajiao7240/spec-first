@@ -21,7 +21,7 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
     ],
   },
   {
-    title: 'spec-first local setup, graph readiness, and workflow runtime artifacts',
+    title: 'spec-first local setup, graph readiness, standards, and workflow runtime artifacts',
     patterns: [
       '.spec-first-graph/',
       '.spec-first/*.local.yaml',
@@ -34,18 +34,7 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
       '.spec-first/impact/',
       '.spec-first/workflows/',
       '.spec-first/workspace/',
-    ],
-  },
-  {
-    title: 'spec-first standards scratch/runtime evidence',
-    patterns: [
-      '.spec-first/standards/work/',
-      '.spec-first/standards/tmp/',
-      '.spec-first/standards/cache/',
-      '.spec-first/standards/raw/',
-      '.spec-first/standards/graph-query-raw/',
-      '.spec-first/standards/**/*.log',
-      '.spec-first/standards/repo-profile.patch.yaml',
+      '.spec-first/standards/',
     ],
   },
   {

@@ -20,7 +20,6 @@ const installHelpersPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/ins
 const installHelpersSh = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-helpers.sh');
 const libTomlPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/lib-toml.ps1');
 const mcpSetupSkillPath = path.join(repoRoot, 'skills/spec-mcp-setup/SKILL.md');
-const mcpSetupPromptMirrorPath = path.join(repoRoot, 'docs/10-prompt/skills/spec-mcp-setup/SKILL.md');
 
 describe('spec-mcp-setup PowerShell host config contract', () => {
   const source = fs.readFileSync(configureHostPs1, 'utf8');
@@ -140,7 +139,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(activateSerenaSource).not.toContain("try { git rev-parse --show-toplevel } catch { (Get-Location).Path }");
     expect(installMcpSource).toContain('$activateParams = @{ Repo = $ResolvedRepoRoot }');
     expect(installMcpSource).toContain('[switch]$AllRepos');
-    expect(installMcpSource).toContain("[Alias('SerenaLanguageMap', 'SerenaLanguageFor')]");
+    expect(installMcpSource).toContain("[Alias('SerenaLanguageMap')]");
+    expect(installMcpSource).not.toContain("[Alias('SerenaLanguageMap', 'SerenaLanguageFor')]");
     expect(installMcpSource).toContain('workspace-mcp-setup-summary.v1');
     expect(installMcpSource).toContain('mcp-setup-summary.json');
     expect(installMcpSource).toContain('all-repos-requires-language-map');
@@ -200,7 +200,64 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(detectHostSource).toContain('function Resolve-TargetPathOverride');
     expect(detectHostSource).toContain('MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE');
     expect(detectHostSource).toContain('MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE');
-    expect(detectHostSource).toContain('Resolve-TargetPathOverride -Host $detectedHost -TargetKey $TargetKey');
+    expect(detectHostSource).toContain('Resolve-TargetPathOverride -HostName $detectedHost -TargetKey $TargetKey');
+    expect(detectHostSource).not.toMatch(/\[string\]\$Host\b/);
+  });
+
+  test('PowerShell setup scripts avoid load-time parameter hazards', () => {
+    const automaticVariables = new Set([
+      'args',
+      'error',
+      'host',
+      'input',
+      'matches',
+      'myinvocation',
+      'pid',
+      'profile',
+      'pshome',
+      'psscriptroot',
+      'shellid',
+      'stacktrace',
+      'this',
+    ]);
+    const ps1Paths = [
+      configureHostPs1,
+      checkDepsPs1,
+      detectHostPs1,
+      detectToolsPs1,
+      resolveProjectTargetPs1,
+      verifyToolsPs1,
+      writeProviderConfigPs1,
+      repairInstallPs1,
+      activateSerenaPs1,
+      installMcpPs1,
+      bootstrapProjectConfigPs1,
+      installHelpersPs1,
+      bootstrapProvidersPs1,
+      resolveWorkspaceGraphTargetsPs1,
+    ];
+
+    for (const filePath of ps1Paths) {
+      const source = fs.readFileSync(filePath, 'utf8');
+      const relativePath = path.relative(repoRoot, filePath);
+      const lines = source.split(/\r?\n/);
+      for (let index = 0; index < lines.length; index += 1) {
+        const aliasMatch = lines[index].match(/\[Alias\(([^)]*)\)\]/);
+        if (!aliasMatch) continue;
+        const nextParamLine = lines.slice(index + 1).find((line) => /\$[A-Za-z_][A-Za-z0-9_]*/.test(line));
+        expect(nextParamLine).toBeTruthy();
+        const paramName = nextParamLine.match(/\$([A-Za-z_][A-Za-z0-9_]*)/)[1].toLowerCase();
+        const aliases = [...aliasMatch[1].matchAll(/'([^']+)'|"([^"]+)"/g)].map((match) => (match[1] || match[2]).toLowerCase());
+        expect({ relativePath, line: index + 1, paramName, aliases }).not.toEqual(
+          expect.objectContaining({ aliases: expect.arrayContaining([paramName]) }),
+        );
+      }
+
+      const parameterNames = [...source.matchAll(/param\s*\(([\s\S]*?)\)/g)]
+        .flatMap((match) => [...match[1].matchAll(/\$([A-Za-z_][A-Za-z0-9_]*)/g)].map((nameMatch) => nameMatch[1].toLowerCase()));
+      const reservedHits = parameterNames.filter((name) => automaticVariables.has(name));
+      expect({ relativePath, reservedHits }).toEqual({ relativePath, reservedHits: [] });
+    }
   });
 
   test('provider projection writer is semantically idempotent', () => {
@@ -382,8 +439,16 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
 
   test('helper verify-only is marker-based and does not install browser runtime', () => {
     const installHelpersSource = fs.readFileSync(installHelpersPs1, 'utf8');
+    const verifySource = fs.readFileSync(verifyToolsPs1, 'utf8');
 
     expect(installHelpersSource).toContain('.agent-browser/spec-first-install.json');
+    expect(installHelpersSource).toContain('baseline_blocking');
+    expect(installHelpersSource).toContain("$agentBrowserStatus = 'degraded'");
+    expect(installHelpersSource).toContain('$agentBrowserBaselineBlocking = $false');
+    expect(installHelpersSource).toContain('AGENT_BROWSER_EXECUTABLE_PATH');
+    expect(verifySource).toContain('baseline_blocking');
+    expect(verifySource).toContain("$nonBlockingDegraded = (-not $baselineBlocking) -and $property.Value.result -eq 'degraded'");
+    expect(verifySource).toContain("$property.Value.result -ne 'ready' -and -not $nonBlockingDegraded");
     expect(installHelpersSource).toContain('Write-AgentBrowserInstallMarker');
     expect(installHelpersSource).toContain('agent-browser install');
     expect(installHelpersSource).toContain('agent-browser install --with-deps');
@@ -392,6 +457,14 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installHelpersSource).toContain('NPM_CONFIG_REGISTRY');
     expect(installHelpersSource).toContain('npm_config_registry');
     expect(installHelpersSource).toContain("'gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep'");
+    expect(installHelpersSource).toContain("$demoOnlyHelpers = @('vhs', 'silicon', 'ffmpeg')");
+    expect(installHelpersSource).toContain('$isDemoOnly = $demoOnlyHelpers -contains $helper');
+    expect(installHelpersSource).toContain('$baselineBlocking = -not $isDemoOnly');
+    expect(installHelpersSource).toContain("optional helper for feature-video skill");
+    const installHelpersShSource = fs.readFileSync(installHelpersSh, 'utf8');
+    expect(installHelpersShSource).toContain('vhs|silicon|ffmpeg) process_cli_helper "$helper" "$OS" "false"');
+    expect(installHelpersShSource).toContain('local baseline_blocking="${3:-true}"');
+    expect(installHelpersShSource).toContain('optional helper for feature-video skill');
     expect(installHelpersSource).toContain('npx -y skills@latest add ast-grep/agent-skill -g -y');
     expect(installHelpersSource).toContain("'ast-grep-skill'");
     expect(installHelpersSource).toContain("if ($IsWindows) { return 'windows' }");
@@ -419,6 +492,41 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installHelpersSource).not.toContain('agent-browser doctor');
     expect(installHelpersSource).not.toContain('doctor --fix');
     expect(installHelpersSource).toContain("$mode -eq 'verify-only' -and $agentBrowserStatus -eq 'ready' -and -not (Test-Path $agentBrowserInstallMarker)");
+  });
+
+  test('helper install paths fall back to Chinese mirrors when official source fails', () => {
+    const installHelpersSource = fs.readFileSync(installHelpersPs1, 'utf8');
+    const installHelpersShSource = fs.readFileSync(installHelpersSh, 'utf8');
+
+    expect(installHelpersSource).toContain("npm    = 'https://registry.npmmirror.com'");
+    expect(installHelpersSource).toContain("uv     = 'https://mirrors.tuna.tsinghua.edu.cn/pypi/simple'");
+    expect(installHelpersSource).toContain("chrome = 'https://npmmirror.com/mirrors/chrome-for-testing'");
+    expect(installHelpersSource).toContain('function Invoke-WithMirrorFallback');
+    expect(installHelpersSource).toContain('function Get-NpmMirrorEnv');
+    expect(installHelpersSource).toContain("$script:LastInstallProvenance = [ordered]@{ install_source = 'mirror'; mirror_used = $true }");
+    expect(installHelpersSource).toContain("$script:LastInstallProvenance = [ordered]@{ install_source = 'both-failed'; mirror_used = $true }");
+    expect(installHelpersSource).toContain('--fetch-timeout=30000 --fetch-retries=1');
+    expect(installHelpersSource).toContain('Invoke-WithMirrorFallback -Action $action -MirrorEnv (Get-NpmMirrorEnv)');
+    expect(installHelpersSource).toContain('Invoke-WithMirrorFallback -Action { Invoke-HelperCommand { npx -y skills@latest add ast-grep/agent-skill -g -y } } -MirrorEnv (Get-NpmMirrorEnv)');
+    expect(installHelpersSource).toContain('install_source = $InstallSource');
+    expect(installHelpersSource).toContain('mirror_used = [bool]$MirrorUsed');
+    expect(installHelpersSource).toContain('mirror_endpoints = $script:MirrorEndpoints');
+    expect(installHelpersSource).toContain('recommended_environment_variables = [ordered]@{');
+
+    expect(installHelpersShSource).toContain('NPM_MIRROR_ENDPOINT="https://registry.npmmirror.com"');
+    expect(installHelpersShSource).toContain('UV_MIRROR_ENDPOINT="https://mirrors.tuna.tsinghua.edu.cn/pypi/simple"');
+    expect(installHelpersShSource).toContain('CHROME_MIRROR_ENDPOINT="https://npmmirror.com/mirrors/chrome-for-testing"');
+    expect(installHelpersShSource).toContain('run_with_mirror_fallback()');
+    expect(installHelpersShSource).toContain('npm_mirror_env_pairs()');
+    expect(installHelpersShSource).toContain('LAST_INSTALL_SOURCE="mirror"');
+    expect(installHelpersShSource).toContain('LAST_INSTALL_SOURCE="both-failed"');
+    expect(installHelpersShSource).toContain('--fetch-timeout=30000 --fetch-retries=1');
+    expect(installHelpersShSource).toContain('run_with_mirror_fallback "${mirror_pairs[@]}" -- run_npm_global_install_attempt "$@"');
+    expect(installHelpersShSource).toContain('run_with_mirror_fallback "${mirror_pairs[@]}" -- npx -y skills@latest add ast-grep/agent-skill -g -y');
+    expect(installHelpersShSource).toContain('install_source: $install_source');
+    expect(installHelpersShSource).toContain('mirror_used: $mirror_used');
+    expect(installHelpersShSource).toContain('LAST_INSTALL_PROVENANCE_FILE');
+    expect(installHelpersShSource).toContain('recommended_environment_variables: {');
   });
 
   test('PowerShell dependency and repair paths are Windows-safe', () => {
@@ -542,7 +650,6 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
 
   test('setup skill runs bounded setup autonomously after explicit invocation', () => {
     const skill = fs.readFileSync(mcpSetupSkillPath, 'utf8');
-    const mirror = fs.readFileSync(mcpSetupPromptMirrorPath, 'utf8');
     const installHelpersSource = fs.readFileSync(installHelpersSh, 'utf8');
 
     expect(skill).toContain('## Autonomy And Permissions');
@@ -555,11 +662,6 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(skill).toContain('Do not pass `--delete-legacy-markdown`');
     expect(skill).not.toContain('ask the user before changing files');
     expect(skill).not.toContain('asks before deleting `compound-engineering.local.md`');
-
-    expect(mirror).toContain('视为已授权完成 required setup workflow');
-    expect(mirror).toContain('不要在创建/刷新 `.spec-first/config.local.example.yaml`');
-    expect(mirror).toContain('权限不足时，优先自动使用宿主允许的提权执行路径');
-    expect(mirror).toContain('自主 setup 不包含破坏性或语义不明确动作');
 
     expect(installHelpersSource).toContain('run_npm_global_install_with_optional_sudo');
     expect(installHelpersSource).toContain('sudo -n env CI=true');
