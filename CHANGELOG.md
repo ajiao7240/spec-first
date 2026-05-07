@@ -1,6 +1,14 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.7.1 2026-05-07 19:09:09 leokuang: docs(plan): 重构 GitNexus 证据治理计划骨架，前置 SP1 spike、引入 D1 ownership 三路径决策、把 graph evidence policy 升为 single source of truth、对齐 spec-plan status enum、显式声明双宿主 parity 与 CHANGELOG 节奏 (user-visible)
+- v1.7.1 2026-05-07 19:08:41 leokuang: docs(plan): 将终审校准写回 code-review-graph evidence preflight 方案，明确实施门禁、全流程位置和预期收益 (user-visible)
+- v1.7.1 2026-05-07 19:04:41 leokuang: docs(manual): 同步图谱 provider 用户手册，说明 graph-impact reviewer 是默认评估、条件派发的影响面审查专家 (user-visible)
+- v1.7.1 2026-05-07 19:03:13 leokuang: docs(plan): 补充 code-review-graph evidence preflight 方案，引入条件触发的 graph-impact reviewer 并明确默认评估、不默认派发 (user-visible)
+- v1.7.1 2026-05-07 19:01:24 leokuang: docs(plan): 按真实 followup 文档路径修正 skill/agent 质量治理计划的 Review Reception 与 reviewer dispatch 失败记录引用 (user-visible)
+- v1.7.1 2026-05-07 18:59:13 leokuang: docs(solution): 记录 spec-doc-review reviewer dispatch 失败（1m context API + 网关 panic）的 symptom、workaround、followup，作为 workflow-issues 知识沉淀 (user-visible)
+- v1.7.1 2026-05-07 18:59:13 leokuang: docs(plan): 新建 doc 2 source-code 审查 deferred tracker，登记 5 条 P1、4 条 review-meta 与 reviewer dispatch infra finding 的 reaffirm trigger 和 owner (user-visible)
+- v1.7.1 2026-05-07 18:59:13 leokuang: docs(plan): skill/agent 质量治理计划 revision 2 第二轮自审修订，覆盖 27 条 issue，新增 Modification Levels / Phase 1 Limits / Universal IU Rules / U1↔U2 互锁 / secret deny 集中化 / fixture canonical schema / consumer audit schema / lint warning 升级机制 (user-visible)
 - v1.7.1 2026-05-07 18:48:45 leokuang: docs(plan): 将 GitNexus 证据治理计划全文中文化，统一 graph evidence lifecycle、验证计划与交接标准表述 (user-visible)
 - v1.7.1 2026-05-07 18:46:05 leokuang: docs(plan): 将 code-review-graph evidence preflight 计划全文中文化，保留必要技术标识并统一刷新机制表述 (user-visible)
 - v1.7.1 2026-05-07 18:44:04 leokuang: docs(plan): 补强 code-review-graph evidence preflight 计划，加入 workflow 节点级刷新机制、三种研发拓扑适配和 check-only 默认策略 (user-visible)

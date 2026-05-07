@@ -141,6 +141,10 @@ describe('user manual contracts', () => {
     expect(guide).toContain('GitNexus 在 spec-first 中的角色是 `global_knowledge`');
     expect(guide).toContain('`code-review-graph` 在 spec-first 中的角色是 `impact_context`');
     expect(guide).toContain('这个设计故意不把 `code-review-graph` 包装成 agent');
+    expect(guide).toContain('`spec-graph-impact-reviewer` 是建议新增的条件触发 reviewer');
+    expect(guide).toContain('默认评估是否需要 `spec-graph-impact-reviewer`');
+    expect(guide).toContain('不是 always-on reviewer');
+    expect(guide).toContain('默认评估、条件派发');
     expect(guide).toContain('Scripts prepare, LLM decides');
     expect(guide).toContain('`.spec-first/impact/bootstrap-impact-capabilities.json`');
   });

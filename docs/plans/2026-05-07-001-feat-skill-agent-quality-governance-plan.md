@@ -280,16 +280,11 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 **Files:**
 
 - Modify: `skills/spec-work-beta/references/codex-delegation-workflow.md`
-- Modify: `tests/unit/spec-work-beta-contracts.test.js`
-- Modify: `CHANGELOG.md`
-
-**Files:**
-
-- Modify: `skills/spec-work-beta/references/codex-delegation-workflow.md`
 - Modify: `skills/spec-write-tasks/references/task-pack-schema.md`（新增 `expected_side_effects` 字段定义）
 - Create: `src/cli/contracts/security/secret-deny-patterns.json`（统一管理 secret deny pattern source）
+- Create: `src/cli/contracts/security/secret-deny-patterns.schema.json`
 - Create or Modify: `tests/unit/spec-work-beta-contracts.test.js`
-- Create or Modify: `tests/unit/secret-deny-patterns-contracts.test.js`
+- Create: `tests/unit/secret-deny-patterns-contracts.test.js`
 - Modify: `CHANGELOG.md`
 
 **Approach:**
@@ -347,7 +342,7 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 - Correct `agent-native-audit` option numbering and typo `SHARED WORKSPASpec-First`.
 - Align `gemini-imagegen` prose and scripts on default model and output extension.
 - Do not silently change model choice if current API availability is uncertain. Implementation must verify current Gemini image model docs or mark the model selection as a user-provided default with clear fallback.
-- Replace hardcoded current-year wording in touched files with host/session current date wording when the file is already being edited.
+- Replace hardcoded current-year wording in touched files with the canonical phrase mandated by U8：`use the host/session current date provided in startup reminders`。**禁止**使用 `{{year}}` / `{{current_date}}` 等占位符（U8 lint 会 flag）。仅在文件本身已被本 IU 编辑时顺手替换，不主动扫描全仓——后者由 U8 lint 承担。
 
 **Test scenarios:**
 
@@ -404,6 +399,8 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 
 **Files:**
 
+- Create: `skills/spec-skill-audit/references/eval-fixture-schema.md`
+- Create: `skills/spec-skill-audit/references/eval-fixture.schema.json`
 - Create eval fixtures under:
   - `skills/using-spec-first/evals/`
   - `skills/spec-brainstorm/evals/`
@@ -413,6 +410,7 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
   - `skills/spec-doc-review/evals/`
   - `skills/spec-mcp-setup/evals/`
   - `skills/spec-update/evals/`
+- Modify: `skills/spec-graph-bootstrap/evals/*.json` & `skills/spec-write-tasks/evals/*.json`（如与 canonical schema 不一致，按 IU 内迁移脚本 align，保持 ready 状态）
 - Modify: `tests/unit/skill-audit-scripts.test.js`
 - Modify: `CHANGELOG.md`
 
@@ -497,7 +495,9 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 - Modify: `agents/spec-web-researcher.agent.md` if needed to become the template source
 - Modify: `agents/spec-slack-researcher.agent.md`
 - Create: `agents/spec-competitive-intelligence-researcher.agent.md`
-- Modify: `src/cli/plugin.js` and governance contracts only if bundled runtime delivery requires the new agent to ship
+- Create: `docs/validation/2026-05-07-best-practices-researcher-consumer-audit.md`
+- Create: `docs/validation/best-practices-researcher-consumer-audit.schema.json`
+- Do not modify `src/cli/plugin.js` or `src/cli/contracts/dual-host-governance/skills-governance.json`：runtime delivery deferred per Scope Boundaries 与 P1-C。
 - Modify or create focused agent contract tests under `tests/unit/`
 - Modify: `CHANGELOG.md`
 
@@ -539,8 +539,10 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 
 - Create or modify: `scripts/lint-prompt-source.js`
 - Create: `scripts/lint-prompt-source.config.json`
+- Create: `scripts/lint-prompt-source.config.schema.json`
 - Create: `tests/unit/lint-prompt-source.test.js`
-- Modify: `package.json`
+- Modify: `package.json`（新增 `lint:prompt-source` script）
+- Modify: `.github/workflows/ai-dev-quality-gate.yml`（path filter 覆盖 `skills/`、`agents/`、`templates/`、`docs/contracts/`；新增读 lint 输出并在 `release_age >= 2` 时失败的 step）
 - Modify: `CHANGELOG.md`
 
 **Approach:**
@@ -620,6 +622,11 @@ Each phase should receive a document/source review before implementation proceed
 
 For skill/agent prose changes, use fresh-source eval per `docs/contracts/workflows/fresh-source-eval-checklist.md`. If helper dispatch is unavailable or unsafe, record `fresh_source_eval: not_run` with reason; do not claim typed-agent behavior passed from current-session cache.
 
+每次 phase 执行结束后须做以下治理动作：
+
+- **PR 描述同步**：phase 关联 PR 描述必须复制最近一次 `## Review Reception` 摘要（按 finding ID 列表 + 修订状态），让 PR reviewer 看见当前修订上下文。
+- **未应用 finding 复审条件**：所有标 "FYI / advisory / 不在本计划范围" 的 finding 必须写入 followup tracker（默认 `docs/plans/2026-05-08-001-source-code-deferred-tracker.md` 或对应能力领域 plan），含 `finding_id`、`source_review_path`、`reaffirm_trigger`（重审触发条件，如 "next prompt-source lint upgrade"、"any new researcher agent"），不允许仅靠 prose "implementation-time 注意事项" 兜底。
+
 ## Verification
 
 Minimum command set after each phase:
@@ -653,7 +660,7 @@ Before any commit:
 | `--copy-env` opt-in 仍泄露 secrets | opt-in 用户决策门槛低，env 易漂入 commit | U1 输出 `.env-copy.log`（仅指纹）；U2 secret deny pattern 默认拒 staging；U1↔U2 互锁仅放精确路径 allowlist | `tests/unit/git-worktree-contracts.test.js`、`tests/unit/secret-deny-patterns-contracts.test.js` |
 | Batch-owned + side_effects 仍误 stage 越界文件 | delegation 成功路径默认信任 batch，未声明的副作用可能漂入 | orchestrator 三选一（extend-batch / drop-stray / abort）；secret deny 跨集合一律拒；`expected_side_effects` 不接受 `**` 全仓 glob | `tests/unit/spec-work-beta-contracts.test.js` |
 | `spec-best-practices-researcher` authority 升级破坏 downstream consumer | hard-coded 假设旧 order 的 dispatch 点会静默失效 | U7 强制 audit `docs/validation/...consumer-audit.md`；abort 协议（>=3 hard-coded 或 public workflow 命中触发 abort） | `docs/validation/2026-05-07-best-practices-researcher-consumer-audit.md` 校验、`tests/unit/best-practices-researcher-contracts.test.js` |
-| reviewer dispatch 失败导致审查降级 fallback | single-orchestrator 易漏 persona 视角 | reviewer 恢复后须重做一轮 cross-check；本轮失败根因记录在 `docs/solutions/reviewer-dispatch-failure-2026-05-07.md` | followup plan 中的 review re-run 任务 |
+| reviewer dispatch 失败导致审查降级 fallback | single-orchestrator 易漏 persona 视角 | reviewer 恢复后须重做一轮 cross-check；本轮失败根因记录在 `docs/solutions/workflow-issues/reviewer-dispatch-failure-2026-05-07.md` | followup plan 中的 review re-run 任务 |
 | Plan-prose 修订被误读为行为变更 | Review Reception 列表易让读者以为 source 已改 | 引入 Modification Levels（plan-prose / source-mod / runtime-effect）；exit gate 引用 source-mod 证据 | Phase A/B/C exit gate 文案校验 |
 
 ## Open Questions
@@ -674,8 +681,8 @@ Before any commit:
 - Exact `git-worktree` opt-in flag parsing shape.
 - Whether `gemini-imagegen` should keep `gemini-3-pro-image-preview` as default after checking current official Gemini docs.
 - 具体 `spec-best-practices-researcher` downstream consumer audit 报告的呈现形式（PR 评论 / IU 备注 / docs/validation 子文档）。
-- `spec-work` UI Quality Guard 段落的具体措辞（参考 `spec-work-beta:433-440` 等价化，不引入新规则）。
-- Whether prompt source lint should start as `warning` for all categories or fail closed for a small denylist。预设连续 2 次 release 后 warning 升级 fail-closed 的具体计数与豁免名单。
+- `spec-work` UI Quality Guard 段落的具体措辞（按 spec-work-beta `Frontend Design Guidance` section title 锚定等价化，不引入新规则；具体 wording 在 IU 执行时按当前 beta 措辞决定）。
+- `lint-prompt-source` 的 `exceptions[]` 初始名单与豁免理由（`severity` / `release_age` / 升级机制已在 U8 Approach 中规格化，仅初始数据待定）。
 
 ## Completion Evidence
 
@@ -698,7 +705,60 @@ Expected artifacts after implementation:
 
 ## Review Reception
 
-2026-05-07 通过 `/spec:doc-review` 对本计划做 single-agent report-only 审查（reviewer dispatch 因 1m context API 与服务端 panic 不可用，按 fallback 协议执行）。审查应用 6 类 inline persona checklist：coherence、feasibility、scope-guardian、adversarial、product-lens、security-lens。
+### 2026-05-07 第 1 轮（fallback）
+
+通过 `/spec:doc-review` 对本计划做 single-agent report-only 审查（reviewer dispatch 因 1m context API 与服务端 panic 不可用，按 fallback 协议执行）。审查应用 6 类 inline persona checklist：coherence、feasibility、scope-guardian、adversarial、product-lens、security-lens。
+
+修订级别说明：本轮 13 条 finding 的 "已应用" 全部为 **plan-prose** level（仅修改本文档措辞），未触达任何 source。Phase A/B/C 执行时由对应 IU 把 plan-prose 修订转化为 **source-mod** 与 **runtime-effect**。
+
+| ID | Finding | Modification Level | Followup |
+|---|---|---|---|
+| P1-A | Scope Boundaries 显式 doc 2 deferred 与例外 | plan-prose | E-1 followup tracker |
+| P1-B | U2 batch staging side-effect/secret deny | plan-prose（待 U2 source-mod 落地） | Phase A |
+| P1-C | competitive-intelligence agent source-only | plan-prose | runtime delivery 推迟到独立 plan |
+| P1-D | U5 fixture content contract test | plan-prose（待 U5 source-mod 落地） | Phase B |
+| P1-E | gitnexus 调用形态修复 | plan-prose | Verification 节直接生效 |
+| P1-F | spec-best-practices-researcher consumer audit | plan-prose（待 U7 source-mod 落地） | Phase C |
+| P2-A | U8 占位符禁用 + 宿主注入日期 | plan-prose | Phase C |
+| P2-B | spec-work UI guidance section title 锚定 | plan-prose | Phase C |
+| P2-C | U8 lint reconcile + warning 升级 enforcement | plan-prose | Phase C |
+| P2-D | U2 fresh-source eval | plan-prose | Phase A |
+| P2-E | 剩余 internal_only 延后策略 | plan-prose | Scope Boundaries 直接生效 |
+| P2-SE-1 | U1 opt-in audit log | plan-prose | Phase A |
+| P2-SE-2 | U2 secret deny pattern 集中化 | plan-prose | Phase A |
+
+未应用 finding（advisory，已写入 followup tracker，按 reaffirm_trigger 重审）：FYI-1 / FYI-2 / FYI-3 / P2-SE-3 / Doc 1 / Doc 2 meta 短板。
+
+### 2026-05-07 第 2 轮（self-meta-review）
+
+发现第 1 轮修订引入新问题清单（27 项），按 Issue 分类编辑器复盘后再次 plan-prose 修订，覆盖：
+
+- A-1 / A-2 / A-3 / A-4：新增 `## Modification Levels` 与 `## Phase 1 Methodological Limits` 段，显式承认 plan-prose 与方法论 Phase 1 限制。
+- B-1：U1↔U2 互锁段（worktree 内合法 env 编辑须显式精确路径声明）。
+- B-2：U2 同步修改 `task-pack-schema.md` 增 `expected_side_effects` 字段。
+- B-3：U6 锚点改 section title。
+- B-4：U7 abort 协议（hard-coded >=3 或 public workflow 命中触发 abort）。
+- C-1：U2 secret deny pattern 集中到 `src/cli/contracts/security/secret-deny-patterns.json`，扩展至工具凭据、移动签名、token 词形。
+- C-2：U5 canonical fixture schema（`schema_version`、`skill`、`category`、`cases[]` + case 字段约束）。
+- C-3：U7 audit 报告 schema（`docs/validation/...consumer-audit.md`）。
+- C-4：U8 warning 升级 enforcement（CI 读 `release_age >= 2` 强制升级）。
+- C-5：U1 `.env-copy.log` 治理（指纹/gitignore/30 天保留/append-only）。
+- D-1：Universal IU Rules 中加入文件存在性核验。
+- D-2：Universal IU Rules 中加入 Phase A test 模式与 contract 关系协议。
+- D-3：Risks 表整体重构，新增 5 行机制对应 mitigation 与 `Verified by`。
+- D-4：Universal IU Rules 全覆盖 fresh-source eval。
+- D-5：Universal IU Rules 要求 CHANGELOG 拆条（每 IU ≥1 条）。
+- E-1：frontmatter 引用 followup tracker `docs/plans/2026-05-08-001-source-code-deferred-tracker.md`（已创建）。
+- E-2：Risks 表加 reviewer dispatch 失败 mitigation，followup 在 `docs/solutions/workflow-issues/reviewer-dispatch-failure-2026-05-07.md`（已创建）。
+- E-3 / E-4：frontmatter 增 `revision`、`last_updated`、`referenced_reviews`。
+- E-5：Review Plan 节加 followup tracker 写入要求。
+- E-6：Review Plan 节加 PR 描述同步要求。
+- F-1：依赖 reviewer dispatch 恢复后重做 multi-persona cross-check（已写入 followup tracker）。
+- F-2：审查流程改进归入独立 plan（待创建）。
+
+第 2 轮仍属 plan-prose；落地仍需 Phase A/B/C source-mod。
+
+### 2026-05-07 第 1 轮明细（保留作历史）
 
 已在本版本应用的修订：
 
@@ -719,7 +779,7 @@ Expected artifacts after implementation:
 未应用的 finding（advisory only，不动 plan 主体）：
 
 - FYI-1 4 类薄契约单文件 vs 拆分：保持单文件，未来契约扩张时再评估。
-- FYI-2 Risks mitigation 加 "Verified by"：保持当前 prose 形式，避免 contract 过度 mechanical。
+- FYI-2 Risks mitigation 加 "Verified by"：第 2 轮已应用（见 Risks 表）。
 - FYI-3 competitive-intelligence agent "新增 vs 收敛" 路径：已通过 P1-C 决策（source-only 新增）间接表态。
 - P2-SE-3 D6 Twitter/X 出方约束（IP / 身份）：作为 implementation-time 注意事项，不写入 plan，由具体 consumer plan 承担。
 

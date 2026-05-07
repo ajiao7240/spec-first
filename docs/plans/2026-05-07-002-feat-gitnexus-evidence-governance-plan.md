@@ -10,249 +10,319 @@ spec_id: 2026-05-07-002-gitnexus-evidence-governance
 
 ## 概览
 
-本计划优化 spec-first 当前 GitNexus 接入方式。目标不是做单点命令修补，而是把 GitNexus 作为贯穿 `Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge` 的外部证据层来治理。
+把 GitNexus 作为贯穿 `Codebase → Graph → Spec → Plan → Tasks → Code → Review → Knowledge` 的外部证据层来治理，而不是做单点命令修补。
 
-当前方向总体正确：GitNexus 提供代码图谱、执行流、影响分析和 live MCP 代码智能；spec-first 负责 workflow harness、readiness artifacts、source/runtime 边界、LLM handoff 和审查闭环。需要优化的是：防止 GitNexus bootstrap 改写 source 入口文档，统一 compiled graph facts / live MCP / fallback direct reads 的消费规则，并避免 GitNexus hard gate 变成替代 LLM 判断的状态机。
+核心问题不是"`gitnexus analyze` 会改写 `AGENTS.md`/`CLAUDE.md`"这一个症状，而是**图谱层向 host source 注入 prose 这一类"上下文投入产物"在 spec-first 中没有 ownership 模型**：
+
+- 当前 `<!-- gitnexus:start -->` block 由 GitNexus CLI 写入，`src/cli/runtime-tools-index.js:70` 仅以"非 spec-first 管理但需保留"的方式识别。它既不是 spec-first managed slice，也不是 generated runtime mirror，落在 source/runtime 边界之外，违反角色契约 §6。
+- 图谱证据规则（freshness、definitions-only、live MCP、fallback）当前散落在 5 个 SKILL.md 中，且 `spec-plan` 已实现而其他 4 个 workflow 仅停留在 prose 层，是典型的多真相源（角色契约 §8 反模式）。
+- bootstrap argv allowlist、host prose、downstream skill prose 之间没有派生关系，每改一处都要在多文件同步漂移。
+
+正确的解法是把图谱证据策略做成 **single source of truth (policy)**，让 host prose / skill prose / provider argv 都成为 policy 的派生件，并显式定义 GitNexus host block 的 ownership 模型。这样每个 unit 都不再是"加一段措辞"，而是"实现 policy 第 X 条"。
 
 ## 目标
 
-- 防止 `gitnexus analyze` 隐式改写 `AGENTS.md` / `CLAUDE.md`。
-- 建立全流程统一的图谱证据策略。
-- 保留 GitNexus-first 的代码理解优势，同时支持 stale / degraded / definitions-only 的明确降级。
-- 让 `spec-plan`、`spec-work`、`spec-debug`、`spec-code-review`、`spec-work-beta` 以同一套 freshness 规则消费 graph facts。
-- 保持多仓 workspace 的 child repo ownership，不把 parent workspace 伪装成 repo。
+- 建立 `docs/contracts/graph-evidence-policy.md` 作为图谱证据的 single source of truth。
+- 明确 GitNexus host instruction block 的 ownership 模型，让 `spec-first init` 可重建，GitNexus 升级不会反向覆盖。
+- 防止 provider bootstrap 反向写入已纳入版本控制的 host source 文档（preview-first / source-first）。
+- 把 `spec-plan` 已有的 freshness 比较逻辑（`source_revision` / `worktree_dirty`）抽到 policy 集中，再让 `spec-work`、`spec-debug`、`spec-code-review`、`spec-work-beta` 显式调用同一规则。
+- 保留 GitNexus-first 的代码理解优势，同时支持 `stale` / `degraded-fallback` / `definitions-only` / `session-local` 的明确降级与合并语义。
 - 让 `gitnexus_detect_changes()` 成为 review evidence，而不是无法解释的自动阻断器。
+- 保持 Claude / Codex 双宿主 parity；保持多仓 workspace 的 child repo ownership。
 
 ## 非目标
+
+### 产品边界
 
 - 不重写 GitNexus 或 fork provider。
 - 不恢复 retired internal CRG runtime。
 - 不把 GitNexus group mode 纳入默认核心路径。
-- 不让 scripts 根据用户问题做业务语义判断。
-- 不手改 `.claude/`、`.codex/`、`.agents/skills/` generated runtime mirrors。
+- 不直接编辑 `.claude/`、`.codex/`、`.agents/skills/` 等 generated runtime mirrors。
+
+### 角色分工
+
+- 不让 scripts 做业务语义判断或语义范围选择。
+- 不让 LLM 假装执行确定性校验、伪造命令结果。
+- 不把 advisory facts 当 confirmed truth。
 - 不把 graph facts 做成第二份 plan 或中心化 workflow state。
 
 ## 图谱就绪状态
 
+按 `spec-plan` 已有 status enum (`primary | degraded-fallback | stale | blocked | setup-not-ready | unavailable`) 表述：
+
 - target_repo: `spec-first`
 - status: `stale`
+- reason: dirty worktree fingerprint 与 compiled graph facts 不一致
 - source_revision: `052c94ba77ef4a5a5de9f98f2fb065a1e11e4c5d`
 - current_revision: `052c94ba77ef4a5a5de9f98f2fb065a1e11e4c5d`
-- stale: true，因为当前 dirty worktree fingerprint 与 compiled graph facts 不一致
 - primary_providers: `gitnexus`, `code-review-graph`
-- degraded_providers: compiled provider status 中没有 degraded provider
+- runtime_mcp_evidence: `session-local-available`（live GitNexus MCP 可用，但仅作 session-local 证据，不更新 compiled `query_ready`）
 - fallback_capabilities: `serena`, `ast-grep`, bounded direct repo reads
-- runtime_mcp_evidence: 当前 session 中 GitNexus MCP 可用，但 live MCP evidence 仍然只是 session-local evidence
 - confidence: medium
-- limitations: 实施阶段在编辑 shared symbol 前必须重新运行聚焦 impact analysis；提交前必须运行 final change detection
+- limitations: 实施阶段在编辑 shared symbol 前必须重新运行聚焦 impact analysis；提交前必须运行 final change detection；本计划自身的 plan-phase 评估接受 `stale` 证据。
+
+## 前置 spike
+
+### SP1. GitNexus pinned package 行为验证
+
+`docs/plans/.../execution-log` 必须先记录以下命令的实际输出，再进入 D1 路径选择：
+
+```bash
+npx -y gitnexus@1.6.4-rc.48 analyze --help
+npx -y gitnexus@1.6.4-rc.48 --version
+```
+
+观察项：
+
+- 是否存在 `--skip-agents-md` 或等效 flag（`--no-agents-md`、`--skip-host-instructions`、env var 等）。
+- 是否提供"分析后不写入 host instruction"的任何 deterministic 路径。
+- pinned 版本与上游最新 release 的差距，确认升 pin 可行性。
+
+SP1 的输出**直接驱动 D1 路径选择**，必须先 land 才能动 U2/U3。
 
 ## 需求追踪
 
-- R1. GitNexus provider bootstrap 不得修改已纳入版本控制的 host source 文档。
-- R2. Setup 与 bootstrap 职责必须保持分离：setup 投影 facts，bootstrap 运行 provider commands。
-- R3. `query_ready=true` 必须要求 analyze/build、status 和 query-surface proof 都通过。
-- R4. Definitions-only GitNexus evidence 只能作为 pointer-level evidence，不能作为 process/query readiness。
-- R5. Live MCP evidence 永远不得反写 compiled graph readiness。
-- R6. Downstream workflows 在把 graph facts 当作 primary evidence 前，必须比较 `source_revision`、`worktree_dirty` 和 `worktree_status_hash`。
-- R7. Parent workspace 的只读 routing 可以使用 `workspace-graph-targets.v1`；写入 workflow 仍必须有 explicit `target_repo`。
-- R8. GitNexus HIGH/CRITICAL risk 必须通过解释和验证来处理，不能盲目接受或忽略。
-- R9. 所有 source changes 必须同步更新 `CHANGELOG.md`。
+- **R1**. `docs/contracts/graph-evidence-policy.md` 是图谱证据的 single source of truth；vocabulary 与 `spec-plan` 现有 status enum 完全一致。
+- **R2**. GitNexus host instruction block 必须有明确 ownership 模型（spec-first managed slice / 静态 prose / 二步重建之一），由 D1 决定。
+- **R3**. Provider bootstrap 与 setup 不得反向写入已 commit 的 host source 文档；任何 host source 变更必须经由 spec-first source 与 generator 显式表达。
+- **R4**. Setup 与 bootstrap 职责必须保持分离：setup 投影 facts，bootstrap 运行 provider commands。
+- **R5**. `query_ready=true` 必须要求 analyze/build、status 和 query-surface proof 都通过。
+- **R6**. Definitions-only GitNexus evidence 只能作为 pointer-level evidence，不能作为 process/query readiness。
+- **R7**. Live MCP evidence 永远不得反写 compiled graph readiness；compiled stale + live MCP success 共存时按 D5 合并语义分别附加。
+- **R8**. 下游 workflow 在把 graph facts 当 primary evidence 前，必须比较 `source_revision`、`worktree_dirty`，并在 policy 与 schema 升版后比较 `worktree_status_hash`；不一致时降级到 `stale`。
+- **R9**. Parent workspace 的只读 routing 可以使用 `workspace-graph-targets.v1`；写入 workflow 仍必须有 explicit `target_repo`。
+- **R10**. GitNexus HIGH/CRITICAL risk 必须通过解释和验证来处理；不允许盲目接受、忽略或自动阻断。
+- **R11**. 任何 source 变更必须保持 Claude / Codex 双宿主 parity：argv allowlist、host prose、generated runtime expectations 在两宿主下行为一致。
+- **R12**. 每个实施 unit 落地时必须按 `CLAUDE.md` 铁律同步追加 `CHANGELOG.md` 一条记录；PR 合并前可整合为最终条目。
 
 ## 关键决策
 
-- D1. 在 GitNexus analyze command projection 中加入 `--skip-agents-md`。
-- D2. 保持 GitNexus 为 `global_knowledge`；保持 code-review-graph 为 `impact_context`。
-- D3. 不把 GitNexus group mode 做成默认要求。多仓基础策略仍是 per-repo bounded fan-out。
-- D4. 用 freshness-aware、scope-aware 规则替换绝对化的 GitNexus hard-gate 文案。
-- D5. 在 freshness 验证前，把 graph evidence 视为 advisory。
-- D6. 保持 script-owned outputs deterministic：readiness facts、reason codes、raw logs、artifact paths。
-- D7. 保持 LLM-owned decisions semantic：target repo relevance、implementation scope、risk interpretation、fallback choice。
+### D1. GitNexus host block 的 ownership 模型（核心架构决策）
+
+由 SP1 结果驱动，三条候选路径：
+
+| 路径 | 触发条件 | 实施要点 |
+|---|---|---|
+| **A. spec-first 接管 + provider 不写入** | SP1 证实 `--skip-agents-md` 或等效 flag 存在 | 引入新 managed marker `<!-- spec-first:gitnexus-prose:start -->` / `:end -->`；由 `src/cli/instruction-bootstrap.js` 渲染；`runtime-tools-index.js` 把识别规则从"外部 provider block 保留"改为"managed slice 重生成"；GitNexus bootstrap argv 加 `--skip-agents-md`。 |
+| **B. 升 pin 后再走路径 A** | SP1 证实当前 pin 不支持但上游已支持 | 通过 `mcp-tools.json` provider registry 升级 `gitnexus@1.6.4-rc.48` 到支持版本，再走路径 A；spike 阶段先在 throwaway worktree 验证升 pin 不破坏其他 contract test。 |
+| **C. 二步重建** | SP1 证实无 flag 且无升级路径 | GitNexus 写入后由 `spec-first init` 立刻覆写 block 内容为 managed prose；`spec-first doctor` 增加 drift detection 把"GitNexus 写入版 vs spec-first managed 版"差异作为 stale evidence；不依赖 provider argv，deterministic 由 spec-first 单方面保证。 |
+
+无论选哪条路径，**block prose 内容**统一为 freshness-aware + scope-aware 软规则（见 D7），并指向 policy 文件。
+
+### D2. policy 居中，所有派生件单向引用
+
+`docs/contracts/graph-evidence-policy.md` 定义 vocabulary、consumption 规则、ownership 决策、drift triage、合并语义。`AGENTS.md` / `CLAUDE.md` GitNexus block、5 个 SKILL.md graph 段落、provider argv 配置都引用 policy；不在多处重复表述。
+
+### D3. 角色保持
+
+`gitnexus` 保持 `global_knowledge`，`code-review-graph` 保持 `impact_context`。
+
+### D4. 不默认启用 GitNexus group mode
+
+多仓基础策略仍是 per-repo bounded fan-out + `workspace-graph-targets.v1` 只读 advisory。
+
+### D5. compiled facts + live MCP + fallback 的合并语义
+
+- compiled stale + live MCP success → 表述为 `stale-compiled + session-local-live`，下游 finding 必须分别附加两份证据来源，不得合并为单一 readiness label。
+- live MCP definitions-only → 标记 `runtime_mcp_evidence: partial-definitions-only`，仅作 pointer。
+- compiled primary + live MCP success → 仍以 compiled 为 primary，live 作 supplementary。
+- compiled unavailable + live MCP success → 表述为 `compiled-unavailable + session-local-live`，下游可在 finding 中标注证据强度但不能写回 compiled readiness。
+
+### D6. `worktree_status_hash` 是 schema 增量
+
+R8 引入新字段，需在 graph readiness artifact schema 升版（`schema_version` bump）并通过 contract test 校验向后兼容；旧 artifact 缺该字段时降级到 `worktree_dirty` 比较，给 limitation。
+
+### D7. host prose 软规则取代官方 hard-gate
+
+GitNexus 官方 prose（"MUST run impact"、"NEVER edit a function..."）在 spec-first 仓库内替换为：
+
+- production function/class/method/API/shared contract changes 需要 attempted impact analysis 并解释结果；
+- docs-only / prose / changelog / fixture / test fixture 变更走 scoped review；
+- stale / unavailable GitNexus 必须记录 fallback evidence；
+- HIGH / CRITICAL risk 需要 explanation 和 verification，不自动停止；
+- 每条规则都引用 policy。
+
+### D8. 角色分工（重申，对齐角色契约 §4）
+
+- 脚本输出 deterministic facts：readiness、reason_code、raw logs、artifact paths、argv shape、CHANGELOG 时间戳。
+- LLM 输出 semantic judgment：target repo relevance、implementation scope、risk interpretation、fallback choice、prose drift triage。
 
 ## 实施单元
 
-### U1. 定义图谱证据策略
+实施单元彼此引用同一份 policy，不在 SKILL.md / host prose / 测试中重复表述图谱证据规则。
+
+### U1. 编写 graph evidence policy + ownership 模型
 
 文件：
 
-- `docs/contracts/graph-evidence-policy.md`
-- `README.md`
-- `README.zh-CN.md`
+- `docs/contracts/graph-evidence-policy.md`（新增）
+- `README.md`、`README.zh-CN.md`（添加 policy 引用，不复述）
 
-变更：
+内容：
 
-- 定义共享术语：`primary`、`stale`、`dirty-uncertain`、`degraded-fallback`、`definitions-only`、`session-local evidence`、`target_repo required`。
-- 文档化 compiled facts、live MCP 和 fallback reads 的消费规则。
-- 明确 provider facts 不替代 LLM judgment。
+- vocabulary：与 `spec-plan` 现有 status enum 完全一致（`primary | degraded-fallback | stale | blocked | setup-not-ready | unavailable`、`definitions-only`、`session-local-evidence`、`target_repo required`）。
+- consumption 规则：compiled facts vs live MCP vs fallback reads 的优先级、合并语义（D5）。
+- ownership 模型：记录 D1 选定路径与触发条件；预留 drift triage 流程（GitNexus 升级带来 prose 漂移时的 diff/吸收/重写决策步骤）。
+- schema 版本管理：`worktree_status_hash` 引入说明、向后兼容策略。
+- provider 边界：明确 setup vs bootstrap、scripts vs LLM 的职责切分（对齐角色契约 §4）。
+- 验证 hook：列出 policy 派生件清单（U2-U6 涉及的文件路径），便于 reviewer 检查派生关系。
 
 测试：
 
-- 如果现有 docs contracts 覆盖 README/governance 文案，新增或更新对应 Jest 断言。
+- 现有 docs contracts / README contracts 中新增断言：policy 文件存在；README 引用 policy 路径；vocabulary 字段集合与 `spec-plan` SKILL.md 一致。
 
-### U2. 防止 GitNexus 修改 source 文档
+CHANGELOG：U1 land 时追加一条记录。
+
+### U2. 实施 D1 选定的 host block ownership
 
 文件：
 
-- `skills/spec-mcp-setup/scripts/write-provider-config.sh`
-- `skills/spec-mcp-setup/scripts/write-provider-config.ps1`
-- `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh`
-- `skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1`
+- `AGENTS.md`、`CLAUDE.md`（GitNexus block prose 重写为 D7 软规则；marker 由 D1 路径决定）
+- `src/cli/instruction-bootstrap.js`（路径 A/B：新 managed marker 渲染；路径 C：drift detection + 覆写逻辑）
+- `src/cli/runtime-tools-index.js`（识别规则随 D1 路径调整）
+- `tests/unit/runtime-tools-index.test.js`、`tests/unit/clean-dry-run.test.js`（marker 识别 / cleanup 行为）
+
+变更：
+
+- 按 D1 路径 A：引入 `<!-- spec-first:gitnexus-prose:start -->` / `:end -->`，由 generator 渲染；GITNEXUS_START 旧标识保留作向后兼容识别。
+- 按 D1 路径 B：先升 pin（U3 内联），再按路径 A 落地。
+- 按 D1 路径 C：保留 GITNEXUS_START 识别，但 `spec-first init` 在写入流程末段立即覆写 block 内容；`spec-first doctor` 增加 drift detection。
+- 不论哪条路径，block prose 都引用 `docs/contracts/graph-evidence-policy.md`，不复述规则。
+
+测试：
+
+- runtime-tools-index 双宿主 parity 断言（Claude/Codex 输出一致）。
+- cleanup 不误删 spec-first managed marker；保留外部 GitNexus block 兼容路径。
+- generator 重生成后 block 内容稳定（idempotent）。
+
+CHANGELOG：U2 land 时追加一条记录。
+
+### U3. 收紧 provider bootstrap argv 与允许形态
+
+文件：
+
+- `skills/spec-mcp-setup/scripts/write-provider-config.sh`、`.ps1`
+- `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh`、`.ps1`
 - `skills/spec-graph-bootstrap/SKILL.md`
+- `skills/spec-mcp-setup/mcp-tools.json`（路径 B：升 pin）
 
 变更：
 
-- 将 GitNexus bootstrap 投影为 `npx -y <gitnexus-package> analyze --force --skip-agents-md`。
-- 更新 command shape allowlists。
-- 更新 skill 文案，解释 provider bootstrap 为什么不得触碰 host source 文档。
-- 如果当前 pinned GitNexus package 不支持 `--skip-agents-md`，通过现有 provider registry path 更新 package pin，或执行 fail closed。
+- 路径 A/B：argv 投影为 `npx -y <gitnexus-package> analyze --force --skip-agents-md`；`bootstrap-providers.sh` allowlist 当前 `length == 5` 模式扩展为允许 `length == 6` 且第 6 元素为 `--skip-agents-md` 的精确匹配；不允许任意 free-form argv。PowerShell 镜像同步。
+- 路径 C：argv 保持 `--force`；改在 instruction-bootstrap 出口做覆写；allowlist 不变。
+- skill 文案统一引用 policy；解释 provider bootstrap 不得触碰 host source 的依据。
 
 测试：
 
-- `tests/unit/mcp-setup.sh`
-- `tests/unit/spec-graph-bootstrap.sh`
-- `tests/unit/mcp-setup-powershell-contracts.test.js`
+- `tests/unit/mcp-setup.sh`（probe candidate 选择仍然 bounded、source-derived）
+- `tests/unit/spec-graph-bootstrap.sh`（allowlist 接受新 argv，拒绝 free-form / shell / string command）
+- `tests/unit/mcp-setup-powershell-contracts.test.js`（双宿主 parity）
+- 新 fixture 场景：bootstrap 后 `AGENTS.md` / `CLAUDE.md` 保持不变（路径 A/B）；或 `spec-first init` 后内容收敛为 managed prose（路径 C）。
 
-场景：
+CHANGELOG：U3 land 时追加一条记录。
 
-- Provider config 包含 `--skip-agents-md`。
-- Bootstrap allowlist 接受新的 argv。
-- Unsafe shell/string command 仍然被拒绝。
-- Graph bootstrap 后 fixture `AGENTS.md` / `CLAUDE.md` 保持不变。
-
-### U3. 重写 GitNexus host instruction 边界
+### U4. 把下游 workflow consumption 集中到 policy
 
 文件：
 
-- `AGENTS.md`
-- `CLAUDE.md`
-- `src/cli/instruction-bootstrap.js`
-- `tests/unit/runtime-tools-index.test.js`
-- `tests/unit/clean-dry-run.test.js`
+- `skills/spec-plan/SKILL.md`（仅补 `worktree_status_hash` 字段与 policy 引用；现有 `source_revision` / `worktree_dirty` 比较保留）
+- `skills/spec-work/SKILL.md`、`skills/spec-debug/SKILL.md`、`skills/spec-code-review/SKILL.md`、`skills/spec-work-beta/SKILL.md`（首次引入显式 freshness 比较步骤；引用 policy；按 D5 合并语义记录证据来源）
 
-变更：
+变更范围（按现状区分）：
 
-- 将 blanket “never edit any symbol without GitNexus impact” 改为 scope-aware 规则：
-  - production function/class/method/API/shared contract changes 需要 attempted impact analysis；
-  - docs-only/prose/changelog/fixture changes 可以使用更轻量的 scoped review；
-  - stale/unavailable GitNexus 必须记录 fallback evidence；
-  - HIGH/CRITICAL risk 需要 explanation 和 verification，不自动停止。
-- 如果当前测试要求保留 external GitNexus block markers，则保留 markers，但将内容对齐 spec-first source/runtime boundary。
+- `spec-plan` 已实现 `source_revision` / `worktree_dirty` 比较（line 234），本 unit 仅补 `worktree_status_hash` 与 policy 引用，**不重做**。
+- 其他 4 个 workflow 当前仅 prose 级别处理 `degraded` / `stale` / `unavailable`，未做显式字段比较；本 unit 在它们的 graph 段落中加入"读 graph readiness artifact → 比较 source_revision / worktree_dirty / worktree_status_hash → 按 policy enum 标注 status"步骤。
+- `runtime_mcp_evidence` 字段采用 `spec-plan` 已有命名，不发明新词。
 
 测试：
 
-- 现有 cleanup tests 仍然保留 GitNexus block。
-- 新增断言覆盖 freshness-aware wording 和 degraded fallback wording。
+- `tests/unit/spec-plan-contracts.test.js`、`tests/unit/spec-work-contracts.test.js`、`tests/unit/spec-debug-contracts.test.js`、`tests/unit/spec-work-beta-contracts.test.js`（如缺则新增）
+- `tests/unit/spec-code-review-contracts.test.js`（已有则更新）
+- 双宿主 parity：5 个 SKILL.md 通过 `spec-first init --claude|--codex` 写入两套 runtime mirror，验证两套行为一致。
 
-### U4. 统一下游 graph consumption
+CHANGELOG：U4 land 时追加一条记录。
+
+### U5. 澄清 review 与 commit evidence semantics
 
 文件：
 
-- `skills/spec-plan/SKILL.md`
-- `skills/spec-work/SKILL.md`
-- `skills/spec-debug/SKILL.md`
-- `skills/spec-code-review/SKILL.md`
-- `skills/spec-work-beta/SKILL.md`
+- `skills/spec-code-review/SKILL.md`、`skills/spec-work/SKILL.md`
+- `docs/contracts/graph-evidence-policy.md`（在 policy 内追加 detect_changes 段落）
 
 变更：
 
-- 每个消费 graph facts 的 workflow 必须检查：
-  - `source_revision` 与当前 `HEAD`；
-  - `worktree_dirty` 与当前 dirty state；
-  - 存在时检查 `worktree_status_hash`。
-- 如果不匹配：报告 `stale` 或 `dirty-uncertain`。
-- 如果 GitNexus 返回 definitions-only：只能作为 symbol/file pointer。
-- 如果 live MCP 成功：标记为 `session-local`，不是 compiled readiness。
+- policy 定义 `gitnexus_detect_changes()` 预期用法：commit candidate 已 staged 时优先 staged scope；否则说明分析使用 all 或 uncommitted scope；HIGH/CRITICAL 结果通过 changed symbols/processes 与 task scope 解释；附 verification commands。
+- 明确 detect_changes 是 evidence 不是 absolute gate；不覆盖 docs / changelog / fixture artifact。
+- spec-code-review / spec-work 引用 policy，不复述规则。
 
 测试：
 
-- `tests/unit/spec-plan-contracts.test.js`
-- `tests/unit/spec-work-contracts.test.js`
-- `tests/unit/spec-debug-contracts.test.js`
-- `tests/unit/spec-work-beta-contracts.test.js`
-- 如存在相关覆盖，则更新 `tests/unit/spec-code-review-contracts.test.js`
+- prose contract 断言：`detect_changes` 在两个 SKILL.md 中只出现"evidence not gate"的表述，不出现 absolute hard-gate 措辞。
+- 历史 validation logs 不重写。
 
-### U5. 澄清 review 与 commit evidence
+CHANGELOG：U5 land 时追加一条记录。
 
-文件：
-
-- `skills/spec-code-review/SKILL.md`
-- `skills/spec-work/SKILL.md`
-- `docs/contracts/graph-evidence-policy.md`
-
-变更：
-
-- 定义 `gitnexus_detect_changes()` 的预期用法：
-  - commit candidate 已 staged 时优先使用 staged scope；
-  - 否则说明分析使用 all 或 uncommitted scope；
-  - 通过 changed symbols/processes 和 task scope 解释 HIGH/CRITICAL 结果；
-  - 列出缓解风险的 verification commands。
-- 明确 detect_changes 不覆盖每个 docs/changelog artifact，因此 final review 仍必须检查 non-symbol source changes。
-
-测试：
-
-- Prose contract assertions 锁定 `detect_changes` 是 evidence，不是 absolute gate。
-- 现有 validation logs 可以保留历史状态；不要重写旧 logs。
-
-### U6. 强化 query probe golden cases
+### U6. 强化 query probe golden cases + baseline 测量
 
 文件：
 
 - `skills/spec-graph-bootstrap/evals/*.json`
 - `tests/unit/mcp-setup.sh`
-- 可能涉及 `tests/fixtures/`
+- `tests/fixtures/`（如需）
+- `docs/contracts/graph-evidence-policy.md`（追加 baseline 引用与基线快照路径）
 
 变更：
 
-- 增加以下场景：
-  - 包含 parse/validate methods 的 CLI repo；
-  - Spring/Java controller-heavy repo；
-  - Android Activity/ViewModel repo；
-  - health-only repo；
-  - README-only/no-source repo；
-  - display-only frontend component repo。
-- 确认 candidate selection 保持 bounded 且 source-derived。
-- 确认 health/status/display-only tokens 不会优先于 flow-bearing tokens。
+- 在 U1 完成后，先采集 spec-first 自身仓库当前 candidate list + 一次 probe `result_class` 作为 baseline fixture。
+- 增加场景：CLI repo（parse/validate methods）、Spring/Java controller-heavy、Android Activity/ViewModel、health-only、README-only / no-source、display-only frontend component。
+- 验证 candidate selection 保持 bounded、source-derived；health/status/display-only token 不优先于 flow-bearing token。
 
 测试：
 
-- 现有 mcp-setup query probe candidate tests。
-- 如果存在 eval fixture schema checks，则同步更新。
+- 现有 mcp-setup query probe candidate tests 保留并扩展。
+- baseline fixture 与 golden case 对比，回归时差异要可解释。
 
-### U7. 文档、changelog 与 runtime 验证
+CHANGELOG：U6 land 时追加一条记录。
+
+### U7. 文档、changelog 集中化与 runtime regeneration 验证
 
 文件：
 
-- `README.md`
-- `README.zh-CN.md`
+- `README.md`、`README.zh-CN.md`（lifecycle 章节引用 policy）
 - 相关用户手册文档
-- `CHANGELOG.md`
-- generated runtime expectations 只能通过 source templates 和 tests 更新
+- `CHANGELOG.md`（合并 U1-U6 临时条目为最终条目，符合仓库格式）
+- generated runtime expectations 通过 source templates 与 tests 验证
 
 变更：
 
-- 文档化更新后的 graph evidence lifecycle。
-- 说明何时运行 `$spec-mcp-setup`、`$spec-graph-bootstrap` 和 downstream workflows。
-- 使用当前 Codex developer profile 增加 changelog 记录。
-- 不直接编辑 generated runtime mirrors。
-- 如需 runtime regeneration，在 source validation 后使用 `spec-first init --codex` / `spec-first init --claude`。
+- 文档化更新后的 graph evidence lifecycle，引用 policy，不复述。
+- 说明何时运行 `spec-mcp-setup`、`spec-graph-bootstrap` 与 downstream workflows。
+- 不直接编辑 generated runtime mirrors；如需 regeneration，在 source validation 后用 `spec-first init --codex|--claude`，并验证两宿主输出 parity。
 
 测试：
 
 - `npm run lint:skill-entrypoints`
-- 如存在 README / dual-host governance tests，则同步运行。
+- README / dual-host governance tests（如存在则同步运行）
+- 跑一次 `spec-first init` dry-run，确认 GitNexus block 在两宿主下输出一致。
+
+CHANGELOG：U7 合并最终条目。
 
 ## 执行顺序
 
-1. U1：定义 policy vocabulary 和共享规则。
-2. U2：修复 GitNexus command projection 和 bootstrap allowlist。
-3. U3：对齐 host instruction 规则。
-4. U4：对齐 downstream workflow consumption。
-5. U5：澄清 review/commit evidence semantics。
-6. U6：增加 probe golden cases。
-7. U7：更新 docs、changelog 和 runtime expectations。
+0. **SP1 spike**（硬门）：跑 `analyze --help` 与 `--version`，记录到 plan execution log。
+1. **U1 + D1 决策**（硬门）：policy 落地；ownership 路径选定并写入 policy。
+2. **U2**：按选定路径实施 host block ownership。
+3. **U3**：bootstrap argv 与 allowlist 同步（路径 B 包含升 pin）。
+4. **U4**：spec-plan 仅补字段；其他 4 个 workflow 引入显式比较步骤。
+5. **U5**：review/commit evidence semantics 澄清。
+6. **U6**：probe baseline + 6 类 golden cases。
+7. **U7**：docs / changelog 合并 / runtime regeneration 验证。
+
+SP1 与 U1 是硬门：**未完成不允许动 U2 之后任何文件**。
 
 ## 验证计划
 
-聚焦验证：
+### 聚焦验证
 
 ```bash
 npm run test:mcp-setup
@@ -261,42 +331,62 @@ npm run lint:skill-entrypoints
 npm run typecheck
 ```
 
-扩大验证：
+### 扩大验证
 
 ```bash
 npm run test:unit
 npm test
 ```
 
-图谱专项验证：
+### Spike 验证
+
+```bash
+npx -y gitnexus@1.6.4-rc.48 analyze --help
+npx -y gitnexus@1.6.4-rc.48 --version
+```
+
+输出抄录到 plan execution log；驱动 D1 路径选择。
+
+### 双宿主 parity 验证
+
+- `spec-first init --claude` 与 `spec-first init --codex` 在 fixture 仓库下输出 GitNexus block 一致。
+- `tests/unit/mcp-setup-powershell-contracts.test.js` 与 sh 等价测试同步通过。
+
+### 图谱专项验证
 
 - 编辑 shared JS functions 或 CLI behavior 前运行 GitNexus impact。
-- 提交前运行 GitNexus change detection。
-- 如果 GitNexus 报告 HIGH/CRITICAL，记录它是 expected broad contract impact 还是 unexpected blast radius。
+- 提交前运行 GitNexus change detection；HIGH/CRITICAL 必须按 D5/D7 解释。
+- 记录是 expected broad contract impact 还是 unexpected blast radius。
 
-运行时与 source 验证：
+### 运行时与 source 验证
 
-- 确认没有直接编辑 `.claude/`、`.codex/`、`.agents/skills/`。
-- 如果 source changes 影响 generated host runtime，只能在 tests 通过后通过 `spec-first init --codex|--claude` 重新生成。
+- 不直接编辑 `.claude/`、`.codex/`、`.agents/skills/`。
+- source 影响 generated runtime 时，tests 通过后通过 `spec-first init --codex|--claude` 重生成。
 
 ## 风险与缓解
 
-- 风险：GitNexus pinned version 可能不支持 `--skip-agents-md`。
-  - 缓解：先验证 CLI 支持；如果不支持，则更新 provider package pin 或执行 fail closed。
-- 风险：移除 hard-gate wording 会弱化安全性。
-  - 缓解：保留 symbol/API impact requirement，但明确 degraded fallback。
-- 风险：更多 workflow 会报告 stale graph facts。
-  - 缓解：这是预期行为；stale evidence 应降级到 bounded direct reads。
-- 风险：多个文件重复类似 graph evidence rules。
-  - 缓解：在 `docs/contracts/graph-evidence-policy.md` 中集中 vocabulary；skills 只引用 policy 并保留 workflow-specific behavior。
-- 风险：GitNexus group mode 对多仓看起来很有吸引力。
-  - 缓解：延后到 follow-up；核心路径保持 provider-neutral 和 per-repo bounded。
+| 风险 | 缓解 |
+|---|---|
+| SP1 显示 `--skip-agents-md` 不存在 | D1 切换路径 B（升 pin）或路径 C（二步重建）；plan 已预定义三条路径，不阻塞推进。 |
+| GitNexus 升级反向覆盖 spec-first managed prose | 路径 A/B：marker + `spec-first init` 重建；路径 C：drift detection；policy 内 drift triage 流程明确升级时的 diff/吸收/重写步骤。 |
+| 移除 hard-gate wording 弱化安全性 | 保留 symbol/API impact requirement（D7 第一条）；degraded fallback 显式记录；HIGH/CRITICAL 必须解释。 |
+| 更多 workflow 报告 stale graph facts | 这是预期行为；policy 明确 stale → bounded direct reads + live MCP supplementary。 |
+| 多文件重复 graph evidence 规则导致漂移 | policy 居中（D2）；派生件只引用不复述；U1 列出派生件清单便于 reviewer 巡检。 |
+| 双宿主 parity 漂移 | R11 + 每个 unit 测试节列出 dual-host parity 验证；U7 用 `spec-first init` dry-run 收口。 |
+| live MCP + stale compiled 合并语义混淆 | D5 集中定义合并规则；U4 在 SKILL.md 中引用 D5 而不是各自发明。 |
+| CHANGELOG 节奏违反铁律 | R12 + 每个 unit 末尾 CHANGELOG 条目；U7 合并为最终条目，PR 阶段 reviewer 可校验完整性。 |
+| GitNexus group mode 对多仓诱惑 | 延后到 follow-up；core path 保持 provider-neutral + per-repo bounded。 |
+| `worktree_status_hash` schema 引入破坏旧 artifact 消费者 | D6 + schema_version 升版；旧 artifact 降级到 worktree_dirty 比较并附 limitation。 |
 
 ## 交接标准
 
-本计划在以下条件满足时可以进入 `$spec-work`：
+进入 `$spec-work` 必须满足以下硬门：
 
-- 实施目标已确认为 `spec-first`。
-- 现有 unrelated worktree changes 已纳入 scope，或明确忽略。
-- 实施者从 U1/U2 开始，而不是先改孤立的 host prose。
-- 最终 PR 包含 test output、GitNexus change-detection interpretation 和 generated runtime impact statement。
+- SP1 spike 已执行，输出抄录到 plan execution log，D1 路径已选定并写入 policy。
+- U1 policy 已 land；README 引用 policy；vocabulary 与 `spec-plan` enum 一致。
+- 实施目标确认为 `spec-first`。
+- 现有 worktree 中无关变更已纳入 scope 或显式忽略。
+- 实施者从 SP1 → U1 → D1 → U2 顺序进入，不先改孤立的 host prose。
+- CHANGELOG 节奏已声明（每 unit 一条临时记录，PR 合并前合并）。
+- 双宿主 parity 验证已纳入每个相关 unit。
+- 最终 PR 包含：spike 输出、test output、GitNexus change-detection interpretation、generated runtime impact statement、CHANGELOG 终态条目。

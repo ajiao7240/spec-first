@@ -91,7 +91,7 @@ get_minimal_context
 
 `code-review-graph` 不应该承担：
 
-- 作为 reviewer agent 加入 persona 队列。
+- `code-review-graph` 本身作为 reviewer agent 加入 persona 队列。
 - 替代 `spec-code-review` 的 synthesis。
 - 单独决定 finding severity、autofix class 或 release gate。
 - 默认通过 hooks 在每次编辑后修改 graph state。
@@ -136,11 +136,46 @@ spec-code-review
     - classify evidence as fresh / stale / degraded / unavailable
     - if live CRG MCP is available, run bounded read-only minimal-first probes
     - produce <graph-review-context>
-  Stage 4: reviewer personas consume diff + graph-review-context
+  Stage 3/4: reviewer personas consume diff + graph-review-context
+    - evaluate whether spec-graph-impact-reviewer should run
+    - dispatch it only when graph evidence shows meaningful blast-radius risk
   Stage 6: synthesis reports findings and evidence limitations
 ```
 
 这个设计故意不把 `code-review-graph` 包装成 agent。原因是：agent 应该负责语义审查，provider 应该负责事实准备。把 provider 包成 agent 会让 CRG risk signal 看起来像 review conclusion，反而破坏 `Scripts prepare, LLM decides` 的边界。
+
+### graph-impact reviewer
+
+`spec-graph-impact-reviewer` 是建议新增的条件触发 reviewer。它不是 `code-review-graph` 的包装层，而是消费 `<graph-review-context>` 的图谱影响面审查专家。
+
+它回答的问题是：
+
+```text
+这次 diff 改到的 symbol / file / API / flow，会不会影响调用者、执行流、相关测试或下游模块？
+```
+
+默认行为：
+
+- `$spec-code-review` 默认执行 graph / impact evidence preflight。
+- `$spec-code-review` 默认评估是否需要 `spec-graph-impact-reviewer`。
+- `spec-graph-impact-reviewer` 不是 always-on reviewer，不是每次 review 都派发。
+- 只有 graph evidence 显示 medium/high risk、多 callers、多 affected flows、related tests gaps、public/shared symbol change、inheritance / implementation 影响、rename / move 风险时，才条件触发。
+
+它可以帮助发现：
+
+- 改动本身看起来正确，但 impacted caller 仍按旧签名、旧返回值或旧错误语义调用。
+- 某个 affected flow 经过 changed symbol，但 review 没有覆盖该用户路径。
+- `tests_for` 或 related tests 显示关键 changed function 缺少覆盖。
+- 公共工具、exported API、继承关系或移动/重命名造成 downstream 使用点遗漏。
+
+它不能做：
+
+- 运行 `code-review-graph build`、`update` 或 `build_or_update_graph`。
+- 调用 CRG 自带 `/review-delta`、`/review-pr` 或 MCP prompt 来替代 `$spec-code-review`。
+- 只凭 CRG risk score 生成 finding。
+- 在 graph stale / degraded 时制造高置信 finding。
+
+它的 finding 仍进入 `spec-code-review` 现有 merge / dedup / confidence gate，由 synthesis 统一决定 severity、routing 和 verdict。
 
 相关计划见：
 
@@ -164,6 +199,7 @@ spec-code-review
 避免以下设计：
 
 - 把 `code-review-graph` 包装成默认 reviewer agent。
+- 把 `spec-graph-impact-reviewer` 当成 always-on reviewer；它应默认评估、条件派发。
 - 让 GitNexus 或 CRG 输出直接成为 final finding。
 - 在 `spec-code-review` 默认运行 graph build/update。
 - 默认启用 provider hooks，让工具在用户未感知时持续写状态。
@@ -188,6 +224,7 @@ $spec-graph-bootstrap
 进入 review 前：
 
 - 用 `code-review-graph` 的 impact capability 判断当前 diff 的影响范围。
+- 把 `spec-graph-impact-reviewer` 理解为条件触发的影响面审查专家，不是默认每次派发的 reviewer。
 - 优先 minimal context，只有高风险或不确定时升级分析。
 - reviewer findings 必须能被 diff、源码、测试或明确 evidence 支撑。
 
