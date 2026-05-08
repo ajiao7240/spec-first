@@ -350,6 +350,37 @@ function runInitForWorkspace({
   console.log(`  selection_source: ${selectionSource}`);
   console.log(`  child_repos: ${candidates.length}`);
 
+  console.log('');
+  console.log('▶ Refresh parent host runtime assets');
+  let parentRuntime = {
+    exit_code: 0,
+    overall_status: 'ready',
+    reason_code: null,
+    diagnostic: '',
+  };
+  try {
+    const exitCode = runInitForProject({
+      parsed,
+      platform,
+      adapter,
+      projectRoot: workspaceRoot,
+    });
+    parentRuntime = {
+      exit_code: exitCode,
+      overall_status: exitCode === 0 ? 'ready' : 'action-required',
+      reason_code: exitCode === 0 ? null : 'parent-runtime-init-failed',
+      diagnostic: '',
+    };
+  } catch (error) {
+    parentRuntime = {
+      exit_code: 1,
+      overall_status: 'action-required',
+      reason_code: 'parent-runtime-init-exception',
+      diagnostic: error instanceof Error ? error.message : String(error),
+    };
+    console.error(`Parent runtime init failed: ${parentRuntime.diagnostic}`);
+  }
+
   candidates.forEach((candidate, index) => {
     console.log('');
     console.log(`▶ Init child ${index + 1}/${candidates.length}: ${candidate.workspace_relative_path}`);
@@ -384,7 +415,9 @@ function runInitForWorkspace({
   });
 
   const readyCount = results.filter((result) => result.overall_status === 'ready').length;
-  const actionRequiredCount = results.length - readyCount;
+  const childActionRequiredCount = results.length - readyCount;
+  const parentActionRequiredCount = parentRuntime.overall_status === 'ready' ? 0 : 1;
+  const actionRequiredCount = childActionRequiredCount + parentActionRequiredCount;
   const overallStatus = actionRequiredCount === 0
     ? 'ready'
     : readyCount > 0
@@ -398,18 +431,22 @@ function runInitForWorkspace({
     selection_source: selectionSource,
     workspace_root: workspaceRoot,
     parent_writes_repo_local_artifacts: false,
+    parent_writes_host_runtime_assets: true,
+    parent_host_runtime: parentRuntime,
     dry_run: parsed.dryRun,
     platform,
     results,
     counts: {
       total: results.length,
       ready: readyCount,
-      action_required: actionRequiredCount,
+      action_required: childActionRequiredCount,
+      parent_runtime_ready: parentRuntime.overall_status === 'ready' ? 1 : 0,
+      parent_runtime_action_required: parentActionRequiredCount,
     },
     overall_status: overallStatus,
     reason_code: actionRequiredCount === 0 ? null : 'all-repos-partial-or-action-required',
     next_action: actionRequiredCount === 0
-      ? 'All child repos completed init.'
+      ? 'Parent host runtime and all child repos completed init.'
       : 'Inspect per-child reason_code and rerun init for action-required repos.',
   };
 
@@ -438,7 +475,7 @@ function printInitNextSteps(platform, lang = 'zh') {
     console.log(`  1. Restart ${hostDisplay} or open a new session so the host loads the generated ${entryKind}.`);
     console.log(`  2. In the new session, run ${mcpSetupCommand} to install and verify the required MCP/helper runtime.`);
     console.log(`  3. If ${mcpSetupCommand} shows graph bootstrap is still pending, run ${graphBootstrapCommand} when prompted.`);
-    console.log(`  4. After graph readiness is ready, run ${standardsCommand} to compile project standards and glue baseline before downstream workflows.`);
+    console.log(`  4. After graph readiness is ready, run ${standardsCommand} to compile project standards and glue baseline before downstream workflows. In a parent workspace this writes advisory parent standards artifacts; use ${standardsCommand} --repo <child> for a child-local baseline.`);
     return;
   }
 
@@ -446,7 +483,7 @@ function printInitNextSteps(platform, lang = 'zh') {
   console.log(`  1. 重启 ${hostDisplay} 或新开会话，让宿主加载刚生成的 ${entryKind}。`);
   console.log(`  2. 在新会话运行 ${mcpSetupCommand}，安装并验证必装 MCP/helper runtime。`);
   console.log(`  3. 如果 ${mcpSetupCommand} 显示 graph bootstrap 仍 pending，再按提示运行 ${graphBootstrapCommand}。`);
-  console.log(`  4. graph readiness 就绪后，运行 ${standardsCommand} 编译项目规范与胶水基线，再进入下游 workflow。`);
+  console.log(`  4. graph readiness 就绪后，运行 ${standardsCommand} 编译项目规范与胶水基线，再进入下游 workflow。父 workspace 下这是 advisory parent standards artifacts；child-local baseline 使用 ${standardsCommand} --repo <child>。`);
 }
 
 function printHelp() {
@@ -457,7 +494,7 @@ function printHelp() {
     '  spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run] [--repo <child>|--all-repos]',
     '',
     'Workspace targeting:',
-    '  In a parent workspace with child Git repos, init automatically runs all child repos and writes only a parent advisory summary.',
+    '  In a parent workspace with child Git repos, init refreshes parent host runtime assets, runs all child repos, and writes only a parent advisory summary.',
     '  Use --repo <child> to initialize one child repo, or --all-repos to make the batch intent explicit.',
     '',
     '➡️ After successful init:',
@@ -582,10 +619,16 @@ function discoverChildGitRepos(workspaceRoot, maxDepth = 3) {
     '.codex',
     '.direnv',
     '.git',
+    '.gitnexus',
     '.serena',
     '.spec-first',
     '.venv',
+    '.worktrees',
+    'coverage',
+    'dist',
     'node_modules',
+    'temp',
+    'tmp',
     'vendor',
   ]);
 

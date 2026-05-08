@@ -14,10 +14,18 @@ const {
   parseArgs,
   prepareBaseline,
 } = require('../../skills/spec-standards/scripts/prepare-baseline');
+const {
+  discoverChildGitRepos,
+  normalizeRepoSelector,
+  normalizeTargetKind,
+  resolveStandardsTarget,
+} = require('../../skills/spec-standards/scripts/standards-targeting');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-standards/SKILL.md');
 const SCRIPT_PATH = path.join(REPO_ROOT, 'skills/spec-standards/scripts/prepare-baseline.js');
+const TARGETING_SCRIPT_PATH = path.join(REPO_ROOT, 'skills/spec-standards/scripts/standards-targeting.js');
+const WORKSPACE_FACTS_SCRIPT_PATH = path.join(REPO_ROOT, 'skills/spec-standards/scripts/standards-workspace-facts.js');
 const VALIDATOR_SCRIPT_PATH = path.join(REPO_ROOT, 'skills/spec-standards/scripts/validate-artifacts.js');
 const COMMAND_TEMPLATE_PATH = path.join(REPO_ROOT, 'templates/claude/commands/spec/standards.md');
 
@@ -40,6 +48,7 @@ describe('spec-standards workflow contract', () => {
     const skill = read(SKILL_PATH);
 
     expect(skill).toContain('name: spec-standards');
+    expect(skill).toContain('argument-hint: "[--baseline|--quick|--refresh|--deep] [--repo <child>|--workspace|--target-kind <auto|repo|workspace>] [--import-source <git-or-path>]"');
     expect(skill).toContain('Graph-backed Project Standards & Glue Compiler');
     expect(skill).toContain('Invocation Boundary');
     expect(skill).toContain('not an agent type');
@@ -47,7 +56,10 @@ describe('spec-standards workflow contract', () => {
     expect(skill).toContain('Preview before writeback.');
     expect(skill).toContain('Observed is not confirmed.');
     expect(skill).toContain('Do not write `repo-profile.yaml`.');
-    expect(skill).toContain('`--repo <child>` selects the child repo as the target repo root');
+    expect(skill).toContain('`--repo <child>` selects one child repo as the target repo root');
+    expect(skill).toContain('parent `.spec-first/standards/` as an advisory workspace standards baseline');
+    expect(skill).toContain('scope.type=workspace');
+    expect(skill).toContain('synthesis_contract.workspace_policy');
     expect(skill).toContain('synthesis_contract.candidate_required_fields');
     expect(skill).toContain('spec-first.standards-candidates.v1');
     expect(skill).toContain('Confirmed standards are the only hard constraints.');
@@ -59,7 +71,8 @@ describe('spec-standards workflow contract', () => {
     expect(skill).toContain('.spec-first/standards/standards-preview.md');
     expect(skill).toContain('node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json');
     expect(skill).toContain('trust_level=degraded');
-    expect(skill).toContain('validator fail, missing validator result, or `trust_level=degraded` -> degraded/advisory only');
+    expect(skill).toContain('consumption_boundary=advisory_only');
+    expect(skill).toContain('validator fail, missing validator result, `trust_level=degraded`, `consumption_boundary=advisory_only`, or `workspace-advisory-only` -> degraded/advisory only');
     expect(skill).toContain('Artifact validation is the completion gate.');
     expect(skill).toContain('If validator has not returned exit code `0`, do not report a trusted baseline or completed standards baseline');
     expect(skill).toContain('Do not rewrite contract-bearing headings, tool names, paths, command names, candidate ids, or author names just to clear diagnostics.');
@@ -78,7 +91,7 @@ describe('spec-standards workflow contract', () => {
     const template = read(COMMAND_TEMPLATE_PATH);
 
     expect(template).toContain('description: "Compile project standards and glue capability baseline artifacts"');
-    expect(template).toContain('argument-hint: "[--baseline|--quick|--refresh|--deep] [--import-source <git-or-path>]"');
+    expect(template).toContain('argument-hint: "[--baseline|--quick|--refresh|--deep] [--repo <child>|--workspace|--target-kind <auto|repo|workspace>] [--import-source <git-or-path>]"');
     expect(template).toContain('This source template defines Claude command metadata only.');
     expect(template).toContain('skills/spec-standards/SKILL.md');
     expect(template).toContain('Edit the paired skill to change workflow behavior.');
@@ -95,7 +108,13 @@ describe('spec-standards workflow contract', () => {
       expect(consumer.advisory_context).toEqual(['observed', 'imported', 'suggested']);
       expect(consumer.risk_context).toEqual(['conflict', 'deprecated', 'drifted']);
       expect(consumer.question_context).toEqual(['unknown']);
-      expect(consumer.degraded_context).toEqual(['validator_fail', 'trust_level=degraded', 'missing_validation_result']);
+      expect(consumer.degraded_context).toEqual([
+        'validator_fail',
+        'trust_level=degraded',
+        'missing_validation_result',
+        'consumption_boundary=advisory_only',
+        'workspace-advisory-only',
+      ]);
       expect(consumer.consumption_modes).toEqual(expect.objectContaining({
         confirmed: 'hard',
         observed: 'advisory',
@@ -104,6 +123,9 @@ describe('spec-standards workflow contract', () => {
         conflict: 'risk',
         unknown: 'question',
         validator_fail: 'degraded/advisory',
+        trust_level_degraded: 'degraded/advisory',
+        consumption_boundary_advisory_only: 'degraded/advisory',
+        workspace_advisory_only: 'degraded/advisory',
       }));
       expect(consumer.glue_map_boundary).toContain('not a workflow state machine');
     }
@@ -217,6 +239,7 @@ describe('spec-standards workflow contract', () => {
   test('repo selector scans and writes child-local standards artifacts', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-child-repo-'));
     try {
+      writeFile(tmp, 'packages/app/.git/HEAD', 'ref: refs/heads/main\n');
       writeFile(tmp, 'packages/app/package.json', JSON.stringify({ name: 'child-project' }));
       writeFile(tmp, 'packages/app/bin/spec-first.js', '#!/usr/bin/env node\n');
       writeFile(tmp, 'packages/app/src/cli/index.js', "'use strict';\n");
@@ -256,6 +279,395 @@ describe('spec-standards workflow contract', () => {
       expect(projectShape.scope.workspace_child).toBe('packages/app');
       expect(projectShape.project.detected_type).toBe('node_cli');
       expect(glueMap.scope.workspace_child).toBe('packages/app');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('parent workspace writes advisory workspace standards artifacts without mutating children', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-parent-workspace-'));
+    try {
+      writeFile(tmp, 'services/api/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'services/api/package.json', JSON.stringify({ name: 'api-service', dependencies: { express: '^4.18.0' } }));
+      writeFile(tmp, 'services/api/src/server.js', "'use strict';\n");
+      writeFile(tmp, 'apps/web/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'apps/web/package.json', JSON.stringify({ name: 'web-app', dependencies: { react: '^18.0.0' } }));
+      writeFile(tmp, 'apps/web/src/App.tsx', 'export function App() { return null; }\n');
+      writeFile(tmp, '.spec-first/workspace/graph-targets.json', '{}\n');
+
+      const result = prepareBaseline({
+        root: tmp,
+        mode: 'baseline',
+        dryRun: false,
+      });
+
+      expect(result.target_kind).toBe('workspace');
+      expect(result.target_repo).toBe(null);
+      expect(result.workspace_child_count).toBe(2);
+      expect(result.workspace_root).toBe(tmp);
+      expect(result.repo_root).toBe(tmp);
+      expect(result.scope).toEqual({
+        type: 'workspace',
+        root: '.',
+        domains: [],
+        modules: [],
+        workspace: {
+          child_repo_count: 2,
+          child_repos: ['apps/web', 'services/api'],
+          child_repos_truncated: false,
+          child_repo_ordering: 'lexical',
+          artifacts_advisory_only: true,
+        },
+      });
+      expect(result.artifacts).toEqual([
+        '.spec-first/standards/project-shape.json',
+        '.spec-first/standards/standards-plan.json',
+        '.spec-first/standards/glue-map.json',
+      ]);
+      expect(fs.existsSync(path.join(tmp, '.spec-first/standards/project-shape.json'))).toBe(true);
+      expect(fs.existsSync(path.join(tmp, 'apps/web/.spec-first/standards/project-shape.json'))).toBe(false);
+      expect(fs.existsSync(path.join(tmp, 'services/api/.spec-first/standards/project-shape.json'))).toBe(false);
+
+      const projectShape = readJson(path.join(tmp, '.spec-first/standards/project-shape.json'));
+      const standardsPlan = readJson(path.join(tmp, '.spec-first/standards/standards-plan.json'));
+      const glueMap = readJson(path.join(tmp, '.spec-first/standards/glue-map.json'));
+
+      expect(projectShape.project_mode).toBe('parent_workspace_multi_repo');
+      expect(projectShape.project.detected_type).toBe('parent_workspace');
+      expect(projectShape.domains.workspace.detected).toBe(true);
+      expect(projectShape.workspace).toEqual(expect.objectContaining({
+        schema_version: 'spec-first.workspace-children.v1',
+        status: 'detected',
+        child_repo_count: 2,
+        child_repos_truncated: false,
+      }));
+      expect(projectShape.workspace.child_repos.map((child) => child.workspace_relative_path)).toEqual([
+        'apps/web',
+        'services/api',
+      ]);
+      expect(projectShape.workspace.child_repos[0]).toEqual(expect.objectContaining({
+        detected_type: 'frontend_application',
+        package_managers: ['npm'],
+      }));
+      expect(projectShape.workspace.child_repos[1]).toEqual(expect.objectContaining({
+        detected_type: 'backend_service',
+        package_managers: ['npm'],
+      }));
+      expect(projectShape.evidence.inventory_hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+      expect(projectShape.evidence.workspace_summary_hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+      expect(projectShape.evidence.scanned_file_count).toBe(1);
+      expect(standardsPlan.scope.type).toBe('workspace');
+      expect(standardsPlan.synthesis_contract.workspace_policy).toEqual(expect.objectContaining({
+        active: true,
+        artifacts_are_advisory: true,
+        forbidden_writes: expect.arrayContaining([
+          '<child>/.spec-first/standards/*',
+          '<child>/.spec-first/specs/repo-profile.yaml',
+        ]),
+      }));
+      expect(glueMap.scope.type).toBe('workspace');
+      expect(glueMap.capabilities.map((capability) => capability.id)).toContain('capability.workspace.child-repo-map');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace target resolver keeps parent and child standards scopes explicit', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-targeting-'));
+    try {
+      writeFile(tmp, 'services/api/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'services/api/package.json', JSON.stringify({ name: 'api-service' }));
+      writeFile(tmp, 'apps/web/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'apps/web/package.json', JSON.stringify({ name: 'web-app' }));
+
+      expect(normalizeTargetKind('workspace')).toBe('workspace');
+      expect(() => normalizeTargetKind('invalid')).toThrow('Unsupported standards target kind: invalid');
+      expect(normalizeRepoSelector('./services/./api')).toBe('services/api');
+      expect(() => normalizeRepoSelector('.')).toThrow('not the workspace root');
+      expect(() => normalizeRepoSelector('/tmp/outside')).toThrow('must be a workspace-relative child repo path');
+
+      expect(discoverChildGitRepos(tmp).map((child) => child.workspace_relative_path)).toEqual([
+        'apps/web',
+        'services/api',
+      ]);
+
+      expect(resolveStandardsTarget({
+        workspaceRoot: tmp,
+        requestedRoot: tmp,
+        repo: null,
+        targetKind: 'auto',
+      })).toEqual(expect.objectContaining({
+        kind: 'workspace',
+        reasonCode: 'workspace-child-repos-detected',
+        repo: null,
+      }));
+
+      expect(resolveStandardsTarget({
+        workspaceRoot: tmp,
+        requestedRoot: path.join(tmp, 'services/api'),
+        repo: 'services/api',
+        targetKind: 'auto',
+      })).toEqual(expect.objectContaining({
+        kind: 'workspace_child_repo',
+        reasonCode: 'explicit-child-repo',
+        repo: 'services/api',
+      }));
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('resolveStandardsTarget returns directory-without-child-repos for plain dir', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-no-children-'));
+    try {
+      // 普通目录，无 .git，无子 git repo
+      expect(resolveStandardsTarget({
+        workspaceRoot: tmp,
+        requestedRoot: tmp,
+        repo: null,
+        targetKind: 'auto',
+      })).toEqual(expect.objectContaining({
+        kind: 'repo',
+        reasonCode: 'directory-without-child-repos',
+      }));
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('resolveStandardsTarget returns cwd-git-root for dir with .git', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-git-root-'));
+    try {
+      fs.writeFileSync(path.join(tmp, '.git'), 'gitdir: .git');
+      expect(resolveStandardsTarget({
+        workspaceRoot: tmp,
+        requestedRoot: tmp,
+        repo: null,
+        targetKind: 'auto',
+      })).toEqual(expect.objectContaining({
+        kind: 'repo',
+        reasonCode: 'cwd-git-root',
+      }));
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('resolveStandardsTarget returns explicit-workspace-target with targetKind workspace and no children', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-explicit-ws-'));
+    try {
+      // 无子 git repo，但显式指定 workspace
+      expect(resolveStandardsTarget({
+        workspaceRoot: tmp,
+        requestedRoot: tmp,
+        repo: null,
+        targetKind: 'workspace',
+      })).toEqual(expect.objectContaining({
+        kind: 'workspace',
+        reasonCode: 'explicit-workspace-target',
+        workspaceChildren: [],
+      }));
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('repo selector rejects non-git children and symlink escapes', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-repo-boundary-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-outside-'));
+    try {
+      writeFile(tmp, 'packages/app/package.json', JSON.stringify({ name: 'not-a-repo' }));
+      writeFile(outside, '.git/HEAD', 'ref: refs/heads/main\n');
+
+      expect(() => prepareBaseline({
+        root: tmp,
+        repo: 'packages/app',
+        dryRun: true,
+      })).toThrow('--repo must select a child Git repo root: packages/app');
+
+      let symlinkCreated1 = false;
+      try {
+        fs.symlinkSync(outside, path.join(tmp, 'linked-outside'), 'dir');
+        symlinkCreated1 = true;
+      } catch (_error) {
+        // 当前环境不支持 symlink，跳过安全断言
+      }
+      if (symlinkCreated1) {
+        expect(() => prepareBaseline({
+          root: tmp,
+          repo: 'linked-outside',
+          dryRun: true,
+        })).toThrow('--repo target must stay inside the workspace root after resolving symlinks: linked-outside');
+        expect(fs.existsSync(path.join(outside, '.spec-first/standards/project-shape.json'))).toBe(false);
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  test('standards output path cannot escape selected authority boundaries', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-output-boundary-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-output-outside-'));
+    try {
+      writeFile(tmp, 'services/api/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'services/api/package.json', JSON.stringify({ name: 'api-service' }));
+
+      expect(() => prepareBaseline({
+        root: tmp,
+        output: 'services/api/.spec-first/standards',
+        mode: 'baseline',
+        dryRun: false,
+      })).toThrow('--output cannot override parent workspace standards root');
+      expect(fs.existsSync(path.join(tmp, 'services/api/.spec-first/standards/project-shape.json'))).toBe(false);
+
+      expect(() => prepareBaseline({
+        root: tmp,
+        repo: 'services/api',
+        output: path.join(outside, 'standards'),
+        mode: 'baseline',
+        dryRun: true,
+      })).toThrow('--output must stay inside the selected repo root.');
+
+      let symlinkCreated2 = false;
+      try {
+        fs.symlinkSync(outside, path.join(tmp, 'services/api/.spec-first'), 'dir');
+        symlinkCreated2 = true;
+      } catch (_error) {
+        // 当前环境不支持 symlink，跳过安全断言
+      }
+      if (symlinkCreated2) {
+        expect(() => prepareBaseline({
+          root: tmp,
+          repo: 'services/api',
+          mode: 'baseline',
+          dryRun: true,
+        })).toThrow('--output must stay inside the selected repo root.');
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace quick freshness tracks child repo summary changes', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-workspace-quick-'));
+    try {
+      writeFile(tmp, 'services/api/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'services/api/package.json', JSON.stringify({ name: 'api-service' }));
+
+      prepareBaseline({
+        root: tmp,
+        mode: 'baseline',
+        dryRun: false,
+      });
+      writeFile(tmp, 'services/api/src/server.js', "'use strict';\n");
+      prepareBaseline({
+        root: tmp,
+        mode: 'quick',
+        dryRun: false,
+      });
+
+      const decision = readJson(path.join(tmp, '.spec-first/standards/standards-update-decision.json'));
+      expect(decision.recommendation).toBe('refresh');
+      expect(decision.reason_codes).toContain('workspace-child-summary-changed');
+      expect(decision.current_workspace_summary_hash).not.toBe(decision.existing_workspace_summary_hash);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace quick with no file changes recommends reuse-current-baseline', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-workspace-quick-reuse-'));
+    try {
+      writeFile(tmp, 'services/api/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'services/api/package.json', JSON.stringify({ name: 'api-service' }));
+
+      // 先写入 baseline
+      prepareBaseline({
+        root: tmp,
+        mode: 'baseline',
+        dryRun: false,
+      });
+      // standards-candidates.json 和 standards-preview.md 由 LLM 写入，手动模拟
+      const standardsDir = path.join(tmp, '.spec-first/standards');
+      writeFile(tmp, '.spec-first/standards/standards-candidates.json', JSON.stringify({ schema_version: 'v1', items: [] }));
+      writeFile(tmp, '.spec-first/standards/standards-preview.md', '# Preview\n');
+
+      // 无文件变更立即再次 quick 运行
+      prepareBaseline({
+        root: tmp,
+        mode: 'quick',
+        dryRun: false,
+      });
+
+      const decision = readJson(path.join(standardsDir, 'standards-update-decision.json'));
+      expect(decision.recommendation).toBe('reuse-current-baseline');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace child repo samples stay consistently bounded across artifacts', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-workspace-truncated-'));
+    try {
+      for (let index = 0; index < 22; index += 1) {
+        const name = `repo-${String(index).padStart(2, '0')}`;
+        writeFile(tmp, `${name}/.git/HEAD`, 'ref: refs/heads/main\n');
+        writeFile(tmp, `${name}/package.json`, JSON.stringify({ name }));
+      }
+
+      prepareBaseline({
+        root: tmp,
+        mode: 'baseline',
+        dryRun: false,
+      });
+
+      const projectShape = readJson(path.join(tmp, '.spec-first/standards/project-shape.json'));
+      const standardsPlan = readJson(path.join(tmp, '.spec-first/standards/standards-plan.json'));
+      const glueMap = readJson(path.join(tmp, '.spec-first/standards/glue-map.json'));
+      const workspaceCapability = glueMap.capabilities.find((item) => item.id === 'capability.workspace.child-repo-map');
+
+      expect(projectShape.workspace.child_repo_count).toBe(22);
+      expect(projectShape.workspace.child_repos).toHaveLength(20);
+      expect(projectShape.workspace.child_repos_truncated).toBe(true);
+      expect(standardsPlan.scope.workspace.child_repo_count).toBe(22);
+      expect(standardsPlan.scope.workspace.child_repos).toHaveLength(20);
+      expect(standardsPlan.scope.workspace.child_repos_truncated).toBe(true);
+      expect(workspaceCapability.entrypoints).toHaveLength(20);
+      expect(workspaceCapability.child_repo_count).toBe(22);
+      expect(workspaceCapability.child_repos_truncated).toBe(true);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace discovery skips internal worktree directories', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-worktrees-skip-'));
+    try {
+      writeFile(tmp, '.worktrees/feature/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'services/api/.git/HEAD', 'ref: refs/heads/main\n');
+
+      expect(discoverChildGitRepos(tmp).map((child) => child.workspace_relative_path)).toEqual([
+        'services/api',
+      ]);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace discovery deduplicates nested repos — inner repo is excluded', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-nested-dedup-'));
+    try {
+      // 外层 git repo
+      writeFile(tmp, 'repos/parent/.git/HEAD', 'ref: refs/heads/main\n');
+      // 嵌套在外层 repo 内的 git submodule
+      writeFile(tmp, 'repos/parent/submod/.git/HEAD', 'ref: refs/heads/main\n');
+
+      const discovered = discoverChildGitRepos(tmp).map((child) => child.workspace_relative_path);
+      // 内层 repos/parent/submod 应被去重，不出现在结果中
+      expect(discovered).toContain('repos/parent');
+      expect(discovered).not.toContain('repos/parent/submod');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -501,8 +913,24 @@ describe('spec-standards workflow contract', () => {
         message: '--root requires a value.',
       },
       {
+        args: ['--repo', '/tmp/outside', '--dry-run'],
+        message: '--repo must be a workspace-relative child repo path',
+      },
+      {
         args: ['--repo', '../outside', '--dry-run'],
         message: '--repo must not traverse outside the workspace root: ../outside',
+      },
+      {
+        args: ['--repo', '.', '--dry-run'],
+        message: '--repo must select a child Git repo path, not the workspace root: .',
+      },
+      {
+        args: ['--repo', 'packages/app', '--workspace', '--dry-run'],
+        message: '--repo cannot be combined with --workspace or --target-kind workspace.',
+      },
+      {
+        args: ['--repo', 'packages/app', '--target-kind', 'workspace', '--dry-run'],
+        message: '--repo cannot be combined with --workspace or --target-kind workspace.',
       },
     ];
 
@@ -518,25 +946,38 @@ describe('spec-standards workflow contract', () => {
   });
 
   test('argument parser accepts public standards modes and scoped inputs', () => {
-    const args = parseArgs([
-      '--refresh',
-      '--domain',
-      'cli',
-      '--module',
-      'src/cli',
-      '--repo',
-      'packages/app',
-      '--import-source',
-      './standards',
-      '--dry-run',
-    ]);
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-parse-args-'));
+    try {
+      writeFile(tmp, 'packages/app/.git/HEAD', 'ref: refs/heads/main\n');
 
-    expect(args.mode).toBe('refresh');
-    expect(args.domains).toEqual(['cli']);
-    expect(args.modules).toEqual(['src/cli']);
-    expect(args.repo).toBe('packages/app');
-    expect(args.importSource).toBe('./standards');
-    expect(args.dryRun).toBe(true);
+      const args = parseArgs([
+        '--root',
+        tmp,
+        '--refresh',
+        '--domain',
+        'cli',
+        '--module',
+        'src/cli',
+        '--repo',
+        './packages/./app',
+        '--import-source',
+        './standards',
+        '--target-kind',
+        'repo',
+        '--dry-run',
+      ]);
+
+      expect(args.mode).toBe('refresh');
+      expect(args.domains).toEqual(['cli']);
+      expect(args.modules).toEqual(['src/cli']);
+      expect(args.repo).toBe('packages/app');
+      expect(args.targetKind).toBe('workspace_child_repo');
+      expect(args.requestedTargetKind).toBe('repo');
+      expect(args.importSource).toBe('./standards');
+      expect(args.dryRun).toBe(true);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
   });
 
   test('generated standards artifacts and tool indexes do not affect project-shape facts', () => {
@@ -586,6 +1027,17 @@ describe('spec-standards workflow contract', () => {
   });
 
   test('spec-standards CLI scripts keep executable syntax and help output', () => {
+    const targetingCheck = spawnSync(process.execPath, ['--check', TARGETING_SCRIPT_PATH], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    });
+    expect(targetingCheck.status).toBe(0);
+    const workspaceFactsCheck = spawnSync(process.execPath, ['--check', WORKSPACE_FACTS_SCRIPT_PATH], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    });
+    expect(workspaceFactsCheck.status).toBe(0);
+
     const scripts = [
       [SCRIPT_PATH, 'Prepare deterministic spec-standards facts.'],
       [VALIDATOR_SCRIPT_PATH, 'Validate generated spec-standards candidates and preview artifacts.'],

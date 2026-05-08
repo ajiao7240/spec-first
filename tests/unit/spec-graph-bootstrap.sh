@@ -668,7 +668,25 @@ write_fixture_config "$FTS_EMPTY_REPO" "$FTS_EMPTY_LEDGER" true
 fts_empty_output="$(cd "$FTS_EMPTY_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_FTS_EMPTY=1 bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "FTS/read-only empty query result degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$fts_empty_output")"
 assert_eq "FTS/read-only empty result is not query-ready" "query-unverified:true:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.graph_ready):\(.query_ready)"' <<<"$fts_empty_output")"
+assert_eq "FTS/read-only diagnostic gets structured provider reason" "gitnexus-query-fts-readonly:provider-storage-readonly:query_probe:0" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$fts_empty_output")"
 assert_contains "FTS/read-only limitation is recorded" "FTS/read-only/missing-index" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$fts_empty_output")"
+assert_contains "FTS/read-only recommended action is recorded" "Repair GitNexus index storage or permissions" "$(jq -r '.results[] | select(.provider=="gitnexus") | .recommended_action' <<<"$fts_empty_output")"
+assert_contains "FTS/read-only limitation includes action" "Use code-review-graph degraded fallback meanwhile" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$fts_empty_output")"
+
+STALE_PACKAGE_REPO="$TMP_DIR/stale-package-repo"
+STALE_PACKAGE_LEDGER="$TMP_DIR/stale-package-home/.codex/spec-first/host-setup.json"
+make_repo "$STALE_PACKAGE_REPO"
+write_fixture_config "$STALE_PACKAGE_REPO" "$STALE_PACKAGE_LEDGER" true
+jq '
+  .providers.gitnexus.commands.bootstrap[2] = "gitnexus@0.0.0-test"
+  | .providers.gitnexus.commands.status[2] = "gitnexus@0.0.0-test"
+  | .providers.gitnexus.commands.query_probe[2] = "gitnexus@0.0.0-test"
+' "$STALE_PACKAGE_REPO/.spec-first/config/graph-providers.json" > "$STALE_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$STALE_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp" "$STALE_PACKAGE_REPO/.spec-first/config/graph-providers.json"
+stale_package_output="$(cd "$STALE_PACKAGE_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_FTS_EMPTY=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "FTS/read-only with stale GitNexus projection recommends setup refresh" "gitnexus-query-provider-projection-stale:provider-projection-stale" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.reason_code):\(.failure_class)"' <<<"$stale_package_output")"
+assert_contains "stale package action names spec-mcp-setup" "Rerun spec-mcp-setup" "$(jq -r '.results[] | select(.provider=="gitnexus") | .recommended_action' <<<"$stale_package_output")"
+assert_contains "stale package action names current projected package" "gitnexus@0.0.0-test" "$(jq -r '.results[] | select(.provider=="gitnexus") | .query_verification_reason' <<<"$stale_package_output")"
 
 DEFINITIONS_ONLY_REPO="$TMP_DIR/definitions-only-repo"
 DEFINITIONS_ONLY_LEDGER="$TMP_DIR/definitions-only-home/.codex/spec-first/host-setup.json"

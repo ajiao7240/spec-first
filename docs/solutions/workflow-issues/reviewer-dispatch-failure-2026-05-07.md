@@ -72,7 +72,7 @@ required disclosure: dispatch failure reason + residual multi-persona rerun acti
 - 在网关恢复正常 1m + 多并发 dispatch 后，对父计划重做一轮 multi-persona cross-check（tracker entry `review-rerun-1`）。
 - 排查上下文使用：审查时是否可避免把 subagent template + schema 全文塞 prompt（让 subagent 自行 Read），降低单次 dispatch 上下文。
 - 若网关 500 持续：报告 `Calcium-Ion/new-api` issue 或暂时切换网关。
-- 在父计划 Risks 表追加 "reviewer dispatch 失败 → fallback" 行（已应用，revision 2）。
+- 在父计划 Risks 表追加 "reviewer dispatch 失败 → fallback" 行（已应用；父计划当前 revision 3 保留该风险行）。
 
 ## Lessons
 

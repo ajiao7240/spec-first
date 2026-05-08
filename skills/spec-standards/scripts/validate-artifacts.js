@@ -224,12 +224,15 @@ function validateArtifacts(args, cwd = process.cwd()) {
       patch: fs.existsSync(inputs.patch) ? relativePath(cwd, inputs.patch) : null,
       confirmations: fs.existsSync(inputs.confirmations) ? relativePath(cwd, inputs.confirmations) : null,
     },
+    scope: null,
+    consumption_boundary: 'trusted_baseline',
     errors: [],
     warnings: [],
   };
 
   const plan = readPlan(inputs.plan, args, result);
   const contract = buildContract(plan);
+  applyConsumptionBoundary(contract, result);
   validateConsumptionMapping(contract, result);
 
   const candidatesDoc = readJsonArtifact(inputs.candidates, result);
@@ -267,12 +270,39 @@ function readPlan(planPath, args, result) {
 
 function buildContract(plan) {
   const synthesisContract = plan && plan.synthesis_contract ? plan.synthesis_contract : {};
+  const scope = plan && plan.scope && typeof plan.scope === 'object' && !Array.isArray(plan.scope)
+    ? plan.scope
+    : null;
+  const workspacePolicy = synthesisContract.workspace_policy
+    && typeof synthesisContract.workspace_policy === 'object'
+    && !Array.isArray(synthesisContract.workspace_policy)
+      ? synthesisContract.workspace_policy
+      : { active: false, artifacts_are_advisory: false };
   return {
     allowedStatuses: arrayOrDefault(synthesisContract.allowed_statuses, DEFAULT_ALLOWED_STATUSES),
     allowedSourceTypes: arrayOrDefault(synthesisContract.allowed_source_types, DEFAULT_ALLOWED_SOURCE_TYPES),
     candidateRequiredFields: arrayOrDefault(synthesisContract.candidate_required_fields, DEFAULT_REQUIRED_FIELDS),
     consumptionModes: { ...CONSUMPTION_MODES },
+    scope,
+    workspacePolicy,
   };
+}
+
+function applyConsumptionBoundary(contract, result) {
+  result.scope = contract.scope;
+  const workspaceAdvisory = contract.workspacePolicy.active === true
+    || contract.workspacePolicy.artifacts_are_advisory === true
+    || (contract.scope && contract.scope.type === 'workspace');
+  if (!workspaceAdvisory) return;
+
+  result.trust_level = 'degraded';
+  result.consumption_boundary = 'advisory_only';
+  addIssue(
+    result.warnings,
+    'workspace-advisory-only',
+    'standards-plan.json',
+    'Workspace standards artifacts are advisory-only and must not be consumed as a trusted child repo standards baseline.',
+  );
 }
 
 function validateConsumptionMapping(contract, result) {
@@ -396,11 +426,23 @@ function validateCandidates(doc, context, result) {
     }
   }
 
+  validateCandidateDocumentScope(doc, context, result);
   validateStatusCounts(doc.status_counts || {}, actualCounts, result);
   validateReferenceList(doc.conflicts || [], candidateById, 'conflict', 'conflict-reference-mismatch', result);
   validateReferenceList(doc.unknowns || [], candidateById, 'unknown', 'unknown-reference-mismatch', result);
   validateRequiredReferenceForStatus(doc.candidates, collectRefs(doc.conflicts || []), 'conflict', 'conflict-reference-mismatch', result);
   validateRequiredReferenceForStatus(doc.candidates, collectRefs(doc.unknowns || []), 'unknown', 'unknown-reference-mismatch', result);
+}
+
+function validateCandidateDocumentScope(doc, context, result) {
+  const planScope = context.contract.scope;
+  if (!planScope || !planScope.type || !doc.scope || !doc.scope.type) return;
+  if (doc.scope.type !== planScope.type) {
+    addIssue(result.errors, 'scope-mismatch', 'standards-candidates.json', `Candidate scope ${doc.scope.type} does not match standards-plan scope ${planScope.type}.`, {
+      expected_scope: planScope.type,
+      actual_scope: doc.scope.type,
+    });
+  }
 }
 
 function validateCandidate(candidate, context, result) {

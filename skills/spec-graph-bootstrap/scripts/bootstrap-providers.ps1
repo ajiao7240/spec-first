@@ -223,7 +223,7 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
     }
     overall_status = $overallStatus
     reason_code = if ($actionRequiredCount -gt 0) { 'all-repos-partial-or-action-required' } elseif ($degradedCount -gt 0) { 'all-repos-degraded-fallback' } else { $null }
-    next_action = if ($actionRequiredCount -gt 0) { 'Inspect per-child reason_code and rerun setup/bootstrap for action-required repos.' } elseif ($degradedCount -gt 0) { 'Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos.' } elseif ($notApplicableCount -gt 0) { 'All code-bearing child repos produced graph bootstrap artifacts; skip GitNexus process routing for no-source children.' } else { 'All child repos produced graph bootstrap artifacts.' }
+    next_action = if ($actionRequiredCount -gt 0) { 'Inspect per-child reason_code and rerun setup/bootstrap for action-required repos.' } elseif ($degradedCount -gt 0) { 'Inspect per-child provider reason_code/recommended_action. Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos.' } elseif ($notApplicableCount -gt 0) { 'All code-bearing child repos produced graph bootstrap artifacts; skip GitNexus process routing for no-source children.' } else { 'All child repos produced graph bootstrap artifacts.' }
   }
 
   $workspaceDir = Join-Path $TargetFacts.workspace_root '.spec-first/workspace'
@@ -889,6 +889,71 @@ function Get-GitNexusRepoLabelMismatchFailureInfo {
   return $null
 }
 
+function Get-ConfiguredGitNexusPackageSpec {
+  param([object]$ProviderConfig)
+  $queryCommand = @($ProviderConfig.providers.gitnexus.commands.query_probe)
+  if ($queryCommand.Count -gt 2 -and -not [string]::IsNullOrWhiteSpace([string]$queryCommand[2])) {
+    return [string]$queryCommand[2]
+  }
+  $bootstrapCommand = @($ProviderConfig.providers.gitnexus.commands.bootstrap)
+  if ($bootstrapCommand.Count -gt 2 -and -not [string]::IsNullOrWhiteSpace([string]$bootstrapCommand[2])) {
+    return [string]$bootstrapCommand[2]
+  }
+  return ''
+}
+
+function Get-BundledGitNexusPackageSpec {
+  if ([string]::IsNullOrWhiteSpace([string]$script:McpToolsJson) -or -not (Test-Path -LiteralPath $script:McpToolsJson -PathType Leaf)) {
+    return ''
+  }
+  try {
+    $toolsJson = Get-Content -Raw -LiteralPath $script:McpToolsJson | ConvertFrom-Json
+    $tool = @($toolsJson.tools | Where-Object { $_.id -eq 'gitnexus' } | Select-Object -First 1)
+    if ($tool.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$tool[0].package) -and -not [string]::IsNullOrWhiteSpace([string]$tool[0].version)) {
+      return "$($tool[0].package)@$($tool[0].version)"
+    }
+  } catch {
+  }
+  return ''
+}
+
+function Get-GitNexusQueryDiagnosticFailureInfo {
+  param(
+    [object]$ProviderConfig,
+    [int]$ExitCode,
+    [object[]]$QueryProbeAttempts
+  )
+  if (@($QueryProbeAttempts | Where-Object { $_.result_class -eq 'diagnostic' }).Count -le 0) {
+    return $null
+  }
+
+  $configuredPackage = Get-ConfiguredGitNexusPackageSpec -ProviderConfig $ProviderConfig
+  $bundledPackage = Get-BundledGitNexusPackageSpec
+  if (
+    -not [string]::IsNullOrWhiteSpace($configuredPackage) -and
+    -not [string]::IsNullOrWhiteSpace($bundledPackage) -and
+    $configuredPackage -ne $bundledPackage
+  ) {
+    return [ordered]@{
+      failed_phase = 'query_probe'
+      failure_class = 'provider-projection-stale'
+      reason_code = 'gitnexus-query-provider-projection-stale'
+      exit_code = $ExitCode
+      recommended_action = "Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled GitNexus package '$bundledPackage'; it currently projects '$configuredPackage'. Then rerun spec-graph-bootstrap. Use code-review-graph degraded fallback until GitNexus query proof returns process results."
+      diagnostic = "GitNexus query probe emitted FTS/read-only/missing-index diagnostics while setup-projected package '$configuredPackage' differs from bundled package '$bundledPackage'."
+    }
+  }
+
+  return [ordered]@{
+    failed_phase = 'query_probe'
+    failure_class = 'provider-storage-readonly'
+    reason_code = 'gitnexus-query-fts-readonly'
+    exit_code = $ExitCode
+    recommended_action = 'GitNexus query emitted FTS/read-only/missing-index diagnostics after build/status succeeded. Repair GitNexus index storage or permissions, or clean/reanalyze GitNexus with a fixed provider version, then rerun spec-graph-bootstrap. Use code-review-graph degraded fallback meanwhile.'
+    diagnostic = 'GitNexus query probe emitted FTS/read-only/missing-index diagnostics after build/status succeeded.'
+  }
+}
+
 function Get-ProviderFailureInfo {
   param(
     [string]$Provider,
@@ -1075,6 +1140,12 @@ function Test-FallbackSupported {
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$mcpToolsOverride = [Environment]::GetEnvironmentVariable('SPEC_FIRST_MCP_TOOLS_JSON')
+if ([string]::IsNullOrWhiteSpace($mcpToolsOverride)) {
+  $script:McpToolsJson = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptDir)) 'spec-mcp-setup/mcp-tools.json'
+} else {
+  $script:McpToolsJson = $mcpToolsOverride
+}
 $resolverOverride = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROJECT_TARGET_RESOLVER')
 if ([string]::IsNullOrWhiteSpace($resolverOverride)) {
   $resolverPath = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptDir)) 'spec-mcp-setup/scripts/resolve-project-target.ps1'
@@ -1258,6 +1329,12 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
             if ($null -ne $mismatchFailureInfo) {
               $failureInfo = $mismatchFailureInfo
               $script:QueryProbeVerificationReason = [string]$mismatchFailureInfo['diagnostic']
+            } else {
+              $diagnosticFailureInfo = Get-GitNexusQueryDiagnosticFailureInfo -ProviderConfig $providerConfig -ExitCode $lastQueryExitCode -QueryProbeAttempts @($queryProbeAttempts)
+              if ($null -ne $diagnosticFailureInfo) {
+                $failureInfo = $diagnosticFailureInfo
+                $script:QueryProbeVerificationReason = [string]$diagnosticFailureInfo['diagnostic']
+              }
             }
           }
         } else {
@@ -1288,6 +1365,9 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
           $confidence = 'medium'
           $reason = if ([string]::IsNullOrWhiteSpace($script:QueryProbeVerificationReason)) { 'Provider-specific query-surface proof did not verify provider readiness.' } else { $script:QueryProbeVerificationReason }
           $limitations = @('Build and status succeeded, but provider-specific query-surface proof did not verify provider readiness.', $reason)
+          if (-not [string]::IsNullOrWhiteSpace([string]$failureInfo['recommended_action'])) {
+            $limitations += [string]$failureInfo['recommended_action']
+          }
         }
       } else {
         $status = 'query-unverified'
@@ -1329,7 +1409,11 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     recommended_action = $failureInfo['recommended_action']
     confidence = $confidence
     limitations = $limitations
-    query_verification_reason = if (($status -eq 'query-unverified' -or $status -eq 'query-not-applicable') -and $limitations.Count -gt 0) { $limitations[$limitations.Count - 1] } else { $null }
+    query_verification_reason = if ($status -eq 'query-unverified' -or $status -eq 'query-not-applicable') {
+      if (-not [string]::IsNullOrWhiteSpace($script:QueryProbeVerificationReason)) { $script:QueryProbeVerificationReason } elseif ($limitations.Count -gt 0) { $limitations[$limitations.Count - 1] } else { $null }
+    } else {
+      $null
+    }
     query_probe_policy = if ($entry.PSObject.Properties.Name -contains 'query_probe_policy') { $entry.query_probe_policy } else { $null }
     query_probe_candidate_limit = if ($provider -eq 'gitnexus') { $script:GitNexusQueryProbeCandidateLimit } else { $null }
     query_probe_candidates_truncated = if ($provider -eq 'gitnexus') { $queryProbeCandidatesTruncated } else { $null }

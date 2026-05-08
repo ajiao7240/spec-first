@@ -5,6 +5,22 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
+const {
+  canonicalizeExistingPath,
+  isPathWithin,
+  normalizeRepoSelector,
+  normalizeTargetKind,
+  resolveStandardsTarget,
+} = require('./standards-targeting');
+const {
+  DEFAULT_WORKSPACE_CHILD_MAX_FILES,
+  buildWorkspaceChildRepoMapCapability,
+  buildWorkspaceFacts,
+  buildWorkspaceInventory,
+  buildWorkspacePolicy,
+  buildWorkspaceScope,
+  hashWorkspaceSummary,
+} = require('./standards-workspace-facts');
 
 const PROJECT_SHAPE_SCHEMA = 'spec-first.project-shape.v1';
 const STANDARDS_PLAN_SCHEMA = 'spec-first.standards-plan.v1';
@@ -42,17 +58,20 @@ const BASELINE_REVIEW_ARTIFACTS = [
   'standards-candidates.json',
   'standards-preview.md',
 ];
+const DEFAULT_STANDARDS_OUTPUT = '.spec-first/standards';
 const DEFAULT_INVENTORY_MAX_FILES = 4000;
 
 function parseArgs(argv) {
   const args = {
     mode: 'baseline',
     root: process.cwd(),
-    output: '.spec-first/standards',
+    output: DEFAULT_STANDARDS_OUTPUT,
+    outputExplicit: false,
     dryRun: false,
     domains: [],
     modules: [],
     repo: null,
+    targetKind: 'auto',
     importSource: null,
     modeExplicit: false,
   };
@@ -75,6 +94,7 @@ function parseArgs(argv) {
     }
     if (arg === '--output') {
       args.output = requireValue(argv, index, arg);
+      args.outputExplicit = true;
       index += 1;
       continue;
     }
@@ -94,6 +114,15 @@ function parseArgs(argv) {
     }
     if (arg === '--repo') {
       args.repo = requireValue(argv, index, arg);
+      index += 1;
+      continue;
+    }
+    if (arg === '--workspace') {
+      args.targetKind = 'workspace';
+      continue;
+    }
+    if (arg === '--target-kind') {
+      args.targetKind = requireValue(argv, index, arg);
       index += 1;
       continue;
     }
@@ -136,9 +165,20 @@ function requireValue(argv, index, flag) {
 }
 
 function printHelp() {
-  process.stdout.write(`Usage: node skills/spec-standards/scripts/prepare-baseline.js [--baseline|--quick|--refresh|--deep] [--root <path>] [--output <path>] [--domain <name>] [--module <path>] [--repo <child>] [--import-source <path-or-git-url>] [--dry-run]
+  process.stdout.write(`Usage: node skills/spec-standards/scripts/prepare-baseline.js [--baseline|--quick|--refresh|--deep] [--root <path>] [--output <path>] [--domain <name>] [--module <path>] [--repo <child>] [--workspace|--target-kind <auto|repo|workspace>] [--import-source <path-or-git-url>] [--dry-run]
 
 Prepare deterministic spec-standards facts. Semantic standards candidates, conflict analysis, and previews remain LLM-owned.
+
+Options:
+  --workspace               Force parent workspace advisory mode (equivalent to --target-kind workspace).
+  --target-kind <kind>      Explicit target kind: auto (default), repo, or workspace.
+                            --workspace and --target-kind workspace are equivalent.
+  --repo <child>            Select a child repo by workspace-relative path; writes child-local confirmed baseline.
+
+Constraints:
+  --repo and --workspace (or --target-kind workspace) cannot be combined.
+  Use --repo <child> alone to target a child repo, or --workspace alone for parent workspace advisory standards.
+  --output cannot be used with --workspace; workspace artifacts always go to .spec-first/standards/.
 `);
 }
 
@@ -160,7 +200,9 @@ function prepareBaseline(args) {
     throw new Error(`Repo root does not exist or is not a directory: ${repoRoot}`);
   }
 
-  const inventory = buildInventory(repoRoot);
+  const inventory = options.targetKind === 'workspace'
+    ? buildWorkspaceInventory(repoRoot, options, buildInventory)
+    : buildInventory(repoRoot);
   const projectShape = buildProjectShape(repoRoot, inventory, options);
   const importArtifacts = options.importSource
     ? buildImportArtifacts(repoRoot, options.importSource, options.workspaceRoot)
@@ -194,9 +236,13 @@ function prepareBaseline(args) {
   return {
     schema_version: 'spec-first.standards-prepare-baseline.result.v1',
     mode: options.mode,
+    target_kind: options.targetKind,
+    requested_target_kind: options.requestedTargetKind,
+    target_reason_code: options.targetReasonCode,
     workspace_root: options.workspaceRoot,
     repo_root: repoRoot,
     target_repo: options.repo,
+    workspace_child_count: options.workspaceChildren.length,
     output_root: options.output,
     dry_run: options.dryRun,
     scope: buildScope(options),
@@ -210,10 +256,70 @@ function normalizePrepareOptions(args) {
   const alreadyNormalized = Boolean(args.workspaceRoot);
   const workspaceRoot = path.resolve(args.workspaceRoot || args.root || process.cwd());
   const repo = normalizeRepoSelector(args.repo || null);
-  const root = alreadyNormalized
+  if (alreadyNormalized && ['repo', 'workspace', 'workspace_child_repo'].includes(args.targetKind)) {
+    const mode = args.mode || 'baseline';
+    if (!SUPPORTED_MODES.includes(mode)) {
+      throw new Error(`Unsupported mode for deterministic standards preparation: ${mode}`);
+    }
+    let targetKind = normalizeResolvedTargetKind(args.targetKind);
+    if (repo && targetKind === 'workspace') {
+      throw new Error('--repo cannot be combined with --workspace or --target-kind workspace. Use --repo <child> alone to target a child repo (writes child-local confirmed baseline), or use --workspace alone for parent workspace advisory standards.');
+    }
+    if (repo && targetKind === 'repo') {
+      targetKind = 'workspace_child_repo';
+    }
+    if (!repo && targetKind === 'workspace_child_repo') {
+      throw new Error('workspace_child_repo target kind requires --repo.');
+    }
+    const root = path.resolve(args.root || (repo ? path.resolve(workspaceRoot, repo) : workspaceRoot));
+    const output = resolveStandardsOutput({
+      root,
+      workspaceRoot,
+      targetKind,
+      output: args.output || DEFAULT_STANDARDS_OUTPUT,
+      outputExplicit: hasExplicitOutput(args),
+      workspaceChildren: args.workspaceChildren || [],
+    });
+    return {
+      mode,
+      workspaceRoot,
+      root,
+      output,
+      dryRun: Boolean(args.dryRun),
+      domains: uniqueList(args.domains || (args.domain ? [args.domain] : [])),
+      modules: uniqueList(args.modules || (args.module ? [args.module] : [])),
+      repo,
+      targetKind,
+      requestedTargetKind: args.requestedTargetKind || (args.targetKind === 'workspace_child_repo' ? 'repo' : args.targetKind),
+      targetReasonCode: args.targetReasonCode || null,
+      workspaceChildren: args.workspaceChildren || [],
+      importSource: args.importSource || args.import_source || null,
+    };
+  }
+
+  const targetKind = normalizeTargetKind(args.targetKind || 'auto');
+  if (repo && targetKind === 'workspace') {
+    throw new Error('--repo cannot be combined with --workspace or --target-kind workspace. Use --repo <child> alone to target a child repo (writes child-local confirmed baseline), or use --workspace alone for parent workspace advisory standards.');
+  }
+
+  const requestedRoot = alreadyNormalized
     ? path.resolve(args.root || (repo ? path.resolve(workspaceRoot, repo) : workspaceRoot))
     : (repo ? path.resolve(workspaceRoot, repo) : workspaceRoot);
-  const output = path.resolve(root, args.output || '.spec-first/standards');
+  const target = resolveStandardsTarget({
+    workspaceRoot,
+    requestedRoot,
+    repo,
+    targetKind,
+  });
+  const root = target.root;
+  const output = resolveStandardsOutput({
+    root,
+    workspaceRoot: target.workspaceRoot,
+    targetKind: target.kind,
+    output: args.output || DEFAULT_STANDARDS_OUTPUT,
+    outputExplicit: hasExplicitOutput(args),
+    workspaceChildren: target.workspaceChildren,
+  });
   const mode = args.mode || 'baseline';
   if (!SUPPORTED_MODES.includes(mode)) {
     throw new Error(`Unsupported mode for deterministic standards preparation: ${mode}`);
@@ -221,28 +327,86 @@ function normalizePrepareOptions(args) {
 
   return {
     mode,
-    workspaceRoot,
+    workspaceRoot: target.workspaceRoot,
     root,
     output,
     dryRun: Boolean(args.dryRun),
     domains: uniqueList(args.domains || (args.domain ? [args.domain] : [])),
     modules: uniqueList(args.modules || (args.module ? [args.module] : [])),
-    repo,
+    repo: target.repo,
+    targetKind: target.kind,
+    requestedTargetKind: targetKind,
+    targetReasonCode: target.reasonCode,
+    workspaceChildren: target.workspaceChildren,
     importSource: args.importSource || args.import_source || null,
   };
 }
 
-function normalizeRepoSelector(repo) {
-  if (!repo) return null;
-  const normalized = String(repo).trim().replace(/\\/g, '/').replace(/\/+$/g, '');
-  if (!normalized) return null;
-  if (path.isAbsolute(normalized)) {
-    throw new Error(`--repo must be a workspace-relative child repo path: ${repo}`);
-  }
-  if (normalized.split('/').includes('..')) {
-    throw new Error(`--repo must not traverse outside the workspace root: ${repo}`);
+function normalizeResolvedTargetKind(value) {
+  const normalized = String(value || 'repo').trim();
+  if (!['repo', 'workspace', 'workspace_child_repo'].includes(normalized)) {
+    throw new Error(`Unsupported resolved standards target kind: ${value}`);
   }
   return normalized;
+}
+
+function hasExplicitOutput(args) {
+  return Boolean(args.outputExplicit)
+    || (Object.prototype.hasOwnProperty.call(args, 'output')
+      && args.output
+      && args.output !== DEFAULT_STANDARDS_OUTPUT);
+}
+
+function resolveStandardsOutput({
+  root,
+  workspaceRoot,
+  targetKind,
+  output,
+  outputExplicit,
+  workspaceChildren,
+}) {
+  const resolvedOutput = path.isAbsolute(output)
+    ? path.resolve(output)
+    : path.resolve(root, output);
+  const canonicalOutput = canonicalizePossiblyMissingPath(resolvedOutput);
+
+  if (targetKind === 'workspace') {
+    const defaultOutput = path.resolve(root, DEFAULT_STANDARDS_OUTPUT);
+    const canonicalDefaultOutput = canonicalizePossiblyMissingPath(defaultOutput);
+    if (outputExplicit && canonicalOutput !== canonicalDefaultOutput) {
+      throw new Error(`--output cannot override parent workspace standards root; parent workspace writes only ${DEFAULT_STANDARDS_OUTPUT}.`);
+    }
+    const canonicalWorkspaceRoot = canonicalizeExistingPath(workspaceRoot);
+    if (!isPathWithin(canonicalOutput, canonicalWorkspaceRoot)) {
+      throw new Error('--output must stay inside the parent workspace root.');
+    }
+    for (const child of workspaceChildren || []) {
+      if (child.git_root && isPathWithin(canonicalOutput, child.git_root)) {
+        throw new Error(`--output must not write parent workspace standards artifacts inside child repo: ${child.workspace_relative_path}`);
+      }
+    }
+    return defaultOutput;
+  }
+
+  const canonicalRoot = canonicalizeExistingPath(root);
+  if (!isPathWithin(canonicalOutput, canonicalRoot)) {
+    throw new Error('--output must stay inside the selected repo root.');
+  }
+  return resolvedOutput;
+}
+
+function canonicalizePossiblyMissingPath(targetPath) {
+  const resolved = path.resolve(targetPath);
+  const missingSegments = [];
+  let current = resolved;
+  while (!fs.existsSync(current)) {
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    missingSegments.unshift(path.basename(current));
+    current = parent;
+  }
+  const canonicalBase = canonicalizeExistingPath(current);
+  return path.resolve(canonicalBase, ...missingSegments);
 }
 
 function uniqueList(values) {
@@ -289,6 +453,10 @@ function buildArtifactWrites({
 
 function buildInventory(repoRoot, args = {}) {
   const maxFiles = args.maxFiles || DEFAULT_INVENTORY_MAX_FILES;
+  const ignoredRelativePrefixes = [
+    '.spec-first/standards/',
+    ...(args.ignoredRelativePrefixes || []),
+  ];
   const files = walkFiles(repoRoot, {
     maxFiles,
     root: repoRoot,
@@ -306,9 +474,7 @@ function buildInventory(repoRoot, args = {}) {
       '.agents',
       '.serena',
     ]),
-    ignoredRelativePrefixes: [
-      '.spec-first/standards/',
-    ],
+    ignoredRelativePrefixes,
   });
 
   const relativeFiles = files.map((filePath) => path.relative(repoRoot, filePath).replace(/\\/g, '/'));
@@ -409,11 +575,20 @@ function hasDir(root, relativePath) {
 function buildProjectShape(repoRoot, inventory, args = {}) {
   const options = normalizePlanOptions(args);
   const packageJson = readPackageJson(repoRoot);
+  const workspace = options.targetKind === 'workspace'
+    ? buildWorkspaceFacts(options, buildWorkspaceChildFacts)
+    : null;
   const languages = detectLanguages(inventory.files);
   const packageManagers = detectPackageManagers(inventory.files);
   const frameworks = detectFrameworks(packageJson, inventory);
   const domains = detectDomains(packageJson, inventory);
-  const projectMode = detectProjectMode(packageJson, inventory);
+  if (workspace) {
+    domains.workspace = {
+      detected: true,
+      evidence: workspace.child_repos.map((child) => child.workspace_relative_path),
+    };
+  }
+  const projectMode = detectProjectMode(packageJson, inventory, options);
   const modules = buildModuleFacts(repoRoot, inventory, options.modules);
   const scan = buildScanSummary(inventory);
 
@@ -424,10 +599,11 @@ function buildProjectShape(repoRoot, inventory, args = {}) {
     project_mode: projectMode,
     project: {
       root: '.',
-      detected_type: detectProjectType(packageJson, domains),
-      summary: summarizeProject(packageJson, domains),
-      confidence: packageJson ? 'high' : 'medium',
+      detected_type: detectProjectType(packageJson, domains, options),
+      summary: summarizeProject(packageJson, domains, options, workspace),
+      confidence: workspace ? 'high' : (packageJson ? 'high' : 'medium'),
     },
+    workspace,
     languages,
     frameworks,
     package_managers: packageManagers,
@@ -446,7 +622,38 @@ function buildProjectShape(repoRoot, inventory, args = {}) {
       scanned_file_count: inventory.file_count,
       scan_truncated: inventory.truncated,
       inventory_hash: hashInventory(repoRoot, inventory.files),
+      workspace_summary_hash: workspace ? hashWorkspaceSummary(workspace, hashString) : null,
       inventory_hash_reliability: scan.hash_reliability,
+    },
+  };
+}
+
+function buildWorkspaceChildFacts(child) {
+  const inventory = buildInventory(child.git_root, {
+    maxFiles: DEFAULT_WORKSPACE_CHILD_MAX_FILES,
+  });
+  const packageJson = readPackageJson(child.git_root);
+  const domains = detectDomains(packageJson, inventory);
+  const projectMode = detectProjectMode(packageJson, inventory, { targetKind: 'repo' });
+  return {
+    workspace_relative_path: child.workspace_relative_path,
+    relationship: child.relationship,
+    project_mode: projectMode,
+    detected_type: detectProjectType(packageJson, domains, { targetKind: 'repo' }),
+    summary: summarizeProject(packageJson, domains, { targetKind: 'repo' }, null),
+    languages: detectLanguages(inventory.files).slice(0, 8),
+    package_managers: detectPackageManagers(inventory.files),
+    recommended_standard_domains: recommendDomains(domains),
+    graph: {
+      available_artifacts: inventory.graph_artifacts,
+      status: inventory.graph_artifacts.length > 0 ? 'available' : 'not_detected',
+    },
+    evidence: {
+      manifest_paths: inventory.manifests,
+      scanned_file_count: inventory.file_count,
+      scan_truncated: inventory.truncated,
+      inventory_hash: hashInventory(child.git_root, inventory.files),
+      inventory_hash_reliability: inventory.truncated ? 'partial' : 'complete',
     },
   };
 }
@@ -759,13 +966,15 @@ function hasDependency(packageJson, names) {
   return names.some((name) => Object.prototype.hasOwnProperty.call(deps, name));
 }
 
-function detectProjectMode(packageJson, inventory) {
+function detectProjectMode(packageJson, inventory, options = {}) {
+  if (options.targetKind === 'workspace') return 'parent_workspace_multi_repo';
   if (packageJson && packageJson.workspaces) return 'monorepo_multi_module';
   if (inventory.files.includes('pnpm-workspace.yaml')) return 'monorepo_multi_module';
   return 'single_project_repo';
 }
 
-function detectProjectType(packageJson, domains) {
+function detectProjectType(packageJson, domains, options = {}) {
+  if (options.targetKind === 'workspace') return 'parent_workspace';
   if (domains.cli.detected && domains.skill_workflow.detected) return 'node_cli_ai_workflow_framework';
   if (domains.cli.detected) return 'node_cli';
   if (domains.frontend.detected && domains.backend.detected) return 'full_stack_application';
@@ -774,7 +983,14 @@ function detectProjectType(packageJson, domains) {
   return packageJson ? 'node_project' : 'software_project';
 }
 
-function summarizeProject(packageJson, domains) {
+function summarizeProject(packageJson, domains, options = {}, workspace = null) {
+  if (options.targetKind === 'workspace') {
+    const count = workspace ? workspace.child_repo_count : 0;
+    const managers = workspace && workspace.package_managers.length > 0
+      ? workspace.package_managers.join(', ')
+      : 'none';
+    return `parent workspace with ${count} child Git repos; package managers: ${managers}`;
+  }
   const name = packageJson && packageJson.name ? packageJson.name : 'current project';
   const activeDomains = recommendDomains(domains).join(', ');
   return `${name} with detected domains: ${activeDomains || 'none'}`;
@@ -839,6 +1055,9 @@ function normalizePlanOptions(args) {
     domains: uniqueList(args.domains || []),
     modules: uniqueList(args.modules || []),
     repo: args.repo || null,
+    targetKind: args.targetKind || (args.repo ? 'workspace_child_repo' : 'repo'),
+    targetReasonCode: args.targetReasonCode || null,
+    workspaceChildren: args.workspaceChildren || [],
     workspaceRoot: args.workspaceRoot || args.root || process.cwd(),
   };
 }
@@ -886,6 +1105,10 @@ function buildModeBudget(mode) {
 }
 
 function buildScope(options) {
+  if (options.targetKind === 'workspace') {
+    return buildWorkspaceScope(options);
+  }
+
   const scope = {
     type: options.repo ? 'workspace_child_repo' : 'repo',
     root: '.',
@@ -1033,6 +1256,7 @@ function buildSynthesisContract(options, enabledDomains, importArtifacts) {
       only_confirmed_candidates_are_patch_eligible: true,
       patch_requires_explicit_user_confirmation: true,
     },
+    workspace_policy: buildWorkspacePolicy(options),
     downstream_consumers: buildDownstreamConsumers(),
   };
 }
@@ -1060,6 +1284,12 @@ function buildUpdateDecision(repoRoot, options, projectShape) {
     && existingProjectShape.evidence.inventory_hash
       ? existingProjectShape.evidence.inventory_hash
       : null;
+  const currentWorkspaceSummaryHash = projectShape.evidence.workspace_summary_hash || null;
+  const existingWorkspaceSummaryHash = existingProjectShape
+    && existingProjectShape.evidence
+    && existingProjectShape.evidence.workspace_summary_hash
+      ? existingProjectShape.evidence.workspace_summary_hash
+      : null;
   const existingInventoryHashReliability = existingProjectShape
     && existingProjectShape.evidence
     && existingProjectShape.evidence.inventory_hash_reliability
@@ -1086,6 +1316,12 @@ function buildUpdateDecision(repoRoot, options, projectShape) {
   } else if (existingInventoryHash !== currentInventoryHash) {
     recommendation = 'refresh';
     reasonCodes.push('inventory-hash-changed');
+  } else if (options.targetKind === 'workspace' && !existingWorkspaceSummaryHash) {
+    recommendation = 'refresh';
+    reasonCodes.push('missing-existing-workspace-summary-hash');
+  } else if (options.targetKind === 'workspace' && existingWorkspaceSummaryHash !== currentWorkspaceSummaryHash) {
+    recommendation = 'refresh';
+    reasonCodes.push('workspace-child-summary-changed');
   } else if (missingArtifacts.length > 0) {
     recommendation = 'complete-preview';
     reasonCodes.push('missing-review-artifacts');
@@ -1102,6 +1338,8 @@ function buildUpdateDecision(repoRoot, options, projectShape) {
     reason_codes: reasonCodes,
     current_inventory_hash: currentInventoryHash,
     existing_inventory_hash: existingInventoryHash,
+    current_workspace_summary_hash: currentWorkspaceSummaryHash,
+    existing_workspace_summary_hash: existingWorkspaceSummaryHash,
     current_inventory_hash_reliability: currentInventoryHashReliability,
     existing_inventory_hash_reliability: existingInventoryHashReliability,
     existing_artifacts: existingArtifacts,
@@ -1245,12 +1483,23 @@ function inspectImportSource(repoRoot, importSource, workspaceRoot = repoRoot) {
 }
 
 function resolveLocalImportPath(repoRoot, importSource, workspaceRoot = repoRoot) {
-  const candidates = [
+  // 绝对路径直接解析，不做工作区包含限制（用户明确指定外部路径）
+  if (path.isAbsolute(importSource)) {
+    return fs.existsSync(importSource) ? importSource : null;
+  }
+  // 相对路径只在工作区范围内解析，防止 ../ 路径遍历逃逸
+  const canonicalRoot = canonicalizeExistingPath(workspaceRoot);
+  const relativeCandidates = [
     path.resolve(workspaceRoot, importSource),
     path.resolve(repoRoot, importSource),
-    path.resolve(importSource),
   ];
-  return candidates.find((candidate) => fs.existsSync(candidate)) || null;
+  for (const candidate of relativeCandidates) {
+    if (!fs.existsSync(candidate)) continue;
+    const canonicalCandidate = canonicalizeExistingPath(candidate);
+    if (!isPathWithin(canonicalCandidate, canonicalRoot)) continue;
+    return candidate;
+  }
+  return null;
 }
 
 function readGitMetadata(sourcePath) {
@@ -1357,6 +1606,10 @@ function buildGlueMap(projectShape, inventory, args = {}) {
     && inventory.files.some((file) => file.startsWith('templates/claude/commands/spec/'))
   );
 
+  if (options.targetKind === 'workspace') {
+    capabilities.push(buildWorkspaceChildRepoMapCapability(options, capability));
+  }
+
   if (domains.graph.detected && files.has('skills/spec-graph-bootstrap/SKILL.md')) {
     capabilities.push(capability({
       id: 'capability.graph.readiness',
@@ -1456,13 +1709,21 @@ function buildDownstreamConsumers() {
     validator_fail: 'degraded/advisory',
     trust_level_degraded: 'degraded/advisory',
     missing_validation_result: 'degraded/advisory',
+    consumption_boundary_advisory_only: 'degraded/advisory',
+    workspace_advisory_only: 'degraded/advisory',
   };
   const sharedBoundary = {
     hard_context: ['confirmed'],
     advisory_context: ['observed', 'imported', 'suggested'],
     risk_context: ['conflict', 'deprecated', 'drifted'],
     question_context: ['unknown'],
-    degraded_context: ['validator_fail', 'trust_level=degraded', 'missing_validation_result'],
+    degraded_context: [
+      'validator_fail',
+      'trust_level=degraded',
+      'missing_validation_result',
+      'consumption_boundary=advisory_only',
+      'workspace-advisory-only',
+    ],
     consumption_modes: consumptionModes,
     glue_map_boundary: 'glue-map.json supports reuse-first decisions only; it is not a workflow state machine.',
   };

@@ -65,7 +65,7 @@ Primary inputs are the current host, current working directory, `skills/spec-mcp
 5. Warm required MCP/provider packages and write host MCP config only for tools whose registry entry requires host config.
 6. Bootstrap Serena non-interactively with LLM-selected languages, or fail with `serena_language_required` when evidence is missing.
 7. Write readiness ledger v2 with `verify-tools.*` and setup-owned project facts with `write-provider-config.*`.
-8. Report the full grouped status and hand off to `spec-graph-bootstrap` when graph readiness is still pending, or to `spec-standards` when graph readiness is already ready.
+8. Report the full grouped status and hand off to `spec-graph-bootstrap` when graph readiness is still pending, or to `spec-standards` when graph readiness is already ready. In a parent workspace, that standards handoff may compile parent advisory standards artifacts first; child repo confirmed baselines still require `spec-standards --repo <child>`.
 
 ## Outputs
 
@@ -78,6 +78,7 @@ Setup may write these deterministic artifacts:
 - project-local `.spec-first/config.local.example.yaml`, `.spec-first/config.local.yaml`, and `.gitignore` entries when explicitly bootstrapped;
 - `.serena/project.yml`, `.serena/project.local.yml` safe indexing overrides, and the configured Serena ready marker for selected child repos;
 - parent advisory summaries under `.spec-first/workspace/` when running all-repos modes.
+- downstream parent workspace standards artifacts under `.spec-first/standards/` when the later `spec-standards` workflow is run from a parent workspace; setup does not write those artifacts itself.
 
 The assistant's final response must restate readiness from ledger v2 instead of relying only on command output.
 
@@ -571,7 +572,7 @@ Uninstall does not delete `agent-browser`, external caches, or the project proje
 
 ## Success Summary
 
-When setup finishes, the assistant's final response must restate the complete readiness status sourced from readiness ledger v2, followed by a short friendly next-step prompt. Prefer grouped status blocks rendered inside fenced code blocks instead of one wide Markdown table. The first grouped section must be an `Execution result` summary that shows `Harness runtime` and `Graph readiness` decisions, including ready and pending graph providers. Do not rely on prior command output as the only place where the status appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending. When graph bootstrap is pending, tell the user it can run now because it is deterministic CLI compilation; restart or a new session is required only before downstream workflows rely on newly written host MCP config or live MCP probes. When graph readiness is already ready, the next-step prompt must not stop at a restart caveat; recommend `/spec:standards` or `$spec-standards` as the next durable handoff to compile project standards and glue capability baseline, and tell users with an already-clear task they can describe it directly in a restarted/new session so `using-spec-first` can route by intent.
+When setup finishes, the assistant's final response must restate the complete readiness status sourced from readiness ledger v2, followed by a short friendly next-step prompt. Prefer grouped status blocks rendered inside fenced code blocks instead of one wide Markdown table. The first grouped section must be an `Execution result` summary that shows `Harness runtime` and `Graph readiness` decisions, including ready and pending graph providers. Do not rely on prior command output as the only place where the status appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending. When graph bootstrap is pending, tell the user it can run now because it is deterministic CLI compilation; restart or a new session is required only before downstream workflows rely on newly written host MCP config or live MCP probes. When graph readiness is already ready, the next-step prompt must not stop at a restart caveat; recommend `/spec:standards` or `$spec-standards` as the next durable handoff to compile project standards and glue capability baseline. In a parent workspace, state that no-argument standards compiles parent advisory workspace artifacts, while `--repo <child>` compiles a child-local baseline. Tell users with an already-clear task they can describe it directly in a restarted/new session so `using-spec-first` can route by intent.
 
 ```text
 Required Harness Runtime is ready; graph bootstrap is still pending.

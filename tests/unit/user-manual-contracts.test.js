@@ -95,9 +95,15 @@ describe('user manual contracts', () => {
     expect(standardsGuide).toContain('$spec-standards --refresh --domain cli');
     expect(standardsGuide).toContain('$spec-standards --deep');
     expect(standardsGuide).toContain('$spec-standards --baseline --import-source ../shared-standards');
+    expect(standardsGuide).toContain('$spec-standards --repo <child>');
+    expect(standardsGuide).toContain('父 workspace 默认运行会写父级 `.spec-first/standards/` advisory artifacts');
+    expect(standardsGuide).toContain('不是任何 child repo 的 confirmed standards baseline');
     expect(standardsGuide).toContain('node skills/spec-standards/scripts/prepare-baseline.js --quick');
+    expect(standardsGuide).toContain('node skills/spec-standards/scripts/prepare-baseline.js --workspace');
     expect(standardsGuide).toContain('node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json');
     expect(standardsGuide).toContain('trust_level=degraded');
+    expect(standardsGuide).toContain('consumption_boundary=advisory_only');
+    expect(standardsGuide).toContain('workspace-advisory-only');
     expect(standardsGuide).toContain('validator 只检查 artifact handoff contract');
     expect(standardsGuide).toContain('validator pass 是 trusted baseline 的完成标准');
     expect(standardsGuide).toContain('不要为了消除诊断而改写 contract heading、candidate id、命令名、路径、工具名或作者名');

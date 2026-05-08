@@ -49,7 +49,7 @@ referenced_reviews:
 - **source-mod**：修改 `skills/`、`agents/`、`scripts/`、`src/cli/`、`tests/` 等仓库源码。每条 source-mod 都必须有独立 CHANGELOG 记录与 IU 编号。
 - **runtime-effect**：source-mod 落地后，宿主行为发生变化（如 worktree 不再默认复制 env、delegation 不再 unbounded staging）。Phase exit gate 必须验证此层而非仅 plan-prose。
 
-本计划当前 revision=2 之前的所有修订都属于 plan-prose；source-mod 与 runtime-effect 由 Phase A/B/C 在执行时分批产生。Verification 与 exit gate 引用 source-mod / runtime-effect 证据，不引用 plan-prose 修订。
+本计划当前 revision=3 及之前的所有修订都属于 plan-prose；source-mod 与 runtime-effect 由 Phase A/B/C 在执行时分批产生。Verification 与 exit gate 引用 source-mod / runtime-effect 证据，不引用 plan-prose 修订。
 
 ## Phase 1 Methodological Limits
 

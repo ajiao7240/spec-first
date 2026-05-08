@@ -48,6 +48,9 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('Definitions-only evidence can help locate files or symbols');
     expect(skill).toContain('Do not rewrite `.spec-first/graph/*`');
     expect(skill).toContain('do not set compiled `query_ready=true`');
+    expect(skill).toContain('Do not compile standards or glue baselines here.');
+    expect(skill).toContain('no-argument parent workspace runs may write parent advisory `.spec-first/standards/` artifacts');
+    expect(skill).toContain('`spec-standards --repo <child>` owns child-local standards baselines');
     expect(skill).toContain('update the final user-facing result table');
     expect(skill).toContain('ready/degraded/not-applicable/action-required counts');
     expect(skill).toContain('.spec-first/workspace/graph-bootstrap-summary.json');
@@ -67,6 +70,9 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('Always report the compiled artifacts first, then any session-local live MCP evidence');
     expect(skill).toContain('code-review-graph and bounded direct repo reads');
     expect(skill).toContain('needs a restart or a new session');
+    expect(skill).toContain('reason_code=gitnexus-query-provider-projection-stale');
+    expect(skill).toContain('reason_code=gitnexus-query-fts-readonly');
+    expect(skill).toContain('recommended_action');
   });
 
   test('ships review fixtures for trigger, boundary, failure, and expected behavior cases', () => {

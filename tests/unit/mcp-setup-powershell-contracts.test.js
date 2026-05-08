@@ -58,6 +58,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     const providerKey = 'graph' + '_providers';
     const detectSource = fs.readFileSync(detectToolsPs1, 'utf8');
     const verifySource = fs.readFileSync(verifyToolsPs1, 'utf8');
+    const skillSource = fs.readFileSync(mcpSetupSkillPath, 'utf8');
     const combined = `${detectSource}\n${verifySource}`;
 
     expect(combined).not.toContain(`${retiredGraph}.`);
@@ -95,6 +96,9 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('$standardsCommand');
     expect(verifySource).toContain('推荐下一步运行 $standardsCommand');
     expect(verifySource).toContain('如果已经有明确任务，可以在新会话直接描述目标');
+    expect(skillSource).toContain('parent workspace, that standards handoff may compile parent advisory standards artifacts first');
+    expect(skillSource).toContain('child repo confirmed baselines still require `spec-standards --repo <child>`');
+    expect(skillSource).toContain('setup does not write those artifacts itself');
     expect(verifySource).toContain('live MCP probe 前需要');
     expect(verifySource).toContain('graph_bootstrap_required');
     expect(verifySource).toContain('$spec-graph-bootstrap');

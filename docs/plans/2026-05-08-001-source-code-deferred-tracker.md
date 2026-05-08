@@ -29,7 +29,7 @@ parent_plan: docs/plans/2026-05-07-001-feat-skill-agent-quality-governance-plan.
 | doc1-FYI-1 | `docs/项目审查/2026-05-07-skill-agent-prompt-expert-review.md` Section 12 | 4 类薄契约单文件 vs 拆分 | FYI | governance contract 文件总长 > 600 行 | unassigned | open |
 | doc1-FYI-3 | 同上 | competitive-intelligence agent "新增 vs 收敛" 路径复审 | FYI | 出现首个 consumer workflow | unassigned | open |
 | doc1-P2-SE-3 | 同上 | researcher 调用外部 social platform 的 IP/身份隐私 | P2 advisory | 任何 researcher agent 增加新 social-platform 来源 | unassigned | open |
-| doc1-FYI-2 | 同上 | Risks mitigation 加 "Verified by" | FYI | 已在 父计划 revision 2 应用，关闭 | resolved | closed |
+| doc1-FYI-2 | 同上 | Risks mitigation 加 "Verified by" | FYI | 最初在父计划 revision 2 应用；当前 revision 3 仍关闭 | resolved | closed |
 | review-meta-1 | doc 1 / doc 2 | P-numbering 不统一 | meta | 下次跨 review 引用时 | unassigned | open |
 | review-meta-2 | doc 1 / doc 2 | URL freshness 时间戳缺失 | meta | 下次跨 review 引用时 | unassigned | open |
 | review-meta-3 | doc 2 | Coverage Ledger Appendix 体积大 | meta | 下次大规模 source review 时 | unassigned | open |
@@ -48,7 +48,7 @@ parent_plan: docs/plans/2026-05-07-001-feat-skill-agent-quality-governance-plan.
 
 ## Linkage
 
-- 父计划：`docs/plans/2026-05-07-001-feat-skill-agent-quality-governance-plan.md`（revision 2）
+- 父计划：`docs/plans/2026-05-07-001-feat-skill-agent-quality-governance-plan.md`（当前 revision 3）
 - 父计划 Review Plan 节要求所有 advisory / FYI / 不在范围 finding 写入本 tracker。
 - 父计划 Risks 表中 "reviewer dispatch 失败" 行的 followup 指向本 tracker `dispatch-failure-1` / `review-rerun-1`。
 

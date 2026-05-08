@@ -154,6 +154,79 @@ describe('spec-standards artifact validator', () => {
     }
   });
 
+  test('workspace advisory baselines validate as degraded advisory-only context', () => {
+    const dir = copyFixture();
+    try {
+      mutatePlan(dir, (plan) => {
+        plan.scope = {
+          type: 'workspace',
+          root: '.',
+          domains: [],
+          modules: [],
+          workspace: {
+            child_repo_count: 1,
+            child_repos: ['services/api'],
+            artifacts_advisory_only: true,
+          },
+        };
+        plan.synthesis_contract.workspace_policy = {
+          active: true,
+          artifacts_are_advisory: true,
+        };
+      });
+      mutateCandidates(dir, (doc) => {
+        doc.scope = { type: 'workspace' };
+      });
+
+      const result = runValidator(['--standards-dir', dir, '--json']);
+      expect(result.status).toBe(4);
+      expect(result.json.status).toBe('pass');
+      expect(result.json.trust_level).toBe('degraded');
+      expect(result.json.consumption_boundary).toBe('advisory_only');
+      expect(result.json.scope.type).toBe('workspace');
+      expectReason(result, 'workspace-advisory-only');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('scope.type=workspace alone triggers advisory even with inactive workspace_policy', () => {
+    const dir = copyFixture();
+    try {
+      mutatePlan(dir, (plan) => {
+        plan.scope = { type: 'workspace', root: '.' };
+        plan.synthesis_contract.workspace_policy = { active: false, artifacts_are_advisory: false };
+      });
+      mutateCandidates(dir, (doc) => {
+        doc.scope = { type: 'workspace' };
+      });
+
+      const result = runValidator(['--standards-dir', dir, '--json']);
+      expect(result.json.consumption_boundary).toBe('advisory_only');
+      expectReason(result, 'workspace-advisory-only');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('candidate scope must match the standards plan scope', () => {
+    const dir = copyFixture();
+    try {
+      mutatePlan(dir, (plan) => {
+        plan.scope = { type: 'repo', root: '.' };
+      });
+      mutateCandidates(dir, (doc) => {
+        doc.scope = { type: 'workspace' };
+      });
+
+      const result = runValidator(['--standards-dir', dir, '--json']);
+      expect(result.status).toBe(1);
+      expectReason(result, 'scope-mismatch');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('usage errors return exit code 2 without a validation envelope', () => {
     const result = runValidator(['--candidates', 'standards-candidates.json', '--json']);
 

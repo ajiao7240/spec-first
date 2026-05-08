@@ -20,10 +20,11 @@ The implementation is preview-first:
 - Render `standards-preview.md`.
 - Validate generated candidates and preview artifacts before trusted downstream consumption.
 - Do not write `.spec-first/specs/repo-profile.yaml`.
+- Write parent workspace advisory artifacts when invoked from a multi-repo parent workspace.
 
-Repo-profile patch apply, monorepo module outputs, workspace outputs, and drift checks remain explicit future boundaries.
+Repo-profile patch apply, monorepo module outputs, and drift checks remain explicit future boundaries.
 
-For parent workspaces, `--repo <child>` selects a child repo as the target root and writes default artifacts under that child repo's `.spec-first/standards/`. The parent workspace is only the launcher and must not receive child-local standards artifacts.
+For parent workspaces, the default run writes advisory artifacts under the parent `.spec-first/standards/`. These artifacts summarize child repo shapes and shared alignment questions, but they are not confirmed policy for any child repo. `--repo <child>` selects a child repo as the target root and writes default artifacts under that child repo's `.spec-first/standards/`.
 
 ## Deterministic Script
 
@@ -35,6 +36,8 @@ node skills/spec-standards/scripts/prepare-baseline.js --quick
 node skills/spec-standards/scripts/prepare-baseline.js --refresh --domain <name>
 node skills/spec-standards/scripts/prepare-baseline.js --deep
 node skills/spec-standards/scripts/prepare-baseline.js --baseline --import-source <path>
+node skills/spec-standards/scripts/prepare-baseline.js --workspace
+node skills/spec-standards/scripts/prepare-baseline.js --repo <child>
 ```
 
 The baseline script writes:
@@ -59,7 +62,7 @@ node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-f
 
 The validator checks artifact handoff quality only: JSON shape, status/source vocabulary, status-specific support, conflict/unknown visibility, preview writeback status, and patch safety. It does not decide whether a proposed standard is semantically correct.
 
-Exit code `0` is a trusted pass. Exit code `4` is a degraded pass, such as explicit fallback vocabulary use; downstream workflows may treat that as advisory structure only, not as a trusted baseline. Validation failure uses stable `reason_code` values so downstream workflows can explain what blocked trusted consumption.
+Exit code `0` is a trusted pass. Exit code `4` is a degraded pass, such as explicit fallback vocabulary use or parent workspace artifacts with `consumption_boundary=advisory_only`; downstream workflows may treat that as advisory structure only, not as a trusted baseline. Validation failure uses stable `reason_code` values so downstream workflows can explain what blocked trusted consumption.
 
 Candidate statuses and consumption modes stay separate: `confirmed` is hard context, `observed` / `imported` / `suggested` are advisory, `conflict` is risk context, and `unknown` is question context.
 

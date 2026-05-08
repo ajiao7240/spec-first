@@ -124,7 +124,7 @@ describe('dual-host governance contracts', () => {
     expect(standards).toMatchObject({
       filename: 'standards.md',
       description: 'Compile project standards and glue capability baseline artifacts',
-      argumentHint: '[--baseline|--quick|--refresh|--deep] [--import-source <git-or-path>]',
+      argumentHint: '[--baseline|--quick|--refresh|--deep] [--repo <child>|--workspace|--target-kind <auto|repo|workspace>] [--import-source <git-or-path>]',
       skill: 'spec-standards',
     });
     expect(skillAudit).toMatchObject({
