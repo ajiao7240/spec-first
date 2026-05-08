@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.0 2026-05-08 12:28:24 leokuang: docs(plan): 按 implementation-readiness review 修订三份 governance plan，补齐 001 高风险 env propagation audit、002 GitNexus provider prose 独立 ownership 与 RC.85 pending argv 状态、003 作为 002 graph evidence policy consumer 的 preflight/test 约束 (user-visible)
 - v1.8.0 2026-05-08 12:18:00 leokuang: docs(plan): 同步 skill/agent 质量治理计划、doc 2 deferred tracker 与 reviewer dispatch failure solution 的 revision 3 linkage，避免 plan-prose 状态被误读为 source 行为已落地 (user-visible)
 - v1.8.0 2026-05-08 12:01:27 leokuang: fix(init): 父级多仓 workspace 下 `init --codex|--claude` 先刷新 parent host runtime assets，再执行 child repo 初始化并仅写父级 advisory summary，避免父目录 `$spec-*` 继续加载 stale `.agents/skills` (user-visible)
 - v1.8.0 2026-05-08 leokuang: fix(spec-standards): 应用 code-review P1/P2/P3 安全与正确性修复：`resolveLocalImportPath` 对相对路径做工作区包含检查防止路径遍历；symlink 测试改为显式 boolean guard 避免安全断言静默跳过；补 `--repo /absolute` CLI 拒绝测试与 normalizeRepoSelector 单元断言；explicit `--workspace` 强制执行子仓发现；workspace root 不可读时快速失败并给出明确错误；补 `directory-without-child-repos`/`cwd-git-root`/`explicit-workspace-target` reasonCode 测试；补 quick 模式 `reuse-current-baseline` 路径测试；补 `scope.type=workspace` 单独触发 advisory_only 的 validation 测试；补嵌套 repo dedup 测试；result 对象加 `requested_target_kind`/`target_reason_code` 字段 (user-visible)

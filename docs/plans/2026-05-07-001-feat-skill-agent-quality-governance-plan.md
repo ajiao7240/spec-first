@@ -74,6 +74,7 @@ referenced_reviews:
 | R8 | 统一 researcher authority、freshness 和 untrusted input 处理 | 报告 C5、C7、C9、P2-07 | 抽 Research Evidence Contract，新增 competitive intelligence researcher |
 | R9 | 降低 long-form skill 的 drift 成本 | 报告 P2-04、P2-08 | 引入 prompt source lint 和 progressive disclosure 改造队列 |
 | R10 | 避免硬编码年份继续自然过期 | 报告 C8 | 改为使用 host/session current date，增加 lint 例外规则 |
+| R11 | Phase A 不得只修 `git-worktree` 而遗漏同类 `.env*` 默认复制路径 | implementation-readiness review；`skills/spec-optimize/scripts/experiment-worktree.sh` 也默认复制 `.env*` | U1 增加 repo-wide high-risk env propagation audit；同类默认复制路径必须修复、显式 opt-in，或在 Phase A exit gate 中登记为 scoped deferred risk |
 
 ## Scope Boundaries
 
@@ -91,6 +92,7 @@ referenced_reviews:
 - 本计划不把 external prompt docs、GitHub repo、Twitter/X 观点变成项目 source of truth。
 - 本计划不要求所有 agent 输出同一 JSON schema。
 - 本计划不把 low-risk optional/internal skills 纳入第一批 eval 强制覆盖；剩余 internal_only / optional skills 的 eval 决策延后到该 skill 进入 high-traffic 路径或下游 consumer 出现时再评估。
+- 本计划的 Phase A 安全修复不再只以 `git-worktree` 为唯一对象。任何脚本或 skill prose 中默认复制 `.env*`、凭据、私钥或 token 的行为都必须通过 high-risk execution audit 被显式分类：本计划内修复、转成 opt-in，或写入 deferred tracker 并降低对应 exit gate 的全局成功信号。
 - 本计划不引入新的 runtime workflow command；新增能力优先是 source contract、tests、agent profile 或 lint。
 - 本计划不执行实际外部竞品调研，只建立可复用 competitive intelligence agent 与证据 contract。每次调研必须在执行时重新取最新来源。
 - 本计划默认将 `spec-competitive-intelligence-researcher` 作为 source-only 资产创建，runtime delivery 推迟到具体 workflow 显式声明 consumer 之后。
@@ -186,17 +188,18 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 
 ### CUD-002 Safe Execution Boundary
 
-目标：所有写文件、shell-heavy、git、secrets、external service 相关 skill 都有同一套最小安全边界。
+目标：第一批高风险写入、shell-heavy、git、secrets、external service 相关 skill 先有同一套最小安全边界；Phase A 必须先修真实 workspace/secrets/staging 风险，再把低流量或未消费路径登记为 deferred risk。
 
 最小能力：
 
 - 高风险 skill 明确 writes、shell/network、secrets、git staging/commit、external service、rollback/stop condition。
 - `git-worktree` 默认不复制 `.env*`。
+- repo-wide high-risk execution audit 覆盖 `skills/*/scripts/*` 与高风险 skill prose，确认没有未登记的默认 `.env*` / credential propagation。当前已知同类路径：`skills/spec-optimize/scripts/experiment-worktree.sh`。
 - `spec-work-beta` batch success path 只 stage batch-owned file set。
 
 成功信号：
 
-- 没有默认 secret propagation。
+- 没有未登记的默认 secret propagation；如同类路径暂不在 Phase A 修复，必须有明确 deferred risk、owner 和阻断条件，不能把 Phase A 表述为全仓 secret propagation 已消除。
 - 没有 batch 外文件被 delegation commit path 自动 stage。
 - 审查者能用同一 checklist 评估高风险 skill。
 
@@ -228,17 +231,19 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 4. **Test 模式与 contract 关系**：Phase A 编写的 contract test 在 Phase B 出 `docs/contracts/workflows/skill-agent-quality-governance.md` 后必须做一次模式 review；若新 contract 暴露已有测试断言不一致，由 Phase B 在退出前同步迁移测试模式（视为 Phase B 的退出条件之一），不重写 Phase A 实际逻辑。
 5. **Risks 表反映**：若 IU 引入新机制（如 secret deny pattern、orchestrator 三选一、audit 报告），同步在 `## Risks And Mitigations` 表中追加或更新对应行，并以 `Verified by:` 引用具体 contract test。
 
-### U1. Harden `git-worktree` Env Handling
+### U1. Harden Worktree Env Handling And Audit Default Env Propagation
 
-**Goal:** Worktree creation no longer copies secrets by default.
+**Goal:** Worktree creation no longer copies secrets by default, and Phase A cannot miss sibling scripts that copy `.env*` by default.
 
-**Requirements:** R1, R4
+**Requirements:** R1, R4, R11
 
 **Files:**
 
 - Modify: `skills/git-worktree/SKILL.md`
 - Modify: `skills/git-worktree/scripts/worktree-manager.sh`
+- Modify: `skills/spec-optimize/scripts/experiment-worktree.sh`（当前已知同类 `.env*` 默认复制路径；若 implementation 决定不在 Phase A 修复，必须改为 deferred tracker 条目并降低 CUD-002 全局成功信号）
 - Create: `tests/unit/git-worktree-contracts.test.js`
+- Create: `tests/unit/high-risk-execution-contracts.test.js`
 - Modify: `CHANGELOG.md`
 
 **Approach:**
@@ -252,6 +257,8 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
   - 多次 opt-in append 写入，禁止 overwrite，确保审计可追溯。
 - Keep `.worktrees` gitignore and dev-tool trust behavior unchanged.
 - Update prose to remove the current manual "copy `.env*`" snippet as a default recommendation; replace with explicit opt-in wording。
+- Run a bounded source audit over `skills/*/scripts/*`, high-risk helper skill prose, and delegation references for default `.env*` / credential / private-key propagation. The first audit must explicitly classify `skills/spec-optimize/scripts/experiment-worktree.sh` because it currently copies `.env*` from the main repo by default.
+- For every confirmed default propagation path found by the audit, either convert it to explicit opt-in with file-name-only disclosure and no content reads, or add a named deferred risk with owner, reason, and blocking condition. Do not leave the path silent while claiming "no default secret propagation".
 - **U1↔U2 互锁**：worktree 内合法编辑 env 文件后，U2 的 secret deny pattern 默认仍然拒 staging，避免 env 漂入 commit。如果 batch 显式声明 `expected_side_effects` 中包含具体 env 文件名（必须精确路径，不接受 glob），且 IU 描述里明确"修改 env"为意图变更，secret deny 才让步；其他情况一律按 deny pattern 处理。这个互锁规则必须同时出现在 `skills/git-worktree/SKILL.md` 与 `skills/spec-work-beta/references/codex-delegation-workflow.md` 中。
 
 **Test scenarios:**
@@ -262,6 +269,8 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 - `.env-copy.log` 路径在 gitignore 中、append 模式可见、超 30 天提示存在。
 - Existing destination env file is backed up only in opt-in path.
 - 即使 worktree 复制了 env，U2 secret deny pattern 在 staging 时仍拒绝 env 文件，除非 batch 声明了精确 env 路径作为 `expected_side_effects`。
+- `skills/spec-optimize/scripts/experiment-worktree.sh` 不再默认复制 `.env*`，或有明确 opt-in / deferred-risk contract；contract test 防止同类默认 env copy 路径再次静默出现。
+- high-risk execution contract test 扫描 `skills/*/scripts/*` 和高风险 skill prose，任何默认 `.env*` / credential propagation 必须命中 allowlist 中的 explicit opt-in 或 deferred risk 记录。
 - `bash -n skills/git-worktree/scripts/worktree-manager.sh` passes.
 - Contract test asserts `SKILL.md` no longer says env copying is default。
 - IU 开始时核验 `tests/unit/git-worktree-contracts.test.js` 是否已存在；不存在改为 Create 并在 CHANGELOG 单独记录。
@@ -269,7 +278,9 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 **Verification:**
 
 - `npx jest tests/unit/git-worktree-contracts.test.js --runInBand`
+- `npx jest tests/unit/high-risk-execution-contracts.test.js --runInBand`
 - `bash -n skills/git-worktree/scripts/worktree-manager.sh`
+- `bash -n skills/spec-optimize/scripts/experiment-worktree.sh`
 
 ### U2. Bound `spec-work-beta` Delegation Staging
 
@@ -593,7 +604,7 @@ Execute U1, U2, U3 first.
 
 Exit gate（全部满足才能退出）：
 
-- **U1 落地**：`skills/git-worktree/SKILL.md` 与 `worktree-manager.sh` 默认不复制 env；`--copy-env` opt-in 路径写 `.env-copy.log`（仅指纹，append-only，进 gitignore）；`tests/unit/git-worktree-contracts.test.js` 通过。
+- **U1 落地**：`skills/git-worktree/SKILL.md` 与 `worktree-manager.sh` 默认不复制 env；`--copy-env` opt-in 路径写 `.env-copy.log`（仅指纹，append-only，进 gitignore）；`skills/spec-optimize/scripts/experiment-worktree.sh` 的默认 `.env*` 复制路径已修复为 opt-in 或被登记为 scoped deferred risk；repo-wide high-risk env propagation audit 已记录结果；`tests/unit/git-worktree-contracts.test.js` 与 `tests/unit/high-risk-execution-contracts.test.js` 通过。
 - **U2 落地**：`skills/spec-work-beta/references/codex-delegation-workflow.md` 不再含 unbounded `git add`；引入 batch-owned ∪ `expected_side_effects` 集合 + orchestrator 三选一；`src/cli/contracts/security/secret-deny-patterns.json` 存在并通过 schema 校验；`skills/spec-write-tasks/references/task-pack-schema.md` 含 `expected_side_effects` 字段定义且禁 `**` 全仓 glob；U1↔U2 互锁条文同时出现在两份 source；`tests/unit/spec-work-beta-contracts.test.js`、`tests/unit/secret-deny-patterns-contracts.test.js` 通过。
 - **U3 落地**：`agent-native-audit` option/typo 修复；`gemini-imagegen` prose 与 scripts 默认模型/扩展名一致；触及文件中的 hardcoded year 已替换为 U8 canonical wording；contract test 与 `python3 -m py_compile` 通过。
 - **fresh-source eval**：U1 / U2 / U3 各自记录 `fresh_source_eval: ran` 或 `not_run` 与原因。
@@ -682,6 +693,7 @@ Before any commit:
 | Work/work-beta parity refactor breaks beta isolation | Beta must remain explicit opt-in | Tests must assert beta delegation delta remains isolated；UI parity 通过 section title 锚定不锚行号 | `tests/unit/spec-work-contracts.test.js`、`tests/unit/spec-work-beta-contracts.test.js` |
 | Runtime mirror edited directly | Creates source/runtime drift | All changes source-first; runtime regeneration only through `spec-first init --claude\|--codex` when needed | `npm run lint:skill-entrypoints` |
 | `--copy-env` opt-in 仍泄露 secrets | opt-in 用户决策门槛低，env 易漂入 commit | U1 输出 `.env-copy.log`（仅指纹）；U2 secret deny pattern 默认拒 staging；U1↔U2 互锁仅放精确路径 allowlist | `tests/unit/git-worktree-contracts.test.js`、`tests/unit/secret-deny-patterns-contracts.test.js` |
+| Phase A 漏掉 `git-worktree` 之外的默认 secret propagation | 同类风险可能藏在 optional/internal 脚本中，导致安全 exit gate 虚假通过 | U1 增加 high-risk execution audit；当前已知 `spec-optimize` env copy 必须修复、opt-in 或登记 deferred risk；contract test 扫描同类默认 propagation | `tests/unit/high-risk-execution-contracts.test.js` |
 | Batch-owned + side_effects 仍误 stage 越界文件 | delegation 成功路径默认信任 batch，未声明的副作用可能漂入 | orchestrator 三选一（extend-batch / drop-stray / abort）；secret deny 跨集合一律拒；`expected_side_effects` 不接受 `**` 全仓 glob | `tests/unit/spec-work-beta-contracts.test.js` |
 | `spec-best-practices-researcher` authority 升级破坏 downstream consumer | hard-coded 假设旧 order 的 dispatch 点会静默失效 | U7 强制 audit `docs/validation/...consumer-audit.md`；abort 协议（>=3 hard-coded 或 public workflow 命中触发 abort） | `docs/validation/2026-05-07-best-practices-researcher-consumer-audit.md` 校验、`tests/unit/best-practices-researcher-contracts.test.js` |
 | reviewer dispatch 失败导致审查降级 fallback | single-orchestrator 易漏 persona 视角 | reviewer 恢复后须重做一轮 cross-check；本轮失败根因记录在 `docs/solutions/workflow-issues/reviewer-dispatch-failure-2026-05-07.md` | followup plan 中的 review re-run 任务 |

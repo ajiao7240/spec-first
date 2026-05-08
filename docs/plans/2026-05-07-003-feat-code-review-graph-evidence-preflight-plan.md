@@ -150,7 +150,9 @@ L0/L1/L2 是 evidence collection。L3 是 canonical graph readiness refresh。
 
 ### 状态词表
 
-所有 downstream workflows 使用同一套状态词表：
+本节是 `spec-code-review` 的 consumer-facing preflight vocabulary，不是新的 graph governance source of truth。Canonical vocabulary、compiled/live/fallback 合并语义、freshness comparison 和 provider ownership 由 `docs/contracts/graph-evidence-policy.md`（见 `2026-05-07-002-feat-gitnexus-evidence-governance-plan.md`）定义。若该 policy 尚未落地，先执行 002 的 U1/U2/U3；本计划不得新增并列的 `graph-refresh-preflight` policy 来覆盖或重定义 002。
+
+所有 downstream workflows 使用同一套 policy 派生状态词表：
 
 - `fresh`: compiled graph facts 与当前 repo snapshot 匹配。
 - `stale`: artifact 存在，但 revision 或 dirty fingerprint 不匹配。
@@ -160,7 +162,7 @@ L0/L1/L2 是 evidence collection。L3 是 canonical graph readiness refresh。
 - `unavailable`: required artifacts 缺失。
 - `blocked`: provider command 或环境被阻塞，并带有具体 `reason_code`。
 
-Downstream workflows 应把这些状态当作 evidence context，而不是自动 stop/go 状态机。
+Downstream workflows 应把这些状态当作 evidence context，而不是自动 stop/go 状态机。`fresh` / `dirty-uncertain` / `setup-ready-bootstrap-required` 是 review/preflight 层的 display labels，必须映射回 002 policy 中的 canonical readiness（如 `primary`、`stale`、`setup-not-ready`、`degraded-fallback`、`unavailable`、`blocked`），不能成为第二套 contract enum。
 
 ### 刷新决策矩阵
 
@@ -377,6 +379,7 @@ Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
 - Contract test 断言 `spec-code-review` 提到两个 canonical artifacts。
 - Contract test 断言 stale graph facts 不阻断 review。
 - Contract test 断言 live MCP evidence 是 session-local，不能更新 compiled readiness。
+- Contract test 同步迁移当前负向断言：允许 `spec-code-review` 在 Coverage/Limitations 中建议 `$spec-graph-bootstrap` 作为显式 durable refresh next action；仍禁止 `report-only` / ordinary preflight silent refresh，且禁止把 graph-bootstrap 当作 review 前自动执行步骤。
 
 ### U2. 定义 CRG 证据升级阶梯
 
@@ -480,6 +483,7 @@ Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
 
 - Contract test 断言 coverage 说明 graph evidence limitations。
 - Contract test 断言 CRG risk score 不会被单独当成 finding。
+- Contract test 删除或重写现有“不出现 `$spec-graph-bootstrap` / `/spec:graph-bootstrap`”断言，改为断言该入口只出现在 explicit recommendation / next-action 语境中，不能出现在 automatic refresh 或 hard gate 语境中。
 
 ### U5. 保持 provider setup 与 bootstrap 边界稳定
 
@@ -523,16 +527,17 @@ Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
 - 如果 user manual contracts 覆盖 workflow artifact maps，更新 `tests/unit/user-manual-contracts.test.js`。
 - `git diff --check`。
 
-### U7. 定义共享 graph refresh preflight 契约
+### U7. 扩展 002 graph evidence policy 的 preflight appendix
 
 文件：
 
-- `docs/contracts/graph-refresh-preflight.md`
+- `docs/contracts/graph-evidence-policy.md`
 - `tests/unit/user-manual-contracts.test.js` 或新的 focused docs contract test
 
 变更：
 
-- 定义共享状态词表：`fresh`、`stale`、`dirty-uncertain`、`degraded-fallback`、`setup-ready-bootstrap-required`、`unavailable`、`blocked`。
+- 在 002 policy 内追加 `Graph Evidence Preflight Appendix`，不新增并列 policy 文件。
+- 定义 review/preflight display labels 到 canonical readiness enum 的映射：`fresh → primary`，`dirty-uncertain → stale with dirty limitation`，`setup-ready-bootstrap-required → setup-not-ready`，其余按 policy enum 直通。
 - 定义默认 policy：`check-only`。
 - 定义 interactive、report-only、headless、autofix 的 mode-sensitive constraints。
 - 定义 single repo、monorepo、multi-repo parent workspace 的 topology behavior。
@@ -540,7 +545,8 @@ Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
 
 测试：
 
-- Contract assertions 覆盖 vocabulary、`check-only` default 和 `session-local evidence` boundary。
+- Contract assertions 覆盖 appendix 存在、display-label mapping、`check-only` default 和 `session-local evidence` boundary。
+- Contract test 断言仓库中不存在新的 `docs/contracts/graph-refresh-preflight.md`，除非 002 policy 明确拆分并保留 single-source redirect。
 
 ### U8. 增加只读 freshness checker
 
@@ -555,7 +561,7 @@ Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
 
 - 读取 `.spec-first/graph/graph-facts.json` 和 `.spec-first/impact/bootstrap-impact-capabilities.json`。
 - 比较当前 `HEAD`、dirty status 和可用的 `worktree_status_hash`。
-- 输出 `graph-refresh-preflight.v1` JSON。
+- 输出 `graph-evidence-preflight.v1` JSON；schema 和字段含义必须引用 002 policy appendix，不创建新的 canonical contract。
 - 不运行 provider build/status/query commands。
 - 不写 `.spec-first/*`。
 
@@ -583,11 +589,13 @@ Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
 - 不让 preflight 扩大 scope。
 - 保留 stale/degraded/unavailable facts 的现有 fallback 行为。
 - 在 `spec-code-review` 中，用 preflight output 作为 `<graph-review-context>` 的基础。
+- `spec-code-review` 可以建议 `$spec-graph-bootstrap` 作为 explicit next action，但不得在 ordinary review、report-only 或 headless preflight 中自动运行 durable refresh。
 
 测试：
 
 - Contract tests 断言 `check-only` default 和 no silent refresh。
 - Contract tests 断言 `report-only` remains read-only。
+- Contract tests 断言 `$spec-graph-bootstrap` / `/spec:graph-bootstrap` 只允许出现在 recommendation 语境，不允许出现在 automatic execution 语境。
 
 ### U10. 支持三种拓扑且不新增 runtime roots
 
