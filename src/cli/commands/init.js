@@ -36,6 +36,7 @@ const {
   inspectCodingGuidelinesBlock,
 } = require('../coding-guidelines');
 const { buildInitialChangelog, formatChangelogTimestamp } = require('../changelog');
+const { applySpecFirstGitignoreBlock } = require('../gitignore-policy');
 const {
   applyManagedBootstrapBlock,
   buildBootstrapBlock,
@@ -60,7 +61,7 @@ function runInit(argv) {
 
   const platformSelected = parsed.claude || parsed.codex;
   if (!platformSelected || parsed.unknown.length > 0) {
-    console.error('Usage: spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run]');
+    console.error('Usage: spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run] [--repo <child>|--all-repos]');
     return 1;
   }
 
@@ -71,6 +72,37 @@ function runInit(argv) {
 
   const platform = parsed.claude ? 'claude' : 'codex';
   const adapter = getAdapter(platform);
+  const target = resolveInitTarget(parsed, process.cwd());
+  if (!target.ok) {
+    console.error(target.message);
+    return 1;
+  }
+
+  if (target.mode === 'all-repos') {
+    return runInitForWorkspace({
+      parsed,
+      platform,
+      adapter,
+      workspaceRoot: target.workspaceRoot,
+      candidates: target.candidates,
+      selectionSource: target.selectionSource,
+    });
+  }
+
+  return runInitForProject({
+    parsed,
+    platform,
+    adapter,
+    projectRoot: target.projectRoot,
+  });
+}
+
+function runInitForProject({
+  parsed,
+  platform,
+  adapter,
+  projectRoot,
+}) {
   const bundledAgentPaths = listBundledAgents();
   const bundledAgentSupportFiles = listBundledAgentSupportFiles();
 
@@ -84,7 +116,6 @@ function runInit(argv) {
     }
   }
 
-  const projectRoot = process.cwd();
   const commandDir = adapter.hasCommands ? path.join(projectRoot, adapter.commandRoot) : '';
   let previousState = null;
   let legacyStateDetected = false;
@@ -285,6 +316,11 @@ function runInit(argv) {
   if (agentSupportFiles.length > 0) {
     console.log(`🧰 Generated ${agentSupportFiles.length} agent support file(s) in ${adapter.agentsRoot}`);
   }
+  const gitignoreOperation = initWritePlan.operations.find((operation) => operation.reason === 'managed_gitignore_policy');
+  if (gitignoreOperation) {
+    const action = gitignoreOperation.gitignoreStatus === 'added' ? 'Added' : 'Updated';
+    console.log(`🧹 ${action} .gitignore spec-first managed block`);
+  }
   console.log('🪪 Wrote project developer profile:');
   console.log(`  📍 path: ${adapter.developerFile}`);
   console.log(`  👤 name: ${developer.name}`);
@@ -300,6 +336,133 @@ function runInit(argv) {
   return 0;
 }
 
+function runInitForWorkspace({
+  parsed,
+  platform,
+  adapter,
+  workspaceRoot,
+  candidates,
+  selectionSource,
+}) {
+  const results = [];
+  console.log(`Workspace init: spec-first init (${platform})`);
+  console.log(`  workspace_root: ${workspaceRoot}`);
+  console.log(`  selection_source: ${selectionSource}`);
+  console.log(`  child_repos: ${candidates.length}`);
+
+  console.log('');
+  console.log('▶ Refresh parent host runtime assets');
+  let parentRuntime = {
+    exit_code: 0,
+    overall_status: 'ready',
+    reason_code: null,
+    diagnostic: '',
+  };
+  try {
+    const exitCode = runInitForProject({
+      parsed,
+      platform,
+      adapter,
+      projectRoot: workspaceRoot,
+    });
+    parentRuntime = {
+      exit_code: exitCode,
+      overall_status: exitCode === 0 ? 'ready' : 'action-required',
+      reason_code: exitCode === 0 ? null : 'parent-runtime-init-failed',
+      diagnostic: '',
+    };
+  } catch (error) {
+    parentRuntime = {
+      exit_code: 1,
+      overall_status: 'action-required',
+      reason_code: 'parent-runtime-init-exception',
+      diagnostic: error instanceof Error ? error.message : String(error),
+    };
+    console.error(`Parent runtime init failed: ${parentRuntime.diagnostic}`);
+  }
+
+  candidates.forEach((candidate, index) => {
+    console.log('');
+    console.log(`▶ Init child ${index + 1}/${candidates.length}: ${candidate.workspace_relative_path}`);
+    let exitCode = 0;
+    let reasonCode = null;
+    let diagnostic = '';
+    try {
+      exitCode = runInitForProject({
+        parsed,
+        platform,
+        adapter,
+        projectRoot: candidate.git_root,
+      });
+      if (exitCode !== 0) {
+        reasonCode = 'init-failed';
+      }
+    } catch (error) {
+      exitCode = 1;
+      reasonCode = 'init-exception';
+      diagnostic = error instanceof Error ? error.message : String(error);
+      console.error(`Child init failed for ${candidate.workspace_relative_path}: ${diagnostic}`);
+    }
+    results.push({
+      repo_label: candidate.repo_label,
+      workspace_relative_path: candidate.workspace_relative_path,
+      git_root: candidate.git_root,
+      exit_code: exitCode,
+      overall_status: exitCode === 0 ? 'ready' : 'action-required',
+      reason_code: reasonCode,
+      diagnostic,
+    });
+  });
+
+  const readyCount = results.filter((result) => result.overall_status === 'ready').length;
+  const childActionRequiredCount = results.length - readyCount;
+  const parentActionRequiredCount = parentRuntime.overall_status === 'ready' ? 0 : 1;
+  const actionRequiredCount = childActionRequiredCount + parentActionRequiredCount;
+  const overallStatus = actionRequiredCount === 0
+    ? 'ready'
+    : readyCount > 0
+      ? 'partial'
+      : 'action-required';
+  const summary = {
+    schema_version: 'workspace-init-summary.v1',
+    generated_at: new Date().toISOString(),
+    advisory: true,
+    workflow_mode: 'all-repos',
+    selection_source: selectionSource,
+    workspace_root: workspaceRoot,
+    parent_writes_repo_local_artifacts: false,
+    parent_writes_host_runtime_assets: true,
+    parent_host_runtime: parentRuntime,
+    dry_run: parsed.dryRun,
+    platform,
+    results,
+    counts: {
+      total: results.length,
+      ready: readyCount,
+      action_required: childActionRequiredCount,
+      parent_runtime_ready: parentRuntime.overall_status === 'ready' ? 1 : 0,
+      parent_runtime_action_required: parentActionRequiredCount,
+    },
+    overall_status: overallStatus,
+    reason_code: actionRequiredCount === 0 ? null : 'all-repos-partial-or-action-required',
+    next_action: actionRequiredCount === 0
+      ? 'Parent host runtime and all child repos completed init.'
+      : 'Inspect per-child reason_code and rerun init for action-required repos.',
+  };
+
+  console.log('');
+  console.log(`Workspace init summary: ${overallStatus} (${readyCount}/${results.length} ready)`);
+  if (parsed.dryRun) {
+    console.log('Dry run: no parent advisory summary was written.');
+  } else {
+    const summaryPath = path.join(workspaceRoot, '.spec-first', 'workspace', 'init-summary.json');
+    writeJsonFileAtomic(summaryPath, summary);
+    console.log(`🧭 Wrote parent advisory summary: ${path.relative(workspaceRoot, summaryPath)}`);
+  }
+
+  return actionRequiredCount === 0 ? 0 : 1;
+}
+
 function printInitNextSteps(platform, lang = 'zh') {
   const hostDisplay = platform === 'claude' ? 'Claude Code' : 'Codex';
   const entryKind = platform === 'claude' ? '/spec:* commands' : '$spec-* skills';
@@ -312,7 +475,7 @@ function printInitNextSteps(platform, lang = 'zh') {
     console.log(`  1. Restart ${hostDisplay} or open a new session so the host loads the generated ${entryKind}.`);
     console.log(`  2. In the new session, run ${mcpSetupCommand} to install and verify the required MCP/helper runtime.`);
     console.log(`  3. If ${mcpSetupCommand} shows graph bootstrap is still pending, run ${graphBootstrapCommand} when prompted.`);
-    console.log(`  4. After graph readiness is ready, run ${standardsCommand} to compile project standards and glue baseline before downstream workflows.`);
+    console.log(`  4. After graph readiness is ready, run ${standardsCommand} to compile project standards and glue baseline before downstream workflows. In a parent workspace this writes advisory parent standards artifacts; use ${standardsCommand} --repo <child> for a child-local baseline.`);
     return;
   }
 
@@ -320,7 +483,7 @@ function printInitNextSteps(platform, lang = 'zh') {
   console.log(`  1. 重启 ${hostDisplay} 或新开会话，让宿主加载刚生成的 ${entryKind}。`);
   console.log(`  2. 在新会话运行 ${mcpSetupCommand}，安装并验证必装 MCP/helper runtime。`);
   console.log(`  3. 如果 ${mcpSetupCommand} 显示 graph bootstrap 仍 pending，再按提示运行 ${graphBootstrapCommand}。`);
-  console.log(`  4. graph readiness 就绪后，运行 ${standardsCommand} 编译项目规范与胶水基线，再进入下游 workflow。`);
+  console.log(`  4. graph readiness 就绪后，运行 ${standardsCommand} 编译项目规范与胶水基线，再进入下游 workflow。父 workspace 下这是 advisory parent standards artifacts；child-local baseline 使用 ${standardsCommand} --repo <child>。`);
 }
 
 function printHelp() {
@@ -328,7 +491,11 @@ function printHelp() {
     '🚀 spec-first init',
     '',
     '📘 Usage:',
-    '  spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run]',
+    '  spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run] [--repo <child>|--all-repos]',
+    '',
+    'Workspace targeting:',
+    '  In a parent workspace with child Git repos, init refreshes parent host runtime assets, runs all child repos, and writes only a parent advisory summary.',
+    '  Use --repo <child> to initialize one child repo, or --all-repos to make the batch intent explicit.',
     '',
     '➡️ After successful init:',
     '  Claude: restart Claude Code, run /spec:mcp-setup, then /spec:graph-bootstrap if prompted, then /spec:standards after graph readiness is ready.',
@@ -339,6 +506,233 @@ function printHelp() {
   ].join('\n'));
 }
 
+function resolveInitTarget(parsed, cwd) {
+  const workspaceRoot = canonicalizeExistingPath(cwd);
+  if (parsed.repo && parsed.allRepos) {
+    return {
+      ok: false,
+      message: 'Error: Cannot combine --repo and --all-repos.',
+    };
+  }
+
+  const cwdGitRoot = findGitRoot(workspaceRoot);
+  if (parsed.repo) {
+    return resolveExplicitRepoTarget({
+      repoArg: parsed.repo,
+      cwd: workspaceRoot,
+      cwdGitRoot,
+    });
+  }
+
+  const candidates = cwdGitRoot ? [] : discoverChildGitRepos(workspaceRoot);
+  if (parsed.allRepos) {
+    if (cwdGitRoot) {
+      return {
+        ok: false,
+        message: 'Error: --all-repos must be run from a parent workspace, not inside a Git repo.',
+      };
+    }
+    if (candidates.length === 0) {
+      return {
+        ok: false,
+        message: 'Error: --all-repos found no child Git repos in the current workspace.',
+      };
+    }
+    return {
+      ok: true,
+      mode: 'all-repos',
+      workspaceRoot,
+      selectionSource: 'explicit-all-repos',
+      candidates,
+    };
+  }
+
+  if (!cwdGitRoot && candidates.length > 0) {
+    return {
+      ok: true,
+      mode: 'all-repos',
+      workspaceRoot,
+      selectionSource: 'workspace-default-all-repos',
+      candidates,
+    };
+  }
+
+  return {
+    ok: true,
+    mode: 'single-repo',
+    projectRoot: workspaceRoot,
+    selectionSource: cwdGitRoot ? 'cwd-git-or-monorepo' : 'cwd-directory',
+  };
+}
+
+function resolveExplicitRepoTarget({
+  repoArg,
+  cwd,
+  cwdGitRoot,
+}) {
+  const targetPath = path.resolve(cwd, repoArg);
+  if (!fs.existsSync(targetPath)) {
+    return {
+      ok: false,
+      message: `Error: --repo target does not exist: ${repoArg}`,
+    };
+  }
+
+  const selectedRepoRoot = findGitRoot(targetPath);
+  if (!selectedRepoRoot) {
+    return {
+      ok: false,
+      message: `Error: --repo target is not inside a Git repo: ${repoArg}`,
+    };
+  }
+
+  const boundaryRoot = cwdGitRoot || canonicalizeExistingPath(cwd);
+  if (!isPathWithin(selectedRepoRoot, boundaryRoot)) {
+    return {
+      ok: false,
+      message: 'Error: --repo target must be inside the current workspace.',
+    };
+  }
+
+  if (cwdGitRoot && selectedRepoRoot !== cwdGitRoot) {
+    return {
+      ok: false,
+      message: 'Error: --repo cannot select a sibling repo when init is invoked inside a Git repo. Run from the parent workspace.',
+    };
+  }
+
+  return {
+    ok: true,
+    mode: 'single-repo',
+    projectRoot: selectedRepoRoot,
+    selectionSource: 'explicit-repo',
+  };
+}
+
+function discoverChildGitRepos(workspaceRoot, maxDepth = 3) {
+  const candidates = [];
+  const queue = [{ dir: workspaceRoot, depth: 0 }];
+  const skipNames = new Set([
+    '.agents',
+    '.cache',
+    '.claude',
+    '.codex',
+    '.direnv',
+    '.git',
+    '.gitnexus',
+    '.serena',
+    '.spec-first',
+    '.venv',
+    '.worktrees',
+    'coverage',
+    'dist',
+    'node_modules',
+    'temp',
+    'tmp',
+    'vendor',
+  ]);
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    let entries = [];
+    try {
+      entries = fs.readdirSync(current.dir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .sort((left, right) => left.name.localeCompare(right.name));
+    } catch (_error) {
+      continue;
+    }
+
+    for (const entry of entries) {
+      if (skipNames.has(entry.name)) continue;
+      const childPath = path.join(current.dir, entry.name);
+      if (hasGitMarker(childPath)) {
+        addChildRepoCandidate(candidates, childPath, workspaceRoot);
+        continue;
+      }
+      if (current.depth < maxDepth) {
+        queue.push({ dir: childPath, depth: current.depth + 1 });
+      }
+    }
+  }
+
+  return candidates.sort((left, right) =>
+    left.workspace_relative_path.localeCompare(right.workspace_relative_path)
+  );
+}
+
+function addChildRepoCandidate(candidates, candidateRoot, workspaceRoot) {
+  const gitRoot = canonicalizeExistingPath(candidateRoot);
+  if (!isPathWithin(gitRoot, workspaceRoot)) return;
+  if (candidates.some((candidate) => (
+    gitRoot === candidate.git_root || isPathWithin(gitRoot, candidate.git_root)
+  ))) {
+    return;
+  }
+
+  const workspaceRelativePath = toWorkspaceRelativePath(gitRoot, workspaceRoot);
+  candidates.push({
+    repo_label: workspaceRelativePath,
+    git_root: gitRoot,
+    workspace_relative_path: workspaceRelativePath,
+    relationship: 'child_git_repo',
+  });
+}
+
+function findGitRoot(startPath) {
+  let current = canonicalizeExistingPath(startPath);
+  try {
+    const stat = fs.statSync(current);
+    if (!stat.isDirectory()) {
+      current = path.dirname(current);
+    }
+  } catch (_error) {
+    return '';
+  }
+
+  while (true) {
+    if (hasGitMarker(current)) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return '';
+    }
+    current = parent;
+  }
+}
+
+function hasGitMarker(dirPath) {
+  return fs.existsSync(path.join(dirPath, '.git'));
+}
+
+function canonicalizeExistingPath(targetPath) {
+  const resolved = path.resolve(targetPath);
+  try {
+    return fs.realpathSync.native(resolved);
+  } catch (_error) {
+    return resolved;
+  }
+}
+
+function isPathWithin(childPath, parentPath) {
+  const relative = path.relative(parentPath, childPath);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function toWorkspaceRelativePath(childPath, workspaceRoot) {
+  const relative = path.relative(workspaceRoot, childPath);
+  return relative === '' ? '.' : relative.split(path.sep).join('/');
+}
+
+function writeJsonFileAtomic(filePath, payload) {
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+  const tmpPath = path.join(dir, `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`);
+  fs.writeFileSync(tmpPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  fs.renameSync(tmpPath, filePath);
+}
+
 function parseInitArgs(argv) {
   const parsed = {
     help: false,
@@ -347,6 +741,8 @@ function parseInitArgs(argv) {
     dryRun: false,
     user: '',
     lang: '',
+    repo: '',
+    allRepos: false,
     unknown: [],
   };
 
@@ -370,6 +766,32 @@ function parseInitArgs(argv) {
 
     if (arg === '--dry-run') {
       parsed.dryRun = true;
+      continue;
+    }
+
+    if (arg === '--all-repos') {
+      parsed.allRepos = true;
+      continue;
+    }
+
+    if (arg === '--repo') {
+      const next = argv[index + 1];
+      if (!next || next.startsWith('-')) {
+        parsed.unknown.push(arg);
+        continue;
+      }
+      parsed.repo = next;
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith('--repo=')) {
+      const repoValue = arg.slice('--repo='.length);
+      if (!repoValue) {
+        parsed.unknown.push(arg);
+        continue;
+      }
+      parsed.repo = repoValue;
       continue;
     }
 
@@ -627,12 +1049,41 @@ function buildInitWritePlan({
   return mergeOperationPlans(
     assetPlan,
     runtimePlan || buildInitRuntimePreviewPlan(projectRoot, adapter),
+    buildInitGitignorePlan(projectRoot),
     buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, platform }),
   );
 }
 
 function buildInitRuntimePreviewPlan(projectRoot, adapter) {
   return adapter.planRuntimeFilesSync(projectRoot);
+}
+
+function buildInitGitignorePlan(projectRoot) {
+  const gitignorePath = path.join(projectRoot, '.gitignore');
+  const existingGitignore = fs.existsSync(gitignorePath)
+    ? fs.readFileSync(gitignorePath, 'utf8')
+    : '';
+  const gitignoreResult = applySpecFirstGitignoreBlock(existingGitignore);
+
+  if (gitignoreResult.status === 'already-current') {
+    return {
+      operations: [],
+      summary: summarizeOperationPlan([]),
+    };
+  }
+
+  const operation = buildFileWriteOperation(
+    projectRoot,
+    gitignorePath,
+    gitignoreResult.content,
+    'managed_gitignore_policy',
+  );
+  operation.gitignoreStatus = gitignoreResult.status;
+
+  return {
+    operations: [operation],
+    summary: summarizeOperationPlan([operation]),
+  };
 }
 
 function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, platform }) {

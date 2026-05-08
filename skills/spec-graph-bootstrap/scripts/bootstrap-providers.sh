@@ -6,7 +6,12 @@ set -euo pipefail
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-RESOLVER="$SCRIPT_DIR/../../spec-mcp-setup/scripts/resolve-project-target.sh"
+# Cross-skill helper reuse: spec-graph-bootstrap is shipped together with spec-mcp-setup
+# inside the same spec-first package, so the relative path to the resolver is intentionally
+# stable. Override with SPEC_FIRST_PROJECT_TARGET_RESOLVER if a future packaging splits the
+# two skills.
+RESOLVER="${SPEC_FIRST_PROJECT_TARGET_RESOLVER:-$SCRIPT_DIR/../../spec-mcp-setup/scripts/resolve-project-target.sh}"
+MCP_TOOLS_JSON="${SPEC_FIRST_MCP_TOOLS_JSON:-$SCRIPT_DIR/../../spec-mcp-setup/mcp-tools.json}"
 REPO_ARG=""
 ALL_REPOS=false
 PROVIDER_COMMAND_TIMEOUT_SECONDS="${SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS:-${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}}"
@@ -185,7 +190,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
         ),
         next_action:(
           if ([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length) > 0 then "Inspect per-child reason_code and rerun setup/bootstrap for action-required repos."
-          elif ([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) > 0 then "Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos."
+          elif ([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) > 0 then "Inspect per-child provider reason_code/recommended_action. Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos."
           elif ([$results[] | select(.workflow_mode == "no-source" or .overall_status == "not-applicable")] | length) > 0 then "All code-bearing child repos produced graph bootstrap artifacts; skip GitNexus process routing for no-source children."
           else "All child repos produced graph bootstrap artifacts."
           end
@@ -670,6 +675,54 @@ gitnexus_query_probe_reason_for_class() {
   esac
 }
 
+configured_gitnexus_package_spec() {
+  jq -r '.providers.gitnexus.commands.query_probe[2] // .providers.gitnexus.commands.bootstrap[2] // empty' "$PROVIDER_CONFIG" 2>/dev/null || true
+}
+
+bundled_gitnexus_package_spec() {
+  [ -f "$MCP_TOOLS_JSON" ] || return 0
+  jq -r '
+    .tools[]?
+    | select(.id == "gitnexus")
+    | select((.package // "") != "" and (.version // "") != "")
+    | (.package + "@" + .version)
+  ' "$MCP_TOOLS_JSON" 2>/dev/null | head -n 1
+}
+
+gitnexus_query_surface_diagnostic_failure() {
+  local exit_code="$1"
+  local configured_package bundled_package
+  if ! jq -e 'any(.[]; .result_class == "diagnostic")' >/dev/null 2>&1 <<<"$QUERY_PROBE_ATTEMPTS"; then
+    return 1
+  fi
+
+  configured_package="$(configured_gitnexus_package_spec)"
+  bundled_package="$(bundled_gitnexus_package_spec)"
+  if [ -n "$configured_package" ] && [ -n "$bundled_package" ] && [ "$configured_package" != "$bundled_package" ]; then
+    jq -n \
+      --arg configured "$configured_package" \
+      --arg bundled "$bundled_package" \
+      --argjson exit_code "$exit_code" '{
+        failed_phase:"query_probe",
+        failure_class:"provider-projection-stale",
+        reason_code:"gitnexus-query-provider-projection-stale",
+        exit_code:$exit_code,
+        recommended_action:("Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled GitNexus package `" + $bundled + "`; it currently projects `" + $configured + "`. Then rerun spec-graph-bootstrap. Use code-review-graph degraded fallback until GitNexus query proof returns process results."),
+        diagnostic:("GitNexus query probe emitted FTS/read-only/missing-index diagnostics while setup-projected package `" + $configured + "` differs from bundled package `" + $bundled + "`.")
+      }'
+    return 0
+  fi
+
+  jq -n --argjson exit_code "$exit_code" '{
+    failed_phase:"query_probe",
+    failure_class:"provider-storage-readonly",
+    reason_code:"gitnexus-query-fts-readonly",
+    exit_code:$exit_code,
+    recommended_action:"GitNexus query emitted FTS/read-only/missing-index diagnostics after build/status succeeded. Repair GitNexus index storage or permissions, or clean/reanalyze GitNexus with a fixed provider version, then rerun spec-graph-bootstrap. Use code-review-graph degraded fallback meanwhile.",
+    diagnostic:"GitNexus query probe emitted FTS/read-only/missing-index diagnostics after build/status succeeded."
+  }'
+}
+
 query_probe_verified() {
   local provider="$1"
   local log_path="$2"
@@ -1147,6 +1200,12 @@ write_provider_status() {
             if [ -n "$mismatch_failure" ]; then
               failure_info="$mismatch_failure"
               QUERY_PROBE_VERIFICATION_REASON="$(jq -r '.diagnostic' <<<"$failure_info")"
+            else
+              diagnostic_failure="$(gitnexus_query_surface_diagnostic_failure "$RUN_EXIT_CODE" || true)"
+              if [ -n "$diagnostic_failure" ]; then
+                failure_info="$diagnostic_failure"
+                QUERY_PROBE_VERIFICATION_REASON="$(jq -r '.diagnostic' <<<"$failure_info")"
+              fi
             fi
           fi
         else
@@ -1171,7 +1230,11 @@ write_provider_status() {
         else
           status="query-unverified"
           confidence="medium"
-          limitations="$(jq -n --arg reason "${QUERY_PROBE_VERIFICATION_REASON:-Provider-specific query-surface proof did not verify provider readiness.}" '["Build and status succeeded, but provider-specific query-surface proof did not verify provider readiness.", $reason]')"
+          limitations="$(jq -n \
+            --arg reason "${QUERY_PROBE_VERIFICATION_REASON:-Provider-specific query-surface proof did not verify provider readiness.}" \
+            --argjson failure "$failure_info" \
+            '["Build and status succeeded, but provider-specific query-surface proof did not verify provider readiness.", $reason]
+            + (if ($failure.recommended_action // "") != "" then [$failure.recommended_action] else [] end)')"
         fi
       else
         status="query-unverified"
@@ -1213,6 +1276,7 @@ write_provider_status() {
     --argjson query_probe_candidates_truncated "$query_probe_candidates_truncated" \
     --argjson limitations "$limitations" \
     --argjson failure_info "$failure_info" \
+    --arg query_verification_reason "$QUERY_PROBE_VERIFICATION_REASON" \
     --slurpfile provider_config "$PROVIDER_CONFIG" \
     '{
       schema_version:"provider-status.v1",
@@ -1233,7 +1297,7 @@ write_provider_status() {
       recommended_action:$failure_info.recommended_action,
       confidence:$confidence,
       limitations:$limitations,
-      query_verification_reason:(if ($status == "query-unverified" or $status == "query-not-applicable") then ($limitations[-1] // null) else null end),
+      query_verification_reason:(if ($status == "query-unverified" or $status == "query-not-applicable") then (if $query_verification_reason != "" then $query_verification_reason else ($limitations[-1] // null) end) else null end),
       query_probe_policy:($provider_config[0].providers[$provider].query_probe_policy // null),
       query_probe_candidate_limit:(if $provider == "gitnexus" then $query_probe_candidate_limit else null end),
       query_probe_candidates_truncated:(if $provider == "gitnexus" then $query_probe_candidates_truncated else null end),

@@ -146,10 +146,17 @@ describe('browser helper tool contracts', () => {
     expect(setupSkill).toContain('helper_tools');
     expect(setupSkill).toContain('install-helpers.* --verify-only');
     expect(setupSkill).toContain('npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y');
+    expect(setupSkill).toContain('NPM_CONFIG_REGISTRY');
+    expect(setupSkill).toContain('agent-browser install --with-deps');
     expect(installHelpers).toContain('install-helpers.sh - Install or verify required non-MCP helper tooling');
     expect(installHelpers).toContain('agent-browser install');
+    expect(installHelpers).toContain('agent-browser install --with-deps');
     expect(installHelpers).toContain('.agent-browser/spec-first-install.json');
     expect(installHelpers).toContain('npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y');
+    expect(installHelpers).toContain('NPM_CONFIG_REGISTRY');
+    expect(installHelpers).toContain('npm_config_registry');
+    expect(installHelpers).toContain('CI=true npm install -g agent-browser@latest');
+    expect(installHelpers).not.toContain('env CI=true npm install -g agent-browser@latest');
     expect(checkHealth).toContain('"agent-browser|required"');
     expect(checkHealth).toContain('"ast-grep|required"');
     expect(checkHealth).toContain('--json');
@@ -159,6 +166,7 @@ describe('browser helper tool contracts', () => {
     expect(checkHealth).toContain('Status');
     expect(checkHealth).toContain('npm install -g agent-browser@latest');
     expect(checkHealth).toContain('agent-browser install');
+    expect(checkHealth).toContain('agent-browser install --with-deps');
     expect(checkHealth).toContain('npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y');
     expect(checkHealth).toContain('npx -y skills@latest add ast-grep/agent-skill -g -y');
     expect(reference).toContain('not an MCP server');

@@ -4,7 +4,7 @@ param(
   [switch]$AllRepos,
   [Alias('SerenaLanguages')]
   [string[]]$SerenaLanguage = @(),
-  [Alias('SerenaLanguageMap', 'SerenaLanguageFor')]
+  [Alias('SerenaLanguageMap')]
   [string[]]$SerenaLanguageFor = @()
 )
 
@@ -13,12 +13,28 @@ Set-StrictMode -Version Latest
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
+. (Join-Path $ScriptDir 'lib-template.ps1')
 $ToolsJsonPath = Join-Path $SkillDir 'mcp-tools.json'
 $ToolsJson = Get-Content -Raw $ToolsJsonPath | ConvertFrom-Json
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
 $HostDisplayName = $HostInfo.display_name
 $Platform = $HostInfo.platform
+
+function Get-NonNegativeIntEnv {
+  param(
+    [string]$Name,
+    [int]$Default
+  )
+  $raw = [Environment]::GetEnvironmentVariable($Name)
+  [int]$parsed = 0
+  if ([int]::TryParse($raw, [ref]$parsed) -and $parsed -ge 0) { return $parsed }
+  return $Default
+}
+
+$script:StageTimeoutSeconds = Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900
+$script:WarmupCacheRoot = if (-not [string]::IsNullOrWhiteSpace($env:SPEC_FIRST_WARMUP_CACHE_DIR)) { $env:SPEC_FIRST_WARMUP_CACHE_DIR } else { [System.IO.Path]::Combine($HOME, '.spec-first', 'cache', 'mcp-warmup') }
+$script:WarmupLatestTtlSeconds = Get-NonNegativeIntEnv -Name 'SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS' -Default 86400
 $resolverParams = @{ Format = 'json' }
 if (-not $AllRepos -and -not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
 $TargetFacts = (& (Join-Path $ScriptDir 'resolve-project-target.ps1') @resolverParams) | ConvertFrom-Json
@@ -281,6 +297,124 @@ function Should-Install {
   return $true
 }
 
+function Get-Sha256Hex {
+  param([string]$Text)
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
+    return ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '').ToLowerInvariant()
+  } finally {
+    $sha.Dispose()
+  }
+}
+
+function Get-WarmupCommandHash {
+  param(
+    [string]$Command,
+    [string[]]$Arguments
+  )
+  $payload = New-Object System.Text.StringBuilder
+  [void]$payload.AppendLine("command=$Command")
+  foreach ($argument in @($Arguments)) {
+    [void]$payload.AppendLine("arg=$argument")
+  }
+  Get-Sha256Hex -Text $payload.ToString()
+}
+
+function Get-WarmupCachePath {
+  param([object]$Tool)
+  [System.IO.Path]::Combine($script:WarmupCacheRoot, [string]$DetectedHost, [string]$Platform, "$($Tool.id).json")
+}
+
+function Get-WarmupCacheTtlSeconds {
+  param(
+    [string]$Command,
+    [string[]]$Arguments
+  )
+  $joined = (@($Command) + @($Arguments)) -join ' '
+  if ($joined.Contains('@latest') -or $joined.Contains(' --upgrade ')) {
+    return $script:WarmupLatestTtlSeconds
+  }
+  0
+}
+
+function Test-WarmupCacheHit {
+  param(
+    [object]$Tool,
+    [string]$CommandHash,
+    [int]$TtlSeconds
+  )
+  if ($env:SPEC_FIRST_FORCE_WARMUP -eq '1' -or $env:SPEC_FIRST_DISABLE_WARMUP_CACHE -eq '1') { return $false }
+  $cachePath = Get-WarmupCachePath -Tool $Tool
+  if (-not (Test-Path -LiteralPath $cachePath -PathType Leaf)) { return $false }
+  try {
+    $cache = Get-Content -Raw $cachePath | ConvertFrom-Json
+  } catch {
+    return $false
+  }
+  if ([string](Get-ToolField -Tool $cache -Name 'schema_version') -ne 'mcp-warmup-cache.v1') { return $false }
+  if ([string](Get-ToolField -Tool $cache -Name 'tool_id') -ne [string]$Tool.id) { return $false }
+  if ([string](Get-ToolField -Tool $cache -Name 'host') -ne [string]$DetectedHost) { return $false }
+  if ([string](Get-ToolField -Tool $cache -Name 'platform') -ne [string]$Platform) { return $false }
+  if ([string](Get-ToolField -Tool $cache -Name 'command_hash') -ne [string]$CommandHash) { return $false }
+  [int]$exitCode = 1
+  $exitCodeValue = Get-ToolField -Tool $cache -Name 'exit_code'
+  if (-not [int]::TryParse([string]$exitCodeValue, [ref]$exitCode)) { return $false }
+  if ($exitCode -ne 0) { return $false }
+  if ($TtlSeconds -gt 0) {
+    [int64]$lastSuccessEpoch = 0
+    $lastSuccessEpochValue = Get-ToolField -Tool $cache -Name 'last_success_epoch'
+    if ($null -ne $lastSuccessEpochValue) {
+      if (-not [int64]::TryParse([string]$lastSuccessEpochValue, [ref]$lastSuccessEpoch)) { return $false }
+    }
+    $now = [int64]([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
+    if (($lastSuccessEpoch + $TtlSeconds) -lt $now) { return $false }
+  }
+  $true
+}
+
+function Write-WarmupCache {
+  param(
+    [object]$Tool,
+    [string]$Command,
+    [string[]]$Arguments,
+    [string]$CommandHash
+  )
+  $tmp = $null
+  try {
+    $cachePath = Get-WarmupCachePath -Tool $Tool
+    $cacheDir = Split-Path -Parent $cachePath
+    if (-not (Test-Path -LiteralPath $cacheDir)) {
+      New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
+    }
+    $packageSpec = ''
+    if ($null -ne $Tool.PSObject.Properties['package'] -and $null -ne $Tool.PSObject.Properties['version']) {
+      if (-not [string]::IsNullOrWhiteSpace([string]$Tool.package) -and -not [string]::IsNullOrWhiteSpace([string]$Tool.version)) {
+        $packageSpec = "$($Tool.package)@$($Tool.version)"
+      }
+    }
+    $tmp = '{0}.{1}.tmp' -f $cachePath, ([guid]::NewGuid().ToString('N'))
+    [ordered]@{
+      schema_version = 'mcp-warmup-cache.v1'
+      tool_id = $Tool.id
+      host = $DetectedHost
+      platform = $Platform
+      command = $Command
+      args = @($Arguments)
+      command_hash = $CommandHash
+      package_spec = $packageSpec
+      last_success_at = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+      last_success_epoch = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+      exit_code = 0
+    } | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 -LiteralPath $tmp
+    Move-Item -Force -LiteralPath $tmp -Destination $cachePath
+  } catch {
+    if (-not [string]::IsNullOrWhiteSpace([string]$tmp)) {
+      Remove-Item -Force -LiteralPath $tmp -ErrorAction SilentlyContinue
+    }
+  }
+}
+
 function Invoke-Captured {
   param(
     [scriptblock]$Script,
@@ -323,11 +457,53 @@ function Invoke-Warmup {
   $step = $Tool.installation.$platformKey
   if ($null -eq $step) { return }
   $command = $step.command
-  $args = @($step.args)
+  $args = @(Expand-ToolArgs -Tool $Tool -Args $step.args)
+  $exe = $command
+  $commandArgs = @($args)
   if ($Platform -eq 'windows' -and $command -eq 'npx') {
-    & cmd /c $command @args | Out-Null
-  } else {
-    & $command @args | Out-Null
+    $exe = if (-not [string]::IsNullOrWhiteSpace($env:ComSpec)) { $env:ComSpec } else { 'cmd.exe' }
+    $commandArgs = @('/d', '/c', $command) + @($args)
+  }
+
+  $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $processInfo.FileName = $exe
+  foreach ($argument in @($commandArgs)) {
+    [void]$processInfo.ArgumentList.Add([string]$argument)
+  }
+  $processInfo.RedirectStandardOutput = $true
+  $processInfo.RedirectStandardError = $true
+  $processInfo.UseShellExecute = $false
+
+  $process = [System.Diagnostics.Process]::new()
+  $process.StartInfo = $processInfo
+  try {
+    [void]$process.Start()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $timedOut = -not $process.WaitForExit($script:StageTimeoutSeconds * 1000)
+    if ($timedOut) {
+      try {
+        $process.Kill($true)
+      } catch {
+        try { $process.Kill() } catch {}
+      }
+      $process.WaitForExit()
+    }
+    $stdoutTask.Wait()
+    $stderrTask.Wait()
+    $outputParts = @($stdoutTask.Result, $stderrTask.Result) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+    if ($timedOut) {
+      $outputParts += "timed out after $($script:StageTimeoutSeconds)s"
+    }
+    foreach ($line in @($outputParts)) {
+      Write-Output $line
+    }
+    $global:LASTEXITCODE = if ($timedOut) { 124 } else { [int]$process.ExitCode }
+  } catch {
+    Write-Output ([string]$_.Exception.Message)
+    $global:LASTEXITCODE = 127
+  } finally {
+    $process.Dispose()
   }
 }
 
@@ -340,7 +516,7 @@ foreach ($tool in @($ToolsJson.tools)) {
       last_action = 'failed'
       install_kind = $tool.installation.kind
       reason_code = 'registry_not_required'
-      next_action = 'mcp-tools.json schema v4 只允许 required tools'
+      next_action = 'mcp-tools.json schema v5 只允许 required tools'
       configured_path = ''
       selected_scope = ''
       fallback_applied = $false
@@ -376,14 +552,31 @@ foreach ($tool in @($ToolsJson.tools)) {
   }
 
   if ($status -eq 'ready' -and $tool.installation.kind -eq 'warmup') {
-    $warmupResult = Invoke-Captured { Invoke-Warmup -Tool $tool }
-    if (-not $warmupResult.ok) {
+    $platformKey = if ($Platform -eq 'windows') { 'windows' } else { 'unix' }
+    $warmupStep = $tool.installation.$platformKey
+    $warmupArgs = @(Expand-ToolArgs -Tool $tool -Args $warmupStep.args)
+    $warmupHash = Get-WarmupCommandHash -Command $warmupStep.command -Arguments $warmupArgs
+    $warmupTtlSeconds = Get-WarmupCacheTtlSeconds -Command $warmupStep.command -Arguments $warmupArgs
+    if (Test-WarmupCacheHit -Tool $tool -CommandHash $warmupHash -TtlSeconds $warmupTtlSeconds) {
+      $lastAction = 'warmup-cache-hit'
+    } else {
+      $warmupResult = Invoke-Captured { Invoke-Warmup -Tool $tool }
+      if (-not $warmupResult.ok) {
+        $status = 'action-required'
+        $lastAction = 'failed'
+        $reasonCode = 'warmup_failed'
+        $nextAction = '检查工具 warmup 命令与网络可达性'
+        $exitCode = $warmupResult.exit_code
+        $diagnosticSummary = $warmupResult.diagnostic_summary
+      } else {
+        Write-WarmupCache -Tool $tool -Command $warmupStep.command -Arguments $warmupArgs -CommandHash $warmupHash
+      }
+    }
+    if ($status -ne 'ready') {
       $status = 'action-required'
       $lastAction = 'failed'
       $reasonCode = 'warmup_failed'
       $nextAction = '检查工具 warmup 命令与网络可达性'
-      $exitCode = $warmupResult.exit_code
-      $diagnosticSummary = $warmupResult.diagnostic_summary
     }
   }
 

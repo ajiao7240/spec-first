@@ -1,5 +1,5 @@
 {
-  "schema_version": "4",
+  "schema_version": "5",
   "summary_columns": [
     "tool",
     "type",
@@ -268,21 +268,23 @@
       "provider_role": "global_knowledge",
       "description": "全局代码库知识图谱与架构认知 provider，用于项目级代码事实输入",
       "dependencies": ["node", "npm", "npx"],
+      "package": "gitnexus",
+      "version": "1.6.4-rc.85",
       "installation": {
         "kind": "warmup",
         "unix": {
           "command": "npx",
-          "args": ["-y", "gitnexus@1.6.4-rc.48", "--help"]
+          "args": ["-y", "{{package}}@{{version}}", "--help"]
         },
         "windows": {
           "command": "npx",
-          "args": ["-y", "gitnexus@1.6.4-rc.48", "--help"]
+          "args": ["-y", "{{package}}@{{version}}", "--help"]
         }
       },
       "host_config": {
         "claude": {
           "command": "npx",
-          "args": ["-y", "gitnexus@1.6.4-rc.48", "mcp"],
+          "args": ["-y", "{{package}}@{{version}}", "mcp"],
           "scope": "managed",
           "targets": {
             "managed": {
@@ -308,7 +310,7 @@
         },
         "codex": {
           "command": "npx",
-          "args": ["-y", "gitnexus@1.6.4-rc.48", "mcp"],
+          "args": ["-y", "{{package}}@{{version}}", "mcp"],
           "startup_timeout_sec": 90,
           "scope": "user",
           "targets": {

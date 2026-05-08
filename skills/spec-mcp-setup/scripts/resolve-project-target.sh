@@ -43,9 +43,19 @@ json_escape() {
 }
 
 env_quote() {
-  local value="$1"
-  value="${value//\'/\'\\\'\'}"
-  printf "'%s'" "$value"
+  # Wrap value in single quotes for safe `eval`. Most caller-supplied values come from
+  # controlled sources (resolver-derived enums, fixed strings) without literal single quotes,
+  # so the bash-builtin fast path avoids per-call `sed` forks. The slow path activates only
+  # when the input actually contains a `'`, e.g. a repo path or git config value with an
+  # apostrophe — there we need a real escape so install-mcp.sh `eval "$TARGET_ENV"` stays safe.
+  case "$1" in
+    *\'*)
+      printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+      ;;
+    *)
+      printf "'%s'" "$1"
+      ;;
+  esac
 }
 
 canonicalize_existing_path() {

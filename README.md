@@ -250,7 +250,7 @@ The boundary stays lightweight: scripts and CLI commands prepare facts; the LLM 
 |---|---|---|---|
 | Single repo / single project | One Git repo contains one app, SDK, CLI, or service | Current repo root | Requirements, plans, work, reviews, and graph facts are scoped to the current repo. |
 | Single repo / multi module | One Git repo contains multiple apps, packages, services, or Android modules | Same repo root | Do not create one `.spec-first` per module; plans, task packs, work, and reviews split and route work by module inside the repo. |
-| Multi repo workspace | A parent directory contains multiple independent child Git repos | Each child repo's own repo root | The parent workspace only discovers and suggests candidates; repo-local setup, graph, plan, work, and review actions must target an explicit child repo. |
+| Multi repo workspace | A parent directory contains multiple independent child Git repos | Each child repo's own repo root; parent standards artifacts are advisory only | The parent workspace discovers candidates and may hold advisory workspace standards context; repo-local setup, graph, child standards, plan, work, and review actions must target an explicit child repo. |
 
 ```text
 Single repo / single project
@@ -283,7 +283,7 @@ workspace/
 The core contract is: `.spec-first` facts are authoritative at the **selected Git repo root**.
 
 - In a multi-module repo, do not place separate `.spec-first` directories under each module. That splits plans, reviews, graph facts, and knowledge.
-- In a multi-repo workspace, the parent directory does not own repo-local truth. When operating on a child repo from the parent workspace, pass an explicit `--repo <child>`, and make plans or tasks carry `target_repo` or per-unit/per-task `target_repo`.
+- In a multi-repo workspace, the parent directory does not own repo-local truth. No-argument `spec-standards` may write parent `.spec-first/standards/` advisory artifacts for workspace routing and alignment context; when operating on a child repo from the parent workspace, pass an explicit `--repo <child>`, and make plans or tasks carry `target_repo` or per-unit/per-task `target_repo`.
 - `mode:headless`, `mode:report-only`, `mode:autofix`, `depth:deep`, and similar flags are workflow or skill runtime postures, not development-mode categories.
 
 ## What You Get
@@ -494,8 +494,8 @@ Current context and graph readiness use this path:
 - Use the current host's setup workflow to install and verify the required harness runtime: Serena, Sequential Thinking, Context7, GitNexus, code-review-graph, `agent-browser`, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, `ast-grep`, and the global `ast-grep` skill.
 - Use the current host's graph bootstrap workflow after setup reports `baseline_ready=true`. It reads setup-owned config facts, validates provider command arrays, runs transient GitNexus/code-review-graph probes, and writes `.spec-first/graph/*`, `.spec-first/providers/*`, and `.spec-first/impact/*` readiness artifacts.
 - Use the current host's plan workflow as the first graph-readiness consumer. It reports graph status, checks staleness, and falls back to bounded direct repo reads when facts are unavailable, blocked, stale, or degraded.
-- In a parent workspace with multiple child Git repos, read-only code questions can use `workspace-graph-targets.v1` advisory facts to choose bounded candidate repos and prefer GitNexus-first evidence. Writes, tests, changelog updates, review autofix, and commits still require explicit `target_repo` / per-child scope.
-- For parent-workspace maintenance, setup and graph bootstrap default to all child repos when no `--repo <child>` is provided; `--repo <child>` narrows the run and `--all-repos` remains an explicit equivalent. First-time Serena activation still needs per-child language evidence, so language-gated children report `serena_language_required` until the agent reruns setup with `--serena-language-for <child>=<language>`. The parent workspace may write advisory `.spec-first/workspace/*summary.json` files, but never owns repo-local `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, `.spec-first/providers/*`, or `.serena/*` artifacts.
+- In a parent workspace with multiple child Git repos, read-only code questions can use `workspace-graph-targets.v1` advisory facts to choose bounded candidate repos and prefer GitNexus-first evidence. Outside the parent-workspace maintenance entries below, writes, tests, changelog updates, review autofix, and commits still require explicit `target_repo` / per-child scope.
+- For parent-workspace maintenance, init, setup, and graph bootstrap default to all child repos when no `--repo <child>` is provided; `--repo <child>` narrows the run and `--all-repos` remains an explicit equivalent. First-time Serena activation still needs per-child language evidence, so language-gated children report `serena_language_required` until the agent reruns setup with `--serena-language-for <child>=<language>`. The parent workspace may write advisory `.spec-first/workspace/*summary.json` files; no-argument `spec-standards` may write parent `.spec-first/standards/` advisory artifacts. The parent workspace never owns repo-local `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, `.spec-first/providers/*`, child-local `.spec-first/standards/*`, or `.serena/*` artifacts.
 - Use the installed standalone `write-tasks` skill for deterministic task-pack handoff, then the current host's work, code-review, and doc-review workflows with the current request, plans/task packs, diffs, targeted file reads, and tests as scope authority.
 - Use the App consistency audit workflow for mobile App PRD/Figma/source alignment. It consumes local `prd:<path>` and `figma-context:<path>` inputs when available; `figma-ref:<id-or-url>` is only a reference until a host-provided Figma MCP capability materializes local JSON. Figma MCP is an optional App-audit capability, not part of the required setup baseline.
 
@@ -505,13 +505,17 @@ CLI reference:
 spec-first --help
 spec-first --version
 spec-first doctor [--json] [--claude|--codex]
-spec-first init (--claude|--codex) [-u <name>] [--lang zh|en] [--dry-run]
+spec-first init (--claude|--codex) [-u <name>] [--lang zh|en] [--dry-run] [--repo <child>|--all-repos]
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first tasks hash <plan-path> [--json]
 spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>]
 ```
 
 Runtime asset summary:
+
+When `init` is run from a parent workspace that contains child Git repos, it auto-detects the workspace mode, initializes each child repo, and writes only an advisory parent summary at `.spec-first/workspace/init-summary.json`. It does not write parent repo-local artifacts such as `.gitignore`, `AGENTS.md`, `CLAUDE.md`, `.claude/`, `.codex/`, or `.agents/`. Use `--repo <child>` to initialize one child repo, or `--all-repos` to make the batch intent explicit.
+
+The managed `.gitignore` block also ignores local graph provider artifacts such as `.gitnexus/` and `.code-review-graph/`.
 
 Detailed runtime capability catalog: [Runtime Capability Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/catalog/runtime-capabilities.md).
 
@@ -532,7 +536,7 @@ Next steps:
   1. Restart Claude Code or open a new session so the host loads the generated /spec:* commands.
   2. In the new session, run /spec:mcp-setup to install and verify the required MCP/helper runtime.
   3. If /spec:mcp-setup shows graph bootstrap is still pending, run /spec:graph-bootstrap when prompted.
-  4. After graph readiness is ready, run /spec:standards to compile project standards and glue baseline before downstream workflows.
+  4. After graph readiness is ready, run /spec:standards to compile project standards and glue baseline before downstream workflows. In a parent workspace this writes advisory parent standards artifacts; use /spec:standards --repo <child> for a child-local baseline.
 ```
 
 Expected Codex init output includes:
@@ -544,7 +548,7 @@ Next steps:
   1. Restart Codex or open a new session so the host loads the generated $spec-* skills.
   2. In the new session, run $spec-mcp-setup to install and verify the required MCP/helper runtime.
   3. If $spec-mcp-setup shows graph bootstrap is still pending, run $spec-graph-bootstrap when prompted.
-  4. After graph readiness is ready, run $spec-standards to compile project standards and glue baseline before downstream workflows.
+  4. After graph readiness is ready, run $spec-standards to compile project standards and glue baseline before downstream workflows. In a parent workspace this writes advisory parent standards artifacts; use $spec-standards --repo <child> for a child-local baseline.
 ```
 
 ## Development & Contributing

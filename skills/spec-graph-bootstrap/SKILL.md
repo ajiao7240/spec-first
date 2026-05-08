@@ -22,6 +22,8 @@ Do not use this workflow to install MCP servers, repair host config, update spec
 
 Do not write repo-local graph artifacts into a parent workspace. When run from a parent workspace without `--repo`, the workflow defaults to the all-child-repos maintenance path and writes only parent advisory workspace summaries plus child-local canonical artifacts.
 
+Do not compile standards or glue baselines here. After graph readiness is compiled, `spec-standards` owns standards artifacts: no-argument parent workspace runs may write parent advisory `.spec-first/standards/` artifacts, while `spec-standards --repo <child>` owns child-local standards baselines.
+
 ## Inputs
 
 Required setup-owned inputs:
@@ -283,6 +285,7 @@ These workspace summaries are advisory control-plane evidence only. They do not 
 - Unsupported provider id, command shape, or unsafe query probe policy: return `unsupported-provider-command` before running provider commands.
 - Provider build failure: mark that provider failed, preserve raw logs, and use fallback workflow mode only when fallback capabilities are available.
 - Build/status success with query proof failure: preserve `graph_ready=true` where status verified, keep `query_ready=false`, record limitations and raw logs. If GitNexus query fails because the setup-projected `--repo` label differs from `.gitnexus/meta.json` or git remote basename, write `reason_code=gitnexus-repo-label-mismatch` with an action to rerun `spec-mcp-setup` and then `spec-graph-bootstrap`; do not mutate setup-owned `graph-providers.json`.
+- GitNexus FTS/read-only/missing-index query diagnostics: preserve `query_ready=false` and write a structured `recommended_action`. If the setup-projected GitNexus package differs from the bundled `spec-mcp-setup` tool contract, write `reason_code=gitnexus-query-provider-projection-stale` and recommend rerunning `spec-mcp-setup` before `spec-graph-bootstrap`; otherwise write `reason_code=gitnexus-query-fts-readonly` and recommend repairing GitNexus index storage/permissions or clean reanalysis with a fixed provider version. Do not mark the provider ready from build/status alone.
 - Definitions-only GitNexus evidence: use it only for local symbol/file pointers; do not mark compiled query readiness true.
 
 ## Boundaries

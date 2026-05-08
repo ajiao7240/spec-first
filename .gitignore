@@ -53,12 +53,7 @@ yarn-error.log*
 .spec-first/impact/
 .spec-first/workflows/
 .spec-first/workspace/
-.spec-first/standards/work/
-.spec-first/standards/tmp/
-.spec-first/standards/cache/
-.spec-first/standards/raw/
-.spec-first/standards/graph-query-raw/
-.spec-first/standards/**/*.log
+.spec-first/standards/
 
 # Published/package artifacts
 *.tgz
@@ -68,3 +63,38 @@ __pycache__/
 *.pyc
 *.pyo
 .gitnexus
+.code-review-graph
+
+# spec-first:start
+# spec-first generated runtime assets
+.claude/commands/spec/
+.claude/skills/
+.claude/spec-first/
+.claude/agents/
+.claude/tasks/
+.claude/worktrees/
+.codex/commands/spec/
+.codex/spec-first/
+.codex/agents/
+.agents/skills/
+.context/spec-first/
+
+# spec-first local setup, graph readiness, standards, and workflow runtime artifacts
+.gitnexus/
+.code-review-graph/
+.spec-first-graph/
+.spec-first/*.local.yaml
+.spec-first/config.local.yaml
+.spec-first/config/*.json
+.spec-first/audits/
+.spec-first/app-audit/
+.spec-first/graph/
+.spec-first/providers/
+.spec-first/impact/
+.spec-first/workflows/
+.spec-first/workspace/
+.spec-first/standards/
+
+# local project tooling used by spec-first workflows
+.serena/
+# spec-first:end

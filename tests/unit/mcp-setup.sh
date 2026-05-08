@@ -3,12 +3,20 @@
 
 set -euo pipefail
 
+while IFS='=' read -r env_name _; do
+  case "$env_name" in
+    INIT_CWD|npm_*)
+      unset "$env_name" 2>/dev/null || true
+      ;;
+  esac
+done < <(env)
+
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPTS_DIR="$REPO_ROOT/skills/spec-mcp-setup/scripts"
 RESOLVER_SCRIPT="$SCRIPTS_DIR/resolve-project-target.sh"
 GRAPH_BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
-GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | .installation.unix.args[1]' "$TOOLS_JSON")"
+GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | (.package // "") + "@" + (.version // "")' "$TOOLS_JSON")"
 GITNEXUS_QUERY_PROBE="TradeLoginActivity"
 GITNEXUS_REPO_LABEL="hr360"
 TMP_DIR="$(mktemp -d)"
@@ -105,6 +113,9 @@ if [ "\${DRAIN_NPX_STDIN:-}" = "1" ]; then
   cat >/dev/null
 fi
 if [ "\${1:-}" = "--version" ]; then echo "10.0.0"; fi
+if [ -n "\${SLOW_AGENT_BROWSER_SKILL_SECONDS:-}" ] && [[ " \$* " == *" --skill agent-browser "* ]]; then
+  sleep "\$SLOW_AGENT_BROWSER_SKILL_SECONDS"
+fi
 if [[ " \$* " == *" --skill agent-browser "* ]]; then
   mkdir -p "\$HOME/.agents/skills/agent-browser"
   printf 'name: agent-browser\n' > "\$HOME/.agents/skills/agent-browser/SKILL.md"
@@ -139,6 +150,9 @@ SH
 #!/bin/bash
 echo "agent-browser \$*" >> "$log_file"
 if [ "\${1:-}" = "--version" ]; then echo "agent-browser 0.0.0"; fi
+if [ -n "\${SLOW_AGENT_BROWSER_INSTALL_SECONDS:-}" ] && [[ " \$* " == *" install "* ]]; then
+  sleep "\$SLOW_AGENT_BROWSER_INSTALL_SECONDS"
+fi
 exit 0
 SH
   for helper in gh vhs silicon ffmpeg ast-grep; do
@@ -185,13 +199,81 @@ assert_eq "single child repo is only advisory" "workspace-single-candidate:works
 target_env="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT" --format env)"
 assert_contains "env output exposes mode without jq" "mode='workspace-single-candidate'" "$target_env"
 assert_contains "env output exposes write gate without jq" "state_write_allowed='false'" "$target_env"
+
+# env_quote adversarial coverage: load the real implementation from resolve-project-target.sh
+# and confirm it neutralizes single quotes, command substitution, semicolon injection,
+# backticks, and embedded newlines so the eval "$TARGET_ENV" call site in install-mcp.sh
+# stays safe even when a repo path or git config value contains apostrophes.
+ENV_QUOTE_LIB="$TMP_DIR/env-quote.sh"
+sed -n '/^env_quote()/,/^}/p' "$RESOLVER_SCRIPT" > "$ENV_QUOTE_LIB"
+assert "env_quote function extracted from resolver" test -s "$ENV_QUOTE_LIB"
+# shellcheck source=/dev/null
+source "$ENV_QUOTE_LIB"
+
+ENV_QUOTE_SENTINEL="$TMP_DIR/env-quote-injection-marker"
+rm -f "$ENV_QUOTE_SENTINEL"
+
+quote_case_simple="hello-world"
+eval "actual_simple=$(env_quote "$quote_case_simple")"
+assert_eq "env_quote round-trips plain ASCII (fast path)" "$quote_case_simple" "$actual_simple"
+SED_GUARD_BIN="$TMP_DIR/sed-guard-bin"
+mkdir -p "$SED_GUARD_BIN"
+cat > "$SED_GUARD_BIN/sed" <<'EOF'
+#!/bin/sh
+echo "sed-called" > "$SED_GUARD_MARKER"
+exit 99
+EOF
+chmod +x "$SED_GUARD_BIN/sed"
+SED_GUARD_MARKER="$TMP_DIR/env-quote-sed-called"
+rm -f "$SED_GUARD_MARKER"
+guarded_fast="$(SED_GUARD_MARKER="$SED_GUARD_MARKER" PATH="$SED_GUARD_BIN:$PATH" env_quote "$quote_case_simple")"
+eval "actual_guarded_fast=$guarded_fast"
+assert_eq "env_quote fast path round-trips without sed" "$quote_case_simple" "$actual_guarded_fast"
+assert "env_quote fast path does not fork sed" test ! -e "$SED_GUARD_MARKER"
+
+quote_case_single="hello'world"
+eval "actual_single=$(env_quote "$quote_case_single")"
+assert_eq "env_quote round-trips single quote (slow path)" "$quote_case_single" "$actual_single"
+
+quote_case_cmdsub='$(touch '"$ENV_QUOTE_SENTINEL"')'
+eval "actual_cmdsub=$(env_quote "$quote_case_cmdsub")"
+assert_eq "env_quote round-trips command-substitution literal" "$quote_case_cmdsub" "$actual_cmdsub"
+assert "env_quote prevents command substitution from executing" test ! -e "$ENV_QUOTE_SENTINEL"
+
+quote_case_semi="value;touch $ENV_QUOTE_SENTINEL"
+eval "actual_semi=$(env_quote "$quote_case_semi")"
+assert_eq "env_quote round-trips semicolon payload" "$quote_case_semi" "$actual_semi"
+assert "env_quote prevents semicolon-chained command from executing" test ! -e "$ENV_QUOTE_SENTINEL"
+
+quote_case_backtick='`touch '"$ENV_QUOTE_SENTINEL"'`'
+eval "actual_backtick=$(env_quote "$quote_case_backtick")"
+assert_eq "env_quote round-trips backtick payload" "$quote_case_backtick" "$actual_backtick"
+assert "env_quote prevents backtick command from executing" test ! -e "$ENV_QUOTE_SENTINEL"
+
+quote_case_mixed='abc$(touch '"$ENV_QUOTE_SENTINEL"')'"'"'def'
+eval "actual_mixed=$(env_quote "$quote_case_mixed")"
+assert_eq "env_quote round-trips mixed single-quote + cmd-sub payload" "$quote_case_mixed" "$actual_mixed"
+assert "env_quote prevents mixed payload from executing" test ! -e "$ENV_QUOTE_SENTINEL"
+
+quote_case_newline=$'line1\nline2'
+eval "actual_newline=$(env_quote "$quote_case_newline")"
+assert_eq "env_quote round-trips embedded newline" "$quote_case_newline" "$actual_newline"
+
+unset env_quote
+
+# Regression guard: install-mcp.sh must define SCRIPT_DIR exactly once at the top level.
+# A previous lint pass introduced a duplicate (one BASH_SOURCE-based, one $0-based) and the
+# second assignment silently shadowed the first. Pin the count so a future lint cannot
+# reintroduce that drift unnoticed.
+install_mcp_script_dir_lines=$(grep -cE '^SCRIPT_DIR=' "$SCRIPTS_DIR/install-mcp.sh")
+assert_eq "install-mcp.sh defines SCRIPT_DIR exactly once" "1" "$install_mcp_script_dir_lines"
 MONOREPO_FIXTURE="$TMP_DIR/monorepo-fixture"
 make_repo "$MONOREPO_FIXTURE"
 mkdir -p "$MONOREPO_FIXTURE/packages/a" "$MONOREPO_FIXTURE/packages/b"
 target_monorepo="$(cd "$MONOREPO_FIXTURE/packages/a" && bash "$RESOLVER_SCRIPT")"
 assert_eq "monorepo packages stay inside one git repo target" "git-repo:cwd-git-root:0" "$(jq -r '"\(.mode):\(.selection_source):\(.candidates | length)"' <<<"$target_monorepo")"
 
-assert_eq "mcp-tools schema is v4" "4" "$(jq -r '.schema_version' "$TOOLS_JSON")"
+assert_eq "mcp-tools schema is v5" "5" "$(jq -r '.schema_version' "$TOOLS_JSON")"
 assert_eq "tool ids are fixed" "serena,sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.tools[].id] | join(",")' "$TOOLS_JSON")"
 assert_eq "every registry tool is required" "true" "$(jq -r 'all(.tools[]; .required == true)' "$TOOLS_JSON")"
 assert_eq "categories are constrained" "true" "$(jq -r 'all(.tools[]; (.category == "mcp" or .category == "graph-provider"))' "$TOOLS_JSON")"
@@ -202,7 +284,11 @@ assert_eq "serena depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.i
 assert_eq "Serena project bootstrap does not hard-code languages" "false" "$(jq -r '.tools[] | select(.id == "serena") | .project_bootstrap.index_command.args | index("--language") != null' "$TOOLS_JSON")"
 assert_eq "code-review-graph depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "code-review-graph") | .dependencies | join(",")' "$TOOLS_JSON")"
 assert_eq "code-review-graph host MCP is optional" "false:cli_artifact:true" "$(jq -r '.tools[] | select(.id == "code-review-graph") | "\(.host_config_required):\(.provider_config.access_mode):\(.provider_config.optional_live_mcp)"' "$TOOLS_JSON")"
-assert_eq "gitnexus warmup command uses configured package" "npx -y $GITNEXUS_PACKAGE --help" "$(jq -r '.tools[] | select(.id == "gitnexus") | [.installation.unix.command] + .installation.unix.args | join(" ")' "$TOOLS_JSON")"
+assert_eq "GitNexus package pin is explicit" "gitnexus@1.6.4-rc.85" "$GITNEXUS_PACKAGE"
+assert_eq "gitnexus warmup command uses configured package" "npx -y $GITNEXUS_PACKAGE --help" "$(jq -r '.tools[] | select(.id == "gitnexus") as $t | [$t.installation.unix.command] + ($t.installation.unix.args | map(gsub("\\{\\{package\\}\\}"; ($t.package // "")) | gsub("\\{\\{version\\}\\}"; ($t.version // "")))) | join(" ")' "$TOOLS_JSON")"
+assert_contains "write-provider-config.sh reads GitNexus package field separately" 'gitnexus_package_name="$(jq -r' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
+assert_contains "write-provider-config.sh reads GitNexus version field separately" 'gitnexus_package_version="$(jq -r' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
+assert_contains "write-provider-config.sh rejects missing GitNexus package or version" '[ -n "$gitnexus_package_name" ] && [ -n "$gitnexus_package_version" ]' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
 assert_eq "sequential-thinking uses latest npm package" "npx -y @modelcontextprotocol/server-sequential-thinking@latest" "$(jq -r '.tools[] | select(.id == "sequential-thinking") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
 assert_eq "context7 uses latest npm package" "npx -y @upstash/context7-mcp@latest" "$(jq -r '.tools[] | select(.id == "context7") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
 assert_eq "code-review-graph optional mcp command remains available" "uvx --upgrade code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool" "$(jq -r '.tools[] | select(.id == "code-review-graph") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
@@ -394,10 +480,13 @@ assert_not_contains "Windows uv suggestion avoids GUI editor dependency" "notepa
 
 FAKE_HOME="$TMP_DIR/home"
 mkdir -p "$FAKE_HOME"
+mkdir -p "$FAKE_HOME/.agents/skills/agent-browser"
+printf 'name: agent-browser\n' > "$FAKE_HOME/.agents/skills/agent-browser/SKILL.md"
 
 helper_verify_log_before="$(cat "$COMMAND_LOG")"
 helper_verify="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh" --verify-only)"
 helper_verify_log_after="$(cat "$COMMAND_LOG")"
+rm -rf "$FAKE_HOME/.agents/skills/agent-browser"
 assert "install-helpers verify-only emits JSON" jq -e . <<<"$helper_verify"
 assert_eq "helper shape contains agent-browser" "true" "$(jq -r '.helper_tools | has("agent-browser")' <<<"$helper_verify")"
 assert_eq "helper shape contains required jq" "true" "$(jq -r '.helper_tools | has("jq")' <<<"$helper_verify")"
@@ -406,8 +495,28 @@ assert_eq "helper shape contains required ast-grep skill" "true" "$(jq -r '.help
 assert_eq "helper verify-only does not run install commands" "$helper_verify_log_before" "$helper_verify_log_after"
 assert_eq "helper verify-only requires browser install marker" "action-required" "$(jq -r '.helper_tools."agent-browser".result' <<<"$helper_verify")"
 assert_eq "helper verify-only flags missing install marker" "action-required" "$(jq -r '.helper_tools."agent-browser".install_status' <<<"$helper_verify")"
-assert_eq "helper verify-only asks for agent-browser install" "run agent-browser install" "$(jq -r '.helper_tools."agent-browser".next_action' <<<"$helper_verify")"
+assert_eq "helper verify-only asks for agent-browser install" "run agent-browser install or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable" "$(jq -r '.helper_tools."agent-browser".next_action' <<<"$helper_verify")"
 assert_eq "helper verify-only requires ast-grep global skill" "action-required" "$(jq -r '.helper_tools."ast-grep-skill".result' <<<"$helper_verify")"
+
+WINDOWS_HELPER_BIN="$TMP_DIR/windows-helper-bin"
+WINDOWS_HELPER_LOG="$TMP_DIR/windows-helper-commands.log"
+WINDOWS_HELPER_HOME="$TMP_DIR/windows-helper-home"
+touch "$WINDOWS_HELPER_LOG"
+make_fake_bin "$WINDOWS_HELPER_BIN" "$WINDOWS_HELPER_LOG"
+cat > "$WINDOWS_HELPER_BIN/uname" <<'SH'
+#!/bin/bash
+echo "MINGW64_NT-10.0"
+SH
+chmod +x "$WINDOWS_HELPER_BIN/uname"
+mkdir -p "$WINDOWS_HELPER_HOME/.agents/skills/agent-browser" "$WINDOWS_HELPER_HOME/.agents/skills/ast-grep"
+printf 'name: agent-browser\n' > "$WINDOWS_HELPER_HOME/.agents/skills/agent-browser/SKILL.md"
+printf 'name: ast-grep\n' > "$WINDOWS_HELPER_HOME/.agents/skills/ast-grep/SKILL.md"
+windows_helper_verify="$(PATH="$WINDOWS_HELPER_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$WINDOWS_HELPER_HOME" bash "$SCRIPTS_DIR/install-helpers.sh" --verify-only)"
+assert "Windows helper verify-only emits JSON" jq -e . <<<"$windows_helper_verify"
+assert_eq "Windows agent-browser missing runtime is degraded" "degraded" "$(jq -r '.helper_tools."agent-browser".result' <<<"$windows_helper_verify")"
+assert_eq "Windows agent-browser degraded runtime is non-blocking" "false" "$(jq -r '.helper_tools."agent-browser".baseline_blocking' <<<"$windows_helper_verify")"
+assert_contains "Windows agent-browser degraded runtime suggests executable override" "AGENT_BROWSER_EXECUTABLE_PATH" "$(jq -r '.helper_tools."agent-browser".next_action' <<<"$windows_helper_verify")"
+assert_eq "Windows agent-browser CLI remains required" "ready" "$(jq -r '.helper_tools."agent-browser".dependency_status' <<<"$windows_helper_verify")"
 
 helper_install_err="$TMP_DIR/helper-install.err"
 helper_install="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/install-helpers.sh" 2>"$helper_install_err")"
@@ -423,6 +532,25 @@ helper_verify_after_install="$(PATH="$TEST_PATH" HOME="$FAKE_HOME" bash "$SCRIPT
 helper_verify_after_install_log_after="$(cat "$COMMAND_LOG")"
 assert_eq "helper verify-only stays read-only after install" "$helper_verify_after_install_log_before" "$helper_verify_after_install_log_after"
 assert_eq "helper verify-only ready after marker and skill" "ready" "$(jq -r '.helper_tools."agent-browser".result' <<<"$helper_verify_after_install")"
+
+CONCURRENT_BIN="$TMP_DIR/concurrent-bin"
+CONCURRENT_HOME="$TMP_DIR/concurrent-home"
+CONCURRENT_LOG="$TMP_DIR/concurrent-commands.log"
+touch "$CONCURRENT_LOG"
+make_fake_bin "$CONCURRENT_BIN" "$CONCURRENT_LOG"
+mkdir -p "$CONCURRENT_HOME/.agents/skills/ast-grep"
+printf 'name: ast-grep\n' > "$CONCURRENT_HOME/.agents/skills/ast-grep/SKILL.md"
+concurrent_start_ms="$(python3 -c 'import time; print(int(time.time() * 1000))')"
+concurrent_output="$(PATH="$CONCURRENT_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$CONCURRENT_HOME" SLOW_AGENT_BROWSER_INSTALL_SECONDS=2 SLOW_AGENT_BROWSER_SKILL_SECONDS=2 SPEC_FIRST_STAGE_TIMEOUT_SECONDS=10 bash "$SCRIPTS_DIR/install-helpers.sh")"
+concurrent_end_ms="$(python3 -c 'import time; print(int(time.time() * 1000))')"
+concurrent_duration_ms="$((concurrent_end_ms - concurrent_start_ms))"
+assert "helper install concurrent run emits JSON" jq -e . <<<"$concurrent_output"
+assert "helper install concurrent run writes browser marker" test -f "$CONCURRENT_HOME/.agent-browser/spec-first-install.json"
+assert_contains "helper install concurrent run starts browser install" "agent-browser install" "$(cat "$CONCURRENT_LOG")"
+assert_contains "helper install concurrent run starts browser skill install" "npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y" "$(cat "$CONCURRENT_LOG")"
+concurrent_fast_enough="$(python3 -c 'import sys; print(str(int(sys.argv[1]) < 3500).lower())' "$concurrent_duration_ms")"
+assert_eq "helper install concurrent run remains below serial baseline" "true" "$concurrent_fast_enough"
+assert_eq "helper install concurrent run keeps agent-browser ready" "ready" "$(jq -r '.helper_tools."agent-browser".result' <<<"$concurrent_output")"
 
 NO_BROWSER_BIN="$TMP_DIR/bin-no-browser"
 NO_BROWSER_LOG="$TMP_DIR/no-browser-commands.log"
@@ -445,6 +573,44 @@ slow_skill_install="$(PATH="$TEST_PATH" HOME="$SLOW_SKILL_HOME" SLOW_NPX_SKILL_S
 assert "helper install with slow skill emits JSON" jq -e . <<<"$slow_skill_install"
 assert_contains "helper install times out slow ast-grep skill" "timed out after 1s" "$(cat "$slow_skill_stderr")"
 assert_eq "helper install marks ast-grep-skill action-required on timeout" "action-required" "$(jq -r '.helper_tools."ast-grep-skill".result' <<<"$slow_skill_install")"
+
+# --- Mirror fallback: official npm registry fails, mirror succeeds.
+MIRROR_BIN="$TMP_DIR/mirror-bin"
+MIRROR_LOG="$TMP_DIR/mirror-commands.log"
+MIRROR_HOME="$TMP_DIR/mirror-home"
+touch "$MIRROR_LOG"
+make_fake_bin "$MIRROR_BIN" "$MIRROR_LOG"
+rm -f "$MIRROR_BIN/agent-browser"
+cat > "$MIRROR_BIN/npm" <<SH
+#!/bin/bash
+echo "npm \$* registry=\${npm_config_registry:-}\${NPM_CONFIG_REGISTRY:-}" >> "$MIRROR_LOG"
+if [ "\${1:-}" = "--version" ]; then echo "10.0.0"; exit 0; fi
+case " \$* " in
+  *" install -g "*)
+    if [ -n "\${npm_config_registry:-}\${NPM_CONFIG_REGISTRY:-}" ]; then
+      mkdir -p "\$HOME/.npm-global/bin"
+      cat > "\$HOME/.npm-global/bin/agent-browser" <<'INNER'
+#!/bin/bash
+exit 0
+INNER
+      chmod +x "\$HOME/.npm-global/bin/agent-browser"
+      exit 0
+    fi
+    exit 1
+    ;;
+esac
+exit 0
+SH
+chmod +x "$MIRROR_BIN/npm"
+mkdir -p "$MIRROR_HOME/.agents/skills/ast-grep" "$MIRROR_HOME/.npm-global/bin"
+printf 'name: ast-grep\n' > "$MIRROR_HOME/.agents/skills/ast-grep/SKILL.md"
+mirror_install="$(PATH="$MIRROR_HOME/.npm-global/bin:$MIRROR_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$MIRROR_HOME" SPEC_FIRST_STAGE_TIMEOUT_SECONDS=15 bash "$SCRIPTS_DIR/install-helpers.sh" --install 2>/dev/null)"
+assert "mirror fallback install emits JSON" jq -e . <<<"$mirror_install"
+assert_eq "mirror fallback marks agent-browser source mirror" "mirror" "$(jq -r '.helper_tools."agent-browser".install_source' <<<"$mirror_install")"
+assert_eq "mirror fallback flags mirror_used true" "true" "$(jq -r '.helper_tools."agent-browser".mirror_used' <<<"$mirror_install")"
+assert_eq "ledger advertises npm mirror endpoint" "https://registry.npmmirror.com" "$(jq -r '.mirror_endpoints.npm' <<<"$mirror_install")"
+assert_eq "ledger advertises uv mirror endpoint" "https://mirrors.tuna.tsinghua.edu.cn/pypi/simple" "$(jq -r '.mirror_endpoints.uv' <<<"$mirror_install")"
+assert_contains "mirror fallback retries with mirror registry" "registry=https://registry.npmmirror.com" "$(cat "$MIRROR_LOG")"
 
 PREFLIGHT_HOME="$TMP_DIR/preflight-home"
 mkdir -p "$PREFLIGHT_HOME/.agents/skills/agent-browser"
@@ -497,6 +663,18 @@ project_bootstrap_again="$(cd "$FAKE_REPO" && bash "$SCRIPTS_DIR/bootstrap-proje
 assert_eq "bootstrap does not overwrite local config" "custom-local-config" "$(cat "$FAKE_REPO/.spec-first/config.local.yaml")"
 assert_eq "bootstrap reports existing local config" "already-exists" "$(jq -r '.project.local_config_status' <<<"$project_bootstrap_again")"
 assert_eq "gitignore entry is not duplicated" "1" "$(grep -cFx '.spec-first/*.local.yaml' "$FAKE_REPO/.gitignore")"
+
+INIT_GITIGNORE_REPO="$TMP_DIR/init-gitignore-repo"
+make_repo "$INIT_GITIGNORE_REPO"
+node - "$REPO_ROOT" > "$INIT_GITIGNORE_REPO/.gitignore" <<'NODE'
+const repoRoot = process.argv[2];
+const { buildSpecFirstGitignoreBlock } = require(`${repoRoot}/src/cli/gitignore-policy`);
+console.log(buildSpecFirstGitignoreBlock());
+NODE
+init_block_bootstrap="$(cd "$INIT_GITIGNORE_REPO" && bash "$SCRIPTS_DIR/bootstrap-project-config.sh" --create-local --ensure-gitignore --json)"
+assert_eq "init managed block already ignores local config" "already-ignored" "$(jq -r '.project.local_config_gitignore_status' <<<"$init_block_bootstrap")"
+assert_eq "mcp setup does not duplicate init gitignore local config rule" "1" "$(grep -cFx '.spec-first/*.local.yaml' "$INIT_GITIGNORE_REPO/.gitignore")"
+
 printf 'legacy\n' > "$FAKE_REPO/compound-engineering.local.md"
 legacy_delete="$(cd "$FAKE_REPO" && bash "$SCRIPTS_DIR/bootstrap-project-config.sh" --delete-legacy-markdown --json)"
 assert_eq "legacy markdown deletion is explicit" "deleted" "$(jq -r '.legacy.compound_engineering_markdown_status' <<<"$legacy_delete")"
@@ -529,6 +707,31 @@ assert_contains "installer uses explicit LLM-selected TypeScript language for No
 assert_contains "installer prints configure-host stage logs" "spec-mcp-setup: [mcp/configure:serena] start" "$(cat "$install_mcp_log")"
 assert_contains "installer prints Serena stage logs" "spec-mcp-setup: [mcp/serena:serena] start" "$(cat "$install_mcp_log")"
 
+gitnexus_warmup_count_before="$(grep -cF "npx -y $GITNEXUS_PACKAGE --help" "$COMMAND_LOG" || true)"
+WARMUP_CACHE_REUSE_REPO="$TMP_DIR/warmup-cache-reuse-repo"
+make_repo "$WARMUP_CACHE_REUSE_REPO"
+warmup_cache_reuse_output="$(cd "$WARMUP_CACHE_REUSE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --only gitnexus)"
+assert "warmup cache reuse emits JSON" jq -e . <<<"$warmup_cache_reuse_output"
+gitnexus_warmup_count_after="$(grep -cF "npx -y $GITNEXUS_PACKAGE --help" "$COMMAND_LOG" || true)"
+assert_eq "second repo reuses GitNexus warmup cache instead of rerunning npx" "$gitnexus_warmup_count_before" "$gitnexus_warmup_count_after"
+assert_eq "ledger reports GitNexus warmup cache hit" "ready:warmup-cache-hit" "$(jq -r '.results[] | select(.tool_id == "gitnexus") | "\(.status):\(.last_action)"' <<<"$warmup_cache_reuse_output")"
+gitnexus_warmup_cache_file="$(find "$FAKE_HOME/.spec-first/cache/mcp-warmup" -path '*/gitnexus.json' -print -quit)"
+assert "GitNexus warmup cache marker exists" test -n "$gitnexus_warmup_cache_file"
+assert_eq "GitNexus warmup cache records configured package" "$GITNEXUS_PACKAGE" "$(jq -r '.package_spec' "$gitnexus_warmup_cache_file")"
+
+sequential_warmup_count_before="$(grep -cF 'npx -y @modelcontextprotocol/server-sequential-thinking@latest' "$COMMAND_LOG" || true)"
+warmup_invalid_ttl_output="$(cd "$WARMUP_CACHE_REUSE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS=not-a-number bash "$SCRIPTS_DIR/install-mcp.sh" --only sequential-thinking)"
+assert "warmup cache tolerates invalid latest TTL env" jq -e . <<<"$warmup_invalid_ttl_output"
+sequential_warmup_count_after="$(grep -cF 'npx -y @modelcontextprotocol/server-sequential-thinking@latest' "$COMMAND_LOG" || true)"
+assert_eq "invalid latest TTL env falls back without rerunning cached warmup" "$sequential_warmup_count_before" "$sequential_warmup_count_after"
+assert_eq "latest package cache hit remains explicit" "ready:warmup-cache-hit" "$(jq -r '.results[] | select(.tool_id == "sequential-thinking") | "\(.status):\(.last_action)"' <<<"$warmup_invalid_ttl_output")"
+
+BROKEN_WARMUP_CACHE_PATH="$TMP_DIR/warmup-cache-as-file"
+printf 'not a directory\n' > "$BROKEN_WARMUP_CACHE_PATH"
+warmup_broken_cache_output="$(cd "$WARMUP_CACHE_REUSE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude SPEC_FIRST_FORCE_WARMUP=1 SPEC_FIRST_WARMUP_CACHE_DIR="$BROKEN_WARMUP_CACHE_PATH" bash "$SCRIPTS_DIR/install-mcp.sh" --only gitnexus)"
+assert "warmup cache write failure remains non-blocking" jq -e . <<<"$warmup_broken_cache_output"
+assert_eq "broken warmup cache path does not fail setup" "ready:installed" "$(jq -r '.results[] | select(.tool_id == "gitnexus") | "\(.status):\(.last_action)"' <<<"$warmup_broken_cache_output")"
+
 STDIN_DRAIN_REPO="$TMP_DIR/stdin-drain-repo"
 STDIN_DRAIN_HOME="$TMP_DIR/stdin-drain-home"
 make_repo "$STDIN_DRAIN_REPO"
@@ -549,6 +752,9 @@ make_fake_bin "$INSTALL_LANG_BIN" "$INSTALL_LANG_LOG"
 install_lang_output="$(cd "$INSTALL_LANG_REPO" && PATH="$INSTALL_LANG_BIN:$TEST_PATH" HOME="$INSTALL_LANG_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --only serena --serena-languages kotlin,java)"
 assert "install-mcp with Serena languages emits JSON" jq -e . <<<"$install_lang_output"
 assert_contains "install-mcp forwards LLM-selected Serena languages" "serena project create . --index --language kotlin --language java" "$(cat "$INSTALL_LANG_LOG")"
+assert_contains "Serena local override ignores node_modules before indexing" '"**/node_modules/"' "$(cat "$INSTALL_LANG_REPO/.serena/project.local.yml")"
+assert_contains "Serena local override ignores virtualenvs before indexing" '"**/.venv/"' "$(cat "$INSTALL_LANG_REPO/.serena/project.local.yml")"
+assert_contains "Serena local override ignores generated runtime before indexing" '".agents/skills/"' "$(cat "$INSTALL_LANG_REPO/.serena/project.local.yml")"
 
 INSTALL_NO_LANG_REPO="$TMP_DIR/install-no-lang-repo"
 INSTALL_NO_LANG_HOME="$TMP_DIR/install-no-lang-home"
@@ -600,6 +806,26 @@ make_repo "$SERENA_VERIFY_MISSING_REPO"
 serena_verify_missing="$(cd "$SERENA_VERIFY_MISSING_REPO" && PATH="$SERENA_FAIL_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --verify-only)"
 assert_eq "Serena verify-only reports missing project as action required" "action-required:serena-project-not-ready" "$(jq -r '"\(.overall_status):\(.reason_code)"' <<<"$serena_verify_missing")"
 assert "Serena verify-only does not create project directory" test ! -e "$SERENA_VERIFY_MISSING_REPO/.serena"
+
+SERENA_INCOMPLETE_REPO="$TMP_DIR/serena-incomplete-repo"
+SERENA_INCOMPLETE_BIN="$TMP_DIR/serena-incomplete-bin"
+SERENA_INCOMPLETE_LOG="$TMP_DIR/serena-incomplete-commands.log"
+make_repo "$SERENA_INCOMPLETE_REPO"
+mkdir -p "$SERENA_INCOMPLETE_REPO/.serena/cache/typescript"
+cat > "$SERENA_INCOMPLETE_REPO/.serena/project.yml" <<'YAML'
+languages:
+- typescript
+YAML
+printf 'stale-cache\n' > "$SERENA_INCOMPLETE_REPO/.serena/cache/typescript/raw_document_symbols.pkl"
+touch "$SERENA_INCOMPLETE_LOG"
+make_fake_bin "$SERENA_INCOMPLETE_BIN" "$SERENA_INCOMPLETE_LOG"
+serena_incomplete_verify="$(cd "$SERENA_INCOMPLETE_REPO" && PATH="$SERENA_INCOMPLETE_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --verify-only)"
+assert_eq "Serena verify-only reports incomplete cache without ready marker" "incomplete" "$(jq -r '.cache.status' <<<"$serena_incomplete_verify")"
+assert_contains "Serena verify-only next action names incomplete cache" ".serena/cache" "$(jq -r '.next_action' <<<"$serena_incomplete_verify")"
+(cd "$SERENA_INCOMPLETE_REPO" && PATH="$SERENA_INCOMPLETE_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh")
+assert "Serena rebuild removes stale incomplete cache file" test ! -e "$SERENA_INCOMPLETE_REPO/.serena/cache/typescript/raw_document_symbols.pkl"
+assert_contains "Serena incomplete rebuild reuses existing language" "serena project create . --index --language typescript" "$(cat "$SERENA_INCOMPLETE_LOG")"
+assert_contains "Serena incomplete rebuild keeps safe local ignored paths" '"**/node_modules/"' "$(cat "$SERENA_INCOMPLETE_REPO/.serena/project.local.yml")"
 
 SERENA_FIRST_TIME_NO_LANG_REPO="$TMP_DIR/serena-first-time-no-lang-repo"
 SERENA_FIRST_TIME_NO_LANG_BIN="$TMP_DIR/serena-first-time-no-lang-bin"
@@ -690,6 +916,38 @@ touch "$SERENA_REUSE_REBUILD_LOG"
 make_fake_bin "$SERENA_REUSE_REBUILD_BIN" "$SERENA_REUSE_REBUILD_LOG"
 (cd "$SERENA_REUSE_REBUILD_REPO" && PATH="$SERENA_REUSE_REBUILD_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh")
 assert_contains "Serena non-refresh rebuild reuses existing config languages" "serena project create . --index --language typescript" "$(cat "$SERENA_REUSE_REBUILD_LOG")"
+
+SERENA_TIMEOUT_REPO="$TMP_DIR/serena-timeout-repo"
+SERENA_TIMEOUT_HOME="$TMP_DIR/serena-timeout-home"
+SERENA_TIMEOUT_BIN="$TMP_DIR/serena-timeout-bin"
+SERENA_TIMEOUT_LOG="$TMP_DIR/serena-timeout-commands.log"
+SERENA_TIMEOUT_CHILD_PID="$TMP_DIR/serena-timeout-child.pid"
+make_repo "$SERENA_TIMEOUT_REPO"
+mkdir -p "$SERENA_TIMEOUT_HOME"
+touch "$SERENA_TIMEOUT_LOG"
+make_fake_bin "$SERENA_TIMEOUT_BIN" "$SERENA_TIMEOUT_LOG"
+cat > "$SERENA_TIMEOUT_BIN/uvx" <<SH
+#!/bin/bash
+echo "uvx \$*" >> "$SERENA_TIMEOUT_LOG"
+if [[ " \$* " == *" serena project create "* ]]; then
+  (while true; do sleep 1; done) &
+  echo "\$!" > "$SERENA_TIMEOUT_CHILD_PID"
+  wait
+fi
+exit 0
+SH
+chmod +x "$SERENA_TIMEOUT_BIN/uvx"
+set +e
+serena_timeout_output="$(cd "$SERENA_TIMEOUT_REPO" && PATH="$SERENA_TIMEOUT_BIN:$TEST_PATH" HOME="$SERENA_TIMEOUT_HOME" MCP_SETUP_HOST=claude SPEC_FIRST_STAGE_TIMEOUT_SECONDS=1 bash "$SCRIPTS_DIR/install-mcp.sh" --only serena --serena-language typescript)"
+serena_timeout_status=$?
+set -e
+assert_eq "install-mcp timeout returns JSON without crashing" "0" "$serena_timeout_status"
+assert "install-mcp timeout output is JSON" jq -e . <<<"$serena_timeout_output"
+assert_eq "install-mcp classifies timed out Serena bootstrap as partial" "partial:serena_bootstrap_failed" "$(jq -r '.results[] | select(.tool_id == "serena") | "\(.status):\(.reason_code)"' <<<"$serena_timeout_output")"
+if [ -f "$SERENA_TIMEOUT_CHILD_PID" ] && kill -0 "$(cat "$SERENA_TIMEOUT_CHILD_PID")" 2>/dev/null; then
+  echo "FAIL: timed out Serena bootstrap left child process running" >&2
+  exit 1
+fi
 
 SERENA_NO_LANG_REPO="$TMP_DIR/serena-no-lang-repo"
 make_repo "$SERENA_NO_LANG_REPO"

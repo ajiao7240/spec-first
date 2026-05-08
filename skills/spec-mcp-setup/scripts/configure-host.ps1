@@ -12,6 +12,7 @@ if ([string]::IsNullOrWhiteSpace($Tool)) {
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
 . (Join-Path $ScriptDir 'lib-toml.ps1')
+. (Join-Path $ScriptDir 'lib-template.ps1')
 $ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
@@ -29,7 +30,7 @@ if ($null -eq $HostConfig) {
   throw "未找到 $Tool 的 host_config.$DetectedHost"
 }
 
-$resolvedArgs = @($HostConfig.args)
+$resolvedArgs = @(Expand-ToolArgs -Tool $ToolDef -Args $HostConfig.args)
 $ResolvedConfig = [ordered]@{ command = $HostConfig.command; args = $resolvedArgs }
 if ($null -ne $HostConfig.PSObject.Properties['startup_timeout_sec']) {
   $ResolvedConfig['startup_timeout_sec'] = [int]$HostConfig.startup_timeout_sec
@@ -42,13 +43,13 @@ function Get-CodexHigherPrecedenceStatus {
   }
 
   $selectedProperty = $HostInfo.targets.PSObject.Properties[$SelectedScope]
-  $selectedPrecedence = if ($null -ne $selectedProperty) { [int]$selectedProperty.Value.precedence } else { 0 }
+  $selectedPrecedence = if ($null -ne $selectedProperty) { [int](Get-ToolField -Tool $selectedProperty.Value -Name 'precedence') } else { 0 }
   foreach ($entry in $HostInfo.targets.PSObject.Properties) {
     if ($entry.Name -eq $SelectedScope) { continue }
     $target = $entry.Value
-    if (-not [bool]$target.exists) { continue }
-    if ([int]$target.precedence -le $selectedPrecedence) { continue }
-    $path = [string]$target.config_path
+    if (-not [bool](Get-ToolField -Tool $target -Name 'exists')) { continue }
+    if ([int](Get-ToolField -Tool $target -Name 'precedence') -le $selectedPrecedence) { continue }
+    $path = [string](Get-ToolField -Tool $target -Name 'config_path')
     if ([string]::IsNullOrWhiteSpace($path) -or -not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
     $section = Get-TomlMcpSection -Path $path -Key $ToolDef.detection.key
     if ([string]::IsNullOrWhiteSpace($section)) { continue }
@@ -59,6 +60,17 @@ function Get-CodexHigherPrecedenceStatus {
   }
 
   [pscustomobject]@{ status = 'none'; scope = ''; path = '' }
+}
+
+function ConvertFrom-JsonCompat {
+  param(
+    [string]$Json,
+    [switch]$AsHashtable
+  )
+  if ($AsHashtable -and $PSVersionTable.PSVersion.Major -ge 6) {
+    return $Json | ConvertFrom-Json -AsHashtable
+  }
+  return $Json | ConvertFrom-Json
 }
 
 function Get-ClaudeMcpServer {
@@ -107,22 +119,24 @@ function Test-ToolConfigured {
 }
 
 function Write-ClaudeConfig {
-  param([hashtable]$FinalConfig)
+  param([System.Collections.IDictionary]$FinalConfig)
+
   $config = if (Test-Path $ConfigPath) {
-    Get-Content -Raw $ConfigPath | ConvertFrom-Json -AsHashtable
+    $parsed = ConvertFrom-JsonCompat -Json (Get-Content -Raw $ConfigPath) -AsHashtable
+    ConvertTo-MutableHashtable -Object $parsed
   } else {
     @{}
   }
-  if (-not $config.ContainsKey('mcpServers')) { $config['mcpServers'] = @{} }
+  if (-not $config.Contains('mcpServers')) { $config['mcpServers'] = @{} }
   $config['mcpServers'][$ToolDef.detection.key] = $FinalConfig
-  $config | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 $ConfigPath
+  Set-TextFileAtomic -Path $ConfigPath -Value ($config | ConvertTo-Json -Depth 8)
 }
 
 function Write-CodexConfig {
-  param([hashtable]$FinalConfig)
+  param([System.Collections.IDictionary]$FinalConfig)
   $command = $FinalConfig.command
   $argsJson = @($FinalConfig.args) | ConvertTo-Json -Compress
-  $timeoutLine = if ($FinalConfig.ContainsKey('startup_timeout_sec')) { "`nstartup_timeout_sec = $($FinalConfig.startup_timeout_sec)" } else { '' }
+  $timeoutLine = if ($FinalConfig.Contains('startup_timeout_sec')) { "`nstartup_timeout_sec = $($FinalConfig.startup_timeout_sec)" } else { '' }
   $sectionBody = "command = `"$command`"`nargs = $argsJson$timeoutLine"
   Write-TomlMcpSection -Path $ConfigPath -Key $ToolDef.detection.key -Body $sectionBody
 }

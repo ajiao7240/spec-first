@@ -5,6 +5,10 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { runInit } = require('../../src/cli/commands/init');
+const {
+  SPEC_FIRST_GITIGNORE_START,
+  buildSpecFirstGitignoreBlock,
+} = require('../../src/cli/gitignore-policy');
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-init-dry-run-'));
@@ -62,6 +66,10 @@ function snapshotTree(rootDir) {
   return results.sort();
 }
 
+function countGitignoreMarkers(content) {
+  return (content.match(new RegExp(SPEC_FIRST_GITIGNORE_START, 'g')) || []).length;
+}
+
 describe('init --dry-run', () => {
   test('init help includes concise post-init setup guidance', () => {
     const projectRoot = makeTempDir();
@@ -72,6 +80,7 @@ describe('init --dry-run', () => {
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toBe('');
       expect(result.stdout).toContain('After successful init');
+      expect(result.stdout).toContain('init refreshes parent host runtime assets');
       expect(result.stdout).toContain('/spec:mcp-setup');
       expect(result.stdout).toContain('/spec:graph-bootstrap');
       expect(result.stdout).toContain('/spec:standards');
@@ -125,9 +134,11 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('.claude/spec-first/workflows/spec-mcp-setup/scripts/check-health');
       expect(result.stdout).toContain('.claude/agents/spec-security-reviewer.agent.md');
       expect(result.stdout).toContain('CLAUDE.md');
+      expect(result.stdout).toContain('.gitignore');
       expect(result.stdout).toContain('.claude/hooks/session-start');
       expect(result.stdout).toContain('.claude/spec-first/state.json');
       expect(result.stdout).toContain('No files were changed.');
+      expect(fs.existsSync(path.join(projectRoot, '.gitignore'))).toBe(false);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -150,15 +161,22 @@ describe('init --dry-run', () => {
         '.claude/spec-first/workflows/spec-mcp-setup/scripts/check-health',
         '.claude/settings.json',
         '.claude/spec-first/state.json',
+        '.gitignore',
         'CLAUDE.md',
       ]) {
         expect(dryRun.stdout).toContain(relativePath);
         expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(true);
       }
 
+      const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
+      expect(gitignore).toContain(buildSpecFirstGitignoreBlock());
+      expect(gitignore).toContain('.claude/commands/spec/');
+      expect(gitignore).toContain('.spec-first/standards/');
+
       const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
       expect(claudeInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(claudeInstruction).toContain('workspace-graph-targets.v1');
+      expect(claudeInstruction).toContain('spec-standards` 无参数运行可只写父级 `.spec-first/standards/` advisory baseline');
       expect(claudeInstruction).toContain('target_repo');
       expect(claudeInstruction).toContain('/spec:optimize');
       expect(claudeInstruction).not.toContain('startup-reminder --codex');
@@ -189,8 +207,13 @@ describe('init --dry-run', () => {
       expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
 
       const codexInstruction = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
+      const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
+      expect(gitignore).toContain(buildSpecFirstGitignoreBlock());
+      expect(gitignore).toContain('.agents/skills/');
+      expect(gitignore).not.toContain('.agents/\n');
       expect(codexInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(codexInstruction).toContain('workspace-graph-targets.v1');
+      expect(codexInstruction).toContain('spec-standards` 无参数运行可只写父级 `.spec-first/standards/` advisory baseline');
       expect(codexInstruction).toContain('target_repo');
       expect(codexInstruction).toContain('$spec-optimize');
       expect(codexInstruction).toContain('spec-first startup-reminder --codex');
@@ -267,6 +290,166 @@ describe('init --dry-run', () => {
     }
   });
 
+  test('repeated init keeps a single gitignore managed block', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      expect(captureInit(projectRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
+      expect(captureInit(projectRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
+
+      const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
+      expect(countGitignoreMarkers(gitignore)).toBe(1);
+      expect(gitignore).toContain('.spec-first/*.local.yaml');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init preserves existing user gitignore content around the managed block', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      fs.writeFileSync(path.join(projectRoot, '.gitignore'), 'node_modules/\n.env\n', 'utf8');
+
+      expect(captureInit(projectRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
+
+      const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
+      expect(gitignore.startsWith('node_modules/\n.env\n\n')).toBe(true);
+      expect(gitignore).toContain(buildSpecFirstGitignoreBlock());
+      expect(countGitignoreMarkers(gitignore)).toBe(1);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init preserves single repo behavior and auto-batches parent workspaces into child repos', () => {
+    const monorepoRoot = makeTempDir();
+    const workspaceRoot = makeTempDir();
+
+    try {
+      fs.mkdirSync(path.join(monorepoRoot, 'packages', 'app'), { recursive: true });
+      fs.mkdirSync(path.join(monorepoRoot, 'packages', 'lib'), { recursive: true });
+
+      expect(captureInit(monorepoRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
+      expect(fs.existsSync(path.join(monorepoRoot, '.gitignore'))).toBe(true);
+      expect(fs.existsSync(path.join(monorepoRoot, 'packages', 'app', '.gitignore'))).toBe(false);
+      expect(fs.existsSync(path.join(monorepoRoot, 'packages', 'lib', '.gitignore'))).toBe(false);
+
+      fs.mkdirSync(path.join(workspaceRoot, 'project-a', '.git'), { recursive: true });
+      fs.mkdirSync(path.join(workspaceRoot, 'project-b', '.git'), { recursive: true });
+
+      expect(captureInit(workspaceRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
+      expect(fs.existsSync(path.join(workspaceRoot, '.gitignore'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, 'AGENTS.md'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, '.agents', 'skills', 'spec-mcp-setup', 'mcp-tools.json'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, '.codex'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'workspace', 'init-summary.json'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'config'))).toBe(false);
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-b', '.gitignore'))).toBe(true);
+      expect(fs.readFileSync(path.join(workspaceRoot, 'AGENTS.md'), 'utf8')).toContain('parent host runtime assets');
+      expect(fs.readFileSync(path.join(workspaceRoot, 'project-a', '.gitignore'), 'utf8')).toContain(buildSpecFirstGitignoreBlock());
+      expect(fs.readFileSync(path.join(workspaceRoot, 'project-b', '.gitignore'), 'utf8')).toContain(buildSpecFirstGitignoreBlock());
+
+      const summary = JSON.parse(fs.readFileSync(path.join(workspaceRoot, '.spec-first', 'workspace', 'init-summary.json'), 'utf8'));
+      expect(summary.schema_version).toBe('workspace-init-summary.v1');
+      expect(summary.selection_source).toBe('workspace-default-all-repos');
+      expect(summary.parent_writes_repo_local_artifacts).toBe(false);
+      expect(summary.parent_writes_host_runtime_assets).toBe(true);
+      expect(summary.parent_host_runtime.overall_status).toBe('ready');
+      expect(summary.counts).toMatchObject({ total: 2, ready: 2, action_required: 0 });
+      expect(summary.counts.parent_runtime_ready).toBe(1);
+
+      fs.rmSync(path.join(workspaceRoot, 'project-a', '.gitignore'), { force: true });
+      fs.rmSync(path.join(workspaceRoot, 'project-b', '.gitignore'), { force: true });
+      fs.rmSync(path.join(workspaceRoot, '.spec-first'), { recursive: true, force: true });
+
+      expect(captureInit(workspaceRoot, ['--codex', '--repo', 'project-a', '-u', 'reviewer', '--lang', 'zh']).exitCode).toBe(0);
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(true);
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-b', '.gitignore'))).toBe(false);
+      expect(fs.existsSync(path.join(workspaceRoot, '.gitignore'))).toBe(true);
+    } finally {
+      fs.rmSync(monorepoRoot, { recursive: true, force: true });
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init --all-repos dry-run previews child repos without writing parent or child files', () => {
+    const workspaceRoot = makeTempDir();
+
+    try {
+      fs.mkdirSync(path.join(workspaceRoot, 'project-a', '.git'), { recursive: true });
+      fs.mkdirSync(path.join(workspaceRoot, 'project-b', '.git'), { recursive: true });
+      const before = snapshotTree(workspaceRoot);
+
+      const result = captureInit(workspaceRoot, ['--codex', '--all-repos', '--dry-run', '-u', 'reviewer', '--lang', 'zh']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toContain('Workspace init: spec-first init (codex)');
+      expect(result.stdout).toContain('selection_source: explicit-all-repos');
+      expect(result.stdout).toContain('▶ Refresh parent host runtime assets');
+      expect(result.stdout).toContain('Dry run: no parent advisory summary was written.');
+      expect(snapshotTree(workspaceRoot)).toEqual(before);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init rejects invalid workspace target flag combinations', () => {
+    const projectRoot = makeTempDir();
+    const workspaceRoot = makeTempDir();
+
+    try {
+      fs.mkdirSync(path.join(projectRoot, '.git'), { recursive: true });
+      fs.mkdirSync(path.join(workspaceRoot, 'project-a', '.git'), { recursive: true });
+
+      const allReposInsideGit = captureInit(projectRoot, ['--codex', '--all-repos', '-u', 'reviewer', '--lang', 'zh']);
+      expect(allReposInsideGit.exitCode).toBe(1);
+      expect(allReposInsideGit.stderr).toContain('--all-repos must be run from a parent workspace');
+      expect(fs.existsSync(path.join(projectRoot, '.gitignore'))).toBe(false);
+
+      const conflicting = captureInit(workspaceRoot, ['--codex', '--all-repos', '--repo', 'project-a', '-u', 'reviewer', '--lang', 'zh']);
+      expect(conflicting.exitCode).toBe(1);
+      expect(conflicting.stderr).toContain('Cannot combine --repo and --all-repos');
+      expect(fs.existsSync(path.join(workspaceRoot, '.gitignore'))).toBe(false);
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(false);
+
+      const emptyRepoEquals = captureInit(workspaceRoot, ['--codex', '--repo=', '-u', 'reviewer', '--lang', 'zh']);
+      expect(emptyRepoEquals.exitCode).toBe(1);
+      expect(emptyRepoEquals.stderr).toContain('Usage: spec-first init');
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(false);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init --repo rejects symlink targets that escape the parent workspace', () => {
+    const workspaceRoot = makeTempDir();
+    const outsideRepo = makeTempDir();
+
+    try {
+      fs.mkdirSync(path.join(outsideRepo, '.git'), { recursive: true });
+      const linkedRepo = path.join(workspaceRoot, 'linked-outside');
+      try {
+        fs.symlinkSync(outsideRepo, linkedRepo, 'dir');
+      } catch (_error) {
+        return;
+      }
+
+      const result = captureInit(workspaceRoot, ['--codex', '--repo', 'linked-outside', '-u', 'reviewer', '--lang', 'zh']);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('--repo target must be inside the current workspace');
+      expect(fs.existsSync(path.join(outsideRepo, '.gitignore'))).toBe(false);
+      expect(fs.existsSync(path.join(outsideRepo, 'AGENTS.md'))).toBe(false);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+      fs.rmSync(outsideRepo, { recursive: true, force: true });
+    }
+  });
+
   test('init apply prints host-aware setup guidance after installing runtime assets', () => {
     const claudeProjectRoot = makeTempDir();
     const codexProjectRoot = makeTempDir();
@@ -282,6 +465,7 @@ describe('init --dry-run', () => {
       expect(claude.stdout).toContain('/spec:graph-bootstrap');
       expect(claude.stdout).toContain('/spec:standards');
       expect(claude.stdout).toContain('graph readiness 就绪后');
+      expect(claude.stdout).toContain('child-local baseline 使用 /spec:standards --repo <child>');
 
       const codex = captureInit(codexProjectRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']);
       expect(codex.exitCode).toBe(0);
@@ -292,6 +476,7 @@ describe('init --dry-run', () => {
       expect(codex.stdout).toContain('$spec-graph-bootstrap');
       expect(codex.stdout).toContain('$spec-standards');
       expect(codex.stdout).toContain('graph readiness 就绪后');
+      expect(codex.stdout).toContain('child-local baseline 使用 $spec-standards --repo <child>');
 
       const english = captureInit(englishProjectRoot, ['--codex', '-u', 'reviewer', '--lang', 'en']);
       expect(english.exitCode).toBe(0);
@@ -302,6 +487,7 @@ describe('init --dry-run', () => {
       expect(english.stdout).toContain('$spec-graph-bootstrap');
       expect(english.stdout).toContain('$spec-standards');
       expect(english.stdout).toContain('After graph readiness is ready');
+      expect(english.stdout).toContain('use $spec-standards --repo <child> for a child-local baseline');
       expect(english.stdout).not.toContain('下一步:');
     } finally {
       fs.rmSync(claudeProjectRoot, { recursive: true, force: true });

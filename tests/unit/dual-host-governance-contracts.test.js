@@ -40,7 +40,7 @@ const MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/SKILL.m
 const MCP_SETUP_TOOLS_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/mcp-tools.json');
 const MCP_SETUP_VERIFY_SH_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/scripts/verify-tools.sh');
 const MCP_SETUP_VERIFY_PS1_PATH = path.join(REPO_ROOT, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
-const DOCS_MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-mcp-setup/SKILL.md');
+const DOCS_PROMPT_SKILLS_DIR = path.join(REPO_ROOT, 'docs/10-prompt/skills');
 const RETIRED_MCP_SETUP_FLOW_PATH = path.join(REPO_ROOT, 'docs/10-prompt/skills/spec-mcp-setup/execution-flow.md');
 const RETIRED_GRAPH_BOOTSTRAP_PROMPT_MIRROR_PATH = path.join(
   REPO_ROOT,
@@ -78,7 +78,8 @@ describe('dual-host governance contracts', () => {
     expect(contract).toContain('skills');
     expect(contract).toContain('skipped');
     expect(contract).toContain('至少还要有一个非 `owner_host` 宿主可交付');
-    expect(contract).toContain('新增普通 workflow skill 不默认新增 docs mirror');
+    expect(contract).toContain('`docs/10-prompt/skills/` 不再是 active contract surface');
+    expect(contract).toContain('不得要求随 `skills/` source 改动同步更新或重新创建');
   });
 
   test('codex adapter stops installing command files but retains cleanup path', () => {
@@ -123,7 +124,7 @@ describe('dual-host governance contracts', () => {
     expect(standards).toMatchObject({
       filename: 'standards.md',
       description: 'Compile project standards and glue capability baseline artifacts',
-      argumentHint: '[--baseline|--quick|--refresh|--deep] [--import-source <git-or-path>]',
+      argumentHint: '[--baseline|--quick|--refresh|--deep] [--repo <child>|--workspace|--target-kind <auto|repo|workspace>] [--import-source <git-or-path>]',
       skill: 'spec-standards',
     });
     expect(skillAudit).toMatchObject({
@@ -204,7 +205,6 @@ describe('dual-host governance contracts', () => {
 
   test('mcp setup keeps Serena language selection with the agent and out of interactive CLI flows', () => {
     const mcpSetup = read(MCP_SETUP_SKILL_PATH);
-    const mirror = read(DOCS_MCP_SETUP_SKILL_PATH);
 
     expect(fs.existsSync(RETIRED_MCP_SETUP_FLOW_PATH)).toBe(false);
     expect(mcpSetup).toContain('Serena project language selection is semantic and belongs to the LLM');
@@ -213,10 +213,16 @@ describe('dual-host governance contracts', () => {
     expect(mcpSetup).toContain('reason_code=serena_language_required');
     expect(mcpSetup).toContain('first-time setup without existing language facts must fail fast before invoking Serena');
     expect(mcpSetup).not.toContain("Serena's own project creation may infer languages");
-    expect(mirror).toContain('证据明确时不要询问用户');
-    expect(mirror).toContain('reason_code=serena_language_required');
-    expect(mirror).toContain('脚本不得进入 Serena 交互式语言选择');
-    expect(mirror).toContain('fail-fast');
+  });
+
+  test('docs prompt skills mirror directory is retired from active contract surfaces', () => {
+    const contract = read(GOVERNANCE_CONTRACT_PATH);
+    const lintConfig = readJson(path.join(REPO_ROOT, 'scripts/lint-skill-entrypoints.config.json'));
+
+    expect(fs.existsSync(DOCS_PROMPT_SKILLS_DIR)).toBe(false);
+    expect(lintConfig.scanRoots).not.toContain('docs/10-prompt/skills');
+    expect(contract).toContain('`docs/10-prompt/skills/` 不再是 active contract surface');
+    expect(contract).toContain('不得要求随 `skills/` source 改动同步更新或重新创建');
   });
 
   test('docs-side governance directory keeps only the human-readable contract', () => {
@@ -247,6 +253,7 @@ describe('dual-host governance contracts', () => {
     expect(gitignore).toContain('.spec-first/impact/');
     expect(gitignore).toContain('.spec-first/workflows/');
     expect(gitignore).toContain('.spec-first/workspace/');
+    expect(gitignore).toContain('.spec-first/standards/');
   });
 
   test('release governance smoke forbids docs-side machine-readable assets from tarball payload', () => {
@@ -335,7 +342,6 @@ describe('dual-host governance contracts', () => {
       MCP_SETUP_TOOLS_PATH,
       MCP_SETUP_VERIFY_SH_PATH,
       MCP_SETUP_VERIFY_PS1_PATH,
-      DOCS_MCP_SETUP_SKILL_PATH,
       GRAPH_BOOTSTRAP_SKILL_PATH,
     ];
 

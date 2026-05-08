@@ -7,5 +7,9 @@
   "unknown": "question",
   "deprecated": "risk",
   "drifted": "risk",
-  "validator_fail": "degraded/advisory"
+  "validator_fail": "degraded/advisory",
+  "trust_level_degraded": "degraded/advisory",
+  "missing_validation_result": "degraded/advisory",
+  "consumption_boundary_advisory_only": "degraded/advisory",
+  "workspace_advisory_only": "degraded/advisory"
 }

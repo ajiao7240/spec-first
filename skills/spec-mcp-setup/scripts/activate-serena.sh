@@ -82,17 +82,176 @@ fi
 REPO_ROOT="$selected_repo_root"
 PROJECT_DIR="$REPO_ROOT/.serena"
 PROJECT_FILE="$PROJECT_DIR/project.yml"
+PROJECT_LOCAL_FILE="$PROJECT_DIR/project.local.yml"
 READY_MARKER_FILE="$(jq -r '.tools[] | select(.id == "serena") | .project_bootstrap.ready_marker_file // ".serena/index-ready.json"' "$TOOLS_JSON")"
 READY_MARKER_PATH="$REPO_ROOT/$READY_MARKER_FILE"
 INDEX_COMMAND_JSON="$(jq -c '.tools[] | select(.id == "serena") | .project_bootstrap.index_command' "$TOOLS_JSON")"
 INDEX_COMMAND="$(jq -r '.command' <<<"$INDEX_COMMAND_JSON")"
 
+path_size_bytes() {
+  local path="$1"
+  if [ ! -e "$path" ]; then
+    echo 0
+    return
+  fi
+  du -sk "$path" 2>/dev/null | awk '{ printf "%d", $1 * 1024 }'
+}
+
+serena_cache_status() {
+  local cache_dir="$PROJECT_DIR/cache"
+  if [ ! -d "$cache_dir" ]; then
+    echo "not-found"
+  elif [ -f "$READY_MARKER_PATH" ]; then
+    echo "ready"
+  else
+    echo "incomplete"
+  fi
+}
+
+serena_cache_warning() {
+  local size_bytes="$1"
+  if [ "$size_bytes" -ge 1073741824 ]; then
+    echo "large-cache-high"
+  elif [ "$size_bytes" -ge 536870912 ]; then
+    echo "large-cache"
+  else
+    echo ""
+  fi
+}
+
+serena_safe_ignored_paths_json() {
+  jq -n '[
+    "**/node_modules/",
+    "**/.pnpm-store/",
+    "**/.yarn/",
+    "**/dist/",
+    "**/build/",
+    "**/coverage/",
+    "**/.next/",
+    "**/.nuxt/",
+    "**/.turbo/",
+    "**/.cache/",
+    "**/__pycache__/",
+    "**/.pytest_cache/",
+    "**/.ruff_cache/",
+    "**/.mypy_cache/",
+    "**/.venv/",
+    "**/venv/",
+    "**/env/",
+    "**/.tox/",
+    ".spec-first/",
+    ".claude/",
+    ".codex/",
+    ".agents/skills/",
+    ".serena/cache/"
+  ]'
+}
+
+ensure_project_local_ignored_paths() {
+  local local_file="$1"
+  local defaults_json="$2"
+  mkdir -p "$(dirname "$local_file")"
+  python3 - "$local_file" "$defaults_json" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+defaults = json.loads(sys.argv[2])
+
+header = [
+    "# This file allows spec-first and local development to keep Serena indexing bounded.\n",
+    "# It is local runtime configuration and should not be committed.\n",
+    "\n",
+]
+
+def clean_value(value):
+    value = value.strip()
+    if "#" in value:
+        value = value.split("#", 1)[0].strip()
+    value = value.strip().strip('"').strip("'").strip()
+    return value
+
+def parse_inline(value):
+    value = value.strip()
+    if not value or value == "[]":
+        return []
+    if value.startswith("[") and value.endswith("]"):
+        values = []
+        for item in value[1:-1].split(","):
+            cleaned = clean_value(item)
+            if cleaned:
+                values.append(cleaned)
+        return values
+    cleaned = clean_value(value)
+    return [cleaned] if cleaned else []
+
+def render_block(values):
+    return ["ignored_paths:\n"] + [f"  - {json.dumps(value)}\n" for value in values]
+
+def unique(values):
+    seen = set()
+    result = []
+    for value in values:
+        if value and value not in seen:
+            seen.add(value)
+            result.append(value)
+    return result
+
+if path.exists():
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+else:
+    lines = header[:]
+
+start = None
+existing = []
+for index, line in enumerate(lines):
+    match = re.match(r"^ignored_paths:\s*(.*?)\s*$", line)
+    if not match:
+        continue
+    start = index
+    existing.extend(parse_inline(match.group(1)))
+    break
+
+if start is None:
+    if lines and lines[-1].strip():
+        lines.append("\n")
+    lines.extend(render_block(unique(defaults)))
+else:
+    end = start + 1
+    while end < len(lines):
+        line = lines[end]
+        if re.match(r"^\S", line) and not line.lstrip().startswith("#"):
+            break
+        if re.match(r"^\s*-\s*", line):
+            existing.append(clean_value(re.sub(r"^\s*-\s*", "", line)))
+        end += 1
+    lines = lines[:start] + render_block(unique(existing + defaults)) + lines[end:]
+
+path.write_text("".join(lines), encoding="utf-8")
+PY
+}
+
+clear_incomplete_serena_cache() {
+  local cache_dir="$PROJECT_DIR/cache"
+  if [ -d "$cache_dir" ] && [ ! -f "$READY_MARKER_PATH" ]; then
+    rm -rf "$cache_dir"
+  fi
+}
+
 if [ "$VERIFY_ONLY" = "true" ]; then
+  cache_size_bytes="$(path_size_bytes "$PROJECT_DIR/cache")"
+  cache_status="$(serena_cache_status)"
+  cache_warning="$(serena_cache_warning "$cache_size_bytes")"
   if [ -f "$PROJECT_FILE" ] && [ -f "$READY_MARKER_PATH" ]; then
     jq -n \
       --arg repo_root "$REPO_ROOT" \
       --arg project_file ".serena/project.yml" \
       --arg ready_marker "$READY_MARKER_FILE" \
+      --arg cache_status "$cache_status" \
+      --arg cache_warning "$cache_warning" \
+      --argjson cache_size_bytes "$cache_size_bytes" \
       '{
         schema_version:"serena-project-bootstrap.v1",
         overall_status:"ready",
@@ -100,6 +259,12 @@ if [ "$VERIFY_ONLY" = "true" ]; then
         repo_root:$repo_root,
         project_file:$project_file,
         ready_marker:$ready_marker,
+        cache:{
+          path:".serena/cache",
+          status:$cache_status,
+          size_bytes:$cache_size_bytes,
+          warning:(if $cache_warning == "" then null else $cache_warning end)
+        },
         next_action:""
       }'
   else
@@ -107,6 +272,9 @@ if [ "$VERIFY_ONLY" = "true" ]; then
       --arg repo_root "$REPO_ROOT" \
       --arg project_file ".serena/project.yml" \
       --arg ready_marker "$READY_MARKER_FILE" \
+      --arg cache_status "$cache_status" \
+      --arg cache_warning "$cache_warning" \
+      --argjson cache_size_bytes "$cache_size_bytes" \
       '{
         schema_version:"serena-project-bootstrap.v1",
         overall_status:"action-required",
@@ -114,7 +282,13 @@ if [ "$VERIFY_ONLY" = "true" ]; then
         repo_root:$repo_root,
         project_file:$project_file,
         ready_marker:$ready_marker,
-        next_action:"Run spec-mcp-setup to activate Serena for the selected repo."
+        cache:{
+          path:".serena/cache",
+          status:$cache_status,
+          size_bytes:$cache_size_bytes,
+          warning:(if $cache_warning == "" then null else $cache_warning end)
+        },
+        next_action:(if $cache_status == "incomplete" then "Remove incomplete .serena/cache and rerun spec-mcp-setup." else "Run spec-mcp-setup to activate Serena for the selected repo." end)
       }'
   fi
   exit 0
@@ -158,6 +332,8 @@ if [ -z "$EFFECTIVE_LANGUAGES_TEXT" ]; then
 fi
 
 mkdir -p "$PROJECT_DIR"
+ensure_project_local_ignored_paths "$PROJECT_LOCAL_FILE" "$(serena_safe_ignored_paths_json)"
+clear_incomplete_serena_cache
 
 BACKUP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/spec-serena-bootstrap.XXXXXX")"
 PROJECT_BACKUP=""
@@ -218,6 +394,7 @@ attempt_bootstrap() {
 
   rm -f "$READY_MARKER_PATH"
   rm -f "$PROJECT_FILE"
+  rm -rf "$PROJECT_DIR/cache"
 
   index_args=()
   build_index_args "$languages_text"

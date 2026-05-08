@@ -1,6 +1,6 @@
 ---
 description: "Compile project standards and glue capability baseline artifacts"
-argument-hint: "[--baseline|--quick|--refresh|--deep] [--import-source <git-or-path>]"
+argument-hint: "[--baseline|--quick|--refresh|--deep] [--repo <child>|--workspace|--target-kind <auto|repo|workspace>] [--import-source <git-or-path>]"
 ---
 
 # Project Standards And Glue Compiler

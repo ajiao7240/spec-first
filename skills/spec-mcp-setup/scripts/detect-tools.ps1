@@ -8,6 +8,7 @@ Set-StrictMode -Version Latest
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
 . (Join-Path $ScriptDir 'lib-toml.ps1')
+. (Join-Path $ScriptDir 'lib-template.ps1')
 $ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
@@ -25,6 +26,52 @@ $RepoStatus = [string]$TargetFacts.repo_status
 function Get-DependencyStatus {
   param([string]$Name)
   if (Get-Command $Name -ErrorAction SilentlyContinue) { 'ready' } else { 'missing' }
+}
+
+function Get-PathSizeBytes {
+  param([string]$Path)
+  if (-not (Test-Path -LiteralPath $Path)) { return 0 }
+  if (Test-Path -LiteralPath $Path -PathType Leaf) {
+    return ([System.IO.FileInfo]$Path).Length
+  }
+  $total = 0L
+  Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    if (-not $_.PSIsContainer) { $total += [int64]$_.Length }
+  }
+  return $total
+}
+
+function Get-SerenaCacheWarning {
+  param([int64]$SizeBytes)
+  if ($SizeBytes -ge 1073741824) { return 'large-cache-high' }
+  if ($SizeBytes -ge 536870912) { return 'large-cache' }
+  return $null
+}
+
+function Get-SerenaProjectFacts {
+  param([object]$Tool)
+  if ($Tool.id -ne 'serena' -or -not [bool]$TargetFacts.state_write_allowed) { return $null }
+
+  $readyMarkerFile = if ($null -ne $Tool.project_bootstrap.ready_marker_file) { [string]$Tool.project_bootstrap.ready_marker_file } else { '.serena/index-ready.json' }
+  $readyMarkerPath = Join-Path $RepoRoot $readyMarkerFile
+  $cacheDir = Join-Path $RepoRoot '.serena/cache'
+  $cacheSizeBytes = [int64](Get-PathSizeBytes -Path $cacheDir)
+  $cacheStatus = if (-not (Test-Path -LiteralPath $cacheDir -PathType Container)) {
+    'not-found'
+  } elseif (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf) {
+    'ready'
+  } else {
+    'incomplete'
+  }
+
+  [ordered]@{
+    serena_cache = [ordered]@{
+      path = '.serena/cache'
+      status = $cacheStatus
+      size_bytes = $cacheSizeBytes
+      warning = Get-SerenaCacheWarning -SizeBytes $cacheSizeBytes
+    }
+  }
 }
 
 function Test-HostConfigRequired {
@@ -66,17 +113,17 @@ function Get-HostConfigStatus {
   $hostConfig = $Tool.host_config.$DetectedHost
   if ($DetectedHost -eq 'codex') {
     $selectedProperty = $HostInfo.targets.PSObject.Properties[$SelectedScope]
-    $selectedPrecedence = if ($null -ne $selectedProperty) { [int]$selectedProperty.Value.precedence } else { 0 }
+    $selectedPrecedence = if ($null -ne $selectedProperty) { [int](Get-ToolField -Tool $selectedProperty.Value -Name 'precedence') } else { 0 }
     foreach ($entry in $HostInfo.targets.PSObject.Properties) {
       if ($entry.Name -eq $SelectedScope) { continue }
       $target = $entry.Value
-      if (-not [bool]$target.exists) { continue }
-      if ([int]$target.precedence -le $selectedPrecedence) { continue }
-      $path = [string]$target.config_path
+      if (-not [bool](Get-ToolField -Tool $target -Name 'exists')) { continue }
+      if ([int](Get-ToolField -Tool $target -Name 'precedence') -le $selectedPrecedence) { continue }
+      $path = [string](Get-ToolField -Tool $target -Name 'config_path')
       if ([string]::IsNullOrWhiteSpace($path) -or -not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
       $section = Get-TomlMcpSection -Path $path -Key $Tool.detection.key
       if ([string]::IsNullOrWhiteSpace($section)) { continue }
-      if (Test-TomlMcpSectionExact -Path $path -Key $Tool.detection.key -Command $hostConfig.command -Args @($hostConfig.args)) {
+      if (Test-TomlMcpSectionExact -Path $path -Key $Tool.detection.key -Command $hostConfig.command -Args @(Expand-ToolArgs -Tool $Tool -Args $hostConfig.args)) {
         return 'ready'
       }
       return 'precedence-blocked'
@@ -93,7 +140,7 @@ function Get-HostConfigStatus {
         if ($null -eq $server) { return 'action-required' }
         if ($server.command -ne $hostConfig.command) { return 'action-required' }
         $serverArgs = @($server.args)
-        $expectedArgs = @($hostConfig.args)
+        $expectedArgs = @(Expand-ToolArgs -Tool $Tool -Args $hostConfig.args)
         if ($serverArgs.Count -ne $expectedArgs.Count) { return 'action-required' }
         for ($i = 0; $i -lt $expectedArgs.Count; $i++) {
           if ($serverArgs[$i] -ne $expectedArgs[$i]) { return 'action-required' }
@@ -103,7 +150,7 @@ function Get-HostConfigStatus {
         return 'fallback-active'
       }
 
-      if (-not (Test-TomlMcpSectionExact -Path $ConfigPath -Key $Tool.detection.key -Command $hostConfig.command -Args @($hostConfig.args))) {
+      if (-not (Test-TomlMcpSectionExact -Path $ConfigPath -Key $Tool.detection.key -Command $hostConfig.command -Args @(Expand-ToolArgs -Tool $Tool -Args $hostConfig.args))) {
         return 'action-required'
       }
       return 'ready'
@@ -163,6 +210,7 @@ foreach ($tool in @($ToolsJson.tools)) {
 
   $hostConfigStatus = Get-HostConfigStatus -Tool $tool
   $projectStatus = Get-ProjectStatus -Tool $tool
+  $serenaProjectFacts = Get-SerenaProjectFacts -Tool $tool
   $hostConfigRequired = Test-HostConfigRequired -Tool $tool
   $hostReady = (
     $hostConfigStatus -eq 'ready' -or
@@ -192,8 +240,16 @@ foreach ($tool in @($ToolsJson.tools)) {
     $nextAction = [string]$TargetFacts.next_action
   } elseif ($projectStatus -eq 'pending') {
     $nextAction = 'bootstrap project'
+  } elseif ($projectStatus -eq 'failed') {
+    if ($null -ne $serenaProjectFacts -and $serenaProjectFacts.serena_cache.status -eq 'incomplete') {
+      $nextAction = 'remove incomplete .serena/cache and rerun spec-mcp-setup'
+    } else {
+      $nextAction = 'repair project bootstrap'
+    }
   } elseif ($type -eq 'graph-provider' -and $configured) {
     $nextAction = 'run spec-graph-bootstrap'
+  } elseif ($tool.id -eq 'serena' -and $null -ne $serenaProjectFacts -and $serenaProjectFacts.serena_cache.warning -eq 'large-cache-high') {
+    $nextAction = 'review .serena/cache size and clear stale cache only if Serena indexing is complete'
   }
 
   Add-NextAction $nextAction
@@ -207,6 +263,9 @@ foreach ($tool in @($ToolsJson.tools)) {
     project_status = $projectStatus
     selected_scope = $SelectedScope
     next_action = $nextAction
+  }
+  if ($null -ne $serenaProjectFacts) {
+    $toolFact.serena_cache = $serenaProjectFacts.serena_cache
   }
 
   if ($type -eq 'graph-provider') {

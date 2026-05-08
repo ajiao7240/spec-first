@@ -8,6 +8,84 @@ Set-StrictMode -Version Latest
 
 $mode = if ($VerifyOnly) { 'verify-only' } else { 'install' }
 
+$script:MirrorEndpoints = [ordered]@{
+  npm    = 'https://registry.npmmirror.com'
+  uv     = 'https://mirrors.tuna.tsinghua.edu.cn/pypi/simple'
+  chrome = 'https://npmmirror.com/mirrors/chrome-for-testing'
+}
+
+$script:LastInstallProvenance = $null
+
+function Get-NonNegativeIntEnv {
+  param(
+    [string]$Name,
+    [int]$Default
+  )
+  $raw = [Environment]::GetEnvironmentVariable($Name)
+  [int]$parsed = 0
+  if ([int]::TryParse($raw, [ref]$parsed) -and $parsed -ge 0) { return $parsed }
+  return $Default
+}
+
+function Reset-InstallProvenance {
+  $script:LastInstallProvenance = $null
+}
+
+function Get-InstallProvenance {
+  if ($null -eq $script:LastInstallProvenance) {
+    return [ordered]@{ install_source = 'official'; mirror_used = $false }
+  }
+  return $script:LastInstallProvenance
+}
+
+function Invoke-WithMirrorFallback {
+  param(
+    [scriptblock]$Action,
+    [hashtable]$MirrorEnv
+  )
+
+  $official = & $Action
+  if ($official) {
+    $script:LastInstallProvenance = [ordered]@{ install_source = 'official'; mirror_used = $false }
+    return $true
+  }
+
+  if ($null -eq $MirrorEnv -or $MirrorEnv.Count -eq 0) {
+    $script:LastInstallProvenance = [ordered]@{ install_source = 'both-failed'; mirror_used = $false }
+    return $false
+  }
+
+  $previous = @{}
+  foreach ($key in $MirrorEnv.Keys) {
+    $previous[$key] = [Environment]::GetEnvironmentVariable($key)
+    Set-Item -Path "env:$key" -Value $MirrorEnv[$key]
+  }
+  try {
+    $mirror = & $Action
+  } finally {
+    foreach ($key in $MirrorEnv.Keys) {
+      if ($null -eq $previous[$key]) {
+        Remove-Item -Path "env:$key" -ErrorAction SilentlyContinue
+      } else {
+        Set-Item -Path "env:$key" -Value $previous[$key]
+      }
+    }
+  }
+  if ($mirror) {
+    $script:LastInstallProvenance = [ordered]@{ install_source = 'mirror'; mirror_used = $true }
+    return $true
+  }
+  $script:LastInstallProvenance = [ordered]@{ install_source = 'both-failed'; mirror_used = $true }
+  return $false
+}
+
+function Get-NpmMirrorEnv {
+  $value = $script:MirrorEndpoints.npm
+  return @{
+    NPM_CONFIG_REGISTRY = $value
+  }
+}
+
 function Test-CommandExists {
   param([string]$Name)
   return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
@@ -30,33 +108,68 @@ function Invoke-NpmGlobalInstallWithOptionalSudo {
   $previousCi = $env:CI
   $env:CI = 'true'
   try {
-    if (Invoke-HelperCommand { npm install -g @Packages --no-audit --no-fund --loglevel=error }) {
-      return $true
-    }
-    if (Test-CommandExists 'sudo') {
-      return (Invoke-HelperCommand { sudo -n env CI=true npm install -g @Packages --no-audit --no-fund --loglevel=error })
-    }
-    return $false
+    $action = {
+      if (Invoke-HelperCommand { npm install -g @Packages --no-audit --no-fund --loglevel=error --fetch-timeout=30000 --fetch-retries=1 }) {
+        return $true
+      }
+      if (Test-CommandExists 'sudo') {
+        $forwardEnv = @()
+        foreach ($name in @(
+          'NPM_CONFIG_REGISTRY',
+          'npm_config_registry',
+          'HTTPS_PROXY',
+          'https_proxy',
+          'HTTP_PROXY',
+          'http_proxy',
+          'NO_PROXY',
+          'no_proxy'
+        )) {
+          $value = [Environment]::GetEnvironmentVariable($name)
+          if (-not [string]::IsNullOrWhiteSpace($value)) {
+            $forwardEnv += "$name=$value"
+          }
+        }
+
+        if ($forwardEnv.Count -gt 0) {
+          return (Invoke-HelperCommand { sudo -n env CI=true @forwardEnv npm install -g @Packages --no-audit --no-fund --loglevel=error --fetch-timeout=30000 --fetch-retries=1 })
+        }
+        return (Invoke-HelperCommand { sudo -n env CI=true npm install -g @Packages --no-audit --no-fund --loglevel=error --fetch-timeout=30000 --fetch-retries=1 })
+      }
+      return $false
+    }.GetNewClosure()
+    return (Invoke-WithMirrorFallback -Action $action -MirrorEnv (Get-NpmMirrorEnv))
   } finally {
     $env:CI = $previousCi
   }
 }
 
 function Write-AgentBrowserInstallMarker {
+  param([string]$InstallCommand)
   $markerDir = Split-Path -Parent $agentBrowserInstallMarker
   New-Item -ItemType Directory -Force -Path $markerDir | Out-Null
   [pscustomobject]@{
     schema_version = 'agent-browser-install.v1'
     installed_by = 'spec-mcp-setup'
     installed_at = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
-    install_command = 'agent-browser install'
+    install_command = $InstallCommand
   } | ConvertTo-Json -Compress | Set-Content -Encoding utf8 $agentBrowserInstallMarker
 }
 
 function Get-PlatformName {
-  if ($IsWindows) { return 'windows' }
-  if ($IsLinux) { return 'linux' }
-  if ($IsMacOS) { return 'macos' }
+  $hasIsWindows = $null -ne (Get-Variable -Name IsWindows -ErrorAction SilentlyContinue)
+  $hasIsLinux = $null -ne (Get-Variable -Name IsLinux -ErrorAction SilentlyContinue)
+  $hasIsMacOS = $null -ne (Get-Variable -Name IsMacOS -ErrorAction SilentlyContinue)
+  if ($hasIsWindows) {
+    if ($IsWindows) { return 'windows' }
+    if ($IsMacOS) { return 'macos' }
+    if ($IsLinux) { return 'linux' }
+    return 'unknown'
+  }
+  switch ([System.Environment]::OSVersion.Platform) {
+    ([System.PlatformID]::Win32NT) { return 'windows' }
+    ([System.PlatformID]::Unix) { return 'linux' }
+    ([System.PlatformID]::MacOSX) { return 'macos' }
+  }
   return 'unknown'
 }
 
@@ -93,8 +206,13 @@ function Get-HelperInstallCommand {
     return "winget upgrade --id $PackageId -e --silent --accept-package-agreements --accept-source-agreements || winget install --id $PackageId -e --silent --accept-package-agreements --accept-source-agreements"
   }
 
-  switch ($Name) {
-    'agent-browser' { return 'CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error && agent-browser install && npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y' }
+switch ($Name) {
+    'agent-browser' {
+      if ($Platform -eq 'linux') {
+        return 'CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error && agent-browser install --with-deps && npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y'
+      }
+      return 'CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error && agent-browser install && npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y'
+    }
     'gh' {
       if ($Platform -eq 'windows') { return (Get-WingetLatestInstallCommand -PackageId 'GitHub.cli') }
       if ($Platform -eq 'linux') {
@@ -242,7 +360,7 @@ function Invoke-HelperInstall {
       return (Invoke-BrewLatestInstall -Package 'ast-grep')
     }
     'ast-grep-skill' {
-      return (Invoke-HelperCommand { npx -y skills@latest add ast-grep/agent-skill -g -y })
+      return (Invoke-WithMirrorFallback -Action { Invoke-HelperCommand { npx -y skills@latest add ast-grep/agent-skill -g -y } } -MirrorEnv (Get-NpmMirrorEnv))
     }
     default { return $false }
   }
@@ -258,18 +376,22 @@ function Test-GlobalSkill {
 
 function Add-HelperFact {
   param(
-    [ordered]$HelperTools,
+    [System.Collections.IDictionary]$HelperTools,
     [string]$Id,
     [string]$Type,
     [string]$DependencyStatus,
     [string]$InstallStatus,
     [string]$SkillStatus,
     [string]$Result,
-    [string]$NextAction
+    [string]$NextAction,
+    [bool]$BaselineBlocking = $true,
+    [string]$InstallSource = 'official',
+    [bool]$MirrorUsed = $false
   )
 
   $HelperTools[$Id] = [ordered]@{
     required = $true
+    baseline_blocking = [bool]$BaselineBlocking
     type = $Type
     dependency_status = $DependencyStatus
     host_config_status = 'not-applicable'
@@ -278,127 +400,323 @@ function Add-HelperFact {
     project_status = 'not-applicable'
     result = $Result
     next_action = $NextAction
+    install_source = $InstallSource
+    mirror_used = [bool]$MirrorUsed
   }
 }
 
+function Start-ParallelCommandTask {
+  param(
+    [string]$Name,
+    [scriptblock]$ScriptBlock,
+    [System.Collections.IDictionary]$Tasks
+  )
+
+  $statusPath = [System.IO.Path]::GetTempFileName()
+  $job = Start-Job -ScriptBlock {
+    param($InnerScriptBlock, $StatusPath)
+
+    try {
+      $global:LASTEXITCODE = 0
+      & $InnerScriptBlock *> $null
+      $exitCode = $LASTEXITCODE
+    } catch {
+      $exitCode = 1
+    }
+
+    Set-Content -Encoding ascii -NoNewline -Path $StatusPath -Value $exitCode
+  } -ArgumentList $ScriptBlock, $statusPath
+
+  $Tasks[$Name] = [ordered]@{
+    job = $job
+    status_path = $statusPath
+  }
+}
+
+function Wait-ParallelCommandTasks {
+  param(
+    [System.Collections.IDictionary]$Tasks,
+    [int]$TimeoutSeconds
+  )
+
+  $results = [ordered]@{}
+  foreach ($entry in $Tasks.GetEnumerator()) {
+    $completed = Wait-Job -Job $entry.Value.job -Timeout $TimeoutSeconds
+    $exitCode = 1
+    if (-not $completed) {
+      Stop-Job -Job $entry.Value.job -Force | Out-Null
+      $exitCode = 124
+    }
+
+    Receive-Job $entry.Value.job -ErrorAction SilentlyContinue | Out-Null
+    if ($exitCode -ne 124 -and (Test-Path $entry.Value.status_path)) {
+      $raw = Get-Content -Raw -Path $entry.Value.status_path
+      if (-not [string]::IsNullOrWhiteSpace($raw)) {
+        $exitCode = [int]$raw
+      }
+    }
+    $results[$entry.Key] = $exitCode
+    Remove-Job $entry.Value.job -Force | Out-Null
+    Remove-Item $entry.Value.status_path -ErrorAction SilentlyContinue
+  }
+
+  return $results
+}
+
 $helperTools = [ordered]@{}
+$parallelTasks = [ordered]@{}
 $platform = Get-PlatformName
 $agentBrowserInstallMarker = Join-Path $HOME '.agent-browser/spec-first-install.json'
+$stageTimeoutSeconds = Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900
 
-$status = 'ready'
-$dependencyStatus = 'ready'
-$installStatus = 'ready'
-$skillStatus = 'ready'
-$nextAction = ''
+$agentBrowserStatus = 'ready'
+$agentBrowserDependencyStatus = 'ready'
+$agentBrowserInstallStatus = 'ready'
+$agentBrowserSkillStatus = 'ready'
+$agentBrowserNextAction = ''
+$agentBrowserBaselineBlocking = $true
+$agentBrowserInstallSource = 'official'
+$agentBrowserMirrorUsed = $false
+$agentBrowserInstallCommand = 'agent-browser install'
+if ($platform -eq 'linux') {
+  $agentBrowserInstallCommand = 'agent-browser install --with-deps'
+}
+
+$agentBrowserBrowserInstallQueued = $false
+$agentBrowserSkillInstallQueued = $false
+$astGrepSkillInstallQueued = $false
+
+if ($mode -eq 'install' -and -not (Test-GlobalSkill 'agent-browser')) {
+  $agentBrowserSkillStatus = 'action-required'
+  $agentBrowserStatus = 'action-required'
+  $agentBrowserSkillInstallQueued = $true
+  Start-ParallelCommandTask -Name 'agent-browser-skill-install' -ScriptBlock { npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y } -Tasks $parallelTasks
+}
 
 if (-not (Test-CommandExists 'agent-browser')) {
-  $dependencyStatus = 'missing'
-  $installStatus = 'action-required'
-  $status = 'action-required'
-  $nextAction = 'install agent-browser CLI'
-  if ($mode -eq 'verify-only') {
-  } else {
+  $agentBrowserDependencyStatus = 'missing'
+  $agentBrowserInstallStatus = 'action-required'
+  $agentBrowserStatus = 'action-required'
+  $agentBrowserNextAction = 'install agent-browser CLI'
+  if ($mode -eq 'install') {
+    Reset-InstallProvenance
     $installed = Invoke-NpmGlobalInstallWithOptionalSudo -Packages @('agent-browser@latest')
+    $provenance = Get-InstallProvenance
+    $agentBrowserInstallSource = $provenance.install_source
+    $agentBrowserMirrorUsed = [bool]$provenance.mirror_used
     if ($installed) {
-      $dependencyStatus = 'ready'
-      $installStatus = 'ready'
+      $agentBrowserDependencyStatus = 'ready'
+      $agentBrowserInstallStatus = 'ready'
       if (-not (Test-CommandExists 'agent-browser')) {
-        $status = 'action-required'
-        $dependencyStatus = 'missing'
-        $installStatus = 'action-required'
-        $nextAction = 'agent-browser CLI not found after npm install'
+        $agentBrowserStatus = 'action-required'
+        $agentBrowserDependencyStatus = 'missing'
+        $agentBrowserInstallStatus = 'action-required'
+        $agentBrowserNextAction = 'agent-browser CLI not found after npm install'
       } else {
-        $status = 'ready'
-        $nextAction = ''
+        $agentBrowserStatus = 'ready'
+        $agentBrowserNextAction = ''
       }
     } else {
-      $status = 'action-required'
-      $nextAction = 'npm install -g agent-browser@latest failed'
+      $agentBrowserStatus = 'action-required'
+      $agentBrowserNextAction = 'npm install -g agent-browser@latest failed'
     }
   }
 }
 
-if ($status -eq 'ready' -and $mode -eq 'verify-only' -and -not (Test-Path $agentBrowserInstallMarker)) {
-  $status = 'action-required'
-  $installStatus = 'action-required'
-  $nextAction = 'run agent-browser install'
-}
-
-if ($status -eq 'ready' -and $mode -eq 'verify-only' -and -not (Test-GlobalSkill 'agent-browser')) {
-  $status = 'action-required'
-  $skillStatus = 'action-required'
-  $nextAction = 'install global agent-browser skill'
-}
-
-if ($status -eq 'ready' -and $mode -eq 'install') {
-  if (-not (Invoke-HelperCommand { agent-browser install })) {
-    $status = 'action-required'
-    $installStatus = 'action-required'
-    $nextAction = 'run agent-browser install manually'
+if ($mode -eq 'verify-only' -and $agentBrowserStatus -eq 'ready' -and -not (Test-Path $agentBrowserInstallMarker)) {
+  $agentBrowserInstallStatus = 'action-required'
+  if ($platform -eq 'windows') {
+    $agentBrowserStatus = 'degraded'
+    $agentBrowserBaselineBlocking = $false
+    $agentBrowserNextAction = "agent-browser browser runtime is not installed; browser automation may be unavailable. Rerun $agentBrowserInstallCommand or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable."
   } else {
-    Write-AgentBrowserInstallMarker
+    $agentBrowserStatus = 'action-required'
+    $agentBrowserNextAction = "run $agentBrowserInstallCommand"
   }
 }
 
-if ($status -eq 'ready' -and $mode -eq 'install') {
-  if (-not ((Invoke-HelperCommand { npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y }) -and (Test-GlobalSkill 'agent-browser'))) {
-    $status = 'action-required'
-    $skillStatus = 'action-required'
-    $nextAction = 'install global agent-browser skill manually'
+if ($mode -eq 'verify-only' -and $agentBrowserDependencyStatus -eq 'ready' -and -not (Test-GlobalSkill 'agent-browser')) {
+  $agentBrowserStatus = 'action-required'
+  $agentBrowserSkillStatus = 'action-required'
+  $agentBrowserBaselineBlocking = $true
+  $agentBrowserNextAction = 'install global agent-browser skill'
+}
+
+if ($mode -eq 'install' -and (Test-CommandExists 'agent-browser') -and -not (Test-Path $agentBrowserInstallMarker)) {
+  $agentBrowserInstallStatus = 'action-required'
+  $agentBrowserStatus = 'action-required'
+  $agentBrowserBaselineBlocking = $true
+  $agentBrowserBrowserInstallQueued = $true
+  if ($platform -eq 'linux') {
+    Start-ParallelCommandTask -Name 'agent-browser-browser-install' -ScriptBlock { & agent-browser install --with-deps } -Tasks $parallelTasks
+  } else {
+    Start-ParallelCommandTask -Name 'agent-browser-browser-install' -ScriptBlock { & agent-browser install } -Tasks $parallelTasks
   }
 }
 
-Add-HelperFact -HelperTools $helperTools -Id 'agent-browser' -Type 'helper' -DependencyStatus $dependencyStatus -InstallStatus $installStatus -SkillStatus $skillStatus -Result $status -NextAction $nextAction
+Add-HelperFact -HelperTools $helperTools -Id 'agent-browser' -Type 'helper' -DependencyStatus $agentBrowserDependencyStatus -InstallStatus $agentBrowserInstallStatus -SkillStatus $agentBrowserSkillStatus -Result $agentBrowserStatus -NextAction $agentBrowserNextAction -BaselineBlocking $agentBrowserBaselineBlocking -InstallSource $agentBrowserInstallSource -MirrorUsed $agentBrowserMirrorUsed
 
+$demoOnlyHelpers = @('vhs', 'silicon', 'ffmpeg')
 foreach ($helper in @('gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep')) {
   $status = 'ready'
   $dependencyStatus = 'ready'
   $installStatus = 'ready'
   $nextAction = ''
+  $isDemoOnly = $demoOnlyHelpers -contains $helper
+  $baselineBlocking = -not $isDemoOnly
+  $installSource = 'official'
+  $mirrorUsed = $false
 
   if (-not (Test-CommandExists $helper)) {
     $dependencyStatus = 'missing'
     $installStatus = 'action-required'
-    $status = 'action-required'
-    $nextAction = Get-HelperInstallCommand -Name $helper -Platform $platform
+    $installCommand = Get-HelperInstallCommand -Name $helper -Platform $platform
     if ($mode -eq 'install') {
+      Reset-InstallProvenance
       if ((Invoke-HelperInstall -Name $helper -Platform $platform) -and (Test-CommandExists $helper)) {
         $dependencyStatus = 'ready'
         $installStatus = 'ready'
         $status = 'ready'
         $nextAction = ''
+        $provenance = Get-InstallProvenance
+        $installSource = $provenance.install_source
+        $mirrorUsed = [bool]$provenance.mirror_used
+      } else {
+        if ($isDemoOnly) {
+          $status = 'degraded'
+          $nextAction = "optional helper for feature-video skill; install via: $installCommand"
+        } else {
+          $status = 'action-required'
+          $nextAction = $installCommand
+        }
+      }
+    } else {
+      if ($isDemoOnly) {
+        $status = 'degraded'
+        $nextAction = "optional helper for feature-video skill; install via: $installCommand"
+      } else {
+        $status = 'action-required'
+        $nextAction = $installCommand
       }
     }
   }
 
-  Add-HelperFact -HelperTools $helperTools -Id $helper -Type 'helper' -DependencyStatus $dependencyStatus -InstallStatus $installStatus -SkillStatus 'not-applicable' -Result $status -NextAction $nextAction
+  Add-HelperFact -HelperTools $helperTools -Id $helper -Type 'helper' -DependencyStatus $dependencyStatus -InstallStatus $installStatus -SkillStatus 'not-applicable' -Result $status -NextAction $nextAction -BaselineBlocking $baselineBlocking -InstallSource $installSource -MirrorUsed $mirrorUsed
 }
 
-$status = 'ready'
-$dependencyStatus = 'ready'
-$installStatus = 'ready'
-$skillStatus = 'ready'
-$nextAction = ''
+$astGrepSkillStatus = 'ready'
+$astGrepSkillDependencyStatus = 'ready'
+$astGrepSkillInstallStatus = 'ready'
+$astGrepSkillNextAction = ''
 
 if (-not (Test-GlobalSkill 'ast-grep')) {
-  $dependencyStatus = 'missing'
-  $installStatus = 'action-required'
-  $skillStatus = 'action-required'
-  $status = 'action-required'
-  $nextAction = Get-HelperInstallCommand -Name 'ast-grep-skill' -Platform $platform
+  $astGrepSkillDependencyStatus = 'missing'
+  $astGrepSkillInstallStatus = 'action-required'
+  $astGrepSkillStatus = 'action-required'
+  $astGrepSkillNextAction = Get-HelperInstallCommand -Name 'ast-grep-skill' -Platform $platform
   if ($mode -eq 'install') {
-    if ((Invoke-HelperInstall -Name 'ast-grep-skill' -Platform $platform) -and (Test-GlobalSkill 'ast-grep')) {
-      $dependencyStatus = 'ready'
-      $installStatus = 'ready'
-      $skillStatus = 'ready'
-      $status = 'ready'
-      $nextAction = ''
-    }
+    $astGrepSkillInstallQueued = $true
+    Start-ParallelCommandTask -Name 'ast-grep-skill-install' -ScriptBlock { npx -y skills@latest add ast-grep/agent-skill -g -y } -Tasks $parallelTasks
   }
 }
 
-Add-HelperFact -HelperTools $helperTools -Id 'ast-grep-skill' -Type 'global-skill' -DependencyStatus $dependencyStatus -InstallStatus $installStatus -SkillStatus $skillStatus -Result $status -NextAction $nextAction
+$parallelResults = Wait-ParallelCommandTasks -Tasks $parallelTasks -TimeoutSeconds $stageTimeoutSeconds
+
+  if ($agentBrowserSkillInstallQueued -or $agentBrowserBrowserInstallQueued) {
+  if ($agentBrowserBrowserInstallQueued) {
+    if (($parallelResults['agent-browser-browser-install'] -eq 0) -and (Test-CommandExists 'agent-browser')) {
+      Write-AgentBrowserInstallMarker -InstallCommand $agentBrowserInstallCommand
+      $agentBrowserInstallStatus = 'ready'
+    } else {
+      $agentBrowserInstallStatus = 'action-required'
+      if ($platform -eq 'windows') {
+        $agentBrowserStatus = 'degraded'
+        $agentBrowserBaselineBlocking = $false
+        $agentBrowserNextAction = "agent-browser browser runtime install failed; browser automation may be unavailable. Rerun $agentBrowserInstallCommand or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable."
+      } elseif ($platform -eq 'macos') {
+        $agentBrowserStatus = 'action-required'
+        $agentBrowserNextAction = "run $agentBrowserInstallCommand manually or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable"
+      } else {
+        $agentBrowserStatus = 'action-required'
+        $agentBrowserNextAction = "run $agentBrowserInstallCommand manually"
+      }
+    }
+  }
+
+  if ($agentBrowserSkillInstallQueued) {
+    if (($parallelResults['agent-browser-skill-install'] -eq 0) -and (Test-GlobalSkill 'agent-browser')) {
+      $agentBrowserSkillStatus = 'ready'
+    } else {
+      $agentBrowserSkillStatus = 'action-required'
+      $agentBrowserStatus = 'action-required'
+      $agentBrowserBaselineBlocking = $true
+      if ($agentBrowserDependencyStatus -eq 'ready' -and $agentBrowserInstallStatus -eq 'ready') {
+        $agentBrowserNextAction = 'install global agent-browser skill manually'
+      }
+    }
+  }
+
+  if (($agentBrowserDependencyStatus -eq 'ready') -and ($agentBrowserInstallStatus -eq 'ready') -and ($agentBrowserSkillStatus -eq 'ready')) {
+    $agentBrowserStatus = 'ready'
+    $agentBrowserBaselineBlocking = $true
+    $agentBrowserNextAction = ''
+  }
+
+  $helperTools['agent-browser'] = [ordered]@{
+    required = $true
+    baseline_blocking = [bool]$agentBrowserBaselineBlocking
+    type = 'helper'
+    dependency_status = $agentBrowserDependencyStatus
+    host_config_status = 'not-applicable'
+    install_status = $agentBrowserInstallStatus
+    skill_status = $agentBrowserSkillStatus
+    project_status = 'not-applicable'
+    result = $agentBrowserStatus
+    next_action = $agentBrowserNextAction
+    install_source = $agentBrowserInstallSource
+    mirror_used = [bool]$agentBrowserMirrorUsed
+  }
+}
+
+if ($astGrepSkillInstallQueued) {
+    if (($parallelResults['ast-grep-skill-install'] -eq 0) -and (Test-GlobalSkill 'ast-grep')) {
+      $astGrepSkillDependencyStatus = 'ready'
+      $astGrepSkillInstallStatus = 'ready'
+      $astGrepSkillStatus = 'ready'
+      $astGrepSkillNextAction = ''
+    } else {
+      $astGrepSkillDependencyStatus = 'missing'
+      $astGrepSkillInstallStatus = 'action-required'
+      $astGrepSkillStatus = 'action-required'
+      if ($parallelResults['ast-grep-skill-install'] -eq 124) {
+        $astGrepSkillNextAction = "global ast-grep skill install timed out after ${stageTimeoutSeconds}s"
+      } else {
+        $astGrepSkillNextAction = 'install global ast-grep skill manually'
+      }
+  }
+
+  $helperTools['ast-grep-skill'] = [ordered]@{
+    required = $true
+    type = 'global-skill'
+    dependency_status = $astGrepSkillDependencyStatus
+    host_config_status = 'not-applicable'
+    install_status = $astGrepSkillInstallStatus
+    skill_status = $astGrepSkillStatus
+    project_status = 'not-applicable'
+    result = $astGrepSkillStatus
+    next_action = $astGrepSkillNextAction
+  }
+} elseif (-not (Test-GlobalSkill 'ast-grep')) {
+  Add-HelperFact -HelperTools $helperTools -Id 'ast-grep-skill' -Type 'global-skill' -DependencyStatus $astGrepSkillDependencyStatus -InstallStatus $astGrepSkillInstallStatus -SkillStatus $astGrepSkillStatus -Result $astGrepSkillStatus -NextAction $astGrepSkillNextAction
+} else {
+  Add-HelperFact -HelperTools $helperTools -Id 'ast-grep-skill' -Type 'global-skill' -DependencyStatus $astGrepSkillDependencyStatus -InstallStatus $astGrepSkillInstallStatus -SkillStatus $astGrepSkillStatus -Result $astGrepSkillStatus -NextAction $astGrepSkillNextAction
+}
 
 [pscustomobject]@{
   helper_tools = $helperTools
+  mirror_endpoints = $script:MirrorEndpoints
+  recommended_environment_variables = [ordered]@{
+    npm = [ordered]@{ npm_config_registry = $script:MirrorEndpoints.npm }
+    uv  = [ordered]@{ UV_INDEX_URL = $script:MirrorEndpoints.uv }
+  }
 } | ConvertTo-Json -Compress -Depth 8

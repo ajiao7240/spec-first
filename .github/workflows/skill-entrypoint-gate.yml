@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - 'skills/**'
-      - 'docs/10-prompt/skills/**'
       - 'docs/contracts/dual-host-governance/**'
       - 'scripts/lint-skill-entrypoints.js'
       - 'scripts/lint-skill-entrypoints.config.json'

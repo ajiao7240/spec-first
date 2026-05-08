@@ -1,6 +1,6 @@
 {
   "name": "spec-first",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "AI coding workflow CLI for spec-driven engineering, spec-driven development, and harness engineering on Claude Code and Codex",
   "type": "commonjs",
   "bin": {

@@ -12,6 +12,8 @@ const writeProviderConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/script
 const repairInstallPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/repair-install.ps1');
 const activateSerenaPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/activate-serena.ps1');
 const installMcpPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-mcp.ps1');
+const uninstallMcpPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/uninstall-mcp.ps1');
+const installMcpSh = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-mcp.sh');
 const bootstrapProvidersPs1 = path.join(repoRoot, 'skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1');
 const resolveWorkspaceGraphTargetsPs1 = path.join(repoRoot, 'skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.ps1');
 const bootstrapProjectConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1');
@@ -19,7 +21,6 @@ const installHelpersPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/ins
 const installHelpersSh = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-helpers.sh');
 const libTomlPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/lib-toml.ps1');
 const mcpSetupSkillPath = path.join(repoRoot, 'skills/spec-mcp-setup/SKILL.md');
-const mcpSetupPromptMirrorPath = path.join(repoRoot, 'docs/10-prompt/skills/spec-mcp-setup/SKILL.md');
 
 describe('spec-mcp-setup PowerShell host config contract', () => {
   const source = fs.readFileSync(configureHostPs1, 'utf8');
@@ -39,7 +40,12 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('function Restore-Backup');
     expect(source).toContain('Restore-Backup -BackupPath $backupPath');
     expect(source).toContain('if (-not (Test-ToolConfigured))');
-    expect(source).toContain('Get-Content -Raw $ConfigPath | ConvertFrom-Json -AsHashtable');
+    expect(source).toContain('function ConvertFrom-JsonCompat');
+    expect(source).toContain('ConvertFrom-JsonCompat -Json (Get-Content -Raw $ConfigPath) -AsHashtable');
+    expect(source).not.toContain('| ConvertFrom-JsonCompat -AsHashtable');
+    expect(source).toContain('[System.Collections.IDictionary]$FinalConfig');
+    expect(source).toContain("if (-not $config.Contains('mcpServers'))");
+    expect(source).toContain('Set-TextFileAtomic -Path $ConfigPath -Value ($config | ConvertTo-Json -Depth 8)');
     expect(source).not.toContain('catch { @{} }');
     expect(source.indexOf('if (-not (Test-ToolConfigured))')).toBeLessThan(source.indexOf('ConvertTo-Json -Compress', source.indexOf('if (-not (Test-ToolConfigured))')));
   });
@@ -52,6 +58,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     const providerKey = 'graph' + '_providers';
     const detectSource = fs.readFileSync(detectToolsPs1, 'utf8');
     const verifySource = fs.readFileSync(verifyToolsPs1, 'utf8');
+    const skillSource = fs.readFileSync(mcpSetupSkillPath, 'utf8');
     const combined = `${detectSource}\n${verifySource}`;
 
     expect(combined).not.toContain(`${retiredGraph}.`);
@@ -89,6 +96,9 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('$standardsCommand');
     expect(verifySource).toContain('推荐下一步运行 $standardsCommand');
     expect(verifySource).toContain('如果已经有明确任务，可以在新会话直接描述目标');
+    expect(skillSource).toContain('parent workspace, that standards handoff may compile parent advisory standards artifacts first');
+    expect(skillSource).toContain('child repo confirmed baselines still require `spec-standards --repo <child>`');
+    expect(skillSource).toContain('setup does not write those artifacts itself');
     expect(verifySource).toContain('live MCP probe 前需要');
     expect(verifySource).toContain('graph_bootstrap_required');
     expect(verifySource).toContain('$spec-graph-bootstrap');
@@ -139,7 +149,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(activateSerenaSource).not.toContain("try { git rev-parse --show-toplevel } catch { (Get-Location).Path }");
     expect(installMcpSource).toContain('$activateParams = @{ Repo = $ResolvedRepoRoot }');
     expect(installMcpSource).toContain('[switch]$AllRepos');
-    expect(installMcpSource).toContain("[Alias('SerenaLanguageMap', 'SerenaLanguageFor')]");
+    expect(installMcpSource).toContain("[Alias('SerenaLanguageMap')]");
+    expect(installMcpSource).not.toContain("[Alias('SerenaLanguageMap', 'SerenaLanguageFor')]");
     expect(installMcpSource).toContain('workspace-mcp-setup-summary.v1');
     expect(installMcpSource).toContain('mcp-setup-summary.json');
     expect(installMcpSource).toContain('all-repos-requires-language-map');
@@ -163,6 +174,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(projectConfigSource).toContain('all-repos-requires-parent-workspace');
     expect(projectConfigSource).toContain('all-repos-conflicts-with-repo');
     expect(graphBootstrapSource).toContain('resolve-project-target.ps1');
+    expect(graphBootstrapSource).toContain("GetEnvironmentVariable('SPEC_FIRST_PROJECT_TARGET_RESOLVER')");
+    expect(graphBootstrapSource).toContain('$resolverPath = $resolverOverride');
     expect(graphBootstrapSource).toContain('workspace-target-required');
     expect(graphBootstrapSource).toContain('candidates = @($targetFacts.candidates)');
   });
@@ -191,15 +204,171 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(libTomlSource).toContain('(?=^[ `t]*\\[|\\z)');
     expect(libTomlSource).toContain('function Test-TomlMcpSectionExact');
     expect(libTomlSource).toContain('function Remove-TomlLineComment');
+    expect(libTomlSource).toContain('function Set-TextFileAtomic');
+    expect(libTomlSource).toContain('Move-Item -Force -Path $tmp -Destination $Path');
+    expect(libTomlSource).toContain('Set-TextFileAtomic -Path $Path -Value $text');
+  });
+
+  test('mcp-tools template helper expands gitnexus pin from package + version fields', () => {
+    const libTemplatePs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/lib-template.ps1');
+    const libTemplateSource = fs.readFileSync(libTemplatePs1, 'utf8');
+    expect(libTemplateSource).toContain('function Get-ToolField');
+    expect(libTemplateSource).toContain('function Expand-ToolTemplate');
+    expect(libTemplateSource).toContain('function Expand-ToolArgs');
+    expect(libTemplateSource).toContain(".Replace('{{package}}', [string]$package)");
+    expect(libTemplateSource).toContain(".Replace('{{version}}', [string]$version)");
+    expect(libTemplateSource).not.toContain("-replace '\\{\\{package\\}\\}'");
+    expect(libTemplateSource).not.toContain("-replace '\\{\\{version\\}\\}'");
+    expect(libTemplateSource).toContain("if ($null -eq $package) { $package = '' }");
+    expect(libTemplateSource).toContain("if ($null -eq $version) { $version = '' }");
+
+    const installSource = fs.readFileSync(installMcpPs1, 'utf8');
+    const configureSource = fs.readFileSync(configureHostPs1, 'utf8');
+    const detectSource = fs.readFileSync(detectToolsPs1, 'utf8');
+    expect(installSource).toContain(". (Join-Path $ScriptDir 'lib-template.ps1')");
+    expect(configureSource).toContain(". (Join-Path $ScriptDir 'lib-template.ps1')");
+    expect(detectSource).toContain(". (Join-Path $ScriptDir 'lib-template.ps1')");
+    expect(fs.readFileSync(uninstallMcpPs1, 'utf8')).toContain(". (Join-Path $ScriptDir 'lib-template.ps1')");
+    expect(installSource).toContain('Expand-ToolArgs -Tool $Tool -Args $step.args');
+    expect(configureSource).toContain('Expand-ToolArgs -Tool $ToolDef -Args $HostConfig.args');
+    expect(detectSource).toContain('Expand-ToolArgs -Tool $Tool -Args $hostConfig.args');
+    expect(configureSource).toContain("Get-ToolField -Tool $target -Name 'exists'");
+    expect(configureSource).toContain("Get-ToolField -Tool $target -Name 'precedence'");
+    expect(configureSource).toContain("Get-ToolField -Tool $target -Name 'config_path'");
+    expect(detectSource).toContain("Get-ToolField -Tool $target -Name 'exists'");
+    expect(detectSource).toContain("Get-ToolField -Tool $target -Name 'precedence'");
+    expect(detectSource).toContain("Get-ToolField -Tool $target -Name 'config_path'");
+    expect(configureSource).not.toContain('$target.exists');
+    expect(detectSource).not.toContain('$target.exists');
+    expect(fs.readFileSync(uninstallMcpPs1, 'utf8')).toContain("Get-ToolField -Tool $target -Name 'config_path'");
+    expect(fs.readFileSync(uninstallMcpPs1, 'utf8')).not.toContain('$target.config_path');
+
+    const toolsJson = JSON.parse(
+      fs.readFileSync(path.join(repoRoot, 'skills/spec-mcp-setup/mcp-tools.json'), 'utf8'),
+    );
+    expect(toolsJson.schema_version).toBe('5');
+    const gitnexus = toolsJson.tools.find((t) => t.id === 'gitnexus');
+    expect(gitnexus.package).toBe('gitnexus');
+    expect(gitnexus.version).toBe('1.6.4-rc.85');
+    expect(gitnexus.installation.unix.args).toEqual(['-y', '{{package}}@{{version}}', '--help']);
+    expect(gitnexus.installation.windows.args).toEqual(['-y', '{{package}}@{{version}}', '--help']);
+    expect(gitnexus.host_config.claude.args).toEqual(['-y', '{{package}}@{{version}}', 'mcp']);
+    expect(gitnexus.host_config.codex.args).toEqual(['-y', '{{package}}@{{version}}', 'mcp']);
+  });
+
+  test('PowerShell install-mcp caches successful package warmups by resolved command hash', () => {
+    const installSource = fs.readFileSync(installMcpPs1, 'utf8');
+
+    expect(installSource).toContain('$script:WarmupCacheRoot');
+    expect(installSource).toContain('function Get-WarmupCommandHash');
+    expect(installSource).toContain('function Test-WarmupCacheHit');
+    expect(installSource).toContain('function Write-WarmupCache');
+    expect(installSource).toContain("'mcp-warmup-cache.v1'");
+    expect(installSource).toContain('SPEC_FIRST_FORCE_WARMUP');
+    expect(installSource).toContain('SPEC_FIRST_DISABLE_WARMUP_CACHE');
+    expect(installSource).toContain("Get-NonNegativeIntEnv -Name 'SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS' -Default 86400");
+    expect(installSource).toContain("Get-ToolField -Tool $cache -Name 'schema_version'");
+    expect(installSource).toContain("Get-ToolField -Tool $cache -Name 'command_hash'");
+    expect(installSource).toContain("$exitCodeValue = Get-ToolField -Tool $cache -Name 'exit_code'");
+    expect(installSource).toContain("$lastSuccessEpochValue = Get-ToolField -Tool $cache -Name 'last_success_epoch'");
+    expect(installSource).toContain('[int]::TryParse([string]$exitCodeValue, [ref]$exitCode)');
+    expect(installSource).toContain('[int64]::TryParse([string]$lastSuccessEpochValue, [ref]$lastSuccessEpoch)');
+    expect(installSource).not.toContain('$cache.schema_version');
+    expect(installSource).not.toContain('$cache.exit_code');
+    expect(installSource).not.toContain('$cache.last_success_epoch');
+    expect(installSource).toContain('$tmp = $null');
+    expect(installSource).toContain('Remove-Item -Force -LiteralPath $tmp -ErrorAction SilentlyContinue');
+    expect(installSource).toContain('Set-Content -Encoding utf8 -LiteralPath $tmp');
+    expect(installSource).toContain('Move-Item -Force -LiteralPath $tmp -Destination $cachePath');
+    expect(installSource).toContain("$lastAction = 'warmup-cache-hit'");
+    expect(installSource).toContain('Write-WarmupCache -Tool $tool -Command $warmupStep.command -Arguments $warmupArgs -CommandHash $warmupHash');
   });
 
   test('PowerShell host detection supports Unix parity test overrides', () => {
     const detectHostSource = fs.readFileSync(detectHostPs1, 'utf8');
 
     expect(detectHostSource).toContain('function Resolve-TargetPathOverride');
+    expect(detectHostSource).toContain('function Get-MapValue');
+    expect(detectHostSource).toContain('function ConvertTo-BoolValue');
+    expect(detectHostSource).toContain('[System.Collections.IDictionary]$McpHostContract');
+    expect(detectHostSource.indexOf('function ConvertFrom-JsonCompat')).toBeLessThan(
+      detectHostSource.indexOf('$ToolsJson = ConvertFrom-JsonCompat -Json'),
+    );
+    expect(detectHostSource).toContain("$ToolsJson = ConvertFrom-JsonCompat -Json (Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json')) -AsHashtable");
+    expect(detectHostSource).toContain('return (ConvertFrom-JsonCompat -Json $uniqueContracts[0] -AsHashtable)');
+    expect(detectHostSource).not.toContain('| ConvertFrom-JsonCompat -AsHashtable');
+    expect(detectHostSource).toContain('$hasIsWindows = $null -ne (Get-Variable -Name IsWindows -ErrorAction SilentlyContinue)');
     expect(detectHostSource).toContain('MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE');
     expect(detectHostSource).toContain('MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE');
-    expect(detectHostSource).toContain('Resolve-TargetPathOverride -Host $detectedHost -TargetKey $TargetKey');
+    expect(detectHostSource).toContain('Resolve-TargetPathOverride -HostName $detectedHost -TargetKey $TargetKey');
+    expect(detectHostSource).toContain("Get-MapValue -Object $selectedTarget -Name 'exists'");
+    expect(detectHostSource).toContain("Get-MapValue -Object $selectedTarget -Name 'writable'");
+    expect(detectHostSource).not.toContain('[bool]$selectedTarget.exists');
+    expect(detectHostSource).not.toContain('[bool]$selectedTarget.writable');
+    expect(detectHostSource).not.toContain('$McpHostContract.targets[$TargetKey]');
+    expect(detectHostSource).not.toMatch(/\[string\]\$Host\b/);
+  });
+
+  test('PowerShell setup scripts avoid load-time parameter hazards', () => {
+    const automaticVariables = new Set([
+      'args',
+      'error',
+      'host',
+      'input',
+      'matches',
+      'myinvocation',
+      'pid',
+      'profile',
+      'pshome',
+      'psscriptroot',
+      'shellid',
+      'stacktrace',
+      'this',
+    ]);
+    const ps1Paths = [
+      configureHostPs1,
+      checkDepsPs1,
+      detectHostPs1,
+      detectToolsPs1,
+      resolveProjectTargetPs1,
+      verifyToolsPs1,
+      writeProviderConfigPs1,
+      repairInstallPs1,
+      activateSerenaPs1,
+      installMcpPs1,
+      bootstrapProjectConfigPs1,
+      installHelpersPs1,
+      bootstrapProvidersPs1,
+      resolveWorkspaceGraphTargetsPs1,
+    ];
+
+    for (const filePath of ps1Paths) {
+      const source = fs.readFileSync(filePath, 'utf8');
+      const relativePath = path.relative(repoRoot, filePath);
+      const lines = source.split(/\r?\n/);
+      for (let index = 0; index < lines.length; index += 1) {
+        const aliasMatch = lines[index].match(/\[Alias\(([^)]*)\)\]/);
+        if (!aliasMatch) continue;
+        const nextParamLine = lines.slice(index + 1).find((line) => /\$[A-Za-z_][A-Za-z0-9_]*/.test(line));
+        expect(nextParamLine).toBeTruthy();
+        const paramName = nextParamLine.match(/\$([A-Za-z_][A-Za-z0-9_]*)/)[1].toLowerCase();
+        const aliases = [...aliasMatch[1].matchAll(/'([^']+)'|"([^"]+)"/g)].map((match) => (match[1] || match[2]).toLowerCase());
+        expect({ relativePath, line: index + 1, paramName, aliases }).not.toEqual(
+          expect.objectContaining({ aliases: expect.arrayContaining([paramName]) }),
+        );
+      }
+
+      const parameterNames = [...source.matchAll(/param\s*\(([\s\S]*?)\)/g)]
+        .flatMap((match) => [...match[1].matchAll(/\$([A-Za-z_][A-Za-z0-9_]*)/g)].map((nameMatch) => nameMatch[1].toLowerCase()));
+      const reservedHits = parameterNames.filter((name) => automaticVariables.has(name));
+      expect({ relativePath, reservedHits }).toEqual({ relativePath, reservedHits: [] });
+      expect({ relativePath, source }).not.toEqual(
+        expect.objectContaining({ source: expect.stringMatching(/\[ordered\]\s*\$[A-Za-z_][A-Za-z0-9_]*/) }),
+      );
+      expect({ relativePath, source }).not.toEqual(
+        expect.objectContaining({ source: expect.stringContaining('| ConvertFrom-JsonCompat -AsHashtable') }),
+      );
+    }
   });
 
   test('provider projection writer is semantically idempotent', () => {
@@ -208,12 +377,16 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('function ConvertTo-ComparableProjectionJson');
     expect(writeProviderSource).toContain("PSObject.Properties.Name -contains 'generated_at'");
     expect(writeProviderSource).toContain('$Payload.generated_at = $existing.generated_at');
+    expect(writeProviderSource).toContain("'.{0}.{1}.tmp'");
+    expect(writeProviderSource).toContain('Move-Item -Force $tmp $Path');
     expect(writeProviderSource).toContain('runtime-capabilities.v1');
     expect(writeProviderSource).toContain('provider-artifacts.v1');
     expect(writeProviderSource).toContain('derived_readiness');
     expect(writeProviderSource).toContain('host_ledger_pointer');
     expect(writeProviderSource).toContain("$toolsJsonPath = Join-Path $skillDir 'mcp-tools.json'");
-    expect(writeProviderSource).toContain('$gitNexusPackageSpec = [string]$gitNexusTool[0].installation.unix.args[1]');
+    expect(writeProviderSource).toContain("$gitNexusPackage = if ($null -ne $gitNexusEntry.PSObject.Properties['package']) { [string]$gitNexusEntry.package } else { '' }");
+    expect(writeProviderSource).toContain("$gitNexusVersion = if ($null -ne $gitNexusEntry.PSObject.Properties['version']) { [string]$gitNexusEntry.version } else { '' }");
+    expect(writeProviderSource).toContain('$gitNexusPackageSpec = "$gitNexusPackage@$gitNexusVersion"');
     expect(writeProviderSource).toContain("bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--force')");
     expect(writeProviderSource).toContain('function Get-GitNexusRepoName');
     expect(writeProviderSource).toContain('function Get-GitNexusRepoNameFromRemoteUrl');
@@ -293,7 +466,13 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('parent_run_id = $runId');
     expect(source).toContain('all-repos child $childIndex');
     expect(source).toContain('function Invoke-ChildJsonScript');
+    expect(source).toContain('function Resolve-ChildPowerShellExecutable');
+    expect(source).toContain('$currentCommandName = if ($currentEdition -eq \'Core\') { \'pwsh\' } else { \'powershell\' }');
+    expect(source).toContain('Get-Command powershell -ErrorAction SilentlyContinue');
+    expect(source).toContain("@('-NoProfile', '-File', $ScriptPath)");
+    expect(source).toContain('$stdout = @(& $powerShellExe @childArgs 2> $stderrPath 6> $informationPath)');
     expect(source).toContain('2> $stderrPath 6> $informationPath');
+    expect(source).not.toContain('$stdout = @(& $ScriptPath @Arguments 2> $stderrPath 6> $informationPath)');
     expect(source).not.toContain('$script:BootstrapProvidersScript -Repo ([string]$child.workspace_relative_path) 2>&1');
     expect(source).toContain("'^gitnexus(@[A-Za-z0-9._~+:-]+)?$'");
     expect(source).toContain("'code-review-graph'");
@@ -341,6 +520,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('provider-network-unavailable');
     expect(source).toContain('provider-cache-permission-denied');
     expect(source).toContain('ProviderCommandTimeoutSeconds');
+    expect(source).toContain("Name 'SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS'");
+    expect(source).toContain("Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900");
     expect(source).toContain('function Invoke-ExternalCommandWithTimeout');
     expect(source).toContain('provider-command-timeout');
     expect(source).toContain('provider-timeout');
@@ -353,6 +534,51 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).not.toContain('Invoke-Expression');
     expect(source).not.toContain('bash -c');
     expect(source).not.toContain('sh -c');
+  });
+
+  test('graph bootstrap PowerShell resolves Windows command shims before CreateProcess', () => {
+    const source = fs.readFileSync(bootstrapProvidersPs1, 'utf8');
+
+    expect(source).toContain('function Resolve-ProcessExecutable');
+    expect(source).toContain('Get-Command $Exe -All -ErrorAction SilentlyContinue');
+    expect(source).toContain("$_.CommandType -eq 'Application'");
+    expect(source).toContain("$_.CommandType -eq 'ExternalScript'");
+    expect(source).toContain('function Test-WindowsHost');
+    expect(source).toContain('$isWindowsVariable = Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue');
+    expect(source).toContain('return ([bool]$isWindowsVariable -or [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT)');
+    expect(source).toContain('if ((Test-WindowsHost) -and [System.IO.Path]::GetExtension($scriptPath)');
+    expect(source).toContain(".Equals('.ps1', [System.StringComparison]::OrdinalIgnoreCase)");
+    expect(source).toContain("foreach ($extension in @('.cmd', '.exe', '.bat', '.com'))");
+    expect(source).toContain('$resolvedExe = Resolve-ProcessExecutable -Exe $Exe');
+    expect(source).toContain('$processInfo.FileName = $resolvedExe');
+    expect(source).not.toContain('$processInfo.FileName = $Exe');
+  });
+
+  test('graph bootstrap PowerShell keeps raw log paths repo-relative across platforms', () => {
+    const source = fs.readFileSync(bootstrapProvidersPs1, 'utf8');
+
+    expect(source).toContain('function ConvertTo-RepoRelativePath');
+    expect(source).toContain("[System.IO.Path]::GetFullPath($Path).Replace('\\', '/')");
+    expect(source).toContain("[System.IO.Path]::GetFullPath($RepoRoot).Replace('\\', '/').TrimEnd('/')");
+    expect(source).toContain('$comparison = if (Test-WindowsHost) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }');
+    expect(source).toContain('return $normalizedPath.Substring($prefix.Length)');
+    expect(source).toContain('raw_log = ConvertTo-RepoRelativePath -Path $LogPath -RepoRoot $RepoRoot');
+    expect(source).not.toContain('raw_log = $LogPath.Replace("$RepoRoot/", \'\')');
+  });
+
+  test('graph bootstrap PowerShell precomputes normalized artifact fields', () => {
+    const source = fs.readFileSync(bootstrapProvidersPs1, 'utf8');
+    const normalizedStart = source.indexOf('function Write-NormalizedArtifacts');
+    const fallbackStart = source.indexOf('function Get-FallbackCapability');
+    const normalizedSource = source.slice(normalizedStart, fallbackStart);
+
+    expect(normalizedSource).toContain('$winningQueryProbeLog = if ($winningLogs.Count -gt 0)');
+    expect(normalizedSource).toContain("$availableQuerySurfaces = if ($QueryReady) { @('status', 'query') } else { @() }");
+    expect(normalizedSource).toContain("$availableQuerySurfaces = if ($QueryReady) { @('status', 'query_graph_tool', 'get_impact_radius_tool') } else { @() }");
+    expect(normalizedSource).not.toMatch(/^\s+winning_query_probe_log = if \(/m);
+    expect(normalizedSource).not.toMatch(/^\s+available_query_surfaces = if \(/m);
+    expect(normalizedSource).not.toMatch(/^\s+confidence = if \(/m);
+    expect(normalizedSource).not.toMatch(/^\s+limitations = if \(/m);
   });
 
   test('PowerShell workspace graph target resolver exposes advisory multi-repo contract', () => {
@@ -381,16 +607,37 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
 
   test('helper verify-only is marker-based and does not install browser runtime', () => {
     const installHelpersSource = fs.readFileSync(installHelpersPs1, 'utf8');
+    const verifySource = fs.readFileSync(verifyToolsPs1, 'utf8');
 
     expect(installHelpersSource).toContain('.agent-browser/spec-first-install.json');
+    expect(installHelpersSource).toContain('baseline_blocking');
+    expect(installHelpersSource).toContain("$agentBrowserStatus = 'degraded'");
+    expect(installHelpersSource).toContain('$agentBrowserBaselineBlocking = $false');
+    expect(installHelpersSource).toContain('AGENT_BROWSER_EXECUTABLE_PATH');
+    expect(verifySource).toContain('baseline_blocking');
+    expect(verifySource).toContain("$nonBlockingDegraded = (-not $baselineBlocking) -and $property.Value.result -eq 'degraded'");
+    expect(verifySource).toContain("$property.Value.result -ne 'ready' -and -not $nonBlockingDegraded");
     expect(installHelpersSource).toContain('Write-AgentBrowserInstallMarker');
     expect(installHelpersSource).toContain('agent-browser install');
+    expect(installHelpersSource).toContain('agent-browser install --with-deps');
     expect(installHelpersSource).toContain('Invoke-NpmGlobalInstallWithOptionalSudo');
     expect(installHelpersSource).toContain('sudo -n');
+    expect(installHelpersSource).toContain('NPM_CONFIG_REGISTRY');
+    expect(installHelpersSource).toContain('npm_config_registry');
+    expect(installHelpersSource).not.toContain('npm_config_registry = $value');
     expect(installHelpersSource).toContain("'gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep'");
+    expect(installHelpersSource).toContain("$demoOnlyHelpers = @('vhs', 'silicon', 'ffmpeg')");
+    expect(installHelpersSource).toContain('$isDemoOnly = $demoOnlyHelpers -contains $helper');
+    expect(installHelpersSource).toContain('$baselineBlocking = -not $isDemoOnly');
+    expect(installHelpersSource).toContain("optional helper for feature-video skill");
+    const installHelpersShSource = fs.readFileSync(installHelpersSh, 'utf8');
+    expect(installHelpersShSource).toContain('vhs|silicon|ffmpeg) process_cli_helper "$helper" "$OS" "false"');
+    expect(installHelpersShSource).toContain('local baseline_blocking="${3:-true}"');
+    expect(installHelpersShSource).toContain('optional helper for feature-video skill');
     expect(installHelpersSource).toContain('npx -y skills@latest add ast-grep/agent-skill -g -y');
     expect(installHelpersSource).toContain("'ast-grep-skill'");
-    expect(installHelpersSource).toContain("if ($IsWindows) { return 'windows' }");
+    expect(installHelpersSource).toContain('$hasIsWindows = $null -ne (Get-Variable -Name IsWindows -ErrorAction SilentlyContinue)');
+    expect(installHelpersSource).not.toContain('Get-Variable -Name IsWindows -ValueOnly');
     expect(installHelpersSource).toContain('winget upgrade --id $PackageId -e --silent --accept-package-agreements --accept-source-agreements');
     expect(installHelpersSource).toContain('winget install --id $PackageId -e --silent --accept-package-agreements --accept-source-agreements');
     expect(installHelpersSource).toContain("Get-WingetLatestInstallCommand -PackageId 'GitHub.cli'");
@@ -406,11 +653,51 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installHelpersSource).toContain('Install gh from https://cli.github.com');
     expect(installHelpersSource).toContain('npm install -g @ast-grep/cli@latest');
     expect(installHelpersSource).toContain("Test-GlobalSkill 'agent-browser'");
-    expect(installHelpersSource).toContain("$nextAction = 'agent-browser CLI not found after npm install'");
-    expect(installHelpersSource).toContain("$status = 'ready'\n        $nextAction = ''");
+    expect(installHelpersSource).toContain("$agentBrowserNextAction = 'agent-browser CLI not found after npm install'");
+    expect(installHelpersSource).toContain("$agentBrowserStatus = 'ready'\n        $agentBrowserNextAction = ''");
+    expect(installHelpersSource).toContain('Start-ParallelCommandTask');
+    expect(installHelpersSource).toContain('Wait-ParallelCommandTasks');
+    expect(installHelpersSource).toContain('Wait-Job -Job $entry.Value.job -Timeout $TimeoutSeconds');
+    expect(installHelpersSource).toContain('Stop-Job -Job $entry.Value.job -Force');
     expect(installHelpersSource).not.toContain('agent-browser doctor');
     expect(installHelpersSource).not.toContain('doctor --fix');
-    expect(installHelpersSource).toContain("$mode -eq 'verify-only' -and -not (Test-Path $agentBrowserInstallMarker)");
+    expect(installHelpersSource).toContain("$mode -eq 'verify-only' -and $agentBrowserStatus -eq 'ready' -and -not (Test-Path $agentBrowserInstallMarker)");
+  });
+
+  test('helper install paths fall back to Chinese mirrors when official source fails', () => {
+    const installHelpersSource = fs.readFileSync(installHelpersPs1, 'utf8');
+    const installHelpersShSource = fs.readFileSync(installHelpersSh, 'utf8');
+
+    expect(installHelpersSource).toContain("npm    = 'https://registry.npmmirror.com'");
+    expect(installHelpersSource).toContain("uv     = 'https://mirrors.tuna.tsinghua.edu.cn/pypi/simple'");
+    expect(installHelpersSource).toContain("chrome = 'https://npmmirror.com/mirrors/chrome-for-testing'");
+    expect(installHelpersSource).toContain('function Invoke-WithMirrorFallback');
+    expect(installHelpersSource).toContain('function Get-NpmMirrorEnv');
+    expect(installHelpersSource).toContain("$script:LastInstallProvenance = [ordered]@{ install_source = 'mirror'; mirror_used = $true }");
+    expect(installHelpersSource).toContain("$script:LastInstallProvenance = [ordered]@{ install_source = 'both-failed'; mirror_used = $true }");
+    expect(installHelpersSource).toContain('--fetch-timeout=30000 --fetch-retries=1');
+    expect(installHelpersSource).toContain('Invoke-WithMirrorFallback -Action $action -MirrorEnv (Get-NpmMirrorEnv)');
+    expect(installHelpersSource).toContain('Invoke-WithMirrorFallback -Action { Invoke-HelperCommand { npx -y skills@latest add ast-grep/agent-skill -g -y } } -MirrorEnv (Get-NpmMirrorEnv)');
+    expect(installHelpersSource).toContain('install_source = $InstallSource');
+    expect(installHelpersSource).toContain('mirror_used = [bool]$MirrorUsed');
+    expect(installHelpersSource).toContain('mirror_endpoints = $script:MirrorEndpoints');
+    expect(installHelpersSource).toContain('recommended_environment_variables = [ordered]@{');
+    expect(installHelpersSource).toContain("Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900");
+
+    expect(installHelpersShSource).toContain('NPM_MIRROR_ENDPOINT="https://registry.npmmirror.com"');
+    expect(installHelpersShSource).toContain('UV_MIRROR_ENDPOINT="https://mirrors.tuna.tsinghua.edu.cn/pypi/simple"');
+    expect(installHelpersShSource).toContain('CHROME_MIRROR_ENDPOINT="https://npmmirror.com/mirrors/chrome-for-testing"');
+    expect(installHelpersShSource).toContain('run_with_mirror_fallback()');
+    expect(installHelpersShSource).toContain('npm_mirror_env_pairs()');
+    expect(installHelpersShSource).toContain('LAST_INSTALL_SOURCE="mirror"');
+    expect(installHelpersShSource).toContain('LAST_INSTALL_SOURCE="both-failed"');
+    expect(installHelpersShSource).toContain('--fetch-timeout=30000 --fetch-retries=1');
+    expect(installHelpersShSource).toContain('run_with_mirror_fallback "${mirror_pairs[@]}" -- run_npm_global_install_attempt "$@"');
+    expect(installHelpersShSource).toContain('run_with_mirror_fallback "${mirror_pairs[@]}" -- npx -y skills@latest add ast-grep/agent-skill -g -y');
+    expect(installHelpersShSource).toContain('install_source: $install_source');
+    expect(installHelpersShSource).toContain('mirror_used: $mirror_used');
+    expect(installHelpersShSource).toContain('LAST_INSTALL_PROVENANCE_FILE');
+    expect(installHelpersShSource).toContain('recommended_environment_variables: {');
   });
 
   test('PowerShell dependency and repair paths are Windows-safe', () => {
@@ -424,9 +711,11 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
 	    expect(checkDepsSource).toContain("Test-CommandExists 'dnf'");
 	    expect(checkDepsSource).toContain("sudo pacman -Syu --needed $PacmanPackage");
 	    expect(checkDepsSource).not.toContain("sudo pacman -Sy --noconfirm $PacmanPackage");
-	    expect(checkDepsSource).toContain("Get-LinuxPackageInstallCommand -AptPackage 'nodejs' -DnfPackage 'nodejs' -YumPackage 'nodejs' -PacmanPackage 'nodejs' -ApkPackage 'nodejs'");
-	    expect(checkDepsSource).toContain("Get-LinuxPackageInstallCommand -AptPackage 'npm' -DnfPackage 'npm' -YumPackage 'npm' -PacmanPackage 'npm' -ApkPackage 'npm'");
-	    expect(checkDepsSource).toContain("sudo apk update && sudo apk add --upgrade $ApkPackage");
+    expect(checkDepsSource).toContain("Get-LinuxPackageInstallCommand -AptPackage 'nodejs' -DnfPackage 'nodejs' -YumPackage 'nodejs' -PacmanPackage 'nodejs' -ApkPackage 'nodejs'");
+    expect(checkDepsSource).toContain("Get-LinuxPackageInstallCommand -AptPackage 'npm' -DnfPackage 'npm' -YumPackage 'npm' -PacmanPackage 'npm' -ApkPackage 'npm'");
+    expect(checkDepsSource).toContain("sudo apk update && sudo apk add --upgrade $ApkPackage");
+    expect(checkDepsSource).not.toContain("python3 = New-DependencyFact 'python3' $true $os");
+    expect(checkDepsSource).not.toContain("jq = New-DependencyFact 'jq' $true $os");
     expect(checkDepsSource).toContain('Invoke-WebRequest -Uri https://astral.sh/uv/install.ps1 -OutFile $script');
     expect(checkDepsSource).toContain('Invoke-WebRequest -Uri https://astral.sh/uv/install.sh -OutFile $script');
     expect(checkDepsSource).toContain('Join-Path ([System.IO.Path]::GetTempPath())');
@@ -438,6 +727,14 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(checkDepsSource).not.toContain('notepad $script');
     expect(repairSource).toContain("& (Join-Path $ScriptDir 'configure-host.ps1') -Tool $Tool");
     expect(repairSource).not.toContain('| Out-Null');
+  });
+
+  test('setup skill documents host-specific pipeline dependencies', () => {
+    const skillSource = fs.readFileSync(path.join(repoRoot, 'skills/spec-mcp-setup/SKILL.md'), 'utf8');
+
+    expect(skillSource).toContain('Unix shell path (`*.sh`) requires `node`, `npm`, `npx`, `uv`, `uvx`, `jq`, and `python3`.');
+    expect(skillSource).toContain('Windows PowerShell 7 path (`*.ps1`) requires `node`, `npm`, `npx`, `uv`, and `uvx`; `git` remains optional.');
+    expect(skillSource).toContain('It does not require `jq` or `python3` because JSON/TOML handling and bounded process execution are implemented with native PowerShell/.NET');
   });
 
   test('Serena bootstrap is idempotent and recoverable', () => {
@@ -459,6 +756,19 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(activateSerenaSource).toContain('supported Serena languages');
     expect(activateSerenaSource).toContain('function New-IndexArgs');
     expect(activateSerenaSource).toContain('function New-LanguageAttempts');
+    expect(activateSerenaSource).toContain('function Ensure-SerenaLocalIgnoredPaths');
+    expect(activateSerenaSource).toContain('function Clear-IncompleteSerenaCache');
+    expect(activateSerenaSource).toContain("Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900");
+    expect(activateSerenaSource).toContain('function Resolve-ProcessExecutable');
+    expect(activateSerenaSource).toContain('function Invoke-ExternalCommandWithTimeout');
+    expect(activateSerenaSource).toContain('$processInfo.UseShellExecute = $false');
+    expect(activateSerenaSource).toContain('$process.WaitForExit($TimeoutSeconds * 1000)');
+    expect(activateSerenaSource).toContain('$process.Kill($true)');
+    expect(activateSerenaSource).toContain("'**/node_modules/'");
+    expect(activateSerenaSource).toContain("'.agents/skills/'");
+    expect(activateSerenaSource).toContain('.serena/cache');
+    expect(activateSerenaSource).toContain('Remove-Item -Recurse -Force (Join-Path $projectDir \'cache\')');
+    expect(activateSerenaSource).toContain('large-cache-high');
     expect(activateSerenaSource).toContain("$args.Add('--language')");
     expect(activateSerenaSource).toContain('foreach ($language in @($Languages))');
     expect(activateSerenaSource).toContain('single-language:$language');
@@ -466,15 +776,47 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(activateSerenaSource).toContain('-not $Refresh');
     expect(activateSerenaSource).toContain('function Restore-ExistingState');
     expect(activateSerenaSource).toContain('Restore-ExistingState');
-    expect(activateSerenaSource).toContain('$serenaOutput = @(& $command @indexArgArray 2>&1)');
+    expect(activateSerenaSource).toContain('$indexRun = Invoke-ExternalCommandWithTimeout -Exe $command -CommandArguments $indexArgArray -WorkingDirectory $repoRoot -TimeoutSeconds $stageTimeoutSeconds');
+    expect(activateSerenaSource).toContain('$global:LASTEXITCODE = [int]$indexRun.exit_code');
+    expect(activateSerenaSource).not.toContain('$serenaOutput = @(& $command @indexArgArray 2>&1)');
     expect(activateSerenaSource).toContain('Serena bootstrap failed for all language attempts');
     expect(activateSerenaSource).toContain('Move-Item -Force $tmpMarker $readyMarkerPath');
     expect(activateSerenaSource).not.toContain('serena-project-facts.ps1');
   });
 
+  test('Serena cache facts are advisory and cross-host detectable', () => {
+    const detectSource = fs.readFileSync(detectToolsPs1, 'utf8');
+    const activateSerenaSource = fs.readFileSync(activateSerenaPs1, 'utf8');
+
+    expect(detectSource).toContain('function Get-SerenaProjectFacts');
+    expect(detectSource).toContain('serena_cache');
+    expect(detectSource).toContain('large-cache-high');
+    expect(detectSource).toContain('remove incomplete .serena/cache and rerun spec-mcp-setup');
+    expect(activateSerenaSource).toContain("next_action = if ($ready) { '' } elseif ($cacheStatus -eq 'incomplete')");
+  });
+
+  test('Unix setup timeouts terminate child process groups', () => {
+    const installMcpSource = fs.readFileSync(installMcpSh, 'utf8');
+    const installHelpersSource = fs.readFileSync(installHelpersSh, 'utf8');
+
+    for (const source of [installMcpSource, installHelpersSource]) {
+      expect(source).toContain('start_new_session=True');
+      expect(source).toContain('def terminate_process_tree(process):');
+      expect(source).toContain('os.killpg(process.pid, signal.SIGTERM)');
+      expect(source).toContain('os.killpg(process.pid, signal.SIGKILL)');
+    }
+  });
+
   test('PowerShell install-mcp forwards LLM-selected Serena languages', () => {
     const installMcpSource = fs.readFileSync(installMcpPs1, 'utf8');
 
+    expect(installMcpSource).toContain("Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900");
+    expect(installMcpSource).toContain("Get-NonNegativeIntEnv -Name 'SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS' -Default 86400");
+    expect(installMcpSource).toContain('$processInfo.UseShellExecute = $false');
+    expect(installMcpSource).toContain('$process.WaitForExit($script:StageTimeoutSeconds * 1000)');
+    expect(installMcpSource).toContain('$process.Kill($true)');
+    expect(installMcpSource).toContain('timed out after $($script:StageTimeoutSeconds)s');
+    expect(installMcpSource).toContain("@('/d', '/c', $command) + @($args)");
     expect(installMcpSource).toContain("[Alias('SerenaLanguages')]");
     expect(installMcpSource).toContain('[string[]]$SerenaLanguage = @()');
     expect(installMcpSource).toContain('[string[]]$SerenaLanguageFor = @()');
@@ -504,7 +846,6 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
 
   test('setup skill runs bounded setup autonomously after explicit invocation', () => {
     const skill = fs.readFileSync(mcpSetupSkillPath, 'utf8');
-    const mirror = fs.readFileSync(mcpSetupPromptMirrorPath, 'utf8');
     const installHelpersSource = fs.readFileSync(installHelpersSh, 'utf8');
 
     expect(skill).toContain('## Autonomy And Permissions');
@@ -518,12 +859,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(skill).not.toContain('ask the user before changing files');
     expect(skill).not.toContain('asks before deleting `compound-engineering.local.md`');
 
-    expect(mirror).toContain('视为已授权完成 required setup workflow');
-    expect(mirror).toContain('不要在创建/刷新 `.spec-first/config.local.example.yaml`');
-    expect(mirror).toContain('权限不足时，优先自动使用宿主允许的提权执行路径');
-    expect(mirror).toContain('自主 setup 不包含破坏性或语义不明确动作');
-
     expect(installHelpersSource).toContain('run_npm_global_install_with_optional_sudo');
-    expect(installHelpersSource).toContain('sudo -n env CI=true npm install -g');
+    expect(installHelpersSource).toContain('sudo -n env CI=true');
+    expect(installHelpersSource).toContain('NPM_CONFIG_REGISTRY');
   });
 });

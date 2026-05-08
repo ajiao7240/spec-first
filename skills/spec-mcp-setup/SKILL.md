@@ -14,7 +14,7 @@ This workflow is the single setup entrypoint for spec-first. It has two distinct
 - Project Preflight / Local Setup: required developer helpers, project-local config bootstrap, and legacy Compound Engineering residue guidance.
 - Required Harness Runtime: required MCP servers, required graph providers, `agent-browser`, readiness ledger v2, and graph provider projection.
 
-Project-local config and legacy residue facts do not affect `baseline_ready`. Required helper facts do affect `baseline_ready`. This workflow does not expose selectable MCP registry entries, legacy pending states, or a browser MCP server.
+Project-local config and legacy residue facts do not affect `baseline_ready`. Required helper facts affect `baseline_ready` when their `baseline_blocking` fact is not explicitly `false`. This workflow does not expose selectable MCP registry entries, legacy pending states, or a browser MCP server.
 
 GitNexus `query_probe` must target the GitNexus indexed repo label, not blindly the directory basename. `write-provider-config.*` resolves the label deterministically from explicit setup facts when present, then from `.gitnexus/meta.json` `remoteUrl` basename, then from git remote URL basename, and only falls back to the repo directory basename. Its probe token policy should write a bounded, ordered `candidates[]` list of at most 5 source-derived candidates while preserving legacy `token` / `selected_from` fields for compatibility. Candidate ordering is cross-stack: prefer entry/workflow basenames likely to participate in flows, such as main/launch/loading/home/login/router/navigation files, controllers, handlers, services, repositories, forms, tables, pages, dashboards, and Android Activity/ViewModel classes. For controller-heavy repos where class basenames often return definitions-only, setup may extract bounded method-level source tokens from tracked workflow files and prefer flow-like method names such as step/save/add/delete/submit/validate/failure/options before controller class names. Android names are one platform signal, not the default universal front door. Low-signal lifecycle, config, type, schema, constants, display-only, advertisement/guide/dialog/adapter/bean/entity basenames should be demoted until no better source candidate exists.
 
@@ -65,7 +65,7 @@ Primary inputs are the current host, current working directory, `skills/spec-mcp
 5. Warm required MCP/provider packages and write host MCP config only for tools whose registry entry requires host config.
 6. Bootstrap Serena non-interactively with LLM-selected languages, or fail with `serena_language_required` when evidence is missing.
 7. Write readiness ledger v2 with `verify-tools.*` and setup-owned project facts with `write-provider-config.*`.
-8. Report the full grouped status and hand off to `spec-graph-bootstrap` when graph readiness is still pending, or to `spec-standards` when graph readiness is already ready.
+8. Report the full grouped status and hand off to `spec-graph-bootstrap` when graph readiness is still pending, or to `spec-standards` when graph readiness is already ready. In a parent workspace, that standards handoff may compile parent advisory standards artifacts first; child repo confirmed baselines still require `spec-standards --repo <child>`.
 
 ## Outputs
 
@@ -76,8 +76,9 @@ Setup may write these deterministic artifacts:
 - child-local `.spec-first/config/runtime-capabilities.json`;
 - child-local `.spec-first/config/provider-artifacts.json`;
 - project-local `.spec-first/config.local.example.yaml`, `.spec-first/config.local.yaml`, and `.gitignore` entries when explicitly bootstrapped;
-- `.serena/project.yml` and the configured Serena ready marker for selected child repos;
+- `.serena/project.yml`, `.serena/project.local.yml` safe indexing overrides, and the configured Serena ready marker for selected child repos;
 - parent advisory summaries under `.spec-first/workspace/` when running all-repos modes.
+- downstream parent workspace standards artifacts under `.spec-first/standards/` when the later `spec-standards` workflow is run from a parent workspace; setup does not write those artifacts itself.
 
 The assistant's final response must restate readiness from ledger v2 instead of relying only on command output.
 
@@ -93,7 +94,7 @@ The assistant's final response must restate readiness from ledger v2 instead of 
 
 ## Runtime Baseline
 
-`skills/spec-mcp-setup/mcp-tools.json` is the only machine registry for MCP servers and graph providers. Schema version is `4`. Package/version specs for every MCP and graph-provider command are sourced from this file; setup projections such as `.spec-first/config/graph-providers.json` must derive from it and must not become a second version registry.
+`skills/spec-mcp-setup/mcp-tools.json` is the only machine registry for MCP servers and graph providers. Schema version is `5`. Package/version specs for every MCP and graph-provider command are sourced from this file; tools that declare top-level `package` + `version` fields must expand `{{package}}` / `{{version}}` templates through the shared template helpers before warmup, host config, detection, or provider projection. Setup projections such as `.spec-first/config/graph-providers.json` must derive from this registry and must not become a second version registry.
 
 Required MCP tools:
 
@@ -129,12 +130,12 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 4. Checks required dependencies.
 5. Installs/verifies required helper tooling.
 6. Warms every required MCP/provider package and configures only host-MCP-required tools in the host MCP config.
-7. Bootstraps Serena for the current repo.
+7. Bootstraps Serena for the current repo with bounded local ignore rules before indexing.
 8. Writes readiness ledger v2 to the host marker path.
 9. Writes setup-owned project facts inside a git repo: `.spec-first/config/graph-providers.json`, `.spec-first/config/runtime-capabilities.json`, and `.spec-first/config/provider-artifacts.json`.
 10. Prints a clear next-step prompt after the final status block: continue graph readiness compilation now when it is pending; when graph readiness is already ready, recommend the project standards/glue baseline workflow as the next durable setup handoff; restart Claude Code/Codex or start a new session before downstream workflows rely on newly written MCP config or live MCP probes.
 
-Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure.
+Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure. Before running `serena project create --index`, setup may maintain `.serena/project.local.yml` with safe local `ignored_paths` for common dependency, build, cache, virtualenv, and generated runtime directories. If `.serena/cache` exists while the ready marker is missing, setup may remove only that incomplete setup-owned cache before rebuilding; it must not delete `.serena/project.yml`, `.serena/project.local.yml`, memories, or user-authored project source.
 
 ## Autonomy And Permissions
 
@@ -146,6 +147,7 @@ An explicit `/spec:mcp-setup` or `$spec-mcp-setup` invocation is authorization t
 - installing or verifying required helper tooling
 - writing host MCP config for required host-MCP tools
 - writing readiness ledgers and setup-owned `.spec-first/config/*.json` facts
+- maintaining Serena local safe ignore rules and clearing incomplete `.serena/cache` before a controlled rebuild
 
 If a setup command fails because the host sandbox or OS denies permission, retry through the host's approved escalation path or the script's non-interactive sudo/package-manager path without asking the user first. Do not invent destructive escalation. If escalation is unavailable, requires credentials that the harness cannot provide, or still fails, record the failed command stage, reason, and next action in the final status instead of blocking on confirmation.
 
@@ -233,7 +235,7 @@ Windows:
 pwsh -File skills/spec-mcp-setup/scripts/activate-serena.ps1 -Refresh -Language kotlin,java
 ```
 
-For a read-only Serena project readiness check, use the explicit verify primitive. It only reads `.serena/project.yml` and the ready marker, emits JSON facts, and must not run Serena or create `.serena/`:
+For a read-only Serena project readiness check, use the explicit verify primitive. It only reads `.serena/project.yml`, the ready marker, and `.serena/cache` size/status facts, emits JSON facts, and must not run Serena or create `.serena/`:
 
 ```bash
 bash skills/spec-mcp-setup/scripts/activate-serena.sh --verify-only
@@ -319,7 +321,7 @@ pwsh -File skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1 -RefreshEx
 
 Do not pass `--delete-legacy-markdown` / `-DeleteLegacyMarkdown` during ordinary setup. Do not automatically delete `.compound-engineering/config.local.yaml`; report legacy residue and tell the user that spec-first now uses `.spec-first/config.local.yaml`.
 
-Project preflight prepares setup input. Missing required helper tooling must mark Required Harness Runtime as failed. Missing local config, outdated example config, and legacy compound-engineering residue must not mark Required Harness Runtime as failed.
+Project preflight prepares setup input. Missing required helper tooling must mark Required Harness Runtime as failed, except Windows `agent-browser` browser runtime marker/download failures when the CLI and global skill are already ready; those are reported as non-blocking degraded helper facts so graph readiness can continue. Missing local config, outdated example config, and legacy compound-engineering residue must not mark Required Harness Runtime as failed.
 
 ## Deterministic Commands
 
@@ -383,7 +385,9 @@ Windows:
 pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1
 ```
 
-`install-helpers.* --verify-only` must only detect helper facts. It must not install the CLI, run `agent-browser install`, or install the global skill. It checks `$HOME/.agent-browser/spec-first-install.json` as the marker that the default install path has completed `agent-browser install`; missing marker means `install_status=action-required`.
+`install-helpers.* --verify-only` must only detect helper facts. It must not install the CLI, run `agent-browser install`, or install the global skill. It checks `$HOME/.agent-browser/spec-first-install.json` as the marker that the default install path has completed `agent-browser install`; missing marker means `install_status=action-required`. On Windows only, when the `agent-browser` CLI and global skill are ready but the browser runtime marker is missing or `agent-browser install` fails, setup reports `result=degraded` and `baseline_blocking=false` with a repair `next_action` instead of blocking `baseline_ready`.
+
+`install-helpers.*` preserves inherited npm registry, proxy, and mirror env vars through the helper install path. If you need a domestic npm source or corporate proxy, set the standard `NPM_CONFIG_REGISTRY` / `npm_config_registry` and proxy env vars before running setup; the install helpers will forward them through the sudo fallback instead of discarding them. On Linux, `agent-browser install` uses `--with-deps` so the browser runtime and system packages are installed together. When missing, `agent-browser` browser runtime, the global `agent-browser` skill, and the global `ast-grep` skill install in parallel; package-manager-backed helper CLIs stay serialized to avoid lock conflicts and keep the failure surface narrow.
 
 ## Helper Output Shape
 
@@ -407,8 +411,8 @@ pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1
 Default helper install mode must:
 
 1. Install `agent-browser` CLI if missing.
-2. Run `agent-browser install`.
-3. Write `$HOME/.agent-browser/spec-first-install.json` after `agent-browser install` succeeds.
+2. Run `agent-browser install` on macOS/Windows or `agent-browser install --with-deps` on Linux; Windows browser runtime failure is non-blocking when the CLI and global skill are ready.
+3. Write `$HOME/.agent-browser/spec-first-install.json` after the platform-appropriate `agent-browser install` succeeds.
 4. Install required helper CLIs: `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, and `ast-grep`.
 5. Install the upstream/global `agent-browser` skill:
 
@@ -422,7 +426,7 @@ npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill ag
 npx -y skills@latest add ast-grep/agent-skill -g -y
 ```
 
-All package-backed setup commands must request the latest available safe version when they install or warm a tool: npm/npx packages normally use `@latest`, `uvx` tool invocations use `--upgrade`, Cargo installs use `--force` where supported, and package-manager handoff commands prefer upgrade-before-install semantics. A package may be pinned only for a documented upstream remediation window; the pin must live in `mcp-tools.json` and all setup/bootstrap projections must read that value instead of hard-coding the package spec. `--verify-only` remains read-only and never upgrades tools.
+All package-backed setup commands must request the latest available safe version when they install or warm a tool: npm/npx packages normally use `@latest`, `uvx` tool invocations use `--upgrade`, Cargo installs use `--force` where supported, and package-manager handoff commands prefer upgrade-before-install semantics. A package may be pinned only for a documented upstream remediation window; the pin must live in `mcp-tools.json` and all setup/bootstrap projections must read that value instead of hard-coding the package spec. Successful MCP warmups may be cached under `$HOME/.spec-first/cache/mcp-warmup/` by host, platform, tool id, and resolved command hash; `SPEC_FIRST_WARMUP_CACHE_DIR` may override the cache root. Pinned package specs stay valid until the command hash changes, while `@latest` / `--upgrade` warmups use a bounded TTL controlled by `SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS` and defaulting to 86400 seconds. `SPEC_FIRST_FORCE_WARMUP=1` or `SPEC_FIRST_DISABLE_WARMUP_CACHE=1` must force the script back to running the warmup command. `--verify-only` remains read-only and never upgrades tools.
 
 ## Readiness Ledger v2
 
@@ -451,7 +455,7 @@ Then it computes one final readiness ledger:
 }
 ```
 
-`baseline_ready` includes required MCP tools, required graph providers, and every required helper in `helper_tools`. For graph providers, host MCP readiness only gates baseline when `host_config_required=true`. `code-review-graph` can be baseline-ready with `host_config_status=not-required` as long as its dependencies are ready and its CLI provider projection is enabled. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph readiness compilation is still required.
+`baseline_ready` includes required MCP tools, required graph providers, and every baseline-blocking required helper in `helper_tools`. For graph providers, host MCP readiness only gates baseline when `host_config_required=true`. `code-review-graph` can be baseline-ready with `host_config_status=not-required` as long as its dependencies are ready and its CLI provider projection is enabled. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph readiness compilation is still required.
 
 On a first setup, graph-provider facts show:
 
@@ -568,7 +572,7 @@ Uninstall does not delete `agent-browser`, external caches, or the project proje
 
 ## Success Summary
 
-When setup finishes, the assistant's final response must restate the complete readiness status sourced from readiness ledger v2, followed by a short friendly next-step prompt. Prefer grouped status blocks rendered inside fenced code blocks instead of one wide Markdown table. The first grouped section must be an `Execution result` summary that shows `Harness runtime` and `Graph readiness` decisions, including ready and pending graph providers. Do not rely on prior command output as the only place where the status appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending. When graph bootstrap is pending, tell the user it can run now because it is deterministic CLI compilation; restart or a new session is required only before downstream workflows rely on newly written host MCP config or live MCP probes. When graph readiness is already ready, the next-step prompt must not stop at a restart caveat; recommend `/spec:standards` or `$spec-standards` as the next durable handoff to compile project standards and glue capability baseline, and tell users with an already-clear task they can describe it directly in a restarted/new session so `using-spec-first` can route by intent.
+When setup finishes, the assistant's final response must restate the complete readiness status sourced from readiness ledger v2, followed by a short friendly next-step prompt. Prefer grouped status blocks rendered inside fenced code blocks instead of one wide Markdown table. The first grouped section must be an `Execution result` summary that shows `Harness runtime` and `Graph readiness` decisions, including ready and pending graph providers. Do not rely on prior command output as the only place where the status appears. Do not describe setup as fully complete when graph-provider rows still show `Query=pending`; say the Required Harness Runtime is ready and graph bootstrap is still pending. When graph bootstrap is pending, tell the user it can run now because it is deterministic CLI compilation; restart or a new session is required only before downstream workflows rely on newly written host MCP config or live MCP probes. When graph readiness is already ready, the next-step prompt must not stop at a restart caveat; recommend `/spec:standards` or `$spec-standards` as the next durable handoff to compile project standards and glue capability baseline. In a parent workspace, state that no-argument standards compiles parent advisory workspace artifacts, while `--repo <child>` compiles a child-local baseline. Tell users with an already-clear task they can describe it directly in a restarted/new session so `using-spec-first` can route by intent.
 
 ```text
 Required Harness Runtime is ready; graph bootstrap is still pending.
@@ -617,6 +621,21 @@ Project setup facts:
   2. graph readiness 完成后，推荐运行 /spec:standards 或 $spec-standards 编译项目规范与 glue capability baseline，给后续需求、计划、执行和审查提供可复用上下文。
   3. 重启 Claude Code/Codex 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。
 ```
+
+## Pipeline Runtime Dependencies
+
+The setup pipeline scripts themselves depend on a small set of host tools that are separate from per-tool `dependencies` declared in `mcp-tools.json`. `check-deps.sh` / `check-deps.ps1` run at the start of setup and fail visibly before tool-level work begins, but the required set is host-path specific:
+
+- Unix shell path (`*.sh`) requires `node`, `npm`, `npx`, `uv`, `uvx`, `jq`, and `python3`.
+- Windows PowerShell 7 path (`*.ps1`) requires `node`, `npm`, `npx`, `uv`, and `uvx`; `git` remains optional. It does not require `jq` or `python3` because JSON/TOML handling and bounded process execution are implemented with native PowerShell/.NET in the `.ps1` scripts.
+
+Unix-only dependency details:
+
+- `jq` — required by shell scripts for reading and projecting `mcp-tools.json`, host configs, and JSON status payloads.
+- `python3` — required by shell scripts for: hashlib-backed warmup-cache hashing (`install-mcp.sh`), bounded subprocess timeout management with `start_new_session` + `os.killpg` (`install-mcp.sh`, `bootstrap-providers.sh`), and TOML section regex parsing (`lib-toml.sh`). Currently any reasonably modern `python3` (≥3.6) suffices; we do not depend on `tomllib` (3.11+).
+- `node` — required by `verify-tools.sh` to invoke `render-status-block.cjs` for CJK-width-aware status table rendering. Also implied by all `npx`-based MCP installs (gitnexus, sequential-thinking, context7).
+
+`uv` / `uvx` are still checked as required setup dependencies because required tools (Serena, code-review-graph) need them during the setup flow.
 
 ## Reference
 

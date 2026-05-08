@@ -96,9 +96,11 @@ printf 'custom command\n' > "$dry_dir/.claude/commands/spec/custom.md"
 dry_output="$(cd "$dry_dir" && node "$REPO_ROOT/bin/spec-first.js" init --claude --dry-run -u kuang --lang en)"
 grep -q "Dry run: spec-first init (claude)" <<<"$dry_output"
 grep -q "Would prune 1 unmanaged command file(s)" <<<"$dry_output"
+grep -q ".gitignore" <<<"$dry_output"
 grep -q "No files were changed." <<<"$dry_output"
 test -e "$dry_dir/.claude/commands/spec/custom.md"
 test ! -e "$dry_dir/.claude/spec-first/state.json"
+test ! -e "$dry_dir/.gitignore"
 echo "✓ init --dry-run previews changes without writing files"
 
 echo "4. Initialize Claude runtime in a fresh project..."
@@ -146,6 +148,14 @@ grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/CLAUDE.md"
 test -f "$TMP_DIR/.claude/hooks/session-start"
 grep -q 'startup-reminder' "$TMP_DIR/.claude/hooks/session-start"
 grep -q -- '--claude' "$TMP_DIR/.claude/hooks/session-start"
+test -f "$TMP_DIR/.gitignore"
+grep -q '# spec-first:start' "$TMP_DIR/.gitignore"
+grep -q '.claude/commands/spec/' "$TMP_DIR/.gitignore"
+grep -q '.spec-first/standards/' "$TMP_DIR/.gitignore"
+if grep -qxF '.spec-first/' "$TMP_DIR/.gitignore" || grep -qxF '.agents/' "$TMP_DIR/.gitignore"; then
+  echo "init gitignore should not hide broad source/runtime roots" >&2
+  exit 1
+fi
 echo "✓ Claude init generated commands, skills, agents, hooks, and state"
 
 echo "5. Run doctor after Claude initialization..."
@@ -196,6 +206,7 @@ grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/AGENTS.md"
 grep -q 'spec-first startup-reminder --codex' "$TMP_DIR/AGENTS.md"
 grep -q 'must not block routing' "$TMP_DIR/AGENTS.md"
 grep -q 'bounded subagents, leaf reviewers, and worker agents' "$TMP_DIR/AGENTS.md"
+grep -q '.agents/skills/' "$TMP_DIR/.gitignore"
 echo "✓ Codex init generated skills, agents, and AGENTS.md"
 
 echo "7. Verify clean dry-run and clean removal..."

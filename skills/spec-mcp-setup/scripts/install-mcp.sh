@@ -7,6 +7,8 @@ set -euo pipefail
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib-template.sh"
+
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
 HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
@@ -22,6 +24,10 @@ ALL_REPOS=false
 SERENA_LANGUAGES_TEXT=""
 SERENA_LANGUAGE_MAP_TEXT=""
 DEFAULT_STAGE_TIMEOUT_SECONDS="${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}"
+WARMUP_CACHE_ROOT="${SPEC_FIRST_WARMUP_CACHE_DIR:-$HOME/.spec-first/cache/mcp-warmup}"
+WARMUP_LATEST_TTL_SECONDS="${SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS:-86400}"
+case "$DEFAULT_STAGE_TIMEOUT_SECONDS" in ''|*[!0-9]*) DEFAULT_STAGE_TIMEOUT_SECONDS=900 ;; esac
+case "$WARMUP_LATEST_TTL_SECONDS" in ''|*[!0-9]*) WARMUP_LATEST_TTL_SECONDS=86400 ;; esac
 
 stage_log() {
   local stage="$1"
@@ -358,6 +364,121 @@ check_tool_dependencies() {
   return 0
 }
 
+sha256_stdin() {
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import hashlib, sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())'
+    return
+  fi
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | awk '{print $1}'
+    return
+  fi
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{print $1}'
+    return
+  fi
+  echo 'install-mcp.sh: missing sha256 helper: install python3, shasum, or sha256sum' >&2
+  return 1
+}
+
+warmup_command_hash() {
+  local command="$1"
+  shift
+  {
+    printf 'command=%s\n' "$command"
+    local arg
+    for arg in "$@"; do
+      printf 'arg=%s\n' "$arg"
+    done
+  } | sha256_stdin
+}
+
+warmup_cache_path() {
+  local tool_id="$1"
+  printf '%s/%s/%s/%s.json' "$WARMUP_CACHE_ROOT" "$HOST" "$PLATFORM" "$tool_id"
+}
+
+warmup_cache_ttl_seconds() {
+  local command="$1"
+  shift
+  local joined
+  joined="$command $*"
+  if [[ "$joined" == *"@latest"* ]] || [[ "$joined" == *" --upgrade "* ]]; then
+    printf '%s' "$WARMUP_LATEST_TTL_SECONDS"
+  else
+    printf '0'
+  fi
+}
+
+warmup_cache_hit() {
+  local tool_id="$1"
+  local command_hash="$2"
+  local ttl_seconds="$3"
+  local cache_file now last_success_epoch
+  cache_file="$(warmup_cache_path "$tool_id")"
+  [ "${SPEC_FIRST_FORCE_WARMUP:-}" != "1" ] || return 1
+  [ "${SPEC_FIRST_DISABLE_WARMUP_CACHE:-}" != "1" ] || return 1
+  case "$ttl_seconds" in ''|*[!0-9]*) return 1 ;; esac
+  [ -f "$cache_file" ] || return 1
+  jq -e --arg tool_id "$tool_id" \
+        --arg host "$HOST" \
+        --arg platform "$PLATFORM" \
+        --arg command_hash "$command_hash" \
+        '.schema_version == "mcp-warmup-cache.v1"
+          and .tool_id == $tool_id
+          and .host == $host
+          and .platform == $platform
+          and .command_hash == $command_hash
+          and .exit_code == 0' "$cache_file" >/dev/null 2>&1 || return 1
+  if [ "$ttl_seconds" -gt 0 ]; then
+    last_success_epoch="$(jq -r '.last_success_epoch // 0' "$cache_file")"
+    case "$last_success_epoch" in ''|*[!0-9]*) return 1 ;; esac
+    now="$(date +%s)"
+    [ $((last_success_epoch + ttl_seconds)) -ge "$now" ] || return 1
+  fi
+  return 0
+}
+
+write_warmup_cache() {
+  local tool_id="$1"
+  local command="$2"
+  local command_hash="$3"
+  local package_spec="$4"
+  shift 4
+  local cache_file args_json tmp
+  cache_file="$(warmup_cache_path "$tool_id")"
+  mkdir -p "$(dirname "$cache_file")" 2>/dev/null || return 0
+  args_json="$(printf '%s\n' "$@" | jq -R . | jq -s -c .)" || return 0
+  tmp="$(mktemp "${cache_file}.XXXXXX" 2>/dev/null)" || return 0
+  if jq -n --arg tool_id "$tool_id" \
+        --arg host "$HOST" \
+        --arg platform "$PLATFORM" \
+        --arg command "$command" \
+        --argjson args "$args_json" \
+        --arg command_hash "$command_hash" \
+        --arg package_spec "$package_spec" \
+        --arg last_success_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+        --argjson last_success_epoch "$(date +%s)" \
+        '{
+          schema_version:"mcp-warmup-cache.v1",
+          tool_id:$tool_id,
+          host:$host,
+          platform:$platform,
+          command:$command,
+          args:$args,
+          command_hash:$command_hash,
+          package_spec:$package_spec,
+          last_success_at:$last_success_at,
+          last_success_epoch:$last_success_epoch,
+          exit_code:0
+        }' > "$tmp"; then
+    mv "$tmp" "$cache_file" 2>/dev/null || rm -f "$tmp"
+  else
+    rm -f "$tmp"
+  fi
+  return 0
+}
+
 append_result() {
   local tool_id="$1"
   local status="$2"
@@ -416,14 +537,47 @@ run_and_capture() {
   stage_log "$stage" "start"
   set +e
   python3 - "$timeout_seconds" "$@" <<'PY' >"$stdout_file" 2>"$stderr_file"
+import os
+import signal
 import subprocess
 import sys
+import time
 
 timeout = float(sys.argv[1])
 args = sys.argv[2:]
 
+def terminate_process_tree(process):
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except Exception:
+        try:
+            process.terminate()
+        except Exception:
+            return
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        if process.poll() is not None:
+            return
+        time.sleep(0.1)
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except Exception:
+        try:
+            process.kill()
+        except Exception:
+            pass
+
 try:
-    completed = subprocess.run(args, check=False, stdin=subprocess.DEVNULL, timeout=timeout)
+    process = subprocess.Popen(
+        args,
+        stdin=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    try:
+        exit_code = process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        terminate_process_tree(process)
+        sys.exit(124)
 except subprocess.TimeoutExpired:
     sys.exit(124)
 except FileNotFoundError as exc:
@@ -433,7 +587,7 @@ except Exception as exc:
     sys.stderr.write(f"{exc}\n")
     sys.exit(1)
 
-sys.exit(completed.returncode)
+sys.exit(exit_code)
 PY
   RUN_EXIT_CODE=$?
   set -e
@@ -466,7 +620,7 @@ done < <(jq -r '.tools[].id' "$TOOLS_JSON")
 for tool_id in "${TOOL_IDS[@]}"; do
   required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .required' "$TOOLS_JSON")"
   if [ "$required" != "true" ]; then
-    append_result "$tool_id" "action-required" "failed" "warmup" "registry_not_required" "mcp-tools.json schema v4 只允许 required tools" "" "" false "" "" ""
+    append_result "$tool_id" "action-required" "failed" "warmup" "registry_not_required" "mcp-tools.json schema v5 只允许 required tools" "" "" false "" "" ""
     continue
   fi
 
@@ -503,15 +657,22 @@ for tool_id in "${TOOL_IDS[@]}"; do
     while IFS= read -r arg; do
       install_args+=("$arg")
     done <<EOF
-$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .installation.unix.args[]' "$TOOLS_JSON")
+$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'.tools[] | select(.id == $id) as $t | $t.installation.unix.args[] | expand_tpl($t)' "$TOOLS_JSON")
 EOF
-    if ! run_and_capture "warmup:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$install_command" "${install_args[@]}"; then
+    warmup_hash="$(warmup_command_hash "$install_command" "${install_args[@]}")"
+    warmup_ttl_seconds="$(warmup_cache_ttl_seconds "$install_command" "${install_args[@]}")"
+    if warmup_cache_hit "$tool_id" "$warmup_hash" "$warmup_ttl_seconds"; then
+      last_action="warmup-cache-hit"
+    elif ! run_and_capture "warmup:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$install_command" "${install_args[@]}"; then
       status="action-required"
       last_action="failed"
       reason_code="warmup_failed"
       next_action="检查工具 warmup 命令与网络可达性"
       exit_code="$RUN_EXIT_CODE"
       diagnostic_summary="$RUN_DIAGNOSTIC"
+    else
+      package_spec="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | if ((.package // "") != "" and (.version // "") != "") then "\(.package)@\(.version)" else "" end' "$TOOLS_JSON")"
+      write_warmup_cache "$tool_id" "$install_command" "$warmup_hash" "$package_spec" "${install_args[@]}"
     fi
   fi
 

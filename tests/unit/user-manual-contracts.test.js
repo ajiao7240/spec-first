@@ -3,6 +3,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { getSpecFirstGitignorePatterns } = require('../../src/cli/gitignore-policy');
+
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const README_EN_PATH = path.join(REPO_ROOT, 'README.md');
@@ -16,6 +18,8 @@ const BEST_PRACTICES_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/05-最佳
 const LOCAL_INSTALL_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/06-本地源码安装.md');
 const ARTIFACT_CATALOG_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/10-产物目录.md');
 const STANDARDS_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/11-项目规范与胶水基线.md');
+const GITIGNORE_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/12-gitignore参考.md');
+const GRAPH_PROVIDER_SCOPE_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/13-代码图谱Provider作用域与差异化.md');
 const SPEC_IDEATE_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-ideate/SKILL.md');
 
 function read(filePath) {
@@ -91,9 +95,15 @@ describe('user manual contracts', () => {
     expect(standardsGuide).toContain('$spec-standards --refresh --domain cli');
     expect(standardsGuide).toContain('$spec-standards --deep');
     expect(standardsGuide).toContain('$spec-standards --baseline --import-source ../shared-standards');
+    expect(standardsGuide).toContain('$spec-standards --repo <child>');
+    expect(standardsGuide).toContain('父 workspace 默认运行会写父级 `.spec-first/standards/` advisory artifacts');
+    expect(standardsGuide).toContain('不是任何 child repo 的 confirmed standards baseline');
     expect(standardsGuide).toContain('node skills/spec-standards/scripts/prepare-baseline.js --quick');
+    expect(standardsGuide).toContain('node skills/spec-standards/scripts/prepare-baseline.js --workspace');
     expect(standardsGuide).toContain('node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json');
     expect(standardsGuide).toContain('trust_level=degraded');
+    expect(standardsGuide).toContain('consumption_boundary=advisory_only');
+    expect(standardsGuide).toContain('workspace-advisory-only');
     expect(standardsGuide).toContain('validator 只检查 artifact handoff contract');
     expect(standardsGuide).toContain('validator pass 是 trusted baseline 的完成标准');
     expect(standardsGuide).toContain('不要为了消除诊断而改写 contract heading、candidate id、命令名、路径、工具名或作者名');
@@ -104,6 +114,46 @@ describe('user manual contracts', () => {
     expect(standardsGuide).toContain('下游 workflow 只能把 `confirmed` standards 当作硬约束');
     expect(standardsGuide).toContain('`glue-map.json` 只用于 reuse-first 判断');
     expect(standardsGuide).toContain('不要手改 `.claude/`、`.codex/` 或 `.agents/skills/` runtime mirror');
+  });
+
+  test('user manual documents init-managed gitignore policy boundaries', () => {
+    const manual = read(USER_MANUAL_README_PATH);
+    const gitignoreGuide = read(GITIGNORE_GUIDE_PATH);
+
+    expect(manual).toContain('[Gitignore 参考](./12-gitignore参考.md)');
+    expect(manual).toContain('`init` 自动维护的 `.gitignore` spec-first managed block');
+    expect(gitignoreGuide).toContain('`spec-first init --claude|--codex` 会在当前目标项目的 `.gitignore` 中自动写入或更新');
+    expect(gitignoreGuide).toContain('`init --dry-run` 会预览这次写入');
+    expect(gitignoreGuide).toContain('# spec-first:start');
+    expect(gitignoreGuide).toContain('.claude/commands/spec/');
+    expect(gitignoreGuide).toContain('.agents/skills/');
+    expect(gitignoreGuide).toContain('.spec-first/standards/');
+    expect(gitignoreGuide).toContain('在父 workspace 且检测到多个 child Git repos 时，`init` 默认进入 all-child maintenance');
+    expect(gitignoreGuide).toContain('父目录不写 `.gitignore`、`AGENTS.md`、`CLAUDE.md`');
+    expect(gitignoreGuide).toContain('不要默认加入');
+    expect(gitignoreGuide).toContain('`*.tgz` 是本地打包产物');
+    for (const pattern of getSpecFirstGitignorePatterns()) {
+      expect(gitignoreGuide).toContain(pattern);
+    }
+  });
+
+  test('user manual explains graph provider scope and differentiation', () => {
+    const manual = read(USER_MANUAL_README_PATH);
+    const guide = read(GRAPH_PROVIDER_SCOPE_GUIDE_PATH);
+
+    expect(manual).toContain('[代码图谱 Provider 作用域与差异化](./13-代码图谱Provider作用域与差异化.md)');
+    expect(guide).toContain('GitNexus = 全局代码知识');
+    expect(guide).toContain('code-review-graph = 当前变更的 review evidence');
+    expect(guide).toContain('核心竞争力不是“接入了两个代码图谱工具”');
+    expect(guide).toContain('GitNexus 在 spec-first 中的角色是 `global_knowledge`');
+    expect(guide).toContain('`code-review-graph` 在 spec-first 中的角色是 `impact_context`');
+    expect(guide).toContain('这个设计故意不把 `code-review-graph` 包装成 agent');
+    expect(guide).toContain('`spec-graph-impact-reviewer` 是建议新增的条件触发 reviewer');
+    expect(guide).toContain('默认评估是否需要 `spec-graph-impact-reviewer`');
+    expect(guide).toContain('不是 always-on reviewer');
+    expect(guide).toContain('默认评估、条件派发');
+    expect(guide).toContain('Scripts prepare, LLM decides');
+    expect(guide).toContain('`.spec-first/impact/bootstrap-impact-capabilities.json`');
   });
 
   test('user manual distinguishes temporary code-review handoff from durable summaries', () => {

@@ -68,9 +68,18 @@ describe('coding guidelines instruction block', () => {
     expect(zh).toContain('LLM 经常默默选择一种解释然后执行。这个原则强制明确推理：');
     expect(zh).toContain('### 2. 简洁优先');
     expect(zh).toContain('检验标准：每一行修改都应该能直接追溯到用户的请求。');
+    expect(zh).toContain('### 5. 工具参数卫生');
+    expect(zh).toContain('不要传 PDF/page 分页参数');
+    expect(zh).toContain('宿主文件读取工具');
+    expect(zh).toContain('不能是 `""`');
     expect(en).toContain('Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.');
     expect(en).toContain('### 2. Simplicity First');
     expect(en).toContain('The test: Every changed line should trace directly to the user\'s request.');
+    expect(en).toContain('### 5. Tool Parameter Hygiene');
+    expect(en).toContain('do not pass PDF/page pagination parameters');
+    expect(en).toContain('For host file-read tools');
+    expect(en).toContain('never `""`');
+    expect(en).not.toContain('Claude Code `Read`');
 
     for (const block of [zh, en]) {
       expect(block).not.toContain('下一步');

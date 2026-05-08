@@ -32,6 +32,10 @@ describe('spec-standards downstream consumer contract', () => {
       deprecated: 'risk',
       drifted: 'risk',
       validator_fail: 'degraded/advisory',
+      trust_level_degraded: 'degraded/advisory',
+      missing_validation_result: 'degraded/advisory',
+      consumption_boundary_advisory_only: 'degraded/advisory',
+      workspace_advisory_only: 'degraded/advisory',
     }));
     expect(Object.keys(consumptionMap)).not.toContain('advisory_status');
   });
@@ -51,7 +55,13 @@ describe('spec-standards downstream consumer contract', () => {
       expect(consumer.advisory_context).toEqual(['observed', 'imported', 'suggested']);
       expect(consumer.risk_context).toEqual(['conflict', 'deprecated', 'drifted']);
       expect(consumer.question_context).toEqual(['unknown']);
-      expect(consumer.degraded_context).toEqual(['validator_fail', 'trust_level=degraded', 'missing_validation_result']);
+      expect(consumer.degraded_context).toEqual([
+        'validator_fail',
+        'trust_level=degraded',
+        'missing_validation_result',
+        'consumption_boundary=advisory_only',
+        'workspace-advisory-only',
+      ]);
       expect(consumer.consumption_modes).toEqual(expect.objectContaining({
         confirmed: 'hard',
         observed: 'advisory',
@@ -61,6 +71,9 @@ describe('spec-standards downstream consumer contract', () => {
         unknown: 'question',
         validator_fail: 'degraded/advisory',
         trust_level_degraded: 'degraded/advisory',
+        missing_validation_result: 'degraded/advisory',
+        consumption_boundary_advisory_only: 'degraded/advisory',
+        workspace_advisory_only: 'degraded/advisory',
       }));
       expect(consumer.glue_map_boundary).toContain('reuse-first');
       expect(consumer.glue_map_boundary).toContain('not a workflow state machine');
@@ -75,6 +88,8 @@ describe('spec-standards downstream consumer contract', () => {
     expect(skill).toContain('`conflict` -> risk context');
     expect(skill).toContain('`unknown` -> question context');
     expect(skill).toContain('`trust_level=degraded`');
+    expect(skill).toContain('`consumption_boundary=advisory_only`');
+    expect(skill).toContain('`workspace-advisory-only`');
     expect(skill).toContain('degraded/advisory only');
     expect(skill).toContain('Use `glue-map.json` for reuse-first implementation boundaries, not as a workflow state machine.');
   });
@@ -86,7 +101,7 @@ describe('spec-standards downstream consumer contract', () => {
     expect(skill).toContain('`observed` / `imported` / `suggested` -> advisory context refs');
     expect(skill).toContain('`conflict` -> risk context');
     expect(skill).toContain('`unknown` -> question context');
-    expect(skill).toContain('Validator fail, missing validator result, or `trust_level=degraded` means standards artifacts are degraded/advisory only.');
+    expect(skill).toContain('Validator fail, missing validator result, `trust_level=degraded`, `consumption_boundary=advisory_only`, or `workspace-advisory-only` means standards artifacts are degraded/advisory only.');
     expect(skill).toContain('must not become a workflow state machine or expand source-plan scope');
   });
 
@@ -96,7 +111,7 @@ describe('spec-standards downstream consumer contract', () => {
     expect(skill).toContain('treat `confirmed` standards as hard context');
     expect(skill).toContain('treat `observed` / `imported` / `suggested` as advisory context');
     expect(skill).toContain('carry `conflict` as risk context and `unknown` as question context');
-    expect(skill).toContain('If standards validation failed, is missing, or reports `trust_level=degraded`, consume standards artifacts as degraded/advisory only.');
+    expect(skill).toContain('If standards validation failed, is missing, reports `trust_level=degraded`, reports `consumption_boundary=advisory_only`, or carries `workspace-advisory-only`, consume standards artifacts as degraded/advisory only.');
     expect(skill).toContain('`glue-map.json` is reuse-first context, not a workflow state machine.');
   });
 
@@ -107,6 +122,8 @@ describe('spec-standards downstream consumer contract', () => {
     expect(skill).toContain('`observed` / `imported` / `suggested` remain advisory context');
     expect(skill).toContain('`conflict` remains risk context');
     expect(skill).toContain('`unknown` remains question context');
+    expect(skill).toContain('`consumption_boundary=advisory_only`');
+    expect(skill).toContain('`workspace-advisory-only`');
     expect(skill).toContain('the baseline is degraded/advisory only and must not produce hard project-standards findings');
     expect(skill).toContain('`glue-map.json` may support reuse-first review questions but is not a workflow state machine.');
   });

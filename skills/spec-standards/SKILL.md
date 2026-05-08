@@ -1,7 +1,7 @@
 ---
 name: spec-standards
 description: Compile graph-backed project standards and glue capability baseline artifacts from project facts, shared standards inputs, and observed code conventions. Use when onboarding a brownfield project, refreshing project-level standards, preparing reusable project baselines before planning/work/review, or importing team/shared engineering standards for project confirmation.
-argument-hint: "[--baseline|--quick|--refresh|--deep] [--import-source <git-or-path>]"
+argument-hint: "[--baseline|--quick|--refresh|--deep] [--repo <child>|--workspace|--target-kind <auto|repo|workspace>] [--import-source <git-or-path>]"
 ---
 
 # Project Standards And Glue Compiler
@@ -76,7 +76,7 @@ If graph artifacts are missing or stale, continue in degraded mode with direct r
 
 ### `--baseline`
 
-Default mode. Prepare a first project baseline for `single_project_repo` and bounded simple repos.
+Default mode. Prepare a first project baseline for `single_project_repo`, `monorepo_multi_module`, bounded simple repos, and parent workspace advisory context.
 
 Complete baseline output is split by ownership.
 
@@ -93,7 +93,7 @@ LLM-generated review artifacts, created after reading the deterministic facts:
 
 Do not write `repo-profile.yaml`.
 
-In parent workspaces, `--repo <child>` selects the child repo as the target repo root. Default artifacts are written under the child repo's `.spec-first/standards/`, and the parent workspace must not receive child-local standards artifacts.
+In parent workspaces with multiple independent child Git repos, default artifacts are written under the parent `.spec-first/standards/` as an advisory workspace standards baseline. This baseline may summarize child repo shapes and shared alignment questions, but it is not a child repo confirmed standards baseline. `--repo <child>` selects one child repo as the target repo root and writes child-local artifacts under that child repo's `.spec-first/standards/`.
 
 ### `--quick`
 
@@ -137,11 +137,13 @@ Imported standards are marked `imported`, not `confirmed`, and require project a
 
 ## Artifact Contract
 
-Default artifact root:
+Default local artifact root:
 
 ```text
 .spec-first/standards/
 ```
+
+`spec-first init` adds this root to the managed `.gitignore` block. Treat it as a local standards workspace by default. Confirmed standards that should travel with the team must be promoted to an explicit source path, such as `.spec-first/specs/repo-profile.yaml`, `docs/specs/**`, or another project-owned standards document.
 
 Baseline artifacts by owner:
 
@@ -168,7 +170,7 @@ Mode-specific or optional artifacts:
 .spec-first/standards/standards-drift.md
 ```
 
-Runtime scratch paths must not be committed:
+Runtime scratch paths live under the same local root:
 
 ```text
 .spec-first/standards/work/
@@ -200,7 +202,7 @@ Only `confirmed` may be proposed for `repo-profile.yaml` writeback, and only thr
 ### Phase 0: Scope And Safety
 
 1. Identify the requested mode. Default to `--baseline`.
-2. Identify target repo scope. In a parent workspace, require explicit `target_repo` / `--repo <child>` before writing child-local standards artifacts.
+2. Identify target scope. In a parent workspace, no-argument runs may write only parent advisory `.spec-first/standards/` artifacts; require explicit `target_repo` / `--repo <child>` before writing child-local standards artifacts.
 3. Check whether the target is already inside a public workflow or bounded subagent. Stay within the active scope.
 4. Confirm the run will not hand-edit generated runtime mirrors under `.claude/`, `.codex/`, or `.agents/skills/`.
 
@@ -219,9 +221,13 @@ node skills/spec-standards/scripts/prepare-baseline.js --quick
 node skills/spec-standards/scripts/prepare-baseline.js --refresh --domain <name>
 node skills/spec-standards/scripts/prepare-baseline.js --deep
 node skills/spec-standards/scripts/prepare-baseline.js --baseline --import-source <path>
+node skills/spec-standards/scripts/prepare-baseline.js --workspace
+node skills/spec-standards/scripts/prepare-baseline.js --repo <child>
 ```
 
-The script writes deterministic facts and mode-support artifacts only:
+In workspace mode (`--workspace` or `--target-kind workspace`), `--output` cannot be overridden; artifacts always go to `.spec-first/standards/` under the parent workspace root.
+
+The script writes deterministic facts and mode-support artifacts only. The script result JSON includes `target_kind` (workspace | repo | workspace_child_repo) and `workspace_child_count` as immediate routing signals, so agents can confirm workspace mode was auto-detected without reading standards-plan.json.
 
 - `project-shape.json`
 - `standards-plan.json`, including the `synthesis_contract` that defines candidate fields, status vocabulary, evidence limits, writeback policy, and downstream consumers
@@ -229,6 +235,8 @@ The script writes deterministic facts and mode-support artifacts only:
 - `standards-update-decision.json` for `--quick` / `--refresh`
 - `graph-query-index.json` for `--deep`
 - `standards-sources.json`, `import-lock.json`, and `imported-standards.json` for `--import-source`
+
+For parent workspace advisory runs, the script detects child Git repos, excludes child source trees from the parent inventory hash, and records bounded child summaries in `project-shape.json`. It must not create child `.spec-first/standards/*`, child `.spec-first/specs/repo-profile.yaml`, or parent `repo-profile.yaml`.
 
 If the script is unavailable, gather equivalent facts with bounded direct reads and mark script evidence as unavailable in the preview. Do not pretend the script ran.
 
@@ -241,11 +249,13 @@ Read the generated fact artifacts and the available upstream graph/readiness art
 Treat `standards-plan.json` as the LLM handoff contract:
 
 - `scope` tells whether the run is repo-local or a `workspace_child_repo` run.
+- `scope.type=workspace` means artifacts are parent workspace advisory context only and must not be consumed as any child repo's confirmed standards baseline.
 - `artifacts.generate` lists durable artifacts expected by this mode.
 - `synthesis_contract.candidate_required_fields` is the candidate JSON minimum shape.
 - `synthesis_contract.allowed_statuses` and `allowed_source_types` define allowed vocabulary.
 - `synthesis_contract.evidence_policy` sets evidence budgets and graph degradation boundaries.
 - `synthesis_contract.writeback_policy` keeps `repo-profile.yaml` preview-first.
+- `synthesis_contract.workspace_policy` preserves parent workspace advisory boundaries when present.
 - `synthesis_contract.downstream_consumers` explains how later workflows may use confirmed vs soft candidates.
 
 Classify evidence source types:
@@ -335,7 +345,9 @@ node skills/spec-standards/scripts/validate-artifacts.js \
   --json
 ```
 
-Exit code `0` means `status=pass` and `trust_level=trusted`. Exit code `4` means `status=pass` and `trust_level=degraded`, for example when fallback vocabulary was explicitly allowed; degraded pass proves the artifacts are structurally readable, not that they are a trusted standards baseline. Exit code `1` means validation fail, `2` means usage error, and `3` means internal error.
+Exit code `0` means `status=pass` and `trust_level=trusted`. Exit code `4` means `status=pass` and `trust_level=degraded`, for example when fallback vocabulary was explicitly allowed or when parent workspace artifacts report `consumption_boundary=advisory_only`; degraded pass proves the artifacts are structurally readable, not that they are a trusted standards baseline. Exit code `1` means validation fail, `2` means usage error, and `3` means internal error.
+
+Named exit-1 reason_codes include: `missing-required-field`, `invalid-status`, `invalid-source-type`, `duplicate-candidate-id`, `conflict-not-visible`, `unknown-not-visible`, `repo-profile-modified`, `patch-references-non-confirmed`, `scope-mismatch` (candidates scope.type does not match plan scope.type).
 
 If `standards-plan.json` is missing, validation must fail unless the caller explicitly passes `--allow-fallback-vocabulary`. Do not use fallback vocabulary for trusted downstream consumption.
 
@@ -386,7 +398,7 @@ Consumption modes:
 - `conflict` -> risk context that must stay visible until resolved.
 - `unknown` -> question context that requires user or project evidence before hard use.
 - `deprecated` and `drifted` -> risk context.
-- validator fail, missing validator result, or `trust_level=degraded` -> degraded/advisory only.
+- validator fail, missing validator result, `trust_level=degraded`, `consumption_boundary=advisory_only`, or `workspace-advisory-only` -> degraded/advisory only.
 
 `glue-map.json` supports reuse-first decisions. It is not a workflow state machine and must not override the active plan, task pack, work scope, or review judgment.
 

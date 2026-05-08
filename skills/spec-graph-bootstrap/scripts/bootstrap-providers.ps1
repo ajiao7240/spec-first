@@ -8,13 +8,21 @@ Set-StrictMode -Version Latest
 
 $script:GitNexusQueryProbeCandidateLimit = 5
 $script:BootstrapProvidersScript = $PSCommandPath
-$script:ProviderCommandTimeoutSeconds = if ($env:SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS -match '^[0-9]+$') {
-  [int]$env:SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS
-} elseif ($env:SPEC_FIRST_STAGE_TIMEOUT_SECONDS -match '^[0-9]+$') {
-  [int]$env:SPEC_FIRST_STAGE_TIMEOUT_SECONDS
-} else {
-  900
+
+function Get-NonNegativeIntEnv {
+  param(
+    [string]$Name,
+    [int]$Default
+  )
+  $raw = [Environment]::GetEnvironmentVariable($Name)
+  [int]$parsed = 0
+  if ([int]::TryParse($raw, [ref]$parsed) -and $parsed -ge 0) { return $parsed }
+  return $Default
 }
+
+$script:ProviderCommandTimeoutSeconds = Get-NonNegativeIntEnv `
+  -Name 'SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS' `
+  -Default (Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900)
 
 function Write-ResultAndExit {
   param(
@@ -31,6 +39,27 @@ function Write-ResultAndExit {
     next_action = $NextAction
   } | ConvertTo-Json -Compress
   exit $ExitCode
+}
+
+function Resolve-ChildPowerShellExecutable {
+  $currentEdition = if ($PSVersionTable.PSObject.Properties.Name -contains 'PSEdition') { [string]$PSVersionTable.PSEdition } else { '' }
+  $currentCommandName = if ($currentEdition -eq 'Core') { 'pwsh' } else { 'powershell' }
+  $currentCommand = Get-Command $currentCommandName -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($null -ne $currentCommand -and -not [string]::IsNullOrWhiteSpace([string]$currentCommand.Path)) {
+    return [string]$currentCommand.Path
+  }
+
+  $pwshCommand = Get-Command pwsh -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($null -ne $pwshCommand -and -not [string]::IsNullOrWhiteSpace([string]$pwshCommand.Path)) {
+    return [string]$pwshCommand.Path
+  }
+
+  $powershellCommand = Get-Command powershell -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($null -ne $powershellCommand -and -not [string]::IsNullOrWhiteSpace([string]$powershellCommand.Path)) {
+    return [string]$powershellCommand.Path
+  }
+
+  return 'pwsh'
 }
 
 function Get-StatusHash {
@@ -53,12 +82,20 @@ function Invoke-ChildJsonScript {
 
   $stderrPath = Join-Path ([System.IO.Path]::GetTempPath()) ('spec-first-child-stderr-{0}.log' -f ([guid]::NewGuid().ToString('N')))
   $informationPath = Join-Path ([System.IO.Path]::GetTempPath()) ('spec-first-child-information-{0}.log' -f ([guid]::NewGuid().ToString('N')))
+  $powerShellExe = Resolve-ChildPowerShellExecutable
+  $childArgs = @('-NoProfile', '-File', $ScriptPath)
+  foreach ($entry in $Arguments.GetEnumerator()) {
+    $childArgs += "-$($entry.Key)"
+    foreach ($value in @($entry.Value)) {
+      $childArgs += [string]$value
+    }
+  }
   $stdout = @()
   $exitCode = 0
   $exceptionText = ''
   try {
     $global:LASTEXITCODE = 0
-    $stdout = @(& $ScriptPath @Arguments 2> $stderrPath 6> $informationPath)
+    $stdout = @(& $powerShellExe @childArgs 2> $stderrPath 6> $informationPath)
     if ($LASTEXITCODE -is [int]) { $exitCode = $LASTEXITCODE }
   } catch {
     $exitCode = if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }
@@ -186,7 +223,7 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
     }
     overall_status = $overallStatus
     reason_code = if ($actionRequiredCount -gt 0) { 'all-repos-partial-or-action-required' } elseif ($degradedCount -gt 0) { 'all-repos-degraded-fallback' } else { $null }
-    next_action = if ($actionRequiredCount -gt 0) { 'Inspect per-child reason_code and rerun setup/bootstrap for action-required repos.' } elseif ($degradedCount -gt 0) { 'Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos.' } elseif ($notApplicableCount -gt 0) { 'All code-bearing child repos produced graph bootstrap artifacts; skip GitNexus process routing for no-source children.' } else { 'All child repos produced graph bootstrap artifacts.' }
+    next_action = if ($actionRequiredCount -gt 0) { 'Inspect per-child reason_code and rerun setup/bootstrap for action-required repos.' } elseif ($degradedCount -gt 0) { 'Inspect per-child provider reason_code/recommended_action. Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos.' } elseif ($notApplicableCount -gt 0) { 'All code-bearing child repos produced graph bootstrap artifacts; skip GitNexus process routing for no-source children.' } else { 'All child repos produced graph bootstrap artifacts.' }
   }
 
   $workspaceDir = Join-Path $TargetFacts.workspace_root '.spec-first/workspace'
@@ -451,6 +488,67 @@ function Test-QueryProbePolicySupported {
   return $true
 }
 
+function Resolve-ProcessExecutable {
+  param([string]$Exe)
+
+  if ([string]::IsNullOrWhiteSpace($Exe)) {
+    return $Exe
+  }
+  if ([System.IO.Path]::IsPathRooted($Exe) -or $Exe.Contains('\') -or $Exe.Contains('/')) {
+    return $Exe
+  }
+
+  $commands = @(Get-Command $Exe -All -ErrorAction SilentlyContinue)
+  $application = @($commands | Where-Object { $_.CommandType -eq 'Application' } | Select-Object -First 1)
+  if ($application.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$application[0].Path)) {
+    return [string]$application[0].Path
+  }
+
+  $externalScript = @($commands | Where-Object { $_.CommandType -eq 'ExternalScript' } | Select-Object -First 1)
+  if ($externalScript.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$externalScript[0].Path)) {
+    $scriptPath = [string]$externalScript[0].Path
+    if ((Test-WindowsHost) -and [System.IO.Path]::GetExtension($scriptPath).Equals('.ps1', [System.StringComparison]::OrdinalIgnoreCase)) {
+      $basePath = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($scriptPath), [System.IO.Path]::GetFileNameWithoutExtension($scriptPath))
+      foreach ($extension in @('.cmd', '.exe', '.bat', '.com')) {
+        $candidate = "${basePath}${extension}"
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+          return $candidate
+        }
+      }
+    }
+    return $scriptPath
+  }
+
+  return $Exe
+}
+
+function Test-WindowsHost {
+  $isWindowsVariable = Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue
+  return ([bool]$isWindowsVariable -or [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT)
+}
+
+function ConvertTo-RepoRelativePath {
+  param(
+    [string]$Path,
+    [string]$RepoRoot
+  )
+  if ([string]::IsNullOrWhiteSpace($Path) -or [string]::IsNullOrWhiteSpace($RepoRoot)) {
+    return $Path
+  }
+
+  $normalizedPath = [System.IO.Path]::GetFullPath($Path).Replace('\', '/')
+  $normalizedRoot = [System.IO.Path]::GetFullPath($RepoRoot).Replace('\', '/').TrimEnd('/')
+  $comparison = if (Test-WindowsHost) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+  if ($normalizedPath.Equals($normalizedRoot, $comparison)) {
+    return '.'
+  }
+  $prefix = "$normalizedRoot/"
+  if ($normalizedPath.StartsWith($prefix, $comparison)) {
+    return $normalizedPath.Substring($prefix.Length)
+  }
+  return $normalizedPath
+}
+
 function Invoke-ExternalCommandWithTimeout {
   param(
     [string]$Exe,
@@ -458,8 +556,9 @@ function Invoke-ExternalCommandWithTimeout {
     [string]$WorkingDirectory,
     [int]$TimeoutSeconds
   )
+  $resolvedExe = Resolve-ProcessExecutable -Exe $Exe
   $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
-  $processInfo.FileName = $Exe
+  $processInfo.FileName = $resolvedExe
   foreach ($argument in @($CommandArguments)) {
     [void]$processInfo.ArgumentList.Add([string]$argument)
   }
@@ -539,7 +638,7 @@ function Invoke-ConfiguredCommand {
     exit_code = $exitCode
     diagnostic = $diagnostic
     diagnostics_truncated = $truncated
-    raw_log = $LogPath.Replace("$RepoRoot/", '')
+    raw_log = ConvertTo-RepoRelativePath -Path $LogPath -RepoRoot $RepoRoot
   }
 }
 
@@ -578,7 +677,7 @@ function Invoke-GitNexusQueryProbeCandidate {
     exit_code = $exitCode
     diagnostic = $diagnostic
     diagnostics_truncated = $truncated
-    raw_log = $LogPath.Replace("$RepoRoot/", '')
+    raw_log = ConvertTo-RepoRelativePath -Path $LogPath -RepoRoot $RepoRoot
   }
 }
 
@@ -790,6 +889,71 @@ function Get-GitNexusRepoLabelMismatchFailureInfo {
   return $null
 }
 
+function Get-ConfiguredGitNexusPackageSpec {
+  param([object]$ProviderConfig)
+  $queryCommand = @($ProviderConfig.providers.gitnexus.commands.query_probe)
+  if ($queryCommand.Count -gt 2 -and -not [string]::IsNullOrWhiteSpace([string]$queryCommand[2])) {
+    return [string]$queryCommand[2]
+  }
+  $bootstrapCommand = @($ProviderConfig.providers.gitnexus.commands.bootstrap)
+  if ($bootstrapCommand.Count -gt 2 -and -not [string]::IsNullOrWhiteSpace([string]$bootstrapCommand[2])) {
+    return [string]$bootstrapCommand[2]
+  }
+  return ''
+}
+
+function Get-BundledGitNexusPackageSpec {
+  if ([string]::IsNullOrWhiteSpace([string]$script:McpToolsJson) -or -not (Test-Path -LiteralPath $script:McpToolsJson -PathType Leaf)) {
+    return ''
+  }
+  try {
+    $toolsJson = Get-Content -Raw -LiteralPath $script:McpToolsJson | ConvertFrom-Json
+    $tool = @($toolsJson.tools | Where-Object { $_.id -eq 'gitnexus' } | Select-Object -First 1)
+    if ($tool.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$tool[0].package) -and -not [string]::IsNullOrWhiteSpace([string]$tool[0].version)) {
+      return "$($tool[0].package)@$($tool[0].version)"
+    }
+  } catch {
+  }
+  return ''
+}
+
+function Get-GitNexusQueryDiagnosticFailureInfo {
+  param(
+    [object]$ProviderConfig,
+    [int]$ExitCode,
+    [object[]]$QueryProbeAttempts
+  )
+  if (@($QueryProbeAttempts | Where-Object { $_.result_class -eq 'diagnostic' }).Count -le 0) {
+    return $null
+  }
+
+  $configuredPackage = Get-ConfiguredGitNexusPackageSpec -ProviderConfig $ProviderConfig
+  $bundledPackage = Get-BundledGitNexusPackageSpec
+  if (
+    -not [string]::IsNullOrWhiteSpace($configuredPackage) -and
+    -not [string]::IsNullOrWhiteSpace($bundledPackage) -and
+    $configuredPackage -ne $bundledPackage
+  ) {
+    return [ordered]@{
+      failed_phase = 'query_probe'
+      failure_class = 'provider-projection-stale'
+      reason_code = 'gitnexus-query-provider-projection-stale'
+      exit_code = $ExitCode
+      recommended_action = "Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled GitNexus package '$bundledPackage'; it currently projects '$configuredPackage'. Then rerun spec-graph-bootstrap. Use code-review-graph degraded fallback until GitNexus query proof returns process results."
+      diagnostic = "GitNexus query probe emitted FTS/read-only/missing-index diagnostics while setup-projected package '$configuredPackage' differs from bundled package '$bundledPackage'."
+    }
+  }
+
+  return [ordered]@{
+    failed_phase = 'query_probe'
+    failure_class = 'provider-storage-readonly'
+    reason_code = 'gitnexus-query-fts-readonly'
+    exit_code = $ExitCode
+    recommended_action = 'GitNexus query emitted FTS/read-only/missing-index diagnostics after build/status succeeded. Repair GitNexus index storage or permissions, or clean/reanalyze GitNexus with a fixed provider version, then rerun spec-graph-bootstrap. Use code-review-graph degraded fallback meanwhile.'
+    diagnostic = 'GitNexus query probe emitted FTS/read-only/missing-index diagnostics after build/status succeeded.'
+  }
+}
+
 function Get-ProviderFailureInfo {
   param(
     [string]$Provider,
@@ -915,6 +1079,10 @@ function Write-NormalizedArtifacts {
       $sourceRawLogs += '.spec-first/providers/gitnexus/raw/query.log'
     }
     $winningLogs = @($QueryProbeAttempts | Where-Object { $_.result_class -eq 'process-results' } | Select-Object -First 1 | ForEach-Object { $_.raw_log })
+    $winningQueryProbeLog = if ($winningLogs.Count -gt 0) { $winningLogs[0] } else { $null }
+    $availableQuerySurfaces = if ($QueryReady) { @('status', 'query') } else { @() }
+    $confidence = if ($QueryReady) { 'high' } else { 'low' }
+    $limitations = if ($QueryReady) { @() } else { @('Provider query readiness is not verified.') }
     foreach ($artifact in @('architecture-facts', 'reuse-candidates')) {
       $payload = [ordered]@{
         schema_version = 'provider-normalized-envelope.v1'
@@ -923,25 +1091,28 @@ function Write-NormalizedArtifacts {
         source_status_path = $sourceStatusPath
         source_raw_logs = $sourceRawLogs
         query_probe_attempt_logs = $attemptLogs
-        winning_query_probe_log = if ($winningLogs.Count -gt 0) { $winningLogs[0] } else { $null }
-        available_query_surfaces = if ($QueryReady) { @('status', 'query') } else { @() }
+        winning_query_probe_log = $winningQueryProbeLog
+        available_query_surfaces = $availableQuerySurfaces
         capabilities = @('architecture_map', 'dependency_map', 'execution_flow', 'repo_wiki', 'query_global_graph')
-        confidence = if ($QueryReady) { 'high' } else { 'low' }
-        limitations = if ($QueryReady) { @() } else { @('Provider query readiness is not verified.') }
+        confidence = $confidence
+        limitations = $limitations
       }
       Write-JsonFileAtomic -Path (Join-Path $normalizedDir "$artifact.json") -Payload ([pscustomobject]$payload) -Depth 20
     }
   } else {
+    $availableQuerySurfaces = if ($QueryReady) { @('status', 'query_graph_tool', 'get_impact_radius_tool') } else { @() }
+    $confidence = if ($QueryReady) { 'medium' } else { 'low' }
+    $limitations = if ($QueryReady) { @('code-review-graph query-surface proof is conservative and should be treated as provider readiness, not semantic evidence.') } else { @('Provider query readiness is not verified.') }
     $payload = [ordered]@{
       schema_version = 'provider-normalized-envelope.v1'
       provider = $Provider
       generated_at = $BootstrappedAt
       source_status_path = $sourceStatusPath
       source_raw_logs = @('.spec-first/providers/code-review-graph/raw/build.log', '.spec-first/providers/code-review-graph/raw/status.log', '.spec-first/providers/code-review-graph/raw/query.log')
-      available_query_surfaces = if ($QueryReady) { @('status', 'query_graph_tool', 'get_impact_radius_tool') } else { @() }
+      available_query_surfaces = $availableQuerySurfaces
       capabilities = @('detect_changes', 'blast_radius', 'minimal_context', 'review_context', 'related_tests', 'graph_stats')
-      confidence = if ($QueryReady) { 'medium' } else { 'low' }
-      limitations = if ($QueryReady) { @('code-review-graph query-surface proof is conservative and should be treated as provider readiness, not semantic evidence.') } else { @('Provider query readiness is not verified.') }
+      confidence = $confidence
+      limitations = $limitations
     }
     Write-JsonFileAtomic -Path (Join-Path $normalizedDir 'impact-capabilities.json') -Payload ([pscustomobject]$payload) -Depth 20
   }
@@ -969,7 +1140,18 @@ function Test-FallbackSupported {
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$resolverPath = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptDir)) 'spec-mcp-setup/scripts/resolve-project-target.ps1'
+$mcpToolsOverride = [Environment]::GetEnvironmentVariable('SPEC_FIRST_MCP_TOOLS_JSON')
+if ([string]::IsNullOrWhiteSpace($mcpToolsOverride)) {
+  $script:McpToolsJson = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptDir)) 'spec-mcp-setup/mcp-tools.json'
+} else {
+  $script:McpToolsJson = $mcpToolsOverride
+}
+$resolverOverride = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROJECT_TARGET_RESOLVER')
+if ([string]::IsNullOrWhiteSpace($resolverOverride)) {
+  $resolverPath = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptDir)) 'spec-mcp-setup/scripts/resolve-project-target.ps1'
+} else {
+  $resolverPath = $resolverOverride
+}
 $resolverParams = @{ Format = 'json' }
 if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
 $targetFacts = (& $resolverPath @resolverParams) | ConvertFrom-Json
@@ -1147,6 +1329,12 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
             if ($null -ne $mismatchFailureInfo) {
               $failureInfo = $mismatchFailureInfo
               $script:QueryProbeVerificationReason = [string]$mismatchFailureInfo['diagnostic']
+            } else {
+              $diagnosticFailureInfo = Get-GitNexusQueryDiagnosticFailureInfo -ProviderConfig $providerConfig -ExitCode $lastQueryExitCode -QueryProbeAttempts @($queryProbeAttempts)
+              if ($null -ne $diagnosticFailureInfo) {
+                $failureInfo = $diagnosticFailureInfo
+                $script:QueryProbeVerificationReason = [string]$diagnosticFailureInfo['diagnostic']
+              }
             }
           }
         } else {
@@ -1177,6 +1365,9 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
           $confidence = 'medium'
           $reason = if ([string]::IsNullOrWhiteSpace($script:QueryProbeVerificationReason)) { 'Provider-specific query-surface proof did not verify provider readiness.' } else { $script:QueryProbeVerificationReason }
           $limitations = @('Build and status succeeded, but provider-specific query-surface proof did not verify provider readiness.', $reason)
+          if (-not [string]::IsNullOrWhiteSpace([string]$failureInfo['recommended_action'])) {
+            $limitations += [string]$failureInfo['recommended_action']
+          }
         }
       } else {
         $status = 'query-unverified'
@@ -1218,7 +1409,11 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     recommended_action = $failureInfo['recommended_action']
     confidence = $confidence
     limitations = $limitations
-    query_verification_reason = if (($status -eq 'query-unverified' -or $status -eq 'query-not-applicable') -and $limitations.Count -gt 0) { $limitations[$limitations.Count - 1] } else { $null }
+    query_verification_reason = if ($status -eq 'query-unverified' -or $status -eq 'query-not-applicable') {
+      if (-not [string]::IsNullOrWhiteSpace($script:QueryProbeVerificationReason)) { $script:QueryProbeVerificationReason } elseif ($limitations.Count -gt 0) { $limitations[$limitations.Count - 1] } else { $null }
+    } else {
+      $null
+    }
     query_probe_policy = if ($entry.PSObject.Properties.Name -contains 'query_probe_policy') { $entry.query_probe_policy } else { $null }
     query_probe_candidate_limit = if ($provider -eq 'gitnexus') { $script:GitNexusQueryProbeCandidateLimit } else { $null }
     query_probe_candidates_truncated = if ($provider -eq 'gitnexus') { $queryProbeCandidatesTruncated } else { $null }

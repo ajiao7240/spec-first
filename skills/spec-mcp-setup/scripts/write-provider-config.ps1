@@ -570,7 +570,11 @@ function Write-JsonIfChanged {
     }
   }
   if ($repoConfigStatus -eq 'written') {
-    $Payload | ConvertTo-Json -Depth 30 | Set-Content -Encoding utf8 $Path
+    $dir = Split-Path -Parent $Path
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $tmp = Join-Path $dir ('.{0}.{1}.tmp' -f (Split-Path -Leaf $Path), ([guid]::NewGuid().ToString('N')))
+    $Payload | ConvertTo-Json -Depth 30 | Set-Content -Encoding utf8 $tmp
+    Move-Item -Force $tmp $Path
   }
   return $repoConfigStatus
 }
@@ -582,13 +586,16 @@ $script:gitNexusQueryProbeCandidateLimit = 5
 $script:gitNexusQueryProbeSourceFileLimitBytes = 200000
 $toolsJson = Get-Content -Raw $toolsJsonPath | ConvertFrom-Json
 $gitNexusTool = @($toolsJson.tools | Where-Object { $_.id -eq 'gitnexus' } | Select-Object -First 1)
-if ($gitNexusTool.Count -eq 0 -or $null -eq $gitNexusTool[0].installation -or $null -eq $gitNexusTool[0].installation.unix -or @($gitNexusTool[0].installation.unix.args).Count -lt 2) {
-  throw 'GitNexus package spec not found in mcp-tools.json'
+if ($gitNexusTool.Count -eq 0) {
+  throw 'GitNexus tool entry not found in mcp-tools.json'
 }
-$gitNexusPackageSpec = [string]$gitNexusTool[0].installation.unix.args[1]
-if ([string]::IsNullOrWhiteSpace($gitNexusPackageSpec)) {
-  throw 'GitNexus package spec not found in mcp-tools.json'
+$gitNexusEntry = $gitNexusTool[0]
+$gitNexusPackage = if ($null -ne $gitNexusEntry.PSObject.Properties['package']) { [string]$gitNexusEntry.package } else { '' }
+$gitNexusVersion = if ($null -ne $gitNexusEntry.PSObject.Properties['version']) { [string]$gitNexusEntry.version } else { '' }
+if ([string]::IsNullOrWhiteSpace($gitNexusPackage) -or [string]::IsNullOrWhiteSpace($gitNexusVersion)) {
+  throw 'GitNexus package/version fields not found in mcp-tools.json'
 }
+$gitNexusPackageSpec = "$gitNexusPackage@$gitNexusVersion"
 $gitNexusQueryProbePolicy = Get-GitNexusQueryProbePolicy -RepoRoot $repoRoot
 $gitNexusRepoName = Get-GitNexusRepoName -RepoRoot $repoRoot -Facts $facts
 $graphFactsPath = Join-Path $repoRoot '.spec-first/graph/graph-facts.json'

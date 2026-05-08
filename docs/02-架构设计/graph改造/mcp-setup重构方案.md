@@ -393,7 +393,7 @@ spec-first 内置 crg readiness 检测
 
 ```json
 {
-  "schema_version": "4"
+  "schema_version": "5"
 }
 ```
 
@@ -403,6 +403,8 @@ spec-first 内置 crg readiness 检测
 {
   "category": "mcp | graph-provider",
   "provider_role": "global_knowledge | impact_context | null",
+  "package": "optional package name for templated package-backed tools",
+  "version": "optional package version for templated package-backed tools",
   "provider_config": {}
 }
 ```
@@ -2048,7 +2050,7 @@ tests/unit/spec-mcp-setup-mcp-tools-schema.test.js
 断言：
 
 ```text
-schema_version == 4
+schema_version == 5
 tools 不包含 playwright
 tools 不包含 agent-browser
 tools 只包含 serena / sequential-thinking / context7 / gitnexus / code-review-graph
@@ -2558,7 +2560,7 @@ $spec-mcp-setup
 35. 更新 package.json test scripts。
 36. 删除或重写旧 quick/custom、optional、Playwright、crg v1 测试。
 37. 补齐新测试：
-    - mcp-tools schema v4
+    - mcp-tools schema v5
     - helper install / verify-only
     - dependency detection
     - Codex TOML quoted key

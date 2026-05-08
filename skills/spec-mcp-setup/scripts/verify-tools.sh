@@ -245,11 +245,14 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
     (.dependency_status == "ready")
     and host_ready
     and ((.project_status == "ready") or (.project_status == "not-applicable") or (.project_status == "workspace-target-required"));
+  def helper_ready:
+    ((.result // "action-required") == "ready")
+    or (((.baseline_blocking // true) == false) and ((.result // "") == "degraded"));
 
   . as $facts
   | ($helper.helper_tools // {}) as $helper_tools
   | ([($facts.tools // {})[] | tool_ready] | all) as $tools_ready
-  | ([($helper_tools // {})[] | (.result // "action-required") == "ready"] | all) as $helper_ready
+  | ([($helper_tools // {})[] | helper_ready] | all) as $helper_ready
   | ($tools_ready and $helper_ready) as $baseline_ready
   | {
       schema_version: "v2",
@@ -283,6 +286,8 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
       tools: $facts.tools,
       graph_providers: $facts.graph_providers,
       helper_tools: $helper_tools,
+      mirror_endpoints: ($helper.mirror_endpoints // null),
+      recommended_environment_variables: ($helper.recommended_environment_variables // null),
       next_actions: (
         (($facts.next_actions // []) + [
           ($helper_tools // {})[] | .next_action // ""

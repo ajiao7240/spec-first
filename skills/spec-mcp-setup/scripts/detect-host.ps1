@@ -5,12 +5,74 @@ Set-StrictMode -Version Latest
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
-$ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json -AsHashtable
+
+function ConvertFrom-JsonCompat {
+  param(
+    [string]$Json,
+    [switch]$AsHashtable
+  )
+  if ($AsHashtable -and $PSVersionTable.PSVersion.Major -ge 6) {
+    return $Json | ConvertFrom-Json -AsHashtable
+  }
+  return $Json | ConvertFrom-Json
+}
+
+function Get-PlatformName {
+  $hasIsWindows = $null -ne (Get-Variable -Name IsWindows -ErrorAction SilentlyContinue)
+  $hasIsLinux = $null -ne (Get-Variable -Name IsLinux -ErrorAction SilentlyContinue)
+  $hasIsMacOS = $null -ne (Get-Variable -Name IsMacOS -ErrorAction SilentlyContinue)
+  if ($hasIsWindows) {
+    if ($IsWindows) { return 'windows' }
+    if ($IsMacOS) { return 'macos' }
+    if ($IsLinux) { return 'linux' }
+    return 'unknown'
+  }
+  switch ([System.Environment]::OSVersion.Platform) {
+    ([System.PlatformID]::Win32NT) { return 'windows' }
+    ([System.PlatformID]::Unix) { return 'linux' }
+    ([System.PlatformID]::MacOSX) { return 'macos' }
+  }
+  return 'unknown'
+}
 
 function Test-CommandExists {
   param([string]$Name)
   return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
 }
+
+function Get-MapValue {
+  param(
+    [object]$Object,
+    [string]$Name,
+    [object]$Default = $null
+  )
+
+  if ($null -eq $Object) { return $Default }
+  if ($Object -is [System.Collections.IDictionary]) {
+    foreach ($key in $Object.Keys) {
+      if ([string]$key -eq $Name) {
+        return $Object[$key]
+      }
+    }
+    return $Default
+  }
+
+  $property = $Object.PSObject.Properties[$Name]
+  if ($null -ne $property) {
+    return $property.Value
+  }
+  return $Default
+}
+
+function ConvertTo-BoolValue {
+  param([object]$Value)
+
+  if ($null -eq $Value) { return $false }
+  if ($Value -is [bool]) { return $Value }
+  return ([string]$Value).Equals('true', [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+$ToolsJson = ConvertFrom-JsonCompat -Json (Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json')) -AsHashtable
 
 function Get-DetectedHost {
   if ($env:MCP_SETUP_HOST -in @('claude', 'codex')) {
@@ -51,15 +113,15 @@ function Resolve-PathTemplate {
 
 function Resolve-TargetPathOverride {
   param(
-    [string]$Host,
+    [string]$HostName,
     [string]$TargetKey,
     [string]$ResolvedPath
   )
 
-  if ($Host -eq 'claude' -and $TargetKey -eq 'managed' -and -not [string]::IsNullOrWhiteSpace($env:MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE)) {
+  if ($HostName -eq 'claude' -and $TargetKey -eq 'managed' -and -not [string]::IsNullOrWhiteSpace($env:MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE)) {
     return $env:MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE
   }
-  if ($Host -eq 'codex' -and $TargetKey -eq 'system' -and -not [string]::IsNullOrWhiteSpace($env:MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE)) {
+  if ($HostName -eq 'codex' -and $TargetKey -eq 'system' -and -not [string]::IsNullOrWhiteSpace($env:MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE)) {
     return $env:MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE
   }
   return $ResolvedPath
@@ -116,43 +178,46 @@ function Test-TargetWritable {
 }
 
 function Get-HostContract {
-  param([string]$Host)
+  param([string]$HostName)
   $contracts = @($ToolsJson.tools | ForEach-Object {
-    $cfg = $_.host_config[$Host]
+    $hostConfig = Get-MapValue -Object $_ -Name 'host_config'
+    $cfg = Get-MapValue -Object $hostConfig -Name $HostName
     [ordered]@{
-      scope = $cfg.scope
-      targets = $cfg.targets
-      fallback_order = $cfg.fallback_order
-      uninstall_targets = $cfg.uninstall_targets
+      scope = Get-MapValue -Object $cfg -Name 'scope'
+      targets = Get-MapValue -Object $cfg -Name 'targets'
+      fallback_order = Get-MapValue -Object $cfg -Name 'fallback_order'
+      uninstall_targets = Get-MapValue -Object $cfg -Name 'uninstall_targets'
     } | ConvertTo-Json -Depth 20 -Compress
   })
   $uniqueContracts = @($contracts | Select-Object -Unique)
   if ($uniqueContracts.Count -ne 1) {
-    throw "错误：$Host 宿主配置元数据在不同工具之间不一致，请先统一 mcp-tools.json"
+    throw "错误：$HostName 宿主配置元数据在不同工具之间不一致，请先统一 mcp-tools.json"
   }
-  return ($uniqueContracts[0] | ConvertFrom-Json -AsHashtable)
+  return (ConvertFrom-JsonCompat -Json $uniqueContracts[0] -AsHashtable)
 }
 
 function Get-TargetFact {
   param(
-    [hashtable]$HostContract,
+    [System.Collections.IDictionary]$McpHostContract,
     [string]$Platform,
     [string]$TargetKey
   )
 
-  $target = $HostContract.targets[$TargetKey]
-  $rawPath = if ($target.config_path -is [hashtable]) { $target.config_path[$Platform] } else { $target.config_path }
+  $targets = Get-MapValue -Object $McpHostContract -Name 'targets'
+  $target = Get-MapValue -Object $targets -Name $TargetKey
+  $configPath = Get-MapValue -Object $target -Name 'config_path'
+  $rawPath = if ($configPath -is [string]) { $configPath } else { Get-MapValue -Object $configPath -Name $Platform }
   $resolvedPath = Resolve-PathTemplate $rawPath
-  $resolvedPath = Resolve-TargetPathOverride -Host $detectedHost -TargetKey $TargetKey -ResolvedPath $resolvedPath
+  $resolvedPath = Resolve-TargetPathOverride -HostName $detectedHost -TargetKey $TargetKey -ResolvedPath $resolvedPath
   $exists = Test-Path $resolvedPath
-  $writableCheck = if ($target.ContainsKey('writable_check')) { $target.writable_check } else { 'parent-or-file' }
+  $writableCheck = Get-MapValue -Object $target -Name 'writable_check' -Default 'parent-or-file'
   $writable = Test-TargetWritable -Path $resolvedPath -CheckMode $writableCheck
 
   return [ordered]@{
     key = $TargetKey
     config_path = $resolvedPath
-    config_format = $target.config_format
-    precedence = [int]$target.precedence
+    config_format = Get-MapValue -Object $target -Name 'config_format'
+    precedence = [int](Get-MapValue -Object $target -Name 'precedence' -Default 0)
     writable_check = $writableCheck
     exists = [bool]$exists
     writable = [bool]$writable
@@ -160,7 +225,7 @@ function Get-TargetFact {
 }
 
 $detectedHost = Get-DetectedHost
-$platform = if ($IsWindows) { 'windows' } elseif ($IsMacOS) { 'macos' } elseif ($IsLinux) { 'linux' } else { 'unknown' }
+$platform = Get-PlatformName
 
 switch ($detectedHost) {
   'claude' {
@@ -180,20 +245,24 @@ switch ($detectedHost) {
   }
 }
 
-$hostContract = Get-HostContract $detectedHost
-$primaryScope = $hostContract.scope
-$fallbackOrder = @($hostContract.fallback_order)
-$uninstallTargets = @($hostContract.uninstall_targets)
+$mcpHostContract = Get-HostContract $detectedHost
+$primaryScope = Get-MapValue -Object $mcpHostContract -Name 'scope'
+$fallbackOrder = @(Get-MapValue -Object $mcpHostContract -Name 'fallback_order')
+$uninstallTargets = @(Get-MapValue -Object $mcpHostContract -Name 'uninstall_targets')
 $targets = [ordered]@{}
-foreach ($targetKey in $hostContract.targets.Keys) {
-  $targets[$targetKey] = Get-TargetFact -HostContract $hostContract -Platform $platform -TargetKey $targetKey
+$contractTargets = Get-MapValue -Object $mcpHostContract -Name 'targets'
+if ($null -ne $contractTargets) {
+  $targetKeys = if ($contractTargets -is [System.Collections.IDictionary]) { @($contractTargets.Keys) } else { @($contractTargets.PSObject.Properties.Name) }
+  foreach ($targetKey in $targetKeys) {
+    $targets[$targetKey] = Get-TargetFact -McpHostContract $mcpHostContract -Platform $platform -TargetKey $targetKey
+  }
 }
 
 $selectedScope = ''
 $selectedTarget = $null
 foreach ($scopeKey in $fallbackOrder) {
   $candidate = $targets[$scopeKey]
-  if ($null -ne $candidate -and $candidate.writable) {
+  if ($null -ne $candidate -and (ConvertTo-BoolValue -Value (Get-MapValue -Object $candidate -Name 'writable'))) {
     $selectedScope = $scopeKey
     $selectedTarget = $candidate
     break
@@ -211,28 +280,41 @@ $higherPrecedenceTargets = New-Object System.Collections.Generic.List[object]
 if ($detectedHost -eq 'codex' -and $null -ne $selectedTarget) {
   foreach ($entry in $targets.GetEnumerator()) {
     if ($entry.Key -eq $selectedScope) { continue }
-    if ($entry.Value.exists -and [int]$entry.Value.precedence -gt [int]$selectedTarget.precedence) {
+    $entryExists = ConvertTo-BoolValue -Value (Get-MapValue -Object $entry.Value -Name 'exists')
+    $entryPrecedence = [int](Get-MapValue -Object $entry.Value -Name 'precedence' -Default 0)
+    $selectedPrecedence = [int](Get-MapValue -Object $selectedTarget -Name 'precedence' -Default 0)
+    if ($entryExists -and $entryPrecedence -gt $selectedPrecedence) {
       $higherPrecedenceTargets.Add([ordered]@{
         key = $entry.Key
-        config_path = $entry.Value.config_path
-        precedence = [int]$entry.Value.precedence
+        config_path = Get-MapValue -Object $entry.Value -Name 'config_path'
+        precedence = $entryPrecedence
       })
     }
   }
 }
 
+if ($higherPrecedenceTargets.Count -gt 0) {
+  $precedenceBlocked = $true
+  $precedenceBlockingScope = $higherPrecedenceTargets[0].key
+  $precedenceBlockingPath = $higherPrecedenceTargets[0].config_path
+}
+
+$selectedConfigPath = if ($null -ne $selectedTarget) { [string](Get-MapValue -Object $selectedTarget -Name 'config_path' -Default '') } else { '' }
+$selectedWritable = if ($null -ne $selectedTarget) { ConvertTo-BoolValue -Value (Get-MapValue -Object $selectedTarget -Name 'writable') } else { $false }
+$selectedExists = if ($null -ne $selectedTarget) { ConvertTo-BoolValue -Value (Get-MapValue -Object $selectedTarget -Name 'exists') } else { $false }
+
 [pscustomobject]@{
   host = $detectedHost
   display_name = $displayName
   cli_command = $cliCommand
-  config_path = if ($null -ne $selectedTarget) { $selectedTarget.config_path } else { '' }
+  config_path = $selectedConfigPath
   marker_path = $markerPath
   config_format = $configFormat
   platform = $platform
   primary_scope = $primaryScope
   selected_scope = $selectedScope
-  selected_writable = if ($null -ne $selectedTarget) { [bool]$selectedTarget.writable } else { $false }
-  selected_exists = if ($null -ne $selectedTarget) { [bool]$selectedTarget.exists } else { $false }
+  selected_writable = $selectedWritable
+  selected_exists = $selectedExists
   fallback_order = @($fallbackOrder)
   uninstall_targets = @($uninstallTargets)
   targets = $targets
