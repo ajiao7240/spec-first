@@ -72,6 +72,8 @@ describe('CE-lineage dispatch boundary contracts', () => {
     expect(combined).not.toMatch(/Codex does not support agents/i);
     expect(combined).not.toContain('do not call `spawn_agent` merely because this skill mentions reviewer personas');
     expect(combined).not.toMatch(/Codex should inline reviewer personas/i);
+    expect(read('skills/using-spec-first/SKILL.md')).toContain('Workflow-Owned Dispatch Admission');
+    expect(read('skills/using-spec-first/SKILL.md')).toContain('explicit request for that bounded workflow-owned subagent work');
   });
 
   test('dispatch-boundary durable learnings do not retain stale authorization gates', () => {
