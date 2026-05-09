@@ -12,9 +12,52 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # two skills.
 RESOLVER="${SPEC_FIRST_PROJECT_TARGET_RESOLVER:-$SCRIPT_DIR/../../spec-mcp-setup/scripts/resolve-project-target.sh}"
 MCP_TOOLS_JSON="${SPEC_FIRST_MCP_TOOLS_JSON:-$SCRIPT_DIR/../../spec-mcp-setup/mcp-tools.json}"
+PACKAGE_JSON="${SPEC_FIRST_PACKAGE_JSON:-$SCRIPT_DIR/../../../package.json}"
 REPO_ARG=""
 ALL_REPOS=false
 PROVIDER_COMMAND_TIMEOUT_SECONDS="${SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS:-${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}}"
+
+utc_now() {
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+epoch_ms() {
+  python3 - <<'PY'
+import time
+print(int(time.time() * 1000))
+PY
+}
+
+hash_text() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | awk '{print "sha256:" $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{print "sha256:" $1}'
+  else
+    python3 -c 'import hashlib,sys; print("sha256:" + hashlib.sha256(sys.stdin.buffer.read()).hexdigest())'
+  fi
+}
+
+hash_file() {
+  local path="$1"
+  if [ -f "$path" ]; then
+    hash_text < "$path"
+  else
+    printf '%s\n' "missing"
+  fi
+}
+
+json_file_hash() {
+  local path="$1"
+  if [ -f "$path" ]; then
+    jq -S -c . "$path" | hash_text
+  else
+    printf '%s\n' "missing"
+  fi
+}
+
+SCRIPT_STARTED_AT="$(utc_now)"
+SCRIPT_STARTED_EPOCH_MS="$(epoch_ms)"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo)
@@ -112,11 +155,16 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
   while IFS=$'\t' read -r child_label child_path; do
     [ -n "$child_path" ] || continue
     child_index=$((child_index + 1))
+    child_started_at="$(utc_now)"
+    child_started_epoch_ms="$(epoch_ms)"
     printf 'spec-graph-bootstrap: all-repos child %s/%s start repo=%s\n' "$child_index" "$CANDIDATE_COUNT" "$child_path" >&2
     set +e
     child_output="$(bash "$0" --repo "$child_path")"
     child_status=$?
     set -e
+    child_finished_at="$(utc_now)"
+    child_finished_epoch_ms="$(epoch_ms)"
+    child_duration_ms=$((child_finished_epoch_ms - child_started_epoch_ms))
     if ! jq -e . >/dev/null 2>&1 <<<"$child_output"; then
       child_result="$(jq -n --arg output "$child_output" '{schema_version:"graph-bootstrap-result.v1",overall_status:"action-required",workflow_mode:"blocked",reason_code:"child-bootstrap-output-unparseable",diagnostic:$output}')"
     else
@@ -126,31 +174,44 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
       --arg parent_run_id "$WORKSPACE_RUN_ID" \
       --arg repo_label "$child_label" \
       --arg workspace_relative_path "$child_path" \
+      --arg child_started_at "$child_started_at" \
+      --arg child_finished_at "$child_finished_at" \
       --argjson exit_code "$child_status" \
+      --argjson child_duration_ms "$child_duration_ms" \
       --argjson result "$child_result" \
       '. + [{
         parent_run_id:$parent_run_id,
         repo_label:$repo_label,
         workspace_relative_path:$workspace_relative_path,
         exit_code:$exit_code,
+        started_at:$child_started_at,
+        finished_at:$child_finished_at,
+        duration_ms:$child_duration_ms,
         overall_status:($result.overall_status // "unknown"),
         workflow_mode:($result.workflow_mode // "unknown"),
         reason_code:($result.reason_code // null),
         result:$result
       }]' "$SUMMARY_ITEMS" > "$SUMMARY_ITEMS.next"
     mv "$SUMMARY_ITEMS.next" "$SUMMARY_ITEMS"
-    printf 'spec-graph-bootstrap: all-repos child %s/%s finish repo=%s status=%s workflow=%s\n' \
+    printf 'spec-graph-bootstrap: all-repos child %s/%s finish repo=%s status=%s workflow=%s duration_ms=%s\n' \
       "$child_index" \
       "$CANDIDATE_COUNT" \
       "$child_path" \
       "$(jq -r '.overall_status // "unknown"' <<<"$child_result")" \
-      "$(jq -r '.workflow_mode // "unknown"' <<<"$child_result")" >&2
+      "$(jq -r '.workflow_mode // "unknown"' <<<"$child_result")" \
+      "$child_duration_ms" >&2
   done < <(jq -r '.candidates[] | [.repo_label, .workspace_relative_path] | @tsv' <<<"$TARGET_JSON")
 
+  WORKSPACE_FINISHED_AT="$(utc_now)"
+  WORKSPACE_FINISHED_EPOCH_MS="$(epoch_ms)"
+  WORKSPACE_DURATION_MS=$((WORKSPACE_FINISHED_EPOCH_MS - SCRIPT_STARTED_EPOCH_MS))
   SUMMARY_JSON="$(jq -n \
-    --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    --arg generated_at "$WORKSPACE_FINISHED_AT" \
     --arg run_id "$WORKSPACE_RUN_ID" \
     --arg selection_source "$ALL_REPOS_SELECTION_SOURCE" \
+    --arg started_at "$SCRIPT_STARTED_AT" \
+    --arg finished_at "$WORKSPACE_FINISHED_AT" \
+    --argjson duration_ms "$WORKSPACE_DURATION_MS" \
     --argjson target "$TARGET_JSON" \
     --slurpfile items "$SUMMARY_ITEMS" \
     '($items[0] // []) as $results
@@ -163,6 +224,11 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
         selection_source:$selection_source,
         workspace_root:($target.workspace_root // null),
         parent_writes_repo_local_artifacts:false,
+        timing:{
+          started_at:$started_at,
+          finished_at:$finished_at,
+          duration_ms:$duration_ms
+        },
         results:$results,
         counts:{
           total:($results | length),
@@ -246,13 +312,7 @@ if [ -n "$WORKTREE_STATUS" ]; then
 else
   WORKTREE_DIRTY=false
 fi
-if command -v shasum >/dev/null 2>&1; then
-  WORKTREE_STATUS_HASH="$(printf '%s' "$WORKTREE_STATUS" | shasum -a 256 | awk '{print "sha256:" $1}')"
-elif command -v sha256sum >/dev/null 2>&1; then
-  WORKTREE_STATUS_HASH="$(printf '%s' "$WORKTREE_STATUS" | sha256sum | awk '{print "sha256:" $1}')"
-else
-  WORKTREE_STATUS_HASH="$(printf '%s' "$WORKTREE_STATUS" | python3 -c 'import hashlib,sys; print("sha256:" + hashlib.sha256(sys.stdin.buffer.read()).hexdigest())')"
-fi
+WORKTREE_STATUS_HASH="$(printf '%s' "$WORKTREE_STATUS" | hash_text)"
 
 relpath() {
   local path="$1"
@@ -303,6 +363,9 @@ normalize_gitnexus_instruction_block() {
   local output
   local exit_code
   local timed_out=false
+  local started_at finished_at started_epoch_ms finished_epoch_ms duration_ms
+  started_at="$(utc_now)"
+  started_epoch_ms="$(epoch_ms)"
   output_file="$(mktemp "${TMPDIR:-/tmp}/spec-first-gitnexus-instruction.XXXXXX")"
   set +e
   if resolve_spec_first_cli_command; then
@@ -317,6 +380,9 @@ normalize_gitnexus_instruction_block() {
   fi
   output="$(cat "$output_file" 2>/dev/null)"
   rm -f "$output_file"
+  finished_at="$(utc_now)"
+  finished_epoch_ms="$(epoch_ms)"
+  duration_ms=$((finished_epoch_ms - started_epoch_ms))
   if [ "$exit_code" -eq 124 ]; then
     timed_out=true
   fi
@@ -348,7 +414,10 @@ normalize_gitnexus_instruction_block() {
       --arg provider "gitnexus" \
       --arg status "$status" \
       --arg reason_code "$reason_code" \
+      --arg started_at "$started_at" \
+      --arg finished_at "$finished_at" \
       --argjson exit_code "$exit_code" \
+      --argjson duration_ms "$duration_ms" \
       --argjson results "$results" \
       '{
         provider:$provider,
@@ -356,6 +425,9 @@ normalize_gitnexus_instruction_block() {
         advisory:true,
         reason_code:(if $reason_code == "" then null else $reason_code end),
         exit_code:$exit_code,
+        started_at:$started_at,
+        finished_at:$finished_at,
+        duration_ms:$duration_ms,
         results:$results
       }'
     return 0
@@ -372,8 +444,11 @@ normalize_gitnexus_instruction_block() {
       --arg status "failed" \
       --arg reason_code "$failure_reason" \
       --arg diagnostic "$output" \
+      --arg started_at "$started_at" \
+      --arg finished_at "$finished_at" \
       --argjson exit_code "$exit_code" \
-      '{provider:$provider,status:$status,advisory:true,reason_code:$reason_code,exit_code:$exit_code,diagnostic:$diagnostic,results:[]}'
+      --argjson duration_ms "$duration_ms" \
+      '{provider:$provider,status:$status,advisory:true,reason_code:$reason_code,exit_code:$exit_code,diagnostic:$diagnostic,started_at:$started_at,finished_at:$finished_at,duration_ms:$duration_ms,results:[]}'
     return 0
   fi
 
@@ -384,7 +459,10 @@ normalize_gitnexus_instruction_block() {
       --arg status "failed" \
       --arg reason_code "gitnexus-instruction-normalizer-output-invalid" \
       --arg diagnostic "$output" \
-      '{provider:$provider,status:$status,advisory:true,reason_code:$reason_code,exit_code:0,diagnostic:$diagnostic,results:[]}'
+      --arg started_at "$started_at" \
+      --arg finished_at "$finished_at" \
+      --argjson duration_ms "$duration_ms" \
+      '{provider:$provider,status:$status,advisory:true,reason_code:$reason_code,exit_code:0,diagnostic:$diagnostic,started_at:$started_at,finished_at:$finished_at,duration_ms:$duration_ms,results:[]}'
     return 0
   fi
 }
@@ -441,6 +519,13 @@ require_file_schema() {
 require_file_schema "$PROVIDER_CONFIG" "graph-providers.v1" "missing_provider_config"
 require_file_schema "$RUNTIME_CAPABILITIES" "runtime-capabilities.v1" "missing_runtime_capabilities"
 require_file_schema "$PROVIDER_ARTIFACTS" "provider-artifacts.v1" "missing_provider_artifacts"
+
+SPEC_FIRST_PACKAGE_VERSION="$(jq -r '.version // "unknown"' "$PACKAGE_JSON" 2>/dev/null || printf '%s\n' "unknown")"
+GRAPH_BOOTSTRAP_SCRIPT_HASH="$(hash_file "$0")"
+MCP_TOOLS_HASH="$(json_file_hash "$MCP_TOOLS_JSON")"
+GRAPH_PROVIDERS_HASH="$(json_file_hash "$PROVIDER_CONFIG")"
+RUNTIME_CAPABILITIES_HASH="$(json_file_hash "$RUNTIME_CAPABILITIES")"
+PROVIDER_ARTIFACTS_HASH="$(json_file_hash "$PROVIDER_ARTIFACTS")"
 
 provider_artifact_contract_supported() {
   jq -e --slurpfile provider_config "$PROVIDER_CONFIG" '
@@ -609,6 +694,9 @@ command_display() {
 RUN_EXIT_CODE=0
 RUN_DIAGNOSTIC=""
 RUN_TRUNCATED=false
+RUN_STARTED_AT=""
+RUN_FINISHED_AT=""
+RUN_DURATION_MS=0
 
 run_command_with_timeout() {
   local timeout_seconds="$1"
@@ -661,10 +749,16 @@ run_configured_command() {
     cmd+=("$arg")
   done < <(jq -r --arg provider "$provider" --arg kind "$kind" '.providers[$provider].commands[$kind][]' "$PROVIDER_CONFIG")
 
+  local started_epoch_ms finished_epoch_ms
+  RUN_STARTED_AT="$(utc_now)"
+  started_epoch_ms="$(epoch_ms)"
   set +e
   printf 'spec-graph-bootstrap: running %s %s; dependencies may download on first use...\n' "$provider" "$kind" >&2
   (cd "$REPO_ROOT" && run_command_with_timeout "$PROVIDER_COMMAND_TIMEOUT_SECONDS" "$log_path" "${cmd[@]}")
   RUN_EXIT_CODE=$?
+  RUN_FINISHED_AT="$(utc_now)"
+  finished_epoch_ms="$(epoch_ms)"
+  RUN_DURATION_MS=$((finished_epoch_ms - started_epoch_ms))
   if [ "$RUN_EXIT_CODE" -eq 124 ]; then
     printf 'spec-graph-bootstrap: timed out %s %s after %ss\n' "$provider" "$kind" "$PROVIDER_COMMAND_TIMEOUT_SECONDS" >&2
   else
@@ -694,10 +788,16 @@ run_configured_gitnexus_query_probe() {
   done < <(jq -r --arg provider "$provider" '.providers[$provider].commands.query_probe[]' "$PROVIDER_CONFIG")
   cmd[4]="$token"
 
+  local started_epoch_ms finished_epoch_ms
+  RUN_STARTED_AT="$(utc_now)"
+  started_epoch_ms="$(epoch_ms)"
   set +e
   printf 'spec-graph-bootstrap: running %s query_probe token=%s; dependencies may download on first use...\n' "$provider" "$token" >&2
   (cd "$REPO_ROOT" && run_command_with_timeout "$PROVIDER_COMMAND_TIMEOUT_SECONDS" "$log_path" "${cmd[@]}")
   RUN_EXIT_CODE=$?
+  RUN_FINISHED_AT="$(utc_now)"
+  finished_epoch_ms="$(epoch_ms)"
+  RUN_DURATION_MS=$((finished_epoch_ms - started_epoch_ms))
   if [ "$RUN_EXIT_CODE" -eq 124 ]; then
     printf 'spec-graph-bootstrap: timed out %s query_probe token=%s after %ss\n' "$provider" "$token" "$PROVIDER_COMMAND_TIMEOUT_SECONDS" >&2
   else
@@ -797,6 +897,126 @@ bundled_gitnexus_package_spec() {
     | select((.package // "") != "" and (.version // "") != "")
     | (.package + "@" + .version)
   ' "$MCP_TOOLS_JSON" 2>/dev/null | head -n 1
+}
+
+provider_configured_package_spec() {
+  local provider="$1"
+  if [ "$provider" = "gitnexus" ]; then
+    configured_gitnexus_package_spec
+  elif [ "$provider" = "code-review-graph" ]; then
+    jq -r '
+      (.providers["code-review-graph"].commands.bootstrap // []) as $cmd
+      | if ($cmd[0] // "") == "uvx" and (($cmd[1] // "") == "--upgrade" or ($cmd[1] // "") == "--refresh") then
+          ($cmd[2] // "")
+        elif ($cmd[0] // "") == "uvx" then
+          ($cmd[1] // "")
+        else ""
+        end
+    ' "$PROVIDER_CONFIG" 2>/dev/null || true
+  fi
+}
+
+provider_bundled_package_spec() {
+  local provider="$1"
+  if [ "$provider" = "gitnexus" ]; then
+    bundled_gitnexus_package_spec
+  fi
+}
+
+provider_command_hash() {
+  local provider="$1"
+  jq -S -c --arg provider "$provider" '.providers[$provider].commands // {}' "$PROVIDER_CONFIG" | hash_text
+}
+
+provider_version_policy() {
+  local provider="$1"
+  local configured_package="$2"
+  local bundled_package="$3"
+  if [ "$provider" = "gitnexus" ] && [ -n "$configured_package" ] && [ -n "$bundled_package" ] && [ "$configured_package" = "$bundled_package" ]; then
+    printf '%s\n' "pinned"
+  elif [ "$provider" = "gitnexus" ] && [ -n "$configured_package" ] && [ -n "$bundled_package" ] && [ "$configured_package" != "$bundled_package" ]; then
+    printf '%s\n' "projection-stale"
+  else
+    printf '%s\n' "floating-unverifiable"
+  fi
+}
+
+provider_reuse_decision() {
+  local provider="$1"
+  local skip_reason="$2"
+  local version_policy="$3"
+  if [ -n "$skip_reason" ]; then
+    jq -n '{eligible:false,reason:"provider-not-enabled"}'
+  elif [ "$version_policy" = "pinned" ]; then
+    jq -n '{eligible:true,reason:null}'
+  elif [ "$version_policy" = "projection-stale" ]; then
+    jq -n '{eligible:false,reason:"provider-projection-stale"}'
+  else
+    jq -n '{eligible:false,reason:"provider-version-unverifiable"}'
+  fi
+}
+
+provider_bootstrap_fingerprint() {
+  local provider="$1"
+  local configured_package="$2"
+  local bundled_package="$3"
+  local version_policy="$4"
+  local command_hash
+  command_hash="$(provider_command_hash "$provider")"
+  jq -n \
+    --arg provider "$provider" \
+    --arg source_revision "$SOURCE_REVISION" \
+    --arg worktree_status_hash "$WORKTREE_STATUS_HASH" \
+    --argjson worktree_dirty "$WORKTREE_DIRTY" \
+    --arg package_version "$SPEC_FIRST_PACKAGE_VERSION" \
+    --arg script_hash "$GRAPH_BOOTSTRAP_SCRIPT_HASH" \
+    --arg mcp_tools_hash "$MCP_TOOLS_HASH" \
+    --arg graph_providers_hash "$GRAPH_PROVIDERS_HASH" \
+    --arg runtime_capabilities_hash "$RUNTIME_CAPABILITIES_HASH" \
+    --arg provider_artifacts_hash "$PROVIDER_ARTIFACTS_HASH" \
+    --arg command_hash "$command_hash" \
+    --arg configured_package "$configured_package" \
+    --arg bundled_package "$bundled_package" \
+    --arg version_policy "$version_policy" '{
+      schema_version:"graph-bootstrap-fingerprint.v1",
+      repo_snapshot:{
+        source_revision:$source_revision,
+        worktree_dirty:$worktree_dirty,
+        worktree_status_hash:$worktree_status_hash
+      },
+      spec_first:{
+        package_version:$package_version,
+        graph_bootstrap_script_hash:$script_hash,
+        mcp_tools_hash:$mcp_tools_hash
+      },
+      provider_projection:{
+        graph_providers_hash:$graph_providers_hash,
+        runtime_capabilities_hash:$runtime_capabilities_hash,
+        provider_artifacts_hash:$provider_artifacts_hash
+      },
+      provider:{
+        id:$provider,
+        command_hash:$command_hash,
+        configured_package_spec:(if $configured_package == "" then null else $configured_package end),
+        bundled_package_spec:(if $bundled_package == "" then null else $bundled_package end),
+        version_policy:$version_policy
+      }
+    }'
+}
+
+gitnexus_provider_projection_stale_failure() {
+  local configured="$1"
+  local bundled="$2"
+  jq -n \
+    --arg configured "$configured" \
+    --arg bundled "$bundled" '{
+      failed_phase:"preflight",
+      failure_class:"provider-projection-stale",
+      reason_code:"gitnexus-provider-projection-stale",
+      exit_code:null,
+      recommended_action:("Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled GitNexus package `" + $bundled + "`; it currently projects `" + $configured + "`. Then rerun spec-graph-bootstrap."),
+      diagnostic:("GitNexus setup-projected package `" + $configured + "` differs from bundled package `" + $bundled + "` before provider commands ran.")
+    }'
 }
 
 gitnexus_query_surface_diagnostic_failure() {
@@ -1101,6 +1321,9 @@ append_command_result() {
      --arg diagnostic "$diagnostic" \
      --argjson truncated "$truncated" \
      --arg raw_log "$raw_log" \
+     --arg started_at "$RUN_STARTED_AT" \
+     --arg finished_at "$RUN_FINISHED_AT" \
+     --argjson duration_ms "$RUN_DURATION_MS" \
      --arg probe_token "$probe_token" \
      --arg probe_selected_from "$probe_selected_from" \
      --arg probe_reason_code "$probe_reason_code" \
@@ -1112,7 +1335,10 @@ append_command_result() {
        exit_code:$exit_code,
        diagnostic:$diagnostic,
        diagnostics_truncated:$truncated,
-       raw_log:$raw_log
+       raw_log:$raw_log,
+       started_at:$started_at,
+       finished_at:$finished_at,
+       duration_ms:$duration_ms
      }
      + (if $probe_token != "" then {probe_token:$probe_token} else {} end)
      + (if $probe_selected_from != "" then {probe_selected_from:$probe_selected_from} else {} end)
@@ -1194,6 +1420,11 @@ write_provider_status() {
   local bootstrap_log status_log query_log
   local query_probe_candidates_truncated=false
   local query_probe_expected_hit=true
+  local provider_started_at provider_finished_at provider_started_epoch_ms provider_finished_epoch_ms provider_duration_ms
+  local configured_package bundled_package version_policy reuse_decision reuse_eligible reuse_ineligible_reason bootstrap_fingerprint readiness_source
+  provider_started_at="$(utc_now)"
+  provider_started_epoch_ms="$(epoch_ms)"
+  readiness_source="skipped"
   QUERY_PROBE_ATTEMPTS="[]"
   QUERY_PROBE_CANDIDATES_TRUNCATED=false
   local host_instruction_normalization="null"
@@ -1230,10 +1461,29 @@ write_provider_status() {
     skip_reason=""
   fi
 
+  configured_package="$(provider_configured_package_spec "$provider")"
+  bundled_package="$(provider_bundled_package_spec "$provider")"
+  version_policy="$(provider_version_policy "$provider" "$configured_package" "$bundled_package")"
+  reuse_decision="$(provider_reuse_decision "$provider" "$skip_reason" "$version_policy")"
+  reuse_eligible="$(jq -r '.eligible | tostring' <<<"$reuse_decision")"
+  reuse_ineligible_reason="$(jq -r '.reason // empty' <<<"$reuse_decision")"
+  bootstrap_fingerprint="$(provider_bootstrap_fingerprint "$provider" "$configured_package" "$bundled_package" "$version_policy")"
+
   command_results_file="$(mktemp "${TMPDIR:-/tmp}/spec-graph-command-results.XXXXXX")"
   jq -n '[]' > "$command_results_file"
 
   if provider_enabled "$provider"; then
+    readiness_source="cold-run"
+    if [ "$provider" = "gitnexus" ] && [ "$version_policy" = "projection-stale" ]; then
+      readiness_source="preflight-blocked"
+      status="failed"
+      graph_ready=false
+      query_ready=false
+      confidence="low"
+      failure_info="$(gitnexus_provider_projection_stale_failure "$configured_package" "$bundled_package")"
+      limitations="$(jq -n --argjson failure "$failure_info" '["GitNexus provider projection is stale; provider commands were not run."] + (if ($failure.recommended_action // "") != "" then [$failure.recommended_action] else [] end)')"
+      QUERY_PROBE_VERIFICATION_REASON="$(jq -r '.diagnostic' <<<"$failure_info")"
+    else
     if [ "$provider" = "gitnexus" ]; then
       bootstrap_log="$raw_dir/analyze.log"
     else
@@ -1378,11 +1628,15 @@ write_provider_status() {
       failure_info="$(classify_provider_failure "$provider" bootstrap "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC")"
       limitations="$(jq -n --argjson failure "$failure_info" '["Provider bootstrap command failed."] + (if ($failure.recommended_action // "") != "" then [$failure.recommended_action] else [] end)')"
     fi
+    fi
   fi
 
   command_results="$(cat "$command_results_file")"
   rm -f "$command_results_file"
   write_normalized_artifacts "$provider" "$status_path" "$query_ready"
+  provider_finished_at="$(utc_now)"
+  provider_finished_epoch_ms="$(epoch_ms)"
+  provider_duration_ms=$((provider_finished_epoch_ms - provider_started_epoch_ms))
 
   jq -n \
     --arg provider "$provider" \
@@ -1398,6 +1652,10 @@ write_provider_status() {
     --arg confidence "$confidence" \
     --arg source_revision "$SOURCE_REVISION" \
     --argjson worktree_dirty "$WORKTREE_DIRTY" \
+    --arg worktree_status_hash "$WORKTREE_STATUS_HASH" \
+    --arg provider_started_at "$provider_started_at" \
+    --arg provider_finished_at "$provider_finished_at" \
+    --argjson provider_duration_ms "$provider_duration_ms" \
     --argjson command_results "$command_results" \
     --argjson query_probe_attempts "$QUERY_PROBE_ATTEMPTS" \
     --argjson query_probe_candidate_limit "$GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT" \
@@ -1406,11 +1664,20 @@ write_provider_status() {
     --argjson limitations "$limitations" \
     --argjson failure_info "$failure_info" \
     --arg query_verification_reason "$QUERY_PROBE_VERIFICATION_REASON" \
+    --argjson bootstrap_fingerprint "$bootstrap_fingerprint" \
+    --argjson reuse_eligible "$reuse_eligible" \
+    --arg reuse_ineligible_reason "$reuse_ineligible_reason" \
+    --arg readiness_source "$readiness_source" \
     --slurpfile provider_config "$PROVIDER_CONFIG" \
     '{
       schema_version:"provider-status.v1",
       provider:$provider,
       generated_at:$generated_at,
+      timing:{
+        started_at:$provider_started_at,
+        finished_at:$provider_finished_at,
+        duration_ms:$provider_duration_ms
+      },
       configured:$configured,
       enabled_for_bootstrap:$enabled,
       dependency_status:$dependency_status,
@@ -1419,6 +1686,10 @@ write_provider_status() {
       status:$status,
       graph_ready:$graph_ready,
       query_ready:$query_ready,
+      readiness_source:$readiness_source,
+      reuse_eligible:$reuse_eligible,
+      reuse_ineligible_reason:(if $reuse_ineligible_reason == "" then null else $reuse_ineligible_reason end),
+      bootstrap_fingerprint:$bootstrap_fingerprint,
       failed_phase:$failure_info.failed_phase,
       failure_class:$failure_info.failure_class,
       reason_code:$failure_info.reason_code,
@@ -1432,7 +1703,8 @@ write_provider_status() {
       query_probe_candidates_truncated:(if $provider == "gitnexus" then $query_probe_candidates_truncated else null end),
       repo_snapshot:{
         source_revision:$source_revision,
-        worktree_dirty:$worktree_dirty
+        worktree_dirty:$worktree_dirty,
+        worktree_status_hash:$worktree_status_hash
       },
       command_results:$command_results,
       query_probe_attempts:(if $provider == "gitnexus" then $query_probe_attempts else null end),
@@ -1490,15 +1762,26 @@ reason_code=""
 if [ "$WORKFLOW_MODE" = "blocked" ]; then
   reason_code="graph-not-ready"
 fi
+BOOTSTRAP_FINISHED_AT="$(utc_now)"
+BOOTSTRAP_FINISHED_EPOCH_MS="$(epoch_ms)"
+BOOTSTRAP_DURATION_MS=$((BOOTSTRAP_FINISHED_EPOCH_MS - SCRIPT_STARTED_EPOCH_MS))
 
 jq -n \
   --arg generated_at "$BOOTSTRAPPED_AT" \
+  --arg started_at "$SCRIPT_STARTED_AT" \
+  --arg finished_at "$BOOTSTRAP_FINISHED_AT" \
   --arg workflow_mode "$WORKFLOW_MODE" \
   --arg confidence "$(if [ "$WORKFLOW_MODE" = "primary" ]; then echo high; elif [ "$WORKFLOW_MODE" = "degraded-fallback" ] || [ "$WORKFLOW_MODE" = "no-source" ]; then echo medium; else echo low; fi)" \
+  --argjson duration_ms "$BOOTSTRAP_DURATION_MS" \
   --argjson providers "$statuses_json" \
   '{
     schema_version:"graph-provider-status.v1",
     generated_at:$generated_at,
+    timing:{
+      started_at:$started_at,
+      finished_at:$finished_at,
+      duration_ms:$duration_ms
+    },
     workflow_mode:$workflow_mode,
     ready_primary_providers:[$providers[] | select(.query_ready == true) | .provider],
     failed_primary_providers:[$providers[] | select(.query_ready != true and .status != "skipped" and .status != "query-not-applicable") | .provider],
@@ -1518,16 +1801,24 @@ jq -n \
 
 jq -n \
   --arg generated_at "$BOOTSTRAPPED_AT" \
+  --arg started_at "$SCRIPT_STARTED_AT" \
+  --arg finished_at "$BOOTSTRAP_FINISHED_AT" \
   --arg repo_root "$REPO_ROOT" \
   --arg source_revision "$SOURCE_REVISION" \
   --arg worktree_status_hash "$WORKTREE_STATUS_HASH" \
   --argjson worktree_dirty "$WORKTREE_DIRTY" \
   --arg workflow_mode "$WORKFLOW_MODE" \
   --arg confidence "$(if [ "$WORKFLOW_MODE" = "primary" ]; then echo high; elif [ "$WORKFLOW_MODE" = "degraded-fallback" ] || [ "$WORKFLOW_MODE" = "no-source" ]; then echo medium; else echo low; fi)" \
+  --argjson duration_ms "$BOOTSTRAP_DURATION_MS" \
   --argjson providers "$statuses_json" \
   '{
     schema_version:"graph-facts.v1",
     generated_at:$generated_at,
+    timing:{
+      started_at:$started_at,
+      finished_at:$finished_at,
+      duration_ms:$duration_ms
+    },
     repo_root:$repo_root,
     source_revision:$source_revision,
     worktree_dirty:$worktree_dirty,
@@ -1605,7 +1896,7 @@ jq -n \
 provider_report_rows="$(jq -r '
   .[]
   | (((.query_probe_attempts // []) | map("\(.token):\(.result_class)") | join(",")) // "") as $attempts
-  | "| \(.provider) | \(.graph_ready) | \(.query_ready) | \(if $attempts == "" then (.query_probe_policy.token // "n/a") else $attempts end) | \(.status) | \((.query_verification_reason // ((.limitations // []) | join("; ")) // "n/a") | gsub("\\|"; "/")) |"
+  | "| \(.provider) | \(.graph_ready) | \(.query_ready) | \(if $attempts == "" then (.query_probe_policy.token // "n/a") else $attempts end) | \(.status) | \(.timing.duration_ms // 0) | \((.query_verification_reason // ((.limitations // []) | join("; ")) // "n/a") | gsub("\\|"; "/")) |"
 ' <<<"$statuses_json")"
 
 write_file_atomic "$GRAPH_DIR/bootstrap-report.md" <<MD
@@ -1615,12 +1906,13 @@ write_file_atomic "$GRAPH_DIR/bootstrap-report.md" <<MD
 - overall_status: $OVERALL_STATUS
 - source_revision: $SOURCE_REVISION
 - worktree_dirty: $WORKTREE_DIRTY
+- duration_ms: $BOOTSTRAP_DURATION_MS
 - provider_status: .spec-first/graph/provider-status.json
 - graph_facts: .spec-first/graph/graph-facts.json
 - impact_capabilities: .spec-first/impact/bootstrap-impact-capabilities.json
 
-| Provider | Graph Ready | Query Ready | Probe Token | Evidence | Query Verification Reason |
-| --- | --- | --- | --- | --- | --- |
+| Provider | Graph Ready | Query Ready | Probe Token | Evidence | Duration ms | Query Verification Reason |
+| --- | --- | --- | --- | --- | ---: | --- |
 $provider_report_rows
 MD
 
@@ -1635,6 +1927,9 @@ jq -n \
   --arg workflow_mode "$WORKFLOW_MODE" \
   --arg overall_status "$OVERALL_STATUS" \
   --arg reason_code "$reason_code" \
+  --arg started_at "$SCRIPT_STARTED_AT" \
+  --arg finished_at "$BOOTSTRAP_FINISHED_AT" \
+  --argjson duration_ms "$BOOTSTRAP_DURATION_MS" \
   --argjson results "$statuses_json" \
   '{
     schema_version:"graph-bootstrap-result.v1",
@@ -1648,6 +1943,11 @@ jq -n \
     provider_config_path:$provider_config_path,
     runtime_capabilities_path:$runtime_capabilities_path,
     provider_artifacts_path:$provider_artifacts_path,
+    timing:{
+      started_at:$started_at,
+      finished_at:$finished_at,
+      duration_ms:$duration_ms
+    },
     results:$results
   }'
 

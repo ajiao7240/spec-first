@@ -186,6 +186,25 @@ Reject string commands, `bash -c`, `sh -c`, and unsupported executable/package s
 
 After successful GitNexus bootstrap, call the spec-first CLI GitNexus instruction normalizer to ensure existing `AGENTS.md` / `CLAUDE.md` files contain the stable spec-first GitNexus evidence contract. If a host instruction file exists but lacks the GitNexus block, create it; if a provider refreshed a legacy block, rewrite it; if only one marker exists, report a partial-block advisory failure and do not guess the repair. Missing host instruction files remain `init` ownership and are not created by graph bootstrap. The renderer lives in `src/cli/gitnexus-instruction-block.js`; the Bash/PowerShell bootstrap scripts must not duplicate the block prose. The stable block omits dynamic index counts, avoids hard `MUST` / `NEVER` provider rules, avoids host-specific runtime skill paths, and frames GitNexus as freshness-aware evidence rather than a replacement for source reads, tests, or workflow judgment.
 
+## Freshness, Timing, And Reuse Facts
+
+The bootstrap scripts emit timing facts for observability only. The final result, `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, each provider status file, command results, and parent all-repos summaries include `timing.started_at`, `timing.finished_at`, and `timing.duration_ms` or equivalent per-row command fields. These values help identify slow provider phases; they are not readiness gates.
+
+Each provider status also includes `readiness_source`, `reuse_eligible`, `reuse_ineligible_reason`, and `bootstrap_fingerprint`.
+
+`bootstrap_fingerprint.schema_version=graph-bootstrap-fingerprint.v1` captures the deterministic invalidation inputs that a future fast path can compare:
+
+- repo snapshot: `source_revision`, `worktree_dirty`, and `worktree_status_hash`
+- spec-first source facts: package version, bootstrap script hash, and `mcp-tools.json` hash
+- setup projection facts: `graph-providers.json`, `runtime-capabilities.json`, and `provider-artifacts.json` hashes
+- provider command facts: provider id, command hash, configured package spec, bundled package spec, and version policy
+
+This phase does not skip provider commands and does not reuse existing graph artifacts. `reuse_eligible=true` only means the provider has enough deterministic freshness facts to be considered by a later explicit fast path. Downstream LLM workflows must treat it as a script-owned fact, not as proof that the current run reused cached evidence.
+
+GitNexus can be `reuse_eligible=true` only when the setup-projected package in `graph-providers.json` matches the bundled package/version from `skills/spec-mcp-setup/mcp-tools.json`, which records `version_policy=pinned`. If the projected GitNexus package differs from the bundled package, bootstrap fails closed before running GitNexus commands with `readiness_source=preflight-blocked`, `reason_code=gitnexus-provider-projection-stale`, `failure_class=provider-projection-stale`, and `failed_phase=preflight`. The recommended action is to rerun `spec-mcp-setup` so setup refreshes the projected provider command argv.
+
+`code-review-graph` currently uses a floating `uvx --upgrade code-review-graph` command surface, so it records `reuse_eligible=false`, `reuse_ineligible_reason=provider-version-unverifiable`, and `version_policy=floating-unverifiable`. It may still be graph/query ready for the current cold run; the reuse fields only constrain future cache reuse.
+
 ## Readiness Evidence
 
 `query_ready=true` requires all three provider-specific evidence levels:

@@ -24,6 +24,17 @@ $script:ProviderCommandTimeoutSeconds = Get-NonNegativeIntEnv `
   -Name 'SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS' `
   -Default (Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900)
 
+function Get-UtcTimestamp {
+  return [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+}
+
+function Get-EpochMilliseconds {
+  return [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+}
+
+$script:ScriptStartedAt = Get-UtcTimestamp
+$script:ScriptStartedEpochMs = Get-EpochMilliseconds
+
 function Write-ResultAndExit {
   param(
     [string]$WorkflowMode,
@@ -71,6 +82,90 @@ function Get-StatusHash {
     return 'sha256:' + ([BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant())
   } finally {
     $sha.Dispose()
+  }
+}
+
+function Get-FileContentHash {
+  param([string]$Path)
+  if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    return 'missing'
+  }
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+      $hash = $sha.ComputeHash($stream)
+      return 'sha256:' + ([BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant())
+    } finally {
+      $stream.Dispose()
+    }
+  } finally {
+    $sha.Dispose()
+  }
+}
+
+function ConvertTo-CanonicalJsonValue {
+  param([AllowNull()][object]$Value)
+
+  if ($null -eq $Value) {
+    return $null
+  }
+
+  if (
+    $Value -is [string] -or
+    $Value -is [bool] -or
+    $Value -is [byte] -or
+    $Value -is [int16] -or
+    $Value -is [int] -or
+    $Value -is [int64] -or
+    $Value -is [single] -or
+    $Value -is [double] -or
+    $Value -is [decimal]
+  ) {
+    return $Value
+  }
+
+  if ($Value -is [System.Collections.IDictionary]) {
+    $ordered = [ordered]@{}
+    foreach ($key in @($Value.Keys | Sort-Object)) {
+      $ordered[[string]$key] = ConvertTo-CanonicalJsonValue -Value $Value[$key]
+    }
+    return [pscustomobject]$ordered
+  }
+
+  if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string])) {
+    $items = @()
+    foreach ($item in $Value) {
+      $items += ,(ConvertTo-CanonicalJsonValue -Value $item)
+    }
+    return @($items)
+  }
+
+  $properties = @($Value.PSObject.Properties | Where-Object {
+    $_.MemberType -eq 'NoteProperty' -or $_.MemberType -eq 'Property'
+  } | Sort-Object Name)
+  if ($properties.Count -gt 0) {
+    $ordered = [ordered]@{}
+    foreach ($property in $properties) {
+      $ordered[[string]$property.Name] = ConvertTo-CanonicalJsonValue -Value $property.Value
+    }
+    return [pscustomobject]$ordered
+  }
+
+  return $Value
+}
+
+function Get-JsonFileHash {
+  param([string]$Path)
+  if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    return 'missing'
+  }
+  try {
+    $jsonValue = Get-Content -Raw -LiteralPath $Path | ConvertFrom-Json
+    $canonicalJson = ConvertTo-CanonicalJsonValue -Value $jsonValue | ConvertTo-Json -Depth 100 -Compress
+    return (Get-StatusHash -Text $canonicalJson)
+  } catch {
+    return (Get-FileContentHash -Path $Path)
   }
 }
 
@@ -168,10 +263,14 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
   $childIndex = 0
   foreach ($child in $children) {
     $childIndex += 1
+    $childStartedAt = Get-UtcTimestamp
+    $childStartedEpochMs = Get-EpochMilliseconds
     [Console]::Error.WriteLine("spec-graph-bootstrap: all-repos child $childIndex/$($children.Count) start repo=$([string]$child.workspace_relative_path)")
     $childRun = Invoke-ChildJsonScript -ScriptPath $script:BootstrapProvidersScript -Arguments @{ Repo = [string]$child.workspace_relative_path }
     $childStatus = [int]$childRun.exit_code
     $childText = [string]$childRun.stdout
+    $childFinishedAt = Get-UtcTimestamp
+    $childDurationMs = (Get-EpochMilliseconds) - $childStartedEpochMs
     try {
       $childResult = $childText | ConvertFrom-Json
     } catch {
@@ -189,12 +288,15 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
       repo_label = [string]$child.repo_label
       workspace_relative_path = [string]$child.workspace_relative_path
       exit_code = $childStatus
+      started_at = $childStartedAt
+      finished_at = $childFinishedAt
+      duration_ms = $childDurationMs
       overall_status = [string]($childResult.overall_status ?? 'unknown')
       workflow_mode = [string]($childResult.workflow_mode ?? 'unknown')
       reason_code = $childResult.reason_code
       result = $childResult
     }
-    [Console]::Error.WriteLine("spec-graph-bootstrap: all-repos child $childIndex/$($children.Count) finish repo=$([string]$child.workspace_relative_path) status=$([string]($childResult.overall_status ?? 'unknown')) workflow=$([string]($childResult.workflow_mode ?? 'unknown'))")
+    [Console]::Error.WriteLine("spec-graph-bootstrap: all-repos child $childIndex/$($children.Count) finish repo=$([string]$child.workspace_relative_path) status=$([string]($childResult.overall_status ?? 'unknown')) workflow=$([string]($childResult.workflow_mode ?? 'unknown')) duration_ms=$childDurationMs")
   }
 
   $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
@@ -202,15 +304,22 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
   $notApplicableCount = @($results | Where-Object { $_.workflow_mode -eq 'no-source' -or $_.overall_status -eq 'not-applicable' }).Count
   $actionRequiredCount = @($results | Where-Object { $_.overall_status -ne 'ready' -and $_.workflow_mode -ne 'degraded-fallback' -and $_.overall_status -ne 'degraded' -and $_.workflow_mode -ne 'no-source' -and $_.overall_status -ne 'not-applicable' }).Count
   $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -eq 0 -and $degradedCount -eq 0) { 'ready' } elseif (($readyCount + $degradedCount) -gt 0) { 'partial' } else { 'action-required' }
+  $finishedAt = Get-UtcTimestamp
+  $durationMs = (Get-EpochMilliseconds) - $script:ScriptStartedEpochMs
   $summary = [ordered]@{
     schema_version = 'workspace-graph-bootstrap-summary.v1'
-    generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    generated_at = $finishedAt
     run_id = $runId
     advisory = $true
     workflow_mode = 'all-repos'
     selection_source = $SelectionSource
     workspace_root = $TargetFacts.workspace_root
     parent_writes_repo_local_artifacts = $false
+    timing = [ordered]@{
+      started_at = $script:ScriptStartedAt
+      finished_at = $finishedAt
+      duration_ms = $durationMs
+    }
     results = @($results)
     counts = [ordered]@{
       total = $results.Count
@@ -310,17 +419,26 @@ function Invoke-SpecFirstCliCaptured {
   $exe = if ($invocation.Kind -eq 'node-script') { 'node' } else { $invocation.Path }
   $commandArgs = if ($invocation.Kind -eq 'node-script') { @($invocation.Path) + @($CliArguments) } else { @($CliArguments) }
   try {
+    $startedAt = Get-UtcTimestamp
+    $startedEpochMs = Get-EpochMilliseconds
     $result = Invoke-ExternalCommandWithTimeout -Exe $exe -CommandArguments $commandArgs -WorkingDirectory ([string](Get-Location)) -TimeoutSeconds $script:ProviderCommandTimeoutSeconds
+    $finishedAt = Get-UtcTimestamp
     return [pscustomobject]@{
       exit_code = [int]$result.exit_code
       output = [string]$result.output
       timed_out = [bool]$result.timed_out
+      started_at = $startedAt
+      finished_at = $finishedAt
+      duration_ms = ((Get-EpochMilliseconds) - $startedEpochMs)
     }
   } catch {
     return [pscustomobject]@{
       exit_code = 127
       output = [string]$_.Exception.Message
       timed_out = $false
+      started_at = Get-UtcTimestamp
+      finished_at = Get-UtcTimestamp
+      duration_ms = 0
     }
   }
 }
@@ -744,7 +862,11 @@ function Invoke-ConfiguredCommand {
   $exe = [string]$command[0]
   $commandArgs = @($command | Select-Object -Skip 1)
   [Console]::Error.WriteLine("spec-graph-bootstrap: running $Provider $Kind; dependencies may download on first use...")
+  $startedAt = Get-UtcTimestamp
+  $startedEpochMs = Get-EpochMilliseconds
   $result = Invoke-ExternalCommandWithTimeout -Exe $exe -CommandArguments $commandArgs -WorkingDirectory $RepoRoot -TimeoutSeconds $script:ProviderCommandTimeoutSeconds
+  $finishedAt = Get-UtcTimestamp
+  $durationMs = (Get-EpochMilliseconds) - $startedEpochMs
   $exitCode = [int]$result.exit_code
   if ($result.timed_out) {
     [Console]::Error.WriteLine("spec-graph-bootstrap: timed out $Provider $Kind after ${script:ProviderCommandTimeoutSeconds}s")
@@ -766,6 +888,9 @@ function Invoke-ConfiguredCommand {
     diagnostic = $diagnostic
     diagnostics_truncated = $truncated
     raw_log = ConvertTo-RepoRelativePath -Path $LogPath -RepoRoot $RepoRoot
+    started_at = $startedAt
+    finished_at = $finishedAt
+    duration_ms = $durationMs
   }
 }
 
@@ -783,7 +908,11 @@ function Invoke-GitNexusQueryProbeCandidate {
   $exe = [string]$command[0]
   $commandArgs = @($command | Select-Object -Skip 1)
   [Console]::Error.WriteLine("spec-graph-bootstrap: running $Provider query_probe token=$Token; dependencies may download on first use...")
+  $startedAt = Get-UtcTimestamp
+  $startedEpochMs = Get-EpochMilliseconds
   $result = Invoke-ExternalCommandWithTimeout -Exe $exe -CommandArguments $commandArgs -WorkingDirectory $RepoRoot -TimeoutSeconds $script:ProviderCommandTimeoutSeconds
+  $finishedAt = Get-UtcTimestamp
+  $durationMs = (Get-EpochMilliseconds) - $startedEpochMs
   $exitCode = [int]$result.exit_code
   if ($result.timed_out) {
     [Console]::Error.WriteLine("spec-graph-bootstrap: timed out $Provider query_probe token=$Token after ${script:ProviderCommandTimeoutSeconds}s")
@@ -805,6 +934,9 @@ function Invoke-GitNexusQueryProbeCandidate {
     diagnostic = $diagnostic
     diagnostics_truncated = $truncated
     raw_log = ConvertTo-RepoRelativePath -Path $LogPath -RepoRoot $RepoRoot
+    started_at = $startedAt
+    finished_at = $finishedAt
+    duration_ms = $durationMs
   }
 }
 
@@ -1042,6 +1174,128 @@ function Get-BundledGitNexusPackageSpec {
   } catch {
   }
   return ''
+}
+
+function Get-ProviderConfiguredPackageSpec {
+  param(
+    [object]$ProviderConfig,
+    [string]$Provider
+  )
+  if ($Provider -eq 'gitnexus') {
+    return (Get-ConfiguredGitNexusPackageSpec -ProviderConfig $ProviderConfig)
+  }
+  if ($Provider -eq 'code-review-graph') {
+    $command = @($ProviderConfig.providers.'code-review-graph'.commands.bootstrap)
+    if ($command.Count -ge 3 -and [string]$command[0] -eq 'uvx' -and ([string]$command[1] -eq '--upgrade' -or [string]$command[1] -eq '--refresh')) {
+      return [string]$command[2]
+    }
+    if ($command.Count -ge 2 -and [string]$command[0] -eq 'uvx') {
+      return [string]$command[1]
+    }
+  }
+  return ''
+}
+
+function Get-ProviderBundledPackageSpec {
+  param([string]$Provider)
+  if ($Provider -eq 'gitnexus') {
+    return (Get-BundledGitNexusPackageSpec)
+  }
+  return ''
+}
+
+function Get-ProviderVersionPolicy {
+  param(
+    [string]$Provider,
+    [string]$ConfiguredPackage,
+    [string]$BundledPackage
+  )
+  if ($Provider -eq 'gitnexus' -and -not [string]::IsNullOrWhiteSpace($ConfiguredPackage) -and -not [string]::IsNullOrWhiteSpace($BundledPackage) -and $ConfiguredPackage -eq $BundledPackage) {
+    return 'pinned'
+  }
+  if ($Provider -eq 'gitnexus' -and -not [string]::IsNullOrWhiteSpace($ConfiguredPackage) -and -not [string]::IsNullOrWhiteSpace($BundledPackage) -and $ConfiguredPackage -ne $BundledPackage) {
+    return 'projection-stale'
+  }
+  return 'floating-unverifiable'
+}
+
+function Get-ProviderReuseDecision {
+  param(
+    [string]$SkipReason,
+    [string]$VersionPolicy
+  )
+  if (-not [string]::IsNullOrWhiteSpace($SkipReason)) {
+    return [pscustomobject]@{ eligible = $false; reason = 'provider-not-enabled' }
+  }
+  if ($VersionPolicy -eq 'pinned') {
+    return [pscustomobject]@{ eligible = $true; reason = $null }
+  }
+  if ($VersionPolicy -eq 'projection-stale') {
+    return [pscustomobject]@{ eligible = $false; reason = 'provider-projection-stale' }
+  }
+  return [pscustomobject]@{ eligible = $false; reason = 'provider-version-unverifiable' }
+}
+
+function Get-ProviderCommandHash {
+  param(
+    [object]$ProviderConfig,
+    [string]$Provider
+  )
+  $commands = $ProviderConfig.providers.$Provider.commands | ConvertTo-Json -Depth 20 -Compress
+  return (Get-StatusHash -Text $commands)
+}
+
+function Get-BootstrapFingerprint {
+  param(
+    [object]$ProviderConfig,
+    [string]$Provider,
+    [string]$ConfiguredPackage,
+    [string]$BundledPackage,
+    [string]$VersionPolicy,
+    [string]$SourceRevision,
+    [bool]$WorktreeDirty,
+    [string]$WorktreeStatusHash
+  )
+  return [ordered]@{
+    schema_version = 'graph-bootstrap-fingerprint.v1'
+    repo_snapshot = [ordered]@{
+      source_revision = $SourceRevision
+      worktree_dirty = $WorktreeDirty
+      worktree_status_hash = $WorktreeStatusHash
+    }
+    spec_first = [ordered]@{
+      package_version = $script:SpecFirstPackageVersion
+      graph_bootstrap_script_hash = $script:GraphBootstrapScriptHash
+      mcp_tools_hash = $script:McpToolsHash
+    }
+    provider_projection = [ordered]@{
+      graph_providers_hash = $script:GraphProvidersHash
+      runtime_capabilities_hash = $script:RuntimeCapabilitiesHash
+      provider_artifacts_hash = $script:ProviderArtifactsHash
+    }
+    provider = [ordered]@{
+      id = $Provider
+      command_hash = (Get-ProviderCommandHash -ProviderConfig $ProviderConfig -Provider $Provider)
+      configured_package_spec = if ([string]::IsNullOrWhiteSpace($ConfiguredPackage)) { $null } else { $ConfiguredPackage }
+      bundled_package_spec = if ([string]::IsNullOrWhiteSpace($BundledPackage)) { $null } else { $BundledPackage }
+      version_policy = $VersionPolicy
+    }
+  }
+}
+
+function Get-GitNexusProviderProjectionStaleFailureInfo {
+  param(
+    [string]$ConfiguredPackage,
+    [string]$BundledPackage
+  )
+  return [ordered]@{
+    failed_phase = 'preflight'
+    failure_class = 'provider-projection-stale'
+    reason_code = 'gitnexus-provider-projection-stale'
+    exit_code = $null
+    recommended_action = "Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled GitNexus package '$BundledPackage'; it currently projects '$ConfiguredPackage'. Then rerun spec-graph-bootstrap."
+    diagnostic = "GitNexus setup-projected package '$ConfiguredPackage' differs from bundled package '$BundledPackage' before provider commands ran."
+  }
 }
 
 function Get-GitNexusQueryDiagnosticFailureInfo {
@@ -1286,6 +1540,12 @@ if ([string]::IsNullOrWhiteSpace($mcpToolsOverride)) {
 } else {
   $script:McpToolsJson = $mcpToolsOverride
 }
+$packageJsonOverride = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PACKAGE_JSON')
+if ([string]::IsNullOrWhiteSpace($packageJsonOverride)) {
+  $script:PackageJson = Join-Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $scriptDir))) 'package.json'
+} else {
+  $script:PackageJson = $packageJsonOverride
+}
 $resolverOverride = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROJECT_TARGET_RESOLVER')
 if ([string]::IsNullOrWhiteSpace($resolverOverride)) {
   $resolverPath = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptDir)) 'spec-mcp-setup/scripts/resolve-project-target.ps1'
@@ -1331,6 +1591,21 @@ New-Item -ItemType Directory -Force -Path $graphDir, $impactDir, $providersDir |
 $providerConfig = Assert-Schema -Path $providerConfigPath -SchemaVersion 'graph-providers.v1' -MissingReason 'missing_provider_config'
 $runtimeCapabilities = Assert-Schema -Path $runtimeCapabilitiesPath -SchemaVersion 'runtime-capabilities.v1' -MissingReason 'missing_runtime_capabilities'
 $providerArtifacts = Assert-Schema -Path $providerArtifactsPath -SchemaVersion 'provider-artifacts.v1' -MissingReason 'missing_provider_artifacts'
+$script:SpecFirstPackageVersion = 'unknown'
+if (Test-Path -LiteralPath $script:PackageJson -PathType Leaf) {
+  try {
+    $packageJson = Get-Content -Raw -LiteralPath $script:PackageJson | ConvertFrom-Json
+    if ($packageJson.PSObject.Properties.Name -contains 'version' -and -not [string]::IsNullOrWhiteSpace([string]$packageJson.version)) {
+      $script:SpecFirstPackageVersion = [string]$packageJson.version
+    }
+  } catch {
+  }
+}
+$script:GraphBootstrapScriptHash = Get-FileContentHash -Path $script:BootstrapProvidersScript
+$script:McpToolsHash = Get-JsonFileHash -Path $script:McpToolsJson
+$script:GraphProvidersHash = Get-JsonFileHash -Path $providerConfigPath
+$script:RuntimeCapabilitiesHash = Get-JsonFileHash -Path $runtimeCapabilitiesPath
+$script:ProviderArtifactsHash = Get-JsonFileHash -Path $providerArtifactsPath
 if (-not (Test-ProviderArtifactContractSupported -ProviderArtifacts $providerArtifacts -ProviderConfig $providerConfig)) {
   Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'readiness-conflict' -NextAction 'Rerun spec-mcp-setup; provider artifact path contract drifted.'
 }
@@ -1382,6 +1657,8 @@ $providerStatuses = New-Object System.Collections.Generic.List[object]
 foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $provider = $property.Name
   $entry = $property.Value
+  $providerStartedAt = Get-UtcTimestamp
+  $providerStartedEpochMs = Get-EpochMilliseconds
   $providerDir = Join-Path $providersDir $provider
   $rawDir = Join-Path $providerDir 'raw'
   $normalizedDir = Join-Path $providerDir 'normalized'
@@ -1394,6 +1671,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $skipReason = Get-ProviderSkipReason -Entry $entry
   $limitations = Get-ProviderSkipLimitations -SkipReason $skipReason
   $failureInfo = Get-ProviderFailureInfo -Provider $provider -Phase '' -ExitCode 0
+  $readinessSource = 'skipped'
   $queryProbeAttempts = New-Object System.Collections.Generic.List[object]
   $queryProbeCandidatesTruncated = $false
   $queryProbeExpectedHit = $true
@@ -1401,8 +1679,32 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   if ($provider -eq 'gitnexus') {
     $hostInstructionNormalization = New-GitNexusInstructionNormalizationResult -Status 'not-applicable' -ReasonCode 'gitnexus-provider-not-bootstrapped' -Results @()
   }
+  $configuredPackage = Get-ProviderConfiguredPackageSpec -ProviderConfig $providerConfig -Provider $provider
+  $bundledPackage = Get-ProviderBundledPackageSpec -Provider $provider
+  $versionPolicy = Get-ProviderVersionPolicy -Provider $provider -ConfiguredPackage $configuredPackage -BundledPackage $bundledPackage
+  $reuseDecision = Get-ProviderReuseDecision -SkipReason $skipReason -VersionPolicy $versionPolicy
+  $bootstrapFingerprint = Get-BootstrapFingerprint `
+    -ProviderConfig $providerConfig `
+    -Provider $provider `
+    -ConfiguredPackage $configuredPackage `
+    -BundledPackage $bundledPackage `
+    -VersionPolicy $versionPolicy `
+    -SourceRevision $sourceRevision `
+    -WorktreeDirty $worktreeDirty `
+    -WorktreeStatusHash $worktreeStatusHash
 
   if (Test-ProviderEnabled -ProviderConfig $providerConfig -Provider $provider) {
+    $readinessSource = 'cold-run'
+    if ($provider -eq 'gitnexus' -and $versionPolicy -eq 'projection-stale') {
+      $readinessSource = 'preflight-blocked'
+      $status = 'failed'
+      $graphReady = $false
+      $queryReady = $false
+      $confidence = 'low'
+      $failureInfo = Get-GitNexusProviderProjectionStaleFailureInfo -ConfiguredPackage $configuredPackage -BundledPackage $bundledPackage
+      $limitations = @('GitNexus provider projection is stale; provider commands were not run.', [string]$failureInfo['recommended_action'])
+      $script:QueryProbeVerificationReason = [string]$failureInfo['diagnostic']
+    } else {
     $bootstrapLog = Join-Path $rawDir $(if ($provider -eq 'gitnexus') { 'analyze.log' } else { 'build.log' })
     $statusLog = Join-Path $rawDir 'status.log'
     $queryLog = Join-Path $rawDir 'query.log'
@@ -1533,14 +1835,22 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
         $limitations += [string]$failureInfo['recommended_action']
       }
     }
+    }
   }
 
   $statusPath = Join-Path $providerDir 'status.json'
   Write-NormalizedArtifacts -Provider $provider -StatusPath $statusPath -QueryReady $queryReady -BootstrappedAt $bootstrappedAt -ProvidersDir $providersDir -QueryProbeAttempts @($queryProbeAttempts)
+  $providerFinishedAt = Get-UtcTimestamp
+  $providerDurationMs = (Get-EpochMilliseconds) - $providerStartedEpochMs
   $providerStatus = [ordered]@{
     schema_version = 'provider-status.v1'
     provider = $provider
     generated_at = $bootstrappedAt
+    timing = [ordered]@{
+      started_at = $providerStartedAt
+      finished_at = $providerFinishedAt
+      duration_ms = $providerDurationMs
+    }
     configured = [bool]$entry.configured
     enabled_for_bootstrap = [bool]$entry.enabled_for_bootstrap
     dependency_status = $entry.dependency_status
@@ -1549,6 +1859,10 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     status = $status
     graph_ready = $graphReady
     query_ready = $queryReady
+    readiness_source = $readinessSource
+    reuse_eligible = [bool]$reuseDecision.eligible
+    reuse_ineligible_reason = $reuseDecision.reason
+    bootstrap_fingerprint = $bootstrapFingerprint
     failed_phase = $failureInfo['failed_phase']
     failure_class = $failureInfo['failure_class']
     reason_code = $failureInfo['reason_code']
@@ -1567,6 +1881,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     repo_snapshot = [ordered]@{
       source_revision = $sourceRevision
       worktree_dirty = $worktreeDirty
+      worktree_status_hash = $worktreeStatusHash
     }
     command_results = @($commandResults)
     query_probe_attempts = if ($provider -eq 'gitnexus') { @($queryProbeAttempts) } else { $null }
@@ -1616,10 +1931,17 @@ if ($providerCount -gt 0 -and $readyCount -eq $providerCount) {
   $overallStatus = 'action-required'
   $exitCode = 1
 }
+$bootstrapFinishedAt = Get-UtcTimestamp
+$bootstrapDurationMs = (Get-EpochMilliseconds) - $script:ScriptStartedEpochMs
 
 $providerAggregate = [ordered]@{
   schema_version = 'graph-provider-status.v1'
   generated_at = $bootstrappedAt
+  timing = [ordered]@{
+    started_at = $script:ScriptStartedAt
+    finished_at = $bootstrapFinishedAt
+    duration_ms = $bootstrapDurationMs
+  }
   workflow_mode = $workflowMode
   ready_primary_providers = @($providerStatuses | Where-Object { $_.query_ready } | ForEach-Object { $_.provider })
   failed_primary_providers = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'skipped' -and $_.status -ne 'query-not-applicable' } | ForEach-Object { $_.provider })
@@ -1635,6 +1957,11 @@ Write-JsonFileAtomic -Path (Join-Path $graphDir 'provider-status.json') -Payload
 $graphFacts = [ordered]@{
   schema_version = 'graph-facts.v1'
   generated_at = $bootstrappedAt
+  timing = [ordered]@{
+    started_at = $script:ScriptStartedAt
+    finished_at = $bootstrapFinishedAt
+    duration_ms = $bootstrapDurationMs
+  }
   repo_root = $repoRoot
   source_revision = $sourceRevision
   worktree_dirty = $worktreeDirty
@@ -1715,7 +2042,7 @@ $providerReportRows = @($providerStatuses | ForEach-Object {
   $reason = if (-not [string]::IsNullOrWhiteSpace([string]$_.query_verification_reason)) { [string]$_.query_verification_reason } else { (@($_.limitations) -join '; ') }
   if ([string]::IsNullOrWhiteSpace($reason)) { $reason = 'n/a' }
   $reason = $reason.Replace('|', '/')
-  "| $($_.provider) | $($_.graph_ready) | $($_.query_ready) | $token | $($_.status) | $reason |"
+  "| $($_.provider) | $($_.graph_ready) | $($_.query_ready) | $token | $($_.status) | $($_.timing.duration_ms) | $reason |"
 })
 
 Write-TextFileAtomic -Path (Join-Path $graphDir 'bootstrap-report.md') -Value @"
@@ -1725,12 +2052,13 @@ Write-TextFileAtomic -Path (Join-Path $graphDir 'bootstrap-report.md') -Value @"
 - overall_status: $overallStatus
 - source_revision: $sourceRevision
 - worktree_dirty: $worktreeDirty
+- duration_ms: $bootstrapDurationMs
 - provider_status: .spec-first/graph/provider-status.json
 - graph_facts: .spec-first/graph/graph-facts.json
 - impact_capabilities: .spec-first/impact/bootstrap-impact-capabilities.json
 
-| Provider | Graph Ready | Query Ready | Probe Token | Evidence | Query Verification Reason |
-| --- | --- | --- | --- | --- | --- |
+| Provider | Graph Ready | Query Ready | Probe Token | Evidence | Duration ms | Query Verification Reason |
+| --- | --- | --- | --- | --- | ---: | --- |
 $($providerReportRows -join [Environment]::NewLine)
 "@
 
@@ -1746,6 +2074,11 @@ $($providerReportRows -join [Environment]::NewLine)
   provider_config_path = $providerConfigPath
   runtime_capabilities_path = $runtimeCapabilitiesPath
   provider_artifacts_path = $providerArtifactsPath
+  timing = [ordered]@{
+    started_at = $script:ScriptStartedAt
+    finished_at = $bootstrapFinishedAt
+    duration_ms = $bootstrapDurationMs
+  }
   results = @($providerStatuses)
 } | ConvertTo-Json -Depth 30 -Compress
 

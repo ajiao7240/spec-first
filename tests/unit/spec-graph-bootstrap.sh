@@ -44,6 +44,17 @@ assert_contains() {
   fi
 }
 
+assert_not_contains() {
+  local message="$1"
+  local needle="$2"
+  local haystack="$3"
+  if [[ "$haystack" == *"$needle"* ]]; then
+    echo "FAIL: $message" >&2
+    echo "unexpected: $needle" >&2
+    exit 1
+  fi
+}
+
 make_fake_bin() {
   local bin_dir="$1"
   local log_file="$2"
@@ -355,6 +366,8 @@ assert_eq "all-repos graph bootstrap emits workspace summary" "workspace-graph-b
 assert_eq "all-repos graph bootstrap records explicit selection source" "explicit-all-repos" "$(jq -r '.selection_source' <<<"$all_repos_output")"
 assert_eq "all-repos graph bootstrap records run id" "true" "$(jq -r '(.run_id | type == "string") and (.run_id | length > 0)' <<<"$all_repos_output")"
 assert_eq "all-repos child rows carry parent run id" "true" "$(jq -r '(.run_id as $run_id | all(.results[]; .parent_run_id == $run_id))' <<<"$all_repos_output")"
+assert_eq "all-repos summary records total timing" "true" "$(jq -r '(.timing.started_at | type == "string") and (.timing.finished_at | type == "string") and (.timing.duration_ms | type == "number") and (.timing.duration_ms >= 0)' <<<"$all_repos_output")"
+assert_eq "all-repos child rows record timing" "true" "$(jq -r 'all(.results[]; (.started_at | type == "string") and (.finished_at | type == "string") and (.duration_ms | type == "number") and (.duration_ms >= 0))' <<<"$all_repos_output")"
 assert_eq "all-repos graph bootstrap reports partial success" "partial:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$all_repos_output")"
 assert_eq "all-repos graph bootstrap records child reason" "project-b:missing_provider_config" "$(jq -r '.results[] | select(.workspace_relative_path=="project-b") | "\(.repo_label):\(.reason_code)"' <<<"$all_repos_output")"
 assert_contains "all-repos graph bootstrap prints child start progress" "all-repos child 1/2 start repo=project-a" "$(cat "$all_repos_progress_err")"
@@ -506,6 +519,12 @@ assert_eq "graph facts exposes staleness hints" "true:true" "$(jq -r '(.stalenes
 assert_eq "provider status records command source" ".spec-first/config/graph-providers.json" "$(jq -r '.command_source' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "provider status records GitNexus host instruction normalization" "normalized:true:0" "$(jq -r '.host_instruction_normalization.status + ":" + (.host_instruction_normalization.advisory | tostring) + ":" + (.host_instruction_normalization.exit_code | tostring)' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "provider status records expected-hit query policy" "true:git-ls-files-code-basename:$GITNEXUS_QUERY_PROBE" "$(jq -r '.query_probe_policy | "\(.expected_hit):\(.source):\(.token)"' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
+assert_eq "provider status records command timing" "true" "$(jq -r 'all(.command_results[]; (.started_at | type == "string") and (.finished_at | type == "string") and (.duration_ms | type == "number") and (.duration_ms >= 0))' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
+assert_eq "provider status records provider timing" "true" "$(jq -r '(.timing.started_at | type == "string") and (.timing.finished_at | type == "string") and (.timing.duration_ms | type == "number") and (.timing.duration_ms >= 0)' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
+assert_eq "final output records single repo timing" "true" "$(jq -r '(.timing.started_at | type == "string") and (.timing.finished_at | type == "string") and (.timing.duration_ms | type == "number") and (.timing.duration_ms >= 0)' <<<"$primary_output")"
+assert_eq "GitNexus provider records version-safe reuse facts" "graph-bootstrap-fingerprint.v1:true:pinned:cold-run:$GITNEXUS_PACKAGE:$GITNEXUS_PACKAGE" "$(jq -r '.bootstrap_fingerprint.schema_version + ":" + (.reuse_eligible | tostring) + ":" + .bootstrap_fingerprint.provider.version_policy + ":" + .readiness_source + ":" + (.bootstrap_fingerprint.provider.configured_package_spec // "") + ":" + (.bootstrap_fingerprint.provider.bundled_package_spec // "")' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
+assert_eq "code-review-graph provider is marked floating and not reusable" "false:provider-version-unverifiable:floating-unverifiable" "$(jq -r '.reuse_eligible as $eligible | "\($eligible):\(.reuse_ineligible_reason):\(.bootstrap_fingerprint.provider.version_policy)"' "$PRIMARY_REPO/.spec-first/providers/code-review-graph/status.json")"
+assert_eq "bootstrap fingerprint includes invalidation hashes" "true" "$(jq -r '(.bootstrap_fingerprint.repo_snapshot.worktree_status_hash | startswith("sha256:")) and (.bootstrap_fingerprint.spec_first.graph_bootstrap_script_hash | startswith("sha256:")) and (.bootstrap_fingerprint.spec_first.mcp_tools_hash | startswith("sha256:")) and (.bootstrap_fingerprint.provider_projection.graph_providers_hash | startswith("sha256:")) and (.bootstrap_fingerprint.provider.command_hash | startswith("sha256:"))' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "graph-bootstrap does not mutate provider config input" "$primary_provider_config_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
 assert_eq "graph-bootstrap does not mutate runtime capabilities input" "$primary_runtime_capabilities_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
 
@@ -771,10 +790,13 @@ jq '
   | .providers.gitnexus.commands.query_probe[2] = "gitnexus@0.0.0-test"
 ' "$STALE_PACKAGE_REPO/.spec-first/config/graph-providers.json" > "$STALE_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp"
 mv "$STALE_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp" "$STALE_PACKAGE_REPO/.spec-first/config/graph-providers.json"
-stale_package_output="$(cd "$STALE_PACKAGE_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_FTS_EMPTY=1 bash "$BOOTSTRAP_SCRIPT")"
-assert_eq "FTS/read-only with stale GitNexus projection recommends setup refresh" "gitnexus-query-provider-projection-stale:provider-projection-stale" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.reason_code):\(.failure_class)"' <<<"$stale_package_output")"
+stale_package_output="$(cd "$STALE_PACKAGE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "stale GitNexus projection is blocked before provider commands" "failed:false:false:preflight-blocked" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.graph_ready):\(.query_ready):\(.readiness_source)"' <<<"$stale_package_output")"
+assert_eq "stale GitNexus projection recommends setup refresh" "gitnexus-provider-projection-stale:provider-projection-stale:preflight" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.reason_code):\(.failure_class):\(.failed_phase)"' <<<"$stale_package_output")"
+assert_eq "stale GitNexus projection is not reuse eligible" "false:provider-projection-stale:projection-stale" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.reuse_eligible):\(.reuse_ineligible_reason):\(.bootstrap_fingerprint.provider.version_policy)"' <<<"$stale_package_output")"
 assert_contains "stale package action names spec-mcp-setup" "Rerun spec-mcp-setup" "$(jq -r '.results[] | select(.provider=="gitnexus") | .recommended_action' <<<"$stale_package_output")"
-assert_contains "stale package action names current projected package" "gitnexus@0.0.0-test" "$(jq -r '.results[] | select(.provider=="gitnexus") | .query_verification_reason' <<<"$stale_package_output")"
+assert_contains "stale package action names current projected package" "gitnexus@0.0.0-test" "$(jq -r '.results[] | select(.provider=="gitnexus") | .recommended_action' <<<"$stale_package_output")"
+assert_not_contains "stale GitNexus package command is not executed" "gitnexus@0.0.0-test" "$(cat "$COMMAND_LOG")"
 
 DEFINITIONS_ONLY_REPO="$TMP_DIR/definitions-only-repo"
 DEFINITIONS_ONLY_LEDGER="$TMP_DIR/definitions-only-home/.codex/spec-first/host-setup.json"
