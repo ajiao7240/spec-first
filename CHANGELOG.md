@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.1 2026-05-09 20:05:00 leokuang: docs(plan): 新增并收紧 code-review-graph uvx pin 轻量修复计划，明确默认 graph-bootstrap 热路径移除 `--upgrade`、source-level provider version pin、Bash/PowerShell projection 与 validator parity、`@latest` 仅限显式更新路径、fixture 回归和手动 uv cache cleanup 边界 (user-visible)
 - v1.8.1 2026-05-09 19:36:40 leokuang: release(patch): 将 v1.8.0 发布后累积的 CE 834ca4e5 同步方案修订、graph-bootstrap freshness/timing/stale projection preflight、GitNexus analyze storage write 结构化失败、PowerShell canonical hash 与 Generic.List 展开修复、GitNexus host block 稳定 evidence renderer、父 workspace init 刷新与 advisory summary、spec-standards workspace targeting 安全修复、Codex `$spec-doc-review` reviewer dispatch 澄清打包发布;v1.8.0 条目保留原始版本号标注,本条为整体 patch 发布汇总 (user-visible)
 - v1.8.0 2026-05-09 19:25:37 leokuang: docs(plan): 进一步细化 CE 834ca4e5 增量同步方案实施顺序，将 execution batches 与 implementation units 明确区分，避免 U1/U10 runtime foundation、sessions migration 与 git-worktree delivery 落地边界混淆 (user-visible)
 - v1.8.0 2026-05-09 19:24:27 leokuang: docs(plan): 终审优化 CE 834ca4e5 增量同步方案，补齐 U1/U10 runtime delivery 联合批次、git-worktree dual-host internal delivery 与 adapter path rewrite、runtime catalog/README 计数更新、stale managed skill cleanup 和 smoke 验证要求 (user-visible)
