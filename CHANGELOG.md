@@ -1,6 +1,15 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.0 2026-05-09 19:24:27 leokuang: docs(plan): 终审优化 CE 834ca4e5 增量同步方案，补齐 U1/U10 runtime delivery 联合批次、git-worktree dual-host internal delivery 与 adapter path rewrite、runtime catalog/README 计数更新、stale managed skill cleanup 和 smoke 验证要求 (user-visible)
+- v1.8.0 2026-05-09 19:21:00 leokuang: fix(codex): 明确 Codex `$spec-doc-review` 默认执行多 persona reviewer dispatch，workflow 入口调用即授权文档化只读 subagent phase，只有 report-only/no-agents、能力缺失或安全边界不满足时降级 (user-visible)
+- v1.8.0 2026-05-09 19:14:18 leokuang: fix(spec-graph-bootstrap): 修复 PowerShell canonical JSON hash 在真实 setup 产物 `generated_at` 被 `ConvertFrom-Json` 转成 `DateTime` 后遍历 CLR 属性导致高 CPU 卡住的问题，读取 JSON 时禁用日期转换并只遍历 JSON NoteProperty (user-visible)
+- v1.8.0 2026-05-09 19:06:22 leokuang: docs(plan): 按综合审查报告收紧 CE 834ca4e5 增量同步方案，将 U1 primitive runtime delivery、U2 分页 fixture、U3/U4 reader-writer 兼容、U5 basis consumer inventory、U8 Codex flag 负向断言和 U10 allowed-tools 从弱约束升级为明确实施与验证要求 (user-visible)
+- v1.8.0 2026-05-09 19:02:36 leokuang: fix(spec-graph-bootstrap): 修复 PowerShell 运行级 graph-bootstrap 中 `Generic.List[object]` 无法稳定展开为 `[object[]]` 导致 normalized artifacts 写入前 `Argument types do not match` 的问题，并用 contract 测试锁定 `Generic.List[psobject]` 集合类型 (user-visible)
+- v1.8.0 2026-05-09 18:38:23 leokuang: docs(graph-bootstrap): 将 GitNexus `.gitnexus/lbug` repair-preflight 计划标记为 superseded，明确当前主修复是升级到 `gitnexus@1.6.4-rc.100` 并通过 stale projection preflight 要求先刷新 setup 投影；同步失败建议避免把删除 `.gitnexus` 当默认路径 (user-visible)
+- v1.8.0 2026-05-09 18:31:23 leokuang: fix(spec-mcp-setup): 将 GitNexus provider pin 从 `1.6.4-rc.85` 升到 `1.6.4-rc.100`，吸收上游 LadybugDB Windows close/open retry 与 handle-release 修复，解决多仓 graph-bootstrap forced analyze 重建既有 `.gitnexus/lbug` 时的 native open/write 竞态；同步 pin 治理文档、测试和真实 package spike 记录 (user-visible)
+- v1.8.0 2026-05-09 18:22:41 leokuang: docs(review): 新增 CE 834ca4e5 增量同步方案综合审查文档，合并逐单元源码核对与深度场景分析，明确 U1 runtime delivery、U2 分页 fixture、U7 debug discipline、U8 Codex flag、U10 allowed-tools 等修订要求 (user-visible)
+- v1.8.0 2026-05-09 18:12:00 leokuang: fix(spec-graph-bootstrap): 将 GitNexus analyze 阶段 `.gitnexus/lbug` open/write 失败结构化为 `gitnexus-analyze-storage-write-failed`，同步 Bash/PowerShell parity、回归测试与 skill failure mode，避免多仓 all-repos 只产出泛化 provider-command-failed (user-visible)
 - v1.8.0 2026-05-09 17:47:35 leokuang: fix(graph-bootstrap): 多仓 all-repos 执行在 child GitNexus bootstrap 成功后同步归一化 parent workspace 的 AGENTS/CLAUDE GitNexus instruction block，并在 workspace summary 记录 parent host prose advisory 结果 (user-visible)
 - v1.8.0 2026-05-09 17:46:07 leokuang: docs(plan): 将 CE 834ca4e5 增量同步方案改为中文版本，统一章节、实施单元、字段标签与正文表述，同时保留路径、命令和技术标识原文 (user-visible)
 - v1.8.0 2026-05-09 16:28:47 leokuang: feat(graph-bootstrap): 为 provider bootstrap 输出 timing、bootstrap fingerprint 与 reuse eligibility facts，并在 GitNexus package projection stale 时 preflight fail-closed，给后续安全加速路径提供确定性 freshness 输入 (user-visible)

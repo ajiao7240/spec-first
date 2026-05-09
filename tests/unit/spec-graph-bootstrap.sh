@@ -73,6 +73,10 @@ if [[ "\${FAIL_GITNEXUS_ANALYZE_SIGSEGV:-}" = "1" && " \$* " == *" gitnexus@"*" 
   echo "Segmentation fault: 11" >&2
   exit 139
 fi
+if [[ "\${FAIL_GITNEXUS_LBUG:-}" = "1" && " \$* " == *" gitnexus@"*" analyze "* ]]; then
+  echo "Cannot open file D:\\codes\\workspace\\child\\.gitnexus\\lbug - Error 3" >&2
+  exit 1
+fi
 if [[ "\${HANG_GITNEXUS_ANALYZE:-}" = "1" && " \$* " == *" gitnexus@"*" analyze "* ]]; then
   sleep 5
   exit 0
@@ -849,6 +853,16 @@ if grep -q '<!-- gitnexus:start -->' "$SIGSEGV_REPO/AGENTS.md"; then
   echo "FAIL: failed GitNexus bootstrap created host instruction block" >&2
   exit 1
 fi
+
+LBUG_REPO="$TMP_DIR/lbug-repo"
+LBUG_LEDGER="$TMP_DIR/lbug-home/.codex/spec-first/host-setup.json"
+make_repo "$LBUG_REPO"
+write_fixture_config "$LBUG_REPO" "$LBUG_LEDGER" true
+lbug_output="$(cd "$LBUG_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_LBUG=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "GitNexus lbug storage failure degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$lbug_output")"
+assert_eq "GitNexus lbug storage failure has structured reason" "failed:gitnexus-analyze-storage-write-failed:provider-storage-write-failed:bootstrap:1" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$lbug_output")"
+assert_contains "GitNexus lbug limitation names index state" ".gitnexus/lbug" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$lbug_output")"
+assert_contains "GitNexus lbug raw log preserves provider diagnostic" "Cannot open file" "$(cat "$LBUG_REPO/.spec-first/providers/gitnexus/raw/analyze.log")"
 
 NETWORK_REPO="$TMP_DIR/network-repo"
 NETWORK_LEDGER="$TMP_DIR/network-home/.codex/spec-first/host-setup.json"

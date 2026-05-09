@@ -1,14 +1,14 @@
 ---
-title: "fix: 为 graph-bootstrap 增加 GitNexus repair preflight"
+title: "superseded: GitNexus storage failure repair preflight"
 type: fix
-status: active
+status: superseded
 date: 2026-05-09
 spec_id: 2026-05-09-001-graph-bootstrap-gitnexus-repair-preflight
 target_repo: spec-first
 origin: "用户现场：GitNexus analyze 在 Windows 父级多仓 workspace 中因 .gitnexus/lbug Error 3 bootstrap failed"
 ---
 
-# fix: 为 graph-bootstrap 增加 GitNexus repair preflight
+# superseded: GitNexus storage failure repair preflight
 
 ## 概览
 
@@ -19,11 +19,13 @@ GitNexus: VECTOR extension load failed: IO exception: Cannot open file. path: <c
 Analysis failed: COPY failed for File: IO exception: Cannot open file. path: <child-repo>/.gitnexus/lbug - Error 3
 ```
 
-这不是 query proof 问题。GitNexus 尚未进入 `status` / `query_probe`，失败点是 repo-local `.gitnexus` index / vector extension storage。版本升级或 provider pin 切换后继续复用旧 `.gitnexus` index，可能让同一 bootstrap storage failure 反复出现。
+这不是 query proof 问题。GitNexus 尚未进入 `status` / `query_probe`，失败点是 repo-local `.gitnexus` index / vector extension storage。
 
-本计划把恢复策略收敛为：**`spec-mcp-setup` 刷新 provider projection 之后，`spec-graph-bootstrap` 执行 GitNexus analyze 之前，提供显式 GitNexus repair preflight。**
+本计划原本把恢复策略收敛为：**`spec-mcp-setup` 刷新 provider projection 之后，`spec-graph-bootstrap` 执行 GitNexus analyze 之前，提供显式 GitNexus repair preflight。**
 
-交互式确认由 workflow/agent 层负责；脚本层只提供 preview-first 与 explicit confirm 参数，不弹交互提示。默认 bootstrap 不删除任何 provider index。
+后续源码审查和 npm package diff 证明，现场主要根因不是 spec-first 缺少 repair preflight，而是 `gitnexus@1.6.4-rc.85` 在 Windows forced reanalysis 复用既有 `.gitnexus/lbug` 时缺少 LadybugDB close/open retry 与 Windows handle-release probe。当前正确修复路径是把 setup-owned provider pin 升到 `gitnexus@1.6.4-rc.100`，并让 `spec-graph-bootstrap` 在旧 setup projection 时 fail closed，要求先重跑 `spec-mcp-setup`。本 repair 计划因此标记为 `superseded`；不要按本计划新增默认清理 `.gitnexus` 的主路径。
+
+保留本文档的价值是记录当时对 destructive repair 的 safety 约束。只有在 **当前 bundled GitNexus package 已确认投影并仍然失败** 时，repair 才能作为 explicit human-scoped recovery 重新开 plan。
 
 ## 目标
 
@@ -79,7 +81,7 @@ Analysis failed: COPY failed for File: IO exception: Cannot open file. path: <ch
 
 ## 需求追踪
 
-- **R1**. GitNexus bootstrap 阶段出现 `.gitnexus` / `lbug` / `VECTOR extension load failed` / `COPY failed for File` / `Error 3` 时，输出 `reason_code=gitnexus-index-storage-unavailable`。
+- **R1**. GitNexus bootstrap 阶段出现 `.gitnexus` / `lbug` / `VECTOR extension load failed` / `COPY failed for File` / `Error 3` 时，当前实现输出 `reason_code=gitnexus-analyze-storage-write-failed`、`failure_class=provider-storage-write-failed`，同时保留 raw `analyze.log`。
 - **R2**. GitNexus repair 只能在 setup-owned inputs 通过 schema/ledger/provider command validation 后进入 preview/confirm。
 - **R3**. Repair 删除路径只允许 `.gitnexus` 与 `.spec-first/providers/gitnexus`。
 - **R4**. Repair 必须 preview-first；无 confirm 时不删除。
@@ -219,8 +221,8 @@ If a later run sees an old `repair-status.json` with `status=in-progress`, it sh
 Add GitNexus bootstrap classifier before generic `provider-command-failed`:
 
 ```text
-reason_code=gitnexus-index-storage-unavailable
-failure_class=provider-storage-unavailable
+reason_code=gitnexus-analyze-storage-write-failed
+failure_class=provider-storage-write-failed
 failed_phase=bootstrap
 ```
 
@@ -429,7 +431,7 @@ It reaches factual confidence only after:
 - PowerShell contract tests pass.
 - A Windows target workspace single-child repair succeeds.
 - A Windows target workspace all-repos repair produces expected parent advisory summary.
-- GitNexus either becomes ready/query-unverified with accurate diagnostics, or remains failed with `gitnexus-index-storage-unavailable` instead of generic `provider-command-failed`.
+- GitNexus either becomes ready/query-unverified with accurate diagnostics, or remains failed with `gitnexus-analyze-storage-write-failed` instead of generic `provider-command-failed`.
 
 ## Completion Criteria
 

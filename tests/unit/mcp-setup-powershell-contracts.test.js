@@ -249,7 +249,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(toolsJson.schema_version).toBe('5');
     const gitnexus = toolsJson.tools.find((t) => t.id === 'gitnexus');
     expect(gitnexus.package).toBe('gitnexus');
-    expect(gitnexus.version).toBe('1.6.4-rc.85');
+    expect(gitnexus.version).toBe('1.6.4-rc.100');
     expect(gitnexus.installation.unix.args).toEqual(['-y', '{{package}}@{{version}}', '--help']);
     expect(gitnexus.installation.windows.args).toEqual(['-y', '{{package}}@{{version}}', '--help']);
     expect(gitnexus.host_config.claude.args).toEqual(['-y', '{{package}}@{{version}}', 'mcp']);
@@ -500,6 +500,12 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('function Get-EpochMilliseconds');
     expect(source).toContain('duration_ms');
     expect(source).toContain('function ConvertTo-CanonicalJsonValue');
+    expect(source).toContain('function ConvertFrom-JsonWithoutDateCoercion');
+    expect(source).toContain("ConvertFrom-Json -DateKind String");
+    expect(source).toContain("$Value -is [DateTime]");
+    expect(source).toContain("$Value -is [DateTimeOffset]");
+    expect(source).toContain("$_.MemberType -eq 'NoteProperty'");
+    expect(source).not.toContain("_.MemberType -eq 'Property'");
     expect(source).toContain('ConvertTo-Json -Depth 100 -Compress');
     expect(source).toContain('function Get-BootstrapFingerprint');
     expect(source).toContain('graph-bootstrap-fingerprint.v1');
@@ -531,6 +537,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('query-');
     expect(source).toContain('query_global_graph');
     expect(source).toContain('impact_context');
+    expect(source).toContain('System.Collections.Generic.List[psobject]');
+    expect(source).not.toContain('System.Collections.Generic.List[object]');
     expect(source).toContain('staleness_hints');
     expect(source).toContain('compare_source_revision = $true');
     expect(source).toContain('function Get-StatusHash');
@@ -558,6 +566,10 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(resolveSource.indexOf('Get-Command spec-first')).toBeGreaterThanOrEqual(0);
     expect(resolveSource.indexOf('Test-Path -LiteralPath $sourceCli')).toBeLessThan(resolveSource.indexOf('Get-Command spec-first'));
     expect(source).toContain('gitnexus-analyze-sigsegv');
+    expect(source).toContain('gitnexus-analyze-storage-write-failed');
+    expect(source).toContain('provider-storage-write-failed');
+    expect(source).toContain('Cannot open file');
+    expect(source).toContain('.gitnexus/lbug');
     expect(source).toContain('provider-network-unavailable');
     expect(source).toContain('provider-cache-permission-denied');
     expect(source).toContain('provider-package-not-found');

@@ -191,10 +191,15 @@ describe('instruction bootstrap', () => {
     expect(codexZh).toContain('$spec-update');
     expect(codexZh).toContain('不阻塞路由');
     expect(codexZh).toContain('bounded subagents、leaf reviewers、worker agents 不运行该检查');
+    expect(codexZh).toContain('`$spec-doc-review` 默认多 persona dispatch');
+    expect(codexZh).toContain('入口调用本身即授权该 workflow 文档化的只读 reviewer/researcher subagent phase');
     expect(codexEn).toContain('top-level Codex orchestrator');
     expect(codexEn).toContain('missing CLI, failure, or empty output must be ignored');
     expect(codexEn).toContain('must not run the check or write cooldown state');
+    expect(codexEn).toContain('`$spec-doc-review` defaults to multi-persona dispatch');
+    expect(codexEn).toContain('Invoking a Codex public `$spec-*` workflow itself authorizes');
     expect(claudeZh).not.toContain('startup-reminder --codex');
     expect(claudeZh).not.toContain('$spec-update');
+    expect(claudeZh).not.toContain('默认多 persona dispatch');
   });
 });

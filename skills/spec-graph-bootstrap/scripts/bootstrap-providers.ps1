@@ -125,6 +125,14 @@ function ConvertTo-CanonicalJsonValue {
     return $Value
   }
 
+  if ($Value -is [DateTime]) {
+    return $Value.ToString('o', [System.Globalization.CultureInfo]::InvariantCulture)
+  }
+
+  if ($Value -is [DateTimeOffset]) {
+    return $Value.ToString('o', [System.Globalization.CultureInfo]::InvariantCulture)
+  }
+
   if ($Value -is [System.Collections.IDictionary]) {
     $ordered = [ordered]@{}
     foreach ($key in @($Value.Keys | Sort-Object)) {
@@ -142,7 +150,7 @@ function ConvertTo-CanonicalJsonValue {
   }
 
   $properties = @($Value.PSObject.Properties | Where-Object {
-    $_.MemberType -eq 'NoteProperty' -or $_.MemberType -eq 'Property'
+    $_.MemberType -eq 'NoteProperty'
   } | Sort-Object Name)
   if ($properties.Count -gt 0) {
     $ordered = [ordered]@{}
@@ -155,13 +163,22 @@ function ConvertTo-CanonicalJsonValue {
   return $Value
 }
 
+function ConvertFrom-JsonWithoutDateCoercion {
+  param([string]$Json)
+  $convertFromJsonCommand = Get-Command ConvertFrom-Json -ErrorAction Stop
+  if ($convertFromJsonCommand.Parameters.ContainsKey('DateKind')) {
+    return $Json | ConvertFrom-Json -DateKind String
+  }
+  return $Json | ConvertFrom-Json
+}
+
 function Get-JsonFileHash {
   param([string]$Path)
   if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) {
     return 'missing'
   }
   try {
-    $jsonValue = Get-Content -Raw -LiteralPath $Path | ConvertFrom-Json
+    $jsonValue = ConvertFrom-JsonWithoutDateCoercion -Json (Get-Content -Raw -LiteralPath $Path)
     $canonicalJson = ConvertTo-CanonicalJsonValue -Value $jsonValue | ConvertTo-Json -Depth 100 -Compress
     return (Get-StatusHash -Text $canonicalJson)
   } catch {
@@ -1373,6 +1390,20 @@ function Get-ProviderFailureInfo {
       recommended_action = 'Do not trust GitNexus artifacts. Use code-review-graph and bounded local fallback; capture analyze.log and retry with a newer GitNexus rc or safer GitNexus runtime settings.'
     }
   }
+  if (
+    $Provider -eq 'gitnexus' -and
+    $Phase -eq 'bootstrap' -and
+    $ExitCode -ne 0 -and
+    [string]$Diagnostic -match '(?i)(Cannot open file.*\.gitnexus[\\/]+lbug|\.gitnexus[\\/]+lbug.*Error 3)'
+  ) {
+    return [ordered]@{
+      failed_phase = 'bootstrap'
+      failure_class = 'provider-storage-write-failed'
+      reason_code = 'gitnexus-analyze-storage-write-failed'
+      exit_code = $ExitCode
+      recommended_action = 'GitNexus analyze could not open or write its .gitnexus index state such as .gitnexus/lbug. First verify spec-mcp-setup refreshed the provider projection to the bundled GitNexus package, then rerun spec-graph-bootstrap. If the current bundled package still fails, preserve analyze.log and inspect Windows locks, permissions, path state, or explicitly archive/remove stale .gitnexus as a recovery action. Use code-review-graph degraded fallback meanwhile.'
+    }
+  }
   if ($ExitCode -eq 124) {
     return [ordered]@{
       failed_phase = $Phase
@@ -1674,7 +1705,7 @@ $sourceRevision = [string]$sourceRevisionOutput[0]
 $worktreeStatus = (git -C $repoRoot status --porcelain 2>$null) -join "`n"
 $worktreeDirty = -not [string]::IsNullOrWhiteSpace($worktreeStatus)
 $worktreeStatusHash = Get-StatusHash -Text $worktreeStatus
-$providerStatuses = New-Object System.Collections.Generic.List[object]
+$providerStatuses = New-Object System.Collections.Generic.List[psobject]
 
 foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $provider = $property.Name
@@ -1685,7 +1716,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $rawDir = Join-Path $providerDir 'raw'
   $normalizedDir = Join-Path $providerDir 'normalized'
   New-Item -ItemType Directory -Force -Path $rawDir, $normalizedDir | Out-Null
-  $commandResults = New-Object System.Collections.Generic.List[object]
+  $commandResults = New-Object System.Collections.Generic.List[psobject]
   $status = 'skipped'
   $graphReady = $false
   $queryReady = $false
@@ -1694,7 +1725,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $limitations = Get-ProviderSkipLimitations -SkipReason $skipReason
   $failureInfo = Get-ProviderFailureInfo -Provider $provider -Phase '' -ExitCode 0
   $readinessSource = 'skipped'
-  $queryProbeAttempts = New-Object System.Collections.Generic.List[object]
+  $queryProbeAttempts = New-Object System.Collections.Generic.List[psobject]
   $queryProbeCandidatesTruncated = $false
   $queryProbeExpectedHit = $true
   $hostInstructionNormalization = $null

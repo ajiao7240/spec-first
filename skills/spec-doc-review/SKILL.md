@@ -139,6 +139,7 @@ Add activated conditional personas:
 Before dispatching any reviewer, confirm the current host exposes a dispatch primitive and the selected reviewers are part of this documented document-review phase. Dispatch capability is part of the runtime boundary, not a reviewer-selection preference.
 
 - A direct invocation of the current host's document-review workflow entrypoint authorizes this documented persona-reviewer phase; do not ask for a second "use subagents" confirmation.
+- Default doc-review posture is multi-persona reviewer dispatch. Do not interpret the absence of extra "use subagents" wording as report-only fallback; the workflow entrypoint already expresses that intent.
 - If the user explicitly requested subagents, parallel agents, delegated review, or persona reviewer dispatch and the host exposes a dispatch primitive, continue with normal bounded multi-persona dispatch.
 - If an active workflow or parent orchestrator explicitly delegated this doc-review workflow, continue with normal bounded multi-persona dispatch.
 - If the user explicitly requests report-only/no-agents mode, the host lacks a dispatch primitive, or the current runtime cannot call it, do not call `Agent`, `Task`, `spawn_agent`, or equivalent dispatch tools.

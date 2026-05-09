@@ -1255,6 +1255,17 @@ classify_provider_failure() {
       exit_code:$exit_code,
       recommended_action:"Do not trust GitNexus artifacts. Use code-review-graph and bounded local fallback; capture analyze.log and retry with a newer GitNexus rc or safer GitNexus runtime settings."
     }'
+  elif [ "$provider" = "gitnexus" ] \
+    && [ "$phase" = "bootstrap" ] \
+    && [ "$exit_code" -ne 0 ] \
+    && grep -Eiq 'Cannot open file.*\.gitnexus[\\/]+lbug|\.gitnexus[\\/]+lbug.*Error 3' <<<"$diagnostic"; then
+    jq -n --argjson exit_code "$exit_code" '{
+      failed_phase:"bootstrap",
+      failure_class:"provider-storage-write-failed",
+      reason_code:"gitnexus-analyze-storage-write-failed",
+      exit_code:$exit_code,
+      recommended_action:"GitNexus analyze could not open or write its .gitnexus index state such as .gitnexus/lbug. First verify spec-mcp-setup refreshed the provider projection to the bundled GitNexus package, then rerun spec-graph-bootstrap. If the current bundled package still fails, preserve analyze.log and inspect Windows locks, permissions, path state, or explicitly archive/remove stale .gitnexus as a recovery action. Use code-review-graph degraded fallback meanwhile."
+    }'
   elif [ "$exit_code" -eq 124 ]; then
     jq -n --arg phase "$phase" --argjson exit_code "$exit_code" '{
       failed_phase:$phase,
