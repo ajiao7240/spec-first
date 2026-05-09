@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.0 2026-05-09 16:17:40 leokuang: docs(plan): 逐项审查并收敛 CE 834ca4e5 增量同步方案，删除无需同步的 release/docs/new-skill/lfg/description-trim 条目，只保留当前代码仍缺的 sessions、PR feedback、plan/review、ideate、debug、work-beta、compound-refresh、agent-native 与 worktree 修改单元 (user-visible)
 - v1.8.0 2026-05-09 16:05:54 leokuang: docs(plan): 新增 CE 834ca4e5 增量同步技术方案，按常态化同步协议区分 sessions 编排、review 降噪、plan 模板、PR feedback 分页、Codex delegation、skill 文档站和新 skill 产品边界 (user-visible)
 - v1.8.0 2026-05-09 15:54:47 leokuang: docs(plan): 新增 graph-bootstrap 加速与版本安全 freshness reuse 计划，明确 timing instrumentation、bootstrap fingerprint、version/projection 失效、unpinned provider 禁用复用和后续并行化边界 (user-visible)
 - v1.8.0 2026-05-09 15:43:25 leokuang: fix(gitnexus): 优化 `gitnexus-instruction normalize` dry-run 输出，结果增加 `wouldChange`/`written`/`action` 字段，并在非 JSON 模式显示 `would create` / `would normalize`，避免把预览误读为已写入 (user-visible)
