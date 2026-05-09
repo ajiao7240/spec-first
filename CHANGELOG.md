@@ -1,6 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.1 2026-05-10 02:32:36 leokuang: docs(plan): 修复三份 2026-05-07 图谱与治理方案的深审问题，补齐 001 Phase A high-risk 验证、002 路径 C 与 policy partial-landed 口径、003 preflight policy 前置与 checker parity 验证 (user-visible)
+- v1.8.1 2026-05-10 02:31:16 leokuang: docs(plan): 逐项核对 CE 834ca4e5 增量与当前 spec-first 源码，补充 U1-U10 最佳实践矩阵、U2 strict shell 和 pagination truncation 边界、U8 effort floor 兼容语义与逐步执行检查清单 (user-visible)
+- v1.8.1 2026-05-10 02:21:18 leokuang: docs(plan): 修复 CE 834ca4e5 同步方案终审遗留问题，收紧 git-worktree runtime path rewrite 可命中命令形态、U2 双脚本 bash 语法验证和 U4 doc-review Origin/Document type 测试清单 (user-visible)
 - v1.8.1 2026-05-10 01:42:13 leokuang: fix(spec-standards): 修复 code-review 发现的 standards-plan schema trusted-pass、null candidate internal error、父 workspace 批量 child partial failure 无结构化摘要，以及规范方案中 retired CRG workspace preflight 残留 (user-visible)
 - v1.8.1 2026-05-10 01:10:35 leokuang: fix(spec-standards): 将父 workspace 无参数默认行为改为批量生成所有 discovered child repo 的 child-local standards baseline facts，保留 `--repo <child>` 单 child 收窄与 `--workspace` 父级 advisory baseline，并同步文档、bootstrap 指引和回归测试 (user-visible)
 - v1.8.1 2026-05-10 00:41:38 leokuang: fix(spec-standards): 收紧 standards validator 顶层契约与坏输入 fail-closed 路径，避免 malformed candidates/confirmations 触发 internal error；同时禁止 `--workspace` 与冲突 `--target-kind` 顺序覆盖，并同步 reason_code 文档与回归测试 (user-visible)

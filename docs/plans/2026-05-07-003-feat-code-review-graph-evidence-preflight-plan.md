@@ -255,7 +255,7 @@ spec-code-review
     - 读取 graph-facts.json
     - 读取 bootstrap-impact-capabilities.json
     - 比较 source_revision 和 worktree_status_hash
-    - 分类 graph evidence: fresh | stale | dirty-uncertain | degraded | unavailable
+    - 按 policy appendix 分类 graph evidence display label: fresh | stale | dirty-uncertain | degraded-fallback | setup-ready-bootstrap-required | unavailable | blocked
     - 如果 live CRG MCP 可用且当前 mode 允许 read-only probe:
         get_minimal_context
         detect_changes(detail_level=minimal)
@@ -277,7 +277,7 @@ spec-code-review
 ```xml
 <graph-review-context>
 provider: code-review-graph
-artifact_status: fresh | stale | degraded | unavailable
+artifact_status: <policy-derived display label mapped to canonical readiness>
 impact_radius_support: full | partial | none
 review_support: full | partial | none
 source_revision: <sha-or-null>
@@ -359,6 +359,8 @@ Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
 
 ## 实施单元
 
+**实施顺序校准（2026-05-10）：** U7 的 policy appendix 是 U1/U2/U9 的前置 contract，不是后置文档整理。实施者必须先把 `Graph Evidence Preflight Appendix` 写入 `docs/contracts/graph-evidence-policy.md`，再修改 `skills/spec-code-review/SKILL.md` 定义 preflight stage；否则 `spec-code-review` 会先发明一套临时 enum，违背 002 policy single-source-of-truth。
+
 ### U1. 为 spec-code-review 增加图谱证据预检
 
 文件：
@@ -371,13 +373,14 @@ Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
 - 在 diff scope detection 后、reviewer selection 前增加一个 stage。
 - 定义 `.spec-first/graph/graph-facts.json` 和 `.spec-first/impact/bootstrap-impact-capabilities.json` 的 artifact reads。
 - 要求使用 `source_revision`、`worktree_dirty` 和 `worktree_status_hash` 做 freshness comparison。
-- 定义 `fresh | stale | degraded | unavailable` 分类。
+- 不在 `spec-code-review` 中定义新的 canonical enum；只引用 U7 policy appendix 的 display-label mapping。review/preflight 层可展示 `fresh`、`stale`、`dirty-uncertain`、`degraded-fallback`、`setup-ready-bootstrap-required`、`unavailable`、`blocked`，但必须映射回 002 policy 的 canonical readiness（例如 `primary`、`stale`、`setup-not-ready`、`degraded-fallback`、`unavailable`、`blocked`）。
 - 明确 stale artifacts 只能作为 historical readiness 引用，不能作为 current impact evidence。
 
 测试：
 
 - Contract test 断言 `spec-code-review` 提到两个 canonical artifacts。
 - Contract test 断言 stale graph facts 不阻断 review。
+- Contract test 断言 `spec-code-review` 引用 `docs/contracts/graph-evidence-policy.md` 的 `Graph Evidence Preflight Appendix`，且不把 `fresh | stale | degraded | unavailable` 写成第二套 canonical enum。
 - Contract test 断言 live MCP evidence 是 session-local，不能更新 compiled readiness。
 - Contract test 同步迁移当前负向断言：允许 `spec-code-review` 在 Coverage/Limitations 中建议 `$spec-graph-bootstrap` 作为显式 durable refresh next action；仍禁止 `report-only` / ordinary preflight silent refresh，且禁止把 graph-bootstrap 当作 review 前自动执行步骤。
 
@@ -471,7 +474,7 @@ Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
 变更：
 
 - 增加 Coverage fields：
-  - `code-review-graph: fresh | stale | degraded | unavailable | skipped`；
+  - `code-review-graph: fresh | stale | dirty-uncertain | degraded-fallback | setup-ready-bootstrap-required | unavailable | blocked | skipped`（前 7 个是 policy-derived display labels，必须映射回 policy canonical readiness；`skipped` 仅是 review coverage sentinel，表示本次未执行 graph preflight，不得写入 graph readiness enum）；
   - 是否使用 live CRG evidence；
   - impact support level；
   - related tests evidence status；
@@ -536,6 +539,7 @@ Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
 
 变更：
 
+- **前置顺序**：本 unit 必须先于 U1/U2/U9 land，或与 U1 同 PR 但在文档和测试上先建立 policy appendix。没有该 appendix 时，不得在 `spec-code-review` 中落地 preflight 状态词表。
 - 在 002 policy 内追加 `Graph Evidence Preflight Appendix`，不新增并列 policy 文件。
 - 定义 review/preflight display labels 到 canonical readiness enum 的映射：`fresh → primary`，`dirty-uncertain → stale with dirty limitation`，`setup-ready-bootstrap-required → setup-not-ready`，其余按 policy enum 直通。
 - 定义默认 policy：`check-only`。
@@ -650,6 +654,8 @@ Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
 - user manual docs 变化时运行 `npx jest tests/unit/user-manual-contracts.test.js --runInBand`
 - 只有 provider setup prose/contracts 变化时运行 `bash tests/unit/mcp-setup.sh`
 - 只有 bootstrap provider contract 变化时运行 `bash tests/unit/spec-graph-bootstrap.sh`
+- U8 新增 freshness checker 时运行 `bash -n skills/spec-graph-bootstrap/scripts/check-graph-freshness.sh`，并通过 `bash tests/unit/spec-graph-bootstrap.sh` 覆盖 fresh / stale / unavailable / parent-workspace fixtures。
+- U8 触及 PowerShell checker 时运行对应 PowerShell parse/parity 验证（例如 `tests/unit/mcp-setup-powershell-contracts.test.js` 中的 checker contract，或等价 focused test）；如果当前环境缺少 `pwsh`，必须在 Coverage 中记录未运行原因，不能声称 PowerShell parity 通过。
 - `npm run typecheck`
 - `git diff --check`
 
@@ -693,6 +699,6 @@ Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
 
 - `$spec-work`：按本计划实施 `spec-code-review` source 和 contract-test changes。
 
-实施者应从 U1 和 U2 开始，因为它们定义 durable review-stage boundary。随后通过 U3 把 evidence 串入 reviewer context，再通过 U3b 新增 `spec-graph-impact-reviewer` 作为条件消费者，最后通过 U4 把 reporting 和 Coverage 收口。U5 默认应保持 no-op，除非实施时发现当前 setup/bootstrap docs 会误导新的 downstream behavior。
+实施者应先执行 U7，建立 shared policy appendix；随后执行 U1 和 U2，把 preflight stage 与 CRG evidence ladder 作为 policy consumer 落到 `spec-code-review`；再通过 U3 把 evidence 串入 reviewer context，通过 U3b 新增 `spec-graph-impact-reviewer` 作为条件消费者，最后通过 U4 把 reporting 和 Coverage 收口。U5 默认应保持 no-op，除非实施时发现当前 setup/bootstrap docs 会误导新的 downstream behavior。
 
-在加入任何 opt-in refresh behavior 前，必须先实现 U7 和 U8。项目应先获得共享的 read-only freshness preflight，再允许任何 workflow 做 refresh decisions。这样可以保持当前 workflow structure 不被侵入，同时让 graph evidence freshness 显式化。
+在加入任何 opt-in refresh behavior 前，必须先实现 U7 和 U8。项目应先获得共享的 policy appendix 与 read-only freshness checker，再允许任何 workflow 做 refresh decisions。这样可以保持当前 workflow structure 不被侵入，同时让 graph evidence freshness 显式化。

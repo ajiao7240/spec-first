@@ -664,8 +664,9 @@ Additional commands by phase:
 
 - **Phase A**：
   - `bash -n skills/git-worktree/scripts/worktree-manager.sh`
+  - `bash -n skills/spec-optimize/scripts/experiment-worktree.sh`
   - `python3 -m py_compile skills/gemini-imagegen/scripts/*.py`
-  - `npx jest tests/unit/git-worktree-contracts.test.js tests/unit/spec-work-beta-contracts.test.js tests/unit/secret-deny-patterns-contracts.test.js tests/unit/agent-native-architecture-contracts.test.js tests/unit/skill-shell-safety.test.js --runInBand`
+  - `npx jest tests/unit/git-worktree-contracts.test.js tests/unit/high-risk-execution-contracts.test.js tests/unit/spec-work-beta-contracts.test.js tests/unit/secret-deny-patterns-contracts.test.js tests/unit/agent-native-architecture-contracts.test.js tests/unit/skill-shell-safety.test.js --runInBand`
   - schema 校验：`src/cli/contracts/security/secret-deny-patterns.json` 通过 `secret-deny-patterns.schema.json`
   - schema 校验：`skills/spec-write-tasks/references/task-pack-schema.md` 中 `expected_side_effects` 字段引用样例通过 spec-write-tasks 现有 task-pack contract test
 - **Phase B**：

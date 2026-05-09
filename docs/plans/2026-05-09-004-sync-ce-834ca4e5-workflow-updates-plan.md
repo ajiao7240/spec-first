@@ -70,6 +70,21 @@ spec_id: SYNC-CE-834CA4E5
 - Claude/Codex adapters 当前只在 `isWorkflowSkill` 时 rewrite `skills/<skill>/...` source path；`git-worktree` 作为 internal skill 不会获得 runtime skill dir rewrite，因此仅使用 `${CLAUDE_SKILL_DIR:-.}` 会漏掉 Codex 场景。
 - `docs/catalog/runtime-capabilities.md`、`README.md`、`README.zh-CN.md` 写有 bundled skills 与 agent-facing internal skills 数量；U1 退役 session primitives、U10 交付 `git-worktree` 会改变这些用户可见能力计数。
 
+## 逐项核对结论
+
+| 单元 | CE 增量意图 | 当前 spec-first 状态 | spec-first 最佳实践判断 |
+|---|---|---|---|
+| U1 sessions | CE 把 discovery/extraction 上移到 `ce-sessions`，historian 只读 scratch 文件且禁止 Skill tool。 | 当前 `spec-sessions` 仍是薄 dispatch，historian 仍依赖 `session-inventory` / `session-extract` skill。 | 同步语义，不复制 CE 的 Cursor 范围；迁移脚本到 `spec-sessions/scripts/`，删除 primitive runtime delivery，并与 U10 同批处理 delivered internal surface。 |
+| U2 resolve-pr-feedback | CE 用三个独立 `--paginate --slurp` query 修复 top-level connection 截断。 | 当前脚本仍单页，且 shell strictness 低于项目脚本规范。 | 采用分页策略，但按本仓库补 `set -euo pipefail`、fixture 级 slurp shape tests；thread 内 comments 若不完整分页，必须暴露 truncation/unsupported fact，不能报告 confirmed absence。 |
+| U3 spec-plan | CE 将模板拆到 reference，Implementation Units 改为 `### U1. [Name]`。 | 当前模板内联，unit 仍是 legacy list item。 | 同步 writer 格式，但必须保留 legacy reader；U3 完成条件依赖 U4 reader/parser contract 通过。 |
+| U4 review | CE 加 `Origin`、文档类型适配、pipe escaping、视觉辅助保留和上一轮决策抑制。 | 当前已有 `Document type` 和 decision primer 基础，但缺 `Origin` slot、heading-style unit parsing 与 pipe escaping。 | 把分类、origin、presentation、walkthrough 放 shared template/synthesis；persona 只消费上下文做语义判断；保留 spec-first 的 CLI readiness reviewer 边界，不因 CE 没有而删除。 |
+| U5 ideate | CE 从 `warrant` 迁到 `basis`，增加 topic axes / recovery 和 root markdown 约束。 | 当前 `warrant` 是字段级 contract，root markdown 和 axis recovery 未落地。 | 当作 artifact schema 迁移处理：先做 consumer inventory，再改 source/references/tests，普通 prose 用法也优先改写以免混淆。 |
+| U6 compound-refresh | CE 把五类 action flow 移入 `references/per-action-flows.md`。 | 当前五个 flow 仍内联，安全规则已有但和 inline flow 绑定。 | 同步 reference 拆分，同时测试 routeability；保留 validate-frontmatter 与 inbound-link-before-delete 两条现有 spec-first 安全增强。 |
+| U7 debug | CE 增加 trivial fast-path、concrete observation 和 failed-fix invalidation。 | 当前已有 choice gate、branch check 和部分轻量表达，但无完整 fast-path 边界。 | 同步 fast-path，但用负向边界防止跳过调查；非 trivial bug 仍走完整 framework。 |
+| U8 work-beta | CE 更新 Codex sandbox flags，并把 `delegate_effort` 改为 per-batch `effective_effort` floor。 | 当前 `full-auto` 仍用过期 `--full-auto`，测试还断言旧直通行为。 | 同步 flag 和 effort 语义；`delegate_effort` 只作 floor，`default` 永不作为 literal CLI 值，`minimal`/`low` 只兼容解析且不得降低 batch-picked effort。 |
+| U9 agent-native | CE 将 checklist/anti-patterns/success criteria 拆到 reference，并新增 review/checklists 路由。 | 当前主 skill 仍内联长 checklist。 | 以 reference index 为默认；只有现有 intake table 需要编号入口时才新增 route 14，避免为拆文件扩大 public route surface。 |
+| U10 git-worktree | CE 用 `${CLAUDE_SKILL_DIR:-.}` 和 `allowed-tools` 修 Claude bundled script path。 | 当前 bare path 会失败；更关键是 `git-worktree` 没有 delivered internal runtime，adapter 也不会 rewrite internal skill self path。 | 不照搬 CE 单行 fallback；采用 `CLAUDE_SKILL_DIR` 分支 + 可被 adapter 改写的 source fallback，并让 sync/plan/inspect/doctor 使用同源 projection context。 |
+
 ## 测试同步规则
 
 需要同步测试，但不同步 CE `tests/**` 目录本身。
@@ -181,23 +196,27 @@ npm run test:smoke
 - 保留 `isOutdated` 作为 relocation signal，不当作 resolution signal。
 - 主 skill 负责 mode routing；脚本只负责事实抓取。
 - 输出 JSON shape 必须兼容旧 consumer；分页实现不能把 `--slurp` 顶层数组泄漏给调用方。
-- thread 内 comments 超过第一页时必须有明确策略：要么分页完整读取，要么在输出中暴露截断事实并让 LLM 不把缺失当作 confirmed absence。
+- 两个脚本必须使用项目 shell 基线 `set -euo pipefail`；可选位置参数用 `${2:-}` / `${3:-}` 等形式读取，避免 strict mode 下 unbound variable。
+- thread 内 comments 超过第一页时必须有明确策略：要么分页完整读取，要么选择 `comments(first: 100)` 时同时读取 `comments.pageInfo` 并在输出或错误中暴露 truncation/unsupported fact，让 LLM 不把缺失当作 confirmed absence。`get-thread-for-comment` 若目标 comment 未命中且存在截断 thread，不得报普通 "No thread found"。
 
 **测试必须覆盖：**
 
 - `reviewThreads` 两页合并。
 - issue comments 两页合并。
 - reviews 两页合并。
-- thread 内 comments 超过第一页时的处理策略。
+- thread 内 comments 超过第一页时的处理策略，包括未完整分页时的 truncation/unsupported 输出。
 - `get-thread-for-comment` 的目标 comment 在第二页 thread 时仍能定位。
+- `get-thread-for-comment` 在未命中但存在 truncated comments thread 时不输出 confirmed absence。
 - `isOutdated` 保留为 relocation signal。
 - slurp 后数组 shape 被归一成旧 consumer 兼容 JSON。
+- strict-mode shell 语法和可选参数读取不触发 unbound variable。
 
 **验证：**
 
 ```bash
 npx jest tests/unit/resolve-pr-feedback-contracts.test.js tests/unit/resolve-pr-feedback-pagination.test.js --runInBand
-bash -n skills/resolve-pr-feedback/scripts/get-pr-comments skills/resolve-pr-feedback/scripts/get-thread-for-comment
+bash -n skills/resolve-pr-feedback/scripts/get-pr-comments
+bash -n skills/resolve-pr-feedback/scripts/get-thread-for-comment
 ```
 
 ### U3. 同步计划模板拆分与实施单元标题
@@ -240,7 +259,7 @@ npx jest tests/unit/spec-plan-contracts.test.js tests/unit/spec-code-review-cont
 
 **目标：** 同步 CE review 降噪规则：文档类型分类、origin slot、plan-origin 抑制、视觉辅助保留、上一轮处理结果抑制，以及发现项表格中的字面管道符转义。
 
-**当前缺口：** 当前 doc-review 已有 headless、decision primer 和部分 requirements/plan/task-pack 识别，但尚未统一按内容形态分类并把 `Document type` / `Origin` 传入 persona prompt；persona 缺少完整的文档类型适配；code-review 尚未稳定识别 `### U1.` 实施单元标题；输出模板未明确要求转义字面 `|`。
+**当前缺口：** 当前 doc-review 已有 headless、decision primer、部分 requirements/plan/task-pack 识别，并已把 `Document type` 传入 subagent prompt；但尚未统一按内容形态分类并把 `Origin` slot 传入 persona prompt，persona 对 requirements / plan / task-pack 的审查重点仍不完整；code-review 尚未稳定识别 `### U1.` 实施单元标题；输出模板未明确要求转义字面 `|`。
 
 **修改范围：**
 
@@ -272,6 +291,15 @@ npx jest tests/unit/spec-plan-contracts.test.js tests/unit/spec-code-review-cont
 - Walkthrough 常规菜单保留 `Auto-resolve with best judgment on the rest`，只有 advisory-only finding 才出现 Acknowledge 替代。
 - Code review 的需求完整性检查同时读取 Requirements 和标题式实施单元。
 - 规则分层：document classification、origin slot、finding presentation 和 walkthrough 归 shared template / synthesis；persona agent 只消费这些上下文字段并给出本 lens 的语义判断，避免把同一 markdown/分类规则复制进每个 persona。
+
+**测试必须覆盖：**
+
+- `Document type` 继续传入 reviewer prompt，并且 persona 文案按 requirements / plan / task-pack 区分审查重点。
+- plan frontmatter `origin:` 被提取为 `Origin` slot 并进入 reviewer prompt。
+- `origin:` plan 不常规重审 WHAT/WHY；只有 plan 自身引入新战略、架构风险或范围扩展时才允许相关 findings。
+- Markdown findings table cell 内的字面 `|` 被转义，不破坏 pipe-delimited table。
+- Diagram / visual aid 不因 redundancy 被建议删除；不一致时优先更新内容。
+- 常规 walkthrough 菜单保留 `Auto-resolve with best judgment on the rest`；`Acknowledge` 只在 advisory-only 或缺少 `suggested_fix` 的 no-apply 场景出现。
 
 **验证：**
 
@@ -403,6 +431,7 @@ npx jest tests/unit/spec-debug-contracts.test.js --runInBand
 - 每个批次计算 `effective_effort`：`default | medium | high | xhigh`。
 - `effective_effort=default` 时省略 `-c`；永不传 literal `"default"`。
 - Config floor 只能抬高不能降低已选择的 effort。
+- `work_delegate_effort=minimal|low` 仅作为历史/用户配置兼容输入解析；它们不得让 batch-picked effort 低于当前选择，也不得生成 `model_reasoning_effort="minimal"` 或 `"low"`。需要更低默认时交给 `~/.codex/config.toml`，本 workflow 不主动下调。
 - 保留 beta opt-in、consent 和 `~/.codex/config.toml` default deferral。
 - 更新现有旧断言，不能只新增 contract；当前断言 `If delegate_effort is set` 的旧行为必须迁移为 floor/effective effort 表达。
 
@@ -415,6 +444,7 @@ npx jest tests/unit/spec-debug-contracts.test.js --runInBand
 - 不出现 direct `<delegate_effort>` passthrough 到 `codex exec`。
 - `delegate_effort` 被描述为 config floor，只能 raise 不能 lower。
 - 每个 batch 使用 `effective_effort`。
+- `minimal` / `low` 配置不会作为 `model_reasoning_effort` literal 发给 `codex exec`。
 
 **验证：**
 
@@ -463,7 +493,17 @@ npx jest tests/unit/agent-native-architecture-contracts.test.js --runInBand
 
 **当前缺口：** 当前 docs/examples 使用 `bash scripts/worktree-manager.sh`。Claude Code runtime Bash cwd 是用户项目，不是 skill dir，bare relative path 会失败。更深一层，`git-worktree` 虽在 governance 里声明为 dual-host internal，但当前 filtered asset set 不交付它；即使交付，adapter 也只对 workflow skills 做 `skills/<skill>/...` path rewrite，internal skill 的 source path 不会被改成 runtime skill dir。
 
-**设计决策：** 不使用 `${CLAUDE_SKILL_DIR}` 作为唯一机制，也不放弃它。采用“Claude skill dir 优先 + host-neutral fallback + adapter runtime rewrite”：source 中写等价于 `bash "${CLAUDE_SKILL_DIR:-$(git rev-parse --show-toplevel)/skills/git-worktree}/scripts/worktree-manager.sh" ...` 的形式；runtime projection 时由 adapter 把 fallback 中的 `skills/git-worktree/` rewrite 到当前 host 的 runtime skill dir。这样 Claude marketplace/global skill 可优先使用 host 提供的 `CLAUDE_SKILL_DIR`，Codex 和项目本地 runtime 使用 project-root fallback，本地源码运行仍指向 source `skills/git-worktree/`。
+**设计决策：** 不使用 `${CLAUDE_SKILL_DIR}` 作为唯一机制，也不放弃它。采用“Claude skill dir 优先 + host-neutral fallback + adapter runtime rewrite”：Claude marketplace/global skill 优先使用 host 提供的 `CLAUDE_SKILL_DIR`；fallback 使用可被 adapter 精确改写的 source path。推荐 source 形态是显式两分支，而不是把 `skills/git-worktree` 塞进 `${VAR:-...}` 路径展开里：
+
+```bash
+if [ -n "${CLAUDE_SKILL_DIR:-}" ]; then
+  bash "${CLAUDE_SKILL_DIR}/scripts/worktree-manager.sh" create <branch-name> [from-branch]
+else
+  (cd "$(git rev-parse --show-toplevel)" && bash skills/git-worktree/scripts/worktree-manager.sh create <branch-name> [from-branch])
+fi
+```
+
+这让本地源码 fallback 继续指向 source `skills/git-worktree/`，同时让 adapter 能把 `bash skills/git-worktree/scripts/...` 改写成当前 host 的 runtime skill dir。若实现者坚持单行参数展开，例如 `${CLAUDE_SKILL_DIR:-$(git rev-parse --show-toplevel)/skills/git-worktree}/...`，必须同步扩展 rewrite 正则并用 exact-string regression 证明该形态会被正确改写；不能只凭 prose 断言 rewrite 会发生。
 
 **修改范围：**
 
@@ -486,7 +526,7 @@ npx jest tests/unit/agent-native-architecture-contracts.test.js --runInBand
 - 将 `AGENT_FACING_INTERNAL_SKILLS` 改名或重构为语义更准确的 delivered internal allowlist，例如 `DELIVERED_INTERNAL_SKILLS`，并加入 `git-worktree`。
 - adapter path rewrite 不再只服务 workflow skills；`syncSkills()` / `planSkillsSync()` 应把实际 target dir 作为 `runtimeSkillRoot` 传给 adapter，让 standalone/internal/workflow 都可按同一规则 rewrite 当前 skill 自己的 `skills/<skillName>/...` source path。
 - `inspectSkills()` / `inspectSkillIntegrity()` / doctor 间接调用的 expected-content 渲染必须使用与 `syncSkills()`、`planSkillsSync()` 相同的 `runtimeSkillRoot` 计算。否则 `spec-first init` 刚写出的 `git-worktree` runtime 会因为 expected content 没有同样 rewrite 而被误报 `content_mismatch`。
-- `git-worktree` source 命令使用 `${CLAUDE_SKILL_DIR:-$(git rev-parse --show-toplevel)/skills/git-worktree}/scripts/worktree-manager.sh` 形态或等价实现；adapter 只 rewrite fallback 中的 `skills/git-worktree/`，runtime 中分别得到 `.claude/skills/git-worktree/` 或 `.agents/skills/git-worktree/` fallback。
+- `git-worktree` source 命令使用“`CLAUDE_SKILL_DIR` 分支 + `cd "$(git rev-parse --show-toplevel)" && bash skills/git-worktree/scripts/worktree-manager.sh ...` fallback”的推荐形态，或使用经过 exact rewrite regression 证明的等价实现。adapter 只 rewrite fallback 中的 `skills/git-worktree/`，runtime 中分别得到 `.claude/skills/git-worktree/` 或 `.agents/skills/git-worktree/` fallback。
 - Examples 和 Integration section 同步更新。
 - 当前 source 已有 `allowed-tools` 用法，因此 `git-worktree` 必须加窄 Bash allow pattern，例如 `Bash(bash *worktree-manager.sh*)` 或项目 frontmatter/generator 支持的等价最窄形式。
 - 不允许把 allow pattern 退化成 `Bash(bash *)`。
@@ -497,6 +537,7 @@ npx jest tests/unit/agent-native-architecture-contracts.test.js --runInBand
 
 - 不再出现 bare `bash scripts/worktree-manager.sh`。
 - Creating / Examples / Integration 都使用 `CLAUDE_SKILL_DIR` 优先、repo-root `skills/git-worktree/` fallback 的 source path，或其经过 adapter rewrite 后的 host runtime fallback path。
+- exact rewrite regression：把 `SKILL.md` 中实际出现的 git-worktree 命令片段交给 Claude/Codex adapter，断言 source fallback `bash skills/git-worktree/scripts/worktree-manager.sh` 会被改写为 host runtime path；同时断言不会残留不可改写形态，例如 `/skills/git-worktree}` 或其他被参数展开包住、当前 regex 无法命中的 path segment。
 - Claude planned runtime 包含 `.claude/skills/git-worktree/scripts/worktree-manager.sh`。
 - Codex planned runtime 包含 `.agents/skills/git-worktree/scripts/worktree-manager.sh`。
 - `buildFilteredAssetSet('claude')` 与 `buildFilteredAssetSet('codex')` 的 `internalSkills` 包含 `git-worktree`。
@@ -531,6 +572,24 @@ npm run test:smoke
 11. U9 agent-native reference 拆分。
 
 U1 与 U10 的前三个批次应尽量同一个 PR/commit group 落地：U1 会移除两个 delivered internal primitives，U10 会新增一个 delivered internal helper；合批能避免 catalog/README 计数多次漂移，并一次性验证 stale cleanup 与 fresh install。U3 先于 U4，因为 code-review 需要识别新的实施单元标题；但 U3 不能在 U4 reader/parser contract 通过前单独视为完成。U1/U10、U8 是 runtime 可用性或 deadlock 风险，优先级高于纯 prose 瘦身。每个单元都必须先更新或新增聚焦测试，再改 source。
+
+## 逐步执行检查清单
+
+每个批次按同一节奏执行：
+
+1. 读取当前 source 与 CE 对应 source，只把 CE 行为翻译成 `spec-*` / 当前宿主边界，不整文件覆盖。
+2. 先写或更新最窄 contract test，包含正向、负向和 stale regression；确认测试在当前 source 下能暴露缺口。
+3. 修改 source-of-truth 文件；不手改 `.claude/`、`.codex/`、`.agents/skills/`。
+4. 运行该批次的聚焦测试与 `git diff --check`；涉及脚本时补 `bash -n`，涉及 runtime projection 时补 dry-run / inspect no-drift。
+5. 更新 `CHANGELOG.md`；用户可见 runtime/README/catalog 变化标注 `(user-visible)`。
+6. 进入下一批次前复查 diff，确认没有 CE-only branding、无关 refactor、generated runtime patch 或旧字段残留。
+
+U1/U10 shared runtime foundation 的具体顺序：
+
+1. 先补 runtime capability / governance / path rewrite / inspect no-drift tests，冻结当前缺口。
+2. 重构 delivered internal allowlist 和 adapter transform context，让实际 runtime target dir 成为 path rewrite 输入。
+3. 贯通 `syncSkills()`、`planSkillsSync()`、`inspectSkills()`、`inspectSkillIntegrity()` 和 doctor 消费链路，保证写入与预期内容同源。
+4. 再分别迁移 U1 session scripts、退役 primitives，并交付 U10 `git-worktree`；最后统一生成 catalog/README 计数。
 
 ## 最终验证
 
