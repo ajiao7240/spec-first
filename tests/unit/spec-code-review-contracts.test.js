@@ -28,6 +28,10 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).toContain('they do not update compiled `query_ready`');
     expect(text).toContain('definitions-only evidence');
     expect(text).toContain('local file/symbol pointers');
+    expect(text).toContain('live MCP/provider startup or call fails');
+    expect(text).toContain('treat that provider as degraded evidence rather than a reviewer failure');
+    expect(text).toContain('do not repeatedly probe the same unavailable provider across personas');
+    expect(text).toContain('Record the provider degradation once in Coverage');
     expect(text).toContain('External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment');
     expect(text).toContain('group changed files by Git repo');
     expect(text).toContain('Resolve graph readiness, diff context, impact evidence, and test suggestions per child repo');
@@ -158,6 +162,70 @@ describe('spec-code-review CE sync contracts', () => {
     expect(text).not.toContain('gpt-5.4-nano');
   });
 
+  test('runtime readiness preflight prevents multiplying broken MCP startup across reviewers', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const claudeRuntime = renderWorkflowSkill('claude');
+    const codexRuntime = renderWorkflowSkill('codex');
+
+    for (const content of [text, claudeRuntime, codexRuntime]) {
+      expect(content).toContain('Runtime readiness preflight');
+      expect(content).toContain('spec-mcp-setup');
+      expect(content).toContain('detect-tools.sh');
+      expect(content).toContain('host_config_status: ready | fallback-active | not-required');
+      expect(content).toContain('host_config_status: action-required | precedence-blocked');
+      expect(content).toContain('not safe for multi-persona dispatch');
+      expect(content).toContain('runtime boundary issue');
+      expect(content).toContain('Record it once in Coverage');
+      expect(content).toContain('Graph provider `query_ready: false`');
+      expect(content).toContain('does not by itself disable reviewer dispatch');
+      expect(content).toContain('When a required MCP server is not host-config-ready before dispatch');
+      expect(content).toContain('do not spawn reviewer agents');
+      expect(content).toContain('single_agent_report_only_fallback: true');
+      expect(content).toContain('runtime readiness preflight unavailable');
+      expect(content).toContain('MCP startup incomplete');
+    }
+
+    expect(text).toContain('bash skills/spec-mcp-setup/scripts/detect-tools.sh');
+    expect(claudeRuntime).toContain('bash .claude/spec-first/workflows/spec-mcp-setup/scripts/detect-tools.sh');
+    expect(codexRuntime).toContain('bash .agents/skills/spec-mcp-setup/scripts/detect-tools.sh');
+    expect(codexRuntime).toContain('| Claude runtime | `bash .claude/spec-first/workflows/spec-mcp-setup/scripts/detect-tools.sh` |');
+    expect(codexRuntime).not.toContain('| Claude runtime | `bash .agents/skills/spec-mcp-setup/scripts/detect-tools.sh` |');
+  });
+
+  test('Codex reviewer dispatch avoids fork_context and agent_type parameter conflicts', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const codexRuntime = renderWorkflowSkill('codex');
+
+    for (const content of [text, codexRuntime]) {
+      expect(content).toContain('Codex `spawn_agent` parameter hygiene');
+      expect(content).toContain('Codex reviewer prompts are self-contained');
+      expect(content).toContain('pass the persona, diff-scope rules, output schema, PR metadata, intent, file list, diff, and standards paths');
+      expect(content).toContain('Dispatch one reviewer per `spawn_agent` call');
+      expect(content).toContain('do not bundle multiple reviewer personas into one sub-agent prompt');
+      expect(content).toContain('prefer the default sub-agent type and omit `agent_type`');
+      expect(content).toContain('specialized by the prompt, not by a generic explorer/worker role');
+      expect(content).toContain('omit `fork_context`');
+      expect(content).toContain('do not combine `fork_context: true` with `agent_type`');
+      expect(content).toContain('If a runtime requires `fork_context: true`');
+      expect(content).toContain('omit `agent_type` and still include the full self-contained review context');
+      expect(content).toContain('correct the parameters once and retry through the bounded scheduler');
+      expect(content).toContain('not a reviewer failure');
+    }
+  });
+
+  test('workflow progress updates do not expose private reasoning scratchpads', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Progress Reporting Boundary');
+    expect(text).toContain('User-visible progress updates are operational evidence, not a reasoning scratchpad.');
+    expect(text).toContain('Do not expose private deliberation, tentative inner monologue, or first-person reasoning');
+    expect(text).toContain('"I\'m thinking"');
+    expect(text).toContain('"I need to consider"');
+    expect(text).toContain('"I think"');
+    expect(text).toContain('state the verified limitation and the next check');
+    expect(text).toContain('Use the session language for new prose');
+  });
+
   test('resolve-base script lives under scripts and runtime calls use the trusted skill path', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     const claudeRuntime = renderWorkflowSkill('claude');
@@ -272,6 +340,16 @@ describe('spec-code-review CE sync contracts', () => {
     expect(text).toContain('Bounded parallel dispatch');
     expect(text).toContain('Respect the current harness\'s active-subagent limit');
     expect(text).toContain('active-agent/thread/concurrency-limit spawn errors as backpressure');
+    expect(text).toContain('Start with at most 4 active reviewer agents');
+    expect(text).toContain('Do not launch every selected reviewer in one burst');
+    expect(text).toContain('A generic `Agent spawn failed` with one or more active reviewers is presumed capacity/backpressure first');
+    expect(text).toContain('Wait for any active reviewer to complete');
+    expect(text).toContain('retry the same queued reviewer once');
+    expect(text).toContain('A spawn failure that includes `MCP startup incomplete`, `MCP startup failed`, or a required MCP server name');
+    expect(text).toContain('Stop launching new reviewers');
+    expect(text).toContain('collect any already-started reviewers that can complete');
+    expect(text).toContain('apply remaining persona lenses inline through the single-agent report-only fallback');
+    expect(text).toContain('Only mark a queued reviewer as failed after the bounded retry path rules out capacity/backpressure');
     expect(text).toContain('Spawn validators with bounded parallelism');
     expect(text).toContain('bounded queueing rules in Stage 4');
     expect(text).toContain('supports reviewer dispatch but not parallel sub-agents');

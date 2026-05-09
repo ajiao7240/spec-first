@@ -8,6 +8,7 @@ BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-provi
 WORKSPACE_TARGET_RESOLVER="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
 GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | (.package // "") + "@" + (.version // "")' "$TOOLS_JSON")"
+CODE_REVIEW_GRAPH_PACKAGE="$(jq -r '.tools[] | select(.id == "code-review-graph") | (.package // "") + "@" + (.version // "")' "$TOOLS_JSON")"
 GITNEXUS_QUERY_PROBE="TradeLoginActivity"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -119,11 +120,11 @@ SH
   cat > "$bin_dir/uvx" <<SH
 #!/bin/bash
 echo "uvx \$*" >> "$log_file"
-if [[ "\${FAIL_CRG_CACHE_PERMISSION:-}" = "1" && " \$* " == *" code-review-graph build "* ]]; then
+if [[ "\${FAIL_CRG_CACHE_PERMISSION:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAPH_PACKAGE build "* ]]; then
   echo "error: failed to open file \"/Users/spec/.cache/uv/sdists-v9/.git\": Operation not permitted (os error 1)" >&2
   exit 2
 fi
-if [[ "\${FAIL_CRG_PACKAGE_NOT_FOUND:-}" = "1" && " \$* " == *" code-review-graph build "* ]]; then
+if [[ "\${FAIL_CRG_PACKAGE_NOT_FOUND:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAPH_PACKAGE build "* ]]; then
   echo "warning: Tools cannot be upgraded via \`uvx\`; use \`uv tool upgrade --all\` to upgrade all installed tools, or \`uvx package@latest\` to run the latest version of a tool." >&2
   echo "  × No solution found when resolving tool dependencies:" >&2
   echo "  ╰─▶ Because code-review-graph was not found in the package registry and" >&2
@@ -131,11 +132,11 @@ if [[ "\${FAIL_CRG_PACKAGE_NOT_FOUND:-}" = "1" && " \$* " == *" code-review-grap
   echo "      are unsatisfiable." >&2
   exit 1
 fi
-if [[ "\${FAIL_CRG_BUILD:-}" = "1" && " \$* " == *" code-review-graph build "* ]]; then
+if [[ "\${FAIL_CRG_BUILD:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAPH_PACKAGE build "* ]]; then
   echo "build failed" >&2
   exit 43
 fi
-if [[ "\${HANG_CRG_BUILD:-}" = "1" && " \$* " == *" code-review-graph build "* ]]; then
+if [[ "\${HANG_CRG_BUILD:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAPH_PACKAGE build "* ]]; then
   sleep 5
   exit 0
 fi
@@ -215,9 +216,9 @@ JSON
       "dependency_status": "ready",
       "host_config_status": "ready",
       "commands": {
-        "bootstrap": ["uvx", "--upgrade", "code-review-graph", "build"],
-        "status": ["uvx", "--upgrade", "code-review-graph", "status"],
-        "query_probe": ["uvx", "--upgrade", "code-review-graph", "status", "--repo", "$repo_root"]
+        "bootstrap": ["uvx", "$CODE_REVIEW_GRAPH_PACKAGE", "build"],
+        "status": ["uvx", "$CODE_REVIEW_GRAPH_PACKAGE", "status"],
+        "query_probe": ["uvx", "$CODE_REVIEW_GRAPH_PACKAGE", "status", "--repo", "$repo_root"]
       }
     }
   },
@@ -466,7 +467,7 @@ assert_eq "workspace explicit child runs primary bootstrap" "primary" "$(jq -r '
 assert_eq "workspace explicit child records explicit selection" "explicit-repo" "$(jq -r '.selection_source' <<<"$workspace_selected_output")"
 assert "workspace explicit child writes child graph facts" test -f "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json"
 assert "workspace explicit child leaves parent graph clean" test ! -e "$TMP_DIR/workspace/.spec-first/graph"
-assert_contains "workspace explicit child runs provider from child root" "uvx --upgrade code-review-graph status --repo $WORKSPACE_REPO_A_ROOT" "$(cat "$COMMAND_LOG")"
+assert_contains "workspace explicit child runs provider from child root" "uvx $CODE_REVIEW_GRAPH_PACKAGE status --repo $WORKSPACE_REPO_A_ROOT" "$(cat "$COMMAND_LOG")"
 
 workspace_targets_after_bootstrap="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
 assert_eq "dirty graph facts with matching fingerprint stay usable" "primary:false" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | .status + ":" + (.freshness.dirty_uncertain | tostring)' <<<"$workspace_targets_after_bootstrap")"
@@ -508,7 +509,7 @@ assert "primary output is JSON" jq -e . <<<"$primary_output"
 assert_eq "primary workflow mode" "primary" "$(jq -r '.workflow_mode' <<<"$primary_output")"
 assert_contains "runs gitnexus analyze with force rebuild" "npx -y $GITNEXUS_PACKAGE analyze --force" "$(cat "$COMMAND_LOG")"
 assert_contains "runs gitnexus query proof" "npx -y $GITNEXUS_PACKAGE query $GITNEXUS_QUERY_PROBE --repo $(basename "$PRIMARY_REPO_ROOT")" "$(cat "$COMMAND_LOG")"
-assert_contains "runs latest code-review-graph query proof" "uvx --upgrade code-review-graph status --repo $PRIMARY_REPO_ROOT" "$(cat "$COMMAND_LOG")"
+assert_contains "runs pinned code-review-graph query proof" "uvx $CODE_REVIEW_GRAPH_PACKAGE status --repo $PRIMARY_REPO_ROOT" "$(cat "$COMMAND_LOG")"
 assert "provider status aggregate exists" test -f "$PRIMARY_REPO/.spec-first/graph/provider-status.json"
 assert "graph facts exists" test -f "$PRIMARY_REPO/.spec-first/graph/graph-facts.json"
 assert "impact capabilities exists" test -f "$PRIMARY_REPO/.spec-first/impact/bootstrap-impact-capabilities.json"
@@ -532,7 +533,7 @@ assert_eq "provider status records command timing" "true" "$(jq -r 'all(.command
 assert_eq "provider status records provider timing" "true" "$(jq -r '(.timing.started_at | type == "string") and (.timing.finished_at | type == "string") and (.timing.duration_ms | type == "number") and (.timing.duration_ms >= 0)' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "final output records single repo timing" "true" "$(jq -r '(.timing.started_at | type == "string") and (.timing.finished_at | type == "string") and (.timing.duration_ms | type == "number") and (.timing.duration_ms >= 0)' <<<"$primary_output")"
 assert_eq "GitNexus provider records version-safe reuse facts" "graph-bootstrap-fingerprint.v1:true:pinned:cold-run:$GITNEXUS_PACKAGE:$GITNEXUS_PACKAGE" "$(jq -r '.bootstrap_fingerprint.schema_version + ":" + (.reuse_eligible | tostring) + ":" + .bootstrap_fingerprint.provider.version_policy + ":" + .readiness_source + ":" + (.bootstrap_fingerprint.provider.configured_package_spec // "") + ":" + (.bootstrap_fingerprint.provider.bundled_package_spec // "")' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
-assert_eq "code-review-graph provider is marked floating and not reusable" "false:provider-version-unverifiable:floating-unverifiable" "$(jq -r '.reuse_eligible as $eligible | "\($eligible):\(.reuse_ineligible_reason):\(.bootstrap_fingerprint.provider.version_policy)"' "$PRIMARY_REPO/.spec-first/providers/code-review-graph/status.json")"
+assert_eq "code-review-graph provider records version-safe reuse facts" "graph-bootstrap-fingerprint.v1:true:pinned:cold-run:$CODE_REVIEW_GRAPH_PACKAGE:$CODE_REVIEW_GRAPH_PACKAGE" "$(jq -r '.bootstrap_fingerprint.schema_version + ":" + (.reuse_eligible | tostring) + ":" + .bootstrap_fingerprint.provider.version_policy + ":" + .readiness_source + ":" + (.bootstrap_fingerprint.provider.configured_package_spec // "") + ":" + (.bootstrap_fingerprint.provider.bundled_package_spec // "")' "$PRIMARY_REPO/.spec-first/providers/code-review-graph/status.json")"
 assert_eq "bootstrap fingerprint includes invalidation hashes" "true" "$(jq -r '(.bootstrap_fingerprint.repo_snapshot.worktree_status_hash | startswith("sha256:")) and (.bootstrap_fingerprint.spec_first.graph_bootstrap_script_hash | startswith("sha256:")) and (.bootstrap_fingerprint.spec_first.mcp_tools_hash | startswith("sha256:")) and (.bootstrap_fingerprint.provider_projection.graph_providers_hash | startswith("sha256:")) and (.bootstrap_fingerprint.provider.command_hash | startswith("sha256:"))' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "graph-bootstrap does not mutate provider config input" "$primary_provider_config_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
 assert_eq "graph-bootstrap does not mutate runtime capabilities input" "$primary_runtime_capabilities_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
@@ -648,11 +649,11 @@ VERSIONED_REPO="$TMP_DIR/versioned-command-repo"
 VERSIONED_LEDGER="$TMP_DIR/versioned-home/.codex/spec-first/host-setup.json"
 make_repo "$VERSIONED_REPO"
 write_fixture_config "$VERSIONED_REPO" "$VERSIONED_LEDGER" true
-jq '.providers.gitnexus.commands.bootstrap = ["npx","-y","gitnexus@1.2.3","analyze"]' "$VERSIONED_REPO/.spec-first/config/graph-providers.json" > "$VERSIONED_REPO/.spec-first/config/graph-providers.json.tmp"
+jq --arg gitnexus_package "$GITNEXUS_PACKAGE" '.providers.gitnexus.commands.bootstrap = ["npx","-y",$gitnexus_package,"analyze"]' "$VERSIONED_REPO/.spec-first/config/graph-providers.json" > "$VERSIONED_REPO/.spec-first/config/graph-providers.json.tmp"
 mv "$VERSIONED_REPO/.spec-first/config/graph-providers.json.tmp" "$VERSIONED_REPO/.spec-first/config/graph-providers.json"
 versioned_output="$(cd "$VERSIONED_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "safe command array variation remains accepted" "primary" "$(jq -r '.workflow_mode' <<<"$versioned_output")"
-assert_contains "bootstrap executes command from config array" "npx -y gitnexus@1.2.3 analyze" "$(cat "$COMMAND_LOG")"
+assert_contains "bootstrap executes command from config array" "npx -y $GITNEXUS_PACKAGE analyze" "$(cat "$COMMAND_LOG")"
 
 DISABLED_REPO="$TMP_DIR/disabled-provider-repo"
 DISABLED_LEDGER="$TMP_DIR/disabled-home/.codex/spec-first/host-setup.json"
@@ -710,6 +711,66 @@ set -e
 assert_eq "metachar command fails closed" "1" "$metachar_status"
 assert_eq "metachar command reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$metachar_output")"
 assert_eq "metachar command is not shell-interpreted" "$before_metachar_log" "$(cat "$COMMAND_LOG")"
+
+CRG_LATEST_REPO="$TMP_DIR/crg-latest-repo"
+CRG_LATEST_LEDGER="$TMP_DIR/crg-latest-home/.codex/spec-first/host-setup.json"
+make_repo "$CRG_LATEST_REPO"
+write_fixture_config "$CRG_LATEST_REPO" "$CRG_LATEST_LEDGER" true
+jq '.providers["code-review-graph"].commands.bootstrap = ["uvx","code-review-graph@latest","build"]' "$CRG_LATEST_REPO/.spec-first/config/graph-providers.json" > "$CRG_LATEST_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$CRG_LATEST_REPO/.spec-first/config/graph-providers.json.tmp" "$CRG_LATEST_REPO/.spec-first/config/graph-providers.json"
+before_crg_latest_log="$(cat "$COMMAND_LOG")"
+set +e
+crg_latest_output="$(cd "$CRG_LATEST_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+crg_latest_status=$?
+set -e
+assert_eq "code-review-graph @latest command fails closed" "1" "$crg_latest_status"
+assert_eq "code-review-graph @latest command reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$crg_latest_output")"
+assert_eq "code-review-graph @latest command is not executed" "$before_crg_latest_log" "$(cat "$COMMAND_LOG")"
+
+CRG_OTHER_PACKAGE_REPO="$TMP_DIR/crg-other-package-repo"
+CRG_OTHER_PACKAGE_LEDGER="$TMP_DIR/crg-other-package-home/.codex/spec-first/host-setup.json"
+make_repo "$CRG_OTHER_PACKAGE_REPO"
+write_fixture_config "$CRG_OTHER_PACKAGE_REPO" "$CRG_OTHER_PACKAGE_LEDGER" true
+jq '.providers["code-review-graph"].commands.bootstrap = ["uvx","other-package@2.3.3","build"]' "$CRG_OTHER_PACKAGE_REPO/.spec-first/config/graph-providers.json" > "$CRG_OTHER_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$CRG_OTHER_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp" "$CRG_OTHER_PACKAGE_REPO/.spec-first/config/graph-providers.json"
+before_crg_other_package_log="$(cat "$COMMAND_LOG")"
+set +e
+crg_other_package_output="$(cd "$CRG_OTHER_PACKAGE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+crg_other_package_status=$?
+set -e
+assert_eq "code-review-graph arbitrary package command fails closed" "1" "$crg_other_package_status"
+assert_eq "code-review-graph arbitrary package command reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$crg_other_package_output")"
+assert_eq "code-review-graph arbitrary package command is not executed" "$before_crg_other_package_log" "$(cat "$COMMAND_LOG")"
+
+CRG_METACHAR_REPO="$TMP_DIR/crg-metachar-repo"
+CRG_METACHAR_LEDGER="$TMP_DIR/crg-metachar-home/.codex/spec-first/host-setup.json"
+make_repo "$CRG_METACHAR_REPO"
+write_fixture_config "$CRG_METACHAR_REPO" "$CRG_METACHAR_LEDGER" true
+jq '.providers["code-review-graph"].commands.bootstrap = ["uvx","code-review-graph@2.3.3;rm","build"]' "$CRG_METACHAR_REPO/.spec-first/config/graph-providers.json" > "$CRG_METACHAR_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$CRG_METACHAR_REPO/.spec-first/config/graph-providers.json.tmp" "$CRG_METACHAR_REPO/.spec-first/config/graph-providers.json"
+before_crg_metachar_log="$(cat "$COMMAND_LOG")"
+set +e
+crg_metachar_output="$(cd "$CRG_METACHAR_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+crg_metachar_status=$?
+set -e
+assert_eq "code-review-graph metachar package command fails closed" "1" "$crg_metachar_status"
+assert_eq "code-review-graph metachar package command reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$crg_metachar_output")"
+assert_eq "code-review-graph metachar package command is not executed" "$before_crg_metachar_log" "$(cat "$COMMAND_LOG")"
+
+CRG_EXTRA_ARG_REPO="$TMP_DIR/crg-extra-arg-repo"
+CRG_EXTRA_ARG_LEDGER="$TMP_DIR/crg-extra-arg-home/.codex/spec-first/host-setup.json"
+make_repo "$CRG_EXTRA_ARG_REPO"
+write_fixture_config "$CRG_EXTRA_ARG_REPO" "$CRG_EXTRA_ARG_LEDGER" true
+jq '.providers["code-review-graph"].commands.status += ["--verbose"]' "$CRG_EXTRA_ARG_REPO/.spec-first/config/graph-providers.json" > "$CRG_EXTRA_ARG_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$CRG_EXTRA_ARG_REPO/.spec-first/config/graph-providers.json.tmp" "$CRG_EXTRA_ARG_REPO/.spec-first/config/graph-providers.json"
+before_crg_extra_arg_log="$(cat "$COMMAND_LOG")"
+set +e
+crg_extra_arg_output="$(cd "$CRG_EXTRA_ARG_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+crg_extra_arg_status=$?
+set -e
+assert_eq "code-review-graph unexpected extra arg fails closed" "1" "$crg_extra_arg_status"
+assert_eq "code-review-graph unexpected extra arg reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$crg_extra_arg_output")"
+assert_eq "code-review-graph unexpected extra arg is not executed" "$before_crg_extra_arg_log" "$(cat "$COMMAND_LOG")"
 
 LEGACY_TOKEN_REPO="$TMP_DIR/legacy-token-repo"
 LEGACY_TOKEN_LEDGER="$TMP_DIR/legacy-token-home/.codex/spec-first/host-setup.json"
@@ -806,6 +867,103 @@ assert_eq "stale GitNexus projection is not reuse eligible" "false:provider-proj
 assert_contains "stale package action names spec-mcp-setup" "Rerun spec-mcp-setup" "$(jq -r '.results[] | select(.provider=="gitnexus") | .recommended_action' <<<"$stale_package_output")"
 assert_contains "stale package action names current projected package" "gitnexus@0.0.0-test" "$(jq -r '.results[] | select(.provider=="gitnexus") | .recommended_action' <<<"$stale_package_output")"
 assert_not_contains "stale GitNexus package command is not executed" "gitnexus@0.0.0-test" "$(cat "$COMMAND_LOG")"
+
+STALE_GITNEXUS_STATUS_REPO="$TMP_DIR/stale-gitnexus-status-repo"
+STALE_GITNEXUS_STATUS_LEDGER="$TMP_DIR/stale-gitnexus-status-home/.codex/spec-first/host-setup.json"
+make_repo "$STALE_GITNEXUS_STATUS_REPO"
+write_fixture_config "$STALE_GITNEXUS_STATUS_REPO" "$STALE_GITNEXUS_STATUS_LEDGER" true
+jq '
+  .providers["code-review-graph"].enabled_for_bootstrap = false
+  | .providers.gitnexus.commands.status[2] = "gitnexus@0.0.0-status"
+' "$STALE_GITNEXUS_STATUS_REPO/.spec-first/config/graph-providers.json" > "$STALE_GITNEXUS_STATUS_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$STALE_GITNEXUS_STATUS_REPO/.spec-first/config/graph-providers.json.tmp" "$STALE_GITNEXUS_STATUS_REPO/.spec-first/config/graph-providers.json"
+before_stale_gitnexus_status_log="$(cat "$COMMAND_LOG")"
+stale_gitnexus_status_output="$(cd "$STALE_GITNEXUS_STATUS_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "mixed GitNexus status projection is blocked before provider commands" "failed:false:false:preflight-blocked" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.graph_ready):\(.query_ready):\(.readiness_source)"' <<<"$stale_gitnexus_status_output")"
+assert_eq "mixed GitNexus status projection recommends setup refresh" "gitnexus-provider-projection-stale:provider-projection-stale:projection-stale" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.reason_code):\(.failure_class):\(.bootstrap_fingerprint.provider.version_policy)"' <<<"$stale_gitnexus_status_output")"
+assert_eq "mixed GitNexus status projection does not execute provider commands" "$before_stale_gitnexus_status_log" "$(cat "$COMMAND_LOG")"
+
+STALE_CRG_PACKAGE_REPO="$TMP_DIR/stale-crg-package-repo"
+STALE_CRG_PACKAGE_LEDGER="$TMP_DIR/stale-crg-package-home/.codex/spec-first/host-setup.json"
+make_repo "$STALE_CRG_PACKAGE_REPO"
+write_fixture_config "$STALE_CRG_PACKAGE_REPO" "$STALE_CRG_PACKAGE_LEDGER" true
+jq '
+  .providers["code-review-graph"].commands.bootstrap = ["uvx","--upgrade","code-review-graph","build"]
+  | .providers["code-review-graph"].commands.status = ["uvx","--upgrade","code-review-graph","status"]
+  | .providers["code-review-graph"].commands.query_probe = ["uvx","--upgrade","code-review-graph","status","--repo",.repo_root]
+' "$STALE_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json" > "$STALE_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$STALE_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp" "$STALE_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json"
+stale_crg_package_output="$(cd "$STALE_CRG_PACKAGE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "stale code-review-graph projection is blocked before provider commands" "failed:false:false:preflight-blocked" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.graph_ready):\(.query_ready):\(.readiness_source)"' <<<"$stale_crg_package_output")"
+assert_eq "stale code-review-graph projection recommends setup refresh" "code-review-graph-provider-projection-stale:provider-projection-stale:preflight" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reason_code):\(.failure_class):\(.failed_phase)"' <<<"$stale_crg_package_output")"
+assert_eq "stale code-review-graph projection is not reuse eligible" "false:provider-projection-stale:projection-stale" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reuse_eligible):\(.reuse_ineligible_reason):\(.bootstrap_fingerprint.provider.version_policy)"' <<<"$stale_crg_package_output")"
+assert_contains "stale code-review-graph package action names spec-mcp-setup" "Rerun spec-mcp-setup" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .recommended_action' <<<"$stale_crg_package_output")"
+assert_contains "stale code-review-graph package action names current projected package" "code-review-graph" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .recommended_action' <<<"$stale_crg_package_output")"
+assert_contains "stale code-review-graph package action names bundled package" "$CODE_REVIEW_GRAPH_PACKAGE" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .recommended_action' <<<"$stale_crg_package_output")"
+assert_not_contains "stale code-review-graph package command is not executed" "uvx --upgrade code-review-graph" "$(cat "$COMMAND_LOG")"
+
+FLOATING_CRG_PACKAGE_REPO="$TMP_DIR/floating-crg-package-repo"
+FLOATING_CRG_PACKAGE_LEDGER="$TMP_DIR/floating-crg-package-home/.codex/spec-first/host-setup.json"
+make_repo "$FLOATING_CRG_PACKAGE_REPO"
+write_fixture_config "$FLOATING_CRG_PACKAGE_REPO" "$FLOATING_CRG_PACKAGE_LEDGER" true
+jq '
+  .providers.gitnexus.enabled_for_bootstrap = false
+  | .providers["code-review-graph"].commands.bootstrap = ["uvx","--upgrade","code-review-graph","build"]
+  | .providers["code-review-graph"].commands.status = ["uvx","--upgrade","code-review-graph","status"]
+  | .providers["code-review-graph"].commands.query_probe = ["uvx","--upgrade","code-review-graph","status","--repo",.repo_root]
+' "$FLOATING_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json" > "$FLOATING_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$FLOATING_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp" "$FLOATING_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json"
+before_floating_crg_package_log="$(cat "$COMMAND_LOG")"
+floating_crg_package_output="$(cd "$FLOATING_CRG_PACKAGE_REPO" && PATH="$TEST_PATH" SPEC_FIRST_MCP_TOOLS_JSON="$TMP_DIR/missing-mcp-tools.json" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "floating code-review-graph projection is blocked before provider commands" "failed:false:false:preflight-blocked" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.graph_ready):\(.query_ready):\(.readiness_source)"' <<<"$floating_crg_package_output")"
+assert_eq "floating code-review-graph projection uses version-unverifiable reason" "code-review-graph-provider-version-unverifiable:provider-version-unverifiable:preflight" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reason_code):\(.failure_class):\(.failed_phase)"' <<<"$floating_crg_package_output")"
+assert_eq "floating code-review-graph projection is not reuse eligible" "false:provider-version-unverifiable:floating-unverifiable" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reuse_eligible):\(.reuse_ineligible_reason):\(.bootstrap_fingerprint.provider.version_policy)"' <<<"$floating_crg_package_output")"
+assert_eq "floating code-review-graph package command is not executed" "$before_floating_crg_package_log" "$(cat "$COMMAND_LOG")"
+
+STALE_CRG_STATUS_REPO="$TMP_DIR/stale-crg-status-repo"
+STALE_CRG_STATUS_LEDGER="$TMP_DIR/stale-crg-status-home/.codex/spec-first/host-setup.json"
+make_repo "$STALE_CRG_STATUS_REPO"
+write_fixture_config "$STALE_CRG_STATUS_REPO" "$STALE_CRG_STATUS_LEDGER" true
+jq '
+  .providers.gitnexus.enabled_for_bootstrap = false
+  | .providers["code-review-graph"].commands.status = ["uvx","--upgrade","code-review-graph","status"]
+' "$STALE_CRG_STATUS_REPO/.spec-first/config/graph-providers.json" > "$STALE_CRG_STATUS_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$STALE_CRG_STATUS_REPO/.spec-first/config/graph-providers.json.tmp" "$STALE_CRG_STATUS_REPO/.spec-first/config/graph-providers.json"
+before_stale_crg_status_log="$(cat "$COMMAND_LOG")"
+stale_crg_status_output="$(cd "$STALE_CRG_STATUS_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "mixed code-review-graph status projection is blocked before provider commands" "failed:false:false:preflight-blocked" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.graph_ready):\(.query_ready):\(.readiness_source)"' <<<"$stale_crg_status_output")"
+assert_eq "mixed code-review-graph status projection recommends setup refresh" "code-review-graph-provider-projection-stale:provider-projection-stale:projection-stale" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reason_code):\(.failure_class):\(.bootstrap_fingerprint.provider.version_policy)"' <<<"$stale_crg_status_output")"
+assert_eq "mixed code-review-graph status projection does not execute provider commands" "$before_stale_crg_status_log" "$(cat "$COMMAND_LOG")"
+
+STALE_CRG_QUERY_REPO="$TMP_DIR/stale-crg-query-repo"
+STALE_CRG_QUERY_LEDGER="$TMP_DIR/stale-crg-query-home/.codex/spec-first/host-setup.json"
+make_repo "$STALE_CRG_QUERY_REPO"
+write_fixture_config "$STALE_CRG_QUERY_REPO" "$STALE_CRG_QUERY_LEDGER" true
+jq '
+  .providers.gitnexus.enabled_for_bootstrap = false
+  | .providers["code-review-graph"].commands.query_probe = ["uvx","--refresh","code-review-graph","status","--repo",.repo_root]
+' "$STALE_CRG_QUERY_REPO/.spec-first/config/graph-providers.json" > "$STALE_CRG_QUERY_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$STALE_CRG_QUERY_REPO/.spec-first/config/graph-providers.json.tmp" "$STALE_CRG_QUERY_REPO/.spec-first/config/graph-providers.json"
+before_stale_crg_query_log="$(cat "$COMMAND_LOG")"
+stale_crg_query_output="$(cd "$STALE_CRG_QUERY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "mixed code-review-graph query projection is blocked before provider commands" "failed:false:false:preflight-blocked" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.graph_ready):\(.query_ready):\(.readiness_source)"' <<<"$stale_crg_query_output")"
+assert_eq "mixed code-review-graph query projection recommends setup refresh" "code-review-graph-provider-projection-stale:provider-projection-stale:projection-stale" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reason_code):\(.failure_class):\(.bootstrap_fingerprint.provider.version_policy)"' <<<"$stale_crg_query_output")"
+assert_eq "mixed code-review-graph query projection does not execute provider commands" "$before_stale_crg_query_log" "$(cat "$COMMAND_LOG")"
+
+STALE_CRG_VERSION_REPO="$TMP_DIR/stale-crg-version-repo"
+STALE_CRG_VERSION_LEDGER="$TMP_DIR/stale-crg-version-home/.codex/spec-first/host-setup.json"
+make_repo "$STALE_CRG_VERSION_REPO"
+write_fixture_config "$STALE_CRG_VERSION_REPO" "$STALE_CRG_VERSION_LEDGER" true
+jq '
+  .providers.gitnexus.enabled_for_bootstrap = false
+  | .providers["code-review-graph"].commands.status = ["uvx","code-review-graph@2.3.2","status"]
+' "$STALE_CRG_VERSION_REPO/.spec-first/config/graph-providers.json" > "$STALE_CRG_VERSION_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$STALE_CRG_VERSION_REPO/.spec-first/config/graph-providers.json.tmp" "$STALE_CRG_VERSION_REPO/.spec-first/config/graph-providers.json"
+before_stale_crg_version_log="$(cat "$COMMAND_LOG")"
+stale_crg_version_output="$(cd "$STALE_CRG_VERSION_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "mixed code-review-graph version projection is blocked before provider commands" "failed:false:false:preflight-blocked" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.graph_ready):\(.query_ready):\(.readiness_source)"' <<<"$stale_crg_version_output")"
+assert_eq "mixed code-review-graph version projection recommends setup refresh" "code-review-graph-provider-projection-stale:provider-projection-stale:projection-stale" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reason_code):\(.failure_class):\(.bootstrap_fingerprint.provider.version_policy)"' <<<"$stale_crg_version_output")"
+assert_eq "mixed code-review-graph version projection does not execute provider commands" "$before_stale_crg_version_log" "$(cat "$COMMAND_LOG")"
 
 DEFINITIONS_ONLY_REPO="$TMP_DIR/definitions-only-repo"
 DEFINITIONS_ONLY_LEDGER="$TMP_DIR/definitions-only-home/.codex/spec-first/host-setup.json"

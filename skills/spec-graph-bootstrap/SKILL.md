@@ -149,7 +149,7 @@ This parent-workspace bootstrap rule is separate from read-only workspace graph 
 
 ## Provider Command Safety
 
-Provider command arrays are config-defined, but they are not arbitrary shell commands. GitNexus package/version selection is not owned here: `spec-mcp-setup` projects the package spec from `skills/spec-mcp-setup/mcp-tools.json` into `.spec-first/config/graph-providers.json`, and this workflow only validates and executes that projected argv.
+Provider command arrays are config-defined, but they are not arbitrary shell commands. Provider package/version selection is not owned here: `spec-mcp-setup` projects the package specs from `skills/spec-mcp-setup/mcp-tools.json` into `.spec-first/config/graph-providers.json`, and this workflow only validates and executes that projected argv.
 
 `spec-graph-bootstrap` must:
 
@@ -172,15 +172,15 @@ Allowed minimum command shapes are:
   },
   "code-review-graph": {
     "commands": {
-      "bootstrap": ["uvx", "--upgrade", "code-review-graph", "build"],
-      "status": ["uvx", "--upgrade", "code-review-graph", "status"],
-      "query_probe": ["uvx", "--upgrade", "code-review-graph", "status", "--repo", "<repo-root>"]
+      "bootstrap": ["uvx", "<configured-code-review-graph-package>", "build"],
+      "status": ["uvx", "<configured-code-review-graph-package>", "status"],
+      "query_probe": ["uvx", "<configured-code-review-graph-package>", "status", "--repo", "<repo-root>"]
     }
   }
 }
 ```
 
-The current display forms are `npx -y <configured-gitnexus-package> analyze --force`, `npx -y <configured-gitnexus-package> status`, `npx -y <configured-gitnexus-package> query <expected-source-basename> --repo <repo-name>`, `uvx --upgrade code-review-graph build`, and `uvx --upgrade code-review-graph status --repo <repo-root>`; the script still executes the validated arrays from `graph-providers.json`, not these prose strings. The bootstrap script owns the safety allowlist (provider id, executable, package name, and subcommand shape); `mcp-tools.json` remains the package/version source, and `graph-providers.json` remains the projected command argv source.
+The current display forms are `npx -y <configured-gitnexus-package> analyze --force`, `npx -y <configured-gitnexus-package> status`, `npx -y <configured-gitnexus-package> query <expected-source-basename> --repo <repo-name>`, `uvx <configured-code-review-graph-package> build`, and `uvx <configured-code-review-graph-package> status --repo <repo-root>`; the script still executes the validated arrays from `graph-providers.json`, not these prose strings. The bootstrap script owns the safety allowlist (provider id, executable, package name, and subcommand shape); `mcp-tools.json` remains the package/version source, and `graph-providers.json` remains the projected command argv source.
 
 Reject string commands, `bash -c`, `sh -c`, and unsupported executable/package shapes. Shell metacharacters inside an array argument must not be interpreted by a shell.
 
@@ -201,9 +201,9 @@ Each provider status also includes `readiness_source`, `reuse_eligible`, `reuse_
 
 This phase does not skip provider commands and does not reuse existing graph artifacts. `reuse_eligible=true` only means the provider has enough deterministic freshness facts to be considered by a later explicit fast path. Downstream LLM workflows must treat it as a script-owned fact, not as proof that the current run reused cached evidence.
 
-GitNexus can be `reuse_eligible=true` only when the setup-projected package in `graph-providers.json` matches the bundled package/version from `skills/spec-mcp-setup/mcp-tools.json`, which records `version_policy=pinned`. If the projected GitNexus package differs from the bundled package, bootstrap fails closed before running GitNexus commands with `readiness_source=preflight-blocked`, `reason_code=gitnexus-provider-projection-stale`, `failure_class=provider-projection-stale`, and `failed_phase=preflight`. The recommended action is to rerun `spec-mcp-setup` so setup refreshes the projected provider command argv.
+GitNexus and `code-review-graph` can be `reuse_eligible=true` only when the setup-projected package in `graph-providers.json` matches the bundled package/version from `skills/spec-mcp-setup/mcp-tools.json`, which records `version_policy=pinned`. If the projected package differs from the bundled package, bootstrap fails closed before running that provider's commands with `readiness_source=preflight-blocked`, `failure_class=provider-projection-stale`, and `failed_phase=preflight`. GitNexus uses `reason_code=gitnexus-provider-projection-stale`; `code-review-graph` uses `reason_code=code-review-graph-provider-projection-stale`. If `code-review-graph` package identity is floating or cannot be verified from the bundled registry, bootstrap also fails closed before provider execution with `failure_class=provider-version-unverifiable` and `reason_code=code-review-graph-provider-version-unverifiable`. The recommended action is to rerun `spec-mcp-setup` so setup refreshes the projected provider command argv.
 
-`code-review-graph` currently uses a floating `uvx --upgrade code-review-graph` command surface, so it records `reuse_eligible=false`, `reuse_ineligible_reason=provider-version-unverifiable`, and `version_policy=floating-unverifiable`. It may still be graph/query ready for the current cold run; the reuse fields only constrain future cache reuse.
+`code-review-graph` daily graph-bootstrap uses the pinned `uvx code-review-graph@<version>` command surface. Updating it means changing the source pin in `mcp-tools.json`, rerunning setup projection, and recording the change; `@latest` / `--refresh` belong to explicit update or probe work, not the default bootstrap path. After this fix, operators may reclaim older uv tool environments manually with `uv cache clean code-review-graph`; graph-bootstrap must not run cache cleanup automatically.
 
 ## Readiness Evidence
 
@@ -308,6 +308,7 @@ These workspace summaries are advisory control-plane evidence only. They do not 
 - Provider build failure: mark that provider failed, preserve raw logs, and use fallback workflow mode only when fallback capabilities are available.
 - GitNexus host instruction normalization failure: record `host_instruction_normalization` as advisory evidence only. `gitnexus-instruction-block-partial`, `gitnexus-instruction-normalizer-failed`, and `gitnexus-instruction-normalizer-timeout` must not change provider `graph_ready` / `query_ready`; they only indicate host prose cleanup needs follow-up.
 - GitNexus analyze storage write/open failure: if bootstrap diagnostics show `Cannot open file ... .gitnexus/lbug ... Error 3` or the Windows path variant, return `reason_code=gitnexus-analyze-storage-write-failed`, `failure_class=provider-storage-write-failed`, preserve `analyze.log`, and first recommend refreshing setup projection to the bundled GitNexus package before rerunning bootstrap. If the current bundled package still fails, treat it as provider storage/lock/permission recovery and require explicit human-scoped repair such as archiving/removing stale `.gitnexus`; do not auto-delete provider index state.
+- Provider projection stale or unverifiable: if the setup-projected package differs from the bundled package in `mcp-tools.json`, return `failure_class=provider-projection-stale`, `failed_phase=preflight`, and provider-specific reason codes such as `gitnexus-provider-projection-stale` or `code-review-graph-provider-projection-stale`; if the `code-review-graph` package identity is floating or unverifiable, return `failure_class=provider-version-unverifiable` with `reason_code=code-review-graph-provider-version-unverifiable`. Do not run stale or floating CRG provider commands.
 - `code-review-graph` package resolution failure: if bootstrap diagnostics show the active Python package index cannot find `code-review-graph`, return `reason_code=provider-package-not-found`, `failure_class=provider-package-resolution-failed`, and recommend unsetting `UV_INDEX_URL` / `PIP_INDEX_URL` or using an index that contains `code-review-graph`. Do not silently override the user's package-index environment.
 - Build/status success with query proof failure: preserve `graph_ready=true` where status verified, keep `query_ready=false`, record limitations and raw logs. If GitNexus query fails because the setup-projected `--repo` label differs from `.gitnexus/meta.json` or git remote basename, write `reason_code=gitnexus-repo-label-mismatch` with an action to rerun `spec-mcp-setup` and then `spec-graph-bootstrap`; do not mutate setup-owned `graph-providers.json`.
 - GitNexus FTS/read-only/missing-index query diagnostics: preserve `query_ready=false` and write a structured `recommended_action`. If the setup-projected GitNexus package differs from the bundled `spec-mcp-setup` tool contract, write `reason_code=gitnexus-query-provider-projection-stale` and recommend rerunning `spec-mcp-setup` before `spec-graph-bootstrap`; otherwise write `reason_code=gitnexus-query-fts-readonly` and recommend repairing GitNexus index storage/permissions or clean reanalysis with a fixed provider version. Do not mark the provider ready from build/status alone.

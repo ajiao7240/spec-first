@@ -1,7 +1,7 @@
 ---
 title: fix: pin code-review-graph uvx provider commands
 type: fix
-status: active
+status: completed
 date: 2026-05-09
 spec_id: 2026-05-09-005-code-review-graph-uvx-pin
 ---
@@ -65,6 +65,9 @@ spec_id: 2026-05-09-005-code-review-graph-uvx-pin
 - Source-of-truth:
   - `skills/spec-mcp-setup/mcp-tools.json`
   - `skills/spec-mcp-setup/scripts/write-provider-config.sh`
+  - `skills/spec-mcp-setup/scripts/write-provider-config.ps1`
+  - `skills/spec-mcp-setup/SKILL.md`
+  - `skills/spec-mcp-setup/references/supported-mcp-tools.md`
   - `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh`
   - `skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1`
   - `skills/spec-graph-bootstrap/SKILL.md`
@@ -239,6 +242,39 @@ Implementation should update source first. Regenerating local runtime config is 
 
 ---
 
+### U4.5. Record CRG provider fingerprint and reuse facts
+
+**Goal:** Make pinned CRG package identity visible to downstream fast-path and review consumers.
+
+**Requirements:** R2, R3, R6
+
+**Files:**
+
+- Modify: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh`
+- Modify: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1`
+- Test: `tests/unit/spec-graph-bootstrap.sh`
+- Test: `tests/unit/mcp-setup-powershell-contracts.test.js`
+
+**Approach:**
+
+- Read the setup-projected CRG package spec from `graph-providers.json`.
+- Read the bundled CRG package spec from `mcp-tools.json`.
+- Set `version_policy=pinned` and `reuse_eligible=true` only when they match.
+- Set `version_policy=projection-stale`, `reuse_eligible=false`, `reuse_ineligible_reason=provider-projection-stale`, and `readiness_source=preflight-blocked` when stale generated config still points at `uvx --upgrade code-review-graph`.
+- Emit `reason_code=code-review-graph-provider-projection-stale` and avoid executing stale CRG commands.
+
+**Test Scenarios:**
+
+- Normal: CRG provider status records configured/bundled package specs, `version_policy=pinned`, and `reuse_eligible=true`.
+- Regression: legacy `uvx --upgrade code-review-graph` projection is classified as stale before provider execution.
+- Parity: Bash and PowerShell expose the same stale projection reason code.
+
+**Acceptance:**
+
+- Downstream fast-path work can distinguish pinned CRG readiness from stale or floating provider configuration using script-owned facts.
+
+---
+
 ### U5. Update graph-bootstrap prose and operational cleanup guidance
 
 **Goal:** Make the new version/caching model visible and avoid automatic destructive cleanup.
@@ -274,14 +310,16 @@ Implementation should update source first. Regenerating local runtime config is 
 
 Run the narrowest checks first:
 
-1. `npm run test:graph-bootstrap`
-   - Proves Bash graph-bootstrap fixtures, CRG command validation, and provider diagnostics.
-2. `npm run test:unit -- tests/unit/mcp-setup-powershell-contracts.test.js`
+1. `npm run test:mcp-setup`
+   - Proves setup warmup, optional MCP template expansion, and generated provider projection use the source pin.
+2. `npm run test:graph-bootstrap`
+   - Proves Bash graph-bootstrap fixtures, CRG command validation, provider diagnostics, and pinned reuse facts.
+3. `npx jest tests/unit/mcp-setup-powershell-contracts.test.js --runInBand`
    - Proves PowerShell/static parity for provider command projection and validation wording.
-3. Focused grep/static checks:
+4. Focused grep/static checks:
    - No default CRG graph-bootstrap command in source fixtures contains `uvx --upgrade code-review-graph`.
    - Pinned `code-review-graph@<version>` appears in source projection and expected fixtures.
-4. Optional source projection smoke after implementation:
+5. Optional source projection smoke after implementation:
    - Regenerate local provider config with the normal setup command and inspect `.spec-first/config/graph-providers.json` as generated output only.
 
 Full `npm test` is optional unless implementation touches shared setup helpers or graph-bootstrap canonical artifact schema beyond command shape.

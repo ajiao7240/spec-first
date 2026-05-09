@@ -80,6 +80,33 @@ function Read-CanonicalJson {
   return $null
 }
 
+function Get-StatusHash {
+  param([string]$Text)
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
+    $hash = $sha.ComputeHash($bytes)
+    return 'sha256:' + ([BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant())
+  } finally {
+    $sha.Dispose()
+  }
+}
+
+function Get-ProviderCommandHashForCommands {
+  param([object]$Commands)
+  $ordered = [ordered]@{}
+  if ($Commands -is [System.Collections.IDictionary]) {
+    foreach ($name in @($Commands.Keys | Sort-Object)) {
+      $ordered[[string]$name] = @($Commands[$name])
+    }
+  } else {
+    foreach ($property in @($Commands.PSObject.Properties | Where-Object { $_.MemberType -eq 'NoteProperty' } | Sort-Object Name)) {
+      $ordered[[string]$property.Name] = @($property.Value)
+    }
+  }
+  return (Get-StatusHash -Text ($ordered | ConvertTo-Json -Depth 20 -Compress))
+}
+
 function ConvertTo-ComparableProjectionJson {
   param([object]$Projection)
   if ($null -eq $Projection) { return '' }
@@ -233,6 +260,7 @@ function Get-ProviderCommands {
     [string]$Provider,
     [string]$RepoRoot,
     [string]$GitNexusPackageSpec,
+    [string]$CodeReviewGraphPackageSpec,
     [object]$GitNexusQueryProbePolicy,
     [string]$GitNexusRepoName
   )
@@ -245,9 +273,9 @@ function Get-ProviderCommands {
   }
   if ($Provider -eq 'code-review-graph') {
     return [ordered]@{
-      bootstrap = @('uvx', '--upgrade', 'code-review-graph', 'build')
-      status = @('uvx', '--upgrade', 'code-review-graph', 'status')
-      query_probe = @('uvx', '--upgrade', 'code-review-graph', 'status', '--repo', $RepoRoot)
+      bootstrap = @('uvx', $CodeReviewGraphPackageSpec, 'build')
+      status = @('uvx', $CodeReviewGraphPackageSpec, 'status')
+      query_probe = @('uvx', $CodeReviewGraphPackageSpec, 'status', '--repo', $RepoRoot)
     }
   }
   return [ordered]@{}
@@ -516,6 +544,35 @@ function Get-PreviousReadiness {
   }
 }
 
+function Test-CanonicalProviderFreshForCurrent {
+  param(
+    [object]$CanonicalProviderStatus,
+    [string]$Provider,
+    [string]$CurrentPackageSpec,
+    [string]$CurrentCommandHash
+  )
+  if ($null -eq $CanonicalProviderStatus -or $null -eq $CanonicalProviderStatus.providers) {
+    return $false
+  }
+  $matches = @($CanonicalProviderStatus.providers | Where-Object { $_.provider -eq $Provider } | Select-Object -First 1)
+  if ($matches.Count -le 0) {
+    return $false
+  }
+  $status = $matches[0]
+  if ($null -eq $status.bootstrap_fingerprint -or $null -eq $status.bootstrap_fingerprint.provider) {
+    return $false
+  }
+  $fingerprint = $status.bootstrap_fingerprint.provider
+  return (
+    -not [string]::IsNullOrWhiteSpace($CurrentPackageSpec) -and
+    -not [string]::IsNullOrWhiteSpace($CurrentCommandHash) -and
+    [string]$fingerprint.version_policy -eq 'pinned' -and
+    [string]$fingerprint.configured_package_spec -eq $CurrentPackageSpec -and
+    [string]$fingerprint.bundled_package_spec -eq $CurrentPackageSpec -and
+    [string]$fingerprint.command_hash -eq $CurrentCommandHash
+  )
+}
+
 function Test-ProviderReady {
   param([object]$Provider)
   $hostReady = (
@@ -596,6 +653,17 @@ if ([string]::IsNullOrWhiteSpace($gitNexusPackage) -or [string]::IsNullOrWhiteSp
   throw 'GitNexus package/version fields not found in mcp-tools.json'
 }
 $gitNexusPackageSpec = "$gitNexusPackage@$gitNexusVersion"
+$codeReviewGraphTool = @($toolsJson.tools | Where-Object { $_.id -eq 'code-review-graph' } | Select-Object -First 1)
+if ($codeReviewGraphTool.Count -eq 0) {
+  throw 'code-review-graph tool entry not found in mcp-tools.json'
+}
+$codeReviewGraphEntry = $codeReviewGraphTool[0]
+$codeReviewGraphPackage = if ($null -ne $codeReviewGraphEntry.PSObject.Properties['package']) { [string]$codeReviewGraphEntry.package } else { '' }
+$codeReviewGraphVersion = if ($null -ne $codeReviewGraphEntry.PSObject.Properties['version']) { [string]$codeReviewGraphEntry.version } else { '' }
+if ([string]::IsNullOrWhiteSpace($codeReviewGraphPackage) -or [string]::IsNullOrWhiteSpace($codeReviewGraphVersion)) {
+  throw 'code-review-graph package/version fields not found in mcp-tools.json'
+}
+$codeReviewGraphPackageSpec = "$codeReviewGraphPackage@$codeReviewGraphVersion"
 $gitNexusQueryProbePolicy = Get-GitNexusQueryProbePolicy -RepoRoot $repoRoot
 $gitNexusRepoName = Get-GitNexusRepoName -RepoRoot $repoRoot -Facts $facts
 $graphFactsPath = Join-Path $repoRoot '.spec-first/graph/graph-facts.json'
@@ -632,9 +700,13 @@ foreach ($property in $facts.graph_providers.PSObject.Properties) {
   $provider = $property.Value
   $ready = Test-ProviderReady -Provider $provider
   $previous = Get-PreviousReadiness -Existing $existingProvider -Provider $property.Name -CanonicalArtifactsCurrent $canonicalArtifactsCurrent -CanonicalProviderStatus $canonicalProviderStatus
+  $commands = Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -CodeReviewGraphPackageSpec $codeReviewGraphPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy -GitNexusRepoName $gitNexusRepoName
+  $currentPackageSpec = if ($property.Name -eq 'gitnexus') { $gitNexusPackageSpec } elseif ($property.Name -eq 'code-review-graph') { $codeReviewGraphPackageSpec } else { '' }
+  $currentCommandHash = Get-ProviderCommandHashForCommands -Commands $commands
   $preserveQueryReady = (
     $ready -and
     $canonicalArtifactsCurrent -and
+    (Test-CanonicalProviderFreshForCurrent -CanonicalProviderStatus $canonicalProviderStatus -Provider $property.Name -CurrentPackageSpec $currentPackageSpec -CurrentCommandHash $currentCommandHash) -and
     [bool]$previous.query_ready -and
     -not [bool]$previous.bootstrap_required
   )
@@ -650,7 +722,7 @@ foreach ($property in $facts.graph_providers.PSObject.Properties) {
     dependency_status = $provider.dependency_status
     host_config_status = $provider.host_config_status
     capabilities = @($provider.capabilities)
-    commands = Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy -GitNexusRepoName $gitNexusRepoName
+    commands = $commands
     query_probe_policy = if ($property.Name -eq 'gitnexus') { $gitNexusQueryProbePolicy } else { $null }
     artifacts = Get-ProviderArtifacts -Provider $property.Name
     next_action = if ($ready -and $preserveQueryReady) { '' } elseif ($ready) { 'run spec-graph-bootstrap' } else { 'Fix provider setup and rerun spec-mcp-setup.' }
@@ -665,6 +737,15 @@ foreach ($property in $facts.graph_providers.PSObject.Properties) {
 }
 
 $graphBootstrapRequired = [bool](@($readiness.Values | Where-Object { $_.bootstrap_required }).Count)
+$derivedWorkflowMode = if ($canonicalArtifactsCurrent) {
+  if ($graphBootstrapRequired -and $canonicalWorkflowMode -eq 'primary') { 'setup-ready-bootstrap-required' } else { $canonicalWorkflowMode }
+} elseif ($graphBootstrapRequired) {
+  'setup-ready-bootstrap-required'
+} elseif ($null -ne $existingProvider -and $null -ne $existingProvider.derived_readiness -and $existingProvider.derived_readiness.workflow_mode) {
+  $existingProvider.derived_readiness.workflow_mode
+} else {
+  'setup-ready-bootstrap-required'
+}
 $providerPayload = [ordered]@{
   schema_version = 'graph-providers.v1'
   generated_by = 'spec-mcp-setup'
@@ -674,7 +755,7 @@ $providerPayload = [ordered]@{
   derived_readiness = [ordered]@{
     updated_by = 'spec-mcp-setup'
     updated_at = if ($canonicalArtifactsCurrent) { $canonicalUpdatedAt } elseif ($graphBootstrapRequired) { $null } elseif ($null -ne $existingProvider -and $null -ne $existingProvider.derived_readiness) { $existingProvider.derived_readiness.updated_at } else { $null }
-    workflow_mode = if ($canonicalArtifactsCurrent) { $canonicalWorkflowMode } elseif ($graphBootstrapRequired) { 'setup-ready-bootstrap-required' } elseif ($null -ne $existingProvider -and $null -ne $existingProvider.derived_readiness -and $existingProvider.derived_readiness.workflow_mode) { $existingProvider.derived_readiness.workflow_mode } else { 'setup-ready-bootstrap-required' }
+    workflow_mode = $derivedWorkflowMode
     graph_bootstrap_required = $graphBootstrapRequired
     provider_status_artifact = '.spec-first/graph/provider-status.json'
     graph_facts_artifact = '.spec-first/graph/graph-facts.json'
@@ -713,12 +794,14 @@ $projectGraphReadiness = [ordered]@{
 }
 if ($canonicalArtifactsCurrent) {
   $canonicalConfidence = if ($canonicalGraphFacts.PSObject.Properties.Name -contains 'confidence') { $canonicalGraphFacts.confidence } else { 'medium' }
+  $providerBootstrapRequired = [bool]$providerPayload.derived_readiness.graph_bootstrap_required
+  $projectGraphReadinessStatus = if ($providerBootstrapRequired -and $canonicalWorkflowMode -eq 'primary') { 'setup-ready-bootstrap-required' } else { $canonicalWorkflowMode }
   $projectGraphReadiness = [ordered]@{
-    status = $canonicalWorkflowMode
+    status = $projectGraphReadinessStatus
     canonical_graph_facts_artifact = '.spec-first/graph/graph-facts.json'
     provider_status_artifact = '.spec-first/graph/provider-status.json'
     impact_capabilities_artifact = '.spec-first/impact/bootstrap-impact-capabilities.json'
-    graph_bootstrap_required = ($canonicalWorkflowMode -ne 'primary')
+    graph_bootstrap_required = ($providerBootstrapRequired -or $canonicalWorkflowMode -ne 'primary')
     updated_by = 'spec-mcp-setup'
     updated_at = $canonicalUpdatedAt
     confidence = $canonicalConfidence

@@ -40,7 +40,7 @@ Use this workflow when the user asks to install, repair, verify, or diagnose spe
 Do not use this workflow to:
 
 - compile graph readiness itself; hand off to `spec-graph-bootstrap` after setup facts are ready;
-- run GitNexus analyze/status/query or code-review-graph build/status/query provider commands;
+- run GitNexus analyze/status/query or `code-review-graph` build/status/query provider commands;
 - choose product requirements, implementation plans, review findings, or architecture tradeoffs;
 - install optional live `code-review-graph serve` MCP unless the user explicitly requests that enhancement;
 - delete legacy local files or user-authored host config sections outside explicit uninstall/delete commands;
@@ -107,7 +107,7 @@ Required graph providers:
 - `gitnexus` with role `global_knowledge`
 - `code-review-graph` with role `impact_context`
 
-Graph provider does not always mean host MCP server. `gitnexus` remains a required host MCP server because downstream workflows can use live GitNexus tools for global code knowledge. `code-review-graph` is required as a CLI/provider backend for `spec-graph-bootstrap`, but its host MCP server is optional and must not be installed by default. The default `code-review-graph` access mode is `cli_artifact`: setup warms `uvx code-review-graph`, writes provider command projections, and lets graph-bootstrap compile `.spec-first/graph/*` and `.spec-first/impact/*` facts without adding `[mcp_servers."code-review-graph"]` to Claude/Codex host config. Live `code-review-graph serve` may be configured only as an explicit optional enhancement when the user wants direct MCP tools.
+Graph provider does not always mean host MCP server. `gitnexus` remains a required host MCP server because downstream workflows can use live GitNexus tools for global code knowledge. `code-review-graph` is required as a CLI/provider backend for `spec-graph-bootstrap`, but its host MCP server is optional and must not be installed by default. The default `code-review-graph` access mode is `cli_artifact`: setup warms `uvx <configured-code-review-graph-package>`, writes provider command projections, and lets graph-bootstrap compile `.spec-first/graph/*` and `.spec-first/impact/*` facts without adding `[mcp_servers."code-review-graph"]` to Claude/Codex host config. Live `code-review-graph serve` may be configured only as an explicit optional enhancement when the user wants direct MCP tools.
 
 Required helper tooling outside `mcp-tools.json`:
 
@@ -274,8 +274,8 @@ It must not run:
 - `npx -y <configured-gitnexus-package> analyze`
 - `npx -y <configured-gitnexus-package> status`
 - `npx -y <configured-gitnexus-package> query`
-- `uvx --upgrade code-review-graph build`
-- `uvx --upgrade code-review-graph status`
+- `uvx <configured-code-review-graph-package> build`
+- `uvx <configured-code-review-graph-package> status`
 - the retired internal graph CLI
 
 Graph readiness compilation is owned by `spec-graph-bootstrap`. Re-running setup must not reset an existing canonical project graph readiness summary to `not-bootstrapped` when the current provider setup remains ready.
@@ -426,7 +426,7 @@ npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill ag
 npx -y skills@latest add ast-grep/agent-skill -g -y
 ```
 
-All package-backed setup commands must request the latest available safe version when they install or warm a tool: npm/npx packages normally use `@latest`, `uvx` tool invocations use `--upgrade`, Cargo installs use `--force` where supported, and package-manager handoff commands prefer upgrade-before-install semantics. A package may be pinned only for a documented upstream remediation window; the pin must live in `mcp-tools.json` and all setup/bootstrap projections must read that value instead of hard-coding the package spec. Successful MCP warmups may be cached under `$HOME/.spec-first/cache/mcp-warmup/` by host, platform, tool id, and resolved command hash; `SPEC_FIRST_WARMUP_CACHE_DIR` may override the cache root. Pinned package specs stay valid until the command hash changes, while `@latest` / `--upgrade` warmups use a bounded TTL controlled by `SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS` and defaulting to 86400 seconds. `SPEC_FIRST_FORCE_WARMUP=1` or `SPEC_FIRST_DISABLE_WARMUP_CACHE=1` must force the script back to running the warmup command. `--verify-only` remains read-only and never upgrades tools.
+Package-backed setup commands normally request the latest available safe version when they install or warm a tool: npm/npx packages use `@latest`, floating `uvx` tool invocations use `--upgrade`, Cargo installs use `--force` where supported, and package-manager handoff commands prefer upgrade-before-install semantics. A package may be pinned for a documented upstream remediation or stability window; the pin must live in `mcp-tools.json` and all setup/bootstrap projections must read that value instead of hard-coding the package spec. `code-review-graph` currently uses this pinned path for daily graph-provider bootstrap, so setup, optional live MCP snippets, and `.spec-first/config/graph-providers.json` project `code-review-graph@<version>` from `mcp-tools.json`; explicit update/probe work may use `@latest` or `--refresh` only when changing or validating the source pin. Successful MCP warmups may be cached under `$HOME/.spec-first/cache/mcp-warmup/` by host, platform, tool id, and resolved command hash; `SPEC_FIRST_WARMUP_CACHE_DIR` may override the cache root. Pinned package specs stay valid until the command hash changes, while `@latest` / `--upgrade` warmups use a bounded TTL controlled by `SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS` and defaulting to 86400 seconds. `SPEC_FIRST_FORCE_WARMUP=1` or `SPEC_FIRST_DISABLE_WARMUP_CACHE=1` must force the script back to running the warmup command. `--verify-only` remains read-only and never upgrades tools.
 
 ## Readiness Ledger v2
 
@@ -521,9 +521,9 @@ Expected projection boundaries:
     "code-review-graph": {
       "configured": true,
       "commands": {
-        "bootstrap": ["uvx", "--upgrade", "code-review-graph", "build"],
-        "status": ["uvx", "--upgrade", "code-review-graph", "status"],
-        "query_probe": ["uvx", "--upgrade", "code-review-graph", "status", "--repo", "<repo-root>"]
+        "bootstrap": ["uvx", "<configured-code-review-graph-package>", "build"],
+        "status": ["uvx", "<configured-code-review-graph-package>", "status"],
+        "query_probe": ["uvx", "<configured-code-review-graph-package>", "status", "--repo", "<repo-root>"]
       }
     }
   },

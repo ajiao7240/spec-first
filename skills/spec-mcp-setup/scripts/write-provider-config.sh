@@ -5,6 +5,16 @@ set -euo pipefail
 
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
 
+hash_text() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | awk '{print "sha256:" $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{print "sha256:" $1}'
+  else
+    python3 -c 'import hashlib,sys; print("sha256:" + hashlib.sha256(sys.stdin.buffer.read()).hexdigest())'
+  fi
+}
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
@@ -81,6 +91,10 @@ gitnexus_package_name="$(jq -r '.tools[] | select(.id == "gitnexus") | .package 
 gitnexus_package_version="$(jq -r '.tools[] | select(.id == "gitnexus") | .version // ""' "$TOOLS_JSON")"
 [ -n "$gitnexus_package_name" ] && [ -n "$gitnexus_package_version" ] || { echo "GitNexus package/version fields not found in mcp-tools.json" >&2; exit 1; }
 gitnexus_package="${gitnexus_package_name}@${gitnexus_package_version}"
+code_review_graph_package_name="$(jq -r '.tools[] | select(.id == "code-review-graph") | .package // ""' "$TOOLS_JSON")"
+code_review_graph_package_version="$(jq -r '.tools[] | select(.id == "code-review-graph") | .version // ""' "$TOOLS_JSON")"
+[ -n "$code_review_graph_package_name" ] && [ -n "$code_review_graph_package_version" ] || { echo "code-review-graph package/version fields not found in mcp-tools.json" >&2; exit 1; }
+code_review_graph_package="${code_review_graph_package_name}@${code_review_graph_package_version}"
 GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT=5
 GITNEXUS_QUERY_PROBE_SOURCE_FILE_LIMIT_BYTES=200000
 
@@ -438,6 +452,22 @@ select_gitnexus_query_probe_policy() {
 
 gitnexus_query_probe_policy="$(select_gitnexus_query_probe_policy "$REPO_ROOT")"
 gitnexus_repo_name="$(resolve_gitnexus_repo_name "$REPO_ROOT" "$FACTS_FILE")"
+gitnexus_query_probe_token="$(jq -r '.token // ""' <<<"$gitnexus_query_probe_policy")"
+gitnexus_command_hash="$(jq -n -S -c \
+  --arg gitnexus_package "$gitnexus_package" \
+  --arg query_probe "$gitnexus_query_probe_token" \
+  --arg repo_name "$gitnexus_repo_name" '{
+    bootstrap: ["npx", "-y", $gitnexus_package, "analyze", "--force"],
+    status: ["npx", "-y", $gitnexus_package, "status"],
+    query_probe: ["npx", "-y", $gitnexus_package, "query", $query_probe, "--repo", $repo_name]
+  }' | hash_text)"
+code_review_graph_command_hash="$(jq -n -S -c \
+  --arg code_review_graph_package "$code_review_graph_package" \
+  --arg repo_root "$REPO_ROOT" '{
+    bootstrap: ["uvx", $code_review_graph_package, "build"],
+    status: ["uvx", $code_review_graph_package, "status"],
+    query_probe: ["uvx", $code_review_graph_package, "status", "--repo", $repo_root]
+  }' | hash_text)"
 
 graph_facts_exists=false
 provider_status_exists=false
@@ -465,6 +495,9 @@ jq --arg generated_at "$generated_at" \
    --arg repo_name "$gitnexus_repo_name" \
    --arg repo_root "$REPO_ROOT" \
    --arg gitnexus_package "$gitnexus_package" \
+   --arg code_review_graph_package "$code_review_graph_package" \
+   --arg gitnexus_command_hash "$gitnexus_command_hash" \
+   --arg code_review_graph_command_hash "$code_review_graph_command_hash" \
    --argjson gitnexus_query_probe_policy "$gitnexus_query_probe_policy" \
    --argjson graph_facts_exists "$graph_facts_exists" \
    --argjson provider_status_exists "$provider_status_exists" \
@@ -486,6 +519,28 @@ jq --arg generated_at "$generated_at" \
   def canonical_provider_status($key):
     [($canonical_provider_status.providers // [])[] | select(.provider == $key)][0] // null;
 
+  def current_provider_package($key):
+    if $key == "gitnexus" then $gitnexus_package
+    elif $key == "code-review-graph" then $code_review_graph_package
+    else "" end;
+
+  def current_provider_command_hash($key):
+    if $key == "gitnexus" then $gitnexus_command_hash
+    elif $key == "code-review-graph" then $code_review_graph_command_hash
+    else "" end;
+
+  def canonical_provider_fresh_for_current($key):
+    (canonical_provider_status($key).bootstrap_fingerprint.provider // null) as $fingerprint
+    | (current_provider_package($key)) as $current_package
+    | (current_provider_command_hash($key)) as $current_command_hash
+    | ($fingerprint != null)
+    and ($current_package != "")
+    and ($current_command_hash != "")
+    and (($fingerprint.version_policy // "") == "pinned")
+    and (($fingerprint.configured_package_spec // "") == $current_package)
+    and (($fingerprint.bundled_package_spec // "") == $current_package)
+    and (($fingerprint.command_hash // "") == $current_command_hash);
+
   def provider_ready($provider):
     ($provider.configured == true)
     and ($provider.enabled_for_bootstrap == true)
@@ -503,9 +558,9 @@ jq --arg generated_at "$generated_at" \
       query_probe: ["npx", "-y", $gitnexus_package, "query", $gitnexus_query_probe_policy.token, "--repo", $repo_name]
     }
     elif $key == "code-review-graph" then {
-      bootstrap: ["uvx", "--upgrade", "code-review-graph", "build"],
-      status: ["uvx", "--upgrade", "code-review-graph", "status"],
-      query_probe: ["uvx", "--upgrade", "code-review-graph", "status", "--repo", $repo_root]
+      bootstrap: ["uvx", $code_review_graph_package, "build"],
+      status: ["uvx", $code_review_graph_package, "status"],
+      query_probe: ["uvx", $code_review_graph_package, "status", "--repo", $repo_root]
     }
     else {} end;
 
@@ -535,11 +590,11 @@ jq --arg generated_at "$generated_at" \
     (.graph_providers // {})
     | to_entries
     | map(
-        .key as $key
-        | .value as $current
-        | provider_ready($current) as $ready
-        | previous_readiness($key) as $previous
-        | ($ready and canonical_graph_artifacts_current and ($previous.query_ready == true) and ($previous.bootstrap_required == false)) as $preserve_query_ready
+	        .key as $key
+	        | .value as $current
+	        | provider_ready($current) as $ready
+	        | previous_readiness($key) as $previous
+	        | ($ready and canonical_graph_artifacts_current and canonical_provider_fresh_for_current($key) and ($previous.query_ready == true) and ($previous.bootstrap_required == false)) as $preserve_query_ready
         | {
             key: $key,
             value: {
@@ -584,14 +639,21 @@ jq --arg generated_at "$generated_at" \
     derived_readiness: (
       ([($readiness // {})[] | .bootstrap_required == true] | any) as $bootstrap_required
       | {
-      updated_by: "spec-mcp-setup",
-      updated_at: (if canonical_graph_artifacts_current then ($canonical_provider_status.generated_at // $canonical_graph_facts.generated_at // null) elif $bootstrap_required then null else ($existing.derived_readiness.updated_at // null) end),
-      workflow_mode: (if canonical_graph_artifacts_current then ($canonical_provider_status.workflow_mode // $canonical_graph_facts.workflow_mode // "unknown") elif $bootstrap_required then "setup-ready-bootstrap-required" else ($existing.derived_readiness.workflow_mode // "setup-ready-bootstrap-required") end),
-      graph_bootstrap_required: $bootstrap_required,
-      provider_status_artifact: ($existing.derived_readiness.provider_status_artifact // ".spec-first/graph/provider-status.json"),
-      graph_facts_artifact: ($existing.derived_readiness.graph_facts_artifact // ".spec-first/graph/graph-facts.json"),
-      impact_capabilities_artifact: ($existing.derived_readiness.impact_capabilities_artifact // ".spec-first/impact/bootstrap-impact-capabilities.json"),
-      providers: $readiness
+        updated_by: "spec-mcp-setup",
+        updated_at: (if canonical_graph_artifacts_current then ($canonical_provider_status.generated_at // $canonical_graph_facts.generated_at // null) elif $bootstrap_required then null else ($existing.derived_readiness.updated_at // null) end),
+        workflow_mode: (
+          if canonical_graph_artifacts_current then
+            ($canonical_provider_status.workflow_mode // $canonical_graph_facts.workflow_mode // "unknown") as $mode
+            | if $bootstrap_required and $mode == "primary" then "setup-ready-bootstrap-required" else $mode end
+          elif $bootstrap_required then "setup-ready-bootstrap-required"
+          else ($existing.derived_readiness.workflow_mode // "setup-ready-bootstrap-required")
+          end
+        ),
+        graph_bootstrap_required: $bootstrap_required,
+        provider_status_artifact: ($existing.derived_readiness.provider_status_artifact // ".spec-first/graph/provider-status.json"),
+        graph_facts_artifact: ($existing.derived_readiness.graph_facts_artifact // ".spec-first/graph/graph-facts.json"),
+        impact_capabilities_artifact: ($existing.derived_readiness.impact_capabilities_artifact // ".spec-first/impact/bootstrap-impact-capabilities.json"),
+        providers: $readiness
       }
     ),
     selection: {
@@ -703,12 +765,15 @@ jq --arg generated_at "$generated_at" \
       },
       project_graph_readiness: (
         if canonical_graph_artifacts_current then
+          ($canonical_graph_facts.workflow_mode // $provider[0].derived_readiness.workflow_mode // "unknown") as $canonical_mode
+          | (($provider[0].derived_readiness.graph_bootstrap_required // false) == true) as $provider_bootstrap_required
+          |
           {
-            status: ($canonical_graph_facts.workflow_mode // $provider[0].derived_readiness.workflow_mode // "unknown"),
+            status: (if $provider_bootstrap_required and $canonical_mode == "primary" then "setup-ready-bootstrap-required" else $canonical_mode end),
             canonical_graph_facts_artifact: ($provider[0].derived_readiness.graph_facts_artifact // ".spec-first/graph/graph-facts.json"),
             provider_status_artifact: ($provider[0].derived_readiness.provider_status_artifact // ".spec-first/graph/provider-status.json"),
             impact_capabilities_artifact: ($provider[0].derived_readiness.impact_capabilities_artifact // ".spec-first/impact/bootstrap-impact-capabilities.json"),
-            graph_bootstrap_required: (($canonical_graph_facts.workflow_mode // $provider[0].derived_readiness.workflow_mode // "unknown") != "primary"),
+            graph_bootstrap_required: ($provider_bootstrap_required or ($canonical_mode != "primary")),
             updated_by:"spec-mcp-setup",
             updated_at:($canonical_graph_facts.generated_at // $provider[0].derived_readiness.updated_at // null),
             confidence:($canonical_graph_facts.confidence // "medium"),

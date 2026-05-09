@@ -647,12 +647,16 @@ command_shape_supported() {
       elif $kind == "status" then "status"
       elif $kind == "query_probe" then "query"
       else null end;
-    def crg_tail:
+    def crg_exact_package:
+      type == "string" and test("^code-review-graph@[0-9][0-9A-Za-z._+!-]*$");
+    def crg_legacy_tail:
       if length >= 3 and .[0] == "uvx" and ((.[1] == "--upgrade") or (.[1] == "--refresh")) and .[2] == "code-review-graph" then .[3:]
-      elif length >= 2 and .[0] == "uvx" and .[1] == "code-review-graph" then .[2:]
+      else [] end;
+    def crg_pinned_tail:
+      if length >= 2 and .[0] == "uvx" and (.[1] | crg_exact_package) then .[2:]
       else [] end;
     def crg_shape:
-      (crg_tail) as $tail
+      (if (crg_pinned_tail | length) > 0 then crg_pinned_tail else crg_legacy_tail end) as $tail
       | if $kind == "bootstrap" then $tail == ["build"]
       elif $kind == "status" then $tail == ["status"]
       elif $kind == "query_probe" then $tail == ["status", "--repo", $repo_root]
@@ -895,7 +899,7 @@ gitnexus_query_probe_reason_for_class() {
 }
 
 configured_gitnexus_package_spec() {
-  jq -r '.providers.gitnexus.commands.query_probe[2] // .providers.gitnexus.commands.bootstrap[2] // empty' "$PROVIDER_CONFIG" 2>/dev/null || true
+  provider_configured_package_spec gitnexus
 }
 
 bundled_gitnexus_package_spec() {
@@ -908,27 +912,51 @@ bundled_gitnexus_package_spec() {
   ' "$MCP_TOOLS_JSON" 2>/dev/null | head -n 1
 }
 
+bundled_code_review_graph_package_spec() {
+  [ -f "$MCP_TOOLS_JSON" ] || return 0
+  jq -r '
+    .tools[]?
+    | select(.id == "code-review-graph")
+    | select((.package // "") != "" and (.version // "") != "")
+    | (.package + "@" + .version)
+  ' "$MCP_TOOLS_JSON" 2>/dev/null | head -n 1
+}
+
 provider_configured_package_spec() {
   local provider="$1"
-  if [ "$provider" = "gitnexus" ]; then
-    configured_gitnexus_package_spec
-  elif [ "$provider" = "code-review-graph" ]; then
-    jq -r '
-      (.providers["code-review-graph"].commands.bootstrap // []) as $cmd
-      | if ($cmd[0] // "") == "uvx" and (($cmd[1] // "") == "--upgrade" or ($cmd[1] // "") == "--refresh") then
-          ($cmd[2] // "")
-        elif ($cmd[0] // "") == "uvx" then
-          ($cmd[1] // "")
-        else ""
-        end
-    ' "$PROVIDER_CONFIG" 2>/dev/null || true
-  fi
+  jq -r --arg provider "$provider" '
+    def command_package($config; $provider; $kind):
+      ($config.providers[$provider].commands[$kind] // []) as $cmd
+      | if $provider == "gitnexus" then
+          if ($cmd[0] // "") == "npx" and ($cmd[1] // "") == "-y" then ($cmd[2] // "") else "" end
+        elif $provider == "code-review-graph" then
+          if ($cmd[0] // "") == "uvx" and (($cmd[1] // "") == "--upgrade" or ($cmd[1] // "") == "--refresh") then
+            ($cmd[2] // "")
+          elif ($cmd[0] // "") == "uvx" then
+            ($cmd[1] // "")
+          else ""
+          end
+        else "" end;
+    . as $config
+    |
+    ["bootstrap", "status", "query_probe"] as $phases
+    | ($phases | map(command_package($config; $provider; .))) as $packages
+    | ($packages | map(select(. != "")) | unique) as $unique
+    | if (($packages | all(. != "")) and ($unique | length == 1)) then
+        $unique[0]
+      elif ($packages | length) > 0 then
+        "mixed-provider-command-packages:" + ($packages | join(","))
+      else ""
+      end
+  ' "$PROVIDER_CONFIG" 2>/dev/null || true
 }
 
 provider_bundled_package_spec() {
   local provider="$1"
   if [ "$provider" = "gitnexus" ]; then
     bundled_gitnexus_package_spec
+  elif [ "$provider" = "code-review-graph" ]; then
+    bundled_code_review_graph_package_spec
   fi
 }
 
@@ -941,9 +969,9 @@ provider_version_policy() {
   local provider="$1"
   local configured_package="$2"
   local bundled_package="$3"
-  if [ "$provider" = "gitnexus" ] && [ -n "$configured_package" ] && [ -n "$bundled_package" ] && [ "$configured_package" = "$bundled_package" ]; then
+  if [ -n "$configured_package" ] && [ -n "$bundled_package" ] && [ "$configured_package" = "$bundled_package" ]; then
     printf '%s\n' "pinned"
-  elif [ "$provider" = "gitnexus" ] && [ -n "$configured_package" ] && [ -n "$bundled_package" ] && [ "$configured_package" != "$bundled_package" ]; then
+  elif [ -n "$configured_package" ] && [ -n "$bundled_package" ] && [ "$configured_package" != "$bundled_package" ]; then
     printf '%s\n' "projection-stale"
   else
     printf '%s\n' "floating-unverifiable"
@@ -1026,6 +1054,55 @@ gitnexus_provider_projection_stale_failure() {
       recommended_action:("Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled GitNexus package `" + $bundled + "`; it currently projects `" + $configured + "`. Then rerun spec-graph-bootstrap."),
       diagnostic:("GitNexus setup-projected package `" + $configured + "` differs from bundled package `" + $bundled + "` before provider commands ran.")
     }'
+}
+
+code_review_graph_provider_projection_stale_failure() {
+  local configured="$1"
+  local bundled="$2"
+  jq -n \
+    --arg configured "$configured" \
+    --arg bundled "$bundled" '{
+      failed_phase:"preflight",
+      failure_class:"provider-projection-stale",
+      reason_code:"code-review-graph-provider-projection-stale",
+      exit_code:null,
+      recommended_action:("Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled code-review-graph package `" + $bundled + "`; it currently projects `" + $configured + "`. Then rerun spec-graph-bootstrap."),
+      diagnostic:("code-review-graph setup-projected package `" + $configured + "` differs from bundled package `" + $bundled + "` before provider commands ran.")
+	    }'
+}
+
+code_review_graph_provider_version_unverifiable_failure() {
+  local configured="$1"
+  local bundled="$2"
+  jq -n \
+    --arg configured "$configured" \
+    --arg bundled "$bundled" '{
+      failed_phase:"preflight",
+      failure_class:"provider-version-unverifiable",
+      reason_code:"code-review-graph-provider-version-unverifiable",
+      exit_code:null,
+      recommended_action:("Rerun spec-mcp-setup so .spec-first/config/graph-providers.json is refreshed from the bundled code-review-graph package pin before rerunning spec-graph-bootstrap."),
+      diagnostic:("code-review-graph provider package identity is not pinned/verifiable before provider commands ran. configured=`" + $configured + "`, bundled=`" + $bundled + "`.")
+    }'
+}
+
+provider_projection_stale_failure() {
+  local provider="$1"
+  local configured="$2"
+  local bundled="$3"
+  if [ "$provider" = "gitnexus" ]; then
+    gitnexus_provider_projection_stale_failure "$configured" "$bundled"
+  else
+    code_review_graph_provider_projection_stale_failure "$configured" "$bundled"
+  fi
+}
+
+provider_projection_stale_label() {
+  case "$1" in
+    gitnexus) printf '%s\n' "GitNexus" ;;
+    code-review-graph) printf '%s\n' "code-review-graph" ;;
+    *) printf '%s\n' "$1" ;;
+  esac
 }
 
 gitnexus_query_surface_diagnostic_failure() {
@@ -1494,14 +1571,19 @@ write_provider_status() {
 
   if provider_enabled "$provider"; then
     readiness_source="cold-run"
-    if [ "$provider" = "gitnexus" ] && [ "$version_policy" = "projection-stale" ]; then
+    if [ "$version_policy" = "projection-stale" ] || { [ "$provider" = "code-review-graph" ] && [ "$version_policy" != "pinned" ]; }; then
       readiness_source="preflight-blocked"
       status="failed"
       graph_ready=false
       query_ready=false
       confidence="low"
-      failure_info="$(gitnexus_provider_projection_stale_failure "$configured_package" "$bundled_package")"
-      limitations="$(jq -n --argjson failure "$failure_info" '["GitNexus provider projection is stale; provider commands were not run."] + (if ($failure.recommended_action // "") != "" then [$failure.recommended_action] else [] end)')"
+      if [ "$version_policy" = "projection-stale" ]; then
+        failure_info="$(provider_projection_stale_failure "$provider" "$configured_package" "$bundled_package")"
+      else
+        failure_info="$(code_review_graph_provider_version_unverifiable_failure "$configured_package" "$bundled_package")"
+      fi
+      stale_label="$(provider_projection_stale_label "$provider")"
+      limitations="$(jq -n --arg label "$stale_label" --argjson failure "$failure_info" '[($label + " provider projection is not fresh/verifiable; provider commands were not run.")] + (if ($failure.recommended_action // "") != "" then [$failure.recommended_action] else [] end)')"
       QUERY_PROBE_VERIFICATION_REASON="$(jq -r '.diagnostic' <<<"$failure_info")"
     else
     if [ "$provider" = "gitnexus" ]; then

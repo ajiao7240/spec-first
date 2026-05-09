@@ -21,7 +21,7 @@ spec_id: SYNC-CE-834CA4E5
 - U5 把 `warrant` -> `basis` 视为 artifact schema contract 迁移，必须做 consumer inventory。
 - U6/U9 的 reference 拆分必须验证 routeability / reference index，而不是只移动文本。
 - U8 增加 stale Codex flag 与 `delegate_effort` 直通的负向 contract。
-- U10 不再只修 Claude `${CLAUDE_SKILL_DIR}` 路径，而是先修 `git-worktree` internal delivery 与 runtime path rewrite，再同步窄 `allowed-tools`。
+- U10 不再只修 Claude `${CLAUDE_SKILL_DIR}` 路径，而是先修 `git-worktree` internal delivery、runtime path rewrite、inspect/doctor 同源投影与可执行路径 fixture，再同步窄 `allowed-tools`。
 
 最终保留 10 个实施单元：
 
@@ -82,6 +82,7 @@ spec_id: SYNC-CE-834CA4E5
 - 对 prose/skill contract 补字符串和负向断言，尤其是 CE-only branding、stale CLI flags、runtime delivery、skill-tool deadlock 等风险。
 - 对 artifact schema 字段迁移补 consumer inventory 和负向断言，避免旧字段残留。
 - 对 source/runtime delivery、governance、frontmatter delivery 字段变化补 runtime capability / dual-host governance / smoke 级验证。
+- 对 runtime projection rewrite 变化补 `sync` / `plan` / `inspect` / `doctor` 同源验证，避免 init 后立刻被 drift 检查误判。
 - 不为未同步 source 能力迁入 CE 测试。
 
 ## 实施单元
@@ -470,6 +471,7 @@ npx jest tests/unit/agent-native-architecture-contracts.test.js --runInBand
 - `src/cli/plugin.js`
 - `src/cli/adapters/claude.js`
 - `src/cli/adapters/codex.js`
+- `src/cli/commands/doctor.js` 或 `src/cli` drift/inspect 消费链路，仅当同源 projection context 需要贯通到 doctor 输出时修改
 - `src/cli/contracts/dual-host-governance/skills-governance.json`，仅在 delivery semantics 需要更准确注释或 record 调整时修改
 - `docs/catalog/runtime-capabilities.md`
 - `README.md`
@@ -483,6 +485,7 @@ npx jest tests/unit/agent-native-architecture-contracts.test.js --runInBand
 
 - 将 `AGENT_FACING_INTERNAL_SKILLS` 改名或重构为语义更准确的 delivered internal allowlist，例如 `DELIVERED_INTERNAL_SKILLS`，并加入 `git-worktree`。
 - adapter path rewrite 不再只服务 workflow skills；`syncSkills()` / `planSkillsSync()` 应把实际 target dir 作为 `runtimeSkillRoot` 传给 adapter，让 standalone/internal/workflow 都可按同一规则 rewrite 当前 skill 自己的 `skills/<skillName>/...` source path。
+- `inspectSkills()` / `inspectSkillIntegrity()` / doctor 间接调用的 expected-content 渲染必须使用与 `syncSkills()`、`planSkillsSync()` 相同的 `runtimeSkillRoot` 计算。否则 `spec-first init` 刚写出的 `git-worktree` runtime 会因为 expected content 没有同样 rewrite 而被误报 `content_mismatch`。
 - `git-worktree` source 命令使用 `${CLAUDE_SKILL_DIR:-$(git rev-parse --show-toplevel)/skills/git-worktree}/scripts/worktree-manager.sh` 形态或等价实现；adapter 只 rewrite fallback 中的 `skills/git-worktree/`，runtime 中分别得到 `.claude/skills/git-worktree/` 或 `.agents/skills/git-worktree/` fallback。
 - Examples 和 Integration section 同步更新。
 - 当前 source 已有 `allowed-tools` 用法，因此 `git-worktree` 必须加窄 Bash allow pattern，例如 `Bash(bash *worktree-manager.sh*)` 或项目 frontmatter/generator 支持的等价最窄形式。
@@ -498,6 +501,9 @@ npx jest tests/unit/agent-native-architecture-contracts.test.js --runInBand
 - Codex planned runtime 包含 `.agents/skills/git-worktree/scripts/worktree-manager.sh`。
 - `buildFilteredAssetSet('claude')` 与 `buildFilteredAssetSet('codex')` 的 `internalSkills` 包含 `git-worktree`。
 - `allowed-tools` 存在且不退化成宽泛 Bash allow。
+- `syncBundledAssets()` 后立即 `inspectInstalledAssets()`，Claude/Codex 均不出现 `git-worktree` drift；必要时再覆盖 `spec-first doctor --claude|--codex --json` 的 runtime asset health。
+- adapter regression：既有 workflow skill 的 self path rewrite 保持不变；非目标 standalone/internal skill 不被错误 rewrite；`using-spec-first` 这类双宿主安装说明不产生 path rewrite drift；Codex 的 shared path rewrite 与 skill-name rewrite 顺序不被破坏。
+- runtime command 可执行 fixture：在临时 git repo 内生成 Claude/Codex runtime 后，分别验证 fallback path 和 `CLAUDE_SKILL_DIR` path 能执行 `worktree-manager.sh --help`，证明命令字符串、adapter rewrite、shell quoting 与 runtime copy 闭环成立。该 fixture 只跑 help/usage，不创建 worktree。
 
 **验证：**
 
@@ -512,7 +518,7 @@ npm run test:smoke
 
 按批次和依赖顺序落地；下列是执行批次，不重新编号 implementation units：
 
-1. U1/U10 shared runtime foundation：重命名或重构 delivered internal allowlist，支持 internal/standalone/workflow 共用 `runtimeSkillRoot` path rewrite，补 stale cleanup 与 planned runtime tests。
+1. U1/U10 shared runtime foundation：重命名或重构 delivered internal allowlist，支持 internal/standalone/workflow 共用 `runtimeSkillRoot` path rewrite，并贯通 `sync` / `plan` / `inspect` / `doctor` expected-content 渲染，补 stale cleanup、planned runtime 与 no-drift tests。
 2. U1 sessions migration：迁移 session scripts，退役 `spec-session-inventory` / `spec-session-extract` source/governance/runtime delivery，更新 catalog/README/smoke。
 3. U10 git-worktree delivery：交付 `git-worktree` internal skill，更新 skill prose、script path、allowed-tools、catalog/README/smoke。
 4. U2 PR feedback 分页。
@@ -538,14 +544,21 @@ npm run typecheck
 npm run lint:skill-entrypoints
 ```
 
-当改动触及 `skills/**/SKILL.md`、`skills/**/references/**` 且这些内容会被 runtime sync，至少运行对应 source contract tests。若改动触及 `src/cli/plugin.js`、`src/cli/contracts/dual-host-governance/**`、`src/cli/instruction-bootstrap.js`、host entry docs、或 skill frontmatter delivery 字段，则在 source tests 通过后运行：
+当改动触及 `skills/**/SKILL.md`、`skills/**/references/**` 且这些内容会被 runtime sync，至少运行对应 source contract tests。若改动触及 `src/cli/plugin.js`、`src/cli/contracts/dual-host-governance/**`、`src/cli/instruction-bootstrap.js`、host entry docs、或 skill frontmatter delivery 字段，则在 source tests 通过后先 preview：
+
+```bash
+spec-first init --claude --dry-run
+spec-first init --codex --dry-run
+```
+
+审查 dry-run planned operations 后，再运行真实 projection：
 
 ```bash
 spec-first init --claude
 spec-first init --codex
 ```
 
-U1 和 U10 预计会触发 runtime projection 验证。运行后必须审查 `CLAUDE.md`、`AGENTS.md` 和 generated runtime diffs，确认它们来自 source/generator，而不是手写 runtime patch。
+U1 和 U10 预计会触发 runtime projection 验证。运行后必须审查 `CLAUDE.md`、`AGENTS.md` 和 generated runtime diffs，确认它们来自 source/generator，而不是手写 runtime patch；随后运行或等价覆盖 `doctor --json` / `inspectInstalledAssets()` no-drift 检查，确认刚生成的 runtime 不会被自身 drift 检查误判。
 
 U1/U10 的 runtime surface 批次还必须证明两类路径：
 

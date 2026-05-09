@@ -693,9 +693,10 @@ function Test-CommandShapeSupported {
 
   if ($Provider -eq 'code-review-graph') {
     $tail = @()
+    $exactPackagePattern = '^code-review-graph@[0-9][0-9A-Za-z._+!-]*$'
     if ($actual.Count -ge 3 -and [string]$actual[0] -eq 'uvx' -and ([string]$actual[1] -eq '--upgrade' -or [string]$actual[1] -eq '--refresh') -and [string]$actual[2] -eq 'code-review-graph') {
       $tail = @($actual | Select-Object -Skip 3)
-    } elseif ($actual.Count -ge 2 -and [string]$actual[0] -eq 'uvx' -and [string]$actual[1] -eq 'code-review-graph') {
+    } elseif ($actual.Count -ge 2 -and [string]$actual[0] -eq 'uvx' -and [string]$actual[1] -match $exactPackagePattern) {
       $tail = @($actual | Select-Object -Skip 2)
     }
     if ($Kind -eq 'bootstrap') {
@@ -1189,13 +1190,29 @@ function Get-GitNexusRepoLabelMismatchFailureInfo {
 
 function Get-ConfiguredGitNexusPackageSpec {
   param([object]$ProviderConfig)
-  $queryCommand = @($ProviderConfig.providers.gitnexus.commands.query_probe)
-  if ($queryCommand.Count -gt 2 -and -not [string]::IsNullOrWhiteSpace([string]$queryCommand[2])) {
-    return [string]$queryCommand[2]
+  return (Get-ProviderConfiguredPackageSpec -ProviderConfig $ProviderConfig -Provider 'gitnexus')
+}
+
+function Get-ProviderCommandPackageSpec {
+  param(
+    [object]$ProviderConfig,
+    [string]$Provider,
+    [string]$Kind
+  )
+  $command = @($ProviderConfig.providers.$Provider.commands.$Kind)
+  if ($Provider -eq 'gitnexus') {
+    if ($command.Count -ge 3 -and [string]$command[0] -eq 'npx' -and [string]$command[1] -eq '-y') {
+      return [string]$command[2]
+    }
+    return ''
   }
-  $bootstrapCommand = @($ProviderConfig.providers.gitnexus.commands.bootstrap)
-  if ($bootstrapCommand.Count -gt 2 -and -not [string]::IsNullOrWhiteSpace([string]$bootstrapCommand[2])) {
-    return [string]$bootstrapCommand[2]
+  if ($Provider -eq 'code-review-graph') {
+    if ($command.Count -ge 3 -and [string]$command[0] -eq 'uvx' -and ([string]$command[1] -eq '--upgrade' -or [string]$command[1] -eq '--refresh')) {
+      return [string]$command[2]
+    }
+    if ($command.Count -ge 2 -and [string]$command[0] -eq 'uvx') {
+      return [string]$command[1]
+    }
   }
   return ''
 }
@@ -1215,22 +1232,36 @@ function Get-BundledGitNexusPackageSpec {
   return ''
 }
 
+function Get-BundledCodeReviewGraphPackageSpec {
+  if ([string]::IsNullOrWhiteSpace([string]$script:McpToolsJson) -or -not (Test-Path -LiteralPath $script:McpToolsJson -PathType Leaf)) {
+    return ''
+  }
+  try {
+    $toolsJson = Get-Content -Raw -LiteralPath $script:McpToolsJson | ConvertFrom-Json
+    $tool = @($toolsJson.tools | Where-Object { $_.id -eq 'code-review-graph' } | Select-Object -First 1)
+    if ($tool.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$tool[0].package) -and -not [string]::IsNullOrWhiteSpace([string]$tool[0].version)) {
+      return "$($tool[0].package)@$($tool[0].version)"
+    }
+  } catch {
+  }
+  return ''
+}
+
 function Get-ProviderConfiguredPackageSpec {
   param(
     [object]$ProviderConfig,
     [string]$Provider
   )
-  if ($Provider -eq 'gitnexus') {
-    return (Get-ConfiguredGitNexusPackageSpec -ProviderConfig $ProviderConfig)
+  $packages = @('bootstrap', 'status', 'query_probe' | ForEach-Object {
+    Get-ProviderCommandPackageSpec -ProviderConfig $ProviderConfig -Provider $Provider -Kind $_
+  })
+  $missing = @($packages | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) })
+  $unique = @($packages | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | Sort-Object -Unique)
+  if ($missing.Count -eq 0 -and $unique.Count -eq 1) {
+    return [string]$unique[0]
   }
-  if ($Provider -eq 'code-review-graph') {
-    $command = @($ProviderConfig.providers.'code-review-graph'.commands.bootstrap)
-    if ($command.Count -ge 3 -and [string]$command[0] -eq 'uvx' -and ([string]$command[1] -eq '--upgrade' -or [string]$command[1] -eq '--refresh')) {
-      return [string]$command[2]
-    }
-    if ($command.Count -ge 2 -and [string]$command[0] -eq 'uvx') {
-      return [string]$command[1]
-    }
+  if ($packages.Count -gt 0) {
+    return "mixed-provider-command-packages:$($packages -join ',')"
   }
   return ''
 }
@@ -1239,6 +1270,9 @@ function Get-ProviderBundledPackageSpec {
   param([string]$Provider)
   if ($Provider -eq 'gitnexus') {
     return (Get-BundledGitNexusPackageSpec)
+  }
+  if ($Provider -eq 'code-review-graph') {
+    return (Get-BundledCodeReviewGraphPackageSpec)
   }
   return ''
 }
@@ -1249,10 +1283,10 @@ function Get-ProviderVersionPolicy {
     [string]$ConfiguredPackage,
     [string]$BundledPackage
   )
-  if ($Provider -eq 'gitnexus' -and -not [string]::IsNullOrWhiteSpace($ConfiguredPackage) -and -not [string]::IsNullOrWhiteSpace($BundledPackage) -and $ConfiguredPackage -eq $BundledPackage) {
+  if (-not [string]::IsNullOrWhiteSpace($ConfiguredPackage) -and -not [string]::IsNullOrWhiteSpace($BundledPackage) -and $ConfiguredPackage -eq $BundledPackage) {
     return 'pinned'
   }
-  if ($Provider -eq 'gitnexus' -and -not [string]::IsNullOrWhiteSpace($ConfiguredPackage) -and -not [string]::IsNullOrWhiteSpace($BundledPackage) -and $ConfiguredPackage -ne $BundledPackage) {
+  if (-not [string]::IsNullOrWhiteSpace($ConfiguredPackage) -and -not [string]::IsNullOrWhiteSpace($BundledPackage) -and $ConfiguredPackage -ne $BundledPackage) {
     return 'projection-stale'
   }
   return 'floating-unverifiable'
@@ -1280,7 +1314,7 @@ function Get-ProviderCommandHash {
     [object]$ProviderConfig,
     [string]$Provider
   )
-  $commands = $ProviderConfig.providers.$Provider.commands | ConvertTo-Json -Depth 20 -Compress
+  $commands = ConvertTo-CanonicalJsonValue -Value $ProviderConfig.providers.$Provider.commands | ConvertTo-Json -Depth 20 -Compress
   return (Get-StatusHash -Text $commands)
 }
 
@@ -1335,6 +1369,55 @@ function Get-GitNexusProviderProjectionStaleFailureInfo {
     recommended_action = "Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled GitNexus package '$BundledPackage'; it currently projects '$ConfiguredPackage'. Then rerun spec-graph-bootstrap."
     diagnostic = "GitNexus setup-projected package '$ConfiguredPackage' differs from bundled package '$BundledPackage' before provider commands ran."
   }
+}
+
+function Get-CodeReviewGraphProviderProjectionStaleFailureInfo {
+  param(
+    [string]$ConfiguredPackage,
+    [string]$BundledPackage
+  )
+  return [ordered]@{
+    failed_phase = 'preflight'
+    failure_class = 'provider-projection-stale'
+    reason_code = 'code-review-graph-provider-projection-stale'
+    exit_code = $null
+    recommended_action = "Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled code-review-graph package '$BundledPackage'; it currently projects '$ConfiguredPackage'. Then rerun spec-graph-bootstrap."
+    diagnostic = "code-review-graph setup-projected package '$ConfiguredPackage' differs from bundled package '$BundledPackage' before provider commands ran."
+  }
+}
+
+function Get-CodeReviewGraphProviderVersionUnverifiableFailureInfo {
+  param(
+    [string]$ConfiguredPackage,
+    [string]$BundledPackage
+  )
+  return [ordered]@{
+    failed_phase = 'preflight'
+    failure_class = 'provider-version-unverifiable'
+    reason_code = 'code-review-graph-provider-version-unverifiable'
+    exit_code = $null
+    recommended_action = 'Rerun spec-mcp-setup so .spec-first/config/graph-providers.json is refreshed from the bundled code-review-graph package pin before rerunning spec-graph-bootstrap.'
+    diagnostic = "code-review-graph provider package identity is not pinned/verifiable before provider commands ran. configured='$ConfiguredPackage', bundled='$BundledPackage'."
+  }
+}
+
+function Get-ProviderProjectionStaleFailureInfo {
+  param(
+    [string]$Provider,
+    [string]$ConfiguredPackage,
+    [string]$BundledPackage
+  )
+  if ($Provider -eq 'gitnexus') {
+    return (Get-GitNexusProviderProjectionStaleFailureInfo -ConfiguredPackage $ConfiguredPackage -BundledPackage $BundledPackage)
+  }
+  return (Get-CodeReviewGraphProviderProjectionStaleFailureInfo -ConfiguredPackage $ConfiguredPackage -BundledPackage $BundledPackage)
+}
+
+function Get-ProviderDisplayName {
+  param([string]$Provider)
+  if ($Provider -eq 'gitnexus') { return 'GitNexus' }
+  if ($Provider -eq 'code-review-graph') { return 'code-review-graph' }
+  return $Provider
 }
 
 function Get-GitNexusQueryDiagnosticFailureInfo {
@@ -1748,14 +1831,19 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
 
   if (Test-ProviderEnabled -ProviderConfig $providerConfig -Provider $provider) {
     $readinessSource = 'cold-run'
-    if ($provider -eq 'gitnexus' -and $versionPolicy -eq 'projection-stale') {
+    if ($versionPolicy -eq 'projection-stale' -or ($provider -eq 'code-review-graph' -and $versionPolicy -ne 'pinned')) {
       $readinessSource = 'preflight-blocked'
       $status = 'failed'
       $graphReady = $false
       $queryReady = $false
       $confidence = 'low'
-      $failureInfo = Get-GitNexusProviderProjectionStaleFailureInfo -ConfiguredPackage $configuredPackage -BundledPackage $bundledPackage
-      $limitations = @('GitNexus provider projection is stale; provider commands were not run.', [string]$failureInfo['recommended_action'])
+      if ($versionPolicy -eq 'projection-stale') {
+        $failureInfo = Get-ProviderProjectionStaleFailureInfo -Provider $provider -ConfiguredPackage $configuredPackage -BundledPackage $bundledPackage
+      } else {
+        $failureInfo = Get-CodeReviewGraphProviderVersionUnverifiableFailureInfo -ConfiguredPackage $configuredPackage -BundledPackage $bundledPackage
+      }
+      $providerDisplayName = Get-ProviderDisplayName -Provider $provider
+      $limitations = @("$providerDisplayName provider projection is not fresh/verifiable; provider commands were not run.", [string]$failureInfo['recommended_action'])
       $script:QueryProbeVerificationReason = [string]$failureInfo['diagnostic']
     } else {
     $bootstrapLog = Join-Path $rawDir $(if ($provider -eq 'gitnexus') { 'analyze.log' } else { 'build.log' })

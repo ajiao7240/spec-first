@@ -12,6 +12,8 @@ spec_id: 2026-05-09-003-graph-bootstrap-fast-reuse
 
 本计划为 `spec-graph-bootstrap` 增加可观测耗时、版本感知 freshness fingerprint、可证明安全的 reuse fast path，并把 provider / all-repos 并行化作为后续加速层纳入同一设计边界。核心目标是在重复执行时显著缩短耗时，同时保证 spec-first、provider 或投影配置版本变化后不会复用旧 readiness。
 
+2026-05-09 更新：本计划中关于 `code-review-graph` floating `uvx --upgrade` 的 narrow remediation 已被 `docs/plans/2026-05-09-005-fix-code-review-graph-uvx-pin-plan.md` 提前拆出并落实为 source-owned pin。本文后续 fast-reuse 设计仍保留 `floating-unverifiable` 作为通用 provider 策略，但不再代表当前 CRG 默认路径。
+
 ---
 
 ## Problem Frame
@@ -39,7 +41,7 @@ spec_id: 2026-05-09-003-graph-bootstrap-fast-reuse
 ## Assumptions
 
 - A1. 用户期望优先优化重复执行和多仓维护场景，而不是压缩首次 cold run 的 provider 实际分析时间。
-- A2. GitNexus 已有 package/version pin，可以优先进入 version-safe reuse；`code-review-graph` 当前是 floating `uvx --upgrade code-review-graph`，默认需要先标记为 version-unverifiable 或补 version probe，不能直接复用。
+- A2. GitNexus 与 `code-review-graph` 默认 provider path 均已由 `mcp-tools.json` package/version pin 驱动；后续 fast-reuse 必须把 pinned identity、投影 command hash 与 provider fingerprint 一起比较，不能复用任何 phase 混用旧投影的 provider status。
 - A3. 并行化可以作为同一计划的后续 implementation unit，但应在 timing 和 freshness reuse 稳定后再做，避免把 correctness 与调度复杂度混在一起。
 
 ---
@@ -55,7 +57,7 @@ spec_id: 2026-05-09-003-graph-bootstrap-fast-reuse
 
 ### Deferred to Follow-Up Work
 
-- 将 `code-review-graph` package/version pin 纳入 `mcp-tools.json`：本计划可以通过 version-unverifiable 禁用其 reuse；完整 pin 策略可独立评估发布风险。
+- 其他 provider 的 package/version pin 或 cheap version probe 策略：`floating-unverifiable` 仍作为通用非 pinned provider 策略保留，但不代表当前默认 CRG 路径。
 - GitNexus candidate ranking 的进一步优化：可以继续改善 setup 侧 candidate 顺序，但不作为本计划的主要提速机制。
 - 用户可配置 fast/strict mode：默认应为 strict correctness；显式 fast mode 可在 reuse 与 timing 稳定后再讨论。
 
@@ -87,7 +89,7 @@ spec_id: 2026-05-09-003-graph-bootstrap-fast-reuse
 - Parent `--all-repos` 当前对每个 repo 调用同一 child bootstrap path，并把 child results 聚合到 `.spec-first/workspace/graph-bootstrap-summary.json`。
 - GitNexus query probe 被有意限制为最多五个 source-derived candidates，并在第一个 process result 后停止；这保持了证据质量，但失败路径可能较慢。
 - `skills/spec-mcp-setup/scripts/write-provider-config.sh` 负责把 `skills/spec-mcp-setup/mcp-tools.json` 中的 provider package projection 写入 `.spec-first/config/graph-providers.json`；graph-bootstrap 应比较这个投影，不应修改它。
-- `skills/spec-mcp-setup/mcp-tools.json` 以 `package + version` pin 住 GitNexus；`code-review-graph` 当前没有 package/version 字段，仍通过 floating `uvx --upgrade` command 运行。
+- `skills/spec-mcp-setup/mcp-tools.json` 以 `package + version` pin 住 GitNexus 与 `code-review-graph`；graph-bootstrap 必须校验 bootstrap/status/query_probe 三个 phase 的 projected package token 都与 bundled package identity 一致。
 - `tests/unit/spec-graph-bootstrap.sh` 已有覆盖 primary、degraded、no-source、stale、dirty-uncertain、all-repos、GitNexus diagnostics 和 provider failure modes 的 shell fixtures。
 - `tests/unit/mcp-setup-powershell-contracts.test.js` 是当前 PowerShell graph-bootstrap 行为的 static parity guard，因为本地环境不一定能执行 `pwsh`。
 
@@ -121,7 +123,7 @@ spec_id: 2026-05-09-003-graph-bootstrap-fast-reuse
 ### Resolved During Planning
 
 - 版本变化是否应在 repo source 未变时也让 reuse 失效？是。Provider 行为和 graph schema 可能随版本变化，source-only freshness 不够。
-- 未 pin 的 `code-review-graph` 是否可仅凭 command hash 复用？否。`uvx --upgrade code-review-graph` 可能在 command string 不变时解析到新版本。
+- 未 pin 的 provider 是否可仅凭 command hash 复用？否。Floating package resolution 可能在 command string 不变时解析到新版本；当前 CRG 默认路径已改为 source-owned pin。
 - `graph-bootstrap` 检测到 stale projection 时是否应更新 setup-owned provider config？否。它应返回结构化 reason 并提示用户重新执行 setup；projection ownership 属于 setup。
 - GitNexus host instruction normalization 是否应进入 reuse fingerprint？它应作为 advisory 报告，但不应 gate graph/query readiness。可以 cheap check 现有 host block 稳定性，但不应只因为 host prose cleanup 变化就让 provider reuse 失效。
 - 是否为了省时间复用 failed provider states？默认否。复用失败会隐藏用户修复环境后的恢复路径；failure summaries 可以保留给诊断，但不应 short-circuit 主路径，除非未来增加显式 diagnostic-only mode。
@@ -225,7 +227,7 @@ flowchart TD
 
 **方案：**
 - 为每个 provider 计算 `bootstrap_fingerprint`，至少覆盖 repo source revision、worktree status hash、provider command hash、provider projected config hash、runtime capability hash、provider artifact contract hash、`mcp-tools.json` relevant provider identity、graph-bootstrap script hash 和 spec-first package version。
-- 为每个 provider 计算 `reuse_eligible` 与 `reuse_ineligible_reason`。GitNexus 可基于 pinned package/version 参与 reuse；floating `code-review-graph` 默认不可复用，除非实现同时补足可证明版本 identity。
+- 为每个 provider 计算 `reuse_eligible` 与 `reuse_ineligible_reason`。GitNexus 与 `code-review-graph` 可基于 pinned package/version 参与 reuse；任何非 pinned、phase-mixed 或 bundled/projected mismatch 的 provider 默认不可复用，并应给出 stale/unverifiable reason。
 - 在 provider status、canonical graph facts 或 provider aggregate 中保留 fingerprint summary，供 downstream 和 resolver 判断 freshness。
 - 比较 bundled provider identity 与 projected command identity，发现 mismatch 时输出 provider projection stale 事实，而不是继续用旧投影。
 - Hash 内容应使用规范化 JSON，避免 key order 或 pretty-print 差异导致误失效。
@@ -240,7 +242,7 @@ flowchart TD
 - 正常路径: spec-first package version 或 graph-bootstrap script hash 变化时，fingerprint mismatch 会阻止 reuse。
 - 边界场景: `graph-providers.json` command 数组变化时，旧 status 不可复用。
 - 边界场景: `mcp-tools.json` GitNexus version 与 projected command version 不一致时，返回 projection stale reason 和 setup next action。
-- 边界场景: `code-review-graph` 无 pinned package/version 且无 version probe 时，provider status 标记 `reuse_eligible=false`，不进入 reuse fast path。
+- 边界场景: `code-review-graph` 的任一 command phase 仍是 legacy `uvx --upgrade/--refresh code-review-graph`、缺失 package token 或不同 pinned version 时，provider status 标记 `reuse_eligible=false`，不进入 reuse fast path。
 - 错误路径: fingerprint 计算所需 artifact 缺失或 schema unsupported 时 fail closed，不复用旧结果。
 - 跨平台一致性: PowerShell source contract 覆盖 fingerprint、reuse eligibility、projection stale reason。
 
@@ -280,7 +282,7 @@ flowchart TD
 
 **测试场景：**
 - 正常路径: 第一次 GitNexus cold run ready 后，第二次同 snapshot 且 fingerprint fresh 时不调用 fake `npx` GitNexus provider command，并返回 ready。
-- 边界场景: `code-review-graph` 保持 floating-unverifiable 时，第二次执行仍会 cold run 该 provider，或在测试中明确断言它未进入 reuse fast path。
+- 边界场景: 任一 provider 保持 `floating-unverifiable` 或出现 mixed phase package identity 时，第二次执行仍会 cold run 或 preflight-block 该 provider，测试明确断言它未进入 reuse fast path。
 - 正常路径: GitNexus no-source / `query-not-applicable` 状态在 fingerprint fresh 时可复用，并保持 workflow mode no-source。
 - 边界场景: worktree status hash 变化时不复用，重新执行 provider command。
 - 边界场景: provider normalized artifact 缺失时不复用，即使 status fingerprint 匹配。
@@ -308,7 +310,7 @@ flowchart TD
 - 修改: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1`
 - 修改: `skills/spec-mcp-setup/scripts/write-provider-config.sh`
 - 修改: `skills/spec-mcp-setup/scripts/write-provider-config.ps1`
-- 修改: `skills/spec-mcp-setup/mcp-tools.json`（仅当实现选择为 `code-review-graph` 增加 provider version 字段）
+- 修改: `skills/spec-mcp-setup/mcp-tools.json`（仅当新增或调整 provider package/version identity）
 - 修改: `skills/spec-graph-bootstrap/SKILL.md`
 - 测试: `tests/unit/spec-graph-bootstrap.sh`
 - 测试: `tests/unit/mcp-setup-powershell-contracts.test.js`
@@ -317,7 +319,7 @@ flowchart TD
 - 将 GitNexus 的 bundled package/version 与 projected command package/version mismatch 提升为 bootstrap 前置 stale projection check，而不仅是 query diagnostic 后的失败解释。
 - 对 provider identity 增加 `version_policy`: pinned、version-probed、floating-unverifiable 之一。
 - pinned provider 可以参与 reuse；version-probed provider 只有 probe 与 previous fingerprint 一致时参与 reuse；floating-unverifiable provider 默认不参与 reuse。
-- 如果选择给 `code-review-graph` 增加 package/version 字段，应由 `spec-mcp-setup` 投影命令消费，不由 graph-bootstrap 自己猜版本。
+- Provider package/version 字段应由 `spec-mcp-setup` 投影命令消费；graph-bootstrap 只比较 bundled identity 与 projected command identity，不自己猜版本。
 - stale projection 的 user-facing next action 指向 `$spec-mcp-setup` / 当前 host setup，而不是让用户清理 graph artifacts。
 
 **遵循模式：**
@@ -328,8 +330,8 @@ flowchart TD
 **测试场景：**
 - 正常路径: bundled GitNexus version 与 projected command version 相同，允许后续 fingerprint/reuse 判断继续。
 - 边界场景: bundled GitNexus version 升级但 `.spec-first/config/graph-providers.json` 仍是旧版本；graph-bootstrap 返回 projection stale，不复用旧 ready。
-- 边界场景: `code-review-graph` 仍为 floating-unverifiable 时，即使 previous status ready 也不复用该 provider。
-- 边界场景: 如果 CRG 后续被 pin，命令投影 hash 与 package identity 一起进入 fingerprint，版本变化后自动 invalidates。
+- 边界场景: 非 pinned provider 或 mixed phase package identity 即使 previous status ready 也不复用该 provider。
+- 边界场景: CRG 已被 pin，命令投影 hash 与 package identity 一起进入 fingerprint，版本或投影变化后自动 invalidates。
 - 错误路径: provider command shape unsupported 时仍优先走 existing unsupported-provider-command failure，不进入 fingerprint/reuse。
 
 **验收：**

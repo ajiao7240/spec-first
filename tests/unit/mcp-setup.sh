@@ -17,6 +17,7 @@ RESOLVER_SCRIPT="$SCRIPTS_DIR/resolve-project-target.sh"
 GRAPH_BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
 GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | (.package // "") + "@" + (.version // "")' "$TOOLS_JSON")"
+CODE_REVIEW_GRAPH_PACKAGE="$(jq -r '.tools[] | select(.id == "code-review-graph") | (.package // "") + "@" + (.version // "")' "$TOOLS_JSON")"
 GITNEXUS_QUERY_PROBE="TradeLoginActivity"
 GITNEXUS_REPO_LABEL="hr360"
 TMP_DIR="$(mktemp -d)"
@@ -285,13 +286,18 @@ assert_eq "Serena project bootstrap does not hard-code languages" "false" "$(jq 
 assert_eq "code-review-graph depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "code-review-graph") | .dependencies | join(",")' "$TOOLS_JSON")"
 assert_eq "code-review-graph host MCP is optional" "false:cli_artifact:true" "$(jq -r '.tools[] | select(.id == "code-review-graph") | "\(.host_config_required):\(.provider_config.access_mode):\(.provider_config.optional_live_mcp)"' "$TOOLS_JSON")"
 assert_eq "GitNexus package pin is explicit" "gitnexus@1.6.4-rc.100" "$GITNEXUS_PACKAGE"
+assert_eq "code-review-graph package pin is explicit" "code-review-graph@2.3.3" "$CODE_REVIEW_GRAPH_PACKAGE"
 assert_eq "gitnexus warmup command uses configured package" "npx -y $GITNEXUS_PACKAGE --help" "$(jq -r '.tools[] | select(.id == "gitnexus") as $t | [$t.installation.unix.command] + ($t.installation.unix.args | map(gsub("\\{\\{package\\}\\}"; ($t.package // "")) | gsub("\\{\\{version\\}\\}"; ($t.version // "")))) | join(" ")' "$TOOLS_JSON")"
+assert_eq "code-review-graph warmup command uses configured package" "uvx $CODE_REVIEW_GRAPH_PACKAGE --help" "$(jq -r '.tools[] | select(.id == "code-review-graph") as $t | [$t.installation.unix.command] + ($t.installation.unix.args | map(gsub("\\{\\{package\\}\\}"; ($t.package // "")) | gsub("\\{\\{version\\}\\}"; ($t.version // "")))) | join(" ")' "$TOOLS_JSON")"
 assert_contains "write-provider-config.sh reads GitNexus package field separately" 'gitnexus_package_name="$(jq -r' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
 assert_contains "write-provider-config.sh reads GitNexus version field separately" 'gitnexus_package_version="$(jq -r' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
 assert_contains "write-provider-config.sh rejects missing GitNexus package or version" '[ -n "$gitnexus_package_name" ] && [ -n "$gitnexus_package_version" ]' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
+assert_contains "write-provider-config.sh reads code-review-graph package field separately" 'code_review_graph_package_name="$(jq -r' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
+assert_contains "write-provider-config.sh reads code-review-graph version field separately" 'code_review_graph_package_version="$(jq -r' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
+assert_contains "write-provider-config.sh rejects missing code-review-graph package or version" '[ -n "$code_review_graph_package_name" ] && [ -n "$code_review_graph_package_version" ]' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
 assert_eq "sequential-thinking uses latest npm package" "npx -y @modelcontextprotocol/server-sequential-thinking@latest" "$(jq -r '.tools[] | select(.id == "sequential-thinking") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
 assert_eq "context7 uses latest npm package" "npx -y @upstash/context7-mcp@latest" "$(jq -r '.tools[] | select(.id == "context7") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
-assert_eq "code-review-graph optional mcp command remains available" "uvx --upgrade code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool" "$(jq -r '.tools[] | select(.id == "code-review-graph") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
+assert_eq "code-review-graph optional mcp command remains available" "uvx $CODE_REVIEW_GRAPH_PACKAGE serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool" "$(jq -r '.tools[] | select(.id == "code-review-graph") as $t | [$t.host_config.codex.command] + ($t.host_config.codex.args | map(gsub("\\{\\{package\\}\\}"; ($t.package // "")) | gsub("\\{\\{version\\}\\}"; ($t.version // "")))) | join(" ")' "$TOOLS_JSON")"
 
 FAKE_BIN="$TMP_DIR/bin"
 COMMAND_LOG="$TMP_DIR/commands.log"
@@ -775,6 +781,7 @@ if grep -q 'serena project create' "$INSTALL_NO_LANG_LOG"; then
 fi
 
 assert_contains "setup does not run GitNexus analyze" "$GITNEXUS_PACKAGE --help" "$(cat "$COMMAND_LOG")"
+assert_contains "setup warms pinned code-review-graph package" "$CODE_REVIEW_GRAPH_PACKAGE --help" "$(cat "$COMMAND_LOG")"
 if grep -q "$GITNEXUS_PACKAGE analyze" "$COMMAND_LOG"; then
   echo "FAIL: spec-mcp-setup must not run gitnexus analyze" >&2
   exit 1
@@ -1084,7 +1091,7 @@ assert_eq "runtime capabilities schema" "runtime-capabilities.v1" "$(jq -r '.sch
 assert_eq "provider artifacts schema" "provider-artifacts.v1" "$(jq -r '.schema_version' "$PROVIDER_ARTIFACTS")"
 assert_eq "provider projection is setup-only" "true" "$(jq -r '.boundaries.setup_only and .boundaries.does_not_run_gitnexus_analyze and .boundaries.does_not_run_code_review_graph_build' "$PROVIDER_CONFIG")"
 provider_config_repo_root="$(jq -r '.repo_root' "$PROVIDER_CONFIG")"
-assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$GITNEXUS_REPO_LABEL" --arg gitnexus_package "$GITNEXUS_PACKAGE" --arg query_probe "$GITNEXUS_QUERY_PROBE" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze","--force"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y",$gitnexus_package,"query",$query_probe,"--repo",$repo_name]) and (.providers.gitnexus.query_probe_policy.expected_hit == true) and (.providers.gitnexus.query_probe_policy.source == "git-ls-files-code-basename") and (.providers.gitnexus.query_probe_policy.token == $query_probe) and (.providers.gitnexus.query_probe_policy.selected_from == "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java") and (.providers.gitnexus.query_probe_policy.candidates[0].token == $query_probe) and (.providers.gitnexus.query_probe_policy.candidates[0].reason_code == "workflow_named") and (.providers["code-review-graph"].commands.bootstrap == ["uvx","--upgrade","code-review-graph","build"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx","--upgrade","code-review-graph","status","--repo",$repo_root]) and (.providers["code-review-graph"].access_mode == "cli_artifact") and (.providers["code-review-graph"].host_config_required == false) and (.providers["code-review-graph"].mcp_server == null)' "$PROVIDER_CONFIG")"
+assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$GITNEXUS_REPO_LABEL" --arg gitnexus_package "$GITNEXUS_PACKAGE" --arg code_review_graph_package "$CODE_REVIEW_GRAPH_PACKAGE" --arg query_probe "$GITNEXUS_QUERY_PROBE" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze","--force"]) and (.providers.gitnexus.commands.status == ["npx","-y",$gitnexus_package,"status"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y",$gitnexus_package,"query",$query_probe,"--repo",$repo_name]) and (.providers.gitnexus.query_probe_policy.expected_hit == true) and (.providers.gitnexus.query_probe_policy.source == "git-ls-files-code-basename") and (.providers.gitnexus.query_probe_policy.token == $query_probe) and (.providers.gitnexus.query_probe_policy.selected_from == "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java") and (.providers.gitnexus.query_probe_policy.candidates[0].token == $query_probe) and (.providers.gitnexus.query_probe_policy.candidates[0].reason_code == "workflow_named") and (.providers["code-review-graph"].commands.bootstrap == ["uvx",$code_review_graph_package,"build"]) and (.providers["code-review-graph"].commands.status == ["uvx",$code_review_graph_package,"status"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx",$code_review_graph_package,"status","--repo",$repo_root]) and (.providers["code-review-graph"].access_mode == "cli_artifact") and (.providers["code-review-graph"].host_config_required == false) and (.providers["code-review-graph"].mcp_server == null)' "$PROVIDER_CONFIG")"
 
 LOW_SIGNAL_REPO="$TMP_DIR/low-signal-repo"
 make_repo "$LOW_SIGNAL_REPO"
@@ -1316,7 +1323,7 @@ assert "graph-bootstrap emits JSON" jq -e . <<<"$bootstrap_output"
 assert_eq "graph-bootstrap result ready" "ready" "$(jq -r '.overall_status' <<<"$bootstrap_output")"
 assert_contains "graph-bootstrap runs GitNexus analyze" "npx -y $GITNEXUS_PACKAGE analyze --force" "$graph_log_after"
 assert_contains "graph-bootstrap uses GitNexus remote-derived repo label" "npx -y $GITNEXUS_PACKAGE query $GITNEXUS_QUERY_PROBE --repo $GITNEXUS_REPO_LABEL" "$graph_log_after"
-assert_contains "graph-bootstrap runs latest code-review-graph build" "uvx --upgrade code-review-graph build" "$graph_log_after"
+assert_contains "graph-bootstrap runs pinned code-review-graph build" "uvx $CODE_REVIEW_GRAPH_PACKAGE build" "$graph_log_after"
 if [ "$graph_log_before" = "$graph_log_after" ]; then
   echo "FAIL: graph-bootstrap should run provider build commands" >&2
   exit 1
@@ -1343,6 +1350,23 @@ GRAPH_FACTS="$FAKE_REPO/.spec-first/graph/graph-facts.json"
 PROVIDER_STATUS="$FAKE_REPO/.spec-first/graph/provider-status.json"
 graph_facts_backup="$(cat "$GRAPH_FACTS")"
 provider_status_backup="$(cat "$PROVIDER_STATUS")"
+jq '
+  .providers = (.providers | map(
+    if .provider == "code-review-graph" then
+      .bootstrap_fingerprint.provider.configured_package_spec = "code-review-graph"
+      | .bootstrap_fingerprint.provider.bundled_package_spec = "code-review-graph"
+      | .bootstrap_fingerprint.provider.version_policy = "floating-unverifiable"
+      | .bootstrap_fingerprint.provider.command_hash = "sha256:stale"
+    else . end
+  ))
+' "$PROVIDER_STATUS" > "$PROVIDER_STATUS.tmp"
+mv "$PROVIDER_STATUS.tmp" "$PROVIDER_STATUS"
+verify_after_stale_provider_fingerprint="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
+assert_contains "stale provider fingerprint requires graph bootstrap" "Graph providers are configured but not query-ready yet." "$verify_after_stale_provider_fingerprint"
+assert_eq "stale provider fingerprint invalidates only mismatched provider readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == true) and (.derived_readiness.providers.gitnexus.bootstrap_required == false) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
+assert_eq "stale provider fingerprint prevents runtime primary readiness" "setup-ready-bootstrap-required:true" "$(jq -r '.project_graph_readiness | "\(.status):\(.graph_bootstrap_required)"' "$RUNTIME_CAPABILITIES")"
+printf '%s\n' "$provider_status_backup" > "$PROVIDER_STATUS"
+
 jq '.workflow_mode = "degraded-fallback" | .confidence = "medium" | .generated_at = "2099-01-01T00:00:00Z"' "$GRAPH_FACTS" > "$GRAPH_FACTS.tmp"
 mv "$GRAPH_FACTS.tmp" "$GRAPH_FACTS"
 jq '.workflow_mode = "degraded-fallback" | .generated_at = "2099-01-01T00:00:00Z" | .providers = (.providers | map(if .provider == "code-review-graph" then .query_ready = false | .status = "failed" else . end))' "$PROVIDER_STATUS" > "$PROVIDER_STATUS.tmp"

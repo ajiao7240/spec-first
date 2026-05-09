@@ -18,9 +18,13 @@ Reviews code changes using dynamically selected reviewer personas. When the host
 
 ## Context Orientation Anchor
 
-Orient review from the diff scope, current user request, plan/task/work artifacts when present, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and test results. When graph readiness artifacts are degraded, stale, or unavailable, prefer live MCP evidence for concrete review questions when the relevant MCP tool is loaded and responsive, then fall back to bounded direct repo reads. Treat successful MCP calls as session-local evidence only; they do not update compiled `query_ready` or replace reviewer judgment. If GitNexus returns definitions-only evidence, use it only as local file/symbol pointers and continue with code-review-graph, Serena, or bounded direct repo reads before making findings. External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment.
+Orient review from the diff scope, current user request, plan/task/work artifacts when present, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and test results. When graph readiness artifacts are degraded, stale, or unavailable, prefer live MCP evidence for concrete review questions when the relevant MCP tool is loaded and responsive, then fall back to bounded direct repo reads. Treat successful MCP calls as session-local evidence only; they do not update compiled `query_ready` or replace reviewer judgment. If GitNexus returns definitions-only evidence, use it only as local file/symbol pointers and continue with code-review-graph, Serena, or bounded direct repo reads before making findings. If a live MCP/provider startup or call fails, treat that provider as degraded evidence rather than a reviewer failure unless the reviewer itself cannot complete; do not repeatedly probe the same unavailable provider across personas in the same run. Record the provider degradation once in Coverage and continue with bounded direct repo reads. External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment.
 
 When review runs from a parent workspace containing multiple independent Git repos, group changed files by Git repo. Resolve graph readiness, diff context, impact evidence, and test suggestions per child repo, then aggregate findings without merging repo-local evidence. For read-only review questions without a diff, use `workspace-graph-targets.v1` as an advisory candidate list, try GitNexus-first evidence for bounded candidate repos, and carry degraded-fallback or definitions-only limitations into the review context. File references, suggested fixes, and risk assessments must remain scoped to the repo that owns the file; autofix review must not edit a child repo unless that repo is explicit in the diff or `target_repo` scope.
+
+## Progress Reporting Boundary
+
+User-visible progress updates are operational evidence, not a reasoning scratchpad. During long reviews, keep updates short and grounded in concrete facts or actions: scope resolution, file counts, selected reviewers, fallback mode, validation status, or the next inspection step. Do not expose private deliberation, tentative inner monologue, or first-person reasoning such as "I'm thinking", "I need to consider", or "I think". If a point is uncertain, state the verified limitation and the next check instead of narrating speculation. Use the session language for new prose unless the user requested otherwise.
 
 ## Argument Parsing
 
@@ -430,6 +434,29 @@ Pass the resulting path list to the `project-standards` persona inside a `<stand
 
 ### Stage 4: Spawn sub-agents
 
+#### Runtime readiness preflight
+
+Before creating a run ID or dispatching reviewers, run a read-only host/runtime readiness preflight for the current repo. This preflight is deterministic evidence prepared by `spec-mcp-setup`; it does not decide review quality or scope.
+
+Use the current-host runtime path when the workflow is installed, and the source path when developing spec-first itself:
+
+| Context | Preflight command |
+|---------|-------------------|
+| Codex runtime | `bash .agents/skills/spec-mcp-setup/scripts/detect-tools.sh` |
+| Claude runtime | `bash .claude/spec-first/workflows/spec-mcp-setup/scripts/detect-tools.sh` |
+| Source checkout | `bash skills/spec-mcp-setup/scripts/detect-tools.sh` |
+
+If the target repo was selected with an explicit `--repo` / child scope earlier in the workflow, pass the same repo selector to the preflight. Do not use this preflight to select a repo; repo scope still comes from Stage 1 and the current review target.
+
+Interpret the JSON facts narrowly:
+
+- `host_config_status: ready | fallback-active | not-required` means the host config is acceptable for dispatch.
+- `host_config_status: action-required | precedence-blocked`, missing required dependencies, or a non-ready required MCP project status means the current runtime is not safe for multi-persona dispatch.
+- A required MCP startup/config failure is a **runtime boundary issue**, not a code-review finding. Record it once in Coverage with the tool id, status, and next action.
+- Graph provider `query_ready: false` or definitions-only evidence does not by itself disable reviewer dispatch; it only limits graph evidence and should be carried into Coverage.
+
+When a required MCP server is not host-config-ready before dispatch, do not spawn reviewer agents in Codex or Claude. Set `single_agent_report_only_fallback: true`, treat the effective mode as report-only, and run the selected persona lenses inline with bounded direct repo reads. This avoids multiplying the same MCP startup failure across every leaf reviewer. If the preflight script is missing or cannot run, do not invent readiness facts; record `runtime readiness preflight unavailable` in Coverage and continue only if the host has not already reported MCP startup failure in the current session. If the host has already reported `MCP startup incomplete` or equivalent startup failure, use the single-agent report-only fallback.
+
 ### Dispatch capability gate
 
 Before creating a run ID or dispatching any reviewer, confirm the current host exposes a dispatch primitive and the selected reviewers are part of this documented code-review phase. Dispatch capability is part of the runtime boundary, not a reviewer-selection preference.
@@ -477,9 +504,19 @@ Pass `{run_id}` to every persona sub-agent as correlation metadata only. Do not 
 
 Omit the `mode` parameter when dispatching sub-agents so the user's configured permission settings apply. Do not pass `mode: "auto"`.
 
+**Codex `spawn_agent` parameter hygiene.** Codex reviewer prompts are self-contained: pass the persona, diff-scope rules, output schema, PR metadata, intent, file list, diff, and standards paths in the `message` or `items` payload instead of relying on inherited thread context. Dispatch one reviewer per `spawn_agent` call; do not bundle multiple reviewer personas into one sub-agent prompt. For Codex reviewer personas, prefer the default sub-agent type and omit `agent_type`; these reviewers are specialized by the prompt, not by a generic explorer/worker role. If a specific runtime genuinely needs an `agent_type`, omit `fork_context` (or leave it false); do not combine `fork_context: true` with `agent_type`. If a Codex dispatch fails before the reviewer starts because of parameter incompatibility, correct the parameters once and retry through the bounded scheduler; record it as an orchestrator dispatch correction, not a reviewer failure. If a runtime requires `fork_context: true` for a particular dispatch, omit `agent_type` and still include the full self-contained review context.
+
 **Model override at dispatch time.** Pass the platform's mid-tier model on every dispatch except `spec-correctness-reviewer`, `spec-security-reviewer`, and `spec-adversarial-reviewer`, which inherit the session model. In Claude Code, add `model: "sonnet"` to the Agent tool call. On other platforms, use only a host-provided stable alias or omit the override. Check this on every Agent / `spawn_agent` / equivalent call in the dispatch loop.
 
 **Bounded parallel dispatch.** Respect the current harness's active-subagent limit. Queue selected reviewers, dispatch only as many as the harness accepts, and fill freed slots as reviewers complete. Treat active-agent/thread/concurrency-limit spawn errors as backpressure, not reviewer failure: leave the reviewer queued and retry after a slot frees. Record a reviewer as failed only after successful dispatch times out/fails, or when dispatch fails for a non-capacity reason.
+
+Codex scheduling rules:
+
+- Start with at most 4 active reviewer agents unless the runtime explicitly advertises a lower or higher safe cap. Do not launch every selected reviewer in one burst.
+- A generic `Agent spawn failed` with one or more active reviewers is presumed capacity/backpressure first, even if the error text does not name a limit. Wait for any active reviewer to complete, then retry the same queued reviewer once.
+- A spawn failure that includes `MCP startup incomplete`, `MCP startup failed`, or a required MCP server name is a runtime readiness failure. Stop launching new reviewers, record the degraded tool once in Coverage, collect any already-started reviewers that can complete, and apply remaining persona lenses inline through the single-agent report-only fallback.
+- Parameter incompatibility remains separate from capacity: correct `spawn_agent` parameters once per the Codex parameter hygiene rule, then retry through the same queue.
+- Only mark a queued reviewer as failed after the bounded retry path rules out capacity/backpressure and runtime-readiness fallback, or after a successfully spawned reviewer times out/fails.
 
 Spawn each selected persona reviewer using the subagent template included below. Each persona sub-agent receives:
 

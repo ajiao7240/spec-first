@@ -359,7 +359,7 @@ describe('dual-host governance contracts', () => {
     expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain(
       '<configured-gitnexus-package>", "analyze", "--force"',
     );
-    expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain('uvx --upgrade code-review-graph build');
+    expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain('uvx <configured-code-review-graph-package> build');
   });
 
   test('README runtime counts stay aligned with current bundled assets', () => {

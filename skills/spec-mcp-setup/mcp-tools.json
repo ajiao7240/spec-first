@@ -367,21 +367,23 @@
       "provider_role": "impact_context",
       "description": "上游 code-review-graph CLI graph provider，用于影响半径、最小上下文与 review context；live MCP server 仅作为显式可选增强",
       "dependencies": ["uv", "uvx"],
+      "package": "code-review-graph",
+      "version": "2.3.3",
       "installation": {
         "kind": "warmup",
         "unix": {
           "command": "uvx",
-          "args": ["--upgrade", "code-review-graph", "--help"]
+          "args": ["{{package}}@{{version}}", "--help"]
         },
         "windows": {
           "command": "uvx",
-          "args": ["--upgrade", "code-review-graph", "--help"]
+          "args": ["{{package}}@{{version}}", "--help"]
         }
       },
       "host_config": {
         "claude": {
           "command": "uvx",
-          "args": ["--upgrade", "code-review-graph", "serve", "--tools", "get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool"],
+          "args": ["{{package}}@{{version}}", "serve", "--tools", "get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool"],
           "scope": "managed",
           "targets": {
             "managed": {
@@ -407,7 +409,7 @@
         },
         "codex": {
           "command": "uvx",
-          "args": ["--upgrade", "code-review-graph", "serve", "--tools", "get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool"],
+          "args": ["{{package}}@{{version}}", "serve", "--tools", "get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool"],
           "startup_timeout_sec": 120,
           "scope": "user",
           "targets": {
