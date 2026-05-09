@@ -103,6 +103,174 @@ write_file_atomic_path() {
   mv "$tmp" "$path"
 }
 
+run_command_with_timeout() {
+  local timeout_seconds="$1"
+  local log_path="$2"
+  shift 2
+  python3 - "$timeout_seconds" "$log_path" "$@" <<'PY'
+import subprocess
+import sys
+
+timeout = float(sys.argv[1])
+log_path = sys.argv[2]
+args = sys.argv[3:]
+
+try:
+    with open(log_path, "wb") as log:
+        try:
+            completed = subprocess.run(
+                args,
+                check=False,
+                stdin=subprocess.DEVNULL,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                timeout=timeout,
+            )
+            sys.exit(completed.returncode)
+        except subprocess.TimeoutExpired:
+            log.write(f"\ncommand timed out after {timeout:g}s\n".encode("utf-8"))
+            sys.exit(124)
+        except FileNotFoundError as exc:
+            log.write(f"{exc}\n".encode("utf-8"))
+            sys.exit(127)
+        except Exception as exc:
+            log.write(f"{exc}\n".encode("utf-8"))
+            sys.exit(1)
+except OSError as exc:
+    sys.stderr.write(f"{exc}\n")
+    sys.exit(1)
+PY
+}
+
+SPEC_FIRST_CLI_COMMAND=()
+
+resolve_spec_first_cli_command() {
+  local source_cli="$SCRIPT_DIR/../../../bin/spec-first.js"
+  if [ -n "${SPEC_FIRST_CLI:-}" ]; then
+    if [ -f "$SPEC_FIRST_CLI" ] && [[ "$SPEC_FIRST_CLI" == *.js ]]; then
+      SPEC_FIRST_CLI_COMMAND=(node "$SPEC_FIRST_CLI")
+    else
+      SPEC_FIRST_CLI_COMMAND=("$SPEC_FIRST_CLI")
+    fi
+  elif [ -f "$source_cli" ]; then
+    SPEC_FIRST_CLI_COMMAND=(node "$source_cli")
+  elif command -v spec-first >/dev/null 2>&1; then
+    SPEC_FIRST_CLI_COMMAND=(spec-first)
+  else
+    return 127
+  fi
+}
+
+normalize_gitnexus_instruction_block_for_root() {
+  local repo_root="$1"
+  local output_file
+  local output
+  local exit_code
+  local timed_out=false
+  local started_at finished_at started_epoch_ms finished_epoch_ms duration_ms
+  started_at="$(utc_now)"
+  started_epoch_ms="$(epoch_ms)"
+  output_file="$(mktemp "${TMPDIR:-/tmp}/spec-first-gitnexus-instruction.XXXXXX")"
+  set +e
+  if resolve_spec_first_cli_command; then
+    run_command_with_timeout \
+      "$PROVIDER_COMMAND_TIMEOUT_SECONDS" \
+      "$output_file" \
+      "${SPEC_FIRST_CLI_COMMAND[@]}" \
+      gitnexus-instruction normalize --repo-root "$repo_root" --write --json
+    exit_code=$?
+  else
+    exit_code=127
+  fi
+  output="$(cat "$output_file" 2>/dev/null)"
+  rm -f "$output_file"
+  finished_at="$(utc_now)"
+  finished_epoch_ms="$(epoch_ms)"
+  duration_ms=$((finished_epoch_ms - started_epoch_ms))
+  if [ "$exit_code" -eq 124 ]; then
+    timed_out=true
+  fi
+  set -e
+
+  if jq -e . >/dev/null 2>&1 <<<"$output"; then
+    local results
+    local status
+    local reason_code
+    results="$(jq '.results // []' <<<"$output")"
+    if jq -e '(.overall_status // "") == "partial" or any(.results[]?; .status == "partial")' >/dev/null <<<"$output"; then
+      status="failed"
+      reason_code="gitnexus-instruction-block-partial"
+    elif [ "$exit_code" -ne 0 ]; then
+      status="failed"
+      reason_code="gitnexus-instruction-normalizer-failed"
+    elif jq -e '(.overall_status // "") == "normalized" or any(.results[]?; .status == "updated" and .changed == true)' >/dev/null <<<"$output"; then
+      status="normalized"
+      reason_code=""
+    elif jq -e '(.overall_status // "") == "unchanged" or any(.results[]?; .status == "already-current")' >/dev/null <<<"$output"; then
+      status="unchanged"
+      reason_code=""
+    else
+      status="not-applicable"
+      reason_code="$(jq -r '.reason_code // "gitnexus-instruction-block-missing"' <<<"$output")"
+    fi
+
+    jq -n \
+      --arg provider "gitnexus" \
+      --arg status "$status" \
+      --arg reason_code "$reason_code" \
+      --arg started_at "$started_at" \
+      --arg finished_at "$finished_at" \
+      --argjson exit_code "$exit_code" \
+      --argjson duration_ms "$duration_ms" \
+      --argjson results "$results" \
+      '{
+        provider:$provider,
+        status:$status,
+        advisory:true,
+        reason_code:(if $reason_code == "" then null else $reason_code end),
+        exit_code:$exit_code,
+        started_at:$started_at,
+        finished_at:$finished_at,
+        duration_ms:$duration_ms,
+        results:$results
+      }'
+    return 0
+  fi
+
+  if [ "$exit_code" -ne 0 ]; then
+    printf 'spec-graph-bootstrap: warning: could not normalize GitNexus instruction block; run `spec-first gitnexus-instruction normalize --write` after bootstrap.\n' >&2
+    local failure_reason="gitnexus-instruction-normalizer-failed"
+    if [ "$timed_out" = "true" ]; then
+      failure_reason="gitnexus-instruction-normalizer-timeout"
+    fi
+    jq -n \
+      --arg provider "gitnexus" \
+      --arg status "failed" \
+      --arg reason_code "$failure_reason" \
+      --arg diagnostic "$output" \
+      --arg started_at "$started_at" \
+      --arg finished_at "$finished_at" \
+      --argjson exit_code "$exit_code" \
+      --argjson duration_ms "$duration_ms" \
+      '{provider:$provider,status:$status,advisory:true,reason_code:$reason_code,exit_code:$exit_code,diagnostic:$diagnostic,started_at:$started_at,finished_at:$finished_at,duration_ms:$duration_ms,results:[]}'
+    return 0
+  fi
+
+  if ! jq -e . >/dev/null 2>&1 <<<"$output"; then
+    printf 'spec-graph-bootstrap: warning: GitNexus instruction normalizer returned non-JSON output.\n' >&2
+    jq -n \
+      --arg provider "gitnexus" \
+      --arg status "failed" \
+      --arg reason_code "gitnexus-instruction-normalizer-output-invalid" \
+      --arg diagnostic "$output" \
+      --arg started_at "$started_at" \
+      --arg finished_at "$finished_at" \
+      --argjson duration_ms "$duration_ms" \
+      '{provider:$provider,status:$status,advisory:true,reason_code:$reason_code,exit_code:0,diagnostic:$diagnostic,started_at:$started_at,finished_at:$finished_at,duration_ms:$duration_ms,results:[]}'
+    return 0
+  fi
+}
+
 if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
   if [ "$DEFAULT_ALL_REPOS" = "true" ]; then
     ALL_REPOS_SELECTION_SOURCE="workspace-default-all-repos"
@@ -202,6 +370,11 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
       "$child_duration_ms" >&2
   done < <(jq -r '.candidates[] | [.repo_label, .workspace_relative_path] | @tsv' <<<"$TARGET_JSON")
 
+  PARENT_HOST_INSTRUCTION_NORMALIZATION="$(jq -n '{provider:"gitnexus",status:"not-applicable",advisory:true,reason_code:"all-repos-gitnexus-provider-not-bootstrapped",exit_code:null,results:[]}')"
+  if jq -e 'any(.[]; ((.result.results // []) | any(.provider == "gitnexus" and ((.command_results // []) | any(.kind == "bootstrap" and .exit_code == 0)))))' "$SUMMARY_ITEMS" >/dev/null; then
+    PARENT_HOST_INSTRUCTION_NORMALIZATION="$(normalize_gitnexus_instruction_block_for_root "$WORKSPACE_ROOT_FOR_ALL")"
+  fi
+
   WORKSPACE_FINISHED_AT="$(utc_now)"
   WORKSPACE_FINISHED_EPOCH_MS="$(epoch_ms)"
   WORKSPACE_DURATION_MS=$((WORKSPACE_FINISHED_EPOCH_MS - SCRIPT_STARTED_EPOCH_MS))
@@ -212,6 +385,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
     --arg started_at "$SCRIPT_STARTED_AT" \
     --arg finished_at "$WORKSPACE_FINISHED_AT" \
     --argjson duration_ms "$WORKSPACE_DURATION_MS" \
+    --argjson parent_host_instruction_normalization "$PARENT_HOST_INSTRUCTION_NORMALIZATION" \
     --argjson target "$TARGET_JSON" \
     --slurpfile items "$SUMMARY_ITEMS" \
     '($items[0] // []) as $results
@@ -224,6 +398,8 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
         selection_source:$selection_source,
         workspace_root:($target.workspace_root // null),
         parent_writes_repo_local_artifacts:false,
+        parent_writes_host_instruction_files:any($parent_host_instruction_normalization.results[]?; .written == true),
+        parent_host_instruction_normalization:$parent_host_instruction_normalization,
         timing:{
           started_at:$started_at,
           finished_at:$finished_at,
@@ -337,134 +513,6 @@ write_file_atomic() {
   tmp="$(mktemp "${path}.XXXXXX")"
   cat > "$tmp"
   mv "$tmp" "$path"
-}
-
-SPEC_FIRST_CLI_COMMAND=()
-
-resolve_spec_first_cli_command() {
-  local source_cli="$SCRIPT_DIR/../../../bin/spec-first.js"
-  if [ -n "${SPEC_FIRST_CLI:-}" ]; then
-    if [ -f "$SPEC_FIRST_CLI" ] && [[ "$SPEC_FIRST_CLI" == *.js ]]; then
-      SPEC_FIRST_CLI_COMMAND=(node "$SPEC_FIRST_CLI")
-    else
-      SPEC_FIRST_CLI_COMMAND=("$SPEC_FIRST_CLI")
-    fi
-  elif [ -f "$source_cli" ]; then
-    SPEC_FIRST_CLI_COMMAND=(node "$source_cli")
-  elif command -v spec-first >/dev/null 2>&1; then
-    SPEC_FIRST_CLI_COMMAND=(spec-first)
-  else
-    return 127
-  fi
-}
-
-normalize_gitnexus_instruction_block() {
-  local output_file
-  local output
-  local exit_code
-  local timed_out=false
-  local started_at finished_at started_epoch_ms finished_epoch_ms duration_ms
-  started_at="$(utc_now)"
-  started_epoch_ms="$(epoch_ms)"
-  output_file="$(mktemp "${TMPDIR:-/tmp}/spec-first-gitnexus-instruction.XXXXXX")"
-  set +e
-  if resolve_spec_first_cli_command; then
-    run_command_with_timeout \
-      "$PROVIDER_COMMAND_TIMEOUT_SECONDS" \
-      "$output_file" \
-      "${SPEC_FIRST_CLI_COMMAND[@]}" \
-      gitnexus-instruction normalize --repo-root "$REPO_ROOT" --write --json
-    exit_code=$?
-  else
-    exit_code=127
-  fi
-  output="$(cat "$output_file" 2>/dev/null)"
-  rm -f "$output_file"
-  finished_at="$(utc_now)"
-  finished_epoch_ms="$(epoch_ms)"
-  duration_ms=$((finished_epoch_ms - started_epoch_ms))
-  if [ "$exit_code" -eq 124 ]; then
-    timed_out=true
-  fi
-  set -e
-
-  if jq -e . >/dev/null 2>&1 <<<"$output"; then
-    local results
-    local status
-    local reason_code
-    results="$(jq '.results // []' <<<"$output")"
-    if jq -e '(.overall_status // "") == "partial" or any(.results[]?; .status == "partial")' >/dev/null <<<"$output"; then
-      status="failed"
-      reason_code="gitnexus-instruction-block-partial"
-    elif [ "$exit_code" -ne 0 ]; then
-      status="failed"
-      reason_code="gitnexus-instruction-normalizer-failed"
-    elif jq -e '(.overall_status // "") == "normalized" or any(.results[]?; .status == "updated" and .changed == true)' >/dev/null <<<"$output"; then
-      status="normalized"
-      reason_code=""
-    elif jq -e '(.overall_status // "") == "unchanged" or any(.results[]?; .status == "already-current")' >/dev/null <<<"$output"; then
-      status="unchanged"
-      reason_code=""
-    else
-      status="not-applicable"
-      reason_code="$(jq -r '.reason_code // "gitnexus-instruction-block-missing"' <<<"$output")"
-    fi
-
-    jq -n \
-      --arg provider "gitnexus" \
-      --arg status "$status" \
-      --arg reason_code "$reason_code" \
-      --arg started_at "$started_at" \
-      --arg finished_at "$finished_at" \
-      --argjson exit_code "$exit_code" \
-      --argjson duration_ms "$duration_ms" \
-      --argjson results "$results" \
-      '{
-        provider:$provider,
-        status:$status,
-        advisory:true,
-        reason_code:(if $reason_code == "" then null else $reason_code end),
-        exit_code:$exit_code,
-        started_at:$started_at,
-        finished_at:$finished_at,
-        duration_ms:$duration_ms,
-        results:$results
-      }'
-    return 0
-  fi
-
-  if [ "$exit_code" -ne 0 ]; then
-    printf 'spec-graph-bootstrap: warning: could not normalize GitNexus instruction block; run `spec-first gitnexus-instruction normalize --write` after bootstrap.\n' >&2
-    local failure_reason="gitnexus-instruction-normalizer-failed"
-    if [ "$timed_out" = "true" ]; then
-      failure_reason="gitnexus-instruction-normalizer-timeout"
-    fi
-    jq -n \
-      --arg provider "gitnexus" \
-      --arg status "failed" \
-      --arg reason_code "$failure_reason" \
-      --arg diagnostic "$output" \
-      --arg started_at "$started_at" \
-      --arg finished_at "$finished_at" \
-      --argjson exit_code "$exit_code" \
-      --argjson duration_ms "$duration_ms" \
-      '{provider:$provider,status:$status,advisory:true,reason_code:$reason_code,exit_code:$exit_code,diagnostic:$diagnostic,started_at:$started_at,finished_at:$finished_at,duration_ms:$duration_ms,results:[]}'
-    return 0
-  fi
-
-  if ! jq -e . >/dev/null 2>&1 <<<"$output"; then
-    printf 'spec-graph-bootstrap: warning: GitNexus instruction normalizer returned non-JSON output.\n' >&2
-    jq -n \
-      --arg provider "gitnexus" \
-      --arg status "failed" \
-      --arg reason_code "gitnexus-instruction-normalizer-output-invalid" \
-      --arg diagnostic "$output" \
-      --arg started_at "$started_at" \
-      --arg finished_at "$finished_at" \
-      --argjson duration_ms "$duration_ms" \
-      '{provider:$provider,status:$status,advisory:true,reason_code:$reason_code,exit_code:0,diagnostic:$diagnostic,started_at:$started_at,finished_at:$finished_at,duration_ms:$duration_ms,results:[]}'
-    return 0
-  fi
 }
 
 write_blocked_report() {
@@ -697,45 +745,6 @@ RUN_TRUNCATED=false
 RUN_STARTED_AT=""
 RUN_FINISHED_AT=""
 RUN_DURATION_MS=0
-
-run_command_with_timeout() {
-  local timeout_seconds="$1"
-  local log_path="$2"
-  shift 2
-  python3 - "$timeout_seconds" "$log_path" "$@" <<'PY'
-import subprocess
-import sys
-
-timeout = float(sys.argv[1])
-log_path = sys.argv[2]
-args = sys.argv[3:]
-
-try:
-    with open(log_path, "wb") as log:
-        try:
-            completed = subprocess.run(
-                args,
-                check=False,
-                stdin=subprocess.DEVNULL,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                timeout=timeout,
-            )
-            sys.exit(completed.returncode)
-        except subprocess.TimeoutExpired:
-            log.write(f"\ncommand timed out after {timeout:g}s\n".encode("utf-8"))
-            sys.exit(124)
-        except FileNotFoundError as exc:
-            log.write(f"{exc}\n".encode("utf-8"))
-            sys.exit(127)
-        except Exception as exc:
-            log.write(f"{exc}\n".encode("utf-8"))
-            sys.exit(1)
-except OSError as exc:
-    sys.stderr.write(f"{exc}\n")
-    sys.exit(1)
-PY
-}
 
 run_configured_command() {
   local provider="$1"
@@ -1494,7 +1503,7 @@ write_provider_status() {
 
     run_configured_command "$provider" bootstrap "$bootstrap_log"
     if [ "$provider" = "gitnexus" ] && [ "$RUN_EXIT_CODE" -eq 0 ]; then
-      host_instruction_normalization="$(normalize_gitnexus_instruction_block)"
+      host_instruction_normalization="$(normalize_gitnexus_instruction_block_for_root "$REPO_ROOT")"
     fi
     append_command_result "$command_results_file" bootstrap "$(command_display "$provider" bootstrap)" "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC" "$RUN_TRUNCATED" "$(relpath "$bootstrap_log")"
     if [ "$RUN_EXIT_CODE" -eq 0 ]; then

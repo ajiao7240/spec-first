@@ -299,6 +299,26 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
     [Console]::Error.WriteLine("spec-graph-bootstrap: all-repos child $childIndex/$($children.Count) finish repo=$([string]$child.workspace_relative_path) status=$([string]($childResult.overall_status ?? 'unknown')) workflow=$([string]($childResult.workflow_mode ?? 'unknown')) duration_ms=$childDurationMs")
   }
 
+  $parentHostInstructionNormalization = New-GitNexusInstructionNormalizationResult -Status 'not-applicable' -ReasonCode 'all-repos-gitnexus-provider-not-bootstrapped' -ExitCode $null -Results @()
+  $shouldNormalizeParentHostInstructions = $false
+  foreach ($result in $results) {
+    foreach ($providerResult in @($result.result.results)) {
+      if ([string]$providerResult.provider -ne 'gitnexus') { continue }
+      foreach ($commandResult in @($providerResult.command_results)) {
+        if ([string]$commandResult.kind -eq 'bootstrap' -and [int]$commandResult.exit_code -eq 0) {
+          $shouldNormalizeParentHostInstructions = $true
+          break
+        }
+      }
+      if ($shouldNormalizeParentHostInstructions) { break }
+    }
+    if ($shouldNormalizeParentHostInstructions) { break }
+  }
+  if ($shouldNormalizeParentHostInstructions) {
+    $parentHostInstructionNormalization = Normalize-GitNexusInstructionBlockViaCli -RepoRoot ([string]$TargetFacts.workspace_root)
+  }
+  $parentWritesHostInstructionFiles = @($parentHostInstructionNormalization.results | Where-Object { [bool]$_.written }).Count -gt 0
+
   $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
   $degradedCount = @($results | Where-Object { $_.workflow_mode -eq 'degraded-fallback' -or $_.overall_status -eq 'degraded' }).Count
   $notApplicableCount = @($results | Where-Object { $_.workflow_mode -eq 'no-source' -or $_.overall_status -eq 'not-applicable' }).Count
@@ -315,6 +335,8 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
     selection_source = $SelectionSource
     workspace_root = $TargetFacts.workspace_root
     parent_writes_repo_local_artifacts = $false
+    parent_writes_host_instruction_files = $parentWritesHostInstructionFiles
+    parent_host_instruction_normalization = $parentHostInstructionNormalization
     timing = [ordered]@{
       started_at = $script:ScriptStartedAt
       finished_at = $finishedAt

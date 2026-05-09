@@ -462,6 +462,10 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('explicit-all-repos');
     expect(source).toContain('graph-bootstrap-summary.json');
     expect(source).toContain('parent_writes_repo_local_artifacts');
+    expect(source).toContain('parent_writes_host_instruction_files');
+    expect(source).toContain('parent_host_instruction_normalization');
+    expect(source).toContain('all-repos-gitnexus-provider-not-bootstrapped');
+    expect(source).toContain('Normalize-GitNexusInstructionBlockViaCli -RepoRoot ([string]$TargetFacts.workspace_root)');
     expect(source).toContain('run_id = $runId');
     expect(source).toContain('parent_run_id = $runId');
     expect(source).toContain('all-repos child $childIndex');

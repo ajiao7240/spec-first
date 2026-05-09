@@ -37,7 +37,7 @@ Optional invocation input:
 
 - no argument from a parent workspace: default all-child-repos maintenance action.
 - `--repo <child>` / `-Repo <child>` when the current directory is a parent workspace and the user wants one child only.
-- `--all-repos` / `-AllRepos` as an explicit parent-workspace maintenance action. This is equivalent to the default parent-workspace no-argument behavior. It loops over discovered child Git repos, runs the existing child-scoped bootstrap flow, and writes an advisory `.spec-first/workspace/graph-bootstrap-summary.json` summary in the parent workspace.
+- `--all-repos` / `-AllRepos` as an explicit parent-workspace maintenance action. This is equivalent to the default parent-workspace no-argument behavior. It loops over discovered child Git repos, runs the existing child-scoped bootstrap flow, writes an advisory `.spec-first/workspace/graph-bootstrap-summary.json` summary in the parent workspace, and refreshes existing parent `AGENTS.md` / `CLAUDE.md` GitNexus instruction blocks when at least one child GitNexus bootstrap succeeds.
 
 Optional read-only workspace routing input:
 
@@ -133,7 +133,7 @@ bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh --all-repos
 pwsh -File skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1 -AllRepos
 ```
 
-The parent-workspace default and `--all-repos` / `-AllRepos` preserve per-child partial success, write child repo canonical artifacts only, and write the parent summary under `.spec-first/workspace/graph-bootstrap-summary.json` as advisory control-plane evidence.
+The parent-workspace default and `--all-repos` / `-AllRepos` preserve per-child partial success, write child repo canonical artifacts only, and write the parent summary under `.spec-first/workspace/graph-bootstrap-summary.json` as advisory control-plane evidence. They may also normalize existing parent `AGENTS.md` / `CLAUDE.md` GitNexus instruction blocks after a child GitNexus bootstrap succeeds; this host prose cleanup is recorded as `parent_host_instruction_normalization` and does not create parent `.spec-first/graph/*`, `.spec-first/impact/*`, or `.spec-first/providers/*` artifacts.
 
 PowerShell read-only target discovery:
 
