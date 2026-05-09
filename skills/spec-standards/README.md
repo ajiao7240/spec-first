@@ -20,11 +20,13 @@ The implementation is preview-first:
 - Render `standards-preview.md`.
 - Validate generated candidates and preview artifacts before trusted downstream consumption.
 - Do not write `.spec-first/specs/repo-profile.yaml`.
-- Write parent workspace advisory artifacts when invoked from a multi-repo parent workspace.
+- Batch child-local baseline facts when invoked without arguments from a multi-repo parent workspace.
 
 Repo-profile patch apply, monorepo module outputs, and drift checks remain explicit future boundaries.
 
-For parent workspaces, the default run writes advisory artifacts under the parent `.spec-first/standards/`. These artifacts summarize child repo shapes and shared alignment questions, but they are not confirmed policy for any child repo. `--repo <child>` selects a child repo as the target root and writes default artifacts under that child repo's `.spec-first/standards/`.
+For parent workspaces, the no-argument default writes baseline facts under every discovered child repo's `.spec-first/standards/`. `--repo <child>` narrows the run to one child repo. `--workspace` explicitly writes advisory artifacts under the parent `.spec-first/standards/`; those artifacts summarize child repo shapes and shared alignment questions, but they are not confirmed policy for any child repo.
+
+If a parent workspace batch has child failures, the script still prints structured JSON with `status=partial` or `status=failed`, `succeeded_child_count`, `failed_child_count`, and per-child `child_results[]`, then exits non-zero. Successfully prepared child artifacts remain listed in `artifacts`.
 
 ## Deterministic Script
 

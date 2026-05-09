@@ -96,7 +96,8 @@ describe('user manual contracts', () => {
     expect(standardsGuide).toContain('$spec-standards --deep');
     expect(standardsGuide).toContain('$spec-standards --baseline --import-source ../shared-standards');
     expect(standardsGuide).toContain('$spec-standards --repo <child>');
-    expect(standardsGuide).toContain('父 workspace 默认运行会写父级 `.spec-first/standards/` advisory artifacts');
+    expect(standardsGuide).toContain('父 workspace 无参数默认运行会写每个 discovered child repo 的 `<child>/.spec-first/standards/` baseline facts');
+    expect(standardsGuide).toContain('只有显式 `$spec-standards --workspace` 才会写父级 `.spec-first/standards/` advisory artifacts');
     expect(standardsGuide).toContain('不是任何 child repo 的 confirmed standards baseline');
     expect(standardsGuide).toContain('node skills/spec-standards/scripts/prepare-baseline.js --quick');
     expect(standardsGuide).toContain('node skills/spec-standards/scripts/prepare-baseline.js --workspace');

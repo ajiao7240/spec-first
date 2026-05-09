@@ -57,7 +57,9 @@ describe('spec-standards workflow contract', () => {
     expect(skill).toContain('Observed is not confirmed.');
     expect(skill).toContain('Do not write `repo-profile.yaml`.');
     expect(skill).toContain('`--repo <child>` selects one child repo as the target repo root');
-    expect(skill).toContain('parent `.spec-first/standards/` as an advisory workspace standards baseline');
+    expect(skill).toContain('no-argument default batches over every discovered child repo');
+    expect(skill).toContain('explicitly selects the parent advisory workspace baseline');
+    expect(skill).toContain('scope.type=workspace_children');
     expect(skill).toContain('scope.type=workspace');
     expect(skill).toContain('synthesis_contract.workspace_policy');
     expect(skill).toContain('synthesis_contract.candidate_required_fields');
@@ -284,7 +286,7 @@ describe('spec-standards workflow contract', () => {
     }
   });
 
-  test('parent workspace writes advisory workspace standards artifacts without mutating children', () => {
+  test('parent workspace default run writes child-local standards artifacts for every child repo', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-parent-workspace-'));
     try {
       writeFile(tmp, 'services/api/.git/HEAD', 'ref: refs/heads/main\n');
@@ -301,29 +303,144 @@ describe('spec-standards workflow contract', () => {
         dryRun: false,
       });
 
-      expect(result.target_kind).toBe('workspace');
+      expect(result.target_kind).toBe('workspace_children');
       expect(result.target_repo).toBe(null);
       expect(result.workspace_child_count).toBe(2);
       expect(result.workspace_root).toBe(tmp);
       expect(result.repo_root).toBe(tmp);
       expect(result.scope).toEqual({
-        type: 'workspace',
+        type: 'workspace_children',
         root: '.',
         domains: [],
         modules: [],
         workspace: {
           child_repo_count: 2,
           child_repos: ['apps/web', 'services/api'],
-          child_repos_truncated: false,
           child_repo_ordering: 'lexical',
-          artifacts_advisory_only: true,
+          child_artifacts_default: true,
+          parent_artifacts_written: false,
         },
       });
-      expect(result.artifacts).toEqual([
-        '.spec-first/standards/project-shape.json',
-        '.spec-first/standards/standards-plan.json',
-        '.spec-first/standards/glue-map.json',
+      expect(result.child_results.map((child) => child.target_repo)).toEqual([
+        'apps/web',
+        'services/api',
       ]);
+      expect(result.artifacts).toEqual([
+        'apps/web/.spec-first/standards/project-shape.json',
+        'apps/web/.spec-first/standards/standards-plan.json',
+        'apps/web/.spec-first/standards/glue-map.json',
+        'services/api/.spec-first/standards/project-shape.json',
+        'services/api/.spec-first/standards/standards-plan.json',
+        'services/api/.spec-first/standards/glue-map.json',
+      ]);
+      expect(fs.existsSync(path.join(tmp, '.spec-first/standards/project-shape.json'))).toBe(false);
+      expect(fs.existsSync(path.join(tmp, 'apps/web/.spec-first/standards/project-shape.json'))).toBe(true);
+      expect(fs.existsSync(path.join(tmp, 'services/api/.spec-first/standards/project-shape.json'))).toBe(true);
+
+      const webShape = readJson(path.join(tmp, 'apps/web/.spec-first/standards/project-shape.json'));
+      const apiShape = readJson(path.join(tmp, 'services/api/.spec-first/standards/project-shape.json'));
+      expect(webShape.scope).toEqual(expect.objectContaining({
+        type: 'workspace_child_repo',
+        workspace_child: 'apps/web',
+      }));
+      expect(apiShape.scope).toEqual(expect.objectContaining({
+        type: 'workspace_child_repo',
+        workspace_child: 'services/api',
+      }));
+      expect(webShape.project.detected_type).toBe('frontend_application');
+      expect(apiShape.project.detected_type).toBe('backend_service');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('CLI parent workspace default run batches child-local standards artifacts', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-parent-cli-'));
+    try {
+      writeFile(tmp, 'services/api/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'services/api/package.json', JSON.stringify({ name: 'api-service', dependencies: { express: '^4.18.0' } }));
+      writeFile(tmp, 'apps/web/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'apps/web/package.json', JSON.stringify({ name: 'web-app', dependencies: { react: '^18.0.0' } }));
+
+      const result = spawnSync(process.execPath, [SCRIPT_PATH], {
+        cwd: tmp,
+        encoding: 'utf8',
+      });
+
+      expect(result.stderr).toBe('');
+      expect(result.status).toBe(0);
+      const payload = JSON.parse(result.stdout);
+      expect(payload.status).toBe('pass');
+      expect(payload.target_kind).toBe('workspace_children');
+      expect(payload.succeeded_child_count).toBe(2);
+      expect(payload.failed_child_count).toBe(0);
+      expect(payload.child_results.map((child) => child.target_repo)).toEqual(['apps/web', 'services/api']);
+      expect(payload.child_results.map((child) => child.status)).toEqual(['pass', 'pass']);
+      expect(fs.existsSync(path.join(tmp, '.spec-first/standards/project-shape.json'))).toBe(false);
+      expect(fs.existsSync(path.join(tmp, 'apps/web/.spec-first/standards/project-shape.json'))).toBe(true);
+      expect(fs.existsSync(path.join(tmp, 'services/api/.spec-first/standards/project-shape.json'))).toBe(true);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('CLI parent workspace batch reports partial child failures with structured JSON', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-parent-cli-partial-'));
+    try {
+      writeFile(tmp, 'apps/web/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'apps/web/package.json', JSON.stringify({ name: 'web-app', dependencies: { react: '^18.0.0' } }));
+      writeFile(tmp, 'services/api/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'services/api/package.json', '{bad json\n');
+
+      const result = spawnSync(process.execPath, [SCRIPT_PATH], {
+        cwd: tmp,
+        encoding: 'utf8',
+      });
+
+      expect(result.stderr).toBe('');
+      expect(result.status).toBe(1);
+      const payload = JSON.parse(result.stdout);
+      expect(payload.status).toBe('partial');
+      expect(payload.succeeded_child_count).toBe(1);
+      expect(payload.failed_child_count).toBe(1);
+      expect(payload.child_results.map((child) => [child.target_repo, child.status])).toEqual([
+        ['apps/web', 'pass'],
+        ['services/api', 'failed'],
+      ]);
+      expect(payload.child_results[1].reason_code).toBe('workspace-child-baseline-failed');
+      expect(payload.child_results[1].error.message).toContain('Expected property name');
+      expect(payload.artifacts).toEqual([
+        'apps/web/.spec-first/standards/project-shape.json',
+        'apps/web/.spec-first/standards/standards-plan.json',
+        'apps/web/.spec-first/standards/glue-map.json',
+      ]);
+      expect(fs.existsSync(path.join(tmp, 'apps/web/.spec-first/standards/project-shape.json'))).toBe(true);
+      expect(fs.existsSync(path.join(tmp, 'services/api/.spec-first/standards/project-shape.json'))).toBe(false);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('explicit workspace target writes advisory parent standards artifacts without mutating children', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-explicit-parent-workspace-'));
+    try {
+      writeFile(tmp, 'services/api/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'services/api/package.json', JSON.stringify({ name: 'api-service', dependencies: { express: '^4.18.0' } }));
+      writeFile(tmp, 'services/api/src/server.js', "'use strict';\n");
+      writeFile(tmp, 'apps/web/.git/HEAD', 'ref: refs/heads/main\n');
+      writeFile(tmp, 'apps/web/package.json', JSON.stringify({ name: 'web-app', dependencies: { react: '^18.0.0' } }));
+      writeFile(tmp, 'apps/web/src/App.tsx', 'export function App() { return null; }\n');
+      writeFile(tmp, 'README.md', '# Parent workspace\n');
+
+      const result = prepareBaseline({
+        root: tmp,
+        targetKind: 'workspace',
+        mode: 'baseline',
+        dryRun: false,
+      });
+
+      expect(result.target_kind).toBe('workspace');
+      expect(result.scope.workspace.artifacts_advisory_only).toBe(true);
       expect(fs.existsSync(path.join(tmp, '.spec-first/standards/project-shape.json'))).toBe(true);
       expect(fs.existsSync(path.join(tmp, 'apps/web/.spec-first/standards/project-shape.json'))).toBe(false);
       expect(fs.existsSync(path.join(tmp, 'services/api/.spec-first/standards/project-shape.json'))).toBe(false);
@@ -518,7 +635,7 @@ describe('spec-standards workflow contract', () => {
         output: 'services/api/.spec-first/standards',
         mode: 'baseline',
         dryRun: false,
-      })).toThrow('--output cannot override parent workspace standards root');
+      })).toThrow('--output cannot be used when auto-detected parent workspace batches child standards baselines');
       expect(fs.existsSync(path.join(tmp, 'services/api/.spec-first/standards/project-shape.json'))).toBe(false);
 
       expect(() => prepareBaseline({
@@ -550,7 +667,7 @@ describe('spec-standards workflow contract', () => {
     }
   });
 
-  test('workspace quick freshness tracks child repo summary changes', () => {
+  test('workspace default quick freshness writes child-local update decisions', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-workspace-quick-'));
     try {
       writeFile(tmp, 'services/api/.git/HEAD', 'ref: refs/heads/main\n');
@@ -568,10 +685,10 @@ describe('spec-standards workflow contract', () => {
         dryRun: false,
       });
 
-      const decision = readJson(path.join(tmp, '.spec-first/standards/standards-update-decision.json'));
+      const decision = readJson(path.join(tmp, 'services/api/.spec-first/standards/standards-update-decision.json'));
       expect(decision.recommendation).toBe('refresh');
-      expect(decision.reason_codes).toContain('workspace-child-summary-changed');
-      expect(decision.current_workspace_summary_hash).not.toBe(decision.existing_workspace_summary_hash);
+      expect(decision.reason_codes).toContain('inventory-hash-changed');
+      expect(fs.existsSync(path.join(tmp, '.spec-first/standards/standards-update-decision.json'))).toBe(false);
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -590,9 +707,9 @@ describe('spec-standards workflow contract', () => {
         dryRun: false,
       });
       // standards-candidates.json 和 standards-preview.md 由 LLM 写入，手动模拟
-      const standardsDir = path.join(tmp, '.spec-first/standards');
-      writeFile(tmp, '.spec-first/standards/standards-candidates.json', JSON.stringify({ schema_version: 'v1', items: [] }));
-      writeFile(tmp, '.spec-first/standards/standards-preview.md', '# Preview\n');
+      const standardsDir = path.join(tmp, 'services/api/.spec-first/standards');
+      writeFile(tmp, 'services/api/.spec-first/standards/standards-candidates.json', JSON.stringify({ schema_version: 'v1', items: [] }));
+      writeFile(tmp, 'services/api/.spec-first/standards/standards-preview.md', '# Preview\n');
 
       // 无文件变更立即再次 quick 运行
       prepareBaseline({
@@ -608,7 +725,7 @@ describe('spec-standards workflow contract', () => {
     }
   });
 
-  test('workspace child repo samples stay consistently bounded across artifacts', () => {
+  test('explicit workspace child repo samples stay consistently bounded across advisory artifacts', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-workspace-truncated-'));
     try {
       for (let index = 0; index < 22; index += 1) {
@@ -619,6 +736,7 @@ describe('spec-standards workflow contract', () => {
 
       prepareBaseline({
         root: tmp,
+        targetKind: 'workspace',
         mode: 'baseline',
         dryRun: false,
       });
@@ -931,6 +1049,14 @@ describe('spec-standards workflow contract', () => {
       {
         args: ['--repo', 'packages/app', '--target-kind', 'workspace', '--dry-run'],
         message: '--repo cannot be combined with --workspace or --target-kind workspace.',
+      },
+      {
+        args: ['--workspace', '--target-kind', 'repo', '--dry-run'],
+        message: 'Conflicting standards target kinds: workspace and repo cannot be combined.',
+      },
+      {
+        args: ['--target-kind', 'repo', '--workspace', '--dry-run'],
+        message: 'Conflicting standards target kinds: repo and workspace cannot be combined.',
       },
     ];
 

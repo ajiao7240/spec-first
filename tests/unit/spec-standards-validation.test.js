@@ -227,6 +227,55 @@ describe('spec-standards artifact validator', () => {
     }
   });
 
+  test('candidate document validates required top-level contract fields', () => {
+    const dir = copyFixture();
+    try {
+      mutateCandidates(dir, (doc) => {
+        delete doc.schema_version;
+        delete doc.generated_at;
+        delete doc.scope;
+        delete doc.source_artifacts;
+        delete doc.confirmation_policy;
+      });
+
+      const result = runValidator(['--standards-dir', dir, '--json']);
+      expect(result.status).toBe(1);
+      expect(result.json.status).toBe('fail');
+      expectReason(result, 'missing-required-field');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('standards plan validates schema and synthesis contract fields', () => {
+    const wrongSchema = copyFixture();
+    const missingContract = copyFixture();
+    try {
+      mutatePlan(wrongSchema, (plan) => {
+        plan.schema_version = 'wrong';
+      });
+      const schemaResult = runValidator(['--standards-dir', wrongSchema, '--json']);
+      expect(schemaResult.status).toBe(1);
+      expect(schemaResult.stderr).toBe('');
+      expect(schemaResult.json.status).toBe('fail');
+      expect(schemaResult.json.trust_level).toBe('degraded');
+      expectReason(schemaResult, 'invalid-schema-version');
+
+      mutatePlan(missingContract, (plan) => {
+        delete plan.synthesis_contract;
+      });
+      const contractResult = runValidator(['--standards-dir', missingContract, '--json']);
+      expect(contractResult.status).toBe(1);
+      expect(contractResult.stderr).toBe('');
+      expect(contractResult.json.status).toBe('fail');
+      expect(contractResult.json.trust_level).toBe('degraded');
+      expectReason(contractResult, 'missing-required-field');
+    } finally {
+      fs.rmSync(wrongSchema, { recursive: true, force: true });
+      fs.rmSync(missingContract, { recursive: true, force: true });
+    }
+  });
+
   test('usage errors return exit code 2 without a validation envelope', () => {
     const result = runValidator(['--candidates', 'standards-candidates.json', '--json']);
 
@@ -281,6 +330,31 @@ describe('spec-standards artifact validator', () => {
       const result = runValidator(['--standards-dir', dir, '--json']);
       expect(result.status).toBe(1);
       expectReason(result, 'duplicate-candidate-id');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('malformed candidate entries fail validation without internal errors', () => {
+    const dir = copyFixture();
+    try {
+      mutateCandidates(dir, (doc) => {
+        doc.candidates = [null];
+        doc.status_counts = {};
+        doc.conflicts = [];
+        doc.unknowns = [];
+      });
+      fs.writeFileSync(
+        path.join(dir, 'repo-profile.patch.yaml'),
+        'confirmed_candidate_ids:\n  - standards.confirmed.preview-first\n',
+        'utf8',
+      );
+
+      const result = runValidator(['--standards-dir', dir, '--json']);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toBe('');
+      expect(result.json.status).toBe('fail');
+      expectReason(result, 'missing-required-field');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -383,6 +457,24 @@ describe('spec-standards artifact validator', () => {
       fs.rmSync(confirmedWithExternalFile, { recursive: true, force: true });
       fs.rmSync(patchSafety, { recursive: true, force: true });
       fs.rmSync(externalRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('malformed confirmation attestations fail validation without internal errors', () => {
+    const dir = copyFixture();
+    try {
+      writeJson(path.join(dir, 'confirmations.json'), {
+        confirmed_candidate_ids: 'standards.confirmed.preview-first',
+        confirmations: {},
+      });
+
+      const result = runValidator(['--standards-dir', dir, '--json']);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toBe('');
+      expect(result.json.status).toBe('fail');
+      expectReason(result, 'invalid-confirmations-shape');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 

@@ -49,8 +49,8 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('Do not rewrite `.spec-first/graph/*`');
     expect(skill).toContain('do not set compiled `query_ready=true`');
     expect(skill).toContain('Do not compile standards or glue baselines here.');
-    expect(skill).toContain('no-argument parent workspace runs may write parent advisory `.spec-first/standards/` artifacts');
-    expect(skill).toContain('`spec-standards --repo <child>` owns child-local standards baselines');
+    expect(skill).toContain('no-argument parent workspace runs batch child-local `.spec-first/standards/` baselines');
+    expect(skill).toContain('`spec-standards --workspace` owns parent advisory standards artifacts');
     expect(skill).toContain('update the final user-facing result table');
     expect(skill).toContain('ready/degraded/not-applicable/action-required counts');
     expect(skill).toContain('.spec-first/workspace/graph-bootstrap-summary.json');

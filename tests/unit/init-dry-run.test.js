@@ -176,7 +176,7 @@ describe('init --dry-run', () => {
       const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
       expect(claudeInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(claudeInstruction).toContain('workspace-graph-targets.v1');
-      expect(claudeInstruction).toContain('spec-standards` 无参数运行可只写父级 `.spec-first/standards/` advisory baseline');
+      expect(claudeInstruction).toContain('spec-standards` 无参数运行默认为每个 discovered child repo 写 child-local `.spec-first/standards/` baseline');
       expect(claudeInstruction).toContain('target_repo');
       expect(claudeInstruction).toContain('/spec:optimize');
       expect(claudeInstruction).not.toContain('startup-reminder --codex');
@@ -213,7 +213,7 @@ describe('init --dry-run', () => {
       expect(gitignore).not.toContain('.agents/\n');
       expect(codexInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(codexInstruction).toContain('workspace-graph-targets.v1');
-      expect(codexInstruction).toContain('spec-standards` 无参数运行可只写父级 `.spec-first/standards/` advisory baseline');
+      expect(codexInstruction).toContain('spec-standards` 无参数运行默认为每个 discovered child repo 写 child-local `.spec-first/standards/` baseline');
       expect(codexInstruction).toContain('target_repo');
       expect(codexInstruction).toContain('$spec-optimize');
       expect(codexInstruction).toContain('spec-first startup-reminder --codex');
@@ -468,7 +468,9 @@ describe('init --dry-run', () => {
       expect(claude.stdout).toContain('/spec:graph-bootstrap');
       expect(claude.stdout).toContain('/spec:standards');
       expect(claude.stdout).toContain('graph readiness 就绪后');
-      expect(claude.stdout).toContain('child-local baseline 使用 /spec:standards --repo <child>');
+      expect(claude.stdout).toContain('为所有 discovered child repo 批量生成 child-local baselines');
+      expect(claude.stdout).toContain('使用 /spec:standards --repo <child> 收窄到单个 child');
+      expect(claude.stdout).toContain('/spec:standards --workspace 写父级 advisory artifacts');
 
       const codex = captureInit(codexProjectRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']);
       expect(codex.exitCode).toBe(0);
@@ -479,7 +481,9 @@ describe('init --dry-run', () => {
       expect(codex.stdout).toContain('$spec-graph-bootstrap');
       expect(codex.stdout).toContain('$spec-standards');
       expect(codex.stdout).toContain('graph readiness 就绪后');
-      expect(codex.stdout).toContain('child-local baseline 使用 $spec-standards --repo <child>');
+      expect(codex.stdout).toContain('为所有 discovered child repo 批量生成 child-local baselines');
+      expect(codex.stdout).toContain('使用 $spec-standards --repo <child> 收窄到单个 child');
+      expect(codex.stdout).toContain('$spec-standards --workspace 写父级 advisory artifacts');
 
       const english = captureInit(englishProjectRoot, ['--codex', '-u', 'reviewer', '--lang', 'en']);
       expect(english.exitCode).toBe(0);
@@ -490,7 +494,9 @@ describe('init --dry-run', () => {
       expect(english.stdout).toContain('$spec-graph-bootstrap');
       expect(english.stdout).toContain('$spec-standards');
       expect(english.stdout).toContain('After graph readiness is ready');
-      expect(english.stdout).toContain('use $spec-standards --repo <child> for a child-local baseline');
+      expect(english.stdout).toContain('batches child-local baselines for every discovered child repo');
+      expect(english.stdout).toContain('use $spec-standards --repo <child> to narrow');
+      expect(english.stdout).toContain('$spec-standards --workspace for parent advisory artifacts');
       expect(english.stdout).not.toContain('下一步:');
     } finally {
       fs.rmSync(claudeProjectRoot, { recursive: true, force: true });

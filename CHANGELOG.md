@@ -1,6 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.1 2026-05-10 01:42:13 leokuang: fix(spec-standards): 修复 code-review 发现的 standards-plan schema trusted-pass、null candidate internal error、父 workspace 批量 child partial failure 无结构化摘要，以及规范方案中 retired CRG workspace preflight 残留 (user-visible)
+- v1.8.1 2026-05-10 01:10:35 leokuang: fix(spec-standards): 将父 workspace 无参数默认行为改为批量生成所有 discovered child repo 的 child-local standards baseline facts，保留 `--repo <child>` 单 child 收窄与 `--workspace` 父级 advisory baseline，并同步文档、bootstrap 指引和回归测试 (user-visible)
+- v1.8.1 2026-05-10 00:41:38 leokuang: fix(spec-standards): 收紧 standards validator 顶层契约与坏输入 fail-closed 路径，避免 malformed candidates/confirmations 触发 internal error；同时禁止 `--workspace` 与冲突 `--target-kind` 顺序覆盖，并同步 reason_code 文档与回归测试 (user-visible)
 - v1.8.1 2026-05-10 00:11:41 leokuang: fix(codex): 将 spec-code-review 纳入 host-comparative runtime path 保留机制，避免 Codex runtime 将 Claude preflight 命令误投影为 `.agents` 路径，并补 contract 断言 (user-visible)
 - v1.8.1 2026-05-10 00:03:34 leokuang: fix(spec-graph-bootstrap): 修复 code-review-graph pin 审查遗留问题，统一 PowerShell setup/provider fingerprint command hash 语义，并在 CRG package identity 不可验证时 preflight fail closed，补 Bash/PowerShell 回归测试与 skill prose (user-visible)
 - v1.8.1 2026-05-09 23:06:01 leokuang: fix(spec-mcp-setup): 修复 Bash provider projection 的 `jq` filter 绑定 `$provider_bootstrap_required` 后缺少管道符导致 `verify-tools` 无法写 readiness ledger 的问题 (user-visible)

@@ -5,6 +5,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const RESULT_SCHEMA = 'spec-first.standards-validation-result.v1';
+const STANDARDS_PLAN_SCHEMA = 'spec-first.standards-plan.v1';
+const SYNTHESIS_CONTRACT_SCHEMA = 'spec-first.standards-synthesis-contract.v1';
+const CANDIDATES_SCHEMA = 'spec-first.standards-candidates.v1';
 const DEFAULT_ALLOWED_STATUSES = [
   'confirmed',
   'imported',
@@ -257,15 +260,82 @@ function validateArtifacts(args, cwd = process.cwd()) {
 
 function readPlan(planPath, args, result) {
   if (fs.existsSync(planPath)) {
-    return readJsonArtifact(planPath, result);
+    const plan = readJsonArtifact(planPath, result);
+    validatePlanContract(plan, result);
+    return plan;
   }
   if (!args.allowFallbackVocabulary) {
+    result.trust_level = 'degraded';
     addIssue(result.errors, 'missing-standards-plan', planPath, 'standards-plan.json is required for trusted validation.');
     return null;
   }
   result.trust_level = 'degraded';
   addIssue(result.warnings, 'missing-standards-plan', planPath, 'Fallback vocabulary was used; result is not a trusted baseline.');
   return null;
+}
+
+function validatePlanContract(plan, result) {
+  if (!plan || typeof plan !== 'object' || Array.isArray(plan)) {
+    addPlanContractIssue(result, 'missing-required-field', 'Standards plan document must be an object.');
+    return;
+  }
+  if (!('schema_version' in plan)) {
+    addPlanContractIssue(result, 'missing-required-field', 'Top-level field is required: schema_version', {
+      field: 'schema_version',
+    });
+  } else if (plan.schema_version !== STANDARDS_PLAN_SCHEMA) {
+    addPlanContractIssue(result, 'invalid-schema-version', `schema_version must be ${STANDARDS_PLAN_SCHEMA}.`, {
+      field: 'schema_version',
+      expected: STANDARDS_PLAN_SCHEMA,
+      actual: plan.schema_version,
+    });
+  }
+  if ('scope' in plan && (!plan.scope || typeof plan.scope !== 'object' || Array.isArray(plan.scope) || !hasText(plan.scope.type))) {
+    addPlanContractIssue(result, 'missing-required-field', 'scope.type must be a non-empty string when scope is present.', {
+      field: 'scope.type',
+    });
+  }
+
+  const synthesisContract = plan.synthesis_contract;
+  if (!synthesisContract || typeof synthesisContract !== 'object' || Array.isArray(synthesisContract)) {
+    addPlanContractIssue(result, 'missing-required-field', 'synthesis_contract object is required.', {
+      field: 'synthesis_contract',
+    });
+    return;
+  }
+  if (!('schema_version' in synthesisContract)) {
+    addPlanContractIssue(result, 'missing-required-field', 'synthesis_contract.schema_version is required.', {
+      field: 'synthesis_contract.schema_version',
+    });
+  } else if (synthesisContract.schema_version !== SYNTHESIS_CONTRACT_SCHEMA) {
+    addPlanContractIssue(result, 'invalid-schema-version', `synthesis_contract.schema_version must be ${SYNTHESIS_CONTRACT_SCHEMA}.`, {
+      field: 'synthesis_contract.schema_version',
+      expected: SYNTHESIS_CONTRACT_SCHEMA,
+      actual: synthesisContract.schema_version,
+    });
+  }
+  validateNonEmptyStringArray(synthesisContract, 'candidate_required_fields', result);
+  validateNonEmptyStringArray(synthesisContract, 'allowed_statuses', result);
+  validateNonEmptyStringArray(synthesisContract, 'allowed_source_types', result);
+}
+
+function validateNonEmptyStringArray(contract, field, result) {
+  if (!(field in contract)) {
+    addPlanContractIssue(result, 'missing-required-field', `synthesis_contract.${field} is required.`, {
+      field: `synthesis_contract.${field}`,
+    });
+    return;
+  }
+  if (!Array.isArray(contract[field]) || contract[field].length === 0 || contract[field].some((item) => !hasText(item))) {
+    addPlanContractIssue(result, 'missing-required-field', `synthesis_contract.${field} must be a non-empty string array.`, {
+      field: `synthesis_contract.${field}`,
+    });
+  }
+}
+
+function addPlanContractIssue(result, reasonCode, message, extra = {}) {
+  result.trust_level = 'degraded';
+  addIssue(result.errors, reasonCode, 'standards-plan.json', message, extra);
 }
 
 function buildContract(plan) {
@@ -380,17 +450,38 @@ function readConfirmationIds(filePath, result) {
   const doc = readJsonArtifact(filePath, result);
   if (!doc) return new Set();
   const ids = new Set();
-  for (const id of doc.confirmed_candidate_ids || []) {
-    ids.add(String(id));
+  if ('confirmed_candidate_ids' in doc) {
+    if (!Array.isArray(doc.confirmed_candidate_ids)) {
+      addIssue(result.errors, 'invalid-confirmations-shape', filePath, 'confirmed_candidate_ids must be an array.');
+    } else {
+      for (const id of doc.confirmed_candidate_ids) {
+        ids.add(String(id));
+      }
+    }
   }
-  for (const confirmation of doc.confirmations || []) {
-    const id = confirmation.candidate_id || confirmation.id;
-    if (id) ids.add(String(id));
+  if ('confirmations' in doc) {
+    if (!Array.isArray(doc.confirmations)) {
+      addIssue(result.errors, 'invalid-confirmations-shape', filePath, 'confirmations must be an array.');
+    } else {
+      for (const confirmation of doc.confirmations) {
+        if (!confirmation || typeof confirmation !== 'object' || Array.isArray(confirmation)) {
+          addIssue(result.errors, 'invalid-confirmations-shape', filePath, 'Each confirmation must be an object.');
+          continue;
+        }
+        const id = confirmation.candidate_id || confirmation.id;
+        if (id) ids.add(String(id));
+      }
+    }
   }
   return ids;
 }
 
 function validateCandidates(doc, context, result) {
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) {
+    addIssue(result.errors, 'missing-required-field', 'standards-candidates.json', 'Candidate document must be an object.');
+    return;
+  }
+  validateCandidateDocumentContract(doc, result);
   if (!Array.isArray(doc.candidates)) {
     addIssue(result.errors, 'missing-required-field', 'standards-candidates.json', 'Top-level candidates[] is required.', { field: 'candidates' });
     return;
@@ -432,6 +523,44 @@ function validateCandidates(doc, context, result) {
   validateReferenceList(doc.unknowns || [], candidateById, 'unknown', 'unknown-reference-mismatch', result);
   validateRequiredReferenceForStatus(doc.candidates, collectRefs(doc.conflicts || []), 'conflict', 'conflict-reference-mismatch', result);
   validateRequiredReferenceForStatus(doc.candidates, collectRefs(doc.unknowns || []), 'unknown', 'unknown-reference-mismatch', result);
+}
+
+function validateCandidateDocumentContract(doc, result) {
+  const requiredFields = [
+    'schema_version',
+    'generated_at',
+    'scope',
+    'source_artifacts',
+    'candidates',
+    'status_counts',
+    'conflicts',
+    'unknowns',
+    'confirmation_policy',
+  ];
+  for (const field of requiredFields) {
+    if (!(field in doc)) {
+      addIssue(result.errors, 'missing-required-field', 'standards-candidates.json', `Top-level field is required: ${field}`, { field });
+    }
+  }
+  if ('schema_version' in doc && doc.schema_version !== CANDIDATES_SCHEMA) {
+    addIssue(result.errors, 'invalid-schema-version', 'standards-candidates.json', `schema_version must be ${CANDIDATES_SCHEMA}.`, {
+      field: 'schema_version',
+      expected: CANDIDATES_SCHEMA,
+      actual: doc.schema_version,
+    });
+  }
+  if ('generated_at' in doc && !hasText(doc.generated_at)) {
+    addIssue(result.errors, 'missing-required-field', 'standards-candidates.json', 'generated_at must be a non-empty string.', { field: 'generated_at' });
+  }
+  if ('scope' in doc && (!doc.scope || typeof doc.scope !== 'object' || Array.isArray(doc.scope) || !hasText(doc.scope.type))) {
+    addIssue(result.errors, 'missing-required-field', 'standards-candidates.json', 'scope.type is required.', { field: 'scope.type' });
+  }
+  if ('source_artifacts' in doc && !Array.isArray(doc.source_artifacts)) {
+    addIssue(result.errors, 'missing-required-field', 'standards-candidates.json', 'source_artifacts[] is required.', { field: 'source_artifacts' });
+  }
+  if ('confirmation_policy' in doc && (!doc.confirmation_policy || typeof doc.confirmation_policy !== 'object' || Array.isArray(doc.confirmation_policy))) {
+    addIssue(result.errors, 'missing-required-field', 'standards-candidates.json', 'confirmation_policy object is required.', { field: 'confirmation_policy' });
+  }
 }
 
 function validateCandidateDocumentScope(doc, context, result) {
@@ -649,7 +778,7 @@ function collectRefs(list) {
 
 function validatePatch(patchIds, candidatesDoc, result) {
   if (patchIds.size === 0 || !Array.isArray(candidatesDoc.candidates)) return;
-  const byId = new Map(candidatesDoc.candidates.map((candidate) => [candidate.id, candidate]));
+  const byId = new Map(candidateObjects(candidatesDoc.candidates).map((candidate) => [candidate.id, candidate]));
   for (const id of patchIds) {
     const candidate = byId.get(id);
     if (!candidate || candidate.status !== 'confirmed') {
@@ -679,7 +808,7 @@ function validatePreview(preview, candidatesDoc, inputs, result) {
   if (fs.existsSync(inputs.plan)) {
     conditionalSections.push(['Artifact Plan', headingPattern('Artifact Plan', '产物计划')]);
   }
-  const hasCandidateEvidence = (candidatesDoc.candidates || []).some((candidate) => (
+  const hasCandidateEvidence = candidateObjects(candidatesDoc.candidates).some((candidate) => (
     Array.isArray(candidate.evidence) && candidate.evidence.length > 0
   ));
   if (fs.existsSync(path.join(path.dirname(inputs.candidates), 'graph-query-index.json')) || hasCandidateEvidence) {
@@ -716,7 +845,7 @@ function headingPattern(...alternatives) {
 function validatePreviewVisibility(preview, candidatesDoc, counts, status, reasonCode, result) {
   const count = Number(counts[status] || 0);
   if (count <= 0) return;
-  const matchingCandidates = (candidatesDoc.candidates || []).filter((candidate) => candidate.status === status);
+  const matchingCandidates = candidateObjects(candidatesDoc.candidates).filter((candidate) => candidate.status === status);
   const hasId = matchingCandidates.some((candidate) => candidate.id && preview.includes(candidate.id));
   const hasCount = findPreviewCounts(preview, status).includes(count);
   if (!hasId && !hasCount) {
@@ -778,6 +907,11 @@ function nonEmptyArray(value) {
 
 function hasText(value) {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function candidateObjects(candidates) {
+  return (Array.isArray(candidates) ? candidates : [])
+    .filter((candidate) => candidate && typeof candidate === 'object' && !Array.isArray(candidate));
 }
 
 function normalizePath(filePath) {

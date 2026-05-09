@@ -72,6 +72,7 @@ function parseArgs(argv) {
     modules: [],
     repo: null,
     targetKind: 'auto',
+    targetKindExplicit: false,
     importSource: null,
     modeExplicit: false,
   };
@@ -118,11 +119,11 @@ function parseArgs(argv) {
       continue;
     }
     if (arg === '--workspace') {
-      args.targetKind = 'workspace';
+      setTargetKind(args, 'workspace');
       continue;
     }
     if (arg === '--target-kind') {
-      args.targetKind = requireValue(argv, index, arg);
+      setTargetKind(args, requireValue(argv, index, arg));
       index += 1;
       continue;
     }
@@ -156,6 +157,15 @@ function setMode(args, mode) {
   args.modeExplicit = true;
 }
 
+function setTargetKind(args, targetKind) {
+  const normalized = normalizeTargetKind(targetKind);
+  if (args.targetKindExplicit && args.targetKind !== normalized) {
+    throw new Error(`Conflicting standards target kinds: ${args.targetKind} and ${normalized} cannot be combined.`);
+  }
+  args.targetKind = normalized;
+  args.targetKindExplicit = true;
+}
+
 function requireValue(argv, index, flag) {
   const value = argv[index + 1];
   if (!value || value.startsWith('--')) {
@@ -173,7 +183,7 @@ Options:
   --workspace               Force parent workspace advisory mode (equivalent to --target-kind workspace).
   --target-kind <kind>      Explicit target kind: auto (default), repo, or workspace.
                             --workspace and --target-kind workspace are equivalent.
-  --repo <child>            Select a child repo by workspace-relative path; writes child-local confirmed baseline.
+  --repo <child>            Select a child repo by workspace-relative path; writes child-local standards baseline facts.
 
 Constraints:
   --repo and --workspace (or --target-kind workspace) cannot be combined.
@@ -187,6 +197,9 @@ function main() {
     const args = parseArgs(process.argv.slice(2));
     const result = prepareBaseline(args);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    if (result.status === 'partial' || result.status === 'failed') {
+      process.exit(1);
+    }
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exit(1);
@@ -195,6 +208,10 @@ function main() {
 
 function prepareBaseline(args) {
   const options = normalizePrepareOptions(args);
+  if (options.targetKind === 'workspace_children') {
+    return prepareWorkspaceChildrenBaselines(options);
+  }
+
   const repoRoot = options.root;
   if (!fs.existsSync(repoRoot) || !fs.statSync(repoRoot).isDirectory()) {
     throw new Error(`Repo root does not exist or is not a directory: ${repoRoot}`);
@@ -252,10 +269,122 @@ function prepareBaseline(args) {
   };
 }
 
+function prepareWorkspaceChildrenBaselines(options) {
+  const workspaceRoot = options.workspaceRoot;
+  if (!fs.existsSync(workspaceRoot) || !fs.statSync(workspaceRoot).isDirectory()) {
+    throw new Error(`Workspace root does not exist or is not a directory: ${workspaceRoot}`);
+  }
+
+  const childResults = options.workspaceChildren.map((child) => prepareWorkspaceChildBaseline(options, child));
+  const successfulChildren = childResults.filter((result) => result.status === 'pass');
+  const failedChildren = childResults.filter((result) => result.status === 'failed');
+  const workspaceArtifacts = successfulChildren.flatMap((result) => result.artifacts);
+
+  return {
+    schema_version: 'spec-first.standards-prepare-baseline.result.v1',
+    status: summarizeWorkspaceChildrenStatus(successfulChildren.length, failedChildren.length),
+    mode: options.mode,
+    target_kind: 'workspace_children',
+    requested_target_kind: options.requestedTargetKind,
+    target_reason_code: options.targetReasonCode,
+    workspace_root: workspaceRoot,
+    repo_root: workspaceRoot,
+    target_repo: null,
+    workspace_child_count: options.workspaceChildren.length,
+    output_root: null,
+    dry_run: options.dryRun,
+    scope: buildWorkspaceChildrenScope(options),
+    import_source: options.importSource,
+    succeeded_child_count: successfulChildren.length,
+    failed_child_count: failedChildren.length,
+    artifacts: workspaceArtifacts,
+    workspace_artifacts: workspaceArtifacts,
+    child_results: childResults,
+  };
+}
+
+function prepareWorkspaceChildBaseline(options, child) {
+  try {
+    const result = prepareBaseline({
+      mode: options.mode,
+      workspaceRoot: options.workspaceRoot,
+      root: child.git_root,
+      output: DEFAULT_STANDARDS_OUTPUT,
+      outputExplicit: false,
+      dryRun: options.dryRun,
+      domains: options.domains,
+      modules: options.modules,
+      repo: child.workspace_relative_path,
+      targetKind: 'workspace_child_repo',
+      requestedTargetKind: 'auto',
+      targetReasonCode: 'workspace-batch-child',
+      workspaceChildren: [],
+      importSource: options.importSource,
+    });
+    return {
+      status: 'pass',
+      target_repo: result.target_repo,
+      repo_root: result.repo_root,
+      output_root: result.output_root,
+      artifacts: workspaceArtifactsForChildResult(result),
+      target_kind: result.target_kind,
+      target_reason_code: result.target_reason_code,
+    };
+  } catch (error) {
+    return {
+      status: 'failed',
+      reason_code: 'workspace-child-baseline-failed',
+      target_repo: child.workspace_relative_path,
+      repo_root: child.git_root,
+      output_root: path.join(child.git_root, DEFAULT_STANDARDS_OUTPUT),
+      artifacts: [],
+      target_kind: 'workspace_child_repo',
+      target_reason_code: 'workspace-batch-child',
+      error: {
+        message: error.message,
+      },
+    };
+  }
+}
+
+function summarizeWorkspaceChildrenStatus(successCount, failureCount) {
+  if (failureCount === 0) return 'pass';
+  if (successCount === 0) return 'failed';
+  return 'partial';
+}
+
+function workspaceArtifactsForChildResult(result) {
+  return result.artifacts.map((artifact) => path.posix.join(result.target_repo, artifact));
+}
+
 function normalizePrepareOptions(args) {
   const alreadyNormalized = Boolean(args.workspaceRoot);
   const workspaceRoot = path.resolve(args.workspaceRoot || args.root || process.cwd());
   const repo = normalizeRepoSelector(args.repo || null);
+  if (alreadyNormalized && args.targetKind === 'workspace_children') {
+    const mode = args.mode || 'baseline';
+    if (!SUPPORTED_MODES.includes(mode)) {
+      throw new Error(`Unsupported mode for deterministic standards preparation: ${mode}`);
+    }
+    if (repo) {
+      throw new Error('workspace_children target kind cannot be combined with --repo.');
+    }
+    return {
+      mode,
+      workspaceRoot,
+      root: path.resolve(args.root || workspaceRoot),
+      output: null,
+      dryRun: Boolean(args.dryRun),
+      domains: uniqueList(args.domains || (args.domain ? [args.domain] : [])),
+      modules: uniqueList(args.modules || (args.module ? [args.module] : [])),
+      repo: null,
+      targetKind: 'workspace_children',
+      requestedTargetKind: args.requestedTargetKind || 'auto',
+      targetReasonCode: args.targetReasonCode || 'workspace-child-repos-detected',
+      workspaceChildren: args.workspaceChildren || [],
+      importSource: args.importSource || args.import_source || null,
+    };
+  }
   if (alreadyNormalized && ['repo', 'workspace', 'workspace_child_repo'].includes(args.targetKind)) {
     const mode = args.mode || 'baseline';
     if (!SUPPORTED_MODES.includes(mode)) {
@@ -263,13 +392,16 @@ function normalizePrepareOptions(args) {
     }
     let targetKind = normalizeResolvedTargetKind(args.targetKind);
     if (repo && targetKind === 'workspace') {
-      throw new Error('--repo cannot be combined with --workspace or --target-kind workspace. Use --repo <child> alone to target a child repo (writes child-local confirmed baseline), or use --workspace alone for parent workspace advisory standards.');
+      throw new Error('--repo cannot be combined with --workspace or --target-kind workspace. Use --repo <child> alone to target a child repo (writes child-local standards baseline facts), or use --workspace alone for parent workspace advisory standards.');
     }
     if (repo && targetKind === 'repo') {
       targetKind = 'workspace_child_repo';
     }
     if (!repo && targetKind === 'workspace_child_repo') {
       throw new Error('workspace_child_repo target kind requires --repo.');
+    }
+    if (targetKind === 'workspace_children') {
+      throw new Error('workspace_children target kind is resolved from parent workspace auto-detection.');
     }
     const root = path.resolve(args.root || (repo ? path.resolve(workspaceRoot, repo) : workspaceRoot));
     const output = resolveStandardsOutput({
@@ -299,7 +431,7 @@ function normalizePrepareOptions(args) {
 
   const targetKind = normalizeTargetKind(args.targetKind || 'auto');
   if (repo && targetKind === 'workspace') {
-    throw new Error('--repo cannot be combined with --workspace or --target-kind workspace. Use --repo <child> alone to target a child repo (writes child-local confirmed baseline), or use --workspace alone for parent workspace advisory standards.');
+    throw new Error('--repo cannot be combined with --workspace or --target-kind workspace. Use --repo <child> alone to target a child repo (writes child-local standards baseline facts), or use --workspace alone for parent workspace advisory standards.');
   }
 
   const requestedRoot = alreadyNormalized
@@ -311,6 +443,33 @@ function normalizePrepareOptions(args) {
     repo,
     targetKind,
   });
+  if (!repo
+    && target.kind === 'workspace'
+    && target.reasonCode === 'workspace-child-repos-detected'
+    && targetKind === 'auto') {
+    const mode = args.mode || 'baseline';
+    if (!SUPPORTED_MODES.includes(mode)) {
+      throw new Error(`Unsupported mode for deterministic standards preparation: ${mode}`);
+    }
+    if (hasExplicitOutput(args)) {
+      throw new Error('--output cannot be used when auto-detected parent workspace batches child standards baselines. Use --repo <child> for one child, or --workspace for parent advisory standards.');
+    }
+    return {
+      mode,
+      workspaceRoot: target.workspaceRoot,
+      root: target.root,
+      output: null,
+      dryRun: Boolean(args.dryRun),
+      domains: uniqueList(args.domains || (args.domain ? [args.domain] : [])),
+      modules: uniqueList(args.modules || (args.module ? [args.module] : [])),
+      repo: null,
+      targetKind: 'workspace_children',
+      requestedTargetKind: targetKind,
+      targetReasonCode: target.reasonCode,
+      workspaceChildren: target.workspaceChildren,
+      importSource: args.importSource || args.import_source || null,
+    };
+  }
   const root = target.root;
   const output = resolveStandardsOutput({
     root,
@@ -1119,6 +1278,23 @@ function buildScope(options) {
     scope.workspace_child = options.repo;
   }
   return scope;
+}
+
+function buildWorkspaceChildrenScope(options) {
+  const childRepos = (options.workspaceChildren || []).map((child) => child.workspace_relative_path);
+  return {
+    type: 'workspace_children',
+    root: '.',
+    domains: options.domains,
+    modules: options.modules,
+    workspace: {
+      child_repo_count: childRepos.length,
+      child_repos: childRepos,
+      child_repo_ordering: 'lexical',
+      child_artifacts_default: true,
+      parent_artifacts_written: false,
+    },
+  };
 }
 
 function buildPlanTasks(options, enabledDomains, importArtifacts) {

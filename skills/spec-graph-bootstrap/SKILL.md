@@ -22,7 +22,7 @@ Do not use this workflow to install MCP servers, repair host config, update spec
 
 Do not write repo-local graph artifacts into a parent workspace. When run from a parent workspace without `--repo`, the workflow defaults to the all-child-repos maintenance path and writes only parent advisory workspace summaries plus child-local canonical artifacts.
 
-Do not compile standards or glue baselines here. After graph readiness is compiled, `spec-standards` owns standards artifacts: no-argument parent workspace runs may write parent advisory `.spec-first/standards/` artifacts, while `spec-standards --repo <child>` owns child-local standards baselines.
+Do not compile standards or glue baselines here. After graph readiness is compiled, `spec-standards` owns standards artifacts: no-argument parent workspace runs batch child-local `.spec-first/standards/` baselines for discovered child repos, `spec-standards --repo <child>` narrows to one child, and `spec-standards --workspace` owns parent advisory standards artifacts.
 
 ## Inputs
 

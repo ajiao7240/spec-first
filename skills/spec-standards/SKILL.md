@@ -76,7 +76,7 @@ If graph artifacts are missing or stale, continue in degraded mode with direct r
 
 ### `--baseline`
 
-Default mode. Prepare a first project baseline for `single_project_repo`, `monorepo_multi_module`, bounded simple repos, and parent workspace advisory context.
+Default mode. Prepare a first project baseline for `single_project_repo`, `monorepo_multi_module`, bounded simple repos, auto-detected parent workspace child batches, and explicit parent workspace advisory context.
 
 Complete baseline output is split by ownership.
 
@@ -93,7 +93,7 @@ LLM-generated review artifacts, created after reading the deterministic facts:
 
 Do not write `repo-profile.yaml`.
 
-In parent workspaces with multiple independent child Git repos, default artifacts are written under the parent `.spec-first/standards/` as an advisory workspace standards baseline. This baseline may summarize child repo shapes and shared alignment questions, but it is not a child repo confirmed standards baseline. `--repo <child>` selects one child repo as the target repo root and writes child-local artifacts under that child repo's `.spec-first/standards/`.
+In parent workspaces with multiple independent child Git repos, the no-argument default batches over every discovered child repo and writes child-local artifacts under each child repo's `.spec-first/standards/`. `--repo <child>` selects one child repo as the target repo root and writes only that child-local baseline. `--workspace` or `--target-kind workspace` explicitly selects the parent advisory workspace baseline under the parent `.spec-first/standards/`; that parent baseline may summarize child repo shapes and shared alignment questions, but it is not a child repo confirmed standards baseline.
 
 ### `--quick`
 
@@ -202,7 +202,7 @@ Only `confirmed` may be proposed for `repo-profile.yaml` writeback, and only thr
 ### Phase 0: Scope And Safety
 
 1. Identify the requested mode. Default to `--baseline`.
-2. Identify target scope. In a parent workspace, no-argument runs may write only parent advisory `.spec-first/standards/` artifacts; require explicit `target_repo` / `--repo <child>` before writing child-local standards artifacts.
+2. Identify target scope. In an auto-detected parent workspace, no-argument runs batch over discovered child Git repos and write child-local `.spec-first/standards/` artifacts. Use `--repo <child>` to narrow to one child repo. Use `--workspace` or `--target-kind workspace` only when the requested artifact is the parent advisory workspace baseline.
 3. Check whether the target is already inside a public workflow or bounded subagent. Stay within the active scope.
 4. Confirm the run will not hand-edit generated runtime mirrors under `.claude/`, `.codex/`, or `.agents/skills/`.
 
@@ -227,7 +227,7 @@ node skills/spec-standards/scripts/prepare-baseline.js --repo <child>
 
 In workspace mode (`--workspace` or `--target-kind workspace`), `--output` cannot be overridden; artifacts always go to `.spec-first/standards/` under the parent workspace root.
 
-The script writes deterministic facts and mode-support artifacts only. The script result JSON includes `target_kind` (workspace | repo | workspace_child_repo) and `workspace_child_count` as immediate routing signals, so agents can confirm workspace mode was auto-detected without reading standards-plan.json.
+The script writes deterministic facts and mode-support artifacts only. The script result JSON includes `target_kind` (`workspace_children` | workspace | repo | workspace_child_repo) and `workspace_child_count` as immediate routing signals, so agents can confirm parent workspace child batching or explicit workspace advisory mode without reading standards-plan.json. For `workspace_children`, `status` is `pass`, `partial`, or `failed`; `child_results[]` records each child repo result, and `partial`/`failed` exits non-zero while preserving the structured JSON summary.
 
 - `project-shape.json`
 - `standards-plan.json`, including the `synthesis_contract` that defines candidate fields, status vocabulary, evidence limits, writeback policy, and downstream consumers
@@ -236,7 +236,7 @@ The script writes deterministic facts and mode-support artifacts only. The scrip
 - `graph-query-index.json` for `--deep`
 - `standards-sources.json`, `import-lock.json`, and `imported-standards.json` for `--import-source`
 
-For parent workspace advisory runs, the script detects child Git repos, excludes child source trees from the parent inventory hash, and records bounded child summaries in `project-shape.json`. It must not create child `.spec-first/standards/*`, child `.spec-first/specs/repo-profile.yaml`, or parent `repo-profile.yaml`.
+For auto-detected parent workspace runs, the script detects child Git repos and invokes the same deterministic baseline preparation for each child. It writes child `.spec-first/standards/*` fact artifacts, but it must not create child `.spec-first/specs/repo-profile.yaml`, parent `.spec-first/standards/*`, or parent `repo-profile.yaml`. For explicit parent workspace advisory runs (`--workspace`), the script excludes child source trees from the parent inventory hash and records bounded child summaries in parent `project-shape.json`; that mode must not create child `.spec-first/standards/*`.
 
 If the script is unavailable, gather equivalent facts with bounded direct reads and mark script evidence as unavailable in the preview. Do not pretend the script ran.
 
@@ -249,6 +249,7 @@ Read the generated fact artifacts and the available upstream graph/readiness art
 Treat `standards-plan.json` as the LLM handoff contract:
 
 - `scope` tells whether the run is repo-local or a `workspace_child_repo` run.
+- `scope.type=workspace_children` means the parent run batched child-local baselines; inspect `child_results[]` for the concrete child artifact paths.
 - `scope.type=workspace` means artifacts are parent workspace advisory context only and must not be consumed as any child repo's confirmed standards baseline.
 - `artifacts.generate` lists durable artifacts expected by this mode.
 - `synthesis_contract.candidate_required_fields` is the candidate JSON minimum shape.
@@ -347,7 +348,7 @@ node skills/spec-standards/scripts/validate-artifacts.js \
 
 Exit code `0` means `status=pass` and `trust_level=trusted`. Exit code `4` means `status=pass` and `trust_level=degraded`, for example when fallback vocabulary was explicitly allowed or when parent workspace artifacts report `consumption_boundary=advisory_only`; degraded pass proves the artifacts are structurally readable, not that they are a trusted standards baseline. Exit code `1` means validation fail, `2` means usage error, and `3` means internal error.
 
-Named exit-1 reason_codes include: `missing-required-field`, `invalid-status`, `invalid-source-type`, `duplicate-candidate-id`, `conflict-not-visible`, `unknown-not-visible`, `repo-profile-modified`, `patch-references-non-confirmed`, `scope-mismatch` (candidates scope.type does not match plan scope.type).
+Named exit-1 reason_codes include: `missing-required-field`, `invalid-schema-version`, `invalid-candidate-status`, `invalid-source-type`, `duplicate-candidate-id`, `empty-evidence`, `invalid-evidence-shape`, `missing-support`, `missing-source`, `missing-rationale`, `missing-conflict-reference`, `missing-unknown-question`, `unsafe-confirmed-without-confirmation`, `confirmation-not-externally-attested`, `unsafe-confirmed-source`, `status-count-mismatch`, `conflict-reference-mismatch`, `unknown-reference-mismatch`, `patch-missing-confirmed-candidate-ids`, `patch-references-non-confirmed-candidate`, `invalid-confirmations-shape`, `preview-missing-section`, `preview-missing-writeback-status`, `preview-missing-repo-profile-unchanged-statement`, `preview-hides-conflict`, `preview-hides-unknown`, `preview-count-mismatch`, `scope-mismatch` (candidates scope.type does not match plan scope.type).
 
 If `standards-plan.json` is missing, validation must fail unless the caller explicitly passes `--allow-fallback-vocabulary`. Do not use fallback vocabulary for trusted downstream consumption.
 
