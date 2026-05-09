@@ -249,7 +249,7 @@ describe('init --dry-run', () => {
     }
   });
 
-  test('init removes legacy runtime tool guidance while preserving external GitNexus blocks', () => {
+  test('init removes legacy runtime tool guidance and normalizes GitNexus blocks', () => {
     const projectRoot = makeTempDir();
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const legacyRuntimeToolsBlock = [
@@ -269,6 +269,7 @@ describe('init --dry-run', () => {
     const gitnexusBlock = [
       '<!-- gitnexus:start -->',
       '# GitNexus — Code Intelligence',
+      'This project is indexed by GitNexus as **legacy-repo** (1 symbols, 2 relationships, 3 execution flows).',
       '<!-- gitnexus:end -->',
     ].join('\n');
 
@@ -284,6 +285,8 @@ describe('init --dry-run', () => {
       expect(codexInstruction).not.toContain('代码智能与运行时工具');
       expect(codexInstruction).toContain('<!-- gitnexus:start -->');
       expect(codexInstruction).toContain('# GitNexus — Code Intelligence');
+      expect(codexInstruction).toContain('仓库标识：**legacy-repo**');
+      expect(codexInstruction).not.toContain('1 symbols');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

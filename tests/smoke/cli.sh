@@ -40,6 +40,7 @@ grep -q "doctor" <<<"$help_output"
 grep -q "init (--claude|--codex)" <<<"$help_output"
 grep -q "clean (--claude|--codex)" <<<"$help_output"
 grep -q "tasks <subcommand>" <<<"$help_output"
+grep -q "gitnexus-instruction" <<<"$help_output"
 if grep -q "crg <subcommand>" <<<"$help_output"; then
   echo "help output should not advertise retired graph command" >&2
   exit 1

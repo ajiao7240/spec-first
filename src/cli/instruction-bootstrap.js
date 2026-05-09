@@ -140,6 +140,7 @@ function buildZhBootstrapBody(hostId) {
     ? [
       '- 顶层 Codex orchestrator 在准备进入公开 `$spec-*` workflow 前，可 best-effort 运行 `spec-first startup-reminder --codex` 做只读版本提醒；缺失、失败或无输出都必须忽略，不阻塞路由',
       '- 该提醒只指向 `$spec-update` 由用户自主决策升级；bounded subagents、leaf reviewers、worker agents 不运行该检查，也不写 cooldown 状态',
+      '- Codex 公开 `$spec-*` workflow 入口调用本身即授权该 workflow 文档化的只读 reviewer/researcher subagent phase；`$spec-doc-review` 默认多 persona dispatch，只有用户要求 report-only/no-agents、dispatch primitive 缺失、runtime 无法调用或安全边界不满足时才降级',
     ].join('\n')
     : '';
 
@@ -171,6 +172,7 @@ function buildEnBootstrapBody(hostId) {
     ? [
       '- Before a top-level Codex orchestrator enters a public `$spec-*` workflow, it may best-effort run `spec-first startup-reminder --codex` for a read-only version reminder; missing CLI, failure, or empty output must be ignored and must not block routing',
       '- This reminder only points to `$spec-update` for user-decided upgrade work; bounded subagents, leaf reviewers, and worker agents must not run the check or write cooldown state',
+      '- Invoking a Codex public `$spec-*` workflow itself authorizes that workflow\'s documented read-only reviewer/researcher subagent phase; `$spec-doc-review` defaults to multi-persona dispatch and falls back only when the user requests report-only/no-agents, dispatch is missing, runtime calls fail, or safety boundaries are not met',
     ].join('\n')
     : '';
 

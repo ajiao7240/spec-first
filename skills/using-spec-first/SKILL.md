@@ -133,6 +133,14 @@ If the user names the other host's equivalent public workflow, translate it to t
 
 If the user names a standalone skill rather than a public workflow, invoke that skill only when its scope fits. Do not invent a `/spec:*` or `$spec-*` command for standalone skills such as `using-spec-first` or `spec-write-tasks`.
 
+## Workflow-Owned Dispatch Admission
+
+Some public workflows own documented read-only reviewer or researcher subagent phases. In Codex, an explicit invocation of the current host public workflow entrypoint counts as the user's explicit request for that bounded workflow-owned subagent work; do not require a second phrase such as "use subagents" or "parallel agents" before running the documented dispatch phase.
+
+This applies only to the workflow's documented read-only reviewer/researcher phase, for example `$spec-doc-review` multi-persona document reviewers, `$spec-code-review` reviewer personas, `$spec-plan` research agents, and `$spec-ideate` grounding or ideation agents. It does not authorize unrelated helper agents, hidden workflows, startup reminder agents, mutating worker dispatch, or beta delegation paths.
+
+If the user explicitly asks for report-only/no-agents mode, the host lacks a dispatch primitive, the runtime cannot call it, or the workflow's own safety boundary is not satisfied, follow that workflow's documented fallback instead of dispatching. The selected workflow still owns reviewer selection, bounded parallelism, synthesis, artifacts, and final judgment.
+
 ## Routing Priority
 
 When multiple routes could apply, use this priority:
@@ -259,6 +267,7 @@ These thoughts mean pause and apply the routing rules before acting:
 
 - Claude workflow entrypoints use `/spec:*`.
 - Codex workflow entrypoints use `$spec-*`.
+- In Codex, `$spec-doc-review` means the default multi-persona document-review workflow, not a single-agent report-only review unless the workflow fallback conditions apply.
 - `using-spec-first` itself is a standalone meta skill, not a `/spec:*` or `$spec-*` workflow entrypoint.
 - `spec-write-tasks` is a standalone skill for optional plan-to-task-pack compilation, not a `/spec:*` or `$spec-*` workflow entrypoint.
 - Internal-only skills remain source/runtime support assets, not menu items. Legacy/internal `lfg` must not be recommended as a public workflow path.

@@ -350,6 +350,8 @@ describe('spec-code-review CE sync contracts', () => {
     expect(text).toContain('Dispatch capability is part of the runtime boundary, not a reviewer-selection preference.');
     expect(text).toContain('current host\'s code-review workflow entrypoint');
     expect(text).toContain('authorizes this documented reviewer phase; do not ask for a second "use subagents" confirmation');
+    expect(text).toContain('Default code-review posture is multi-persona reviewer dispatch.');
+    expect(text).toContain('Do not interpret the absence of extra "use subagents" wording as report-only fallback');
     expect(text).toContain('Codex supports reviewer dispatch through `spawn_agent`.');
     expect(text).toContain('Do not downgrade solely because the host is Codex.');
     expect(text).toContain('Do not call `spawn_agent` solely because a profile exists');

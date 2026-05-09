@@ -60,6 +60,8 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('Dispatch Capability Gate');
     expect(skill).toContain('Dispatch capability is part of the runtime boundary, not a reviewer-selection preference.');
     expect(skill).toContain('authorizes this documented persona-reviewer phase; do not ask for a second "use subagents" confirmation');
+    expect(skill).toContain('Default doc-review posture is multi-persona reviewer dispatch.');
+    expect(skill).toContain('Do not interpret the absence of extra "use subagents" wording as report-only fallback');
     expect(skill).toContain('Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex.');
     expect(skill).toContain('user explicitly requests report-only/no-agents mode');
     expect(skill).toContain('set `single_agent_report_only_fallback: true`');

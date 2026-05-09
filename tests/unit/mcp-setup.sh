@@ -284,7 +284,7 @@ assert_eq "serena depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.i
 assert_eq "Serena project bootstrap does not hard-code languages" "false" "$(jq -r '.tools[] | select(.id == "serena") | .project_bootstrap.index_command.args | index("--language") != null' "$TOOLS_JSON")"
 assert_eq "code-review-graph depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "code-review-graph") | .dependencies | join(",")' "$TOOLS_JSON")"
 assert_eq "code-review-graph host MCP is optional" "false:cli_artifact:true" "$(jq -r '.tools[] | select(.id == "code-review-graph") | "\(.host_config_required):\(.provider_config.access_mode):\(.provider_config.optional_live_mcp)"' "$TOOLS_JSON")"
-assert_eq "GitNexus package pin is explicit" "gitnexus@1.6.4-rc.85" "$GITNEXUS_PACKAGE"
+assert_eq "GitNexus package pin is explicit" "gitnexus@1.6.4-rc.100" "$GITNEXUS_PACKAGE"
 assert_eq "gitnexus warmup command uses configured package" "npx -y $GITNEXUS_PACKAGE --help" "$(jq -r '.tools[] | select(.id == "gitnexus") as $t | [$t.installation.unix.command] + ($t.installation.unix.args | map(gsub("\\{\\{package\\}\\}"; ($t.package // "")) | gsub("\\{\\{version\\}\\}"; ($t.version // "")))) | join(" ")' "$TOOLS_JSON")"
 assert_contains "write-provider-config.sh reads GitNexus package field separately" 'gitnexus_package_name="$(jq -r' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
 assert_contains "write-provider-config.sh reads GitNexus version field separately" 'gitnexus_package_version="$(jq -r' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"

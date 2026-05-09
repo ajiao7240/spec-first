@@ -269,7 +269,7 @@
       "description": "全局代码库知识图谱与架构认知 provider，用于项目级代码事实输入",
       "dependencies": ["node", "npm", "npx"],
       "package": "gitnexus",
-      "version": "1.6.4-rc.85",
+      "version": "1.6.4-rc.100",
       "installation": {
         "kind": "warmup",
         "unix": {
