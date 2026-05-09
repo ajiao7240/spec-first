@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.0 2026-05-09 17:46:07 leokuang: docs(plan): 将 CE 834ca4e5 增量同步方案改为中文版本，统一章节、实施单元、字段标签与正文表述，同时保留路径、命令和技术标识原文 (user-visible)
 - v1.8.0 2026-05-09 16:28:47 leokuang: feat(graph-bootstrap): 为 provider bootstrap 输出 timing、bootstrap fingerprint 与 reuse eligibility facts，并在 GitNexus package projection stale 时 preflight fail-closed，给后续安全加速路径提供确定性 freshness 输入 (user-visible)
 - v1.8.0 2026-05-09 16:17:40 leokuang: docs(plan): 逐项审查并收敛 CE 834ca4e5 增量同步方案，删除无需同步的 release/docs/new-skill/lfg/description-trim 条目，只保留当前代码仍缺的 sessions、PR feedback、plan/review、ideate、debug、work-beta、compound-refresh、agent-native 与 worktree 修改单元 (user-visible)
 - v1.8.0 2026-05-09 16:05:54 leokuang: docs(plan): 新增 CE 834ca4e5 增量同步技术方案，按常态化同步协议区分 sessions 编排、review 降噪、plan 模板、PR feedback 分页、Codex delegation、skill 文档站和新 skill 产品边界 (user-visible)
