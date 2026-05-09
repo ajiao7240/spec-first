@@ -510,20 +510,21 @@ npm run test:smoke
 
 ## 实施顺序
 
-按风险和依赖顺序落地：
+按批次和依赖顺序落地；下列是执行批次，不重新编号 implementation units：
 
-1. U1 + U10 runtime delivery surface 修复：退役 session primitives，交付 `git-worktree`，统一 internal skill path rewrite，更新 catalog/README/smoke
-2. U2 PR feedback 分页
-3. U3 plan 标题与模板
-4. U4 review contract 更新，并完成 U3/U4 writer-reader 联合验证
-5. U8 work-beta Codex 参数
-6. U10 skill prose 的 worktree path 与 allowed-tools 收尾
-7. U7 debug 约束
-8. U5 ideate basis/axes
-9. U6 compound-refresh reference 拆分
-10. U9 agent-native reference 拆分
+1. U1/U10 shared runtime foundation：重命名或重构 delivered internal allowlist，支持 internal/standalone/workflow 共用 `runtimeSkillRoot` path rewrite，补 stale cleanup 与 planned runtime tests。
+2. U1 sessions migration：迁移 session scripts，退役 `spec-session-inventory` / `spec-session-extract` source/governance/runtime delivery，更新 catalog/README/smoke。
+3. U10 git-worktree delivery：交付 `git-worktree` internal skill，更新 skill prose、script path、allowed-tools、catalog/README/smoke。
+4. U2 PR feedback 分页。
+5. U3 plan 标题与模板。
+6. U4 review contract 更新，并完成 U3/U4 writer-reader 联合验证。
+7. U8 work-beta Codex 参数。
+8. U7 debug 约束。
+9. U5 ideate basis/axes。
+10. U6 compound-refresh reference 拆分。
+11. U9 agent-native reference 拆分。
 
-U1 与 U10 必须作为同一 runtime surface 批次处理：U1 会移除两个 delivered internal primitives，U10 会新增一个 delivered internal helper；合批能避免 catalog/README 计数多次漂移，并一次性验证 stale cleanup 与 fresh install。U3 先于 U4，因为 code-review 需要识别新的实施单元标题；但 U3 不能在 U4 reader/parser contract 通过前单独视为完成。U1/U10、U8 是 runtime 可用性或 deadlock 风险，优先级高于纯 prose 瘦身。每个单元都必须先更新或新增聚焦测试，再改 source。
+U1 与 U10 的前三个批次应尽量同一个 PR/commit group 落地：U1 会移除两个 delivered internal primitives，U10 会新增一个 delivered internal helper；合批能避免 catalog/README 计数多次漂移，并一次性验证 stale cleanup 与 fresh install。U3 先于 U4，因为 code-review 需要识别新的实施单元标题；但 U3 不能在 U4 reader/parser contract 通过前单独视为完成。U1/U10、U8 是 runtime 可用性或 deadlock 风险，优先级高于纯 prose 瘦身。每个单元都必须先更新或新增聚焦测试，再改 source。
 
 ## 最终验证
 
