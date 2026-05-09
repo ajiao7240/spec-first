@@ -1,6 +1,14 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.0 2026-05-09 16:05:54 leokuang: docs(plan): 新增 CE 834ca4e5 增量同步技术方案，按常态化同步协议区分 sessions 编排、review 降噪、plan 模板、PR feedback 分页、Codex delegation、skill 文档站和新 skill 产品边界 (user-visible)
+- v1.8.0 2026-05-09 15:54:47 leokuang: docs(plan): 新增 graph-bootstrap 加速与版本安全 freshness reuse 计划，明确 timing instrumentation、bootstrap fingerprint、version/projection 失效、unpinned provider 禁用复用和后续并行化边界 (user-visible)
+- v1.8.0 2026-05-09 15:43:25 leokuang: fix(gitnexus): 优化 `gitnexus-instruction normalize` dry-run 输出，结果增加 `wouldChange`/`written`/`action` 字段，并在非 JSON 模式显示 `would create` / `would normalize`，避免把预览误读为已写入 (user-visible)
+- v1.8.0 2026-05-09 15:27:54 leokuang: fix(gitnexus): 让 graph-bootstrap 在 GitNexus bootstrap 成功后为已有 AGENTS/CLAUDE 缺失 GitNexus block 的项目创建稳定 evidence contract，同时保留 partial block advisory failure、失败 bootstrap 不写 host prose、missing host file 归 init 管理边界 (user-visible)
+- v1.8.0 2026-05-09 14:31:49 leokuang: fix(gitnexus): 新增 graph evidence policy 与 spec-first GitNexus instruction renderer/normalizer，init 与 graph-bootstrap 将 provider 刷新的 AGENTS/CLAUDE block 收敛为稳定 evidence contract，移除动态索引计数、硬性 MUST/NEVER 规则和 host-specific skill 路径；graph-bootstrap 优先调用源码 CLI 并在 provider status 暴露 host instruction normalization advisory fact；normalizer partial/timeout/CLI 缺失均降级为 advisory failure 且不影响 graph readiness (user-visible)
+- v1.8.0 2026-05-09 11:45:32 leokuang: fix(spec-graph-bootstrap): 将 code-review-graph 包索引缺失失败分类为 provider-package-not-found，并提示修正 UV/PIP index 而不是静默改写产物或环境 (user-visible)
+- v1.8.0 2026-05-09 11:14:57 leokuang: docs(plan): 修正 GitNexus repair preflight 计划中的多仓退化漏洞，保留父 workspace no-arg repair preview 默认 all-repos，仅在 destructive confirm 阶段要求显式 scope 或 preview token (user-visible)
+- v1.8.0 2026-05-09 10:54:53 leokuang: docs(plan): 新增 GitNexus repair preflight 计划，收敛 setup 后 analyze 前显式 preview/confirm 清理策略，补齐 symlink/reparse 安全、证据归档、锁、crash marker、all-repos 显式目标和 factual confidence gates (user-visible)
 - v1.8.0 2026-05-08 12:28:24 leokuang: docs(plan): 按 implementation-readiness review 修订三份 governance plan，补齐 001 高风险 env propagation audit、002 GitNexus provider prose 独立 ownership 与 RC.85 pending argv 状态、003 作为 002 graph evidence policy consumer 的 preflight/test 约束 (user-visible)
 - v1.8.0 2026-05-08 12:18:00 leokuang: docs(plan): 同步 skill/agent 质量治理计划、doc 2 deferred tracker 与 reviewer dispatch failure solution 的 revision 3 linkage，避免 plan-prose 状态被误读为 source 行为已落地 (user-visible)
 - v1.8.0 2026-05-08 12:01:27 leokuang: fix(init): 父级多仓 workspace 下 `init --codex|--claude` 先刷新 parent host runtime assets，再执行 child repo 初始化并仅写父级 advisory summary，避免父目录 `$spec-*` 继续加载 stale `.agents/skills` (user-visible)

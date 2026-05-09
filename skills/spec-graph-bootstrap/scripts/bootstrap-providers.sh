@@ -279,6 +279,116 @@ write_file_atomic() {
   mv "$tmp" "$path"
 }
 
+SPEC_FIRST_CLI_COMMAND=()
+
+resolve_spec_first_cli_command() {
+  local source_cli="$SCRIPT_DIR/../../../bin/spec-first.js"
+  if [ -n "${SPEC_FIRST_CLI:-}" ]; then
+    if [ -f "$SPEC_FIRST_CLI" ] && [[ "$SPEC_FIRST_CLI" == *.js ]]; then
+      SPEC_FIRST_CLI_COMMAND=(node "$SPEC_FIRST_CLI")
+    else
+      SPEC_FIRST_CLI_COMMAND=("$SPEC_FIRST_CLI")
+    fi
+  elif [ -f "$source_cli" ]; then
+    SPEC_FIRST_CLI_COMMAND=(node "$source_cli")
+  elif command -v spec-first >/dev/null 2>&1; then
+    SPEC_FIRST_CLI_COMMAND=(spec-first)
+  else
+    return 127
+  fi
+}
+
+normalize_gitnexus_instruction_block() {
+  local output_file
+  local output
+  local exit_code
+  local timed_out=false
+  output_file="$(mktemp "${TMPDIR:-/tmp}/spec-first-gitnexus-instruction.XXXXXX")"
+  set +e
+  if resolve_spec_first_cli_command; then
+    run_command_with_timeout \
+      "$PROVIDER_COMMAND_TIMEOUT_SECONDS" \
+      "$output_file" \
+      "${SPEC_FIRST_CLI_COMMAND[@]}" \
+      gitnexus-instruction normalize --repo-root "$REPO_ROOT" --write --json
+    exit_code=$?
+  else
+    exit_code=127
+  fi
+  output="$(cat "$output_file" 2>/dev/null)"
+  rm -f "$output_file"
+  if [ "$exit_code" -eq 124 ]; then
+    timed_out=true
+  fi
+  set -e
+
+  if jq -e . >/dev/null 2>&1 <<<"$output"; then
+    local results
+    local status
+    local reason_code
+    results="$(jq '.results // []' <<<"$output")"
+    if jq -e '(.overall_status // "") == "partial" or any(.results[]?; .status == "partial")' >/dev/null <<<"$output"; then
+      status="failed"
+      reason_code="gitnexus-instruction-block-partial"
+    elif [ "$exit_code" -ne 0 ]; then
+      status="failed"
+      reason_code="gitnexus-instruction-normalizer-failed"
+    elif jq -e '(.overall_status // "") == "normalized" or any(.results[]?; .status == "updated" and .changed == true)' >/dev/null <<<"$output"; then
+      status="normalized"
+      reason_code=""
+    elif jq -e '(.overall_status // "") == "unchanged" or any(.results[]?; .status == "already-current")' >/dev/null <<<"$output"; then
+      status="unchanged"
+      reason_code=""
+    else
+      status="not-applicable"
+      reason_code="$(jq -r '.reason_code // "gitnexus-instruction-block-missing"' <<<"$output")"
+    fi
+
+    jq -n \
+      --arg provider "gitnexus" \
+      --arg status "$status" \
+      --arg reason_code "$reason_code" \
+      --argjson exit_code "$exit_code" \
+      --argjson results "$results" \
+      '{
+        provider:$provider,
+        status:$status,
+        advisory:true,
+        reason_code:(if $reason_code == "" then null else $reason_code end),
+        exit_code:$exit_code,
+        results:$results
+      }'
+    return 0
+  fi
+
+  if [ "$exit_code" -ne 0 ]; then
+    printf 'spec-graph-bootstrap: warning: could not normalize GitNexus instruction block; run `spec-first gitnexus-instruction normalize --write` after bootstrap.\n' >&2
+    local failure_reason="gitnexus-instruction-normalizer-failed"
+    if [ "$timed_out" = "true" ]; then
+      failure_reason="gitnexus-instruction-normalizer-timeout"
+    fi
+    jq -n \
+      --arg provider "gitnexus" \
+      --arg status "failed" \
+      --arg reason_code "$failure_reason" \
+      --arg diagnostic "$output" \
+      --argjson exit_code "$exit_code" \
+      '{provider:$provider,status:$status,advisory:true,reason_code:$reason_code,exit_code:$exit_code,diagnostic:$diagnostic,results:[]}'
+    return 0
+  fi
+
+  if ! jq -e . >/dev/null 2>&1 <<<"$output"; then
+    printf 'spec-graph-bootstrap: warning: GitNexus instruction normalizer returned non-JSON output.\n' >&2
+    jq -n \
+      --arg provider "gitnexus" \
+      --arg status "failed" \
+      --arg reason_code "gitnexus-instruction-normalizer-output-invalid" \
+      --arg diagnostic "$output" \
+      '{provider:$provider,status:$status,advisory:true,reason_code:$reason_code,exit_code:0,diagnostic:$diagnostic,results:[]}'
+    return 0
+  fi
+}
+
 write_blocked_report() {
   local workflow_mode="$1"
   local reason_code="$2"
@@ -932,6 +1042,17 @@ classify_provider_failure() {
       exit_code:$exit_code,
       recommended_action:"Provider package registry or network resolution failed. Restore registry/network access or warm the package cache, then rerun graph bootstrap."
     }'
+  elif [ "$provider" = "code-review-graph" ] \
+    && [ "$exit_code" -ne 0 ] \
+    && [[ "$diagnostic" == *"code-review-graph"* ]] \
+    && { [[ "$diagnostic" == *"package registry"* ]] || [[ "$diagnostic" == *"No solution found when resolving tool dependencies"* ]] || [[ "$diagnostic" == *"requirements are unsatisfiable"* ]]; }; then
+    jq -n --arg phase "$phase" --argjson exit_code "$exit_code" '{
+      failed_phase:$phase,
+      failure_class:"provider-package-resolution-failed",
+      reason_code:"provider-package-not-found",
+      exit_code:$exit_code,
+      recommended_action:"code-review-graph was not found in the active Python package index. Unset UV_INDEX_URL/PIP_INDEX_URL or use an index that contains code-review-graph, then rerun graph bootstrap."
+    }'
   elif [ "$exit_code" -ne 0 ] \
     && grep -Eiq 'Operation not permitted|Permission denied|EACCES' <<<"$diagnostic" \
     && grep -Eiq '(\.cache/uv|/\.npm|\.npm)' <<<"$diagnostic"; then
@@ -1075,6 +1196,10 @@ write_provider_status() {
   local query_probe_expected_hit=true
   QUERY_PROBE_ATTEMPTS="[]"
   QUERY_PROBE_CANDIDATES_TRUNCATED=false
+  local host_instruction_normalization="null"
+  if [ "$provider" = "gitnexus" ]; then
+    host_instruction_normalization="$(jq -n '{provider:"gitnexus",status:"not-applicable",advisory:true,reason_code:"gitnexus-provider-not-bootstrapped",exit_code:null,results:[]}')"
+  fi
   mkdir -p "$raw_dir" "$provider_dir/normalized"
 
   configured="$(jq -r --arg provider "$provider" '.providers[$provider].configured == true' "$PROVIDER_CONFIG")"
@@ -1118,6 +1243,9 @@ write_provider_status() {
     query_log="$raw_dir/query.log"
 
     run_configured_command "$provider" bootstrap "$bootstrap_log"
+    if [ "$provider" = "gitnexus" ] && [ "$RUN_EXIT_CODE" -eq 0 ]; then
+      host_instruction_normalization="$(normalize_gitnexus_instruction_block)"
+    fi
     append_command_result "$command_results_file" bootstrap "$(command_display "$provider" bootstrap)" "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC" "$RUN_TRUNCATED" "$(relpath "$bootstrap_log")"
     if [ "$RUN_EXIT_CODE" -eq 0 ]; then
       run_configured_command "$provider" status "$status_log"
@@ -1274,6 +1402,7 @@ write_provider_status() {
     --argjson query_probe_attempts "$QUERY_PROBE_ATTEMPTS" \
     --argjson query_probe_candidate_limit "$GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT" \
     --argjson query_probe_candidates_truncated "$query_probe_candidates_truncated" \
+    --argjson host_instruction_normalization "$host_instruction_normalization" \
     --argjson limitations "$limitations" \
     --argjson failure_info "$failure_info" \
     --arg query_verification_reason "$QUERY_PROBE_VERIFICATION_REASON" \
@@ -1307,6 +1436,7 @@ write_provider_status() {
       },
       command_results:$command_results,
       query_probe_attempts:(if $provider == "gitnexus" then $query_probe_attempts else null end),
+      host_instruction_normalization:(if $provider == "gitnexus" then $host_instruction_normalization else null end),
       command_source:".spec-first/config/graph-providers.json",
       commands:($command_results | map({(.kind): .command}) | add // {}),
       diagnostics:($command_results | map(select(.diagnostic != "") | .diagnostic)),

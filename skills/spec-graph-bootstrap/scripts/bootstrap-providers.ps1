@@ -288,6 +288,133 @@ function Write-JsonFileAtomic {
   Write-TextFileAtomic -Path $Path -Value ($Payload | ConvertTo-Json -Depth $Depth)
 }
 
+function Invoke-SpecFirstCli {
+  param([string[]]$CliArguments)
+  $captured = Invoke-SpecFirstCliCaptured -CliArguments $CliArguments
+  if (-not [string]::IsNullOrWhiteSpace($captured.output)) {
+    Write-Output $captured.output
+  }
+  return $captured.exit_code
+}
+
+function Invoke-SpecFirstCliCaptured {
+  param([string[]]$CliArguments)
+  $invocation = Resolve-SpecFirstCliInvocation
+  if ($null -eq $invocation) {
+    return [pscustomobject]@{
+      exit_code = 127
+      output = ''
+      timed_out = $false
+    }
+  }
+  $exe = if ($invocation.Kind -eq 'node-script') { 'node' } else { $invocation.Path }
+  $commandArgs = if ($invocation.Kind -eq 'node-script') { @($invocation.Path) + @($CliArguments) } else { @($CliArguments) }
+  try {
+    $result = Invoke-ExternalCommandWithTimeout -Exe $exe -CommandArguments $commandArgs -WorkingDirectory ([string](Get-Location)) -TimeoutSeconds $script:ProviderCommandTimeoutSeconds
+    return [pscustomobject]@{
+      exit_code = [int]$result.exit_code
+      output = [string]$result.output
+      timed_out = [bool]$result.timed_out
+    }
+  } catch {
+    return [pscustomobject]@{
+      exit_code = 127
+      output = [string]$_.Exception.Message
+      timed_out = $false
+    }
+  }
+}
+
+function Resolve-SpecFirstCliInvocation {
+  $sourceCli = Join-Path $PSScriptRoot '../../../bin/spec-first.js'
+  if (-not [string]::IsNullOrWhiteSpace($env:SPEC_FIRST_CLI)) {
+    if ((Test-Path -LiteralPath $env:SPEC_FIRST_CLI -PathType Leaf) -and $env:SPEC_FIRST_CLI.EndsWith('.js')) {
+      return [pscustomobject]@{
+        Kind = 'node-script'
+        Path = $env:SPEC_FIRST_CLI
+      }
+    } else {
+      return [pscustomobject]@{
+        Kind = 'executable'
+        Path = $env:SPEC_FIRST_CLI
+      }
+    }
+  }
+
+  if (Test-Path -LiteralPath $sourceCli -PathType Leaf) {
+    return [pscustomobject]@{
+      Kind = 'node-script'
+      Path = $sourceCli
+    }
+  }
+
+  $command = Get-Command spec-first -ErrorAction SilentlyContinue
+  if ($null -ne $command) {
+    return [pscustomobject]@{
+      Kind = 'executable'
+      Path = $command.Source
+    }
+  }
+
+  return $null
+}
+
+function Normalize-GitNexusInstructionBlockViaCli {
+  param([string]$RepoRoot)
+  $captured = Invoke-SpecFirstCliCaptured -CliArguments @('gitnexus-instruction', 'normalize', '--repo-root', $RepoRoot, '--write', '--json')
+  try {
+    $payload = $captured.output | ConvertFrom-Json -ErrorAction Stop
+    $results = if ($null -ne $payload -and ($payload.PSObject.Properties.Name -contains 'results')) { @($payload.results) } else { @() }
+    $overallStatus = if ($null -ne $payload -and ($payload.PSObject.Properties.Name -contains 'overall_status')) { [string]$payload.overall_status } else { '' }
+    if ($overallStatus -eq 'partial' -or @($results | Where-Object { $_.status -eq 'partial' }).Count -gt 0) {
+      return New-GitNexusInstructionNormalizationResult -Status 'failed' -ReasonCode 'gitnexus-instruction-block-partial' -ExitCode $captured.exit_code -Results $results
+    }
+    if ($captured.exit_code -ne 0) {
+      [Console]::Error.WriteLine('spec-graph-bootstrap: warning: could not normalize GitNexus instruction block; run `spec-first gitnexus-instruction normalize --write` after bootstrap.')
+      $failureReason = if ($captured.timed_out) { 'gitnexus-instruction-normalizer-timeout' } else { 'gitnexus-instruction-normalizer-failed' }
+      return New-GitNexusInstructionNormalizationResult -Status 'failed' -ReasonCode $failureReason -ExitCode $captured.exit_code -Diagnostic $captured.output -Results $results
+    }
+    if ($overallStatus -eq 'normalized' -or @($results | Where-Object { $_.status -eq 'updated' -and [bool]$_.changed }).Count -gt 0) {
+      return New-GitNexusInstructionNormalizationResult -Status 'normalized' -ExitCode 0 -Results $results
+    }
+    if ($overallStatus -eq 'unchanged' -or @($results | Where-Object { $_.status -eq 'already-current' }).Count -gt 0) {
+      return New-GitNexusInstructionNormalizationResult -Status 'unchanged' -ExitCode 0 -Results $results
+    }
+    $reasonCode = if ($null -ne $payload -and ($payload.PSObject.Properties.Name -contains 'reason_code') -and -not [string]::IsNullOrWhiteSpace([string]$payload.reason_code)) { [string]$payload.reason_code } else { 'gitnexus-instruction-block-missing' }
+    return New-GitNexusInstructionNormalizationResult -Status 'not-applicable' -ReasonCode $reasonCode -ExitCode 0 -Results $results
+  } catch {
+    if ($captured.exit_code -ne 0) {
+      [Console]::Error.WriteLine('spec-graph-bootstrap: warning: could not normalize GitNexus instruction block; run `spec-first gitnexus-instruction normalize --write` after bootstrap.')
+      $failureReason = if ($captured.timed_out) { 'gitnexus-instruction-normalizer-timeout' } else { 'gitnexus-instruction-normalizer-failed' }
+      return New-GitNexusInstructionNormalizationResult -Status 'failed' -ReasonCode $failureReason -ExitCode $captured.exit_code -Diagnostic $captured.output -Results @()
+    }
+    [Console]::Error.WriteLine('spec-graph-bootstrap: warning: GitNexus instruction normalizer returned non-JSON output.')
+    return New-GitNexusInstructionNormalizationResult -Status 'failed' -ReasonCode 'gitnexus-instruction-normalizer-output-invalid' -ExitCode 0 -Diagnostic $captured.output -Results @()
+  }
+}
+
+function New-GitNexusInstructionNormalizationResult {
+  param(
+    [string]$Status,
+    [string]$ReasonCode = '',
+    [object]$ExitCode = $null,
+    [string]$Diagnostic = '',
+    [object[]]$Results = @()
+  )
+  $payload = [ordered]@{
+    provider = 'gitnexus'
+    status = $Status
+    advisory = $true
+    reason_code = if ([string]::IsNullOrWhiteSpace($ReasonCode)) { $null } else { $ReasonCode }
+    exit_code = $ExitCode
+    results = @($Results)
+  }
+  if (-not [string]::IsNullOrWhiteSpace($Diagnostic)) {
+    $payload['diagnostic'] = $Diagnostic
+  }
+  return [pscustomobject]$payload
+}
+
 function Get-ObjectPropertyValue {
   param(
     [object]$Object,
@@ -989,6 +1116,19 @@ function Get-ProviderFailureInfo {
     }
   }
   if (
+    $Provider -eq 'code-review-graph' -and
+    $ExitCode -ne 0 -and
+    [string]$Diagnostic -match '(?i)(code-review-graph was not found in the package registry|No solution found when resolving tool dependencies|requirements are unsatisfiable)'
+  ) {
+    return [ordered]@{
+      failed_phase = $Phase
+      failure_class = 'provider-package-resolution-failed'
+      reason_code = 'provider-package-not-found'
+      exit_code = $ExitCode
+      recommended_action = 'code-review-graph was not found in the active Python package index. Unset UV_INDEX_URL/PIP_INDEX_URL or use an index that contains code-review-graph, then rerun graph bootstrap.'
+    }
+  }
+  if (
     $ExitCode -ne 0 -and
     [string]$Diagnostic -match '(?i)(Operation not permitted|Permission denied|EACCES)' -and
     [string]$Diagnostic -match '(?i)(\.cache[\\/]+uv|[\\/]\.npm|\.npm)'
@@ -1257,12 +1397,19 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $queryProbeAttempts = New-Object System.Collections.Generic.List[object]
   $queryProbeCandidatesTruncated = $false
   $queryProbeExpectedHit = $true
+  $hostInstructionNormalization = $null
+  if ($provider -eq 'gitnexus') {
+    $hostInstructionNormalization = New-GitNexusInstructionNormalizationResult -Status 'not-applicable' -ReasonCode 'gitnexus-provider-not-bootstrapped' -Results @()
+  }
 
   if (Test-ProviderEnabled -ProviderConfig $providerConfig -Provider $provider) {
     $bootstrapLog = Join-Path $rawDir $(if ($provider -eq 'gitnexus') { 'analyze.log' } else { 'build.log' })
     $statusLog = Join-Path $rawDir 'status.log'
     $queryLog = Join-Path $rawDir 'query.log'
     $bootstrap = Invoke-ConfiguredCommand -ProviderConfig $providerConfig -Provider $provider -Kind 'bootstrap' -LogPath $bootstrapLog -RepoRoot $repoRoot
+    if ($provider -eq 'gitnexus' -and $bootstrap.exit_code -eq 0) {
+      $hostInstructionNormalization = Normalize-GitNexusInstructionBlockViaCli -RepoRoot $repoRoot
+    }
     $commandResults.Add($bootstrap)
     if ($bootstrap.exit_code -eq 0) {
       $statusProbe = Invoke-ConfiguredCommand -ProviderConfig $providerConfig -Provider $provider -Kind 'status' -LogPath $statusLog -RepoRoot $repoRoot
@@ -1423,6 +1570,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     }
     command_results = @($commandResults)
     query_probe_attempts = if ($provider -eq 'gitnexus') { @($queryProbeAttempts) } else { $null }
+    host_instruction_normalization = if ($provider -eq 'gitnexus') { $hostInstructionNormalization } else { $null }
     command_source = '.spec-first/config/graph-providers.json'
     diagnostics = @($commandResults | Where-Object { -not [string]::IsNullOrWhiteSpace($_.diagnostic) } | ForEach-Object { $_.diagnostic })
     diagnostics_truncated = [bool](@($commandResults | Where-Object { $_.diagnostics_truncated }).Count)

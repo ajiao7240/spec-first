@@ -408,6 +408,18 @@ npx -y gitnexus@<stable-tag> analyze --help
 
 ## 执行日志
 
+### 2026-05-09 — GitNexus host block ownership 收敛（路径 C 稳定化）
+
+执行人：leokuang。
+
+- 已新增 `src/cli/gitnexus-instruction-block.js` 作为 GitNexus host instruction block 的独立 renderer / normalizer；`src/cli/instruction-bootstrap.js` 未承载 GitNexus prose，继续只拥有 workflow-entry bootstrap。
+- 已新增 `docs/contracts/graph-evidence-policy.md` 作为图谱证据消费规则 source of truth；host block 只保留轻量提醒并指向该 policy。
+- `spec-first init --claude|--codex` 在保留既有 `<!-- gitnexus:start -->` block 时，会把 provider 写入的 legacy prose 收敛为稳定 spec-first evidence contract。
+- `spec-graph-bootstrap` 在 GitNexus `analyze --force` 后调用 `spec-first gitnexus-instruction normalize --write --quiet`，允许 provider 刷新 block，但最终写入稳定版本。
+- 稳定 block 移除 symbols / relationships / execution flows 动态计数、硬性 `MUST` / `NEVER` provider 规则和 `.claude/skills/gitnexus/*` host-specific runtime path；改为 freshness-aware / query-ready evidence contract。
+- 本次未切换到 `--skip-agents-md` 路径 A；仍保留 `<!-- gitnexus:start -->` legacy marker 兼容外部 provider 写入，再由 spec-first 收敛最终 source。
+- 后续如继续推进完全 managed marker，可在此基础上把 legacy marker 迁移到 `<!-- spec-first:gitnexus-prose:start -->`，并补 doctor drift detection。
+
 ### 2026-05-08 — spec-first v1.8.0：RC 通道反转生效（路径 B 落地）
 
 执行人：leokuang。Maintainer of pin：leokuang。

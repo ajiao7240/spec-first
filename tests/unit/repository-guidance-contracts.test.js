@@ -21,12 +21,20 @@ describe('repository guidance contracts', () => {
     expect(text).toContain('脚本类资产不受会话缓存限制');
   });
 
-  test.each(GUIDANCE_FILES)('%s has a single GitNexus index summary inside the managed block', (fileName) => {
+  test.each(GUIDANCE_FILES)('%s has a stable GitNexus evidence contract inside the managed block', (fileName) => {
     const text = fs.readFileSync(path.join(REPO_ROOT, fileName), 'utf8');
     const blockMatch = text.match(/<!-- gitnexus:start -->[\s\S]*?<!-- gitnexus:end -->/u);
 
     expect(blockMatch).not.toBeNull();
-    const summaries = blockMatch[0].match(/This project is indexed by GitNexus as \*\*spec-first\*\*/gu) || [];
+    const block = blockMatch[0];
+    const summaries = block.match(/本项目已配置 GitNexus 图谱支持，仓库标识：\*\*spec-first\*\*/gu) || [];
     expect(summaries).toHaveLength(1);
+    expect(block).toContain('当索引新鲜且 query-ready 时');
+    expect(block).toContain('docs/contracts/graph-evidence-policy.md');
+    expect(block).toContain('## 使用边界');
+    expect(block).not.toMatch(/\([0-9,]+ symbols, [0-9,]+ relationships, [0-9,]+ execution flows\)/u);
+    expect(block).not.toContain('MUST run impact analysis');
+    expect(block).not.toContain('NEVER edit');
+    expect(block).not.toContain('.claude/skills/gitnexus');
   });
 });

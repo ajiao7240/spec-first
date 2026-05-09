@@ -49,8 +49,9 @@ Optional read-only workspace routing input:
 2. Validate setup-owned input schemas and host readiness ledger consistency.
 3. Validate provider ids, command arrays, and GitNexus query probe policy shape before running any provider command.
 4. Run configured provider bootstrap, status, and query proof commands without shell interpolation.
-5. Write provider raw logs, provider status, normalized envelopes, canonical graph facts, impact capability facts, and a human-readable bootstrap report.
-6. If useful for handoff and the current session has GitNexus MCP loaded, perform one bounded live MCP probe as session-local evidence only.
+5. GitNexus bootstrap 成功后可调用 spec-first source CLI 收敛 `AGENTS.md` / `CLAUDE.md` 中的 GitNexus host instruction block；这是 host prose cleanup，不是 graph readiness proof，不影响 `graph_ready` / `query_ready`，只作为 `host_instruction_normalization` advisory fact 写入 provider status。
+6. Write provider raw logs, provider status, normalized envelopes, canonical graph facts, impact capability facts, and a human-readable bootstrap report.
+7. If useful for handoff and the current session has GitNexus MCP loaded, perform one bounded live MCP probe as session-local evidence only.
 
 ## Contract
 
@@ -183,6 +184,8 @@ The current display forms are `npx -y <configured-gitnexus-package> analyze --fo
 
 Reject string commands, `bash -c`, `sh -c`, and unsupported executable/package shapes. Shell metacharacters inside an array argument must not be interpreted by a shell.
 
+After successful GitNexus bootstrap, call the spec-first CLI GitNexus instruction normalizer to ensure existing `AGENTS.md` / `CLAUDE.md` files contain the stable spec-first GitNexus evidence contract. If a host instruction file exists but lacks the GitNexus block, create it; if a provider refreshed a legacy block, rewrite it; if only one marker exists, report a partial-block advisory failure and do not guess the repair. Missing host instruction files remain `init` ownership and are not created by graph bootstrap. The renderer lives in `src/cli/gitnexus-instruction-block.js`; the Bash/PowerShell bootstrap scripts must not duplicate the block prose. The stable block omits dynamic index counts, avoids hard `MUST` / `NEVER` provider rules, avoids host-specific runtime skill paths, and frames GitNexus as freshness-aware evidence rather than a replacement for source reads, tests, or workflow judgment.
+
 ## Readiness Evidence
 
 `query_ready=true` requires all three provider-specific evidence levels:
@@ -284,6 +287,8 @@ These workspace summaries are advisory control-plane evidence only. They do not 
 - Parent workspace target: default to all child repos, preserve child-scoped canonical artifacts, and write only advisory parent workspace summaries. If no child repos exist, return `workspace-no-git-candidates`.
 - Unsupported provider id, command shape, or unsafe query probe policy: return `unsupported-provider-command` before running provider commands.
 - Provider build failure: mark that provider failed, preserve raw logs, and use fallback workflow mode only when fallback capabilities are available.
+- GitNexus host instruction normalization failure: record `host_instruction_normalization` as advisory evidence only. `gitnexus-instruction-block-partial`, `gitnexus-instruction-normalizer-failed`, and `gitnexus-instruction-normalizer-timeout` must not change provider `graph_ready` / `query_ready`; they only indicate host prose cleanup needs follow-up.
+- `code-review-graph` package resolution failure: if bootstrap diagnostics show the active Python package index cannot find `code-review-graph`, return `reason_code=provider-package-not-found`, `failure_class=provider-package-resolution-failed`, and recommend unsetting `UV_INDEX_URL` / `PIP_INDEX_URL` or using an index that contains `code-review-graph`. Do not silently override the user's package-index environment.
 - Build/status success with query proof failure: preserve `graph_ready=true` where status verified, keep `query_ready=false`, record limitations and raw logs. If GitNexus query fails because the setup-projected `--repo` label differs from `.gitnexus/meta.json` or git remote basename, write `reason_code=gitnexus-repo-label-mismatch` with an action to rerun `spec-mcp-setup` and then `spec-graph-bootstrap`; do not mutate setup-owned `graph-providers.json`.
 - GitNexus FTS/read-only/missing-index query diagnostics: preserve `query_ready=false` and write a structured `recommended_action`. If the setup-projected GitNexus package differs from the bundled `spec-mcp-setup` tool contract, write `reason_code=gitnexus-query-provider-projection-stale` and recommend rerunning `spec-mcp-setup` before `spec-graph-bootstrap`; otherwise write `reason_code=gitnexus-query-fts-readonly` and recommend repairing GitNexus index storage/permissions or clean reanalysis with a fixed provider version. Do not mark the provider ready from build/status alone.
 - Definitions-only GitNexus evidence: use it only for local symbol/file pointers; do not mark compiled query readiness true.

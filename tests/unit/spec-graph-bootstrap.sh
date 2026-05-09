@@ -108,6 +108,14 @@ if [[ "\${FAIL_CRG_CACHE_PERMISSION:-}" = "1" && " \$* " == *" code-review-graph
   echo "error: failed to open file \"/Users/spec/.cache/uv/sdists-v9/.git\": Operation not permitted (os error 1)" >&2
   exit 2
 fi
+if [[ "\${FAIL_CRG_PACKAGE_NOT_FOUND:-}" = "1" && " \$* " == *" code-review-graph build "* ]]; then
+  echo "warning: Tools cannot be upgraded via \`uvx\`; use \`uv tool upgrade --all\` to upgrade all installed tools, or \`uvx package@latest\` to run the latest version of a tool." >&2
+  echo "  × No solution found when resolving tool dependencies:" >&2
+  echo "  ╰─▶ Because code-review-graph was not found in the package registry and" >&2
+  echo "      you require code-review-graph, we can conclude that your requirements" >&2
+  echo "      are unsatisfiable." >&2
+  exit 1
+fi
 if [[ "\${FAIL_CRG_BUILD:-}" = "1" && " \$* " == *" code-review-graph build "* ]]; then
   echo "build failed" >&2
   exit 43
@@ -118,7 +126,15 @@ if [[ "\${HANG_CRG_BUILD:-}" = "1" && " \$* " == *" code-review-graph build "* ]
 fi
 exit 0
 SH
-  chmod +x "$bin_dir/npx" "$bin_dir/uvx"
+  cat > "$bin_dir/spec-first" <<SH
+#!/bin/bash
+echo "global spec-first \$*" >> "$log_file"
+if [[ " \$* " == *" gitnexus-instruction normalize "* ]]; then
+  exit 88
+fi
+exit 0
+SH
+  chmod +x "$bin_dir/npx" "$bin_dir/uvx" "$bin_dir/spec-first"
 }
 
 make_repo() {
@@ -443,6 +459,24 @@ PRIMARY_REPO="$TMP_DIR/primary-repo"
 PRIMARY_LEDGER="$TMP_DIR/primary-home/.codex/spec-first/host-setup.json"
 make_repo "$PRIMARY_REPO"
 write_fixture_config "$PRIMARY_REPO" "$PRIMARY_LEDGER" true
+for host_instruction in AGENTS.md CLAUDE.md; do
+  cat > "$PRIMARY_REPO/$host_instruction" <<'MD'
+<!-- gitnexus:start -->
+# GitNexus — Code Intelligence
+
+This project is indexed by GitNexus as **primary-repo** (26859 symbols, 31088 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+
+## Always Do
+
+- **MUST run impact analysis before editing any symbol.**
+
+## CLI
+
+| Understand architecture | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
+
+<!-- gitnexus:end -->
+MD
+done
 primary_provider_config_before="$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
 primary_runtime_capabilities_before="$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
 
@@ -459,13 +493,67 @@ assert "impact capabilities exists" test -f "$PRIMARY_REPO/.spec-first/impact/bo
 assert "provider raw log exists" test -f "$PRIMARY_REPO/.spec-first/providers/gitnexus/raw/analyze.log"
 assert "normalized artifact exists" test -f "$PRIMARY_REPO/.spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
 assert "old graph raw path is not used" test ! -e "$PRIMARY_REPO/.spec-first/graph/raw/gitnexus"
+assert_contains "graph-bootstrap normalizes GitNexus host block" "本项目已配置 GitNexus 图谱支持，仓库标识：**primary-repo**" "$(cat "$PRIMARY_REPO/AGENTS.md")"
+assert_contains "graph-bootstrap normalizes Claude GitNexus host block" "当索引新鲜且 query-ready 时" "$(cat "$PRIMARY_REPO/CLAUDE.md")"
+assert_contains "graph-bootstrap host block points to graph evidence policy" "docs/contracts/graph-evidence-policy.md" "$(cat "$PRIMARY_REPO/AGENTS.md")"
+if grep -Eq '[0-9,]+ symbols, [0-9,]+ relationships, [0-9,]+ execution flows|MUST run impact|\.claude/skills/gitnexus' "$PRIMARY_REPO/AGENTS.md" "$PRIMARY_REPO/CLAUDE.md"; then
+  echo "FAIL: graph-bootstrap leaves unstable GitNexus instruction prose" >&2
+  exit 1
+fi
 assert_eq "graph facts source revision is a commit SHA" "true" "$(jq -r '.source_revision | test("^[0-9a-f]{40}$")' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
 assert_eq "graph facts exposes capability booleans" "true:true" "$(jq -r '(.capabilities.query_global_graph | tostring) + ":" + (.capabilities.impact_context | tostring)' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
 assert_eq "graph facts exposes staleness hints" "true:true" "$(jq -r '(.staleness_hints.compare_source_revision | tostring) + ":" + (.staleness_hints.compare_worktree_dirty | tostring)' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
 assert_eq "provider status records command source" ".spec-first/config/graph-providers.json" "$(jq -r '.command_source' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
+assert_eq "provider status records GitNexus host instruction normalization" "normalized:true:0" "$(jq -r '.host_instruction_normalization.status + ":" + (.host_instruction_normalization.advisory | tostring) + ":" + (.host_instruction_normalization.exit_code | tostring)' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "provider status records expected-hit query policy" "true:git-ls-files-code-basename:$GITNEXUS_QUERY_PROBE" "$(jq -r '.query_probe_policy | "\(.expected_hit):\(.source):\(.token)"' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "graph-bootstrap does not mutate provider config input" "$primary_provider_config_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
 assert_eq "graph-bootstrap does not mutate runtime capabilities input" "$primary_runtime_capabilities_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
+
+MISSING_HOST_REPO="$TMP_DIR/missing-host-repo"
+MISSING_HOST_LEDGER="$TMP_DIR/missing-host-home/.codex/spec-first/host-setup.json"
+make_repo "$MISSING_HOST_REPO"
+write_fixture_config "$MISSING_HOST_REPO" "$MISSING_HOST_LEDGER" true
+printf '# Host\n' > "$MISSING_HOST_REPO/AGENTS.md"
+printf '# Host\n' > "$MISSING_HOST_REPO/CLAUDE.md"
+missing_host_output="$(cd "$MISSING_HOST_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "missing GitNexus host block does not block graph readiness" "primary:ready" "$(jq -r '.workflow_mode + ":" + .overall_status' <<<"$missing_host_output")"
+assert_eq "missing GitNexus host block is created as advisory normalization" "normalized:true:0" "$(jq -r '.results[] | select(.provider=="gitnexus") | .host_instruction_normalization | .status + ":" + (.advisory | tostring) + ":" + (.exit_code | tostring)' <<<"$missing_host_output")"
+assert_contains "graph-bootstrap creates AGENTS GitNexus host block" "本项目已配置 GitNexus 图谱支持，仓库标识：**missing-host-repo**" "$(cat "$MISSING_HOST_REPO/AGENTS.md")"
+assert_contains "graph-bootstrap creates CLAUDE GitNexus host block" "docs/contracts/graph-evidence-policy.md" "$(cat "$MISSING_HOST_REPO/CLAUDE.md")"
+
+PARTIAL_HOST_REPO="$TMP_DIR/partial-host-repo"
+PARTIAL_HOST_LEDGER="$TMP_DIR/partial-host-home/.codex/spec-first/host-setup.json"
+make_repo "$PARTIAL_HOST_REPO"
+write_fixture_config "$PARTIAL_HOST_REPO" "$PARTIAL_HOST_LEDGER" true
+cat > "$PARTIAL_HOST_REPO/AGENTS.md" <<'MD'
+<!-- gitnexus:start -->
+# GitNexus — Code Intelligence
+MD
+partial_host_output="$(cd "$PARTIAL_HOST_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "partial GitNexus host block does not block graph readiness" "primary:ready" "$(jq -r '.workflow_mode + ":" + .overall_status' <<<"$partial_host_output")"
+assert_eq "partial GitNexus host block is recorded as advisory failure" "failed:true:gitnexus-instruction-block-partial:3" "$(jq -r '.results[] | select(.provider=="gitnexus") | .host_instruction_normalization | .status + ":" + (.advisory | tostring) + ":" + (.reason_code // "") + ":" + (.exit_code | tostring)' <<<"$partial_host_output")"
+
+BAD_CLI_REPO="$TMP_DIR/bad-cli-repo"
+BAD_CLI_LEDGER="$TMP_DIR/bad-cli-home/.codex/spec-first/host-setup.json"
+make_repo "$BAD_CLI_REPO"
+write_fixture_config "$BAD_CLI_REPO" "$BAD_CLI_LEDGER" true
+bad_cli_output="$(cd "$BAD_CLI_REPO" && PATH="$TEST_PATH" SPEC_FIRST_CLI="$TMP_DIR/missing-spec-first-cli" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "missing SPEC_FIRST_CLI does not block graph readiness" "primary:ready" "$(jq -r '.workflow_mode + ":" + .overall_status' <<<"$bad_cli_output")"
+assert_eq "missing SPEC_FIRST_CLI is recorded as advisory failure" "failed:true:gitnexus-instruction-normalizer-failed:127" "$(jq -r '.results[] | select(.provider=="gitnexus") | .host_instruction_normalization | .status + ":" + (.advisory | tostring) + ":" + (.reason_code // "") + ":" + (.exit_code | tostring)' <<<"$bad_cli_output")"
+
+TIMEOUT_CLI_REPO="$TMP_DIR/timeout-cli-repo"
+TIMEOUT_CLI_LEDGER="$TMP_DIR/timeout-cli-home/.codex/spec-first/host-setup.json"
+TIMEOUT_CLI="$TMP_DIR/slow-spec-first-cli"
+make_repo "$TIMEOUT_CLI_REPO"
+write_fixture_config "$TIMEOUT_CLI_REPO" "$TIMEOUT_CLI_LEDGER" true
+cat > "$TIMEOUT_CLI" <<'SH'
+#!/bin/bash
+sleep 5
+SH
+chmod +x "$TIMEOUT_CLI"
+timeout_cli_output="$(cd "$TIMEOUT_CLI_REPO" && PATH="$TEST_PATH" SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS=1 SPEC_FIRST_CLI="$TIMEOUT_CLI" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "timed out SPEC_FIRST_CLI does not block graph readiness" "primary:ready" "$(jq -r '.workflow_mode + ":" + .overall_status' <<<"$timeout_cli_output")"
+assert_eq "timed out SPEC_FIRST_CLI is recorded as advisory timeout" "failed:true:gitnexus-instruction-normalizer-timeout:124" "$(jq -r '.results[] | select(.provider=="gitnexus") | .host_instruction_normalization | .status + ":" + (.advisory | tostring) + ":" + (.reason_code // "") + ":" + (.exit_code | tostring)' <<<"$timeout_cli_output")"
 
 CLEAN_GRAPH_REPO="$TMP_DIR/clean-graph-repo"
 CLEAN_GRAPH_LEDGER="$TMP_DIR/clean-graph-home/.codex/spec-first/host-setup.json"
@@ -725,10 +813,15 @@ SIGSEGV_REPO="$TMP_DIR/sigsegv-repo"
 SIGSEGV_LEDGER="$TMP_DIR/sigsegv-home/.codex/spec-first/host-setup.json"
 make_repo "$SIGSEGV_REPO"
 write_fixture_config "$SIGSEGV_REPO" "$SIGSEGV_LEDGER" true
+printf '# Host\n' > "$SIGSEGV_REPO/AGENTS.md"
 sigsegv_output="$(cd "$SIGSEGV_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_ANALYZE_SIGSEGV=1 bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "GitNexus sigsegv degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$sigsegv_output")"
 assert_eq "GitNexus sigsegv has structured reason" "failed:gitnexus-analyze-sigsegv:provider-crash:bootstrap:139" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$sigsegv_output")"
 assert_contains "GitNexus sigsegv limitation recommends fallback" "Do not trust GitNexus artifacts" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$sigsegv_output")"
+if grep -q '<!-- gitnexus:start -->' "$SIGSEGV_REPO/AGENTS.md"; then
+  echo "FAIL: failed GitNexus bootstrap created host instruction block" >&2
+  exit 1
+fi
 
 NETWORK_REPO="$TMP_DIR/network-repo"
 NETWORK_LEDGER="$TMP_DIR/network-home/.codex/spec-first/host-setup.json"
@@ -756,6 +849,15 @@ crg_cache_output="$(cd "$CRG_CACHE_REPO" && PATH="$TEST_PATH" FAIL_CRG_CACHE_PER
 assert_eq "code-review-graph cache failure degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$crg_cache_output")"
 assert_eq "code-review-graph cache failure is environment classified" "failed:provider-cache-permission-denied:provider-environment:bootstrap:2" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$crg_cache_output")"
 assert_contains "code-review-graph cache failure recommends permission fix" "Provider cache access was denied" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .limitations | join(" ")' <<<"$crg_cache_output")"
+
+CRG_PACKAGE_REPO="$TMP_DIR/crg-package-repo"
+CRG_PACKAGE_LEDGER="$TMP_DIR/crg-package-home/.codex/spec-first/host-setup.json"
+make_repo "$CRG_PACKAGE_REPO"
+write_fixture_config "$CRG_PACKAGE_REPO" "$CRG_PACKAGE_LEDGER" true
+crg_package_output="$(cd "$CRG_PACKAGE_REPO" && PATH="$TEST_PATH" FAIL_CRG_PACKAGE_NOT_FOUND=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "code-review-graph missing package degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$crg_package_output")"
+assert_eq "code-review-graph missing package is classified" "failed:provider-package-not-found:provider-package-resolution-failed:bootstrap:1" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$crg_package_output")"
+assert_contains "code-review-graph missing package recommends index fix" "Unset UV_INDEX_URL/PIP_INDEX_URL" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .limitations | join(" ")' <<<"$crg_package_output")"
 
 NO_FALLBACK_REPO="$TMP_DIR/no-fallback-repo"
 NO_FALLBACK_LEDGER="$TMP_DIR/no-fallback-home/.codex/spec-first/host-setup.json"

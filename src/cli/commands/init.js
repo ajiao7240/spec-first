@@ -42,6 +42,7 @@ const {
   buildBootstrapBlock,
   inspectInstructionBootstrap,
 } = require('../instruction-bootstrap');
+const { normalizeGitNexusInstructionBlock } = require('../gitnexus-instruction-block');
 const { removeManagedRuntimeToolsBlock } = require('../runtime-tools-index');
 const {
   getClaudeSettingsPath,
@@ -1102,10 +1103,14 @@ function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, pla
     instructionWithBootstrap,
     buildCodingGuidelinesBlock(developer.lang),
   );
+  const normalizedGitNexusInstruction = normalizeGitNexusInstructionBlock(finalInstruction, {
+    defaultRepoName: path.basename(projectRoot),
+    lang: developer.lang,
+  }).content;
   operations.push(buildPlanFileOperation(
     projectRoot,
     adapter.instructionFile,
-    finalInstruction,
+    normalizedGitNexusInstruction,
     'managed_instruction_file',
   ));
 
