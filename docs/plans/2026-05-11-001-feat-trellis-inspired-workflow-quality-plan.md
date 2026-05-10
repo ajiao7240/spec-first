@@ -1616,7 +1616,7 @@ flowchart LR
 - 错误路径：tests 拒绝把 `CONTEXT.md` 或 `docs/adr/` 描述成 spec-first 必需目录。
 
 **验证：**
-- `npm run test:unit`，或 targeted 运行 brainstorm/plan/doc-review/standards contract tests。
+- `npm run test:unit`，或 targeted 运行 brainstorm/debug/work/plan/code-review/doc-review/standards contract tests。
 
 ---
 
