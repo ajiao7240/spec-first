@@ -1,5 +1,7 @@
 # spec-first 全项目正式审查报告
 
+> Lifecycle: historical-input / external-reference. 本文保留历史 CRG/CE/ECC 方案、迁移或对比材料；其中 `src/crg`、`spec-first crg`、`graph.db`、`better-sqlite3`、`.claude-plugin`、命令数量和文件数量等旧口径可能已过期。当前 source of truth 以 `docs/archive-index.md`、`docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/`、`CHANGELOG.md`、`spec-mcp-setup` 和 `spec-graph-bootstrap` 为准。
+
 > 审查时间：2026-04-17
 > 审查对象：当前工作树状态下的 `spec-first` 全仓
 > 审查原则：一切以代码、测试、脚本输出和仓库内受控文档为依据；不根据愿景文档替代实现事实；不把 sample/skeleton 当作真实能力

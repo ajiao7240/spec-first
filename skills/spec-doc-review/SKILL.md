@@ -8,6 +8,40 @@ argument-hint: "[mode:headless] [path/to/document.md]"
 
 Review requirements, plan, or task-pack documents through multi-persona analysis. When the host exposes a reviewer dispatch primitive, dispatch specialized reviewer agents with bounded parallelism by default, auto-apply `safe_auto` fixes, and route remaining findings through a four-option interaction (per-finding walk-through, Auto-resolve with best judgment, Append-to-Open-Questions, Report-only) for user decision. When reviewer dispatch is unavailable, explicitly disabled by the user, or unsafe for the current runtime, run the single-agent report-only fallback described in Phase 2 so the workflow still returns review findings without violating host boundaries.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use to review requirements, plans, or task packs for coherence, feasibility, scope, risk, and downstream execution readiness.
+
+### When Not To Use
+
+Do not use for code diff review, implementing fixes as a work run, filing issues without an explicit route, or treating a task pack as an independent source plan.
+
+### Inputs
+
+A requirements, plan, or task-pack document path; optional `mode:headless`; repository instructions, source-document links, document frontmatter, and review persona context.
+
+### Outputs
+
+Persona-reviewed findings with severity, confidence-first anchor, recommended action, applied `safe_auto` fixes when allowed, structured headless output when requested, and a terminal `Review complete` signal.
+
+### Artifacts
+
+The reviewed document may be edited for accepted fixes or Open Questions append entries. No repo-local JSON run artifact is promised; headless callers consume the structured text envelope and any concrete document edits.
+
+### Failure Modes
+
+Missing headless document path, unreadable document, dispatch unavailable/disabled/unsafe, reviewer timeout/failure, Open Questions append failure, or no actionable findings. Fall back to single-agent report-only when dispatch is not safe and surface append failures through Retry/Fall back/Convert-to-Skip handling.
+
+### Workflow
+
+Detect mode and document type, select reviewer personas, dispatch with bounded parallelism or fall back, synthesize findings, apply allowed fixes, then route or return the final review envelope.
+
+### Downstream Consumers
+
+`spec-plan`, `spec-work`, task-pack validation/rebuild decisions, human document owners, and code-review handoffs when document findings imply implementation risk.
+
 ## Invocation Boundary
 
 `spec-doc-review` is a workflow orchestrator, not an agent type. Do not invoke it through Agent/Task/subagent primitives. Use the current host's document-review entrypoint instead; nested workflow callers execute the workflow inline in the current orchestrator. This workflow may dispatch persona agents during Phase 2, but the workflow itself is not one of those agents.

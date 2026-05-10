@@ -628,7 +628,7 @@ build resolver 不输出 review finding，而输出 diagnosis：
 * conditional reviewers
 * stack-specific reviewers
 * synthesis / dedup / confidence gate
-* artifacts under `/tmp/spec-first/spec-code-review/<run-id>/`
+* artifacts under emitted `<review-artifact-dir>/` paths resolved from the current OS temp root
 
 这些都应该保留。([GitHub][2])
 

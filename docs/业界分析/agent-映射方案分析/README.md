@@ -1,5 +1,7 @@
 # Agent 映射方案分析
 
+> Lifecycle: historical-input / external-reference. 本文保留历史 CRG/CE/ECC 方案、迁移或对比材料；其中 `src/crg`、`spec-first crg`、`graph.db`、`better-sqlite3`、`.claude-plugin`、`CRG Stage-0`、`ECC`、`compound-engineering-plugin`、命令数量和文件数量等旧口径可能已过期。当前 source of truth 以 `docs/archive-index.md`、`docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/`、`CHANGELOG.md`、`spec-mcp-setup` 和 `spec-graph-bootstrap` 为准。
+
 本目录汇总 `compound-engineering-plugin` 上游 agent 与当前 `spec-first` agent 之间的专项分析文档。最初差异集中在 13 个 `直接对应但有差异` 条目；当前 live 状态已收敛为 11 个直接差异条目与 8 个仅当前仓库存在条目。
 
 这些文档不是泛泛而谈的“功能介绍”，而是围绕同一路径 agent 的上下游源码、当前 skill 调用链、现有测试契约，判断：

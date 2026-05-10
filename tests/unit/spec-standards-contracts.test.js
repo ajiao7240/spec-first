@@ -87,6 +87,14 @@ describe('spec-standards workflow contract', () => {
     expect(skill).toContain('`--deep`');
     expect(skill).toContain('`--import-source <git-or-path>`');
     expect(skill).toContain('Default answer must be "not modified"');
+    expect(skill).toContain('.spec-first/graph/provider-status.json');
+    expect(skill).toContain('.spec-first/graph/graph-facts.json');
+    expect(skill).toContain('.spec-first/impact/bootstrap-impact-capabilities.json');
+    expect(skill).toContain('.spec-first/providers/gitnexus/normalized/architecture-facts.json');
+    expect(skill).toContain('.spec-first/providers/gitnexus/normalized/reuse-candidates.json');
+    expect(skill).toContain('.spec-first/providers/code-review-graph/normalized/impact-capabilities.json');
+    expect(skill).toContain('docs/contracts/graph-provider-consumption.md');
+    expect(skill).not.toContain('.spec-first/graph/bootstrap-impact-capabilities.json');
   });
 
   test('Claude command template is metadata-only and delegates behavior to the skill', () => {
@@ -97,6 +105,47 @@ describe('spec-standards workflow contract', () => {
     expect(template).toContain('This source template defines Claude command metadata only.');
     expect(template).toContain('skills/spec-standards/SKILL.md');
     expect(template).toContain('Edit the paired skill to change workflow behavior.');
+  });
+
+  test('graph artifact inventory and glue map use current canonical provider paths', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-graph-artifacts-'));
+    try {
+      writeFile(tmp, 'package.json', JSON.stringify({ name: 'graph-artifact-project' }));
+      writeFile(tmp, 'skills/spec-graph-bootstrap/SKILL.md', '# Graph Bootstrap\n');
+      writeFile(tmp, '.spec-first/graph/provider-status.json', '{}\n');
+      writeFile(tmp, '.spec-first/graph/graph-facts.json', '{}\n');
+      writeFile(tmp, '.spec-first/impact/bootstrap-impact-capabilities.json', '{}\n');
+      writeFile(tmp, '.spec-first/providers/gitnexus/normalized/architecture-facts.json', '{}\n');
+      writeFile(tmp, '.spec-first/providers/gitnexus/normalized/reuse-candidates.json', '{}\n');
+      writeFile(tmp, '.spec-first/providers/code-review-graph/normalized/impact-capabilities.json', '{}\n');
+      writeFile(tmp, '.spec-first/graph/bootstrap-impact-capabilities.json', '{}\n');
+
+      const inventory = buildInventory(tmp);
+      const projectShape = buildProjectShape(tmp, inventory, { targetKind: 'repo' });
+      const glueMap = buildGlueMap(projectShape, inventory, { targetKind: 'repo' });
+      const graphCapability = glueMap.capabilities.find((item) => item.id === 'capability.graph.readiness');
+
+      expect(inventory.graph_artifacts).toEqual(expect.arrayContaining([
+        '.spec-first/graph/provider-status.json',
+        '.spec-first/graph/graph-facts.json',
+        '.spec-first/impact/bootstrap-impact-capabilities.json',
+        '.spec-first/providers/gitnexus/normalized/architecture-facts.json',
+        '.spec-first/providers/gitnexus/normalized/reuse-candidates.json',
+        '.spec-first/providers/code-review-graph/normalized/impact-capabilities.json',
+      ]));
+      expect(inventory.graph_artifacts).not.toContain('.spec-first/graph/bootstrap-impact-capabilities.json');
+      expect(graphCapability.outputs).toEqual(expect.arrayContaining([
+        '.spec-first/graph/provider-status.json',
+        '.spec-first/graph/graph-facts.json',
+        '.spec-first/impact/bootstrap-impact-capabilities.json',
+        '.spec-first/providers/gitnexus/normalized/architecture-facts.json',
+        '.spec-first/providers/gitnexus/normalized/reuse-candidates.json',
+        '.spec-first/providers/code-review-graph/normalized/impact-capabilities.json',
+      ]));
+      expect(graphCapability.outputs).not.toContain('.spec-first/graph/bootstrap-impact-capabilities.json');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
   });
 
   test('downstream consumers expose trusted advisory risk and degraded consumption boundaries', () => {

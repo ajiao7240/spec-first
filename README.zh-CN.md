@@ -150,6 +150,18 @@ $spec-brainstorm "改进 onboarding"
 
 如果不确定该用哪个 workflow，可以在宿主会话中直接描述任务或询问下一步；`using-spec-first` 会推荐一个公开入口并说明原因。
 
+### Readiness ladder / 就绪层级
+
+`doctor` 是第一层健康检查，不代表所有能力都 ready。请把三层 readiness 分开看：
+
+| 层级 | 运行入口 | 能证明什么 | 不能证明什么 |
+|---|---|---|---|
+| CLI/runtime health | `spec-first doctor` | Node/Git/package 检查、generated host runtime assets、workflow surface 和 stale verification evidence。 | MCP/helper setup、graph provider index 或 `query_ready` graph facts。 |
+| Harness setup | `/spec:mcp-setup` 或 `$spec-mcp-setup` | 必备 MCP/helper runtime facts 和 setup-owned provider config artifacts。 | provider index 已构建，或 graph query 已 ready。 |
+| Graph readiness | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 下游 workflow 可消费的 canonical `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness facts。 | 某个 graph 结果一定与当前任务语义相关；证据怎么用仍由 LLM 判断。 |
+
+如果 `doctor` 通过但 graph-heavy workflow 报告 graph evidence 缺失或过期，应继续跑 setup/bootstrap 层，而不是把 `doctor` 当成 graph readiness gate。
+
 ### 完成标志
 
 第一次 brainstorm 运行会生成类似这样的 requirements brief：
@@ -581,11 +593,14 @@ npm run test:smoke
 npm run test:integration
 npm run test:ai-dev:gate
 npm run test:release
+npm run test:release:website
 npm run build
 npm test
 ```
 
 `npm run build` 执行 `npm pack --dry-run`，用于验证发布包内容。
+
+`npm run test:release:website` 是维护者发布官网同步门禁。它要求存在 `../spec-first-official-website` 或设置 `SPEC_FIRST_WEBSITE_REPO`，并用当前 package repo facts 运行官网侧 `content:audit`。
 
 修改 source assets 时，应修改 `skills/`、`agents/`、`templates/` 或 `src/cli/`，再在新宿主会话中通过 `spec-first init --claude` 或 `spec-first init --codex` 重建 runtime copies。
 

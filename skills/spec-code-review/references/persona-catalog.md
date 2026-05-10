@@ -1,10 +1,10 @@
 # Persona Catalog
 
-18 reviewer personas organized into always-on, cross-cutting conditional, and stack-specific conditional layers, plus Spec-First-specific agents. The orchestrator uses this catalog to select which reviewers to spawn for each review.
+18 reviewer personas organized into default core, cross-cutting conditional, and stack-specific conditional layers, plus Spec-First-specific agents. The orchestrator uses this catalog to select which reviewers to spawn for each review.
 
-## Always-on (4 personas + 2 Spec-First agents)
+## Default Core (4 personas + 2 Spec-First agents)
 
-Spawned on every review regardless of diff content.
+Spawned for medium, broad, sensitive, or unclear reviews. The Stage 3 scale-aware reviewer preflight may use a smaller minimum set for low-risk tiny diffs; do not apply the minimum set when the diff is sensitive, has prior PR comments, has an explicit plan, excludes untracked files, or lacks reliable preflight facts.
 
 **Persona agents (structured JSON output):**
 
@@ -63,8 +63,8 @@ These Spec-First conditional agents provide specialized analysis beyond what the
 
 ## Selection rules
 
-1. **Always spawn all 4 always-on personas** plus the 2 Spec-First always-on agents.
+1. **Run the Stage 3 scale-aware reviewer preflight.** Low-risk tiny diffs may use a minimum core of 2-3 reviewers; sensitive, medium, broad, unclear, explicit-plan, prior-comment, or untracked-excluded reviews use the full default core.
 2. **For each cross-cutting conditional persona**, the orchestrator reads the diff and decides whether the persona's domain is relevant. This is a judgment call, not a keyword match.
 3. **For each stack-specific conditional persona**, use file types and changed patterns as a starting point, then decide whether the diff actually introduces meaningful work for that reviewer. Do not spawn language-specific reviewers just because one config or generated file happens to match the extension.
 4. **For Spec-First conditional agents**, spawn when the diff includes migration files (`db/migrate/*.rb`, `db/schema.rb`) or data backfill scripts.
-5. **Announce the team** before spawning with a one-line justification per conditional reviewer selected.
+5. **Announce the team** before spawning with the selected core tier and a one-line justification per conditional reviewer selected.

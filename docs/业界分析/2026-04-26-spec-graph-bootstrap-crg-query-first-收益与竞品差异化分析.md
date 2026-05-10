@@ -8,6 +8,8 @@ source_plan: "docs/plans/2026-04-25-001-refactor-graph-bootstrap-crg-query-decis
 
 # spec-graph-bootstrap CRG Query-First 收益与竞品差异化分析
 
+> Lifecycle: historical-input / external-reference. 本文保留历史 CRG/CE/ECC 方案、迁移或对比材料；其中 `src/crg`、`spec-first crg`、`graph.db`、`better-sqlite3`、`.claude-plugin`、命令数量和文件数量等旧口径可能已过期。当前 source of truth 以 `docs/archive-index.md`、`docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/`、`CHANGELOG.md`、`spec-mcp-setup` 和 `spec-graph-bootstrap` 为准。
+
 ## 结论
 
 如果 `spec-graph-bootstrap` 按当前方案完成重构，`spec-first` 的核心提升不是“多一个图谱功能”，而是把 AI 研发 workflow 的输入层从静态上下文文档升级为可查询、可审计、可降级的代码事实层。

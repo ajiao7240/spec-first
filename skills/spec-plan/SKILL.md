@@ -14,6 +14,40 @@ argument-hint: "[optional: feature description, requirements doc path, plan path
 
 This workflow produces a durable implementation plan. It does **not** implement code, run tests, or learn from execution-time results. If the answer depends on changing code and seeing what happens, that belongs in `spec-work`, not here.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when the desired outcome is clear enough to plan, when a requirements document is ready for implementation planning, or when an existing plan needs a deepening pass.
+
+### When Not To Use
+
+Do not use to implement code, run tests as proof, review a finished document without planning changes, resolve unclear product framing that belongs in `spec-brainstorm`, generate task-pack state, or rewrite generated runtime assets.
+
+### Inputs
+
+A feature/request description, requirements document path, existing plan path to deepen, bug report, rough task description, or non-software planning prompt; optional project standards, graph readiness facts, package/test context, and nearby source evidence as planning context.
+
+### Outputs
+
+A durable plan document or in-place plan deepening with goals, non-goals, requirements, implementation units, file/test references, sequencing, risks, assumptions, and post-plan handoff options.
+
+### Artifacts
+
+Plan files under the appropriate docs location, reused source-document links, optional doc-review findings or plan-handoff outputs, and no execution-run artifact.
+
+### Failure Modes
+
+Empty or ambiguous input requires a blocking clarification or planning bootstrap; missing/unreadable source documents are surfaced instead of silently ignored; degraded standards/graph facts stay advisory; implementation-dependent questions are deferred to `spec-work`.
+
+### Workflow
+
+Resolve source and scope, gather required repo/research context, structure the plan, run confidence/doc-review checks when required, then present the appropriate plan handoff.
+
+### Downstream Consumers
+
+`spec-write-tasks`, `spec-work`, `spec-doc-review`, issue creation, Proof/HITL review paths, and human implementation reviewers.
+
 ## Context Orientation Anchor
 
 Orient from the current user request or requirement, existing plans or task packs, `AGENTS.md` / `CLAUDE.md` / project role docs, `.spec-first/standards/project-shape.json`, `.spec-first/standards/standards-candidates.json`, `.spec-first/standards/glue-map.json`, and the latest standards validation result when present, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. Standards consumption contract: `confirmed` -> hard project context; `observed` / `imported` / `suggested` -> advisory context; `conflict` -> risk context to resolve or call out in the plan; `unknown` -> question context for user/project evidence. If validation failed, is missing, reports `trust_level=degraded`, reports `consumption_boundary=advisory_only`, or carries `workspace-advisory-only`, consume standards artifacts as degraded/advisory only；遇到 workspace-advisory-only 时，可建议用户运行 `spec-standards --repo <child>` 获取 child-local standards baseline。 Use `glue-map.json` for reuse-first implementation boundaries, not as a workflow state machine. External tools may prioritize inspection, but they do not define scope authority. The LLM still chooses the candidate change surface from explicit repo context and source-plan constraints.

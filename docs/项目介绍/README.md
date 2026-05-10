@@ -1,6 +1,6 @@
 # Spec-First 项目介绍
 
-> Lifecycle: historical-input. 本目录保存早期项目介绍、CRG 旧方案和阶段性审查材料；其中版本号、文件数量、`src/crg`、`spec-first crg`、`graph.db`、命令数量等内容可能已过期。当前项目定位和 graph/provider 边界以根目录 `README.md`、`README.zh-CN.md`、`docs/README.md`、`docs/05-用户手册/`、`spec-mcp-setup`、`spec-graph-bootstrap`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+> Lifecycle: historical-input / external-reference. 本文保留历史 CRG/CE/ECC 方案、迁移或对比材料；其中 `src/crg`、`spec-first crg`、`graph.db`、`better-sqlite3`、`.claude-plugin`、命令数量和文件数量等旧口径可能已过期。当前 source of truth 以 `docs/archive-index.md`、`docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/`、`CHANGELOG.md`、`spec-mcp-setup` 和 `spec-graph-bootstrap` 为准。
 
 ## 一句话定义
 

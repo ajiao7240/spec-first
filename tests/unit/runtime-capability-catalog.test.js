@@ -40,5 +40,10 @@ describe('runtime capability catalog', () => {
     expect(catalog).not.toContain('spec-session-inventory');
     expect(catalog).toContain('| Governance-only internal records |');
     expect(catalog).toContain('provider readiness 由 `spec-mcp-setup` 和 `spec-graph-bootstrap` 产物表达');
+    expect(catalog).toContain('## Readiness Meaning');
+    expect(catalog).toContain('| CLI/runtime health | `spec-first doctor` |');
+    expect(catalog).toContain('| Harness setup | `/spec:mcp-setup` or `$spec-mcp-setup` |');
+    expect(catalog).toContain('| Graph readiness | `/spec:graph-bootstrap` or `$spec-graph-bootstrap` |');
+    expect(catalog).toContain('It does not mean MCP helpers or graph providers are query-ready.');
   });
 });

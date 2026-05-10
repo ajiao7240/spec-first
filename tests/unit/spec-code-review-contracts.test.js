@@ -168,6 +168,24 @@ describe('spec-code-review CE sync contracts', () => {
     }
   });
 
+  test('all tracker defer references use emitted review artifact paths instead of hardcoded temp roots', () => {
+    const files = [
+      path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'tracker-defer.md'),
+      path.join(__dirname, '..', '..', 'skills', 'spec-work', 'references', 'tracker-defer.md'),
+      path.join(__dirname, '..', '..', 'skills', 'spec-work-beta', 'references', 'tracker-defer.md'),
+      path.join(__dirname, '..', '..', 'skills', 'lfg', 'references', 'tracker-defer.md'),
+    ];
+
+    for (const filePath of files) {
+      const text = fs.readFileSync(filePath, 'utf8');
+
+      expect(text).toContain('<artifact-path>/<reviewer>.json');
+      expect(text).toContain('Do not hardcode `/tmp`');
+      expect(text).toContain('review workflow\'s returned artifact path is the authority');
+      expect(text).not.toContain('/tmp/spec-first/spec-code-review/<run-id>');
+    }
+  });
+
   test('bulk preview remains option-C only after best-judgment migration', () => {
     const bulkPreview = fs.readFileSync(
       path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'bulk-preview.md'),
@@ -303,6 +321,44 @@ describe('spec-code-review CE sync contracts', () => {
     expect(skill).toContain('approval-only reviews with empty bodies');
     expect(catalog).toContain('PR-only AND comment-gated');
     expect(catalog).toContain('hasPriorComments');
+  });
+
+  test('scale-aware reviewer preflight allows low-risk minimum reviewer sets', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const catalog = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'persona-catalog.md'),
+      'utf8',
+    );
+
+    for (const text of [skill, catalog]) {
+      expect(text).toContain('scale-aware reviewer preflight');
+      expect(text).toContain('minimum set');
+      expect(text).toContain('sensitive');
+      expect(text).toContain('prior');
+      expect(text).toContain('explicit plan');
+      expect(text).not.toContain('Spawned on every review regardless of diff content.');
+      expect(text).not.toContain('a small config change triggers 0 conditionals = 6 reviewers');
+    }
+
+    expect(skill).toContain('`changed_file_count <= 2`');
+    expect(skill).toContain('`untracked_excluded_count == 0`');
+    expect(skill).toContain('`sensitive_diff == false`');
+    expect(skill).toContain('`plan_explicit == false`');
+    expect(skill).toContain('`docs_only == true`');
+    expect(skill).toContain('`simple_config_only == true`');
+    expect(skill).toContain('`non_test_non_generated_non_lock_line_count <= 25`');
+    expect(skill).toContain('| `docs_only` | `spec-project-standards-reviewer`, `spec-maintainability-reviewer` |');
+    expect(skill).toContain('| `simple_config_only` | `spec-correctness-reviewer`, `spec-testing-reviewer`, `spec-project-standards-reviewer` |');
+    expect(skill).toContain('| tiny executable diff | `spec-correctness-reviewer`, `spec-testing-reviewer`, `spec-maintainability-reviewer` |');
+    expect(skill).toContain('`mode:headless` and `mode:report-only` keep their structured output contracts');
+    expect(skill).toContain('`mode:autofix` may use the minimum set only for `docs_only` or `simple_config_only`');
+    expect(skill).toContain('Record the preflight facts, selected core tier (`minimum` or `full`), and reason in Coverage');
+    expect(skill).toContain('If the facts are missing, ambiguous, or contradicted by the diff, choose the full default core.');
+
+    expect(catalog).toContain('Default Core');
+    expect(catalog).toContain('Low-risk tiny diffs may use a minimum core of 2-3 reviewers');
+    expect(catalog).toContain('Announce the team');
+    expect(catalog).toContain('selected core tier');
   });
 
   test('retains CLI readiness reviewers as a spec-first product boundary', () => {

@@ -1,5 +1,7 @@
 # CRG + Stage-0 最终优化实施计划
 
+> Lifecycle: historical-input / external-reference. 本文保留历史 CRG/CE/ECC 方案、迁移或对比材料；其中 `src/crg`、`spec-first crg`、`graph.db`、`better-sqlite3`、`.claude-plugin`、命令数量和文件数量等旧口径可能已过期。当前 source of truth 以 `docs/archive-index.md`、`docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/`、`CHANGELOG.md`、`spec-mcp-setup` 和 `spec-graph-bootstrap` 为准。
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** 完成 `CRG + spec-graph-bootstrap` 最终方案的 `P0` 闭环，让系统从“能产文档”升级到“能稳定分发最小上下文”，并为后续 `P1-P3` 演进建立可验证、可维护的底座。

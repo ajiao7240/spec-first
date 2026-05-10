@@ -8,13 +8,39 @@ argument-hint: "[blank to review current branch, or provide PR link]"
 
 Reviews code changes using dynamically selected reviewer personas. When the host exposes a reviewer dispatch primitive, spawns parallel sub-agents by default that return structured JSON, then merges and deduplicates findings into a single report. When dispatch is unavailable, explicitly disabled, or unsafe, falls back to a single-agent report-only review instead of bypassing host boundaries.
 
-## When to Use
+## Workflow Contract Summary
 
-- Before creating a PR
-- After completing a task during iterative implementation
-- When feedback is needed on any code changes
-- Can be invoked standalone
-- Can run as a read-only or autofix review step inside larger workflows
+### When To Use
+
+Use before creating a PR, after completing implementation work, or whenever a scoped code diff needs structured review with confidence-gated findings and optional safe fixes.
+
+### When Not To Use
+
+Do not use for requirements/plan-only document review, planning unresolved work, creating commits/pushes/PRs, filing tracker tickets without an explicit routing decision, or treating graph/provider startup failure as a reviewer failure.
+
+### Inputs
+
+Current branch diff, PR URL/number, branch target, or explicit `base:<sha-or-ref>`; optional `plan:<path>` and mode token (`mode:autofix`, `mode:report-only`, or `mode:headless`); repository instructions, plan/task/work artifacts, package/test context, and graph/MCP evidence as advisory review context.
+
+### Outputs
+
+A merged findings report with severity, confidence, evidence, `autofix_class`, owner routing, residual status, and Coverage; structured headless/autofix output when a mode token requests it; `safe_auto` edits only when the selected mode allows mutation.
+
+### Artifacts
+
+Session-scoped review artifacts live under the OS temp directory and are named in `Artifact:` lines or structured returns. Durable repo-local evidence exists only when the workflow explicitly routes it, such as accepted residual docs or PR text.
+
+### Failure Modes
+
+Conflicting mode flags, missing headless diff scope, unsafe shared-checkout switching, unavailable/unsafe dispatch, degraded MCP/provider evidence, or zero reviewer results. Fall back to single-agent report-only when safe, or emit the documented failure envelope for headless/programmatic callers.
+
+### Workflow
+
+Resolve scope and mode, run runtime/readiness preflight, select scale-aware reviewers, dispatch or fall back, synthesize/deduplicate findings, apply only allowed `safe_auto` fixes, then present or return the mode-specific handoff.
+
+### Downstream Consumers
+
+`spec-work` shipping review, PR preparation, tracker-defer handoff, human reviewers, and `spec-compound` when accepted findings become reusable knowledge.
 
 ## Context Orientation Anchor
 
@@ -136,7 +162,9 @@ Routing rules:
 
 **CLI readiness boundary:** Keep `spec-cli-readiness-reviewer` as the conditional reviewer for CLI-facing diffs. This project is itself a CLI/workflow harness, so changes to `src/cli/`, command definitions, argument parsing, runtime generation, or command handler behavior need autonomous-agent usability review. `spec-cli-agent-readiness-reviewer` is a separate manual/deep-dive agent for CLI source, plans, or specs; it is not a replacement for the structured JSON persona.
 
-**Always-on (every review):**
+**Default core reviewers (full or sensitive reviews):**
+
+The scale-aware reviewer preflight in Stage 3 may replace this default core with a smaller minimum set for low-risk diffs. For medium, broad, sensitive, or unclear diffs, use the full default core below.
 
 | Agent | Focus |
 |-------|-------|
@@ -180,7 +208,7 @@ Routing rules:
 
 ## Review Scope
 
-When dispatch is available, every full multi-persona review spawns all 4 always-on personas plus the 2 Spec-First always-on agents, then adds whichever cross-cutting and stack-specific conditionals fit the diff. The model naturally right-sizes: a small config change triggers 0 conditionals = 6 reviewers. A Rails auth feature might trigger security + reliability + kieran-rails + dhh-rails = 10 reviewers.
+When dispatch is available, every full multi-persona review first runs the Stage 3 scale-aware reviewer preflight, then spawns the selected core reviewers plus whichever cross-cutting and stack-specific conditionals fit the diff. Low-risk tiny diffs can use a minimum set of 2-3 reviewers. Medium, broad, sensitive, or unclear diffs use the full default core of 4 persona reviewers plus the 2 Spec-First agents. A Rails auth feature might trigger security + reliability + kieran-rails + dhh-rails on top of the full default core.
 
 If dispatch is unavailable, explicitly disabled by the user, or unsafe for the selected review mode, run the single-agent report-only fallback described in Stage 4. Do not silently skip review and do not work around the boundary by invoking hidden helpers or external CLIs as pseudo-agents.
 
@@ -388,7 +416,41 @@ If a plan is found, read its **Requirements** section — `## Requirements` in c
 
 ### Stage 3: Select reviewers
 
-Read the diff and file list from Stage 1. The 4 always-on personas and 2 Spec-First always-on agents are automatic. For each cross-cutting and stack-specific conditional persona in the persona catalog included below, decide whether the diff warrants it. This is agent judgment, not keyword matching.
+Read the diff and file list from Stage 1. Start with the deterministic scale-aware reviewer preflight below, then decide which conditional reviewers fit the diff. Conditional selection is agent judgment, not keyword matching.
+
+#### Scale-aware reviewer preflight
+
+Compute and record these facts before choosing the reviewer team:
+
+- `changed_file_count`: tracked files in `FILES:`.
+- `untracked_excluded_count`: untracked files excluded from review scope.
+- `non_test_non_generated_non_lock_line_count`: changed executable/source lines excluding tests, generated files, vendored files, lockfiles, snapshots, and markdown/prose-only files.
+- `docs_only`: every tracked changed file is Markdown, docs prose, images, examples, or non-runtime documentation.
+- `simple_config_only`: changed files are package metadata, lint/test config, YAML/JSON/TOML config, or CI config with no executable source edits.
+- `sensitive_diff`: any changed file or diff hunk touches auth, permissions, secrets, payments, migrations, public APIs, `src/cli/`, `bin/`, `templates/`, `skills/`, `agents/`, runtime generation, release packaging, CI publish/release gates, database schema/data, or production deploy config.
+- `prior_comments_present`: Stage 1 `hasPriorComments=true`.
+- `plan_explicit`: Stage 2b found an explicit plan.
+
+Use the minimum reviewer set only when all of these are true:
+
+1. `changed_file_count <= 2`.
+2. `untracked_excluded_count == 0`.
+3. `sensitive_diff == false`.
+4. `prior_comments_present == false`.
+5. `plan_explicit == false`.
+6. Either `docs_only == true`, `simple_config_only == true`, or `non_test_non_generated_non_lock_line_count <= 25`.
+
+Minimum sets:
+
+| Diff class | Reviewers |
+|------------|-----------|
+| `docs_only` | `spec-project-standards-reviewer`, `spec-maintainability-reviewer` |
+| `simple_config_only` | `spec-correctness-reviewer`, `spec-testing-reviewer`, `spec-project-standards-reviewer` |
+| tiny executable diff | `spec-correctness-reviewer`, `spec-testing-reviewer`, `spec-maintainability-reviewer` |
+
+If any minimum-set condition is false, use the full default core: `spec-correctness-reviewer`, `spec-testing-reviewer`, `spec-maintainability-reviewer`, `spec-project-standards-reviewer`, `spec-agent-native-reviewer`, and `spec-learnings-researcher`. Always add applicable conditional reviewers after core selection. `mode:headless` and `mode:report-only` keep their structured output contracts while using the same scale-aware reviewer selection. `mode:autofix` may use the minimum set only for `docs_only` or `simple_config_only`; otherwise use the full default core because mutating review needs stronger coverage.
+
+Record the preflight facts, selected core tier (`minimum` or `full`), and reason in Coverage. If the facts are missing, ambiguous, or contradicted by the diff, choose the full default core.
 
 **File-type awareness for conditional selection:** Instruction-prose files (Markdown skill definitions, JSON schemas, config files) are product code but do not benefit from runtime-focused reviewers. The adversarial reviewer's techniques (race conditions, cascade failures, abuse cases) target executable code behavior. For diffs that only change instruction-prose files, skip adversarial unless the prose describes auth, payment, or data-mutation behavior. Count only executable code lines toward line-count thresholds.
 
@@ -407,12 +469,13 @@ Announce the team before spawning:
 
 ```
 Review team:
-- correctness (always)
-- testing (always)
-- maintainability (always)
-- project-standards (always)
-- spec-agent-native-reviewer (always)
-- spec-learnings-researcher (always)
+- core tier: full -- sensitive CLI/runtime diff
+- correctness (core)
+- testing (core)
+- maintainability (core)
+- project-standards (core)
+- spec-agent-native-reviewer (core)
+- spec-learnings-researcher (core)
 - security -- new endpoint in routes.rb accepts user-provided redirect URL
 - kieran-rails -- controller and Turbo flow changed in app/controllers and app/views
 - dhh-rails -- diff adds service objects around ordinary Rails CRUD
@@ -902,7 +965,7 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
   Capture `branch` and `head_sha` at dispatch time (before any autofixes land), and write the file after the verdict is finalized. This file is additive -- pre-existing artifacts that predate this field are still valid, and downstream skills fall back to file mtime when it is missing.
 - In autofix mode, the run artifact is the handoff. Orchestrators read the artifact's residual actionable work and route it as appropriate. The skill itself does not file tickets or prompt the user in autofix.
 - Interactive mode may offer to externalize residual actionable work via `references/tracker-defer.md` (named tracker -> GitHub Issues via `gh`), but it is not required to finish the review.
-- The `/tmp` artifact remains temporary even when it contains complete reviewer JSON. When residual review findings must survive the session, write only a concise durable summary through the shipping workflow's accepted-residual path or PR Known Residuals section; do not durable-store the full per-reviewer JSON bundle by default.
+- The review artifact remains temporary even when it contains complete reviewer JSON. When residual review findings must survive the session, write only a concise durable summary through the shipping workflow's accepted-residual path or PR Known Residuals section; do not durable-store the full per-reviewer JSON bundle by default.
 
 #### Step 5: Final next steps
 

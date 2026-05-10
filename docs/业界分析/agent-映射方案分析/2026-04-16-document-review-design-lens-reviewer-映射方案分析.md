@@ -1,5 +1,7 @@
 # spec-doc-review/design-lens-reviewer 映射方案分析
 
+> Lifecycle: historical-input / external-reference. 本文保留历史 CRG/CE/ECC 方案、迁移或对比材料；其中 `src/crg`、`spec-first crg`、`graph.db`、`better-sqlite3`、`.claude-plugin`、`CRG Stage-0`、`ECC`、`compound-engineering-plugin`、命令数量和文件数量等旧口径可能已过期。当前 source of truth 以 `docs/archive-index.md`、`docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/`、`CHANGELOG.md`、`spec-mcp-setup` 和 `spec-graph-bootstrap` 为准。
+
 ## 1. 结论摘要
 
 结论：这组映射的真实差异只有一处，即 frontmatter 中的 `model` 配置。上游将 reviewer 固定为 `sonnet`，当前 spec-first 将其改为 `inherit`。从这两个仓库现有代码事实看，`design-lens-reviewer` 的审查语义、维度、置信度规则、边界约束完全一致，因此这不是能力缺口，而是运行时模型选择策略分叉。

@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { writeFileAtomic } = require('./atomic-write');
 
 const REQUIRED_MANAGED_STATE_ARRAY_FIELDS = [
   'commands',
@@ -40,8 +41,7 @@ function writeState(projectRoot, nextState, adapter) {
   const statePath = getStateFilePath(projectRoot, adapter);
   const normalized = normalizeState(nextState);
   validateManagedStateShape(normalized);
-  fs.mkdirSync(path.dirname(statePath), { recursive: true });
-  fs.writeFileSync(statePath, `${JSON.stringify(normalized, null, 2)}\n`, 'utf8');
+  writeFileAtomic(statePath, `${JSON.stringify(normalized, null, 2)}\n`, 'utf8');
 }
 
 function clearState(projectRoot, adapter) {
@@ -549,11 +549,10 @@ function ensureDirectory(directoryPath) {
 }
 
 function writeManagedFile(filePath, contents, mode, encoding) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
   if (encoding === 'buffer' && Buffer.isBuffer(contents)) {
-    fs.writeFileSync(filePath, contents);
+    writeFileAtomic(filePath, contents);
   } else {
-    fs.writeFileSync(filePath, contents || '', 'utf8');
+    writeFileAtomic(filePath, contents || '', 'utf8');
   }
   if (typeof mode === 'number') {
     fs.chmodSync(filePath, mode);

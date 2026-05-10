@@ -58,11 +58,14 @@ Primary inputs:
 - `AGENTS.md` / `CLAUDE.md` and directory-scoped standards files when present.
 - `.spec-first/specs/repo-profile.yaml` when present.
 - `.spec-first/graph/graph-facts.json`
-- `.spec-first/graph/architecture-facts.json`
-- `.spec-first/graph/reuse-candidates.json`
-- `.spec-first/graph/bootstrap-impact-capabilities.json`
+- `.spec-first/graph/provider-status.json`
+- `.spec-first/impact/bootstrap-impact-capabilities.json`
+- `.spec-first/providers/gitnexus/normalized/architecture-facts.json`
+- `.spec-first/providers/gitnexus/normalized/reuse-candidates.json`
+- `.spec-first/providers/code-review-graph/normalized/impact-capabilities.json`
 - `.spec-first/config/runtime-capabilities.json`
 - `.spec-first/config/provider-artifacts.json`
+- `docs/contracts/graph-provider-consumption.md`
 - Package manifests, CI config, lint config, tests, docs, `skills/`, `agents/`, `templates/`, and CLI entrypoints.
 
 Optional inputs:

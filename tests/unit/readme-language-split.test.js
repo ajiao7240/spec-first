@@ -110,6 +110,11 @@ describe('README language split contract', () => {
       'Host-session workflow entries are not shell commands:',
       '$spec-brainstorm "Improve onboarding"',
       'If you are not sure which workflow to use',
+      '### Readiness ladder',
+      '`doctor` is the first health check, not the whole readiness story.',
+      '| CLI/runtime health | `spec-first doctor` |',
+      '| Harness setup | `/spec:mcp-setup` or `$spec-mcp-setup` |',
+      '| Graph readiness | `/spec:graph-bootstrap` or `$spec-graph-bootstrap` |',
       '### You are done when',
       "From there, continue to the current host's plan entrypoint.",
     ]);
@@ -156,6 +161,11 @@ describe('README language split contract', () => {
     expect(chineseReadme).toContain('$spec-brainstorm "改进 onboarding"');
     expect(chineseReadme).toContain('如果不确定该用哪个 workflow，可以在宿主会话中直接描述任务或询问下一步');
     expect(chineseReadme).toContain('`using-spec-first` 会推荐一个公开入口并说明原因。');
+    expect(chineseReadme).toContain('### Readiness ladder / 就绪层级');
+    expect(chineseReadme).toContain('`doctor` 是第一层健康检查，不代表所有能力都 ready。');
+    expect(chineseReadme).toContain('| CLI/runtime health | `spec-first doctor` |');
+    expect(chineseReadme).toContain('| Harness setup | `/spec:mcp-setup` 或 `$spec-mcp-setup` |');
+    expect(chineseReadme).toContain('| Graph readiness | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` |');
     expect(chineseReadme).toContain('第一次 brainstorm 运行会生成类似这样的 requirements brief');
     expect(chineseReadme).toContain('docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md');
     expect(chineseReadme).toContain('详细手册和实施文档均以中文为主。');

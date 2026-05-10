@@ -150,6 +150,18 @@ $spec-brainstorm "Improve onboarding"
 
 If you are not sure which workflow to use, describe the task or ask what to run next in the host session; `using-spec-first` will recommend one public entrypoint with a reason.
 
+### Readiness ladder
+
+`doctor` is the first health check, not the whole readiness story. Treat the three readiness layers separately:
+
+| Layer | Run | Proves | Does not prove |
+|---|---|---|---|
+| CLI/runtime health | `spec-first doctor` | Node/Git/package checks, generated host runtime assets, workflow surface, and stale verification evidence. | MCP/helper setup, graph provider indexes, or `query_ready` graph facts. |
+| Harness setup | `/spec:mcp-setup` or `$spec-mcp-setup` | Required MCP/helper runtime facts and setup-owned provider config artifacts. | Provider indexes are built or graph queries are ready. |
+| Graph readiness | `/spec:graph-bootstrap` or `$spec-graph-bootstrap` | Canonical `.spec-first/graph/*`, `.spec-first/providers/*`, and `.spec-first/impact/*` readiness facts for downstream workflows. | That any specific graph result is semantically relevant; the LLM still decides how to use evidence. |
+
+If `doctor` passes but a graph-heavy workflow reports missing or stale graph evidence, continue with the setup/bootstrap layers instead of treating `doctor` as a graph readiness gate.
+
 ### You are done when
 
 The first brainstorm run produces a requirements brief such as:
@@ -581,11 +593,14 @@ npm run test:smoke
 npm run test:integration
 npm run test:ai-dev:gate
 npm run test:release
+npm run test:release:website
 npm run build
 npm test
 ```
 
 `npm run build` runs `npm pack --dry-run` and verifies the package payload shape through npm.
+
+`npm run test:release:website` is the maintainer release gate for the external official site. It expects `../spec-first-official-website` or `SPEC_FIRST_WEBSITE_REPO` and runs the website `content:audit` against the current package repo facts.
 
 When changing source assets, edit `skills/`, `agents/`, `templates/`, or `src/cli/`, then regenerate runtime copies with `spec-first init --claude` or `spec-first init --codex` in a fresh host session.
 

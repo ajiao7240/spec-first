@@ -4,6 +4,8 @@
 
 本政策定义 spec-first 如何消费 GitNexus、code-review-graph、Serena、ast-grep 和直接源码读取等代码证据。它是 workflow prose 与 host instruction block 的 source of truth；脚本负责产出确定性 readiness facts，LLM 负责基于事实做语义判断。
 
+下游 workflow 读取 graph/provider/impact readiness artifacts 时，字段级速查契约见 `docs/contracts/graph-provider-consumption.md`。本政策定义证据等级与冲突处理；消费契约定义 canonical artifact、字段层级和禁止读取的旧路径/旧字段。
+
 ## 证据等级
 
 - `confirmed`: 来自源码、测试、schema 校验、命令 exit code、compiled readiness facts 或 provider raw log 的可复验事实。

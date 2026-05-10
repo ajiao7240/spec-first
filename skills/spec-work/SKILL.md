@@ -12,6 +12,40 @@ Execute work efficiently while maintaining quality and finishing features.
 
 This command takes a work document (plan, task pack, or specification) or a bare prompt describing the work, and executes it systematically. The focus is on **shipping complete features** by understanding requirements quickly, following existing patterns, and maintaining quality throughout.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when a validated task pack, settled plan, spec path, or concrete implementation request is ready to execute within the current repo scope.
+
+### When Not To Use
+
+Do not use when WHAT/HOW is still unresolved, target repo scope is ambiguous, a task pack is stale/unverifiable, scope would expand beyond the plan, or the fix would require hand-editing generated runtime mirrors as source fixes.
+
+### Inputs
+
+A validated task pack, plan/spec path, or bare implementation prompt; source plan scope, `target_repo` when needed, project instructions, package/test context, nearby source/tests, and graph/MCP evidence as advisory implementation context.
+
+### Outputs
+
+Scoped code/docs/config changes, focused verification results, review/residual status, and a compact completion response naming changed files, checks run, artifacts, and any required next action.
+
+### Artifacts
+
+The authoritative work evidence is the repo diff, tests/checks, commits/PRs when explicitly created, residual review docs when routed, and any actual downstream workflow artifacts. The planned spec-work run JSON schema is not current runtime truth.
+
+### Failure Modes
+
+Missing/ambiguous repo scope, stale or unverifiable task packs, hash/spec_id mismatch, scope expansion beyond the plan/task pack, unsafe branch/worktree state, or validation failures. Stop with the user-facing handoff envelope instead of expanding scope silently.
+
+### Workflow
+
+Triage the input, verify repo/branch/task-pack boundaries, build the task list, implement in scoped steps, run focused verification, perform the required quality/review pass, then return the completion contract.
+
+### Downstream Consumers
+
+`spec-code-review`, git commit/push/PR workflows, `spec-compound`, release notes, and human reviewers consuming the final completion evidence.
+
 ## Context Orientation Anchor
 
 Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. When graph readiness artifacts are degraded, stale, or unavailable, prefer live MCP evidence for concrete execution questions when the relevant MCP tool is loaded and responsive, then fall back to bounded direct repo reads. Treat successful MCP calls as session-local evidence only; they do not update compiled `query_ready` or expand the plan/task-pack scope. If GitNexus returns definitions-only evidence, use it only as local file/symbol pointers and continue with code-review-graph, Serena, or bounded direct repo reads before changing behavior. External tools may prioritize inspection, but they do not define scope authority. Scope expansion is judged against the plan/task pack and concrete diff, not a graph work-run.

@@ -93,6 +93,10 @@ if (requestedVersion !== targetVersion) {
   console.log(`▸ ${requestedVersion} 已解析为 ${targetVersion}`);
 }
 
+console.log('\n▸ 运行发布前校验...');
+run('npm', ['run', 'test:release']);
+run('npm', ['run', 'test:release:website']);
+
 if (!dryRun) {
   const nextPkg = { ...pkg, version: targetVersion };
   writePackageJson(nextPkg);
@@ -106,9 +110,6 @@ if (dryRun && effectivePkg.version !== pkg.version) {
 if (!dryRun && effectivePkg.version !== targetVersion) {
   fail(`版本写入失败：package.json=${effectivePkg.version}，目标=${targetVersion}`);
 }
-
-console.log('\n▸ 运行发布前校验...');
-run('npm', ['run', 'test:release']);
 
 console.log('\n▸ 生成发布 tarball...');
 run('npm', ['pack']);

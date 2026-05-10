@@ -1,5 +1,7 @@
 # CRG + spec-graph-bootstrap P4 Endgame Implementation Plan
 
+> Lifecycle: historical-input / external-reference. 本文保留历史 CRG/CE/ECC 方案、迁移或对比材料；其中 `src/crg`、`spec-first crg`、`graph.db`、`better-sqlite3`、`.claude-plugin`、命令数量和文件数量等旧口径可能已过期。当前 source of truth 以 `docs/archive-index.md`、`docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/`、`CHANGELOG.md`、`spec-mcp-setup` 和 `spec-graph-bootstrap` 为准。
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** 完成 `CRG + spec-graph-bootstrap` 的 `P4` 终局收口，把当前“模块已存在但系统未完全生效”的状态，升级为“主链统一、质量门闭环、检索增强受评测保护、治理具备最小可运行闭环”的工程系统。

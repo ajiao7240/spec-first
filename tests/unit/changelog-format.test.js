@@ -27,17 +27,24 @@ describe('CHANGELOG format', () => {
     expect(changelog).toContain('- 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`');
   });
 
-  test('current-day entries use the Codex developer profile author and timestamped format', () => {
+  test('latest dated entries use the Codex developer profile author and timestamped format', () => {
     const changelog = read(CHANGELOG_PATH);
     const author = readDeveloperName();
-    const entryPattern = new RegExp(
-      `^- v\\d+\\.\\d+\\.\\d+ 2026-05-10 \\d{2}:\\d{2}:\\d{2} ${author}: .+(?: \\(user-visible\\))?$`,
-    );
-    const currentDayEntries = changelog
+    const entries = changelog
       .split(/\r?\n/)
-      .filter((line) => line.startsWith('- v') && line.includes('2026-05-10'));
+      .filter((line) => line.startsWith('- v'));
+    const latestEntry = entries[0] || '';
+    const latestDateMatch = latestEntry.match(/^- v\d+\.\d+\.\d+ (\d{4}-\d{2}-\d{2}) /);
 
-    expect(currentDayEntries.length).toBeGreaterThan(0);
-    expect(currentDayEntries.filter((line) => !entryPattern.test(line))).toEqual([]);
+    expect(latestDateMatch).not.toBeNull();
+    const latestDate = latestDateMatch[1];
+    const entryPattern = new RegExp(
+      `^- v\\d+\\.\\d+\\.\\d+ ${latestDate} \\d{2}:\\d{2}:\\d{2} ${author}: .+(?: \\(user-visible\\))?$`,
+    );
+    const latestDateEntries = entries
+      .filter((line) => line.includes(latestDate));
+
+    expect(latestDateEntries.length).toBeGreaterThan(0);
+    expect(latestDateEntries.filter((line) => !entryPattern.test(line))).toEqual([]);
   });
 });

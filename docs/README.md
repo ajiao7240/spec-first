@@ -20,6 +20,7 @@
 | `docs/contracts/` | current | schema、quality gate、workflow contract 与 verifier contract |
 | `docs/contracts/workflows/self-reflection-capability-upgrade.md` | current | 自我审视、CUD、最佳实践 intake、plan/review/compound handoff 和 30-cycle loop 的轻量 contract |
 | `docs/10-prompt/结构化项目角色契约.md` | current | spec-first 演化判断和 source/runtime 边界基线 |
+| `docs/archive-index.md` | current | 历史 CRG/CE/ECC 搜索命中的判读入口和 risky token allowlist |
 | `docs/2026-05-04/project-audit/` | active-artifact | 当前系统级审查报告与修复阶段证据 |
 | `docs/ideation/` | active-artifact | ideation artifact；进入 brainstorm 前需要确认 freshness 和所选方向 |
 | `docs/brainstorms/` | active-artifact | requirements brief；进入 plan/work 前需要确认 freshness |
@@ -51,6 +52,8 @@
 ## Legacy CRG / ECC 搜索边界
 
 如果搜索命中 `src/crg`、`spec-first crg`、`graph.db`、`CRG Stage-0`、`ECC` 或旧的 bootstrap-compiler 路径，默认先按 `historical-input` 处理，不要直接当作当前实现、CLI 或 graph readiness contract。
+
+先打开 `docs/archive-index.md` 判读搜索命中的 lifecycle 与 risky token，再回到下方当前 source-of-truth 列表复核。单篇历史文档即使正文很具体，也不能覆盖当前 source、contract 或 generated runtime 治理规则。
 
 当前 graph / provider 主线以这些 source 和 artifact contract 为准：
 

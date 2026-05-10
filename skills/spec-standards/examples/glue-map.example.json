@@ -18,10 +18,12 @@
         "skills/spec-graph-bootstrap/SKILL.md"
       ],
       "outputs": [
+        ".spec-first/graph/provider-status.json",
         ".spec-first/graph/graph-facts.json",
-        ".spec-first/graph/architecture-facts.json",
-        ".spec-first/graph/reuse-candidates.json",
-        ".spec-first/graph/bootstrap-impact-capabilities.json"
+        ".spec-first/impact/bootstrap-impact-capabilities.json",
+        ".spec-first/providers/gitnexus/normalized/architecture-facts.json",
+        ".spec-first/providers/gitnexus/normalized/reuse-candidates.json",
+        ".spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
       ],
       "reuse_when": [
         "需要项目图谱事实",
