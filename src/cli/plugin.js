@@ -32,9 +32,8 @@ const SUPPORTED_PLATFORMS = new Set(SUPPORTED_PLATFORM_IDS);
 const ENTRY_SURFACES = new Set(['workflow_command', 'standalone_skill', 'internal_only']);
 const HOST_SCOPES = new Set(['dual_host', 'host_exclusive', 'target_host_maintenance']);
 const HOST_DELIVERIES = new Set(['command', 'skill', 'internal', 'none']);
-const AGENT_FACING_INTERNAL_SKILLS = new Set([
-  'spec-session-extract',
-  'spec-session-inventory',
+const DELIVERED_INTERNAL_SKILLS = new Set([
+  'git-worktree',
 ]);
 const TEXT_FILE_EXTENSIONS = new Set([
   '.md',
@@ -58,7 +57,7 @@ const CODEX_UNREWRITTEN_PATH_PATTERNS = [
 const HIGH_VALUE_SKILL_ANCHORS = {
   'spec-plan': [
     'Implementation Units',
-    'Requirements Trace',
+    'Concrete requirements traceability',
     'Test scenarios',
     'Context Orientation Anchor',
     'universal-planning.md',
@@ -90,7 +89,7 @@ const HIGH_VALUE_SKILL_ANCHORS = {
 const HIGH_VALUE_COMMAND_ANCHORS = {
   'spec-plan': [
     'Implementation Units',
-    'Requirements Trace',
+    'Concrete requirements traceability',
     'Test scenarios',
     'Context Orientation Anchor',
     'universal-planning.md',
@@ -602,7 +601,7 @@ function buildFilteredAssetSet(platformOrAdapter) {
     if (
       record.entry_surface === 'internal_only'
       && delivery === 'internal'
-      && AGENT_FACING_INTERNAL_SKILLS.has(record.skill_name)
+      && DELIVERED_INTERNAL_SKILLS.has(record.skill_name)
     ) {
       internalSkills.push(record.skill_name);
       continue;
@@ -741,6 +740,7 @@ function syncSkills(projectRoot, adapter, filteredAssetSet = buildFilteredAssetS
     const targetDir = isWorkflowSkill
       ? path.join(workflowRoot, skillName)
       : path.join(standaloneRoot, skillName);
+    const transformContext = buildSkillTransformContext(projectRoot, skillName, isWorkflowSkill, targetDir);
 
     fs.rmSync(targetDir, { recursive: true, force: true });
 
@@ -749,7 +749,7 @@ function syncSkills(projectRoot, adapter, filteredAssetSet = buildFilteredAssetS
     }
 
     copyDirectoryWithTransform(path.join(sourceRoot, skillName), targetDir, (content) =>
-      adapter.transformSkillContent(content, { skillName, isWorkflowSkill }),
+      adapter.transformSkillContent(content, transformContext),
     );
   }
 
@@ -780,6 +780,7 @@ function planSkillsSync(projectRoot, adapter, filteredAssetSet = buildFilteredAs
     const targetDir = isWorkflowSkill
       ? path.join(workflowRoot, skillName)
       : path.join(standaloneRoot, skillName);
+    const transformContext = buildSkillTransformContext(projectRoot, skillName, isWorkflowSkill, targetDir);
 
     operations.push(buildPlanOperation(
       'remove_dir',
@@ -800,7 +801,7 @@ function planSkillsSync(projectRoot, adapter, filteredAssetSet = buildFilteredAs
       sourceDir: path.join(sourceRoot, skillName),
       targetDir,
       reason: isWorkflowSkill ? 'managed_workflow_skill' : 'managed_skill',
-      transformText: (content) => adapter.transformSkillContent(content, { skillName, isWorkflowSkill }),
+      transformText: (content) => adapter.transformSkillContent(content, transformContext),
     }));
   }
 
@@ -1119,6 +1120,19 @@ function normalizedWorkflowSkillRuntimePath(adapter, skillName) {
   return normalizePathForContent(path.posix.join(normalizePathForContent(adapter.workflowsRoot), skillName, 'SKILL.md'));
 }
 
+function buildSkillTransformContext(projectRoot, skillName, isWorkflowSkill, targetDir) {
+  const context = {
+    skillName,
+    isWorkflowSkill,
+  };
+
+  if (!isWorkflowSkill && DELIVERED_INTERNAL_SKILLS.has(skillName)) {
+    context.runtimeSkillRoot = normalizePathForContent(toRelativeProjectPath(targetDir, projectRoot));
+  }
+
+  return context;
+}
+
 function inspectCommandIntegrity(projectRoot, command, adapter) {
   const targetPath = path.join(projectRoot, adapter.commandRoot, command.filename);
   const expectedContent = renderRuntimeCommandContent(command, adapter);
@@ -1157,7 +1171,10 @@ function inspectSkillIntegrity({
   const runtimeRoot = isWorkflowSkill ? workflowRoot : standaloneRoot;
   const targetPath = path.join(runtimeRoot, skillName, 'SKILL.md');
   const sourcePath = path.join(getBundledPath('skills'), skillName, 'SKILL.md');
-  const expectedContent = adapter.transformSkillContent(fs.readFileSync(sourcePath, 'utf8'), { skillName, isWorkflowSkill });
+  const expectedContent = adapter.transformSkillContent(
+    fs.readFileSync(sourcePath, 'utf8'),
+    buildSkillTransformContext(projectRoot, skillName, isWorkflowSkill, path.dirname(targetPath)),
+  );
   const actualContent = fs.readFileSync(targetPath, 'utf8');
   const issues = unique([
     ...skillIntegrityIssues(actualContent, skillName, adapter, { isWorkflowSkill }),

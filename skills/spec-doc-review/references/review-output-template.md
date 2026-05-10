@@ -2,7 +2,7 @@
 
 Use this **exact format** when presenting synthesized review findings in Interactive mode. Findings are grouped by severity, not by reviewer.
 
-**IMPORTANT:** Use pipe-delimited markdown tables (`| col | col |`). Do NOT use ASCII box-drawing characters.
+**IMPORTANT:** Use pipe-delimited markdown tables (`| col | col |`). Do NOT use ASCII box-drawing characters. Escape every literal pipe inside a cell as `\|` before rendering; unescaped cell pipes break the table.
 
 This template describes the Phase 4 interactive presentation — what the user sees before the routing question (`references/walkthrough.md`) fires. The headless-mode envelope is documented in `references/synthesis-and-presentation.md` (Phase 4 "Route Remaining Findings" section) and is separate from this template.
 
@@ -103,6 +103,7 @@ Restated: 2 (residual/deferred items suppressed as duplicates of actionable find
 ## Section Rules
 
 - **Summary line**: Always present after the reviewer list. Format: "Applied N fixes. K items need attention (X errors, Y omissions). Z FYI observations." Omit any zero clause except the FYI clause when zero (it's informative that none surfaced).
+- **Escape literal pipes inside table cells**: Replace cell text `|` with `\|` before rendering, including markdown examples, shell pipelines, TypeScript union types, and copied reviewer text.
 - **Applied fixes**: List all fixes that were applied automatically (`safe_auto` tier). Include enough detail per fix to convey the substance — especially for fixes that add content or touch document meaning. Omit section if none.
 - **P0-P3 sections**: Only include sections that have actionable findings (`gated_auto` or `manual`). Omit empty severity levels. Within each severity, separate into **Errors** and **Omissions** sub-headers. Omit a sub-header if that severity has none of that type. The `Tier` column surfaces whether a finding is `gated_auto` (concrete fix exists, Apply recommended in walk-through) or `manual` (requires user judgment).
 - **FYI Observations**: Findings at confidence-first anchor `50` regardless of `autofix_class`. Surface here for transparency; these are not actionable and do not enter the walk-through. Omit section if none.

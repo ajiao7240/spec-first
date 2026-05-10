@@ -35,7 +35,9 @@ describe('runtime capability catalog', () => {
     expect(catalog).toContain('| work-beta | spec-work-beta | /spec:work-beta | $spec-work-beta | claude=command; codex=skill | yes |');
     expect(catalog).toContain('| polish-beta | spec-polish-beta | /spec:polish-beta | $spec-polish-beta | claude=command; codex=skill | yes |');
     expect(catalog).toContain('| spec-write-tasks | standalone skill: spec-write-tasks | standalone skill: spec-write-tasks |');
-    expect(catalog).toContain('| Delivered agent-facing internal skills | spec-session-extract, spec-session-inventory |');
+    expect(catalog).toContain('| Delivered agent-facing internal skills | git-worktree |');
+    expect(catalog).not.toContain('spec-session-extract');
+    expect(catalog).not.toContain('spec-session-inventory');
     expect(catalog).toContain('| Governance-only internal records |');
     expect(catalog).toContain('provider readiness 由 `spec-mcp-setup` 和 `spec-graph-bootstrap` 产物表达');
   });

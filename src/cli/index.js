@@ -58,8 +58,9 @@ async function runCli(argv) {
   }
 
   console.error(`Unknown command: ${cmd}`);
+  console.error('Run `spec-first --help` to list available package CLI commands.');
   printHelp(true);
-  return Promise.resolve(1);
+  return Promise.resolve(2);
 }
 
 async function runStartupReminder(args) {

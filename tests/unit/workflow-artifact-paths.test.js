@@ -38,6 +38,53 @@ describe('workflow artifact paths', () => {
     );
   });
 
+  test('rejects path traversal and absolute workflow artifact segments', () => {
+    const unsafeSegments = [
+      '../outside',
+      'nested/path',
+      'nested\\path',
+      '/absolute',
+      'C:\\absolute',
+      '.',
+      '..',
+    ];
+
+    for (const segment of unsafeSegments) {
+      expect(() => resolveWorkflowArtifactDir('/repo', segment, 'safe')).toThrow(
+        'resolveWorkflowArtifactDir: workflow must be a safe path segment'
+      );
+      expect(() => resolveWorkflowArtifactDir('/repo', 'safe', segment)).toThrow(
+        'resolveWorkflowArtifactDir: slug must be a safe path segment'
+      );
+    }
+  });
+
+  test('rejects Windows-incompatible workflow artifact segments', () => {
+    const unsafeSegments = [
+      'CON',
+      'nul.txt',
+      'COM1',
+      'LPT9.log',
+      'has:colon',
+      'has*star',
+      'has?question',
+      'has"quote',
+      'has<angle',
+      'has|pipe',
+      'trailing-dot.',
+      'trailing-space ',
+    ];
+
+    for (const segment of unsafeSegments) {
+      expect(() => resolveWorkflowArtifactDir('/repo', segment, 'safe')).toThrow(
+        'resolveWorkflowArtifactDir: workflow must be Windows-compatible'
+      );
+      expect(() => resolveWorkflowArtifactDir('/repo', 'safe', segment)).toThrow(
+        'resolveWorkflowArtifactDir: slug must be Windows-compatible'
+      );
+    }
+  });
+
   test('doctor and quality gate use verification artifact paths', () => {
     const retiredPath = ['src', 'crg'].join('/');
     const expectedImport = ['verification', 'artifact-paths'].join('/');

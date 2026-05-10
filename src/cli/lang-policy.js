@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { writeFileAtomic } = require('./atomic-write');
 
 const LANG_START = '<!-- spec-first:lang:start -->';
 const LANG_END = '<!-- spec-first:lang:end -->';
@@ -28,9 +29,7 @@ function writeLangPolicy(projectRoot, developer, adapter) {
 
   const updated = applyManagedBlock(existing, block);
 
-  const tmpPath = `${filePath}.tmp`;
-  fs.writeFileSync(tmpPath, updated, 'utf8');
-  fs.renameSync(tmpPath, filePath);
+  writeFileAtomic(filePath, updated);
 
   console.log(`📋 Wrote language policy to ${adapter.instructionFile}`);
 }

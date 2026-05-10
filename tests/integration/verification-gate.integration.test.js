@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const PACKAGE_PATH = path.join(REPO_ROOT, 'package.json');
+const TEST_RUNNER_PATH = path.join(REPO_ROOT, 'scripts', 'run-test-suite.cjs');
 const AI_GATE_WORKFLOW_PATH = path.join(REPO_ROOT, '.github', 'workflows', 'ai-dev-quality-gate.yml');
 const BRANCH_POLICY_PATH = path.join(REPO_ROOT, 'src', 'cli', 'contracts', 'quality-gates', 'branch-protection-policy.json');
 
@@ -15,10 +16,12 @@ function read(filePath) {
 describe('AI dev quality gate integration', () => {
   test('package scripts expose a dedicated AI dev gate and run its workflow contract in integration', () => {
     const pkg = JSON.parse(read(PACKAGE_PATH));
+    const testRunner = read(TEST_RUNNER_PATH);
 
     expect(pkg.scripts['test:ai-dev:gate']).toBe('node scripts/run-ai-dev-quality-gate.js');
-
-    expect(pkg.scripts['test:integration']).toContain('tests/integration/verification-gate.integration.test.js');
+    expect(pkg.scripts['test:integration']).toBe('node scripts/run-test-suite.cjs integration');
+    expect(testRunner).toContain('function runIntegration()');
+    expect(testRunner).toContain('tests/integration/verification-gate.integration.test.js');
   });
 
   test('AI dev quality gate workflow triggers on workflow runtime contract surfaces, calls dedicated script, and uploads result artifact', () => {

@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { writeFileAtomic } = require('./atomic-write');
 
 const CODING_GUIDELINES_START = '<!-- spec-first:coding-guidelines:start -->';
 const CODING_GUIDELINES_END = '<!-- spec-first:coding-guidelines:end -->';
@@ -413,9 +414,7 @@ function normalizeRemovalResult(content) {
 }
 
 function writeAtomically(filePath, contents) {
-  const tmpPath = `${filePath}.tmp`;
-  fs.writeFileSync(tmpPath, contents, 'utf8');
-  fs.renameSync(tmpPath, filePath);
+  writeFileAtomic(filePath, contents);
 }
 
 module.exports = {

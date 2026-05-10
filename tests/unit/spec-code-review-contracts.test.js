@@ -59,7 +59,29 @@ describe('spec-code-review CE sync contracts', () => {
     expect(text).toContain('quick intent falls through to the full pipeline');
   });
 
-  test('uses tmp run artifacts and best-judgment routing without bulk preview', () => {
+  test('requirements completeness reads current and legacy implementation unit formats', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Recognize both current heading-style units (`### U1. [Name]`)');
+    expect(text).toContain('legacy list-item units (`- U1. **[Name]**`)');
+    expect(text).toContain('Store the extracted requirements list, implementation unit IDs/titles, and `plan_source`');
+  });
+
+  test('interactive findings tables escape literal pipe characters', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const template = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'review-output-template.md'),
+      'utf8',
+    );
+
+    for (const text of [skill, template]) {
+      expect(text).toContain('Escape every literal pipe');
+      expect(text).toContain('`\\|`');
+      expect(text).toContain('TypeScript union types');
+    }
+  });
+
+  test('uses OS temp run artifacts and best-judgment routing without bulk preview', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     const bulkPreview = fs.readFileSync(
       path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'bulk-preview.md'),
@@ -70,7 +92,11 @@ describe('spec-code-review CE sync contracts', () => {
       'utf8',
     );
 
-    expect(text).toContain('/tmp/spec-first/spec-code-review/<run-id>/');
+    expect(text).toContain('`<review-artifact-dir>/` is a session/orchestrator handoff');
+    expect(text).toContain('Resolve it under the current OS temp directory');
+    expect(text).toContain('`os.tmpdir()` / `$TMPDIR` / `%TEMP%`');
+    expect(text).toContain('Do not hardcode `/tmp`');
+    expect(text).toContain('include the concrete path in every `Artifact:` line or structured return');
     expect(text).toContain('session/orchestrator handoff, not repo-local durable truth');
     expect(text).toContain('Do not promise it will be committed or retained.');
     expect(text).toContain('docs/residual-review-findings/<branch-or-head-sha>.md');
@@ -81,6 +107,7 @@ describe('spec-code-review CE sync contracts', () => {
     expect(text).toContain('post-run failure-handling question');
     expect(text).toContain('no issue tracker is configured for this checkout');
     expect(text).not.toContain('tracker sink');
+    expect(text).not.toContain('/tmp/spec-first/spec-code-review/<run-id>');
 
     expect(bulkPreview).toContain('One call site');
     expect(bulkPreview).toContain('Routing option C (top-level File tickets)');
@@ -416,7 +443,8 @@ describe('spec-code-review CE sync contracts', () => {
 
     const skill = fs.readFileSync(SKILL_PATH, 'utf8');
     expect(skill).toContain('Do not ask leaf reviewers to write files directly.');
-    expect(skill).toContain('the orchestrator may write that JSON to `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json`');
+    expect(skill).toContain('const reviewArtifactDir = path.join(os.tmpdir(), \'spec-first\', \'spec-code-review\', runId);');
+    expect(skill).toContain('the orchestrator may write that JSON to `<review-artifact-dir>/{reviewer_name}.json`');
     expect(skill).toContain('Artifact persistence is parent/orchestrator-owned');
   });
 
@@ -436,7 +464,7 @@ describe('spec-code-review CE sync contracts', () => {
     expect(text).toContain('workflow\'s documented reviewer phase and host capability select it');
     expect(text).toContain('set `single_agent_report_only_fallback: true`');
     expect(text).toContain('Treat the effective mode as report-only');
-    expect(text).toContain('Do not create `/tmp/spec-first/spec-code-review/<run-id>/` and do not write reviewer artifacts.');
+    expect(text).toContain('Do not create `<review-artifact-dir>/` and do not write reviewer artifacts.');
     expect(text).toContain('Skip Stage 5b validator dispatch and all fixer paths.');
     expect(text).toContain('single-agent report-only fallback: reviewer dispatch unavailable, explicitly disabled, or unsafe');
     expect(text).toContain('| single-agent report-only fallback | No -- dispatch is unavailable, explicitly disabled, or unsafe | n/a |');

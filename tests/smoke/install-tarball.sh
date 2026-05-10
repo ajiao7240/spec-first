@@ -11,6 +11,10 @@ TMP_PREFIX="$(mktemp -d)/prefix"
 TMP_CACHE="$(mktemp -d)"
 TARBALL_DIR="$(mktemp -d)"
 
+export npm_config_prefix="$TMP_PREFIX"
+export npm_config_cache="$TMP_CACHE"
+export npm_config_foreground_scripts=true
+
 cleanup() {
   rm -rf "$TMP_PREFIX" "$TMP_CACHE" "$TARBALL_DIR"
   # 清理父目录
@@ -25,7 +29,17 @@ echo "=== install-tarball.sh — 真实 tarball 安装验证 ==="
 # -------------------------------------------------------------------------
 echo "1. 打包 tarball..."
 cd "$REPO_ROOT"
-TARBALL=$(npm pack --pack-destination "$TARBALL_DIR" 2>&1 | tail -1)
+if ! PACK_OUTPUT=$(npm pack --pack-destination "$TARBALL_DIR" 2>&1); then
+  echo "$PACK_OUTPUT"
+  exit 1
+fi
+printf '%s\n' "$PACK_OUTPUT" > "$TARBALL_DIR/npm-pack.log"
+TARBALL=$(printf '%s\n' "$PACK_OUTPUT" | awk '/\.tgz$/ { name=$NF } END { print name }')
+if [ -z "$TARBALL" ]; then
+  echo "✗ 无法从 npm pack 输出中解析 tarball 文件名"
+  echo "$PACK_OUTPUT"
+  exit 1
+fi
 TARBALL_PATH="$TARBALL_DIR/$TARBALL"
 echo "   tarball: $TARBALL_PATH"
 test -f "$TARBALL_PATH"
@@ -60,13 +74,14 @@ echo "   ✓ tarball 未包含内置 CRG runtime / .claude-plugin，且包含 ex
 # 2. 隔离安装
 # -------------------------------------------------------------------------
 echo "2. 隔离安装到临时 prefix..."
-export npm_config_prefix="$TMP_PREFIX"
-export npm_config_cache="$TMP_CACHE"
-export npm_config_foreground_scripts=true
-
 INSTALL_LOG="$TMP_CACHE/install.log"
-npm install -g "$TARBALL_PATH" >"$INSTALL_LOG" 2>&1
-install_rc=$?
+if npm install -g "$TARBALL_PATH" >"$INSTALL_LOG" 2>&1; then
+  install_rc=0
+else
+  install_rc=$?
+  echo "   npm install failed; last install log lines:" >&2
+  tail -80 "$INSTALL_LOG" >&2 || true
+fi
 echo "   install exit code: $install_rc"
 test "$install_rc" -eq 0
 

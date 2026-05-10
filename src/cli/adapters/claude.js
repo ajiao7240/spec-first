@@ -71,8 +71,10 @@ class ClaudeAdapter extends PlatformAdapter {
       context.skillName,
     );
 
-    return context.isWorkflowSkill
-      ? rewriteSourceSkillRuntimePaths(transformed, context.skillName, `${this.workflowsRoot}/${context.skillName}`)
+    const runtimeSkillRoot = context.runtimeSkillRoot
+      || (context.isWorkflowSkill ? `${this.workflowsRoot}/${context.skillName}` : '');
+    return runtimeSkillRoot
+      ? rewriteSourceSkillRuntimePaths(transformed, context.skillName, runtimeSkillRoot)
       : transformed;
   }
 

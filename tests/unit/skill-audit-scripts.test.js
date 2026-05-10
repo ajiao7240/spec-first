@@ -272,24 +272,6 @@ describe('spec-skill-audit scripts', () => {
 	  });
 
   test('allows governed internal skill frontmatter runtime aliases', () => {
-    write(path.join(repoRoot, 'skills', 'spec-session-inventory', 'SKILL.md'), [
-      '---',
-      'name: session-inventory',
-      'description: Discover session files for internal session research agents without exposing a user workflow.',
-      'user-invocable: false',
-      '---',
-      '',
-      '# Session Inventory',
-    ].join('\n'));
-    write(path.join(repoRoot, 'skills', 'spec-session-extract', 'SKILL.md'), [
-      '---',
-      'name: session-extract',
-      'description: Extract one selected session file for internal session research agents.',
-      'user-invocable: false',
-      '---',
-      '',
-      '# Session Extract',
-    ].join('\n'));
     write(path.join(repoRoot, 'skills', 'spec-dhh-rails-style', 'SKILL.md'), [
       '---',
       'name: dhh-rails-style',
@@ -304,8 +286,6 @@ describe('spec-skill-audit scripts', () => {
     const mismatchFindings = findings.filter((finding) => finding.title === 'Frontmatter name does not match directory name');
 
     expect(mismatchFindings.map((finding) => finding.skill_id)).not.toEqual(expect.arrayContaining([
-      'spec-session-inventory',
-      'spec-session-extract',
       'spec-dhh-rails-style',
     ]));
   });
@@ -648,9 +628,25 @@ describe('spec-skill-audit scripts', () => {
 
   test('rejects unsafe run ids before writing audit artifacts', () => {
     expect(validateRunId('safe_2026.05-01')).toBe('safe_2026.05-01');
-    for (const runId of ['../escape', '..', '.', 'latest', 'nested/run']) {
+    for (const runId of ['../escape', '..', '.', 'latest', 'nested/run', 'CON', 'nul.txt', 'COM1', 'trailing.']) {
       expect(() => createRunDirectories(repoRoot, { runId })).toThrow(/Invalid run id/);
     }
+  });
+
+  test('patch preview filenames avoid Windows reserved basenames', () => {
+    const preview = renderPatchPreview({
+      auditReport: {
+        findings: [{
+          severity: 'P1',
+          title: 'Reserved filename preview',
+          evidence: [{ file: 'CON' }],
+          reason: 'Preview filename should be safe on Windows.',
+          recommendation: 'Prefix reserved basenames.',
+        }],
+      },
+    });
+
+    expect(preview.entries[0].fileName).toBe('path-CON.patch.md');
   });
 
   test('cleans an existing run directory before rewriting artifacts with the same run id', () => {

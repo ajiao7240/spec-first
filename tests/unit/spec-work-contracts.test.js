@@ -13,6 +13,15 @@ const SHIPPING_WORKFLOW_PATH = path.join(
   'references',
   'shipping-workflow.md',
 );
+const TRACKER_DEFER_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-work',
+  'references',
+  'tracker-defer.md',
+);
 
 describe('spec-work context orientation contract', () => {
   test('uses plan/task-pack guided direct reads without retired graph hooks', () => {
@@ -99,6 +108,18 @@ describe('spec-work requirements and shipping policy contract', () => {
     expect(shipping).toContain('Next action: <only if the user needs to do something now>');
     expect(shipping).toContain('If a check was not run, say `not run` with the concrete reason.');
     expect(shipping).toContain('omit `Next action` instead of inventing follow-up work');
+  });
+
+  test('tracker defer uses emitted review artifact path instead of hardcoded /tmp', () => {
+    const trackerDefer = fs.readFileSync(TRACKER_DEFER_PATH, 'utf8');
+
+    expect(trackerDefer).toContain('the `spec-code-review` return named a parent-owned run artifact path');
+    expect(trackerDefer).toContain('`<artifact-path>/<reviewer>.json`');
+    expect(trackerDefer).toContain('Do not hardcode `/tmp`');
+    expect(trackerDefer).toContain('on Windows the temp root may be `%TEMP%`');
+    expect(trackerDefer).toContain('review workflow\'s returned artifact path is the authority');
+    expect(trackerDefer).toContain('continued in spec-code-review run artifact: <artifact-path>');
+    expect(trackerDefer).not.toContain('/tmp/spec-first/spec-code-review/<run-id>');
   });
 });
 

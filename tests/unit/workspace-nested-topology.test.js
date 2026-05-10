@@ -31,7 +31,7 @@ describe('workspace nested topology Stage-0 retirement', () => {
         childRepoRoot,
       ], { cwd: childRepoRoot });
 
-      expect(result.status).toBe(1);
+      expect(result.status).toBe(2);
       expect(result.stderr).toContain('Unknown command: stage0-context');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -50,7 +50,7 @@ describe('workspace nested topology Stage-0 retirement', () => {
         '--since=HEAD~1',
       ]);
 
-      expect(result.status).toBe(1);
+      expect(result.status).toBe(2);
       expect(result.stderr).toMatch(/unknown command|unknown|unsupported|invalid/i);
       expect(result.stdout).not.toContain('context-routing');
       expect(result.stdout).not.toContain('minimal-context');

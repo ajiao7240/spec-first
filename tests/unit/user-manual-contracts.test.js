@@ -150,11 +150,33 @@ describe('user manual contracts', () => {
     expect(guide).toContain('`code-review-graph` 在 spec-first 中的角色是 `impact_context`');
     expect(guide).toContain('这个设计故意不把 `code-review-graph` 包装成 agent');
     expect(guide).toContain('`spec-graph-impact-reviewer` 是建议新增的条件触发 reviewer');
-    expect(guide).toContain('默认评估是否需要 `spec-graph-impact-reviewer`');
+    expect(guide).toContain('计划落地后的默认行为');
+    expect(guide).toContain('将默认评估是否需要 `spec-graph-impact-reviewer`');
     expect(guide).toContain('不是 always-on reviewer');
     expect(guide).toContain('默认评估、条件派发');
     expect(guide).toContain('Scripts prepare, LLM decides');
     expect(guide).toContain('`.spec-first/impact/bootstrap-impact-capabilities.json`');
+  });
+
+  test('FAQ covers Win64-native and cross-platform troubleshooting', () => {
+    const faq = read(FAQ_PATH);
+
+    expect(faq).toContain('Win64 原生环境');
+    expect(faq).toContain('Get-Command spec-first');
+    expect(faq).toContain('where spec-first');
+    expect(faq).toContain('npm prefix -g');
+    expect(faq).toContain('%APPDATA%\\npm');
+    expect(faq).toContain('-ExecutionPolicy Bypass');
+    expect(faq).toContain('Windows PowerShell 5.1');
+    expect(faq).toContain('chcp 65001');
+    expect(faq).toContain('npm cache clean --force');
+    expect(faq).toContain('better-sqlite3');
+    expect(faq).toContain('MAX_PATH');
+    expect(faq).toContain('git config --global core.longpaths true');
+    expect(faq).toContain('Git Bash、MSYS2 和 WSL');
+    expect(faq).toContain('CI=true NO_COLOR=1 spec-first doctor');
+    expect(faq).toContain('.spec-first/providers/');
+    expect(faq).toContain('provider raw log');
   });
 
   test('user manual distinguishes temporary code-review handoff from durable summaries', () => {
@@ -162,7 +184,8 @@ describe('user manual contracts', () => {
     const artifactCatalog = read(ARTIFACT_CATALOG_PATH);
 
     for (const content of [artifactMap, artifactCatalog]) {
-      expect(content).toContain('/tmp/spec-first/spec-code-review/<run-id>/');
+      expect(content).toContain('<os-temp>/spec-first/spec-code-review/<run-id>/');
+      expect(content).toContain('Windows `%TEMP%`');
       expect(content).toContain('session/orchestrator handoff');
       expect(content).toContain('docs/residual-review-findings/<branch-or-head-sha>.md');
       expect(content).toContain('Known Residuals');

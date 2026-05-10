@@ -63,12 +63,12 @@ function runInit(argv) {
   const platformSelected = parsed.claude || parsed.codex;
   if (!platformSelected || parsed.unknown.length > 0) {
     console.error('Usage: spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run] [--repo <child>|--all-repos]');
-    return 1;
+    return 2;
   }
 
   if (parsed.claude && parsed.codex) {
     console.error('Error: Cannot specify both --claude and --codex');
-    return 1;
+    return 2;
   }
 
   const platform = parsed.claude ? 'claude' : 'codex';
@@ -76,7 +76,7 @@ function runInit(argv) {
   const target = resolveInitTarget(parsed, process.cwd());
   if (!target.ok) {
     console.error(target.message);
-    return 1;
+    return 2;
   }
 
   if (target.mode === 'all-repos') {

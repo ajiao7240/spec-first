@@ -58,6 +58,13 @@ describe('spec-app-consistency-audit CLI e2e', () => {
     }
   });
 
+  test('git commit fixtures avoid POSIX-only /dev/null hooks path', () => {
+    const testSource = fs.readFileSync(__filename, 'utf8');
+
+    expect(testSource).toContain("'commit', '--no-verify'");
+    expect(testSource).not.toContain('core.hooksPath=' + '/dev/null');
+  });
+
   test('runs the static app-audit artifact chain through subprocess CLIs', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-cli-e2e-'));
     const runId = '20260502-test-run';
@@ -103,7 +110,7 @@ describe('spec-app-consistency-audit CLI e2e', () => {
       runGit(['config', 'user.email', 'spec-first@example.test'], repoRoot);
       runGit(['config', 'user.name', 'Spec First Test'], repoRoot);
       runGit(['add', '.'], repoRoot);
-      runGit(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'test: initial app audit fixture'], repoRoot);
+      runGit(['commit', '--no-verify', '-m', 'test: initial app audit fixture'], repoRoot);
       fs.appendFileSync(screenPath, '\nfun submitOrder() { showConfirmDialog(); trackEvent("trade_submit") }\n');
 
       const artifacts = {
@@ -299,7 +306,7 @@ describe('spec-app-consistency-audit CLI e2e', () => {
       runGit(['config', 'user.email', 'spec-first@example.test'], repoRoot);
       runGit(['config', 'user.name', 'Spec First Test'], repoRoot);
       runGit(['add', '.'], repoRoot);
-      runGit(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'test: initial'], repoRoot);
+      runGit(['commit', '--no-verify', '-m', 'test: initial'], repoRoot);
 
       const result = runNodeRaw([
         script('build-impact-facts.js'),
@@ -327,7 +334,7 @@ describe('spec-app-consistency-audit CLI e2e', () => {
       runGit(['config', 'user.email', 'spec-first@example.test'], repoRoot);
       runGit(['config', 'user.name', 'Spec First Test'], repoRoot);
       runGit(['add', '.'], repoRoot);
-      runGit(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'test: initial'], repoRoot);
+      runGit(['commit', '--no-verify', '-m', 'test: initial'], repoRoot);
 
       const result = runNodeRaw([
         script('build-impact-facts.js'),
@@ -353,7 +360,7 @@ describe('spec-app-consistency-audit CLI e2e', () => {
       runGit(['config', 'user.email', 'spec-first@example.test'], repoRoot);
       runGit(['config', 'user.name', 'Spec First Test'], repoRoot);
       runGit(['add', '.'], repoRoot);
-      runGit(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'test: initial'], repoRoot);
+      runGit(['commit', '--no-verify', '-m', 'test: initial'], repoRoot);
 
       const result = runNodeRaw([
         script('build-run-metadata.js'),
@@ -382,7 +389,7 @@ describe('spec-app-consistency-audit CLI e2e', () => {
       runGit(['config', 'user.email', 'spec-first@example.test'], repoRoot);
       runGit(['config', 'user.name', 'Spec First Test'], repoRoot);
       runGit(['add', '.'], repoRoot);
-      runGit(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'test: initial'], repoRoot);
+      runGit(['commit', '--no-verify', '-m', 'test: initial'], repoRoot);
 
       const result = runNodeRaw([
         script('preflight.js'),
@@ -468,7 +475,7 @@ describe('spec-app-consistency-audit CLI e2e', () => {
       runGit(['config', 'user.email', 'spec-first@example.test'], repoRoot);
       runGit(['config', 'user.name', 'Spec First Test'], repoRoot);
       runGit(['add', '.'], repoRoot);
-      runGit(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'test: initial monorepo fixture'], repoRoot);
+      runGit(['commit', '--no-verify', '-m', 'test: initial monorepo fixture'], repoRoot);
       const base = runGit(['rev-parse', 'HEAD'], repoRoot).stdout.trim();
       fs.appendFileSync(path.join(repoRoot, 'apps/mobile/src/HomeScreen.kt'), '\nfun navigate() { navController.navigate("home") }\n');
       fs.appendFileSync(path.join(repoRoot, 'services/api/order.ts'), '\nexport const changed = true;\n');
@@ -560,7 +567,7 @@ describe('spec-app-consistency-audit CLI e2e', () => {
       runGit(['config', 'user.email', 'spec-first@example.test'], repoRoot);
       runGit(['config', 'user.name', 'Spec First Test'], repoRoot);
       runGit(['add', '.'], repoRoot);
-      runGit(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'test: initial'], repoRoot);
+      runGit(['commit', '--no-verify', '-m', 'test: initial'], repoRoot);
 
       const first = JSON.parse(runNode([
         script('build-run-metadata.js'),

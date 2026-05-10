@@ -203,12 +203,12 @@ spec-first init --claude / --codex
 
 ---
 
-## 39 个 Skills 分类
+## Skills 分类
 
 | 类别 | Skills | 说明 |
 |------|--------|------|
 | **核心工作流** | spec-plan, spec-work, spec-work-beta, spec-code-review, spec-ideate, spec-brainstorm, spec-compound, spec-compound-refresh | 日常开发闭环 |
-| **项目上下文** | spec-graph-bootstrap, spec-sessions, spec-session-inventory, spec-session-extract | 项目理解、上下文生成与 session primitive |
+| **项目上下文** | spec-graph-bootstrap, spec-sessions | 项目理解、上下文生成与 session 历史编排 |
 | **基础设施** | spec-mcp-setup, spec-update, spec-debug, spec-optimize, changelog | 环境配置与维护 |
 | **Git 工作流** | git-commit, git-commit-push-pr, git-worktree, git-clean-gone-branches | 版本控制 |
 | **代码质量** | spec-doc-review, resolve-pr-feedback, spec-pr-description | 评审、反馈处理与 PR 描述 |

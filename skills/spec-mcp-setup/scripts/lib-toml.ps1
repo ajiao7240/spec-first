@@ -18,9 +18,9 @@ function Get-TomlMcpSection {
     [string]$Key
   )
 
-  if (-not (Test-Path $Path)) { return '' }
+  if (-not (Test-Path -LiteralPath $Path)) { return '' }
 
-  $text = Get-Content -Raw $Path
+  $text = Get-Content -Raw -LiteralPath $Path
   $headers = @(
     "mcp_servers.$Key",
     ('mcp_servers."{0}"' -f $Key.Replace('"', '\"'))
@@ -201,12 +201,12 @@ function Set-TextFileAtomic {
 
   $dir = Split-Path -Parent $Path
   if (-not [string]::IsNullOrWhiteSpace($dir)) {
-    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    [System.IO.Directory]::CreateDirectory($dir) | Out-Null
   }
   $tmpName = '.{0}.{1}.tmp' -f (Split-Path -Leaf $Path), ([guid]::NewGuid().ToString('N'))
   $tmp = if ([string]::IsNullOrWhiteSpace($dir)) { $tmpName } else { Join-Path $dir $tmpName }
-  Set-Content -Encoding utf8 -Path $tmp -Value $Value
-  Move-Item -Force -Path $tmp -Destination $Path
+  Set-Content -Encoding utf8 -LiteralPath $tmp -Value $Value
+  Move-Item -Force -LiteralPath $tmp -Destination $Path
 }
 
 function Write-TomlMcpSection {
@@ -216,7 +216,7 @@ function Write-TomlMcpSection {
     [string]$Body
   )
 
-  $text = if (Test-Path $Path) { Get-Content -Raw $Path } else { '' }
+  $text = if (Test-Path -LiteralPath $Path) { Get-Content -Raw -LiteralPath $Path } else { '' }
   $text = Remove-TomlMcpSection -Text $text -Key $Key
   $tableKey = Get-TomlTableKey -Key $Key
   $section = "[$tableKey]`n$($Body.Trim())`n"

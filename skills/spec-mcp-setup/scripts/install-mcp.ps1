@@ -451,6 +451,58 @@ function Invoke-Captured {
   [pscustomobject]@{ ok = $true; exit_code = 0; stdout = ($captured -join "`n"); diagnostic_summary = $summary }
 }
 
+function Join-WindowsProcessArguments {
+  param([object[]]$Arguments)
+
+  $quoted = foreach ($argument in @($Arguments)) {
+    $value = [string]$argument
+    if ($value.Length -eq 0) { '""'; continue }
+    if ($value -notmatch '[\s"]') { $value; continue }
+
+    $builder = New-Object System.Text.StringBuilder
+    [void]$builder.Append('"')
+    $backslashes = 0
+    foreach ($char in $value.ToCharArray()) {
+      if ($char -eq '\') {
+        $backslashes += 1
+        continue
+      }
+      if ($char -eq '"') {
+        if ($backslashes -gt 0) { [void]$builder.Append(('\' * ($backslashes * 2))) }
+        [void]$builder.Append('\"')
+        $backslashes = 0
+        continue
+      }
+      if ($backslashes -gt 0) {
+        [void]$builder.Append(('\' * $backslashes))
+        $backslashes = 0
+      }
+      [void]$builder.Append($char)
+    }
+    if ($backslashes -gt 0) { [void]$builder.Append(('\' * ($backslashes * 2))) }
+    [void]$builder.Append('"')
+    $builder.ToString()
+  }
+
+  return ($quoted -join ' ')
+}
+
+function Set-ProcessArgumentsCompat {
+  param(
+    [System.Diagnostics.ProcessStartInfo]$ProcessInfo,
+    [object[]]$Arguments
+  )
+
+  if ($ProcessInfo.PSObject.Properties.Name -contains 'ArgumentList') {
+    foreach ($argument in @($Arguments)) {
+      [void]$ProcessInfo.ArgumentList.Add([string]$argument)
+    }
+    return
+  }
+
+  $ProcessInfo.Arguments = Join-WindowsProcessArguments -Arguments $Arguments
+}
+
 function Invoke-Warmup {
   param([object]$Tool)
   $platformKey = if ($Platform -eq 'windows') { 'windows' } else { 'unix' }
@@ -467,9 +519,7 @@ function Invoke-Warmup {
 
   $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
   $processInfo.FileName = $exe
-  foreach ($argument in @($commandArgs)) {
-    [void]$processInfo.ArgumentList.Add([string]$argument)
-  }
+  Set-ProcessArgumentsCompat -ProcessInfo $processInfo -Arguments $commandArgs
   $processInfo.RedirectStandardOutput = $true
   $processInfo.RedirectStandardError = $true
   $processInfo.UseShellExecute = $false

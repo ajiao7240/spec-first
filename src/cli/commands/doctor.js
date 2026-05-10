@@ -34,7 +34,7 @@ function runDoctor(argv) {
 
   if (parsed.unknown.length > 0) {
     console.error('Usage: spec-first doctor [--claude|--codex] [--json]');
-    return 1;
+    return 2;
   }
 
   const projectRoot = process.cwd();
@@ -64,7 +64,7 @@ function runDoctor(argv) {
 
   if (parsed.json) {
     printDoctorJson(report);
-    return report.has_error ? 1 : 0;
+    return report.has_error ? 3 : 0;
   }
 
   for (const check of report.common_checks) {
@@ -95,7 +95,7 @@ function runDoctor(argv) {
     }
   }
 
-  return hasError ? 1 : 0;
+  return hasError ? 3 : 0;
 }
 
 function checkNodeVersion() {

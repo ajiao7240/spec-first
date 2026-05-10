@@ -9,6 +9,7 @@ const CodexAdapter = require('../../src/cli/adapters/codex');
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills/agent-native-architecture/SKILL.md');
 const REFERENCES_DIR = path.join(REPO_ROOT, 'skills/agent-native-architecture/references');
+const CHECKLISTS_PATH = path.join(REFERENCES_DIR, 'checklists.md');
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -32,6 +33,7 @@ describe('agent-native-architecture contracts', () => {
 
   test('source skill preserves intake routing and architecture checklist contracts', () => {
     const skill = read(SKILL_PATH);
+    const checklists = read(CHECKLISTS_PATH);
 
     expect(skill).toContain('## What aspect of agent-native architecture do you need help with?');
     expect(skill).toContain('1. **Design architecture**');
@@ -39,12 +41,21 @@ describe('agent-native-architecture contracts', () => {
     expect(skill).toContain('**Wait for response before proceeding.**');
 
     expect(skill).toContain('Read `references/architecture-patterns.md`');
+    expect(skill).toContain('Read `references/architecture-patterns.md` and `references/checklists.md`');
     expect(skill).toContain('Read `references/mcp-tool-design.md`');
     expect(skill).toContain('Read `references/agent-native-testing.md`');
+    expect(skill).toContain('references/checklists.md');
+    expect(skill).not.toContain('<architecture_checklist>');
+    expect(skill).not.toContain('<anti_patterns>');
+    expect(skill).not.toContain('<success_criteria>');
 
-    expect(skill).toContain('## Architecture Review Checklist');
-    expect(skill).toContain('**CRUD Completeness:** Every entity has create, read, update, AND delete');
-    expect(skill).toContain('**Completion Signals:** Agent has explicit `complete_task` tool');
+    expect(checklists).toContain('## Architecture Review Checklist');
+    expect(checklists).toContain('## Anti-Patterns');
+    expect(checklists).toContain('## Success Criteria');
+    expect(checklists).toContain('**CRUD Completeness:** Every entity has create, read, update, AND delete');
+    expect(checklists).toContain('**Completion Signals:** Agent has explicit `complete_task` tool');
+    expect(checklists).toContain('THE CARDINAL SIN');
+    expect(checklists).toContain('The Ultimate Test');
   });
 
   test('runtime transforms preserve host-specific naming and core contracts', () => {
@@ -58,8 +69,8 @@ describe('agent-native-architecture contracts', () => {
 
     expect(claudeRuntime).toContain('name: agent-native-architecture');
     expect(codexRuntime).toContain('name: agent-native-architecture');
-    expect(claudeRuntime).toContain('## Architecture Review Checklist');
-    expect(codexRuntime).toContain('## Architecture Review Checklist');
+    expect(claudeRuntime).toContain('references/checklists.md');
+    expect(codexRuntime).toContain('references/checklists.md');
     expect(claudeRuntime).not.toContain('compound-engineering');
     expect(codexRuntime).not.toContain('compound-engineering');
   });

@@ -1,6 +1,5 @@
 #!/bin/bash
-set -e
-set -u
+set -euo pipefail
 
 # task-manager.sh - 管理 task.yaml 的创建、读取、更新
 
@@ -9,10 +8,11 @@ create_task() {
     local title=$2
     local role=${3:-generic}
     local level=${4:-L2}
+    local task_dir=".claude/tasks/$task_id"
 
-    mkdir -p .claude/tasks/$task_id
+    mkdir -p "$task_dir"
 
-    cat > .claude/tasks/$task_id/task.yaml <<EOF
+    cat > "$task_dir/task.yaml" <<EOF
 task_id: $task_id
 title: $title
 role: $role
@@ -22,6 +22,20 @@ status: pending
 created_at: $(date -u +"%Y-%m-%dT%H:%M:%S%z")
 updated_at: $(date -u +"%Y-%m-%dT%H:%M:%S%z")
 EOF
+}
+
+replace_yaml_field() {
+    local yaml_file=$1
+    local key=$2
+    local value=$3
+    local tmp="${yaml_file}.tmp.$$"
+
+    awk -v key="$key" -v value="$value" '
+        BEGIN { prefix = key ": " }
+        index($0, prefix) == 1 { print prefix value; next }
+        { print }
+    ' "$yaml_file" > "$tmp"
+    mv "$tmp" "$yaml_file"
 }
 
 read_task() {
@@ -48,14 +62,14 @@ update_task() {
     fi
 
     if [ -n "$stage" ]; then
-        sed -i '' "s/current_stage: .*/current_stage: $stage/" "$yaml_file"
+        replace_yaml_field "$yaml_file" "current_stage" "$stage"
     fi
 
     if [ -n "$status" ]; then
-        sed -i '' "s/status: .*/status: $status/" "$yaml_file"
+        replace_yaml_field "$yaml_file" "status" "$status"
     fi
 
-    sed -i '' "s/updated_at: .*/updated_at: $(date -u +"%Y-%m-%dT%H:%M:%S%z")/" "$yaml_file"
+    replace_yaml_field "$yaml_file" "updated_at" "$(date -u +"%Y-%m-%dT%H:%M:%S%z")"
 }
 
 main() {

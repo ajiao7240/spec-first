@@ -375,7 +375,7 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
   }
 
   $workspaceDir = Join-Path $TargetFacts.workspace_root '.spec-first/workspace'
-  New-Item -ItemType Directory -Force -Path $workspaceDir | Out-Null
+  New-Item -ItemType Directory -Force -LiteralPath $workspaceDir | Out-Null
   Write-JsonFileAtomic -Path (Join-Path $workspaceDir 'graph-bootstrap-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
   [pscustomobject]$summary | ConvertTo-Json -Depth 30 -Compress
   if ($overallStatus -eq 'action-required') { exit 1 }
@@ -387,7 +387,7 @@ function Read-JsonFile {
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
     throw "missing JSON file: $Path"
   }
-  Get-Content -Raw $Path | ConvertFrom-Json
+  Get-Content -Raw -LiteralPath $Path | ConvertFrom-Json
 }
 
 function Assert-Schema {
@@ -423,8 +423,8 @@ function Write-TextFileAtomic {
     [string]$Value
   )
   $tmp = "$Path.$([guid]::NewGuid().ToString('N')).tmp"
-  Set-Content -Encoding utf8 -Path $tmp -Value $Value
-  Move-Item -Force -Path $tmp -Destination $Path
+  Set-Content -Encoding utf8 -LiteralPath $tmp -Value $Value
+  Move-Item -Force -LiteralPath $tmp -Destination $Path
 }
 
 function Write-JsonFileAtomic {
@@ -834,6 +834,58 @@ function ConvertTo-RepoRelativePath {
   return $normalizedPath
 }
 
+function Join-WindowsProcessArguments {
+  param([object[]]$Arguments)
+
+  $quoted = foreach ($argument in @($Arguments)) {
+    $value = [string]$argument
+    if ($value.Length -eq 0) { '""'; continue }
+    if ($value -notmatch '[\s"]') { $value; continue }
+
+    $builder = New-Object System.Text.StringBuilder
+    [void]$builder.Append('"')
+    $backslashes = 0
+    foreach ($char in $value.ToCharArray()) {
+      if ($char -eq '\') {
+        $backslashes += 1
+        continue
+      }
+      if ($char -eq '"') {
+        if ($backslashes -gt 0) { [void]$builder.Append(('\' * ($backslashes * 2))) }
+        [void]$builder.Append('\"')
+        $backslashes = 0
+        continue
+      }
+      if ($backslashes -gt 0) {
+        [void]$builder.Append(('\' * $backslashes))
+        $backslashes = 0
+      }
+      [void]$builder.Append($char)
+    }
+    if ($backslashes -gt 0) { [void]$builder.Append(('\' * ($backslashes * 2))) }
+    [void]$builder.Append('"')
+    $builder.ToString()
+  }
+
+  return ($quoted -join ' ')
+}
+
+function Set-ProcessArgumentsCompat {
+  param(
+    [System.Diagnostics.ProcessStartInfo]$ProcessInfo,
+    [object[]]$Arguments
+  )
+
+  if ($ProcessInfo.PSObject.Properties.Name -contains 'ArgumentList') {
+    foreach ($argument in @($Arguments)) {
+      [void]$ProcessInfo.ArgumentList.Add([string]$argument)
+    }
+    return
+  }
+
+  $ProcessInfo.Arguments = Join-WindowsProcessArguments -Arguments $Arguments
+}
+
 function Invoke-ExternalCommandWithTimeout {
   param(
     [string]$Exe,
@@ -844,9 +896,7 @@ function Invoke-ExternalCommandWithTimeout {
   $resolvedExe = Resolve-ProcessExecutable -Exe $Exe
   $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
   $processInfo.FileName = $resolvedExe
-  foreach ($argument in @($CommandArguments)) {
-    [void]$processInfo.ArgumentList.Add([string]$argument)
-  }
+  Set-ProcessArgumentsCompat -ProcessInfo $processInfo -Arguments $CommandArguments
   $processInfo.WorkingDirectory = $WorkingDirectory
   $processInfo.RedirectStandardOutput = $true
   $processInfo.RedirectStandardError = $true
@@ -897,7 +947,7 @@ function Invoke-ConfiguredCommand {
     [string]$LogPath,
     [string]$RepoRoot
   )
-  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LogPath) | Out-Null
+  New-Item -ItemType Directory -Force -LiteralPath (Split-Path -Parent $LogPath) | Out-Null
   $command = @($ProviderConfig.providers.$Provider.commands.$Kind)
   $exe = [string]$command[0]
   $commandArgs = @($command | Select-Object -Skip 1)
@@ -914,7 +964,7 @@ function Invoke-ConfiguredCommand {
     [Console]::Error.WriteLine("spec-graph-bootstrap: finished $Provider $Kind with exit $exitCode")
   }
   $outputText = [string]$result.output
-  Set-Content -Encoding utf8 -Path $LogPath -Value $outputText
+  Set-Content -Encoding utf8 -LiteralPath $LogPath -Value $outputText
   $diagnostic = (($outputText -replace '\s+', ' ').Trim())
   $truncated = $false
   if ($diagnostic.Length -gt 1000) {
@@ -942,7 +992,7 @@ function Invoke-GitNexusQueryProbeCandidate {
     [string]$LogPath,
     [string]$RepoRoot
   )
-  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LogPath) | Out-Null
+  New-Item -ItemType Directory -Force -LiteralPath (Split-Path -Parent $LogPath) | Out-Null
   $command = @($ProviderConfig.providers.$Provider.commands.query_probe)
   $command[4] = $Token
   $exe = [string]$command[0]
@@ -960,7 +1010,7 @@ function Invoke-GitNexusQueryProbeCandidate {
     [Console]::Error.WriteLine("spec-graph-bootstrap: finished $Provider query_probe token=$Token with exit $exitCode")
   }
   $outputText = [string]$result.output
-  Set-Content -Encoding utf8 -Path $LogPath -Value $outputText
+  Set-Content -Encoding utf8 -LiteralPath $LogPath -Value $outputText
   $diagnostic = (($outputText -replace '\s+', ' ').Trim())
   $truncated = $false
   if ($diagnostic.Length -gt 1000) {
@@ -1597,7 +1647,7 @@ function Write-NormalizedArtifacts {
     [object[]]$QueryProbeAttempts = @()
   )
   $normalizedDir = Join-Path (Join-Path $ProvidersDir $Provider) 'normalized'
-  New-Item -ItemType Directory -Force -Path $normalizedDir | Out-Null
+  New-Item -ItemType Directory -Force -LiteralPath $normalizedDir | Out-Null
   $sourceStatusPath = ".spec-first/providers/$Provider/status.json"
 
   if ($Provider -eq 'gitnexus') {
@@ -1722,7 +1772,7 @@ $providerArtifactsPath = Join-Path $configDir 'provider-artifacts.json'
 $graphDir = Join-Path $specDir 'graph'
 $impactDir = Join-Path $specDir 'impact'
 $providersDir = Join-Path $specDir 'providers'
-New-Item -ItemType Directory -Force -Path $graphDir, $impactDir, $providersDir | Out-Null
+New-Item -ItemType Directory -Force -LiteralPath $graphDir, $impactDir, $providersDir | Out-Null
 
 $providerConfig = Assert-Schema -Path $providerConfigPath -SchemaVersion 'graph-providers.v1' -MissingReason 'missing_provider_config'
 $runtimeCapabilities = Assert-Schema -Path $runtimeCapabilitiesPath -SchemaVersion 'runtime-capabilities.v1' -MissingReason 'missing_runtime_capabilities'
@@ -1798,7 +1848,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $providerDir = Join-Path $providersDir $provider
   $rawDir = Join-Path $providerDir 'raw'
   $normalizedDir = Join-Path $providerDir 'normalized'
-  New-Item -ItemType Directory -Force -Path $rawDir, $normalizedDir | Out-Null
+  New-Item -ItemType Directory -Force -LiteralPath $rawDir, $normalizedDir | Out-Null
   $commandResults = New-Object System.Collections.Generic.List[psobject]
   $status = 'skipped'
   $graphReady = $false

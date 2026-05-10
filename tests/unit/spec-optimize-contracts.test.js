@@ -63,4 +63,16 @@ describe('spec-optimize host entrypoint contract', () => {
     expect(skill).toContain('Codex failure cascade');
     expect(skill).toContain('After 3 consecutive failures, auto-disable Codex for remaining experiments and fall back to subagent dispatch.');
   });
+
+  test('Codex security schema prefers explicit sandbox wording while preserving compatibility values', () => {
+    const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
+
+    expect(schema).toContain('full-auto');
+    expect(schema).toContain('compatibility value; invoke explicit workspace-write sandbox with -s workspace-write');
+    expect(schema).toContain('yolo');
+    expect(schema).toContain('invoke --dangerously-bypass-approvals-and-sandbox');
+    expect(schema).toContain('Workspace-write network access depends on the user\'s Codex config.');
+    expect(schema).not.toContain('--full-auto');
+    expect(schema).not.toContain('--yolo');
+  });
 });

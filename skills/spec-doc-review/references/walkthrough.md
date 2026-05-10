@@ -161,6 +161,8 @@ When reviewers disagreed or evidence cuts against the default, still mark one op
 
 - **Combined N=1 + no-append:** the menu shows two options: Apply / Skip.
 
+Do not add an `Acknowledge` option to the normal per-finding menu. `Acknowledge` appears only in the no-fix sub-question below, where the user manually picked Apply but the finding has no executable `suggested_fix`.
+
 Only when `ToolSearch` explicitly returns no match or the tool call errors — or on a platform with no blocking question tool — fall back to presenting the options as a numbered list and waiting for the user's next reply.
 
 ---

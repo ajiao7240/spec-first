@@ -201,17 +201,23 @@ function Get-HelperInstallCommand {
     return "brew update && if brew list --formula $Package >/dev/null 2>&1; then brew upgrade -q $Package; else brew install -q $Package; fi"
   }
 
-  function Get-WingetLatestInstallCommand {
+function Get-WingetLatestInstallCommand {
     param([string]$PackageId)
     return "winget upgrade --id $PackageId -e --silent --accept-package-agreements --accept-source-agreements || winget install --id $PackageId -e --silent --accept-package-agreements --accept-source-agreements"
+  }
+
+  function Get-AgentBrowserInstallCommand {
+    param([bool]$WithDeps)
+    $browserInstall = if ($WithDeps) { 'agent-browser install --with-deps' } else { 'agent-browser install' }
+    return '$env:CI=''true''; npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error; if ($LASTEXITCODE -eq 0) { ' + $browserInstall + ' }; if ($LASTEXITCODE -eq 0) { npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y }'
   }
 
 switch ($Name) {
     'agent-browser' {
       if ($Platform -eq 'linux') {
-        return 'CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error && agent-browser install --with-deps && npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y'
+        return (Get-AgentBrowserInstallCommand -WithDeps $true)
       }
-      return 'CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error && agent-browser install && npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y'
+      return (Get-AgentBrowserInstallCommand -WithDeps $false)
     }
     'gh' {
       if ($Platform -eq 'windows') { return (Get-WingetLatestInstallCommand -PackageId 'GitHub.cli') }

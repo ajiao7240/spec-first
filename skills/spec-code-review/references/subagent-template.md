@@ -22,7 +22,7 @@ You produce one output:
 
 1. **Full structured return.** RETURN JSON to the parent with all schema fields per finding, including `why_it_matters`, `evidence`, and `suggested_fix` when a defensible fix exists. Include `reviewer`, `residual_risks`, and `testing_gaps` at the top level.
 
-Do not write files. If the orchestrator needs `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json`, the orchestrator writes your returned JSON itself. This keeps reviewer agents read-only and avoids using prompt prose as a filesystem sandbox.
+Do not write files. If the orchestrator needs `<review-artifact-dir>/{reviewer_name}.json`, the orchestrator writes your returned JSON itself. This keeps reviewer agents read-only and avoids using prompt prose as a filesystem sandbox.
 
 The schema below describes the full return format.
 

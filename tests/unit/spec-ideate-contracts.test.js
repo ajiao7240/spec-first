@@ -12,6 +12,15 @@ const POST_IDEATION_PATH = path.join(
   'references',
   'post-ideation-workflow.md',
 );
+const UNIVERSAL_IDEATION_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-ideate',
+  'references',
+  'universal-ideation.md',
+);
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-ideate', 'SKILL.md');
 const WEB_RESEARCH_CACHE_PATH = path.join(
   __dirname,
@@ -33,14 +42,17 @@ describe('spec-ideate host entrypoint contract', () => {
     expect(text).not.toContain('$spec-brainstorm` on Codex');
   });
 
-  test('scratch paths avoid colon-bearing workflow names', () => {
+  test('scratch paths use OS temp root and avoid colon-bearing workflow names', () => {
     const combined = [
       fs.readFileSync(SKILL_PATH, 'utf8'),
       fs.readFileSync(WEB_RESEARCH_CACHE_PATH, 'utf8'),
     ].join('\n');
 
-    expect(combined).toContain('/tmp/spec-first/spec-ideate/<run-id>');
-    expect(combined).toContain('SCRATCH_ROOT="/tmp/spec-first/spec-ideate"');
+    expect(combined).toContain('os.tmpdir()');
+    expect(combined).toContain("path.join(os.tmpdir(),'spec-first','spec-ideate',runId)");
+    expect(combined).toContain('"<scratch-root>"');
+    expect(combined).not.toContain('SCRATCH_ROOT="/tmp/spec-first/spec-ideate"');
+    expect(combined).not.toContain('/tmp/spec-first/spec-ideate/<run-id>');
     expect(combined).not.toContain('/tmp/spec-first/spec:ideate');
   });
 
@@ -55,5 +67,44 @@ describe('spec-ideate host entrypoint contract', () => {
     expect(text).toContain('run grounding and ideation sequentially or inline in the current agent');
     expect(text).toContain('workflow must still produce an ideation artifact when dispatch is unavailable');
     expect(text).toContain('The orchestrator owns scratch checkpoints, merged candidates, critique, and final artifact writes.');
+  });
+
+  test('per-idea artifact contract uses basis instead of the retired field name', () => {
+    const combined = [
+      fs.readFileSync(SKILL_PATH, 'utf8'),
+      fs.readFileSync(POST_IDEATION_PATH, 'utf8'),
+      fs.readFileSync(UNIVERSAL_IDEATION_PATH, 'utf8'),
+    ].join('\n');
+    const retiredField = 'war' + 'rant';
+
+    expect(combined).toContain('**basis** (required, tagged)');
+    expect(combined).toContain('**Basis:** [`direct:` / `external:` / `reasoned:`');
+    expect(combined).toContain('Basis-integrity check');
+    expect(combined).toContain('basis strength');
+    expect(combined).not.toMatch(new RegExp(`\\*\\*${retiredField}\\*\\*`));
+    expect(combined).not.toContain(`${retiredField} strength`);
+    expect(combined).not.toContain(`${retiredField}-integrity`);
+  });
+
+  test('topic axes and bounded recovery are explicit but skipped for atomic and surprise-me subjects', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Phase 1.5: Topic Axes');
+    expect(text).toContain('Skip axis decomposition for surprise-me mode');
+    expect(text).toContain('atomic subject');
+    expect(text).toContain('3-5 topic axes');
+    expect(text).toContain('Axis coverage check');
+    expect(text).toContain('dispatch at most 2 recovery agents');
+    expect(text).toContain('Do not keep expanding axes');
+  });
+
+  test('user-named root markdown is a constraint without making all root markdown mandatory', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Root Markdown handling');
+    expect(text).toContain('If the user explicitly names a repo-root `.md` file');
+    expect(text).toContain('read that file completely as a constraint');
+    expect(text).toContain('Other repo-root Markdown files are background only');
+    expect(text).toContain('Do not reintroduce `STRATEGY.md` as a mandatory anchor');
   });
 });

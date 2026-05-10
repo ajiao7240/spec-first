@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 
+const { ensureSupportedNodeVersion } = require('../src/cli/node-version');
 const pkg = require('../package.json');
 
-const ver = `spec-first v${pkg.version}`;
-const LINE = '─'.repeat(50);
+if (!ensureSupportedNodeVersion()) {
+  process.exitCode = 1;
+} else {
+  const ver = `spec-first v${pkg.version}`;
+  const LINE = '─'.repeat(50);
 
-process.stdout.write(`
+  process.stdout.write(`
 ┌${LINE}┐
 │  ${ver.padEnd(48)}│
 │  安装完成                                      │
@@ -17,3 +21,4 @@ process.stdout.write(`
   说明：  managed assets 由 init/clean 管理，按 Claude/Codex host 生成
 
 `);
+}

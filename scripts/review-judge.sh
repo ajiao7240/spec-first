@@ -1,6 +1,5 @@
 #!/bin/bash
-set -e
-set -u
+set -euo pipefail
 
 # review-judge.sh - Review 双重判定
 

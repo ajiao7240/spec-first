@@ -283,10 +283,10 @@ optional_fields:
       codex_security:
         type: enum
         values:
-          - full-auto                                # --full-auto (workspace write)
-          - yolo                                     # --dangerously-bypass-approvals-and-sandbox
+          - full-auto                                # compatibility value; invoke explicit workspace-write sandbox with -s workspace-write
+          - yolo                                     # compatibility value; invoke --dangerously-bypass-approvals-and-sandbox
         default: null
-        description: "Codex security posture. If null, user is asked once per session."
+        description: "Codex security posture. If null, user is asked once per session. Workspace-write network access depends on the user's Codex config."
 
   parallel:
     type: object

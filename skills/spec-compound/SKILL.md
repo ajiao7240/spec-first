@@ -61,7 +61,7 @@ for relevant knowledge to help the Compound process? This adds
 time and token usage.
 ```
 
-If the user says yes, dispatch the Session Historian in Phase 1. If no, skip it. Do not ask this in lightweight mode.
+If the user says yes, invoke `spec-sessions` in Phase 1 with the narrow problem topic and output schema below. If no, skip it. Do not ask this in lightweight mode.
 
 ---
 
@@ -100,8 +100,8 @@ Launch research subagents. Each returns text data to the orchestrator.
 
 **Dispatch order:**
 - Launch `Context Analyzer`, `Solution Extractor`, and `Related Docs Finder` in parallel (background)
-- Then dispatch `spec-session-historian` in foreground — it reads session files outside the working directory that background agents may not have access to
-- The foreground dispatch runs while the background agents work, adding no wall-clock time
+- If the user opted into session history, invoke `spec-sessions` in foreground; it owns session discovery, scratch extraction, and `spec-session-historian` synthesis
+- The foreground session enrichment runs while the background agents work, adding no wall-clock time when relevant
 
 <parallel_tasks>
 
@@ -172,16 +172,16 @@ Launch research subagents. Each returns text data to the orchestrator.
 
 </parallel_tasks>
 
-#### 4. **Session Historian** (foreground, after launching the above — only if the user opted in)
+#### 4. **Session History Enrichment** (foreground, after launching the above — only if the user opted in)
    - **Skip entirely** if the user declined session history in the follow-up question
-   - Dispatched as `spec-session-historian`
-   - Dispatch in **foreground** — this agent reads session files outside the working directory (`~/.claude/projects/`, `~/.codex/sessions/`, `~/.agents/sessions/`) which background agents may not have access to
+   - Invoke `spec-sessions`; it owns discovery, filtering, scratch extraction, and `spec-session-historian` synthesis dispatch
+   - Run in **foreground** because it reads session files outside the working directory (`~/.claude/projects/`, `~/.codex/sessions/`, `~/.agents/sessions/`) which background agents may not have access to
    - Searches prior Claude Code and Codex sessions for the same project to find related investigation context
    - Correlates sessions by repo name across supported platforms (matches sessions from main checkouts, worktrees, and Conductor workspaces)
-   - **Dispatch prompt — keep tight.** Long, keyword-rich prompts encourage unnecessary widening. Use this shape:
+   - **Invocation prompt — keep tight.** Long, keyword-rich prompts encourage unnecessary widening. Use this shape:
      - **Pre-resolved context**: repo name and current git branch, only if the values resolved cleanly above; otherwise omit and let the agent derive them.
      - **Time window**: explicit `7 days` unless the documented problem clearly spans a longer arc.
-     - **Problem topic**: one sentence naming the concrete issue — error message, module name, what broke and how it was fixed. Not a paragraph; not a bullet list of adjacent topics.
+     - **Problem topic**: one sentence naming the concrete issue: error message, module name, what broke and how it was fixed. Not a paragraph; not a bullet list of adjacent topics.
      - **Filter rule**: "Only surface findings directly relevant to this specific problem. Ignore unrelated work from the same sessions or branches."
      - **Output schema**:
 
@@ -192,10 +192,9 @@ Launch research subagents. Each returns text data to the orchestrator.
        - Key decisions
        - Related context
        ```
-   - Do not append additional context blocks, exclusion lists, or topic-keyword bullets. If the agent needs keyword search, it owns that decision via the `--keyword` mode on `session-inventory`.
-   - Omit the `mode` parameter so the user's configured permission settings apply
-   - Dispatch on the mid-tier model (e.g., `model: "sonnet"` in Claude Code) — the synthesis feeds into compound assembly and doesn't need frontier reasoning
-   - Returns: structured digest of findings from prior sessions, or "no relevant prior sessions" if none found
+   - Do not append additional context blocks, exclusion lists, or topic-keyword bullets. If `spec-sessions` needs keyword search, it owns that decision via the `--keyword` mode on its metadata script.
+   - Let `spec-sessions` omit subagent `mode` so the user's configured permission settings apply
+   - Returns: structured digest of findings from prior sessions, or `no relevant prior sessions` if none found
 
 ### Phase 2: Assembly & Write
 

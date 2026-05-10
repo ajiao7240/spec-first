@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { writeFileAtomic } = require('./atomic-write');
 
 const BOOTSTRAP_START = '<!-- spec-first:bootstrap:start -->';
 const BOOTSTRAP_END = '<!-- spec-first:bootstrap:end -->';
@@ -156,7 +157,7 @@ ${hostLine}
 ${surfaceLine}
 ${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；graph readiness 编译→\`${entry('graph-bootstrap')}\`；项目规范/胶水基线→\`${entry('standards')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务编译/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`（standalone skill）/\`${entry('work')}\`；可度量优化→\`${entry('optimize')}\`
 - 完整选择策略、优先级和 red flags 由 spec-first 随包的 \`using-spec-first\` 维护；本 block 只保留启动提醒、host 入口边界和少量锚点
-- 不要直接暴露 internal-only skills：\`spec-session-inventory\`、\`spec-session-extract\``;
+- 不要直接暴露 internal-only skills；例如 \`git-worktree\` 只能由公开 workflow 在需要隔离工作区时委托使用`;
 }
 
 function buildEnBootstrapBody(hostId) {
@@ -188,7 +189,7 @@ ${hostLine}
 ${surfaceLine}
 ${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; graph readiness compilation→\`${entry('graph-bootstrap')}\`; project standards/glue baseline→\`${entry('standards')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/task compilation/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\` (standalone skill)/\`${entry('work')}\`; measurable optimization→\`${entry('optimize')}\`
 - The full selection policy, priority rules, and red flags are maintained by the bundled spec-first \`using-spec-first\`; this block only keeps the startup reminder, host entrypoint boundaries, and a few anchors
-- Do not expose internal-only skills directly: \`spec-session-inventory\`, \`spec-session-extract\``;
+- Do not expose internal-only skills directly; for example, \`git-worktree\` is delegated only by public workflows when isolated workspace setup is needed`;
 }
 
 function stripStandaloneMarkerLines(content) {
@@ -270,9 +271,7 @@ function normalizeRemovalResult(content) {
 }
 
 function writeAtomically(filePath, contents) {
-  const tmpPath = `${filePath}.tmp`;
-  fs.writeFileSync(tmpPath, contents, 'utf8');
-  fs.renameSync(tmpPath, filePath);
+  writeFileAtomic(filePath, contents);
 }
 
 module.exports = {

@@ -50,10 +50,13 @@ If `mode:headless` is not present, the workflow runs in its default interactive 
 
 ### Classify Document Type
 
-After reading, classify the document:
-- **requirements** -- from `docs/brainstorms/`, focuses on what to build and why
-- **plan** -- from `docs/plans/`, focuses on how to build it with implementation details
-- **task-pack** -- from `docs/tasks/` or frontmatter `type: task-pack`, focuses on whether a derived execution input remains faithful to its source plan and is safe for `spec-work`
+After reading, classify the document by **content shape first**, with path/frontmatter as supporting evidence:
+
+- **requirements** -- focuses on what to build and why; typical signals include `## Requirements`, actors, key flows, acceptance examples, problem framing, or scope boundaries without implementation units
+- **plan** -- focuses on how to build it; typical signals include `## Implementation Units`, `## Key Technical Decisions`, `## System-Wide Impact`, `## Risks & Dependencies`, or implementation file/test lists
+- **task-pack** -- from frontmatter `type: task-pack`, `docs/tasks/`, or a `Task Pack Contract` block; focuses on whether a derived execution input remains faithful to its source plan and is safe for `spec-work`
+
+Path is a hint, not the source of truth: a copied plan outside `docs/plans/` is still a plan, and a task-pack with valid frontmatter is still a task-pack even if its filename is unusual. Also extract the frontmatter `origin:` value when present. Store it as `Origin`; if missing, set `Origin: none`.
 
 For task-pack review, verify that it is derived rather than a second plan:
 
@@ -63,6 +66,8 @@ For task-pack review, verify that it is derived rather than a second plan:
 - `files`, `context_refs`, `test_focus`, `done_signal`, `risk_note`, and `stop_if` reduce execution context without turning into micro-implementation steps,
 - dependency and wave claims are plausible from file ownership and shared surfaces,
 - deterministic identity/freshness issues belong to `spec-first tasks validate --json`, while semantic task quality remains reviewer judgment.
+
+For plan documents with `Origin` set, do not routinely re-review the upstream WHAT/WHY. Review the plan's faithfulness, execution readiness, architectural choices, risk treatment, and whether it introduces new scope or strategic/architecture risks not present in the origin. Re-open WHAT/WHY only when the plan itself adds a new product claim, expands scope, or changes the origin's intent.
 
 ### Select Conditional Personas
 
@@ -164,6 +169,7 @@ Each agent receives the prompt built from the subagent template included below w
 | `{persona_file}` | Full content of the agent's markdown file |
 | `{schema}` | Content of the findings schema included below |
 | `{document_type}` | "requirements", "plan", or "task-pack" from Phase 1 classification |
+| `{origin}` | Frontmatter `origin:` value when present, otherwise `none` |
 | `{document_path}` | Path to the document |
 | `{document_content}` | Full text of the document |
 | `{decision_primer}` | Cumulative prior-round decisions in the current session, or an empty `<prior-decisions>` block on round 1. See "Decision primer" below. |

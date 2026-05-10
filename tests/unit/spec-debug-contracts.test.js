@@ -51,4 +51,50 @@ describe('spec-debug branch-aware handoff contract', () => {
     expect(text).not.toContain('/spec:brainstorm` on Claude Code');
     expect(text).not.toContain('$spec-brainstorm` on Codex');
   });
+
+  test('trivial fast-path is narrow and still keeps choice and workspace gates', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Trivial-bug fast-path');
+    expect(text).toContain('single-file typo');
+    expect(text).toContain('missing import');
+    expect(text).toContain('null dereference');
+    expect(text).toContain('off-by-one');
+    expect(text).toContain('Fast-path does not skip Phase 2');
+    expect(text).toContain('Fix it now');
+    expect(text).toContain('Diagnosis only');
+    expect(text).toContain('Workspace and branch check');
+    expect(text).toContain('Negative boundary');
+    expect(text).toContain('Do not use the fast-path for multi-file causal chains');
+    expect(text).toContain('Non-trivial bugs still require the full investigation path');
+  });
+
+  test('hypotheses require concrete observations and failed fixes invalidate evidence first', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Concrete observation');
+    expect(text).toContain('runtime value');
+    expect(text).toContain('log line');
+    expect(text).toContain('instrumented boundary');
+    expect(text).toContain('working comparison');
+    expect(text).toContain('specific code reference');
+    expect(text).toContain('Failed fix evidence reset');
+    expect(text).toContain('record the invalidated evidence before forming the next hypothesis');
+    expect(text).toContain('Do not stack another fix attempt on top of a contradicted hypothesis');
+  });
+
+  test('fix phase preserves project test conventions and right-sized review', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Read the nearby or project-level testing convention before adding a reproduction test');
+    expect(text).toContain('match the existing test style, fixture pattern, and command shape');
+    expect(text).toContain('Self-review every changed line against the root cause');
+    expect(text).toContain('remove only debris introduced by this fix');
+    expect(text).toContain('do not refactor unrelated code');
+    expect(text).toContain('Review scope');
+    expect(text).toContain('non-trivial fixes');
+    expect(text).toContain('lightweight code review');
+    expect(text).toContain('current host\'s code-review entrypoint');
+    expect(text).toContain('Do not invoke a full review ritual for an obvious mechanical fix');
+  });
 });

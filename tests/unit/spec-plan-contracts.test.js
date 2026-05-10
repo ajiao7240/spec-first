@@ -1,7 +1,11 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+
+const ClaudeAdapter = require('../../src/cli/adapters/claude');
+const { planBundledAssetSync } = require('../../src/cli/plugin');
 
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-plan', 'SKILL.md');
 const REQUIREMENTS_CAPTURE_PATH = path.join(
@@ -31,6 +35,15 @@ const PLAN_HANDOFF_PATH = path.join(
   'references',
   'plan-handoff.md',
 );
+const PLAN_TEMPLATE_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-plan',
+  'references',
+  'plan-template.md',
+);
 const SYNTHESIS_PATH = path.join(
   __dirname,
   '..',
@@ -49,6 +62,21 @@ const VISUAL_COMMUNICATION_PATH = path.join(
   'references',
   'visual-communication.md',
 );
+
+function plannedRuntimeContent(adapter, targetPath) {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-plan-runtime-'));
+
+  try {
+    const { plan } = planBundledAssetSync(projectRoot, adapter);
+    const operation = plan.operations.find((entry) => entry.path === targetPath);
+    if (!operation) {
+      throw new Error(`Missing planned runtime operation for ${targetPath}`);
+    }
+    return operation.contents;
+  } finally {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  }
+}
 const UNIVERSAL_PLANNING_PATH = path.join(
   __dirname,
   '..',
@@ -86,10 +114,12 @@ describe('spec-plan context orientation contract', () => {
 
   test('consumes canonical graph readiness facts without making them a planning gate', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const template = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
+    const combined = `${text}\n${template}`;
 
     expect(text).toContain('.spec-first/graph/graph-facts.json');
     expect(text).toContain('.spec-first/impact/bootstrap-impact-capabilities.json');
-    expect((text.match(/## Graph Readiness/g) || []).length).toBeGreaterThanOrEqual(2);
+    expect((combined.match(/## Graph Readiness/g) || []).length).toBeGreaterThanOrEqual(2);
     expect(text).toContain(
       'status: primary | degraded-fallback | stale | blocked | setup-not-ready | unavailable',
     );
@@ -104,9 +134,13 @@ describe('spec-plan context orientation contract', () => {
       '- confidence:',
       '- limitations:',
     ]) {
-      expect(text).toContain(field);
+      expect(combined).toContain(field);
     }
     expect(text).toContain('status: unavailable');
+    expect(text).toContain('cannot be read as valid JSON');
+    expect(text).toContain('reason `invalid-json`');
+    expect(text).toContain('name the exact artifact path and parse/read error');
+    expect(text).toContain('Do not rewrite, delete, or silently regenerate graph artifacts from `spec-plan`');
     expect(text).toContain('try live MCP evidence');
     expect(text).toContain('successful response as session-local evidence');
     expect(text).toContain('runtime_mcp_evidence: partial-definitions-only');
@@ -167,6 +201,8 @@ describe('spec_id planning contract', () => {
 
   test('plan inherits spec_id, handles legacy origins, and preserves chain boundaries', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const template = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
+    const combined = `${text}\n${template}`;
 
     expect(text).toContain('Preserve it exactly in the plan frontmatter');
     expect(text).toContain('Generate a new plan-local `spec_id`');
@@ -174,8 +210,8 @@ describe('spec_id planning contract', () => {
     expect(text).toContain('scan `docs/brainstorms/`, `docs/plans/`, and `docs/tasks/` frontmatter');
     expect(text).toContain('If the same `spec_id` already exists');
     expect(text).toContain('alternative implementation plans, independent delivery chains, or abandon-and-replace work');
-    expect(text).toContain('spec_id: YYYY-MM-DD-NNN-<slug>');
-    expect(text).toContain('origin: docs/brainstorms/YYYY-MM-DD-NNN-<slug>-requirements.md');
+    expect(combined).toContain('spec_id: YYYY-MM-DD-NNN-<slug>');
+    expect(combined).toContain('origin: docs/brainstorms/YYYY-MM-DD-NNN-<slug>-requirements.md');
   });
 
   test('deepening preserves spec_id rather than creating a new chain', () => {
@@ -209,6 +245,7 @@ describe('spec_id planning contract', () => {
 
   test('plan synthesis checkpoints and template naming are in place', () => {
     const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const planTemplate = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
     const synthesis = fs.readFileSync(SYNTHESIS_PATH, 'utf8');
     const deepening = fs.readFileSync(DEEPENING_PATH, 'utf8');
     const visual = fs.readFileSync(VISUAL_COMMUNICATION_PATH, 'utf8');
@@ -216,16 +253,22 @@ describe('spec_id planning contract', () => {
     expect(skill).toContain('#### 0.7 Solo-Mode Scope Summary');
     expect(skill).toContain('#### 5.1.5 Brainstorm-Sourced Scope Summary');
     expect(skill).toContain('read `references/synthesis-summary.md`');
-    expect(skill).toContain('## Summary');
-    expect(skill).toContain('## Requirements');
-    expect(skill).toContain('treat `## Overview` as the legacy name');
-    expect(skill).toContain('legacy `## Requirements Trace`');
-    expect(skill).toContain('## Assumptions');
-    expect(skill).toContain('Include only for unconfirmed inferred bets');
-    expect(skill).toContain('Keep these out of Key Technical Decisions and Implementation Units');
-    const template = skill.split('#### 4.2 Core Plan Template')[1];
+    expect(planTemplate).toContain('## Summary');
+    expect(planTemplate).toContain('## Requirements');
+    expect(planTemplate).toContain('treat `## Overview` as the legacy name');
+    expect(planTemplate).toContain('legacy `## Requirements Trace`');
+    expect(planTemplate).toContain('## Assumptions');
+    expect(planTemplate).toContain('Include only for unconfirmed inferred bets');
+    expect(planTemplate).toContain('Keep these out of Key Technical Decisions and Implementation Units');
+    expect(skill).toContain('Read `skills/spec-plan/references/plan-template.md` before writing the plan.');
+    expect(skill).toContain('Do not reconstruct the template from memory and do not inline the full template in this skill.');
+    const template = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
     expect(template.indexOf('## Requirements')).toBeLessThan(template.indexOf('## Assumptions'));
     expect(template.indexOf('## Assumptions')).toBeLessThan(template.indexOf('## Scope Boundaries'));
+    expect(template).toContain('### U1. [Name]');
+    expect(template).not.toContain('- U1. **[Name]**');
+    expect(skill).toContain('Use `### U1. [Name]` heading-style implementation units for new plans.');
+    expect(skill).toContain('continue to recognize legacy `- U1. **[Name]**` list-item units as valid anchors.');
     expect(synthesis).toContain('Solo variant (Phase 0.7)');
     expect(synthesis).toContain('Brainstorm-sourced variant (Phase 5.1.5)');
     expect(synthesis).toContain('## Assumptions');
@@ -234,6 +277,14 @@ describe('spec_id planning contract', () => {
     expect(visual).toContain('Summary or Problem Frame');
     expect([skill, synthesis].join('\n')).not.toContain('STRATEGY.md');
     expect([skill, synthesis].join('\n')).not.toContain('/ce-');
+  });
+
+  test('Claude command projection points plan template reference at the workflow runtime copy', () => {
+    const command = plannedRuntimeContent(new ClaudeAdapter(), '.claude/commands/spec/plan.md');
+
+    expect(command).toContain('Read `.claude/spec-first/workflows/spec-plan/references/plan-template.md` before writing the plan.');
+    expect(command).not.toContain('Read `references/plan-template.md` before writing the plan.');
+    expect(command).not.toContain('Read `skills/spec-plan/references/plan-template.md` before writing the plan.');
   });
 
   test('universal planning avoids slash-only handoff wording', () => {

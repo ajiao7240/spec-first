@@ -52,6 +52,10 @@ function findMatches(targets, patterns) {
   return [...new Set(matches)].sort();
 }
 
+function read(relativePath) {
+  return fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
+}
+
 describe('retired internal graph runtime removal contract', () => {
   test('runtime code does not reference retired internal graph entrypoints', () => {
     const targets = [
@@ -116,12 +120,30 @@ describe('retired internal graph runtime removal contract', () => {
       ['stage0', '-context'].join(''),
       ['src/', 'bootstrap-compiler'].join(''),
       ['src/', 'context-routing'].join(''),
-      ['tree', '-sitter'].join(''),
-      ['better', '-sqlite3'].join(''),
       'CRG 图',
       'CRG runtime',
     ];
 
     expect(findMatches(targets, patterns)).toEqual([]);
+  });
+
+  test('FAQ may mention retired native dependencies only as troubleshooting context', () => {
+    const targets = [
+      'CLAUDE.md',
+      'AGENTS.md',
+      'README.md',
+      'README.zh-CN.md',
+      'docs/05-用户手册',
+    ];
+    const patterns = [
+      ['tree', '-sitter'].join(''),
+      ['better', '-sqlite3'].join(''),
+    ];
+    const faq = read('docs/05-用户手册/04-常见问题.md');
+
+    expect(findMatches(targets, patterns)).toEqual(['docs/05-用户手册/04-常见问题.md']);
+    expect(faq).toContain('退役旧内置图运行时');
+    expect(faq).toContain('不应再编译这些 native modules');
+    expect(faq).toContain('不代表 package CLI 安装失败');
   });
 });

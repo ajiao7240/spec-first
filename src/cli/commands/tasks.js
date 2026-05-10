@@ -25,11 +25,11 @@ function runTasks(argv) {
 
   if (args.includes('--json')) {
     writeJsonError('tasks-subcommand-unknown', `Unknown tasks subcommand: ${subcommand}`);
-    return 1;
+    return 2;
   }
   console.error(`Unknown tasks subcommand: ${subcommand}`);
   printTasksHelp(true);
-  return 1;
+  return 2;
 }
 
 function runHash(args) {
@@ -48,10 +48,10 @@ function runHash(args) {
   if (!planPath) {
     if (json) {
       writeJsonError('tasks-plan-path-required', 'plan path is required');
-      return 1;
+      return 2;
     }
     console.error('error: plan path is required');
-    return 1;
+    return 2;
   }
 
   const result = computeSourcePlanHash(path.resolve(planPath));
@@ -110,10 +110,10 @@ function runValidate(args) {
   if (!taskPackPath) {
     if (json) {
       writeJsonError('tasks-task-pack-path-required', 'task pack path is required');
-      return 1;
+      return 2;
     }
     console.error('error: task pack path is required');
-    return 1;
+    return 2;
   }
 
   const result = validateTaskPack(path.resolve(taskPackPath), { repoRoot: repoArg.repoRoot });
@@ -215,7 +215,7 @@ function writeCliError({ json, code, message }) {
   } else {
     console.error(`error: ${message}`);
   }
-  return 1;
+  return 2;
 }
 
 module.exports = {

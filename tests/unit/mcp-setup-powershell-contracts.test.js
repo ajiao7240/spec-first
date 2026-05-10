@@ -4,6 +4,7 @@ const { spawnSync } = require('node:child_process');
 
 const repoRoot = path.resolve(__dirname, '../..');
 const configureHostPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/configure-host.ps1');
+const checkHealthPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/check-health.ps1');
 const checkDepsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/check-deps.ps1');
 const detectHostPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-host.ps1');
 const detectToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-tools.ps1');
@@ -206,8 +207,41 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(libTomlSource).toContain('function Test-TomlMcpSectionExact');
     expect(libTomlSource).toContain('function Remove-TomlLineComment');
     expect(libTomlSource).toContain('function Set-TextFileAtomic');
-    expect(libTomlSource).toContain('Move-Item -Force -Path $tmp -Destination $Path');
+    expect(libTomlSource).toContain('Test-Path -LiteralPath $Path');
+    expect(libTomlSource).toContain('Get-Content -Raw -LiteralPath $Path');
+    expect(libTomlSource).toContain('Set-Content -Encoding utf8 -LiteralPath $tmp');
+    expect(libTomlSource).toContain('Move-Item -Force -LiteralPath $tmp -Destination $Path');
     expect(libTomlSource).toContain('Set-TextFileAtomic -Path $Path -Value $text');
+  });
+
+  test('TOML helpers preserve literal paths with wildcard characters', () => {
+    const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'spec-ps-literal-'));
+    const bracketDir = path.join(tmpDir, 'repo [win64]');
+    const configPath = path.join(bracketDir, 'config.toml');
+    fs.mkdirSync(bracketDir, { recursive: true });
+
+    try {
+      const script = [
+        `. '${libTomlPs1.replace(/'/g, "''")}'`,
+        '$body = "command = `"node`"`nargs = [`"--version`"]"',
+        'Write-TomlMcpSection -Path $env:SPEC_FIRST_TOML_PATH -Key "agent-browser" -Body $body',
+        '$section = Get-TomlMcpSection -Path $env:SPEC_FIRST_TOML_PATH -Key "agent-browser"',
+        'if ($section -notmatch "command =") { exit 7 }',
+      ].join('; ');
+      const result = spawnSync('pwsh', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          SPEC_FIRST_TOML_PATH: configPath,
+        },
+      });
+
+      expect(result.status).toBe(0);
+      expect(fs.readFileSync(configPath, 'utf8')).toContain('[mcp_servers."agent-browser"]');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   test('mcp-tools template helper expands graph-provider pins from package + version fields', () => {
@@ -300,6 +334,21 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installSource).toContain('Move-Item -Force -LiteralPath $tmp -Destination $cachePath');
     expect(installSource).toContain("$lastAction = 'warmup-cache-hit'");
     expect(installSource).toContain('Write-WarmupCache -Tool $tool -Command $warmupStep.command -Arguments $warmupArgs -CommandHash $warmupHash');
+  });
+
+  test('PowerShell external command runners keep Windows PowerShell 5.1 ProcessStartInfo fallback', () => {
+    const installSource = fs.readFileSync(installMcpPs1, 'utf8');
+    const activateSerenaSource = fs.readFileSync(activateSerenaPs1, 'utf8');
+    const graphBootstrapSource = fs.readFileSync(bootstrapProvidersPs1, 'utf8');
+
+    for (const source of [installSource, activateSerenaSource, graphBootstrapSource]) {
+      expect(source).toContain('function Join-WindowsProcessArguments');
+      expect(source).toContain('function Set-ProcessArgumentsCompat');
+      expect(source).toContain("$ProcessInfo.PSObject.Properties.Name -contains 'ArgumentList'");
+      expect(source).toContain('[void]$ProcessInfo.ArgumentList.Add([string]$argument)');
+      expect(source).toContain('$ProcessInfo.Arguments = Join-WindowsProcessArguments -Arguments $Arguments');
+      expect(source).toContain('Set-ProcessArgumentsCompat -ProcessInfo $processInfo');
+    }
   });
 
   test('PowerShell host detection supports Unix parity test overrides', () => {
@@ -682,7 +731,11 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(source).toContain('dependencies may download on first use');
     expect(source).toContain('graph_ready = $graphReady');
     expect(source).toContain('function Write-JsonFileAtomic');
-    expect(source).toContain('Move-Item -Force');
+    expect(source).toContain('Move-Item -Force -LiteralPath');
+    expect(source).toContain('Set-Content -Encoding utf8 -LiteralPath');
+    expect(source).toContain('New-Item -ItemType Directory -Force -LiteralPath');
+    expect(source).not.toContain('Move-Item -Force -Path');
+    expect(source).not.toContain('Set-Content -Encoding utf8 -Path');
     expect(source).toContain('Invoke-ExternalCommandWithTimeout -Exe $exe');
     expect(source).not.toContain('Invoke-Expression');
     expect(source).not.toContain('bash -c');
@@ -751,6 +804,9 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(source).toContain('parent_writes_repo_local_artifacts');
     expect(source).toContain('.spec-first/workspace');
     expect(source).toContain('graph-targets.json');
+    expect(source).toContain("New-Item -ItemType Directory -Force -LiteralPath $workspaceDir");
+    expect(source).toContain("$summaryPath.$([guid]::NewGuid().ToString('N')).tmp");
+    expect(source).toContain('Move-Item -Force -LiteralPath $tmpPath -Destination $summaryPath');
     expect(source).toContain('workspace-graph-targets-no-source');
     expect(source).toContain('No code-bearing graph target is available');
     expect(source).toContain('GitNexus-first');
@@ -774,6 +830,10 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(installHelpersSource).toContain('agent-browser install');
     expect(installHelpersSource).toContain('agent-browser install --with-deps');
     expect(installHelpersSource).toContain('Invoke-NpmGlobalInstallWithOptionalSudo');
+    expect(installHelpersSource).toContain("function Get-AgentBrowserInstallCommand");
+    expect(installHelpersSource).toContain("$env:CI=''true''; npm install -g agent-browser@latest");
+    expect(installHelpersSource).toContain('if ($LASTEXITCODE -eq 0) { ');
+    expect(installHelpersSource).not.toContain("return 'CI=true npm install -g agent-browser@latest");
     expect(installHelpersSource).toContain('sudo -n');
     expect(installHelpersSource).toContain('NPM_CONFIG_REGISTRY');
     expect(installHelpersSource).toContain('npm_config_registry');
@@ -995,6 +1055,42 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(bootstrapSource).toContain('.spec-first/*.local.yaml');
     expect(bootstrapSource).toContain('compound-engineering.local.md');
     expect(bootstrapSource).not.toContain('baseline_ready');
+  });
+
+  test('PowerShell check-health provides native Win64 preflight instead of requiring Git Bash or WSL', () => {
+    const skill = fs.readFileSync(mcpSetupSkillPath, 'utf8');
+    const source = fs.readFileSync(checkHealthPs1, 'utf8');
+
+    expect(skill).toContain('pwsh -File skills/spec-mcp-setup/scripts/check-health.ps1');
+    expect(skill).toContain('prefer the native PowerShell script');
+    expect(skill).toContain('do not replace Win64-native PowerShell validation');
+    expect(skill).not.toContain('On Windows, run `check-health` from Git Bash or WSL');
+    expect(source).toContain("schema_version = 'spec-mcp-setup-preflight.v2'");
+    expect(source).toContain("if ($Json)");
+    expect(source).toContain("id = 'jq'; required = $false");
+    expect(source).toContain("Test-Path -LiteralPath");
+    expect(source).not.toContain('Invoke-Expression');
+    expect(source).not.toContain('bash -c');
+  });
+
+  test('PowerShell check-health JSON is parseable under pwsh', () => {
+    const result = spawnSync('pwsh', ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', checkHealthPs1, '-Json'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    const payload = JSON.parse(result.stdout);
+    expect(payload.schema_version).toBe('spec-mcp-setup-preflight.v2');
+    expect(Array.isArray(payload.tools)).toBe(true);
+    expect(Array.isArray(payload.skills)).toBe(true);
+    expect(payload.project).toHaveProperty('inside_git_repo');
+    expect(payload.legacy).toHaveProperty('compound_engineering_markdown_status');
+    expect(payload.tools.find((tool) => tool.id === 'jq')).toMatchObject({
+      required: false,
+      host_config_status: 'not-applicable',
+    });
   });
 
   test('setup skill runs bounded setup autonomously after explicit invocation', () => {

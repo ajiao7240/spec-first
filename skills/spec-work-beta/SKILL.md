@@ -65,7 +65,7 @@ Config keys:
 - `work_delegate_sandbox` -- `yolo` (default) or `full-auto`
 - `work_delegate_decision` -- `auto` (default) or `ask`
 - `work_delegate_model` -- Codex model to use. Optional — when unset or unparseable, defers to the user's `~/.codex/config.toml` default. Passthrough — any non-empty string is accepted as valid; only YAML parse failures or empty values resolve to unset.
-- `work_delegate_effort` -- one of `minimal`, `low`, `medium`, `high`, or `xhigh`. Optional — when unset or set to a value outside this enum, resolves to unset and defers to the user's `~/.codex/config.toml` default.
+- `work_delegate_effort` -- one of `minimal`, `low`, `medium`, `high`, or `xhigh`. Optional — when unset or set to a value outside this enum, resolves to unset and defers to the user's `~/.codex/config.toml` default. `minimal` and `low` are accepted only for legacy/user config compatibility; this workflow never actively lowers a batch below its selected effort, and never emits them as `model_reasoning_effort` values.
 
 Store the resolved state for downstream consumption:
 - `delegation_active` -- boolean, whether delegation mode is on
@@ -73,7 +73,8 @@ Store the resolved state for downstream consumption:
 - `sandbox_mode` -- `yolo` or `full-auto` (from config or default `yolo`)
 - `consent_granted` -- boolean (from config `work_delegate_consent`)
 - `delegate_model` -- string from config, or unset (defer to Codex config)
-- `delegate_effort` -- string from config, or unset (defer to Codex config)
+- `delegate_effort` -- config floor from config, or unset (defer to Codex config). Never pass `delegate_effort` directly to `codex exec`; each batch computes an `effective_effort` from its own complexity and then applies this floor only to raise the selected effort.
+- `effective_effort` -- per-batch value computed during Codex delegation; one of `default`, `medium`, `high`, or `xhigh`
 
 ---
 

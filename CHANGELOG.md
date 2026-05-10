@@ -1,6 +1,76 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.1 2026-05-10 16:05:19 leokuang: docs(review): 在 spec-first 全面审查报告中补充 Codex /goal 深度解读，汇总 goal envelope、completion audit、stop-if 和长任务执行集成建议 (user-visible)
+- v1.8.1 2026-05-10 14:24:15 leokuang: docs(artifacts): 将 code-review 临时 artifact 文档从硬编码 /tmp 更新为 OS temp root，并说明 Windows %TEMP% 边界 (user-visible)
+- v1.8.1 2026-05-10 14:22:36 leokuang: fix(spec-ideate): 将 ideation scratch/cache 从硬编码 /tmp 改为 Node os.tmpdir() 解析，兼容 Win64 原生 shell (user-visible)
+- v1.8.1 2026-05-10 14:07:28 leokuang: test(ci): 锁定 npm install matrix 的 ubuntu/macos/windows OS 轴和非 Windows smoke 分支，防止 Linux 回归覆盖被误删
+- v1.8.1 2026-05-10 13:57:00 leokuang: test(regression): 校准 macOS 主回归发现的 unknown command exit code、README Win64 Quickstart 和 retired native dependency FAQ contracts
+- v1.8.1 2026-05-10 13:50:30 leokuang: test(changelog): 将 CHANGELOG format contract 校准到当前单行格式说明，并验证当日条目使用 Codex developer profile 作者
+- v1.8.1 2026-05-10 13:46:00 leokuang: docs(troubleshooting): 在用户手册 FAQ 增加 Win64-native、PowerShell、cmd、npm prefix/cache、long path、provider 和 no TTY 排障指引 (user-visible)
+- v1.8.1 2026-05-10 13:42:19 leokuang: docs(readme): 将安装 Quickstart 拆分为 macOS/Linux、Windows PowerShell 和 cmd 原生命令，并补充 Git 与 Win64-native 验证边界 (user-visible)
+- v1.8.1 2026-05-10 13:38:28 leokuang: docs(plan): 将 CE 834ca4e5 同步计划更新为实施后复核状态，补充 PASS WITH WARNINGS 和历史 deferred finding 剩余风险矩阵
+- v1.8.1 2026-05-10 13:50:00 leokuang: fix(test): 为跨平台 test suite runner 增加可配置子命令 timeout，卡住时返回 124，避免 Win64/CI 长时间挂起
+- v1.8.1 2026-05-10 13:42:00 leokuang: fix(ci): install matrix smoke artifact writer 拒绝路径逃逸和 Windows 非法文件名，避免调试产物写出 artifact 目录
+- v1.8.1 2026-05-10 13:35:00 leokuang: fix(cli): 收敛 doctor/init/clean/tasks exit code，参数错误返回 2，doctor 环境 ERROR 返回 3，便于 Win64 脚本区分失败类型 (user-visible)
+- v1.8.1 2026-05-10 13:28:00 leokuang: fix(cli): unknown command 改为用户输入错误 exit code 2，并提示运行 spec-first --help 查看可用 package CLI 命令 (user-visible)
+- v1.8.1 2026-05-10 13:27:00 leokuang: ci(install): install matrix smoke 写入 summary/pack artifact，并在 GitHub Actions 失败时上传 npm install matrix 调试产物
+- v1.8.1 2026-05-10 13:20:00 leokuang: ci(install): npm install matrix 扩展到 Node 24，并在 windows-latest 显式跑 pwsh 与 cmd 原生 tarball smoke
+- v1.8.1 2026-05-10 13:14:00 leokuang: test(shell): 增加 .sh helper 必须显式声明 bash 的 contract，避免 bash-only 脚本被误当作 POSIX sh/dash 兼容
+- v1.8.1 2026-05-10 13:08:00 leokuang: test(install): npm install matrix smoke 新增最小 git repo 路径 fixture，覆盖空格、中文、方括号路径下的 doctor 与 shim 调用
+- v1.8.1 2026-05-10 13:01:30 leokuang: test(integration): 将 verification gate integration contract 校准到跨平台 Node test runner，继续验证 runner 覆盖 AI dev gate 集成用例
+- v1.8.1 2026-05-10 12:58:30 leokuang: test(release): 将 dual-host release gate contract 校准到跨平台 Node test runner，验证 release suite 覆盖 governance 与 tarball install
+- v1.8.1 2026-05-10 12:55:00 leokuang: fix(test): 新增跨平台 `npm run lint` 标准入口，映射到现有 skill entrypoint lint，避免仓库指引中的 lint 命令在 Win64/CI 直接缺失
+- v1.8.1 2026-05-10 12:48:47 leokuang: fix(skill-audit): skill audit run id 与 patch-preview 文件名拒绝 Windows 保留名和尾随点，避免 Win64 artifact 写入失败
+- v1.8.1 2026-05-10 12:45:12 leokuang: test(app-audit): 将 app consistency audit CLI e2e 的 Git hook 禁用方式改为 --no-verify，移除 /dev/null POSIX-only 依赖
+- v1.8.1 2026-05-10 12:41:57 leokuang: fix(code-review): 将 reviewer run artifact 目录改为 OS temp root 解析并在输出中传递 concrete path，移除 /tmp 与 POSIX mkdir 依赖
+- v1.8.1 2026-05-10 12:38:06 leokuang: fix(spec-work): tracker defer 消费 spec-code-review 返回的 artifact path，不再硬编码 /tmp，降低 Win64 temp 路径不兼容风险
+- v1.8.1 2026-05-10 12:34:46 leokuang: fix(spec-write-tasks): task-pack 路径校验拒绝 Windows 保留文件名、非法字符和段尾空格/点，避免生成 Win64 不可执行任务清单
+- v1.8.1 2026-05-10 12:30:30 leokuang: fix(spec-plan): 明确 graph readiness artifact JSON 读取失败时降级为 invalid-json blocked facts，不由 plan workflow 静默重写或再生成
+- v1.8.1 2026-05-10 12:25:45 leokuang: fix(graph-bootstrap): PowerShell graph-bootstrap 写 summary/raw log/normalized artifacts 时使用 LiteralPath 和唯一临时文件，降低 Win64 方括号路径与并发写入风险
+- v1.8.1 2026-05-10 12:23:00 leokuang: fix(mcp-setup): 新增原生 PowerShell check-health.ps1，并将 Windows preflight 文档从 Git Bash/WSL fallback 调整为 Win64-native 优先 (user-visible)
+- v1.8.1 2026-05-10 12:19:14 leokuang: fix(doctor): 将 spec-plan 高价值 runtime drift anchor 从旧 Requirements Trace 更新为当前 plan quality anchor，避免 init 后 doctor 假阳性
+- v1.8.1 2026-05-10 12:17:42 leokuang: test(doctor): 增加 doctor 与 Claude/Codex 双宿主 init 连续执行幂等 contract，防止 managed blocks 和 gitignore 重复污染
+- v1.8.1 2026-05-10 12:15:52 leokuang: test(init): 增加 Codex init 在空格、中文和方括号路径下保留 CRLF AGENTS.md 并生成 .codex/.agents runtime 的 contract
+- v1.8.1 2026-05-10 12:14:10 leokuang: test(init): 增加 Claude init 对 CRLF 既有 CLAUDE.md 的保留与幂等 managed block contract，覆盖 Windows 风格说明文件
+- v1.8.1 2026-05-10 16:16:00 leokuang: test(doctor): 增加缺失 Git/host CLI 的 JSON contract，确保 doctor 在空 PATH 下结构化降级而不是崩溃
+- v1.8.1 2026-05-10 16:02:00 leokuang: test(cli): 增加纯 Node CLI 入口 contract，覆盖 help/version/unknown/NO_COLOR，便于 Win64 runner 不依赖 Bash 验证
+- v1.8.1 2026-05-10 15:46:00 leokuang: fix(paths): workflow artifact 路径段拒绝 Windows 保留名、非法字符和尾随空格/点，避免 Win64 artifact 写入失败
+- v1.8.1 2026-05-10 15:26:00 leokuang: fix(test): 扩展 npm install matrix smoke，在含空格、中文、`[]` 和括号的路径中验证安装包 doctor/init 与 shim 执行
+- v1.8.1 2026-05-10 15:04:00 leokuang: fix(test): 将 npm 测试入口改为跨平台 Node runner，避免 Win64 原生 npm scripts 直接依赖 Bash、npx 或 POSIX command chaining
+- v1.8.1 2026-05-10 14:42:00 leokuang: fix(powershell): 为外部命令 runner 增加 Windows PowerShell 5.1 `ProcessStartInfo.ArgumentList` fallback，保持数组传参并兼容旧 .NET
+- v1.8.1 2026-05-10 14:18:00 leokuang: fix(powershell): 让 TOML helper 使用 `-LiteralPath` 读写配置，降低 Win64 路径含 `[]` 时 wildcard 误解析风险
+- v1.8.1 2026-05-10 13:58:00 leokuang: fix(spec-polish): 让 project-type 探测用 Bash argv 数组和 `find -print0` 读取 monorepo 命中，保留带空格路径
+- v1.8.1 2026-05-10 13:38:00 leokuang: fix(scripts): 为 repo-level Bash helpers 统一启用 `set -euo pipefail` 并用 contract 防止检查脚本静默成功
+- v1.8.1 2026-05-10 13:22:00 leokuang: fix(scripts): 移除 task-manager 的 macOS-only `sed -i ''`，改用 awk+mv 便携写回并补 shell portability contract
+- v1.8.1 2026-05-10 13:05:00 leokuang: fix(packaging): 为可执行 Python helper 补 shebang，并增加 executable script contract，避免发布包出现无解释器入口
+- v1.8.1 2026-05-10 12:45:00 leokuang: fix(init): 为 CLI managed blocks 增加唯一同目录 atomic write helper，避免固定 `.tmp` 文件名在 Windows/并发 init 场景下碰撞
+- v1.8.1 2026-05-10 12:25:00 leokuang: fix(windows): 让 install matrix smoke 按 Windows 环境变量大小写读取 `ComSpec`/`npm_execpath`，并将 PowerShell helper 的 agent-browser 建议命令改为 PowerShell 5.1 可复制格式
+- v1.8.1 2026-05-10 12:05:00 leokuang: fix(ci): 将 npm install matrix 的内联 Windows shell smoke 改为可测试 Node 脚本，npm 通过 CLI JS 入口非 shell 执行，并覆盖空格 prefix 与 `.cmd` shim 验证
+- v1.8.1 2026-05-10 11:40:00 leokuang: fix(cli): 收紧外部命令 timeout helper，强制非 shell spawn、隐藏 Windows 子进程窗口并拒绝字符串命令行，降低 doctor/developer 探测的 quoting 风险
+- v1.8.1 2026-05-10 11:36:12 leokuang: docs(plan): 修复三份 2026-05-07 治理计划复审问题，校准 CRG preflight 手册未来态、GitNexus policy gap 顺序和 git-worktree env safety 测试归属 (user-visible)
+- v1.8.1 2026-05-10 11:17:24 leokuang: docs(review): 追加 CE 选择性同步审查的 graph-bootstrap 新鲜索引证据、GitNexus impact 补充审查和验证记录
+- v1.8.1 2026-05-10 10:56:02 leokuang: fix(paths): 限制 workflow artifact path 的 workflow/slug 为单段安全路径，避免绝对路径或 `..` 片段逃逸 `.spec-first/workflows`
+- v1.8.1 2026-05-10 10:46:54 leokuang: fix(test): tarball 安装 smoke 在 `npm install -g` 失败时输出 install log 尾部，避免 CI/本地发布验证只返回空失败
+- v1.8.1 2026-05-10 05:19:00 leokuang: docs(review): 追加 CE 选择性同步审查的 Node/npm 官方证据、tarball smoke 修复记录与最终 typecheck/unit/smoke/release-install/build 验证结果
+- v1.8.1 2026-05-10 05:18:36 leokuang: fix(spec-compound): 修正 Phase 1 session history dispatch order，确保可选历史补充统一走 `spec-sessions` orchestrator，而不是直接调用 synthesis-only historian (user-visible)
+- v1.8.1 2026-05-10 05:17:06 leokuang: fix(test): 让 tarball 安装 smoke 从 `npm pack` 输出中解析最后一个 `.tgz` 文件名并保留 pack log，避免 npm notice 行导致安装验证误判失败
+- v1.8.1 2026-05-10 05:12:16 leokuang: fix(test): 让 tarball 安装 smoke 在 npm pack 前启用隔离 npm cache，避免用户级 `~/.npm` 权限污染导致发布验证假失败
+- v1.8.1 2026-05-10 05:10:17 leokuang: fix(cli): 在 bin 入口与 postinstall 增加 Node.js >=20 运行时硬校验，避免 unsupported Node 版本只收到 npm engines warning 后继续执行失败 (user-visible)
+- v1.8.1 2026-05-10 04:57:07 leokuang: fix(review): 补齐 CE 选择性同步复审发现的 spec-debug 测试约定与右尺寸 review 边界，并校正 spec-optimize Codex sandbox schema 注释以匹配当前 `-s workspace-write` 与 danger flag，避免 schema 继续暴露 shorthand flags (user-visible)
+- v1.8.1 2026-05-10 04:51:25 leokuang: docs(plan): 校准 skill 文档拆分方案中的当前 skill 行数、runtime 路径和回滚策略，避免把 `.codex/` skill runtime 或强制 tag 回滚写成后续迁移事实 (user-visible)
+- v1.8.1 2026-05-10 04:34:44 leokuang: fix(review): 修复 CE workflow 同步审查发现的 helper invocation contracts，收紧 resolve-pr-feedback allowed-tools 与 source helper path 形态，校正 git-worktree 与 sessions 脚本说明，并移除 Codex delegation `--yolo` 残留 (user-visible)
+- v1.8.1 2026-05-10 04:12:08 leokuang: fix(runtime): 修复 review 发现的 workflow runtime path 投影问题，将 spec-sessions 脚本与拆分 reference 改为 source-path 可重写形态，保留 using-spec-first source-of-truth 文案并为 git-worktree internal delivery 加回不可用户调用边界，同时恢复被误删的 plan artifact (user-visible)
+- v1.8.1 2026-05-10 03:47:24 leokuang: docs(plan): 按复审与官方实践修复三份 2026-05-07 治理计划，拆分 graph evidence readiness/evidence/scope 词表、要求 CRG freshness preflight 复用现有 resolver classifier，并将 003 交接顺序前置到 002 U1 policy gap closure (user-visible)
+- v1.8.1 2026-05-10 03:34:08 leokuang: fix(resolve-pr-feedback): 在主入口保留 mutating resolver dispatch boundary 摘要，避免 full/targeted reference 拆分后丢失 orchestrator ownership 与序列化安全锚点 (user-visible)
+- v1.8.1 2026-05-10 03:29:09 leokuang: fix(agent-native-architecture): 将 architecture checklist、anti-patterns 与 success criteria 拆入 `references/checklists.md`，主 skill 保留 intake/routing/reference index 并维持双宿主 runtime transform contract (user-visible)
+- v1.8.1 2026-05-10 03:26:16 leokuang: fix(compound-refresh): 将 Keep/Update/Consolidate/Replace/Delete 执行流拆入 `references/per-action-flows.md`，主 skill 只保留 Phase 4 路由与 validate-frontmatter/inbound-link 安全边界 (user-visible)
+- v1.8.1 2026-05-10 03:24:10 leokuang: fix(spec-ideate): 将 per-idea artifact 字段从 warrant 迁移为 basis，增加 topic axes、最多 2 个 axis recovery agents 与用户显式命名 root Markdown constraint 规则 (user-visible)
+- v1.8.1 2026-05-10 03:21:15 leokuang: fix(spec-debug): 增加窄 trivial-bug fast-path、hypothesis concrete observation 要求和失败修复后的 invalidated evidence reset，同时保留 choice gate 与 workspace/branch check (user-visible)
+- v1.8.1 2026-05-10 03:19:51 leokuang: fix(spec-work-beta): 将 Codex full-auto delegation 改为 `-s workspace-write`，按 batch 计算 `effective_effort` 并把 `delegate_effort` 收敛为只抬高不降低的 config floor，补 stale flag 与 direct passthrough 负向 contract (user-visible)
+- v1.8.1 2026-05-10 03:16:49 leokuang: fix(plan-review): 将 spec-plan 核心模板拆入 reference 并改用 heading-style implementation units，同时让 code/doc review 识别新旧 plan unit、传递 Origin、保留视觉辅助并转义 findings 表格管道符 (user-visible)
+- v1.8.1 2026-05-10 03:10:33 leokuang: fix(resolve-pr-feedback): 将 PR feedback full/targeted 流程拆入 references，并用 paginated GraphQL slurp fixture 覆盖 reviewThreads、comments、reviews 合并与 nested thread comment 截断 warning (user-visible)
+- v1.8.1 2026-05-10 02:48:35 leokuang: fix(runtime): 退役 session primitive runtime delivery，将 session discovery/extraction 脚本迁入 spec-sessions，并交付 git-worktree internal skill 的双宿主路径重写与治理测试 (user-visible)
 - v1.8.1 2026-05-10 02:32:36 leokuang: docs(plan): 修复三份 2026-05-07 图谱与治理方案的深审问题，补齐 001 Phase A high-risk 验证、002 路径 C 与 policy partial-landed 口径、003 preflight policy 前置与 checker parity 验证 (user-visible)
 - v1.8.1 2026-05-10 02:31:16 leokuang: docs(plan): 逐项核对 CE 834ca4e5 增量与当前 spec-first 源码，补充 U1-U10 最佳实践矩阵、U2 strict shell 和 pagination truncation 边界、U8 effort floor 兼容语义与逐步执行检查清单 (user-visible)
 - v1.8.1 2026-05-10 02:21:18 leokuang: docs(plan): 修复 CE 834ca4e5 同步方案终审遗留问题，收紧 git-worktree runtime path rewrite 可命中命令形态、U2 双脚本 bash 语法验证和 U4 doc-review Origin/Document type 测试清单 (user-visible)

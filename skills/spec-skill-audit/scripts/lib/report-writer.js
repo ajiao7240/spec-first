@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const RUN_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const WINDOWS_RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i;
+const WINDOWS_UNSAFE_CHARS = /[<>:"|?*\x00-\x1f]/;
 
 function writeJson(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -38,9 +40,12 @@ function validateRunId(runId) {
     || value === '..'
     || value.includes('/')
     || value.includes('\\')
+    || /[. ]$/.test(value)
+    || WINDOWS_RESERVED_NAMES.test(value)
+    || WINDOWS_UNSAFE_CHARS.test(value)
     || !RUN_ID_PATTERN.test(value)
   ) {
-    throw new Error('Invalid run id: use 1-128 letters, numbers, dots, underscores, or dashes; do not use path separators, ".", "..", or "latest".');
+    throw new Error('Invalid run id: use 1-128 letters, numbers, dots, underscores, or dashes; do not use path separators, ".", "..", "latest", Windows reserved names, or a trailing dot/space.');
   }
   return value;
 }
@@ -292,7 +297,9 @@ function renderPatchPreviewFile(filePath, findings) {
 }
 
 function safePatchFileName(filePath) {
-  return `${String(filePath || 'repo').replace(/[^A-Za-z0-9._-]+/g, '-')}.patch.md`;
+  const stem = String(filePath || 'repo').replace(/[^A-Za-z0-9._-]+/g, '-') || 'repo';
+  const fileName = `${stem}.patch.md`;
+  return WINDOWS_RESERVED_NAMES.test(fileName) ? `path-${fileName}` : fileName;
 }
 
 module.exports = {

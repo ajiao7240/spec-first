@@ -23,7 +23,7 @@
 
 | 路径 | 写入阶段 | 触发方式 | 主要作用 | Git 边界 |
 | --- | --- | --- | --- | --- |
-| `/tmp/spec-first/spec-code-review/<run-id>/` | `spec-code-review` interactive / autofix / headless run | `/spec:code-review` 或 `$spec-code-review`，report-only 除外 | 保存当前 run 的 reviewer JSON、detail enrichment、safe_auto 结果和 residual handoff，供 orchestrator 当前会话读取 | 临时 session/orchestrator handoff，不提交；需要长期保留时只通过 PR Known Residuals 或 `docs/residual-review-findings/<branch-or-head-sha>.md` 写 concise summary |
+| `<os-temp>/spec-first/spec-code-review/<run-id>/` | `spec-code-review` interactive / autofix / headless run | `/spec:code-review` 或 `$spec-code-review`，report-only 除外 | 保存当前 run 的 reviewer JSON、detail enrichment、safe_auto 结果和 residual handoff，供 orchestrator 当前会话读取 | 临时 session/orchestrator handoff，不提交；实际路径由当前 OS temp root 解析，例如 macOS/Linux `$TMPDIR` 或 Windows `%TEMP%`；需要长期保留时只通过 PR Known Residuals 或 `docs/residual-review-findings/<branch-or-head-sha>.md` 写 concise summary |
 
 不在 `.spec-first/` 下、但属于长期协作文档层的 durable artifacts：
 
@@ -53,7 +53,7 @@
 | `app-audit/runs/` | App consistency audit execution artifacts | 评审者读取静态一致性报告、degraded modes、issues 和 runtime follow-up 建议 |
 | `verification/*` | 验证证据投递目录 | `doctor` 校验与汇总 |
 | `quality-gates/*` | 质量门机器结果 | gate 结果留痕与失败主题沉淀 |
-| `/tmp/spec-first/spec-code-review/*` | Code review 临时 handoff | 当前 run 的 reviewer/orchestrator 协调，不作为 repo-local durable artifact |
+| `<os-temp>/spec-first/spec-code-review/*` | Code review 临时 handoff | 当前 run 的 reviewer/orchestrator 协调，不作为 repo-local durable artifact |
 
 ## 阶段 → 读取方速查
 
@@ -114,12 +114,12 @@
 
 ## Code review temporary handoff
 
-`spec-code-review` 的 full-detail run artifact 写到 `/tmp/spec-first/spec-code-review/<run-id>/`，不是 `.spec-first/` 目录，也不是 repo-local durable truth。它的用途是让当前 session 中的 orchestrator、headless caller 或 shipping workflow 读取 reviewer JSON、detail enrichment、autofix residuals 和 metadata。
+`spec-code-review` 的 full-detail run artifact 写到当前 OS temp root 下的 `<os-temp>/spec-first/spec-code-review/<run-id>/`，不是 `.spec-first/` 目录，也不是 repo-local durable truth。实际 `<os-temp>` 由运行环境解析，例如 macOS/Linux 的 `$TMPDIR` 或 Windows 的 `%TEMP%`。它的用途是让当前 session 中的 orchestrator、headless caller 或 shipping workflow 读取 reviewer JSON、detail enrichment、autofix residuals 和 metadata。
 
 持久化边界：
 
-- `mode:report-only` 不写 `/tmp` artifact。
-- interactive、autofix 和 headless mode 写 `/tmp` artifact，但它默认不提交、不承诺长期保留。
+- `mode:report-only` 不写 temp artifact。
+- interactive、autofix 和 headless mode 写 OS temp artifact，但它默认不提交、不承诺长期保留。
 - 如果 shipping 阶段接受 residual findings，PR 描述应写 `Known Residuals`；无 PR 提交路径才写 `docs/residual-review-findings/<branch-or-head-sha>.md` 这类 concise durable summary。
 - 不默认把 full-detail per-reviewer JSON bundle 复制进 `docs/` 或 `.spec-first/`。
 

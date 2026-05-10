@@ -1,12 +1,30 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
+const ClaudeAdapter = require('../../src/cli/adapters/claude');
+const CodexAdapter = require('../../src/cli/adapters/codex');
 const SESSIONS_SKILL = path.join(__dirname, '..', '..', 'skills', 'spec-sessions', 'SKILL.md');
-const INVENTORY_SKILL = path.join(__dirname, '..', '..', 'skills', 'spec-session-inventory', 'SKILL.md');
+const COMPOUND_SKILL = path.join(__dirname, '..', '..', 'skills', 'spec-compound', 'SKILL.md');
 const HISTORIAN_AGENT = path.join(__dirname, '..', '..', 'agents', 'spec-session-historian.agent.md');
-const { buildFilteredAssetSet } = require('../../src/cli/plugin');
+const { buildFilteredAssetSet, planBundledAssetSync } = require('../../src/cli/plugin');
+
+function plannedRuntimeContent(adapter, targetPath) {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-sessions-runtime-'));
+
+  try {
+    const { plan } = planBundledAssetSync(projectRoot, adapter);
+    const operation = plan.operations.find((entry) => entry.path === targetPath);
+    if (!operation) {
+      throw new Error(`Missing planned runtime operation for ${targetPath}`);
+    }
+    return operation.contents;
+  } finally {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  }
+}
 
 describe('spec session history contracts', () => {
   test('usage uses current-host workflow entrypoint wording', () => {
@@ -25,46 +43,93 @@ describe('spec session history contracts', () => {
     const historian = fs.readFileSync(HISTORIAN_AGENT, 'utf8');
 
     expect(text).toContain('git rev-parse --abbrev-ref HEAD 2>/dev/null || true');
+    expect(text).toContain('basename "$(git rev-parse --show-toplevel 2>/dev/null)"');
     expect(text).toContain('plain branch name');
     expect(text).not.toContain('git rev-parse --path-format=absolute --git-common-dir');
     expect(text).not.toContain('basename "$(dirname "$common")"');
     expect(text).not.toContain('case "$common" in /*)');
     expect(text).not.toContain('if [ "$common" = ".git" ]');
 
-    expect(historian).toContain('git rev-parse --path-format=absolute --git-common-dir');
-    expect(historian).toContain('Guard against empty output');
+    expect(historian).toContain('The orchestrator (`spec-sessions`) handles discovery');
+    expect(historian).toContain('Standalone fallback');
+    expect(historian).not.toContain('git rev-parse --path-format=absolute --git-common-dir');
+    expect(historian).not.toContain('Guard against empty output');
     expect(historian).not.toContain('case "$common" in /*)');
   });
 
-  test('session inventory exposes keyword ranking output shape', () => {
-    const text = fs.readFileSync(INVENTORY_SKILL, 'utf8');
+  test('spec-sessions owns discovery, keyword ranking, scratch extraction, and synthesis dispatch', () => {
+    const text = fs.readFileSync(SESSIONS_SKILL, 'utf8');
 
-    expect(text).toContain('--keyword K1[,K2,...]');
+    expect(text).toContain('bash skills/spec-sessions/scripts/discover-sessions.sh <repo> <days>');
+    expect(text).toContain('xargs -0 python3 skills/spec-sessions/scripts/extract-metadata.py --cwd-filter <repo>');
+    expect(text).toContain('--keyword K1,K2,...');
     expect(text).toContain('match_count');
     expect(text).toContain('keyword_matches');
     expect(text).toContain('files_matched');
-    expect(text).toContain('Sessions with `match_count: 0` are excluded from output.');
+    expect(text).toContain('SCRATCH=$(mktemp -d -t spec-sessions-XXXXXX)');
+    expect(text).toContain('python3 skills/spec-sessions/scripts/extract-skeleton.py --output');
+    expect(text).toContain('python3 skills/spec-sessions/scripts/extract-errors.py --output');
+    expect(text).toContain('Dispatch the `spec-session-historian` subagent');
+    expect(text).toContain('scratch_dir');
+    expect(text).toContain('sessions');
+    expect(text).not.toContain('cursor');
+    expect(text).not.toContain('Cursor');
   });
 
-  test('historian must use keyword filtering before extracting relevance candidates', () => {
+  test('runtime projection rewrites session helper scripts to bundled workflow paths', () => {
+    for (const [adapter, targetPath, runtimeScriptRoot] of [
+      [new ClaudeAdapter(), '.claude/spec-first/workflows/spec-sessions/SKILL.md', '.claude/spec-first/workflows/spec-sessions/scripts'],
+      [new CodexAdapter(), '.agents/skills/spec-sessions/SKILL.md', '.agents/skills/spec-sessions/scripts'],
+    ]) {
+      const content = plannedRuntimeContent(adapter, targetPath);
+
+      expect(content).toContain(`bash ${runtimeScriptRoot}/discover-sessions.sh <repo> <days>`);
+      expect(content).toContain(`xargs -0 python3 ${runtimeScriptRoot}/extract-metadata.py --cwd-filter <repo>`);
+      expect(content).toContain(`python3 ${runtimeScriptRoot}/extract-skeleton.py --output`);
+      expect(content).toContain(`python3 ${runtimeScriptRoot}/extract-errors.py --output`);
+      expect(content).not.toContain('bash scripts/discover-sessions.sh');
+      expect(content).not.toContain('python3 scripts/extract-metadata.py');
+      expect(content).not.toContain('python3 scripts/extract-skeleton.py');
+      expect(content).not.toContain('python3 scripts/extract-errors.py');
+    }
+  });
+
+  test('historian only synthesizes extracted scratch files and never invokes primitive skills', () => {
     const text = fs.readFileSync(HISTORIAN_AGENT, 'utf8');
 
-    expect(text).toContain('Never extract a session to verify whether it is relevant');
-    expect(text).toContain('session-inventory --keyword K1,K2,...');
-    expect(text).toContain('If `files_matched: 0`, return "no relevant prior sessions" immediately');
-    expect(text).toContain('at most **5 sessions total across all platforms**');
-    expect(text).toContain('Tail extraction is conditional, not default');
-    expect(text).toContain('Do **not** roll your own per-file `grep -l` calls');
+    expect(text).toContain('Read only the paths the orchestrator gave you');
+    expect(text).toContain('Never invoke the Skill tool');
+    expect(text).toContain('Do not attempt to discover or extract sessions on your own');
+    expect(text).toContain('no relevant prior sessions');
+    expect(text).toContain('**`sessions`** — an array of objects (5 max)');
+    expect(text).not.toContain('session-inventory');
+    expect(text).not.toContain('session-extract');
   });
 
-  test('agent-facing session primitives are delivered as internal runtime skills', () => {
+  test('spec-compound routes optional session enrichment through spec-sessions', () => {
+    const text = fs.readFileSync(COMPOUND_SKILL, 'utf8');
+
+    expect(text).toContain('invoke `spec-sessions`');
+    expect(text).toContain('If the user opted into session history, invoke `spec-sessions` in foreground');
+    expect(text).toContain('Problem topic');
+    expect(text).toContain('Only surface findings directly relevant to this specific problem.');
+    expect(text).not.toContain('Dispatch the Session Historian in Phase 1');
+    expect(text).not.toContain('Dispatched as `spec-session-historian`');
+    expect(text).not.toContain('Then dispatch `spec-session-historian` in foreground');
+  });
+
+  test('session primitive source directories are retired from runtime delivery', () => {
+    const repoRoot = path.join(__dirname, '..', '..');
+
+    expect(fs.existsSync(path.join(repoRoot, 'skills', 'spec-session-inventory'))).toBe(false);
+    expect(fs.existsSync(path.join(repoRoot, 'skills', 'spec-session-extract'))).toBe(false);
+
     for (const platform of ['claude', 'codex']) {
       const assets = buildFilteredAssetSet(platform);
 
-      expect(assets.internalSkills).toEqual(expect.arrayContaining([
-        'spec-session-extract',
-        'spec-session-inventory',
-      ]));
+      expect(assets.internalSkills).toContain('git-worktree');
+      expect(assets.internalSkills).not.toContain('spec-session-extract');
+      expect(assets.internalSkills).not.toContain('spec-session-inventory');
       expect(assets.skills).not.toContain('spec-session-extract');
       expect(assets.skills).not.toContain('spec-session-inventory');
     }

@@ -35,6 +35,10 @@ Orient debugging from the reported symptom, reproduction path, `AGENTS.md` / `CL
 
 All phases self-size — a simple bug flows through them in seconds, a complex bug spends more time in each naturally. No complexity classification, no phase skipping.
 
+**Trivial-bug fast-path:** When investigation proves the full causal chain is a narrow, directly observable defect — a single-file typo, missing import, explicit null dereference, or off-by-one — compress Phase 1 and Phase 2 into the smallest evidence pass needed to explain it. Fast-path does not skip Phase 2: still present the root cause, proposed fix, tests, and the **Fix it now** / **Diagnosis only** choice gate. If the user chooses to fix, Phase 3 still starts with the **Workspace and branch check**.
+
+**Negative boundary:** Do not use the fast-path for multi-file causal chains, architecture regressions, state races, permission or environment failures, flaky behavior, or any issue whose invalid state cannot be directly located. Non-trivial bugs still require the full investigation path.
+
 ---
 
 ### Phase 0: Triage
@@ -99,6 +103,17 @@ As you trace:
   - Database state
 - Each project has different systems available; use whatever gives a more complete picture
 
+#### 1.4 Trivial-bug fast-path check
+
+After tracing, decide whether the defect qualifies for the fast-path:
+
+- It is confined to one obvious location.
+- The observed value or error directly identifies the bad line.
+- The causal chain can be stated without uncertain links.
+- A focused test or existing failing test can prove the correction.
+
+If all are true, proceed to Phase 2 with a concise root cause. If any are false, continue the normal investigation path.
+
 ---
 
 ### Phase 2: Root Cause
@@ -111,6 +126,7 @@ Read `references/anti-patterns.md` before forming hypotheses.
 
 **Form hypotheses** ranked by likelihood. For each, state:
 - What is wrong and where (file:line)
+- **Concrete observation**: the runtime value, log line, instrumented boundary, working comparison, or specific code reference that grounds the hypothesis
 - The causal chain: how the trigger leads to the observed symptom, step by step
 - **For uncertain links in the chain**: a prediction — something in a different code path or scenario that must also be true if this link is correct
 
@@ -179,13 +195,19 @@ If the user chose "Diagnosis only" at the end of Phase 2, skip this phase and go
 - If the current branch is the default branch, ask whether to create a feature branch first using the platform's blocking question tool (see Phase 2 for the per-platform names). To detect the default branch, compare against `main`, `master`, or the value of `git rev-parse --abbrev-ref origin/HEAD` with its `origin/` prefix stripped (the raw output is `origin/<name>`, so an unstripped comparison will never match the local branch name). Default to creating one; derive a name from the bug and run `git checkout -b <name>`. On any other branch, proceed.
 
 **Test-first:**
-1. Write a failing test that captures the bug (or use the existing failing test)
-2. Verify it fails for the right reason — the root cause, not unrelated setup
-3. Implement the minimal fix — address the root cause and nothing else
-4. Verify the test passes
-5. Run the broader test suite for regressions
+1. Read the nearby or project-level testing convention before adding a reproduction test; match the existing test style, fixture pattern, and command shape
+2. Write a failing test that captures the bug (or use the existing failing test)
+3. Verify it fails for the right reason — the root cause, not unrelated setup
+4. Implement the minimal fix — address the root cause and nothing else
+5. Verify the test passes
+6. Self-review every changed line against the root cause; remove only debris introduced by this fix and do not refactor unrelated code
+7. Run the broader test suite for regressions
+
+**Review scope:** For non-trivial fixes, run the host's lightweight code review or the current host's code-review entrypoint when the touched surface is sensitive, broad, or user-facing. Do not invoke a full review ritual for an obvious mechanical fix after the focused test and self-review have covered it.
 
 **3 failed fix attempts = smart escalation.** Diagnose using the same table from Phase 2. If fixes keep failing, the root cause identification was likely wrong. Return to Phase 2.
+
+**Failed fix evidence reset:** When a fix attempt fails, record the invalidated evidence before forming the next hypothesis: which prediction failed, which observed value/log/test contradicted the hypothesis, and what assumption is now ruled out. Do not stack another fix attempt on top of a contradicted hypothesis.
 
 **Conditional defense-in-depth** (trigger: grep for the root-cause pattern found it in 3+ other files, OR the bug would have been catastrophic if it reached production): Read `references/defense-in-depth.md` for the four-layer model (entry validation, invariant check, environment guard, diagnostic breadcrumb) and choose which layers apply. Skip when the root cause is a one-off error with no realistic recurrence path.
 

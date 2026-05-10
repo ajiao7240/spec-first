@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+
 # 测试核心 skills 是否可用
 
 echo "=== 测试核心 Skills 可用性 ==="

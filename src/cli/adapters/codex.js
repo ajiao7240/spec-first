@@ -88,8 +88,10 @@ class CodexAdapter extends PlatformAdapter {
       transformCodexContent(sharedPathContent),
       codexRuntimeSkillName(context),
     );
-    const withRuntimePaths = context.isWorkflowSkill
-      ? rewriteSourceSkillRuntimePaths(transformed, context.skillName, `${this.workflowsRoot}/${context.skillName}`)
+    const runtimeSkillRoot = context.runtimeSkillRoot
+      || (context.isWorkflowSkill ? `${this.workflowsRoot}/${context.skillName}` : '');
+    const withRuntimePaths = runtimeSkillRoot
+      ? rewriteSourceSkillRuntimePaths(transformed, context.skillName, runtimeSkillRoot)
       : transformed;
     return context.skillName === 'using-spec-first'
       ? preserveUsingSpecFirstHostInstallNotes(withRuntimePaths)

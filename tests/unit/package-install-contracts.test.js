@@ -10,8 +10,27 @@ const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const PACKAGE_LOCK_PATH = path.join(REPO_ROOT, 'package-lock.json');
 const NPM_IGNORE_PATH = path.join(REPO_ROOT, '.npmignore');
 const POSTINSTALL_PATH = path.join(REPO_ROOT, 'bin/postinstall.js');
+const BIN_PATH = path.join(REPO_ROOT, 'bin/spec-first.js');
+const NODE_VERSION_PATH = path.join(REPO_ROOT, 'src/cli/node-version.js');
 const TYPECHECK_SCRIPT_PATH = path.join(REPO_ROOT, 'scripts/typecheck-js.js');
+const RUN_TEST_SUITE_SCRIPT_PATH = path.join(REPO_ROOT, 'scripts/run-test-suite.cjs');
 const README_PATH = path.join(REPO_ROOT, 'README.md');
+
+function walkFiles(rootDir) {
+  const results = [];
+  for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
+    const absolutePath = path.join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'node_modules' || entry.name === '__pycache__') {
+        continue;
+      }
+      results.push(...walkFiles(absolutePath));
+    } else if (entry.isFile()) {
+      results.push(absolutePath);
+    }
+  }
+  return results;
+}
 
 function removeDirectoryIfEmpty(dirPath) {
   try {
@@ -64,6 +83,7 @@ describe('package install contracts', () => {
     expect(pkg.files).not.toContain('vendor/');
     expect(pkg.files).toContain('docs/contracts/verifiers/');
     expect(pkg.files).toContain('scripts/generate-runtime-capability-catalog.js');
+    expect(pkg.files).toContain('scripts/run-test-suite.cjs');
     expect(pkg.files).toContain('scripts/typecheck-js.js');
     expect(pkg.files).toContain('!skills/**/__pycache__/**');
     expect(pkg.files).toContain('!skills/**/*.pyc');
@@ -129,6 +149,30 @@ describe('package install contracts', () => {
     }
   });
 
+  test('executable script files declare an interpreter shebang', () => {
+    const scriptRoots = ['bin', 'scripts', 'skills']
+      .map((root) => path.join(REPO_ROOT, root))
+      .filter((root) => fs.existsSync(root));
+    const scriptFiles = scriptRoots.flatMap(walkFiles).filter((filePath) => {
+      const relativePath = path.relative(REPO_ROOT, filePath).split(path.sep).join('/');
+      return (
+        relativePath.startsWith('bin/')
+        || relativePath.startsWith('scripts/')
+        || relativePath.includes('/scripts/')
+      );
+    });
+    const executableWithoutShebang = scriptFiles.filter((filePath) => {
+      const mode = fs.statSync(filePath).mode;
+      if ((mode & 0o111) === 0) {
+        return false;
+      }
+      const firstLine = fs.readFileSync(filePath, 'utf8').split(/\r?\n/, 1)[0];
+      return !firstLine.startsWith('#!');
+    }).map((filePath) => path.relative(REPO_ROOT, filePath).split(path.sep).join('/'));
+
+    expect(executableWithoutShebang).toEqual([]);
+  });
+
   test('postinstall keeps setup summary without native repair logic', () => {
     const postinstall = fs.readFileSync(POSTINSTALL_PATH, 'utf8');
     const sqliteDep = 'better' + '-sqlite3';
@@ -140,6 +184,21 @@ describe('package install contracts', () => {
     expect(postinstall).toMatch(/spec-first init/);
     expect(postinstall).toMatch(/managed assets/);
     expect(postinstall).toMatch(/Claude|Codex/);
+  });
+
+  test('bin and postinstall enforce Node 20 runtime before loading CLI code', () => {
+    const bin = fs.readFileSync(BIN_PATH, 'utf8');
+    const postinstall = fs.readFileSync(POSTINSTALL_PATH, 'utf8');
+    const nodeVersion = require(NODE_VERSION_PATH);
+
+    expect(nodeVersion.MINIMUM_NODE_MAJOR).toBe(20);
+    expect(nodeVersion.isSupportedNodeVersion('v19.9.0')).toBe(false);
+    expect(nodeVersion.isSupportedNodeVersion('v20.0.0')).toBe(true);
+    expect(nodeVersion.isSupportedNodeVersion('v24.1.0')).toBe(true);
+    expect(nodeVersion.formatUnsupportedNodeMessage('v18.19.0')).toContain('Node.js >=20.0.0');
+    expect(bin.indexOf("require('../src/cli/node-version')")).toBeLessThan(bin.indexOf("require('../src/cli')"));
+    expect(postinstall).toContain("require('../src/cli/node-version')");
+    expect(postinstall).toContain('process.exitCode = 1');
   });
 
   test('typecheck script covers packaged JavaScript source directories', () => {
@@ -157,5 +216,33 @@ describe('package install contracts', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('typecheck passed');
+  });
+
+  test('npm lifecycle test scripts avoid direct POSIX shell entrypoints', () => {
+    const pkg = readJson(PACKAGE_JSON_PATH);
+    const runnerSource = fs.readFileSync(RUN_TEST_SUITE_SCRIPT_PATH, 'utf8');
+    const scriptNames = [
+      'test',
+      'test:unit',
+      'test:mcp-setup',
+      'test:graph-bootstrap',
+      'test:smoke',
+      'test:integration',
+      'test:release',
+      'test:release:governance',
+      'test:release:install',
+    ];
+
+    for (const scriptName of scriptNames) {
+      expect(pkg.scripts[scriptName]).toMatch(/^node scripts\/run-test-suite\.cjs( |$)/);
+      expect(pkg.scripts[scriptName]).not.toMatch(/\bbash\b|\bnpx\b|&&|\|\|/);
+    }
+
+    expect(runnerSource).toContain("process.platform === 'win32'");
+    expect(runnerSource).toContain('SPEC_FIRST_FORCE_POSIX_TESTS');
+    expect(runnerSource).toContain('skip POSIX shell test on native Windows');
+    expect(runnerSource).toContain("runNode(['scripts/npm-install-matrix-smoke.js'])");
+    expect(runnerSource).toContain("node_modules', 'jest', 'bin', 'jest.js'");
+    expect(runnerSource).toContain('shell: false');
   });
 });

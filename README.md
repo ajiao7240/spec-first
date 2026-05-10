@@ -95,15 +95,34 @@ This is why `spec-first` gives the work a lightweight shape:
 Prerequisites:
 
 - Node.js `>=20.0.0` and npm.
+- Git on `PATH`; `doctor`, setup, and workflow checks read repository facts from Git.
 - Claude Code or Codex installed, with one chosen as the current host.
 - A terminal opened at the root of the project repo where you want to enable `spec-first`. First-time users can try a throwaway/test repo before initializing a real project.
 
-Terminal commands:
+Install and run the first health check from the native terminal for your platform.
+
+macOS / Linux:
 
 ```bash
 npm install -g spec-first
 spec-first doctor
 ```
+
+Windows PowerShell 7+ or Windows PowerShell 5.1:
+
+```powershell
+npm install -g spec-first
+spec-first doctor
+```
+
+Windows cmd.exe:
+
+```bat
+npm install -g spec-first
+spec-first doctor
+```
+
+On Win64, prefer native Windows Terminal with PowerShell 7+ or `cmd.exe` for installation and smoke checks. Windows PowerShell 5.1 is supported, but PowerShell 7+ has better UTF-8 behavior. Git Bash, MSYS2, and WSL are useful POSIX environments, but they do not replace native Windows validation because npm `.cmd` shims, `%PATH%`, quoting, and code page behavior are different.
 
 Initialize only the host you actually use:
 
@@ -398,7 +417,7 @@ The operating rule is simple: Scripts prepare, LLM decides.
 
 - **What scripts do:** install, validate, generate, clean, hash, and report machine facts.
 - **What the LLM decides:** requirements framing, scope boundaries, tradeoffs, implementation judgment, review evidence, and next steps.
-- **What gets written:** repo-local docs, plans, task packs, durable review/debug summaries when explicitly routed, and managed runtime assets during init. Full-detail code-review JSON stays in `/tmp/spec-first/spec-code-review/<run-id>/` as a temporary handoff unless a workflow writes a concise durable summary.
+- **What gets written:** repo-local docs, plans, task packs, durable review/debug summaries when explicitly routed, and managed runtime assets during init. Full-detail code-review JSON stays under the current OS temp root, for example `<os-temp>/spec-first/spec-code-review/<run-id>/`, as a temporary handoff unless a workflow writes a concise durable summary.
 - **What is generated:** `.claude/`, `.codex/`, and `.agents/skills/` runtime copies.
 - **What should be edited:** source assets under `skills/`, `agents/`, `templates/`, `src/cli/`, and docs. Rebuild runtime copies instead of hand-editing them.
 - **What spec-first does not do:** it is not a generic agent marketplace, not a single prompt pack, and not a standalone app that works without Claude Code or Codex.
@@ -521,7 +540,7 @@ Detailed runtime capability catalog: [Runtime Capability Catalog](https://github
 
 | Layer | Current Contract |
 |---|---|
-| **Capability layer** | Bundled source assets ship with `42` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `21` commands + `2` standalone skills + `2` agent-facing internal skills on Claude, and `21` workflow skills + `2` standalone skills + `2` agent-facing internal skills on Codex, with `51` agents on both hosts |
+| **Capability layer** | Bundled source assets ship with `40` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `21` commands + `2` standalone skills + `1` agent-facing internal skills on Claude, and `21` workflow skills + `2` standalone skills + `1` agent-facing internal skills on Codex, with `51` agents on both hosts |
 | **Claude runtime** | Commands are generated under `.claude/commands/spec`, standalone and agent-facing internal skills under `.claude/skills`, command-backed workflow skill copies under `.claude/spec-first/workflows`, agents under `.claude/agents`, and managed state under `.claude/spec-first/state.json`. |
 | **Codex runtime** | Workflow, standalone, and agent-facing internal skills are generated under `.agents/skills`, agents under `.codex/agents`, and managed state under `.codex/spec-first/state.json`. |
 | **Readiness** | The setup workflow writes readiness ledger v2 plus setup-owned `graph-providers.json`, `runtime-capabilities.json`, and `provider-artifacts.json`; the graph bootstrap workflow consumes those facts and writes canonical graph facts, provider status, impact capabilities, and a report. |
@@ -530,7 +549,7 @@ Expected Claude init output includes:
 
 ```text
 📦 Generated 21 command file(s) in .claude/commands/spec
-🧩 Generated 4 skill directory(ies) in .claude/skills
+🧩 Generated 3 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 Next steps:
   1. Restart Claude Code or open a new session so the host loads the generated /spec:* commands.

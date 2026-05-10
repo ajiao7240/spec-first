@@ -25,6 +25,7 @@ const DOCS_SIDE_GOVERNANCE_DIR = path.join(
   'docs/contracts/dual-host-governance',
 );
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
+const TEST_RUNNER_PATH = path.join(REPO_ROOT, 'scripts/run-test-suite.cjs');
 const README_PATH = path.join(REPO_ROOT, 'README.md');
 const README_ZH_PATH = path.join(REPO_ROOT, 'README.zh-CN.md');
 const AGENTS_PATH = path.join(REPO_ROOT, 'AGENTS.md');
@@ -93,12 +94,18 @@ describe('dual-host governance contracts', () => {
 
   test('default release gate covers both governance relocation and full tarball install regression', () => {
     const pkg = readJson(PACKAGE_JSON_PATH);
+    const testRunner = read(TEST_RUNNER_PATH);
 
     expect(pkg.files).not.toContain('.claude-plugin/');
-    expect(pkg.scripts['test:release']).toContain('test:release:governance');
-    expect(pkg.scripts['test:release']).toContain('test:release:install');
-    expect(pkg.scripts['test:release:governance']).toContain('release-dual-host-governance.sh');
-    expect(pkg.scripts['test:release:install']).toContain('install-tarball.sh');
+    expect(pkg.scripts['test:release']).toBe('node scripts/run-test-suite.cjs release');
+    expect(pkg.scripts['test:release:governance']).toBe('node scripts/run-test-suite.cjs release-governance');
+    expect(pkg.scripts['test:release:install']).toBe('node scripts/run-test-suite.cjs release-install');
+    expect(testRunner).toContain('function runRelease()');
+    expect(testRunner).toContain('runReleaseGovernance();');
+    expect(testRunner).toContain('runReleaseInstall();');
+    expect(testRunner).toContain('release-dual-host-governance.sh');
+    expect(testRunner).toContain('install-tarball.sh');
+    expect(testRunner).toContain('scripts/npm-install-matrix-smoke.js');
   });
 
   test('workflow manifest is generated from governance and command template frontmatter', () => {

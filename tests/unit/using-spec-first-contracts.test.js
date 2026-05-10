@@ -124,7 +124,9 @@ describe('using-spec-first contracts', () => {
     expect(skill).toContain('Do not use this governor to create pseudo-plan, pseudo-task, or pseudo-review artifacts.');
     expect(skill).toContain('Do **not** expose internal-only skills as user entrypoints.');
     expect(skill).toContain('legacy/internal `lfg`');
-    expect(skill).toContain('spec-session-inventory');
+    expect(skill).toContain('`git-worktree`');
+    expect(skill).not.toContain('spec-session-inventory');
+    expect(skill).not.toContain('spec-session-extract');
     expect(skill).toContain('using-spec-first` itself is a standalone meta skill');
     expect(skill).toContain('/spec:update');
     expect(skill).toContain('$spec-update');
@@ -204,19 +206,26 @@ describe('using-spec-first contracts', () => {
     expect(codexRuntime).toContain('Codex installs it as `.agents/skills/using-spec-first/SKILL.md`');
   });
 
-  test('codex runtime install notes do not trigger path rewrite drift', () => {
+  test('runtime install notes do not rewrite using-spec-first source-of-truth path', () => {
     const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'using-spec-first-codex-runtime-'));
-    const codex = new CodexAdapter();
 
     try {
-      syncSkills(projectRoot, codex);
-      const status = inspectInstalledAssets(projectRoot, codex).skills;
-      const usingSpecFirstDrift = status.drifted.find((entry) => entry.skillName === 'using-spec-first');
+      for (const [adapter, runtimePath] of [
+        [new ClaudeAdapter(), path.join(projectRoot, '.claude', 'skills', 'using-spec-first', 'SKILL.md')],
+        [new CodexAdapter(), path.join(projectRoot, '.agents', 'skills', 'using-spec-first', 'SKILL.md')],
+      ]) {
+        syncSkills(projectRoot, adapter);
+        const status = inspectInstalledAssets(projectRoot, adapter).skills;
+        const usingSpecFirstDrift = status.drifted.find((entry) => entry.skillName === 'using-spec-first');
+        const runtime = read(runtimePath);
 
-      expect(usingSpecFirstDrift).toBeUndefined();
-      expect(read(path.join(projectRoot, '.agents', 'skills', 'using-spec-first', 'SKILL.md'))).toContain(
-        'Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md`',
-      );
+        expect(usingSpecFirstDrift).toBeUndefined();
+        expect(runtime).toContain('Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md`');
+        expect(runtime).toContain('Codex installs it as `.agents/skills/using-spec-first/SKILL.md`');
+        expect(runtime).toContain('`skills/using-spec-first/SKILL.md` is the source-of-truth routing policy.');
+        expect(runtime).not.toContain('`.claude/skills/using-spec-first/SKILL.md` is the source-of-truth routing policy.');
+        expect(runtime).not.toContain('`.agents/skills/using-spec-first/SKILL.md` is the source-of-truth routing policy.');
+      }
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

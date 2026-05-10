@@ -65,20 +65,20 @@ Sequence:
 
 ### Run artifact boundary
 
-`/tmp/spec-first/spec-code-review/<run-id>/` is a session/orchestrator handoff, not repo-local durable truth. Use it to coordinate reviewer JSON, detail enrichment, autofix residuals, and headless callers during the current run. Do not promise it will be committed or retained. Durable review evidence is created only when the workflow explicitly routes it: PR descriptions may include accepted Known Residuals, and the no-PR shipping path may create `docs/residual-review-findings/<branch-or-head-sha>.md` for accepted residuals. Do not copy full-detail reviewer JSON into repo-local docs by default.
+`<review-artifact-dir>/` is a session/orchestrator handoff, not repo-local durable truth. Resolve it under the current OS temp directory (`os.tmpdir()` / `$TMPDIR` / `%TEMP%`) and include the concrete path in every `Artifact:` line or structured return. Do not hardcode `/tmp`; Windows native runs commonly use `%TEMP%`. Use the artifact directory to coordinate reviewer JSON, detail enrichment, autofix residuals, and headless callers during the current run. Do not promise it will be committed or retained. Durable review evidence is created only when the workflow explicitly routes it: PR descriptions may include accepted Known Residuals, and the no-PR shipping path may create `docs/residual-review-findings/<branch-or-head-sha>.md` for accepted residuals. Do not copy full-detail reviewer JSON into repo-local docs by default.
 
 ### Autofix mode rules
 
 - **Skip all user questions.** Never pause for approval or clarification once scope has been established.
 - **Apply only `safe_auto -> review-fixer` findings.** Leave `gated_auto`, `manual`, `human`, and `release` work unresolved.
-- **Write a run artifact** under `/tmp/spec-first/spec-code-review/<run-id>/` summarizing findings, applied fixes, residual actionable work, and advisory outputs. Orchestrators read this artifact to route residual `downstream-resolver` findings; the skill itself does not file tickets or prompt the user in autofix.
+- **Write a run artifact** under `<review-artifact-dir>/` summarizing findings, applied fixes, residual actionable work, and advisory outputs. Orchestrators read this artifact to route residual `downstream-resolver` findings; the skill itself does not file tickets or prompt the user in autofix.
 - **Emit a compact Residual Actionable Work summary in the autofix return** listing each residual `downstream-resolver` finding with its stable `#`, severity, file:line, title, and autofix_class. Structure the summary as two separate contiguous sections: applied `safe_auto` fixes first, then residual non-auto findings. Within the residual section, reuse each finding's stable `#` from Stage 5 -- never renumber. Include the run-artifact path. Callers read this summary directly without parsing the artifact. When no residuals exist, state `Residual actionable work: none.` explicitly.
 - **Never commit, push, or create a PR** from autofix mode. Parent workflows own those decisions.
 
 ### Report-only mode rules
 
 - **Skip all user questions.** Infer intent conservatively if the diff metadata is thin.
-- **Never edit files or externalize work.** Do not write `/tmp/spec-first/spec-code-review/<run-id>/`, do not file tickets, and do not commit, push, or create a PR.
+- **Never edit files or externalize work.** Do not write `<review-artifact-dir>/`, do not file tickets, and do not commit, push, or create a PR.
 - **Safe for parallel read-only verification.** `mode:report-only` is the only mode that is safe to run concurrently with browser testing on the same checkout.
 - **Do not switch the shared checkout.** If the caller passes an explicit PR or branch target, `mode:report-only` must run in an isolated checkout/worktree or stop instead of running `gh pr checkout` / `git checkout`.
 - **Do not overlap mutating review with browser testing on the same checkout.** If a future orchestrator wants fixes, run the mutating review phase after browser testing or in an isolated checkout/worktree.
@@ -89,7 +89,7 @@ Sequence:
 - **Require a determinable diff scope.** If headless mode cannot determine a diff scope (no branch, PR, or `base:` ref determinable without user interaction), emit `Review failed (headless mode). Reason: no diff scope detected. Re-invoke with a branch name, PR number, or base:<ref>.` and stop without dispatching agents.
 - **Apply only `safe_auto -> review-fixer` findings in a single pass.** No bounded re-review rounds. Leave `gated_auto`, `manual`, `human`, and `release` work unresolved and return them in the structured output.
 - **Return all non-auto findings as structured text output.** Use the headless output envelope format (see Stage 6 below) preserving severity, autofix_class, owner, requires_verification, confidence, pre_existing, and suggested_fix per finding. Enrich with detail-tier fields (why_it_matters, evidence[]) from reviewer returns first, using parent-owned artifact files only as an optional cache (see Detail enrichment in Stage 6).
-- **Write a run artifact** under `/tmp/spec-first/spec-code-review/<run-id>/` summarizing findings, applied fixes, and advisory outputs. Include the artifact path in the structured output.
+- **Write a run artifact** under `<review-artifact-dir>/` summarizing findings, applied fixes, and advisory outputs. Include the artifact path in the structured output.
 - **Do not file tickets or externalize work.** The caller receives structured findings and routes downstream work itself.
 - **Do not switch the shared checkout.** If the caller passes an explicit PR or branch target, `mode:headless` must run in an isolated checkout/worktree or stop instead of running `gh pr checkout` / `git checkout`. When stopping, emit `Review failed (headless mode). Reason: cannot switch shared checkout. Re-invoke with base:<ref> to review the current checkout, or run from an isolated worktree.`
 - **Not safe for concurrent use on a shared checkout.** Unlike `mode:report-only`, headless mutates files (applies `safe_auto` fixes). Callers must not run headless concurrently with other mutating operations on the same checkout.
@@ -384,7 +384,7 @@ Locate the plan document so Stage 6 can verify requirements completeness. Check 
 - Multiple/ambiguous PR body matches -> `plan_source: inferred` (lower confidence)
 - Auto-discover with single unambiguous match -> `plan_source: inferred` (lower confidence)
 
-If a plan is found, read its **Requirements** section — `## Requirements` in current plans, `## Requirements Trace` in legacy ones — and the R-IDs (R1, R2, etc.) listed there, plus **Implementation Units** (items listed under the `## Implementation Units` section). Store the extracted requirements list and `plan_source` for Stage 6. Do not block the review if no plan is found — requirements verification is additive, not required.
+If a plan is found, read its **Requirements** section — `## Requirements` in current plans, `## Requirements Trace` in legacy ones — and the R-IDs (R1, R2, etc.) listed there, plus **Implementation Units** under the `## Implementation Units` section. Recognize both current heading-style units (`### U1. [Name]`) and legacy list-item units (`- U1. **[Name]**`); the reader must remain compatible with older plans while new plans use heading-style units. Store the extracted requirements list, implementation unit IDs/titles, and `plan_source` for Stage 6. Do not block the review if no plan is found — requirements verification is additive, not required.
 
 ### Stage 3: Select reviewers
 
@@ -472,7 +472,7 @@ When dispatch is unavailable, explicitly disabled, or unsafe, set `single_agent_
 
 - Treat the effective mode as report-only, even if no `mode:report-only` token was provided.
 - If the user requested `mode:autofix` or `mode:headless`, stop and explain that mutating review requires reviewer/fixer dispatch capability or an isolated workflow that permits it; offer report-only as the safe fallback.
-- Do not create `/tmp/spec-first/spec-code-review/<run-id>/` and do not write reviewer artifacts.
+- Do not create `<review-artifact-dir>/` and do not write reviewer artifacts.
 - The orchestrator applies the selected persona lenses itself, serially, using the same diff, plan, standards, and graph evidence.
 - Skip Stage 5b validator dispatch and all fixer paths.
 - In Coverage, state `single-agent report-only fallback: reviewer dispatch unavailable, explicitly disabled, or unsafe`.
@@ -489,12 +489,18 @@ The orchestrator (this skill) also inherits the session model; it handles intent
 
 Generate a unique run identifier before dispatching any agents. This ID scopes parent/orchestrator-owned reviewer detail files and the post-review run artifact to the same directory.
 
-```bash
-RUN_ID=$(date +%Y%m%d-%H%M%S)-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' ')
-mkdir -p "/tmp/spec-first/spec-code-review/$RUN_ID"
+```js
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+const runId = `${new Date().toISOString().replace(/[-:.TZ]/g, '')}-${crypto.randomBytes(4).toString('hex')}`;
+const reviewArtifactDir = path.join(os.tmpdir(), 'spec-first', 'spec-code-review', runId);
+fs.mkdirSync(reviewArtifactDir, { recursive: true });
 ```
 
-Pass `{run_id}` to every persona sub-agent as correlation metadata only. Do not ask leaf reviewers to write files directly. Reviewer agents return full structured JSON to the orchestrator; after each return, the orchestrator may write that JSON to `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json` in modes that permit run artifacts.
+Pass `{run_id}` and `{review_artifact_dir}` to every persona sub-agent as correlation metadata only. Do not ask leaf reviewers to write files directly. Reviewer agents return full structured JSON to the orchestrator; after each return, the orchestrator may write that JSON to `<review-artifact-dir>/{reviewer_name}.json` in modes that permit run artifacts.
 
 **Report-only mode:** Skip run-id generation and directory creation. Do not pass `{run_id}` to agents. Agents return full structured JSON to the parent with no file write, consistent with report-only's no-write contract.
 
@@ -525,14 +531,14 @@ Spawn each selected persona reviewer using the subagent template included below.
 3. The JSON output contract from the findings schema included below
 4. PR metadata: title, body, and URL when reviewing a PR (empty string otherwise). Passed in a `<pr-context>` block so reviewers can verify code against stated intent
 5. Review context: intent summary, file list, diff
-6. Run ID and reviewer name for correlation and parent-owned artifact filenames
+6. Run ID, review artifact directory, and reviewer name for correlation and parent-owned artifact filenames
 7. **For `project-standards` only:** the standards file path list from Stage 3b, wrapped in a `<standards-paths>` block appended to the review context; when present, append `.spec-first/standards/` baseline paths in `<standards-baseline-paths>`
 
-Persona sub-agents are **read-only** with respect to the project and the filesystem: they review and return structured JSON. They do not edit project files, write `/tmp` artifacts, or propose refactors. Artifact persistence is parent/orchestrator-owned so reviewer capability frontmatter does not need broad `Write`.
+Persona sub-agents are **read-only** with respect to the project and the filesystem: they review and return structured JSON. They do not edit project files, write temp artifacts, or propose refactors. Artifact persistence is parent/orchestrator-owned so reviewer capability frontmatter does not need broad `Write`.
 
 Read-only here means **non-mutating**, not "no shell access." Reviewer sub-agents may use non-mutating inspection commands when needed to gather evidence or verify scope, including read-oriented `git` / `gh` usage such as `git diff`, `git show`, `git blame`, `git log`, and `gh pr view`. They must not edit project files, change branches, commit, push, create PRs, or otherwise mutate the checkout or repository state.
 
-Each persona sub-agent returns full JSON (all schema fields) to the orchestrator. In non-report-only modes, the orchestrator may persist that exact return to `/tmp/spec-first/spec-code-review/{run_id}/{reviewer_name}.json` for detail enrichment and debugging:
+Each persona sub-agent returns full JSON (all schema fields) to the orchestrator. In non-report-only modes, the orchestrator may persist that exact return to `<review-artifact-dir>/{reviewer_name}.json` for detail enrichment and debugging:
 
 ```json
 {
@@ -668,7 +674,7 @@ The best-judgment path skips Stage 5b deliberately. Running validators before fi
 
 ### Stage 6: Synthesize and present
 
-Assemble the final report using **pipe-delimited markdown tables for findings** from the review output template included below. The table format is mandatory for finding rows in interactive mode — do not render findings as freeform text blocks or horizontal-rule-separated prose. Other report sections (Applied Fixes, Learnings, Coverage, etc.) use bullet lists and the `---` separator before the verdict, as shown in the template.
+Assemble the final report using **pipe-delimited markdown tables for findings** from the review output template included below. The table format is mandatory for finding rows in interactive mode — do not render findings as freeform text blocks or horizontal-rule-separated prose. Escape every literal pipe character inside table cell text as `\|` before rendering so file paths, shell snippets, TypeScript union types, and markdown examples cannot corrupt the table. Other report sections (Applied Fixes, Learnings, Coverage, etc.) use bullet lists and the `---` separator before the verdict, as shown in the template.
 
 1. **Header.** Scope, intent, mode, reviewer team with per-conditional justifications.
 2. **Findings.** Rendered as pipe-delimited tables grouped by severity (`### P0 -- Critical`, `### P1 -- High`, `### P2 -- Moderate`, `### P3 -- Low`). Each finding row shows `#`, file, issue, reviewer(s), confidence, and synthesized route. Omit empty severity levels. Never render findings as freeform text blocks or numbered lists. Finding numbers come from the stable assignment in Stage 5 -- never re-derive them per severity table.
@@ -688,7 +694,7 @@ Assemble the final report using **pipe-delimited markdown tables for findings** 
 
 Do not include time estimates.
 
-**Format verification:** Before delivering the report, verify the findings sections use pipe-delimited table rows (`| # | File | Issue | ... |`) not freeform text. If you catch yourself rendering findings as prose blocks separated by horizontal rules or bullet points, stop and reformat into tables.
+**Format verification:** Before delivering the report, verify the findings sections use pipe-delimited table rows (`| # | File | Issue | ... |`) not freeform text, and verify cell text with literal `|` is escaped as `\|`. If you catch yourself rendering findings as prose blocks separated by horizontal rules or bullet points, or leaving unescaped pipes inside cells, stop and reformat into valid tables.
 
 ### Headless output format
 
@@ -701,7 +707,7 @@ Scope: <scope-line>
 Intent: <intent-summary>
 Reviewers: <reviewer-list with conditional justifications>
 Verdict: <Ready to merge | Ready with fixes | Not ready>
-Artifact: /tmp/spec-first/spec-code-review/<run-id>/
+Artifact: <review-artifact-dir>/
 
 Applied N safe_auto fixes.
 
@@ -758,7 +764,7 @@ Coverage:
 Review complete
 ```
 
-**Detail enrichment (headless only):** The headless envelope includes `Why:`, `Evidence:`, and `Suggested fix:` lines. After merge (Stage 5), use detail-tier fields from the surviving reviewer returns. Parent-owned artifact files under `/tmp/spec-first/spec-code-review/{run_id}/` are an optional cache for debugging and downstream lookup, not the authority for detail enrichment.
+**Detail enrichment (headless only):** The headless envelope includes `Why:`, `Evidence:`, and `Suggested fix:` lines. After merge (Stage 5), use detail-tier fields from the surviving reviewer returns. Parent-owned artifact files under `<review-artifact-dir>/` are an optional cache for debugging and downstream lookup, not the authority for detail enrichment.
    - **Field tiers:** `Why:` and `Evidence:` are detail-tier -- load from reviewer returns first. `Suggested fix:` is merge-tier -- use it directly from the same reviewer return.
    - **Artifact matching:** Only when in-memory detail is unavailable and parent-owned artifacts exist, look up detail-tier fields in the artifact files of the contributing reviewers. Match on `file + line_bucket(line, +/-3)` (the same tolerance used in Stage 5 dedup) within each contributing reviewer's artifact. When multiple artifact entries fall within the line bucket, apply `normalize(title)` to both the merged finding's title and each candidate entry's title as a tie-breaker.
    - **Reviewer order:** Try contributing reviewers in the order they appear in the merged finding's reviewer list; use the first match.
@@ -877,7 +883,7 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 
 #### Step 4: Emit artifacts and downstream handoff
 
-- In interactive, autofix, and headless modes, write a per-run artifact under `/tmp/spec-first/spec-code-review/<run-id>/` containing:
+- In interactive, autofix, and headless modes, write a per-run artifact under `<review-artifact-dir>/` containing:
   - synthesized findings (merged output from Stage 5)
   - applied fixes
   - residual actionable work

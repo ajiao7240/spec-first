@@ -32,6 +32,10 @@ const ALLOWED_TASK_FIELDS = new Set([
   'target_repo',
 ]);
 
+const WINDOWS_RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i;
+const WINDOWS_ILLEGAL_SEGMENT_CHARS = /[<>:"|]/;
+const CONTROL_CHARS = /[\x00-\x1f]/;
+
 function normalizeNewlines(text) {
   return String(text).replace(/\r\n?/g, '\n');
 }
@@ -200,6 +204,15 @@ function isConcreteRepoRelativeFile(filePath) {
   if (filePath.endsWith('/')) return false;
   const segments = filePath.split('/');
   if (segments.some((segment) => segment === '..' || segment === '' || segment === '.')) return false;
+  if (segments.some((segment) => (
+    segment !== segment.trim() ||
+    /[. ]$/.test(segment) ||
+    WINDOWS_RESERVED_NAMES.test(segment) ||
+    WINDOWS_ILLEGAL_SEGMENT_CHARS.test(segment) ||
+    CONTROL_CHARS.test(segment)
+  ))) {
+    return false;
+  }
   const normalized = path.normalize(filePath);
   if (normalized === '.' || normalized.startsWith('..')) return false;
   return true;

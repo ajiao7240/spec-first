@@ -288,13 +288,23 @@ Run project preflight before changing host MCP config:
 bash skills/spec-mcp-setup/scripts/check-health
 ```
 
+Native PowerShell path:
+
+```powershell
+pwsh -File skills/spec-mcp-setup/scripts/check-health.ps1
+```
+
 Machine-readable form:
 
 ```bash
 bash skills/spec-mcp-setup/scripts/check-health --json
 ```
 
-On Windows, run `check-health` from Git Bash or WSL; project bootstrap has a native PowerShell script.
+```powershell
+pwsh -File skills/spec-mcp-setup/scripts/check-health.ps1 -Json
+```
+
+On Windows, prefer the native PowerShell script. Git Bash or WSL can run the Bash script as a compatibility fallback, but those results do not replace Win64-native PowerShell validation.
 
 `check-health` reports:
 

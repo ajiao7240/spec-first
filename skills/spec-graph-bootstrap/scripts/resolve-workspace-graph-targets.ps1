@@ -291,11 +291,11 @@ $result = [ordered]@{
 
 if ($WriteSummary) {
   $workspaceDir = Join-Path $targetFacts.workspace_root '.spec-first/workspace'
-  New-Item -ItemType Directory -Force -Path $workspaceDir | Out-Null
+  New-Item -ItemType Directory -Force -LiteralPath $workspaceDir | Out-Null
   $summaryPath = Join-Path $workspaceDir 'graph-targets.json'
-  $tmpPath = "$summaryPath.tmp"
+  $tmpPath = "$summaryPath.$([guid]::NewGuid().ToString('N')).tmp"
   [pscustomobject]$result | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $tmpPath -Encoding UTF8
-  Move-Item -Force $tmpPath $summaryPath
+  Move-Item -Force -LiteralPath $tmpPath -Destination $summaryPath
 }
 
 [pscustomobject]$result | ConvertTo-Json -Depth 30 -Compress

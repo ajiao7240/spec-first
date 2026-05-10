@@ -263,6 +263,35 @@ describe('task pack hash and validation', () => {
     }
   });
 
+  test('source plan path rejects Windows reserved filenames and illegal characters', () => {
+    const sourcePlanCases = [
+      'docs/plans/CON.md',
+      'docs/plans/nul.txt',
+      'docs/plans/name:bad.md',
+      'docs/plans/trailing-dot./source-plan.md',
+      'docs/plans/trailing-space /source-plan.md',
+    ];
+
+    for (const sourcePlan of sourcePlanCases) {
+      const tmp = copyFixtureProject();
+      try {
+        const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
+        fs.writeFileSync(taskPackPath, fs.readFileSync(taskPackPath, 'utf8').replace(
+          'source_plan: tests/fixtures/spec-write-tasks/valid/source-plan.md',
+          `source_plan: ${sourcePlan}`
+        ));
+
+        const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
+
+        expect(result.deterministic_handoff).toBe(false);
+        expect(result.validation.source_plan_path).toBe('invalid');
+        expect(result.errors.map((error) => error.code)).toContain('task-pack-source-plan-invalid');
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    }
+  });
+
   test('missing Task Pack Contract is rejected', () => {
     const tmp = copyFixtureProject();
     try {
@@ -365,6 +394,29 @@ describe('task pack hash and validation', () => {
 
       expect(result.deterministic_handoff).toBe(false);
       expect(result.errors.filter((error) => error.code === 'task-pack-task-file-not-concrete')).toHaveLength(3);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('task file paths reject Windows reserved filenames and illegal characters', () => {
+    const tmp = copyFixtureProject();
+    try {
+      const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
+      replaceTaskPackContract(taskPackPath, (contract) => {
+        contract.tasks[0].files = [
+          'src/CON.js',
+          'src/nul.txt',
+          'src/name:bad.js',
+          'src/trailing-dot./file.js',
+          'src/trailing-space /file.js',
+        ];
+      });
+
+      const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
+
+      expect(result.deterministic_handoff).toBe(false);
+      expect(result.errors.filter((error) => error.code === 'task-pack-task-file-not-concrete')).toHaveLength(5);
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -653,16 +705,16 @@ describe('tasks CLI', () => {
     const hashResult = captureStdout(() => runTasks(['hash', '--json']));
     const validateResult = captureStdout(() => runTasks(['validate', '--json']));
 
-    expect(hashResult.code).toBe(1);
+    expect(hashResult.code).toBe(2);
     expect(JSON.parse(hashResult.stdout).error.code).toBe('tasks-plan-path-required');
-    expect(validateResult.code).toBe(1);
+    expect(validateResult.code).toBe(2);
     expect(JSON.parse(validateResult.stdout).error.code).toBe('tasks-task-pack-path-required');
   });
 
   test('unknown subcommand errors stay JSON parseable with --json', () => {
     const { code, stdout } = captureStdout(() => runTasks(['unknown', '--json']));
 
-    expect(code).toBe(1);
+    expect(code).toBe(2);
     expect(JSON.parse(stdout).error.code).toBe('tasks-subcommand-unknown');
   });
 
@@ -670,12 +722,12 @@ describe('tasks CLI', () => {
     const hashResult = captureStdout(() => runTasks(['hash', '--bogus', VALID_PLAN, '--json']));
     const validateResult = captureStdout(() => runTasks(['validate', VALID_TASK_PACK, '--bogus', `--repo=${REPO_ROOT}`, '--json']));
 
-    expect(hashResult.code).toBe(1);
+    expect(hashResult.code).toBe(2);
     expect(JSON.parse(hashResult.stdout).error).toEqual({
       code: 'tasks-unknown-option',
       message: 'unknown option: --bogus',
     });
-    expect(validateResult.code).toBe(1);
+    expect(validateResult.code).toBe(2);
     expect(JSON.parse(validateResult.stdout).error).toEqual({
       code: 'tasks-unknown-option',
       message: 'unknown option: --bogus',
@@ -686,12 +738,12 @@ describe('tasks CLI', () => {
     const separateFlag = captureStdout(() => runTasks(['validate', VALID_TASK_PACK, '--repo', '--json']));
     const equalsFlag = captureStdout(() => runTasks(['validate', VALID_TASK_PACK, '--repo=', '--json']));
 
-    expect(separateFlag.code).toBe(1);
+    expect(separateFlag.code).toBe(2);
     expect(JSON.parse(separateFlag.stdout).error).toEqual({
       code: 'tasks-repo-path-required',
       message: 'repo path is required after --repo',
     });
-    expect(equalsFlag.code).toBe(1);
+    expect(equalsFlag.code).toBe(2);
     expect(JSON.parse(equalsFlag.stdout).error).toEqual({
       code: 'tasks-repo-path-required',
       message: 'repo path is required after --repo',

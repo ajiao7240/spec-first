@@ -224,15 +224,15 @@ Before generating ideas, gather grounding. The dispatch set depends on the mode 
 
 Generate a `<run-id>` once at the start of Phase 1 (8 hex chars). Reuse it for the V15 cache file (this phase) and the V17 checkpoints (Phases 2 and 4) so they share one per-run scratch directory.
 
-**Pre-resolve the scratch directory path.** Scratch lives directly under `/tmp` (not under `$TMPDIR` and not under `.context/`). `$TMPDIR` on macOS resolves to an obscure per-user path like `/var/folders/64/.../T/` that is hostile for users who want to inspect checkpoints, copy them elsewhere, or reference them later — `/tmp` is universally accessible on macOS, Linux, and WSL, and the per-user isolation `$TMPDIR` provides is not valuable for ephemeral ideation scratch. Run one bash command to create the directory and capture its absolute path for downstream use.
+**Pre-resolve the scratch directory path.** Scratch lives under the current OS temp root, not under the repo and not under a hardcoded `/tmp`. Use Node so the same instruction works in macOS/Linux shells, PowerShell, and `cmd.exe`: Node resolves `$TMPDIR` / `%TEMP%` / platform defaults through `os.tmpdir()`, creates the directory, and prints the absolute path for downstream use.
 
 ```bash
-SCRATCH_DIR="/tmp/spec-first/spec-ideate/<run-id>"
-mkdir -p "$SCRATCH_DIR"
-echo "$SCRATCH_DIR"
+node -e "const fs=require('node:fs'); const os=require('node:os'); const path=require('node:path'); const runId=process.argv[1]; const dir=path.join(os.tmpdir(),'spec-first','spec-ideate',runId); fs.mkdirSync(dir,{recursive:true}); console.log(dir);" "<run-id>"
 ```
 
-Use the echoed absolute path (`/tmp/spec-first/spec-ideate/<run-id>`) as `<scratch-dir>` for every subsequent checkpoint write and cache read in this run. The run directory is not deleted on Phase 6 completion — the V15 cache is session-scoped and reused across run-ids, and the checkpoints follow the cross-invocation-reusable convention of leaving session-scoped artifacts for later invocations to find.
+Use the echoed absolute path as `<scratch-dir>` for every subsequent checkpoint write and cache read in this run. Treat the parent directory of `<scratch-dir>` as `<scratch-root>` for V15 cache lookup. The run directory is not deleted on Phase 6 completion — the V15 cache is session-scoped and reused across run-ids, and the checkpoints follow the cross-invocation-reusable convention of leaving session-scoped artifacts for later invocations to find. If the host sandbox makes the OS temp root ephemeral or hidden, surface that limitation and continue without cache reuse rather than falling back to a platform-specific hardcoded path.
+
+**Root Markdown handling.** If the user explicitly names a repo-root `.md` file in the focus hint or intake (for example `README.md`, `AGENTS.md`, or another concrete root Markdown path), read that file completely as a constraint for grounding and ideation. Other repo-root Markdown files are background only: skim or sample them when useful, but do not upgrade every root Markdown file into a required constraint. Do not reintroduce `STRATEGY.md` as a mandatory anchor; it is only read when the user names it or the current repo's documented conventions already make it relevant.
 
 Run grounding agents in parallel in the **foreground** (do not background — results are needed before Phase 2):
 
@@ -292,6 +292,20 @@ Consolidate all dispatched results into a short grounding summary using these se
 
 **Slack context** (opt-in, both modes) — never auto-dispatch. When the user asks for Slack context and Slack tools are available (look for any `slack-researcher` agent or `slack` MCP tools in the current environment), dispatch `spec-slack-researcher` with the focus hint in parallel with other Phase 1 agents. When tools are present but the user did not ask, mention availability in the grounding summary so they can opt in. When the user asked but no Slack tools are reachable, surface the install hint instead.
 
+### Phase 1.5: Topic Axes
+
+After grounding, decompose the ideation surface into 3-5 topic axes so Phase 2 can avoid over-indexing on the most obvious dimension. Axes are lightweight coverage labels, not a second plan. Examples: user workflow, reliability, documentation, automation, onboarding, quality, product surface, cost, maintainability.
+
+Skip axis decomposition for surprise-me mode because each frame intentionally discovers its own subject. Also skip it for an atomic subject where splitting would be artificial, such as a single typo, a single named UI label, or one concrete sentence.
+
+Use the axes only as dispatch context:
+
+- Include the axis list in each ideation sub-agent prompt.
+- Ask agents to notice which axis each idea primarily serves.
+- Do not force every frame to cover every axis.
+
+After merging candidates, run an **Axis coverage check** before adversarial filtering. If an important axis has no plausible candidates, dispatch at most 2 recovery agents focused only on the missing axes. Do not keep expanding axes, and do not let recovery agents reopen Phase 1 grounding unless the missing axis proves the original subject was misclassified.
+
 ### Phase 2: Divergent Ideation
 
 Generate the full candidate list before critiquing any idea.
@@ -319,25 +333,25 @@ Each sub-agent returns this structure per idea:
 
 - **title**
 - **summary** (2-4 sentences)
-- **warrant** (required, tagged) — one of:
+- **basis** (required, tagged) — one of:
   - `direct:` quoted line / specific file / named issue / explicit user-supplied context
   - `external:` named prior art, domain research, adjacent pattern, with source
   - `reasoned:` explicit first-principles argument for why this move likely applies — not a gesture; the argument is written out
-- **why_it_matters** — connects the warrant to the move's significance
-- **meeting_test** — one line confirming this would warrant team discussion (waived when Phase 0.5 detected tactical focus signals)
+- **why_it_matters** — connects the basis to the move's significance
+- **meeting_test** — one line confirming this would merit team discussion (waived when Phase 0.5 detected tactical focus signals)
 
-Warrant is required, not optional. If a sub-agent cannot articulate warrant of at least one type, the idea does not surface. The failure mode to prevent is generic "AI-slop" ideas that sound plausible but lack a basis the user can verify.
+Basis is required, not optional. If a sub-agent cannot articulate a basis of at least one type, the idea does not surface. The failure mode to prevent is generic "AI-slop" ideas that sound plausible but lack a basis the user can verify.
 
 **Generation rules (uniform across frames, all modes):**
 
-- Every idea carries articulated warrant. Unjustified speculation does not surface, regardless of how plausible it sounds.
-- Bias toward the warrant type your frame naturally produces — pain/inversion/leverage tend toward `direct:`; analogy and constraint-flipping tend toward `reasoned:`; assumption-breaking is mixed — but don't exclude other warrant types.
-- Apply the meeting-test as a default floor: would this idea warrant team discussion? If not, it's below the floor and does not surface. The floor is relaxed only when Phase 0.5 detected tactical focus signals.
-- Stay within the subject's identity. Product expansions, new surfaces, new markets, retirements, and architectural pivots are fair game when warrant supports them. Subject-replacement moves (abandoning the project, pivoting to unrelated domains, becoming a different organization) are out regardless of warrant.
+- Every idea carries articulated basis. Unjustified speculation does not surface, regardless of how plausible it sounds.
+- Bias toward the basis type your frame naturally produces — pain/inversion/leverage tend toward `direct:`; analogy and constraint-flipping tend toward `reasoned:`; assumption-breaking is mixed — but don't exclude other basis types.
+- Apply the meeting-test as a default floor: would this idea merit team discussion? If not, it's below the floor and does not surface. The floor is relaxed only when Phase 0.5 detected tactical focus signals.
+- Stay within the subject's identity. Product expansions, new surfaces, new markets, retirements, and architectural pivots are fair game when basis supports them. Subject-replacement moves (abandoning the project, pivoting to unrelated domains, becoming a different organization) are out regardless of basis.
 
 **Surprise-me mode addendum.** When Phase 0.2 routed to surprise-me, include this additional instruction in each sub-agent's dispatch prompt:
 
-> No user-specified subject. Through your frame's lens, explore the Phase 1 material and identify the subject(s) you find most interesting for this frame. Different frames finding different subjects is the feature — cross-subject divergence is what makes surprise-me valuable. Each idea still carries warrant; warrant may include identification of the subject itself (why *this* subject is worth ideating on through your lens, citing what in the Phase 1 material signals it).
+> No user-specified subject. Through your frame's lens, explore the Phase 1 material and identify the subject(s) you find most interesting for this frame. Different frames finding different subjects is the feature — cross-subject divergence is what makes surprise-me valuable. Each idea still carries basis; basis may include identification of the subject itself (why *this* subject is worth ideating on through your lens, citing what in the Phase 1 material signals it).
 
 After all sub-agents return:
 
@@ -345,6 +359,7 @@ After all sub-agents return:
 2. Synthesize cross-cutting combinations -- scan for ideas from different frames that combine into something stronger. In specified mode, expect 3-5 additions at most. **In surprise-me mode, cross-cutting is the magic layer** — frames often converge on overlapping subjects or find complementary angles; expect 5-8 additions and give this step more attention. Surface combinations that span multiple frame-chosen subjects as a distinctive surprise-me output pattern.
 3. If a focus was provided, weight the merged list toward it without excluding stronger adjacent ideas.
 4. Spread ideas across multiple dimensions when justified: workflow/DX, reliability, extensibility, missing capabilities, docs/knowledge compounding, quality/maintenance, leverage on future work.
+5. Apply the Phase 1.5 Axis coverage check when axes were created; run no more than 2 recovery agents for important uncovered axes.
 
 **Checkpoint A (V17).** Immediately after the cross-cutting synthesis step completes and the raw candidate list is consolidated, write `<scratch-dir>/raw-candidates.md` (using the absolute path captured in Phase 1) containing the full candidate list with sub-agent attribution. This protects the most expensive output (6 parallel sub-agent dispatches + dedupe) before Phase 3 critique potentially compacts context. Best-effort: if the write fails (disk full, permissions), log a warning and proceed; the checkpoint is not load-bearing. Not cleaned up at the end of the run (the run directory is preserved so the V15 cache remains reusable across run-ids in the same session — see Phase 6).
 

@@ -94,12 +94,12 @@ Every Defer action creates a ticket with the following content, adapted to the t
 
 - **Title:** the merged finding's `title` (schema-capped at 10 words).
 - **Body:**
-  - Plain-English problem statement — reads the persona-produced `why_it_matters` from the contributing reviewer's artifact file at `/tmp/spec-first/spec-code-review/<run-id>/{reviewer}.json`, using the same `file + line_bucket(line, +/-3) + normalize(title)` matching headless mode uses (see SKILL.md Stage 6 detail enrichment). Falls back to the merged finding's `title`, `severity`, `file`, and `suggested_fix` (when present) when no artifact match is available — these fields are guaranteed in the merge-tier compact return.
+  - Plain-English problem statement — reads the persona-produced `why_it_matters` from the merged reviewer return first. If detail is unavailable and the `spec-code-review` return named a parent-owned run artifact path, read the contributing reviewer's artifact file under that emitted path (`<artifact-path>/<reviewer>.json`) using the same `file + line_bucket(line, +/-3) + normalize(title)` matching headless mode uses (see SKILL.md Stage 6 detail enrichment). Do not hardcode `/tmp`; on Windows the temp root may be `%TEMP%`, and the review workflow's returned artifact path is the authority. Falls back to the merged finding's `title`, `severity`, `file`, and `suggested_fix` (when present) when no artifact match is available — these fields are guaranteed in the merge-tier compact return.
   - Suggested fix (when present in the finding's `suggested_fix`).
   - Evidence (direct quotes from the reviewer's artifact).
   - Metadata block: `Severity: <level>`, `Confidence: <score>`, `Reviewer(s): <list>`, `Finding ID: <fingerprint>`.
 - **Labels** (when the tracker supports labels): severity tag (`P0`, `P1`, `P2`, `P3`) and, when the tracker convention supports it, a category label sourced from the reviewer name.
-- **Length cap:** when the composed body would exceed a tracker's body length limit, truncate with `... (continued in spec-code-review run artifact: /tmp/spec-first/spec-code-review/<run-id>/)` and include the finding_id in both the truncated body and the metadata block so the artifact is discoverable.
+- **Length cap:** when the composed body would exceed a tracker's body length limit, truncate with `... (continued in spec-code-review run artifact: <artifact-path>)` and include the finding_id in both the truncated body and the metadata block so the artifact is discoverable.
 
 The finding_id is a stable fingerprint composed as `normalize(file) + line_bucket(line, +/-3) + normalize(title)` — the same fingerprint used by the merge pipeline.
 

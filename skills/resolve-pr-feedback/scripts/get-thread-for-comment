@@ -4,7 +4,7 @@
 # Fetches thread IDs and first comment IDs to find the match,
 # then returns the matching thread with full comment details.
 
-set -e
+set -euo pipefail
 
 if [ $# -lt 2 ]; then
     echo "Usage: get-thread-for-comment PR_NUMBER COMMENT_NODE_ID [OWNER/REPO]"
@@ -15,7 +15,7 @@ fi
 PR_NUMBER=$1
 COMMENT_NODE_ID=$2
 
-if [ -n "$3" ]; then
+if [ -n "${3:-}" ]; then
     OWNER=$(echo "$3" | cut -d/ -f1)
     REPO=$(echo "$3" | cut -d/ -f2)
 else
@@ -28,11 +28,13 @@ if [ -z "$OWNER" ] || [ -z "$REPO" ]; then
     exit 1
 fi
 
-gh api graphql -f owner="$OWNER" -f repo="$REPO" -F pr="$PR_NUMBER" -f query='
-query($owner: String!, $repo: String!, $pr: Int!) {
+threads_pages=$(gh api graphql --paginate --slurp \
+  -f owner="$OWNER" -f repo="$REPO" -F pr="$PR_NUMBER" \
+  -f query='
+query Threads($owner: String!, $repo: String!, $pr: Int!, $endCursor: String) {
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $pr) {
-      reviewThreads(first: 100) {
+      reviewThreads(first: 100, after: $endCursor) {
         nodes {
           id
           isResolved
@@ -50,13 +52,27 @@ query($owner: String!, $repo: String!, $pr: Int!) {
               createdAt
               url
             }
+            pageInfo { hasNextPage endCursor }
           }
         }
+        pageInfo { hasNextPage endCursor }
       }
     }
   }
-}' | jq -e --arg cid "$COMMENT_NODE_ID" '
-  [.data.repository.pullRequest.reviewThreads.nodes[]
-  | select(.comments.nodes | map(.id) | index($cid))]
-  | if length == 0 then error("No thread found for comment \($cid)") else .[0] end
+}')
+
+echo "$threads_pages" | jq -e --arg cid "$COMMENT_NODE_ID" '
+  [.[].data.repository.pullRequest.reviewThreads.nodes[]] as $threads |
+  [$threads[]
+    | select(.comments.nodes | map(.id) | index($cid))] as $matches |
+  [$threads[]
+    | select(.comments.pageInfo.hasNextPage == true)
+    | { thread_id: .id, path: .path, fetched_comments: (.comments.nodes | length) }] as $truncated |
+  if ($matches | length) > 0 then
+    $matches[0]
+  elif ($truncated | length) > 0 then
+    error("No thread found for comment \($cid); one or more review threads have more comments than the first 100 fetched by this script, so nested thread comment pagination is unsupported and absence is incomplete evidence.")
+  else
+    error("No thread found for comment \($cid)")
+  end
 '

@@ -70,6 +70,10 @@ function countGitignoreMarkers(content) {
   return (content.match(new RegExp(SPEC_FIRST_GITIGNORE_START, 'g')) || []).length;
 }
 
+function countLiteral(content, literal) {
+  return content.split(literal).length - 1;
+}
+
 describe('init --dry-run', () => {
   test('init help includes concise post-init setup guidance', () => {
     const projectRoot = makeTempDir();
@@ -98,7 +102,7 @@ describe('init --dry-run', () => {
     try {
       const result = captureInit(projectRoot, ['--claude', '--force', '--dry-run', '-u', 'reviewer', '--lang', 'zh']);
 
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(2);
       expect(result.stderr).toContain('Usage: spec-first init');
       expect(result.stdout).toBe('');
       expect(snapshotTree(projectRoot)).toEqual([]);
@@ -199,6 +203,35 @@ describe('init --dry-run', () => {
     }
   });
 
+  test('Claude init preserves existing CRLF instruction content while adding managed blocks once', () => {
+    const projectRoot = makeTempDir();
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      fs.writeFileSync(
+        path.join(projectRoot, 'CLAUDE.md'),
+        '# Existing Windows Notes\r\n\r\nUser note with CRLF.\r\n',
+        'utf8',
+      );
+
+      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+
+      const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
+      expect(claudeInstruction).toContain('# Existing Windows Notes');
+      expect(claudeInstruction).toContain('User note with CRLF.');
+      expect(claudeInstruction).toContain('<!-- spec-first:lang:start -->');
+      expect(claudeInstruction).toContain('<!-- spec-first:bootstrap:start -->');
+      expect(claudeInstruction).toContain('<!-- spec-first:coding-guidelines:start -->');
+      expect(countLiteral(claudeInstruction, '<!-- spec-first:lang:start -->')).toBe(1);
+      expect(countLiteral(claudeInstruction, '<!-- spec-first:bootstrap:start -->')).toBe(1);
+      expect(countLiteral(claudeInstruction, '<!-- spec-first:coding-guidelines:start -->')).toBe(1);
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   test('Codex init does not write global runtime tool guidance into AGENTS.md', () => {
     const projectRoot = makeTempDir();
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -246,6 +279,37 @@ describe('init --dry-run', () => {
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Codex init preserves CRLF AGENTS.md content in unicode and bracketed paths', () => {
+    const tempRoot = makeTempDir();
+    const projectRoot = path.join(tempRoot, 'codex workspace 中文 [win64]');
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      fs.mkdirSync(projectRoot, { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, 'AGENTS.md'),
+        '# Existing Codex Notes\r\n\r\nUser note from Windows editor.\r\n',
+        'utf8',
+      );
+
+      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+
+      const codexInstruction = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
+      expect(codexInstruction).toContain('# Existing Codex Notes');
+      expect(codexInstruction).toContain('User note from Windows editor.');
+      expect(countLiteral(codexInstruction, '<!-- spec-first:lang:start -->')).toBe(1);
+      expect(countLiteral(codexInstruction, '<!-- spec-first:bootstrap:start -->')).toBe(1);
+      expect(countLiteral(codexInstruction, '<!-- spec-first:coding-guidelines:start -->')).toBe(1);
+      expect(fs.existsSync(path.join(projectRoot, '.codex', 'spec-first', 'state.json'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.codex', 'spec-first', '.developer'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'using-spec-first', 'SKILL.md'))).toBe(true);
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(tempRoot, { recursive: true, force: true });
     }
   });
 
@@ -408,18 +472,18 @@ describe('init --dry-run', () => {
       fs.mkdirSync(path.join(workspaceRoot, 'project-a', '.git'), { recursive: true });
 
       const allReposInsideGit = captureInit(projectRoot, ['--codex', '--all-repos', '-u', 'reviewer', '--lang', 'zh']);
-      expect(allReposInsideGit.exitCode).toBe(1);
+      expect(allReposInsideGit.exitCode).toBe(2);
       expect(allReposInsideGit.stderr).toContain('--all-repos must be run from a parent workspace');
       expect(fs.existsSync(path.join(projectRoot, '.gitignore'))).toBe(false);
 
       const conflicting = captureInit(workspaceRoot, ['--codex', '--all-repos', '--repo', 'project-a', '-u', 'reviewer', '--lang', 'zh']);
-      expect(conflicting.exitCode).toBe(1);
+      expect(conflicting.exitCode).toBe(2);
       expect(conflicting.stderr).toContain('Cannot combine --repo and --all-repos');
       expect(fs.existsSync(path.join(workspaceRoot, '.gitignore'))).toBe(false);
       expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(false);
 
       const emptyRepoEquals = captureInit(workspaceRoot, ['--codex', '--repo=', '-u', 'reviewer', '--lang', 'zh']);
-      expect(emptyRepoEquals.exitCode).toBe(1);
+      expect(emptyRepoEquals.exitCode).toBe(2);
       expect(emptyRepoEquals.stderr).toContain('Usage: spec-first init');
       expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(false);
     } finally {
@@ -443,7 +507,7 @@ describe('init --dry-run', () => {
 
       const result = captureInit(workspaceRoot, ['--codex', '--repo', 'linked-outside', '-u', 'reviewer', '--lang', 'zh']);
 
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(2);
       expect(result.stderr).toContain('--repo target must be inside the current workspace');
       expect(fs.existsSync(path.join(outsideRepo, '.gitignore'))).toBe(false);
       expect(fs.existsSync(path.join(outsideRepo, 'AGENTS.md'))).toBe(false);

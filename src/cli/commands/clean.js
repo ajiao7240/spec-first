@@ -33,12 +33,12 @@ function runClean(argv) {
   const platformSelected = parsed.claude || parsed.codex;
   if (!platformSelected || parsed.unknown.length > 0) {
     console.error('Usage: spec-first clean (--claude|--codex) [--dry-run]');
-    return 1;
+    return 2;
   }
 
   if (parsed.claude && parsed.codex) {
     console.error('Error: Cannot specify both --claude and --codex');
-    return 1;
+    return 2;
   }
 
   const platform = parsed.claude ? 'claude' : 'codex';

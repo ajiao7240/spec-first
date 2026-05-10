@@ -41,26 +41,26 @@ Generate the full candidate list before critiquing any idea. Use the same six fr
 
 Aim for 5-8 ideas per frame. After generating, merge and dedupe; scan for cross-cutting combinations (3-5 additions at most; more in surprise-me mode, where different frames often discover different subjects and combinations are the magic layer).
 
-**Per-idea output contract (mirrors SKILL.md Phase 2):** each idea carries title, summary, **warrant** (required, tagged `direct:` quoted evidence / `external:` named prior art or domain research / `reasoned:` written-out first-principles argument), why-it-matters connecting the warrant to the move's significance, and a one-line meeting-test self-check (waived when tactical focus signals were detected in Phase 0.5). Warrant is required, not optional — unjustified speculation does not surface.
+**Per-idea output contract (mirrors SKILL.md Phase 2):** each idea carries title, summary, **basis** (required, tagged `direct:` quoted evidence / `external:` named prior art or domain research / `reasoned:` written-out first-principles argument), why-it-matters connecting the basis to the move's significance, and a one-line meeting-test self-check (waived when tactical focus signals were detected in Phase 0.5). Basis is required, not optional — unjustified speculation does not surface.
 
 **Generation rules:**
 
-- Every idea carries articulated warrant. The failure mode to prevent is plausible-sounding speculation that lacks any basis the user can verify.
-- Bias toward the warrant type your frame naturally produces — pain/inversion/leverage tend toward `direct:`; analogy and constraint-flipping tend toward `reasoned:` — but don't exclude other types. When a frame produces reasoned warrant, write the argument out, don't gesture at it.
-- Apply the meeting-test as a default floor: would this idea warrant the equivalent of team discussion (or whatever maps to "worth talking through" in this topic's native domain)? If not, it's below the floor and does not surface. The floor is relaxed only when Phase 0.5 detected tactical focus signals.
-- Stay within the subject's identity. Expansions, new surfaces, new directions, retirements are fair game when warrant supports them. Subject-replacement moves (abandoning the subject, pivoting to an unrelated domain) are out regardless of warrant.
+- Every idea carries articulated basis. The failure mode to prevent is plausible-sounding speculation that lacks any basis the user can verify.
+- Bias toward the basis type your frame naturally produces — pain/inversion/leverage tend toward `direct:`; analogy and constraint-flipping tend toward `reasoned:` — but don't exclude other types. When a frame produces reasoned basis, write the argument out, don't gesture at it.
+- Apply the meeting-test as a default floor: would this idea merit the equivalent of team discussion (or whatever maps to "worth talking through" in this topic's native domain)? If not, it's below the floor and does not surface. The floor is relaxed only when Phase 0.5 detected tactical focus signals.
+- Stay within the subject's identity. Expansions, new surfaces, new directions, retirements are fair game when basis supports them. Subject-replacement moves (abandoning the subject, pivoting to an unrelated domain) are out regardless of basis.
 
-**Surprise-me mode in this reference.** When Phase 0.2 routed to surprise-me, there is no user-specified subject. Through each frame's lens, explore the Phase 1 grounding (user-context synthesis + web research) and identify the subject(s) you find most interesting for that lens. Different frames finding different subjects is the feature. Warrant may include identification of the subject itself — why this subject is worth ideating on through this lens, citing what in the Phase 1 material signals it.
+**Surprise-me mode in this reference.** When Phase 0.2 routed to surprise-me, there is no user-specified subject. Through each frame's lens, explore the Phase 1 grounding (user-context synthesis + web research) and identify the subject(s) you find most interesting for that lens. Different frames finding different subjects is the feature. Basis may include identification of the subject itself — why this subject is worth ideating on through this lens, citing what in the Phase 1 material signals it.
 
 ## How to converge
 
-Apply adversarial critique. For each candidate, write a one-line reason if rejected. **Warrant-integrity check:** reject any idea lacking articulated warrant, any idea whose stated warrant does not actually support the claimed move (speculation dressed as ambition), and any idea that replaces the subject rather than operating on it. Score survivors using a consistent rubric weighing: groundedness in stated context, **warrant strength** (`direct:` > `external:` > `reasoned:`; none excluded, but direct-evidence ideas score higher all else equal), expected value, novelty, pragmatism, leverage, implementation burden, and overlap with stronger candidates.
+Apply adversarial critique. For each candidate, write a one-line reason if rejected. **Basis-integrity check:** reject any idea lacking articulated basis, any idea whose stated basis does not actually support the claimed move (speculation dressed as ambition), and any idea that replaces the subject rather than operating on it. Score survivors using a consistent rubric weighing: groundedness in stated context, **basis strength** (`direct:` > `external:` > `reasoned:`; none excluded, but direct-evidence ideas score higher all else equal), expected value, novelty, pragmatism, leverage, implementation burden, and overlap with stronger candidates.
 
 Target 5-7 survivors by default. If too many survive, run a second stricter pass. If fewer than five survive, report that honestly rather than lowering the bar.
 
 ## When to wrap up
 
-Present survivors before any persistence. For each: title, description, **warrant** (tagged `direct:` / `external:` / `reasoned:`, with the quoted evidence, cited source, or written-out argument), rationale (how the warrant connects to the move's significance), downsides, confidence, complexity. Then a brief rejection summary so the user can see what was considered and cut.
+Present survivors before any persistence. For each: title, description, **basis** (tagged `direct:` / `external:` / `reasoned:`, with the quoted evidence, cited source, or written-out argument), rationale (how the basis connects to the move's significance), downsides, confidence, complexity. Then a brief rejection summary so the user can see what was considered and cut.
 
 Persistence is opt-in. The terminal review loop is a complete ideation cycle. Refinement happens in conversation with no file or network cost. Persistence triggers only when the user explicitly chooses to save, share, or hand off.
 

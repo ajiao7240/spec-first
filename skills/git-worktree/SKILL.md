@@ -1,6 +1,8 @@
 ---
 name: git-worktree
-description: Create an isolated git worktree for parallel feature work or PR review. Use when starting work that should not disturb the current checkout, or when `spec-work` or `spec-code-review` offers a worktree option.
+description: Internal helper for public workflows that need an isolated git worktree for parallel feature work or PR review; use only when delegated by `spec-work`, `spec-code-review`, or another public workflow.
+user-invocable: false
+allowed-tools: Bash(bash *worktree-manager.sh*)
 ---
 
 # Worktree Creation
@@ -14,8 +16,10 @@ Create a worktree under `.worktrees/<branch>` with branch-specific setup that `g
 
 ## Creating a worktree
 
+Invoke the bundled script through a `bash -c` wrapper whose command text includes `exec bash ...worktree-manager.sh`. On Claude Code, `${CLAUDE_SKILL_DIR}` resolves to the skill's own runtime directory across marketplace-cached installs and local plugin development. In source or non-Claude runtime contexts, use the repo-root fallback path so generated Codex assets can rewrite it to the installed skill directory. This shape intentionally matches the narrow `allowed-tools` pattern.
+
 ```bash
-bash scripts/worktree-manager.sh create <branch-name> [from-branch]
+bash -c 'if [ -n "${CLAUDE_SKILL_DIR:-}" ]; then exec bash "$CLAUDE_SKILL_DIR/scripts/worktree-manager.sh" "$@"; fi; exec bash "$(git rev-parse --show-toplevel)"/"skills/git-worktree/scripts/worktree-manager.sh" "$@"' _ create <branch-name> [from-branch]
 ```
 
 Defaults:
@@ -24,8 +28,8 @@ Defaults:
 
 Examples:
 ```bash
-bash scripts/worktree-manager.sh create feat/login
-bash scripts/worktree-manager.sh create fix/email-validation develop
+bash -c 'if [ -n "${CLAUDE_SKILL_DIR:-}" ]; then exec bash "$CLAUDE_SKILL_DIR/scripts/worktree-manager.sh" "$@"; fi; exec bash "$(git rev-parse --show-toplevel)"/"skills/git-worktree/scripts/worktree-manager.sh" "$@"' _ create feat/login
+bash -c 'if [ -n "${CLAUDE_SKILL_DIR:-}" ]; then exec bash "$CLAUDE_SKILL_DIR/scripts/worktree-manager.sh" "$@"; fi; exec bash "$(git rev-parse --show-toplevel)"/"skills/git-worktree/scripts/worktree-manager.sh" "$@"' _ create fix/email-validation develop
 ```
 
 After creation, switch to the worktree with `cd .worktrees/<branch-name>`.
@@ -70,7 +74,7 @@ Do not create a worktree for single-task work that can happen on a branch in the
 
 ## Integration
 
-`spec-work` and `spec-code-review` offer this skill as an option. When the user selects "worktree" in those flows, invoke `bash scripts/worktree-manager.sh create <branch>` with a meaningful branch name derived from the work description (e.g., `feat/crowd-sniff`, `fix/email-validation`). Avoid auto-generated names like `worktree-jolly-beaming-raven` that obscure the work.
+`spec-work` and `spec-code-review` offer this skill as an option. When the user selects "worktree" in those flows, invoke the bundled script through the same `${CLAUDE_SKILL_DIR}` branch plus source/runtime fallback shown above, using a meaningful branch name derived from the work description (e.g., `feat/crowd-sniff`, `fix/email-validation`). Avoid auto-generated names like `worktree-jolly-beaming-raven` that obscure the work.
 
 ## Troubleshooting
 

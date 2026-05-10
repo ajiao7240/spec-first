@@ -1,6 +1,5 @@
 #!/bin/bash
-set -e
-set -u
+set -euo pipefail
 
 # stage-gate.sh - 阶段契约检查
 

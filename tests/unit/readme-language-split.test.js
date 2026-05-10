@@ -98,9 +98,13 @@ describe('README language split contract', () => {
     expect(englishReadme).toContain('root of the project repo');
     expect(englishReadme).toContain('throwaway/test repo');
     expectOrderedSections(englishReadme, [
-      'Terminal commands:',
+      'Install and run the first health check from the native terminal for your platform.',
+      'macOS / Linux:',
       'npm install -g spec-first',
       'spec-first doctor',
+      'Windows PowerShell 7+ or Windows PowerShell 5.1:',
+      'Windows cmd.exe:',
+      'On Win64, prefer native Windows Terminal with PowerShell 7+ or `cmd.exe`',
       'Initialize only the host you actually use:',
       'spec-first init --codex -u <name> --lang en',
       'Host-session workflow entries are not shell commands:',

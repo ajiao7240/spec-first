@@ -17,8 +17,6 @@ const REQUIRED_SECTIONS = [
 
 const ALLOWED_FRONTMATTER_NAME_ALIASES = new Map([
   ['spec-dhh-rails-style', 'dhh-rails-style'],
-  ['spec-session-extract', 'session-extract'],
-  ['spec-session-inventory', 'session-inventory'],
 ]);
 
 function lintSkillStructure(inventory) {

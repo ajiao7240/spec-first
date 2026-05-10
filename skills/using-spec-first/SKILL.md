@@ -245,7 +245,7 @@ If the user asks a read-only codebase question from a parent workspace containin
 5. Do **not** describe `using-spec-first` itself as a command-backed workflow.
 6. Do **not** write Codex entrypoints as `/spec:*`.
 7. Do **not** write Claude workflow entrypoints as `$spec-*`.
-8. Do **not** expose internal-only skills as user entrypoints. This includes legacy/internal `lfg`, `spec-session-inventory`, and `spec-session-extract`.
+8. Do **not** expose internal-only skills as user entrypoints. This includes legacy/internal `lfg` and delegated helpers such as `git-worktree`.
 9. Do **not** route to hidden helper skills such as git, browser, image, proof, xcode, or bug-report helpers unless a public workflow explicitly delegates to them.
 10. Do **not** run `spec-first init`, `clean`, update, or other state-changing commands just because this governor matched; first route to the appropriate workflow or ask a narrow confirmation when required.
 

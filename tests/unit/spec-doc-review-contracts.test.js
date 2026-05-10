@@ -20,6 +20,15 @@ const SUBAGENT_TEMPLATE_PATH = path.join(
   'references',
   'subagent-template.md',
 );
+const REVIEW_OUTPUT_TEMPLATE_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-doc-review',
+  'references',
+  'review-output-template.md',
+);
 
 describe('spec-doc-review best-judgment wording contract', () => {
   test('user-visible doc review paths no longer expose LFG wording', () => {
@@ -52,6 +61,47 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('derived rather than a second plan');
     expect(skill).toContain('Task Pack Contract');
     expect(skill).toContain('spec-first tasks validate --json');
+  });
+
+  test('doc review classifies by content shape and passes Origin to personas', () => {
+    const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
+    const template = fs.readFileSync(SUBAGENT_TEMPLATE_PATH, 'utf8');
+
+    expect(skill).toContain('classify the document by **content shape first**');
+    expect(skill).toContain('Path is a hint, not the source of truth');
+    expect(skill).toContain('Also extract the frontmatter `origin:` value when present.');
+    expect(skill).toContain('| `{origin}` | Frontmatter `origin:` value when present, otherwise `none` |');
+    expect(template).toContain('Origin: {origin}');
+    expect(template).toContain('Use `Document type` and `Origin` to calibrate the review');
+    expect(template).toContain('If `Origin` is not `none`, do not routinely re-litigate upstream WHAT/WHY');
+  });
+
+  test('doc review preserves visual aids and escapes table pipes', () => {
+    const template = fs.readFileSync(SUBAGENT_TEMPLATE_PATH, 'utf8');
+    const synthesis = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'synthesis-and-presentation.md'),
+      'utf8',
+    );
+    const outputTemplate = fs.readFileSync(REVIEW_OUTPUT_TEMPLATE_PATH, 'utf8');
+
+    expect(template).toContain('Preserve useful diagrams and visual aids.');
+    expect(synthesis).toContain('Visual aid preservation');
+    for (const text of [synthesis, outputTemplate]) {
+      expect(text.toLowerCase()).toContain('literal pipe');
+      expect(text).toContain('`\\|`');
+    }
+  });
+
+  test('walkthrough keeps normal best-judgment route and confines Acknowledge to no-fix cases', () => {
+    const walkthrough = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'walkthrough.md'),
+      'utf8',
+    );
+
+    expect(walkthrough).toContain('D. Auto-resolve with best judgment on the rest');
+    expect(walkthrough).toContain('Do not add an `Acknowledge` option to the normal per-finding menu.');
+    expect(walkthrough).toContain('`Acknowledge` appears only in the no-fix sub-question');
+    expect(walkthrough).toContain('Acknowledge without applying');
   });
 
   test('doc review uses bounded persona dispatch with Codex-capable report-only fallback', () => {

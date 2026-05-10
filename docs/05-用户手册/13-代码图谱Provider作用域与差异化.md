@@ -154,10 +154,10 @@ spec-code-review
 这次 diff 改到的 symbol / file / API / flow，会不会影响调用者、执行流、相关测试或下游模块？
 ```
 
-默认行为：
+计划落地后的默认行为：
 
-- `$spec-code-review` 默认执行 graph / impact evidence preflight。
-- `$spec-code-review` 默认评估是否需要 `spec-graph-impact-reviewer`。
+- `$spec-code-review` 将默认执行 graph / impact evidence preflight。
+- `$spec-code-review` 将默认评估是否需要 `spec-graph-impact-reviewer`。
 - `spec-graph-impact-reviewer` 不是 always-on reviewer，不是每次 review 都派发。
 - 只有 graph evidence 显示 medium/high risk、多 callers、多 affected flows、related tests gaps、public/shared symbol change、inheritance / implementation 影响、rename / move 风险时，才条件触发。
 
@@ -230,5 +230,5 @@ $spec-graph-bootstrap
 
 完成工作后：
 
-- `spec-code-review` 的临时 run artifact 默认只在 `/tmp/spec-first/spec-code-review/<run-id>/`。
+- `spec-code-review` 的临时 run artifact 默认只在当前 OS temp root 下的 `<os-temp>/spec-first/spec-code-review/<run-id>/`，实际路径由 macOS/Linux `$TMPDIR` 或 Windows `%TEMP%` 等环境解析。
 - 需要长期沉淀时，使用 PR Known Residuals、`docs/residual-review-findings/*` 或 `spec-compound`，不要把 provider raw logs 当知识文档提交。

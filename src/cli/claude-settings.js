@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { writeFileAtomic } = require('./atomic-write');
 
 const SETTINGS_RELATIVE_PATH = '.claude/settings.json';
 const SESSION_START_MATCHER = 'startup|resume|clear|compact';
@@ -169,10 +170,7 @@ function readSettingsFile(filePath) {
 }
 
 function writeSettingsFile(filePath, settings) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  const tmpPath = `${filePath}.tmp`;
-  fs.writeFileSync(tmpPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
-  fs.renameSync(tmpPath, filePath);
+  writeFileAtomic(filePath, `${JSON.stringify(settings, null, 2)}\n`);
 }
 
 function writeRenderedSettings(projectRoot, rendered) {
@@ -186,10 +184,7 @@ function writeRenderedSettings(projectRoot, rendered) {
     return;
   }
 
-  fs.mkdirSync(path.dirname(rendered.filePath), { recursive: true });
-  const tmpPath = `${rendered.filePath}.tmp`;
-  fs.writeFileSync(tmpPath, rendered.contents || '', 'utf8');
-  fs.renameSync(tmpPath, rendered.filePath);
+  writeFileAtomic(rendered.filePath, rendered.contents || '');
 }
 
 function removeManagedHookEntries(settings) {

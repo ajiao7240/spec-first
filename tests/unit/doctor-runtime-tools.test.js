@@ -46,6 +46,10 @@ function writeExecutable(filePath, contents) {
   fs.chmodSync(filePath, 0o755);
 }
 
+function countLiteral(content, literal) {
+  return content.split(literal).length - 1;
+}
+
 function withEnv(updates, fn) {
   const previous = {};
   for (const [key, value] of Object.entries(updates)) {
@@ -146,7 +150,75 @@ describe('doctor runtime tools boundary', () => {
         level: 'WARNING',
         message: 'version check timed out',
       });
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(3);
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('reports missing git and host CLI in JSON without crashing', () => {
+    const projectRoot = makeTempDir();
+    const fakeBin = path.join(projectRoot, 'empty-bin');
+    fs.mkdirSync(fakeBin, { recursive: true });
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      const result = withEnv({
+        PATH: fakeBin,
+      }, () => captureCommand(projectRoot, runDoctor, ['--codex', '--json']));
+      const payload = JSON.parse(result.stdout);
+      const gitCheck = payload.common_checks.find((check) => check.name === 'Git');
+      const codexCheck = payload.platform_checks.codex.find((check) => check.name === 'Codex');
+
+      expect(result.stderr).toBe('');
+      expect(result.exitCode).toBe(3);
+      expect(gitCheck).toMatchObject({
+        level: 'ERROR',
+        message: 'not found',
+        fix: 'Install Git and ensure it is on PATH.',
+      });
+      expect(codexCheck).toMatchObject({
+        level: 'WARNING',
+        message: 'not found on PATH',
+        fix: 'Install Codex CLI and restart your shell.',
+      });
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('doctor and repeated dual-host init remain idempotent in one project', () => {
+    const projectRoot = makeTempDir();
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const freshDoctor = captureCommand(projectRoot, runDoctor, ['--json']);
+      expect(freshDoctor.exitCode).toBe(0);
+      expect(JSON.parse(freshDoctor.stdout)).toMatchObject({
+        platforms: [],
+        runtime_asset_health: 'not_applicable',
+      });
+
+      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+
+      const finalDoctor = captureCommand(projectRoot, runDoctor, ['--json']);
+      const payload = JSON.parse(finalDoctor.stdout);
+
+      expect(finalDoctor.stderr).toBe('');
+      expect(finalDoctor.exitCode).toBe(0);
+      expect(payload.platforms.sort()).toEqual(['claude', 'codex']);
+      expect(payload.runtime_asset_health).toBe('pass');
+      expect(fs.existsSync(path.join(projectRoot, '.claude', 'spec-first', 'state.json'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.codex', 'spec-first', 'state.json'))).toBe(true);
+      expect(countLiteral(fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8'), '<!-- spec-first:lang:start -->')).toBe(1);
+      expect(countLiteral(fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8'), '<!-- spec-first:lang:start -->')).toBe(1);
+      expect(countLiteral(fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8'), '# spec-first:start')).toBe(1);
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

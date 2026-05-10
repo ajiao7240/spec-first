@@ -152,6 +152,7 @@ False-positive categories to actively suppress. Do NOT emit a finding when any o
 
 <review-context>
 Document type: {document_type}
+Origin: {origin}
 Document path: {document_path}
 
 {decision_primer}
@@ -159,6 +160,16 @@ Document path: {document_path}
 Document content:
 {document_content}
 </review-context>
+
+<document-type-rules>
+Use `Document type` and `Origin` to calibrate the review:
+
+- `requirements`: review clarity of WHAT/WHY, actors, flows, acceptance examples, scope boundaries, and whether the desired outcome is coherent enough for planning.
+- `plan`: review HOW. Check requirements trace, implementation units, dependencies, files, test scenarios, risk treatment, graph/context evidence, and handoff quality. If `Origin` is not `none`, do not routinely re-litigate upstream WHAT/WHY; flag product or strategy concerns only when the plan introduces new scope, contradicts the origin, or adds a new strategic/architectural risk.
+- `task-pack`: review whether the pack remains a derived execution input, not a second plan. Check source-plan fidelity, task boundaries, dependency/wave plausibility, file ownership, stop_if conditions, validation notes, and whether execution context is sufficient without adding scope.
+
+Preserve useful diagrams and visual aids. Do not recommend deleting a diagram only because prose covers similar ground; if a visual is inconsistent, stale, or misleading, recommend updating it to match the authoritative content.
+</document-type-rules>
 
 <decision-primer-rules>
 When the `<prior-decisions>` block above lists entries (round 2+), honor them:

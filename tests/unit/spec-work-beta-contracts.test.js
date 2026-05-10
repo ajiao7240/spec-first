@@ -31,6 +31,15 @@ const SHIPPING_WORKFLOW_PATH = path.join(
   'references',
   'shipping-workflow.md',
 );
+const TRACKER_DEFER_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-work-beta',
+  'references',
+  'tracker-defer.md',
+);
 
 describe('spec-work-beta context orientation contract', () => {
   test('keeps beta execution as explicit opt-in instead of default handoff', () => {
@@ -133,6 +142,18 @@ describe('spec-work-beta requirements and shipping policy contract', () => {
     expect(shipping).toContain('If a check was not run, say `not run` with the concrete reason.');
     expect(shipping).toContain('omit `Next action` instead of inventing follow-up work');
   });
+
+  test('tracker defer uses emitted review artifact path instead of hardcoded /tmp', () => {
+    const trackerDefer = fs.readFileSync(TRACKER_DEFER_PATH, 'utf8');
+
+    expect(trackerDefer).toContain('the `spec-code-review` return named a parent-owned run artifact path');
+    expect(trackerDefer).toContain('`<artifact-path>/<reviewer>.json`');
+    expect(trackerDefer).toContain('Do not hardcode `/tmp`');
+    expect(trackerDefer).toContain('on Windows the temp root may be `%TEMP%`');
+    expect(trackerDefer).toContain('review workflow\'s returned artifact path is the authority');
+    expect(trackerDefer).toContain('continued in spec-code-review run artifact: <artifact-path>');
+    expect(trackerDefer).not.toContain('/tmp/spec-first/spec-code-review/<run-id>');
+  });
 });
 
 describe('spec-work-beta subagent and delegation isolation contract', () => {
@@ -159,7 +180,9 @@ describe('spec-work-beta Codex delegation config contract', () => {
     expect(skill).toContain('defers to the user\'s `~/.codex/config.toml` default');
     expect(skill).toContain('resolves to unset and defers to the user\'s `~/.codex/config.toml` default');
     expect(skill).toContain('`delegate_model` -- string from config, or unset');
-    expect(skill).toContain('`delegate_effort` -- string from config, or unset');
+    expect(skill).toContain('`delegate_effort` -- config floor from config, or unset');
+    expect(skill).toContain('Never pass `delegate_effort` directly to `codex exec`');
+    expect(skill).toContain('each batch computes an `effective_effort`');
     expect(skill).not.toContain('`delegate_model` -- string (from config or default `gpt-5.4`)');
     expect(skill).not.toContain('`delegate_effort` -- string (from config or default `high`)');
   });
@@ -186,14 +209,36 @@ describe('spec-work-beta Codex delegation config contract', () => {
     expect(reference).not.toContain('command -v codex >/dev/null 2>&1 && echo');
   });
 
-  test('codex exec omits model and effort flags unless configured', () => {
+  test('codex exec uses current sandbox flags and per-batch effective effort', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
     const reference = fs.readFileSync(DELEGATION_REFERENCE_PATH, 'utf8');
+
+    expect(skill).not.toContain('--full-auto');
+    expect(reference).not.toContain('--full-auto');
+    expect(reference).not.toContain('(--yolo)');
+    expect(reference).toContain('full-auto mode');
+    expect(reference).toContain('-s workspace-write');
+    expect(reference).toContain('[sandbox_workspace_write]');
+    expect(reference).toContain('network_access = true');
+    expect(reference).toContain('--dangerously-bypass-approvals-and-sandbox');
+
+    expect(reference).toContain('Per-Batch Effort');
+    expect(reference).toContain('`delegate_effort` is a config floor');
+    expect(reference).toContain('raise `effective_effort`, never lower it');
+    expect(reference).toContain('Every batch stores `effective_effort`');
+    expect(reference).toContain('If `effective_effort` is `default`, omit the `-c` line');
+    expect(reference).toContain('Never pass the literal default value through `model_reasoning_effort`');
+    expect(reference).toContain('Do not pass `<delegate_effort>` through to `codex exec`');
 
     expect(reference).toContain('Conditional flags');
     expect(reference).toContain('If `delegate_model` is set');
-    expect(reference).toContain('If `delegate_effort` is set');
+    expect(reference).toContain('If `effective_effort` is `medium`, `high`, or `xhigh`');
     expect(reference).toContain('Do not substitute a placeholder string for unset values.');
     expect(reference).not.toContain('  -m "<delegate_model>" \\\n  -c \'model_reasoning_effort="<delegate_effort>"\'');
+    expect(reference).not.toContain('model_reasoning_effort="<delegate_effort>"');
+    expect(reference).not.toContain('model_reasoning_effort="default"');
+    expect(reference).not.toContain('model_reasoning_effort="minimal"');
+    expect(reference).not.toContain('model_reasoning_effort="low"');
   });
 
   test('local config template does not pin a specific Codex delegate model', () => {

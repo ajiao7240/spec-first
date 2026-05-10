@@ -242,6 +242,10 @@ Run this pass on the merged set across all personas. Record the count dropped as
 
 **User-facing vocabulary rule (applies to ALL user-visible output in Phase 4, not just the rendered template).** Internal enum values — `safe_auto`, `gated_auto`, `manual`, `FYI` — stay inside the schema and synthesis prose. Every word the user sees in Phase 4 output, including free-text narration between sections, transition preambles, status lines, and confirmation messages, MUST use user-facing vocabulary: "fixes" (for `safe_auto`), "proposed fixes" (for `gated_auto`), "decisions" (for `manual` findings at anchor `75` or `100`), "FYI observations" (for any finding at anchor `50`). The only exception is the `Tier` column in rendered tables, which is explicitly documented as surfacing the internal enum for transparency. Do NOT emit narration like "safe_auto fixes applied" or "N safe_auto findings" — write "fixes applied" or "N fixes" instead.
 
+**Markdown table safety.** Before rendering any interactive findings table, escape literal pipe characters in table cell text as `\|`. This applies to section names, issue text, reviewer names, tier labels, FYI observations, residual concerns, deferred questions, and Coverage notes. Headless output does not use pipe-delimited tables, but should still avoid copying untrusted markdown in a way that changes the envelope structure.
+
+**Visual aid preservation.** Do not turn "the same concept appears in prose and a diagram/table" into a deletion recommendation. Diagrams, tables, and other visual aids are retained when they help scanning or communication. If a visual is wrong, stale, or inconsistent, route a finding to update it; if it is merely redundant but harmless, suppress the finding.
+
 ### Apply safe_auto fixes
 
 Apply only `safe_auto` findings **at confidence-first anchor `100`** to the document in a single pass. This matches the 3.7 routing table: anchor `100` + `safe_auto` silent-applies; anchor `75` + `safe_auto` was demoted to `gated_auto` in 3.7 and enters the walk-through instead; anchor `50` + any `autofix_class` routes to FYI and must never auto-apply.

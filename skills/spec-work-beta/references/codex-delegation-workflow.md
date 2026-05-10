@@ -67,8 +67,8 @@ If `consent_granted` is not true (from config `work_delegate_consent`):
 
 Present a one-time consent warning using the platform's blocking question tool (`AskUserQuestion` in Claude Code or `request_user_input` in Codex). The consent warning explains:
 - Delegation sends implementation units to `codex exec` as a structured prompt
-- **yolo mode** (`--yolo`): Full system access including network. Required for verification steps that run tests or install dependencies. **Recommended.**
-- **full-auto mode** (`--full-auto`): Workspace-write sandbox, no network access.
+- **yolo mode** (`--dangerously-bypass-approvals-and-sandbox`): Full system access including network. Required for verification steps that run tests or install dependencies. **Recommended.**
+- **full-auto mode** (`-s workspace-write`): Workspace-write sandbox. Network access remains disabled unless the user's `~/.codex/config.toml` enables `[sandbox_workspace_write] network_access = true`.
 
 Present the sandbox mode choice: (1) yolo (recommended), (2) full-auto.
 
@@ -87,6 +87,25 @@ On decline:
 ## Batching
 
 Delegate all units in one batch. If the plan exceeds 5 units, split into batches at the plan's own phase boundaries, or in groups of roughly 5 -- never splitting units that share files. Skip delegation entirely if every unit is trivial.
+
+## Per-Batch Effort
+
+Before launching each batch, choose the batch's `effective_effort` from its complexity:
+
+| Batch shape | `effective_effort` |
+|-------------|--------------------|
+| Simple docs, copy edits, or mechanical contract updates | `default` |
+| Normal implementation with focused tests | `medium` |
+| Multi-file behavior changes, migration logic, or brittle scripts | `high` |
+| Ambiguous architecture, security-sensitive behavior, or broad workflow changes | `xhigh` |
+
+`delegate_effort` is a config floor, not an invocation value. Apply it after choosing the batch effort:
+
+- If `delegate_effort` is unset, keep the selected `effective_effort`.
+- If `delegate_effort` is `medium`, `high`, or `xhigh`, raise `effective_effort`, never lower it.
+- If `delegate_effort` is `minimal` or `low`, treat it as compatibility input only; it must not reduce the selected batch effort. Users who want a lower default should set Codex defaults in `~/.codex/config.toml`.
+
+Every batch stores `effective_effort` in the delegation state before Step A. If `effective_effort` is `default`, omit the `-c` line and let Codex resolve from `~/.codex/config.toml`. Never pass the literal default value through `model_reasoning_effort`. Do not pass `<delegate_effort>` through to `codex exec`.
 
 ## Prompt Template
 
@@ -224,7 +243,7 @@ SANDBOX_MODE="<sandbox_mode>"
 
 # Resolve sandbox flag
 if [ "$SANDBOX_MODE" = "full-auto" ]; then
-  SANDBOX_FLAG="--full-auto"
+  SANDBOX_FLAG="-s workspace-write"
 else
   SANDBOX_FLAG="--dangerously-bypass-approvals-and-sandbox"
 fi
@@ -239,7 +258,7 @@ codex exec \
 **Conditional flags** — only include each line when the corresponding skill-state value is set:
 
 - If `delegate_model` is set, insert `  -m "<delegate_model>" \` as a line before `$SANDBOX_FLAG`.
-- If `delegate_effort` is set, insert `  -c 'model_reasoning_effort="<delegate_effort>"' \` as a line before `$SANDBOX_FLAG`.
+- If `effective_effort` is `medium`, `high`, or `xhigh`, insert `  -c 'model_reasoning_effort="<effective_effort>"' \` as a line before `$SANDBOX_FLAG`.
 
 When either value is unset, omit its line entirely — Codex resolves the default from the user's `~/.codex/config.toml` (and ultimately the CLI's own built-in default). Do not substitute a placeholder string for unset values.
 

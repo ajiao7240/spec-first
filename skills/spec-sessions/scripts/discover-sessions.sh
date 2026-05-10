@@ -4,8 +4,8 @@
 # Usage: discover-sessions.sh <repo-name> <days> [--platform claude|codex]
 #
 # Outputs one file path per line. Safe in both bash and zsh (all globs guarded).
-# Pass output to extract-metadata.py:
-#   python3 extract-metadata.py --cwd-filter <repo-name> $(bash discover-sessions.sh <repo-name> 7)
+# Pass output to extract-metadata.py using a null-safe pipeline:
+#   bash discover-sessions.sh <repo-name> 7 | tr '\n' '\0' | xargs -0 python3 extract-metadata.py --cwd-filter <repo-name>
 #
 # Arguments:
 #   repo-name  Folder name of the repo (e.g., "my-repo"). Used for directory matching.

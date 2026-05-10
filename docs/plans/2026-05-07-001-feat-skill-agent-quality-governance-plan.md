@@ -242,7 +242,7 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 - Modify: `skills/git-worktree/SKILL.md`
 - Modify: `skills/git-worktree/scripts/worktree-manager.sh`
 - Modify: `skills/spec-optimize/scripts/experiment-worktree.sh`（当前已知同类 `.env*` 默认复制路径；若 implementation 决定不在 Phase A 修复，必须改为 deferred tracker 条目并降低 CUD-002 全局成功信号）
-- Create: `tests/unit/git-worktree-contracts.test.js`
+- Modify or Create: `tests/unit/git-worktree-contracts.test.js`（当前若已存在，先核对其覆盖面；runtime delivery / path rewrite contract 不等于 env safety contract，U1 必须追加默认不复制 env、`--copy-env`、`.env-copy.log` 与 opt-in backup 行为断言）
 - Create: `tests/unit/high-risk-execution-contracts.test.js`
 - Modify: `CHANGELOG.md`
 
@@ -273,7 +273,7 @@ lint 先覆盖 hard-coded year、陈旧 entrypoint、option 编号引用、defau
 - high-risk execution contract test 扫描 `skills/*/scripts/*` 和高风险 skill prose，任何默认 `.env*` / credential propagation 必须命中 allowlist 中的 explicit opt-in 或 deferred risk 记录。
 - `bash -n skills/git-worktree/scripts/worktree-manager.sh` passes.
 - Contract test asserts `SKILL.md` no longer says env copying is default。
-- IU 开始时核验 `tests/unit/git-worktree-contracts.test.js` 是否已存在；不存在改为 Create 并在 CHANGELOG 单独记录。
+- IU 开始时核验 `tests/unit/git-worktree-contracts.test.js` 是否已存在；存在则作为 Modify 并补 env safety assertions，不得把现有 runtime delivery/path rewrite 断言当作 U1 安全覆盖；不存在才作为 Create 并在 CHANGELOG 单独记录。
 
 **Verification:**
 
@@ -604,7 +604,7 @@ Execute U1, U2, U3 first.
 
 Exit gate（全部满足才能退出）：
 
-- **U1 落地**：`skills/git-worktree/SKILL.md` 与 `worktree-manager.sh` 默认不复制 env；`--copy-env` opt-in 路径写 `.env-copy.log`（仅指纹，append-only，进 gitignore）；`skills/spec-optimize/scripts/experiment-worktree.sh` 的默认 `.env*` 复制路径已修复为 opt-in 或被登记为 scoped deferred risk；repo-wide high-risk env propagation audit 已记录结果；`tests/unit/git-worktree-contracts.test.js` 与 `tests/unit/high-risk-execution-contracts.test.js` 通过。
+- **U1 落地**：`skills/git-worktree/SKILL.md` 与 `worktree-manager.sh` 默认不复制 env；`--copy-env` opt-in 路径写 `.env-copy.log`（仅指纹，append-only，进 gitignore）；`skills/spec-optimize/scripts/experiment-worktree.sh` 的默认 `.env*` 复制路径已修复为 opt-in 或被登记为 scoped deferred risk；repo-wide high-risk env propagation audit 已记录结果；`tests/unit/git-worktree-contracts.test.js` 含 env safety 断言而不只是 runtime delivery/path rewrite 断言，且与 `tests/unit/high-risk-execution-contracts.test.js` 通过。
 - **U2 落地**：`skills/spec-work-beta/references/codex-delegation-workflow.md` 不再含 unbounded `git add`；引入 batch-owned ∪ `expected_side_effects` 集合 + orchestrator 三选一；`src/cli/contracts/security/secret-deny-patterns.json` 存在并通过 schema 校验；`skills/spec-write-tasks/references/task-pack-schema.md` 含 `expected_side_effects` 字段定义且禁 `**` 全仓 glob；U1↔U2 互锁条文同时出现在两份 source；`tests/unit/spec-work-beta-contracts.test.js`、`tests/unit/secret-deny-patterns-contracts.test.js` 通过。
 - **U3 落地**：`agent-native-audit` option/typo 修复；`gemini-imagegen` prose 与 scripts 默认模型/扩展名一致；触及文件中的 hardcoded year 已替换为 U8 canonical wording；contract test 与 `python3 -m py_compile` 通过。
 - **fresh-source eval**：U1 / U2 / U3 各自记录 `fresh_source_eval: ran` 或 `not_run` 与原因。
@@ -666,7 +666,7 @@ Additional commands by phase:
   - `bash -n skills/git-worktree/scripts/worktree-manager.sh`
   - `bash -n skills/spec-optimize/scripts/experiment-worktree.sh`
   - `python3 -m py_compile skills/gemini-imagegen/scripts/*.py`
-  - `npx jest tests/unit/git-worktree-contracts.test.js tests/unit/high-risk-execution-contracts.test.js tests/unit/spec-work-beta-contracts.test.js tests/unit/secret-deny-patterns-contracts.test.js tests/unit/agent-native-architecture-contracts.test.js tests/unit/skill-shell-safety.test.js --runInBand`
+  - `npx jest --runTestsByPath tests/unit/git-worktree-contracts.test.js tests/unit/high-risk-execution-contracts.test.js tests/unit/spec-work-beta-contracts.test.js tests/unit/secret-deny-patterns-contracts.test.js tests/unit/agent-native-architecture-contracts.test.js tests/unit/skill-shell-safety.test.js --runInBand`
   - schema 校验：`src/cli/contracts/security/secret-deny-patterns.json` 通过 `secret-deny-patterns.schema.json`
   - schema 校验：`skills/spec-write-tasks/references/task-pack-schema.md` 中 `expected_side_effects` 字段引用样例通过 spec-write-tasks 现有 task-pack contract test
 - **Phase B**：

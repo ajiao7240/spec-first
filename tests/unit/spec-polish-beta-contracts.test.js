@@ -51,4 +51,25 @@ describe('spec-polish-beta project detection contracts', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test('detect-project-type preserves monorepo paths with spaces', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-polish-space-'));
+
+    try {
+      execFileSync('git', ['init'], { cwd: tmpDir, stdio: 'ignore' });
+
+      const webDir = path.join(tmpDir, 'apps', 'web client');
+      fs.mkdirSync(webDir, { recursive: true });
+      fs.writeFileSync(path.join(webDir, 'vite.config.ts'), 'export default {};\n');
+
+      const output = execFileSync('bash', [SCRIPT_PATH], {
+        cwd: tmpDir,
+        encoding: 'utf8',
+      }).trim();
+
+      expect(output).toBe('vite@apps/web client');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
