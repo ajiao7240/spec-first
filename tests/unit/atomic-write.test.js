@@ -85,6 +85,45 @@ describe('atomic file write helper', () => {
     }
   });
 
+  test('operation plan refuses paths outside the project root', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-managed-delete-'));
+    const victimPath = path.join(path.dirname(root), `${path.basename(root)}-victim`);
+    fs.writeFileSync(victimPath, 'do not remove\n', 'utf8');
+
+    try {
+      expect(() => applyOperationPlan(root, {
+        operations: [
+          {
+            kind: 'remove_file',
+            path: '../' + path.basename(victimPath),
+          },
+        ],
+      })).toThrow(/outside project root/);
+      expect(fs.readFileSync(victimPath, 'utf8')).toBe('do not remove\n');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(victimPath, { force: true });
+    }
+  });
+
+  test('operation plan refuses to remove the project root', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-managed-root-'));
+
+    try {
+      expect(() => applyOperationPlan(root, {
+        operations: [
+          {
+            kind: 'remove_dir',
+            path: '.',
+          },
+        ],
+      })).toThrow(/targets project root/);
+      expect(fs.existsSync(root)).toBe(true);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test('managed state file writes do not leave temporary files behind', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-managed-state-'));
     const adapter = { stateFile: '.codex/spec-first/state.json' };

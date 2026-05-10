@@ -9,6 +9,30 @@ const REQUIRED_MANAGED_STATE_ARRAY_FIELDS = [
   'agents',
   'agentSupportFiles',
 ];
+const WINDOWS_RESERVED_PATH_NAMES = new Set([
+  'CON',
+  'PRN',
+  'AUX',
+  'NUL',
+  'COM1',
+  'COM2',
+  'COM3',
+  'COM4',
+  'COM5',
+  'COM6',
+  'COM7',
+  'COM8',
+  'COM9',
+  'LPT1',
+  'LPT2',
+  'LPT3',
+  'LPT4',
+  'LPT5',
+  'LPT6',
+  'LPT7',
+  'LPT8',
+  'LPT9',
+]);
 const RETIRED_UNMANAGED_COMMAND_FILES = new Set([
   ['graph', 'bootstrap'].join('-') + '.md',
 ]);
@@ -24,7 +48,7 @@ function readState(projectRoot, adapter) {
   }
 
   const parsed = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-  validateManagedStateShape(parsed);
+  validateManagedStateShape(parsed, adapter);
   return normalizeState(parsed);
 }
 
@@ -40,7 +64,7 @@ function readStateFileRaw(projectRoot, adapter) {
 function writeState(projectRoot, nextState, adapter) {
   const statePath = getStateFilePath(projectRoot, adapter);
   const normalized = normalizeState(nextState);
-  validateManagedStateShape(normalized);
+  validateManagedStateShape(normalized, adapter);
   writeFileAtomic(statePath, `${JSON.stringify(normalized, null, 2)}\n`, 'utf8');
 }
 
@@ -81,7 +105,7 @@ function normalizeState(raw) {
   };
 }
 
-function validateManagedStateShape(raw) {
+function validateManagedStateShape(raw, adapter) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error('Invalid managed state: expected a JSON object');
   }
@@ -103,7 +127,54 @@ function validateManagedStateShape(raw) {
     if (invalidEntry !== undefined) {
       throw new Error(`Invalid managed state: field "${field}" must contain only non-empty strings`);
     }
+
+    const unsafeEntry = raw[field].find((entry) => !isSafeManagedStatePath(entry, {
+      allowNested: field === 'agents' || field === 'agentSupportFiles',
+    }));
+    if (unsafeEntry !== undefined) {
+      throw new Error(`Invalid managed state: field "${field}" contains unsafe path entry "${unsafeEntry}"`);
+    }
   }
+
+  const developer = raw.developer && typeof raw.developer === 'object' ? raw.developer : null;
+  if (developer && typeof developer.path === 'string' && developer.path.length > 0) {
+    if (!isSafeManagedStatePath(developer.path, { allowNested: true })) {
+      throw new Error(`Invalid managed state: developer.path contains unsafe path entry "${developer.path}"`);
+    }
+    if (adapter && normalizeOperationPath(developer.path) !== normalizeOperationPath(adapter.developerFile)) {
+      throw new Error(`Invalid managed state: developer.path must be "${adapter.developerFile}"`);
+    }
+  }
+}
+
+function isSafeManagedStatePath(value, options = {}) {
+  if (typeof value !== 'string') return false;
+  if (value.length === 0 || value.trim() !== value) return false;
+  if (value.includes('\0')) return false;
+  if (path.isAbsolute(value) || /^[a-zA-Z]:/.test(value)) return false;
+  if (value.includes('\\')) return false;
+
+  const normalized = normalizeOperationPath(value);
+  if (normalized === '.' || normalized === '..') return false;
+  if (!options.allowNested && normalized.includes('/')) return false;
+
+  const segments = normalized.split('/');
+  for (const segment of segments) {
+    if (!isSafeManagedStatePathSegment(segment)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isSafeManagedStatePathSegment(segment) {
+  if (!segment || segment === '.' || segment === '..') return false;
+  if (/[<>:"|?*\x00]/.test(segment)) return false;
+  if (/[. ]$/.test(segment)) return false;
+
+  const windowsBaseName = segment.split('.')[0].toUpperCase();
+  return !WINDOWS_RESERVED_PATH_NAMES.has(windowsBaseName);
 }
 
 function isLegacyManagedState(raw) {
@@ -238,6 +309,10 @@ function buildFileWriteOperation(projectRoot, absolutePath, contents, reason, mo
 
 function planManagedAssetRemoval(projectRoot, managedState, adapter) {
   const state = normalizeState(managedState);
+  validateManagedStateShape({
+    ...state,
+    manifestVersion: state.manifestVersion || 'normalized',
+  }, adapter);
   const operations = [];
 
   for (const commandFile of state.commands) {
@@ -363,6 +438,14 @@ function hardResetManagedAssets(projectRoot, managedState, adapter) {
 function planObsoleteManagedAssetRemoval(projectRoot, previousState, nextState, adapter) {
   const previous = normalizeState(previousState);
   const next = normalizeState(nextState);
+  validateManagedStateShape({
+    ...previous,
+    manifestVersion: previous.manifestVersion || 'normalized',
+  }, adapter);
+  validateManagedStateShape({
+    ...next,
+    manifestVersion: next.manifestVersion || 'normalized',
+  }, adapter);
   const operations = [];
 
   for (const commandFile of previous.commands.filter((entry) => !next.commands.includes(entry))) {
@@ -516,7 +599,7 @@ function applyOperationPlan(projectRoot, plan) {
   }
 
   for (const operation of plan.operations) {
-    const targetPath = path.join(projectRoot, operation.path);
+    const targetPath = resolveOperationTarget(projectRoot, operation);
 
     if (operation.kind === 'ensure_dir') {
       ensureDirectory(targetPath);
@@ -557,6 +640,26 @@ function writeManagedFile(filePath, contents, mode, encoding) {
   if (typeof mode === 'number') {
     fs.chmodSync(filePath, mode);
   }
+}
+
+function resolveOperationTarget(projectRoot, operation) {
+  const targetPath = path.resolve(projectRoot, operation.path || '');
+  const projectRootResolved = path.resolve(projectRoot);
+  if (!isPathWithin(targetPath, projectRootResolved)) {
+    throw new Error(`Unsafe operation path outside project root: ${operation.path}`);
+  }
+  if (
+    targetPath === projectRootResolved &&
+    ['remove_file', 'remove_dir', 'remove_empty_root', 'prune_command'].includes(operation.kind)
+  ) {
+    throw new Error(`Unsafe operation path targets project root: ${operation.path}`);
+  }
+  return targetPath;
+}
+
+function isPathWithin(childPath, parentPath) {
+  const relative = path.relative(parentPath, childPath);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 function removeEmptyRoot(directoryPath, projectRoot) {

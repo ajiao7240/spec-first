@@ -14,22 +14,24 @@ describe('release publish script', () => {
   test('real publish explicitly targets npmjs registry', () => {
     const script = read(RELEASE_PUBLISH_PATH);
 
-    expect(script).toContain("run('npm', ['publish', '--registry=https://registry.npmjs.org'])");
+    expect(script).toContain("runNpmChecked(['publish', '--registry=https://registry.npmjs.org'])");
   });
 
-  test('release gates run before package version is written', () => {
+  test('release gates run after target package version is written and before pack', () => {
     const script = read(RELEASE_PUBLISH_PATH);
-    const releaseGateIndex = script.indexOf("run('npm', ['run', 'test:release'])");
-    const websiteGateIndex = script.indexOf("run('npm', ['run', 'test:release:website'])");
+    const releaseGateIndex = script.indexOf("runNpmChecked(['run', 'test:release'])");
+    const websiteGateIndex = script.indexOf("runNpmChecked(['run', 'test:release:website'])");
     const versionWriteIndex = script.indexOf('writePackageJson(nextPkg)');
-    const packIndex = script.indexOf("run('npm', ['pack'])");
+    const packIndex = script.indexOf("runNpmChecked(['pack'])");
+    const restoreIndex = script.lastIndexOf('writePackageJson(pkg)');
 
     expect(releaseGateIndex).toBeGreaterThan(-1);
     expect(websiteGateIndex).toBeGreaterThan(-1);
     expect(versionWriteIndex).toBeGreaterThan(-1);
     expect(packIndex).toBeGreaterThan(-1);
-    expect(releaseGateIndex).toBeLessThan(versionWriteIndex);
-    expect(websiteGateIndex).toBeLessThan(versionWriteIndex);
-    expect(versionWriteIndex).toBeLessThan(packIndex);
+    expect(restoreIndex).toBeGreaterThan(packIndex);
+    expect(versionWriteIndex).toBeLessThan(releaseGateIndex);
+    expect(versionWriteIndex).toBeLessThan(websiteGateIndex);
+    expect(websiteGateIndex).toBeLessThan(packIndex);
   });
 });

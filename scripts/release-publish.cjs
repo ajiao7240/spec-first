@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-const { spawnSync } = require('node:child_process');
 const { readFileSync, writeFileSync } = require('node:fs');
 const path = require('node:path');
+const { runNpm } = require('./npm-install-matrix-smoke');
 
 const repoRoot = path.resolve(__dirname, '..');
 const packageJsonPath = path.join(repoRoot, 'package.json');
@@ -12,29 +12,25 @@ function fail(message) {
   process.exit(1);
 }
 
-function run(command, args) {
-  const result = spawnSync(command, args, {
-    cwd: repoRoot,
-    stdio: 'inherit',
-    encoding: 'utf8',
-    shell: false,
-  });
-
-  if (result.error) {
-    fail(`${command} ${args.join(' ')} 运行失败: ${result.error.message}`);
-  }
-
-  if (result.status !== 0) {
-    fail(`${command} ${args.join(' ')} 退出码 ${result.status ?? 'null'}`);
-  }
-}
-
 function readPackageJson() {
   return JSON.parse(readFileSync(packageJsonPath, 'utf8'));
 }
 
 function writePackageJson(pkg) {
   writeFileSync(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`);
+}
+
+function runNpmChecked(args) {
+  try {
+    runNpm(args, {
+      cwd: repoRoot,
+      stdio: 'inherit',
+    });
+  } catch (error) {
+    const wrapped = new Error(`npm ${args.join(' ')} 运行失败: ${error.message}`);
+    wrapped.status = Number.isInteger(error.status) ? error.status : 1;
+    throw wrapped;
+  }
 }
 
 function isSemver(value) {
@@ -93,33 +89,46 @@ if (requestedVersion !== targetVersion) {
   console.log(`▸ ${requestedVersion} 已解析为 ${targetVersion}`);
 }
 
-console.log('\n▸ 运行发布前校验...');
-run('npm', ['run', 'test:release']);
-run('npm', ['run', 'test:release:website']);
+let exitCode = 0;
+let wroteTargetVersion = false;
+let publishSucceeded = false;
 
-if (!dryRun) {
-  const nextPkg = { ...pkg, version: targetVersion };
-  writePackageJson(nextPkg);
-  console.log(`▸ 已将 package.json version 更新为 ${targetVersion}`);
+try {
+  if (pkg.version !== targetVersion) {
+    const nextPkg = { ...pkg, version: targetVersion };
+    writePackageJson(nextPkg);
+    wroteTargetVersion = true;
+    console.log(`▸ ${dryRun ? '临时写入' : '已将'} package.json version 更新为 ${targetVersion}`);
+  }
+
+  const effectivePkg = readPackageJson();
+  if (effectivePkg.version !== targetVersion) {
+    throw new Error(`版本写入失败：package.json=${effectivePkg.version}，目标=${targetVersion}`);
+  }
+
+  console.log('\n▸ 运行目标版本发布校验...');
+  runNpmChecked(['run', 'test:release']);
+  runNpmChecked(['run', 'test:release:website']);
+
+  console.log('\n▸ 生成发布 tarball...');
+  runNpmChecked(['pack']);
+
+  if (dryRun) {
+    console.log(`\n✓ Dry-run 完成，未实际发布；目标版本校验为 ${effectivePkg.version}`);
+  } else {
+    console.log('\n▸ 发布到 npm...');
+    runNpmChecked(['publish', '--registry=https://registry.npmjs.org']);
+    publishSucceeded = true;
+    console.log(`\n✓ 已发布 ${effectivePkg.name}@${effectivePkg.version}`);
+  }
+} catch (error) {
+  console.error(`FAIL: ${error.message}`);
+  exitCode = Number.isInteger(error.status) ? error.status : 1;
+} finally {
+  if (wroteTargetVersion && (dryRun || !publishSucceeded)) {
+    writePackageJson(pkg);
+    console.log(`▸ 已恢复 package.json version 为 ${pkg.version}`);
+  }
 }
 
-const effectivePkg = readPackageJson();
-if (dryRun && effectivePkg.version !== pkg.version) {
-  fail('dry-run 不应修改 package.json version');
-}
-if (!dryRun && effectivePkg.version !== targetVersion) {
-  fail(`版本写入失败：package.json=${effectivePkg.version}，目标=${targetVersion}`);
-}
-
-console.log('\n▸ 生成发布 tarball...');
-run('npm', ['pack']);
-
-if (dryRun) {
-  console.log(`\n✓ Dry-run 完成，未实际发布；当前 package.json 仍为 ${effectivePkg.version}`);
-  process.exit(0);
-}
-
-console.log('\n▸ 发布到 npm...');
-run('npm', ['publish', '--registry=https://registry.npmjs.org']);
-
-console.log(`\n✓ 已发布 ${effectivePkg.name}@${effectivePkg.version}`);
+process.exitCode = exitCode;

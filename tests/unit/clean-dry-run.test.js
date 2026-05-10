@@ -6,6 +6,8 @@ const path = require('node:path');
 
 const { runInit } = require('../../src/cli/commands/init');
 const { runClean } = require('../../src/cli/commands/clean');
+const { getAdapter } = require('../../src/cli/adapters');
+const { readState } = require('../../src/cli/state');
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-clean-dry-run-'));
@@ -216,6 +218,54 @@ describe('clean --dry-run', () => {
       expect(cleanResult.exitCode).toBe(0);
       expect(fs.existsSync(retiredCommandPath)).toBe(false);
       expect(fs.existsSync(retiredWorkflowPath)).toBe(false);
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('clean rejects unsafe managed state paths before deleting assets', () => {
+    const tempRoot = makeTempDir();
+    const projectRoot = path.join(tempRoot, 'project');
+    const victimPath = path.join(tempRoot, 'victim.txt');
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      fs.mkdirSync(projectRoot, { recursive: true });
+      fs.writeFileSync(victimPath, 'do not remove\n', 'utf8');
+      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+
+      const adapter = getAdapter('codex');
+      const statePath = path.join(projectRoot, adapter.stateFile);
+      const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+      state.skills.push('../../../../victim.txt');
+      fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+
+      expect(() => readState(projectRoot, adapter)).toThrow(/unsafe path entry/);
+      const cleanResult = captureCommand(projectRoot, runClean, ['--codex']);
+      expect(cleanResult.exitCode).toBe(1);
+      expect(cleanResult.stderr).toContain('unsafe path entry');
+      expect(fs.readFileSync(victimPath, 'utf8')).toBe('do not remove\n');
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('managed state validation rejects unsafe developer profile paths', () => {
+    const projectRoot = makeTempDir();
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+
+      const adapter = getAdapter('codex');
+      const statePath = path.join(projectRoot, adapter.stateFile);
+      const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+      state.developer.path = '../outside-developer';
+      fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+
+      expect(() => readState(projectRoot, adapter)).toThrow(/developer\.path contains unsafe path entry/);
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

@@ -1,39 +1,39 @@
-# Website Sync Contract
+# 官网同步契约
 
-## Purpose
+## 目的
 
-`spec-first` package releases must not assume the official website has consumed the latest package facts. The website is an external consumer of this repository, not a source-of-truth directory inside this package.
+`spec-first` 包发布不能假设官网已经消费了最新 package facts。官网是本仓库的外部 consumer，不是 package 仓库内部的 source-of-truth 目录。
 
-This contract defines the release-time boundary between the package repo and the official website repo.
+本契约定义 package 仓库与官网仓库在发布时的边界。
 
 ## Source Of Truth
 
-The package repo owns these facts:
+package 仓库拥有这些事实：
 
-- `package.json` version, package name, bin path, and Node.js engine.
+- `package.json` version、package name、bin path 和 Node.js engine。
 - `src/cli/contracts/dual-host-governance/skills-governance.json`.
 - `templates/claude/commands/spec/*.md`.
 - `skills/*/SKILL.md`.
 - `agents/*.agent.md`.
-- `README.md`, `README.zh-CN.md`, and `docs/05-用户手册/**`.
+- `README.md`、`README.zh-CN.md` 和 `docs/05-用户手册/**`。
 
-The website repo consumes those facts through its own generated data and content audit. The package repo must not edit website source files during package release.
+官网仓库通过自己的 generated data 和 content audit 消费这些事实。package 发布流程不能修改官网 source files。
 
-## External Consumer
+## 外部 Consumer
 
-The expected website repo is:
+默认官网仓库路径是：
 
 ```text
 /Users/kuang/xiaobu/spec-first-official-website
 ```
 
-Maintainers may override the path with:
+维护者可以通过环境变量覆盖路径：
 
 ```bash
 SPEC_FIRST_WEBSITE_REPO=/path/to/spec-first-official-website
 ```
 
-The website-side fact sync contract is:
+官网侧 fact sync 契约是：
 
 ```bash
 cd "$SPEC_FIRST_WEBSITE_REPO/website"
@@ -41,26 +41,26 @@ npm run facts:sync
 npm run content:audit
 ```
 
-`facts:sync` is the website-owned deterministic writer. `content:audit` is the package-release gate consumed by this repo.
+`facts:sync` 是官网仓库拥有的确定性 writer。`content:audit` 是本仓库消费的 package-release gate。
 
 ## Release Gate
 
-The package release publisher must run:
+package 发布脚本必须运行：
 
 ```bash
 npm run test:release:website
 ```
 
-`test:release:website` runs `scripts/check-website-sync.cjs --required`, which:
+`test:release:website` 运行 `scripts/check-website-sync.cjs --required`，它会：
 
-1. Locates the website repo from `SPEC_FIRST_WEBSITE_REPO` or the default sibling path.
-2. Verifies the website package exposes `facts:sync` and `content:audit`.
-3. Runs `npm run content:audit` in the website package with `SPEC_FIRST_SOURCE_DIR` set to the current package repo.
+1. 从 `SPEC_FIRST_WEBSITE_REPO` 或默认 sibling path 定位官网仓库。
+2. 校验 website package 暴露了 `facts:sync` 和 `content:audit`。
+3. 在 website package 中运行 `npm run content:audit`，并把 `SPEC_FIRST_SOURCE_DIR` 指向当前 package 仓库。
 
-If the website repo is missing, the website scripts are missing, or `content:audit` fails, package publishing must stop. This keeps the deterministic fact check in scripts while leaving stale-content interpretation and remediation to the maintainer.
+如果官网仓库缺失、官网脚本缺失，或 `content:audit` 失败，package 发布必须停止。这让 scripts 只负责确定性事实检查，把 stale content 的解释与修复留给维护者。
 
-## Non-Goals
+## 非目标
 
-- Do not vendor website source into this package repo.
-- Do not make ordinary `npm run test:unit` or `npm run test:release` depend on a sibling checkout.
-- Do not let package scripts rewrite website facts during publish. If facts are stale, run `npm run facts:sync` in the website repo and review the website diff there.
+- 不把官网 source vendor 到 package 仓库。
+- 不让普通 `npm run test:unit` 或 `npm run test:release` 依赖 sibling checkout。
+- 不让 package scripts 在 publish 期间重写官网 facts。如果 facts stale，应在官网仓库运行 `npm run facts:sync` 并审查官网 diff。

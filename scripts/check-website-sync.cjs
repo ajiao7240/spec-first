@@ -3,7 +3,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const { runNpm } = require('./npm-install-matrix-smoke');
 
 const repoRoot = path.resolve(__dirname, '..');
 const defaultWebsiteRepo = path.resolve(repoRoot, '..', 'spec-first-official-website');
@@ -26,21 +26,15 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-function run(command, args, options) {
-  const result = spawnSync(command, args, {
-    cwd: options.cwd,
-    env: options.env,
-    encoding: 'utf8',
-    shell: false,
-    stdio: 'inherit',
-    windowsHide: true,
-  });
-
-  if (result.error) {
-    fail(`${command} ${args.join(' ')} failed: ${result.error.message}`);
-  }
-  if (result.status !== 0) {
-    fail(`${command} ${args.join(' ')} exited with status ${result.status ?? 'null'}`);
+function runNpmChecked(args, options) {
+  try {
+    runNpm(args, {
+      cwd: options.cwd,
+      env: options.env,
+      stdio: 'inherit',
+    });
+  } catch (error) {
+    fail(`npm ${args.join(' ')} failed: ${error.message}`);
   }
 }
 
@@ -73,7 +67,7 @@ function main() {
     }
   }
 
-  run('npm', ['run', 'content:audit'], {
+  runNpmChecked(['run', 'content:audit'], {
     cwd: websitePackageDir,
     env: {
       ...process.env,

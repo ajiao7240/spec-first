@@ -98,7 +98,20 @@ describe('npm install matrix smoke script', () => {
     expect(workflow).toContain('SPEC_FIRST_SMOKE_ARTIFACT_DIR');
     expect(workflow).toContain('actions/upload-artifact@v4');
     expect(workflow).toContain('if-no-files-found: ignore');
-    expect(workflow).toContain('scripts/npm-install-matrix-smoke.js');
+    for (const filter of [
+      'agents/**',
+      'docs/contracts/verifiers/**',
+      'skills/**',
+      'templates/**',
+      'README.md',
+      '.npmignore',
+      'scripts/generate-runtime-capability-catalog.js',
+      'scripts/npm-install-matrix-smoke.js',
+      'scripts/run-test-suite.cjs',
+      'scripts/typecheck-js.js',
+    ]) {
+      expect(workflow).toContain(`- '${filter}'`);
+    }
     expect(workflow).not.toContain('shell: node {0}');
     expect(workflow).not.toContain('shell: process.platform ===');
     expect(script).not.toContain('shell: process.platform ===');

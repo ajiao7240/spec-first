@@ -24,6 +24,14 @@ const installHelpersSh = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/inst
 const libTomlPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/lib-toml.ps1');
 const mcpSetupSkillPath = path.join(repoRoot, 'skills/spec-mcp-setup/SKILL.md');
 
+function spawnPwsh(args, options = {}) {
+  const result = spawnSync('pwsh', args, options);
+  if (result.error && result.error.code === 'ENOENT') {
+    return null;
+  }
+  return result;
+}
+
 describe('spec-mcp-setup PowerShell host config contract', () => {
   const source = fs.readFileSync(configureHostPs1, 'utf8');
 
@@ -228,7 +236,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
         '$section = Get-TomlMcpSection -Path $env:SPEC_FIRST_TOML_PATH -Key "agent-browser"',
         'if ($section -notmatch "command =") { exit 7 }',
       ].join('; ');
-      const result = spawnSync('pwsh', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], {
+      const result = spawnPwsh(['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], {
         cwd: repoRoot,
         encoding: 'utf8',
         env: {
@@ -236,6 +244,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
           SPEC_FIRST_TOML_PATH: configPath,
         },
       });
+      if (!result) return;
 
       expect(result.status).toBe(0);
       expect(fs.readFileSync(configPath, 'utf8')).toContain('[mcp_servers."agent-browser"]');
@@ -555,13 +564,11 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
   Write-Output 'metadata-present'
 }
 `;
-    const result = spawnSync('pwsh', ['-NoLogo', '-NoProfile', '-Command', script], {
+    const result = spawnPwsh(['-NoLogo', '-NoProfile', '-Command', script], {
       cwd: repoRoot,
       encoding: 'utf8',
     });
-    if (result.error && result.error.code === 'ENOENT') {
-      return;
-    }
+    if (!result) return;
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
     expect(result.stdout).toContain('metadata-present');
@@ -1074,10 +1081,11 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
   });
 
   test('PowerShell check-health JSON is parseable under pwsh', () => {
-    const result = spawnSync('pwsh', ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', checkHealthPs1, '-Json'], {
+    const result = spawnPwsh(['-NoLogo', '-NoProfile', '-NonInteractive', '-File', checkHealthPs1, '-Json'], {
       cwd: repoRoot,
       encoding: 'utf8',
     });
+    if (!result) return;
 
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');

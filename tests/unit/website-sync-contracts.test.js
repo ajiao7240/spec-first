@@ -24,13 +24,13 @@ describe('website sync release contract', () => {
   test('documents source truth, external website consumer, and release gate boundary', () => {
     const contract = read(CONTRACT_PATH);
 
-    expect(contract).toContain('The website is an external consumer');
-    expect(contract).toContain('The package repo owns these facts');
+    expect(contract).toContain('官网是本仓库的外部 consumer');
+    expect(contract).toContain('package 仓库拥有这些事实');
     expect(contract).toContain('SPEC_FIRST_WEBSITE_REPO');
     expect(contract).toContain('npm run facts:sync');
     expect(contract).toContain('npm run content:audit');
     expect(contract).toContain('npm run test:release:website');
-    expect(contract).toContain('Do not vendor website source into this package repo.');
+    expect(contract).toContain('不把官网 source vendor 到 package 仓库');
   });
 
   test('publish flow includes the required website release gate without folding it into ordinary release tests', () => {
@@ -39,7 +39,16 @@ describe('website sync release contract', () => {
 
     expect(pkg.scripts['test:release']).toBe('node scripts/run-test-suite.cjs release');
     expect(pkg.scripts['test:release:website']).toBe('node scripts/check-website-sync.cjs --required');
-    expect(publisher).toContain("run('npm', ['run', 'test:release:website'])");
+    expect(publisher).toContain("runNpmChecked(['run', 'test:release:website'])");
+  });
+
+  test('website sync script reuses the non-shell npm CLI runner for Windows portability', () => {
+    const script = read(WEBSITE_SYNC_SCRIPT_PATH);
+
+    expect(script).toContain("const { runNpm } = require('./npm-install-matrix-smoke');");
+    expect(script).toContain("runNpmChecked(['run', 'content:audit']");
+    expect(script).toContain('runNpm(args,');
+    expect(script).not.toContain("spawnSync('npm'");
   });
 
   test('website sync script runs content audit with the package repo as SPEC_FIRST_SOURCE_DIR', () => {
