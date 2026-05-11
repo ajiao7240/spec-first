@@ -104,6 +104,78 @@ describe('instruction bootstrap', () => {
     expect(updated.match(/<!-- spec-first:bootstrap:start -->/g)).toHaveLength(1);
   });
 
+  test('preserves a clean-heading user section when markers are corrupted', () => {
+    const corrupted = [
+      '# Header',
+      '',
+      BOOTSTRAP_START,
+      '## Workflow Entry Governance',
+      '',
+      '- Custom workflow note.',
+      '- Keep the local planning checklist.',
+      '- Require owner approval before changing commands.',
+      '- Do not remove this section.',
+      '',
+      '# Tail',
+    ].join('\n');
+
+    const updated = applyManagedBootstrapBlock(corrupted, buildBootstrapBlock('codex', 'en'));
+
+    expect(updated).toContain('- Custom workflow note.');
+    expect(updated).toContain('- Do not remove this section.');
+    expect(updated).toContain('# Tail');
+    expect(updated.match(/<!-- spec-first:bootstrap:start -->/g)).toHaveLength(1);
+    expect(updated.match(/^## Workflow Entry Governance$/gm)).toHaveLength(2);
+  });
+
+  test('remove preserves a clean-heading user section when markers are corrupted', () => {
+    const corrupted = [
+      '# Header',
+      '',
+      BOOTSTRAP_START,
+      '## Workflow Entry Governance',
+      '',
+      '- Custom workflow note.',
+      '- Keep the local planning checklist.',
+      '- Require owner approval before changing commands.',
+      '- Do not remove this section.',
+      '',
+      '# Tail',
+    ].join('\n');
+
+    const updated = removeManagedBootstrapBlock(corrupted);
+
+    expect(updated).toContain('- Custom workflow note.');
+    expect(updated).toContain('- Do not remove this section.');
+    expect(updated).toContain('# Tail');
+    expect(updated).not.toContain(BOOTSTRAP_START);
+    expect(updated.match(/^## Workflow Entry Governance$/gm)).toHaveLength(1);
+  });
+
+  test('clears a clean-heading generated-like body when markers are corrupted', () => {
+    const corrupted = [
+      '# Header',
+      '',
+      BOOTSTRAP_START,
+      '## Workflow Entry Governance',
+      '',
+      '- This block is the spec-first workflow entry reminder; `using-spec-first` is a standalone meta skill, not a workflow command',
+      '- Common entry anchors: environment/MCP→`/spec:mcp-setup`; graph readiness compiler→`/spec:graph-bootstrap`',
+      '- Do not expose internal-only skills directly',
+      '- CUSTOM DRIFT',
+      '',
+      '# Tail',
+    ].join('\n');
+
+    const updated = applyManagedBootstrapBlock(corrupted, buildBootstrapBlock('codex', 'en'));
+
+    expect(updated).toContain('# Header');
+    expect(updated).toContain('# Tail');
+    expect(updated).not.toContain('CUSTOM DRIFT');
+    expect(updated.match(/^## Workflow Entry Governance$/gm)).toHaveLength(1);
+    expect(updated).toContain(BOOTSTRAP_END);
+  });
+
   test('removes only the managed block and preserves user content', () => {
     const content = [
       '# Header',

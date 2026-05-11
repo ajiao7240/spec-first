@@ -157,6 +157,81 @@ describe('coding guidelines instruction block', () => {
     expect(updated).toContain(CODING_GUIDELINES_END);
   });
 
+  test('preserves a clean-heading user section when markers are corrupted', () => {
+    const corrupted = [
+      '# Header',
+      '',
+      CODING_GUIDELINES_START,
+      '## Coding Execution Guidelines',
+      '',
+      'Custom repository coding notes.',
+      '- Keep the local release checklist.',
+      '',
+      '# Tail',
+    ].join('\n');
+
+    const updated = applyManagedCodingGuidelinesBlock(corrupted, buildCodingGuidelinesBlock('en'));
+
+    expect(updated).toContain('Custom repository coding notes.');
+    expect(updated).toContain('- Keep the local release checklist.');
+    expect(updated).toContain('# Tail');
+    expect(updated.match(/<!-- spec-first:coding-guidelines:start -->/g)).toHaveLength(1);
+    expect(updated.match(/^## Coding Execution Guidelines$/gm)).toHaveLength(2);
+  });
+
+  test('remove preserves a clean-heading user section when markers are corrupted', () => {
+    const corrupted = [
+      '# Header',
+      '',
+      CODING_GUIDELINES_START,
+      '## Coding Execution Guidelines',
+      '',
+      'Custom repository coding notes.',
+      '- Keep the local release checklist.',
+      '',
+      '# Tail',
+    ].join('\n');
+
+    const updated = removeManagedCodingGuidelinesBlock(corrupted);
+
+    expect(updated).toContain('Custom repository coding notes.');
+    expect(updated).toContain('- Keep the local release checklist.');
+    expect(updated).toContain('# Tail');
+    expect(updated).not.toContain(CODING_GUIDELINES_START);
+    expect(updated.match(/^## Coding Execution Guidelines$/gm)).toHaveLength(1);
+  });
+
+  test('clears a clean-heading generated-like body when markers are corrupted', () => {
+    const corrupted = [
+      '# Header',
+      '',
+      CODING_GUIDELINES_START,
+      '## Coding Execution Guidelines',
+      '',
+      'CUSTOM DRIFT',
+      '',
+      '### 1. Think Before Coding',
+      '- one',
+      '- two',
+      '- three',
+      '- four',
+      '',
+      '### 2. Simplicity First',
+      '- five',
+      '',
+      '# Tail',
+    ].join('\n');
+
+    const updated = applyManagedCodingGuidelinesBlock(corrupted, buildCodingGuidelinesBlock('en'));
+
+    expect(updated).toContain('# Header');
+    expect(updated).toContain('# Tail');
+    expect(updated).not.toContain('CUSTOM DRIFT');
+    expect(updated).not.toContain('- five');
+    expect(updated.match(/^## Coding Execution Guidelines$/gm)).toHaveLength(1);
+    expect(updated).toContain(CODING_GUIDELINES_END);
+  });
+
   test('removes a drifted managed body when the markers are corrupted', () => {
     const corrupted = [
       '# Header',
