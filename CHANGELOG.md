@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.1 2026-05-11 14:55:00 leokuang: docs(readme): 同步 README/zh-CN 与 P2-007 plan 内容更新；补齐 runtime capability catalog 生成与测试
 - v1.8.1 2026-05-11 14:50:00 leokuang: fix(test): 微调 npm-install-matrix smoke 测试断言
 - v1.8.1 2026-05-11 14:45:00 leokuang: fix(release): 修正 release-package-evidence schema 字段结构
 - v1.8.1 2026-05-11 14:40:00 leokuang: test(release): 为 P2-007 release package evidence 补充单测与 CI workflow 更新

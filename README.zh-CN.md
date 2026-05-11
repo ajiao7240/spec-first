@@ -603,6 +603,8 @@ npm test
 
 `npm run test:ai-dev:benchmarks` 校验 advisory benchmark fixture suite 的 contract 与 evidence shape；它不为 LLM 语义质量打分，也不运行真实 agent。
 
+`npm run test:release:install` 在设置 `SPEC_FIRST_SMOKE_ARTIFACT_DIR` 时会把 release package evidence 写到 `.spec-first/ci/npm-install-matrix/`：package content manifest、tarball-installed Claude/Codex init dry-run logs，以及给 reviewer 使用的 release artifact summary。
+
 `npm run test:release:website` 是维护者发布官网同步门禁。它要求存在 `../spec-first-official-website` 或设置 `SPEC_FIRST_WEBSITE_REPO`，并用当前 package repo facts 运行官网侧 `content:audit`。
 
 修改 source assets 时，应修改 `skills/`、`agents/`、`templates/` 或 `src/cli/`，再在新宿主会话中通过 `spec-first init --claude` 或 `spec-first init --codex` 重建 runtime copies。

@@ -53,6 +53,12 @@ describe('runtime capability catalog', () => {
     expect(catalog).toContain('.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json');
     expect(catalog).toContain('advisory_failures[]');
     expect(catalog).toContain('does not run agents or workflows');
+    expect(catalog).toContain('## Release Package Evidence');
+    expect(catalog).toContain('package-content-manifest.json');
+    expect(catalog).toContain('init-claude-dry-run.log');
+    expect(catalog).toContain('init-codex-dry-run.log');
+    expect(catalog).toContain('release-artifact-summary.json');
+    expect(catalog).toContain('no dashboard, history store, GitHub Release automation, or release decision engine');
   });
 
   test('catalog exposes planned workflow artifact contracts without claiming runtime production', () => {

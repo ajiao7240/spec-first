@@ -603,6 +603,8 @@ npm test
 
 `npm run test:ai-dev:benchmarks` validates the advisory benchmark fixture suite contract and evidence shape; it does not score LLM semantic quality or run real agents.
 
+`npm run test:release:install` writes release package evidence under `.spec-first/ci/npm-install-matrix/` when `SPEC_FIRST_SMOKE_ARTIFACT_DIR` is set: package content manifest, tarball-installed Claude/Codex init dry-run logs, and a release artifact summary for reviewers.
+
 `npm run test:release:website` is the maintainer release gate for the external official site. It expects `../spec-first-official-website` or `SPEC_FIRST_WEBSITE_REPO` and runs the website `content:audit` against the current package repo facts.
 
 When changing source assets, edit `skills/`, `agents/`, `templates/`, or `src/cli/`, then regenerate runtime copies with `spec-first init --claude` or `spec-first init --codex` in a fresh host session.
