@@ -8,7 +8,8 @@
     "gate_id",
     "passed",
     "checks",
-    "failures"
+    "failures",
+    "advisory_failures"
   ],
   "properties": {
     "schema_version": { "type": "string" },
@@ -33,6 +34,7 @@
             "enum": ["unit-suite", "benchmark"]
           },
           "passed": { "type": "boolean" },
+          "advisory": { "type": "boolean" },
           "summary": {
             "type": "object",
             "additionalProperties": {
@@ -46,6 +48,25 @@
     "failures": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "advisory_failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "check_id",
+          "reason_code",
+          "artifact_paths"
+        ],
+        "properties": {
+          "check_id": { "type": "string" },
+          "reason_code": { "type": "string" },
+          "artifact_paths": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
     }
   }
 }

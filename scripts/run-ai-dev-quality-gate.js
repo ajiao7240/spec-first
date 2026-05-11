@@ -6,6 +6,10 @@ const { spawnSync } = require('node:child_process');
 
 const { resolveWorkflowArtifactDir } = require('../src/verification/artifact-paths');
 const { buildQualityFeedbackTopics } = require('../src/verification/quality-feedback');
+const {
+  BENCHMARK_SUITE_ID,
+  runAiDevBenchmarkFixtures,
+} = require('./run-ai-dev-benchmark-fixtures');
 
 const GATE_ID = 'ai-dev-quality-gate';
 const QUALITY_FEEDBACK_FILE = 'quality-feedback-topics.json';
@@ -35,15 +39,63 @@ function relativeArtifactPath(repoRoot, filePath) {
   return path.relative(repoRoot, filePath).replace(/\\/g, '/');
 }
 
-function buildGateResult({ generatedAt, workflowRuntimeContracts }) {
+function unique(values) {
+  return [...new Set((values || []).filter(Boolean))];
+}
+
+function buildBenchmarkFixturesCheck(benchmarkFixtures) {
+  return {
+    check_id: BENCHMARK_SUITE_ID,
+    kind: 'benchmark',
+    passed: benchmarkFixtures.passed,
+    advisory: true,
+    summary: {
+      fixtures_total: Array.isArray(benchmarkFixtures.fixtures) ? benchmarkFixtures.fixtures.length : 0,
+      fixtures_failed: Array.isArray(benchmarkFixtures.fixtures)
+        ? benchmarkFixtures.fixtures.filter((fixture) => fixture.status === 'failed').length
+        : 0,
+      failures_total: Array.isArray(benchmarkFixtures.failures) ? benchmarkFixtures.failures.length : 0,
+    },
+    artifact_path: benchmarkFixtures.artifact_path || null,
+  };
+}
+
+function buildAdvisoryFailures(checks, benchmarkFixtures = null) {
+  return checks
+    .filter((check) => check.advisory === true && check.passed === false)
+    .map((check) => {
+      const benchmarkFailures = check.check_id === BENCHMARK_SUITE_ID && benchmarkFixtures
+        ? benchmarkFixtures.failures || []
+        : [];
+      const reasonCode = benchmarkFailures.find((failure) => failure.reason_code)?.reason_code
+        || 'advisory-check-failed';
+      const artifactPaths = unique([
+        check.artifact_path,
+        ...benchmarkFailures.flatMap((failure) => failure.artifact_paths || []),
+      ]);
+
+      return {
+        check_id: check.check_id,
+        reason_code: reasonCode,
+        artifact_paths: artifactPaths,
+      };
+    });
+}
+
+function buildGateResult({ generatedAt, workflowRuntimeContracts, benchmarkFixtures = null }) {
   const checks = [workflowRuntimeContracts];
+  if (benchmarkFixtures) {
+    checks.push(buildBenchmarkFixturesCheck(benchmarkFixtures));
+  }
+  const blockingChecks = checks.filter((check) => check.advisory !== true);
   return {
     schema_version: 'v1',
     generated_at: generatedAt,
     gate_id: GATE_ID,
-    passed: checks.every((check) => check.passed),
+    passed: blockingChecks.every((check) => check.passed),
     checks,
-    failures: checks.filter((check) => !check.passed).map((check) => check.check_id),
+    failures: blockingChecks.filter((check) => !check.passed).map((check) => check.check_id),
+    advisory_failures: buildAdvisoryFailures(checks, benchmarkFixtures),
   };
 }
 
@@ -86,7 +138,12 @@ function runAiDevQualityGate({ repoRoot = process.cwd() } = {}) {
   ensureDir(artifactDir);
 
   const workflowRuntimeContracts = runWorkflowRuntimeContractsSuite({ repoRoot, artifactDir });
-  const gateResult = buildGateResult({ generatedAt, workflowRuntimeContracts });
+  const benchmarkFixtures = runAiDevBenchmarkFixtures({
+    repoRoot,
+    fixturesRoot: path.join(repoRoot, 'tests', 'fixtures', 'ai-dev-benchmarks'),
+    generatedAt,
+  });
+  const gateResult = buildGateResult({ generatedAt, workflowRuntimeContracts, benchmarkFixtures });
   const resultPath = path.join(artifactDir, 'ai-dev-quality-gate-result.json');
   writeJson(resultPath, gateResult);
   const feedbackTopics = buildQualityFeedbackTopics({
@@ -116,6 +173,8 @@ module.exports = {
   GATE_ID,
   QUALITY_FEEDBACK_FILE,
   WORKFLOW_RUNTIME_CONTRACT_TESTS,
+  buildAdvisoryFailures,
+  buildBenchmarkFixturesCheck,
   buildGateResult,
   runAiDevQualityGate,
 };

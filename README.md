@@ -592,6 +592,7 @@ npm run test:unit
 npm run test:smoke
 npm run test:integration
 npm run test:ai-dev:gate
+npm run test:ai-dev:benchmarks
 npm run test:release
 npm run test:release:website
 npm run build
@@ -599,6 +600,8 @@ npm test
 ```
 
 `npm run build` runs `npm pack --dry-run` and verifies the package payload shape through npm.
+
+`npm run test:ai-dev:benchmarks` validates the advisory benchmark fixture suite contract and evidence shape; it does not score LLM semantic quality or run real agents.
 
 `npm run test:release:website` is the maintainer release gate for the external official site. It expects `../spec-first-official-website` or `SPEC_FIRST_WEBSITE_REPO` and runs the website `content:audit` against the current package repo facts.
 

@@ -341,10 +341,11 @@ compound
 ## [P2-003] benchmark/eval fixture suite 仍偏弱
 
 - 问题类型：开源可信度 / AI workflow eval
-- 证据：当前有 contract/unit/smoke/integration，但缺少跨项目真实需求到代码的 benchmark fixture。
-- 影响：难证明 workflow 改动提升 AI 辅助研发质量，而不是 prompt 变长。
-- 修复建议：建立 5-10 个 fixture repos：docs-only、CLI bug、API contract、multi-module refactor、graph-degraded fallback；记录 baseline 与 expected artifacts。
-- 验证方式：`npm run test:ai-dev:gate` 扩展为可重复 benchmark。
+- 状态：v1 foundation complete / full closure pending（2026-05-11）。已建立 3 个 repo-like benchmark fixtures（docs-only、CLI bugfix、graph-degraded fallback）、manifest/result schema、deterministic runner、`test:ai-dev:benchmarks` 和 `test:ai-dev:gate` advisory 聚合。
+- 当前行为：`npm run test:ai-dev:benchmarks` 校验 fixture manifest/schema/path/expected artifacts 并写入 `.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json`；`npm run test:ai-dev:gate` 将 benchmark 作为 advisory check 聚合，gate-level `passed` 与 blocking `failures` 仍只由 non-advisory checks 决定，benchmark drift 进入 `advisory_failures[]`。
+- 能力边界：v1 只证明 benchmark input 与 evidence shape 可消费，不执行真实 `$spec-work` / agent，不评价 LLM 语义质量，不做 leaderboard/history/dashboard，也不把 benchmark 作为 release hard gate。
+- 剩余 full closure：补齐 API contract 与 multi-module refactor fixtures，并增加至少一个真实 workflow 或 LLM-review pass，将生成输出与 expected artifacts 做语义对照。
+- 验证状态：已通过 `node --check scripts/run-ai-dev-benchmark-fixtures.js`、`npm run test:ai-dev:benchmarks`、`npx jest tests/unit/ai-dev-benchmark-fixtures.test.js tests/unit/ai-dev-quality-gate.test.js --runInBand`、`npx jest tests/integration/verification-gate.integration.test.js --runInBand`、`npm run test:ai-dev:gate`。
 
 ## [P2-004] `spec-standards` / `glue-map` 与 plan/work 的消费边界需更多 examples
 

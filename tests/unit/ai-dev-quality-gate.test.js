@@ -8,6 +8,7 @@ const {
   GATE_ID,
   QUALITY_FEEDBACK_FILE,
   WORKFLOW_RUNTIME_CONTRACT_TESTS,
+  buildBenchmarkFixturesCheck,
   buildGateResult,
 } = require('../../scripts/run-ai-dev-quality-gate');
 
@@ -53,6 +54,99 @@ describe('ai dev quality gate contract', () => {
         }),
       ],
       failures: [],
+      advisory_failures: [],
+    });
+  });
+
+  test('benchmark fixture failures remain advisory in the aggregate gate result', () => {
+    const schema = JSON.parse(fs.readFileSync(SCHEMA_PATH, 'utf8'));
+    const benchmarkFixtures = {
+      schema_version: 'v1',
+      generated_at: '2026-04-18T13:20:00.000Z',
+      suite_id: 'ai-dev-benchmark-fixtures',
+      passed: false,
+      advisory: true,
+      fixtures: [
+        {
+          fixture_id: 'unsafe-path',
+          status: 'failed',
+          reason_code: 'unsafe-path',
+          artifact_paths: ['tests/fixtures/ai-dev-benchmarks/unsafe-path/manifest.json'],
+          advisory: true,
+          validation_commands_status: 'declared_only',
+          validation_commands: ['node definitely-not-executed.js'],
+        },
+      ],
+      failures: [
+        {
+          fixture_id: 'unsafe-path',
+          reason_code: 'unsafe-path',
+          message: 'prompt_path must be a safe POSIX repo-relative path.',
+          artifact_paths: ['tests/fixtures/ai-dev-benchmarks/unsafe-path/manifest.json'],
+        },
+      ],
+      artifact_path: '.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json',
+    };
+    const result = buildGateResult({
+      generatedAt: '2026-04-18T13:20:00.000Z',
+      workflowRuntimeContracts: {
+        check_id: 'workflow-runtime-contracts',
+        kind: 'unit-suite',
+        passed: true,
+        summary: {
+          test_suites_total: 13,
+          test_suites_failed: 0,
+          tests_total: 76,
+          tests_failed: 0,
+        },
+        artifact_path: '.spec-first/workflows/quality-gates/ai-dev-quality-gate/workflow-runtime-contracts.junit.json',
+      },
+      benchmarkFixtures,
+    });
+
+    expect(validateAgainstSchema(schema, result).errors).toEqual([]);
+    expect(result.passed).toBe(true);
+    expect(result.failures).toEqual([]);
+    expect(result.checks).toContainEqual(expect.objectContaining({
+      check_id: 'ai-dev-benchmark-fixtures',
+      kind: 'benchmark',
+      passed: false,
+      advisory: true,
+    }));
+    expect(result.advisory_failures).toEqual([
+      {
+        check_id: 'ai-dev-benchmark-fixtures',
+        reason_code: 'unsafe-path',
+        artifact_paths: [
+          '.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json',
+          'tests/fixtures/ai-dev-benchmarks/unsafe-path/manifest.json',
+        ],
+      },
+    ]);
+  });
+
+  test('benchmark check summary keeps fixture drift visible without score semantics', () => {
+    expect(buildBenchmarkFixturesCheck({
+      passed: false,
+      fixtures: [
+        { status: 'passed' },
+        { status: 'failed' },
+      ],
+      failures: [
+        { reason_code: 'unsafe-path' },
+      ],
+      artifact_path: '.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json',
+    })).toEqual({
+      check_id: 'ai-dev-benchmark-fixtures',
+      kind: 'benchmark',
+      passed: false,
+      advisory: true,
+      summary: {
+        fixtures_total: 2,
+        fixtures_failed: 1,
+        failures_total: 1,
+      },
+      artifact_path: '.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json',
     });
   });
 
@@ -81,10 +175,14 @@ describe('ai dev quality gate contract', () => {
     expect(aiWorkflow).not.toContain(retiredSource);
     expect(aiWorkflow).toContain("src/contracts/**");
     expect(aiWorkflow).toContain("docs/contracts/quality-gates/**");
+    expect(aiWorkflow).toContain("scripts/run-ai-dev-benchmark-fixtures.js");
+    expect(aiWorkflow).toContain("scripts/run-ai-dev-quality-gate.js");
     expect(aiWorkflow).toContain(".github/workflows/ai-dev-quality-gate.yml");
     expect(aiWorkflow).toContain("tests/unit/branch-protection-policy.test.js");
     expect(aiWorkflow).toContain("tests/unit/no-crg-runtime-contracts.test.js");
     expect(aiWorkflow).toContain("tests/unit/package-install-contracts.test.js");
+    expect(aiWorkflow).toContain("tests/unit/ai-dev-benchmark-fixtures.test.js");
+    expect(aiWorkflow).toContain("tests/fixtures/ai-dev-benchmarks/**");
     expect(aiWorkflow).not.toContain(retiredContracts);
     expect(aiWorkflow).not.toContain("src/bootstrap-compiler/**");
     expect(aiWorkflow).not.toContain("docs/contracts/spec-" + "graph" + "-bootstrap/**");

@@ -1,7 +1,7 @@
 ---
 title: "feat: AI dev benchmark fixture suite v1"
 type: feat
-status: active
+status: completed
 date: 2026-05-11
 spec_id: 2026-05-11-003-ai-dev-benchmark-fixtures
 origin: docs/2026-05-10/spec-first-full-code-review-and-competitor-benchmark.md

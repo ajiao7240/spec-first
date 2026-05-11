@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.1 2026-05-11 13:07:35 leokuang: feat(quality-gates): 新增 AI dev benchmark fixture suite v1、advisory gate 聚合与 deterministic result artifact，支撑 P2-003 v1 foundation (user-visible)
 - v1.8.1 2026-05-11 12:21:01 leokuang: docs(plan): 收紧 P2-003 benchmark fixture 计划的过度设计防线，明确 v1 minimum foundation、延后 quality feedback 平台化和语义评分能力 (user-visible)
 - v1.8.1 2026-05-11 12:05:35 leokuang: docs(plan): 按 spec-doc-review 结果修订 P2-003 benchmark fixture 计划，收紧 v1 foundation、advisory gate、result schema、CI 与 README 可见性边界 (user-visible)
 - v1.8.1 2026-05-11 11:49:58 leokuang: docs(plan): 新增 P2-003 AI dev benchmark fixture suite v1 计划，收敛 3 个 fixture、advisory gate 与脚本/LLM 边界 (user-visible)

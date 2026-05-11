@@ -592,6 +592,7 @@ npm run test:unit
 npm run test:smoke
 npm run test:integration
 npm run test:ai-dev:gate
+npm run test:ai-dev:benchmarks
 npm run test:release
 npm run test:release:website
 npm run build
@@ -599,6 +600,8 @@ npm test
 ```
 
 `npm run build` 执行 `npm pack --dry-run`，用于验证发布包内容。
+
+`npm run test:ai-dev:benchmarks` 校验 advisory benchmark fixture suite 的 contract 与 evidence shape；它不为 LLM 语义质量打分，也不运行真实 agent。
 
 `npm run test:release:website` 是维护者发布官网同步门禁。它要求存在 `../spec-first-official-website` 或设置 `SPEC_FIRST_WEBSITE_REPO`，并用当前 package repo facts 运行官网侧 `content:audit`。
 

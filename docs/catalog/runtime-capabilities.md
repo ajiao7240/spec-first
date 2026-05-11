@@ -90,6 +90,15 @@ These contracts are docs-side visibility records for future artifacts. They do n
 |---|---|---|---|---|
 | spec-first spec-work run artifact planned contract<br>docs/contracts/workflows/spec-work-run-artifact.schema.json | planned | unimplemented | .spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json | docs-side contract; src/cli must not implicitly consume this schema |
 
+## Quality Gate Evidence
+
+AI dev benchmark fixtures are advisory evidence for workflow input and artifact-shape drift. They validate deterministic fixture contracts, not LLM semantic quality or real `$spec-work` output quality.
+
+| Command | Artifact | Gate behavior | Boundary |
+|---|---|---|---|
+| `npm run test:ai-dev:benchmarks` | `.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json` | Fails on invalid fixture manifest/schema/path data. | Deterministic fixture and evidence-shape validation only; does not run agents or workflows. |
+| `npm run test:ai-dev:gate` | `.spec-first/workflows/quality-gates/ai-dev-quality-gate/ai-dev-quality-gate-result.json` | Includes benchmark fixture results as `advisory`; gate-level `passed` and blocking `failures` are computed from non-advisory checks. | Advisory benchmark failures remain visible in `advisory_failures[]`; they are not release hard gates in v1. |
+
 ## Readiness Meaning
 
 Runtime delivery describes what commands, skills, and agents were generated. It does not mean MCP helpers or graph providers are query-ready. Downstream workflows should read the layer-specific artifacts below instead of treating one pass/fail value as global readiness.

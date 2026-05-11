@@ -19,6 +19,7 @@ describe('AI dev quality gate integration', () => {
     const testRunner = read(TEST_RUNNER_PATH);
 
     expect(pkg.scripts['test:ai-dev:gate']).toBe('node scripts/run-ai-dev-quality-gate.js');
+    expect(pkg.scripts['test:ai-dev:benchmarks']).toBe('node scripts/run-ai-dev-benchmark-fixtures.js');
     expect(pkg.scripts['test:integration']).toBe('node scripts/run-test-suite.cjs integration');
     expect(testRunner).toContain('function runIntegration()');
     expect(testRunner).toContain('tests/integration/verification-gate.integration.test.js');
@@ -37,6 +38,8 @@ describe('AI dev quality gate integration', () => {
     expect(workflow).not.toContain(retiredContracts);
     expect(workflow).toContain("docs/contracts/verifiers/**");
     expect(workflow).toContain("docs/contracts/quality-gates/**");
+    expect(workflow).toContain("scripts/run-ai-dev-benchmark-fixtures.js");
+    expect(workflow).toContain("scripts/run-ai-dev-quality-gate.js");
     expect(workflow).toContain("skills/spec-plan/**");
     expect(workflow).toContain("skills/spec-write-tasks/**");
     expect(workflow).toContain("skills/spec-work/**");
@@ -46,6 +49,8 @@ describe('AI dev quality gate integration', () => {
     expect(workflow).toContain("tests/unit/branch-protection-policy.test.js");
     expect(workflow).toContain("tests/unit/no-crg-runtime-contracts.test.js");
     expect(workflow).toContain("tests/unit/package-install-contracts.test.js");
+    expect(workflow).toContain("tests/unit/ai-dev-benchmark-fixtures.test.js");
+    expect(workflow).toContain("tests/fixtures/ai-dev-benchmarks/**");
     expect(workflow).not.toContain("docs/10-prompt/skills/");
     expect(workflow).toContain("tests/integration/verification-gate.integration.test.js");
     expect(workflow).not.toContain("src/bootstrap-compiler/**");
@@ -54,7 +59,7 @@ describe('AI dev quality gate integration', () => {
     expect(workflow).not.toContain("src/cli/commands/stage0-context.js");
     expect(workflow).toContain('npm run test:ai-dev:gate');
     expect(workflow).toContain('actions/upload-artifact@v4');
-    expect(workflow).toContain('.spec-first/workflows/quality-gates/ai-dev-quality-gate/');
+    expect(workflow).toContain('.spec-first/workflows/quality-gates/');
   });
 
   test('branch protection policy keeps required checks aligned with the remaining AI dev quality gate workflow', () => {

@@ -48,6 +48,11 @@ describe('runtime capability catalog', () => {
     expect(catalog).toContain('| Harness setup | `/spec:mcp-setup` or `$spec-mcp-setup` |');
     expect(catalog).toContain('| Graph readiness | `/spec:graph-bootstrap` or `$spec-graph-bootstrap` |');
     expect(catalog).toContain('It does not mean MCP helpers or graph providers are query-ready.');
+    expect(catalog).toContain('## Quality Gate Evidence');
+    expect(catalog).toContain('npm run test:ai-dev:benchmarks');
+    expect(catalog).toContain('.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json');
+    expect(catalog).toContain('advisory_failures[]');
+    expect(catalog).toContain('does not run agents or workflows');
   });
 
   test('catalog exposes planned workflow artifact contracts without claiming runtime production', () => {
