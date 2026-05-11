@@ -331,8 +331,9 @@ describe('npm install matrix smoke script', () => {
     expect(script).toContain('release-artifact-summary.json');
     expect(script).toContain('init-claude-dry-run.log');
     expect(script).toContain('init-codex-dry-run.log');
-    expect(script).toContain("['init', '--claude', '--dry-run', '-u', 'matrix', '--lang', 'en']");
-    expect(script).toContain("['init', '--codex', '--dry-run', '-u', 'matrix', '--lang', 'en']");
+    expect(script).toContain("['claude', 'codex']");
+    expect(script).toContain('`--${host}`');
+    expect(script).toContain("'--dry-run'");
     expect(script).toContain('cmd.exe');
   });
 });
