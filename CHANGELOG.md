@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-11 23:39:30 leokuang: feat(quality-gates): 完成 P2-003 benchmark/eval fixture suite full closure v1，新增 API contract 与 multi-module refactor fixtures、semantic-review evidence 可见性和 advisory gate 覆盖 (user-visible)
+- v1.8.2 2026-05-11 23:28:38 leokuang: docs(plan): 新增 P2-003 benchmark/eval fixture suite full closure 轻量实施计划，收敛 API contract、多模块 refactor 与 semantic-review evidence 边界 (user-visible)
 - v1.8.2 2026-05-11 22:46:09 leokuang: docs(plan): 按 spec-doc-review 复审结果修订 pre-facts injection 计划，校准 graph freshness、semantic facts 来源、tier 枚举、persona 边界与验证门槛 (user-visible)
 - v1.8.2 2026-05-11 22:41:22 leokuang: docs(standards): 实现 P2-004 standards/glue-map consumption examples，新增集中消费示例、workflow 指针与 contract tests (user-visible)
 - v1.8.2 2026-05-11 20:29:45 leokuang: docs(plan): 新增 P2-004 standards/glue-map consumption examples 轻量实施计划 (user-visible)

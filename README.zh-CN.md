@@ -601,7 +601,7 @@ npm test
 
 `npm run build` 执行 `npm pack --dry-run`，用于验证发布包内容。
 
-`npm run test:ai-dev:benchmarks` 校验 advisory benchmark fixture suite 的 contract 与 evidence shape；它不为 LLM 语义质量打分，也不运行真实 agent。
+`npm run test:ai-dev:benchmarks` 校验 5 个 checked-in advisory benchmark fixtures 的 contract 与 evidence shape，并暴露已记录的 semantic-review evidence；它不为 LLM 语义质量打分，也不运行真实 agent。
 
 `npm run test:release:install` 在设置 `SPEC_FIRST_SMOKE_ARTIFACT_DIR` 时会把 release package evidence 写到 `.spec-first/ci/npm-install-matrix/`：package content manifest、tarball-installed Claude/Codex init dry-run logs，以及给 reviewer 使用的 release artifact summary。
 

@@ -10,7 +10,7 @@
 审查范围：`package.json`、`bin/`、`src/cli/`、`skills/`、`agents/`、`scripts/`、`templates/`、`docs/`、`tests/`、`.spec-first/graph` 现有事实产物、generated runtime 目录边界、GitHub 同类项目。
 审查方法：直接读取源码、skill/agent/script/test 文档与产物；运行 skill-audit deterministic inventory；抽样 CLI help、doctor/init/task-pack/provider readiness 代码；读取 GitNexus / code-review-graph readiness artifacts；用 GitHub README/release/项目页面调研竞品。
 
-2026-05-11 状态校准：当前 HEAD 已吸收 release/package hardening 与二次 code review 收尾改动，原始草稿中部分 P1 不再成立。本文后续按当前代码口径交付：`P1-008` 降为 `P2-009`，`P1-009` 改为已完成校准项，`P1-006` 从“官网同步测试缺失”改写为“主仓缺跨 repo release gate”，并按 `5907e6ad` 的最新实现校准 release gate 顺序。`P2-002` 已完成 v1 修复，`P2-007` 已完成 v1 修复，`P2-009` 已在 `97479ee2` 修复并完成本报告回写，`P2-003` 已完成 v1 foundation 但 full closure pending。因此本报告当前计数为：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9（已完成 3，v1 foundation complete/full closure pending 1，未开发 5；剩余近期必须做 0 项、值得做但非必须 4 项、延后/暂缓 2 项），P3=4，已完成/移出 P1=1。
+2026-05-11 状态校准：当前 HEAD 已吸收 release/package hardening 与二次 code review 收尾改动，原始草稿中部分 P1 不再成立。本文后续按当前代码口径交付：`P1-008` 降为 `P2-009`，`P1-009` 改为已完成校准项，`P1-006` 从“官网同步测试缺失”改写为“主仓缺跨 repo release gate”，并按 `5907e6ad` 的最新实现校准 release gate 顺序。`P2-002`、`P2-003`、`P2-004`、`P2-007` 与 `P2-009` 均已完成 v1 修复。因此本报告当前计数为：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9（已完成 5，未开发 4；剩余近期必须做 0 项、值得做但非必须 2 项、延后/暂缓 2 项），P3=4，已完成/移出 P1=1。
 
 ## 总体结论
 
@@ -18,21 +18,20 @@
 
 但当前还不适合用“稳定无风险的通用开源工具”口径推广，更适合定位为可用的 beta/preview 级 workflow harness：核心 CLI 和 provider readiness 已有强防线，风险主要集中在用户心智与产物消费契约，而不是单个命令完全不可用。
 
-本次发现：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4；另有 1 个原 P1 经当前代码复核后已移出 P1。结论口径是：阻断级 P1 已开发完成并推送，`P2-002`、`P2-004`、`P2-007` 与 `P2-009` 已完成，`P2-003` 已有可用 v1 foundation；剩余 P2/P3 应按“值得做、暂缓”分层推进，不应标记为全部完成，也不应把所有 backlog 都升格为核心架构任务。
+本次发现：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4；另有 1 个原 P1 经当前代码复核后已移出 P1。结论口径是：阻断级 P1 已开发完成并推送，`P2-002`、`P2-003`、`P2-004`、`P2-007` 与 `P2-009` 已完成；剩余 P2/P3 应按“值得做、暂缓”分层推进，不应标记为全部完成，也不应把所有 backlog 都升格为核心架构任务。
 
 当前最大剩余风险：
 
-1. benchmark/eval 已有 v1 foundation，但真实 AI workflow fixture 与语义对照仍不足；这影响开源可信度，但不应演化成 leaderboard/dashboard 平台。
-2. quick/no-graph path 与 “何时 compound” 属于效率和知识沉淀质量风险，不是当前阻断项。
-3. module scope manifest 与 agent catalog 属于长期治理项，当前没有足够高频痛点支撑进入核心路径。
+1. quick/no-graph path 与 “何时 compound” 属于效率和知识沉淀质量风险，不是当前阻断项。
+2. module scope manifest 与 agent catalog 属于长期治理项，当前没有足够高频痛点支撑进入核心路径。
+3. benchmark/eval 已完成 v1 full closure；剩余风险是未来如果继续扩展，必须保持 advisory fixture/evidence 边界，避免演化成 leaderboard/dashboard 平台。
 
 建议开发顺序：
 
-1. `P2-003`：在 v1 foundation 上补 1-2 个高价值 fixture 或一次真实 workflow/LLM-review pass；不做 dashboard、历史趋势或排行榜。
-2. `P2-006`：补 quick/no-graph mode 文档与 smoke；不新增独立 CLI mode。
-3. `P2-008`：补 learning-worthy checklist；只建议 `$spec-compound`，不自动写 learning doc。
-4. `P2-001`：延后处理；除非真实 monorepo scope drift 反复出现，或先证明能复用 `spec-standards` 的 `project-shape.json.modules[]` 而不新增系统。
-5. `P2-005`：暂缓，除非重复 agent dispatch 已成为真实噪音。
+1. `P2-006`：补 quick/no-graph mode 文档与 smoke；不新增独立 CLI mode。
+2. `P2-008`：补 learning-worthy checklist；只建议 `$spec-compound`，不自动写 learning doc。
+3. `P2-001`：延后处理；除非真实 monorepo scope drift 反复出现，或先证明能复用 `spec-standards` 的 `project-shape.json.modules[]` 而不新增系统。
+4. `P2-005`：暂缓，除非重复 agent dispatch 已成为真实噪音。
 
 最值得借鉴集成的 3 个竞品能力：
 
@@ -49,6 +48,7 @@
 | 项 | 结论 | 必须做原因 | 过度设计护栏 |
 |---|---|---|---|
 | `P2-002` per-task review gate | v1 fixed（2026-05-11） | 长任务只在最终 diff review，质量反馈太晚；task-pack 已具备承载轻量 metadata 的上下文 | 已按轻量版落地：只加 `review_gate: optional|required`、`execution_focus` 投影和 `spec-work` report-only handoff contract；不默认自动多 persona 审每个 task |
+| `P2-003` benchmark/eval full closure | v1 fixed（2026-05-11） | v1 foundation 已能验证 fixture shape，但缺 API contract、多模块 refactor 与语义复审 evidence，会削弱开源可信度 | 已按轻量版落地：只扩到 5 个 fixtures，并记录 1 个 semantic-review evidence；runner 仍只做 deterministic validation，不执行 agent、不评分、不做 release hard gate |
 | `P2-004` standards/glue-map examples | v1 fixed（2026-05-11） | advisory facts 被误读成 hard rule 会污染 plan/work/review 判断；集中示例能低成本压低误读风险 | 已按轻量版落地：只加 docs/examples、source prose 指针与 contract tests；不新增 schema、producer、graph/provider 协议或 workflow 状态机 |
 
 ### 近期必须做
@@ -59,7 +59,6 @@
 
 | 项 | 结论 | 适合的最小落地 |
 |---|---|---|
-| `P2-003` benchmark/eval full closure | 值得做；v1 已可用，full closure 不是阻断 | 补 1-2 个高价值 fixture 或一次真实 workflow/LLM-review pass；不做 dashboard/leaderboard |
 | `P2-006` lightweight/no-graph fast path | 值得做，改善新用户 DX | 更新 README/quickstart/skill prose，必要时补 no-MCP smoke；不新增 CLI quick mode |
 | `P2-008` compound trigger checklist | 值得做，改善知识沉淀稳定性 | 在 final summary contract 中加 learning-worthy signal checklist；只建议 `$spec-compound` |
 
@@ -387,15 +386,16 @@ compound
 - 边界：不新增 per-task 状态机、approval ledger、dashboard、artifact registry 或 `spec-code-review` task-pack/task-id API；`review_gate: required` 本身不等同于 full multi-persona autofix review，也不跳过最终 shipping review。
 - 验证状态：已通过 `npx jest tests/unit/task-pack-command.test.js --runInBand`、`npx jest tests/unit/spec-write-tasks-contracts.test.js --runInBand`、`npx jest tests/unit/spec-work-contracts.test.js tests/unit/spec-work-beta-contracts.test.js --runInBand`。
 
-## [P2-003] benchmark/eval fixture suite 仍偏弱
+## [P2-003] benchmark/eval fixture suite full closure v1 已完成
 
 - 问题类型：开源可信度 / AI workflow eval
-- 当前优先级：值得做但非必须；v1 已可用，后续只做最小 full closure。
-- 状态：v1 foundation complete / full closure pending（2026-05-11）。已建立 3 个 repo-like benchmark fixtures（docs-only、CLI bugfix、graph-degraded fallback）、manifest/result schema、deterministic runner、`test:ai-dev:benchmarks` 和 `test:ai-dev:gate` advisory 聚合。
+- 当前优先级：v1 已完成；后续只在真实回归场景出现时增量补 fixture。
+- 状态：full closure v1 fixed（2026-05-11）。已建立 5 个 repo-like benchmark fixtures（docs-only、CLI bugfix、graph-degraded fallback、API contract、multi-module refactor）、manifest/result schema、deterministic runner、`test:ai-dev:benchmarks` 和 `test:ai-dev:gate` advisory 聚合。
 - 当前行为：`npm run test:ai-dev:benchmarks` 校验 fixture manifest/schema/path/expected artifacts 并写入 `.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json`；`npm run test:ai-dev:gate` 将 benchmark 作为 advisory check 聚合，gate-level `passed` 与 blocking `failures` 仍只由 non-advisory checks 决定，benchmark drift 进入 `advisory_failures[]`。
-- 能力边界：v1 只证明 benchmark input 与 evidence shape 可消费，不执行真实 `$spec-work` / agent，不评价 LLM 语义质量，不做 leaderboard/history/dashboard，也不把 benchmark 作为 release hard gate。
-- 剩余 full closure：补齐 API contract 与 multi-module refactor fixtures，并增加至少一个真实 workflow 或 LLM-review pass，将生成输出与 expected artifacts 做语义对照。
-- 验证状态：已通过 `node --check scripts/run-ai-dev-benchmark-fixtures.js`、`npm run test:ai-dev:benchmarks`、`npx jest tests/unit/ai-dev-benchmark-fixtures.test.js tests/unit/ai-dev-quality-gate.test.js --runInBand`、`npx jest tests/integration/verification-gate.integration.test.js --runInBand`、`npm run test:ai-dev:gate`。
+- 语义 evidence：`api-contract` fixture 记录了 `tests/fixtures/ai-dev-benchmarks/api-contract/expected/semantic-review.md`，说明这是对 expected successful output 的 bounded LLM review，不声称真实执行过 `$spec-work`。
+- 能力边界：runner 只证明 benchmark input、safe path、schema、fixture presence 与 semantic-review evidence path 可消费；不执行真实 `$spec-work` / agent，不评价 LLM 语义质量，不做 leaderboard/history/dashboard，也不把 benchmark 作为 release hard gate。
+- 剩余 full closure：无。后续如需真实 workflow run 采集，应等 `spec-work` planned run artifact producer 真正实现后另行规划。
+- 验证状态：已通过 `node --check scripts/run-ai-dev-benchmark-fixtures.js`、`npx jest tests/unit/ai-dev-benchmark-fixtures.test.js tests/unit/ai-dev-quality-gate.test.js tests/unit/changelog-format.test.js --runInBand`、`npm run test:ai-dev:benchmarks`、`npm run test:ai-dev:gate`、`git diff --check`。
 
 ## [P2-004] `spec-standards` / `glue-map` 与 plan/work 的消费边界需更多 examples
 
@@ -665,7 +665,7 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 | graph provider mock | 是 | readiness/fallback | live MCP flaky | mark as session-local |
 | skill contract | 是 | many spec-* skills | semantic eval 不自动化 | fresh-source eval checklist |
 | docs consistency | 部分 | README language split、archive lifecycle scan | planned catalog / old docs 后续新增需守护 | command matrix docs lint |
-| benchmark/eval | 部分 | `test:ai-dev:gate` | real AI workflow fixtures | P2 benchmark suite |
+| benchmark/eval | 是 | `test:ai-dev:gate` + 5 repo-like fixtures | real workflow run artifact 仍待未来 producer | 按需补 fixture，保持 advisory、不平台化 |
 
 ## 竞品对比报告
 
@@ -747,7 +747,7 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 
 ## P0: 稳定主流程
 
-当前无代码级 P0。`P1-001` 至 `P1-007` 已完成修复，`P2-002` light per-task review gate、`P2-004` standards/glue-map consumption examples、`P2-007` release/package evidence v1 与 `P2-009` planned contract catalog 可见性已完成，`P2-003` benchmark/eval v1 foundation 已可用。短期没有剩余 P1 或必须做 P2；`P2-001` module-level scope manifest 已延后，后续优先推进 `P2-003` full closure 或 `P2-006` lightweight/no-graph mode，其他 P2 作为增益项分批处理。
+当前无代码级 P0。`P1-001` 至 `P1-007` 已完成修复，`P2-002` light per-task review gate、`P2-003` benchmark/eval full closure v1、`P2-004` standards/glue-map consumption examples、`P2-007` release/package evidence v1 与 `P2-009` planned contract catalog 可见性已完成。短期没有剩余 P1 或必须做 P2；`P2-001` module-level scope manifest 已延后，后续优先推进 `P2-006` lightweight/no-graph mode 或 `P2-008` compound trigger checklist，其他 P2 作为增益项分批处理。
 
 ## P1: 强化审查与验证
 
@@ -801,10 +801,10 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
    - 边界：只补人读示例与 source prose，不新增 schema、producer、graph/provider 协议或 workflow 状态机。
 
 3. Benchmark fixture suite full closure
-   - 当前优先级：值得做但非必须；v1 foundation 已完成。
+   - 状态：v1 fixed（2026-05-11）。
    - 从 Aider/OpenHands 借鉴 benchmark discipline。
-   - 落点：补 1-2 个高价值 fixture 或一次真实 workflow/LLM-review pass。
-   - 边界：不做 dashboard、leaderboard、history store。
+   - 已落地：5 个 repo-like fixtures（docs-only、CLI bugfix、graph-degraded fallback、API contract、multi-module refactor）、semantic-review evidence visibility、advisory quality gate 汇总。
+   - 边界：不执行真实 agent/workflow，不评分，不做 dashboard、leaderboard、history store 或 release hard gate。
 
 4. Lightweight/no-graph mode
    - 当前优先级：值得做但非必须。
@@ -868,20 +868,20 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 
 ### PR-4: 引入竞品借鉴的轻量能力（拆分落地）
 
-- 状态：PR-4a / `P2-002` 已完成 v1；下一步从 PR-4b 开始。
-- 目标：已解决必须做的 task 级反馈；后续处理 standards examples 与 quick/no-graph 增益项。
-- 修改范围：PR-4a 已聚焦 `P2-002` `spec-write-tasks` optional review metadata、task-pack validator/projection 与 `spec-work` handoff contract；PR-4b 聚焦 `P2-004` standards/glue-map consumption examples；PR-4c 聚焦 README no-graph quick path。
+- 状态：PR-4a / `P2-002` 与 PR-4b / `P2-004` 已完成 v1；下一步从 PR-4c / `P2-006` 或 `P2-008` 开始。
+- 目标：已解决必须做的 task 级反馈和 standards facts 消费误读风险；后续处理 quick/no-graph 与 knowledge trigger 增益项。
+- 修改范围：PR-4a 已聚焦 `P2-002` `spec-write-tasks` optional review metadata、task-pack validator/projection 与 `spec-work` handoff contract；PR-4b 已聚焦 `P2-004` standards/glue-map consumption examples；PR-4c 可聚焦 README no-graph quick path。
 - 不做什么：不在一个 PR 内同时改 task-pack、work、standards examples 和 README 主路径，不引入重状态机或 dashboard。
 - 验证命令：skill contract tests、task pack fixtures、fresh-source eval。
 - 合并风险：中。
 
 ### PR-5: benchmark full closure 与 release evidence 回归
 
-- 状态：release/package evidence 已完成 v1；benchmark/eval 已完成 v1 foundation，full closure pending。
-- 目标：在不平台化的前提下，让 AI workflow fixture 更可信，并保持 release evidence 回归。
-- 修改范围：补 1-2 个 benchmark fixture 或一次真实 workflow/LLM-review pass；release 侧只保留 package content manifest 与 dry-run artifact 的回归测试。
+- 状态：release/package evidence 已完成 v1；benchmark/eval full closure 已完成 v1。
+- 目标：已在不平台化的前提下补齐 AI workflow fixture 可信度，并保持 release evidence 回归。
+- 修改范围：已补 API contract 与 multi-module refactor fixtures、semantic-review evidence path、schema/runner/tests；release 侧保持 package content manifest 与 dry-run artifact 的回归测试。
 - 不做什么：不要求所有 provider live network in CI，不做 dashboard、leaderboard 或 telemetry history。
-- 验证命令：`npm run test:ai-dev:gate`、`npm run test:release`、Windows/macOS/Linux matrix。
+- 验证命令：`node --check scripts/run-ai-dev-benchmark-fixtures.js`、`npx jest tests/unit/ai-dev-benchmark-fixtures.test.js tests/unit/ai-dev-quality-gate.test.js tests/unit/changelog-format.test.js --runInBand`、`npm run test:ai-dev:benchmarks`、`npm run test:ai-dev:gate`。
 - 合并风险：中。
 
 ### PR-6: compound trigger 与轻量 completion audit

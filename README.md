@@ -601,7 +601,7 @@ npm test
 
 `npm run build` runs `npm pack --dry-run` and verifies the package payload shape through npm.
 
-`npm run test:ai-dev:benchmarks` validates the advisory benchmark fixture suite contract and evidence shape; it does not score LLM semantic quality or run real agents.
+`npm run test:ai-dev:benchmarks` validates the advisory benchmark fixture suite contract and evidence shape across five checked-in fixtures, including recorded semantic-review evidence; it does not score LLM semantic quality or run real agents.
 
 `npm run test:release:install` writes release package evidence under `.spec-first/ci/npm-install-matrix/` when `SPEC_FIRST_SMOKE_ARTIFACT_DIR` is set: package content manifest, tarball-installed Claude/Codex init dry-run logs, and a release artifact summary for reviewers.
 

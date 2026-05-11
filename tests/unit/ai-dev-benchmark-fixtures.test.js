@@ -85,9 +85,11 @@ describe('ai dev benchmark fixture suite', () => {
     const fixtureIds = fs.readdirSync(DEFAULT_FIXTURE_ROOT).sort();
 
     expect(fixtureIds).toEqual([
+      'api-contract',
       'cli-bugfix',
       'docs-only',
       'graph-degraded-fallback',
+      'multi-module-refactor',
     ]);
 
     for (const fixtureId of fixtureIds) {
@@ -107,8 +109,17 @@ describe('ai dev benchmark fixture suite', () => {
     expect(result.passed).toBe(true);
     expect(result.advisory).toBe(true);
     expect(result.failures).toEqual([]);
-    expect(result.fixtures).toHaveLength(3);
+    expect(result.fixtures).toHaveLength(5);
     expect(result.fixtures).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        fixture_id: 'api-contract',
+        status: 'passed',
+        semantic_review: {
+          artifact_path: 'expected/semantic-review.md',
+          review_mode: 'llm-review-pass',
+          status: 'recorded',
+        },
+      }),
       expect.objectContaining({
         fixture_id: 'docs-only',
         status: 'passed',
@@ -122,6 +133,10 @@ describe('ai dev benchmark fixture suite', () => {
       }),
       expect.objectContaining({
         fixture_id: 'graph-degraded-fallback',
+        status: 'passed',
+      }),
+      expect.objectContaining({
+        fixture_id: 'multi-module-refactor',
         status: 'passed',
       }),
     ]));
@@ -138,11 +153,40 @@ describe('ai dev benchmark fixture suite', () => {
     expect(isSafeRepoRelativePath('C:\\tmp\\example.md')).toBe(false);
   });
 
-  test('runner reports unknown scenario types without executing declared commands', () => {
+  test('runner accepts full-closure scenario types without executing declared commands', () => {
     const root = createTempRoot();
     try {
       createFixture(root, 'api-contract', {
         scenario_type: 'api-contract',
+      });
+      createFixture(root, 'multi-module-refactor', {
+        scenario_type: 'multi-module-refactor',
+      });
+
+      const result = runTempFixtures(root);
+
+      expect(result.passed).toBe(true);
+      expect(result.fixtures).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          fixture_id: 'api-contract',
+          validation_commands_status: 'declared_only',
+        }),
+        expect.objectContaining({
+          fixture_id: 'multi-module-refactor',
+          validation_commands_status: 'declared_only',
+        }),
+      ]));
+      expect(validateBenchmarkResult({ result: schemaResult(result) }).errors).toEqual([]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('runner reports unknown scenario types without executing declared commands', () => {
+    const root = createTempRoot();
+    try {
+      createFixture(root, 'unsupported-scenario', {
+        scenario_type: 'unsupported-scenario',
       });
 
       const result = runTempFixtures(root);
@@ -150,6 +194,73 @@ describe('ai dev benchmark fixture suite', () => {
       expect(result.passed).toBe(false);
       expect(result.fixtures[0].validation_commands_status).toBe('declared_only');
       expect(result.failures.map((failure) => failure.reason_code)).toContain('unknown-scenario-type');
+      expect(validateBenchmarkResult({ result: schemaResult(result) }).errors).toEqual([]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('runner links semantic review evidence without turning it into executed validation', () => {
+    const root = createTempRoot();
+    try {
+      createFixture(root, 'semantic-review', {
+        semantic_review: {
+          artifact_path: 'expected/semantic-review.md',
+          review_mode: 'llm-review-pass',
+          status: 'recorded',
+        },
+      });
+      writeFile(
+        path.join(root, 'tests', 'fixtures', 'ai-dev-benchmarks', 'semantic-review', 'expected', 'semantic-review.md'),
+        '# Semantic Review\n'
+      );
+
+      const result = runTempFixtures(root);
+
+      expect(result.passed).toBe(true);
+      expect(result.fixtures).toEqual([
+        expect.objectContaining({
+          fixture_id: 'semantic-review',
+          artifact_paths: expect.arrayContaining([
+            'tests/fixtures/ai-dev-benchmarks/semantic-review/expected/semantic-review.md',
+          ]),
+          semantic_review: {
+            artifact_path: 'expected/semantic-review.md',
+            review_mode: 'llm-review-pass',
+            status: 'recorded',
+          },
+          validation_commands_status: 'declared_only',
+        }),
+      ]);
+      expect(validateBenchmarkResult({ result: schemaResult(result) }).errors).toEqual([]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('runner reports missing semantic review evidence as deterministic fixture drift', () => {
+    const root = createTempRoot();
+    try {
+      createFixture(root, 'missing-semantic-review', {
+        semantic_review: {
+          artifact_path: 'expected/semantic-review.md',
+          review_mode: 'llm-review-pass',
+          status: 'recorded',
+        },
+      });
+
+      const result = runTempFixtures(root);
+
+      expect(result.passed).toBe(false);
+      expect(result.failures.map((failure) => failure.reason_code)).toContain('missing-semantic-review-artifact');
+      expect(result.fixtures[0]).toEqual(expect.objectContaining({
+        fixture_id: 'missing-semantic-review',
+        semantic_review: {
+          artifact_path: 'expected/semantic-review.md',
+          review_mode: 'llm-review-pass',
+          status: 'recorded',
+        },
+      }));
       expect(validateBenchmarkResult({ result: schemaResult(result) }).errors).toEqual([]);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });

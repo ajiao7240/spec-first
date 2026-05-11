@@ -27,9 +27,11 @@ const DEFAULT_RESULT_SCHEMA_PATH = path.join(
   'ai-dev-benchmark-fixtures-result.schema.json'
 );
 const VALID_SCENARIO_TYPES = new Set([
+  'api-contract',
   'docs-only',
   'cli-bugfix',
   'graph-degraded-fallback',
+  'multi-module-refactor',
 ]);
 
 function ensureDir(dirPath) {
@@ -67,6 +69,13 @@ function safeFixtureArtifactPaths({ repoRoot, fixtureDir, manifest = null, manif
   if (manifest && isSafeRepoRelativePath(manifest.repo_path)) {
     artifactPaths.push(relativeArtifactPath(repoRoot, path.join(fixtureDir, manifest.repo_path)));
   }
+  if (
+    manifest
+    && manifest.semantic_review
+    && isSafeRepoRelativePath(manifest.semantic_review.artifact_path)
+  ) {
+    artifactPaths.push(relativeArtifactPath(repoRoot, path.join(fixtureDir, manifest.semantic_review.artifact_path)));
+  }
   return [...new Set(artifactPaths)];
 }
 
@@ -76,6 +85,25 @@ function createFailure({ fixtureId, reasonCode, message, artifactPaths }) {
     reason_code: reasonCode,
     message,
     artifact_paths: artifactPaths,
+  };
+}
+
+function normalizeSemanticReview(manifest) {
+  if (!manifest || !manifest.semantic_review || typeof manifest.semantic_review !== 'object') {
+    return null;
+  }
+  const { artifact_path: artifactPath, review_mode: reviewMode, status } = manifest.semantic_review;
+  if (
+    typeof artifactPath !== 'string'
+    || typeof reviewMode !== 'string'
+    || typeof status !== 'string'
+  ) {
+    return null;
+  }
+  return {
+    artifact_path: artifactPath,
+    review_mode: reviewMode,
+    status,
   };
 }
 
@@ -169,6 +197,9 @@ function validateFixture({ repoRoot, fixtureDir, manifestSchema }) {
   const pathFields = [
     ['prompt_path', manifest.prompt_path],
     ['repo_path', manifest.repo_path],
+    ...(manifest.semantic_review && typeof manifest.semantic_review === 'object'
+      ? [['semantic_review.artifact_path', manifest.semantic_review.artifact_path]]
+      : []),
     ...Array.isArray(manifest.expected_changed_paths)
       ? manifest.expected_changed_paths.map((value, index) => [`expected_changed_paths[${index}]`, value])
       : [],
@@ -212,6 +243,21 @@ function validateFixture({ repoRoot, fixtureDir, manifestSchema }) {
     }
   }
 
+  if (manifest.semantic_review && typeof manifest.semantic_review === 'object') {
+    const semanticReviewPath = manifest.semantic_review.artifact_path;
+    if (isSafeRepoRelativePath(semanticReviewPath)) {
+      const reviewPath = path.join(fixtureDir, semanticReviewPath);
+      if (!fs.existsSync(reviewPath) || !fs.statSync(reviewPath).isFile()) {
+        failures.push(createFailure({
+          fixtureId,
+          reasonCode: 'missing-semantic-review-artifact',
+          message: `${semanticReviewPath} does not exist or is not a file.`,
+          artifactPaths,
+        }));
+      }
+    }
+  }
+
   if (!Array.isArray(manifest.expected_artifacts) || manifest.expected_artifacts.length === 0) {
     failures.push(createFailure({
       fixtureId,
@@ -242,6 +288,7 @@ function validateFixture({ repoRoot, fixtureDir, manifestSchema }) {
     }));
   }
 
+  const semanticReview = normalizeSemanticReview(manifest);
   return {
     fixture: {
       fixture_id: fixtureId,
@@ -251,6 +298,7 @@ function validateFixture({ repoRoot, fixtureDir, manifestSchema }) {
       advisory: true,
       validation_commands_status: 'declared_only',
       validation_commands: Array.isArray(manifest.validation_commands) ? manifest.validation_commands : [],
+      ...(semanticReview ? { semantic_review: semanticReview } : {}),
     },
     failures,
   };

@@ -150,6 +150,40 @@ describe('ai dev quality gate contract', () => {
     });
   });
 
+  test('benchmark check summary reflects the five-fixture suite while staying advisory', () => {
+    expect(buildBenchmarkFixturesCheck({
+      passed: true,
+      fixtures: [
+        {
+          fixture_id: 'api-contract',
+          status: 'passed',
+          semantic_review: {
+            artifact_path: 'expected/semantic-review.md',
+            review_mode: 'llm-review-pass',
+            status: 'recorded',
+          },
+        },
+        { fixture_id: 'cli-bugfix', status: 'passed' },
+        { fixture_id: 'docs-only', status: 'passed' },
+        { fixture_id: 'graph-degraded-fallback', status: 'passed' },
+        { fixture_id: 'multi-module-refactor', status: 'passed' },
+      ],
+      failures: [],
+      artifact_path: '.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json',
+    })).toEqual({
+      check_id: 'ai-dev-benchmark-fixtures',
+      kind: 'benchmark',
+      passed: true,
+      advisory: true,
+      summary: {
+        fixtures_total: 5,
+        fixtures_failed: 0,
+        failures_total: 0,
+      },
+      artifact_path: '.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json',
+    });
+  });
+
   test('runner keeps a bounded explicit test list instead of inferring checks from workflow state', () => {
     expect(WORKFLOW_RUNTIME_CONTRACT_TESTS).toEqual([
       'tests/unit/branch-protection-policy.test.js',

@@ -27,9 +27,11 @@
     "scenario_type": {
       "type": "string",
       "enum": [
+        "api-contract",
         "docs-only",
         "cli-bugfix",
-        "graph-degraded-fallback"
+        "graph-degraded-fallback",
+        "multi-module-refactor"
       ]
     },
     "prompt_path": {
@@ -102,6 +104,32 @@
       "items": {
         "type": "string",
         "minLength": 1
+      }
+    },
+    "semantic_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_path",
+        "review_mode",
+        "status"
+      ],
+      "properties": {
+        "artifact_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_mode": {
+          "type": "string",
+          "enum": [
+            "llm-review-pass",
+            "workflow-output-review"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "const": "recorded"
+        }
       }
     },
     "degraded_mode_expectations": {

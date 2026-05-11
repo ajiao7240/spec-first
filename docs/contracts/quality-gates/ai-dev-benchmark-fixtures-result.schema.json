@@ -82,6 +82,32 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          "semantic_review": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "artifact_path",
+              "review_mode",
+              "status"
+            ],
+            "properties": {
+              "artifact_path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "review_mode": {
+                "type": "string",
+                "enum": [
+                  "llm-review-pass",
+                  "workflow-output-review"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "const": "recorded"
+              }
+            }
           }
         }
       }
