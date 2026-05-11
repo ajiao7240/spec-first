@@ -30,7 +30,9 @@ describe('repository guidance contracts', () => {
     const summaries = block.match(/本项目已配置 GitNexus 图谱支持，仓库标识：\*\*spec-first\*\*/gu) || [];
     expect(summaries).toHaveLength(1);
     expect(block).toContain('当索引新鲜且 query-ready 时');
-    expect(block).toContain('docs/contracts/graph-evidence-policy.md');
+    expect(block).toContain('本 block 是 spec-first 生成的轻量 GitNexus 使用边界');
+    expect(block).toContain('`.spec-first/graph/*` readiness facts');
+    expect(block).not.toContain('docs/contracts/graph-evidence-policy.md');
     expect(block).toContain('## 使用边界');
     expect(block).not.toMatch(/\([0-9,]+ symbols, [0-9,]+ relationships, [0-9,]+ execution flows\)/u);
     expect(block).not.toContain('MUST run impact analysis');

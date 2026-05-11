@@ -518,7 +518,9 @@ assert "normalized artifact exists" test -f "$PRIMARY_REPO/.spec-first/providers
 assert "old graph raw path is not used" test ! -e "$PRIMARY_REPO/.spec-first/graph/raw/gitnexus"
 assert_contains "graph-bootstrap normalizes GitNexus host block" "本项目已配置 GitNexus 图谱支持，仓库标识：**primary-repo**" "$(cat "$PRIMARY_REPO/AGENTS.md")"
 assert_contains "graph-bootstrap normalizes Claude GitNexus host block" "当索引新鲜且 query-ready 时" "$(cat "$PRIMARY_REPO/CLAUDE.md")"
-assert_contains "graph-bootstrap host block points to graph evidence policy" "docs/contracts/graph-evidence-policy.md" "$(cat "$PRIMARY_REPO/AGENTS.md")"
+assert_contains "graph-bootstrap host block is self-contained" "本 block 是 spec-first 生成的轻量 GitNexus 使用边界" "$(cat "$PRIMARY_REPO/AGENTS.md")"
+assert_contains "graph-bootstrap host block points to readiness facts" ".spec-first/graph/*" "$(cat "$PRIMARY_REPO/AGENTS.md")"
+assert_not_contains "graph-bootstrap host block does not point to a repo-local graph evidence policy" "docs/contracts/graph-evidence-policy.md" "$(cat "$PRIMARY_REPO/AGENTS.md")"
 if grep -Eq '[0-9,]+ symbols, [0-9,]+ relationships, [0-9,]+ execution flows|MUST run impact|\.claude/skills/gitnexus' "$PRIMARY_REPO/AGENTS.md" "$PRIMARY_REPO/CLAUDE.md"; then
   echo "FAIL: graph-bootstrap leaves unstable GitNexus instruction prose" >&2
   exit 1
@@ -548,7 +550,7 @@ missing_host_output="$(cd "$MISSING_HOST_REPO" && PATH="$TEST_PATH" bash "$BOOTS
 assert_eq "missing GitNexus host block does not block graph readiness" "primary:ready" "$(jq -r '.workflow_mode + ":" + .overall_status' <<<"$missing_host_output")"
 assert_eq "missing GitNexus host block is created as advisory normalization" "normalized:true:0" "$(jq -r '.results[] | select(.provider=="gitnexus") | .host_instruction_normalization | .status + ":" + (.advisory | tostring) + ":" + (.exit_code | tostring)' <<<"$missing_host_output")"
 assert_contains "graph-bootstrap creates AGENTS GitNexus host block" "本项目已配置 GitNexus 图谱支持，仓库标识：**missing-host-repo**" "$(cat "$MISSING_HOST_REPO/AGENTS.md")"
-assert_contains "graph-bootstrap creates CLAUDE GitNexus host block" "docs/contracts/graph-evidence-policy.md" "$(cat "$MISSING_HOST_REPO/CLAUDE.md")"
+assert_contains "graph-bootstrap creates CLAUDE GitNexus self-contained host block" "本 block 是 spec-first 生成的轻量 GitNexus 使用边界" "$(cat "$MISSING_HOST_REPO/CLAUDE.md")"
 
 PARTIAL_HOST_REPO="$TMP_DIR/partial-host-repo"
 PARTIAL_HOST_LEDGER="$TMP_DIR/partial-host-home/.codex/spec-first/host-setup.json"

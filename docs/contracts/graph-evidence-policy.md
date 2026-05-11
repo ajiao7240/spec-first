@@ -39,4 +39,4 @@
 
 ## Host Instruction Block
 
-`AGENTS.md` / `CLAUDE.md` 中的 `<!-- gitnexus:start -->` block 只保留轻量提醒和本政策链接，不写动态索引计数、不写 host-specific runtime skill 路径、不写绝对 `MUST` / `NEVER` provider 规则。GitNexus provider 可刷新该 block；spec-first `gitnexus-instruction` normalizer 负责把最终 source 收敛回稳定 evidence contract。
+`AGENTS.md` / `CLAUDE.md` 中的 `<!-- gitnexus:start -->` block 只保留轻量、自包含的使用边界，不写指向目标仓库本地 `docs/contracts/` 文件的相对链接，不写动态索引计数、不写 host-specific runtime skill 路径、不写绝对 `MUST` / `NEVER` provider 规则。GitNexus provider 可刷新该 block；spec-first `gitnexus-instruction` normalizer 负责把最终 source 收敛回稳定 evidence contract。
