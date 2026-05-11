@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.1 2026-05-11 09:14:30 leokuang: docs(review): 将全面代码审查与竞品对标报告校准到 5907e6ad 当前完成状态，明确 P1 已收口且 P2/P3 仍为 backlog (user-visible)
 - v1.8.1 2026-05-11 05:06:00 leokuang: fix(review): 修复 release gate、managed state path containment、Windows npm runner 和跨平台测试治理 (user-visible)
 - v1.8.1 2026-05-11 04:39:24 leokuang: docs(plan): 补齐三源对标方案 U10 验证命令中的 debug/work/code-review 合同测试范围 (user-visible)
 - v1.8.1 2026-05-11 04:38:20 leokuang: docs(plan): 按 spec-doc-review 结果修订三源对标方案，补齐产品验收、外部来源 inventory、task-pack scope authority、run evidence 持久化和实施单元 ownership (user-visible)

@@ -5,11 +5,12 @@
 日期：2026-05-10
 分支：`leo-2026-05-09-uv`
 原始审查 commit：`209d91e275c5a7d463c65043ed848a2c3ee34a63`
-2026-05-11 复核基准：`b5ca72a99056fb2dc6c21b6e0c063c5d6b8203a7`（`fix(release): harden cross-platform packaging validation`）；复核开始前工作区干净。
+2026-05-11 第一轮复核基准：`b5ca72a99056fb2dc6c21b6e0c063c5d6b8203a7`（`fix(release): harden cross-platform packaging validation`）；复核开始前工作区干净。
+2026-05-11 状态校准基准：`5907e6ad5b8321fdea6c2aa56d50e633eb376162`（`[TASK-REVIEW-001] fix(review): close release and runtime safety findings`）；该提交已推送到 `github/leo-2026-05-09-uv`。状态校准开始时工作区另有 `using-spec-first`、其测试、`CHANGELOG.md` 和优化计划草稿的未提交变更；这些不纳入本报告 P1 完成判定。
 审查范围：`package.json`、`bin/`、`src/cli/`、`skills/`、`agents/`、`scripts/`、`templates/`、`docs/`、`tests/`、`.spec-first/graph` 现有事实产物、generated runtime 目录边界、GitHub 同类项目。
 审查方法：直接读取源码、skill/agent/script/test 文档与产物；运行 skill-audit deterministic inventory；抽样 CLI help、doctor/init/task-pack/provider readiness 代码；读取 GitNexus / code-review-graph readiness artifacts；用 GitHub README/release/项目页面调研竞品。
 
-2026-05-11 复核校准：当前 HEAD 已吸收一批 release/package hardening 改动，原始草稿中部分 P1 不再成立。本文后续按当前代码口径交付：`P1-008` 降为 `P2-009`，`P1-009` 改为已完成校准项，`P1-006` 从“官网同步测试缺失”改写为“主仓缺跨 repo release gate”。因此本报告当前计数为：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4，已完成/移出 P1=1。
+2026-05-11 状态校准：当前 HEAD 已吸收 release/package hardening 与二次 code review 收尾改动，原始草稿中部分 P1 不再成立。本文后续按当前代码口径交付：`P1-008` 降为 `P2-009`，`P1-009` 改为已完成校准项，`P1-006` 从“官网同步测试缺失”改写为“主仓缺跨 repo release gate”，并按 `5907e6ad` 的最新实现校准 release gate 顺序。因此本报告当前计数为：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4，已完成/移出 P1=1。
 
 ## 总体结论
 
@@ -17,7 +18,7 @@
 
 但当前还不适合用“稳定无风险的通用开源工具”口径推广，更适合定位为可用的 beta/preview 级 workflow harness：核心 CLI 和 provider readiness 已有强防线，风险主要集中在用户心智与产物消费契约，而不是单个命令完全不可用。
 
-本次发现：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4；另有 1 个原 P1 经当前代码复核后已移出 P1。
+本次发现：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4；另有 1 个原 P1 经当前代码复核后已移出 P1。结论口径是：阻断级 P1 已开发完成并推送，整份报告中的 P2/P3 仍是后续 backlog，不应标记为全部完成。
 
 当前最大剩余风险：
 
@@ -91,7 +92,7 @@ spec-first/
 | internal-only skills | governance 中 17 个 |
 | generated runtime | `.claude/`、`.codex/`、`.agents/skills/`，不作为 source |
 | current graph facts | `.spec-first/graph/provider-status.json` 显示 `code-review-graph` 与 `gitnexus` cold-run ready/query_ready |
-| worktree | 原始审查时有大量未提交改动；2026-05-11 复核开始前当前 HEAD 工作区干净，本次修改仅更新本报告与 changelog |
+| worktree | 原始审查时有大量未提交改动；2026-05-11 第一轮复核开始前工作区干净；`5907e6ad` 状态校准开始时有独立进行中的未提交变更，本报告只把已提交/已验证事实计入 P1 完成状态 |
 
 关键源码证据：
 
@@ -194,7 +195,7 @@ compound
 
 ### P0
 
-未发现会立即阻断 CLI 安装、runtime 生成、主流程执行或 provider fail-closed 的代码级 P0。这个结论有边界：本次文档复核未运行完整 `npm test`，也未对外部官网仓库执行同步验证；只读取了其同步机制与当前状态。
+未发现会立即阻断 CLI 安装、runtime 生成、主流程执行或 provider fail-closed 的代码级 P0。这个结论有边界：本报告复核没有以单条 `npm test` 重跑完整主链路，也未对外部官网仓库执行人工内容审查；官网同步只按 release gate 与当前 contract 口径验证。
 
 ## [P1-001] `doctor` 与 provider readiness 边界不够清晰
 
@@ -270,8 +271,8 @@ compound
 ## [P1-006] 官网/README/docs 缺少跨 repo release gate
 
 - 状态：已修复（2026-05-11）。
-- 修复内容：新增 `docs/contracts/website-sync-contract.md`，明确 package repo 是 README、用户手册、CLI/runtime governance facts 的 source of truth，官网仓库是外部 consumer；新增 `scripts/check-website-sync.cjs` 与 `npm run test:release:website`，在 `release:publish` 的发布前校验中要求外部官网 `content:audit` 以当前 package repo 作为 `SPEC_FIRST_SOURCE_DIR` 通过；README / README.zh-CN 增加维护者发布门禁说明；补充 `tests/unit/website-sync-contracts.test.js` 锁定 contract、发布脚本接线和 fail-closed 行为。2026-05-11 二次 code review 后将 `test:release` 与 `test:release:website` 移到 `package.json` version 写入前，并用 `tests/unit/release-publish.test.js` 锁定 gate-before-version-write 顺序，避免 website gate 失败留下半完成 version bump。
-- 验证状态：已通过 `node --check scripts/check-website-sync.cjs`、`node --check scripts/release-publish.cjs`、`node --check tests/unit/website-sync-contracts.test.js`、`node --check tests/unit/release-publish.test.js`、`npx jest tests/unit/website-sync-contracts.test.js tests/unit/release-publish.test.js tests/unit/changelog-format.test.js --runInBand`、`npm run test:release:website`、`npm run typecheck`、`npm run test:unit`、`npm run test:release`、`npm run build`、`git diff --check`；全局审查确认 generated runtime 无 diff。GitNexus `detect_changes` 因当前全工作区包含前序 P1 与方案文档改动而给出 high risk，P1-006 直接新增/修改集中在 website sync contract、release script、README 和对应 unit test。
+- 修复内容：新增 `docs/contracts/website-sync-contract.md`，明确 package repo 是 README、用户手册、CLI/runtime governance facts 的 source of truth，官网仓库是外部 consumer；新增 `scripts/check-website-sync.cjs` 与 `npm run test:release:website`，在 `release:publish` 的发布前校验中要求外部官网 `content:audit` 以当前 package repo 作为 `SPEC_FIRST_SOURCE_DIR` 通过；README / README.zh-CN 增加维护者发布门禁说明；补充 `tests/unit/website-sync-contracts.test.js` 锁定 contract、发布脚本接线和 fail-closed 行为。2026-05-11 二次 code review 后，`release:publish` 已修正为先临时写入目标 `package.json` version，再运行 `test:release` 与 `test:release:website`，然后才 `npm pack` / `npm publish`；dry-run 或发布失败时会恢复原版本，避免 gate 使用旧版本事实或失败后留下半完成 version bump。
+- 验证状态：已通过 `node --check scripts/check-website-sync.cjs`、`node --check scripts/release-publish.cjs`、`node --check tests/unit/website-sync-contracts.test.js`、`node --check tests/unit/release-publish.test.js`、`npx jest tests/unit/website-sync-contracts.test.js tests/unit/release-publish.test.js tests/unit/changelog-format.test.js --runInBand`、`npm run test:release:website`、`npm run typecheck`、`npm run test:unit`、`npm run test:release`、`npm run build`、`git diff --check`；`tests/unit/release-publish.test.js` 当前锁定 release/website gates 在目标 version 写入后、pack 前执行，并要求失败恢复路径存在；全局审查确认 generated runtime 无 diff。GitNexus `detect_changes` 因当时全工作区包含前序 P1 与方案文档改动而给出 high risk，P1-006 直接新增/修改集中在 website sync contract、release script、README 和对应 unit test。
 - 问题类型：文档一致性 / 开源可信度
 - 涉及文件：`README.md`、`README.zh-CN.md`、`docs/05-用户手册/**`、外部官网仓库 `/Users/kuang/xiaobu/spec-first-official-website`
 - 代码证据：当前 package repo 没有 website source 目录；`package.json` homepage 指向 GitHub README。外部官网仓库已有 `facts:sync` 与 `content:audit` 机制，并在 `docs/website-sync-report-2026-05-04.md` 中记录，但这些检查不在本 package repo release gate 内。
@@ -369,7 +370,7 @@ compound
 ## [P2-007] release/package smoke 已强，但 dry-run 与 package evidence 可更细
 
 - 问题类型：release confidence
-- 证据：当前 npm install matrix 已输出 `summary.json` 与 `pack-output.log`，并覆盖安装后 help/version/init/doctor；但还缺少更细的 package content manifest、`init --codex --dry-run` / `init --claude --dry-run` evidence，以及 release 页面可直接消费的 artifact summary。
+- 证据：当前 npm install matrix 已输出 `summary.json` 与 `pack-output.log`，覆盖安装后 help/version/init/doctor，并在 `5907e6ad` 中补强关键发布包目录变更触发范围；但还缺少更细的 package content manifest、`init --codex --dry-run` / `init --claude --dry-run` evidence，以及 release 页面可直接消费的 artifact summary。
 - 修复建议：release CI 在现有 matrix artifact 基础上追加 package content manifest 与 dry-run summary，而不是再新增一套重复 install telemetry。
 - 验证方式：`npm run test:release` artifact upload。
 
@@ -703,6 +704,7 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 
 3. Public workflow contract summary
    - 目标：减少 skill 入口上下文成本。
+   - 状态：已修复（2026-05-11）。
    - 改动内容：分批给高频 workflow_command 增 `Inputs/Outputs/Artifacts/Failure Modes/Downstream` 摘要，先做 code-review/plan/work/doc-review。
    - 涉及文件：`skills/spec-*/SKILL.md`。
    - 风险：中，需避免大规模 prose churn。
@@ -885,7 +887,7 @@ source_artifacts:
 
 ## 审查边界与未执行项
 
-- 未运行完整 `npm test`；本次 P1 收尾已运行 `npm run typecheck`、`npm run test:unit`、P1-006 的 release/build/website gate 与 P1-007 的 lifecycle contract 验证。
+- 未以单条 `npm test` 重新运行完整主测试链；截至 `5907e6ad` 的 P1/二次 code review 收尾已运行 `npm run typecheck`、targeted Jest（6 files / 55 tests）、无 `pwsh` PATH 定向复现、`npm run test:unit`（104 suites / 744 tests）、`npm run test:smoke`、`npm run test:integration`、`npm run test:release`、`npm run test:release:website`、`npm run build` 和 `git diff --check`。本次 docs-only 状态校准只重新运行 `npx jest tests/unit/changelog-format.test.js --runInBand` 与 `git diff --check`。
 - 未执行 fresh-source subagent eval；本报告是主审查 agent 的源码审查与 deterministic artifact 复核。
 - 未修改 generated runtime assets，也未运行 `spec-first init`。
 - 竞品调研以 GitHub README/项目页面为主，未逐个 clone 竞品源码做代码级审计。
