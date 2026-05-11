@@ -10,7 +10,7 @@
 审查范围：`package.json`、`bin/`、`src/cli/`、`skills/`、`agents/`、`scripts/`、`templates/`、`docs/`、`tests/`、`.spec-first/graph` 现有事实产物、generated runtime 目录边界、GitHub 同类项目。
 审查方法：直接读取源码、skill/agent/script/test 文档与产物；运行 skill-audit deterministic inventory；抽样 CLI help、doctor/init/task-pack/provider readiness 代码；读取 GitNexus / code-review-graph readiness artifacts；用 GitHub README/release/项目页面调研竞品。
 
-2026-05-11 状态校准：当前 HEAD 已吸收 release/package hardening 与二次 code review 收尾改动，原始草稿中部分 P1 不再成立。本文后续按当前代码口径交付：`P1-008` 降为 `P2-009`，`P1-009` 改为已完成校准项，`P1-006` 从“官网同步测试缺失”改写为“主仓缺跨 repo release gate”，并按 `5907e6ad` 的最新实现校准 release gate 顺序。`P2-002`、`P2-003`、`P2-004`、`P2-007` 与 `P2-009` 均已完成 v1 修复。因此本报告当前计数为：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9（已完成 5，未开发 4；剩余近期必须做 0 项、值得做但非必须 2 项、延后/暂缓 2 项），P3=4，已完成/移出 P1=1。
+2026-05-11 状态校准：当前 HEAD 已吸收 release/package hardening 与二次 code review 收尾改动，原始草稿中部分 P1 不再成立。本文后续按当前代码口径交付：`P1-008` 降为 `P2-009`，`P1-009` 改为已完成校准项，`P1-006` 从“官网同步测试缺失”改写为“主仓缺跨 repo release gate”，并按 `5907e6ad` 的最新实现校准 release gate 顺序。`P2-002`、`P2-003`、`P2-004`、`P2-006`、`P2-007` 与 `P2-009` 均已完成 v1 修复。因此本报告当前计数为：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9（已完成 6，未开发 3；剩余近期必须做 0 项、值得做但非必须 1 项、延后/暂缓 2 项），P3=4，已完成/移出 P1=1。
 
 ## 总体结论
 
@@ -18,20 +18,19 @@
 
 但当前还不适合用“稳定无风险的通用开源工具”口径推广，更适合定位为可用的 beta/preview 级 workflow harness：核心 CLI 和 provider readiness 已有强防线，风险主要集中在用户心智与产物消费契约，而不是单个命令完全不可用。
 
-本次发现：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4；另有 1 个原 P1 经当前代码复核后已移出 P1。结论口径是：阻断级 P1 已开发完成并推送，`P2-002`、`P2-003`、`P2-004`、`P2-007` 与 `P2-009` 已完成；剩余 P2/P3 应按“值得做、暂缓”分层推进，不应标记为全部完成，也不应把所有 backlog 都升格为核心架构任务。
+本次发现：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4；另有 1 个原 P1 经当前代码复核后已移出 P1。结论口径是：阻断级 P1 已开发完成并推送，`P2-002`、`P2-003`、`P2-004`、`P2-006`、`P2-007` 与 `P2-009` 已完成；剩余 P2/P3 应按“值得做、暂缓”分层推进，不应标记为全部完成，也不应把所有 backlog 都升格为核心架构任务。
 
 当前最大剩余风险：
 
-1. quick/no-graph path 与 “何时 compound” 属于效率和知识沉淀质量风险，不是当前阻断项。
+1. “何时 compound” 属于知识沉淀质量风险，不是当前阻断项；quick/no-graph path 已完成 v1，剩余只是未来真实 onboarding 量化验证。
 2. module scope manifest 与 agent catalog 属于长期治理项，当前没有足够高频痛点支撑进入核心路径。
 3. benchmark/eval 已完成 v1 full closure；剩余风险是未来如果继续扩展，必须保持 advisory fixture/evidence 边界，避免演化成 leaderboard/dashboard 平台。
 
 建议开发顺序：
 
-1. `P2-006`：补 quick/no-graph mode 文档与 smoke；不新增独立 CLI mode。
-2. `P2-008`：补 learning-worthy checklist；只建议 `$spec-compound`，不自动写 learning doc。
-3. `P2-001`：延后处理；除非真实 monorepo scope drift 反复出现，或先证明能复用 `spec-standards` 的 `project-shape.json.modules[]` 而不新增系统。
-4. `P2-005`：暂缓，除非重复 agent dispatch 已成为真实噪音。
+1. `P2-008`：补 learning-worthy checklist；只建议 `$spec-compound`，不自动写 learning doc。
+2. `P2-001`：延后处理；除非真实 monorepo scope drift 反复出现，或先证明能复用 `spec-standards` 的 `project-shape.json.modules[]` 而不新增系统。
+3. `P2-005`：暂缓，除非重复 agent dispatch 已成为真实噪音。
 
 最值得借鉴集成的 3 个竞品能力：
 
@@ -50,6 +49,7 @@
 | `P2-002` per-task review gate | v1 fixed（2026-05-11） | 长任务只在最终 diff review，质量反馈太晚；task-pack 已具备承载轻量 metadata 的上下文 | 已按轻量版落地：只加 `review_gate: optional|required`、`execution_focus` 投影和 `spec-work` report-only handoff contract；不默认自动多 persona 审每个 task |
 | `P2-003` benchmark/eval full closure | v1 fixed（2026-05-11） | v1 foundation 已能验证 fixture shape，但缺 API contract、多模块 refactor 与语义复审 evidence，会削弱开源可信度 | 已按轻量版落地：只扩到 5 个 fixtures，并记录 1 个 semantic-review evidence；runner 仍只做 deterministic validation，不执行 agent、不评分、不做 release hard gate |
 | `P2-004` standards/glue-map examples | v1 fixed（2026-05-11） | advisory facts 被误读成 hard rule 会污染 plan/work/review 判断；集中示例能低成本压低误读风险 | 已按轻量版落地：只加 docs/examples、source prose 指针与 contract tests；不新增 schema、producer、graph/provider 协议或 workflow 状态机 |
+| `P2-006` lightweight/no-graph fast path | v1 fixed（2026-05-12） | 新用户容易误以为必须完成 `mcp-setup -> graph-bootstrap -> standards` 才能进入任何 workflow，抬高首次闭环成本 | 已按轻量版落地：只更新 README、用户手册、`using-spec-first`、`init` guidance 和 contract tests；不新增 `$spec-quick`、CLI quick mode、runtime state 或自动低风险分类器 |
 
 ### 近期必须做
 
@@ -59,7 +59,6 @@
 
 | 项 | 结论 | 适合的最小落地 |
 |---|---|---|
-| `P2-006` lightweight/no-graph fast path | 值得做，改善新用户 DX | 更新 README/quickstart/skill prose，必要时补 no-MCP smoke；不新增 CLI quick mode |
 | `P2-008` compound trigger checklist | 值得做，改善知识沉淀稳定性 | 在 final summary contract 中加 learning-worthy signal checklist；只建议 `$spec-compound` |
 
 ### 暂缓/长期探索
@@ -417,15 +416,15 @@ compound
 - 过度设计护栏：如后续实施，只做 catalog/lint，不删除 agent、不重构调度主路径。
 - 验证方式：agent catalog lint：每个 agent 有 owner skill、trigger、not-to-use。
 
-## [P2-006] lightweight/no-graph fast path 可再产品化
+## [P2-006] lightweight/no-graph fast path v1 已完成
 
 - 问题类型：DX / 低仪式感
-- 当前优先级：值得做但非必须；改善 DX，不是架构阻断。
+- 当前优先级：v1 fixed（2026-05-12）；改善 DX，不是架构阻断。
 - 证据：skills 已经允许 degraded/no-graph fallback，但用户入口更强调 full setup。
 - 影响：新用户 10 分钟内跑通最小闭环的路径仍偏重。
-- 修复建议：借鉴 OpenSpec：提供 `quick mode` 指南，明确无需 graph 也可 brainstorm -> plan -> work -> review。
-- 过度设计护栏：不新增独立 CLI mode；先通过 README/quickstart/skill prose 与 smoke 证明。
-- 验证方式：README quickstart test；fresh repo no-MCP smoke。
+- 修复内容：README / 中文 README 新增 fast path vs enhanced readiness；用户手册快速开始和总览明确 docs-only、小 bugfix、首次试用、轻量 plan/work/review 可在 `doctor -> init -> host restart` 后先走现有 workflow；`using-spec-first` guide mode 改为只有 setup/readiness、MCP/provider、graph-heavy 或 workflow 阻塞时才优先 setup；`init` next steps 同步加入轻量 fast path 提示。
+- 过度设计护栏：不新增 `$spec-quick`、`/spec:quick`、`spec-first quick`、`--no-graph`、runtime state、dashboard 或自动低风险分类器；graph 缺失仍只能披露为 degraded/unavailable evidence。
+- 验证状态：已通过 `npx jest tests/unit/no-graph-fast-path-contracts.test.js tests/unit/readme-language-split.test.js tests/unit/user-manual-contracts.test.js tests/unit/using-spec-first-contracts.test.js tests/unit/init-dry-run.test.js --runInBand`。
 
 ## [P2-007] release/package smoke 已强，但 dry-run 与 package evidence 可更细
 
@@ -747,7 +746,7 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 
 ## P0: 稳定主流程
 
-当前无代码级 P0。`P1-001` 至 `P1-007` 已完成修复，`P2-002` light per-task review gate、`P2-003` benchmark/eval full closure v1、`P2-004` standards/glue-map consumption examples、`P2-007` release/package evidence v1 与 `P2-009` planned contract catalog 可见性已完成。短期没有剩余 P1 或必须做 P2；`P2-001` module-level scope manifest 已延后，后续优先推进 `P2-006` lightweight/no-graph mode 或 `P2-008` compound trigger checklist，其他 P2 作为增益项分批处理。
+当前无代码级 P0。`P1-001` 至 `P1-007` 已完成修复，`P2-002` light per-task review gate、`P2-003` benchmark/eval full closure v1、`P2-004` standards/glue-map consumption examples、`P2-006` lightweight/no-graph fast path、`P2-007` release/package evidence v1 与 `P2-009` planned contract catalog 可见性已完成。短期没有剩余 P1 或必须做 P2；`P2-001` module-level scope manifest 已延后，后续优先推进 `P2-008` compound trigger checklist，其他 P2 作为增益项分批处理。
 
 ## P1: 强化审查与验证
 
@@ -807,10 +806,10 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
    - 边界：不执行真实 agent/workflow，不评分，不做 dashboard、leaderboard、history store 或 release hard gate。
 
 4. Lightweight/no-graph mode
-   - 当前优先级：值得做但非必须。
+   - 状态：v1 fixed（2026-05-12）。
    - 从 OpenSpec 借鉴低仪式感。
-   - 落点：README quickstart、using-spec-first guide、no-MCP smoke。
-   - 边界：不新增独立 CLI quick mode。
+   - 已落地：README quickstart、用户手册、using-spec-first guide、init next steps 与 no-graph fast-path contract tests。
+   - 边界：不新增独立 CLI quick mode，不把 graph 缺失包装成成功证据。
 
 5. Compound trigger checklist
    - 当前优先级：值得做但非必须。
@@ -868,9 +867,9 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 
 ### PR-4: 引入竞品借鉴的轻量能力（拆分落地）
 
-- 状态：PR-4a / `P2-002` 与 PR-4b / `P2-004` 已完成 v1；下一步从 PR-4c / `P2-006` 或 `P2-008` 开始。
-- 目标：已解决必须做的 task 级反馈和 standards facts 消费误读风险；后续处理 quick/no-graph 与 knowledge trigger 增益项。
-- 修改范围：PR-4a 已聚焦 `P2-002` `spec-write-tasks` optional review metadata、task-pack validator/projection 与 `spec-work` handoff contract；PR-4b 已聚焦 `P2-004` standards/glue-map consumption examples；PR-4c 可聚焦 README no-graph quick path。
+- 状态：PR-4a / `P2-002`、PR-4b / `P2-004` 与 PR-4c / `P2-006` 已完成 v1；下一步可从 `P2-008` 开始。
+- 目标：已解决必须做的 task 级反馈、standards facts 消费误读风险和 no-graph onboarding 仪式感问题；后续处理 knowledge trigger 增益项。
+- 修改范围：PR-4a 已聚焦 `P2-002` `spec-write-tasks` optional review metadata、task-pack validator/projection 与 `spec-work` handoff contract；PR-4b 已聚焦 `P2-004` standards/glue-map consumption examples；PR-4c 已聚焦 README/用户手册/using-spec-first/init no-graph fast path。
 - 不做什么：不在一个 PR 内同时改 task-pack、work、standards examples 和 README 主路径，不引入重状态机或 dashboard。
 - 验证命令：skill contract tests、task pack fixtures、fresh-source eval。
 - 合并风险：中。

@@ -110,6 +110,8 @@ describe('README language split contract', () => {
       'Host-session workflow entries are not shell commands:',
       '$spec-brainstorm "Improve onboarding"',
       'If you are not sure which workflow to use',
+      '### Fast path vs enhanced readiness',
+      'lightweight host-session workflows before graph readiness has been compiled',
       '### Readiness ladder',
       '`doctor` is the first health check, not the whole readiness story.',
       '| CLI/runtime health | `spec-first doctor` |',
@@ -161,6 +163,8 @@ describe('README language split contract', () => {
     expect(chineseReadme).toContain('$spec-brainstorm "改进 onboarding"');
     expect(chineseReadme).toContain('如果不确定该用哪个 workflow，可以在宿主会话中直接描述任务或询问下一步');
     expect(chineseReadme).toContain('`using-spec-first` 会推荐一个公开入口并说明原因。');
+    expect(chineseReadme).toContain('### Fast path 与增强 readiness');
+    expect(chineseReadme).toContain('即使还没有编译 graph readiness，也可以先进入轻量宿主 workflow。');
     expect(chineseReadme).toContain('### Readiness ladder / 就绪层级');
     expect(chineseReadme).toContain('`doctor` 是第一层健康检查，不代表所有能力都 ready。');
     expect(chineseReadme).toContain('| CLI/runtime health | `spec-first doctor` |');

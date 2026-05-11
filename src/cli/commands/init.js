@@ -474,17 +474,19 @@ function printInitNextSteps(platform, lang = 'zh') {
   if (lang === 'en') {
     console.log('Next steps:');
     console.log(`  1. Restart ${hostDisplay} or open a new session so the host loads the generated ${entryKind}.`);
-    console.log(`  2. In the new session, run ${mcpSetupCommand} to install and verify the required MCP/helper runtime.`);
-    console.log(`  3. If ${mcpSetupCommand} shows graph bootstrap is still pending, run ${graphBootstrapCommand} when prompted.`);
-    console.log(`  4. After graph readiness is ready, run ${standardsCommand} to compile project standards and glue baseline before downstream workflows. In a parent workspace this batches child-local baselines for every discovered child repo; use ${standardsCommand} --repo <child> to narrow or ${standardsCommand} --workspace for parent advisory artifacts.`);
+    console.log(`  2. For lightweight docs, small fixes, first trials, or lightweight plan/work/review, start the matching ${entryKind} in the new session.`);
+    console.log(`  3. For enhanced readiness, run ${mcpSetupCommand} to install and verify the required MCP/helper runtime.`);
+    console.log(`  4. If ${mcpSetupCommand} shows graph bootstrap is still pending, run ${graphBootstrapCommand} when prompted.`);
+    console.log(`  5. After graph readiness is ready, run ${standardsCommand} to compile project standards and glue baseline before graph-heavy or standards-aware downstream workflows. In a parent workspace this batches child-local baselines for every discovered child repo; use ${standardsCommand} --repo <child> to narrow or ${standardsCommand} --workspace for parent advisory artifacts.`);
     return;
   }
 
   console.log('下一步:');
   console.log(`  1. 重启 ${hostDisplay} 或新开会话，让宿主加载刚生成的 ${entryKind}。`);
-  console.log(`  2. 在新会话运行 ${mcpSetupCommand}，安装并验证必装 MCP/helper runtime。`);
-  console.log(`  3. 如果 ${mcpSetupCommand} 显示 graph bootstrap 仍 pending，再按提示运行 ${graphBootstrapCommand}。`);
-  console.log(`  4. graph readiness 就绪后，运行 ${standardsCommand} 编译项目规范与胶水基线，再进入下游 workflow。父 workspace 下会为所有 discovered child repo 批量生成 child-local baselines；使用 ${standardsCommand} --repo <child> 收窄到单个 child，或用 ${standardsCommand} --workspace 写父级 advisory artifacts。`);
+  console.log(`  2. 对 docs、小修复、首次试用或轻量 plan/work/review，可直接在新会话启动匹配的 ${entryKind}。`);
+  console.log(`  3. 需要增强 readiness 时，运行 ${mcpSetupCommand} 安装并验证必装 MCP/helper runtime。`);
+  console.log(`  4. 如果 ${mcpSetupCommand} 显示 graph bootstrap 仍 pending，再按提示运行 ${graphBootstrapCommand}。`);
+  console.log(`  5. graph readiness 就绪后，运行 ${standardsCommand} 编译项目规范与胶水基线，再进入 graph-heavy 或 standards-aware 下游 workflow。父 workspace 下会为所有 discovered child repo 批量生成 child-local baselines；使用 ${standardsCommand} --repo <child> 收窄到单个 child，或用 ${standardsCommand} --workspace 写父级 advisory artifacts。`);
 }
 
 function printHelp() {
@@ -499,8 +501,8 @@ function printHelp() {
     '  Use --repo <child> to initialize one child repo, or --all-repos to make the batch intent explicit.',
     '',
     '➡️ After successful init:',
-    '  Claude: restart Claude Code, run /spec:mcp-setup, then /spec:graph-bootstrap if prompted, then /spec:standards after graph readiness is ready.',
-    '  Codex: restart Codex, run $spec-mcp-setup, then $spec-graph-bootstrap if prompted, then $spec-standards after graph readiness is ready.',
+    '  Claude: restart Claude Code. For lightweight work, start the matching /spec:* workflow; for enhanced readiness, run /spec:mcp-setup, then /spec:graph-bootstrap if prompted, then /spec:standards after graph readiness is ready.',
+    '  Codex: restart Codex. For lightweight work, start the matching $spec-* workflow; for enhanced readiness, run $spec-mcp-setup, then $spec-graph-bootstrap if prompted, then $spec-standards after graph readiness is ready.',
     '',
     '🔗 Repository:',
     '  https://github.com/sunrain520/spec-first',

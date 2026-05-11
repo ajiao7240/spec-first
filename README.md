@@ -150,6 +150,17 @@ $spec-brainstorm "Improve onboarding"
 
 If you are not sure which workflow to use, describe the task or ask what to run next in the host session; `using-spec-first` will recommend one public entrypoint with a reason.
 
+### Fast path vs enhanced readiness
+
+After `doctor`, `init`, and a host restart, you can start lightweight host-session workflows before graph readiness has been compiled. This is the right fast path for docs-only changes, small bug fixes, lightweight planning or review, and first project trials:
+
+```text
+$spec-ideate / $spec-brainstorm / $spec-plan / $spec-work / $spec-code-review
+/spec:ideate / /spec:brainstorm / /spec:plan / /spec:work / /spec:code-review
+```
+
+Use the setup/bootstrap/standards path when the task depends on MCP/helper tools, graph evidence, project standards, or cross-module/cross-repo impact analysis. Missing or stale graph facts are degraded evidence to disclose, not a fake success state and not a hard gate for every workflow.
+
 ### Readiness ladder
 
 `doctor` is the first health check, not the whole readiness story. Treat the three readiness layers separately:
@@ -187,9 +198,17 @@ Terminal in your target repo
   v
 Restart Claude Code or Codex
   |
-  | /spec:mcp-setup       or $spec-mcp-setup
-  | /spec:graph-bootstrap or $spec-graph-bootstrap
-  | /spec:standards       or $spec-standards
+  +-- Fast path for lightweight docs, small fixes, first trials
+  |     -> /spec:ideate / $spec-ideate
+  |     -> /spec:brainstorm / $spec-brainstorm
+  |     -> /spec:plan / $spec-plan
+  |     -> /spec:work / $spec-work
+  |     -> /spec:code-review / $spec-code-review
+  |
+  +-- Enhanced readiness for graph-heavy or standards-aware work
+        -> /spec:mcp-setup       or $spec-mcp-setup
+        -> /spec:graph-bootstrap or $spec-graph-bootstrap
+        -> /spec:standards       or $spec-standards
   v
 Choose the next workflow in the host session
   |
@@ -565,9 +584,10 @@ Expected Claude init output includes:
 🤖 Generated 51 agent file(s) in .claude/agents
 Next steps:
   1. Restart Claude Code or open a new session so the host loads the generated /spec:* commands.
-  2. In the new session, run /spec:mcp-setup to install and verify the required MCP/helper runtime.
-  3. If /spec:mcp-setup shows graph bootstrap is still pending, run /spec:graph-bootstrap when prompted.
-  4. After graph readiness is ready, run /spec:standards to compile project standards and glue baseline before downstream workflows. In a parent workspace this batches child-local baselines for every discovered child repo; use /spec:standards --repo <child> to narrow or /spec:standards --workspace for parent advisory artifacts.
+  2. For lightweight docs, small fixes, first trials, or lightweight plan/work/review, start the matching /spec:* workflow in the new session.
+  3. For enhanced readiness, run /spec:mcp-setup to install and verify the required MCP/helper runtime.
+  4. If /spec:mcp-setup shows graph bootstrap is still pending, run /spec:graph-bootstrap when prompted.
+  5. After graph readiness is ready, run /spec:standards to compile project standards and glue baseline before graph-heavy or standards-aware downstream workflows. In a parent workspace this batches child-local baselines for every discovered child repo; use /spec:standards --repo <child> to narrow or /spec:standards --workspace for parent advisory artifacts.
 ```
 
 Expected Codex init output includes:
@@ -577,9 +597,10 @@ Expected Codex init output includes:
 🤖 Generated 51 agent file(s) in .codex/agents
 Next steps:
   1. Restart Codex or open a new session so the host loads the generated $spec-* skills.
-  2. In the new session, run $spec-mcp-setup to install and verify the required MCP/helper runtime.
-  3. If $spec-mcp-setup shows graph bootstrap is still pending, run $spec-graph-bootstrap when prompted.
-  4. After graph readiness is ready, run $spec-standards to compile project standards and glue baseline before downstream workflows. In a parent workspace this batches child-local baselines for every discovered child repo; use $spec-standards --repo <child> to narrow or $spec-standards --workspace for parent advisory artifacts.
+  2. For lightweight docs, small fixes, first trials, or lightweight plan/work/review, start the matching $spec-* workflow in the new session.
+  3. For enhanced readiness, run $spec-mcp-setup to install and verify the required MCP/helper runtime.
+  4. If $spec-mcp-setup shows graph bootstrap is still pending, run $spec-graph-bootstrap when prompted.
+  5. After graph readiness is ready, run $spec-standards to compile project standards and glue baseline before graph-heavy or standards-aware downstream workflows. In a parent workspace this batches child-local baselines for every discovered child repo; use $spec-standards --repo <child> to narrow or $spec-standards --workspace for parent advisory artifacts.
 ```
 
 ## Development & Contributing

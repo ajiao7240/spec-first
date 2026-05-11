@@ -1,6 +1,10 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-12 00:14:13 leokuang: feat(onboarding): 实现 P2-006 lightweight/no-graph fast path，明确轻量 workflow 可先于 graph readiness 启动并保留 enhanced readiness 边界 (user-visible)
+- v1.8.2 2026-05-12 00:06:12 leokuang: docs(plan): 逐项优化 pre-facts injection 计划，明确 hidden internal CLI helper、provider query session-local 边界、code-review baseline gate、read-count 判定与中文 target extraction 覆盖 (user-visible)
+- v1.8.2 2026-05-12 00:00:42 leokuang: docs(plan): 新增 P2-006 lightweight/no-graph fast path 轻量实施计划，收敛 no-graph onboarding、readiness enhanced path 与 quick-mode 过度设计边界 (user-visible)
+- v1.8.2 2026-05-11 23:51:12 leokuang: docs(plan): 按 spec-doc-review 复审结果继续修订 pre-facts injection 计划，补齐 helper 边界、provider fact contract、trust model、code-review baseline gate、repo-scoped facts 与 measurement protocol (user-visible)
 - v1.8.2 2026-05-11 23:39:30 leokuang: feat(quality-gates): 完成 P2-003 benchmark/eval fixture suite full closure v1，新增 API contract 与 multi-module refactor fixtures、semantic-review evidence 可见性和 advisory gate 覆盖 (user-visible)
 - v1.8.2 2026-05-11 23:28:38 leokuang: docs(plan): 新增 P2-003 benchmark/eval fixture suite full closure 轻量实施计划，收敛 API contract、多模块 refactor 与 semantic-review evidence 边界 (user-visible)
 - v1.8.2 2026-05-11 22:46:09 leokuang: docs(plan): 按 spec-doc-review 复审结果修订 pre-facts injection 计划，校准 graph freshness、semantic facts 来源、tier 枚举、persona 边界与验证门槛 (user-visible)

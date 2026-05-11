@@ -4,6 +4,8 @@
 
 `spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init (--claude|--codex) / clean (--claude|--codex)` 把 Claude Code 的 `/spec:*` 命令、Codex 的 `$spec-*` skills、workflow skills、agents、agent support files、项目级 `.developer` 和受管状态安装到当前项目中。
 
+完成 `doctor`、`init` 和宿主重启后，轻量任务可以先走 no-graph fast path：docs-only、小 bugfix、首次试用、轻量 plan/work/review 可以直接进入匹配的 `/spec:*` 或 `$spec-*` workflow。`spec-mcp-setup`、`spec-graph-bootstrap` 和 `spec-standards` 是增强 readiness 路径，适合需要 MCP provider、graph evidence、standards baseline 或跨模块/跨仓影响分析的任务。
+
 当前推荐的事实准备、专项审查与知识沉淀入口：
 
 - `spec-mcp-setup`：required harness runtime、MCP servers、graph providers 和 helper tools 的安装与验证入口
@@ -65,6 +67,8 @@ mcp-setup / graph-bootstrap / standards
 ```
 
 这不是必须顺序执行的命令链。用户应从当前状态最匹配的节点进入；当下一步不清楚时，在宿主会话里询问即可由入口治理推荐一个公开 workflow。`write-tasks` 是 standalone skill，不是 `/spec:*` 或 `$spec-*` command-backed workflow。
+
+当 graph readiness 缺失或过期时，轻量 workflow 可以用 bounded direct repo reads 继续，但必须把 graph evidence 视为 degraded 或 unavailable；不要把缺失 graph 包装成成功证据，也不要把 setup/bootstrap 当成所有 workflow 的硬前置。
 
 ## 支持的开发模式
 

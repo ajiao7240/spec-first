@@ -131,7 +131,8 @@ When the user asks "what next?" after a workflow:
 - If a brainstorm requirements document exists and implementation direction is not yet planned, recommend plan.
 - If a plan or validated task pack exists and the work is implementation-ready, recommend work.
 - If there is an existing diff and the user asks whether it is ready, recommend code review or doc review based on the artifact.
-- After init, prefer setup/readiness guidance when runtime or MCP readiness is unresolved; otherwise route by the user's actual goal.
+- After init, prefer setup/readiness guidance only when the user asks about setup/readiness, missing runtime assets, MCP/provider setup, graph-heavy capabilities, or a workflow is blocked by unavailable tools.
+- After init, when runtime or MCP readiness is unresolved but the user has a clear lightweight docs, small-code, plan, work, or review goal, route by that goal and require the selected workflow to disclose degraded graph/MCP evidence when relevant.
 
 ## Routing Rules
 

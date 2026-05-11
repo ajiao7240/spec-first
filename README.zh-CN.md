@@ -150,6 +150,17 @@ $spec-brainstorm "改进 onboarding"
 
 如果不确定该用哪个 workflow，可以在宿主会话中直接描述任务或询问下一步；`using-spec-first` 会推荐一个公开入口并说明原因。
 
+### Fast path 与增强 readiness
+
+完成 `doctor`、`init` 和宿主重启后，即使还没有编译 graph readiness，也可以先进入轻量宿主 workflow。这适合 docs-only、小 bugfix、轻量 plan/work/review 和首次项目试用：
+
+```text
+$spec-ideate / $spec-brainstorm / $spec-plan / $spec-work / $spec-code-review
+/spec:ideate / /spec:brainstorm / /spec:plan / /spec:work / /spec:code-review
+```
+
+当任务依赖 MCP/helper tools、graph evidence、project standards、跨模块或跨仓影响分析时，再走 setup/bootstrap/standards 增强路径。缺失或过期的 graph facts 是需要披露的 degraded evidence，不是伪造的成功状态，也不是所有 workflow 的硬前置。
+
 ### Readiness ladder / 就绪层级
 
 `doctor` 是第一层健康检查，不代表所有能力都 ready。请把三层 readiness 分开看：
@@ -187,9 +198,17 @@ docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
   v
 重启 Claude Code 或 Codex
   |
-  | /spec:mcp-setup       或 $spec-mcp-setup
-  | /spec:graph-bootstrap 或 $spec-graph-bootstrap
-  | /spec:standards       或 $spec-standards
+  +-- 轻量 fast path：docs、小修复、首次试用
+  |     -> /spec:ideate / $spec-ideate
+  |     -> /spec:brainstorm / $spec-brainstorm
+  |     -> /spec:plan / $spec-plan
+  |     -> /spec:work / $spec-work
+  |     -> /spec:code-review / $spec-code-review
+  |
+  +-- graph-heavy 或 standards-aware 工作的增强 readiness
+        -> /spec:mcp-setup       或 $spec-mcp-setup
+        -> /spec:graph-bootstrap 或 $spec-graph-bootstrap
+        -> /spec:standards       或 $spec-standards
   v
 在宿主会话中选择下一步 workflow
   |
@@ -565,9 +584,10 @@ Claude init 的预期输出包含：
 🤖 Generated 51 agent file(s) in .claude/agents
 下一步:
   1. 重启 Claude Code 或新开会话，让宿主加载刚生成的 /spec:* commands。
-  2. 在新会话运行 /spec:mcp-setup，安装并验证必装 MCP/helper runtime。
-  3. 如果 /spec:mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap。
-  4. graph readiness 就绪后，运行 /spec:standards 编译项目规范与胶水基线，再进入下游 workflow。父 workspace 下会为所有 discovered child repo 批量生成 child-local baselines；使用 /spec:standards --repo <child> 收窄到单个 child，或用 /spec:standards --workspace 写父级 advisory artifacts。
+  2. 对 docs、小修复、首次试用或轻量 plan/work/review，可直接在新会话启动匹配的 /spec:* workflow。
+  3. 需要增强 readiness 时，运行 /spec:mcp-setup 安装并验证必装 MCP/helper runtime。
+  4. 如果 /spec:mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap。
+  5. graph readiness 就绪后，运行 /spec:standards 编译项目规范与胶水基线，再进入 graph-heavy 或 standards-aware 下游 workflow。父 workspace 下会为所有 discovered child repo 批量生成 child-local baselines；使用 /spec:standards --repo <child> 收窄到单个 child，或用 /spec:standards --workspace 写父级 advisory artifacts。
 ```
 
 Codex init 的预期输出包含：
@@ -577,9 +597,10 @@ Codex init 的预期输出包含：
 🤖 Generated 51 agent file(s) in .codex/agents
 下一步:
   1. 重启 Codex 或新开会话，让宿主加载刚生成的 $spec-* skills。
-  2. 在新会话运行 $spec-mcp-setup，安装并验证必装 MCP/helper runtime。
-  3. 如果 $spec-mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 $spec-graph-bootstrap。
-  4. graph readiness 就绪后，运行 $spec-standards 编译项目规范与胶水基线，再进入下游 workflow。父 workspace 下会为所有 discovered child repo 批量生成 child-local baselines；使用 $spec-standards --repo <child> 收窄到单个 child，或用 $spec-standards --workspace 写父级 advisory artifacts。
+  2. 对 docs、小修复、首次试用或轻量 plan/work/review，可直接在新会话启动匹配的 $spec-* workflow。
+  3. 需要增强 readiness 时，运行 $spec-mcp-setup 安装并验证必装 MCP/helper runtime。
+  4. 如果 $spec-mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 $spec-graph-bootstrap。
+  5. graph readiness 就绪后，运行 $spec-standards 编译项目规范与胶水基线，再进入 graph-heavy 或 standards-aware 下游 workflow。父 workspace 下会为所有 discovered child repo 批量生成 child-local baselines；使用 $spec-standards --repo <child> 收窄到单个 child，或用 $spec-standards --workspace 写父级 advisory artifacts。
 ```
 
 ## 开发与贡献
