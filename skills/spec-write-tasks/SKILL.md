@@ -40,7 +40,7 @@ When skipping, say explicitly that this is not an omission; this case does not n
 2. A task pack is a derived artifact; it must not become a second plan.
 3. A task pack may only rearrange execution slices. It must not change scope, acceptance criteria, or non-goals.
 4. A task pack that can be handed to `spec-work` must include `spec_id`, verifiable `source_plan`, and `source_plan_hash` metadata so wrong-chain or stale tasks are not executed silently.
-5. `spec-write-tasks` does not introduce its own lifecycle hook. Context references may appear only as `context_refs`, `entry_hint`, `test_focus`, or orientation evidence; `spec-work` later executes from the source plan or task-pack handoff using direct repo reads.
+5. `spec-write-tasks` does not introduce its own lifecycle hook. Context references and review intent may appear only as `context_refs`, `entry_hint`, `test_focus`, `review_gate`, `review_focus`, or orientation evidence; `spec-work` later executes from the source plan or task-pack handoff using direct repo reads.
 6. Each task should solve one clear subproblem and should usually have one primary verification target.
 7. Task splitting should reflect file boundaries, dependencies, verification surfaces, and parallelization opportunities instead of restating the plan.
 8. Source reads before task-pack generation must be bounded source orientation: use targeted direct repo reads first, read `.spec-first/standards/standards-candidates.json`, `.spec-first/standards/standards-preview.md`, validation result, and `glue-map.json` when present as context refs, optionally use Serena/LSP when available, and stop once task boundaries are accurate enough. Standards consumption contract: `confirmed` -> hard task constraint only when consistent with the source plan; `observed` / `imported` / `suggested` -> advisory context refs; `conflict` -> risk context; `unknown` -> question context. Validator fail, missing validator result, `trust_level=degraded`, `consumption_boundary=advisory_only`, or `workspace-advisory-only` means standards artifacts are degraded/advisory only. `glue-map.json` supports reuse-first task shaping and must not become a workflow state machine or expand source-plan scope.
@@ -259,7 +259,7 @@ next_action: spec-work-task-pack | review-task-pack | spec-work-plan | revise-pl
 Executable task cards have two layers:
 
 1. Deterministic contract fields validated by `spec-first tasks validate`: `task_id`, `dependencies`, non-empty concrete `files`, `goal`, `test_focus`, `done_signal`, `wave`, `stop_if`, plus at least one source anchor through `source_unit` or `requirement_refs`.
-2. LLM/human quality fields that should be present when they reduce execution context: `context_refs`, `entry_hint`, `parallelizable`, `risk_note`, `notes`, `review_focus`, `handoff_owner`, and workspace-scoped `target_repo` when applicable.
+2. LLM/human quality fields that should be present when they reduce execution context: `context_refs`, `entry_hint`, `parallelizable`, `risk_note`, `notes`, `review_gate`, `review_focus`, `handoff_owner`, and workspace-scoped `target_repo` when applicable.
 
 Every executable task card must express:
 
@@ -280,7 +280,11 @@ Add these quality fields when useful, but do not imply the CLI validator proves 
 - `entry_hint`: where to start reading; not a step-by-step implementation script.
 - `parallelizable`: whether the task can run in parallel.
 - `risk_note`: main risk.
+- `review_gate`: optional review intent metadata. Use `required` only for high-risk shared contracts, public workflow prose, validator/schema changes, source/runtime boundary changes, security/release/CI surfaces, or tasks that unblock multiple dependent tasks. Use `optional` for medium-risk behavior changes where review can usually merge into final shipping review. Omit it for docs-only, config-only, trivial copy edits, and low-risk single-file fixes. This is not lifecycle state, review status, or approval metadata.
+- `review_focus`: concrete review concern for a mini review or final shipping review. It must not replace `test_focus`, `done_signal`, or `stop_if`.
 - `target_repo`: selected child repo in parent-workspace contexts.
+
+The deterministic validator checks `review_gate` structure only (`optional` or `required`) and does not decide which tasks semantically require review. That decision belongs to LLM/human task compilation and downstream `spec-work` judgment.
 
 ## Drift And Hash
 

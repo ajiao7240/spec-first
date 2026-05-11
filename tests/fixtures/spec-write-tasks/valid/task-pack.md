@@ -41,6 +41,8 @@ Derived execution input for validator tests.
       "test_focus": "Valid, stale, and wrong-chain task pack validation.",
       "done_signal": "Validator tests pass.",
       "wave": 1,
+      "review_gate": "required",
+      "review_focus": "Check validator compatibility and source-plan boundary.",
       "stop_if": "Validation requires judging task splitting quality."
     }
   ]

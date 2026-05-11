@@ -152,13 +152,15 @@ Executable task packs must include exactly one fenced JSON block under `## Task 
       "test_focus": "Valid and stale task pack validation.",
       "done_signal": "Validator tests pass.",
       "wave": 1,
+      "review_gate": "required",
+      "review_focus": "Review task-pack validator compatibility and source-plan boundary.",
       "stop_if": "Validation requires judging task splitting quality or changing source-plan scope."
     }
   ]
 }
 ```
 
-MVP required task fields are `task_id`, `dependencies`, non-empty concrete `files`, `goal`, `test_focus`, `done_signal`, `wave`, and `stop_if`, plus at least one source anchor through `source_unit` or `requirement_refs`. The deterministic validator treats `context_refs`, `entry_hint`, `parallelizable`, and `risk_note` as quality fields rather than hard executable fields.
+MVP required task fields are `task_id`, `dependencies`, non-empty concrete `files`, `goal`, `test_focus`, `done_signal`, `wave`, and `stop_if`, plus at least one source anchor through `source_unit` or `requirement_refs`. The deterministic validator treats `context_refs`, `entry_hint`, `parallelizable`, `risk_note`, `review_gate`, and `review_focus` as quality/review fields rather than hard executable fields. When present, `review_gate` must be exactly `optional` or `required`; absence means no task-level review gate. The validator checks only the enum structure, not whether the task semantically deserves a gate.
 
 ## Task Cards
 
@@ -188,7 +190,8 @@ These fields should be added when useful for context compression, review, or wor
 | `parallelizable` | Boolean hint for whether the task can run in parallel |
 | `risk_note` | Main risk |
 | `notes` | Additional context for human readers |
-| `review_focus` | Specific review concern |
+| `review_gate` | Optional task-level review intent, either `optional` or `required`; not an approval state |
+| `review_focus` | Specific review concern for mini review or final shipping review |
 | `handoff_owner` | Suggested executor type when relevant |
 | `target_repo` | Selected child repo in parent-workspace contexts |
 
@@ -212,6 +215,8 @@ These fields should be added when useful for context compression, review, or wor
   done_signal: Relevant tests pass and the boundary is stable
   parallelizable: false
   risk_note: Core structure drift would affect later tasks
+  review_gate: required
+  review_focus: Check source-plan authority, validator compatibility, and scope expansion risks
   stop_if: A new public entrypoint, config key, or durable state file is needed but absent from the plan
   wave: 1
 ```

@@ -88,6 +88,13 @@ On decline:
 
 Delegate all units in one batch. If the plan exceeds 5 units, split into batches at the plan's own phase boundaries, or in groups of roughly 5 -- never splitting units that share files. Skip delegation entirely if every unit is trivial.
 
+When the input is a validated task pack, batching must preserve task-pack metadata and review gates:
+
+- Carry `task_id`, `dependencies`, `wave`, `review_gate`, and `review_focus` into every delegated batch prompt.
+- Do not place a dependent task in the same delegated batch when its prerequisite has `review_gate: required`; the orchestrator must pause after the prerequisite batch, run the required-gate report-only review or handoff, then continue.
+- Same dependency/wave-boundary required gates may be batched only when the orchestrator can preserve a reliable diff anchor and review all listed task ids together before the next dependent batch.
+- Workers must not decide that a required gate is satisfied. The orchestrator owns required-gate review, handoff, git operations, and continuation decisions.
+
 ## Per-Batch Effort
 
 Before launching each batch, choose the batch's `effective_effort` from its complexity:
@@ -145,12 +152,19 @@ For a multi-unit batch: list each unit's approach, noting dependencies
 and suggested ordering.]
 </approach>
 
+<task_pack_metadata>
+[When executing a task pack: list each task's task_id, dependencies, wave,
+review_gate, review_focus, stop_if, declared files, and source_plan. If the
+batch is plan-only, write "not applicable".]
+</task_pack_metadata>
+
 <constraints>
 - Do NOT run git commit, git push, or create PRs -- the orchestrating agent handles all git operations
 - Restrict all modifications to files within the repository root
 - Keep changes tightly scoped to the stated task -- avoid unrelated refactors, renames, or cleanup
 - Resolve the task fully before stopping -- do not stop at the first plausible answer
 - If you discover mid-execution that you need to modify files outside the repo root, complete what you can within the repo and report what you could not do via the result schema issues field
+- Do not mark `review_gate: required` as satisfied; report completion and let the orchestrator run the required-gate report-only review or handoff before dependent work continues
 </constraints>
 
 <testing>

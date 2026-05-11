@@ -13,7 +13,8 @@ A task is high quality when an executor can:
 3. identify the files it is allowed to touch,
 4. verify completion without inventing new acceptance criteria,
 5. know which bounded source orientation shaped the file boundaries,
-6. know when to stop instead of expanding scope.
+6. know when to stop instead of expanding scope,
+7. know whether the task carries review intent without mistaking that intent for approval state.
 
 The quality bar is not whether every field is filled. The quality bar is whether an executor can safely begin with low context and finish a verifiable slice without expanding scope.
 
@@ -109,6 +110,10 @@ Use these field-level checks before handing a task pack to `spec-work`:
 | `test_focus` | States the primary verification surface and behavior category | It says only "tests" or requires acceptance criteria not present in the source plan |
 | `done_signal` | Can be observed through tests, CLI output, diff shape, document structure, or review | It is subjective, such as "works", "complete", or "looks good" |
 | `stop_if` | Names a concrete scope expansion or invalid assumption that should return to `spec-plan` | It is generic, such as "if unsure" or "if there is a problem" |
+| `review_gate` | Uses `required` only for high-risk shared contracts, public workflow prose, validator/schema changes, source/runtime boundary changes, security/release/CI surfaces, or tasks that unblock multiple dependents; uses `optional` for medium-risk behavior changes; omits the field for low-risk docs/config/trivial work | It becomes a default on every task, is used as review status or approval state, or asks the validator to decide semantic risk |
+| `review_focus` | Names the concrete concern a mini review or final shipping review should inspect | It repeats `test_focus`, substitutes for `done_signal` or `stop_if`, or says only "review this task" |
+
+`review_gate` and `review_focus` are review intent. They do not record whether review passed, who approved the task, or whether execution state advanced. The task pack stays a derived execution input; progress and review outcomes live in the work run, git diff, and downstream review handoff.
 
 ## Task Pack Review Checklist
 
@@ -122,7 +127,9 @@ When reviewing a task pack, check:
 - same-wave tasks do not share files,
 - Orientation Evidence names provider, posture, evidence_refs, and limitations without turning LSP/current code state into source-plan scope,
 - `context_refs` reduce first-pass reading instead of duplicating the whole plan,
-- `stop_if` protects the source plan boundary.
+- `stop_if` protects the source plan boundary,
+- `review_gate` is absent, `optional`, or `required` based on concrete task risk rather than defaulting every task to required,
+- `review_focus` describes what to inspect without replacing `test_focus`, `done_signal`, or `stop_if`.
 
 ## Done Signal Rules
 
@@ -172,6 +179,8 @@ Bad stop signals:
 | Orientation Evidence is missing or overclaims | Executor cannot tell why boundaries are accurate, or evidence becomes a second plan | Record bounded provider/evidence/limitations and keep the source plan authoritative |
 | `done_signal` is subjective | Cannot verify completion | Use test, diff, CLI, docs, or review signals |
 | `stop_if` is vague | Cannot stop scope creep | Name concrete out-of-scope triggers |
+| `review_gate` is required by default | Creates review noise and encourages executors to bypass the field | Reserve `required` for high-risk or dependency-unblocking tasks; use `optional` sparingly and omit for low-risk tasks |
+| `review_focus` repeats test focus | Review loses a distinct risk lens | Name the contract, boundary, or semantic concern review should inspect |
 | Task adds scope | Task pack becomes a second plan | Return to `spec-plan` |
 
 ## Examples
@@ -196,6 +205,8 @@ Bad stop signals:
   done_signal: `spec-work` documents spec_id/source_plan/source_plan_hash checks plus stale-pack and wrong-chain rejection
   parallelizable: false
   risk_note: Treating task pack as authoritative would break plan SoT
+  review_gate: required
+  review_focus: Check stale/wrong-chain rejection and source-plan authority before dependent execution
   stop_if: Need to add a new workflow entrypoint or remove direct plan-to-work execution
   wave: 2
 ```

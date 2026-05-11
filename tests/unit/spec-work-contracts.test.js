@@ -88,6 +88,9 @@ describe('spec-work requirements and shipping policy contract', () => {
     expect(shipping).toContain('Large and diffuse change');
     expect(shipping).toContain('Very large change');
     expect(shipping).toContain('Plan or task explicitly requests it');
+    expect(shipping).toContain('Task-level review focus requests it');
+    expect(shipping).toContain('This Tier 2 escalation does not require `review_gate: required`');
+    expect(shipping).toContain('required gate by itself only requires the diff-scoped report-only checkpoint');
     expect(shipping).toContain('Code review completed (Tier 1 host-native or Tier 2 `spec-code-review`)');
     expect(shipping).not.toContain('inline self-review');
     expect(shipping).not.toContain('/simplify');
@@ -144,9 +147,27 @@ describe('spec-work task-pack identity contract', () => {
     expect(text).toContain('Execute from the task pack\'s validated task structure');
     expect(text).toContain('Requires plan-unit metadata or validated task-card metadata');
     expect(text).toContain('The full work-document path. If it is a task pack, also pass the `source_plan` path');
-    expect(text).toContain('task-card equivalents (`task_id`, `dependencies`, `wave`, `files`, `test_focus`, `done_signal`, `stop_if`)');
+    expect(text).toContain('task-card equivalents (`task_id`, `dependencies`, `wave`, `files`, `test_focus`, `done_signal`, `stop_if`, `review_gate`, `review_focus`)');
     expect(text).toContain('Read any referenced files from the plan, task pack, or discovered during Phase 0');
     expect(text).toContain('If the work document is a task pack, use `Task Cards`, `Execution Waves`, `dependencies`, and `task_id`');
+  });
+
+  test('preserves task-pack review gates as bounded review intent', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const shipping = fs.readFileSync(SHIPPING_WORKFLOW_PATH, 'utf8');
+
+    expect(text).toContain('preserve each task\'s `review_gate` and `review_focus` as review intent metadata');
+    expect(text).toContain('do not treat either field as progress state, approval state, or source-plan scope authority');
+    expect(text).toContain('for `review_gate: required`, treat the task as a task completion checkpoint');
+    expect(text).toContain('record `pre_task_base` or an equivalent diff anchor');
+    expect(text).toContain('spec-code-review mode:report-only base:<pre_task_base> plan:<source_plan>');
+    expect(text).toContain('if a reliable per-task diff range cannot be formed, stop and hand off');
+    expect(text).toContain('P0/P1 or any actionable finding directly matching the task\'s `review_focus`');
+    expect(text).toContain('same dependency/wave-boundary required gates may be batched');
+    expect(text).toContain('terminal required tasks must still be covered before Phase 3 completes');
+    expect(text).toContain('`review_gate: optional` is advisory');
+    expect(shipping).toContain('Task-level review focus requests it');
+    expect(shipping).toContain('does not force full multi-persona autofix review');
   });
 });
 

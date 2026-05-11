@@ -68,6 +68,8 @@ describe('task pack hash and validation', () => {
       task_id: 'T001',
       source_unit: 'U1',
       wave: 1,
+      review_gate: 'required',
+      review_focus: 'Check validator compatibility and source-plan boundary.',
     }));
   });
 
@@ -464,6 +466,7 @@ describe('task pack hash and validation', () => {
       const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
       replaceTaskPackContract(taskPackPath, (contract) => {
         contract.tasks[0].notes = 'Human-readable context.';
+        contract.tasks[0].review_gate = 'optional';
         contract.tasks[0].review_focus = 'Check task pack boundary clarity.';
         contract.tasks[0].handoff_owner = 'executor';
         contract.tasks[0].target_repo = 'packages/spec-first';
@@ -472,6 +475,26 @@ describe('task pack hash and validation', () => {
       const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
 
       expect(result.deterministic_handoff).toBe(true);
+      expect(result.limitations.map((limitation) => limitation.code)).not.toContain('task-pack-task-unknown-field');
+      expect(result.task_pack.execution_focus[0].review_gate).toBe('optional');
+      expect(result.task_pack.execution_focus[0].review_focus).toBe('Check task pack boundary clarity.');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('review_gate rejects values outside the task review enum', () => {
+    const tmp = copyFixtureProject();
+    try {
+      const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
+      replaceTaskPackContract(taskPackPath, (contract) => {
+        contract.tasks[0].review_gate = 'full';
+      });
+
+      const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
+
+      expect(result.deterministic_handoff).toBe(false);
+      expect(result.errors.map((error) => error.code)).toContain('task-pack-task-review-gate-invalid');
       expect(result.limitations.map((limitation) => limitation.code)).not.toContain('task-pack-task-unknown-field');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
@@ -496,6 +519,23 @@ describe('task pack hash and validation', () => {
       expect(result.errors.map((error) => error.code)).toContain('task-pack-task-review-focus-invalid');
       expect(result.errors.map((error) => error.code)).toContain('task-pack-task-handoff-owner-invalid');
       expect(result.errors.map((error) => error.code)).toContain('task-pack-task-target-repo-invalid');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test.each(['', { gate: 'required' }, ['required'], true])('review_gate rejects invalid non-enum value %#', (reviewGate) => {
+    const tmp = copyFixtureProject();
+    try {
+      const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
+      replaceTaskPackContract(taskPackPath, (contract) => {
+        contract.tasks[0].review_gate = reviewGate;
+      });
+
+      const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
+
+      expect(result.deterministic_handoff).toBe(false);
+      expect(result.errors.map((error) => error.code)).toContain('task-pack-task-review-gate-invalid');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }

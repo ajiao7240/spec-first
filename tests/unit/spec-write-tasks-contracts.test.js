@@ -75,6 +75,13 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('current deterministic validation does not prove workspace repo scope');
     expect(skill).toContain('Deterministic contract fields validated by `spec-first tasks validate`');
     expect(skill).toContain('LLM/human quality fields that should be present when they reduce execution context');
+    expect(skill).toContain('`review_gate`, `review_focus`');
+    expect(skill).toContain('Use `required` only for high-risk shared contracts');
+    expect(skill).toContain('Use `optional` for medium-risk behavior changes');
+    expect(skill).toContain('Omit it for docs-only, config-only, trivial copy edits, and low-risk single-file fixes');
+    expect(skill).toContain('This is not lifecycle state, review status, or approval metadata');
+    expect(skill).toContain('The deterministic validator checks `review_gate` structure only');
+    expect(skill).toContain('does not decide which tasks semantically require review');
     expect(skill).toContain('The deterministic validator only proves frontmatter identity/freshness plus the `Task Pack Contract` machine-readable structure');
     expect(skill).not.toContain('spec-first ' + 'crg hook');
     expect(skill).not.toContain('$spec-' + 'graph' + '-bootstrap');
@@ -111,6 +118,10 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain("entry_hint: Start with the plan's Requirements and Scope Boundaries");
     expect(schema).not.toContain("entry_hint: Start with the plan's Requirements Trace");
     expect(schema).toContain('Quality Task Fields');
+    expect(schema).toContain('| `review_gate` | Optional task-level review intent, either `optional` or `required`; not an approval state |');
+    expect(schema).toContain('| `review_focus` | Specific review concern for mini review or final shipping review |');
+    expect(schema).toContain('When present, `review_gate` must be exactly `optional` or `required`; absence means no task-level review gate.');
+    expect(schema).toContain('The validator checks only the enum structure, not whether the task semantically deserves a gate.');
     expect(schema).toContain('MVP required task fields');
     expect(schema).toContain('Wave ids must be strings or numbers.');
     expect(schema).toContain('Non-empty concrete repo-relative POSIX file paths; no globs, directories, `.`, `..`, `...`, or backslash separators');
@@ -134,6 +145,12 @@ describe('spec-write-tasks contracts', () => {
     expect(guide).toContain('### Good');
     expect(guide).toContain('### Bad');
     expect(guide).toContain('Field Writing Guide');
+    expect(guide).toContain('| `review_gate` | Uses `required` only for high-risk shared contracts');
+    expect(guide).toContain('| `review_focus` | Names the concrete concern a mini review or final shipping review should inspect |');
+    expect(guide).toContain('`review_gate` and `review_focus` are review intent');
+    expect(guide).toContain('They do not record whether review passed, who approved the task, or whether execution state advanced.');
+    expect(guide).toContain('It repeats `test_focus`, substitutes for `done_signal` or `stop_if`');
+    expect(guide).toContain('`review_gate` is required by default');
     expect(guide).toContain('Task Pack Review Checklist');
     expect(guide).toContain('Current deterministic validation treats `context_refs` as auxiliary context, not as a replacement for `source_unit` or `requirement_refs`.');
     expect(guide).toContain('Use non-empty concrete repo-relative POSIX file paths');

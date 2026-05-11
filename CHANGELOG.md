@@ -1,6 +1,11 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-11 20:06:42 leokuang: feat(task-pack): 实现 P2-002 轻量 per-task review gate，新增 review_gate 校验、execution_focus 投影与 spec-work report-only handoff 合同 (user-visible)
+- v1.8.2 2026-05-11 19:44:56 leokuang: docs(plan): 按 spec-doc-review 结果收窄 P2-002 review gate 计划，补齐 diff anchor、失败策略、batching 与 code-review 边界 (user-visible)
+- v1.8.2 2026-05-11 19:29:17 leokuang: docs(plan): 新增 P2-002 task-pack per-task review gate 轻量实施计划 (user-visible)
+- v1.8.2 2026-05-11 19:20:47 leokuang: docs(review): 将 P2-001 module-level scope manifest 调整为延后处理并更新 P2 开发顺序 (user-visible)
+- v1.8.2 2026-05-11 17:48:28 leokuang: docs(review): 校准全面审查报告的 P2 必做性、开发顺序与过度设计边界 (user-visible)
 - v1.8.2 2026-05-11 15:33:38 leokuang: fix(gitnexus): 将生成到目标仓库的 GitNexus host block 改为自包含证据边界，避免引用不存在的 repo-local graph evidence policy (user-visible)
 - v1.8.2 2026-05-11 14:54:15 leokuang: fix(test): 隔离 AI dev benchmark fixtures 避免 root unit 误扫，并同步用户手册版本线
 - v1.8.2 2026-05-11 14:36:11 leokuang: fix(review): 修复 spec-code-review 发现的 release dry-run、AI dev gate 与 package evidence 覆盖缺口 (user-visible)

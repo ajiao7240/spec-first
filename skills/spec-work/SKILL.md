@@ -133,6 +133,13 @@ Determine how to proceed based on what was provided in `<input_document>`.
      - reject draft, transient, missing-source, missing-spec-id, spec-id-mismatch, missing-hash, unavailable-hash-tooling, unverifiable-hash, or hash-mismatch task packs before implementation
      - when rejecting, stop and ask to rerun `spec-write-tasks` from the source plan or return to `spec-plan`; do not silently fall back to executing stale task cards
      - during execution, honor each task's `stop_if`; if triggered, stop and return to `spec-plan` or regenerate the task pack instead of expanding scope in place
+     - when present, preserve each task's `review_gate` and `review_focus` as review intent metadata; do not treat either field as progress state, approval state, or source-plan scope authority
+     - for `review_gate: required`, treat the task as a task completion checkpoint: before marking the logical task done, committing that logical unit, entering the next wave, or entering Phase 3, run a bounded `spec-code-review mode:report-only` mini review or stop with an explicit handoff
+     - before starting a required-gate task, record `pre_task_base` or an equivalent diff anchor. After task verification, run `spec-code-review mode:report-only base:<pre_task_base> plan:<source_plan>` against the current checkout and carry the task-pack path, task id, declared files, actual changed files, source plan path, and `review_focus` in the review context
+     - if a reliable per-task diff range cannot be formed, stop and hand off instead of pretending a whole-branch review is a task-level review
+     - if required-gate review returns P0/P1 or any actionable finding directly matching the task's `review_focus`, fix and re-review or explicitly hand off / get user acceptance before continuing dependent work
+     - same dependency/wave-boundary required gates may be batched into one bounded report-only review when they share a reliable diff anchor/context; terminal required tasks must still be covered before Phase 3 completes, either by the mini review or by an immediate shipping review whose context names the task id, diff scope, and `review_focus`
+     - `review_gate: optional` is advisory; record it as review context and merge it into final shipping review unless local risk signals justify an earlier report-only mini review
    - If the work document is already a validated task pack, do not offer task compilation again, do not rebuild execution structure from the source plan, and do not silently downgrade to plan-only execution. Execute from the task pack's validated task structure while keeping `source_plan` as scope authority.
    - If the work document is a plan path, and validated task-pack consumption is available, run the optional task-pack suitability check before `before-work --plan`, before creating a work-run, and before creating the internal task tracker:
      - offer the diversion once only when the plan has strong signals: 3+ implementation units, multiple phases, cross-module files, foundation tasks, dependency chains, parallel waves, 6+ likely core files, or verification across unit/smoke/integration layers
@@ -247,7 +254,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    **Subagent dispatch** uses your available subagent or task spawning mechanism. For each unit, give the subagent:
    - The full work-document path. If it is a task pack, also pass the `source_plan` path for scope context
-   - The specific unit/task's Goal, Files, Approach, Execution note, Patterns, Test scenarios, Verification, or task-card equivalents (`task_id`, `dependencies`, `wave`, `files`, `test_focus`, `done_signal`, `stop_if`)
+   - The specific unit/task's Goal, Files, Approach, Execution note, Patterns, Test scenarios, Verification, or task-card equivalents (`task_id`, `dependencies`, `wave`, `files`, `test_focus`, `done_signal`, `stop_if`, `review_gate`, `review_focus`)
    - Any resolved deferred questions relevant to that unit
    - Instruction to check whether the unit's test scenarios cover all applicable categories (happy paths, edge cases, error paths, integration) and supplement gaps before writing tests
 

@@ -10,7 +10,7 @@
 审查范围：`package.json`、`bin/`、`src/cli/`、`skills/`、`agents/`、`scripts/`、`templates/`、`docs/`、`tests/`、`.spec-first/graph` 现有事实产物、generated runtime 目录边界、GitHub 同类项目。
 审查方法：直接读取源码、skill/agent/script/test 文档与产物；运行 skill-audit deterministic inventory；抽样 CLI help、doctor/init/task-pack/provider readiness 代码；读取 GitNexus / code-review-graph readiness artifacts；用 GitHub README/release/项目页面调研竞品。
 
-2026-05-11 状态校准：当前 HEAD 已吸收 release/package hardening 与二次 code review 收尾改动，原始草稿中部分 P1 不再成立。本文后续按当前代码口径交付：`P1-008` 降为 `P2-009`，`P1-009` 改为已完成校准项，`P1-006` 从“官网同步测试缺失”改写为“主仓缺跨 repo release gate”，并按 `5907e6ad` 的最新实现校准 release gate 顺序。`P2-009` 已在 `97479ee2` 修复并完成本报告回写。因此本报告当前计数为：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9（已修复 1，剩余待修 8），P3=4，已完成/移出 P1=1。
+2026-05-11 状态校准：当前 HEAD 已吸收 release/package hardening 与二次 code review 收尾改动，原始草稿中部分 P1 不再成立。本文后续按当前代码口径交付：`P1-008` 降为 `P2-009`，`P1-009` 改为已完成校准项，`P1-006` 从“官网同步测试缺失”改写为“主仓缺跨 repo release gate”，并按 `5907e6ad` 的最新实现校准 release gate 顺序。`P2-002` 已完成 v1 修复，`P2-007` 已完成 v1 修复，`P2-009` 已在 `97479ee2` 修复并完成本报告回写，`P2-003` 已完成 v1 foundation 但 full closure pending。因此本报告当前计数为：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9（已完成 3，v1 foundation complete/full closure pending 1，未开发 5；剩余近期必须做 0 项、值得做但非必须 4 项、延后/暂缓 2 项），P3=4，已完成/移出 P1=1。
 
 ## 总体结论
 
@@ -18,25 +18,70 @@
 
 但当前还不适合用“稳定无风险的通用开源工具”口径推广，更适合定位为可用的 beta/preview 级 workflow harness：核心 CLI 和 provider readiness 已有强防线，风险主要集中在用户心智与产物消费契约，而不是单个命令完全不可用。
 
-本次发现：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4；另有 1 个原 P1 经当前代码复核后已移出 P1。结论口径是：阻断级 P1 已开发完成并推送，整份报告中的 P2/P3 仍是后续 backlog，不应标记为全部完成。
+本次发现：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4；另有 1 个原 P1 经当前代码复核后已移出 P1。结论口径是：阻断级 P1 已开发完成并推送，`P2-002`、`P2-007` 与 `P2-009` 已完成，`P2-003` 已有可用 v1 foundation；剩余 P2/P3 应按“值得做、暂缓”分层推进，不应标记为全部完成，也不应把所有 backlog 都升格为核心架构任务。
 
 当前最大剩余风险：
 
-1. planned run artifact / runtime capability catalog 的 implemented vs planned 边界仍可更集中，外部集成者只读 catalog 时可能漏掉 unimplemented producer 状态。
-2. benchmark/release evidence 已有基础门禁，但 package content manifest、dry-run artifact summary 和真实 AI workflow fixtures 仍可继续增强。
-3. `spec-work` 长任务 completion audit 仍可吸收 Codex `/goal` 的轻量目标封套，但必须避免新增重状态机。
+1. standards/glue-map consumption examples 仍不够集中，advisory facts 被误读成 hard rule 的风险还需要用 examples 和 tests 压低。
+2. benchmark/eval 已有 v1 foundation，但真实 AI workflow fixture 与语义对照仍不足；这影响开源可信度，但不应演化成 leaderboard/dashboard 平台。
+3. quick/no-graph path 与 “何时 compound” 属于效率和知识沉淀质量风险，不是当前阻断项。
 
-最值得优先修复的 3 件事：
+建议开发顺序：
 
-1. 给 planned docs-side contracts 和 runtime capability catalog 增加 implemented/planned 速查边界。
-2. 在现有 release gate 基础上补充 package content manifest、dry-run evidence 和 benchmark fixtures。
-3. 以 docs-side preview 方式为长任务 completion audit 引入轻量 goal envelope，不新增运行时 goal state。
+1. `P2-004`：补 standards/glue-map consumption examples；低成本降低 advisory facts 被误读成 hard rule 的风险。
+2. `P2-003`：在 v1 foundation 上补 1-2 个高价值 fixture 或一次真实 workflow/LLM-review pass；不做 dashboard、历史趋势或排行榜。
+3. `P2-006`：补 quick/no-graph mode 文档与 smoke；不新增独立 CLI mode。
+4. `P2-008`：补 learning-worthy checklist；只建议 `$spec-compound`，不自动写 learning doc。
+5. `P2-001`：延后处理；除非真实 monorepo scope drift 反复出现，或先证明能复用 `spec-standards` 的 `project-shape.json.modules[]` 而不新增系统。
+6. `P2-005`：暂缓，除非重复 agent dispatch 已成为真实噪音。
 
 最值得借鉴集成的 3 个竞品能力：
 
 1. GitHub Spec Kit 的 spec/plan/tasks/implement artifact consistency check 与 archive 思路。
 2. claude-code-spec-workflow / cc-sdd 的 bugfix fast path 与 per-task verification/review gate。
 3. Aider 的 lint/test loop、repo map fallback、benchmark fixture suite。
+
+## Backlog 必做性与过度设计校准（2026-05-11）
+
+本节用于避免把“可改进项”误判成“必须进入核心路径的架构项”。当前判断基线仍是 `Light contract + Explicit boundaries + Scripts prepare, LLM decides`：脚本只产出确定性事实和轻量 metadata，LLM/agent 负责语义判断；没有明确 downstream consumer 的产物不进入 runtime producer。
+
+### 已完成 / 已收口
+
+| 项 | 结论 | 必须做原因 | 过度设计护栏 |
+|---|---|---|---|
+| `P2-002` per-task review gate | v1 fixed（2026-05-11） | 长任务只在最终 diff review，质量反馈太晚；task-pack 已具备承载轻量 metadata 的上下文 | 已按轻量版落地：只加 `review_gate: optional|required`、`execution_focus` 投影和 `spec-work` report-only handoff contract；不默认自动多 persona 审每个 task |
+
+### 近期必须做
+
+当前无剩余近期必须做 P2。后续按“值得做但非必须”和“暂缓/长期探索”推进，避免把所有 backlog 都升级成核心架构任务。
+
+### 值得做但非必须
+
+| 项 | 结论 | 适合的最小落地 |
+|---|---|---|
+| `P2-003` benchmark/eval full closure | 值得做；v1 已可用，full closure 不是阻断 | 补 1-2 个高价值 fixture 或一次真实 workflow/LLM-review pass；不做 dashboard/leaderboard |
+| `P2-004` standards/glue-map examples | 值得做，成本低 | 写 examples 与 contract test，说明 confirmed/observed/imported/suggested/conflict 如何被 plan/work 消费 |
+| `P2-006` lightweight/no-graph fast path | 值得做，改善新用户 DX | 更新 README/quickstart/skill prose，必要时补 no-MCP smoke；不新增 CLI quick mode |
+| `P2-008` compound trigger checklist | 值得做，改善知识沉淀稳定性 | 在 final summary contract 中加 learning-worthy signal checklist；只建议 `$spec-compound` |
+
+### 暂缓/长期探索
+
+| 项 | 暂缓原因 | 防线 |
+|---|---|---|
+| `P2-001` module-level scope manifest | 当前不做；不准的 advisory map 如果被误用会造成质量风险，且现有 `spec-standards` 已有 `project-shape.json.modules[]` 可作为未来复用点 | 等真实 monorepo scope drift 反复出现再重启；如重启，优先扩展 `spec-standards` project-shape，不新增独立 module boundary 系统 |
+| `P2-005` agent role boundary catalog | 当前还没有足够证据证明重复 dispatch 已造成高频质量问题 | 先观察；如要做，只写 catalog/lint，不删 agent、不重构 dispatch |
+| `P3-001` execution sandbox | 容易把 spec-first 变成 execution platform | 只保留 isolated worktree / future provider abstraction |
+| `P3-002` dashboard/product pulse | 容易偏离 CLI/artifact-first | 作为 optional external plugin，不进核心路径 |
+| `P3-003` marketplace/catalog | 当前 provider/skill manifest 还应先稳定 | 等 manifest contract 成熟后再考虑 extension index |
+| `P3-004` long-running autonomous runner | 容易绕开 plan/task/source authority | 保持 `$spec-work-beta` opt-in，不做默认入口 |
+
+### 不做的形态
+
+- 不新增中心化 workflow 状态机。
+- 不把 `.spec-first` 变成重运行时状态仓库。
+- 不新增没有明确 consumer 的 runtime producer。
+- 不把每个 task 默认升级为自动多 agent review。
+- 不做 dashboard、leaderboard、marketplace 或 execution platform。
 
 ## Project Fact Map
 
@@ -324,23 +369,29 @@ compound
 ## [P2-001] 单 git 多 module 缺少 module-level scope manifest
 
 - 问题类型：workspace topology / graph scope
-- 涉及文件：`skills/spec-graph-bootstrap/**`、`skills/spec-plan/SKILL.md`、`skills/spec-work/SKILL.md`
+- 当前优先级：延后处理；不进入近期开发队列。
+- 涉及文件：`skills/spec-standards/**`、`skills/spec-plan/SKILL.md`、`skills/spec-work/SKILL.md`
 - 证据：父目录多独立 repo 通过 `workspace-graph-targets.v1` 与 `target_repo` 规则覆盖；单 repo 多 module 主要靠 LLM/file boundaries 和 provider 结果，没有 dedicated module manifest。
 - 影响：大型 monorepo 内多 module 任务仍可能扩大 scope。
-- 修复建议：P2 设计 `.spec-first/project-shape/modules.json` advisory manifest，只作为 context selection，不作为状态机。
+- 延后原因：轻量 module map 如果不准且被误用，可能导致漏看、漏测或错误降级 review；当前仓库已有 `spec-standards` 的 `.spec-first/standards/project-shape.json.modules[]` 槽位和 `--module` request-only 扫描，可作为未来复用点，不需要近期新建独立 module boundary 系统。
+- 如未来重启：优先扩展 `spec-standards` 的 `project-shape.json.modules[]`，产出 advisory module candidates；不要新增 `.spec-first/project-shape/modules.json` 作为第二套 project-shape 真相源。
+- 过度设计护栏：不做 module 状态机、不做自动 task routing、不让脚本替 LLM 判断 module ownership。
 - 验证方式：fixture monorepo + plan/work/review scope tests。
 
-## [P2-002] task-pack 缺少 per-task review gate 的轻量实现
+## [P2-002] task-pack per-task review gate 轻量实现
 
 - 问题类型：闭环质量 / task verification
-- 证据：`spec-write-tasks` 已定义 waves、dependency、`stop_if`、`test_focus`；`spec-work` 能消费 task pack，但 code-review 仍以 diff/PR 为主。
-- 影响：长任务可以完成后统一 review，但缺少 task 级“每片完成即复核”的内建协议。
-- 修复建议：借鉴 cc-sdd/Kiro-inspired per-task reviewer：task card 增加 `review_gate: optional|required`；`spec-work` 完成 task 后可调用 report-only mini review。
-- 验证方式：task pack fixture + `spec-code-review mode:report-only base:<sha>` handoff test。
+- 状态：v1 fixed（2026-05-11）。
+- 已实现范围：Task Pack Contract task 支持可选 `review_gate: optional|required`，缺席表示没有 task-level gate；`review_focus` 继续是 free-text review concern。
+- Validator 行为：`src/cli/task-pack.js` 将 `review_gate` 加入 allowed fields，非法值、空字符串、对象、数组或布尔值返回 `task-pack-task-review-gate-invalid` 结构错误；`execution_focus` 投影 `review_gate` 与 `review_focus`，供 `spec-work` 消费而不重新解析 Markdown。
+- Workflow 行为：`spec-write-tasks` 说明 `required` / `optional` / absent 的保守生成规则；`spec-work` 与 `spec-work-beta` 保留 task review intent，并要求 `review_gate: required` 在 logical task 完成后通过 diff-scoped `spec-code-review mode:report-only base:<pre_task_base> plan:<source_plan>` mini review 或明确 handoff。P0/P1 或命中 `review_focus` 的 actionable finding 必须修复复查、handoff 或用户接受后才能继续依赖任务。
+- 边界：不新增 per-task 状态机、approval ledger、dashboard、artifact registry 或 `spec-code-review` task-pack/task-id API；`review_gate: required` 本身不等同于 full multi-persona autofix review，也不跳过最终 shipping review。
+- 验证状态：已通过 `npx jest tests/unit/task-pack-command.test.js --runInBand`、`npx jest tests/unit/spec-write-tasks-contracts.test.js --runInBand`、`npx jest tests/unit/spec-work-contracts.test.js tests/unit/spec-work-beta-contracts.test.js --runInBand`。
 
 ## [P2-003] benchmark/eval fixture suite 仍偏弱
 
 - 问题类型：开源可信度 / AI workflow eval
+- 当前优先级：值得做但非必须；v1 已可用，后续只做最小 full closure。
 - 状态：v1 foundation complete / full closure pending（2026-05-11）。已建立 3 个 repo-like benchmark fixtures（docs-only、CLI bugfix、graph-degraded fallback）、manifest/result schema、deterministic runner、`test:ai-dev:benchmarks` 和 `test:ai-dev:gate` advisory 聚合。
 - 当前行为：`npm run test:ai-dev:benchmarks` 校验 fixture manifest/schema/path/expected artifacts 并写入 `.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json`；`npm run test:ai-dev:gate` 将 benchmark 作为 advisory check 聚合，gate-level `passed` 与 blocking `failures` 仍只由 non-advisory checks 决定，benchmark drift 进入 `advisory_failures[]`。
 - 能力边界：v1 只证明 benchmark input 与 evidence shape 可消费，不执行真实 `$spec-work` / agent，不评价 LLM 语义质量，不做 leaderboard/history/dashboard，也不把 benchmark 作为 release hard gate。
@@ -350,6 +401,7 @@ compound
 ## [P2-004] `spec-standards` / `glue-map` 与 plan/work 的消费边界需更多 examples
 
 - 问题类型：facts consumption / LLM-owned judgment
+- 当前优先级：值得做但非必须；低成本，适合作为 `P2-002` 后的下一项。
 - 证据：`spec-plan` 与 `spec-write-tasks` 已写明 confirmed/observed/imported/suggested/conflict/unknown 消费规则，但 examples 不够集中。
 - 影响：agent 可能把 advisory standards 当 hard rule。
 - 修复建议：新增 standards consumption examples：confirmed hard constraint、observed advisory、workspace-advisory-only 回到 child repo baseline。
@@ -358,17 +410,21 @@ compound
 ## [P2-005] agent 角色存在命名/职责重叠，需要边界 catalog
 
 - 问题类型：agent governance
+- 当前优先级：暂缓；除非重复 agent dispatch 已成为真实高频问题。
 - 证据：`performance-oracle` vs `performance-reviewer`、`security-sentinel` vs `security-reviewer`、`data-integrity-guardian` vs `data-migrations-reviewer` 语义接近。
 - 影响：未来 workflow 可能重复调度相似 agent，增加上下文噪音。
 - 修复建议：新增 `docs/catalog/agent-roles.md`：planning/deepening experts 与 code-review personas 分层，不急着删除。
+- 过度设计护栏：如后续实施，只做 catalog/lint，不删除 agent、不重构调度主路径。
 - 验证方式：agent catalog lint：每个 agent 有 owner skill、trigger、not-to-use。
 
 ## [P2-006] lightweight/no-graph fast path 可再产品化
 
 - 问题类型：DX / 低仪式感
+- 当前优先级：值得做但非必须；改善 DX，不是架构阻断。
 - 证据：skills 已经允许 degraded/no-graph fallback，但用户入口更强调 full setup。
 - 影响：新用户 10 分钟内跑通最小闭环的路径仍偏重。
 - 修复建议：借鉴 OpenSpec：提供 `quick mode` 指南，明确无需 graph 也可 brainstorm -> plan -> work -> review。
+- 过度设计护栏：不新增独立 CLI mode；先通过 README/quickstart/skill prose 与 smoke 证明。
 - 验证方式：README quickstart test；fresh repo no-MCP smoke。
 
 ## [P2-007] release/package smoke 已强，但 dry-run 与 package evidence 可更细
@@ -382,29 +438,35 @@ compound
 ## [P2-008] session/knowledge 闭环需要更明确“何时 compound”
 
 - 问题类型：knowledge compounding
+- 当前优先级：值得做但非必须；改善知识沉淀稳定性。
 - 证据：`spec-compound`、`spec-compound-refresh`、`spec-sessions` 均存在，但 work/code-review 完成后是否进入 compound 仍主要靠 agent 判断。
 - 影响：团队经验沉淀可能不稳定。
 - 修复建议：在 final summary contract 中加 “learning-worthy signal” checklist，不自动写 docs，只建议 `$spec-compound`。
+- 过度设计护栏：只给 LLM final summary 增加判断 checklist，不自动写 `docs/solutions/`。
 - 验证方式：spec-work/code-review final summary contract tests。
 
 ## [P3-001] OpenHands-like execution sandbox 适合长期探索，不宜近期内建
 
 - 问题类型：长期能力 / 架构边界
+- 当前优先级：暂缓。
 - 建议：只保留 isolated worktree mode 与 future execution abstraction，不把 spec-first 变成 agent execution platform。
 
 ## [P3-002] dashboard/product pulse 不应进入核心路径
 
 - 问题类型：过度设计风险
+- 当前优先级：暂缓。
 - 建议：可作为外部 optional plugin，核心仍保持 CLI/artifact-first。
 
 ## [P3-003] community marketplace/extension catalog 可参考但不宜先做大生态
 
 - 问题类型：生态扩展
+- 当前优先级：暂缓。
 - 建议：先做好 provider/skill manifest contract，再考虑 extension index。
 
 ## [P3-004] 全自动 multi-agent long-running runner 暂不应成为默认入口
 
 - 问题类型：workflow autonomy
+- 当前优先级：暂缓。
 - 建议：保持 `$spec-work-beta` opt-in；默认 workflow 仍由用户目标和 plan/task artifacts 驱动。
 
 ## Skill 审查表
@@ -676,8 +738,8 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 | graph 污染所有 skill | 多数 skill 明确 degraded fallback | 可控 | 强化 graph consumption docs |
 | repo-profile 运行时状态化 | 未见主要依赖 | 可控 | 保持 advisory/source profile |
 | all tasks full workflow | using-spec-first 避免默认 brainstorm | 可控 | README 增 quick/no-graph mode |
-| agent 过量默认调度 | code-review always-on 偏重 | P1 | scale-aware selection |
-| historical docs 干扰 source truth | 存在搜索风险 | P1 | archive banner/index |
+| agent 过量默认调度 | code-review 已有 scale-aware preflight | 可控 | 后续只在证据充分时补 agent role catalog |
+| historical docs 干扰 source truth | 已加 archive banner/index 与 risky token contract | 可控 | 保持 archive lifecycle test |
 
 ## 能力集成路线图
 
@@ -685,7 +747,7 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 
 ## P0: 稳定主流程
 
-当前无代码级 P0。`P1-001` 至 `P1-007` 已完成修复，`P2-009` planned contract catalog 可见性已完成；短期没有剩余 P1，后续应按 P2 顺序推进 benchmark/release evidence 与轻量 goal envelope。
+当前无代码级 P0。`P1-001` 至 `P1-007` 已完成修复，`P2-002` light per-task review gate、`P2-007` release/package evidence v1 与 `P2-009` planned contract catalog 可见性已完成，`P2-003` benchmark/eval v1 foundation 已可用。短期没有剩余 P1 或必须做 P2；`P2-001` module-level scope manifest 已延后，后续优先推进 `P2-004` standards/glue-map consumption examples，其他 P2 作为增益项分批处理。
 
 ## P1: 强化审查与验证
 
@@ -727,25 +789,42 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 
 ## P2: 引入竞品优秀实践
 
-1. Bugfix fast path
-   - 从 claude-code-spec-workflow/cc-sdd 借鉴 `Bug Report -> Analyze -> Fix -> Verify`。
-   - 落点：`spec-debug` + `spec-work` handoff template。
-
-2. Per-task review gate
+1. Per-task review gate
+   - 状态：v1 fixed（2026-05-11）。
    - 从 cc-sdd/Kiro-inspired 借鉴。
-   - 落点：`spec-write-tasks` task card optional review metadata + `spec-work` completion hook。
+   - 已落地：`spec-write-tasks` task card optional review metadata、`src/cli/task-pack.js` validator/projection、`spec-work` / `spec-work-beta` required-gate report-only handoff contract。
+   - 边界：不默认每个 task 启动完整 multi-persona review，不新增 per-task 状态机。
 
-3. Benchmark fixture suite
+2. Standards/glue-map consumption examples
+   - 当前优先级：下一项建议开发；值得做但非必须。
+   - 落点：docs/examples + contract tests，明确 advisory facts 与 hard constraints 的消费边界。
+
+3. Benchmark fixture suite full closure
+   - 当前优先级：值得做但非必须；v1 foundation 已完成。
    - 从 Aider/OpenHands 借鉴 benchmark discipline。
-   - 落点：`tests/fixtures/ai-workflows/**` + `npm run test:ai-dev:gate`。
+   - 落点：补 1-2 个高价值 fixture 或一次真实 workflow/LLM-review pass。
+   - 边界：不做 dashboard、leaderboard、history store。
 
 4. Lightweight/no-graph mode
+   - 当前优先级：值得做但非必须。
    - 从 OpenSpec 借鉴低仪式感。
    - 落点：README quickstart、using-spec-first guide、no-MCP smoke。
+   - 边界：不新增独立 CLI quick mode。
 
-5. Agent role catalog and dynamic selection
+5. Compound trigger checklist
+   - 当前优先级：值得做但非必须。
+   - 落点：`spec-work`/`spec-code-review` final summary learning-worthy checklist。
+   - 边界：只建议 `$spec-compound`，不自动写 docs。
+
+6. Module-level scope manifest
+   - 当前优先级：延后处理。
+   - 落点：如未来重启，优先复用 `spec-standards` 的 `.spec-first/standards/project-shape.json.modules[]`，不要新增独立 artifact。
+   - 边界：不做 module 状态机，不自动派单，不用作 hard gate。
+
+7. Agent role catalog and dynamic selection
+   - 当前优先级：暂缓。
    - 从 BMAD scale-aware role idea 借鉴，但不搬完整 Agile。
-   - 落点：`docs/catalog/agent-roles.md` + code-review selector tests。
+   - 落点：如重复 dispatch 成为真实问题，再做 `docs/catalog/agent-roles.md` + lint。
 
 ## P3: 长期 agent execution / sandbox / benchmark 能力
 
@@ -788,27 +867,29 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 
 ### PR-4: 引入竞品借鉴的轻量能力（拆分落地）
 
-- 目标：分三片引入 bugfix fast path、per-task verification、lightweight/no-graph quick path。
-- 修改范围：PR-4a 聚焦 `spec-debug`/`spec-work` bugfix handoff；PR-4b 聚焦 `spec-write-tasks` optional review metadata；PR-4c 聚焦 README no-graph quick path。
-- 不做什么：不在一个 PR 内同时改 debug、task-pack、work 和 README 主路径，不引入重状态机或 dashboard。
+- 状态：PR-4a / `P2-002` 已完成 v1；下一步从 PR-4b 开始。
+- 目标：已解决必须做的 task 级反馈；后续处理 standards examples 与 quick/no-graph 增益项。
+- 修改范围：PR-4a 已聚焦 `P2-002` `spec-write-tasks` optional review metadata、task-pack validator/projection 与 `spec-work` handoff contract；PR-4b 聚焦 `P2-004` standards/glue-map consumption examples；PR-4c 聚焦 README no-graph quick path。
+- 不做什么：不在一个 PR 内同时改 task-pack、work、standards examples 和 README 主路径，不引入重状态机或 dashboard。
 - 验证命令：skill contract tests、task pack fixtures、fresh-source eval。
 - 合并风险：中。
 
-### PR-5: 增加 benchmark 与 release evidence
+### PR-5: benchmark full closure 与 release evidence 回归
 
-- 目标：release/install/AI workflow 更可信。
-- 修改范围：benchmark fixtures、package content manifest、install dry-run artifact；当前 GitHub Actions OS/Node/shell matrix 已存在，只保留回归测试和远端 run 观察。
-- 不做什么：不要求所有 provider live network in CI。
-- 验证命令：`npm run test:release`、Windows/macOS/Linux matrix。
+- 状态：release/package evidence 已完成 v1；benchmark/eval 已完成 v1 foundation，full closure pending。
+- 目标：在不平台化的前提下，让 AI workflow fixture 更可信，并保持 release evidence 回归。
+- 修改范围：补 1-2 个 benchmark fixture 或一次真实 workflow/LLM-review pass；release 侧只保留 package content manifest 与 dry-run artifact 的回归测试。
+- 不做什么：不要求所有 provider live network in CI，不做 dashboard、leaderboard 或 telemetry history。
+- 验证命令：`npm run test:ai-dev:gate`、`npm run test:release`、Windows/macOS/Linux matrix。
 - 合并风险：中。
 
-### PR-6: 借鉴 Codex `/goal` 的轻量执行目标封套
+### PR-6: compound trigger 与轻量 completion audit
 
-- 目标：把长任务执行从“一句 prompt 开跑”收敛为可审计、可停止、可恢复的目标生命周期。
-- 修改范围：`spec-work` final summary completion audit、`spec-write-tasks` task handoff preview、`spec-plan` stop-if guidance。第一步先做 copy-ready / docs-side preview，不新增 `tasks goal-envelope --json` CLI surface。
+- 目标：让长任务完成总结更稳定地暴露 learning-worthy signals 与残余风险。
+- 修改范围：`spec-work`/`spec-code-review` final summary checklist、`spec-plan` stop-if guidance；Codex `/goal` 只作为 completion audit 的参考材料。
 - 不做什么：不复刻 Codex runtime、不实现常驻 loop engine、不把 `.spec-first` 做成重状态机，不新增运行时 goal state。
 - 验证命令：`tests/unit/spec-work-contracts.test.js`、task-pack contract tests、fresh-source eval。
-- 合并风险：中，必须防止长任务自治绕过 plan/task/source authority。
+- 合并风险：中低，必须防止 completion audit 演化成隐藏流程引擎。
 
 ## 补充调研：Codex `/goal` 与长任务目标封套
 

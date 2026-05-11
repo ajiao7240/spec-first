@@ -94,6 +94,12 @@ describe('spec-work-beta task-pack identity contract', () => {
     expect(text).toContain('If the work document is already a validated task pack, do not offer task compilation again');
     expect(text).toContain('do not rebuild execution structure from the source plan');
     expect(text).toContain('Execute from the task pack\'s validated task structure');
+    expect(text).toContain('preserve each task\'s `review_gate` and `review_focus` as review intent metadata');
+    expect(text).toContain('for `review_gate: required`, treat the task as a task completion checkpoint');
+    expect(text).toContain('record `pre_task_base` or an equivalent diff anchor');
+    expect(text).toContain('if a reliable per-task diff range cannot be formed, stop and hand off');
+    expect(text).toContain('same dependency/wave-boundary required gates may be batched');
+    expect(text).toContain('terminal required tasks must still be covered before Phase 3 completes');
   });
 });
 
@@ -121,6 +127,9 @@ describe('spec-work-beta requirements and shipping policy contract', () => {
     expect(shipping).toContain('Large and diffuse change');
     expect(shipping).toContain('Very large change');
     expect(shipping).toContain('Plan or task explicitly requests it');
+    expect(shipping).toContain('Task-level review focus requests it');
+    expect(shipping).toContain('This Tier 2 escalation does not require `review_gate: required`');
+    expect(shipping).toContain('required gate by itself only requires the diff-scoped report-only checkpoint');
     expect(shipping).toContain('Code review completed (Tier 1 host-native or Tier 2 `spec-code-review`)');
     expect(shipping).not.toContain('inline self-review');
     expect(shipping).not.toContain('/simplify');
@@ -169,6 +178,20 @@ describe('spec-work-beta subagent and delegation isolation contract', () => {
     expect(text).toContain('Codex delegation:');
     expect(text).toContain('the orchestrator still owns git operations and PR creation');
     expect(text).toContain('Shared-directory fallback or Codex fork-workspace handoff');
+  });
+
+  test('Codex delegation preserves task-pack review gates and orchestrator ownership', () => {
+    const reference = fs.readFileSync(DELEGATION_REFERENCE_PATH, 'utf8');
+
+    expect(reference).toContain('batching must preserve task-pack metadata and review gates');
+    expect(reference).toContain('Carry `task_id`, `dependencies`, `wave`, `review_gate`, and `review_focus`');
+    expect(reference).toContain('Do not place a dependent task in the same delegated batch when its prerequisite has `review_gate: required`');
+    expect(reference).toContain('the orchestrator must pause after the prerequisite batch');
+    expect(reference).toContain('Same dependency/wave-boundary required gates may be batched');
+    expect(reference).toContain('Workers must not decide that a required gate is satisfied');
+    expect(reference).toContain('<task_pack_metadata>');
+    expect(reference).toContain('review_gate, review_focus, stop_if, declared files, and source_plan');
+    expect(reference).toContain('Do not mark `review_gate: required` as satisfied');
   });
 });
 

@@ -31,6 +31,7 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
    - **Large and diffuse change.** The diff is >=400 changed lines and spans more than 3 directories or 2 distinct subsystems. Either alone is a soft signal; together they trigger escalation.
    - **Very large change.** The diff is >=1,000 changed lines regardless of diffusion.
    - **Plan or task explicitly requests it.** The plan, originating task, or another in-scope instruction calls for a full, deep, or thorough code review.
+   - **Task-level review focus requests it.** A plan, task pack, task card, or `review_focus` explicitly calls for full, deep, thorough, or `spec-code-review` review. This Tier 2 escalation does not require `review_gate: required`; a required gate by itself only requires the diff-scoped report-only checkpoint or explicit handoff and does not force full multi-persona autofix review.
 
    When the change is small, concentrated, outside the sensitive surface list, and a real host-native review exists, Tier 1 is sufficient.
 

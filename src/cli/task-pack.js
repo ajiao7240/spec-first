@@ -27,10 +27,13 @@ const ALLOWED_TASK_FIELDS = new Set([
   'parallelizable',
   'risk_note',
   'notes',
+  'review_gate',
   'review_focus',
   'handoff_owner',
   'target_repo',
 ]);
+
+const ALLOWED_REVIEW_GATES = new Set(['optional', 'required']);
 
 const WINDOWS_RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i;
 const WINDOWS_ILLEGAL_SEGMENT_CHARS = /[<>:"|]/;
@@ -441,6 +444,8 @@ function validateTaskPack(taskPackPath, options = {}) {
       test_focus: task.test_focus || null,
       done_signal: task.done_signal || null,
       stop_if: task.stop_if || null,
+      review_gate: task.review_gate || null,
+      review_focus: task.review_focus || null,
     }));
   }
 
@@ -536,10 +541,18 @@ function validateTaskPackContract(contract, repoRoot, errors, limitations) {
       'entry_hint',
       'risk_note',
       'notes',
-      'review_focus',
       'handoff_owner',
       'target_repo',
     ], errors);
+
+    if (task.review_gate !== undefined && !ALLOWED_REVIEW_GATES.has(task.review_gate)) {
+      addFinding(errors, 'task-pack-task-review-gate-invalid', `Task '${task.task_id || '<unknown>'}' 'review_gate' must be 'optional' or 'required' when provided.`, {
+        task_id: task.task_id || null,
+        field: 'review_gate',
+      });
+    }
+
+    validateOptionalStringFields(task, ['review_focus'], errors);
 
     if (task.parallelizable !== undefined && typeof task.parallelizable !== 'boolean') {
       addFinding(errors, 'task-pack-task-parallelizable-invalid', `Task '${task.task_id || '<unknown>'}' 'parallelizable' must be a boolean when provided.`, {
