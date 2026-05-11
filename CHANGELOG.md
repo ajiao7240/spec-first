@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.1 2026-05-11 14:35:00 leokuang: feat(release): 实现 P2-007 release/package evidence，新增 package content manifest 生成、tarball-installed init dry-run 验证与 release artifact summary schema (user-visible)
 - v1.8.1 2026-05-11 14:30:00 leokuang: fix(release): 给 pnpm publish 加 --no-git-checks，避免版本 bump 后工作区变脏导致 pnpm git-checks 拦截发布
 - v1.8.1 2026-05-11 14:05:00 leokuang: feat(git-npm-skill): 按 2026-05-11-004 plan 对外部用户级 skill ~/.claude/skills/git-npm/ 执行 U1–U8 实施（publish.sh 从 4 步扩展为 7 步含 R19 preflight / Step 4.5 bump-commit / Step 5 tag 幂等冲突分叉 / Step 6 facts 持久化+pending marker；新增 prompts/release-notes.md LLM 契约；SKILL.md 扩充 Phase 2 handoff / Failure Modes F1–F8 / Rollout Checklist / Important guardrails，保留所有 1.5.3/1.5.4 lessons；bash 语法通过，target repo 非 git 仓库故无分支/commit 流程）(user-visible)
 - v1.8.1 2026-05-11 13:54:21 leokuang: docs(plan): 新增 P2-007 release/package evidence v1 实施计划，收敛 package content manifest、tarball-installed init dry-run evidence 与 release artifact summary 的最小交付边界 (user-visible)

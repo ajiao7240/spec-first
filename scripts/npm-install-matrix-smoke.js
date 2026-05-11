@@ -6,6 +6,34 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
+const PACKAGE_CONTENT_MANIFEST_FILE = 'package-content-manifest.json';
+const INIT_CLAUDE_DRY_RUN_LOG_FILE = 'init-claude-dry-run.log';
+const INIT_CODEX_DRY_RUN_LOG_FILE = 'init-codex-dry-run.log';
+const RELEASE_ARTIFACT_SUMMARY_FILE = 'release-artifact-summary.json';
+const SUMMARY_FILE = 'summary.json';
+const PACK_OUTPUT_FILE = 'pack-output.log';
+
+const REQUIRED_PACKAGE_PATHS = [
+  'bin/spec-first.js',
+  'src/cli/index.js',
+  'skills/spec-work/SKILL.md',
+  'skills/spec-plan/SKILL.md',
+  'templates/claude/commands/spec/work.md',
+  'README.md',
+];
+
+const FORBIDDEN_PACKAGE_PATTERNS = [
+  { pattern: '.claude-plugin/', kind: 'prefix' },
+  { pattern: '.claude/', kind: 'prefix' },
+  { pattern: '.codex/', kind: 'prefix' },
+  { pattern: '.agents/skills/', kind: 'prefix' },
+  { pattern: 'src/crg/', kind: 'prefix' },
+  { pattern: 'vendor/', kind: 'prefix' },
+  { pattern: '__pycache__/', kind: 'segment' },
+  { pattern: '.pyc', kind: 'suffix' },
+  { pattern: '.pyo', kind: 'suffix' },
+];
+
 function uniqueExistingPaths(paths) {
   return [...new Set(paths.filter(Boolean))];
 }
@@ -41,14 +69,7 @@ function resolveNpmCliPath(options = {}) {
 }
 
 function runChild(command, args, options = {}) {
-  const result = spawnSync(command, args, {
-    cwd: options.cwd,
-    encoding: options.encoding || 'utf8',
-    env: options.env || process.env,
-    shell: false,
-    stdio: options.stdio || 'pipe',
-    windowsHide: true,
-  });
+  const result = runChildResult(command, args, options);
   if (result.error) {
     throw result.error;
   }
@@ -60,6 +81,17 @@ function runChild(command, args, options = {}) {
     throw error;
   }
   return result.stdout || '';
+}
+
+function runChildResult(command, args, options = {}) {
+  return spawnSync(command, args, {
+    cwd: options.cwd,
+    encoding: options.encoding || 'utf8',
+    env: options.env || process.env,
+    shell: false,
+    stdio: options.stdio || 'pipe',
+    windowsHide: true,
+  });
 }
 
 function runNpm(args, options = {}) {
@@ -111,6 +143,11 @@ function runInstalledBin(packageRoot, args, options = {}) {
   });
 }
 
+function runInstalledBinResult(packageRoot, args, options = {}) {
+  const binPath = path.join(packageRoot, 'bin', 'spec-first.js');
+  return runChildResult(process.execPath, [binPath, ...args], options);
+}
+
 function createArtifactWriter() {
   const configuredDir = process.env.SPEC_FIRST_SMOKE_ARTIFACT_DIR;
   if (!configuredDir) {
@@ -150,10 +187,267 @@ function normalizeArtifactFileName(name) {
   return value;
 }
 
+function normalizePackagePath(filePath) {
+  const value = String(filePath || '').replace(/\\/g, '/').replace(/^package\//, '');
+  if (
+    !value ||
+    value.startsWith('/') ||
+    /^[a-zA-Z]:\//.test(value) ||
+    value.split('/').some((segment) => segment === '..' || segment === '')
+  ) {
+    throw new Error(`Unsafe package content path: ${filePath || '<empty>'}`);
+  }
+  return value;
+}
+
+function matchesForbiddenPattern(filePath, rule) {
+  if (rule.kind === 'prefix') return filePath === rule.pattern.slice(0, -1) || filePath.startsWith(rule.pattern);
+  if (rule.kind === 'suffix') return filePath.endsWith(rule.pattern);
+  if (rule.kind === 'segment') return filePath.includes(`/${rule.pattern}`) || filePath.startsWith(rule.pattern);
+  return false;
+}
+
+function parseNpmPackJson(packJsonOutput) {
+  const parsed = JSON.parse(packJsonOutput);
+  if (!Array.isArray(parsed) || !parsed[0] || typeof parsed[0] !== 'object') {
+    throw new Error('npm pack --dry-run --json returned an unexpected payload.');
+  }
+  return parsed[0];
+}
+
+function buildPackageContentManifest(packJsonOutput, options = {}) {
+  const packResult = typeof packJsonOutput === 'string'
+    ? parseNpmPackJson(packJsonOutput)
+    : packJsonOutput;
+  const requiredPaths = options.requiredPaths || REQUIRED_PACKAGE_PATHS;
+  const forbiddenPatterns = options.forbiddenPatterns || FORBIDDEN_PACKAGE_PATTERNS;
+  const files = (packResult.files || [])
+    .map((file) => ({
+      path: normalizePackagePath(file.path),
+      size: Number.isFinite(file.size) ? file.size : 0,
+      mode: Number.isFinite(file.mode) ? file.mode : 0,
+    }))
+    .sort((a, b) => a.path.localeCompare(b.path));
+  const filePathSet = new Set(files.map((file) => file.path));
+  const required = requiredPaths.map((requiredPath) => ({
+    path: requiredPath,
+    present: filePathSet.has(requiredPath),
+  }));
+  const forbidden = forbiddenPatterns.map((rule) => ({
+    pattern: rule.pattern,
+    matches: files
+      .filter((file) => matchesForbiddenPattern(file.path, rule))
+      .map((file) => file.path),
+  }));
+  const checks = [
+    ...required.map((item) => ({
+      check_id: `required:${item.path}`,
+      passed: item.present,
+      reason_code: item.present ? 'required-package-path-present' : 'required-package-path-missing',
+      paths: [item.path],
+    })),
+    ...forbidden.map((item) => ({
+      check_id: `forbidden:${item.pattern}`,
+      passed: item.matches.length === 0,
+      reason_code: item.matches.length === 0 ? 'forbidden-package-path-absent' : 'forbidden-package-path-present',
+      paths: item.matches,
+    })),
+  ];
+  const failures = checks
+    .filter((check) => !check.passed)
+    .map((check) => ({
+      reason_code: check.reason_code,
+      check_id: check.check_id,
+      paths: check.paths,
+    }));
+
+  return {
+    schema_version: 'package-content-manifest.v1',
+    generated_at: options.generatedAt || new Date().toISOString(),
+    source: 'npm pack --dry-run --json',
+    package: {
+      name: packResult.name || '',
+      version: packResult.version || '',
+      filename: packResult.filename || '',
+    },
+    file_count: files.length,
+    files,
+    required_paths: required,
+    forbidden_paths: forbidden,
+    checks,
+    failures,
+    passed: failures.length === 0,
+  };
+}
+
+function snapshotTree(rootDir) {
+  const results = [];
+  if (!fs.existsSync(rootDir)) return results;
+
+  function walk(currentDir) {
+    for (const entry of fs.readdirSync(currentDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const absolutePath = path.join(currentDir, entry.name);
+      const relativePath = path.relative(rootDir, absolutePath).split(path.sep).join('/');
+      if (entry.isDirectory()) {
+        results.push(`${relativePath}/`);
+        walk(absolutePath);
+        continue;
+      }
+      if (entry.isFile()) {
+        results.push(`${relativePath}:${fs.readFileSync(absolutePath, 'utf8')}`);
+      }
+    }
+  }
+
+  walk(rootDir);
+  return results;
+}
+
+function buildInitDryRunEvidence({ host, result, beforeSnapshot, afterSnapshot }) {
+  const stdout = result.stdout || '';
+  const stderr = result.stderr || '';
+  const status = Number.isInteger(result.status) ? result.status : 1;
+  const mutated = JSON.stringify(beforeSnapshot) !== JSON.stringify(afterSnapshot);
+  const expectedMarker = `Dry run: spec-first init (${host})`;
+  const hasDryRunMarker = stdout.includes(expectedMarker);
+  const passed = status === 0 && hasDryRunMarker && !mutated;
+
+  return {
+    host,
+    status,
+    passed,
+    reason_code: passed ? 'init-dry-run-passed' : 'init-dry-run-failed',
+    has_dry_run_marker: hasDryRunMarker,
+    mutated,
+    stdout,
+    stderr,
+  };
+}
+
+function runInitDryRunEvidence({ packageRoot, cwd, host, artifacts }) {
+  const logName = host === 'claude' ? INIT_CLAUDE_DRY_RUN_LOG_FILE : INIT_CODEX_DRY_RUN_LOG_FILE;
+  const beforeSnapshot = snapshotTree(cwd);
+  const result = runInstalledBinResult(packageRoot, [
+    'init',
+    `--${host}`,
+    '--dry-run',
+    '-u',
+    'matrix',
+    '--lang',
+    'en',
+  ], { cwd });
+  const afterSnapshot = snapshotTree(cwd);
+  const evidence = buildInitDryRunEvidence({
+    host,
+    result,
+    beforeSnapshot,
+    afterSnapshot,
+  });
+  artifacts.write(logName, [
+    `host=${host}`,
+    `status=${evidence.status}`,
+    `passed=${evidence.passed}`,
+    `reason_code=${evidence.reason_code}`,
+    `has_dry_run_marker=${evidence.has_dry_run_marker}`,
+    `mutated=${evidence.mutated}`,
+    '',
+    '--- stdout ---',
+    evidence.stdout,
+    '--- stderr ---',
+    evidence.stderr,
+  ].join('\n'));
+  return {
+    ...evidence,
+    artifact_path: logName,
+  };
+}
+
+function readPackageInfo(cwd) {
+  const pkg = JSON.parse(fs.readFileSync(path.join(cwd, 'package.json'), 'utf8'));
+  return {
+    name: pkg.name || '',
+    version: pkg.version || '',
+  };
+}
+
+function defaultReleaseArtifacts() {
+  return {
+    summary: SUMMARY_FILE,
+    pack_output: PACK_OUTPUT_FILE,
+    package_content_manifest: PACKAGE_CONTENT_MANIFEST_FILE,
+    init_claude_dry_run_log: INIT_CLAUDE_DRY_RUN_LOG_FILE,
+    init_codex_dry_run_log: INIT_CODEX_DRY_RUN_LOG_FILE,
+    release_artifact_summary: RELEASE_ARTIFACT_SUMMARY_FILE,
+  };
+}
+
+function checkFromPackageContentManifest(manifest) {
+  return {
+    check_id: 'package-content-manifest',
+    status: manifest.passed ? 'passed' : 'failed',
+    reason_code: manifest.passed ? 'package-content-manifest-passed' : 'package-content-manifest-failed',
+    summary: manifest.passed
+      ? `${manifest.file_count} package file(s) passed required/forbidden path checks.`
+      : `${manifest.failures.length} package content check(s) failed.`,
+    artifact_path: PACKAGE_CONTENT_MANIFEST_FILE,
+  };
+}
+
+function checkFromInitDryRunEvidence(evidence) {
+  return {
+    check_id: `init-${evidence.host}-dry-run`,
+    status: evidence.passed ? 'passed' : 'failed',
+    reason_code: evidence.reason_code,
+    summary: evidence.passed
+      ? `spec-first init --${evidence.host} --dry-run passed without mutating the fixture project.`
+      : `spec-first init --${evidence.host} --dry-run failed evidence checks.`,
+    artifact_path: evidence.artifact_path,
+  };
+}
+
+function failureFromCheck(check) {
+  return {
+    reason_code: check.reason_code,
+    message: check.summary,
+    artifact_path: check.artifact_path,
+  };
+}
+
+function buildReleaseArtifactSummary(options = {}) {
+  const checks = options.checks || [];
+  const status = options.status || (checks.every((check) => check.status !== 'failed') ? 'passed' : 'failed');
+  const failures = options.failures || checks
+    .filter((check) => check.status === 'failed')
+    .map(failureFromCheck);
+  const packageInfo = options.packageInfo || { name: '', version: '' };
+
+  return {
+    schema_version: 'release-package-evidence.v1',
+    generated_at: options.generatedAt || new Date().toISOString(),
+    status,
+    package: {
+      name: packageInfo.name || '',
+      version: packageInfo.version || '',
+      tarball_name: options.tarballName || '',
+    },
+    environment: {
+      platform: options.platform || process.platform,
+      node: options.node || process.version,
+    },
+    artifacts: defaultReleaseArtifacts(),
+    checks,
+    failures,
+  };
+}
+
 function main() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec first install-'));
   const artifacts = createArtifactWriter();
   const startedAt = new Date().toISOString();
+  const packageInfo = readPackageInfo(process.cwd());
+  const releaseChecks = [];
+  let releaseFailures = [];
+  let tarballName = '';
   const summaryBase = {
     schema_version: 'npm-install-matrix-smoke.v1',
     started_at: startedAt,
@@ -162,12 +456,31 @@ function main() {
     cwd: process.cwd(),
     temp_dir: tmp,
     artifact_dir: artifacts.dir || null,
+    package: packageInfo,
+    artifacts: defaultReleaseArtifacts(),
   };
   console.log(`npm install matrix smoke temp: ${tmp}`);
-  artifacts.write('summary.json', {
+  artifacts.write(SUMMARY_FILE, {
     ...summaryBase,
     status: 'started',
   });
+
+  function writeReleaseSummary(status, extraFailures = []) {
+    const failures = [
+      ...releaseFailures,
+      ...extraFailures,
+    ];
+    const summary = buildReleaseArtifactSummary({
+      generatedAt: new Date().toISOString(),
+      status,
+      packageInfo,
+      tarballName,
+      checks: releaseChecks,
+      failures,
+    });
+    artifacts.write(RELEASE_ARTIFACT_SUMMARY_FILE, summary);
+    return summary;
+  }
 
   try {
     const tarballDir = path.join(tmp, 'tarball');
@@ -177,15 +490,32 @@ function main() {
     fs.mkdirSync(prefix);
     fs.mkdirSync(cache);
 
+    const packDryRunOutput = runNpm([
+      'pack',
+      '--dry-run',
+      '--json',
+    ]);
+    const packageContentManifest = buildPackageContentManifest(packDryRunOutput, {
+      generatedAt: startedAt,
+    });
+    artifacts.write(PACKAGE_CONTENT_MANIFEST_FILE, packageContentManifest);
+    const packageContentCheck = checkFromPackageContentManifest(packageContentManifest);
+    releaseChecks.push(packageContentCheck);
+    if (!packageContentManifest.passed) {
+      const error = new Error(packageContentCheck.summary);
+      error.reasonCode = packageContentCheck.reason_code;
+      throw error;
+    }
+
     const packOutput = runNpm([
       'pack',
       '--pack-destination',
       tarballDir,
       '--silent',
     ]);
-    artifacts.write('pack-output.log', packOutput);
+    artifacts.write(PACK_OUTPUT_FILE, packOutput);
 
-    const tarballName = packOutput.trim().split(/\r?\n/).pop();
+    tarballName = packOutput.trim().split(/\r?\n/).pop();
     const tarballPath = path.join(tarballDir, tarballName);
 
     runNpm([
@@ -217,6 +547,23 @@ function main() {
     runInstalledShim(shim, ['--help']);
     runInstalledShim(shim, ['-v']);
 
+    const dryRunProject = path.join(tmp, 'dry-run workspace [win64] 中文');
+    fs.mkdirSync(dryRunProject);
+    const initDryRunChecks = ['claude', 'codex'].map((host) => {
+      const evidence = runInitDryRunEvidence({
+        packageRoot,
+        cwd: dryRunProject,
+        host,
+        artifacts,
+      });
+      return checkFromInitDryRunEvidence(evidence);
+    });
+    releaseChecks.push(...initDryRunChecks);
+    const failedInitDryRuns = initDryRunChecks.filter((check) => check.status === 'failed');
+    if (failedInitDryRuns.length > 0) {
+      throw new Error(`${failedInitDryRuns.length} init dry-run evidence check(s) failed.`);
+    }
+
     const fixtureProject = path.join(tmp, 'workspace [win64] 中文 (paren)');
     fs.mkdirSync(fixtureProject);
     runInstalledBin(packageRoot, ['doctor'], { cwd: fixtureProject });
@@ -241,7 +588,8 @@ function main() {
     runInstalledBin(packageRoot, ['doctor'], { cwd: gitProject });
     runInstalledShim(shim, ['doctor', '--json'], { cwd: gitProject });
 
-    artifacts.write('summary.json', {
+    const releaseArtifactSummary = writeReleaseSummary('passed');
+    artifacts.write(SUMMARY_FILE, {
       ...summaryBase,
       status: 'passed',
       finished_at: new Date().toISOString(),
@@ -251,16 +599,47 @@ function main() {
       shim,
       fixture_project: fixtureProject,
       minimal_git_project: gitProject,
+      release_artifact_summary: RELEASE_ARTIFACT_SUMMARY_FILE,
+      package_content_manifest: PACKAGE_CONTENT_MANIFEST_FILE,
+      init_dry_run_artifacts: {
+        claude: INIT_CLAUDE_DRY_RUN_LOG_FILE,
+        codex: INIT_CODEX_DRY_RUN_LOG_FILE,
+      },
+      release_checks: releaseChecks,
+      release_failures: releaseArtifactSummary.failures,
     });
 
     fs.rmSync(tmp, { recursive: true, force: true });
     return 0;
   } catch (error) {
-    artifacts.write('summary.json', {
+    const fallbackFailure = {
+      reason_code: error && error.reasonCode ? error.reasonCode : 'npm-install-matrix-smoke-failed',
+      message: error && error.stack ? error.stack : String(error),
+      artifact_path: RELEASE_ARTIFACT_SUMMARY_FILE,
+    };
+    const knownFailureKeys = new Set(releaseChecks
+      .filter((check) => check.status === 'failed')
+      .map((check) => `${check.reason_code}:${check.artifact_path}`));
+    releaseFailures = releaseChecks
+      .filter((check) => check.status === 'failed')
+      .map(failureFromCheck);
+    if (!knownFailureKeys.has(`${fallbackFailure.reason_code}:${fallbackFailure.artifact_path}`)) {
+      releaseFailures.push(fallbackFailure);
+    }
+    const releaseArtifactSummary = writeReleaseSummary('failed');
+    artifacts.write(SUMMARY_FILE, {
       ...summaryBase,
       status: 'failed',
       finished_at: new Date().toISOString(),
       error: error && error.stack ? error.stack : String(error),
+      release_artifact_summary: RELEASE_ARTIFACT_SUMMARY_FILE,
+      package_content_manifest: PACKAGE_CONTENT_MANIFEST_FILE,
+      init_dry_run_artifacts: {
+        claude: INIT_CLAUDE_DRY_RUN_LOG_FILE,
+        codex: INIT_CODEX_DRY_RUN_LOG_FILE,
+      },
+      release_checks: releaseChecks,
+      release_failures: releaseArtifactSummary.failures,
     });
     console.error(error && error.stack ? error.stack : String(error));
     console.error(`npm install matrix smoke temp preserved for debugging: ${tmp}`);
@@ -273,16 +652,35 @@ if (require.main === module) {
 }
 
 module.exports = {
+  buildInitDryRunEvidence,
+  buildPackageContentManifest,
   buildCmdCommandLine,
+  buildReleaseArtifactSummary,
+  checkFromInitDryRunEvidence,
+  checkFromPackageContentManifest,
   createArtifactWriter,
+  defaultReleaseArtifacts,
+  failureFromCheck,
+  FORBIDDEN_PACKAGE_PATTERNS,
   getEnvValue,
+  INIT_CLAUDE_DRY_RUN_LOG_FILE,
+  INIT_CODEX_DRY_RUN_LOG_FILE,
+  matchesForbiddenPattern,
+  normalizePackagePath,
   normalizeArtifactFileName,
+  PACKAGE_CONTENT_MANIFEST_FILE,
+  PACK_OUTPUT_FILE,
   quoteCmdArg,
+  RELEASE_ARTIFACT_SUMMARY_FILE,
+  REQUIRED_PACKAGE_PATHS,
   resolveNpmCliPath,
   runChild,
+  runChildResult,
   runGit,
   runInstalledBin,
+  runInstalledBinResult,
   runInstalledShim,
   runNpm,
   runWindowsCmdShim,
+  SUMMARY_FILE,
 };

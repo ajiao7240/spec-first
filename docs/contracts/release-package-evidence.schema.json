@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-first release package evidence summary",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "status",
+    "package",
+    "environment",
+    "artifacts",
+    "checks",
+    "failures"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "release-package-evidence.v1" },
+    "generated_at": { "type": "string" },
+    "status": { "type": "string", "enum": ["passed", "failed"] },
+    "package": {
+      "type": "object",
+      "required": ["name", "version", "tarball_name"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "tarball_name": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "environment": {
+      "type": "object",
+      "required": ["platform", "node"],
+      "properties": {
+        "platform": { "type": "string" },
+        "node": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "summary",
+        "pack_output",
+        "package_content_manifest",
+        "init_claude_dry_run_log",
+        "init_codex_dry_run_log",
+        "release_artifact_summary"
+      ],
+      "properties": {
+        "summary": { "type": "string" },
+        "pack_output": { "type": "string" },
+        "package_content_manifest": { "type": "string" },
+        "init_claude_dry_run_log": { "type": "string" },
+        "init_codex_dry_run_log": { "type": "string" },
+        "release_artifact_summary": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["check_id", "status", "reason_code", "summary", "artifact_path"],
+        "properties": {
+          "check_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["passed", "failed", "skipped"] },
+          "reason_code": { "type": "string" },
+          "summary": { "type": "string" },
+          "artifact_path": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["reason_code", "message", "artifact_path"],
+        "properties": {
+          "reason_code": { "type": "string" },
+          "message": { "type": "string" },
+          "artifact_path": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "if": {
+    "type": "object",
+    "properties": {
+      "status": { "const": "failed" }
+    }
+  },
+  "then": {
+    "type": "object",
+    "properties": {
+      "failures": {
+        "type": "array",
+        "minItems": 1
+      }
+    }
+  }
+}
