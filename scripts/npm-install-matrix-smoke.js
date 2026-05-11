@@ -18,6 +18,7 @@ const REQUIRED_PACKAGE_PATHS = [
   'src/cli/index.js',
   'skills/spec-work/SKILL.md',
   'skills/spec-plan/SKILL.md',
+  'scripts/npm-install-matrix-smoke.js',
   'templates/claude/commands/spec/work.md',
   'README.md',
 ];

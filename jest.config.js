@@ -15,5 +15,6 @@ module.exports = {
     '<rootDir>/.claude/',
     '<rootDir>/.codex/',
     '<rootDir>/.spec-first/',
+    '<rootDir>/tests/fixtures/ai-dev-benchmarks/',
   ],
 };

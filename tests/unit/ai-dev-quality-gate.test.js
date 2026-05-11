@@ -155,6 +155,8 @@ describe('ai dev quality gate contract', () => {
       'tests/unit/branch-protection-policy.test.js',
       'tests/unit/no-crg-runtime-contracts.test.js',
       'tests/unit/package-install-contracts.test.js',
+      'tests/unit/ai-dev-quality-gate.test.js',
+      'tests/unit/ai-dev-benchmark-fixtures.test.js',
       'tests/unit/spec-plan-contracts.test.js',
       'tests/unit/task-pack-command.test.js',
       'tests/unit/spec-write-tasks-contracts.test.js',
@@ -181,6 +183,7 @@ describe('ai dev quality gate contract', () => {
     expect(aiWorkflow).toContain("tests/unit/branch-protection-policy.test.js");
     expect(aiWorkflow).toContain("tests/unit/no-crg-runtime-contracts.test.js");
     expect(aiWorkflow).toContain("tests/unit/package-install-contracts.test.js");
+    expect(aiWorkflow).toContain("tests/unit/ai-dev-quality-gate.test.js");
     expect(aiWorkflow).toContain("tests/unit/ai-dev-benchmark-fixtures.test.js");
     expect(aiWorkflow).toContain("tests/fixtures/ai-dev-benchmarks/**");
     expect(aiWorkflow).not.toContain(retiredContracts);

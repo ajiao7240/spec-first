@@ -75,7 +75,13 @@ describe('retired internal graph runtime removal contract', () => {
       ['crg', '\\.cli_status'].join(''),
     ];
 
-    expect(findMatches(targets, patterns)).toEqual([]);
+    const matches = findMatches(targets, patterns);
+    const allowedPackageEvidenceDenylist = 'scripts/npm-install-matrix-smoke.js';
+    const smokeScript = read(allowedPackageEvidenceDenylist);
+
+    expect(matches).toEqual([allowedPackageEvidenceDenylist]);
+    expect(smokeScript).toContain("{ pattern: 'src/crg/', kind: 'prefix' }");
+    expect(smokeScript).toContain('forbidden-package-path-present');
   });
 
   test('external graph bootstrap is allowed without restoring internal CRG source', () => {

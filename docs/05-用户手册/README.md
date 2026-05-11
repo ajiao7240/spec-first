@@ -133,6 +133,6 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 
 ## 版本
 
-当前版本线：`v1.8.1`
+当前版本线：`v1.8.2`
 
 > 说明：本手册对应当前 `spec-first` 代码与运行时资产布局；遇到行为疑问时，优先以 source-of-truth 文件、CLI contract 和本手册当前章节为准。

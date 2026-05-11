@@ -1,6 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-11 14:54:15 leokuang: fix(test): 隔离 AI dev benchmark fixtures 避免 root unit 误扫，并同步用户手册版本线
+- v1.8.2 2026-05-11 14:36:11 leokuang: fix(review): 修复 spec-code-review 发现的 release dry-run、AI dev gate 与 package evidence 覆盖缺口 (user-visible)
+- v1.8.2 2026-05-11 14:23:48 leokuang: test(release): 同步 release publish 单测断言覆盖 --no-git-checks
 - v1.8.2 2026-05-11 14:09:50 leokuang: docs(review): 回写 P2-007 release evidence 验证状态 (user-visible)
 - v1.8.2 2026-05-11 15:10:00 leokuang: docs(version): add v1.8.2 release notes (user-visible)
 - v1.8.1 2026-05-11 15:00:00 leokuang: docs(catalog): 更新 runtime capabilities catalog 增加 P2-007 release package evidence 条目

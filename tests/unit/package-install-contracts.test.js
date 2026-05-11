@@ -81,16 +81,40 @@ describe('package install contracts', () => {
     }
 
     expect(pkg.files).not.toContain('vendor/');
+    expect(pkg.files).toContain('docs/contracts/quality-gates/');
+    expect(pkg.files).toContain('docs/contracts/release-package-evidence.schema.json');
     expect(pkg.files).toContain('docs/contracts/verifiers/');
+    expect(pkg.files).toContain('docs/contracts/website-sync-contract.md');
+    expect(pkg.files).toContain('scripts/check-website-sync.cjs');
     expect(pkg.files).toContain('scripts/generate-runtime-capability-catalog.js');
+    expect(pkg.files).toContain('scripts/lint-skill-entrypoints.config.json');
+    expect(pkg.files).toContain('scripts/lint-skill-entrypoints.js');
+    expect(pkg.files).toContain('scripts/npm-install-matrix-smoke.js');
+    expect(pkg.files).toContain('scripts/release-publish.cjs');
+    expect(pkg.files).toContain('scripts/run-ai-dev-benchmark-fixtures.js');
+    expect(pkg.files).toContain('scripts/run-ai-dev-quality-gate.js');
     expect(pkg.files).toContain('scripts/run-test-suite.cjs');
     expect(pkg.files).toContain('scripts/typecheck-js.js');
+    expect(pkg.files).toContain('tests/fixtures/ai-dev-benchmarks/');
     expect(pkg.files).toContain('!skills/**/__pycache__/**');
     expect(pkg.files).toContain('!skills/**/*.pyc');
     expect(pkg.files).toContain('!skills/**/*.pyo');
     expect(pkg.scripts['test:e2e:' + 'crg']).toBeUndefined();
     expect(pkg.scripts.test).not.toContain('test:e2e:' + 'crg');
     expect(pkg.overrides).toBeUndefined();
+  });
+
+  test('published package includes package-script entrypoint files', () => {
+    const pkg = readJson(PACKAGE_JSON_PATH);
+    const files = new Set(pkg.files);
+    const packageScriptEntrypoints = Object.values(pkg.scripts)
+      .map((script) => script.match(/^node (scripts\/[^ ]+)/))
+      .filter(Boolean)
+      .map((match) => match[1]);
+    const missingEntrypoints = packageScriptEntrypoints
+      .filter((entrypoint) => !files.has(entrypoint));
+
+    expect(missingEntrypoints).toEqual([]);
   });
 
   test('package ignore excludes generated Python bytecode caches', () => {

@@ -24,6 +24,7 @@ on:
       - 'tests/unit/spec-work-contracts.test.js'
       - 'tests/unit/spec-work-beta-contracts.test.js'
       - 'tests/unit/spec-code-review-contracts.test.js'
+      - 'tests/unit/ai-dev-quality-gate.test.js'
       - 'tests/unit/ai-dev-benchmark-fixtures.test.js'
       - 'tests/fixtures/ai-dev-benchmarks/**'
       - 'tests/integration/verification-gate.integration.test.js'

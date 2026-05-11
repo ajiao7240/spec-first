@@ -26,6 +26,7 @@ const VALID_PACK_FILES = [
   'src/cli/index.js',
   'skills/spec-work/SKILL.md',
   'skills/spec-plan/SKILL.md',
+  'scripts/npm-install-matrix-smoke.js',
   'templates/claude/commands/spec/work.md',
   'README.md',
 ].map((filePath, index) => ({
@@ -138,6 +139,7 @@ describe('npm install matrix smoke script', () => {
     expect(manifest.files.map((file) => file.path)).toEqual([
       'bin/spec-first.js',
       'README.md',
+      'scripts/npm-install-matrix-smoke.js',
       'skills/spec-plan/SKILL.md',
       'skills/spec-work/SKILL.md',
       'src/cli/index.js',

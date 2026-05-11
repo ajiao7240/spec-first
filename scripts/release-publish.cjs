@@ -110,8 +110,13 @@ try {
   runNpmChecked(['run', 'test:release']);
   runNpmChecked(['run', 'test:release:website']);
 
-  console.log('\n▸ 生成发布 tarball...');
-  runNpmChecked(['pack']);
+  if (dryRun) {
+    console.log('\n▸ 预览发布 tarball 内容...');
+    runNpmChecked(['pack', '--dry-run']);
+  } else {
+    console.log('\n▸ 生成发布 tarball...');
+    runNpmChecked(['pack']);
+  }
 
   if (dryRun) {
     console.log(`\n✓ Dry-run 完成，未实际发布；目标版本校验为 ${effectivePkg.version}`);
