@@ -1,7 +1,7 @@
 ---
 title: feat: hard-cut upgrade spec-compound with parity-first execution
 type: feature
-status: active
+status: superseded
 date: 2026-04-14
 origin: docs/业界分析/9.spec-first-vs-compound-engineering-plugin-全量同步审计-2026-04-14.md
 ---

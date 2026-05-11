@@ -1,7 +1,7 @@
 ---
 title: feat: Add unified spec_id across requirements, plans, and task packs
 type: feat
-status: active
+status: completed
 date: 2026-04-26
 spec_id: 2026-04-26-002-unified-spec-id
 origin: 当前对话，围绕“需求文档、技术方案 plan、开发任务 task 如何关联”与“先加统一 spec_id”的方案讨论

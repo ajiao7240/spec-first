@@ -1,7 +1,7 @@
 ---
 title: "fix: Clarify graph-bootstrap runtime boundary contract"
 type: fix
-status: active
+status: superseded
 date: 2026-04-22
 deepened: 2026-04-22
 ---

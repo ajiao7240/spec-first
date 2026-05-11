@@ -1,7 +1,7 @@
 ---
 title: "feat: spec-graph-bootstrap 阶段1安装集成"
 type: feat
-status: active
+status: completed
 date: 2026-04-09
 origin: docs/01-需求分析/spec-graph-bootstrap需求/阶段1-skill安装集成需求.md
 ---

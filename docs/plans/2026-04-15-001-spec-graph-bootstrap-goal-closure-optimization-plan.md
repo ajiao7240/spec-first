@@ -1,7 +1,7 @@
 ---
 title: "spec-graph-bootstrap 目标闭环优化方案"
 type: plan
-status: active
+status: superseded
 date: 2026-04-15
 origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 ---
@@ -620,4 +620,3 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 一句话总结：
 
 **下一阶段最重要的优化，不是再让 `spec-graph-bootstrap` 生成更多内容，而是让它生成的内容被稳定消费、被量化验证、并被证明真正提升 agent 效能。**
-

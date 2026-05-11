@@ -1,7 +1,7 @@
 ---
 title: refactor: Replace internal CRG engine with external code-review-graph
 type: refactor
-status: active
+status: completed
 date: 2026-04-27
 spec_id: 2026-04-27-003-crg-external-code-review-graph
 ---
@@ -1008,4 +1008,3 @@ code-review-graph prepares code graph facts.
 spec-first routes facts into workflow context.
 LLM decides what those facts mean for the task.
 ```
-

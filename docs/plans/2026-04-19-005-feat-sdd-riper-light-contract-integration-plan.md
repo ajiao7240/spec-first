@@ -1,7 +1,7 @@
 ---
 title: sdd-riper 轻量协作约束集成计划
 type: feat
-status: active
+status: backlog
 date: 2026-04-19
 deepened: 2026-04-19
 origin: docs/ideation/2026-04-19-sdd-riper-flow-node-borrowing.md

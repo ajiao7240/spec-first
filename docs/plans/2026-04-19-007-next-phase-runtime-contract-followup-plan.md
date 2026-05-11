@@ -1,7 +1,7 @@
 ---
 title: Next Phase Runtime Contract Follow-up Plan
 created: 2026-04-19
-status: active
+status: superseded
 owner: engineering
 origin: 2026-04-19 当前 runtime truth / preview-apply 同构收口后的下一阶段待办汇总
 scope: clean plan 化、adapter runtime plan contract 测试、preview/apply 同构回归保护、doctor freshness 解释增强、plan builder 下沉、文档漂移清理、hook 权限守护、单一真相源继续收敛

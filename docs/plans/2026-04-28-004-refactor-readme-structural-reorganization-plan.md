@@ -1,7 +1,7 @@
 ---
 title: "refactor: README progressive disclosure restructure"
 type: refactor
-status: active
+status: completed
 date: 2026-04-28
 spec_id: 2026-04-28-002-readme-structural-reorganization
 origin: docs/brainstorms/2026-04-28-002-readme-structural-reorganization-requirements.md

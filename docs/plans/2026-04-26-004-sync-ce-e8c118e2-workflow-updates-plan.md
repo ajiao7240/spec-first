@@ -1,7 +1,7 @@
 ---
 title: "sync: 同步 CE e8c118e2 Workflow 更新"
 type: refactor
-status: active
+status: superseded
 date: 2026-04-26
 origin: CE 1284290a..e8c118e2 filtered to non-docs-tests files
 ---

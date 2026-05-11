@@ -1,7 +1,7 @@
 ---
 title: Managed Coding Guidelines Injection Plan
 created: 2026-04-20
-status: active
+status: completed
 owner: engineering
 origin: 用户请求“让 spec-first init 默认把这段准则写进用户项目的 CLAUDE.md / AGENTS.md”
 scope: 为 init 默认注入独立 managed coding-guidelines block，并接入 clean / doctor / docs / tests

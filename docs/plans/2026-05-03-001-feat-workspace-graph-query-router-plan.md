@@ -1,7 +1,7 @@
 ---
 title: feat: 支持多仓 workspace 的 GitNexus-first 查询路由
 type: feat
-status: active
+status: completed
 date: 2026-05-03
 spec_id: 2026-05-03-001-workspace-graph-query-router
 ---

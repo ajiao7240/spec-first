@@ -1,7 +1,7 @@
 ---
 title: refactor: Execute unified CRG and Stage-0 runtime roadmap
 type: refactor
-status: active
+status: superseded
 date: 2026-04-16
 origin: docs/02-架构设计/全局分析/2026-04-16-spec-first-CRG-统一开发执行清单.md
 ---

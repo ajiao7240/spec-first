@@ -1,7 +1,7 @@
 ---
 title: Next Top 3 Runtime Truth Hardening Plan
 created: 2026-04-19
-status: active
+status: superseded
 owner: engineering
 origin: 2026-04-19 dry-run / doctor runnability / asset contract 收口后的下一阶段优先级复盘
 scope: doctor evidence 真源统一、runtime 内容级健康检查、init/clean 完整 operation planner

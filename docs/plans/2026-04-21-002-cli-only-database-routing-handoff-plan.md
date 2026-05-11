@@ -1,7 +1,7 @@
 ---
 title: 收缩 bootstrap 数据库 handoff 为 CLI-only
 type: refactor
-status: active
+status: superseded
 date: 2026-04-21
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: feat: Add Stage-0 verification profile and platform-aware workflow handoff
 type: feature
-status: active
+status: superseded
 date: 2026-04-18
 origin: docs/plans/2026-04-18-cross-language-multi-platform-ai-dev-assistance-strategy.md
 related:
@@ -480,4 +480,3 @@ npm run test:integration
 - verification profile 是否需要进入 `context-routing.json` 的 selection rules
 
 这些都留到本计划完成之后再推进。
-

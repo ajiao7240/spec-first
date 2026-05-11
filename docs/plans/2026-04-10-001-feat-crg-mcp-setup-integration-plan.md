@@ -1,7 +1,7 @@
 ---
 title: "feat: Add code-review-graph as optional MCP tool in mcp-setup"
 type: feat
-status: active
+status: completed
 date: 2026-04-10
 origin: docs/01-需求分析/spec-graph-bootstrap需求/阶段0-CRG安装接入mcp-setup技术方案.md
 ---

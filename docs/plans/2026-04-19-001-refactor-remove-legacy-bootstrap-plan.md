@@ -1,7 +1,7 @@
 ---
 title: "refactor: Remove legacy bootstrap workflow"
 type: refactor
-status: active
+status: completed
 created: 2026-04-19
 author: Claude
 depth: medium

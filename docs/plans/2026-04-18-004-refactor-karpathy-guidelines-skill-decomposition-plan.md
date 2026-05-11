@@ -1,7 +1,7 @@
 ---
 title: "refactor: Execution boundary and simplicity contracts for spec-work"
 type: refactor
-status: active
+status: superseded
 created: 2026-04-18
 author: Codex
 depth: medium

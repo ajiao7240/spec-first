@@ -1,7 +1,7 @@
 ---
 title: "feat: Add init-time gitignore policy"
 type: feat
-status: active
+status: completed
 date: 2026-05-06
 spec_id: 2026-05-06-001-init-gitignore-policy
 ---

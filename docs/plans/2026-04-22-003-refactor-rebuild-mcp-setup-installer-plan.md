@@ -1,7 +1,7 @@
 ---
 title: refactor: Rebuild spec-mcp-setup installer architecture
 type: refactor
-status: active
+status: completed
 date: 2026-04-22
 origin: docs/01-需求分析/12.mcp-setup.md/需求.md
 ---

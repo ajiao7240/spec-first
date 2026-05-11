@@ -1,7 +1,7 @@
 ---
 title: 深化 bootstrap 数据库 evidence-first contract 为项目类型感知的多栈识别
 type: refactor
-status: active
+status: superseded
 date: 2026-04-21
 deepened: 2026-04-21
 ---
