@@ -117,7 +117,7 @@ try {
     console.log(`\n✓ Dry-run 完成，未实际发布；目标版本校验为 ${effectivePkg.version}`);
   } else {
     console.log('\n▸ 发布到 npm...');
-    runNpmChecked(['publish', '--registry=https://registry.npmjs.org']);
+    runNpmChecked(['publish', '--registry=https://registry.npmjs.org', '--no-git-checks']);
     publishSucceeded = true;
     console.log(`\n✓ 已发布 ${effectivePkg.name}@${effectivePkg.version}`);
   }
