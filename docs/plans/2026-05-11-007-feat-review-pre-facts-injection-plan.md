@@ -11,9 +11,9 @@ origin: performance analysis of spec-doc-review and spec-code-review runtime beh
 
 ## 摘要
 
-本计划为 `spec-doc-review` 和 `spec-code-review` 两个 workflow orchestrator 增加 pre-facts extraction 层：在 dispatch reviewer agents 之前，从 GitNexus graph normalized artifacts 或 bounded direct reads 中提取代码库事实，注入 agent prompt 的 `{codebase_facts}` 变量，让 agent 不需要（或极少需要）runtime file reads。
+本计划为 `spec-doc-review` 和 `spec-code-review` 两个 workflow orchestrator 增加 pre-facts extraction 层：在 dispatch reviewer agents 之前，先用 canonical graph readiness artifacts 判断 provider freshness 和 query surface，再通过 bounded provider queries 或 target-aware direct reads 提取代码库事实，注入 agent prompt 的 `{codebase_facts}` 变量，让 agent 不需要（或极少需要）重复做 runtime file reads。
 
-设计保持三级降级：graph fresh → bounded direct reads → 当前行为不变。Pre-facts 是 advisory evidence，不是 hard gate；agent 始终保留工具权限作为 fallback。
+设计保持三级输出路径：graph-fresh facts → bounded-reads facts → 空 block（当前行为不变）。Pre-facts 是 advisory evidence，不是 hard gate；agent 始终保留工具权限作为 fallback。
 
 ## 问题框架
 
@@ -23,21 +23,21 @@ origin: performance analysis of spec-doc-review and spec-code-review runtime beh
 - `spec-code-review` 的 correctness/architecture/testing reviewers 各自独立读取相同的 changed files + callers/dependencies，产生大量重复 I/O
 - 多个 agent 读取相同文件但互不共享结果
 
-GitNexus graph 已经索引了代码结构（architecture-facts、dependency map、execution flows、impact-capabilities），且当前 `query_ready=true`。但 review orchestrators 没有消费这些 pre-indexed facts——它们只在 graph-evidence-policy 层面声明了 advisory 消费规则，没有在 dispatch 前实际提取并注入。
+GitNexus graph 和 code-review-graph 已经暴露 query surface（architecture map、dependency map、execution flow、impact capabilities、related tests 等能力），且当前 provider `query_ready=true`。但 review orchestrators 没有在 dispatch 前统一提取 facts；各 reviewer 仍重复读取文件或自行查询。当前 normalized artifacts 主要是 readiness / capability envelope 和 query surface pointer，不应被假定为已包含 per-symbol、per-caller 或 related-test 语义事实。
 
 ## 目标
 
 - G1. 让 review orchestrators 在 dispatch 前提取代码库事实，注入 agent prompt，减少 agent runtime reads。
-- G2. 优先消费 GitNexus graph normalized artifacts（当 fresh 时），减少 token 消耗和延迟。
-- G3. Graph stale/unavailable 时降级到 orchestrator bounded direct reads，仍优于 agent 自己读。
-- G4. 完全降级时（无法预读）保持当前行为不变，不引入质量退化。
+- G2. 优先消费 canonical graph readiness artifacts 和 provider query surface（当 fresh 时），再用 bounded provider queries 提取语义 facts，减少 token 消耗和延迟。
+- G3. Graph stale、provider unavailable 或 semantic payload 缺失但存在可读 targets 时，降级到 orchestrator target-aware bounded direct reads，仍优于 agent 自己读。
+- G4. 完全降级时（无 targets、读取全部失败或 provider/query surface 不可用且无法直接读取）输出空 `{codebase_facts}` block，保持当前行为不变，不引入质量退化。
 - G5. Pre-facts 是 advisory evidence，不替代 agent 的验证判断，不成为 dispatch hard gate。
-- G6. 多个 agent 共享同一份 pre-facts，消除重复读取。
+- G6. 多个 agent 共享同一份 pre-facts，但 prompt 明确 persona relevance boundary，避免非代码 persona 被无关代码 facts 锚定。
 
 ## 非目标
 
 - 不修改 GitNexus graph 本身的索引逻辑或 bootstrap 流程。
-- 不新增 CLI 命令或脚本。
+- 不新增用户可见 CLI 命令；允许新增共享 reference contract 来避免两个 workflow 复制 readiness、tier 和 truncation 规则。
 - 不修改 `docs/contracts/graph-provider-consumption.md` 或 `docs/contracts/graph-evidence-policy.md` 的规则。
 - 不让 pre-facts 成为 dispatch 的 hard gate 或 reviewer 选择条件。
 - 不修改 agent persona 文件的审查逻辑。
@@ -48,93 +48,102 @@ GitNexus graph 已经索引了代码结构（architecture-facts、dependency map
 
 - R1. `spec-doc-review` orchestrator 必须在 Phase 1（文档分析）和 Phase 2（dispatch）之间增加 pre-facts extraction 步骤。
 - R2. `spec-code-review` orchestrator 必须在 Stage 3b（standards paths）和 Stage 4（spawn）之间增加 pre-facts extraction 步骤。
-- R3. Pre-facts extraction 必须先检查 graph readiness（`provider-status.json` + `source_revision` vs HEAD），判定 tier: `graph-fresh` / `graph-stale` / `unavailable`。
-- R4. Graph fresh 时，从 normalized artifacts（`architecture-facts.json`、`impact-capabilities.json`）提取相关 facts。
-- R5. Graph stale/unavailable 时，orchestrator 做 bounded direct reads（前 80 行 × max 15 files）。
-- R6. 无法预读时（无文件路径可提取、读取全部失败），设置空 `{codebase_facts}` block 并标注原因，不阻塞 dispatch。
+- R3. Pre-facts extraction 必须先读取 canonical readiness artifacts：`.spec-first/graph/provider-status.json`、`.spec-first/graph/graph-facts.json`、`.spec-first/impact/bootstrap-impact-capabilities.json`，并比较 `source_revision`、`worktree_dirty`、`worktree_status_hash` 与当前 repo snapshot；只在 target provider `query_ready=true` 且 snapshot 匹配时判定 graph readiness 为 `graph-fresh`。
+- R4. Graph fresh 时，normalized artifacts 只用于验证 provider capability、定位 `normalized_artifacts` 指针和确认 query surface；per-symbol、relationship、caller、callee、related-test facts 必须来自 bounded provider queries，或在 query 不可用/无语义 payload 时降级到 bounded direct reads。
+- R5. Graph stale、provider unavailable、semantic payload 缺失或 query 失败但存在可读 targets 时，orchestrator 做 target-aware bounded direct reads（max 15 targets，按 source/changed-file relevance 排序，提取 heading / changed hunk / symbol / export 周边窗口，而不是固定前 80 行）。
+- R6. 无法预读时（无文件路径可提取、读取全部失败、无 query surface 且无 direct-read target），设置空 `{codebase_facts}` block 并标注 output tier 与 reason，不阻塞 dispatch。
 - R7. `{codebase_facts}` 作为新变量注入 subagent-template，所有 dispatched agents 共享同一份 facts。
-- R8. Agent prompt 中必须包含 pre-facts-usage 指令：优先使用预注入 facts，仅在需要验证额外假设时才做 runtime reads。
+- R8. Agent prompt 中必须包含 pre-facts-usage 指令：优先把预注入 facts 用作定向阅读和低风险背景；仅当 facts 与当前 persona lens 相关时使用，非代码 persona 可忽略该 block；任何 P0/P1 或高置信代码判断仍需源码、graph query 或明确降级说明支撑。
 - R9. Pre-facts block 必须标注 tier 和 reason，agent 可据此判断是否需要补充验证。
 - R10. Pre-facts extraction 失败不阻塞 dispatch；agent 始终保留 Read/Grep/Glob/Bash 工具权限。
-- R11. Doc-review 的 fact extraction targets 从文档的 `Sources & References`、`Context & Research`、`Patterns to follow`、`Files:` 列表中提取。
+- R11. Doc-review 的 fact extraction targets 从文档的 `Sources & References`、`Context & Research`、`Patterns to follow`、`Files:` / `文件：` 列表中提取。
 - R12. Code-review 的 fact extraction targets 从 diff 的 changed files 提取，包括 callers/callees 和 related tests。
-- R13. Token budget：doc-review ~4000 tokens，code-review ~6000 tokens；超出时按出现顺序截断。
+- R13. Token budget：doc-review ~4000 tokens，code-review ~6000 tokens；超出时先按 relevance ordering 截断（source-of-truth / changed files / implementation files 优先于 references / tests / docs），并在 block 中列出 omitted targets summary。
+- R14. `<codebase-facts>` 必须区分 `readiness` 与 `tier`：`readiness` 取 `graph-fresh` / `graph-stale` / `provider-unavailable` / `no-targets`，`tier` 取 `graph-fresh` / `bounded-reads` / `unavailable` / `no-targets`。
+- R15. Coverage section 必须记录 `Pre-facts tier: <tier> (<reason>)`，其中 Coverage 指 orchestrator 最终 review output 的 `Coverage` 小节。
 
 ## 范围边界
 
 - Pre-facts 是 orchestrator 层的 advisory enrichment，不改变 agent persona 的审查逻辑。
-- Graph consumption 规则不变：fresh 时优先，stale 时 advisory，unavailable 时 fallback。
+- Graph consumption 规则不变：fresh 时优先，stale 时 advisory，unavailable 时 fallback；readiness facts 不等同于 semantic review facts。
 - Subagent template 的其他变量（persona、schema、document_content、diff 等）不变。
 - 现有 graph-provider-consumption.md 和 graph-evidence-policy.md 的规则不变。
 - Agent 的 read-only 约束不变；pre-facts 不授权 agent 写入任何文件。
 
 ### Deferred to Follow-Up Work
 
-- Live MCP query 作为 pre-facts 补充源（等 MCP startup 延迟优化后再评估）。
-- Per-persona targeted facts（不同 persona 收到不同 facts subset）——v1 先共享同一份。
+- Unbounded / ad hoc MCP research 作为 pre-facts 补充源；v1 只允许 bounded provider queries，且必须由 readiness 和 target list 限定。
+- Per-persona targeted facts（不同 persona 收到不同 facts subset）——v1 先共享同一份，但通过 persona relevance boundary 限制使用。
 - Adaptive token budget（根据文档/diff 规模动态调整）——v1 先用固定上限。
 - Pre-facts caching across rounds（doc-review round 2+ 复用 round 1 的 facts）——v1 每轮重新提取。
 
 ## 设计决策
 
 - D1. 新增 `{codebase_facts}` 变量而非修改现有变量。理由：backward compatible，空 block 等同于当前行为。
-- D2. 所有 agent 共享同一份 pre-facts。理由：v1 简单；per-persona targeting 是优化但增加复杂度。
-- D3. Graph readiness check 复用 spec-plan 的模式（读 provider-status.json + 比对 source_revision）。理由：已有验证过的 pattern，不重新发明。
-- D4. Bounded direct reads 限制前 80 行。理由：函数签名、imports、exports、class 结构通常在文件头部；80 行覆盖大部分 CommonJS/ESM 模块的 public surface。
+- D2. 所有 agent 共享同一份 pre-facts，但 pre-facts-usage 必须声明 persona relevance boundary。理由：v1 不做 per-persona targeting，但要避免无关代码 facts 锚定 product/coherence 等非代码 reviewer。
+- D3. Graph readiness check 复用 canonical graph-provider consumption contract（读 provider-status、graph-facts、impact-capabilities，并比较 `source_revision`、`worktree_dirty`、`worktree_status_hash`）。理由：只比较 HEAD 会误判 dirty checkout。
+- D4. Bounded direct reads 使用 target-aware extraction。理由：本计划主要修改 Markdown workflow contracts，关键内容经常在前 80 行之后；对源码也应优先抓取 changed hunk、exports、symbols、近邻 tests，而不是固定文件头。
 - D5. Token budget 硬上限而非动态计算。理由：v1 简单可预测；动态计算需要 tokenizer 依赖。
-- D6. Pre-facts block 使用 XML-like tag（`<codebase-facts tier="..." reason="...">`）。理由：与现有 subagent template 的 `<review-context>`、`<output-contract>` 风格一致。
-- D7. 每个 orchestrator 各有独立的 `references/pre-facts-extraction.md`。理由：doc-review 和 code-review 的 extraction targets 不同（文档路径 vs diff 路径），共享一份会增加条件分支。
-- D8. Pre-facts extraction 记录 tier 到 Coverage section。理由：可审计，便于后续优化评估。
+- D6. Pre-facts block 使用 XML-like tag（`<codebase-facts readiness="..." tier="..." reason="...">`）。理由：与现有 subagent template 的 `<review-context>`、`<output-contract>` 风格一致。
+- D7. 新增一个共享 pre-facts extraction base contract，再让两个 orchestrator 各有薄的 workflow-specific reference。理由：readiness、tier、budget 和 truncation 是共享确定性规则；doc-review 和 code-review 只在 target extraction 上不同。
+- D8. Pre-facts extraction 记录 `Pre-facts tier: <tier> (<reason>)` 到最终 review output 的 Coverage section。理由：可审计，便于后续优化评估。
 
 ## 过度设计防线
 
 ### v1 必须完成
 
-- 两个 orchestrator 各增加 pre-facts extraction 步骤。
+- 一个共享 pre-facts extraction base contract，两个 orchestrator 各增加薄的 pre-facts extraction 步骤。
 - Subagent template 增加 `{codebase_facts}` 变量和 pre-facts-usage 指令。
-- 三级降级路径明确且有 tier 标注。
+- Graph readiness 与 output tier 明确分离，降级路径有 tier 与 reason 标注。
+- Graph-fresh 路径先做 normalized artifact field inventory；如果 artifact 没有语义 payload，使用 bounded provider query 或降级到 bounded direct reads。
 - 契约测试覆盖 pre-facts 相关 prose。
 - CHANGELOG.md 更新。
 
 ### v1 必须延后
 
 - Per-persona targeted facts。
-- Live MCP query 作为补充源。
+- Unbounded / ad hoc MCP research。
 - Adaptive token budget。
 - Cross-round facts caching。
 - Token 消耗度量和报告。
 
 ### 停止条件
 
-实施中如果需要新增 tokenizer 依赖、修改 graph bootstrap 流程、改变 agent persona 的审查逻辑、或让 pre-facts 成为 dispatch 的 blocking condition，应停止并回到 plan/doc-review。
+实施中如果需要新增 tokenizer 依赖、修改 graph bootstrap 流程、改变 agent persona 的审查逻辑、让 pre-facts 成为 dispatch 的 blocking condition，或需要把 bounded provider query 扩展为开放式代码研究，应停止并回到 plan/doc-review。
 
 ## 实施单元
 
 ### U1. Pre-facts extraction contract（参考文档）
 
-**目标：** 定义 pre-facts extraction 的 graph readiness check、extraction targets、bounding rules 和 output format。
+**目标：** 定义 pre-facts extraction 的 shared base contract：canonical graph readiness check、normalized artifact field inventory、bounded provider query、target-aware direct reads、relevance ordering、tier/reason output format 和 Coverage 记录格式。
 
-**需求：** R3, R4, R5, R6, R9, R10, R11, R12, R13
+**需求：** R3, R4, R5, R6, R9, R10, R11, R12, R13, R14, R15
 
 **依赖：** 无
 
 **文件：**
+- Create: `docs/contracts/workflows/review-pre-facts-extraction.md`
 - Create: `skills/spec-doc-review/references/pre-facts-extraction.md`
 - Create: `skills/spec-code-review/references/pre-facts-extraction.md`
 
 **Approach：**
-- Doc-review 版本：定义从文档 sections 提取路径的规则、graph-fresh 时从 architecture-facts.json 提取 symbol/signature facts 的方式、bounded reads 的 80 行 × 15 files 限制。
-- Code-review 版本：定义从 changed files 提取路径的规则、graph-fresh 时从 impact-capabilities.json 提取 blast radius/callers/tests 的方式、bounded reads 的 grep/glob fallback。
-- 两份文档共享 graph readiness check 模式和 output format 规范。
+- Shared base contract：定义 canonical readiness artifacts、snapshot freshness 比对、readiness state、output tier enum、`<codebase-facts>` block schema、omitted-targets summary、Coverage 行格式。
+- Shared base contract：要求先通过 provider-status 的 `normalized_artifacts` 指针做 field inventory，记录哪些 artifact 字段可直接消费；当前 artifact 只有 capability/query-surface 时，不得声称已有 semantic facts。
+- Shared base contract：graph-fresh 且 query surface 可用时，使用 bounded provider queries 获取 symbol/relationship/caller/callee/related-test facts；query 不可用、无语义 payload 或失败时降级到 target-aware direct reads。
+- Doc-review 薄 reference：只定义从文档 `Sources & References`、`Context & Research`、`Patterns to follow`、`Files:` / `文件：` 列表提取 targets 的规则。
+- Code-review 薄 reference：只定义从 changed files、callers/callees 和 related tests 提取 targets 的规则，并明确 staged/unstaged dirty snapshot freshness 如何进入 readiness reason。
 
 **Patterns to follow：**
-- `skills/spec-plan/SKILL.md` 中 Graph Readiness 消费模式（读 provider-status.json + 比对 source_revision）。
-- `docs/contracts/graph-provider-consumption.md` 中 readiness truth table。
+- `docs/contracts/graph-provider-consumption.md` 中 canonical artifacts、forbidden compatibility reads 和 readiness truth table。
+- `skills/spec-plan/SKILL.md` 中 Graph Readiness 消费模式，但补齐 `worktree_status_hash` 比对。
 
 **Test scenarios：**
-- Contract 文档定义了三级降级路径。
+- Shared contract 定义 readiness state 与 output tier 两套枚举，且不混用。
+- Shared contract 要求读取 provider-status、graph-facts、impact-capabilities 并比较 `source_revision`、`worktree_dirty`、`worktree_status_hash`。
+- Shared contract 明确 normalized artifacts 可作为 capability/query-surface pointer，但不能无 inventory 地声明 semantic facts。
 - Contract 文档明确 pre-facts 是 advisory，不是 hard gate。
-- Contract 文档定义了 token budget 和 bounding rules。
+- Contract 文档定义 token budget、relevance ordering、omitted-targets summary 和 target-aware bounding rules。
+- Contract 文档定义 Coverage 行：`Pre-facts tier: <tier> (<reason>)`。
 
 **Verification：**
 - `npm run test:unit` 或 targeted contract tests。
@@ -145,7 +154,7 @@ GitNexus graph 已经索引了代码结构（architecture-facts、dependency map
 
 **目标：** 在文档分析和 dispatch 之间插入 pre-facts extraction 步骤。
 
-**需求：** R1, R3, R6, R9, R10
+**需求：** R1, R3, R6, R9, R10, R11, R13, R14, R15
 
 **依赖：** U1
 
@@ -155,14 +164,15 @@ GitNexus graph 已经索引了代码结构（architecture-facts、dependency map
 
 **Approach：**
 - 在 Phase 1（Get and Analyze Document）和 Phase 2（Announce and Dispatch）之间插入 Phase 1b。
-- Phase 1b 读取 `references/pre-facts-extraction.md`，执行 graph readiness check，提取 facts，格式化为 `<codebase-facts>` block。
-- 记录 extraction tier 到 Coverage section。
+- Phase 1b 读取 shared base contract 和 doc-review reference，执行 graph readiness check、field inventory、bounded provider query / target-aware direct reads，格式化为 `<codebase-facts>` block。
+- 记录 `Pre-facts tier: <tier> (<reason>)` 到最终 review output 的 Coverage section。
 
 **Test scenarios：**
 - SKILL.md 包含 Phase 1b pre-facts extraction 描述。
 - Phase 1b 在 Phase 1 之后、Phase 2 之前。
 - Pre-facts 描述为 advisory evidence，不阻塞 dispatch。
-- 降级路径明确：graph-fresh → bounded-reads → unavailable。
+- 降级路径明确：graph-fresh → bounded-reads → unavailable/no-targets。
+- Contract tests 覆盖 Coverage 行格式与 readiness/tier 枚举分离。
 
 **Verification：**
 - `npx jest tests/unit/spec-doc-review-contracts.test.js --runInBand`
@@ -184,12 +194,13 @@ GitNexus graph 已经索引了代码结构（architecture-facts、dependency map
 **Approach：**
 - 在 `<review-context>` section 中 `Document content:` 之前增加 `{codebase_facts}`。
 - 在 `<output-contract>` 中增加 `<pre-facts-usage>` 指令块。
-- 指令明确：优先使用 pre-facts，仅在需要验证额外假设时才做 runtime reads；pre-facts 是 advisory evidence。
+- 指令明确：pre-facts 用于定向阅读和低风险背景；仅在与当前 persona lens 相关时使用；非代码 persona 可忽略；P0/P1 或高置信代码判断必须补充源码/graph 直接验证或在 finding 中降级说明。
 
 **Test scenarios：**
 - subagent-template.md 包含 `{codebase_facts}` 变量。
 - subagent-template.md 包含 pre-facts-usage 指令。
 - 指令不禁止 agent 使用工具（保留 fallback）。
+- 指令包含 persona relevance boundary 和 high-confidence verification boundary。
 
 **Verification：**
 - `npx jest tests/unit/spec-doc-review-contracts.test.js --runInBand`
@@ -200,7 +211,7 @@ GitNexus graph 已经索引了代码结构（architecture-facts、dependency map
 
 **目标：** 在 standards paths discovery 和 spawn 之间插入 pre-facts extraction 步骤。
 
-**需求：** R2, R3, R6, R9, R10, R12
+**需求：** R2, R3, R6, R9, R10, R12, R13, R14, R15
 
 **依赖：** U1
 
@@ -210,14 +221,15 @@ GitNexus graph 已经索引了代码结构（architecture-facts、dependency map
 
 **Approach：**
 - 在 Stage 3b（standards paths discovery）和 Stage 4（spawn）之间插入 Stage 3c。
-- Stage 3c 读取 `references/pre-facts-extraction.md`，从 changed files 提取 callers/dependencies/tests facts。
-- 记录 extraction tier 到 Coverage section。
+- Stage 3c 读取 shared base contract 和 code-review reference，从 changed files 提取 targets，按 clean/staged/unstaged snapshot 记录 freshness reason，并通过 bounded provider query / target-aware direct reads 提取 callers/dependencies/tests facts。
+- 记录 `Pre-facts tier: <tier> (<reason>)` 到最终 review output 的 Coverage section。
 
 **Test scenarios：**
 - SKILL.md 包含 Stage 3c pre-facts extraction 描述。
 - Stage 3c 在 Stage 3b 之后、Stage 4 之前。
 - Pre-facts 不替代 diff scope rules。
-- 降级路径明确。
+- 降级路径明确，并覆盖 clean/staged/unstaged dirty diff review case。
+- Contract tests 覆盖 Coverage 行格式与 readiness/tier 枚举分离。
 
 **Verification：**
 - `npx jest tests/unit/spec-code-review-contracts.test.js --runInBand`
@@ -237,12 +249,13 @@ GitNexus graph 已经索引了代码结构（architecture-facts、dependency map
 - Modify: `tests/unit/spec-code-review-contracts.test.js`
 
 **Approach：**
-- 与 U3 相同模式：在 review-context 中增加 `{codebase_facts}` 变量，在 output-contract 中增加 pre-facts-usage 指令。
+- 与 U3 相同模式：在 review-context 中增加 `{codebase_facts}` 变量，在 output-contract 中增加 pre-facts-usage 指令；指令必须说明 pre-facts 不替代 diff scope rules、changed-file ownership 或 reviewer 的直接验证。
 
 **Test scenarios：**
 - subagent-template.md 包含 `{codebase_facts}` 变量。
 - subagent-template.md 包含 pre-facts-usage 指令。
 - 指令不禁止 agent 使用工具。
+- 指令包含 persona relevance boundary 和 high-confidence verification boundary。
 
 **Verification：**
 - `npx jest tests/unit/spec-code-review-contracts.test.js --runInBand`
@@ -270,48 +283,49 @@ GitNexus graph 已经索引了代码结构（architecture-facts、dependency map
 
 ## 降级设计
 
-| 条件 | 行为 | Agent 体验 |
-|------|------|-----------|
-| `provider-status.json` 存在 + target provider `query_ready=true` + `source_revision` = current HEAD | 从 normalized artifacts 提取 structured facts | `<codebase-facts tier="graph-fresh">` 包含 symbols/signatures/relationships |
-| `provider-status.json` 存在但 stale（revision mismatch 或 worktree dirty） | Orchestrator bounded direct reads（前 80 行 × max 15 files） | `<codebase-facts tier="bounded-reads" reason="graph stale">` 包含 file snippets |
-| `provider-status.json` 不存在 / `query_ready=false` / 读取失败 | 不做预读，agent 自己读 | `<codebase-facts tier="unavailable" reason="...">` 空 block，agent 正常使用工具 |
-| 文档/diff 中没有可提取的文件路径 | 不做预读 | `<codebase-facts tier="no-targets">` 空 block |
+| Readiness 条件 | Target 条件 | 行为 | Agent 体验 |
+|------|------|------|-----------|
+| canonical artifacts 存在，target provider `query_ready=true`，`source_revision`、`worktree_dirty`、`worktree_status_hash` 与当前 snapshot 匹配 | 有可提取 targets，provider query surface 可用 | 先做 normalized artifact field inventory；若 artifact 已含语义 facts 则消费；否则执行 bounded provider query 获取 symbol/relationship/caller/callee/related-test facts | `<codebase-facts readiness="graph-fresh" tier="graph-fresh" reason="provider-query">` |
+| graph stale / dirty hash mismatch / provider unavailable / bounded query 失败 / normalized artifact 无语义 payload | 有可读 targets | Orchestrator 做 target-aware bounded direct reads：source-of-truth 和 changed files 优先，提取 heading、changed hunk、symbol、export、nearby tests 周边窗口，max 15 targets | `<codebase-facts readiness="graph-stale|provider-unavailable" tier="bounded-reads" reason="...">` |
+| 任意 readiness | 文档/diff 中没有可提取路径 | 不做预读 | `<codebase-facts readiness="no-targets" tier="no-targets" reason="no extraction targets">` 空 block |
+| 任意 readiness | targets 全部读取失败且无可用 query surface | 不做预读，agent 自己读 | `<codebase-facts readiness="provider-unavailable" tier="unavailable" reason="all pre-reads failed">` 空 block |
 
 **关键约束：**
 - Pre-facts extraction 失败不阻塞 dispatch。
 - Agent 始终保留 Read/Grep/Glob/Bash 工具权限。
-- Pre-facts 标记 tier 和 reason，agent 可据此判断是否需要补充验证。
-- Graph stale 时 pre-facts 标记为 advisory，agent 可选择 re-verify。
+- Pre-facts 同时标记 readiness、tier 和 reason，agent 可据此判断是否需要补充验证。
+- Graph stale、bounded-reads、provider-unavailable 和 no-targets 都是 advisory；P0/P1 或高置信代码判断必须 re-verify 或在 finding 中明确降级。
+- Code-review 的 dirty worktree 必须比较 dirty snapshot identity；若 graph bootstrap 不是同一 dirty snapshot，不能标记为 `graph-fresh`。
 
 ## 预期效果
 
-| 场景 | 当前耗时 | 优化后耗时 | 原因 |
+| 场景 | 当前耗时 | 优化后目标 | 原因 / 门槛 |
 |------|---------|-----------|------|
-| doc-review feasibility (graph fresh) | 114s (19 reads) | ~35s (0-2 reads) | Facts 预注入，无需 I/O |
-| doc-review feasibility (graph stale) | 114s (19 reads) | ~50s (0-5 reads) | 大部分 facts 预读，少量补充 |
-| doc-review feasibility (unavailable) | 114s (19 reads) | 114s (19 reads) | 完全降级，无退化 |
-| code-review correctness+architecture | ~80s each (10+ reads) | ~40s each (0-3 reads) | Callers/tests 预注入 |
-| code-review total (4 agents sharing facts) | ~120s | ~60s | 共享 facts 消除重复读取 |
+| doc-review feasibility (graph fresh + bounded query usable) | 114s (19 reads) | runtime reads 降低 ≥70%，总耗时降低 ≥30% | Facts 预注入，agent 只做补充验证 |
+| doc-review feasibility (bounded-reads) | 114s (19 reads) | runtime reads 降低 ≥40%，总耗时不退化 | Target-aware snippets 预读，少量补充 |
+| doc-review feasibility (unavailable/no-targets) | 114s (19 reads) | 不退化 | 完全降级，保持当前行为 |
+| code-review clean/staged snapshot matches graph | 待 baseline | runtime reads 降低 ≥50%，findings parity 通过 | Provider query / related tests 预注入 |
+| code-review dirty snapshot mismatch | 待 baseline | 只声明 bounded-reads 收益，不声明 graph-fresh 收益 | Dirty worktree 不能误标 graph-fresh |
 
 ## System-Wide Impact
 
-- **Interaction graph：** orchestrator 在 dispatch 前消费 `.spec-first/graph/` 和 `.spec-first/providers/` artifacts，提取 facts 后注入所有 dispatched agents。
+- **Interaction graph：** orchestrator 在 dispatch 前消费 `.spec-first/graph/`、`.spec-first/impact/` 和 `.spec-first/providers/` artifacts 判断 readiness/query surface，再用 bounded provider query 或 bounded direct reads 提取 facts 后注入 dispatched agents。
 - **Error propagation：** pre-facts extraction 失败是 silent degradation，不是 workflow failure。
 - **State lifecycle：** 不引入新的 durable state；pre-facts 是 session-scoped，不持久化。
 - **API surface：** subagent template 增加一个 optional 变量；空 block 等同于当前行为。
-- **Graph dependency：** 不新增 graph 依赖；graph unavailable 时完全降级。
+- **Graph dependency：** 不新增 bootstrap/index 依赖；graph unavailable 或 dirty-stale 时降级到 bounded direct reads 或空 block。
 - **Unchanged invariants：** agent persona 逻辑不变；findings schema 不变；synthesis pipeline 不变；graph-evidence-policy 不变。
 
 ## 风险与缓解
 
 | 风险 | 缓解 |
 |------|------|
-| Pre-facts 过时导致 agent 基于错误事实审查 | Tier 标注让 agent 知道 facts 的新鲜度；agent 保留工具权限可 re-verify |
-| Token budget 不够覆盖关键 facts | 按文档/diff 中出现顺序优先提取最相关文件；v2 可做 adaptive budget |
-| Pre-facts extraction 本身耗时过长 | Bounded: max 15 files × 80 lines；graph-fresh 路径只读 JSON artifacts（<1s） |
-| Agent 忽略 pre-facts 仍然做大量 runtime reads | Pre-facts-usage 指令明确优先级；但不强制禁止工具使用（保留质量） |
-| Graph artifacts 格式变化导致 extraction 失败 | 读取失败 silent fallback 到 bounded reads 或 unavailable |
-| 共享 facts 对某些 persona 无用（如 coherence reviewer） | 无害：coherence reviewer 不需要代码 facts，会忽略 pre-facts block |
+| Pre-facts 过时导致 agent 基于错误事实审查 | Readiness + tier + reason 标注；P0/P1 或高置信代码 finding 必须 re-verify 或降级说明 |
+| Token budget 不够覆盖关键 facts | Relevance ordering：source-of-truth / changed files / implementation files 优先；输出 omitted-targets summary |
+| Pre-facts extraction 本身耗时过长 | Bounded: max 15 targets；provider query 和 direct reads 都必须有 target list，不做开放式研究 |
+| Agent 忽略 pre-facts 仍然做大量 runtime reads | Pre-facts-usage 指令要求优先用于定向阅读；验证策略用 read-count 和 wall-time gate 检查收益 |
+| Agent 被无关 shared facts 锚定 | Persona relevance boundary：非代码 persona 可忽略 pre-facts，不得用 pre-facts 替代自身 lens 判断 |
+| Graph artifacts 格式变化导致 extraction 失败 | Field inventory 失败则 silent fallback 到 bounded reads 或 unavailable，并在 Coverage 记录 tier/reason |
 
 ## 验证策略
 
@@ -323,8 +337,10 @@ GitNexus graph 已经索引了代码结构（architecture-facts、dependency map
 - `git diff --check`
 
 功能验证：
-- 对同一份 plan 文档在 graph-fresh 条件下运行 `spec-doc-review`，观察 feasibility reviewer 的工具调用次数是否显著减少。
-- 对比 findings 质量：pre-facts 模式 vs 当前模式应产出相同或更好的 findings。
+- 对同一份 plan 文档在 graph-fresh 条件下运行 `spec-doc-review`，记录 wall time、agent read count、pre-facts tier、prompt token delta 和 findings parity；目标是 runtime reads 降低 ≥70%，总耗时降低 ≥30%，且 synthesized findings 无明显质量损失。
+- 对同一份 code-review diff 分别覆盖 clean/staged snapshot match 与 dirty snapshot mismatch，记录 wall time、agent read count、pre-facts tier、prompt token delta 和 findings parity；dirty mismatch 不得标记为 `graph-fresh`。
+- 构造 budget-exhaustion case，验证 omitted-targets summary 出现，且 relevance ordering 优先 source-of-truth / changed files / implementation files。
+- 对比 findings 质量：pre-facts 模式 vs 当前模式应产出相同或更好的 findings；若 read count 降低但 P1/P0 finding 丢失，视为失败并回到 plan/doc-review。
 
 扩展验证：
 - `npm run test:unit`
@@ -335,7 +351,8 @@ GitNexus graph 已经索引了代码结构（architecture-facts、dependency map
 - 性能数据来源：本会话中对 `docs/plans/2026-05-11-006-feat-task-pack-review-gate-plan.md` 的实际 doc-review 执行。
 - Graph consumption contract：`docs/contracts/graph-provider-consumption.md`。
 - Graph evidence policy：`docs/contracts/graph-evidence-policy.md`。
-- 现有 graph artifacts：`.spec-first/graph/graph-facts.json`、`.spec-first/providers/gitnexus/normalized/architecture-facts.json`。
+- 现有 graph artifacts：`.spec-first/graph/provider-status.json`、`.spec-first/graph/graph-facts.json`、`.spec-first/impact/bootstrap-impact-capabilities.json`、`.spec-first/providers/gitnexus/normalized/architecture-facts.json`、`.spec-first/providers/code-review-graph/normalized/impact-capabilities.json`。
+- 当前 normalized artifacts 需要 field inventory；不能预设其包含 per-symbol、caller/callee 或 related-test semantic payload。
 - Doc-review orchestrator：`skills/spec-doc-review/SKILL.md`。
 - Code-review orchestrator：`skills/spec-code-review/SKILL.md`。
 - Subagent templates：`skills/spec-doc-review/references/subagent-template.md`、`skills/spec-code-review/references/subagent-template.md`。

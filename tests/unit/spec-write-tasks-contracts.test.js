@@ -82,6 +82,8 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('This is not lifecycle state, review status, or approval metadata');
     expect(skill).toContain('The deterministic validator checks `review_gate` structure only');
     expect(skill).toContain('does not decide which tasks semantically require review');
+    expect(skill).toContain('docs/examples/standards-glue-consumption-examples.md');
+    expect(skill).toContain('examples are context guidance, not task schema');
     expect(skill).toContain('The deterministic validator only proves frontmatter identity/freshness plus the `Task Pack Contract` machine-readable structure');
     expect(skill).not.toContain('spec-first ' + 'crg hook');
     expect(skill).not.toContain('$spec-' + 'graph' + '-bootstrap');

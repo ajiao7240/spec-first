@@ -114,6 +114,8 @@ describe('user manual contracts', () => {
     expect(standardsGuide).toContain('import-lock.json');
     expect(standardsGuide).toContain('下游 workflow 只能把 `confirmed` standards 当作硬约束');
     expect(standardsGuide).toContain('`glue-map.json` 只用于 reuse-first 判断');
+    expect(standardsGuide).toContain('docs/examples/standards-glue-consumption-examples.md');
+    expect(standardsGuide).toContain('不是新的 schema、生成产物或规则引擎');
     expect(standardsGuide).toContain('不要手改 `.claude/`、`.codex/` 或 `.agents/skills/` runtime mirror');
   });
 

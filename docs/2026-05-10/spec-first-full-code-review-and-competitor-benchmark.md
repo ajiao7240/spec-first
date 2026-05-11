@@ -18,22 +18,21 @@
 
 但当前还不适合用“稳定无风险的通用开源工具”口径推广，更适合定位为可用的 beta/preview 级 workflow harness：核心 CLI 和 provider readiness 已有强防线，风险主要集中在用户心智与产物消费契约，而不是单个命令完全不可用。
 
-本次发现：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4；另有 1 个原 P1 经当前代码复核后已移出 P1。结论口径是：阻断级 P1 已开发完成并推送，`P2-002`、`P2-007` 与 `P2-009` 已完成，`P2-003` 已有可用 v1 foundation；剩余 P2/P3 应按“值得做、暂缓”分层推进，不应标记为全部完成，也不应把所有 backlog 都升格为核心架构任务。
+本次发现：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4；另有 1 个原 P1 经当前代码复核后已移出 P1。结论口径是：阻断级 P1 已开发完成并推送，`P2-002`、`P2-004`、`P2-007` 与 `P2-009` 已完成，`P2-003` 已有可用 v1 foundation；剩余 P2/P3 应按“值得做、暂缓”分层推进，不应标记为全部完成，也不应把所有 backlog 都升格为核心架构任务。
 
 当前最大剩余风险：
 
-1. standards/glue-map consumption examples 仍不够集中，advisory facts 被误读成 hard rule 的风险还需要用 examples 和 tests 压低。
-2. benchmark/eval 已有 v1 foundation，但真实 AI workflow fixture 与语义对照仍不足；这影响开源可信度，但不应演化成 leaderboard/dashboard 平台。
-3. quick/no-graph path 与 “何时 compound” 属于效率和知识沉淀质量风险，不是当前阻断项。
+1. benchmark/eval 已有 v1 foundation，但真实 AI workflow fixture 与语义对照仍不足；这影响开源可信度，但不应演化成 leaderboard/dashboard 平台。
+2. quick/no-graph path 与 “何时 compound” 属于效率和知识沉淀质量风险，不是当前阻断项。
+3. module scope manifest 与 agent catalog 属于长期治理项，当前没有足够高频痛点支撑进入核心路径。
 
 建议开发顺序：
 
-1. `P2-004`：补 standards/glue-map consumption examples；低成本降低 advisory facts 被误读成 hard rule 的风险。
-2. `P2-003`：在 v1 foundation 上补 1-2 个高价值 fixture 或一次真实 workflow/LLM-review pass；不做 dashboard、历史趋势或排行榜。
-3. `P2-006`：补 quick/no-graph mode 文档与 smoke；不新增独立 CLI mode。
-4. `P2-008`：补 learning-worthy checklist；只建议 `$spec-compound`，不自动写 learning doc。
-5. `P2-001`：延后处理；除非真实 monorepo scope drift 反复出现，或先证明能复用 `spec-standards` 的 `project-shape.json.modules[]` 而不新增系统。
-6. `P2-005`：暂缓，除非重复 agent dispatch 已成为真实噪音。
+1. `P2-003`：在 v1 foundation 上补 1-2 个高价值 fixture 或一次真实 workflow/LLM-review pass；不做 dashboard、历史趋势或排行榜。
+2. `P2-006`：补 quick/no-graph mode 文档与 smoke；不新增独立 CLI mode。
+3. `P2-008`：补 learning-worthy checklist；只建议 `$spec-compound`，不自动写 learning doc。
+4. `P2-001`：延后处理；除非真实 monorepo scope drift 反复出现，或先证明能复用 `spec-standards` 的 `project-shape.json.modules[]` 而不新增系统。
+5. `P2-005`：暂缓，除非重复 agent dispatch 已成为真实噪音。
 
 最值得借鉴集成的 3 个竞品能力：
 
@@ -50,6 +49,7 @@
 | 项 | 结论 | 必须做原因 | 过度设计护栏 |
 |---|---|---|---|
 | `P2-002` per-task review gate | v1 fixed（2026-05-11） | 长任务只在最终 diff review，质量反馈太晚；task-pack 已具备承载轻量 metadata 的上下文 | 已按轻量版落地：只加 `review_gate: optional|required`、`execution_focus` 投影和 `spec-work` report-only handoff contract；不默认自动多 persona 审每个 task |
+| `P2-004` standards/glue-map examples | v1 fixed（2026-05-11） | advisory facts 被误读成 hard rule 会污染 plan/work/review 判断；集中示例能低成本压低误读风险 | 已按轻量版落地：只加 docs/examples、source prose 指针与 contract tests；不新增 schema、producer、graph/provider 协议或 workflow 状态机 |
 
 ### 近期必须做
 
@@ -60,7 +60,6 @@
 | 项 | 结论 | 适合的最小落地 |
 |---|---|---|
 | `P2-003` benchmark/eval full closure | 值得做；v1 已可用，full closure 不是阻断 | 补 1-2 个高价值 fixture 或一次真实 workflow/LLM-review pass；不做 dashboard/leaderboard |
-| `P2-004` standards/glue-map examples | 值得做，成本低 | 写 examples 与 contract test，说明 confirmed/observed/imported/suggested/conflict 如何被 plan/work 消费 |
 | `P2-006` lightweight/no-graph fast path | 值得做，改善新用户 DX | 更新 README/quickstart/skill prose，必要时补 no-MCP smoke；不新增 CLI quick mode |
 | `P2-008` compound trigger checklist | 值得做，改善知识沉淀稳定性 | 在 final summary contract 中加 learning-worthy signal checklist；只建议 `$spec-compound` |
 
@@ -401,11 +400,12 @@ compound
 ## [P2-004] `spec-standards` / `glue-map` 与 plan/work 的消费边界需更多 examples
 
 - 问题类型：facts consumption / LLM-owned judgment
-- 当前优先级：值得做但非必须；低成本，适合作为 `P2-002` 后的下一项。
+- 当前优先级：v1 已完成；后续仅在新增 standards consumer 时补对应示例。
+- 状态：v1 fixed（2026-05-11）。已新增集中 consumption examples，并让 standards/user manual 与 plan/write-tasks/work/code-review 指向同一示例文档。
 - 证据：`spec-plan` 与 `spec-write-tasks` 已写明 confirmed/observed/imported/suggested/conflict/unknown 消费规则，但 examples 不够集中。
 - 影响：agent 可能把 advisory standards 当 hard rule。
-- 修复建议：新增 standards consumption examples：confirmed hard constraint、observed advisory、workspace-advisory-only 回到 child repo baseline。
-- 验证方式：docs/examples contract + skill audit semantic checklist。
+- 修复内容：新增 `docs/examples/standards-glue-consumption-examples.md`，用 good/bad examples 明确 `confirmed` hard context、`observed/imported/suggested` advisory context、`conflict/deprecated/drifted` risk context、`unknown` question context、degraded/workspace advisory 只能 advisory consumption；补充 `workspace-advisory-only` 回到 child repo baseline 与 `glue-map.json` reuse-first / not-state-machine 边界；在 `spec-standards`、用户手册、`spec-plan`、`spec-write-tasks`、`spec-work`、`spec-code-review` 中加入轻量指针。
+- 验证状态：已通过 `npx jest tests/unit/spec-standards-consumers.test.js --runInBand`、`npx jest tests/unit/user-manual-contracts.test.js tests/unit/spec-standards-contracts.test.js --runInBand`、`npx jest tests/unit/spec-plan-contracts.test.js tests/unit/spec-write-tasks-contracts.test.js tests/unit/spec-work-contracts.test.js tests/unit/spec-code-review-contracts.test.js --runInBand`。
 
 ## [P2-005] agent 角色存在命名/职责重叠，需要边界 catalog
 
@@ -747,7 +747,7 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 
 ## P0: 稳定主流程
 
-当前无代码级 P0。`P1-001` 至 `P1-007` 已完成修复，`P2-002` light per-task review gate、`P2-007` release/package evidence v1 与 `P2-009` planned contract catalog 可见性已完成，`P2-003` benchmark/eval v1 foundation 已可用。短期没有剩余 P1 或必须做 P2；`P2-001` module-level scope manifest 已延后，后续优先推进 `P2-004` standards/glue-map consumption examples，其他 P2 作为增益项分批处理。
+当前无代码级 P0。`P1-001` 至 `P1-007` 已完成修复，`P2-002` light per-task review gate、`P2-004` standards/glue-map consumption examples、`P2-007` release/package evidence v1 与 `P2-009` planned contract catalog 可见性已完成，`P2-003` benchmark/eval v1 foundation 已可用。短期没有剩余 P1 或必须做 P2；`P2-001` module-level scope manifest 已延后，后续优先推进 `P2-003` full closure 或 `P2-006` lightweight/no-graph mode，其他 P2 作为增益项分批处理。
 
 ## P1: 强化审查与验证
 
@@ -796,8 +796,9 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
    - 边界：不默认每个 task 启动完整 multi-persona review，不新增 per-task 状态机。
 
 2. Standards/glue-map consumption examples
-   - 当前优先级：下一项建议开发；值得做但非必须。
-   - 落点：docs/examples + contract tests，明确 advisory facts 与 hard constraints 的消费边界。
+   - 状态：v1 fixed（2026-05-11）。
+   - 已落地：集中 `docs/examples/standards-glue-consumption-examples.md`、standards/manual/consumer workflow 指针与 contract tests。
+   - 边界：只补人读示例与 source prose，不新增 schema、producer、graph/provider 协议或 workflow 状态机。
 
 3. Benchmark fixture suite full closure
    - 当前优先级：值得做但非必须；v1 foundation 已完成。

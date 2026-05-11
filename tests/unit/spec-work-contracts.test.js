@@ -31,6 +31,8 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('nearby implementation files');
     expect(text).toContain('nearby tests');
     expect(text).toContain('git diff or changed files');
+    expect(text).toContain('docs/examples/standards-glue-consumption-examples.md');
+    expect(text).toContain('examples do not expand plan or task-pack scope');
     expect(text).toContain('prefer live MCP evidence for concrete execution questions');
     expect(text).toContain('fall back to bounded direct repo reads');
     expect(text).toContain('they do not update compiled `query_ready`');

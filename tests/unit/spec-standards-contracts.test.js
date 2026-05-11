@@ -75,6 +75,8 @@ describe('spec-standards workflow contract', () => {
     expect(skill).toContain('trust_level=degraded');
     expect(skill).toContain('consumption_boundary=advisory_only');
     expect(skill).toContain('validator fail, missing validator result, `trust_level=degraded`, `consumption_boundary=advisory_only`, or `workspace-advisory-only` -> degraded/advisory only');
+    expect(skill).toContain('docs/examples/standards-glue-consumption-examples.md');
+    expect(skill).toContain('human-readable examples, not machine-readable schema or generated artifacts');
     expect(skill).toContain('Artifact validation is the completion gate.');
     expect(skill).toContain('If validator has not returned exit code `0`, do not report a trusted baseline or completed standards baseline');
     expect(skill).toContain('Do not rewrite contract-bearing headings, tool names, paths, command names, candidate ids, or author names just to clear diagnostics.');

@@ -406,6 +406,8 @@ Consumption modes:
 
 `glue-map.json` supports reuse-first decisions. It is not a workflow state machine and must not override the active plan, task pack, work scope, or review judgment.
 
+Concrete downstream examples live in `docs/examples/standards-glue-consumption-examples.md`; they are human-readable examples, not machine-readable schema or generated artifacts.
+
 ## Cost Controls
 
 - Default mode must not run a deep scan.

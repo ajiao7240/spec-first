@@ -13,12 +13,44 @@ const SPEC_PLAN_PATH = path.join(REPO_ROOT, 'skills/spec-plan/SKILL.md');
 const SPEC_WRITE_TASKS_PATH = path.join(REPO_ROOT, 'skills/spec-write-tasks/SKILL.md');
 const SPEC_WORK_PATH = path.join(REPO_ROOT, 'skills/spec-work/SKILL.md');
 const SPEC_CODE_REVIEW_PATH = path.join(REPO_ROOT, 'skills/spec-code-review/SKILL.md');
+const CONSUMPTION_EXAMPLES_PATH = path.join(REPO_ROOT, 'docs/examples/standards-glue-consumption-examples.md');
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
 describe('spec-standards downstream consumer contract', () => {
+  test('central consumption examples document status modes and forbidden upgrades', () => {
+    const examples = read(CONSUMPTION_EXAMPLES_PATH);
+
+    expect(examples).toContain('人读示例，不是新的 schema、producer、规则引擎或 workflow state machine');
+    expect(examples).toContain('| `confirmed` | hard context |');
+    expect(examples).toContain('| `observed` | advisory context |');
+    expect(examples).toContain('| `imported` | advisory context |');
+    expect(examples).toContain('| `suggested` | advisory context |');
+    expect(examples).toContain('| `conflict` | risk context |');
+    expect(examples).toContain('| `deprecated` | risk context |');
+    expect(examples).toContain('| `drifted` | risk context |');
+    expect(examples).toContain('| `unknown` | question context |');
+    expect(examples).toContain('| validator fail | degraded/advisory only |');
+    expect(examples).toContain('| missing validation result | degraded/advisory only |');
+    expect(examples).toContain('| `trust_level=degraded` | degraded/advisory only |');
+    expect(examples).toContain('| `consumption_boundary=advisory_only` | degraded/advisory only |');
+    expect(examples).toContain('| `workspace-advisory-only` | degraded/advisory only |');
+    expect(examples).toContain('`advisory` 不是 candidate status');
+    expect(examples).toContain('### `spec-plan`');
+    expect(examples).toContain('### `spec-write-tasks`');
+    expect(examples).toContain('### `spec-work`');
+    expect(examples).toContain('### `spec-code-review`');
+    expect(examples).toContain('不能升级为 hard rule，不能扩大 source scope');
+    expect(examples).toContain('父 workspace advisory baseline 不能当作 child repo confirmed standards');
+    expect(examples).toContain('建议运行 `$spec-standards --repo <child>`');
+    expect(examples).toContain('`glue-map.json` 只支持 reuse-first 判断');
+    expect(examples).toContain('不可以：');
+    expect(examples).toContain('作为 workflow state machine');
+    expect(examples).toContain('覆盖 plan、task pack、work scope 或 review judgment');
+  });
+
   test('fixture consumption map keeps candidate status separate from consumption mode', () => {
     const consumptionMap = JSON.parse(read(CONSUMPTION_MAP_PATH));
 

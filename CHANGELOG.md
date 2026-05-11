@@ -1,6 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-11 22:46:09 leokuang: docs(plan): 按 spec-doc-review 复审结果修订 pre-facts injection 计划，校准 graph freshness、semantic facts 来源、tier 枚举、persona 边界与验证门槛 (user-visible)
+- v1.8.2 2026-05-11 22:41:22 leokuang: docs(standards): 实现 P2-004 standards/glue-map consumption examples，新增集中消费示例、workflow 指针与 contract tests (user-visible)
+- v1.8.2 2026-05-11 20:29:45 leokuang: docs(plan): 新增 P2-004 standards/glue-map consumption examples 轻量实施计划 (user-visible)
 - v1.8.2 2026-05-11 20:06:42 leokuang: feat(task-pack): 实现 P2-002 轻量 per-task review gate，新增 review_gate 校验、execution_focus 投影与 spec-work report-only handoff 合同 (user-visible)
 - v1.8.2 2026-05-11 19:44:56 leokuang: docs(plan): 按 spec-doc-review 结果收窄 P2-002 review gate 计划，补齐 diff anchor、失败策略、batching 与 code-review 边界 (user-visible)
 - v1.8.2 2026-05-11 19:29:17 leokuang: docs(plan): 新增 P2-002 task-pack per-task review gate 轻量实施计划 (user-visible)

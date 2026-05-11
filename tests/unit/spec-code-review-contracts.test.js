@@ -40,6 +40,8 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).toContain('degraded-fallback or definitions-only limitations');
     expect(text).toContain('autofix review must not edit a child repo unless that repo is explicit');
     expect(text).toContain('risk assessments must remain scoped to the repo that owns the file');
+    expect(text).toContain('docs/examples/standards-glue-consumption-examples.md');
+    expect(text).toContain('examples do not authorize hard findings from advisory or degraded baselines');
     expect(text).not.toContain('spec-first ' + 'crg hook');
     expect(text).not.toContain('$spec-' + 'graph' + '-bootstrap');
     expect(text).not.toContain('/spec:' + 'graph' + '-bootstrap');

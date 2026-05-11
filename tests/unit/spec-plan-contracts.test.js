@@ -98,6 +98,8 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('External tools may prioritize inspection, but they do not define scope authority');
     expect(text).toContain('The LLM still chooses the candidate change surface');
     expect(text).toContain('explicit repo context and source-plan constraints');
+    expect(text).toContain('docs/examples/standards-glue-consumption-examples.md');
+    expect(text).toContain('examples clarify usage and do not expand plan scope');
     expect(text).toContain('target_repo');
     expect(text).toContain('workspace-graph-targets.v1');
     expect(text).toContain('GitNexus-first evidence');
