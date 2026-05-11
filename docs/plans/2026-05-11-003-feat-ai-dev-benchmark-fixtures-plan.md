@@ -12,9 +12,9 @@ origin_issue: P2-003
 
 ## 摘要
 
-本计划解决 `docs/2026-05-10/spec-first-full-code-review-and-competitor-benchmark.md` 中的 `P2-003 benchmark/eval fixture suite 仍偏弱`。第一版只建立 3 个可重复 benchmark fixtures 和确定性校验入口，用来证明 spec-first 的 workflow 改动是否改善真实 AI coding 闭环输入，而不是把 prompt 变长。
+本计划交付 `docs/2026-05-10/spec-first-full-code-review-and-competitor-benchmark.md` 中 `P2-003 benchmark/eval fixture suite 仍偏弱` 的 v1 foundation。第一版只建立 3 个可重复 benchmark fixtures 和确定性校验入口，用来证明 spec-first 已有一组可消费的 AI coding benchmark 输入与 evidence shape，而不是证明 workflow 语义质量已经提升。
 
-设计保持 light contract：脚本只验证 fixture 结构、路径、expected artifacts、baseline metadata 和 runner 输出；LLM 仍负责判断某次 workflow 输出是否语义上满足需求。第一版不引入长期 benchmark 平台、不运行真实 agent 自动修代码、不把 benchmark 分数作为 release hard gate。
+设计保持 light contract：脚本只验证 fixture 结构、路径、expected artifacts、baseline metadata 和 runner 输出；LLM 仍负责判断某次 workflow 输出是否语义上满足需求。第一版不引入长期 benchmark 平台、不运行真实 agent 自动修代码、不把 benchmark 分数作为 release hard gate。实现完成后，P2-003 只能标记为 `v1 foundation complete / full closure pending`，不能标记为完全修复。
 
 ## 问题框架
 
@@ -24,21 +24,23 @@ origin_issue: P2-003
 - 一个 CLI bugfix 需求是否能表达 expected verification，而不是只看 prose 是否完整。
 - graph provider degraded 时，workflow 是否能回退到 bounded direct reads 和明确的 degraded evidence。
 
-没有 fixture suite 时，后续 workflow 改动只能靠人工读长文档判断“质量更好”。P2-003 的目标是先把最小可重复场景固定下来，给后续 P2-002、P2-006、P2-007 和 task-pack/run-evidence 改动提供稳定验证基线。
+没有 fixture suite 时，后续 workflow 改动只能靠人工读长文档判断“质量更好”。P2-003 v1 的目标是先把最小可重复场景固定下来，给后续 P2-002、P2-006、P2-007 和 task-pack/run-evidence 改动提供稳定输入基线；完整闭环仍需要后续真实 workflow 或 LLM-review pass 对生成输出与 expected artifacts 做语义对照。
 
 ## 目标
 
 - G1. 建立第一版 3 个 repo-like benchmark fixtures：docs-only、CLI bugfix、graph-degraded fallback。
 - G2. 为每个 fixture 定义 machine-readable manifest，包含 prompt、expected workflows、expected changed paths、expected artifacts、required validation 和 degraded-mode expectations。
-- G3. 增加 deterministic fixture validator/runner，输出稳定 JSON summary，供 `test:ai-dev:gate` 和后续 release evidence 消费。
-- G4. 将 benchmark fixture suite 接入现有 AI dev quality gate 的 artifact 输出，但第一版只作为 `advisory` check。
+- G3. 增加 deterministic fixture validator/runner，输出稳定 JSON summary，供 `test:ai-dev:gate` 和后续 release evidence 消费；该 summary 证明 fixture input/evidence contract 可消费，不证明 LLM 语义正确率。
+- G4. 将 benchmark fixture suite 接入现有 AI dev quality gate 的 artifact 输出，但第一版只作为 `advisory` check；gate-level `passed` 只由 non-advisory checks 决定。
 - G5. 文档化“脚本产出 facts，LLM 判断 workflow 输出质量”的边界，避免把 benchmark runner 设计成语义评分器。
+- G6. 让 advisory benchmark failures 进入 gate result 和 quality feedback topics，确保非阻塞信号仍有可见 consequence。
 
 ## 非目标
 
 - 不在第一版执行真实 AI agent、真实 `$spec-work` 或真实 code review pipeline。
 - 不引入集中 leaderboard、分数排名、长期历史数据库或外部 telemetry。
 - 不把 fixture 通过率直接变成 release hard gate。
+- 不把 v1 foundation 标记为 P2-003 完全修复。
 - 不复制外部项目代码或 prompt；fixture 内容必须 repo-local、可发布、无敏感信息。
 - 不把 fixture manifest 当作任务状态、审批状态或 workflow progress store。
 - 不实现 `spec-work` planned `run.json` producer；本计划只消费已有 artifact 边界。
@@ -46,29 +48,43 @@ origin_issue: P2-003
 ## 需求
 
 - R1. Fixtures 必须位于 repo 内可打包/可测试的路径，建议 `tests/fixtures/ai-dev-benchmarks/<fixture-id>/`。
-- R2. 每个 fixture 必须有 `manifest.json`，字段至少包含 `schema_version`、`fixture_id`、`scenario_type`、`prompt_path`、`repo_path`、`expected_workflows`、`expected_changed_paths`、`expected_artifacts`、`validation_commands`、`quality_signals`。
+- R2. 每个 fixture 必须有 `manifest.json`，字段至少包含 `schema_version`、`fixture_id`、`scenario_type`、`prompt_path`、`repo_path`、`expected_workflows`、`expected_changed_paths`、`expected_artifacts`、`validation_commands`、`quality_signals`。`validation_commands` 是 declared validation commands，不表示 runner 已执行这些命令。
 - R3. `scenario_type` 第一版只允许 `docs-only`、`cli-bugfix`、`graph-degraded-fallback`。
 - R4. Fixture 路径必须是 POSIX repo-relative path，不能包含绝对路径、`..` 或 host-specific home path。
 - R5. Validator 只校验结构、路径存在性、枚举值、expected artifact contract 和 baseline completeness。
-- R6. Runner 输出 `.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json`，包含每个 fixture 的 `status`、`reason_code`、`artifact_paths`、`advisory` 标记。
-- R7. `test:ai-dev:gate` 可以聚合 benchmark fixture summary，但第一版失败分类应是 advisory unless fixture manifest 本身无效。
+- R6. Runner 输出 `.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json`，top-level 包含 `schema_version`、`generated_at`、`suite_id`、`passed`、`advisory`、`fixtures[]`、`failures[]`；每个 `fixtures[]` item 至少包含 `fixture_id`、`status`、`reason_code`、`artifact_paths`、`advisory`、`validation_commands_status`、`validation_commands`。
+- R7. `npm run test:ai-dev:benchmarks` 在 fixture manifest/schema/path 无效时非零退出；`npm run test:ai-dev:gate` v1 始终把 benchmark fixture check 当作 advisory，不把 advisory benchmark failures 纳入 gate-level `passed` 或 blocking `failures`。
 - R8. Tests 必须覆盖 valid fixtures、invalid path、missing artifact expectation、unknown scenario type 和 advisory aggregation。
-- R9. README 或 docs catalog 必须说明 benchmark fixture suite 验证的是 workflow evidence shape，不是 LLM 语义正确率。
-- R10. 更新 `docs/2026-05-10/spec-first-full-code-review-and-competitor-benchmark.md`，在实现后把 P2-003 标为已修复并记录验证。
+- R9. `README.md`、`README.zh-CN.md` 和 `docs/catalog/runtime-capabilities.md` 必须说明 benchmark fixture suite v1 是 advisory，只验证 deterministic evidence shape，不证明 LLM 语义正确率。
+- R10. 更新 `docs/2026-05-10/spec-first-full-code-review-and-competitor-benchmark.md`，在实现后把 P2-003 标为 `v1 foundation complete / full closure pending` 并记录验证；不得标为完全修复。
+- R11. `test:ai-dev:gate` 的 result 和 `quality-feedback-topics.json` 必须输出 `advisory_failures[]`，包含 benchmark failure 的 `reason_code` 与 `artifact_paths`，让非阻塞 drift 仍可被 release evidence 或 follow-up workflow 消费。
+- R12. P2-003 full closure 至少需要补齐 API contract fixture、multi-module refactor fixture，并增加至少一个真实 workflow 或 LLM-review pass，把生成输出与 expected artifacts 做语义对照。
 
 ## 设计决策
 
 - D1. 使用 in-repo repo-like fixtures，而不是真实 Git 子仓库。理由：第一版重点是稳定输入/预期 artifact，不引入 worktree、remote、submodule 或 package install 噪音。
 - D2. 新增独立 benchmark fixture runner，再由 AI dev quality gate 聚合。理由：保持 `run-ai-dev-quality-gate.js` 窄职责，避免 gate 脚本膨胀。
 - D3. Manifest schema 放在 `docs/contracts/quality-gates/`。理由：fixture suite 是 quality gate evidence 的一部分，不属于 runtime workflow producer。
-- D4. Runner 产出 advisory check。理由：fixture suite 初期用于防 drift，不应阻塞所有 release；当覆盖面稳定后再考虑提升为 blocking。
+- D4. Runner 产出 advisory check。理由：fixture suite 初期用于防 drift，不应阻塞所有 release；独立 benchmark command 可以失败，聚合到 AI dev quality gate 时只进入 advisory signal。
 - D5. Expected artifacts 用路径/类型/owner 表达，不写 LLM 答案。理由：脚本校验确定性事实，LLM 判断语义质量。
+- D6. Runner result 也需要 schema。理由：manifest 是输入 contract，result 是 downstream/release evidence 消费的输出 contract，两者都需要轻量机器契约。
+- D7. Declared validation 和 executed validation 必须分开。理由：v1 runner 不执行 fixture 的 `validation_commands`，所以 result 必须显式写 `validation_commands_status: declared_only`。
+
+## Full Closure Criteria
+
+P2-003 只能在满足以下条件后从 `v1 foundation complete` 升级为 fully fixed：
+
+- 至少包含 docs-only、CLI bugfix、API contract、multi-module refactor、graph-degraded fallback 五类 fixtures。
+- 至少一个真实 workflow 或 LLM-review pass 能读取 fixture prompt/repo snapshot，并把生成输出与 expected artifacts 做语义对照。
+- Release 或 quality evidence 能展示 benchmark fixture result、advisory failures 和后续处理状态。
+- 文档仍明确 benchmark runner 只产出 deterministic facts，LLM 或 reviewer 负责语义判断。
 
 ## 文件计划
 
 新增：
 
 - `docs/contracts/quality-gates/ai-dev-benchmark-fixture.schema.json`
+- `docs/contracts/quality-gates/ai-dev-benchmark-fixtures-result.schema.json`
 - `scripts/run-ai-dev-benchmark-fixtures.js`
 - `tests/unit/ai-dev-benchmark-fixtures.test.js`
 - `tests/fixtures/ai-dev-benchmarks/docs-only/manifest.json`
@@ -84,8 +100,16 @@ origin_issue: P2-003
 修改：
 
 - `package.json`
+- `.github/workflows/ai-dev-quality-gate.yml`
 - `scripts/run-ai-dev-quality-gate.js`
+- `docs/contracts/quality-gates/ai-dev-quality-gate-result.schema.json`
+- `docs/contracts/quality-gates/quality-feedback-topics.schema.json`
+- `src/verification/quality-feedback.js`
 - `tests/unit/ai-dev-quality-gate.test.js`
+- `tests/unit/quality-feedback.test.js`
+- `README.md`
+- `README.zh-CN.md`
+- `docs/catalog/runtime-capabilities.md`
 - `docs/2026-05-10/spec-first-full-code-review-and-competitor-benchmark.md`
 - `CHANGELOG.md`
 
@@ -123,34 +147,36 @@ origin_issue: P2-003
 
 - 目标：让 fixture suite 可在本地和 CI 中重复运行。
 - 新增：`scripts/run-ai-dev-benchmark-fixtures.js`。
-- Approach：读取 `tests/fixtures/ai-dev-benchmarks/*/manifest.json`，校验 schema、路径、枚举和 expected artifacts，输出 result JSON 到 `.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json`。
-- Output shape：`schema_version`、`generated_at`、`suite_id`、`passed`、`advisory`、`fixtures[]`、`failures[]`。
+- Approach：读取 `tests/fixtures/ai-dev-benchmarks/*/manifest.json`，校验 schema、路径、枚举和 expected artifacts，输出 result JSON 到 `.spec-first/workflows/quality-gates/ai-dev-benchmark-fixtures/benchmark-fixtures-result.json`，并用 `docs/contracts/quality-gates/ai-dev-benchmark-fixtures-result.schema.json` 校验输出。
+- Output shape：top-level 包含 `schema_version`、`generated_at`、`suite_id`、`passed`、`advisory`、`fixtures[]`、`failures[]`；`fixtures[]` item 包含 `fixture_id`、`status`、`reason_code`、`artifact_paths`、`advisory`、`validation_commands_status: declared_only`、`validation_commands`。
 - Boundary：runner 不调用 LLM、不改 fixture repo、不执行工作流；它只验证 benchmark inputs 和 expected evidence shape 是否可消费。
 - Test scenarios：
   - valid fixtures 输出 `passed: true`。
   - 临时 invalid fixture 输出 reason_code，例如 `invalid-manifest`、`missing-prompt`、`unsafe-path`。
   - result artifact path 使用 `resolveWorkflowArtifactDir`。
+  - declared validation commands 不被报告为已执行。
 - Verification：`node --check scripts/run-ai-dev-benchmark-fixtures.js`、`npx jest tests/unit/ai-dev-benchmark-fixtures.test.js --runInBand`。
 
 ### U4. 聚合到 AI dev quality gate
 
 - 目标：让 `npm run test:ai-dev:gate` 产出 benchmark fixture summary。
-- 修改：`scripts/run-ai-dev-quality-gate.js`、`tests/unit/ai-dev-quality-gate.test.js`、`package.json`。
-- Approach：新增 `test:ai-dev:benchmarks` 脚本；`run-ai-dev-quality-gate.js` 调用 benchmark runner 并把结果作为 `checks[]` 中的 advisory check。Manifest/schema 错误可以让 check failed，但 gate 总体第一版不因 advisory benchmark 失败而阻塞，除非 implementation 明确选择先阻塞结构错误。
+- 修改：`scripts/run-ai-dev-quality-gate.js`、`docs/contracts/quality-gates/ai-dev-quality-gate-result.schema.json`、`docs/contracts/quality-gates/quality-feedback-topics.schema.json`、`src/verification/quality-feedback.js`、`tests/unit/ai-dev-quality-gate.test.js`、`tests/unit/quality-feedback.test.js`、`.github/workflows/ai-dev-quality-gate.yml`、`package.json`。
+- Approach：新增 `test:ai-dev:benchmarks` 脚本；`run-ai-dev-quality-gate.js` 调用 benchmark runner 并把结果作为 `checks[]` 中的 advisory check。`npm run test:ai-dev:benchmarks` 对 invalid fixture 非零退出；`npm run test:ai-dev:gate` v1 的 gate-level `passed` 和 blocking `failures` 只由 non-advisory checks 决定，benchmark failures 进入 `advisory_failures[]` 和 `quality-feedback-topics.json`。
 - Test scenarios：
   - `buildGateResult` 能包含 workflow runtime contracts 和 benchmark fixture check。
   - benchmark check 标注 `advisory: true`。
-  - failures 列表不把 advisory benchmark drift 当 release blocking failure。
+  - failures 列表不把 advisory benchmark drift 当 release blocking failure，`advisory_failures[]` 保留 reason_code 和 artifact path。
+  - `.github/workflows/ai-dev-quality-gate.yml` path filters 覆盖 runner、fixtures、benchmark 单测；artifact upload 覆盖 `.spec-first/workflows/quality-gates/`。
 - Verification：`npx jest tests/unit/ai-dev-quality-gate.test.js tests/unit/ai-dev-benchmark-fixtures.test.js --runInBand`、`npm run test:ai-dev:gate`。
 
 ### U5. 文档与状态校准
 
 - 目标：让维护者知道 fixture suite 的能力边界。
-- 修改：`docs/2026-05-10/spec-first-full-code-review-and-competitor-benchmark.md`、`CHANGELOG.md`，可选补充 `README.md` / `README.zh-CN.md` 的 test command 表。
-- Approach：实现完成后把 `P2-003` 标为已修复，并注明 v1 只有 3 个 fixtures、advisory gate、非语义评分器。
+- 修改：`README.md`、`README.zh-CN.md`、`docs/catalog/runtime-capabilities.md`、`docs/2026-05-10/spec-first-full-code-review-and-competitor-benchmark.md`、`CHANGELOG.md`。
+- Approach：实现完成后把 `P2-003` 标为 `v1 foundation complete / full closure pending`，注明 v1 只有 3 个 fixtures、advisory gate、非语义评分器，并把 full closure 条件留作后续 backlog。
 - Test scenarios：
   - `CHANGELOG.md` 格式通过。
-  - 如果 README command 表更新，运行对应 README drift/command tests。
+  - README / runtime catalog 明确 benchmark command、advisory status 和 result artifact path。
 - Verification：`npx jest tests/unit/changelog-format.test.js --runInBand`、`git diff --check`。
 
 ## 验证计划
@@ -158,7 +184,7 @@ origin_issue: P2-003
 最小验证：
 
 - `node --check scripts/run-ai-dev-benchmark-fixtures.js`
-- `npx jest tests/unit/ai-dev-benchmark-fixtures.test.js tests/unit/ai-dev-quality-gate.test.js tests/unit/changelog-format.test.js --runInBand`
+- `npx jest tests/unit/ai-dev-benchmark-fixtures.test.js tests/unit/ai-dev-quality-gate.test.js tests/unit/quality-feedback.test.js tests/unit/changelog-format.test.js --runInBand`
 - `npm run test:ai-dev:gate`
 - `git diff --check`
 
@@ -171,11 +197,12 @@ origin_issue: P2-003
 
 | 风险 | 缓解 |
 | --- | --- |
-| fixture suite 被误解为 LLM 质量评分 | 在 schema、runner、docs 中明确只验证 evidence shape 和 deterministic facts。 |
+| fixture suite 被误解为 LLM 质量评分 | 在 schema、runner、README、runtime catalog 和 review report 中明确只验证 evidence shape 和 deterministic facts。 |
 | runner 变成隐形 workflow engine | 禁止 runner 调用 agent/workflow；只读 manifest 和 fixture files。 |
 | fixture repo 太重，拖慢 CI | v1 只放 3 个小 repo-like snapshots；不跑 npm install，不跑真实修复。 |
-| advisory check 被长期忽略 | result JSON 保留 reason_code 和 artifact path，后续 P2-007 release evidence 可消费。 |
+| advisory check 被长期忽略 | result JSON 和 quality feedback topics 输出 `advisory_failures[]`，后续 P2-007 release evidence 可消费。 |
 | package 发布漏掉 runner | 若新增 npm script 或 package file，需要同步 package install contract tests。 |
+| v1 被误标为 P2-003 完全修复 | U5 只允许标记 `v1 foundation complete / full closure pending`，Full Closure Criteria 单独列出后续门槛。 |
 
 ## Handoff
 

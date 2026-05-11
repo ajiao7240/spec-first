@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.1 2026-05-11 12:05:35 leokuang: docs(plan): 按 spec-doc-review 结果修订 P2-003 benchmark fixture 计划，收紧 v1 foundation、advisory gate、result schema、CI 与 README 可见性边界 (user-visible)
 - v1.8.1 2026-05-11 11:49:58 leokuang: docs(plan): 新增 P2-003 AI dev benchmark fixture suite v1 计划，收敛 3 个 fixture、advisory gate 与脚本/LLM 边界 (user-visible)
 - v1.8.1 2026-05-11 11:48:36 leokuang: docs(review): 回写 P2-009 planned runtime contract catalog 可见性为已修复状态，并记录验证与 producer 边界 (user-visible)
 - v1.8.1 2026-05-11 10:58:24 leokuang: docs(catalog): 在 runtime capability catalog 中派生 planned workflow artifact contracts，明确 spec-work run artifact 仍未实现 producer (user-visible)
