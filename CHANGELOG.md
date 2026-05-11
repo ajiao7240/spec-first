@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-12 01:30:51 leokuang: docs(review): 将全面审查与竞品对标文档顶部状态校准为 P2-008 已完成、近期待开发项清零，仅保留延后和暂缓观察项 (user-visible)
 - v1.8.2 2026-05-12 01:13:11 leokuang: feat(workflows): 实现 P2-008 compound trigger checklist，在 Work、Work Beta 与 Code Review final output 中加入 learning-worthy compound 建议边界和 contract tests (user-visible)
 - v1.8.2 2026-05-12 01:09:45 leokuang: docs(plan): 明确 review pre-facts script-callable provider adapter 使用 query-provider mode，闭合 adapter 执行入口与失败契约 (user-visible)
 - v1.8.2 2026-05-12 01:08:34 leokuang: docs(plan): 修复 P2-008 compound trigger checklist 计划 U3 测试场景小节标题缺失，保持实施单元结构一致 (user-visible)

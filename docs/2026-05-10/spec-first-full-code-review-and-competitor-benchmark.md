@@ -10,7 +10,7 @@
 审查范围：`package.json`、`bin/`、`src/cli/`、`skills/`、`agents/`、`scripts/`、`templates/`、`docs/`、`tests/`、`.spec-first/graph` 现有事实产物、generated runtime 目录边界、GitHub 同类项目。
 审查方法：直接读取源码、skill/agent/script/test 文档与产物；运行 skill-audit deterministic inventory；抽样 CLI help、doctor/init/task-pack/provider readiness 代码；读取 GitNexus / code-review-graph readiness artifacts；用 GitHub README/release/项目页面调研竞品。
 
-2026-05-11 状态校准：当前 HEAD 已吸收 release/package hardening 与二次 code review 收尾改动，原始草稿中部分 P1 不再成立。本文后续按当前代码口径交付：`P1-008` 降为 `P2-009`，`P1-009` 改为已完成校准项，`P1-006` 从“官网同步测试缺失”改写为“主仓缺跨 repo release gate”，并按 `5907e6ad` 的最新实现校准 release gate 顺序。`P2-002`、`P2-003`、`P2-004`、`P2-006`、`P2-007` 与 `P2-009` 均已完成 v1 修复。因此本报告当前计数为：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9（已完成 6，未开发 3；剩余近期必须做 0 项、值得做但非必须 1 项、延后/暂缓 2 项），P3=4，已完成/移出 P1=1。
+2026-05-12 状态校准：当前 HEAD 已吸收 release/package hardening、二次 code review 收尾改动与 `P2-008` compound trigger checklist v1。本文后续按当前代码口径交付：`P1-008` 降为 `P2-009`，`P1-009` 改为已完成校准项，`P1-006` 从“官网同步测试缺失”改写为“主仓缺跨 repo release gate”，并按 `5907e6ad` 之后的最新实现校准 release gate 顺序。`P2-002`、`P2-003`、`P2-004`、`P2-006`、`P2-007`、`P2-008` 与 `P2-009` 均已完成 v1 修复。因此本报告当前计数为：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9（已完成 7，未开发 2；剩余近期必须做 0 项、值得做但非必须 0 项、延后/暂缓 2 项），P3=4，已完成/移出 P1=1。
 
 ## 总体结论
 
@@ -26,10 +26,10 @@
 2. module scope manifest 与 agent catalog 属于长期治理项，当前没有足够高频痛点支撑进入核心路径。
 3. benchmark/eval 已完成 v1 full closure；剩余风险是未来如果继续扩展，必须保持 advisory fixture/evidence 边界，避免演化成 leaderboard/dashboard 平台。
 
-建议开发顺序：
+后续观察项（非当前待开发顺序）：
 
 1. `P2-001`：延后处理；除非真实 monorepo scope drift 反复出现，或先证明能复用 `spec-standards` 的 `project-shape.json.modules[]` 而不新增系统。
-2. `P2-005`：暂缓，除非重复 agent dispatch 已成为真实噪音。
+2. `P2-005`：暂缓观察；除非重复 agent dispatch 已成为真实噪音。
 
 最值得借鉴集成的 3 个竞品能力：
 
