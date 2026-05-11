@@ -14,6 +14,7 @@ const {
 
 const REPO_ROOT = path.join(__dirname, '..');
 const DEFAULT_OUTPUT_PATH = path.join(REPO_ROOT, 'docs', 'catalog', 'runtime-capabilities.md');
+const WORKFLOW_CONTRACTS_DIR = path.join(REPO_ROOT, 'docs', 'contracts', 'workflows');
 
 function readSkillDescription(skillName) {
   const skillPath = path.join(REPO_ROOT, 'skills', skillName, 'SKILL.md');
@@ -79,6 +80,28 @@ function formatCounts(counts) {
     .join(', ');
 }
 
+function listPlannedRuntimeContracts() {
+  if (!fs.existsSync(WORKFLOW_CONTRACTS_DIR)) return [];
+
+  return fs.readdirSync(WORKFLOW_CONTRACTS_DIR)
+    .filter((fileName) => fileName.endsWith('.schema.json'))
+    .map((fileName) => {
+      const absolutePath = path.join(WORKFLOW_CONTRACTS_DIR, fileName);
+      const schema = JSON.parse(fs.readFileSync(absolutePath, 'utf8'));
+
+      return {
+        title: schema.title || fileName,
+        contractPath: path.relative(REPO_ROOT, absolutePath),
+        status: schema['x-spec-first-contract-status'] || '',
+        producer: schema['x-spec-first-producer'] || '',
+        runtimePath: schema['x-spec-first-runtime-path'] || '',
+        boundary: schema['x-spec-first-boundary'] || '',
+      };
+    })
+    .filter((contract) => contract.status === 'planned')
+    .sort((a, b) => a.contractPath.localeCompare(b.contractPath));
+}
+
 function buildRuntimeCapabilityCatalog() {
   const governance = loadSkillsGovernance();
   const manifest = loadPluginManifest();
@@ -98,11 +121,12 @@ function buildRuntimeCapabilityCatalog() {
     claudeAssets.internalSkills.includes(record.skill_name) || codexAssets.internalSkills.includes(record.skill_name),
   );
   const betaRecords = workflowRecords.filter((record) => /-beta$/.test(record.skill_name));
+  const plannedRuntimeContracts = listPlannedRuntimeContracts();
 
   const lines = [
     '# Runtime Capability Catalog',
     '',
-    '> 本文件由 `scripts/generate-runtime-capability-catalog.js` 从 `src/cli/plugin.js`、`src/cli/contracts/dual-host-governance/skills-governance.json` 和当前 `skills/` / `agents/` source 资产派生生成。',
+    '> 本文件由 `scripts/generate-runtime-capability-catalog.js` 从 `src/cli/plugin.js`、`src/cli/contracts/dual-host-governance/skills-governance.json`、`docs/contracts/workflows/*.schema.json` 和当前 `skills/` / `agents/` source 资产派生生成。',
     '> 它是只读 catalog，不是第二套 source of truth；修改 runtime 能力时应先改 source/governance，再重新生成本文件。',
     '',
     '## Source Truth',
@@ -114,6 +138,7 @@ function buildRuntimeCapabilityCatalog() {
     '| `templates/claude/commands/spec/*.md` | Claude `/spec:*` command source templates |',
     '| `skills/*/SKILL.md` | workflow、standalone、agent-facing internal skill source |',
     '| `agents/**/*.agent.md` | Claude/Codex 双宿主 agent source |',
+    '| `docs/contracts/workflows/*.schema.json` | docs-side workflow artifact contracts；planned contract 不等于 runtime producer 已实现 |',
     '',
     '## Summary',
     '',
@@ -126,6 +151,7 @@ function buildRuntimeCapabilityCatalog() {
     `| Claude runtime delivery | ${deliverySummary(claudeAssets)} |`,
     `| Codex runtime delivery | ${deliverySummary(codexAssets)} |`,
     `| Beta workflow entries | ${betaRecords.map((record) => record.skill_name).join(', ') || 'none'} |`,
+    `| Planned runtime contracts | ${plannedRuntimeContracts.length} |`,
     '',
     '## Public Workflows',
     '',
@@ -179,6 +205,22 @@ function buildRuntimeCapabilityCatalog() {
     '| Codex | workflow, standalone, and agent-facing internal skills | `.agents/skills/` |',
     '| Codex | agents | `.codex/agents/` |',
     '',
+    '## Planned Runtime Contracts',
+    '',
+    'These contracts are docs-side visibility records for future artifacts. They do not prove that the current runtime emits the artifact; consumers must check the `Producer` and boundary before treating any path as current runtime truth.',
+    '',
+    '| Contract | Status | Producer | Planned runtime path | Boundary |',
+    '|---|---|---|---|---|',
+    ...(plannedRuntimeContracts.length > 0
+      ? plannedRuntimeContracts.map((contract) => tableRow([
+        `${contract.title}<br>${contract.contractPath}`,
+        contract.status,
+        contract.producer,
+        contract.runtimePath,
+        contract.boundary,
+      ]))
+      : [tableRow(['none', 'none', 'none', 'none', 'none'])]),
+    '',
     '## Readiness Meaning',
     '',
     'Runtime delivery describes what commands, skills, and agents were generated. It does not mean MCP helpers or graph providers are query-ready. Downstream workflows should read the layer-specific artifacts below instead of treating one pass/fail value as global readiness.',
@@ -193,6 +235,7 @@ function buildRuntimeCapabilityCatalog() {
     '',
     '- 不手改 `.claude/`、`.codex/` 或 `.agents/skills/` 作为 source fix；需要刷新 runtime 时运行 `spec-first init --claude|--codex`。',
     '- 不在本 catalog 中手写能力数量；能力数量必须由 generator 从 source/governance 推导。',
+    '- Planned runtime contracts 必须由 `docs/contracts/workflows/*.schema.json` 的 `x-spec-first-*` metadata 派生；不能在 catalog 手写 planned/implemented 状态。',
     '- 新增、删除或改变 host delivery 时，同步更新 governance/source，运行 `npm run docs:runtime-catalog`，再运行 targeted governance tests。',
     '- 该 catalog 只描述 delivery surface，不判断某个 MCP/provider 当前是否 ready；provider readiness 由 `spec-mcp-setup` 和 `spec-graph-bootstrap` 产物表达。',
   ];
@@ -215,5 +258,6 @@ if (require.main === module) {
 module.exports = {
   DEFAULT_OUTPUT_PATH,
   buildRuntimeCapabilityCatalog,
+  listPlannedRuntimeContracts,
   writeRuntimeCapabilityCatalog,
 };

@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const {
   DEFAULT_OUTPUT_PATH,
   buildRuntimeCapabilityCatalog,
+  listPlannedRuntimeContracts,
 } = require('../../scripts/generate-runtime-capability-catalog');
 const {
   buildFilteredAssetSet,
@@ -22,8 +23,10 @@ describe('runtime capability catalog', () => {
     expect(catalog).toContain('不是第二套 source of truth');
     expect(catalog).toContain('src/cli/plugin.js');
     expect(catalog).toContain('src/cli/contracts/dual-host-governance/skills-governance.json');
+    expect(catalog).toContain('docs/contracts/workflows/*.schema.json');
     expect(catalog).toContain(`| Bundled source skills | ${listBundledSkills().length} |`);
     expect(catalog).toContain(`| Bundled source agents | ${listBundledAgents().length} |`);
+    expect(catalog).toContain(`| Planned runtime contracts | ${listPlannedRuntimeContracts().length} |`);
     expect(catalog).toContain(`| Claude runtime delivery | ${claudeAssets.commands.length} commands, ${claudeAssets.workflowSkills.length} workflow skills, ${claudeAssets.skills.length} standalone skills, ${claudeAssets.internalSkills.length} agent-facing internal skills, ${claudeAssets.agents.length} agents, ${claudeAssets.agentSupportFiles.length} agent support files |`);
     expect(catalog).toContain(`| Codex runtime delivery | ${codexAssets.commands.length} commands, ${codexAssets.workflowSkills.length} workflow skills, ${codexAssets.skills.length} standalone skills, ${codexAssets.internalSkills.length} agent-facing internal skills, ${codexAssets.agents.length} agents, ${codexAssets.agentSupportFiles.length} agent support files |`);
   });
@@ -45,5 +48,25 @@ describe('runtime capability catalog', () => {
     expect(catalog).toContain('| Harness setup | `/spec:mcp-setup` or `$spec-mcp-setup` |');
     expect(catalog).toContain('| Graph readiness | `/spec:graph-bootstrap` or `$spec-graph-bootstrap` |');
     expect(catalog).toContain('It does not mean MCP helpers or graph providers are query-ready.');
+  });
+
+  test('catalog exposes planned workflow artifact contracts without claiming runtime production', () => {
+    const catalog = buildRuntimeCapabilityCatalog();
+    const plannedContracts = listPlannedRuntimeContracts();
+
+    expect(plannedContracts).toEqual(expect.arrayContaining([
+      {
+        title: 'spec-first spec-work run artifact planned contract',
+        contractPath: 'docs/contracts/workflows/spec-work-run-artifact.schema.json',
+        status: 'planned',
+        producer: 'unimplemented',
+        runtimePath: '.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json',
+        boundary: 'docs-side contract; src/cli must not implicitly consume this schema',
+      },
+    ]));
+    expect(catalog).toContain('## Planned Runtime Contracts');
+    expect(catalog).toContain('They do not prove that the current runtime emits the artifact');
+    expect(catalog).toContain('| spec-first spec-work run artifact planned contract<br>docs/contracts/workflows/spec-work-run-artifact.schema.json | planned | unimplemented | .spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json | docs-side contract; src/cli must not implicitly consume this schema |');
+    expect(catalog).toContain('Planned runtime contracts 必须由 `docs/contracts/workflows/*.schema.json` 的 `x-spec-first-*` metadata 派生');
   });
 });
